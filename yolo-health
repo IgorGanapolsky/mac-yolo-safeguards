@@ -1,0 +1,58 @@
+#!/bin/sh
+# Quick health check for the agy-yolo + simulator-guard safeguards.
+# Usage: yolo-health  (or:  sh ~/.local/bin/yolo-health)
+
+WRAPPER=/Users/igorganapolsky/workspace/git/igor/antigravity-hub/antigravity-cli/bin/agy-yolo-wrapper.js
+GUARD_SCRIPT=/Users/igorganapolsky/.local/bin/sim-runaway-guard.sh
+GUARD_PLIST=/Users/igorganapolsky/Library/LaunchAgents/com.igor.shutdown-simulators.plist
+GUARD_LABEL=com.igor.shutdown-simulators
+GUARD_LOG=/tmp/shutdown-simulators.log
+
+OK="\033[32mOK\033[0m"
+BAD="\033[31mFAIL\033[0m"
+WARN="\033[33mWARN\033[0m"
+
+pass=0; fail=0
+check() { eval "$1" >/dev/null 2>&1 && { printf "  [$OK] %s\n" "$2"; pass=$((pass+1)); } || { printf "  [$BAD] %s\n" "$2"; fail=$((fail+1)); }; }
+
+echo "=== agy-yolo wrapper ==="
+check "[ -f '$WRAPPER' ]"                         "file exists at $WRAPPER"
+check "node --check '$WRAPPER'"                   "syntactically valid JavaScript"
+check "grep -q 'LOCK_PATH' '$WRAPPER'"            "singleton lock present"
+check "grep -q 'TIMEOUT_MS' '$WRAPPER'"           "hard timeout present"
+check "grep -q 'highCpuSamples' '$WRAPPER'"       "stuck-loop watchdog present"
+check "grep -q \"child.on('error'\" '$WRAPPER'"   "spawn-error handler present"
+check "grep -q '\\--sandbox' '$WRAPPER'"          "--sandbox flag wired in"
+
+echo ""
+echo "=== Simulator runaway guard ==="
+check "[ -x '$GUARD_SCRIPT' ]"                                          "script exists and is executable"
+check "[ -f '$GUARD_PLIST' ]"                                           "LaunchAgent plist present"
+check "launchctl print gui/\$(id -u)/$GUARD_LABEL >/dev/null 2>&1"      "LaunchAgent loaded"
+check "launchctl print gui/\$(id -u)/$GUARD_LABEL 2>/dev/null | grep -q 'run interval = 60'"  "runs every 60 seconds"
+check "grep -q 'memory hog' '$GUARD_SCRIPT'"                            "memory-hog branch present"
+
+echo ""
+echo "=== Live Mac state ==="
+uptime | sed 's/^/  /'
+SIM_PROCS=$(ps aux | grep -i simruntime | grep -v grep | wc -l | tr -d ' ')
+AGY_PROCS=$(ps aux | grep -E '/agy ' | grep -v grep | wc -l | tr -d ' ')
+BOOTED=$(xcrun simctl list devices booted 2>/dev/null | grep -c Booted)
+LOCK_HELD="no"
+[ -f /tmp/agy-yolo.lock ] && LOCK_HELD="yes (PID $(cat /tmp/agy-yolo.lock 2>/dev/null))"
+printf "  Sim runtime processes: %s\n" "$SIM_PROCS"
+printf "  Booted simulators:     %s\n" "$BOOTED"
+printf "  agy processes:         %s\n" "$AGY_PROCS"
+printf "  agy-yolo lock held:    %s\n" "$LOCK_HELD"
+
+echo ""
+echo "=== Recent guard activity (last 5 lines of $GUARD_LOG) ==="
+if [ -s "$GUARD_LOG" ]; then
+  tail -5 "$GUARD_LOG" | sed 's/^/  /'
+else
+  echo "  (no activity logged — guard hasn't needed to act)"
+fi
+
+echo ""
+echo "=== Summary: $pass passed, $fail failed ==="
+[ "$fail" -eq 0 ] && exit 0 || exit 1
