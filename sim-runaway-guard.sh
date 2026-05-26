@@ -13,8 +13,10 @@ REPO=/Users/igorganapolsky/workspace/git/igor/mac-yolo-safeguards
 
 ESCALATE_AFTER_FIRES=${YOLO_ESCALATE_AFTER_FIRES:-3}
 ESCALATE_WINDOW_SEC=${YOLO_ESCALATE_WINDOW_SEC:-600}
-# Apps to quit on escalation — only quit if they're running. Override via env for tests.
-SUSPECT_APPS=${YOLO_SUSPECT_APPS:-"Antigravity IDE|Antigravity"}
+# HARD RULE: never auto-kill GUI apps (Antigravity, Cursor, Xcode, Ghostty, etc.) — user
+# has unsaved work and active sessions. Escalation NOTIFIES, it does not kill.
+# Override only via env if user explicitly opts in for a specific test/headless context.
+SUSPECT_APPS=${YOLO_SUSPECT_APPS:-""}
 FIRES_LOG=${YOLO_FIRES_LOG:-/tmp/yolo-fires.log}
 LOG=${YOLO_LOG:-/tmp/shutdown-simulators.log}
 
@@ -73,22 +75,30 @@ recent_fires=$(/usr/bin/awk -v c=$cutoff '$1 >= c' "$FIRES_LOG" 2>/dev/null | /u
 /usr/bin/awk -v c=$cutoff '$1 >= c' "$FIRES_LOG" > "${FIRES_LOG}.tmp" 2>/dev/null && /bin/mv "${FIRES_LOG}.tmp" "$FIRES_LOG"
 
 if [ "$recent_fires" -ge "$ESCALATE_AFTER_FIRES" ]; then
-  echo "$(date) ESCALATE: $recent_fires fires in last ${ESCALATE_WINDOW_SEC}s — checking suspect apps" >> "$LOG"
-  quit_any=0
-  for app in $(echo "$SUSPECT_APPS" | /usr/bin/tr '|' '\n'); do
-    if /usr/bin/pgrep -fl "$app" >/dev/null 2>&1; then
-      echo "$(date) ESCALATE: quitting '$app' (graceful, then SIGKILL)" >> "$LOG"
-      /usr/bin/osascript -e "tell application \"$app\" to quit" 2>/dev/null
-      /bin/sleep 5
-      /usr/bin/pkill -9 -f "$app" 2>/dev/null
-      quit_any=1
+  echo "$(date) ESCALATE: $recent_fires fires in last ${ESCALATE_WINDOW_SEC}s" >> "$LOG"
+  if [ -n "$SUSPECT_APPS" ]; then
+    # Opt-in only via YOLO_SUSPECT_APPS env var. Default is empty (no auto-quit).
+    quit_any=0
+    for app in $(echo "$SUSPECT_APPS" | /usr/bin/tr '|' '\n'); do
+      if /usr/bin/pgrep -fl "$app" >/dev/null 2>&1; then
+        echo "$(date) ESCALATE: quitting '$app' (opt-in via YOLO_SUSPECT_APPS)" >> "$LOG"
+        /usr/bin/osascript -e "tell application \"$app\" to quit" 2>/dev/null
+        /bin/sleep 5
+        /usr/bin/pkill -9 -f "$app" 2>/dev/null
+        quit_any=1
+      fi
+    done
+    if [ "$quit_any" = "1" ]; then
+      notify "yolo-guard escalated" "Quit opt-in app(s) after $recent_fires runaways in 10 min"
+      : > "$FIRES_LOG"
+    else
+      # Loud alert dialog instead of a quiet notification.
+      /usr/bin/osascript -e "display alert \"yolo-guard: persistent runaway\" message \"$recent_fires sim runaways in 10 min. Check which app keeps booting simulators.\" as critical" 2>/dev/null &
     fi
-  done
-  if [ "$quit_any" = "1" ]; then
-    notify "yolo-guard escalated" "Quit suspect app(s) after $recent_fires sim-runaways in 10 min"
-    : > "$FIRES_LOG"   # reset window so we don't immediately escalate again
   else
-    notify "yolo-guard fired" "$REASON (no known suspect app running to escalate against)"
+    # Default: loud alert dialog so user knows to act manually. No app gets killed.
+    /usr/bin/osascript -e "display alert \"yolo-guard: persistent runaway\" message \"$recent_fires sim runaways in 10 min. Check which app keeps booting simulators (likely Antigravity IDE, Xcode, or Cursor). The guard will not auto-quit GUI apps.\" as critical" 2>/dev/null &
+    echo "$(date) ESCALATE: notified user (no auto-kill — user policy)" >> "$LOG"
   fi
 else
   notify "yolo-guard fired" "$REASON"
