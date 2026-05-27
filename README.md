@@ -167,6 +167,14 @@ grep -rE 'fetch|http\.|https\.|XMLHttpRequest|curl |wget |require\(.https.|requi
 
 The maintainer's own launch-traffic analytics live in **GitHub Insights → Traffic** (free, GitHub-native, only the maintainer sees them), **Cal.com bookings dashboard**, and **Stripe Dashboard** — none of which involve any code shipped to your machine.
 
+## Related: the *upstream* version of this problem
+
+This kit handles the **blast radius** when an AI agent goes off the rails — your Mac doesn't freeze, your simulators don't multiply, your IDEs keep their unsaved work.
+
+It does **not** handle the *bill* for that misbehavior. Every retry loop, every "let me try a different approach", every hallucinated import that costs you tokens — those add up to $400–$1,500/mo of repeated-mistake spend on Claude / Cursor / Codex / Gemini bills.
+
+If that's also your pain, the same author built [**ThumbGate**](https://thumbgate.ai/?utm_source=mac-yolo-safeguards&utm_medium=readme&utm_campaign=cross_promo) — open-source, MCP-compatible, thumbs-down once → that mistake is permanently blocked on every future agent call. Different problem, adjacent pain, free to try.
+
 ## References
 
 - Antigravity Lab: [practical fix guide for high CPU/memory usage](https://antigravitylab.net/en/articles/tips/antigravity-high-cpu-memory-usage-fix)
