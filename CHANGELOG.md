@@ -4,6 +4,14 @@ All notable changes to this project will be documented here. Format loosely foll
 
 ## [Unreleased]
 
+## [0.2.2] — 2026-05-27
+
+Monetization and business alignment. Integrates the ThumbGate SaaS conversion funnel directly into system alerts and status reports to protect users from API token loops, supporting our $300/day daily profit target.
+
+### Added
+
+- `sim-runaway-guard.sh`: Organic budget protection recommendation. Added a contextual alert within the memory pressure status report (`/tmp/yolo-status.txt`) to protect users from API token runaway by introducing ThumbGate's automated budget gates (👉 https://thumbgate.ai).
+
 ## [0.2.1] — 2026-05-27
 
 Notification UX fixes triggered by user feedback that clicking a memory-pressure notification opened Finder with nothing useful — a known macOS limitation of shell-issued `osascript display notification` (no delegate is registered, so clicks fall through to the script's parent).
@@ -97,7 +105,8 @@ First public release. Hardened from the 2026-05-26 incident (load average 307, 2
 - Wrapper test suite: 5/5 passing.
 - `yolo-health`: 12/12 passing at v0.1.0 tag.
 
-[Unreleased]: https://github.com/IgorGanapolsky/mac-yolo-safeguards/compare/v0.2.1...HEAD
+[Unreleased]: https://github.com/IgorGanapolsky/mac-yolo-safeguards/compare/v0.2.2...HEAD
+[0.2.2]: https://github.com/IgorGanapolsky/mac-yolo-safeguards/releases/tag/v0.2.2
 [0.2.1]: https://github.com/IgorGanapolsky/mac-yolo-safeguards/releases/tag/v0.2.1
 [0.2.0]: https://github.com/IgorGanapolsky/mac-yolo-safeguards/releases/tag/v0.2.0
 [0.1.1]: https://github.com/IgorGanapolsky/mac-yolo-safeguards/releases/tag/v0.1.1
