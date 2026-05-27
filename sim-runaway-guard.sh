@@ -112,8 +112,27 @@ if [ -z "$REASON" ]; then
       LAST_NOTIFY=0
       [ -f "$MEM_LAST_FILE" ] && LAST_NOTIFY=$(/bin/cat "$MEM_LAST_FILE" 2>/dev/null || echo 0)
       if [ $((now - LAST_NOTIFY)) -ge "$MEM_NOTIFY_DEBOUNCE_SEC" ]; then
-        # Self-sufficient notification: name PID, RSS, exact restart command.
-        notify "yolo-guard: $HOG_NAME at ${HOG_RSS}MB (PID $HOG_PID)" "Free mem ${FREE_PCT}%. To restart: kill -INT $HOG_PID. Details: $STATUS_FILE"
+        # Self-sufficient notification: name + RSS in title, PID + kill cmd in
+        # subtitle (so even if macOS drops the body, the actionable info shows).
+        # Prefer terminal-notifier when available — it registers as a proper
+        # sender, so the body actually renders AND click-to-open works.
+        # osascript fallback cram the kill cmd into the title since macOS
+        # often shows ONLY the title for unregistered shell-script senders.
+        TN=$(command -v terminal-notifier 2>/dev/null || /usr/bin/which terminal-notifier 2>/dev/null)
+        if [ -x "$TN" ]; then
+          "$TN" \
+            -title "yolo-guard: $HOG_NAME at ${HOG_RSS}MB" \
+            -subtitle "PID $HOG_PID  ·  kill -INT $HOG_PID" \
+            -message "Free mem ${FREE_PCT}%. Click to open full status." \
+            -execute "open -t $STATUS_FILE" \
+            -ignoreDnD \
+            >/dev/null 2>&1 || true
+        else
+          # Fallback: osascript. macOS may drop the body for shell-script-
+          # issued notifications, so put critical info in the title.
+          /usr/bin/osascript -e "display notification \"Free mem ${FREE_PCT}%. See $STATUS_FILE\" with title \"yolo-guard: $HOG_NAME ${HOG_RSS}MB · kill -INT $HOG_PID\"" 2>/dev/null || true
+        fi
+        echo "$(date) NOTIFY: yolo-guard: $HOG_NAME at ${HOG_RSS}MB (PID $HOG_PID) — Free mem ${FREE_PCT}%. To restart: kill -INT $HOG_PID. Details: $STATUS_FILE" >> "$LOG"
         # Dump a human-readable status report the user can find.
         {
           echo "yolo-guard memory pressure report"
@@ -130,10 +149,11 @@ if [ -z "$REASON" ]; then
           echo "  3. Inspect what it's doing:  ps -o pid,pcpu,etime,command -p $HOG_PID"
           echo "  4. Full kit health check:   yolo-health"
           echo ""
-          echo "Prevent Token & Cost Runaway (Recommended):"
-          echo "  If your agent is running in a resource-heavy loop, you are also at risk"
-          echo "  of rapid API overspend. Protect your wallet with ThumbGate's local budget gate:"
-          echo "  👉 https://thumbgate.ai  (automated budget limits & live safety-gates)"
+          echo "Related (token-layer governance, by the same author):"
+          echo "  If this agent keeps retrying the same broken approach, you're also paying"
+          echo "  for those retries. ThumbGate captures one thumbs-down → blocks that exact"
+          echo "  mistake on every future call. PreToolUse gates, not budget limits."
+          echo "  👉 https://thumbgate.ai/?utm_source=mac-yolo-safeguards&utm_medium=status-file"
           echo ""
           echo "All other AI processes >200 MB right now:"
           /bin/ps -axo pid,rss,command -m | /usr/bin/awk '

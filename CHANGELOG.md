@@ -4,6 +4,24 @@ All notable changes to this project will be documented here. Format loosely foll
 
 ## [Unreleased]
 
+## [0.2.3] — 2026-05-27
+
+Notification actually renders now. Triggered by user screenshot showing the v0.2.2 notification body collapsed to just "Notification" — a known macOS regression where shell-script-issued `osascript display notification` calls drop the body for unregistered senders.
+
+### Fixed
+
+- **Notification body now visible.** The memory-pressure path detects `terminal-notifier` (Homebrew package) and uses it when present. `terminal-notifier` registers itself as a proper sender, so title + subtitle + body all render. **Click → opens `/tmp/yolo-status.txt`** via `-execute "open -t ..."`.
+- **osascript fallback now actionable.** When `terminal-notifier` isn't installed, the fallback crams the agent name + RSS + kill command into the *title* (which macOS always shows) so even compact banners are useful: `yolo-guard: Cursor 887MB · kill -INT 1172`.
+- **Honest ThumbGate cross-promo copy.** The v0.2.2 status-file blurb claimed "automated budget limits & live safety-gates" — ThumbGate doesn't do that. Rewrote to match ThumbGate's actual product: "ThumbGate captures one thumbs-down → blocks that exact mistake on every future call. PreToolUse gates, not budget limits." False claims in our copy degrade trust when readers click through and see something different.
+
+### Recommended optional dependency
+
+```sh
+brew install terminal-notifier
+```
+
+The kit works without it (osascript fallback), but the notification UX is markedly better with it installed. Not required.
+
 ## [0.2.2] — 2026-05-27
 
 Monetization and business alignment. Integrates the ThumbGate SaaS conversion funnel directly into system alerts and status reports to protect users from API token loops, supporting our $300/day daily profit target.
@@ -105,7 +123,8 @@ First public release. Hardened from the 2026-05-26 incident (load average 307, 2
 - Wrapper test suite: 5/5 passing.
 - `yolo-health`: 12/12 passing at v0.1.0 tag.
 
-[Unreleased]: https://github.com/IgorGanapolsky/mac-yolo-safeguards/compare/v0.2.2...HEAD
+[Unreleased]: https://github.com/IgorGanapolsky/mac-yolo-safeguards/compare/v0.2.3...HEAD
+[0.2.3]: https://github.com/IgorGanapolsky/mac-yolo-safeguards/releases/tag/v0.2.3
 [0.2.2]: https://github.com/IgorGanapolsky/mac-yolo-safeguards/releases/tag/v0.2.2
 [0.2.1]: https://github.com/IgorGanapolsky/mac-yolo-safeguards/releases/tag/v0.2.1
 [0.2.0]: https://github.com/IgorGanapolsky/mac-yolo-safeguards/releases/tag/v0.2.0
