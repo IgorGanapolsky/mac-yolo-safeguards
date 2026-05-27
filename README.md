@@ -111,7 +111,7 @@ If you are running autonomous AI coding agents (Claude Code, Cursor YOLO, Codex,
 *   **Price:** **$99 flat** (one-shot).
 *   **100% Money-Back Guarantee:** If you are not satisfied or your Mac freezes within 30 days of setup, we refund the full amount instantly—no questions asked.
 
-👉 **To Book:** Email me directly at **[iganapolsky@gmail.com](mailto:iganapolsky@gmail.com)** with the subject line `Hardened Workstation Setup` or **[open a GitHub Issue tagged `help-wanted`](https://github.com/IgorGanapolsky/mac-yolo-safeguards/issues/new?title=%5BHelp+Wanted%5D+Hardened+Workstation+Setup)**. I will get back to you within 24 hours to schedule our call.
+👉 **Book + pay in one click:** [**cal.com/igor-g-kvqxfo/30min**](https://cal.com/igor-g-kvqxfo/30min) — pick a time, Stripe collects $99, you get the calendar invite. Refunds always honored. Prefer email? [iganapolsky@gmail.com](mailto:iganapolsky@gmail.com) (subject: `Hardened Workstation Setup`) or [open a GitHub Issue tagged `help-wanted`](https://github.com/IgorGanapolsky/mac-yolo-safeguards/issues/new?title=%5BHelp+Wanted%5D+Hardened+Workstation+Setup).
 
 ## References
 
