@@ -28,6 +28,18 @@ On 2026-05-26 an iPhone 17 simulator was auto-booted (first by macOS window rest
 
 All four files install as **symlinks** pointing back to this repo so edits land in one canonical place.
 
+## What this does NOT do
+
+Scope is deliberately narrow. The kit does **not**:
+
+- **Manage general Mac memory pressure.** If you have many editors + AI tools open and CleanMyMac yells about RAM, that's expected behavior — not a runaway. The kit detects runaway *iOS Simulator spawning*, not "your editor uses 400 MB".
+- **Kill, quit, or otherwise touch GUI apps** (Antigravity, Cursor, Xcode, Ghostty, Android Studio, browsers, IDEs). Ever. Hard rule. Foreground apps have unsaved work the user cares about more than they care about the freeze. The escalation path is a critical macOS alert, not a kill signal.
+- **Stop the agent itself from being memory-hungry.** A running `agy` / `claude` / `cursor-agent` process consuming 1–2 GB is normal AI-agent behavior. As of v0.1.1 the guard *notifies* (once per 30 min, debounced) when free memory drops below 15% and an AI process exceeds 1.5 GB RSS — but never kills it. Restarting the agent is your call.
+- **Phone home.** No telemetry. See [`§ Telemetry and privacy`](#telemetry-and-privacy).
+- **Work on Linux or Windows.** macOS-only. The LaunchAgent, `xcrun simctl`, and `simruntime` process names are all Apple-specific.
+
+If your symptom is "Mac is slow because I have 200 Chrome tabs and 6 IDEs open" — close some. That's not what this kit is for.
+
 ## Install on a fresh Mac
 
 ```sh
@@ -50,6 +62,19 @@ cd ~/workspace/git/igor/mac-yolo-safeguards
 | `AGY_YOLO_LOCK_PATH` | `/tmp/agy-yolo.lock` | Singleton lock path (override for tests). |
 | `AGY_YOLO_LOG_PATH` | `/tmp/agy-yolo.log` | Wrapper log path (override for tests). |
 | `AGY_YOLO_NO_DEFAULT_ARGS` | unset | If set, don't auto-add `--sandbox --dangerously-skip-permissions`. |
+
+## Guard configuration (env vars)
+
+The LaunchAgent reads these from the environment when `sim-runaway-guard.sh` runs. Override by editing the plist or wrapping the script.
+
+| Var | Default | Effect |
+|---|---|---|
+| `YOLO_ESCALATE_AFTER_FIRES` | `3` | Sim runaways within the window before showing a critical alert. |
+| `YOLO_ESCALATE_WINDOW_SEC` | `600` (10 min) | Window for counting recent fires. |
+| `YOLO_SUSPECT_APPS` | empty | Opt-in only. If set to a pipe-separated app list, escalation will quit those apps. **Default empty** — no GUI app gets auto-killed. |
+| `YOLO_MEM_FREE_PCT_THRESHOLD` | `15` | Free-memory % below which the memory-pressure check is armed. |
+| `YOLO_MEM_PROC_RSS_MB_THRESHOLD` | `1500` | Single-process RSS (MB) that counts as "memory hog" for notify. |
+| `YOLO_MEM_NOTIFY_DEBOUNCE_SEC` | `1800` (30 min) | How long to wait between memory-pressure notifications. |
 
 ## Wrapper exit codes
 

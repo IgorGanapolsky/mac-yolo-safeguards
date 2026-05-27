@@ -46,6 +46,26 @@ printf "  agy processes:         %s\n" "$AGY_PROCS"
 printf "  agy-yolo lock held:    %s\n" "$LOCK_HELD"
 
 echo ""
+echo "=== Memory state (informational; kit does NOT manage general Mac memory) ==="
+FREE_PCT=$(/usr/bin/memory_pressure -Q 2>/dev/null | /usr/bin/awk -F': ' '/free percentage/ {gsub("%",""); print $2; exit}')
+[ -z "$FREE_PCT" ] && FREE_PCT="?"
+printf "  Free memory:           %s%%\n" "$FREE_PCT"
+printf "  Top 3 AI memory hogs:\n"
+/bin/ps -axo rss,command -m | /usr/bin/awk '
+  NR>1 {
+    rss_mb = $1/1024
+    if (rss_mb >= 200) {
+      name = $2
+      sub(".*/", "", name)
+      if (name ~ /agy|claude|cursor|antigravity|codex|Cursor|Claude|Antigravity/) {
+        printf "    %5.0f MB  %s\n", rss_mb, name
+        n++
+        if (n >= 3) exit
+      }
+    }
+  }'
+
+echo ""
 echo "=== Recent guard activity (last 5 lines of $GUARD_LOG) ==="
 if [ -s "$GUARD_LOG" ]; then
   tail -5 "$GUARD_LOG" | sed 's/^/  /'

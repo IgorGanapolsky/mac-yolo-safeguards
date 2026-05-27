@@ -4,6 +4,27 @@ All notable changes to this project will be documented here. Format loosely foll
 
 ## [Unreleased]
 
+## [0.1.1] — 2026-05-27
+
+Soft memory-pressure surfacing + explicit scope documentation. Triggered by a user report that CleanMyMac was raising memory alerts and a need to verify the kit was working — diagnosis confirmed the kit was working as designed (load 3, sim_procs 0, 12/12 health) but the kit had no way to *surface* high-but-orthogonal memory pressure to the user.
+
+### Added
+
+- `sim-runaway-guard.sh`: memory-pressure soft check. When system free memory < 15% **and** an AI agent process (`agy`, `claude`, `cursor`, `antigravity`, `codex`) exceeds 1500 MB RSS, the guard posts a macOS notification once per 30 min (debounced). **Never kills the process.** New env vars:
+  - `YOLO_MEM_FREE_PCT_THRESHOLD` (default `15`)
+  - `YOLO_MEM_PROC_RSS_MB_THRESHOLD` (default `1500`)
+  - `YOLO_MEM_NOTIFY_DEBOUNCE_SEC` (default `1800`)
+  - `YOLO_MEM_LAST_FILE` (default `/tmp/yolo-mem-last`)
+- `yolo-health`: new informational "Memory state" section. Shows free memory % and top 3 AI process memory hogs. Does not affect pass/fail count (informational only).
+- `README.md`: new "What this does NOT do" section spelling out the kit's narrow scope — does not manage general Mac memory, never kills GUI apps, doesn't stop AI agents from being normally memory-hungry, macOS-only, no telemetry.
+- `README.md`: new "Guard configuration" env-var table.
+
+### Unchanged
+
+Hard rule still holds: **the kit never auto-kills GUI apps**. The new memory-pressure check is notify-only. The escalation path remains a critical macOS alert. Anyone running an AI agent that legitimately uses 1+ GB RAM gets one toast per 30 min and that's it.
+
+
+
 ## [0.1.0] — 2026-05-27
 
 First public release. Hardened from the 2026-05-26 incident (load average 307, 256+ runaway `simruntime` processes triggered by `agy --dangerously-skip-permissions`).
@@ -41,5 +62,6 @@ First public release. Hardened from the 2026-05-26 incident (load average 307, 2
 - Wrapper test suite: 5/5 passing.
 - `yolo-health`: 12/12 passing at v0.1.0 tag.
 
-[Unreleased]: https://github.com/IgorGanapolsky/mac-yolo-safeguards/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/IgorGanapolsky/mac-yolo-safeguards/compare/v0.1.1...HEAD
+[0.1.1]: https://github.com/IgorGanapolsky/mac-yolo-safeguards/releases/tag/v0.1.1
 [0.1.0]: https://github.com/IgorGanapolsky/mac-yolo-safeguards/releases/tag/v0.1.0

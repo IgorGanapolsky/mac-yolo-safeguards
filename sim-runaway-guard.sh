@@ -57,7 +57,46 @@ if [ "$SIM_COUNT" -gt 50 ]; then
   fi
 fi
 
-[ -z "$REASON" ] && exit 0
+if [ -z "$REASON" ]; then
+  # --- Soft memory-pressure check (notify only, never kill) ---
+  # Triggers when free memory < MEM_FREE_PCT_THRESHOLD AND any AI process
+  # exceeds MEM_PROC_RSS_MB_THRESHOLD. Debounced via /tmp/yolo-mem-last so we
+  # don't spam every 60s.
+  MEM_FREE_PCT_THRESHOLD=${YOLO_MEM_FREE_PCT_THRESHOLD:-15}
+  MEM_PROC_RSS_MB_THRESHOLD=${YOLO_MEM_PROC_RSS_MB_THRESHOLD:-1500}
+  MEM_NOTIFY_DEBOUNCE_SEC=${YOLO_MEM_NOTIFY_DEBOUNCE_SEC:-1800}
+  MEM_LAST_FILE=${YOLO_MEM_LAST_FILE:-/tmp/yolo-mem-last}
+
+  FREE_PCT=$(/usr/bin/memory_pressure -Q 2>/dev/null | /usr/bin/awk -F': ' '/free percentage/ {gsub("%",""); print $2; exit}')
+  [ -z "$FREE_PCT" ] && FREE_PCT=100
+
+  if [ "$FREE_PCT" -lt "$MEM_FREE_PCT_THRESHOLD" ]; then
+    TOP_HOG=$(/bin/ps -axo rss,command -m | /usr/bin/awk -v t="$MEM_PROC_RSS_MB_THRESHOLD" '
+      NR>1 {
+        rss_mb = $1/1024
+        if (rss_mb >= t) {
+          name = $2
+          # extract just the binary name, not full path/args
+          sub(".*/", "", name)
+          # match common AI agent process names
+          if (name ~ /agy|claude|cursor|antigravity|codex/) {
+            printf "%.0f MB %s", rss_mb, name
+            exit
+          }
+        }
+      }')
+    if [ -n "$TOP_HOG" ]; then
+      LAST_NOTIFY=0
+      [ -f "$MEM_LAST_FILE" ] && LAST_NOTIFY=$(/bin/cat "$MEM_LAST_FILE" 2>/dev/null || echo 0)
+      if [ $((now - LAST_NOTIFY)) -ge "$MEM_NOTIFY_DEBOUNCE_SEC" ]; then
+        notify "yolo-guard memory pressure" "Free mem ${FREE_PCT}%. Top AI hog: $TOP_HOG. Not auto-killing (hard rule). Consider restarting it."
+        echo "$now" > "$MEM_LAST_FILE"
+        echo "$(date) MEM_NOTIFY: free=${FREE_PCT}% hog=$TOP_HOG" >> "$LOG"
+      fi
+    fi
+  fi
+  exit 0
+fi
 
 # --- Fire: shut down sims ---
 echo "$(date) RUNAWAY: $REASON — shutting down simulators" >> "$LOG"
