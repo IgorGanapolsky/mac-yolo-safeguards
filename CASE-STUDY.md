@@ -98,6 +98,6 @@ Idempotent. Symlinks. No global installs. Uninstall = `rm` the symlinks.
 
 - ⭐ Star the repo — that's the strongest signal that more dev tooling like this should exist.
 - 💬 Open an issue describing your incident — it helps shape the next threshold.
-- 🛠️ **Want help on your Mac?** [Book a 30-min session]({{CTA_PLACEHOLDER}}) — flat $99 to install + tune the kit on your machine and walk through one full freeze rescue with you.
+- 🛠️ Want help on your Mac? Open an issue tagged `help-wanted` with your setup details — I'll respond within 24h.
 
 _All data above is reproducible from this repo. No telemetry was collected._

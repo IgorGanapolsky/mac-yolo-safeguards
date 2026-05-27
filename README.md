@@ -92,13 +92,12 @@ Load average **307**, 256+ `simruntime` processes, hard-reboot territory. Full t
 
 ## Support
 
-This kit is MIT-licensed and free.
+MIT-licensed. Free. No telemetry.
 
 If it saved your Mac:
 - ⭐ Star the repo — strongest signal that more tooling like this should exist.
-- 💬 Open an issue describing your incident — it helps tune the next threshold.
-
-If you'd rather pay someone to install + tune it on your Mac (and walk through one freeze rescue with you), book a 30-min session: `{{CTA_PLACEHOLDER — Cal.com or Stripe link}}`. Flat $99. Refunds on request, no questions.
+- 💬 Open an issue with your incident details — helps tune the next threshold.
+- 🛠️ Want help installing it on your machine? Open an issue tagged `help-wanted` describing your setup. I'll respond within 24h.
 
 ## References
 
