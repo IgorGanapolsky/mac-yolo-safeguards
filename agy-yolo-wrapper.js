@@ -2,13 +2,29 @@
 
 const fs = require('fs');
 const { spawn, execSync } = require('child_process');
+const os = require('os');
+const path = require('path');
 
-const STATUS_PATH = '/Users/igorganapolsky/workspace/git/igor/antigravity-hub/antigravity-desktop/public/status.json';
+const HOME = os.homedir();
+const USER = os.userInfo().username;
+
+function findStatusPath() {
+  const possiblePaths = [
+    path.join(HOME, 'workspace/git', USER, 'antigravity-hub/antigravity-desktop/public/status.json'),
+    path.join(HOME, 'workspace/git/igor/antigravity-hub/antigravity-desktop/public/status.json')
+  ];
+  for (const p of possiblePaths) {
+    if (fs.existsSync(p)) return p;
+  }
+  return possiblePaths[0];
+}
+
+const STATUS_PATH = findStatusPath();
 const LOCK_PATH = process.env.AGY_YOLO_LOCK_PATH || '/tmp/agy-yolo.lock';
 const LOG_PATH = process.env.AGY_YOLO_LOG_PATH || '/tmp/agy-yolo.log';
 
 // All thresholds overridable via env vars (handy for tests and tuning).
-const AGY_BIN = process.env.AGY_BIN || '/Users/igorganapolsky/.local/bin/agy';
+const AGY_BIN = process.env.AGY_BIN || path.join(HOME, '.local/bin/agy');
 const EXTRA_ARGS = process.env.AGY_YOLO_NO_DEFAULT_ARGS
   ? []
   : ['--sandbox', '--dangerously-skip-permissions'];

@@ -6,7 +6,7 @@
     <string>com.igor.shutdown-simulators</string>
     <key>ProgramArguments</key>
     <array>
-        <string>/Users/igorganapolsky/.local/bin/sim-runaway-guard.sh</string>
+        <string>{{HOME}}/.local/bin/sim-runaway-guard.sh</string>
     </array>
     <key>RunAtLoad</key>
     <true/>

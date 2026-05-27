@@ -9,7 +9,14 @@
 #      likely culprit app (Antigravity IDE) so the loop is broken.
 #   4. Self-heals via `install.sh` if any safeguard file is missing.
 
-REPO=/Users/igorganapolsky/workspace/git/igor/mac-yolo-safeguards
+# Resolve the canonical repository directory from the script's real path.
+# Since sim-runaway-guard.sh is a symlink, resolving its real path gives the repo directory.
+REAL_SCRIPT_PATH=$(python3 -c "import os; print(os.path.realpath('$0'))" 2>/dev/null || readlink -f "$0" 2>/dev/null || echo "$0")
+case "$REAL_SCRIPT_PATH" in
+  /*) ;;
+  *) REAL_SCRIPT_PATH="$(pwd)/$REAL_SCRIPT_PATH" ;;
+esac
+REPO=$(dirname "$REAL_SCRIPT_PATH")
 
 ESCALATE_AFTER_FIRES=${YOLO_ESCALATE_AFTER_FIRES:-3}
 ESCALATE_WINDOW_SEC=${YOLO_ESCALATE_WINDOW_SEC:-600}
@@ -30,10 +37,21 @@ notify() {
 }
 
 # --- Self-heal: if any expected symlink is missing, re-run install.sh ---
+# Detect antigravity-cli path dynamically
+AGY_CLI_DIR="$HOME/workspace/git/$USER/antigravity-hub/antigravity-cli"
+if [ ! -d "$AGY_CLI_DIR" ]; then
+  if [ -d "$HOME/workspace/git/igor/antigravity-hub/antigravity-cli" ]; then
+    AGY_CLI_DIR="$HOME/workspace/git/igor/antigravity-hub/antigravity-cli"
+  else
+    FOUND=$(find "$HOME/workspace" -type d -path "*/antigravity-hub/antigravity-cli" -maxdepth 5 2>/dev/null | head -n 1)
+    [ -n "$FOUND" ] && AGY_CLI_DIR="$FOUND"
+  fi
+fi
+
 heal_needed=0
-[ -L /Users/igorganapolsky/.local/bin/yolo-health ] || heal_needed=1
-[ -L /Users/igorganapolsky/Library/LaunchAgents/com.igor.shutdown-simulators.plist ] || heal_needed=1
-[ -L /Users/igorganapolsky/workspace/git/igor/antigravity-hub/antigravity-cli/bin/agy-yolo-wrapper.js ] || heal_needed=1
+[ -L "$HOME/.local/bin/yolo-health" ] || heal_needed=1
+[ -L "$HOME/Library/LaunchAgents/com.igor.shutdown-simulators.plist" ] || heal_needed=1
+[ -L "$AGY_CLI_DIR/bin/agy-yolo-wrapper.js" ] || heal_needed=1
 if [ "$heal_needed" = "1" ] && [ -x "$REPO/install.sh" ]; then
   echo "$(date) SELF-HEAL: re-running install.sh" >> "$LOG"
   /bin/sh "$REPO/install.sh" >> "$LOG" 2>&1 || true
@@ -71,27 +89,66 @@ if [ -z "$REASON" ]; then
   [ -z "$FREE_PCT" ] && FREE_PCT=100
 
   if [ "$FREE_PCT" -lt "$MEM_FREE_PCT_THRESHOLD" ]; then
-    TOP_HOG=$(/bin/ps -axo rss,command -m | /usr/bin/awk -v t="$MEM_PROC_RSS_MB_THRESHOLD" '
+    # Capture PID + RSS + name of the top AI memory hog (if any exceed threshold).
+    TOP_HOG_LINE=$(/bin/ps -axo pid,rss,command -m | /usr/bin/awk -v t="$MEM_PROC_RSS_MB_THRESHOLD" '
       NR>1 {
-        rss_mb = $1/1024
+        pid = $1
+        rss_mb = $2/1024
         if (rss_mb >= t) {
-          name = $2
-          # extract just the binary name, not full path/args
+          name = $3
           sub(".*/", "", name)
-          # match common AI agent process names
-          if (name ~ /agy|claude|cursor|antigravity|codex/) {
-            printf "%.0f MB %s", rss_mb, name
+          # Case-insensitive: matches agy, claude, Claude, cursor, Cursor, antigravity, Antigravity, codex, Codex.
+          if (tolower(name) ~ /agy|claude|cursor|antigravity|codex/) {
+            printf "%s|%.0f|%s", pid, rss_mb, name
             exit
           }
         }
       }')
-    if [ -n "$TOP_HOG" ]; then
+    if [ -n "$TOP_HOG_LINE" ]; then
+      HOG_PID=$(echo "$TOP_HOG_LINE" | /usr/bin/cut -d'|' -f1)
+      HOG_RSS=$(echo "$TOP_HOG_LINE" | /usr/bin/cut -d'|' -f2)
+      HOG_NAME=$(echo "$TOP_HOG_LINE" | /usr/bin/cut -d'|' -f3)
+      STATUS_FILE=${YOLO_STATUS_FILE:-/tmp/yolo-status.txt}
       LAST_NOTIFY=0
       [ -f "$MEM_LAST_FILE" ] && LAST_NOTIFY=$(/bin/cat "$MEM_LAST_FILE" 2>/dev/null || echo 0)
       if [ $((now - LAST_NOTIFY)) -ge "$MEM_NOTIFY_DEBOUNCE_SEC" ]; then
-        notify "yolo-guard memory pressure" "Free mem ${FREE_PCT}%. Top AI hog: $TOP_HOG. Not auto-killing (hard rule). Consider restarting it."
+        # Self-sufficient notification: name PID, RSS, exact restart command.
+        notify "yolo-guard: $HOG_NAME at ${HOG_RSS}MB (PID $HOG_PID)" "Free mem ${FREE_PCT}%. To restart: kill -INT $HOG_PID. Details: $STATUS_FILE"
+        # Dump a human-readable status report the user can find.
+        {
+          echo "yolo-guard memory pressure report"
+          echo "Generated: $(date)"
+          echo ""
+          echo "System free memory: ${FREE_PCT}%  (threshold: <${MEM_FREE_PCT_THRESHOLD}%)"
+          echo "Top AI memory hog:  $HOG_NAME"
+          echo "  PID:    $HOG_PID"
+          echo "  RSS:    ${HOG_RSS} MB  (threshold: >=${MEM_PROC_RSS_MB_THRESHOLD} MB)"
+          echo ""
+          echo "Recommended actions (your choice — the kit will not auto-kill GUI apps):"
+          echo "  1. Soft restart the agent:  kill -INT $HOG_PID"
+          echo "  2. Hard kill if unresponsive: kill -9 $HOG_PID  (loses unsaved work in that process)"
+          echo "  3. Inspect what it's doing:  ps -o pid,pcpu,etime,command -p $HOG_PID"
+          echo "  4. Full kit health check:   yolo-health"
+          echo ""
+          echo "All other AI processes >200 MB right now:"
+          /bin/ps -axo pid,rss,command -m | /usr/bin/awk '
+            NR>1 {
+              rss_mb = $2/1024
+              if (rss_mb >= 200) {
+                name = $3
+                sub(".*/", "", name)
+                if (name ~ /agy|claude|cursor|antigravity|codex|Cursor|Claude|Antigravity/) {
+                  printf "  PID %-6s %5.0f MB  %s\n", $1, rss_mb, name
+                }
+              }
+            }'
+          echo ""
+          echo "Hard rule (not changeable): this guard never auto-kills GUI apps."
+          echo "  Source: $REPO/sim-runaway-guard.sh"
+          echo "  Memory: $HOME/.claude/projects/..."
+        } > "$STATUS_FILE"
         echo "$now" > "$MEM_LAST_FILE"
-        echo "$(date) MEM_NOTIFY: free=${FREE_PCT}% hog=$TOP_HOG" >> "$LOG"
+        echo "$(date) MEM_NOTIFY: free=${FREE_PCT}% hog=$HOG_NAME(PID $HOG_PID) ${HOG_RSS}MB status=$STATUS_FILE" >> "$LOG"
       fi
     fi
   fi

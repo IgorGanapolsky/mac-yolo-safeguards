@@ -2,9 +2,24 @@
 # Quick health check for the agy-yolo + simulator-guard safeguards.
 # Usage: yolo-health  (or:  sh ~/.local/bin/yolo-health)
 
-WRAPPER=/Users/igorganapolsky/workspace/git/igor/antigravity-hub/antigravity-cli/bin/agy-yolo-wrapper.js
-GUARD_SCRIPT=/Users/igorganapolsky/.local/bin/sim-runaway-guard.sh
-GUARD_PLIST=/Users/igorganapolsky/Library/LaunchAgents/com.igor.shutdown-simulators.plist
+# --- Detect antigravity-cli path dynamically ---
+AGY_CLI_DIR="$HOME/workspace/git/$USER/antigravity-hub/antigravity-cli"
+if [ ! -d "$AGY_CLI_DIR" ]; then
+  if [ -d "$HOME/workspace/git/igor/antigravity-hub/antigravity-cli" ]; then
+    AGY_CLI_DIR="$HOME/workspace/git/igor/antigravity-hub/antigravity-cli"
+  else
+    FOUND=$(find "$HOME/workspace" -type d -path "*/antigravity-hub/antigravity-cli" -maxdepth 5 2>/dev/null | head -n 1)
+    if [ -n "$FOUND" ]; then
+      AGY_CLI_DIR="$FOUND"
+    else
+      AGY_CLI_DIR="$HOME/workspace/git/$USER/antigravity-hub/antigravity-cli"
+    fi
+  fi
+fi
+
+WRAPPER="$AGY_CLI_DIR/bin/agy-yolo-wrapper.js"
+GUARD_SCRIPT="$HOME/.local/bin/sim-runaway-guard.sh"
+GUARD_PLIST="$HOME/Library/LaunchAgents/com.igor.shutdown-simulators.plist"
 GUARD_LABEL=com.igor.shutdown-simulators
 GUARD_LOG=/tmp/shutdown-simulators.log
 
