@@ -4,6 +4,25 @@ All notable changes to this project will be documented here. Format loosely foll
 
 ## [Unreleased]
 
+## [0.2.1] — 2026-05-27
+
+Notification UX fixes triggered by user feedback that clicking a memory-pressure notification opened Finder with nothing useful — a known macOS limitation of shell-issued `osascript display notification` (no delegate is registered, so clicks fall through to the script's parent).
+
+### Changed
+
+- **Notification body is now self-sufficient.** Title includes the agent name + RSS + PID. Body has the exact `kill -INT <pid>` command and a path to the status file. No click needed.
+- **New `/tmp/yolo-status.txt`** generated on every memory-pressure fire. Human-readable report listing the top hog, all AI processes >200 MB, four recommended actions (soft restart, hard kill, inspect, run yolo-health), and a pointer to the hard rule about not auto-killing GUI apps. Path configurable via `YOLO_STATUS_FILE`.
+
+### Fixed
+
+- **Case-insensitive AI process matching.** Previous awk regex was lowercase-only and silently skipped `Cursor`, `Claude`, `Antigravity` (capitalized binary names when the process command is a `/Applications/...` path). Now uses `tolower(name) ~ /agy|claude|cursor|antigravity|codex/`. This was the actual reason the memory-pressure notification rarely fired in practice on real workloads.
+
+### New env var
+
+| Var | Default |
+|---|---|
+| `YOLO_STATUS_FILE` | `/tmp/yolo-status.txt` |
+
 ## [0.2.0] — 2026-05-27
 
 Structural portability refactoring to eliminate all five hardcoded user paths. This ensures the kit can be installed, run, and self-healed on any macOS developer workstation out of the box, without hardcoding usernames or workspace directories.
@@ -78,7 +97,8 @@ First public release. Hardened from the 2026-05-26 incident (load average 307, 2
 - Wrapper test suite: 5/5 passing.
 - `yolo-health`: 12/12 passing at v0.1.0 tag.
 
-[Unreleased]: https://github.com/IgorGanapolsky/mac-yolo-safeguards/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/IgorGanapolsky/mac-yolo-safeguards/compare/v0.2.1...HEAD
+[0.2.1]: https://github.com/IgorGanapolsky/mac-yolo-safeguards/releases/tag/v0.2.1
 [0.2.0]: https://github.com/IgorGanapolsky/mac-yolo-safeguards/releases/tag/v0.2.0
 [0.1.1]: https://github.com/IgorGanapolsky/mac-yolo-safeguards/releases/tag/v0.1.1
 [0.1.0]: https://github.com/IgorGanapolsky/mac-yolo-safeguards/releases/tag/v0.1.0
