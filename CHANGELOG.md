@@ -4,6 +4,18 @@ All notable changes to this project will be documented here. Format loosely foll
 
 ## [Unreleased]
 
+## [0.2.4] — 2026-05-27
+
+Critical fix for a self-heal infinite loop introduced by the v0.2.0 portability refactor. Affected every install since v0.2.0: the LaunchAgent's self-heal check tested `[ -L plist ]` (expecting a symlink) but v0.2.0 changed install.sh to RENDER the plist (substitute `{{HOME}}` placeholder), making it a regular file. The `-L` test failed every 60s → `install.sh` re-ran → `launchctl bootout` + `bootstrap` → agent state thrashed → `yolo-health` flapped between 12/12 and 10/12.
+
+### Fixed
+
+- `sim-runaway-guard.sh`: self-heal plist check uses `[ -f ]` (file exists) instead of `[ -L ]` (is symlink). Symlink checks on `yolo-health` and `agy-yolo-wrapper.js` remain correct — those *are* symlinks. Verified by logging SELF-HEAL count to `/tmp/shutdown-simulators.log` across a 70-second LaunchAgent cycle post-fix: 0 new entries (vs. firing every 60s before the fix).
+
+### Surfaced by
+
+User pushback ("are you sure?" three times in a row on the v0.2.3 verification). First-pass verification showed yolo-health 12/12; second-pass caught the flapping; third-pass found the install-loop as root cause. Adding this as a documented lesson: *runtime state (launchctl-managed services) can drift between verifications even when the disk state looks correct.*
+
 ## [0.2.3] — 2026-05-27
 
 Notification actually renders now. Triggered by user screenshot showing the v0.2.2 notification body collapsed to just "Notification" — a known macOS regression where shell-script-issued `osascript display notification` calls drop the body for unregistered senders.
@@ -123,7 +135,8 @@ First public release. Hardened from the 2026-05-26 incident (load average 307, 2
 - Wrapper test suite: 5/5 passing.
 - `yolo-health`: 12/12 passing at v0.1.0 tag.
 
-[Unreleased]: https://github.com/IgorGanapolsky/mac-yolo-safeguards/compare/v0.2.3...HEAD
+[Unreleased]: https://github.com/IgorGanapolsky/mac-yolo-safeguards/compare/v0.2.4...HEAD
+[0.2.4]: https://github.com/IgorGanapolsky/mac-yolo-safeguards/releases/tag/v0.2.4
 [0.2.3]: https://github.com/IgorGanapolsky/mac-yolo-safeguards/releases/tag/v0.2.3
 [0.2.2]: https://github.com/IgorGanapolsky/mac-yolo-safeguards/releases/tag/v0.2.2
 [0.2.1]: https://github.com/IgorGanapolsky/mac-yolo-safeguards/releases/tag/v0.2.1

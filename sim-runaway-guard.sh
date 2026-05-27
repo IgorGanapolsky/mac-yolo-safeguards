@@ -49,9 +49,12 @@ if [ ! -d "$AGY_CLI_DIR" ]; then
 fi
 
 heal_needed=0
+# Symlinks (created by install.sh `link` helper):
 [ -L "$HOME/.local/bin/yolo-health" ] || heal_needed=1
-[ -L "$HOME/Library/LaunchAgents/com.igor.shutdown-simulators.plist" ] || heal_needed=1
 [ -L "$AGY_CLI_DIR/bin/agy-yolo-wrapper.js" ] || heal_needed=1
+# Plist is a RENDERED FILE (not a symlink) since v0.2.0 — install.sh
+# substitutes {{HOME}} placeholders when copying. Check existence, not -L.
+[ -f "$HOME/Library/LaunchAgents/com.igor.shutdown-simulators.plist" ] || heal_needed=1
 if [ "$heal_needed" = "1" ] && [ -x "$REPO/install.sh" ]; then
   echo "$(date) SELF-HEAL: re-running install.sh" >> "$LOG"
   /bin/sh "$REPO/install.sh" >> "$LOG" 2>&1 || true
