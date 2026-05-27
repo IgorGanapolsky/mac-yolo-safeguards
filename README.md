@@ -86,6 +86,20 @@ AGY_BIN=/nonexistent AGY_YOLO_NO_DEFAULT_ARGS=1 node $WRAPPER
 rm -f /tmp/yolo-test-$$.lock /tmp/yolo-test-$$.log
 ```
 
+## The incident this came from
+
+Load average **307**, 256+ `simruntime` processes, hard-reboot territory. Full timeline + 12/12 health-check output: [`CASE-STUDY.md`](./CASE-STUDY.md).
+
+## Support
+
+This kit is MIT-licensed and free.
+
+If it saved your Mac:
+- ⭐ Star the repo — strongest signal that more tooling like this should exist.
+- 💬 Open an issue describing your incident — it helps tune the next threshold.
+
+If you'd rather pay someone to install + tune it on your Mac (and walk through one freeze rescue with you), book a 30-min session: `{{CTA_PLACEHOLDER — Cal.com or Stripe link}}`. Flat $99. Refunds on request, no questions.
+
 ## References
 
 - Antigravity Lab: [practical fix guide for high CPU/memory usage](https://antigravitylab.net/en/articles/tips/antigravity-high-cpu-memory-usage-fix)

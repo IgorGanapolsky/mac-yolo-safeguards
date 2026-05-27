@@ -3,3 +3,6 @@
 *.lock
 *.tmp
 .tmp
+
+# Internal sales / ops working files — not part of the public OSS kit
+business_os/
