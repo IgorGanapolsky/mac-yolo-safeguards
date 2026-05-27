@@ -90,14 +90,28 @@ rm -f /tmp/yolo-test-$$.lock /tmp/yolo-test-$$.log
 
 Load average **307**, 256+ `simruntime` processes, hard-reboot territory. Full timeline + 12/12 health-check output: [`CASE-STUDY.md`](./CASE-STUDY.md).
 
-## Support
+## Support & Paid Onboarding
 
-MIT-licensed. Free. No telemetry.
+This kit is fully open-source (MIT-licensed), free to use, and has **zero telemetry**.
 
-If it saved your Mac:
-- ⭐ Star the repo — strongest signal that more tooling like this should exist.
-- 💬 Open an issue with your incident details — helps tune the next threshold.
-- 🛠️ Want help installing it on your machine? Open an issue tagged `help-wanted` describing your setup. I'll respond within 24h.
+If the safeguards saved your Mac from a freeze:
+*   ⭐ **Star the repo** — it is the strongest signal that more system-level AI safety tooling should exist.
+*   💬 **Open an issue** with your incident details — this directly helps us tune the next CPU and memory threshold defaults.
+
+---
+
+### 🛡️ Premium Service: "Hardened Mac AI Workstation"
+If you are running autonomous AI coding agents (Claude Code, Cursor YOLO, Codex, etc.) and want a professionally secured workstation without tuning config files yourself, you can hire me to install and customize this safety net.
+
+*   **What you get:**
+    *   **30-minute Zoom onboarding:** White-glove installation of the wrappers and LaunchAgent.
+    *   **Custom Tuning:** We baseline your specific macOS hardware, cores, and memory capacity to tailor the CPU limits, stuck-loop timeouts, and runaway threshold parameters.
+    *   **Safety Drill:** We trigger a mocked process runaway on your machine to verify the safeguards fire and protect your system.
+    *   **1-Week of Dedicated Tuning:** Ongoing post-install threshold adjustments via email/Slack.
+*   **Price:** **$99 flat** (one-shot).
+*   **100% Money-Back Guarantee:** If you are not satisfied or your Mac freezes within 30 days of setup, we refund the full amount instantly—no questions asked.
+
+👉 **To Book:** Email me directly at **[iganapolsky@gmail.com](mailto:iganapolsky@gmail.com)** with the subject line `Hardened Workstation Setup` or **[open a GitHub Issue tagged `help-wanted`](https://github.com/IgorGanapolsky/mac-yolo-safeguards/issues/new?title=%5BHelp+Wanted%5D+Hardened+Workstation+Setup)**. I will get back to you within 24 hours to schedule our call.
 
 ## References
 
