@@ -1,9 +1,13 @@
 # mac-yolo-safeguards
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Platform: macOS](https://img.shields.io/badge/platform-macOS-blue.svg)](#)
-[![Architecture: Apple Silicon + Intel](https://img.shields.io/badge/arch-Apple%20Silicon%20%2B%20Intel-lightgrey)](#)
-[![Telemetry: none](https://img.shields.io/badge/telemetry-none-success)](#)
+[![Latest release](https://img.shields.io/github/v/release/IgorGanapolsky/mac-yolo-safeguards?display_name=tag&color=brightgreen)](https://github.com/IgorGanapolsky/mac-yolo-safeguards/releases/latest)
+[![GitHub stars](https://img.shields.io/github/stars/IgorGanapolsky/mac-yolo-safeguards?style=flat&color=yellow)](https://github.com/IgorGanapolsky/mac-yolo-safeguards/stargazers)
+[![Open issues](https://img.shields.io/github/issues/IgorGanapolsky/mac-yolo-safeguards)](https://github.com/IgorGanapolsky/mac-yolo-safeguards/issues)
+[![Last commit](https://img.shields.io/github/last-commit/IgorGanapolsky/mac-yolo-safeguards)](https://github.com/IgorGanapolsky/mac-yolo-safeguards/commits/main)
+[![License: MIT](https://img.shields.io/github/license/IgorGanapolsky/mac-yolo-safeguards?color=yellow)](LICENSE)
+[![Platform](https://img.shields.io/badge/platform-macOS-blue)](#)
+[![Arch](https://img.shields.io/badge/arch-Apple%20Silicon%20%2B%20Intel-lightgrey)](#)
+[![Telemetry](https://img.shields.io/badge/telemetry-none-success)](#telemetry-and-privacy)
 
 Safety net for running AI coding agents (Antigravity `agy`, Claude Code, Cursor, Codex) in YOLO mode on macOS without freezing the Mac.
 
@@ -119,6 +123,24 @@ If you are running autonomous AI coding agents (Claude Code, Cursor YOLO, Codex,
 *   **100% Money-Back Guarantee:** If you are not satisfied or your Mac freezes within 30 days of setup, we refund the full amount instantly—no questions asked.
 
 👉 **To Book:** Book directly via **[Cal.com](https://cal.com/igor-g-kvqxfo/30min)**, email me at **[iganapolsky@gmail.com](mailto:iganapolsky@gmail.com)**, or **[open a GitHub Issue tagged `help-wanted`](https://github.com/IgorGanapolsky/mac-yolo-safeguards/issues/new?title=%5BHelp+Wanted%5D+Hardened+Workstation+Setup)**. I will get back to you within 24 hours to schedule our call.
+
+## Telemetry and privacy
+
+This kit ships **zero telemetry**. Specifically:
+
+- No network calls of any kind — the wrapper, guard, and health check only read local process state (`ps`, `uptime`, `xcrun simctl`) and shell out to local binaries. There is no `fetch`, `curl`, `http.request`, or equivalent anywhere in the codebase.
+- All logs are written to `/tmp/` (gitignored). Nothing leaves your Mac.
+- No analytics, no error reporting, no usage pings.
+
+Verify it yourself:
+
+```sh
+grep -rE 'fetch|http\.|https\.|XMLHttpRequest|curl |wget |require\(.https.|require\(.http.' \
+    agy-yolo-wrapper.js sim-runaway-guard.sh yolo-health install.sh
+# expect: no matches
+```
+
+The maintainer's own launch-traffic analytics live in **GitHub Insights → Traffic** (free, GitHub-native, only the maintainer sees them), **Cal.com bookings dashboard**, and **Stripe Dashboard** — none of which involve any code shipped to your machine.
 
 ## References
 
