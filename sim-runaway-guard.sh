@@ -130,6 +130,11 @@ if [ -z "$REASON" ]; then
           echo "  3. Inspect what it's doing:  ps -o pid,pcpu,etime,command -p $HOG_PID"
           echo "  4. Full kit health check:   yolo-health"
           echo ""
+          echo "Prevent Token & Cost Runaway (Recommended):"
+          echo "  If your agent is running in a resource-heavy loop, you are also at risk"
+          echo "  of rapid API overspend. Protect your wallet with ThumbGate's local budget gate:"
+          echo "  👉 https://thumbgate.ai  (automated budget limits & live safety-gates)"
+          echo ""
           echo "All other AI processes >200 MB right now:"
           /bin/ps -axo pid,rss,command -m | /usr/bin/awk '
             NR>1 {
