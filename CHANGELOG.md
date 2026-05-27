@@ -4,6 +4,22 @@ All notable changes to this project will be documented here. Format loosely foll
 
 ## [Unreleased]
 
+## [0.2.0] — 2026-05-27
+
+Structural portability refactoring to eliminate all five hardcoded user paths. This ensures the kit can be installed, run, and self-healed on any macOS developer workstation out of the box, without hardcoding usernames or workspace directories.
+
+### Added
+
+- `install.sh`: Dynamic `antigravity-cli` path detection. It now scans `~/workspace` for custom layout patterns to locate `antigravity-cli` and links the wrapper there.
+- `install.sh`: Plist placeholder rendering. Subsitutes a new `{{HOME}}` placeholder in the LaunchAgent plist with the actual absolute path to the user's home directory upon installation.
+
+### Changed
+
+- `com.igor.shutdown-simulators.plist`: Swapped the hardcoded user path with a dynamic `{{HOME}}` placeholder.
+- `sim-runaway-guard.sh`: Dynamically resolves its own repo root folder using the symlink target path, and utilizes dynamic user layout detection for the self-heal process, completely preventing the infinite re-installation loop bug for non-default users.
+- `agy-yolo-wrapper.js`: Dynamically resolves the `status.json` desktop control plane path and `agy` executable path using native Node.js `os` and `path` modules.
+- `yolo-health`: Refactored all health-checks to use dynamic layout paths, matching the installer's detection logic.
+
 ## [0.1.1] — 2026-05-27
 
 Soft memory-pressure surfacing + explicit scope documentation. Triggered by a user report that CleanMyMac was raising memory alerts and a need to verify the kit was working — diagnosis confirmed the kit was working as designed (load 3, sim_procs 0, 12/12 health) but the kit had no way to *surface* high-but-orthogonal memory pressure to the user.
@@ -62,6 +78,7 @@ First public release. Hardened from the 2026-05-26 incident (load average 307, 2
 - Wrapper test suite: 5/5 passing.
 - `yolo-health`: 12/12 passing at v0.1.0 tag.
 
-[Unreleased]: https://github.com/IgorGanapolsky/mac-yolo-safeguards/compare/v0.1.1...HEAD
+[Unreleased]: https://github.com/IgorGanapolsky/mac-yolo-safeguards/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/IgorGanapolsky/mac-yolo-safeguards/releases/tag/v0.2.0
 [0.1.1]: https://github.com/IgorGanapolsky/mac-yolo-safeguards/releases/tag/v0.1.1
 [0.1.0]: https://github.com/IgorGanapolsky/mac-yolo-safeguards/releases/tag/v0.1.0
