@@ -165,7 +165,7 @@ if [ -z "$REASON" ]; then
               if (rss_mb >= 200) {
                 name = $3
                 sub(".*/", "", name)
-                if (name ~ /agy|claude|cursor|antigravity|codex|Cursor|Claude|Antigravity/) {
+                if (tolower(name) ~ /agy|claude|cursor|antigravity|codex/) {
                   printf "  PID %-6s %5.0f MB  %s\n", $1, rss_mb, name
                 }
               }
