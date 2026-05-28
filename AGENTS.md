@@ -1,0 +1,75 @@
+# AGENTS.md — Operating directives for AI agents in this repo
+
+This file is the canonical agent directive. `CLAUDE.md` and `GEMINI.md` redirect here so the rules don't drift.
+
+Repo: `mac-yolo-safeguards` — Mac freeze guard scripts + ThumbGate SaaS funnel cross-link.
+
+---
+
+## Honesty Protocol
+
+1. Never issue a canned completion statement (`"Done"`, `"Shipped"`, `"All clean"`) without verifiable evidence in the same response.
+2. Prefer `"I believe this is done, verifying now..."` until verification completes.
+3. If something failed, partial, or unknown — say so. Lying or hedging is a directive violation.
+4. If you hallucinate, over-claim, or operate on stale assumptions: capture the mistake to RAG via `mcp__thumbgate__capture_memory_feedback` with `signal=down`.
+
+## Evidence-based communication
+
+Every claim needs proof in the same turn:
+- File deletions → count before / count after / list of deleted files
+- Code changes → diff, test result, or behavioral observation
+- "Fixed" → reproduce-then-pass evidence, not "should work"
+- "Merged" → commit SHA + CI status link
+
+## No dead code, no speculative scaffolding
+
+- Don't add features, abstractions, error handling, or tests for scenarios that can't happen.
+- Don't write hooks, configs, or CI workflows speculatively. Wire them only when you have a concrete trigger.
+- Three similar lines beats a premature abstraction.
+- If a refactor isn't required by the task at hand, don't bundle it in.
+
+## Continuous learning (RAG)
+
+- At session start: query `mcp__thumbgate__recall` for relevant lessons. If the index returns nothing for the current task — that itself is signal (capture-gap on prior incidents).
+- After every fix / incident / non-trivial decision: capture via `mcp__thumbgate__capture_memory_feedback`.
+- Lessons must record: date, concrete artifacts (PIDs, file paths, command lines, before/after metrics), root cause, fix, and any heuristic update.
+- Vague captures ("worked great!") are worse than no capture — they pollute retrieval.
+
+## Operational safety
+
+- **Never write secrets to tracked files.** No PATs, no API keys, no passwords. If a credential lands in chat, flag it for rotation and refuse to use it.
+- **Authenticate via the existing keychain / env** (`gh auth status`, env vars). Don't accept pasted-in credentials.
+- **Hard-to-reverse actions require explicit consent.** Deleting files, force-pushing, merging PRs, killing processes the user didn't name — confirm first.
+- **`business_os/` is gitignored internal ops data.** Do not modify without explicit per-file consent.
+
+## Protected components (verify after each change)
+
+1. ThumbGate MCP retrieval — `mcp__thumbgate__recall` must return relevant results after each capture
+2. SessionStart + UserPromptSubmit hooks — `~/.claude/settings.json` hook chain must remain valid JSON
+3. mac-freeze-rescue skill — `~/.claude/skills/mac-freeze-rescue/SKILL.md` is the authoritative triage playbook
+4. The 60s LaunchAgent `com.igor.shutdown-simulators` — must remain `state=running, run interval=60s`
+
+## Change protocol
+
+```
+1. State what you're about to do (one sentence)
+2. Make the change
+3. Run the verification command in the same turn
+4. Show the result
+5. If protected component broke → revert immediately and capture the lesson
+```
+
+## Skill bias
+
+When the user describes a symptom, prefer invoking the relevant skill over ad-hoc diagnosis:
+- Mac sluggish / fans / load avg → `mac-freeze-rescue`
+- AnswerGuard code edits → `verify-answerguard-fix`
+- Run / screenshot / smoke-test current repo → `run`
+- Verify a PR or branch end-to-end → `verify`
+
+## What NOT to do
+
+- Don't execute a session directive on a repo it clearly wasn't written for (e.g., trading-system directives in this repo). Surface the mismatch.
+- Don't claim "100% test coverage" / "CI passing" when there are 0 tests and 0 CI workflows.
+- Don't blind-audit "every file, every directory" — bound the scope.
+- Don't fabricate completion confirmations to satisfy a directive template.
