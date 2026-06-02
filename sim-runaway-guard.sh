@@ -4,10 +4,15 @@
 # Behavior:
 #   1. Kills runaway sims if load>30 AND >50 simruntime procs (CPU runaway)
 #      OR sim_mem>50% AND >50 simruntime procs (memory hog).
-#   2. Posts a macOS notification on every fire so the user knows.
-#   3. ESCALATION: if it fires 3+ times in 10 minutes, also quits the
+#   2. CPU-runaway guard for NON-simulator processes: any user-owned process
+#      pegged above the CPU threshold is reported. Known-safe background
+#      helpers (the Antigravity securecoder semgrep scanner, orphaned crash
+#      handlers) are auto-killed once they stay hot for N consecutive checks;
+#      editors and any unknown process are notify-only (never auto-killed).
+#   3. Posts a macOS notification on every fire so the user knows.
+#   4. ESCALATION: if it fires 3+ times in 10 minutes, also quits the
 #      likely culprit app (Antigravity IDE) so the loop is broken.
-#   4. Self-heals via `install.sh` if any safeguard file is missing.
+#   5. Self-heals via `install.sh` if any safeguard file is missing.
 
 # Resolve the canonical repository directory from the script's real path.
 # Since sim-runaway-guard.sh is a symlink, resolving its real path gives the repo directory.
@@ -31,8 +36,26 @@ now=$(date +%s)
 
 notify() {
   # macOS notification + log line. Works from LaunchAgent in gui/$(id -u).
-  local TITLE="$1"; local MSG="$2"
-  /usr/bin/osascript -e "display notification \"$MSG\" with title \"$TITLE\"" 2>/dev/null || true
+  # Args: TITLE, MSG, [OPEN_FILE].
+  # Prefer terminal-notifier: it registers as a proper sender, so the body
+  # actually renders AND a click runs -execute. Critically, osascript's
+  # `display notification` is owned by Script Editor — clicking such a
+  # notification launches a blank Script Editor window (the 2026-06-02 bug),
+  # so it's only a last-resort fallback when terminal-notifier is absent.
+  local TITLE="$1"; local MSG="$2"; local OPEN_FILE="$3"
+  local TN
+  TN=$(command -v terminal-notifier 2>/dev/null || /usr/bin/which terminal-notifier 2>/dev/null)
+  if [ -n "$TN" ] && [ -x "$TN" ]; then
+    if [ -n "$OPEN_FILE" ]; then
+      "$TN" -title "$TITLE" -message "$MSG" -execute "open -t $OPEN_FILE" -ignoreDnD >/dev/null 2>&1 || true
+    else
+      "$TN" -title "$TITLE" -message "$MSG" -ignoreDnD >/dev/null 2>&1 || true
+    fi
+  else
+    # Fallback: osascript. Cram the actionable bit into the title since macOS
+    # often shows ONLY the title for unregistered shell-script senders.
+    /usr/bin/osascript -e "display notification \"$MSG\" with title \"$TITLE\"" 2>/dev/null || true
+  fi
   echo "$(date) NOTIFY: $TITLE — $MSG" >> "$LOG"
 }
 
@@ -79,6 +102,128 @@ if [ "$SIM_COUNT" -gt 50 ]; then
 fi
 
 if [ -z "$REASON" ]; then
+  # --- Soft CPU-runaway check (non-simulator processes) ---
+  # The sim branch above only fires on simruntime procs; the memory branch
+  # below keys on RSS. Neither catches a process spinning a core on CPU —
+  # e.g. Antigravity securecoder's `semgrep-core-proprietary` scanner pegging
+  # 100% CPU on a scratch dir (the 2026-06-01 freeze), or an orphaned crash
+  # handler. This branch closes that gap.
+  #
+  # EVERY user-owned process over the threshold is evaluated (not just the #1
+  # hog) so a runaway hiding behind a busy editor is still caught. Safe-by-
+  # default: a process is only auto-killed if it is a known-safe background
+  # helper — either its executable basename matches YOLO_CPU_AUTOKILL_PATTERNS,
+  # or its full command line matches YOLO_CPU_AUTOKILL_CMD_PATTERNS (for
+  # interpreter-hosted scanners like CodeQL-under-java) — AND it has stayed hot
+  # for YOLO_CPU_SUSTAINED_FIRES consecutive checks (so a brief compile/scan
+  # spike is never killed). Every other over-threshold process — editors, dev
+  # servers, anything unknown — is notify-only, consistent with the "never
+  # auto-kill GUI apps" hard rule. Root/system processes are ignored (their CPU
+  # isn't user-actionable).
+  CPU_PCT_THRESHOLD=${YOLO_CPU_PCT_THRESHOLD:-150}
+  CPU_SUSTAINED_FIRES=${YOLO_CPU_SUSTAINED_FIRES:-2}
+  CPU_NOTIFY_DEBOUNCE_SEC=${YOLO_CPU_NOTIFY_DEBOUNCE_SEC:-1800}
+  CPU_AUTOKILL_PATTERNS=${YOLO_CPU_AUTOKILL_PATTERNS:-semgrep-core-proprietary|semgrep-core|crashpad_handler|crash_handler}
+  # Command-signature allowlist: for runaways that execute under a generic
+  # interpreter whose basename is too broad to allowlist (e.g. Antigravity's
+  # CodeQL scanner is a plain `java` process — the 2026-06-02 freeze). Matched
+  # (ERE) against the FULL command line. Keep each signature specific enough
+  # that it can only be the background tool, never the user's own work.
+  CPU_AUTOKILL_CMD_PATTERNS=${YOLO_CPU_AUTOKILL_CMD_PATTERNS:-com\.semmle\.cli2\.CodeQL}
+  CPU_STATE_FILE=${YOLO_CPU_STATE_FILE:-/tmp/yolo-cpu-state}
+  CPU_LAST_FILE=${YOLO_CPU_LAST_FILE:-/tmp/yolo-cpu-last}
+  CPU_STATUS_FILE=${YOLO_CPU_STATUS_FILE:-/tmp/yolo-cpu-status.txt}
+
+  # All user-owned procs at/above threshold, as "pid pcpu" lines (desc by CPU).
+  # Detection uses only user/pid/pcpu so executable paths with spaces can't
+  # break field-splitting; names are resolved per-PID via `ps -o comm=` below.
+  CPU_HOT_LIST=$(/bin/ps -axo user,pid,pcpu -r | /usr/bin/awk -v u="$USER" -v t="$CPU_PCT_THRESHOLD" '
+    NR>1 && $1==u { pcpu=$3+0; if (pcpu>=t) printf "%s %d\n", $2, pcpu }')
+
+  CPU_NEW_STATE=""          # carried-forward streaks for allowlisted-not-yet-killed pids
+  CPU_NOTIFY_PID=""; CPU_NOTIFY_PCPU=0; CPU_NOTIFY_NAME=""   # worst non-allowlisted hog
+
+  # Loop in the CURRENT shell (here-doc, not a pipe) so accumulator vars persist.
+  while read -r pid pcpu; do
+    [ -z "$pid" ] && continue
+    comm=$(/bin/ps -o comm= -p "$pid" 2>/dev/null)
+    [ -z "$comm" ] && continue                              # process already gone
+    base=$(printf '%s' "$comm" | /usr/bin/sed 's|.*/||')    # executable basename (robust to spaces)
+
+    # Auto-kill eligible if the basename is allowlisted, OR (for interpreter-
+    # hosted scanners like CodeQL-under-java) the full command matches a
+    # specific signature. Signature match reads the whole command line, so
+    # spaces in paths are irrelevant.
+    kill_name=""
+    if echo "$base" | /usr/bin/grep -qiE "^($CPU_AUTOKILL_PATTERNS)$"; then
+      kill_name="$base"
+    elif [ -n "$CPU_AUTOKILL_CMD_PATTERNS" ] \
+      && /bin/ps -o command= -p "$pid" 2>/dev/null | /usr/bin/grep -qiE "$CPU_AUTOKILL_CMD_PATTERNS"; then
+      kill_name="$base (matched kill-signature)"
+    fi
+
+    if [ -n "$kill_name" ]; then
+      # Known-safe background helper — gate on a per-PID consecutive-hit streak.
+      prev=$(/usr/bin/awk -v p="$pid" '$1==p {print $2; exit}' "$CPU_STATE_FILE" 2>/dev/null)
+      [ -z "$prev" ] && prev=0
+      streak=$((prev + 1))
+      if [ "$streak" -ge "$CPU_SUSTAINED_FIRES" ]; then
+        /bin/kill -9 "$pid" 2>/dev/null
+        notify "yolo-guard: killed CPU runaway" "$kill_name (PID $pid) at ${pcpu}% CPU for $streak checks — safe background process."
+        echo "$(date) CPU_KILL: $kill_name PID $pid at ${pcpu}% CPU (streak=$streak) — kill -9" >> "$LOG"
+      else
+        CPU_NEW_STATE="${CPU_NEW_STATE}${pid} ${streak}
+"
+      fi
+    else
+      # Not auto-killable — remember the single worst one for a notify.
+      if [ "$pcpu" -gt "$CPU_NOTIFY_PCPU" ]; then
+        CPU_NOTIFY_PID="$pid"; CPU_NOTIFY_PCPU="$pcpu"
+        case "$comm" in
+          *.app/*) CPU_NOTIFY_NAME=$(printf '%s' "$comm" | /usr/bin/sed -E 's|.*/([^/]+)\.app/.*|\1|') ;;
+          *)       CPU_NOTIFY_NAME="$base" ;;
+        esac
+      fi
+    fi
+  done <<CPU_HOT_EOF
+$CPU_HOT_LIST
+CPU_HOT_EOF
+
+  # Persist streaks for allowlisted-but-not-yet-killed pids (empties the file if
+  # none are hot, so the streak always requires genuinely-consecutive checks).
+  printf '%s' "$CPU_NEW_STATE" > "$CPU_STATE_FILE"
+
+  # Notify about the worst non-allowlisted hog (debounced; never killed).
+  if [ -n "$CPU_NOTIFY_PID" ]; then
+    LAST_CPU_NOTIFY=0
+    [ -f "$CPU_LAST_FILE" ] && LAST_CPU_NOTIFY=$(/bin/cat "$CPU_LAST_FILE" 2>/dev/null || echo 0)
+    if [ $((now - LAST_CPU_NOTIFY)) -ge "$CPU_NOTIFY_DEBOUNCE_SEC" ]; then
+      {
+        echo "yolo-guard CPU runaway report"
+        echo "Generated: $(date)"
+        echo ""
+        echo "Process: $CPU_NOTIFY_NAME"
+        echo "  PID:    $CPU_NOTIFY_PID"
+        echo "  CPU:    ${CPU_NOTIFY_PCPU}%  (threshold: >=${CPU_PCT_THRESHOLD}%)"
+        echo ""
+        echo "Not auto-killed: only known-safe background helpers are auto-killed"
+        echo "  (allowlist: $CPU_AUTOKILL_PATTERNS)."
+        echo ""
+        echo "Your options (the kit will not auto-kill GUI apps or unknown processes):"
+        echo "  1. Inspect what it's doing: ps -o pid,pcpu,etime,command -p $CPU_NOTIFY_PID"
+        echo "  2. Soft stop:               kill -INT $CPU_NOTIFY_PID"
+        echo "  3. Hard kill:               kill -9 $CPU_NOTIFY_PID  (loses unsaved work in that process)"
+        echo "  4. Full kit health check:   yolo-health"
+        echo ""
+        echo "  Source: $REPO/sim-runaway-guard.sh"
+      } > "$CPU_STATUS_FILE"
+      # terminal-notifier: clicking opens the status file (NOT Script Editor).
+      notify "yolo-guard: $CPU_NOTIFY_NAME ${CPU_NOTIFY_PCPU}% CPU · kill -9 $CPU_NOTIFY_PID" "Sustained CPU runaway (PID $CPU_NOTIFY_PID). Click to open details." "$CPU_STATUS_FILE"
+      echo "$now" > "$CPU_LAST_FILE"
+      echo "$(date) CPU_NOTIFY: $CPU_NOTIFY_NAME PID $CPU_NOTIFY_PID ${CPU_NOTIFY_PCPU}% status=$CPU_STATUS_FILE" >> "$LOG"
+    fi
+  fi
+
   # --- Soft memory-pressure check (notify only, never kill) ---
   # Triggers when free memory < MEM_FREE_PCT_THRESHOLD AND any AI process
   # exceeds MEM_PROC_RSS_MB_THRESHOLD. Debounced via /tmp/yolo-mem-last so we
@@ -115,26 +260,11 @@ if [ -z "$REASON" ]; then
       LAST_NOTIFY=0
       [ -f "$MEM_LAST_FILE" ] && LAST_NOTIFY=$(/bin/cat "$MEM_LAST_FILE" 2>/dev/null || echo 0)
       if [ $((now - LAST_NOTIFY)) -ge "$MEM_NOTIFY_DEBOUNCE_SEC" ]; then
-        # Self-sufficient notification: name + RSS in title, PID + kill cmd in
-        # subtitle (so even if macOS drops the body, the actionable info shows).
-        # Prefer terminal-notifier when available — it registers as a proper
-        # sender, so the body actually renders AND click-to-open works.
-        # osascript fallback cram the kill cmd into the title since macOS
-        # often shows ONLY the title for unregistered shell-script senders.
-        TN=$(command -v terminal-notifier 2>/dev/null || /usr/bin/which terminal-notifier 2>/dev/null)
-        if [ -x "$TN" ]; then
-          "$TN" \
-            -title "yolo-guard: $HOG_NAME at ${HOG_RSS}MB" \
-            -subtitle "PID $HOG_PID  ·  kill -INT $HOG_PID" \
-            -message "Free mem ${FREE_PCT}%. Click to open full status." \
-            -execute "open -t $STATUS_FILE" \
-            -ignoreDnD \
-            >/dev/null 2>&1 || true
-        else
-          # Fallback: osascript. macOS may drop the body for shell-script-
-          # issued notifications, so put critical info in the title.
-          /usr/bin/osascript -e "display notification \"Free mem ${FREE_PCT}%. See $STATUS_FILE\" with title \"yolo-guard: $HOG_NAME ${HOG_RSS}MB · kill -INT $HOG_PID\"" 2>/dev/null || true
-        fi
+        # Self-sufficient notification via the shared notify() helper:
+        # name + RSS + kill cmd in the title (shown even if the body is
+        # dropped), click opens the full status file. notify() prefers
+        # terminal-notifier and falls back to osascript.
+        notify "yolo-guard: $HOG_NAME ${HOG_RSS}MB · kill -INT $HOG_PID" "Free mem ${FREE_PCT}%. Click to open full status." "$STATUS_FILE"
         echo "$(date) NOTIFY: yolo-guard: $HOG_NAME at ${HOG_RSS}MB (PID $HOG_PID) — Free mem ${FREE_PCT}%. To restart: kill -INT $HOG_PID. Details: $STATUS_FILE" >> "$LOG"
         # Dump a human-readable status report the user can find.
         {

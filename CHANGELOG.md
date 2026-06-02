@@ -4,6 +4,36 @@ All notable changes to this project will be documented here. Format loosely foll
 
 ## [Unreleased]
 
+## [0.3.0] — 2026-06-02
+
+Closes a real gap exposed by two back-to-back freezes the guard did NOT catch. On 2026-06-01 Antigravity's securecoder `semgrep-core-proprietary` scanner pegged a full core at 100% CPU on a scratch dir; on 2026-06-02 (post-reboot storm) Antigravity's `github.vscode-codeql` scanner did the same as a generic `java` process. Both were invisible to the existing guard: the sim branch only fires on >50 simruntime procs, and the memory branch keys on RSS, not CPU. Neither is a simulator, neither is a memory hog — so nothing fired, and the user had to ping an agent to kill them by hand.
+
+### Added
+
+- **CPU-runaway guard for non-simulator processes** (`sim-runaway-guard.sh`). Every 60s it evaluates *every* user-owned process at/above `YOLO_CPU_PCT_THRESHOLD` (default 150% CPU) — not just the #1 hog, so a runaway hiding behind a busy editor is still caught. Safe-by-default:
+  - **Auto-kills** a process only if it is a known-safe, stateless background helper — either its executable basename matches `YOLO_CPU_AUTOKILL_PATTERNS` (default: `semgrep-core-proprietary|semgrep-core|crashpad_handler|crash_handler`) **or** its full command line matches `YOLO_CPU_AUTOKILL_CMD_PATTERNS` (default: `com.semmle.cli2.CodeQL`, for interpreter-hosted scanners whose basename — `java` — is too generic to allowlist safely) — **and** it has stayed hot for `YOLO_CPU_SUSTAINED_FIRES` (default 2) consecutive checks, so a brief compile/scan spike is never killed. Streaks are tracked per-PID.
+  - **Everything else** over threshold — editors, dev servers, anything unknown — is **notify-only**, consistent with the existing "never auto-kill GUI apps" hard rule.
+  - Process names are resolved from `ps -o comm=` (whole-path string, robust to executable paths containing spaces); the basename allowlist is anchored to the executable, never a path/arg substring.
+
+### Fixed
+
+- **Notifications opened a blank Script Editor instead of being actionable** (the 2026-06-02 "what the fuck is this?" report). `osascript -e "display notification"` is owned by Script Editor, so clicking such a notification launches an empty Script Editor window. The shared `notify()` helper now prefers `terminal-notifier` (registers as a proper sender; click runs `-execute "open -t <status-file>"`) and only falls back to osascript when terminal-notifier is absent. The CPU branch now passes its status file through so a click opens the actionable report.
+
+### Changed
+
+- **Consolidated notification logic.** The memory branch's inline terminal-notifier/osascript block was duplicated logic; it now calls the unified `notify()` helper (which gained an optional third `OPEN_FILE` arg). One notification path, not two.
+
+### Verified by
+
+- `sh -n` clean.
+- `notify()` extracted and run against a fake `terminal-notifier` on PATH → confirmed it invokes `-execute "open -t …"` (click opens the status file, not Script Editor).
+- End-to-end test of the extracted CPU branch against **real CPU-burning spinners** (symlinks to `/usr/bin/yes` — copies of signed system binaries are killed by codesign, symlinks are not; `python3` for the signature case): streak gate holds at check 1 (streak=1, nothing killed), then at check 2 (streak=2) the basename case (`semgrep-core`) and the signature case (CodeQL) are both killed while a non-allowlisted `myeditor` survives. The same run also auto-killed a **real** Antigravity CodeQL `java` process (PID 11297, 72% CPU) that happened to be live — proof on the actual real-world culprit.
+- Live LaunchAgent ran the edited script across the incident with zero shell errors; `yolo-health` 12/12.
+
+### Surfaced by
+
+User pushback ("are you sure?" — twice) plus a screenshot of the useless osascript notification opening Script Editor, during a real reboot-storm freeze. Lessons: (1) a guard scoped to one failure mode (simulators) silently misses adjacent ones (CPU-bound scanners); (2) `osascript` notifications are not clickable-actionable and must not be the delivery path; (3) test spinners must use signed binaries — copied system binaries die to codesign and produce false-positive "kills".
+
 ## [0.2.4] — 2026-05-27
 
 Critical fix for a self-heal infinite loop introduced by the v0.2.0 portability refactor. Affected every install since v0.2.0: the LaunchAgent's self-heal check tested `[ -L plist ]` (expecting a symlink) but v0.2.0 changed install.sh to RENDER the plist (substitute `{{HOME}}` placeholder), making it a regular file. The `-L` test failed every 60s → `install.sh` re-ran → `launchctl bootout` + `bootstrap` → agent state thrashed → `yolo-health` flapped between 12/12 and 10/12.
@@ -135,7 +165,8 @@ First public release. Hardened from the 2026-05-26 incident (load average 307, 2
 - Wrapper test suite: 5/5 passing.
 - `yolo-health`: 12/12 passing at v0.1.0 tag.
 
-[Unreleased]: https://github.com/IgorGanapolsky/mac-yolo-safeguards/compare/v0.2.4...HEAD
+[Unreleased]: https://github.com/IgorGanapolsky/mac-yolo-safeguards/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/IgorGanapolsky/mac-yolo-safeguards/releases/tag/v0.3.0
 [0.2.4]: https://github.com/IgorGanapolsky/mac-yolo-safeguards/releases/tag/v0.2.4
 [0.2.3]: https://github.com/IgorGanapolsky/mac-yolo-safeguards/releases/tag/v0.2.3
 [0.2.2]: https://github.com/IgorGanapolsky/mac-yolo-safeguards/releases/tag/v0.2.2
