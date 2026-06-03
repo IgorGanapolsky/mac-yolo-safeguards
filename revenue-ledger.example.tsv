@@ -1,0 +1,6 @@
+date_paid	buyer_label	buyer_segment	source	offer	gross_usd	stripe_fee_usd	refund_usd	tax_reserve_pct	status	proof_note
+2026-06-01	example-agency-1	agency	direct-outreach	Partner Pilot	3000.00	87.30	0.00	0.35	cleared	example only - not real revenue
+2026-06-06	example-agency-2	agency	referral	Partner Pilot	3000.00	87.30	0.00	0.35	cleared	example only - not real revenue
+2026-06-12	example-agency-3	agency	direct-outreach	Partner Pilot	3000.00	87.30	0.00	0.35	cleared	example only - not real revenue
+2026-06-18	example-agency-4	agency	calcom	Partner Pilot	3000.00	87.30	0.00	0.35	cleared	example only - not real revenue
+2026-06-24	example-agency-5	agency	direct-outreach	Partner Pilot	3000.00	87.30	0.00	0.35	cleared	example only - not real revenue

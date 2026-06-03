@@ -1,0 +1,5 @@
+prospect_label	segment	source	agent_stack	repeated_failure	business_cost	budget_owner	workflow_context	needs_repeatability	last_touch	status	notes
+example-agency-owner	agency	direct-outreach	yes	yes	yes	yes	yes	yes	2026-06-02	new	example only - route to partner pilot
+example-founder	founder	referral	yes	yes	yes	yes	no	no	2026-06-02	new	example only - route to hardening sprint
+example-devteam	dev-team	calcom	yes	yes	no	no	yes	no	2026-06-02	new	example only - route to diagnostic
+example-casual-github	casual	github	yes	no	no	no	no	no	2026-06-02	new	example only - send free repo

@@ -1,4 +1,7 @@
 #!/bin/sh
+# Add Homebrew to PATH (needed when running under launchd)
+export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
+
 # Smart simulator runaway guard — runs every 60s via LaunchAgent.
 #
 # Behavior:
@@ -44,16 +47,25 @@ notify() {
   # so it's only a last-resort fallback when terminal-notifier is absent.
   local TITLE="$1"; local MSG="$2"; local OPEN_FILE="$3"
   local TN
-  TN=$(command -v terminal-notifier 2>/dev/null || /usr/bin/which terminal-notifier 2>/dev/null)
+  TN=$(command -v terminal-notifier 2>/dev/null || /usr/bin/which terminal-notifier 2>/dev/null || true)
+  if [ -z "$TN" ] || [ ! -x "$TN" ]; then
+    if [ -x /opt/homebrew/bin/terminal-notifier ]; then
+      TN=/opt/homebrew/bin/terminal-notifier
+    elif [ -x /usr/local/bin/terminal-notifier ]; then
+      TN=/usr/local/bin/terminal-notifier
+    fi
+  fi
   if [ -n "$TN" ] && [ -x "$TN" ]; then
     if [ -n "$OPEN_FILE" ]; then
-      "$TN" -title "$TITLE" -message "$MSG" -execute "open -t $OPEN_FILE" -ignoreDnD >/dev/null 2>&1 || true
+      "$TN" -title "$TITLE" -message "$MSG" -execute "/usr/bin/open -a TextEdit $OPEN_FILE" -ignoreDnD >/dev/null 2>&1 || true
     else
       "$TN" -title "$TITLE" -message "$MSG" -ignoreDnD >/dev/null 2>&1 || true
     fi
   else
     # Fallback: osascript. Cram the actionable bit into the title since macOS
-    # often shows ONLY the title for unregistered shell-script senders.
+    # often shows ONLY the title for unregistered shell-script senders. Do not
+    # rely on clicks here; osascript notifications open Script Editor.
+    [ -n "$OPEN_FILE" ] && MSG="$MSG Details: $OPEN_FILE"
     /usr/bin/osascript -e "display notification \"$MSG\" with title \"$TITLE\"" 2>/dev/null || true
   fi
   echo "$(date) NOTIFY: $TITLE — $MSG" >> "$LOG"
@@ -218,7 +230,8 @@ CPU_HOT_EOF
         echo "  Source: $REPO/sim-runaway-guard.sh"
       } > "$CPU_STATUS_FILE"
       # terminal-notifier: clicking opens the status file (NOT Script Editor).
-      notify "yolo-guard: $CPU_NOTIFY_NAME ${CPU_NOTIFY_PCPU}% CPU · kill -9 $CPU_NOTIFY_PID" "Sustained CPU runaway (PID $CPU_NOTIFY_PID). Click to open details." "$CPU_STATUS_FILE"
+      # osascript fallback is not click-actionable, so the path is in the body.
+      notify "yolo-guard: $CPU_NOTIFY_NAME ${CPU_NOTIFY_PCPU}% CPU · kill -9 $CPU_NOTIFY_PID" "Sustained CPU runaway (PID $CPU_NOTIFY_PID). Details: $CPU_STATUS_FILE" "$CPU_STATUS_FILE"
       echo "$now" > "$CPU_LAST_FILE"
       echo "$(date) CPU_NOTIFY: $CPU_NOTIFY_NAME PID $CPU_NOTIFY_PID ${CPU_NOTIFY_PCPU}% status=$CPU_STATUS_FILE" >> "$LOG"
     fi
@@ -262,9 +275,9 @@ CPU_HOT_EOF
       if [ $((now - LAST_NOTIFY)) -ge "$MEM_NOTIFY_DEBOUNCE_SEC" ]; then
         # Self-sufficient notification via the shared notify() helper:
         # name + RSS + kill cmd in the title (shown even if the body is
-        # dropped), click opens the full status file. notify() prefers
-        # terminal-notifier and falls back to osascript.
-        notify "yolo-guard: $HOG_NAME ${HOG_RSS}MB · kill -INT $HOG_PID" "Free mem ${FREE_PCT}%. Click to open full status." "$STATUS_FILE"
+        # dropped), status path in the body. notify() prefers terminal-notifier
+        # and falls back to non-click-actionable osascript.
+        notify "yolo-guard: $HOG_NAME ${HOG_RSS}MB · kill -INT $HOG_PID" "Free mem ${FREE_PCT}%. Details: $STATUS_FILE" "$STATUS_FILE"
         echo "$(date) NOTIFY: yolo-guard: $HOG_NAME at ${HOG_RSS}MB (PID $HOG_PID) — Free mem ${FREE_PCT}%. To restart: kill -INT $HOG_PID. Details: $STATUS_FILE" >> "$LOG"
         # Dump a human-readable status report the user can find.
         {
@@ -287,6 +300,7 @@ CPU_HOT_EOF
           echo "  for those retries. ThumbGate captures one thumbs-down → blocks that exact"
           echo "  mistake on every future call. PreToolUse gates, not budget limits."
           echo "  👉 https://thumbgate.ai/?utm_source=mac-yolo-safeguards&utm_medium=status-file"
+          echo "  Team hardening path: https://github.com/IgorGanapolsky/mac-yolo-safeguards/blob/main/AI-AGENT-HARDENING.md"
           echo ""
           echo "All other AI processes >200 MB right now:"
           /bin/ps -axo pid,rss,command -m | /usr/bin/awk '

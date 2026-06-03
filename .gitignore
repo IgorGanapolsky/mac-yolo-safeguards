@@ -6,3 +6,72 @@
 
 # Internal sales / ops working files — not part of the public OSS kit
 business_os/
+
+# Private revenue ledgers. Keep real buyer/payment records out of git.
+revenue-ledger*.tsv
+!revenue-ledger.example.tsv
+
+# Private prospect pipelines. Keep real prospect/contact records out of git.
+prospects*.tsv
+!prospects.example.tsv
+
+# Private outreach drafts. Keep real prospect-specific sales notes out of git.
+outreach*.md
+
+# Private contact sheets. Keep prospect contact paths out of git.
+contacts*.tsv
+
+# Private send queues. Keep prospect-specific send state out of git.
+send-queue*.tsv
+
+# Private generated action links for sending outreach.
+outreach-actions*.tsv
+
+# Private generated manual send plans. Keep prospect-specific action links out of git.
+send-plan*.md
+
+# Private proposal and payment handoff plans.
+proposal-plan*.md
+proposal-plan-stale-audit*.md
+
+# Private Stripe product/price mapping. Keep account object IDs out of public git.
+stripe-offer*.tsv
+stripe-live-updates*.tsv
+
+# Private payment readiness reports.
+payment-readiness*.md
+
+# Private Stripe setup plans.
+stripe-setup-plan*.md
+stripe-readonly-discovery*.md
+stripe-readonly-candidates*.tsv
+
+# Private close target plans.
+close-target-plan*.md
+
+# Private revenue diagnosis reports.
+revenue-goal-audit*.md
+revenue-diagnosis*.md
+revenue-action-board*.md
+publication-readiness*.md
+public-funnel-safety-scan*.md
+github-issue-template-check*.md
+public-command-reference-check*.md
+public-local-link-check*.md
+public-revenue-publish-plan*.md
+
+# Private pipeline prioritization reports.
+pipeline-priority*.md
+
+# Private pipeline integrity reports.
+pipeline-integrity*.md
+
+# Private outreach state audits.
+send-confirmation-audit*.md
+
+# Private market/revenue strategy research.
+market-research*.md
+
+# Private post-send pipeline status. Keep real prospect outcomes out of git.
+pipeline-status*.tsv
+!pipeline-status.example.tsv

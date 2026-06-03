@@ -4,6 +4,22 @@ All notable changes to this project will be documented here. Format loosely foll
 
 ## [Unreleased]
 
+### Changed
+
+- Replaced the low-ACV "$99 onboarding" funnel with a paid AI-agent reliability offer ladder: $499 diagnostic, $1,500 hardening sprint, and $3,000 partner pilot. Added `AI-AGENT-HARDENING.md` and `REVENUE-OPERATING-PLAN.md` so the public repo points qualified team and agency buyers toward offers that can plausibly support the $300/day after-tax revenue target.
+- Added `SALES-CLOSE-KIT.md` with qualification scoring, discovery questions, offer scripts, proposal language, payment workflow, delivery checklists, objections, and close evidence so paid work is not counted until Stripe payment clears.
+- Added `tools/revenue-net.js` plus `revenue-ledger.example.tsv` to make the $300/day after-tax target mechanically verifiable from cleared payments, fees, refunds, and tax reserve. Real `revenue-ledger*.tsv` files are gitignored so private buyer/payment records do not land in the public repo.
+- Added `tools/prospect-score.js` plus `prospects.example.tsv` to route outreach prospects to free, diagnostic, sprint, or partner-pilot offers using the same 10-point qualification model as `SALES-CLOSE-KIT.md`. Real `prospects*.tsv` files are gitignored.
+- Added `tools/outreach-queue.js` to join scored prospects, private contact sheets, and private outreach drafts into ignored `send-queue*.tsv` files. This makes the send-ready state mechanically checkable without committing prospect-specific contact data.
+- Added `tools/outreach-actions.js` to turn ignored send queues into ignored manual action lists with encoded `mailto:` links and booking-form URLs. The tool prepares outreach without sending external messages.
+- Added `tools/send-plan.js` to combine manual action links, draft text, Stripe readiness annotations, optional Stripe-status filtering, and exact post-send pipeline update commands into ignored private `send-plan*.md` files.
+- Added `tools/pipeline-init.js` to initialize ignored private pipeline trackers from ready send queues before manual outreach.
+- Added `tools/pipeline-update.js` to move private pipeline rows through ready, sent, replied, booked, proposed, paid, and lost without hand-editing TSVs.
+- Added `tools/proposal-plan.js` to generate ignored private proposal/payment handoffs with Stripe price readiness, Stripe checklist, pipeline commands, and revenue-ledger row templates. Private `stripe-offer*.tsv` maps are ignored.
+- Added `tools/payment-readiness.js` to summarize which open private pipeline dollars have ready Stripe prices versus missing payment setup.
+- Added `tools/pipeline-summary.js` plus `pipeline-status.example.tsv` for post-send stage tracking across ready, sent, replied, booked, proposed, paid, and lost. The summary tool accepts one or more pipeline trackers. Real `pipeline-status*.tsv` files are gitignored and paid pipeline rows still need revenue-ledger verification.
+- Fixed yolo notification click behavior for LaunchAgents with a minimal `PATH`: the guard now checks Homebrew's absolute `terminal-notifier` paths and opens status files with TextEdit. The osascript fallback no longer asks the user to click a notification that macOS routes to a blank Script Editor window.
+
 ## [0.3.0] — 2026-06-02
 
 Closes a real gap exposed by two back-to-back freezes the guard did NOT catch. On 2026-06-01 Antigravity's securecoder `semgrep-core-proprietary` scanner pegged a full core at 100% CPU on a scratch dir; on 2026-06-02 (post-reboot storm) Antigravity's `github.vscode-codeql` scanner did the same as a generic `java` process. Both were invisible to the existing guard: the sim branch only fires on >50 simruntime procs, and the memory branch keys on RSS, not CPU. Neither is a simulator, neither is a memory hog — so nothing fired, and the user had to ping an agent to kill them by hand.

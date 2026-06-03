@@ -98,7 +98,7 @@ Idempotent. Symlinks. No global installs. Uninstall = `rm` the symlinks.
 
 - ⭐ Star the repo — that's the strongest signal that more dev tooling like this should exist.
 - 💬 Open an issue describing your incident — it helps shape the next threshold.
-- 🛠️ Want help on your Mac? Open an issue tagged `help-wanted` with your setup details — I'll respond within 24h.
+- Running agents for a team or clients? See [AI Agent Reliability Hardening](./AI-AGENT-HARDENING.md) for the paid diagnostic, sprint, and partner pilot path.
 
 _All data above is reproducible from this repo. No telemetry was collected._
 
@@ -106,4 +106,4 @@ _All data above is reproducible from this repo. No telemetry was collected._
 
 ## What I'd want next
 
-This kit prevented the Mac freeze. It did **not** prevent the agent from spending tokens retrying the same broken approach over and over before I caught it — and that's the more expensive failure mode month-over-month. Working on that separately at [thumbgate.ai](https://thumbgate.ai/?utm_source=mac-yolo-safeguards&utm_medium=case-study&utm_campaign=cross_promo) — thumbs-down once, the mistake is blocked on every future call. MCP-compatible, MIT, same author.
+This kit prevented the Mac freeze. It did **not** prevent the agent from spending tokens retrying the same broken approach over and over before I caught it — and that's the more expensive failure mode month-over-month. Working on that separately at [thumbgate.ai](https://thumbgate.ai/?utm_source=mac-yolo-safeguards&utm_medium=case-study&utm_campaign=cross_promo) — thumbs-down once, the mistake is blocked on every future call. MCP-compatible, MIT, same author. For teams that need this wired into a real workflow, the paid path is [AI Agent Reliability Hardening](./AI-AGENT-HARDENING.md).

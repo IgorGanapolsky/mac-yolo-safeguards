@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Paid triage call
+    url: https://cal.com/igor-g-kvqxfo/30min
+    about: Book a private 20-minute triage for diagnostic, sprint, or partner pilot fit.
+  - name: Private email
+    url: mailto:iganapolsky@gmail.com
+    about: Use email for private workflow details, client names, logs, or payment questions.
