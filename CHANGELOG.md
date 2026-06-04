@@ -4,6 +4,14 @@ All notable changes to this project will be documented here. Format loosely foll
 
 ## [Unreleased]
 
+### Added
+
+- **Notify-only orphaned-CDP-Chrome detector** (`sim-runaway-guard.sh`). Closes a gap exposed on 2026-06-04: the Mac mini froze (memory thrash) because a browser-automation session launched Chrome with `--remote-debugging-port=9222 --user-data-dir=/tmp/chrome_cdp_profile_<epoch>` and the launcher then exited, leaving the browser running, reparented to `launchd` (PID 1) — one leaked instance is ~1 main proc + ~22 helper children holding gigabytes. The shipped guard never warned (the memory branch keys on AI-agent process names like `agy|claude|cursor`, not Chrome). The new branch:
+  - **Counts distinct orphaned instances** by unique `/tmp/chrome_cdp_profile_<n>` profile dirs — measured from MAIN browser procs (command contains `chrome_cdp_profile` **and not** `--type=`) whose `ppid==1` — never raw process count (one browser is ~23 procs; raw count is misleading). RSS is summed across all procs (main + helpers) sharing each orphaned profile so the reported footprint is the true memory held.
+  - **Notifies only** (debounced once per ~30 min via `/tmp/yolo-cdp-last`, configurable with `YOLO_CDP_NOTIFY_DEBOUNCE_SEC`), gated on the same low-free-memory condition (<15% free) as the existing soft memory-pressure check so it only fires when the leak actually matters. The notification states the instance count and approximate GB and that the kit does not kill them.
+  - **Never kills, quits, or signals Chrome** — consistent with the browser hard rule. Clearing the leak is the user's call.
+- **`yolo-health` informational line** reporting the count of orphaned CDP Chrome instances, purely informational and consistent with the existing "kit does NOT manage general Mac memory" framing.
+
 ### Changed
 
 - Replaced the low-ACV "$99 onboarding" funnel with a paid AI-agent reliability offer ladder: $499 diagnostic, $1,500 hardening sprint, and $3,000 partner pilot. Added `AI-AGENT-HARDENING.md` and `REVENUE-OPERATING-PLAN.md` so the public repo points qualified team and agency buyers toward offers that can plausibly support the $300/day after-tax revenue target.

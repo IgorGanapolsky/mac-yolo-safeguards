@@ -49,8 +49,9 @@ All four files install as **symlinks** pointing back to this repo so edits land 
 Scope is deliberately narrow. The kit does **not**:
 
 - **Manage general Mac memory pressure.** If you have many editors + AI tools open and CleanMyMac yells about RAM, that's expected behavior — not a runaway. The kit detects runaway *iOS Simulator spawning*, not "your editor uses 400 MB".
-- **Kill, quit, or otherwise touch GUI apps** (Antigravity, Cursor, Xcode, Ghostty, Android Studio, browsers, IDEs). Ever. Hard rule. Foreground apps have unsaved work the user cares about more than they care about the freeze. The escalation path is a critical macOS alert, not a kill signal.
+- **Kill, quit, or otherwise touch GUI apps** (Antigravity, Cursor, Xcode, Ghostty, Android Studio, browsers, IDEs). Ever. Hard rule. Foreground apps have unsaved work the user cares about more than they care about the freeze. The escalation path is a critical macOS alert, not a kill signal. This includes the orphaned-CDP-Chrome check below: it *notifies* about leaked browser-automation Chrome but never kills, quits, or signals it.
 - **Stop the agent itself from being memory-hungry.** A running `agy` / `claude` / `cursor-agent` process consuming 1–2 GB is normal AI-agent behavior. As of v0.1.1 the guard *notifies* (once per 30 min, debounced) when free memory drops below 15% and an AI process exceeds 1.5 GB RSS — but never kills it. Restarting the agent is your call.
+- **Kill orphaned browser-automation Chrome.** A browser-automation session that launches Chrome with `--remote-debugging-port=… --user-data-dir=/tmp/chrome_cdp_profile_<epoch>` and then exits leaves that Chrome running, reparented to `launchd` (PID 1) — one leaked instance is ~23 processes holding gigabytes (the 2026-06-04 Mac mini freeze). The guard *notifies* (once per 30 min, debounced, only when free memory is already below 15%) about the count of distinct orphaned CDP Chrome instances and their footprint — but, consistent with the browser hard rule above, **never kills, quits, or signals them**. Clearing the leak is your call.
 - **Phone home.** No telemetry. See [`§ Telemetry and privacy`](#telemetry-and-privacy).
 - **Work on Linux or Windows.** macOS-only. The LaunchAgent, `xcrun simctl`, and `simruntime` process names are all Apple-specific.
 
@@ -91,6 +92,7 @@ The LaunchAgent reads these from the environment when `sim-runaway-guard.sh` run
 | `YOLO_MEM_FREE_PCT_THRESHOLD` | `15` | Free-memory % below which the memory-pressure check is armed. |
 | `YOLO_MEM_PROC_RSS_MB_THRESHOLD` | `1500` | Single-process RSS (MB) that counts as "memory hog" for notify. |
 | `YOLO_MEM_NOTIFY_DEBOUNCE_SEC` | `1800` (30 min) | How long to wait between memory-pressure notifications. |
+| `YOLO_CDP_NOTIFY_DEBOUNCE_SEC` | `1800` (30 min) | How long to wait between orphaned-CDP-Chrome notifications. |
 
 ## Wrapper exit codes
 

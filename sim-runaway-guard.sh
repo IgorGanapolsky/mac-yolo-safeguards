@@ -324,6 +324,63 @@ CPU_HOT_EOF
       fi
     fi
   fi
+
+  # --- Soft orphaned-CDP-Chrome check (notify only, never kill) ---
+  # On 2026-06-04 the Mac mini froze (memory thrash) because a browser-automation
+  # session launched Chrome with `--remote-debugging-port=9222
+  # --user-data-dir=/tmp/chrome_cdp_profile_<epoch>`, then the launcher exited.
+  # The browser kept running, reparented to launchd (PID 1), holding gigabytes —
+  # one leaked instance is ~1 main proc + ~22 helper children. The existing
+  # memory branch keys on AI-agent process names (agy|claude|cursor|…), so it
+  # never warned. This branch closes that gap: it COUNTS distinct orphaned CDP
+  # instances and NOTIFIES. Consistent with the browser hard rule, it never
+  # kills, quits, or signals Chrome — clearing the leak is the user's call.
+  #
+  # An "instance" is one distinct `/tmp/chrome_cdp_profile_<n>` profile dir, NOT
+  # a raw process count (one browser is ~23 procs; raw count is misleading). We
+  # only count MAIN browser procs — command contains `chrome_cdp_profile` AND
+  # NOT `--type=` (helper procs always carry `--type=`) — whose ppid==1 (the
+  # launcher has exited, so the browser is orphaned to launchd). RSS is summed
+  # across ALL procs (main + helpers) sharing each orphaned profile so the
+  # reported footprint reflects the true memory held. Gated on the SAME low-free-
+  # memory condition as the soft memory check above (FREE_PCT already computed),
+  # so it only fires when the leak actually matters. Debounced via the same
+  # 30-min mechanism (its own /tmp/yolo-cdp-last) so we don't spam every 60s.
+  CDP_NOTIFY_DEBOUNCE_SEC=${YOLO_CDP_NOTIFY_DEBOUNCE_SEC:-1800}
+  CDP_LAST_FILE=${YOLO_CDP_LAST_FILE:-/tmp/yolo-cdp-last}
+
+  if [ "$FREE_PCT" -lt "$MEM_FREE_PCT_THRESHOLD" ]; then
+    # Distinct orphaned profile dirs: pid/ppid/command of every process, keep the
+    # MAIN browser procs (chrome_cdp_profile, NOT --type=) whose ppid==1, then
+    # extract+dedupe the /tmp/chrome_cdp_profile_<n> dir from each command line.
+    CDP_PROFILES=$(/bin/ps -axo pid,ppid,command | /usr/bin/awk '
+      NR>1 && $2==1 && $0 ~ /chrome_cdp_profile/ && $0 !~ /--type=/ {
+        if (match($0, /\/tmp\/chrome_cdp_profile_[0-9]+/))
+          print substr($0, RSTART, RLENGTH)
+      }' | /usr/bin/sort -u)
+    CDP_COUNT=$(printf '%s' "$CDP_PROFILES" | /usr/bin/grep -c . )
+    [ -z "$CDP_COUNT" ] && CDP_COUNT=0
+
+    if [ "$CDP_COUNT" -gt 0 ]; then
+      # Sum RSS (MB) across every proc — main and helper — whose command mentions
+      # one of the orphaned profile dirs, so the figure is the true held memory.
+      CDP_RSS_MB=$(printf '%s\n' "$CDP_PROFILES" | /usr/bin/awk '{print}' | {
+        PROFILE_RE=$(/usr/bin/tr '\n' '|' | /usr/bin/sed 's/|$//' | /usr/bin/sed 's/\//\\\//g')
+        /bin/ps -axo rss,command | /usr/bin/awk -v re="$PROFILE_RE" '
+          NR>1 && re!="" && $0 ~ re { mb += $1/1024 } END { printf "%.1f", mb+0 }'
+      })
+      CDP_GB=$(/usr/bin/awk -v m="$CDP_RSS_MB" 'BEGIN { printf "%.1f", m/1024 }')
+      LAST_CDP_NOTIFY=0
+      [ -f "$CDP_LAST_FILE" ] && LAST_CDP_NOTIFY=$(/bin/cat "$CDP_LAST_FILE" 2>/dev/null || echo 0)
+      if [ $((now - LAST_CDP_NOTIFY)) -ge "$CDP_NOTIFY_DEBOUNCE_SEC" ]; then
+        # Notify only — name the count + footprint in the title (shown even if the
+        # body is dropped). The kit does NOT kill browsers; the user clears them.
+        notify "yolo-guard: $CDP_COUNT orphaned CDP Chrome instance(s) · ~${CDP_GB} GB" "Free mem ${FREE_PCT}%. Likely leaked by an ended browser-automation session. The kit does not kill them — you can clear them." ""
+        echo "$(date) CDP_NOTIFY: free=${FREE_PCT}% orphaned_instances=$CDP_COUNT rss=${CDP_RSS_MB}MB (~${CDP_GB}GB) — notify only, not killed" >> "$LOG"
+        echo "$now" > "$CDP_LAST_FILE"
+      fi
+    fi
+  fi
   exit 0
 fi
 
