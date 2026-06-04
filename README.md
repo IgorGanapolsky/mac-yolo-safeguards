@@ -13,6 +13,22 @@ Safety net for running AI coding agents (Antigravity `agy`, Claude Code, Cursor,
 
 > **TL;DR** — On 2026-05-26 my Mac hit load average **307** because an AI agent kept booting iOS Simulators in a loop. This repo is the four-piece kit that stopped it: a wrapper, a LaunchAgent, a plist, and a 12-point health check. MIT, no telemetry, symlinks-only install. Full incident write-up: [`CASE-STUDY.md`](./CASE-STUDY.md).
 
+**Paid reliability help:** [Book 20-min triage](https://cal.com/igor-g-kvqxfo/30min) | [Partner Pilot](./PARTNER-PILOT.md) | [Public-safe paid inquiry](https://github.com/IgorGanapolsky/mac-yolo-safeguards/issues/new?template=paid-hardening-inquiry.yml)
+
+## For Teams And Partners
+
+If you only need the free Mac guard, install it below.
+
+If you run agents for a team or clients and have a repeated failure that costs hours, tokens, delivery risk, or client trust, start with [AI Agent Reliability Hardening](./AI-AGENT-HARDENING.md):
+
+| Path | Best for | Price |
+|---|---|---:|
+| Diagnostic | One failure pattern needs a root-cause readout before implementation. | `$499` |
+| Hardening sprint | One repeated workflow failure needs guardrails and proof. | `$1,500` |
+| [Partner Pilot](./PARTNER-PILOT.md) | Agencies or consultants need a reusable client-facing reliability package. | `$3,000` |
+
+Private workflow details: [book a 20-minute triage](https://cal.com/igor-g-kvqxfo/30min) or email [iganapolsky@gmail.com](mailto:iganapolsky@gmail.com). Public-safe intake: [open a paid hardening inquiry](https://github.com/IgorGanapolsky/mac-yolo-safeguards/issues/new?template=paid-hardening-inquiry.yml).
+
 ## Background
 
 On 2026-05-26 an iPhone 17 simulator was auto-booted (first by macOS window restoration, later by Antigravity's `agy` agent running with `--dangerously-skip-permissions`) and slammed the Mac to load average **307** with 256+ simulator runtime processes. This repo holds the safeguards that prevent recurrence.
@@ -33,8 +49,9 @@ All four files install as **symlinks** pointing back to this repo so edits land 
 Scope is deliberately narrow. The kit does **not**:
 
 - **Manage general Mac memory pressure.** If you have many editors + AI tools open and CleanMyMac yells about RAM, that's expected behavior — not a runaway. The kit detects runaway *iOS Simulator spawning*, not "your editor uses 400 MB".
-- **Kill, quit, or otherwise touch GUI apps** (Antigravity, Cursor, Xcode, Ghostty, Android Studio, browsers, IDEs). Ever. Hard rule. Foreground apps have unsaved work the user cares about more than they care about the freeze. The escalation path is a critical macOS alert, not a kill signal.
+- **Kill, quit, or otherwise touch GUI apps** (Antigravity, Cursor, Xcode, Ghostty, Android Studio, browsers, IDEs). Ever. Hard rule. Foreground apps have unsaved work the user cares about more than they care about the freeze. The escalation path is a critical macOS alert, not a kill signal. This includes the orphaned-CDP-Chrome check below: it *notifies* about leaked browser-automation Chrome but never kills, quits, or signals it.
 - **Stop the agent itself from being memory-hungry.** A running `agy` / `claude` / `cursor-agent` process consuming 1–2 GB is normal AI-agent behavior. As of v0.1.1 the guard *notifies* (once per 30 min, debounced) when free memory drops below 15% and an AI process exceeds 1.5 GB RSS — but never kills it. Restarting the agent is your call.
+- **Kill orphaned browser-automation Chrome.** A browser-automation session that launches Chrome with `--remote-debugging-port=… --user-data-dir=/tmp/chrome_cdp_profile_<epoch>` and then exits leaves that Chrome running, reparented to `launchd` (PID 1) — one leaked instance is ~23 processes holding gigabytes (the 2026-06-04 Mac mini freeze). The guard *notifies* (once per 30 min, debounced, only when free memory is already below 15%) about the count of distinct orphaned CDP Chrome instances and their footprint — but, consistent with the browser hard rule above, **never kills, quits, or signals them**. Clearing the leak is your call.
 - **Phone home.** No telemetry. See [`§ Telemetry and privacy`](#telemetry-and-privacy).
 - **Work on Linux or Windows.** macOS-only. The LaunchAgent, `xcrun simctl`, and `simruntime` process names are all Apple-specific.
 
@@ -75,6 +92,7 @@ The LaunchAgent reads these from the environment when `sim-runaway-guard.sh` run
 | `YOLO_MEM_FREE_PCT_THRESHOLD` | `15` | Free-memory % below which the memory-pressure check is armed. |
 | `YOLO_MEM_PROC_RSS_MB_THRESHOLD` | `1500` | Single-process RSS (MB) that counts as "memory hog" for notify. |
 | `YOLO_MEM_NOTIFY_DEBOUNCE_SEC` | `1800` (30 min) | How long to wait between memory-pressure notifications. |
+| `YOLO_CDP_NOTIFY_DEBOUNCE_SEC` | `1800` (30 min) | How long to wait between orphaned-CDP-Chrome notifications. |
 
 ## Wrapper exit codes
 
@@ -126,28 +144,29 @@ rm -f /tmp/yolo-test-$$.lock /tmp/yolo-test-$$.log
 
 Load average **307**, 256+ `simruntime` processes, hard-reboot territory. Full timeline + 12/12 health-check output: [`CASE-STUDY.md`](./CASE-STUDY.md).
 
-## Support & Paid Onboarding
+## Support & Paid Hardening
 
 This kit is fully open-source (MIT-licensed), free to use, and has **zero telemetry**.
 
 If the safeguards saved your Mac from a freeze:
 *   ⭐ **Star the repo** — it is the strongest signal that more system-level AI safety tooling should exist.
-*   💬 **Open an issue** with your incident details — this directly helps us tune the next CPU and memory threshold defaults.
+*   💬 **Open a public incident issue** with non-sensitive details — this directly helps us tune the next CPU and memory threshold defaults.
 
 ---
 
-### 🛡️ Premium Service: "Hardened Mac AI Workstation"
-If you are running autonomous AI coding agents (Claude Code, Cursor YOLO, Codex, etc.) and want a professionally secured workstation without tuning config files yourself, you can hire me to install and customize this safety net.
+### For teams running AI agents in production workflows
 
-*   **What you get:**
-    *   **30-minute Zoom onboarding:** White-glove installation of the wrappers and LaunchAgent.
-    *   **Custom Tuning:** We baseline your specific macOS hardware, cores, and memory capacity to tailor the CPU limits, stuck-loop timeouts, and runaway threshold parameters.
-    *   **Safety Drill:** We trigger a mocked process runaway on your machine to verify the safeguards fire and protect your system.
-    *   **1-Week of Dedicated Tuning:** Ongoing post-install threshold adjustments via email/Slack.
-*   **Price:** **$99 flat** (one-shot).
-*   **100% Money-Back Guarantee:** If you are not satisfied or your Mac freezes within 30 days of setup, we refund the full amount instantly—no questions asked.
+One Mac freeze is annoying. The expensive problem is **repeated** agent behavior — runaway loops, retry storms, and forgotten autonomous sessions that quietly burn real money. Reported in the wild: an 11,000-turn session left running overnight, a single experiment that cost ~$6,000, a `claude` process pinning a CPU core for 9 hours. The model isn't the issue; nothing caps the loop before the bill lands.
 
-👉 **To Book:** Book directly via **[Cal.com](https://cal.com/igor-g-kvqxfo/30min)**, email me at **[iganapolsky@gmail.com](mailto:iganapolsky@gmail.com)**, or **[open a GitHub Issue tagged `help-wanted`](https://github.com/IgorGanapolsky/mac-yolo-safeguards/issues/new?title=%5BHelp+Wanted%5D+Hardened+Workstation+Setup)**. I will get back to you within 24 hours to schedule our call.
+**AI Agent Hardening Sprint — $1,500.** I take *one* recurring failure pattern in your agent workflow, root-cause it, and install the guardrails that block or escalate it — the Mac runaway guard plus [ThumbGate](https://thumbgate.ai/?utm_source=mac-yolo-safeguards&utm_medium=readme&utm_campaign=cross_promo) memory gates — then leave you with a smoke test, before/after evidence, and handoff notes. Fixed scope, one workflow, proof at the end. If the failure costs you less than $1,500, use the free kit above instead and keep your money.
+
+Best fit: founders and teams running Claude Code, Cursor, Codex, or Antigravity daily who can point to one failure that has cost real hours or dollars more than once.
+
+**Start here:** email **[iganapolsky@gmail.com](mailto:iganapolsky@gmail.com)** or book a 20-min triage via **[Cal.com](https://cal.com/igor-g-kvqxfo/30min)** with: the agent stack, the repeated failure, and what one incident cost you. Full scope: [AI Agent Reliability Hardening](./AI-AGENT-HARDENING.md).
+
+*Also available:* a $499 diagnostic (root-cause readout only, no install) for smaller pain, and a $3,000 [Partner Pilot](./PARTNER-PILOT.md) (sprint + reusable client package) for agencies reselling reliability. Operator playbook: [Sales Close Kit](./SALES-CLOSE-KIT.md).
+
+Public GitHub issues must stay public-safe. Do not post secrets, customer names, private repository details, payment data, or proprietary logs. Use the paid triage links above for private workflow details.
 
 ## Telemetry and privacy
 
@@ -173,7 +192,7 @@ This kit handles the **blast radius** when an AI agent goes off the rails — yo
 
 It does **not** handle the *bill* for that misbehavior. Every retry loop, every "let me try a different approach", every hallucinated import that costs you tokens — those add up to $400–$1,500/mo of repeated-mistake spend on Claude / Cursor / Codex / Gemini bills.
 
-If that's also your pain, the same author built [**ThumbGate**](https://thumbgate.ai/?utm_source=mac-yolo-safeguards&utm_medium=readme&utm_campaign=cross_promo) — open-source, MCP-compatible, thumbs-down once → that mistake is permanently blocked on every future agent call. Different problem, adjacent pain, free to try.
+If that's also your pain, the same author built [**ThumbGate**](https://thumbgate.ai/?utm_source=mac-yolo-safeguards&utm_medium=readme&utm_campaign=cross_promo) — open-source, MCP-compatible, thumbs-down once → that mistake is permanently blocked on every future agent call. The paid hardening offers combine this Mac guard with ThumbGate's token-layer memory gates.
 
 ## References
 

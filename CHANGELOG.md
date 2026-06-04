@@ -4,6 +4,60 @@ All notable changes to this project will be documented here. Format loosely foll
 
 ## [Unreleased]
 
+### Added
+
+- **Notify-only orphaned-CDP-Chrome detector** (`sim-runaway-guard.sh`). Closes a gap exposed on 2026-06-04: the Mac mini froze (memory thrash) because a browser-automation session launched Chrome with `--remote-debugging-port=9222 --user-data-dir=/tmp/chrome_cdp_profile_<epoch>` and the launcher then exited, leaving the browser running, reparented to `launchd` (PID 1) — one leaked instance is ~1 main proc + ~22 helper children holding gigabytes. The shipped guard never warned (the memory branch keys on AI-agent process names like `agy|claude|cursor`, not Chrome). The new branch:
+  - **Counts distinct orphaned instances** by unique `/tmp/chrome_cdp_profile_<n>` profile dirs — measured from MAIN browser procs (command contains `chrome_cdp_profile` **and not** `--type=`) whose `ppid==1` — never raw process count (one browser is ~23 procs; raw count is misleading). RSS is summed across all procs (main + helpers) sharing each orphaned profile so the reported footprint is the true memory held.
+  - **Notifies only** (debounced once per ~30 min via `/tmp/yolo-cdp-last`, configurable with `YOLO_CDP_NOTIFY_DEBOUNCE_SEC`), gated on the same low-free-memory condition (<15% free) as the existing soft memory-pressure check so it only fires when the leak actually matters. The notification states the instance count and approximate GB and that the kit does not kill them.
+  - **Never kills, quits, or signals Chrome** — consistent with the browser hard rule. Clearing the leak is the user's call.
+- **`yolo-health` informational line** reporting the count of orphaned CDP Chrome instances, purely informational and consistent with the existing "kit does NOT manage general Mac memory" framing.
+
+### Changed
+
+- Replaced the low-ACV "$99 onboarding" funnel with a paid AI-agent reliability offer ladder: $499 diagnostic, $1,500 hardening sprint, and $3,000 partner pilot. Added `AI-AGENT-HARDENING.md` and `REVENUE-OPERATING-PLAN.md` so the public repo points qualified team and agency buyers toward offers that can plausibly support the $300/day after-tax revenue target.
+- Added `SALES-CLOSE-KIT.md` with qualification scoring, discovery questions, offer scripts, proposal language, payment workflow, delivery checklists, objections, and close evidence so paid work is not counted until Stripe payment clears.
+- Added `tools/revenue-net.js` plus `revenue-ledger.example.tsv` to make the $300/day after-tax target mechanically verifiable from cleared payments, fees, refunds, and tax reserve. Real `revenue-ledger*.tsv` files are gitignored so private buyer/payment records do not land in the public repo.
+- Added `tools/prospect-score.js` plus `prospects.example.tsv` to route outreach prospects to free, diagnostic, sprint, or partner-pilot offers using the same 10-point qualification model as `SALES-CLOSE-KIT.md`. Real `prospects*.tsv` files are gitignored.
+- Added `tools/outreach-queue.js` to join scored prospects, private contact sheets, and private outreach drafts into ignored `send-queue*.tsv` files. This makes the send-ready state mechanically checkable without committing prospect-specific contact data.
+- Added `tools/outreach-actions.js` to turn ignored send queues into ignored manual action lists with encoded `mailto:` links and booking-form URLs. The tool prepares outreach without sending external messages.
+- Added `tools/send-plan.js` to combine manual action links, draft text, Stripe readiness annotations, optional Stripe-status filtering, and exact post-send pipeline update commands into ignored private `send-plan*.md` files.
+- Added `tools/pipeline-init.js` to initialize ignored private pipeline trackers from ready send queues before manual outreach.
+- Added `tools/pipeline-update.js` to move private pipeline rows through ready, sent, replied, booked, proposed, paid, and lost without hand-editing TSVs.
+- Added `tools/proposal-plan.js` to generate ignored private proposal/payment handoffs with Stripe price readiness, Stripe checklist, pipeline commands, and revenue-ledger row templates. Private `stripe-offer*.tsv` maps are ignored.
+- Added `tools/payment-readiness.js` to summarize which open private pipeline dollars have ready Stripe prices versus missing payment setup.
+- Added `tools/pipeline-summary.js` plus `pipeline-status.example.tsv` for post-send stage tracking across ready, sent, replied, booked, proposed, paid, and lost. The summary tool accepts one or more pipeline trackers. Real `pipeline-status*.tsv` files are gitignored and paid pipeline rows still need revenue-ledger verification.
+- Fixed yolo notification click behavior for LaunchAgents with a minimal `PATH`: the guard now checks Homebrew's absolute `terminal-notifier` paths and opens status files with TextEdit. The osascript fallback no longer asks the user to click a notification that macOS routes to a blank Script Editor window.
+
+## [0.3.0] — 2026-06-02
+
+Closes a real gap exposed by two back-to-back freezes the guard did NOT catch. On 2026-06-01 Antigravity's securecoder `semgrep-core-proprietary` scanner pegged a full core at 100% CPU on a scratch dir; on 2026-06-02 (post-reboot storm) Antigravity's `github.vscode-codeql` scanner did the same as a generic `java` process. Both were invisible to the existing guard: the sim branch only fires on >50 simruntime procs, and the memory branch keys on RSS, not CPU. Neither is a simulator, neither is a memory hog — so nothing fired, and the user had to ping an agent to kill them by hand.
+
+### Added
+
+- **CPU-runaway guard for non-simulator processes** (`sim-runaway-guard.sh`). Every 60s it evaluates *every* user-owned process at/above `YOLO_CPU_PCT_THRESHOLD` (default 150% CPU) — not just the #1 hog, so a runaway hiding behind a busy editor is still caught. Safe-by-default:
+  - **Auto-kills** a process only if it is a known-safe, stateless background helper — either its executable basename matches `YOLO_CPU_AUTOKILL_PATTERNS` (default: `semgrep-core-proprietary|semgrep-core|crashpad_handler|crash_handler`) **or** its full command line matches `YOLO_CPU_AUTOKILL_CMD_PATTERNS` (default: `com.semmle.cli2.CodeQL`, for interpreter-hosted scanners whose basename — `java` — is too generic to allowlist safely) — **and** it has stayed hot for `YOLO_CPU_SUSTAINED_FIRES` (default 2) consecutive checks, so a brief compile/scan spike is never killed. Streaks are tracked per-PID.
+  - **Everything else** over threshold — editors, dev servers, anything unknown — is **notify-only**, consistent with the existing "never auto-kill GUI apps" hard rule.
+  - Process names are resolved from `ps -o comm=` (whole-path string, robust to executable paths containing spaces); the basename allowlist is anchored to the executable, never a path/arg substring.
+
+### Fixed
+
+- **Notifications opened a blank Script Editor instead of being actionable** (the 2026-06-02 "what the fuck is this?" report). `osascript -e "display notification"` is owned by Script Editor, so clicking such a notification launches an empty Script Editor window. The shared `notify()` helper now prefers `terminal-notifier` (registers as a proper sender; click runs `-execute "open -t <status-file>"`) and only falls back to osascript when terminal-notifier is absent. The CPU branch now passes its status file through so a click opens the actionable report.
+
+### Changed
+
+- **Consolidated notification logic.** The memory branch's inline terminal-notifier/osascript block was duplicated logic; it now calls the unified `notify()` helper (which gained an optional third `OPEN_FILE` arg). One notification path, not two.
+
+### Verified by
+
+- `sh -n` clean.
+- `notify()` extracted and run against a fake `terminal-notifier` on PATH → confirmed it invokes `-execute "open -t …"` (click opens the status file, not Script Editor).
+- End-to-end test of the extracted CPU branch against **real CPU-burning spinners** (symlinks to `/usr/bin/yes` — copies of signed system binaries are killed by codesign, symlinks are not; `python3` for the signature case): streak gate holds at check 1 (streak=1, nothing killed), then at check 2 (streak=2) the basename case (`semgrep-core`) and the signature case (CodeQL) are both killed while a non-allowlisted `myeditor` survives. The same run also auto-killed a **real** Antigravity CodeQL `java` process (PID 11297, 72% CPU) that happened to be live — proof on the actual real-world culprit.
+- Live LaunchAgent ran the edited script across the incident with zero shell errors; `yolo-health` 12/12.
+
+### Surfaced by
+
+User pushback ("are you sure?" — twice) plus a screenshot of the useless osascript notification opening Script Editor, during a real reboot-storm freeze. Lessons: (1) a guard scoped to one failure mode (simulators) silently misses adjacent ones (CPU-bound scanners); (2) `osascript` notifications are not clickable-actionable and must not be the delivery path; (3) test spinners must use signed binaries — copied system binaries die to codesign and produce false-positive "kills".
+
 ## [0.2.4] — 2026-05-27
 
 Critical fix for a self-heal infinite loop introduced by the v0.2.0 portability refactor. Affected every install since v0.2.0: the LaunchAgent's self-heal check tested `[ -L plist ]` (expecting a symlink) but v0.2.0 changed install.sh to RENDER the plist (substitute `{{HOME}}` placeholder), making it a regular file. The `-L` test failed every 60s → `install.sh` re-ran → `launchctl bootout` + `bootstrap` → agent state thrashed → `yolo-health` flapped between 12/12 and 10/12.
@@ -135,7 +189,8 @@ First public release. Hardened from the 2026-05-26 incident (load average 307, 2
 - Wrapper test suite: 5/5 passing.
 - `yolo-health`: 12/12 passing at v0.1.0 tag.
 
-[Unreleased]: https://github.com/IgorGanapolsky/mac-yolo-safeguards/compare/v0.2.4...HEAD
+[Unreleased]: https://github.com/IgorGanapolsky/mac-yolo-safeguards/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/IgorGanapolsky/mac-yolo-safeguards/releases/tag/v0.3.0
 [0.2.4]: https://github.com/IgorGanapolsky/mac-yolo-safeguards/releases/tag/v0.2.4
 [0.2.3]: https://github.com/IgorGanapolsky/mac-yolo-safeguards/releases/tag/v0.2.3
 [0.2.2]: https://github.com/IgorGanapolsky/mac-yolo-safeguards/releases/tag/v0.2.2

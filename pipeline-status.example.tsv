@@ -1,0 +1,7 @@
+prospect_label	stage	route	gross_potential_usd	last_touch	next_action	notes
+example-agency-owner	sent	Partner Pilot ($3,000)	3000.00	2026-06-02	wait_for_reply	example only - sent outreach
+example-founder	replied	AI Agent Hardening Sprint ($1,500)	1500.00	2026-06-03	book_triage_call	example only - replied with a failure pattern
+example-devteam	booked	Agent Reliability Diagnostic ($499)	499.00	2026-06-04	hold_call	example only - diagnostic call booked
+example-buyer	proposed	AI Agent Hardening Sprint ($1,500)	1500.00	2026-06-05	send_stripe_invoice	example only - proposal accepted verbally
+example-paid	paid	Partner Pilot ($3,000)	3000.00	2026-06-06	add_to_revenue_ledger	example only - cleared payment should also be in revenue ledger
+example-lost	lost	Agent Reliability Diagnostic ($499)	499.00	2026-06-06	no_action	example only - not enough pain

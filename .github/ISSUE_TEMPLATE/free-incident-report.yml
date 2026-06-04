@@ -1,0 +1,59 @@
+name: Free incident report
+description: Report a public, non-sensitive Mac/agent runaway incident for threshold tuning.
+title: "[incident] "
+labels:
+  - incident
+  - free-support
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this for public, non-sensitive incident reports that help tune the free guard.
+
+        Do **not** post secrets, customer names, private repository details, API keys, payment data, or proprietary logs. If the workflow is sensitive or client-facing, use email or Cal.com from the contact links instead.
+  - type: dropdown
+    id: agent_stack
+    attributes:
+      label: Agent stack
+      description: Which agent or coding tool was involved?
+      options:
+        - Antigravity / agy
+        - Claude Code
+        - Cursor
+        - Codex
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: public_summary
+    attributes:
+      label: Public-safe incident summary
+      description: Describe what happened without private names, code, secrets, or customer data.
+      placeholder: "Example: Agent repeatedly booted iOS simulators while running a local coding task."
+    validations:
+      required: true
+  - type: input
+    id: load_average
+    attributes:
+      label: Peak load average, if known
+      placeholder: "Example: 307"
+  - type: input
+    id: process_count
+    attributes:
+      label: Simulator or runaway process count, if known
+      placeholder: "Example: 256 simruntime processes"
+  - type: textarea
+    id: yolo_health
+    attributes:
+      label: yolo-health output
+      description: Paste `yolo-health` output if it is public-safe.
+      render: text
+  - type: checkboxes
+    id: safety
+    attributes:
+      label: Safety confirmation
+      options:
+        - label: I did not include secrets, private repository content, customer data, or payment data.
+          required: true
+        - label: I understand this public issue is for free guard tuning, not paid implementation work.
+          required: true
