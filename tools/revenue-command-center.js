@@ -93,6 +93,24 @@ function withRepeated(flag, values) {
   return values.flatMap((value) => [flag, value]);
 }
 
+function mirrorRequestedReports(requestedDate, dataDate, prefixes) {
+  if (requestedDate === dataDate) {
+    return;
+  }
+  for (const prefix of prefixes) {
+    const source = `${prefix}-${dataDate}.md`;
+    const target = `${prefix}-${requestedDate}.md`;
+    if (fs.existsSync(source)) {
+      fs.copyFileSync(source, target);
+      console.log(`Mirrored requested-date report: ${target}`);
+    }
+  }
+}
+
+function mirrorRequestedReport(requestedDate, dataDate, prefix) {
+  mirrorRequestedReports(requestedDate, dataDate, [prefix]);
+}
+
 function main() {
   const args = parseArgs(process.argv.slice(2));
   if (args.help) {
@@ -150,6 +168,44 @@ function main() {
     '--out',
     `payment-readiness-all-${dataDate}.md`,
   ]));
+  run('Revenue Price Sensitivity', 'node', [
+    'tools/revenue-price-sensitivity.js',
+  ].concat(withRepeated('--pipeline', pipelines), [
+    '--stripe-offer-map',
+    args.stripeOfferMap,
+    '--date',
+    requestedDate,
+    '--out',
+    `revenue-price-sensitivity-${dataDate}.md`,
+  ]));
+  run('Partner Pilot Qualification Plan', 'node', [
+    'tools/partner-pilot-qualification-plan.js',
+  ].concat(withRepeated('--pipeline', pipelines), withRepeated('--prospects', prospects), [
+    '--date',
+    requestedDate,
+    '--limit',
+    String(args.limit),
+    '--out',
+    `partner-pilot-qualification-plan-${dataDate}.md`,
+  ]));
+  run('Partner Pilot Unlock Simulation', 'node', [
+    'tools/partner-pilot-unlock-simulation.js',
+    '--date',
+    requestedDate,
+    '--stripe-offer-map',
+    args.stripeOfferMap,
+    '--out',
+    `partner-pilot-unlock-simulation-${dataDate}.md`,
+  ]);
+  run('Partner Pilot Stripe Unlock Packet', 'node', [
+    'tools/partner-pilot-stripe-unlock-packet.js',
+    '--date',
+    requestedDate,
+    '--stripe-offer-map',
+    args.stripeOfferMap,
+    '--out',
+    `partner-pilot-stripe-unlock-packet-${dataDate}.md`,
+  ]);
   run('Pipeline Integrity', 'node', [
     'tools/pipeline-integrity.js',
   ].concat(withRepeated('--pipeline', pipelines), withRepeated('--prospects', prospects), [
@@ -172,6 +228,82 @@ function main() {
     '--out',
     `send-confirmation-audit-${dataDate}.md`,
   ]));
+  run('Close Target Plan', 'node', [
+    'tools/close-target-plan.js',
+  ].concat(withRepeated('--pipeline', pipelines), withRepeated('--prospects', prospects), [
+    '--stripe-offer-map',
+    args.stripeOfferMap,
+    '--date',
+    requestedDate,
+    '--limit',
+    String(args.limit),
+    '--out',
+    `close-target-plan-${dataDate}.md`,
+  ]));
+  run('Proposal Batch Plan', 'node', [
+    'tools/proposal-batch-plan.js',
+    '--date',
+    requestedDate,
+    '--close-plan',
+    `close-target-plan-${dataDate}.md`,
+    '--out',
+    `proposal-batch-plan-${dataDate}.md`,
+  ]);
+  mirrorRequestedReport(requestedDate, dataDate, 'proposal-batch-plan');
+  const proposalBatchForPaymentAudit = requestedDate === dataDate
+    ? `proposal-batch-plan-${dataDate}.md`
+    : `proposal-batch-plan-${requestedDate}.md`;
+  run('Payment Waiting Audit', 'node', [
+    'tools/payment-waiting-audit.js',
+  ].concat(withRepeated('--pipeline', pipelines), [
+    '--date',
+    requestedDate,
+    '--proposal-batch',
+    proposalBatchForPaymentAudit,
+    '--out',
+    `payment-waiting-audit-${dataDate}.md`,
+  ]));
+  run('Revenue Unblock Plan', 'node', [
+    'tools/revenue-unblock-plan.js',
+  ].concat(withRepeated('--pipeline', pipelines), [
+    '--date',
+    requestedDate,
+    '--stripe-offer-map',
+    args.stripeOfferMap,
+    '--payment-waiting-audit',
+    `payment-waiting-audit-${dataDate}.md`,
+    '--proposal-batch',
+    proposalBatchForPaymentAudit,
+    '--out',
+    `revenue-unblock-plan-${dataDate}.md`,
+  ]));
+  run('Proposal Batch Plan With Backup', 'node', [
+    'tools/proposal-batch-plan.js',
+    '--date',
+    requestedDate,
+    '--close-plan',
+    `close-target-plan-${dataDate}.md`,
+    '--include-backup',
+    '--out',
+    `proposal-batch-plan-with-backup-${dataDate}.md`,
+  ]);
+  mirrorRequestedReport(requestedDate, dataDate, 'proposal-batch-plan-with-backup');
+  const backupProposalBatchForExecution = requestedDate === dataDate
+    ? `proposal-batch-plan-with-backup-${dataDate}.md`
+    : `proposal-batch-plan-with-backup-${requestedDate}.md`;
+  run('Payment Request Execution Packet', 'node', [
+    'tools/payment-request-execution-packet.js',
+    '--date',
+    requestedDate,
+    '--proposal-batch',
+    proposalBatchForPaymentAudit,
+    '--backup-proposal-batch',
+    backupProposalBatchForExecution,
+    '--payment-waiting-audit',
+    `payment-waiting-audit-${dataDate}.md`,
+    '--out',
+    `payment-request-execution-packet-${dataDate}.md`,
+  ]);
   run('Proposal Plan Stale Audit', 'node', [
     'tools/proposal-plan-stale-audit.js',
     '--date',
@@ -185,7 +317,7 @@ function main() {
     '--stripe-offer-map',
     args.stripeOfferMap,
     '--date',
-    dataDate,
+    requestedDate,
     '--out',
     `revenue-action-board-${dataDate}.md`,
   ]));
@@ -219,16 +351,26 @@ function main() {
     '--out',
     `public-revenue-publish-plan-${dataDate}.md`,
   ]);
-  run('Close Target Plan', 'node', [
-    'tools/close-target-plan.js',
-  ].concat(withRepeated('--pipeline', pipelines), withRepeated('--prospects', prospects), [
-    '--stripe-offer-map',
-    args.stripeOfferMap,
-    '--limit',
-    String(args.limit),
-    '--out',
+  run('Close Follow-Up Batch Plan', 'node', [
+    'tools/close-follow-up-batch-plan.js',
+    '--date',
+    requestedDate,
+    '--close-plan',
     `close-target-plan-${dataDate}.md`,
-  ]));
+    '--out',
+    `close-follow-up-batch-plan-${dataDate}.md`,
+  ]);
+  run('Close Execution Packet', 'node', [
+    'tools/close-execution-packet.js',
+    '--date',
+    requestedDate,
+    '--close-plan',
+    `close-target-plan-${dataDate}.md`,
+    '--limit',
+    '5',
+    '--out',
+    `close-execution-packet-${dataDate}.md`,
+  ]);
   run('Revenue Diagnosis', 'node', [
     'tools/revenue-diagnosis.js',
   ].concat(withRepeated('--pipeline', pipelines), withRepeated('--prospects', prospects), [
@@ -247,6 +389,34 @@ function main() {
     `revenue-goal-audit-${dataDate}.md`,
   ]);
   run('Public Conversion Check', 'node', ['tools/public-conversion-check.js']);
+  mirrorRequestedReports(requestedDate, dataDate, [
+    'payment-readiness-all',
+    'revenue-price-sensitivity',
+    'partner-pilot-qualification-plan',
+    'partner-pilot-unlock-simulation',
+    'partner-pilot-stripe-unlock-packet',
+    'pipeline-integrity',
+    'pipeline-priority',
+    'send-confirmation-audit',
+    'proposal-batch-plan',
+    'proposal-batch-plan-with-backup',
+    'payment-waiting-audit',
+    'revenue-unblock-plan',
+    'payment-request-execution-packet',
+    'proposal-plan-stale-audit',
+    'revenue-action-board',
+    'publication-readiness',
+    'public-funnel-safety-scan',
+    'github-issue-template-check',
+    'public-local-link-check',
+    'public-command-reference-check',
+    'public-revenue-publish-plan',
+    'close-target-plan',
+    'close-follow-up-batch-plan',
+    'close-execution-packet',
+    'revenue-diagnosis',
+    'revenue-goal-audit',
+  ]);
 }
 
 try {

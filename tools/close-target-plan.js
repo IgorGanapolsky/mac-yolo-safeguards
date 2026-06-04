@@ -230,6 +230,10 @@ function currency(value) {
   return `$${value.toFixed(2)}`;
 }
 
+function shellQuote(value) {
+  return `'${String(value).replace(/'/g, `'\\''`)}'`;
+}
+
 function netForGross(gross, args) {
   const stripeFee = gross * args.stripeFeePct + args.stripeFeeFixed;
   const preTax = gross - stripeFee;
@@ -305,8 +309,9 @@ function build(args) {
     selected.push(row);
     selectedNet += row.netAfterReserve;
   }
+  const backup = eligible.slice(selected.length, selected.length + 3);
   const shown = args.limit ? eligible.slice(0, args.limit) : eligible;
-  return { allOpen, eligible, selected, shown, selectedNet, targetNet };
+  return { allOpen, eligible, selected, backup, shown, selectedNet, targetNet };
 }
 
 function offerScenario(rows, args) {
@@ -342,6 +347,7 @@ function renderText(args, data) {
     `Selected closes to target: ${data.selected.length}`,
     `Selected net after reserve: ${currency(data.selectedNet)}`,
     `Target status from selected closes: ${data.selectedNet >= data.targetNet ? 'MET' : 'NOT MET'}`,
+    `Backup link-ready rows: ${data.backup.length}`,
     '',
     'Offer scenarios:',
   ];
@@ -369,6 +375,12 @@ function renderText(args, data) {
 }
 
 function renderMarkdown(args, data) {
+  const weakestSelectedNet = data.selected.length
+    ? Math.min(...data.selected.map((row) => row.netAfterReserve))
+    : 0;
+  const netAfterOneLoss = data.selectedNet - weakestSelectedNet;
+  const firstBackup = data.backup[0];
+  const netWithFirstBackup = firstBackup ? netAfterOneLoss + firstBackup.netAfterReserve : netAfterOneLoss;
   const lines = [
     `# Close Target Plan - ${args.date}`,
     '',
@@ -384,6 +396,11 @@ function renderMarkdown(args, data) {
     `- Selected closes to target: ${data.selected.length}`,
     `- Selected net after reserve: ${currency(data.selectedNet)}`,
     `- Target status from selected closes: ${data.selectedNet >= data.targetNet ? 'MET' : 'NOT MET'}`,
+    `- Backup link-ready rows: ${data.backup.length}`,
+    `- Net if one selected close is lost: ${currency(netAfterOneLoss)}`,
+    `- Target status if one selected close is lost without replacement: ${netAfterOneLoss >= data.targetNet ? 'MET' : 'NOT MET'}`,
+    `- Net if one selected close is replaced by first backup: ${currency(netWithFirstBackup)}`,
+    `- Target status with first backup replacement: ${netWithFirstBackup >= data.targetNet ? 'MET' : 'NOT MET'}`,
     '',
     '## Offer Scenarios',
     '',
@@ -406,6 +423,55 @@ function renderMarkdown(args, data) {
       lines.push(`| ${index + 1} | ${row.prospect_label} | ${row.stage} | ${row.offer} | ${currency(row.gross)} | ${currency(row.netAfterReserve)} | ${row.priceReady ? 'yes' : 'no'} | ${row.linkReady ? 'yes' : 'no'} | ${row.segment} | ${row.next_action} | ${row._source} |`);
     });
     lines.push('');
+    lines.push('## Payment Handoff Commands');
+    lines.push('');
+    lines.push('Run these to generate private proposal/payment handoffs for the selected link-ready closes. Review the generated handoff before manually sending any payment request.');
+    lines.push('');
+    data.selected.forEach((row, index) => {
+      lines.push(`### ${index + 1}. ${row.prospect_label}`);
+      lines.push('');
+      lines.push('```sh');
+      lines.push([
+        'node tools/proposal-plan.js',
+        '--prospect', shellQuote(row.prospect_label),
+        '--date', shellQuote(args.date),
+        '--buyer-segment', shellQuote(row.segment || 'TODO_SEGMENT'),
+        '--source', 'direct-outreach',
+        '--stripe-offer-map', shellQuote(args.stripeOfferMap),
+      ].join(' '));
+      lines.push('```');
+      lines.push('');
+    });
+    lines.push('## Backup Link-Ready Close Buffer');
+    lines.push('');
+    if (data.backup.length === 0) {
+      lines.push('No backup link-ready rows remain after the selected close sequence.');
+      lines.push('');
+    } else {
+      lines.push('Use these only if a selected close is lost or disqualified. They are not counted in the selected-close target proof above.');
+      lines.push('');
+      lines.push('| Backup rank | Prospect | Stage | Offer | Gross | Estimated net | Segment | Next action | Pipeline |');
+      lines.push('|---:|---|---|---|---:|---:|---|---|---|');
+      data.backup.forEach((row, index) => {
+        lines.push(`| ${index + 1} | ${row.prospect_label} | ${row.stage} | ${row.offer} | ${currency(row.gross)} | ${currency(row.netAfterReserve)} | ${row.segment} | ${row.next_action} | ${row._source} |`);
+      });
+      lines.push('');
+      data.backup.forEach((row, index) => {
+        lines.push(`### Backup ${index + 1}. ${row.prospect_label}`);
+        lines.push('');
+        lines.push('```sh');
+        lines.push([
+          'node tools/proposal-plan.js',
+          '--prospect', shellQuote(row.prospect_label),
+          '--date', shellQuote(args.requestedDate || args.date),
+          '--buyer-segment', shellQuote(row.segment || 'TODO_SEGMENT'),
+          '--source', 'direct-outreach',
+          '--stripe-offer-map', shellQuote(args.stripeOfferMap),
+        ].join(' '));
+        lines.push('```');
+        lines.push('');
+      });
+    }
   }
   lines.push('This plan is not revenue proof. Only cleared Stripe payments entered into a private ignored ledger count.');
   return lines.join('\n');

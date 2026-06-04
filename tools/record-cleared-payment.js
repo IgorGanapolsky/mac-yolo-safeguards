@@ -166,6 +166,29 @@ function appendNote(existing, date, note) {
   return existing ? `${existing}; ${suffix}` : suffix;
 }
 
+function monthStart(date) {
+  return `${date.slice(0, 8)}01`;
+}
+
+function monthEnd(date) {
+  const [year, month] = date.split('-').map(Number);
+  return new Date(Date.UTC(year, month, 0)).toISOString().slice(0, 10);
+}
+
+function verificationCommands(args) {
+  return [
+    `node tools/revenue-net.js ${args.ledger} --from ${monthStart(args.datePaid)} --to ${monthEnd(args.datePaid)} --days 30`,
+    `node tools/revenue-goal-audit.js --date ${args.datePaid} --ledger ${args.ledger}`,
+  ];
+}
+
+function printVerificationCommands(args) {
+  console.log('Verify revenue proof:');
+  for (const command of verificationCommands(args)) {
+    console.log(command);
+  }
+}
+
 function main() {
   const args = parseArgs(process.argv.slice(2));
   requireArgs(args);
@@ -210,6 +233,7 @@ function main() {
     console.log(ledgerHeaders.map((header) => ledgerRow[header]).join('\t'));
     console.log(`Pipeline stage: ${previousStage} -> paid`);
     console.log(`Pipeline next action: verify_revenue_net`);
+    printVerificationCommands(args);
     return;
   }
 
@@ -224,6 +248,7 @@ function main() {
   console.log(`Gross: $${gross.toFixed(2)}`);
   console.log(`Pipeline stage: ${previousStage} -> paid`);
   console.log('Revenue proof: recorded in private ledger; verify with tools/revenue-net.js.');
+  printVerificationCommands(args);
 }
 
 try {

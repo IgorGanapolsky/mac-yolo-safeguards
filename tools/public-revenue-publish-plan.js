@@ -35,12 +35,21 @@ const publicArtifacts = [
   'tools/publication-readiness.js',
   'tools/revenue-control-checks.js',
   'tools/close-target-plan.js',
+  'tools/close-follow-up-batch-plan.js',
+  'tools/close-execution-packet.js',
   'tools/outreach-actions.js',
   'tools/outreach-queue.js',
+  'tools/partner-pilot-qualification-plan.js',
+  'tools/partner-pilot-unlock-simulation.js',
+  'tools/partner-pilot-stripe-unlock-packet.js',
   'tools/payment-readiness.js',
+  'tools/payment-request-execution-packet.js',
+  'tools/payment-waiting-audit.js',
+  'tools/pipeline-data-science.js',
   'tools/pipeline-init.js',
   'tools/pipeline-summary.js',
   'tools/pipeline-update.js',
+  'tools/proposal-batch-plan.js',
   'tools/proposal-plan.js',
   'tools/proposal-plan-stale-audit.js',
   'tools/prospect-score.js',
@@ -49,7 +58,10 @@ const publicArtifacts = [
   'tools/revenue-date.js',
   'tools/revenue-goal-audit.js',
   'tools/revenue-net.js',
+  'tools/revenue-price-sensitivity.js',
+  'tools/revenue-unblock-plan.js',
   'tools/send-plan.js',
+  'tools/stripe-setup-plan.js',
   'tools/stripe-live-updates-template.js',
 ];
 
@@ -58,7 +70,7 @@ const privateArtifactPatterns = [
   /(^|\/)(contacts|send-queue|action-links|pipeline-priority|pipeline-integrity|send-confirmation-audit|market-research)-\d{4}-\d{2}-\d{2}/,
   /(^|\/)(pipeline-status|prospects|revenue-ledger)-\d{4}-\d{2}-\d{2}\.tsv$/,
   /(^|\/)(stripe-offer-map|stripe-live-updates|stripe-live-updates-template|stripe-readonly-candidates)-\d{4}-\d{2}-\d{2}\.tsv$/,
-  /(^|\/)(payment-readiness-all|stripe-setup-plan|stripe-readonly-discovery|close-target-plan|revenue-goal-audit|revenue-diagnosis|revenue-action-board|publication-readiness)-\d{4}-\d{2}-\d{2}/,
+  /(^|\/)(payment-readiness-all|payment-waiting-audit|payment-request-execution-packet|stripe-setup-plan|stripe-readonly-discovery|close-target-plan|close-follow-up-batch-plan|close-execution-packet|partner-pilot-qualification-plan|partner-pilot-unlock-simulation|partner-pilot-stripe-unlock-packet|revenue-goal-audit|revenue-diagnosis|revenue-action-board|revenue-price-sensitivity|revenue-unblock-plan|publication-readiness)-\d{4}-\d{2}-\d{2}/,
   /(^|\/)(public-funnel-safety-scan|github-issue-template-check|public-local-link-check|public-command-reference-check|public-revenue-publish-plan)-\d{4}-\d{2}-\d{2}/,
 ];
 
@@ -242,6 +254,17 @@ function renderMarkdown(data) {
       lines.push(`| ${finding.artifact} | ${finding.reason} |`);
     }
   }
+  lines.push(
+    '',
+    '## Consent Required Before Mutation',
+    '',
+    'The commands below are intentionally dry-run instructions. Do not run `git add`, `git commit`, or `git push` until the operator explicitly approves publishing this public revenue-funnel scope.',
+    '',
+    `- Branch to publish: ${data.branch.branch}`,
+    `- Push target if approved: ${data.branch.upstream === 'NONE' ? 'origin HEAD' : data.branch.upstream}`,
+    `- Public artifacts in add list: ${addList.length}`,
+    `- Private/ignored artifacts in add list: ${data.privateFindings.length}`,
+  );
   lines.push('', '## Dry-Run Publish Commands', '');
   if (data.missing.length) {
     lines.push(`Do not publish yet. Missing public artifact(s): ${data.missing.map((item) => item.artifact).join(', ')}`);

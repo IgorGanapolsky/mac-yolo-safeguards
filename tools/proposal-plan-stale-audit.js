@@ -2,6 +2,7 @@
 'use strict';
 
 const fs = require('fs');
+const { discover } = require('./revenue-date');
 
 const usage = `Usage:
   node tools/proposal-plan-stale-audit.js [--date YYYY-MM-DD] [--out proposal-plan-stale-audit.md]
@@ -69,8 +70,75 @@ function auditFile(file) {
   return { file, findings };
 }
 
+function shellQuote(value) {
+  return `'${String(value).replace(/'/g, `'\\''`)}'`;
+}
+
+function parseTsv(path) {
+  const text = fs.existsSync(path) ? fs.readFileSync(path, 'utf8').trim() : '';
+  if (!text) {
+    return [];
+  }
+  const lines = text.split(/\r?\n/);
+  const headers = lines.shift().split('\t');
+  return lines.map((line, index) => {
+    const values = line.split('\t');
+    if (values.length !== headers.length) {
+      throw new Error(`${path} line ${index + 2}: expected ${headers.length} fields, got ${values.length}`);
+    }
+    const row = {};
+    headers.forEach((header, columnIndex) => {
+      row[header] = values[columnIndex];
+    });
+    return row;
+  });
+}
+
+function prospectSegments(date) {
+  const byProspect = new Map();
+  for (const file of discover('prospects', date)) {
+    for (const row of parseTsv(file)) {
+      if (row.prospect_label && row.segment && !byProspect.has(row.prospect_label)) {
+        byProspect.set(row.prospect_label, row.segment);
+      }
+    }
+  }
+  return byProspect;
+}
+
+function fileMeta(file, date, segments) {
+  const text = fs.readFileSync(file, 'utf8');
+  const prospect = (text.match(/^- Prospect: (.+)$/m) || [])[1]
+    || (file.match(/^proposal-plan-(.+)-\d{4}-\d{2}-\d{2}\.md$/) || [])[1]
+    || 'TODO_PROSPECT';
+  const pipeline = (text.match(/^- Pipeline: (.+)$/m) || [])[1] || 'TODO_PIPELINE';
+  const segment = segments.get(prospect) || 'TODO_SEGMENT';
+  const stripeMap = `stripe-offer-map-${date}.tsv`;
+  return {
+    prospect,
+    pipeline,
+    segment,
+    stripeMap: fs.existsSync(stripeMap) ? stripeMap : null,
+  };
+}
+
+function regenerationCommand(file, date, segments) {
+  const meta = fileMeta(file, date, segments);
+  return [
+    'node tools/proposal-plan.js',
+    '--pipeline', shellQuote(meta.pipeline),
+    '--prospect', shellQuote(meta.prospect),
+    '--date', shellQuote(date),
+    '--buyer-segment', shellQuote(meta.segment),
+    '--source', 'direct-outreach',
+    ...(meta.stripeMap ? ['--stripe-offer-map', shellQuote(meta.stripeMap)] : []),
+    '--out', shellQuote(file),
+  ].join(' ');
+}
+
 function render(date, audited) {
   const stale = audited.filter((item) => item.findings.length > 0);
+  const segments = prospectSegments(date);
   const lines = [
     `# Proposal Plan Stale Audit - ${date}`,
     '',
@@ -92,6 +160,22 @@ function render(date, audited) {
       for (const finding of item.findings) {
         lines.push(`| ${item.file} | ${finding.line} | ${finding.reason} | ${finding.text || 'n/a'} |`);
       }
+    }
+  }
+  lines.push(
+    '',
+    '## Regeneration Commands',
+    '',
+    'Review before running. These commands regenerate stale private handoffs with the current proposal/payment proof gates; they do not send payment requests or prove revenue.',
+    '',
+    '| File | Command |',
+    '|---|---|',
+  );
+  if (stale.length === 0) {
+    lines.push('| none | none |');
+  } else {
+    for (const item of stale) {
+      lines.push(`| ${item.file} | \`${regenerationCommand(item.file, date, segments)}\` |`);
     }
   }
   lines.push(

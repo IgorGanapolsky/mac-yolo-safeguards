@@ -5,7 +5,7 @@ const fs = require('fs');
 const { latestDataDate } = require('./revenue-date');
 
 const usage = `Usage:
-  node tools/stripe-live-updates-template.js [--date YYYY-MM-DD] [--map stripe-offer-map.tsv] [--candidates stripe-readonly-candidates.tsv] [--out stripe-live-updates-template.tsv]
+  node tools/stripe-live-updates-template.js [--date YYYY-MM-DD] [--map stripe-offer-map.tsv] [--candidates stripe-readonly-candidates.tsv] [--out stripe-live-updates-template.tsv] [--missing-only]
 
 Builds an ignored stripe-live-updates TSV template for the offer-map importer.
 Candidate product/price IDs can be prefilled from read-only Stripe discovery,
@@ -29,6 +29,8 @@ function parseArgs(argv) {
       args.candidates = argv[++i];
     } else if (arg === '--out') {
       args.out = argv[++i];
+    } else if (arg === '--missing-only') {
+      args.missingOnly = true;
     } else if (arg === '--help' || arg === '-h') {
       args.help = true;
     } else {
@@ -75,6 +77,17 @@ function realPriceId(value) {
   return /^price_[A-Za-z0-9]+$/.test(String(value || ''));
 }
 
+function realPaymentLink(value) {
+  return /^https:\/\/buy\.stripe\.com\/[A-Za-z0-9]/.test(String(value || ''));
+}
+
+function linkReady(offer) {
+  return offer.status === 'ready'
+    && realProductId(offer.stripe_product_id)
+    && realPriceId(offer.stripe_price_id)
+    && realPaymentLink(offer.payment_link_url);
+}
+
 function renderTsv(rows) {
   const headers = ['offer', 'stripe_product_id', 'stripe_price_id', 'payment_link_url', 'note'];
   return [
@@ -109,13 +122,16 @@ function build(args) {
   const offerMap = parseTsv(args.map);
   requireHeaders(args.map, offerMap.headers, ['offer', 'stripe_product_id', 'stripe_price_id', 'payment_link_url']);
   const candidates = candidateMap(args.candidates);
-  return offerMap.rows.map((offer) => {
+  const actionDate = args.requestedDate || args.date;
+  return offerMap.rows
+    .filter((offer) => !args.missingOnly || !linkReady(offer))
+    .map((offer) => {
     const candidate = candidates.get(offer.offer);
     const productId = candidate ? candidate.stripe_product_id : 'TODO_PRODUCT_ID';
     const priceId = candidate ? candidate.stripe_price_id : 'TODO_PRICE_ID';
     const note = candidate && candidate.note
-      ? `${candidate.note}; payment link still TODO ${args.date}`
-      : `create or verify live Stripe product, price, and payment link ${args.date}`;
+      ? `${candidate.note}; payment link still TODO ${actionDate}`
+      : `create or verify live Stripe product, price, and payment link ${actionDate}`;
     return {
       offer: offer.offer,
       stripe_product_id: productId,
@@ -163,6 +179,7 @@ function main() {
   }
   console.log(`Rows written: ${rows.length}`);
   console.log(`Candidate product/price IDs applied: ${candidatesApplied}`);
+  console.log(`Missing-only filter: ${args.missingOnly ? 'yes' : 'no'}`);
   console.log('Payment links still required: yes');
 }
 

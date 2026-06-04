@@ -62,6 +62,8 @@ function main() {
 
   check(operatingPlan.includes('Bookings and calls do not count toward the revenue target until payment clears'), 'Operating plan requires cleared payment proof', failures);
   check(operatingPlan.includes('node tools/revenue-control-checks.js'), 'Operating plan documents revenue control checks', failures);
+  check(operatingPlan.includes('node tools/proposal-batch-plan.js --date YYYY-MM-DD --include-backup'), 'Operating plan documents backup proposal batch command', failures);
+  check(operatingPlan.includes('Backup handoffs are not extra revenue proof and must not be double-counted'), 'Operating plan prevents backup handoff double-counting', failures);
   check(closeKit.includes('Payment due before work starts'), 'Close kit states payment due before work', failures);
   check(closeKit.includes('Only cleared Stripe payments entered into the revenue ledger count as revenue proof'), 'Close kit requires cleared Stripe revenue proof', failures);
 

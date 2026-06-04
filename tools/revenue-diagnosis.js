@@ -300,8 +300,10 @@ function renderMarkdown(args, model) {
   const openGross = openRows.reduce((sum, row) => sum + row.gross, 0);
   const linkReadyRows = openRows.filter((row) => row.readiness.linkReady);
   const linkReadyGross = linkReadyRows.reduce((sum, row) => sum + row.gross, 0);
+  const linkReadyNet = linkReadyRows.reduce((sum, row) => sum + row.net, 0);
   const expectedNet = openRows.reduce((sum, row) => sum + row.expectedNet, 0);
   const targetNet = args.targetDailyNet * args.days;
+  const actionDate = args.requestedDate || args.date;
   const rowsByStage = countBy(model.rows, (row) => row.stage);
   const openGrossByOffer = sumBy(openRows, (row) => row.offer, (row) => row.gross);
   const linkReadyByOffer = countBy(linkReadyRows, (row) => row.offer);
@@ -311,11 +313,18 @@ function renderMarkdown(args, model) {
   const topRows = openRows
     .slice()
     .sort((a, b) => (
-      b.priority - a.priority
+      Number(b.readiness.linkReady) - Number(a.readiness.linkReady)
+      || b.priority - a.priority
       || b.gross - a.gross
       || a.prospect_label.localeCompare(b.prospect_label)
     ))
     .slice(0, 12);
+  const collectableClosesNeeded = linkReadyRows.length
+    ? Math.ceil(targetNet / Math.max(...linkReadyRows.map((row) => row.net)))
+    : Infinity;
+  const primaryBlocker = linkReadyRows.length === 0
+    ? 'payment links missing'
+    : 'follow-up and close conversion';
 
   const lines = [
     `# Revenue Diagnosis - ${args.date}`,
@@ -325,9 +334,13 @@ function renderMarkdown(args, model) {
     ...(args.requestedDate ? [`- Requested date: ${args.requestedDate}`, `- Data date: ${args.date}`, ''] : []),
     '## Executive Finding',
     '',
-    `The system has market-facing supply and a measurable pipeline, but it has not made meaningful money because the collection layer is not live. Current evidence shows ${openRows.length} open rows, ${currency(openGross)} open gross potential, ${linkReadyRows.length} payment-link-ready rows, ${currency(linkReadyGross)} link-ready gross, and ${currency(paidGross)} pipeline gross marked paid.`,
+    linkReadyRows.length === 0
+      ? `The system has market-facing supply and a measurable pipeline, but it has not made meaningful money because the collection layer is not live. Current evidence shows ${openRows.length} open rows, ${currency(openGross)} open gross potential, ${linkReadyRows.length} payment-link-ready rows, ${currency(linkReadyGross)} link-ready gross, and ${currency(paidGross)} pipeline gross marked paid.`
+      : `The system has enough payment-link-ready pipeline to cover the target, but it has not made meaningful money because payment-ready buyers have not converted to cleared Stripe payments. Current evidence shows ${openRows.length} open rows, ${currency(openGross)} open gross potential, ${linkReadyRows.length} payment-link-ready rows, ${currency(linkReadyGross)} link-ready gross, ${currency(linkReadyNet)} net after reserve if all link-ready rows close, and ${currency(paidGross)} pipeline gross marked paid.`,
     '',
-    'Weak-supervision ML result: expected collectable net is forced to $0.00 while payment links are missing, regardless of prospect score. This is a gate, not a lead-volume problem.',
+    linkReadyRows.length === 0
+      ? 'Weak-supervision ML result: expected collectable net is forced to $0.00 while payment links are missing, regardless of prospect score. This is a gate, not a lead-volume problem.'
+      : `Weak-supervision ML result: modeled expected collectable net is ${currency(expectedNet)} from currently link-ready rows, but deterministic close-target math shows ${collectableClosesNeeded} Hardening Sprint closes can meet the ${currency(targetNet)} monthly net target. This is a conversion problem, not a lead-volume problem.`,
     '',
     '## Evidence',
     '',
@@ -339,7 +352,9 @@ function renderMarkdown(args, model) {
     `- High-signal open rows, score >= 9: ${highSignalOpen.length}`,
     `- Open gross potential: ${currency(openGross)}`,
     `- Payment-link-ready open gross: ${currency(linkReadyGross)}`,
+    `- Payment-link-ready net after reserve if all close: ${currency(linkReadyNet)}`,
     `- Modeled expected net from currently collectable pipeline: ${currency(expectedNet)}`,
+    `- Primary blocker: ${primaryBlocker}`,
     '',
     '## Stage Funnel',
     '',
@@ -397,16 +412,33 @@ function renderMarkdown(args, model) {
     '',
     '## Diagnosis',
     '',
-    '1. Payment readiness is the binding constraint: no row can collect cash with a verified payment link today.',
-    '2. The pipeline has enough theoretical value: five Partner Pilot closes at $3,000 each are enough to pass the monthly net target under the configured reserve/fee assumptions.',
+    ...(linkReadyRows.length === 0
+      ? [
+        '1. Payment readiness is the binding constraint: no row can collect cash with a verified payment link today.',
+        '2. The pipeline has enough theoretical value: five Partner Pilot closes at $3,000 each are enough to pass the monthly net target under the configured reserve/fee assumptions.',
+      ]
+      : [
+        `1. Follow-up and close conversion are the binding constraints: ${linkReadyRows.length} rows can receive payment today, and ${collectableClosesNeeded} closes are enough to pass the monthly net target under the configured reserve/fee assumptions.`,
+        '2. Partner Pilot remains upside, but missing Partner Pilot payment links should not crowd out the currently collectable Hardening Sprint close sequence.',
+      ]),
     '3. The data has no paid/lost labels, so a trained close-probability model would be fake precision. The current model uses weak supervision from stage, offer value, prospect score, segment fit, and payment-link readiness.',
-    '4. The next revenue action is operational, not analytical: create live Stripe products/prices/payment links, update the ignored offer map, then follow up only on verified real sends.',
+    linkReadyRows.length === 0
+      ? '4. The next revenue action is operational, not analytical: create live Stripe products/prices/payment links, update the ignored offer map, then follow up only on verified real sends.'
+      : '4. The next revenue action is operational, not analytical: use the proposal batch and close follow-up batch, send only reviewed external messages, then record only cleared Stripe payments.',
     '',
     '## Next Checks',
     '',
     '```sh',
-    `node tools/stripe-setup-plan.js --date ${args.date}`,
-    `node tools/revenue-command-center.js --date ${args.date} --limit 15`,
+    ...(linkReadyRows.length === 0
+      ? [
+        `node tools/stripe-setup-plan.js --date ${actionDate}`,
+        `node tools/revenue-command-center.js --date ${actionDate} --limit 15`,
+      ]
+      : [
+        `node tools/proposal-batch-plan.js --date ${actionDate}`,
+        `node tools/close-follow-up-batch-plan.js --date ${actionDate}`,
+        `node tools/revenue-command-center.js --date ${actionDate} --limit 15`,
+      ]),
     '```',
     '',
   );

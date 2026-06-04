@@ -113,14 +113,18 @@ Terms:
 
 ```sh
 node tools/proposal-plan.js \
-  --pipeline pipeline-status-YYYY-MM-DD.tsv \
   --prospect prospect-label \
-  --out proposal-plan-prospect-label.md \
   --date YYYY-MM-DD \
   --stripe-offer-map stripe-offer-map-YYYY-MM-DD.tsv
 ```
 
-3. Send the current Stripe payment link or invoice from the Stripe Dashboard only after `tools/proposal-plan.js` shows `Price status: ready` and `Link status: ready`.
+To generate handoffs for every selected close in the current close-target plan:
+
+```sh
+node tools/proposal-batch-plan.js --date YYYY-MM-DD
+```
+
+3. Send the current Stripe payment link or invoice from the Stripe Dashboard only after the proposal plan shows `Price status: ready` and `Link status: ready`.
 4. Record the buyer, source, offer, price, and payment status in the private CRM or Cal.com notes.
 5. Start work only after Stripe shows paid or the invoice is contractually approved.
 6. After Stripe clears, run `tools/record-cleared-payment.js` so the private revenue ledger and pipeline agree.

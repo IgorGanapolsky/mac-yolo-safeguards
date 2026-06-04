@@ -2,7 +2,7 @@
 'use strict';
 
 const fs = require('fs');
-const { latestDataDate } = require('./revenue-date');
+const { discover, latestDataDate } = require('./revenue-date');
 
 const usage = `Usage:
   node tools/stripe-setup-plan.js [--date YYYY-MM-DD] [--map stripe-offer-map.tsv] [--out stripe-setup-plan.md] [--candidates stripe-readonly-candidates.tsv]
@@ -12,6 +12,8 @@ and payment links for the ignored Stripe offer map.
 
 This tool does not call Stripe, create prices, create payment links, mutate the
 offer map, or prove revenue.`;
+
+const openStages = new Set(['ready', 'sent', 'replied', 'booked', 'proposed']);
 
 function parseArgs(argv) {
   const args = {
@@ -36,25 +38,27 @@ function parseArgs(argv) {
   return args;
 }
 
-function parseTsv(path) {
+function parseTsv(path, options = {}) {
   const text = fs.readFileSync(path, 'utf8').trim();
   if (!text) {
     throw new Error(`${path} is empty`);
   }
   const lines = text.split(/\r?\n/);
   const headers = lines.shift().split('\t');
-  const required = [
-    'offer',
-    'status',
-    'stripe_product_name',
-    'stripe_product_id',
-    'stripe_price_id',
-    'stripe_amount_usd',
-    'payment_link_url',
-  ];
-  for (const header of required) {
-    if (!headers.includes(header)) {
-      throw new Error(`${path}: missing required column ${header}`);
+  if (options.strictOfferMap !== false) {
+    const required = [
+      'offer',
+      'status',
+      'stripe_product_name',
+      'stripe_product_id',
+      'stripe_price_id',
+      'stripe_amount_usd',
+      'payment_link_url',
+    ];
+    for (const header of required) {
+      if (!headers.includes(header)) {
+        throw new Error(`${path}: missing required column ${header}`);
+      }
     }
   }
   return lines.map((line, index) => {
@@ -105,6 +109,55 @@ function readiness(row) {
   return { productReady, priceReady, linkReady };
 }
 
+function offerName(route) {
+  const match = String(route || '').match(/^(.+?)\s*\(/);
+  return match ? match[1].trim() : String(route || '').trim();
+}
+
+function currency(value) {
+  return `$${value.toFixed(2)}`;
+}
+
+function netForGross(gross) {
+  const stripeFee = gross * 0.029 + 0.30;
+  const preTax = gross - stripeFee;
+  return preTax - preTax * 0.35;
+}
+
+function pipelineUnlockSummary(args, rows) {
+  const pipelines = discover('pipeline-status', args.date);
+  const byOffer = new Map(rows.map((row) => [row.offer, {
+    offer: row.offer,
+    openRows: 0,
+    blockedRows: 0,
+    gross: 0,
+    netAfterReserve: 0,
+    linkReady: readiness(row).linkReady,
+  }]));
+  for (const pipeline of pipelines) {
+    for (const row of parseTsv(pipeline, { strictOfferMap: false })) {
+      if (!openStages.has(row.stage)) {
+        continue;
+      }
+      const offer = offerName(row.route);
+      if (!byOffer.has(offer)) {
+        continue;
+      }
+      const gross = money(row.gross_potential_usd, `${row.prospect_label} gross_potential_usd`);
+      const item = byOffer.get(offer);
+      item.openRows += 1;
+      item.gross += gross;
+      item.netAfterReserve += netForGross(gross);
+      if (!item.linkReady) {
+        item.blockedRows += 1;
+      }
+    }
+  }
+  return Array.from(byOffer.values())
+    .filter((item) => item.openRows > 0)
+    .sort((a, b) => b.gross - a.gross || a.offer.localeCompare(b.offer));
+}
+
 function updateCommand(mapPath, row, options = {}) {
   const command = [
     'node tools/stripe-offer-map-update.js',
@@ -124,6 +177,7 @@ function updateCommand(mapPath, row, options = {}) {
 function render(args, rows) {
   const date = args.date || new Date().toISOString().slice(0, 10);
   const missing = rows.filter((row) => !readiness(row).linkReady);
+  const unlockSummary = pipelineUnlockSummary(args, rows);
   const lines = [
     `# Stripe Setup Plan - ${date}`,
     '',
@@ -134,6 +188,14 @@ function render(args, rows) {
     `- Offers in map: ${rows.length}`,
     `- Offers still missing valid price/link readiness: ${missing.length}`,
     `- Read-only Stripe candidates: ${args.candidates || 'none detected'}`,
+    '',
+    '## Link Creation Priority',
+    '',
+    '| Rank | Offer | Open rows blocked by missing link | Gross unlocked by link | Net after reserve if all close | Link ready |',
+    '|---:|---|---:|---:|---:|---|',
+    ...(unlockSummary.length > 0
+      ? unlockSummary.map((item, index) => `| ${index + 1} | ${item.offer} | ${item.blockedRows} | ${currency(item.gross)} | ${currency(item.netAfterReserve)} | ${item.linkReady ? 'yes' : 'no'} |`)
+      : ['| 1 | No open pipeline rows found | 0 | $0.00 | $0.00 | no |']),
     '',
     '## Live Dashboard Objects To Create Or Verify',
     '',
@@ -190,7 +252,21 @@ function render(args, rows) {
   lines.push(
     '## Batch Import Template',
     '',
-    'Generate an ignored local file such as `stripe-live-updates-template.tsv`. Candidate product/price IDs can be prefilled, but real payment links must be added manually:',
+    'Generate an ignored local file such as `stripe-live-updates-template.tsv`. Candidate product/price IDs can be prefilled, but real payment links must be added manually.',
+    '',
+    'Use `--missing-only` when the immediate goal is to unlock blocked offers such as Partner Pilot without touching already-ready offers:',
+    '',
+    '```sh',
+    [
+      'node tools/stripe-live-updates-template.js',
+      '--map', shellQuote(args.map),
+      '--out', 'stripe-live-updates-missing-only.tsv',
+      '--missing-only',
+      args.candidates ? `--candidates ${shellQuote(args.candidates)}` : '',
+    ].filter(Boolean).join(' '),
+    '```',
+    '',
+    'Use the full template only when intentionally refreshing every offer:',
     '',
     '```sh',
     [

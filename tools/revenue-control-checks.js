@@ -17,11 +17,20 @@ push, or prove revenue.`;
 
 const syntaxTargets = [
   'tools/close-target-plan.js',
+  'tools/close-follow-up-batch-plan.js',
+  'tools/close-execution-packet.js',
   'tools/github-issue-template-check.js',
+  'tools/partner-pilot-qualification-plan.js',
+  'tools/partner-pilot-unlock-simulation.js',
+  'tools/partner-pilot-stripe-unlock-packet.js',
   'tools/payment-readiness.js',
+  'tools/payment-request-execution-packet.js',
+  'tools/payment-waiting-audit.js',
+  'tools/pipeline-data-science.js',
   'tools/pipeline-integrity.js',
   'tools/pipeline-prioritize.js',
   'tools/pipeline-summary.js',
+  'tools/proposal-batch-plan.js',
   'tools/proposal-plan.js',
   'tools/proposal-plan-stale-audit.js',
   'tools/public-conversion-check.js',
@@ -37,6 +46,8 @@ const syntaxTargets = [
   'tools/revenue-diagnosis.js',
   'tools/revenue-goal-audit.js',
   'tools/revenue-net.js',
+  'tools/revenue-price-sensitivity.js',
+  'tools/revenue-unblock-plan.js',
   'tools/send-confirmation-audit.js',
   'tools/send-plan.js',
   'tools/stripe-offer-map-import.js',
@@ -131,6 +142,26 @@ function parseTsv(path) {
     });
     return row;
   });
+}
+
+function offerName(route) {
+  const match = String(route || '').match(/^(.+?)\s*\(/);
+  return match ? match[1].trim() : String(route || '').trim();
+}
+
+function realPaymentLink(value) {
+  return /^https:\/\/buy\.stripe\.com\/[A-Za-z0-9]/.test(String(value || ''));
+}
+
+function linkReadyOfferMap(path) {
+  const byOffer = new Map();
+  if (!fs.existsSync(path)) {
+    return byOffer;
+  }
+  for (const row of parseTsv(path)) {
+    byOffer.set(row.offer, row.status === 'ready' && realPaymentLink(row.payment_link_url));
+  }
+  return byOffer;
 }
 
 function requireText(result, pattern, label, failures) {
@@ -288,6 +319,295 @@ function runRevenueGoalAuditSyntheticCheck(failures) {
   requireText(result, /Target status: MET/, 'synthetic goal audit can prove target met', failures);
 }
 
+function runWeakLedgerProofChecks(failures) {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'weak-ledger-proof-'));
+  const ledgerPath = path.join(dir, 'revenue-ledger-2026-06.tsv');
+  fs.writeFileSync(ledgerPath, [
+    'date_paid\tbuyer_label\tbuyer_segment\tsource\toffer\tgross_usd\tstripe_fee_usd\trefund_usd\ttax_reserve_pct\tstatus\tproof_note',
+    '2026-06-02\tweak-buyer\tagency\tdirect\tAI Agent Hardening Sprint\t1500.00\t43.80\t0.00\t0.35\tcleared\tTODO proof later',
+  ].join('\n') + '\n');
+  const netResult = runExpectFailure('revenue-net rejects weak paid proof', 'node', [
+    'tools/revenue-net.js',
+    ledgerPath,
+    '--from',
+    '2026-06-01',
+    '--to',
+    '2026-06-30',
+    '--days',
+    '30',
+  ]);
+  if (!netResult.ok) {
+    failures.push(netResult.label);
+  } else {
+    requireText(
+      netResult,
+      /proof_note for paid\/cleared revenue must include concrete private payment and delivery evidence/,
+      'revenue-net explains weak paid proof rejection',
+      failures,
+    );
+  }
+  const auditResult = runExpectFailure('revenue goal audit rejects weak paid proof', 'node', [
+    'tools/revenue-goal-audit.js',
+    '--date',
+    '2026-06-02',
+    '--ledger',
+    ledgerPath,
+  ]);
+  if (!auditResult.ok) {
+    failures.push(auditResult.label);
+  } else {
+    requireText(
+      auditResult,
+      /proof_note for paid\/cleared revenue must include concrete private payment and delivery evidence/,
+      'revenue goal audit explains weak paid proof rejection',
+      failures,
+    );
+  }
+}
+
+function runRecordClearedPaymentDryRunCheck(failures) {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'record-cleared-payment-'));
+  const ledgerPath = path.join(dir, 'revenue-ledger-2026-06.tsv');
+  const pipelinePath = path.join(dir, 'pipeline-status-2026-06-02.tsv');
+  fs.writeFileSync(pipelinePath, [
+    'prospect_label\tstage\troute\tgross_potential_usd\tlast_touch\tnext_action\tnotes',
+    'sample-buyer\tproposed\tAI Agent Hardening Sprint ($1,500)\t1500.00\t2026-06-02\twait_for_payment\tprivate test row',
+  ].join('\n') + '\n');
+  const beforeLedgerExists = fs.existsSync(ledgerPath);
+  const result = run('record cleared payment dry-run emits proof commands', 'node', [
+    'tools/record-cleared-payment.js',
+    '--ledger',
+    ledgerPath,
+    '--pipeline',
+    pipelinePath,
+    '--prospect',
+    'sample-buyer',
+    '--date-paid',
+    '2026-06-15',
+    '--buyer-segment',
+    'agency',
+    '--source',
+    'direct-outreach',
+    '--stripe-fee-usd',
+    '43.80',
+    '--refund-usd',
+    '0.00',
+    '--proof-note',
+    'Stripe charge ch_private_123 and delivery proof at private/client/sample-buyer',
+    '--dry-run',
+  ]);
+  if (!result.ok) {
+    failures.push(result.label);
+    return;
+  }
+  requireText(result, /Dry run: no files written\./, 'record payment dry-run avoids writes', failures);
+  requireText(result, /Verify revenue proof:/, 'record payment dry-run prints verification heading', failures);
+  requireText(
+    result,
+    new RegExp(`node tools/revenue-net\\.js ${ledgerPath.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')} --from 2026-06-01 --to 2026-06-30 --days 30`),
+    'record payment dry-run prints concrete revenue-net command',
+    failures,
+  );
+  requireText(
+    result,
+    new RegExp(`node tools/revenue-goal-audit\\.js --date 2026-06-15 --ledger ${ledgerPath.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`),
+    'record payment dry-run prints ledger-scoped goal audit command',
+    failures,
+  );
+  if (beforeLedgerExists === fs.existsSync(ledgerPath)) {
+    console.log('[OK] record payment dry-run leaves ledger absent');
+  } else {
+    console.log('[FAIL] record payment dry-run leaves ledger absent');
+    failures.push('record payment dry-run leaves ledger absent');
+  }
+}
+
+function runPaymentWaitingAuditSyntheticCheck(failures) {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'payment-waiting-audit-'));
+  const pipelinePath = path.join(dir, 'pipeline-status-2026-06-02.tsv');
+  const partialPipelinePath = path.join(dir, 'pipeline-status-partial-2026-06-02.tsv');
+  const proposalBatchPath = path.join(dir, 'proposal-batch-plan-2026-06-02.md');
+  const lines = [
+    'prospect_label\tstage\troute\tgross_potential_usd\tlast_touch\tnext_action\tnotes',
+  ];
+  const partialLines = [
+    'prospect_label\tstage\troute\tgross_potential_usd\tlast_touch\tnext_action\tnotes',
+  ];
+  const prospects = [
+    'aventus-agency',
+    'flowset-hub',
+    'northstar-ops',
+    'clearpath-ai',
+    'codetractor',
+    'opsforge',
+    'buildlane',
+    'gridpilot',
+    'signalstack',
+    'anyware-solutions',
+  ];
+  prospects.forEach((prospect, index) => {
+    lines.push(`${prospect}\tproposed\tAI Agent Hardening Sprint ($1,500)\t1500.00\t2026-06-02\twait_for_payment\tpayment request sent manually ${index + 1}`);
+    partialLines.push(`${prospect}\t${index < 8 ? 'proposed' : 'sent'}\tAI Agent Hardening Sprint ($1,500)\t1500.00\t2026-06-02\t${index < 8 ? 'wait_for_payment' : 'wait_for_reply'}\t${index < 8 ? `payment request sent manually ${index + 1}` : 'still waiting on send confirmation'}`);
+  });
+  fs.writeFileSync(pipelinePath, `${lines.join('\n')}\n`);
+  fs.writeFileSync(partialPipelinePath, `${partialLines.join('\n')}\n`);
+  fs.writeFileSync(proposalBatchPath, [
+    '# Proposal Batch Plan - 2026-06-02',
+    '',
+    '| Rank | Prospect | Payment request status | Proposal plan |',
+    '|---:|---|---|---|',
+    ...prospects.map((prospect, index) => `| ${index + 1} | ${prospect} | READY | proposal-plan-${prospect}-2026-06-02.md |`),
+    '',
+    '## Manual Payment Request Open Commands',
+    '',
+    ...prospects.flatMap((prospect, index) => [
+      `${index + 1}. ${prospect}`,
+      '',
+      '```sh',
+      `open 'https://example.com/${prospect}'`,
+      '```',
+      '',
+    ]),
+    '## Manual Send Confirmation Commands',
+    '',
+    ...prospects.flatMap((prospect, index) => [
+      `${index + 1}. ${prospect}`,
+      '',
+      '```sh',
+      `node tools/pipeline-update.js --pipeline '${pipelinePath}' --prospect '${prospect}' --stage proposed --date '2026-06-02' --next-action wait_for_payment --note 'payment request sent manually via synthetic to https://example.com/${prospect}'`,
+      '```',
+      '',
+    ]),
+  ].join('\n') + '\n');
+  const out = path.join(dir, 'payment-waiting-audit-2026-06-02.md');
+  const result = run('synthetic payment waiting audit', 'node', [
+    'tools/payment-waiting-audit.js',
+    '--date',
+    '2026-06-02',
+    '--pipeline',
+    pipelinePath,
+    '--proposal-batch',
+    proposalBatchPath,
+    '--out',
+    out,
+  ]);
+  if (!result.ok) {
+    failures.push(result.label);
+    return;
+  }
+  requireText(result, /Payment requests waiting for Stripe: 10/, 'payment waiting audit counts synthetic waiting rows', failures);
+  requireText(result, /Waiting gross: \$15000\.00/, 'payment waiting audit sums synthetic waiting gross', failures);
+  requireText(result, /Estimated net if all waiting payments clear: \$9465\.30/, 'payment waiting audit estimates synthetic waiting net', failures);
+  requireText(result, /Selected payment requests expected: 10/, 'payment waiting audit reports selected expected count', failures);
+  requireText(result, /Selected payment requests waiting: 10/, 'payment waiting audit reports selected waiting count', failures);
+  requireText(result, /Selected send confirmations missing: 0/, 'payment waiting audit reports no missing selected confirmations when complete', failures);
+  requireText(result, /Selected missing-send gross blocked: \$0\.00/, 'payment waiting audit reports no missing-send gross when complete', failures);
+  requireText(result, /Selected missing-send estimated net blocked: \$0\.00/, 'payment waiting audit reports no missing-send net when complete', failures);
+  requireText(result, /Revenue proof: NOT PROVEN BY THIS AUDIT/, 'payment waiting audit preserves console proof boundary', failures);
+  requireFileText(out, /Target status if all waiting payments clear: MET/, 'payment waiting audit shows synthetic target if all clear', failures);
+  requireFileText(out, /## Selected Batch Coverage[\s\S]*\| 10 \| anyware-solutions \| yes \|/, 'payment waiting audit renders selected batch coverage', failures);
+  requireFileText(
+    out,
+    /This audit is not revenue proof\. Only cleared Stripe payments recorded in the private ignored ledger count\./,
+    'payment waiting audit preserves ledger proof boundary',
+    failures,
+  );
+  requireFileText(
+    out,
+    /node tools\/record-cleared-payment\.js --help[\s\S]*node tools\/revenue-goal-audit\.js --date 2026-06-02/,
+    'payment waiting audit points to cleared-payment recorder and goal audit',
+    failures,
+  );
+  const partialOut = path.join(dir, 'payment-waiting-audit-partial-2026-06-02.md');
+  const partialResult = run('synthetic payment waiting audit detects missing selected confirmations', 'node', [
+    'tools/payment-waiting-audit.js',
+    '--date',
+    '2026-06-02',
+    '--pipeline',
+    partialPipelinePath,
+    '--proposal-batch',
+    proposalBatchPath,
+    '--out',
+    partialOut,
+  ]);
+  if (!partialResult.ok) {
+    failures.push(partialResult.label);
+    return;
+  }
+  requireText(partialResult, /Payment requests waiting for Stripe: 8/, 'payment waiting audit counts partial waiting rows', failures);
+  requireText(partialResult, /Selected payment requests waiting: 8/, 'payment waiting audit reports partial selected waiting count', failures);
+  requireText(partialResult, /Selected send confirmations missing: 2/, 'payment waiting audit detects missing selected send confirmations', failures);
+  requireText(partialResult, /Selected missing-send gross blocked: \$3000\.00/, 'payment waiting audit quantifies partial missing-send gross', failures);
+  requireText(partialResult, /Selected missing-send estimated net blocked: \$1893\.06/, 'payment waiting audit quantifies partial missing-send net', failures);
+  requireFileText(
+    partialOut,
+    /\| 9 \| signalstack \| NO - send confirmation missing \| \$1500\.00 \| \$946\.53 \| - \| - \| Run the matching manual send-confirmation command only after the payment request was actually sent\. \|/,
+    'payment waiting audit lists missing selected send confirmation',
+    failures,
+  );
+  requireFileText(
+    partialOut,
+    /## Missing Send Confirmation Commands[\s\S]*\| 9 \| signalstack \| `open 'https:\/\/example\.com\/signalstack'` \| `node tools\/pipeline-update\.js --pipeline '[^']*pipeline-status-2026-06-02\.tsv' --prospect 'signalstack' --stage proposed --date '2026-06-02' --next-action wait_for_payment --note 'payment request sent manually via synthetic to https:\/\/example\.com\/signalstack'` \|/,
+    'payment waiting audit gives exact missing selected confirmation command',
+    failures,
+  );
+}
+
+function runProposalStaleAuditSyntheticCheck(failures) {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'proposal-stale-audit-'));
+  const date = '2026-06-02';
+  fs.writeFileSync(path.join(dir, `prospects-${date}.tsv`), [
+    'prospect_label\tsegment',
+    'ampliflow\tai-growth-agency',
+  ].join('\n') + '\n');
+  fs.writeFileSync(path.join(dir, `stripe-offer-map-${date}.tsv`), [
+    'offer\tstatus\tstripe_product_id\tstripe_price_id\tpayment_link_url\tnote',
+    'Partner Pilot\tready\tprod_SYNTHETIC\tprice_SYNTHETIC\thttps://buy.stripe.com/synthetic\tsynthetic',
+  ].join('\n') + '\n');
+  fs.writeFileSync(path.join(dir, `proposal-plan-ampliflow-${date}.md`), [
+    `# Proposal Plan - ampliflow - ${date}`,
+    '',
+    '- Prospect: ampliflow',
+    `- Pipeline: pipeline-status-batch2-${date}.tsv`,
+    '',
+    '```sh',
+    `node tools/pipeline-update.js --pipeline 'pipeline-status-batch2-${date}.tsv' --prospect 'ampliflow' --stage paid --date '${date}' --next-action add_to_revenue_ledger --note 'Stripe payment cleared; add private ledger proof'`,
+    '```',
+  ].join('\n') + '\n');
+  const out = path.join(dir, `proposal-plan-stale-audit-${date}.md`);
+  const audit = spawnSync('node', [
+    path.resolve('tools/proposal-plan-stale-audit.js'),
+    '--date',
+    date,
+    '--out',
+    out,
+  ], { cwd: dir, encoding: 'utf8' });
+  const auditOk = audit.status === 0;
+  console.log(`${auditOk ? '[OK]' : '[FAIL]'} synthetic proposal stale audit detects stale handoff`);
+  if (!auditOk) {
+    failures.push('synthetic proposal stale audit detects stale handoff');
+    if (audit.stdout) {
+      process.stdout.write(audit.stdout);
+    }
+    if (audit.stderr) {
+      process.stderr.write(audit.stderr);
+    }
+    return;
+  }
+  requireFileText(
+    out,
+    /uses stale pipeline-update paid command instead of record-cleared-payment/,
+    'synthetic proposal stale audit surfaces obsolete paid-stage commands',
+    failures,
+  );
+  requireFileText(
+    out,
+    /## Regeneration Commands[\s\S]*node tools\/proposal-plan\.js --pipeline 'pipeline-status-batch2-2026-06-02\.tsv' --prospect 'ampliflow' --date '2026-06-02' --buyer-segment 'ai-growth-agency' --source direct-outreach --stripe-offer-map 'stripe-offer-map-2026-06-02\.tsv' --out 'proposal-plan-ampliflow-2026-06-02\.md'/,
+    'synthetic proposal stale audit includes concrete regeneration command',
+    failures,
+  );
+}
+
 function main() {
   const args = parseArgs(process.argv.slice(2));
   if (args.help) {
@@ -355,6 +675,36 @@ function main() {
       '--out',
       `payment-readiness-all-${args.date}.md`,
     ]),
+    run('date-discovered revenue price sensitivity', 'node', [
+      'tools/revenue-price-sensitivity.js',
+      '--date',
+      args.date,
+      '--out',
+      `revenue-price-sensitivity-${args.date}.md`,
+    ]),
+    run('date-discovered Partner Pilot qualification plan', 'node', [
+      'tools/partner-pilot-qualification-plan.js',
+      '--date',
+      args.date,
+      '--limit',
+      String(args.limit),
+      '--out',
+      `partner-pilot-qualification-plan-${args.date}.md`,
+    ]),
+    run('date-discovered Partner Pilot unlock simulation', 'node', [
+      'tools/partner-pilot-unlock-simulation.js',
+      '--date',
+      args.date,
+      '--out',
+      `partner-pilot-unlock-simulation-${args.date}.md`,
+    ]),
+    run('date-discovered Partner Pilot Stripe unlock packet', 'node', [
+      'tools/partner-pilot-stripe-unlock-packet.js',
+      '--date',
+      args.date,
+      '--out',
+      `partner-pilot-stripe-unlock-packet-${args.date}.md`,
+    ]),
     run('date-discovered Stripe setup plan', 'node', [
       'tools/stripe-setup-plan.js',
       '--date',
@@ -388,6 +738,46 @@ function main() {
       '--out',
       `close-target-plan-${args.date}.md`,
     ]),
+    run('date-discovered close follow-up batch plan', 'node', [
+      'tools/close-follow-up-batch-plan.js',
+      '--date',
+      args.date,
+      '--out',
+      `close-follow-up-batch-plan-${args.date}.md`,
+    ]),
+    run('date-discovered close execution packet', 'node', [
+      'tools/close-execution-packet.js',
+      '--date',
+      args.date,
+      '--limit',
+      '5',
+      '--out',
+      `close-execution-packet-${args.date}.md`,
+    ]),
+    run('date-discovered ready proposal plan', 'node', [
+      'tools/proposal-plan.js',
+      '--date',
+      args.date,
+      '--prospect',
+      'aventus-agency',
+      '--out',
+      `proposal-plan-ready-discovered-${args.date}.md`,
+    ]),
+    run('date-discovered proposal batch plan', 'node', [
+      'tools/proposal-batch-plan.js',
+      '--date',
+      args.date,
+      '--out',
+      `proposal-batch-plan-${args.date}.md`,
+    ]),
+    run('date-discovered proposal batch plan with backup', 'node', [
+      'tools/proposal-batch-plan.js',
+      '--date',
+      args.date,
+      '--include-backup',
+      '--out',
+      `proposal-batch-plan-with-backup-${args.date}.md`,
+    ]),
     run('date-discovered revenue diagnosis', 'node', [
       'tools/revenue-diagnosis.js',
       '--date',
@@ -409,6 +799,46 @@ function main() {
       '--out',
       `send-confirmation-audit-${args.date}.md`,
     ]),
+    run('date-discovered payment waiting audit', 'node', [
+      'tools/payment-waiting-audit.js',
+      '--date',
+      args.date,
+      '--proposal-batch',
+      `proposal-batch-plan-${args.date}.md`,
+      '--out',
+      `payment-waiting-audit-${args.date}.md`,
+    ]),
+    run('date-discovered revenue unblock plan', 'node', [
+      'tools/revenue-unblock-plan.js',
+      '--date',
+      args.date,
+      '--out',
+      `revenue-unblock-plan-${args.date}.md`,
+    ]),
+    run('date-discovered payment request execution packet', 'node', [
+      'tools/payment-request-execution-packet.js',
+      '--date',
+      args.date,
+      '--proposal-batch',
+      `proposal-batch-plan-${args.date}.md`,
+      '--backup-proposal-batch',
+      `proposal-batch-plan-with-backup-${args.date}.md`,
+      '--payment-waiting-audit',
+      `payment-waiting-audit-${args.date}.md`,
+      '--out',
+      `payment-request-execution-packet-${args.date}.md`,
+    ]),
+    run('date-discovered payment-ready send plan', 'node', [
+      'tools/send-plan.js',
+      '--date',
+      args.date,
+      '--stripe-status',
+      'ready',
+      '--limit',
+      String(args.limit),
+      '--out',
+      `send-plan-ready-${args.date}.md`,
+    ]),
     run('date-discovered proposal stale audit', 'node', [
       'tools/proposal-plan-stale-audit.js',
       '--date',
@@ -425,6 +855,15 @@ function main() {
       '--out',
       `pipeline-priority-${args.date}.md`,
     ]),
+    run('date-discovered pipeline data science', 'node', [
+      'tools/pipeline-data-science.js',
+      '--date',
+      args.date,
+      '--limit',
+      String(args.limit),
+      '--out',
+      `pipeline-data-science-${args.date}.md`,
+    ]),
     run('date-discovered pipeline integrity', 'node', [
       'tools/pipeline-integrity.js',
       '--date',
@@ -440,14 +879,170 @@ function main() {
   }
   requireFileText(
     `revenue-action-board-${args.date}.md`,
+    /Send and confirm selected payment requests that are still missing from the waiting-for-Stripe queue\./,
+    'action board prioritizes missing selected payment-request send confirmations',
+    failures,
+  );
+  requireFileText(
+    `revenue-action-board-${args.date}.md`,
+    /Stale proposal plans requiring regeneration: 0/,
+    'action board reports no stale proposal regeneration debt',
+    failures,
+  );
+  requireFileText(
+    `revenue-action-board-${args.date}.md`,
+    new RegExp(`Generate/review link-ready proposal batch[\\s\\S]*node tools/proposal-batch-plan\\.js --date ${args.date}`),
+    'action board still includes payment-ready proposal handoffs',
+    failures,
+  );
+  requireFileText(
+    `revenue-action-board-${args.date}.md`,
+    /Payment requests waiting for Stripe: 0/,
+    'action board reports current payment-waiting row count',
+    failures,
+  );
+  requireFileText(
+    `revenue-action-board-${args.date}.md`,
+    /Payment-waiting gross: \$0\.00/,
+    'action board reports current payment-waiting gross',
+    failures,
+  );
+  requireFileText(
+    `revenue-action-board-${args.date}.md`,
+    /Selected payment requests expected: 10[\s\S]*Selected payment requests waiting: 0[\s\S]*Selected send confirmations missing: 10[\s\S]*Selected missing-send gross blocked: \$15000\.00[\s\S]*Selected missing-send estimated net blocked: \$9465\.30/,
+    'action board reports selected payment-request send-confirmation debt',
+    failures,
+  );
+  requireFileText(
+    `revenue-action-board-${args.date}.md`,
+    new RegExp(`Send/confirm selected payment requests[\\s\\S]*10/10 selected payment request send confirmation\\(s\\) are missing[\\s\\S]*\\$15000\\.00 gross / \\$9465\\.30 estimated net blocked[\\s\\S]*node tools/payment-request-execution-packet\\.js --date ${args.date} --proposal-batch proposal-batch-plan-${args.date}\\.md --backup-proposal-batch proposal-batch-plan-with-backup-${args.date}\\.md --payment-waiting-audit payment-waiting-audit-${args.date}\\.md --out payment-request-execution-packet-${args.date}\\.md`),
+    'action board includes actionable selected payment-request execution packet command',
+    failures,
+  );
+  requireFileText(
+    `revenue-action-board-${args.date}.md`,
+    new RegExp(`Generate/review close follow-up batch[\\s\\S]*node tools/close-follow-up-batch-plan\\.js --date ${args.date}`),
+    'action board includes close follow-up batch for sent link-ready rows',
+    failures,
+  );
+  requireFileText(
+    `revenue-action-board-${args.date}.md`,
+    new RegExp(`Generate today close execution packet[\\s\\S]*node tools/close-execution-packet\\.js --date ${args.date}`),
+    'action board includes close execution packet for top link-ready rows',
+    failures,
+  );
+  requireFileText(
+    `revenue-action-board-${args.date}.md`,
+    new RegExp(`Review price sensitivity before pushing volume[\\s\\S]*node tools/revenue-price-sensitivity\\.js --date ${args.date}`),
+    'action board includes price sensitivity before volume push',
+    failures,
+  );
+  requireFileText(
+    `revenue-action-board-${args.date}.md`,
+    new RegExp(`Generate/review Partner Pilot qualification plan[\\s\\S]*node tools/partner-pilot-qualification-plan\\.js --date ${args.date}`),
+    'action board includes Partner Pilot qualification plan',
+    failures,
+  );
+  requireFileText(
+    `revenue-action-board-${args.date}.md`,
+    new RegExp(`Rehearse Partner Pilot unlock close plan[\\s\\S]*node tools/partner-pilot-unlock-simulation\\.js --date ${args.date}`),
+    'action board includes Partner Pilot unlock simulation',
+    failures,
+  );
+  requireFileText(
+    `revenue-action-board-${args.date}.md`,
+    new RegExp(`Generate Partner Pilot Stripe unlock packet[\\s\\S]*node tools/partner-pilot-stripe-unlock-packet\\.js --date ${args.date}`),
+    'action board includes Partner Pilot Stripe unlock packet',
+    failures,
+  );
+  requireFileText(
+    `revenue-action-board-${args.date}.md`,
     new RegExp(`node tools/stripe-setup-plan\\.js --date ${args.date}`),
-    'action board uses date-discovered Stripe setup command',
+    'action board still includes date-discovered Stripe setup command for blocked offers',
+    failures,
+  );
+  requireFileText(
+    `revenue-action-board-${args.date}.md`,
+    /Partner Pilot remains blocked until its offer has a verified payment link/,
+    'action board keeps missing Partner Pilot link setup visible after ready handoffs',
     failures,
   );
   requireFileText(
     `revenue-action-board-${args.date}.md`,
     /Sent rows requiring confirmation: 0/,
     'action board reports no current send-confirmation debt',
+    failures,
+  );
+  requireFileText(
+    `payment-waiting-audit-${args.date}.md`,
+    /Payment requests waiting for Stripe: 0/,
+    'payment waiting audit reports no current waiting rows',
+    failures,
+  );
+  requireFileText(
+    `payment-waiting-audit-${args.date}.md`,
+    /Waiting gross: \$0\.00/,
+    'payment waiting audit reports no current waiting gross',
+    failures,
+  );
+  requireFileText(
+    `payment-waiting-audit-${args.date}.md`,
+    /This audit is not revenue proof\. Only cleared Stripe payments recorded in the private ignored ledger count\./,
+    'payment waiting audit preserves current proof boundary',
+    failures,
+  );
+  requireFileText(
+    `revenue-unblock-plan-${args.date}.md`,
+    /Selected send confirmations missing: 10[\s\S]*Selected missing-send gross blocked: \$15000\.00[\s\S]*Selected missing-send estimated net blocked: \$9465\.30/,
+    'revenue unblock plan reports selected payment-request blocker',
+    failures,
+  );
+  requireFileText(
+    `revenue-unblock-plan-${args.date}.md`,
+    /Link-ready Hardening Sprint rows available now: 11[\s\S]*Link-ready Hardening Sprint backups outside selected batch: 1[\s\S]*Link-ready Partner Pilot rows available now: 0/,
+    'revenue unblock plan reports current backup and Partner Pilot link constraints',
+    failures,
+  );
+  requireFileText(
+    `revenue-unblock-plan-${args.date}.md`,
+    /Desired buffered Hardening Sprint batch \| 15 \| 10 \| 70% \| 72\.16%[\s\S]*Partner Pilot after link unlock \| 10 \| 5 \| 70% \| 95\.27%/,
+    'revenue unblock plan quantifies buffered Hardening versus Partner Pilot probability',
+    failures,
+  );
+  requireFileText(
+    `revenue-unblock-plan-${args.date}.md`,
+    /The desired 15-request Hardening Sprint buffer is not currently available\. Current link-ready inventory is 11, so the shortfall is 4 additional link-ready Hardening Sprint row\(s\)\./,
+    'revenue unblock plan avoids over-claiming unavailable Hardening backup volume',
+    failures,
+  );
+  requireFileText(
+    `payment-request-execution-packet-${args.date}.md`,
+    /Selected payment requests expected: 10[\s\S]*Selected send confirmations missing: 10[\s\S]*Gross blocked by missing send confirmations: \$15000\.00/,
+    'payment request execution packet reports selected send blocker',
+    failures,
+  );
+  requireFileText(
+    `payment-request-execution-packet-${args.date}.md`,
+    /## Selected Payment Request Sequence[\s\S]*### 1\. aventus-agency[\s\S]*Confirm only after actual send:[\s\S]*### 10\. anyware-solutions/,
+    'payment request execution packet sequences selected payment requests',
+    failures,
+  );
+  requireFileText(
+    `payment-request-execution-packet-${args.date}.md`,
+    /## Backup Payment Request Sequence[\s\S]*### Backup 1\. metro-mcp[\s\S]*node tools\/pipeline-update\.js --pipeline 'pipeline-status-mac-yolo-2026-06-02\.tsv' --prospect 'metro-mcp' --stage proposed --date '2026-06-02' --next-action wait_for_payment/,
+    'payment request execution packet includes metro-mcp backup confirmation command',
+    failures,
+  );
+  requireFileText(
+    `payment-request-execution-packet-${args.date}.md`,
+    /Only cleared Stripe payments with concrete private proof count toward the revenue goal\./,
+    'payment request execution packet preserves revenue proof boundary',
+    failures,
+  );
+  requireFileText(
+    `payment-request-execution-packet-${args.date}.md`,
+    new RegExp(`## Consent-To-Cash Gate[\\s\\S]*I consent for Codex to open the selected payment-request destinations in payment-request-execution-packet-${args.date}\\.md[\\s\\S]*payment-waiting-audit\\.js --date ${args.date}[\\s\\S]*revenue-goal-audit\\.js --date ${args.date}`),
+    'payment request execution packet includes exact consent-to-cash gate',
     failures,
   );
   requireFileText(
@@ -466,6 +1061,12 @@ function main() {
     `revenue-action-board-${args.date}.md`,
     /Create live Stripe products\/prices\/payment links and import them into the ignored offer map/,
     'action board calls out live Stripe consent boundary',
+    failures,
+  );
+  requireFileText(
+    `revenue-action-board-${args.date}.md`,
+    /Manually send reviewed payment-ready proposal handoffs/,
+    'action board calls out external payment-request send consent boundary',
     failures,
   );
   requireFileText(
@@ -507,6 +1108,18 @@ function main() {
     failures,
   );
   requireFileText(
+    `public-revenue-publish-plan-${args.date}.md`,
+    /## Consent Required Before Mutation[\s\S]*Do not run `git add`, `git commit`, or `git push` until the operator explicitly approves publishing this public revenue-funnel scope\./,
+    'public publish plan requires explicit consent before git mutation',
+    failures,
+  );
+  requireFileText(
+    `public-revenue-publish-plan-${args.date}.md`,
+    /Push target if approved: origin HEAD/,
+    'public publish plan calls out no-upstream push target',
+    failures,
+  );
+  requireFileText(
     `stripe-setup-plan-${args.date}.md`,
     /node tools\/stripe-offer-map-import\.js --map .* --updates stripe-live-updates-template\.tsv --dry-run/,
     'Stripe setup plan recommends batch import dry-run before mutation',
@@ -525,6 +1138,693 @@ function main() {
     failures,
   );
   requireFileText(
+    `stripe-setup-plan-${args.date}.md`,
+    /--out stripe-live-updates-missing-only\.tsv --missing-only/,
+    'Stripe setup plan recommends missing-only live-updates template for blocked offers',
+    failures,
+  );
+  requireFileText(
+    `send-plan-ready-${args.date}.md`,
+    /Pipeline-ready action rows: 64/,
+    'date-discovered send plan scans full ready action queue',
+    failures,
+  );
+  requireFileText(
+    `send-plan-ready-${args.date}.md`,
+    /Rows selected: 1\/1 matching Stripe filter/,
+    'date-discovered send plan selects current payment-ready outreach',
+    failures,
+  );
+  requireFileText(
+    `revenue-price-sensitivity-${args.date}.md`,
+    /\| AI Agent Hardening Sprint \| \$1500\.00 \| \$946\.53 \| 10 \| 11 \| 11 \| ready \|/,
+    'price sensitivity shows current sprint requires 10 cleared payments',
+    failures,
+  );
+  requireFileText(
+    `revenue-price-sensitivity-${args.date}.md`,
+    /\| Partner Pilot \| \$3000\.00 \| \$1893\.26 \| 5 \| 0 \| 67 \| missing \|/,
+    'price sensitivity shows Partner Pilot needs five closes but lacks payment link',
+    failures,
+  );
+  requireFileText(
+    `revenue-price-sensitivity-${args.date}.md`,
+    /\| 3 \| \$4753\.54 \| \$3000\.00 \|/,
+    'price sensitivity quantifies three-close gross price',
+    failures,
+  );
+  requireFileText(
+    `revenue-price-sensitivity-${args.date}.md`,
+    /Keep the \$1,500 sprint only as the fast single-workflow entry offer/,
+    'price sensitivity recommends not treating sprint as primary path without 10 closes',
+    failures,
+  );
+  requireFileText(
+    `partner-pilot-qualification-plan-${args.date}.md`,
+    /Partner Pilot open rows: 67/,
+    'Partner Pilot qualification plan sees current open pilot rows',
+    failures,
+  );
+  requireFileText(
+    `partner-pilot-qualification-plan-${args.date}.md`,
+    /\| 1 \| ampliflow \| sent \| ai-growth-agency \| 10 \| wait_for_reply \| email \| hello@ampliflow\.ai \|/,
+    'Partner Pilot qualification plan ranks top sent agency prospect',
+    failures,
+  );
+  requireFileText(
+    `partner-pilot-qualification-plan-${args.date}.md`,
+    /## Manual Open Commands[\s\S]*open 'mailto:hello%40ampliflow\.ai\?subject=Partner%20pilot%20for%20recurring%20AI-agent%20failures/,
+    'Partner Pilot qualification plan includes top email open command',
+    failures,
+  );
+  requireFileText(
+    `partner-pilot-qualification-plan-${args.date}.md`,
+    /2\. lowcode-agency[\s\S]*- Send via: booking_form[\s\S]*open 'https:\/\/www\.lowcode\.agency\/contact'/,
+    'Partner Pilot qualification plan includes booking-form open command',
+    failures,
+  );
+  requireFileText(
+    `partner-pilot-qualification-plan-${args.date}.md`,
+    /confirm whether the buyer has a multi-workflow agent failure worth a \$3,000 Partner Pilot, not a \$1,500 single-workflow sprint/,
+    'Partner Pilot qualification plan distinguishes pilot from sprint',
+    failures,
+  );
+  requireFileText(
+    `partner-pilot-qualification-plan-${args.date}.md`,
+    /--stage sent --date '2026-06-02' --next-action wait_for_reply --note 'partner pilot qualification sent manually via email to hello@ampliflow\.ai; asked for multi-workflow failure, cost, and buyer authority'/,
+    'Partner Pilot qualification plan includes contact-specific post-send command',
+    failures,
+  );
+  requireFileText(
+    `partner-pilot-qualification-plan-${args.date}.md`,
+    /node tools\/pipeline-update\.js --pipeline 'pipeline-status-batch2-2026-06-02\.tsv' --prospect 'ampliflow' --stage replied --date '2026-06-02' --next-action qualify_partner_pilot_scope/,
+    'Partner Pilot qualification plan includes qualified reply state command',
+    failures,
+  );
+  requireFileText(
+    `partner-pilot-unlock-simulation-${args.date}.md`,
+    /Partner Pilot selected closes after simulated unlock: 5/,
+    'Partner Pilot unlock simulation selects five pilot closes',
+    failures,
+  );
+  requireFileText(
+    `partner-pilot-unlock-simulation-${args.date}.md`,
+    /Target status after simulated unlock: MET/,
+    'Partner Pilot unlock simulation can meet target',
+    failures,
+  );
+  requireFileText(
+    `partner-pilot-unlock-simulation-${args.date}.md`,
+    /\| 1 \| ampliflow \| sent \| Partner Pilot \| \$3000\.00 \| \$1893\.26 \| yes \|/,
+    'Partner Pilot unlock simulation ranks ampliflow first after unlock',
+    failures,
+  );
+  requireFileText(
+    `partner-pilot-stripe-unlock-packet-${args.date}.md`,
+    /Partner Pilot blocked gross until link is live: \$201000\.00/,
+    'Partner Pilot Stripe unlock packet quantifies blocked gross',
+    failures,
+  );
+  requireFileText(
+    `partner-pilot-stripe-unlock-packet-${args.date}.md`,
+    /Partner Pilot closes needed for \$300\/day monthly target: 5/,
+    'Partner Pilot Stripe unlock packet shows five-close target path',
+    failures,
+  );
+  requireFileText(
+    `partner-pilot-stripe-unlock-packet-${args.date}.md`,
+    /Dry-run first:[\s\S]*node tools\/stripe-offer-map-import\.js --map 'stripe-offer-map-2026-06-02\.tsv' --updates 'stripe-live-updates-partner-pilot-2026-06-02\.tsv' --dry-run/,
+    'Partner Pilot Stripe unlock packet requires dry-run import first',
+    failures,
+  );
+  requireFileText(
+    `partner-pilot-stripe-unlock-packet-${args.date}.md`,
+    /After the dry run shows only the intended Partner Pilot row and the operator consents:[\s\S]*node tools\/stripe-offer-map-import\.js --map 'stripe-offer-map-2026-06-02\.tsv' --updates 'stripe-live-updates-partner-pilot-2026-06-02\.tsv'/,
+    'Partner Pilot Stripe unlock packet gates real import behind consent',
+    failures,
+  );
+  requireFileText(
+    `pipeline-data-science-${args.date}.md`,
+    /Gross pipeline potential: \$217,500\.00/,
+    'pipeline data science report matches current open gross',
+    failures,
+  );
+  requireFileText(
+    `pipeline-data-science-${args.date}.md`,
+    /Top Ready Prospects for Immediate Outreach/,
+    'pipeline data science report includes ready-prospect ranking',
+    failures,
+  );
+  requireFileText(
+    `revenue-diagnosis-${args.date}.md`,
+    /Primary blocker: follow-up and close conversion/,
+    'revenue diagnosis reports current conversion blocker',
+    failures,
+  );
+  requireFileText(
+    `revenue-diagnosis-${args.date}.md`,
+    /Payment-link-ready net after reserve if all close: \$10411\.83/,
+    'revenue diagnosis quantifies link-ready net upside',
+    failures,
+  );
+  requireFileText(
+    `revenue-diagnosis-${args.date}.md`,
+    /\| 1 \| aventus-agency \| sent \| AI Agent Hardening Sprint \| \$1500\.00 \| 10 \| ready \| wait_for_reply \|/,
+    'revenue diagnosis prioritizes collectable link-ready queue first',
+    failures,
+  );
+  requireFileText(
+    `revenue-diagnosis-${args.date}.md`,
+    /Follow-up and close conversion are the binding constraints/,
+    'revenue diagnosis explains follow-up as binding constraint',
+    failures,
+  );
+  requireFileText(
+    `revenue-diagnosis-${args.date}.md`,
+    new RegExp(`node tools/proposal-batch-plan\\.js --date ${args.date}[\\s\\S]*node tools/close-follow-up-batch-plan\\.js --date ${args.date}`),
+    'revenue diagnosis points to proposal and follow-up batches',
+    failures,
+  );
+  requireFileNotText(
+    `revenue-diagnosis-${args.date}.md`,
+    /Payment readiness is the binding constraint/,
+    'revenue diagnosis does not claim payment readiness is binding when links are ready',
+    failures,
+  );
+  requireFileText(
+    `close-target-plan-${args.date}.md`,
+    /## Payment Handoff Commands/,
+    'close target plan includes proposal handoff commands',
+    failures,
+  );
+  requireFileText(
+    `close-target-plan-${args.date}.md`,
+    /node tools\/proposal-plan\.js --prospect 'aventus-agency' --date '2026-06-02'.*--stripe-offer-map 'stripe-offer-map-2026-06-02\.tsv'/,
+    'close target plan includes top link-ready date-discovered proposal command',
+    failures,
+  );
+  requireFileText(
+    `close-target-plan-${args.date}.md`,
+    /Backup link-ready rows: 1/,
+    'close target plan reports backup link-ready rows',
+    failures,
+  );
+  requireFileText(
+    `close-target-plan-${args.date}.md`,
+    /Target status if one selected close is lost without replacement: NOT MET/,
+    'close target plan shows one selected loss breaks target',
+    failures,
+  );
+  requireFileText(
+    `close-target-plan-${args.date}.md`,
+    /Target status with first backup replacement: MET/,
+    'close target plan shows first backup restores target',
+    failures,
+  );
+  requireFileText(
+    `close-target-plan-${args.date}.md`,
+    /## Backup Link-Ready Close Buffer/,
+    'close target plan includes backup close buffer section',
+    failures,
+  );
+  requireFileText(
+    `close-target-plan-${args.date}.md`,
+    /\| 1 \| metro-mcp \| ready \| AI Agent Hardening Sprint \| \$1500\.00 \| \$946\.53 \| tool-vendor \| submit_booking_form \| pipeline-status-mac-yolo-2026-06-02\.tsv \|/,
+    'close target plan lists metro-mcp as backup link-ready close',
+    failures,
+  );
+  requireFileText(
+    `close-follow-up-batch-plan-${args.date}.md`,
+    /Selected link-ready closes: 10/,
+    'close follow-up batch covers selected link-ready closes',
+    failures,
+  );
+  requireFileText(
+    `close-follow-up-batch-plan-${args.date}.md`,
+    /Sent\/waiting rows: 10/,
+    'close follow-up batch identifies sent rows waiting for reply',
+    failures,
+  );
+  requireFileText(
+    `close-follow-up-batch-plan-${args.date}.md`,
+    /Net after reserve if all selected closes pay: \$9465\.30/,
+    'close follow-up batch shows selected closes can cover target',
+    failures,
+  );
+  requireFileText(
+    `close-follow-up-batch-plan-${args.date}.md`,
+    /\| 1 \| aventus-agency \| sent \| wait_for_reply \| AI Agent Hardening Sprint \| \$946\.53 \| booking_form \| https:\/\/www\.aventusagency\.com\/ \|/,
+    'close follow-up batch preserves top selected destination',
+    failures,
+  );
+  requireFileText(
+    `close-follow-up-batch-plan-${args.date}.md`,
+    /1\. aventus-agency[\s\S]*Subject: Following up on AI Agent Hardening Sprint[\s\S]*reply with one incident that repeated/,
+    'close follow-up batch includes top selected follow-up copy',
+    failures,
+  );
+  requireFileText(
+    `close-follow-up-batch-plan-${args.date}.md`,
+    /2\. flowset-hub[\s\S]*Open the manual channel:[\s\S]*open 'mailto:business%40flowsethub\.com\?subject=Following%20up%20on%20AI%20Agent%20Hardening%20Sprint&body=[^']*reply%20with%20one%20incident%20that%20repeated/,
+    'close follow-up batch includes email open command with follow-up copy',
+    failures,
+  );
+  requireFileText(
+    `close-follow-up-batch-plan-${args.date}.md`,
+    /node tools\/pipeline-update\.js --pipeline 'pipeline-status-2026-06-02\.tsv' --prospect 'aventus-agency' --stage sent --date '2026-06-02' --next-action wait_for_reply --note 'follow-up sent manually via booking_form to https:\/\/www\.aventusagency\.com\/; asked for one concrete agent failure or not-now decision'/,
+    'close follow-up batch includes post-send confirmation command',
+    failures,
+  );
+  requireFileText(
+    `close-follow-up-batch-plan-${args.date}.md`,
+    /node tools\/pipeline-update\.js --pipeline 'pipeline-status-2026-06-02\.tsv' --prospect 'aventus-agency' --stage replied --date '2026-06-02' --next-action qualify_scope_or_send_payment_request/,
+    'close follow-up batch includes buyer-replied state command',
+    failures,
+  );
+  requireFileText(
+    `close-follow-up-batch-plan-${args.date}.md`,
+    /## Reply Qualification Checklist/,
+    'close follow-up batch includes reply qualification checklist',
+    failures,
+  );
+  requireFileText(
+    `close-follow-up-batch-plan-${args.date}.md`,
+    /\| 6-8 \| Offer \$1,500 AI Agent Hardening Sprint\. \|/,
+    'close follow-up batch includes score route for hardening sprint',
+    failures,
+  );
+  requireFileText(
+    `close-follow-up-batch-plan-${args.date}.md`,
+    /Which agent stack runs in real work\?[\s\S]*What failure happened more than once\?[\s\S]*Who approves the spend\?/,
+    'close follow-up batch includes discovery qualification questions',
+    failures,
+  );
+  requireFileText(
+    `close-follow-up-batch-plan-${args.date}.md`,
+    /reply qualified; confirm one workflow, success proof, and buyer authority before payment request/,
+    'close follow-up batch includes qualified-reply state note',
+    failures,
+  );
+  requireFileText(
+    `close-follow-up-batch-plan-${args.date}.md`,
+    /node tools\/proposal-plan\.js --prospect 'aventus-agency' --date '2026-06-02' --buyer-segment 'agency' --source direct-outreach/,
+    'close follow-up batch includes proposal handoff command after scope confirmation',
+    failures,
+  );
+  requireFileText(
+    `close-follow-up-batch-plan-${args.date}.md`,
+    /## Objection Response Snippets/,
+    'close follow-up batch includes objection response section',
+    failures,
+  );
+  requireFileText(
+    `close-follow-up-batch-plan-${args.date}.md`,
+    /We can install the repo ourselves[\s\S]*not shell-script installation/,
+    'close follow-up batch handles repo-install objection',
+    failures,
+  );
+  requireFileText(
+    `close-follow-up-batch-plan-${args.date}.md`,
+    /AI Agent Hardening Sprint is too expensive[\s\S]*priced below the recurring loss/,
+    'close follow-up batch handles price objection',
+    failures,
+  );
+  requireFileText(
+    `close-follow-up-batch-plan-${args.date}.md`,
+    /Can you guarantee no failures\?[\s\S]*not a blanket guarantee/,
+    'close follow-up batch handles guarantee objection',
+    failures,
+  );
+  requireFileText(
+    `close-follow-up-batch-plan-${args.date}.md`,
+    /If the objection is resolved and scope is confirmed:[\s\S]*node tools\/proposal-plan\.js --prospect 'aventus-agency' --date '2026-06-02'/,
+    'close follow-up batch routes resolved objection to proposal handoff',
+    failures,
+  );
+  requireFileText(
+    `close-follow-up-batch-plan-${args.date}.md`,
+    /node tools\/pipeline-update\.js --pipeline 'pipeline-status-2026-06-02\.tsv' --prospect 'aventus-agency' --stage lost --date '2026-06-02' --next-action none/,
+    'close follow-up batch includes no-pain loss command',
+    failures,
+  );
+  requireFileText(
+    `close-execution-packet-${args.date}.md`,
+    /Packet rows: 5/,
+    'close execution packet limits today queue to five rows',
+    failures,
+  );
+  requireFileText(
+    `close-execution-packet-${args.date}.md`,
+    /Target close sequence net after reserve: \$9465\.30/,
+    'close execution packet preserves target close net proof',
+    failures,
+  );
+  requireFileText(
+    `close-execution-packet-${args.date}.md`,
+    /\| 1 \| aventus-agency \| sent \| wait_for_reply \| AI Agent Hardening Sprint \| \$946\.53 \| booking_form \| https:\/\/www\.aventusagency\.com\/ \|/,
+    'close execution packet starts with top closable prospect',
+    failures,
+  );
+  requireFileText(
+    `close-execution-packet-${args.date}.md`,
+    /Subject: Close the loop on AI Agent Hardening Sprint[\s\S]*send the payment request only after the scope is accurate/,
+    'close execution packet includes manual close copy with payment boundary',
+    failures,
+  );
+  requireFileText(
+    `close-execution-packet-${args.date}.md`,
+    /1\. aventus-agency[\s\S]*Open the manual channel:[\s\S]*open 'https:\/\/www\.aventusagency\.com\/'/,
+    'close execution packet includes booking-form open command',
+    failures,
+  );
+  requireFileText(
+    `close-execution-packet-${args.date}.md`,
+    /2\. flowset-hub[\s\S]*Open the manual channel:[\s\S]*open 'mailto:business%40flowsethub\.com\?subject=Close%20the%20loop%20on%20AI%20Agent%20Hardening%20Sprint&body=[^']*send%20the%20payment%20request%20only%20after%20the%20scope%20is%20accurate/,
+    'close execution packet includes close-copy email mailto open command',
+    failures,
+  );
+  requireFileNotText(
+    `close-execution-packet-${args.date}.md`,
+    /open 'mailto:business%40flowsethub\.com\?subject=Hardening%20Claude%20Code/,
+    'close execution packet email open command does not use stale outreach subject',
+    failures,
+  );
+  requireFileText(
+    `close-execution-packet-${args.date}.md`,
+    /node tools\/pipeline-update\.js --pipeline 'pipeline-status-2026-06-02\.tsv' --prospect 'aventus-agency' --stage sent --date '2026-06-02' --next-action wait_for_reply --note 'close packet follow-up sent manually via booking_form to https:\/\/www\.aventusagency\.com\/'/,
+    'close execution packet includes post-send command',
+    failures,
+  );
+  requireFileText(
+    `close-execution-packet-${args.date}.md`,
+    /If the buyer declines or has no current repeated failure:[\s\S]*node tools\/pipeline-update\.js --pipeline 'pipeline-status-2026-06-02\.tsv' --prospect 'aventus-agency' --stage lost --date '2026-06-02' --next-action none --note 'buyer declined or no current repeated AI-agent failure pain'/,
+    'close execution packet includes no-pain loss command',
+    failures,
+  );
+  requireFileText(
+    `close-execution-packet-${args.date}.md`,
+    /If the buyer raises an objection before scope is confirmed:[\s\S]*We can install the repo ourselves[\s\S]*not shell-script installation[\s\S]*AI Agent Hardening Sprint is too expensive[\s\S]*priced below the recurring loss[\s\S]*Can you guarantee no failures\?[\s\S]*not a blanket guarantee[\s\S]*This should be SaaS[\s\S]*hardening the repeated failure/,
+    'close execution packet includes objection response snippets',
+    failures,
+  );
+  requireFileText(
+    `close-execution-packet-${args.date}.md`,
+    /If the objection is resolved and scope is confirmed:[\s\S]*node tools\/proposal-plan\.js --prospect 'aventus-agency' --date '2026-06-02'/,
+    'close execution packet routes resolved objection to proposal plan',
+    failures,
+  );
+  requireFileText(
+    `close-execution-packet-${args.date}.md`,
+    /node tools\/proposal-plan\.js --prospect 'aventus-agency' --date '2026-06-02' --buyer-segment 'agency' --source direct-outreach/,
+    'close execution packet routes scope-confirmed buyer to proposal plan',
+    failures,
+  );
+  requireFileText(
+    `close-execution-packet-${args.date}.md`,
+    /dry-run the recorder first:[\s\S]*node tools\/record-cleared-payment\.js \\\n  --ledger revenue-ledger-2026-06\.tsv \\\n  --pipeline 'pipeline-status-2026-06-02\.tsv' \\\n  --prospect 'aventus-agency' \\\n  --date-paid '2026-06-02' \\\n  --buyer-segment 'agency' \\\n  --source direct-outreach \\\n  --stripe-fee-usd TODO_STRIPE_FEE \\\n  --refund-usd 0\.00 \\\n  --proof-note 'TODO private Stripe payment proof and delivery proof for aventus-agency' \\\n  --dry-run[\s\S]*After the dry run prints the expected ledger row and pipeline update:[\s\S]*node tools\/record-cleared-payment\.js \\\n  --ledger revenue-ledger-2026-06\.tsv \\\n  --pipeline 'pipeline-status-2026-06-02\.tsv' \\\n  --prospect 'aventus-agency' \\\n  --date-paid '2026-06-02' \\\n  --buyer-segment 'agency' \\\n  --source direct-outreach \\\n  --stripe-fee-usd TODO_STRIPE_FEE \\\n  --refund-usd 0\.00 \\\n  --proof-note 'TODO private Stripe payment proof and delivery proof for aventus-agency'/,
+    'close execution packet includes valid cleared-payment recorder command',
+    failures,
+  );
+  requireFileText(
+    `close-execution-packet-${args.date}.md`,
+    /After the write succeeds, verify the revenue proof:[\s\S]*node tools\/revenue-net\.js revenue-ledger-2026-06\.tsv --from 2026-06-01 --to 2026-06-30 --days 30[\s\S]*node tools\/revenue-goal-audit\.js --date 2026-06-02 --ledger revenue-ledger-2026-06\.tsv/,
+    'close execution packet includes post-write revenue proof verification commands',
+    failures,
+  );
+  requireFileNotText(
+    `close-execution-packet-${args.date}.md`,
+    /record-cleared-payment\.js --date '2026-06-02' --prospect 'aventus-agency' --offer/,
+    'close execution packet does not use obsolete recorder flags',
+    failures,
+  );
+  requireFileText(
+    `close-execution-packet-${args.date}.md`,
+    /This packet has not sent outreach, updated pipeline state, or recorded revenue/,
+    'close execution packet states proof boundary',
+    failures,
+  );
+  requireFileText(
+    `close-follow-up-batch-plan-${args.date}.md`,
+    /Revenue remains unproven until Stripe clears and `tools\/record-cleared-payment\.js` writes the private ignored ledger/,
+    'close follow-up batch preserves revenue proof boundary',
+    failures,
+  );
+  requireFileText(
+    `proposal-plan-ready-discovered-${args.date}.md`,
+    /Payment request status: READY/,
+    'date-discovered proposal plan marks ready row ready for payment',
+    failures,
+  );
+  requireFileText(
+    `proposal-plan-ready-discovered-${args.date}.md`,
+    /--buyer-segment 'agency'/,
+    'date-discovered proposal plan fills buyer segment from prospects',
+    failures,
+  );
+  requireFileText(
+    `proposal-plan-ready-discovered-${args.date}.md`,
+    /## Buyer Evidence to Review/,
+    'date-discovered proposal plan includes buyer evidence section',
+    failures,
+  );
+  requireFileText(
+    `proposal-plan-ready-discovered-${args.date}.md`,
+    /Prior subject: Guardrails for Claude Code in law-firm workflows/,
+    'date-discovered proposal plan carries prior outreach subject into review context',
+    failures,
+  );
+  requireFileText(
+    `proposal-plan-ready-discovered-${args.date}.md`,
+    /Prior send destination: https:\/\/www\.aventusagency\.com\//,
+    'date-discovered proposal plan carries prior send destination into review context',
+    failures,
+  );
+  requireFileText(
+    `proposal-plan-ready-discovered-${args.date}.md`,
+    /## Payment Request Copy/,
+    'date-discovered proposal plan includes payment request copy section',
+    failures,
+  );
+  requireFileText(
+    `proposal-plan-ready-discovered-${args.date}.md`,
+    /Subject: AI Agent Hardening Sprint payment link/,
+    'date-discovered proposal plan includes ready payment request subject',
+    failures,
+  );
+  requireFileText(
+    `proposal-plan-ready-discovered-${args.date}.md`,
+    /Here is the payment link for the AI Agent Hardening Sprint:/,
+    'date-discovered proposal plan includes ready payment request body',
+    failures,
+  );
+  requireFileNotText(
+    `proposal-plan-ready-discovered-${args.date}.md`,
+    /Target workflow: TODO fill from buyer reply\/call/,
+    'date-discovered proposal plan replaces blank target-workflow TODO with candidate context',
+    failures,
+  );
+  requireFileText(
+    `proposal-batch-plan-${args.date}.md`,
+    /Proposal handoffs generated: 10/,
+    'proposal batch plan generates selected close handoffs',
+    failures,
+  );
+  requireFileText(
+    `proposal-batch-plan-${args.date}.md`,
+    /Ready payment requests: 10/,
+    'proposal batch plan verifies all selected handoffs are ready',
+    failures,
+  );
+  requireFileText(
+    `proposal-batch-plan-${args.date}.md`,
+    /Ready net after reserve: \$9465\.30/,
+    'proposal batch plan shows ready net can cover monthly target',
+    failures,
+  );
+  requireFileText(
+    `proposal-batch-plan-${args.date}.md`,
+    /## Collection Constraint[\s\S]*Selected closes required for target: 10[\s\S]*Target status if all selected closes clear: MET/,
+    'proposal batch plan carries selected close count target constraint',
+    failures,
+  );
+  requireFileText(
+    `proposal-batch-plan-${args.date}.md`,
+    /Net if one selected close is lost: \$8518\.77[\s\S]*Target status if one selected close is lost without replacement: NOT MET/,
+    'proposal batch plan warns one lost close breaks target',
+    failures,
+  );
+  requireFileText(
+    `proposal-batch-plan-${args.date}.md`,
+    /## Cleared Payment Ladder[\s\S]*\| 9 \| codetractor \| \$8518\.77 \| NOT MET \|[\s\S]*\| 10 \| anyware-solutions \| \$9465\.30 \| MET \|/,
+    'proposal batch plan shows cumulative cleared-payment ladder target boundary',
+    failures,
+  );
+  requireFileNotText(
+    `proposal-batch-plan-${args.date}.md`,
+    /metro-mcp/,
+    'proposal batch excludes backup close by default',
+    failures,
+  );
+  const backupProposalBatchOut = `proposal-batch-plan-with-backup-${args.date}.md`;
+  const backupProposalBatch = run('proposal batch plan include-backup mode', 'node', [
+    'tools/proposal-batch-plan.js',
+    '--date',
+    args.date,
+    '--close-plan',
+    `close-target-plan-${args.date}.md`,
+    '--include-backup',
+    '--out',
+    backupProposalBatchOut,
+  ]);
+  if (!backupProposalBatch.ok) {
+    failures.push(backupProposalBatch.label);
+  } else {
+    requireFileText(
+      backupProposalBatchOut,
+      /Proposal handoffs generated: 11/,
+      'proposal backup batch includes selected plus backup handoffs',
+      failures,
+    );
+    requireFileText(
+      backupProposalBatchOut,
+      /Ready payment requests: 11/,
+      'proposal backup batch verifies backup handoff ready',
+      failures,
+    );
+    requireFileText(
+      backupProposalBatchOut,
+      /\| 11 \| metro-mcp \| READY \| proposal-plan-metro-mcp-2026-06-02\.md \|/,
+      'proposal backup batch includes metro-mcp backup handoff',
+      failures,
+    );
+    requireFileText(
+      backupProposalBatchOut,
+      /Backup handoffs are included for replacement only\. Do not double-count backup rows with the selected-close target proof\./,
+      'proposal backup batch prevents double-counting backup rows',
+      failures,
+    );
+  }
+  requireFileText(
+    `proposal-batch-plan-${args.date}.md`,
+    /## Payment Request Copy/,
+    'proposal batch plan aggregates ready payment request copy',
+    failures,
+  );
+  requireFileText(
+    `proposal-batch-plan-${args.date}.md`,
+    /1\. aventus-agency[\s\S]*Subject: AI Agent Hardening Sprint payment link[\s\S]*Here is the payment link for the AI Agent Hardening Sprint:/,
+    'proposal batch plan includes top selected payment request copy',
+    failures,
+  );
+  requireFileText(
+    `proposal-batch-plan-${args.date}.md`,
+    /1\. aventus-agency[\s\S]*- Send via: booking_form[\s\S]*- Destination: https:\/\/www\.aventusagency\.com\//,
+    'proposal batch plan includes booking-form destination for top selected payment request',
+    failures,
+  );
+  requireFileText(
+    `proposal-batch-plan-${args.date}.md`,
+    /2\. flowset-hub[\s\S]*- Send via: email[\s\S]*- Destination: business@flowsethub\.com/,
+    'proposal batch plan shows concise email destination for selected payment request',
+    failures,
+  );
+  requireFileNotText(
+    `proposal-batch-plan-${args.date}.md`,
+    /2\. flowset-hub[\s\S]*- Destination: mailto:business%40flowsethub\.com/,
+    'proposal batch plan does not display stale outreach mailto as payment destination',
+    failures,
+  );
+  requireFileText(
+    `proposal-batch-plan-${args.date}.md`,
+    /Once Stripe shows the payment cleared, I will schedule\/start the scoped implementation work/,
+    'proposal batch plan payment copy preserves cleared-payment delivery boundary',
+    failures,
+  );
+  requireFileText(
+    `proposal-batch-plan-${args.date}.md`,
+    /## Manual Payment Request Open Commands/,
+    'proposal batch plan includes manual payment-request open commands',
+    failures,
+  );
+  requireFileText(
+    `proposal-batch-plan-${args.date}.md`,
+    /2\. flowset-hub[\s\S]*open 'mailto:business%40flowsethub\.com\?subject=AI%20Agent%20Hardening%20Sprint%20payment%20link&body=[^']*Here%20is%20the%20payment%20link%20for%20the%20AI%20Agent%20Hardening%20Sprint/,
+    'proposal batch plan opens email payment request copy, not stale outreach copy',
+    failures,
+  );
+  requireFileText(
+    `proposal-batch-plan-${args.date}.md`,
+    /## Manual Send Confirmation Commands/,
+    'proposal batch plan aggregates post-send pipeline commands',
+    failures,
+  );
+  requireFileText(
+    `proposal-batch-plan-${args.date}.md`,
+    /node tools\/pipeline-update\.js --pipeline 'pipeline-status-2026-06-02\.tsv' --prospect 'aventus-agency' --stage proposed --date '2026-06-02' --next-action wait_for_payment --note 'payment request sent manually via booking_form to https:\/\/www\.aventusagency\.com\/'/,
+    'proposal batch plan includes top selected payment-request send proof command',
+    failures,
+  );
+  requireFileText(
+    `proposal-batch-plan-${args.date}.md`,
+    /## Expected Post-Send State[\s\S]*This is still not revenue proof[\s\S]*Expected proposed\/wait_for_payment rows: 10[\s\S]*Expected gross waiting for payment: \$15000\.00[\s\S]*Expected estimated net waiting for payment: \$9465\.30/,
+    'proposal batch plan summarizes post-send wait-for-payment state without claiming revenue',
+    failures,
+  );
+  requireFileText(
+    `proposal-batch-plan-${args.date}.md`,
+    new RegExp(`After the send confirmation commands are run, verify the waiting-payment queue:[\\s\\S]*node tools/payment-waiting-audit\\.js --date ${args.date} --proposal-batch proposal-batch-plan-${args.date}\\.md --out payment-waiting-audit-${args.date}\\.md`),
+    'proposal batch plan includes post-send payment waiting audit command',
+    failures,
+  );
+  requireFileText(
+    `proposal-batch-plan-${args.date}.md`,
+    /## Cleared Payment Recording Commands/,
+    'proposal batch plan aggregates cleared-payment recording commands',
+    failures,
+  );
+  requireFileText(
+    `proposal-batch-plan-${args.date}.md`,
+    /1\. aventus-agency[\s\S]*Estimated Stripe fee at 2\.9% \+ \$0\.30: \$43\.80[\s\S]*Estimated net after 35% reserve: \$946\.53/,
+    'proposal batch plan includes top selected cleared-payment fee and net estimates',
+    failures,
+  );
+  requireFileText(
+    `proposal-batch-plan-${args.date}.md`,
+    /Replace TODO fields with actual cleared Stripe fee and private proof before running/,
+    'proposal batch plan preserves actual-proof requirement despite estimates',
+    failures,
+  );
+  requireFileText(
+    `proposal-batch-plan-${args.date}.md`,
+    /node tools\/record-cleared-payment\.js[\s\S]*--prospect 'aventus-agency'[\s\S]*--stripe-fee-usd TODO_STRIPE_FEE/,
+    'proposal batch plan includes top selected cleared-payment command template',
+    failures,
+  );
+  requireFileText(
+    `proposal-batch-plan-${args.date}.md`,
+    /node tools\/revenue-net\.js revenue-ledger-2026-06\.tsv --from 2026-06-01 --to 2026-06-30 --days 30/,
+    'proposal batch plan includes concrete revenue-net verification command',
+    failures,
+  );
+  requireFileText(
+    `proposal-batch-plan-${args.date}.md`,
+    /node tools\/revenue-goal-audit\.js --date 2026-06-02 --ledger revenue-ledger-2026-06\.tsv/,
+    'proposal batch plan includes ledger-scoped goal audit verification command',
+    failures,
+  );
+  requireFileText(
+    `stripe-setup-plan-${args.date}.md`,
+    /\| 1 \| Partner Pilot \| 67 \| \$201000\.00 \| \$126848\.09 \| no \|/,
+    'Stripe setup plan ranks Partner Pilot as largest blocked link value',
+    failures,
+  );
+  requireFileText(
+    `stripe-setup-plan-${args.date}.md`,
+    /\| 2 \| AI Agent Hardening Sprint \| 0 \| \$16500\.00 \| \$10411\.83 \| yes \|/,
+    'Stripe setup plan shows Hardening Sprint link is ready',
+    failures,
+  );
+  requireFileText(
     `stripe-live-updates-template-${args.date}.tsv`,
     /Agent Reliability Diagnostic\tprod_USFiqZ38vBFc9y\tprice_1TTLCiGGBpd520QYhg8qZH0W\tTODO_PAYMENT_LINK/,
     'Stripe live-updates template includes diagnostic candidate IDs and TODO link',
@@ -536,6 +1836,48 @@ function main() {
     'Stripe live-updates template includes sprint candidate IDs and TODO link',
     failures,
   );
+  const missingOnlyTemplate = run('Stripe live-updates missing-only template', 'node', [
+    'tools/stripe-live-updates-template.js',
+    '--date',
+    args.date,
+    '--out',
+    `stripe-live-updates-missing-only-${args.date}.tsv`,
+    '--missing-only',
+  ]);
+  if (!missingOnlyTemplate.ok) {
+    failures.push(missingOnlyTemplate.label);
+  } else {
+    requireText(
+      missingOnlyTemplate,
+      /Rows written: 1/,
+      'missing-only live-updates template writes only blocked offer rows',
+      failures,
+    );
+    requireText(
+      missingOnlyTemplate,
+      /Missing-only filter: yes/,
+      'missing-only live-updates template reports filter status',
+      failures,
+    );
+    requireFileText(
+      `stripe-live-updates-missing-only-${args.date}.tsv`,
+      /^Partner Pilot\tTODO_PRODUCT_ID\tTODO_PRICE_ID\tTODO_PAYMENT_LINK/m,
+      'missing-only live-updates template focuses Partner Pilot blocker',
+      failures,
+    );
+    requireFileText(
+      `stripe-live-updates-missing-only-${args.date}.tsv`,
+      new RegExp(`Partner Pilot\\tTODO_PRODUCT_ID\\tTODO_PRICE_ID\\tTODO_PAYMENT_LINK\\tcreate or verify live Stripe product, price, and payment link ${args.date}`),
+      'missing-only live-updates template dates Partner Pilot note with action date',
+      failures,
+    );
+    requireFileNotText(
+      `stripe-live-updates-missing-only-${args.date}.tsv`,
+      /AI Agent Hardening Sprint/,
+      'missing-only live-updates template excludes already-ready sprint',
+      failures,
+    );
+  }
   const templateImport = runExpectFailure('Stripe live-updates template import blocked until payment links exist', 'node', [
     'tools/stripe-offer-map-import.js',
     '--map',
@@ -574,13 +1916,29 @@ function main() {
   );
   requireFileText(
     `proposal-plan-stale-audit-${args.date}.md`,
-    /uses stale pipeline-update paid command instead of record-cleared-payment/,
-    'proposal stale audit surfaces obsolete paid-stage commands',
+    /Stale proposal plans: 0/,
+    'proposal stale audit reports remediated handoffs clean',
+    failures,
+  );
+  requireFileText(
+    `proposal-plan-stale-audit-${args.date}.md`,
+    /Status: PASS/,
+    'proposal stale audit status passes after remediation',
+    failures,
+  );
+  requireFileText(
+    `proposal-plan-stale-audit-${args.date}.md`,
+    /they do not send payment requests or prove revenue/,
+    'proposal stale audit preserves read-only proof boundary',
     failures,
   );
   runStripeImportDryRunCheck(failures);
   runStripeUpdateDryRunCheck(failures);
   runRevenueGoalAuditSyntheticCheck(failures);
+  runWeakLedgerProofChecks(failures);
+  runRecordClearedPaymentDryRunCheck(failures);
+  runPaymentWaitingAuditSyntheticCheck(failures);
+  runProposalStaleAuditSyntheticCheck(failures);
 
   if (pipelines.length && actionFiles.length && fs.existsSync(stripeMap)) {
     const sendPlanArgs = [
@@ -606,8 +1964,8 @@ function main() {
     } else {
       requireFileText(
         `send-plan-payment-ready-${args.date}.md`,
-        /Rows selected: 0\/0 matching Stripe filter/,
-        'payment-ready send plan has zero rows while links are missing',
+        /Rows selected: 1\/1 matching Stripe filter/,
+        'payment-ready send plan selects current link-ready row',
         failures,
       );
       requireFileText(
@@ -620,11 +1978,19 @@ function main() {
   }
 
   if (pipelines.length && fs.existsSync(stripeMap)) {
-    const samplePipeline = pipelines.find((file) => parseTsv(file).length > 0);
-    const sampleRow = samplePipeline ? parseTsv(samplePipeline)[0] : null;
+    const linkReadyByOffer = linkReadyOfferMap(stripeMap);
+    let samplePipeline = null;
+    let sampleRow = null;
+    for (const file of pipelines) {
+      sampleRow = parseTsv(file).find((row) => !linkReadyByOffer.get(offerName(row.route)));
+      if (sampleRow) {
+        samplePipeline = file;
+        break;
+      }
+    }
     if (!sampleRow) {
-      console.log('[FAIL] proposal blocked-payment check has no pipeline row');
-      failures.push('proposal blocked-payment check has no pipeline row');
+      console.log('[FAIL] proposal blocked-payment check has no missing-link pipeline row');
+      failures.push('proposal blocked-payment check has no missing-link pipeline row');
     } else {
       const proposalOut = `proposal-plan-payment-blocked-${args.date}.md`;
       const proposalPlan = run('proposal plan blocks payment request without Stripe link', 'node', [
@@ -661,6 +2027,18 @@ function main() {
           'proposal plan blocks payment request instruction while link missing',
           failures,
         );
+        requireFileText(
+          proposalOut,
+          /Blocked: payment request copy is omitted until `Price status: ready` and `Link status: ready`\./,
+          'proposal plan omits copy-ready payment text while link missing',
+          failures,
+        );
+        requireFileNotText(
+          proposalOut,
+          /Subject: .* payment link/,
+          'blocked proposal does not include sendable payment-link subject',
+          failures,
+        );
         requireFileNotText(
           proposalOut,
           /--next-action wait_for_payment/,
@@ -668,6 +2046,195 @@ function main() {
           failures,
         );
       }
+	  }
+	}
+
+  if (pipelines.length && fs.existsSync(stripeMap)) {
+    const partnerProposalOut = `proposal-plan-partner-pilot-blocked-${args.date}.md`;
+    const partnerProposal = run('proposal plan blocks Partner Pilot until live link exists', 'node', [
+      'tools/proposal-plan.js',
+      '--pipeline',
+      'pipeline-status-batch2-2026-06-02.tsv',
+      '--prospect',
+      'ampliflow',
+      '--date',
+      args.date,
+      '--buyer-segment',
+      'ai-growth-agency',
+      '--source',
+      'direct-outreach',
+      '--stripe-offer-map',
+      stripeMap,
+      '--out',
+      partnerProposalOut,
+    ]);
+    if (!partnerProposal.ok) {
+      failures.push(partnerProposal.label);
+    } else {
+      requireFileText(
+        partnerProposalOut,
+        /Payment request status: BLOCKED/,
+        'Partner Pilot proposal remains blocked while payment link is missing',
+        failures,
+      );
+      requireFileText(
+        partnerProposalOut,
+        /Scope evidence required before payment request: multi-workflow repeated failure; business cost across delivery time, client trust, API spend, or review overhead; buyer authority for a paid pilot\./,
+        'Partner Pilot proposal requires multi-workflow paid scope evidence',
+        failures,
+      );
+      requireFileText(
+        partnerProposalOut,
+        /Map two to three related agent workflows where the same failure class repeats\./,
+        'Partner Pilot proposal uses multi-workflow deliverable',
+        failures,
+      );
+      requireFileText(
+        partnerProposalOut,
+        /Package the guardrail pattern as a client-ready reliability add-on with rollout notes\./,
+        'Partner Pilot proposal includes rollout packaging deliverable',
+        failures,
+      );
+      requireFileNotText(
+        partnerProposalOut,
+        /This sprint covers one repeated agent failure pattern/,
+        'Partner Pilot blocked proposal does not use sprint payment-copy language',
+        failures,
+      );
+    }
+  }
+
+  if (pipelines.length && fs.existsSync(stripeMap)) {
+    const readyProposalOut = `proposal-plan-payment-ready-${args.date}.md`;
+    const readyProposal = run('proposal plan allows payment request with Stripe link', 'node', [
+      'tools/proposal-plan.js',
+      '--pipeline',
+      'pipeline-status-2026-06-02.tsv',
+      '--prospect',
+      'aventus-agency',
+      '--date',
+      args.date,
+      '--buyer-segment',
+      'agency',
+      '--source',
+      'direct-outreach',
+      '--stripe-offer-map',
+      stripeMap,
+      '--out',
+      readyProposalOut,
+    ]);
+    if (!readyProposal.ok) {
+      failures.push(readyProposal.label);
+    } else {
+      requireFileText(
+        readyProposalOut,
+        /Payment request status: READY/,
+        'proposal plan marks link-ready row ready for payment request',
+        failures,
+      );
+      requireFileText(
+        readyProposalOut,
+        /--next-action wait_for_payment/,
+        'proposal plan includes wait_for_payment command for ready row',
+        failures,
+      );
+      requireFileText(
+        readyProposalOut,
+        /--note 'payment request sent manually via booking_form to https:\/\/www\.aventusagency\.com\/'/,
+        'proposal plan send command records payment-request send destination',
+        failures,
+      );
+      requireFileText(
+        readyProposalOut,
+        /node tools\/record-cleared-payment\.js/,
+        'proposal plan includes cleared-payment recorder command',
+        failures,
+      );
+      requireFileText(
+        readyProposalOut,
+        /## Cleared Payment Entry Guide/,
+        'proposal plan includes cleared-payment entry guide',
+        failures,
+      );
+      requireFileText(
+        readyProposalOut,
+        /Estimated Stripe fee at 2\.9% \+ \$0\.30: \$43\.80/,
+        'proposal plan includes estimated Stripe fee for ready row',
+        failures,
+      );
+      requireFileText(
+        readyProposalOut,
+        /Estimated net after 35% reserve: \$946\.53/,
+        'proposal plan includes estimated net after reserve for ready row',
+        failures,
+      );
+      requireFileText(
+        readyProposalOut,
+        /Use the actual Stripe fee from the cleared Stripe charge\/invoice, not the estimate/,
+        'proposal plan keeps actual Stripe fee proof requirement',
+        failures,
+      );
+      requireFileText(
+        readyProposalOut,
+        /node tools\/revenue-net\.js revenue-ledger-2026-06\.tsv --from 2026-06-01 --to 2026-06-30 --days 30/,
+        'proposal plan includes concrete revenue-net verification command',
+        failures,
+      );
+      requireFileText(
+        readyProposalOut,
+        /node tools\/revenue-goal-audit\.js --date 2026-06-02 --ledger revenue-ledger-2026-06\.tsv/,
+        'proposal plan includes ledger-scoped goal audit verification command',
+        failures,
+      );
+      requireFileText(
+        readyProposalOut,
+        /## Payment Request Copy/,
+        'proposal plan includes copy-ready payment request section for ready row',
+        failures,
+      );
+      requireFileText(
+        readyProposalOut,
+        /Once Stripe shows the payment cleared, I will schedule\/start the scoped implementation work/,
+        'proposal plan payment request copy sets cleared-payment delivery boundary',
+        failures,
+      );
+    }
+  }
+
+  if (pipelines.length && fs.existsSync(stripeMap)) {
+    const emailProposalOut = `proposal-plan-payment-ready-email-${args.date}.md`;
+    const emailProposal = run('proposal plan records concise email payment-request destination', 'node', [
+      'tools/proposal-plan.js',
+      '--pipeline',
+      'pipeline-status-2026-06-02.tsv',
+      '--prospect',
+      'flowset-hub',
+      '--date',
+      args.date,
+      '--buyer-segment',
+      'ai-automation-agency',
+      '--source',
+      'direct-outreach',
+      '--stripe-offer-map',
+      stripeMap,
+      '--out',
+      emailProposalOut,
+    ]);
+    if (!emailProposal.ok) {
+      failures.push(emailProposal.label);
+    } else {
+      requireFileText(
+        emailProposalOut,
+        /--note 'payment request sent manually via email to business@flowsethub\.com'/,
+        'proposal plan email send command records concise recipient destination',
+        failures,
+      );
+      requireFileNotText(
+        emailProposalOut,
+        /--note 'payment request sent manually via email to mailto:/,
+        'proposal plan email send command avoids full mailto destination in note',
+        failures,
+      );
     }
   }
 
@@ -688,12 +2255,43 @@ function main() {
       requireText(commandCenter, /Public local link status: PASS/, 'command center local links PASS', failures);
       requireText(commandCenter, /Public command reference status: PASS/, 'command center command references PASS', failures);
       requireText(commandCenter, /Publish plan status: READY_FOR_OPERATOR_REVIEW/, 'command center publish plan ready', failures);
-      requireText(commandCenter, /Payment-link-ready open gross: \$0\.00/, 'command center reports current payment-link blocker', failures);
-      requireText(commandCenter, /Target status from selected closes: NOT MET/, 'command center target remains unproven', failures);
+      requireText(commandCenter, /Payment-link-ready open gross: \$16500\.00/, 'command center reports current payment-ready gross', failures);
+      requireText(commandCenter, /== Revenue Price Sensitivity ==/, 'command center runs revenue price sensitivity', failures);
+      requireText(commandCenter, /AI Agent Hardening Sprint: \$1500\.00 gross, \$946\.53 net\/close, 10 closes needed/, 'command center reports sprint close burden', failures);
+      requireText(commandCenter, /== Partner Pilot Qualification Plan ==/, 'command center runs Partner Pilot qualification plan', failures);
+      requireText(commandCenter, /Partner Pilot open rows: 67/, 'command center reports Partner Pilot qualification queue', failures);
+      requireText(commandCenter, /== Partner Pilot Unlock Simulation ==/, 'command center runs Partner Pilot unlock simulation', failures);
+      requireText(commandCenter, /Partner Pilot selected closes after simulated unlock: 5/, 'command center reports Partner Pilot unlock close count', failures);
+      requireText(commandCenter, /== Partner Pilot Stripe Unlock Packet ==/, 'command center runs Partner Pilot Stripe unlock packet', failures);
+      requireText(commandCenter, /Partner Pilot blocked gross until link is live: \$201000\.00/, 'command center reports Partner Pilot blocked gross', failures);
+      requireText(commandCenter, /Target status from selected closes: MET/, 'command center reports close plan can hit target from link-ready pipeline', failures);
+      requireText(commandCenter, /== Close Follow-Up Batch Plan ==/, 'command center runs close follow-up batch plan', failures);
+      requireText(commandCenter, /Selected link-ready closes: 10/, 'command center follow-up batch covers selected closes', failures);
+      requireText(commandCenter, /== Close Execution Packet ==/, 'command center runs close execution packet', failures);
+      requireText(commandCenter, /Packet rows: 5/, 'command center close execution packet covers today queue', failures);
       requireText(commandCenter, /== Revenue Goal Audit ==/, 'command center runs revenue goal audit', failures);
       requireText(commandCenter, /Target status: NOT MET/, 'command center reports revenue goal audit not met', failures);
+      requireText(commandCenter, /== Proposal Batch Plan ==/, 'command center runs proposal batch plan', failures);
+      requireText(commandCenter, /Proposal handoffs generated: 10/, 'command center proposal batch generates selected handoffs', failures);
+      requireText(commandCenter, /== Payment Waiting Audit ==/, 'command center runs payment waiting audit', failures);
+      requireText(commandCenter, /Payment requests waiting for Stripe: 0/, 'command center reports current payment waiting count', failures);
+      requireText(commandCenter, /Selected send confirmations missing: 10/, 'command center reports selected send-confirmation debt', failures);
+      requireText(commandCenter, /== Revenue Unblock Plan ==/, 'command center runs revenue unblock plan', failures);
+      requireText(commandCenter, /Hardening Sprint backups available: 1/, 'command center reports current Hardening backup constraint', failures);
+      requireText(commandCenter, /Partner Pilot link-ready rows: 0/, 'command center reports Partner Pilot link constraint', failures);
+      requireText(commandCenter, /== Proposal Batch Plan With Backup ==/, 'command center runs backup-inclusive proposal batch', failures);
+      requireText(commandCenter, /Proposal handoffs generated: 11/, 'command center generates selected plus backup handoffs', failures);
+      requireText(commandCenter, /== Payment Request Execution Packet ==/, 'command center runs payment request execution packet', failures);
+      requireText(commandCenter, /Selected request steps: 10/, 'command center execution packet covers selected request steps', failures);
+      requireText(commandCenter, /Backup request steps: 1/, 'command center execution packet covers backup request step', failures);
       requireText(commandCenter, /== Proposal Plan Stale Audit ==/, 'command center runs proposal stale audit', failures);
-      requireText(commandCenter, /Proposal stale audit status: WARN/, 'command center surfaces stale proposal warnings', failures);
+      requireText(commandCenter, /Proposal stale audit status: PASS/, 'command center surfaces clean proposal stale audit status', failures);
+      requireText(
+        commandCenter,
+        /== Close Target Plan ==[\s\S]*== Proposal Batch Plan ==[\s\S]*== Payment Waiting Audit ==[\s\S]*--proposal-batch proposal-batch-plan-2026-06-02\.md[\s\S]*== Revenue Unblock Plan ==[\s\S]*== Proposal Batch Plan With Backup ==[\s\S]*== Payment Request Execution Packet ==[\s\S]*== Revenue Action Board ==/,
+        'command center generates close target and proposal batch before selected payment waiting audit',
+        failures,
+      );
     }
     const rolloverDate = nextDate(args.date);
     if (discover('pipeline-status', rolloverDate).length === 0 && discover('prospects', rolloverDate).length === 0) {
@@ -721,8 +2319,170 @@ function main() {
         );
         requireText(
           rolloverCommandCenter,
-          /Payment-link-ready open gross: \$0\.00/,
-          'rollover command center preserves payment-link blocker',
+          /Payment-link-ready open gross: \$16500\.00/,
+          'rollover command center preserves current payment-ready gross',
+          failures,
+        );
+        requireText(
+          rolloverCommandCenter,
+          /== Close Follow-Up Batch Plan ==/,
+          'rollover command center runs close follow-up batch plan',
+          failures,
+        );
+        requireText(
+          rolloverCommandCenter,
+          /== Close Execution Packet ==/,
+          'rollover command center runs close execution packet',
+          failures,
+        );
+        requireText(
+          rolloverCommandCenter,
+          /== Payment Waiting Audit ==/,
+          'rollover command center runs payment waiting audit',
+          failures,
+        );
+        requireText(
+          rolloverCommandCenter,
+          /== Revenue Unblock Plan ==/,
+          'rollover command center runs revenue unblock plan',
+          failures,
+        );
+        requireText(
+          rolloverCommandCenter,
+          /== Proposal Batch Plan With Backup ==/,
+          'rollover command center runs backup-inclusive proposal batch',
+          failures,
+        );
+        requireText(
+          rolloverCommandCenter,
+          /== Payment Request Execution Packet ==/,
+          'rollover command center runs payment request execution packet',
+          failures,
+        );
+        requireText(
+          rolloverCommandCenter,
+          /Backup request steps: 1/,
+          'rollover command center execution packet includes backup step',
+          failures,
+        );
+        requireText(
+          rolloverCommandCenter,
+          new RegExp(`== Proposal Batch Plan ==[\\s\\S]*Proposal handoffs generated: 10[\\s\\S]*Mirrored requested-date report: proposal-batch-plan-${rolloverDate}\\.md[\\s\\S]*== Payment Waiting Audit ==[\\s\\S]*--proposal-batch proposal-batch-plan-${rolloverDate}\\.md[\\s\\S]*== Revenue Unblock Plan ==[\\s\\S]*== Proposal Batch Plan With Backup ==[\\s\\S]*Mirrored requested-date report: proposal-batch-plan-with-backup-${rolloverDate}\\.md[\\s\\S]*== Payment Request Execution Packet ==`),
+          'rollover command center generates proposal batch before selected payment waiting audit',
+          failures,
+        );
+        requireFileText(
+          `partner-pilot-qualification-plan-${args.date}.md`,
+          new RegExp(`Action date: ${rolloverDate}`),
+          'rollover command center Partner Pilot qualification uses requested action date',
+          failures,
+        );
+        requireFileText(
+          `partner-pilot-qualification-plan-${args.date}.md`,
+          /\| 1 \| ampliflow \| sent \| ai-growth-agency \| 10 \| wait_for_reply \| email \| hello@ampliflow\.ai \|/,
+          'rollover command center Partner Pilot qualification preserves email destination',
+          failures,
+        );
+        requireFileText(
+          `partner-pilot-qualification-plan-${args.date}.md`,
+          new RegExp(`--stage sent --date '${rolloverDate}' --next-action wait_for_reply --note 'partner pilot qualification sent manually via email to hello@ampliflow\\.ai; asked for multi-workflow failure, cost, and buyer authority'`),
+          'rollover command center Partner Pilot qualification dates contact-specific post-send command',
+          failures,
+        );
+        requireFileText(
+          `revenue-action-board-${args.date}.md`,
+          /Send and confirm selected payment requests that are still missing from the waiting-for-Stripe queue\./,
+          'rollover command center action board preserves selected send-confirmation top action',
+          failures,
+        );
+        requireFileText(
+          `revenue-action-board-${args.date}.md`,
+          /Stale proposal plans requiring regeneration: 0/,
+          'rollover command center action board uses clean data-date proposal report',
+          failures,
+        );
+        requireFileText(
+          `revenue-action-board-${rolloverDate}.md`,
+          /Payment-link-ready open gross: \$16500\.00[\s\S]*Selected send confirmations missing: 10[\s\S]*Send and confirm selected payment requests that are still missing from the waiting-for-Stripe queue\./,
+          'rollover command center mirrors fresh requested-date action board',
+          failures,
+        );
+        requireFileText(
+          `revenue-diagnosis-${rolloverDate}.md`,
+          /Payment-link-ready open gross: \$16500\.00[\s\S]*Primary blocker: follow-up and close conversion/,
+          'rollover command center mirrors fresh requested-date diagnosis',
+          failures,
+        );
+        requireFileText(
+          `payment-waiting-audit-${rolloverDate}.md`,
+          /Payment requests waiting for Stripe: 0[\s\S]*This audit is not revenue proof/,
+          'rollover command center mirrors fresh requested-date payment waiting audit',
+          failures,
+        );
+        requireFileText(
+          `close-follow-up-batch-plan-${args.date}.md`,
+          new RegExp(`Action date: ${rolloverDate}`),
+          'rollover command center follow-up batch uses requested action date',
+          failures,
+        );
+        requireFileText(
+          `close-follow-up-batch-plan-${args.date}.md`,
+          new RegExp(`--stage sent --date '${rolloverDate}' --next-action wait_for_reply`),
+          'rollover command center follow-up batch dates post-send commands with requested date',
+          failures,
+        );
+        requireFileText(
+          `close-execution-packet-${args.date}.md`,
+          new RegExp(`Requested date: ${rolloverDate}`),
+          'rollover command center close execution packet reports requested date',
+          failures,
+        );
+        requireFileText(
+          `close-execution-packet-${args.date}.md`,
+          new RegExp(`Data date: ${args.date}`),
+          'rollover command center close execution packet reports inferred data date',
+          failures,
+        );
+        requireFileText(
+          `close-execution-packet-${args.date}.md`,
+          /\| 1 \| aventus-agency \| sent \| wait_for_reply \| AI Agent Hardening Sprint \| \$946\.53 \| booking_form \| https:\/\/www\.aventusagency\.com\/ \|/,
+          'rollover command center close execution packet preserves top destination',
+          failures,
+        );
+        requireFileNotText(
+          `close-execution-packet-${args.date}.md`,
+          /unknown destination/,
+          'rollover command center close execution packet does not lose outreach destinations',
+          failures,
+        );
+        requireFileText(
+          `close-execution-packet-${args.date}.md`,
+          new RegExp(`--stage sent --date '${rolloverDate}' --next-action wait_for_reply`),
+          'rollover command center close execution packet dates post-send commands with requested date',
+          failures,
+        );
+        requireFileText(
+          `revenue-action-board-${args.date}.md`,
+          new RegExp(`node tools/proposal-batch-plan\\.js --date ${rolloverDate}`),
+          'rollover command center action board dates proposal batch with requested date',
+          failures,
+        );
+        requireFileText(
+          `revenue-action-board-${args.date}.md`,
+          new RegExp(`node tools/close-follow-up-batch-plan\\.js --date ${rolloverDate}`),
+          'rollover command center action board dates follow-up batch with requested date',
+          failures,
+        );
+        requireFileText(
+          `revenue-action-board-${args.date}.md`,
+          new RegExp(`node tools/close-execution-packet\\.js --date ${rolloverDate}`),
+          'rollover command center action board dates close execution packet with requested date',
+          failures,
+        );
+        requireFileText(
+          `revenue-action-board-${args.date}.md`,
+          new RegExp(`node tools/close-target-plan\\.js --date ${rolloverDate}`),
+          'rollover command center action board dates close target with requested date',
           failures,
         );
       }
@@ -738,8 +2498,69 @@ function main() {
       } else {
         requireText(
           rolloverActionBoard,
-          /Payment-link-ready open gross: \$0\.00/,
-          'rollover action board preserves payment-link blocker',
+          /Payment-link-ready open gross: \$16500\.00/,
+          'rollover action board preserves current payment-ready gross',
+          failures,
+        );
+        requireFileText(
+          path.join(os.tmpdir(), `revenue-action-board-rollover-${rolloverDate}.md`),
+          new RegExp(`node tools/proposal-batch-plan\\.js --date ${rolloverDate}`),
+          'rollover action board dates proposal batch command with requested date',
+          failures,
+        );
+        requireFileText(
+          path.join(os.tmpdir(), `revenue-action-board-rollover-${rolloverDate}.md`),
+          new RegExp(`node tools/close-follow-up-batch-plan\\.js --date ${rolloverDate}`),
+          'rollover action board dates follow-up batch command with requested date',
+          failures,
+        );
+        requireFileText(
+          path.join(os.tmpdir(), `revenue-action-board-rollover-${rolloverDate}.md`),
+          new RegExp(`node tools/close-execution-packet\\.js --date ${rolloverDate}`),
+          'rollover action board dates close execution packet command with requested date',
+          failures,
+        );
+        requireFileText(
+          path.join(os.tmpdir(), `revenue-action-board-rollover-${rolloverDate}.md`),
+          new RegExp(`node tools/close-target-plan\\.js --date ${rolloverDate}`),
+          'rollover action board dates close target command with requested date',
+          failures,
+        );
+      }
+      const rolloverCloseTarget = run('close target plan date rollover fallback', 'node', [
+        'tools/close-target-plan.js',
+        '--date',
+        rolloverDate,
+        '--limit',
+        String(args.limit),
+        '--out',
+        path.join(os.tmpdir(), `close-target-plan-rollover-${rolloverDate}.md`),
+      ]);
+      if (!rolloverCloseTarget.ok) {
+        failures.push(rolloverCloseTarget.label);
+      } else {
+        requireText(
+          rolloverCloseTarget,
+          /Backup link-ready rows: 1/,
+          'rollover close target preserves backup link-ready rows',
+          failures,
+        );
+        requireFileText(
+          path.join(os.tmpdir(), `close-target-plan-rollover-${rolloverDate}.md`),
+          new RegExp(`Requested date: ${rolloverDate}`),
+          'rollover close target reports requested date',
+          failures,
+        );
+        requireFileText(
+          path.join(os.tmpdir(), `close-target-plan-rollover-${rolloverDate}.md`),
+          new RegExp(`Data date: ${args.date}`),
+          'rollover close target uses latest available data date',
+          failures,
+        );
+        requireFileText(
+          path.join(os.tmpdir(), `close-target-plan-rollover-${rolloverDate}.md`),
+          new RegExp(`node tools/proposal-plan\\.js --prospect 'metro-mcp' --date '${rolloverDate}'`),
+          'rollover close target dates backup proposal command with requested date',
           failures,
         );
       }
@@ -778,8 +2599,150 @@ function main() {
       } else {
         requireText(
           rolloverPaymentReadiness,
-          /Payment-link-ready open gross: \$0\.00/,
-          'rollover payment readiness preserves payment-link blocker',
+          /Payment-link-ready open gross: \$16500\.00/,
+          'rollover payment readiness preserves current payment-ready gross',
+          failures,
+        );
+      }
+      const rolloverPriceSensitivity = run('revenue price sensitivity date rollover fallback', 'node', [
+        'tools/revenue-price-sensitivity.js',
+        '--date',
+        rolloverDate,
+        '--out',
+        path.join(os.tmpdir(), `revenue-price-sensitivity-rollover-${rolloverDate}.md`),
+      ]);
+      if (!rolloverPriceSensitivity.ok) {
+        failures.push(rolloverPriceSensitivity.label);
+      } else {
+        requireText(
+          rolloverPriceSensitivity,
+          new RegExp(`Stripe offer map: stripe-offer-map-${args.date}\\.tsv`),
+          'rollover price sensitivity uses latest Stripe offer map',
+          failures,
+        );
+        requireFileText(
+          path.join(os.tmpdir(), `revenue-price-sensitivity-rollover-${rolloverDate}.md`),
+          new RegExp(`Requested date: ${rolloverDate}`),
+          'rollover price sensitivity reports requested date',
+          failures,
+        );
+        requireFileText(
+          path.join(os.tmpdir(), `revenue-price-sensitivity-rollover-${rolloverDate}.md`),
+          new RegExp(`Data date: ${args.date}`),
+          'rollover price sensitivity uses latest available data date',
+          failures,
+        );
+        requireFileText(
+          path.join(os.tmpdir(), `revenue-price-sensitivity-rollover-${rolloverDate}.md`),
+          /\| 3 \| \$4753\.54 \| \$3000\.00 \|/,
+          'rollover price sensitivity preserves three-close pricing math',
+          failures,
+        );
+      }
+      const rolloverPartnerPilotQualification = run('Partner Pilot qualification date rollover fallback', 'node', [
+        'tools/partner-pilot-qualification-plan.js',
+        '--date',
+        rolloverDate,
+        '--limit',
+        String(args.limit),
+        '--out',
+        path.join(os.tmpdir(), `partner-pilot-qualification-plan-rollover-${rolloverDate}.md`),
+      ]);
+      if (!rolloverPartnerPilotQualification.ok) {
+        failures.push(rolloverPartnerPilotQualification.label);
+      } else {
+        requireText(
+          rolloverPartnerPilotQualification,
+          /Partner Pilot open rows: 67/,
+          'rollover Partner Pilot qualification preserves open pilot rows',
+          failures,
+        );
+        requireFileText(
+          path.join(os.tmpdir(), `partner-pilot-qualification-plan-rollover-${rolloverDate}.md`),
+          new RegExp(`Requested date: ${rolloverDate}`),
+          'rollover Partner Pilot qualification reports requested date',
+          failures,
+        );
+        requireFileText(
+          path.join(os.tmpdir(), `partner-pilot-qualification-plan-rollover-${rolloverDate}.md`),
+          new RegExp(`Data date: ${args.date}`),
+          'rollover Partner Pilot qualification uses latest available data date',
+          failures,
+        );
+        requireFileText(
+          path.join(os.tmpdir(), `partner-pilot-qualification-plan-rollover-${rolloverDate}.md`),
+          new RegExp(`--prospect 'ampliflow' --stage replied --date '${rolloverDate}' --next-action qualify_partner_pilot_scope`),
+          'rollover Partner Pilot qualification dates qualified-reply command with requested date',
+          failures,
+        );
+        requireFileText(
+          path.join(os.tmpdir(), `partner-pilot-qualification-plan-rollover-${rolloverDate}.md`),
+          new RegExp(`--stage sent --date '${rolloverDate}' --next-action wait_for_reply --note 'partner pilot qualification sent manually via email to hello@ampliflow\\.ai; asked for multi-workflow failure, cost, and buyer authority'`),
+          'rollover Partner Pilot qualification dates contact-specific post-send command with requested date',
+          failures,
+        );
+      }
+      const rolloverPartnerPilotUnlock = run('Partner Pilot unlock simulation date rollover fallback', 'node', [
+        'tools/partner-pilot-unlock-simulation.js',
+        '--date',
+        rolloverDate,
+        '--out',
+        path.join(os.tmpdir(), `partner-pilot-unlock-simulation-rollover-${rolloverDate}.md`),
+      ]);
+      if (!rolloverPartnerPilotUnlock.ok) {
+        failures.push(rolloverPartnerPilotUnlock.label);
+      } else {
+        requireText(
+          rolloverPartnerPilotUnlock,
+          new RegExp(`Requested date: ${rolloverDate}`),
+          'rollover Partner Pilot unlock reports requested date',
+          failures,
+        );
+        requireText(
+          rolloverPartnerPilotUnlock,
+          /Partner Pilot selected closes after simulated unlock: 5/,
+          'rollover Partner Pilot unlock selects five pilot closes',
+          failures,
+        );
+        requireFileText(
+          path.join(os.tmpdir(), `partner-pilot-unlock-simulation-rollover-${rolloverDate}.md`),
+          new RegExp(`Data date: ${args.date}`),
+          'rollover Partner Pilot unlock uses latest available data date',
+          failures,
+        );
+        requireFileText(
+          path.join(os.tmpdir(), `partner-pilot-unlock-simulation-rollover-${rolloverDate}.md`),
+          /\| 1 \| ampliflow \| sent \| Partner Pilot \| \$3000\.00 \| \$1893\.26 \| yes \|/,
+          'rollover Partner Pilot unlock ranks ampliflow first after unlock',
+          failures,
+        );
+      }
+      const rolloverPartnerPilotStripeUnlock = run('Partner Pilot Stripe unlock packet date rollover fallback', 'node', [
+        'tools/partner-pilot-stripe-unlock-packet.js',
+        '--date',
+        rolloverDate,
+        '--out',
+        path.join(os.tmpdir(), `partner-pilot-stripe-unlock-packet-rollover-${rolloverDate}.md`),
+      ]);
+      if (!rolloverPartnerPilotStripeUnlock.ok) {
+        failures.push(rolloverPartnerPilotStripeUnlock.label);
+      } else {
+        requireText(
+          rolloverPartnerPilotStripeUnlock,
+          new RegExp(`Requested date: ${rolloverDate}`),
+          'rollover Partner Pilot Stripe unlock packet reports requested date',
+          failures,
+        );
+        requireFileText(
+          path.join(os.tmpdir(), `partner-pilot-stripe-unlock-packet-rollover-${rolloverDate}.md`),
+          new RegExp(`Data date: ${args.date}`),
+          'rollover Partner Pilot Stripe unlock packet uses latest available data date',
+          failures,
+        );
+        requireFileText(
+          path.join(os.tmpdir(), `partner-pilot-stripe-unlock-packet-rollover-${rolloverDate}.md`),
+          new RegExp(`stripe-live-updates-partner-pilot-${rolloverDate}\\.tsv`),
+          'rollover Partner Pilot Stripe unlock packet dates import template with requested date',
           failures,
         );
       }
@@ -819,6 +2782,265 @@ function main() {
           failures,
         );
       }
+      const rolloverPipelineDataScience = run('pipeline data science date rollover fallback', 'node', [
+        'tools/pipeline-data-science.js',
+        '--date',
+        rolloverDate,
+        '--limit',
+        String(args.limit),
+        '--out',
+        path.join(os.tmpdir(), `pipeline-data-science-rollover-${rolloverDate}.md`),
+      ]);
+      if (!rolloverPipelineDataScience.ok) {
+        failures.push(rolloverPipelineDataScience.label);
+      } else {
+        requireText(
+          rolloverPipelineDataScience,
+          /Loaded 78 total prospects/,
+          'rollover pipeline data science preserves prospect count',
+          failures,
+        );
+      }
+      const rolloverProposalPlan = run('proposal plan date rollover fallback', 'node', [
+        'tools/proposal-plan.js',
+        '--date',
+        rolloverDate,
+        '--prospect',
+        'aventus-agency',
+        '--out',
+        path.join(os.tmpdir(), `proposal-plan-rollover-${rolloverDate}.md`),
+      ]);
+      if (!rolloverProposalPlan.ok) {
+        failures.push(rolloverProposalPlan.label);
+      } else {
+        requireText(
+          rolloverProposalPlan,
+          /Proposal plan written:/,
+          'rollover proposal plan writes handoff',
+          failures,
+        );
+        requireFileText(
+          path.join(os.tmpdir(), `proposal-plan-rollover-${rolloverDate}.md`),
+          new RegExp(`Requested date: ${rolloverDate}`),
+          'rollover proposal plan reports requested date',
+          failures,
+        );
+        requireFileText(
+          path.join(os.tmpdir(), `proposal-plan-rollover-${rolloverDate}.md`),
+          new RegExp(`Action date: ${rolloverDate}`),
+          'rollover proposal plan uses requested date as action date',
+          failures,
+        );
+        requireFileText(
+          path.join(os.tmpdir(), `proposal-plan-rollover-${rolloverDate}.md`),
+          new RegExp(`--date '${rolloverDate}' --next-action wait_for_payment`),
+          'rollover proposal plan dates post-send pipeline update with requested date',
+          failures,
+        );
+        requireFileText(
+          path.join(os.tmpdir(), `proposal-plan-rollover-${rolloverDate}.md`),
+          new RegExp(`--date-paid '${rolloverDate}'`),
+          'rollover proposal plan dates cleared-payment command with requested date',
+          failures,
+        );
+      }
+      const rolloverProposalBatch = run('proposal batch plan date rollover fallback', 'node', [
+        'tools/proposal-batch-plan.js',
+        '--date',
+        rolloverDate,
+        '--out',
+        path.join(os.tmpdir(), `proposal-batch-plan-rollover-${rolloverDate}.md`),
+      ]);
+      if (!rolloverProposalBatch.ok) {
+        failures.push(rolloverProposalBatch.label);
+      } else {
+        requireText(
+          rolloverProposalBatch,
+          /Proposal handoffs generated: 10/,
+          'rollover proposal batch preserves handoff count',
+          failures,
+        );
+        requireText(
+          rolloverProposalBatch,
+          new RegExp(`Requested date: ${rolloverDate}`),
+          'rollover proposal batch reports requested date',
+          failures,
+        );
+        requireFileText(
+          path.join(os.tmpdir(), `proposal-batch-plan-rollover-${rolloverDate}.md`),
+          new RegExp(`Action date: ${rolloverDate}`),
+          'rollover proposal batch uses requested date as action date',
+          failures,
+        );
+        requireFileText(
+          path.join(os.tmpdir(), `proposal-batch-plan-rollover-${rolloverDate}.md`),
+          new RegExp(`--date '${rolloverDate}' --next-action wait_for_payment`),
+          'rollover proposal batch dates post-send commands with requested date',
+          failures,
+        );
+        requireFileText(
+          path.join(os.tmpdir(), `proposal-batch-plan-rollover-${rolloverDate}.md`),
+          new RegExp(`--date-paid '${rolloverDate}'`),
+          'rollover proposal batch dates cleared-payment commands with requested date',
+          failures,
+        );
+        requireFileText(
+          path.join(os.tmpdir(), `proposal-batch-plan-rollover-${rolloverDate}.md`),
+          new RegExp(`node tools/payment-waiting-audit\\.js --date ${rolloverDate} --proposal-batch ${path.join(os.tmpdir(), `proposal-batch-plan-rollover-${rolloverDate}.md`).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')} --out payment-waiting-audit-${rolloverDate}\\.md`),
+          'rollover proposal batch dates payment waiting audit command with requested date',
+          failures,
+        );
+      }
+      const rolloverCloseFollowUp = run('close follow-up batch plan date rollover fallback', 'node', [
+        'tools/close-follow-up-batch-plan.js',
+        '--date',
+        rolloverDate,
+        '--out',
+        path.join(os.tmpdir(), `close-follow-up-batch-plan-rollover-${rolloverDate}.md`),
+      ]);
+      if (!rolloverCloseFollowUp.ok) {
+        failures.push(rolloverCloseFollowUp.label);
+      } else {
+        requireText(
+          rolloverCloseFollowUp,
+          /Selected link-ready closes: 10/,
+          'rollover close follow-up preserves selected close count',
+          failures,
+        );
+        requireText(
+          rolloverCloseFollowUp,
+          new RegExp(`Requested date: ${rolloverDate}`),
+          'rollover close follow-up reports requested date',
+          failures,
+        );
+        requireFileText(
+          path.join(os.tmpdir(), `close-follow-up-batch-plan-rollover-${rolloverDate}.md`),
+          new RegExp(`Action date: ${rolloverDate}`),
+          'rollover close follow-up uses requested date as action date',
+          failures,
+        );
+        requireFileText(
+          path.join(os.tmpdir(), `close-follow-up-batch-plan-rollover-${rolloverDate}.md`),
+          /\| 1 \| aventus-agency \| sent \| wait_for_reply \| AI Agent Hardening Sprint \| \$946\.53 \| booking_form \| https:\/\/www\.aventusagency\.com\/ \|/,
+          'rollover close follow-up preserves top destination',
+          failures,
+        );
+        requireFileNotText(
+          path.join(os.tmpdir(), `close-follow-up-batch-plan-rollover-${rolloverDate}.md`),
+          /unknown destination/,
+          'rollover close follow-up does not lose outreach destinations',
+          failures,
+        );
+        requireFileText(
+          path.join(os.tmpdir(), `close-follow-up-batch-plan-rollover-${rolloverDate}.md`),
+          new RegExp(`--stage sent --date '${rolloverDate}' --next-action wait_for_reply`),
+          'rollover close follow-up dates post-send commands with requested date',
+          failures,
+        );
+        requireFileText(
+          path.join(os.tmpdir(), `close-follow-up-batch-plan-rollover-${rolloverDate}.md`),
+          new RegExp(`--stage replied --date '${rolloverDate}' --next-action qualify_scope_or_send_payment_request --note 'reply qualified; confirm one workflow, success proof, and buyer authority before payment request'`),
+          'rollover close follow-up dates qualified-reply command with requested date',
+          failures,
+        );
+        requireFileText(
+          path.join(os.tmpdir(), `close-follow-up-batch-plan-rollover-${rolloverDate}.md`),
+          new RegExp(`node tools/proposal-plan\\.js --prospect 'aventus-agency' --date '${rolloverDate}'`),
+          'rollover close follow-up dates proposal command with requested date',
+          failures,
+        );
+        requireFileText(
+          path.join(os.tmpdir(), `close-follow-up-batch-plan-rollover-${rolloverDate}.md`),
+          new RegExp(`If the objection is resolved and scope is confirmed:[\\s\\S]*node tools/proposal-plan\\.js --prospect 'aventus-agency' --date '${rolloverDate}'`),
+          'rollover close follow-up dates objection-resolved proposal command with requested date',
+          failures,
+        );
+      }
+      const rolloverCloseExecutionPacket = run('close execution packet date rollover fallback', 'node', [
+        'tools/close-execution-packet.js',
+        '--date',
+        rolloverDate,
+        '--limit',
+        '5',
+        '--out',
+        path.join(os.tmpdir(), `close-execution-packet-rollover-${rolloverDate}.md`),
+      ]);
+      if (!rolloverCloseExecutionPacket.ok) {
+        failures.push(rolloverCloseExecutionPacket.label);
+      } else {
+        requireText(
+          rolloverCloseExecutionPacket,
+          /Packet rows: 5/,
+          'rollover close execution packet preserves today queue size',
+          failures,
+        );
+        requireText(
+          rolloverCloseExecutionPacket,
+          new RegExp(`Requested date: ${rolloverDate}`),
+          'rollover close execution packet reports requested date',
+          failures,
+        );
+        requireFileText(
+          path.join(os.tmpdir(), `close-execution-packet-rollover-${rolloverDate}.md`),
+          new RegExp(`Action date: ${rolloverDate}`),
+          'rollover close execution packet uses requested date as action date',
+          failures,
+        );
+        requireFileText(
+          path.join(os.tmpdir(), `close-execution-packet-rollover-${rolloverDate}.md`),
+          new RegExp(`--stage sent --date '${rolloverDate}' --next-action wait_for_reply`),
+          'rollover close execution packet dates post-send command with requested date',
+          failures,
+        );
+        requireFileText(
+          path.join(os.tmpdir(), `close-execution-packet-rollover-${rolloverDate}.md`),
+          /1\. aventus-agency[\s\S]*Open the manual channel:[\s\S]*open 'https:\/\/www\.aventusagency\.com\/'/,
+          'rollover close execution packet preserves booking-form open command',
+          failures,
+        );
+        requireFileText(
+          path.join(os.tmpdir(), `close-execution-packet-rollover-${rolloverDate}.md`),
+          /2\. flowset-hub[\s\S]*Open the manual channel:[\s\S]*open 'mailto:business%40flowsethub\.com\?subject=Close%20the%20loop%20on%20AI%20Agent%20Hardening%20Sprint/,
+          'rollover close execution packet preserves close-copy mailto command',
+          failures,
+        );
+        requireFileNotText(
+          path.join(os.tmpdir(), `close-execution-packet-rollover-${rolloverDate}.md`),
+          /open 'mailto:business%40flowsethub\.com\?subject=Hardening%20Claude%20Code/,
+          'rollover close execution packet does not use stale outreach subject',
+          failures,
+        );
+        requireFileText(
+          path.join(os.tmpdir(), `close-execution-packet-rollover-${rolloverDate}.md`),
+          new RegExp(`If the buyer declines or has no current repeated failure:[\\s\\S]*--prospect 'aventus-agency' --stage lost --date '${rolloverDate}' --next-action none --note 'buyer declined or no current repeated AI-agent failure pain'`),
+          'rollover close execution packet dates no-pain loss command with requested date',
+          failures,
+        );
+        requireFileText(
+          path.join(os.tmpdir(), `close-execution-packet-rollover-${rolloverDate}.md`),
+          new RegExp(`If the objection is resolved and scope is confirmed:[\\s\\S]*node tools/proposal-plan\\.js --prospect 'aventus-agency' --date '${rolloverDate}'`),
+          'rollover close execution packet dates objection-resolved proposal command with requested date',
+          failures,
+        );
+        requireFileText(
+          path.join(os.tmpdir(), `close-execution-packet-rollover-${rolloverDate}.md`),
+          new RegExp(`node tools/proposal-plan\\.js --prospect 'aventus-agency' --date '${rolloverDate}'`),
+          'rollover close execution packet dates proposal command with requested date',
+          failures,
+        );
+        requireFileText(
+          path.join(os.tmpdir(), `close-execution-packet-rollover-${rolloverDate}.md`),
+          new RegExp(`dry-run the recorder first:[\\s\\S]*node tools/record-cleared-payment\\.js \\\\\\n  --ledger revenue-ledger-${rolloverDate.slice(0, 7)}\\.tsv \\\\\\n  --pipeline 'pipeline-status-2026-06-02\\.tsv' \\\\\\n  --prospect 'aventus-agency' \\\\\\n  --date-paid '${rolloverDate}'[\\s\\S]*--dry-run[\\s\\S]*After the dry run prints the expected ledger row and pipeline update:[\\s\\S]*node tools/record-cleared-payment\\.js \\\\\\n  --ledger revenue-ledger-${rolloverDate.slice(0, 7)}\\.tsv \\\\\\n  --pipeline 'pipeline-status-2026-06-02\\.tsv' \\\\\\n  --prospect 'aventus-agency' \\\\\\n  --date-paid '${rolloverDate}'`),
+          'rollover close execution packet dates cleared-payment proof command with requested date',
+          failures,
+        );
+        requireFileText(
+          path.join(os.tmpdir(), `close-execution-packet-rollover-${rolloverDate}.md`),
+          new RegExp(`After the write succeeds, verify the revenue proof:[\\s\\S]*node tools/revenue-net\\.js revenue-ledger-${rolloverDate.slice(0, 7)}\\.tsv --from ${rolloverDate.slice(0, 8)}01 --to ${rolloverDate.slice(0, 8)}30 --days 30[\\s\\S]*node tools/revenue-goal-audit\\.js --date ${rolloverDate} --ledger revenue-ledger-${rolloverDate.slice(0, 7)}\\.tsv`),
+          'rollover close execution packet dates post-write revenue verification commands with requested date',
+          failures,
+        );
+      }
       const rolloverLiveUpdates = run('Stripe live-updates template date rollover fallback', 'node', [
         'tools/stripe-live-updates-template.js',
         '--date',
@@ -839,6 +3061,69 @@ function main() {
           rolloverLiveUpdates,
           /Candidate product\/price IDs applied: 2/,
           'rollover live-updates template preserves read-only Stripe candidates',
+          failures,
+        );
+      }
+      const rolloverMissingOnlyLiveUpdates = run('Stripe live-updates missing-only date rollover fallback', 'node', [
+        'tools/stripe-live-updates-template.js',
+        '--date',
+        rolloverDate,
+        '--out',
+        path.join(os.tmpdir(), `stripe-live-updates-missing-only-rollover-${rolloverDate}.tsv`),
+        '--missing-only',
+      ]);
+      if (!rolloverMissingOnlyLiveUpdates.ok) {
+        failures.push(rolloverMissingOnlyLiveUpdates.label);
+      } else {
+        requireText(
+          rolloverMissingOnlyLiveUpdates,
+          new RegExp(`Requested date: ${rolloverDate}`),
+          'rollover missing-only live-updates reports requested date',
+          failures,
+        );
+        requireText(
+          rolloverMissingOnlyLiveUpdates,
+          /Rows written: 1/,
+          'rollover missing-only live-updates writes only blocked offer row',
+          failures,
+        );
+        requireFileText(
+          path.join(os.tmpdir(), `stripe-live-updates-missing-only-rollover-${rolloverDate}.tsv`),
+          /^Partner Pilot\tTODO_PRODUCT_ID\tTODO_PRICE_ID\tTODO_PAYMENT_LINK/m,
+          'rollover missing-only live-updates preserves Partner Pilot blocker',
+          failures,
+        );
+        requireFileText(
+          path.join(os.tmpdir(), `stripe-live-updates-missing-only-rollover-${rolloverDate}.tsv`),
+          new RegExp(`Partner Pilot\\tTODO_PRODUCT_ID\\tTODO_PRICE_ID\\tTODO_PAYMENT_LINK\\tcreate or verify live Stripe product, price, and payment link ${rolloverDate}`),
+          'rollover missing-only live-updates dates Partner Pilot note with requested action date',
+          failures,
+        );
+      }
+      const rolloverSendPlan = run('send plan date rollover fallback', 'node', [
+        'tools/send-plan.js',
+        '--date',
+        rolloverDate,
+        '--stripe-status',
+        'ready',
+        '--limit',
+        String(args.limit),
+        '--out',
+        path.join(os.tmpdir(), `send-plan-rollover-${rolloverDate}.md`),
+      ]);
+      if (!rolloverSendPlan.ok) {
+        failures.push(rolloverSendPlan.label);
+      } else {
+        requireText(
+          rolloverSendPlan,
+          new RegExp(`Requested date: ${rolloverDate}`),
+          'rollover send plan reports requested date',
+          failures,
+        );
+        requireText(
+          rolloverSendPlan,
+          /Action rows considered: 78/,
+          'rollover send plan preserves full action queue',
           failures,
         );
       }

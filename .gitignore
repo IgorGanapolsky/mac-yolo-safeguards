@@ -32,6 +32,7 @@ send-plan*.md
 
 # Private proposal and payment handoff plans.
 proposal-plan*.md
+proposal-batch-plan*.md
 proposal-plan-stale-audit*.md
 
 # Private Stripe product/price mapping. Keep account object IDs out of public git.
@@ -48,11 +49,17 @@ stripe-readonly-candidates*.tsv
 
 # Private close target plans.
 close-target-plan*.md
+close-follow-up-batch-plan*.md
+close-execution-packet*.md
 
 # Private revenue diagnosis reports.
 revenue-goal-audit*.md
 revenue-diagnosis*.md
 revenue-action-board*.md
+revenue-price-sensitivity*.md
+partner-pilot-qualification-plan*.md
+partner-pilot-unlock-simulation*.md
+partner-pilot-stripe-unlock-packet*.md
 publication-readiness*.md
 public-funnel-safety-scan*.md
 github-issue-template-check*.md
@@ -65,6 +72,9 @@ pipeline-priority*.md
 
 # Private pipeline integrity reports.
 pipeline-integrity*.md
+
+# Private pipeline data science reports.
+pipeline-data-science*.md
 
 # Private outreach state audits.
 send-confirmation-audit*.md

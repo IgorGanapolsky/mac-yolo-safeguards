@@ -2,9 +2,10 @@
 'use strict';
 
 const fs = require('fs');
+const { discover, latestDataDate } = require('./revenue-date');
 
 const usage = `Usage:
-  node tools/proposal-plan.js --pipeline pipeline-status.tsv --prospect LABEL --out proposal-plan.md [--date YYYY-MM-DD] [--buyer-segment SEGMENT] [--source SOURCE] [--stripe-offer-map stripe-offer-map.tsv]
+  node tools/proposal-plan.js --prospect LABEL [--date YYYY-MM-DD] [--pipeline pipeline-status.tsv] [--out proposal-plan.md] [--buyer-segment SEGMENT] [--source SOURCE] [--stripe-offer-map stripe-offer-map.tsv]
 
 Builds a private proposal/payment handoff from one pipeline row.
 
@@ -55,13 +56,45 @@ function requireArgs(args) {
     console.log(usage);
     process.exit(0);
   }
-  for (const key of ['pipeline', 'prospect', 'out']) {
-    if (!args[key]) {
-      throw new Error(`Missing required argument: --${key}`);
-    }
+  if (!args.prospect) {
+    throw new Error('Missing required argument: --prospect');
+  }
+  if (!args.date) {
+    args.date = todayIso();
   }
   if (args.date && !/^\d{4}-\d{2}-\d{2}$/.test(args.date)) {
     throw new Error('--date must be YYYY-MM-DD');
+  }
+  const explicitPipeline = Boolean(args.pipeline);
+  const explicitStripeMap = Boolean(args.stripeOfferMap);
+  if (!explicitPipeline) {
+    const prefixes = explicitStripeMap ? ['pipeline-status'] : ['pipeline-status', 'stripe-offer-map'];
+    const dataDate = latestDataDate(args.date, prefixes);
+    if (dataDate && dataDate !== args.date) {
+      args.requestedDate = args.date;
+      args.date = dataDate;
+    }
+  }
+  if (!args.stripeOfferMap && fs.existsSync(`stripe-offer-map-${args.date}.tsv`)) {
+    args.stripeOfferMap = `stripe-offer-map-${args.date}.tsv`;
+  }
+  if (!args.pipeline) {
+    const matches = discover('pipeline-status', args.date).filter((file) => (
+      parseTsv(file).some((row) => row.prospect_label === args.prospect)
+    ));
+    if (matches.length === 0) {
+      throw new Error(`Prospect not found in pipeline-status*.tsv for ${args.date}: ${args.prospect}`);
+    }
+    if (matches.length > 1) {
+      throw new Error(`Prospect appears in more than one pipeline for ${args.date}: ${args.prospect}`);
+    }
+    args.pipeline = matches[0];
+  }
+  if (!args.buyerSegment) {
+    args.buyerSegment = discoverBuyerSegment(args.date, args.prospect) || args.buyerSegment;
+  }
+  if (!args.out) {
+    args.out = `proposal-plan-${safeLabel(args.prospect)}-${args.date}.md`;
   }
 }
 
@@ -123,11 +156,18 @@ function offerScope(route) {
   if (/partner pilot/i.test(route)) {
     return {
       deliverables: [
-        'Hardening sprint for one repeated agent failure pattern.',
-        'Reusable client checklist and demo script.',
-        'First rollout support for an agency or consulting workflow.',
+        'Map two to three related agent workflows where the same failure class repeats.',
+        'Harden the highest-risk workflow first with smoke-test proof.',
+        'Package the guardrail pattern as a client-ready reliability add-on with rollout notes.',
       ],
-      proof: 'Sprint proof plus packaged client rollout evidence.',
+      proof: 'One hardened workflow, reusable rollout evidence, and a repeatable client-delivery guardrail pattern.',
+      scopeEvidence: [
+        'multi-workflow repeated failure',
+        'business cost across delivery time, client trust, API spend, or review overhead',
+        'buyer authority for a paid pilot',
+      ],
+      paymentBoundary: 'Once Stripe shows the payment cleared, I will schedule/start the Partner Pilot scope we confirmed.',
+      coverage: 'This pilot covers a multi-workflow failure class: harden the highest-risk workflow first, then package the guardrail pattern for repeatable client delivery.',
     };
   }
   if (/hardening sprint/i.test(route)) {
@@ -138,6 +178,13 @@ function offerScope(route) {
         'Smoke-test evidence and handoff notes.',
       ],
       proof: 'Working guardrails, smoke-test evidence, and operator handoff.',
+      scopeEvidence: [
+        'one repeated agent failure pattern',
+        'concrete business cost',
+        'buyer authority for the sprint',
+      ],
+      paymentBoundary: 'Once Stripe shows the payment cleared, I will schedule/start the scoped implementation work for the one workflow we confirmed.',
+      coverage: 'This sprint covers one repeated agent failure pattern and ends with guardrail changes, smoke-test evidence, and handoff notes.',
     };
   }
   if (/diagnostic/i.test(route)) {
@@ -148,16 +195,66 @@ function offerScope(route) {
         'Prioritized hardening plan with buy/no-buy recommendation.',
       ],
       proof: 'Written diagnostic and next-step recommendation.',
+      scopeEvidence: [
+        'one repeated failure pattern worth diagnosing',
+        'access to enough context for a root-cause hypothesis',
+        'buyer authority to approve the diagnostic',
+      ],
+      paymentBoundary: 'Once Stripe shows the payment cleared, I will schedule/start the scoped diagnostic.',
+      coverage: 'This diagnostic covers one repeated failure pattern and ends with a written buy/no-buy hardening recommendation.',
     };
   }
   return {
     deliverables: ['Scoped reliability review.'],
     proof: 'Written next action.',
+    scopeEvidence: ['confirmed paid scope'],
+    paymentBoundary: 'Once Stripe shows the payment cleared, I will schedule/start the scoped work.',
+    coverage: 'This engagement covers the confirmed paid scope.',
   };
 }
 
 function shellQuote(value) {
   return `'${String(value).replace(/'/g, `'\\''`)}'`;
+}
+
+function safeLabel(value) {
+  return String(value || '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '') || 'prospect';
+}
+
+function discoverBuyerSegment(date, prospect) {
+  for (const file of discover('prospects', date)) {
+    for (const row of parseGenericTsv(file)) {
+      if (row.prospect_label === prospect && row.segment) {
+        return row.segment;
+      }
+    }
+  }
+  return null;
+}
+
+function discoverProspect(date, prospect) {
+  for (const file of discover('prospects', date)) {
+    for (const row of parseGenericTsv(file)) {
+      if (row.prospect_label === prospect) {
+        return { ...row, source_file: file };
+      }
+    }
+  }
+  return null;
+}
+
+function discoverOutreachAction(date, prospect) {
+  for (const file of discover('outreach-actions', date)) {
+    for (const row of parseGenericTsv(file)) {
+      if (row.prospect_label === prospect) {
+        return { ...row, source_file: file };
+      }
+    }
+  }
+  return null;
 }
 
 function monthStart(date) {
@@ -207,6 +304,85 @@ function findStripeOffer(args, offer) {
     throw new Error(`No offer row in ${args.stripeOfferMap} for ${offer}`);
   }
   return match;
+}
+
+function firstDraftParagraph(draftBody) {
+  const paragraphs = String(draftBody || '')
+    .split(/\\n\\n|\n\n/)
+    .map((item) => item.trim())
+    .filter(Boolean)
+    .filter((item) => !/^Subject:/i.test(item));
+  return paragraphs[0] || '';
+}
+
+function concise(value, fallback) {
+  const text = String(value || '').replace(/\s+/g, ' ').trim();
+  if (!text) {
+    return fallback;
+  }
+  return text.length > 220 ? `${text.slice(0, 217)}...` : text;
+}
+
+function evidenceContext(row, args) {
+  const prospect = discoverProspect(args.date, row.prospect_label);
+  const action = discoverOutreachAction(args.date, row.prospect_label);
+  const priorExcerpt = action ? firstDraftParagraph(action.draft_body) : '';
+  return {
+    prospect,
+    action,
+    priorExcerpt,
+    workflow: action && action.subject
+      ? `Candidate from prior outreach: ${action.subject}. Confirm exact workflow with buyer before sending.`
+      : 'Confirm exact target workflow with buyer before sending.',
+    stack: priorExcerpt
+      ? `Public evidence from prior outreach: ${concise(priorExcerpt, 'review prior outreach')}`
+      : 'Confirm agent stack with buyer before sending.',
+    failure: action && action.subject
+      ? `Candidate risk to validate: repeated agent behavior around ${action.subject.toLowerCase()}.`
+      : 'Confirm one repeated agent failure pattern with buyer before sending.',
+    cost: prospect && prospect.notes
+      ? `Candidate business cost from prospect research: ${concise(prospect.notes, 'review prospect notes')}`
+      : 'Confirm hours, spend, delivery risk, or client trust cost with buyer before sending.',
+  };
+}
+
+function decodedMailtoRecipient(value) {
+  const match = String(value || '').match(/^mailto:([^?]+)/i);
+  if (!match) {
+    return null;
+  }
+  try {
+    return decodeURIComponent(match[1]);
+  } catch (_error) {
+    return match[1];
+  }
+}
+
+function sendDestinationSummary(action) {
+  if (!action) {
+    return 'unknown destination';
+  }
+  const recipient = decodedMailtoRecipient(action.action_value);
+  if (recipient) {
+    return recipient;
+  }
+  return concise(action.action_value, 'unknown destination');
+}
+
+function paymentRequestSentNote(evidence) {
+  if (!evidence.action) {
+    return 'payment request sent manually; destination not found in outreach actions';
+  }
+  return `payment request sent manually via ${evidence.action.contact_type} to ${sendDestinationSummary(evidence.action)}`;
+}
+
+function stripeFeeEstimate(gross) {
+  return gross * 0.029 + 0.30;
+}
+
+function netAfterReserve(gross, fee, refund = 0, taxReservePct = 0.35) {
+  const preTax = gross - fee - refund;
+  return preTax - preTax * taxReservePct;
 }
 
 function realStripeProductId(value) {
@@ -277,25 +453,89 @@ function stripeOfferLines(stripeOffer) {
   return lines;
 }
 
+function paymentRequestCopyLines(row, offer, price, stripeOffer, readiness) {
+  const scope = offerScope(row.route);
+  const lines = [
+    '## Payment Request Copy',
+    '',
+  ];
+  if (!readiness.readyToRequestPayment) {
+    lines.push(
+      'Blocked: payment request copy is omitted until `Price status: ready` and `Link status: ready`.',
+      ''
+    );
+    return lines;
+  }
+  lines.push(
+    'Review and send manually only after the proposal terms above are accurate for the buyer.',
+    '',
+    '```text',
+    `Subject: ${offer} payment link`,
+    '',
+    `For ${row.prospect_label}:`,
+    '',
+    `Here is the payment link for the ${offer}:`,
+    stripeOffer.payment_link_url,
+    '',
+    `Amount: $${price}`,
+    '',
+    scope.paymentBoundary,
+    '',
+    scope.coverage,
+    '```',
+    ''
+  );
+  return lines;
+}
+
 function buildPlan(row, args) {
-  const date = args.date || todayIso();
+  const dataDate = args.date || todayIso();
+  const actionDate = args.requestedDate || dataDate;
+  const ledgerPath = `revenue-ledger-${actionDate.slice(0, 7)}.tsv`;
   const offer = offerName(row.route);
   const scope = offerScope(row.route);
   const stripeOffer = findStripeOffer(args, offer);
   const readiness = stripeReadiness(stripeOffer);
   const requestStatus = paymentRequestStatus(stripeOffer);
   const price = Number(row.gross_potential_usd).toFixed(2);
+  const gross = Number(row.gross_potential_usd);
+  const estimatedStripeFee = stripeFeeEstimate(gross);
+  const estimatedNetAfterReserve = netAfterReserve(gross, estimatedStripeFee);
+  const evidence = evidenceContext(row, args);
   const lines = [
     `# Proposal / Payment Plan - ${row.prospect_label}`,
     '',
     'Private working file. Do not commit buyer-specific proposal or payment notes.',
     '',
+    ...(args.requestedDate ? [`- Requested date: ${args.requestedDate}`, `- Data date: ${args.date}`] : []),
+    `- Action date: ${actionDate}`,
     `- Prospect: ${row.prospect_label}`,
     `- Offer: ${offer}`,
     `- Price: $${price}`,
     `- Pipeline: ${row.pipeline}`,
     `- Current stage: ${row.stage}`,
     `- Payment request status: ${requestStatus}`,
+    '',
+    '## Buyer Evidence to Review',
+    '',
+    evidence.prospect
+      ? `- Prospect research: ${evidence.prospect.source_file}`
+      : '- Prospect research: not found for this prospect/date.',
+    evidence.prospect && evidence.prospect.notes
+      ? `- Prospect note: ${evidence.prospect.notes}`
+      : '- Prospect note: none found.',
+    evidence.action
+      ? `- Prior outreach action: ${evidence.action.source_file} via ${evidence.action.contact_type}`
+      : '- Prior outreach action: not found for this prospect/date.',
+    evidence.action && evidence.action.action_value
+      ? `- Prior send destination: ${evidence.action.action_value}`
+      : '- Prior send destination: none found.',
+    evidence.action && evidence.action.subject
+      ? `- Prior subject: ${evidence.action.subject}`
+      : '- Prior subject: none found.',
+    evidence.priorExcerpt
+      ? `- Prior outreach evidence: ${evidence.priorExcerpt}`
+      : '- Prior outreach evidence: none found.',
     '',
     '## Proposal Copy',
     '',
@@ -307,11 +547,12 @@ function buildPlan(row, args) {
     '',
     'Scope:',
     '',
-    '- Target workflow: TODO fill from buyer reply/call.',
-    '- Agent stack: TODO fill from buyer reply/call.',
-    '- Repeated failure: TODO one concrete repeated behavior.',
-    '- Business cost: TODO hours, spend, delivery risk, or client trust cost.',
+    `- Target workflow: ${evidence.workflow}`,
+    `- Agent stack: ${evidence.stack}`,
+    `- Repeated failure: ${evidence.failure}`,
+    `- Business cost: ${evidence.cost}`,
     `- Success proof: ${scope.proof}`,
+    `- Scope evidence required before payment request: ${scope.scopeEvidence.join('; ')}.`,
     '',
     'Deliverables:',
   ];
@@ -331,6 +572,7 @@ function buildPlan(row, args) {
     '- GUI apps with unsaved work are not auto-killed.',
     '',
     ...stripeOfferLines(stripeOffer),
+    ...paymentRequestCopyLines(row, offer, price, stripeOffer, readiness),
     '## Stripe Dashboard Checklist',
     '',
     '1. Confirm this proposal plan shows `Price status: ready` and `Link status: ready`.',
@@ -349,7 +591,7 @@ function buildPlan(row, args) {
       'After proposal is sent:',
       '',
       '```sh',
-      updateCommand(row, 'proposed', date, 'wait_for_payment', 'proposal sent manually'),
+      updateCommand(row, 'proposed', actionDate, 'wait_for_payment', paymentRequestSentNote(evidence)),
       '```',
       '',
     );
@@ -362,14 +604,23 @@ function buildPlan(row, args) {
     );
   }
   lines.push(
+    '## Cleared Payment Entry Guide',
+    '',
+    `- Gross: $${gross.toFixed(2)}`,
+    `- Estimated Stripe fee at 2.9% + $0.30: $${estimatedStripeFee.toFixed(2)}`,
+    `- Estimated net after 35% reserve: $${estimatedNetAfterReserve.toFixed(2)}`,
+    '- Use the actual Stripe fee from the cleared Stripe charge/invoice, not the estimate, before recording revenue.',
+    '- If Stripe clears on a different date, replace `--date-paid` and the ledger month before running.',
+    '- Keep `TODO_STRIPE_FEE` and `TODO private Stripe payment proof...` until Stripe has cleared and proof exists.',
+    '',
     'After Stripe payment clears:',
     '',
     '```sh',
     'node tools/record-cleared-payment.js \\',
-    `  --ledger revenue-ledger-${date.slice(0, 7)}.tsv \\`,
+    `  --ledger ${ledgerPath} \\`,
     `  --pipeline ${shellQuote(row.pipeline)} \\`,
     `  --prospect ${shellQuote(row.prospect_label)} \\`,
-    `  --date-paid ${shellQuote(date)} \\`,
+    `  --date-paid ${shellQuote(actionDate)} \\`,
     `  --buyer-segment ${shellQuote(args.buyerSegment || 'TODO_SEGMENT')} \\`,
     `  --source ${shellQuote(args.source || 'direct-outreach')} \\`,
     '  --stripe-fee-usd TODO_STRIPE_FEE \\',
@@ -383,13 +634,14 @@ function buildPlan(row, args) {
     '',
     '```tsv',
     'date_paid\tbuyer_label\tbuyer_segment\tsource\toffer\tgross_usd\tstripe_fee_usd\trefund_usd\ttax_reserve_pct\tstatus\tproof_note',
-    ledgerRow(row, args, date),
+    ledgerRow(row, args, actionDate),
     '```',
     '',
     'Verify after ledger entry:',
     '',
     '```sh',
-    `node tools/revenue-net.js revenue-ledger-YYYY-MM.tsv --from ${monthStart(date)} --to ${monthEnd(date)} --days 30`,
+    `node tools/revenue-net.js ${ledgerPath} --from ${monthStart(actionDate)} --to ${monthEnd(actionDate)} --days 30`,
+    `node tools/revenue-goal-audit.js --date ${actionDate} --ledger ${ledgerPath}`,
     '```',
     ''
   );

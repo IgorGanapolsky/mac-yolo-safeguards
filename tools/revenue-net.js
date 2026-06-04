@@ -60,6 +60,14 @@ function parseMoney(value, label, lineNumber) {
   return number;
 }
 
+function weakProofNote(value) {
+  const text = String(value || '').trim();
+  return text.length < 20
+    || /todo|placeholder|example only|not real/i.test(text)
+    || !/(stripe|charge|invoice|payment)/i.test(text)
+    || !/(proof|evidence|delivery|handoff|client)/i.test(text);
+}
+
 function parseLedger(path) {
   const text = fs.readFileSync(path, 'utf8').trim();
   if (!text) {
@@ -111,6 +119,9 @@ function parseLedger(path) {
     }
 
     row.statusNormalized = row.status.toLowerCase();
+    if (['paid', 'cleared'].includes(row.statusNormalized) && weakProofNote(row.proof_note)) {
+      throw new Error(`Line ${lineNumber}: proof_note for paid/cleared revenue must include concrete private payment and delivery evidence`);
+    }
     return row;
   });
 }

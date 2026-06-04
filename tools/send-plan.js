@@ -2,9 +2,10 @@
 'use strict';
 
 const fs = require('fs');
+const { discover, latestDataDate } = require('./revenue-date');
 
 const usage = `Usage:
-  node tools/send-plan.js --actions outreach-actions.tsv --pipeline pipeline-status.tsv [--actions more.tsv --pipeline more.tsv ...] --out send-plan.md --date YYYY-MM-DD [--limit N] [--stripe-offer-map stripe-offer-map.tsv] [--stripe-status ready|missing|all]
+  node tools/send-plan.js --date YYYY-MM-DD [--actions outreach-actions.tsv --pipeline pipeline-status.tsv ...] [--out send-plan.md] [--limit N] [--stripe-offer-map stripe-offer-map.tsv] [--stripe-status ready|missing|all]
 
 Builds a private manual-send plan from outreach action lists and pipeline
 trackers. This tool does not send email and does not submit forms.
@@ -53,16 +54,8 @@ function requireArgs(args) {
     console.log(usage);
     process.exit(0);
   }
-  if (args.actions.length === 0) {
-    throw new Error('Missing required argument: --actions');
-  }
-  if (args.pipelines.length === 0) {
-    throw new Error('Missing required argument: --pipeline');
-  }
-  for (const key of ['out', 'date']) {
-    if (!args[key]) {
-      throw new Error(`Missing required argument: --${key}`);
-    }
+  if (!args.date) {
+    throw new Error('Missing required argument: --date');
   }
   if (!/^\d{4}-\d{2}-\d{2}$/.test(args.date)) {
     throw new Error('--date must be YYYY-MM-DD');
@@ -72,6 +65,38 @@ function requireArgs(args) {
   }
   if (!['ready', 'missing', 'all'].includes(args.stripeStatus)) {
     throw new Error('--stripe-status must be ready, missing, or all');
+  }
+  const explicitActions = args.actions.length > 0;
+  const explicitPipelines = args.pipelines.length > 0;
+  const explicitStripeMap = Boolean(args.stripeOfferMap);
+  if (!explicitActions && !explicitPipelines && !explicitStripeMap) {
+    const requiredPrefixes = ['outreach-actions', 'pipeline-status'];
+    if (args.stripeStatus !== 'all') {
+      requiredPrefixes.push('stripe-offer-map');
+    }
+    const dataDate = latestDataDate(args.date, requiredPrefixes);
+    if (dataDate && dataDate !== args.date) {
+      args.requestedDate = args.date;
+      args.date = dataDate;
+    }
+  }
+  if (args.actions.length === 0) {
+    args.actions = discover('outreach-actions', args.date);
+  }
+  if (args.pipelines.length === 0) {
+    args.pipelines = discover('pipeline-status', args.date);
+  }
+  if (!args.stripeOfferMap && fs.existsSync(`stripe-offer-map-${args.date}.tsv`)) {
+    args.stripeOfferMap = `stripe-offer-map-${args.date}.tsv`;
+  }
+  if (!args.out) {
+    args.out = `send-plan-${args.stripeStatus}-${args.date}.md`;
+  }
+  if (args.actions.length === 0) {
+    throw new Error(`No outreach-actions*.tsv files found for ${args.date}`);
+  }
+  if (args.pipelines.length === 0) {
+    throw new Error(`No pipeline-status*.tsv files found for ${args.date}`);
   }
   if (args.stripeStatus !== 'all' && !args.stripeOfferMap) {
     throw new Error('--stripe-status filtering requires --stripe-offer-map');
@@ -248,6 +273,9 @@ function buildPlan(actions, pipelines, args) {
     '',
     'Private working file. Do not commit prospect-specific outreach text or action links.',
     '',
+    ...(args.requestedDate ? [`- Requested date: ${args.requestedDate}`, `- Data date: ${args.date}`, ''] : []),
+    `Actions: ${args.actions.join(', ')}`,
+    `Pipelines: ${args.pipelines.join(', ')}`,
     `Pipeline-ready action rows: ${allReadyActions.length}`,
     `Rows selected: ${selected.length}/${matchingActions.length} matching Stripe filter`,
   ];
@@ -307,6 +335,10 @@ function main() {
   }, {});
 
   console.log(`Send plan written: ${args.out}`);
+  if (args.requestedDate) {
+    console.log(`Requested date: ${args.requestedDate}`);
+    console.log(`Data date: ${args.date}`);
+  }
   console.log(`Action rows considered: ${actions.length}`);
   for (const [type, count] of Object.entries(actionCounts)) {
     console.log(`${type}: ${count}`);
