@@ -2,7 +2,10 @@
 
 This is the paid implementation path for teams already using autonomous coding agents and paying for repeat failures in time, tokens, broken local machines, or client trust.
 
-The free `mac-yolo-safeguards` kit protects a single Mac from a narrow class of runaway failures. Paid hardening is for the larger system: what failed, why it repeated, which guardrail blocks it next time, and how the team proves that the fix works.
+> [!IMPORTANT]
+> **API Billing Protection (June 15, 2026):** Starting June 15, Anthropic is shifting programmatic and CLI agent usage to standard API rate charges, removing subscription-capped protections. Without execution guardrails, a stuck loop or retry storm will directly deplete your API credit pool or hit your credit card for hundreds of dollars in minutes.
+
+The free `mac-yolo-safeguards` kit protects a single Mac from a narrow class of runaway CPU and memory simulator loops. Paid hardening is for the larger system: what failed, why it repeated, which guardrail blocks it next time, and how the team proves that the fix works.
 
 ## Who this is for
 

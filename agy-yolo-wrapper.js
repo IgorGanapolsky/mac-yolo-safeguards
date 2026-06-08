@@ -62,14 +62,55 @@ if (fs.existsSync(LOCK_PATH)) {
   let alive = false;
   try { process.kill(lockPid, 0); alive = true; } catch (e) {}
   if (alive) {
-    console.error(`\x1b[31m[agy-yolo]\x1b[0m Another agy-yolo is already running (PID ${lockPid}). Exiting.`);
-    console.error(`If you're sure it's stale, remove ${LOCK_PATH} and retry.`);
-    process.exit(2);
+    let state = '';
+    try {
+      state = execSync(`ps -o state= -p ${lockPid}`, { encoding: 'utf8' }).trim();
+    } catch (e) {}
+
+    if (state.includes('T') || state.includes('Z')) {
+      console.warn(`\x1b[33m[agy-yolo]\x1b[0m Found stale/suspended agy-yolo process (PID ${lockPid}, state: ${state}). Cleaning it up.`);
+      try {
+        const childrenStr = execSync(`pgrep -P ${lockPid}`, { encoding: 'utf8' }).trim();
+        if (childrenStr) {
+          const children = childrenStr.split(/\s+/).map(p => parseInt(p, 10)).filter(Boolean);
+          for (const childPid of children) {
+            try { process.kill(childPid, 'SIGKILL'); } catch (e) {}
+          }
+        }
+      } catch (e) {}
+      try { process.kill(lockPid, 'SIGKILL'); } catch (e) {}
+      try { fs.unlinkSync(LOCK_PATH); } catch (e) {}
+    } else {
+      console.error(`\x1b[31m[agy-yolo]\x1b[0m Another agy-yolo is already running (PID ${lockPid}, state: ${state}). Exiting.`);
+      console.error(`If you're sure it's stale, remove ${LOCK_PATH} and retry.`);
+      process.exit(2);
+    }
   } else {
     console.error(`\x1b[33m[agy-yolo]\x1b[0m Clearing stale lock from dead PID ${lockPid}.`);
-    fs.unlinkSync(LOCK_PATH);
+    try { fs.unlinkSync(LOCK_PATH); } catch (e) {}
   }
 }
+
+// Clean up any other suspended/zombie agy/agy-yolo processes owned by the user
+try {
+  const psOutput = execSync(`ps -axo pid,state,command`, { encoding: 'utf8' });
+  const lines = psOutput.split('\n');
+  for (const line of lines) {
+    const parts = line.trim().split(/\s+/);
+    if (parts.length >= 3) {
+      const pid = parseInt(parts[0], 10);
+      const state = parts[1];
+      const command = parts.slice(2).join(' ');
+      if (pid && pid !== process.pid && (state.includes('T') || state.includes('Z'))) {
+        if (command.includes('agy-yolo-wrapper.js') || command.includes('/agy ')) {
+          console.warn(`\x1b[33m[agy-yolo]\x1b[0m Cleaning up unrelated suspended/zombie process (PID ${pid}, state: ${state}, cmd: ${command}).`);
+          try { process.kill(pid, 'SIGKILL'); } catch (e) {}
+        }
+      }
+    }
+  }
+} catch (e) {}
+
 fs.writeFileSync(LOCK_PATH, String(process.pid));
 
 console.log('\x1b[35m[Antigravity OpenClaw Bridge]\x1b[0m Wiring YOLO agent execution to desktop control plane...');
@@ -173,7 +214,7 @@ child.on('close', (code, signal) => {
 ['SIGINT', 'SIGTERM', 'SIGHUP'].forEach(sig => {
   process.on(sig, () => {
     log(`wrapper received ${sig}`);
-    try { child.kill(sig); } catch (e) {}
+    try { child.kill('SIGKILL'); } catch (e) {}
     releaseLock();
     process.exit(1);
   });

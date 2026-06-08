@@ -154,7 +154,12 @@ If the safeguards saved your Mac from a freeze:
 
 ### For teams running AI agents in production workflows
 
-One Mac freeze is annoying. The expensive problem is **repeated** agent behavior — runaway loops, retry storms, and forgotten autonomous sessions that quietly burn real money. Reported in the wild: an 11,000-turn session left running overnight, a single experiment that cost ~$6,000, a `claude` process pinning a CPU core for 9 hours. The model isn't the issue; nothing caps the loop before the bill lands.
+One Mac freeze is annoying. The expensive problem is **repeated** agent behavior — runaway loops, retry storms, and forgotten autonomous sessions that quietly burn real money. 
+
+> [!WARNING]
+> **API Billing Change (June 15, 2026):** Anthropic is moving headless Agent SDK and CLI (`claude -p`) usage out of fixed-subscription pools and charging raw API rates. A runaway loop or recursive script will now directly drain your API credits in minutes. Safe execution boundaries are now financial protection.
+
+Even with official updates (like v2.1.166 addressing the macOS `bg-pty-host` 100% CPU lockup), terminal agents still enter stuck loops, crash workflows, and burn thousands of tokens. The model isn't the issue; nothing caps the loop at the process layer before the bill lands.
 
 **AI Agent Hardening Sprint — $1,500.** I take *one* recurring failure pattern in your agent workflow, root-cause it, and install the guardrails that block or escalate it — the Mac runaway guard plus [ThumbGate](https://thumbgate.ai/?utm_source=mac-yolo-safeguards&utm_medium=readme&utm_campaign=cross_promo) memory gates — then leave you with a smoke test, before/after evidence, and handoff notes. Fixed scope, one workflow, proof at the end. If the failure costs you less than $1,500, use the free kit above instead and keep your money.
 
