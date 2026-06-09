@@ -323,6 +323,58 @@ CPU_HOT_EOF
         echo "$(date) MEM_NOTIFY: free=${FREE_PCT}% hog=$HOG_NAME(PID $HOG_PID) ${HOG_RSS}MB status=$STATUS_FILE" >> "$LOG"
       fi
     fi
+
+    # --- Aggregate per-app memory rollup (notify only) ---
+    # The single-process check above misses apps that spread memory across many
+    # small procs: e.g. Chrome/Chrome Canary at 4GB across 37 renderers, none
+    # individually over MEM_PROC_RSS_MB_THRESHOLD. Sum RSS by .app bundle and
+    # flag the worst aggregate hog. Notify-only (browsers/IDEs hold live tabs +
+    # unsaved work — never auto-killed). Debounced separately from the per-proc
+    # notify. Added 2026-06-09 after a 4GB/37-proc Chrome Canary pile was the
+    # top memory consumer yet stayed invisible to the per-process check.
+    MEM_APP_AGG_MB_THRESHOLD=${YOLO_MEM_APP_AGG_MB_THRESHOLD:-3000}
+    MEM_APP_LAST_FILE=${YOLO_MEM_APP_LAST_FILE:-/tmp/yolo-mem-app-last}
+    APP_AGG_STATUS_FILE=${YOLO_MEM_APP_STATUS_FILE:-/tmp/yolo-mem-app-status.txt}
+    APP_AGG_LINE=$(/bin/ps -axo rss,command | /usr/bin/awk -v t="$MEM_APP_AGG_MB_THRESHOLD" '
+      NR>1 {
+        app=""
+        if ($0 ~ /Google Chrome Canary\.app/) app="Chrome Canary"
+        else if ($0 ~ /Google Chrome\.app/) app="Chrome"
+        else if ($0 ~ /Cursor\.app/) app="Cursor"
+        else if ($0 ~ /Antigravity/) app="Antigravity"
+        else if ($0 ~ /Visual Studio Code|[Cc]ode Helper/) app="VSCode"
+        else next
+        mb[app]+=$1/1024; n[app]++
+      }
+      END{ best=""; bestmb=0; for(a in mb) if(mb[a]>bestmb){bestmb=mb[a];best=a}
+           if(best!="" && bestmb>=t) printf "%s|%.0f|%d", best, bestmb, n[best] }')
+    if [ -n "$APP_AGG_LINE" ]; then
+      AGG_APP=$(echo "$APP_AGG_LINE" | /usr/bin/cut -d'|' -f1)
+      AGG_MB=$(echo "$APP_AGG_LINE" | /usr/bin/cut -d'|' -f2)
+      AGG_N=$(echo "$APP_AGG_LINE" | /usr/bin/cut -d'|' -f3)
+      AGG_LAST=0
+      [ -f "$MEM_APP_LAST_FILE" ] && AGG_LAST=$(/bin/cat "$MEM_APP_LAST_FILE" 2>/dev/null || echo 0)
+      if [ $((now - AGG_LAST)) -ge "$MEM_NOTIFY_DEBOUNCE_SEC" ]; then
+        {
+          echo "yolo-guard aggregate memory report"
+          echo "Generated: $(date)"
+          echo ""
+          echo "System free memory: ${FREE_PCT}%  (threshold: <${MEM_FREE_PCT_THRESHOLD}%)"
+          echo "Heaviest app (summed across all its processes):"
+          echo "  App:   $AGG_APP"
+          echo "  RSS:   ${AGG_MB} MB across ${AGG_N} processes  (threshold: >=${MEM_APP_AGG_MB_THRESHOLD} MB)"
+          echo ""
+          echo "This app spreads memory across many small processes, so no single"
+          echo "one trips the per-process check — closing tabs/windows or quitting"
+          echo "the app is the fix. The guard will NOT auto-kill it (live tabs / unsaved work)."
+          echo ""
+          echo "  Source: $REPO/sim-runaway-guard.sh"
+        } > "$APP_AGG_STATUS_FILE"
+        notify "yolo-guard: $AGG_APP ${AGG_MB}MB across ${AGG_N} procs" "Free mem ${FREE_PCT}%. Close tabs/windows. Details: $APP_AGG_STATUS_FILE" "$APP_AGG_STATUS_FILE"
+        echo "$now" > "$MEM_APP_LAST_FILE"
+        echo "$(date) MEM_APP_NOTIFY: $AGG_APP ${AGG_MB}MB/${AGG_N}procs free=${FREE_PCT}%" >> "$LOG"
+      fi
+    fi
   fi
   exit 0
 fi
