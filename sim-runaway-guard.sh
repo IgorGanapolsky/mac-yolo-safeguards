@@ -12,7 +12,17 @@ export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
 #      helpers (the Antigravity securecoder semgrep scanner, orphaned crash
 #      handlers) are auto-killed once they stay hot for N consecutive checks;
 #      editors and any unknown process are notify-only (never auto-killed).
-#   3. Posts a macOS notification on every fire so the user knows.
+#   3. Memory-pressure guard triggers on REAL thrash (swap near-max + active
+#      pageouts), not memory_pressure's misleading "free percentage". Under
+#      pressure it auto-reclaims stale orphaned automation Chrome (/tmp CDP
+#      profiles, no user data) AND quits redundant secondary browsers (Chrome
+#      Canary/Beta/Dev, Chromium) to protect RAM headroom for the Hermes agent
+#      fleet, then notifies about remaining AI memory hogs. Hermes/ollama are
+#      never targeted (not in any kill/notify matcher).
+#   4. Posts a macOS notification on every fire so the user knows; if
+#      YOLO_WEBHOOK_URL (or ~/.config/yolo-guard/webhook) is set, also pushes
+#      the alert off-box (ntfy-compatible) — a thrashing Mac can't render its
+#      own banners.
 #   4. ESCALATION: if it fires 3+ times in 10 minutes, also quits the
 #      likely culprit app (Antigravity IDE) so the loop is broken.
 #   5. Self-heals via `install.sh` if any safeguard file is missing.
@@ -46,6 +56,17 @@ notify() {
   # notification launches a blank Script Editor window (the 2026-06-02 bug),
   # so it's only a last-resort fallback when terminal-notifier is absent.
   local TITLE="$1"; local MSG="$2"; local OPEN_FILE="$3"
+  # Off-box delivery (ntfy-compatible webhook): a thrashing Mac can't render
+  # its own notification banners — push the alert to the user's phone instead.
+  # Set YOLO_WEBHOOK_URL (or drop the URL in ~/.config/yolo-guard/webhook),
+  # e.g. https://ntfy.sh/<your-private-topic>. Best-effort, never blocks.
+  local HOOK="${YOLO_WEBHOOK_URL:-}"
+  if [ -z "$HOOK" ] && [ -f "$HOME/.config/yolo-guard/webhook" ]; then
+    HOOK=$(/bin/cat "$HOME/.config/yolo-guard/webhook" 2>/dev/null | /usr/bin/head -1)
+  fi
+  if [ -n "$HOOK" ]; then
+    /usr/bin/curl -s -m 5 -H "Title: $TITLE" -d "$MSG" "$HOOK" >/dev/null 2>&1 &
+  fi
   local TN
   TN=$(command -v terminal-notifier 2>/dev/null || /usr/bin/which terminal-notifier 2>/dev/null || true)
   if [ -z "$TN" ] || [ ! -x "$TN" ]; then
@@ -142,6 +163,12 @@ if [ -z "$REASON" ]; then
   # (ERE) against the FULL command line. Keep each signature specific enough
   # that it can only be the background tool, never the user's own work.
   CPU_AUTOKILL_CMD_PATTERNS=${YOLO_CPU_AUTOKILL_CMD_PATTERNS:-com\.semmle\.cli2\.CodeQL}
+  # Notify-ignore list: macOS maintenance daemons (Spotlight, photo/media
+  # analysis) routinely burn CPU and finish on their own — the runbook says
+  # never to kill them, and notifying about them is pure alert fatigue (the
+  # guard cried wolf about mediaanalysisd hourly for two days, burying the one
+  # Cursor-runaway notification that mattered). Never killed, never notified.
+  CPU_NOTIFY_IGNORE_PATTERNS=${YOLO_CPU_NOTIFY_IGNORE_PATTERNS:-mediaanalysisd|photoanalysisd|photolibraryd|mds_stores|mdworker.*|mdbulkimport|corespotlightd|spotlightknowledged|fseventsd|backupd|bird|cloudd}
   CPU_STATE_FILE=${YOLO_CPU_STATE_FILE:-/tmp/yolo-cpu-state}
   CPU_LAST_FILE=${YOLO_CPU_LAST_FILE:-/tmp/yolo-cpu-last}
   CPU_STATUS_FILE=${YOLO_CPU_STATUS_FILE:-/tmp/yolo-cpu-status.txt}
@@ -188,6 +215,10 @@ if [ -z "$REASON" ]; then
 "
       fi
     else
+      # Benign macOS maintenance daemon — neither killable nor worth a notify.
+      if echo "$base" | /usr/bin/grep -qiE "^($CPU_NOTIFY_IGNORE_PATTERNS)$"; then
+        continue
+      fi
       # Not auto-killable — remember the single worst one for a notify.
       if [ "$pcpu" -gt "$CPU_NOTIFY_PCPU" ]; then
         CPU_NOTIFY_PID="$pid"; CPU_NOTIFY_PCPU="$pcpu"
@@ -249,7 +280,83 @@ CPU_HOT_EOF
   FREE_PCT=$(/usr/bin/memory_pressure -Q 2>/dev/null | /usr/bin/awk -F': ' '/free percentage/ {gsub("%",""); print $2; exit}')
   [ -z "$FREE_PCT" ] && FREE_PCT=100
 
+  # memory_pressure's "free percentage" counts purgeable/file cache as free, so
+  # it reported 65% free while the machine sat at 372MB unused with swap 90%
+  # full (2026-06-11 Cursor parallel-agents freeze — this branch never fired
+  # once). The signal that actually predicts a UI freeze is swap near-max PLUS
+  # active pageouts (= the compressor is thrashing right now). Gate on either.
+  SWAP_PCT_THRESHOLD=${YOLO_SWAP_PCT_THRESHOLD:-80}
+  PAGEOUT_DELTA_THRESHOLD=${YOLO_PAGEOUT_DELTA_THRESHOLD:-1000}   # ~16MB paged out since last check
+  PAGEOUT_STATE_FILE=${YOLO_PAGEOUT_STATE_FILE:-/tmp/yolo-pageouts-last}
+
+  SWAP_PCT=$(/usr/sbin/sysctl -n vm.swapusage 2>/dev/null | /usr/bin/awk '
+    { for (i=1;i<=NF;i++) { if ($i=="total") tot=$(i+2)+0; if ($i=="used") used=$(i+2)+0 }
+      if (tot>0) printf "%d", used*100/tot; else print 0 }')
+  [ -z "$SWAP_PCT" ] && SWAP_PCT=0
+
+  PAGEOUTS=$(/usr/bin/vm_stat 2>/dev/null | /usr/bin/awk '/Pageouts/ {gsub("\\.",""); print $2; exit}')
+  [ -z "$PAGEOUTS" ] && PAGEOUTS=0
+  PREV_PAGEOUTS=$(/bin/cat "$PAGEOUT_STATE_FILE" 2>/dev/null || echo "$PAGEOUTS")
+  case "$PREV_PAGEOUTS" in (*[!0-9]*|'') PREV_PAGEOUTS=$PAGEOUTS ;; esac
+  PAGEOUT_DELTA=$((PAGEOUTS - PREV_PAGEOUTS))
+  [ "$PAGEOUT_DELTA" -lt 0 ] && PAGEOUT_DELTA=0   # counter reset after reboot
+  echo "$PAGEOUTS" > "$PAGEOUT_STATE_FILE"
+
+  MEM_PRESSURE=""
   if [ "$FREE_PCT" -lt "$MEM_FREE_PCT_THRESHOLD" ]; then
+    MEM_PRESSURE="free=${FREE_PCT}%"
+  elif [ "$SWAP_PCT" -ge "$SWAP_PCT_THRESHOLD" ] && [ "$PAGEOUT_DELTA" -ge "$PAGEOUT_DELTA_THRESHOLD" ]; then
+    MEM_PRESSURE="swap=${SWAP_PCT}% pageouts+${PAGEOUT_DELTA}/check (thrash)"
+  fi
+
+  if [ -n "$MEM_PRESSURE" ]; then
+    # --- Auto-reclaim: stale browser-automation Chrome (known-safe kill) ---
+    # Agent sessions (claude-in-chrome / CDP automation) leave orphaned Chrome
+    # instances on throwaway /tmp profiles (--user-data-dir=/tmp/chrome_cdp_
+    # profile_*). Their launcher is gone (main proc reparented to launchd,
+    # ppid==1) and the profile holds no user data, so under real memory
+    # pressure killing them is free relief — reclaimed ~12GB on 2026-06-04.
+    # This is the one exception to notify-only: it is NOT a GUI app the user
+    # is working in, by construction.
+    if [ "${YOLO_RECLAIM_STALE_CDP:-1}" = "1" ]; then
+      STALE_CDP=$(/bin/ps -axo pid,ppid,command | /usr/bin/awk '
+        /\/tmp\/chrome_cdp_profile_[0-9]+/ && !/awk/ {
+          if (match($0, /chrome_cdp_profile_[0-9]+/)) {
+            prof = substr($0, RSTART, RLENGTH)
+            if ($2 == 1) orphan[prof] = 1
+          }
+        }
+        END { for (p in orphan) print p }')
+      for prof in $STALE_CDP; do
+        /usr/bin/pkill -9 -f "$prof" 2>/dev/null
+        notify "yolo-guard: reclaimed stale automation Chrome" "Killed orphaned $prof under memory pressure ($MEM_PRESSURE). Throwaway profile — no user data."
+        echo "$(date) CDP_RECLAIM: pkill -9 -f $prof pressure=$MEM_PRESSURE" >> "$LOG"
+      done
+    fi
+    # --- Auto-reclaim: redundant SECONDARY browsers (known-safe kill) ---
+    # This box runs an autonomous Hermes agent fleet, so nobody is watching the
+    # "close tabs" banner — the notify-only path can't break a real thrash here.
+    # Secondary browsers (Chrome Canary/Beta/Dev, Chromium, Edge/Brave channels)
+    # are by construction NOT the user's primary browser: they restore their tabs
+    # on relaunch and hold no irreplaceable state, so under genuine thrash quitting
+    # them is free relief that protects RAM headroom for Hermes. The user's PRIMARY
+    # "Google Chrome" and every IDE are never touched here (those stay notify-only,
+    # per the never-auto-kill-GUI-apps rule). Opt out: YOLO_RECLAIM_SECONDARY_BROWSERS=0.
+    if [ "${YOLO_RECLAIM_SECONDARY_BROWSERS:-1}" = "1" ]; then
+      SECONDARY_BROWSERS=${YOLO_SECONDARY_BROWSERS:-"Google Chrome Canary|Google Chrome Beta|Google Chrome Dev|Chromium|Brave Browser Beta|Brave Browser Nightly|Microsoft Edge Beta|Microsoft Edge Dev|Microsoft Edge Canary"}
+      echo "$SECONDARY_BROWSERS" | /usr/bin/tr '|' '\n' | while IFS= read -r app; do
+        [ -z "$app" ] && continue
+        # Match the main app binary so a helper alone can't trigger, and so the
+        # primary "Google Chrome" never matches "Google Chrome Canary" etc.
+        if /bin/ps -axo command | /usr/bin/grep -vF grep | /usr/bin/grep -qF "$app.app/Contents/MacOS/$app"; then
+          RECLAIMED_MB=$(/bin/ps -axo rss,command | /usr/bin/grep -F "$app.app/" | /usr/bin/grep -vF grep | /usr/bin/awk '{s+=$1} END{printf "%d", s/1024}')
+          /usr/bin/osascript -e "quit app \"$app\"" >/dev/null 2>&1
+          /usr/bin/pkill -9 -f "$app.app/Contents/MacOS/" 2>/dev/null
+          notify "yolo-guard: reclaimed $app" "Quit redundant secondary browser (~${RECLAIMED_MB}MB) under memory pressure ($MEM_PRESSURE) to protect Hermes headroom. Tabs restore on relaunch."
+          echo "$(date) BROWSER_RECLAIM: $app ~${RECLAIMED_MB}MB pressure=$MEM_PRESSURE" >> "$LOG"
+        fi
+      done
+    fi
     # Capture PID + RSS + name of the top AI memory hog (if any exceed threshold).
     TOP_HOG_LINE=$(/bin/ps -axo pid,rss,command -m | /usr/bin/awk -v t="$MEM_PROC_RSS_MB_THRESHOLD" '
       NR>1 {
@@ -277,14 +384,15 @@ CPU_HOT_EOF
         # name + RSS + kill cmd in the title (shown even if the body is
         # dropped), status path in the body. notify() prefers terminal-notifier
         # and falls back to non-click-actionable osascript.
-        notify "yolo-guard: $HOG_NAME ${HOG_RSS}MB · kill -INT $HOG_PID" "Free mem ${FREE_PCT}%. Details: $STATUS_FILE" "$STATUS_FILE"
+        notify "yolo-guard: $HOG_NAME ${HOG_RSS}MB · kill -INT $HOG_PID" "Memory pressure ($MEM_PRESSURE). Details: $STATUS_FILE" "$STATUS_FILE"
         echo "$(date) NOTIFY: yolo-guard: $HOG_NAME at ${HOG_RSS}MB (PID $HOG_PID) — Free mem ${FREE_PCT}%. To restart: kill -INT $HOG_PID. Details: $STATUS_FILE" >> "$LOG"
         # Dump a human-readable status report the user can find.
         {
           echo "yolo-guard memory pressure report"
           echo "Generated: $(date)"
           echo ""
-          echo "System free memory: ${FREE_PCT}%  (threshold: <${MEM_FREE_PCT_THRESHOLD}%)"
+          echo "Memory pressure:    $MEM_PRESSURE"
+          echo "  (free=${FREE_PCT}% swap=${SWAP_PCT}% pageouts+${PAGEOUT_DELTA} this check)"
           echo "Top AI memory hog:  $HOG_NAME"
           echo "  PID:    $HOG_PID"
           echo "  RSS:    ${HOG_RSS} MB  (threshold: >=${MEM_PROC_RSS_MB_THRESHOLD} MB)"
@@ -359,7 +467,8 @@ CPU_HOT_EOF
           echo "yolo-guard aggregate memory report"
           echo "Generated: $(date)"
           echo ""
-          echo "System free memory: ${FREE_PCT}%  (threshold: <${MEM_FREE_PCT_THRESHOLD}%)"
+          echo "Memory pressure:    $MEM_PRESSURE"
+          echo "  (free=${FREE_PCT}% swap=${SWAP_PCT}% pageouts+${PAGEOUT_DELTA} this check)"
           echo "Heaviest app (summed across all its processes):"
           echo "  App:   $AGG_APP"
           echo "  RSS:   ${AGG_MB} MB across ${AGG_N} processes  (threshold: >=${MEM_APP_AGG_MB_THRESHOLD} MB)"
@@ -370,7 +479,7 @@ CPU_HOT_EOF
           echo ""
           echo "  Source: $REPO/sim-runaway-guard.sh"
         } > "$APP_AGG_STATUS_FILE"
-        notify "yolo-guard: $AGG_APP ${AGG_MB}MB across ${AGG_N} procs" "Free mem ${FREE_PCT}%. Close tabs/windows. Details: $APP_AGG_STATUS_FILE" "$APP_AGG_STATUS_FILE"
+        notify "yolo-guard: $AGG_APP ${AGG_MB}MB across ${AGG_N} procs" "Memory pressure ($MEM_PRESSURE). Close tabs/windows. Details: $APP_AGG_STATUS_FILE" "$APP_AGG_STATUS_FILE"
         echo "$now" > "$MEM_APP_LAST_FILE"
         echo "$(date) MEM_APP_NOTIFY: $AGG_APP ${AGG_MB}MB/${AGG_N}procs free=${FREE_PCT}%" >> "$LOG"
       fi
