@@ -50,7 +50,7 @@ set_var() {
     echo "skip var $name (empty)"
     return 0
   fi
-  gh api "repos/${TARGET_REPO}/actions/variables/${name}" -X PUT -f name="$name" -f value="$value" >/dev/null
+  gh variable set "$name" --body "$value" --repo "$TARGET_REPO"
   echo "set var $name"
 }
 

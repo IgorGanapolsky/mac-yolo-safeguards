@@ -2,8 +2,7 @@
 'use strict';
 
 const fs = require('fs');
-
-const usage = `Usage:
+const { discover } = require('./revenue-date');
   node tools/pipeline-summary.js [--date YYYY-MM-DD] [<pipeline-status.tsv> ...] [--stage STAGE]
 
 Pipeline columns:
@@ -38,16 +37,7 @@ function parseArgs(argv) {
   return args;
 }
 
-function discover(prefix, date) {
-  return fs.readdirSync(process.cwd())
-    .filter((name) => name.startsWith(prefix))
-    .filter((name) => name.endsWith('.tsv'))
-    .filter((name) => name.includes(date))
-    .filter((name) => !name.includes('.example.'))
-    .sort();
-}
-
-function parseMoney(value, label, lineNumber) {
+const usage = `Usage:
   const number = Number(value);
   if (!Number.isFinite(number)) {
     throw new Error(`Line ${lineNumber}: ${label} must be numeric`);

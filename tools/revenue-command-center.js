@@ -3,6 +3,8 @@
 
 const fs = require('fs');
 const { spawnSync } = require('child_process');
+const { discover, latestDataDate } = require('./revenue-date');
+const { defaultOut, existsDataFile, resolveDataPath, listDataBasenames } = require('./ops-paths');
 
 const usage = `Usage:
   node tools/revenue-command-center.js [--date YYYY-MM-DD] [--stripe-offer-map stripe-offer-map.tsv] [--limit N]
@@ -43,17 +45,12 @@ function datedSuffix(name) {
 }
 
 function discover(prefix, date) {
-  return fs.readdirSync(process.cwd())
-    .filter((name) => name.startsWith(prefix))
-    .filter((name) => name.endsWith('.tsv'))
-    .filter((name) => name.includes(date))
-    .filter((name) => !name.includes('.example.'))
-    .sort();
+  return require('./revenue-date').discover(prefix, date);
 }
 
 function availableDates(prefix) {
   return new Set(
-    fs.readdirSync(process.cwd())
+    listDataBasenames()
       .filter((name) => name.startsWith(prefix))
       .filter((name) => name.endsWith('.tsv'))
       .filter((name) => !name.includes('.example.'))
@@ -130,7 +127,10 @@ function main() {
   let prospects = discover('prospects', dataDate);
   const explicitStripeMap = Boolean(args.stripeOfferMap);
   if (!args.stripeOfferMap) {
-    args.stripeOfferMap = `stripe-offer-map-${dataDate}.tsv`;
+    const stripeMapName = `stripe-offer-map-${dataDate}.tsv`;
+    if (existsDataFile(stripeMapName)) {
+      args.stripeOfferMap = resolveDataPath(stripeMapName);
+    }
   }
 
   if ((pipelines.length === 0 || prospects.length === 0 || !fs.existsSync(args.stripeOfferMap)) && !explicitStripeMap) {
@@ -139,7 +139,7 @@ function main() {
       dataDate = fallbackDate;
       pipelines = discover('pipeline-status', dataDate);
       prospects = discover('prospects', dataDate);
-      args.stripeOfferMap = `stripe-offer-map-${dataDate}.tsv`;
+      args.stripeOfferMap = resolveDataPath(`stripe-offer-map-${dataDate}.tsv`);
     }
   }
 

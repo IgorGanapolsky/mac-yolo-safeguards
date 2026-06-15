@@ -4,6 +4,7 @@
 const fs = require('fs');
 const { spawnSync } = require('child_process');
 const { discover, latestDataDate } = require('./revenue-date');
+const { defaultOut, existsDataFile, resolveDataPath } = require('./ops-paths');
 
 const usage = `Usage:
   node tools/close-follow-up-batch-plan.js [--date YYYY-MM-DD] [--close-plan close-target-plan.md] [--out close-follow-up-batch-plan.md]
@@ -67,7 +68,7 @@ function requireArgs(args) {
     throw new Error(`Close target plan not found: ${args.closePlan}`);
   }
   if (!args.out) {
-    args.out = `close-follow-up-batch-plan-${args.date}.md`;
+    args.out = defaultOut(`close-follow-up-batch-plan-${args.date}.md`);
   }
 }
 

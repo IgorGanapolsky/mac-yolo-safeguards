@@ -3,6 +3,7 @@
 
 const fs = require('fs');
 const { discover, latestDataDate } = require('./revenue-date');
+const { defaultOut, existsDataFile, resolveDataPath } = require('./ops-paths');
 
 const usage = `Usage:
   node tools/send-plan.js --date YYYY-MM-DD [--actions outreach-actions.tsv --pipeline pipeline-status.tsv ...] [--out send-plan.md] [--limit N] [--stripe-offer-map stripe-offer-map.tsv] [--stripe-status ready|missing|all]
@@ -86,11 +87,11 @@ function requireArgs(args) {
   if (args.pipelines.length === 0) {
     args.pipelines = discover('pipeline-status', args.date);
   }
-  if (!args.stripeOfferMap && fs.existsSync(`stripe-offer-map-${args.date}.tsv`)) {
-    args.stripeOfferMap = `stripe-offer-map-${args.date}.tsv`;
+  if (!args.stripeOfferMap && existsDataFile(`stripe-offer-map-${args.date}.tsv`)) {
+    args.stripeOfferMap = resolveDataPath(`stripe-offer-map-${args.date}.tsv`);
   }
   if (!args.out) {
-    args.out = `send-plan-${args.stripeStatus}-${args.date}.md`;
+    args.out = defaultOut(`send-plan-${args.stripeStatus}-${args.date}.md`);
   }
   if (args.actions.length === 0) {
     throw new Error(`No outreach-actions*.tsv files found for ${args.date}`);

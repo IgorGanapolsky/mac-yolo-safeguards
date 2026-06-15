@@ -3,6 +3,7 @@
 
 const fs = require('fs');
 const { discover, latestDataDate } = require('./revenue-date');
+const { defaultOut, existsDataFile, resolveDataPath } = require('./ops-paths');
 
 const usage = `Usage:
   node tools/partner-pilot-qualification-plan.js [--date YYYY-MM-DD] [--pipeline pipeline-status.tsv ...] [--prospects prospects.tsv ...] [--limit N] [--out partner-pilot-qualification-plan.md]
@@ -87,7 +88,7 @@ function requireArgs(args) {
     throw new Error(`No prospects*.tsv files found for ${args.date}`);
   }
   if (!args.out) {
-    args.out = `partner-pilot-qualification-plan-${args.date}.md`;
+    args.out = defaultOut(`partner-pilot-qualification-plan-${args.date}.md`);
   }
 }
 

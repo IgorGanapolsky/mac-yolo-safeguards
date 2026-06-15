@@ -18,7 +18,7 @@ const publicMarkdown = [
   'docs/PARTNER-PILOT.md',
   'docs/REVENUE-OPERATING-PLAN.md',
   'docs/SALES-CLOSE-KIT.md',
-  'CHANGELOG.md',
+  'docs/CHANGELOG.md',
 ];
 
 function parseArgs(argv) {

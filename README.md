@@ -45,10 +45,11 @@ On 2026-05-26 an iPhone 17 simulator was auto-booted (first by macOS window rest
 
 All install targets above (except `hermes-mobile/`) are **symlinks** pointing back to this repo so edits land in one canonical place.
 
-Revenue tools write gitignored reports into the repo root when run from cwd. After a local ops session, clean clutter with:
+Revenue tools write private `*.md` / `*.tsv` artifacts to `business_os/revenue/` (not the repo root). After a local ops session:
 
 ```sh
-./scripts/clean-private-root-artifacts.sh
+./scripts/migrate-root-ops-to-business-os.sh   # move any legacy root clutter
+./scripts/clean-private-root-artifacts.sh      # delete strays still in root
 ```
 
 ## What this does NOT do

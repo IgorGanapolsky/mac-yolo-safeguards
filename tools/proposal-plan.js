@@ -3,6 +3,7 @@
 
 const fs = require('fs');
 const { discover, latestDataDate } = require('./revenue-date');
+const { defaultOut, existsDataFile, resolveDataPath } = require('./ops-paths');
 
 const usage = `Usage:
   node tools/proposal-plan.js --prospect LABEL [--date YYYY-MM-DD] [--pipeline pipeline-status.tsv] [--out proposal-plan.md] [--buyer-segment SEGMENT] [--source SOURCE] [--stripe-offer-map stripe-offer-map.tsv]
@@ -75,8 +76,8 @@ function requireArgs(args) {
       args.date = dataDate;
     }
   }
-  if (!args.stripeOfferMap && fs.existsSync(`stripe-offer-map-${args.date}.tsv`)) {
-    args.stripeOfferMap = `stripe-offer-map-${args.date}.tsv`;
+  if (!args.stripeOfferMap && existsDataFile(`stripe-offer-map-${args.date}.tsv`)) {
+    args.stripeOfferMap = resolveDataPath(`stripe-offer-map-${args.date}.tsv`);
   }
   if (!args.pipeline) {
     const matches = discover('pipeline-status', args.date).filter((file) => (
@@ -94,7 +95,7 @@ function requireArgs(args) {
     args.buyerSegment = discoverBuyerSegment(args.date, args.prospect) || args.buyerSegment;
   }
   if (!args.out) {
-    args.out = `proposal-plan-${safeLabel(args.prospect)}-${args.date}.md`;
+    args.out = defaultOut(`proposal-plan-${safeLabel(args.prospect)}-${args.date}.md`);
   }
 }
 

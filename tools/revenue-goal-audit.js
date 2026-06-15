@@ -2,8 +2,7 @@
 'use strict';
 
 const fs = require('fs');
-
-const usage = `Usage:
+const { discoverLedgers } = require('./ops-paths');
   node tools/revenue-goal-audit.js [--date YYYY-MM-DD] [--ledger revenue-ledger-YYYY-MM.tsv ...] [--from YYYY-MM-DD] [--to YYYY-MM-DD] [--days N] [--target-daily-net N] [--out revenue-goal-audit.md]
 
 Audits whether real private cleared revenue proves the $300/day after-tax goal.
@@ -77,16 +76,7 @@ function monthEnd(date) {
   return new Date(Date.UTC(year, month, 0)).toISOString().slice(0, 10);
 }
 
-function discoverLedgers(date) {
-  const month = date.slice(0, 7);
-  return fs.readdirSync(process.cwd())
-    .filter((name) => /^revenue-ledger.+\.tsv$/.test(name))
-    .filter((name) => !name.includes('.example.'))
-    .filter((name) => name.includes(month))
-    .sort();
-}
-
-function parseMoney(value, label, source, lineNumber) {
+const usage = `Usage:
   const number = Number(value);
   if (!Number.isFinite(number)) {
     throw new Error(`${source} line ${lineNumber}: ${label} must be numeric`);
@@ -231,7 +221,7 @@ function main() {
     throw new Error('--from must be on or before --to');
   }
 
-  const ledgers = args.ledgers.length ? args.ledgers : discoverLedgers(args.date);
+  const ledgers = args.ledgers.length ? args.ledgers : discoverLedgers(args.date.slice(0, 7));
   const realLedgers = ledgers.filter((ledger) => !ledger.includes('.example.'));
   const allRows = realLedgers.flatMap((ledger) => parseLedger(ledger));
   const summary = summarize(allRows, from, to);

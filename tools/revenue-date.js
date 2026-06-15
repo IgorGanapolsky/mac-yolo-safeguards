@@ -1,24 +1,19 @@
 'use strict';
 
 const fs = require('fs');
+const {
+  listDataBasenames,
+  discover,
+} = require('./ops-paths');
 
 function datedSuffix(name) {
   const match = String(name || '').match(/(\d{4}-\d{2}-\d{2})/);
   return match ? match[1] : null;
 }
 
-function discover(prefix, date) {
-  return fs.readdirSync(process.cwd())
-    .filter((name) => name.startsWith(prefix))
-    .filter((name) => name.endsWith('.tsv'))
-    .filter((name) => name.includes(date))
-    .filter((name) => !name.includes('.example.'))
-    .sort();
-}
-
 function availableDates(prefix) {
   return new Set(
-    fs.readdirSync(process.cwd())
+    listDataBasenames()
       .filter((name) => name.startsWith(prefix))
       .filter((name) => name.endsWith('.tsv'))
       .filter((name) => !name.includes('.example.'))

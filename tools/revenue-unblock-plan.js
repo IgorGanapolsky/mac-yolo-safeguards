@@ -3,6 +3,7 @@
 
 const fs = require('fs');
 const { discover, latestDataDate } = require('./revenue-date');
+const { defaultOut, existsDataFile, resolveDataPath } = require('./ops-paths');
 
 const usage = `Usage:
   node tools/revenue-unblock-plan.js [--date YYYY-MM-DD] [--pipeline pipeline-status.tsv ...] [--stripe-offer-map stripe-offer-map.tsv] [--payment-waiting-audit payment-waiting-audit.md] [--proposal-batch proposal-batch-plan.md] [--out revenue-unblock-plan.md]
@@ -63,7 +64,10 @@ function requireArgs(args) {
     args.pipelines = discover('pipeline-status', args.date);
   }
   if (!args.stripeOfferMap) {
-    args.stripeOfferMap = `stripe-offer-map-${args.date}.tsv`;
+    const stripeMapName = `stripe-offer-map-${args.date}.tsv`;
+    if (existsDataFile(stripeMapName)) {
+      args.stripeOfferMap = resolveDataPath(stripeMapName);
+    }
   }
   if (!args.paymentWaitingAudit) {
     const requestedAudit = `payment-waiting-audit-${args.requestedDate || args.date}.md`;
@@ -76,7 +80,7 @@ function requireArgs(args) {
     args.proposalBatch = fs.existsSync(requestedBatch) ? requestedBatch : dataBatch;
   }
   if (!args.out) {
-    args.out = `revenue-unblock-plan-${args.requestedDate || args.date}.md`;
+    args.out = defaultOut(`revenue-unblock-plan-${args.requestedDate || args.date}.md`);
   }
   if (args.pipelines.length === 0) {
     throw new Error(`No pipeline-status*.tsv files found for ${args.date}`);

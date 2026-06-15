@@ -3,6 +3,7 @@
 
 const fs = require('fs');
 const { discover, latestDataDate } = require('./revenue-date');
+const { defaultOut, existsDataFile, resolveDataPath } = require('./ops-paths');
 
 const usage = `Usage:
   node tools/revenue-price-sensitivity.js [--date YYYY-MM-DD] [--pipeline pipeline-status.tsv ...] [--stripe-offer-map stripe-offer-map.tsv] [--days N] [--target-daily-net N] [--tax-reserve-pct N] [--stripe-fee-pct N] [--stripe-fee-fixed N] [--out revenue-price-sensitivity.md]
@@ -83,7 +84,10 @@ function requireArgs(args) {
     args.pipelines = discover('pipeline-status', args.date);
   }
   if (!args.stripeOfferMap) {
-    args.stripeOfferMap = `stripe-offer-map-${args.date}.tsv`;
+    const stripeMapName = `stripe-offer-map-${args.date}.tsv`;
+    if (existsDataFile(stripeMapName)) {
+      args.stripeOfferMap = resolveDataPath(stripeMapName);
+    }
   }
   if (args.pipelines.length === 0) {
     throw new Error(`No pipeline-status*.tsv files found for ${args.date}`);
@@ -92,7 +96,7 @@ function requireArgs(args) {
     throw new Error(`Stripe offer map not found: ${args.stripeOfferMap}`);
   }
   if (!args.out) {
-    args.out = `revenue-price-sensitivity-${args.date}.md`;
+    args.out = defaultOut(`revenue-price-sensitivity-${args.date}.md`);
   }
 }
 

@@ -4,6 +4,7 @@
 const fs = require('fs');
 const path = require('path');
 const { execSync } = require('child_process');
+const { discoverPattern } = require('./ops-paths');
 
 const usage = `Usage:
   node tools/send-next.js [--dry-run] [--mark-sent] [--limit N] [--all]
@@ -43,14 +44,11 @@ function parseTsv(filePath) {
 }
 
 function discoverFiles(pattern) {
-  return fs.readdirSync(path.join(__dirname, '..'))
-    .filter((name) => pattern.test(name))
-    .sort();
+  return discoverPattern(pattern);
 }
 
 function findActionValue(prospectLabel, actionFiles) {
-  for (const actionFile of actionFiles) {
-    const filePath = path.join(__dirname, '..', actionFile);
+  for (const filePath of actionFiles) {
     if (!fs.existsSync(filePath)) continue;
     const actions = parseTsv(filePath);
     const found = actions.find(a => a.prospect_label === prospectLabel);
@@ -72,15 +70,16 @@ function main() {
   let readyProspects = [];
 
   // Find all "ready" prospects
-  for (const pipelineFile of pipelineFiles) {
-    const filePath = path.join(__dirname, '..', pipelineFile);
+  for (const filePath of pipelineFiles) {
     if (!fs.existsSync(filePath)) continue;
     const rows = parseTsv(filePath);
     const fileReadyRows = rows.filter(r => r.stage.trim().toLowerCase() === 'ready');
     for (const row of fileReadyRows) {
       readyProspects.push({
         row,
-        pipelineFile
+        pipelineFile: path.basename(filePath),
+        pipelinePath: filePath,
+      });
       });
     }
   }
@@ -144,7 +143,7 @@ function main() {
     }
 
     // Update pipeline only after the operator explicitly confirms send.
-    const updateCmd = `node "${path.join(__dirname, 'pipeline-update.js')}" --pipeline "${pipelineFile}" --prospect "${label}" --stage sent --date 2026-06-02 --next-action wait_for_reply --note "sent manually via send-next.js helper"`;
+    const updateCmd = `node "${path.join(__dirname, 'pipeline-update.js')}" --pipeline "${item.pipelinePath}" --prospect "${label}" --stage sent --date 2026-06-02 --next-action wait_for_reply --note "sent manually via send-next.js helper"`;
     log(`Updating pipeline: ${label} -> sent`);
     try {
       execSync(updateCmd, { stdio: 'inherit', cwd: path.join(__dirname, '..') });

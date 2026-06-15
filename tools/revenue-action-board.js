@@ -4,6 +4,7 @@
 const fs = require('fs');
 const { spawnSync } = require('child_process');
 const { discover, latestDataDate } = require('./revenue-date');
+const { defaultOut, existsDataFile, resolveDataPath, listDataBasenames } = require('./ops-paths');
 
 const usage = `Usage:
   node tools/revenue-action-board.js [--date YYYY-MM-DD] [--pipeline pipeline-status.tsv ...] [--prospects prospects.tsv ...] [--stripe-offer-map stripe-offer-map.tsv] [--out revenue-action-board.md]
@@ -17,7 +18,7 @@ const openStages = new Set(['ready', 'sent', 'replied', 'booked', 'proposed']);
 const publicRevenueArtifacts = [
   'README.md',
   'docs/CASE-STUDY.md',
-  'CHANGELOG.md',
+  'docs/CHANGELOG.md',
   'docs/AI-AGENT-HARDENING.md',
   'docs/PARTNER-PILOT.md',
   'docs/REVENUE-OPERATING-PLAN.md',
@@ -124,7 +125,10 @@ function requireArgs(args) {
     args.prospects = discover('prospects', args.date);
   }
   if (!args.stripeOfferMap) {
-    args.stripeOfferMap = `stripe-offer-map-${args.date}.tsv`;
+    const stripeMapName = `stripe-offer-map-${args.date}.tsv`;
+    if (existsDataFile(stripeMapName)) {
+      args.stripeOfferMap = resolveDataPath(stripeMapName);
+    }
   }
   if (args.pipelines.length === 0) {
     throw new Error(`No pipeline-status*.tsv files found for ${args.date}`);
@@ -270,7 +274,7 @@ function inferDataDateFromFiles(files) {
 }
 
 function latestMarkdownReportDate(prefix, requestedDate) {
-  const dates = fs.readdirSync(process.cwd())
+  const dates = listDataBasenames()
     .filter((name) => name.startsWith(`${prefix}-`))
     .filter((name) => name.endsWith('.md'))
     .map((name) => (name.match(/(\d{4}-\d{2}-\d{2})/) || [])[1])

@@ -1,7 +1,5 @@
 #!/bin/sh
-# Remove gitignored private ops artifacts from the repo ROOT only.
-# Safe: never touches tracked files, example TSVs, or business_os/.
-# Regenerate with revenue tools when needed (e.g. revenue-control-checks --date YYYY-MM-DD).
+# Remove gitignored private ops artifacts from repo ROOT (legacy) and report ops dir size.
 set -eu
 
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
@@ -25,5 +23,10 @@ for f in *; do
   [ -f "$f" ] && after=$((after + 1))
 done
 
-printf 'Private root cleanup: %d gitignored files removed (%d -> %d root files)\n' \
-  "$deleted" "$before" "$after"
+ops_count=0
+if [ -d business_os/revenue ]; then
+  ops_count="$(find business_os/revenue -maxdepth 1 -type f | wc -l | tr -d ' ')"
+fi
+
+printf 'Private root cleanup: %d gitignored files removed (%d -> %d root files); business_os/revenue has %s files\n' \
+  "$deleted" "$before" "$after" "$ops_count"

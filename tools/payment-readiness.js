@@ -3,6 +3,7 @@
 
 const fs = require('fs');
 const { discover, latestDataDate } = require('./revenue-date');
+const { defaultOut, existsDataFile, resolveDataPath } = require('./ops-paths');
 
 const usage = `Usage:
   node tools/payment-readiness.js [--date YYYY-MM-DD] [--stripe-offer-map stripe-offer-map.tsv] [--pipeline pipeline-status.tsv ...] [--out payment-readiness.md]
@@ -57,7 +58,10 @@ function requireArgs(args) {
     }
   }
   if (!args.stripeOfferMap) {
-    args.stripeOfferMap = `stripe-offer-map-${args.date}.tsv`;
+    const stripeMapName = `stripe-offer-map-${args.date}.tsv`;
+    if (existsDataFile(stripeMapName)) {
+      args.stripeOfferMap = resolveDataPath(stripeMapName);
+    }
   }
   if (args.pipelines.length === 0) {
     args.pipelines = discover('pipeline-status', args.date);

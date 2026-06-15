@@ -3,6 +3,7 @@
 
 const fs = require('fs');
 const { discover, latestDataDate } = require('./revenue-date');
+const { defaultOut, existsDataFile, resolveDataPath } = require('./ops-paths');
 
 const usage = `Usage:
   node tools/close-target-plan.js [--date YYYY-MM-DD] [--pipeline pipeline-status.tsv ...] [--prospects prospects.tsv ...] [--stripe-offer-map stripe-offer-map.tsv] [--days N] [--target-daily-net N] [--tax-reserve-pct N] [--stripe-fee-pct N] [--stripe-fee-fixed N] [--limit N] [--include-missing-stripe] [--out close-target-plan.md]
@@ -98,7 +99,10 @@ function requireArgs(args) {
     args.prospects = discover('prospects', args.date);
   }
   if (!args.stripeOfferMap) {
-    args.stripeOfferMap = `stripe-offer-map-${args.date}.tsv`;
+    const stripeMapName = `stripe-offer-map-${args.date}.tsv`;
+    if (existsDataFile(stripeMapName)) {
+      args.stripeOfferMap = resolveDataPath(stripeMapName);
+    }
   }
   if (args.pipelines.length === 0) {
     throw new Error(`No pipeline-status*.tsv files found for ${args.date}`);

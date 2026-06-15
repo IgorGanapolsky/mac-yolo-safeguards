@@ -106,23 +106,7 @@ function runExpectFailure(label, command, args) {
   return { label, ok, stdout: result.stdout || '', stderr: result.stderr || '' };
 }
 
-function discover(prefix, date) {
-  return fs.readdirSync(process.cwd())
-    .filter((name) => name.startsWith(prefix))
-    .filter((name) => name.endsWith('.tsv'))
-    .filter((name) => name.includes(date))
-    .filter((name) => !name.includes('.example.'))
-    .sort();
-}
-
-function nextDate(date) {
-  const value = new Date(`${date}T00:00:00Z`);
-  if (Number.isNaN(value.getTime())) {
-    throw new Error(`Invalid date: ${date}`);
-  }
-  value.setUTCDate(value.getUTCDate() + 1);
-  return value.toISOString().slice(0, 10);
-}
+const { discover, nextDate } = require('./revenue-date');
 
 function parseTsv(path) {
   const text = fs.readFileSync(path, 'utf8').trim();

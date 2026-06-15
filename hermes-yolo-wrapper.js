@@ -32,16 +32,33 @@ const EXTRA_ARGS = process.env.HERMES_YOLO_NO_DEFAULT_ARGS
   ? []
   : ['--yolo', '--accept-hooks', '--toolsets', DEFAULT_TOOLSETS];
 
-const TIMEOUT_MS = parseInt(process.env.HERMES_YOLO_TIMEOUT_MS || (30 * 60 * 1000), 10);
+const TIMEOUT_MS = parseInt(process.env.HERMES_YOLO_TIMEOUT_MS || (120 * 60 * 1000), 10);
 const CPU_SAMPLE_INTERVAL_MS = parseInt(process.env.HERMES_YOLO_CPU_SAMPLE_MS || 30000, 10);
-const CPU_THRESHOLD = parseFloat(process.env.HERMES_YOLO_CPU_THRESHOLD || 80);
-const CPU_STUCK_SAMPLES = parseInt(process.env.HERMES_YOLO_CPU_STUCK_SAMPLES || 4, 10);
+const CPU_THRESHOLD = parseFloat(process.env.HERMES_YOLO_CPU_THRESHOLD || 90);
+const CPU_STUCK_SAMPLES = parseInt(process.env.HERMES_YOLO_CPU_STUCK_SAMPLES || 10, 10);
 
 const args = process.argv.slice(2);
 const promptText = args.join(' ') || 'Autonomous Hermes YOLO Operation';
-const childPromptArgs = args.length > 0 || process.env.HERMES_YOLO_INTERACTIVE === '1'
-  ? args
-  : [promptText];
+const childPromptArgs = args;
+const HERMES_COMMANDS = new Set([
+  'chat', 'model', 'fallback', 'secrets', 'migrate', 'gateway', 'proxy', 'lsp',
+  'setup', 'postinstall', 'whatsapp', 'whatsapp-cloud', 'slack', 'send', 'login',
+  'logout', 'auth', 'status', 'cron', 'webhook', 'portal', 'kanban', 'hooks',
+  'doctor', 'security', 'dump', 'debug', 'backup', 'checkpoints', 'import',
+  'config', 'pairing', 'skills', 'bundles', 'plugins', 'photon', 'curator',
+  'memory', 'tools', 'computer-use', 'mcp', 'sessions', 'insights', 'claw',
+  'version', 'update', 'uninstall', 'acp', 'profile', 'completion', 'dashboard',
+  'desktop', 'gui', 'logs', 'prompt-size'
+]);
+
+function buildChildPromptArgs(rawArgs) {
+  if (process.env.HERMES_YOLO_INTERACTIVE === '1') return rawArgs;
+  if (rawArgs.length === 0) return ['-z', promptText];
+  if (rawArgs[0].startsWith('-') || HERMES_COMMANDS.has(rawArgs[0])) return rawArgs;
+  return ['-z', promptText];
+}
+
+const childPromptArgs = buildChildPromptArgs(args);
 
 function log(msg) {
   try { fs.appendFileSync(LOG_PATH, `${new Date().toISOString()} ${msg}\n`); } catch (e) {}

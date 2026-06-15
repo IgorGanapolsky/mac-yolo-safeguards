@@ -3,6 +3,7 @@
 
 const fs = require('fs');
 const { discover, latestDataDate } = require('./revenue-date');
+const { defaultOut, existsDataFile, resolveDataPath } = require('./ops-paths');
 
 const usage = `Usage:
   node tools/partner-pilot-stripe-unlock-packet.js [--date YYYY-MM-DD] [--stripe-offer-map stripe-offer-map.tsv] [--out partner-pilot-stripe-unlock-packet.md]
@@ -51,13 +52,16 @@ function requireArgs(args) {
     args.date = dataDate;
   }
   if (!args.stripeOfferMap) {
-    args.stripeOfferMap = `stripe-offer-map-${args.date}.tsv`;
+    const stripeMapName = `stripe-offer-map-${args.date}.tsv`;
+    if (existsDataFile(stripeMapName)) {
+      args.stripeOfferMap = resolveDataPath(stripeMapName);
+    }
   }
   if (!fs.existsSync(args.stripeOfferMap)) {
     throw new Error(`Stripe offer map not found: ${args.stripeOfferMap}`);
   }
   if (!args.out) {
-    args.out = `partner-pilot-stripe-unlock-packet-${args.date}.md`;
+    args.out = defaultOut(`partner-pilot-stripe-unlock-packet-${args.date}.md`);
   }
 }
 

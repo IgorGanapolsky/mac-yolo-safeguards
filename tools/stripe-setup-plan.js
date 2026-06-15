@@ -3,6 +3,7 @@
 
 const fs = require('fs');
 const { discover, latestDataDate } = require('./revenue-date');
+const { defaultOut, existsDataFile, resolveDataPath } = require('./ops-paths');
 
 const usage = `Usage:
   node tools/stripe-setup-plan.js [--date YYYY-MM-DD] [--map stripe-offer-map.tsv] [--out stripe-setup-plan.md] [--candidates stripe-readonly-candidates.tsv]
@@ -324,7 +325,8 @@ function main() {
       args.requestedDate = args.date;
       args.date = dataDate;
     }
-    args.map = `stripe-offer-map-${args.date}.tsv`;
+    const stripeMapName = `stripe-offer-map-${args.date}.tsv`;
+    args.map = existsDataFile(stripeMapName) ? resolveDataPath(stripeMapName) : stripeMapName;
   }
   if (!fs.existsSync(args.map)) {
     throw new Error(`Stripe offer map not found: ${args.map}`);

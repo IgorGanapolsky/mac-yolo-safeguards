@@ -3,6 +3,7 @@
 
 const fs = require('fs');
 const { discover } = require('./revenue-date');
+const { discoverMarkdown } = require('./ops-paths');
 
 const usage = `Usage:
   node tools/proposal-plan-stale-audit.js [--date YYYY-MM-DD] [--out proposal-plan-stale-audit.md]
@@ -31,12 +32,8 @@ function parseArgs(argv) {
 }
 
 function proposalFiles(date) {
-  return fs.readdirSync(process.cwd())
-    .filter((name) => name.startsWith('proposal-plan'))
-    .filter((name) => name.endsWith('.md'))
-    .filter((name) => !name.startsWith('proposal-plan-stale-audit'))
-    .filter((name) => name.includes(date))
-    .sort();
+  return discoverMarkdown('proposal-plan', date)
+    .filter((filePath) => !filePath.includes('proposal-plan-stale-audit'));
 }
 
 function lineMatches(text, pattern) {

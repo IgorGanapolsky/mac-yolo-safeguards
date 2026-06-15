@@ -3,6 +3,7 @@
 
 const fs = require('fs');
 const { latestDataDate } = require('./revenue-date');
+const { defaultOut, existsDataFile, resolveDataPath } = require('./ops-paths');
 
 const usage = `Usage:
   node tools/payment-request-execution-packet.js [--date YYYY-MM-DD] [--proposal-batch proposal-batch-plan.md] [--backup-proposal-batch proposal-batch-plan-with-backup.md] [--payment-waiting-audit payment-waiting-audit.md] [--out payment-request-execution-packet.md]
@@ -77,7 +78,7 @@ function requireArgs(args) {
     ]);
   }
   if (!args.out) {
-    args.out = `payment-request-execution-packet-${actionDate}.md`;
+    args.out = defaultOut(`payment-request-execution-packet-${actionDate}.md`);
   }
   for (const [label, path] of [
     ['Proposal batch', args.proposalBatch],

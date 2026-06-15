@@ -15,7 +15,7 @@ This tool is read-only. It does not add, commit, push, or publish anything.`;
 const publicRevenueArtifacts = [
   'README.md',
   'docs/CASE-STUDY.md',
-  'CHANGELOG.md',
+  'docs/CHANGELOG.md',
   'docs/AI-AGENT-HARDENING.md',
   'docs/PARTNER-PILOT.md',
   'docs/REVENUE-OPERATING-PLAN.md',

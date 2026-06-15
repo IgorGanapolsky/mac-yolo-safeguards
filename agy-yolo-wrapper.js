@@ -28,10 +28,10 @@ const AGY_BIN = process.env.AGY_BIN || path.join(HOME, '.local/bin/agy');
 const EXTRA_ARGS = process.env.AGY_YOLO_NO_DEFAULT_ARGS
   ? []
   : ['--sandbox', '--dangerously-skip-permissions'];
-const TIMEOUT_MS = parseInt(process.env.AGY_YOLO_TIMEOUT_MS || (30 * 60 * 1000), 10);
+const TIMEOUT_MS = parseInt(process.env.AGY_YOLO_TIMEOUT_MS || (120 * 60 * 1000), 10);
 const CPU_SAMPLE_INTERVAL_MS = parseInt(process.env.AGY_YOLO_CPU_SAMPLE_MS || 30000, 10);
-const CPU_THRESHOLD = parseFloat(process.env.AGY_YOLO_CPU_THRESHOLD || 80);
-const CPU_STUCK_SAMPLES = parseInt(process.env.AGY_YOLO_CPU_STUCK_SAMPLES || 4, 10);
+const CPU_THRESHOLD = parseFloat(process.env.AGY_YOLO_CPU_THRESHOLD || 90);
+const CPU_STUCK_SAMPLES = parseInt(process.env.AGY_YOLO_CPU_STUCK_SAMPLES || 10, 10);
 
 const args = process.argv.slice(2);
 const promptText = args.join(' ') || 'Autonomous YOLO Operation';

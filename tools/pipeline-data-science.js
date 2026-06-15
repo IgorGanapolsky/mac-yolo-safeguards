@@ -3,6 +3,7 @@
 
 const fs = require('fs');
 const { discover, latestDataDate } = require('./revenue-date');
+const { defaultOut, existsDataFile, resolveDataPath } = require('./ops-paths');
 
 const usage = `Usage:
   node tools/pipeline-data-science.js [--date YYYY-MM-DD] [--out pipeline-data-science.md] [--limit N]
@@ -84,7 +85,7 @@ function requireArgs(args) {
     throw new Error('--limit must be a positive number');
   }
   if (!args.out) {
-    args.out = `pipeline-data-science-${args.date}.md`;
+    args.out = defaultOut(`pipeline-data-science-${args.date}.md`);
   }
 }
 
