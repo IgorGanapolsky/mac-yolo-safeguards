@@ -3,6 +3,7 @@
 *.lock
 *.tmp
 .tmp
+.claude/settings.local.json
 
 # Internal sales / ops working files — not part of the public OSS kit
 business_os/
