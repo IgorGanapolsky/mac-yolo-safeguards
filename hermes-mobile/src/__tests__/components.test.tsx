@@ -1,0 +1,102 @@
+import React from 'react';
+import { Text } from 'react-native';
+import { render, fireEvent } from '@testing-library/react-native';
+import GlassCard from '../components/GlassCard';
+import GateApprovalCard from '../components/GateApprovalCard';
+import HealthPill from '../components/HealthPill';
+
+describe('GlassCard', () => {
+  it('renders children', () => {
+    const { getByText } = render(
+      <GlassCard>
+        <Text>Test Card</Text>
+      </GlassCard>
+    );
+    expect(getByText('Test Card')).toBeTruthy();
+  });
+
+  it('handles onPress', () => {
+    const onPress = jest.fn();
+    const { getByText } = render(
+      <GlassCard onPress={onPress}>
+        <Text>Tap me</Text>
+      </GlassCard>
+    );
+    fireEvent.press(getByText('Tap me'));
+    expect(onPress).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('GateApprovalCard', () => {
+  const mockApproval = {
+    actionId: 'act_123',
+    toolName: 'run_command',
+    reason: 'dangerous script running',
+    command: 'rm -rf /',
+    workspacePath: '/path/to/project',
+    receivedAt: '2026-06-15T12:00:00Z',
+  };
+
+  it('renders approval details', () => {
+    const { getByText } = render(
+      <GateApprovalCard
+        approval={mockApproval}
+        onApprove={jest.fn()}
+        onReject={jest.fn()}
+      />
+    );
+    expect(getByText('run_command')).toBeTruthy();
+    expect(getByText('dangerous script running')).toBeTruthy();
+    expect(getByText('rm -rf /')).toBeTruthy();
+    expect(getByText('Workspace: /path/to/project')).toBeTruthy();
+  });
+
+  it('triggers onApprove when approve button is pressed', () => {
+    const onApprove = jest.fn();
+    const { getByText } = render(
+      <GateApprovalCard
+        approval={mockApproval}
+        onApprove={onApprove}
+        onReject={jest.fn()}
+      />
+    );
+    fireEvent.press(getByText('APPROVE OVERRIDE'));
+    expect(onApprove).toHaveBeenCalledTimes(1);
+  });
+
+  it('triggers onReject when reject button is pressed', () => {
+    const onReject = jest.fn();
+    const { getByText } = render(
+      <GateApprovalCard
+        approval={mockApproval}
+        onApprove={jest.fn()}
+        onReject={onReject}
+      />
+    );
+    fireEvent.press(getByText('REJECT'));
+    expect(onReject).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('HealthPill', () => {
+  it('renders correctly for green level', () => {
+    const { getByText } = render(<HealthPill level="green" />);
+    expect(getByText('Gateway healthy')).toBeTruthy();
+  });
+
+  it('renders correctly for red level with details', () => {
+    const { getByText } = render(<HealthPill level="red" detail="error 500" />);
+    expect(getByText('Gateway blocked')).toBeTruthy();
+    expect(getByText('error 500')).toBeTruthy();
+  });
+
+  it('renders correctly for amber level', () => {
+    const { getByText } = render(<HealthPill level="amber" />);
+    expect(getByText('Gateway warning')).toBeTruthy();
+  });
+
+  it('renders correctly for unknown level', () => {
+    const { getByText } = render(<HealthPill level="unknown" />);
+    expect(getByText('Gateway unknown')).toBeTruthy();
+  });
+});

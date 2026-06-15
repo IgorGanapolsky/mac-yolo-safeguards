@@ -1,0 +1,27 @@
+# Flow 2: Bottom-tab navigation
+# Taps each of the 3 tabs and asserts distinctive text per screen.
+appId: com.iganapolsky.hermesmobile
+---
+- launchApp:
+    clearState: true
+- extendedWaitUntil:
+    visible: "Console"
+    timeout: 10000
+
+# --- Console Tab ---
+- tapOn: "Console"
+- assertVisible: "Active override requests"
+
+# --- Workspace Tab ---
+- tapOn: "Workspace"
+- assertVisible: "Daemon status"
+- assertVisible: "Live Logs"
+
+# --- Settings Tab ---
+- tapOn: "Settings"
+- assertVisible: "Gateway Settings"
+- assertVisible: "Demo Mode"
+
+# Return to Console to ensure navigation is reversible
+- tapOn: "Console"
+- assertVisible: "Console"

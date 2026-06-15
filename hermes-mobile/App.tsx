@@ -3,6 +3,7 @@ import { StyleSheet, View, Text, TouchableOpacity, StatusBar } from 'react-nativ
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator, BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
+import { useAiSdkDevTools } from '@react-native-ai/dev-tools/react-native';
 import { colors } from './src/theme/colors';
 import { GatewayProvider } from './src/context/GatewayContext';
 import ApprovalsScreen from './src/screens/ApprovalsScreen';
@@ -94,6 +95,7 @@ const NavigationTheme = {
 };
 
 export default function App() {
+  useAiSdkDevTools();
   return (
     <ErrorBoundary>
       <SafeAreaProvider>

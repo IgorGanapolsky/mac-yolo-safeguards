@@ -23,6 +23,8 @@ const easConfig = readJson('eas.json');
 const packageConfig = readJson('package.json');
 
 const expectedBundleId = 'com.iganapolsky.hermesmobile';
+const expectedProjectId = '4ed13e30-9b97-4ddd-8a12-59106cae90d6';
+const expectedUpdatesUrl = `https://u.expo.dev/${expectedProjectId}`;
 const placeholderProjectIds = new Set(['hermes-mobile-local-dev']);
 
 check(appConfig.slug === 'hermes-mobile', 'app.json expo.slug must be hermes-mobile');
@@ -31,6 +33,7 @@ check(appConfig.android?.package === expectedBundleId, `app.json android.package
 
 const projectId = appConfig.extra?.eas?.projectId;
 check(typeof projectId === 'string' && projectId.length > 0, 'app.json extra.eas.projectId is required');
+check(projectId === expectedProjectId, `app.json extra.eas.projectId must be ${expectedProjectId}`);
 
 check(easConfig.build?.preview?.distribution === 'internal', 'eas.json preview profile must use internal distribution');
 check(easConfig.build?.production?.autoIncrement === true, 'eas.json production profile must auto-increment build numbers');
@@ -44,7 +47,7 @@ if (process.env.REQUIRE_EAS_PROJECT === '1') {
   check(!placeholderProjectIds.has(projectId), 'app.json extra.eas.projectId is still a local placeholder');
   check(appConfig.runtimeVersion?.policy === 'appVersion', 'app.json runtimeVersion.policy must be appVersion for OTA safety');
   const updatesUrl = appConfig.updates?.url;
-  check(typeof updatesUrl === 'string' && updatesUrl.startsWith('https://u.expo.dev/'), 'app.json updates.url must use Expo Updates');
+  check(updatesUrl === expectedUpdatesUrl, `app.json updates.url must be ${expectedUpdatesUrl}`);
 }
 
 const result = {

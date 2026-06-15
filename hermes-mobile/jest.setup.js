@@ -37,3 +37,43 @@ global.fetch = jest.fn(() =>
     json: () => Promise.resolve({ status: 'ok', gateway_state: 'running', pid: 42 }),
   }),
 );
+
+jest.mock('@react-native-ai/dev-tools', () => ({
+  useAiSdkDevTools: jest.fn(),
+  getAiSdkTracer: jest.fn(() => ({
+    startActiveSpan: jest.fn((...args) => {
+      const cb = args[args.length - 1];
+      if (typeof cb === 'function') {
+        const mockSpan = {
+          end: jest.fn(),
+          recordException: jest.fn(),
+          setStatus: jest.fn(),
+          setAttribute: jest.fn(),
+          setAttributes: jest.fn(),
+          addEvent: jest.fn(),
+        };
+        return cb(mockSpan);
+      }
+    }),
+  })),
+}), { virtual: true });
+
+jest.mock('@react-native-ai/dev-tools/react-native', () => ({
+  useAiSdkDevTools: jest.fn(),
+  getAiSdkTracer: jest.fn(() => ({
+    startActiveSpan: jest.fn((...args) => {
+      const cb = args[args.length - 1];
+      if (typeof cb === 'function') {
+        const mockSpan = {
+          end: jest.fn(),
+          recordException: jest.fn(),
+          setStatus: jest.fn(),
+          setAttribute: jest.fn(),
+          setAttributes: jest.fn(),
+          addEvent: jest.fn(),
+        };
+        return cb(mockSpan);
+      }
+    }),
+  })),
+}), { virtual: true });

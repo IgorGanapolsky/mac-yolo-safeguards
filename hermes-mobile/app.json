@@ -34,7 +34,7 @@
     },
     "extra": {
       "eas": {
-        "projectId": "hermes-mobile-local-dev"
+        "projectId": "4ed13e30-9b97-4ddd-8a12-59106cae90d6"
       }
     },
     "owner": "igorganapolsky",
@@ -42,7 +42,8 @@
       "policy": "appVersion"
     },
     "updates": {
-      "url": "https://u.expo.dev/hermes-mobile-local-dev"
-    }
+      "url": "https://u.expo.dev/4ed13e30-9b97-4ddd-8a12-59106cae90d6"
+    },
+    "plugins": []
   }
 }

@@ -39,6 +39,9 @@ const CPU_STUCK_SAMPLES = parseInt(process.env.HERMES_YOLO_CPU_STUCK_SAMPLES || 
 
 const args = process.argv.slice(2);
 const promptText = args.join(' ') || 'Autonomous Hermes YOLO Operation';
+const childPromptArgs = args.length > 0 || process.env.HERMES_YOLO_INTERACTIVE === '1'
+  ? args
+  : [promptText];
 
 function log(msg) {
   try { fs.appendFileSync(LOG_PATH, `${new Date().toISOString()} ${msg}\n`); } catch (e) {}
@@ -147,7 +150,7 @@ if (auditScore !== null) {
   }
 }
 
-log(`START pid=${process.pid} bin=${HERMES_BIN} extraArgs=${JSON.stringify(EXTRA_ARGS)} args=${JSON.stringify(args)} timeout=${TIMEOUT_MS}ms cpuThreshold=${CPU_THRESHOLD}% stuckSamples=${CPU_STUCK_SAMPLES}@${CPU_SAMPLE_INTERVAL_MS}ms`);
+log(`START pid=${process.pid} bin=${HERMES_BIN} extraArgs=${JSON.stringify(EXTRA_ARGS)} args=${JSON.stringify(childPromptArgs)} timeout=${TIMEOUT_MS}ms cpuThreshold=${CPU_THRESHOLD}% stuckSamples=${CPU_STUCK_SAMPLES}@${CPU_SAMPLE_INTERVAL_MS}ms`);
 
 updateStatus(data => {
   data.savedTokens += 50000;
@@ -160,8 +163,8 @@ updateStatus(data => {
       status: 'RUNNING'
     });
   }
-  data.chatMessages.push({ sender: 'user', text: `hermes-yolo ${args.join(' ')}` });
-  data.termHistory.push(`$ hermes-yolo ${args.join(' ')}`);
+  data.chatMessages.push({ sender: 'user', text: `hermes-yolo ${childPromptArgs.join(' ')}` });
+  data.termHistory.push(`$ hermes-yolo ${childPromptArgs.join(' ')}`);
   data.termHistory.push(`[Hermes YOLO Wrapper] Spawned ${HERMES_BIN} ${EXTRA_ARGS.join(' ')}`);
 });
 
@@ -171,7 +174,7 @@ const env = Object.assign({}, process.env, {
   HERMES_ACCEPT_HOOKS: '1'
 });
 
-const child = spawn(HERMES_BIN, [...EXTRA_ARGS, ...args], { stdio: 'inherit', env });
+const child = spawn(HERMES_BIN, [...EXTRA_ARGS, ...childPromptArgs], { stdio: 'inherit', env });
 log(`SPAWNED childPid=${child.pid}`);
 
 child.on('error', (err) => {

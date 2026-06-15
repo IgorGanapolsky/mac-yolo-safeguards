@@ -49,7 +49,8 @@
         "releaseStatus": "completed"
       },
       "ios": {
-        "ascApiKeyPath": "$EXPO_ASC_API_KEY_PATH"
+        "ascApiKeyPath": "$EXPO_ASC_API_KEY_PATH",
+        "appleTeamId": "9GMM26JC5X"
       }
     }
   }

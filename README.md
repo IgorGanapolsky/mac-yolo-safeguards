@@ -183,7 +183,21 @@ Required secrets (mirror LipoShield where applicable):
 - `GOOGLE_SERVICE_ACCOUNT_JSON` — Google Play submit
 - `EXPO_ASC_*` / `EXPO_APPLE_*` — App Store Connect submit
 
-Before first internal build: create the EAS project and replace `hermes-mobile-local-dev` placeholder in `hermes-mobile/app.json` (`extra.eas.projectId` + `updates.url`).
+EAS project is linked at [@igorganapolsky/hermes-mobile](https://expo.dev/accounts/igorganapolsky/projects/hermes-mobile) (`4ed13e30-9b97-4ddd-8a12-59106cae90d6`). Mirror LipoShield release secrets:
+
+```sh
+./scripts/mirror-liposhield-secrets.sh
+```
+
+That copies `../LipoShield/.env` + local key files (`liposhield-publisher.json`, ASC `.p8`) into this repo’s GitHub Actions secrets and writes `hermes-mobile/.env` for local `eas` CLI.
+
+For Firebase-only secrets (stored on LipoShield GitHub, not in `.env`), pass overrides when mirroring:
+
+```sh
+FIREBASE_ANDROID_APP_ID='1:…:android:…' \
+FIREBASE_SERVICE_ACCOUNT_JSON_PATH=/path/to/firebase-sa.json \
+./scripts/mirror-liposhield-secrets.sh
+```
 
 ## The incident this came from
 

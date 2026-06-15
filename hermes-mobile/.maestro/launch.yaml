@@ -1,0 +1,9 @@
+# Flow 1: App launch smoke test
+# Verifies the companion app boots into the Console screen.
+appId: com.iganapolsky.hermesmobile
+---
+- launchApp:
+    clearState: true
+# Verify we land on the Console tab (Approvals view)
+- assertVisible: "Console"
+- assertVisible: "Active override requests"
