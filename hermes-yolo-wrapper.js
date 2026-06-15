@@ -52,10 +52,7 @@ const HERMES_COMMANDS = new Set([
 
 function buildChildPromptArgs(rawArgs) {
   if (process.env.HERMES_YOLO_INTERACTIVE === '1') return rawArgs;
-  if (rawArgs.length === 0) {
-    if (process.stdout.isTTY) return []; // Drop into interactive TUI/REPL when run in a terminal
-    return ['-z', promptText];
-  }
+  if (rawArgs.length === 0) return ['-z', 'Reply with exactly HERMES-YOLO-READY'];
   if (rawArgs[0].startsWith('-') || HERMES_COMMANDS.has(rawArgs[0])) return rawArgs;
   return ['-z', promptText];
 }
@@ -145,27 +142,29 @@ const realScriptPath = fs.realpathSync(__filename);
 const REPO_DIR = path.dirname(realScriptPath);
 let auditScore = null;
 let auditFindings = [];
-try {
-  const auditPath = path.join(REPO_DIR, 'tools', 'hermes-productivity-audit.js');
-  if (fs.existsSync(auditPath) && !process.env.HERMES_YOLO_NO_PREFLIGHT) {
-    const { collect } = require(auditPath);
-    // run without sending smoke or webhook posts to keep start-up fast and offline-safe
-    const audit = collect({ sendSmoke: false, testPublicWebhook: false, remotes: [] });
-    auditScore = audit.telemetry.productivityScore;
-    auditFindings = audit.findings;
+if (process.env.HERMES_YOLO_PREFLIGHT === '1') {
+  try {
+    const auditPath = path.join(REPO_DIR, 'tools', 'hermes-productivity-audit.js');
+    if (fs.existsSync(auditPath)) {
+      console.log('\x1b[35m[Hermes YOLO Wrapper]\x1b[0m Bootstrapping safety envelope...');
+      const { collect } = require(auditPath);
+      // run without sending smoke or webhook posts to keep start-up fast and offline-safe
+      const audit = collect({ sendSmoke: false, testPublicWebhook: false, remotes: [] });
+      auditScore = audit.telemetry.productivityScore;
+      auditFindings = audit.findings;
+    }
+  } catch (e) {
+    log(`AUDIT_LOAD_ERROR: ${e.message}`);
   }
-} catch (e) {
-  log(`AUDIT_LOAD_ERROR: ${e.message}`);
-}
 
-console.log('\x1b[35m[Hermes YOLO Wrapper]\x1b[0m Bootstrapping safety envelope...');
-if (auditScore !== null) {
-  console.log(`\x1b[35m[Hermes YOLO Wrapper]\x1b[0m Local gateway score: ${auditScore}/100`);
-  const criticalOrHigh = auditFindings.filter(f => f.severity === 'critical' || f.severity === 'high');
-  if (criticalOrHigh.length > 0) {
-    console.warn(`\x1b[33m[hermes-yolo] WARNING:\x1b[0m Found ${criticalOrHigh.length} critical/high gateway reliability issues:`);
-    for (const f of criticalOrHigh) {
-      console.warn(`  - [${f.severity.toUpperCase()}] ${f.title}: ${f.evidence}`);
+  if (auditScore !== null) {
+    console.log(`\x1b[35m[Hermes YOLO Wrapper]\x1b[0m Local gateway score: ${auditScore}/100`);
+    const criticalOrHigh = auditFindings.filter(f => f.severity === 'critical' || f.severity === 'high');
+    if (criticalOrHigh.length > 0) {
+      console.warn(`\x1b[33m[hermes-yolo] WARNING:\x1b[0m Found ${criticalOrHigh.length} critical/high gateway reliability issues:`);
+      for (const f of criticalOrHigh) {
+        console.warn(`  - [${f.severity.toUpperCase()}] ${f.title}: ${f.evidence}`);
+      }
     }
   }
 }

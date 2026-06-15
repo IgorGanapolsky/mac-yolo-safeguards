@@ -3,6 +3,8 @@
 
 const fs = require('fs');
 const { discover } = require('./revenue-date');
+
+const usage = `Usage:
   node tools/pipeline-summary.js [--date YYYY-MM-DD] [<pipeline-status.tsv> ...] [--stage STAGE]
 
 Pipeline columns:
@@ -37,7 +39,7 @@ function parseArgs(argv) {
   return args;
 }
 
-const usage = `Usage:
+function parseMoney(value, label, lineNumber) {
   const number = Number(value);
   if (!Number.isFinite(number)) {
     throw new Error(`Line ${lineNumber}: ${label} must be numeric`);

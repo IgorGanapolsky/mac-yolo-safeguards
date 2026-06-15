@@ -16,6 +16,9 @@
       "android": {
         "buildType": "apk"
       },
+      "ios": {
+        "simulator": true
+      },
       "channel": "preview"
     },
     "e2e-test": {

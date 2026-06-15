@@ -80,7 +80,6 @@ function main() {
         pipelineFile: path.basename(filePath),
         pipelinePath: filePath,
       });
-      });
     }
   }
 

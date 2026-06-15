@@ -44,10 +44,6 @@ function datedSuffix(name) {
   return match ? match[1] : null;
 }
 
-function discover(prefix, date) {
-  return require('./revenue-date').discover(prefix, date);
-}
-
 function availableDates(prefix) {
   return new Set(
     listDataBasenames()
