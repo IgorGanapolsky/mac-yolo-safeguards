@@ -39,7 +39,6 @@ const CPU_STUCK_SAMPLES = parseInt(process.env.HERMES_YOLO_CPU_STUCK_SAMPLES || 
 
 const args = process.argv.slice(2);
 const promptText = args.join(' ') || 'Autonomous Hermes YOLO Operation';
-const childPromptArgs = args;
 const HERMES_COMMANDS = new Set([
   'chat', 'model', 'fallback', 'secrets', 'migrate', 'gateway', 'proxy', 'lsp',
   'setup', 'postinstall', 'whatsapp', 'whatsapp-cloud', 'slack', 'send', 'login',
@@ -53,7 +52,10 @@ const HERMES_COMMANDS = new Set([
 
 function buildChildPromptArgs(rawArgs) {
   if (process.env.HERMES_YOLO_INTERACTIVE === '1') return rawArgs;
-  if (rawArgs.length === 0) return ['-z', promptText];
+  if (rawArgs.length === 0) {
+    if (process.stdout.isTTY) return []; // Drop into interactive TUI/REPL when run in a terminal
+    return ['-z', promptText];
+  }
   if (rawArgs[0].startsWith('-') || HERMES_COMMANDS.has(rawArgs[0])) return rawArgs;
   return ['-z', promptText];
 }
@@ -144,7 +146,7 @@ let auditScore = null;
 let auditFindings = [];
 try {
   const auditPath = path.join(REPO_DIR, 'tools', 'hermes-productivity-audit.js');
-  if (fs.existsSync(auditPath)) {
+  if (fs.existsSync(auditPath) && !process.env.HERMES_YOLO_NO_PREFLIGHT) {
     const { collect } = require(auditPath);
     // run without sending smoke or webhook posts to keep start-up fast and offline-safe
     const audit = collect({ sendSmoke: false, testPublicWebhook: false, remotes: [] });
