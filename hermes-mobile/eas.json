@@ -1,0 +1,56 @@
+{
+  "cli": {
+    "version": ">= 19.0.0",
+    "appVersionSource": "remote"
+  },
+  "build": {
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal",
+      "environment": "development",
+      "channel": "development"
+    },
+    "preview": {
+      "distribution": "internal",
+      "environment": "preview",
+      "android": {
+        "buildType": "apk"
+      },
+      "channel": "preview"
+    },
+    "e2e-test": {
+      "withoutCredentials": true,
+      "environment": "preview",
+      "ios": {
+        "simulator": true
+      },
+      "android": {
+        "buildType": "apk"
+      },
+      "channel": "e2e-test"
+    },
+    "production": {
+      "autoIncrement": true,
+      "environment": "production",
+      "android": {
+        "buildType": "app-bundle"
+      },
+      "ios": {
+        "simulator": false
+      },
+      "channel": "production"
+    }
+  },
+  "submit": {
+    "production": {
+      "android": {
+        "serviceAccountKeyPath": "$EXPO_ANDROID_SERVICE_ACCOUNT_KEY_PATH",
+        "track": "internal",
+        "releaseStatus": "completed"
+      },
+      "ios": {
+        "ascApiKeyPath": "$EXPO_ASC_API_KEY_PATH"
+      }
+    }
+  }
+}

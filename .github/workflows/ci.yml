@@ -37,3 +37,28 @@ jobs:
         run: |
           set -eu
           ! git grep -nE '(ghp_[A-Za-z0-9_]+|sk_live_[A-Za-z0-9_]+|TELEGRAM_BOT_TOKEN=|STRIPE_SECRET_KEY=sk_)' -- ':!.github/workflows/ci.yml'
+
+  mobile-checks:
+    name: Mobile Type-check and Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6.0.3
+
+      - uses: actions/setup-node@v6.4.0
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: hermes-mobile/package-lock.json
+
+      - name: Install dependencies
+        working-directory: hermes-mobile
+        run: npm ci
+
+      - name: Type check
+        working-directory: hermes-mobile
+        run: npm run typecheck
+
+      - name: Run unit tests
+        working-directory: hermes-mobile
+        run: npm test
+

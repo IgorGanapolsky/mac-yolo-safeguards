@@ -48,6 +48,7 @@ revenue-unblock-plan*.md
 
 # Private Stripe setup plans.
 stripe-setup-plan*.md
+test-setup-plan*.md
 stripe-readonly-discovery*.md
 stripe-readonly-candidates*.tsv
 

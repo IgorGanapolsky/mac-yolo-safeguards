@@ -38,11 +38,19 @@ On 2026-05-26 an iPhone 17 simulator was auto-booted (first by macOS window rest
 | File | Installs to | Purpose |
 |---|---|---|
 | `agy-yolo-wrapper.js` | `~/workspace/git/igor/antigravity-hub/antigravity-cli/bin/` | Hardened wrapper around `agy --dangerously-skip-permissions`. Adds singleton lock, hard timeout, stuck-loop watchdog, spawn-error handling, and `--sandbox`. |
+| `hermes-yolo-wrapper.js` | `~/.local/bin/hermes-yolo` | Same safeguards for `hermes --yolo` (singleton lock, timeout, CPU watchdog). |
 | `sim-runaway-guard.sh` | `~/.local/bin/` | Threshold-checking script. Shuts down booted simulators when load>30 with >50 sim procs (CPU runaway) OR sim_mem>50% with >50 sim procs (memory hog). |
 | `com.igor.shutdown-simulators.plist` | `~/Library/LaunchAgents/` | LaunchAgent that runs the guard script every 60 seconds. |
 | `yolo-health` | `~/.local/bin/` | Health-check that verifies all safeguards are installed and active. Run anytime: `yolo-health` |
+| `hermes-mobile/` | (companion app) | Expo mobile client for ThumbGate approvals and gateway health — see [`hermes-mobile/README.md`](./hermes-mobile/README.md). |
 
-All four files install as **symlinks** pointing back to this repo so edits land in one canonical place.
+All install targets above (except `hermes-mobile/`) are **symlinks** pointing back to this repo so edits land in one canonical place.
+
+Revenue tools write gitignored reports into the repo root when run from cwd. After a local ops session, clean clutter with:
+
+```sh
+./scripts/clean-private-root-artifacts.sh
+```
 
 ## What this does NOT do
 

@@ -14,7 +14,7 @@ set -u
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
 GUARD="$REPO/sim-runaway-guard.sh"
 TMP="$(mktemp -d /tmp/yolo-guard-test.XXXXXX)"
-trap 'pkill -9 -f "YoloFake" 2>/dev/null; pkill -9 -f "FakePrimaryChrome" 2>/dev/null; pkill -9 -f "FakeHermesProc" 2>/dev/null; rm -rf "$TMP"' EXIT INT TERM
+trap 'pkill -9 -f "YoloFake" 2>/dev/null; pkill -9 -f "FakePrimaryChrome" 2>/dev/null; pkill -9 -f "FakeHermesProc" 2>/dev/null; pkill -9 -f "semgrep-core" 2>/dev/null; rm -rf "$TMP"' EXIT INT TERM
 
 pass=0; fail=0
 G="\033[32m"; R="\033[31m"; Z="\033[0m"
@@ -97,6 +97,16 @@ printf '%s' "$PRIMARY" | grep -qF "$CANARY_SIG" \
 printf '%s' "$CANARY" | grep -qF "$CANARY_SIG" \
   && ok  "T5: Canary path correctly matches its own signature" \
   || bad "T5: Canary path failed to match its own signature"
+
+# --- T7: CPU runaway autokill for allowlisted background process ---
+CPU_K="semgrep-core"
+CPU_PID=$(mkfake "$CPU_K")
+sleep 1
+run_guard YOLO_CPU_PCT_THRESHOLD="0" YOLO_CPU_SUSTAINED_FIRES="1" YOLO_CPU_AUTOKILL_CMD_PATTERNS="semgrep-core"
+sleep 1
+alive "$CPU_PID" && bad "T7: CPU runaway process was NOT killed" \
+                 || ok  "T7: CPU runaway process autokilled on sustained CPU check"
+kill -9 "$CPU_PID" 2>/dev/null
 
 echo ""
 echo "=== $pass passed, $fail failed ==="

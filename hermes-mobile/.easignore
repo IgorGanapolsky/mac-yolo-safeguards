@@ -1,0 +1,31 @@
+# Dependencies and local build output
+node_modules/
+.expo/
+coverage/
+dist/
+dist-*/
+web-build/
+
+# Native build products
+android/
+ios/
+*.aab
+*.apk
+*.ipa
+*.xcarchive
+
+# Credentials and local environment
+.env
+.env.*
+*.jks
+*.keystore
+*.p8
+*.p12
+*.mobileprovision
+*.cer
+*.pem
+
+# Local assets/images that are not required for native bundle inputs
+*.png
+!assets/*.png
+!assets/**/*.png

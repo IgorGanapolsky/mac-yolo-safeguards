@@ -1,0 +1,168 @@
+import type {
+  GatewayEventMessage,
+  GatewayHealthLevel,
+  GatewayHealthSnapshot,
+  GateBlockedPayload,
+  PendingApproval,
+  ReclaimFiredPayload,
+} from '../types/gateway';
+
+export interface NormalizedGatewayBase {
+  httpBase: string;
+  wsBase: string;
+}
+
+/** Strip /v1, /health paths so callers can paste tunnel URLs flexibly. */
+export function normalizeGatewayUrl(input: string): NormalizedGatewayBase {
+  let trimmed = input.trim().replace(/\/+$/, '');
+  trimmed = trimmed.replace(/\/health\/detailed$/, '');
+  trimmed = trimmed.replace(/\/health$/, '');
+  trimmed = trimmed.replace(/\/v1$/, '');
+  trimmed = trimmed.replace(/\/+$/, '');
+
+  const wsBase = trimmed.replace(/^http:/, 'ws:').replace(/^https:/, 'wss:');
+  return { httpBase: trimmed, wsBase };
+}
+
+export function buildAuthHeaders(apiKey?: string | null): Record<string, string> {
+  const headers: Record<string, string> = { Accept: 'application/json' };
+  if (apiKey?.trim()) {
+    headers.Authorization = `Bearer ${apiKey.trim()}`;
+  }
+  return headers;
+}
+
+function classifyHealth(body: Record<string, unknown>, errorMessage?: string): GatewayHealthLevel {
+  if (errorMessage) {
+    return 'red';
+  }
+  const status = String(body.status ?? '').toLowerCase();
+  const gatewayState = String(body.gateway_state ?? '').toLowerCase();
+  if (status === 'ok' && gatewayState === 'running') {
+    return 'green';
+  }
+  if (status === 'ok' || gatewayState === 'running') {
+    return 'amber';
+  }
+  return 'red';
+}
+
+export async function fetchGatewayHealth(
+  gatewayUrl: string,
+  apiKey?: string | null,
+): Promise<GatewayHealthSnapshot> {
+  const { httpBase } = normalizeGatewayUrl(gatewayUrl);
+  const headers = buildAuthHeaders(apiKey);
+  const checkedAt = new Date().toISOString();
+
+  const detailedUrl = `${httpBase}/health/detailed`;
+  const simpleUrl = `${httpBase}/health`;
+
+  try {
+    let response = await fetch(detailedUrl, { headers });
+    if (!response.ok) {
+      response = await fetch(simpleUrl, { headers });
+    }
+    if (!response.ok) {
+      return {
+        level: 'red',
+        checkedAt,
+        errorMessage: `HTTP ${response.status} from gateway health probe`,
+      };
+    }
+    const body = (await response.json()) as Record<string, unknown>;
+    return {
+      level: classifyHealth(body),
+      status: typeof body.status === 'string' ? body.status : undefined,
+      gatewayState: typeof body.gateway_state === 'string' ? body.gateway_state : undefined,
+      pid: typeof body.pid === 'number' ? body.pid : undefined,
+      platforms: body.platforms as GatewayHealthSnapshot['platforms'],
+      checkedAt,
+    };
+  } catch (error) {
+    return {
+      level: 'red',
+      checkedAt,
+      errorMessage: error instanceof Error ? error.message : 'Gateway health probe failed',
+    };
+  }
+}
+
+export function parseGatewayEvent(raw: string): GatewayEventMessage | null {
+  try {
+    const parsed = JSON.parse(raw) as GatewayEventMessage;
+    if (!parsed?.event) {
+      return null;
+    }
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+export function gateBlockedToPending(event: GatewayEventMessage): PendingApproval | null {
+  if (event.event !== 'GATE.BLOCKED' || !event.payload) {
+    return null;
+  }
+  const payload = event.payload as unknown as GateBlockedPayload;
+  if (!payload.actionId || !payload.toolName || !payload.reason) {
+    return null;
+  }
+  return {
+    actionId: payload.actionId,
+    toolName: payload.toolName,
+    reason: payload.reason,
+    command: payload.command,
+    workspacePath: payload.workspacePath,
+    diff: payload.diff,
+    receivedAt: event.timestamp ?? new Date().toISOString(),
+  };
+}
+
+export function parseReclaimEvent(event: GatewayEventMessage): ReclaimFiredPayload | null {
+  if (event.event !== 'RECLAIM.FIRED' || !event.payload) {
+    return null;
+  }
+  const payload = event.payload as unknown as ReclaimFiredPayload;
+  if (!payload.target) {
+    return null;
+  }
+  return payload;
+}
+
+export function buildGateActionMessage(
+  actionId: string,
+  decision: 'approve' | 'reject',
+  operatorNote?: string,
+): GatewayEventMessage {
+  return {
+    event: 'GATE.ACTION',
+    timestamp: new Date().toISOString(),
+    payload: {
+      actionId,
+      decision,
+      operatorNote: operatorNote ?? `Decision ${decision} from Hermes Mobile`,
+    },
+  };
+}
+
+export function buildEventsWebSocketUrl(gatewayUrl: string): string {
+  const { wsBase } = normalizeGatewayUrl(gatewayUrl);
+  return `${wsBase}/v1/events`;
+}
+
+/** Demo event for UI development when gateway WS is unavailable. */
+export function buildDemoGateBlockedEvent(): GatewayEventMessage {
+  return {
+    event: 'GATE.BLOCKED',
+    timestamp: new Date().toISOString(),
+    payload: {
+      actionId: `demo_${Date.now()}`,
+      toolName: 'run_command',
+      reason: 'Pre-action rule blocked execution to prevent memory runaway.',
+      command: 'node tests/test-runaway.js --force-leak',
+      workspacePath: '/Users/igorganapolsky/workspace/git/igor/mac-yolo-safeguards',
+      diff: '--- a/sim-runaway-guard.sh\n+++ b/sim-runaway-guard.sh\n@@ -124,1 +124,2 @@\n-  if [ "$mem_pct" -lt 10 ]\n+  local min_pct=${YOLO_MEM_FREE_PCT_THRESHOLD:-15}',
+    },
+  };
+}

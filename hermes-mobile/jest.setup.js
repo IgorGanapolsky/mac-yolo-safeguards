@@ -1,0 +1,39 @@
+jest.mock('@react-native-async-storage/async-storage', () =>
+  require('@react-native-async-storage/async-storage/jest/async-storage-mock'),
+);
+
+jest.mock('expo-secure-store', () => ({
+  setItemAsync: jest.fn(() => Promise.resolve()),
+  getItemAsync: jest.fn(() => Promise.resolve(null)),
+  deleteItemAsync: jest.fn(() => Promise.resolve()),
+}));
+
+jest.mock('react-native-safe-area-context', () => {
+  const React = require('react');
+  const { View } = require('react-native');
+  const insets = { top: 0, right: 0, bottom: 0, left: 0 };
+  const frame = { x: 0, y: 0, width: 320, height: 640 };
+  const InsetsContext = React.createContext(insets);
+  const FrameContext = React.createContext(frame);
+  return {
+    SafeAreaProvider: ({ children }) =>
+      React.createElement(
+        FrameContext.Provider,
+        { value: frame },
+        React.createElement(InsetsContext.Provider, { value: insets }, children),
+      ),
+    SafeAreaView: ({ children, ...props }) => React.createElement(View, props, children),
+    SafeAreaInsetsContext: InsetsContext,
+    useSafeAreaInsets: () => insets,
+    useSafeAreaFrame: () => frame,
+    initialWindowMetrics: { insets, frame },
+  };
+});
+
+global.fetch = jest.fn(() =>
+  Promise.resolve({
+    ok: true,
+    status: 200,
+    json: () => Promise.resolve({ status: 'ok', gateway_state: 'running', pid: 42 }),
+  }),
+);

@@ -39,6 +39,7 @@ link() {
 
 echo "=== Linking files ==="
 link "$REPO/agy-yolo-wrapper.js"              "$AGY_CLI_DIR/bin/agy-yolo-wrapper.js"
+link "$REPO/hermes-yolo-wrapper.js"           "$HOME/.local/bin/hermes-yolo"
 link "$REPO/sim-runaway-guard.sh"             "$HOME/.local/bin/sim-runaway-guard.sh"
 link "$REPO/yolo-health"                      "$HOME/.local/bin/yolo-health"
 

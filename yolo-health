@@ -18,6 +18,7 @@ if [ ! -d "$AGY_CLI_DIR" ]; then
 fi
 
 WRAPPER="$AGY_CLI_DIR/bin/agy-yolo-wrapper.js"
+HERMES_WRAPPER="$HOME/.local/bin/hermes-yolo"
 GUARD_SCRIPT="$HOME/.local/bin/sim-runaway-guard.sh"
 GUARD_PLIST="$HOME/Library/LaunchAgents/com.igor.shutdown-simulators.plist"
 GUARD_LABEL=com.igor.shutdown-simulators
@@ -40,6 +41,16 @@ check "grep -q \"child.on('error'\" '$WRAPPER'"   "spawn-error handler present"
 check "grep -q '\\--sandbox' '$WRAPPER'"          "--sandbox flag wired in"
 
 echo ""
+echo "=== hermes-yolo wrapper ==="
+check "[ -f '$HERMES_WRAPPER' ]"                         "file exists at $HERMES_WRAPPER"
+check "node --check '$HERMES_WRAPPER'"                   "syntactically valid JavaScript"
+check "grep -q 'LOCK_PATH' '$HERMES_WRAPPER'"            "singleton lock present"
+check "grep -q 'TIMEOUT_MS' '$HERMES_WRAPPER'"           "hard timeout present"
+check "grep -q 'highCpuSamples' '$HERMES_WRAPPER'"       "stuck-loop watchdog present"
+check "grep -q \"child.on('error'\" '$HERMES_WRAPPER'"   "spawn-error handler present"
+check "grep -q '\\--yolo' '$HERMES_WRAPPER'"             "--yolo flag wired in"
+
+echo ""
 echo "=== Simulator runaway guard ==="
 check "[ -x '$GUARD_SCRIPT' ]"                                          "script exists and is executable"
 check "[ -f '$GUARD_PLIST' ]"                                           "LaunchAgent plist present"
@@ -56,10 +67,13 @@ AGY_PROCS=$(ps aux | grep -E '/agy ' | grep -v grep | wc -l | tr -d ' ')
 BOOTED=$(xcrun simctl list devices booted 2>/dev/null | grep -c Booted)
 LOCK_HELD="no"
 [ -f /tmp/agy-yolo.lock ] && LOCK_HELD="yes (PID $(cat /tmp/agy-yolo.lock 2>/dev/null))"
+HERMES_LOCK_HELD="no"
+[ -f /tmp/hermes-yolo.lock ] && HERMES_LOCK_HELD="yes (PID $(cat /tmp/hermes-yolo.lock 2>/dev/null))"
 printf "  Sim runtime processes: %s\n" "$SIM_PROCS"
 printf "  Booted simulators:     %s\n" "$BOOTED"
 printf "  agy processes:         %s\n" "$AGY_PROCS"
 printf "  agy-yolo lock held:    %s\n" "$LOCK_HELD"
+printf "  hermes-yolo lock held: %s\n" "$HERMES_LOCK_HELD"
 
 echo ""
 echo "=== Memory state (informational; kit only auto-reclaims known-safe memory hogs) ==="
