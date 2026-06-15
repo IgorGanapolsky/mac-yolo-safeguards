@@ -80,6 +80,17 @@ printf "  Top 3 AI memory hogs:\n"
       }
     }
   }'
+# Orphaned CDP automation Chrome (notify-only; the kit never kills browsers).
+# Counts distinct /tmp/chrome_cdp_profile_<n> dirs whose MAIN browser proc
+# (chrome_cdp_profile, NOT --type=) is reparented to launchd (ppid==1) — i.e.
+# leaked by an ended browser-automation session. Purely informational, same
+# framing as "kit does NOT manage general Mac memory".
+CDP_ORPHANS=$(/bin/ps -axo pid,ppid,command | /usr/bin/awk '
+  NR>1 && $2==1 && $0 ~ /chrome_cdp_profile/ && $0 !~ /--type=/ {
+    if (match($0, /\/tmp\/chrome_cdp_profile_[0-9]+/))
+      print substr($0, RSTART, RLENGTH)
+  }' | /usr/bin/sort -u | /usr/bin/grep -c .)
+printf "  Orphaned CDP Chrome:   %s instance(s) (notify-only; never killed)\n" "$CDP_ORPHANS"
 
 echo ""
 echo "=== Recent guard activity (last 5 lines of $GUARD_LOG) ==="
