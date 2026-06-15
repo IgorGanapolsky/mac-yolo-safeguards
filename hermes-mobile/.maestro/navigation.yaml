@@ -1,27 +1,20 @@
-# Flow 2: Bottom-tab navigation
-# Taps each of the 3 tabs and asserts distinctive text per screen.
+# Flow 2: Tab navigation — Chat, Leash, Ops, Settings
 appId: com.iganapolsky.hermesmobile
 ---
 - launchApp:
     clearState: true
 - extendedWaitUntil:
-    visible: "Console"
-    timeout: 10000
+    visible: "HERMES CHAT"
+    timeout: 15000
 
-# --- Console Tab ---
-- tapOn: "Console"
-- assertVisible: "Active override requests"
+- tapOn: "Leash"
+- assertVisible: "LEASH"
 
-# --- Workspace Tab ---
-- tapOn: "Workspace"
-- assertVisible: "Daemon status"
-- assertVisible: "Live Logs"
+- tapOn: "Ops"
+- assertVisible: "OPS"
 
-# --- Settings Tab ---
 - tapOn: "Settings"
-- assertVisible: "Gateway Settings"
-- assertVisible: "Demo Mode"
+- assertVisible: "SETTINGS"
 
-# Return to Console to ensure navigation is reversible
-- tapOn: "Console"
-- assertVisible: "Console"
+- tapOn: "Chat"
+- assertVisible: "HERMES CHAT"

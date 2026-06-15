@@ -7,12 +7,14 @@ import { useAiSdkDevTools } from '@react-native-ai/dev-tools/react-native';
 import { colors } from './src/theme/colors';
 import { GatewayProvider } from './src/context/GatewayContext';
 import ApprovalsScreen from './src/screens/ApprovalsScreen';
+import ChatScreen from './src/screens/ChatScreen';
 import WorkspaceScreen from './src/screens/WorkspaceScreen';
 import SettingsScreen from './src/screens/SettingsScreen';
 import ErrorBoundary from './src/components/ErrorBoundary';
 
 type RootTabParamList = {
   Console: undefined;
+  Chat: undefined;
   Workspace: undefined;
   Settings: undefined;
 };
@@ -52,6 +54,9 @@ function GlassmorphicTabBar({ state, descriptors, navigation }: BottomTabBarProp
         if (route.name === 'Console') {
           emoji = '⚡';
           label = 'Console';
+        } else if (route.name === 'Chat') {
+          emoji = '💬';
+          label = 'Chat';
         } else if (route.name === 'Workspace') {
           emoji = '💻';
           label = 'Workspace';
@@ -116,6 +121,7 @@ export default function App() {
                 }}
               >
                 <Tab.Screen name="Console" component={ApprovalsScreen} />
+                <Tab.Screen name="Chat" component={ChatScreen} />
                 <Tab.Screen name="Workspace" component={WorkspaceScreen} />
                 <Tab.Screen name="Settings" component={SettingsScreen} />
               </Tab.Navigator>

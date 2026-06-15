@@ -1,140 +1,64 @@
-# Hermes Mobile Companion App Architecture
+# Hermes Mobile Architecture
 
-This document defines the technical architecture, security model, and API contracts for the **Hermes Mobile Companion App**. 
-
-Rather than replacing the full Hermes Desktop workspace, the mobile app acts as a **couch companion** specifically designed to handle background notifications, YOLO safeguard audits, and remote ThumbGate approvals.
+**Hermes Mobile** replaces Telegram DM and mirrors the operator surfaces of Hermes desktop/CLI — everything the gateway API server (`:8642`) exposes, plus optional AgentLeash for approvals on LTE.
 
 ---
 
-## 1. Phased MVP Roadmap
+## 1. Parity map (desktop / CLI vs mobile)
 
-To maximize developer velocity, the app follows a phased rollout starting with HTTPS/WebSocket tunnels before building custom native modules.
+| Surface | Desktop web dashboard | CLI (`hermes …`) | Gateway `:8642` API | Mobile tab |
+| :--- | :---: | :---: | :---: | :--- |
+| Chat + sessions | Chat, Sessions | `hermes`, sessions list | `/api/sessions`, `/chat/stream` | **Chat** |
+| Streaming + tool progress | Chat | TUI stream | SSE events | **Chat** (stream + tool line) |
+| Tool / run approvals | — | interactive | `/v1/runs/…/approval`, WS `/v1/events` | **Leash** |
+| Skills list | Skills | `/skills list` | `GET /v1/skills` | **Ops** |
+| Toolsets | Tools config | config | `GET /v1/toolsets` | **Ops** |
+| Cron jobs | Cron | `hermes cron` | `/api/jobs` | **Ops** (list, pause, run) |
+| Gateway health | Sidebar status | `hermes status` | `/health/detailed` | **Ops** + Settings |
+| Runs (stop) | Chat | — | `POST /v1/runs/{id}/stop` | Chat (stream path) |
+| Config / env / profiles | Config, Env, Profiles | `hermes config` | — (dashboard port) | Future / deep link |
+| Files / logs / analytics | Files, Logs, Analytics | CLI | — (dashboard port) | Future |
+| MCP / channels / webhooks | MCP, Channels, Webhooks | gateway setup | — (dashboard port) | Future |
 
-| Phase | Target Scope | Key Dependencies |
-| :--- | :--- | :--- |
-| **v0.1 (MVP)** | <ul><li>HTTPS/WebSocket connectivity</li><li>Active session monitoring</li><li>Live approval queue & push alerts</li><li>Secure credential storage</li><li>Gateway health pill</li></ul> | `expo-secure-store`, `expo-notifications` |
-| **v0.2 (Workspace)** | <ul><li>Log streaming virtualization</li><li>Color-coded Git diff viewer sheet</li><li>Webview screenshots & state preview</li></ul> | `@shopify/flash-list`, `react-native-webview` |
-| **v0.3 (Advanced)** | <ul><li>Optional direct background SSH Tunneling</li></ul> | Custom Swift/Kotlin TurboModule |
-
----
-
-## 2. Security & Storage Model
-
-Because the mobile client connects to a local developer machine and holds sensitive credentials, security is a first-class citizen:
-
-*   **API Key Storage:** The Hermes Bearer Token (`sk-...`) must never be stored in plain text (e.g., standard `AsyncStorage`). It must be persisted using `expo-secure-store`, which utilizes **iOS Keychain** and **Android KeyStore** (AES-256 in GCM mode).
-*   **Tunnel URL Security:** Public ngrok or Cloudflare tunnel URLs are treated as **capability URLs**. All HTTP endpoints and WebSocket handshakes require a valid `Authorization: Bearer <key>` header.
-*   **No Hardcoded Secrets:** No dev tokens or fallback credentials may be committed to this repository. All credentials must be entered at runtime on the Settings screen.
+**Honest boundary:** The web dashboard runs on a separate HTTP server with session-token auth and hundreds of `/api/*` routes. Mobile targets the **same gateway tunnel** you use for Telegram (`API_SERVER_KEY` on port 8642). Full dashboard parity means either tunneling the dashboard port too or adding a thin mobile admin API later.
 
 ---
 
-## 3. ThumbGate Event Contract & Approval Protocol
+## 2. App tabs
 
-The gateway and mobile app communicate via WebSockets (`wss://<tunnel-url>/v1/events`).
-
-```mermaid
-sequenceDiagram
-    participant Gateway as Hermes Gateway
-    participant Mobile as Mobile App
-    
-    Gateway->>Gateway: Intercepts dangerous tool (e.g. run_command)
-    Gateway->>Mobile: Send WS Event: GATE.BLOCKED
-    Note over Mobile: Render Pop-up Card & Haptic Feedback
-    Mobile->>Gateway: Send WS ACK: GATE.APPROVE
-    Gateway->>Gateway: Execute command & resume loop
-```
-
-### Event: Gateway -> Mobile (`GATE.BLOCKED`)
-Sent when a command matches a ThumbGate block rule or YOLO safeguard threshold and halts execution.
-```json
-{
-  "event": "GATE.BLOCKED",
-  "timestamp": "2026-06-15T15:20:15.123Z",
-  "payload": {
-    "actionId": "act_1781536830_9f2k1d",
-    "toolName": "run_command",
-    "reason": "Pre-action rule blocked execution to prevent memory runaway.",
-    "command": "node tests/test-runaway.js --force-leak",
-    "workspacePath": "/Users/igorganapolsky/workspace/git/igor/mac-yolo-safeguards",
-    "diff": "--- a/sim-runaway-guard.sh\n+++ b/sim-runaway-guard.sh\n@@ -124,1 +124,2 @@\n-  if [ \"$mem_pct\" -lt 10 ]\n+  local min_pct=${YOLO_MEM_FREE_PCT_THRESHOLD:-15}"
-  }
-}
-```
-
-### Event: Mobile -> Gateway (`GATE.ACTION`)
-Sent when the operator taps "Approve Override" or "Reject / Terminate".
-```json
-{
-  "event": "GATE.ACTION",
-  "timestamp": "2026-06-15T15:20:20.456Z",
-  "payload": {
-    "actionId": "act_1781536830_9f2k1d",
-    "decision": "approve", // or "reject"
-    "operatorNote": "Approved override from mobile client"
-  }
-}
-```
-
-### Event: Gateway -> Mobile (`RECLAIM.FIRED`)
-Broadcast logs when the YOLO guard performs automatic health hygiene (non-blocking).
-```json
-{
-  "event": "RECLAIM.FIRED",
-  "timestamp": "2026-06-15T15:20:26.789Z",
-  "payload": {
-    "target": "Google Chrome Canary",
-    "rssReclaimedMb": 280,
-    "triggerCondition": "swap=84%"
-  }
-}
-```
+| Tab | Purpose |
+| :--- | :--- |
+| **Chat** | Sessions, history, send, **streaming** replies, live tool-call status |
+| **Leash** | Approve/reject risky tool calls (AgentLeash relay or gateway WS) |
+| **Ops** | Skills, toolsets, cron jobs, capability flags, health pill |
+| **Settings** | Tunnel URL + API key (required for Chat); AgentLeash pairing |
 
 ---
 
-## 4. Connection & Gateway Health Integration
+## 3. Gateway API client layer
 
-Health probes mirror `hermes_cli.web_server` and `tools/hermes-productivity-audit.js`:
+| Module | Endpoints |
+| :--- | :--- |
+| `hermesChatClient.ts` | Session CRUD, messages, sync chat |
+| `hermesGatewayClient.ts` | Capabilities, skills, toolsets, jobs, stream chat, run stop/approval, fork/delete session |
+| `gatewayClient.ts` | Health probes, WS `/v1/events`, ThumbGate events |
 
-| Endpoint | Purpose |
-|---|---|
-| `GET /health/detailed` | Full gateway state (preferred) |
-| `GET /health` | Simple fallback |
-| `WS /v1/events` | ThumbGate + reclaim event stream (contract §3) |
-
-**Health pill levels:**
-
-- **Green:** `status=ok` and `gateway_state=running`
-- **Amber:** partial OK (e.g. gateway up but platform disconnected)
-- **Red:** probe failed or critical state
-
-Local state file: `~/.hermes/gateway_state.json` (read by Mac-side audit tools; mobile uses HTTP probes).
+Discover features at runtime: `GET /v1/capabilities`.
 
 ---
 
-## 5. LipoShield Pattern Reference (sibling app)
+## 4. Phased roadmap
 
-Hermes Mobile mirrors the proven structure from [`../../LipoShield`](../../LipoShield) — Igor's shipped Expo app:
-
-| LipoShield pattern | Hermes Mobile equivalent |
-|---|---|
-| `App.tsx` + `@react-navigation/bottom-tabs` | Same — custom glass tab bar, dark theme |
-| `src/services/storage.ts` (AsyncStorage) | Settings flags in AsyncStorage |
-| `src/context/EntitlementContext.tsx` | `src/context/GatewayContext.tsx` (connection + approvals) |
-| `src/components/GlassCard.tsx` | Reused glass card styling |
-| `src/components/ErrorBoundary.tsx` | Root error boundary |
-| `src/services/haptics.ts` | Gate approve/reject feedback |
-| `jest` + `jest-expo` + coverage | `npm run test:ci` |
-| `.maestro/` E2E (future) | Planned for approval flow smoke |
-
-**Intentional differences:**
-
-- **Secrets:** API keys in `expo-secure-store` (Keychain), not AsyncStorage — LipoShield stores non-secret prefs only.
-- **Network:** Live gateway `/health` probes + `/v1/events` WebSocket (contract in §3).
-- **No RevenueCat:** Hermes is an operator tool, not a consumer subscription app.
+| Phase | Scope |
+| :--- | :--- |
+| **v0.1 (current)** | Chat + stream, Leash, Ops (skills/jobs/toolsets), Settings |
+| **v0.2** | Push notifications for approvals; session fork/delete in Chat UI |
+| **v0.3** | Dashboard tunnel profile (read-only config/status) or native tunnel module |
+| **v0.4** | Files viewer, log tail, analytics cards (dashboard APIs) |
 
 ---
 
-## 6. Local Development
+## 5. Local development
 
 ```sh
 cd hermes-mobile
@@ -144,16 +68,4 @@ npm run test:ci
 npx expo start
 ```
 
-**Gateway prerequisites on the Mac:**
-
-1. `API_SERVER_ENABLED=true` and `API_SERVER_KEY=...` in `~/.hermes/.env`
-2. `hermes gateway start` (or LaunchAgent `ai.hermes.gateway`)
-3. Optional tunnel: ngrok / Cloudflare → paste URL in Settings
-
-**Demo mode:** Settings → Demo mode ON → Approvals tab → tap inject demo `GATE.BLOCKED` without a live WebSocket.
-
----
-
-## 7. Strategic Recommendation (unchanged)
-
-Start with **React Native (Expo 55)** + HTTPS tunnel. Add native SSH TurboModule only if direct port-forward becomes a hard requirement. See original research doc for full RN vs native tradeoff matrix.
+Mac: `API_SERVER_ENABLED=true`, `API_SERVER_KEY` in `~/.hermes/.env`, `hermes gateway start`, tunnel `ngrok http 8642`.

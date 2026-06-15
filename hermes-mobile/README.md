@@ -1,6 +1,23 @@
 # Hermes Mobile
 
-Mobile companion for the Hermes gateway — **ThumbGate approvals**, gateway health, and YOLO safeguard telemetry. Built with the same Expo + React Navigation patterns as [LipoShield](../../LipoShield).
+**Mobile Hermes — replaces Telegram DM** for talking to your Mac agent, plus approve/deny tool calls from the couch.
+
+Built with Expo + React Navigation. Gateway API on port **8642** — chat, streaming, skills, cron jobs, approvals (same tunnel as Telegram).
+
+## v0.1 scope
+
+- **Chat** — sessions, history, **streaming** replies, live tool progress
+- **Leash** — AgentLeash / ThumbGate approve/reject
+- **Ops** — skills, toolsets, cron jobs (`/v1/skills`, `/api/jobs`), gateway health
+- **Settings** — tunnel + `API_SERVER_KEY`; AgentLeash pairing for LTE
+
+### Pair with your Mac (AgentLeash)
+
+```sh
+cd ../AgentLeash/bridge && npm link && agentleash pair
+```
+
+In Hermes Mobile **Settings**, enter the pairing code (e.g. `MOON-DUST`) and cloud URL (`https://agentleash-cloud.fly.dev` or your local relay). Leash tab polls every 2s for pending agent tool approvals — same loop as the AgentLeash Android app.
 
 ## Quick start
 
@@ -12,15 +29,8 @@ npm run test:ci
 npx expo start
 ```
 
-## v0.1 scope
+See [ARCHITECTURE.md](./ARCHITECTURE.md) for the full desktop/CLI parity map.
 
-- Gateway health pill (`/health/detailed` → `/health` fallback)
-- Secure API key storage (`expo-secure-store`)
-- WebSocket listener for `GATE.BLOCKED` / `RECLAIM.FIRED` (see `ARCHITECTURE.md`)
-- Demo mode for UI without live gateway WS
-- Approvals screen with approve/reject + haptics
-
-See [ARCHITECTURE.md](./ARCHITECTURE.md) for API contracts and phased roadmap.
 
 ## EAS (Expo Application Services)
 

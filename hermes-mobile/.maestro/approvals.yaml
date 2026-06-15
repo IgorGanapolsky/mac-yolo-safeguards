@@ -1,28 +1,20 @@
 # Flow 3: Approvals override simulation flow
-# Verifies that Demo Mode can inject mock approvals and the user can approve them.
 appId: com.iganapolsky.hermesmobile
 ---
 - launchApp:
     clearState: true
 - extendedWaitUntil:
-    visible: "Console"
+    visible: "HERMES MOBILE"
+    timeout: 15000
+
+- tapOn:
+    id: "inject-demo-approval"
+- extendedWaitUntil:
+    visible: "GATE BLOCKED"
     timeout: 10000
-
-# Navigate to Settings and toggle Demo Mode
-- tapOn: "Settings"
-- assertVisible: "Demo & Sandbox Mode"
-- tapOn: "Demo & Sandbox Mode"
-
-# Inject a mock approval request
-- assertVisible: "⚡ Inject Mock Approval Request"
-- tapOn: "⚡ Inject Mock Approval Request"
-
-# Navigate back to Console to handle the blocked tool call
-- tapOn: "Console"
-- assertVisible: "GATE BLOCKED"
 - assertVisible: "APPROVE OVERRIDE"
 - assertVisible: "REJECT"
-
-# Approve the override and verify the card is cleared
 - tapOn: "APPROVE OVERRIDE"
-- assertVisible: "No pending approvals"
+- extendedWaitUntil:
+    visible: "No pending approvals"
+    timeout: 10000

@@ -16,8 +16,21 @@ import { colors } from '../theme/colors';
 import { haptics } from '../services/haptics';
 
 export default function SettingsScreen() {
-  const { settings, apiKey, saveSettings, connectionState, injectDemoApproval } = useGateway();
+  const {
+    settings,
+    apiKey,
+    isPaired,
+    saveSettings,
+    connectionState,
+    injectDemoApproval,
+    completePair,
+    disconnectPair,
+    requestTestIntercept,
+  } = useGateway();
 
+  const [cloudUrl, setCloudUrl] = useState(settings.cloudUrl);
+  const [connectionMode, setConnectionMode] = useState(settings.connectionMode);
+  const [pairCode, setPairCode] = useState('');
   const [gatewayUrl, setGatewayUrl] = useState(settings.gatewayUrl);
   const [usePortal, setUsePortal] = useState(settings.usePortal);
   const [redactPii, setRedactPii] = useState(settings.redactPii);
@@ -28,6 +41,8 @@ export default function SettingsScreen() {
 
   // Sync state if context changes externally
   useEffect(() => {
+    setCloudUrl(settings.cloudUrl);
+    setConnectionMode(settings.connectionMode);
     setGatewayUrl(settings.gatewayUrl);
     setUsePortal(settings.usePortal);
     setRedactPii(settings.redactPii);
@@ -45,6 +60,8 @@ export default function SettingsScreen() {
     try {
       await saveSettings(
         {
+          connectionMode,
+          cloudUrl,
           gatewayUrl,
           usePortal,
           redactPii,
@@ -68,33 +85,67 @@ export default function SettingsScreen() {
     setDemoMode(value);
   };
 
+  const handlePair = async () => {
+    if (!pairCode.trim()) {
+      Alert.alert('Pairing code required', 'Run agentleash pair on your Mac and enter the code shown in the terminal.');
+      return;
+    }
+    try {
+      await saveSettings(
+        {
+          connectionMode: 'agentleash',
+          cloudUrl,
+          gatewayUrl,
+          usePortal,
+          redactPii,
+          notificationsEnabled,
+          demoMode: false,
+        },
+        inputApiKey,
+      );
+      await completePair(pairCode);
+      setPairCode('');
+      Alert.alert('Paired', 'Hermes Mobile is linked to your Mac via AgentLeash relay.');
+    } catch (err) {
+      Alert.alert('Pairing failed', err instanceof Error ? err.message : 'Could not complete pairing');
+    }
+  };
+
+  const handleTestIntercept = async () => {
+    try {
+      await requestTestIntercept();
+      Alert.alert('Test sent', 'Check the Leash tab for a fake agent tool approval.');
+    } catch (err) {
+      Alert.alert('Test failed', err instanceof Error ? err.message : 'Could not inject test event');
+    }
+  };
+
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
       <View style={styles.header}>
         <Text style={styles.title}>SETTINGS</Text>
-        <Text style={styles.subtitle}>Configure gateway connection & rules</Text>
+        <Text style={styles.subtitle}>Gateway tunnel for Chat + optional AgentLeash for Leash</Text>
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent}>
-        {/* Connection Setup */}
-        <Text style={styles.sectionTitle}>🔗 Gateway Connection</Text>
+        <Text style={styles.sectionTitle}>💬 Hermes Chat (replaces Telegram)</Text>
         <GlassCard>
+          <Text style={styles.description}>
+            Your phone cannot reach Mac localhost. Paste your ngrok / Cloudflare tunnel URL or LAN IP
+            (same gateway Hermes uses for Telegram — port 8642). API key is API_SERVER_KEY from ~/.hermes/.env.
+          </Text>
+          <View style={styles.spacer} />
           <Text style={styles.label}>Gateway URL / Tunnel</Text>
           <TextInput
             style={styles.input}
             value={gatewayUrl}
             onChangeText={setGatewayUrl}
-            placeholder="http://127.0.0.1:8642"
+            placeholder="https://xxxx.ngrok-free.app"
             placeholderTextColor={colors.textMuted}
             autoCapitalize="none"
             autoCorrect={false}
           />
-          <Text style={styles.description}>
-            Supports localhost, ngrok tunnel, or Cloudflare Tunnel URL.
-          </Text>
-
           <View style={styles.spacer} />
-
           <Text style={styles.label}>Gateway API Key</Text>
           <TextInput
             style={styles.input}
@@ -107,9 +158,85 @@ export default function SettingsScreen() {
             autoCorrect={false}
           />
           <Text style={styles.description}>
-            Bearer token securely stored in the iOS/Android keychain.
+            Stored in the device keychain. Required for Chat tab session APIs.
           </Text>
         </GlassCard>
+
+        <Text style={styles.sectionTitle}>🪢 AgentLeash (Leash tab only)</Text>
+        <GlassCard>
+          <Text style={styles.description}>
+            On your Mac: cd AgentLeash/bridge && agentleash pair — scan or enter the pairing code below.
+            Your phone talks to the cloud relay; no tunnel to localhost required.
+          </Text>
+          <View style={styles.spacer} />
+          <Text style={styles.label}>Cloud relay URL</Text>
+          <TextInput
+            style={styles.input}
+            value={cloudUrl}
+            onChangeText={setCloudUrl}
+            placeholder="https://agentleash-cloud.fly.dev"
+            placeholderTextColor={colors.textMuted}
+            autoCapitalize="none"
+            autoCorrect={false}
+          />
+          <View style={styles.spacer} />
+          <Text style={styles.label}>Pairing code</Text>
+          <TextInput
+            style={styles.input}
+            value={pairCode}
+            onChangeText={setPairCode}
+            placeholder="MOON-DUST"
+            placeholderTextColor={colors.textMuted}
+            autoCapitalize="characters"
+            autoCorrect={false}
+          />
+          <TouchableOpacity style={styles.pairButton} onPress={handlePair}>
+            <Text style={styles.pairButtonText}>
+              {isPaired ? 'RE-LINK WITH NEW CODE' : 'PAIR WITH MAC'}
+            </Text>
+          </TouchableOpacity>
+          {isPaired ? (
+            <>
+              <Text style={styles.pairedText}>Paired — mobile token stored in secure storage.</Text>
+              <TouchableOpacity style={styles.secondaryButton} onPress={handleTestIntercept}>
+                <Text style={styles.secondaryButtonText}>⚡ Send test approval to Leash</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.unlinkButton} onPress={() => disconnectPair()}>
+                <Text style={styles.unlinkButtonText}>Disconnect pairing</Text>
+              </TouchableOpacity>
+            </>
+          ) : null}
+        </GlassCard>
+
+        <Text style={styles.sectionTitle}>🔌 Leash connection mode</Text>
+        <GlassCard>
+          <View style={styles.switchRow}>
+            <View style={styles.switchLabelCol}>
+              <Text style={styles.switchLabel}>Use AgentLeash relay</Text>
+              <Text style={styles.switchDesc}>Poll cloud queue (works on LTE)</Text>
+            </View>
+            <Switch
+              value={connectionMode === 'agentleash'}
+              onValueChange={(val) => {
+                haptics.light();
+                setConnectionMode(val ? 'agentleash' : 'gateway');
+              }}
+              trackColor={{ false: '#1F2937', true: colors.primary }}
+              thumbColor={connectionMode === 'agentleash' ? '#ffffff' : '#9CA3AF'}
+            />
+          </View>
+        </GlassCard>
+
+        {connectionMode === 'gateway' ? (
+          <Text style={styles.sectionTitle}>🔗 Direct gateway events (Leash tab)</Text>
+        ) : null}
+        {connectionMode === 'gateway' ? (
+        <GlassCard>
+          <Text style={styles.description}>
+            Leash tab listens on WebSocket /v1/events at the gateway URL above (tunnel required on LTE).
+          </Text>
+        </GlassCard>
+        ) : null}
 
         {/* Safeguard Options */}
         <Text style={styles.sectionTitle}>🛡 Safeguard Rules</Text>
@@ -178,6 +305,7 @@ export default function SettingsScreen() {
             <Switch
               value={demoMode}
               onValueChange={handleToggleDemo}
+              testID="demo-mode-switch"
               trackColor={{ false: '#1F2937', true: colors.primary }}
               thumbColor={demoMode ? '#ffffff' : '#9CA3AF'}
             />
@@ -190,6 +318,7 @@ export default function SettingsScreen() {
                 haptics.light();
                 injectDemoApproval();
               }}
+              testID="inject-mock-approval"
             >
               <Text style={styles.demoButtonText}>⚡ Inject Mock Approval Request</Text>
             </TouchableOpacity>
@@ -208,7 +337,8 @@ export default function SettingsScreen() {
         </TouchableOpacity>
 
         <Text style={styles.footerText}>
-          Hermes Mobile v0.1.0 • Connected state: {connectionState}
+          Hermes Mobile v0.1.0 • {connectionMode === 'agentleash' ? 'Relay' : 'WS'}: {connectionState}
+          {isPaired ? ' • paired' : ''}
         </Text>
       </ScrollView>
     </SafeAreaView>
@@ -310,6 +440,49 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '800',
     color: colors.accent,
+  },
+  pairButton: {
+    marginTop: 12,
+    backgroundColor: colors.primary,
+    borderRadius: 12,
+    paddingVertical: 14,
+    alignItems: 'center',
+  },
+  pairButtonText: {
+    fontSize: 12,
+    fontWeight: '900',
+    color: colors.text,
+    letterSpacing: 0.5,
+  },
+  pairedText: {
+    marginTop: 12,
+    fontSize: 11,
+    color: colors.success,
+    fontWeight: '700',
+  },
+  secondaryButton: {
+    marginTop: 12,
+    backgroundColor: 'rgba(34, 211, 238, 0.1)',
+    borderColor: colors.accent,
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  secondaryButtonText: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: colors.accent,
+  },
+  unlinkButton: {
+    marginTop: 12,
+    alignItems: 'center',
+    paddingVertical: 8,
+  },
+  unlinkButtonText: {
+    fontSize: 11,
+    color: colors.error,
+    fontWeight: '700',
   },
   saveButton: {
     marginTop: 24,

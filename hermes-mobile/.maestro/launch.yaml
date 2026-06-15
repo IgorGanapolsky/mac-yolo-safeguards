@@ -1,9 +1,9 @@
-# Flow 1: App launch smoke test
-# Verifies the companion app boots into the Console screen.
+# Flow 1: App launch — Chat tab is the Telegram replacement
 appId: com.iganapolsky.hermesmobile
 ---
 - launchApp:
     clearState: true
-# Verify we land on the Console tab (Approvals view)
-- assertVisible: "Console"
-- assertVisible: "Active override requests"
+- extendedWaitUntil:
+    visible: "HERMES CHAT"
+    timeout: 15000
+- assertVisible: "Type a message to Hermes"

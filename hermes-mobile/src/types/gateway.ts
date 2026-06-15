@@ -43,7 +43,11 @@ export interface GatewayEventMessage {
   payload?: Record<string, unknown>;
 }
 
+export type ConnectionMode = 'agentleash' | 'gateway';
+
 export interface GatewaySettings {
+  connectionMode: ConnectionMode;
+  cloudUrl: string;
   gatewayUrl: string;
   usePortal: boolean;
   redactPii: boolean;
@@ -52,6 +56,8 @@ export interface GatewaySettings {
 }
 
 export const DEFAULT_GATEWAY_SETTINGS: GatewaySettings = {
+  connectionMode: 'agentleash',
+  cloudUrl: 'https://agentleash-cloud.fly.dev',
   gatewayUrl: 'http://127.0.0.1:8642',
   usePortal: false,
   redactPii: true,

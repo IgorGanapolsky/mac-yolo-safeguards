@@ -17,21 +17,28 @@ export default function ApprovalsScreen() {
     refreshHealth,
     resolveApproval,
     injectDemoApproval,
+    connectEvents,
+    settings,
+    isPaired,
   } = useGateway();
 
   const healthLevel = health?.level ?? 'unknown';
+  const connectionLabel =
+    settings.connectionMode === 'agentleash'
+      ? `Relay: ${connectionState}`
+      : `WS: ${connectionState}`;
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
       <View style={styles.header}>
-        <Text style={styles.title}>HERMES MOBILE</Text>
-        <Text style={styles.subtitle}>ThumbGate approvals & gateway health</Text>
+        <Text style={styles.title}>LEASH</Text>
+        <Text style={styles.subtitle}>Approve risky agent tool calls (AgentLeash / ThumbGate)</Text>
         <View style={styles.pillRow}>
           <HealthPill
             level={healthLevel}
             detail={health?.gatewayState ? `state=${health.gatewayState}` : undefined}
           />
-          <Text style={styles.connection}>WS: {connectionState}</Text>
+          <Text style={styles.connection}>{connectionLabel}</Text>
         </View>
       </View>
 
@@ -40,9 +47,13 @@ export default function ApprovalsScreen() {
           <GlassCard style={styles.emptyCard}>
             <Text style={styles.emptyTitle}>No pending approvals</Text>
             <Text style={styles.emptyBody}>
-              When ThumbGate blocks a dangerous tool call, the card appears here for approve/reject.
+              When your coding agent tries a risky tool (rm, git push --force, etc.), the card
+              appears here. Pair in Settings with agentleash pair on your Mac.
             </Text>
-            <Text style={styles.hint} onPress={injectDemoApproval}>
+            {!isPaired ? (
+              <Text style={styles.hintMuted}>Not paired — open Settings and enter your pair code.</Text>
+            ) : null}
+            <Text style={styles.hint} onPress={injectDemoApproval} testID="inject-demo-approval">
               Tap to inject demo GATE.BLOCKED event
             </Text>
           </GlassCard>
@@ -72,7 +83,13 @@ export default function ApprovalsScreen() {
 
         {lastEventError ? <Text style={styles.errorText}>{lastEventError}</Text> : null}
 
-        <Text style={styles.refreshHint} onPress={() => refreshHealth()}>
+        <Text
+          style={styles.refreshHint}
+          onPress={() => {
+            refreshHealth();
+            connectEvents();
+          }}
+        >
           Pull health probe again
         </Text>
       </ScrollView>
@@ -134,6 +151,11 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: colors.accent,
     fontWeight: '700',
+  },
+  hintMuted: {
+    marginTop: 12,
+    fontSize: 11,
+    color: colors.textMuted,
   },
   reclaimCard: {
     marginHorizontal: 16,
