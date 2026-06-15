@@ -161,7 +161,7 @@ tests/test-secondary-browser-reclaim.sh
 |---|---|---|
 | `macos-guard` | `macos-latest` | JS/shell syntax, `./install.sh`, `yolo-health`, guard E2E, secret scan |
 | `revenue-public-checks` | `ubuntu-latest` | Public funnel docs, issue templates, publication readiness |
-| `mobile-checks` | `ubuntu-latest` | `hermes-mobile` typecheck + unit tests |
+| `mobile-checks` | `ubuntu-latest` | `hermes-mobile` release readiness, Expo Doctor, typecheck, unit tests |
 
 Local mirror before pushing:
 
@@ -169,7 +169,21 @@ Local mirror before pushing:
 ./scripts/ci-verify.sh
 ```
 
-**CD** ([`.github/workflows/mobile-distribute.yml`](.github/workflows/mobile-distribute.yml)) — manual `workflow_dispatch` to build `hermes-mobile` via EAS (`preview` APK by default). Requires repository secret `EXPO_TOKEN` from [expo.dev access tokens](https://expo.dev/settings/access-tokens).
+**CD** — LipoShield-style release pipeline for `hermes-mobile`:
+
+| Workflow | Trigger | Purpose |
+|---|---|---|
+| [`.github/workflows/internal-distribution.yml`](.github/workflows/internal-distribution.yml) | Manual `workflow_dispatch` | Quality gate → EAS internal APK/IPA → optional Firebase Android distro → records `internal-signoff/*` commit statuses |
+| [`.github/workflows/store-release.yml`](.github/workflows/store-release.yml) | Manual `workflow_dispatch` | Requires internal signoff on exact SHA → production EAS build → optional store submit |
+
+Required secrets (mirror LipoShield where applicable):
+
+- `EXPO_TOKEN` — EAS builds (required)
+- `FIREBASE_SERVICE_ACCOUNT_JSON`, `FIREBASE_ANDROID_APP_ID`, `FIREBASE_REQUIRED_TESTER_EMAIL` — Firebase internal Android distro
+- `GOOGLE_SERVICE_ACCOUNT_JSON` — Google Play submit
+- `EXPO_ASC_*` / `EXPO_APPLE_*` — App Store Connect submit
+
+Before first internal build: create the EAS project and replace `hermes-mobile-local-dev` placeholder in `hermes-mobile/app.json` (`extra.eas.projectId` + `updates.url`).
 
 ## The incident this came from
 

@@ -15,9 +15,9 @@ jobs:
     name: macOS guard kit
     runs-on: macos-latest
     steps:
-      - uses: actions/checkout@v6.0.3
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
 
-      - uses: actions/setup-node@v6.4.0
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
         with:
           node-version: '22'
 
@@ -48,15 +48,15 @@ jobs:
         run: |
           set -eu
           ! git grep -nE '(ghp_[A-Za-z0-9_]+|sk_live_[A-Za-z0-9_]+|TELEGRAM_BOT_TOKEN=|STRIPE_SECRET_KEY=sk_)' \
-            -- ':!.github/workflows/ci.yml' ':!.github/workflows/mobile-distribute.yml'
+            -- ':!.github/workflows/ci.yml' ':!.github/workflows/internal-distribution.yml' ':!.github/workflows/store-release.yml'
 
   revenue-public-checks:
     name: Public funnel checks
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6.0.3
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
 
-      - uses: actions/setup-node@v6.4.0
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
         with:
           node-version: '22'
 
@@ -81,23 +81,31 @@ jobs:
   mobile-checks:
     name: Hermes Mobile typecheck and tests
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: hermes-mobile
     steps:
-      - uses: actions/checkout@v6.0.3
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
 
-      - uses: actions/setup-node@v6.4.0
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
         with:
-          node-version: '22'
+          node-version: 20
           cache: npm
           cache-dependency-path: hermes-mobile/package-lock.json
 
       - name: Install dependencies
-        working-directory: hermes-mobile
         run: npm ci
 
+      - name: Release readiness audit
+        run: npm run release:check
+
       - name: Type check
-        working-directory: hermes-mobile
         run: npm run typecheck
 
+      - name: Expo Doctor
+        env:
+          EXPO_DOCTOR_ALLOW_NPX_DOWNLOAD: "1"
+        run: npm run doctor:expo
+
       - name: Unit tests with coverage
-        working-directory: hermes-mobile
         run: npm run test:ci

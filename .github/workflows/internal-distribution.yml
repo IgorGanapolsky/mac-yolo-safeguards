@@ -1,0 +1,461 @@
+name: Internal Distribution
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Git ref to distribute (empty = current ref)"
+        required: false
+        type: string
+      target:
+        description: "Internal tester target"
+        required: true
+        default: all
+        type: choice
+        options:
+          - all
+          - all_safe
+          - android_eas
+          - android_firebase
+          - ios_eas
+
+concurrency:
+  group: internal-distribution-${{ github.event_name }}-${{ inputs.ref || github.ref_name }}-${{ inputs.target || 'all' }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  statuses: write
+
+jobs:
+  gate:
+    name: Gate Internal Distribution
+    runs-on: ubuntu-latest
+    outputs:
+      should_run: ${{ steps.decide.outputs.should_run }}
+      ref: ${{ steps.decide.outputs.ref }}
+      sha: ${{ steps.resolve.outputs.sha }}
+      target: ${{ steps.decide.outputs.target }}
+      run_android: ${{ steps.decide.outputs.run_android }}
+      run_ios: ${{ steps.decide.outputs.run_ios }}
+      run_firebase: ${{ steps.decide.outputs.run_firebase }}
+    steps:
+      - name: Resolve requested ref
+        id: resolve
+        env:
+          TARGET_REF: ${{ inputs.ref || github.ref_name }}
+          REPO_URL: https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
+        run: |
+          set -euo pipefail
+          if [[ "$TARGET_REF" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "sha=$TARGET_REF" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          SHA="$(git ls-remote "$REPO_URL" "refs/heads/$TARGET_REF" "refs/tags/$TARGET_REF" "$TARGET_REF" | awk 'NR==1 {print $1}')"
+          if [ -z "$SHA" ]; then
+            echo "Could not resolve ref: $TARGET_REF" >&2
+            exit 1
+          fi
+          echo "sha=$SHA" >> "$GITHUB_OUTPUT"
+
+      - name: Decide whether to run
+        id: decide
+        env:
+          INPUT_REF: ${{ inputs.ref }}
+          INPUT_TARGET: ${{ inputs.target }}
+          GITHUB_REF_NAME_VALUE: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+
+          SHOULD_RUN="true"
+          REF="${INPUT_REF:-${GITHUB_REF_NAME_VALUE}}"
+          TARGET="${INPUT_TARGET:-all}"
+
+          RUN_ANDROID="false"
+          RUN_IOS="false"
+          RUN_FIREBASE="false"
+          case "$TARGET" in
+            all)
+              RUN_ANDROID="true"
+              RUN_IOS="true"
+              RUN_FIREBASE="true"
+              ;;
+            all_safe)
+              RUN_ANDROID="true"
+              RUN_IOS="true"
+              ;;
+            android_eas)
+              RUN_ANDROID="true"
+              ;;
+            android_firebase)
+              RUN_ANDROID="true"
+              RUN_FIREBASE="true"
+              ;;
+            ios_eas)
+              RUN_IOS="true"
+              ;;
+            *)
+              echo "Unsupported target: $TARGET" >&2
+              exit 1
+              ;;
+          esac
+
+          {
+            echo "should_run=$SHOULD_RUN"
+            echo "ref=$REF"
+            echo "target=$TARGET"
+            echo "run_android=$RUN_ANDROID"
+            echo "run_ios=$RUN_IOS"
+            echo "run_firebase=$RUN_FIREBASE"
+          } >> "$GITHUB_OUTPUT"
+
+  quality-gate:
+    name: Quality Gate
+    needs: [gate]
+    if: needs.gate.outputs.should_run == 'true'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: hermes-mobile
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          ref: ${{ needs.gate.outputs.ref }}
+
+      - name: Set up Node.js
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: hermes-mobile/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Release readiness audit
+        run: npm run release:check
+
+      - name: Type check
+        run: npm run typecheck
+
+      - name: Expo Doctor
+        env:
+          EXPO_DOCTOR_ALLOW_NPX_DOWNLOAD: "1"
+        run: npm run doctor:expo
+
+      - name: Run tests with coverage
+        run: npm run test:ci
+
+  android-eas-internal:
+    name: Android EAS Internal APK
+    needs: [gate, quality-gate]
+    if: needs.gate.outputs.should_run == 'true' && needs.gate.outputs.run_android == 'true'
+    runs-on: ubuntu-latest
+    environment: internal-android
+    defaults:
+      run:
+        working-directory: hermes-mobile
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          ref: ${{ needs.gate.outputs.ref }}
+
+      - name: Set up Node.js
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: hermes-mobile/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Fail fast on required EAS auth
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ -z "${EXPO_TOKEN:-}" ]; then
+            echo "Missing required secret: EXPO_TOKEN" >&2
+            exit 1
+          fi
+
+      - name: Run Android release preflight
+        run: npm run launch:preflight:android
+
+      - name: Build Android internal APK
+        id: build
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: |
+          set -euo pipefail
+          npx eas-cli@latest build \
+            --platform android \
+            --profile preview \
+            --non-interactive \
+            --wait \
+            --json \
+            --message "Internal Hermes Mobile Android APK from ${GITHUB_SHA}" \
+            > /tmp/eas-android-build.json
+
+          cat /tmp/eas-android-build.json
+          BUILD_ID="$(node -e 'const fs=require("fs"); const raw=fs.readFileSync("/tmp/eas-android-build.json","utf8"); const json=JSON.parse(raw); const build=Array.isArray(json)?json[0]:json; console.log(build.id || "")')"
+          if [ -z "$BUILD_ID" ]; then
+            echo "Could not read Android EAS build id" >&2
+            exit 1
+          fi
+          echo "build_id=$BUILD_ID" >> "$GITHUB_OUTPUT"
+
+      - name: Verify Android build read-back
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+          BUILD_ID: ${{ steps.build.outputs.build_id }}
+        run: |
+          set -euo pipefail
+          npx eas-cli@latest build:view "$BUILD_ID" --json > /tmp/eas-android-build-view.json
+          node - <<'NODE'
+          const fs = require('fs');
+          const build = JSON.parse(fs.readFileSync('/tmp/eas-android-build-view.json', 'utf8'));
+          if (build.status !== 'FINISHED') {
+            throw new Error(`Android EAS build status is ${build.status}`);
+          }
+          if (build.platform !== 'ANDROID') {
+            throw new Error(`Expected ANDROID build, got ${build.platform}`);
+          }
+          if (build.distribution !== 'INTERNAL') {
+            throw new Error(`Expected INTERNAL distribution, got ${build.distribution}`);
+          }
+          if (!build.artifacts?.buildUrl?.endsWith('.apk')) {
+            throw new Error(`Expected APK buildUrl, got ${build.artifacts?.buildUrl || 'missing'}`);
+          }
+          console.log(`Android internal APK verified: ${build.artifacts.buildUrl}`);
+          NODE
+
+      - name: Fail fast on Firebase distribution auth inputs
+        if: needs.gate.outputs.run_firebase == 'true'
+        env:
+          FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
+          FIREBASE_ANDROID_APP_ID: ${{ secrets.FIREBASE_ANDROID_APP_ID }}
+          FIREBASE_INTERNAL_GROUPS: ${{ vars.FIREBASE_INTERNAL_GROUPS }}
+          FIREBASE_INTERNAL_TESTERS: ${{ vars.FIREBASE_INTERNAL_TESTERS }}
+          FIREBASE_REQUIRED_TESTER_EMAIL: ${{ secrets.FIREBASE_REQUIRED_TESTER_EMAIL }}
+        run: |
+          set -euo pipefail
+          for name in FIREBASE_SERVICE_ACCOUNT_JSON FIREBASE_ANDROID_APP_ID; do
+            if [ -z "${!name:-}" ]; then
+              echo "Missing required secret: $name" >&2
+              exit 1
+            fi
+          done
+          if [ -z "${FIREBASE_REQUIRED_TESTER_EMAIL:-}" ]; then
+            echo "Missing required secret: FIREBASE_REQUIRED_TESTER_EMAIL" >&2
+            exit 1
+          fi
+          if ! [[ "$FIREBASE_ANDROID_APP_ID" =~ ^1:[0-9]+:android:[a-fA-F0-9]+$ ]]; then
+            echo "FIREBASE_ANDROID_APP_ID must match 1:PROJECT_NUMBER:android:APP_ID" >&2
+            exit 1
+          fi
+
+          COMBINED_FIREBASE_TESTERS="$(
+            python3 - <<'PY'
+          import os
+
+          seen = set()
+          testers = []
+          for value in (
+              os.environ.get("FIREBASE_INTERNAL_TESTERS", ""),
+              os.environ.get("FIREBASE_REQUIRED_TESTER_EMAIL", ""),
+          ):
+              for raw_email in value.split(","):
+                  email = raw_email.strip()
+                  if not email:
+                      continue
+                  key = email.lower()
+                  if key in seen:
+                      continue
+                  seen.add(key)
+                  testers.append(email)
+          print(",".join(testers))
+          PY
+          )"
+
+          if [ -n "${FIREBASE_INTERNAL_GROUPS:-}" ]; then
+            echo "FIREBASE_INTERNAL_GROUPS=${FIREBASE_INTERNAL_GROUPS}" >> "$GITHUB_ENV"
+          fi
+          if [ -n "$COMBINED_FIREBASE_TESTERS" ]; then
+            echo "FIREBASE_INTERNAL_TESTERS=${COMBINED_FIREBASE_TESTERS}" >> "$GITHUB_ENV"
+          fi
+          if [ -z "${FIREBASE_INTERNAL_GROUPS:-}" ] && [ -z "$COMBINED_FIREBASE_TESTERS" ]; then
+            echo "FIREBASE_INTERNAL_GROUPS=internal-testers" >> "$GITHUB_ENV"
+          fi
+
+      - name: Download EAS Android APK for Firebase
+        if: needs.gate.outputs.run_firebase == 'true'
+        run: |
+          set -euo pipefail
+          mkdir -p firebase-dist
+          APK_URL="$(
+            node -e 'const fs=require("fs"); const build=JSON.parse(fs.readFileSync("/tmp/eas-android-build-view.json","utf8")); console.log(build.artifacts?.buildUrl || "")'
+          )"
+          if [ -z "$APK_URL" ]; then
+            echo "Missing EAS APK URL in build read-back evidence" >&2
+            exit 1
+          fi
+          curl --fail --location --retry 3 --output firebase-dist/hermes-mobile-eas-internal.apk "$APK_URL"
+          test -s firebase-dist/hermes-mobile-eas-internal.apk
+
+      - name: Distribute Android APK to Firebase
+        if: needs.gate.outputs.run_firebase == 'true'
+        uses: wzieba/Firebase-Distribution-Github-Action@bd494989dd4bec0343f78adee87fe66e48279ad6 # v1
+        with:
+          appId: ${{ secrets.FIREBASE_ANDROID_APP_ID }}
+          serviceCredentialsFileContent: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
+          testers: ${{ env.FIREBASE_INTERNAL_TESTERS }}
+          groups: ${{ env.FIREBASE_INTERNAL_GROUPS }}
+          file: hermes-mobile/firebase-dist/hermes-mobile-eas-internal.apk
+          releaseNotes: |
+            Hermes Mobile internal Android build from ${{ needs.gate.outputs.sha }}
+            Ref: ${{ needs.gate.outputs.ref }}
+            EAS build: ${{ steps.build.outputs.build_id }}
+
+      - name: Record Firebase internal signoff status
+        if: needs.gate.outputs.run_firebase == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARGET_SHA: ${{ needs.gate.outputs.sha }}
+        run: |
+          set -euo pipefail
+          gh api "repos/${GITHUB_REPOSITORY}/statuses/${TARGET_SHA}" \
+            -f state=success \
+            -f context='internal-signoff/firebase-android' \
+            -f description="Firebase Android internal APK distributed to testers" \
+            -f target_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+
+      - name: Record Android internal signoff status
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARGET_SHA: ${{ needs.gate.outputs.sha }}
+          BUILD_ID: ${{ steps.build.outputs.build_id }}
+        run: |
+          set -euo pipefail
+          gh api "repos/${GITHUB_REPOSITORY}/statuses/${TARGET_SHA}" \
+            -f state=success \
+            -f context='internal-signoff/eas-android' \
+            -f description="EAS Android internal APK finished" \
+            -f target_url="https://expo.dev/accounts/igorganapolsky/projects/hermes-mobile/builds/${BUILD_ID}"
+
+      - name: Upload Android EAS evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: always()
+        with:
+          name: eas-android-internal-evidence
+          path: |
+            /tmp/eas-android-build.json
+            /tmp/eas-android-build-view.json
+            hermes-mobile/firebase-dist/hermes-mobile-eas-internal.apk
+          retention-days: 14
+
+  ios-eas-internal:
+    name: iOS EAS Internal Build
+    needs: [gate, quality-gate]
+    if: needs.gate.outputs.should_run == 'true' && needs.gate.outputs.run_ios == 'true'
+    runs-on: ubuntu-latest
+    environment: internal-ios
+    defaults:
+      run:
+        working-directory: hermes-mobile
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          ref: ${{ needs.gate.outputs.ref }}
+
+      - name: Set up Node.js
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: hermes-mobile/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Fail fast on required iOS/EAS inputs
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ -z "${EXPO_TOKEN:-}" ]; then
+            echo "Missing required secret: EXPO_TOKEN" >&2
+            exit 1
+          fi
+
+      - name: Run iOS release preflight
+        run: npm run launch:preflight:ios
+
+      - name: Build iOS internal artifact
+        id: build
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: |
+          set -euo pipefail
+          npx eas-cli@latest build \
+            --platform ios \
+            --profile preview \
+            --non-interactive \
+            --json \
+            --message "Internal Hermes Mobile iOS build from ${GITHUB_SHA}" \
+            > /tmp/eas-ios-build.json
+
+          cat /tmp/eas-ios-build.json
+          BUILD_ID="$(node -e 'const fs=require("fs"); const raw=fs.readFileSync("/tmp/eas-ios-build.json","utf8"); const json=JSON.parse(raw); const build=Array.isArray(json)?json[0]:json; console.log(build.id || "")')"
+          if [ -z "$BUILD_ID" ]; then
+            echo "Could not read iOS EAS build id" >&2
+            exit 1
+          fi
+          echo "build_id=$BUILD_ID" >> "$GITHUB_OUTPUT"
+
+      - name: Verify iOS build read-back
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+          BUILD_ID: ${{ steps.build.outputs.build_id }}
+        run: |
+          set -euo pipefail
+          npx eas-cli@latest build:view "$BUILD_ID" --json > /tmp/eas-ios-build-view.json
+          node - <<'NODE'
+          const fs = require('fs');
+          const build = JSON.parse(fs.readFileSync('/tmp/eas-ios-build-view.json', 'utf8'));
+          const allowedStatuses = ['NEW', 'IN_PROGRESS', 'FINISHED'];
+          if (!allowedStatuses.includes(build.status)) {
+            throw new Error(`iOS EAS build status is ${build.status}`);
+          }
+          if (build.platform !== 'IOS') {
+            throw new Error(`Expected IOS build, got ${build.platform}`);
+          }
+          if (build.distribution !== 'INTERNAL') {
+            throw new Error(`Expected INTERNAL distribution, got ${build.distribution}`);
+          }
+          console.log(`iOS internal build verified: status=${build.status}`);
+          NODE
+
+      - name: Record iOS internal signoff status
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARGET_SHA: ${{ needs.gate.outputs.sha }}
+          BUILD_ID: ${{ steps.build.outputs.build_id }}
+        run: |
+          set -euo pipefail
+          gh api "repos/${GITHUB_REPOSITORY}/statuses/${TARGET_SHA}" \
+            -f state=success \
+            -f context='internal-signoff/eas-ios' \
+            -f description="EAS iOS internal build triggered" \
+            -f target_url="https://expo.dev/accounts/igorganapolsky/projects/hermes-mobile/builds/${BUILD_ID}"
+
+      - name: Upload iOS EAS evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: always()
+        with:
+          name: eas-ios-internal-evidence
+          path: |
+            /tmp/eas-ios-build.json
+            /tmp/eas-ios-build-view.json
+          retention-days: 14

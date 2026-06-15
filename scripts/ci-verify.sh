@@ -26,13 +26,15 @@ node tools/publication-readiness.js
 
 echo "=== Secret smoke scan ==="
 ! git grep -nE '(ghp_[A-Za-z0-9_]+|sk_live_[A-Za-z0-9_]+|TELEGRAM_BOT_TOKEN=|STRIPE_SECRET_KEY=sk_)' \
-  -- ':!.github/workflows/ci.yml' ':!.github/workflows/mobile-distribute.yml'
+  -- ':!.github/workflows/ci.yml' ':!.github/workflows/internal-distribution.yml' ':!.github/workflows/store-release.yml'
 
 echo "=== Hermes Mobile ==="
 (
   cd hermes-mobile
   npm ci
+  npm run release:check
   npm run typecheck
+  EXPO_DOCTOR_ALLOW_NPX_DOWNLOAD=1 npm run doctor:expo
   npm run test:ci
 )
 

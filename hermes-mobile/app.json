@@ -37,6 +37,12 @@
         "projectId": "hermes-mobile-local-dev"
       }
     },
-    "owner": "igorganapolsky"
+    "owner": "igorganapolsky",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/hermes-mobile-local-dev"
+    }
   }
 }
