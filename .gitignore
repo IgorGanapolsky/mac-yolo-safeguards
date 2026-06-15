@@ -41,6 +41,9 @@ stripe-live-updates*.tsv
 
 # Private payment readiness reports.
 payment-readiness*.md
+payment-request-execution-packet*.md
+payment-waiting-audit*.md
+revenue-unblock-plan*.md
 
 # Private Stripe setup plans.
 stripe-setup-plan*.md
@@ -75,6 +78,11 @@ pipeline-integrity*.md
 
 # Private pipeline data science reports.
 pipeline-data-science*.md
+
+# Private Hermes reliability / decision-loop artifacts.
+hermes-decision*.md
+hermes-decisions*.jsonl
+hermes-evals*.jsonl
 
 # Private outreach state audits.
 send-confirmation-audit*.md

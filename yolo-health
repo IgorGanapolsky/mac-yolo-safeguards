@@ -46,6 +46,7 @@ check "[ -f '$GUARD_PLIST' ]"                                           "LaunchA
 check "launchctl print gui/\$(id -u)/$GUARD_LABEL >/dev/null 2>&1"      "LaunchAgent loaded"
 check "launchctl print gui/\$(id -u)/$GUARD_LABEL 2>/dev/null | grep -q 'run interval = 60'"  "runs every 60 seconds"
 check "grep -q 'memory hog' '$GUARD_SCRIPT'"                            "memory-hog branch present"
+check "grep -q 'YOLO_RECLAIM_OLLAMA' '$GUARD_SCRIPT'"                   "Ollama worker reclaim present"
 
 echo ""
 echo "=== Live Mac state ==="
@@ -61,7 +62,7 @@ printf "  agy processes:         %s\n" "$AGY_PROCS"
 printf "  agy-yolo lock held:    %s\n" "$LOCK_HELD"
 
 echo ""
-echo "=== Memory state (informational; kit does NOT manage general Mac memory) ==="
+echo "=== Memory state (informational; kit only auto-reclaims known-safe memory hogs) ==="
 FREE_PCT=$(/usr/bin/memory_pressure -Q 2>/dev/null | /usr/bin/awk -F': ' '/free percentage/ {gsub("%",""); print $2; exit}')
 [ -z "$FREE_PCT" ] && FREE_PCT="?"
 printf "  Free memory:           %s%%\n" "$FREE_PCT"

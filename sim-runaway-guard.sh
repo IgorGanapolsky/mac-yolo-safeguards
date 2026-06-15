@@ -15,10 +15,10 @@ export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
 #   3. Memory-pressure guard triggers on REAL thrash (swap near-max + active
 #      pageouts), not memory_pressure's misleading "free percentage". Under
 #      pressure it auto-reclaims stale orphaned automation Chrome (/tmp CDP
-#      profiles, no user data) AND quits redundant secondary browsers (Chrome
-#      Canary/Beta/Dev, Chromium) to protect RAM headroom for the Hermes agent
-#      fleet, then notifies about remaining AI memory hogs. Hermes/ollama are
-#      never targeted (not in any kill/notify matcher).
+#      profiles, no user data), unloads runaway Ollama llama-server workers,
+#      AND quits redundant secondary browsers (Chrome Canary/Beta/Dev, Chromium)
+#      to protect RAM headroom for the Hermes agent fleet, then notifies about
+#      remaining AI memory hogs. Hermes gateway processes are never targeted.
 #   4. Posts a macOS notification on every fire so the user knows; if
 #      YOLO_WEBHOOK_URL (or ~/.config/yolo-guard/webhook) is set, also pushes
 #      the alert off-box (ntfy-compatible) — a thrashing Mac can't render its
@@ -310,6 +310,35 @@ CPU_HOT_EOF
   fi
 
   if [ -n "$MEM_PRESSURE" ]; then
+    # --- Auto-reclaim: runaway local LLM workers (known-safe kill) ---
+    # Ollama's `llama-server` workers hold model weights and context cache; they
+    # do not hold unsaved user work. The 2026-06-15 Mac mini freeze was a
+    # deepseek-r1 14b worker at 65,536 context using ~68% RAM. Under real memory
+    # pressure, reclaiming that child process is safer than leaving the GUI
+    # swapped out. We deliberately do NOT kill Ollama.app / `ollama serve`, so
+    # later model calls can restart cleanly.
+    if [ "${YOLO_RECLAIM_OLLAMA:-1}" = "1" ]; then
+      OLLAMA_RSS_MB_THRESHOLD=${YOLO_OLLAMA_RSS_MB_THRESHOLD:-12000}
+      OLLAMA_HOG_LINES=$(/bin/ps -axo pid,rss,command -m | /usr/bin/awk -v t="$OLLAMA_RSS_MB_THRESHOLD" '
+        NR>1 {
+          pid = $1
+          rss_mb = $2/1024
+          if (rss_mb >= t && $0 ~ /llama-server/) {
+            printf "%s %.0f %s\n", pid, rss_mb, substr($0, index($0,$3))
+          }
+        }')
+      echo "$OLLAMA_HOG_LINES" | while read -r opid orss ocmd; do
+        [ -z "$opid" ] && continue
+        /bin/kill -TERM "$opid" 2>/dev/null || true
+        /bin/sleep 3
+        if /bin/ps -p "$opid" >/dev/null 2>&1; then
+          /bin/kill -KILL "$opid" 2>/dev/null || true
+        fi
+        notify "yolo-guard: reclaimed Ollama worker" "Killed llama-server PID $opid (${orss}MB) under memory pressure ($MEM_PRESSURE). Ollama service left running."
+        echo "$(date) OLLAMA_RECLAIM: killed llama-server PID $opid ${orss}MB pressure=$MEM_PRESSURE cmd=$ocmd" >> "$LOG"
+      done
+    fi
+
     # --- Auto-reclaim: stale browser-automation Chrome (known-safe kill) ---
     # Agent sessions (claude-in-chrome / CDP automation) leave orphaned Chrome
     # instances on throwaway /tmp profiles (--user-data-dir=/tmp/chrome_cdp_

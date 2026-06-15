@@ -4,6 +4,16 @@ All notable changes to this project will be documented here. Format loosely foll
 
 ## [Unreleased]
 
+### Fixed
+
+- **The memory-pressure branch had never fired once in its life** — exposed by the 2026-06-11 Cursor parallel-agents freeze. It gated on `memory_pressure -Q` "free percentage", which counts purgeable/file cache as free: it reported 65% free while the machine sat at 372MB unused RAM and 90% swap, thrashing itself into a UI freeze that crashed Cursor's renderer. The guard now also triggers on the signal that actually predicts a freeze: **swap usage ≥ `YOLO_SWAP_PCT_THRESHOLD` (default 80%) AND active pageouts ≥ `YOLO_PAGEOUT_DELTA_THRESHOLD` (default 1000 pages, ~16MB) since the last check** — i.e. the compressor is thrashing *right now*, not "free cache looks low". The old free-percentage gate is kept as a secondary trigger. Status reports show all three signals (free%, swap%, pageout delta).
+- **Alert fatigue from macOS maintenance daemons.** The CPU branch notified about `mediaanalysisd` roughly hourly for two days, burying the one Cursor-runaway notification that mattered. New `YOLO_CPU_NOTIFY_IGNORE_PATTERNS` (default: `mediaanalysisd|photoanalysisd|photolibraryd|mds_stores|mdworker.*|mdbulkimport|corespotlightd|spotlightknowledged|fseventsd|backupd|bird|cloudd`) — Spotlight/photo/media analysis daemons finish on their own and the runbook forbids killing them, so notifying about them is pure noise. Never killed, never notified.
+
+### Added
+
+- **Auto-reclaim of stale browser-automation Chrome under memory pressure.** Agent sessions (claude-in-chrome / CDP automation) leave orphaned Chrome instances on throwaway `/tmp/chrome_cdp_profile_*` profiles — main process reparented to launchd (ppid 1), launcher long gone, no user data, ~2GB per heavy renderer (killing these freed ~12GB on 2026-06-04). When the pressure gate fires, the guard `pkill -9`s each orphaned profile and logs/notifies the reclaim. This is the one carve-out from notify-only: by construction it is never a GUI app the user is working in. Opt out with `YOLO_RECLAIM_STALE_CDP=0`.
+- **Off-box alert delivery (ntfy-compatible webhook).** A thrashing Mac can't render its own notification banners — the moment the guard matters most is the moment you can't see it. Set `YOLO_WEBHOOK_URL` (or put the URL in `~/.config/yolo-guard/webhook`), e.g. an `https://ntfy.sh/<private-topic>` you subscribe to on your phone, and every `notify()` also POSTs the alert there. Best-effort with a 5s timeout, runs in the background, never blocks the guard.
+
 ### Changed
 
 - Replaced the low-ACV "$99 onboarding" funnel with a paid AI-agent reliability offer ladder: $499 diagnostic, $1,500 hardening sprint, and $3,000 partner pilot. Added `AI-AGENT-HARDENING.md` and `REVENUE-OPERATING-PLAN.md` so the public repo points qualified team and agency buyers toward offers that can plausibly support the $300/day after-tax revenue target.
