@@ -38,7 +38,7 @@ const CPU_THRESHOLD = parseFloat(process.env.HERMES_YOLO_CPU_THRESHOLD || 90);
 const CPU_STUCK_SAMPLES = parseInt(process.env.HERMES_YOLO_CPU_STUCK_SAMPLES || 10, 10);
 
 const args = process.argv.slice(2);
-const promptText = args.join(' ') || 'Autonomous Hermes YOLO Operation';
+const promptText = args.join(' ') || 'Reply with exactly HERMES-YOLO-READY';
 const HERMES_COMMANDS = new Set([
   'chat', 'model', 'fallback', 'secrets', 'migrate', 'gateway', 'proxy', 'lsp',
   'setup', 'postinstall', 'whatsapp', 'whatsapp-cloud', 'slack', 'send', 'login',
@@ -52,7 +52,10 @@ const HERMES_COMMANDS = new Set([
 
 function buildChildPromptArgs(rawArgs) {
   if (process.env.HERMES_YOLO_INTERACTIVE === '1') return rawArgs;
-  if (rawArgs.length === 0) return ['-z', 'Reply with exactly HERMES-YOLO-READY'];
+  if (rawArgs.length === 0) {
+    if (process.stdout.isTTY) return []; // Drop into interactive TUI/REPL when run in a terminal
+    return ['-z', promptText];
+  }
   if (rawArgs[0].startsWith('-') || HERMES_COMMANDS.has(rawArgs[0])) return rawArgs;
   return ['-z', promptText];
 }

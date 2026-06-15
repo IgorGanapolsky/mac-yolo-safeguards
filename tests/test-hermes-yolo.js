@@ -34,23 +34,23 @@ function runWithMockedTTY(isTTY, fn) {
 // Test case: Empty arguments in interactive terminal (TTY)
 runWithMockedTTY(true, () => {
   const result = buildChildPromptArgs([]);
-  console.log('  [TEST] Empty args + TTY=true -> expected ready smoke prompt, got:', result);
-  assert.deepStrictEqual(result, ['-z', 'Reply with exactly HERMES-YOLO-READY']);
+  console.log('  [TEST] Empty args + TTY=true -> expected [], got:', result);
+  assert.deepStrictEqual(result, [], 'TTY=true and empty args must return empty array to drop into interactive TUI/REPL');
 });
 
 // Test case: Empty arguments in non-interactive pipeline (non-TTY)
 runWithMockedTTY(false, () => {
   const result = buildChildPromptArgs([]);
-  console.log('  [TEST] Empty args + TTY=false -> expected ready smoke prompt, got:', result);
+  console.log('  [TEST] Empty args + TTY=false -> expected ["-z", "Reply with exactly HERMES-YOLO-READY"], got:', result);
   assert.deepStrictEqual(result, ['-z', 'Reply with exactly HERMES-YOLO-READY']);
 });
 
 // Test case: Custom prompt positional argument
 runWithMockedTTY(true, () => {
   const result = buildChildPromptArgs(['Write a python hello world script']);
-  console.log('  [TEST] Custom prompt -> expected ["-z", "Autonomous Hermes YOLO Operation"], got:', result);
+  console.log('  [TEST] Custom prompt -> expected ["-z", "Reply with exactly HERMES-YOLO-READY"], got:', result);
   assert.deepStrictEqual(result[0], '-z');
-  assert.strictEqual(result[1], 'Autonomous Hermes YOLO Operation'); // promptText is args.join(' ') from process.argv
+  assert.strictEqual(result[1], 'Reply with exactly HERMES-YOLO-READY'); // promptText is args.join(' ') from process.argv
 });
 
 // Test case: Hermes subcommands (e.g. chat, doctor, version)
