@@ -11,7 +11,7 @@ Ledger columns:
   stripe_fee_usd, refund_usd, tax_reserve_pct, status, proof_note
 
 Rows count only when status is "paid" or "cleared". Private buyer/payment ledgers
-must stay untracked; use revenue-ledger.example.tsv only as a public example.`;
+must stay untracked; use docs/revenue-ledger.example.tsv only as a public example.`;
 
 function parseArgs(argv) {
   const args = {

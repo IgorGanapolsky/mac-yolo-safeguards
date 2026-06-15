@@ -13,12 +13,12 @@ This tool is read-only. It does not add, commit, push, or publish anything.`;
 
 const publicArtifacts = [
   'README.md',
-  'CASE-STUDY.md',
+  'docs/CASE-STUDY.md',
   'CHANGELOG.md',
-  'AI-AGENT-HARDENING.md',
-  'PARTNER-PILOT.md',
-  'REVENUE-OPERATING-PLAN.md',
-  'SALES-CLOSE-KIT.md',
+  'docs/AI-AGENT-HARDENING.md',
+  'docs/PARTNER-PILOT.md',
+  'docs/REVENUE-OPERATING-PLAN.md',
+  'docs/SALES-CLOSE-KIT.md',
   '.github/ISSUE_TEMPLATE/config.yml',
   '.github/ISSUE_TEMPLATE/free-incident-report.yml',
   '.github/ISSUE_TEMPLATE/paid-hardening-inquiry.yml',

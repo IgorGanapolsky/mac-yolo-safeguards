@@ -13,11 +13,11 @@ This tool is read-only. It does not publish or prove revenue.`;
 
 const publicMarkdown = [
   'README.md',
-  'CASE-STUDY.md',
-  'AI-AGENT-HARDENING.md',
-  'PARTNER-PILOT.md',
-  'REVENUE-OPERATING-PLAN.md',
-  'SALES-CLOSE-KIT.md',
+  'docs/CASE-STUDY.md',
+  'docs/AI-AGENT-HARDENING.md',
+  'docs/PARTNER-PILOT.md',
+  'docs/REVENUE-OPERATING-PLAN.md',
+  'docs/SALES-CLOSE-KIT.md',
   'CHANGELOG.md',
 ];
 

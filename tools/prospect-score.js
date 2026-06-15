@@ -12,7 +12,7 @@ Prospect columns:
   last_touch, status, notes
 
 Boolean signal values accept: yes/no, true/false, 1/0.
-Private prospect files must stay untracked; use prospects.example.tsv only as
+Private prospect files must stay untracked; use docs/prospects.example.tsv only as
 public example data.`;
 
 const signals = [

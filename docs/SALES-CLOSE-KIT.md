@@ -28,7 +28,7 @@ Routing:
 | 6-8 | Offer $1,500 AI Agent Hardening Sprint. |
 | 9-10 | Offer $3,000 Partner Pilot. |
 
-For outreach queues, use `tools/prospect-score.js` against a private ignored `prospects.tsv` file. `prospects.example.tsv` is synthetic example data only.
+For outreach queues, use `tools/prospect-score.js` against a private ignored `prospects.tsv` file. `docs/prospects.example.tsv` is synthetic example data only.
 
 After contact paths and draft sections exist, use `tools/outreach-queue.js` to verify every paid-route prospect has a send path and a draft before sending.
 
@@ -181,6 +181,6 @@ The revenue goal is not achieved until Stripe and tax-reserved accounting prove 
 - Net after reserve.
 - Days at or above $300 net.
 
-Use `tools/revenue-net.js` against a private ignored ledger to calculate the result. `revenue-ledger.example.tsv` is synthetic example data; it is not revenue evidence.
+Use `tools/revenue-net.js` against a private ignored ledger to calculate the result. `docs/revenue-ledger.example.tsv` is synthetic example data; it is not revenue evidence.
 
 Do not claim the goal is complete from bookings, calls, stars, downloads, unpaid invoices, or the public example ledger.

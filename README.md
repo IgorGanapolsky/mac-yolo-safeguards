@@ -11,21 +11,20 @@
 
 Safety net for running AI coding agents (Antigravity `agy`, Claude Code, Cursor, Codex) in YOLO mode on macOS without freezing the Mac.
 
-> **TL;DR** — On 2026-05-26 my Mac hit load average **307** because an AI agent kept booting iOS Simulators in a loop. This repo is the four-piece kit that stopped it: a wrapper, a LaunchAgent, a plist, and a 12-point health check. MIT, no telemetry, symlinks-only install. Full incident write-up: [`CASE-STUDY.md`](./CASE-STUDY.md).
+> **TL;DR** — On 2026-05-26 my Mac hit load average **307** because an AI agent kept booting iOS Simulators in a loop. This repo is the four-piece kit that stopped it: a wrapper, a LaunchAgent, a plist, and a 12-point health check. MIT, no telemetry, symlinks-only install. Full incident write-up: [`CASE-STUDY.md`](./docs/CASE-STUDY.md).
 
-**Paid reliability help:** [Book 20-min triage](https://cal.com/igor-g-kvqxfo/30min) | [Partner Pilot](./PARTNER-PILOT.md) | [Public-safe paid inquiry](https://github.com/IgorGanapolsky/mac-yolo-safeguards/issues/new?template=paid-hardening-inquiry.yml)
+**Paid reliability help:** [Book 20-min triage](https://cal.com/igor-g-kvqxfo/30min) | [Partner Pilot](./docs/PARTNER-PILOT.md) | [Public-safe paid inquiry](https://github.com/IgorGanapolsky/mac-yolo-safeguards/issues/new?template=paid-hardening-inquiry.yml)
 
 ## For Teams And Partners
 
 If you only need the free Mac guard, install it below.
 
-If you run agents for a team or clients and have a repeated failure that costs hours, tokens, delivery risk, or client trust, start with [AI Agent Reliability Hardening](./AI-AGENT-HARDENING.md):
+If you run agents for a team or clients and have a repeated failure that costs hours, tokens, delivery risk, or client trust, start with [AI Agent Reliability Hardening](./docs/AI-AGENT-HARDENING.md):
 
-| Path | Best for | Price |
-|---|---|---:|
-| Diagnostic | One failure pattern needs a root-cause readout before implementation. | `$499` |
-| Hardening sprint | One repeated workflow failure needs guardrails and proof. | `$1,500` |
-| [Partner Pilot](./PARTNER-PILOT.md) | Agencies or consultants need a reusable client-facing reliability package. | `$3,000` |
+| Path | Deliverables | Pricing |
+|---|---|---|
+| **Diagnostic Call** | 20-min live review, root-cause triage readout, recommended prevention rules, no installation. | `$499` |
+| [Partner Pilot](./docs/PARTNER-PILOT.md) | Agencies or consultants need a reusable client-facing reliability package. | `$3,000` |
 
 Private workflow details: [book a 20-minute triage](https://cal.com/igor-g-kvqxfo/30min) or email [iganapolsky@gmail.com](mailto:iganapolsky@gmail.com). Public-safe intake: [open a paid hardening inquiry](https://github.com/IgorGanapolsky/mac-yolo-safeguards/issues/new?template=paid-hardening-inquiry.yml).
 
@@ -174,7 +173,7 @@ Local mirror before pushing:
 
 ## The incident this came from
 
-Load average **307**, 256+ `simruntime` processes, hard-reboot territory. Full timeline + 12/12 health-check output: [`CASE-STUDY.md`](./CASE-STUDY.md).
+Load average **307**, 256+ `simruntime` processes, hard-reboot territory. Full timeline + 12/12 health-check output: [`CASE-STUDY.md`](./docs/CASE-STUDY.md).
 
 ## Support & Paid Hardening
 
@@ -199,9 +198,9 @@ Even with official updates (like v2.1.166 addressing the macOS `bg-pty-host` 100
 
 Best fit: founders and teams running Claude Code, Cursor, Codex, or Antigravity daily who can point to one failure that has cost real hours or dollars more than once.
 
-**Start here:** email **[iganapolsky@gmail.com](mailto:iganapolsky@gmail.com)** or book a 20-min triage via **[Cal.com](https://cal.com/igor-g-kvqxfo/30min)** with: the agent stack, the repeated failure, and what one incident cost you. Full scope: [AI Agent Reliability Hardening](./AI-AGENT-HARDENING.md).
+**Start here:** email **[iganapolsky@gmail.com](mailto:iganapolsky@gmail.com)** or book a 20-min triage via **[Cal.com](https://cal.com/igor-g-kvqxfo/30min)** with: the agent stack, the repeated failure, and what one incident cost you. Full scope: [AI Agent Reliability Hardening](./docs/AI-AGENT-HARDENING.md).
 
-*Also available:* a $499 diagnostic (root-cause readout only, no install) for smaller pain, and a $3,000 [Partner Pilot](./PARTNER-PILOT.md) (sprint + reusable client package) for agencies reselling reliability. Operator playbook: [Sales Close Kit](./SALES-CLOSE-KIT.md).
+*Also available:* a $499 diagnostic (root-cause readout only, no install) for smaller pain, and a $3,000 [Partner Pilot](./docs/PARTNER-PILOT.md) (sprint + reusable client package) for agencies reselling reliability. Operator playbook: [Sales Close Kit](./docs/SALES-CLOSE-KIT.md).
 
 Public GitHub issues must stay public-safe. Do not post secrets, customer names, private repository details, payment data, or proprietary logs. Use the paid triage links above for private workflow details.
 

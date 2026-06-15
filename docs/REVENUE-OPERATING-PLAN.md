@@ -77,18 +77,18 @@ Worth a 20-minute triage call?
 ## Daily Operating Loop
 
 1. Find 20 buyers with public evidence of AI-agent work.
-2. Add them to a private ignored `prospects.tsv` file using the columns from `prospects.example.tsv`.
+2. Add them to a private ignored `prospects.tsv` file using the columns from `docs/prospects.example.tsv`.
 3. Score the queue:
 
 ```sh
-node tools/prospect-score.js prospects.example.tsv --status new --min-score 4
+node tools/prospect-score.js docs/prospects.example.tsv --status new --min-score 4
 ```
 
 4. Generate the private send queue after contact paths and drafts exist:
 
 ```sh
 node tools/outreach-queue.js \
-  --prospects prospects.example.tsv \
+  --prospects docs/prospects.example.tsv \
   --contacts contacts-YYYY-MM-DD.tsv \
   --drafts outreach-YYYY-MM-DD.md \
   --out send-queue-YYYY-MM-DD.tsv
@@ -140,7 +140,7 @@ node tools/pipeline-update.js \
 Summarize the active pipeline:
 
 ```sh
-node tools/pipeline-summary.js pipeline-status.example.tsv
+node tools/pipeline-summary.js docs/pipeline-status.example.tsv
 ```
 
 Summarize multiple active private trackers together:
@@ -231,13 +231,13 @@ Check that the public repo still exposes the paid path and safety boundaries:
 node tools/public-conversion-check.js
 ```
 
-The public `prospects.example.tsv` is synthetic. Real prospect/contact data belongs in a private ignored file.
+The public `docs/prospects.example.tsv` is synthetic. Real prospect/contact data belongs in a private ignored file.
 
-The public `pipeline-status.example.tsv` is synthetic. Real sent/replied/booked/proposed/paid/lost outcomes belong in a private ignored file. `paid` stage is not revenue proof by itself; cleared payments still need to be entered into the private revenue ledger and verified with `tools/revenue-net.js`.
+The public `docs/pipeline-status.example.tsv` is synthetic. Real sent/replied/booked/proposed/paid/lost outcomes belong in a private ignored file. `paid` stage is not revenue proof by itself; cleared payments still need to be entered into the private revenue ledger and verified with `tools/revenue-net.js`.
 
 ## Revenue Ledger
 
-Use a private ledger or CRM, not this public repo, for buyer names and payment records. Real TSV ledgers matching `revenue-ledger*.tsv` are gitignored; `revenue-ledger.example.tsv` is public example data only.
+Use a private ledger or CRM, not this public repo, for buyer names and payment records. Real TSV ledgers matching `revenue-ledger*.tsv` are gitignored; `docs/revenue-ledger.example.tsv` is public example data only.
 
 Required fields:
 
@@ -258,7 +258,7 @@ Required fields:
 Use the verifier before claiming the target:
 
 ```sh
-node tools/revenue-net.js revenue-ledger.example.tsv --from 2026-06-01 --to 2026-06-30 --days 30
+node tools/revenue-net.js docs/revenue-ledger.example.tsv --from 2026-06-01 --to 2026-06-30 --days 30
 ```
 
 The example ledger is synthetic and should report `Target status: MET` only to demonstrate the math. For real revenue, run the same command against a private ignored ledger populated from cleared Stripe payments.

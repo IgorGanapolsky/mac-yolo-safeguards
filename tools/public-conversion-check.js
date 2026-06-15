@@ -32,10 +32,10 @@ function before(text, earlier, later) {
 function main() {
   const failures = [];
   const readme = read('README.md');
-  const hardening = read('AI-AGENT-HARDENING.md');
-  const partner = read('PARTNER-PILOT.md');
-  const operatingPlan = read('REVENUE-OPERATING-PLAN.md');
-  const closeKit = read('SALES-CLOSE-KIT.md');
+  const hardening = read('docs/AI-AGENT-HARDENING.md');
+  const partner = read('docs/PARTNER-PILOT.md');
+  const operatingPlan = read('docs/REVENUE-OPERATING-PLAN.md');
+  const closeKit = read('docs/SALES-CLOSE-KIT.md');
   const paidIssue = read('.github/ISSUE_TEMPLATE/paid-hardening-inquiry.yml');
   const freeIssue = read('.github/ISSUE_TEMPLATE/free-incident-report.yml');
   const config = read('.github/ISSUE_TEMPLATE/config.yml');
@@ -43,8 +43,8 @@ function main() {
   check(readme.includes('**Paid reliability help:**'), 'README has one-line paid reliability CTA', failures);
   check(before(readme, '**Paid reliability help:**', '## Background'), 'README paid CTA appears before Background', failures);
   check(readme.includes('https://cal.com/igor-g-kvqxfo/30min'), 'README links Cal.com triage', failures);
-  check(readme.includes('./PARTNER-PILOT.md'), 'README links Partner Pilot', failures);
-  check(readme.includes('./SALES-CLOSE-KIT.md'), 'README links Sales Close Kit', failures);
+  check(readme.includes('./docs/PARTNER-PILOT.md'), 'README links Partner Pilot', failures);
+  check(readme.includes('./docs/SALES-CLOSE-KIT.md'), 'README links Sales Close Kit', failures);
   check(readme.includes('paid-hardening-inquiry.yml'), 'README links paid hardening inquiry', failures);
   check(readme.includes('Do not post secrets'), 'README warns public issues must not include secrets', failures);
 

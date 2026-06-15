@@ -10,11 +10,11 @@ business_os/
 
 # Private revenue ledgers. Keep real buyer/payment records out of git.
 revenue-ledger*.tsv
-!revenue-ledger.example.tsv
+!docs/revenue-ledger.example.tsv
 
 # Private prospect pipelines. Keep real prospect/contact records out of git.
 prospects*.tsv
-!prospects.example.tsv
+!docs/prospects.example.tsv
 
 # Private outreach drafts. Keep real prospect-specific sales notes out of git.
 outreach*.md
@@ -94,4 +94,4 @@ market-research*.md
 
 # Private post-send pipeline status. Keep real prospect outcomes out of git.
 pipeline-status*.tsv
-!pipeline-status.example.tsv
+!docs/pipeline-status.example.tsv
