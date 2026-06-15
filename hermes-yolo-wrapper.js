@@ -82,6 +82,7 @@ function updateStatus(updater) {
   } catch (e) {}
 }
 
+if (require.main === module) {
 // --- Singleton lock: refuse second instance, clear stale locks ---
 if (fs.existsSync(LOCK_PATH)) {
   const lockPid = parseInt(fs.readFileSync(LOCK_PATH, 'utf8').trim(), 10);
@@ -327,3 +328,9 @@ child.on('close', (code, signal) => {
 });
 
 process.on('exit', releaseLock);
+} else {
+  module.exports = {
+    buildChildPromptArgs,
+    HERMES_COMMANDS
+  };
+}
