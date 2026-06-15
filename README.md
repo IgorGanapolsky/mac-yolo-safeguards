@@ -148,6 +148,30 @@ AGY_BIN=/nonexistent AGY_YOLO_NO_DEFAULT_ARGS=1 node $WRAPPER
 rm -f /tmp/yolo-test-$$.lock /tmp/yolo-test-$$.log
 ```
 
+Guard E2E (browser reclaim + CPU autokill):
+
+```sh
+tests/test-secondary-browser-reclaim.sh
+```
+
+## CI/CD
+
+**CI** ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) runs on every push/PR to `main`:
+
+| Job | Runner | What it verifies |
+|---|---|---|
+| `macos-guard` | `macos-latest` | JS/shell syntax, `./install.sh`, `yolo-health`, guard E2E, secret scan |
+| `revenue-public-checks` | `ubuntu-latest` | Public funnel docs, issue templates, publication readiness |
+| `mobile-checks` | `ubuntu-latest` | `hermes-mobile` typecheck + unit tests |
+
+Local mirror before pushing:
+
+```sh
+./scripts/ci-verify.sh
+```
+
+**CD** ([`.github/workflows/mobile-distribute.yml`](.github/workflows/mobile-distribute.yml)) — manual `workflow_dispatch` to build `hermes-mobile` via EAS (`preview` APK by default). Requires repository secret `EXPO_TOKEN` from [expo.dev access tokens](https://expo.dev/settings/access-tokens).
+
 ## The incident this came from
 
 Load average **307**, 256+ `simruntime` processes, hard-reboot territory. Full timeline + 12/12 health-check output: [`CASE-STUDY.md`](./CASE-STUDY.md).

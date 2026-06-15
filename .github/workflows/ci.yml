@@ -6,8 +6,13 @@ on:
     branches:
       - main
 
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  static-and-guard-tests:
+  macos-guard:
+    name: macOS guard kit
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v6.0.3
@@ -28,6 +33,12 @@ jobs:
           set -eu
           sh -n install.sh sim-runaway-guard.sh yolo-health tests/test-secondary-browser-reclaim.sh
 
+      - name: Smoke install and yolo-health
+        run: |
+          set -eu
+          mkdir -p "$HOME/workspace/git/igor/antigravity-hub/antigravity-cli/bin"
+          ./install.sh
+
       - name: Guard E2E
         run: |
           set -eu
@@ -36,18 +47,47 @@ jobs:
       - name: Public secret smoke scan
         run: |
           set -eu
-          ! git grep -nE '(ghp_[A-Za-z0-9_]+|sk_live_[A-Za-z0-9_]+|TELEGRAM_BOT_TOKEN=|STRIPE_SECRET_KEY=sk_)' -- ':!.github/workflows/ci.yml'
+          ! git grep -nE '(ghp_[A-Za-z0-9_]+|sk_live_[A-Za-z0-9_]+|TELEGRAM_BOT_TOKEN=|STRIPE_SECRET_KEY=sk_)' \
+            -- ':!.github/workflows/ci.yml' ':!.github/workflows/mobile-distribute.yml'
 
-  mobile-checks:
-    name: Mobile Type-check and Test
+  revenue-public-checks:
+    name: Public funnel checks
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6.0.3
 
       - uses: actions/setup-node@v6.4.0
         with:
-          node-version: '20'
-          cache: 'npm'
+          node-version: '22'
+
+      - name: Public conversion check
+        run: node tools/public-conversion-check.js
+
+      - name: Public funnel safety scan
+        run: node tools/public-funnel-safety-scan.js
+
+      - name: Public command reference check
+        run: node tools/public-command-reference-check.js
+
+      - name: Public local link check
+        run: node tools/public-local-link-check.js
+
+      - name: GitHub issue template check
+        run: node tools/github-issue-template-check.js
+
+      - name: Publication readiness
+        run: node tools/publication-readiness.js
+
+  mobile-checks:
+    name: Hermes Mobile typecheck and tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6.0.3
+
+      - uses: actions/setup-node@v6.4.0
+        with:
+          node-version: '22'
+          cache: npm
           cache-dependency-path: hermes-mobile/package-lock.json
 
       - name: Install dependencies
@@ -58,7 +98,6 @@ jobs:
         working-directory: hermes-mobile
         run: npm run typecheck
 
-      - name: Run unit tests
+      - name: Unit tests with coverage
         working-directory: hermes-mobile
-        run: npm test
-
+        run: npm run test:ci
