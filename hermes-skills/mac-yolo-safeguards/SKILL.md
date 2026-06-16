@@ -1,0 +1,46 @@
+# Mac YOLO Safeguards Reliability
+
+Use this skill when Igor asks about Hermes Telegram reliability, `hermes-yolo`,
+Mac YOLO guardrails, simulator runaway protection, or local model fallback
+readiness in `mac-yolo-safeguards`.
+
+## Operating Rules
+
+- Start from verified state, not memory: run `pwd`, `git status --short --branch`,
+  `yolo-health`, and `node tools/hermes-productivity-audit.js --json`.
+- When Igor sends a YouTube, podcast, or media URL, do not ask which extraction
+  path to use. Run `node tools/media-content-ingest.js "<url>" --json`, then
+  summarize what was actually extracted and convert it into action lanes.
+- Treat `terminal.cwd` as a first-class failure surface. It must point at
+  `/Users/igorganapolsky/workspace/git/igor/mac-yolo-safeguards` for this lane.
+- Do not claim Telegram is fixed unless logs show current inbound or outbound
+  delivery, with timestamps.
+- Do not claim local fallback is ready unless the configured endpoint is
+  reachable and advertises the configured model.
+- Keep Ollama and serious serving separate:
+  - Ollama is a convenience fallback.
+  - vLLM/LocalAI-style OpenAI-compatible serving is the serious runtime target.
+- If `hermes-yolo` crashes or exits `130`, inspect for stale cwd, interactive
+  no-arg sessions, live lock files, and recent agent log interruptions.
+
+## Proof Commands
+
+```sh
+yolo-health
+node tools/hermes-productivity-audit.js --json
+node tools/local-inference-readiness.js
+node tools/media-content-ingest.js "https://example.com/media" --json
+HERMES_YOLO_NO_PREFLIGHT=1 hermes-yolo
+HERMES_YOLO_NO_PREFLIGHT=1 hermes-yolo 'Reply with exactly HERMES-YOLO-PROOF-OK'
+```
+
+## Expected Healthy Baseline
+
+- `terminal.cwd` exists and equals this repo path.
+- `hermes-yolo` bare run returns `HERMES-YOLO-READY` and exits.
+- `hermes-yolo` prompt mode returns the requested exact token and exits.
+- Telegram gateway has one owner process.
+- Telegram Bot API has zero pending updates and no current error.
+- Local fallback readiness is reported honestly, even when it is not ready.
+- Media links produce a structured report with `status`, `source`, `summary`,
+  and `actionPlan`; blocked extraction is reported as blocked, not guessed.
