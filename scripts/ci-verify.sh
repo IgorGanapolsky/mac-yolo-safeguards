@@ -11,6 +11,8 @@ git ls-files '*.js' | while IFS= read -r file; do
 done
 node --check tools/hermes-contribution-opportunities.js
 node --check tests/test-hermes-contribution-opportunities.js
+node --check tools/hermes-telegram-incident-audit.js
+node --check tests/test-hermes-telegram-incident-audit.js
 node --check tools/media-content-ingest.js
 node --check tests/test-media-content-ingest.js
 node --check tools/openrouter-reasoning-plan.js
@@ -22,6 +24,7 @@ sh -n install.sh sim-runaway-guard.sh yolo-health tests/test-secondary-browser-r
 
 echo "=== Guard E2E ==="
 node tests/test-hermes-contribution-opportunities.js
+node tests/test-hermes-telegram-incident-audit.js
 node tests/test-media-content-ingest.js
 node tests/test-openrouter-graphify-tools.js
 tests/test-secondary-browser-reclaim.sh

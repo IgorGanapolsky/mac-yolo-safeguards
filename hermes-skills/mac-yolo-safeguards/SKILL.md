@@ -11,6 +11,10 @@ readiness in `mac-yolo-safeguards`.
 - When Igor sends a YouTube, podcast, or media URL, do not ask which extraction
   path to use. Run `node tools/media-content-ingest.js "<url>" --json`, then
   summarize what was actually extracted and convert it into action lanes.
+- When Igor says Hermes is timing out, stuck on "working", losing context, or
+  replying generically, run `node tools/hermes-telegram-incident-audit.js --json`
+  before answering. Report the exact slow-turn, polling-conflict, timeout,
+  provider, and context-loss metrics; do not answer with generic reassurance.
 - When Igor sends model/provider/reasoning material, run
   `node tools/openrouter-reasoning-plan.js --json` and map the lesson to a
   routing or cost-control change before making claims.
@@ -35,6 +39,7 @@ readiness in `mac-yolo-safeguards`.
 ```sh
 yolo-health
 node tools/hermes-productivity-audit.js --json
+node tools/hermes-telegram-incident-audit.js --json
 node tools/local-inference-readiness.js
 node tools/media-content-ingest.js "https://example.com/media" --json
 node tools/openrouter-reasoning-plan.js --effort high --json
