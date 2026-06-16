@@ -11,6 +11,13 @@ readiness in `mac-yolo-safeguards`.
 - When Igor sends a YouTube, podcast, or media URL, do not ask which extraction
   path to use. Run `node tools/media-content-ingest.js "<url>" --json`, then
   summarize what was actually extracted and convert it into action lanes.
+- When Igor sends model/provider/reasoning material, run
+  `node tools/openrouter-reasoning-plan.js --json` and map the lesson to a
+  routing or cost-control change before making claims.
+- For broad repo, PDF, diagram, or architecture questions, run
+  `node tools/graphify-readiness.js --json` first. If Graphify is installed,
+  build/query the graph before asking the model to reason over large context.
+  If Graphify is missing, say so and fall back to targeted `rg` and file reads.
 - Treat `terminal.cwd` as a first-class failure surface. It must point at
   `/Users/igorganapolsky/workspace/git/igor/mac-yolo-safeguards` for this lane.
 - Do not claim Telegram is fixed unless logs show current inbound or outbound
@@ -30,6 +37,8 @@ yolo-health
 node tools/hermes-productivity-audit.js --json
 node tools/local-inference-readiness.js
 node tools/media-content-ingest.js "https://example.com/media" --json
+node tools/openrouter-reasoning-plan.js --effort high --json
+node tools/graphify-readiness.js --json
 HERMES_YOLO_NO_PREFLIGHT=1 hermes-yolo
 HERMES_YOLO_NO_PREFLIGHT=1 hermes-yolo 'Reply with exactly HERMES-YOLO-PROOF-OK'
 ```
@@ -44,3 +53,7 @@ HERMES_YOLO_NO_PREFLIGHT=1 hermes-yolo 'Reply with exactly HERMES-YOLO-PROOF-OK'
 - Local fallback readiness is reported honestly, even when it is not ready.
 - Media links produce a structured report with `status`, `source`, `summary`,
   and `actionPlan`; blocked extraction is reported as blocked, not guessed.
+- Reasoning-provider changes include a normalized `effort`, provider-native
+  mappings, and a cost/risk policy.
+- Knowledge-graph claims are backed by Graphify readiness/build artifacts or an
+  explicit fallback path.
