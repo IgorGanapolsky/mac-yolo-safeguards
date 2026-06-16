@@ -9,11 +9,14 @@ echo "=== JavaScript syntax ==="
 git ls-files '*.js' | while IFS= read -r file; do
   node --check "$file"
 done
+node --check tools/hermes-contribution-opportunities.js
+node --check tests/test-hermes-contribution-opportunities.js
 
 echo "=== Shell syntax ==="
 sh -n install.sh sim-runaway-guard.sh yolo-health tests/test-secondary-browser-reclaim.sh
 
 echo "=== Guard E2E ==="
+node tests/test-hermes-contribution-opportunities.js
 tests/test-secondary-browser-reclaim.sh
 
 echo "=== Public revenue checks ==="
@@ -25,7 +28,12 @@ node tools/github-issue-template-check.js
 node tools/publication-readiness.js
 
 echo "=== Secret smoke scan ==="
-! git grep -nE '(ghp_[A-Za-z0-9_]+|sk_live_[A-Za-z0-9_]+|TELEGRAM_BOT_TOKEN=|STRIPE_SECRET_KEY=sk_)' \
+GITHUB_PAT_PREFIX="gh""p_"
+STRIPE_LIVE_PREFIX="sk_""live_"
+TELEGRAM_TOKEN_NAME="TELEGRAM_""BOT_TOKEN"
+STRIPE_SECRET_NAME="STRIPE_""SECRET_KEY"
+SECRET_PATTERN="(${GITHUB_PAT_PREFIX}[A-Za-z0-9_]+|${STRIPE_LIVE_PREFIX}[A-Za-z0-9_]+|${TELEGRAM_TOKEN_NAME}=|${STRIPE_SECRET_NAME}=sk_)"
+! git grep -nE "$SECRET_PATTERN" \
   -- ':!.github/workflows/ci.yml' ':!.github/workflows/internal-distribution.yml' ':!.github/workflows/store-release.yml'
 
 echo "=== Hermes Mobile ==="

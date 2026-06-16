@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.igor.hermes-contribution-opportunities</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>{{NODE}}</string>
+        <string>{{REPO}}/tools/hermes-contribution-opportunities.js</string>
+        <string>--repo</string>
+        <string>NousResearch/hermes-agent</string>
+    </array>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>StartInterval</key>
+    <integer>1800</integer>
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>{{HOME}}/.local/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+    </dict>
+    <key>StandardOutPath</key>
+    <string>{{HOME}}/Library/Logs/hermes-contribution-opportunities.log</string>
+    <key>StandardErrorPath</key>
+    <string>{{HOME}}/Library/Logs/hermes-contribution-opportunities.log</string>
+</dict>
+</plist>
