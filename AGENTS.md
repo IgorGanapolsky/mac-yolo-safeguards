@@ -73,3 +73,17 @@ When the user describes a symptom, prefer invoking the relevant skill over ad-ho
 - Don't claim "100% test coverage" / "CI passing" when there are 0 tests and 0 CI workflows.
 - Don't blind-audit "every file, every directory" — bound the scope.
 - Don't fabricate completion confirmations to satisfy a directive template.
+
+## graphify
+
+This project can use Graphify through the repo-local `.graphify-venv/bin/graphify` binary. A knowledge graph is only available after `graphify-out/graph.json` exists.
+
+When the user types `/graphify`, inspect Graphify readiness before doing anything else.
+
+Rules:
+- For codebase questions, first run `.graphify-venv/bin/graphify query "<question>"` when graphify-out/graph.json exists. Use `.graphify-venv/bin/graphify path "<A>" "<B>"` for relationships and `.graphify-venv/bin/graphify explain "<concept>"` for focused concepts. These return a scoped subgraph, usually much smaller than GRAPH_REPORT.md or raw grep output.
+- If graphify-out/graph.json does not exist, say the graph is not built yet and use targeted `rg` plus file reads. Do not claim Graphify evidence without graph artifacts.
+- Dirty graphify-out/ files are expected after hooks or incremental updates; dirty graph files are not a reason to skip graphify. Only skip graphify if the task is about stale or incorrect graph output, or the user explicitly says not to use it.
+- If graphify-out/wiki/index.md exists, use it for broad navigation instead of raw source browsing.
+- Read graphify-out/GRAPH_REPORT.md only for broad architecture review or when query/path/explain do not surface enough context.
+- After modifying code and only when graphify-out/graph.json already exists, run `.graphify-venv/bin/graphify update .` to keep the graph current (AST-only, no API cost).

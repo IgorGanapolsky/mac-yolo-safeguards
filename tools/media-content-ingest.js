@@ -128,6 +128,12 @@ function buildActionPlan(text, metadata = {}) {
   if (/agent|automation|delegate|orchestrate|manager|ai to manage ai/.test(haystack)) {
     add('agent-os', 'Create a manager-agent task that turns each repo incident into issue, test, PR, and follow-up summary.', 'media emphasizes AI leverage, delegation, orchestration, or managing AI with AI');
   }
+  if (/openrouter|reasoning\.effort|reasoning effort|provider|anthropic|openai|google|thinking budget/.test(haystack)) {
+    add('reasoning-router', 'Normalize model reasoning with one effort dial and map it to provider-native controls.', 'media emphasizes provider reasoning controls or model routing');
+  }
+  if (/graphify|knowledge graph|tree-sitter|networkx|graph\.json|graph_report|diagram|pdf/.test(haystack)) {
+    add('knowledge-graph', 'Build or verify a repo knowledge graph before broad architecture and cross-file reasoning.', 'media emphasizes knowledge graphs, structural code understanding, docs, PDFs, or diagrams');
+  }
   if (/focus|daily|morning|time.block|top 3|outcome/.test(haystack)) {
     add('daily-os', 'Generate daily top-3 outcomes: one build, one distribution move, one relationship move.', 'media emphasizes focus, daily operating rhythm, or outcomes');
   }

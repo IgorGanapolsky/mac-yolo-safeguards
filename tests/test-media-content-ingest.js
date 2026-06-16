@@ -39,6 +39,10 @@ const lanes = buildActionPlan(peterStyleText, { title: 'AI product career advice
 for (const expected of ['positioning', 'product', 'distribution', 'customer-loop', 'agent-os', 'daily-os']) {
   assert.ok(lanes.includes(expected), `expected action lane ${expected}`);
 }
+const systemUpgradeLanes = buildActionPlan('OpenRouter reasoning.effort maps provider controls. Graphify builds a knowledge graph from code, PDFs and diagrams.')
+  .map((item) => item.lane);
+assert.ok(systemUpgradeLanes.includes('reasoning-router'));
+assert.ok(systemUpgradeLanes.includes('knowledge-graph'));
 
 const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'media-ingest-test-'));
 const calls = [];
