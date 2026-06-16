@@ -5,6 +5,9 @@
 .tmp
 .claude/settings.local.json
 
+# Local Graphify virtualenv/output artifacts. Rebuild from source as needed.
+graphify-out/
+
 # Internal sales / ops working files — not part of the public OSS kit
 business_os/
 
