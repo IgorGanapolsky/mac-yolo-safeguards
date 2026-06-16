@@ -7,3 +7,7 @@ coverage/
 .env
 .env.local
 firebase-dist/
+
+# Generated native projects (EAS prebuild)
+android/
+ios/
