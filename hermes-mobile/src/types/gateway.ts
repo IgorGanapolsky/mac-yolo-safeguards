@@ -43,7 +43,7 @@ export interface GatewayEventMessage {
   payload?: Record<string, unknown>;
 }
 
-export type ConnectionMode = 'agentleash' | 'gateway';
+export type ConnectionMode = 'relay' | 'gateway';
 
 export interface GatewaySettings {
   connectionMode: ConnectionMode;
@@ -56,8 +56,8 @@ export interface GatewaySettings {
 }
 
 export const DEFAULT_GATEWAY_SETTINGS: GatewaySettings = {
-  connectionMode: 'agentleash',
-  cloudUrl: 'https://agentleash-cloud.fly.dev',
+  connectionMode: 'gateway',
+  cloudUrl: 'https://hermes-mobile-cloud.fly.dev',
   gatewayUrl: 'http://127.0.0.1:8642',
   usePortal: false,
   redactPii: true,

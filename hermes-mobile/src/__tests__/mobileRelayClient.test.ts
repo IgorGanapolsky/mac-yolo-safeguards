@@ -1,10 +1,10 @@
 import {
   enqueuedEventToPendingApproval,
-  DEFAULT_AGENTLEASH_CLOUD_URL,
-} from '../services/agentLeashClient';
-import type { EnqueuedEvent } from '../types/agentLeash';
+  DEFAULT_HERMES_MOBILE_CLOUD_URL,
+} from '../services/mobileRelayClient';
+import type { EnqueuedEvent } from '../types/mobileRelay';
 
-describe('agentLeashClient', () => {
+describe('mobileRelayClient', () => {
   it('maps enqueued hook events to pending approvals', () => {
     const event: EnqueuedEvent = {
       id: 'evt_123',
@@ -23,7 +23,7 @@ describe('agentLeashClient', () => {
     expect(pending.reason).toBe('PreToolUse');
   });
 
-  it('defaults cloud URL to fly production relay', () => {
-    expect(DEFAULT_AGENTLEASH_CLOUD_URL).toBe('https://agentleash-cloud.fly.dev');
+  it('defaults cloud URL to Hermes Mobile production relay', () => {
+    expect(DEFAULT_HERMES_MOBILE_CLOUD_URL).toBe('https://hermes-mobile-cloud.fly.dev');
   });
 });

@@ -4,20 +4,22 @@
 
 Built with Expo + React Navigation. Gateway API on port **8642** — chat, streaming, skills, cron jobs, approvals (same tunnel as Telegram).
 
+**Positioning:** App Store name **Hermes Mobile**; product subtitle **Hermes Mobile Agent** (mobile operator client for your Mac Hermes agent).
+
 ## v0.1 scope
 
 - **Chat** — sessions, history, **streaming** replies, live tool progress
-- **Leash** — AgentLeash / ThumbGate approve/reject
+- **Leash** — Hermes Mobile Agent / ThumbGate approve/reject
 - **Ops** — skills, toolsets, cron jobs (`/v1/skills`, `/api/jobs`), gateway health
-- **Settings** — tunnel + `API_SERVER_KEY`; AgentLeash pairing for LTE
+- **Settings** — tunnel + `API_SERVER_KEY`; cloud relay pairing for LTE
 
-### Pair with your Mac (AgentLeash)
+### Pair with your Mac (Hermes Mobile Agent)
 
-```sh
-cd ../AgentLeash/bridge && npm link && agentleash pair
-```
+On your Mac, run **Hermes Mobile Agent pairing** (bridge daemon) and enter the code shown in Terminal.
 
-In Hermes Mobile **Settings**, enter the pairing code (e.g. `MOON-DUST`) and cloud URL (`https://agentleash-cloud.fly.dev` or your local relay). Leash tab polls every 2s for pending agent tool approvals — same loop as the AgentLeash Android app.
+In Hermes Mobile **Settings**, enter the pairing code (e.g. `MOON-DUST`) and cloud URL (`https://hermes-mobile-cloud.fly.dev`).
+
+**Firebase App Distribution:** invites must use the **Hermes Mobile** Android app in Firebase Console (`com.iganapolsky.hermesmobile`). If Gmail shows the wrong app name, the `FIREBASE_ANDROID_APP_ID` GitHub secret points at the wrong Firebase app — register Hermes Mobile and update the secret.
 
 ## Quick start
 

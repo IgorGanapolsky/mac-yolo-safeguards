@@ -1,0 +1,18 @@
+appId: com.iganapolsky.hermesmobile
+---
+- launchApp
+- tapOn: "Settings"
+- assertVisible:
+    id: "SETTINGS"
+- scrollUntilVisible:
+    element:
+      id: "save-settings-button"
+- tapOn:
+    below: "Gateway API Key"
+- inputText: "sk-hermes-api-server-key-2026-06-15"
+- tapOn:
+    id: "save-settings-button"
+- tapOn: "OK"
+- tapOn: "Chat"
+- assertVisible:
+    id: "HERMES CHAT"

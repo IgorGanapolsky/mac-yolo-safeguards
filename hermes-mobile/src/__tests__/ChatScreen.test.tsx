@@ -9,7 +9,7 @@ jest.mock('../context/GatewayContext', () => ({
       demoMode: true,
       connectionMode: 'gateway',
       gatewayUrl: 'http://localhost:8642',
-      cloudUrl: 'https://agentleash-cloud.fly.dev',
+      cloudUrl: 'https://hermes-mobile-cloud.fly.dev',
     },
     connectionState: 'demo',
     apiKey: 'test-api-key',
@@ -33,7 +33,7 @@ jest.mock('../services/storage', () => ({
       demoMode: true,
       connectionMode: 'gateway',
       gatewayUrl: 'http://localhost:8642',
-      cloudUrl: 'https://agentleash-cloud.fly.dev',
+      cloudUrl: 'https://hermes-mobile-cloud.fly.dev',
     }),
     saveGatewaySettings: jest.fn().mockResolvedValue(true),
   },
@@ -48,6 +48,29 @@ jest.mock('../services/haptics', () => ({
     warning: jest.fn(),
     heavy: jest.fn(),
   },
+}));
+
+jest.mock('../services/chatProjects', () => ({
+  chatProjects: {
+    load: jest.fn().mockResolvedValue({
+      projects: [
+        {
+          id: 'demo-skool',
+          name: 'skool_top1percent',
+          workspacePath: '~/workspace/git/igor/skool_top1percent',
+          sessionIds: ['demo-1'],
+          activeSessionId: 'demo-1',
+        },
+      ],
+      sessionProjectMap: { 'demo-1': 'demo-skool' },
+      activeProjectId: 'demo-skool',
+    }),
+    save: jest.fn().mockResolvedValue(undefined),
+    addProject: jest.fn(),
+  },
+  bindSessionToProject: jest.fn((state, projectId, sessionId) => state),
+  setActiveProject: jest.fn((state, projectId) => ({ ...state, activeProjectId: projectId })),
+  setActiveSession: jest.fn((state) => state),
 }));
 
 // Mock hermesChatClient

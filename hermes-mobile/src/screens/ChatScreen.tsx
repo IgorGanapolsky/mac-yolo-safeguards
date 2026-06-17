@@ -25,6 +25,29 @@ import {
 } from '../services/hermesChatClient';
 import { streamSessionChat } from '../services/hermesGatewayClient';
 import type { HermesSession, HermesMessage } from '../types/chat';
+import type { ChatProject, ChatProjectState } from '../types/chatProject';
+import {
+  bindSessionToProject,
+  chatProjects,
+  setActiveProject,
+  setActiveSession,
+} from '../services/chatProjects';
+import { buildWorkspaceSystemPrompt } from '../utils/workspacePrompt';
+
+function sessionLastActive(session: HermesSession): string | undefined {
+  return session.last_active_at ?? session.last_active;
+}
+
+function projectSessions(
+  allSessions: HermesSession[],
+  projectState: ChatProjectState,
+  projectId: string,
+): HermesSession[] {
+  const ids = new Set(
+    projectState.projects.find((p) => p.id === projectId)?.sessionIds ?? [],
+  );
+  return allSessions.filter((session) => ids.has(session.id));
+}
 
 export default function ChatScreen() {
   const { settings, connectionState, apiKey } = useGateway();
@@ -37,6 +60,14 @@ export default function ChatScreen() {
   const [isLoadingMessages, setIsLoadingMessages] = useState(false);
   const [isSending, setIsSending] = useState(false);
   const [sessionModalVisible, setSessionModalVisible] = useState(false);
+  const [projectModalVisible, setProjectModalVisible] = useState(false);
+  const [newProjectPath, setNewProjectPath] = useState('');
+  const [newProjectName, setNewProjectName] = useState('');
+  const [projectState, setProjectState] = useState<ChatProjectState>({
+    projects: [],
+    sessionProjectMap: {},
+    activeProjectId: null,
+  });
   const [toolStatus, setToolStatus] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -45,6 +76,101 @@ export default function ChatScreen() {
   const isDemo = useMemo(() => {
     return settings.demoMode || connectionState === 'demo';
   }, [settings.demoMode, connectionState]);
+
+  const activeProject = useMemo(() => {
+    if (!projectState.activeProjectId) return null;
+    return projectState.projects.find((p) => p.id === projectState.activeProjectId) ?? null;
+  }, [projectState]);
+
+  const workspacePrompt = useMemo(() => {
+    if (!activeProject?.workspacePath) return undefined;
+    return buildWorkspaceSystemPrompt(activeProject.workspacePath);
+  }, [activeProject?.workspacePath]);
+
+  const visibleSessions = useMemo(() => {
+    if (!activeProject) return sessions;
+    return projectSessions(sessions, projectState, activeProject.id);
+  }, [sessions, projectState, activeProject]);
+
+  useEffect(() => {
+    chatProjects.load().then((loaded) => {
+      if (isDemo && loaded.projects.length === 0) {
+        const demoState: ChatProjectState = {
+          projects: [
+            {
+              id: 'demo-skool',
+              name: 'skool_top1percent',
+              workspacePath: '~/workspace/git/igor/skool_top1percent',
+              sessionIds: ['demo-1'],
+              activeSessionId: 'demo-1',
+            },
+            {
+              id: 'demo-thumbgate',
+              name: 'ThumbGate',
+              workspacePath: '~/workspace/git/igor/ThumbGate',
+              sessionIds: ['demo-2'],
+              activeSessionId: 'demo-2',
+            },
+          ],
+          sessionProjectMap: { 'demo-1': 'demo-skool', 'demo-2': 'demo-thumbgate' },
+          activeProjectId: 'demo-skool',
+        };
+        setProjectState(demoState);
+        return;
+      }
+      setProjectState(loaded);
+    });
+  }, [isDemo]);
+
+  useEffect(() => {
+    if (!isDemo || projectState.projects.length === 0) return;
+    const active = projectState.projects.find((p) => p.id === projectState.activeProjectId);
+    const sessionId = active?.activeSessionId ?? active?.sessionIds[0];
+    if (!sessionId) return;
+    const match = sessions.find((s) => s.id === sessionId);
+    if (match && currentSession?.id !== sessionId) {
+      setCurrentSession(match);
+    }
+  }, [isDemo, projectState, sessions, currentSession?.id]);
+
+  const persistProjectState = async (next: ChatProjectState) => {
+    setProjectState(next);
+    if (!isDemo) {
+      await chatProjects.save(next);
+    }
+  };
+
+  const selectProject = async (project: ChatProject) => {
+    haptics.selection();
+    const next = setActiveProject(projectState, project.id);
+    await persistProjectState(next);
+    const boundSessionId = project.activeSessionId ?? project.sessionIds[0];
+    if (boundSessionId) {
+      const match = sessions.find((s) => s.id === boundSessionId);
+      if (match) {
+        setCurrentSession(match);
+        return;
+      }
+    }
+    setCurrentSession(null);
+    setMessages([]);
+  };
+
+  const handleAddProject = async () => {
+    const path = newProjectPath.trim();
+    if (!path) {
+      setErrorMessage('Enter a workspace path (e.g. ~/workspace/git/igor/ThumbGate)');
+      return;
+    }
+    haptics.selection();
+    const next = await chatProjects.addProject(path, newProjectName.trim() || undefined);
+    setProjectState(next);
+    setNewProjectPath('');
+    setNewProjectName('');
+    setProjectModalVisible(false);
+    setCurrentSession(null);
+    setMessages([]);
+  };
 
   // Load all sessions on mount / connection change
   const loadSessionsList = async (selectLatest = false) => {
@@ -65,6 +191,15 @@ export default function ChatScreen() {
       setErrorMessage(null);
       const list = await listSessions(settings.gatewayUrl, apiKey);
       setSessions(list);
+      if (selectLatest && projectState.activeProjectId) {
+        const project = projectState.projects.find((p) => p.id === projectState.activeProjectId);
+        const preferredId = project?.activeSessionId ?? project?.sessionIds[0];
+        const preferred = preferredId ? list.find((s) => s.id === preferredId) : undefined;
+        if (preferred) {
+          setCurrentSession(preferred);
+          return;
+        }
+      }
       if (selectLatest && list.length > 0) {
         setCurrentSession(list[0]);
       }
@@ -119,29 +254,46 @@ export default function ChatScreen() {
     loadSessionHistory();
   }, [currentSession, isDemo, settings.gatewayUrl, apiKey]);
 
-  // Handle creating a new chat session
+  // Handle creating a new chat session (scoped to active project)
   const handleNewChat = async () => {
     haptics.selection();
     setSessionModalVisible(false);
 
+    const sessionTitle = activeProject
+      ? `${activeProject.name} — ${new Date().toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}`
+      : `Session #${sessions.length + 1}`;
+
     if (isDemo) {
       const newSess: HermesSession = {
         id: `demo-${Date.now()}`,
-        title: `New chat ${sessions.length + 1}`,
+        title: sessionTitle,
         last_active_at: new Date().toISOString(),
       };
       setSessions((prev) => [newSess, ...prev]);
       setCurrentSession(newSess);
       setMessages([]);
+      if (activeProject) {
+        const next = bindSessionToProject(projectState, activeProject.id, newSess.id);
+        await persistProjectState(next);
+      }
       return;
     }
 
     try {
       setIsLoadingSessions(true);
-      const newSess = await createSession(settings.gatewayUrl, apiKey, `Session #${sessions.length + 1}`);
+      const newSess = await createSession(
+        settings.gatewayUrl,
+        apiKey,
+        sessionTitle,
+        workspacePrompt,
+      );
       setSessions((prev) => [newSess, ...prev]);
       setCurrentSession(newSess);
       setMessages([]);
+      if (activeProject) {
+        const next = bindSessionToProject(projectState, activeProject.id, newSess.id);
+        await persistProjectState(next);
+      }
     } catch (err) {
       setErrorMessage(err instanceof Error ? err.message : 'Failed to create new session');
     } finally {
@@ -170,9 +322,19 @@ export default function ChatScreen() {
       } else {
         try {
           setIsSending(true);
-          activeSess = await createSession(settings.gatewayUrl, apiKey, 'New mobile session');
+          const title = activeProject?.name ?? 'New mobile session';
+          activeSess = await createSession(
+            settings.gatewayUrl,
+            apiKey,
+            title,
+            workspacePrompt,
+          );
           setSessions([activeSess]);
           setCurrentSession(activeSess);
+          if (activeProject) {
+            const next = bindSessionToProject(projectState, activeProject.id, activeSess.id);
+            await persistProjectState(next);
+          }
         } catch (err) {
           setErrorMessage(err instanceof Error ? err.message : 'Failed to auto-create session');
           setIsSending(false);
@@ -237,6 +399,7 @@ export default function ChatScreen() {
               setToolStatus(`${evt.event}: ${String(evt.data.tool_name)}`);
             }
           },
+          workspacePrompt,
         );
       } catch (streamErr) {
         const response = await sendChatMessage(
@@ -244,6 +407,7 @@ export default function ChatScreen() {
           activeSess.id,
           userText,
           apiKey,
+          workspacePrompt,
         );
         assistantText = response.assistantText;
         updateAssistant(assistantText);
@@ -269,9 +433,53 @@ export default function ChatScreen() {
       {/* Premium Header */}
       <View style={styles.header}>
         <View style={styles.headerTitleRow}>
-          <Text style={styles.title}>💬 HERMES CHAT</Text>
+          <Text style={styles.title} testID="HERMES CHAT">💬 HERMES CHAT</Text>
           {isDemo && <Text style={styles.demoPill}>DEMO MODE</Text>}
         </View>
+
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.projectChipRow}
+          testID="project-chip-row"
+        >
+          {projectState.projects.map((project) => {
+            const isActive = projectState.activeProjectId === project.id;
+            return (
+              <TouchableOpacity
+                key={project.id}
+                style={[styles.projectChip, isActive && styles.projectChipActive]}
+                onPress={() => selectProject(project)}
+                testID={`project-chip-${project.name}`}
+              >
+                <Text style={[styles.projectChipText, isActive && styles.projectChipTextActive]}>
+                  {project.name}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+          <TouchableOpacity
+            style={styles.projectChipAdd}
+            onPress={() => {
+              haptics.selection();
+              setProjectModalVisible(true);
+            }}
+            testID="add-project-chip"
+          >
+            <Text style={styles.projectChipAddText}>+ Project</Text>
+          </TouchableOpacity>
+        </ScrollView>
+
+        {activeProject ? (
+          <Text style={styles.workspacePath} numberOfLines={1}>
+            {activeProject.workspacePath}
+          </Text>
+        ) : (
+          <Text style={styles.workspaceHint}>
+            Add a project to keep chats scoped to a Mac workspace.
+          </Text>
+        )}
+
         <TouchableOpacity
           style={styles.sessionSelector}
           onPress={() => {
@@ -281,7 +489,7 @@ export default function ChatScreen() {
           testID="open-sessions-modal"
         >
           <Text style={styles.sessionSelectorText} numberOfLines={1}>
-            {currentSession?.title ?? 'Select or start a chat session...'}
+            {currentSession?.title ?? (activeProject ? `New ${activeProject.name} chat…` : 'Select or start a chat session...')}
           </Text>
           <Text style={styles.dropdownArrow}>▼</Text>
         </TouchableOpacity>
@@ -332,8 +540,8 @@ export default function ChatScreen() {
                 <GlassCard style={styles.emptyCard}>
                   <Text style={styles.emptyTitle}>Chat directly with Hermes</Text>
                   <Text style={styles.emptyBody}>
-                    Ask questions, issue terminal commands, or request workspace analysis. 
-                    This interface replaces Telegram and directly talks to the Hermes Gateway.
+                    Ask questions, issue terminal commands, or request workspace analysis.
+                    Each project keeps its own chat history and workspace context on your Mac.
                   </Text>
                   {!currentSession && (
                     <TouchableOpacity style={styles.newChatBtnInline} onPress={handleNewChat}>
@@ -366,7 +574,7 @@ export default function ChatScreen() {
             style={styles.input}
             value={inputValue}
             onChangeText={setInputValue}
-            placeholder="Type a message to Hermes..."
+            placeholder="Type a message to Hermes"
             placeholderTextColor={colors.textMuted}
             editable={!isSending}
             multiline
@@ -393,11 +601,19 @@ export default function ChatScreen() {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Select Chat Session</Text>
+              <Text style={styles.modalTitle}>
+                {activeProject ? `${activeProject.name} chats` : 'Select Chat Session'}
+              </Text>
               <TouchableOpacity onPress={() => setSessionModalVisible(false)}>
                 <Text style={styles.modalCloseBtn}>Close</Text>
               </TouchableOpacity>
             </View>
+
+            {activeProject ? (
+              <Text style={styles.modalSubtitle} numberOfLines={2}>
+                Sessions in this project use workspace: {activeProject.workspacePath}
+              </Text>
+            ) : null}
 
             <TouchableOpacity style={styles.newChatBtn} onPress={handleNewChat} testID="modal-new-chat-button">
               <Text style={styles.newChatBtnText}>+ Start New Session</Text>
@@ -407,36 +623,90 @@ export default function ChatScreen() {
               <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: 24 }} />
             ) : (
               <FlatList
-                data={sessions}
+                data={visibleSessions}
                 keyExtractor={(item) => item.id}
                 style={styles.sessionList}
                 renderItem={({ item }) => {
                   const isActive = currentSession?.id === item.id;
+                  const lastActive = sessionLastActive(item);
                   return (
                     <TouchableOpacity
                       style={[styles.sessionItem, isActive && styles.sessionItemActive]}
-                      onPress={() => {
+                      onPress={async () => {
                         haptics.light();
                         setCurrentSession(item);
                         setSessionModalVisible(false);
+                        if (activeProject) {
+                          const next = setActiveSession(projectState, activeProject.id, item.id);
+                          await persistProjectState(next);
+                        }
                       }}
                     >
                       <Text style={[styles.sessionItemTitle, isActive && styles.sessionItemTitleActive]}>
                         {item.title || 'Untitled Session'}
                       </Text>
-                      {item.last_active_at && (
+                      {lastActive ? (
                         <Text style={styles.sessionItemTime}>
-                          {new Date(item.last_active_at).toLocaleDateString()}
+                          {new Date(lastActive).toLocaleDateString()}
                         </Text>
-                      )}
+                      ) : null}
                     </TouchableOpacity>
                   );
                 }}
                 ListEmptyComponent={
-                  <Text style={styles.emptySessionsText}>No past sessions found.</Text>
+                  <Text style={styles.emptySessionsText}>
+                    {activeProject
+                      ? `No chats yet for ${activeProject.name}. Start one below.`
+                      : 'No past sessions found.'}
+                  </Text>
                 }
               />
             )}
+          </View>
+        </View>
+      </Modal>
+
+      <Modal
+        visible={projectModalVisible}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setProjectModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Add Mac workspace</Text>
+              <TouchableOpacity onPress={() => setProjectModalVisible(false)}>
+                <Text style={styles.modalCloseBtn}>Close</Text>
+              </TouchableOpacity>
+            </View>
+            <Text style={styles.modalSubtitle}>
+              Each project gets its own chat history and pins Hermes tools to that folder on your Mac.
+            </Text>
+            <Text style={styles.fieldLabel}>Workspace path</Text>
+            <TextInput
+              style={styles.modalInput}
+              value={newProjectPath}
+              onChangeText={setNewProjectPath}
+              placeholder="~/workspace/git/igor/ThumbGate"
+              placeholderTextColor={colors.textMuted}
+              autoCapitalize="none"
+              autoCorrect={false}
+              testID="new-project-path-input"
+            />
+            <Text style={styles.fieldLabel}>Display name (optional)</Text>
+            <TextInput
+              style={styles.modalInput}
+              value={newProjectName}
+              onChangeText={setNewProjectName}
+              placeholder="ThumbGate"
+              placeholderTextColor={colors.textMuted}
+              autoCapitalize="words"
+              testID="new-project-name-input"
+            />
+            <TouchableOpacity style={styles.newChatBtn} onPress={handleAddProject} testID="save-project-button">
+              <Text style={styles.newChatBtnText}>Add project</Text>
+            </TouchableOpacity>
           </View>
         </View>
       </Modal>
@@ -477,6 +747,57 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
     borderRadius: 4,
     overflow: 'hidden',
+  },
+  projectChipRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingBottom: 8,
+  },
+  projectChip: {
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: colors.borderLight,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+  },
+  projectChipActive: {
+    borderColor: colors.primary,
+    backgroundColor: 'rgba(79, 70, 229, 0.18)',
+  },
+  projectChipText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: colors.textMuted,
+  },
+  projectChipTextActive: {
+    color: colors.text,
+  },
+  projectChipAdd: {
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderStyle: 'dashed',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  projectChipAddText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: colors.accent,
+  },
+  workspacePath: {
+    fontSize: 10,
+    color: colors.textMuted,
+    marginBottom: 8,
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+  },
+  workspaceHint: {
+    fontSize: 10,
+    color: colors.textMuted,
+    marginBottom: 8,
+    fontStyle: 'italic',
   },
   sessionSelector: {
     flexDirection: 'row',
@@ -695,6 +1016,29 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '800',
     color: colors.text,
+  },
+  modalSubtitle: {
+    fontSize: 11,
+    color: colors.textMuted,
+    marginBottom: 12,
+    lineHeight: 16,
+  },
+  fieldLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: colors.textSecondary,
+    marginBottom: 6,
+  },
+  modalInput: {
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderWidth: 1,
+    borderColor: colors.borderLight,
+    borderRadius: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    color: colors.text,
+    fontSize: 13,
+    marginBottom: 12,
   },
   modalCloseBtn: {
     fontSize: 14,

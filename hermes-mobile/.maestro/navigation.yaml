@@ -1,20 +1,30 @@
 # Flow 2: Tab navigation — Chat, Leash, Ops, Settings
 appId: com.iganapolsky.hermesmobile
 ---
-- launchApp:
-    clearState: true
+- launchApp
+- runFlow:
+    when:
+      notVisible:
+        id: "HERMES CHAT"
+    commands:
+      - tapOn: "Chat"
 - extendedWaitUntil:
-    visible: "HERMES CHAT"
-    timeout: 15000
+    visible:
+      id: "HERMES CHAT"
+    timeout: 30000
 
 - tapOn: "Leash"
-- assertVisible: "LEASH"
+- assertVisible:
+    id: "LEASH"
 
 - tapOn: "Ops"
-- assertVisible: "OPS"
+- assertVisible:
+    id: "OPS"
 
 - tapOn: "Settings"
-- assertVisible: "SETTINGS"
+- assertVisible:
+    id: "SETTINGS"
 
 - tapOn: "Chat"
-- assertVisible: "HERMES CHAT"
+- assertVisible:
+    id: "HERMES CHAT"

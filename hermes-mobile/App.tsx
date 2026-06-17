@@ -1,5 +1,7 @@
-import React from 'react';
-import { StyleSheet, View, Text, TouchableOpacity, StatusBar } from 'react-native';
+import { StyleSheet, View, Text, TouchableOpacity, StatusBar, LogBox } from 'react-native';
+
+LogBox.ignoreAllLogs(true);
+
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator, BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
@@ -8,14 +10,14 @@ import { colors } from './src/theme/colors';
 import { GatewayProvider } from './src/context/GatewayContext';
 import ApprovalsScreen from './src/screens/ApprovalsScreen';
 import ChatScreen from './src/screens/ChatScreen';
-import WorkspaceScreen from './src/screens/WorkspaceScreen';
+import OpsScreen from './src/screens/OpsScreen';
 import SettingsScreen from './src/screens/SettingsScreen';
 import ErrorBoundary from './src/components/ErrorBoundary';
 
 type RootTabParamList = {
-  Console: undefined;
+  Leash: undefined;
   Chat: undefined;
-  Workspace: undefined;
+  Ops: undefined;
   Settings: undefined;
 };
 
@@ -30,6 +32,7 @@ function GlassmorphicTabBar({ state, descriptors, navigation }: BottomTabBarProp
         const isFocused = state.index === index;
 
         const onPress = () => {
+          console.log('[hermes-mobile] Tab pressed:', route.name, 'isFocused:', isFocused);
           const event = navigation.emit({
             type: 'tabPress',
             target: route.key,
@@ -49,17 +52,17 @@ function GlassmorphicTabBar({ state, descriptors, navigation }: BottomTabBarProp
         };
 
         let emoji = '⚡';
-        let label = 'Console';
+        let label = 'Leash';
 
-        if (route.name === 'Console') {
+        if (route.name === 'Leash') {
           emoji = '⚡';
-          label = 'Console';
+          label = 'Leash';
         } else if (route.name === 'Chat') {
           emoji = '💬';
           label = 'Chat';
-        } else if (route.name === 'Workspace') {
+        } else if (route.name === 'Ops') {
           emoji = '💻';
-          label = 'Workspace';
+          label = 'Ops';
         } else if (route.name === 'Settings') {
           emoji = '⚙️';
           label = 'Settings';
@@ -72,6 +75,8 @@ function GlassmorphicTabBar({ state, descriptors, navigation }: BottomTabBarProp
             activeOpacity={0.8}
             onPress={onPress}
             onLongPress={onLongPress}
+            testID={label}
+            accessibilityLabel={label}
           >
             <Text style={[styles.navIcon, isFocused && styles.navIconActive]}>
               {emoji}
@@ -114,15 +119,16 @@ export default function App() {
 
             <NavigationContainer theme={NavigationTheme}>
               <Tab.Navigator
+                initialRouteName="Chat"
                 tabBar={(props) => <GlassmorphicTabBar {...props} />}
                 screenOptions={{
                   headerShown: false,
                   tabBarHideOnKeyboard: true,
                 }}
               >
-                <Tab.Screen name="Console" component={ApprovalsScreen} />
+                <Tab.Screen name="Leash" component={ApprovalsScreen} />
                 <Tab.Screen name="Chat" component={ChatScreen} />
-                <Tab.Screen name="Workspace" component={WorkspaceScreen} />
+                <Tab.Screen name="Ops" component={OpsScreen} />
                 <Tab.Screen name="Settings" component={SettingsScreen} />
               </Tab.Navigator>
             </NavigationContainer>

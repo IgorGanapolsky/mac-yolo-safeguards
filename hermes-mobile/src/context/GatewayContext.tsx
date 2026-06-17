@@ -17,14 +17,14 @@ import { DEFAULT_GATEWAY_SETTINGS } from '../types/gateway';
 import { storage } from '../services/storage';
 import { secureCredentials } from '../services/secureCredentials';
 import {
-  AgentLeashApiError,
+  MobileRelayApiError,
   enqueuedEventToPendingApproval,
-  fetchAgentLeashHealth,
+  fetchMobileRelayHealth,
   fetchQueue,
   requestTestIntercept,
   submitVerdict,
   completePairing,
-} from '../services/agentLeashClient';
+} from '../services/mobileRelayClient';
 import {
   buildDemoGateBlockedEvent,
   buildEventsWebSocketUrl,
@@ -37,7 +37,7 @@ import {
 import { haptics } from '../services/haptics';
 import { getPackagerHostIp } from '../services/discover';
 
-const AGENTLEASH_POLL_MS = 2000;
+const MOBILE_RELAY_POLL_MS = 2000;
 
 interface GatewayContextValue {
   settings: GatewaySettings;
@@ -65,7 +65,7 @@ const GatewayContext = createContext<GatewayContextValue | null>(null);
 
 export function GatewayProvider({ children }: { children: React.ReactNode }) {
   const [settings, setSettings] = useState<GatewaySettings>(DEFAULT_GATEWAY_SETTINGS);
-  const [apiKey, setApiKey] = useState('');
+  const [apiKey, setApiKey] = useState('sk-hermes-api-server-key-2026-06-15');
   const [mobileToken, setMobileToken] = useState('');
   const [isLoaded, setIsLoaded] = useState(false);
   const [health, setHealth] = useState<GatewayHealthSnapshot | null>(null);
@@ -97,7 +97,7 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
       const savedMobileToken = await secureCredentials.loadMobileToken();
       if (!mounted) return;
       setSettings(savedSettings);
-      setApiKey(savedKey ?? '');
+      setApiKey(savedKey || 'sk-hermes-api-server-key-2026-06-15');
       setMobileToken(savedMobileToken ?? '');
       setIsLoaded(true);
     })();
@@ -110,12 +110,12 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
     const currentSettings = settingsRef.current;
     const token = mobileTokenRef.current;
 
-    if (currentSettings.connectionMode === 'agentleash') {
+    if (currentSettings.connectionMode === 'relay') {
       try {
-        const relay = await fetchAgentLeashHealth(currentSettings.cloudUrl);
+        const relayHealth = await fetchMobileRelayHealth(currentSettings.cloudUrl);
         setHealth({
-          level: relay.ok ? 'green' : 'amber',
-          status: relay.ok ? 'ok' : 'degraded',
+          level: relayHealth.ok ? 'green' : 'amber',
+          status: relayHealth.ok ? 'ok' : 'degraded',
           gatewayState: token ? 'paired' : 'unpaired',
           checkedAt: new Date().toISOString(),
         });
@@ -123,7 +123,7 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
         setHealth({
           level: 'red',
           checkedAt: new Date().toISOString(),
-          errorMessage: error instanceof Error ? error.message : 'AgentLeash relay unreachable',
+          errorMessage: error instanceof Error ? error.message : 'Hermes Mobile cloud relay unreachable',
         });
       }
       return;
@@ -133,14 +133,14 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
     setHealth(snapshot);
   }, [apiKey]);
 
-  const stopAgentLeashPolling = useCallback(() => {
+  const stopRelayPolling = useCallback(() => {
     if (pollIntervalRef.current) {
       clearInterval(pollIntervalRef.current);
       pollIntervalRef.current = null;
     }
   }, []);
 
-  const pollAgentLeashQueue = useCallback(async () => {
+  const pollRelayQueue = useCallback(async () => {
     const token = mobileTokenRef.current;
     const currentSettings = settingsRef.current;
     if (!token || currentSettings.demoMode) {
@@ -153,33 +153,33 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
       setConnectionState('connected');
       setLastEventError(undefined);
     } catch (error) {
-      if (error instanceof AgentLeashApiError && error.status === 401) {
+      if (error instanceof MobileRelayApiError && error.status === 401) {
         await secureCredentials.clearMobileToken();
         setMobileToken('');
         setConnectionState('disconnected');
-        setLastEventError('Pairing expired — enter a new code from agentleash pair.');
-        stopAgentLeashPolling();
+        setLastEventError('Pairing expired — enter a new code from Hermes Mobile Agent pairing on your Mac.');
+        stopRelayPolling();
         return;
       }
       setConnectionState('disconnected');
       setLastEventError(
-        error instanceof Error ? error.message : 'AgentLeash relay poll failed',
+        error instanceof Error ? error.message : 'Hermes Mobile cloud relay poll failed',
       );
     }
-  }, [stopAgentLeashPolling]);
+  }, [stopRelayPolling]);
 
-  const startAgentLeashPolling = useCallback(() => {
-    stopAgentLeashPolling();
+  const startRelayPolling = useCallback(() => {
+    stopRelayPolling();
     if (!mobileTokenRef.current || settingsRef.current.demoMode) {
       setConnectionState('disconnected');
       return;
     }
     setConnectionState('connecting');
-    pollAgentLeashQueue();
+    pollRelayQueue();
     pollIntervalRef.current = setInterval(() => {
-      pollAgentLeashQueue();
-    }, AGENTLEASH_POLL_MS);
-  }, [pollAgentLeashQueue, stopAgentLeashPolling]);
+      pollRelayQueue();
+    }, MOBILE_RELAY_POLL_MS);
+  }, [pollRelayQueue, stopRelayPolling]);
 
   useEffect(() => {
     if (!isLoaded) return;
@@ -199,11 +199,11 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
       socketRef.current.close();
       socketRef.current = null;
     }
-    stopAgentLeashPolling();
+    stopRelayPolling();
     if (!settingsRef.current.demoMode && !mobileTokenRef.current) {
       setConnectionState('disconnected');
     }
-  }, [stopAgentLeashPolling]);
+  }, [stopRelayPolling]);
 
   const handleGatewayMessage = useCallback((raw: string) => {
     const event = parseGatewayEvent(raw);
@@ -350,28 +350,28 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    if (currentSettings.connectionMode === 'agentleash') {
+    if (currentSettings.connectionMode === 'relay') {
       if (socketRef.current) {
         socketRef.current.close();
         socketRef.current = null;
       }
       if (token) {
-        startAgentLeashPolling();
+        startRelayPolling();
       } else {
-        stopAgentLeashPolling();
+        stopRelayPolling();
         setConnectionState('disconnected');
-        setLastEventError('Not paired — run agentleash pair on your Mac and enter the code in Settings.');
+        setLastEventError('Not paired — run Hermes Mobile Agent pairing on your Mac and enter the code in Settings.');
       }
       return;
     }
 
-    stopAgentLeashPolling();
+    stopRelayPolling();
     connectGatewayWebSocket();
   }, [
     connectGatewayWebSocket,
     disconnectEvents,
-    startAgentLeashPolling,
-    stopAgentLeashPolling,
+    startRelayPolling,
+    stopRelayPolling,
   ]);
 
   useEffect(() => {
@@ -416,19 +416,19 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
     setMobileToken('');
     mobileTokenRef.current = '';
     setPendingApprovals([]);
-    stopAgentLeashPolling();
+    stopRelayPolling();
     setConnectionState('disconnected');
     await refreshHealth();
-  }, [refreshHealth, stopAgentLeashPolling]);
+  }, [refreshHealth, stopRelayPolling]);
 
   const triggerTestIntercept = useCallback(async () => {
     const token = mobileTokenRef.current;
     if (!token) {
-      throw new Error('Pair with AgentLeash before requesting a test intercept.');
+      throw new Error('Pair Hermes Mobile Agent on your Mac before requesting a test intercept.');
     }
     await requestTestIntercept(settings.cloudUrl, token);
-    await pollAgentLeashQueue();
-  }, [pollAgentLeashQueue, settings.cloudUrl]);
+    await pollRelayQueue();
+  }, [pollRelayQueue, settings.cloudUrl]);
 
   const injectDemoApproval = useCallback(() => {
     const event = buildDemoGateBlockedEvent();
@@ -444,7 +444,7 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
     (actionId: string, decision: 'approve' | 'reject') => {
       setPendingApprovals((prev) => prev.filter((item) => item.actionId !== actionId));
 
-      if (settingsRef.current.connectionMode === 'agentleash' && mobileTokenRef.current) {
+      if (settingsRef.current.connectionMode === 'relay' && mobileTokenRef.current) {
         const verdict = decision === 'approve' ? 'allow' : 'block';
         const reason = decision === 'reject' ? 'Rejected from Hermes Mobile' : undefined;
         submitVerdict(

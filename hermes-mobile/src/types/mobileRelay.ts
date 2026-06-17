@@ -1,4 +1,4 @@
-export interface AgentLeashHookEvent {
+export interface RelayHookEvent {
   tool_name?: string;
   hook_event_name?: string;
   session_id?: string;
@@ -12,7 +12,7 @@ export interface AgentLeashHookEvent {
 export interface EnqueuedEvent {
   id: string;
   device_id?: string;
-  event: AgentLeashHookEvent;
+  event: RelayHookEvent;
   enqueued_at?: number;
   status?: string;
   source?: string;

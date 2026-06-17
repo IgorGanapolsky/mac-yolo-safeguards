@@ -106,7 +106,7 @@ export default function OpsScreen() {
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
       <View style={styles.header}>
-        <Text style={styles.title}>OPS</Text>
+        <Text style={styles.title} testID="OPS">OPS</Text>
         <Text style={styles.subtitle}>Skills, cron jobs, toolsets — same gateway as desktop</Text>
         <View style={styles.healthRow}>
           <HealthPill level={health?.level ?? 'unknown'} />

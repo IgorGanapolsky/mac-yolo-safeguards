@@ -4,7 +4,9 @@ export interface HermesSession {
   source?: string;
   model?: string;
   last_active_at?: string;
+  last_active?: string;
   message_count?: number;
+  preview?: string;
 }
 
 export interface HermesMessage {

@@ -86,14 +86,19 @@ export async function createSession(
   gatewayUrl: string,
   apiKey?: string | null,
   title?: string,
+  systemPrompt?: string,
 ): Promise<HermesSession> {
+  const body: Record<string, string> = { title: title ?? 'Mobile chat' };
+  if (systemPrompt?.trim()) {
+    body.system_prompt = systemPrompt.trim();
+  }
   const response = await fetch(`${base(gatewayUrl)}/api/sessions`, {
     method: 'POST',
     headers: headers(apiKey),
-    body: JSON.stringify({ title: title ?? 'Mobile chat' }),
+    body: JSON.stringify(body),
   });
-  const body = await parseJson<{ session: HermesSession }>(response);
-  return body.session;
+  const parsed = await parseJson<{ session: HermesSession }>(response);
+  return parsed.session;
 }
 
 export async function listMessages(
@@ -116,15 +121,20 @@ export async function sendChatMessage(
   sessionId: string,
   message: string,
   apiKey?: string | null,
+  systemMessage?: string,
 ): Promise<{ assistantText: string; raw: ChatTurnResponse }> {
+  const body: Record<string, string> = { message };
+  if (systemMessage?.trim()) {
+    body.system_message = systemMessage.trim();
+  }
   const response = await fetch(
     `${base(gatewayUrl)}/api/sessions/${encodeURIComponent(sessionId)}/chat`,
     {
       method: 'POST',
       headers: headers(apiKey),
-      body: JSON.stringify({ message }),
+      body: JSON.stringify(body),
     },
   );
-  const body = await parseJson<ChatTurnResponse>(response);
-  return { assistantText: extractAssistantText(body), raw: body };
+  const parsed = await parseJson<ChatTurnResponse>(response);
+  return { assistantText: extractAssistantText(parsed), raw: parsed };
 }

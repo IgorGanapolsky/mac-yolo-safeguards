@@ -21,10 +21,23 @@ export const storage = {
       if (!raw) {
         return { ...DEFAULT_GATEWAY_SETTINGS };
       }
-      const parsed = JSON.parse(raw) as Partial<GatewaySettings>;
+      const parsed = JSON.parse(raw) as Partial<GatewaySettings> & { connectionMode?: string };
+      const rawMode = parsed.connectionMode as string | undefined;
+      const connectionMode =
+        rawMode === 'agentleash' || rawMode === 'relay'
+          ? 'relay'
+          : rawMode === 'gateway'
+            ? 'gateway'
+            : DEFAULT_GATEWAY_SETTINGS.connectionMode;
+      const cloudUrl =
+        parsed.cloudUrl?.includes('agentleash-cloud.fly.dev')
+          ? DEFAULT_GATEWAY_SETTINGS.cloudUrl
+          : parsed.cloudUrl;
       return {
         ...DEFAULT_GATEWAY_SETTINGS,
         ...parsed,
+        connectionMode,
+        ...(cloudUrl ? { cloudUrl } : {}),
       };
     } catch (error) {
       console.error('[hermes-mobile] loadGatewaySettings failed:', error);

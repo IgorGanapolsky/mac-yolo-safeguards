@@ -3,12 +3,22 @@ import type {
   HealthResponse,
   PairCompleteResponse,
   QueueResponse,
-} from '../types/agentLeash';
+} from '../types/mobileRelay';
 import type { PendingApproval } from '../types/gateway';
 
-export const DEFAULT_AGENTLEASH_CLOUD_URL = 'https://agentleash-cloud.fly.dev';
+/** Hermes Mobile cloud relay (Fly.io). Backend may still serve legacy hostname until DNS cutover. */
+export const DEFAULT_HERMES_MOBILE_CLOUD_URL = 'https://hermes-mobile-cloud.fly.dev';
 
-export class AgentLeashApiError extends Error {
+/** Legacy hostname — used as fallback when the new Fly app is not deployed yet. */
+export const LEGACY_CLOUD_RELAY_URL = 'https://agentleash-cloud.fly.dev';
+
+export function resolveCloudRelayUrl(configured?: string | null): string {
+  const trimmed = configured?.trim();
+  if (trimmed) return trimmed.replace(/\/+$/, '');
+  return DEFAULT_HERMES_MOBILE_CLOUD_URL;
+}
+
+export class MobileRelayApiError extends Error {
   status: number;
 
   constructor(status: number, message: string) {
@@ -24,7 +34,7 @@ function normalizeBaseUrl(input: string): string {
 async function parseJson<T>(response: Response): Promise<T> {
   if (!response.ok) {
     const text = await response.text();
-    throw new AgentLeashApiError(response.status, text || `HTTP ${response.status}`);
+    throw new MobileRelayApiError(response.status, text || `HTTP ${response.status}`);
   }
   return (await response.json()) as T;
 }
@@ -49,10 +59,16 @@ export function enqueuedEventToPendingApproval(event: EnqueuedEvent): PendingApp
   };
 }
 
-export async function fetchAgentLeashHealth(cloudUrl: string): Promise<HealthResponse> {
-  const response = await fetch(`${normalizeBaseUrl(cloudUrl)}/v1/health`, {
+export async function fetchMobileRelayHealth(cloudUrl: string): Promise<HealthResponse> {
+  const base = normalizeBaseUrl(cloudUrl);
+  let response = await fetch(`${base}/v1/health`, {
     headers: { Accept: 'application/json' },
   });
+  if (!response.ok && base !== LEGACY_CLOUD_RELAY_URL) {
+    response = await fetch(`${LEGACY_CLOUD_RELAY_URL}/v1/health`, {
+      headers: { Accept: 'application/json' },
+    });
+  }
   return parseJson<HealthResponse>(response);
 }
 

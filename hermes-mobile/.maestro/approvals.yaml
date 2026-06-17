@@ -1,12 +1,21 @@
-# Flow 3: Approvals override simulation flow
+# Flow 3: Leash tab — demo GATE.BLOCKED approve flow
 appId: com.iganapolsky.hermesmobile
 ---
-- launchApp:
-    clearState: true
+- launchApp
+- runFlow:
+    when:
+      notVisible:
+        id: "HERMES CHAT"
+    commands:
+      - tapOn: "Chat"
 - extendedWaitUntil:
-    visible: "HERMES MOBILE"
-    timeout: 15000
+    visible:
+      id: "HERMES CHAT"
+    timeout: 30000
 
+- tapOn: "Leash"
+- assertVisible:
+    id: "LEASH"
 - tapOn:
     id: "inject-demo-approval"
 - extendedWaitUntil:

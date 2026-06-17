@@ -1,5 +1,5 @@
 import React from 'react';
-import { StyleSheet, ScrollView, View, Text } from 'react-native';
+import { StyleSheet, ScrollView, TouchableOpacity, View, Text } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import GateApprovalCard from '../components/GateApprovalCard';
 import GlassCard from '../components/GlassCard';
@@ -24,15 +24,15 @@ export default function ApprovalsScreen() {
 
   const healthLevel = health?.level ?? 'unknown';
   const connectionLabel =
-    settings.connectionMode === 'agentleash'
+    settings.connectionMode === 'relay'
       ? `Relay: ${connectionState}`
       : `WS: ${connectionState}`;
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
       <View style={styles.header}>
-        <Text style={styles.title}>LEASH</Text>
-        <Text style={styles.subtitle}>Approve risky agent tool calls (AgentLeash / ThumbGate)</Text>
+        <Text style={styles.title} testID="LEASH">LEASH</Text>
+        <Text style={styles.subtitle}>Approve risky agent tool calls (Hermes Mobile Agent / ThumbGate)</Text>
         <View style={styles.pillRow}>
           <HealthPill
             level={healthLevel}
@@ -48,14 +48,16 @@ export default function ApprovalsScreen() {
             <Text style={styles.emptyTitle}>No pending approvals</Text>
             <Text style={styles.emptyBody}>
               When your coding agent tries a risky tool (rm, git push --force, etc.), the card
-              appears here. Pair in Settings with agentleash pair on your Mac.
+              appears here. Pair in Settings with Hermes Mobile Agent on your Mac.
             </Text>
             {!isPaired ? (
               <Text style={styles.hintMuted}>Not paired — open Settings and enter your pair code.</Text>
             ) : null}
-            <Text style={styles.hint} onPress={injectDemoApproval} testID="inject-demo-approval">
-              Tap to inject demo GATE.BLOCKED event
-            </Text>
+            <TouchableOpacity onPress={injectDemoApproval} testID="inject-demo-approval" accessibilityRole="button">
+              <Text style={styles.hint}>
+                Tap to inject demo GATE.BLOCKED event
+              </Text>
+            </TouchableOpacity>
           </GlassCard>
         ) : (
           pendingApprovals.map((approval) => (

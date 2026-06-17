@@ -143,7 +143,7 @@ export default function WorkspaceScreen() {
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
       <View style={styles.header}>
-        <Text style={styles.title}>WORKSPACE</Text>
+        <Text style={styles.title} testID="OPS">OPS</Text>
         <Text style={styles.subtitle}>Safeguard telemetry, git changes & logs</Text>
       </View>
 

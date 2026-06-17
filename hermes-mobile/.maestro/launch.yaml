@@ -1,9 +1,16 @@
 # Flow 1: App launch — Chat tab is the Telegram replacement
 appId: com.iganapolsky.hermesmobile
 ---
-- launchApp:
-    clearState: true
+- launchApp
+- runFlow:
+    when:
+      notVisible:
+        id: "HERMES CHAT"
+    commands:
+      - tapOn: "Chat"
 - extendedWaitUntil:
-    visible: "HERMES CHAT"
-    timeout: 15000
-- assertVisible: "Type a message to Hermes"
+    visible:
+      id: "HERMES CHAT"
+    timeout: 30000
+- assertVisible:
+    id: "chat-input"

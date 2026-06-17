@@ -1,71 +1,43 @@
-# Hermes Mobile Architecture
+# Hermes Mobile — architecture
 
-**Hermes Mobile** replaces Telegram DM and mirrors the operator surfaces of Hermes desktop/CLI — everything the gateway API server (`:8642`) exposes, plus optional AgentLeash for approvals on LTE.
+**Hermes Mobile** replaces Telegram DM and mirrors the operator surfaces of Hermes desktop/CLI — everything the gateway API server (`:8642`) exposes, plus optional **Hermes Mobile Agent** cloud relay for approvals on LTE.
 
----
+## Naming
 
-## 1. Parity map (desktop / CLI vs mobile)
+| Surface | Name |
+|---|---|
+| App Store / icon | **Hermes Mobile** |
+| Product positioning | **Hermes Mobile Agent** — mobile operator client for Hermes on your Mac |
+| Cloud relay | `https://hermes-mobile-cloud.fly.dev` |
 
-| Surface | Desktop web dashboard | CLI (`hermes …`) | Gateway `:8642` API | Mobile tab |
-| :--- | :---: | :---: | :---: | :--- |
-| Chat + sessions | Chat, Sessions | `hermes`, sessions list | `/api/sessions`, `/chat/stream` | **Chat** |
-| Streaming + tool progress | Chat | TUI stream | SSE events | **Chat** (stream + tool line) |
-| Tool / run approvals | — | interactive | `/v1/runs/…/approval`, WS `/v1/events` | **Leash** |
-| Skills list | Skills | `/skills list` | `GET /v1/skills` | **Ops** |
-| Toolsets | Tools config | config | `GET /v1/toolsets` | **Ops** |
-| Cron jobs | Cron | `hermes cron` | `/api/jobs` | **Ops** (list, pause, run) |
-| Gateway health | Sidebar status | `hermes status` | `/health/detailed` | **Ops** + Settings |
-| Runs (stop) | Chat | — | `POST /v1/runs/{id}/stop` | Chat (stream path) |
-| Config / env / profiles | Config, Env, Profiles | `hermes config` | — (dashboard port) | Future / deep link |
-| Files / logs / analytics | Files, Logs, Analytics | CLI | — (dashboard port) | Future |
-| MCP / channels / webhooks | MCP, Channels, Webhooks | gateway setup | — (dashboard port) | Future |
+## Gateway parity map
 
-**Honest boundary:** The web dashboard runs on a separate HTTP server with session-token auth and hundreds of `/api/*` routes. Mobile targets the **same gateway tunnel** you use for Telegram (`API_SERVER_KEY` on port 8642). Full dashboard parity means either tunneling the dashboard port too or adding a thin mobile admin API later.
+Hermes desktop/CLI talks to the same API server Hermes Mobile uses for Chat and Ops. Approvals can arrive via gateway WebSocket (tunnel) or cloud relay (LTE).
 
----
+| Desktop / CLI | Hermes Mobile tab | API |
+|---|---|---|
+| Telegram DM threads | **Chat** | `/api/sessions`, `/api/sessions/:id/chat/stream` |
+| Per-repo project lanes (mobile) | **Chat** project chips | local `chatProjects` store + `system_prompt` / `system_message` cwd pin |
+| ThumbGate / gate approvals | **Leash** | WS `/v1/events` or relay `/v1/queue` |
+| Skills, jobs, health | **Ops** | `/v1/skills`, `/api/jobs`, `/v1/health` |
+| Tunnel + keys | **Settings** | stored locally (SecureStore + AsyncStorage) |
 
-## 2. App tabs
+## Tabs
 
 | Tab | Purpose |
-| :--- | :--- |
-| **Chat** | Sessions, history, send, **streaming** replies, live tool-call status |
-| **Leash** | Approve/reject risky tool calls (AgentLeash relay or gateway WS) |
-| **Ops** | Skills, toolsets, cron jobs, capability flags, health pill |
-| **Settings** | Tunnel URL + API key (required for Chat); AgentLeash pairing |
+|---|---|
+| **Chat** | Telegram replacement — sessions, history, streaming; **project lanes** keep workspaces separate |
+| **Leash** | Approve/reject risky tool calls (cloud relay or gateway WS) |
+| **Ops** | Skills, cron jobs, toolsets via gateway API |
+| **Settings** | Tunnel URL + API key (required for Chat); Hermes Mobile Agent pairing |
 
----
+## Connection modes (Leash)
 
-## 3. Gateway API client layer
+- **gateway** — WebSocket to tunnel URL; needs reachable `:8642` gateway
+- **relay** — polls Hermes Mobile cloud relay; works on LTE after Mac pairing
 
-| Module | Endpoints |
-| :--- | :--- |
-| `hermesChatClient.ts` | Session CRUD, messages, sync chat |
-| `hermesGatewayClient.ts` | Capabilities, skills, toolsets, jobs, stream chat, run stop/approval, fork/delete session |
-| `gatewayClient.ts` | Health probes, WS `/v1/events`, ThumbGate events |
+## Local state
 
-Discover features at runtime: `GET /v1/capabilities`.
-
----
-
-## 4. Phased roadmap
-
-| Phase | Scope |
-| :--- | :--- |
-| **v0.1 (current)** | Chat + stream, Leash, Ops (skills/jobs/toolsets), Settings |
-| **v0.2** | Push notifications for approvals; session fork/delete in Chat UI |
-| **v0.3** | Dashboard tunnel profile (read-only config/status) or native tunnel module |
-| **v0.4** | Files viewer, log tail, analytics cards (dashboard APIs) |
-
----
-
-## 5. Local development
-
-```sh
-cd hermes-mobile
-npm install
-npm run typecheck
-npm run test:ci
-npx expo start
-```
-
-Mac: `API_SERVER_ENABLED=true`, `API_SERVER_KEY` in `~/.hermes/.env`, `hermes gateway start`, tunnel `ngrok http 8642`.
+- `GatewayContext` — health, WS, relay poll, demo approvals
+- `secureCredentials` — `API_SERVER_KEY`, relay mobile token
+- `storage` — gateway settings (migrates legacy `agentleash` mode → `relay`)

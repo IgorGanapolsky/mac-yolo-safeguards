@@ -87,13 +87,13 @@ export default function SettingsScreen() {
 
   const handlePair = async () => {
     if (!pairCode.trim()) {
-      Alert.alert('Pairing code required', 'Run agentleash pair on your Mac and enter the code shown in the terminal.');
+      Alert.alert('Pairing code required', 'Run Hermes Mobile Agent pairing on your Mac and enter the code shown in Terminal.');
       return;
     }
     try {
       await saveSettings(
         {
-          connectionMode: 'agentleash',
+          connectionMode: 'relay',
           cloudUrl,
           gatewayUrl,
           usePortal,
@@ -105,7 +105,7 @@ export default function SettingsScreen() {
       );
       await completePair(pairCode);
       setPairCode('');
-      Alert.alert('Paired', 'Hermes Mobile is linked to your Mac via AgentLeash relay.');
+      Alert.alert('Paired', 'Hermes Mobile Leash tab is linked to your Mac approval relay.');
     } catch (err) {
       Alert.alert('Pairing failed', err instanceof Error ? err.message : 'Could not complete pairing');
     }
@@ -123,8 +123,8 @@ export default function SettingsScreen() {
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
       <View style={styles.header}>
-        <Text style={styles.title}>SETTINGS</Text>
-        <Text style={styles.subtitle}>Gateway tunnel for Chat + optional AgentLeash for Leash</Text>
+        <Text style={styles.title} testID="SETTINGS">SETTINGS</Text>
+        <Text style={styles.subtitle}>Gateway tunnel for Chat + optional approval relay for Leash</Text>
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent}>
@@ -162,11 +162,12 @@ export default function SettingsScreen() {
           </Text>
         </GlassCard>
 
-        <Text style={styles.sectionTitle}>🪢 AgentLeash (Leash tab only)</Text>
+        <Text style={styles.sectionTitle}>🪢 Approval relay (Leash tab)</Text>
         <GlassCard>
           <Text style={styles.description}>
-            On your Mac: cd AgentLeash/bridge && agentleash pair — scan or enter the pairing code below.
-            Your phone talks to the cloud relay; no tunnel to localhost required.
+            Optional: pair with your Mac for tool approvals on LTE. On your Mac, run Hermes Mobile Agent
+            pairing from the approval bridge — then enter the code below.
+            This is not required for Chat; Chat uses the Hermes gateway tunnel above.
           </Text>
           <View style={styles.spacer} />
           <Text style={styles.label}>Cloud relay URL</Text>
@@ -174,7 +175,7 @@ export default function SettingsScreen() {
             style={styles.input}
             value={cloudUrl}
             onChangeText={setCloudUrl}
-            placeholder="https://agentleash-cloud.fly.dev"
+            placeholder="https://hermes-mobile-cloud.fly.dev"
             placeholderTextColor={colors.textMuted}
             autoCapitalize="none"
             autoCorrect={false}
@@ -212,17 +213,17 @@ export default function SettingsScreen() {
         <GlassCard>
           <View style={styles.switchRow}>
             <View style={styles.switchLabelCol}>
-              <Text style={styles.switchLabel}>Use AgentLeash relay</Text>
+              <Text style={styles.switchLabel}>Use approval relay (LTE)</Text>
               <Text style={styles.switchDesc}>Poll cloud queue (works on LTE)</Text>
             </View>
             <Switch
-              value={connectionMode === 'agentleash'}
+              value={connectionMode === 'relay'}
               onValueChange={(val) => {
                 haptics.light();
-                setConnectionMode(val ? 'agentleash' : 'gateway');
+                setConnectionMode(val ? 'relay' : 'gateway');
               }}
               trackColor={{ false: '#1F2937', true: colors.primary }}
-              thumbColor={connectionMode === 'agentleash' ? '#ffffff' : '#9CA3AF'}
+              thumbColor={connectionMode === 'relay' ? '#ffffff' : '#9CA3AF'}
             />
           </View>
         </GlassCard>
@@ -330,6 +331,7 @@ export default function SettingsScreen() {
           style={[styles.saveButton, isSaving && styles.saveButtonDisabled]}
           onPress={handleSave}
           disabled={isSaving}
+          testID="save-settings-button"
         >
           <Text style={styles.saveButtonText}>
             {isSaving ? 'SAVING CONFIG...' : 'SAVE CONFIGURATION'}
@@ -337,7 +339,7 @@ export default function SettingsScreen() {
         </TouchableOpacity>
 
         <Text style={styles.footerText}>
-          Hermes Mobile v0.1.0 • {connectionMode === 'agentleash' ? 'Relay' : 'WS'}: {connectionState}
+          Hermes Mobile v0.1.0 • {connectionMode === 'relay' ? 'Relay' : 'WS'}: {connectionState}
           {isPaired ? ' • paired' : ''}
         </Text>
       </ScrollView>

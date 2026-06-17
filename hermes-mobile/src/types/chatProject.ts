@@ -1,0 +1,21 @@
+export interface ChatProject {
+  id: string;
+  name: string;
+  workspacePath: string;
+  /** Hermes session ids created under this project (most recent first). */
+  sessionIds: string[];
+  activeSessionId?: string;
+}
+
+export interface ChatProjectState {
+  projects: ChatProject[];
+  /** Maps Hermes session id → project id (mobile-side; gateway has no cwd field). */
+  sessionProjectMap: Record<string, string>;
+  activeProjectId: string | null;
+}
+
+export const EMPTY_CHAT_PROJECT_STATE: ChatProjectState = {
+  projects: [],
+  sessionProjectMap: {},
+  activeProjectId: null,
+};

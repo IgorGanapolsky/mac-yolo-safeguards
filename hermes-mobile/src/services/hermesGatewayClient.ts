@@ -215,13 +215,18 @@ export async function streamSessionChat(
   message: string,
   apiKey?: string | null,
   onEvent?: (event: ChatStreamEvent) => void,
+  systemMessage?: string,
 ): Promise<string> {
+  const body: Record<string, string> = { message };
+  if (systemMessage?.trim()) {
+    body.system_message = systemMessage.trim();
+  }
   const response = await fetch(
     `${base(gatewayUrl)}/api/sessions/${encodeURIComponent(sessionId)}/chat/stream`,
     {
       method: 'POST',
       headers: jsonHeaders(apiKey),
-      body: JSON.stringify({ message }),
+      body: JSON.stringify(body),
     },
   );
   if (!response.ok) {
