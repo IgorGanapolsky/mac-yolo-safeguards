@@ -32,14 +32,22 @@ if (!/^1:[0-9]+:android:[a-fA-F0-9]+$/.test(APP_ID)) {
 const saPath = path.join(os.tmpdir(), `firebase-sa-${process.pid}.json`);
 fs.writeFileSync(saPath, SA_JSON, { mode: 0o600 });
 
+const projectNumber = APP_ID.split(':')[1];
+if (!projectNumber) {
+  fail(`Could not parse project number from FIREBASE_ANDROID_APP_ID: ${APP_ID}`);
+}
+
 let apps;
 try {
-  const stdout = execSync('npx --yes firebase-tools@14.4.0 apps:list --json', {
-    encoding: 'utf8',
-    env: { ...process.env, GOOGLE_APPLICATION_CREDENTIALS: saPath },
-    stdio: ['ignore', 'pipe', 'pipe'],
-    timeout: 180_000,
-  });
+  const stdout = execSync(
+    `npx --yes firebase-tools@14.4.0 apps:list --project ${projectNumber} --json`,
+    {
+      encoding: 'utf8',
+      env: { ...process.env, GOOGLE_APPLICATION_CREDENTIALS: saPath },
+      stdio: ['ignore', 'pipe', 'pipe'],
+      timeout: 180_000,
+    },
+  );
   const jsonText = stdout.includes('[') ? stdout.slice(stdout.indexOf('[')) : stdout;
   apps = JSON.parse(jsonText);
 } catch (error) {
