@@ -1,0 +1,56 @@
+{
+  "llm": {
+    "endpoint": "http://localhost:7474",
+    "temperature": 0.2,
+    "top_p": 0.9
+  },
+  "model_presets": {
+    "verifier": {
+      "temperature": 0.1,
+      "top_p": 0.95,
+      "active": true
+    }
+  },
+  "permissions": {
+    "tools": {
+      "Bash": {
+        "allow": [
+          "git *",
+          "node *",
+          "npm *",
+          "gh *",
+          "launchctl *",
+          "yolo-health*",
+          "bash *",
+          "sh *",
+          "./scripts/*",
+          ".openmono/playbooks/*"
+        ],
+        "deny": ["rm -rf *", "git push --force*", "git reset --hard*"],
+        "ask": ["sudo *"]
+      },
+      "FileWrite": {
+        "deny": ["*.env", "*.pem", "business_os/**"]
+      }
+    }
+  },
+  "hooks": {
+    "session_start": [
+      {
+        "run": "cd \"${OPENMONO_WORKSPACE:-$PWD}\" && pwd && git status --short --branch 2>/dev/null || true"
+      }
+    ]
+  },
+  "mcp_servers": {
+    "thumbgate": {
+      "command": "npx",
+      "args": ["--yes", "--package", "thumbgate@1.27.6", "thumbgate", "serve"],
+      "enabled": true
+    }
+  },
+  "playbooks": {
+    "paths": [".openmono/playbooks/"]
+  },
+  "auto_detect_code_graph": true,
+  "verbose": false
+}

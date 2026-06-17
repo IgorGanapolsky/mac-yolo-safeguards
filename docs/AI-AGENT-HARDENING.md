@@ -27,6 +27,7 @@ The free `mac-yolo-safeguards` kit protects a single Mac from a narrow class of 
 - Local runaway protection: LaunchAgent, CPU/memory thresholds, simulator shutdown, and health check.
 - Local inference readiness: configured cwd, verified fallback model availability, and a clear split between convenience runtimes like Ollama and production-style OpenAI-compatible serving stacks such as vLLM/LocalAI.
 - Agent behavior memory: ThumbGate captures known bad decisions and blocks repeat failures through MCP-compatible gates.
+- Local verifier loop (optional): [OpenMono `ship-claim` playbook](./OPENMONO-ANTI-HALLUCINATION.md) — cloud agent proposes, local agent runs proof scripts before accepting "done".
 - Evidence trail: before/after commands, failure reproduction where practical, and verification notes.
 - Operator workflow: what to do when a guard fires, who owns escalation, and what should never be auto-killed.
 
