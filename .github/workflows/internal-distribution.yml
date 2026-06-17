@@ -273,6 +273,13 @@ jobs:
             echo "FIREBASE_INTERNAL_GROUPS=internal-testers" >> "$GITHUB_ENV"
           fi
 
+      - name: Verify Firebase App Distribution API access
+        if: needs.gate.outputs.run_firebase == 'true'
+        env:
+          FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON || secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
+          FIREBASE_ANDROID_APP_ID: ${{ secrets.FIREBASE_ANDROID_APP_ID }}
+        run: node ./scripts/verify-firebase-distribute-auth.cjs
+
       - name: Build Android internal APK
         id: build
         if: ${{ github.event_name != 'workflow_dispatch' || inputs.eas_build_id == '' }}
@@ -373,7 +380,7 @@ jobs:
           SA_FILE="$(mktemp)"
           printf '%s' "$FIREBASE_SERVICE_ACCOUNT_JSON" > "$SA_FILE"
           export GOOGLE_APPLICATION_CREDENTIALS="$SA_FILE"
-          BUILD_ID="${{ steps.build.outputs.build_id }}"
+          BUILD_ID="${{ steps.build.outputs.build_id || steps.adopt_build.outputs.build_id }}"
           REF="${{ needs.gate.outputs.ref }}"
           RELEASE_NOTES="Hermes Mobile (${HERMES_MOBILE_ANDROID_PACKAGE}) build ${GITHUB_SHA} | EAS ${BUILD_ID} | ref ${REF}"
           ARGS=(

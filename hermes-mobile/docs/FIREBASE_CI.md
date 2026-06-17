@@ -15,7 +15,8 @@ Hermes Mobile ships on the **legacy upgrade package** `com.iganapolsky.agentleas
 | Secret | Purpose |
 |---|---|
 | `EXPO_TOKEN` | EAS cloud builds |
-| `FIREBASE_SERVICE_ACCOUNT_JSON` or `GOOGLE_SERVICE_ACCOUNT_JSON` | Firebase App Distribution upload |
+| `FIREBASE_SERVICE_ACCOUNT_JSON` | **Dedicated** Firebase App Distribution SA (recommended). Do **not** rely on Play-upload `GOOGLE_SERVICE_ACCOUNT_JSON` alone — it returns **403** on upload. |
+| `GOOGLE_SERVICE_ACCOUNT_JSON` | Fallback only if it has `roles/firebaseappdistro.admin` on project `764037522332` |
 | `FIREBASE_ANDROID_APP_ID` | Firebase app for **`com.iganapolsky.agentleash`** (existing testers) |
 | `FIREBASE_REQUIRED_TESTER_EMAIL` | e.g. `iganapolsky@gmail.com` |
 
@@ -62,4 +63,5 @@ gh workflow run internal-distribution.yml -f target=android_firebase -f eas_buil
 | APK package mismatch | `app.json` `android.package` must be `com.iganapolsky.agentleash` |
 | Firebase package mismatch | `FIREBASE_ANDROID_APP_ID` must point at the agentleash Firebase app |
 | Install blocked (signatures differ) | Align EAS Android keystore with AgentLeash upload key |
+| `403` on `appdistribution:upload` | Service account needs **Firebase App Distribution Admin** (`roles/firebaseappdistro.admin`) on GCP project `764037522332`. Play-upload SAs often lack this — create or grant a Firebase-specific SA and set `FIREBASE_SERVICE_ACCOUNT_JSON`. |
 | Gmail title still "Hermes Mobile Agent" | Change Firebase **display name** in Console → App settings |
