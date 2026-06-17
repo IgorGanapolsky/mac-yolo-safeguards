@@ -363,9 +363,9 @@ jobs:
           SA_FILE="$(mktemp)"
           printf '%s' "$FIREBASE_SERVICE_ACCOUNT_JSON" > "$SA_FILE"
           export GOOGLE_APPLICATION_CREDENTIALS="$SA_FILE"
-          RELEASE_NOTES="Hermes Mobile (${HERMES_MOBILE_ANDROID_PACKAGE}) build ${GITHUB_SHA}
-EAS: ${{ steps.build.outputs.build_id }}
-Ref: ${{ needs.gate.outputs.ref }}"
+          BUILD_ID="${{ steps.build.outputs.build_id }}"
+          REF="${{ needs.gate.outputs.ref }}"
+          RELEASE_NOTES="Hermes Mobile (${HERMES_MOBILE_ANDROID_PACKAGE}) build ${GITHUB_SHA} | EAS ${BUILD_ID} | ref ${REF}"
           ARGS=(
             npx --yes firebase-tools@14.4.0 appdistribution:distribute
             firebase-dist/hermes-mobile-eas-internal.apk
