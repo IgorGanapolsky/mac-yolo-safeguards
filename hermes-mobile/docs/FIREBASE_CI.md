@@ -48,6 +48,12 @@ npm run launch:preflight:android
 gh workflow run internal-distribution.yml -f target=android_firebase
 ```
 
+Reuse a finished EAS build (skip 45–90m rebuild after CI cancel):
+
+```bash
+gh workflow run internal-distribution.yml -f target=android_firebase -f eas_build_id=BUILD_UUID
+```
+
 ## Failure modes
 
 | Symptom | Fix |

@@ -28,6 +28,9 @@ describe('internal distribution workflow', () => {
     expect(internalDistribution).toContain('internal-signoff/firebase-android');
     expect(internalDistribution).toContain('HERMES_MOBILE_ANDROID_PACKAGE');
     expect(internalDistribution).toContain('working-directory: hermes-mobile');
+    expect(internalDistribution).toContain('cancel-in-progress: false');
+    expect(internalDistribution).toContain('eas_build_id:');
+    expect(internalDistribution).toContain('Reuse existing EAS Android build');
   });
 
   it('requires Firebase Android proof before Android production release', () => {

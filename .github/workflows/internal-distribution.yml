@@ -18,6 +18,10 @@ on:
           - android_eas
           - android_firebase
           - ios_eas
+      eas_build_id:
+        description: "Reuse a finished EAS Android build UUID (skips eas build --wait)"
+        required: false
+        type: string
   push:
     branches:
       - main
@@ -29,8 +33,9 @@ env:
   HERMES_MOBILE_ANDROID_PACKAGE: com.iganapolsky.agentleash
 
 concurrency:
+  # EAS Android builds often run 45–90m; do not cancel on new pushes or Firebase never ships.
   group: internal-distribution-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 permissions:
   contents: read
@@ -269,6 +274,7 @@ jobs:
 
       - name: Build Android internal APK
         id: build
+        if: ${{ github.event_name != 'workflow_dispatch' || inputs.eas_build_id == '' }}
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
         run: |
@@ -290,10 +296,20 @@ jobs:
           fi
           echo "build_id=$BUILD_ID" >> "$GITHUB_OUTPUT"
 
+      - name: Reuse existing EAS Android build
+        id: adopt_build
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.eas_build_id != '' }}
+        run: |
+          set -euo pipefail
+          BUILD_ID="${{ inputs.eas_build_id }}"
+          printf '%s\n' "{\"id\":\"$BUILD_ID\"}" > /tmp/eas-android-build.json
+          echo "Reusing EAS build $BUILD_ID"
+          echo "build_id=$BUILD_ID" >> "$GITHUB_OUTPUT"
+
       - name: Verify Android build read-back
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
-          BUILD_ID: ${{ steps.build.outputs.build_id }}
+          BUILD_ID: ${{ steps.build.outputs.build_id || steps.adopt_build.outputs.build_id }}
           HERMES_MOBILE_ANDROID_PACKAGE: ${{ env.HERMES_MOBILE_ANDROID_PACKAGE }}
         run: |
           set -euo pipefail
