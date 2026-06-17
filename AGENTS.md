@@ -35,6 +35,28 @@ Every claim needs proof in the same turn:
 - Lessons must record: date, concrete artifacts (PIDs, file paths, command lines, before/after metrics), root cause, fix, and any heuristic update.
 - Vague captures ("worked great!") are worse than no capture — they pollute retrieval.
 
+## Decision stack (DS / ML / Agentic RAG)
+
+Before any non-trivial decision, ship claim, or root-cause call, run the evidence stack — **not** intuition alone.
+
+| Layer | Tool | When |
+|-------|------|------|
+| **Agentic RAG** | `mcp__thumbgate__recall` or `npx thumbgate lessons "<task>"` | Session start + before claiming fixed/shipped |
+| **Code graph RAG** | `.graphify-venv/bin/graphify query "<task>"` | Architecture, CI, cross-file causality |
+| **Structured telemetry** | `node tools/agent-decision-stack.js --task "..." --gh-run ID --json` | CI status, timing anomalies, next action |
+| **Weak-supervision ML** | `node tools/hermes-decision-loop.js --json` | Telegram / gateway operator safety |
+| **Revenue DS** | `node tools/pipeline-data-science.js` | Funnel / propensity (read-only, `business_os/`) |
+| **Post-decision capture** | `mcp__thumbgate__capture_memory_feedback` or `thumbgate capture --feedback=down` | Every false ship claim or repeated mistake |
+
+**Protocol**
+
+1. `node tools/agent-decision-stack.js --task "<decision>" [--gh-run ID] --json`
+2. If RAG returns a **MISTAKE** matching the current plan → change the plan before acting.
+3. Act only when telemetry + verification commands align.
+4. Capture features (run id, duration, exit codes) in the lesson — not prose summaries.
+
+OpenMono `/ship-claim` is the local verifier gate; ThumbGate is the cross-session memory gate. Both are mandatory for "shipped" language.
+
 ## Operational safety
 
 - **Never write secrets to tracked files.** No PATs, no API keys, no passwords. If a credential lands in chat, flag it for rotation and refuse to use it.
