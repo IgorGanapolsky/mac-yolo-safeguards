@@ -15,7 +15,7 @@ Hermes Mobile (`com.iganapolsky.hermesmobile`) is **not** AgentLeash / Hermes Mo
 | Secret | Purpose |
 |---|---|
 | `EXPO_TOKEN` | EAS cloud builds |
-| `FIREBASE_SERVICE_ACCOUNT_JSON` | Firebase App Distribution upload |
+| `FIREBASE_SERVICE_ACCOUNT_JSON` | Firebase App Distribution upload (falls back to `GOOGLE_SERVICE_ACCOUNT_JSON`) |
 | `FIREBASE_ANDROID_APP_ID` | Must be the **Hermes Mobile** Android app (`1:…:android:…`) |
 | `FIREBASE_REQUIRED_TESTER_EMAIL` | e.g. `iganapolsky@gmail.com` |
 

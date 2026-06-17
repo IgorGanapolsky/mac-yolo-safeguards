@@ -208,10 +208,69 @@ jobs:
       - name: Run Android release preflight
         run: npm run launch:preflight:android
 
+      - name: Fail fast on Firebase distribution auth inputs
+        if: needs.gate.outputs.run_firebase == 'true'
+        env:
+          FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON || secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
+          FIREBASE_ANDROID_APP_ID: ${{ secrets.FIREBASE_ANDROID_APP_ID }}
+          FIREBASE_INTERNAL_GROUPS: ${{ vars.FIREBASE_INTERNAL_GROUPS }}
+          FIREBASE_INTERNAL_TESTERS: ${{ vars.FIREBASE_INTERNAL_TESTERS }}
+          FIREBASE_REQUIRED_TESTER_EMAIL: ${{ secrets.FIREBASE_REQUIRED_TESTER_EMAIL }}
+        run: |
+          set -euo pipefail
+          for name in FIREBASE_SERVICE_ACCOUNT_JSON FIREBASE_ANDROID_APP_ID; do
+            if [ -z "${!name:-}" ]; then
+              echo "Missing required secret: $name" >&2
+              echo "Add it to repo secrets OR the internal-android GitHub environment (see hermes-mobile/docs/FIREBASE_CI.md)" >&2
+              exit 1
+            fi
+          done
+          if [ -z "${FIREBASE_REQUIRED_TESTER_EMAIL:-}" ]; then
+            echo "Missing required secret: FIREBASE_REQUIRED_TESTER_EMAIL" >&2
+            exit 1
+          fi
+          if ! [[ "$FIREBASE_ANDROID_APP_ID" =~ ^1:[0-9]+:android:[a-fA-F0-9]+$ ]]; then
+            echo "FIREBASE_ANDROID_APP_ID must match 1:PROJECT_NUMBER:android:APP_ID" >&2
+            exit 1
+          fi
+
+          COMBINED_FIREBASE_TESTERS="$(
+            python3 - <<'PY'
+          import os
+
+          seen = set()
+          testers = []
+          for value in (
+              os.environ.get("FIREBASE_INTERNAL_TESTERS", ""),
+              os.environ.get("FIREBASE_REQUIRED_TESTER_EMAIL", ""),
+          ):
+              for raw_email in value.split(","):
+                  email = raw_email.strip()
+                  if not email:
+                      continue
+                  key = email.lower()
+                  if key in seen:
+                      continue
+                  seen.add(key)
+                  testers.append(email)
+          print(",".join(testers))
+          PY
+          )"
+
+          if [ -n "${FIREBASE_INTERNAL_GROUPS:-}" ]; then
+            echo "FIREBASE_INTERNAL_GROUPS=${FIREBASE_INTERNAL_GROUPS}" >> "$GITHUB_ENV"
+          fi
+          if [ -n "$COMBINED_FIREBASE_TESTERS" ]; then
+            echo "FIREBASE_INTERNAL_TESTERS=${COMBINED_FIREBASE_TESTERS}" >> "$GITHUB_ENV"
+          fi
+          if [ -z "${FIREBASE_INTERNAL_GROUPS:-}" ] && [ -z "$COMBINED_FIREBASE_TESTERS" ]; then
+            echo "FIREBASE_INTERNAL_GROUPS=internal-testers" >> "$GITHUB_ENV"
+          fi
+
       - name: Verify Firebase Android app binding
         if: needs.gate.outputs.run_firebase == 'true'
         env:
-          FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
+          FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON || secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
           FIREBASE_ANDROID_APP_ID: ${{ secrets.FIREBASE_ANDROID_APP_ID }}
           HERMES_MOBILE_ANDROID_PACKAGE: ${{ env.HERMES_MOBILE_ANDROID_PACKAGE }}
         run: node ./scripts/verify-firebase-android-app.cjs
@@ -270,64 +329,6 @@ jobs:
           console.log(`Android internal APK verified: ${build.artifacts.buildUrl}`);
           NODE
 
-      - name: Fail fast on Firebase distribution auth inputs
-        if: needs.gate.outputs.run_firebase == 'true'
-        env:
-          FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
-          FIREBASE_ANDROID_APP_ID: ${{ secrets.FIREBASE_ANDROID_APP_ID }}
-          FIREBASE_INTERNAL_GROUPS: ${{ vars.FIREBASE_INTERNAL_GROUPS }}
-          FIREBASE_INTERNAL_TESTERS: ${{ vars.FIREBASE_INTERNAL_TESTERS }}
-          FIREBASE_REQUIRED_TESTER_EMAIL: ${{ secrets.FIREBASE_REQUIRED_TESTER_EMAIL }}
-        run: |
-          set -euo pipefail
-          for name in FIREBASE_SERVICE_ACCOUNT_JSON FIREBASE_ANDROID_APP_ID; do
-            if [ -z "${!name:-}" ]; then
-              echo "Missing required secret: $name" >&2
-              exit 1
-            fi
-          done
-          if [ -z "${FIREBASE_REQUIRED_TESTER_EMAIL:-}" ]; then
-            echo "Missing required secret: FIREBASE_REQUIRED_TESTER_EMAIL" >&2
-            exit 1
-          fi
-          if ! [[ "$FIREBASE_ANDROID_APP_ID" =~ ^1:[0-9]+:android:[a-fA-F0-9]+$ ]]; then
-            echo "FIREBASE_ANDROID_APP_ID must match 1:PROJECT_NUMBER:android:APP_ID" >&2
-            exit 1
-          fi
-
-          COMBINED_FIREBASE_TESTERS="$(
-            python3 - <<'PY'
-          import os
-
-          seen = set()
-          testers = []
-          for value in (
-              os.environ.get("FIREBASE_INTERNAL_TESTERS", ""),
-              os.environ.get("FIREBASE_REQUIRED_TESTER_EMAIL", ""),
-          ):
-              for raw_email in value.split(","):
-                  email = raw_email.strip()
-                  if not email:
-                      continue
-                  key = email.lower()
-                  if key in seen:
-                      continue
-                  seen.add(key)
-                  testers.append(email)
-          print(",".join(testers))
-          PY
-          )"
-
-          if [ -n "${FIREBASE_INTERNAL_GROUPS:-}" ]; then
-            echo "FIREBASE_INTERNAL_GROUPS=${FIREBASE_INTERNAL_GROUPS}" >> "$GITHUB_ENV"
-          fi
-          if [ -n "$COMBINED_FIREBASE_TESTERS" ]; then
-            echo "FIREBASE_INTERNAL_TESTERS=${COMBINED_FIREBASE_TESTERS}" >> "$GITHUB_ENV"
-          fi
-          if [ -z "${FIREBASE_INTERNAL_GROUPS:-}" ] && [ -z "$COMBINED_FIREBASE_TESTERS" ]; then
-            echo "FIREBASE_INTERNAL_GROUPS=internal-testers" >> "$GITHUB_ENV"
-          fi
-
       - name: Download EAS Android APK for Firebase
         if: needs.gate.outputs.run_firebase == 'true'
         run: |
@@ -354,7 +355,7 @@ jobs:
         if: needs.gate.outputs.run_firebase == 'true'
         working-directory: hermes-mobile
         env:
-          FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
+          FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON || secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
           FIREBASE_ANDROID_APP_ID: ${{ secrets.FIREBASE_ANDROID_APP_ID }}
           FIREBASE_INTERNAL_GROUPS: ${{ env.FIREBASE_INTERNAL_GROUPS }}
           FIREBASE_INTERNAL_TESTERS: ${{ env.FIREBASE_INTERNAL_TESTERS }}
