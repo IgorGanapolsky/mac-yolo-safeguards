@@ -29,7 +29,7 @@ env:
   HERMES_MOBILE_ANDROID_PACKAGE: com.iganapolsky.hermesmobile
 
 concurrency:
-  group: internal-distribution-${{ github.event_name }}-${{ inputs.ref || github.ref_name }}-${{ inputs.target || 'all' }}
+  group: internal-distribution-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 permissions:
