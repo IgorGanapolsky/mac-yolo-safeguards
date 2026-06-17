@@ -3,7 +3,7 @@
 set -euo pipefail
 
 APK_PATH="${1:-}"
-EXPECTED_PACKAGE="${HERMES_MOBILE_ANDROID_PACKAGE:-com.iganapolsky.hermesmobile}"
+EXPECTED_PACKAGE="${HERMES_MOBILE_ANDROID_PACKAGE:-com.iganapolsky.agentleash}"
 
 if [[ -z "$APK_PATH" || ! -f "$APK_PATH" ]]; then
   echo "Usage: verify-apk-package.sh <path-to.apk>" >&2

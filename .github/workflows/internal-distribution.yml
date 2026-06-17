@@ -26,7 +26,7 @@ on:
       - ".github/workflows/internal-distribution.yml"
 
 env:
-  HERMES_MOBILE_ANDROID_PACKAGE: com.iganapolsky.hermesmobile
+  HERMES_MOBILE_ANDROID_PACKAGE: com.iganapolsky.agentleash
 
 concurrency:
   group: internal-distribution-${{ github.workflow }}-${{ github.ref }}

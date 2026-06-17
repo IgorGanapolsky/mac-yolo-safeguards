@@ -1,6 +1,6 @@
 # Hermes Mobile — Firebase CI/CD
 
-Hermes Mobile (`com.iganapolsky.hermesmobile`) is **not** AgentLeash / Hermes Mobile Agent (`com.iganapolsky.agentleash`). CI enforces both Firebase app binding and APK package checks before upload.
+Hermes Mobile ships on the **legacy upgrade package** `com.iganapolsky.agentleash` so Firebase/Play updates reach existing testers. Display name is **Hermes Mobile**; the package ID is intentionally unchanged. See [UPGRADE.md](./UPGRADE.md).
 
 ## Pipelines (June 2026)
 
@@ -15,8 +15,8 @@ Hermes Mobile (`com.iganapolsky.hermesmobile`) is **not** AgentLeash / Hermes Mo
 | Secret | Purpose |
 |---|---|
 | `EXPO_TOKEN` | EAS cloud builds |
-| `FIREBASE_SERVICE_ACCOUNT_JSON` | Firebase App Distribution upload (falls back to `GOOGLE_SERVICE_ACCOUNT_JSON`) |
-| `FIREBASE_ANDROID_APP_ID` | Must be the **Hermes Mobile** Android app (`1:…:android:…`) |
+| `FIREBASE_SERVICE_ACCOUNT_JSON` or `GOOGLE_SERVICE_ACCOUNT_JSON` | Firebase App Distribution upload |
+| `FIREBASE_ANDROID_APP_ID` | Firebase app for **`com.iganapolsky.agentleash`** (existing testers) |
 | `FIREBASE_REQUIRED_TESTER_EMAIL` | e.g. `iganapolsky@gmail.com` |
 
 ## Required GitHub variables
@@ -25,16 +25,14 @@ Hermes Mobile (`com.iganapolsky.hermesmobile`) is **not** AgentLeash / Hermes Mo
 |---|---|
 | `FIREBASE_INTERNAL_GROUPS` | `internal-testers` |
 
-## One-time Firebase setup
+## Firebase setup (already done if you see agentleash invites)
 
-1. [Firebase Console](https://console.firebase.google.com) → your project → **Add app** → Android
-2. Package name: **`com.iganapolsky.hermesmobile`** (exact)
-3. Copy the **App ID** (`1:PROJECT_NUMBER:android:HEX`)
-4. Update GitHub secret `FIREBASE_ANDROID_APP_ID` (mirror from LipoShield `.env` or set manually):
+Use the **existing** Android app in Firebase Console:
 
-```bash
-./scripts/mirror-liposhield-secrets.sh   # after FIREBASE_ANDROID_APP_ID is correct in LipoShield/.env
-```
+- Package: `com.iganapolsky.agentleash`
+- App ID: GitHub secret `FIREBASE_ANDROID_APP_ID`
+
+Do **not** create a separate `com.iganapolsky.hermesmobile` Firebase app for internal testers unless you intentionally want a parallel beta.
 
 ## Local verification
 
@@ -55,6 +53,7 @@ gh workflow run internal-distribution.yml -f target=android_firebase
 | Symptom | Fix |
 |---|---|
 | `runtimeVersion.policy must be appVersion` | `app.json` → `"runtimeVersion": { "policy": "appVersion" }` |
-| Firebase app is `com.iganapolsky.agentleash` | Wrong `FIREBASE_ANDROID_APP_ID` — register Hermes Mobile app |
-| APK package mismatch | EAS built wrong project — check `app.json` `android.package` |
-| Gmail says "AgentLeash" | Firebase app registration still points at old package |
+| APK package mismatch | `app.json` `android.package` must be `com.iganapolsky.agentleash` |
+| Firebase package mismatch | `FIREBASE_ANDROID_APP_ID` must point at the agentleash Firebase app |
+| Install blocked (signatures differ) | Align EAS Android keystore with AgentLeash upload key |
+| Gmail title still "Hermes Mobile Agent" | Change Firebase **display name** in Console → App settings |

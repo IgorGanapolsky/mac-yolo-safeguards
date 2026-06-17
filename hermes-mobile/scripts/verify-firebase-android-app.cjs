@@ -1,16 +1,18 @@
 #!/usr/bin/env node
 /**
- * Verify FIREBASE_ANDROID_APP_ID is registered for com.iganapolsky.hermesmobile
- * via Firebase Management API (prevents distributing AgentLeash builds by mistake).
+ * Verify FIREBASE_ANDROID_APP_ID matches the legacy upgrade package
+ * com.iganapolsky.agentleash (in-place updates for existing testers).
  */
 const { execSync } = require('child_process');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
 
-const EXPECTED_PACKAGE = process.env.HERMES_MOBILE_ANDROID_PACKAGE || 'com.iganapolsky.hermesmobile';
+const EXPECTED_PACKAGE =
+  process.env.HERMES_MOBILE_ANDROID_PACKAGE || 'com.iganapolsky.agentleash';
 const APP_ID = process.env.FIREBASE_ANDROID_APP_ID || '';
-const SA_JSON = process.env.FIREBASE_SERVICE_ACCOUNT_JSON || '';
+const SA_JSON =
+  process.env.FIREBASE_SERVICE_ACCOUNT_JSON || process.env.GOOGLE_SERVICE_ACCOUNT_JSON || '';
 
 function fail(message) {
   console.error(`Firebase Android app verification: FAIL\n- ${message}`);
@@ -21,7 +23,7 @@ if (!APP_ID) {
   fail('FIREBASE_ANDROID_APP_ID is not set');
 }
 if (!SA_JSON) {
-  fail('FIREBASE_SERVICE_ACCOUNT_JSON is not set');
+  fail('FIREBASE_SERVICE_ACCOUNT_JSON (or GOOGLE_SERVICE_ACCOUNT_JSON) is not set');
 }
 if (!/^1:[0-9]+:android:[a-fA-F0-9]+$/.test(APP_ID)) {
   fail(`FIREBASE_ANDROID_APP_ID format invalid: ${APP_ID}`);
@@ -32,16 +34,17 @@ fs.writeFileSync(saPath, SA_JSON, { mode: 0o600 });
 
 let apps;
 try {
-  const raw = execSync('npx --yes firebase-tools@14.4.0 apps:list --json', {
+  const stdout = execSync('npx --yes firebase-tools@14.4.0 apps:list --json', {
     encoding: 'utf8',
     env: { ...process.env, GOOGLE_APPLICATION_CREDENTIALS: saPath },
     stdio: ['ignore', 'pipe', 'pipe'],
-    timeout: 120_000,
+    timeout: 180_000,
   });
-  apps = JSON.parse(raw);
+  const jsonText = stdout.includes('[') ? stdout.slice(stdout.indexOf('[')) : stdout;
+  apps = JSON.parse(jsonText);
 } catch (error) {
-  const stderr = error.stderr?.toString?.() || error.message;
-  fail(`firebase apps:list failed: ${stderr}`);
+  const detail = error.stdout?.toString?.() || error.stderr?.toString?.() || error.message;
+  fail(`firebase apps:list failed: ${detail.slice(0, 500)}`);
 } finally {
   try {
     fs.unlinkSync(saPath);
@@ -55,7 +58,7 @@ const match = list.find((app) => app.appId === APP_ID || app.appID === APP_ID);
 
 if (!match) {
   fail(
-    `FIREBASE_ANDROID_APP_ID ${APP_ID} not found in Firebase project. Register Android app ${EXPECTED_PACKAGE} in Firebase Console.`,
+    `FIREBASE_ANDROID_APP_ID ${APP_ID} not found. Use the Firebase Android app for ${EXPECTED_PACKAGE}.`,
   );
 }
 
@@ -66,7 +69,7 @@ if (!packageName) {
 
 if (packageName !== EXPECTED_PACKAGE) {
   fail(
-    `Firebase app ${APP_ID} is package "${packageName}", expected "${EXPECTED_PACKAGE}". Update FIREBASE_ANDROID_APP_ID to the Hermes Mobile Firebase app.`,
+    `Firebase app ${APP_ID} is "${packageName}", expected "${EXPECTED_PACKAGE}" for in-place upgrade.`,
   );
 }
 

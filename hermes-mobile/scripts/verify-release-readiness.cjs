@@ -22,14 +22,15 @@ const appConfig = readJson('app.json').expo;
 const easConfig = readJson('eas.json');
 const packageConfig = readJson('package.json');
 
-const expectedBundleId = 'com.iganapolsky.hermesmobile';
+const expectedAndroidPackage = 'com.iganapolsky.agentleash';
+const expectedIosBundleId = 'com.iganapolsky.agentleash';
 const expectedProjectId = '4ed13e30-9b97-4ddd-8a12-59106cae90d6';
 const expectedUpdatesUrl = `https://u.expo.dev/${expectedProjectId}`;
 const placeholderProjectIds = new Set(['hermes-mobile-local-dev']);
 
 check(appConfig.slug === 'hermes-mobile', 'app.json expo.slug must be hermes-mobile');
-check(appConfig.ios?.bundleIdentifier === expectedBundleId, `app.json ios.bundleIdentifier must be ${expectedBundleId}`);
-check(appConfig.android?.package === expectedBundleId, `app.json android.package must be ${expectedBundleId}`);
+check(appConfig.ios?.bundleIdentifier === expectedIosBundleId, `app.json ios.bundleIdentifier must be ${expectedIosBundleId}`);
+check(appConfig.android?.package === expectedAndroidPackage, `app.json android.package must be ${expectedAndroidPackage}`);
 
 const projectId = appConfig.extra?.eas?.projectId;
 check(typeof projectId === 'string' && projectId.length > 0, 'app.json extra.eas.projectId is required');

@@ -57,7 +57,7 @@ npm run ota:preview
 
 CI/CD workflows in the parent repo (`internal-distribution.yml`, `store-release.yml`) need the same GitHub secrets as LipoShield (`EXPO_TOKEN`, Firebase trio, Google Play JSON, ASC keys). Run `./scripts/mirror-liposhield-secrets.sh` from the parent repo root.
 
-**Firebase internal builds:** see [docs/FIREBASE_CI.md](./docs/FIREBASE_CI.md). Pushes to `main` that touch `hermes-mobile/**` auto-trigger EAS → Firebase distribution (`com.iganapolsky.hermesmobile`).
+**Firebase internal builds:** see [docs/FIREBASE_CI.md](./docs/FIREBASE_CI.md) and [docs/UPGRADE.md](./docs/UPGRADE.md). We ship on package `com.iganapolsky.agentleash` for in-place upgrades; display name is **Hermes Mobile**.
 
 ## Related repo tooling
 
