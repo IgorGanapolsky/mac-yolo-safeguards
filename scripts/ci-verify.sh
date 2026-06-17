@@ -13,21 +13,36 @@ node --check tools/hermes-contribution-opportunities.js
 node --check tests/test-hermes-contribution-opportunities.js
 node --check tools/hermes-telegram-incident-audit.js
 node --check tests/test-hermes-telegram-incident-audit.js
+node --check tools/hermes-productivity-audit.js
+node --check tests/test-hermes-productivity-audit-live-gate.js
+node --check tools/hermes-project-routing-audit.js
+node --check tests/test-hermes-project-routing-audit.js
+node --check tools/hermes-governance-audit.js
+node --check tests/test-hermes-governance-audit.js
 node --check tools/media-content-ingest.js
 node --check tests/test-media-content-ingest.js
 node --check tools/openrouter-reasoning-plan.js
 node --check tools/graphify-readiness.js
 node --check tests/test-openrouter-graphify-tools.js
+node --check tests/test-mac-text-hotkeys-config.js
 
 echo "=== Shell syntax ==="
-sh -n install.sh sim-runaway-guard.sh yolo-health tests/test-secondary-browser-reclaim.sh
+sh -n install.sh sim-runaway-guard.sh yolo-health tests/test-secondary-browser-reclaim.sh scripts/verify-mac-text-hotkeys-e2e.sh
 
 echo "=== Guard E2E ==="
 node tests/test-hermes-contribution-opportunities.js
 node tests/test-hermes-telegram-incident-audit.js
+node tests/test-hermes-productivity-audit-live-gate.js
+node tests/test-hermes-project-routing-audit.js
+node tests/test-hermes-governance-audit.js
 node tests/test-media-content-ingest.js
 node tests/test-openrouter-graphify-tools.js
 tests/test-secondary-browser-reclaim.sh
+if [ -f "$HOME/Documents/mac-text-hotkeys/init.lua" ]; then
+  node tests/test-mac-text-hotkeys-config.js
+else
+  echo "Skipping mac-text-hotkeys config test: $HOME/Documents/mac-text-hotkeys/init.lua not present"
+fi
 
 echo "=== Public revenue checks ==="
 node tools/public-conversion-check.js

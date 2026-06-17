@@ -14,7 +14,7 @@ set -u
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
 GUARD="$REPO/sim-runaway-guard.sh"
 TMP="$(mktemp -d /tmp/yolo-guard-test.XXXXXX)"
-trap 'pkill -9 -f "YoloFake" 2>/dev/null; pkill -9 -f "FakePrimaryChrome" 2>/dev/null; pkill -9 -f "FakeHermesProc" 2>/dev/null; pkill -9 -f "semgrep-core" 2>/dev/null; rm -rf "$TMP"' EXIT INT TERM
+trap 'pkill -9 -f "YoloFake" 2>/dev/null; pkill -9 -f "FakePrimaryChrome" 2>/dev/null; pkill -9 -f "FakeHermesProc" 2>/dev/null; pkill -9 -f "semgrep-core" 2>/dev/null; pkill -9 -f "ollama runner" 2>/dev/null; pkill -9 -f "com.semmle.cli2.CodeQL" 2>/dev/null; rm -rf "$TMP"' EXIT INT TERM
 
 pass=0; fail=0
 G="\033[32m"; R="\033[31m"; Z="\033[0m"
@@ -24,6 +24,7 @@ alive(){ kill -0 "$1" 2>/dev/null; }
 
 # Spawn a process whose argv0 is $1 (a .app-shaped path) but is really `sleep`.
 mkfake() { /bin/bash -c "exec -a \"$1\" sleep 600" >/dev/null 2>&1 & echo $!; }
+mkbusyfake() { /bin/bash -c "exec -a \"$1\" yes >/dev/null" >/dev/null 2>&1 & echo $!; }
 
 # Run the guard with isolated state + FORCED memory pressure (free<200% always
 # true) unless overridden by the caller's extra env.
@@ -34,9 +35,14 @@ run_guard() {
     YOLO_CPU_STATE_FILE="$TMP/cpu-state" \
     YOLO_CPU_LAST_FILE="$TMP/cpu-last" \
     YOLO_CPU_STATUS_FILE="$TMP/cpu-status.txt" \
+    YOLO_CODEQL_STATE_FILE="$TMP/codeql-state" \
+    YOLO_CODEQL_EXTENSION_DIRS="$TMP/cursor-codeql $TMP/ag-codeql" \
+    YOLO_BOOTED_SIM_STATE_FILE="$TMP/booted-sim-state" \
     YOLO_PAGEOUT_STATE_FILE="$TMP/pageouts" \
     YOLO_MEM_LAST_FILE="$TMP/mem-last" \
     YOLO_STATUS_FILE="$TMP/status.txt" \
+    YOLO_MEM_APP_LAST_FILE="$TMP/mem-app-last" \
+    YOLO_MEM_APP_STATUS_FILE="$TMP/mem-app-status.txt" \
     YOLO_WEBHOOK_URL="http://127.0.0.1:9" \
     YOLO_MEM_FREE_PCT_THRESHOLD="${FREE_T:-200}" \
     YOLO_SWAP_PCT_THRESHOLD="${SWAP_T:-80}" \
@@ -107,6 +113,51 @@ sleep 1
 alive "$CPU_PID" && bad "T7: CPU runaway process was NOT killed" \
                  || ok  "T7: CPU runaway process autokilled on sustained CPU check"
 kill -9 "$CPU_PID" 2>/dev/null
+
+# --- T8: aggregate memory reporting includes Comet browser processes ---
+COMET="$TMP/Comet.app/Contents/MacOS/Comet"
+COMET_PID=$(mkfake "$COMET")
+sleep 1
+FREE_T="200" SWAP_T="80" run_guard YOLO_MEM_APP_AGG_MB_THRESHOLD="0" YOLO_MEM_APP_LAST_FILE="$TMP/mem-app-last-comet"
+grep -q "App:   Comet" "$TMP/mem-app-status.txt" \
+  && ok  "T8: aggregate memory report includes Comet" \
+  || bad "T8: Comet missing from aggregate memory report"
+kill -9 "$COMET_PID" 2>/dev/null
+
+# --- T9: Ollama runner workers are reclaimed under memory pressure ---
+OLLAMA_PID=$(mkfake "ollama runner")
+sleep 1
+run_guard YOLO_OLLAMA_RSS_MB_THRESHOLD="0"
+sleep 1
+alive "$OLLAMA_PID" && bad "T9: Ollama runner was NOT reclaimed under pressure" \
+                    || ok  "T9: Ollama runner reclaimed under memory pressure"
+grep -q "OLLAMA_RECLAIM: killed Ollama worker" "$TMP/guard.log" \
+  && ok  "T9: OLLAMA_RECLAIM logged" || bad "T9: no OLLAMA_RECLAIM log line"
+kill -9 "$OLLAMA_PID" 2>/dev/null
+
+# --- T10: aggregate CodeQL workers are killed and repeated respawn disables dirs ---
+mkdir -p "$TMP/cursor-codeql" "$TMP/ag-codeql"
+CODEQL1=$(mkbusyfake "java com.semmle.cli2.CodeQL execute language-server")
+CODEQL2=$(mkbusyfake "java com.semmle.cli2.CodeQL execute language-server")
+sleep 1
+run_guard \
+  YOLO_CODEQL_CPU_PCT_THRESHOLD="1" \
+  YOLO_CODEQL_CPU_TOTAL_THRESHOLD="2" \
+  YOLO_CODEQL_MIN_PROCS="2" \
+  YOLO_CODEQL_SUSTAINED_FIRES="1" \
+  YOLO_CODEQL_DISABLE_AFTER_FIRES="1"
+sleep 1
+if alive "$CODEQL1" || alive "$CODEQL2"; then
+  bad "T10: aggregate CodeQL workers were NOT reclaimed"
+else
+  ok  "T10: aggregate CodeQL workers reclaimed under CPU pressure"
+fi
+grep -q "CODEQL_KILL:" "$TMP/guard.log" \
+  && ok  "T10: CODEQL_KILL logged" || bad "T10: no CODEQL_KILL log line"
+[ -d "$TMP/cursor-codeql.disabled-$(date +%Y%m%d)" ] && [ -d "$TMP/ag-codeql.disabled-$(date +%Y%m%d)" ] \
+  && ok  "T10: CodeQL extension dirs disabled by reversible rename" \
+  || bad "T10: CodeQL extension dirs were not disabled"
+kill -9 "$CODEQL1" "$CODEQL2" 2>/dev/null
 
 echo ""
 echo "=== $pass passed, $fail failed ==="

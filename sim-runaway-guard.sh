@@ -5,8 +5,8 @@ export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
 # Smart simulator runaway guard — runs every 60s via LaunchAgent.
 #
 # Behavior:
-#   1. Kills runaway sims if load>30 AND >50 simruntime procs (CPU runaway)
-#      OR sim_mem>50% AND >50 simruntime procs (memory hog).
+#   1. Kills runaway sims if >50 simruntime procs exist, or if lower-count
+#      simulator pressure crosses the configured load/memory thresholds.
 #   2. CPU-runaway guard for NON-simulator processes: any user-owned process
 #      pegged above the CPU threshold is reported. Known-safe background
 #      helpers (the Antigravity securecoder semgrep scanner, orphaned crash
@@ -15,7 +15,7 @@ export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
 #   3. Memory-pressure guard triggers on REAL thrash (swap near-max + active
 #      pageouts), not memory_pressure's misleading "free percentage". Under
 #      pressure it auto-reclaims stale orphaned automation Chrome (/tmp CDP
-#      profiles, no user data), unloads runaway Ollama llama-server workers,
+#      profiles, no user data), unloads runaway Ollama model workers,
 #      AND quits redundant secondary browsers (Chrome Canary/Beta/Dev, Chromium)
 #      to protect RAM headroom for the Hermes agent fleet, then notifies about
 #      remaining AI memory hogs. Hermes gateway processes are never targeted.
@@ -92,6 +92,18 @@ notify() {
   echo "$(date) NOTIFY: $TITLE — $MSG" >> "$LOG"
 }
 
+# --- Auto-configure adb reverse port forwarding for Hermes Mobile ---
+if command -v adb >/dev/null 2>&1; then
+  if adb devices 2>/dev/null | grep -qE "^[a-zA-Z0-9_-]+\s+device$"; then
+    if ! adb reverse --list 2>/dev/null | grep -q "tcp:8642"; then
+      if adb reverse tcp:8642 tcp:8642 >/dev/null 2>&1; then
+        echo "$(date) AUTO-PORT-FORWARD: reversed tcp:8642 tcp:8642 for attached Android device" >> "$LOG"
+        notify "yolo-guard: USB forwarding active" "Automatically forwarded port 8642 via adb reverse to your mobile device."
+      fi
+    fi
+  fi
+fi
+
 # --- Self-heal: if any expected symlink is missing, re-run install.sh ---
 # Detect antigravity-cli path dynamically
 AGY_CLI_DIR="$HOME/workspace/git/$USER/antigravity-hub/antigravity-cli"
@@ -125,12 +137,50 @@ SIM_COUNT=$(/bin/ps ax | /usr/bin/grep -i simruntime | /usr/bin/grep -v grep | /
 SIM_MEM=$(/bin/ps aux | /usr/bin/grep -i simruntime | /usr/bin/grep -v grep | /usr/bin/awk '{mem+=$4} END {printf "%d", mem+0}')
 [ -z "$SIM_MEM" ] && SIM_MEM=0
 
+SIM_PROC_HARD_LIMIT=${YOLO_SIM_PROC_HARD_LIMIT:-50}
+SIM_LOAD_THRESHOLD=${YOLO_SIM_LOAD_THRESHOLD:-15}
+BOOTED_SIM_LOAD_THRESHOLD=${YOLO_BOOTED_SIM_LOAD_THRESHOLD:-40}
+BOOTED_SIM_CPU_THRESHOLD=${YOLO_BOOTED_SIM_CPU_THRESHOLD:-95}
+BOOTED_SIM_SUSTAINED_FIRES=${YOLO_BOOTED_SIM_SUSTAINED_FIRES:-5}
+BOOTED_SIM_STATE_FILE=${YOLO_BOOTED_SIM_STATE_FILE:-/tmp/yolo-booted-sim-state}
+
 REASON=""
-if [ "$SIM_COUNT" -gt 50 ]; then
-  if [ "$LOAD_INT" -gt 30 ]; then
-    REASON="CPU runaway (load=$LOAD sim_procs=$SIM_COUNT)"
+if [ "$SIM_COUNT" -gt "$SIM_PROC_HARD_LIMIT" ]; then
+  REASON="simruntime process ceiling exceeded (sim_procs=$SIM_COUNT limit=$SIM_PROC_HARD_LIMIT)"
+elif [ "$SIM_COUNT" -gt 0 ]; then
+  if [ "$LOAD_INT" -gt "$SIM_LOAD_THRESHOLD" ]; then
+    REASON="CPU runaway (load=$LOAD threshold=$SIM_LOAD_THRESHOLD sim_procs=$SIM_COUNT)"
   elif [ "$SIM_MEM" -gt 50 ]; then
     REASON="memory hog (sim_mem=${SIM_MEM}% sim_procs=$SIM_COUNT)"
+  fi
+fi
+
+if [ -z "$REASON" ]; then
+  # A single booted simulator app can still wedge a Mac mini even when the old
+  # simruntime process-count heuristic never fires. Gate this on a booted
+  # simulator, host load, simulator-app CPU, and consecutive checks.
+  BOOTED_SIM_COUNT=$(/usr/bin/xcrun simctl list devices booted 2>/dev/null | /usr/bin/grep -c Booted | /usr/bin/tr -d ' ')
+  [ -z "$BOOTED_SIM_COUNT" ] && BOOTED_SIM_COUNT=0
+  SIM_APP_HOT_LINE=$(/bin/ps -axo pid,pcpu,command | /usr/bin/awk -v t="$BOOTED_SIM_CPU_THRESHOLD" '
+    NR>1 {
+      pid=$1; pcpu=$2+0
+      if (pcpu >= t && $0 ~ /CoreSimulator|Simulator\.app|\.simruntime|HermesMobile\.app/) {
+        printf "%s %.0f %s\n", pid, pcpu, substr($0, index($0,$3))
+        exit
+      }
+    }')
+  if [ "$BOOTED_SIM_COUNT" -gt 0 ] && [ "$LOAD_INT" -ge "$BOOTED_SIM_LOAD_THRESHOLD" ] && [ -n "$SIM_APP_HOT_LINE" ]; then
+    BOOTED_SIM_STREAK=$(/bin/cat "$BOOTED_SIM_STATE_FILE" 2>/dev/null || echo 0)
+    case "$BOOTED_SIM_STREAK" in (*[!0-9]*|'') BOOTED_SIM_STREAK=0 ;; esac
+    BOOTED_SIM_STREAK=$((BOOTED_SIM_STREAK + 1))
+    echo "$BOOTED_SIM_STREAK" > "$BOOTED_SIM_STATE_FILE"
+    if [ "$BOOTED_SIM_STREAK" -ge "$BOOTED_SIM_SUSTAINED_FIRES" ]; then
+      HOT_PID=$(echo "$SIM_APP_HOT_LINE" | /usr/bin/awk '{print $1}')
+      HOT_CPU=$(echo "$SIM_APP_HOT_LINE" | /usr/bin/awk '{print $2}')
+      REASON="booted simulator CPU runaway (load=$LOAD threshold=$BOOTED_SIM_LOAD_THRESHOLD booted=$BOOTED_SIM_COUNT pid=$HOT_PID cpu=${HOT_CPU}% threshold=$BOOTED_SIM_CPU_THRESHOLD% streak=$BOOTED_SIM_STREAK)"
+    fi
+  else
+    echo 0 > "$BOOTED_SIM_STATE_FILE"
   fi
 fi
 
@@ -172,6 +222,53 @@ if [ -z "$REASON" ]; then
   CPU_STATE_FILE=${YOLO_CPU_STATE_FILE:-/tmp/yolo-cpu-state}
   CPU_LAST_FILE=${YOLO_CPU_LAST_FILE:-/tmp/yolo-cpu-last}
   CPU_STATUS_FILE=${YOLO_CPU_STATUS_FILE:-/tmp/yolo-cpu-status.txt}
+
+  # CodeQL-under-java can respawn under Cursor + Antigravity as two separate
+  # ~100% CPU language-server workers. Each stays below the generic 150% single
+  # process threshold, but together they burn enough CPU to make Screen Sharing
+  # feel frozen. Kill the stateless workers when the aggregate signature is hot;
+  # if that repeats, disable the local extension folders by reversible rename.
+  CODEQL_CPU_PCT_THRESHOLD=${YOLO_CODEQL_CPU_PCT_THRESHOLD:-50}
+  CODEQL_CPU_TOTAL_THRESHOLD=${YOLO_CODEQL_CPU_TOTAL_THRESHOLD:-150}
+  CODEQL_MIN_PROCS=${YOLO_CODEQL_MIN_PROCS:-2}
+  CODEQL_SUSTAINED_FIRES=${YOLO_CODEQL_SUSTAINED_FIRES:-1}
+  CODEQL_DISABLE_AFTER_FIRES=${YOLO_CODEQL_DISABLE_AFTER_FIRES:-2}
+  CODEQL_STATE_FILE=${YOLO_CODEQL_STATE_FILE:-/tmp/yolo-codeql-state}
+  CODEQL_EXT_DIRS=${YOLO_CODEQL_EXTENSION_DIRS:-"$HOME/.cursor/extensions/github.vscode-codeql-1.17.7-universal $HOME/.antigravity-ide/extensions/github.vscode-codeql-1.17.7-universal"}
+  CODEQL_HOT_LIST=$(/bin/ps -axo user,pid,pcpu,command -r | /usr/bin/awk -v u="$USER" -v t="$CODEQL_CPU_PCT_THRESHOLD" '
+    NR>1 && $1==u && $0 ~ /com\.semmle\.cli2\.CodeQL/ {
+      pcpu=$3+0
+      if (pcpu>=t) printf "%s %d\n", $2, pcpu
+    }')
+  CODEQL_COUNT=$(printf '%s\n' "$CODEQL_HOT_LIST" | /usr/bin/awk 'NF>=2 {n++} END{print n+0}')
+  CODEQL_TOTAL_CPU=$(printf '%s\n' "$CODEQL_HOT_LIST" | /usr/bin/awk 'NF>=2 {s+=$2} END{print s+0}')
+  if [ "$CODEQL_COUNT" -ge "$CODEQL_MIN_PROCS" ] && [ "$CODEQL_TOTAL_CPU" -ge "$CODEQL_CPU_TOTAL_THRESHOLD" ]; then
+    CODEQL_STREAK=$(/bin/cat "$CODEQL_STATE_FILE" 2>/dev/null || echo 0)
+    case "$CODEQL_STREAK" in (*[!0-9]*|'') CODEQL_STREAK=0 ;; esac
+    CODEQL_STREAK=$((CODEQL_STREAK + 1))
+    echo "$CODEQL_STREAK" > "$CODEQL_STATE_FILE"
+    if [ "$CODEQL_STREAK" -ge "$CODEQL_SUSTAINED_FIRES" ]; then
+      printf '%s\n' "$CODEQL_HOT_LIST" | while read -r cpid ccpu; do
+        [ -z "$cpid" ] && continue
+        /bin/kill -9 "$cpid" 2>/dev/null || true
+        echo "$(date) CODEQL_KILL: PID $cpid at ${ccpu}% CPU aggregate=${CODEQL_TOTAL_CPU}% count=$CODEQL_COUNT streak=$CODEQL_STREAK" >> "$LOG"
+      done
+      notify "yolo-guard: killed CodeQL workers" "Killed $CODEQL_COUNT CodeQL workers at aggregate ${CODEQL_TOTAL_CPU}% CPU (streak=$CODEQL_STREAK)."
+      if [ "$CODEQL_STREAK" -ge "$CODEQL_DISABLE_AFTER_FIRES" ]; then
+        for extdir in $CODEQL_EXT_DIRS; do
+          if [ -d "$extdir" ]; then
+            disabled="$extdir.disabled-$(date +%Y%m%d)"
+            if [ ! -e "$disabled" ]; then
+              /bin/mv "$extdir" "$disabled" 2>/dev/null || true
+              echo "$(date) CODEQL_DISABLE: moved $extdir -> $disabled after $CODEQL_STREAK hot checks" >> "$LOG"
+            fi
+          fi
+        done
+      fi
+    fi
+  else
+    echo 0 > "$CODEQL_STATE_FILE"
+  fi
 
   # All user-owned procs at/above threshold, as "pid pcpu" lines (desc by CPU).
   # Detection uses only user/pid/pcpu so executable paths with spaces can't
@@ -262,7 +359,7 @@ CPU_HOT_EOF
       } > "$CPU_STATUS_FILE"
       # terminal-notifier: clicking opens the status file (NOT Script Editor).
       # osascript fallback is not click-actionable, so the path is in the body.
-      notify "yolo-guard: $CPU_NOTIFY_NAME ${CPU_NOTIFY_PCPU}% CPU · kill -9 $CPU_NOTIFY_PID" "Sustained CPU runaway (PID $CPU_NOTIFY_PID). Details: $CPU_STATUS_FILE" "$CPU_STATUS_FILE"
+      notify "yolo-guard: inspect $CPU_NOTIFY_NAME ${CPU_NOTIFY_PCPU}% CPU" "Sustained CPU runaway (PID $CPU_NOTIFY_PID). Details: $CPU_STATUS_FILE" "$CPU_STATUS_FILE"
       echo "$now" > "$CPU_LAST_FILE"
       echo "$(date) CPU_NOTIFY: $CPU_NOTIFY_NAME PID $CPU_NOTIFY_PID ${CPU_NOTIFY_PCPU}% status=$CPU_STATUS_FILE" >> "$LOG"
     fi
@@ -286,6 +383,7 @@ CPU_HOT_EOF
   # once). The signal that actually predicts a UI freeze is swap near-max PLUS
   # active pageouts (= the compressor is thrashing right now). Gate on either.
   SWAP_PCT_THRESHOLD=${YOLO_SWAP_PCT_THRESHOLD:-80}
+  SWAP_LOW_FREE_PCT_THRESHOLD=${YOLO_SWAP_LOW_FREE_PCT_THRESHOLD:-25}
   PAGEOUT_DELTA_THRESHOLD=${YOLO_PAGEOUT_DELTA_THRESHOLD:-1000}   # ~16MB paged out since last check
   PAGEOUT_STATE_FILE=${YOLO_PAGEOUT_STATE_FILE:-/tmp/yolo-pageouts-last}
 
@@ -307,23 +405,25 @@ CPU_HOT_EOF
     MEM_PRESSURE="free=${FREE_PCT}%"
   elif [ "$SWAP_PCT" -ge "$SWAP_PCT_THRESHOLD" ] && [ "$PAGEOUT_DELTA" -ge "$PAGEOUT_DELTA_THRESHOLD" ]; then
     MEM_PRESSURE="swap=${SWAP_PCT}% pageouts+${PAGEOUT_DELTA}/check (thrash)"
+  elif [ "$SWAP_PCT" -ge "$SWAP_PCT_THRESHOLD" ] && [ "$FREE_PCT" -lt "$SWAP_LOW_FREE_PCT_THRESHOLD" ]; then
+    MEM_PRESSURE="swap=${SWAP_PCT}% free=${FREE_PCT}%"
   fi
 
   if [ -n "$MEM_PRESSURE" ]; then
     # --- Auto-reclaim: runaway local LLM workers (known-safe kill) ---
-    # Ollama's `llama-server` workers hold model weights and context cache; they
+    # Ollama's model workers hold model weights and context cache; they
     # do not hold unsaved user work. The 2026-06-15 Mac mini freeze was a
     # deepseek-r1 14b worker at 65,536 context using ~68% RAM. Under real memory
     # pressure, reclaiming that child process is safer than leaving the GUI
     # swapped out. We deliberately do NOT kill Ollama.app / `ollama serve`, so
     # later model calls can restart cleanly.
     if [ "${YOLO_RECLAIM_OLLAMA:-1}" = "1" ]; then
-      OLLAMA_RSS_MB_THRESHOLD=${YOLO_OLLAMA_RSS_MB_THRESHOLD:-12000}
+      OLLAMA_RSS_MB_THRESHOLD=${YOLO_OLLAMA_RSS_MB_THRESHOLD:-10000}
       OLLAMA_HOG_LINES=$(/bin/ps -axo pid,rss,command -m | /usr/bin/awk -v t="$OLLAMA_RSS_MB_THRESHOLD" '
         NR>1 {
           pid = $1
           rss_mb = $2/1024
-          if (rss_mb >= t && $0 ~ /llama-server/) {
+          if (rss_mb >= t && $0 ~ /(llama-server|ollama runner)/) {
             printf "%s %.0f %s\n", pid, rss_mb, substr($0, index($0,$3))
           }
         }')
@@ -334,8 +434,8 @@ CPU_HOT_EOF
         if /bin/ps -p "$opid" >/dev/null 2>&1; then
           /bin/kill -KILL "$opid" 2>/dev/null || true
         fi
-        notify "yolo-guard: reclaimed Ollama worker" "Killed llama-server PID $opid (${orss}MB) under memory pressure ($MEM_PRESSURE). Ollama service left running."
-        echo "$(date) OLLAMA_RECLAIM: killed llama-server PID $opid ${orss}MB pressure=$MEM_PRESSURE cmd=$ocmd" >> "$LOG"
+        notify "yolo-guard: reclaimed Ollama worker" "Killed Ollama worker PID $opid (${orss}MB) under memory pressure ($MEM_PRESSURE). Ollama service left running."
+        echo "$(date) OLLAMA_RECLAIM: killed Ollama worker PID $opid ${orss}MB pressure=$MEM_PRESSURE cmd=$ocmd" >> "$LOG"
       done
     fi
 
@@ -478,6 +578,7 @@ CPU_HOT_EOF
         if ($0 ~ /Google Chrome Canary\.app/) app="Chrome Canary"
         else if ($0 ~ /Google Chrome\.app/) app="Chrome"
         else if ($0 ~ /Cursor\.app/) app="Cursor"
+        else if ($0 ~ /Comet\.app/) app="Comet"
         else if ($0 ~ /Antigravity/) app="Antigravity"
         else if ($0 ~ /Visual Studio Code|[Cc]ode Helper/) app="VSCode"
         else next
@@ -485,6 +586,19 @@ CPU_HOT_EOF
       }
       END{ best=""; bestmb=0; for(a in mb) if(mb[a]>bestmb){bestmb=mb[a];best=a}
            if(best!="" && bestmb>=t) printf "%s|%.0f|%d", best, bestmb, n[best] }')
+    APP_AGG_ROLLUP=$(/bin/ps -axo rss,command | /usr/bin/awk '
+      NR>1 {
+        app=""
+        if ($0 ~ /Google Chrome Canary\.app/) app="Chrome Canary"
+        else if ($0 ~ /Google Chrome\.app/) app="Chrome"
+        else if ($0 ~ /Cursor\.app/) app="Cursor"
+        else if ($0 ~ /Comet\.app/) app="Comet"
+        else if ($0 ~ /Antigravity/) app="Antigravity"
+        else if ($0 ~ /Visual Studio Code|[Cc]ode Helper/) app="VSCode"
+        else next
+        mb[app]+=$1/1024; n[app]++
+      }
+      END{ for(a in mb) printf "  App:   %s | RSS: %.0f MB | Processes: %d\n", a, mb[a], n[a] }')
     if [ -n "$APP_AGG_LINE" ]; then
       AGG_APP=$(echo "$APP_AGG_LINE" | /usr/bin/cut -d'|' -f1)
       AGG_MB=$(echo "$APP_AGG_LINE" | /usr/bin/cut -d'|' -f2)
@@ -501,6 +615,9 @@ CPU_HOT_EOF
           echo "Heaviest app (summed across all its processes):"
           echo "  App:   $AGG_APP"
           echo "  RSS:   ${AGG_MB} MB across ${AGG_N} processes  (threshold: >=${MEM_APP_AGG_MB_THRESHOLD} MB)"
+          echo ""
+          echo "Matched app rollup:"
+          printf '%s\n' "$APP_AGG_ROLLUP"
           echo ""
           echo "This app spreads memory across many small processes, so no single"
           echo "one trips the per-process check — closing tabs/windows or quitting"

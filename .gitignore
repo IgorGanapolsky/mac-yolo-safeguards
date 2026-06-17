@@ -7,6 +7,7 @@
 
 # Local Graphify virtualenv/output artifacts. Rebuild from source as needed.
 graphify-out/
+artifacts/
 
 # Internal sales / ops working files — not part of the public OSS kit
 business_os/
@@ -98,3 +99,9 @@ market-research*.md
 # Private post-send pipeline status. Keep real prospect outcomes out of git.
 pipeline-status*.tsv
 !docs/pipeline-status.example.tsv
+
+# Local workspace/build artifacts
+screenshot_current.png
+hermes-mobile/report.xml
+hermes-mobile/.agent-device/
+.metadata_never_index

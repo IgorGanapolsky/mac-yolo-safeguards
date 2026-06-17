@@ -38,9 +38,10 @@ On 2026-05-26 an iPhone 17 simulator was auto-booted (first by macOS window rest
 |---|---|---|
 | `agy-yolo-wrapper.js` | `~/workspace/git/igor/antigravity-hub/antigravity-cli/bin/` | Hardened wrapper around `agy --dangerously-skip-permissions`. Adds singleton lock, hard timeout, stuck-loop watchdog, spawn-error handling, and `--sandbox`. |
 | `hermes-yolo-wrapper.js` | `~/.local/bin/hermes-yolo` | Same safeguards for `hermes --yolo` (singleton lock, timeout, CPU watchdog). |
-| `sim-runaway-guard.sh` | `~/.local/bin/` | Threshold-checking script. Shuts down booted simulators when load>30 with >50 sim procs (CPU runaway) OR sim_mem>50% with >50 sim procs (memory hog). |
+| `sim-runaway-guard.sh` | `~/.local/bin/` | Threshold-checking script. Shuts down booted simulators when simruntime processes exceed the hard ceiling, or when lower-count simulator pressure crosses load/memory thresholds. |
 | `com.igor.shutdown-simulators.plist` | `~/Library/LaunchAgents/` | LaunchAgent that runs the guard script every 60 seconds. |
 | `yolo-health` | `~/.local/bin/` | Health-check that verifies all safeguards are installed and active. Run anytime: `yolo-health` |
+| `tools/local-inference-readiness.js` | repo-local | Verifies Hermes' configured local model fallback and checks for a serious OpenAI-compatible serving endpoint such as vLLM/LocalAI. |
 | `hermes-mobile/` | (companion app) | Expo mobile client for ThumbGate approvals and gateway health — see [`hermes-mobile/README.md`](./hermes-mobile/README.md). |
 
 All install targets above (except `hermes-mobile/`) are **symlinks** pointing back to this repo so edits land in one canonical place.
@@ -87,6 +88,22 @@ cd ~/workspace/git/igor/mac-yolo-safeguards
 | `AGY_YOLO_LOG_PATH` | `/tmp/agy-yolo.log` | Wrapper log path (override for tests). |
 | `AGY_YOLO_NO_DEFAULT_ARGS` | unset | If set, don't auto-add `--sandbox --dangerously-skip-permissions`. |
 
+## Hermes Runtime Readiness
+
+Hermes can look healthy while its local fallback is only configured on paper. The high-signal checks are:
+
+```sh
+yolo-health
+node tools/hermes-productivity-audit.js --json
+node tools/local-inference-readiness.js
+```
+
+The runtime model is deliberately tiered:
+
+- Ollama is acceptable for quick local fallback and smoke tests.
+- A serious local inference path should expose an OpenAI-compatible `/v1` API with predictable model loading, context length, logs, and concurrency behavior. vLLM or a LocalAI-style gateway is the evaluation target for that tier.
+- `terminal.cwd` must point at an existing active repo. A stale cwd is treated as a reliability failure because Telegram/Hermes tools will run in the wrong project or return `exit 130` interruptions.
+
 ## Guard configuration (env vars)
 
 The LaunchAgent reads these from the environment when `sim-runaway-guard.sh` runs. Override by editing the plist or wrapping the script.
@@ -96,6 +113,7 @@ The LaunchAgent reads these from the environment when `sim-runaway-guard.sh` run
 | `YOLO_ESCALATE_AFTER_FIRES` | `3` | Sim runaways within the window before showing a critical alert. |
 | `YOLO_ESCALATE_WINDOW_SEC` | `600` (10 min) | Window for counting recent fires. |
 | `YOLO_SUSPECT_APPS` | empty | Opt-in only. If set to a pipe-separated app list, escalation will quit those apps. **Default empty** — no GUI app gets auto-killed. |
+| `YOLO_SIM_PROC_HARD_LIMIT` | `50` | Shut down all simulators whenever simruntime process count exceeds this ceiling, independent of load average. |
 | `YOLO_MEM_FREE_PCT_THRESHOLD` | `15` | Free-memory % below which the memory-pressure check is armed. |
 | `YOLO_MEM_PROC_RSS_MB_THRESHOLD` | `1500` | Single-process RSS (MB) that counts as "memory hog" for notify. |
 | `YOLO_MEM_NOTIFY_DEBOUNCE_SEC` | `1800` (30 min) | How long to wait between memory-pressure notifications. |

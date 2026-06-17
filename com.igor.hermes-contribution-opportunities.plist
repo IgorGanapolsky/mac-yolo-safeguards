@@ -10,6 +10,12 @@
         <string>{{REPO}}/tools/hermes-contribution-opportunities.js</string>
         <string>--repo</string>
         <string>NousResearch/hermes-agent</string>
+        <string>--mode</string>
+        <string>drafts</string>
+        <string>--top</string>
+        <string>8</string>
+        <string>--min-score</string>
+        <string>120</string>
     </array>
     <key>RunAtLoad</key>
     <true/>

@@ -5,7 +5,7 @@ const fs = require('fs');
 const { collect } = require('./hermes-productivity-audit');
 
 const usage = `Usage:
-  node tools/hermes-decision-loop.js [--send-smoke] [--test-public-webhook] [--remote HOST ...] [--date YYYY-MM-DD] [--out-jsonl FILE] [--out-md FILE] [--json]
+  node tools/hermes-decision-loop.js [--send-smoke] [--test-public-webhook] [--allow-live-telegram] [--remote HOST ...] [--date YYYY-MM-DD] [--out-jsonl FILE] [--out-md FILE] [--json]
 
 Runs the Hermes reliability gate that decides whether Telegram is safe to use
 as the operator interface for autonomous work.
@@ -18,6 +18,7 @@ function parseArgs(argv) {
   const args = {
     sendSmoke: false,
     testPublicWebhook: false,
+    allowLiveTelegram: false,
     json: false,
     remotes: [],
     date: new Date().toISOString().slice(0, 10),
@@ -28,6 +29,8 @@ function parseArgs(argv) {
       args.sendSmoke = true;
     } else if (arg === '--test-public-webhook') {
       args.testPublicWebhook = true;
+    } else if (arg === '--allow-live-telegram') {
+      args.allowLiveTelegram = true;
     } else if (arg === '--remote') {
       const remote = argv[++i];
       if (!remote) throw new Error('--remote requires a host');
@@ -82,8 +85,8 @@ function classify(result) {
       || !remote.serviceLoaded
       || remote.simpleBridgeRunning;
   });
-  const smokeFailed = t.sendSmoke && !t.sendSmoke.success;
-  const publicWebhookFailed = t.publicWebhookTest && !t.publicWebhookTest.success;
+  const smokeFailed = t.sendSmoke && !t.sendSmoke.skipped && !t.sendSmoke.success;
+  const publicWebhookFailed = t.publicWebhookTest && !t.publicWebhookTest.skipped && !t.publicWebhookTest.success;
   const hardBlock = t.productivityScore < 80
     || hasSeverity(result.findings, ['critical', 'high'])
     || t.gatewayState !== 'running'
@@ -223,7 +226,12 @@ function renderMarkdown(record) {
 function main() {
   const args = parseArgs(process.argv.slice(2));
   requireArgs(args);
-  const result = collect({ sendSmoke: args.sendSmoke, testPublicWebhook: args.testPublicWebhook, remotes: args.remotes });
+  const result = collect({
+    sendSmoke: args.sendSmoke,
+    testPublicWebhook: args.testPublicWebhook,
+    allowLiveTelegram: args.allowLiveTelegram,
+    remotes: args.remotes,
+  });
   const classification = classify(result);
   const record = buildRecord(args, result, classification);
 

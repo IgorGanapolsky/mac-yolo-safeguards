@@ -49,6 +49,48 @@ check "grep -q 'TIMEOUT_MS' '$HERMES_WRAPPER'"           "hard timeout present"
 check "grep -q 'highCpuSamples' '$HERMES_WRAPPER'"       "stuck-loop watchdog present"
 check "grep -q \"child.on('error'\" '$HERMES_WRAPPER'"   "spawn-error handler present"
 check "grep -q '\\--yolo' '$HERMES_WRAPPER'"             "--yolo flag wired in"
+check "grep -q 'DEFAULT_READY_PROMPT' '$HERMES_WRAPPER'" "bare run uses bounded ready prompt"
+
+echo ""
+echo "=== Hermes runtime config ==="
+HERMES_CFG_JSON=$("$HOME/.hermes/hermes-agent/venv/bin/python" - <<'PY' 2>/dev/null
+import json, pathlib, yaml
+cfg = yaml.safe_load(pathlib.Path.home().joinpath('.hermes/config.yaml').read_text()) or {}
+print(json.dumps({
+  "terminal_cwd": (cfg.get("terminal") or {}).get("cwd"),
+  "fallback_providers": cfg.get("fallback_providers") or [],
+}))
+PY
+)
+TERMINAL_CWD=$(printf "%s" "$HERMES_CFG_JSON" | /usr/bin/python3 -c 'import json,sys; print((json.load(sys.stdin).get("terminal_cwd") or ""))' 2>/dev/null)
+FALLBACK_COUNT=$(printf "%s" "$HERMES_CFG_JSON" | /usr/bin/python3 -c 'import json,sys; print(len(json.load(sys.stdin).get("fallback_providers") or []))' 2>/dev/null)
+FIRST_FALLBACK_MODEL=$(printf "%s" "$HERMES_CFG_JSON" | /usr/bin/python3 -c 'import json,sys; p=(json.load(sys.stdin).get("fallback_providers") or [{}])[0]; print(p.get("model",""))' 2>/dev/null)
+FIRST_FALLBACK_URL=$(printf "%s" "$HERMES_CFG_JSON" | /usr/bin/python3 -c 'import json,sys; p=(json.load(sys.stdin).get("fallback_providers") or [{}])[0]; print(p.get("base_url",""))' 2>/dev/null)
+check "[ -n '$TERMINAL_CWD' ]"                          "terminal.cwd configured"
+check "[ -d '$TERMINAL_CWD' ]"                          "terminal.cwd exists: $TERMINAL_CWD"
+printf "  Local fallback providers: %s\n" "${FALLBACK_COUNT:-0}"
+if [ -n "$FIRST_FALLBACK_MODEL" ]; then
+  printf "  Primary local fallback:  %s (%s)\n" "$FIRST_FALLBACK_MODEL" "$FIRST_FALLBACK_URL"
+fi
+if printf "%s" "$FIRST_FALLBACK_URL" | grep -q '11434'; then
+  if /usr/bin/curl -fsS --max-time 3 http://127.0.0.1:11434/api/tags >/tmp/hermes-yolo-ollama-tags.json 2>/dev/null; then
+    printf "  [$OK] Ollama API reachable\n"; pass=$((pass+1))
+    if [ -n "$FIRST_FALLBACK_MODEL" ] && /usr/bin/python3 - "$FIRST_FALLBACK_MODEL" /tmp/hermes-yolo-ollama-tags.json <<'PY' >/dev/null 2>&1
+import json, sys
+model=sys.argv[1]
+data=json.load(open(sys.argv[2]))
+names=[m.get("name") for m in data.get("models", [])]
+raise SystemExit(0 if model in names else 1)
+PY
+    then
+      printf "  [$OK] configured Ollama fallback model installed\n"; pass=$((pass+1))
+    else
+      printf "  [$WARN] configured Ollama fallback model not verified locally\n"
+    fi
+  else
+    printf "  [$WARN] Ollama API not reachable at 127.0.0.1:11434\n"
+  fi
+fi
 
 echo ""
 echo "=== Simulator runaway guard ==="
@@ -58,6 +100,20 @@ check "launchctl print gui/\$(id -u)/$GUARD_LABEL >/dev/null 2>&1"      "LaunchA
 check "launchctl print gui/\$(id -u)/$GUARD_LABEL 2>/dev/null | grep -q 'run interval = 60'"  "runs every 60 seconds"
 check "grep -q 'memory hog' '$GUARD_SCRIPT'"                            "memory-hog branch present"
 check "grep -q 'YOLO_RECLAIM_OLLAMA' '$GUARD_SCRIPT'"                   "Ollama worker reclaim present"
+check "grep -q 'YOLO_CODEQL_CPU_TOTAL_THRESHOLD' '$GUARD_SCRIPT'"        "CodeQL aggregate CPU guard present"
+
+echo ""
+echo "=== Mac text hotkeys ==="
+HOTKEY_CONFIG="$HOME/Documents/mac-text-hotkeys/init.lua"
+HOTKEY_TEST="$HOME/workspace/git/igor/mac-yolo-safeguards/tests/test-mac-text-hotkeys-config.js"
+HOTKEY_E2E="$HOME/workspace/git/igor/mac-yolo-safeguards/scripts/verify-mac-text-hotkeys-e2e.sh"
+check "[ -f '$HOTKEY_CONFIG' ]"                                          "cmd+# hotkey config present"
+check "[ -x '$HOTKEY_E2E' ]"                                             "cmd+# hotkey e2e orchestration present"
+if [ -f "$HOTKEY_CONFIG" ] && [ -f "$HOTKEY_TEST" ]; then
+  check "node '$HOTKEY_TEST'"                                            "cmd+# hotkey config invariants pass"
+else
+  printf "  [$WARN] cmd+# hotkey unit test skipped; config or test missing\n"
+fi
 
 echo ""
 echo "=== Live Mac state ==="

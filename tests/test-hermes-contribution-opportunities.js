@@ -3,10 +3,14 @@
 const assert = require('assert');
 const {
   commentCount,
+  classifyAction,
   findDuplicates,
   keywordHits,
+  renderActionPacket,
+  renderCommentDraft,
   retrieveRag,
   scoreItem,
+  slugify,
 } = require('../tools/hermes-contribution-opportunities');
 
 const issue = {
@@ -90,8 +94,50 @@ const scoredIssue = scoreItem(issue, [issue, duplicatePr, duplicateDraft, docsIs
 const scoredDocs = scoreItem(docsIssue, [issue, duplicatePr, duplicateDraft, docsIssue], rag, new Date('2026-06-16T00:00:00Z'));
 assert.ok(scoredIssue.score > scoredDocs.score, `expected Telegram P1 score ${scoredIssue.score} > docs score ${scoredDocs.score}`);
 assert.ok(scoredIssue.recommendation.includes('diagnostic matrix'));
+assert.strictEqual(scoredIssue.action.type, 'diagnostic-comment');
+assert.ok(scoredIssue.evidenceChecklist.some((line) => line.includes('Telegram evidence')));
 
 const scoredDuplicate = scoreItem(duplicateDraft, [issue, duplicatePr, duplicateDraft, docsIssue], rag, new Date('2026-06-16T00:00:00Z'));
 assert.ok(scoredDuplicate.recommendation.includes('Consolidate evidence'));
+assert.strictEqual(scoredDuplicate.action.type, 'consolidate');
+assert.ok(scoredDuplicate.action.confidence > 0.8);
+
+const prReview = scoreItem(duplicatePr, [issue, duplicatePr, docsIssue], rag, new Date('2026-06-16T00:00:00Z'));
+assert.strictEqual(prReview.action.type, 'review-evidence');
+
+const lowSignal = classifyAction(docsIssue, [], [], [], 12);
+assert.strictEqual(lowSignal.type, 'watch');
+
+const packet = renderActionPacket(scoredIssue);
+assert.ok(packet.includes('Contribution Packet'));
+assert.ok(packet.includes('Evidence Checklist'));
+assert.ok(packet.includes('gh issue view 40691'));
+
+const packetWithEvidence = renderActionPacket({
+  ...scoredIssue,
+  localEvidence: {
+    generatedAt: '2026-06-16T00:00:00.000Z',
+    gatewayProcessCount: 1,
+    session: {
+      sessionId: 'session-test',
+      wasAutoReset: false,
+      resumePending: false,
+      lastPromptTokens: 1234,
+    },
+    routeAudit: { ok: true, findings: 0 },
+    recentLog: { conflicts: 0, resets: 0, sendNextPrompt: 0, autoResumeDisabled: 1 },
+  },
+});
+assert.ok(packetWithEvidence.includes('Local Evidence Snapshot'));
+assert.ok(packetWithEvidence.includes('Gateway processes: 1'));
+assert.ok(packetWithEvidence.includes('auto_reset=false'));
+
+const draft = renderCommentDraft(scoredIssue);
+assert.ok(draft.includes('Maintainer-ready draft'));
+assert.ok(draft.includes('one-process gateway status'));
+assert.ok(!draft.includes('gh issue comment'));
+assert.ok(!draft.includes('gh pr create'));
+
+assert.strictEqual(slugify('Telegram: rich-message final reply overlaps!'), 'telegram-rich-message-final-reply-overlaps');
 
 console.log('Hermes contribution opportunity scoring tests: PASS');

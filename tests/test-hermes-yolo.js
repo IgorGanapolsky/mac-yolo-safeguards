@@ -10,7 +10,7 @@ const WRAPPER_PATH = path.resolve(__dirname, '../hermes-yolo-wrapper.js');
 console.log('=== Running hermes-yolo-wrapper tests ===\n');
 
 // 1. Load the wrapper module (thanks to our module.exports check)
-const { buildChildPromptArgs, HERMES_COMMANDS } = require(WRAPPER_PATH);
+const { buildChildPromptArgs, HERMES_COMMANDS, DEFAULT_READY_PROMPT } = require(WRAPPER_PATH);
 
 console.log('Testing buildChildPromptArgs...');
 
@@ -34,23 +34,22 @@ function runWithMockedTTY(isTTY, fn) {
 // Test case: Empty arguments in interactive terminal (TTY)
 runWithMockedTTY(true, () => {
   const result = buildChildPromptArgs([]);
-  console.log('  [TEST] Empty args + TTY=true -> expected [], got:', result);
-  assert.deepStrictEqual(result, [], 'TTY=true and empty args must return empty array to drop into interactive TUI/REPL');
+  console.log('  [TEST] Empty args + TTY=true -> expected bounded -z probe, got:', result);
+  assert.deepStrictEqual(result, ['-z', DEFAULT_READY_PROMPT]);
 });
 
 // Test case: Empty arguments in non-interactive pipeline (non-TTY)
 runWithMockedTTY(false, () => {
   const result = buildChildPromptArgs([]);
-  console.log('  [TEST] Empty args + TTY=false -> expected ["-z", "Reply with exactly HERMES-YOLO-READY"], got:', result);
-  assert.deepStrictEqual(result, ['-z', 'Reply with exactly HERMES-YOLO-READY']);
+  console.log('  [TEST] Empty args + TTY=false -> expected bounded -z probe, got:', result);
+  assert.deepStrictEqual(result, ['-z', DEFAULT_READY_PROMPT]);
 });
 
 // Test case: Custom prompt positional argument
 runWithMockedTTY(true, () => {
   const result = buildChildPromptArgs(['Write a python hello world script']);
-  console.log('  [TEST] Custom prompt -> expected ["-z", "Reply with exactly HERMES-YOLO-READY"], got:', result);
-  assert.deepStrictEqual(result[0], '-z');
-  assert.strictEqual(result[1], 'Reply with exactly HERMES-YOLO-READY'); // promptText is args.join(' ') from process.argv
+  console.log('  [TEST] Custom prompt -> expected ["-z", prompt], got:', result);
+  assert.deepStrictEqual(result, ['-z', 'Write a python hello world script']);
 });
 
 // Test case: Hermes subcommands (e.g. chat, doctor, version)

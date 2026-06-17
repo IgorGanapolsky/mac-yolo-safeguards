@@ -37,8 +37,9 @@ const CPU_SAMPLE_INTERVAL_MS = parseInt(process.env.HERMES_YOLO_CPU_SAMPLE_MS ||
 const CPU_THRESHOLD = parseFloat(process.env.HERMES_YOLO_CPU_THRESHOLD || 90);
 const CPU_STUCK_SAMPLES = parseInt(process.env.HERMES_YOLO_CPU_STUCK_SAMPLES || 10, 10);
 
+const DEFAULT_READY_PROMPT = 'Reply with exactly HERMES-YOLO-READY';
 const args = process.argv.slice(2);
-const promptText = args.join(' ') || 'Reply with exactly HERMES-YOLO-READY';
+const promptText = args.join(' ') || DEFAULT_READY_PROMPT;
 const HERMES_COMMANDS = new Set([
   'chat', 'model', 'fallback', 'secrets', 'migrate', 'gateway', 'proxy', 'lsp',
   'setup', 'postinstall', 'whatsapp', 'whatsapp-cloud', 'slack', 'send', 'login',
@@ -50,14 +51,11 @@ const HERMES_COMMANDS = new Set([
   'desktop', 'gui', 'logs', 'prompt-size'
 ]);
 
-function buildChildPromptArgs(rawArgs) {
+function buildChildPromptArgs(rawArgs, prompt = rawArgs.join(' ') || DEFAULT_READY_PROMPT) {
   if (process.env.HERMES_YOLO_INTERACTIVE === '1') return rawArgs;
-  if (rawArgs.length === 0) {
-    if (process.stdout.isTTY) return []; // Drop into interactive TUI/REPL when run in a terminal
-    return ['-z', promptText];
-  }
+  if (rawArgs.length === 0) return ['-z', DEFAULT_READY_PROMPT];
   if (rawArgs[0].startsWith('-') || HERMES_COMMANDS.has(rawArgs[0])) return rawArgs;
-  return ['-z', promptText];
+  return ['-z', prompt];
 }
 
 const childPromptArgs = buildChildPromptArgs(args);
@@ -331,8 +329,9 @@ child.on('close', (code, signal) => {
 
 process.on('exit', releaseLock);
 } else {
-  module.exports = {
-    buildChildPromptArgs,
-    HERMES_COMMANDS
-  };
+module.exports = {
+  buildChildPromptArgs,
+  HERMES_COMMANDS,
+  DEFAULT_READY_PROMPT
+};
 }
