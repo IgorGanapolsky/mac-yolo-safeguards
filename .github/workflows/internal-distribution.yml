@@ -34,7 +34,8 @@ env:
 
 concurrency:
   # EAS Android builds often run 45–90m; do not cancel on new pushes or Firebase never ships.
-  group: internal-distribution-${{ github.workflow }}-${{ github.ref }}
+  # Firebase-only reuse (eas_build_id) uses a separate group so it is not blocked behind --wait.
+  group: ${{ github.event_name == 'workflow_dispatch' && inputs.eas_build_id != '' && format('internal-distribution-firebase-reuse-{0}', github.ref) || format('internal-distribution-{0}-{1}', github.workflow, github.ref) }}
   cancel-in-progress: false
 
 permissions:
