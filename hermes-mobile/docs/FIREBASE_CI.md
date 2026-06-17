@@ -17,7 +17,7 @@ Hermes Mobile ships on the **legacy upgrade package** `com.iganapolsky.agentleas
 | `EXPO_TOKEN` | EAS cloud builds |
 | `FIREBASE_SERVICE_ACCOUNT_JSON` | **Dedicated** Firebase App Distribution SA (recommended). Do **not** rely on Play-upload `GOOGLE_SERVICE_ACCOUNT_JSON` alone — it returns **403** on upload. |
 | `GOOGLE_SERVICE_ACCOUNT_JSON` | Fallback only if it has `roles/firebaseappdistro.admin` on project `764037522332` |
-| `FIREBASE_ANDROID_APP_ID` | Firebase app for **`com.iganapolsky.agentleash`** (existing testers) |
+| `FIREBASE_ANDROID_APP_ID` | Firebase app for **`com.iganapolsky.agentleash`** on project **`openclaw-console-mobile-8d53d`**: `1:587028054730:android:adc3ad46153bb63a772a33` (not liposhield-distribution / hermesmobile) |
 | `FIREBASE_REQUIRED_TESTER_EMAIL` | e.g. `iganapolsky@gmail.com` |
 
 ## Required GitHub variables
@@ -33,7 +33,14 @@ Use the **existing** Android app in Firebase Console:
 - Package: `com.iganapolsky.agentleash`
 - App ID: GitHub secret `FIREBASE_ANDROID_APP_ID`
 
-Do **not** create a separate `com.iganapolsky.hermesmobile` Firebase app for internal testers unless you intentionally want a parallel beta.
+Do **not** use `liposhield-distribution` / `com.iganapolsky.hermesmobile` for AgentLeash in-place upgrades.
+
+| Firebase project | Package | App ID |
+|---|---|---|
+| `openclaw-console-mobile-8d53d` | `com.iganapolsky.agentleash` | `1:587028054730:android:adc3ad46153bb63a772a33` |
+| `liposhield-distribution` | `com.iganapolsky.hermesmobile` | `1:764037522332:android:4e6b8544533ee992ad9e59` (wrong app for upgrade) |
+
+Copy `FIREBASE_SERVICE_ACCOUNT_JSON` from the **AgentLeash** repo secrets (or generate a key on `openclaw-console-mobile-8d53d`). The LipoShield Play-upload `GOOGLE_SERVICE_ACCOUNT_JSON` only has access to project `764037522332` and returns **403** on AgentLeash distribute.
 
 ## Local verification
 
