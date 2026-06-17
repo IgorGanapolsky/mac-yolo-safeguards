@@ -301,7 +301,7 @@ jobs:
           node - <<'NODE'
           const fs = require('fs');
           const build = JSON.parse(fs.readFileSync('/tmp/eas-android-build-view.json', 'utf8'));
-          const expectedPackage = process.env.HERMES_MOBILE_ANDROID_PACKAGE || 'com.iganapolsky.hermesmobile';
+          const expectedPackage = process.env.HERMES_MOBILE_ANDROID_PACKAGE || 'com.iganapolsky.agentleash';
           if (build.status !== 'FINISHED') {
             throw new Error(`Android EAS build status is ${build.status}`);
           }

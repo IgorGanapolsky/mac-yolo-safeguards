@@ -6,11 +6,14 @@ import type {
 } from '../types/mobileRelay';
 import type { PendingApproval } from '../types/gateway';
 
-/** Hermes Mobile cloud relay (Fly.io). Backend may still serve legacy hostname until DNS cutover. */
-export const DEFAULT_HERMES_MOBILE_CLOUD_URL = 'https://hermes-mobile-cloud.fly.dev';
+/** Production relay — live Fly app (hermes-mobile-cloud DNS pending). */
+export const DEFAULT_HERMES_MOBILE_CLOUD_URL = 'https://agentleash-cloud.fly.dev';
 
-/** Legacy hostname — used as fallback when the new Fly app is not deployed yet. */
-export const LEGACY_CLOUD_RELAY_URL = 'https://agentleash-cloud.fly.dev';
+/** Target hostname after Fly cutover (see hermes-mobile/deploy/fly.toml). */
+export const TARGET_HERMES_MOBILE_CLOUD_URL = 'https://hermes-mobile-cloud.fly.dev';
+
+/** @deprecated use DEFAULT_HERMES_MOBILE_CLOUD_URL */
+export const LEGACY_CLOUD_RELAY_URL = DEFAULT_HERMES_MOBILE_CLOUD_URL;
 
 export function resolveCloudRelayUrl(configured?: string | null): string {
   const trimmed = configured?.trim();

@@ -23,7 +23,7 @@ describe('mobileRelayClient', () => {
     expect(pending.reason).toBe('PreToolUse');
   });
 
-  it('defaults cloud URL to Hermes Mobile production relay', () => {
-    expect(DEFAULT_HERMES_MOBILE_CLOUD_URL).toBe('https://hermes-mobile-cloud.fly.dev');
+  it('defaults cloud URL to live production relay', () => {
+    expect(DEFAULT_HERMES_MOBILE_CLOUD_URL).toBe('https://agentleash-cloud.fly.dev');
   });
 });

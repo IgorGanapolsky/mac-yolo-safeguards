@@ -1,5 +1,5 @@
 # Flow 1: App launch — Chat tab is the Telegram replacement
-appId: com.iganapolsky.hermesmobile
+appId: com.iganapolsky.agentleash
 ---
 - launchApp
 - runFlow:

@@ -175,7 +175,7 @@ export default function SettingsScreen() {
             style={styles.input}
             value={cloudUrl}
             onChangeText={setCloudUrl}
-            placeholder="https://hermes-mobile-cloud.fly.dev"
+            placeholder="https://agentleash-cloud.fly.dev"
             placeholderTextColor={colors.textMuted}
             autoCapitalize="none"
             autoCorrect={false}

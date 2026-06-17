@@ -57,7 +57,7 @@ export interface GatewaySettings {
 
 export const DEFAULT_GATEWAY_SETTINGS: GatewaySettings = {
   connectionMode: 'gateway',
-  cloudUrl: 'https://hermes-mobile-cloud.fly.dev',
+  cloudUrl: 'https://agentleash-cloud.fly.dev',
   gatewayUrl: 'http://127.0.0.1:8642',
   usePortal: false,
   redactPii: true,

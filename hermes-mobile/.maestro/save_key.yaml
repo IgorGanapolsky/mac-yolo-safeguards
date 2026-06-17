@@ -1,4 +1,4 @@
-appId: com.iganapolsky.hermesmobile
+appId: com.iganapolsky.agentleash
 ---
 - launchApp
 - tapOn: "Settings"

@@ -8,7 +8,7 @@
 |---|---|
 | App Store / icon | **Hermes Mobile** |
 | Product positioning | **Hermes Mobile Agent** — mobile operator client for Hermes on your Mac |
-| Cloud relay | `https://hermes-mobile-cloud.fly.dev` |
+| Cloud relay | `https://agentleash-cloud.fly.dev` (live; `hermes-mobile-cloud` cutover pending) |
 
 ## Gateway parity map
 

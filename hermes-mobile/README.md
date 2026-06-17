@@ -17,9 +17,9 @@ Built with Expo + React Navigation. Gateway API on port **8642** — chat, strea
 
 On your Mac, run **Hermes Mobile Agent pairing** (bridge daemon) and enter the code shown in Terminal.
 
-In Hermes Mobile **Settings**, enter the pairing code (e.g. `MOON-DUST`) and cloud URL (`https://hermes-mobile-cloud.fly.dev`).
+In Hermes Mobile **Settings**, enter the pairing code (e.g. `MOON-DUST`) and cloud URL (`https://agentleash-cloud.fly.dev` until `hermes-mobile-cloud` is deployed).
 
-**Firebase App Distribution:** invites must use the **Hermes Mobile** Android app in Firebase Console (`com.iganapolsky.hermesmobile`). If Gmail shows the wrong app name, the `FIREBASE_ANDROID_APP_ID` GitHub secret points at the wrong Firebase app — register Hermes Mobile and update the secret.
+**Firebase App Distribution:** use the **existing** Android app (`com.iganapolsky.agentleash`) — display name **Hermes Mobile**, same package ID for in-place upgrades. See [docs/UPGRADE.md](./docs/UPGRADE.md) and [docs/FIREBASE_CI.md](./docs/FIREBASE_CI.md).
 
 ## Quick start
 
