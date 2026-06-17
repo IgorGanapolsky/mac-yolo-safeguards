@@ -10,7 +10,7 @@ on:
       target:
         description: "Internal tester target"
         required: true
-        default: all
+        default: android_firebase
         type: choice
         options:
           - all
@@ -18,6 +18,15 @@ on:
           - android_eas
           - android_firebase
           - ios_eas
+  push:
+    branches:
+      - main
+    paths:
+      - "hermes-mobile/**"
+      - ".github/workflows/internal-distribution.yml"
+
+env:
+  HERMES_MOBILE_ANDROID_PACKAGE: com.iganapolsky.hermesmobile
 
 concurrency:
   group: internal-distribution-${{ github.event_name }}-${{ inputs.ref || github.ref_name }}-${{ inputs.target || 'all' }}
@@ -64,12 +73,19 @@ jobs:
           INPUT_REF: ${{ inputs.ref }}
           INPUT_TARGET: ${{ inputs.target }}
           GITHUB_REF_NAME_VALUE: ${{ github.ref_name }}
+          GITHUB_EVENT_NAME: ${{ github.event_name }}
         run: |
           set -euo pipefail
 
           SHOULD_RUN="true"
           REF="${INPUT_REF:-${GITHUB_REF_NAME_VALUE}}"
-          TARGET="${INPUT_TARGET:-all}"
+          TARGET="${INPUT_TARGET:-}"
+
+          # Auto-distribute Hermes Mobile to Firebase on main pushes (June 2026 default).
+          if [[ "$GITHUB_EVENT_NAME" == "push" && -z "$TARGET" ]]; then
+            TARGET="android_firebase"
+          fi
+          TARGET="${TARGET:-all}"
 
           RUN_ANDROID="false"
           RUN_IOS="false"
@@ -125,7 +141,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
           cache-dependency-path: hermes-mobile/package-lock.json
 
@@ -133,6 +149,8 @@ jobs:
         run: npm ci
 
       - name: Release readiness audit
+        env:
+          REQUIRE_EAS_PROJECT: "1"
         run: npm run release:check
 
       - name: Type check
@@ -163,9 +181,16 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
           cache-dependency-path: hermes-mobile/package-lock.json
+
+      - name: Setup Expo and EAS
+        uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+          packager: npm
 
       - name: Install dependencies
         run: npm ci
@@ -183,19 +208,27 @@ jobs:
       - name: Run Android release preflight
         run: npm run launch:preflight:android
 
+      - name: Verify Firebase Android app binding
+        if: needs.gate.outputs.run_firebase == 'true'
+        env:
+          FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
+          FIREBASE_ANDROID_APP_ID: ${{ secrets.FIREBASE_ANDROID_APP_ID }}
+          HERMES_MOBILE_ANDROID_PACKAGE: ${{ env.HERMES_MOBILE_ANDROID_PACKAGE }}
+        run: node ./scripts/verify-firebase-android-app.cjs
+
       - name: Build Android internal APK
         id: build
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
         run: |
           set -euo pipefail
-          npx eas-cli@latest build \
+          eas build \
             --platform android \
             --profile preview \
             --non-interactive \
             --wait \
             --json \
-            --message "Internal Hermes Mobile Android APK from ${GITHUB_SHA}" \
+            --message "Hermes Mobile (${HERMES_MOBILE_ANDROID_PACKAGE}) internal APK ${GITHUB_SHA}" \
             > /tmp/eas-android-build.json
 
           cat /tmp/eas-android-build.json
@@ -210,12 +243,14 @@ jobs:
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
           BUILD_ID: ${{ steps.build.outputs.build_id }}
+          HERMES_MOBILE_ANDROID_PACKAGE: ${{ env.HERMES_MOBILE_ANDROID_PACKAGE }}
         run: |
           set -euo pipefail
           npx eas-cli@latest build:view "$BUILD_ID" --json > /tmp/eas-android-build-view.json
           node - <<'NODE'
           const fs = require('fs');
           const build = JSON.parse(fs.readFileSync('/tmp/eas-android-build-view.json', 'utf8'));
+          const expectedPackage = process.env.HERMES_MOBILE_ANDROID_PACKAGE || 'com.iganapolsky.hermesmobile';
           if (build.status !== 'FINISHED') {
             throw new Error(`Android EAS build status is ${build.status}`);
           }
@@ -227,6 +262,10 @@ jobs:
           }
           if (!build.artifacts?.buildUrl?.endsWith('.apk')) {
             throw new Error(`Expected APK buildUrl, got ${build.artifacts?.buildUrl || 'missing'}`);
+          }
+          const appIdentifier = build.appIdentifier || build.applicationArchiveUrl?.appIdentifier;
+          if (appIdentifier && appIdentifier !== expectedPackage) {
+            throw new Error(`EAS build package ${appIdentifier} != ${expectedPackage}`);
           }
           console.log(`Android internal APK verified: ${build.artifacts.buildUrl}`);
           NODE
@@ -304,19 +343,43 @@ jobs:
           curl --fail --location --retry 3 --output firebase-dist/hermes-mobile-eas-internal.apk "$APK_URL"
           test -s firebase-dist/hermes-mobile-eas-internal.apk
 
+      - name: Verify APK package before Firebase upload
+        if: needs.gate.outputs.run_firebase == 'true'
+        working-directory: hermes-mobile
+        env:
+          HERMES_MOBILE_ANDROID_PACKAGE: ${{ env.HERMES_MOBILE_ANDROID_PACKAGE }}
+        run: bash ./scripts/verify-apk-package.sh firebase-dist/hermes-mobile-eas-internal.apk
+
       - name: Distribute Android APK to Firebase
         if: needs.gate.outputs.run_firebase == 'true'
-        uses: wzieba/Firebase-Distribution-Github-Action@bd494989dd4bec0343f78adee87fe66e48279ad6 # v1
-        with:
-          appId: ${{ secrets.FIREBASE_ANDROID_APP_ID }}
-          serviceCredentialsFileContent: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
-          testers: ${{ env.FIREBASE_INTERNAL_TESTERS }}
-          groups: ${{ env.FIREBASE_INTERNAL_GROUPS }}
-          file: hermes-mobile/firebase-dist/hermes-mobile-eas-internal.apk
-          releaseNotes: |
-            Hermes Mobile internal Android build from ${{ needs.gate.outputs.sha }}
-            Ref: ${{ needs.gate.outputs.ref }}
-            EAS build: ${{ steps.build.outputs.build_id }}
+        working-directory: hermes-mobile
+        env:
+          FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
+          FIREBASE_ANDROID_APP_ID: ${{ secrets.FIREBASE_ANDROID_APP_ID }}
+          FIREBASE_INTERNAL_GROUPS: ${{ env.FIREBASE_INTERNAL_GROUPS }}
+          FIREBASE_INTERNAL_TESTERS: ${{ env.FIREBASE_INTERNAL_TESTERS }}
+        run: |
+          set -euo pipefail
+          SA_FILE="$(mktemp)"
+          printf '%s' "$FIREBASE_SERVICE_ACCOUNT_JSON" > "$SA_FILE"
+          export GOOGLE_APPLICATION_CREDENTIALS="$SA_FILE"
+          RELEASE_NOTES="Hermes Mobile (${HERMES_MOBILE_ANDROID_PACKAGE}) build ${GITHUB_SHA}
+EAS: ${{ steps.build.outputs.build_id }}
+Ref: ${{ needs.gate.outputs.ref }}"
+          ARGS=(
+            npx --yes firebase-tools@14.4.0 appdistribution:distribute
+            firebase-dist/hermes-mobile-eas-internal.apk
+            --app "$FIREBASE_ANDROID_APP_ID"
+            --release-notes "$RELEASE_NOTES"
+          )
+          if [ -n "${FIREBASE_INTERNAL_GROUPS:-}" ]; then
+            ARGS+=(--groups "$FIREBASE_INTERNAL_GROUPS")
+          fi
+          if [ -n "${FIREBASE_INTERNAL_TESTERS:-}" ]; then
+            ARGS+=(--testers "$FIREBASE_INTERNAL_TESTERS")
+          fi
+          "${ARGS[@]}"
+          rm -f "$SA_FILE"
 
       - name: Record Firebase internal signoff status
         if: needs.gate.outputs.run_firebase == 'true'

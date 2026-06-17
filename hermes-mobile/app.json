@@ -38,7 +38,9 @@
       }
     },
     "owner": "igorganapolsky",
-    "runtimeVersion": "0.1.0",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
     "updates": {
       "url": "https://u.expo.dev/4ed13e30-9b97-4ddd-8a12-59106cae90d6"
     },

@@ -13,15 +13,21 @@ describe('internal distribution workflow', () => {
   const storeRelease = readWorkflow('.github/workflows/store-release.yml');
 
   it('mirrors Android EAS preview APKs to Firebase for tester signoff', () => {
-    expect(internalDistribution).toContain('default: all');
+    expect(internalDistribution).toContain('default: android_firebase');
     expect(internalDistribution).toContain('- android_firebase');
     expect(internalDistribution).toContain('RUN_FIREBASE="true"');
+    expect(internalDistribution).toContain('paths:');
+    expect(internalDistribution).toContain('hermes-mobile/**');
+    expect(internalDistribution).toContain('expo/expo-github-action@v8');
     expect(internalDistribution).toContain('--wait');
     expect(internalDistribution).toContain('FIREBASE_SERVICE_ACCOUNT_JSON');
     expect(internalDistribution).toContain('FIREBASE_ANDROID_APP_ID');
     expect(internalDistribution).toContain('FIREBASE_REQUIRED_TESTER_EMAIL');
-    expect(internalDistribution).toContain('wzieba/Firebase-Distribution-Github-Action@bd494989dd4bec0343f78adee87fe66e48279ad6');
+    expect(internalDistribution).toContain('verify-firebase-android-app.cjs');
+    expect(internalDistribution).toContain('verify-apk-package.sh');
+    expect(internalDistribution).toContain('firebase-tools@14.4.0 appdistribution:distribute');
     expect(internalDistribution).toContain('internal-signoff/firebase-android');
+    expect(internalDistribution).toContain('HERMES_MOBILE_ANDROID_PACKAGE');
     expect(internalDistribution).toContain('working-directory: hermes-mobile');
   });
 

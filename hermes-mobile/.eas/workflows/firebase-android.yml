@@ -1,0 +1,42 @@
+# EAS Workflows — Hermes Mobile Android → Firebase App Distribution
+# Secrets: set in Expo project → Environment variables (preview/production):
+#   FIREBASE_ANDROID_APP_ID, FIREBASE_SERVICE_ACCOUNT_JSON (file secret),
+#   FIREBASE_TESTER_GROUPS (e.g. internal-testers)
+# Trigger from CI: eas workflow:run .eas/workflows/firebase-android.yml
+
+name: Hermes Mobile Firebase Android
+
+on:
+  push:
+    branches: ['main']
+
+jobs:
+  build_android:
+    name: Build Android internal APK
+    type: build
+    params:
+      platform: android
+      profile: preview
+
+  distribute_firebase:
+    name: Distribute APK to Firebase
+    needs: [build_android]
+    steps:
+      - uses: eas/download_build
+        id: download_build
+        with:
+          build_id: ${{ needs.build_android.outputs.build_id }}
+          extensions: [apk]
+
+      - name: Upload to Firebase App Distribution
+        run: |
+          set -euo pipefail
+          SA_FILE="$(mktemp)"
+          printf '%s' "$FIREBASE_SERVICE_ACCOUNT_JSON" > "$SA_FILE"
+          export GOOGLE_APPLICATION_CREDENTIALS="$SA_FILE"
+          npx --yes firebase-tools@14.4.0 appdistribution:distribute \
+            "${{ steps.download_build.outputs.artifact_path }}" \
+            --app "$FIREBASE_ANDROID_APP_ID" \
+            --groups "${FIREBASE_TESTER_GROUPS:-internal-testers}" \
+            --release-notes "Hermes Mobile EAS build ${{ needs.build_android.outputs.build_id }}"
+          rm -f "$SA_FILE"

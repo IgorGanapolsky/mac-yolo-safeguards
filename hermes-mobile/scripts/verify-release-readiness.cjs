@@ -43,9 +43,13 @@ check(typeof packageConfig.scripts?.typecheck === 'string', 'package.json must d
 check(typeof packageConfig.scripts?.test === 'string', 'package.json must define test script');
 check(typeof packageConfig.scripts?.['test:ci'] === 'string', 'package.json must define test:ci script');
 
+check(
+  appConfig.runtimeVersion?.policy === 'appVersion',
+  'app.json runtimeVersion.policy must be appVersion for OTA safety',
+);
+
 if (process.env.REQUIRE_EAS_PROJECT === '1') {
   check(!placeholderProjectIds.has(projectId), 'app.json extra.eas.projectId is still a local placeholder');
-  check(appConfig.runtimeVersion?.policy === 'appVersion', 'app.json runtimeVersion.policy must be appVersion for OTA safety');
   const updatesUrl = appConfig.updates?.url;
   check(updatesUrl === expectedUpdatesUrl, `app.json updates.url must be ${expectedUpdatesUrl}`);
 }

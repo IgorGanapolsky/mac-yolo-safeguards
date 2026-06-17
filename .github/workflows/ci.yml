@@ -89,7 +89,7 @@ jobs:
 
       - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
           cache-dependency-path: hermes-mobile/package-lock.json
 
@@ -97,6 +97,8 @@ jobs:
         run: npm ci
 
       - name: Release readiness audit
+        env:
+          REQUIRE_EAS_PROJECT: "1"
         run: npm run release:check
 
       - name: Type check

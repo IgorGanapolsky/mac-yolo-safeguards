@@ -82,6 +82,8 @@ elif [[ -n "${FIREBASE_SERVICE_ACCOUNT_JSON:-}" ]]; then
 fi
 
 set_secret FIREBASE_ANDROID_APP_ID "$(env_value FIREBASE_ANDROID_APP_ID || echo "${FIREBASE_ANDROID_APP_ID:-}")"
+# Must be Firebase App ID for com.iganapolsky.hermesmobile — NOT com.iganapolsky.agentleash
+echo "NOTE: FIREBASE_ANDROID_APP_ID must register package com.iganapolsky.hermesmobile (see hermes-mobile/docs/FIREBASE_CI.md)"
 set_secret FIREBASE_REQUIRED_TESTER_EMAIL "$(env_value FIREBASE_REQUIRED_TESTER_EMAIL || echo "${FIREBASE_REQUIRED_TESTER_EMAIL:-iganapolsky@gmail.com}")"
 
 set_var FIREBASE_INTERNAL_GROUPS "$(env_value FIREBASE_INTERNAL_GROUPS || echo "${FIREBASE_INTERNAL_GROUPS:-internal-testers}")"
