@@ -1,0 +1,43 @@
+import type { HermesSession } from '../types/chat';
+import {
+  formatSessionDate,
+  parseGatewayTimestamp,
+  sessionDisplayTitle,
+  sessionLastActiveValue,
+} from '../utils/sessionDisplay';
+
+describe('sessionDisplay', () => {
+  const gatewaySession: HermesSession = {
+    id: '20260617_133715_583ecd',
+    source: 'cli',
+    title: null,
+    last_active: 1781717841.604179,
+    preview: 'Run pwd and reply with exactly the working directory output,...',
+  };
+
+  it('parses gateway Unix seconds without epoch date bug', () => {
+    const date = parseGatewayTimestamp(gatewaySession.last_active);
+    expect(date).not.toBeNull();
+    expect(date!.getFullYear()).toBe(2026);
+    expect(formatSessionDate(gatewaySession.last_active)).not.toBe('1/21/1970');
+  });
+
+  it('uses preview when title is null', () => {
+    expect(sessionDisplayTitle(gatewaySession)).toBe(
+      'Run pwd and reply with exactly the working directory…',
+    );
+  });
+
+  it('prefers explicit title', () => {
+    expect(
+      sessionDisplayTitle({
+        ...gatewaySession,
+        title: 'Fixing Conversion Leak via Telegram Stripe Outreach',
+      }),
+    ).toBe('Fixing Conversion Leak via Telegram Stripe Outreach');
+  });
+
+  it('falls back to started_at for last active', () => {
+    expect(sessionLastActiveValue({ id: 'x', started_at: 1781717688.445973 })).toBe(1781717688.445973);
+  });
+});

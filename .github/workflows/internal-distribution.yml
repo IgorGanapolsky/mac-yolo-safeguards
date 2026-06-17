@@ -30,7 +30,7 @@ on:
       - ".github/workflows/internal-distribution.yml"
 
 env:
-  HERMES_MOBILE_ANDROID_PACKAGE: com.iganapolsky.agentleash
+  HERMES_MOBILE_ANDROID_PACKAGE: com.iganapolsky.hermesmobile
 
 concurrency:
   # EAS Android builds often run 45–90m; do not cancel on new pushes or Firebase never ships.
@@ -217,7 +217,7 @@ jobs:
       - name: Fail fast on Firebase distribution auth inputs
         if: needs.gate.outputs.run_firebase == 'true'
         env:
-          FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON || secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
+          FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
           FIREBASE_ANDROID_APP_ID: ${{ secrets.FIREBASE_ANDROID_APP_ID }}
           FIREBASE_INTERNAL_GROUPS: ${{ vars.FIREBASE_INTERNAL_GROUPS }}
           FIREBASE_INTERNAL_TESTERS: ${{ vars.FIREBASE_INTERNAL_TESTERS }}
@@ -227,7 +227,7 @@ jobs:
           for name in FIREBASE_SERVICE_ACCOUNT_JSON FIREBASE_ANDROID_APP_ID; do
             if [ -z "${!name:-}" ]; then
               echo "Missing required secret: $name" >&2
-              echo "Add it to repo secrets OR the internal-android GitHub environment (see hermes-mobile/docs/FIREBASE_CI.md)" >&2
+              echo "Add FIREBASE_SERVICE_ACCOUNT_JSON (see scripts/sync-firebase-secrets.sh)" >&2
               exit 1
             fi
           done
@@ -276,9 +276,19 @@ jobs:
       - name: Verify Firebase App Distribution API access
         if: needs.gate.outputs.run_firebase == 'true'
         env:
-          FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON || secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
+          FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
           FIREBASE_ANDROID_APP_ID: ${{ secrets.FIREBASE_ANDROID_APP_ID }}
         run: node ./scripts/verify-firebase-distribute-auth.cjs
+
+      - name: Setup Python for Firebase read-back
+        if: needs.gate.outputs.run_firebase == 'true'
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Install Firebase verification Python dependencies
+        if: needs.gate.outputs.run_firebase == 'true'
+        run: python -m pip install --upgrade google-auth==2.48.0 requests==2.32.5
 
       - name: Build Android internal APK
         id: build
@@ -325,7 +335,7 @@ jobs:
           node - <<'NODE'
           const fs = require('fs');
           const build = JSON.parse(fs.readFileSync('/tmp/eas-android-build-view.json', 'utf8'));
-          const expectedPackage = process.env.HERMES_MOBILE_ANDROID_PACKAGE || 'com.iganapolsky.agentleash';
+          const expectedPackage = process.env.HERMES_MOBILE_ANDROID_PACKAGE || 'com.iganapolsky.hermesmobile';
           if (build.status !== 'FINISHED') {
             throw new Error(`Android EAS build status is ${build.status}`);
           }
@@ -369,34 +379,38 @@ jobs:
 
       - name: Distribute Android APK to Firebase
         if: needs.gate.outputs.run_firebase == 'true'
+        uses: wzieba/Firebase-Distribution-Github-Action@bd494989dd4bec0343f78adee87fe66e48279ad6 # v1
+        id: firebase_dist
+        with:
+          appId: ${{ secrets.FIREBASE_ANDROID_APP_ID }}
+          serviceCredentialsFileContent: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
+          testers: ${{ env.FIREBASE_INTERNAL_TESTERS }}
+          groups: ${{ env.FIREBASE_INTERNAL_GROUPS }}
+          file: hermes-mobile/firebase-dist/hermes-mobile-eas-internal.apk
+          releaseNotes: |
+            Hermes Mobile (${{ env.HERMES_MOBILE_ANDROID_PACKAGE }}) build ${{ github.sha }}
+            EAS ${{ steps.build.outputs.build_id || steps.adopt_build.outputs.build_id }}
+            Ref: ${{ needs.gate.outputs.ref }}
+
+      - name: Verify Firebase distribution read-back
+        if: needs.gate.outputs.run_firebase == 'true'
         working-directory: hermes-mobile
         env:
-          FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON || secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
+          FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
           FIREBASE_ANDROID_APP_ID: ${{ secrets.FIREBASE_ANDROID_APP_ID }}
           FIREBASE_INTERNAL_GROUPS: ${{ env.FIREBASE_INTERNAL_GROUPS }}
           FIREBASE_INTERNAL_TESTERS: ${{ env.FIREBASE_INTERNAL_TESTERS }}
         run: |
           set -euo pipefail
-          SA_FILE="$(mktemp)"
-          printf '%s' "$FIREBASE_SERVICE_ACCOUNT_JSON" > "$SA_FILE"
-          export GOOGLE_APPLICATION_CREDENTIALS="$SA_FILE"
-          BUILD_ID="${{ steps.build.outputs.build_id || steps.adopt_build.outputs.build_id }}"
-          REF="${{ needs.gate.outputs.ref }}"
-          RELEASE_NOTES="Hermes Mobile (${HERMES_MOBILE_ANDROID_PACKAGE}) build ${GITHUB_SHA} | EAS ${BUILD_ID} | ref ${REF}"
-          ARGS=(
-            npx --yes firebase-tools@14.4.0 appdistribution:distribute
-            firebase-dist/hermes-mobile-eas-internal.apk
-            --app "$FIREBASE_ANDROID_APP_ID"
-            --release-notes "$RELEASE_NOTES"
-          )
-          if [ -n "${FIREBASE_INTERNAL_GROUPS:-}" ]; then
-            ARGS+=(--groups "$FIREBASE_INTERNAL_GROUPS")
-          fi
-          if [ -n "${FIREBASE_INTERNAL_TESTERS:-}" ]; then
-            ARGS+=(--testers "$FIREBASE_INTERNAL_TESTERS")
-          fi
-          "${ARGS[@]}"
-          rm -f "$SA_FILE"
+          VERSION="$(node -e 'const j=require("./app.json"); console.log(j.expo.version)')"
+          BUILD_VERSION="$(node -e 'const j=require("./app.json"); console.log(j.expo.android.versionCode)')"
+          python scripts/ensure_firebase_internal_distribution.py \
+            --firebase-app-id "$FIREBASE_ANDROID_APP_ID" \
+            --firebase-build-version "$BUILD_VERSION" \
+            --firebase-display-version "$VERSION" \
+            --firebase-group-aliases "$FIREBASE_INTERNAL_GROUPS" \
+            --firebase-tester-emails "$FIREBASE_INTERNAL_TESTERS" \
+            --firebase-required-testers "$FIREBASE_INTERNAL_TESTERS"
 
       - name: Record Firebase internal signoff status
         if: needs.gate.outputs.run_firebase == 'true'

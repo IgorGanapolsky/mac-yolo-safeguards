@@ -3,7 +3,7 @@
     "name": "Hermes Mobile",
     "slug": "hermes-mobile",
     "scheme": "hermes",
-    "version": "0.2.0",
+    "version": "0.3.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
@@ -14,7 +14,7 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.iganapolsky.agentleash",
+      "bundleIdentifier": "com.iganapolsky.hermesmobile",
       "userInterfaceStyle": "dark",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
@@ -25,8 +25,8 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#0B0F19"
       },
-      "package": "com.iganapolsky.agentleash",
-      "versionCode": 188,
+      "package": "com.iganapolsky.hermesmobile",
+      "versionCode": 1,
       "userInterfaceStyle": "dark",
       "allowBackup": false
     },

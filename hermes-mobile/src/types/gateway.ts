@@ -1,3 +1,5 @@
+import { HERMES_MOBILE_CLOUD_URL } from '../constants/appIdentity';
+
 export type GatewayHealthLevel = 'green' | 'amber' | 'red' | 'unknown';
 
 export type GateDecision = 'approve' | 'reject';
@@ -57,7 +59,7 @@ export interface GatewaySettings {
 
 export const DEFAULT_GATEWAY_SETTINGS: GatewaySettings = {
   connectionMode: 'gateway',
-  cloudUrl: 'https://agentleash-cloud.fly.dev',
+  cloudUrl: HERMES_MOBILE_CLOUD_URL,
   gatewayUrl: 'http://127.0.0.1:8642',
   usePortal: false,
   redactPii: true,

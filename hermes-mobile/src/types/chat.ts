@@ -1,10 +1,13 @@
 export interface HermesSession {
   id: string;
-  title?: string;
+  title?: string | null;
   source?: string;
   model?: string;
+  /** ISO string from mobile-created sessions */
   last_active_at?: string;
-  last_active?: string;
+  /** Unix seconds (float) from Hermes gateway :8642 */
+  last_active?: number | string;
+  started_at?: number | string;
   message_count?: number;
   preview?: string;
 }

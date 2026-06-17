@@ -32,7 +32,7 @@ export default function ApprovalsScreen() {
     <SafeAreaView style={styles.safeArea} edges={['top']}>
       <View style={styles.header}>
         <Text style={styles.title} testID="LEASH">LEASH</Text>
-        <Text style={styles.subtitle}>Approve risky agent tool calls (Hermes Mobile Agent / ThumbGate)</Text>
+        <Text style={styles.subtitle}>Approve risky agent tool calls (ThumbGate)</Text>
         <View style={styles.pillRow}>
           <HealthPill
             level={healthLevel}
@@ -48,7 +48,7 @@ export default function ApprovalsScreen() {
             <Text style={styles.emptyTitle}>No pending approvals</Text>
             <Text style={styles.emptyBody}>
               When your coding agent tries a risky tool (rm, git push --force, etc.), the card
-              appears here. Pair in Settings with Hermes Mobile Agent on your Mac.
+              appears here. Pair in Settings with your Mac approval bridge.
             </Text>
             {!isPaired ? (
               <Text style={styles.hintMuted}>Not paired — open Settings and enter your pair code.</Text>

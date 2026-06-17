@@ -2,15 +2,14 @@
 /**
  * Fail fast when the configured service account cannot use Firebase App Distribution.
  * Common case: GOOGLE_SERVICE_ACCOUNT_JSON is a Play-upload SA without
- * roles/firebaseappdistro.admin → 403 on distribute (no invite email sent).
+ * roles/firebaseappdistro.admin -> 403 on distribute (no invite email sent).
  */
 const { execSync } = require('child_process');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
 
-const SA_JSON =
-  process.env.FIREBASE_SERVICE_ACCOUNT_JSON || process.env.GOOGLE_SERVICE_ACCOUNT_JSON || '';
+const SA_JSON = process.env.FIREBASE_SERVICE_ACCOUNT_JSON || '';
 const APP_ID = process.env.FIREBASE_ANDROID_APP_ID || '';
 
 function fail(message) {
@@ -19,7 +18,7 @@ function fail(message) {
 }
 
 if (!SA_JSON) {
-  fail('FIREBASE_SERVICE_ACCOUNT_JSON (or GOOGLE_SERVICE_ACCOUNT_JSON) is not set');
+  fail('FIREBASE_SERVICE_ACCOUNT_JSON is not set (see scripts/sync-firebase-secrets.sh)');
 }
 if (!APP_ID) {
   fail('FIREBASE_ANDROID_APP_ID is not set');
@@ -56,9 +55,9 @@ try {
   if (/403|permission|PERMISSION_DENIED/i.test(detail)) {
     fail(
       `Service account ${clientEmail} lacks Firebase App Distribution permission (HTTP 403).\n` +
-        '  Fix: Firebase Console → Project settings → Service accounts → generate key,\n' +
-        '  OR grant roles/firebaseappdistro.admin to this SA on GCP project 764037522332,\n' +
-        '  then set GitHub secret FIREBASE_SERVICE_ACCOUNT_JSON (do not reuse Play-upload SA only).',
+        '  Fix: Firebase Console -> Project settings -> Service accounts -> generate key,\n' +
+        '  OR grant roles/firebaseappdistro.admin on GCP project openclaw-console-mobile-8d53d (587028054730),\n' +
+        '  then set GitHub secret FIREBASE_SERVICE_ACCOUNT_JSON on openclaw-console-mobile-8d53d.',
     );
   }
   fail(`appdistribution:testers:list failed: ${detail.slice(0, 600)}`);

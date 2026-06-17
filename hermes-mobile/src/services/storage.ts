@@ -1,6 +1,10 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { GatewaySettings } from '../types/gateway';
 import { DEFAULT_GATEWAY_SETTINGS } from '../types/gateway';
+import {
+  HERMES_MOBILE_CLOUD_URL,
+  shouldMigrateCloudRelayUrl,
+} from '../constants/appIdentity';
 
 const KEYS = {
   SETTINGS: 'hermes-mobile:gateway_settings',
@@ -24,15 +28,14 @@ export const storage = {
       const parsed = JSON.parse(raw) as Partial<GatewaySettings> & { connectionMode?: string };
       const rawMode = parsed.connectionMode as string | undefined;
       const connectionMode =
-        rawMode === 'agentleash' || rawMode === 'relay'
-          ? 'relay'
-          : rawMode === 'gateway'
-            ? 'gateway'
+        rawMode === 'gateway'
+          ? 'gateway'
+          : rawMode === 'relay' || Boolean(rawMode)
+            ? 'relay'
             : DEFAULT_GATEWAY_SETTINGS.connectionMode;
-      const cloudUrl =
-        parsed.cloudUrl?.includes('agentleash-cloud.fly.dev')
-          ? DEFAULT_GATEWAY_SETTINGS.cloudUrl
-          : parsed.cloudUrl;
+      const cloudUrl = shouldMigrateCloudRelayUrl(parsed.cloudUrl)
+        ? HERMES_MOBILE_CLOUD_URL
+        : parsed.cloudUrl;
       return {
         ...DEFAULT_GATEWAY_SETTINGS,
         ...parsed,

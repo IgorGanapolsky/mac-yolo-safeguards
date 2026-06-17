@@ -2,7 +2,6 @@ import * as SecureStore from 'expo-secure-store';
 
 const API_KEY_KEY = 'hermes-mobile:api_server_key';
 const MOBILE_TOKEN_KEY = 'hermes-mobile:relay_mobile_token';
-const LEGACY_MOBILE_TOKEN_KEY = 'hermes-mobile:agentleash_mobile_token';
 
 export const secureCredentials = {
   async saveApiKey(apiKey: string): Promise<void> {
@@ -33,7 +32,6 @@ export const secureCredentials = {
   async saveMobileToken(token: string): Promise<void> {
     if (!token.trim()) {
       await SecureStore.deleteItemAsync(MOBILE_TOKEN_KEY);
-      await SecureStore.deleteItemAsync(LEGACY_MOBILE_TOKEN_KEY);
       return;
     }
     await SecureStore.setItemAsync(MOBILE_TOKEN_KEY, token.trim());
@@ -45,12 +43,6 @@ export const secureCredentials = {
       if (token) {
         return token;
       }
-      const legacy = await SecureStore.getItemAsync(LEGACY_MOBILE_TOKEN_KEY);
-      if (legacy) {
-        await SecureStore.setItemAsync(MOBILE_TOKEN_KEY, legacy);
-        await SecureStore.deleteItemAsync(LEGACY_MOBILE_TOKEN_KEY);
-        return legacy;
-      }
       return null;
     } catch (error) {
       console.error('[hermes-mobile] loadMobileToken failed:', error);
@@ -61,7 +53,6 @@ export const secureCredentials = {
   async clearMobileToken(): Promise<void> {
     try {
       await SecureStore.deleteItemAsync(MOBILE_TOKEN_KEY);
-      await SecureStore.deleteItemAsync(LEGACY_MOBILE_TOKEN_KEY);
     } catch (error) {
       console.error('[hermes-mobile] clearMobileToken failed:', error);
     }

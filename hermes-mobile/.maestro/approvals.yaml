@@ -1,5 +1,5 @@
 # Flow 3: Leash tab — demo GATE.BLOCKED approve flow
-appId: com.iganapolsky.agentleash
+appId: com.iganapolsky.hermesmobile
 ---
 - launchApp
 - runFlow:

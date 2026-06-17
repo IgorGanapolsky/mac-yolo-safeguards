@@ -5,20 +5,14 @@ import type {
   QueueResponse,
 } from '../types/mobileRelay';
 import type { PendingApproval } from '../types/gateway';
+import { HERMES_MOBILE_CLOUD_URL } from '../constants/appIdentity';
 
-/** Production relay — live Fly app (hermes-mobile-cloud DNS pending). */
-export const DEFAULT_HERMES_MOBILE_CLOUD_URL = 'https://agentleash-cloud.fly.dev';
-
-/** Target hostname after Fly cutover (see hermes-mobile/deploy/fly.toml). */
-export const TARGET_HERMES_MOBILE_CLOUD_URL = 'https://hermes-mobile-cloud.fly.dev';
-
-/** @deprecated use DEFAULT_HERMES_MOBILE_CLOUD_URL */
-export const LEGACY_CLOUD_RELAY_URL = DEFAULT_HERMES_MOBILE_CLOUD_URL;
+export { HERMES_MOBILE_CLOUD_URL as DEFAULT_HERMES_MOBILE_CLOUD_URL };
 
 export function resolveCloudRelayUrl(configured?: string | null): string {
   const trimmed = configured?.trim();
   if (trimmed) return trimmed.replace(/\/+$/, '');
-  return DEFAULT_HERMES_MOBILE_CLOUD_URL;
+  return HERMES_MOBILE_CLOUD_URL;
 }
 
 export class MobileRelayApiError extends Error {
@@ -64,14 +58,9 @@ export function enqueuedEventToPendingApproval(event: EnqueuedEvent): PendingApp
 
 export async function fetchMobileRelayHealth(cloudUrl: string): Promise<HealthResponse> {
   const base = normalizeBaseUrl(cloudUrl);
-  let response = await fetch(`${base}/v1/health`, {
+  const response = await fetch(`${base}/v1/health`, {
     headers: { Accept: 'application/json' },
   });
-  if (!response.ok && base !== LEGACY_CLOUD_RELAY_URL) {
-    response = await fetch(`${LEGACY_CLOUD_RELAY_URL}/v1/health`, {
-      headers: { Accept: 'application/json' },
-    });
-  }
   return parseJson<HealthResponse>(response);
 }
 

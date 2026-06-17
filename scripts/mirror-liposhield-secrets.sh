@@ -1,15 +1,16 @@
 #!/usr/bin/env bash
-# Mirror EAS / release secrets from ../LipoShield/.env (+ local key files) onto
-# IgorGanapolsky/mac-yolo-safeguards GitHub Actions secrets.
+# Mirror EAS / Apple signing secrets onto mac-yolo-safeguards.
+# Does NOT touch Firebase — use scripts/sync-firebase-secrets.sh (Hermes-only).
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 TARGET_REPO="${TARGET_REPO:-IgorGanapolsky/mac-yolo-safeguards}"
-LIPO_ENV="${LIPO_ENV:-$REPO_ROOT/../LipoShield/.env}"
-HERMES_ENV="${REPO_ROOT}/hermes-mobile/.env"
+ENV_FILE="${HERMES_ENV_FILE:-$REPO_ROOT/hermes-mobile/.env}"
+HERMES_ENV_OUT="${REPO_ROOT}/hermes-mobile/.env"
 
-if [[ ! -f "$LIPO_ENV" ]]; then
-  echo "Missing LipoShield env file: $LIPO_ENV" >&2
+if [[ ! -f "$ENV_FILE" ]]; then
+  echo "Missing env file: $ENV_FILE" >&2
+  echo "Copy hermes-mobile/.env.example to hermes-mobile/.env and fill EXPO_TOKEN + key paths." >&2
   exit 1
 fi
 
@@ -21,7 +22,7 @@ fi
 env_value() {
   local key="$1"
   local line value
-  line="$(grep -E "^${key}=" "$LIPO_ENV" | tail -1 || true)"
+  line="$(grep -E "^${key}=" "$ENV_FILE" | tail -1 || true)"
   if [[ -z "$line" ]]; then
     return 1
   fi
@@ -41,17 +42,6 @@ set_secret() {
   fi
   printf '%s' "$value" | gh secret set "$name" --repo "$TARGET_REPO"
   echo "set $name"
-}
-
-set_var() {
-  local name="$1"
-  local value="$2"
-  if [[ -z "$value" ]]; then
-    echo "skip var $name (empty)"
-    return 0
-  fi
-  gh variable set "$name" --body "$value" --repo "$TARGET_REPO"
-  echo "set var $name"
 }
 
 EXPO_TOKEN="$(env_value EXPO_TOKEN || true)"
@@ -75,24 +65,12 @@ set_secret EXPO_APPLE_TEAM_ID "$(env_value EXPO_APPLE_TEAM_ID || true)"
 set_secret EXPO_APPLE_ID "$(env_value EXPO_APPLE_ID || echo "${EXPO_APPLE_ID:-}")"
 set_secret EXPO_APPLE_APP_SPECIFIC_PASSWORD "$(env_value EXPO_APPLE_APP_SPECIFIC_PASSWORD || echo "${EXPO_APPLE_APP_SPECIFIC_PASSWORD:-}")"
 
-if [[ -n "${FIREBASE_SERVICE_ACCOUNT_JSON_PATH:-}" && -f "$FIREBASE_SERVICE_ACCOUNT_JSON_PATH" ]]; then
-  set_secret FIREBASE_SERVICE_ACCOUNT_JSON "$(cat "$FIREBASE_SERVICE_ACCOUNT_JSON_PATH")"
-elif [[ -n "${FIREBASE_SERVICE_ACCOUNT_JSON:-}" ]]; then
-  set_secret FIREBASE_SERVICE_ACCOUNT_JSON "${FIREBASE_SERVICE_ACCOUNT_JSON}"
-elif [[ -n "${GOOGLE_SERVICE_ACCOUNT_JSON:-}" ]]; then
-  set_secret FIREBASE_SERVICE_ACCOUNT_JSON "${GOOGLE_SERVICE_ACCOUNT_JSON}"
-fi
-
-set_secret FIREBASE_ANDROID_APP_ID "$(env_value FIREBASE_ANDROID_APP_ID || echo "${FIREBASE_ANDROID_APP_ID:-}")"
-# Must be Firebase App ID for com.iganapolsky.agentleash (in-place upgrade path)
-echo "NOTE: FIREBASE_ANDROID_APP_ID must point at Firebase app com.iganapolsky.agentleash (see hermes-mobile/docs/FIREBASE_CI.md)"
 set_secret FIREBASE_REQUIRED_TESTER_EMAIL "$(env_value FIREBASE_REQUIRED_TESTER_EMAIL || echo "${FIREBASE_REQUIRED_TESTER_EMAIL:-iganapolsky@gmail.com}")"
 
-set_var FIREBASE_INTERNAL_GROUPS "$(env_value FIREBASE_INTERNAL_GROUPS || echo "${FIREBASE_INTERNAL_GROUPS:-internal-testers}")"
-set_var FIREBASE_INTERNAL_TESTERS "$(env_value FIREBASE_INTERNAL_TESTERS || echo "${FIREBASE_INTERNAL_TESTERS:-}")"
+echo "Firebase secrets: run ./scripts/sync-firebase-secrets.sh (NOT this script)."
 
 {
-  echo "# Mirrored from ../LipoShield/.env for Hermes Mobile EAS (do not commit)"
+  echo "# Hermes Mobile EAS env (do not commit)"
   echo "EXPO_TOKEN=${EXPO_TOKEN}"
   echo "EXPO_ANDROID_SERVICE_ACCOUNT_KEY_PATH=${ANDROID_KEY_PATH}"
   echo "EXPO_ASC_APP_ID=$(env_value EXPO_ASC_APP_ID || true)"
@@ -100,8 +78,7 @@ set_var FIREBASE_INTERNAL_TESTERS "$(env_value FIREBASE_INTERNAL_TESTERS || echo
   echo "EXPO_ASC_API_KEY_ISSUER_ID=$(env_value EXPO_ASC_API_KEY_ISSUER_ID || true)"
   echo "EXPO_ASC_API_KEY_PATH=${ASC_KEY_PATH}"
   echo "EXPO_APPLE_TEAM_ID=$(env_value EXPO_APPLE_TEAM_ID || true)"
-} > "$HERMES_ENV"
-chmod 600 "$HERMES_ENV"
-echo "wrote $HERMES_ENV"
-
+} > "$HERMES_ENV_OUT"
+chmod 600 "$HERMES_ENV_OUT"
+echo "wrote $HERMES_ENV_OUT"
 echo "Done. Verify: gh secret list --repo ${TARGET_REPO}"

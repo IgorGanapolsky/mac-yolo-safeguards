@@ -157,7 +157,7 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
         await secureCredentials.clearMobileToken();
         setMobileToken('');
         setConnectionState('disconnected');
-        setLastEventError('Pairing expired — enter a new code from Hermes Mobile Agent pairing on your Mac.');
+        setLastEventError('Pairing expired — enter a new code from Mac bridge pairing.');
         stopRelayPolling();
         return;
       }
@@ -360,7 +360,7 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
       } else {
         stopRelayPolling();
         setConnectionState('disconnected');
-        setLastEventError('Not paired — run Hermes Mobile Agent pairing on your Mac and enter the code in Settings.');
+        setLastEventError('Not paired — run Mac bridge pairing and enter the code in Settings.');
       }
       return;
     }
@@ -424,7 +424,7 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
   const triggerTestIntercept = useCallback(async () => {
     const token = mobileTokenRef.current;
     if (!token) {
-      throw new Error('Pair Hermes Mobile Agent on your Mac before requesting a test intercept.');
+      throw new Error('Pair with your Mac in Settings before requesting a test intercept.');
     }
     await requestTestIntercept(settings.cloudUrl, token);
     await pollRelayQueue();

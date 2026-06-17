@@ -25,9 +25,11 @@ describe('internal distribution workflow', () => {
     expect(internalDistribution).toContain('FIREBASE_REQUIRED_TESTER_EMAIL');
     expect(internalDistribution).toContain('verify-apk-package.sh');
     expect(internalDistribution).toContain('verify-firebase-distribute-auth.cjs');
-    expect(internalDistribution).toContain('firebase-tools@14.4.0 appdistribution:distribute');
+    expect(internalDistribution).toContain('wzieba/Firebase-Distribution-Github-Action@');
+    expect(internalDistribution).toContain('Verify Firebase distribution read-back');
+    expect(internalDistribution).toContain('ensure_firebase_internal_distribution.py');
     expect(internalDistribution).toContain('internal-signoff/firebase-android');
-    expect(internalDistribution).toContain('HERMES_MOBILE_ANDROID_PACKAGE');
+    expect(internalDistribution).toContain('HERMES_MOBILE_ANDROID_PACKAGE: com.iganapolsky.hermesmobile');
     expect(internalDistribution).toContain('working-directory: hermes-mobile');
     expect(internalDistribution).toContain('cancel-in-progress: false');
     expect(internalDistribution).toContain('eas_build_id:');

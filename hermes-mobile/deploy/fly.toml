@@ -1,22 +1,22 @@
-# Hermes Mobile cloud relay (Fly.io) — same backend as legacy agentleash-cloud.
-#
-#   fly apps create hermes-mobile-cloud
-#   fly volumes create hermes_mobile_data --region iad --size 1 -a hermes-mobile-cloud
-#   fly secrets set POSTHOG_API_KEY=phc_... ADMIN_API_KEY=$(openssl rand -hex 32) -a hermes-mobile-cloud
-#   fly deploy --config deploy/fly.toml
+# Hermes Mobile cloud relay (Fly.io)
+
+```bash
+fly apps create hermes-mobile-cloud
+fly volumes create hermes_mobile_data --region iad --size 1 -a hermes-mobile-cloud
+fly secrets set POSTHOG_API_KEY=phc_... ADMIN_API_KEY=$(openssl rand -hex 32) -a hermes-mobile-cloud
+fly deploy --config deploy/fly.toml
+```
+
+Relay image: add `hermes-mobile/cloud/Dockerfile` in this repo (ThumbGate-compatible `/v1/pair`, `/v1/queue`, `/v1/verdicts` API).
 
 app = "hermes-mobile-cloud"
 primary_region = "iad"
-
-[build]
-  dockerfile = "../../../AgentLeash/cloud/Dockerfile"
-  build-context = "../../../AgentLeash"
 
 [env]
   HOST = "0.0.0.0"
   PORT = "8080"
   LONG_POLL_MS = "30000"
-  AGENTLEASH_DB_PATH = "/data/hermes-mobile.db"
+  HERMES_MOBILE_DB_PATH = "/data/hermes-mobile.db"
   POSTHOG_HOST = "https://us.i.posthog.com"
 
 [mounts]

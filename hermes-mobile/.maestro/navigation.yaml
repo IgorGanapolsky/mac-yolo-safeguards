@@ -1,5 +1,5 @@
 # Flow 2: Tab navigation — Chat, Leash, Ops, Settings
-appId: com.iganapolsky.agentleash
+appId: com.iganapolsky.hermesmobile
 ---
 - launchApp
 - runFlow:

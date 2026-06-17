@@ -188,35 +188,21 @@ Local mirror before pushing:
 ./scripts/ci-verify.sh
 ```
 
-**CD** — LipoShield-style release pipeline for `hermes-mobile`:
+**CD** — Hermes Mobile (`com.iganapolsky.hermesmobile`):
 
 | Workflow | Trigger | Purpose |
 |---|---|---|
-| [`.github/workflows/internal-distribution.yml`](.github/workflows/internal-distribution.yml) | Manual `workflow_dispatch` | Quality gate → EAS internal APK/IPA → optional Firebase Android distro → records `internal-signoff/*` commit statuses |
-| [`.github/workflows/store-release.yml`](.github/workflows/store-release.yml) | Manual `workflow_dispatch` | Requires internal signoff on exact SHA → production EAS build → optional store submit |
+| [`.github/workflows/internal-distribution.yml`](.github/workflows/internal-distribution.yml) | Manual `workflow_dispatch` | Quality gate → EAS internal APK/IPA → Firebase Android distro |
+| [`.github/workflows/store-release.yml`](.github/workflows/store-release.yml) | Manual `workflow_dispatch` | Requires internal signoff on exact SHA → production EAS build |
 
-Required secrets (mirror LipoShield where applicable):
-
-- `EXPO_TOKEN` — EAS builds (required)
-- `FIREBASE_SERVICE_ACCOUNT_JSON`, `FIREBASE_ANDROID_APP_ID`, `FIREBASE_REQUIRED_TESTER_EMAIL` — Firebase internal Android distro
-- `GOOGLE_SERVICE_ACCOUNT_JSON` — Google Play submit
-- `EXPO_ASC_*` / `EXPO_APPLE_*` — App Store Connect submit
-
-EAS project is linked at [@igorganapolsky/hermes-mobile](https://expo.dev/accounts/igorganapolsky/projects/hermes-mobile) (`4ed13e30-9b97-4ddd-8a12-59106cae90d6`). Mirror LipoShield release secrets:
+Firebase: [hermes-mobile/docs/FIREBASE_CI.md](./hermes-mobile/docs/FIREBASE_CI.md) — **not** LipoShield.
 
 ```sh
-./scripts/mirror-liposhield-secrets.sh
+./scripts/sync-firebase-secrets.sh          # Firebase on openclaw-console-mobile-8d53d
+./scripts/mirror-liposhield-secrets.sh      # EAS/Apple only (hermes-mobile/.env)
 ```
 
-That copies `../LipoShield/.env` + local key files (`liposhield-publisher.json`, ASC `.p8`) into this repo’s GitHub Actions secrets and writes `hermes-mobile/.env` for local `eas` CLI.
-
-For Firebase-only secrets (stored on LipoShield GitHub, not in `.env`), pass overrides when mirroring:
-
-```sh
-FIREBASE_ANDROID_APP_ID='1:…:android:…' \
-FIREBASE_SERVICE_ACCOUNT_JSON_PATH=/path/to/firebase-sa.json \
-./scripts/mirror-liposhield-secrets.sh
-```
+EAS: [@igorganapolsky/hermes-mobile](https://expo.dev/accounts/igorganapolsky/projects/hermes-mobile) (`4ed13e30-9b97-4ddd-8a12-59106cae90d6`).
 
 ## The incident this came from
 

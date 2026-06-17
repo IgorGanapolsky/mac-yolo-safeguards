@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# Verify an APK package matches the in-place upgrade ID (com.iganapolsky.agentleash).
+# Verify an APK package matches com.iganapolsky.hermesmobile.
 set -euo pipefail
 
 APK_PATH="${1:-}"
-EXPECTED_PACKAGE="${HERMES_MOBILE_ANDROID_PACKAGE:-com.iganapolsky.agentleash}"
+EXPECTED_PACKAGE="${HERMES_MOBILE_ANDROID_PACKAGE:-com.iganapolsky.hermesmobile}"
 
 if [[ -z "$APK_PATH" || ! -f "$APK_PATH" ]]; then
   echo "Usage: verify-apk-package.sh <path-to.apk>" >&2
@@ -29,9 +29,6 @@ echo "APK package: $ACTUAL_PACKAGE (expected: $EXPECTED_PACKAGE)"
 
 if [[ "$ACTUAL_PACKAGE" != "$EXPECTED_PACKAGE" ]]; then
   echo "ERROR: Wrong Android package in APK." >&2
-  echo "  expected: $EXPECTED_PACKAGE (Hermes Mobile Expo app)" >&2
-  echo "  actual:   $ACTUAL_PACKAGE" >&2
-  echo "This usually means Firebase FIREBASE_ANDROID_APP_ID points at the wrong Firebase app (e.g. AgentLeash)." >&2
   exit 1
 fi
 

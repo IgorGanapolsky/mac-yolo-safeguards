@@ -14,6 +14,7 @@ import { useGateway } from '../context/GatewayContext';
 import GlassCard from '../components/GlassCard';
 import { colors } from '../theme/colors';
 import { haptics } from '../services/haptics';
+import { HERMES_MOBILE_CLOUD_URL } from '../constants/appIdentity';
 
 export default function SettingsScreen() {
   const {
@@ -87,7 +88,7 @@ export default function SettingsScreen() {
 
   const handlePair = async () => {
     if (!pairCode.trim()) {
-      Alert.alert('Pairing code required', 'Run Hermes Mobile Agent pairing on your Mac and enter the code shown in Terminal.');
+      Alert.alert('Pairing code required', 'Run Mac bridge pairing on your Mac and enter the code shown in Terminal.');
       return;
     }
     try {
@@ -165,8 +166,8 @@ export default function SettingsScreen() {
         <Text style={styles.sectionTitle}>🪢 Approval relay (Leash tab)</Text>
         <GlassCard>
           <Text style={styles.description}>
-            Optional: pair with your Mac for tool approvals on LTE. On your Mac, run Hermes Mobile Agent
-            pairing from the approval bridge — then enter the code below.
+            Optional: pair with your Mac for tool approvals on LTE. On your Mac, run the Hermes
+            approval bridge pairing command — then enter the code below.
             This is not required for Chat; Chat uses the Hermes gateway tunnel above.
           </Text>
           <View style={styles.spacer} />
@@ -175,7 +176,7 @@ export default function SettingsScreen() {
             style={styles.input}
             value={cloudUrl}
             onChangeText={setCloudUrl}
-            placeholder="https://agentleash-cloud.fly.dev"
+            placeholder={HERMES_MOBILE_CLOUD_URL}
             placeholderTextColor={colors.textMuted}
             autoCapitalize="none"
             autoCorrect={false}

@@ -22,8 +22,8 @@ const appConfig = readJson('app.json').expo;
 const easConfig = readJson('eas.json');
 const packageConfig = readJson('package.json');
 
-const expectedAndroidPackage = 'com.iganapolsky.agentleash';
-const expectedIosBundleId = 'com.iganapolsky.agentleash';
+const expectedAndroidPackage = 'com.iganapolsky.hermesmobile';
+const expectedIosBundleId = 'com.iganapolsky.hermesmobile';
 const expectedProjectId = '4ed13e30-9b97-4ddd-8a12-59106cae90d6';
 const expectedUpdatesUrl = `https://u.expo.dev/${expectedProjectId}`;
 const placeholderProjectIds = new Set(['hermes-mobile-local-dev']);

@@ -24,6 +24,6 @@ describe('mobileRelayClient', () => {
   });
 
   it('defaults cloud URL to live production relay', () => {
-    expect(DEFAULT_HERMES_MOBILE_CLOUD_URL).toBe('https://agentleash-cloud.fly.dev');
+    expect(DEFAULT_HERMES_MOBILE_CLOUD_URL).toBe('https://hermes-mobile-cloud.fly.dev');
   });
 });

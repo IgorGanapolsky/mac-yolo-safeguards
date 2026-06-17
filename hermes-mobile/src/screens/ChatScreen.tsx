@@ -33,10 +33,11 @@ import {
   setActiveSession,
 } from '../services/chatProjects';
 import { buildWorkspaceSystemPrompt } from '../utils/workspacePrompt';
-
-function sessionLastActive(session: HermesSession): string | undefined {
-  return session.last_active_at ?? session.last_active;
-}
+import {
+  formatSessionDate,
+  sessionDisplayTitle,
+  sessionLastActiveValue,
+} from '../utils/sessionDisplay';
 
 function projectSessions(
   allSessions: HermesSession[],
@@ -489,7 +490,11 @@ export default function ChatScreen() {
           testID="open-sessions-modal"
         >
           <Text style={styles.sessionSelectorText} numberOfLines={1}>
-            {currentSession?.title ?? (activeProject ? `New ${activeProject.name} chat…` : 'Select or start a chat session...')}
+            {currentSession
+              ? sessionDisplayTitle(currentSession)
+              : activeProject
+                ? `New ${activeProject.name} chat…`
+                : 'Select or start a chat session...'}
           </Text>
           <Text style={styles.dropdownArrow}>▼</Text>
         </TouchableOpacity>
@@ -628,7 +633,7 @@ export default function ChatScreen() {
                 style={styles.sessionList}
                 renderItem={({ item }) => {
                   const isActive = currentSession?.id === item.id;
-                  const lastActive = sessionLastActive(item);
+                  const lastActiveLabel = formatSessionDate(sessionLastActiveValue(item));
                   return (
                     <TouchableOpacity
                       style={[styles.sessionItem, isActive && styles.sessionItemActive]}
@@ -643,11 +648,11 @@ export default function ChatScreen() {
                       }}
                     >
                       <Text style={[styles.sessionItemTitle, isActive && styles.sessionItemTitleActive]}>
-                        {item.title || 'Untitled Session'}
+                        {sessionDisplayTitle(item)}
                       </Text>
-                      {lastActive ? (
+                      {lastActiveLabel ? (
                         <Text style={styles.sessionItemTime}>
-                          {new Date(lastActive).toLocaleDateString()}
+                          {lastActiveLabel}
                         </Text>
                       ) : null}
                     </TouchableOpacity>
