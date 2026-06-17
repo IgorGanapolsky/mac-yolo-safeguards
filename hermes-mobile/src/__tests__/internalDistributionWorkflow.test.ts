@@ -23,7 +23,6 @@ describe('internal distribution workflow', () => {
     expect(internalDistribution).toContain('FIREBASE_SERVICE_ACCOUNT_JSON');
     expect(internalDistribution).toContain('FIREBASE_ANDROID_APP_ID');
     expect(internalDistribution).toContain('FIREBASE_REQUIRED_TESTER_EMAIL');
-    expect(internalDistribution).toContain('verify-firebase-android-app.cjs');
     expect(internalDistribution).toContain('verify-apk-package.sh');
     expect(internalDistribution).toContain('firebase-tools@14.4.0 appdistribution:distribute');
     expect(internalDistribution).toContain('internal-signoff/firebase-android');

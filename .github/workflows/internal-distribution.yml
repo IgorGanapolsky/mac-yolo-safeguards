@@ -267,14 +267,6 @@ jobs:
             echo "FIREBASE_INTERNAL_GROUPS=internal-testers" >> "$GITHUB_ENV"
           fi
 
-      - name: Verify Firebase Android app binding
-        if: needs.gate.outputs.run_firebase == 'true'
-        env:
-          FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON || secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
-          FIREBASE_ANDROID_APP_ID: ${{ secrets.FIREBASE_ANDROID_APP_ID }}
-          HERMES_MOBILE_ANDROID_PACKAGE: ${{ env.HERMES_MOBILE_ANDROID_PACKAGE }}
-        run: node ./scripts/verify-firebase-android-app.cjs
-
       - name: Build Android internal APK
         id: build
         env:

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Verify an APK was built for com.iganapolsky.hermesmobile (not AgentLeash).
+# Verify an APK package matches the in-place upgrade ID (com.iganapolsky.agentleash).
 set -euo pipefail
 
 APK_PATH="${1:-}"
