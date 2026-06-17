@@ -2,7 +2,7 @@
 'use strict';
 
 const assert = require('assert');
-const { parseArgs, renderMarkdown } = require('../tools/hermes-productivity-audit');
+const { parseArgs, parseOllamaPsContext, renderMarkdown } = require('../tools/hermes-productivity-audit');
 
 console.log('=== Running hermes-productivity-audit live gate tests ===');
 
@@ -49,5 +49,11 @@ const markdown = renderMarkdown({
 assert(markdown.includes('Outbound smoke: skipped'));
 assert(markdown.includes('Public webhook POST: skipped'));
 assert(!markdown.includes('undefinedms'));
+
+assert.strictEqual(
+  parseOllamaPsContext('qwen3:8b-64k  1adc23451bf4  8.6 GB  100% GPU  40960  9 minutes from now', 'qwen3:8b-64k'),
+  40960
+);
+assert.strictEqual(parseOllamaPsContext('NAME ID SIZE PROCESSOR CONTEXT UNTIL\n', 'qwen3:8b-64k'), null);
 
 console.log('test-hermes-productivity-audit-live-gate: PASS');

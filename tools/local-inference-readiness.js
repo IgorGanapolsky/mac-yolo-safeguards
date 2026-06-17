@@ -89,7 +89,8 @@ async function collect() {
   const configuredChecks = [];
   for (const provider of fallbacks) {
     const baseUrl = normalizeBaseUrl(provider.base_url);
-    const check = await checkOpenAIBase(baseUrl);
+    const isLocalEndpoint = /localhost|127\.0\.0\.1|0\.0\.0\.0/.test(baseUrl);
+    const check = baseUrl ? await checkOpenAIBase(baseUrl) : { skipped: true };
     const models = check.json && Array.isArray(check.json.data)
       ? check.json.data.map((model) => model.id).filter(Boolean)
       : [];
@@ -98,6 +99,8 @@ async function collect() {
       model: provider.model || '',
       baseUrl,
       contextLength: provider.context_length || null,
+      managedProvider: !baseUrl,
+      localEndpoint: isLocalEndpoint,
       reachable: Boolean(check.reachable),
       status: check.status || null,
       error: check.error || null,
@@ -141,6 +144,9 @@ async function collect() {
     });
   }
   for (const check of configuredChecks) {
+    if (check.managedProvider) {
+      continue;
+    }
     if (!check.reachable) {
       findings.push({
         severity: 'medium',

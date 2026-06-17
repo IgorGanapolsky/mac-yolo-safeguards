@@ -6,6 +6,8 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 
+const HERMES_MIN_TOOL_CONTEXT = 64000;
+
 const usage = `Usage:
   node tools/hermes-productivity-audit.js [--send-smoke] [--test-public-webhook] [--allow-live-telegram] [--remote HOST] [--json]
 
@@ -113,6 +115,20 @@ function safeJson(text) {
 function countMatches(text, pattern) {
   const matches = text.match(pattern);
   return matches ? matches.length : 0;
+}
+
+function parseOllamaPsContext(text, model) {
+  const expected = String(model || '').trim();
+  if (!expected) return null;
+  for (const line of String(text || '').split(/\r?\n/)) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith('NAME') || !trimmed.includes(expected)) continue;
+    const processorMatch = trimmed.match(/\b(?:CPU|GPU)\s+(\d+)\s+\d+\s+(?:second|seconds|minute|minutes|hour|hours)\b/i);
+    if (processorMatch) return Number(processorMatch[1]);
+    const contextBeforeUntil = trimmed.match(/\s(\d+)\s+\d+\s+(?:second|seconds|minute|minutes|hour|hours)\b/i);
+    if (contextBeforeUntil) return Number(contextBeforeUntil[1]);
+  }
+  return null;
 }
 
 function recentLines(text, limit = 4000) {
@@ -289,6 +305,8 @@ PY`, { timeout: 30000 }),
   }
 
   const fallbackProviders = telemetry.localRuntime.fallbackProviders;
+  const fullContextFallbacks = fallbackProviders.filter((provider) => Number(provider.context_length || 0) >= HERMES_MIN_TOOL_CONTEXT);
+  telemetry.localRuntime.fullContextFallbackCount = fullContextFallbacks.length;
   const localFallbacks = fallbackProviders.filter((provider) => {
     const url = String(provider.base_url || '');
     return /localhost|127\.0\.0\.1|0\.0\.0\.0/.test(url);
@@ -309,6 +327,8 @@ PY`, { timeout: 30000 }),
       const expectedModel = String(ollamaFallback.model || '');
       telemetry.localRuntime.expectedOllamaModel = expectedModel;
       telemetry.localRuntime.expectedOllamaModelAvailable = models.includes(expectedModel);
+      const loadedContext = parseOllamaPsContext(commands.ollamaPs.stdout, expectedModel);
+      telemetry.localRuntime.expectedOllamaLoadedContext = loadedContext;
       if (!ollama.reachable) {
         addFinding(
           findings,
@@ -333,6 +353,15 @@ PY`, { timeout: 30000 }),
           'Large-context Ollama fallback is configured but not loaded',
           `expected=${expectedModel}; requested_context=${ollamaFallback.context_length || 'unknown'}.`,
           'For serious agent loops, verify loaded runtime context with ollama ps or use a serving stack with explicit context/metrics.'
+        );
+      }
+      if (loadedContext !== null && loadedContext < HERMES_MIN_TOOL_CONTEXT) {
+        addFinding(
+          findings,
+          fullContextFallbacks.length > 0 ? 'low' : 'medium',
+          'Loaded Ollama fallback context is below Hermes tool-use floor',
+          `model=${expectedModel}; loaded_context=${loadedContext}; minimum=${HERMES_MIN_TOOL_CONTEXT}.`,
+          'Use this fallback only for bounded rescue answers, or switch to a verified runtime/model with at least 64k loaded context for full Telegram tool use.'
         );
       }
     }
@@ -734,7 +763,8 @@ function renderMarkdown(result) {
     lines.push(`- Hermes cwd: ${local.hermesRuntimeCwd || 'unknown'}${local.hermesRuntimeCwdMatches ? ' (matches config)' : ''}`);
     lines.push(`- Local fallback providers: ${Array.isArray(local.fallbackProviders) ? local.fallbackProviders.length : 0}`);
     if (local.expectedOllamaModel) {
-      lines.push(`- Ollama fallback: ${local.ollama && local.ollama.reachable ? 'reachable' : 'not reachable'} / ${local.expectedOllamaModel}${local.expectedOllamaModelAvailable ? ' installed' : ' not installed'}`);
+      const context = local.expectedOllamaLoadedContext ? ` / context ${local.expectedOllamaLoadedContext}` : '';
+      lines.push(`- Ollama fallback: ${local.ollama && local.ollama.reachable ? 'reachable' : 'not reachable'} / ${local.expectedOllamaModel}${local.expectedOllamaModelAvailable ? ' installed' : ' not installed'}${context}`);
     }
   }
   if (result.telemetry.sendSmoke) {
@@ -810,6 +840,7 @@ module.exports = {
   collect,
   parseArgs,
   renderMarkdown,
+  parseOllamaPsContext,
   score,
   severityRank,
 };
