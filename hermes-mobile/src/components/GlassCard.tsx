@@ -9,7 +9,7 @@ interface GlassCardProps {
   activeOpacity?: number;
 }
 
-/** Glassmorphic card — mirrors LipoShield/src/components/GlassCard.tsx */
+/** Glassmorphic card container. */
 export default function GlassCard({
   children,
   style,

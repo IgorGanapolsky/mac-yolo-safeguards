@@ -170,6 +170,9 @@ jobs:
       - name: Run tests with coverage
         run: npm run test:ci
 
+      - name: Release safety contract
+        run: npm run test:release-safety
+
   android-eas-internal:
     name: Android EAS Internal APK
     needs: [gate, quality-gate]
@@ -375,7 +378,11 @@ jobs:
         working-directory: hermes-mobile
         env:
           HERMES_MOBILE_ANDROID_PACKAGE: ${{ env.HERMES_MOBILE_ANDROID_PACKAGE }}
-        run: bash ./scripts/verify-apk-package.sh firebase-dist/hermes-mobile-eas-internal.apk
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq unzip aapt >/dev/null
+          node ./scripts/verify-apk-package.cjs firebase-dist/hermes-mobile-eas-internal.apk
 
       - name: Distribute Android APK to Firebase
         if: needs.gate.outputs.run_firebase == 'true'

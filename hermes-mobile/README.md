@@ -4,7 +4,7 @@ Expo/React Native operator client for **Hermes** on your Mac — Chat, Leash app
 
 Package: **`com.iganapolsky.hermesmobile`**
 
-Firebase: [docs/FIREBASE_CI.md](./docs/FIREBASE_CI.md) — **not** LipoShield.
+Firebase: [docs/FIREBASE_CI.md](./docs/FIREBASE_CI.md)
 
 ## Dev
 
@@ -16,8 +16,13 @@ npm start
 
 ## Release
 
+Internal QA (Firebase APK): [docs/FIREBASE_CI.md](./docs/FIREBASE_CI.md)
+
+Store (Play Production, LLC org — no tester list): [docs/PLAY_RELEASE.md](./docs/PLAY_RELEASE.md)
+
 ```bash
 REQUIRE_EAS_PROJECT=1 npm run release:check
 npm run test:ci
-gh workflow run internal-distribution.yml -f target=android_firebase
+gh workflow run internal-distribution.yml -f target=android_firebase   # QA
+gh workflow run store-release.yml -f platform=android -f submit=true   # Play production
 ```

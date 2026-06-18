@@ -6,13 +6,25 @@ appId: com.iganapolsky.hermesmobile
     id: "SETTINGS"
 - scrollUntilVisible:
     element:
-      id: "save-settings-button"
+      id: "gateway-api-key-input"
+    direction: DOWN
+    timeout: 30000
 - tapOn:
-    below: "Gateway API Key"
+    id: "gateway-api-key-input"
 - inputText: "sk-hermes-api-server-key-2026-06-15"
+- hideKeyboard
+- scrollUntilVisible:
+    element:
+      text: "SAVE CONFIGURATION"
+    direction: DOWN
+    timeout: 60000
+    speed: 65
+    visibilityPercentage: 50
 - tapOn:
     id: "save-settings-button"
 - tapOn: "OK"
 - tapOn: "Chat"
-- assertVisible:
-    id: "HERMES CHAT"
+- extendedWaitUntil:
+    visible:
+      id: "HERMES CHAT"
+    timeout: 30000

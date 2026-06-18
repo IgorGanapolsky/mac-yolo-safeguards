@@ -30,10 +30,18 @@ require_non_placeholder_var() {
 require_android_submit_credential() {
   local credential_path="${EXPO_ANDROID_SERVICE_ACCOUNT_KEY_PATH:-}"
   local credential_json="${GOOGLE_SERVICE_ACCOUNT_JSON:-}"
+  local firebase_project_id
+  firebase_project_id="$(node -e "console.log(require('./firebase-project.json').gcpProjectId)" 2>/dev/null || true)"
 
   if [[ -n "$credential_path" ]]; then
     if [[ ! -f "$credential_path" ]]; then
       record_failure "Invalid EXPO_ANDROID_SERVICE_ACCOUNT_KEY_PATH: file not found at $credential_path"
+    elif [[ -n "$firebase_project_id" ]]; then
+      local play_project_id
+      play_project_id="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1])).get("project_id",""))' "$credential_path" 2>/dev/null || true)"
+      if [[ "$play_project_id" == "$firebase_project_id" ]]; then
+        record_failure "Play submit credential uses Firebase project_id ($firebase_project_id). Use a Play Console API service account from your LLC org account (see docs/PLAY_RELEASE.md)."
+      fi
     fi
     return 0
   fi
@@ -41,11 +49,13 @@ require_android_submit_credential() {
   if [[ -n "$credential_json" ]]; then
     if [[ "$credential_json" != *'"type":"service_account"'* && "$credential_json" != *'"type": "service_account"'* ]]; then
       record_failure 'Invalid GOOGLE_SERVICE_ACCOUNT_JSON: expected a Google service-account JSON payload'
+    elif [[ -n "$firebase_project_id" && "$credential_json" == *"\"project_id\": \"$firebase_project_id\""* ]]; then
+      record_failure "GOOGLE_SERVICE_ACCOUNT_JSON is a Firebase key ($firebase_project_id). Play submit needs a Play Console API service account (see docs/PLAY_RELEASE.md)."
     fi
     return 0
   fi
 
-  record_failure 'Missing Android submit credential: set EXPO_ANDROID_SERVICE_ACCOUNT_KEY_PATH or GOOGLE_SERVICE_ACCOUNT_JSON'
+  record_failure 'Missing Android submit credential: set EXPO_ANDROID_SERVICE_ACCOUNT_KEY_PATH or GOOGLE_SERVICE_ACCOUNT_JSON (Play Console API key, not Firebase)'
 }
 
 require_ios_submit_credential() {

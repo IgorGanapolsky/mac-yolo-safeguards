@@ -138,6 +138,7 @@ export default function SettingsScreen() {
           <View style={styles.spacer} />
           <Text style={styles.label}>Gateway URL / Tunnel</Text>
           <TextInput
+            testID="gateway-url-input"
             style={styles.input}
             value={gatewayUrl}
             onChangeText={setGatewayUrl}
@@ -149,6 +150,7 @@ export default function SettingsScreen() {
           <View style={styles.spacer} />
           <Text style={styles.label}>Gateway API Key</Text>
           <TextInput
+            testID="gateway-api-key-input"
             style={styles.input}
             value={inputApiKey}
             onChangeText={setInputApiKey}

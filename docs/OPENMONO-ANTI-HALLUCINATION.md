@@ -70,4 +70,6 @@ OpenMono ships a [VS Code / Cursor extension](https://marketplace.visualstudio.c
 
 - Canonical agent rules: [`AGENTS.md`](../AGENTS.md)
 - Local inference probe: `node tools/local-inference-readiness.js`
+- OpenMono ROI gate: `node tools/openmono-roi-audit.js`
+- Kimi K2.7 Code upgrade gate: `node tools/kimi-model-upgrade-audit.js`
 - Paid hardening offer: [`docs/AI-AGENT-HARDENING.md`](./AI-AGENT-HARDENING.md)

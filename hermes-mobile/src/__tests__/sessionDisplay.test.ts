@@ -1,5 +1,6 @@
 import type { HermesSession } from '../types/chat';
 import {
+  formatCronSchedule,
   formatSessionDate,
   parseGatewayTimestamp,
   sessionDisplayTitle,
@@ -39,5 +40,11 @@ describe('sessionDisplay', () => {
 
   it('falls back to started_at for last active', () => {
     expect(sessionLastActiveValue({ id: 'x', started_at: 1781717688.445973 })).toBe(1781717688.445973);
+  });
+
+  it('formats gateway cron schedule objects', () => {
+    expect(formatCronSchedule('0 */6 * * *')).toBe('0 */6 * * *');
+    expect(formatCronSchedule({ kind: 'cron', expr: '0 9 * * 1', display: 'Mon 9am' })).toBe('Mon 9am');
+    expect(formatCronSchedule(null)).toBe('no schedule');
   });
 });

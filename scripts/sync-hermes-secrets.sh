@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Mirror EAS / Apple signing secrets onto mac-yolo-safeguards.
-# Does NOT touch Firebase — use scripts/sync-firebase-secrets.sh (Hermes-only).
+# Mirror Hermes Mobile EAS / Apple signing secrets to GitHub.
+# Firebase: use scripts/sync-firebase-secrets.sh (separate Hermes project).
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -51,6 +51,13 @@ ASC_KEY_PATH="$(env_value EXPO_ASC_API_KEY_PATH || true)"
 set_secret EXPO_TOKEN "$EXPO_TOKEN"
 
 if [[ -n "$ANDROID_KEY_PATH" && -f "$ANDROID_KEY_PATH" ]]; then
+  FIREBASE_PROJECT_ID="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1])).get("gcpProjectId",""))' "$REPO_ROOT/hermes-mobile/firebase-project.json" 2>/dev/null || true)"
+  PLAY_PROJECT_ID="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1])).get("project_id",""))' "$ANDROID_KEY_PATH" 2>/dev/null || true)"
+  if [[ -n "$FIREBASE_PROJECT_ID" && "$PLAY_PROJECT_ID" == "$FIREBASE_PROJECT_ID" ]]; then
+    echo "ERROR: EXPO_ANDROID_SERVICE_ACCOUNT_KEY_PATH points at Firebase project $FIREBASE_PROJECT_ID." >&2
+    echo "Play submit needs a Play Console API key (LLC org). See hermes-mobile/docs/PLAY_RELEASE.md" >&2
+    exit 1
+  fi
   set_secret GOOGLE_SERVICE_ACCOUNT_JSON "$(cat "$ANDROID_KEY_PATH")"
 fi
 
@@ -62,12 +69,12 @@ set_secret EXPO_ASC_APP_ID "$(env_value EXPO_ASC_APP_ID || true)"
 set_secret EXPO_ASC_API_KEY_ID "$(env_value EXPO_ASC_API_KEY_ID || true)"
 set_secret EXPO_ASC_API_KEY_ISSUER_ID "$(env_value EXPO_ASC_API_KEY_ISSUER_ID || true)"
 set_secret EXPO_APPLE_TEAM_ID "$(env_value EXPO_APPLE_TEAM_ID || true)"
-set_secret EXPO_APPLE_ID "$(env_value EXPO_APPLE_ID || echo "${EXPO_APPLE_ID:-}")"
+set_secret EXPO_APPLE_ID "$(env_value EXPO_APPLE_ID || echo "${EXPO_APPLE_ID:-igor.ganapolsky@icloud.com}")"
 set_secret EXPO_APPLE_APP_SPECIFIC_PASSWORD "$(env_value EXPO_APPLE_APP_SPECIFIC_PASSWORD || echo "${EXPO_APPLE_APP_SPECIFIC_PASSWORD:-}")"
 
 set_secret FIREBASE_REQUIRED_TESTER_EMAIL "$(env_value FIREBASE_REQUIRED_TESTER_EMAIL || echo "${FIREBASE_REQUIRED_TESTER_EMAIL:-iganapolsky@gmail.com}")"
 
-echo "Firebase secrets: run ./scripts/sync-firebase-secrets.sh (NOT this script)."
+echo "Firebase secrets: run ./scripts/sync-firebase-secrets.sh"
 
 {
   echo "# Hermes Mobile EAS env (do not commit)"
@@ -78,6 +85,7 @@ echo "Firebase secrets: run ./scripts/sync-firebase-secrets.sh (NOT this script)
   echo "EXPO_ASC_API_KEY_ISSUER_ID=$(env_value EXPO_ASC_API_KEY_ISSUER_ID || true)"
   echo "EXPO_ASC_API_KEY_PATH=${ASC_KEY_PATH}"
   echo "EXPO_APPLE_TEAM_ID=$(env_value EXPO_APPLE_TEAM_ID || true)"
+  echo "EXPO_APPLE_ID=$(env_value EXPO_APPLE_ID || echo igor.ganapolsky@icloud.com)"
 } > "$HERMES_ENV_OUT"
 chmod 600 "$HERMES_ENV_OUT"
 echo "wrote $HERMES_ENV_OUT"

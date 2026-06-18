@@ -1,6 +1,6 @@
 import { Vibration, Platform } from 'react-native';
 
-/** Cross-platform haptic feedback (LipoShield pattern). */
+/** Cross-platform haptic feedback. */
 export const haptics = {
   light(): void {
     if (Platform.OS === 'android') {

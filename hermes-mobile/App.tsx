@@ -23,7 +23,7 @@ type RootTabParamList = {
 
 const Tab = createBottomTabNavigator<RootTabParamList>();
 
-// Custom premium Glassmorphic Tab Bar matching the LipoShield tab bar style
+// Glassmorphic bottom tab bar
 function GlassmorphicTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
   return (
     <View style={styles.navBar}>

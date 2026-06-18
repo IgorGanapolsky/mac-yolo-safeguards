@@ -57,3 +57,18 @@ export function sessionDisplayTitle(session: HermesSession): string {
 
   return session.id;
 }
+
+/** Gateway may return cron schedule as string or { kind, expr, display }. */
+export function formatCronSchedule(schedule: unknown): string {
+  if (schedule == null || schedule === '') {
+    return 'no schedule';
+  }
+  if (typeof schedule === 'string') {
+    return schedule;
+  }
+  if (typeof schedule === 'object') {
+    const obj = schedule as { display?: string; expr?: string; kind?: string };
+    return obj.display ?? obj.expr ?? obj.kind ?? 'no schedule';
+  }
+  return String(schedule);
+}

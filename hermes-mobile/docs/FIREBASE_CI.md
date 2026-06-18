@@ -1,30 +1,35 @@
 # Hermes Mobile — Firebase CI/CD
 
-Package: **`com.iganapolsky.hermesmobile`** · Firebase project **`openclaw-console-mobile-8d53d`**
+Package: **`com.iganapolsky.hermesmobile`** · Firebase/GCP project **`hermes-mobile-distribution`** (display name: Hermes Mobile)
 
-**Not LipoShield.** Do not use `liposhield-distribution` or `mirror-liposhield-secrets.sh` for Firebase — that project shares testers with the LipoShield app and will send the wrong invite emails.
+Canonical IDs: [`firebase-project.json`](../firebase-project.json)
 
-## Firebase Android app (Hermes-only)
+## Firebase Android app
 
 | Field | Value |
 |---|---|
 | Package | `com.iganapolsky.hermesmobile` |
-| App ID | `1:587028054730:android:00258f23e47d56f6772a33` |
-| Display name | `hermes-mobile` |
+| App ID | `1:786594199351:android:446b6eceab722fe7344cb2` |
+| GCP project number | `786594199351` |
+| Display name | `Hermes Mobile` |
+
+CI rejects APKs labeled **Hermes Mobile Agent** (legacy native shell) — only the Expo app ships.
 
 ## GitHub secrets
 
 | Secret | Purpose |
 |---|---|
 | `EXPO_TOKEN` | EAS cloud builds |
-| `FIREBASE_SERVICE_ACCOUNT_JSON` | SA with `firebaseappdistro.admin` on **openclaw-console-mobile-8d53d** |
-| `FIREBASE_ANDROID_APP_ID` | `1:587028054730:android:00258f23e47d56f6772a33` |
-| `FIREBASE_REQUIRED_TESTER_EMAIL` | e.g. `iganapolsky@gmail.com` |
+| `FIREBASE_SERVICE_ACCOUNT_JSON` | SA with `firebaseappdistro.admin` on **`hermes-mobile-distribution`** |
+| `FIREBASE_ANDROID_APP_ID` | `1:786594199351:android:446b6eceab722fe7344cb2` |
+| `FIREBASE_REQUIRED_TESTER_EMAIL` | `iganapolsky@gmail.com` (Android only — not the iOS Apple ID) |
+
+Generate a service account key: [Firebase Console → Hermes Mobile → Project settings → Service accounts](https://console.firebase.google.com/project/hermes-mobile-distribution/settings/serviceaccounts/adminsdk).
 
 Sync:
 
 ```bash
-FIREBASE_SERVICE_ACCOUNT_JSON_PATH=~/path/to/openclaw-firebase-sa.json \
+FIREBASE_SERVICE_ACCOUNT_JSON_PATH=~/path/to/hermes-firebase-sa.json \
   ./scripts/sync-firebase-secrets.sh
 ```
 
@@ -38,6 +43,6 @@ gh workflow run internal-distribution.yml -f target=android_firebase
 
 | Symptom | Fix |
 |---|---|
-| LipoShield email instead of Hermes | Wrong Firebase project — use app ID above, not LipoShield's |
-| `403` on distribute | SA must be on openclaw project, not Random Timer / LipoShield Play SA |
-| APK package mismatch | `app.json` → `com.iganapolsky.hermesmobile` |
+| Orange bell / “Hold the cord” UI | Wrong APK (native shell). Uninstall, wait for green CI from this repo only |
+| `403` on distribute | SA must be on `hermes-mobile-distribution`, not another GCP project |
+| APK verify failed | EAS must build `hermes-mobile/` Expo app; check `verify-apk-package.sh` logs |

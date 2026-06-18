@@ -113,7 +113,7 @@ try {
 
 fs.writeFileSync(LOCK_PATH, String(process.pid));
 
-console.log('\x1b[35m[Antigravity OpenClaw Bridge]\x1b[0m Wiring YOLO agent execution to desktop control plane...');
+console.log('\x1b[35m[Hermes YOLO Bridge]\x1b[0m Wiring YOLO agent execution to desktop control plane...');
 log(`START pid=${process.pid} bin=${AGY_BIN} extraArgs=${JSON.stringify(EXTRA_ARGS)} args=${JSON.stringify(args)} timeout=${TIMEOUT_MS}ms cpuThreshold=${CPU_THRESHOLD}% stuckSamples=${CPU_STUCK_SAMPLES}@${CPU_SAMPLE_INTERVAL_MS}ms`);
 
 updateStatus(data => {
@@ -129,7 +129,7 @@ updateStatus(data => {
   }
   data.chatMessages.push({ sender: 'user', text: `agy-yolo ${args.join(' ')}` });
   data.termHistory.push(`$ agy-yolo ${args.join(' ')}`);
-  data.termHistory.push(`[OpenClaw Bridge] Spawned ${AGY_BIN} ${EXTRA_ARGS.join(' ')}`);
+  data.termHistory.push(`[Hermes YOLO Bridge] Spawned ${AGY_BIN} ${EXTRA_ARGS.join(' ')}`);
 });
 
 const child = spawn(AGY_BIN, [...EXTRA_ARGS, ...args], { stdio: 'inherit' });
@@ -203,7 +203,7 @@ child.on('close', (code, signal) => {
         ? `agy-yolo killed by wrapper: ${killReason}. Exit code ${code}.`
         : `Successfully completed YOLO task: "${promptText}". Resolved with status code ${code}. Saved 42,100 tokens via active caching.`
     });
-    data.termHistory.push(`[OpenClaw Bridge] Process completed with code ${code}${killed ? ` (killed: ${killReason})` : ''}.`);
+    data.termHistory.push(`[Hermes YOLO Bridge] Process completed with code ${code}${killed ? ` (killed: ${killReason})` : ''}.`);
     data.termHistory.push('');
   });
 

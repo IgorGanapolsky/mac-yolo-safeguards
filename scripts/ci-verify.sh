@@ -19,11 +19,17 @@ node --check tools/hermes-project-routing-audit.js
 node --check tests/test-hermes-project-routing-audit.js
 node --check tools/hermes-governance-audit.js
 node --check tests/test-hermes-governance-audit.js
+node --check tools/hermes-gmail-outbox.js
+node --check tests/test-hermes-gmail-outbox.js
 node --check tools/media-content-ingest.js
 node --check tests/test-media-content-ingest.js
 node --check tools/openrouter-reasoning-plan.js
 node --check tools/graphify-readiness.js
+node --check tools/openmono-roi-audit.js
+node --check tools/kimi-model-upgrade-audit.js
 node --check tests/test-openrouter-graphify-tools.js
+node --check tests/test-openmono-roi-audit.js
+node --check tests/test-kimi-model-upgrade-audit.js
 node --check tests/test-mac-text-hotkeys-config.js
 
 echo "=== Shell syntax ==="
@@ -35,8 +41,11 @@ node tests/test-hermes-telegram-incident-audit.js
 node tests/test-hermes-productivity-audit-live-gate.js
 node tests/test-hermes-project-routing-audit.js
 node tests/test-hermes-governance-audit.js
+node tests/test-hermes-gmail-outbox.js
 node tests/test-media-content-ingest.js
 node tests/test-openrouter-graphify-tools.js
+node tests/test-openmono-roi-audit.js
+node tests/test-kimi-model-upgrade-audit.js
 tests/test-secondary-browser-reclaim.sh
 if [ -f "$HOME/Documents/mac-text-hotkeys/init.lua" ]; then
   node tests/test-mac-text-hotkeys-config.js
@@ -69,6 +78,10 @@ echo "=== Hermes Mobile ==="
   npm run typecheck
   EXPO_DOCTOR_ALLOW_NPX_DOWNLOAD=1 npm run doctor:expo
   npm run test:ci
+  npm run test:release-safety
+  if [ -f android/app/build/outputs/apk/release/app-release.apk ]; then
+    npm run verify:apk -- android/app/build/outputs/apk/release/app-release.apk
+  fi
 )
 
 echo "=== CI verify: PASS ==="

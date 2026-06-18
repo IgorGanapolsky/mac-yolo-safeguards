@@ -76,12 +76,13 @@ run_capture local-hotkeys "$HS" -c 'return hs.inspect(hs.fnutils.map(hs.hotkey.g
 tail -80 "$HOME/Documents/mac-text-hotkeys/hotkey-events.log" >"$ARTIFACT_DIR/local-log-tail.txt" 2>&1 || true
 assert_file_contains "$ARTIFACT_DIR/local-status.txt" 'accessibility = true' "local accessibility enabled"
 assert_file_contains "$ARTIFACT_DIR/local-status.txt" 'enabled = true' "local hotkey config enabled"
-assert_file_contains "$ARTIFACT_DIR/local-status.txt" 'hotkeys = 5' "local registered five hotkeys"
+assert_file_contains "$ARTIFACT_DIR/local-status.txt" 'hotkeys = 6' "local registered six hotkeys"
 assert_file_contains "$ARTIFACT_DIR/local-hotkeys.txt" '⌘0' "local cmd+0 registered"
 assert_file_contains "$ARTIFACT_DIR/local-hotkeys.txt" '⌘1' "local cmd+1 registered"
 assert_file_contains "$ARTIFACT_DIR/local-hotkeys.txt" '⌘2' "local cmd+2 registered"
 assert_file_contains "$ARTIFACT_DIR/local-hotkeys.txt" '⌘3' "local cmd+3 registered"
 assert_file_contains "$ARTIFACT_DIR/local-hotkeys.txt" '⌘4' "local cmd+4 registered"
+assert_file_contains "$ARTIFACT_DIR/local-hotkeys.txt" '⌘5' "local cmd+5 registered"
 
 echo ""
 echo "=== Remote Mac mini Hammerspoon restart ==="
@@ -94,12 +95,13 @@ run_capture remote-file ssh "$REMOTE_HOST" "rg -n 'eventtap.new|AXSelectedText|d
 run_capture remote-log-tail ssh "$REMOTE_HOST" "tail -80 ~/Documents/mac-text-hotkeys/hotkey-events.log || true"
 assert_file_contains "$ARTIFACT_DIR/remote-status.txt" 'accessibility = true' "remote accessibility enabled"
 assert_file_contains "$ARTIFACT_DIR/remote-status.txt" 'enabled = true' "remote hotkey config enabled"
-assert_file_contains "$ARTIFACT_DIR/remote-status.txt" 'hotkeys = 5' "remote registered five hotkeys"
+assert_file_contains "$ARTIFACT_DIR/remote-status.txt" 'hotkeys = 6' "remote registered six hotkeys"
 assert_file_contains "$ARTIFACT_DIR/remote-hotkeys.txt" '⌘0' "remote cmd+0 registered"
 assert_file_contains "$ARTIFACT_DIR/remote-hotkeys.txt" '⌘1' "remote cmd+1 registered"
 assert_file_contains "$ARTIFACT_DIR/remote-hotkeys.txt" '⌘2' "remote cmd+2 registered"
 assert_file_contains "$ARTIFACT_DIR/remote-hotkeys.txt" '⌘3' "remote cmd+3 registered"
 assert_file_contains "$ARTIFACT_DIR/remote-hotkeys.txt" '⌘4' "remote cmd+4 registered"
+assert_file_contains "$ARTIFACT_DIR/remote-hotkeys.txt" '⌘5' "remote cmd+5 registered"
 assert_file_not_contains "$ARTIFACT_DIR/remote-file.txt" 'eventtap\.new|AXSelectedText|global-cooldown' "remote dangerous paths absent"
 assert_file_contains "$ARTIFACT_DIR/remote-file.txt" 'deniedBundleIDs' "remote denylist present"
 assert_file_contains "$ARTIFACT_DIR/remote-file.txt" 'no-focused-role-fallback' "remote no-role fallback present"
@@ -152,12 +154,14 @@ check_key 1 'are you sure?'
 check_key 2 'continue'
 check_key 3 'I rely on you as my autonomous CEO/CTO. I always expect you to investigate, do Deep Research and take action'
 check_key 4 'always use Data Science, ML, and Agentic RAG to drive your decisions'
+check_key 5 'What action must you take next to make money today?'
 close_textedit_docs
 REMOTE_PASTE
 assert_file_contains "$ARTIFACT_DIR/remote-api-paste.txt" 'key=1 PASS' "remote cmd+1 snippet inserts"
 assert_file_contains "$ARTIFACT_DIR/remote-api-paste.txt" 'key=2 PASS' "remote cmd+2 snippet inserts"
 assert_file_contains "$ARTIFACT_DIR/remote-api-paste.txt" 'key=3 PASS' "remote cmd+3 snippet inserts"
 assert_file_contains "$ARTIFACT_DIR/remote-api-paste.txt" 'key=4 PASS' "remote cmd+4 snippet inserts"
+assert_file_contains "$ARTIFACT_DIR/remote-api-paste.txt" 'key=5 PASS' "remote cmd+5 snippet inserts"
 
 echo ""
 echo "=== PASS: mac-text-hotkeys e2e orchestration ==="

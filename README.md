@@ -193,13 +193,15 @@ Local mirror before pushing:
 | Workflow | Trigger | Purpose |
 |---|---|---|
 | [`.github/workflows/internal-distribution.yml`](.github/workflows/internal-distribution.yml) | Manual `workflow_dispatch` | Quality gate → EAS internal APK/IPA → Firebase Android distro |
-| [`.github/workflows/store-release.yml`](.github/workflows/store-release.yml) | Manual `workflow_dispatch` | Requires internal signoff on exact SHA → production EAS build |
+| [`.github/workflows/store-release.yml`](.github/workflows/store-release.yml) | Manual `workflow_dispatch` | Requires internal signoff on exact SHA → production EAS build → **Play Production** track |
 
-Firebase: [hermes-mobile/docs/FIREBASE_CI.md](./hermes-mobile/docs/FIREBASE_CI.md) — **not** LipoShield.
+Firebase: [hermes-mobile/docs/FIREBASE_CI.md](./hermes-mobile/docs/FIREBASE_CI.md) (internal QA)
+
+Google Play: [hermes-mobile/docs/PLAY_RELEASE.md](./hermes-mobile/docs/PLAY_RELEASE.md) (LLC org, production track)
 
 ```sh
-./scripts/sync-firebase-secrets.sh          # Firebase on openclaw-console-mobile-8d53d
-./scripts/mirror-liposhield-secrets.sh      # EAS/Apple only (hermes-mobile/.env)
+./scripts/sync-firebase-secrets.sh          # Firebase App Distribution
+./scripts/sync-hermes-secrets.sh            # EAS / Apple (hermes-mobile/.env)
 ```
 
 EAS: [@igorganapolsky/hermes-mobile](https://expo.dev/accounts/igorganapolsky/projects/hermes-mobile) (`4ed13e30-9b97-4ddd-8a12-59106cae90d6`).

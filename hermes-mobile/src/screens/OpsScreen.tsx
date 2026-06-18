@@ -24,6 +24,7 @@ import {
   runJobNow,
 } from '../services/hermesGatewayClient';
 import type { HermesCronJob, HermesSkill, HermesToolset } from '../types/gatewayApi';
+import { formatCronSchedule } from '../utils/sessionDisplay';
 
 const DEMO_SKILLS: HermesSkill[] = [
   { name: 'mac-freeze-rescue', description: 'Rescue frozen / sluggish Mac', category: 'ops' },
@@ -189,7 +190,7 @@ export default function OpsScreen() {
               <View key={job.id} style={styles.jobRow}>
                 <View style={styles.jobInfo}>
                   <Text style={styles.rowTitle}>{job.name ?? job.id}</Text>
-                  <Text style={styles.rowDesc}>{job.schedule ?? 'no schedule'}</Text>
+                  <Text style={styles.rowDesc}>{formatCronSchedule(job.schedule)}</Text>
                 </View>
                 <View style={styles.jobActions}>
                   <TouchableOpacity

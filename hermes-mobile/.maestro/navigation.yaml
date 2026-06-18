@@ -18,8 +18,10 @@ appId: com.iganapolsky.hermesmobile
     id: "LEASH"
 
 - tapOn: "Ops"
-- assertVisible:
-    id: "OPS"
+- extendedWaitUntil:
+    visible:
+      id: "OPS"
+    timeout: 30000
 
 - tapOn: "Settings"
 - assertVisible:

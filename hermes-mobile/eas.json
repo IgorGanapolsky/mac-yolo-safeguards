@@ -48,7 +48,7 @@
     "production": {
       "android": {
         "serviceAccountKeyPath": "$EXPO_ANDROID_SERVICE_ACCOUNT_KEY_PATH",
-        "track": "internal",
+        "track": "production",
         "releaseStatus": "completed"
       },
       "ios": {

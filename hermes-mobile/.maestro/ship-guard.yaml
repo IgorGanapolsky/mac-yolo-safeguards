@@ -1,0 +1,40 @@
+# Ship guard — blocks Metro crash APKs and legacy native shell UI
+appId: com.iganapolsky.hermesmobile
+---
+- launchApp
+
+# Metro / debug crash screen
+- assertNotVisible: "Unable to load script"
+- assertNotVisible: "Make sure you're running Metro"
+
+# Legacy native shell (wrong app)
+- assertNotVisible: "Hold the cord on your AI"
+- assertNotVisible: "Connect your computer"
+- assertNotVisible: "Hermes Mobile Agent"
+
+- runFlow:
+    when:
+      notVisible:
+        id: "HERMES CHAT"
+    commands:
+      - tapOn: "Chat"
+
+- extendedWaitUntil:
+    visible:
+      id: "HERMES CHAT"
+    timeout: 30000
+
+- assertVisible:
+    id: "chat-input"
+
+- tapOn: "Leash"
+- assertVisible:
+    id: "LEASH"
+
+- tapOn: "Ops"
+- assertVisible:
+    id: "OPS"
+
+- tapOn: "Settings"
+- assertVisible:
+    id: "SETTINGS"

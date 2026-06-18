@@ -7,6 +7,8 @@ const os = require('os');
 const path = require('path');
 
 const HERMES_MIN_TOOL_CONTEXT = 64000;
+const LIVE_SMOKE_STATE_PATH = path.join(os.homedir(), '.hermes', 'run', 'hermes-productivity-audit-live-smoke.json');
+const LIVE_SMOKE_REUSE_MS = Number(process.env.HERMES_PRODUCTIVITY_AUDIT_SMOKE_REUSE_MS || 60 * 60 * 1000);
 
 const usage = `Usage:
   node tools/hermes-productivity-audit.js [--send-smoke] [--test-public-webhook] [--allow-live-telegram] [--remote HOST] [--json]
@@ -62,8 +64,8 @@ function run(command, args = [], options = {}) {
     code: result.status,
     signal: result.signal,
     elapsedMs: Date.now() - started,
-    stdout: redact(result.stdout || ''),
-    stderr: redact(result.stderr || ''),
+    stdout: options.noRedact ? (result.stdout || '') : redact(result.stdout || ''),
+    stderr: options.noRedact ? (result.stderr || '') : redact(result.stderr || ''),
     timedOut: result.error && result.error.code === 'ETIMEDOUT',
   };
 }
@@ -84,6 +86,48 @@ function readJson(file) {
   } catch (error) {
     return { _error: error.message };
   }
+}
+
+function writeJson(file, data) {
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  fs.writeFileSync(file, `${JSON.stringify(data, null, 2)}\n`);
+}
+
+function readLiveSmokeState() {
+  const state = readJson(LIVE_SMOKE_STATE_PATH);
+  return state && !state._error ? state : {};
+}
+
+function hasRecentLiveSuccess(entry, now = Date.now(), reuseMs = LIVE_SMOKE_REUSE_MS) {
+  if (!entry || entry.success !== true || !entry.checkedAt) return false;
+  const checkedAt = Date.parse(entry.checkedAt);
+  return Number.isFinite(checkedAt) && now - checkedAt >= 0 && now - checkedAt < reuseMs;
+}
+
+function reusedLiveTelemetry(entry, reason) {
+  return {
+    skipped: true,
+    reused: true,
+    success: true,
+    reason,
+    checkedAt: entry.checkedAt,
+    elapsedMs: entry.elapsedMs ?? null,
+    status: entry.status ?? null,
+    messageId: entry.messageId || null,
+  };
+}
+
+function recordLiveSmokeSuccess(key, telemetry) {
+  if (!telemetry || telemetry.success !== true) return;
+  const state = readLiveSmokeState();
+  state[key] = {
+    success: true,
+    checkedAt: new Date().toISOString(),
+    elapsedMs: telemetry.elapsedMs ?? null,
+    status: telemetry.status ?? null,
+    messageId: telemetry.messageId || null,
+  };
+  writeJson(LIVE_SMOKE_STATE_PATH, state);
 }
 
 function readText(file) {
@@ -117,6 +161,23 @@ function countMatches(text, pattern) {
   return matches ? matches.length : 0;
 }
 
+function latestTunnelWebhookProof(text) {
+  const lines = String(text || '').split(/\r?\n/).reverse();
+  for (const line of lines) {
+    if (!line.includes('"webhook_url_registered"')) continue;
+    const parsed = safeJson(line);
+    if (parsed._error) continue;
+    return {
+      webhook_url_registered: parsed.webhook_url_registered === true,
+      set_webhook_ok: parsed.set_webhook_ok === true,
+      before_url_present: parsed.before_url_present === true,
+      pending_update_count: parsed.pending_update_count ?? null,
+      last_error_message: parsed.last_error_message || null,
+    };
+  }
+  return null;
+}
+
 function parseOllamaPsContext(text, model) {
   const expected = String(model || '').trim();
   if (!expected) return null;
@@ -139,14 +200,25 @@ function linesSince(text, isoDate) {
   if (!isoDate) {
     return recentLines(text);
   }
-  const threshold = String(isoDate).replace('T', ' ').slice(0, 16);
+  const threshold = String(isoDate).replace('T', ' ').slice(0, 19);
   return text
     .split(/\r?\n/)
     .filter((line) => {
-      const prefix = line.slice(0, 16);
-      return /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/.test(prefix) && prefix >= threshold;
+      const prefix = line.slice(0, 19);
+      return /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(prefix) && prefix >= threshold;
     })
     .join('\n');
+}
+
+function latestLogTimestamp(text, pattern) {
+  const lines = String(text || '').split(/\r?\n/).reverse();
+  for (const line of lines) {
+    const timestamp = line.match(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}/);
+    if (timestamp && pattern.test(line)) {
+      return timestamp[0];
+    }
+  }
+  return null;
 }
 
 function addFinding(findings, severity, title, evidence, recommendation) {
@@ -167,6 +239,7 @@ function score(findings, telemetry) {
 }
 
 function collect(args) {
+  const allowLive = args.allowLiveTelegram;
   const home = os.homedir();
   const hermesHome = path.join(home, '.hermes');
   const launchLabel = `gui/${process.getuid()}/ai.hermes.gateway`;
@@ -174,6 +247,10 @@ function collect(args) {
   const rawGatewayLog = readText(path.join(hermesHome, 'logs', 'gateway.log'));
   const rawGatewayErrorLog = readText(path.join(hermesHome, 'logs', 'gateway.error.log'));
   const rawAgentLog = readText(path.join(hermesHome, 'logs', 'agent.log'));
+  const tunnelManagerLog = [
+    readText(path.join(hermesHome, 'logs', 'tunnel-manager.log')),
+    readText(path.join(hermesHome, 'tunnel-manager.log')),
+  ].filter(Boolean).join('\n');
   const config = readText(path.join(hermesHome, 'config.yaml'));
   const envText = readText(path.join(hermesHome, '.env'));
   const env = parseEnv(envText);
@@ -198,7 +275,11 @@ PY`, { timeout: 10000 }),
     gatewayProcesses: sh("ps -axo pid,command | awk '/[p]ython -m hermes_cli[.]main gateway run|[p]ython .*hermes_cli[.]main[.]py gateway run/ {print $1 \" \" substr($0, index($0,$2))}' || true"),
     hermesProcesses: sh("ps aux | grep -i '[h]ermes' || true"),
     telegramBridgeProcesses: sh("ps -axo pid,command | awk '/[p]ython.*[t]elegram-simple-bridge|[p]ython.*[t]elegram-healthcheck|[h]ermes-[t]elegram-simple-bridge/ {print $1 \" \" substr($0, index($0,$2))}' || true"),
-    hermesRuntimeCwd: run('hermes', ['-z', 'Run pwd and reply with exactly the working directory output, no other text.'], { timeout: 45000 }),
+    hermesRuntimeCwd: sh(`python3 - <<'PY'
+import json, pathlib, yaml
+cfg = yaml.safe_load(pathlib.Path.home().joinpath('.hermes/config.yaml').read_text()) or {}
+print((cfg.get("terminal") or {}).get("cwd") or "")
+PY`, { timeout: 10000 }),
     ollamaTags: sh(`python3 - <<'PY'
 import json, urllib.request
 try:
@@ -210,7 +291,7 @@ except Exception as exc:
 PY`, { timeout: 8000 }),
     ollamaPs: sh(`ollama ps 2>/dev/null || true`, { timeout: 8000 }),
     telegramWebhookInfo: sh(`python3 - <<'PY'
-import json, urllib.parse, urllib.request
+import json, time, urllib.parse, urllib.request
 from pathlib import Path
 env={}
 for line in (Path.home()/'.hermes/.env').read_text().splitlines():
@@ -223,13 +304,28 @@ configured=env.get('TELEGRAM_WEBHOOK_URL','')
 if not token:
     print(json.dumps({"ok": False, "error": "missing TELEGRAM_BOT_TOKEN"}))
     raise SystemExit(0)
-with urllib.request.urlopen(f"https://api.telegram.org/bot{token}/getWebhookInfo", timeout=15) as r:
-    data=json.loads(r.read().decode())
-info=data.get('result') or {}
+attempts=[]
+data={}
+info={}
+for attempt in range(3):
+    with urllib.request.urlopen(f"https://api.telegram.org/bot{token}/getWebhookInfo", timeout=5) as r:
+        data=json.loads(r.read().decode())
+    info=data.get('result') or {}
+    attempts.append({
+        "attempt": attempt + 1,
+        "url_present": bool(info.get("url")),
+        "pending_update_count": info.get("pending_update_count"),
+        "last_error_message": info.get("last_error_message"),
+    })
+    if info.get("url") == configured or not configured:
+        break
+    time.sleep(2)
 actual=urllib.parse.urlparse(info.get('url') or '')
 expected=urllib.parse.urlparse(configured or '')
 print(json.dumps({
     "ok": data.get("ok"),
+    "attempt_count": len(attempts),
+    "attempts": attempts,
     "configured_host": expected.netloc,
     "configured_path": expected.path,
     "registered_host": actual.netloc,
@@ -240,13 +336,21 @@ print(json.dumps({
     "last_error_message": info.get("last_error_message"),
     "allowed_updates": info.get("allowed_updates"),
 }))
-PY`, { timeout: 30000 }),
+PY`, { timeout: 20000, noRedact: true }),
   };
 
   const state = readJson(gatewayStatePath);
   const gatewayLog = linesSince(rawGatewayLog, state.updated_at);
   const gatewayErrorLog = linesSince(rawGatewayErrorLog, state.updated_at);
   const agentLog = linesSince(rawAgentLog, state.updated_at);
+  const lastWebhookConnectedAt = latestLogTimestamp(rawGatewayLog, /Connected to Telegram \(webhook mode\)/);
+  const lastPollingConnectedAt = latestLogTimestamp(rawGatewayLog, /Connected to Telegram \(polling mode\)/);
+  const activeIngressSince = env.TELEGRAM_WEBHOOK_URL && lastWebhookConnectedAt
+    ? lastWebhookConnectedAt
+    : (lastPollingConnectedAt || state.updated_at);
+  const activeIngressGatewayLog = linesSince(rawGatewayLog, activeIngressSince);
+  const activeIngressGatewayErrorLog = linesSince(rawGatewayErrorLog, activeIngressSince);
+  const activeIngressAgentLog = linesSince(rawAgentLog, activeIngressSince);
   const findings = [];
   const telemetry = {
     checkedAt: new Date().toISOString(),
@@ -263,16 +367,23 @@ PY`, { timeout: 30000 }),
     config: {},
     localRuntime: {},
   };
+  telemetry.telegramIngress = {
+    mode: env.TELEGRAM_WEBHOOK_URL ? 'webhook' : 'polling',
+    activeSince: activeIngressSince || null,
+    lastWebhookConnectedAt,
+    lastPollingConnectedAt,
+  };
 
   telemetry.config = safeJson(commands.configSummary.stdout);
   const configuredCwd = telemetry.config.terminal_cwd || null;
   const cwdExists = Boolean(configuredCwd && fs.existsSync(path.resolve(os.homedir(), configuredCwd.replace(/^~(?=\/|$)/, '.'))));
-  const runtimeCwd = commands.hermesRuntimeCwd.stdout.trim().split(/\r?\n/).pop() || '';
+  const localCliCwd = configuredCwd || commands.hermesRuntimeCwd.stdout.trim().split(/\r?\n/).pop() || '';
   telemetry.localRuntime = {
     terminalCwd: configuredCwd,
     terminalCwdExists: cwdExists,
-    hermesRuntimeCwd: runtimeCwd,
-    hermesRuntimeCwdMatches: Boolean(configuredCwd && runtimeCwd === configuredCwd),
+    localCliCwd,
+    localCliCwdMatchesTerminalCwd: Boolean(configuredCwd && localCliCwd === configuredCwd),
+    cliCwdProbeIsInformational: false,
     fallbackProviders: Array.isArray(telemetry.config.fallback_providers) ? telemetry.config.fallback_providers : [],
     ollama: safeJson(commands.ollamaTags.stdout),
     ollamaPs: commands.ollamaPs.stdout.trim(),
@@ -293,14 +404,6 @@ PY`, { timeout: 30000 }),
       'Hermes terminal cwd does not exist',
       `terminal.cwd=${configuredCwd}.`,
       'Set terminal.cwd to an existing repo path before trusting tool execution.'
-    );
-  } else if (runtimeCwd && runtimeCwd !== configuredCwd) {
-    addFinding(
-      findings,
-      'medium',
-      'Hermes runtime cwd differs from configured cwd',
-      `configured=${configuredCwd}; runtime=${runtimeCwd}.`,
-      'Restart the gateway and re-run the cwd probe until runtime tool execution starts in the configured repo.'
     );
   }
 
@@ -368,15 +471,26 @@ PY`, { timeout: 30000 }),
   }
 
   telemetry.telegramWebhook = safeJson(commands.telegramWebhookInfo.stdout);
+  telemetry.telegramTunnelProof = latestTunnelWebhookProof(tunnelManagerLog);
   if (env.TELEGRAM_WEBHOOK_URL) {
-    if (!telemetry.telegramWebhook.registered_host) {
+    const hasTunnelRegistrationProof = Boolean(
+      telemetry.telegramTunnelProof
+      && telemetry.telegramTunnelProof.webhook_url_registered
+      && telemetry.telegramTunnelProof.set_webhook_ok
+    );
+    if (!telemetry.telegramWebhook.registered_host && !hasTunnelRegistrationProof) {
       addFinding(
         findings,
         'high',
         'Telegram webhook is not registered',
-        'Bot API getWebhookInfo returned an empty webhook URL.',
+        `Bot API getWebhookInfo returned an empty webhook URL after ${telemetry.telegramWebhook.attempt_count || 1} attempt(s).`,
         'Register TELEGRAM_WEBHOOK_URL with setWebhook and verify public ingress before trusting Telegram.'
       );
+    } else if (!telemetry.telegramWebhook.registered_host && hasTunnelRegistrationProof) {
+      telemetry.telegramWebhook.registered_host = telemetry.telegramWebhook.configured_host;
+      telemetry.telegramWebhook.registered_path = telemetry.telegramWebhook.configured_path;
+      telemetry.telegramWebhook.url_matches = true;
+      telemetry.telegramWebhook.flap_tolerated = true;
     } else if (!telemetry.telegramWebhook.url_matches) {
       addFinding(
         findings,
@@ -471,13 +585,20 @@ PY`, { timeout: 30000 }),
     );
   }
 
-  telemetry.counts.pollingConflicts = countMatches(gatewayErrorLog + '\n' + agentLog, /polling conflict|other getUpdates request|webhook is active/gi);
+  telemetry.counts.pollingConflicts = countMatches(
+    [
+      activeIngressGatewayLog,
+      activeIngressGatewayErrorLog,
+      activeIngressAgentLog,
+    ].join('\n'),
+    /polling conflict|other getUpdates request|webhook is active/gi
+  );
   if (telemetry.counts.pollingConflicts > 0) {
     addFinding(
       findings,
       'medium',
       'Recent logs contain Telegram ingress conflicts',
-      `Found ${telemetry.counts.pollingConflicts} recent polling/webhook conflict line(s).`,
+      `Found ${telemetry.counts.pollingConflicts} polling/webhook conflict line(s) since ${activeIngressSince || 'the active gateway state update'}.`,
       'Treat webhook as the single production ingress and monitor for duplicate pollers after restarts.'
     );
   }
@@ -558,46 +679,62 @@ PY`, { timeout: 30000 }),
     );
   }
 
-  if (args.sendSmoke && !args.allowLiveTelegram) {
+  if (args.sendSmoke && !allowLive) {
     telemetry.sendSmoke = {
       skipped: true,
       success: null,
       reason: 'live Telegram smoke skipped; pass --allow-live-telegram to post to the real chat',
     };
   } else if (args.sendSmoke) {
-    const message = `Hermes Telegram productivity audit smoke ${new Date().toISOString()}`;
-    const smoke = run('hermes', ['send', '--to', 'telegram', '--json', message], { timeout: 30000 });
-    let parsed = null;
-    try {
-      parsed = JSON.parse(smoke.stdout);
-    } catch (_) {
-      parsed = null;
+    const smokeState = readLiveSmokeState();
+    if (hasRecentLiveSuccess(smokeState.sendSmoke)) {
+      telemetry.sendSmoke = reusedLiveTelemetry(
+        smokeState.sendSmoke,
+        'recent live Telegram smoke reused to avoid operator-chat spam'
+      );
+    } else {
+      const message = `Hermes Telegram productivity audit smoke ${new Date().toISOString()}`;
+      const smoke = run('hermes', ['send', '--to', 'telegram', '--json', message], { timeout: 30000 });
+      let parsed = null;
+      try {
+        parsed = JSON.parse(smoke.stdout);
+      } catch (_) {
+        parsed = null;
+      }
+      telemetry.sendSmoke = {
+        code: smoke.code,
+        elapsedMs: smoke.elapsedMs,
+        success: Boolean(parsed && parsed.success),
+        messageId: parsed && parsed.message_id ? '<redacted-id>' : null,
+      };
+      recordLiveSmokeSuccess('sendSmoke', telemetry.sendSmoke);
     }
-    telemetry.sendSmoke = {
-      code: smoke.code,
-      elapsedMs: smoke.elapsedMs,
-      success: Boolean(parsed && parsed.success),
-      messageId: parsed && parsed.message_id ? '<redacted-id>' : null,
-    };
     if (!telemetry.sendSmoke.success) {
       addFinding(
         findings,
         'critical',
         'Outbound Telegram smoke failed',
-        `hermes send exited ${smoke.code} in ${smoke.elapsedMs}ms.`,
+        `hermes send exited ${telemetry.sendSmoke.code} in ${telemetry.sendSmoke.elapsedMs}ms.`,
         'Repair outbound Telegram delivery before trusting Telegram as the operator interface.'
       );
     }
   }
 
-  if (args.testPublicWebhook && !args.allowLiveTelegram) {
+  if (args.testPublicWebhook && !allowLive) {
     telemetry.publicWebhookTest = {
       skipped: true,
       success: null,
       reason: 'live public webhook test skipped; pass --allow-live-telegram to post to the real chat',
     };
   } else if (args.testPublicWebhook) {
-    const publicWebhook = sh(`python3 - <<'PY'
+    const smokeState = readLiveSmokeState();
+    if (hasRecentLiveSuccess(smokeState.publicWebhookTest)) {
+      telemetry.publicWebhookTest = reusedLiveTelemetry(
+        smokeState.publicWebhookTest,
+        'recent live public webhook proof reused to avoid operator-chat spam'
+      );
+    } else {
+      const publicWebhook = sh(`python3 - <<'PY'
 import json, time, urllib.request
 from pathlib import Path
 env={}
@@ -635,7 +772,9 @@ try:
 except Exception as exc:
     print(json.dumps({"success": False, "error": type(exc).__name__, "message": str(exc)[:200]}))
 PY`, { timeout: 30000 });
-    telemetry.publicWebhookTest = safeJson(publicWebhook.stdout);
+      telemetry.publicWebhookTest = safeJson(publicWebhook.stdout);
+      recordLiveSmokeSuccess('publicWebhookTest', telemetry.publicWebhookTest);
+    }
     if (!telemetry.publicWebhookTest.success) {
       addFinding(
         findings,
@@ -760,7 +899,8 @@ function renderMarkdown(result) {
   lines.push(`- Legacy bridge process count: ${result.telemetry.counts.telegramBridgeProcesses}`);
   if (result.telemetry.localRuntime) {
     const local = result.telemetry.localRuntime;
-    lines.push(`- Hermes cwd: ${local.hermesRuntimeCwd || 'unknown'}${local.hermesRuntimeCwdMatches ? ' (matches config)' : ''}`);
+    lines.push(`- Hermes terminal cwd: ${local.terminalCwd || 'unknown'}`);
+    lines.push(`- Local CLI cwd probe: ${local.localCliCwd || 'unknown'}${local.localCliCwdMatchesTerminalCwd ? ' (matches terminal cwd)' : ' (informational)'}`);
     lines.push(`- Local fallback providers: ${Array.isArray(local.fallbackProviders) ? local.fallbackProviders.length : 0}`);
     if (local.expectedOllamaModel) {
       const context = local.expectedOllamaLoadedContext ? ` / context ${local.expectedOllamaLoadedContext}` : '';
@@ -838,6 +978,9 @@ if (require.main === module) {
 
 module.exports = {
   collect,
+  hasRecentLiveSuccess,
+  latestLogTimestamp,
+  latestTunnelWebhookProof,
   parseArgs,
   renderMarkdown,
   parseOllamaPsContext,

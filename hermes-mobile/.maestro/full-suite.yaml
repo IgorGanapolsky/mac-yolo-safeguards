@@ -1,0 +1,8 @@
+# Run all device E2E flows sequentially (parallel maestro test .maestro/ races on one device).
+appId: com.iganapolsky.hermesmobile
+---
+- runFlow: ship-guard.yaml
+- runFlow: launch.yaml
+- runFlow: navigation.yaml
+- runFlow: approvals.yaml
+- runFlow: save_key.yaml

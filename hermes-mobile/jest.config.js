@@ -7,6 +7,20 @@ module.exports = {
     '!src/**/__tests__/**',
     '!src/types/**',
   ],
+  coverageThreshold: {
+    global: {
+      branches: 20,
+      functions: 20,
+      lines: 20,
+      statements: 20,
+    },
+    './src/utils/apkReleaseGuards.ts': {
+      branches: 85,
+      functions: 100,
+      lines: 90,
+      statements: 90,
+    },
+  },
   coverageDirectory: 'coverage',
   watchman: false,
   transformIgnorePatterns: [

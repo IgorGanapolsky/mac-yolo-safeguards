@@ -111,3 +111,6 @@ jobs:
 
       - name: Unit tests with coverage
         run: npm run test:ci
+
+      - name: Release safety contract
+        run: npm run test:release-safety

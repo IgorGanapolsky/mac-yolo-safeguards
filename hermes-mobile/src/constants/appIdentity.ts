@@ -1,6 +1,18 @@
 /** Canonical Hermes Mobile app identifiers — single source of truth. */
+import firebaseProject from '../../firebase-project.json';
+
 export const HERMES_MOBILE_ANDROID_PACKAGE = 'com.iganapolsky.hermesmobile';
 export const HERMES_MOBILE_IOS_BUNDLE_ID = 'com.iganapolsky.hermesmobile';
+
+/** Android Firebase App Distribution + GCP (iganapolsky@gmail.com). */
+export const HERMES_ANDROID_OPERATOR_EMAIL = 'iganapolsky@gmail.com';
+
+/** Google Play Console — organization (LLC) developer account, same Gmail admin. */
+export const HERMES_PLAY_CONSOLE_ACCOUNT_TYPE = 'organization' as const;
+export const HERMES_PLAY_CONSOLE_ADMIN_EMAIL = 'iganapolsky@gmail.com';
+
+/** iOS App Store Connect / Apple ID for EAS submit and TestFlight. */
+export const HERMES_IOS_APPLE_ID_EMAIL = 'igor.ganapolsky@icloud.com';
 
 /** Fly.io approval relay for Leash tab (pairing + queue). */
 export const HERMES_MOBILE_CLOUD_URL = 'https://hermes-mobile-cloud.fly.dev';
@@ -12,8 +24,6 @@ export function shouldMigrateCloudRelayUrl(cloudUrl?: string): boolean {
   return cloudUrl.includes('.fly.dev');
 }
 
-/**
- * Firebase Android app on openclaw-console-mobile-8d53d (Hermes-only; not LipoShield).
- * Created 2026-06-17 — package com.iganapolsky.hermesmobile.
- */
-export const FIREBASE_ANDROID_APP_ID = '1:587028054730:android:00258f23e47d56f6772a33';
+/** Hermes Mobile Firebase Android app (App Distribution). */
+export const HERMES_FIREBASE_PROJECT_NUMBER = firebaseProject.projectNumber;
+export const FIREBASE_ANDROID_APP_ID = firebaseProject.androidAppId;

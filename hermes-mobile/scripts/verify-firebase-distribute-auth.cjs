@@ -5,6 +5,8 @@
  * roles/firebaseappdistro.admin -> 403 on distribute (no invite email sent).
  */
 const { execSync } = require('child_process');
+const { loadFirebaseProject } = require('./load-firebase-project.cjs');
+const firebaseProject = loadFirebaseProject();
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
@@ -55,9 +57,9 @@ try {
   if (/403|permission|PERMISSION_DENIED/i.test(detail)) {
     fail(
       `Service account ${clientEmail} lacks Firebase App Distribution permission (HTTP 403).\n` +
-        '  Fix: Firebase Console -> Project settings -> Service accounts -> generate key,\n' +
-        '  OR grant roles/firebaseappdistro.admin on GCP project openclaw-console-mobile-8d53d (587028054730),\n' +
-        '  then set GitHub secret FIREBASE_SERVICE_ACCOUNT_JSON on openclaw-console-mobile-8d53d.',
+        '  Fix: Firebase Console -> Hermes Mobile -> Project settings -> Service accounts -> generate key,\n' +
+        `  OR grant roles/firebaseappdistro.admin on Hermes Mobile Firebase (${firebaseProject.projectNumber}),\n` +
+        '  then set GitHub secret FIREBASE_SERVICE_ACCOUNT_JSON.',
     );
   }
   fail(`appdistribution:testers:list failed: ${detail.slice(0, 600)}`);

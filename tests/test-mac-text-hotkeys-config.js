@@ -25,6 +25,7 @@ has(/\["1"\]\s*=\s*"are you sure\?"/, 'cmd+1 snippet must be present');
 has(/\["2"\]\s*=\s*"continue"/, 'cmd+2 snippet must be present');
 has(/\["3"\]\s*=\s*"I rely on you as my autonomous CEO\/CTO\./, 'cmd+3 snippet must be present');
 has(/\["4"\]\s*=\s*"always use Data Science, ML, and Agentic RAG/, 'cmd+4 snippet must be present');
+has(/\["5"\]\s*=\s*"What action must you take next to make money today\?"/, 'cmd+5 snippet must be present');
 
 has(/local\s+lastPasteAtByKey\s*=\s*\{\}/, 'cooldown must be per-key');
 lacks(/lastPasteAtGlobal/, 'global cooldown must not come back');
@@ -50,7 +51,7 @@ lacks(/hs\.eventtap\.new/, 'cmd+# must not be captured by a raw event tap');
 lacks(/source=eventtap/, 'eventtap logging means the swallowing path returned');
 
 has(/hs\.hotkey\.bind\(\{"cmd"\},\s*"0"/, 'cmd+0 emergency toggle must be bound');
-has(/for\s+key,\s*text\s+in\s+pairs\(snippets\)\s+do[\s\S]*hs\.hotkey\.bind\(\{"cmd"\},\s*key/, 'cmd+1..4 must use Hammerspoon hotkey bindings');
+has(/for\s+key,\s*text\s+in\s+pairs\(snippets\)\s+do[\s\S]*hs\.hotkey\.bind\(\{"cmd"\},\s*key/, 'cmd+1..5 must use Hammerspoon hotkey bindings');
 has(/deniedBundleIDs/, 'dangerous app denylist must exist');
 has(/\["com\.apple\.Terminal"\]\s*=\s*true/, 'Terminal must remain denied');
 has(/_G\.igorTextHotkeys/, 'runtime debug API must be exposed');

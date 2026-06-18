@@ -26,7 +26,7 @@ export interface HermesToolset {
 export interface HermesCronJob {
   id: string;
   name?: string;
-  schedule?: string;
+  schedule?: string | { kind?: string; expr?: string; display?: string };
   prompt?: string;
   enabled?: boolean;
   paused?: boolean;

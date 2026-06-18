@@ -30,7 +30,7 @@ STATE_JSON = BRIDGE_DIR / "state.json"
 README_MD = BRIDGE_DIR / "README.md"
 
 DEFAULT_PROVIDER = os.environ.get("HERMES_KIMI_PROVIDER", "kimi-coding")
-DEFAULT_MODEL = os.environ.get("HERMES_KIMI_MODEL", "kimi-k2.6")
+DEFAULT_MODEL = os.environ.get("HERMES_KIMI_MODEL", "kimi-k2.7-code")
 DEFAULT_TOOLSETS = os.environ.get(
     "HERMES_KIMI_TOOLSETS",
     "terminal,file,web,browser,code_execution,vision,computer_use,skills,todo,memory,session_search,delegation,cronjob,messaging",
@@ -50,7 +50,7 @@ def ensure_bridge_dir() -> None:
         "Mount this folder in Kimi Work when Kimi should delegate local tasks to Hermes.\n\n"
         "Append one JSON object per line to `inbox.jsonl`:\n\n"
         "```json\n"
-        '{"id":"task-1","prompt":"Run yolo-health and summarize blockers","provider":"kimi-coding","model":"kimi-k2.6"}\n'
+        '{"id":"task-1","prompt":"Run yolo-health and summarize blockers","provider":"kimi-coding","model":"kimi-k2.7-code"}\n'
         "```\n\n"
         "Then run `scripts/kimi_hermes_bridge.py process-inbox`. Results append to `outbox.jsonl`.\n\n"
         "Keep secrets in keychain/env/browser sessions. Do not put passwords or API keys in bridge tasks.\n",

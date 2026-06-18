@@ -135,6 +135,15 @@ async function collect() {
   }
 
   const findings = [];
+  const totalMemGb = Math.round(os.totalmem() / (1024 * 1024 * 1024));
+  if (totalMemGb < 32) {
+    findings.push({
+      severity: 'medium',
+      title: 'Limited system RAM for local inference',
+      evidence: `System total RAM is ${totalMemGb} GB.`,
+      recommendation: 'OpenMonoAgent benchmarks recommend 64 GB RAM for stable local Qwen serving; consider using lighter models (e.g. 8B) or a remote GPU.',
+    });
+  }
   if (configuredChecks.length === 0) {
     findings.push({
       severity: 'medium',
