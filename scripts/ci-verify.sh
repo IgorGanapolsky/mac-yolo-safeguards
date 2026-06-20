@@ -73,7 +73,7 @@ SECRET_PATTERN="(${GITHUB_PAT_PREFIX}[A-Za-z0-9_]+|${STRIPE_LIVE_PREFIX}[A-Za-z0
 echo "=== Hermes Mobile ==="
 (
   cd hermes-mobile
-  npm ci
+  npm install --no-audit --no-fund
   npm run release:check
   npm run typecheck
   EXPO_DOCTOR_ALLOW_NPX_DOWNLOAD=1 npm run doctor:expo
