@@ -1,7 +1,7 @@
 # Shared cold-start bootstrap for Maestro (demo mode + full tab bar).
+# Parent flows call launchApp first — no Expo dev-client URL (release APK on device).
 appId: com.iganapolsky.hermesmobile
 ---
-- openLink: "com.iganapolsky.hermesmobile://expo-development-client/?url=http%3A%2F%2F127.0.0.1%3A8081"
 - runFlow:
     when:
       visible:
@@ -11,17 +11,17 @@ appId: com.iganapolsky.hermesmobile
 - extendedWaitUntil:
     notVisible:
       id: "connect-mac-gate"
-    timeout: 15000
+    timeout: 30000
 - extendedWaitUntil:
     visible:
-      id: "Settings"
-    timeout: 30000
+      text: "Settings"
+    timeout: 45000
 - runFlow:
     when:
       notVisible: "Chat"
     commands:
       - tapOn:
-          id: "Settings"
+          text: "Settings"
       - extendedWaitUntil:
           visible:
             id: "SETTINGS"
@@ -41,7 +41,7 @@ appId: com.iganapolsky.hermesmobile
                 id: "save-settings-button"
             - tapOn: "OK"
 - tapOn:
-    id: "Chat"
+    text: "Chat"
 - extendedWaitUntil:
     visible:
       id: "chat-input"

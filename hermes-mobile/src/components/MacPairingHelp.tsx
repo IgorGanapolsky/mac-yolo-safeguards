@@ -48,7 +48,7 @@ export default function MacPairingHelp({
       ) : null}
       {!compact && variant === 'qr-pairing' ? (
         <Text style={styles.note}>
-          Each Mac has its own QR. Scan once per Mac — the app remembers MacBook vs Mac Mini.
+          Each Mac has its own QR. Scan once per Mac — the app remembers each machine you pair.
         </Text>
       ) : null}
       {!compact && variant === 'getting-started' ? (

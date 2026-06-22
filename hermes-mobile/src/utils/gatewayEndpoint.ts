@@ -155,7 +155,7 @@ export function formatLeashConnectionDisplay(input: {
       return {
         headline: 'Not linked to your Mac gateway',
         footnote:
-          'Scan the QR on the Mac you want (Mac Pro or Mac Mini) — Settings → Scan pairing QR',
+          'Scan the QR on the Mac you want — Settings → Scan pairing QR',
       };
   }
 }

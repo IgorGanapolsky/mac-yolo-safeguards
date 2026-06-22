@@ -10,14 +10,9 @@ appId: com.iganapolsky.hermesmobile
     timeout: 30000
 - scrollUntilVisible:
     element:
-      id: "gateway-url-input"
-    direction: UP
-    timeout: 60000
-- scrollUntilVisible:
-    element:
       id: "leash-smoke-test"
     direction: DOWN
-    timeout: 30000
+    timeout: 90000
 - tapOn:
     id: "leash-smoke-test"
 - tapOn: "Leash"

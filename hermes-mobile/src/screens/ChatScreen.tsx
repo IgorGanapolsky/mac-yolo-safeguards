@@ -1361,8 +1361,8 @@ export default function ChatScreen() {
           }}
           macSwitchHint={
             gatewayProfiles.length > 1
-              ? 'Tap Mac to switch (e.g. Mac Mini vs MacBook)'
-              : 'Tap Mac to find Mac Mini or scan QR in Settings'
+              ? 'Tap Mac to switch between profiles'
+              : 'Tap Mac to find your Mac or scan QR in Settings'
           }
           channelHint={
             !contextProject && isTelegramView
@@ -1659,9 +1659,9 @@ export default function ChatScreen() {
               </TouchableOpacity>
             </View>
             <Text style={styles.modalSubtitle}>
-              Wi‑Fi scan finds Macs at home (10.x.x.x). Away from home? Settings → Advanced → paste
-              your ngrok / Tailscale / Cloudflare tunnel URL — same as Telegram needs your Mac online,
-              but Hermes Mobile talks to the Mac directly (not through Telegram's cloud).
+              Pick a saved Mac or search Wi‑Fi for Hermes on your network. Another Mac not listed?
+              Open Hermes on that computer (same Wi‑Fi), then tap Find Macs below. Away from home?
+              Settings → Advanced → paste a tunnel URL (ngrok, Tailscale, Cloudflare).
             </Text>
             <GatewayProfilePicker
               profiles={gatewayProfiles}

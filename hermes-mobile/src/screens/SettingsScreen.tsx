@@ -310,7 +310,7 @@ export default function SettingsScreen() {
         <GlassCard>
           <Text style={styles.label}>Your Macs</Text>
           <Text style={styles.description}>
-            Mac Pro and Mac Mini each get a saved profile. Tap to switch — no re-scanning required.
+            Each Mac you connect gets a saved profile. Tap to switch — no re-scanning required.
           </Text>
           <GatewayProfilePicker
             profiles={savedMacProfiles}
