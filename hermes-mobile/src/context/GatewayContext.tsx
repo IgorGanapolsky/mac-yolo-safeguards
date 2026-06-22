@@ -16,7 +16,7 @@ import type {
 } from '../types/gateway';
 import { DEFAULT_GATEWAY_SETTINGS } from '../types/gateway';
 import type { RunProgressState } from '../types/chatDisplay';
-import { applyStreamEvent } from '../utils/chatStreamEvents';
+import { applyStreamEvent, formatRunProgressLabel } from '../utils/chatStreamEvents';
 import type { ChatStreamEvent } from '../types/gatewayApi';
 import type { GatewayProfile, GatewayProfileState } from '../types/gatewayProfile';
 import type { LanScanProgress, LanScanResult } from '../types/lanScan';
@@ -96,6 +96,8 @@ import {
   parseApprovalNotificationResponse,
   requestApprovalNotificationPermission,
   scheduleApprovalNotification,
+  scheduleRunProgressNotification,
+  clearRunProgressNotification,
   addApprovalNotificationResponseListener,
 } from '../services/approvalNotifications';
 
@@ -461,6 +463,7 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
     }
     stopRelayPolling();
     setRunProgress(null);
+    clearRunProgressNotification().catch(() => {});
     if (!settingsRef.current.demoMode && !mobileTokenRef.current) {
       setConnectionState('disconnected');
     }
@@ -525,6 +528,7 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
       eventName === 'error'
     ) {
       setRunProgress(null);
+      clearRunProgressNotification().catch(() => {});
     } else if (
       eventName === 'run.status' ||
       eventName === 'run.progress' ||
@@ -545,6 +549,19 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
       });
     }
   }, [setRunProgress]);
+
+  useEffect(() => {
+    if (!settings.notificationsEnabled || Platform.OS === 'web') {
+      return;
+    }
+    if (!runProgress) {
+      clearRunProgressNotification().catch(() => {});
+      return;
+    }
+    if (AppState.currentState !== 'active') {
+      scheduleRunProgressNotification(formatRunProgressLabel(runProgress)).catch(() => {});
+    }
+  }, [runProgress, settings.notificationsEnabled]);
 
   const autoDiscoverGateway = useCallback(async (): Promise<string> => {
     const lastLanIp = await storage.loadLastGatewayLanIp();

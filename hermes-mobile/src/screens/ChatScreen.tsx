@@ -52,6 +52,7 @@ import LoadingButton from '../components/ui/LoadingButton';
 import ChatMessageBubble from '../components/ChatMessageBubble';
 import ChatApprovalBar from '../components/ChatApprovalBar';
 import RunProgressBanner from '../components/RunProgressBanner';
+import type { RunProgressState } from '../types/chatDisplay';
 import { applyStreamEvent } from '../utils/chatStreamEvents';
 import { resolveChatMachineLabel, resolveChatProject } from '../utils/chatContext';
 import { isGatewayHealthOk } from '../utils/gatewayConnection';
@@ -179,6 +180,7 @@ export default function ChatScreen() {
   const flatListRef = useRef<FlatList<HermesMessage>>(null);
   const isSendingRef = useRef(false);
   const messagesRef = useRef<HermesMessage[]>([]);
+  const sendStartedAtRef = useRef(Date.now());
   const outboundQueueRef = useRef<string[]>([]);
 
   const [queuedOutboundCount, setQueuedOutboundCount] = useState(0);
@@ -606,10 +608,6 @@ export default function ChatScreen() {
         return;
       }
 
-      if (options?.background && isSendingRef.current) {
-        return;
-      }
-
       if (isDemo) {
         if (currentSession.id === 'demo-1') {
           setMessages([
@@ -716,6 +714,19 @@ export default function ChatScreen() {
     }, 20_000);
     return () => clearInterval(timer);
   }, [currentSession, isDemo, connectionState, isTelegramView, refreshSessionMessages]);
+
+  useEffect(() => {
+    if (!currentSession || isDemo || !macChatLive) {
+      return;
+    }
+    if (!isSending && !runProgress) {
+      return;
+    }
+    const timer = setInterval(() => {
+      refreshSessionMessages({ background: true });
+    }, 4_000);
+    return () => clearInterval(timer);
+  }, [currentSession, isDemo, macChatLive, isSending, runProgress, refreshSessionMessages]);
 
   const switchToTelegramReplyThread = useCallback(() => {
     if (!telegramReplySessionId) {
@@ -1047,6 +1058,7 @@ export default function ChatScreen() {
     setMessages((prev) => [...prev, userMessage]);
     setToolStatus(null);
 
+    sendStartedAtRef.current = Date.now();
     setIsSending(true);
 
     if (isDemo) {
@@ -1105,9 +1117,9 @@ export default function ChatScreen() {
               eventName === 'run.status' ||
               eventName === 'run.progress' ||
               eventName === 'status.update' ||
-              evt.event === 'provider.waiting' ||
-              evt.event === 'assistant.delta' ||
-              evt.event === 'approval.request' ||
+              eventName === 'provider.waiting' ||
+              eventName === 'assistant.delta' ||
+              eventName === 'approval.request' ||
               eventName.startsWith('tool.')
             ) {
               setRunProgress((prev) => {
@@ -1171,14 +1183,14 @@ export default function ChatScreen() {
         });
       }
       haptics.success();
-      if (isTelegramInboxSession(activeSess) || isTelegramSession(activeSess)) {
-        refreshSessionMessages({ background: true });
-      }
     } catch (err) {
       applyChatApiError(err, 'Message could not reach your Mac. Check the connection steps above.');
     } finally {
       setIsSending(false);
       setRunProgress(null);
+      if (!isDemo && currentSession) {
+        refreshSessionMessages({ background: true });
+      }
       drainOutboundQueue();
     }
   };
@@ -1191,6 +1203,22 @@ export default function ChatScreen() {
     clearChatRelayText();
     sendUserText(relay, true);
   }, [pendingChatRelayText, clearChatRelayText, isSending]);
+
+  const progressBanner = useMemo((): RunProgressState | null => {
+    if (runProgress) {
+      return runProgress;
+    }
+    if (isSending) {
+      return {
+        phase: 'sending',
+        startedAtMs: sendStartedAtRef.current,
+        detail: queuedOutboundCount > 0
+          ? `${queuedOutboundCount} more message(s) queued after this`
+          : 'Sending to your Mac…',
+      };
+    }
+    return null;
+  }, [runProgress, isSending, queuedOutboundCount]);
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
@@ -1404,8 +1432,8 @@ export default function ChatScreen() {
           </>
         )}
 
-        {runProgress && (
-          <RunProgressBanner progress={runProgress} />
+        {progressBanner && (
+          <RunProgressBanner progress={progressBanner} />
         )}
 
         {toolStatus ? (
@@ -1413,17 +1441,6 @@ export default function ChatScreen() {
             <Text style={styles.toolStatusText}>{toolStatus}</Text>
           </View>
         ) : null}
-
-        {isSending && (
-          <View style={styles.thinkingContainer} testID="thinking-indicator">
-            <ActivityIndicator size="small" color={colors.accent} />
-            <Text style={styles.thinkingText}>
-              {queuedOutboundCount > 0
-                ? `Sending to your Mac… ${queuedOutboundCount} more queued after this.`
-                : 'Sending to your Mac… reply streams here when Hermes answers.'}
-            </Text>
-          </View>
-        )}
 
         {composerApprovals.length > 0 || undoSecondsLeft > 0 ? (
           <>

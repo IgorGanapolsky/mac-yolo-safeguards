@@ -159,24 +159,21 @@ describe('ChatScreen', () => {
     expect(sendButton.props.accessibilityState?.disabled).toBeFalsy();
   });
 
-  it('triggers mock message sending and thinking indicator in demo mode', () => {
-    const { getByTestId, queryByTestId, getByText } = renderInTabNavigator(ChatScreen, 'Chat');
+  it('triggers mock message sending and progress banner in demo mode', () => {
+    const { getByTestId, queryByTestId } = renderInTabNavigator(ChatScreen, 'Chat');
     const input = getByTestId('chat-input');
     const sendButton = getByTestId('chat-send-button');
 
     fireEvent.changeText(input, 'Hello Hermes');
     fireEvent.press(sendButton);
 
-    expect(getByTestId('thinking-indicator')).toBeTruthy();
-    expect(
-      getByText('Sending to your Mac… reply streams here when Hermes answers.')
-    ).toBeTruthy();
+    expect(getByTestId('run-progress-banner')).toBeTruthy();
 
     act(() => {
       jest.advanceTimersByTime(1600);
     });
 
-    expect(queryByTestId('thinking-indicator')).toBeNull();
+    expect(queryByTestId('run-progress-banner')).toBeNull();
   });
 
   it('opens and closes sessions selector modal', () => {

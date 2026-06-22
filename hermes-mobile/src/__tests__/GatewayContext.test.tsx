@@ -15,6 +15,8 @@ jest.mock('../services/approvalNotifications', () => ({
   requestApprovalNotificationPermission: jest.fn().mockResolvedValue(undefined),
   parseApprovalNotificationResponse: jest.fn(),
   scheduleApprovalNotification: jest.fn().mockResolvedValue(undefined),
+  scheduleRunProgressNotification: jest.fn().mockResolvedValue(undefined),
+  clearRunProgressNotification: jest.fn().mockResolvedValue(undefined),
   dismissApprovalNotifications: jest.fn().mockResolvedValue(undefined),
   addApprovalNotificationResponseListener: jest.fn().mockResolvedValue({ remove: jest.fn() }),
 }));

@@ -1,7 +1,7 @@
-import { mergeServerMessagesWithPending } from '../utils/chatMessageMerge';
+import { dedupeChatMessages, mergeServerMessagesWithPending } from '../utils/chatMessageMerge';
 import type { HermesMessage } from '../types/chat';
 
-describe('chatMessageMerge', () => {
+describe('mergeServerMessagesWithPending', () => {
   it('keeps local user message when server transcript has not caught up', () => {
     const server: HermesMessage[] = [
       { role: 'user', content: 'older', created_at: '2026-06-21T12:00:00Z' },
@@ -42,5 +42,32 @@ describe('chatMessageMerge', () => {
     ];
     const merged = mergeServerMessagesWithPending(server, local);
     expect(merged.map((m) => m.content)).toEqual(['from gateway', 'pending send']);
+  });
+
+  it('drops optimistic user bubble when server transcript caught up (raw vs preview)', () => {
+    const question = "Aren't we working in Skool_top1percent project?";
+    const server: HermesMessage[] = [
+      {
+        id: 'gw-1',
+        role: 'user',
+        content: question.slice(0, 20) + '…',
+        rawContent: question,
+        truncated: true,
+      },
+    ];
+    const local: HermesMessage[] = [
+      { id: 'user-1700', role: 'user', content: question, created_at: '2026-06-22T17:52:00Z' },
+    ];
+    const merged = mergeServerMessagesWithPending(server, local);
+    expect(merged.length).toBe(1);
+    expect(merged[0]?.rawContent ?? merged[0]?.content).toContain('Skool_top1percent');
+  });
+
+  it('dedupes identical user echoes from gateway', () => {
+    const server: HermesMessage[] = [
+      { role: 'user', content: 'same question' },
+      { role: 'user', content: 'same question' },
+    ];
+    expect(dedupeChatMessages(server).length).toBe(1);
   });
 });
