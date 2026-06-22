@@ -15,7 +15,7 @@ Hermes uses a **Google Play Organization** developer account (LLC), not a person
 |---|---|
 | Play Console org admin | `iganapolsky@gmail.com` |
 | Play API service account | Created in Play Console → Setup → API access (LLC org) |
-| Firebase / GCP (separate) | `hermes-mobile-distribution` — see [FIREBASE_CI.md](./FIREBASE_CI.md) |
+| Firebase / GCP (separate) | `hermes-mobile-dist-78361` — see [FIREBASE_CI.md](./FIREBASE_CI.md) |
 
 **Do not** reuse the Firebase service account JSON for Play submit. Play needs a key linked under **Play Console → API access**.
 
@@ -32,7 +32,7 @@ Hermes uses a **Google Play Organization** developer account (LLC), not a person
 | Secret | Source |
 |---|---|
 | `GOOGLE_SERVICE_ACCOUNT_JSON` | Play Console API service account (LLC org) |
-| `FIREBASE_SERVICE_ACCOUNT_JSON` | Firebase `hermes-mobile-distribution` only |
+| `FIREBASE_SERVICE_ACCOUNT_JSON` | Firebase `hermes-mobile-dist-78361` only (`firebase-distributor@...`) |
 
 ```bash
 # Play (LLC org API key — not Firebase)

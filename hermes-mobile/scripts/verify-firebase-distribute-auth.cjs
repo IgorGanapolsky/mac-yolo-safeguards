@@ -44,13 +44,21 @@ console.log(`Firebase distribute auth: checking ${clientEmail} (project_id=${pro
 const saPath = path.join(os.tmpdir(), `firebase-sa-auth-${process.pid}.json`);
 fs.writeFileSync(saPath, SA_JSON, { mode: 0o600 });
 
+const projectNumber = firebaseProject.projectNumber;
+const firebaseProjectId = firebaseProject.gcpProjectId;
+
 try {
-  execSync(`npx --yes firebase-tools@14.4.0 appdistribution:testers:list --app "${APP_ID}"`, {
-    encoding: 'utf8',
-    env: { ...process.env, GOOGLE_APPLICATION_CREDENTIALS: saPath },
-    stdio: ['ignore', 'pipe', 'pipe'],
-    timeout: 120_000,
-  });
+  // firebase-tools 14.x appdistribution:testers:list does not accept --app; use groups:list
+  // against the Hermes Firebase project to prove the SA can call App Distribution APIs.
+  execSync(
+    `npx --yes firebase-tools@14.4.0 appdistribution:groups:list --project "${firebaseProjectId}" --non-interactive`,
+    {
+      encoding: 'utf8',
+      env: { ...process.env, GOOGLE_APPLICATION_CREDENTIALS: saPath },
+      stdio: ['ignore', 'pipe', 'pipe'],
+      timeout: 120_000,
+    },
+  );
   console.log('Firebase distribute auth: PASS (service account can access App Distribution API)');
 } catch (error) {
   const detail = `${error.stdout || ''}\n${error.stderr || ''}\n${error.message || ''}`;
@@ -62,7 +70,7 @@ try {
         '  then set GitHub secret FIREBASE_SERVICE_ACCOUNT_JSON.',
     );
   }
-  fail(`appdistribution:testers:list failed: ${detail.slice(0, 600)}`);
+  fail(`appdistribution:groups:list failed: ${detail.slice(0, 600)}`);
 } finally {
   try {
     fs.unlinkSync(saPath);

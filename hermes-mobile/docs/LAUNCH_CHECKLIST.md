@@ -7,14 +7,14 @@
 
 ## 1. Firebase App Distribution (internal QA)
 
-Missing GitHub secret blocked CI: `FIREBASE_SERVICE_ACCOUNT_JSON`.
+GitHub secrets `FIREBASE_SERVICE_ACCOUNT_JSON` and `FIREBASE_ANDROID_APP_ID` are synced for **`hermes-mobile-dist-78361`**.
 
-1. Sign in as **iganapolsky@gmail.com** → [Firebase Console](https://console.firebase.google.com/) → project **hermes-mobile-distribution**
+1. Sign in as **iganapolsky@gmail.com** → [Firebase Console](https://console.firebase.google.com/) → project **hermes-mobile-dist-78361**
 2. Project settings → Service accounts → Generate new private key
 3. Sync to GitHub:
 
 ```bash
-FIREBASE_SERVICE_ACCOUNT_JSON_PATH=~/Downloads/hermes-mobile-distribution-*.json \
+FIREBASE_SERVICE_ACCOUNT_JSON_PATH=~/Downloads/hermes-mobile-dist-78361-*.json \
   ./scripts/sync-firebase-secrets.sh
 ```
 

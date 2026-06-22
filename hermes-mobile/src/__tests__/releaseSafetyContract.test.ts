@@ -24,8 +24,8 @@ describe('appIdentity', () => {
     expect(HERMES_ANDROID_OPERATOR_EMAIL).not.toBe(HERMES_IOS_APPLE_ID_EMAIL);
   });
 
-  it('points Firebase at hermes-mobile-distribution only', () => {
-    expect(firebaseProject.gcpProjectId).toBe('hermes-mobile-distribution');
+  it('points Firebase at hermes-mobile-dist-78361 only', () => {
+    expect(firebaseProject.gcpProjectId).toBe('hermes-mobile-dist-78361');
     expect(FIREBASE_ANDROID_APP_ID).toBe(firebaseProject.androidAppId);
     const legacyTerms = [
       ['open', 'claw'].join(''),

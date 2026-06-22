@@ -6,7 +6,7 @@
 |---|---|
 | Android package / iOS bundle | `com.iganapolsky.hermesmobile` |
 | Cloud relay | `https://hermes-mobile-cloud.fly.dev` |
-| Firebase app | `1:786594199351:android:446b6eceab722fe7344cb2` on `hermes-mobile-distribution` |
+| Firebase app | `1:889503668479:android:8fb27423dc575f2d3094ca` on `hermes-mobile-dist-78361` |
 
 ## Operator accounts
 
