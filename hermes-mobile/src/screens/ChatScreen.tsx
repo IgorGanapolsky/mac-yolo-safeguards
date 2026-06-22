@@ -5,15 +5,17 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
+  Pressable,
   FlatList,
   KeyboardAvoidingView,
   Platform,
   ActivityIndicator,
   Modal,
   ScrollView,
-  RefreshControl,
   SectionList,
   AppState,
+  type NativeSyntheticEvent,
+  type NativeScrollEvent,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
@@ -47,6 +49,7 @@ import {
 } from '../utils/sessionDisplay';
 import { formatMessageTimestamp, prepareMessagesForDisplay } from '../utils/chatMessageDisplay';
 import { mergeServerMessagesWithPending } from '../utils/chatMessageMerge';
+import { isChatAtTop, isChatNearBottom } from '../utils/chatScrollSync';
 import ChatContextStrip from '../components/ChatContextStrip';
 import ChatConnectionPanel from '../components/ChatConnectionPanel';
 import LoadingButton from '../components/ui/LoadingButton';
@@ -181,6 +184,8 @@ export default function ChatScreen() {
 
   const flatListRef = useRef<FlatList<HermesMessage>>(null);
   const isSendingRef = useRef(false);
+  const userNearBottomRef = useRef(true);
+  const chatAtTopRef = useRef(true);
   const messagesRef = useRef<HermesMessage[]>([]);
   const sendStartedAtRef = useRef(Date.now());
   const outboundQueueRef = useRef<string[]>([]);
@@ -195,6 +200,25 @@ export default function ChatScreen() {
       run();
       requestAnimationFrame(run);
     });
+  }, []);
+
+  const scrollChatToLatestIfPinned = useCallback(
+    (animated = false, force = false) => {
+      if (force || userNearBottomRef.current || isSendingRef.current) {
+        scrollChatToLatest(animated);
+      }
+    },
+    [scrollChatToLatest],
+  );
+
+  const handleChatScroll = useCallback((event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const { layoutMeasurement, contentOffset, contentSize } = event.nativeEvent;
+    userNearBottomRef.current = isChatNearBottom(
+      layoutMeasurement.height,
+      contentOffset.y,
+      contentSize.height,
+    );
+    chatAtTopRef.current = isChatAtTop(contentOffset.y);
   }, []);
 
   const isDemo = useMemo(() => {
@@ -438,12 +462,12 @@ export default function ChatScreen() {
   }, [lastSyncedAt, isRefreshingMessages, syncAgeTick]);
 
   useEffect(() => {
-    if (!isTelegramView || !lastSyncedAt) {
+    if (!lastSyncedAt) {
       return;
     }
     const timer = setInterval(() => setSyncAgeTick((tick) => tick + 1), 10_000);
     return () => clearInterval(timer);
-  }, [isTelegramView, lastSyncedAt]);
+  }, [lastSyncedAt]);
 
   useEffect(() => {
     chatProjects.load().then((loaded) => {
@@ -763,6 +787,49 @@ export default function ChatScreen() {
     return `Telegram thread · synced ${age} via HTTP · messages from Telegram refresh every 8s`;
   }, [syncAgeLabel, telegramLiveSync]);
 
+  const syncBarLabel = useMemo(() => {
+    const age = syncAgeLabel || '…';
+    if (isTelegramInboxSession(currentSession)) {
+      return `${telegramInboxMeta.threadCount} thread(s) · synced ${age}`;
+    }
+    if (isTelegramSession(currentSession)) {
+      return telegramThreadSyncHint;
+    }
+    return `Synced ${age}`;
+  }, [
+    currentSession,
+    syncAgeLabel,
+    telegramInboxMeta.threadCount,
+    telegramThreadSyncHint,
+  ]);
+
+  const handleManualSync = useCallback(async () => {
+    if (!currentSession || isDemo || !macChatLive || isRefreshingMessages) {
+      return;
+    }
+    haptics.light();
+    const stickToBottom = userNearBottomRef.current || isSending;
+    await refreshSessionMessages({ background: true });
+    if (stickToBottom) {
+      requestAnimationFrame(() => scrollChatToLatest(true));
+    }
+  }, [
+    currentSession,
+    isDemo,
+    macChatLive,
+    isRefreshingMessages,
+    isSending,
+    refreshSessionMessages,
+    scrollChatToLatest,
+  ]);
+
+  const handlePullToRefresh = useCallback(() => {
+    if (!chatAtTopRef.current) {
+      return;
+    }
+    void handleManualSync();
+  }, [handleManualSync]);
+
   const switchToTelegramReplyThread = useCallback(() => {
     if (!telegramReplySessionId) {
       return;
@@ -784,13 +851,15 @@ export default function ChatScreen() {
   }, [telegramReplySessionId, sessions]);
 
   useEffect(() => {
-    if (isLoadingMessages || messages.length === 0) {
+    userNearBottomRef.current = true;
+    chatAtTopRef.current = true;
+    if (isLoadingMessages) {
       return;
     }
     scrollChatToLatest(false);
     const retryTimer = setTimeout(() => scrollChatToLatest(false), 200);
     return () => clearTimeout(retryTimer);
-  }, [currentSession?.id, isLoadingMessages, messages.length, scrollChatToLatest]);
+  }, [currentSession?.id, isLoadingMessages, scrollChatToLatest]);
 
   useEffect(() => {
     if (!isSending || isLoadingMessages || messages.length === 0) {
@@ -1396,45 +1465,59 @@ export default function ChatScreen() {
           </View>
         ) : (
           <>
-            {isTelegramInboxSession(currentSession) ? (
-              <TouchableOpacity
-                style={styles.syncHintRow}
-                testID="telegram-sync-hint"
-                onPress={switchToTelegramReplyThread}
-                disabled={!telegramReplySessionId}
+            {currentSession ? (
+            <View style={styles.syncHintRow}>
+              <Pressable
+                style={styles.syncHintPressable}
+                onPress={handleManualSync}
+                disabled={!macChatLive || isRefreshingMessages}
+                testID="chat-sync-button"
                 accessibilityRole="button"
-                accessibilityLabel={
-                  telegramReplyLabel
-                    ? `Open Telegram thread ${telegramReplyLabel}`
-                    : 'Telegram merged inbox sync status'
-                }
+                accessibilityLabel="Sync chat with your Mac"
               >
-                <Text style={styles.syncHintText}>
-                  {telegramInboxMeta.threadCount} thread(s) · synced {syncAgeLabel || '…'}
-                  {telegramReplyLabel ? ` · replies → ${telegramReplyLabel}` : ''}
-                  {telegramReplyLabel ? ' · tap to open thread' : ''}
-                </Text>
-              </TouchableOpacity>
-            ) : isTelegramSession(currentSession) ? (
-              <View style={styles.syncHintRow} testID="telegram-thread-sync-hint">
-                <Text style={styles.syncHintText}>{telegramThreadSyncHint}</Text>
-              </View>
+                <View style={styles.syncHintInner}>
+                  {isRefreshingMessages ? (
+                    <ActivityIndicator
+                      size="small"
+                      color={colors.accent}
+                      style={styles.syncHintSpinner}
+                    />
+                  ) : (
+                    <Text style={styles.syncHintIcon}>↻</Text>
+                  )}
+                  <Text style={styles.syncHintText} testID="chat-sync-label">
+                    {syncBarLabel}
+                    {isTelegramInboxSession(currentSession) && telegramReplyLabel
+                      ? ` · replies → ${telegramReplyLabel}`
+                      : ''}
+                    {' · tap to sync'}
+                  </Text>
+                </View>
+              </Pressable>
+              {isTelegramInboxSession(currentSession) && telegramReplySessionId ? (
+                <Pressable
+                  onPress={switchToTelegramReplyThread}
+                  hitSlop={8}
+                  style={styles.syncHintChevronBtn}
+                  testID="telegram-open-thread"
+                  accessibilityLabel={`Open thread ${telegramReplyLabel}`}
+                >
+                  <Text style={styles.syncHintChevron}>›</Text>
+                </Pressable>
+              ) : null}
+            </View>
             ) : null}
             <FlatList
             ref={flatListRef}
             data={messages}
             keyExtractor={(item, index) => item.id ?? `${item.role}-${index}`}
             contentContainerStyle={styles.messageList}
-            refreshControl={
-              <RefreshControl
-                refreshing={isRefreshingMessages}
-                onRefresh={() => refreshSessionMessages({ background: true })}
-                tintColor={colors.accent}
-                colors={[colors.accent]}
-              />
-            }
-            onLayout={() => scrollChatToLatest(false)}
-            onContentSizeChange={() => scrollChatToLatest(isSending)}
+            nestedScrollEnabled={false}
+            onScroll={handleChatScroll}
+            scrollEventThrottle={16}
+            refreshing={isRefreshingMessages}
+            onRefresh={handlePullToRefresh}
+            onContentSizeChange={() => scrollChatToLatestIfPinned(isSending)}
             renderItem={({ item, index }) => {
               const isUser = item.role === 'user';
               const timeLabel = formatMessageTimestamp(item.created_at ?? item.timestamp);
@@ -1877,6 +1960,8 @@ const styles = StyleSheet.create({
   messageList: {
     padding: 16,
     paddingBottom: 24,
+    flexGrow: 1,
+    justifyContent: 'flex-end',
   },
   bubbleWrapper: {
     flexDirection: 'row',
@@ -1987,11 +2072,42 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   syncHintRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingHorizontal: 16,
     paddingTop: 4,
-    paddingBottom: 2,
+    paddingBottom: 6,
+    gap: 4,
+  },
+  syncHintPressable: {
+    flex: 1,
+  },
+  syncHintInner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  syncHintIcon: {
+    fontSize: 14,
+    color: colors.accent,
+    fontWeight: '800',
+    width: 18,
+    textAlign: 'center',
+  },
+  syncHintSpinner: {
+    width: 18,
+  },
+  syncHintChevron: {
+    fontSize: 16,
+    color: colors.textMuted,
+    fontWeight: '700',
+  },
+  syncHintChevronBtn: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
   },
   syncHintText: {
+    flex: 1,
     fontSize: 11,
     color: colors.textMuted,
     fontWeight: '600',
