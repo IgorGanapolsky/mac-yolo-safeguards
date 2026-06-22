@@ -613,9 +613,10 @@ export default function SettingsScreen() {
 
           <View style={styles.switchRow}>
             <View style={styles.switchLabelCol}>
-              <Text style={styles.switchLabel}>Push Approvals</Text>
+              <Text style={styles.switchLabel}>Smart notifications</Text>
               <Text style={styles.switchDesc}>
-                Local notification with Approve/Deny when app is backgrounded
+                Time-sensitive approvals (Approve/Deny actions), live Mac activity while
+                backgrounded, and finish summaries with badge counts
               </Text>
             </View>
             <Switch

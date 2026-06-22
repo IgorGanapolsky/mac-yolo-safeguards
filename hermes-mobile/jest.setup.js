@@ -19,12 +19,29 @@ jest.mock('expo-camera', () => {
 
 jest.mock('expo-notifications', () => ({
   setNotificationHandler: jest.fn(),
+  setNotificationChannelAsync: jest.fn(() => Promise.resolve()),
   setNotificationCategoryAsync: jest.fn(() => Promise.resolve()),
   getPermissionsAsync: jest.fn(() => Promise.resolve({ granted: true })),
   requestPermissionsAsync: jest.fn(() => Promise.resolve({ granted: true })),
   scheduleNotificationAsync: jest.fn(() => Promise.resolve('notif-1')),
+  cancelScheduledNotificationAsync: jest.fn(() => Promise.resolve()),
+  dismissNotificationAsync: jest.fn(() => Promise.resolve()),
   dismissAllNotificationsAsync: jest.fn(() => Promise.resolve()),
+  setBadgeCountAsync: jest.fn(() => Promise.resolve(true)),
   addNotificationResponseReceivedListener: jest.fn(() => ({ remove: jest.fn() })),
+  AndroidImportance: {
+    HIGH: 4,
+    DEFAULT: 3,
+    LOW: 2,
+  },
+  AndroidNotificationPriority: {
+    HIGH: 1,
+    DEFAULT: 0,
+    LOW: -1,
+  },
+  AndroidNotificationVisibility: {
+    PUBLIC: 1,
+  },
 }));
 
 jest.mock('@react-native-community/netinfo', () => ({

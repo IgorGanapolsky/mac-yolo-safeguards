@@ -7,7 +7,7 @@ import React, {
   useRef,
   useState,
 } from 'react';
-import { AppState, Platform } from 'react-native';
+import { AppState, Linking, Platform } from 'react-native';
 import type {
   GatewayHealthSnapshot,
   GatewaySettings,
@@ -16,7 +16,7 @@ import type {
 } from '../types/gateway';
 import { DEFAULT_GATEWAY_SETTINGS } from '../types/gateway';
 import type { RunProgressState } from '../types/chatDisplay';
-import { applyStreamEvent, formatRunProgressLabel } from '../utils/chatStreamEvents';
+import { applyStreamEvent } from '../utils/chatStreamEvents';
 import type { ChatStreamEvent } from '../types/gatewayApi';
 import type { GatewayProfile, GatewayProfileState } from '../types/gatewayProfile';
 import type { LanScanProgress, LanScanResult } from '../types/lanScan';
@@ -90,14 +90,19 @@ import { isGatewaySmokeTestMessage } from '../utils/gatewaySmokeMessages';
 import type { ApprovalChoice } from '../types/approval';
 import { resolveApprovalChoice } from '../services/approvalResolver';
 import { fromPendingApproval } from '../utils/approvalNormalize';
+import { stopRun } from '../services/hermesGatewayClient';
 import {
   dismissApprovalNotifications,
   initApprovalNotifications,
-  parseApprovalNotificationResponse,
+  parseHermesNotificationResponse,
   requestApprovalNotificationPermission,
   scheduleApprovalNotification,
+  scheduleRunCompletedNotification,
   scheduleRunProgressNotification,
+  scheduleRunStallNotification,
   clearRunProgressNotification,
+  cancelRunStallNotification,
+  syncHermesNotificationBadge,
   addApprovalNotificationResponseListener,
 } from '../services/approvalNotifications';
 
@@ -214,6 +219,7 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
     (actionId: string, choice: ApprovalChoice, approval?: PendingApproval) => Promise<void>
   >(null as any);
   const pendingApprovalsRef = useRef<PendingApproval[]>([]);
+  const runProgressRef = useRef<RunProgressState | null>(null);
 
   useEffect(() => {
     healthRef.current = health;
@@ -222,6 +228,18 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     pendingApprovalsRef.current = pendingApprovals;
   }, [pendingApprovals]);
+
+  useEffect(() => {
+    runProgressRef.current = runProgress;
+  }, [runProgress]);
+
+  useEffect(() => {
+    if (!settings.notificationsEnabled || Platform.OS === 'web') {
+      syncHermesNotificationBadge(0).catch(() => {});
+      return;
+    }
+    syncHermesNotificationBadge(pendingApprovals.length).catch(() => {});
+  }, [pendingApprovals.length, settings.notificationsEnabled]);
 
   useEffect(() => {
     if (!settings.notificationsEnabled || Platform.OS === 'web') {
@@ -234,13 +252,40 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
       await initApprovalNotifications();
       await requestApprovalNotificationPermission();
       const listener = await addApprovalNotificationResponseListener(async (response) => {
-        const parsed = parseApprovalNotificationResponse(response);
-        if (!parsed || !submitApprovalChoiceRef.current) {
+        const parsed = parseHermesNotificationResponse(response);
+        if (!parsed) {
+          return;
+        }
+        if (parsed.kind === 'navigate') {
+          const path = parsed.tab === 'Chat' ? 'hermes://chat' : 'hermes://leash';
+          await Linking.openURL(path);
+          return;
+        }
+        if (parsed.kind === 'stop_run') {
+          if (parsed.runId) {
+            try {
+              await stopRun(
+                effectiveGatewayUrlRef.current,
+                parsed.runId,
+                apiKeyRef.current,
+              );
+            } catch (error) {
+              setLastEventError(
+                error instanceof Error ? error.message : 'Could not stop run from notification',
+              );
+            }
+          }
+          setRunProgress(null);
+          await clearRunProgressNotification();
+          await cancelRunStallNotification();
+          return;
+        }
+        if (parsed.kind !== 'approval' || !submitApprovalChoiceRef.current) {
           return;
         }
         const match =
           pendingApprovalsRef.current.find((p) => p.actionId === parsed.actionId) ??
-          pendingApprovalsRef.current.find((p) => p.runId === parsed.runId);
+          pendingApprovalsRef.current.find((p) => p.runId === parsed.actionId);
         try {
           await submitApprovalChoiceRef.current(parsed.actionId, parsed.choice, match);
           await dismissApprovalNotifications();
@@ -495,7 +540,9 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
           emitSignOfLife(`Approval needed: ${pending.reason.slice(0, 80)}`, { haptic: false });
           const appState = AppState.currentState;
           if (appState === 'background' || appState === 'inactive') {
-            scheduleApprovalNotification(pending).catch(() => {});
+            scheduleApprovalNotification(pending, {
+              badgeCount: pendingApprovalsRef.current.length + 1,
+            }).catch(() => {});
           }
         }
       }
@@ -527,6 +574,18 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
       eventName === 'run.failed' ||
       eventName === 'error'
     ) {
+      const failed = eventName === 'run.failed' || eventName === 'error';
+      const progress = runProgressRef.current;
+      const detail =
+        progress?.detail?.trim() ||
+        (typeof payload.message === 'string' ? payload.message : '') ||
+        (failed ? 'Run ended with an error' : 'Task finished');
+      if (
+        settingsRef.current.notificationsEnabled &&
+        AppState.currentState !== 'active'
+      ) {
+        scheduleRunCompletedNotification(detail, { success: !failed }).catch(() => {});
+      }
       setRunProgress(null);
       clearRunProgressNotification().catch(() => {});
     } else if (
@@ -556,10 +615,14 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
     }
     if (!runProgress) {
       clearRunProgressNotification().catch(() => {});
+      cancelRunStallNotification().catch(() => {});
       return;
     }
     if (AppState.currentState !== 'active') {
-      scheduleRunProgressNotification(formatRunProgressLabel(runProgress)).catch(() => {});
+      scheduleRunProgressNotification(runProgress).catch(() => {});
+      scheduleRunStallNotification().catch(() => {});
+    } else {
+      cancelRunStallNotification().catch(() => {});
     }
   }, [runProgress, settings.notificationsEnabled]);
 
