@@ -2,6 +2,7 @@ import type { HermesSession } from '../types/chat';
 import {
   formatCronSchedule,
   formatSessionDate,
+  formatSessionLastActive,
   parseGatewayTimestamp,
   sessionDisplayTitle,
   sessionLastActiveValue,
@@ -16,7 +17,12 @@ describe('sessionDisplay', () => {
     preview: 'Run pwd and reply with exactly the working directory output,...',
   };
 
-  it('parses gateway Unix seconds without epoch date bug', () => {
+  it('formats relative last-active labels', () => {
+    const recent = Date.now() - 120_000;
+    expect(formatSessionLastActive(recent)).toBe('2m ago');
+  });
+
+  it('formats gateway Unix seconds without epoch date bug', () => {
     const date = parseGatewayTimestamp(gatewaySession.last_active);
     expect(date).not.toBeNull();
     expect(date!.getFullYear()).toBe(2026);

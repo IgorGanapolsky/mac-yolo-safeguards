@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import {
   StyleSheet,
   View,
@@ -11,12 +11,17 @@ import {
   ActivityIndicator,
   Modal,
   ScrollView,
+  RefreshControl,
+  SectionList,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { useGateway } from '../context/GatewayContext';
+import { useKeyboardInset } from '../hooks/useKeyboardInset';
 import { colors } from '../theme/colors';
 import { haptics } from '../services/haptics';
 import GlassCard from '../components/GlassCard';
+import GatewayProfilePicker from '../components/GatewayProfilePicker';
 import {
   listSessions,
   createSession,
@@ -38,6 +43,44 @@ import {
   sessionDisplayTitle,
   sessionLastActiveValue,
 } from '../utils/sessionDisplay';
+import { formatMessageTimestamp, prepareMessagesForDisplay } from '../utils/chatMessageDisplay';
+import { mergeServerMessagesWithPending } from '../utils/chatMessageMerge';
+import ChatContextStrip from '../components/ChatContextStrip';
+import ChatConnectionPanel from '../components/ChatConnectionPanel';
+import LoadingButton from '../components/ui/LoadingButton';
+import ChatMessageBubble from '../components/ChatMessageBubble';
+import ChatApprovalBar from '../components/ChatApprovalBar';
+import { resolveChatMachineLabel, resolveChatProject } from '../utils/chatContext';
+import { isGatewayHealthOk } from '../utils/gatewayConnection';
+import {
+  listAllPendingTextApprovals,
+  listInlineTextApprovals,
+  nudgeResolutionKey,
+  parseApprovalNudgeFromContent,
+  type ChatRunApproval,
+  type ChatTextApproval,
+  type LeashPhraseHint,
+} from '../utils/chatApproval';
+import {
+  fromChatRunApproval,
+  fromChatTextApproval,
+  fromApprovalRequestEvent,
+  fromPendingApproval,
+} from '../utils/approvalNormalize';
+import { enrichApprovalRequest } from '../utils/approvalProposal';
+import type { ApprovalChoice, HermesApprovalRequest } from '../types/approval';
+import {
+  CHAT_APPROVAL_UNDO_TEXT,
+  CHAT_APPROVAL_EDIT_PREFIX,
+  resolveApprovalChoice,
+} from '../services/approvalResolver';
+import {
+  buildTelegramInboxSession,
+  isTelegramInboxSession,
+  fetchTelegramInboxMessages,
+} from '../services/telegramInbox';
+import { isTelegramSession, pickPrimaryTelegramSession, buildSessionPickerSections, sessionSourceLabel } from '../utils/sessionSelection';
+import { threadLabelAtMessageIndex } from '../utils/mergedThreadLabels';
 
 function projectSessions(
   allSessions: HermesSession[],
@@ -51,7 +94,37 @@ function projectSessions(
 }
 
 export default function ChatScreen() {
-  const { settings, connectionState, apiKey } = useGateway();
+  const navigation = useNavigation();
+  const {
+    settings,
+    connectionState,
+    apiKey,
+    effectiveGatewayUrl,
+    health,
+    refreshHealth,
+    retryGatewayBootstrap,
+    activeGatewayProfile,
+    gatewayProfiles,
+    selectGatewayProfile,
+    removeGatewayProfile,
+    scanForGatewayProfiles,
+    profileScanning,
+    profileScanProgress,
+    profileScanResult,
+    autoConnectGateway,
+    pendingApprovals,
+    submitApprovalChoice,
+    sendGateAction,
+    pendingApprovalEditSeed,
+    clearApprovalEditSeed,
+    pendingChatRelayText,
+    clearChatRelayText,
+    transcriptSyncNonce,
+  } = useGateway();
+  const gatewayUrl = effectiveGatewayUrl || settings.gatewayUrl;
+  const keyboardInset = useKeyboardInset();
+  const insets = useSafeAreaInsets();
+  
   const [sessions, setSessions] = useState<HermesSession[]>([]);
   const [currentSession, setCurrentSession] = useState<HermesSession | null>(null);
   const [messages, setMessages] = useState<HermesMessage[]>([]);
@@ -61,6 +134,8 @@ export default function ChatScreen() {
   const [isLoadingMessages, setIsLoadingMessages] = useState(false);
   const [isSending, setIsSending] = useState(false);
   const [sessionModalVisible, setSessionModalVisible] = useState(false);
+  const [macPickerVisible, setMacPickerVisible] = useState(false);
+  const [isScanningMacs, setIsScanningMacs] = useState(false);
   const [projectModalVisible, setProjectModalVisible] = useState(false);
   const [newProjectPath, setNewProjectPath] = useState('');
   const [newProjectName, setNewProjectName] = useState('');
@@ -71,27 +146,296 @@ export default function ChatScreen() {
   });
   const [toolStatus, setToolStatus] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [pendingRunApproval, setPendingRunApproval] = useState<ChatRunApproval | null>(null);
+  const [approvalBusy, setApprovalBusy] = useState(false);
+  const [undoSecondsLeft, setUndoSecondsLeft] = useState(0);
+  const [resolvedApprovalKeys, setResolvedApprovalKeys] = useState<Set<string>>(() => new Set());
+  const [telegramReplySessionId, setTelegramReplySessionId] = useState<string>('');
+  const [isRefreshingMessages, setIsRefreshingMessages] = useState(false);
+  const [telegramInboxMeta, setTelegramInboxMeta] = useState({ threadCount: 0, messageCap: 250 });
+  const [lastSyncedAt, setLastSyncedAt] = useState<number | null>(null);
+  const [syncAgeTick, setSyncAgeTick] = useState(0);
+
+  const applyChatApiError = useCallback(
+    (error: unknown, fallback: string, options?: { background?: boolean }) => {
+      const { kind, message } = humanizeChatError(error, fallback);
+      if (kind === 'connectivity') {
+        refreshHealth();
+        return;
+      }
+      if (options?.background) {
+        return;
+      }
+      setErrorMessage(message);
+    },
+    [refreshHealth],
+  );
 
   const flatListRef = useRef<FlatList<HermesMessage>>(null);
+  const isSendingRef = useRef(false);
+  const messagesRef = useRef<HermesMessage[]>([]);
+  const outboundQueueRef = useRef<string[]>([]);
+
+  const [queuedOutboundCount, setQueuedOutboundCount] = useState(0);
+
+  messagesRef.current = messages;
+  isSendingRef.current = isSending;
+
+  const scrollChatToLatest = useCallback((animated = false) => {
+    const run = () => flatListRef.current?.scrollToEnd({ animated });
+    requestAnimationFrame(() => {
+      run();
+      requestAnimationFrame(run);
+    });
+  }, []);
 
   const isDemo = useMemo(() => {
     return settings.demoMode || connectionState === 'demo';
   }, [settings.demoMode, connectionState]);
+
+  const macHttpOk = useMemo(() => isGatewayHealthOk(health), [health]);
+  /** Chat uses HTTP to the Mac — works when health is ok even if the live WebSocket is still connecting. */
+  const macChatLive = isDemo || connectionState === 'connected' || macHttpOk;
+  const showMacConnectionHelp = !isDemo && !macChatLive;
+  const operationalError =
+    errorMessage && !isConnectivityMessage(errorMessage) ? errorMessage : null;
+
+  const handleSearchMacFromChat = useCallback(async () => {
+    haptics.selection();
+    setIsScanningMacs(true);
+    try {
+      await scanForGatewayProfiles();
+      await retryGatewayBootstrap();
+      await autoConnectGateway();
+      await refreshHealth();
+    } finally {
+      setIsScanningMacs(false);
+    }
+  }, [
+    autoConnectGateway,
+    refreshHealth,
+    retryGatewayBootstrap,
+    scanForGatewayProfiles,
+  ]);
+
+  useEffect(() => {
+    if (macChatLive) {
+      setErrorMessage((prev) => (prev && isConnectivityMessage(prev) ? null : prev));
+    }
+  }, [macChatLive]);
 
   const activeProject = useMemo(() => {
     if (!projectState.activeProjectId) return null;
     return projectState.projects.find((p) => p.id === projectState.activeProjectId) ?? null;
   }, [projectState]);
 
+  const contextProject = useMemo(
+    () => resolveChatProject(projectState, currentSession?.id),
+    [projectState, currentSession?.id],
+  );
+
+  const machineLabel = useMemo(
+    () => resolveChatMachineLabel(gatewayUrl, health, activeGatewayProfile, gatewayProfiles),
+    [gatewayUrl, health, activeGatewayProfile, gatewayProfiles],
+  );
+
+  /** Lift composer above software keyboard (tab bar already hides when keyboardInset > 0). */
+  const keyboardLift = keyboardInset > 0 ? keyboardInset : 0;
+  const composerBottomPadding = keyboardInset > 0 ? 8 : Math.max(insets.bottom, 8);
+
+  const leashPhraseHints = useMemo((): LeashPhraseHint[] => {
+    const hints: LeashPhraseHint[] = [];
+    for (const pending of pendingApprovals) {
+      const phrase = pending.approveText ?? pending.command;
+      if (!phrase?.trim()) {
+        continue;
+      }
+      hints.push({
+        phrase: phrase.trim(),
+        title: pending.reason,
+      });
+    }
+    return hints;
+  }, [pendingApprovals]);
+
+  const inlineTextApprovals = useMemo(
+    () => listInlineTextApprovals(messages, resolvedApprovalKeys, leashPhraseHints),
+    [messages, resolvedApprovalKeys, leashPhraseHints],
+  );
+
+  const composerApprovalQueue = useMemo((): HermesApprovalRequest[] => {
+    const queue: HermesApprovalRequest[] = [];
+    const seen = new Set<string>();
+
+    const addRequest = (request: HermesApprovalRequest) => {
+      const dedupeKey = request.approveText?.trim().toUpperCase() ?? request.id;
+      if (seen.has(dedupeKey)) {
+        return;
+      }
+      seen.add(dedupeKey);
+      queue.push(request);
+    };
+
+    if (pendingRunApproval) {
+      addRequest(
+        enrichApprovalRequest(fromChatRunApproval(pendingRunApproval), settings.approvalPolicy),
+      );
+    }
+
+    for (const pending of pendingApprovals) {
+      const isRun =
+        pending.runId ||
+        pending.actionId.startsWith('run_') ||
+        pending.source === 'gateway_guard';
+      const isText =
+        pending.source === 'text_nudge' || pending.actionId.startsWith('text-nudge');
+      if (!isRun && !isText) {
+        continue;
+      }
+      addRequest(enrichApprovalRequest(fromPendingApproval(pending, settings.approvalPolicy), settings.approvalPolicy));
+    }
+
+    for (const textApproval of listAllPendingTextApprovals(
+      messages,
+      resolvedApprovalKeys,
+      leashPhraseHints,
+    )) {
+      addRequest(
+        enrichApprovalRequest(fromChatTextApproval(textApproval), settings.approvalPolicy),
+      );
+    }
+
+    return queue;
+  }, [
+    pendingRunApproval,
+    pendingApprovals,
+    messages,
+    resolvedApprovalKeys,
+    leashPhraseHints,
+    settings.approvalPolicy,
+  ]);
+
+  const composerApprovals = useMemo((): HermesApprovalRequest[] => {
+    return composerApprovalQueue.filter((request) => {
+      if (request.source !== 'text_nudge' || !request.approveText) {
+        return true;
+      }
+      const phrase = request.approveText.trim().toUpperCase();
+      for (const inline of inlineTextApprovals.values()) {
+        if (inline.approveText.trim().toUpperCase() === phrase) {
+          return false;
+        }
+      }
+      return true;
+    });
+  }, [composerApprovalQueue, inlineTextApprovals]);
+
+  useEffect(() => {
+    setResolvedApprovalKeys(new Set());
+  }, [currentSession?.id]);
+
+  const prevPendingApprovalsRef = useRef(pendingApprovals);
+  useEffect(() => {
+    const prev = prevPendingApprovalsRef.current;
+    const removed = prev.filter(
+      (item) => !pendingApprovals.some((next) => next.actionId === item.actionId),
+    );
+    if (removed.length > 0) {
+      setResolvedApprovalKeys((prevKeys) => {
+        const next = new Set(prevKeys);
+        for (const pending of removed) {
+          const phrase = pending.approveText ?? pending.command;
+          if (!phrase) {
+            continue;
+          }
+          next.add(nudgeResolutionKey({ approveText: phrase }));
+        }
+        return next;
+      });
+    }
+    prevPendingApprovalsRef.current = pendingApprovals;
+  }, [pendingApprovals, messages]);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (pendingApprovalEditSeed) {
+        setInputValue(pendingApprovalEditSeed);
+        clearApprovalEditSeed();
+      }
+    }, [pendingApprovalEditSeed, clearApprovalEditSeed]),
+  );
+
+  useEffect(() => {
+    if (undoSecondsLeft <= 0) {
+      return;
+    }
+    const timer = setInterval(() => {
+      setUndoSecondsLeft((seconds) => (seconds <= 1 ? 0 : seconds - 1));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [undoSecondsLeft]);
+
   const workspacePrompt = useMemo(() => {
-    if (!activeProject?.workspacePath) return undefined;
-    return buildWorkspaceSystemPrompt(activeProject.workspacePath);
-  }, [activeProject?.workspacePath]);
+    const path = contextProject?.workspacePath;
+    if (!path) return undefined;
+    return buildWorkspaceSystemPrompt(path);
+  }, [contextProject?.workspacePath]);
 
   const visibleSessions = useMemo(() => {
     if (!activeProject) return sessions;
     return projectSessions(sessions, projectState, activeProject.id);
   }, [sessions, projectState, activeProject]);
+
+  const sessionPickerSections = useMemo(
+    () => buildSessionPickerSections(visibleSessions),
+    [visibleSessions],
+  );
+
+  const isTelegramView = useMemo(
+    () =>
+      currentSession &&
+      (isTelegramInboxSession(currentSession) || isTelegramSession(currentSession)),
+    [currentSession],
+  );
+
+  const inputPlaceholder = useMemo(() => {
+    if (isSending) {
+      return queuedOutboundCount > 0
+        ? 'Another message queued — keep typing or tap Send'
+        : 'Type your next message while Hermes works…';
+    }
+    if (isTelegramInboxSession(currentSession) && telegramReplySessionId) {
+      const session = sessions.find((s) => s.id === telegramReplySessionId);
+      const label = session ? sessionDisplayTitle(session) : telegramReplySessionId;
+      return `Message → ${label}`;
+    }
+    if (isTelegramSession(currentSession)) {
+      return 'Message on this Telegram thread';
+    }
+    return 'Type a message to Hermes';
+  }, [currentSession, telegramReplySessionId, sessions, isSending, queuedOutboundCount]);
+
+  const syncAgeLabel = useMemo(() => {
+    if (!lastSyncedAt) {
+      return '';
+    }
+    const seconds = Math.max(0, Math.floor((Date.now() - lastSyncedAt) / 1000));
+    if (seconds < 8) {
+      return 'just now';
+    }
+    if (seconds < 60) {
+      return `${seconds}s ago`;
+    }
+    return `${Math.floor(seconds / 60)}m ago`;
+  }, [lastSyncedAt, isRefreshingMessages, syncAgeTick]);
+
+  useEffect(() => {
+    if (!isTelegramView || !lastSyncedAt) {
+      return;
+    }
+    const timer = setInterval(() => setSyncAgeTick((tick) => tick + 1), 10_000);
+    return () => clearInterval(timer);
+  }, [isTelegramView, lastSyncedAt]);
 
   useEffect(() => {
     chatProjects.load().then((loaded) => {
@@ -173,7 +517,6 @@ export default function ChatScreen() {
     setMessages([]);
   };
 
-  // Load all sessions on mount / connection change
   const loadSessionsList = async (selectLatest = false) => {
     if (isDemo) {
       const mockSessions: HermesSession[] = [
@@ -187,25 +530,56 @@ export default function ChatScreen() {
       return;
     }
 
+    if (!macChatLive) {
+      return;
+    }
+
     try {
       setIsLoadingSessions(true);
       setErrorMessage(null);
-      const list = await listSessions(settings.gatewayUrl, apiKey);
-      setSessions(list);
-      if (selectLatest && projectState.activeProjectId) {
+      const list = await listSessions(gatewayUrl, apiKey);
+      const hasTelegram = list.some(isTelegramSession);
+      const finalSessions = hasTelegram ? [buildTelegramInboxSession(), ...list] : list;
+      setSessions(finalSessions);
+
+      // Determine the next session to select to avoid stale/ghost selected sessions
+      let nextSession: HermesSession | null = null;
+
+      // 1. Try to find the preferred session for the active project
+      if (projectState.activeProjectId) {
         const project = projectState.projects.find((p) => p.id === projectState.activeProjectId);
         const preferredId = project?.activeSessionId ?? project?.sessionIds[0];
-        const preferred = preferredId ? list.find((s) => s.id === preferredId) : undefined;
-        if (preferred) {
-          setCurrentSession(preferred);
-          return;
+        if (preferredId) {
+          const match = finalSessions.find((s) => s.id === preferredId);
+          if (match) {
+            nextSession = match;
+          }
         }
       }
-      if (selectLatest && list.length > 0) {
-        setCurrentSession(list[0]);
+
+      // 2. If no preferred session resolved, check if currently selected session still exists on the server
+      if (!nextSession && currentSession) {
+        const match = finalSessions.find((s) => s.id === currentSession.id);
+        if (match) {
+          nextSession = match;
+        }
       }
+
+      // 3. Default to latest Telegram thread (1:1 with Telegram app), not merged inbox
+      if (!nextSession && (selectLatest || !currentSession) && finalSessions.length > 0) {
+        const primaryTelegram = pickPrimaryTelegramSession(list);
+        if (primaryTelegram) {
+          nextSession =
+            finalSessions.find((s) => s.id === primaryTelegram.id) ?? primaryTelegram;
+        } else {
+          nextSession = finalSessions[0];
+        }
+      }
+
+      // 4. Update the active session
+      setCurrentSession(nextSession);
     } catch (err) {
-      setErrorMessage(err instanceof Error ? err.message : 'Failed to load chat sessions');
+      applyChatApiError(err, 'Could not load your chats from the Mac.');
     } finally {
       setIsLoadingSessions(false);
     }
@@ -213,26 +587,52 @@ export default function ChatScreen() {
 
   useEffect(() => {
     loadSessionsList(true);
-  }, [isDemo, settings.gatewayUrl, apiKey]);
+  }, [isDemo, gatewayUrl, apiKey, macChatLive, connectionState]);
 
-  // Load messages whenever selected session changes
-  useEffect(() => {
-    if (!currentSession) {
-      setMessages([]);
-      return;
-    }
+  const refreshSessionMessages = useCallback(
+    async (options?: { background?: boolean }) => {
+      if (!currentSession) {
+        setMessages([]);
+        return;
+      }
 
-    const loadSessionHistory = async () => {
+      if (!macChatLive) {
+        setMessages([]);
+        return;
+      }
+
+      if (options?.background && isSendingRef.current) {
+        return;
+      }
+
       if (isDemo) {
         if (currentSession.id === 'demo-1') {
           setMessages([
-            { role: 'user', content: 'What is the yolo-health check score?' },
-            { role: 'assistant', content: 'Your yolo-health check score is currently 100/100. All safeguards are active and the LaunchAgent is running.' },
+            {
+              role: 'user',
+              content: 'What is the yolo-health check score?',
+              created_at: '2026-06-19T10:30:00.000Z',
+            },
+            {
+              role: 'assistant',
+              content:
+                'Your yolo-health check score is currently 100/100. All safeguards are active and the LaunchAgent is running.',
+              created_at: '2026-06-19T10:30:05.000Z',
+            },
           ]);
         } else if (currentSession.id === 'demo-2') {
           setMessages([
-            { role: 'user', content: 'Simulators are spawning in a loop, help!' },
-            { role: 'assistant', content: 'I detected 62 active simulator processes. Running sim-runaway-guard.sh to auto-terminate runaway runtimes and reclaim memory.' },
+            {
+              role: 'user',
+              content: 'Simulators are spawning in a loop, help!',
+              created_at: '2026-06-19T09:15:00.000Z',
+            },
+            {
+              role: 'assistant',
+              content:
+                'I detected 62 active simulator processes. Running sim-runaway-guard.sh to auto-terminate runaway runtimes and reclaim memory.',
+              created_at: '2026-06-19T09:15:12.000Z',
+            },
           ]);
         } else {
           setMessages([]);
@@ -241,21 +641,112 @@ export default function ChatScreen() {
       }
 
       try {
-        setIsLoadingMessages(true);
+        if (options?.background) {
+          setIsRefreshingMessages(true);
+        } else {
+          setIsLoadingMessages(true);
+        }
         setErrorMessage(null);
-        const history = await listMessages(settings.gatewayUrl, currentSession.id, apiKey);
-        setMessages(history);
+        if (isTelegramInboxSession(currentSession)) {
+          const { messages: tgMessages, replySessionId, threadCount, messageCap } =
+            await fetchTelegramInboxMessages(gatewayUrl, sessions, apiKey);
+          const merged = options?.background
+            ? mergeServerMessagesWithPending(tgMessages, messagesRef.current)
+            : tgMessages;
+          setMessages(merged);
+          setTelegramReplySessionId(replySessionId);
+          setTelegramInboxMeta({ threadCount, messageCap });
+        } else {
+          const history = await listMessages(gatewayUrl, currentSession.id, apiKey);
+          const isTelegram = isTelegramSession(currentSession);
+          const displayMessages = isTelegram
+            ? prepareMessagesForDisplay(history, { includeToolActivity: false })
+            : history;
+          const merged = options?.background
+            ? mergeServerMessagesWithPending(displayMessages, messagesRef.current)
+            : displayMessages;
+          setMessages(merged);
+          setTelegramReplySessionId('');
+          setTelegramInboxMeta({ threadCount: 0, messageCap: 0 });
+        }
+        setLastSyncedAt(Date.now());
       } catch (err) {
-        setErrorMessage(err instanceof Error ? err.message : 'Failed to load messages');
+        applyChatApiError(err, 'Could not load messages from your Mac.', options);
       } finally {
         setIsLoadingMessages(false);
+        setIsRefreshingMessages(false);
       }
-    };
+    },
+    [currentSession, isDemo, gatewayUrl, apiKey, sessions],
+  );
 
-    loadSessionHistory();
-  }, [currentSession, isDemo, settings.gatewayUrl, apiKey]);
+  useEffect(() => {
+    setUndoSecondsLeft(0);
+    refreshSessionMessages();
+  }, [refreshSessionMessages]);
 
-  // Handle creating a new chat session (scoped to active project)
+  useFocusEffect(
+    useCallback(() => {
+      if (!currentSession || isDemo || isLoadingMessages || !macChatLive) {
+        return;
+      }
+      refreshSessionMessages({ background: true });
+    }, [currentSession, isDemo, isLoadingMessages, macChatLive, refreshSessionMessages]),
+  );
+
+  useEffect(() => {
+    if (!currentSession || isDemo || connectionState !== 'connected') {
+      return;
+    }
+    refreshSessionMessages({ background: true });
+  }, [transcriptSyncNonce, currentSession, isDemo, connectionState, refreshSessionMessages]);
+
+  useEffect(() => {
+    if (!currentSession || isDemo || connectionState !== 'connected' || !isTelegramView) {
+      return;
+    }
+    const timer = setInterval(() => {
+      refreshSessionMessages({ background: true });
+    }, 20_000);
+    return () => clearInterval(timer);
+  }, [currentSession, isDemo, connectionState, isTelegramView, refreshSessionMessages]);
+
+  const switchToTelegramReplyThread = useCallback(() => {
+    if (!telegramReplySessionId) {
+      return;
+    }
+    const match = sessions.find((s) => s.id === telegramReplySessionId);
+    if (!match) {
+      return;
+    }
+    haptics.selection();
+    setCurrentSession(match);
+  }, [telegramReplySessionId, sessions]);
+
+  const telegramReplyLabel = useMemo(() => {
+    if (!telegramReplySessionId) {
+      return '';
+    }
+    const session = sessions.find((s) => s.id === telegramReplySessionId);
+    return session ? sessionDisplayTitle(session) : telegramReplySessionId;
+  }, [telegramReplySessionId, sessions]);
+
+  useEffect(() => {
+    if (isLoadingMessages || messages.length === 0) {
+      return;
+    }
+    scrollChatToLatest(false);
+    const retryTimer = setTimeout(() => scrollChatToLatest(false), 200);
+    return () => clearTimeout(retryTimer);
+  }, [currentSession?.id, isLoadingMessages, messages.length, scrollChatToLatest]);
+
+  useEffect(() => {
+    if (!isSending || isLoadingMessages || messages.length === 0) {
+      return;
+    }
+    scrollChatToLatest(true);
+  }, [messages, isSending, isLoadingMessages, scrollChatToLatest]);
+
   const handleNewChat = async () => {
     haptics.selection();
     setSessionModalVisible(false);
@@ -283,7 +774,7 @@ export default function ChatScreen() {
     try {
       setIsLoadingSessions(true);
       const newSess = await createSession(
-        settings.gatewayUrl,
+        gatewayUrl,
         apiKey,
         sessionTitle,
         workspacePrompt,
@@ -296,22 +787,219 @@ export default function ChatScreen() {
         await persistProjectState(next);
       }
     } catch (err) {
-      setErrorMessage(err instanceof Error ? err.message : 'Failed to create new session');
+      applyChatApiError(err, 'Could not start a new chat on your Mac.');
     } finally {
       setIsLoadingSessions(false);
     }
   };
 
-  // Handle sending a chat message
   const handleSendMessage = async () => {
-    if (!inputValue.trim() || isSending) return;
+    if (!inputValue.trim()) return;
     const userText = inputValue.trim();
     setInputValue('');
+    await sendUserText(userText);
+  };
+
+  const drainOutboundQueue = () => {
+    const next = outboundQueueRef.current.shift();
+    setQueuedOutboundCount(outboundQueueRef.current.length);
+    if (next) {
+      queueMicrotask(() => sendUserText(next));
+    }
+  };
+
+  const startApprovalUndoWindow = () => {
+    setUndoSecondsLeft(8);
+  };
+
+  const markTextNudgeResolved = (textApproval: ChatTextApproval) => {
+    const key = nudgeResolutionKey(textApproval);
+    setResolvedApprovalKeys((prev) => {
+      if (prev.has(key)) {
+        return prev;
+      }
+      const next = new Set(prev);
+      next.add(key);
+      return next;
+    });
+  };
+
+  const resolveHermesApproval = async (
+    choice: ApprovalChoice,
+    request: HermesApprovalRequest,
+    textApproval?: ChatTextApproval,
+  ) => {
+    if (request.source === 'gateway_guard' && request.runId) {
+      const leashMatch = pendingApprovals.find(
+        (p) => p.runId === request.runId || p.actionId === request.runId,
+      );
+      if (leashMatch) {
+        await submitApprovalChoice(leashMatch.actionId, choice, leashMatch);
+      } else {
+        await resolveApprovalChoice(request, choice, {
+          gatewayUrl,
+          apiKey,
+          sendGateAction,
+          sendChatText: (text) => sendUserText(text, true),
+        });
+      }
+      setPendingRunApproval(null);
+      if (choice !== 'deny') {
+        startApprovalUndoWindow();
+      }
+      haptics.success();
+      return;
+    }
+
+    await resolveApprovalChoice(request, choice, {
+      gatewayUrl,
+      apiKey,
+      sendGateAction,
+      sendChatText: (text) => sendUserText(text, true),
+    });
+
+    if (request.source === 'text_nudge') {
+      if (textApproval) {
+        markTextNudgeResolved(textApproval);
+      }
+      if (choice !== 'deny') {
+        startApprovalUndoWindow();
+      }
+    }
+    if (request.source === 'gateway_guard') {
+      setPendingRunApproval(null);
+    }
+  };
+
+  const findTextApprovalForRequest = (
+    request: HermesApprovalRequest,
+  ): ChatTextApproval | undefined => {
+    if (!request.approveText) {
+      return undefined;
+    }
+    const phrase = request.approveText.trim().toUpperCase();
+    for (const inline of inlineTextApprovals.values()) {
+      if (inline.approveText.trim().toUpperCase() === phrase) {
+        return inline;
+      }
+    }
+    return listAllPendingTextApprovals(messages, resolvedApprovalKeys, leashPhraseHints).find(
+      (item) => item.approveText.trim().toUpperCase() === phrase,
+    );
+  };
+
+  const handleApprovalChoice = async (
+    choice: ApprovalChoice,
+    explicitRequest?: HermesApprovalRequest,
+    textApproval?: ChatTextApproval,
+  ) => {
+    const request = explicitRequest ?? composerApprovalQueue[0];
+    if (!request || approvalBusy || isSending) return;
     haptics.light();
+    setApprovalBusy(true);
+    try {
+      const resolvedText =
+        textApproval ?? (request.source === 'text_nudge' ? findTextApprovalForRequest(request) : undefined);
+      await resolveHermesApproval(choice, request, resolvedText);
+    } catch (err) {
+      applyChatApiError(err, 'Approval could not reach your Mac.');
+    } finally {
+      setApprovalBusy(false);
+    }
+  };
+
+  const handleInlineTextApproval = (textApproval: ChatTextApproval, choice: ApprovalChoice) => {
+    const request = enrichApprovalRequest(
+      fromChatTextApproval(textApproval),
+      settings.approvalPolicy,
+    );
+    handleApprovalChoice(choice, request, textApproval);
+  };
+
+  const handleApprovalEdit = (approval: HermesApprovalRequest) => {
+    const seed =
+      approval.command ||
+      approval.title ||
+      approval.approveText ||
+      '';
+    setInputValue(`${CHAT_APPROVAL_EDIT_PREFIX}${seed}`);
+    haptics.selection();
+  };
+
+  const handleChatApprovalUndo = async () => {
+    if (undoSecondsLeft <= 0 || isSending) return;
+    setUndoSecondsLeft(0);
+    await sendUserText(CHAT_APPROVAL_UNDO_TEXT, true);
+  };
+
+  async function sendUserText(userText: string, isProgrammatic = false) {
+    if (!userText.trim()) return;
+
+    if (isSending) {
+      const trimmed = userText.trim();
+      outboundQueueRef.current.push(trimmed);
+      setQueuedOutboundCount(outboundQueueRef.current.length);
+      if (!isProgrammatic) {
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: `user-queued-${Date.now()}`,
+            role: 'user',
+            content: trimmed,
+            created_at: new Date().toISOString(),
+          },
+        ]);
+        haptics.light();
+      }
+      return;
+    }
+
+    const typed = userText.trim();
+    const typedUpper = typed.toUpperCase();
+
+    const approvalUiVisibleForPhrase = (phrase: string): boolean => {
+      const upper = phrase.trim().toUpperCase();
+      for (const inline of inlineTextApprovals.values()) {
+        if (inline.approveText.trim().toUpperCase() === upper) {
+          return true;
+        }
+      }
+      for (const request of composerApprovals) {
+        if (request.approveText?.trim().toUpperCase() === upper) {
+          return true;
+        }
+      }
+      return false;
+    };
+
+    if (!isProgrammatic) {
+      for (const textApproval of inlineTextApprovals.values()) {
+        const phrase = textApproval.approveText.trim().toUpperCase();
+        if (typedUpper === phrase || typedUpper.includes(phrase)) {
+          if (approvalUiVisibleForPhrase(phrase)) {
+            setErrorMessage('Tap Approve on the card below — typing approval phrases is not required.');
+            haptics.warning();
+            return;
+          }
+        }
+      }
+      for (const request of composerApprovals) {
+        const phrase = request.approveText?.trim().toUpperCase();
+        if (!phrase) {
+          continue;
+        }
+        if (typedUpper === phrase || typedUpper.includes(phrase)) {
+          if (approvalUiVisibleForPhrase(phrase)) {
+            setErrorMessage('Tap Approve on the card below — typing approval phrases is not required.');
+            haptics.warning();
+            return;
+          }
+        }
+      }
+    }
 
     let activeSess = currentSession;
     if (!activeSess) {
-      // Auto-create session if none selected
       if (isDemo) {
         activeSess = {
           id: `demo-${Date.now()}`,
@@ -325,7 +1013,7 @@ export default function ChatScreen() {
           setIsSending(true);
           const title = activeProject?.name ?? 'New mobile session';
           activeSess = await createSession(
-            settings.gatewayUrl,
+            gatewayUrl,
             apiKey,
             title,
             workspacePrompt,
@@ -337,15 +1025,15 @@ export default function ChatScreen() {
             await persistProjectState(next);
           }
         } catch (err) {
-          setErrorMessage(err instanceof Error ? err.message : 'Failed to auto-create session');
+          applyChatApiError(err, 'Could not start chat on your Mac.');
           setIsSending(false);
           return;
         }
       }
     }
 
-    // Add user message to UI immediately
     const userMessage: HermesMessage = {
+      id: `user-${Date.now()}`,
       role: 'user',
       content: userText,
       created_at: new Date().toISOString(),
@@ -356,7 +1044,6 @@ export default function ChatScreen() {
     setIsSending(true);
 
     if (isDemo) {
-      // Simulate assistant reply typing delay
       setTimeout(() => {
         const assistantText = `[Demo Mode] I received: "${userText}". Since the gateway is in demo mode, I'm providing a mock reply. Let me know if you want to test live controls!`;
         const assistantMessage: HermesMessage = {
@@ -367,7 +1054,15 @@ export default function ChatScreen() {
         setMessages((prev) => [...prev, assistantMessage]);
         setIsSending(false);
         haptics.success();
+        drainOutboundQueue();
       }, 1500);
+      return;
+    }
+
+    const targetSessionId = isTelegramInboxSession(activeSess) ? telegramReplySessionId : activeSess.id;
+    if (isTelegramInboxSession(activeSess) && !targetSessionId) {
+      setErrorMessage('No active Telegram session found to reply to.');
+      setIsSending(false);
       return;
     }
 
@@ -387,8 +1082,8 @@ export default function ChatScreen() {
       let assistantText = '';
       try {
         assistantText = await streamSessionChat(
-          settings.gatewayUrl,
-          activeSess.id,
+          gatewayUrl,
+          targetSessionId,
           userText,
           apiKey,
           (evt) => {
@@ -396,16 +1091,31 @@ export default function ChatScreen() {
               assistantText += evt.data.delta;
               updateAssistant(assistantText);
             }
-            if (evt.event.startsWith('tool.') && evt.data.tool_name) {
+            if (typeof evt.event === 'string' && evt.event.startsWith('tool.') && evt.data.tool_name) {
               setToolStatus(`${evt.event}: ${String(evt.data.tool_name)}`);
+            }
+            if (evt.event === 'approval.request') {
+              const parsed = fromApprovalRequestEvent(evt.data);
+              if (parsed) {
+                setPendingRunApproval({
+                  kind: 'run',
+                  runId: parsed.runId!,
+                  command: parsed.command,
+                  description: parsed.reason,
+                  allowPermanent: parsed.allowPermanent,
+                });
+              }
+            }
+            if (evt.event === 'run.completed' || evt.event === 'done') {
+              setPendingRunApproval(null);
             }
           },
           workspacePrompt,
         );
       } catch (streamErr) {
         const response = await sendChatMessage(
-          settings.gatewayUrl,
-          activeSess.id,
+          gatewayUrl,
+          targetSessionId,
           userText,
           apiKey,
           workspacePrompt,
@@ -421,22 +1131,65 @@ export default function ChatScreen() {
         updateAssistant('(empty response)');
       }
       setToolStatus(null);
+      const typedNudge = parseApprovalNudgeFromContent(typed);
+      if (typedNudge) {
+        markTextNudgeResolved({
+          kind: 'text',
+          approveText: typedNudge.approveText,
+          title: typedNudge.title,
+          sourceMessageIndex: messages.length,
+        });
+      }
       haptics.success();
+      if (isTelegramInboxSession(activeSess) || isTelegramSession(activeSess)) {
+        refreshSessionMessages({ background: true });
+      }
     } catch (err) {
-      setErrorMessage(err instanceof Error ? err.message : 'Failed to send message');
+      applyChatApiError(err, 'Message could not reach your Mac. Check the connection steps above.');
     } finally {
       setIsSending(false);
+      drainOutboundQueue();
     }
   };
 
+  useEffect(() => {
+    if (!pendingChatRelayText || isSending) {
+      return;
+    }
+    const relay = pendingChatRelayText;
+    clearChatRelayText();
+    sendUserText(relay, true);
+  }, [pendingChatRelayText, clearChatRelayText, isSending]);
+
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
-      {/* Premium Header */}
       <View style={styles.header}>
         <View style={styles.headerTitleRow}>
           <Text style={styles.title} testID="HERMES CHAT">💬 HERMES CHAT</Text>
           {isDemo && <Text style={styles.demoPill}>DEMO MODE</Text>}
         </View>
+
+        <ChatContextStrip
+          machineLabel={machineLabel}
+          connectionState={connectionState}
+          macHttpReachable={macHttpOk}
+          projectName={contextProject?.name}
+          workspacePath={contextProject?.workspacePath}
+          onPressMac={() => {
+            haptics.selection();
+            setMacPickerVisible(true);
+          }}
+          macSwitchHint={
+            gatewayProfiles.length > 1
+              ? 'Tap Mac to switch (e.g. Mac Mini vs MacBook)'
+              : 'Tap Mac to find Mac Mini or scan QR in Settings'
+          }
+          channelHint={
+            !contextProject && isTelegramView
+              ? 'Telegram thread — workspace follows your Mac gateway'
+              : undefined
+          }
+        />
 
         <ScrollView
           horizontal
@@ -471,16 +1224,6 @@ export default function ChatScreen() {
           </TouchableOpacity>
         </ScrollView>
 
-        {activeProject ? (
-          <Text style={styles.workspacePath} numberOfLines={1}>
-            {activeProject.workspacePath}
-          </Text>
-        ) : (
-          <Text style={styles.workspaceHint}>
-            Add a project to keep chats scoped to a Mac workspace.
-          </Text>
-        )}
-
         <TouchableOpacity
           style={styles.sessionSelector}
           onPress={() => {
@@ -501,54 +1244,124 @@ export default function ChatScreen() {
       </View>
 
       <KeyboardAvoidingView
-        style={styles.keyboardContainer}
+        style={[
+          styles.keyboardContainer,
+          keyboardLift > 0 && { paddingBottom: keyboardLift },
+        ]}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
+        enabled={Platform.OS === 'ios' && keyboardLift === 0}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top : 0}
       >
-        {/* Error Notification */}
-        {errorMessage && (
+        {showMacConnectionHelp ? (
+          <ChatConnectionPanel
+            connectionState={connectionState}
+            macLabel={machineLabel.split(' (')[0]}
+            searching={isScanningMacs || profileScanning}
+            scanProgress={profileScanProgress}
+            scanResult={profileScanResult}
+            onSearchMac={handleSearchMacFromChat}
+            onOpenSettings={() => navigation.navigate('Settings' as never)}
+          />
+        ) : null}
+
+        {operationalError ? (
           <View style={styles.errorContainer}>
-            <Text style={styles.errorText}>{errorMessage}</Text>
+            <Text style={styles.errorText}>{operationalError}</Text>
             <TouchableOpacity onPress={() => setErrorMessage(null)}>
               <Text style={styles.errorClose}>×</Text>
             </TouchableOpacity>
           </View>
-        )}
+        ) : null}
 
-        {/* Message List */}
         {isLoadingMessages ? (
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color={colors.primary} />
             <Text style={styles.loadingText}>Fetching session history...</Text>
           </View>
         ) : (
-          <FlatList
+          <>
+            {isTelegramInboxSession(currentSession) ? (
+              <TouchableOpacity
+                style={styles.syncHintRow}
+                testID="telegram-sync-hint"
+                onPress={switchToTelegramReplyThread}
+                disabled={!telegramReplySessionId}
+                accessibilityRole="button"
+                accessibilityLabel={
+                  telegramReplyLabel
+                    ? `Open Telegram thread ${telegramReplyLabel}`
+                    : 'Telegram merged inbox sync status'
+                }
+              >
+                <Text style={styles.syncHintText}>
+                  {telegramInboxMeta.threadCount} thread(s) · synced {syncAgeLabel || '…'}
+                  {telegramReplyLabel ? ` · replies → ${telegramReplyLabel}` : ''}
+                  {telegramReplyLabel ? ' · tap to open thread' : ''}
+                </Text>
+              </TouchableOpacity>
+            ) : isTelegramSession(currentSession) ? (
+              <View style={styles.syncHintRow} testID="telegram-thread-sync-hint">
+                <Text style={styles.syncHintText}>
+                  Telegram thread · synced {syncAgeLabel || '…'} · pull to refresh
+                </Text>
+              </View>
+            ) : null}
+            <FlatList
             ref={flatListRef}
             data={messages}
-            keyExtractor={(_, index) => String(index)}
+            keyExtractor={(item, index) => item.id ?? `${item.role}-${index}`}
             contentContainerStyle={styles.messageList}
-            onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
-            renderItem={({ item }) => {
+            refreshControl={
+              <RefreshControl
+                refreshing={isRefreshingMessages}
+                onRefresh={() => refreshSessionMessages({ background: true })}
+                tintColor={colors.accent}
+                colors={[colors.accent]}
+              />
+            }
+            onLayout={() => scrollChatToLatest(false)}
+            onContentSizeChange={() => scrollChatToLatest(isSending)}
+            renderItem={({ item, index }) => {
               const isUser = item.role === 'user';
+              const timeLabel = formatMessageTimestamp(item.created_at ?? item.timestamp);
+              const inlineNudge = inlineTextApprovals.get(index);
+              const threadLabel = isTelegramInboxSession(currentSession)
+                ? threadLabelAtMessageIndex(messages, index)
+                : undefined;
               return (
-                <View style={[styles.bubbleWrapper, isUser ? styles.bubbleUserWrapper : styles.bubbleAssistantWrapper]}>
-                  <View style={[styles.bubble, isUser ? styles.bubbleUser : styles.bubbleAssistant]}>
-                    <Text style={[styles.bubbleText, isUser ? styles.bubbleUserText : styles.bubbleAssistantText]}>
-                      {item.content}
-                    </Text>
-                  </View>
-                </View>
+                <ChatMessageBubble
+                  content={item.content}
+                  rawContent={item.rawContent}
+                  truncated={item.truncated}
+                  isUser={isUser}
+                  timeLabel={timeLabel}
+                  threadLabel={threadLabel}
+                  threadDivider={threadLabel !== undefined && index > 0}
+                  inlineApproval={
+                    inlineNudge
+                      ? {
+                          title: inlineNudge.title,
+                          busy: approvalBusy || isSending,
+                          onApprove: () => handleInlineTextApproval(inlineNudge, 'once'),
+                          onDeny: () => handleInlineTextApproval(inlineNudge, 'deny'),
+                        }
+                      : undefined
+                  }
+                />
               );
             }}
             ListEmptyComponent={
               <ScrollView contentContainerStyle={styles.emptyContainer} testID="chat-empty-state">
                 <GlassCard style={styles.emptyCard}>
-                  <Text style={styles.emptyTitle}>Chat directly with Hermes</Text>
-                  <Text style={styles.emptyBody}>
-                    Ask questions, issue terminal commands, or request workspace analysis.
-                    Each project keeps its own chat history and workspace context on your Mac.
+                  <Text style={styles.emptyTitle}>
+                    {showMacConnectionHelp ? 'Ready when your Mac is linked' : 'Chat directly with Hermes'}
                   </Text>
-                  {!currentSession && (
+                  <Text style={styles.emptyBody}>
+                    {showMacConnectionHelp
+                      ? 'Finish the steps above, then start a chat or pick a session from the menu.'
+                      : 'Ask questions, issue terminal commands, or request workspace analysis. Each project keeps its own chat history and workspace context on your Mac.'}
+                  </Text>
+                  {!currentSession && macChatLive && (
                     <TouchableOpacity style={styles.newChatBtnInline} onPress={handleNewChat}>
                       <Text style={styles.newChatBtnInlineText}>Start New Session</Text>
                     </TouchableOpacity>
@@ -557,6 +1370,7 @@ export default function ChatScreen() {
               </ScrollView>
             }
           />
+          </>
         )}
 
         {toolStatus ? (
@@ -565,28 +1379,60 @@ export default function ChatScreen() {
           </View>
         ) : null}
 
-        {/* Thinking Indicator */}
         {isSending && (
           <View style={styles.thinkingContainer} testID="thinking-indicator">
             <ActivityIndicator size="small" color={colors.accent} />
-            <Text style={styles.thinkingText}>Hermes is typing...</Text>
+            <Text style={styles.thinkingText}>
+              {queuedOutboundCount > 0
+                ? `Sending to your Mac… ${queuedOutboundCount} more queued after this.`
+                : 'Sending to your Mac… reply streams here when Hermes answers.'}
+            </Text>
           </View>
         )}
 
-        {/* Input Bar */}
-        <View style={styles.inputBar}>
+        {composerApprovals.length > 0 || undoSecondsLeft > 0 ? (
+          <>
+            {composerApprovals.length > 0 &&
+            connectionState !== 'connected' &&
+            connectionState !== 'demo' ? (
+              <View style={styles.linkWarningRow} testID="chat-approval-link-warning">
+                <Text style={styles.linkWarningText}>
+                  Mac not linked — tap the Mac row above to connect before approving.
+                </Text>
+              </View>
+            ) : null}
+            <ChatApprovalBar
+              approvals={composerApprovals}
+              busy={approvalBusy || isSending}
+              undoSecondsLeft={undoSecondsLeft}
+              approvalPolicy={settings.approvalPolicy}
+              onChoice={(choice, approval) => handleApprovalChoice(choice, approval)}
+              onEdit={handleApprovalEdit}
+              onUndo={undoSecondsLeft > 0 ? handleChatApprovalUndo : undefined}
+            />
+          </>
+        ) : null}
+
+        <View style={[styles.inputBar, { paddingBottom: composerBottomPadding }]}>
           <TextInput
             style={styles.input}
             value={inputValue}
             onChangeText={setInputValue}
-            placeholder="Type a message to Hermes"
+            placeholder={inputPlaceholder}
             placeholderTextColor={colors.textMuted}
-            editable={!isSending}
+            editable
             multiline
+            returnKeyType="send"
+            blurOnSubmit={true}
+            onSubmitEditing={() => {
+              if (inputValue.trim()) {
+                handleSendMessage();
+              }
+            }}
             testID="chat-input"
           />
           <TouchableOpacity
-            style={[styles.sendButton, !inputValue.trim() && styles.sendButtonDisabled]}
+            style={[styles.sendButton, (!inputValue.trim() || isSending) && styles.sendButtonDisabled]}
             onPress={handleSendMessage}
             disabled={!inputValue.trim() || isSending}
             testID="chat-send-button"
@@ -596,7 +1442,68 @@ export default function ChatScreen() {
         </View>
       </KeyboardAvoidingView>
 
-      {/* Sessions Selection Modal */}
+      <Modal
+        visible={macPickerVisible}
+        animationType="slide"
+        transparent={true}
+        statusBarTranslucent
+        onRequestClose={() => setMacPickerVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Switch Mac</Text>
+              <TouchableOpacity onPress={() => setMacPickerVisible(false)}>
+                <Text style={styles.modalCloseBtn}>Close</Text>
+              </TouchableOpacity>
+            </View>
+            <Text style={styles.modalSubtitle}>
+              Only Macs with Hermes running on your Wi‑Fi show up here. Mac Mini missing? Open
+              Hermes on the Mini (same Wi‑Fi), then tap Find Macs below.
+            </Text>
+            <GatewayProfilePicker
+              profiles={gatewayProfiles}
+              activeProfileId={activeGatewayProfile?.id ?? null}
+              scanning={profileScanning || isScanningMacs}
+              scanProgress={profileScanProgress}
+              scanResult={profileScanResult}
+              onSelect={async (profileId) => {
+                haptics.light();
+                await selectGatewayProfile(profileId);
+                await autoConnectGateway();
+                setMacPickerVisible(false);
+                setCurrentSession(null);
+                setMessages([]);
+                await loadSessionsList(true);
+              }}
+              onRemove={
+                gatewayProfiles.length > 1
+                  ? async (profileId) => {
+                      await removeGatewayProfile(profileId);
+                    }
+                  : undefined
+              }
+            />
+            <LoadingButton
+              label="Find Macs on Wi‑Fi"
+              loadingLabel="Searching Wi‑Fi…"
+              loading={isScanningMacs || profileScanning}
+              variant="secondary"
+              onPress={async () => {
+                setIsScanningMacs(true);
+                try {
+                  await scanForGatewayProfiles();
+                } finally {
+                  setIsScanningMacs(false);
+                }
+              }}
+              testID="chat-find-macs-on-wifi"
+              style={styles.newChatBtn}
+            />
+          </View>
+        </View>
+      </Modal>
+
       <Modal
         visible={sessionModalVisible}
         animationType="slide"
@@ -606,9 +1513,14 @@ export default function ChatScreen() {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>
-                {activeProject ? `${activeProject.name} chats` : 'Select Chat Session'}
-              </Text>
+              <View>
+                <Text style={styles.modalTitle}>Select Chat Session</Text>
+                {activeProject ? (
+                  <Text style={{ fontSize: 11, color: colors.textMuted, marginTop: 2 }}>
+                    {activeProject.name} chats
+                  </Text>
+                ) : null}
+              </View>
               <TouchableOpacity onPress={() => setSessionModalVisible(false)}>
                 <Text style={styles.modalCloseBtn}>Close</Text>
               </TouchableOpacity>
@@ -627,13 +1539,18 @@ export default function ChatScreen() {
             {isLoadingSessions ? (
               <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: 24 }} />
             ) : (
-              <FlatList
-                data={visibleSessions}
+              <SectionList
+                sections={sessionPickerSections}
                 keyExtractor={(item) => item.id}
                 style={styles.sessionList}
+                stickySectionHeadersEnabled={false}
+                renderSectionHeader={({ section }) => (
+                  <Text style={styles.sessionSectionHeader}>{section.title}</Text>
+                )}
                 renderItem={({ item }) => {
                   const isActive = currentSession?.id === item.id;
                   const lastActiveLabel = formatSessionDate(sessionLastActiveValue(item));
+                  const sourceLabel = sessionSourceLabel(item);
                   return (
                     <TouchableOpacity
                       style={[styles.sessionItem, isActive && styles.sessionItemActive]}
@@ -647,13 +1564,24 @@ export default function ChatScreen() {
                         }
                       }}
                     >
-                      <Text style={[styles.sessionItemTitle, isActive && styles.sessionItemTitleActive]}>
-                        {sessionDisplayTitle(item)}
-                      </Text>
-                      {lastActiveLabel ? (
-                        <Text style={styles.sessionItemTime}>
-                          {lastActiveLabel}
+                      <View style={styles.sessionItemTitleRow}>
+                        <Text
+                          style={[styles.sessionItemTitle, isActive && styles.sessionItemTitleActive]}
+                          numberOfLines={2}
+                        >
+                          {sessionDisplayTitle(item)}
                         </Text>
+                        {sourceLabel ? (
+                          <Text style={styles.sessionSourcePill}>{sourceLabel}</Text>
+                        ) : null}
+                      </View>
+                      {isTelegramInboxSession(item) ? (
+                        <Text style={styles.sessionItemSubtitle}>
+                          Merged view — pick a single thread for 1:1 parity with Telegram
+                        </Text>
+                      ) : null}
+                      {lastActiveLabel ? (
+                        <Text style={styles.sessionItemTime}>{lastActiveLabel}</Text>
                       ) : null}
                     </TouchableOpacity>
                   );
@@ -885,6 +1813,17 @@ const styles = StyleSheet.create({
   bubbleAssistantText: {
     color: colors.textSecondary,
   },
+  bubbleTime: {
+    fontSize: 10,
+    marginTop: 4,
+    alignSelf: 'flex-end',
+  },
+  bubbleUserTime: {
+    color: 'rgba(255, 255, 255, 0.6)',
+  },
+  bubbleAssistantTime: {
+    color: colors.textMuted,
+  },
   emptyContainer: {
     paddingTop: 40,
     paddingHorizontal: 8,
@@ -928,6 +1867,27 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: colors.textMuted,
     fontStyle: 'italic',
+  },
+  linkWarningRow: {
+    paddingHorizontal: 16,
+    paddingTop: 6,
+    paddingBottom: 2,
+    backgroundColor: 'rgba(9, 11, 20, 0.96)',
+  },
+  linkWarningText: {
+    fontSize: 12,
+    color: colors.warning,
+    fontWeight: '600',
+  },
+  syncHintRow: {
+    paddingHorizontal: 16,
+    paddingTop: 4,
+    paddingBottom: 2,
+  },
+  syncHintText: {
+    fontSize: 11,
+    color: colors.textMuted,
+    fontWeight: '600',
   },
   toolStatusRow: {
     paddingHorizontal: 20,
@@ -1071,34 +2031,80 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     borderBottomWidth: 1,
     borderBottomColor: colors.borderLight,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
   },
   sessionItemActive: {
     backgroundColor: 'rgba(79, 70, 229, 0.08)',
     borderRadius: 8,
     borderBottomColor: 'transparent',
   },
+  sessionItemTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+  },
   sessionItemTitle: {
     fontSize: 13,
     fontWeight: '600',
     color: colors.textSecondary,
     flex: 1,
-    marginRight: 12,
   },
   sessionItemTitleActive: {
     color: colors.accent,
     fontWeight: '800',
   },
+  sessionSourcePill: {
+    fontSize: 9,
+    fontWeight: '800',
+    letterSpacing: 0.3,
+    color: colors.accent,
+    backgroundColor: 'rgba(139, 92, 246, 0.15)',
+    borderRadius: 6,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+  },
+  sessionSectionHeader: {
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 0.4,
+    color: colors.textMuted,
+    textTransform: 'uppercase',
+    marginTop: 12,
+    marginBottom: 6,
+    paddingHorizontal: 4,
+  },
   sessionItemTime: {
     fontSize: 10,
     color: colors.textMuted,
+  },
+  sessionItemSubtitle: {
+    fontSize: 10,
+    color: colors.textMuted,
+    marginTop: 2,
   },
   emptySessionsText: {
     textAlign: 'center',
     color: colors.textMuted,
     marginTop: 20,
     fontSize: 12,
+  },
+  statusRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 4,
+    marginBottom: 8,
+    paddingHorizontal: 4,
+  },
+  statusText: {
+    fontSize: 11,
+    color: colors.textMuted,
+  },
+  statusValue: {
+    color: colors.accent,
+    fontWeight: '700',
+  },
+  statusDivider: {
+    fontSize: 11,
+    color: colors.borderLight,
   },
 });

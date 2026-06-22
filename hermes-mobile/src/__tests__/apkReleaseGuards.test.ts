@@ -53,7 +53,7 @@ describe('apkReleaseGuards', () => {
     const result = verifyApkReleaseGuards({
       entries: [EMBEDDED_JS_BUNDLE_PATH],
       sampledStrings: ['expo/modules'],
-      packageName: 'com.iganapolsky.agentleash',
+      packageName: 'com.iganapolsky.legacyapp',
       applicationLabel: 'Hermes Mobile',
     });
     expect(result.ok).toBe(false);

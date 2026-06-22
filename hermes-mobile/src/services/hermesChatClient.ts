@@ -1,4 +1,5 @@
 import { buildAuthHeaders, normalizeGatewayUrl } from './gatewayClient';
+import { coerceMessageId } from '../utils/messageIds';
 import type {
   ChatTurnResponse,
   HermesMessage,
@@ -6,6 +7,12 @@ import type {
   MessageListResponse,
   SessionListResponse,
 } from '../types/chat';
+import {
+  unescapeChatText,
+  formatMessageForDisplay,
+  prepareMessageForChatDisplay,
+  normalizeChatMessage,
+} from '../utils/chatMessageDisplay';
 
 export class HermesChatApiError extends Error {
   status: number;
@@ -37,24 +44,25 @@ function headers(apiKey?: string | null): Record<string, string> {
 
 export function normalizeMessageContent(content: unknown): string {
   if (typeof content === 'string') {
-    return content;
+    return formatMessageForDisplay(content);
   }
   if (Array.isArray(content)) {
-    return content
+    const joined = content
       .map((part) => {
-        if (typeof part === 'string') return part;
+        if (typeof part === 'string') return unescapeChatText(part);
         if (part && typeof part === 'object' && 'text' in part) {
-          return String((part as { text?: string }).text ?? '');
+          return unescapeChatText(String((part as { text?: string }).text ?? ''));
         }
         return '';
       })
       .filter(Boolean)
       .join('\n');
+    return formatMessageForDisplay(joined);
   }
   if (content && typeof content === 'object') {
-    return JSON.stringify(content);
+    return formatMessageForDisplay(JSON.stringify(content));
   }
-  return String(content ?? '');
+  return formatMessageForDisplay(String(content ?? ''));
 }
 
 export function extractAssistantText(body: ChatTurnResponse): string {
@@ -110,10 +118,20 @@ export async function listMessages(
     headers: headers(apiKey),
   });
   const body = await parseJson<MessageListResponse>(response);
-  return (body.data ?? []).map((message) => ({
-    ...message,
-    content: normalizeMessageContent(message.content),
-  }));
+  return (body.data ?? []).map((message, index) => {
+    const rawText =
+      typeof message.content === 'string'
+        ? message.content
+        : normalizeMessageContent(message.content);
+    const display = prepareMessageForChatDisplay(rawText);
+    return normalizeChatMessage({
+      ...message,
+      id: coerceMessageId(message.id, index),
+      content: display.content,
+      rawContent: display.rawContent,
+      truncated: display.truncated,
+    });
+  });
 }
 
 export async function sendChatMessage(

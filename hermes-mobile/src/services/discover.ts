@@ -11,7 +11,6 @@ export function getPackagerHostIp(): string | null {
       const match = scriptURL.match(/^https?:\/\/([^:/]+)/);
       if (match && match[1]) {
         const host = match[1];
-        // Ignore loopback addresses
         if (host !== 'localhost' && host !== '127.0.0.1') {
           return host;
         }

@@ -16,7 +16,18 @@ export interface HermesMessage {
   id?: string;
   role: 'user' | 'assistant' | 'system' | string;
   content: string;
+  /** Full cleaned text when `content` is a shortened preview. */
+  rawContent?: string;
+  /** Tap-to-expand when preview was shortened for the transcript. */
+  truncated?: boolean;
+  /** ISO string from mobile-created messages */
   created_at?: string;
+  /** Unix seconds or ISO from Hermes gateway :8642 */
+  timestamp?: number | string;
+  /** Gateway session id when shown in merged Telegram inbox. */
+  sourceSessionId?: string;
+  /** Short label for merged Telegram inbox bubbles. */
+  threadLabel?: string;
 }
 
 export interface SessionListResponse {

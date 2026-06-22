@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   StyleSheet,
   View,
@@ -8,25 +8,50 @@ import {
   TouchableOpacity,
   Switch,
   Alert,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useFocusEffect } from '@react-navigation/native';
 import { useGateway } from '../context/GatewayContext';
 import GlassCard from '../components/GlassCard';
 import { colors } from '../theme/colors';
 import { haptics } from '../services/haptics';
-import { HERMES_MOBILE_CLOUD_URL } from '../constants/appIdentity';
+import { HERMES_MOBILE_CLOUD_URL, THUMBGATE_API_URL } from '../constants/appIdentity';
+import { isGlassesConnected, launchHermesOnGlasses } from '../native/hermesGlasses';
+import PairQrScannerModal from '../components/PairQrScannerModal';
+import MacPairingHelp from '../components/MacPairingHelp';
+import ProUpgradeCard from '../components/ProUpgradeCard';
+import GatewayProfilePicker from '../components/GatewayProfilePicker';
+import { setProductAnalyticsOptOut } from '../services/productAnalytics';
+import LoadingButton from '../components/ui/LoadingButton';
+import { formatGatewayHostLabel } from '../utils/gatewayEndpoint';
+import type { ApprovalPolicy } from '../types/gateway';
+import { secureCredentials } from '../services/secureCredentials';
 
 export default function SettingsScreen() {
   const {
     settings,
     apiKey,
+    health,
+    effectiveGatewayUrl,
     isPaired,
+    applySetupDeepLink,
     saveSettings,
     connectionState,
+    autoConnectGateway,
     injectDemoApproval,
+    injectSmokeApproval,
     completePair,
     disconnectPair,
     requestTestIntercept,
+    gatewayProfiles: savedMacProfiles,
+    activeGatewayProfile,
+    profileScanning,
+    profileScanProgress,
+    profileScanResult,
+    selectGatewayProfile,
+    removeGatewayProfile,
+    scanForGatewayProfiles,
   } = useGateway();
 
   const [cloudUrl, setCloudUrl] = useState(settings.cloudUrl);
@@ -37,8 +62,35 @@ export default function SettingsScreen() {
   const [redactPii, setRedactPii] = useState(settings.redactPii);
   const [notificationsEnabled, setNotificationsEnabled] = useState(settings.notificationsEnabled);
   const [demoMode, setDemoMode] = useState(settings.demoMode);
+  const [glanceMode, setGlanceMode] = useState(settings.glanceMode);
+  const [safetyMode, setSafetyMode] = useState(settings.safetyMode);
+  const [thumbgateCaptureOnDown, setThumbgateCaptureOnDown] = useState(settings.thumbgateCaptureOnDown);
+  const [thumbgateCaptureOnUp, setThumbgateCaptureOnUp] = useState(settings.thumbgateCaptureOnUp);
+  const [thumbgateApiUrl, setThumbgateApiUrl] = useState(settings.thumbgateApiUrl);
+  const [approvalPolicy, setApprovalPolicy] = useState<ApprovalPolicy>(settings.approvalPolicy);
+  const [analyticsOptOut, setAnalyticsOptOut] = useState(settings.analyticsOptOut ?? false);
+  const [inputThumbgateApiKey, setInputThumbgateApiKey] = useState('');
   const [inputApiKey, setInputApiKey] = useState(apiKey);
   const [isSaving, setIsSaving] = useState(false);
+  const [isAutoConnecting, setIsAutoConnecting] = useState(false);
+  const [isScanningMacs, setIsScanningMacs] = useState(false);
+  const [qrScannerVisible, setQrScannerVisible] = useState(false);
+  const [glassesConnected, setGlassesConnected] = useState(false);
+  const scrollRef = useRef<ScrollView>(null);
+
+  useFocusEffect(
+    useCallback(() => {
+      const frame = requestAnimationFrame(() => {
+        scrollRef.current?.scrollTo({ y: 0, animated: false });
+      });
+      return () => cancelAnimationFrame(frame);
+    }, []),
+  );
+
+  useEffect(() => {
+    if (Platform.OS !== 'android') return;
+    isGlassesConnected().then(setGlassesConnected).catch(() => setGlassesConnected(false));
+  }, []);
 
   // Sync state if context changes externally
   useEffect(() => {
@@ -49,11 +101,51 @@ export default function SettingsScreen() {
     setRedactPii(settings.redactPii);
     setNotificationsEnabled(settings.notificationsEnabled);
     setDemoMode(settings.demoMode);
+    setGlanceMode(settings.glanceMode);
+    setSafetyMode(settings.safetyMode);
+    setThumbgateCaptureOnDown(settings.thumbgateCaptureOnDown);
+    setThumbgateCaptureOnUp(settings.thumbgateCaptureOnUp);
+    setThumbgateApiUrl(settings.thumbgateApiUrl);
+    setApprovalPolicy(settings.approvalPolicy ?? 'balanced');
+    setAnalyticsOptOut(settings.analyticsOptOut ?? false);
+    setProductAnalyticsOptOut(settings.analyticsOptOut ?? false);
   }, [settings]);
+
+  useEffect(() => {
+    secureCredentials.loadThumbgateApiKey().then((key) => setInputThumbgateApiKey(key ?? ''));
+  }, []);
 
   useEffect(() => {
     setInputApiKey(apiKey);
   }, [apiKey]);
+
+  const handleAutoConnect = async () => {
+    haptics.selection();
+    setIsAutoConnecting(true);
+    try {
+      const url = await autoConnectGateway();
+      setGatewayUrl(url);
+      haptics.success();
+      if (!demoMode) {
+        Alert.alert(
+          'Connected',
+          health?.level === 'green'
+            ? `Gateway healthy at ${url}`
+            : `Using ${url}. If Chat still fails, tap Find Macs on Wi‑Fi or scan the QR from Hermes on your Mac.`,
+        );
+      }
+    } catch (err) {
+      haptics.warning();
+      if (!demoMode) {
+        Alert.alert(
+          'Auto-connect failed',
+          err instanceof Error ? err.message : 'Could not reach your Mac gateway on LAN.',
+        );
+      }
+    } finally {
+      setIsAutoConnecting(false);
+    }
+  };
 
   const handleSave = async () => {
     haptics.selection();
@@ -68,8 +160,16 @@ export default function SettingsScreen() {
           redactPii,
           notificationsEnabled,
           demoMode,
+          glanceMode,
+          safetyMode,
+          thumbgateCaptureOnDown,
+          thumbgateCaptureOnUp,
+          thumbgateApiUrl,
+          approvalPolicy,
+          analyticsOptOut,
         },
         inputApiKey,
+        inputThumbgateApiKey,
       );
       haptics.success();
       Alert.alert('Success', 'Gateway settings updated successfully.');
@@ -82,13 +182,12 @@ export default function SettingsScreen() {
   };
 
   const handleToggleDemo = (value: boolean) => {
-    haptics.light();
     setDemoMode(value);
   };
 
   const handlePair = async () => {
     if (!pairCode.trim()) {
-      Alert.alert('Pairing code required', 'Run Mac bridge pairing on your Mac and enter the code shown in Terminal.');
+      Alert.alert('Pairing code required', 'Run bridge pairing on your Mac and enter the code Hermes shows you.');
       return;
     }
     try {
@@ -101,6 +200,13 @@ export default function SettingsScreen() {
           redactPii,
           notificationsEnabled,
           demoMode: false,
+          glanceMode,
+          safetyMode,
+          thumbgateCaptureOnDown,
+          thumbgateCaptureOnUp,
+          thumbgateApiUrl,
+          approvalPolicy,
+          analyticsOptOut,
         },
         inputApiKey,
       );
@@ -120,6 +226,48 @@ export default function SettingsScreen() {
       Alert.alert('Test failed', err instanceof Error ? err.message : 'Could not inject test event');
     }
   };
+  const handleFindMacs = async () => {
+    haptics.selection();
+    setIsScanningMacs(true);
+    try {
+      await scanForGatewayProfiles();
+    } catch (err) {
+      haptics.warning();
+      if (!demoMode) {
+        Alert.alert(
+          'Scan failed',
+          err instanceof Error ? err.message : 'Could not search for Mac gateways.',
+        );
+      }
+    } finally {
+      setIsScanningMacs(false);
+    }
+  };
+
+  const handleSelectProfile = async (profileId: string) => {
+    try {
+      await selectGatewayProfile(profileId);
+    } catch (err) {
+      haptics.warning();
+      if (!demoMode) {
+        Alert.alert(
+          'Switch failed',
+          err instanceof Error ? err.message : 'Could not connect to that Mac.',
+        );
+      }
+    }
+  };
+
+  const handleRemoveProfile = (profileId: string) => {
+    Alert.alert('Remove Mac', 'Remove this saved Mac from the list?', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Remove',
+        style: 'destructive',
+        onPress: () => removeGatewayProfile(profileId),
+      },
+    ]);
+  };
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
@@ -128,15 +276,87 @@ export default function SettingsScreen() {
         <Text style={styles.subtitle}>Gateway tunnel for Chat + optional approval relay for Leash</Text>
       </View>
 
-      <ScrollView contentContainerStyle={styles.scrollContent}>
+      <ScrollView ref={scrollRef} contentContainerStyle={styles.scrollContent}>
+        <Text style={styles.sectionTitle}>💎 Support development</Text>
+        <GlassCard>
+          <ProUpgradeCard />
+        </GlassCard>
+
+        <Text style={styles.sectionTitle}>📊 Privacy</Text>
+        <GlassCard>
+          <View style={styles.switchRow}>
+            <View style={styles.switchLabelCol}>
+              <Text style={styles.label}>Product analytics</Text>
+              <Text style={styles.description}>
+                Anonymous usage events (screen views, Mac scan results) via PostHog. No chat content.
+              </Text>
+            </View>
+            <Switch
+              value={!analyticsOptOut}
+              onValueChange={(enabled) => {
+                setAnalyticsOptOut(!enabled);
+                setProductAnalyticsOptOut(!enabled);
+              }}
+              testID="analytics-opt-in-switch"
+            />
+          </View>
+        </GlassCard>
+
         <Text style={styles.sectionTitle}>💬 Hermes Chat (replaces Telegram)</Text>
         <GlassCard>
+          <Text style={styles.label}>Your Macs</Text>
           <Text style={styles.description}>
-            Your phone cannot reach Mac localhost. Paste your ngrok / Cloudflare tunnel URL or LAN IP
-            (same gateway Hermes uses for Telegram — port 8642). API key is API_SERVER_KEY from ~/.hermes/.env.
+            Mac Pro and Mac Mini each get a saved profile. Tap to switch — no re-scanning required.
           </Text>
+          <GatewayProfilePicker
+            profiles={savedMacProfiles}
+            activeProfileId={activeGatewayProfile?.id ?? null}
+            onSelect={handleSelectProfile}
+            onRemove={handleRemoveProfile}
+            scanning={profileScanning || isScanningMacs}
+            scanProgress={profileScanProgress}
+            scanResult={profileScanResult}
+          />
+          <LoadingButton
+            label="Find Macs on Wi‑Fi"
+            loadingLabel="Searching Wi‑Fi…"
+            loading={isScanningMacs || profileScanning}
+            onPress={handleFindMacs}
+            testID="find-macs-on-wifi"
+            style={styles.pairButton}
+          />
+          <Text style={styles.description}>
+            Hermes on your Mac must be running. We search Wi‑Fi first — no typing URLs.
+          </Text>
+          <MacPairingHelp variant="getting-started" compact testID="settings-mac-pairing-help" />
+          <TouchableOpacity
+            style={styles.primaryButton}
+            onPress={handleAutoConnect}
+            disabled={isAutoConnecting}
+            testID="auto-connect-gateway"
+          >
+            <Text style={styles.primaryButtonText}>
+              {isAutoConnecting ? 'Connecting…' : 'Auto-connect to Mac gateway'}
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.pairButton}
+            onPress={() => setQrScannerVisible(true)}
+            testID="scan-pairing-qr"
+          >
+            <Text style={styles.pairButtonText}>Scan QR from my Mac screen</Text>
+          </TouchableOpacity>
+          {effectiveGatewayUrl ? (
+            <Text style={styles.metaLine}>
+              Active: {formatGatewayHostLabel(effectiveGatewayUrl, health)}
+              {health?.level === 'green' ? ' · healthy' : ''}
+            </Text>
+          ) : null}
           <View style={styles.spacer} />
-          <Text style={styles.label}>Gateway URL / Tunnel</Text>
+          <Text style={styles.label}>Advanced — Gateway URL / Tunnel</Text>
+          <Text style={styles.description}>
+            Only if auto-connect fails. Paste ngrok URL or LAN IP (port 8642).
+          </Text>
           <TextInput
             testID="gateway-url-input"
             style={styles.input}
@@ -212,8 +432,85 @@ export default function SettingsScreen() {
           ) : null}
         </GlassCard>
 
+        <Text style={styles.sectionTitle}>👍👎 ThumbGate memory (Leash)</Text>
+        <GlassCard>
+          <Text style={styles.description}>
+            Leash uses ThumbGate thumbs up/down. Thumbs down can save a lesson so the same risky
+            pattern is blocked on future agent runs. Thumbs up can optionally record approvals.
+          </Text>
+          <View style={styles.spacer} />
+          <View style={styles.switchRow}>
+            <View style={styles.switchLabelCol}>
+              <Text style={styles.switchLabel}>Thumbs down → remember block</Text>
+              <Text style={styles.switchDesc}>Capture to ThumbGate when you reject a tool</Text>
+            </View>
+            <Switch
+              value={thumbgateCaptureOnDown}
+                onValueChange={(val) => {
+                  setThumbgateCaptureOnDown(val);
+                }}
+              trackColor={{ false: '#1F2937', true: colors.primary }}
+              thumbColor={thumbgateCaptureOnDown ? '#ffffff' : '#9CA3AF'}
+            />
+          </View>
+          <View style={styles.switchRow}>
+            <View style={styles.switchLabelCol}>
+              <Text style={styles.switchLabel}>Thumbs up → record approval</Text>
+              <Text style={styles.switchDesc}>Optional positive signal when you allow a tool</Text>
+            </View>
+            <Switch
+              value={thumbgateCaptureOnUp}
+              onValueChange={(val) => {
+                setThumbgateCaptureOnUp(val);
+              }}
+              trackColor={{ false: '#1F2937', true: colors.primary }}
+              thumbColor={thumbgateCaptureOnUp ? '#ffffff' : '#9CA3AF'}
+            />
+          </View>
+          <View style={styles.spacer} />
+          <Text style={styles.label}>ThumbGate API URL</Text>
+          <TextInput
+            style={styles.input}
+            value={thumbgateApiUrl}
+            onChangeText={setThumbgateApiUrl}
+            placeholder={THUMBGATE_API_URL}
+            placeholderTextColor={colors.textMuted}
+            autoCapitalize="none"
+            autoCorrect={false}
+          />
+          <View style={styles.spacer} />
+          <Text style={styles.label}>ThumbGate API key (hosted)</Text>
+          <TextInput
+            style={styles.input}
+            value={inputThumbgateApiKey}
+            onChangeText={setInputThumbgateApiKey}
+            placeholder="Bearer token for /v1/feedback/capture"
+            placeholderTextColor={colors.textMuted}
+            secureTextEntry
+            autoCapitalize="none"
+            autoCorrect={false}
+          />
+          <Text style={styles.description}>
+            Required for cloud ThumbGate. Local `npx thumbgate start-api` may work without a key on
+            LAN.
+          </Text>
+        </GlassCard>
+
         <Text style={styles.sectionTitle}>🔌 Leash connection mode</Text>
         <GlassCard>
+          <TouchableOpacity
+            style={styles.secondaryButton}
+            onPress={() => {
+              injectSmokeApproval();
+            }}
+            testID="leash-smoke-test"
+          >
+            <Text style={styles.secondaryButtonText}>Preview Leash card (smoke test)</Text>
+          </TouchableOpacity>
+          <Text style={styles.description}>
+            Injects a fake blocked-command card on the Leash tab. Does not touch your Mac gateway.
+          </Text>
+          <View style={styles.spacer} />
           <View style={styles.switchRow}>
             <View style={styles.switchLabelCol}>
               <Text style={styles.switchLabel}>Use approval relay (LTE)</Text>
@@ -222,7 +519,6 @@ export default function SettingsScreen() {
             <Switch
               value={connectionMode === 'relay'}
               onValueChange={(val) => {
-                haptics.light();
                 setConnectionMode(val ? 'relay' : 'gateway');
               }}
               trackColor={{ false: '#1F2937', true: colors.primary }}
@@ -245,6 +541,38 @@ export default function SettingsScreen() {
         {/* Safeguard Options */}
         <Text style={styles.sectionTitle}>🛡 Safeguard Rules</Text>
         <GlassCard>
+          <Text style={styles.switchLabel}>Approval policy</Text>
+          <Text style={styles.switchDesc}>
+            Strict hides “always allow” and gates prod deploy. Autonomous defers to Mac standing approvals.
+          </Text>
+          <View style={styles.policyRow}>
+            {(['strict', 'balanced', 'autonomous'] as ApprovalPolicy[]).map((policy) => (
+              <TouchableOpacity
+                key={policy}
+                style={[
+                  styles.policyChip,
+                  approvalPolicy === policy && styles.policyChipActive,
+                ]}
+                onPress={() => {
+                  haptics.selection();
+                  setApprovalPolicy(policy);
+                }}
+                testID={`approval-policy-${policy}`}
+              >
+                <Text
+                  style={[
+                    styles.policyChipText,
+                    approvalPolicy === policy && styles.policyChipTextActive,
+                  ]}
+                >
+                  {policy}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          <View style={styles.divider} />
+
           <View style={styles.switchRow}>
             <View style={styles.switchLabelCol}>
               <Text style={styles.switchLabel}>Use Portal Tunnel</Text>
@@ -253,7 +581,6 @@ export default function SettingsScreen() {
             <Switch
               value={usePortal}
               onValueChange={(val) => {
-                haptics.light();
                 setUsePortal(val);
               }}
               trackColor={{ false: '#1F2937', true: colors.primary }}
@@ -271,7 +598,6 @@ export default function SettingsScreen() {
             <Switch
               value={redactPii}
               onValueChange={(val) => {
-                haptics.light();
                 setRedactPii(val);
               }}
               trackColor={{ false: '#1F2937', true: colors.primary }}
@@ -284,12 +610,13 @@ export default function SettingsScreen() {
           <View style={styles.switchRow}>
             <View style={styles.switchLabelCol}>
               <Text style={styles.switchLabel}>Push Approvals</Text>
-              <Text style={styles.switchDesc}>Notify when a high-risk tool is gated</Text>
+              <Text style={styles.switchDesc}>
+                Local notification with Approve/Deny when app is backgrounded
+              </Text>
             </View>
             <Switch
               value={notificationsEnabled}
               onValueChange={(val) => {
-                haptics.light();
                 setNotificationsEnabled(val);
               }}
               trackColor={{ false: '#1F2937', true: colors.primary }}
@@ -298,36 +625,120 @@ export default function SettingsScreen() {
           </View>
         </GlassCard>
 
-        {/* Demo Mode */}
-        <Text style={styles.sectionTitle}>🧪 Developer Tools</Text>
+        <Text style={styles.sectionTitle}>🪢 Safety mode (Leash)</Text>
         <GlassCard>
           <View style={styles.switchRow}>
             <View style={styles.switchLabelCol}>
-              <Text style={styles.switchLabel}>Demo & Sandbox Mode</Text>
-              <Text style={styles.switchDesc}>Simulate approvals without a running server</Text>
+              <Text style={styles.switchLabel}>Prioritize Leash approvals</Text>
+              <Text style={styles.switchDesc}>
+                Open Leash on launch (Chat stays first in the tab bar)
+              </Text>
             </View>
             <Switch
-              value={demoMode}
-              onValueChange={handleToggleDemo}
-              testID="demo-mode-switch"
+              value={safetyMode}
+              onValueChange={(val) => {
+                setSafetyMode(val);
+              }}
+              testID="safety-mode-switch"
               trackColor={{ false: '#1F2937', true: colors.primary }}
-              thumbColor={demoMode ? '#ffffff' : '#9CA3AF'}
+              thumbColor={safetyMode ? '#ffffff' : '#9CA3AF'}
             />
           </View>
-
-          {demoMode && (
-            <TouchableOpacity
-              style={styles.demoButton}
-              onPress={() => {
-                haptics.light();
-                injectDemoApproval();
-              }}
-              testID="inject-mock-approval"
-            >
-              <Text style={styles.demoButtonText}>⚡ Inject Mock Approval Request</Text>
-            </TouchableOpacity>
-          )}
+          <Text style={styles.description}>
+            Off by default — Chat is the Telegram replacement. Turn on when you want mobile kill-switch
+            alerts and Mac approvals.mode is manual or smart.
+          </Text>
         </GlassCard>
+
+        <Text style={styles.sectionTitle}>👓 Glance mode</Text>
+        <GlassCard>
+          <View style={styles.switchRow}>
+            <View style={styles.switchLabelCol}>
+              <Text style={styles.switchLabel}>Glanceable approvals (AI glasses parity)</Text>
+              <Text style={styles.switchDesc}>
+                Stack UI, larger approve/reject targets, spoken status on connect
+              </Text>
+            </View>
+            <Switch
+              value={glanceMode}
+              onValueChange={(val) => {
+                setGlanceMode(val);
+              }}
+              testID="glance-mode-switch"
+              trackColor={{ false: '#1F2937', true: colors.primary }}
+              thumbColor={glanceMode ? '#ffffff' : '#9CA3AF'}
+            />
+          </View>
+        </GlassCard>
+
+        {Platform.OS === 'android' ? (
+          <>
+            <Text style={styles.sectionTitle}>🕶️ AI glasses</Text>
+            <GlassCard>
+              <Text style={styles.description}>
+                Launch the native projected Leash activity on paired AI glasses. Currently supports
+                Jetpack XR on Android (emulator or hardware). Other platforms coming. Requires
+                prebuild with the XR config plugin.
+              </Text>
+              <TouchableOpacity
+                style={[
+                  styles.pairButton,
+                  !glassesConnected && styles.saveButtonDisabled,
+                ]}
+                disabled={!glassesConnected}
+                testID="launch-on-glasses-button"
+                onPress={async () => {
+                  try {
+                    await launchHermesOnGlasses();
+                    haptics.success();
+                  } catch (err) {
+                    Alert.alert(
+                      'Glasses launch failed',
+                      err instanceof Error ? err.message : 'Could not launch projected activity',
+                    );
+                  }
+                }}
+              >
+                <Text style={styles.pairButtonText}>
+                  {glassesConnected ? 'LAUNCH LEASH ON GLASSES' : 'GLASSES NOT CONNECTED'}
+                </Text>
+              </TouchableOpacity>
+            </GlassCard>
+          </>
+        ) : null}
+
+        {__DEV__ ? (
+          <>
+            <Text style={styles.sectionTitle}>🧪 Developer Tools</Text>
+            <GlassCard>
+              <View style={styles.switchRow}>
+                <View style={styles.switchLabelCol}>
+                  <Text style={styles.switchLabel}>Demo & Sandbox Mode</Text>
+                  <Text style={styles.switchDesc}>Simulate approvals without a running server</Text>
+                </View>
+                <Switch
+                  value={demoMode}
+                  onValueChange={handleToggleDemo}
+                  testID="demo-mode-switch"
+                  trackColor={{ false: '#1F2937', true: colors.primary }}
+                  thumbColor={demoMode ? '#ffffff' : '#9CA3AF'}
+                />
+              </View>
+
+              {demoMode ? (
+                <TouchableOpacity
+                  style={styles.demoButton}
+                  onPress={() => {
+                    injectDemoApproval();
+                  }}
+                  testID="inject-mock-approval"
+                >
+                  <Text style={styles.demoButtonText}>⚡ Inject Mock Approval Request</Text>
+                </TouchableOpacity>
+              ) : null}
+            </GlassCard>
+          </>
+        ) : null}
 
         {/* Save Button */}
         <TouchableOpacity
@@ -346,6 +757,11 @@ export default function SettingsScreen() {
           {isPaired ? ' • paired' : ''}
         </Text>
       </ScrollView>
+      <PairQrScannerModal
+        visible={qrScannerVisible}
+        onClose={() => setQrScannerVisible(false)}
+        onScanned={applySetupDeepLink}
+      />
     </SafeAreaView>
   );
 }
@@ -426,6 +842,34 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: colors.textMuted,
     marginTop: 2,
+    marginBottom: 8,
+  },
+  policyRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 4,
+  },
+  policyChip: {
+    flex: 1,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: colors.borderLight,
+    paddingVertical: 8,
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.04)',
+  },
+  policyChipActive: {
+    borderColor: colors.primary,
+    backgroundColor: 'rgba(99, 102, 241, 0.2)',
+  },
+  policyChipText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: colors.textMuted,
+    textTransform: 'capitalize',
+  },
+  policyChipTextActive: {
+    color: colors.text,
   },
   divider: {
     height: 1,
@@ -478,6 +922,23 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '800',
     color: colors.accent,
+  },
+  primaryButton: {
+    marginTop: 12,
+    backgroundColor: colors.primary,
+    borderRadius: 14,
+    paddingVertical: 14,
+    alignItems: 'center',
+  },
+  primaryButtonText: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: colors.text,
+  },
+  metaLine: {
+    fontSize: 11,
+    color: colors.secondary,
+    marginTop: 8,
   },
   unlinkButton: {
     marginTop: 12,

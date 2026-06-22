@@ -1,0 +1,5 @@
+# Ensure full tab bar is visible before navigation/ship-guard flows.
+appId: com.iganapolsky.hermesmobile
+---
+- launchApp
+- runFlow: e2e-bootstrap.yaml

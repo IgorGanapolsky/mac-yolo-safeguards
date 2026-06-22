@@ -22,7 +22,9 @@ Canonical constants: [`src/constants/appIdentity.ts`](src/constants/appIdentity.
 
 | Tab | Role |
 |---|---|
-| **Chat** | Sessions, streaming replies |
-| **Leash** | ThumbGate approve/reject |
+| **Chat** | Primary — sessions, streaming replies (Telegram replacement) |
+| **Leash** | Optional safety — ThumbGate approve/reject when Mac **blocks** a tool |
 | **Ops** | Cron jobs, skills, health |
-| **Settings** | Gateway tunnel + Mac pairing |
+| **Settings** | Gateway tunnel, **Safety mode**, Mac pairing |
+
+**Default launch tab:** Chat. Turn on **Safety mode** or **Glance mode** in Settings to open Leash first (ThumbGate / glasses persona).

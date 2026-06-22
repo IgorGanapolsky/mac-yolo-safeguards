@@ -1,6 +1,7 @@
 import React from 'react';
 import { StyleSheet, View, Text, TouchableOpacity } from 'react-native';
 import { colors } from '../theme/colors';
+import { trackProductEvent } from '../services/productAnalytics';
 
 interface ErrorBoundaryProps {
   children: React.ReactNode;
@@ -23,6 +24,10 @@ export default class ErrorBoundary extends React.Component<
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
     console.error('[hermes-mobile] Uncaught UI error:', error, errorInfo);
+    void trackProductEvent('ui_crash', {
+      message: error.message,
+      component_stack: errorInfo.componentStack?.slice(0, 500) ?? '',
+    });
   }
 
   private reset = () => this.setState({ hasError: false, message: '' });

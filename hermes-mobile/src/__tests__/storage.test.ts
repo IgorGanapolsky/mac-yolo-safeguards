@@ -22,4 +22,14 @@ describe('storage', () => {
     expect(loaded.gatewayUrl).toBe('https://tunnel.example.com');
     expect(loaded.demoMode).toBe(true);
   });
+
+  it('replaces loopback gateway URL with last known LAN IP on load', async () => {
+    await storage.saveLastGatewayLanIp('192.168.12.208');
+    await storage.saveGatewaySettings({
+      ...DEFAULT_GATEWAY_SETTINGS,
+      gatewayUrl: 'http://127.0.0.1:8642',
+    });
+    const loaded = await storage.loadGatewaySettings();
+    expect(loaded.gatewayUrl).toBe('http://192.168.12.208:8642');
+  });
 });

@@ -1,4 +1,5 @@
 import type { HermesSession } from '../types/chat';
+import { isSmokeProbeSession } from './sessionSelection';
 
 /** Hermes gateway returns Unix seconds (float); JS Date expects ms. */
 export function parseGatewayTimestamp(value: unknown): Date | null {
@@ -32,7 +33,35 @@ export function parseGatewayTimestamp(value: unknown): Date | null {
 
 export function formatSessionDate(value: unknown): string | null {
   const date = parseGatewayTimestamp(value);
-  return date ? date.toLocaleDateString() : null;
+  if (!date) {
+    return null;
+  }
+  const dateStr = date.toLocaleDateString();
+  const timeStr = date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+  return `${dateStr} ${timeStr}`;
+}
+
+/** Relative label for session lists — emphasizes recency (e.g. "2m ago", "11:24 AM"). */
+export function formatSessionLastActive(value: unknown): string | null {
+  const date = parseGatewayTimestamp(value);
+  if (!date) {
+    return null;
+  }
+  const now = Date.now();
+  const diffMs = now - date.getTime();
+  if (diffMs < 45_000) {
+    return 'Just now';
+  }
+  if (diffMs < 3_600_000) {
+    const mins = Math.max(1, Math.floor(diffMs / 60_000));
+    return `${mins}m ago`;
+  }
+  const timeStr = date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+  const today = new Date();
+  if (date.toDateString() === today.toDateString()) {
+    return timeStr;
+  }
+  return `${date.toLocaleDateString()} ${timeStr}`;
 }
 
 export function sessionLastActiveValue(session: HermesSession): unknown {
@@ -40,13 +69,17 @@ export function sessionLastActiveValue(session: HermesSession): unknown {
 }
 
 export function sessionDisplayTitle(session: HermesSession): string {
+  if (isSmokeProbeSession(session)) {
+    return 'Gateway automation probe (not your chat)';
+  }
+
   const title = session.title?.trim();
-  if (title) {
+  if (title && !isSmokeLikeLabel(title)) {
     return title;
   }
 
   const preview = session.preview?.trim();
-  if (preview) {
+  if (preview && !isSmokeLikeLabel(preview)) {
     return preview.length > 52 ? `${preview.slice(0, 52)}…` : preview;
   }
 
@@ -56,6 +89,10 @@ export function sessionDisplayTitle(session: HermesSession): string {
   }
 
   return session.id;
+}
+
+function isSmokeLikeLabel(text: string): boolean {
+  return /^reply\s+with\s+exactly/i.test(text) || /runtime-ok$/i.test(text);
 }
 
 /** Gateway may return cron schedule as string or { kind, expr, display }. */

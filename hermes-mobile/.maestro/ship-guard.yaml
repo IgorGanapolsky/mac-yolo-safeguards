@@ -2,6 +2,7 @@
 appId: com.iganapolsky.hermesmobile
 ---
 - launchApp
+- runFlow: e2e-bootstrap.yaml
 
 # Metro / debug crash screen
 - assertNotVisible: "Unable to load script"

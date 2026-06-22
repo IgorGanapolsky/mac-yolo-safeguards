@@ -2,15 +2,8 @@
 appId: com.iganapolsky.hermesmobile
 ---
 - launchApp
-- runFlow:
-    when:
-      notVisible:
-        id: "HERMES CHAT"
-    commands:
-      - tapOn: "Chat"
-- extendedWaitUntil:
-    visible:
-      id: "HERMES CHAT"
-    timeout: 30000
+- runFlow: e2e-bootstrap.yaml
+- assertVisible:
+    id: "HERMES CHAT"
 - assertVisible:
     id: "chat-input"

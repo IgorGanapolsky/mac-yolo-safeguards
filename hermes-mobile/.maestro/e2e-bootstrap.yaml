@@ -1,0 +1,48 @@
+# Shared cold-start bootstrap for Maestro (demo mode + full tab bar).
+appId: com.iganapolsky.hermesmobile
+---
+- openLink: "com.iganapolsky.hermesmobile://expo-development-client/?url=http%3A%2F%2F127.0.0.1%3A8081"
+- runFlow:
+    when:
+      visible:
+        id: "connect-mac-gate"
+    commands:
+      - openLink: "hermes://setup?demo=1"
+- extendedWaitUntil:
+    notVisible:
+      id: "connect-mac-gate"
+    timeout: 15000
+- extendedWaitUntil:
+    visible:
+      id: "Settings"
+    timeout: 30000
+- runFlow:
+    when:
+      notVisible: "Chat"
+    commands:
+      - tapOn:
+          id: "Settings"
+      - extendedWaitUntil:
+          visible:
+            id: "SETTINGS"
+          timeout: 30000
+      - scrollUntilVisible:
+          element:
+            id: "glance-mode-switch"
+          direction: DOWN
+          timeout: 30000
+      - runFlow:
+          when:
+            notVisible: "Chat"
+          commands:
+            - tapOn:
+                id: "glance-mode-switch"
+            - tapOn:
+                id: "save-settings-button"
+            - tapOn: "OK"
+- tapOn:
+    id: "Chat"
+- extendedWaitUntil:
+    visible:
+      id: "chat-input"
+    timeout: 90000

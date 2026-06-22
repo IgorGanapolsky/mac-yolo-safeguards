@@ -1,9 +1,11 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   RefreshControl,
   ScrollView,
   StyleSheet,
+  Switch,
   Text,
   TouchableOpacity,
   View,
@@ -22,9 +24,11 @@ import {
   pauseJob,
   resumeJob,
   runJobNow,
+  setToolsetEnabled,
 } from '../services/hermesGatewayClient';
 import type { HermesCronJob, HermesSkill, HermesToolset } from '../types/gatewayApi';
 import { formatCronSchedule } from '../utils/sessionDisplay';
+import { formatToolsetLabel, toolsetStatusLine } from '../utils/opsToolsets';
 
 const DEMO_SKILLS: HermesSkill[] = [
   { name: 'mac-freeze-rescue', description: 'Rescue frozen / sluggish Mac', category: 'ops' },
@@ -37,17 +41,38 @@ const DEMO_JOBS: HermesCronJob[] = [
 ];
 
 export default function OpsScreen() {
-  const { settings, apiKey, health, connectionState, refreshHealth } = useGateway();
+  const { settings, apiKey, health, connectionState, refreshHealth, effectiveGatewayUrl } = useGateway();
   const isDemo = settings.demoMode || connectionState === 'demo';
+  const gatewayUrl = effectiveGatewayUrl || settings.gatewayUrl;
 
   const [skills, setSkills] = useState<HermesSkill[]>([]);
   const [toolsets, setToolsets] = useState<HermesToolset[]>([]);
   const [jobs, setJobs] = useState<HermesCronJob[]>([]);
   const [featureFlags, setFeatureFlags] = useState<Record<string, boolean | string>>({});
-  const [loading, setLoading] = useState(false);
+  const [initialLoading, setInitialLoading] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | undefined>();
+  const [expandedToolsets, setExpandedToolsets] = useState<Set<string>>(new Set());
+  const [togglingToolset, setTogglingToolset] = useState<string | null>(null);
+  const togglingToolsetRef = useRef<string | null>(null);
 
-  const loadOps = useCallback(async () => {
+  const applyToolsetsFromServer = useCallback((serverList: HermesToolset[]) => {
+    setToolsets((prev) => {
+      const pendingName = togglingToolsetRef.current;
+      if (!pendingName) {
+        return serverList;
+      }
+      const pending = prev.find((ts) => ts.name === pendingName);
+      if (!pending) {
+        return serverList;
+      }
+      return serverList.map((ts) =>
+        ts.name === pendingName ? { ...ts, enabled: pending.enabled } : ts,
+      );
+    });
+  }, []);
+
+  const loadOps = useCallback(async (options?: { refresh?: boolean }) => {
     if (isDemo) {
       setSkills(DEMO_SKILLS);
       setToolsets([
@@ -55,34 +80,101 @@ export default function OpsScreen() {
         { name: 'files', label: 'Files', enabled: true, configured: true, tools: ['read_file', 'write_file'] },
       ]);
       setJobs(DEMO_JOBS);
-      setFeatureFlags({ session_chat_streaming: true, run_approval_response: true, skills_api: true });
+      setFeatureFlags({ session_chat_streaming: true, run_approval_response: true, skills_api: true, toolsets_write: true });
       return;
     }
 
-    setLoading(true);
+    if (options?.refresh) {
+      setRefreshing(true);
+    } else {
+      setInitialLoading(true);
+    }
     setError(undefined);
     try {
       const [caps, skillList, toolsetList, jobList] = await Promise.all([
-        getCapabilities(settings.gatewayUrl, apiKey),
-        listSkills(settings.gatewayUrl, apiKey),
-        listToolsets(settings.gatewayUrl, apiKey),
-        listJobs(settings.gatewayUrl, apiKey),
+        getCapabilities(gatewayUrl, apiKey),
+        listSkills(gatewayUrl, apiKey),
+        listToolsets(gatewayUrl, apiKey),
+        listJobs(gatewayUrl, apiKey),
       ]);
       setFeatureFlags(caps.features ?? {});
       setSkills(skillList);
-      setToolsets(toolsetList);
+      applyToolsetsFromServer(toolsetList);
       setJobs(jobList);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load gateway ops');
     } finally {
-      setLoading(false);
+      setInitialLoading(false);
+      setRefreshing(false);
     }
-  }, [apiKey, isDemo, settings.gatewayUrl]);
+  }, [apiKey, applyToolsetsFromServer, isDemo, gatewayUrl]);
 
   useEffect(() => {
     loadOps();
+  }, [loadOps]);
+
+  useEffect(() => {
     refreshHealth();
-  }, [loadOps, refreshHealth]);
+  }, [refreshHealth]);
+
+  const handleToolsetToggle = async (toolset: HermesToolset, nextEnabled: boolean) => {
+    haptics.selection();
+    if (isDemo) {
+      setToolsets((prev) =>
+        prev.map((ts) => (ts.name === toolset.name ? { ...ts, enabled: nextEnabled } : ts)),
+      );
+      haptics.success();
+      return;
+    }
+
+    const previousEnabled = toolset.enabled ?? false;
+    if (nextEnabled === previousEnabled) {
+      return;
+    }
+
+    togglingToolsetRef.current = toolset.name;
+    setTogglingToolset(toolset.name);
+    setToolsets((prev) =>
+      prev.map((ts) => (ts.name === toolset.name ? { ...ts, enabled: nextEnabled } : ts)),
+    );
+
+    try {
+      const result = await setToolsetEnabled(gatewayUrl, toolset.name, nextEnabled, apiKey);
+      setToolsets((prev) =>
+        prev.map((ts) => (ts.name === toolset.name ? { ...ts, enabled: result.enabled } : ts)),
+      );
+      haptics.success();
+    } catch (err) {
+      setToolsets((prev) =>
+        prev.map((ts) => (ts.name === toolset.name ? { ...ts, enabled: previousEnabled } : ts)),
+      );
+      const message = err instanceof Error ? err.message : 'Toolset update failed';
+      if (message.includes('404') || message.includes('Not Found')) {
+        Alert.alert(
+          'Gateway update required',
+          'Your Mac gateway needs the latest api_server (PUT /v1/toolsets). Restart Hermes gateway after updating.',
+        );
+      } else {
+        Alert.alert('Could not update toolset', message);
+      }
+      haptics.warning();
+    } finally {
+      togglingToolsetRef.current = null;
+      setTogglingToolset(null);
+    }
+  };
+
+  const toggleToolsetExpanded = (name: string) => {
+    setExpandedToolsets((prev) => {
+      const next = new Set(prev);
+      if (next.has(name)) {
+        next.delete(name);
+      } else {
+        next.add(name);
+      }
+      return next;
+    });
+  };
 
   const handleJobAction = async (job: HermesCronJob, action: 'pause' | 'resume' | 'run') => {
     haptics.selection();
@@ -91,11 +183,11 @@ export default function OpsScreen() {
       return;
     }
     try {
-      if (action === 'pause') await pauseJob(settings.gatewayUrl, job.id, apiKey);
-      if (action === 'resume') await resumeJob(settings.gatewayUrl, job.id, apiKey);
-      if (action === 'run') await runJobNow(settings.gatewayUrl, job.id, apiKey);
+      if (action === 'pause') await pauseJob(gatewayUrl, job.id, apiKey);
+      if (action === 'resume') await resumeJob(gatewayUrl, job.id, apiKey);
+      if (action === 'run') await runJobNow(gatewayUrl, job.id, apiKey);
       haptics.success();
-      await loadOps();
+      await loadOps({ refresh: true });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Job action failed');
       haptics.warning();
@@ -103,12 +195,13 @@ export default function OpsScreen() {
   };
 
   const enabledFeatures = Object.entries(featureFlags).filter(([, v]) => v === true);
+  const toolsetsWritable = featureFlags.toolsets_write === true || isDemo;
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
       <View style={styles.header}>
         <Text style={styles.title} testID="OPS">OPS</Text>
-        <Text style={styles.subtitle}>Skills, cron jobs, toolsets — same gateway as desktop</Text>
+        <Text style={styles.subtitle}>Toggle toolsets, run cron jobs, browse skills</Text>
         <View style={styles.healthRow}>
           <HealthPill level={health?.level ?? 'unknown'} />
           {isDemo ? <Text style={styles.demoPill}>DEMO</Text> : null}
@@ -119,9 +212,9 @@ export default function OpsScreen() {
         contentContainerStyle={styles.scroll}
         refreshControl={
           <RefreshControl
-            refreshing={loading}
+            refreshing={refreshing}
             onRefresh={() => {
-              loadOps();
+              loadOps({ refresh: true });
               refreshHealth();
             }}
             tintColor={colors.secondary}
@@ -134,51 +227,63 @@ export default function OpsScreen() {
           </View>
         ) : null}
 
-        {loading && skills.length === 0 ? (
+        {initialLoading && skills.length === 0 ? (
           <ActivityIndicator color={colors.secondary} style={styles.loader} />
         ) : null}
 
-        <Text style={styles.sectionTitle}>Gateway features</Text>
-        <GlassCard>
-          <Text style={styles.meta}>
-            {enabledFeatures.length > 0
-              ? `${enabledFeatures.length} capabilities active on this gateway`
-              : 'Connect gateway in Settings to discover features'}
-          </Text>
-          {enabledFeatures.slice(0, 8).map(([key]) => (
-            <Text key={key} style={styles.featureLine}>✓ {key.replace(/_/g, ' ')}</Text>
-          ))}
-        </GlassCard>
-
-        <Text style={styles.sectionTitle}>Skills ({skills.length})</Text>
-        <GlassCard>
-          {skills.length === 0 ? (
-            <Text style={styles.meta}>No skills returned from /v1/skills</Text>
-          ) : (
-            skills.slice(0, 12).map((skill) => (
-              <View key={skill.name} style={styles.listRow}>
-                <Text style={styles.rowTitle}>{skill.name}</Text>
-                {skill.description ? (
-                  <Text style={styles.rowDesc} numberOfLines={2}>{skill.description}</Text>
-                ) : null}
-              </View>
-            ))
-          )}
-        </GlassCard>
-
         <Text style={styles.sectionTitle}>Toolsets ({toolsets.length})</Text>
+        <Text style={styles.sectionHint}>
+          Switches update platform_toolsets.api_server on your Mac — what mobile Chat can call.
+          {toolsetsWritable ? '' : ' Update gateway to enable toggles from phone.'}
+        </Text>
         <GlassCard>
-          {toolsets.map((ts) => (
-            <View key={ts.name} style={styles.listRow}>
-              <Text style={styles.rowTitle}>
-                {ts.label ?? ts.name}
-                {ts.enabled ? ' · on' : ' · off'}
-              </Text>
-              <Text style={styles.rowDesc}>
-                {ts.tools?.length ?? 0} tools{ts.configured ? ' · configured' : ''}
-              </Text>
-            </View>
-          ))}
+          {toolsets.length === 0 ? (
+            <Text style={styles.meta}>No toolsets from /v1/toolsets</Text>
+          ) : (
+            toolsets.map((ts) => {
+              const expanded = expandedToolsets.has(ts.name);
+              const label = formatToolsetLabel(ts.label, ts.name);
+              const busy = togglingToolset === ts.name;
+              return (
+                <View key={ts.name} style={styles.toolsetRow}>
+                  <View style={styles.toolsetHeader}>
+                    <TouchableOpacity
+                      style={styles.toolsetMain}
+                      onPress={() => toggleToolsetExpanded(ts.name)}
+                      accessibilityLabel={`${label} tools`}
+                      testID={`toolset-row-${ts.name}`}
+                    >
+                      <View style={styles.toolsetText}>
+                        <Text style={styles.rowTitle}>{label}</Text>
+                        <Text style={styles.rowDesc}>{toolsetStatusLine(ts)}</Text>
+                        {ts.description ? (
+                          <Text style={styles.rowDesc} numberOfLines={expanded ? undefined : 2}>
+                            {ts.description}
+                          </Text>
+                        ) : null}
+                      </View>
+                      <Text style={styles.expandHint}>{expanded ? '▾' : '▸'}</Text>
+                    </TouchableOpacity>
+                    <Switch
+                      value={ts.enabled ?? false}
+                      onValueChange={(value) => handleToolsetToggle(ts, value)}
+                      disabled={busy || (!toolsetsWritable && !isDemo)}
+                      trackColor={{ false: '#374151', true: colors.primary }}
+                      thumbColor={ts.enabled ? '#ffffff' : '#9CA3AF'}
+                      testID={`toolset-switch-${ts.name}`}
+                    />
+                  </View>
+                  {expanded && ts.tools && ts.tools.length > 0 ? (
+                    <View style={styles.toolList}>
+                      {ts.tools.map((tool) => (
+                        <Text key={tool} style={styles.toolName}>{tool}</Text>
+                      ))}
+                    </View>
+                  ) : null}
+                </View>
+              );
+            })
+          )}
         </GlassCard>
 
         <Text style={styles.sectionTitle}>Cron jobs ({jobs.length})</Text>
@@ -196,6 +301,7 @@ export default function OpsScreen() {
                   <TouchableOpacity
                     style={styles.jobBtn}
                     onPress={() => handleJobAction(job, 'run')}
+                    testID={`job-run-${job.id}`}
                   >
                     <Text style={styles.jobBtnText}>Run</Text>
                   </TouchableOpacity>
@@ -203,6 +309,7 @@ export default function OpsScreen() {
                     <TouchableOpacity
                       style={styles.jobBtn}
                       onPress={() => handleJobAction(job, 'resume')}
+                      testID={`job-resume-${job.id}`}
                     >
                       <Text style={styles.jobBtnText}>Resume</Text>
                     </TouchableOpacity>
@@ -210,6 +317,7 @@ export default function OpsScreen() {
                     <TouchableOpacity
                       style={styles.jobBtn}
                       onPress={() => handleJobAction(job, 'pause')}
+                      testID={`job-pause-${job.id}`}
                     >
                       <Text style={styles.jobBtnText}>Pause</Text>
                     </TouchableOpacity>
@@ -220,13 +328,33 @@ export default function OpsScreen() {
           )}
         </GlassCard>
 
-        <Text style={styles.sectionTitle}>Desktop parity (dashboard port)</Text>
+        <Text style={styles.sectionTitle}>Skills ({skills.length})</Text>
+        <Text style={styles.sectionHint}>Read-only catalog from /v1/skills. Invoke via Chat.</Text>
+        <GlassCard>
+          {skills.length === 0 ? (
+            <Text style={styles.meta}>No skills returned from /v1/skills</Text>
+          ) : (
+            skills.slice(0, 20).map((skill) => (
+              <View key={skill.name} style={styles.listRow}>
+                <Text style={styles.rowTitle}>{skill.name}</Text>
+                {skill.description ? (
+                  <Text style={styles.rowDesc} numberOfLines={2}>{skill.description}</Text>
+                ) : null}
+              </View>
+            ))
+          )}
+        </GlassCard>
+
+        <Text style={styles.sectionTitle}>Gateway features</Text>
         <GlassCard>
           <Text style={styles.meta}>
-            Config, env vars, profiles, files, logs, analytics, MCP, and channels live on the
-            Hermes web dashboard (separate from :8642). Mobile covers everything exposed on the
-            gateway API server — chat, runs, skills, jobs, approvals.
+            {enabledFeatures.length > 0
+              ? `${enabledFeatures.length} capabilities active on this gateway`
+              : 'Connect gateway in Settings to discover features'}
           </Text>
+          {enabledFeatures.slice(0, 8).map(([key]) => (
+            <Text key={key} style={styles.featureLine}>✓ {key.replace(/_/g, ' ')}</Text>
+          ))}
         </GlassCard>
       </ScrollView>
     </SafeAreaView>
@@ -259,12 +387,25 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: colors.textMuted,
     marginTop: 16,
-    marginBottom: 8,
+    marginBottom: 4,
     letterSpacing: 0.5,
+  },
+  sectionHint: {
+    fontSize: 11,
+    color: colors.textMuted,
+    marginBottom: 8,
+    lineHeight: 16,
   },
   meta: { fontSize: 13, color: colors.textMuted, lineHeight: 18 },
   featureLine: { fontSize: 12, color: colors.secondary, marginTop: 4 },
   listRow: { marginBottom: 12 },
+  toolsetRow: { marginBottom: 14, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border, paddingBottom: 10 },
+  toolsetHeader: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  toolsetMain: { flex: 1, flexDirection: 'row', alignItems: 'flex-start', gap: 8 },
+  toolsetText: { flex: 1 },
+  expandHint: { fontSize: 14, color: colors.textMuted, paddingTop: 2 },
+  toolList: { marginTop: 8, paddingLeft: 4 },
+  toolName: { fontSize: 11, color: colors.secondary, marginBottom: 2 },
   rowTitle: { fontSize: 14, fontWeight: '600', color: colors.text },
   rowDesc: { fontSize: 12, color: colors.textMuted, marginTop: 2 },
   jobRow: {

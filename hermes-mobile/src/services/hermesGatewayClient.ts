@@ -67,6 +67,23 @@ export async function listToolsets(
   return body.data ?? [];
 }
 
+export async function setToolsetEnabled(
+  gatewayUrl: string,
+  name: string,
+  enabled: boolean,
+  apiKey?: string | null,
+): Promise<{ ok: boolean; name: string; enabled: boolean }> {
+  const response = await fetch(
+    `${base(gatewayUrl)}/v1/toolsets/${encodeURIComponent(name)}`,
+    {
+      method: 'PUT',
+      headers: jsonHeaders(apiKey),
+      body: JSON.stringify({ enabled }),
+    },
+  );
+  return parseJson<{ ok: boolean; name: string; enabled: boolean }>(response);
+}
+
 export async function listJobs(
   gatewayUrl: string,
   apiKey?: string | null,

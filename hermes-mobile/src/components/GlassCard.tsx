@@ -7,6 +7,7 @@ interface GlassCardProps {
   style?: StyleProp<ViewStyle>;
   onPress?: () => void;
   activeOpacity?: number;
+  testID?: string;
 }
 
 /** Glassmorphic card container. */
@@ -15,6 +16,7 @@ export default function GlassCard({
   style,
   onPress,
   activeOpacity = 0.85,
+  testID,
 }: GlassCardProps) {
   if (onPress) {
     return (
@@ -22,6 +24,7 @@ export default function GlassCard({
         style={[styles.card, styles.interactive, style]}
         onPress={onPress}
         activeOpacity={activeOpacity}
+        testID={testID}
       >
         <View style={styles.shine} />
         {children}
@@ -30,7 +33,7 @@ export default function GlassCard({
   }
 
   return (
-    <View style={[styles.card, style]}>
+    <View style={[styles.card, style]} testID={testID}>
       <View style={styles.shine} />
       {children}
     </View>

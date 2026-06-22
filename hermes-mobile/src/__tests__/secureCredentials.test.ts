@@ -11,7 +11,7 @@ describe('secureCredentials', () => {
     (SecureStore.getItemAsync as jest.Mock).mockResolvedValue('secret-key');
 
     await secureCredentials.saveApiKey('  secret-key  ');
-    expect(SecureStore.setItemAsync).toHaveBeenCalledWith('hermes-mobile:api_server_key', 'secret-key');
+    expect(SecureStore.setItemAsync).toHaveBeenCalledWith('hermes_mobile_api_server_key', 'secret-key');
 
     const loaded = await secureCredentials.loadApiKey();
     expect(loaded).toBe('secret-key');
@@ -19,7 +19,7 @@ describe('secureCredentials', () => {
 
   it('clears API key when saving empty string', async () => {
     await secureCredentials.saveApiKey('   ');
-    expect(SecureStore.deleteItemAsync).toHaveBeenCalledWith('hermes-mobile:api_server_key');
+    expect(SecureStore.deleteItemAsync).toHaveBeenCalledWith('hermes_mobile_api_server_key');
     expect(SecureStore.setItemAsync).not.toHaveBeenCalled();
   });
 
@@ -34,7 +34,7 @@ describe('secureCredentials', () => {
     (SecureStore.getItemAsync as jest.Mock).mockResolvedValue('relay-token');
 
     await secureCredentials.saveMobileToken('relay-token');
-    expect(SecureStore.setItemAsync).toHaveBeenCalledWith('hermes-mobile:relay_mobile_token', 'relay-token');
+    expect(SecureStore.setItemAsync).toHaveBeenCalledWith('hermes_mobile_relay_mobile_token', 'relay-token');
 
     const loaded = await secureCredentials.loadMobileToken();
     expect(loaded).toBe('relay-token');
@@ -42,7 +42,7 @@ describe('secureCredentials', () => {
 
   it('clears mobile token when saving empty string', async () => {
     await secureCredentials.saveMobileToken('');
-    expect(SecureStore.deleteItemAsync).toHaveBeenCalledWith('hermes-mobile:relay_mobile_token');
+    expect(SecureStore.deleteItemAsync).toHaveBeenCalledWith('hermes_mobile_relay_mobile_token');
   });
 
   it('swallows clear errors', async () => {

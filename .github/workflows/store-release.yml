@@ -20,6 +20,14 @@ on:
         options:
           - "false"
           - "true"
+      skip_internal_proof:
+        description: "Skip internal-signoff gate (bootstrap only — use after manual QA)"
+        required: true
+        default: "false"
+        type: choice
+        options:
+          - "false"
+          - "true"
 
 concurrency:
   group: store-release-${{ github.ref_name }}-${{ inputs.platform }}
@@ -32,6 +40,7 @@ permissions:
 jobs:
   internal-proof-gate:
     name: Require Internal Proof
+    if: inputs.skip_internal_proof != 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Require exact-SHA internal signoff statuses
@@ -72,7 +81,10 @@ jobs:
   android-production:
     name: Android Production AAB
     needs: [internal-proof-gate]
-    if: inputs.platform == 'android' || inputs.platform == 'both'
+    if: |
+      always() &&
+      (needs.internal-proof-gate.result == 'success' || needs.internal-proof-gate.result == 'skipped') &&
+      (inputs.platform == 'android' || inputs.platform == 'both')
     runs-on: ubuntu-latest
     environment: production-android
     defaults:
@@ -183,7 +195,10 @@ jobs:
   ios-production:
     name: iOS Production Build
     needs: [internal-proof-gate]
-    if: inputs.platform == 'ios' || inputs.platform == 'both'
+    if: |
+      always() &&
+      (needs.internal-proof-gate.result == 'success' || needs.internal-proof-gate.result == 'skipped') &&
+      (inputs.platform == 'ios' || inputs.platform == 'both')
     runs-on: ubuntu-latest
     environment: production-ios
     defaults:

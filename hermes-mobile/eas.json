@@ -35,6 +35,9 @@
     "production": {
       "autoIncrement": true,
       "environment": "production",
+      "env": {
+        "EXPO_PUBLIC_POSTHOG_HOST": "https://us.i.posthog.com"
+      },
       "android": {
         "buildType": "app-bundle"
       },

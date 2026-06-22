@@ -60,7 +60,7 @@ describe('GateApprovalCard', () => {
         onReject={jest.fn()}
       />
     );
-    fireEvent.press(getByText('APPROVE OVERRIDE'));
+    fireEvent.press(getByText('Thumbs up'));
     expect(onApprove).toHaveBeenCalledTimes(1);
   });
 
@@ -73,7 +73,7 @@ describe('GateApprovalCard', () => {
         onReject={onReject}
       />
     );
-    fireEvent.press(getByText('REJECT'));
+    fireEvent.press(getByText('Thumbs down'));
     expect(onReject).toHaveBeenCalledTimes(1);
   });
 });
@@ -86,7 +86,7 @@ describe('HealthPill', () => {
 
   it('renders correctly for red level with details', () => {
     const { getByText } = render(<HealthPill level="red" detail="error 500" />);
-    expect(getByText('Gateway blocked')).toBeTruthy();
+    expect(getByText('Gateway unreachable')).toBeTruthy();
     expect(getByText('error 500')).toBeTruthy();
   });
 

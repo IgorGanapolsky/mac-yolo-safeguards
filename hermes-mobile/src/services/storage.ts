@@ -5,9 +5,12 @@ import {
   HERMES_MOBILE_CLOUD_URL,
   shouldMigrateCloudRelayUrl,
 } from '../constants/appIdentity';
+import { gatewayProfiles } from './gatewayProfiles';
+import { resolveDeviceGatewayUrl } from '../utils/gatewayUrlPolicy';
 
 const KEYS = {
   SETTINGS: 'hermes-mobile:gateway_settings',
+  LAST_GATEWAY_LAN_IP: 'hermes-mobile:last_gateway_lan_ip',
 };
 
 export const storage = {
@@ -36,12 +39,15 @@ export const storage = {
       const cloudUrl = shouldMigrateCloudRelayUrl(parsed.cloudUrl)
         ? HERMES_MOBILE_CLOUD_URL
         : parsed.cloudUrl;
-      return {
+      const merged = {
         ...DEFAULT_GATEWAY_SETTINGS,
         ...parsed,
         connectionMode,
         ...(cloudUrl ? { cloudUrl } : {}),
       };
+      const lastLanIp = await this.loadLastGatewayLanIp();
+      merged.gatewayUrl = resolveDeviceGatewayUrl(merged.gatewayUrl, lastLanIp);
+      return merged;
     } catch (error) {
       console.error('[hermes-mobile] loadGatewaySettings failed:', error);
       return { ...DEFAULT_GATEWAY_SETTINGS };
@@ -50,9 +56,29 @@ export const storage = {
 
   async clearAll(): Promise<void> {
     try {
-      await AsyncStorage.multiRemove([KEYS.SETTINGS]);
+      await AsyncStorage.multiRemove([KEYS.SETTINGS, KEYS.LAST_GATEWAY_LAN_IP]);
+      await gatewayProfiles.clear();
     } catch (error) {
       console.error('[hermes-mobile] clearAll failed:', error);
+    }
+  },
+
+  async saveLastGatewayLanIp(lanIp: string): Promise<void> {
+    const trimmed = lanIp.trim();
+    if (!trimmed) return;
+    try {
+      await AsyncStorage.setItem(KEYS.LAST_GATEWAY_LAN_IP, trimmed);
+    } catch (error) {
+      console.error('[hermes-mobile] saveLastGatewayLanIp failed:', error);
+    }
+  },
+
+  async loadLastGatewayLanIp(): Promise<string | null> {
+    try {
+      return await AsyncStorage.getItem(KEYS.LAST_GATEWAY_LAN_IP);
+    } catch (error) {
+      console.error('[hermes-mobile] loadLastGatewayLanIp failed:', error);
+      return null;
     }
   },
 };

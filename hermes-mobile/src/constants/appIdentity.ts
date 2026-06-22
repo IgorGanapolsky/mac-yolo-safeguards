@@ -17,6 +17,9 @@ export const HERMES_IOS_APPLE_ID_EMAIL = 'igor.ganapolsky@icloud.com';
 /** Fly.io approval relay for Leash tab (pairing + queue). */
 export const HERMES_MOBILE_CLOUD_URL = 'https://hermes-mobile-cloud.fly.dev';
 
+/** Hosted ThumbGate API for Leash thumbs-up/down memory capture. */
+export const THUMBGATE_API_URL = 'https://thumbgate-production.up.railway.app';
+
 /** Fly relay URLs saved before 0.3 are reset to the canonical host. */
 export function shouldMigrateCloudRelayUrl(cloudUrl?: string): boolean {
   if (!cloudUrl) return false;

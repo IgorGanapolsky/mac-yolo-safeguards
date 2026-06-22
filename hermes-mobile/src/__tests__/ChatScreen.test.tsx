@@ -1,22 +1,51 @@
 import React from 'react';
-import { render, fireEvent, act } from '@testing-library/react-native';
+import { fireEvent, act, waitFor } from '@testing-library/react-native';
 import ChatScreen from '../screens/ChatScreen';
+import { renderInTabNavigator } from '../testUtils/navigation';
 
-// Mock GatewayContext
 jest.mock('../context/GatewayContext', () => ({
   useGateway: () => ({
+    connectionState: 'demo',
+    apiKey: 'test-api-key',
+    effectiveGatewayUrl: 'http://localhost:8642',
+    health: { ok: true, hostname: 'demo-mac.local', localIp: '127.0.0.1' },
+    activeGatewayProfile: {
+      id: 'mac_demo',
+      label: 'Demo Mac',
+      gatewayUrl: 'http://localhost:8642',
+      localIp: '127.0.0.1',
+      addedAt: '2026-06-18T00:00:00Z',
+    },
+    gatewayProfiles: [
+      {
+        id: 'mac_demo',
+        label: 'Demo Mac',
+        gatewayUrl: 'http://localhost:8642',
+        localIp: '127.0.0.1',
+        addedAt: '2026-06-18T00:00:00Z',
+      },
+    ],
+    selectGatewayProfile: jest.fn().mockResolvedValue(undefined),
+    scanForGatewayProfiles: jest.fn().mockResolvedValue([]),
+    profileScanning: false,
+    profileScanProgress: null,
+    profileScanResult: null,
+    autoConnectGateway: jest.fn().mockResolvedValue('http://localhost:8642'),
+    pendingApprovals: [],
+    submitApprovalChoice: jest.fn(),
+    sendGateAction: jest.fn(),
+    pendingApprovalEditSeed: null,
+    clearApprovalEditSeed: jest.fn(),
     settings: {
       demoMode: true,
       connectionMode: 'gateway',
       gatewayUrl: 'http://localhost:8642',
       cloudUrl: 'https://hermes-mobile-cloud.fly.dev',
+      approvalPolicy: 'balanced',
     },
-    connectionState: 'demo',
-    apiKey: 'test-api-key',
   }),
 }));
 
-// Mock secure credentials and storage to avoid errors
 jest.mock('../services/secureCredentials', () => ({
   secureCredentials: {
     loadApiKey: jest.fn().mockResolvedValue('test-api-key'),
@@ -39,7 +68,6 @@ jest.mock('../services/storage', () => ({
   },
 }));
 
-// Mock haptics
 jest.mock('../services/haptics', () => ({
   haptics: {
     light: jest.fn(),
@@ -55,15 +83,15 @@ jest.mock('../services/chatProjects', () => ({
     load: jest.fn().mockResolvedValue({
       projects: [
         {
-          id: 'demo-skool',
-          name: 'skool_top1percent',
-          workspacePath: '~/workspace/git/igor/skool_top1percent',
+          id: 'demo-hermes-mobile',
+          name: 'hermes-mobile',
+          workspacePath: '~/workspace/git/igor/mac-yolo-safeguards/hermes-mobile',
           sessionIds: ['demo-1'],
           activeSessionId: 'demo-1',
         },
       ],
-      sessionProjectMap: { 'demo-1': 'demo-skool' },
-      activeProjectId: 'demo-skool',
+      sessionProjectMap: { 'demo-1': 'demo-hermes-mobile' },
+      activeProjectId: 'demo-hermes-mobile',
     }),
     save: jest.fn().mockResolvedValue(undefined),
     addProject: jest.fn(),
@@ -73,7 +101,6 @@ jest.mock('../services/chatProjects', () => ({
   setActiveSession: jest.fn((state) => state),
 }));
 
-// Mock hermesChatClient
 jest.mock('../services/hermesChatClient', () => ({
   listSessions: jest.fn().mockResolvedValue([
     { id: 'session-1', title: 'Test Session 1', last_active_at: '2026-06-15T12:00:00Z' },
@@ -102,16 +129,23 @@ describe('ChatScreen', () => {
     jest.useRealTimers();
   });
 
-  it('renders header and initial state correctly in demo mode', () => {
-    const { getByText, getByTestId } = render(<ChatScreen />);
-    
+  it('renders header and initial state correctly in demo mode', async () => {
+    const { getByText, getByTestId, findByTestId } = renderInTabNavigator(ChatScreen, 'Chat');
+
     expect(getByText('💬 HERMES CHAT')).toBeTruthy();
     expect(getByText('DEMO MODE')).toBeTruthy();
     expect(getByTestId('chat-input')).toBeTruthy();
+    expect(await findByTestId('chat-context-strip')).toBeTruthy();
+    expect(getByTestId('chat-context-mac').props.children).toBe('Demo Mac (127.0.0.1)');
+    await waitFor(() => {
+      expect(getByTestId('chat-context-project').props.children).not.toBe(
+        'No project pinned — Hermes uses the Mac default workspace',
+      );
+    });
   });
 
   it('allows text input and shows send button active', () => {
-    const { getByTestId } = render(<ChatScreen />);
+    const { getByTestId } = renderInTabNavigator(ChatScreen, 'Chat');
     const input = getByTestId('chat-input');
     const sendButton = getByTestId('chat-send-button');
 
@@ -121,49 +155,44 @@ describe('ChatScreen', () => {
   });
 
   it('triggers mock message sending and thinking indicator in demo mode', () => {
-    const { getByTestId, queryByTestId, getByText } = render(<ChatScreen />);
+    const { getByTestId, queryByTestId, getByText } = renderInTabNavigator(ChatScreen, 'Chat');
     const input = getByTestId('chat-input');
     const sendButton = getByTestId('chat-send-button');
 
     fireEvent.changeText(input, 'Hello Hermes');
     fireEvent.press(sendButton);
 
-    // Should show thinking indicator in demo mode
     expect(getByTestId('thinking-indicator')).toBeTruthy();
-    expect(getByText('Hermes is typing...')).toBeTruthy();
+    expect(
+      getByText('Sending to your Mac… reply streams here when Hermes answers.')
+    ).toBeTruthy();
 
-    // Fast forward mock reply delay
     act(() => {
       jest.advanceTimersByTime(1600);
     });
 
-    // Thinking indicator should disappear
     expect(queryByTestId('thinking-indicator')).toBeNull();
   });
 
   it('opens and closes sessions selector modal', () => {
-    const { getByTestId, getByText, queryByText } = render(<ChatScreen />);
-    
-    // Modal title should not be visible initially
+    const { getByTestId, getByText, queryByText } = renderInTabNavigator(ChatScreen, 'Chat');
+
     expect(queryByText('Select Chat Session')).toBeNull();
 
-    // Press selector to open modal
     fireEvent.press(getByTestId('open-sessions-modal'));
     expect(getByText('Select Chat Session')).toBeTruthy();
 
-    // Press close to hide modal
     fireEvent.press(getByText('Close'));
     expect(queryByText('Select Chat Session')).toBeNull();
   });
 
   it('can start a new session from modal', () => {
-    const { getByTestId, getByText } = render(<ChatScreen />);
-    
+    const { getByTestId } = renderInTabNavigator(ChatScreen, 'Chat');
+
     fireEvent.press(getByTestId('open-sessions-modal'));
     const newSessionButton = getByTestId('modal-new-chat-button');
     fireEvent.press(newSessionButton);
 
-    // Empty state should be visible for new session
     expect(getByTestId('chat-empty-state')).toBeTruthy();
   });
 });

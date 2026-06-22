@@ -1,0 +1,13 @@
+# Leash tab — connection status visible when gateway healthy
+appId: com.iganapolsky.hermesmobile
+---
+- launchApp
+- runFlow: e2e-bootstrap.yaml
+- tapOn: "Leash"
+- extendedWaitUntil:
+    visible:
+      id: "LEASH"
+    timeout: 30000
+- assertVisible:
+    id: "leash-connection-status"
+- assertVisible: "No pending approvals"

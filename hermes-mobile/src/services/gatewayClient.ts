@@ -20,6 +20,10 @@ export function normalizeGatewayUrl(input: string): NormalizedGatewayBase {
   trimmed = trimmed.replace(/\/v1$/, '');
   trimmed = trimmed.replace(/\/+$/, '');
 
+  if (!/^[a-zA-Z]+:\/\//.test(trimmed)) {
+    trimmed = `http://${trimmed}`;
+  }
+
   const wsBase = trimmed.replace(/^http:/, 'ws:').replace(/^https:/, 'wss:');
   return { httpBase: trimmed, wsBase };
 }
@@ -38,10 +42,13 @@ function classifyHealth(body: Record<string, unknown>, errorMessage?: string): G
   }
   const status = String(body.status ?? '').toLowerCase();
   const gatewayState = String(body.gateway_state ?? '').toLowerCase();
-  if (status === 'ok' && gatewayState === 'running') {
-    return 'green';
+  if (status === 'ok') {
+    if (!gatewayState || gatewayState === 'running') {
+      return 'green';
+    }
+    return 'amber';
   }
-  if (status === 'ok' || gatewayState === 'running') {
+  if (gatewayState === 'running') {
     return 'amber';
   }
   return 'red';
@@ -78,6 +85,8 @@ export async function fetchGatewayHealth(
       pid: typeof body.pid === 'number' ? body.pid : undefined,
       platforms: body.platforms as GatewayHealthSnapshot['platforms'],
       checkedAt,
+      hostname: typeof body.hostname === 'string' ? body.hostname : undefined,
+      localIp: typeof body.local_ip === 'string' ? body.local_ip : undefined,
     };
   } catch (error) {
     return {
@@ -115,6 +124,13 @@ export function gateBlockedToPending(event: GatewayEventMessage): PendingApprova
     command: payload.command,
     workspacePath: payload.workspacePath,
     diff: payload.diff,
+    runId: payload.runId,
+    allowPermanent: payload.allowPermanent,
+    source: payload.source,
+    approveText: payload.approveText,
+    riskTier: payload.riskTier,
+    rollbackHint: payload.rollbackHint,
+    sessionKey: payload.sessionKey,
     receivedAt: event.timestamp ?? new Date().toISOString(),
   };
 }
@@ -134,15 +150,24 @@ export function buildGateActionMessage(
   actionId: string,
   decision: 'approve' | 'reject',
   operatorNote?: string,
+  choice?: 'once' | 'session' | 'always' | 'deny',
+  source?: 'gateway_guard' | 'text_nudge' | 'relay_hook',
 ): GatewayEventMessage {
+  const payload: Record<string, string> = {
+    actionId,
+    decision,
+    operatorNote: operatorNote ?? `Decision ${decision} from Hermes Mobile`,
+  };
+  if (choice) {
+    payload.choice = choice;
+  }
+  if (source) {
+    payload.source = source;
+  }
   return {
     event: 'GATE.ACTION',
     timestamp: new Date().toISOString(),
-    payload: {
-      actionId,
-      decision,
-      operatorNote: operatorNote ?? `Decision ${decision} from Hermes Mobile`,
-    },
+    payload,
   };
 }
 

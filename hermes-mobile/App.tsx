@@ -1,18 +1,24 @@
+import React, { useEffect, useRef } from 'react';
 import { StyleSheet, View, Text, TouchableOpacity, StatusBar, LogBox } from 'react-native';
 
 LogBox.ignoreAllLogs(true);
 
-import { NavigationContainer } from '@react-navigation/native';
+import { NavigationContainer, type NavigationContainerRef } from '@react-navigation/native';
 import { createBottomTabNavigator, BottomTabBarProps } from '@react-navigation/bottom-tabs';
-import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaProvider, SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAiSdkDevTools } from '@react-native-ai/dev-tools/react-native';
 import { colors } from './src/theme/colors';
-import { GatewayProvider } from './src/context/GatewayContext';
+import { GatewayProvider, useGateway } from './src/context/GatewayContext';
+import { resolveInitialTab } from './src/utils/leashUx';
 import ApprovalsScreen from './src/screens/ApprovalsScreen';
 import ChatScreen from './src/screens/ChatScreen';
 import OpsScreen from './src/screens/OpsScreen';
 import SettingsScreen from './src/screens/SettingsScreen';
 import ErrorBoundary from './src/components/ErrorBoundary';
+import ConnectMacGate from './src/components/ConnectMacGate';
+import { useHermesDeepLinks } from './src/hooks/useHermesDeepLinks';
+import { useKeyboardInset } from './src/hooks/useKeyboardInset';
+import { trackAppOpen, trackScreenView } from './src/services/productAnalytics';
 
 type RootTabParamList = {
   Leash: undefined;
@@ -23,10 +29,49 @@ type RootTabParamList = {
 
 const Tab = createBottomTabNavigator<RootTabParamList>();
 
+function HermesTabNavigator() {
+  const { settings } = useGateway();
+  const glance = settings.glanceMode;
+
+  return (
+    <Tab.Navigator
+      initialRouteName={resolveInitialTab(settings)}
+      tabBar={(props) => <GlassmorphicTabBar {...props} />}
+      screenOptions={{
+        headerShown: false,
+        tabBarHideOnKeyboard: true,
+      }}
+    >
+      {glance ? (
+        <>
+          <Tab.Screen name="Leash" component={ApprovalsScreen} />
+          <Tab.Screen name="Settings" component={SettingsScreen} />
+        </>
+      ) : (
+        <>
+          <Tab.Screen name="Chat" component={ChatScreen} />
+          <Tab.Screen name="Leash" component={ApprovalsScreen} />
+          <Tab.Screen name="Ops" component={OpsScreen} />
+          <Tab.Screen name="Settings" component={SettingsScreen} />
+        </>
+      )}
+    </Tab.Navigator>
+  );
+}
+
 // Glassmorphic bottom tab bar
 function GlassmorphicTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
+  const { pendingApprovals } = useGateway();
+  const pendingCount = pendingApprovals.length;
+  const insets = useSafeAreaInsets();
+  const keyboardInset = useKeyboardInset();
+
+  if (keyboardInset > 0) {
+    return null;
+  }
+
   return (
-    <View style={styles.navBar}>
+    <View style={[styles.navBar, { paddingBottom: Math.max(insets.bottom, 8), height: 56 + Math.max(insets.bottom, 8) }]}>
       {state.routes.map((route, index) => {
         const { options } = descriptors[route.key];
         const isFocused = state.index === index;
@@ -84,6 +129,11 @@ function GlassmorphicTabBar({ state, descriptors, navigation }: BottomTabBarProp
             <Text style={[styles.navText, isFocused && styles.navTextActive]}>
               {label}
             </Text>
+            {route.name === 'Leash' && pendingCount > 0 ? (
+              <View style={styles.pendingBadge}>
+                <Text style={styles.pendingBadgeText}>{pendingCount}</Text>
+              </View>
+            ) : null}
             {isFocused && <View style={styles.activeDot} />}
           </TouchableOpacity>
         );
@@ -104,35 +154,59 @@ const NavigationTheme = {
   },
 };
 
+const linking = {
+  prefixes: ['hermes://'],
+  config: {
+    screens: {
+      Leash: 'leash',
+      Chat: 'chat',
+      Ops: 'ops',
+      Settings: 'settings',
+    },
+  },
+};
+
+function HermesNavigationRoot() {
+  const navigationRef = useRef<NavigationContainerRef<RootTabParamList>>(null);
+  const { runAgentTool, refreshHealth, applySetupDeepLink } = useGateway();
+  useHermesDeepLinks(navigationRef, runAgentTool, refreshHealth, applySetupDeepLink);
+
+  return (
+    <NavigationContainer
+      ref={navigationRef}
+      theme={NavigationTheme}
+      linking={linking}
+      onStateChange={(state) => {
+        const route = state?.routes[state.index ?? 0];
+        if (route?.name) {
+          void trackScreenView(route.name);
+        }
+      }}
+    >
+      <HermesTabNavigator />
+    </NavigationContainer>
+  );
+}
+
 export default function App() {
   useAiSdkDevTools();
+  useEffect(() => {
+    void trackAppOpen();
+  }, []);
   return (
     <ErrorBoundary>
       <SafeAreaProvider>
         <GatewayProvider>
-          <SafeAreaView style={styles.container}>
+          <View style={styles.container}>
             <StatusBar barStyle="light-content" />
 
             {/* Decorative Shifting Background Glows (Glassmorphic Ambient Light) */}
             <View style={styles.ambientGlowPrimary} />
             <View style={styles.ambientGlowSecondary} />
 
-            <NavigationContainer theme={NavigationTheme}>
-              <Tab.Navigator
-                initialRouteName="Chat"
-                tabBar={(props) => <GlassmorphicTabBar {...props} />}
-                screenOptions={{
-                  headerShown: false,
-                  tabBarHideOnKeyboard: true,
-                }}
-              >
-                <Tab.Screen name="Leash" component={ApprovalsScreen} />
-                <Tab.Screen name="Chat" component={ChatScreen} />
-                <Tab.Screen name="Ops" component={OpsScreen} />
-                <Tab.Screen name="Settings" component={SettingsScreen} />
-              </Tab.Navigator>
-            </NavigationContainer>
-          </SafeAreaView>
+            <HermesNavigationRoot />
+            <ConnectMacGate />
+          </View>
         </GatewayProvider>
       </SafeAreaProvider>
     </ErrorBoundary>
@@ -169,11 +243,9 @@ const styles = StyleSheet.create({
   },
   navBar: {
     flexDirection: 'row',
-    height: 72,
     backgroundColor: 'rgba(9, 11, 20, 0.94)',
     borderTopWidth: 1,
     borderTopColor: colors.border,
-    paddingBottom: 8,
     paddingTop: 8,
     position: 'relative',
     shadowColor: '#000',
@@ -217,5 +289,22 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.8,
     shadowRadius: 2,
+  },
+  pendingBadge: {
+    position: 'absolute',
+    top: 2,
+    right: 18,
+    minWidth: 16,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: colors.error,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 4,
+  },
+  pendingBadgeText: {
+    fontSize: 9,
+    fontWeight: '900',
+    color: colors.text,
   },
 });

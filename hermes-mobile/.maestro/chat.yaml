@@ -1,0 +1,29 @@
+# Chat tab — demo input, session picker, visible messages
+appId: com.iganapolsky.hermesmobile
+---
+- launchApp
+- runFlow: e2e-bootstrap.yaml
+- runFlow:
+    when:
+      notVisible:
+        id: "HERMES CHAT"
+    commands:
+      - tapOn: "Chat"
+- extendedWaitUntil:
+    visible:
+      id: "HERMES CHAT"
+    timeout: 30000
+- assertVisible:
+    id: "chat-input"
+- tapOn:
+    id: "open-sessions-modal"
+- extendedWaitUntil:
+    visible: "Select Chat Session"
+    timeout: 10000
+- tapOn: "Close"
+- tapOn:
+    id: "chat-input"
+- inputText: "smoke test message"
+- hideKeyboard
+- tapOn:
+    id: "chat-send-button"

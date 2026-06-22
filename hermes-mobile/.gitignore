@@ -11,3 +11,4 @@ firebase-dist/
 # Generated native projects (EAS prebuild)
 android/
 ios/
+docs/proofs

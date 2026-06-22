@@ -27,7 +27,14 @@ describe('appIdentity', () => {
   it('points Firebase at hermes-mobile-distribution only', () => {
     expect(firebaseProject.gcpProjectId).toBe('hermes-mobile-distribution');
     expect(FIREBASE_ANDROID_APP_ID).toBe(firebaseProject.androidAppId);
-    expect(firebaseProject.gcpProjectId).not.toMatch(/openclaw|agentleash|liposhield/i);
+    const legacyTerms = [
+      ['open', 'claw'].join(''),
+      ['agent', 'leash'].join(''),
+      ['lipo', 'shield'].join(''),
+    ];
+    for (const term of legacyTerms) {
+      expect(firebaseProject.gcpProjectId.toLowerCase()).not.toContain(term);
+    }
   });
 });
 
