@@ -16,3 +16,8 @@ export function isChatNearBottom(
 export function isChatAtTop(contentOffsetY: number, threshold = 12): boolean {
   return contentOffsetY <= threshold;
 }
+
+/** Inverted FlatList: offset 0 is the visual bottom (latest messages). */
+export function isInvertedChatNearLatest(contentOffsetY: number, threshold = 120): boolean {
+  return contentOffsetY <= threshold;
+}

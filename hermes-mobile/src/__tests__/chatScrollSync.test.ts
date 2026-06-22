@@ -1,4 +1,4 @@
-import { isChatAtTop, isChatNearBottom } from '../utils/chatScrollSync';
+import { isChatAtTop, isChatNearBottom, isInvertedChatNearLatest } from '../utils/chatScrollSync';
 
 describe('chatScrollSync', () => {
   it('detects near-bottom when within threshold', () => {
@@ -13,5 +13,10 @@ describe('chatScrollSync', () => {
   it('detects scroll-at-top for pull-to-refresh', () => {
     expect(isChatAtTop(0)).toBe(true);
     expect(isChatAtTop(40)).toBe(false);
+  });
+
+  it('detects inverted list near latest messages', () => {
+    expect(isInvertedChatNearLatest(0)).toBe(true);
+    expect(isInvertedChatNearLatest(200)).toBe(false);
   });
 });

@@ -12,6 +12,7 @@ import {
   ActivityIndicator,
   Modal,
   ScrollView,
+  RefreshControl,
   SectionList,
   AppState,
   type NativeSyntheticEvent,
@@ -49,7 +50,7 @@ import {
 } from '../utils/sessionDisplay';
 import { formatMessageTimestamp, prepareMessagesForDisplay } from '../utils/chatMessageDisplay';
 import { mergeServerMessagesWithPending } from '../utils/chatMessageMerge';
-import { isChatAtTop, isChatNearBottom } from '../utils/chatScrollSync';
+import { isInvertedChatNearLatest } from '../utils/chatScrollSync';
 import ChatContextStrip from '../components/ChatContextStrip';
 import ChatConnectionPanel from '../components/ChatConnectionPanel';
 import LoadingButton from '../components/ui/LoadingButton';
@@ -185,7 +186,6 @@ export default function ChatScreen() {
   const flatListRef = useRef<FlatList<HermesMessage>>(null);
   const isSendingRef = useRef(false);
   const userNearBottomRef = useRef(true);
-  const chatAtTopRef = useRef(true);
   const messagesRef = useRef<HermesMessage[]>([]);
   const sendStartedAtRef = useRef(Date.now());
   const outboundQueueRef = useRef<string[]>([]);
@@ -195,7 +195,7 @@ export default function ChatScreen() {
   messagesRef.current = messages;
 
   const scrollChatToLatest = useCallback((animated = false) => {
-    const run = () => flatListRef.current?.scrollToEnd({ animated });
+    const run = () => flatListRef.current?.scrollToOffset({ offset: 0, animated });
     requestAnimationFrame(() => {
       run();
       requestAnimationFrame(run);
@@ -212,13 +212,8 @@ export default function ChatScreen() {
   );
 
   const handleChatScroll = useCallback((event: NativeSyntheticEvent<NativeScrollEvent>) => {
-    const { layoutMeasurement, contentOffset, contentSize } = event.nativeEvent;
-    userNearBottomRef.current = isChatNearBottom(
-      layoutMeasurement.height,
-      contentOffset.y,
-      contentSize.height,
-    );
-    chatAtTopRef.current = isChatAtTop(contentOffset.y);
+    const { contentOffset } = event.nativeEvent;
+    userNearBottomRef.current = isInvertedChatNearLatest(contentOffset.y);
   }, []);
 
   const isDemo = useMemo(() => {
@@ -742,20 +737,28 @@ export default function ChatScreen() {
   }, [transcriptSyncNonce, currentSession, isDemo, macChatLive, refreshSessionMessages]);
 
   const telegramLiveSync = connectionState === 'connected';
-  const TELEGRAM_POLL_MS = telegramLiveSync ? 12_000 : 8_000;
 
+  // Fallback and background polling loop
   useEffect(() => {
-    if (!currentSession || isDemo || !macChatLive || !isTelegramView) {
+    if (!currentSession || isDemo || !macChatLive) {
       return;
     }
+    // We poll if:
+    // 1. It is a Telegram session (always poll, 12s if live WS, 8s if HTTP-only)
+    // 2. The WebSocket is down (8s HTTP fallback polling for all sessions)
+    const shouldPoll = isTelegramView || connectionState !== 'connected';
+    if (!shouldPoll) {
+      return;
+    }
+    const intervalMs = connectionState === 'connected' ? 12000 : 8000;
     const timer = setInterval(() => {
       refreshSessionMessages({ background: true });
-    }, TELEGRAM_POLL_MS);
+    }, intervalMs);
     return () => clearInterval(timer);
-  }, [currentSession, isDemo, macChatLive, isTelegramView, TELEGRAM_POLL_MS, refreshSessionMessages]);
+  }, [currentSession, isDemo, macChatLive, isTelegramView, connectionState, refreshSessionMessages]);
 
   useEffect(() => {
-    if (!currentSession || isDemo || !macChatLive || !isTelegramView) {
+    if (!currentSession || isDemo || !macChatLive) {
       return;
     }
     const sub = AppState.addEventListener('change', (nextState) => {
@@ -764,7 +767,7 @@ export default function ChatScreen() {
       }
     });
     return () => sub.remove();
-  }, [currentSession, isDemo, macChatLive, isTelegramView, refreshSessionMessages]);
+  }, [currentSession, isDemo, macChatLive, refreshSessionMessages]);
 
   useEffect(() => {
     if (!currentSession || isDemo || !macChatLive) {
@@ -823,13 +826,6 @@ export default function ChatScreen() {
     scrollChatToLatest,
   ]);
 
-  const handlePullToRefresh = useCallback(() => {
-    if (!chatAtTopRef.current) {
-      return;
-    }
-    void handleManualSync();
-  }, [handleManualSync]);
-
   const switchToTelegramReplyThread = useCallback(() => {
     if (!telegramReplySessionId) {
       return;
@@ -852,7 +848,6 @@ export default function ChatScreen() {
 
   useEffect(() => {
     userNearBottomRef.current = true;
-    chatAtTopRef.current = true;
     if (isLoadingMessages) {
       return;
     }
@@ -1466,9 +1461,8 @@ export default function ChatScreen() {
         ) : (
           <>
             {currentSession ? (
-            <View style={styles.syncHintRow}>
               <Pressable
-                style={styles.syncHintPressable}
+                style={styles.syncHintRow}
                 onPress={handleManualSync}
                 disabled={!macChatLive || isRefreshingMessages}
                 testID="chat-sync-button"
@@ -1477,11 +1471,7 @@ export default function ChatScreen() {
               >
                 <View style={styles.syncHintInner}>
                   {isRefreshingMessages ? (
-                    <ActivityIndicator
-                      size="small"
-                      color={colors.accent}
-                      style={styles.syncHintSpinner}
-                    />
+                    <ActivityIndicator size="small" color={colors.accent} style={styles.syncHintSpinner} />
                   ) : (
                     <Text style={styles.syncHintIcon}>↻</Text>
                   )}
@@ -1490,65 +1480,37 @@ export default function ChatScreen() {
                     {isTelegramInboxSession(currentSession) && telegramReplyLabel
                       ? ` · replies → ${telegramReplyLabel}`
                       : ''}
-                    {' · tap to sync'}
+                    {' · pull or tap to sync'}
+                    {isTelegramInboxSession(currentSession) && telegramReplySessionId
+                      ? ' · › opens thread'
+                      : ''}
                   </Text>
+                  {isTelegramInboxSession(currentSession) && telegramReplySessionId ? (
+                    <Pressable
+                      onPress={switchToTelegramReplyThread}
+                      hitSlop={8}
+                      testID="telegram-open-thread"
+                      accessibilityLabel={`Open thread ${telegramReplyLabel}`}
+                    >
+                      <Text style={styles.syncHintChevron}>›</Text>
+                    </Pressable>
+                  ) : null}
                 </View>
               </Pressable>
-              {isTelegramInboxSession(currentSession) && telegramReplySessionId ? (
-                <Pressable
-                  onPress={switchToTelegramReplyThread}
-                  hitSlop={8}
-                  style={styles.syncHintChevronBtn}
-                  testID="telegram-open-thread"
-                  accessibilityLabel={`Open thread ${telegramReplyLabel}`}
-                >
-                  <Text style={styles.syncHintChevron}>›</Text>
-                </Pressable>
-              ) : null}
-            </View>
             ) : null}
-            <FlatList
-            ref={flatListRef}
-            data={messages}
-            keyExtractor={(item, index) => item.id ?? `${item.role}-${index}`}
-            contentContainerStyle={styles.messageList}
-            nestedScrollEnabled={false}
-            onScroll={handleChatScroll}
-            scrollEventThrottle={16}
-            refreshing={isRefreshingMessages}
-            onRefresh={handlePullToRefresh}
-            onContentSizeChange={() => scrollChatToLatestIfPinned(isSending)}
-            renderItem={({ item, index }) => {
-              const isUser = item.role === 'user';
-              const timeLabel = formatMessageTimestamp(item.created_at ?? item.timestamp);
-              const inlineNudge = inlineTextApprovals.get(index);
-              const threadLabel = isTelegramInboxSession(currentSession)
-                ? threadLabelAtMessageIndex(messages, index)
-                : undefined;
-              return (
-                <ChatMessageBubble
-                  content={item.content}
-                  rawContent={item.rawContent}
-                  truncated={item.truncated}
-                  isUser={isUser}
-                  timeLabel={timeLabel}
-                  threadLabel={threadLabel}
-                  threadDivider={threadLabel !== undefined && index > 0}
-                  inlineApproval={
-                    inlineNudge
-                      ? {
-                          title: inlineNudge.title,
-                          busy: approvalBusy || isSending,
-                          onApprove: () => handleInlineTextApproval(inlineNudge, 'once'),
-                          onDeny: () => handleInlineTextApproval(inlineNudge, 'deny'),
-                        }
-                      : undefined
-                  }
-                />
-              );
-            }}
-            ListEmptyComponent={
-              <ScrollView contentContainerStyle={styles.emptyContainer} testID="chat-empty-state">
+            {messages.length === 0 ? (
+              <ScrollView
+                contentContainerStyle={styles.emptyContainer}
+                testID="chat-empty-state"
+                refreshControl={
+                  <RefreshControl
+                    refreshing={isRefreshingMessages}
+                    onRefresh={() => void handleManualSync()}
+                    tintColor={colors.accent}
+                    colors={[colors.accent]}
+                  />
+                }
+              >
                 <GlassCard style={styles.emptyCard}>
                   <Text style={styles.emptyTitle}>
                     {showMacConnectionHelp ? 'Ready when your Mac is linked' : 'Chat directly with Hermes'}
@@ -1565,8 +1527,57 @@ export default function ChatScreen() {
                   )}
                 </GlassCard>
               </ScrollView>
-            }
-          />
+            ) : (
+              <FlatList
+                ref={flatListRef}
+                data={[...messages].reverse()}
+                keyExtractor={(item, index) => item.id ?? `${item.role}-${index}`}
+                contentContainerStyle={styles.messageList}
+                nestedScrollEnabled={false}
+                onScroll={handleChatScroll}
+                scrollEventThrottle={16}
+                inverted
+                refreshControl={
+                  <RefreshControl
+                    refreshing={isRefreshingMessages}
+                    onRefresh={() => void handleManualSync()}
+                    tintColor={colors.accent}
+                    colors={[colors.accent]}
+                  />
+                }
+                onContentSizeChange={() => scrollChatToLatestIfPinned(isSending)}
+                renderItem={({ item, index }) => {
+                  const isUser = item.role === 'user';
+                  const timeLabel = formatMessageTimestamp(item.created_at ?? item.timestamp);
+                  const originalIndex = messages.length - 1 - index;
+                  const inlineNudge = inlineTextApprovals.get(originalIndex);
+                  const threadLabel = isTelegramInboxSession(currentSession)
+                    ? threadLabelAtMessageIndex(messages, originalIndex)
+                    : undefined;
+                  return (
+                    <ChatMessageBubble
+                      content={item.content}
+                      rawContent={item.rawContent}
+                      truncated={item.truncated}
+                      isUser={isUser}
+                      timeLabel={timeLabel}
+                      threadLabel={threadLabel}
+                      threadDivider={threadLabel !== undefined && originalIndex > 0}
+                      inlineApproval={
+                        inlineNudge
+                          ? {
+                              title: inlineNudge.title,
+                              busy: approvalBusy || isSending,
+                              onApprove: () => handleInlineTextApproval(inlineNudge, 'once'),
+                              onDeny: () => handleInlineTextApproval(inlineNudge, 'deny'),
+                            }
+                          : undefined
+                      }
+                    />
+                  );
+                }}
+              />
+            )}
           </>
         )}
 
@@ -1961,7 +1972,6 @@ const styles = StyleSheet.create({
     padding: 16,
     paddingBottom: 24,
     flexGrow: 1,
-    justifyContent: 'flex-end',
   },
   bubbleWrapper: {
     flexDirection: 'row',
