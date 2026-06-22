@@ -24,6 +24,9 @@
     "e2e-test": {
       "withoutCredentials": true,
       "environment": "preview",
+      "env": {
+        "EXPO_PUBLIC_E2E_AUTOMATION": "1"
+      },
       "ios": {
         "simulator": true
       },

@@ -15,6 +15,7 @@ import { useGateway } from '../context/GatewayContext';
 import GlassCard from '../components/GlassCard';
 import HealthPill from '../components/HealthPill';
 import { colors } from '../theme/colors';
+import { isDemoModeAllowed } from '../utils/demoModePolicy';
 import { haptics } from '../services/haptics';
 import {
   getCapabilities,
@@ -42,7 +43,8 @@ const DEMO_JOBS: HermesCronJob[] = [
 
 export default function OpsScreen() {
   const { settings, apiKey, health, connectionState, refreshHealth, effectiveGatewayUrl } = useGateway();
-  const isDemo = settings.demoMode || connectionState === 'demo';
+  const isDemo =
+    isDemoModeAllowed() && (settings.demoMode || connectionState === 'demo');
   const gatewayUrl = effectiveGatewayUrl || settings.gatewayUrl;
 
   const [skills, setSkills] = useState<HermesSkill[]>([]);

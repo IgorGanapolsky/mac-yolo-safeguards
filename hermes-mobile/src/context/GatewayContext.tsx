@@ -62,6 +62,10 @@ import {
   type PresentationState,
 } from '../utils/presentationMode';
 import {
+  isDemoModeAllowed,
+  sanitizeDemoModeForRelease,
+} from '../utils/demoModePolicy';
+import {
   buildGatewayUrlFromLanIp,
   extractLanIpFromGatewayUrl,
   isLoopbackGatewayUrl,
@@ -336,7 +340,10 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
 
       const active = activeProfile(loadedProfiles);
       let resolvedKey = savedKey || 'sk-hermes-api-server-key-2026-06-15';
-      let resolvedSettings = savedSettings;
+      let resolvedSettings = sanitizeDemoModeForRelease(savedSettings);
+      if (!isDemoModeAllowed() && savedSettings.demoMode) {
+        await storage.saveGatewaySettings(resolvedSettings);
+      }
       if (active) {
         resolvedSettings = { ...savedSettings, gatewayUrl: active.gatewayUrl };
         const profileKey = await secureCredentials.resolveApiKeyForProfile(active.id);
@@ -918,17 +925,18 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
 
   const saveSettings = useCallback(
     async (nextSettings: GatewaySettings, nextApiKey: string, nextThumbgateApiKey?: string) => {
-      await storage.saveGatewaySettings(nextSettings);
+      const persistedSettings = sanitizeDemoModeForRelease(nextSettings);
+      await storage.saveGatewaySettings(persistedSettings);
       await secureCredentials.saveApiKey(nextApiKey);
       if (nextThumbgateApiKey !== undefined) {
         await secureCredentials.saveThumbgateApiKey(nextThumbgateApiKey);
         thumbgateApiKeyRef.current = nextThumbgateApiKey;
       }
-      setSettings(nextSettings);
+      setSettings(persistedSettings);
       setApiKey(nextApiKey);
-      settingsRef.current = nextSettings;
+      settingsRef.current = persistedSettings;
       apiKeyRef.current = nextApiKey;
-      const lanIp = extractLanIpFromGatewayUrl(nextSettings.gatewayUrl);
+      const lanIp = extractLanIpFromGatewayUrl(persistedSettings.gatewayUrl);
       if (lanIp) {
         await storage.saveLastGatewayLanIp(lanIp);
       }
@@ -941,7 +949,7 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
       const upserted = upsertDiscoveredProfile(
         profileStateRef.current,
         {
-          gatewayUrl: nextSettings.gatewayUrl,
+          gatewayUrl: persistedSettings.gatewayUrl,
           localIp: lanIp ?? undefined,
           hostname: healthRef.current?.hostname,
         },
@@ -951,8 +959,8 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
       setProfileState(upserted);
       await gatewayProfiles.save(upserted);
 
-      effectiveGatewayUrlRef.current = nextSettings.gatewayUrl;
-      setEffectiveGatewayUrl(nextSettings.gatewayUrl);
+      effectiveGatewayUrlRef.current = persistedSettings.gatewayUrl;
+      setEffectiveGatewayUrl(persistedSettings.gatewayUrl);
       await refreshHealth();
       connectEvents();
     },
@@ -1099,6 +1107,9 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
   const applySetupDeepLink = useCallback(
     async (params: SetupDeepLinkParams) => {
       if (params.demoMode) {
+        if (!isDemoModeAllowed()) {
+          return;
+        }
         const nextSettings: GatewaySettings = {
           ...settingsRef.current,
           demoMode: true,

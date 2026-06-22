@@ -23,6 +23,7 @@ import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { useGateway } from '../context/GatewayContext';
 import { useKeyboardInset } from '../hooks/useKeyboardInset';
 import { colors } from '../theme/colors';
+import { isDemoModeAllowed } from '../utils/demoModePolicy';
 import { haptics } from '../services/haptics';
 import GlassCard from '../components/GlassCard';
 import GatewayProfilePicker from '../components/GatewayProfilePicker';
@@ -217,6 +218,9 @@ export default function ChatScreen() {
   }, []);
 
   const isDemo = useMemo(() => {
+    if (!isDemoModeAllowed()) {
+      return false;
+    }
     return settings.demoMode || connectionState === 'demo';
   }, [settings.demoMode, connectionState]);
 
@@ -1551,6 +1555,9 @@ export default function ChatScreen() {
                   const timeLabel = formatMessageTimestamp(item.created_at ?? item.timestamp);
                   const originalIndex = messages.length - 1 - index;
                   const inlineNudge = inlineTextApprovals.get(originalIndex);
+                  if (!item.content?.trim() && !inlineNudge) {
+                    return null;
+                  }
                   const threadLabel = isTelegramInboxSession(currentSession)
                     ? threadLabelAtMessageIndex(messages, originalIndex)
                     : undefined;
