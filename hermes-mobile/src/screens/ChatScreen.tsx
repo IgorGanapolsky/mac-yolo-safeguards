@@ -1659,8 +1659,9 @@ export default function ChatScreen() {
               </TouchableOpacity>
             </View>
             <Text style={styles.modalSubtitle}>
-              Only Macs with Hermes running on your Wi‑Fi show up here. Mac Mini missing? Open
-              Hermes on the Mini (same Wi‑Fi), then tap Find Macs below.
+              Wi‑Fi scan finds Macs at home (10.x.x.x). Away from home? Settings → Advanced → paste
+              your ngrok / Tailscale / Cloudflare tunnel URL — same as Telegram needs your Mac online,
+              but Hermes Mobile talks to the Mac directly (not through Telegram's cloud).
             </Text>
             <GatewayProfilePicker
               profiles={gatewayProfiles}
