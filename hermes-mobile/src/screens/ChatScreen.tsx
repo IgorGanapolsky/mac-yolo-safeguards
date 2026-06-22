@@ -28,6 +28,7 @@ import {
   listMessages,
   sendChatMessage,
 } from '../services/hermesChatClient';
+import { humanizeChatError, isConnectivityMessage } from '../utils/chatErrors';
 import { streamSessionChat } from '../services/hermesGatewayClient';
 import type { HermesSession, HermesMessage } from '../types/chat';
 import type { ChatProject, ChatProjectState } from '../types/chatProject';
@@ -50,6 +51,8 @@ import ChatConnectionPanel from '../components/ChatConnectionPanel';
 import LoadingButton from '../components/ui/LoadingButton';
 import ChatMessageBubble from '../components/ChatMessageBubble';
 import ChatApprovalBar from '../components/ChatApprovalBar';
+import RunProgressBanner from '../components/RunProgressBanner';
+import { applyStreamEvent } from '../utils/chatStreamEvents';
 import { resolveChatMachineLabel, resolveChatProject } from '../utils/chatContext';
 import { isGatewayHealthOk } from '../utils/gatewayConnection';
 import {
