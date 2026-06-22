@@ -21,11 +21,16 @@ function lacks(pattern, message) {
 
 console.log(`=== mac-text-hotkeys config unit test: ${configPath} ===`);
 
-has(/\["1"\]\s*=\s*"are you sure\?"/, 'cmd+1 snippet must be present');
-has(/\["2"\]\s*=\s*"continue"/, 'cmd+2 snippet must be present');
-has(/\["3"\]\s*=\s*"I rely on you as my autonomous CEO\/CTO\./, 'cmd+3 snippet must be present');
-has(/\["4"\]\s*=\s*"always use Data Science, ML, and Agentic RAG/, 'cmd+4 snippet must be present');
-has(/\["5"\]\s*=\s*"What action must you take next to make money today\?"/, 'cmd+5 snippet must be present');
+has(/\["1"\]\s*=\s*"Verify every load-bearing assumption using current external evidence\. Label unknowns explicitly\."/,
+  'cmd+1 verification snippet must be present');
+has(/\["2"\]\s*=\s*"Run the Revenue Operator loop now\./,
+  'cmd+2 revenue-loop snippet must be present');
+has(/\["3"\]\s*=\s*"You are my bounded autonomous Revenue Operator for the active campaign\./,
+  'cmd+3 bounded-role snippet must be present');
+has(/\["4"\]\s*=\s*"Use web research, RAG, data analysis, or ML only when it can materially change the selected action\./,
+  'cmd+4 research-policy snippet must be present');
+has(/\["5"\]\s*=\s*"What single authorized revenue action will you execute now to move a qualified prospect toward payment\?/,
+  'cmd+5 executable-action snippet must be present');
 
 has(/local\s+lastPasteAtByKey\s*=\s*\{\}/, 'cooldown must be per-key');
 lacks(/lastPasteAtGlobal/, 'global cooldown must not come back');

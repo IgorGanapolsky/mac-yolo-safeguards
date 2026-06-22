@@ -262,6 +262,8 @@ cfg = yaml.safe_load(pathlib.Path.home().joinpath('.hermes/config.yaml').read_te
 print(json.dumps({
   "terminal_cwd": (cfg.get("terminal") or {}).get("cwd"),
   "model_provider": (cfg.get("model") or {}).get("provider"),
+  "model_default": (cfg.get("model") or {}).get("default"),
+  "model_context_length": (cfg.get("model") or {}).get("context_length"),
   "model_ollama_num_ctx": (cfg.get("model") or {}).get("ollama_num_ctx"),
   "fallback_providers": cfg.get("fallback_providers") or [],
 }))
@@ -291,35 +293,30 @@ except Exception as exc:
 PY`, { timeout: 8000 }),
     ollamaPs: sh(`ollama ps 2>/dev/null || true`, { timeout: 8000 }),
     telegramWebhookInfo: sh(`python3 - <<'PY'
-import json, time, urllib.parse, urllib.request
+import json, urllib.parse, urllib.request
 from pathlib import Path
 env={}
 for line in (Path.home()/'.hermes/.env').read_text().splitlines():
     if not line or line.strip().startswith('#') or '=' not in line:
         continue
     k,v=line.split('=',1)
+    k=k.replace('export ', '', 1).strip()
     env[k]=v.strip().strip('"').strip("'")
 token=env.get('TELEGRAM_BOT_TOKEN','')
 configured=env.get('TELEGRAM_WEBHOOK_URL','')
 if not token:
     print(json.dumps({"ok": False, "error": "missing TELEGRAM_BOT_TOKEN"}))
     raise SystemExit(0)
-attempts=[]
-data={}
-info={}
-for attempt in range(3):
-    with urllib.request.urlopen(f"https://api.telegram.org/bot{token}/getWebhookInfo", timeout=5) as r:
-        data=json.loads(r.read().decode())
-    info=data.get('result') or {}
-    attempts.append({
-        "attempt": attempt + 1,
-        "url_present": bool(info.get("url")),
-        "pending_update_count": info.get("pending_update_count"),
-        "last_error_message": info.get("last_error_message"),
-    })
-    if info.get("url") == configured or not configured:
-        break
-    time.sleep(2)
+with urllib.request.urlopen(f"https://api.telegram.org/bot{token}/getWebhookInfo", timeout=5) as r:
+    data=json.loads(r.read().decode())
+info=data.get('result') or {}
+attempts=[{
+    "attempt": 1,
+    "url_present": bool(info.get("url")),
+    "repaired": False,
+    "pending_update_count": info.get("pending_update_count"),
+    "last_error_message": info.get("last_error_message"),
+}]
 actual=urllib.parse.urlparse(info.get('url') or '')
 expected=urllib.parse.urlparse(configured or '')
 print(json.dumps({
@@ -409,7 +406,9 @@ PY`, { timeout: 20000, noRedact: true }),
 
   const fallbackProviders = telemetry.localRuntime.fallbackProviders;
   const fullContextFallbacks = fallbackProviders.filter((provider) => Number(provider.context_length || 0) >= HERMES_MIN_TOOL_CONTEXT);
+  const primaryHasFullContext = Number(telemetry.config.model_context_length || 0) >= HERMES_MIN_TOOL_CONTEXT;
   telemetry.localRuntime.fullContextFallbackCount = fullContextFallbacks.length;
+  telemetry.localRuntime.primaryHasFullContext = primaryHasFullContext;
   const localFallbacks = fallbackProviders.filter((provider) => {
     const url = String(provider.base_url || '');
     return /localhost|127\.0\.0\.1|0\.0\.0\.0/.test(url);
@@ -449,7 +448,12 @@ PY`, { timeout: 20000, noRedact: true }),
           'Install the configured fallback model or update fallback_providers to a model that exists locally.'
         );
       }
-      if (Number(ollamaFallback.context_length || 0) >= 32768 && !commands.ollamaPs.stdout.includes(expectedModel)) {
+      if (
+        Number(ollamaFallback.context_length || 0) >= 32768
+        && !commands.ollamaPs.stdout.includes(expectedModel)
+        && !primaryHasFullContext
+        && fullContextFallbacks.length === 0
+      ) {
         addFinding(
           findings,
           'low',
@@ -473,12 +477,7 @@ PY`, { timeout: 20000, noRedact: true }),
   telemetry.telegramWebhook = safeJson(commands.telegramWebhookInfo.stdout);
   telemetry.telegramTunnelProof = latestTunnelWebhookProof(tunnelManagerLog);
   if (env.TELEGRAM_WEBHOOK_URL) {
-    const hasTunnelRegistrationProof = Boolean(
-      telemetry.telegramTunnelProof
-      && telemetry.telegramTunnelProof.webhook_url_registered
-      && telemetry.telegramTunnelProof.set_webhook_ok
-    );
-    if (!telemetry.telegramWebhook.registered_host && !hasTunnelRegistrationProof) {
+    if (!telemetry.telegramWebhook.registered_host) {
       addFinding(
         findings,
         'high',
@@ -486,11 +485,6 @@ PY`, { timeout: 20000, noRedact: true }),
         `Bot API getWebhookInfo returned an empty webhook URL after ${telemetry.telegramWebhook.attempt_count || 1} attempt(s).`,
         'Register TELEGRAM_WEBHOOK_URL with setWebhook and verify public ingress before trusting Telegram.'
       );
-    } else if (!telemetry.telegramWebhook.registered_host && hasTunnelRegistrationProof) {
-      telemetry.telegramWebhook.registered_host = telemetry.telegramWebhook.configured_host;
-      telemetry.telegramWebhook.registered_path = telemetry.telegramWebhook.configured_path;
-      telemetry.telegramWebhook.url_matches = true;
-      telemetry.telegramWebhook.flap_tolerated = true;
     } else if (!telemetry.telegramWebhook.url_matches) {
       addFinding(
         findings,

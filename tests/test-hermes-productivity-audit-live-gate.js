@@ -36,6 +36,22 @@ assert(
   auditSource.includes('activeIngressSince') && auditSource.includes('lastWebhookConnectedAt'),
   'Polling conflict checks must use the active ingress window, not stale pre-webhook log tails'
 );
+assert(
+  auditSource.includes('"model_context_length"') && auditSource.includes('primaryHasFullContext'),
+  'Ollama fallback warnings must be interpreted against the active primary context'
+);
+assert(
+  auditSource.includes('&& !primaryHasFullContext') && auditSource.includes('&& fullContextFallbacks.length === 0'),
+  'An unloaded bounded Ollama fallback must not make a full-context primary/fallback setup look blocked'
+);
+assert(
+  auditSource.includes('"repaired": False') && !auditSource.includes('/setWebhook'),
+  'Webhook audit must verify Bot API state without mutating Telegram webhook registration'
+);
+assert(
+  !auditSource.includes('flap_tolerated = true'),
+  'Direct Bot API webhook absence must not be hidden by stale tunnel-manager proof'
+);
 
 const markdown = renderMarkdown({
   telemetry: {

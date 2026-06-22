@@ -618,7 +618,12 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
   }, [setRunProgress]);
 
   useEffect(() => {
-    if (!settings.notificationsEnabled || Platform.OS === 'web') {
+    if (Platform.OS === 'web') {
+      return;
+    }
+    if (!settings.notificationsEnabled) {
+      clearRunProgressNotification().catch(() => {});
+      cancelRunStallNotification().catch(() => {});
       return;
     }
     if (!runProgress) {

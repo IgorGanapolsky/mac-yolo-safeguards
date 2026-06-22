@@ -21,6 +21,17 @@ Every claim needs proof in the same turn:
 - "Fixed" → reproduce-then-pass evidence, not "should work"
 - "Merged" → commit SHA + CI status link
 
+## No manual handoffs to the user
+
+**User directive:** Never tell the user to run commands, tap UI, import configs, or "do X on your phone/Mac" themselves.
+
+1. **Execute** what you can in this environment (shell, adb, scripts, file edits).
+2. **Automate** what repeats (LaunchAgents, `agent-session-start.js`, `hermes-mobile-pair.js` via adb).
+3. **Report** what was done + evidence — not a checklist for the human.
+4. If blocked (OAuth UI, Reddit post, Cursor Automations editor without `open_automation`), state the **blocker** and what the **agent** already ran — do not rephrase the blocker as user homework.
+
+Phone gateway setup: always `node tools/hermes-mobile-pair.js` when `adb devices` shows a device — never "open Settings and paste URL".
+
 ## No dead code, no speculative scaffolding
 
 - Don't add features, abstractions, error handling, or tests for scenarios that can't happen.
@@ -37,23 +48,28 @@ Every claim needs proof in the same turn:
 
 ## Decision stack (DS / ML / Agentic RAG)
 
-Before any non-trivial decision, ship claim, or root-cause call, run the evidence stack — **not** intuition alone.
+**User directive:** Always use Data Science, ML, and Agentic RAG to drive decisions — not intuition, not "should work", not ship theater.
+
+Before any non-trivial decision, ship claim, or root-cause call, run the evidence stack.
 
 | Layer | Tool | When |
 |-------|------|------|
+| **CEO orchestrator** | `node tools/ceo-operating-brief.js [--full] [--json]` | Session start + before prioritizing product vs revenue |
 | **Agentic RAG** | `mcp__thumbgate__recall` or `npx thumbgate lessons "<task>"` | Session start + before claiming fixed/shipped |
 | **Code graph RAG** | `.graphify-venv/bin/graphify query "<task>"` | Architecture, CI, cross-file causality |
 | **Structured telemetry** | `node tools/agent-decision-stack.js --task "..." --gh-run ID --json` | CI status, timing anomalies, next action |
 | **Weak-supervision ML** | `node tools/hermes-decision-loop.js --json` | Telegram / gateway operator safety |
 | **Revenue DS** | `node tools/pipeline-data-science.js` | Funnel / propensity (read-only, `business_os/`) |
+| **Newsletter ROI** | `node tools/react-native-newsletter-ingest.js --decision-stack` | Weekly RN ecosystem ingest |
 | **Post-decision capture** | `mcp__thumbgate__capture_memory_feedback` or `thumbgate capture --feedback=down` | Every false ship claim or repeated mistake |
 
 **Protocol**
 
-1. `node tools/agent-decision-stack.js --task "<decision>" [--gh-run ID] --json`
-2. If RAG returns a **MISTAKE** matching the current plan → change the plan before acting.
-3. Act only when telemetry + verification commands align.
-4. Capture features (run id, duration, exit codes) in the lesson — not prose summaries.
+1. **Session start:** `node tools/agent-session-start.js` (add `--full` before ship claims). Status only: `node tools/agent-automation-status.js`.
+2. `node tools/agent-decision-stack.js --task "<decision>" [--gh-run ID] --json`
+3. If RAG returns a **MISTAKE** matching the current plan → change the plan before acting.
+4. Act only when telemetry + verification commands align.
+5. Capture features (run id, duration, exit codes) in the lesson — not prose summaries.
 
 OpenMono `/ship-claim` is the local verifier gate; ThumbGate is the cross-session memory gate. Both are mandatory for "shipped" language.
 
