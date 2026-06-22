@@ -92,6 +92,8 @@ export function mockUseGateway(overrides: Record<string, unknown> = {}) {
     clearApprovalEditSeed: jest.fn(),
     pendingChatRelayText: null,
     clearChatRelayText: jest.fn(),
+    runProgress: null,
+    setRunProgress: jest.fn(),
     ...overrides,
   };
 }

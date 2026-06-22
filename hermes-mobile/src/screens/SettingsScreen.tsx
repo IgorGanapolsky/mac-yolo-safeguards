@@ -69,6 +69,7 @@ export default function SettingsScreen() {
   const [thumbgateApiUrl, setThumbgateApiUrl] = useState(settings.thumbgateApiUrl);
   const [approvalPolicy, setApprovalPolicy] = useState<ApprovalPolicy>(settings.approvalPolicy);
   const [analyticsOptOut, setAnalyticsOptOut] = useState(settings.analyticsOptOut ?? false);
+  const [includeToolActivity, setIncludeToolActivity] = useState(settings.includeToolActivity ?? true);
   const [inputThumbgateApiKey, setInputThumbgateApiKey] = useState('');
   const [inputApiKey, setInputApiKey] = useState(apiKey);
   const [isSaving, setIsSaving] = useState(false);
@@ -109,6 +110,7 @@ export default function SettingsScreen() {
     setApprovalPolicy(settings.approvalPolicy ?? 'balanced');
     setAnalyticsOptOut(settings.analyticsOptOut ?? false);
     setProductAnalyticsOptOut(settings.analyticsOptOut ?? false);
+    setIncludeToolActivity(settings.includeToolActivity ?? true);
   }, [settings]);
 
   useEffect(() => {
@@ -167,6 +169,7 @@ export default function SettingsScreen() {
           thumbgateApiUrl,
           approvalPolicy,
           analyticsOptOut,
+          includeToolActivity,
         },
         inputApiKey,
         inputThumbgateApiKey,
@@ -207,6 +210,7 @@ export default function SettingsScreen() {
           thumbgateApiUrl,
           approvalPolicy,
           analyticsOptOut,
+          includeToolActivity,
         },
         inputApiKey,
       );
@@ -621,6 +625,26 @@ export default function SettingsScreen() {
               }}
               trackColor={{ false: '#1F2937', true: colors.primary }}
               thumbColor={notificationsEnabled ? '#ffffff' : '#9CA3AF'}
+            />
+          </View>
+
+          <View style={styles.divider} />
+
+          <View style={styles.switchRow}>
+            <View style={styles.switchLabelCol}>
+              <Text style={styles.switchLabel}>Show Tool Activity</Text>
+              <Text style={styles.switchDesc}>
+                Render completed tool execution messages (e.g., ⚙️ computer_use...) in transcripts
+              </Text>
+            </View>
+            <Switch
+              value={includeToolActivity}
+              onValueChange={(val) => {
+                setIncludeToolActivity(val);
+              }}
+              testID="tool-activity-switch"
+              trackColor={{ false: '#1F2937', true: colors.primary }}
+              thumbColor={includeToolActivity ? '#ffffff' : '#9CA3AF'}
             />
           </View>
         </GlassCard>

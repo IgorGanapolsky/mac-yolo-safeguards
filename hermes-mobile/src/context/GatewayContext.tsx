@@ -15,6 +15,9 @@ import type {
   ReclaimFiredPayload,
 } from '../types/gateway';
 import { DEFAULT_GATEWAY_SETTINGS } from '../types/gateway';
+import type { RunProgressState } from '../types/chatDisplay';
+import { applyStreamEvent } from '../utils/chatStreamEvents';
+import type { ChatStreamEvent } from '../types/gatewayApi';
 import type { GatewayProfile, GatewayProfileState } from '../types/gatewayProfile';
 import type { LanScanProgress, LanScanResult } from '../types/lanScan';
 import { EMPTY_GATEWAY_PROFILE_STATE } from '../types/gatewayProfile';
@@ -157,6 +160,8 @@ interface GatewayContextValue {
   clearApprovalEditSeed: () => void;
   pendingChatRelayText: string | null;
   clearChatRelayText: () => void;
+  runProgress: RunProgressState | null;
+  setRunProgress: React.Dispatch<React.SetStateAction<RunProgressState | null>>;
 }
 
 const GatewayContext = createContext<GatewayContextValue | null>(null);
@@ -165,6 +170,7 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
   const [settings, setSettings] = useState<GatewaySettings>(DEFAULT_GATEWAY_SETTINGS);
   const [apiKey, setApiKey] = useState('sk-hermes-api-server-key-2026-06-15');
   const [mobileToken, setMobileToken] = useState('');
+  const [runProgress, setRunProgress] = useState<RunProgressState | null>(null);
   const [isLoaded, setIsLoaded] = useState(false);
   const [health, setHealth] = useState<GatewayHealthSnapshot | null>(null);
   const [connectionState, setConnectionState] =
@@ -454,10 +460,11 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
       socketRef.current = null;
     }
     stopRelayPolling();
+    setRunProgress(null);
     if (!settingsRef.current.demoMode && !mobileTokenRef.current) {
       setConnectionState('disconnected');
     }
-  }, [stopRelayPolling]);
+  }, [stopRelayPolling, setRunProgress]);
 
   const handleGatewayMessage = useCallback((raw: string) => {
     const event = parseGatewayEvent(raw);
@@ -507,7 +514,37 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
     if (event.event === 'TRANSCRIPT.UPDATED') {
       setTranscriptSyncNonce((n) => n + 1);
     }
-  }, []);
+
+    const eventName = String(event.event ?? '').toLowerCase();
+    const payload = event.payload ?? {};
+
+    if (
+      eventName === 'run.completed' ||
+      eventName === 'done' ||
+      eventName === 'run.failed' ||
+      eventName === 'error'
+    ) {
+      setRunProgress(null);
+    } else if (
+      eventName === 'run.status' ||
+      eventName === 'run.progress' ||
+      eventName === 'status.update' ||
+      eventName === 'provider.waiting' ||
+      eventName === 'assistant.delta' ||
+      eventName === 'approval.request' ||
+      eventName.startsWith('tool.')
+    ) {
+      const streamEvt: ChatStreamEvent = {
+        event: event.event,
+        data: payload,
+      };
+      setRunProgress((prev) => {
+        const dummyState = { runProgress: prev, toolCalls: [] };
+        const nextState = applyStreamEvent(dummyState, streamEvt);
+        return nextState.runProgress;
+      });
+    }
+  }, [setRunProgress]);
 
   const autoDiscoverGateway = useCallback(async (): Promise<string> => {
     const lastLanIp = await storage.loadLastGatewayLanIp();
@@ -1304,6 +1341,8 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
       clearApprovalEditSeed,
       pendingChatRelayText,
       clearChatRelayText,
+      runProgress,
+      setRunProgress,
     }),
     [
       settings,
@@ -1351,6 +1390,8 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
       clearApprovalEditSeed,
       pendingChatRelayText,
       clearChatRelayText,
+      runProgress,
+      setRunProgress,
     ],
   );
 

@@ -3,8 +3,8 @@ import { fireEvent, act, waitFor } from '@testing-library/react-native';
 import ChatScreen from '../screens/ChatScreen';
 import { renderInTabNavigator } from '../testUtils/navigation';
 
-jest.mock('../context/GatewayContext', () => ({
-  useGateway: () => ({
+jest.mock('../context/GatewayContext', () => {
+  const actualMock = {
     connectionState: 'demo',
     apiKey: 'test-api-key',
     effectiveGatewayUrl: 'http://localhost:8642',
@@ -36,6 +36,8 @@ jest.mock('../context/GatewayContext', () => ({
     sendGateAction: jest.fn(),
     pendingApprovalEditSeed: null,
     clearApprovalEditSeed: jest.fn(),
+    runProgress: null,
+    setRunProgress: jest.fn(),
     settings: {
       demoMode: true,
       connectionMode: 'gateway',
@@ -43,8 +45,11 @@ jest.mock('../context/GatewayContext', () => ({
       cloudUrl: 'https://hermes-mobile-cloud.fly.dev',
       approvalPolicy: 'balanced',
     },
-  }),
-}));
+  };
+  return {
+    useGateway: () => actualMock,
+  };
+});
 
 jest.mock('../services/secureCredentials', () => ({
   secureCredentials: {

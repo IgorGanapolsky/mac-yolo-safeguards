@@ -123,6 +123,8 @@ export default function ChatScreen() {
     pendingChatRelayText,
     clearChatRelayText,
     transcriptSyncNonce,
+    runProgress,
+    setRunProgress,
   } = useGateway();
   const gatewayUrl = effectiveGatewayUrl || settings.gatewayUrl;
   const keyboardInset = useKeyboardInset();
@@ -663,7 +665,7 @@ export default function ChatScreen() {
           const history = await listMessages(gatewayUrl, currentSession.id, apiKey);
           const isTelegram = isTelegramSession(currentSession);
           const displayMessages = isTelegram
-            ? prepareMessagesForDisplay(history, { includeToolActivity: false })
+            ? prepareMessagesForDisplay(history, { includeToolActivity: settings.includeToolActivity })
             : history;
           const merged = options?.background
             ? mergeServerMessagesWithPending(displayMessages, messagesRef.current)
@@ -680,13 +682,14 @@ export default function ChatScreen() {
         setIsRefreshingMessages(false);
       }
     },
-    [currentSession, isDemo, gatewayUrl, apiKey, sessions],
+    [currentSession, isDemo, gatewayUrl, apiKey, sessions, settings.includeToolActivity],
   );
 
   useEffect(() => {
     setUndoSecondsLeft(0);
+    setRunProgress(null);
     refreshSessionMessages();
-  }, [refreshSessionMessages]);
+  }, [refreshSessionMessages, setRunProgress]);
 
   useFocusEffect(
     useCallback(() => {
@@ -1090,6 +1093,30 @@ export default function ChatScreen() {
           userText,
           apiKey,
           (evt) => {
+            const eventName = String(evt.event ?? '').toLowerCase();
+            if (
+              eventName === 'run.completed' ||
+              eventName === 'done' ||
+              eventName === 'run.failed' ||
+              eventName === 'error'
+            ) {
+              setRunProgress(null);
+            } else if (
+              eventName === 'run.status' ||
+              eventName === 'run.progress' ||
+              eventName === 'status.update' ||
+              evt.event === 'provider.waiting' ||
+              evt.event === 'assistant.delta' ||
+              evt.event === 'approval.request' ||
+              eventName.startsWith('tool.')
+            ) {
+              setRunProgress((prev) => {
+                const dummyState = { runProgress: prev, toolCalls: [] };
+                const nextState = applyStreamEvent(dummyState, evt);
+                return nextState.runProgress;
+              });
+            }
+
             if (evt.event === 'assistant.delta' && typeof evt.data.delta === 'string') {
               assistantText += evt.data.delta;
               updateAssistant(assistantText);
@@ -1151,6 +1178,7 @@ export default function ChatScreen() {
       applyChatApiError(err, 'Message could not reach your Mac. Check the connection steps above.');
     } finally {
       setIsSending(false);
+      setRunProgress(null);
       drainOutboundQueue();
     }
   };
@@ -1374,6 +1402,10 @@ export default function ChatScreen() {
             }
           />
           </>
+        )}
+
+        {runProgress && (
+          <RunProgressBanner progress={runProgress} />
         )}
 
         {toolStatus ? (
