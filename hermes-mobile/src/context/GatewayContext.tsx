@@ -50,6 +50,7 @@ import {
   type HermesAgentToolResult,
 } from '../services/hermesAgentTools';
 import { captureThumbgateFeedback } from '../services/thumbgateClient';
+import { stopRun } from '../services/hermesGatewayClient';
 import {
   setProductAnalyticsOptOut,
   trackProductEvent,
@@ -90,7 +91,6 @@ import { isGatewaySmokeTestMessage } from '../utils/gatewaySmokeMessages';
 import type { ApprovalChoice } from '../types/approval';
 import { resolveApprovalChoice } from '../services/approvalResolver';
 import { fromPendingApproval } from '../utils/approvalNormalize';
-import { stopRun } from '../services/hermesGatewayClient';
 import {
   dismissApprovalNotifications,
   initApprovalNotifications,
@@ -100,8 +100,8 @@ import {
   scheduleRunCompletedNotification,
   scheduleRunProgressNotification,
   scheduleRunStallNotification,
-  clearRunProgressNotification,
   cancelRunStallNotification,
+  clearRunProgressNotification,
   syncHermesNotificationBadge,
   addApprovalNotificationResponseListener,
 } from '../services/approvalNotifications';
@@ -269,15 +269,13 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
                 parsed.runId,
                 apiKeyRef.current,
               );
+              await dismissApprovalNotifications();
             } catch (error) {
               setLastEventError(
-                error instanceof Error ? error.message : 'Could not stop run from notification',
+                error instanceof Error ? error.message : 'Failed to stop run from notification',
               );
             }
           }
-          setRunProgress(null);
-          await clearRunProgressNotification();
-          await cancelRunStallNotification();
           return;
         }
         if (parsed.kind !== 'approval' || !submitApprovalChoiceRef.current) {
@@ -601,10 +599,20 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
         event: event.event,
         data: payload,
       };
+      const eventRunId = typeof payload.runId === 'string'
+        ? payload.runId
+        : typeof payload.run_id === 'string'
+          ? payload.run_id
+          : undefined;
+
       setRunProgress((prev) => {
         const dummyState = { runProgress: prev, toolCalls: [] };
         const nextState = applyStreamEvent(dummyState, streamEvt);
-        return nextState.runProgress;
+        const nextProgress = nextState.runProgress;
+        if (nextProgress) {
+          return { ...nextProgress, runId: eventRunId ?? prev?.runId };
+        }
+        return null;
       });
     }
   }, [setRunProgress]);
@@ -620,11 +628,34 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
     }
     if (AppState.currentState !== 'active') {
       scheduleRunProgressNotification(runProgress).catch(() => {});
-      scheduleRunStallNotification().catch(() => {});
+      scheduleRunStallNotification(runProgress.runId).catch(() => {});
     } else {
       cancelRunStallNotification().catch(() => {});
     }
   }, [runProgress, settings.notificationsEnabled]);
+
+  useEffect(() => {
+    if (!settings.notificationsEnabled || Platform.OS === 'web') {
+      return;
+    }
+
+    const handleAppStateChange = (nextAppState: string) => {
+      if (nextAppState === 'background' || nextAppState === 'inactive') {
+        const progress = runProgressRef.current;
+        if (progress) {
+          scheduleRunProgressNotification(progress, { force: true }).catch(() => {});
+          scheduleRunStallNotification(progress.runId).catch(() => {});
+        }
+      } else if (nextAppState === 'active') {
+        cancelRunStallNotification().catch(() => {});
+      }
+    };
+
+    const sub = AppState.addEventListener('change', handleAppStateChange);
+    return () => {
+      sub.remove();
+    };
+  }, [settings.notificationsEnabled]);
 
   const autoDiscoverGateway = useCallback(async (): Promise<string> => {
     const lastLanIp = await storage.loadLastGatewayLanIp();

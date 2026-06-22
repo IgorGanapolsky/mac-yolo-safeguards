@@ -16,4 +16,5 @@ export interface RunProgressState {
   phase: string;
   startedAtMs: number;
   detail?: string;
+  runId?: string;
 }

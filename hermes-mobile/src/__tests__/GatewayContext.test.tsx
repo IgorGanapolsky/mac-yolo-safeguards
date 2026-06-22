@@ -43,6 +43,9 @@ jest.mock('../services/gatewayProfiles', () => ({
   dedupeGatewayProfiles: jest.fn((state) => state),
 }));
 jest.mock('../services/mobileRelayClient');
+jest.mock('../services/hermesGatewayClient', () => ({
+  stopRun: jest.fn().mockResolvedValue(undefined),
+}));
 jest.mock('../services/discover', () => ({
   getPackagerHostIp: jest.fn(() => null),
 }));
@@ -236,5 +239,110 @@ describe('GatewayProvider', () => {
     expect(sentData.event).toBe('GATE.ACTION');
     expect(sentData.payload.actionId).toBe('smoke_1');
     expect(sentData.payload.decision).toBe('approve');
+  });
+
+  it('handles stop_run action from notifications and calls stopRun API', async () => {
+    const approvalNotifications = jest.requireMock('../services/approvalNotifications');
+    const hermesGatewayClient = jest.requireMock('../services/hermesGatewayClient');
+
+    approvalNotifications.parseHermesNotificationResponse.mockReturnValue({
+      kind: 'stop_run',
+      runId: 'run_123',
+    });
+
+    render(
+      <GatewayProvider>
+        <Probe />
+      </GatewayProvider>,
+    );
+
+    await waitFor(() => {
+      expect(approvalNotifications.addApprovalNotificationResponseListener).toHaveBeenCalled();
+    });
+
+    const listenerCallback = approvalNotifications.addApprovalNotificationResponseListener.mock.calls[0][0];
+
+    await act(async () => {
+      await listenerCallback({ actionIdentifier: 'stop_run' });
+    });
+
+    expect(hermesGatewayClient.stopRun).toHaveBeenCalledWith(
+      expect.any(String),
+      'run_123',
+      expect.any(String),
+    );
+  });
+
+  it('schedules run stall notification when run progress starts and cancels it when run completes', async () => {
+    const approvalNotifications = jest.requireMock('../services/approvalNotifications');
+
+    (storage.loadGatewaySettings as jest.Mock).mockResolvedValue({
+      connectionMode: 'gateway',
+      cloudUrl: 'https://hermes-mobile-cloud.fly.dev',
+      gatewayUrl: 'http://127.0.0.1:8642',
+      usePortal: false,
+      redactPii: true,
+      notificationsEnabled: true,
+      demoMode: false,
+      glanceMode: false,
+      thumbgateCaptureOnDown: true,
+      thumbgateCaptureOnUp: false,
+      thumbgateApiUrl: 'https://thumbgate.example.com',
+    });
+
+    const { getByTestId } = render(
+      <GatewayProvider>
+        <Probe />
+      </GatewayProvider>,
+    );
+
+    await waitFor(() => {
+      expect(getByTestId('connection-state').props.children).toBe('connected');
+    });
+
+    const ws = MockWebSocket.instances[MockWebSocket.instances.length - 1];
+
+    const { AppState } = require('react-native');
+    const originalCurrentState = AppState.currentState;
+    Object.defineProperty(AppState, 'currentState', {
+      value: 'background',
+      configurable: true,
+    });
+
+    act(() => {
+      ws.onmessage?.({
+        data: JSON.stringify({
+          event: 'RUN.STATUS',
+          payload: {
+            runId: 'run_watchdog_1',
+            status: 'working',
+          },
+        }),
+      });
+    });
+
+    await waitFor(() => {
+      expect(approvalNotifications.scheduleRunStallNotification).toHaveBeenCalledWith('run_watchdog_1');
+    });
+
+    act(() => {
+      ws.onmessage?.({
+        data: JSON.stringify({
+          event: 'RUN.COMPLETED',
+          payload: {
+            runId: 'run_watchdog_1',
+          },
+        }),
+      });
+    });
+
+    await waitFor(() => {
+      expect(approvalNotifications.cancelRunStallNotification).toHaveBeenCalled();
+    });
+
+    Object.defineProperty(AppState, 'currentState', {
+      value: originalCurrentState,
+      configurable: true,
+    });
   });
 });
