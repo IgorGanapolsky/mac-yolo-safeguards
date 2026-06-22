@@ -269,13 +269,16 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
                 parsed.runId,
                 apiKeyRef.current,
               );
-              await dismissApprovalNotifications();
             } catch (error) {
               setLastEventError(
                 error instanceof Error ? error.message : 'Failed to stop run from notification',
               );
             }
           }
+          setRunProgress(null);
+          await clearRunProgressNotification();
+          await cancelRunStallNotification();
+          await dismissApprovalNotifications();
           return;
         }
         if (parsed.kind !== 'approval' || !submitApprovalChoiceRef.current) {
@@ -586,6 +589,7 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
       }
       setRunProgress(null);
       clearRunProgressNotification().catch(() => {});
+      cancelRunStallNotification().catch(() => {});
     } else if (
       eventName === 'run.status' ||
       eventName === 'run.progress' ||

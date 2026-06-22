@@ -13,6 +13,7 @@ import {
   ScrollView,
   RefreshControl,
   SectionList,
+  AppState,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
@@ -126,6 +127,7 @@ export default function ChatScreen() {
     transcriptSyncNonce,
     runProgress,
     setRunProgress,
+    connectEvents,
   } = useGateway();
   const gatewayUrl = effectiveGatewayUrl || settings.gatewayUrl;
   const keyboardInset = useKeyboardInset();
@@ -693,26 +695,52 @@ export default function ChatScreen() {
       if (!currentSession || isDemo || isLoadingMessages || !macChatLive) {
         return;
       }
+      if (connectionState !== 'connected' && connectionState !== 'demo') {
+        connectEvents();
+      }
       refreshSessionMessages({ background: true });
-    }, [currentSession, isDemo, isLoadingMessages, macChatLive, refreshSessionMessages]),
+    }, [
+      currentSession,
+      isDemo,
+      isLoadingMessages,
+      macChatLive,
+      connectionState,
+      connectEvents,
+      refreshSessionMessages,
+    ]),
   );
 
   useEffect(() => {
-    if (!currentSession || isDemo || connectionState !== 'connected') {
+    if (!currentSession || isDemo || !macChatLive) {
       return;
     }
     refreshSessionMessages({ background: true });
-  }, [transcriptSyncNonce, currentSession, isDemo, connectionState, refreshSessionMessages]);
+  }, [transcriptSyncNonce, currentSession, isDemo, macChatLive, refreshSessionMessages]);
+
+  const telegramLiveSync = connectionState === 'connected';
+  const TELEGRAM_POLL_MS = telegramLiveSync ? 12_000 : 8_000;
 
   useEffect(() => {
-    if (!currentSession || isDemo || connectionState !== 'connected' || !isTelegramView) {
+    if (!currentSession || isDemo || !macChatLive || !isTelegramView) {
       return;
     }
     const timer = setInterval(() => {
       refreshSessionMessages({ background: true });
-    }, 20_000);
+    }, TELEGRAM_POLL_MS);
     return () => clearInterval(timer);
-  }, [currentSession, isDemo, connectionState, isTelegramView, refreshSessionMessages]);
+  }, [currentSession, isDemo, macChatLive, isTelegramView, TELEGRAM_POLL_MS, refreshSessionMessages]);
+
+  useEffect(() => {
+    if (!currentSession || isDemo || !macChatLive || !isTelegramView) {
+      return;
+    }
+    const sub = AppState.addEventListener('change', (nextState) => {
+      if (nextState === 'active') {
+        refreshSessionMessages({ background: true });
+      }
+    });
+    return () => sub.remove();
+  }, [currentSession, isDemo, macChatLive, isTelegramView, refreshSessionMessages]);
 
   useEffect(() => {
     if (!currentSession || isDemo || !macChatLive) {
@@ -726,6 +754,14 @@ export default function ChatScreen() {
     }, 4_000);
     return () => clearInterval(timer);
   }, [currentSession, isDemo, macChatLive, isSending, runProgress, refreshSessionMessages]);
+
+  const telegramThreadSyncHint = useMemo(() => {
+    const age = syncAgeLabel || '…';
+    if (telegramLiveSync) {
+      return `Telegram thread · synced ${age} · live`;
+    }
+    return `Telegram thread · synced ${age} via HTTP · messages from Telegram refresh every 8s`;
+  }, [syncAgeLabel, telegramLiveSync]);
 
   const switchToTelegramReplyThread = useCallback(() => {
     if (!telegramReplySessionId) {
@@ -1381,9 +1417,7 @@ export default function ChatScreen() {
               </TouchableOpacity>
             ) : isTelegramSession(currentSession) ? (
               <View style={styles.syncHintRow} testID="telegram-thread-sync-hint">
-                <Text style={styles.syncHintText}>
-                  Telegram thread · synced {syncAgeLabel || '…'} · pull to refresh
-                </Text>
+                <Text style={styles.syncHintText}>{telegramThreadSyncHint}</Text>
               </View>
             ) : null}
             <FlatList
