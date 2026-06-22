@@ -18,19 +18,20 @@ function messageBody(message: HermesMessage): string {
 }
 
 function messageFingerprint(message: HermesMessage): string {
-  return `${message.role}\u0000${messageBody(message)}`;
+  const role = message.role?.toLowerCase() ?? '';
+  return `${role}\u0000${messageBody(message)}`;
 }
 
 function isStreamingPlaceholder(message: HermesMessage): boolean {
   return (
-    message.role === 'assistant' &&
+    message.role?.toLowerCase() === 'assistant' &&
     idHasPrefix(message.id, 'asst-') &&
     !message.content?.trim()
   );
 }
 
 function isOptimisticUserMessage(message: HermesMessage): boolean {
-  return message.role === 'user' && idHasPrefix(message.id, 'user-');
+  return message.role?.toLowerCase() === 'user' && idHasPrefix(message.id, 'user-');
 }
 
 function serverHasUserMessage(serverMessages: HermesMessage[], body: string): boolean {
@@ -38,7 +39,7 @@ function serverHasUserMessage(serverMessages: HermesMessage[], body: string): bo
     return false;
   }
   return serverMessages.some(
-    (message) => message.role === 'user' && messageBody(message) === body,
+    (message) => message.role?.toLowerCase() === 'user' && messageBody(message) === body,
   );
 }
 
@@ -75,7 +76,7 @@ export function mergeServerMessagesWithPending(
       pendingTail.push(message);
       continue;
     }
-    if (idHasPrefix(message.id, 'asst-') && message.role === 'assistant') {
+    if (idHasPrefix(message.id, 'asst-') && message.role?.toLowerCase() === 'assistant') {
       pendingTail.push(message);
       continue;
     }

@@ -29,7 +29,7 @@ import {
   sendChatMessage,
 } from '../services/hermesChatClient';
 import { humanizeChatError, isConnectivityMessage } from '../utils/chatErrors';
-import { streamSessionChat } from '../services/hermesGatewayClient';
+import { HermesGatewayApiError, streamSessionChat } from '../services/hermesGatewayClient';
 import type { HermesSession, HermesMessage } from '../types/chat';
 import type { ChatProject, ChatProjectState } from '../types/chatProject';
 import {
@@ -186,7 +186,6 @@ export default function ChatScreen() {
   const [queuedOutboundCount, setQueuedOutboundCount] = useState(0);
 
   messagesRef.current = messages;
-  isSendingRef.current = isSending;
 
   const scrollChatToLatest = useCallback((animated = false) => {
     const run = () => flatListRef.current?.scrollToEnd({ animated });
@@ -952,7 +951,7 @@ export default function ChatScreen() {
   async function sendUserText(userText: string, isProgrammatic = false) {
     if (!userText.trim()) return;
 
-    if (isSending) {
+    if (isSendingRef.current) {
       const trimmed = userText.trim();
       outboundQueueRef.current.push(trimmed);
       setQueuedOutboundCount(outboundQueueRef.current.length);
@@ -970,6 +969,9 @@ export default function ChatScreen() {
       }
       return;
     }
+
+    isSendingRef.current = true;
+    setIsSending(true);
 
     const typed = userText.trim();
     const typedUpper = typed.toUpperCase();
@@ -996,6 +998,8 @@ export default function ChatScreen() {
           if (approvalUiVisibleForPhrase(phrase)) {
             setErrorMessage('Tap Approve on the card below — typing approval phrases is not required.');
             haptics.warning();
+            isSendingRef.current = false;
+            setIsSending(false);
             return;
           }
         }
@@ -1009,6 +1013,8 @@ export default function ChatScreen() {
           if (approvalUiVisibleForPhrase(phrase)) {
             setErrorMessage('Tap Approve on the card below — typing approval phrases is not required.');
             haptics.warning();
+            isSendingRef.current = false;
+            setIsSending(false);
             return;
           }
         }
@@ -1043,6 +1049,7 @@ export default function ChatScreen() {
           }
         } catch (err) {
           applyChatApiError(err, 'Could not start chat on your Mac.');
+          isSendingRef.current = false;
           setIsSending(false);
           return;
         }
@@ -1070,6 +1077,7 @@ export default function ChatScreen() {
           created_at: new Date().toISOString(),
         };
         setMessages((prev) => [...prev, assistantMessage]);
+        isSendingRef.current = false;
         setIsSending(false);
         haptics.success();
         drainOutboundQueue();
@@ -1080,6 +1088,7 @@ export default function ChatScreen() {
     const targetSessionId = isTelegramInboxSession(activeSess) ? telegramReplySessionId : activeSess.id;
     if (isTelegramInboxSession(activeSess) && !targetSessionId) {
       setErrorMessage('No active Telegram session found to reply to.');
+      isSendingRef.current = false;
       setIsSending(false);
       return;
     }
@@ -1155,17 +1164,28 @@ export default function ChatScreen() {
           workspacePrompt,
         );
       } catch (streamErr) {
-        const response = await sendChatMessage(
-          gatewayUrl,
-          targetSessionId,
-          userText,
-          apiKey,
-          workspacePrompt,
-        );
-        assistantText = response.assistantText;
-        updateAssistant(assistantText);
-        if (streamErr instanceof Error && streamErr.message.includes('Streaming not supported')) {
-          setToolStatus('Sync fallback (no stream on device)');
+        const streamMessage =
+          streamErr instanceof Error ? streamErr.message : String(streamErr);
+        const streamStatus =
+          streamErr instanceof HermesGatewayApiError ? streamErr.status : 0;
+        const shouldFallback =
+          streamStatus >= 400 ||
+          streamMessage.includes('Network request failed') ||
+          streamMessage.includes('Failed to fetch');
+
+        if (shouldFallback) {
+          const response = await sendChatMessage(
+            gatewayUrl,
+            targetSessionId,
+            userText,
+            apiKey,
+            workspacePrompt,
+          );
+          assistantText = response.assistantText;
+          updateAssistant(assistantText);
+          setToolStatus('Sent without live stream (connection fallback)');
+        } else {
+          throw streamErr;
         }
       }
 
@@ -1186,6 +1206,7 @@ export default function ChatScreen() {
     } catch (err) {
       applyChatApiError(err, 'Message could not reach your Mac. Check the connection steps above.');
     } finally {
+      isSendingRef.current = false;
       setIsSending(false);
       setRunProgress(null);
       if (!isDemo && currentSession) {

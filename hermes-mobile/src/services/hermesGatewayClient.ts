@@ -226,6 +226,64 @@ export function parseSseChunk(buffer: string): { events: ChatStreamEvent[]; rema
   return { events, remainder };
 }
 
+function accumulateAssistantText(events: ChatStreamEvent[], prior = ''): string {
+  let assistantText = prior;
+  for (const evt of events) {
+    if (evt.event === 'assistant.delta' && typeof evt.data.delta === 'string') {
+      assistantText += evt.data.delta;
+    }
+    if (evt.event === 'assistant.completed' && typeof evt.data.content === 'string') {
+      assistantText = evt.data.content;
+    }
+  }
+  return assistantText;
+}
+
+function consumeSseBuffer(
+  buffer: string,
+  onEvent?: (event: ChatStreamEvent) => void,
+  assistantText = '',
+): { remainder: string; assistantText: string } {
+  const parsed = parseSseChunk(buffer);
+  for (const evt of parsed.events) {
+    onEvent?.(evt);
+  }
+  return {
+    remainder: parsed.remainder,
+    assistantText: accumulateAssistantText(parsed.events, assistantText),
+  };
+}
+
+async function readChatStreamFromResponse(
+  response: Response,
+  onEvent?: (event: ChatStreamEvent) => void,
+): Promise<string> {
+  const reader = response.body?.getReader?.();
+  if (reader) {
+    const decoder = new TextDecoder();
+    let buffer = '';
+    let assistantText = '';
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const consumed = consumeSseBuffer(buffer, onEvent, assistantText);
+      buffer = consumed.remainder;
+      assistantText = consumed.assistantText;
+    }
+    if (buffer.trim()) {
+      const consumed = consumeSseBuffer(buffer, onEvent, assistantText);
+      assistantText = consumed.assistantText;
+    }
+    return assistantText;
+  }
+
+  // React Native often lacks response.body.getReader — read full SSE payload once (single POST).
+  const text = await response.text();
+  const consumed = consumeSseBuffer(text, onEvent);
+  return consumed.assistantText;
+}
+
 export async function streamSessionChat(
   gatewayUrl: string,
   sessionId: string,
@@ -251,32 +309,5 @@ export async function streamSessionChat(
     throw new HermesGatewayApiError(response.status, text || `HTTP ${response.status}`);
   }
 
-  const reader = response.body?.getReader();
-  if (!reader) {
-    throw new HermesGatewayApiError(0, 'Streaming not supported on this device');
-  }
-
-  const decoder = new TextDecoder();
-  let buffer = '';
-  let assistantText = '';
-
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    buffer += decoder.decode(value, { stream: true });
-    const parsed = parseSseChunk(buffer);
-    buffer = parsed.remainder;
-    for (const evt of parsed.events) {
-      onEvent?.(evt);
-      if (evt.event === 'assistant.delta') {
-        const delta = evt.data.delta;
-        if (typeof delta === 'string') assistantText += delta;
-      }
-      if (evt.event === 'assistant.completed' && typeof evt.data.content === 'string') {
-        assistantText = evt.data.content;
-      }
-    }
-  }
-
-  return assistantText;
+  return readChatStreamFromResponse(response, onEvent);
 }

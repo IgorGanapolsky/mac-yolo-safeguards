@@ -209,24 +209,28 @@ export type ApprovalNotificationAction = {
 };
 
 export function parseApprovalNotificationResponse(
-  response: {
-    actionIdentifier: string;
-    notification: { request: { content: { data?: Record<string, unknown> } } };
-  },
+  response: unknown,
 ): ApprovalNotificationAction | null {
-  const actionId = response.notification.request.content.data?.actionId;
+  if (!response || typeof response !== 'object') {
+    return null;
+  }
+  const typed = response as {
+    actionIdentifier?: string;
+    notification?: { request?: { content?: { data?: Record<string, unknown> } } };
+  };
+  const actionId = typed.notification?.request?.content?.data?.actionId;
   if (typeof actionId !== 'string' || !actionId) {
     return null;
   }
   const runId =
-    typeof response.notification.request.content.data?.runId === 'string'
-      ? response.notification.request.content.data.runId
+    typeof typed.notification?.request?.content?.data?.runId === 'string'
+      ? typed.notification.request.content.data.runId
       : undefined;
 
-  if (response.actionIdentifier === 'approve_once') {
+  if (typed.actionIdentifier === 'approve_once') {
     return { actionId, runId, choice: 'once' };
   }
-  if (response.actionIdentifier === 'deny') {
+  if (typed.actionIdentifier === 'deny') {
     return { actionId, runId, choice: 'deny' };
   }
   return null;
