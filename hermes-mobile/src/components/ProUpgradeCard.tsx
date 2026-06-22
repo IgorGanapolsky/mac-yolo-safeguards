@@ -1,7 +1,6 @@
 import React from 'react';
 import { Linking, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import {
-  HERMES_HARDENING_SPRINT_URL,
   THUMBGATE_PRO_PRICE_LABEL,
   THUMBGATE_PRO_URL,
 } from '../constants/monetization';
@@ -27,13 +26,6 @@ export default function ProUpgradeCard() {
         testID="upgrade-thumbgate-pro"
       >
         <Text style={styles.primaryButtonText}>Upgrade on thumbgate.ai</Text>
-      </TouchableOpacity>
-      <TouchableOpacity
-        style={styles.secondaryButton}
-        onPress={() => openUrl(HERMES_HARDENING_SPRINT_URL, 'upgrade_tap_hardening_sprint')}
-        testID="upgrade-hardening-sprint"
-      >
-        <Text style={styles.secondaryButtonText}>Team hardening sprint ($1,500)</Text>
       </TouchableOpacity>
     </View>
   );
@@ -63,17 +55,5 @@ const styles = StyleSheet.create({
     color: colors.text,
     fontWeight: '800',
     fontSize: 14,
-  },
-  secondaryButton: {
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: colors.border,
-    paddingVertical: 10,
-    alignItems: 'center',
-  },
-  secondaryButtonText: {
-    color: colors.textSecondary,
-    fontWeight: '700',
-    fontSize: 13,
   },
 });
