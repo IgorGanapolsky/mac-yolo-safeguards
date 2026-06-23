@@ -615,13 +615,22 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
         : typeof payload.run_id === 'string'
           ? payload.run_id
           : undefined;
+      const eventSessionId = typeof payload.sessionId === 'string'
+        ? payload.sessionId
+        : typeof payload.session_id === 'string'
+          ? payload.session_id
+          : undefined;
 
       setRunProgress((prev) => {
         const dummyState = { runProgress: prev, toolCalls: [] };
         const nextState = applyStreamEvent(dummyState, streamEvt);
         const nextProgress = nextState.runProgress;
         if (nextProgress) {
-          return { ...nextProgress, runId: eventRunId ?? prev?.runId };
+          return {
+            ...nextProgress,
+            runId: eventRunId ?? prev?.runId,
+            sessionId: eventSessionId ?? prev?.sessionId,
+          };
         }
         return null;
       });

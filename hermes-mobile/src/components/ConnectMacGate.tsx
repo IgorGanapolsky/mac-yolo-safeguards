@@ -87,7 +87,7 @@ export default function ConnectMacGate() {
             keyboardShouldPersistTaps="handled"
           >
             <View style={styles.card}>
-              <Text style={styles.title}>Connect your computer</Text>
+              <Text style={styles.title}>Link your computer</Text>
               <Text style={styles.body}>
                 Hermes Mobile controls Hermes on your computer — chat, approvals, and ops from your phone.
                 We search your Wi‑Fi first; no typing addresses.

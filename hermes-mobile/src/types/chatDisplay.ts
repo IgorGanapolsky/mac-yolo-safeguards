@@ -17,4 +17,6 @@ export interface RunProgressState {
   startedAtMs: number;
   detail?: string;
   runId?: string;
+  sessionId?: string;
 }
+

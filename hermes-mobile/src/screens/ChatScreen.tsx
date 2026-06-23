@@ -1388,7 +1388,7 @@ export default function ChatScreen() {
   }, [pendingChatRelayText, clearChatRelayText, isSending]);
 
   const progressBanner = useMemo((): RunProgressState | null => {
-    if (runProgress) {
+    if (runProgress && (!runProgress.sessionId || runProgress.sessionId === currentSession?.id)) {
       return runProgress;
     }
     if (isSending) {
@@ -1401,7 +1401,7 @@ export default function ChatScreen() {
       };
     }
     return null;
-  }, [runProgress, isSending, queuedOutboundCount]);
+  }, [runProgress, currentSession, isSending, queuedOutboundCount]);
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
