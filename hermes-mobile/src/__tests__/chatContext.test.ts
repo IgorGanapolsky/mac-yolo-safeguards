@@ -20,6 +20,7 @@ describe('chatContext', () => {
       },
     ],
     sessionProjectMap: { 'sess-a': 'proj-1' },
+    sessionLabels: {},
     activeProjectId: null,
   };
 

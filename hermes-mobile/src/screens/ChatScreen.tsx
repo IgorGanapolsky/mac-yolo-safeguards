@@ -38,9 +38,12 @@ import { humanizeChatError, isConnectivityMessage } from '../utils/chatErrors';
 import { HermesGatewayApiError, streamSessionChat } from '../services/hermesGatewayClient';
 import type { HermesSession, HermesMessage } from '../types/chat';
 import type { ChatProject, ChatProjectState } from '../types/chatProject';
+import { EMPTY_CHAT_PROJECT_STATE } from '../types/chatProject';
 import {
   bindSessionToProject,
   chatProjects,
+  pinSessionLabel,
+  projectNameForSession,
   setActiveProject,
   setActiveSession,
 } from '../services/chatProjects';
@@ -48,6 +51,7 @@ import { buildWorkspaceSystemPrompt } from '../utils/workspacePrompt';
 import {
   formatSessionDate,
   sessionDisplayTitle,
+  sessionPickerLabel,
   sessionLastActiveValue,
 } from '../utils/sessionDisplay';
 import { formatMessageTimestamp, prepareMessagesForDisplay } from '../utils/chatMessageDisplay';
@@ -158,11 +162,7 @@ export default function ChatScreen() {
   const [projectModalVisible, setProjectModalVisible] = useState(false);
   const [newProjectPath, setNewProjectPath] = useState('');
   const [newProjectName, setNewProjectName] = useState('');
-  const [projectState, setProjectState] = useState<ChatProjectState>({
-    projects: [],
-    sessionProjectMap: {},
-    activeProjectId: null,
-  });
+  const [projectState, setProjectState] = useState<ChatProjectState>(EMPTY_CHAT_PROJECT_STATE);
   const [toolStatus, setToolStatus] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [pendingRunApproval, setPendingRunApproval] = useState<ChatRunApproval | null>(null);
@@ -268,6 +268,15 @@ export default function ChatScreen() {
   const contextProject = useMemo(
     () => resolveChatProject(projectState, currentSession?.id),
     [projectState, currentSession?.id],
+  );
+
+  const sessionLabelFor = useCallback(
+    (session: HermesSession) =>
+      sessionPickerLabel(session, {
+        sessionLabels: projectState.sessionLabels,
+        projectName: projectNameForSession(projectState, session.id),
+      }),
+    [projectState],
   );
 
   const machineLabel = useMemo(
@@ -864,7 +873,15 @@ export default function ChatScreen() {
       setCurrentSession(newSess);
       setMessages([]);
       if (activeProject) {
-        const next = bindSessionToProject(projectState, activeProject.id, newSess.id);
+        const next = bindSessionToProject(
+          projectState,
+          activeProject.id,
+          newSess.id,
+          sessionTitle,
+        );
+        await persistProjectState(next);
+      } else {
+        const next = pinSessionLabel(projectState, newSess.id, sessionTitle);
         await persistProjectState(next);
       }
       return;
@@ -882,7 +899,15 @@ export default function ChatScreen() {
       setCurrentSession(newSess);
       setMessages([]);
       if (activeProject) {
-        const next = bindSessionToProject(projectState, activeProject.id, newSess.id);
+        const next = bindSessionToProject(
+          projectState,
+          activeProject.id,
+          newSess.id,
+          sessionTitle,
+        );
+        await persistProjectState(next);
+      } else {
+        const next = pinSessionLabel(projectState, newSess.id, sessionTitle);
         await persistProjectState(next);
       }
     } catch (err) {
@@ -1127,7 +1152,15 @@ export default function ChatScreen() {
           setSessions([activeSess]);
           setCurrentSession(activeSess);
           if (activeProject) {
-            const next = bindSessionToProject(projectState, activeProject.id, activeSess.id);
+            const next = bindSessionToProject(
+              projectState,
+              activeProject.id,
+              activeSess.id,
+              title,
+            );
+            await persistProjectState(next);
+          } else {
+            const next = pinSessionLabel(projectState, activeSess.id, title);
             await persistProjectState(next);
           }
         } catch (err) {
@@ -1401,6 +1434,7 @@ export default function ChatScreen() {
           </TouchableOpacity>
         </ScrollView>
 
+        <Text style={styles.sessionSelectorLabel}>Chat session</Text>
         <TouchableOpacity
           style={styles.sessionSelector}
           onPress={openSessionsModal}
@@ -1408,7 +1442,7 @@ export default function ChatScreen() {
         >
           <Text style={styles.sessionSelectorText} numberOfLines={1}>
             {currentSession
-              ? sessionDisplayTitle(currentSession)
+              ? sessionLabelFor(currentSession)
               : activeProject
                 ? `New ${activeProject.name} chat…`
                 : 'Select or start a chat session...'}
@@ -1731,7 +1765,7 @@ export default function ChatScreen() {
                           style={[styles.sessionItemTitle, isActive && styles.sessionItemTitleActive]}
                           numberOfLines={2}
                         >
-                          {sessionDisplayTitle(item)}
+                          {sessionLabelFor(item)}
                         </Text>
                         {sourceLabel ? (
                           <Text style={styles.sessionSourcePill}>{sourceLabel}</Text>
@@ -1893,6 +1927,14 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
     marginBottom: 8,
     fontStyle: 'italic',
+  },
+  sessionSelectorLabel: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: colors.textMuted,
+    letterSpacing: 0.6,
+    marginBottom: 4,
+    textTransform: 'uppercase',
   },
   sessionSelector: {
     flexDirection: 'row',

@@ -23,12 +23,13 @@ describe('chatProjects', () => {
   it('binds sessions to a project lane', () => {
     const project = createProject('/tmp/foo');
     const state = bindSessionToProject(
-      { projects: [project], sessionProjectMap: {}, activeProjectId: null },
+      { projects: [project], sessionProjectMap: {}, sessionLabels: {}, activeProjectId: null },
       project.id,
       'sess_abc',
     );
     expect(state.projects[0].sessionIds).toEqual(['sess_abc']);
     expect(state.sessionProjectMap.sess_abc).toBe(project.id);
+    expect(state.sessionLabels.sess_abc).toBe('foo');
     expect(state.activeProjectId).toBe(project.id);
   });
 });

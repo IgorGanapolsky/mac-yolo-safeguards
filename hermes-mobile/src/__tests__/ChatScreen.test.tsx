@@ -96,12 +96,22 @@ jest.mock('../services/chatProjects', () => ({
         },
       ],
       sessionProjectMap: { 'demo-1': 'demo-hermes-mobile' },
+      sessionLabels: { 'demo-1': 'hermes-mobile' },
       activeProjectId: 'demo-hermes-mobile',
     }),
     save: jest.fn().mockResolvedValue(undefined),
     addProject: jest.fn(),
   },
   bindSessionToProject: jest.fn((state, projectId, sessionId) => state),
+  pinSessionLabel: jest.fn((state, sessionId, label) => ({
+    ...state,
+    sessionLabels: { ...state.sessionLabels, [sessionId]: label },
+  })),
+  projectNameForSession: jest.fn((state, sessionId) => {
+    const projectId = state.sessionProjectMap?.[sessionId];
+    if (!projectId) return null;
+    return state.projects?.find((p: { id: string }) => p.id === projectId)?.name ?? null;
+  }),
   setActiveProject: jest.fn((state, projectId) => ({ ...state, activeProjectId: projectId })),
   setActiveSession: jest.fn((state) => state),
 }));

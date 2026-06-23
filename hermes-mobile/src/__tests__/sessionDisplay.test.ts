@@ -5,6 +5,7 @@ import {
   formatSessionLastActive,
   parseGatewayTimestamp,
   sessionDisplayTitle,
+  sessionPickerLabel,
   sessionLastActiveValue,
 } from '../utils/sessionDisplay';
 
@@ -42,6 +43,54 @@ describe('sessionDisplay', () => {
         title: 'Fixing Conversion Leak via Telegram Stripe Outreach',
       }),
     ).toBe('Fixing Conversion Leak via Telegram Stripe Outreach');
+  });
+
+  it('sessionPickerLabel ignores drifting gateway title when project is bound', () => {
+    expect(
+      sessionPickerLabel(
+        {
+          id: 'sess_1',
+          title: 'Are you sure?',
+          preview: 'Are you sure?',
+        },
+        {
+          sessionLabels: {},
+          projectName: 'Resolving CUA Driver Installation',
+        },
+      ),
+    ).toBe('Resolving CUA Driver Installation');
+  });
+
+  it('sessionPickerLabel skips title when it mirrors preview', () => {
+    expect(
+      sessionPickerLabel({
+        id: '20260623_004900_abc',
+        title: 'Are you sure?',
+        preview: 'Are you sure?',
+      }),
+    ).toBe('Session 20260623 004900');
+  });
+
+  it('sessionPickerLabel keeps topic title when preview moved on', () => {
+    expect(
+      sessionPickerLabel({
+        id: 'sess_1',
+        title: 'Resolving CUA Driver Installation',
+        preview: 'Are you sure?',
+      }),
+    ).toBe('Resolving CUA Driver Installation');
+  });
+
+  it('sessionPickerLabel prefers pinned mobile label', () => {
+    expect(
+      sessionPickerLabel(
+        { id: 'sess_1', title: 'Are you sure?' },
+        {
+          sessionLabels: { sess_1: 'Pinned lane name' },
+          projectName: 'Project name',
+        },
+      ),
+    ).toBe('Pinned lane name');
   });
 
   it('falls back to started_at for last active', () => {

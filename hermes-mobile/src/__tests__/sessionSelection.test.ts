@@ -13,6 +13,7 @@ import {
 const emptyProjectState: ChatProjectState = {
   projects: [],
   sessionProjectMap: {},
+  sessionLabels: {},
   activeProjectId: null,
 };
 
@@ -192,8 +193,8 @@ describe('sessionSelection', () => {
     const cliSess: HermesSession = { id: 'c1', source: 'cli' };
     const noSrcSess: HermesSession = { id: 'n1' };
 
-    expect(sessionSourceLabel(inboxSess)).toBe('Telegram Inbox');
-    expect(sessionSourceLabel(tgSess)).toBe('Telegram');
+    expect(sessionSourceLabel(inboxSess)).toBe('Active Inbox');
+    expect(sessionSourceLabel(tgSess)).toBe('Active');
     expect(sessionSourceLabel(cliSess)).toBe('CLI');
     expect(sessionSourceLabel(noSrcSess)).toBeNull();
   });

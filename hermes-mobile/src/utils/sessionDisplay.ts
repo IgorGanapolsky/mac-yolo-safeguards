@@ -68,6 +68,43 @@ export function sessionLastActiveValue(session: HermesSession): unknown {
   return session.last_active_at ?? session.last_active ?? session.started_at;
 }
 
+export type SessionPickerLabelOptions = {
+  sessionLabels?: Record<string, string>;
+  projectName?: string | null;
+};
+
+/** Stable label for session picker — ignores gateway preview / drifting titles. */
+export function sessionPickerLabel(
+  session: HermesSession,
+  options?: SessionPickerLabelOptions,
+): string {
+  const pinned = options?.sessionLabels?.[session.id]?.trim();
+  if (pinned) {
+    return pinned;
+  }
+
+  const projectName = options?.projectName?.trim();
+  if (projectName) {
+    return projectName;
+  }
+
+  const title = session.title?.trim();
+  if (title && !isSmokeLikeLabel(title) && !isDriftingGatewayTitle(session, title)) {
+    return title;
+  }
+
+  if (isSmokeProbeSession(session)) {
+    return 'Gateway automation probe (not your chat)';
+  }
+
+  const parts = session.id.split('_');
+  if (parts.length >= 2) {
+    return `Session ${parts[0]} ${parts[1]}`;
+  }
+
+  return session.id;
+}
+
 export function sessionDisplayTitle(session: HermesSession): string {
   if (isSmokeProbeSession(session)) {
     return 'Gateway automation probe (not your chat)';
@@ -93,6 +130,21 @@ export function sessionDisplayTitle(session: HermesSession): string {
 
 function isSmokeLikeLabel(text: string): boolean {
   return /^reply\s+with\s+exactly/i.test(text) || /runtime-ok$/i.test(text);
+}
+
+/** Gateway often sets title === latest message preview; don't use that in the picker. */
+function isDriftingGatewayTitle(session: HermesSession, title: string): boolean {
+  const preview = session.preview?.trim();
+  if (!preview) {
+    return false;
+  }
+  if (preview === title) {
+    return true;
+  }
+  if (preview.startsWith(title)) {
+    return true;
+  }
+  return false;
 }
 
 /** Gateway may return cron schedule as string or { kind, expr, display }. */
