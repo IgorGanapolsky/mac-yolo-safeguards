@@ -182,4 +182,16 @@ ${longBody}
     expect(label).toMatch(/2026/);
     expect(label).toMatch(/\d{1,2}:\d{2}/);
   });
+
+  it('includes Hermes live status lines for Telegram parity when requested', () => {
+    const status = '⏳ Working — 1 min — waiting for stream response (90s, no chunks yet).';
+    const visible = prepareMessagesForDisplay(
+      [
+        { role: 'system', content: status },
+        { role: 'user', content: 'Continue' },
+      ],
+      { includeHermesStatus: true },
+    );
+    expect(visible.map((m) => m.content)).toEqual([status, 'Continue']);
+  });
 });

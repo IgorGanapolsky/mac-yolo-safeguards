@@ -676,10 +676,14 @@ export default function ChatScreen() {
         setErrorMessage(null);
         if (isTelegramInboxSession(currentSession)) {
           const { messages: tgMessages, replySessionId, threadCount, messageCap } =
-            await fetchTelegramInboxMessages(gatewayUrl, sessions, apiKey);
-          const merged = options?.background
-            ? mergeServerMessagesWithPending(tgMessages, messagesRef.current)
-            : tgMessages;
+            await fetchTelegramInboxMessages(gatewayUrl, sessions, apiKey, undefined, undefined, {
+              includeToolActivity: settings.includeToolActivity,
+              includeHermesStatus: true,
+            });
+          const merged =
+            isSendingRef.current
+              ? mergeServerMessagesWithPending(tgMessages, messagesRef.current)
+              : tgMessages;
           setMessages(merged);
           setTelegramReplySessionId(replySessionId);
           setTelegramInboxMeta({ threadCount, messageCap });
@@ -687,9 +691,12 @@ export default function ChatScreen() {
           const history = await listMessages(gatewayUrl, currentSession.id, apiKey);
           const isTelegram = isTelegramSession(currentSession);
           const displayMessages = isTelegram
-            ? prepareMessagesForDisplay(history, { includeToolActivity: settings.includeToolActivity })
+            ? prepareMessagesForDisplay(history, {
+                includeToolActivity: settings.includeToolActivity,
+                includeHermesStatus: true,
+              })
             : history;
-          const merged = options?.background
+          const merged = isSendingRef.current
             ? mergeServerMessagesWithPending(displayMessages, messagesRef.current)
             : displayMessages;
           setMessages(merged);
@@ -754,7 +761,8 @@ export default function ChatScreen() {
     if (!shouldPoll) {
       return;
     }
-    const intervalMs = connectionState === 'connected' ? 12000 : 8000;
+    const intervalMs =
+      isTelegramView ? (connectionState === 'connected' ? 5000 : 4000) : connectionState === 'connected' ? 12000 : 8000;
     const timer = setInterval(() => {
       refreshSessionMessages({ background: true });
     }, intervalMs);
@@ -789,9 +797,9 @@ export default function ChatScreen() {
   const telegramThreadSyncHint = useMemo(() => {
     const age = syncAgeLabel || '…';
     if (telegramLiveSync) {
-      return `Telegram thread · synced ${age} · live`;
+      return `Telegram thread · synced ${age} · polls every 5s`;
     }
-    return `Telegram thread · synced ${age} via HTTP · messages from Telegram refresh every 8s`;
+    return `Telegram thread · synced ${age} · HTTP poll every 4s`;
   }, [syncAgeLabel, telegramLiveSync]);
 
   const syncBarLabel = useMemo(() => {

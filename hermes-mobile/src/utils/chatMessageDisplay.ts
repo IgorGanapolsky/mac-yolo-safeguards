@@ -1,4 +1,5 @@
 import type { HermesMessage } from '../types/chat';
+import { isMessageDisplayEmpty } from './chatMessageMerge';
 import { isGatewaySmokeTestMessage } from './gatewaySmokeMessages';
 import { parseGatewayTimestamp } from './sessionDisplay';
 
@@ -234,13 +235,27 @@ export function prepareMessageForChatDisplay(raw: string): {
   };
 }
 
+export function isHermesLiveStatusContent(content: string): boolean {
+  const text = content.trim();
+  return (
+    /^(⏳|⌛)\s*Working\s*—/i.test(text) ||
+    /waiting for stream response/i.test(text)
+  );
+}
+
 export function prepareMessagesForDisplay(
   messages: HermesMessage[],
-  options?: { includeToolActivity?: boolean },
+  options?: { includeToolActivity?: boolean; includeHermesStatus?: boolean },
 ): HermesMessage[] {
   const includeTools = options?.includeToolActivity ?? true;
+  const includeHermesStatus = options?.includeHermesStatus ?? false;
   return messages
     .filter((message) => {
+      const raw =
+        typeof message.content === 'string' ? message.content : String(message.content ?? '');
+      if (includeHermesStatus && isHermesLiveStatusContent(raw)) {
+        return true;
+      }
       const role = message.role?.toLowerCase() ?? '';
       if (includeTools && (role === 'tool' || role === 'function' || role === 'tool_result')) {
         return true;
@@ -258,5 +273,8 @@ export function prepareMessagesForDisplay(
         truncated: display.truncated,
       };
     })
-    .filter((message) => message.content.trim().length > 0 && !isGatewaySmokeTestMessage(message.content));
+    .filter(
+      (message) =>
+        !isMessageDisplayEmpty(message.content) && !isGatewaySmokeTestMessage(message.content),
+    );
 }

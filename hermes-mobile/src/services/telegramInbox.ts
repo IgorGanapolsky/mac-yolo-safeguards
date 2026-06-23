@@ -1,9 +1,10 @@
 import { coerceMessageId } from '../utils/messageIds';
+import { isMessageBodyEmpty } from '../utils/chatMessageMerge';
 import type { HermesMessage, HermesSession } from '../types/chat';
 import { isTelegramSession, sortSessionsByRecency } from '../utils/sessionSelection';
 import { parseGatewayTimestamp, sessionDisplayTitle } from '../utils/sessionDisplay';
 import {
-  isVisibleChatRole,
+  isHermesLiveStatusContent,
   prepareMessageForChatDisplay,
 } from '../utils/chatMessageDisplay';
 import { listMessages } from './hermesChatClient';
@@ -13,6 +14,8 @@ export type TelegramInboxFetchOptions = {
   maxMessages?: number;
   /** Telegram shows user/assistant text — hide tool steps unless Ops-style debug. */
   includeToolActivity?: boolean;
+  /** Show Hermes “Working — …” status lines from Telegram/gateway. */
+  includeHermesStatus?: boolean;
 };
 
 export type TelegramInboxFetchResult = {
@@ -48,7 +51,15 @@ function messageSortMs(message: HermesMessage, session: HermesSession, index: nu
   return (sessionMs ?? 0) + index;
 }
 
-function shouldIncludeTelegramMessage(role: string, includeToolActivity: boolean): boolean {
+function shouldIncludeTelegramMessage(
+  role: string,
+  content: string,
+  includeToolActivity: boolean,
+  includeHermesStatus: boolean,
+): boolean {
+  if (includeHermesStatus && isHermesLiveStatusContent(content)) {
+    return true;
+  }
   if (includeToolActivity) {
     return /^(user|assistant|tool|function|tool_result|system)$/.test(role);
   }
@@ -74,6 +85,7 @@ export async function fetchTelegramInboxMessages(
   const sessionCap = options?.maxSessions ?? maxSessions;
   const messageCap = options?.maxMessages ?? maxMessages;
   const includeToolActivity = options?.includeToolActivity ?? false;
+  const includeHermesStatus = options?.includeHermesStatus ?? false;
 
   const telegramSessions = sortSessionsByRecency(sessions.filter(isTelegramSession));
   if (telegramSessions.length === 0) {
@@ -99,14 +111,11 @@ export async function fetchTelegramInboxMessages(
   for (const { session, threadLabel, history } of fetchResults) {
     history.forEach((message, index) => {
       const role = message.role?.toLowerCase() ?? '';
-      if (!shouldIncludeTelegramMessage(role, includeToolActivity)) {
-        return;
-      }
-      if (!includeToolActivity && !isVisibleChatRole(message.role)) {
-        return;
-      }
       const raw =
         typeof message.content === 'string' ? message.content : String(message.content ?? '');
+      if (!shouldIncludeTelegramMessage(role, raw, includeToolActivity, includeHermesStatus)) {
+        return;
+      }
       const display = prepareMessageForChatDisplay(raw);
       merged.push({
         message: {
@@ -124,7 +133,10 @@ export async function fetchTelegramInboxMessages(
   }
 
   merged.sort((a, b) => a.sortMs - b.sortMs);
-  const messages = merged.slice(-messageCap).map((entry) => entry.message);
+  const messages = merged
+    .slice(-messageCap)
+    .map((entry) => entry.message)
+    .filter((message) => !isMessageBodyEmpty(message.content, message.rawContent));
   const resolvedReplySessionId = inferTelegramReplySessionId(messages, scannedThreads);
   return {
     messages,
