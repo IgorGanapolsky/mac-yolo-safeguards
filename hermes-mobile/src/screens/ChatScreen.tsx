@@ -50,7 +50,7 @@ import {
   sessionLastActiveValue,
 } from '../utils/sessionDisplay';
 import { formatMessageTimestamp, prepareMessagesForDisplay } from '../utils/chatMessageDisplay';
-import { mergeServerMessagesWithPending } from '../utils/chatMessageMerge';
+import { isMessageBodyEmpty, isMessageDisplayEmpty, mergeServerMessagesWithPending } from '../utils/chatMessageMerge';
 import { isInvertedChatNearLatest } from '../utils/chatScrollSync';
 import ChatContextStrip from '../components/ChatContextStrip';
 import ChatConnectionPanel from '../components/ChatConnectionPanel';
@@ -1199,14 +1199,28 @@ export default function ChatScreen() {
 
     try {
       const assistantId = `asst-${Date.now()}`;
-      setMessages((prev) => [
-        ...prev,
-        { id: assistantId, role: 'assistant', content: '', created_at: new Date().toISOString() },
-      ]);
+      let assistantBubbleAdded = false;
 
       const updateAssistant = (text: string) => {
+        const body = text.trim();
+        if (!body) {
+          return;
+        }
+        if (!assistantBubbleAdded) {
+          assistantBubbleAdded = true;
+          setMessages((prev) => [
+            ...prev,
+            {
+              id: assistantId,
+              role: 'assistant',
+              content: body,
+              created_at: new Date().toISOString(),
+            },
+          ]);
+          return;
+        }
         setMessages((prev) =>
-          prev.map((m) => (m.id === assistantId ? { ...m, content: text } : m)),
+          prev.map((m) => (m.id === assistantId ? { ...m, content: body } : m)),
         );
       };
 
@@ -1294,7 +1308,7 @@ export default function ChatScreen() {
       }
 
       if (!assistantText.trim()) {
-        updateAssistant('(empty response)');
+        updateAssistant('(Hermes did not return text yet — pull to sync when the run finishes.)');
       }
       setToolStatus(null);
       const typedNudge = parseApprovalNudgeFromContent(typed);
@@ -1555,7 +1569,7 @@ export default function ChatScreen() {
                   const timeLabel = formatMessageTimestamp(item.created_at ?? item.timestamp);
                   const originalIndex = messages.length - 1 - index;
                   const inlineNudge = inlineTextApprovals.get(originalIndex);
-                  if (!item.content?.trim() && !inlineNudge) {
+                  if (isMessageDisplayEmpty(item.content) && !inlineNudge) {
                     return null;
                   }
                   const threadLabel = isTelegramInboxSession(currentSession)

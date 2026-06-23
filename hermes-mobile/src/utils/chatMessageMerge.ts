@@ -12,6 +12,29 @@ export function normalizeMessageText(text: string): string {
     .toLowerCase();
 }
 
+/** Strip invisible Unicode that gateways sometimes emit as “empty” assistant bodies. */
+function stripInvisibleChars(text: string): string {
+  return text
+    .replace(/[\u200B-\u200D\uFEFF\u2060]/g, '')
+    .replace(/\u00ad/g, ''); // soft hyphen
+}
+
+export function isMessageDisplayEmpty(content: string | undefined): boolean {
+  return normalizeMessageText(stripInvisibleChars(content?.trim() || '')).length === 0;
+}
+
+/** True when a bubble has no visible text (empty stream placeholder, tool-only junk, zero-width). */
+export function isMessageBodyEmpty(
+  content: string | undefined,
+  rawContent?: string | undefined,
+): boolean {
+  if (!isMessageDisplayEmpty(content)) {
+    return false;
+  }
+  const raw = stripInvisibleChars(rawContent?.trim() || '');
+  return normalizeMessageText(raw).length === 0;
+}
+
 function messageBody(message: HermesMessage): string {
   const raw = message.rawContent?.trim() || message.content?.trim() || '';
   return normalizeMessageText(raw);
@@ -26,7 +49,7 @@ function isStreamingPlaceholder(message: HermesMessage): boolean {
   return (
     message.role?.toLowerCase() === 'assistant' &&
     idHasPrefix(message.id, 'asst-') &&
-    !message.content?.trim()
+    isMessageBodyEmpty(message.content, message.rawContent)
   );
 }
 

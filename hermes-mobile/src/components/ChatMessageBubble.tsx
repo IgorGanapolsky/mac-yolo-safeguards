@@ -69,12 +69,14 @@ export default function ChatMessageBubble({
             {threadLabel}
           </Text>
         ) : null}
-        <Text
-          style={[styles.bubbleText, isUser ? styles.bubbleUserText : styles.bubbleAssistantText]}
-          selectable={expanded}
-        >
-          {displayText}
-        </Text>
+        {displayText.trim().length > 0 ? (
+          <Text
+            style={[styles.bubbleText, isUser ? styles.bubbleUserText : styles.bubbleAssistantText]}
+            selectable={expanded}
+          >
+            {displayText}
+          </Text>
+        ) : null}
         {canExpand ? (
           <Text style={[styles.expandHint, isUser ? styles.expandHintUser : styles.expandHintAssistant]}>
             {expanded ? 'Show less' : 'Show more'}

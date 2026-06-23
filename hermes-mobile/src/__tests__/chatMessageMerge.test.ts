@@ -1,7 +1,22 @@
-import { dedupeChatMessages, mergeServerMessagesWithPending } from '../utils/chatMessageMerge';
+import { dedupeChatMessages, isMessageBodyEmpty, isMessageDisplayEmpty, mergeServerMessagesWithPending } from '../utils/chatMessageMerge';
 import type { HermesMessage } from '../types/chat';
 
 describe('mergeServerMessagesWithPending', () => {
+  it('treats zero-width-only content as empty', () => {
+    expect(isMessageDisplayEmpty('\u200b')).toBe(true);
+    expect(isMessageBodyEmpty('\u200b')).toBe(true);
+    expect(isMessageDisplayEmpty('hello')).toBe(false);
+  });
+
+  it('skips ghost bubbles when display text is empty but raw metadata remains', () => {
+    expect(
+      isMessageDisplayEmpty(''),
+    ).toBe(true);
+    expect(
+      isMessageBodyEmpty('', '{"tool":"web_search","results":[]}'),
+    ).toBe(false);
+  });
+
   it('keeps local user message when server transcript has not caught up', () => {
     const server: HermesMessage[] = [
       { role: 'user', content: 'older', created_at: '2026-06-21T12:00:00Z' },
