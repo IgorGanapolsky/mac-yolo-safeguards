@@ -27,19 +27,19 @@ export function formatLanScanStageLabel(progress: LanScanProgress): string {
   if (progress.stage === 'pair_server') {
     return `Scanning Wi‑Fi for Hermes (${pct}%)${foundHint}`;
   }
-  return `Checking Mac gateways (${pct}%)${foundHint}`;
+  return `Checking computer gateways (${pct}%)${foundHint}`;
 }
 
 export function formatLanScanResultLabel(foundCount: number): string {
   if (foundCount === 0) {
-    return 'No Macs found on Wi‑Fi';
+    return 'No computers found on Wi‑Fi';
   }
-  return `Found ${foundCount} Mac${foundCount === 1 ? '' : 's'} on Wi‑Fi`;
+  return `Found ${foundCount} computer${foundCount === 1 ? '' : 's'} on Wi‑Fi`;
 }
 
 export function formatLanScanResultDetail(result: LanScanResult): string {
   if (result.foundCount === 0) {
-    return 'Hermes must be running on your Mac, on the same Wi‑Fi as this phone.';
+    return 'Hermes must be running on your computer, on the same Wi‑Fi as this phone.';
   }
-  return 'Tap a Mac below to switch, or search again to refresh the list.';
+  return 'Tap a computer below to switch, or search again to refresh the list.';
 }

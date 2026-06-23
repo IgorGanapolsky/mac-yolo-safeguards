@@ -41,7 +41,7 @@ describe('lanScanLabels', () => {
         foundCount: 0,
       }),
     ).toContain('25%');
-    expect(formatLanScanResultLabel(0)).toBe('No Macs found on Wi‑Fi');
-    expect(formatLanScanResultLabel(2)).toBe('Found 2 Macs on Wi‑Fi');
+    expect(formatLanScanResultLabel(0)).toBe('No computers found on Wi‑Fi');
+    expect(formatLanScanResultLabel(2)).toBe('Found 2 computers on Wi‑Fi');
   });
 });
