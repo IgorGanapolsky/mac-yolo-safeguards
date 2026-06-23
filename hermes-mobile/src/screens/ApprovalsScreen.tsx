@@ -1,5 +1,5 @@
 import React from 'react';
-import { StyleSheet, ScrollView, TouchableOpacity, View, Text, RefreshControl, Alert } from 'react-native';
+import { StyleSheet, ScrollView, TouchableOpacity, View, Text, RefreshControl, Alert, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
@@ -7,6 +7,7 @@ import GateApprovalCard from '../components/GateApprovalCard';
 import GlassCard from '../components/GlassCard';
 import HealthPill from '../components/HealthPill';
 import ProUpgradeCard from '../components/ProUpgradeCard';
+import { isDemoModeAllowed } from '../utils/demoModePolicy';
 import { THUMBGATE_PRO_PRICE_LABEL } from '../constants/monetization';
 import { colors } from '../theme/colors';
 import { useGateway } from '../context/GatewayContext';
@@ -50,6 +51,7 @@ export default function ApprovalsScreen() {
   } = useGateway();
 
   const leashUnlocked = isThumbgateLeashUnlocked(settings);
+  const showTesterUnlock = __DEV__ || isDemoModeAllowed();
 
   const unlockThumbgateLeash = React.useCallback(async () => {
     await saveSettings({ ...settings, thumbgateProActive: true }, apiKey);
@@ -115,7 +117,7 @@ export default function ApprovalsScreen() {
             ? settings.safetyMode || settings.glanceMode
               ? 'ThumbGate safety — approve blocked agent tools'
               : 'Approve blocked agent tools from your phone'
-            : `Paid add-on (${THUMBGATE_PRO_PRICE_LABEL}) — unlock to approve risky commands on your phone`}
+            : `Paid add-on (${THUMBGATE_PRO_PRICE_LABEL}) via ${Platform.OS === 'ios' ? 'App Store' : 'Google Play'}`}
         </Text>
         {leashUnlocked ? (
           <>
@@ -168,7 +170,10 @@ export default function ApprovalsScreen() {
               here so you can approve or reject from your phone — with ThumbGate memory gates behind
               every decision.
             </Text>
-            <ProUpgradeCard onUnlock={unlockThumbgateLeash} />
+            <ProUpgradeCard
+              onUnlocked={unlockThumbgateLeash}
+              onTesterUnlock={showTesterUnlock ? unlockThumbgateLeash : undefined}
+            />
           </GlassCard>
         ) : pendingApprovals.length === 0 ? (
           <GlassCard style={styles.emptyCard}>

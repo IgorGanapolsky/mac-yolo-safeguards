@@ -41,7 +41,7 @@ Users can opt out in **Settings → Privacy → Product analytics**.
 
 Hermes Mobile is **free**. Revenue is via **ThumbGate Pro** ($19/mo) and hardening sprints — see Settings → Support development.
 
-In-app Play Billing is not wired yet; upgrade opens thumbgate.ai with UTM tracking.
+In-app purchase (Google Play / App Store) is scaffolded but not live yet; do not use thumbgate.ai as checkout.
 
 ## 4. Google Play Production
 

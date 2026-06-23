@@ -22,6 +22,7 @@ import { isGlassesConnected, launchHermesOnGlasses } from '../native/hermesGlass
 import PairQrScannerModal from '../components/PairQrScannerModal';
 import MacPairingHelp from '../components/MacPairingHelp';
 import ProUpgradeCard from '../components/ProUpgradeCard';
+import { isDemoModeAllowed } from '../utils/demoModePolicy';
 import GatewayProfilePicker from '../components/GatewayProfilePicker';
 import { setProductAnalyticsOptOut } from '../services/productAnalytics';
 import LoadingButton from '../components/ui/LoadingButton';
@@ -303,7 +304,12 @@ export default function SettingsScreen() {
       <ScrollView ref={scrollRef} contentContainerStyle={styles.scrollContent}>
         <Text style={styles.sectionTitle}>💎 ThumbGate Leash (Pro)</Text>
         <GlassCard>
-          <ProUpgradeCard onUnlock={unlockThumbgateLeash} />
+          <ProUpgradeCard
+            onUnlocked={unlockThumbgateLeash}
+            onTesterUnlock={
+              __DEV__ || isDemoModeAllowed() ? unlockThumbgateLeash : undefined
+            }
+          />
         </GlassCard>
 
         <Text style={styles.sectionTitle}>📊 Privacy</Text>
