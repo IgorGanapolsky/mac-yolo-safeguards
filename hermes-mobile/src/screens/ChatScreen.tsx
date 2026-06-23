@@ -172,8 +172,6 @@ export default function ChatScreen() {
   const [telegramReplySessionId, setTelegramReplySessionId] = useState<string>('');
   const [isRefreshingMessages, setIsRefreshingMessages] = useState(false);
   const [telegramInboxMeta, setTelegramInboxMeta] = useState({ threadCount: 0, messageCap: 250 });
-  const [lastSyncedAt, setLastSyncedAt] = useState<number | null>(null);
-  const [syncAgeTick, setSyncAgeTick] = useState(0);
 
   const applyChatApiError = useCallback(
     (error: unknown, fallback: string, options?: { background?: boolean }) => {
@@ -471,28 +469,6 @@ export default function ChatScreen() {
     return 'Type a message to Hermes';
   }, [currentSession, telegramReplySessionId, sessions, isSending, queuedOutboundCount]);
 
-  const syncAgeLabel = useMemo(() => {
-    if (!lastSyncedAt) {
-      return '';
-    }
-    const seconds = Math.max(0, Math.floor((Date.now() - lastSyncedAt) / 1000));
-    if (seconds < 8) {
-      return 'just now';
-    }
-    if (seconds < 60) {
-      return `${seconds}s ago`;
-    }
-    return `${Math.floor(seconds / 60)}m ago`;
-  }, [lastSyncedAt, isRefreshingMessages, syncAgeTick]);
-
-  useEffect(() => {
-    if (!lastSyncedAt) {
-      return;
-    }
-    const timer = setInterval(() => setSyncAgeTick((tick) => tick + 1), 10_000);
-    return () => clearInterval(timer);
-  }, [lastSyncedAt]);
-
   useEffect(() => {
     chatProjects.load().then((loaded) => {
       if (isDemo && loaded.projects.length === 0) {
@@ -745,7 +721,6 @@ export default function ChatScreen() {
           setTelegramReplySessionId('');
           setTelegramInboxMeta({ threadCount: 0, messageCap: 0 });
         }
-        setLastSyncedAt(Date.now());
       } catch (err) {
         applyChatApiError(err, 'Could not load messages from your computer.', options);
       } finally {
@@ -789,16 +764,14 @@ export default function ChatScreen() {
     refreshSessionMessages({ background: true });
   }, [transcriptSyncNonce, currentSession, isDemo, macChatLive, refreshSessionMessages]);
 
-  const telegramLiveSync = connectionState === 'connected';
-
-  // Fallback and background polling loop
+  // Background HTTP polling when WebSocket is down, or for gateway-backed threads (every 4–5s).
   useEffect(() => {
     if (!currentSession || isDemo || !macChatLive) {
       return;
     }
     // We poll if:
-    // 1. It is a Telegram session (always poll, 12s if live WS, 8s if HTTP-only)
-    // 2. The WebSocket is down (8s HTTP fallback polling for all sessions)
+    // 1. Gateway-backed thread view (4–5s)
+    // 2. WebSocket is down (8s HTTP fallback for all sessions)
     const shouldPoll = isTelegramView || connectionState !== 'connected';
     if (!shouldPoll) {
       return;
@@ -836,14 +809,6 @@ export default function ChatScreen() {
     return () => clearInterval(timer);
   }, [currentSession, isDemo, macChatLive, isSending, runProgress, refreshSessionMessages]);
 
-  const syncBarLabel = useMemo(() => {
-    const age = syncAgeLabel || '…';
-    if (isTelegramInboxSession(currentSession)) {
-      return `${telegramInboxMeta.threadCount} threads · synced ${age}`;
-    }
-    return `Synced ${age}`;
-  }, [currentSession, syncAgeLabel, telegramInboxMeta.threadCount]);
-
   const handleManualSync = useCallback(async () => {
     if (!currentSession || isDemo || !macChatLive || isRefreshingMessages) {
       return;
@@ -863,26 +828,6 @@ export default function ChatScreen() {
     refreshSessionMessages,
     scrollChatToLatest,
   ]);
-
-  const switchToTelegramReplyThread = useCallback(() => {
-    if (!telegramReplySessionId) {
-      return;
-    }
-    const match = sessions.find((s) => s.id === telegramReplySessionId);
-    if (!match) {
-      return;
-    }
-    haptics.selection();
-    setCurrentSession(match);
-  }, [telegramReplySessionId, sessions]);
-
-  const telegramReplyLabel = useMemo(() => {
-    if (!telegramReplySessionId) {
-      return '';
-    }
-    const session = sessions.find((s) => s.id === telegramReplySessionId);
-    return session ? sessionDisplayTitle(session) : telegramReplySessionId;
-  }, [telegramReplySessionId, sessions]);
 
   useEffect(() => {
     userNearBottomRef.current = true;
@@ -1342,7 +1287,7 @@ export default function ChatScreen() {
       }
 
       if (!assistantText.trim()) {
-        updateAssistant('(Hermes did not return text yet — pull to sync when the run finishes.)');
+        updateAssistant('(Hermes did not return text yet — still running on your computer.)');
       }
       setToolStatus(null);
       const typedNudge = parseApprovalNudgeFromContent(typed);
@@ -1593,39 +1538,6 @@ export default function ChatScreen() {
           style={[styles.composerDock, { paddingBottom: composerDockPadding }]}
           testID="chat-composer-dock"
         >
-        {currentSession && macChatLive ? (
-          <Pressable
-            style={styles.syncChip}
-            onPress={handleManualSync}
-            disabled={isRefreshingMessages}
-            testID="chat-sync-button"
-            accessibilityRole="button"
-            accessibilityLabel="Refresh chat from your computer"
-          >
-            {isRefreshingMessages ? (
-              <ActivityIndicator size="small" color={colors.accent} style={styles.syncChipSpinner} />
-            ) : (
-              <Text style={styles.syncChipIcon}>↻</Text>
-            )}
-            <Text style={styles.syncChipText} numberOfLines={1} testID="chat-sync-label">
-              {isRefreshingMessages ? 'Syncing with your computer…' : syncBarLabel}
-              {isTelegramInboxSession(currentSession) && telegramReplyLabel
-                ? ` · replies → ${telegramReplyLabel}`
-                : ''}
-              {!isRefreshingMessages ? ' · tap to refresh' : ''}
-            </Text>
-            {isTelegramInboxSession(currentSession) && telegramReplySessionId ? (
-              <Pressable
-                onPress={switchToTelegramReplyThread}
-                hitSlop={8}
-                testID="telegram-open-thread"
-                accessibilityLabel={`Open thread ${telegramReplyLabel}`}
-              >
-                <Text style={styles.syncChipChevron}>›</Text>
-              </Pressable>
-            ) : null}
-          </Pressable>
-        ) : null}
         {progressBanner && (
           <RunProgressBanner progress={progressBanner} />
         )}
@@ -1777,7 +1689,7 @@ export default function ChatScreen() {
             {activeProject ? (
               <Text style={styles.modalSubtitle} numberOfLines={3}>
                 {sessionPickerShowsAllMacSessions
-                  ? `No chats bound to ${activeProject.name} yet — showing all computer sessions (Telegram + mobile). Start one below or pick a thread.`
+                  ? `No chats bound to ${activeProject.name} yet — showing all computer sessions (active + mobile). Start one below or pick a thread.`
                   : `Sessions in this project use workspace: ${activeProject.workspacePath}`}
               </Text>
             ) : null}
@@ -1827,7 +1739,7 @@ export default function ChatScreen() {
                       </View>
                       {isTelegramInboxSession(item) ? (
                         <Text style={styles.sessionItemSubtitle}>
-                          Merged view — pick a single thread for 1:1 parity with Telegram
+                          Merged view — pick a single thread for 1:1 parity with your computer
                         </Text>
                       ) : null}
                       {lastActiveLabel ? (
@@ -2136,36 +2048,6 @@ const styles = StyleSheet.create({
   linkWarningText: {
     fontSize: 12,
     color: colors.warning,
-    fontWeight: '600',
-  },
-  syncChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 16,
-    paddingTop: 8,
-    paddingBottom: 4,
-  },
-  syncChipIcon: {
-    fontSize: 13,
-    color: colors.accent,
-    fontWeight: '800',
-    width: 16,
-    textAlign: 'center',
-  },
-  syncChipSpinner: {
-    width: 16,
-  },
-  syncChipChevron: {
-    fontSize: 14,
-    color: colors.textMuted,
-    fontWeight: '700',
-    paddingLeft: 4,
-  },
-  syncChipText: {
-    flex: 1,
-    fontSize: 11,
-    color: colors.textMuted,
     fontWeight: '600',
   },
   toolStatusRow: {
