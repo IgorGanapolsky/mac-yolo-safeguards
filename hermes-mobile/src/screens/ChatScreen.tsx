@@ -638,7 +638,7 @@ export default function ChatScreen() {
       // 4. Update the active session
       setCurrentSession(nextSession);
     } catch (err) {
-      applyChatApiError(err, 'Could not load your chats from the Mac.');
+      applyChatApiError(err, 'Could not load your chats from the computer.');
     } finally {
       if (loadGen === sessionsLoadGenRef.current) {
         setIsLoadingSessions(false);
@@ -741,7 +741,7 @@ export default function ChatScreen() {
         }
         setLastSyncedAt(Date.now());
       } catch (err) {
-        applyChatApiError(err, 'Could not load messages from your Mac.', options);
+        applyChatApiError(err, 'Could not load messages from your computer.', options);
       } finally {
         setIsLoadingMessages(false);
         setIsRefreshingMessages(false);
@@ -951,7 +951,7 @@ export default function ChatScreen() {
         await persistProjectState(next);
       }
     } catch (err) {
-      applyChatApiError(err, 'Could not start a new chat on your Mac.');
+      applyChatApiError(err, 'Could not start a new chat on your computer.');
     } finally {
       setIsLoadingSessions(false);
     }
@@ -1066,7 +1066,7 @@ export default function ChatScreen() {
         textApproval ?? (request.source === 'text_nudge' ? findTextApprovalForRequest(request) : undefined);
       await resolveHermesApproval(choice, request, resolvedText);
     } catch (err) {
-      applyChatApiError(err, 'Approval could not reach your Mac.');
+      applyChatApiError(err, 'Approval could not reach your computer.');
     } finally {
       setApprovalBusy(false);
     }
@@ -1196,7 +1196,7 @@ export default function ChatScreen() {
             await persistProjectState(next);
           }
         } catch (err) {
-          applyChatApiError(err, 'Could not start chat on your Mac.');
+          applyChatApiError(err, 'Could not start chat on your computer.');
           isSendingRef.current = false;
           setIsSending(false);
           return;
@@ -1366,7 +1366,7 @@ export default function ChatScreen() {
       }
       haptics.success();
     } catch (err) {
-      applyChatApiError(err, 'Message could not reach your Mac. Check the connection steps above.');
+      applyChatApiError(err, 'Message could not reach your computer. Check the connection steps above.');
     } finally {
       isSendingRef.current = false;
       setIsSending(false);
@@ -1397,7 +1397,7 @@ export default function ChatScreen() {
         startedAtMs: sendStartedAtRef.current,
         detail: queuedOutboundCount > 0
           ? `${queuedOutboundCount} more message(s) queued after this`
-          : 'Sending to your Mac…',
+          : 'Sending to your computer…',
       };
     }
     return null;
@@ -1423,12 +1423,12 @@ export default function ChatScreen() {
           }}
           macSwitchHint={
             gatewayProfiles.length > 1
-              ? 'Tap Mac to switch between profiles'
-              : 'Tap Mac to find your Mac or scan QR in Settings'
+              ? 'Tap here to switch between profiles'
+              : 'Tap here to find your computer or scan QR in Settings'
           }
           channelHint={
             !contextProject && isTelegramView
-              ? 'Telegram thread — workspace follows your Mac gateway'
+              ? 'Telegram thread — workspace follows your computer gateway'
               : undefined
           }
         />
@@ -1518,7 +1518,7 @@ export default function ChatScreen() {
             <Text style={styles.loadingText}>Fetching session history...</Text>
           </View>
         ) : (
-          <>
+          <View style={styles.chatListSection} testID="chat-list-section">
             {currentSession ? (
               <Pressable
                 style={styles.syncHintRow}
@@ -1559,6 +1559,7 @@ export default function ChatScreen() {
             ) : null}
             {messages.length === 0 ? (
               <ScrollView
+                style={styles.chatListFlex}
                 contentContainerStyle={styles.emptyContainer}
                 testID="chat-empty-state"
                 refreshControl={
@@ -1591,6 +1592,7 @@ export default function ChatScreen() {
                 ref={flatListRef}
                 data={[...messages].reverse()}
                 keyExtractor={(item, index) => item.id ?? `${item.role}-${index}`}
+                style={styles.flatList}
                 contentContainerStyle={styles.messageList}
                 nestedScrollEnabled={false}
                 onScroll={handleChatScroll}
@@ -1640,7 +1642,7 @@ export default function ChatScreen() {
                 }}
               />
             )}
-          </>
+          </View>
         )}
 
         {progressBanner && (
@@ -2023,6 +2025,13 @@ const styles = StyleSheet.create({
   keyboardContainer: {
     flex: 1,
   },
+  chatListSection: {
+    flex: 1,
+    minHeight: 0,
+  },
+  chatListFlex: {
+    flex: 1,
+  },
   loadingContainer: {
     flex: 1,
     alignItems: 'center',
@@ -2153,6 +2162,11 @@ const styles = StyleSheet.create({
     paddingTop: 4,
     paddingBottom: 6,
     gap: 4,
+    backgroundColor: colors.backgroundStart,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.borderLight,
+    zIndex: 2,
+    elevation: 2,
   },
   syncHintPressable: {
     flex: 1,
@@ -2404,5 +2418,8 @@ const styles = StyleSheet.create({
   statusDivider: {
     fontSize: 11,
     color: colors.borderLight,
+  },
+  flatList: {
+    flex: 1,
   },
 });
