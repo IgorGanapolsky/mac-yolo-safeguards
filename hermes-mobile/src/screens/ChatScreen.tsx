@@ -22,6 +22,7 @@ import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { useGateway } from '../context/GatewayContext';
 import { useKeyboardInset } from '../hooks/useKeyboardInset';
 import { composerBottomInset } from '../utils/composerKeyboard';
+import Constants from 'expo-constants';
 import { colors } from '../theme/colors';
 import { isDemoModeAllowed } from '../utils/demoModePolicy';
 import { haptics } from '../services/haptics';
@@ -140,7 +141,7 @@ export default function ChatScreen() {
     connectEvents,
   } = useGateway();
   const gatewayUrl = effectiveGatewayUrl || settings.gatewayUrl;
-  const keyboardInset = useKeyboardInset();
+  const { inset: keyboardInset, windowShrunk: keyboardWindowShrunk } = useKeyboardInset();
   const insets = useSafeAreaInsets();
   
   const [sessions, setSessions] = useState<HermesSession[]>([]);
@@ -277,7 +278,13 @@ export default function ChatScreen() {
   );
 
   /** Lift composer above software keyboard (tab bar hides when keyboard is open). */
-  const composerDockPadding = composerBottomInset(keyboardInset, insets.bottom);
+  const androidKeyboardMode = Constants.expoConfig?.android?.softwareKeyboardLayoutMode;
+  const composerDockPadding = composerBottomInset(
+    keyboardInset,
+    insets.bottom,
+    androidKeyboardMode,
+    keyboardWindowShrunk,
+  );
 
   const leashPhraseHints = useMemo((): LeashPhraseHint[] => {
     const hints: LeashPhraseHint[] = [];

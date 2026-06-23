@@ -64,7 +64,7 @@ function GlassmorphicTabBar({ state, descriptors, navigation }: BottomTabBarProp
   const { pendingApprovals } = useGateway();
   const pendingCount = pendingApprovals.length;
   const insets = useSafeAreaInsets();
-  const keyboardInset = useKeyboardInset();
+  const { inset: keyboardInset } = useKeyboardInset();
 
   if (keyboardInset > 0) {
     return null;
