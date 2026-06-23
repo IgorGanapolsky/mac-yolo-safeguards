@@ -1,4 +1,4 @@
-import { buildAuthHeaders, normalizeGatewayUrl } from './gatewayClient';
+import { buildAuthHeaders, normalizeGatewayUrl, fetchWithTimeout } from './gatewayClient';
 import { coerceMessageId } from '../utils/messageIds';
 import type {
   ChatTurnResponse,
@@ -83,9 +83,11 @@ export async function listSessions(
   apiKey?: string | null,
   limit = 50,
 ): Promise<HermesSession[]> {
-  const response = await fetch(`${base(gatewayUrl)}/api/sessions?limit=${limit}`, {
-    headers: headers(apiKey),
-  });
+  const response = await fetchWithTimeout(
+    `${base(gatewayUrl)}/api/sessions?limit=${limit}`,
+    { headers: headers(apiKey) },
+    15000,
+  );
   const body = await parseJson<SessionListResponse>(response);
   return body.data ?? [];
 }
@@ -100,7 +102,7 @@ export async function createSession(
   if (systemPrompt?.trim()) {
     body.system_prompt = systemPrompt.trim();
   }
-  const response = await fetch(`${base(gatewayUrl)}/api/sessions`, {
+  const response = await fetchWithTimeout(`${base(gatewayUrl)}/api/sessions`, {
     method: 'POST',
     headers: headers(apiKey),
     body: JSON.stringify(body),
@@ -114,9 +116,11 @@ export async function listMessages(
   sessionId: string,
   apiKey?: string | null,
 ): Promise<HermesMessage[]> {
-  const response = await fetch(`${base(gatewayUrl)}/api/sessions/${encodeURIComponent(sessionId)}/messages`, {
-    headers: headers(apiKey),
-  });
+  const response = await fetchWithTimeout(
+    `${base(gatewayUrl)}/api/sessions/${encodeURIComponent(sessionId)}/messages`,
+    { headers: headers(apiKey) },
+    15000,
+  );
   const body = await parseJson<MessageListResponse>(response);
   return (body.data ?? []).map((message, index) => {
     const rawText =
@@ -145,7 +149,7 @@ export async function sendChatMessage(
   if (systemMessage?.trim()) {
     body.system_message = systemMessage.trim();
   }
-  const response = await fetch(
+  const response = await fetchWithTimeout(
     `${base(gatewayUrl)}/api/sessions/${encodeURIComponent(sessionId)}/chat`,
     {
       method: 'POST',

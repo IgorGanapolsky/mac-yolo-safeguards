@@ -100,7 +100,12 @@ function projectSessions(
   const ids = new Set(
     projectState.projects.find((p) => p.id === projectId)?.sessionIds ?? [],
   );
-  return allSessions.filter((session) => ids.has(session.id));
+  return allSessions.filter(
+    (session) =>
+      ids.has(session.id) ||
+      isTelegramSession(session) ||
+      isTelegramInboxSession(session),
+  );
 }
 
 export default function ChatScreen() {
@@ -188,6 +193,7 @@ export default function ChatScreen() {
   const isSendingRef = useRef(false);
   const userNearBottomRef = useRef(true);
   const messagesRef = useRef<HermesMessage[]>([]);
+  const sessionsLoadGenRef = useRef(0);
   const sendStartedAtRef = useRef(Date.now());
   const outboundQueueRef = useRef<string[]>([]);
 
@@ -414,7 +420,20 @@ export default function ChatScreen() {
 
   const visibleSessions = useMemo(() => {
     if (!activeProject) return sessions;
-    return projectSessions(sessions, projectState, activeProject.id);
+    const filtered = projectSessions(sessions, projectState, activeProject.id);
+    if (filtered.length > 0) {
+      return filtered;
+    }
+    // Project has no bound chats yet — show full Mac session list (Telegram + mobile).
+    return sessions;
+  }, [sessions, projectState, activeProject]);
+
+  const sessionPickerShowsAllMacSessions = useMemo(() => {
+    if (!activeProject || sessions.length === 0) {
+      return false;
+    }
+    const filtered = projectSessions(sessions, projectState, activeProject.id);
+    return filtered.length === 0;
   }, [sessions, projectState, activeProject]);
 
   const sessionPickerSections = useMemo(
@@ -548,7 +567,11 @@ export default function ChatScreen() {
     setMessages([]);
   };
 
-  const loadSessionsList = async (selectLatest = false) => {
+  const loadSessionsList = async (
+    selectLatest = false,
+    options?: { silent?: boolean },
+  ) => {
+    const loadGen = ++sessionsLoadGenRef.current;
     if (isDemo) {
       const mockSessions: HermesSession[] = [
         { id: 'demo-1', title: 'safeguards setup inquiry', last_active_at: new Date().toISOString() },
@@ -562,11 +585,16 @@ export default function ChatScreen() {
     }
 
     if (!macChatLive) {
+      if (loadGen === sessionsLoadGenRef.current) {
+        setIsLoadingSessions(false);
+      }
       return;
     }
 
     try {
-      setIsLoadingSessions(true);
+      if (!options?.silent) {
+        setIsLoadingSessions(true);
+      }
       setErrorMessage(null);
       const list = await listSessions(gatewayUrl, apiKey);
       const hasTelegram = list.some(isTelegramSession);
@@ -612,13 +640,21 @@ export default function ChatScreen() {
     } catch (err) {
       applyChatApiError(err, 'Could not load your chats from the Mac.');
     } finally {
-      setIsLoadingSessions(false);
+      if (loadGen === sessionsLoadGenRef.current) {
+        setIsLoadingSessions(false);
+      }
     }
   };
 
+  const openSessionsModal = useCallback(() => {
+    haptics.selection();
+    setSessionModalVisible(true);
+    void loadSessionsList(false, { silent: sessions.length > 0 });
+  }, [sessions.length]);
+
   useEffect(() => {
     loadSessionsList(true);
-  }, [isDemo, gatewayUrl, apiKey, macChatLive, connectionState]);
+  }, [isDemo, gatewayUrl, apiKey, macChatLive]);
 
   const refreshSessionMessages = useCallback(
     async (options?: { background?: boolean }) => {
@@ -1432,10 +1468,7 @@ export default function ChatScreen() {
 
         <TouchableOpacity
           style={styles.sessionSelector}
-          onPress={() => {
-            haptics.selection();
-            setSessionModalVisible(true);
-          }}
+          onPress={openSessionsModal}
           testID="open-sessions-modal"
         >
           <Text style={styles.sessionSelectorText} numberOfLines={1}>
@@ -1758,8 +1791,10 @@ export default function ChatScreen() {
             </View>
 
             {activeProject ? (
-              <Text style={styles.modalSubtitle} numberOfLines={2}>
-                Sessions in this project use workspace: {activeProject.workspacePath}
+              <Text style={styles.modalSubtitle} numberOfLines={3}>
+                {sessionPickerShowsAllMacSessions
+                  ? `No chats bound to ${activeProject.name} yet — showing all Mac sessions (Telegram + mobile). Start one below or pick a thread.`
+                  : `Sessions in this project use workspace: ${activeProject.workspacePath}`}
               </Text>
             ) : null}
 
