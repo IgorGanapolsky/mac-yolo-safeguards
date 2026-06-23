@@ -267,21 +267,18 @@ print(json.dumps({
   "model_ollama_num_ctx": (cfg.get("model") or {}).get("ollama_num_ctx"),
   "fallback_providers": cfg.get("fallback_providers") or [],
 }))
-PY`, { timeout: 10000 }),
-    gatewayStatus: run('hermes', ['gateway', 'status']),
-    status: run('hermes', ['status']),
-    doctor: run('hermes', ['doctor']),
-    sessionsStats: run('hermes', ['sessions', 'stats']),
-    mcpList: run('hermes', ['mcp', 'list']),
-    launchctlPrint: sh(`launchctl print ${launchLabel}`),
-    gatewayProcesses: sh("ps -axo pid,command | awk '/[p]ython -m hermes_cli[.]main gateway run|[p]ython .*hermes_cli[.]main[.]py gateway run/ {print $1 \" \" substr($0, index($0,$2))}' || true"),
-    hermesProcesses: sh("ps aux | grep -i '[h]ermes' || true"),
-    telegramBridgeProcesses: sh("ps -axo pid,command | awk '/[p]ython.*[t]elegram-simple-bridge|[p]ython.*[t]elegram-healthcheck|[h]ermes-[t]elegram-simple-bridge/ {print $1 \" \" substr($0, index($0,$2))}' || true"),
+PY`, { timeout: 4000 }),
+    gatewayStatus: run('hermes', ['gateway', 'status'], { timeout: 4000 }),
+    status: run('hermes', ['status'], { timeout: 4000 }),
+    mcpList: run('hermes', ['mcp', 'list'], { timeout: 4000 }),
+    gatewayProcesses: sh("ps -axo pid,command | awk '/[p]ython -m hermes_cli[.]main gateway run|[p]ython .*hermes_cli[.]main[.]py gateway run/ {print $1 \" \" substr($0, index($0,$2))}' || true", { timeout: 3000 }),
+    hermesProcesses: sh("ps aux | grep -i '[h]ermes' || true", { timeout: 3000 }),
+    telegramBridgeProcesses: sh("ps -axo pid,command | awk '/[p]ython.*[t]elegram-simple-bridge|[p]ython.*[t]elegram-healthcheck|[h]ermes-[t]elegram-simple-bridge/ {print $1 \" \" substr($0, index($0,$2))}' || true", { timeout: 3000 }),
     hermesRuntimeCwd: sh(`python3 - <<'PY'
 import json, pathlib, yaml
 cfg = yaml.safe_load(pathlib.Path.home().joinpath('.hermes/config.yaml').read_text()) or {}
 print((cfg.get("terminal") or {}).get("cwd") or "")
-PY`, { timeout: 10000 }),
+PY`, { timeout: 4000 }),
     ollamaTags: sh(`python3 - <<'PY'
 import json, urllib.request
 try:
@@ -290,8 +287,8 @@ try:
     print(json.dumps({"reachable": True, "models": [m.get("name") for m in data.get("models", []) if m.get("name")]}))
 except Exception as exc:
     print(json.dumps({"reachable": False, "error": type(exc).__name__, "message": str(exc)[:160]}))
-PY`, { timeout: 8000 }),
-    ollamaPs: sh(`ollama ps 2>/dev/null || true`, { timeout: 8000 }),
+PY`, { timeout: 5000 }),
+    ollamaPs: sh(`ollama ps 2>/dev/null || true`, { timeout: 5000 }),
     telegramWebhookInfo: sh(`python3 - <<'PY'
 import json, urllib.parse, urllib.request
 from pathlib import Path
@@ -333,7 +330,7 @@ print(json.dumps({
     "last_error_message": info.get("last_error_message"),
     "allowed_updates": info.get("allowed_updates"),
 }))
-PY`, { timeout: 20000, noRedact: true }),
+PY`, { timeout: 8000, noRedact: true }),
   };
 
   const state = readJson(gatewayStatePath);
