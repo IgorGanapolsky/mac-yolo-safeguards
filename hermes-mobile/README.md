@@ -1,6 +1,6 @@
 # Hermes Mobile
 
-Expo/React Native operator client for **Hermes** on your Mac — Chat, Leash approvals, Ops, Settings.
+Expo/React Native operator client for **Hermes** on your computer (macOS, Windows, or Linux) — Chat, Leash approvals, Ops, Settings.
 
 Package: **`com.iganapolsky.hermesmobile`**
 

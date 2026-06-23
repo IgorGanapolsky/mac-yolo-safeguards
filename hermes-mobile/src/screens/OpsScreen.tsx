@@ -32,7 +32,7 @@ import { formatCronSchedule } from '../utils/sessionDisplay';
 import { formatToolsetLabel, toolsetStatusLine } from '../utils/opsToolsets';
 
 const DEMO_SKILLS: HermesSkill[] = [
-  { name: 'mac-freeze-rescue', description: 'Rescue frozen / sluggish Mac', category: 'ops' },
+  { name: 'mac-freeze-rescue', description: 'Rescue frozen / sluggish computer (macOS)', category: 'ops' },
   { name: 'verify-answerguard-fix', description: 'Full AnswerGuard verification contract', category: 'qa' },
 ];
 

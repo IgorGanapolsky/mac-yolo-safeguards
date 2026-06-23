@@ -62,7 +62,7 @@
       [
         "expo-camera",
         {
-          "cameraPermission": "Scan the Hermes pairing QR shown on your Mac."
+          "cameraPermission": "Scan the Hermes pairing QR shown on your computer."
         }
       ],
       [
