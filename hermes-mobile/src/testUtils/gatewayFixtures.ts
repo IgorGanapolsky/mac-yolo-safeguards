@@ -6,6 +6,7 @@ export const mockGatewaySettings: GatewaySettings = {
   gatewayUrl: 'http://192.168.12.208:8642',
   demoMode: false,
   connectionMode: 'gateway',
+  thumbgateProActive: true,
 };
 
 export const mockPendingApproval: PendingApproval = {
@@ -94,6 +95,10 @@ export function mockUseGateway(overrides: Record<string, unknown> = {}) {
     clearChatRelayText: jest.fn(),
     runProgress: null,
     setRunProgress: jest.fn(),
+    saveSettings: jest.fn().mockResolvedValue(undefined),
+    connectEvents: jest.fn(),
+    addGatewayListener: jest.fn(),
+    removeGatewayListener: jest.fn(),
     ...overrides,
   };
 }

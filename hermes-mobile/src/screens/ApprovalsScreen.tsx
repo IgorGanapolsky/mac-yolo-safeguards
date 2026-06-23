@@ -6,6 +6,8 @@ import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import GateApprovalCard from '../components/GateApprovalCard';
 import GlassCard from '../components/GlassCard';
 import HealthPill from '../components/HealthPill';
+import ProUpgradeCard from '../components/ProUpgradeCard';
+import { THUMBGATE_PRO_PRICE_LABEL } from '../constants/monetization';
 import { colors } from '../theme/colors';
 import { useGateway } from '../context/GatewayContext';
 import {
@@ -13,6 +15,7 @@ import {
   formatListeningOnGatewayLine,
 } from '../utils/gatewayEndpoint';
 import { buildLeashEmptyExplanation } from '../utils/leashUx';
+import { isThumbgateLeashUnlocked } from '../utils/thumbgateLeash';
 import { CHAT_APPROVAL_EDIT_PREFIX } from '../services/approvalResolver';
 import { fromPendingApproval } from '../utils/approvalNormalize';
 
@@ -42,11 +45,22 @@ export default function ApprovalsScreen() {
     sessionGreeting,
     effectiveGatewayUrl,
     setApprovalEditSeed,
+    saveSettings,
+    apiKey,
   } = useGateway();
+
+  const leashUnlocked = isThumbgateLeashUnlocked(settings);
+
+  const unlockThumbgateLeash = React.useCallback(async () => {
+    await saveSettings({ ...settings, thumbgateProActive: true }, apiKey);
+  }, [apiKey, saveSettings, settings]);
 
   const [refreshing, setRefreshing] = React.useState(false);
 
   const onRefresh = React.useCallback(async () => {
+    if (!leashUnlocked) {
+      return;
+    }
     setRefreshing(true);
     try {
       await autoConnectGateway();
@@ -57,7 +71,7 @@ export default function ApprovalsScreen() {
     } finally {
       setRefreshing(false);
     }
-  }, [autoConnectGateway, refreshHealth, connectEvents]);
+  }, [autoConnectGateway, refreshHealth, connectEvents, leashUnlocked]);
 
   const glance = !presentation.visualsOn;
   const stackApproval = glance ? pendingApprovals[0] : undefined;
@@ -95,50 +109,68 @@ export default function ApprovalsScreen() {
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
       <View style={styles.header}>
-        <Text style={styles.title} testID="LEASH">LEASH</Text>
+        <Text style={styles.title} testID="THUMBGATE_LEASH">THUMBGATE LEASH</Text>
         <Text style={styles.subtitle}>
-          {settings.safetyMode || settings.glanceMode
-            ? 'ThumbGate safety — approve blocked agent tools'
-            : 'Optional safety — only when your computer blocks risky tools'}
+          {leashUnlocked
+            ? settings.safetyMode || settings.glanceMode
+              ? 'ThumbGate safety — approve blocked agent tools'
+              : 'Approve blocked agent tools from your phone'
+            : `Paid add-on (${THUMBGATE_PRO_PRICE_LABEL}) — unlock to approve risky commands on your phone`}
         </Text>
-        <View style={styles.pillRow}>
-          <HealthPill level={healthLevel} detail={gatewayHealthDetail} />
-        </View>
-        <View style={styles.connectionBlock} testID="leash-connection-status">
-          <Text style={styles.connectionHeadline}>{connectionDisplay.headline}</Text>
-          {connectionDisplay.machineName ? (
-            <Text style={styles.connectionDetail}>
-              Machine: <Text style={styles.connectionValue}>{connectionDisplay.machineName}</Text>
-            </Text>
-          ) : null}
-          {connectionDisplay.lanIp ? (
-            <Text style={styles.connectionDetail}>
-              IP: <Text style={styles.connectionValue}>{connectionDisplay.lanIp}</Text>
-            </Text>
-          ) : null}
-          {connectionDisplay.footnote ? (
-            <Text style={styles.connectionFootnote}>{connectionDisplay.footnote}</Text>
-          ) : null}
-        </View>
-        {sessionGreeting ? (
-          <Text style={styles.greeting} accessibilityRole="text">
-            {sessionGreeting}
-          </Text>
+        {leashUnlocked ? (
+          <>
+            <View style={styles.pillRow}>
+              <HealthPill level={healthLevel} detail={gatewayHealthDetail} />
+            </View>
+            <View style={styles.connectionBlock} testID="leash-connection-status">
+              <Text style={styles.connectionHeadline}>{connectionDisplay.headline}</Text>
+              {connectionDisplay.machineName ? (
+                <Text style={styles.connectionDetail}>
+                  Machine: <Text style={styles.connectionValue}>{connectionDisplay.machineName}</Text>
+                </Text>
+              ) : null}
+              {connectionDisplay.lanIp ? (
+                <Text style={styles.connectionDetail}>
+                  IP: <Text style={styles.connectionValue}>{connectionDisplay.lanIp}</Text>
+                </Text>
+              ) : null}
+              {connectionDisplay.footnote ? (
+                <Text style={styles.connectionFootnote}>{connectionDisplay.footnote}</Text>
+              ) : null}
+            </View>
+            {sessionGreeting ? (
+              <Text style={styles.greeting} accessibilityRole="text">
+                {sessionGreeting}
+              </Text>
+            ) : null}
+          </>
         ) : null}
       </View>
 
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            tintColor={colors.primary}
-            colors={[colors.primary]}
-          />
+          leashUnlocked ? (
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              tintColor={colors.primary}
+              colors={[colors.primary]}
+            />
+          ) : undefined
         }
       >
-        {pendingApprovals.length === 0 ? (
+        {!leashUnlocked ? (
+          <GlassCard style={styles.emptyCard}>
+            <Text style={styles.emptyTitle}>ThumbGate Leash is a Pro feature</Text>
+            <Text style={styles.emptyBody}>
+              When your coding agent hits a risky command on your computer, the approval card appears
+              here so you can approve or reject from your phone — with ThumbGate memory gates behind
+              every decision.
+            </Text>
+            <ProUpgradeCard onUnlock={unlockThumbgateLeash} />
+          </GlassCard>
+        ) : pendingApprovals.length === 0 ? (
           <GlassCard style={styles.emptyCard}>
             <Text style={styles.emptyTitle}>No pending approvals</Text>
             <Text style={styles.emptyBody}>
@@ -203,7 +235,7 @@ export default function ApprovalsScreen() {
           ))
         )}
 
-        {recentReclaims.length > 0 && !glance ? (
+        {leashUnlocked && recentReclaims.length > 0 && !glance ? (
           <GlassCard style={styles.reclaimCard}>
             <Text style={styles.sectionTitle}>Recent YOLO reclaims</Text>
             {recentReclaims.slice(0, 5).map((item, index) => (
@@ -216,14 +248,16 @@ export default function ApprovalsScreen() {
           </GlassCard>
         ) : null}
 
-        {lastEventError ? <Text style={styles.errorText}>{lastEventError}</Text> : null}
+        {leashUnlocked && lastEventError ? <Text style={styles.errorText}>{lastEventError}</Text> : null}
 
-        <Text
-          style={styles.refreshHint}
-          onPress={onRefresh}
-        >
-          Pull down or tap here to refresh connection status
-        </Text>
+        {leashUnlocked ? (
+          <Text
+            style={styles.refreshHint}
+            onPress={onRefresh}
+          >
+            Pull down or tap here to refresh connection status
+          </Text>
+        ) : null}
       </ScrollView>
     </SafeAreaView>
   );

@@ -4,5 +4,8 @@ export const THUMBGATE_PRO_URL =
 
 export const THUMBGATE_PRO_PRICE_LABEL = '$19/mo';
 
+/** Bottom tab + screen title for the paid approval relay product. */
+export const THUMBGATE_LEASH_TAB_LABEL = 'ThumbGate Leash';
+
 export const HERMES_HARDENING_SPRINT_URL =
   'https://github.com/IgorGanapolsky/mac-yolo-safeguards/blob/main/docs/AI-AGENT-HARDENING.md?utm_source=hermes-mobile&utm_medium=app';

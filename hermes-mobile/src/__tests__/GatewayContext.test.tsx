@@ -111,9 +111,14 @@ describe('GatewayProvider', () => {
       notificationsEnabled: false,
       demoMode: false,
       glanceMode: false,
+      safetyMode: false,
       thumbgateCaptureOnDown: true,
       thumbgateCaptureOnUp: false,
       thumbgateApiUrl: 'https://thumbgate.example.com',
+      thumbgateProActive: true,
+      approvalPolicy: 'balanced',
+      analyticsOptOut: false,
+      includeToolActivity: true,
     });
     (secureCredentials.loadApiKey as jest.Mock).mockResolvedValue('sk-test');
     (secureCredentials.loadThumbgateApiKey as jest.Mock).mockResolvedValue('');

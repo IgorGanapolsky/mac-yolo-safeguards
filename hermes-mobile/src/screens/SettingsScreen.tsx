@@ -17,6 +17,7 @@ import GlassCard from '../components/GlassCard';
 import { colors } from '../theme/colors';
 import { haptics } from '../services/haptics';
 import { HERMES_MOBILE_CLOUD_URL, THUMBGATE_API_URL } from '../constants/appIdentity';
+import { THUMBGATE_PRO_PRICE_LABEL } from '../constants/monetization';
 import { isGlassesConnected, launchHermesOnGlasses } from '../native/hermesGlasses';
 import PairQrScannerModal from '../components/PairQrScannerModal';
 import MacPairingHelp from '../components/MacPairingHelp';
@@ -149,6 +150,23 @@ export default function SettingsScreen() {
     }
   };
 
+  const unlockThumbgateLeash = async () => {
+    await saveSettings({ ...settings, thumbgateProActive: true }, apiKey);
+    haptics.success();
+    Alert.alert('Unlocked', 'ThumbGate Leash is active on this phone.');
+  };
+
+  const requireLeashPro = (featureLabel: string): boolean => {
+    if (settings.thumbgateProActive) {
+      return true;
+    }
+    Alert.alert(
+      'ThumbGate Pro required',
+      `${featureLabel} is part of ThumbGate Leash (${THUMBGATE_PRO_PRICE_LABEL}). Subscribe below, then tap unlock.`,
+    );
+    return false;
+  };
+
   const handleSave = async () => {
     haptics.selection();
     setIsSaving(true);
@@ -170,6 +188,7 @@ export default function SettingsScreen() {
           approvalPolicy,
           analyticsOptOut,
           includeToolActivity,
+          thumbgateProActive: settings.thumbgateProActive,
         },
         inputApiKey,
         inputThumbgateApiKey,
@@ -211,12 +230,13 @@ export default function SettingsScreen() {
           approvalPolicy,
           analyticsOptOut,
           includeToolActivity,
+          thumbgateProActive: settings.thumbgateProActive,
         },
         inputApiKey,
       );
       await completePair(pairCode);
       setPairCode('');
-      Alert.alert('Paired', 'Hermes Mobile Leash tab is linked to your computer approval relay.');
+      Alert.alert('Paired', 'Hermes Mobile ThumbGate Leash is linked to your computer approval relay.');
     } catch (err) {
       Alert.alert('Pairing failed', err instanceof Error ? err.message : 'Could not complete pairing');
     }
@@ -225,7 +245,7 @@ export default function SettingsScreen() {
   const handleTestIntercept = async () => {
     try {
       await requestTestIntercept();
-      Alert.alert('Test sent', 'Check the Leash tab for a fake agent tool approval.');
+      Alert.alert('Test sent', 'Check ThumbGate Leash for a fake agent tool approval.');
     } catch (err) {
       Alert.alert('Test failed', err instanceof Error ? err.message : 'Could not inject test event');
     }
@@ -277,13 +297,13 @@ export default function SettingsScreen() {
     <SafeAreaView style={styles.safeArea} edges={['top']}>
       <View style={styles.header}>
         <Text style={styles.title} testID="SETTINGS">SETTINGS</Text>
-        <Text style={styles.subtitle}>Gateway tunnel for Chat + optional approval relay for Leash</Text>
+        <Text style={styles.subtitle}>Gateway tunnel for Chat + optional ThumbGate Leash approval relay</Text>
       </View>
 
       <ScrollView ref={scrollRef} contentContainerStyle={styles.scrollContent}>
-        <Text style={styles.sectionTitle}>💎 Support development</Text>
+        <Text style={styles.sectionTitle}>💎 ThumbGate Leash (Pro)</Text>
         <GlassCard>
-          <ProUpgradeCard />
+          <ProUpgradeCard onUnlock={unlockThumbgateLeash} />
         </GlassCard>
 
         <Text style={styles.sectionTitle}>📊 Privacy</Text>
@@ -389,7 +409,7 @@ export default function SettingsScreen() {
           </Text>
         </GlassCard>
 
-        <Text style={styles.sectionTitle}>🪢 Approval relay (Leash tab)</Text>
+        <Text style={styles.sectionTitle}>🪢 Approval relay (ThumbGate Leash)</Text>
         <GlassCard>
           <Text style={styles.description}>
             Optional: pair with your computer for tool approvals on LTE. On your computer, run the Hermes
@@ -427,7 +447,7 @@ export default function SettingsScreen() {
             <>
               <Text style={styles.pairedText}>Paired — mobile token stored in secure storage.</Text>
               <TouchableOpacity style={styles.secondaryButton} onPress={handleTestIntercept}>
-                <Text style={styles.secondaryButtonText}>⚡ Send test approval to Leash</Text>
+                <Text style={styles.secondaryButtonText}>⚡ Send test approval to ThumbGate Leash</Text>
               </TouchableOpacity>
               <TouchableOpacity style={styles.unlinkButton} onPress={() => disconnectPair()}>
                 <Text style={styles.unlinkButtonText}>Disconnect pairing</Text>
@@ -436,10 +456,10 @@ export default function SettingsScreen() {
           ) : null}
         </GlassCard>
 
-        <Text style={styles.sectionTitle}>👍👎 ThumbGate memory (Leash)</Text>
+        <Text style={styles.sectionTitle}>👍👎 ThumbGate memory (ThumbGate Leash)</Text>
         <GlassCard>
           <Text style={styles.description}>
-            Leash uses ThumbGate thumbs up/down. Thumbs down can save a lesson so the same risky
+            ThumbGate Leash uses thumbs up/down. Thumbs down can save a lesson so the same risky
             pattern is blocked on future agent runs. Thumbs up can optionally record approvals.
           </Text>
           <View style={styles.spacer} />
@@ -500,7 +520,7 @@ export default function SettingsScreen() {
           </Text>
         </GlassCard>
 
-        <Text style={styles.sectionTitle}>🔌 Leash connection mode</Text>
+        <Text style={styles.sectionTitle}>🔌 ThumbGate Leash connection mode</Text>
         <GlassCard>
           <TouchableOpacity
             style={styles.secondaryButton}
@@ -509,10 +529,10 @@ export default function SettingsScreen() {
             }}
             testID="leash-smoke-test"
           >
-            <Text style={styles.secondaryButtonText}>Preview Leash card (smoke test)</Text>
+            <Text style={styles.secondaryButtonText}>Preview ThumbGate Leash card (smoke test)</Text>
           </TouchableOpacity>
           <Text style={styles.description}>
-            Injects a fake blocked-command card on the Leash tab. Does not touch your computer gateway.
+            Injects a fake blocked-command card on ThumbGate Leash. Does not touch your computer gateway.
           </Text>
           <View style={styles.spacer} />
           <View style={styles.switchRow}>
@@ -532,12 +552,12 @@ export default function SettingsScreen() {
         </GlassCard>
 
         {connectionMode === 'gateway' ? (
-          <Text style={styles.sectionTitle}>🔗 Direct gateway events (Leash tab)</Text>
+          <Text style={styles.sectionTitle}>🔗 Direct gateway events (ThumbGate Leash)</Text>
         ) : null}
         {connectionMode === 'gateway' ? (
         <GlassCard>
           <Text style={styles.description}>
-            Leash tab listens on WebSocket /v1/events at the gateway URL above (tunnel required on LTE).
+            ThumbGate Leash listens on WebSocket /v1/events at the gateway URL above (tunnel required on LTE).
           </Text>
         </GlassCard>
         ) : null}
@@ -650,18 +670,21 @@ export default function SettingsScreen() {
           </View>
         </GlassCard>
 
-        <Text style={styles.sectionTitle}>🪢 Safety mode (Leash)</Text>
+        <Text style={styles.sectionTitle}>🪢 Safety mode (ThumbGate Leash)</Text>
         <GlassCard>
           <View style={styles.switchRow}>
             <View style={styles.switchLabelCol}>
-              <Text style={styles.switchLabel}>Prioritize Leash approvals</Text>
+              <Text style={styles.switchLabel}>Prioritize ThumbGate Leash</Text>
               <Text style={styles.switchDesc}>
-                Open Leash on launch (Chat stays first in the tab bar)
+                Open ThumbGate Leash on launch (Chat stays first in the tab bar)
               </Text>
             </View>
             <Switch
               value={safetyMode}
               onValueChange={(val) => {
+                if (val && !requireLeashPro('Safety mode')) {
+                  return;
+                }
                 setSafetyMode(val);
               }}
               testID="safety-mode-switch"
@@ -687,6 +710,9 @@ export default function SettingsScreen() {
             <Switch
               value={glanceMode}
               onValueChange={(val) => {
+                if (val && !requireLeashPro('Glance mode')) {
+                  return;
+                }
                 setGlanceMode(val);
               }}
               testID="glance-mode-switch"
@@ -701,7 +727,7 @@ export default function SettingsScreen() {
             <Text style={styles.sectionTitle}>🕶️ AI glasses</Text>
             <GlassCard>
               <Text style={styles.description}>
-                Launch the native projected Leash activity on paired AI glasses. Currently supports
+                Launch the native projected ThumbGate Leash activity on paired AI glasses. Currently supports
                 Jetpack XR on Android (emulator or hardware). Other platforms coming. Requires
                 prebuild with the XR config plugin.
               </Text>

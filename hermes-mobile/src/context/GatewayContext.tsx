@@ -92,6 +92,7 @@ import {
   discoverGatewayViaPairServer,
 } from '../services/gatewayDiscovery';
 import { isGatewaySmokeTestMessage } from '../utils/gatewaySmokeMessages';
+import { isThumbgateLeashUnlocked } from '../utils/thumbgateLeash';
 import type { ApprovalChoice } from '../types/approval';
 import { resolveApprovalChoice } from '../services/approvalResolver';
 import { fromPendingApproval } from '../utils/approvalNormalize';
@@ -440,7 +441,7 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
   const pollRelayQueue = useCallback(async () => {
     const token = mobileTokenRef.current;
     const currentSettings = settingsRef.current;
-    if (!token || currentSettings.demoMode) {
+    if (!token || currentSettings.demoMode || !isThumbgateLeashUnlocked(currentSettings)) {
       return;
     }
 
@@ -485,7 +486,12 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
 
   const startRelayPolling = useCallback(() => {
     stopRelayPolling();
-    if (!mobileTokenRef.current || settingsRef.current.demoMode) {
+    const currentSettings = settingsRef.current;
+    if (
+      !mobileTokenRef.current ||
+      currentSettings.demoMode ||
+      !isThumbgateLeashUnlocked(currentSettings)
+    ) {
       setConnectionState('disconnected');
       return;
     }
@@ -528,6 +534,9 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
 
     const pending = gateBlockedToPending(event);
     if (pending) {
+      if (!isThumbgateLeashUnlocked(settingsRef.current)) {
+        return;
+      }
       if (
         isGatewaySmokeTestMessage(pending.reason) ||
         (pending.command && isGatewaySmokeTestMessage(pending.command))
@@ -911,7 +920,14 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
     if (!isLoaded || !bootstrapReady) return;
     connectEvents();
     return () => disconnectEvents();
-  }, [isLoaded, bootstrapReady, connectEvents, disconnectEvents, mobileToken, settings.connectionMode]);
+  }, [isLoaded, bootstrapReady, connectEvents, disconnectEvents, mobileToken, settings.connectionMode, settings.thumbgateProActive]);
+
+  useEffect(() => {
+    if (!isLoaded || settings.thumbgateProActive) {
+      return;
+    }
+    setPendingApprovals([]);
+  }, [isLoaded, settings.thumbgateProActive]);
 
   /** Don't leave the UI stuck on "Connecting…" when the live link never opens. */
   useEffect(() => {

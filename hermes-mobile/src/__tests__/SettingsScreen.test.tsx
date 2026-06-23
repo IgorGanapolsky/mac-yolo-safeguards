@@ -46,7 +46,7 @@ describe('SettingsScreen', () => {
   it('renders settings header and gateway inputs', async () => {
     const { getByTestId, getByText } = render(<SettingsScreen />);
     expect(getByTestId('SETTINGS')).toBeTruthy();
-    expect(getByText('Gateway tunnel for Chat + optional approval relay for Leash')).toBeTruthy();
+    expect(getByText('Gateway tunnel for Chat + optional ThumbGate Leash approval relay')).toBeTruthy();
     expect(getByTestId('gateway-url-input')).toBeTruthy();
     expect(getByTestId('gateway-api-key-input')).toBeTruthy();
   });

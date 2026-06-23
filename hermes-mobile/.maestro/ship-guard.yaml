@@ -28,9 +28,9 @@ appId: com.iganapolsky.hermesmobile
 - assertVisible:
     id: "chat-input"
 
-- tapOn: "Leash"
+- tapOn: "ThumbGate Leash"
 - assertVisible:
-    id: "LEASH"
+    id: "THUMBGATE_LEASH"
 
 - tapOn: "Ops"
 - assertVisible:

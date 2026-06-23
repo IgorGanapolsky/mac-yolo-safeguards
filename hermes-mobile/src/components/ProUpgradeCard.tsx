@@ -1,13 +1,18 @@
 import React from 'react';
 import { Linking, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import {
+  THUMBGATE_LEASH_TAB_LABEL,
   THUMBGATE_PRO_PRICE_LABEL,
   THUMBGATE_PRO_URL,
 } from '../constants/monetization';
 import { trackProductEvent } from '../services/productAnalytics';
 import { colors } from '../theme/colors';
 
-export default function ProUpgradeCard() {
+type ProUpgradeCardProps = {
+  onUnlock?: () => void | Promise<void>;
+};
+
+export default function ProUpgradeCard({ onUnlock }: ProUpgradeCardProps) {
   const openUrl = async (url: string, event: string) => {
     await trackProductEvent(event, { url });
     await Linking.openURL(url);
@@ -17,16 +22,29 @@ export default function ProUpgradeCard() {
     <View style={styles.wrap} testID="pro-upgrade-card">
       <Text style={styles.title}>ThumbGate Pro</Text>
       <Text style={styles.body}>
-        Hermes Mobile is free. ThumbGate Pro ({THUMBGATE_PRO_PRICE_LABEL}) blocks repeat agent
-        mistakes across every tool call — the paid layer behind Leash memory gates.
+        Hermes Chat is free on your phone. {THUMBGATE_LEASH_TAB_LABEL} ({THUMBGATE_PRO_PRICE_LABEL})
+        is the paid add-on — approve blocked agent tools from your phone and sync ThumbGate memory
+        gates across every tool call.
       </Text>
       <TouchableOpacity
         style={styles.primaryButton}
         onPress={() => openUrl(THUMBGATE_PRO_URL, 'upgrade_tap_thumbgate_pro')}
         testID="upgrade-thumbgate-pro"
       >
-        <Text style={styles.primaryButtonText}>Upgrade on thumbgate.ai</Text>
+        <Text style={styles.primaryButtonText}>Subscribe on thumbgate.ai</Text>
       </TouchableOpacity>
+      {onUnlock ? (
+        <TouchableOpacity
+          style={styles.secondaryButton}
+          onPress={() => {
+            void trackProductEvent('thumbgate_leash_unlock_tap');
+            void onUnlock();
+          }}
+          testID="unlock-thumbgate-leash"
+        >
+          <Text style={styles.secondaryButtonText}>I've subscribed — unlock {THUMBGATE_LEASH_TAB_LABEL}</Text>
+        </TouchableOpacity>
+      ) : null}
     </View>
   );
 }
@@ -55,5 +73,17 @@ const styles = StyleSheet.create({
     color: colors.text,
     fontWeight: '800',
     fontSize: 14,
+  },
+  secondaryButton: {
+    borderRadius: 12,
+    paddingVertical: 12,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: colors.borderLight,
+  },
+  secondaryButtonText: {
+    color: colors.secondary,
+    fontWeight: '700',
+    fontSize: 13,
   },
 });

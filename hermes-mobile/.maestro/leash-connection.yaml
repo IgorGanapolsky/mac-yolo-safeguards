@@ -1,12 +1,20 @@
-# Leash tab — connection status visible when gateway healthy
+# ThumbGate Leash tab — connection status visible when gateway healthy (Pro unlocked)
 appId: com.iganapolsky.hermesmobile
 ---
 - launchApp
 - runFlow: e2e-bootstrap.yaml
-- tapOn: "Leash"
+- tapOn: "Settings"
+- scrollUntilVisible:
+    element:
+      id: "unlock-thumbgate-leash"
+    direction: DOWN
+    timeout: 90000
+- tapOn:
+    id: "unlock-thumbgate-leash"
+- tapOn: "ThumbGate Leash"
 - extendedWaitUntil:
     visible:
-      id: "LEASH"
+      id: "THUMBGATE_LEASH"
     timeout: 30000
 - assertVisible:
     id: "leash-connection-status"

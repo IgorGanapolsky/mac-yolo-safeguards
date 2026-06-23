@@ -38,6 +38,8 @@ jest.mock('../context/GatewayContext', () => {
     clearApprovalEditSeed: jest.fn(),
     runProgress: null,
     setRunProgress: jest.fn(),
+    addGatewayListener: jest.fn(),
+    removeGatewayListener: jest.fn(),
     settings: {
       demoMode: true,
       connectionMode: 'gateway',

@@ -89,6 +89,8 @@ export interface GatewaySettings {
   approvalPolicy: ApprovalPolicy;
   /** Product analytics (PostHog) — off when true. Default on in production builds with key. */
   analyticsOptOut: boolean;
+  /** ThumbGate Pro — unlocks ThumbGate Leash (mobile approval relay + memory gates). */
+  thumbgateProActive: boolean;
   /** Whether to show tool execution messages (role tool/function) in transcripts. */
   includeToolActivity?: boolean;
 }
@@ -108,5 +110,6 @@ export const DEFAULT_GATEWAY_SETTINGS: GatewaySettings = {
   thumbgateApiUrl: THUMBGATE_API_URL,
   approvalPolicy: 'balanced',
   analyticsOptOut: false,
+  thumbgateProActive: false,
   includeToolActivity: true,
 };

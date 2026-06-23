@@ -19,6 +19,7 @@ import ConnectMacGate from './src/components/ConnectMacGate';
 import { useHermesDeepLinks } from './src/hooks/useHermesDeepLinks';
 import { useKeyboardInset } from './src/hooks/useKeyboardInset';
 import { trackAppOpen, trackScreenView } from './src/services/productAnalytics';
+import { THUMBGATE_LEASH_TAB_LABEL } from './src/constants/monetization';
 
 type RootTabParamList = {
   Leash: undefined;
@@ -101,7 +102,7 @@ function GlassmorphicTabBar({ state, descriptors, navigation }: BottomTabBarProp
 
         if (route.name === 'Leash') {
           emoji = '⚡';
-          label = 'Leash';
+          label = THUMBGATE_LEASH_TAB_LABEL;
         } else if (route.name === 'Chat') {
           emoji = '💬';
           label = 'Chat';
@@ -269,9 +270,10 @@ const styles = StyleSheet.create({
     opacity: 1,
   },
   navText: {
-    fontSize: 10,
+    fontSize: 9,
     fontWeight: '700',
     color: colors.textMuted,
+    textAlign: 'center',
   },
   navTextActive: {
     color: colors.secondary,

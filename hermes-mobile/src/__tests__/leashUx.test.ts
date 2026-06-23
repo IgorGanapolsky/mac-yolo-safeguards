@@ -9,9 +9,16 @@ describe('leashUx', () => {
     expect(resolveInitialTab(DEFAULT_GATEWAY_SETTINGS)).toBe('Chat');
   });
 
-  it('opens Leash when safety or glance mode is on', () => {
-    expect(resolveInitialTab({ ...DEFAULT_GATEWAY_SETTINGS, safetyMode: true })).toBe('Leash');
-    expect(resolveInitialTab({ ...DEFAULT_GATEWAY_SETTINGS, glanceMode: true })).toBe('Leash');
+  it('opens ThumbGate Leash when safety or glance mode is on and Pro is active', () => {
+    const pro = { ...DEFAULT_GATEWAY_SETTINGS, thumbgateProActive: true };
+    expect(resolveInitialTab({ ...pro, safetyMode: true })).toBe('Leash');
+    expect(resolveInitialTab({ ...pro, glanceMode: true })).toBe('Leash');
+  });
+
+  it('stays on Chat when safety mode is on but Pro is inactive', () => {
+    expect(
+      resolveInitialTab({ ...DEFAULT_GATEWAY_SETTINGS, safetyMode: true, thumbgateProActive: false }),
+    ).toBe('Chat');
   });
 
   it('explains chat-first empty Leash when safety mode is off', () => {

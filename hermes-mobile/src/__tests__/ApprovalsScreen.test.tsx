@@ -1,7 +1,7 @@
 import React from 'react';
 import { fireEvent } from '@testing-library/react-native';
 import ApprovalsScreen from '../screens/ApprovalsScreen';
-import { mockPendingApproval, mockUseGateway } from '../testUtils/gatewayFixtures';
+import { mockGatewaySettings, mockPendingApproval, mockUseGateway } from '../testUtils/gatewayFixtures';
 import { renderInTabNavigator } from '../testUtils/navigation';
 
 jest.mock('../context/GatewayContext', () => ({
@@ -24,10 +24,20 @@ describe('ApprovalsScreen', () => {
     useGateway.mockReturnValue(mockUseGateway());
   });
 
-  it('renders leash header and connection block', () => {
+  it('renders thumbgate leash header and connection block', () => {
     const { getByTestId, getByText } = renderInTabNavigator(ApprovalsScreen, 'Leash');
-    expect(getByTestId('LEASH')).toBeTruthy();
-    expect(getByText('Optional safety — only when your computer blocks risky tools')).toBeTruthy();
+    expect(getByTestId('THUMBGATE_LEASH')).toBeTruthy();
+    expect(getByText('Approve blocked agent tools from your phone')).toBeTruthy();
+  });
+
+  it('shows paywall when ThumbGate Leash is not unlocked', () => {
+    useGateway.mockReturnValue(
+      mockUseGateway({
+        settings: { ...mockGatewaySettings, thumbgateProActive: false },
+      }),
+    );
+    const { getByText } = renderInTabNavigator(ApprovalsScreen, 'Leash');
+    expect(getByText('ThumbGate Leash is a Pro feature')).toBeTruthy();
   });
 
   it('shows empty state when no pending approvals', () => {

@@ -1,4 +1,4 @@
-# Flow 3: Leash tab — smoke-test approval card (release-safe, no __DEV__ demo mode)
+# Flow 3: ThumbGate Leash tab — smoke-test approval card (release-safe, no __DEV__ demo mode)
 appId: com.iganapolsky.hermesmobile
 ---
 - launchApp
@@ -10,15 +10,22 @@ appId: com.iganapolsky.hermesmobile
     timeout: 30000
 - scrollUntilVisible:
     element:
+      id: "unlock-thumbgate-leash"
+    direction: DOWN
+    timeout: 90000
+- tapOn:
+    id: "unlock-thumbgate-leash"
+- scrollUntilVisible:
+    element:
       id: "leash-smoke-test"
     direction: DOWN
     timeout: 90000
 - tapOn:
     id: "leash-smoke-test"
-- tapOn: "Leash"
+- tapOn: "ThumbGate Leash"
 - extendedWaitUntil:
     visible:
-      id: "LEASH"
+      id: "THUMBGATE_LEASH"
     timeout: 30000
 - extendedWaitUntil:
     visible: "THUMBGATE · BLOCKED"
