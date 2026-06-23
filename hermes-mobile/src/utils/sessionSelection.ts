@@ -26,10 +26,10 @@ export function buildSessionPickerSections(sessions: HermesSession[]): SessionPi
 
   const sections: SessionPickerSection[] = [];
   if (inbox) {
-    sections.push({ key: 'telegram-inbox', title: 'Telegram overview', data: [inbox] });
+    sections.push({ key: 'telegram-inbox', title: 'Gateway overview', data: [inbox] });
   }
   if (telegram.length > 0) {
-    sections.push({ key: 'telegram-threads', title: 'Telegram threads', data: telegram });
+    sections.push({ key: 'telegram-threads', title: 'Hermes threads', data: telegram });
   }
   if (others.length > 0) {
     sections.push({ key: 'chat', title: 'Chat sessions', data: others });
