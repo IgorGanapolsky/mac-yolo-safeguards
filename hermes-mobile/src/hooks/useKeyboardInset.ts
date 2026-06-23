@@ -3,7 +3,7 @@ import { Keyboard, Platform, type KeyboardEvent } from 'react-native';
 
 /**
  * Bottom inset when the software keyboard is visible.
- * Reliable on Android where window resize + KeyboardAvoidingView often fail with custom tab bars.
+ * Used with adjustPan on Android so the composer dock lifts by keyboard height + gap.
  */
 export function useKeyboardInset(): number {
   const [height, setHeight] = useState(0);

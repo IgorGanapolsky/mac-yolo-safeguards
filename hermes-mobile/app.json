@@ -29,7 +29,7 @@
       "versionCode": 4,
       "userInterfaceStyle": "dark",
       "allowBackup": false,
-      "softwareKeyboardLayoutMode": "resize"
+      "softwareKeyboardLayoutMode": "pan"
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -55,7 +55,7 @@
         {
           "android": {
             "usesCleartextTraffic": true,
-            "softwareKeyboardLayoutMode": "resize"
+            "softwareKeyboardLayoutMode": "pan"
           }
         }
       ],

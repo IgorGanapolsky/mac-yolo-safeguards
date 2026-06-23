@@ -7,7 +7,6 @@ import {
   TouchableOpacity,
   Pressable,
   FlatList,
-  KeyboardAvoidingView,
   Platform,
   ActivityIndicator,
   Modal,
@@ -22,6 +21,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { useGateway } from '../context/GatewayContext';
 import { useKeyboardInset } from '../hooks/useKeyboardInset';
+import { composerBottomInset } from '../utils/composerKeyboard';
 import { colors } from '../theme/colors';
 import { isDemoModeAllowed } from '../utils/demoModePolicy';
 import { haptics } from '../services/haptics';
@@ -276,9 +276,8 @@ export default function ChatScreen() {
     [gatewayUrl, health, activeGatewayProfile, gatewayProfiles],
   );
 
-  /** Lift composer above software keyboard (tab bar already hides when keyboardInset > 0). */
-  const keyboardLift = keyboardInset > 0 ? keyboardInset : 0;
-  const composerBottomPadding = keyboardInset > 0 ? 8 : Math.max(insets.bottom, 8);
+  /** Lift composer above software keyboard (tab bar hides when keyboard is open). */
+  const composerDockPadding = composerBottomInset(keyboardInset, insets.bottom);
 
   const leashPhraseHints = useMemo((): LeashPhraseHint[] => {
     const hints: LeashPhraseHint[] = [];
@@ -1482,15 +1481,7 @@ export default function ChatScreen() {
         </TouchableOpacity>
       </View>
 
-      <KeyboardAvoidingView
-        style={[
-          styles.keyboardContainer,
-          keyboardLift > 0 && { paddingBottom: keyboardLift },
-        ]}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        enabled={Platform.OS === 'ios' && keyboardLift === 0}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top : 0}
-      >
+      <View style={styles.keyboardContainer}>
         {showMacConnectionHelp ? (
           <ChatConnectionPanel
             connectionState={connectionState}
@@ -1645,6 +1636,10 @@ export default function ChatScreen() {
           </View>
         )}
 
+        <View
+          style={[styles.composerDock, { paddingBottom: composerDockPadding }]}
+          testID="chat-composer-dock"
+        >
         {progressBanner && (
           <RunProgressBanner progress={progressBanner} />
         )}
@@ -1678,7 +1673,7 @@ export default function ChatScreen() {
           </>
         ) : null}
 
-        <View style={[styles.inputBar, { paddingBottom: composerBottomPadding }]}>
+        <View style={styles.inputBar}>
           <TextInput
             style={styles.input}
             value={inputValue}
@@ -1705,7 +1700,8 @@ export default function ChatScreen() {
             <Text style={styles.sendButtonText}>Send</Text>
           </TouchableOpacity>
         </View>
-      </KeyboardAvoidingView>
+        </View>
+      </View>
 
       <Modal
         visible={macPickerVisible}
@@ -2210,32 +2206,38 @@ const styles = StyleSheet.create({
     color: colors.accent,
     fontWeight: '600',
   },
-  inputBar: {
-    flexDirection: 'row',
-    padding: 12,
+  composerDock: {
     borderTopWidth: 1,
     borderTopColor: colors.borderLight,
     backgroundColor: 'rgba(9, 11, 20, 0.96)',
-    alignItems: 'center',
+  },
+  inputBar: {
+    flexDirection: 'row',
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    alignItems: 'flex-end',
+    gap: 10,
   },
   input: {
     flex: 1,
     backgroundColor: 'rgba(255, 255, 255, 0.03)',
     borderColor: colors.borderLight,
     borderWidth: 1,
-    borderRadius: 20,
+    borderRadius: 22,
     paddingHorizontal: 16,
-    paddingVertical: 8,
+    paddingVertical: 10,
     color: colors.text,
-    fontSize: 14,
-    maxHeight: 100,
-    marginRight: 8,
+    fontSize: 15,
+    lineHeight: 20,
+    maxHeight: 120,
+    minHeight: 44,
   },
   sendButton: {
     backgroundColor: colors.primary,
-    borderRadius: 20,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
+    borderRadius: 22,
+    paddingHorizontal: 18,
+    minHeight: 44,
+    paddingVertical: 10,
     justifyContent: 'center',
   },
   sendButtonDisabled: {
