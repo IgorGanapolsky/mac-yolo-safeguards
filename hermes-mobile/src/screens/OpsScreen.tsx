@@ -154,7 +154,7 @@ export default function OpsScreen() {
       if (message.includes('404') || message.includes('Not Found')) {
         Alert.alert(
           'Gateway update required',
-          'Your Mac gateway needs the latest api_server (PUT /v1/toolsets). Restart Hermes gateway after updating.',
+          'Your computer gateway needs the latest api_server (PUT /v1/toolsets). Restart Hermes gateway after updating.',
         );
       } else {
         Alert.alert('Could not update toolset', message);
@@ -235,7 +235,7 @@ export default function OpsScreen() {
 
         <Text style={styles.sectionTitle}>Toolsets ({toolsets.length})</Text>
         <Text style={styles.sectionHint}>
-          Switches update platform_toolsets.api_server on your Mac — what mobile Chat can call.
+          Switches update platform_toolsets.api_server on your computer — what mobile Chat can call.
           {toolsetsWritable ? '' : ' Update gateway to enable toggles from phone.'}
         </Text>
         <GlassCard>

@@ -58,9 +58,9 @@ export default function PairQrScannerModal({
   return (
     <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
       <View style={styles.container}>
-        <Text style={styles.title}>Scan QR from your Mac</Text>
+        <Text style={styles.title}>Scan QR from your computer</Text>
         <Text style={styles.subtitle}>
-          On your Mac, open Hermes → Connect phone and keep the QR on screen. Then point this
+          On your computer, open Hermes → Connect phone and keep the QR on screen. Then point this
           camera at it.
         </Text>
         <MacPairingHelp variant="qr-pairing" compact testID="pair-qr-scanner-help" />

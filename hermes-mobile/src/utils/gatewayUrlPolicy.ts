@@ -53,13 +53,13 @@ export function describeGatewayFetchError(
   if (baseMessage === 'Network request failed' || baseMessage.includes('Failed to fetch')) {
     if (isLoopbackGatewayUrl(gatewayUrl)) {
       return (
-        'Cannot reach your Mac at 127.0.0.1 from the phone — that address is the phone itself. ' +
-        'Scan the QR on your Mac pair page (same Wi‑Fi) to link automatically.'
+        'Cannot reach your computer at 127.0.0.1 from the phone — that address is the phone itself. ' +
+        'Scan the QR on your computer pair page (same Wi‑Fi) to link automatically.'
       );
     }
     return (
-      'Cannot reach the Hermes gateway. Confirm your phone is on the same Wi‑Fi as your Mac and ' +
-      'scan the Mac pair QR, or pull down on Leash to retry.'
+      'Cannot reach the Hermes gateway. Confirm your phone is on the same Wi‑Fi as your computer and ' +
+      'scan the computer pair QR, or pull down on Leash to retry.'
     );
   }
 

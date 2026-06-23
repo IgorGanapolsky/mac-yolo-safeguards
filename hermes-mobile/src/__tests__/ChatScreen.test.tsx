@@ -144,7 +144,7 @@ describe('ChatScreen', () => {
     expect(getByTestId('chat-context-mac').props.children).toBe('Demo Mac (127.0.0.1)');
     await waitFor(() => {
       expect(getByTestId('chat-context-project').props.children).not.toBe(
-        'No project pinned — Hermes uses the Mac default workspace',
+        'No project pinned — Hermes uses the computer default workspace',
       );
     });
   });

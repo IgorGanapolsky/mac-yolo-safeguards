@@ -472,7 +472,7 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
         await secureCredentials.clearMobileToken();
         setMobileToken('');
         setConnectionState('disconnected');
-        setLastEventError('Pairing expired — enter a new code from Mac bridge pairing.');
+        setLastEventError('Pairing expired — enter a new code from desktop bridge pairing.');
         stopRelayPolling();
         return;
       }
@@ -828,7 +828,7 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
         const loopback = isLoopbackGatewayUrl(activeUrl);
         setLastEventError(
           loopback
-            ? 'Phone cannot reach Mac at 127.0.0.1 — scan the Mac pairing QR (same Wi‑Fi).'
+            ? 'Phone cannot reach computer at 127.0.0.1 — scan the computer pairing QR (same Wi‑Fi).'
             : 'Live link interrupted — pull down on Leash to retry.',
         );
         const healthLevel = healthRef.current?.level;
@@ -880,7 +880,7 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
       } else {
         stopRelayPolling();
         setConnectionState('disconnected');
-        setLastEventError('Not paired — run Mac bridge pairing and enter the code in Settings.');
+        setLastEventError('Not paired — run desktop bridge pairing and enter the code in Settings.');
       }
       return;
     }
@@ -1187,7 +1187,7 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
   const triggerTestIntercept = useCallback(async () => {
     const token = mobileTokenRef.current;
     if (!token) {
-      throw new Error('Pair with your Mac in Settings before requesting a test intercept.');
+      throw new Error('Pair with your computer in Settings before requesting a test intercept.');
     }
     await requestTestIntercept(settings.cloudUrl, token);
     await pollRelayQueue();

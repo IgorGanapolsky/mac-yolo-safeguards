@@ -37,4 +37,4 @@ export async function openHermesTelegramBot(): Promise<boolean> {
 }
 
 export const MOBILE_CHAT_HINT =
-  'Type messages or slash commands (/help, /approve, /status) here — they go to your Mac gateway.';
+  'Type messages or slash commands (/help, /approve, /status) here — they go to your computer gateway.';

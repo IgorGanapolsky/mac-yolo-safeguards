@@ -50,7 +50,7 @@ export function enqueuedEventToPendingApproval(event: EnqueuedEvent): PendingApp
     reason:
       event.reason ??
       hook.hook_event_name ??
-      'Agent tool call requires your approval before running on your Mac.',
+      'Agent tool call requires your approval before running on your computer.',
     command,
     receivedAt: new Date(event.enqueued_at ?? Date.now()).toISOString(),
   };

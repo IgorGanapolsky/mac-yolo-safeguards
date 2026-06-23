@@ -27,7 +27,7 @@ describe('ApprovalsScreen', () => {
   it('renders leash header and connection block', () => {
     const { getByTestId, getByText } = renderInTabNavigator(ApprovalsScreen, 'Leash');
     expect(getByTestId('LEASH')).toBeTruthy();
-    expect(getByText('Optional safety — only when Mac blocks risky tools')).toBeTruthy();
+    expect(getByText('Optional safety — only when your computer blocks risky tools')).toBeTruthy();
   });
 
   it('shows empty state when no pending approvals', () => {

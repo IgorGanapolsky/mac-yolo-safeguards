@@ -1526,7 +1526,7 @@ export default function ChatScreen() {
                 disabled={!macChatLive || isRefreshingMessages}
                 testID="chat-sync-button"
                 accessibilityRole="button"
-                accessibilityLabel="Sync chat with your Mac"
+                accessibilityLabel="Sync chat with your computer"
               >
                 <View style={styles.syncHintInner}>
                   {isRefreshingMessages ? (
@@ -1573,12 +1573,12 @@ export default function ChatScreen() {
               >
                 <GlassCard style={styles.emptyCard}>
                   <Text style={styles.emptyTitle}>
-                    {showMacConnectionHelp ? 'Ready when your Mac is linked' : 'Chat directly with Hermes'}
+                    {showMacConnectionHelp ? 'Ready when your computer is linked' : 'Chat directly with Hermes'}
                   </Text>
                   <Text style={styles.emptyBody}>
                     {showMacConnectionHelp
                       ? 'Finish the steps above, then start a chat or pick a session from the menu.'
-                      : 'Ask questions, issue terminal commands, or request workspace analysis. Each project keeps its own chat history and workspace context on your Mac.'}
+                      : 'Ask questions, issue terminal commands, or request workspace analysis. Each project keeps its own chat history and workspace context on your computer.'}
                   </Text>
                   {!currentSession && macChatLive && (
                     <TouchableOpacity style={styles.newChatBtnInline} onPress={handleNewChat}>
@@ -1662,7 +1662,7 @@ export default function ChatScreen() {
             connectionState !== 'demo' ? (
               <View style={styles.linkWarningRow} testID="chat-approval-link-warning">
                 <Text style={styles.linkWarningText}>
-                  Mac not linked — tap the Mac row above to connect before approving.
+                  Computer not linked — tap the computer row above to connect before approving.
                 </Text>
               </View>
             ) : null}
@@ -1717,14 +1717,14 @@ export default function ChatScreen() {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Switch Mac</Text>
+              <Text style={styles.modalTitle}>Switch computer</Text>
               <TouchableOpacity onPress={() => setMacPickerVisible(false)}>
                 <Text style={styles.modalCloseBtn}>Close</Text>
               </TouchableOpacity>
             </View>
             <Text style={styles.modalSubtitle}>
-              Pick a saved Mac or search Wi‑Fi for Hermes on your network. Another Mac not listed?
-              Open Hermes on that computer (same Wi‑Fi), then tap Find Macs below. Away from home?
+              Pick a saved computer or search Wi‑Fi for Hermes on your network. Another computer not listed?
+              Open Hermes on that computer (same Wi‑Fi), then tap Find computers below. Away from home?
               Settings → Advanced → paste a tunnel URL (ngrok, Tailscale, Cloudflare).
             </Text>
             <GatewayProfilePicker
@@ -1751,7 +1751,7 @@ export default function ChatScreen() {
               }
             />
             <LoadingButton
-              label="Find Macs on Wi‑Fi"
+              label="Find computers on Wi‑Fi"
               loadingLabel="Searching Wi‑Fi…"
               loading={isScanningMacs || profileScanning}
               variant="secondary"
@@ -1795,7 +1795,7 @@ export default function ChatScreen() {
             {activeProject ? (
               <Text style={styles.modalSubtitle} numberOfLines={3}>
                 {sessionPickerShowsAllMacSessions
-                  ? `No chats bound to ${activeProject.name} yet — showing all Mac sessions (Telegram + mobile). Start one below or pick a thread.`
+                  ? `No chats bound to ${activeProject.name} yet — showing all computer sessions (Telegram + mobile). Start one below or pick a thread.`
                   : `Sessions in this project use workspace: ${activeProject.workspacePath}`}
               </Text>
             ) : null}
@@ -1876,13 +1876,13 @@ export default function ChatScreen() {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Add Mac workspace</Text>
+              <Text style={styles.modalTitle}>Add computer workspace</Text>
               <TouchableOpacity onPress={() => setProjectModalVisible(false)}>
                 <Text style={styles.modalCloseBtn}>Close</Text>
               </TouchableOpacity>
             </View>
             <Text style={styles.modalSubtitle}>
-              Each project gets its own chat history and pins Hermes tools to that folder on your Mac.
+              Each project gets its own chat history and pins Hermes tools to that folder on your computer.
             </Text>
             <Text style={styles.fieldLabel}>Workspace path</Text>
             <TextInput

@@ -19,7 +19,7 @@ export function resolveChatMachineLabel(
     return formatProfileLabel(matched);
   }
   if (!gatewayUrl.trim()) {
-    return 'No Mac linked';
+    return 'No computer linked';
   }
   return formatGatewayHostLabel(gatewayUrl, health);
 }

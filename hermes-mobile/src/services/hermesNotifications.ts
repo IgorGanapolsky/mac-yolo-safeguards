@@ -165,7 +165,7 @@ export async function initHermesNotifications(): Promise<void> {
   if (Platform.OS === 'android') {
     await Notifications.setNotificationChannelAsync(CHANNEL_APPROVALS, {
       name: 'Approvals',
-      description: 'Urgent Mac gateway approvals with Approve and Deny actions',
+      description: 'Urgent computer gateway approvals with Approve and Deny actions',
       importance: Notifications.AndroidImportance.HIGH,
       vibrationPattern: [0, 220, 120, 220],
       lightColor: NOTIFICATION_COLOR,
@@ -174,13 +174,13 @@ export async function initHermesNotifications(): Promise<void> {
     });
     await Notifications.setNotificationChannelAsync(CHANNEL_RUNS, {
       name: 'Live activity',
-      description: 'Ongoing status while Hermes works on your Mac',
+      description: 'Ongoing status while Hermes works on your computer',
       importance: Notifications.AndroidImportance.LOW,
       lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
     });
     await Notifications.setNotificationChannelAsync(CHANNEL_RESULTS, {
       name: 'Results',
-      description: 'When a background task finishes on your Mac',
+      description: 'When a background task finishes on your computer',
       importance: Notifications.AndroidImportance.DEFAULT,
       lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
     });
@@ -274,7 +274,7 @@ export async function scheduleApprovalNotification(
 
   await Notifications.scheduleNotificationAsync({
     content: {
-      title: 'Approval needed on your Mac',
+      title: 'Approval needed on your computer',
       subtitle: approvalNotificationSubtitle(pending),
       body: preview,
       categoryIdentifier: CATEGORY_APPROVAL,
@@ -334,7 +334,7 @@ export async function scheduleRunProgressNotification(
     identifier: RUN_STATUS_NOTIFICATION_ID,
     content: {
       title: runProgressNotificationTitle(progress),
-      subtitle: 'Mac gateway · live status',
+      subtitle: 'Computer gateway · live status',
       body,
       categoryIdentifier: CATEGORY_RUN,
       threadIdentifier: THREAD_RUNS,
@@ -385,7 +385,7 @@ export async function scheduleRunCompletedNotification(
     identifier: RUN_COMPLETED_NOTIFICATION_ID,
     content: {
       title: success ? 'Hermes finished' : 'Hermes run stopped',
-      subtitle: success ? 'Mac gateway' : 'Check chat for details',
+      subtitle: success ? 'Computer gateway' : 'Check chat for details',
       body: trimmed || (success ? 'Background task completed.' : 'The run ended with an error.'),
       categoryIdentifier: CATEGORY_RUN,
       threadIdentifier: THREAD_RUNS,
@@ -440,8 +440,8 @@ export async function scheduleRunStallNotification(runId?: string): Promise<void
     identifier: RUN_STALL_NOTIFICATION_ID,
     content: {
       title: 'Hermes run might be stalled',
-      subtitle: 'Mac gateway · warning',
-      body: 'No updates from your Mac for 45 seconds. Open chat or stop the run.',
+      subtitle: 'Computer gateway · warning',
+      body: 'No updates from your computer for 45 seconds. Open chat or stop the run.',
       categoryIdentifier: CATEGORY_RUN,
       threadIdentifier: THREAD_RUNS,
       sound: 'default',

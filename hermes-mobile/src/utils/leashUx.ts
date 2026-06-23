@@ -6,10 +6,10 @@ export function buildLeashEmptyExplanation(settings: GatewaySettings): string {
     return 'Demo mode uses mock cards from Settings → Developer Tools or Preview Leash card.';
   }
   if (settings.safetyMode || settings.glanceMode) {
-    return 'Safety mode is on — cards appear when your Mac gateway blocks a risky tool call.';
+    return 'Safety mode is on — cards appear when your computer gateway blocks a risky tool call.';
   }
   return (
-    'Daily Hermes chat lives on the Chat tab. Leash only lights up when your Mac has approvals enabled ' +
+    'Daily Hermes chat lives on the Chat tab. Leash only lights up when your computer has approvals enabled ' +
     '(~/.hermes/config.yaml approvals.mode: manual or smart) and blocks a command. ' +
     'Preview a card from Settings → Preview Leash card (smoke test).'
   );

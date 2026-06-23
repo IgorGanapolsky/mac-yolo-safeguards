@@ -55,7 +55,7 @@ export default function ChatContextStrip({
           onPressMac && pressed && styles.macPressablePressed,
         ]}
         accessibilityRole={onPressMac ? 'button' : undefined}
-        accessibilityLabel={onPressMac ? `Switch Mac — ${machineLabel}` : undefined}
+        accessibilityLabel={onPressMac ? `Switch computer — ${machineLabel}` : undefined}
         accessibilityHint={macSwitchHint}
         testID="chat-context-mac-button"
         hitSlop={{ top: 6, bottom: 6, left: 4, right: 4 }}
@@ -86,7 +86,7 @@ export default function ChatContextStrip({
           </Text>
         ) : (
           <Text style={styles.projectHint} testID="chat-context-project">
-            {channelHint ?? 'No project pinned — Hermes uses the Mac default workspace'}
+            {channelHint ?? 'No project pinned — Hermes uses the computer default workspace'}
           </Text>
         )}
       </View>

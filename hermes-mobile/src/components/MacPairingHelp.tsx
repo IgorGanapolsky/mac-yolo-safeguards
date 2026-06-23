@@ -43,18 +43,18 @@ export default function MacPairingHelp({
           accessibilityRole="link"
           testID="mac-pairing-install-link"
         >
-          <Text style={styles.installLink}>Learn how to install Hermes on your Mac →</Text>
+          <Text style={styles.installLink}>Learn how to install Hermes on your computer →</Text>
         </TouchableOpacity>
       ) : null}
       {!compact && variant === 'qr-pairing' ? (
         <Text style={styles.note}>
-          Each Mac has its own QR. Scan once per Mac — the app remembers each machine you pair.
+          Each computer has its own QR. Scan once per computer — the app remembers each machine you pair.
         </Text>
       ) : null}
       {!compact && variant === 'getting-started' ? (
         <Text style={styles.note}>
-          Already have Hermes running? Skip install and tap Search for my Mac. Use Scan QR only if
-          Hermes shows you a pairing code on the Mac screen.
+          Already have Hermes running? Skip install and tap Search for my computer. Use Scan QR only if
+          Hermes shows you a pairing code on the computer screen.
         </Text>
       ) : null}
     </View>

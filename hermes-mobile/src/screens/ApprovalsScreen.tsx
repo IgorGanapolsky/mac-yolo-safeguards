@@ -72,7 +72,7 @@ export default function ApprovalsScreen() {
     isPaired,
   });
   const gatewayHealthDetail = health?.gatewayState === 'running'
-    ? 'Hermes gateway running on Mac'
+    ? 'Hermes gateway running on computer'
     : health?.gatewayState
       ? `Gateway ${health.gatewayState}`
       : undefined;
@@ -99,7 +99,7 @@ export default function ApprovalsScreen() {
         <Text style={styles.subtitle}>
           {settings.safetyMode || settings.glanceMode
             ? 'ThumbGate safety — approve blocked agent tools'
-            : 'Optional safety — only when Mac blocks risky tools'}
+            : 'Optional safety — only when your computer blocks risky tools'}
         </Text>
         <View style={styles.pillRow}>
           <HealthPill level={healthLevel} detail={gatewayHealthDetail} />
@@ -148,7 +148,7 @@ export default function ApprovalsScreen() {
             <Text style={styles.hintMuted}>{buildLeashEmptyExplanation(settings)}</Text>
             {settings.connectionMode === 'relay' && !isPaired ? (
               <Text style={styles.hintMuted}>
-                Relay mode — pair in Settings with your Mac approval bridge.
+                Relay mode — pair in Settings with your computer approval bridge.
               </Text>
             ) : settings.connectionMode === 'relay' && connectionState === 'connected' ? (
               <Text style={styles.hintMuted}>
@@ -160,7 +160,7 @@ export default function ApprovalsScreen() {
               </Text>
             ) : settings.connectionMode === 'gateway' ? (
               <Text style={styles.hintMuted}>
-                Pair from any Mac: node tools/hermes-mobile-pair.js — then Settings → Scan pairing QR.
+                Pair from any computer: node tools/hermes-mobile-pair.js — then Settings → Scan pairing QR.
               </Text>
             ) : null}
 

@@ -21,7 +21,7 @@ describe('chatErrors', () => {
   it('flags legacy scary banner text as connectivity', () => {
     expect(
       isConnectivityMessage(
-        'Failed to connect to your Mac. Make sure the gateway is running and your device is on the same Wi-Fi.',
+        'Failed to connect to your computer. Make sure the gateway is running and your device is on the same Wi-Fi.',
       ),
     ).toBe(true);
   });

@@ -87,9 +87,9 @@ export default function ConnectMacGate() {
             keyboardShouldPersistTaps="handled"
           >
             <View style={styles.card}>
-              <Text style={styles.title}>Connect your Mac</Text>
+              <Text style={styles.title}>Connect your computer</Text>
               <Text style={styles.body}>
-                Hermes Mobile controls Hermes on your Mac — chat, approvals, and ops from your phone.
+                Hermes Mobile controls Hermes on your computer — chat, approvals, and ops from your phone.
                 We search your Wi‑Fi first; no typing addresses.
               </Text>
 
@@ -109,7 +109,7 @@ export default function ConnectMacGate() {
               {invalidQrHint ? <Text style={styles.hintError}>{invalidQrHint}</Text> : null}
 
               <LoadingButton
-                label="Search for my Mac on Wi‑Fi"
+                label="Search for my computer on Wi‑Fi"
                 loadingLabel="Searching Wi‑Fi…"
                 loading={searching}
                 onPress={() => runWifiSearch()}
@@ -117,7 +117,7 @@ export default function ConnectMacGate() {
               />
 
               <LoadingButton
-                label="Scan QR from my Mac screen"
+                label="Scan QR from my computer screen"
                 variant="secondary"
                 onPress={() => {
                   setInvalidQrHint(null);
@@ -127,7 +127,7 @@ export default function ConnectMacGate() {
               />
 
               <Text style={styles.footnote}>
-                Waiting for Hermes on your Mac? Leave this open — we retry every few seconds after
+                Waiting for Hermes on your computer? Leave this open — we retry every few seconds after
                 you install or start Hermes.
               </Text>
             </View>
@@ -146,7 +146,7 @@ export default function ConnectMacGate() {
           await retryGatewayBootstrap();
         }}
         onInvalidScan={() =>
-          setInvalidQrHint('That QR is not a Hermes Mac pairing code. Open Connect phone on your Mac.')
+          setInvalidQrHint('That QR is not a Hermes computer pairing code. Open Connect phone on your computer.')
         }
       />
     </>

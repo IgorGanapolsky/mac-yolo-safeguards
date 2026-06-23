@@ -48,7 +48,7 @@ export default function MacScanProgressCard({
           <View style={[styles.fill, { width: `${Math.max(4, Math.round(fraction * 100))}%` }]} />
         </View>
         <Text style={styles.hint}>
-          This can take up to a minute on large Wi‑Fi networks. Keep Hermes open on your Mac.
+          This can take up to a minute on large Wi‑Fi networks. Keep Hermes open on your computer.
         </Text>
       </View>
     );
