@@ -82,7 +82,7 @@ export function formatGatewayMachineParts(
   const fromUrl = parseHostFromGatewayUrl(gatewayUrl);
 
   const machineName =
-    fromHealthName ?? fromUrl.hostname ?? gatewayUrlHost(gatewayUrl) ?? 'Mac';
+    fromHealthName ?? fromUrl.hostname ?? gatewayUrlHost(gatewayUrl) ?? 'computer';
   const lanIp = fromHealthIp ?? fromUrl.ip;
 
   return {
@@ -103,7 +103,7 @@ export function formatLeashConnectionDisplay(input: {
   if (input.connectionState === 'demo') {
     return {
       headline: 'Demo mode — mock approvals only',
-      footnote: 'No live link to your Mac',
+      footnote: 'No live link to your computer',
     };
   }
 
@@ -111,12 +111,12 @@ export function formatLeashConnectionDisplay(input: {
     if (!input.isPaired) {
       return {
         headline: 'Cloud relay not paired',
-        footnote: 'Pair in Settings with the code from Mac bridge pairing',
+        footnote: 'Pair in Settings with the code from desktop bridge pairing',
       };
     }
     if (input.connectionState === 'connected') {
       return {
-        headline: 'Cloud relay linked to your Mac',
+        headline: 'Cloud relay linked to your computer',
         machineName,
         lanIp,
         footnote: 'Approval alerts over the internet (works off home Wi‑Fi)',
@@ -124,7 +124,7 @@ export function formatLeashConnectionDisplay(input: {
     }
     if (input.connectionState === 'connecting') {
       return {
-        headline: 'Connecting cloud relay to your Mac…',
+        headline: 'Connecting cloud relay to your computer…',
         machineName,
         lanIp,
       };
@@ -140,22 +140,22 @@ export function formatLeashConnectionDisplay(input: {
   switch (input.connectionState) {
     case 'connected':
       return {
-        headline: 'Live link to your Mac gateway',
+        headline: 'Live link to your computer gateway',
         machineName,
         lanIp,
         footnote: 'Phone receives instant alerts when Hermes blocks a risky command',
       };
     case 'connecting':
       return {
-        headline: 'Connecting to your Mac gateway…',
+        headline: 'Connecting to your computer gateway…',
         machineName,
         lanIp,
       };
     default:
       return {
-        headline: 'Not linked to your Mac gateway',
+        headline: 'Not linked to your computer gateway',
         footnote:
-          'Scan the QR on the Mac you want — Settings → Scan pairing QR',
+          'Scan the QR on the computer you want — Settings → Scan pairing QR',
       };
   }
 }

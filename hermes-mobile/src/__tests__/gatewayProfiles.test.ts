@@ -85,7 +85,7 @@ describe('gatewayProfiles', () => {
     expect(label).toBe('Mac-Mini (192.168.12.138)');
   });
 
-  it('shows friendly Mac at IP when only IP is known', () => {
+  it('shows friendly computer at IP when only IP is known', () => {
     const label = formatProfileLabel({
       id: 'mac_192_168_12_138',
       label: '192.168.12.138',
@@ -93,7 +93,7 @@ describe('gatewayProfiles', () => {
       localIp: '192.168.12.138',
       addedAt: '2026-06-18T12:00:00.000Z',
     });
-    expect(label).toBe('Mac at 192.168.12.138');
+    expect(label).toBe('Computer at 192.168.12.138');
   });
 
   it('dedupes profiles that share the same LAN IP', () => {

@@ -57,7 +57,7 @@ describe('formatLeashConnectionDisplay', () => {
       health: null,
       isPaired: true,
     });
-    expect(display.headline).toBe('Cloud relay linked to your Mac');
+    expect(display.headline).toBe('Cloud relay linked to your computer');
   });
 
   it('explains gateway mode with machine name and IP', () => {
@@ -67,7 +67,7 @@ describe('formatLeashConnectionDisplay', () => {
       gatewayUrl: 'http://192.168.12.208:8642',
       health: sampleHealth({ hostname: 'Igors-MacBook-Pro.local', localIp: '192.168.12.208' }),
     });
-    expect(display.headline).toBe('Live link to your Mac gateway');
+    expect(display.headline).toBe('Live link to your computer gateway');
     expect(display.machineName).toBe('Igors-MacBook-Pro');
     expect(display.lanIp).toBe('192.168.12.208');
     expect(display.footnote).toContain('instant alerts');
@@ -81,7 +81,7 @@ describe('formatLeashConnectionDisplay', () => {
       health: null,
     });
     expect(display.headline).not.toMatch(/WS/i);
-    expect(display.headline).toContain('Mac gateway');
+    expect(display.headline).toContain('computer gateway');
   });
 });
 

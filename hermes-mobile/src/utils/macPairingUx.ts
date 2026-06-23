@@ -13,8 +13,8 @@ export type MacPairingStep = {
 export const MAC_GETTING_STARTED_STEPS: MacPairingStep[] = [
   {
     step: 1,
-    title: 'Get the Mac App',
-    body: 'Download and install Hermes directly on your Mac from our website.',
+    title: 'Get the Desktop App',
+    body: 'Download and install Hermes directly on your computer from our website.',
   },
   {
     step: 2,
@@ -24,12 +24,12 @@ export const MAC_GETTING_STARTED_STEPS: MacPairingStep[] = [
   {
     step: 3,
     title: 'Option B: Scan QR',
-    body: 'In the Mac app, click "Connect phone" to display a QR code, and scan it from Settings.',
+    body: 'In the desktop app, click "Connect phone" to display a QR code, and scan it from Settings.',
   },
   {
     step: 4,
     title: 'Search on Wi-Fi',
-    body: 'Make sure your phone and Mac are on the same Wi-Fi, then tap “Search for my Mac” below.',
+    body: 'Make sure your phone and computer are on the same Wi-Fi, then tap “Search for my computer” below.',
   },
 ];
 
@@ -38,18 +38,18 @@ export const MAC_GETTING_STARTED_STEPS: MacPairingStep[] = [
 export const MAC_QR_PAIRING_STEPS: MacPairingStep[] = [
   {
     step: 1,
-    title: 'On your Mac — open pairing',
-    body: 'In Hermes on your Mac, open the screen that connects your phone (menu: Hermes → Connect phone, or the pairing prompt Hermes shows you).',
+    title: 'On your computer — open pairing',
+    body: 'In Hermes on your computer, open the screen that connects your phone (menu: Connect phone, or the pairing prompt Hermes shows you).',
   },
   {
     step: 2,
-    title: 'QR on the Mac screen',
-    body: 'Keep the QR code visible on your Mac. Do not close that window.',
+    title: 'QR on the computer screen',
+    body: 'Keep the QR code visible on your computer. Do not close that window.',
   },
   {
     step: 3,
     title: 'On this phone — scan it',
-    body: 'Point the camera at the QR on your Mac screen.',
+    body: 'Point the camera at the QR on your computer screen.',
   },
 ];
 
@@ -72,6 +72,6 @@ export function macPairingStepsForVariant(
 
 export function macPairingHeadingForVariant(variant: MacPairingHelpVariant): string {
   return variant === 'getting-started'
-    ? 'New to Hermes on your Mac?'
-    : 'How to show the QR on your Mac';
+    ? 'New to Hermes on your computer?'
+    : 'How to show the QR on your computer';
 }

@@ -23,6 +23,7 @@ export function isConnectivityMessage(message: string): boolean {
   const lower = message.toLowerCase();
   return (
     CONNECTIVITY_MARKERS.some((marker) => lower.includes(marker)) ||
+    lower.includes('failed to connect to your computer') ||
     lower.includes('failed to connect to your mac') ||
     lower.includes('gateway is running') ||
     lower.includes('same wi-fi')
@@ -57,18 +58,18 @@ export function humanizeChatError(error: unknown, fallback: string): HumanChatEr
         if (code === 'session_not_found') {
           return {
             kind: 'operational',
-            message: 'That chat was removed or your Mac restarted. Pick another session or start a new one.',
+            message: 'That chat was removed or your computer restarted. Pick another session or start a new one.',
           };
         }
         if (code === 'invalid_api_key' || code === 'unauthorized') {
           return {
             kind: 'operational',
-            message: 'Sign-in to your Mac failed. Open Settings and pair again.',
+            message: 'Sign-in to your computer failed. Open Settings and pair again.',
           };
         }
         if (msg && typeof msg === 'string') {
           if (msg === 'invalid_request_error') {
-            return { kind: 'operational', message: 'Something went wrong talking to your Mac. Try again.' };
+            return { kind: 'operational', message: 'Something went wrong talking to your computer. Try again.' };
           }
           return { kind: 'operational', message: msg };
         }
@@ -85,5 +86,5 @@ export function humanizeChatError(error: unknown, fallback: string): HumanChatEr
 }
 
 export function friendlyMacUnreachableMessage(): string {
-  return "Your phone can't reach Hermes on your Mac right now.";
+  return "Your phone can't reach Hermes on your computer right now.";
 }

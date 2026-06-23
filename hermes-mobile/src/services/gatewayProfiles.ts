@@ -63,7 +63,7 @@ export function profileDisplayName(profile: GatewayProfile): string {
     return hostname;
   }
   if (ip) {
-    return `Mac at ${ip}`;
+    return `Computer at ${ip}`;
   }
   if (label) {
     return label;
@@ -127,7 +127,7 @@ function mergeProfileRecords(a: GatewayProfile, b: GatewayProfile): GatewayProfi
   const labelPick = [a.label, b.label, hostname?.replace(/\.local$/i, '')]
     .map((v) => v?.trim())
     .find((v) => v && !isBareIp(v));
-  const label = labelPick || a.label || b.label || localIp || 'Mac';
+  const label = labelPick || a.label || b.label || localIp || 'computer';
   const lastConnectedAt =
     [a.lastConnectedAt, b.lastConnectedAt].filter(Boolean).sort().reverse()[0] ?? a.addedAt;
   const addedAt = a.addedAt <= b.addedAt ? a.addedAt : b.addedAt;
@@ -189,7 +189,7 @@ export function upsertDiscoveredProfile(
     hostname?.replace(/\.local$/i, '') ||
     localIp ||
     gatewayUrlHostname(gatewayUrl) ||
-    'Mac';
+    'computer';
 
   const existing = state.profiles.find((p) => {
     if (p.id === id) {

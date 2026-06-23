@@ -133,7 +133,7 @@ export default function SettingsScreen() {
           'Connected',
           health?.level === 'green'
             ? `Gateway healthy at ${url}`
-            : `Using ${url}. If Chat still fails, tap Find Macs on Wi‑Fi or scan the QR from Hermes on your Mac.`,
+            : `Using ${url}. If Chat still fails, tap Find computers on Wi‑Fi or scan the QR from Hermes on your computer.`,
         );
       }
     } catch (err) {
@@ -141,7 +141,7 @@ export default function SettingsScreen() {
       if (!demoMode) {
         Alert.alert(
           'Auto-connect failed',
-          err instanceof Error ? err.message : 'Could not reach your Mac gateway on LAN.',
+          err instanceof Error ? err.message : 'Could not reach your computer gateway on LAN.',
         );
       }
     } finally {
@@ -190,7 +190,7 @@ export default function SettingsScreen() {
 
   const handlePair = async () => {
     if (!pairCode.trim()) {
-      Alert.alert('Pairing code required', 'Run bridge pairing on your Mac and enter the code Hermes shows you.');
+      Alert.alert('Pairing code required', 'Run bridge pairing on your computer and enter the code Hermes shows you.');
       return;
     }
     try {
@@ -216,7 +216,7 @@ export default function SettingsScreen() {
       );
       await completePair(pairCode);
       setPairCode('');
-      Alert.alert('Paired', 'Hermes Mobile Leash tab is linked to your Mac approval relay.');
+      Alert.alert('Paired', 'Hermes Mobile Leash tab is linked to your computer approval relay.');
     } catch (err) {
       Alert.alert('Pairing failed', err instanceof Error ? err.message : 'Could not complete pairing');
     }
@@ -240,7 +240,7 @@ export default function SettingsScreen() {
       if (!demoMode) {
         Alert.alert(
           'Scan failed',
-          err instanceof Error ? err.message : 'Could not search for Mac gateways.',
+          err instanceof Error ? err.message : 'Could not search for computer gateways.',
         );
       }
     } finally {
@@ -256,14 +256,14 @@ export default function SettingsScreen() {
       if (!demoMode) {
         Alert.alert(
           'Switch failed',
-          err instanceof Error ? err.message : 'Could not connect to that Mac.',
+          err instanceof Error ? err.message : 'Could not connect to that computer.',
         );
       }
     }
   };
 
   const handleRemoveProfile = (profileId: string) => {
-    Alert.alert('Remove Mac', 'Remove this saved Mac from the list?', [
+    Alert.alert('Remove computer', 'Remove this saved computer from the list?', [
       { text: 'Cancel', style: 'cancel' },
       {
         text: 'Remove',
@@ -292,7 +292,7 @@ export default function SettingsScreen() {
             <View style={styles.switchLabelCol}>
               <Text style={styles.label}>Product analytics</Text>
               <Text style={styles.description}>
-                Anonymous usage events (screen views, Mac scan results) via PostHog. No chat content.
+                Anonymous usage events (screen views, computer scan results) via PostHog. No chat content.
               </Text>
             </View>
             <Switch
@@ -308,9 +308,9 @@ export default function SettingsScreen() {
 
         <Text style={styles.sectionTitle}>💬 Hermes Chat (replaces Telegram)</Text>
         <GlassCard>
-          <Text style={styles.label}>Your Macs</Text>
+          <Text style={styles.label}>Your computers</Text>
           <Text style={styles.description}>
-            Each Mac you connect gets a saved profile. Tap to switch — no re-scanning required.
+            Each computer you connect gets a saved profile. Tap to switch — no re-scanning required.
           </Text>
           <GatewayProfilePicker
             profiles={savedMacProfiles}
@@ -322,7 +322,7 @@ export default function SettingsScreen() {
             scanResult={profileScanResult}
           />
           <LoadingButton
-            label="Find Macs on Wi‑Fi"
+            label="Find computers on Wi‑Fi"
             loadingLabel="Searching Wi‑Fi…"
             loading={isScanningMacs || profileScanning}
             onPress={handleFindMacs}
@@ -330,7 +330,7 @@ export default function SettingsScreen() {
             style={styles.pairButton}
           />
           <Text style={styles.description}>
-            Hermes on your Mac must be running. We search Wi‑Fi first — no typing URLs.
+            Hermes on your computer must be running. We search Wi‑Fi first — no typing URLs.
           </Text>
           <MacPairingHelp variant="getting-started" compact testID="settings-mac-pairing-help" />
           <TouchableOpacity
@@ -340,7 +340,7 @@ export default function SettingsScreen() {
             testID="auto-connect-gateway"
           >
             <Text style={styles.primaryButtonText}>
-              {isAutoConnecting ? 'Connecting…' : 'Auto-connect to Mac gateway'}
+              {isAutoConnecting ? 'Connecting…' : 'Auto-connect to computer gateway'}
             </Text>
           </TouchableOpacity>
           <TouchableOpacity
@@ -348,7 +348,7 @@ export default function SettingsScreen() {
             onPress={() => setQrScannerVisible(true)}
             testID="scan-pairing-qr"
           >
-            <Text style={styles.pairButtonText}>Scan QR from my Mac screen</Text>
+            <Text style={styles.pairButtonText}>Scan QR from my computer screen</Text>
           </TouchableOpacity>
           {effectiveGatewayUrl ? (
             <Text style={styles.metaLine}>
@@ -392,7 +392,7 @@ export default function SettingsScreen() {
         <Text style={styles.sectionTitle}>🪢 Approval relay (Leash tab)</Text>
         <GlassCard>
           <Text style={styles.description}>
-            Optional: pair with your Mac for tool approvals on LTE. On your Mac, run the Hermes
+            Optional: pair with your computer for tool approvals on LTE. On your computer, run the Hermes
             approval bridge pairing command — then enter the code below.
             This is not required for Chat; Chat uses the Hermes gateway tunnel above.
           </Text>
@@ -420,7 +420,7 @@ export default function SettingsScreen() {
           />
           <TouchableOpacity style={styles.pairButton} onPress={handlePair}>
             <Text style={styles.pairButtonText}>
-              {isPaired ? 'RE-LINK WITH NEW CODE' : 'PAIR WITH MAC'}
+              {isPaired ? 'RE-LINK WITH NEW CODE' : 'PAIR WITH COMPUTER'}
             </Text>
           </TouchableOpacity>
           {isPaired ? (
@@ -512,7 +512,7 @@ export default function SettingsScreen() {
             <Text style={styles.secondaryButtonText}>Preview Leash card (smoke test)</Text>
           </TouchableOpacity>
           <Text style={styles.description}>
-            Injects a fake blocked-command card on the Leash tab. Does not touch your Mac gateway.
+            Injects a fake blocked-command card on the Leash tab. Does not touch your computer gateway.
           </Text>
           <View style={styles.spacer} />
           <View style={styles.switchRow}>
@@ -547,7 +547,7 @@ export default function SettingsScreen() {
         <GlassCard>
           <Text style={styles.switchLabel}>Approval policy</Text>
           <Text style={styles.switchDesc}>
-            Strict hides “always allow” and gates prod deploy. Autonomous defers to Mac standing approvals.
+            Strict hides “always allow” and gates prod deploy. Autonomous defers to computer standing approvals.
           </Text>
           <View style={styles.policyRow}>
             {(['strict', 'balanced', 'autonomous'] as ApprovalPolicy[]).map((policy) => (
@@ -615,7 +615,7 @@ export default function SettingsScreen() {
             <View style={styles.switchLabelCol}>
               <Text style={styles.switchLabel}>Smart notifications</Text>
               <Text style={styles.switchDesc}>
-                Time-sensitive approvals (Approve/Deny actions), live Mac activity while
+                Time-sensitive approvals (Approve/Deny actions), live computer activity while
                 backgrounded, and finish summaries with badge counts
               </Text>
             </View>
@@ -671,7 +671,7 @@ export default function SettingsScreen() {
           </View>
           <Text style={styles.description}>
             Off by default — Chat is the Telegram replacement. Turn on when you want mobile kill-switch
-            alerts and Mac approvals.mode is manual or smart.
+            alerts and computer approvals.mode is manual or smart.
           </Text>
         </GlassCard>
 
