@@ -54,6 +54,26 @@ function classifyHealth(body: Record<string, unknown>, errorMessage?: string): G
   return 'red';
 }
 
+export async function fetchWithTimeout(
+  url: string,
+  options: RequestInit = {},
+  timeoutMs = 5000,
+): Promise<Response> {
+  const controller = new AbortController();
+  const id = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const response = await fetch(url, {
+      ...options,
+      signal: controller.signal,
+    });
+    clearTimeout(id);
+    return response;
+  } catch (error) {
+    clearTimeout(id);
+    throw error;
+  }
+}
+
 export async function fetchGatewayHealth(
   gatewayUrl: string,
   apiKey?: string | null,
@@ -66,9 +86,9 @@ export async function fetchGatewayHealth(
   const simpleUrl = `${httpBase}/health`;
 
   try {
-    let response = await fetch(detailedUrl, { headers });
+    let response = await fetchWithTimeout(detailedUrl, { headers });
     if (!response.ok) {
-      response = await fetch(simpleUrl, { headers });
+      response = await fetchWithTimeout(simpleUrl, { headers });
     }
     if (!response.ok) {
       return {
