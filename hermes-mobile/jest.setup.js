@@ -74,6 +74,16 @@ jest.mock('react-native-safe-area-context', () => {
   };
 });
 
+jest.mock('expo-iap', () => ({
+  initConnection: jest.fn(() => Promise.resolve(true)),
+  finishTransaction: jest.fn(() => Promise.resolve()),
+  hasActiveSubscriptions: jest.fn(() => Promise.resolve(false)),
+  requestPurchase: jest.fn(() => Promise.resolve()),
+  restorePurchases: jest.fn(() => Promise.resolve()),
+  purchaseUpdatedListener: jest.fn(() => ({ remove: jest.fn() })),
+  purchaseErrorListener: jest.fn(() => ({ remove: jest.fn() })),
+}));
+
 global.fetch = jest.fn(() =>
   Promise.resolve({
     ok: true,

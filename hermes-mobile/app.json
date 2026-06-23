@@ -50,7 +50,7 @@
     "plugins": [
       "./plugins/withHermesAiGlasses.js",
       "./plugins/withHermesAppleIntelligence.js",
-        [
+      [
         "expo-build-properties",
         {
           "android": {
@@ -71,7 +71,8 @@
           "icon": "./assets/icon.png",
           "color": "#6366F1"
         }
-      ]
+      ],
+      "expo-iap"
     ]
   }
 }

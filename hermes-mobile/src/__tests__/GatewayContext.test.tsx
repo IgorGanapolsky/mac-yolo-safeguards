@@ -42,6 +42,11 @@ jest.mock('../services/gatewayProfiles', () => ({
   touchProfileHealth: jest.fn((state) => state),
   dedupeGatewayProfiles: jest.fn((state) => state),
 }));
+jest.mock('../services/thumbgateIap', () => ({
+  initializeThumbgateIapListeners: jest.fn(),
+  syncThumbgateLeashEntitlement: jest.fn(() => Promise.resolve(true)),
+}));
+
 jest.mock('../services/mobileRelayClient');
 jest.mock('../services/hermesGatewayClient', () => ({
   stopRun: jest.fn().mockResolvedValue(undefined),

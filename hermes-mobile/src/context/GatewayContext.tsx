@@ -9,6 +9,7 @@ import React, {
 } from 'react';
 import { AppState, Linking, Platform } from 'react-native';
 import type {
+  GatewayEventMessage,
   GatewayHealthSnapshot,
   GatewaySettings,
   PendingApproval,
@@ -93,6 +94,10 @@ import {
 } from '../services/gatewayDiscovery';
 import { isGatewaySmokeTestMessage } from '../utils/gatewaySmokeMessages';
 import { isThumbgateLeashUnlocked } from '../utils/thumbgateLeash';
+import {
+  initializeThumbgateIapListeners,
+  syncThumbgateLeashEntitlement,
+} from '../services/thumbgateIap';
 import type { ApprovalChoice } from '../types/approval';
 import { resolveApprovalChoice } from '../services/approvalResolver';
 import { fromPendingApproval } from '../utils/approvalNormalize';
@@ -174,6 +179,8 @@ interface GatewayContextValue {
   clearChatRelayText: () => void;
   runProgress: RunProgressState | null;
   setRunProgress: React.Dispatch<React.SetStateAction<RunProgressState | null>>;
+  addGatewayListener: (listener: (event: GatewayEventMessage) => void) => void;
+  removeGatewayListener: (listener: (event: GatewayEventMessage) => void) => void;
 }
 
 const GatewayContext = createContext<GatewayContextValue | null>(null);
@@ -225,6 +232,15 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
   >(null as any);
   const pendingApprovalsRef = useRef<PendingApproval[]>([]);
   const runProgressRef = useRef<RunProgressState | null>(null);
+  const listenersRef = useRef<Set<(event: GatewayEventMessage) => void>>(new Set());
+
+  const addGatewayListener = useCallback((listener: (event: GatewayEventMessage) => void) => {
+    listenersRef.current.add(listener);
+  }, []);
+
+  const removeGatewayListener = useCallback((listener: (event: GatewayEventMessage) => void) => {
+    listenersRef.current.delete(listener);
+  }, []);
 
   useEffect(() => {
     healthRef.current = health;
@@ -351,6 +367,13 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
         if (profileKey) {
           resolvedKey = profileKey;
         }
+      }
+
+      initializeThumbgateIapListeners();
+      const storeEntitled = await syncThumbgateLeashEntitlement();
+      if (storeEntitled !== resolvedSettings.thumbgateProActive) {
+        resolvedSettings = { ...resolvedSettings, thumbgateProActive: storeEntitled };
+        await storage.saveGatewaySettings(resolvedSettings);
       }
 
       if (!mounted) return;
@@ -531,6 +554,14 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
   const handleGatewayMessage = useCallback((raw: string) => {
     const event = parseGatewayEvent(raw);
     if (!event) return;
+
+    listenersRef.current.forEach((listener) => {
+      try {
+        listener(event);
+      } catch (err) {
+        console.error('Error invoking gateway listener:', err);
+      }
+    });
 
     const pending = gateBlockedToPending(event);
     if (pending) {
@@ -1499,6 +1530,8 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
       clearChatRelayText,
       runProgress,
       setRunProgress,
+      addGatewayListener,
+      removeGatewayListener,
     }),
     [
       settings,
@@ -1548,6 +1581,8 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
       clearChatRelayText,
       runProgress,
       setRunProgress,
+      addGatewayListener,
+      removeGatewayListener,
     ],
   );
 

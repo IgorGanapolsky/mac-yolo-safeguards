@@ -89,8 +89,8 @@ export default function ProUpgradeCard({ onUnlocked, onTesterUnlock }: ProUpgrad
       <Text style={styles.title}>ThumbGate Pro</Text>
       <Text style={styles.body}>
         Hermes Chat is free. {THUMBGATE_LEASH_PRODUCT_NAME} ({THUMBGATE_PRO_PRICE_LABEL}) unlocks
-        mobile approval cards and ThumbGate memory gates — billed through{' '}
-        {Platform.OS === 'ios' ? 'the App Store' : 'Google Play'}, not on thumbgate.ai.
+        mobile approval cards on this phone — subscription through{' '}
+        {Platform.OS === 'ios' ? 'Apple' : 'Google'}, same as any other mobile app.
       </Text>
       <TouchableOpacity
         style={[styles.primaryButton, busy && styles.primaryButtonDisabled]}

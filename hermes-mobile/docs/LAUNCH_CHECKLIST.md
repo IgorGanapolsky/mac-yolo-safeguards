@@ -41,7 +41,7 @@ Users can opt out in **Settings → Privacy → Product analytics**.
 
 Hermes Mobile is **free**. Revenue is via **ThumbGate Pro** ($19/mo) and hardening sprints — see Settings → Support development.
 
-In-app purchase (Google Play / App Store) is scaffolded but not live yet; do not use thumbgate.ai as checkout.
+When the user buys **ThumbGate Leash**, entitlement comes from **Google Play Billing** / **App Store** via `expo-iap` (`thumbgate_leash_monthly`). Create that subscription in Play Console and App Store Connect before testing purchases.
 
 ## 4. Google Play Production
 
