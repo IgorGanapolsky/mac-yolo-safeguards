@@ -22,7 +22,7 @@ appId: com.iganapolsky.hermesmobile
     timeout: 90000
 - tapOn:
     id: "leash-smoke-test"
-- tapOn: "ThumbGate Leash"
+- tapOn: "Leash"
 - extendedWaitUntil:
     visible:
       id: "THUMBGATE_LEASH"

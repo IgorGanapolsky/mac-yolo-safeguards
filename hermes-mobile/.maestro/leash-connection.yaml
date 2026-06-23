@@ -11,7 +11,7 @@ appId: com.iganapolsky.hermesmobile
     timeout: 90000
 - tapOn:
     id: "unlock-thumbgate-leash"
-- tapOn: "ThumbGate Leash"
+- tapOn: "Leash"
 - extendedWaitUntil:
     visible:
       id: "THUMBGATE_LEASH"

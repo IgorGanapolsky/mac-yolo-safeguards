@@ -1,7 +1,7 @@
 import React from 'react';
 import { Linking, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import {
-  THUMBGATE_LEASH_TAB_LABEL,
+  THUMBGATE_LEASH_PRODUCT_NAME,
   THUMBGATE_PRO_PRICE_LABEL,
   THUMBGATE_PRO_URL,
 } from '../constants/monetization';
@@ -22,7 +22,7 @@ export default function ProUpgradeCard({ onUnlock }: ProUpgradeCardProps) {
     <View style={styles.wrap} testID="pro-upgrade-card">
       <Text style={styles.title}>ThumbGate Pro</Text>
       <Text style={styles.body}>
-        Hermes Chat is free on your phone. {THUMBGATE_LEASH_TAB_LABEL} ({THUMBGATE_PRO_PRICE_LABEL})
+        Hermes Chat is free on your phone. {THUMBGATE_LEASH_PRODUCT_NAME} ({THUMBGATE_PRO_PRICE_LABEL})
         is the paid add-on — approve blocked agent tools from your phone and sync ThumbGate memory
         gates across every tool call.
       </Text>
@@ -42,7 +42,7 @@ export default function ProUpgradeCard({ onUnlock }: ProUpgradeCardProps) {
           }}
           testID="unlock-thumbgate-leash"
         >
-          <Text style={styles.secondaryButtonText}>I've subscribed — unlock {THUMBGATE_LEASH_TAB_LABEL}</Text>
+          <Text style={styles.secondaryButtonText}>I've subscribed — unlock {THUMBGATE_LEASH_PRODUCT_NAME}</Text>
         </TouchableOpacity>
       ) : null}
     </View>

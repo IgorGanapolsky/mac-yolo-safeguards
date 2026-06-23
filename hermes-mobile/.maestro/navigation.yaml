@@ -4,7 +4,7 @@ appId: com.iganapolsky.hermesmobile
 - launchApp
 - runFlow: e2e-bootstrap.yaml
 
-- tapOn: "ThumbGate Leash"
+- tapOn: "Leash"
 - assertVisible:
     id: "THUMBGATE_LEASH"
 
