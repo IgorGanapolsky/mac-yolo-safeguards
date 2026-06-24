@@ -55,4 +55,17 @@ describe('composerKeyboard', () => {
       platform.OS = prevOs;
     }
   });
+
+  it('keeps Android composer docked when keyboard inset has been cleared', () => {
+    const platform = require('react-native').Platform as { OS: string };
+    const prevOs = platform.OS;
+    platform.OS = 'android';
+    try {
+      const { paddingBottom, marginBottom } = composerDockInsets(0, 0, 'resize', false, 0);
+      expect(paddingBottom).toBe(COMPOSER_REST_BOTTOM_INSET);
+      expect(marginBottom).toBe(0);
+    } finally {
+      platform.OS = prevOs;
+    }
+  });
 });

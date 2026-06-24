@@ -42,6 +42,22 @@ export function useKeyboardInset(options?: {
     }
   }, [options?.focused]);
 
+  useEffect(() => {
+    if (Platform.OS !== 'android' || !options?.focused || inset <= 0) {
+      return;
+    }
+
+    const timer = setInterval(() => {
+      if ((Keyboard.metrics()?.height ?? 0) > 0) {
+        return;
+      }
+      setInset(0);
+      setWindowShrunk(false);
+      baselineWindowHeight.current = Dimensions.get('window').height;
+    }, 250);
+
+    return () => clearInterval(timer);
+  }, [inset, options?.focused]);
 
   useEffect(() => {
     const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
@@ -77,9 +93,6 @@ export function useKeyboardInset(options?: {
       }
     };
     const onHide = () => {
-      if (options?.suppressHideWhileFocusedRef?.current) {
-        return;
-      }
       setInset(0);
       setWindowShrunk(false);
       baselineWindowHeight.current = Dimensions.get('window').height;
