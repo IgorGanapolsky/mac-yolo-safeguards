@@ -58,8 +58,8 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   chip: {
-    minWidth: 92,
-    maxWidth: 150,
+    minWidth: 120,
+    maxWidth: 220,
     borderRadius: 8,
     borderWidth: 1,
     borderColor: colors.borderLight,
@@ -73,6 +73,7 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: 12,
+    lineHeight: 15,
     fontWeight: '900',
     color: colors.text,
   },

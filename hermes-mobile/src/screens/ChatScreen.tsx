@@ -146,6 +146,10 @@ import {
 import { threadLabelAtMessageIndex } from '../utils/mergedThreadLabels';
 import { isToolActivityRole } from '../utils/toolMessageDetails';
 import { extractTerminalActivityFromMessage, isTerminalToolName } from '../utils/terminalActivity';
+import {
+  buildFallbackPromptActions,
+  buildRecentPromptActions,
+} from '../utils/recentPromptActions';
 
 function projectSessions(
   allSessions: HermesSession[],
@@ -2391,35 +2395,27 @@ export default function ChatScreen() {
   }, [isSending, progressBanner]);
 
   const quickActions = useMemo<ChatQuickAction[]>(() => {
-    const approvalPrefix = composerApprovals.length > 0 ? 'Handle pending approval first, then ' : '';
-    const runPrefix = isRunActive ? 'The current run may still be active. ' : '';
-    return [
+    const fallbackActions = buildFallbackPromptActions({
+      approvalCount: composerApprovals.length,
+      isRunActive,
+    });
+    return buildRecentPromptActions(
       {
-        id: 'continue',
-        label: 'Continue',
-        detail: isRunActive ? 'queue next step' : 'next step',
-        prompt: `${runPrefix}${approvalPrefix}continue from the current state, verify what changed, and execute the next concrete step with evidence.`,
+        messages,
+        sessions: visibleSessions,
+        pinnedOutboundText,
+        currentSessionId: currentSession?.id,
       },
-      {
-        id: 'fix',
-        label: 'Fix',
-        detail: 'patch + test',
-        prompt: `${approvalPrefix}find the current blocker, make the smallest safe fix, run the focused test, and report the evidence.`,
-      },
-      {
-        id: 'money',
-        label: 'Money',
-        detail: 'next dollar',
-        prompt: 'run the next-dollar loop: check paid obligations first, pick one qualified buyer action, execute only authorized steps, and report proof.',
-      },
-      {
-        id: 'status',
-        label: 'Status',
-        detail: 'proof only',
-        prompt: 'summarize the current state with verified evidence, active blocker, next action, and what is not proven yet.',
-      },
-    ];
-  }, [composerApprovals.length, isRunActive]);
+      fallbackActions,
+    );
+  }, [
+    composerApprovals.length,
+    currentSession?.id,
+    isRunActive,
+    messages,
+    pinnedOutboundText,
+    visibleSessions,
+  ]);
 
   const handleQuickAction = useCallback((action: ChatQuickAction) => {
     haptics.selection();
