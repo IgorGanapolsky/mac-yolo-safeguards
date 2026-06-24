@@ -468,11 +468,13 @@ export default function ChatScreen() {
       await retryGatewayBootstrap();
       await autoConnectGateway();
       await refreshHealth();
+      connectEvents();
     } finally {
       setIsScanningMacs(false);
     }
   }, [
     autoConnectGateway,
+    connectEvents,
     refreshHealth,
     retryGatewayBootstrap,
     scanForGatewayProfiles,
@@ -2644,26 +2646,44 @@ export default function ChatScreen() {
 
       <View style={styles.keyboardContainer}>
         {showMacConnectionHelp ? (
-          <ChatConnectionPanel
-            connectionState={connectionState}
-            macLabel={machineShortLabel}
-            searching={isScanningMacs || profileScanning}
-            scanProgress={profileScanProgress}
-            scanResult={profileScanResult}
-            profiles={gatewayProfiles}
-            activeProfileId={activeGatewayProfile?.id ?? null}
-            onSelectProfile={async (profileId) => {
-              haptics.light();
-              await selectGatewayProfile(profileId);
-              await autoConnectGateway();
-              await refreshHealth();
-            }}
-            onSearchMac={handleSearchMacFromChat}
-            onOpenSettings={() => navigation.navigate('Settings' as never)}
-          />
+          <ScrollView
+            style={styles.connectionHelpScroll}
+            contentContainerStyle={[
+              styles.connectionHelpContent,
+              {
+                paddingBottom: Math.max(
+                  insets.bottom + ANDROID_TAB_BAR_ESTIMATE_PX + 24,
+                  112,
+                ),
+              },
+            ]}
+            keyboardShouldPersistTaps="handled"
+            testID="chat-connection-help-scroll"
+          >
+            <ChatConnectionPanel
+              connectionState={connectionState}
+              macLabel={machineShortLabel}
+              searching={isScanningMacs || profileScanning}
+              scanProgress={profileScanProgress}
+              scanResult={profileScanResult}
+              profiles={gatewayProfiles}
+              activeProfileId={activeGatewayProfile?.id ?? null}
+              activeProfileReachable={macHttpOk}
+              activeProfileConnecting={connectionState === 'connecting'}
+              onSelectProfile={async (profileId) => {
+                haptics.light();
+                await selectGatewayProfile(profileId);
+                await autoConnectGateway();
+                await refreshHealth();
+                connectEvents();
+              }}
+              onSearchMac={handleSearchMacFromChat}
+              onOpenSettings={() => navigation.navigate('Settings' as never)}
+            />
+          </ScrollView>
         ) : null}
 
-        {isLoadingMessages && messages.length === 0 ? (
+        {!showMacConnectionHelp && (isLoadingMessages && messages.length === 0 ? (
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color={colors.primary} />
             <Text style={styles.loadingText}>Fetching session history...</Text>
@@ -2810,8 +2830,9 @@ export default function ChatScreen() {
               />
             )}
           </View>
-        )}
+        ))}
 
+        {!showMacConnectionHelp ? (
         <View
           style={[
             styles.composerDock,
@@ -2918,6 +2939,7 @@ export default function ChatScreen() {
           focusNonce={composerFocusNonce}
         />
         </View>
+        ) : null}
       </View>
 
       <Modal
@@ -2943,6 +2965,8 @@ export default function ChatScreen() {
             <GatewayProfilePicker
               profiles={gatewayProfiles}
               activeProfileId={activeGatewayProfile?.id ?? null}
+              activeReachable={macHttpOk || connectionState === 'connected'}
+              activeConnecting={connectionState === 'connecting'}
               scanning={profileScanning || isScanningMacs}
               scanProgress={profileScanProgress}
               scanResult={profileScanResult}
@@ -2950,6 +2974,8 @@ export default function ChatScreen() {
                 haptics.light();
                 await selectGatewayProfile(profileId);
                 await autoConnectGateway();
+                await refreshHealth();
+                connectEvents();
                 setMacPickerVisible(false);
                 setCurrentSession(null);
                 setMessages([]);
@@ -3283,6 +3309,13 @@ const styles = StyleSheet.create({
   keyboardContainer: {
     flex: 1,
     minHeight: 0,
+  },
+  connectionHelpScroll: {
+    flex: 1,
+  },
+  connectionHelpContent: {
+    paddingHorizontal: 2,
+    paddingTop: 10,
   },
   emptyScroll: {
     flex: 1,

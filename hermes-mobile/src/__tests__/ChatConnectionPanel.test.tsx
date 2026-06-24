@@ -22,4 +22,30 @@ describe('ChatConnectionPanel', () => {
     expect(getByTestId('gateway-profile-list')).toBeTruthy();
     expect(getByTestId('select-gateway-profile-p1')).toBeTruthy();
   });
+
+  it('does not call an unreachable active computer active now', () => {
+    const { getByText, queryByText } = render(
+      <ChatConnectionPanel
+        connectionState="disconnected"
+        macLabel="Computer at 192.168.68.61"
+        profiles={[
+          {
+            id: 'stale',
+            label: 'Computer at 192.168.68.61',
+            gatewayUrl: 'http://192.168.68.61:8642',
+            localIp: '192.168.68.61',
+            lastConnectedAt: '2026-06-23T12:00:00Z',
+            addedAt: '2026-06-23T12:00:00Z',
+          },
+        ]}
+        activeProfileId="stale"
+        activeProfileReachable={false}
+        onSelectProfile={jest.fn()}
+        onSearchMac={jest.fn()}
+      />,
+    );
+
+    expect(getByText('Selected · cannot reach')).toBeTruthy();
+    expect(queryByText('Active now')).toBeNull();
+  });
 });

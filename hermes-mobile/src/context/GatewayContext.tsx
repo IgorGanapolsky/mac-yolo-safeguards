@@ -823,7 +823,10 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
       throw new Error('failed');
     };
 
-    const commitDiscoveredUrl = async (successfulUrl: string): Promise<string> => {
+    const commitDiscoveredUrl = async (
+      successfulUrl: string,
+      makeProfileActive = false,
+    ): Promise<string> => {
       if (successfulUrl !== currentUrl) {
         const nextSettings = { ...settingsRef.current, gatewayUrl: successfulUrl };
         await storage.saveGatewaySettings(nextSettings);
@@ -843,7 +846,7 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
           localIp: lanIp ?? undefined,
           hostname: healthRef.current?.hostname,
         },
-        !profileStateRef.current.activeProfileId,
+        makeProfileActive || !profileStateRef.current.activeProfileId,
       );
       profileStateRef.current = upserted;
       setProfileState(upserted);
@@ -863,10 +866,24 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
       const lastUrl = buildGatewayUrlFromLanIp(lastLanIp);
       if (lastUrl !== currentUrl) {
         try {
-          return await commitDiscoveredUrl(await probe(lastUrl));
+          return await commitDiscoveredUrl(await probe(lastUrl), true);
         } catch (_) {
           // fall through
         }
+      }
+    }
+
+    const savedProfileUrls = profileStateRef.current.profiles
+      .map((profile) => profile.gatewayUrl)
+      .filter(Boolean);
+    const savedCandidates = [...new Set(savedProfileUrls)].filter(
+      (url) => url !== currentUrl && url !== (lastLanIp ? buildGatewayUrlFromLanIp(lastLanIp) : ''),
+    );
+    for (const profileUrl of savedCandidates) {
+      try {
+        return await commitDiscoveredUrl(await probe(profileUrl), true);
+      } catch (_) {
+        // Try the next saved computer before falling back to emulator/packager addresses.
       }
     }
 

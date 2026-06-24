@@ -16,6 +16,8 @@ type ChatConnectionPanelProps = {
   scanResult?: LanScanResult | null;
   profiles?: GatewayProfile[];
   activeProfileId?: string | null;
+  activeProfileReachable?: boolean;
+  activeProfileConnecting?: boolean;
   onSelectProfile?: (profileId: string) => void;
   onSearchMac: () => void;
   onOpenSettings?: () => void;
@@ -49,6 +51,8 @@ export default function ChatConnectionPanel({
   scanResult = null,
   profiles = [],
   activeProfileId = null,
+  activeProfileReachable = false,
+  activeProfileConnecting = false,
   onSelectProfile,
   onSearchMac,
   onOpenSettings,
@@ -79,6 +83,8 @@ export default function ChatConnectionPanel({
           <GatewayProfilePicker
             profiles={profiles}
             activeProfileId={activeProfileId}
+            activeReachable={activeProfileReachable}
+            activeConnecting={activeProfileConnecting}
             onSelect={(profileId) => onSelectProfile?.(profileId)}
           />
         </View>

@@ -11,6 +11,8 @@ type GatewayProfilePickerProps = {
   activeProfileId: string | null;
   onSelect: (profileId: string) => void;
   onRemove?: (profileId: string) => void;
+  activeReachable?: boolean;
+  activeConnecting?: boolean;
   scanning?: boolean;
   scanProgress?: LanScanProgress | null;
   scanResult?: LanScanResult | null;
@@ -21,6 +23,8 @@ export default function GatewayProfilePicker({
   activeProfileId,
   onSelect,
   onRemove,
+  activeReachable = false,
+  activeConnecting = false,
   scanning = false,
   scanProgress = null,
   scanResult = null,
@@ -41,6 +45,13 @@ export default function GatewayProfilePicker({
         <View style={styles.list} testID="gateway-profile-list">
       {profiles.map((profile) => {
         const isActive = profile.id === activeProfileId;
+        const meta = isActive
+          ? activeReachable
+            ? 'Connected'
+            : activeConnecting
+              ? 'Trying to connect…'
+              : 'Selected · cannot reach'
+          : 'Tap to switch';
         return (
           <View key={profile.id} style={styles.row} testID={`gateway-profile-item-${profile.id}`}>
             <TouchableOpacity
@@ -54,11 +65,15 @@ export default function GatewayProfilePicker({
               </View>
               <View style={styles.labelBlock}>
                 <Text style={styles.profileLabel}>{formatProfileLabel(profile)}</Text>
-                {profile.lastConnectedAt ? (
-                  <Text style={styles.meta}>
-                    {isActive ? 'Active now' : 'Tap to switch'}
-                  </Text>
-                ) : null}
+                <Text
+                  style={[
+                    styles.meta,
+                    isActive && activeReachable ? styles.metaConnected : null,
+                    isActive && !activeReachable ? styles.metaUnreachable : null,
+                  ]}
+                >
+                  {meta}
+                </Text>
               </View>
             </TouchableOpacity>
             {onRemove && profiles.length > 1 ? (
@@ -132,6 +147,14 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
     fontSize: 11,
     marginTop: 2,
+  },
+  metaConnected: {
+    color: colors.success,
+    fontWeight: '700',
+  },
+  metaUnreachable: {
+    color: colors.warning,
+    fontWeight: '700',
   },
   removeButton: {
     paddingHorizontal: 8,
