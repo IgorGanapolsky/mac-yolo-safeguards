@@ -6,6 +6,33 @@ Repo: `mac-yolo-safeguards` — Mac freeze guard scripts + ThumbGate SaaS funnel
 
 ---
 
+## Multi-agent coordination (READ FIRST — prevents divergence)
+
+Multiple autonomous agents (Claude Code, Cursor, Antigravity, gemini/codex) work this repo. To NOT
+clobber each other, follow the two-layer model (researched 2026-06-24):
+
+1. **Isolation:** one agent per **git worktree + branch**; serialize git ops; **sequential** merge onto `main` (rebase first), gated on `npm test` + Maestro E2E.
+2. **Coordination:** [`plan.md`](./plan.md) is the **shared live board**. It is the single source of truth for who is doing what.
+
+**Protocol (every task):**
+1. **Read `plan.md`.** Pick a `pending` task whose claimed files are `(free)`.
+2. **Claim before you touch** — set Owner+Status in the Task Board AND add your files to the File Ownership Map (your `agent-id` + UTC date), and commit `plan.md` *first*, before editing code.
+3. Work only on your claimed files, in your worktree.
+4. **Discovered work** → append to plan.md §4; don't silently expand scope.
+5. Verify against the task's AcceptanceCheck; on green, set `done`, release your files (append a line), add a Decisions-Log entry.
+
+**The "Never" list (hard rules — violating these is a directive breach):**
+- **Never edit a file another agent owns** in `plan.md` §2. Mark your task `blocked`, log it, and **STOP**.
+- **Never delete or overwrite another agent's claim, lock, branch, or uncommitted WIP.** (Verified 2026-06-24: gemini had ~330 lines of uncommitted WIP in `GatewayContext.tsx` — barging in would have destroyed it.)
+- **Never bypass a verification gate** (tests/E2E) or invent a workaround when blocked — escalate via `blocked` + STOP.
+- Logs in `plan.md` (Decisions, Discovered) are **append-only** — add at the end, never rewrite.
+
+Cap concurrency at **2–3 agents** on this tightly-coupled mobile codebase. If your session directive conflicts with an in-progress `plan.md` claim, surface it — do not diverge.
+
+Note: AGENTS.md is read natively by Cursor, gemini/Gemini, Copilot, Aider, Windsurf, Zed, Claude Code. Antigravity may need to be pointed at this file explicitly.
+
+---
+
 ## Honesty Protocol
 
 1. Never issue a canned completion statement (`"Done"`, `"Shipped"`, `"All clean"`) without verifiable evidence in the same response.
