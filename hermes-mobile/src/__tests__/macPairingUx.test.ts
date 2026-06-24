@@ -12,7 +12,7 @@ describe('macPairingUx', () => {
     expect(bodies.toLowerCase()).not.toContain('bash');
     expect(bodies.toLowerCase()).not.toContain('terminal');
     expect(MAC_GETTING_STARTED_STEPS.length).toBe(4);
-    expect(MAC_GETTING_STARTED_STEPS[3].title).toMatch(/Search/i);
+    expect(MAC_GETTING_STARTED_STEPS[3].title).toMatch(/fallback/i);
   });
 
   it('documents QR pairing in plain language', () => {

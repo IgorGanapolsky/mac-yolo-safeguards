@@ -28,8 +28,8 @@ export const MAC_GETTING_STARTED_STEPS: MacPairingStep[] = [
   },
   {
     step: 4,
-    title: 'Search on Wi-Fi',
-    body: 'Make sure your phone and computer are on the same Wi-Fi, then tap “Search for my computer” below.',
+    title: 'Local fallback',
+    body: 'If you are near the computer, use local Wi-Fi search. Otherwise keep Cloud Relay paired for LTE/5G approvals.',
   },
 ];
 

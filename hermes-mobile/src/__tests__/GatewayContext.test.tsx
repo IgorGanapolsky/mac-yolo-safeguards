@@ -4,6 +4,10 @@ import { render, act, waitFor } from '@testing-library/react-native';
 import { GatewayProvider, useGateway } from '../context/GatewayContext';
 import { storage } from '../services/storage';
 import { secureCredentials } from '../services/secureCredentials';
+import {
+  fetchMobileRelayHealth,
+  fetchQueue,
+} from '../services/mobileRelayClient';
 
 jest.mock('../services/storage');
 jest.mock('../services/secureCredentials');
@@ -49,7 +53,16 @@ jest.mock('../services/thumbgateIap', () => ({
   syncThumbgateLeashEntitlement: jest.fn(() => Promise.resolve(true)),
 }));
 
-jest.mock('../services/mobileRelayClient');
+jest.mock('../services/mobileRelayClient', () => {
+  const actual = jest.requireActual('../services/mobileRelayClient');
+  return {
+    ...actual,
+    fetchMobileRelayHealth: jest.fn(),
+    fetchQueue: jest.fn(),
+    submitVerdict: jest.fn(),
+    completePairing: jest.fn(),
+  };
+});
 jest.mock('../services/hermesGatewayClient', () => ({
   stopRun: jest.fn().mockResolvedValue(undefined),
 }));
@@ -100,6 +113,9 @@ function Probe() {
       <Text testID="connection-state">{gateway.connectionState}</Text>
       <Text testID="pending-count">{gateway.pendingApprovals.length}</Text>
       <Text testID="transcript-nonce">{gateway.transcriptSyncNonce}</Text>
+      <Text testID="last-error">{gateway.lastEventError ?? ''}</Text>
+      <Text testID="mobile-token">{gateway.mobileToken}</Text>
+      <Text testID="connection-mode">{gateway.settings.connectionMode}</Text>
     </>
   );
 }
@@ -168,6 +184,8 @@ describe('GatewayProvider', () => {
     (storage.loadLastGatewayLanIp as jest.Mock).mockResolvedValue(null);
     (storage.saveLastGatewayLanIp as jest.Mock).mockResolvedValue(undefined);
     (secureCredentials.saveApiKey as jest.Mock).mockResolvedValue(undefined);
+    (fetchMobileRelayHealth as jest.Mock).mockResolvedValue({ ok: true });
+    (fetchQueue as jest.Mock).mockResolvedValue({ events: [] });
 
     global.fetch = jest.fn(() =>
       Promise.resolve({
@@ -285,6 +303,63 @@ describe('GatewayProvider', () => {
     expect(sentData.event).toBe('GATE.ACTION');
     expect(sentData.payload.actionId).toBe('smoke_1');
     expect(sentData.payload.decision).toBe('approve');
+  });
+
+  it('uses paired cloud relay without Wi-Fi WebSocket or Pro gating', async () => {
+    const thumbgateIap = jest.requireMock('../services/thumbgateIap');
+    thumbgateIap.syncThumbgateLeashEntitlement.mockResolvedValue(false);
+    (storage.loadGatewaySettings as jest.Mock).mockResolvedValue({
+      connectionMode: 'relay',
+      cloudUrl: 'https://hermes-mobile-cloud.fly.dev',
+      gatewayUrl: 'http://10.2.29.103:8642',
+      usePortal: false,
+      redactPii: true,
+      notificationsEnabled: false,
+      demoMode: false,
+      glanceMode: false,
+      safetyMode: false,
+      thumbgateCaptureOnDown: true,
+      thumbgateCaptureOnUp: false,
+      thumbgateApiUrl: 'https://thumbgate.example.com',
+      thumbgateProActive: false,
+      approvalPolicy: 'balanced',
+      analyticsOptOut: false,
+      includeToolActivity: true,
+    });
+    (secureCredentials.loadMobileToken as jest.Mock).mockResolvedValue('mobile-token-1');
+    (fetchQueue as jest.Mock).mockResolvedValue({
+      events: [
+        {
+          id: 'relay_evt_1',
+          enqueued_at: Date.UTC(2026, 5, 24, 12, 0, 0),
+          reason: 'Approve remote tool call',
+          event: {
+            tool_name: 'Bash',
+            hook_event_name: 'PreToolUse',
+            tool_input: { command: 'npm test' },
+          },
+        },
+      ],
+    });
+
+    const { getByTestId } = render(
+      <GatewayProvider>
+        <Probe />
+      </GatewayProvider>,
+    );
+
+    await waitFor(() => {
+      expect(getByTestId('connection-state').props.children).toBe('connected');
+    });
+    await waitFor(() => {
+      expect(getByTestId('pending-count').props.children).toBe(1);
+    });
+
+    expect(fetchQueue).toHaveBeenCalledWith(
+      'https://hermes-mobile-cloud.fly.dev',
+      'mobile-token-1',
+    );
+    expect(MockWebSocket.instances).toHaveLength(0);
   });
 
   it('handles stop_run action from notifications and calls stopRun API', async () => {

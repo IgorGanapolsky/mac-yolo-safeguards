@@ -30,7 +30,7 @@ function connectionStatusLine(
   macLabel?: string,
 ): string {
   if (searching) {
-    return 'Looking for a Mac running Hermes on this Wi‑Fi.';
+    return 'Looking for your paired relay or a nearby Mac running Hermes.';
   }
   if (connectionState === 'connecting') {
     return macLabel
@@ -38,9 +38,9 @@ function connectionStatusLine(
       : 'Connecting to your Mac.';
   }
   if (macLabel) {
-    return `Your phone cannot reach ${macLabel}. Choose another saved Mac or search Wi‑Fi.`;
+    return `Your phone cannot reach ${macLabel}. Use cloud relay, choose another saved Mac, or search locally.`;
   }
-  return 'Your phone is not connected to a Mac yet. Search Wi‑Fi to link one.';
+  return 'Your phone is not connected yet. Pair cloud relay or search locally to link a Mac.';
 }
 
 function connectionTitle(
@@ -91,7 +91,7 @@ export default function ChatConnectionPanel({
 
       <View style={styles.actionRow}>
         <LoadingButton
-          label="Search Wi‑Fi"
+          label="Search locally"
           loadingLabel="Searching…"
           loading={searching}
           onPress={onSearchMac}
@@ -134,9 +134,9 @@ export default function ChatConnectionPanel({
         />
       ) : (
         <View style={styles.tipRow}>
-          <Text style={styles.tipPill}>Same Wi‑Fi</Text>
+          <Text style={styles.tipPill}>Cloud relay</Text>
+          <Text style={styles.tipPill}>Local Wi‑Fi</Text>
           <Text style={styles.tipPill}>Hermes running</Text>
-          <Text style={styles.tipPill}>No VPN</Text>
         </View>
       )}
 

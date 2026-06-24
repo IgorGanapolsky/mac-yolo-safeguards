@@ -35,7 +35,7 @@ export function describeBootstrapPhase(phase: GatewayBootstrapPhase): string {
     case 'booting':
       return 'Starting Hermes Mobile…';
     case 'searching':
-      return 'Looking for your computer on Wi‑Fi…';
+      return 'Checking cloud relay and nearby computers…';
     case 'connected':
       return 'Connected to your computer';
     case 'needs_setup':

@@ -90,7 +90,7 @@ export default function ConnectMacGate() {
               <Text style={styles.title}>Link your computer</Text>
               <Text style={styles.body}>
                 Hermes Mobile controls Hermes on your computer — chat, approvals, and ops from your phone.
-                We search your Wi‑Fi first; no typing addresses.
+                Use cloud relay when paired; local Wi‑Fi search is the fallback.
               </Text>
 
               <MacPairingHelp variant="getting-started" testID="connect-mac-pairing-help" />
@@ -109,7 +109,7 @@ export default function ConnectMacGate() {
               {invalidQrHint ? <Text style={styles.hintError}>{invalidQrHint}</Text> : null}
 
               <LoadingButton
-                label="Search for my computer on Wi‑Fi"
+                label="Search for my computer locally"
                 loadingLabel="Searching Wi‑Fi…"
                 loading={searching}
                 onPress={() => runWifiSearch()}

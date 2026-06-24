@@ -448,7 +448,8 @@ export default function SettingsScreen() {
         <GlassCard>
           <Text style={styles.label}>Your computers</Text>
           <Text style={styles.description}>
-            Each computer you connect gets a saved profile. Tap to switch — no re-scanning required.
+            Each computer you connect gets a saved profile. Use Cloud Relay for off-network approvals;
+            use a tunnel or local connection for live Chat until full chat relay is enabled.
           </Text>
           <GatewayProfilePicker
             profiles={savedMacProfiles}
@@ -468,7 +469,7 @@ export default function SettingsScreen() {
             style={styles.pairButton}
           />
           <Text style={styles.description}>
-            Hermes on your computer must be running. We search Wi‑Fi first — no typing URLs.
+            Hermes on your computer must be running. Local search is a fallback for nearby Macs.
           </Text>
           <MacPairingHelp variant="getting-started" compact testID="settings-mac-pairing-help" />
           <TouchableOpacity
@@ -537,9 +538,9 @@ export default function SettingsScreen() {
         <Text style={styles.sectionTitle}>🪢 Approval relay (ThumbGate Leash)</Text>
         <GlassCard>
           <Text style={styles.description}>
-            Optional: pair with your computer for tool approvals on LTE. On your computer, run the Hermes
-            approval bridge pairing command — then enter the code below.
-            This is not required for Chat; Chat uses the Hermes gateway tunnel above.
+            Pair with your computer for tool approvals on LTE/5G. This is the same shape as Telegram:
+            your phone talks to a cloud relay while Hermes keeps running locally on your computer.
+            Live Chat still needs a gateway tunnel until the cloud chat relay is enabled.
           </Text>
           <View style={styles.spacer} />
           <Text style={styles.label}>Cloud relay URL</Text>

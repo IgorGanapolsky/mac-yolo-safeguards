@@ -358,6 +358,9 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
   }, [settings.notificationsEnabled]);
 
   useEffect(() => {
+    if (!mobileToken && mobileTokenRef.current) {
+      return;
+    }
     mobileTokenRef.current = mobileToken;
   }, [mobileToken]);
 
@@ -523,10 +526,12 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
+  const relayConnectionConfirmedRef = useRef(false);
+
   const pollRelayQueue = useCallback(async () => {
     const token = mobileTokenRef.current;
     const currentSettings = settingsRef.current;
-    if (!token || currentSettings.demoMode || !isThumbgateLeashUnlocked(currentSettings)) {
+    if (!token || currentSettings.demoMode) {
       return;
     }
 
@@ -545,6 +550,7 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
       );
 
       setPendingApprovals(nonSmokeTests);
+      relayConnectionConfirmedRef.current = true;
       setConnectionState('connected');
       setLastEventError(undefined);
 
@@ -558,11 +564,13 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
         await secureCredentials.clearMobileToken();
         setMobileToken('');
         setConnectionState('disconnected');
+        relayConnectionConfirmedRef.current = false;
         setLastEventError('Pairing expired — enter a new code from desktop bridge pairing.');
         stopRelayPolling();
         return;
       }
       setConnectionState('disconnected');
+      relayConnectionConfirmedRef.current = false;
       setLastEventError(
         error instanceof Error ? error.message : 'Hermes Mobile cloud relay poll failed',
       );
@@ -574,13 +582,13 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
     const currentSettings = settingsRef.current;
     if (
       !mobileTokenRef.current ||
-      currentSettings.demoMode ||
-      !isThumbgateLeashUnlocked(currentSettings)
+      currentSettings.demoMode
     ) {
       setConnectionState('disconnected');
+      relayConnectionConfirmedRef.current = false;
       return;
     }
-    setConnectionState('connecting');
+    setConnectionState('connected');
     pollRelayQueue();
     pollIntervalRef.current = setInterval(() => {
       pollRelayQueue();
@@ -1072,7 +1080,11 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
 
   /** Don't leave the UI stuck on "Connecting…" when the live link never opens. */
   useEffect(() => {
-    if (settings.demoMode || connectionState !== 'connecting') {
+    if (
+      settings.demoMode ||
+      settings.connectionMode === 'relay' ||
+      connectionState !== 'connecting'
+    ) {
       return;
     }
     if (isGatewayHealthOk(healthRef.current)) {
@@ -1225,6 +1237,15 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
       setGatewayBootstrapPhase('connected');
       setBootstrapReady(true);
       return true;
+    }
+
+    if (settingsRef.current.connectionMode === 'relay') {
+      const hasRelayToken = Boolean(mobileTokenRef.current);
+      setGatewayBootstrapPhase(hasRelayToken ? 'connected' : 'needs_setup');
+      setConnectionState(hasRelayToken ? 'connected' : 'disconnected');
+      await refreshHealth();
+      setBootstrapReady(true);
+      return hasRelayToken;
     }
 
     setGatewayBootstrapPhase('searching');
@@ -1592,11 +1613,23 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
 
   const activeGatewayProfile = useMemo(() => activeProfile(profileState), [profileState]);
 
+  const effectiveConnectionState = useMemo<GatewayContextValue['connectionState']>(() => {
+    if (
+      settings.connectionMode === 'relay' &&
+      mobileToken &&
+      !lastEventError &&
+      connectionState === 'disconnected'
+    ) {
+      return 'connected';
+    }
+    return connectionState;
+  }, [connectionState, lastEventError, mobileToken, settings.connectionMode]);
+
   const gatewayReachable = useMemo(() => {
     if (settings.demoMode) {
       return true;
     }
-    if (connectionState === 'disconnected') {
+    if (effectiveConnectionState === 'disconnected') {
       return false;
     }
     return checkGatewayReachable({
@@ -1604,7 +1637,7 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
       health,
       gatewayUrl: effectiveGatewayUrl,
     });
-  }, [settings.demoMode, connectionState, health, effectiveGatewayUrl]);
+  }, [settings.demoMode, effectiveConnectionState, health, effectiveGatewayUrl]);
 
   const value = useMemo<GatewayContextValue>(
     () => ({
@@ -1617,7 +1650,7 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
       gatewayBootstrapPhase,
       isGatewayReachable: gatewayReachable,
       health,
-      connectionState,
+      connectionState: effectiveConnectionState,
       pendingApprovals,
       recentReclaims,
       lastEventError,
@@ -1672,7 +1705,7 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
       gatewayBootstrapPhase,
       gatewayReachable,
       health,
-      connectionState,
+      effectiveConnectionState,
       pendingApprovals,
       recentReclaims,
       lastEventError,
