@@ -1,3 +1,5 @@
+import { isPrivateLanGatewayUrl } from './gatewayEndpoint';
+
 const CONNECTIVITY_MARKERS = [
   'failed to fetch',
   'network request failed',
@@ -23,9 +25,13 @@ export function isConnectivityMessage(message: string): boolean {
   const lower = message.toLowerCase();
   return (
     CONNECTIVITY_MARKERS.some((marker) => lower.includes(marker)) ||
+    lower.includes("can't reach hermes") ||
+    lower.includes("can't reach your mac") ||
+    lower.includes("can't reach your computer") ||
     lower.includes('failed to connect to your computer') ||
     lower.includes('failed to connect to your mac') ||
     lower.includes('gateway is running') ||
+    lower.includes('home wi-fi only') ||
     lower.includes('same wi-fi')
   );
 }
@@ -36,9 +42,16 @@ export type HumanChatError = {
 };
 
 /** Map gateway/API failures to copy a new user can act on — no "gateway" jargon. */
-export function humanizeChatError(error: unknown, fallback: string): HumanChatError {
+export function humanizeChatError(
+  error: unknown,
+  fallback: string,
+  options?: { gatewayUrl?: string },
+): HumanChatError {
   if (isConnectivityError(error)) {
-    return { kind: 'connectivity', message: friendlyMacUnreachableMessage() };
+    return {
+      kind: 'connectivity',
+      message: friendlyMacUnreachableMessage(options?.gatewayUrl),
+    };
   }
 
   if (!(error instanceof Error) || !error.message) {
@@ -108,8 +121,12 @@ export function humanizeChatError(error: unknown, fallback: string): HumanChatEr
   return { kind: 'operational', message: message || fallback };
 }
 
-export function friendlyMacUnreachableMessage(): string {
-  return "Your phone can't reach Hermes on your computer right now.";
+export function friendlyMacUnreachableMessage(gatewayUrl?: string): string {
+  const url = gatewayUrl?.trim();
+  if (url && isPrivateLanGatewayUrl(url)) {
+    return "Your phone can't reach your computer — it's on your home Wi‑Fi only. Join the same Wi‑Fi or paste a tunnel URL in Settings.";
+  }
+  return "Your phone can't reach your computer right now.";
 }
 
 export function isSessionInUseError(error: unknown): boolean {

@@ -242,7 +242,7 @@ export default function ChatScreen() {
 
   const applyChatApiError = useCallback(
     (error: unknown, fallback: string, options?: { background?: boolean }) => {
-      const { kind, message } = humanizeChatError(error, fallback);
+      const { kind, message } = humanizeChatError(error, fallback, { gatewayUrl });
       if (kind === 'connectivity') {
         refreshHealth();
         return;
@@ -2243,7 +2243,9 @@ export default function ChatScreen() {
       sendSucceeded = true;
       return true;
     } catch (err) {
-      const { kind, message } = humanizeChatError(err, 'Message could not send. Try again.');
+      const { kind, message } = humanizeChatError(err, 'Message could not send. Try again.', {
+        gatewayUrl,
+      });
       if (message.includes('That chat was removed')) {
         skipSessionAutoSelectRef.current = true;
         setCurrentSession(null);
