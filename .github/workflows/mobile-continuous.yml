@@ -1,0 +1,119 @@
+name: Hermes Mobile Continuous
+
+on:
+  schedule:
+    # Every 6 hours — autonomous cloud verification when Mac is offline
+    - cron: '20 */6 * * *'
+  pull_request:
+    paths:
+      - 'hermes-mobile/**'
+      - '.github/workflows/mobile-continuous.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: hermes-mobile-continuous
+  cancel-in-progress: false
+
+jobs:
+  unit-and-contract:
+    name: Unit + release safety
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: hermes-mobile
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: hermes-mobile/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Type check
+        run: npm run typecheck
+
+      - name: Unit tests with coverage
+        run: npm run test:ci
+
+      - name: Release safety contract
+        run: npm run test:release-safety
+
+  release-apk-guard:
+    name: Release APK + embedded bundle
+    runs-on: ubuntu-latest
+    needs: unit-and-contract
+    defaults:
+      run:
+        working-directory: hermes-mobile
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: hermes-mobile/package-lock.json
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: android-actions/setup-android@v3
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Prebuild Android (withEmbeddedJsBundle plugin)
+        run: npx expo prebuild --platform android --non-interactive
+
+      - name: Assert debuggableVariants guard in generated Gradle
+        run: grep -F 'debuggableVariants = []' android/app/build.gradle
+
+      - name: Build release APK
+        run: cd android && ./gradlew assembleRelease --no-daemon -PreactNativeArchitectures=arm64-v8a
+
+      - name: Verify embedded JS bundle
+        run: node scripts/verify-apk-package.cjs android/app/build/outputs/apk/release/app-release.apk
+
+  macos-maestro-smoke:
+    name: Maestro ship-guard (macOS sim)
+    runs-on: macos-latest
+    needs: unit-and-contract
+    if: github.event_name == 'workflow_dispatch'
+    timeout-minutes: 45
+    defaults:
+      run:
+        working-directory: hermes-mobile
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: hermes-mobile/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Java 17
+        run: brew install openjdk@17
+
+      - name: Install Maestro
+        run: |
+          export PATH="$HOME/.maestro/bin:$PATH"
+          curl -fsSL "https://get.maestro.mobile.dev" | bash
+          echo "$HOME/.maestro/bin" >> "$GITHUB_PATH"
+
+      - name: Maestro ship-guard on iOS simulator
+        env:
+          MAESTRO_DRIVER_STARTUP_TIMEOUT: '180000'
+          JAVA_HOME: /opt/homebrew/opt/openjdk@17/libexec/openjdk.jdk/Contents/Home
+        run: |
+          export PATH="$JAVA_HOME/bin:$HOME/.maestro/bin:$PATH"
+          bash ./scripts/run-simulator-e2e.sh .maestro/ship-guard.yaml

@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.igor.hermes-mobile-continuous-e2e</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/bash</string>
+        <string>{{REPO}}/hermes-mobile/scripts/run-continuous-e2e.sh</string>
+        <string>--once</string>
+    </array>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>StartInterval</key>
+    <integer>900</integer>
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>{{JAVA_HOME}}/bin:{{HOME}}/.maestro/bin:{{HOME}}/.local/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+        <key>JAVA_HOME</key>
+        <string>{{JAVA_HOME}}</string>
+        <key>MAESTRO_DRIVER_STARTUP_TIMEOUT</key>
+        <string>180000</string>
+        <key>HERMES_E2E_INTERVAL_SEC</key>
+        <string>900</string>
+    </dict>
+    <key>StandardOutPath</key>
+    <string>{{HOME}}/Library/Logs/hermes-mobile-continuous-e2e.log</string>
+    <key>StandardErrorPath</key>
+    <string>{{HOME}}/Library/Logs/hermes-mobile-continuous-e2e.log</string>
+</dict>
+</plist>
