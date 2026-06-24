@@ -3,6 +3,10 @@ export interface HermesSession {
   title?: string | null;
   source?: string;
   model?: string;
+  input_tokens?: number;
+  output_tokens?: number;
+  cache_read_tokens?: number;
+  tool_call_count?: number;
   /** ISO string from mobile-created sessions */
   last_active_at?: string;
   /** Unix seconds (float) from Hermes gateway :8642 */
@@ -18,7 +22,9 @@ export interface HermesMessage {
   content: string;
   /** Full cleaned text when `content` is a shortened preview. */
   rawContent?: string;
-  /** Tap-to-expand when preview was shortened for the transcript. */
+  /** Original gateway payload before mobile sanitization (tool XML / JSON). */
+  gatewayContent?: string;
+  /** Is the message content truncated for preview. */
   truncated?: boolean;
   /** ISO string from mobile-created messages */
   created_at?: string;
@@ -28,6 +34,10 @@ export interface HermesMessage {
   sourceSessionId?: string;
   /** Short label for merged Telegram inbox bubbles. */
   threadLabel?: string;
+  /** Mobile outbox delivery — Codex shows send ack implicitly; we show explicitly. */
+  outboundStatus?: 'pending' | 'sent' | 'failed';
+  /** Short human reason when outboundStatus is failed (API/auth/session, not connectivity). */
+  outboundFailureReason?: string;
 }
 
 export interface SessionListResponse {

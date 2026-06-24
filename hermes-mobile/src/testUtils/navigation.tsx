@@ -5,7 +5,7 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 
 const Tab = createBottomTabNavigator();
 
-type TabRoute = 'Leash' | 'Chat' | 'Ops' | 'Settings';
+type TabRoute = 'Leash' | 'Chat' | 'Settings';
 
 function DummyScreen() {
   return null;
@@ -18,7 +18,7 @@ function TabHarness({
   screen: React.ComponentType;
   route: TabRoute;
 }) {
-  const screens: TabRoute[] = ['Leash', 'Chat', 'Ops', 'Settings'];
+  const screens: TabRoute[] = ['Leash', 'Chat', 'Settings'];
   return (
     <NavigationContainer>
       <Tab.Navigator initialRouteName={route} screenOptions={{ headerShown: false }}>

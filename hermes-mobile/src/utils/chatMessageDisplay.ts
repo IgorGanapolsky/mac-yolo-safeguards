@@ -1,5 +1,6 @@
 import type { HermesMessage } from '../types/chat';
 import { isMessageDisplayEmpty } from './chatMessageMerge';
+import { collapseOutreachVariantBatches } from './chatMessageCollapse';
 import { isGatewaySmokeTestMessage } from './gatewaySmokeMessages';
 import { parseGatewayTimestamp } from './sessionDisplay';
 
@@ -47,6 +48,23 @@ function tryParseJsonObject(text: string): Record<string, unknown> | null {
   }
 }
 
+function tryParseJsonValue(text: string): unknown | null {
+  const object = tryParseJsonObject(text);
+  if (object) {
+    return object;
+  }
+  const trimmed = text.trim();
+  const start = trimmed.search(/[{[]/);
+  if (start < 0) {
+    return null;
+  }
+  try {
+    return JSON.parse(trimmed.slice(start)) as unknown;
+  } catch {
+    return null;
+  }
+}
+
 function summarizeWebResults(source: string, results: unknown[]): string {
   const lines = results.slice(0, 3).map((entry) => {
     const item = entry as Record<string, unknown>;
@@ -79,7 +97,8 @@ function summarizeUntrustedInner(source: string, inner: string, maxPreview = 200
     .split('\n')
     .map((line) => line.trim())
     .filter((line) => line && !line.startsWith('{') && !line.startsWith('['));
-  const preview = lines.slice(0, 8).join('\n').slice(0, maxPreview);
+  const linesToKeep = maxPreview > 1000 ? lines : lines.slice(0, 8);
+  const preview = linesToKeep.join('\n').slice(0, maxPreview);
   if (!preview) return '';
   const label = source.replace(/_/g, ' ');
   return `${label}: ${preview}${preview.length >= maxPreview ? '…' : ''}`;
@@ -216,13 +235,29 @@ export function formatMessageForDisplay(content: string): string {
   return formatMessageBody(content, 'preview');
 }
 
+/** Full expandable body — pretty JSON when possible, not the short preview summary. */
+export function formatExpandedMessageContent(raw: string): string {
+  const unescaped = unescapeChatText(raw);
+  const stripped = stripUntrustedToolBlocks(unescaped, 12000).trim();
+  const json = tryParseJsonValue(stripped);
+  if (json != null) {
+    try {
+      const pretty = JSON.stringify(json, null, 2);
+      return pretty.length > FULL_MAX_CHARS ? `${pretty.slice(0, FULL_MAX_CHARS)}…` : pretty;
+    } catch {
+      // fall through to full text path
+    }
+  }
+  return formatMessageBody(raw, 'full');
+}
+
 export function prepareMessageForChatDisplay(raw: string): {
   content: string;
   rawContent: string;
   truncated: boolean;
 } {
   const preview = formatMessageForDisplay(raw);
-  const full = formatMessageFull(raw);
+  const full = formatExpandedMessageContent(raw);
   const truncated =
     preview !== full ||
     preview.endsWith('…') ||
@@ -249,7 +284,7 @@ export function prepareMessagesForDisplay(
 ): HermesMessage[] {
   const includeTools = options?.includeToolActivity ?? true;
   const includeHermesStatus = options?.includeHermesStatus ?? false;
-  return messages
+  const filtered = messages
     .filter((message) => {
       const raw =
         typeof message.content === 'string' ? message.content : String(message.content ?? '');
@@ -265,9 +300,25 @@ export function prepareMessagesForDisplay(
     .map((message) => {
       const raw =
         typeof message.content === 'string' ? message.content : String(message.content ?? '');
+      return {
+        ...message,
+        gatewayContent: raw,
+      };
+    });
+  return finalizeMessagesForDisplay(filtered);
+}
+
+function finalizeMessagesForDisplay(messages: HermesMessage[]): HermesMessage[] {
+  return collapseOutreachVariantBatches(messages)
+    .map((message) => {
+      if (typeof message.id === 'string' && message.id.startsWith('collapsed-outreach-')) {
+        return message;
+      }
+      const raw = message.gatewayContent ?? message.content;
       const display = prepareMessageForChatDisplay(raw);
       return {
         ...message,
+        gatewayContent: raw,
         content: display.content,
         rawContent: display.rawContent,
         truncated: display.truncated,

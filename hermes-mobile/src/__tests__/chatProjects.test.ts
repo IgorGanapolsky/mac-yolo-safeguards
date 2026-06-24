@@ -1,4 +1,8 @@
-import { buildWorkspaceSystemPrompt, workspaceDisplayName } from '../utils/workspacePrompt';
+import {
+  buildMobileChatSystemPrompt,
+  buildWorkspaceSystemPrompt,
+  workspaceDisplayName,
+} from '../utils/workspacePrompt';
 import { bindSessionToProject, createProject } from '../services/chatProjects';
 
 describe('workspacePrompt', () => {
@@ -10,6 +14,19 @@ describe('workspacePrompt', () => {
     const prompt = buildWorkspaceSystemPrompt('~/workspace/git/igor/skool_top1percent');
     expect(prompt).toContain('skool_top1percent');
     expect(prompt).toContain('Active workspace');
+  });
+
+  it('always includes mobile execution mandate even without a project', () => {
+    const prompt = buildMobileChatSystemPrompt();
+    expect(prompt).toContain('Do not refuse');
+    expect(prompt).toContain('next reversible action');
+    expect(prompt).not.toContain('Active workspace');
+  });
+
+  it('merges execution mandate with workspace when project is set', () => {
+    const prompt = buildMobileChatSystemPrompt('~/workspace/git/igor/skool_top1percent');
+    expect(prompt).toContain('Do not refuse');
+    expect(prompt).toContain('skool_top1percent');
   });
 });
 

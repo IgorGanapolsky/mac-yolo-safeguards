@@ -1,4 +1,4 @@
-import { applyStreamEvent, createStreamActivityState, formatRunProgressLabel } from '../utils/chatStreamEvents';
+import { applyStreamEvent, createStreamActivityState, formatRunProgressLabel, mergeRunUsageFromPayload, mergeSessionUsageIntoRunProgress, runProgressForDisplayEqual } from '../utils/chatStreamEvents';
 import { buildChatTimeline, mergeTimelineWithLiveTools } from '../utils/chatTimeline';
 
 describe('chatStreamEvents', () => {
@@ -39,6 +39,54 @@ describe('chatStreamEvents', () => {
       data: { delta: 'hello' },
     });
     expect(state.runProgress?.detail).toContain('waiting for provider response');
+  });
+
+  it('merges model and token usage from stream payloads', () => {
+    const state = applyStreamEvent(createStreamActivityState(), {
+      event: 'run.progress',
+      data: {
+        message: 'Agent started working...',
+        model: 'google/gemini-2.5-flash',
+        usage: { prompt_tokens: 1200, completion_tokens: 340 },
+      },
+    });
+    expect(state.runProgress?.model).toBe('google/gemini-2.5-flash');
+    expect(state.runProgress?.inputTokens).toBe(1200);
+    expect(state.runProgress?.outputTokens).toBe(340);
+    expect(state.runProgress?.totalTokens).toBe(1540);
+  });
+
+  it('merges session usage into run progress', () => {
+    const merged = mergeSessionUsageIntoRunProgress(null, {
+      model: 'qwen3:8b-64k',
+      input_tokens: 210553,
+      output_tokens: 12881,
+    });
+    expect(merged.model).toBe('qwen3:8b-64k');
+    expect(merged.inputTokens).toBe(210553);
+    expect(merged.outputTokens).toBe(12881);
+  });
+
+  it('merges nested usage blocks on completion events', () => {
+    const merged = mergeRunUsageFromPayload(
+      { phase: 'working', startedAtMs: Date.now(), detail: 'done' },
+      { usage: { input_tokens: 50, output_tokens: 10 } },
+    );
+    expect(merged.inputTokens).toBe(50);
+    expect(merged.outputTokens).toBe(10);
+  });
+
+  it('detects display-equal run progress to skip banner flicker', () => {
+    const base = {
+      phase: 'sending',
+      startedAtMs: 1_000,
+      detail: 'Sending to your computer…',
+      model: 'google/gemini-2.5-flash',
+      inputTokens: 100,
+      outputTokens: 5,
+    };
+    expect(runProgressForDisplayEqual(base, { ...base })).toBe(true);
+    expect(runProgressForDisplayEqual(base, { ...base, detail: 'running web_extract' })).toBe(false);
   });
 });
 

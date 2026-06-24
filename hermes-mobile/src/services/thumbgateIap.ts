@@ -1,15 +1,5 @@
 import Constants from 'expo-constants';
 import { Platform } from 'react-native';
-import {
-  finishTransaction,
-  hasActiveSubscriptions,
-  initConnection,
-  purchaseErrorListener,
-  purchaseUpdatedListener,
-  requestPurchase,
-  restorePurchases,
-  type Purchase,
-} from 'expo-iap';
 
 /** Play / App Store subscription id — must match Play Console + App Store Connect. */
 export const THUMBGATE_LEASH_IAP_PRODUCT_ID = 'thumbgate_leash_monthly';
@@ -20,6 +10,12 @@ export type ThumbgateIapResult =
   | { status: 'not_configured'; message: string }
   | { status: 'error'; message: string };
 
+type ExpoIapModule = typeof import('expo-iap');
+type Purchase = import('expo-iap').Purchase;
+
+const IAP_INIT_TIMEOUT_MS = 8_000;
+
+let iapModulePromise: Promise<ExpoIapModule | null> | null = null;
 let connectionReady = false;
 let listenersReady = false;
 let pendingPurchase:
@@ -46,72 +42,124 @@ function storeUnavailableMessage(): string {
   return 'Store billing is unavailable in this build.';
 }
 
+async function loadExpoIapModule(): Promise<ExpoIapModule | null> {
+  if (!isNativeMobileApp() || isExpoGoClient()) {
+    return null;
+  }
+  if (!iapModulePromise) {
+    iapModulePromise = (async () => {
+      try {
+        // Jest resolves static mocks via require; dynamic import can miss the mock.
+        if (process.env.NODE_ENV === 'test') {
+          // eslint-disable-next-line @typescript-eslint/no-require-imports
+          return require('expo-iap') as ExpoIapModule;
+        }
+        return await import('expo-iap');
+      } catch {
+        return null;
+      }
+    })();
+  }
+  return iapModulePromise;
+}
+
+async function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      promise,
+      new Promise<T>((_, reject) => {
+        timer = setTimeout(() => reject(new Error('Store billing timed out')), ms);
+      }),
+    ]);
+  } finally {
+    if (timer) {
+      clearTimeout(timer);
+    }
+  }
+}
+
 function isThumbgateLeashPurchase(purchase: Purchase): boolean {
   const productId = purchase.productId ?? purchase.id;
   return productId === THUMBGATE_LEASH_IAP_PRODUCT_ID;
 }
 
-async function ensureStoreConnection(): Promise<void> {
+async function ensureStoreConnection(iap: ExpoIapModule): Promise<void> {
   if (connectionReady) {
     return;
   }
-  await initConnection();
+  await withTimeout(iap.initConnection(), IAP_INIT_TIMEOUT_MS);
   connectionReady = true;
 }
 
 export function initializeThumbgateIapListeners(): void {
-  if (listenersReady || !isNativeMobileApp()) {
+  if (listenersReady || !isNativeMobileApp() || isExpoGoClient()) {
     return;
   }
   listenersReady = true;
 
-  purchaseUpdatedListener(async (purchase) => {
-    if (!isThumbgateLeashPurchase(purchase)) {
+  void (async () => {
+    const iap = await loadExpoIapModule();
+    if (!iap) {
+      listenersReady = false;
       return;
     }
-    try {
-      await finishTransaction({ purchase, isConsumable: false });
-      if (pendingPurchase) {
-        pendingPurchase.resolve({ status: 'purchased' });
-        pendingPurchase = null;
+
+    iap.purchaseUpdatedListener(async (purchase) => {
+      if (!isThumbgateLeashPurchase(purchase)) {
+        return;
       }
-    } catch (error) {
-      if (pendingPurchase) {
+      try {
+        await iap.finishTransaction({ purchase, isConsumable: false });
+        if (pendingPurchase) {
+          pendingPurchase.resolve({ status: 'purchased' });
+          pendingPurchase = null;
+        }
+      } catch (error) {
+        if (pendingPurchase) {
+          pendingPurchase.resolve({
+            status: 'error',
+            message: error instanceof Error ? error.message : 'Could not finish purchase.',
+          });
+          pendingPurchase = null;
+        }
+      }
+    });
+
+    iap.purchaseErrorListener((error) => {
+      if (!pendingPurchase) {
+        return;
+      }
+      const code = String(error.code ?? '').toLowerCase();
+      if (code.includes('cancel') || code.includes('user')) {
+        pendingPurchase.resolve({ status: 'cancelled' });
+      } else {
         pendingPurchase.resolve({
           status: 'error',
-          message: error instanceof Error ? error.message : 'Could not finish purchase.',
+          message: error.message || 'Purchase failed.',
         });
-        pendingPurchase = null;
       }
-    }
-  });
-
-  purchaseErrorListener((error) => {
-    if (!pendingPurchase) {
-      return;
-    }
-    const code = String(error.code ?? '').toLowerCase();
-    if (code.includes('cancel') || code.includes('user')) {
-      pendingPurchase.resolve({ status: 'cancelled' });
-    } else {
-      pendingPurchase.resolve({
-        status: 'error',
-        message: error.message || 'Purchase failed.',
-      });
-    }
-    pendingPurchase = null;
-  });
+      pendingPurchase = null;
+    });
+  })();
 }
 
-/** Read active subscription from Google Play / App Store. */
+/** Read active subscription from Google Play / App Store. Never blocks app startup. */
 export async function syncThumbgateLeashEntitlement(): Promise<boolean> {
   if (!isNativeMobileApp() || isExpoGoClient()) {
     return false;
   }
   initializeThumbgateIapListeners();
   try {
-    await ensureStoreConnection();
-    return await hasActiveSubscriptions([THUMBGATE_LEASH_IAP_PRODUCT_ID]);
+    const iap = await loadExpoIapModule();
+    if (!iap) {
+      return false;
+    }
+    await ensureStoreConnection(iap);
+    return await withTimeout(
+      iap.hasActiveSubscriptions([THUMBGATE_LEASH_IAP_PRODUCT_ID]),
+      IAP_INIT_TIMEOUT_MS,
+    );
   } catch {
     return false;
   }
@@ -125,9 +173,13 @@ export async function purchaseThumbgateLeash(): Promise<ThumbgateIapResult> {
   initializeThumbgateIapListeners();
 
   try {
-    await ensureStoreConnection();
+    const iap = await loadExpoIapModule();
+    if (!iap) {
+      return { status: 'not_configured', message: storeUnavailableMessage() };
+    }
+    await ensureStoreConnection(iap);
 
-    const alreadyActive = await hasActiveSubscriptions([THUMBGATE_LEASH_IAP_PRODUCT_ID]);
+    const alreadyActive = await iap.hasActiveSubscriptions([THUMBGATE_LEASH_IAP_PRODUCT_ID]);
     if (alreadyActive) {
       return { status: 'purchased' };
     }
@@ -135,19 +187,21 @@ export async function purchaseThumbgateLeash(): Promise<ThumbgateIapResult> {
     return await new Promise<ThumbgateIapResult>((resolve) => {
       pendingPurchase = { resolve };
 
-      requestPurchase({
-        type: 'subs',
-        request: {
-          apple: { sku: THUMBGATE_LEASH_IAP_PRODUCT_ID },
-          google: { skus: [THUMBGATE_LEASH_IAP_PRODUCT_ID] },
-        },
-      }).catch((error: unknown) => {
-        pendingPurchase = null;
-        resolve({
-          status: 'error',
-          message: error instanceof Error ? error.message : 'Could not open store checkout.',
+      iap
+        .requestPurchase({
+          type: 'subs',
+          request: {
+            apple: { sku: THUMBGATE_LEASH_IAP_PRODUCT_ID },
+            google: { skus: [THUMBGATE_LEASH_IAP_PRODUCT_ID] },
+          },
+        })
+        .catch((error: unknown) => {
+          pendingPurchase = null;
+          resolve({
+            status: 'error',
+            message: error instanceof Error ? error.message : 'Could not open store checkout.',
+          });
         });
-      });
     });
   } catch (error) {
     return {
@@ -165,9 +219,13 @@ export async function restoreThumbgateLeashPurchases(): Promise<ThumbgateIapResu
   initializeThumbgateIapListeners();
 
   try {
-    await ensureStoreConnection();
-    await restorePurchases();
-    const active = await hasActiveSubscriptions([THUMBGATE_LEASH_IAP_PRODUCT_ID]);
+    const iap = await loadExpoIapModule();
+    if (!iap) {
+      return { status: 'not_configured', message: storeUnavailableMessage() };
+    }
+    await ensureStoreConnection(iap);
+    await iap.restorePurchases();
+    const active = await iap.hasActiveSubscriptions([THUMBGATE_LEASH_IAP_PRODUCT_ID]);
     if (active) {
       return { status: 'purchased' };
     }

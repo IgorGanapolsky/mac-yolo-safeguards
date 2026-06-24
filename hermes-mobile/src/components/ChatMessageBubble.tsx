@@ -1,8 +1,14 @@
-import React, { useState } from 'react';
-import { Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import React, { useMemo } from 'react';
+import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { colors } from '../theme/colors';
 import { haptics } from '../services/haptics';
+import { formatExpandedMessageContent, prepareMessageForChatDisplay } from '../utils/chatMessageDisplay';
 import InlineMessageApproval from './InlineMessageApproval';
+import {
+  outboundDeliveryLabel,
+  type OutboundDeliveryStatus,
+} from '../utils/outboundDeliveryStatus';
+import type { LeashConnectionState } from '../utils/gatewayEndpoint';
 
 type InlineApprovalHandlers = {
   title?: string;
@@ -12,8 +18,10 @@ type InlineApprovalHandlers = {
 };
 
 type ChatMessageBubbleProps = {
+  messageId?: string;
   content: string;
   rawContent?: string;
+  gatewayContent?: string;
   truncated?: boolean;
   isUser: boolean;
   timeLabel: string;
@@ -21,82 +29,142 @@ type ChatMessageBubbleProps = {
   /** When true, show a divider above the thread label (not for the first thread in the list). */
   threadDivider?: boolean;
   inlineApproval?: InlineApprovalHandlers;
+  /** Screen-level handler — Modal must not live inside inverted FlatList cells. */
+  onShowDetail?: (body: string) => void;
+  outboundStatus?: OutboundDeliveryStatus;
+  outboundFailureReason?: string;
+  connectionState?: LeashConnectionState;
+  macHttpOk?: boolean;
 };
 
+function hasMeaningfulExpansion(preview: string, expanded: string): boolean {
+  if (!expanded.trim()) {
+    return false;
+  }
+  if (expanded.length > preview.length + 16) {
+    return true;
+  }
+  if (expanded !== preview) {
+    return true;
+  }
+  return preview.endsWith('…') || preview.endsWith('...');
+}
+
 export default function ChatMessageBubble({
+  messageId,
   content,
   rawContent,
-  truncated = false,
+  gatewayContent,
+  truncated,
   isUser,
   timeLabel,
   threadLabel,
   threadDivider = false,
   inlineApproval,
+  onShowDetail,
+  outboundStatus,
+  outboundFailureReason,
+  connectionState = 'demo',
+  macHttpOk = true,
 }: ChatMessageBubbleProps) {
-  const [expanded, setExpanded] = useState(false);
-  const canExpand =
-    truncated &&
-    rawContent &&
-    (rawContent !== content || content.endsWith('...') || content.endsWith('…'));
-  const displayText = expanded && canExpand ? rawContent : content;
+  const resolved = useMemo(() => {
+    if (rawContent !== undefined && truncated !== undefined) {
+      return { content, rawContent, truncated };
+    }
+    const fallbackRaw = gatewayContent ?? content;
+    return prepareMessageForChatDisplay(fallbackRaw);
+  }, [content, rawContent, gatewayContent, truncated]);
 
-  const toggleExpand = () => {
-    if (!canExpand) return;
+  const expandedContent = useMemo(() => {
+    if (gatewayContent?.trim()) {
+      return formatExpandedMessageContent(gatewayContent);
+    }
+    return resolved.rawContent?.trim() || resolved.content;
+  }, [gatewayContent, resolved.rawContent, resolved.content]);
+
+  const canExpand = resolved.truncated && hasMeaningfulExpansion(resolved.content, expandedContent);
+
+  const openDetails = () => {
+    if (!canExpand || !onShowDetail) {
+      return;
+    }
     haptics.selection();
-    setExpanded((value) => !value);
+    onShowDetail(expandedContent);
   };
 
   return (
     <View
       style={[styles.bubbleWrapper, isUser ? styles.bubbleUserWrapper : styles.bubbleAssistantWrapper]}
+      testID={isUser ? 'chat-message-user' : 'chat-message-assistant'}
+      accessibilityLabel={messageId ? `message-${messageId}` : undefined}
     >
-      <TouchableOpacity
-        style={[styles.bubble, isUser ? styles.bubbleUser : styles.bubbleAssistant]}
-        onPress={toggleExpand}
-        disabled={!canExpand}
-        activeOpacity={canExpand ? 0.88 : 1}
-        accessibilityRole={canExpand ? 'button' : 'text'}
-        accessibilityLabel={
-          canExpand
-            ? expanded
-              ? 'Collapse message'
-              : 'Expand truncated message'
-            : undefined
-        }
-      >
-        {threadLabel ? (
-          <Text style={[styles.threadLabel, threadDivider && styles.threadLabelDivider]}>
-            {threadLabel}
-          </Text>
-        ) : null}
-        {displayText.trim().length > 0 ? (
-          <Text
-            style={[styles.bubbleText, isUser ? styles.bubbleUserText : styles.bubbleAssistantText]}
-            selectable={expanded}
-          >
-            {displayText}
-          </Text>
-        ) : null}
-        {canExpand ? (
-          <Text style={[styles.expandHint, isUser ? styles.expandHintUser : styles.expandHintAssistant]}>
-            {expanded ? 'Show less' : 'Show more'}
-          </Text>
-        ) : null}
-        {inlineApproval ? (
-          <InlineMessageApproval
-            title={inlineApproval.title}
-            busy={inlineApproval.busy}
-            onApprove={inlineApproval.onApprove}
-            onDeny={inlineApproval.onDeny}
-          />
-        ) : null}
-        <Text
-          style={[styles.bubbleTime, isUser ? styles.bubbleUserTime : styles.bubbleAssistantTime]}
-          testID="chat-message-timestamp"
-        >
-          {timeLabel}
-        </Text>
-      </TouchableOpacity>
+        <View style={[styles.bubble, isUser ? styles.bubbleUser : styles.bubbleAssistant]}>
+          {threadLabel ? (
+            <Text style={[styles.threadLabel, threadDivider && styles.threadLabelDivider]}>
+              {threadLabel}
+            </Text>
+          ) : null}
+          {resolved.content.trim().length > 0 ? (
+            <Text
+              style={[styles.bubbleText, isUser ? styles.bubbleUserText : styles.bubbleAssistantText]}
+              selectable={false}
+            >
+              {resolved.content}
+            </Text>
+          ) : null}
+          {canExpand ? (
+            <Pressable
+              onPress={openDetails}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              accessibilityRole="button"
+              accessibilityLabel="Show full message detail"
+              testID="chat-message-expand"
+              style={({ pressed }) => [styles.expandPressable, pressed && styles.expandPressablePressed]}
+            >
+              <Text style={[styles.expandHint, isUser ? styles.expandHintUser : styles.expandHintAssistant]}>
+                Show more
+              </Text>
+            </Pressable>
+          ) : null}
+          {inlineApproval ? (
+            <InlineMessageApproval
+              title={inlineApproval.title}
+              busy={inlineApproval.busy}
+              onApprove={inlineApproval.onApprove}
+              onDeny={inlineApproval.onDeny}
+            />
+          ) : null}
+          <View style={styles.timeRow}>
+            {isUser && outboundStatus ? (
+              <Text
+                style={[
+                  styles.deliveryMark,
+                  outboundStatus === 'failed' && styles.deliveryFailed,
+                  outboundStatus === 'sent' &&
+                    outboundDeliveryLabel(outboundStatus, {
+                      connectionState,
+                      macHttpOk,
+                      failureReason: outboundFailureReason,
+                    }).startsWith('✓') &&
+                    styles.deliverySent,
+                ]}
+                testID={`chat-outbound-${outboundStatus}`}
+              >
+                {outboundDeliveryLabel(outboundStatus, {
+                  connectionState,
+                  macHttpOk,
+                  failureReason: outboundFailureReason,
+                })}
+              </Text>
+            ) : null}
+            <Text
+              style={[styles.bubbleTime, isUser ? styles.bubbleUserTime : styles.bubbleAssistantTime]}
+              testID="chat-message-timestamp"
+            >
+              {timeLabel}
+            </Text>
+          </View>
+        </View>
     </View>
   );
 }
@@ -137,8 +205,16 @@ const styles = StyleSheet.create({
   bubbleAssistantText: {
     color: colors.text,
   },
+  expandPressable: {
+    alignSelf: 'flex-start',
+    marginTop: 4,
+    paddingVertical: 4,
+    paddingRight: 8,
+  },
+  expandPressablePressed: {
+    opacity: 0.7,
+  },
   expandHint: {
-    marginTop: 6,
     fontSize: 12,
     fontWeight: '700',
     letterSpacing: 0.2,
@@ -163,9 +239,26 @@ const styles = StyleSheet.create({
     paddingTop: 8,
   },
   bubbleTime: {
-    marginTop: 6,
     fontSize: 11,
     fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+  },
+  timeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    gap: 8,
+    marginTop: 6,
+  },
+  deliveryMark: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: 'rgba(255, 255, 255, 0.65)',
+  },
+  deliverySent: {
+    color: colors.success,
+  },
+  deliveryFailed: {
+    color: colors.error,
   },
   bubbleUserTime: {
     color: 'rgba(255, 255, 255, 0.72)',

@@ -1,28 +1,23 @@
-import {
-  friendlyMacUnreachableMessage,
-  humanizeChatError,
-  isConnectivityError,
-  isConnectivityMessage,
-} from '../utils/chatErrors';
+import { isSessionInUseError } from '../utils/chatErrors';
 
-describe('chatErrors', () => {
-  it('detects network failures', () => {
-    expect(isConnectivityError(new Error('Network request failed'))).toBe(true);
-    expect(isConnectivityError(new Error('session_not_found'))).toBe(false);
+describe('isSessionInUseError', () => {
+  it('detects plain already in use text', () => {
+    expect(isSessionInUseError(new Error('session already in use'))).toBe(true);
   });
 
-  it('humanizes connectivity without gateway jargon', () => {
-    const result = humanizeChatError(new Error('Failed to fetch'), 'fallback');
-    expect(result.kind).toBe('connectivity');
-    expect(result.message).toBe(friendlyMacUnreachableMessage());
-    expect(result.message.toLowerCase()).not.toContain('gateway');
-  });
-
-  it('flags legacy scary banner text as connectivity', () => {
+  it('detects JSON session_in_use from gateway', () => {
     expect(
-      isConnectivityMessage(
-        'Failed to connect to your computer. Make sure the gateway is running and your device is on the same Wi-Fi.',
+      isSessionInUseError(
+        new Error(
+          JSON.stringify({
+            error: { code: 'session_in_use', message: 'operator busy' },
+          }),
+        ),
       ),
     ).toBe(true);
+  });
+
+  it('returns false for unrelated errors', () => {
+    expect(isSessionInUseError(new Error('invalid_api_key'))).toBe(false);
   });
 });

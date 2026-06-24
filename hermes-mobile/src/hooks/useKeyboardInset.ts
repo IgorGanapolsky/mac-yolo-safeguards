@@ -1,25 +1,24 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type RefObject } from 'react';
 import { Dimensions, Keyboard, Platform, type KeyboardEvent } from 'react-native';
+import {
+  detectWindowShrunkForKeyboard,
+  keyboardOverlapHeight,
+} from '../utils/composerKeyboard';
 
 export type KeyboardInsetState = {
-  /** Reported keyboard height in px (0 when hidden). */
+  /** Reported keyboard overlap in px (0 when hidden). */
   inset: number;
   /** True when adjustResize visibly reduced window height. */
   windowShrunk: boolean;
 };
 
-function keyboardHeightFromEvent(event?: KeyboardEvent): number {
-  const fromEvent = event?.endCoordinates.height ?? 0;
+function resolveKeyboardInset(event?: KeyboardEvent): number {
+  const windowHeight = Dimensions.get('window').height;
+  const fromEvent = keyboardOverlapHeight(event?.endCoordinates, windowHeight);
   if (fromEvent > 0) {
     return fromEvent;
   }
   return Keyboard.metrics()?.height ?? 0;
-}
-
-function measureWindowShrunk(baselineHeight: number, keyboardHeight: number): boolean {
-  const currentWindowHeight = Dimensions.get('window').height;
-  const shrink = baselineHeight - currentWindowHeight;
-  return shrink > Math.max(48, keyboardHeight * 0.2);
 }
 
 /**
@@ -27,32 +26,84 @@ function measureWindowShrunk(baselineHeight: number, keyboardHeight: number): bo
  * Tracks whether Android adjustResize actually shrank the window (dev clients often
  * ship resize while the tab bar prevents it from working — then we lift manually).
  */
-export function useKeyboardInset(): KeyboardInsetState {
+export function useKeyboardInset(options?: {
+  /** Ignore keyboardDidHide while true — prevents compose flicker on Android. */
+  suppressHideWhileFocusedRef?: RefObject<boolean>;
+  focused?: boolean;
+}): KeyboardInsetState {
   const [inset, setInset] = useState(0);
   const [windowShrunk, setWindowShrunk] = useState(false);
   const baselineWindowHeight = useRef(Dimensions.get('window').height);
 
   useEffect(() => {
+    if (options?.focused === false) {
+      setInset(0);
+      setWindowShrunk(false);
+    }
+  }, [options?.focused]);
+
+
+  useEffect(() => {
     const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
     const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
 
-    const onShow = (event: KeyboardEvent) => {
-      const kbHeight = keyboardHeightFromEvent(event);
+    const applyInset = (event?: KeyboardEvent) => {
+      const kbHeight = resolveKeyboardInset(event);
+      const currentWindowHeight = Dimensions.get('window').height;
       setInset(kbHeight);
-      setWindowShrunk(measureWindowShrunk(baselineWindowHeight.current, kbHeight));
+      setWindowShrunk(
+        detectWindowShrunkForKeyboard(kbHeight, baselineWindowHeight.current, currentWindowHeight),
+      );
+    };
+
+    const onShow = (event: KeyboardEvent) => {
+      applyInset(event);
+      if (Platform.OS === 'android') {
+        // Pan/edge-to-edge layouts often settle one frame late — re-read metrics.
+        requestAnimationFrame(() => {
+          const settled = resolveKeyboardInset(event);
+          if (settled > 0) {
+            const currentWindowHeight = Dimensions.get('window').height;
+            setInset(settled);
+            setWindowShrunk(
+              detectWindowShrunkForKeyboard(
+                settled,
+                baselineWindowHeight.current,
+                currentWindowHeight,
+              ),
+            );
+          }
+        });
+      }
     };
     const onHide = () => {
+      if (options?.suppressHideWhileFocusedRef?.current) {
+        return;
+      }
       setInset(0);
       setWindowShrunk(false);
       baselineWindowHeight.current = Dimensions.get('window').height;
     };
     const onFrame = (event: KeyboardEvent) => {
-      const kbHeight = keyboardHeightFromEvent(event);
+      const kbHeight = resolveKeyboardInset(event);
       if (kbHeight > 0) {
+        const currentWindowHeight = Dimensions.get('window').height;
         setInset(kbHeight);
-        setWindowShrunk(measureWindowShrunk(baselineWindowHeight.current, kbHeight));
+        setWindowShrunk(
+          detectWindowShrunkForKeyboard(
+            kbHeight,
+            baselineWindowHeight.current,
+            currentWindowHeight,
+          ),
+        );
       }
     };
+
+    const dimensionSub = Dimensions.addEventListener('change', ({ window }) => {
+      if ((Keyboard.metrics()?.height ?? 0) <= 0) {
+        baselineWindowHeight.current = window.height;
+      }
+    });
 
     const subs = [Keyboard.addListener(showEvent, onShow), Keyboard.addListener(hideEvent, onHide)];
     if (Platform.OS === 'android') {
@@ -60,11 +111,12 @@ export function useKeyboardInset(): KeyboardInsetState {
     }
 
     return () => {
+      dimensionSub.remove();
       for (const sub of subs) {
         sub.remove();
       }
     };
-  }, []);
+  }, [options?.suppressHideWhileFocusedRef]);
 
   return { inset, windowShrunk };
 }

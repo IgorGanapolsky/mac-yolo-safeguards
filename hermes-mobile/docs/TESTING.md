@@ -32,7 +32,8 @@
 | Launch | `launch.yaml` | Chat tab loads with input |
 | Navigation | `navigation.yaml` | All four tabs reachable |
 | Leash connection | `leash-connection.yaml` | Connection status block visible |
-| Chat smoke | `chat.yaml` | Session modal, type + send |
+| Chat smoke | `chat.yaml` | Session modal, type + send, user bubble visible |
+| Send persistence | `chat-send-persistence.yaml` | User bubble survives post-send wait (refresh-race guard) |
 | Settings ThumbGate | `settings-thumbgate.yaml` | ThumbGate toggles + save reachable |
 | Leash approval | `approvals.yaml` | Smoke inject → card → thumbs up → empty |
 | Gateway API key | `save_key.yaml` | Save settings persistence |
@@ -56,9 +57,31 @@ Runs: `assembleRelease` → APK verify → install → full Maestro suite.
 cd hermes-mobile
 npx expo run:ios --device "iPhone 17 Pro"
 npx expo start --dev-client   # separate terminal for Metro
-npm run e2e:ship-guard
-npm run e2e:all               # full suite with dev client or release build
+npm run e2e:simulator         # full Maestro suite (auto-boots sim, sets JAVA_HOME)
+npm run e2e:ship-guard        # single flow via simulator runner
+npm run e2e:simulator:flow .maestro/chat-send-persistence.yaml
 ```
+
+Requires Homebrew OpenJDK 17 (`brew install openjdk@17`). The runner sets `JAVA_HOME` and `MAESTRO_DRIVER_STARTUP_TIMEOUT=180000` automatically.
+
+## Continuous autonomous E2E (local Mac)
+
+Runs **329 unit tests + Maestro ship-guard + chat-send-persistence** on a schedule without opening Cursor.
+
+| Command | What |
+|---|---|
+| `npm run e2e:continuous:once` | Single cycle now |
+| `npm run e2e:continuous` | Background daemon (every 15 min) |
+| `npm run e2e:continuous:watch` | Re-run on `src/` changes |
+| `npm run e2e:continuous:status` | LaunchAgent + last result |
+| `bash ../scripts/install-agent-launchagents.sh` | Install LaunchAgent (every 15 min + at login) |
+
+Status file: `docs/proofs/continuous/latest.json`
+Logs: `~/Library/Logs/hermes-mobile-continuous-e2e.log`
+
+**Priority:** USB Android phone when connected; otherwise iOS simulator. Metro is auto-started on `:8081` if missing.
+
+**Cloud:** GitHub Actions workflow `mobile-continuous.yml` runs unit tests every 6 hours + Maestro ship-guard on `macos-latest`.
 
 ## CI
 

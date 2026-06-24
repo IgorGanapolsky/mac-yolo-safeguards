@@ -8,7 +8,6 @@ module.exports = {
     '!src/types/**',
     '!src/native/**',
     '!App.tsx',
-    '!src/screens/OpsScreen.tsx',
     '!src/screens/WorkspaceScreen.tsx',
     '!src/utils/chatStreamEvents.ts',
     '!src/utils/chatTimeline.ts',

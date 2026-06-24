@@ -28,6 +28,8 @@ export type HermesApprovalRequest = {
   receivedAt?: string;
   /** When set, approve/deny routes to this gateway session (Telegram), not mobile chat only. */
   sessionKey?: string;
+  /** Unified diff from gate / git — Codex-style review before approve. */
+  diff?: string;
 };
 
 export const DEFAULT_APPROVAL_CHOICES: ApprovalChoice[] = ['once', 'session', 'always', 'deny'];

@@ -1,7 +1,11 @@
 import {
   COMPOSER_KEYBOARD_GAP,
   COMPOSER_REST_BOTTOM_INSET,
+  ANDROID_TAB_BAR_ESTIMATE_PX,
   composerBottomInset,
+  composerDockInsets,
+  detectWindowShrunkForKeyboard,
+  keyboardOverlapHeight,
 } from '../utils/composerKeyboard';
 
 describe('composerKeyboard', () => {
@@ -20,5 +24,35 @@ describe('composerKeyboard', () => {
   it('uses safe-area minimum when keyboard is closed', () => {
     expect(composerBottomInset(0, 34)).toBe(34);
     expect(composerBottomInset(0, 0)).toBe(COMPOSER_REST_BOTTOM_INSET);
+  });
+
+  it('prefers screenY overlap when keyboard height is under-reported', () => {
+    const overlap = keyboardOverlapHeight(
+      { screenX: 0, screenY: 1500, width: 1080, height: 200 },
+      2200,
+    );
+    expect(overlap).toBe(700);
+  });
+
+  it('detects resize shrink from baseline window height', () => {
+    expect(detectWindowShrunkForKeyboard(360, 2200, 1860)).toBe(true);
+    expect(detectWindowShrunkForKeyboard(360, 2200, 2150)).toBe(false);
+  });
+
+  it('does not treat partial shrink as resize handled', () => {
+    expect(detectWindowShrunkForKeyboard(360, 2200, 2120)).toBe(false);
+  });
+
+  it('lifts Android composer via margin even when resize reports shrink', () => {
+    const platform = require('react-native').Platform as { OS: string };
+    const prevOs = platform.OS;
+    platform.OS = 'android';
+    try {
+      const { paddingBottom, marginBottom } = composerDockInsets(320, 34, 'resize', true, 0);
+      expect(paddingBottom).toBe(34);
+      expect(marginBottom).toBe(320 + COMPOSER_KEYBOARD_GAP);
+    } finally {
+      platform.OS = prevOs;
+    }
   });
 });

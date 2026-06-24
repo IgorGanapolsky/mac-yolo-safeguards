@@ -18,5 +18,10 @@ export interface RunProgressState {
   detail?: string;
   runId?: string;
   sessionId?: string;
+  model?: string;
+  inputTokens?: number;
+  outputTokens?: number;
+  totalTokens?: number;
+  duration?: number;
 }
 

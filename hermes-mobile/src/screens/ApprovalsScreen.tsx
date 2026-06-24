@@ -23,7 +23,6 @@ import { fromPendingApproval } from '../utils/approvalNormalize';
 type RootTabParamList = {
   Leash: undefined;
   Chat: undefined;
-  Ops: undefined;
   Settings: undefined;
 };
 

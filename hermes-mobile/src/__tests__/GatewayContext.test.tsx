@@ -23,6 +23,8 @@ jest.mock('../services/approvalNotifications', () => ({
   cancelRunStallNotification: jest.fn().mockResolvedValue(undefined),
   syncHermesNotificationBadge: jest.fn().mockResolvedValue(undefined),
   dismissApprovalNotifications: jest.fn().mockResolvedValue(undefined),
+  dismissApprovalNotification: jest.fn().mockResolvedValue(undefined),
+  syncSmartApprovalNotifications: jest.fn().mockResolvedValue(undefined),
   addApprovalNotificationResponseListener: jest.fn().mockResolvedValue({ remove: jest.fn() }),
 }));
 jest.mock('../services/gatewayProfiles', () => ({
@@ -98,6 +100,40 @@ function Probe() {
       <Text testID="connection-state">{gateway.connectionState}</Text>
       <Text testID="pending-count">{gateway.pendingApprovals.length}</Text>
       <Text testID="transcript-nonce">{gateway.transcriptSyncNonce}</Text>
+    </>
+  );
+}
+
+function ProgressProbe() {
+  const gateway = useGateway();
+  return (
+    <>
+      <Text testID="connection-state">{gateway.connectionState}</Text>
+      <Text testID="run-progress-detail">{gateway.runProgress?.detail ?? 'none'}</Text>
+      <Text
+        testID="chat-stream-lock"
+        onPress={() => gateway.setChatStreamProgressActive(true)}
+      >
+        lock
+      </Text>
+      <Text
+        testID="chat-stream-unlock"
+        onPress={() => gateway.setChatStreamProgressActive(false)}
+      >
+        unlock
+      </Text>
+      <Text
+        testID="seed-progress"
+        onPress={() =>
+          gateway.setRunProgress({
+            phase: 'sending',
+            startedAtMs: Date.now(),
+            detail: 'Sending to your computer…',
+          })
+        }
+      >
+        seed
+      </Text>
     </>
   );
 }
@@ -332,7 +368,10 @@ describe('GatewayProvider', () => {
     });
 
     await waitFor(() => {
-      expect(approvalNotifications.scheduleRunStallNotification).toHaveBeenCalledWith('run_watchdog_1');
+      expect(approvalNotifications.scheduleRunStallNotification).toHaveBeenCalledWith(
+        'run_watchdog_1',
+        undefined,
+      );
     });
 
     act(() => {
@@ -353,6 +392,76 @@ describe('GatewayProvider', () => {
     Object.defineProperty(AppState, 'currentState', {
       value: originalCurrentState,
       configurable: true,
+    });
+  });
+
+  it('does not clear run progress on run.completed while chat stream owns the banner', async () => {
+    const { getByTestId } = render(
+      <GatewayProvider>
+        <ProgressProbe />
+      </GatewayProvider>,
+    );
+
+    await waitFor(() => {
+      expect(getByTestId('connection-state').props.children).toBe('connected');
+    });
+
+    const ws = MockWebSocket.instances[MockWebSocket.instances.length - 1];
+
+    act(() => {
+      getByTestId('seed-progress').props.onPress();
+      getByTestId('chat-stream-lock').props.onPress();
+    });
+
+    await waitFor(() => {
+      expect(getByTestId('run-progress-detail').props.children).toBe('Sending to your computer…');
+    });
+
+    act(() => {
+      ws.onmessage?.({
+        data: JSON.stringify({
+          event: 'run.completed',
+          payload: { session_id: 'sess_tg_1' },
+        }),
+      });
+    });
+
+    expect(getByTestId('run-progress-detail').props.children).toBe('Sending to your computer…');
+  });
+
+  it('clears run progress on run.completed when chat stream lock is off', async () => {
+    const { getByTestId } = render(
+      <GatewayProvider>
+        <ProgressProbe />
+      </GatewayProvider>,
+    );
+
+    await waitFor(() => {
+      expect(getByTestId('connection-state').props.children).toBe('connected');
+    });
+
+    const ws = MockWebSocket.instances[MockWebSocket.instances.length - 1];
+
+    act(() => {
+      getByTestId('seed-progress').props.onPress();
+      getByTestId('chat-stream-unlock').props.onPress();
+    });
+
+    await waitFor(() => {
+      expect(getByTestId('run-progress-detail').props.children).toBe('Sending to your computer…');
+    });
+
+    act(() => {
+      ws.onmessage?.({
+        data: JSON.stringify({
+          event: 'run.completed',
+          payload: { session_id: 'sess_tg_1' },
+        }),
+      });
+    });
+
+    await waitFor(() => {
+      expect(getByTestId('run-progress-detail').props.children).toBe('none');
     });
   });
 });

@@ -1,0 +1,37 @@
+# Chat send — user bubble must stay visible (guards refresh-race regression).
+appId: com.iganapolsky.hermesmobile
+---
+- launchApp
+- runFlow: e2e-bootstrap.yaml
+- runFlow:
+    when:
+      notVisible:
+        id: "HERMES CHAT"
+    commands:
+      - tapOn: "Chat"
+- extendedWaitUntil:
+    visible:
+      id: "chat-input"
+    timeout: 30000
+- tapOn:
+    id: "chat-input"
+- inputText: "e2e persistence check"
+- waitForAnimationToEnd:
+    timeout: 2000
+- tapOn:
+    id: "chat-send-button"
+- extendedWaitUntil:
+    visible:
+      id: "run-progress-banner"
+    timeout: 15000
+- scrollUntilVisible:
+    element:
+      text: "e2e persistence check"
+    direction: UP
+    timeout: 20000
+    speed: 40
+- assertVisible: "e2e persistence check"
+- extendedWaitUntil:
+    visible: "e2e persistence check"
+    timeout: 8000
+- assertVisible: "e2e persistence check"

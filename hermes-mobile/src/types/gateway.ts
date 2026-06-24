@@ -66,6 +66,8 @@ export interface GatewayEventMessage {
 export type ConnectionMode = 'relay' | 'gateway';
 
 export type ApprovalPolicy = 'strict' | 'balanced' | 'autonomous';
+export type HermesPersona = 'operator' | 'coach' | 'spark';
+export type HermesAvatar = 'orb' | 'bolt' | 'navigator' | 'guardian';
 
 export interface GatewaySettings {
   connectionMode: ConnectionMode;
@@ -93,6 +95,12 @@ export interface GatewaySettings {
   thumbgateProActive: boolean;
   /** Whether to show tool execution messages (role tool/function) in transcripts. */
   includeToolActivity?: boolean;
+  /** Presentation/personality skin for mobile chat. Style only; execution directives still win. */
+  hermesPersona?: HermesPersona;
+  /** Local avatar skin shown in Chat and Settings. */
+  hermesAvatar?: HermesAvatar;
+  /** Lightweight animated presence cues. */
+  playfulMotion?: boolean;
 }
 
 export const DEFAULT_GATEWAY_SETTINGS: GatewaySettings = {
@@ -112,4 +120,7 @@ export const DEFAULT_GATEWAY_SETTINGS: GatewaySettings = {
   analyticsOptOut: false,
   thumbgateProActive: false,
   includeToolActivity: true,
+  hermesPersona: 'operator',
+  hermesAvatar: 'orb',
+  playfulMotion: true,
 };

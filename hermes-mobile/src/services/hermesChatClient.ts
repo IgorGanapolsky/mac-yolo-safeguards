@@ -1,4 +1,5 @@
 import { buildAuthHeaders, normalizeGatewayUrl, fetchWithTimeout } from './gatewayClient';
+import { CHAT_TURN_TIMEOUT_MS } from './hermesGatewayClient';
 import { coerceMessageId } from '../utils/messageIds';
 import type {
   ChatTurnResponse,
@@ -10,7 +11,6 @@ import type {
 import {
   unescapeChatText,
   formatMessageForDisplay,
-  prepareMessageForChatDisplay,
   normalizeChatMessage,
 } from '../utils/chatMessageDisplay';
 
@@ -78,6 +78,23 @@ export function extractAssistantText(body: ChatTurnResponse): string {
   return '';
 }
 
+export async function getSession(
+  gatewayUrl: string,
+  sessionId: string,
+  apiKey?: string | null,
+): Promise<HermesSession | null> {
+  const response = await fetchWithTimeout(
+    `${base(gatewayUrl)}/api/sessions/${encodeURIComponent(sessionId)}`,
+    { headers: headers(apiKey) },
+    10000,
+  );
+  if (response.status === 404) {
+    return null;
+  }
+  const body = await parseJson<{ session?: HermesSession }>(response);
+  return body.session ?? null;
+}
+
 export async function listSessions(
   gatewayUrl: string,
   apiKey?: string | null,
@@ -127,13 +144,10 @@ export async function listMessages(
       typeof message.content === 'string'
         ? message.content
         : normalizeMessageContent(message.content);
-    const display = prepareMessageForChatDisplay(rawText);
     return normalizeChatMessage({
       ...message,
       id: coerceMessageId(message.id, index),
-      content: display.content,
-      rawContent: display.rawContent,
-      truncated: display.truncated,
+      content: rawText,
     });
   });
 }
@@ -156,6 +170,7 @@ export async function sendChatMessage(
       headers: headers(apiKey),
       body: JSON.stringify(body),
     },
+    CHAT_TURN_TIMEOUT_MS,
   );
   const parsed = await parseJson<ChatTurnResponse>(response);
   return { assistantText: extractAssistantText(parsed), raw: parsed };

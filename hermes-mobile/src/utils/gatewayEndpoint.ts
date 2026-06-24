@@ -169,3 +169,29 @@ export function formatListeningOnGatewayLine(
   const tail = suffix ? ` ${suffix}` : '';
   return `Listening on ${host}${tail}`;
 }
+
+/** Host + port (or IP) for operator UI — always show the reachable address. */
+export function formatGatewayEndpointLine(
+  gatewayUrl: string,
+  health?: GatewayHealthSnapshot | null,
+): string {
+  const lanIp = isUsableHost(health?.localIp);
+  try {
+    const { httpBase } = normalizeGatewayUrl(gatewayUrl);
+    const url = new URL(httpBase);
+    const port = url.port;
+    if (lanIp) {
+      return port ? `${lanIp}:${port}` : lanIp;
+    }
+    const hostPart = url.host;
+    if (hostPart) {
+      return hostPart;
+    }
+  } catch {
+    // fall through
+  }
+  if (lanIp) {
+    return lanIp;
+  }
+  return gatewayUrl.trim();
+}

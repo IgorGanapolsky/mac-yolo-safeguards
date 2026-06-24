@@ -2,6 +2,14 @@ import { AppState, Platform } from 'react-native';
 import type { RunProgressState } from '../types/chatDisplay';
 import type { PendingApproval } from '../types/gateway';
 import { formatRunProgressLabel } from '../utils/chatStreamEvents';
+import {
+  approvalNotificationIdentifier,
+  approvalNotificationTitle,
+  buildApprovalNotificationBody,
+  approvalsSummaryBody,
+  APPROVALS_SUMMARY_NOTIFICATION_ID,
+  shouldScheduleApprovalNotification,
+} from '../utils/smartNotificationPolicy';
 
 type NotificationModule = typeof import('expo-notifications');
 type NotificationContentInput = import('expo-notifications').NotificationContentInput;
@@ -16,6 +24,8 @@ const CHANNEL_RESULTS = 'hermes-results';
 const RUN_STATUS_NOTIFICATION_ID = 'hermes-run-status';
 const RUN_COMPLETED_NOTIFICATION_ID = 'hermes-run-completed';
 
+const notifiedApprovalIds = new Set<string>();
+
 const THREAD_APPROVALS = 'hermes.thread.approvals';
 const THREAD_RUNS = 'hermes.thread.runs';
 const NOTIFICATION_COLOR = '#6366F1';
@@ -27,7 +37,7 @@ export type HermesNotificationTab = 'Chat' | 'Leash';
 
 export type HermesNotificationAction =
   | { kind: 'approval'; actionId: string; runId?: string; choice: 'once' | 'deny' }
-  | { kind: 'navigate'; tab: HermesNotificationTab }
+  | { kind: 'navigate'; tab: HermesNotificationTab; sessionId?: string }
   | { kind: 'stop_run'; runId?: string };
 
 export type ApprovalNotificationAction = {
@@ -97,31 +107,66 @@ export function runProgressNotificationTitle(progress: RunProgressState): string
 
 export function parseHermesNotificationResponse(response: unknown): HermesNotificationAction | null {
   const action = actionIdentifier(response);
+  const data = notificationData(response);
+  const sessionId =
+    typeof data?.sessionId === 'string' && data.sessionId.trim()
+      ? data.sessionId.trim()
+      : typeof data?.sessionKey === 'string' && data.sessionKey.trim()
+        ? data.sessionKey.trim()
+        : undefined;
+  const notificationType = typeof data?.type === 'string' ? data.type : '';
+
   if (action === 'view_chat') {
-    return { kind: 'navigate', tab: 'Chat' };
+    return { kind: 'navigate', tab: 'Chat', sessionId };
   }
   if (action === 'view_approvals') {
     return { kind: 'navigate', tab: 'Leash' };
   }
   if (action === 'stop_run') {
-    const data = notificationData(response);
     const runId = typeof data?.runId === 'string' ? data.runId : undefined;
     return { kind: 'stop_run', runId };
   }
 
-  const data = notificationData(response);
+  if (action === 'approve_once') {
+    const actionId = data?.actionId;
+    if (typeof actionId !== 'string' || !actionId) {
+      return null;
+    }
+    const runId = typeof data?.runId === 'string' ? data.runId : undefined;
+    return { kind: 'approval', actionId, runId, choice: 'once' };
+  }
+  if (action === 'deny') {
+    const actionId = data?.actionId;
+    if (typeof actionId !== 'string' || !actionId) {
+      return null;
+    }
+    const runId = typeof data?.runId === 'string' ? data.runId : undefined;
+    return { kind: 'approval', actionId, runId, choice: 'deny' };
+  }
+
+  if (!action || action === 'expo.modules.notifications.actions.DEFAULT') {
+    if (notificationType === 'approval' || notificationType === 'approval_summary') {
+      return {
+        kind: 'navigate',
+        tab: sessionId ? 'Chat' : 'Leash',
+        sessionId,
+      };
+    }
+    if (
+      notificationType === 'run_completed' ||
+      notificationType === 'run_progress' ||
+      notificationType === 'run_stall'
+    ) {
+      return { kind: 'navigate', tab: 'Chat', sessionId };
+    }
+  }
+
   const actionId = data?.actionId;
   if (typeof actionId !== 'string' || !actionId) {
     return null;
   }
   const runId = typeof data?.runId === 'string' ? data.runId : undefined;
 
-  if (action === 'approve_once') {
-    return { kind: 'approval', actionId, runId, choice: 'once' };
-  }
-  if (action === 'deny') {
-    return { kind: 'approval', actionId, runId, choice: 'deny' };
-  }
   return null;
 }
 
@@ -151,12 +196,15 @@ export async function initHermesNotifications(): Promise<void> {
       const type = typeof data?.type === 'string' ? data.type : '';
       const foreground = AppState.currentState === 'active';
       const suppressRunBanner = foreground && type === 'run_progress';
+      const suppressApprovalBanner =
+        foreground && type === 'approval' && data?.riskTier !== 'high';
 
       return {
-        shouldShowAlert: !suppressRunBanner,
-        shouldPlaySound: type === 'approval' && !foreground,
+        shouldShowAlert: !suppressRunBanner && !suppressApprovalBanner,
+        shouldPlaySound:
+          (type === 'approval' || type === 'approval_summary') && !foreground,
         shouldSetBadge: true,
-        shouldShowBanner: !suppressRunBanner,
+        shouldShowBanner: !suppressRunBanner && !suppressApprovalBanner,
         shouldShowList: true,
       };
     },
@@ -257,10 +305,19 @@ export async function syncHermesNotificationBadge(count: number): Promise<void> 
 
 export async function scheduleApprovalNotification(
   pending: PendingApproval,
-  options?: { badgeCount?: number },
+  options?: { badgeCount?: number; force?: boolean },
 ): Promise<void> {
   const Notifications = await loadNotifications();
   if (!Notifications) {
+    return;
+  }
+
+  const appState = AppState.currentState;
+  if (!options?.force && !shouldScheduleApprovalNotification(pending, appState)) {
+    return;
+  }
+
+  if (notifiedApprovalIds.has(pending.actionId)) {
     return;
   }
 
@@ -269,14 +326,17 @@ export async function scheduleApprovalNotification(
     return;
   }
 
-  const preview = (pending.command || pending.reason || 'Approval needed').slice(0, 160);
+  notifiedApprovalIds.add(pending.actionId);
+
+  const sessionId = pending.sessionKey?.trim() || undefined;
   const badge = options?.badgeCount ?? 1;
 
   await Notifications.scheduleNotificationAsync({
+    identifier: approvalNotificationIdentifier(pending.actionId),
     content: {
-      title: 'Approval needed on your computer',
+      title: approvalNotificationTitle(pending),
       subtitle: approvalNotificationSubtitle(pending),
-      body: preview,
+      body: buildApprovalNotificationBody(pending),
       categoryIdentifier: CATEGORY_APPROVAL,
       sound: 'default',
       badge,
@@ -292,7 +352,8 @@ export async function scheduleApprovalNotification(
       data: {
         actionId: pending.actionId,
         runId: pending.runId,
-        choice: 'once',
+        sessionId,
+        sessionKey: sessionId,
         type: 'approval',
         riskTier: pending.riskTier,
       },
@@ -301,10 +362,116 @@ export async function scheduleApprovalNotification(
   });
 }
 
+export async function scheduleApprovalsSummaryNotification(
+  pending: PendingApproval[],
+  options?: { badgeCount?: number },
+): Promise<void> {
+  if (pending.length < 2) {
+    await dismissApprovalsSummaryNotification();
+    return;
+  }
+
+  const Notifications = await loadNotifications();
+  if (!Notifications) {
+    return;
+  }
+
+  const granted = await requestHermesNotificationPermission();
+  if (!granted) {
+    return;
+  }
+
+  const latest = pending[0];
+  const sessionId = latest.sessionKey?.trim() || undefined;
+  const badge = options?.badgeCount ?? pending.length;
+
+  await Notifications.scheduleNotificationAsync({
+    identifier: APPROVALS_SUMMARY_NOTIFICATION_ID,
+    content: {
+      title: `${pending.length} approvals waiting`,
+      subtitle: approvalNotificationSubtitle(latest),
+      body: approvalsSummaryBody(pending),
+      categoryIdentifier: CATEGORY_APPROVAL,
+      sound: 'default',
+      badge,
+      threadIdentifier: THREAD_APPROVALS,
+      ...(Platform.OS === 'ios' ? { interruptionLevel: 'timeSensitive' as const } : {}),
+      ...(Platform.OS === 'android'
+        ? {
+            channelId: CHANNEL_APPROVALS,
+            color: NOTIFICATION_COLOR,
+            priority: Notifications.AndroidNotificationPriority.HIGH,
+          }
+        : {}),
+      data: {
+        actionId: latest.actionId,
+        runId: latest.runId,
+        sessionId,
+        sessionKey: sessionId,
+        type: 'approval_summary',
+        count: pending.length,
+      },
+    } as NotificationContentInput,
+    trigger: null,
+  });
+}
+
+export async function dismissApprovalNotification(actionId: string): Promise<void> {
+  notifiedApprovalIds.delete(actionId);
+  const Notifications = await loadNotifications();
+  if (!Notifications) {
+    return;
+  }
+  const identifier = approvalNotificationIdentifier(actionId);
+  try {
+    await Notifications.cancelScheduledNotificationAsync(identifier);
+    await Notifications.dismissNotificationAsync(identifier);
+  } catch {
+    /* ignore */
+  }
+}
+
+export async function dismissApprovalsSummaryNotification(): Promise<void> {
+  const Notifications = await loadNotifications();
+  if (!Notifications) {
+    return;
+  }
+  try {
+    await Notifications.cancelScheduledNotificationAsync(APPROVALS_SUMMARY_NOTIFICATION_ID);
+    await Notifications.dismissNotificationAsync(APPROVALS_SUMMARY_NOTIFICATION_ID);
+  } catch {
+    /* ignore */
+  }
+}
+
+/** Dismiss stale approval notifications and refresh batch summary. */
+export async function syncSmartApprovalNotifications(
+  pending: PendingApproval[],
+  options?: { badgeCount?: number },
+): Promise<void> {
+  const activeIds = new Set(pending.map((item) => item.actionId));
+  for (const id of [...notifiedApprovalIds]) {
+    if (!activeIds.has(id)) {
+      await dismissApprovalNotification(id);
+    }
+  }
+
+  const badge = options?.badgeCount ?? pending.length;
+  if (pending.length >= 2) {
+    await scheduleApprovalsSummaryNotification(pending, { badgeCount: badge });
+  } else {
+    await dismissApprovalsSummaryNotification();
+  }
+}
+
+export function resetApprovalNotificationState(): void {
+  notifiedApprovalIds.clear();
+}
+
 /** Throttled live-activity style notification for background run progress. */
 export async function scheduleRunProgressNotification(
   progress: RunProgressState,
-  options?: { runId?: string; force?: boolean },
+  options?: { runId?: string; sessionId?: string; force?: boolean },
 ): Promise<void> {
   if (AppState.currentState === 'active') {
     return;
@@ -350,7 +517,8 @@ export async function scheduleRunProgressNotification(
         : {}),
       data: {
         type: 'run_progress',
-        runId: options?.runId,
+        runId: options?.runId ?? progress.runId,
+        sessionId: options?.sessionId ?? progress.sessionId,
         phase: progress.phase,
       },
     } as NotificationContentInput,
@@ -360,7 +528,7 @@ export async function scheduleRunProgressNotification(
 
 export async function scheduleRunCompletedNotification(
   detail: string,
-  options?: { success?: boolean; runId?: string },
+  options?: { success?: boolean; runId?: string; sessionId?: string },
 ): Promise<void> {
   if (AppState.currentState === 'active') {
     return;
@@ -401,6 +569,7 @@ export async function scheduleRunCompletedNotification(
       data: {
         type: 'run_completed',
         runId: options?.runId,
+        sessionId: options?.sessionId,
         success,
       },
     } as NotificationContentInput,
@@ -424,7 +593,10 @@ export async function clearRunProgressNotification(): Promise<void> {
 
 export const RUN_STALL_NOTIFICATION_ID = 'hermes-run-stall';
 
-export async function scheduleRunStallNotification(runId?: string): Promise<void> {
+export async function scheduleRunStallNotification(
+  runId?: string,
+  sessionId?: string,
+): Promise<void> {
   const Notifications = await loadNotifications();
   if (!Notifications) {
     return;
@@ -456,6 +628,7 @@ export async function scheduleRunStallNotification(runId?: string): Promise<void
       data: {
         type: 'run_stall',
         runId,
+        sessionId,
       },
     } as NotificationContentInput,
     trigger: {

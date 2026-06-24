@@ -1,5 +1,133 @@
+import type { HermesSession } from '../types/chat';
 import type { ChatStreamEvent } from '../types/gatewayApi';
 import type { ChatTimelineItem, RunProgressState } from '../types/chatDisplay';
+
+function readNumber(value: unknown): number | undefined {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return value;
+  }
+  if (typeof value === 'string' && value.trim() && !Number.isNaN(Number(value))) {
+    return Number(value);
+  }
+  return undefined;
+}
+
+function readUsageBlock(block: unknown): {
+  inputTokens?: number;
+  outputTokens?: number;
+  totalTokens?: number;
+} {
+  if (!block || typeof block !== 'object' || Array.isArray(block)) {
+    return {};
+  }
+  const usage = block as Record<string, unknown>;
+  const inputTokens =
+    readNumber(usage.input_tokens) ??
+    readNumber(usage.inputTokens) ??
+    readNumber(usage.prompt_tokens) ??
+    readNumber(usage.promptTokens);
+  const outputTokens =
+    readNumber(usage.output_tokens) ??
+    readNumber(usage.outputTokens) ??
+    readNumber(usage.completion_tokens) ??
+    readNumber(usage.completionTokens);
+  const totalTokens =
+    readNumber(usage.total_tokens) ??
+    readNumber(usage.totalTokens) ??
+    (inputTokens != null || outputTokens != null
+      ? (inputTokens ?? 0) + (outputTokens ?? 0)
+      : undefined);
+  return { inputTokens, outputTokens, totalTokens };
+}
+
+/** Merge model + token fields from gateway SSE payloads or session records. */
+export function mergeRunUsageFromPayload(
+  progress: RunProgressState,
+  data: Record<string, unknown>,
+): RunProgressState {
+  const usage = {
+    ...readUsageBlock(data.usage),
+    ...readUsageBlock(data.token_usage),
+    ...readUsageBlock(data.tokenUsage),
+    ...readUsageBlock(data.stats),
+  };
+
+  const inputTokens =
+    readNumber(data.input_tokens) ??
+    readNumber(data.inputTokens) ??
+    usage.inputTokens ??
+    progress.inputTokens;
+  const outputTokens =
+    readNumber(data.output_tokens) ??
+    readNumber(data.outputTokens) ??
+    usage.outputTokens ??
+    progress.outputTokens;
+  const totalTokens =
+    readNumber(data.total_tokens) ??
+    readNumber(data.totalTokens) ??
+    usage.totalTokens ??
+    (inputTokens != null || outputTokens != null
+      ? (inputTokens ?? 0) + (outputTokens ?? 0)
+      : progress.totalTokens);
+
+  const model =
+    (typeof data.model === 'string' && data.model.trim() ? data.model.trim() : undefined) ??
+    (typeof data.model_id === 'string' && data.model_id.trim() ? data.model_id.trim() : undefined) ??
+    (typeof data.model_name === 'string' && data.model_name.trim()
+      ? data.model_name.trim()
+      : undefined) ??
+    progress.model;
+
+  const duration = readNumber(data.duration) ?? progress.duration;
+
+  return {
+    ...progress,
+    model,
+    inputTokens,
+    outputTokens,
+    totalTokens,
+    duration,
+  };
+}
+
+/** True when banner-visible run progress fields are unchanged (skip pointless re-renders). */
+export function runProgressForDisplayEqual(
+  a: RunProgressState | null | undefined,
+  b: RunProgressState | null | undefined,
+): boolean {
+  if (!a || !b) {
+    return a === b;
+  }
+  return (
+    a.phase === b.phase &&
+    a.startedAtMs === b.startedAtMs &&
+    (a.detail ?? '') === (b.detail ?? '') &&
+    (a.model ?? '') === (b.model ?? '') &&
+    (a.inputTokens ?? -1) === (b.inputTokens ?? -1) &&
+    (a.outputTokens ?? -1) === (b.outputTokens ?? -1) &&
+    (a.totalTokens ?? -1) === (b.totalTokens ?? -1)
+  );
+}
+
+export function mergeSessionUsageIntoRunProgress(
+  progress: RunProgressState | null,
+  session: Pick<HermesSession, 'model' | 'input_tokens' | 'output_tokens'>,
+  fallbackDetail = 'Agent working…',
+): RunProgressState {
+  const base: RunProgressState =
+    progress ??
+    ({
+      phase: 'working',
+      startedAtMs: Date.now(),
+      detail: fallbackDetail,
+    } satisfies RunProgressState);
+
+  return mergeRunUsageFromPayload(base, {
+    model: session.model,
+    input_tokens: session.input_tokens,
+    output_tokens: session.output_tokens,
+  });
+}
 
 export interface StreamActivityState {
   runProgress: RunProgressState | null;
@@ -75,11 +203,12 @@ function startRunProgress(
   state: StreamActivityState,
   detail: string,
   phase = 'working',
+  data?: Record<string, unknown>,
 ): RunProgressState {
-  if (state.runProgress) {
-    return { ...state.runProgress, detail, phase };
-  }
-  return { phase, startedAtMs: Date.now(), detail };
+  const next = state.runProgress
+    ? { ...state.runProgress, detail, phase }
+    : { phase, startedAtMs: Date.now(), detail };
+  return data ? mergeRunUsageFromPayload(next, data) : next;
 }
 
 export function applyStreamEvent(
@@ -100,7 +229,7 @@ export function applyStreamEvent(
     const detail = String(
       data.detail ?? data.message ?? data.phase ?? data.status ?? 'working',
     );
-    runProgress = startRunProgress({ ...state, runProgress }, detail);
+    runProgress = startRunProgress({ ...state, runProgress }, detail, 'working', data);
     return { runProgress, toolCalls };
   }
 
@@ -121,6 +250,8 @@ export function applyStreamEvent(
       runProgress = startRunProgress(
         { ...state, runProgress },
         command ? `running ${toolName}` : `running ${toolName}`,
+        'working',
+        data,
       );
     } else {
       const idx = findLastRunningToolIndex(toolCalls, toolName);
@@ -156,6 +287,7 @@ export function applyStreamEvent(
       { ...state, runProgress },
       'waiting for provider response (streaming)',
       'streaming',
+      data,
     );
     return { runProgress, toolCalls };
   }
@@ -165,6 +297,7 @@ export function applyStreamEvent(
       { ...state, runProgress },
       'waiting for your approval',
       'approval',
+      data,
     );
     return { runProgress, toolCalls };
   }

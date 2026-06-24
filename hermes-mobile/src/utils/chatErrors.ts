@@ -46,6 +46,19 @@ export function humanizeChatError(error: unknown, fallback: string): HumanChatEr
   }
 
   const message = error.message;
+  const lower = message.toLowerCase();
+
+  if (lower.includes('already in use')) {
+    return {
+      kind: 'operational',
+      message:
+        'Your Mac is still on the previous chat. Wait a moment, pick another thread, or try again.',
+    };
+  }
+
+  if (lower.includes('ollama') || lower.includes('stalled') || lower.includes('stream timed out')) {
+    return { kind: 'operational', message };
+  }
 
   if (message.trim().startsWith('{')) {
     try {
@@ -59,6 +72,16 @@ export function humanizeChatError(error: unknown, fallback: string): HumanChatEr
           return {
             kind: 'operational',
             message: 'That chat was removed or your computer restarted. Pick another session or start a new one.',
+          };
+        }
+        if (
+          code === 'session_in_use' ||
+          (typeof msg === 'string' && msg.toLowerCase().includes('already in use'))
+        ) {
+          return {
+            kind: 'operational',
+            message:
+              'Your Mac is still on the previous chat. Wait a moment, pick another thread, or try again.',
           };
         }
         if (code === 'invalid_api_key' || code === 'unauthorized') {
@@ -87,4 +110,34 @@ export function humanizeChatError(error: unknown, fallback: string): HumanChatEr
 
 export function friendlyMacUnreachableMessage(): string {
   return "Your phone can't reach Hermes on your computer right now.";
+}
+
+export function isSessionInUseError(error: unknown): boolean {
+  if (!(error instanceof Error) || !error.message) {
+    return false;
+  }
+  const message = error.message;
+  const lower = message.toLowerCase();
+  if (lower.includes('already in use') || lower.includes('session_in_use')) {
+    return true;
+  }
+  if (message.trim().startsWith('{')) {
+    try {
+      const parsed = JSON.parse(message);
+      const errorObj = parsed.error;
+      if (errorObj && typeof errorObj === 'object') {
+        const code = errorObj.code;
+        const msg = errorObj.message;
+        if (code === 'session_in_use') {
+          return true;
+        }
+        if (typeof msg === 'string' && msg.toLowerCase().includes('already in use')) {
+          return true;
+        }
+      }
+    } catch {
+      // not JSON
+    }
+  }
+  return false;
 }

@@ -6,21 +6,8 @@
 
 set -e
 
-# Export Driver Startup Timeout for XCTest driver robustness
-export MAESTRO_DRIVER_STARTUP_TIMEOUT=120000
-
-# Auto-detect Homebrew Java and Maestro CLI
-if [ -d "/opt/homebrew/opt/openjdk/libexec/openjdk.jdk/Contents/Home" ]; then
-    export JAVA_HOME="/opt/homebrew/opt/openjdk/libexec/openjdk.jdk/Contents/Home"
-    export PATH="/opt/homebrew/opt/openjdk/bin:$PATH"
-elif [ -d "/usr/local/opt/openjdk/libexec/openjdk.jdk/Contents/Home" ]; then
-    export JAVA_HOME="/usr/local/opt/openjdk/libexec/openjdk.jdk/Contents/Home"
-    export PATH="/usr/local/opt/openjdk/bin:$PATH"
-fi
-
-if [ -d "$HOME/.maestro/bin" ]; then
-    export PATH="$HOME/.maestro/bin:$PATH"
-fi
+# shellcheck source=maestro-env.sh
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/maestro-env.sh"
 
 # Setup directories
 WORKSPACE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -100,8 +87,11 @@ echo "🚀 Starting Maestro E2E test runs..."
 
 # List of key flows to run and capture
 FLOWS=(
+    "ship-guard"
     "launch"
     "navigation"
+    "chat"
+    "chat-send-persistence"
     "approvals"
 )
 
@@ -114,8 +104,14 @@ for FLOW in "${FLOWS[@]}"; do
         echo -n "🏃 Running E2E flow: $FLOW ... "
         
         LOG_FILE="$PLATFORM_PROOFS_DIR/${FLOW}_run.log"
-        
-        if maestro test "$FLOW_PATH" > "$LOG_FILE" 2>&1; then
+        MAESTRO_ARGS=()
+        if [ "$PLATFORM" = "ios" ]; then
+            MAESTRO_ARGS=(-p ios --udid "$DEVICE_ID")
+        elif [ "$PLATFORM" = "android" ]; then
+            MAESTRO_ARGS=(-p android --udid "$DEVICE_ID")
+        fi
+
+        if maestro test "${MAESTRO_ARGS[@]}" "$FLOW_PATH" > "$LOG_FILE" 2>&1; then
             echo "✅ PASS"
             SUCCESS_COUNT=$((SUCCESS_COUNT + 1))
         else

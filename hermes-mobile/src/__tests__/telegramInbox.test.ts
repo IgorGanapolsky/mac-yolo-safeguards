@@ -1,6 +1,7 @@
 import {
   buildTelegramInboxSession,
   fetchTelegramInboxMessages,
+  resolveTelegramInboxReplySessionId,
   TELEGRAM_INBOX_SESSION_ID,
 } from '../services/telegramInbox';
 import * as hermesChatClient from '../services/hermesChatClient';
@@ -97,5 +98,15 @@ describe('telegramInbox', () => {
 
     expect(result.replySessionId).toBe('tg-success');
     expect(result.messages.map((m) => m.content)).toEqual(['valid message']);
+  });
+
+  it('resolveTelegramInboxReplySessionId picks most recent telegram session', () => {
+    expect(
+      resolveTelegramInboxReplySessionId([
+        { id: 'cli-1', source: 'cli', last_active: 999 },
+        { id: 'tg-old', source: 'telegram', last_active: 100 },
+        { id: 'tg-new', source: 'telegram', last_active: 200 },
+      ]),
+    ).toBe('tg-new');
   });
 });

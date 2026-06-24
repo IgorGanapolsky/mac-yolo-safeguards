@@ -101,8 +101,12 @@ import {
 import type { ApprovalChoice } from '../types/approval';
 import { resolveApprovalChoice } from '../services/approvalResolver';
 import { fromPendingApproval } from '../utils/approvalNormalize';
+import { shouldScheduleApprovalNotification } from '../utils/smartNotificationPolicy';
 import {
   dismissApprovalNotifications,
+  dismissApprovalNotification,
+  syncSmartApprovalNotifications,
+  dismissApprovalNotification as dismissSingleApprovalNotification,
   initApprovalNotifications,
   parseHermesNotificationResponse,
   requestApprovalNotificationPermission,
@@ -179,6 +183,11 @@ interface GatewayContextValue {
   clearChatRelayText: () => void;
   runProgress: RunProgressState | null;
   setRunProgress: React.Dispatch<React.SetStateAction<RunProgressState | null>>;
+  /** While true, WebSocket must not mutate runProgress — HTTP chat stream owns the banner. */
+  setChatStreamProgressActive: (active: boolean) => void;
+  notificationFocusSessionId: string | null;
+  focusChatSession: (sessionId: string) => void;
+  clearNotificationFocusSession: () => void;
   addGatewayListener: (listener: (event: GatewayEventMessage) => void) => void;
   removeGatewayListener: (listener: (event: GatewayEventMessage) => void) => void;
 }
@@ -211,6 +220,9 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
   );
   const [pendingApprovalEditSeed, setPendingApprovalEditSeed] = useState<string | null>(null);
   const [pendingChatRelayText, setPendingChatRelayText] = useState<string | null>(null);
+  const [notificationFocusSessionId, setNotificationFocusSessionId] = useState<string | null>(
+    null,
+  );
   const socketRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const connectEventsRef = useRef<() => void>(() => {});
@@ -232,6 +244,10 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
   >(null as any);
   const pendingApprovalsRef = useRef<PendingApproval[]>([]);
   const runProgressRef = useRef<RunProgressState | null>(null);
+  const chatStreamProgressActiveRef = useRef(false);
+  const setChatStreamProgressActive = useCallback((active: boolean) => {
+    chatStreamProgressActiveRef.current = active;
+  }, []);
   const listenersRef = useRef<Set<(event: GatewayEventMessage) => void>>(new Set());
 
   const addGatewayListener = useCallback((listener: (event: GatewayEventMessage) => void) => {
@@ -260,7 +276,10 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
       return;
     }
     syncHermesNotificationBadge(pendingApprovals.length).catch(() => {});
-  }, [pendingApprovals.length, settings.notificationsEnabled]);
+    syncSmartApprovalNotifications(pendingApprovals, {
+      badgeCount: pendingApprovals.length,
+    }).catch(() => {});
+  }, [pendingApprovals, settings.notificationsEnabled]);
 
   useEffect(() => {
     if (!settings.notificationsEnabled || Platform.OS === 'web') {
@@ -278,7 +297,15 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
           return;
         }
         if (parsed.kind === 'navigate') {
-          const path = parsed.tab === 'Chat' ? 'hermes://chat' : 'hermes://leash';
+          if (parsed.sessionId) {
+            setNotificationFocusSessionId(parsed.sessionId);
+          }
+          const path =
+            parsed.tab === 'Chat'
+              ? parsed.sessionId
+                ? `hermes://chat?session=${encodeURIComponent(parsed.sessionId)}`
+                : 'hermes://chat'
+              : 'hermes://leash';
           await Linking.openURL(path);
           return;
         }
@@ -310,7 +337,7 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
           pendingApprovalsRef.current.find((p) => p.runId === parsed.actionId);
         try {
           await submitApprovalChoiceRef.current(parsed.actionId, parsed.choice, match);
-          await dismissApprovalNotifications();
+          await dismissSingleApprovalNotification(parsed.actionId);
         } catch (error) {
           setLastEventError(
             error instanceof Error ? error.message : 'Notification approval failed',
@@ -342,59 +369,94 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     let mounted = true;
+    const bootstrapTimeout = setTimeout(() => {
+      if (mounted) {
+        console.warn('[hermes-mobile] Bootstrap timed out after 8s — showing UI with defaults');
+        setIsLoaded(true);
+      }
+    }, 8000);
+
     (async () => {
-      const savedSettings = await storage.loadGatewaySettings();
-      const lastLanIp = await storage.loadLastGatewayLanIp();
-      let loadedProfiles = await gatewayProfiles.load();
-      loadedProfiles = migrateLegacyGateway(loadedProfiles, savedSettings.gatewayUrl, lastLanIp);
-      if (loadedProfiles.profiles.length > 0) {
-        await gatewayProfiles.save(loadedProfiles);
-      }
-
-      const savedKey = await secureCredentials.loadApiKey();
-      const savedThumbgateKey = await secureCredentials.loadThumbgateApiKey();
-      const savedMobileToken = await secureCredentials.loadMobileToken();
-
-      const active = activeProfile(loadedProfiles);
-      let resolvedKey = savedKey || 'sk-hermes-api-server-key-2026-06-15';
-      let resolvedSettings = sanitizeDemoModeForRelease(savedSettings);
-      if (!isDemoModeAllowed() && savedSettings.demoMode) {
-        await storage.saveGatewaySettings(resolvedSettings);
-      }
-      if (active) {
-        resolvedSettings = { ...savedSettings, gatewayUrl: active.gatewayUrl };
-        const profileKey = await secureCredentials.resolveApiKeyForProfile(active.id);
-        if (profileKey) {
-          resolvedKey = profileKey;
+      try {
+        const savedSettings = await storage.loadGatewaySettings();
+        const lastLanIp = await storage.loadLastGatewayLanIp();
+        let loadedProfiles = await gatewayProfiles.load();
+        loadedProfiles = migrateLegacyGateway(loadedProfiles, savedSettings.gatewayUrl, lastLanIp);
+        if (loadedProfiles.profiles.length > 0) {
+          await gatewayProfiles.save(loadedProfiles);
         }
-      }
 
-      initializeThumbgateIapListeners();
-      const storeEntitled = await syncThumbgateLeashEntitlement();
-      if (storeEntitled !== resolvedSettings.thumbgateProActive) {
-        resolvedSettings = { ...resolvedSettings, thumbgateProActive: storeEntitled };
-        await storage.saveGatewaySettings(resolvedSettings);
-      }
+        const savedKey = await secureCredentials.loadApiKey();
+        const savedThumbgateKey = await secureCredentials.loadThumbgateApiKey();
+        const savedMobileToken = await secureCredentials.loadMobileToken();
 
-      if (!mounted) return;
-      profileStateRef.current = loadedProfiles;
-      setProfileState(loadedProfiles);
-      setSettings(resolvedSettings);
-      settingsRef.current = resolvedSettings;
-      setProductAnalyticsOptOut(Boolean(resolvedSettings.analyticsOptOut));
-      effectiveGatewayUrlRef.current = resolvedSettings.gatewayUrl;
-      setEffectiveGatewayUrl(resolvedSettings.gatewayUrl);
-      setApiKey(resolvedKey);
-      apiKeyRef.current = resolvedKey;
-      thumbgateApiKeyRef.current = savedThumbgateKey ?? '';
-      setMobileToken(savedMobileToken ?? '');
-      mobileTokenRef.current = savedMobileToken ?? '';
-      setIsLoaded(true);
+        const active = activeProfile(loadedProfiles);
+        let resolvedKey = savedKey || 'sk-hermes-api-server-key-2026-06-15';
+        let resolvedSettings = sanitizeDemoModeForRelease(savedSettings);
+        if (!isDemoModeAllowed() && savedSettings.demoMode) {
+          await storage.saveGatewaySettings(resolvedSettings);
+        }
+        if (active) {
+          resolvedSettings = { ...savedSettings, gatewayUrl: active.gatewayUrl };
+          const profileKey = await secureCredentials.resolveApiKeyForProfile(active.id);
+          if (profileKey) {
+            resolvedKey = profileKey;
+          }
+        }
+
+        if (!mounted) return;
+        profileStateRef.current = loadedProfiles;
+        setProfileState(loadedProfiles);
+        setSettings(resolvedSettings);
+        settingsRef.current = resolvedSettings;
+        setProductAnalyticsOptOut(Boolean(resolvedSettings.analyticsOptOut));
+        effectiveGatewayUrlRef.current = resolvedSettings.gatewayUrl;
+        setEffectiveGatewayUrl(resolvedSettings.gatewayUrl);
+        setApiKey(resolvedKey);
+        apiKeyRef.current = resolvedKey;
+        thumbgateApiKeyRef.current = savedThumbgateKey ?? '';
+        setMobileToken(savedMobileToken ?? '');
+        mobileTokenRef.current = savedMobileToken ?? '';
+        setIsLoaded(true);
+      } catch (error) {
+        console.error('[hermes-mobile] Gateway bootstrap failed:', error);
+        if (mounted) {
+          setLastEventError(
+            error instanceof Error ? error.message : 'Failed to load saved settings',
+          );
+          setIsLoaded(true);
+        }
+      } finally {
+        clearTimeout(bootstrapTimeout);
+      }
     })();
     return () => {
       mounted = false;
+      clearTimeout(bootstrapTimeout);
     };
   }, []);
+
+  /** Store entitlement sync runs after first paint — never block cold start on billing. */
+  useEffect(() => {
+    if (!isLoaded) {
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      initializeThumbgateIapListeners();
+      const storeEntitled = await syncThumbgateLeashEntitlement();
+      if (cancelled || storeEntitled === settingsRef.current.thumbgateProActive) {
+        return;
+      }
+      const nextSettings = { ...settingsRef.current, thumbgateProActive: storeEntitled };
+      settingsRef.current = nextSettings;
+      setSettings(nextSettings);
+      await storage.saveGatewaySettings(nextSettings);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [isLoaded]);
 
   const refreshHealth = useCallback(async () => {
     const currentSettings = settingsRef.current;
@@ -587,7 +649,7 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
         if (settingsRef.current.notificationsEnabled) {
           emitSignOfLife(`Approval needed: ${pending.reason.slice(0, 80)}`, { haptic: false });
           const appState = AppState.currentState;
-          if (appState === 'background' || appState === 'inactive') {
+          if (shouldScheduleApprovalNotification(pending, appState)) {
             scheduleApprovalNotification(pending, {
               badgeCount: pendingApprovalsRef.current.length + 1,
             }).catch(() => {});
@@ -632,11 +694,17 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
         settingsRef.current.notificationsEnabled &&
         AppState.currentState !== 'active'
       ) {
-        scheduleRunCompletedNotification(detail, { success: !failed }).catch(() => {});
+        scheduleRunCompletedNotification(detail, {
+          success: !failed,
+          runId: progress?.runId,
+          sessionId: progress?.sessionId,
+        }).catch(() => {});
       }
-      setRunProgress(null);
-      clearRunProgressNotification().catch(() => {});
-      cancelRunStallNotification().catch(() => {});
+      if (!chatStreamProgressActiveRef.current) {
+        setRunProgress(null);
+        clearRunProgressNotification().catch(() => {});
+        cancelRunStallNotification().catch(() => {});
+      }
     } else if (
       eventName === 'run.status' ||
       eventName === 'run.progress' ||
@@ -646,6 +714,9 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
       eventName === 'approval.request' ||
       eventName.startsWith('tool.')
     ) {
+      if (chatStreamProgressActiveRef.current) {
+        return;
+      }
       const streamEvt: ChatStreamEvent = {
         event: event.event,
         data: payload,
@@ -692,8 +763,11 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
       return;
     }
     if (AppState.currentState !== 'active') {
-      scheduleRunProgressNotification(runProgress).catch(() => {});
-      scheduleRunStallNotification(runProgress.runId).catch(() => {});
+      scheduleRunProgressNotification(runProgress, {
+        runId: runProgress.runId,
+        sessionId: runProgress.sessionId,
+      }).catch(() => {});
+      scheduleRunStallNotification(runProgress.runId, runProgress.sessionId).catch(() => {});
     } else {
       cancelRunStallNotification().catch(() => {});
     }
@@ -708,8 +782,12 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
       if (nextAppState === 'background' || nextAppState === 'inactive') {
         const progress = runProgressRef.current;
         if (progress) {
-          scheduleRunProgressNotification(progress, { force: true }).catch(() => {});
-          scheduleRunStallNotification(progress.runId).catch(() => {});
+          scheduleRunProgressNotification(progress, {
+            force: true,
+            runId: progress.runId,
+            sessionId: progress.sessionId,
+          }).catch(() => {});
+          scheduleRunStallNotification(progress.runId, progress.sessionId).catch(() => {});
         }
       } else if (nextAppState === 'active') {
         cancelRunStallNotification().catch(() => {});
@@ -850,12 +928,18 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    setConnectionState('connecting');
+    await refreshHealth();
+    const httpOk = isGatewayHealthOk(healthRef.current);
 
     const activeUrl = await autoDiscoverGateway();
     effectiveGatewayUrlRef.current = activeUrl;
     setEffectiveGatewayUrl(activeUrl);
     const wsUrl = buildEventsWebSocketUrl(activeUrl);
+
+    // HTTP chat works without the live socket — don't flash "Linking" when Mac is already reachable.
+    if (!httpOk) {
+      setConnectionState('connecting');
+    }
 
     try {
       const socket = new WebSocket(wsUrl);
@@ -875,37 +959,46 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
 
       socket.onerror = () => {
         const loopback = isLoopbackGatewayUrl(activeUrl);
-        setLastEventError(
-          loopback
-            ? 'Phone cannot reach computer at 127.0.0.1 — scan the computer pairing QR (same Wi‑Fi).'
-            : 'Live link interrupted — pull down on Leash to retry.',
-        );
-        const healthLevel = healthRef.current?.level;
-        if (!loopback && (healthLevel === 'green' || healthLevel === 'amber')) {
-          setConnectionState('connecting');
-          return;
+        if (!loopback) {
+          setLastEventError(
+            isGatewayHealthOk(healthRef.current)
+              ? undefined
+              : 'Live link interrupted — pull down on Leash to retry.',
+          );
+        } else {
+          setLastEventError(
+            'Phone cannot reach computer at 127.0.0.1 — scan the computer pairing QR (same Wi‑Fi).',
+          );
         }
-        setConnectionState('disconnected');
+        if (!isGatewayHealthOk(healthRef.current)) {
+          setConnectionState('disconnected');
+        }
       };
 
       socket.onclose = () => {
         if (socketRef.current === socket) {
           socketRef.current = null;
-          setConnectionState('disconnected');
+          const stillHttpOk = isGatewayHealthOk(healthRef.current);
+          if (!stillHttpOk) {
+            setConnectionState('disconnected');
+          }
 
           if (!settingsRef.current.demoMode) {
             if (reconnectTimeoutRef.current) {
               clearTimeout(reconnectTimeoutRef.current);
             }
+            const retryMs = stillHttpOk ? 60000 : 5000;
             reconnectTimeoutRef.current = setTimeout(() => {
               connectEventsRef.current();
-            }, 5000);
+            }, retryMs);
           }
         }
       };
     } catch (error) {
       setLastEventError(error instanceof Error ? error.message : 'Failed to open WebSocket');
-      setConnectionState('disconnected');
+      if (!isGatewayHealthOk(healthRef.current)) {
+        setConnectionState('disconnected');
+      }
     }
   }, [disconnectEvents, handleGatewayMessage, autoDiscoverGateway, refreshHealth]);
 
@@ -965,13 +1058,17 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
     if (settings.demoMode || connectionState !== 'connecting') {
       return;
     }
+    if (isGatewayHealthOk(healthRef.current)) {
+      setConnectionState('disconnected');
+      return;
+    }
     const timer = setTimeout(() => {
       const socket = socketRef.current;
       if (!socket || socket.readyState !== WebSocket.OPEN) {
         setConnectionState('disconnected');
         refreshHealth();
       }
-    }, 18000);
+    }, 5000);
     return () => clearTimeout(timer);
   }, [connectionState, settings.demoMode, refreshHealth]);
 
@@ -1334,7 +1431,7 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
               item.actionId !== pending.actionId,
           ),
         );
-        await dismissApprovalNotifications();
+        await dismissSingleApprovalNotification(pending.actionId);
         return;
       }
 
@@ -1365,6 +1462,7 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
             },
           );
         }
+        await dismissSingleApprovalNotification(pending.actionId);
         return;
       }
 
@@ -1394,7 +1492,7 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
         );
       }
 
-      await dismissApprovalNotifications();
+      await dismissSingleApprovalNotification(pending.actionId);
     },
     [captureLeashThumbgate, pendingApprovals, sendGateAction],
   );
@@ -1424,6 +1522,17 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
 
   const clearChatRelayText = useCallback(() => {
     setPendingChatRelayText(null);
+  }, []);
+
+  const focusChatSession = useCallback((sessionId: string) => {
+    const trimmed = sessionId.trim();
+    if (trimmed) {
+      setNotificationFocusSessionId(trimmed);
+    }
+  }, []);
+
+  const clearNotificationFocusSession = useCallback(() => {
+    setNotificationFocusSessionId(null);
   }, []);
 
   const runAgentTool = useCallback(
@@ -1528,8 +1637,12 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
       clearApprovalEditSeed,
       pendingChatRelayText,
       clearChatRelayText,
+      notificationFocusSessionId,
+      focusChatSession,
+      clearNotificationFocusSession,
       runProgress,
       setRunProgress,
+      setChatStreamProgressActive,
       addGatewayListener,
       removeGatewayListener,
     }),
@@ -1579,8 +1692,12 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
       clearApprovalEditSeed,
       pendingChatRelayText,
       clearChatRelayText,
+      notificationFocusSessionId,
+      focusChatSession,
+      clearNotificationFocusSession,
       runProgress,
       setRunProgress,
+      setChatStreamProgressActive,
       addGatewayListener,
       removeGatewayListener,
     ],

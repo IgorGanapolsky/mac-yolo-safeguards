@@ -12,7 +12,16 @@ appId: com.iganapolsky.hermesmobile
 - tapOn:
     id: "gateway-api-key-input"
 - inputText: "sk-hermes-api-server-key-2026-06-15"
-- hideKeyboard
+- runFlow:
+    when:
+      platform: android
+    commands:
+      - back
+- runFlow:
+    when:
+      platform: ios
+    commands:
+      - hideKeyboard
 - scrollUntilVisible:
     element:
       text: "SAVE CONFIGURATION"

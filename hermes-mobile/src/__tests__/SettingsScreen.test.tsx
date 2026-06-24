@@ -3,6 +3,10 @@ import { render, fireEvent, waitFor } from '@testing-library/react-native';
 import SettingsScreen from '../screens/SettingsScreen';
 import { mockUseGateway } from '../testUtils/gatewayFixtures';
 
+jest.mock('../services/approvalNotifications', () => ({
+  requestHermesNotificationPermission: jest.fn().mockResolvedValue(true),
+}));
+
 jest.mock('../context/GatewayContext', () => ({
   useGateway: jest.fn(),
 }));
@@ -27,6 +31,18 @@ jest.mock('../services/secureCredentials', () => ({
   },
 }));
 
+jest.mock('../services/hermesGatewayClient', () => ({
+  getCapabilities: jest.fn().mockResolvedValue({ features: {} }),
+  listSkills: jest.fn().mockResolvedValue([]),
+  listJobs: jest.fn().mockResolvedValue([]),
+  listToolsets: jest.fn().mockResolvedValue([]),
+  pauseJob: jest.fn(),
+  resumeJob: jest.fn(),
+  runJobNow: jest.fn(),
+  deleteJob: jest.fn(),
+  setToolsetEnabled: jest.fn(),
+}));
+
 jest.mock('@react-navigation/native', () => {
   const React = require('react');
   return {
@@ -46,7 +62,8 @@ describe('SettingsScreen', () => {
   it('renders settings header and gateway inputs', async () => {
     const { getByTestId, getByText } = render(<SettingsScreen />);
     expect(getByTestId('SETTINGS')).toBeTruthy();
-    expect(getByText('Gateway tunnel for Chat + optional ThumbGate Leash approval relay')).toBeTruthy();
+    expect(getByText('Connect your computer, run Mac gateway ops, ThumbGate Leash relay')).toBeTruthy();
+    expect(getByTestId('GATEWAY_OPS')).toBeTruthy();
     expect(getByTestId('gateway-url-input')).toBeTruthy();
     expect(getByTestId('gateway-api-key-input')).toBeTruthy();
   });
@@ -58,11 +75,21 @@ describe('SettingsScreen', () => {
     const { getByTestId } = render(<SettingsScreen />);
     fireEvent.changeText(getByTestId('gateway-url-input'), 'http://192.168.12.208:8642');
     fireEvent.changeText(getByTestId('gateway-api-key-input'), 'sk-new-key');
+    fireEvent.press(getByTestId('persona-spark'));
+    fireEvent.press(getByTestId('avatar-guardian'));
+    fireEvent(getByTestId('playful-motion-switch'), 'valueChange', false);
     fireEvent.press(getByTestId('save-settings-button'));
 
     await waitFor(() => {
       expect(saveSettings).toHaveBeenCalled();
     });
+    expect(saveSettings.mock.calls[0][0]).toEqual(
+      expect.objectContaining({
+        hermesPersona: 'spark',
+        hermesAvatar: 'guardian',
+        playfulMotion: false,
+      }),
+    );
   });
 
   it('injects smoke approval for Leash E2E', () => {

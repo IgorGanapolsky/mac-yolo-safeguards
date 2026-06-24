@@ -32,10 +32,11 @@ appId: com.iganapolsky.hermesmobile
 - assertVisible:
     id: "THUMBGATE_LEASH"
 
-- tapOn: "Ops"
-- assertVisible:
-    id: "OPS"
-
 - tapOn: "Settings"
 - assertVisible:
     id: "SETTINGS"
+- scrollUntilVisible:
+    element:
+      id: "GATEWAY_OPS"
+    direction: DOWN
+    timeout: 30000

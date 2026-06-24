@@ -77,6 +77,7 @@ export async function fetchWithTimeout(
 export async function fetchGatewayHealth(
   gatewayUrl: string,
   apiKey?: string | null,
+  timeoutMs = 15000,
 ): Promise<GatewayHealthSnapshot> {
   const { httpBase } = normalizeGatewayUrl(gatewayUrl);
   const headers = buildAuthHeaders(apiKey);
@@ -86,9 +87,9 @@ export async function fetchGatewayHealth(
   const simpleUrl = `${httpBase}/health`;
 
   try {
-    let response = await fetchWithTimeout(detailedUrl, { headers });
+    let response = await fetchWithTimeout(detailedUrl, { headers }, timeoutMs);
     if (!response.ok) {
-      response = await fetchWithTimeout(simpleUrl, { headers });
+      response = await fetchWithTimeout(simpleUrl, { headers }, timeoutMs);
     }
     if (!response.ok) {
       return {

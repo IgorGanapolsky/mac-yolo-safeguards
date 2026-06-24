@@ -1,4 +1,4 @@
-import { dedupeChatMessages, isMessageBodyEmpty, isMessageDisplayEmpty, mergeServerMessagesWithPending } from '../utils/chatMessageMerge';
+import { dedupeChatMessages, hasUnsyncedLocalMessages, isMessageBodyEmpty, isMessageDisplayEmpty, mergeServerMessagesWithPending, transcriptDigest } from '../utils/chatMessageMerge';
 import type { HermesMessage } from '../types/chat';
 
 describe('mergeServerMessagesWithPending', () => {
@@ -84,5 +84,37 @@ describe('mergeServerMessagesWithPending', () => {
       { role: 'user', content: 'same question' },
     ];
     expect(dedupeChatMessages(server).length).toBe(1);
+  });
+
+  it('builds a stable transcript digest for no-op refresh detection', () => {
+    const messages: HermesMessage[] = [
+      { id: '1', role: 'user', content: 'hello' },
+      { id: '2', role: 'assistant', content: 'hi', truncated: true },
+    ];
+    expect(transcriptDigest(messages)).toBe('1:user:5:0|2:assistant:2:1');
+    expect(transcriptDigest(messages)).toBe(transcriptDigest([...messages]));
+  });
+
+  it('detects optimistic phone bubbles that still need merge on refresh', () => {
+    expect(hasUnsyncedLocalMessages([{ id: 'user-1', role: 'user', content: 'pending' }])).toBe(true);
+    expect(hasUnsyncedLocalMessages([{ id: 'asst-1', role: 'assistant', content: 'typing' }])).toBe(true);
+    expect(
+      hasUnsyncedLocalMessages([{ id: 'gw-1', role: 'user', content: 'synced from gateway' }]),
+    ).toBe(false);
+  });
+
+  it('drops local streamed assistant bubble once server transcript has the same text', () => {
+    const assistantText = 'Hi Skool Warm: past buyer — quick question';
+    const server: HermesMessage[] = [
+      { role: 'user', content: 'run outreach' },
+      { id: 'gw-asst-1', role: 'assistant', content: assistantText },
+    ];
+    const local: HermesMessage[] = [
+      ...server,
+      { id: 'asst-99', role: 'assistant', content: assistantText },
+    ];
+    const merged = mergeServerMessagesWithPending(server, local);
+    expect(merged.filter((m) => m.role === 'assistant')).toHaveLength(1);
+    expect(merged[1]?.id).toBe('gw-asst-1');
   });
 });

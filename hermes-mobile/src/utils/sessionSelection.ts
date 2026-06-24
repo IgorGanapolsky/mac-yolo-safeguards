@@ -12,12 +12,10 @@ export type SessionPickerSection = {
 
 export function buildSessionPickerSections(sessions: HermesSession[]): SessionPickerSection[] {
   const inbox = sessions.find((s) => s.id === TELEGRAM_INBOX_SESSION_ID);
-  const telegram = sortSessionsByRecency(sessions.filter(isTelegramSession));
-  const others = sortSessionsByRecency(
+  const threads = sortSessionsByRecency(
     sessions.filter(
       (s) =>
         s.id !== TELEGRAM_INBOX_SESSION_ID &&
-        !isTelegramSession(s) &&
         isUserFacingSession(s) &&
         !isSmokeProbeSession(s),
     ),
@@ -25,17 +23,16 @@ export function buildSessionPickerSections(sessions: HermesSession[]): SessionPi
   const smoke = sessions.filter(isSmokeProbeSession);
 
   const sections: SessionPickerSection[] = [];
+  const threadList: HermesSession[] = [];
   if (inbox) {
-    sections.push({ key: 'telegram-inbox', title: 'Gateway overview', data: [inbox] });
+    threadList.push(inbox);
   }
-  if (telegram.length > 0) {
-    sections.push({ key: 'telegram-threads', title: 'Hermes threads', data: telegram });
-  }
-  if (others.length > 0) {
-    sections.push({ key: 'chat', title: 'Chat sessions', data: others });
+  threadList.push(...threads);
+  if (threadList.length > 0) {
+    sections.push({ key: 'threads', title: '', data: threadList });
   }
   if (smoke.length > 0) {
-    sections.push({ key: 'smoke', title: 'Smoke / debug', data: smoke });
+    sections.push({ key: 'smoke', title: 'Debug', data: smoke });
   }
   return sections;
 }
@@ -153,7 +150,12 @@ export function pickDefaultSession(
     }
   }
 
-  const nonTelegram = sessions.filter((s) => !isTelegramSession(s) && !isSmokeProbeSession(s));
+  const nonTelegram = sessions.filter(
+    (s) =>
+      !isTelegramSession(s) &&
+      s.id !== TELEGRAM_INBOX_SESSION_ID &&
+      !isSmokeProbeSession(s),
+  );
   const mobileSessions = nonTelegram.filter(isMobileChatSession);
   if (mobileSessions.length > 0) {
     return sortSessionsByRecency(mobileSessions)[0];
@@ -173,10 +175,10 @@ export function pickDefaultSession(
 
 export function sessionSourceLabel(session: HermesSession): string | null {
   if (session.id === '__telegram_inbox__') {
-    return 'Telegram Inbox';
+    return 'Active Inbox';
   }
   if (isTelegramSession(session)) {
-    return 'Telegram';
+    return 'Active';
   }
   const source = session.source?.trim();
   if (!source) {

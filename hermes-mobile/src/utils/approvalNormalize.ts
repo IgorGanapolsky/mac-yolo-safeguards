@@ -25,6 +25,7 @@ export function fromPendingApproval(
     allowPermanent: pending.allowPermanent ?? source !== 'text_nudge',
     receivedAt: pending.receivedAt,
     sessionKey: pending.sessionKey,
+    diff: pending.diff,
   };
   return policy ? enrichApprovalRequest(base, policy) : base;
 }

@@ -11,6 +11,8 @@ import GlassCard from './GlassCard';
 import { colors } from '../theme/colors';
 import type { ApprovalChoice, ApprovalPolicy, HermesApprovalRequest } from '../types/approval';
 import { choicesForRequest } from '../types/approval';
+import DiffPreviewBox from './DiffPreviewBox';
+import { hasDiffContent } from '../utils/diffDisplay';
 import { haptics } from '../services/haptics';
 
 export type HermesApprovalVariant = 'chat' | 'leash';
@@ -65,6 +67,7 @@ export default function HermesApprovalCard({
   const tierChoices = choices.filter((c) => c === 'session' || c === 'always');
   const isLeash = variant === 'leash';
   const showThumbs = isLeash && !glance;
+  const isChatApproval = variant === 'chat';
   const riskTier = approval.riskTier ?? 'medium';
   const riskLabel =
     riskTier === 'high' ? 'HIGH RISK' : riskTier === 'medium' ? 'MEDIUM' : 'LOW RISK';
@@ -90,7 +93,11 @@ export default function HermesApprovalCard({
   <>
     <View style={styles.headerRow}>
       <Text style={styles.badge}>
-        {approval.source === 'text_nudge' ? 'AGENT PROPOSAL' : 'THUMBGATE · BLOCKED'}
+        {approval.source === 'text_nudge'
+          ? 'AGENT PROPOSAL'
+          : isChatApproval
+            ? 'NEEDS YOUR APPROVAL'
+            : 'THUMBGATE · BLOCKED'}
       </Text>
       <View style={styles.headerBadges}>
         <Text
@@ -119,9 +126,15 @@ export default function HermesApprovalCard({
 
     {commandPreview && !glance ? (
       <View style={styles.commandBox}>
-        <Text style={styles.commandLabel}>Command</Text>
+        <Text style={styles.commandLabel}>
+          {isChatApproval ? 'Command on your Mac' : 'Command'}
+        </Text>
         <Text style={styles.commandText}>{commandPreview}</Text>
       </View>
+    ) : null}
+
+    {hasDiffContent(approval.diff) && !glance ? (
+      <DiffPreviewBox diff={approval.diff!} />
     ) : null}
 
     {!glance && approval.workspacePath ? (

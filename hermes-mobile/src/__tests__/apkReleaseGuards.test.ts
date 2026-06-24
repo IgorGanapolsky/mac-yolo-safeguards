@@ -21,8 +21,9 @@ describe('apkReleaseGuards', () => {
     expect(apkContainsLegacyShellMarkers(['expo/modules', 'Hermes Mobile'])).toEqual([]);
   });
 
-  it('requires expo modules in binary', () => {
+  it('requires Expo Hermes Mobile bundle fingerprints', () => {
     expect(apkContainsExpoModules(['expo/modules/kotlin'])).toBe(true);
+    expect(apkContainsExpoModules(['GatewayProvider'])).toBe(true);
     expect(apkContainsExpoModules(['com.iganapolsky.hermesmobile'])).toBe(false);
   });
 
@@ -36,7 +37,10 @@ describe('apkReleaseGuards', () => {
     expect(result).toEqual({ ok: true });
   });
 
-  it('fails debug APK without bundle (the Jun 17 crash)', () => {
+  it('fails debug APK without bundle (Jun 17 Metro black screen regression)', () => {
+    // Default RN skips bundling for debuggableVariants; withEmbeddedJsBundle.js sets
+    // debuggableVariants = [] so debug APKs embed assets/index.android.bundle too.
+    // verifyApkReleaseGuards still rejects any APK missing the bundle (stale debug builds).
     const result = verifyApkReleaseGuards({
       entries: ['classes.dex'],
       sampledStrings: ['expo/modules'],
@@ -46,7 +50,18 @@ describe('apkReleaseGuards', () => {
     expect(result.ok).toBe(false);
     if (!result.ok) {
       expect(result.errors[0]).toMatch(/embedded JS bundle/i);
+      expect(result.errors[0]).toMatch(/Metro/i);
     }
+  });
+
+  it('passes debug-shaped APK when bundle is embedded (post debuggableVariants fix)', () => {
+    const result = verifyApkReleaseGuards({
+      entries: ['classes.dex', EMBEDDED_JS_BUNDLE_PATH],
+      sampledStrings: ['expo/modules', 'GatewayProvider'],
+      packageName: EXPECTED_ANDROID_PACKAGE,
+      applicationLabel: 'Hermes Mobile',
+    });
+    expect(result).toEqual({ ok: true });
   });
 
   it('fails wrong package APK', () => {
@@ -78,7 +93,7 @@ describe('apkReleaseGuards', () => {
   it('fails legacy shell APK', () => {
     const result = verifyApkReleaseGuards({
       entries: [EMBEDDED_JS_BUNDLE_PATH],
-      sampledStrings: ['Hold the cord on your AI', 'Connect your computer'],
+      sampledStrings: ['Hold the cord on your AI', 'Hermes Mobile Agent intercepts dangerous'],
       packageName: EXPECTED_ANDROID_PACKAGE,
       applicationLabel: 'Hermes Mobile Agent',
     });

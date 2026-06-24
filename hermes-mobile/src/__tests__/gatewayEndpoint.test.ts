@@ -1,5 +1,6 @@
 import type { GatewayHealthSnapshot } from '../types/gateway';
 import {
+  formatGatewayEndpointLine,
   formatGatewayHostLabel,
   formatLeashConnectionDisplay,
   formatListeningOnGatewayLine,
@@ -45,6 +46,21 @@ describe('formatGatewayHostLabel', () => {
         localIp: '192.168.1.10',
       })),
     ).toBe('Igors-MacBook-Pro (192.168.1.10)');
+  });
+});
+
+describe('formatGatewayEndpointLine', () => {
+  it('returns host and port from gateway URL', () => {
+    expect(formatGatewayEndpointLine('http://192.168.12.208:8642', null)).toBe('192.168.12.208:8642');
+  });
+
+  it('falls back to health LAN IP with port from URL', () => {
+    expect(
+      formatGatewayEndpointLine(
+        'http://Igors-MacBook-Pro.local:8642',
+        sampleHealth({ localIp: '192.168.12.208' }),
+      ),
+    ).toBe('192.168.12.208:8642');
   });
 });
 

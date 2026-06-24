@@ -18,12 +18,16 @@ appId: com.iganapolsky.hermesmobile
 - tapOn:
     id: "open-sessions-modal"
 - extendedWaitUntil:
-    visible: "Select Chat Session"
+    visible: "threads-modal-title"
     timeout: 10000
 - tapOn: "Close"
 - tapOn:
     id: "chat-input"
 - inputText: "smoke test message"
-- hideKeyboard
 - tapOn:
     id: "chat-send-button"
+- extendedWaitUntil:
+    visible: "smoke test message"
+    timeout: 15000
+- assertVisible:
+    id: "chat-message-user"

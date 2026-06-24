@@ -7,7 +7,6 @@ import { parseSetupDeepLink, type SetupDeepLinkParams } from '../utils/setupDeep
 type RootTabParamList = {
   Leash: undefined;
   Chat: undefined;
-  Ops: undefined;
   Settings: undefined;
 };
 
@@ -20,11 +19,29 @@ function actionFromUrl(url: string): HermesAgentToolName | 'refresh_health' | nu
   return null;
 }
 
+function sessionIdFromUrl(url: string): string | undefined {
+  const match = url.match(/[?&]session=([^&]+)/i);
+  if (!match?.[1]) {
+    return undefined;
+  }
+  try {
+    return decodeURIComponent(match[1]).trim() || undefined;
+  } catch {
+    return match[1].trim() || undefined;
+  }
+}
+
+function isChatDeepLink(url: string): boolean {
+  const lower = url.toLowerCase();
+  return lower.includes('/chat') || lower.endsWith('chat');
+}
+
 export function useHermesDeepLinks(
   navigationRef: React.RefObject<NavigationContainerRef<RootTabParamList> | null>,
   runAgentTool: (name: HermesAgentToolName) => Promise<unknown>,
   refreshHealth: () => Promise<void>,
   applySetupDeepLink?: (params: SetupDeepLinkParams) => Promise<void>,
+  focusChatSession?: (sessionId: string) => void,
 ) {
   const handled = useRef(new Set<string>());
 
@@ -36,6 +53,21 @@ export function useHermesDeepLinks(
       if (setup && applySetupDeepLink) {
         await applySetupDeepLink(setup);
         navigationRef.current?.navigate('Chat');
+        return;
+      }
+
+      const lower = url.toLowerCase();
+      if (lower.includes('/ops') || lower.endsWith('ops')) {
+        navigationRef.current?.navigate('Settings');
+        return;
+      }
+
+      if (isChatDeepLink(url)) {
+        navigationRef.current?.navigate('Chat');
+        const sessionId = sessionIdFromUrl(url);
+        if (sessionId && focusChatSession) {
+          focusChatSession(sessionId);
+        }
         return;
       }
 
@@ -59,5 +91,5 @@ export function useHermesDeepLinks(
       handleUrl(event.url);
     });
     return () => sub.remove();
-  }, [applySetupDeepLink, navigationRef, refreshHealth, runAgentTool]);
+  }, [applySetupDeepLink, focusChatSession, navigationRef, refreshHealth, runAgentTool]);
 }

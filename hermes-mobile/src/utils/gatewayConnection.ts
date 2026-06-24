@@ -7,6 +7,11 @@ export function isGatewayHealthOk(health: GatewayHealthSnapshot | null | undefin
   return health?.level === 'green' || health?.level === 'amber';
 }
 
+/** True before the first health probe completes — avoid showing "link computer" during startup. */
+export function isGatewayHealthPending(health: GatewayHealthSnapshot | null | undefined): boolean {
+  return !health?.checkedAt;
+}
+
 /** Phone can use Chat/Leash against the Mac gateway (demo mode always passes). */
 export function isGatewayReachable(input: {
   demoMode: boolean;

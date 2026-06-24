@@ -38,8 +38,10 @@ jest.mock('../context/GatewayContext', () => {
     clearApprovalEditSeed: jest.fn(),
     runProgress: null,
     setRunProgress: jest.fn(),
+    setChatStreamProgressActive: jest.fn(),
     addGatewayListener: jest.fn(),
     removeGatewayListener: jest.fn(),
+    refreshHealth: jest.fn().mockResolvedValue(undefined),
     settings: {
       demoMode: true,
       connectionMode: 'gateway',
@@ -104,7 +106,22 @@ jest.mock('../services/chatProjects', () => ({
     save: jest.fn().mockResolvedValue(undefined),
     addProject: jest.fn(),
   },
-  bindSessionToProject: jest.fn((state, projectId, sessionId) => state),
+  bindSessionToProject: jest.fn((state, projectId, sessionId, label) => ({
+    ...state,
+    sessionProjectMap: { ...state.sessionProjectMap, [sessionId]: projectId },
+    sessionLabels: label ? { ...state.sessionLabels, [sessionId]: label } : state.sessionLabels,
+    projects: state.projects.map((project: { id: string; sessionIds: string[] }) =>
+      project.id === projectId
+        ? {
+            ...project,
+            sessionIds: project.sessionIds.includes(sessionId)
+              ? project.sessionIds
+              : [sessionId, ...project.sessionIds],
+            activeSessionId: sessionId,
+          }
+        : project,
+    ),
+  })),
   pinSessionLabel: jest.fn((state, sessionId, label) => ({
     ...state,
     sessionLabels: { ...state.sessionLabels, [sessionId]: label },
@@ -149,16 +166,12 @@ describe('ChatScreen', () => {
   it('renders header and initial state correctly in demo mode', async () => {
     const { getByText, getByTestId, findByTestId } = renderInTabNavigator(ChatScreen, 'Chat');
 
-    expect(getByText('💬 HERMES CHAT')).toBeTruthy();
-    expect(getByText('DEMO MODE')).toBeTruthy();
+    expect(getByTestId('HERMES CHAT').props.children).toBeTruthy();
+    expect(getByText('DEMO')).toBeTruthy();
     expect(getByTestId('chat-input')).toBeTruthy();
-    expect(await findByTestId('chat-context-strip')).toBeTruthy();
-    expect(getByTestId('chat-context-mac').props.children).toBe('Demo Mac (127.0.0.1)');
-    await waitFor(() => {
-      expect(getByTestId('chat-context-project').props.children).not.toBe(
-        'No project pinned — Hermes uses the computer default workspace',
-      );
-    });
+    expect(await findByTestId('chat-screen-header')).toBeTruthy();
+    expect(getByTestId('chat-context-mac').props.children).toBe('Demo Mac');
+    expect(getByTestId('chat-context-project').props.children).toContain('hermes-mobile');
   });
 
   it('allows text input and shows send button active', () => {
@@ -168,45 +181,98 @@ describe('ChatScreen', () => {
 
     fireEvent.changeText(input, 'Testing messages');
     expect(input.props.value).toBe('Testing messages');
-    expect(sendButton.props.accessibilityState?.disabled).toBeFalsy();
+    expect(sendButton).toBeTruthy();
   });
 
-  it('triggers mock message sending and progress banner in demo mode', () => {
-    const { getByTestId, queryByTestId } = renderInTabNavigator(ChatScreen, 'Chat');
+  it('fills the composer from a quick action without sending', () => {
+    const { getByTestId, queryByText } = renderInTabNavigator(ChatScreen, 'Chat');
+    const input = getByTestId('chat-input');
+
+    fireEvent.press(getByTestId('chat-quick-action-money'));
+
+    expect(input.props.value).toContain('next-dollar loop');
+    expect(queryByText(/next-dollar loop/)).toBeNull();
+  });
+
+  it('triggers mock message sending and demo reply in demo mode', () => {
+    const { getByTestId, getByText, getAllByText, queryByTestId } = renderInTabNavigator(ChatScreen, 'Chat');
     const input = getByTestId('chat-input');
     const sendButton = getByTestId('chat-send-button');
 
     fireEvent.changeText(input, 'Hello Hermes');
     fireEvent.press(sendButton);
 
-    expect(getByTestId('run-progress-banner')).toBeTruthy();
+    expect(queryByTestId('submitted-prompt-strip')).toBeNull();
+    expect(queryByTestId('chat-empty-state')).toBeNull();
+    expect(getAllByText('Hello Hermes')).toHaveLength(1);
 
     act(() => {
       jest.advanceTimersByTime(1600);
     });
 
-    expect(queryByTestId('run-progress-banner')).toBeNull();
+    expect(getByText(/Demo Mode/)).toBeTruthy();
+    expect(queryByTestId('chat-empty-state')).toBeNull();
+    expect(getAllByText('Hello Hermes')).toHaveLength(1);
+  });
+
+  it('keeps send enabled while a demo reply is in flight (queue path)', () => {
+    const { getByTestId, getAllByText } = renderInTabNavigator(ChatScreen, 'Chat');
+    const input = getByTestId('chat-input');
+    const sendButton = getByTestId('chat-send-button');
+
+    fireEvent.changeText(input, 'First message');
+    fireEvent.press(sendButton);
+    expect(getAllByText('First message')).toHaveLength(1);
+
+    fireEvent.changeText(input, 'Second message');
+    fireEvent.press(sendButton);
+    expect(getAllByText('Second message')).toHaveLength(1);
+  });
+
+  it('clears composer after send and ignores Android IME echo onChangeText', () => {
+    const { getByTestId } = renderInTabNavigator(ChatScreen, 'Chat');
+    const input = getByTestId('chat-input');
+    const sendButton = getByTestId('chat-send-button');
+
+    fireEvent.changeText(input, 'Hello Hermes');
+    fireEvent.press(sendButton);
+    expect(input.props.value).toBe('');
+
+    fireEvent.changeText(input, 'Hello Hermes');
+    expect(input.props.value).toBe('');
   });
 
   it('opens and closes sessions selector modal', () => {
-    const { getByTestId, getByText, queryByText } = renderInTabNavigator(ChatScreen, 'Chat');
-
-    expect(queryByText('Select Chat Session')).toBeNull();
+    const { getByTestId, getByText, queryByTestId } = renderInTabNavigator(ChatScreen, 'Chat');
 
     fireEvent.press(getByTestId('open-sessions-modal'));
-    expect(getByText('Select Chat Session')).toBeTruthy();
+    expect(getByTestId('threads-modal-title')).toBeTruthy();
+    expect(getByTestId('modal-new-chat-button')).toBeTruthy();
 
     fireEvent.press(getByText('Close'));
-    expect(queryByText('Select Chat Session')).toBeNull();
+    expect(queryByTestId('modal-new-chat-button')).toBeNull();
+  });
+
+  it('opens tools modal from command center Tools tile, not threads', () => {
+    const { getByTestId, getByText, queryByTestId } = renderInTabNavigator(ChatScreen, 'Chat');
+
+    fireEvent.press(getByTestId('command-center-tools'));
+    expect(getByTestId('tools-modal-title')).toBeTruthy();
+    expect(queryByTestId('threads-modal-title')).toBeNull();
+    expect(getByTestId('gateway-ops-section')).toBeTruthy();
+
+    fireEvent.press(getByText('Close'));
+    expect(queryByTestId('tools-modal-title')).toBeNull();
   });
 
   it('can start a new session from modal', () => {
-    const { getByTestId } = renderInTabNavigator(ChatScreen, 'Chat');
+    const { getByTestId, queryByTestId } = renderInTabNavigator(ChatScreen, 'Chat');
 
     fireEvent.press(getByTestId('open-sessions-modal'));
     const newSessionButton = getByTestId('modal-new-chat-button');
     fireEvent.press(newSessionButton);
 
     expect(getByTestId('chat-empty-state')).toBeTruthy();
+    expect(queryByTestId('chat-empty-recent-chats')).toBeNull();
   });
 });

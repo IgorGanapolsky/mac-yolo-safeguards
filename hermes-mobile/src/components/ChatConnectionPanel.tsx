@@ -1,9 +1,11 @@
 import React from 'react';
 import { Linking, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import type { LanScanProgress, LanScanResult } from '../types/lanScan';
+import type { GatewayProfile } from '../types/gatewayProfile';
 import { colors } from '../theme/colors';
 import { HERMES_MAC_GET_STARTED_URL } from '../utils/macPairingUx';
 import MacScanProgressCard from './MacScanProgressCard';
+import GatewayProfilePicker from './GatewayProfilePicker';
 import LoadingButton from './ui/LoadingButton';
 
 type ChatConnectionPanelProps = {
@@ -12,6 +14,9 @@ type ChatConnectionPanelProps = {
   searching?: boolean;
   scanProgress?: LanScanProgress | null;
   scanResult?: LanScanResult | null;
+  profiles?: GatewayProfile[];
+  activeProfileId?: string | null;
+  onSelectProfile?: (profileId: string) => void;
   onSearchMac: () => void;
   onOpenSettings?: () => void;
   testID?: string;
@@ -42,6 +47,9 @@ export default function ChatConnectionPanel({
   searching = false,
   scanProgress = null,
   scanResult = null,
+  profiles = [],
+  activeProfileId = null,
+  onSelectProfile,
   onSearchMac,
   onOpenSettings,
   testID = 'chat-connection-panel',
@@ -61,6 +69,20 @@ export default function ChatConnectionPanel({
         <Text style={styles.checkItem}>• Hermes app is installed and running on your computer</Text>
         <Text style={styles.checkItem}>• VPN turned off on both devices if search keeps failing</Text>
       </View>
+      {profiles.length > 0 ? (
+        <View style={styles.savedBlock}>
+          <Text style={styles.savedHeading}>Saved computers</Text>
+          <Text style={styles.savedHint}>
+            Pick Mac mini or another saved computer — even on a different network (use its tunnel URL in
+            Settings).
+          </Text>
+          <GatewayProfilePicker
+            profiles={profiles}
+            activeProfileId={activeProfileId}
+            onSelect={(profileId) => onSelectProfile?.(profileId)}
+          />
+        </View>
+      ) : null}
       {showScanCard ? (
         <MacScanProgressCard
           scanning={searching}
@@ -120,6 +142,22 @@ const styles = StyleSheet.create({
   },
   checklist: {
     gap: 4,
+  },
+  savedBlock: {
+    gap: 8,
+    marginTop: 4,
+  },
+  savedHeading: {
+    fontSize: 12,
+    fontWeight: '900',
+    color: colors.textSecondary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
+  },
+  savedHint: {
+    fontSize: 12,
+    lineHeight: 17,
+    color: colors.textMuted,
   },
   checkItem: {
     fontSize: 12,

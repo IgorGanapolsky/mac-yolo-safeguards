@@ -74,6 +74,7 @@ describe('sessionSelection', () => {
         },
       ],
       sessionProjectMap: { 'smoke-1': 'proj-1' },
+      sessionLabels: {},
       activeProjectId: 'proj-1',
     };
     expect(pickDefaultSession([smoke], state)).toBeNull();
@@ -117,6 +118,7 @@ describe('sessionSelection', () => {
         },
       ],
       sessionProjectMap: { 'cli-1': 'proj-1' },
+      sessionLabels: {},
       activeProjectId: 'proj-1',
     };
     const picked = pickDefaultSession([cliSession, telegramSession], state);
@@ -135,6 +137,7 @@ describe('sessionSelection', () => {
         },
       ],
       sessionProjectMap: { 'cli-1': 'proj-1' },
+      sessionLabels: {},
       activeProjectId: 'proj-1',
     };
     const sorted = sortSessionsForPicker([cliSession, telegramSession], state);
@@ -166,7 +169,7 @@ describe('sessionSelection', () => {
     expect(picked?.id).toBe('m1');
   });
 
-  it('builds grouped session picker sections', () => {
+  it('builds a single thread list with inbox pinned first', () => {
     const inbox: HermesSession = { id: '__telegram_inbox__', source: 'telegram' };
     const tg: HermesSession = { id: 'tg-1', source: 'telegram', last_active: 1781718000 };
     const cli: HermesSession = { id: 'cli-1', source: 'cli', last_active: 1781717000 };
@@ -178,13 +181,14 @@ describe('sessionSelection', () => {
     };
 
     const sections = buildSessionPickerSections([inbox, tg, cli, smoke]);
-    expect(sections.map((s) => s.key)).toEqual([
-      'telegram-inbox',
-      'telegram-threads',
-      'chat',
-      'smoke',
+    expect(sections.map((s) => s.key)).toEqual(['threads', 'smoke']);
+    expect(sections[0]?.title).toBe('');
+    expect(sections[0]?.data.map((s) => s.id)).toEqual([
+      '__telegram_inbox__',
+      'tg-1',
+      'cli-1',
     ]);
-    expect(sections[1]?.data[0]?.id).toBe('tg-1');
+    expect(sections[1]?.title).toBe('Debug');
   });
 
   it('covers sessionSourceLabel helper', () => {
@@ -214,6 +218,7 @@ describe('sessionSelection', () => {
         },
       ],
       sessionProjectMap: { s3: 'proj-1' },
+      sessionLabels: {},
       activeProjectId: 'proj-1',
     };
     const sorted = sortSessionsForPicker([s1, s2, s3], state);

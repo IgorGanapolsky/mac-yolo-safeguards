@@ -32,8 +32,8 @@ export function buildTelegramInboxSession(): HermesSession {
   return {
     id: TELEGRAM_INBOX_SESSION_ID,
     source: 'telegram',
-    title: 'Telegram — all threads',
-    preview: 'Merged chat threads from your computer gateway',
+    title: 'Active — all threads',
+    preview: 'Merged Hermes threads from your Mac (includes Telegram-linked sessions)',
     last_active_at: new Date().toISOString(),
   };
 }
@@ -72,6 +72,12 @@ export function inferTelegramReplySessionId(
   scannedSessions: HermesSession[],
 ): string {
   return scannedSessions[0]?.id ?? '';
+}
+
+/** Pick a concrete gateway session id for replies from the merged inbox view. */
+export function resolveTelegramInboxReplySessionId(sessions: HermesSession[]): string {
+  const telegramSessions = sortSessionsByRecency(sessions.filter(isTelegramSession));
+  return inferTelegramReplySessionId([], telegramSessions);
 }
 
 export async function fetchTelegramInboxMessages(
@@ -121,6 +127,7 @@ export async function fetchTelegramInboxMessages(
         message: {
           ...message,
           id: `${session.id}:${coerceMessageId(message.id, index) ?? index}`,
+          gatewayContent: raw,
           content: display.content,
           rawContent: display.rawContent,
           truncated: display.truncated,

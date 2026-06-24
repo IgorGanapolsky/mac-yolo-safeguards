@@ -18,6 +18,9 @@ function connectionMeta(
   state: LeashConnectionState,
   macHttpReachable = false,
 ): { label: string; color: string } {
+  if (macHttpReachable && state !== 'connected' && state !== 'demo') {
+    return { label: 'Chat linked', color: colors.warning };
+  }
   switch (state) {
     case 'connected':
       return { label: 'Linked', color: colors.success };

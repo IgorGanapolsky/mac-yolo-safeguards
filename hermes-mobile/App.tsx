@@ -1,7 +1,9 @@
 import React, { useEffect, useRef } from 'react';
-import { StyleSheet, View, Text, TouchableOpacity, StatusBar, LogBox } from 'react-native';
+import { StyleSheet, View, Text, TouchableOpacity, StatusBar, ActivityIndicator, Platform } from 'react-native';
+import * as SplashScreen from 'expo-splash-screen';
 
-LogBox.ignoreAllLogs(true);
+// Hold native splash until React paints — prevents flash of empty black window.
+void SplashScreen.preventAutoHideAsync().catch(() => {});
 
 import { NavigationContainer, type NavigationContainerRef } from '@react-navigation/native';
 import { createBottomTabNavigator, BottomTabBarProps } from '@react-navigation/bottom-tabs';
@@ -12,23 +14,28 @@ import { GatewayProvider, useGateway } from './src/context/GatewayContext';
 import { resolveInitialTab } from './src/utils/leashUx';
 import ApprovalsScreen from './src/screens/ApprovalsScreen';
 import ChatScreen from './src/screens/ChatScreen';
-import OpsScreen from './src/screens/OpsScreen';
 import SettingsScreen from './src/screens/SettingsScreen';
 import ErrorBoundary from './src/components/ErrorBoundary';
 import ConnectMacGate from './src/components/ConnectMacGate';
 import { useHermesDeepLinks } from './src/hooks/useHermesDeepLinks';
-import { useKeyboardInset } from './src/hooks/useKeyboardInset';
 import { trackAppOpen, trackScreenView } from './src/services/productAnalytics';
+import { useKeyboardInset } from './src/hooks/useKeyboardInset';
 import { LEASH_TAB_LABEL } from './src/constants/monetization';
 
 type RootTabParamList = {
   Leash: undefined;
   Chat: undefined;
-  Ops: undefined;
   Settings: undefined;
 };
 
+function DevToolsBootstrap() {
+  useAiSdkDevTools();
+  return null;
+}
+
 const Tab = createBottomTabNavigator<RootTabParamList>();
+
+const renderTabBar = (props: BottomTabBarProps) => <GlassmorphicTabBar {...props} />;
 
 function HermesTabNavigator() {
   const { settings } = useGateway();
@@ -37,10 +44,11 @@ function HermesTabNavigator() {
   return (
     <Tab.Navigator
       initialRouteName={resolveInitialTab(settings)}
-      tabBar={(props) => <GlassmorphicTabBar {...props} />}
+      tabBar={renderTabBar}
       screenOptions={{
         headerShown: false,
-        tabBarHideOnKeyboard: true,
+        // Android: hide tab bar so adjustResize can lift the composer; manual lift still runs as backup.
+        tabBarHideOnKeyboard: Platform.OS === 'android',
       }}
     >
       {glance ? (
@@ -52,7 +60,6 @@ function HermesTabNavigator() {
         <>
           <Tab.Screen name="Chat" component={ChatScreen} />
           <Tab.Screen name="Leash" component={ApprovalsScreen} />
-          <Tab.Screen name="Ops" component={OpsScreen} />
           <Tab.Screen name="Settings" component={SettingsScreen} />
         </>
       )}
@@ -66,13 +73,19 @@ function GlassmorphicTabBar({ state, descriptors, navigation }: BottomTabBarProp
   const pendingCount = pendingApprovals.length;
   const insets = useSafeAreaInsets();
   const { inset: keyboardInset } = useKeyboardInset();
-
-  if (keyboardInset > 0) {
-    return null;
-  }
+  const keyboardOpen = keyboardInset > 0;
 
   return (
-    <View style={[styles.navBar, { paddingBottom: Math.max(insets.bottom, 8), height: 56 + Math.max(insets.bottom, 8) }]}>
+    <View
+      style={[
+        styles.navBar,
+        {
+          paddingBottom: Math.max(insets.bottom, 8),
+          opacity: keyboardOpen ? 0 : 1,
+        },
+      ]}
+      pointerEvents={keyboardOpen ? 'none' : 'auto'}
+    >
       {state.routes.map((route, index) => {
         const { options } = descriptors[route.key];
         const isFocused = state.index === index;
@@ -106,9 +119,6 @@ function GlassmorphicTabBar({ state, descriptors, navigation }: BottomTabBarProp
         } else if (route.name === 'Chat') {
           emoji = '💬';
           label = 'Chat';
-        } else if (route.name === 'Ops') {
-          emoji = '💻';
-          label = 'Ops';
         } else if (route.name === 'Settings') {
           emoji = '⚙️';
           label = 'Settings';
@@ -161,7 +171,6 @@ const linking = {
     screens: {
       Leash: 'leash',
       Chat: 'chat',
-      Ops: 'ops',
       Settings: 'settings',
     },
   },
@@ -169,34 +178,76 @@ const linking = {
 
 function HermesNavigationRoot() {
   const navigationRef = useRef<NavigationContainerRef<RootTabParamList>>(null);
-  const { runAgentTool, refreshHealth, applySetupDeepLink } = useGateway();
-  useHermesDeepLinks(navigationRef, runAgentTool, refreshHealth, applySetupDeepLink);
+  const { runAgentTool, refreshHealth, applySetupDeepLink, focusChatSession } = useGateway();
+  useHermesDeepLinks(
+    navigationRef,
+    runAgentTool,
+    refreshHealth,
+    applySetupDeepLink,
+    focusChatSession,
+  );
 
   return (
-    <NavigationContainer
-      ref={navigationRef}
-      theme={NavigationTheme}
-      linking={linking}
-      onStateChange={(state) => {
-        const route = state?.routes[state.index ?? 0];
-        if (route?.name) {
-          void trackScreenView(route.name);
-        }
-      }}
-    >
-      <HermesTabNavigator />
-    </NavigationContainer>
+    <View style={{ flex: 1 }}>
+      <NavigationContainer
+        ref={navigationRef}
+        theme={NavigationTheme}
+        linking={linking}
+        onStateChange={(state) => {
+          const route = state?.routes[state.index ?? 0];
+          if (route?.name) {
+            void trackScreenView(route.name);
+          }
+        }}
+      >
+        <HermesTabNavigator />
+      </NavigationContainer>
+    </View>
+  );
+}
+
+function HermesAppShell() {
+  const { isLoaded } = useGateway();
+
+  useEffect(() => {
+    if (isLoaded) {
+      void SplashScreen.hideAsync();
+    }
+  }, [isLoaded]);
+
+  if (!isLoaded) {
+    return (
+      <View style={styles.bootstrap} testID="hermes-bootstrap">
+        <ActivityIndicator size="large" color={colors.accent} />
+        <Text style={styles.bootstrapText}>Loading Hermes…</Text>
+      </View>
+    );
+  }
+
+  return (
+    <>
+      <View style={{ flex: 1 }}>
+        <HermesNavigationRoot />
+      </View>
+      <ConnectMacGate />
+    </>
   );
 }
 
 export default function App() {
-  useAiSdkDevTools();
   useEffect(() => {
     void trackAppOpen();
+    // Safety net: never leave the native splash covering a working UI.
+    void SplashScreen.hideAsync();
+    const splashFallback = setTimeout(() => {
+      void SplashScreen.hideAsync();
+    }, 2500);
+    return () => clearTimeout(splashFallback);
   }, []);
   return (
     <ErrorBoundary>
       <SafeAreaProvider>
+        {__DEV__ ? <DevToolsBootstrap /> : null}
         <GatewayProvider>
           <View style={styles.container}>
             <StatusBar barStyle="light-content" />
@@ -205,8 +256,7 @@ export default function App() {
             <View style={styles.ambientGlowPrimary} />
             <View style={styles.ambientGlowSecondary} />
 
-            <HermesNavigationRoot />
-            <ConnectMacGate />
+            <HermesAppShell />
           </View>
         </GatewayProvider>
       </SafeAreaProvider>
@@ -307,5 +357,17 @@ const styles = StyleSheet.create({
     fontSize: 9,
     fontWeight: '900',
     color: colors.text,
+  },
+  bootstrap: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 16,
+    backgroundColor: colors.backgroundStart,
+  },
+  bootstrapText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.textSecondary,
   },
 });

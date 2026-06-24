@@ -57,12 +57,34 @@ function isOptimisticUserMessage(message: HermesMessage): boolean {
   return message.role?.toLowerCase() === 'user' && idHasPrefix(message.id, 'user-');
 }
 
+/** True when the phone still has bubbles the gateway transcript may not include yet. */
+export function hasUnsyncedLocalMessages(messages: HermesMessage[]): boolean {
+  return messages.some((message) => {
+    if (isStreamingPlaceholder(message)) {
+      return true;
+    }
+    if (idHasPrefix(message.id, 'asst-') && message.role?.toLowerCase() === 'assistant') {
+      return true;
+    }
+    return isOptimisticUserMessage(message);
+  });
+}
+
 function serverHasUserMessage(serverMessages: HermesMessage[], body: string): boolean {
   if (!body) {
     return false;
   }
   return serverMessages.some(
     (message) => message.role?.toLowerCase() === 'user' && messageBody(message) === body,
+  );
+}
+
+function serverHasAssistantMessage(serverMessages: HermesMessage[], body: string): boolean {
+  if (!body) {
+    return false;
+  }
+  return serverMessages.some(
+    (message) => message.role?.toLowerCase() === 'assistant' && messageBody(message) === body,
   );
 }
 
@@ -100,6 +122,10 @@ export function mergeServerMessagesWithPending(
       continue;
     }
     if (idHasPrefix(message.id, 'asst-') && message.role?.toLowerCase() === 'assistant') {
+      const body = messageBody(message);
+      if (serverHasAssistantMessage(dedupedServer, body)) {
+        continue;
+      }
       pendingTail.push(message);
       continue;
     }
@@ -118,4 +144,16 @@ export function mergeServerMessagesWithPending(
     return dedupedServer;
   }
   return dedupeChatMessages([...dedupedServer, ...pendingTail]);
+}
+
+/** Cheap fingerprint to skip FlatList updates when a gateway refresh returns the same transcript. */
+export function transcriptDigest(messages: HermesMessage[]): string {
+  return messages
+    .map((message, index) => {
+      const id = message.id ?? `idx-${index}`;
+      const len = message.content?.length ?? 0;
+      const truncated = message.truncated ? 1 : 0;
+      return `${id}:${message.role}:${len}:${truncated}`;
+    })
+    .join('|');
 }

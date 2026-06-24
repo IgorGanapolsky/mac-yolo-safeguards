@@ -29,6 +29,34 @@ describe('hermesNotifications', () => {
     expect(parsed).toEqual({ kind: 'navigate', tab: 'Chat' });
   });
 
+  it('parses default tap on approval with session deep link', () => {
+    const parsed = parseHermesNotificationResponse({
+      notification: {
+        request: {
+          content: {
+            data: { type: 'approval', sessionId: 'sess-7', actionId: 'act-1' },
+          },
+        },
+      },
+    });
+    expect(parsed).toEqual({
+      kind: 'navigate',
+      tab: 'Chat',
+      sessionId: 'sess-7',
+    });
+  });
+
+  it('parses approval_summary default tap to Leash when no session', () => {
+    const parsed = parseHermesNotificationResponse({
+      notification: {
+        request: {
+          content: { data: { type: 'approval_summary', count: 3 } },
+        },
+      },
+    });
+    expect(parsed).toEqual({ kind: 'navigate', tab: 'Leash' });
+  });
+
   it('keeps parseApprovalNotificationResponse compatibility', () => {
     const parsed = parseApprovalNotificationResponse({
       actionIdentifier: 'deny',

@@ -9,6 +9,7 @@ import {
   Switch,
   Alert,
   Platform,
+  Keyboard,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
@@ -27,8 +28,11 @@ import GatewayProfilePicker from '../components/GatewayProfilePicker';
 import { setProductAnalyticsOptOut } from '../services/productAnalytics';
 import LoadingButton from '../components/ui/LoadingButton';
 import { formatGatewayHostLabel } from '../utils/gatewayEndpoint';
-import type { ApprovalPolicy } from '../types/gateway';
+import type { ApprovalPolicy, HermesAvatar, HermesPersona } from '../types/gateway';
+import GatewayOpsSection from '../components/GatewayOpsSection';
 import { secureCredentials } from '../services/secureCredentials';
+import { requestHermesNotificationPermission } from '../services/approvalNotifications';
+import { AVATARS, PERSONAS } from '../utils/hermesPersona';
 
 export default function SettingsScreen() {
   const {
@@ -72,6 +76,13 @@ export default function SettingsScreen() {
   const [approvalPolicy, setApprovalPolicy] = useState<ApprovalPolicy>(settings.approvalPolicy);
   const [analyticsOptOut, setAnalyticsOptOut] = useState(settings.analyticsOptOut ?? false);
   const [includeToolActivity, setIncludeToolActivity] = useState(settings.includeToolActivity ?? true);
+  const [hermesPersona, setHermesPersona] = useState<HermesPersona>(
+    settings.hermesPersona ?? 'operator',
+  );
+  const [hermesAvatar, setHermesAvatar] = useState<HermesAvatar>(
+    settings.hermesAvatar ?? 'orb',
+  );
+  const [playfulMotion, setPlayfulMotion] = useState(settings.playfulMotion ?? true);
   const [inputThumbgateApiKey, setInputThumbgateApiKey] = useState('');
   const [inputApiKey, setInputApiKey] = useState(apiKey);
   const [isSaving, setIsSaving] = useState(false);
@@ -113,6 +124,9 @@ export default function SettingsScreen() {
     setAnalyticsOptOut(settings.analyticsOptOut ?? false);
     setProductAnalyticsOptOut(settings.analyticsOptOut ?? false);
     setIncludeToolActivity(settings.includeToolActivity ?? true);
+    setHermesPersona(settings.hermesPersona ?? 'operator');
+    setHermesAvatar(settings.hermesAvatar ?? 'orb');
+    setPlayfulMotion(settings.playfulMotion ?? true);
   }, [settings]);
 
   useEffect(() => {
@@ -154,7 +168,9 @@ export default function SettingsScreen() {
   const unlockThumbgateLeash = async () => {
     await saveSettings({ ...settings, thumbgateProActive: true }, apiKey);
     haptics.success();
-    Alert.alert('Unlocked', 'ThumbGate Leash is active on this phone.');
+    if (!isDemoModeAllowed()) {
+      Alert.alert('Unlocked', 'ThumbGate Leash is active on this phone.');
+    }
   };
 
   const requireLeashPro = (featureLabel: string): boolean => {
@@ -169,9 +185,22 @@ export default function SettingsScreen() {
   };
 
   const handleSave = async () => {
+    Keyboard.dismiss();
     haptics.selection();
     setIsSaving(true);
     try {
+      if (notificationsEnabled && Platform.OS !== 'web') {
+        const granted = await requestHermesNotificationPermission();
+        if (!granted) {
+          setNotificationsEnabled(false);
+          Alert.alert(
+            'Notifications blocked',
+            'Enable notifications in system settings to get approval alerts and live activity while Hermes is in the background.',
+          );
+          setIsSaving(false);
+          return;
+        }
+      }
       await saveSettings(
         {
           connectionMode,
@@ -189,6 +218,9 @@ export default function SettingsScreen() {
           approvalPolicy,
           analyticsOptOut,
           includeToolActivity,
+          hermesPersona,
+          hermesAvatar,
+          playfulMotion,
           thumbgateProActive: settings.thumbgateProActive,
         },
         inputApiKey,
@@ -209,6 +241,7 @@ export default function SettingsScreen() {
   };
 
   const handlePair = async () => {
+    Keyboard.dismiss();
     if (!pairCode.trim()) {
       Alert.alert('Pairing code required', 'Run bridge pairing on your computer and enter the code Hermes shows you.');
       return;
@@ -231,6 +264,9 @@ export default function SettingsScreen() {
           approvalPolicy,
           analyticsOptOut,
           includeToolActivity,
+          hermesPersona,
+          hermesAvatar,
+          playfulMotion,
           thumbgateProActive: settings.thumbgateProActive,
         },
         inputApiKey,
@@ -298,7 +334,17 @@ export default function SettingsScreen() {
     <SafeAreaView style={styles.safeArea} edges={['top']}>
       <View style={styles.header}>
         <Text style={styles.title} testID="SETTINGS">SETTINGS</Text>
-        <Text style={styles.subtitle}>Gateway tunnel for Chat + optional ThumbGate Leash approval relay</Text>
+        <Text style={styles.subtitle}>Connect your computer, run Mac gateway ops, ThumbGate Leash relay</Text>
+        <TouchableOpacity
+          style={styles.gatewayOpsShortcut}
+          onPress={() => scrollRef.current?.scrollTo({ y: 520, animated: true })}
+          testID="GATEWAY_OPS"
+          accessibilityRole="button"
+          accessibilityLabel="Jump to Mac gateway ops"
+        >
+          <Text style={styles.gatewayOpsShortcutText}>Mac gateway ops</Text>
+          <Text style={styles.gatewayOpsShortcutHint}>Tools, jobs, and skills</Text>
+        </TouchableOpacity>
       </View>
 
       <ScrollView ref={scrollRef} contentContainerStyle={styles.scrollContent}>
@@ -328,6 +374,72 @@ export default function SettingsScreen() {
                 setProductAnalyticsOptOut(!enabled);
               }}
               testID="analytics-opt-in-switch"
+            />
+          </View>
+        </GlassCard>
+
+        <Text style={styles.sectionTitle}>✨ Hermes personality</Text>
+        <GlassCard>
+          <Text style={styles.label}>Persona</Text>
+          <Text style={styles.description}>
+            Give Hermes a Character-style feel without changing its safety or execution boundaries.
+          </Text>
+          <View style={styles.choiceGrid}>
+            {PERSONAS.map((persona) => {
+              const active = hermesPersona === persona.key;
+              return (
+                <TouchableOpacity
+                  key={persona.key}
+                  style={[styles.personaChip, active && styles.personaChipActive]}
+                  onPress={() => setHermesPersona(persona.key)}
+                  testID={`persona-${persona.key}`}
+                >
+                  <Text style={[styles.personaChipText, active && styles.personaChipTextActive]}>
+                    {persona.label}
+                  </Text>
+                  <Text style={styles.personaChipDesc}>{persona.tagline}</Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+
+          <View style={styles.divider} />
+
+          <Text style={styles.label}>Avatar</Text>
+          <View style={styles.avatarGrid}>
+            {AVATARS.map((avatar) => {
+              const active = hermesAvatar === avatar.key;
+              return (
+                <TouchableOpacity
+                  key={avatar.key}
+                  style={[styles.avatarChip, active && styles.avatarChipActive]}
+                  onPress={() => setHermesAvatar(avatar.key)}
+                  testID={`avatar-${avatar.key}`}
+                >
+                  <Text style={styles.avatarChipIcon}>{avatar.emoji}</Text>
+                  <Text style={[styles.avatarChipText, active && styles.avatarChipTextActive]}>
+                    {avatar.label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+
+          <View style={styles.divider} />
+
+          <View style={styles.switchRow}>
+            <View style={styles.switchLabelCol}>
+              <Text style={styles.switchLabel}>Animated presence</Text>
+              <Text style={styles.switchDesc}>
+                Pulse the avatar while Hermes is linked, working, or waiting for approval
+              </Text>
+            </View>
+            <Switch
+              value={playfulMotion}
+              onValueChange={setPlayfulMotion}
+              testID="playful-motion-switch"
+              trackColor={{ false: '#1F2937', true: colors.primary }}
+              thumbColor={playfulMotion ? '#ffffff' : '#9CA3AF'}
             />
           </View>
         </GlassCard>
@@ -414,6 +526,13 @@ export default function SettingsScreen() {
             Stored in the device keychain. Required for Chat tab session APIs.
           </Text>
         </GlassCard>
+
+        <Text style={styles.sectionTitle}>💻 Mac gateway on your computer</Text>
+        <Text style={styles.description}>
+          Toolsets, cron jobs, and skills — live from Hermes on your Mac. Scroll here to manage automation
+          after you connect above.
+        </Text>
+        <GatewayOpsSection />
 
         <Text style={styles.sectionTitle}>🪢 Approval relay (ThumbGate Leash)</Text>
         <GlassCard>
@@ -647,7 +766,17 @@ export default function SettingsScreen() {
             </View>
             <Switch
               value={notificationsEnabled}
-              onValueChange={(val) => {
+              onValueChange={async (val) => {
+                if (val && Platform.OS !== 'web') {
+                  const granted = await requestHermesNotificationPermission();
+                  if (!granted) {
+                    Alert.alert(
+                      'Notifications blocked',
+                      'Enable notifications in system settings to get approval alerts and live activity while Hermes is in the background.',
+                    );
+                    return;
+                  }
+                }
                 setNotificationsEnabled(val);
               }}
               trackColor={{ false: '#1F2937', true: colors.primary }}
@@ -844,6 +973,26 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
     marginTop: 4,
   },
+  gatewayOpsShortcut: {
+    marginTop: 10,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(34, 211, 238, 0.28)',
+    backgroundColor: 'rgba(34, 211, 238, 0.08)',
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+  },
+  gatewayOpsShortcutText: {
+    fontSize: 12,
+    fontWeight: '900',
+    color: colors.accent,
+  },
+  gatewayOpsShortcutHint: {
+    marginTop: 2,
+    fontSize: 10,
+    fontWeight: '700',
+    color: colors.textSecondary,
+  },
   scrollContent: {
     paddingBottom: 40,
     paddingHorizontal: 16,
@@ -926,6 +1075,70 @@ const styles = StyleSheet.create({
     textTransform: 'capitalize',
   },
   policyChipTextActive: {
+    color: colors.text,
+  },
+  choiceGrid: {
+    gap: 8,
+    marginTop: 10,
+  },
+  personaChip: {
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.borderLight,
+    backgroundColor: 'rgba(255, 255, 255, 0.035)',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  personaChipActive: {
+    borderColor: colors.accent,
+    backgroundColor: 'rgba(34, 211, 238, 0.1)',
+  },
+  personaChipText: {
+    fontSize: 13,
+    fontWeight: '900',
+    color: colors.textSecondary,
+  },
+  personaChipTextActive: {
+    color: colors.text,
+  },
+  personaChipDesc: {
+    marginTop: 3,
+    fontSize: 11,
+    lineHeight: 15,
+    fontWeight: '700',
+    color: colors.textMuted,
+  },
+  avatarGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 6,
+  },
+  avatarChip: {
+    minWidth: 72,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.borderLight,
+    backgroundColor: 'rgba(255, 255, 255, 0.035)',
+    paddingHorizontal: 10,
+    paddingVertical: 9,
+    alignItems: 'center',
+  },
+  avatarChipActive: {
+    borderColor: colors.primary,
+    backgroundColor: 'rgba(79, 70, 229, 0.16)',
+  },
+  avatarChipIcon: {
+    fontSize: 18,
+    color: colors.text,
+    marginBottom: 3,
+  },
+  avatarChipText: {
+    fontSize: 10,
+    fontWeight: '900',
+    color: colors.textMuted,
+  },
+  avatarChipTextActive: {
     color: colors.text,
   },
   divider: {

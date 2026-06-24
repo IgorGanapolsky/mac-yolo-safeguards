@@ -1,6 +1,7 @@
 import {
   formatMessageForDisplay,
   formatMessageFull,
+  formatExpandedMessageContent,
   prepareMessageForChatDisplay,
   formatMessageTimestamp,
   isVisibleChatRole,
@@ -145,6 +146,13 @@ Status: online
     expect(formatMessageFull(raw).length).toBeGreaterThan(4000);
   });
 
+  it('pretty-prints json for expanded message bodies', () => {
+    const raw = '{"prospect_email":"lead@example.com","qualification_score":82}';
+    const expanded = formatExpandedMessageContent(raw);
+    expect(expanded).toContain('"prospect_email": "lead@example.com"');
+    expect(expanded).toContain('\n');
+  });
+
   it('marks truncated previews for expandable chat bubbles', () => {
     const raw =
       'clarify: "Did you mean to target a specific browser profile instead of the default workspace?"';
@@ -163,6 +171,24 @@ ${longBody}
     const display = prepareMessageForChatDisplay(raw);
     expect(display.truncated).toBe(true);
     expect(display.rawContent.length).toBeGreaterThan(display.content.length);
+  });
+
+  it('does not truncate lines in full mode', () => {
+    const manyLines = Array.from({ length: 20 }, (_, i) => `line ${i + 1}`).join('\n');
+    const raw = `<untrusted_tool_result source="run_command">
+${UNTRUSTED_BOILERPLATE}
+${manyLines}
+</untrusted_tool_result>`;
+    const display = prepareMessageForChatDisplay(raw);
+
+    // In preview mode, it should be truncated to 8 lines (or max chars 200)
+    const previewLines = display.content.split('\n');
+    expect(previewLines.length).toBeLessThanOrEqual(9); // "run command: " + up to 8 lines
+
+    // In full mode, it should contain all lines
+    const fullLines = display.rawContent.split('\n');
+    expect(fullLines.length).toBeGreaterThan(15);
+    expect(display.rawContent).toContain('line 20');
   });
 
   it('resolves gateway timestamp field onto created_at', () => {

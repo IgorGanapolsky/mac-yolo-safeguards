@@ -6,6 +6,7 @@ describe('useHermesDeepLinks', () => {
   const navigationRef = { current: { navigate: jest.fn() } };
   const runAgentTool = jest.fn().mockResolvedValue({ ok: true });
   const refreshHealth = jest.fn().mockResolvedValue(undefined);
+  const focusChatSession = jest.fn();
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -23,6 +24,25 @@ describe('useHermesDeepLinks', () => {
     });
     expect(navigationRef.current.navigate).toHaveBeenCalledWith('Leash');
     expect(runAgentTool).toHaveBeenCalledWith('approve_top_pending');
+  });
+
+  it('opens Chat and focuses session from hermes://chat?session=', async () => {
+    renderHook(() =>
+      useHermesDeepLinks(
+        navigationRef as never,
+        runAgentTool,
+        refreshHealth,
+        undefined,
+        focusChatSession,
+      ),
+    );
+    const handler = (Linking.addEventListener as jest.Mock).mock.calls[0][1];
+    await act(async () => {
+      await handler({ url: 'hermes://chat?session=sess-42' });
+    });
+    expect(navigationRef.current.navigate).toHaveBeenCalledWith('Chat');
+    expect(focusChatSession).toHaveBeenCalledWith('sess-42');
+    expect(runAgentTool).not.toHaveBeenCalled();
   });
 
   it('applies hermes://setup and opens Chat', async () => {
