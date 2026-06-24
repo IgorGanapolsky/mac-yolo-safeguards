@@ -36,6 +36,37 @@ function parseHostFromGatewayUrl(gatewayUrl: string): { hostname?: string; ip?: 
   }
 }
 
+function isPrivateLanIpv4(ip: string): boolean {
+  if (!IPV4_RE.test(ip)) {
+    return false;
+  }
+  const parts = ip.split('.').map(Number);
+  if (parts.length !== 4 || parts.some((n) => Number.isNaN(n))) {
+    return false;
+  }
+  const [a, b] = parts;
+  if (a === 10) {
+    return true;
+  }
+  if (a === 172 && b >= 16 && b <= 31) {
+    return true;
+  }
+  if (a === 192 && b === 168) {
+    return true;
+  }
+  return false;
+}
+
+/** True when the gateway URL points at a LAN-only address (unreachable off Wi‑Fi). */
+export function isPrivateLanGatewayUrl(gatewayUrl: string): boolean {
+  const fromUrl = parseHostFromGatewayUrl(gatewayUrl);
+  if (fromUrl.ip && isPrivateLanIpv4(fromUrl.ip)) {
+    return true;
+  }
+  const host = fromUrl.hostname?.toLowerCase();
+  return Boolean(host?.endsWith('.local'));
+}
+
 function gatewayUrlHost(gatewayUrl: string): string | undefined {
   try {
     const { httpBase } = normalizeGatewayUrl(gatewayUrl);

@@ -4,6 +4,7 @@ import {
   formatGatewayHostLabel,
   formatLeashConnectionDisplay,
   formatListeningOnGatewayLine,
+  isPrivateLanGatewayUrl,
 } from '../utils/gatewayEndpoint';
 
 const sampleHealth = (partial: Partial<GatewayHealthSnapshot>): GatewayHealthSnapshot => ({
@@ -61,6 +62,20 @@ describe('formatGatewayEndpointLine', () => {
         sampleHealth({ localIp: '192.168.12.208' }),
       ),
     ).toBe('192.168.12.208:8642');
+  });
+});
+
+describe('isPrivateLanGatewayUrl', () => {
+  it('detects private LAN gateway URLs', () => {
+    expect(isPrivateLanGatewayUrl('http://10.2.29.103:8642')).toBe(true);
+    expect(isPrivateLanGatewayUrl('http://192.168.68.61:8642')).toBe(true);
+    expect(isPrivateLanGatewayUrl('http://172.16.0.5:8642')).toBe(true);
+    expect(isPrivateLanGatewayUrl('http://Igors-MacBook-Pro.local:8642')).toBe(true);
+  });
+
+  it('does not flag public tunnel URLs as LAN-only', () => {
+    expect(isPrivateLanGatewayUrl('https://hermes-mobile-cloud.fly.dev')).toBe(false);
+    expect(isPrivateLanGatewayUrl('https://example.com')).toBe(false);
   });
 });
 
