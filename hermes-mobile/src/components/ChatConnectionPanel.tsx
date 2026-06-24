@@ -43,6 +43,19 @@ function connectionStatusLine(
   return "Your phone can't reach your computer yet. Check the list above, then tap Search again.";
 }
 
+function connectionTitle(
+  connectionState: ChatConnectionPanelProps['connectionState'],
+  searching: boolean,
+): string {
+  if (searching) {
+    return 'Finding your Mac';
+  }
+  if (connectionState === 'connecting') {
+    return 'Linking Hermes';
+  }
+  return 'Mac offline';
+}
+
 export default function ChatConnectionPanel({
   connectionState,
   macLabel,
@@ -60,25 +73,47 @@ export default function ChatConnectionPanel({
 }: ChatConnectionPanelProps) {
   const statusLine = connectionStatusLine(connectionState, searching, macLabel);
   const showScanCard = searching || scanResult;
+  const title = connectionTitle(connectionState, searching);
 
   return (
     <View style={styles.wrap} testID={testID}>
-      <Text style={styles.title}>Let's link your computer</Text>
-      <Text style={styles.body}>
-        Hermes Mobile talks to <Text style={styles.em}>Hermes</Text> — the assistant on your computer.
-        Chat and approvals work once your phone can see that computer on Wi‑Fi.
-      </Text>
-      <View style={styles.checklist}>
-        <Text style={styles.checkItem}>• Phone and computer on the same Wi‑Fi, or link via Cloud Relay in Settings</Text>
-        <Text style={styles.checkItem}>• Hermes app is installed and running on your computer</Text>
-        <Text style={styles.checkItem}>• VPN turned off on both devices if search keeps failing</Text>
+      <View style={styles.hero}>
+        <View style={[styles.heroOrb, searching ? styles.heroOrbSearching : null]}>
+          <View style={[styles.heroOrbInner, searching ? styles.heroOrbInnerSearching : null]} />
+        </View>
+        <View style={styles.heroCopy}>
+          <Text style={styles.title}>{title}</Text>
+          <Text style={styles.body} numberOfLines={3}>
+            {statusLine}
+          </Text>
+        </View>
       </View>
+
+      <View style={styles.actionRow}>
+        <LoadingButton
+          label="Search Wi‑Fi"
+          loadingLabel="Searching…"
+          loading={searching}
+          onPress={onSearchMac}
+          testID="chat-connection-search"
+          style={styles.primaryAction}
+        />
+        {onOpenSettings ? (
+          <TouchableOpacity
+            style={styles.secondaryButton}
+            onPress={onOpenSettings}
+            testID="chat-connection-settings"
+          >
+            <Text style={styles.secondaryButtonText}>Settings</Text>
+          </TouchableOpacity>
+        ) : null}
+      </View>
+
       {profiles.length > 0 ? (
         <View style={styles.savedBlock}>
           <Text style={styles.savedHeading}>Saved computers</Text>
           <Text style={styles.savedHint}>
-            Pick Mac mini or another saved computer — even on a different network (use its tunnel URL in
-            Settings).
+            Choose the Mac you want Hermes Mobile to use.
           </Text>
           <GatewayProfilePicker
             profiles={profiles}
@@ -89,6 +124,7 @@ export default function ChatConnectionPanel({
           />
         </View>
       ) : null}
+
       {showScanCard ? (
         <MacScanProgressCard
           scanning={searching}
@@ -97,20 +133,13 @@ export default function ChatConnectionPanel({
           testID="chat-connection-scan-progress"
         />
       ) : (
-        <Text style={styles.statusText}>{statusLine}</Text>
+        <View style={styles.tipRow}>
+          <Text style={styles.tipPill}>Same Wi‑Fi</Text>
+          <Text style={styles.tipPill}>Hermes running</Text>
+          <Text style={styles.tipPill}>No VPN</Text>
+        </View>
       )}
-      <LoadingButton
-        label="Search for my computer on Wi‑Fi"
-        loadingLabel="Searching Wi‑Fi…"
-        loading={searching}
-        onPress={onSearchMac}
-        testID="chat-connection-search"
-      />
-      {onOpenSettings ? (
-        <TouchableOpacity style={styles.secondaryButton} onPress={onOpenSettings} testID="chat-connection-settings">
-          <Text style={styles.secondaryButtonText}>Connection help in Settings</Text>
-        </TouchableOpacity>
-      ) : null}
+
       <TouchableOpacity
         onPress={() => Linking.openURL(HERMES_MAC_GET_STARTED_URL)}
         testID="chat-connection-install-link"
@@ -123,70 +152,116 @@ export default function ChatConnectionPanel({
 
 const styles = StyleSheet.create({
   wrap: {
-    marginHorizontal: 4,
     marginBottom: 12,
-    padding: 16,
-    borderRadius: 14,
+    padding: 18,
+    borderRadius: 24,
     borderWidth: 1,
     borderColor: colors.borderLight,
-    backgroundColor: 'rgba(139, 92, 246, 0.08)',
-    gap: 10,
+    backgroundColor: 'rgba(15, 23, 42, 0.78)',
+    gap: 16,
+    shadowColor: '#000',
+    shadowOpacity: 0.24,
+    shadowRadius: 18,
+    shadowOffset: { width: 0, height: 10 },
+    elevation: 8,
+  },
+  hero: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+  },
+  heroOrb: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(239, 68, 68, 0.35)',
+    backgroundColor: 'rgba(239, 68, 68, 0.12)',
+  },
+  heroOrbSearching: {
+    borderColor: 'rgba(34, 211, 238, 0.42)',
+    backgroundColor: 'rgba(34, 211, 238, 0.12)',
+  },
+  heroOrbInner: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: colors.error,
+  },
+  heroOrbInnerSearching: {
+    backgroundColor: colors.accent,
+  },
+  heroCopy: {
+    flex: 1,
+    minWidth: 0,
   },
   title: {
-    fontSize: 16,
+    fontSize: 24,
     fontWeight: '900',
     color: colors.text,
+    letterSpacing: 0,
   },
   body: {
-    fontSize: 13,
-    lineHeight: 19,
+    marginTop: 4,
+    fontSize: 14,
+    lineHeight: 20,
     color: colors.textSecondary,
   },
-  em: {
-    fontWeight: '800',
-    color: colors.accent,
+  actionRow: {
+    flexDirection: 'row',
+    gap: 10,
   },
-  checklist: {
-    gap: 4,
+  primaryAction: {
+    flex: 1,
   },
   savedBlock: {
-    gap: 8,
-    marginTop: 4,
+    gap: 10,
   },
   savedHeading: {
     fontSize: 12,
     fontWeight: '900',
     color: colors.textSecondary,
     textTransform: 'uppercase',
-    letterSpacing: 0.4,
+    letterSpacing: 0,
   },
   savedHint: {
     fontSize: 12,
     lineHeight: 17,
     color: colors.textMuted,
   },
-  checkItem: {
-    fontSize: 12,
-    lineHeight: 17,
-    color: colors.textMuted,
+  tipRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
   },
-  statusText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: colors.accent,
-    lineHeight: 17,
+  tipPill: {
+    overflow: 'hidden',
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: colors.borderLight,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    color: colors.textMuted,
+    fontSize: 11,
+    fontWeight: '700',
+    backgroundColor: 'rgba(255, 255, 255, 0.035)',
   },
   secondaryButton: {
-    borderRadius: 12,
+    minWidth: 104,
+    borderRadius: 14,
     borderWidth: 1,
     borderColor: colors.border,
-    paddingVertical: 10,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
     alignItems: 'center',
+    justifyContent: 'center',
   },
   secondaryButtonText: {
     color: colors.textSecondary,
-    fontWeight: '700',
-    fontSize: 13,
+    fontWeight: '800',
+    fontSize: 14,
   },
   installLink: {
     fontSize: 12,

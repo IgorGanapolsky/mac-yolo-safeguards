@@ -52,6 +52,13 @@ export default function GatewayProfilePicker({
               ? 'Trying to connect…'
               : 'Selected · cannot reach'
           : 'Tap to switch';
+        const statusColor = isActive
+          ? activeReachable
+            ? colors.success
+            : activeConnecting
+              ? colors.warning
+              : colors.error
+          : colors.textMuted;
         return (
           <View key={profile.id} style={styles.row} testID={`gateway-profile-item-${profile.id}`}>
             <TouchableOpacity
@@ -60,11 +67,18 @@ export default function GatewayProfilePicker({
               accessibilityState={{ selected: isActive }}
               testID={`select-gateway-profile-${profile.id}`}
             >
-              <View style={styles.selectDot}>
-                {isActive ? <View style={styles.selectDotInner} /> : null}
+              <View style={[styles.selectDot, { borderColor: statusColor }]}>
+                <View
+                  style={[
+                    styles.selectDotInner,
+                    { backgroundColor: isActive ? statusColor : 'transparent' },
+                  ]}
+                />
               </View>
               <View style={styles.labelBlock}>
-                <Text style={styles.profileLabel}>{formatProfileLabel(profile)}</Text>
+                <Text style={styles.profileLabel} numberOfLines={1}>
+                  {formatProfileLabel(profile)}
+                </Text>
                 <Text
                   style={[
                     styles.meta,
@@ -75,6 +89,7 @@ export default function GatewayProfilePicker({
                   {meta}
                 </Text>
               </View>
+              <Text style={styles.chevron}>{isActive ? 'Now' : '›'}</Text>
             </TouchableOpacity>
             {onRemove && profiles.length > 1 ? (
               <TouchableOpacity
@@ -96,8 +111,8 @@ export default function GatewayProfilePicker({
 
 const styles = StyleSheet.create({
   list: {
-    gap: 8,
-    marginBottom: 12,
+    gap: 10,
+    marginBottom: 4,
   },
   row: {
     flexDirection: 'row',
@@ -108,22 +123,23 @@ const styles = StyleSheet.create({
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    borderRadius: 12,
+    gap: 12,
+    minHeight: 64,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    borderRadius: 18,
     borderWidth: 1,
     borderColor: colors.borderLight,
-    backgroundColor: colors.cardBg,
+    backgroundColor: 'rgba(255, 255, 255, 0.045)',
   },
   selectButtonActive: {
     borderColor: colors.accent,
-    backgroundColor: 'rgba(99, 102, 241, 0.12)',
+    backgroundColor: 'rgba(34, 211, 238, 0.09)',
   },
   selectDot: {
-    width: 18,
-    height: 18,
-    borderRadius: 9,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
     borderWidth: 2,
     borderColor: colors.textMuted,
     alignItems: 'center',
@@ -137,16 +153,18 @@ const styles = StyleSheet.create({
   },
   labelBlock: {
     flex: 1,
+    minWidth: 0,
   },
   profileLabel: {
     color: colors.text,
-    fontWeight: '600',
-    fontSize: 14,
+    fontWeight: '800',
+    fontSize: 15,
   },
   meta: {
     color: colors.textMuted,
-    fontSize: 11,
-    marginTop: 2,
+    fontSize: 12,
+    marginTop: 3,
+    fontWeight: '700',
   },
   metaConnected: {
     color: colors.success,
@@ -155,6 +173,13 @@ const styles = StyleSheet.create({
   metaUnreachable: {
     color: colors.warning,
     fontWeight: '700',
+  },
+  chevron: {
+    minWidth: 28,
+    textAlign: 'right',
+    color: colors.textMuted,
+    fontSize: 13,
+    fontWeight: '800',
   },
   removeButton: {
     paddingHorizontal: 8,

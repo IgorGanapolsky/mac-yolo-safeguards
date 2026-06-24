@@ -86,20 +86,18 @@ export default function CodexCommandCenter({
     <View style={styles.wrap} testID="codex-command-center">
       <View style={styles.statusRow}>
         {showMacTile ? (
-          <View style={styles.statusTile}>
+          <View style={styles.statusChip}>
             <View style={styles.tileHeader}>
               <View style={[styles.statusDot, { backgroundColor: link.color }]} />
               <Text style={styles.tileLabel}>Mac</Text>
             </View>
-            <Text style={styles.tileValue} testID="command-center-link-state">
-              {link.label}
-            </Text>
-            <Text style={styles.tileDetail}>{link.detail}</Text>
+            <Text style={styles.tileValue} testID="command-center-link-state">{link.label}</Text>
+            <Text style={styles.tileDetail} numberOfLines={1}>{link.detail}</Text>
           </View>
         ) : null}
 
         {showRunTile ? (
-          <View style={styles.statusTile}>
+          <View style={styles.statusChip}>
             <Text style={styles.tileLabel}>Run</Text>
             <Text style={styles.tileValue} testID="command-center-run-state">
               Running
@@ -112,7 +110,7 @@ export default function CodexCommandCenter({
 
         {pendingApprovalCount > 0 ? (
           <Pressable
-            style={({ pressed }) => [styles.statusTile, pressed && styles.pressed]}
+            style={({ pressed }) => [styles.statusChip, styles.pressableChip, pressed && styles.pressed]}
             onPress={onOpenApprovals}
             accessibilityRole="button"
             accessibilityLabel="Open approvals"
@@ -125,7 +123,7 @@ export default function CodexCommandCenter({
         ) : null}
 
         <Pressable
-          style={({ pressed }) => [styles.statusTile, pressed && styles.pressed]}
+          style={({ pressed }) => [styles.statusChip, styles.pressableChip, pressed && styles.pressed]}
           onPress={onOpenTools}
           accessibilityRole="button"
           accessibilityLabel={
@@ -146,24 +144,26 @@ export default function CodexCommandCenter({
 
 const styles = StyleSheet.create({
   wrap: {
-    gap: 8,
     paddingHorizontal: 16,
-    paddingBottom: 10,
+    paddingBottom: 8,
   },
   statusRow: {
     flexDirection: 'row',
     gap: 8,
   },
-  statusTile: {
+  statusChip: {
     flex: 1,
-    minHeight: 64,
-    borderRadius: 8,
+    minHeight: 50,
+    borderRadius: 16,
     borderWidth: 1,
     borderColor: colors.borderLight,
-    backgroundColor: 'rgba(15, 23, 42, 0.78)',
+    backgroundColor: 'rgba(15, 23, 42, 0.64)',
     paddingHorizontal: 10,
-    paddingVertical: 9,
+    paddingVertical: 8,
     justifyContent: 'space-between',
+  },
+  pressableChip: {
+    borderColor: 'rgba(255, 255, 255, 0.12)',
   },
   tileHeader: {
     flexDirection: 'row',
@@ -180,11 +180,13 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: colors.textMuted,
     textTransform: 'uppercase',
+    letterSpacing: 0,
   },
   tileValue: {
-    fontSize: 17,
+    fontSize: 16,
     fontWeight: '900',
     color: colors.text,
+    letterSpacing: 0,
   },
   tileDetail: {
     fontSize: 10,

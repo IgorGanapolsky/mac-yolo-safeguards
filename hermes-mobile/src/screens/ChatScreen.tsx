@@ -3213,7 +3213,7 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '900',
     color: colors.text,
-    letterSpacing: 0.5,
+    letterSpacing: 0,
   },
   demoPill: {
     fontSize: 9,
@@ -3280,7 +3280,7 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '700',
     color: colors.textMuted,
-    letterSpacing: 0.6,
+    letterSpacing: 0,
     marginBottom: 4,
     textTransform: 'uppercase',
   },
@@ -3314,8 +3314,8 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   connectionHelpContent: {
-    paddingHorizontal: 2,
-    paddingTop: 10,
+    paddingHorizontal: 16,
+    paddingTop: 16,
   },
   emptyScroll: {
     flex: 1,
@@ -3685,7 +3685,7 @@ const styles = StyleSheet.create({
   sessionSourcePill: {
     fontSize: 9,
     fontWeight: '800',
-    letterSpacing: 0.3,
+    letterSpacing: 0,
     color: colors.accent,
     backgroundColor: 'rgba(139, 92, 246, 0.15)',
     borderRadius: 6,
@@ -3695,7 +3695,7 @@ const styles = StyleSheet.create({
   sessionSectionHeader: {
     fontSize: 11,
     fontWeight: '800',
-    letterSpacing: 0.4,
+    letterSpacing: 0,
     color: colors.textMuted,
     textTransform: 'uppercase',
     marginTop: 12,

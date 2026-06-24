@@ -120,9 +120,9 @@ export default function ChatScreenHeader({
 const styles = StyleSheet.create({
   wrap: {
     paddingHorizontal: 16,
-    paddingTop: 4,
-    paddingBottom: 10,
-    gap: 6,
+    paddingTop: 2,
+    paddingBottom: 8,
+    gap: 4,
   },
   titleRow: {
     flexDirection: 'row',
@@ -138,10 +138,10 @@ const styles = StyleSheet.create({
   },
   threadTitle: {
     flex: 1,
-    fontSize: 20,
+    fontSize: 19,
     fontWeight: '800',
     color: colors.text,
-    letterSpacing: -0.3,
+    letterSpacing: 0,
   },
   titleChevron: {
     fontSize: 20,
@@ -159,7 +159,7 @@ const styles = StyleSheet.create({
     fontSize: 9,
     fontWeight: '900',
     color: colors.backgroundStart,
-    letterSpacing: 0.4,
+    letterSpacing: 0,
   },
   pressed: {
     opacity: 0.82,
