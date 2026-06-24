@@ -45,7 +45,7 @@ describe('ChatConnectionPanel', () => {
       />,
     );
 
-    expect(getByText('Selected · cannot reach')).toBeTruthy();
+    expect(getByText('Cannot reach this Mac')).toBeTruthy();
     expect(queryByText('Active now')).toBeNull();
   });
 });

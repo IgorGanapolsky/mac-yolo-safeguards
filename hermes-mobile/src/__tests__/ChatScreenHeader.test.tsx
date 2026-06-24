@@ -4,7 +4,7 @@ import { render } from '@testing-library/react-native';
 import ChatScreenHeader from '../components/ChatScreenHeader';
 
 describe('ChatScreenHeader', () => {
-  it('renders thread title, Mac endpoint, and live status', () => {
+  it('renders thread title, Mac endpoint, and connected status', () => {
     const { getByTestId } = render(
       <ChatScreenHeader
         threadTitle="Deploy fix"
@@ -17,11 +17,11 @@ describe('ChatScreenHeader', () => {
     );
 
     expect(getByTestId('HERMES CHAT').props.children).toBe('Deploy fix');
-    expect(getByTestId('chat-context-link').props.children).toContain('Live');
+    expect(getByTestId('chat-context-link').props.children).toContain('Connected');
     expect(getByTestId('chat-context-mac-endpoint').props.children).toBeTruthy();
   });
 
-  it('shows Mac online when HTTP reachable but socket not live', () => {
+  it('shows connected when HTTP reachable but socket not live', () => {
     const { getByTestId } = render(
       <ChatScreenHeader
         threadTitle="New chat"
@@ -34,10 +34,10 @@ describe('ChatScreenHeader', () => {
       />,
     );
 
-    expect(getByTestId('chat-context-link').props.children).toContain('Mac online');
+    expect(getByTestId('chat-context-link').props.children).toContain('Connected');
   });
 
-  it('shows Mac online when HTTP reachable but socket still connecting', () => {
+  it('shows connected when HTTP reachable but socket still connecting', () => {
     const { getByTestId } = render(
       <ChatScreenHeader
         threadTitle="New chat"
@@ -50,7 +50,7 @@ describe('ChatScreenHeader', () => {
       />,
     );
 
-    expect(getByTestId('chat-context-link').props.children).toContain('Mac online');
+    expect(getByTestId('chat-context-link').props.children).toContain('Connected');
   });
 
   it('opens threads from title press', () => {

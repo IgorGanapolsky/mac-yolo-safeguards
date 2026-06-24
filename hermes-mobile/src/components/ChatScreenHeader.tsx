@@ -22,18 +22,18 @@ function linkMeta(
   macHttpReachable = false,
 ): { label: string; color: string } {
   if (state === 'connected') {
-    return { label: 'Live', color: colors.success };
+    return { label: 'Connected', color: colors.success };
   }
   if (state === 'demo') {
     return { label: 'Demo', color: colors.accent };
   }
   if (macHttpReachable) {
-    return { label: 'Mac online', color: colors.success };
+    return { label: 'Connected', color: colors.success };
   }
   if (state === 'connecting') {
     return { label: 'Connecting', color: colors.warning };
   }
-  return { label: 'Offline', color: colors.error };
+  return { label: 'Not connected', color: colors.error };
 }
 
 /**

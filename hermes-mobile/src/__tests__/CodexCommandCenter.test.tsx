@@ -37,7 +37,7 @@ describe('CodexCommandCenter', () => {
     expect(getByTestId('command-center-run-state').props.children).toBe('Running');
     expect(getByText('2')).toBeTruthy();
     expect(getByText('7')).toBeTruthy();
-    expect(getByText('Calls · all chats')).toBeTruthy();
+    expect(getByText('Tool calls')).toBeTruthy();
     expect(getByTestId('command-center-run-state').props.children).toBe('Running');
   });
 
@@ -88,7 +88,7 @@ describe('CodexCommandCenter', () => {
       />,
     );
 
-    expect(getByTestId('command-center-link-state').props.children).toBe('Offline');
+    expect(getByTestId('command-center-link-state').props.children).toBe('Not connected');
   });
 
   it('hides Run tile when idle', () => {
@@ -247,6 +247,6 @@ describe('CodexCommandCenter', () => {
     );
 
     expect(getByText('Open')).toBeTruthy();
-    expect(getByText('Skills & jobs')).toBeTruthy();
+    expect(getByText('Open tools')).toBeTruthy();
   });
 });

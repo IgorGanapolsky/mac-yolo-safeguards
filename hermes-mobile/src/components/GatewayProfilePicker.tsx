@@ -38,7 +38,7 @@ export default function GatewayProfilePicker({
       ) : null}
       {profiles.length === 0 && !scanning ? (
         <Text style={styles.emptyText}>
-          No saved computers yet. Scan a QR or tap Find computers on Wi‑Fi.
+          No saved Macs yet. Search Wi‑Fi or scan the QR on your Mac.
         </Text>
       ) : null}
       {profiles.length > 0 ? (
@@ -49,9 +49,9 @@ export default function GatewayProfilePicker({
           ? activeReachable
             ? 'Connected'
             : activeConnecting
-              ? 'Trying to connect…'
-              : 'Selected · cannot reach'
-          : 'Tap to switch';
+              ? 'Connecting…'
+              : 'Cannot reach this Mac'
+          : 'Tap to connect';
         const statusColor = isActive
           ? activeReachable
             ? colors.success

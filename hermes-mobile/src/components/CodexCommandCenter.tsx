@@ -22,18 +22,18 @@ function connectionCopy(
   macHttpReachable = false,
 ): { label: string; detail: string; color: string } {
   if (state === 'connected') {
-    return { label: 'Live', detail: 'Mac streaming', color: colors.success };
+    return { label: 'Connected', detail: 'Ready', color: colors.success };
   }
   if (state === 'demo') {
-    return { label: 'Demo', detail: 'Sample workspace', color: colors.accent };
+    return { label: 'Demo', detail: 'Preview', color: colors.accent };
   }
   if (macHttpReachable) {
-    return { label: 'Online', detail: 'Ready', color: colors.success };
+    return { label: 'Connected', detail: 'Ready', color: colors.success };
   }
   if (state === 'connecting') {
-    return { label: 'Linking', detail: 'Checking gateway', color: colors.warning };
+    return { label: 'Connecting', detail: 'Checking Mac', color: colors.warning };
   }
-  return { label: 'Offline', detail: 'Pair Mac first', color: colors.error };
+  return { label: 'Not connected', detail: 'Tap Mac', color: colors.error };
 }
 
 const INACTIVE_RUN_PHASES = new Set(['completed', 'failed', 'idle']);
@@ -70,7 +70,7 @@ export default function CodexCommandCenter({
   const showRunTile = shouldShowRunTile(runProgress, isSending);
   const toolCount = sessions.reduce((sum, session) => sum + (session.tool_call_count ?? 0), 0);
   const toolsValueLabel = toolCount > 0 ? String(toolCount) : 'Open';
-  const toolsDetailLabel = toolCount > 0 ? 'Calls · all chats' : 'Skills & jobs';
+  const toolsDetailLabel = toolCount > 0 ? 'Tool calls' : 'Open tools';
 
   const runDetailLabel = (() => {
     if (isSending) {
@@ -128,8 +128,8 @@ export default function CodexCommandCenter({
           accessibilityRole="button"
           accessibilityLabel={
             toolCount > 0
-              ? `Open tools — ${toolCount} tool calls across all chats on this Mac`
-              : 'Open gateway tools'
+              ? `Open tools. ${toolCount} tool calls.`
+              : 'Open tools'
           }
           testID="command-center-tools"
         >

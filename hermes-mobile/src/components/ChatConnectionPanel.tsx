@@ -30,17 +30,17 @@ function connectionStatusLine(
   macLabel?: string,
 ): string {
   if (searching) {
-    return 'Searching your Wi‑Fi network for Hermes…';
+    return 'Looking for a Mac running Hermes on this Wi‑Fi.';
   }
   if (connectionState === 'connecting') {
     return macLabel
-      ? `Connecting to ${macLabel}…`
-      : 'Connecting to your computer…';
+      ? `Connecting to ${macLabel}.`
+      : 'Connecting to your Mac.';
   }
   if (macLabel) {
-    return `Your phone can't reach ${macLabel} yet. Check the list above, then tap Search again.`;
+    return `Your phone cannot reach ${macLabel}. Choose another saved Mac or search Wi‑Fi.`;
   }
-  return "Your phone can't reach your computer yet. Check the list above, then tap Search again.";
+  return 'Your phone is not connected to a Mac yet. Search Wi‑Fi to link one.';
 }
 
 function connectionTitle(
@@ -51,9 +51,9 @@ function connectionTitle(
     return 'Finding your Mac';
   }
   if (connectionState === 'connecting') {
-    return 'Linking Hermes';
+    return 'Connecting';
   }
-  return 'Mac offline';
+  return 'Not connected';
 }
 
 export default function ChatConnectionPanel({
@@ -113,7 +113,7 @@ export default function ChatConnectionPanel({
         <View style={styles.savedBlock}>
           <Text style={styles.savedHeading}>Saved computers</Text>
           <Text style={styles.savedHint}>
-            Choose the Mac you want Hermes Mobile to use.
+            Tap a Mac to connect.
           </Text>
           <GatewayProfilePicker
             profiles={profiles}
@@ -144,7 +144,7 @@ export default function ChatConnectionPanel({
         onPress={() => Linking.openURL(HERMES_MAC_GET_STARTED_URL)}
         testID="chat-connection-install-link"
       >
-        <Text style={styles.installLink}>Don't have Hermes on your computer yet? Learn how to install →</Text>
+        <Text style={styles.installLink}>Need Hermes on your Mac? Open setup →</Text>
       </TouchableOpacity>
     </View>
   );
