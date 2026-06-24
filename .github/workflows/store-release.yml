@@ -177,9 +177,7 @@ jobs:
             --profile production \
             --non-interactive \
             --wait \
-            --json \
-            > /tmp/eas-android-submit.json
-          cat /tmp/eas-android-submit.json
+            2>&1 | tee /tmp/eas-android-submit.txt
 
       - name: Upload Android release evidence
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
@@ -189,7 +187,7 @@ jobs:
           path: |
             /tmp/eas-android-production-build.json
             /tmp/eas-android-production-build-view.json
-            /tmp/eas-android-submit.json
+            /tmp/eas-android-submit.txt
           retention-days: 14
 
   ios-production:
@@ -300,9 +298,7 @@ jobs:
             --profile production \
             --non-interactive \
             --wait \
-            --json \
-            > /tmp/eas-ios-submit.json
-          cat /tmp/eas-ios-submit.json
+            2>&1 | tee /tmp/eas-ios-submit.txt
 
       - name: Upload iOS release evidence
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
@@ -312,5 +308,5 @@ jobs:
           path: |
             /tmp/eas-ios-production-build.json
             /tmp/eas-ios-production-build-view.json
-            /tmp/eas-ios-submit.json
+            /tmp/eas-ios-submit.txt
           retention-days: 14
