@@ -9,7 +9,7 @@
 [![Arch](https://img.shields.io/badge/arch-Apple%20Silicon%20%2B%20Intel-lightgrey)](#)
 [![Telemetry](https://img.shields.io/badge/telemetry-none-success)](#telemetry-and-privacy)
 
-Safety net for running AI coding agents (Antigravity `agy`, Claude Code, Cursor, Codex) in YOLO mode on macOS without freezing the Mac.
+**The OS-level safeguards layer for AI agent loops.** Runaway-kill, hard timeouts, and resource limits — the enforcement your agent harness is missing — so coding agents (Antigravity `agy`, Claude Code, Cursor, Codex) running in YOLO mode can't burn your tokens or freeze your Mac.
 
 > **TL;DR** — On 2026-05-26 my Mac hit load average **307** because an AI agent kept booting iOS Simulators in a loop. This repo is the four-piece kit that stopped it: a wrapper, a LaunchAgent, a plist, and a 12-point health check. MIT, no telemetry, symlinks-only install. Full incident write-up: [`CASE-STUDY.md`](./docs/CASE-STUDY.md).
 
