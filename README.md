@@ -19,6 +19,8 @@
 
 If you only need the free Mac guard, install it below.
 
+**Built your app with AI (Cursor, Claude Code, Lovable, Bolt) and not sure it's safe to launch?** Get it audited for leaked secrets, runaway cloud bills, and crash-under-load bugs → **[AI App Safety Audit](./docs/AI-APP-SAFETY-AUDIT.md)** (5-day fixed-fee, plain-English report).
+
 If you run agents for a team or clients and have a repeated failure that costs hours, tokens, delivery risk, or client trust, start with [AI Agent Reliability Hardening](./docs/AI-AGENT-HARDENING.md):
 
 | Path | Deliverables | Pricing |
