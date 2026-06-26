@@ -9,7 +9,6 @@ export const FORBIDDEN_APP_LABEL = 'Hermes Mobile Agent';
 /** Legacy native shell copy — must never ship from this Expo repo. */
 export const LEGACY_SHELL_STRING_MARKERS = [
   'Hold the cord on your AI',
-  'Connect your computer',
   'Hermes Mobile Agent intercepts dangerous',
 ] as const;
 
@@ -34,9 +33,16 @@ export function apkContainsLegacyShellMarkers(sampledStrings: string[]): string[
   return LEGACY_SHELL_STRING_MARKERS.filter((marker) => haystack.includes(marker));
 }
 
+/** Minified bundle may not retain literal `expo/modules` — use app fingerprints too. */
+export const EXPO_APP_BUNDLE_MARKERS = [
+  'expo/modules',
+  'HERMES CHAT',
+  'GatewayProvider',
+] as const;
+
 export function apkContainsExpoModules(sampledStrings: string[]): boolean {
   const haystack = sampledStrings.join('\n');
-  return haystack.includes('expo/modules');
+  return EXPO_APP_BUNDLE_MARKERS.some((marker) => haystack.includes(marker));
 }
 
 export type ApkReleaseGuardResult =

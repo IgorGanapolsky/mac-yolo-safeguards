@@ -1,4 +1,4 @@
-import { HERMES_MOBILE_CLOUD_URL } from '../constants/appIdentity';
+import { HERMES_MOBILE_CLOUD_URL, THUMBGATE_API_URL } from '../constants/appIdentity';
 
 export type GatewayHealthLevel = 'green' | 'amber' | 'red' | 'unknown';
 
@@ -11,6 +11,14 @@ export interface GateBlockedPayload {
   command?: string;
   workspacePath?: string;
   diff?: string;
+  runId?: string;
+  allowPermanent?: boolean;
+  /** Structured proposal fields (2026 unified approval UX). */
+  source?: 'gateway_guard' | 'text_nudge' | 'relay_hook';
+  approveText?: string;
+  riskTier?: 'low' | 'medium' | 'high';
+  rollbackHint?: string;
+  sessionKey?: string;
 }
 
 export interface ReclaimFiredPayload {
@@ -27,6 +35,14 @@ export interface PendingApproval {
   workspacePath?: string;
   diff?: string;
   receivedAt: string;
+  /** When actionId is a session key, run_id from gateway chat stream. */
+  runId?: string;
+  allowPermanent?: boolean;
+  source?: 'gateway_guard' | 'text_nudge' | 'relay_hook';
+  approveText?: string;
+  riskTier?: 'low' | 'medium' | 'high';
+  rollbackHint?: string;
+  sessionKey?: string;
 }
 
 export interface GatewayHealthSnapshot {
@@ -37,6 +53,10 @@ export interface GatewayHealthSnapshot {
   platforms?: Record<string, { state?: string; error_message?: string }>;
   checkedAt: string;
   errorMessage?: string;
+  hostname?: string;
+  localIp?: string;
+  /** Direct HTTP to :8642 on the saved gateway URL (distinct from relay cloud health). */
+  directGatewayReachable?: boolean;
 }
 
 export interface GatewayEventMessage {
@@ -47,6 +67,10 @@ export interface GatewayEventMessage {
 
 export type ConnectionMode = 'relay' | 'gateway';
 
+export type ApprovalPolicy = 'strict' | 'balanced' | 'autonomous';
+export type HermesPersona = 'operator' | 'coach' | 'spark';
+export type HermesAvatar = 'orb' | 'bolt' | 'navigator' | 'guardian';
+
 export interface GatewaySettings {
   connectionMode: ConnectionMode;
   cloudUrl: string;
@@ -55,14 +79,56 @@ export interface GatewaySettings {
   redactPii: boolean;
   notificationsEnabled: boolean;
   demoMode: boolean;
+  /** Glanceable stack UI + audio-first feedback (AI glasses parity on phone). */
+  glanceMode: boolean;
+  /** Open Leash on launch and prioritize approval alerts (ThumbGate ops persona). */
+  safetyMode: boolean;
+  /** ThumbGate: capture thumbs-down verdicts to agent memory (default on). */
+  thumbgateCaptureOnDown: boolean;
+  /** ThumbGate: capture thumbs-up verdicts to agent memory (default off). */
+  thumbgateCaptureOnUp: boolean;
+  /** ThumbGate API base URL for /v1/feedback/capture. */
+  thumbgateApiUrl: string;
+  /** Operator approval friction — strict gates prod deploy; autonomous favors standing allow on Mac. */
+  approvalPolicy: ApprovalPolicy;
+  /** Product analytics (PostHog) — off when true. Default on in production builds with key. */
+  analyticsOptOut: boolean;
+  /** ThumbGate Pro — unlocks ThumbGate Leash (mobile approval relay + memory gates). */
+  thumbgateProActive: boolean;
+  /** Developer backdoor: unlock Leash without IAP (gesture / deep link / pair script). */
+  developerLeashUnlock?: boolean;
+  /** Route chat "confirm proceed" prompts to Leash tab instead of composer chips. */
+  routeChatConfirmationsToLeash?: boolean;
+  /** Whether to show tool execution messages (role tool/function) in transcripts. */
+  includeToolActivity?: boolean;
+  /** Presentation/personality skin for mobile chat. Style only; execution directives still win. */
+  hermesPersona?: HermesPersona;
+  /** Local avatar skin shown in Chat and Settings. */
+  hermesAvatar?: HermesAvatar;
+  /** Lightweight animated presence cues. */
+  playfulMotion?: boolean;
 }
 
 export const DEFAULT_GATEWAY_SETTINGS: GatewaySettings = {
-  connectionMode: 'gateway',
+  connectionMode: 'relay',
   cloudUrl: HERMES_MOBILE_CLOUD_URL,
-  gatewayUrl: 'http://127.0.0.1:8642',
+  gatewayUrl: '',
   usePortal: false,
   redactPii: true,
   notificationsEnabled: true,
   demoMode: false,
+  glanceMode: false,
+  safetyMode: false,
+  thumbgateCaptureOnDown: true,
+  thumbgateCaptureOnUp: false,
+  thumbgateApiUrl: THUMBGATE_API_URL,
+  approvalPolicy: 'balanced',
+  analyticsOptOut: false,
+  thumbgateProActive: false,
+  developerLeashUnlock: false,
+  routeChatConfirmationsToLeash: true,
+  includeToolActivity: true,
+  hermesPersona: 'operator',
+  hermesAvatar: 'orb',
+  playfulMotion: true,
 };

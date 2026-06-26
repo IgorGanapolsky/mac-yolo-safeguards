@@ -15,6 +15,9 @@ export interface AppColors {
   error: string;
   warning: string;
   gateBlocked: string;
+  userBubble: string;
+  userBubbleText: string;
+  composerSurface: string;
 }
 
 export const colors: AppColors = {
@@ -34,6 +37,9 @@ export const colors: AppColors = {
   error: '#EF4444',
   warning: '#F59E0B',
   gateBlocked: '#F87171',
+  userBubble: '#3D3834',
+  userBubbleText: '#F4F1EC',
+  composerSurface: '#1A1D24',
 };
 
 export const Spacing = {

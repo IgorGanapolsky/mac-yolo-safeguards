@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://hermes.local/schemas/approval-proposal.json",
+  "title": "HermesApprovalProposal",
+  "description": "Cross-channel approval proposal — Chat, Leash, Telegram, push actions.",
+  "type": "object",
+  "required": ["id", "source", "title", "choices"],
+  "properties": {
+    "id": {
+      "type": "string",
+      "description": "Stable id for dedupe — run_id, actionId, or synthetic text-nudge id."
+    },
+    "source": {
+      "type": "string",
+      "enum": ["gateway_guard", "text_nudge", "relay_hook"]
+    },
+    "run_id": {
+      "type": "string",
+      "description": "When set, resolve via POST /v1/runs/{run_id}/approval"
+    },
+    "tool_name": { "type": "string" },
+    "title": { "type": "string" },
+    "reason": { "type": "string" },
+    "command": { "type": "string" },
+    "workspace_path": { "type": "string" },
+    "approve_text": {
+      "type": "string",
+      "description": "Legacy text nudge — exact user phrase on approve-once."
+    },
+    "risk_tier": {
+      "type": "string",
+      "enum": ["low", "medium", "high"]
+    },
+    "rollback_hint": { "type": "string" },
+    "allow_permanent": { "type": "boolean", "default": true },
+    "choices": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": ["once", "session", "always", "deny"]
+      },
+      "minItems": 2
+    },
+    "received_at": { "type": "string", "format": "date-time" }
+  },
+  "additionalProperties": false
+}

@@ -94,14 +94,21 @@ notify() {
 
 # --- Auto-configure adb reverse port forwarding for Hermes Mobile ---
 if command -v adb >/dev/null 2>&1; then
-  if adb devices 2>/dev/null | grep -qE "^[a-zA-Z0-9_-]+\s+device$"; then
-    if ! adb reverse --list 2>/dev/null | grep -q "tcp:8642"; then
-      if adb reverse tcp:8642 tcp:8642 >/dev/null 2>&1; then
-        echo "$(date) AUTO-PORT-FORWARD: reversed tcp:8642 tcp:8642 for attached Android device" >> "$LOG"
-        notify "yolo-guard: USB forwarding active" "Automatically forwarded port 8642 via adb reverse to your mobile device."
+  adb devices 2>/dev/null | grep -v "List" | grep "device" | awk '{print $1}' | while read -r serial; do
+    if [ -n "$serial" ]; then
+      if ! adb -s "$serial" reverse --list 2>/dev/null | grep -q "tcp:8642"; then
+        if adb -s "$serial" reverse tcp:8642 tcp:8642 >/dev/null 2>&1; then
+          echo "$(date) AUTO-PORT-FORWARD: reversed tcp:8642 tcp:8642 for device $serial" >> "$LOG"
+          notify "yolo-guard: USB forwarding active" "Automatically forwarded port 8642 via adb reverse to your mobile device ($serial)."
+        fi
+      fi
+      if ! adb -s "$serial" reverse --list 2>/dev/null | grep -q "tcp:8765"; then
+        if adb -s "$serial" reverse tcp:8765 tcp:8765 >/dev/null 2>&1; then
+          echo "$(date) AUTO-PORT-FORWARD: reversed tcp:8765 tcp:8765 for device $serial" >> "$LOG"
+        fi
       fi
     fi
-  fi
+  done
 fi
 
 # --- Self-heal: if any expected symlink is missing, re-run install.sh ---
@@ -137,8 +144,8 @@ SIM_COUNT=$(/bin/ps ax | /usr/bin/grep -i simruntime | /usr/bin/grep -v grep | /
 SIM_MEM=$(/bin/ps aux | /usr/bin/grep -i simruntime | /usr/bin/grep -v grep | /usr/bin/awk '{mem+=$4} END {printf "%d", mem+0}')
 [ -z "$SIM_MEM" ] && SIM_MEM=0
 
-SIM_PROC_HARD_LIMIT=${YOLO_SIM_PROC_HARD_LIMIT:-50}
-SIM_LOAD_THRESHOLD=${YOLO_SIM_LOAD_THRESHOLD:-15}
+SIM_PROC_HARD_LIMIT=${YOLO_SIM_PROC_HARD_LIMIT:-150}
+SIM_LOAD_THRESHOLD=${YOLO_SIM_LOAD_THRESHOLD:-150}
 BOOTED_SIM_LOAD_THRESHOLD=${YOLO_BOOTED_SIM_LOAD_THRESHOLD:-40}
 BOOTED_SIM_CPU_THRESHOLD=${YOLO_BOOTED_SIM_CPU_THRESHOLD:-95}
 BOOTED_SIM_SUSTAINED_FIRES=${YOLO_BOOTED_SIM_SUSTAINED_FIRES:-5}
@@ -436,6 +443,44 @@ CPU_HOT_EOF
         fi
         notify "yolo-guard: reclaimed Ollama worker" "Killed Ollama worker PID $opid (${orss}MB) under memory pressure ($MEM_PRESSURE). Ollama service left running."
         echo "$(date) OLLAMA_RECLAIM: killed Ollama worker PID $opid ${orss}MB pressure=$MEM_PRESSURE cmd=$ocmd" >> "$LOG"
+      done
+    fi
+
+    # --- Auto-reclaim: orphaned headless Android emulators (known-safe kill) ---
+    # Maestro / agent-device E2E runs leave headless qemu Android emulators
+    # (qemu-system-*-headless -no-window @<AVD>) alive for HOURS after the test
+    # process exits. Each holds a multi-GB guest VM but no unsaved user work,
+    # and they were the 2026-06-25 culprit: a 22h-orphaned Maestro emulator
+    # starved RAM until Ollama could no longer load the 64k model, so the Hermes
+    # agent silently stopped replying to mobile chats. Reclaim ONLY when ALL hold:
+    #   (a) headless (-no-window) — an interactive emulator with a window is spared;
+    #   (b) older than YOLO_EMULATOR_MAX_AGE_SEC (default 2h) — a live test's
+    #       freshly-booted emulator is never touched;
+    #   (c) no running maestro/agent-device process references that AVD — so an
+    #       in-progress E2E run is never disrupted (multi-agent-safe).
+    if [ "${YOLO_RECLAIM_ORPHAN_EMULATOR:-1}" = "1" ]; then
+      EMU_MAX_AGE_SEC=${YOLO_EMULATOR_MAX_AGE_SEC:-7200}
+      EMU_LINES=$(/bin/ps -axo pid,etime,command | /usr/bin/awk -v t="$EMU_MAX_AGE_SEC" '
+        function etsec(e,  d,a,p,n){ d=0; if(index(e,"-")>0){split(e,a,"-");d=a[1];e=a[2]}
+          n=split(e,p,":"); if(n==3)return d*86400+p[1]*3600+p[2]*60+p[3];
+          else if(n==2)return d*86400+p[1]*60+p[2]; else return d*86400+p[1] }
+        /qemu-system-[a-z0-9_]*/ && /-no-window/ && !/awk/ {
+          pid=$1; age=etsec($2); avd="";
+          for(i=1;i<=NF;i++) if($i ~ /^@/){avd=$i;break}
+          if (age >= t) printf "%s %s %s\n", pid, age, avd
+        }')
+      LIVE_TESTS=$(/bin/ps -axo command | /usr/bin/grep -E 'agent-device|maestro' | /usr/bin/grep -v grep 2>/dev/null)
+      echo "$EMU_LINES" | while read -r epid eage eavd; do
+        [ -z "$epid" ] && continue
+        if [ -n "$eavd" ] && printf '%s' "$LIVE_TESTS" | /usr/bin/grep -qF "$eavd"; then
+          echo "$(date) EMULATOR_RECLAIM: SKIP pid=$epid avd=$eavd (live test owns it)" >> "$LOG"
+          continue
+        fi
+        /bin/kill -TERM "$epid" 2>/dev/null || true
+        /bin/sleep 3
+        if /bin/ps -p "$epid" >/dev/null 2>&1; then /bin/kill -KILL "$epid" 2>/dev/null || true; fi
+        notify "yolo-guard: reclaimed orphaned emulator" "Killed headless Android emulator PID $epid (${eage}s old, ${eavd:-no-avd}) under memory pressure ($MEM_PRESSURE). No active test referenced it."
+        echo "$(date) EMULATOR_RECLAIM: killed PID $epid age=${eage}s avd=$eavd pressure=$MEM_PRESSURE" >> "$LOG"
       done
     fi
 

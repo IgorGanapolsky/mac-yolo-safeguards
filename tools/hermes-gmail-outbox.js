@@ -15,10 +15,11 @@ const usage = `Usage:
 
 Builds a Gmail draft plan from the Hermes/Skool outreach outbox.
 
-Missing prospect emails are not blockers: they become CEO-review drafts sent to
-the operator email with lead details and proposed copy. With --execute, the tool
-creates Gmail drafts only when google_api.py reports gmail_drafts_ready=true;
-otherwise it writes the plan and exits 0 with execution.status=setup_needed.`;
+Rows with verified prospect emails become buyer-facing drafts. Rows without a
+verified prospect email are grouped into one internal digest so Gmail never fills
+with unusable one-off "missing email" drafts. With --execute, the tool creates
+Gmail drafts only when google_api.py reports gmail_drafts_ready=true; otherwise
+it writes the plan and exits 0 with execution.status=setup_needed.`;
 
 function parseArgs(argv) {
   const args = {
@@ -76,66 +77,107 @@ function displayName(row) {
   return label.split('|')[0].trim() || label.trim() || 'prospect';
 }
 
-function buildSubject(row, mode) {
-  const name = displayName(row);
-  if (mode === 'prospect') return `Quick question for ${name}`;
-  return `CEO review: missing prospect email for ${name}`;
+function sentence(value) {
+  return String(value || '')
+    .replace(/\s+/g, ' ')
+    .replace(/\s+([?.!,])/g, '$1')
+    .trim();
 }
 
-function buildBody(row, mode) {
-  const lead = [
-    `Lead: ${row.lead_id || ''}`,
-    `Label: ${row.label || ''}`,
-    `Handle: ${row.prospect_handle || ''}`,
-    `Offer: ${row.offer_sku || ''}`,
-    `Original channel: ${row.assigned_channel || ''}`,
-  ].filter((line) => !line.endsWith(': ')).join('\n');
+function buildSubject(row) {
+  const name = displayName(row);
+  return `Quick question for ${name}`;
+}
 
-  if (mode === 'prospect') {
-    return [
-      row.message_text || '',
-      '',
-      '--',
-      'Hermes generated this draft from the verified outreach outbox.',
-      lead,
-    ].join('\n').trim();
-  }
-
+function buildProspectBody(row) {
+  const name = displayName(row).split(/\s+/)[0] || 'there';
+  const proposed = sentence(row.message_text);
   return [
-    'Hermes could not find a verified prospect_email for this lead, so it routed the copy here instead of stopping.',
+    proposed || `Hi ${name}, quick question: where does follow-up currently slow down in your workflow?`,
     '',
-    lead,
+    'If it is useful, I can send over a short same-day audit of the handoff points where leads or replies leak.',
     '',
-    'Proposed copy:',
-    row.message_text || '',
+    'Best,',
+    'Igor',
   ].join('\n').trim();
 }
 
-function buildPlan(options) {
-  const { generatedAt, queue } = readOutbox(options.outbox);
-  const actions = [];
-  const skipped = [];
+function buildMissingEmailDigest(missingRows, options) {
+  const lines = [
+    `Outreach contact research needed: ${missingRows.length} lead(s) have no verified email.`,
+    '',
+    'Do not send this as outreach. Use it to find verified contact emails, LinkedIn profiles, or a permitted community DM path.',
+    '',
+    'Priority leads:',
+  ];
 
+  for (const [index, row] of missingRows.slice(0, 30).entries()) {
+    lines.push(
+      '',
+      `${index + 1}. ${displayName(row)}`,
+      `   Lead: ${row.lead_id || 'unknown'}`,
+      `   Handle: ${row.prospect_handle || 'unknown'}`,
+      `   Offer: ${row.offer_sku || 'unknown'}`,
+      `   Channel found: ${row.assigned_channel || 'unknown'}`,
+      `   Suggested opener: ${sentence(row.message_text) || 'missing'}`
+    );
+  }
+
+  if (missingRows.length > 30) {
+    lines.push('', `Plus ${missingRows.length - 30} more lead(s) in ${options.outbox}.`);
+  }
+
+  return {
+    lead_id: 'missing-email-digest',
+    mode: 'operator_digest',
+    to: options.operatorEmail,
+    subject: `Contact research needed for ${missingRows.length} outreach lead${missingRows.length === 1 ? '' : 's'}`,
+    body: lines.join('\n'),
+    missing_prospect_email: true,
+    digest_count: missingRows.length,
+  };
+}
+
+function classifyQueue(queue) {
+  const prospectRows = [];
+  const missingRows = [];
+  const skipped = [];
   for (const row of queue) {
     if (row.status && row.status !== 'pending') {
       skipped.push({ lead_id: row.lead_id, reason: `status=${row.status}` });
       continue;
     }
     const email = String(row.prospect_email || row.email || '').trim();
-    const hasProspectEmail = isEmail(email);
-    const mode = hasProspectEmail ? 'prospect' : 'operator_review';
-    const to = hasProspectEmail ? email : options.operatorEmail;
+    if (isEmail(email)) {
+      prospectRows.push({ row, email });
+    } else {
+      missingRows.push(row);
+    }
+  }
+  return { prospectRows, missingRows, skipped };
+}
+
+function buildPlan(options) {
+  const { generatedAt, queue } = readOutbox(options.outbox);
+  const { prospectRows, missingRows, skipped } = classifyQueue(queue);
+  const actions = [];
+
+  for (const { row, email } of prospectRows) {
     actions.push({
       lead_id: row.lead_id || '',
-      mode,
-      to,
-      subject: buildSubject(row, mode),
-      body: buildBody(row, mode),
+      mode: 'prospect',
+      to: email,
+      subject: buildSubject(row),
+      body: buildProspectBody(row),
       source_channel: row.assigned_channel || '',
       prospect_handle: row.prospect_handle || '',
       offer_sku: row.offer_sku || '',
-      missing_prospect_email: !hasProspectEmail,
+      missing_prospect_email: false,
     });
+  }
+
+  if (missingRows.length) {
+    actions.push(buildMissingEmailDigest(missingRows, options));
   }
 
   return {
@@ -146,8 +188,9 @@ function buildPlan(options) {
     counts: {
       source_queue: queue.length,
       actions: actions.length,
-      prospect_drafts: actions.filter((a) => a.mode === 'prospect').length,
-      operator_review_drafts: actions.filter((a) => a.mode === 'operator_review').length,
+      prospect_drafts: prospectRows.length,
+      operator_digest_drafts: missingRows.length ? 1 : 0,
+      missing_email_leads: missingRows.length,
       skipped: skipped.length,
     },
     actions,
@@ -245,7 +288,8 @@ function main() {
   } else {
     console.log(`Actions: ${plan.counts.actions}`);
     console.log(`Prospect drafts: ${plan.counts.prospect_drafts}`);
-    console.log(`CEO-review drafts: ${plan.counts.operator_review_drafts}`);
+    console.log(`Operator digest drafts: ${plan.counts.operator_digest_drafts}`);
+    console.log(`Missing-email leads: ${plan.counts.missing_email_leads}`);
     if (report.execution) {
       console.log(`Execution: ${report.execution.status}`);
     }
@@ -269,4 +313,6 @@ module.exports = {
   executePlan,
   gmailStatus,
   isEmail,
+  buildMissingEmailDigest,
+  buildProspectBody,
 };

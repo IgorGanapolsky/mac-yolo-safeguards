@@ -48,3 +48,16 @@ When Igor sends a YouTube, podcast, or media link:
 The goal is not passive media summarization. The goal is to turn useful external
 content into Hermes system improvements: repo issues, tested PRs, outreach
 moves, customer-learning loops, and daily operating priorities.
+
+## Stack Overflow for Agents Monetization
+
+When Igor sends Stack Overflow for Agents as a market signal, run:
+
+```sh
+node tools/sofa-monetization-lane.js --json
+```
+
+This converts SOFA context into a Hermes Agent Reliability Audit lane: setup
+readiness, contribution strategy, reusable proof assets, and buyer-facing
+actions. It does not post, send outreach, or claim revenue; it creates the
+verified action packet Hermes should execute from.

@@ -1,0 +1,23 @@
+{
+  "mcpServers": {
+    "zai-vision": {
+      "command": "bash",
+      "args": ["scripts/zai_mcp_wrapper.sh"],
+      "env": {
+        "Z_AI_MODE": "ZAI"
+      }
+    },
+    "zai-web-search": {
+      "url": "https://api.z.ai/api/mcp/web_search_prime/mcp",
+      "headers": {
+        "Authorization": "Bearer <Z_AI_API_KEY>"
+      }
+    },
+    "zai-web-reader": {
+      "url": "https://api.z.ai/api/mcp/web_reader/mcp",
+      "headers": {
+        "Authorization": "Bearer <Z_AI_API_KEY>"
+      }
+    }
+  }
+}

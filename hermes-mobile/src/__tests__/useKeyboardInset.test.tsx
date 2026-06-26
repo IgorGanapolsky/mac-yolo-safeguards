@@ -1,0 +1,51 @@
+import React from 'react';
+import { act, render } from '@testing-library/react-native';
+import { Keyboard, Platform, Text } from 'react-native';
+import { useKeyboardInset } from '../hooks/useKeyboardInset';
+
+function KeyboardProbe({ focused }: { focused: boolean }) {
+  const { inset, windowShrunk } = useKeyboardInset({ focused });
+  return <Text testID="keyboard-probe">{`${inset}:${windowShrunk ? 'shrunk' : 'steady'}`}</Text>;
+}
+
+describe('useKeyboardInset', () => {
+  const listeners = new Map<string, (event?: unknown) => void>();
+  const originalOs = Platform.OS;
+
+  beforeEach(() => {
+    jest.useFakeTimers();
+    Platform.OS = 'android';
+    listeners.clear();
+    jest.spyOn(Keyboard, 'addListener').mockImplementation((eventName, callback) => {
+      listeners.set(eventName, callback as (event?: unknown) => void);
+      return { remove: jest.fn() } as never;
+    });
+  });
+
+  afterEach(() => {
+    Platform.OS = originalOs;
+    jest.restoreAllMocks();
+    jest.useRealTimers();
+  });
+
+  it('clears stale Android keyboard inset when no keyboard metrics remain visible', () => {
+    jest.spyOn(Keyboard, 'metrics').mockReturnValue({ height: 320 } as never);
+    const { getByTestId } = render(<KeyboardProbe focused />);
+
+    act(() => {
+      listeners.get('keyboardDidShow')?.({
+        endCoordinates: { screenX: 0, screenY: 0, width: 360, height: 320 },
+      });
+    });
+
+    expect(getByTestId('keyboard-probe').props.children).toContain('320');
+
+    (Keyboard.metrics as jest.Mock).mockReturnValue(undefined);
+
+    act(() => {
+      jest.advanceTimersByTime(250);
+    });
+
+    expect(getByTestId('keyboard-probe').props.children).toBe('0:steady');
+  });
+});

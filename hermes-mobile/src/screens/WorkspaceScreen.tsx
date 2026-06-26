@@ -4,10 +4,10 @@ import {
   View,
   Text,
   ScrollView,
-  FlatList,
   TouchableOpacity,
   ActivityIndicator,
 } from 'react-native';
+import { FlashList, type FlashListRef } from '@shopify/flash-list';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useGateway } from '../context/GatewayContext';
 import GlassCard from '../components/GlassCard';
@@ -83,7 +83,7 @@ export default function WorkspaceScreen() {
   const [logs, setLogs] = useState<LogLine[]>(INITIAL_LOGS);
   const [selectedDiff, setSelectedDiff] = useState<typeof MOCK_DIFFS[0] | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const flatListRef = useRef<FlatList<LogLine>>(null);
+  const flatListRef = useRef<FlashListRef<LogLine>>(null);
 
   // Auto-scroll to end when logs append
   useEffect(() => {
@@ -189,11 +189,11 @@ export default function WorkspaceScreen() {
         {/* Real-time Logs Console */}
         <Text style={styles.sectionTitle}>📺 Real-time Telemetry Logs</Text>
         <GlassCard style={styles.logsCard}>
-          <FlatList
+          <FlashList
             ref={flatListRef}
             data={logs}
             keyExtractor={(item) => item.id}
-            scrollEnabled={false} // Nested inside ScrollView
+            scrollEnabled={false}
             renderItem={({ item }) => (
               <View style={styles.logRow}>
                 <Text style={styles.logTime}>{item.timestamp}</Text>

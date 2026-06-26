@@ -150,11 +150,11 @@ OSA
     *) printf 'key=%s FAIL expected=%s\n' "$key" "$expected"; exit 1 ;;
   esac
 }
-check_key 1 'are you sure?'
-check_key 2 'continue'
-check_key 3 'I rely on you as my autonomous CEO/CTO. I always expect you to investigate, do Deep Research and take action'
-check_key 4 'always use Data Science, ML, and Agentic RAG to drive your decisions'
-check_key 5 'What action must you take next to make money today?'
+check_key 1 'Verify every load-bearing assumption using current external evidence. Label unknowns explicitly.'
+check_key 2 'Run the Revenue Operator loop now. Verify money truth, inspect new evidence, select the highest-scoring authorized action, execute it, verify the result, and update campaign state. Do not return only a plan when an authorized executable action exists.'
+check_key 3 'You are my bounded autonomous Revenue Operator for the active campaign. Do not change the offer, niche, price, or channel before the campaign minimum test is complete.'
+check_key 4 'Use web research, RAG, data analysis, or ML only when it can materially change the selected action. Prefer payment-provider truth, direct buyer messages, provider evidence, current primary sources, and simple explainable scoring.'
+check_key 5 'What single authorized revenue action will you execute now to move a qualified prospect toward payment? Include evidence, timestamp, result, and next state.'
 close_textedit_docs
 REMOTE_PASTE
 assert_file_contains "$ARTIFACT_DIR/remote-api-paste.txt" 'key=1 PASS' "remote cmd+1 snippet inserts"

@@ -1,0 +1,21 @@
+---
+description: Mandatory Hermes Mobile verification after edits — never wait for user to ask for E2E
+globs:
+  - hermes-mobile/**
+alwaysApply: false
+---
+
+# Hermes Mobile verification
+
+When editing anything under `hermes-mobile/`:
+
+1. Run unit tests in the same turn: `cd hermes-mobile && npm test -- --no-coverage --watchman=false`
+2. Trigger autonomous E2E (do not tell the user to run Maestro):
+   ```bash
+   launchctl kickstart -k "gui/$(id -u)/com.igor.hermes-mobile-continuous-e2e" 2>/dev/null \
+     || (cd hermes-mobile && npm run e2e:continuous:once)
+   ```
+3. Read `hermes-mobile/docs/proofs/continuous/latest.json` before claiming chat/UI is fixed.
+4. Phone setup: `node tools/hermes-mobile-pair.js` when `adb devices` shows a device — never manual Settings steps.
+
+Full contract: [hermes-mobile/AGENTS.md](../../hermes-mobile/AGENTS.md).

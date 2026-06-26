@@ -3,6 +3,9 @@
     "name": "Hermes Mobile",
     "slug": "hermes-mobile",
     "scheme": "hermes",
+    "experiments": {
+      "reactCompiler": true
+    },
     "version": "0.3.1",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -26,9 +29,10 @@
         "backgroundColor": "#0B0F19"
       },
       "package": "com.iganapolsky.hermesmobile",
-      "versionCode": 3,
+      "versionCode": 5,
       "userInterfaceStyle": "dark",
-      "allowBackup": false
+      "allowBackup": false,
+      "softwareKeyboardLayoutMode": "resize"
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -44,8 +48,37 @@
     },
     "updates": {
       "enabled": false,
+      "checkAutomatically": "NEVER",
+      "fallbackToCacheTimeout": 0,
       "url": "https://u.expo.dev/4ed13e30-9b97-4ddd-8a12-59106cae90d6"
     },
-    "plugins": []
+    "plugins": [
+      "./plugins/withEmbeddedJsBundle.js",
+      "./plugins/withHermesAiGlasses.js",
+      "./plugins/withHermesAppleIntelligence.js",
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "usesCleartextTraffic": true,
+            "softwareKeyboardLayoutMode": "resize"
+          }
+        }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Scan the Hermes pairing QR shown on your computer."
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/icon.png",
+          "color": "#6366F1"
+        }
+      ],
+      "expo-iap"
+    ]
   }
 }

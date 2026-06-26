@@ -1,29 +1,44 @@
-# Flow 3: Leash tab — demo GATE.BLOCKED approve flow
+# Flow 3: ThumbGate Leash tab — smoke-test approval card (release-safe, no __DEV__ demo mode)
 appId: com.iganapolsky.hermesmobile
 ---
 - launchApp
-- runFlow:
-    when:
-      notVisible:
-        id: "HERMES CHAT"
-    commands:
-      - tapOn: "Chat"
+- runFlow: e2e-bootstrap.yaml
+- waitForAnimationToEnd:
+    timeout: 2000
+- tapOn:
+    id: "Leash"
 - extendedWaitUntil:
     visible:
-      id: "HERMES CHAT"
+      id: "THUMBGATE_LEASH"
     timeout: 30000
-
-- tapOn: "Leash"
-- assertVisible:
-    id: "LEASH"
+- scrollUntilVisible:
+    element:
+      id: "leash-smoke-test"
+    direction: DOWN
+    timeout: 90000
 - tapOn:
-    id: "inject-demo-approval"
-- extendedWaitUntil:
-    visible: "GATE BLOCKED"
+    id: "leash-smoke-test"
+- scrollUntilVisible:
+    element:
+      id: "leash-thumbs-up"
+    direction: UP
     timeout: 10000
-- assertVisible: "APPROVE OVERRIDE"
-- assertVisible: "REJECT"
-- tapOn: "APPROVE OVERRIDE"
 - extendedWaitUntil:
-    visible: "No pending approvals"
+    visible:
+      id: "leash-thumbs-up"
+    timeout: 10000
+- assertVisible:
+    id: "leash-thumbs-down"
+- assertVisible:
+    id: "leash-thumbs-up"
+- tapOn:
+    id: "leash-thumbs-up"
+- scrollUntilVisible:
+    element:
+      id: "no-pending-approvals"
+    direction: UP
+    timeout: 10000
+- extendedWaitUntil:
+    visible:
+      id: "no-pending-approvals"
     timeout: 10000

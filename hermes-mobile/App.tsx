@@ -1,37 +1,184 @@
-import { StyleSheet, View, Text, TouchableOpacity, StatusBar, LogBox } from 'react-native';
+import React, { Suspense, useEffect, useRef } from 'react';
+import { StyleSheet, View, Text, TouchableOpacity, StatusBar, ActivityIndicator, Platform, Alert } from 'react-native';
+import * as SplashScreen from 'expo-splash-screen';
+import TabBarIcon from './src/components/TabBarIcon';
 
-LogBox.ignoreAllLogs(true);
+// Hold native splash until React paints — prevents flash of empty black window.
+void SplashScreen.preventAutoHideAsync().catch(() => {});
 
-import { NavigationContainer } from '@react-navigation/native';
+import { NavigationContainer, type NavigationContainerRef } from '@react-navigation/native';
 import { createBottomTabNavigator, BottomTabBarProps } from '@react-navigation/bottom-tabs';
-import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaProvider, SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAiSdkDevTools } from '@react-native-ai/dev-tools/react-native';
-import { colors } from './src/theme/colors';
-import { GatewayProvider } from './src/context/GatewayContext';
-import ApprovalsScreen from './src/screens/ApprovalsScreen';
-import ChatScreen from './src/screens/ChatScreen';
-import OpsScreen from './src/screens/OpsScreen';
-import SettingsScreen from './src/screens/SettingsScreen';
+import { GatewayProvider, useGateway } from './src/context/GatewayContext';
+import { resolveInitialTab } from './src/utils/leashUx';
 import ErrorBoundary from './src/components/ErrorBoundary';
+import ConnectMacGate from './src/components/ConnectMacGate';
+import { useHermesDeepLinks } from './src/hooks/useHermesDeepLinks';
+import { trackAppOpen, trackScreenView } from './src/services/productAnalytics';
+import { useKeyboardInset } from './src/hooks/useKeyboardInset';
+import { LEASH_TAB_LABEL } from './src/constants/monetization';
+import { colors } from './src/theme/colors';
+
+const ChatScreen = React.lazy(() => import('./src/screens/ChatScreen'));
+const ApprovalsScreen = React.lazy(() => import('./src/screens/ApprovalsScreen'));
+const SettingsScreen = React.lazy(() => import('./src/screens/SettingsScreen'));
+
+function TabScreenFallback() {
+  return (
+    <View style={styles.tabFallback} testID="tab-screen-loading">
+      <ActivityIndicator size="small" color={colors.accent} />
+    </View>
+  );
+}
+
+function LazyTabScreen({ children }: { children: React.ReactNode }) {
+  return <Suspense fallback={<TabScreenFallback />}>{children}</Suspense>;
+}
 
 type RootTabParamList = {
   Leash: undefined;
   Chat: undefined;
-  Ops: undefined;
   Settings: undefined;
 };
 
+function DevToolsBootstrap() {
+  useAiSdkDevTools();
+  return null;
+}
+
 const Tab = createBottomTabNavigator<RootTabParamList>();
+
+function tabLabelFor(routeName: keyof RootTabParamList): string {
+  if (routeName === 'Leash') {
+    return LEASH_TAB_LABEL;
+  }
+  if (routeName === 'Chat') {
+    return 'Hermes';
+  }
+  return 'Settings';
+}
+
+const renderTabBar = (props: BottomTabBarProps) => <GlassmorphicTabBar {...props} />;
+
+function HermesTabNavigator() {
+  const { settings } = useGateway();
+  const glance = settings.glanceMode;
+
+  return (
+    <Tab.Navigator
+      initialRouteName={resolveInitialTab(settings)}
+      tabBar={renderTabBar}
+      screenOptions={{
+        headerShown: false,
+        // Android: hide tab bar so adjustResize can lift the composer; manual lift still runs as backup.
+        tabBarHideOnKeyboard: Platform.OS === 'android',
+      }}
+    >
+      {glance ? (
+        <>
+          <Tab.Screen
+            name="Leash"
+            children={() => (
+              <LazyTabScreen>
+                <ApprovalsScreen />
+              </LazyTabScreen>
+            )}
+          />
+          <Tab.Screen
+            name="Settings"
+            children={() => (
+              <LazyTabScreen>
+                <SettingsScreen />
+              </LazyTabScreen>
+            )}
+          />
+        </>
+      ) : (
+        <>
+          <Tab.Screen
+            name="Chat"
+            children={() => (
+              <LazyTabScreen>
+                <ChatScreen />
+              </LazyTabScreen>
+            )}
+          />
+          <Tab.Screen
+            name="Leash"
+            children={() => (
+              <LazyTabScreen>
+                <ApprovalsScreen />
+              </LazyTabScreen>
+            )}
+          />
+          <Tab.Screen
+            name="Settings"
+            children={() => (
+              <LazyTabScreen>
+                <SettingsScreen />
+              </LazyTabScreen>
+            )}
+          />
+        </>
+      )}
+    </Tab.Navigator>
+  );
+}
 
 // Glassmorphic bottom tab bar
 function GlassmorphicTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
+  const { pendingApprovals, activateDeveloperLeashUnlock } = useGateway();
+  const pendingCount = pendingApprovals.length;
+  const insets = useSafeAreaInsets();
+  const { inset: keyboardInset } = useKeyboardInset();
+  const keyboardOpen = keyboardInset > 0;
+  const leashDevTapCountRef = useRef(0);
+  const leashDevTapTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const registerLeashDeveloperTap = () => {
+    leashDevTapCountRef.current += 1;
+    if (leashDevTapTimerRef.current) {
+      clearTimeout(leashDevTapTimerRef.current);
+    }
+    leashDevTapTimerRef.current = setTimeout(() => {
+      leashDevTapCountRef.current = 0;
+    }, 2500);
+    if (leashDevTapCountRef.current >= 7) {
+      leashDevTapCountRef.current = 0;
+      void activateDeveloperLeashUnlock().then(() => {
+        Alert.alert('Leash unlocked', 'Developer backdoor active on this phone.');
+      });
+    }
+  };
+
+  useEffect(() => {
+    return () => {
+      if (leashDevTapTimerRef.current) {
+        clearTimeout(leashDevTapTimerRef.current);
+      }
+    };
+  }, []);
+
   return (
-    <View style={styles.navBar}>
+    <View
+      style={[
+        styles.navBar,
+        {
+          paddingBottom: Math.max(insets.bottom, 8),
+          opacity: keyboardOpen ? 0 : 1,
+        },
+      ]}
+      pointerEvents={keyboardOpen ? 'none' : 'auto'}
+    >
       {state.routes.map((route, index) => {
         const { options } = descriptors[route.key];
         const isFocused = state.index === index;
 
         const onPress = () => {
+          if (route.name === 'Leash') {
+            registerLeashDeveloperTap();
+          }
           console.log('[hermes-mobile] Tab pressed:', route.name, 'isFocused:', isFocused);
           const event = navigation.emit({
             type: 'tabPress',
@@ -51,22 +198,7 @@ function GlassmorphicTabBar({ state, descriptors, navigation }: BottomTabBarProp
           });
         };
 
-        let emoji = '⚡';
-        let label = 'Leash';
-
-        if (route.name === 'Leash') {
-          emoji = '⚡';
-          label = 'Leash';
-        } else if (route.name === 'Chat') {
-          emoji = '💬';
-          label = 'Chat';
-        } else if (route.name === 'Ops') {
-          emoji = '💻';
-          label = 'Ops';
-        } else if (route.name === 'Settings') {
-          emoji = '⚙️';
-          label = 'Settings';
-        }
+        let label = tabLabelFor(route.name as keyof RootTabParamList);
 
         return (
           <TouchableOpacity
@@ -78,12 +210,22 @@ function GlassmorphicTabBar({ state, descriptors, navigation }: BottomTabBarProp
             testID={label}
             accessibilityLabel={label}
           >
-            <Text style={[styles.navIcon, isFocused && styles.navIconActive]}>
-              {emoji}
-            </Text>
+            <View style={styles.navIcon}>
+              <TabBarIcon
+                routeName={route.name as keyof RootTabParamList}
+                focused={isFocused}
+                color={isFocused ? colors.secondary : colors.textMuted}
+                size={22}
+              />
+            </View>
             <Text style={[styles.navText, isFocused && styles.navTextActive]}>
               {label}
             </Text>
+            {route.name === 'Leash' && pendingCount > 0 ? (
+              <View style={styles.pendingBadge}>
+                <Text style={styles.pendingBadgeText}>{pendingCount}</Text>
+              </View>
+            ) : null}
             {isFocused && <View style={styles.activeDot} />}
           </TouchableOpacity>
         );
@@ -104,35 +246,101 @@ const NavigationTheme = {
   },
 };
 
+const linking = {
+  prefixes: ['hermes://'],
+  config: {
+    screens: {
+      Leash: 'leash',
+      Chat: 'chat',
+      Settings: 'settings',
+    },
+  },
+};
+
+function HermesNavigationRoot() {
+  const navigationRef = useRef<NavigationContainerRef<RootTabParamList>>(null);
+  const { runAgentTool, refreshHealth, applySetupDeepLink, focusChatSession, activateDeveloperLeashUnlock } =
+    useGateway();
+  useHermesDeepLinks(
+    navigationRef,
+    runAgentTool,
+    refreshHealth,
+    applySetupDeepLink,
+    focusChatSession,
+    activateDeveloperLeashUnlock,
+  );
+
+  return (
+    <View style={{ flex: 1 }}>
+      <NavigationContainer
+        ref={navigationRef}
+        theme={NavigationTheme}
+        linking={linking}
+        onStateChange={(state) => {
+          const route = state?.routes[state.index ?? 0];
+          if (route?.name) {
+            void trackScreenView(route.name);
+          }
+        }}
+      >
+        <HermesTabNavigator />
+      </NavigationContainer>
+    </View>
+  );
+}
+
+function HermesAppShell() {
+  const { isLoaded } = useGateway();
+
+  useEffect(() => {
+    if (isLoaded) {
+      void SplashScreen.hideAsync();
+    }
+  }, [isLoaded]);
+
+  if (!isLoaded) {
+    return (
+      <View style={styles.bootstrap} testID="hermes-bootstrap">
+        <ActivityIndicator size="large" color={colors.accent} />
+        <Text style={styles.bootstrapText}>Loading Hermes…</Text>
+      </View>
+    );
+  }
+
+  return (
+    <>
+      <View style={{ flex: 1 }}>
+        <HermesNavigationRoot />
+      </View>
+      <ConnectMacGate />
+    </>
+  );
+}
+
 export default function App() {
-  useAiSdkDevTools();
+  useEffect(() => {
+    void trackAppOpen();
+    // Safety net: never leave the native splash covering a working UI.
+    void SplashScreen.hideAsync();
+    const splashFallback = setTimeout(() => {
+      void SplashScreen.hideAsync();
+    }, 2500);
+    return () => clearTimeout(splashFallback);
+  }, []);
   return (
     <ErrorBoundary>
       <SafeAreaProvider>
+        {__DEV__ ? <DevToolsBootstrap /> : null}
         <GatewayProvider>
-          <SafeAreaView style={styles.container}>
+          <View style={styles.container}>
             <StatusBar barStyle="light-content" />
 
             {/* Decorative Shifting Background Glows (Glassmorphic Ambient Light) */}
             <View style={styles.ambientGlowPrimary} />
             <View style={styles.ambientGlowSecondary} />
 
-            <NavigationContainer theme={NavigationTheme}>
-              <Tab.Navigator
-                initialRouteName="Chat"
-                tabBar={(props) => <GlassmorphicTabBar {...props} />}
-                screenOptions={{
-                  headerShown: false,
-                  tabBarHideOnKeyboard: true,
-                }}
-              >
-                <Tab.Screen name="Leash" component={ApprovalsScreen} />
-                <Tab.Screen name="Chat" component={ChatScreen} />
-                <Tab.Screen name="Ops" component={OpsScreen} />
-                <Tab.Screen name="Settings" component={SettingsScreen} />
-              </Tab.Navigator>
-            </NavigationContainer>
-          </SafeAreaView>
+            <HermesAppShell />
+          </View>
         </GatewayProvider>
       </SafeAreaProvider>
     </ErrorBoundary>
@@ -169,11 +377,9 @@ const styles = StyleSheet.create({
   },
   navBar: {
     flexDirection: 'row',
-    height: 72,
     backgroundColor: 'rgba(9, 11, 20, 0.94)',
     borderTopWidth: 1,
     borderTopColor: colors.border,
-    paddingBottom: 8,
     paddingTop: 8,
     position: 'relative',
     shadowColor: '#000',
@@ -189,12 +395,7 @@ const styles = StyleSheet.create({
     position: 'relative',
   },
   navIcon: {
-    fontSize: 20,
-    opacity: 0.5,
     marginBottom: 4,
-  },
-  navIconActive: {
-    opacity: 1,
   },
   navText: {
     fontSize: 10,
@@ -217,5 +418,40 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.8,
     shadowRadius: 2,
+  },
+  pendingBadge: {
+    position: 'absolute',
+    top: 2,
+    right: 18,
+    minWidth: 16,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: colors.error,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 4,
+  },
+  pendingBadgeText: {
+    fontSize: 9,
+    fontWeight: '900',
+    color: colors.text,
+  },
+  bootstrap: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 16,
+    backgroundColor: colors.backgroundStart,
+  },
+  bootstrapText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.textSecondary,
+  },
+  tabFallback: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.backgroundStart,
   },
 });

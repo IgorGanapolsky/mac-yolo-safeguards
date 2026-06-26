@@ -6,7 +6,7 @@ import type { GatewayHealthLevel } from '../types/gateway';
 const LABELS: Record<GatewayHealthLevel, string> = {
   green: 'Gateway healthy',
   amber: 'Gateway warning',
-  red: 'Gateway blocked',
+  red: 'Gateway unreachable',
   unknown: 'Gateway unknown',
 };
 

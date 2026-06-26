@@ -33,8 +33,13 @@ if [[ ! -d android ]]; then
 fi
 
 echo "Building release APK (arm64, embedded JS bundle)..."
-(cd android && ./gradlew assembleRelease -PreactNativeArchitectures=arm64-v8a \
-  -Dorg.gradle.jvmargs="-Xmx8192m -XX:MaxMetaspaceSize=4096m" --no-daemon)
+(
+  cd android
+  export EXPO_PUBLIC_HERMES_DEV_UNLOCK=1
+  export EXPO_PUBLIC_E2E_AUTOMATION=1
+  ./gradlew assembleRelease -PreactNativeArchitectures=arm64-v8a \
+    -Dorg.gradle.jvmargs="-Xmx8192m -XX:MaxMetaspaceSize=4096m" --no-daemon
+)
 
 bash "$HERMES_DIR/scripts/verify-apk-package.sh" "$APK_OUT"
 

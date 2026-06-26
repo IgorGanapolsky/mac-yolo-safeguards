@@ -1,6 +1,7 @@
 appId: com.iganapolsky.hermesmobile
 ---
 - launchApp
+- runFlow: e2e-bootstrap.yaml
 - tapOn: "Settings"
 - assertVisible:
     id: "SETTINGS"
@@ -12,18 +13,26 @@ appId: com.iganapolsky.hermesmobile
 - tapOn:
     id: "gateway-api-key-input"
 - inputText: "sk-hermes-api-server-key-2026-06-15"
-- hideKeyboard
+- runFlow:
+    when:
+      platform: android
+    commands:
+      - back
+- runFlow:
+    when:
+      platform: ios
+    commands:
+      - hideKeyboard
 - scrollUntilVisible:
     element:
-      text: "SAVE CONFIGURATION"
+      id: "save-settings-button"
     direction: DOWN
     timeout: 60000
-    speed: 65
-    visibilityPercentage: 50
+    speed: 45
 - tapOn:
     id: "save-settings-button"
 - tapOn: "OK"
-- tapOn: "Chat"
+- tapOn: "Hermes"
 - extendedWaitUntil:
     visible:
       id: "HERMES CHAT"

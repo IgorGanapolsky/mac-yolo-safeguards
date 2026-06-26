@@ -59,7 +59,8 @@ assert.strictEqual(isEmail(''), false);
   assert.strictEqual(plan.counts.source_queue, 3);
   assert.strictEqual(plan.counts.actions, 2);
   assert.strictEqual(plan.counts.prospect_drafts, 1);
-  assert.strictEqual(plan.counts.operator_review_drafts, 1);
+  assert.strictEqual(plan.counts.operator_digest_drafts, 1);
+  assert.strictEqual(plan.counts.missing_email_leads, 1);
   assert.strictEqual(plan.counts.skipped, 1);
 
   const prospect = plan.actions.find((action) => action.lead_id === 'lead-with-email');
@@ -67,14 +68,21 @@ assert.strictEqual(isEmail(''), false);
   assert.strictEqual(prospect.to, 'ava@example.com');
   assert.strictEqual(prospect.missing_prospect_email, false);
   assert(prospect.body.includes('Hi Ava - quick question?'));
+  assert(prospect.body.includes('Best,\nIgor'));
+  assert(!prospect.body.includes('CEO review'));
+  assert(!prospect.body.includes('Hermes could not find'));
 
-  const fallback = plan.actions.find((action) => action.lead_id === 'lead-without-email');
-  assert.strictEqual(fallback.mode, 'operator_review');
-  assert.strictEqual(fallback.to, 'iganapolsky@gmail.com');
-  assert.strictEqual(fallback.missing_prospect_email, true);
-  assert(fallback.subject.includes('CEO review'));
-  assert(fallback.body.includes('could not find a verified prospect_email'));
-  assert(fallback.body.includes('Handle: ben-buyer'));
+  const digest = plan.actions.find((action) => action.lead_id === 'missing-email-digest');
+  assert.strictEqual(digest.mode, 'operator_digest');
+  assert.strictEqual(digest.to, 'iganapolsky@gmail.com');
+  assert.strictEqual(digest.missing_prospect_email, true);
+  assert.strictEqual(digest.digest_count, 1);
+  assert(digest.subject.includes('Contact research needed for 1 outreach lead'));
+  assert(digest.body.includes('Do not send this as outreach'));
+  assert(digest.body.includes('Handle: ben-buyer'));
+  assert(digest.body.includes('Suggested opener: Hi Ben - quick question?'));
+  assert(!digest.subject.includes('CEO review'));
+  assert(!digest.body.includes('Hermes could not find'));
 
   fs.rmSync(fixture.root, { recursive: true, force: true });
 }
@@ -98,8 +106,12 @@ assert.strictEqual(isEmail(''), false);
   });
 
   assert.strictEqual(plan.counts.actions, 1);
-  assert.strictEqual(plan.actions[0].mode, 'operator_review');
+  assert.strictEqual(plan.counts.prospect_drafts, 0);
+  assert.strictEqual(plan.counts.operator_digest_drafts, 1);
+  assert.strictEqual(plan.counts.missing_email_leads, 1);
+  assert.strictEqual(plan.actions[0].mode, 'operator_digest');
   assert.strictEqual(plan.actions[0].to, 'iganapolsky@gmail.com');
+  assert(plan.actions[0].body.includes('Do not send this as outreach'));
 
   fs.rmSync(fixture.root, { recursive: true, force: true });
 }

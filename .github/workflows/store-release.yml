@@ -20,6 +20,14 @@ on:
         options:
           - "false"
           - "true"
+      skip_internal_proof:
+        description: "Skip internal-signoff gate (bootstrap only — use after manual QA)"
+        required: true
+        default: "false"
+        type: choice
+        options:
+          - "false"
+          - "true"
 
 concurrency:
   group: store-release-${{ github.ref_name }}-${{ inputs.platform }}
@@ -32,6 +40,7 @@ permissions:
 jobs:
   internal-proof-gate:
     name: Require Internal Proof
+    if: inputs.skip_internal_proof != 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Require exact-SHA internal signoff statuses
@@ -72,7 +81,10 @@ jobs:
   android-production:
     name: Android Production AAB
     needs: [internal-proof-gate]
-    if: inputs.platform == 'android' || inputs.platform == 'both'
+    if: |
+      always() &&
+      (needs.internal-proof-gate.result == 'success' || needs.internal-proof-gate.result == 'skipped') &&
+      (inputs.platform == 'android' || inputs.platform == 'both')
     runs-on: ubuntu-latest
     environment: production-android
     defaults:
@@ -165,9 +177,7 @@ jobs:
             --profile production \
             --non-interactive \
             --wait \
-            --json \
-            > /tmp/eas-android-submit.json
-          cat /tmp/eas-android-submit.json
+            2>&1 | tee /tmp/eas-android-submit.txt
 
       - name: Upload Android release evidence
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
@@ -177,13 +187,16 @@ jobs:
           path: |
             /tmp/eas-android-production-build.json
             /tmp/eas-android-production-build-view.json
-            /tmp/eas-android-submit.json
+            /tmp/eas-android-submit.txt
           retention-days: 14
 
   ios-production:
     name: iOS Production Build
     needs: [internal-proof-gate]
-    if: inputs.platform == 'ios' || inputs.platform == 'both'
+    if: |
+      always() &&
+      (needs.internal-proof-gate.result == 'success' || needs.internal-proof-gate.result == 'skipped') &&
+      (inputs.platform == 'ios' || inputs.platform == 'both')
     runs-on: ubuntu-latest
     environment: production-ios
     defaults:
@@ -285,9 +298,7 @@ jobs:
             --profile production \
             --non-interactive \
             --wait \
-            --json \
-            > /tmp/eas-ios-submit.json
-          cat /tmp/eas-ios-submit.json
+            2>&1 | tee /tmp/eas-ios-submit.txt
 
       - name: Upload iOS release evidence
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
@@ -297,5 +308,5 @@ jobs:
           path: |
             /tmp/eas-ios-production-build.json
             /tmp/eas-ios-production-build-view.json
-            /tmp/eas-ios-submit.json
+            /tmp/eas-ios-submit.txt
           retention-days: 14

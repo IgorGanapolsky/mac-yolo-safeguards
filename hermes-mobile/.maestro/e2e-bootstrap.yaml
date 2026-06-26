@@ -1,0 +1,45 @@
+# Shared cold-start bootstrap for Maestro (demo mode + full tab bar).
+# Parent flows call launchApp first — no Expo dev-client URL (release APK on device).
+appId: com.iganapolsky.hermesmobile
+---
+- openLink: "hermes://setup?demo=1"
+- runFlow:
+    when:
+      visible:
+        text: "Open"
+    commands:
+      - tapOn: "Open"
+- extendedWaitUntil:
+    notVisible:
+      id: "connect-mac-gate"
+    timeout: 30000
+- extendedWaitUntil:
+    visible:
+      text: "Settings"
+    timeout: 45000
+- runFlow:
+    when:
+      platform: ios
+    commands:
+      - hideKeyboard
+- waitForAnimationToEnd:
+    timeout: 2000
+- tapOn:
+    id: "Leash"
+- extendedWaitUntil:
+    visible:
+      id: "THUMBGATE_LEASH"
+    timeout: 30000
+- runFlow:
+    when:
+      visible:
+        id: "unlock-thumbgate-leash"
+    commands:
+      - tapOn:
+          id: "unlock-thumbgate-leash"
+- tapOn:
+    id: "Hermes"
+- extendedWaitUntil:
+    visible:
+      id: "chat-input"
+    timeout: 90000

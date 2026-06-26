@@ -8,6 +8,7 @@ describe('storage', () => {
 
   it('loads default gateway settings when empty', async () => {
     const settings = await storage.loadGatewaySettings();
+    expect(settings.connectionMode).toBe('relay');
     expect(settings.gatewayUrl).toBe(DEFAULT_GATEWAY_SETTINGS.gatewayUrl);
     expect(settings.redactPii).toBe(true);
   });
@@ -21,5 +22,30 @@ describe('storage', () => {
     const loaded = await storage.loadGatewaySettings();
     expect(loaded.gatewayUrl).toBe('https://tunnel.example.com');
     expect(loaded.demoMode).toBe(true);
+  });
+
+  it('keeps loopback gateway URL on load', async () => {
+    await storage.saveLastGatewayLanIp('192.168.12.208');
+    await storage.saveGatewaySettings({
+      ...DEFAULT_GATEWAY_SETTINGS,
+      gatewayUrl: 'http://127.0.0.1:8642',
+    });
+    const loaded = await storage.loadGatewaySettings();
+    expect(loaded.gatewayUrl).toBe('http://127.0.0.1:8642');
+  });
+
+  it('persists dismissed session ids per gateway host', async () => {
+    await storage.addDismissedSessionIds('http://127.0.0.1:8642', ['sess_a', 'sess_b']);
+    await storage.addDismissedSessionIds('http://127.0.0.1:8642', ['sess_c']);
+    const dismissed = await storage.loadDismissedSessionIds('http://127.0.0.1:8642');
+    expect(dismissed).toEqual(expect.arrayContaining(['sess_a', 'sess_b', 'sess_c']));
+
+    await storage.removeDismissedSessionIds('http://127.0.0.1:8642', ['sess_b']);
+    const afterRemove = await storage.loadDismissedSessionIds('http://127.0.0.1:8642');
+    expect(afterRemove).toEqual(expect.arrayContaining(['sess_a', 'sess_c']));
+    expect(afterRemove).not.toContain('sess_b');
+
+    await storage.clearDismissedSessionIds('http://127.0.0.1:8642');
+    expect(await storage.loadDismissedSessionIds('http://127.0.0.1:8642')).toEqual([]);
   });
 });

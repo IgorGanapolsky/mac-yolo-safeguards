@@ -77,6 +77,34 @@ function normalizeBaseUrl(url) {
   return String(url || '').replace(/\/+$/, '');
 }
 
+function loadOmlxSettings() {
+  const fs = require('fs');
+  const path = require('path');
+  const settingsPath = path.join(process.env.HOME || '', '.omlx', 'settings.json');
+  try {
+    const raw = fs.readFileSync(settingsPath, 'utf8');
+    const parsed = JSON.parse(raw);
+    const host = parsed?.server?.host || '127.0.0.1';
+    const port = parsed?.server?.port || 8000;
+    const connectHost = String(host).split(',')[0].trim() || '127.0.0.1';
+    const bindWildcard = connectHost === '0.0.0.0' || connectHost === '::';
+    return {
+      settingsPath,
+      baseUrl: `http://${bindWildcard ? '127.0.0.1' : connectHost}:${port}`,
+      hermesModel: parsed?.integrations?.hermes_model || null,
+      defaultModel: parsed?.model?.default_model || null,
+    };
+  } catch (error) {
+    return {
+      settingsPath,
+      error: error.code === 'ENOENT' ? 'settings_missing' : String(error.message || error),
+      baseUrl: 'http://127.0.0.1:8000',
+      hermesModel: null,
+      defaultModel: null,
+    };
+  }
+}
+
 async function checkOpenAIBase(baseUrl) {
   const normalized = normalizeBaseUrl(baseUrl);
   if (!normalized) return { reachable: false, error: 'missing_base_url' };
@@ -111,6 +139,12 @@ async function collect() {
   }
 
   const ollama = await fetchJson('http://127.0.0.1:11434/api/tags');
+  const omlxSettings = loadOmlxSettings();
+  const omlxBase = `${normalizeBaseUrl(omlxSettings.baseUrl)}/v1`;
+  const omlx = await checkOpenAIBase(omlxBase);
+  const omlxModels = omlx.json && Array.isArray(omlx.json.data)
+    ? omlx.json.data.map((model) => model.id).filter(Boolean)
+    : [];
   const vllmBase = process.env.HERMES_VLLM_BASE_URL || 'http://127.0.0.1:8000/v1';
   const vllm = await checkOpenAIBase(vllmBase);
 
@@ -172,7 +206,22 @@ async function collect() {
       });
     }
   }
-  if (!vllm.reachable) {
+  if (!omlx.reachable) {
+    findings.push({
+      severity: 'medium',
+      title: 'oMLX local server is not reachable',
+      evidence: `${omlxBase}/models is not reachable (${omlxSettings.error || omlx.error || `status=${omlx.status || 'unknown'}`}).`,
+      recommendation: 'Install oMLX (brew install omlx or DMG), then run `omlx start` or enable the brew service.',
+    });
+  } else if (omlxSettings.hermesModel && !omlxModels.includes(omlxSettings.hermesModel)) {
+    findings.push({
+      severity: 'medium',
+      title: 'oMLX Hermes integration model is not loaded',
+      evidence: `integrations.hermes_model=${omlxSettings.hermesModel}; advertised=${omlxModels.join(', ') || '<none>'}`,
+      recommendation: 'Download/load that model in oMLX admin UI or point model_dirs at an existing MLX model folder.',
+    });
+  }
+  if (!vllm.reachable && !omlx.reachable) {
     findings.push({
       severity: 'low',
       title: 'No serious local serving endpoint detected on vLLM default port',
@@ -206,6 +255,17 @@ async function collect() {
         modelCount: ollama.json && Array.isArray(ollama.json.models) ? ollama.json.models.length : 0,
         error: ollama.error || null,
       },
+      omlx: {
+        settingsPath: omlxSettings.settingsPath,
+        baseUrl: omlxBase,
+        reachable: Boolean(omlx.reachable),
+        status: omlx.status || null,
+        error: omlxSettings.error || omlx.error || null,
+        hermesModel: omlxSettings.hermesModel,
+        modelCount: omlxModels.length,
+        models: omlxModels.slice(0, 12),
+        hermesModelLoaded: omlxSettings.hermesModel ? omlxModels.includes(omlxSettings.hermesModel) : null,
+      },
       seriousServer: {
         baseUrl: vllmBase,
         reachable: Boolean(vllm.reachable),
@@ -232,6 +292,7 @@ function render(result) {
     lines.push(`- ${check.baseUrl}: ${check.reachable ? 'reachable' : 'unreachable'} / model ${check.model || '<unset>'}${check.modelAvailable === true ? ' available' : check.modelAvailable === false ? ' not advertised' : ''}`);
   }
   lines.push(`- Ollama API: ${result.checks.ollama.reachable ? 'reachable' : 'not reachable'} (${result.checks.ollama.modelCount} model(s))`);
+  lines.push(`- oMLX: ${result.checks.omlx.reachable ? 'reachable' : 'not reachable'} at ${result.checks.omlx.baseUrl} (${result.checks.omlx.modelCount} model(s))`);
   lines.push(`- Serious OpenAI-compatible server: ${result.checks.seriousServer.reachable ? 'reachable' : 'not reachable'} at ${result.checks.seriousServer.baseUrl}`);
   lines.push(`- Apple Foundation Models client: ${result.checks.appleFoundationClient.compiled ? (result.checks.appleFoundationClient.runs ? 'compiled and runs' : 'compiled but execution failed') : 'not compiled'}`);
   lines.push('');

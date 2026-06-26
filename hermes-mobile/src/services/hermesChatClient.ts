@@ -1,4 +1,6 @@
-import { buildAuthHeaders, normalizeGatewayUrl } from './gatewayClient';
+import { buildAuthHeaders, normalizeGatewayUrl, fetchWithTimeout } from './gatewayClient';
+import { CHAT_TURN_TIMEOUT_MS } from './hermesGatewayClient';
+import { coerceMessageId } from '../utils/messageIds';
 import type {
   ChatTurnResponse,
   HermesMessage,
@@ -6,6 +8,11 @@ import type {
   MessageListResponse,
   SessionListResponse,
 } from '../types/chat';
+import {
+  unescapeChatText,
+  formatMessageForDisplay,
+  normalizeChatMessage,
+} from '../utils/chatMessageDisplay';
 
 export class HermesChatApiError extends Error {
   status: number;
@@ -37,24 +44,25 @@ function headers(apiKey?: string | null): Record<string, string> {
 
 export function normalizeMessageContent(content: unknown): string {
   if (typeof content === 'string') {
-    return content;
+    return formatMessageForDisplay(content);
   }
   if (Array.isArray(content)) {
-    return content
+    const joined = content
       .map((part) => {
-        if (typeof part === 'string') return part;
+        if (typeof part === 'string') return unescapeChatText(part);
         if (part && typeof part === 'object' && 'text' in part) {
-          return String((part as { text?: string }).text ?? '');
+          return unescapeChatText(String((part as { text?: string }).text ?? ''));
         }
         return '';
       })
       .filter(Boolean)
       .join('\n');
+    return formatMessageForDisplay(joined);
   }
   if (content && typeof content === 'object') {
-    return JSON.stringify(content);
+    return formatMessageForDisplay(JSON.stringify(content));
   }
-  return String(content ?? '');
+  return formatMessageForDisplay(String(content ?? ''));
 }
 
 export function extractAssistantText(body: ChatTurnResponse): string {
@@ -70,16 +78,58 @@ export function extractAssistantText(body: ChatTurnResponse): string {
   return '';
 }
 
+export async function getSession(
+  gatewayUrl: string,
+  sessionId: string,
+  apiKey?: string | null,
+): Promise<HermesSession | null> {
+  const response = await fetchWithTimeout(
+    `${base(gatewayUrl)}/api/sessions/${encodeURIComponent(sessionId)}`,
+    { headers: headers(apiKey) },
+    10000,
+  );
+  if (response.status === 404) {
+    return null;
+  }
+  const body = await parseJson<{ session?: HermesSession }>(response);
+  return body.session ?? null;
+}
+
 export async function listSessions(
   gatewayUrl: string,
   apiKey?: string | null,
   limit = 50,
 ): Promise<HermesSession[]> {
-  const response = await fetch(`${base(gatewayUrl)}/api/sessions?limit=${limit}`, {
-    headers: headers(apiKey),
-  });
+  const response = await fetchWithTimeout(
+    `${base(gatewayUrl)}/api/sessions?limit=${limit}`,
+    { headers: headers(apiKey) },
+    15000,
+  );
   const body = await parseJson<SessionListResponse>(response);
   return body.data ?? [];
+}
+
+export async function updateSessionTitle(
+  gatewayUrl: string,
+  sessionId: string,
+  title: string,
+  apiKey?: string | null,
+): Promise<HermesSession> {
+  const trimmed = title.trim();
+  if (!trimmed) {
+    throw new HermesChatApiError(400, 'Session title cannot be empty');
+  }
+  const response = await fetchWithTimeout(
+    `${base(gatewayUrl)}/api/sessions/${encodeURIComponent(sessionId)}`,
+    {
+      method: 'PATCH',
+      headers: headers(apiKey),
+      body: JSON.stringify({ title: trimmed }),
+    },
+    15000,
+  );
+  const parsed = await parseJson<{ session: HermesSession }>(response);
+  return parsed.session;
 }
 
 export async function createSession(
@@ -92,7 +142,7 @@ export async function createSession(
   if (systemPrompt?.trim()) {
     body.system_prompt = systemPrompt.trim();
   }
-  const response = await fetch(`${base(gatewayUrl)}/api/sessions`, {
+  const response = await fetchWithTimeout(`${base(gatewayUrl)}/api/sessions`, {
     method: 'POST',
     headers: headers(apiKey),
     body: JSON.stringify(body),
@@ -106,14 +156,23 @@ export async function listMessages(
   sessionId: string,
   apiKey?: string | null,
 ): Promise<HermesMessage[]> {
-  const response = await fetch(`${base(gatewayUrl)}/api/sessions/${encodeURIComponent(sessionId)}/messages`, {
-    headers: headers(apiKey),
-  });
+  const response = await fetchWithTimeout(
+    `${base(gatewayUrl)}/api/sessions/${encodeURIComponent(sessionId)}/messages`,
+    { headers: headers(apiKey) },
+    15000,
+  );
   const body = await parseJson<MessageListResponse>(response);
-  return (body.data ?? []).map((message) => ({
-    ...message,
-    content: normalizeMessageContent(message.content),
-  }));
+  return (body.data ?? []).map((message, index) => {
+    const rawText =
+      typeof message.content === 'string'
+        ? message.content
+        : normalizeMessageContent(message.content);
+    return normalizeChatMessage({
+      ...message,
+      id: coerceMessageId(message.id, index),
+      content: rawText,
+    });
+  });
 }
 
 export async function sendChatMessage(
@@ -127,13 +186,14 @@ export async function sendChatMessage(
   if (systemMessage?.trim()) {
     body.system_message = systemMessage.trim();
   }
-  const response = await fetch(
+  const response = await fetchWithTimeout(
     `${base(gatewayUrl)}/api/sessions/${encodeURIComponent(sessionId)}/chat`,
     {
       method: 'POST',
       headers: headers(apiKey),
       body: JSON.stringify(body),
     },
+    CHAT_TURN_TIMEOUT_MS,
   );
   const parsed = await parseJson<ChatTurnResponse>(response);
   return { assistantText: extractAssistantText(parsed), raw: parsed };

@@ -3,6 +3,7 @@ import type {
   HealthResponse,
   PairCompleteResponse,
   QueueResponse,
+  RelayWorker,
 } from '../types/mobileRelay';
 import type { PendingApproval } from '../types/gateway';
 import { HERMES_MOBILE_CLOUD_URL } from '../constants/appIdentity';
@@ -50,10 +51,37 @@ export function enqueuedEventToPendingApproval(event: EnqueuedEvent): PendingApp
     reason:
       event.reason ??
       hook.hook_event_name ??
-      'Agent tool call requires your approval before running on your Mac.',
+      'Agent tool call requires your approval before running on your computer.',
     command,
     receivedAt: new Date(event.enqueued_at ?? Date.now()).toISOString(),
   };
+}
+
+function normalizeWorkerId(worker: RelayWorker): string {
+  return String(worker.id || worker.machine_id || '').trim();
+}
+
+export function normalizeRelayWorkers(queue: QueueResponse): RelayWorker[] {
+  const seen = new Set<string>();
+  const rawWorkers = queue.workers ?? queue.devices ?? [];
+
+  return rawWorkers.flatMap((worker) => {
+    const id = normalizeWorkerId(worker);
+    if (!id || seen.has(id)) {
+      return [];
+    }
+    seen.add(id);
+    return [{ ...worker, id }];
+  });
+}
+
+export function resolveActiveRelayWorkerId(queue: QueueResponse, workers: RelayWorker[]): string | null {
+  const explicit = String(queue.active_worker_id ?? queue.active_device_id ?? '').trim();
+  if (explicit && workers.some((worker) => worker.id === explicit || worker.machine_id === explicit)) {
+    return explicit;
+  }
+  const online = workers.find((worker) => /online|active|busy|running/i.test(worker.status ?? ''));
+  return online?.id ?? workers[0]?.id ?? null;
 }
 
 export async function fetchMobileRelayHealth(cloudUrl: string): Promise<HealthResponse> {

@@ -134,4 +134,53 @@ if (( ${#failures[@]} > 0 )); then
   exit 1
 fi
 
+run_accelerated_device_e2e() {
+  # Ship gate: Maestro flows via Callstack agent-device (npm run e2e:accelerated).
+  # Skips when no adb device; set SKIP_ACCELERATED_E2E=1 to bypass locally.
+  if [[ "$platform" != "android" && "$platform" != "all" ]]; then
+    return 0
+  fi
+
+  if [[ "${SKIP_ACCELERATED_E2E:-0}" == "1" ]]; then
+    echo "Skipping accelerated E2E (SKIP_ACCELERATED_E2E=1)"
+    return 0
+  fi
+
+  if ! command -v adb >/dev/null 2>&1; then
+    echo "Skipping accelerated E2E: adb not installed"
+    return 0
+  fi
+
+  if ! adb devices 2>/dev/null | grep -v "List" | grep -E '[[:space:]]device$' | grep -q .; then
+    echo "Skipping accelerated E2E: no adb device (connect phone for Maestro agent-device gate)"
+    return 0
+  fi
+
+  echo "Running npm run e2e:accelerated (agent-device + Maestro)..."
+  if ! (cd "$repo_root" && npm run e2e:accelerated); then
+    record_failure "Accelerated agent-device Maestro E2E failed (npm run e2e:accelerated — see docs/proofs/agent-device/)"
+  fi
+}
+
+run_accelerated_device_e2e
+
+run_bundle_size_check() {
+  if [[ "${SKIP_BUNDLE_SIZE_CHECK:-0}" == "1" ]]; then
+    echo "Skipping bundle size check (SKIP_BUNDLE_SIZE_CHECK=1)"
+    return 0
+  fi
+
+  echo "Running bundle size check (npm run analyze:bundle)..."
+  if ! (cd "$repo_root" && npm run analyze:bundle); then
+    record_failure "JS bundle exceeds size budget (npm run analyze:bundle — see docs/PERFORMANCE.md)"
+  fi
+}
+
+run_bundle_size_check
+
+if (( ${#failures[@]} > 0 )); then
+  printf '%s\n' "${failures[@]}" >&2
+  exit 1
+fi
+
 echo "Hermes Mobile release preflight passed."

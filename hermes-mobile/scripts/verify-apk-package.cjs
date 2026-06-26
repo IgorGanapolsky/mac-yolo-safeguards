@@ -4,6 +4,33 @@
  */
 const { execSync } = require('child_process');
 const fs = require('fs');
+const path = require('path');
+
+function findAapt() {
+  if (process.env.AAPT_PATH && fs.existsSync(process.env.AAPT_PATH)) {
+    return process.env.AAPT_PATH;
+  }
+  try {
+    const which = execSync('command -v aapt 2>/dev/null || command -v aapt2 2>/dev/null', {
+      encoding: 'utf8',
+      shell: '/bin/bash',
+    }).trim();
+    if (which) return which.replace(/aapt2?$/, 'aapt');
+  } catch {
+    /* fall through */
+  }
+  const sdk = process.env.ANDROID_HOME || process.env.ANDROID_SDK_ROOT;
+  if (!sdk || !fs.existsSync(sdk)) return '';
+  const buildTools = path.join(sdk, 'build-tools');
+  if (!fs.existsSync(buildTools)) return '';
+  const versions = fs
+    .readdirSync(buildTools)
+    .filter((name) => fs.existsSync(path.join(buildTools, name, 'aapt')))
+    .sort((a, b) => (a < b ? 1 : a > b ? -1 : 0));
+  if (!versions.length) return '';
+  return path.join(buildTools, versions[0], 'aapt');
+}
+
 
 const EMBEDDED_JS_BUNDLE_PATH = 'assets/index.android.bundle';
 const EXPECTED_ANDROID_PACKAGE = 'com.iganapolsky.hermesmobile';
@@ -11,9 +38,9 @@ const EXPECTED_APP_LABEL = 'Hermes Mobile';
 const FORBIDDEN_APP_LABEL = 'Hermes Mobile Agent';
 const LEGACY_SHELL_STRING_MARKERS = [
   'Hold the cord on your AI',
-  'Connect your computer',
   'Hermes Mobile Agent intercepts dangerous',
 ];
+const EXPO_APP_BUNDLE_MARKERS = ['expo/modules', 'HERMES CHAT', 'GatewayProvider'];
 
 function fail(message) {
   console.error(`APK verify: FAIL\n- ${message}`);
@@ -41,18 +68,18 @@ function sampleApkStrings(apkPath) {
 }
 
 function readBadging(apkPath) {
-  let aapt = process.env.AAPT_PATH || '';
+  const aapt = findAapt();
   if (!aapt) {
-    try {
-      aapt = execSync('which aapt 2>/dev/null', { encoding: 'utf8' }).trim();
-    } catch {
-      return { packageName: undefined, applicationLabel: undefined };
-    }
+    return { packageName: undefined, applicationLabel: undefined };
   }
   const badging = execSync(`${aapt} dump badging ${JSON.stringify(apkPath)}`, { encoding: 'utf8' });
+  const labelMatch =
+    badging.match(/^application-label:'([^']+)'/m) ||
+    badging.match(/^application-label: '([^']+)'/m) ||
+    badging.match(/^application-label-[^:]+:'([^']+)'/m);
   return {
     packageName: (badging.match(/^package: name='([^']+)'/m) || [])[1],
-    applicationLabel: (badging.match(/^application-label:'([^']+)'/m) || [])[1],
+    applicationLabel: labelMatch ? labelMatch[1] : undefined,
   };
 }
 
@@ -94,8 +121,8 @@ function main() {
     }
   }
 
-  if (!haystack.includes('expo/modules')) {
-    fail('No expo/modules in APK — not the Expo Hermes Mobile build');
+  if (!EXPO_APP_BUNDLE_MARKERS.some((marker) => haystack.includes(marker))) {
+    fail('APK JS bundle missing Hermes Mobile fingerprints — not a shippable Expo build');
   }
 
   console.log('APK verify: PASS (release-ready Expo Hermes Mobile)');

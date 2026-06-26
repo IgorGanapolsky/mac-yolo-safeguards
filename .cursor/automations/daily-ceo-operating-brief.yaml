@@ -1,0 +1,27 @@
+name: "mac-yolo — daily CEO brief"
+description: "Runs DS/ML/RAG CEO orchestrator each morning; surfaces product vs revenue pick with evidence."
+workflow:
+  triggers:
+    - cron:
+        cron: "0 8 * * 1-5"
+  actions: []
+  prompts:
+    - |
+      You operate mac-yolo-safeguards per AGENTS.md (Decision stack: DS / ML / Agentic RAG).
+
+      1. Run: `node tools/ceo-operating-brief.js --full --json` from repo root.
+      2. Parse telemetry: gateway health, adb device, Jest CI, revenue send-next, Hermes loop, newsletter top.
+      3. State the CEO pick and the next 3 ranked actions with lane labels.
+      4. If CEO pick is product/Hermes Mobile: run `cd hermes-mobile && npm run typecheck` only when brief shows a product regression.
+      5. If CEO pick is revenue: run `node tools/send-next.js --dry-run` and cite ready prospect count.
+      6. Never claim shipped/fixed/revenue closed without command output in this turn.
+      7. If you change code, run scoped verification and capture a ThumbGate lesson with concrete artifacts (paths, exit codes, counts).
+
+      Output: short executive summary (≤12 lines) + exact commands run + pass/fail lines.
+  model: ""
+  agentOptions:
+    skipInstall: false
+  memoryEnabled: true
+  gitConfig:
+    repo: IgorGanapolsky/mac-yolo-safeguards
+    branch: main

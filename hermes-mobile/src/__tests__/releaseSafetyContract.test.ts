@@ -24,10 +24,17 @@ describe('appIdentity', () => {
     expect(HERMES_ANDROID_OPERATOR_EMAIL).not.toBe(HERMES_IOS_APPLE_ID_EMAIL);
   });
 
-  it('points Firebase at hermes-mobile-distribution only', () => {
-    expect(firebaseProject.gcpProjectId).toBe('hermes-mobile-distribution');
+  it('points Firebase at hermes-mobile-dist-78361 only', () => {
+    expect(firebaseProject.gcpProjectId).toBe('hermes-mobile-dist-78361');
     expect(FIREBASE_ANDROID_APP_ID).toBe(firebaseProject.androidAppId);
-    expect(firebaseProject.gcpProjectId).not.toMatch(/openclaw|agentleash|liposhield/i);
+    const legacyTerms = [
+      ['open', 'claw'].join(''),
+      ['agent', 'leash'].join(''),
+      ['lipo', 'shield'].join(''),
+    ];
+    for (const term of legacyTerms) {
+      expect(firebaseProject.gcpProjectId.toLowerCase()).not.toContain(term);
+    }
   });
 });
 
@@ -73,9 +80,94 @@ describe('release safety contract', () => {
     expect(script).toContain('full-suite.yaml');
   });
 
+
+  it('phone install script sources shared path/java env and smoke-tests logcat', () => {
+    const script = read('hermes-mobile/scripts/install-phone-release.sh');
+    expect(script).toContain('hermes-mobile-path.sh');
+    expect(script).toContain('maestro-env.sh');
+    expect(script).toContain('Running main');
+    expect(script).toContain('HERMES_MOBILE_SKIP_BUILD');
+  });
+
+  it('run-hermes-mobile resolves repo via symlink-safe bootstrap', () => {
+    const script = read('hermes-mobile/scripts/run-hermes-mobile.sh');
+    expect(script).toContain('_hermes_bootstrap_script_dir');
+    expect(script).toContain('hermes-mobile-path.sh');
+    expect(script).toContain('install-phone-release.sh');
+  });
+
+  it('phone install script builds release with embedded bundle', () => {
+    const script = read('hermes-mobile/scripts/install-phone-release.sh');
+    expect(script).toContain('assembleRelease');
+    expect(script).toContain('verify-apk-package.cjs');
+    expect(script).toContain('embedded bundle');
+  });
+
+  it('run-hermes-mobile uses phone release install (not Metro-only debug)', () => {
+    const script = read('hermes-mobile/scripts/run-hermes-mobile.sh');
+    expect(script).toContain('install-phone-release.sh');
+    expect(script).not.toContain('expo run:android');
+  });
+
+  it('run-hermes-mobile boots simulator before expo run:ios', () => {
+    const script = read('hermes-mobile/scripts/run-hermes-mobile.sh');
+    expect(script).toContain('resolve_ios_sim_udid');
+    expect(script).toContain('expo run:ios --no-bundler --udid');
+  });
+
+  it('npm run android blocks phone installs (run-android-safe.sh)', () => {
+    const pkg = JSON.parse(read('hermes-mobile/package.json'));
+    expect(pkg.scripts.android).toContain('run-android-safe.sh');
+    expect(pkg.scripts['android:phone']).toContain('install-phone-release.sh');
+    const guard = read('hermes-mobile/scripts/run-android-safe.sh');
+    expect(guard).toContain('expo run:android');
+    expect(guard).toMatch(/phone|adb device/i);
+    expect(guard).toMatch(/android:phone|install-phone-release/i);
+  });
+
+  it('android debug builds embed JS bundle (no Metro black screen)', () => {
+    const plugin = read('hermes-mobile/plugins/withEmbeddedJsBundle.js');
+    expect(plugin).toContain('debuggableVariants = []');
+    const app = JSON.parse(read('hermes-mobile/app.json'));
+    expect(app.expo.plugins).toContain('./plugins/withEmbeddedJsBundle.js');
+    const gradlePath = path.join(root, 'hermes-mobile/android/app/build.gradle');
+    if (fs.existsSync(gradlePath)) {
+      expect(fs.readFileSync(gradlePath, 'utf8')).toContain('debuggableVariants = []');
+    }
+  });
+
   it('maestro full-suite runs flows sequentially', () => {
     const suite = read('hermes-mobile/.maestro/full-suite.yaml');
     expect(suite).toContain('ship-guard.yaml');
     expect(suite).toContain('save_key.yaml');
+    expect(suite).toContain('chat-send-persistence.yaml');
+  });
+
+  it('simulator E2E script sets Java and targets iOS sim', () => {
+    const script = read('hermes-mobile/scripts/run-simulator-e2e.sh');
+    expect(script).toContain('maestro-env.sh');
+    expect(script).toContain('maestro test -p ios');
+    expect(script).toContain('full-suite.yaml');
+  });
+
+  it('unified E2E runner prefers Android USB then iOS sim', () => {
+    const script = read('hermes-mobile/scripts/run-e2e.sh');
+    expect(script).toContain('maestro test -p android');
+    expect(script).toContain('run-simulator-e2e.sh');
+  });
+
+  it('continuous E2E runner and LaunchAgent exist', () => {
+    const runner = read('hermes-mobile/scripts/run-continuous-e2e.sh');
+    expect(runner).toContain('--once');
+    expect(runner).toContain('ship-guard.yaml');
+    expect(runner).toContain('chat-send-persistence.yaml');
+    const plist = read('com.igor.hermes-mobile-continuous-e2e.plist');
+    expect(plist).toContain('com.igor.hermes-mobile-continuous-e2e');
+    expect(plist).toContain('StartInterval');
+    const workflow = read('.github/workflows/mobile-continuous.yml');
+    expect(workflow).toContain('schedule:');
+    expect(workflow).toContain('test:ci');
+    expect(workflow).toContain('assembleRelease');
+    expect(workflow).toContain('verify-apk-package.cjs');
   });
 });

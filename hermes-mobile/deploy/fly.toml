@@ -1,15 +1,16 @@
 # Hermes Mobile cloud relay (Fly.io)
 
+Deploy from `services/hermes-relay/` — canonical app name `hermesmobile-cloud`.
+
 ```bash
-fly apps create hermes-mobile-cloud
-fly volumes create hermes_mobile_data --region iad --size 1 -a hermes-mobile-cloud
-fly secrets set POSTHOG_API_KEY=phc_... ADMIN_API_KEY=$(openssl rand -hex 32) -a hermes-mobile-cloud
-fly deploy --config deploy/fly.toml
+cd services/hermes-relay
+fly volumes create hermes_mobile_data --region iad --size 1 -a hermesmobile-cloud
+fly deploy -a hermesmobile-cloud
 ```
 
-Relay image: add `hermes-mobile/cloud/Dockerfile` in this repo (ThumbGate-compatible `/v1/pair`, `/v1/queue`, `/v1/verdicts` API).
+Legacy note: `hermes-mobile-cloud.fly.dev` was never provisioned; use `hermesmobile-cloud.fly.dev`.
 
-app = "hermes-mobile-cloud"
+app = "hermesmobile-cloud"
 primary_region = "iad"
 
 [env]

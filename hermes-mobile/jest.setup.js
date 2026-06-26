@@ -1,3 +1,8 @@
+jest.mock('expo-splash-screen', () => ({
+  preventAutoHideAsync: jest.fn(() => Promise.resolve()),
+  hideAsync: jest.fn(() => Promise.resolve()),
+}));
+
 jest.mock('@react-native-async-storage/async-storage', () =>
   require('@react-native-async-storage/async-storage/jest/async-storage-mock'),
 );
@@ -6,6 +11,53 @@ jest.mock('expo-secure-store', () => ({
   setItemAsync: jest.fn(() => Promise.resolve()),
   getItemAsync: jest.fn(() => Promise.resolve(null)),
   deleteItemAsync: jest.fn(() => Promise.resolve()),
+}));
+
+jest.mock('expo-camera', () => {
+  const React = require('react');
+  const { View } = require('react-native');
+  return {
+    CameraView: (props) => React.createElement(View, props),
+    useCameraPermissions: () => [{ granted: true }, jest.fn()],
+  };
+});
+
+jest.mock('expo-notifications', () => ({
+  setNotificationHandler: jest.fn(),
+  setNotificationChannelAsync: jest.fn(() => Promise.resolve()),
+  setNotificationCategoryAsync: jest.fn(() => Promise.resolve()),
+  getPermissionsAsync: jest.fn(() => Promise.resolve({ granted: true })),
+  requestPermissionsAsync: jest.fn(() => Promise.resolve({ granted: true })),
+  scheduleNotificationAsync: jest.fn(() => Promise.resolve('notif-1')),
+  cancelScheduledNotificationAsync: jest.fn(() => Promise.resolve()),
+  dismissNotificationAsync: jest.fn(() => Promise.resolve()),
+  dismissAllNotificationsAsync: jest.fn(() => Promise.resolve()),
+  setBadgeCountAsync: jest.fn(() => Promise.resolve(true)),
+  addNotificationResponseReceivedListener: jest.fn(() => ({ remove: jest.fn() })),
+  AndroidImportance: {
+    HIGH: 4,
+    DEFAULT: 3,
+    LOW: 2,
+  },
+  AndroidNotificationPriority: {
+    HIGH: 1,
+    DEFAULT: 0,
+    LOW: -1,
+  },
+  AndroidNotificationVisibility: {
+    PUBLIC: 1,
+  },
+}));
+
+jest.mock('@react-native-community/netinfo', () => ({
+  fetch: jest.fn(() =>
+    Promise.resolve({
+      type: 'wifi',
+      isConnected: true,
+      details: { ipAddress: '192.168.12.100' },
+    }),
+  ),
+  addEventListener: jest.fn(() => jest.fn()),
 }));
 
 jest.mock('react-native-safe-area-context', () => {
@@ -29,6 +81,16 @@ jest.mock('react-native-safe-area-context', () => {
     initialWindowMetrics: { insets, frame },
   };
 });
+
+jest.mock('expo-iap', () => ({
+  initConnection: jest.fn(() => Promise.resolve(true)),
+  finishTransaction: jest.fn(() => Promise.resolve()),
+  hasActiveSubscriptions: jest.fn(() => Promise.resolve(false)),
+  requestPurchase: jest.fn(() => Promise.resolve()),
+  restorePurchases: jest.fn(() => Promise.resolve()),
+  purchaseUpdatedListener: jest.fn(() => ({ remove: jest.fn() })),
+  purchaseErrorListener: jest.fn(() => ({ remove: jest.fn() })),
+}));
 
 global.fetch = jest.fn(() =>
   Promise.resolve({
@@ -77,3 +139,12 @@ jest.mock('@react-native-ai/dev-tools/react-native', () => ({
     }),
   })),
 }), { virtual: true });
+
+jest.mock('@shopify/flash-list', () => {
+  const React = require('react');
+  const { FlatList } = require('react-native');
+  const FlashList = React.forwardRef((props, ref) =>
+    React.createElement(FlatList, { ...props, ref }),
+  );
+  return { FlashList };
+});

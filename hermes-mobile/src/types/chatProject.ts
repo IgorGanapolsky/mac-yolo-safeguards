@@ -11,11 +11,17 @@ export interface ChatProjectState {
   projects: ChatProject[];
   /** Maps Hermes session id → project id (mobile-side; gateway has no cwd field). */
   sessionProjectMap: Record<string, string>;
+  /** Mobile-pinned labels — gateway title/preview often mirrors the latest message. */
+  sessionLabels: Record<string, string>;
   activeProjectId: string | null;
+  /** Whether the user has cleared the initial demo threads. */
+  demoCleared?: boolean;
 }
 
 export const EMPTY_CHAT_PROJECT_STATE: ChatProjectState = {
   projects: [],
   sessionProjectMap: {},
+  sessionLabels: {},
   activeProjectId: null,
+  demoCleared: false,
 };

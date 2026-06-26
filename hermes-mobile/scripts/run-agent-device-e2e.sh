@@ -44,10 +44,14 @@ echo "📂 Replay artifacts and JUnit reports will be saved to:"
 echo "   docs/proofs/agent-device/$TIMESTAMP/"
 echo "=========================================================="
 
-# List of Maestro flows in sequential priority
+# List of Maestro flows in sequential priority (matches ship-critical subset of full-suite)
 FLOWS=(
+    "e2e-prep"
     "launch"
     "navigation"
+    "leash-connection"
+    "chat"
+    "settings-thumbgate"
     "approvals"
 )
 
@@ -68,14 +72,36 @@ elif [ "$PLATFORM" = "ios" ]; then
     FLAGS="$FLAGS --platform ios"
 fi
 
-echo "🚀 Executing accelerated test suite via agent-device..."
-echo "   Command: npx agent-device test [flows] $FLAGS"
+if [ "$PLATFORM" = "android" ] && [ ! -z "$SERIAL" ]; then
+    echo "🧹 Resetting application state on Android device..."
+    adb -s "$SERIAL" shell pm clear com.iganapolsky.hermesmobile || true
+    echo "🔑 Auto-granting notification permissions..."
+    adb -s "$SERIAL" shell pm grant com.iganapolsky.hermesmobile android.permission.POST_NOTIFICATIONS || true
+    echo "🚀 Pre-launching application to prevent secure app conflicts..."
+    adb -s "$SERIAL" shell am start -n com.iganapolsky.hermesmobile/.MainActivity || true
+    sleep 3
+fi
+
+echo "🚀 Executing accelerated test suite via agent-device (one flow at a time)..."
 echo "=========================================================="
 
-# Run the test suite
 set +e
-npx agent-device test $FLOW_PATHS $FLAGS
-EXIT_CODE=$?
+EXIT_CODE=0
+for FLOW in "${FLOWS[@]}"; do
+  FILE_PATH="$WORKSPACE_DIR/.maestro/$FLOW.yaml"
+  if [ ! -f "$FILE_PATH" ]; then
+    echo "⚠️  Skipping missing flow: $FLOW.yaml"
+    continue
+  fi
+  echo "▶ $FLOW.yaml"
+  npx agent-device test "$FILE_PATH" $FLAGS
+  FLOW_EXIT=$?
+  if [ $FLOW_EXIT -ne 0 ]; then
+    EXIT_CODE=$FLOW_EXIT
+    echo "❌ $FLOW.yaml failed (exit $FLOW_EXIT)"
+    break
+  fi
+done
 set -e
 
 echo "=========================================================="

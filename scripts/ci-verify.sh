@@ -24,10 +24,22 @@ node --check tests/test-hermes-gmail-outbox.js
 node --check tools/media-content-ingest.js
 node --check tests/test-media-content-ingest.js
 node --check tools/openrouter-reasoning-plan.js
+node --check tools/glm52-hermes-config.js
+node --check tools/hermes-self-harness.js
+node --check tools/merge-gateway-readiness.js
+node --check tools/tencentdb-memory-readiness.js
+node --check tools/athena-agent-revenue-gap.js
+node --check tools/cash-discipline-board.js
 node --check tools/graphify-readiness.js
 node --check tools/openmono-roi-audit.js
 node --check tools/kimi-model-upgrade-audit.js
 node --check tests/test-openrouter-graphify-tools.js
+node --check tests/test-glm52-hermes-config.js
+node --check tests/test-hermes-self-harness.js
+node --check tests/test-merge-gateway-readiness.js
+node --check tests/test-tencentdb-memory-readiness.js
+node --check tests/test-athena-agent-revenue-gap.js
+node --check tests/test-cash-discipline-board.js
 node --check tests/test-openmono-roi-audit.js
 node --check tests/test-kimi-model-upgrade-audit.js
 node --check tests/test-mac-text-hotkeys-config.js
@@ -44,6 +56,12 @@ node tests/test-hermes-governance-audit.js
 node tests/test-hermes-gmail-outbox.js
 node tests/test-media-content-ingest.js
 node tests/test-openrouter-graphify-tools.js
+node tests/test-glm52-hermes-config.js
+node tests/test-hermes-self-harness.js
+node tests/test-merge-gateway-readiness.js
+node tests/test-tencentdb-memory-readiness.js
+node tests/test-athena-agent-revenue-gap.js
+node tests/test-cash-discipline-board.js
 node tests/test-openmono-roi-audit.js
 node tests/test-kimi-model-upgrade-audit.js
 tests/test-secondary-browser-reclaim.sh

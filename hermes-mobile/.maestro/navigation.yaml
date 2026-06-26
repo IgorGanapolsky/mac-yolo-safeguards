@@ -1,32 +1,34 @@
-# Flow 2: Tab navigation — Chat, Leash, Ops, Settings
+# Flow 2: Tab navigation — Hermes, Leash, Settings (Mac gateway ops live in Settings)
 appId: com.iganapolsky.hermesmobile
 ---
 - launchApp
-- runFlow:
-    when:
-      notVisible:
-        id: "HERMES CHAT"
-    commands:
-      - tapOn: "Chat"
-- extendedWaitUntil:
-    visible:
-      id: "HERMES CHAT"
-    timeout: 30000
+- runFlow: e2e-bootstrap.yaml
 
-- tapOn: "Leash"
+- tapOn:
+    id: "Leash"
 - assertVisible:
-    id: "LEASH"
+    id: "THUMBGATE_LEASH"
 
-- tapOn: "Ops"
-- extendedWaitUntil:
-    visible:
-      id: "OPS"
-    timeout: 30000
-
-- tapOn: "Settings"
+- tapOn:
+    id: "Settings"
 - assertVisible:
     id: "SETTINGS"
+- runFlow:
+    when:
+      platform: ios
+    commands:
+      - hideKeyboard
+- scrollUntilVisible:
+    element:
+      id: "gateway-ops-section"
+    direction: DOWN
+    timeout: 30000
 
-- tapOn: "Chat"
+- tapOn:
+    id: "Hermes"
+- extendedWaitUntil:
+    visible:
+      id: "chat-input"
+    timeout: 45000
 - assertVisible:
     id: "HERMES CHAT"

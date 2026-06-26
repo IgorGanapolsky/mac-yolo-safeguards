@@ -1,0 +1,73 @@
+import {
+  OUTBOUND_PENDING_RECOVERY_MS,
+  OUTBOUND_SEND_LOCK_TIMEOUT_MS,
+  applyStuckOutboundRecovery,
+  findStuckPendingOutboundIds,
+  shouldRecoverOutboundSendLock,
+} from '../utils/outboundSendRecovery';
+
+describe('outboundSendRecovery', () => {
+  const now = Date.parse('2026-06-25T14:10:00.000Z');
+
+  it('flags pending user bubbles after recovery window when send is idle', () => {
+    const ids = findStuckPendingOutboundIds(
+      [
+        {
+          id: 'user-old',
+          role: 'user',
+          content: 'Print money make money faster',
+          outboundStatus: 'pending',
+          created_at: new Date(now - OUTBOUND_PENDING_RECOVERY_MS - 1).toISOString(),
+        },
+      ],
+      now,
+      { isSending: false, streamInFlight: false },
+    );
+    expect(ids).toEqual(['user-old']);
+  });
+
+  it('does not recover while isSending or stream is in flight', () => {
+    const messages = [
+      {
+        id: 'user-live',
+        role: 'user' as const,
+        content: 'still going',
+        outboundStatus: 'pending' as const,
+        created_at: new Date(now - OUTBOUND_PENDING_RECOVERY_MS - 60_000).toISOString(),
+      },
+    ];
+    expect(findStuckPendingOutboundIds(messages, now, { isSending: true, streamInFlight: false })).toEqual(
+      [],
+    );
+    expect(findStuckPendingOutboundIds(messages, now, { isSending: false, streamInFlight: true })).toEqual(
+      [],
+    );
+  });
+
+  it('marks stuck bubbles failed with retry copy', () => {
+    const next = applyStuckOutboundRecovery(
+      [
+        {
+          id: 'user-old',
+          role: 'user',
+          content: 'hello',
+          outboundStatus: 'pending',
+        },
+      ],
+      ['user-old'],
+    );
+    expect(next[0]?.outboundStatus).toBe('failed');
+    expect(next[0]?.outboundFailureReason).toContain('tap');
+  });
+
+  it('releases send lock after timeout when stream never starts', () => {
+    const startedAt = Date.parse('2026-06-25T14:00:00.000Z');
+    const now = startedAt + OUTBOUND_SEND_LOCK_TIMEOUT_MS + 1;
+    expect(
+      shouldRecoverOutboundSendLock(startedAt, now, { streamInFlight: false }),
+    ).toBe(true);
+    expect(
+      shouldRecoverOutboundSendLock(startedAt, startedAt + 1_000, { streamInFlight: false }),
+    ).toBe(false);
+  });
+});

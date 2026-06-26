@@ -2,6 +2,7 @@
 appId: com.iganapolsky.hermesmobile
 ---
 - launchApp
+- runFlow: e2e-bootstrap.yaml
 
 # Metro / debug crash screen
 - assertNotVisible: "Unable to load script"
@@ -17,7 +18,7 @@ appId: com.iganapolsky.hermesmobile
       notVisible:
         id: "HERMES CHAT"
     commands:
-      - tapOn: "Chat"
+      - tapOn: "Hermes"
 
 - extendedWaitUntil:
     visible:
@@ -27,14 +28,18 @@ appId: com.iganapolsky.hermesmobile
 - assertVisible:
     id: "chat-input"
 
-- tapOn: "Leash"
+- tapOn:
+    id: "Leash"
 - assertVisible:
-    id: "LEASH"
+    id: "THUMBGATE_LEASH"
 
-- tapOn: "Ops"
-- assertVisible:
-    id: "OPS"
-
-- tapOn: "Settings"
+- tapOn:
+    id: "Settings"
 - assertVisible:
     id: "SETTINGS"
+
+- scrollUntilVisible:
+    element:
+      id: "gateway-ops-section"
+    direction: DOWN
+    timeout: 30000
