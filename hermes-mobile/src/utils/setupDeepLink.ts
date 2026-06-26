@@ -7,6 +7,8 @@ export interface SetupDeepLinkParams {
   macName?: string;
   /** Hermes Relay pairing code (MOON-DUST) — completes cloud account link. */
   relayCode?: string;
+  /** Tailscale / tailnet hosts to probe for other Hermes Macs (100.x or *.ts.net). */
+  tailnetProbeHosts?: string[];
   /** Maestro / simulator flows when no live gateway is reachable. */
   demoMode?: boolean;
 }
@@ -28,6 +30,7 @@ export function buildSetupDeepLink(
   apiKey?: string,
   macName?: string,
   relayCode?: string,
+  tailnetProbeHosts?: string[],
 ): string {
   const params = new URLSearchParams();
   params.set('url', gatewayUrl.trim());
@@ -39,6 +42,12 @@ export function buildSetupDeepLink(
   }
   if (relayCode?.trim()) {
     params.set('relay', relayCode.trim().toUpperCase());
+  }
+  for (const host of tailnetProbeHosts ?? []) {
+    const trimmed = host.trim();
+    if (trimmed) {
+      params.append('tailnet', trimmed);
+    }
   }
   return `hermes://setup?${params.toString()}`;
 }
@@ -73,6 +82,15 @@ export function parseRelayDeepLink(url: string): Pick<SetupDeepLinkParams, 'rela
   return { relayCode: relayCode.toUpperCase() };
 }
 
+function parseRepeatedQueryValues(query: string, key: string): string[] {
+  const prefix = `${key.toLowerCase()}=`;
+  return query
+    .split('&')
+    .filter((part) => part.toLowerCase().startsWith(prefix))
+    .map((part) => decodeURIComponent(part.slice(part.indexOf('=') + 1)).trim())
+    .filter(Boolean);
+}
+
 export function parseSetupDeepLink(url: string): SetupDeepLinkParams | null {
   const lower = url.toLowerCase();
   if (!lower.startsWith('hermes://') || !lower.includes('setup')) {
@@ -84,7 +102,8 @@ export function parseSetupDeepLink(url: string): SetupDeepLinkParams | null {
     return null;
   }
 
-  const params = parseQueryString(url.slice(queryStart + 1));
+  const query = url.slice(queryStart + 1);
+  const params = parseQueryString(query);
   const gatewayUrl =
     params.url?.trim() || params.gateway?.trim() || params.gatewayUrl?.trim() || '';
   const demoMode =
@@ -117,10 +136,12 @@ export function parseSetupDeepLink(url: string): SetupDeepLinkParams | null {
     params.relayCode?.trim() ||
     params.code?.trim() ||
     undefined;
+  const tailnetProbeHosts = parseRepeatedQueryValues(query, 'tailnet');
   return {
     gatewayUrl,
     apiKey,
     macName,
     relayCode: relayCode ? relayCode.toUpperCase() : undefined,
+    tailnetProbeHosts: tailnetProbeHosts.length > 0 ? tailnetProbeHosts : undefined,
   };
 }

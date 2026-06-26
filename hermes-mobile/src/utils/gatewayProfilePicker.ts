@@ -9,6 +9,7 @@ import {
 } from './gatewayUrlPolicy';
 import { isPrivateLanGatewayUrl } from './gatewayEndpoint';
 import { isInvalidGatewayProfile, profileDisplayName } from '../services/gatewayProfiles';
+import { isTailscaleGatewayUrl } from './tailscaleHosts';
 
 export type ProfilePickerLines = {
   title: string;
@@ -80,7 +81,7 @@ export function formatUsbHostMismatchMessage(mismatch: UsbHostMismatch): string 
   return `USB is connected to ${mismatch.usbHostLabel}, not ${mismatch.selectedProfileLabel}. Switch saved computers or unplug from the other Mac.`;
 }
 
-export type ProfileConnectionRoute = 'USB' | 'Wi-Fi' | 'Tunnel' | 'Needs tunnel';
+export type ProfileConnectionRoute = 'USB' | 'Wi-Fi' | 'Tailscale' | 'Tunnel' | 'Needs tunnel';
 
 /** Reachability route label for multi-Mac switcher rows. */
 export function profileConnectionRouteLabel(
@@ -89,6 +90,9 @@ export function profileConnectionRouteLabel(
 ): ProfileConnectionRoute {
   if (isLoopbackGatewayUrl(profile.gatewayUrl)) {
     return 'USB';
+  }
+  if (isTailscaleGatewayUrl(profile.gatewayUrl)) {
+    return 'Tailscale';
   }
   if (isPrivateLanGatewayUrl(profile.gatewayUrl)) {
     return wifiConnected ? 'Wi-Fi' : 'Needs tunnel';

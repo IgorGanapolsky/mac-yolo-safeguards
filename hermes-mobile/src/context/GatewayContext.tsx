@@ -19,7 +19,7 @@ import { DEFAULT_GATEWAY_SETTINGS } from '../types/gateway';
 import type { RunProgressState } from '../types/chatDisplay';
 import { applyStreamEvent } from '../utils/chatStreamEvents';
 import type { ChatStreamEvent } from '../types/gatewayApi';
-import type { GatewayProfile, GatewayProfileState } from '../types/gatewayProfile';
+import type { GatewayProfile, GatewayProfileState, DiscoveredGateway } from '../types/gatewayProfile';
 import type { LanScanProgress, LanScanResult } from '../types/lanScan';
 import { EMPTY_GATEWAY_PROFILE_STATE } from '../types/gatewayProfile';
 import { storage } from '../services/storage';
@@ -58,7 +58,12 @@ import {
   setProductAnalyticsOptOut,
   trackProductEvent,
 } from '../services/productAnalytics';
-import { buildLeashThumbgateCaptureBody } from '../utils/leashThumbgate';
+import {
+  buildChatOutputThumbgateCaptureBody,
+  buildLeashThumbgateCaptureBody,
+  type ThumbgateCaptureSignal,
+} from '../utils/leashThumbgate';
+import type { HermesMessage, HermesSession } from '../types/chat';
 import {
   buildSessionGreeting,
   resolvePresentationState,
@@ -103,6 +108,12 @@ import {
   resolvePairServerMachineName,
   resolvePairServerRelayCode,
 } from '../services/gatewayDiscovery';
+import {
+  collectTailnetProbeHosts,
+  discoverTailscaleGateways,
+  filterNewTailscaleDiscoveries,
+} from '../services/tailscaleDiscovery';
+import { tailnetProbeStorage } from '../services/tailnetProbeStorage';
 import { isGatewaySmokeTestMessage } from '../utils/gatewaySmokeMessages';
 import { isThumbgateLeashUnlocked } from '../utils/thumbgateLeash';
 import { withDeveloperLeashUnlocked } from '../utils/developerLeashUnlock';
@@ -169,6 +180,10 @@ export type GatewayContextValue = {
   selectGatewayProfile: (profileId: string) => Promise<void>;
   removeGatewayProfile: (profileId: string) => Promise<void>;
   scanForGatewayProfiles: () => Promise<GatewayProfile[]>;
+  tailscaleDiscoveries: DiscoveredGateway[];
+  tailscaleDiscoveryProbing: boolean;
+  probeTailscaleComputers: () => Promise<void>;
+  addDiscoveredTailscaleComputer: (discovery: DiscoveredGateway) => Promise<void>;
   saveSettings: (
     settings: GatewaySettings,
     apiKey: string,
@@ -212,6 +227,13 @@ export type GatewayContextValue = {
   clearNotificationFocusSession: () => void;
   addGatewayListener: (listener: (event: GatewayEventMessage) => void) => void;
   removeGatewayListener: (listener: (event: GatewayEventMessage) => void) => void;
+  /** Message id (or fallback key) while chat-output ThumbGate capture is in flight. */
+  chatOutputFeedbackBusyId: string | null;
+  submitChatOutputFeedback: (
+    message: HermesMessage,
+    signal: ThumbgateCaptureSignal,
+    options?: { session?: HermesSession | null; explanation?: string },
+  ) => Promise<boolean>;
 };
 
 export const GatewayContext = createContext<GatewayContextValue | null>(null);
@@ -240,6 +262,8 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
   const [profileScanning, setProfileScanning] = useState(false);
   const [profileScanProgress, setProfileScanProgress] = useState<LanScanProgress | null>(null);
   const [profileScanResult, setProfileScanResult] = useState<LanScanResult | null>(null);
+  const [tailscaleDiscoveries, setTailscaleDiscoveries] = useState<DiscoveredGateway[]>([]);
+  const [tailscaleDiscoveryProbing, setTailscaleDiscoveryProbing] = useState(false);
   const [effectiveGatewayUrl, setEffectiveGatewayUrl] = useState(
     DEFAULT_GATEWAY_SETTINGS.gatewayUrl,
   );
@@ -248,6 +272,7 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
   const [notificationFocusSessionId, setNotificationFocusSessionId] = useState<string | null>(
     null,
   );
+  const [chatOutputFeedbackBusyId, setChatOutputFeedbackBusyId] = useState<string | null>(null);
   const socketRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const connectEventsRef = useRef<() => void>(() => {});
@@ -281,6 +306,9 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
     async () => {},
   );
   const usbAutoSelectKeyRef = useRef<string | null>(null);
+  const tailnetProbeHostsRef = useRef<string[]>([]);
+  const tailscaleProbeInFlightRef = useRef(false);
+  const probeTailscaleComputersRef = useRef<() => Promise<void>>(async () => {});
 
   const addGatewayListener = useCallback((listener: (event: GatewayEventMessage) => void) => {
     listenersRef.current.add(listener);
@@ -455,6 +483,7 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
         if (!mounted) return;
         profileStateRef.current = loadedProfiles;
         setProfileState(loadedProfiles);
+        tailnetProbeHostsRef.current = await tailnetProbeStorage.load();
         setSettings(resolvedSettings);
         settingsRef.current = resolvedSettings;
         setProductAnalyticsOptOut(Boolean(resolvedSettings.analyticsOptOut));
@@ -565,9 +594,13 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const refreshHealth = useCallback(async () => {
+    const publishHealth = (snapshot: GatewayHealthSnapshot) => {
+      publishHealth(snapshot);
+      healthRef.current = snapshot;
+    };
     const currentSettings = settingsRef.current;
     if (currentSettings.demoMode) {
-      setHealth({
+      publishHealth({
         level: 'green',
         status: 'ok',
         gatewayState: 'running',
@@ -618,7 +651,7 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
         ]);
         const macHealth = macResult?.snapshot ?? null;
         const macReachable = macHealth ? isGatewayHealthOk(macHealth) : false;
-        setHealth({
+        publishHealth({
           level: relayHealth.ok ? 'green' : 'amber',
           status: relayHealth.ok ? 'ok' : 'degraded',
           gatewayState: token ? 'paired' : 'unpaired',
@@ -635,7 +668,7 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
           await enrichActiveProfileFromPairServer(lanIp);
         }
       } catch (error) {
-        setHealth({
+        publishHealth({
           level: 'red',
           checkedAt: new Date().toISOString(),
           directGatewayReachable: false,
@@ -652,7 +685,7 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
       if (sanitizedLocalIp) {
         await storage.saveLastGatewayLanIp(sanitizedLocalIp);
       }
-      setHealth({
+      publishHealth({
         ...snapshot,
         localIp: sanitizedLocalIp,
         directGatewayReachable: isGatewayHealthOk(snapshot),
@@ -694,7 +727,7 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
         usbAutoSelectKeyRef.current = null;
       }
     } catch (error) {
-      setHealth({
+      publishHealth({
         level: 'red',
         checkedAt: new Date().toISOString(),
         directGatewayReachable: false,
@@ -1504,6 +1537,57 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
+  const probeTailscaleComputers = useCallback(async () => {
+    if (tailscaleProbeInFlightRef.current || settingsRef.current.demoMode) {
+      return;
+    }
+    tailscaleProbeInFlightRef.current = true;
+    setTailscaleDiscoveryProbing(true);
+    try {
+      const storedHosts =
+        tailnetProbeHostsRef.current.length > 0
+          ? tailnetProbeHostsRef.current
+          : await tailnetProbeStorage.load();
+      tailnetProbeHostsRef.current = storedHosts;
+      const probeHosts = collectTailnetProbeHosts(
+        profileStateRef.current.profiles,
+        storedHosts,
+      );
+      if (probeHosts.length === 0) {
+        setTailscaleDiscoveries([]);
+        return;
+      }
+      const discovered = await discoverTailscaleGateways(probeHosts);
+      const fresh = filterNewTailscaleDiscoveries(profileStateRef.current.profiles, discovered);
+      setTailscaleDiscoveries(fresh);
+    } finally {
+      tailscaleProbeInFlightRef.current = false;
+      setTailscaleDiscoveryProbing(false);
+    }
+  }, []);
+
+  const addDiscoveredTailscaleComputer = useCallback(async (discovery: DiscoveredGateway) => {
+    const nextState = upsertDiscoveredProfile(profileStateRef.current, discovery, false);
+    profileStateRef.current = nextState;
+    setProfileState(nextState);
+    await gatewayProfiles.save(nextState);
+    setTailscaleDiscoveries((prev) =>
+      prev.filter((item) => item.gatewayUrl !== discovery.gatewayUrl),
+    );
+    haptics.success();
+  }, []);
+
+  useEffect(() => {
+    probeTailscaleComputersRef.current = probeTailscaleComputers;
+  }, [probeTailscaleComputers]);
+
+  useEffect(() => {
+    if (!isLoaded || settings.demoMode) {
+      return;
+    }
+    void probeTailscaleComputers();
+  }, [isLoaded, settings.demoMode, health?.checkedAt, profileState.profiles.length, probeTailscaleComputers]);
+
   const bootstrapGateway = useCallback(async (): Promise<boolean> => {
     if (settingsRef.current.demoMode) {
       setGatewayBootstrapPhase('connected');
@@ -1662,7 +1746,12 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
       const nextKey = params.apiKey?.trim() || apiKeyRef.current;
       await saveSettings(nextSettings, nextKey);
       haptics.success();
+      if (params.tailnetProbeHosts?.length) {
+        const merged = await tailnetProbeStorage.merge(params.tailnetProbeHosts);
+        tailnetProbeHostsRef.current = merged;
+      }
       await refreshHealth();
+      void probeTailscaleComputersRef.current();
     },
     [refreshHealth, saveSettings],
   );
@@ -1752,6 +1841,52 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
         decision === 'approve' ? 'up' : 'down',
       );
       await captureThumbgateFeedback(currentSettings.thumbgateApiUrl, body, thumbgateApiKeyRef.current);
+    },
+    [],
+  );
+
+  const submitChatOutputFeedback = useCallback(
+    async (
+      message: HermesMessage,
+      signal: ThumbgateCaptureSignal,
+      options: { session?: HermesSession | null; explanation?: string } = {},
+    ): Promise<boolean> => {
+      const currentSettings = settingsRef.current;
+      if (!isThumbgateLeashUnlocked(currentSettings)) {
+        return false;
+      }
+      const shouldCaptureDown = signal === 'down' && currentSettings.thumbgateCaptureOnDown;
+      const shouldCaptureUp = signal === 'up' && currentSettings.thumbgateCaptureOnUp;
+      if (!shouldCaptureDown && !shouldCaptureUp) {
+        return false;
+      }
+
+      const busyKey =
+        message.id?.trim() ||
+        message.created_at?.trim() ||
+        `${message.role}-${message.content.slice(0, 48)}`;
+      setChatOutputFeedbackBusyId(busyKey);
+      try {
+        const body = buildChatOutputThumbgateCaptureBody(message, signal, {
+          session: options.session,
+          explanation: options.explanation,
+        });
+        await captureThumbgateFeedback(
+          currentSettings.thumbgateApiUrl,
+          body,
+          thumbgateApiKeyRef.current,
+        );
+        haptics.success();
+        return true;
+      } catch (error) {
+        setLastEventError(
+          error instanceof Error ? error.message : 'ThumbGate capture failed',
+        );
+        haptics.warning();
+        return false;
+      } finally {
+        setChatOutputFeedbackBusyId(null);
+      }
     },
     [],
   );
@@ -2030,6 +2165,10 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
       selectGatewayProfile,
       removeGatewayProfile,
       scanForGatewayProfiles,
+      tailscaleDiscoveries,
+      tailscaleDiscoveryProbing,
+      probeTailscaleComputers,
+      addDiscoveredTailscaleComputer,
       saveSettings,
       patchSettings,
       activateDeveloperLeashUnlock,
@@ -2059,6 +2198,8 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
       setChatStreamProgressActive,
       addGatewayListener,
       removeGatewayListener,
+      chatOutputFeedbackBusyId,
+      submitChatOutputFeedback,
     }),
     [
       settings,
@@ -2093,6 +2234,10 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
       selectGatewayProfile,
       removeGatewayProfile,
       scanForGatewayProfiles,
+      tailscaleDiscoveries,
+      tailscaleDiscoveryProbing,
+      probeTailscaleComputers,
+      addDiscoveredTailscaleComputer,
       saveSettings,
       patchSettings,
       activateDeveloperLeashUnlock,
@@ -2122,6 +2267,8 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
       setChatStreamProgressActive,
       addGatewayListener,
       removeGatewayListener,
+      chatOutputFeedbackBusyId,
+      submitChatOutputFeedback,
     ],
   );
 

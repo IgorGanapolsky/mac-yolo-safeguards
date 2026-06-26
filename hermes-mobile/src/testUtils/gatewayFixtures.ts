@@ -94,6 +94,10 @@ export function mockUseGateway(overrides: Record<string, unknown> = {}) {
     selectGatewayProfile: jest.fn().mockResolvedValue(undefined),
     removeGatewayProfile: jest.fn().mockResolvedValue(undefined),
     scanForGatewayProfiles: jest.fn().mockResolvedValue([]),
+    tailscaleDiscoveries: [],
+    tailscaleDiscoveryProbing: false,
+    probeTailscaleComputers: jest.fn().mockResolvedValue(undefined),
+    addDiscoveredTailscaleComputer: jest.fn().mockResolvedValue(undefined),
     pendingApprovalEditSeed: null,
     setApprovalEditSeed: jest.fn(),
     clearApprovalEditSeed: jest.fn(),
@@ -107,7 +111,8 @@ export function mockUseGateway(overrides: Record<string, unknown> = {}) {
     setChatStreamProgressActive: jest.fn(),
     addGatewayListener: jest.fn(),
     removeGatewayListener: jest.fn(),
-    wifiConnected: true,
+    chatOutputFeedbackBusyId: null,
+    submitChatOutputFeedback: jest.fn().mockResolvedValue(true),
     ...overrides,
   };
 }
