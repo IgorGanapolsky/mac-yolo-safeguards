@@ -4,6 +4,7 @@ import {
   formatSessionDate,
   formatSessionLastActive,
   formatSessionTitle,
+  isRecentsRailSession,
   parseGatewayTimestamp,
   sessionDisplayTitle,
   sessionPickerLabel,
@@ -95,11 +96,25 @@ describe('sessionDisplay', () => {
           sessionLabels: { sess_1: 'New mobile session' },
         },
       ),
-    ).toBe('print money, make money faster. Use Data Science, M…');
+    ).toBe('print money, make money faster. Use Data Science, ML and Agentic RAG.');
+
+    const longPreview = 'a'.repeat(130);
+    expect(
+      sessionPickerLabel(
+        {
+          id: 'sess_2',
+          title: 'New mobile session',
+          preview: longPreview,
+        },
+        {
+          sessionLabels: { sess_2: 'New mobile session' },
+        },
+      ),
+    ).toBe('a'.repeat(119) + '…');
   });
 
   it('deriveThreadTitleFromMessage truncates long prompts', () => {
-    const long = 'a'.repeat(60);
+    const long = 'a'.repeat(70);
     expect(deriveThreadTitleFromMessage(long)?.endsWith('…')).toBe(true);
   });
 
@@ -188,12 +203,13 @@ describe('sessionDisplay', () => {
   it('formatSessionTitle end-truncates long user titles for header', () => {
     const session: HermesSession = {
       id: 'sess_long',
-      title: 'we are working on skool_top_level_integration_branch today',
+      title:
+        'we are working on skool_top_level_integration_branch today and still need several more words to exceed the header cap',
     };
     const title = formatSessionTitle(session);
     expect(title.endsWith('…')).toBe(true);
-    expect(title.length).toBeLessThanOrEqual(40);
-    expect(title.startsWith('we are working on skool_top_level')).toBe(true);
+    expect(title.length).toBeLessThanOrEqual(72);
+    expect(title.startsWith('we are working on skool_top_level_integration_branch')).toBe(true);
   });
 
   it('formatSessionTitle strips IMPORTANT prefix from non-cron titles', () => {
@@ -202,5 +218,22 @@ describe('sessionDisplay', () => {
       title: '[IMPORTANT: Ship the Hermes mobile header fix today',
     };
     expect(formatSessionTitle(session)).toBe('Ship the Hermes mobile header fix today');
+  });
+
+  it('isRecentsRailSession hides cron and telegram inbox', () => {
+    expect(
+      isRecentsRailSession({
+        id: 'cron_abc',
+        source: 'cron',
+        title: '[IMPORTANT: You are running as a scheduled cron job',
+      }),
+    ).toBe(false);
+    expect(
+      isRecentsRailSession({
+        id: '__telegram_inbox__',
+        title: 'Active — all threads',
+      }),
+    ).toBe(false);
+    expect(isRecentsRailSession({ id: 'sess_user', title: 'Print money' })).toBe(true);
   });
 });

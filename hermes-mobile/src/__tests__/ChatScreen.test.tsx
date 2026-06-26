@@ -261,9 +261,24 @@ async function confirmAlertButton(label: string) {
   });
 }
 
+async function flushChatScreenBoot() {
+  await act(async () => {
+    await Promise.resolve();
+  });
+}
+
+async function renderChatScreen() {
+  const view = renderInTabNavigator(ChatScreen, 'Chat');
+  await flushChatScreenBoot();
+  await waitFor(() => {
+    expect(view.getByTestId('chat-screen-header')).toBeTruthy();
+  });
+  return view;
+}
+
 describe('ChatScreen', () => {
   beforeEach(() => {
-    jest.useFakeTimers();
+    jest.clearAllMocks();
     const { listSessions, listMessages } = jest.requireMock('../services/hermesChatClient') as {
       listSessions: jest.Mock;
       listMessages: jest.Mock;
@@ -311,6 +326,11 @@ describe('ChatScreen', () => {
       relayWorkers: [],
       activeRelayWorkerId: null,
       isPaired: true,
+      refreshHealth: jest.fn().mockResolvedValue(undefined),
+      selectGatewayProfile: jest.fn().mockResolvedValue(undefined),
+      scanForGatewayProfiles: jest.fn().mockResolvedValue([]),
+      autoConnectGateway: jest.fn().mockResolvedValue('http://localhost:8642'),
+      submitChatOutputFeedback: jest.fn().mockResolvedValue(true),
       settings: {
         demoMode: true,
         connectionMode: 'gateway',
@@ -319,6 +339,14 @@ describe('ChatScreen', () => {
         approvalPolicy: 'balanced',
       },
     });
+    const { storage } = jest.requireMock('../services/storage') as {
+      storage: Record<string, jest.Mock>;
+    };
+    for (const fn of Object.values(storage)) {
+      if (typeof fn?.mockClear === 'function') {
+        fn.mockClear();
+      }
+    }
   });
 
   afterEach(() => {
@@ -344,12 +372,12 @@ describe('ChatScreen', () => {
       activeProjectId: 'demo-hermes-mobile',
     });
 
-    const { getByText, getByTestId, findByTestId } = renderInTabNavigator(ChatScreen, 'Chat');
+    const { getByText, getByTestId } = await renderChatScreen();
 
     expect(getByTestId('HERMES CHAT').props.children).toBeTruthy();
     expect(getByText('DEMO')).toBeTruthy();
     expect(getByTestId('chat-input')).toBeTruthy();
-    expect(await findByTestId('chat-screen-header')).toBeTruthy();
+    expect(getByTestId('chat-screen-header')).toBeTruthy();
     expect(getByTestId('chat-context-mac').props.children).toBe('Demo Mac');
     expect(getByTestId('chat-empty-greeting')).toBeTruthy();
   });
@@ -370,17 +398,16 @@ describe('ChatScreen', () => {
       },
     });
 
-    const { getByTestId, queryByTestId, findByTestId } = renderInTabNavigator(ChatScreen, 'Chat');
+    const { getByTestId, queryByTestId } = await renderChatScreen();
 
-    expect(await findByTestId('chat-screen-header')).toBeTruthy();
     expect(queryByTestId('chat-connection-panel')).toBeNull();
     expect(getByTestId('chat-input')).toBeTruthy();
     expect(getByTestId('chat-context-mac').props.children).toBe('Hermes account relay');
     expect(getByTestId('chat-context-link').props.children).toContain('Pair relay in Settings for Wi‑Fi, cellular, or USB');
   });
 
-  it('allows text input and shows send button active', () => {
-    const { getByTestId } = renderInTabNavigator(ChatScreen, 'Chat');
+  it('allows text input and shows send button active', async () => {
+    const { getByTestId } = await renderChatScreen();
     const input = getByTestId('chat-input');
     const sendButton = getByTestId('chat-send-button');
 
@@ -394,11 +421,13 @@ describe('ChatScreen', () => {
       sendChatMessage: jest.Mock;
     };
     sendChatMessage.mockClear();
-    const { getByTestId, findByTestId, queryByText, queryByTestId } = renderInTabNavigator(ChatScreen, 'Chat');
+    const { getByTestId, queryByText, queryByTestId } = await renderChatScreen();
     const input = getByTestId('chat-input');
 
-    expect(queryByTestId('chat-quick-action-continue')).toBeNull();
-    const action = await findByTestId('chat-quick-action-recent-0');
+    await waitFor(() => {
+      expect(queryByTestId('chat-quick-action-continue')).toBeNull();
+    });
+    const action = getByTestId('chat-quick-action-recent-0');
     fireEvent.press(action);
 
     expect(input.props.value).toBe('safeguards setup inquiry');
@@ -411,9 +440,8 @@ describe('ChatScreen', () => {
     };
     saveDismissedPrompt.mockClear();
 
-    const { findByTestId, queryByTestId } = renderInTabNavigator(ChatScreen, 'Chat');
+    const { findByTestId, queryByTestId } = await renderChatScreen();
 
-    // Dismiss chip with id: recent-0
     const dismissBtn = await findByTestId('chat-quick-action-dismiss-recent-0');
     await act(async () => {
       fireEvent.press(dismissBtn);
@@ -426,8 +454,9 @@ describe('ChatScreen', () => {
     expect(queryByTestId('chat-quick-action-recent-0')).toBeNull();
   });
 
-  it('triggers mock message sending and demo reply in demo mode', () => {
-    const { getByTestId, getAllByTestId, queryByTestId } = renderInTabNavigator(ChatScreen, 'Chat');
+  it('triggers mock message sending and demo reply in demo mode', async () => {
+    const { getByTestId, getAllByTestId, queryByTestId } = await renderChatScreen();
+    jest.useFakeTimers();
     const input = getByTestId('chat-input');
     const sendButton = getByTestId('chat-send-button');
 
@@ -447,10 +476,12 @@ describe('ChatScreen', () => {
     expect(getAllByTestId('chat-message-assistant').length).toBeGreaterThanOrEqual(1);
     expect(queryByTestId('chat-empty-state')).toBeNull();
     expect(getAllByTestId('chat-message-user').length).toBeGreaterThanOrEqual(1);
+    jest.useRealTimers();
   });
 
-  it('keeps send enabled while a demo reply is in flight (queue path)', () => {
-    const { getByTestId, getAllByTestId } = renderInTabNavigator(ChatScreen, 'Chat');
+  it('keeps send enabled while a demo reply is in flight (queue path)', async () => {
+    const { getByTestId, getAllByTestId } = await renderChatScreen();
+    jest.useFakeTimers();
     const input = getByTestId('chat-input');
     const sendButton = getByTestId('chat-send-button');
 
@@ -466,10 +497,11 @@ describe('ChatScreen', () => {
       fireEvent.press(sendButton);
     });
     expect(getAllByTestId('chat-message-user').length).toBeGreaterThanOrEqual(userCountAfterFirstSend);
+    jest.useRealTimers();
   });
 
-  it('clears composer after send and ignores Android IME echo onChangeText', () => {
-    const { getByTestId } = renderInTabNavigator(ChatScreen, 'Chat');
+  it('clears composer after send and ignores Android IME echo onChangeText', async () => {
+    const { getByTestId } = await renderChatScreen();
     const input = getByTestId('chat-input');
     const sendButton = getByTestId('chat-send-button');
 
@@ -481,8 +513,8 @@ describe('ChatScreen', () => {
     expect(input.props.value).toBe('');
   });
 
-  it('opens and closes sessions selector modal', () => {
-    const { getByTestId, getByText, queryByTestId } = renderInTabNavigator(ChatScreen, 'Chat');
+  it('opens and closes sessions selector modal', async () => {
+    const { getByTestId, getByText, queryByTestId } = await renderChatScreen();
 
     fireEvent.press(getByTestId('open-sessions-modal'));
     expect(getByTestId('threads-modal-title')).toBeTruthy();
@@ -492,8 +524,8 @@ describe('ChatScreen', () => {
     expect(queryByTestId('modal-new-chat-button')).toBeNull();
   });
 
-  it('opens tools modal from header Tools button, not threads', () => {
-    const { getByTestId, getByText, queryByTestId } = renderInTabNavigator(ChatScreen, 'Chat');
+  it('opens tools modal from header Tools button, not threads', async () => {
+    const { getByTestId, getByText, queryByTestId } = await renderChatScreen();
 
     fireEvent.press(getByTestId('chat-header-tools'));
     expect(getByTestId('tools-modal-title')).toBeTruthy();
@@ -504,8 +536,8 @@ describe('ChatScreen', () => {
     expect(queryByTestId('tools-modal-title')).toBeNull();
   });
 
-  it('can start a new session from modal', () => {
-    const { getByTestId, queryByTestId } = renderInTabNavigator(ChatScreen, 'Chat');
+  it('can start a new session from modal', async () => {
+    const { getByTestId, queryByTestId } = await renderChatScreen();
 
     fireEvent.press(getByTestId('open-sessions-modal'));
     const newSessionButton = getByTestId('modal-new-chat-button');
@@ -516,7 +548,6 @@ describe('ChatScreen', () => {
   });
 
   it('shows clearing progress and persists empty demo bindings on clear all', async () => {
-    jest.useRealTimers();
     const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation((_title, _message, buttons) => {
       const clearButton = buttons?.find((button) => button.text === 'Clear all');
       void clearButton?.onPress?.();
@@ -526,7 +557,7 @@ describe('ChatScreen', () => {
     };
     chatProjects.save.mockClear();
 
-    const { getByTestId, findByTestId, queryByTestId } = renderInTabNavigator(ChatScreen, 'Chat');
+    const { getByTestId, findByTestId, queryByTestId } = await renderChatScreen();
     fireEvent.press(getByTestId('open-sessions-modal'));
     fireEvent.press(await findByTestId('threads-modal-clear-all'));
 
@@ -552,7 +583,6 @@ describe('ChatScreen', () => {
   });
 
   it('deletes an individual session from the threads modal in demo mode', async () => {
-    jest.useRealTimers();
     const alertSpy = jest.spyOn(Alert, 'alert');
     const { deleteSession } = jest.requireMock('../services/hermesGatewayClient') as {
       deleteSession: jest.Mock;
@@ -563,7 +593,7 @@ describe('ChatScreen', () => {
     deleteSession.mockClear();
     chatProjects.save.mockClear();
 
-    const { getByTestId, findByTestId, queryByTestId } = renderInTabNavigator(ChatScreen, 'Chat');
+    const { getByTestId, findByTestId, queryByTestId } = await renderChatScreen();
     fireEvent.press(getByTestId('open-sessions-modal'));
     fireEvent.press(await findByTestId('recent-chat-delete-demo-1'));
     await confirmAlertButton('Delete');
@@ -589,7 +619,7 @@ describe('ChatScreen', () => {
   });
 
   it('allows renaming a session in the threads modal', async () => {
-    const { getByTestId, getByText, getAllByText, queryByText, findByTestId } = renderInTabNavigator(ChatScreen, 'Chat');
+    const { getByTestId, getByText, getAllByText, queryByText, findByTestId } = await renderChatScreen();
 
     // 1. Open the threads/sessions modal
     fireEvent.press(getByTestId('open-sessions-modal'));
@@ -623,7 +653,7 @@ describe('ChatScreen', () => {
       chatProjects: { load: jest.Mock };
     };
 
-    listSessions.mockResolvedValueOnce([
+    listSessions.mockResolvedValue([
       {
         id: 'cron_abc123',
         source: 'cron',
@@ -631,8 +661,8 @@ describe('ChatScreen', () => {
         last_active_at: '2026-06-23T12:00:00Z',
       },
     ]);
-    listMessages.mockResolvedValueOnce([]);
-    chatProjects.load.mockResolvedValueOnce({
+    listMessages.mockResolvedValue([]);
+    chatProjects.load.mockResolvedValue({
       projects: [
         {
           id: 'demo-hermes-mobile',
@@ -659,14 +689,15 @@ describe('ChatScreen', () => {
       },
     });
 
-    const { findByTestId, queryByTestId } = renderInTabNavigator(ChatScreen, 'Chat');
+    const { findByTestId, queryByTestId } = await renderChatScreen();
 
-    expect(await findByTestId('recent-chats-clear-all')).toBeTruthy();
+    await waitFor(() => {
+      expect(queryByTestId('recent-chats-clear-all')).toBeTruthy();
+    });
     expect(queryByTestId('recent-chat-cron_abc123')).toBeNull();
   });
 
   it('clear all deletes cron-only Mac sessions and keeps them dismissed', async () => {
-    jest.useRealTimers();
     const alertSpy = jest.spyOn(Alert, 'alert');
     const { listSessions, listMessages } = jest.requireMock('../services/hermesChatClient') as {
       listSessions: jest.Mock;
@@ -699,7 +730,7 @@ describe('ChatScreen', () => {
     storage.addDismissedSessionIds.mockClear();
     storage.clearDismissedSessionIds.mockClear();
     storage.setHideCronSessions.mockClear();
-    chatProjects.load.mockResolvedValueOnce({
+    chatProjects.load.mockResolvedValue({
       projects: [
         {
           id: 'demo-hermes-mobile',
@@ -727,9 +758,11 @@ describe('ChatScreen', () => {
       },
     });
 
-    const { findByTestId, getByTestId } = renderInTabNavigator(ChatScreen, 'Chat');
+    const { findByTestId, getByTestId, queryByTestId } = await renderChatScreen();
 
-    expect(await findByTestId('recent-chats-clear-all')).toBeTruthy();
+    await waitFor(() => {
+      expect(queryByTestId('recent-chats-clear-all')).toBeTruthy();
+    });
 
     fireEvent.press(getByTestId('open-sessions-modal'));
     fireEvent.press(await findByTestId('threads-modal-clear-all'));

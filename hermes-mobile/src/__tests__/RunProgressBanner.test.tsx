@@ -54,6 +54,36 @@ describe('RunProgressBanner', () => {
     expect(getByText('gemini-2.5-flash')).toBeTruthy();
   });
 
+  it('shows token counts during active runs without showTechnicalStats', () => {
+    const { getByText } = render(
+      <RunProgressBanner
+        progress={{
+          phase: 'streaming',
+          startedAtMs: Date.now() - 3000,
+          detail: 'Hermes is thinking…',
+          inputTokens: 89041,
+          outputTokens: 1989,
+        }}
+      />,
+    );
+    expect(getByText('In: 89041 | Out: 1989')).toBeTruthy();
+  });
+
+  it('uses fallbackModel when progress model is a gateway platform label', () => {
+    const { getByText } = render(
+      <RunProgressBanner
+        progress={{
+          phase: 'working',
+          startedAtMs: Date.now() - 1000,
+          detail: 'Hermes is thinking…',
+          model: 'hermes-agent',
+        }}
+        fallbackModel="google/gemini-2.5-flash"
+      />,
+    );
+    expect(getByText('google/gemini-2.5-flash')).toBeTruthy();
+  });
+
   it('splits long connectivity failures so timer does not overlap text', () => {
     const detail =
       "Your phone can't reach that local computer link. Join the same Wi‑Fi, add a tunnel URL in Settings, or use relay for approvals only.";

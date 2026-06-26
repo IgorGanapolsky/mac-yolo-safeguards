@@ -1,4 +1,5 @@
 import type { HermesSession } from '../types/chat';
+import { isTelegramInboxSession } from '../services/telegramInbox';
 import { isSmokeProbeSession } from './sessionSelection';
 
 /** Hermes gateway returns Unix seconds (float); JS Date expects ms. */
@@ -73,8 +74,14 @@ export type SessionPickerLabelOptions = {
   projectName?: string | null;
 };
 
+/** Chat header pre-truncation cap — visual ellipsis also uses two lines in ChatScreenHeader. */
+export const HEADER_SESSION_TITLE_MAX_LEN = 72;
+
+/** Recents rail preview char cap before ellipsis (list rows also use numberOfLines). */
+export const RECENTS_PREVIEW_MAX_CHARS = 120;
+
 export type FormatSessionTitleOptions = SessionPickerLabelOptions & {
-  /** Header-safe length; end-truncates longer labels. Default 40. */
+  /** Header-safe length; end-truncates longer labels. Default HEADER_SESSION_TITLE_MAX_LEN. */
   maxLen?: number;
 };
 
@@ -106,7 +113,7 @@ export function isGenericSessionPlaceholderTitle(title: string | null | undefine
 }
 
 /** First-line thread title from the user's opening message. */
-export function deriveThreadTitleFromMessage(text: string, maxLen = 48): string | null {
+export function deriveThreadTitleFromMessage(text: string, maxLen = 64): string | null {
   const cleaned = text.trim().replace(/\s+/g, ' ');
   if (!cleaned) {
     return null;
@@ -115,6 +122,14 @@ export function deriveThreadTitleFromMessage(text: string, maxLen = 48): string 
     return cleaned;
   }
   return `${cleaned.slice(0, maxLen - 1).trimEnd()}…`;
+}
+
+
+function truncatePreviewText(text: string, maxLen: number): string {
+  if (text.length <= maxLen) {
+    return text;
+  }
+  return `${text.slice(0, maxLen - 1).trimEnd()}…`;
 }
 
 /** Stable label for session picker — ignores gateway preview / drifting titles. */
@@ -145,7 +160,7 @@ export function sessionPickerLabel(
     return humanizeCronSessionTitle(session);
   }
   if (preview && !isSmokeLikeLabel(preview)) {
-    return preview.length > 52 ? `${preview.slice(0, 51).trimEnd()}…` : preview;
+    return truncatePreviewText(preview, RECENTS_PREVIEW_MAX_CHARS);
   }
 
   const projectName = options?.projectName?.trim();
@@ -236,12 +251,23 @@ export function isAutomatedCronSession(session: HermesSession, title?: string | 
   return false;
 }
 
+/** Operator recents rail — hide inbox aggregate + automated cron (still in full threads list). */
+export function isRecentsRailSession(session: HermesSession): boolean {
+  if (isTelegramInboxSession(session)) {
+    return false;
+  }
+  if (isAutomatedCronSession(session)) {
+    return false;
+  }
+  return true;
+}
+
 /** Human-readable chat header title — end-truncates long labels. */
 export function formatSessionTitle(
   session: HermesSession,
   options?: FormatSessionTitleOptions,
 ): string {
-  const maxLen = options?.maxLen ?? 40;
+  const maxLen = options?.maxLen ?? HEADER_SESSION_TITLE_MAX_LEN;
   const label = sessionPickerLabel(session, options);
   if (label.length <= maxLen) {
     return label;
