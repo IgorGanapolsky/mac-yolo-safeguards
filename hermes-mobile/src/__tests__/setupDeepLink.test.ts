@@ -1,6 +1,30 @@
-import { buildSetupDeepLink, parseSetupDeepLink } from '../utils/setupDeepLink';
+import { buildRelayDeepLink, buildSetupDeepLink, parseRelayDeepLink, parseSetupDeepLink } from '../utils/setupDeepLink';
 
 describe('setupDeepLink', () => {
+  it('builds and parses setup URLs with relay code', () => {
+    const link = buildSetupDeepLink(
+      'http://192.168.12.208:8642',
+      'sk-test',
+      'Mac-Mini',
+      'moon-dust',
+    );
+    const parsed = parseSetupDeepLink(link);
+    expect(parsed).toEqual({
+      gatewayUrl: 'http://192.168.12.208:8642',
+      apiKey: 'sk-test',
+      macName: 'Mac-Mini',
+      relayCode: 'MOON-DUST',
+    });
+
+    const parsedLower = parseSetupDeepLink('hermes://setup?url=http://192.168.12.208:8642&key=sk-test&name=Mac-Mini&relay=moon-dust');
+    expect(parsedLower).toEqual({
+      gatewayUrl: 'http://192.168.12.208:8642',
+      apiKey: 'sk-test',
+      macName: 'Mac-Mini',
+      relayCode: 'MOON-DUST',
+    });
+  });
+
   it('builds and parses setup URLs', () => {
     const link = buildSetupDeepLink('http://192.168.12.208:8642', 'sk-test', 'Mac-Mini');
     expect(link).toContain('hermes://setup?');
@@ -14,6 +38,16 @@ describe('setupDeepLink', () => {
 
   it('parses demo-mode setup for simulator E2E', () => {
     expect(parseSetupDeepLink('hermes://setup?demo=1')).toEqual({ demoMode: true });
+  });
+
+  it('parses relay-only deep links', () => {
+    expect(parseRelayDeepLink('hermes://relay?relay=MOON-DUST')).toEqual({
+      relayCode: 'MOON-DUST',
+    });
+    expect(parseRelayDeepLink('hermes://relay?relay=moon-dust')).toEqual({
+      relayCode: 'MOON-DUST',
+    });
+    expect(buildRelayDeepLink('moon-dust')).toBe('hermes://relay?relay=MOON-DUST');
   });
 
   it('returns null for non-setup links', () => {

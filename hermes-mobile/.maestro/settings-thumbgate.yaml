@@ -1,12 +1,12 @@
-# Settings — scroll through ThumbGate / Leash region to save button
+# Leash tab — scroll through Leash options to smoke test
 appId: com.iganapolsky.hermesmobile
 ---
 - launchApp
 - runFlow: e2e-bootstrap.yaml
-- tapOn: "Settings"
+- tapOn: "Leash"
 - extendedWaitUntil:
     visible:
-      id: "SETTINGS"
+      id: "THUMBGATE_LEASH"
     timeout: 30000
 - scrollUntilVisible:
     element:
@@ -17,8 +17,8 @@ appId: com.iganapolsky.hermesmobile
     id: "leash-smoke-test"
 - scrollUntilVisible:
     element:
-      id: "save-settings-button"
+      id: "glance-mode-switch"
     direction: DOWN
     timeout: 60000
 - assertVisible:
-    id: "save-settings-button"
+    id: "glance-mode-switch"

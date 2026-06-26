@@ -31,6 +31,14 @@ describe('formatGatewayHostLabel', () => {
     expect(formatGatewayHostLabel('http://hermes-mac.local:8642', null)).toBe('hermes-mac.local');
   });
 
+  it('labels loopback gateway as machine name plus USB', () => {
+    expect(
+      formatGatewayHostLabel('http://127.0.0.1:8642', sampleHealth({
+        hostname: 'Igors-MacBook-Pro.local',
+      })),
+    ).toBe('Igors-MacBook-Pro · USB');
+  });
+
   it('ignores unknown placeholders from health', () => {
     expect(
       formatGatewayHostLabel('http://192.168.5.42:8642', sampleHealth({
@@ -74,7 +82,7 @@ describe('isPrivateLanGatewayUrl', () => {
   });
 
   it('does not flag public tunnel URLs as LAN-only', () => {
-    expect(isPrivateLanGatewayUrl('https://hermes-mobile-cloud.fly.dev')).toBe(false);
+    expect(isPrivateLanGatewayUrl('https://hermesmobile-cloud.fly.dev')).toBe(false);
     expect(isPrivateLanGatewayUrl('https://example.com')).toBe(false);
   });
 });
@@ -88,7 +96,7 @@ describe('formatLeashConnectionDisplay', () => {
       health: null,
       isPaired: true,
     });
-    expect(display.headline).toBe('Cloud relay linked to your computer');
+    expect(display.headline).toBe('Hermes relay linked to your active machine');
   });
 
   it('explains gateway mode with machine name and IP', () => {
@@ -98,7 +106,7 @@ describe('formatLeashConnectionDisplay', () => {
       gatewayUrl: 'http://192.168.12.208:8642',
       health: sampleHealth({ hostname: 'Igors-MacBook-Pro.local', localIp: '192.168.12.208' }),
     });
-    expect(display.headline).toBe('Live link to your computer gateway');
+    expect(display.headline).toBe('Direct local link to your computer');
     expect(display.machineName).toBe('Igors-MacBook-Pro');
     expect(display.lanIp).toBe('192.168.12.208');
     expect(display.footnote).toContain('instant alerts');
@@ -112,7 +120,23 @@ describe('formatLeashConnectionDisplay', () => {
       health: null,
     });
     expect(display.headline).not.toMatch(/WS/i);
-    expect(display.headline).toContain('computer gateway');
+    expect(display.headline).toContain('computer');
+  });
+
+  it('shows USB direct link when relay is unpaired but Mac HTTP is up', () => {
+    const display = formatLeashConnectionDisplay({
+      connectionMode: 'relay',
+      connectionState: 'disconnected',
+      gatewayUrl: 'http://127.0.0.1:8642',
+      health: sampleHealth({
+        hostname: 'Igors-MacBook-Pro.local',
+        level: 'green',
+        directGatewayReachable: true,
+      }),
+      isPaired: false,
+    });
+    expect(display.headline).toBe('USB link to Igors-MacBook-Pro');
+    expect(display.footnote).toContain('Pair Hermes relay');
   });
 });
 

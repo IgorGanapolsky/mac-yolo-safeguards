@@ -36,7 +36,7 @@ describe('ChatInputBar', () => {
     const flat = StyleSheet.flatten(input.props.style);
 
     expect(flat.color).toBe(colors.text);
-    expect(flat.backgroundColor).toBe('rgba(255, 255, 255, 0.06)');
+    expect(flat.backgroundColor).toBe('transparent');
     expect(input.props.placeholderTextColor).toBe(colors.textMuted);
     expect(input.props.selectionColor).toBe(colors.primary);
     expect(input.props.editable).toBe(true);

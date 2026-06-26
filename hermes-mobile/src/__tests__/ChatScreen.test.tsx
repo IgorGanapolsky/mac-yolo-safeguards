@@ -1,7 +1,66 @@
 import React from 'react';
+import { Alert } from 'react-native';
 import { fireEvent, act, waitFor } from '@testing-library/react-native';
 import ChatScreen from '../screens/ChatScreen';
 import { renderInTabNavigator } from '../testUtils/navigation';
+
+const mockGatewayState = {
+  connectionState: 'demo',
+  apiKey: 'test-api-key',
+  effectiveGatewayUrl: 'http://localhost:8642',
+  health: { ok: true, hostname: 'demo-mac.local', localIp: '127.0.0.1' },
+  activeGatewayProfile: {
+    id: 'mac_demo',
+    label: 'Demo Mac',
+    gatewayUrl: 'http://localhost:8642',
+    localIp: '127.0.0.1',
+    addedAt: '2026-06-18T00:00:00Z',
+  },
+  gatewayProfiles: [
+    {
+      id: 'mac_demo',
+      label: 'Demo Mac',
+      gatewayUrl: 'http://localhost:8642',
+      localIp: '127.0.0.1',
+      addedAt: '2026-06-18T00:00:00Z',
+    },
+  ],
+  relayWorkers: [],
+  activeRelayWorkerId: null,
+  isPaired: true,
+  selectGatewayProfile: jest.fn().mockResolvedValue(undefined),
+  scanForGatewayProfiles: jest.fn().mockResolvedValue([]),
+  profileScanning: false,
+  profileScanProgress: null,
+  profileScanResult: null,
+  autoConnectGateway: jest.fn().mockResolvedValue('http://localhost:8642'),
+  pendingApprovals: [],
+  submitApprovalChoice: jest.fn(),
+  sendGateAction: jest.fn(),
+  pendingApprovalEditSeed: null,
+  clearApprovalEditSeed: jest.fn(),
+  runProgress: null,
+  setRunProgress: jest.fn(),
+  setChatStreamProgressActive: jest.fn(),
+  addGatewayListener: jest.fn(),
+  removeGatewayListener: jest.fn(),
+  refreshHealth: jest.fn().mockResolvedValue(undefined),
+  retryGatewayBootstrap: jest.fn().mockResolvedValue(true),
+  removeGatewayProfile: jest.fn().mockResolvedValue(undefined),
+  connectEvents: jest.fn(),
+  addGatewayProfile: jest.fn().mockResolvedValue(undefined),
+  completePair: jest.fn().mockResolvedValue(undefined),
+  saveSettings: jest.fn().mockResolvedValue(undefined),
+  wifiConnected: true,
+  settings: {
+    demoMode: true,
+    connectionMode: 'gateway',
+    gatewayUrl: 'http://localhost:8642',
+    cloudUrl: 'https://hermesmobile-cloud.fly.dev',
+    approvalPolicy: 'balanced',
+    includeToolActivity: true,
+  },
+};
 
 jest.mock('@react-navigation/native', () => {
   const actual = jest.requireActual('@react-navigation/native');
@@ -17,55 +76,37 @@ jest.mock('@react-navigation/native', () => {
   };
 });
 
+jest.mock('../hooks/useGatewaySelector', () => ({
+  useGatewayConnection: () => mockGatewayState,
+  useGatewayRelay: () => ({
+    relayWorkers: mockGatewayState.relayWorkers,
+    activeRelayWorkerId: mockGatewayState.activeRelayWorkerId,
+    isPaired: mockGatewayState.isPaired,
+  }),
+  useGatewayApprovals: () => ({
+    pendingApprovals: mockGatewayState.pendingApprovals,
+    submitApprovalChoice: mockGatewayState.submitApprovalChoice,
+    sendGateAction: mockGatewayState.sendGateAction,
+    pendingApprovalEditSeed: mockGatewayState.pendingApprovalEditSeed,
+    clearApprovalEditSeed: mockGatewayState.clearApprovalEditSeed,
+    runProgress: mockGatewayState.runProgress,
+    setRunProgress: mockGatewayState.setRunProgress,
+    setChatStreamProgressActive: mockGatewayState.setChatStreamProgressActive,
+  }),
+  useGatewayChatSync: () => ({
+    transcriptSyncNonce: 0,
+    pendingChatRelayText: null,
+    clearChatRelayText: jest.fn(),
+    notificationFocusSessionId: null,
+    clearNotificationFocusSession: jest.fn(),
+    addGatewayListener: mockGatewayState.addGatewayListener,
+    removeGatewayListener: mockGatewayState.removeGatewayListener,
+  }),
+}));
+
 jest.mock('../context/GatewayContext', () => {
-  const actualMock = {
-    connectionState: 'demo',
-    apiKey: 'test-api-key',
-    effectiveGatewayUrl: 'http://localhost:8642',
-    health: { ok: true, hostname: 'demo-mac.local', localIp: '127.0.0.1' },
-    activeGatewayProfile: {
-      id: 'mac_demo',
-      label: 'Demo Mac',
-      gatewayUrl: 'http://localhost:8642',
-      localIp: '127.0.0.1',
-      addedAt: '2026-06-18T00:00:00Z',
-    },
-    gatewayProfiles: [
-      {
-        id: 'mac_demo',
-        label: 'Demo Mac',
-        gatewayUrl: 'http://localhost:8642',
-        localIp: '127.0.0.1',
-        addedAt: '2026-06-18T00:00:00Z',
-      },
-    ],
-    selectGatewayProfile: jest.fn().mockResolvedValue(undefined),
-    scanForGatewayProfiles: jest.fn().mockResolvedValue([]),
-    profileScanning: false,
-    profileScanProgress: null,
-    profileScanResult: null,
-    autoConnectGateway: jest.fn().mockResolvedValue('http://localhost:8642'),
-    pendingApprovals: [],
-    submitApprovalChoice: jest.fn(),
-    sendGateAction: jest.fn(),
-    pendingApprovalEditSeed: null,
-    clearApprovalEditSeed: jest.fn(),
-    runProgress: null,
-    setRunProgress: jest.fn(),
-    setChatStreamProgressActive: jest.fn(),
-    addGatewayListener: jest.fn(),
-    removeGatewayListener: jest.fn(),
-    refreshHealth: jest.fn().mockResolvedValue(undefined),
-    settings: {
-      demoMode: true,
-      connectionMode: 'gateway',
-      gatewayUrl: 'http://localhost:8642',
-      cloudUrl: 'https://hermes-mobile-cloud.fly.dev',
-      approvalPolicy: 'balanced',
-    },
-  };
   return {
-    useGateway: () => actualMock,
+    useGateway: () => mockGatewayState,
   };
 });
 
@@ -85,9 +126,20 @@ jest.mock('../services/storage', () => ({
       demoMode: true,
       connectionMode: 'gateway',
       gatewayUrl: 'http://localhost:8642',
-      cloudUrl: 'https://hermes-mobile-cloud.fly.dev',
+      cloudUrl: 'https://hermesmobile-cloud.fly.dev',
     }),
     saveGatewaySettings: jest.fn().mockResolvedValue(true),
+    loadRecentPrompts: jest.fn().mockResolvedValue([]),
+    saveRecentPrompt: jest.fn().mockResolvedValue(undefined),
+    removeRecentPrompt: jest.fn().mockResolvedValue(undefined),
+    clearRecentPrompts: jest.fn().mockResolvedValue(undefined),
+    loadDismissedPrompts: jest.fn().mockResolvedValue([]),
+    saveDismissedPrompt: jest.fn().mockResolvedValue(undefined),
+    clearDismissedPrompts: jest.fn().mockResolvedValue(undefined),
+    loadDismissedSessionIds: jest.fn().mockResolvedValue([]),
+    addDismissedSessionIds: jest.fn().mockResolvedValue(undefined),
+    removeDismissedSessionIds: jest.fn().mockResolvedValue(undefined),
+    clearDismissedSessionIds: jest.fn().mockResolvedValue(undefined),
   },
 }));
 
@@ -101,52 +153,70 @@ jest.mock('../services/haptics', () => ({
   },
 }));
 
-jest.mock('../services/chatProjects', () => ({
-  chatProjects: {
-    load: jest.fn().mockResolvedValue({
-      projects: [
-        {
-          id: 'demo-hermes-mobile',
-          name: 'hermes-mobile',
-          workspacePath: '~/workspace/git/igor/mac-yolo-safeguards/hermes-mobile',
-          sessionIds: ['demo-1'],
-          activeSessionId: 'demo-1',
-        },
-      ],
-      sessionProjectMap: { 'demo-1': 'demo-hermes-mobile' },
-      sessionLabels: { 'demo-1': 'hermes-mobile' },
-      activeProjectId: 'demo-hermes-mobile',
+jest.mock('../services/chatProjects', () => {
+  const actual = jest.requireActual('../services/chatProjects');
+  return {
+    ...actual,
+    chatProjects: {
+      load: jest.fn().mockResolvedValue({
+        projects: [
+          {
+            id: 'demo-hermes-mobile',
+            name: 'hermes-mobile',
+            workspacePath: '~/workspace/git/igor/mac-yolo-safeguards/hermes-mobile',
+            sessionIds: ['demo-1'],
+            activeSessionId: 'demo-1',
+          },
+        ],
+        sessionProjectMap: { 'demo-1': 'demo-hermes-mobile' },
+        sessionLabels: { 'demo-1': 'hermes-mobile' },
+        activeProjectId: 'demo-hermes-mobile',
+      }),
+      save: jest.fn().mockResolvedValue(undefined),
+      addProject: jest.fn(),
+    },
+    bindSessionToProject: jest.fn((state, projectId, sessionId, label) => ({
+      ...state,
+      sessionProjectMap: { ...state.sessionProjectMap, [sessionId]: projectId },
+      sessionLabels: label ? { ...state.sessionLabels, [sessionId]: label } : state.sessionLabels,
+      projects: state.projects.map((project: { id: string; sessionIds: string[] }) =>
+        project.id === projectId
+          ? {
+              ...project,
+              sessionIds: project.sessionIds.includes(sessionId)
+                ? project.sessionIds
+                : [sessionId, ...project.sessionIds],
+              activeSessionId: sessionId,
+            }
+          : project,
+      ),
+    })),
+    pinSessionLabel: jest.fn((state, sessionId, label) => ({
+      ...state,
+      sessionLabels: { ...state.sessionLabels, [sessionId]: label },
+    })),
+    projectNameForSession: jest.fn((state, sessionId) => {
+      const projectId = state.sessionProjectMap?.[sessionId];
+      if (!projectId) return null;
+      return state.projects?.find((p: { id: string }) => p.id === projectId)?.name ?? null;
     }),
-    save: jest.fn().mockResolvedValue(undefined),
-    addProject: jest.fn(),
+    setActiveProject: jest.fn((state, projectId) => ({ ...state, activeProjectId: projectId })),
+    setActiveSession: jest.fn((state) => state),
+  };
+});
+
+jest.mock('../services/hermesGatewayClient', () => ({
+  HermesGatewayApiError: class HermesGatewayApiError extends Error {
+    status: number;
+    constructor(status: number, message: string) {
+      super(message);
+      this.status = status;
+    }
   },
-  bindSessionToProject: jest.fn((state, projectId, sessionId, label) => ({
-    ...state,
-    sessionProjectMap: { ...state.sessionProjectMap, [sessionId]: projectId },
-    sessionLabels: label ? { ...state.sessionLabels, [sessionId]: label } : state.sessionLabels,
-    projects: state.projects.map((project: { id: string; sessionIds: string[] }) =>
-      project.id === projectId
-        ? {
-            ...project,
-            sessionIds: project.sessionIds.includes(sessionId)
-              ? project.sessionIds
-              : [sessionId, ...project.sessionIds],
-            activeSessionId: sessionId,
-          }
-        : project,
-    ),
-  })),
-  pinSessionLabel: jest.fn((state, sessionId, label) => ({
-    ...state,
-    sessionLabels: { ...state.sessionLabels, [sessionId]: label },
-  })),
-  projectNameForSession: jest.fn((state, sessionId) => {
-    const projectId = state.sessionProjectMap?.[sessionId];
-    if (!projectId) return null;
-    return state.projects?.find((p: { id: string }) => p.id === projectId)?.name ?? null;
-  }),
-  setActiveProject: jest.fn((state, projectId) => ({ ...state, activeProjectId: projectId })),
-  setActiveSession: jest.fn((state) => state),
+  deleteSession: jest.fn().mockResolvedValue(undefined),
+  forkSession: jest.fn(),
+  stopRun: jest.fn(),
+  streamSessionChat: jest.fn(),
 }));
 
 jest.mock('../services/hermesChatClient', () => ({
@@ -166,11 +236,38 @@ jest.mock('../services/hermesChatClient', () => ({
     assistantText: 'processed reply',
     raw: {},
   }),
+  updateSessionTitle: jest.fn().mockResolvedValue({
+    id: 'demo-1',
+    title: 'Updated Thread Name',
+  }),
+  getSession: jest.fn().mockResolvedValue(null),
 }));
 
 describe('ChatScreen', () => {
   beforeEach(() => {
     jest.useFakeTimers();
+    Object.assign(mockGatewayState, {
+      connectionState: 'demo',
+      effectiveGatewayUrl: 'http://localhost:8642',
+      health: { ok: true, hostname: 'demo-mac.local', localIp: '127.0.0.1' },
+      activeGatewayProfile: {
+        id: 'mac_demo',
+        label: 'Demo Mac',
+        gatewayUrl: 'http://localhost:8642',
+        localIp: '127.0.0.1',
+        addedAt: '2026-06-18T00:00:00Z',
+      },
+      relayWorkers: [],
+      activeRelayWorkerId: null,
+      isPaired: true,
+      settings: {
+        demoMode: true,
+        connectionMode: 'gateway',
+        gatewayUrl: 'http://localhost:8642',
+        cloudUrl: 'https://hermesmobile-cloud.fly.dev',
+        approvalPolicy: 'balanced',
+      },
+    });
   });
 
   afterEach(() => {
@@ -178,6 +275,24 @@ describe('ChatScreen', () => {
   });
 
   it('renders header and initial state correctly in demo mode', async () => {
+    const { chatProjects } = jest.requireMock('../services/chatProjects') as {
+      chatProjects: { load: jest.Mock };
+    };
+    chatProjects.load.mockResolvedValueOnce({
+      projects: [
+        {
+          id: 'demo-hermes-mobile',
+          name: 'hermes-mobile',
+          workspacePath: '~/workspace/git/igor/mac-yolo-safeguards/hermes-mobile',
+          sessionIds: [],
+          activeSessionId: undefined,
+        },
+      ],
+      sessionProjectMap: {},
+      sessionLabels: {},
+      activeProjectId: 'demo-hermes-mobile',
+    });
+
     const { getByText, getByTestId, findByTestId } = renderInTabNavigator(ChatScreen, 'Chat');
 
     expect(getByTestId('HERMES CHAT').props.children).toBeTruthy();
@@ -185,7 +300,32 @@ describe('ChatScreen', () => {
     expect(getByTestId('chat-input')).toBeTruthy();
     expect(await findByTestId('chat-screen-header')).toBeTruthy();
     expect(getByTestId('chat-context-mac').props.children).toBe('Demo Mac');
-    expect(getByTestId('chat-context-project').props.children).toContain('hermes-mobile');
+    expect(getByTestId('chat-empty-greeting')).toBeTruthy();
+  });
+
+  it('keeps chat available in relay mode when the account is not paired yet', async () => {
+    Object.assign(mockGatewayState, {
+      connectionState: 'disconnected',
+      effectiveGatewayUrl: '',
+      health: { ok: false, level: 'red' },
+      activeGatewayProfile: null,
+      isPaired: false,
+      settings: {
+        demoMode: false,
+        connectionMode: 'relay',
+        gatewayUrl: '',
+        cloudUrl: 'https://hermesmobile-cloud.fly.dev',
+        approvalPolicy: 'balanced',
+      },
+    });
+
+    const { getByTestId, queryByTestId, findByTestId } = renderInTabNavigator(ChatScreen, 'Chat');
+
+    expect(await findByTestId('chat-screen-header')).toBeTruthy();
+    expect(queryByTestId('chat-connection-panel')).toBeNull();
+    expect(getByTestId('chat-input')).toBeTruthy();
+    expect(getByTestId('chat-context-mac').props.children).toBe('Hermes account relay');
+    expect(getByTestId('chat-context-link').props.children).toContain('Pair relay in Settings for Wi‑Fi, cellular, or USB');
   });
 
   it('allows text input and shows send button active', () => {
@@ -198,20 +338,41 @@ describe('ChatScreen', () => {
     expect(sendButton).toBeTruthy();
   });
 
-  it('fills the composer from a quick action without sending', () => {
+  it('fills the composer from a quick action without sending', async () => {
     const { sendChatMessage } = jest.requireMock('../services/hermesChatClient') as {
       sendChatMessage: jest.Mock;
     };
     sendChatMessage.mockClear();
-    const { getByTestId, queryByText, queryByTestId } = renderInTabNavigator(ChatScreen, 'Chat');
+    const { getByTestId, findByTestId, queryByText, queryByTestId } = renderInTabNavigator(ChatScreen, 'Chat');
     const input = getByTestId('chat-input');
 
     expect(queryByTestId('chat-quick-action-continue')).toBeNull();
-    fireEvent.press(getByTestId('chat-quick-action-recent-0'));
+    const action = await findByTestId('chat-quick-action-recent-0');
+    fireEvent.press(action);
 
-    expect(input.props.value).toBe('What is the yolo-health check score?');
+    expect(input.props.value).toBe('safeguards setup inquiry');
     expect(queryByText('processed reply')).toBeNull();
-    expect(sendChatMessage).not.toHaveBeenCalled();
+  });
+
+  it('dismisses a quick action when pressing the dismiss button', async () => {
+    const { saveDismissedPrompt } = jest.requireMock('../services/storage').storage as {
+      saveDismissedPrompt: jest.Mock;
+    };
+    saveDismissedPrompt.mockClear();
+
+    const { findByTestId, queryByTestId } = renderInTabNavigator(ChatScreen, 'Chat');
+
+    // Dismiss chip with id: recent-0
+    const dismissBtn = await findByTestId('chat-quick-action-dismiss-recent-0');
+    await act(async () => {
+      fireEvent.press(dismissBtn);
+    });
+
+    // Verify it saved to storage
+    expect(saveDismissedPrompt).toHaveBeenCalledWith('safeguards setup inquiry');
+    
+    // Verify it is removed from UI
+    expect(queryByTestId('chat-quick-action-recent-0')).toBeNull();
   });
 
   it('triggers mock message sending and demo reply in demo mode', () => {
@@ -280,10 +441,10 @@ describe('ChatScreen', () => {
     expect(queryByTestId('modal-new-chat-button')).toBeNull();
   });
 
-  it('opens tools modal from command center Tools tile, not threads', () => {
+  it('opens tools modal from header Tools button, not threads', () => {
     const { getByTestId, getByText, queryByTestId } = renderInTabNavigator(ChatScreen, 'Chat');
 
-    fireEvent.press(getByTestId('command-center-tools'));
+    fireEvent.press(getByTestId('chat-header-tools'));
     expect(getByTestId('tools-modal-title')).toBeTruthy();
     expect(queryByTestId('threads-modal-title')).toBeNull();
     expect(getByTestId('gateway-ops-section')).toBeTruthy();
@@ -301,5 +462,104 @@ describe('ChatScreen', () => {
 
     expect(getByTestId('chat-empty-state')).toBeTruthy();
     expect(queryByTestId('chat-empty-recent-chats')).toBeNull();
+  });
+
+  it('shows clearing progress and persists empty demo bindings on clear all', async () => {
+    const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation((_title, _message, buttons) => {
+      const clearButton = buttons?.find((button) => button.text === 'Clear all');
+      clearButton?.onPress?.();
+    });
+    const { chatProjects } = jest.requireMock('../services/chatProjects') as {
+      chatProjects: { save: jest.Mock };
+    };
+    chatProjects.save.mockClear();
+
+    const { getByTestId, findByTestId, queryByTestId } = renderInTabNavigator(ChatScreen, 'Chat');
+    fireEvent.press(getByTestId('open-sessions-modal'));
+    fireEvent.press(await findByTestId('threads-modal-clear-all'));
+
+    expect(await findByTestId('threads-modal-clearing')).toBeTruthy();
+
+    await waitFor(() => {
+      expect(chatProjects.save).toHaveBeenCalledWith(
+        expect.objectContaining({
+          projects: [
+            expect.objectContaining({
+              sessionIds: [],
+              activeSessionId: undefined,
+            }),
+          ],
+          sessionProjectMap: {},
+          sessionLabels: {},
+        }),
+      );
+      expect(queryByTestId('threads-modal-clear-all')).toBeNull();
+    });
+
+    alertSpy.mockRestore();
+  });
+
+  it('deletes an individual session from the threads modal in demo mode', async () => {
+    const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation((_title, _message, buttons) => {
+      const deleteButton = buttons?.find((button) => button.text === 'Delete');
+      deleteButton?.onPress?.();
+    });
+    const { deleteSession } = jest.requireMock('../services/hermesGatewayClient') as {
+      deleteSession: jest.Mock;
+    };
+    const { chatProjects } = jest.requireMock('../services/chatProjects') as {
+      chatProjects: { save: jest.Mock };
+    };
+    deleteSession.mockClear();
+    chatProjects.save.mockClear();
+
+    const { getByTestId, findByTestId, queryByTestId } = renderInTabNavigator(ChatScreen, 'Chat');
+    fireEvent.press(getByTestId('open-sessions-modal'));
+    fireEvent.press(await findByTestId('recent-chat-delete-demo-1'));
+
+    await waitFor(() => {
+      expect(deleteSession).not.toHaveBeenCalled();
+      expect(chatProjects.save).toHaveBeenCalledWith(
+        expect.objectContaining({
+          sessionProjectMap: {},
+          sessionLabels: {},
+          projects: [
+            expect.objectContaining({
+              sessionIds: [],
+              activeSessionId: undefined,
+            }),
+          ],
+        }),
+      );
+      expect(queryByTestId('recent-chat-delete-demo-1')).toBeNull();
+    });
+
+    alertSpy.mockRestore();
+  });
+
+  it('allows renaming a session in the threads modal', async () => {
+    const { getByTestId, getByText, getAllByText, queryByText, findByTestId } = renderInTabNavigator(ChatScreen, 'Chat');
+
+    // 1. Open the threads/sessions modal
+    fireEvent.press(getByTestId('open-sessions-modal'));
+    expect(getByTestId('threads-modal-title')).toBeTruthy();
+
+    // 2. Press the edit/rename button next to the session
+    const renameButton = await findByTestId('recent-chat-rename-demo-1');
+    fireEvent.press(renameButton);
+
+    // 3. Verify the rename modal opens
+    const input = getByTestId('rename-session-input');
+    expect(input.props.value).toBe('hermes-mobile');
+
+    // 4. Change name to "Updated Thread Name" and save
+    fireEvent.changeText(input, 'Updated Thread Name');
+    fireEvent.press(getByTestId('rename-session-save'));
+
+    // 5. Verify the modal closes and name is updated
+    await waitFor(() => {
+      expect(getAllByText('Updated Thread Name').length).toBeGreaterThanOrEqual(1);
+      expect(queryByText('hermes-mobile')).toBeNull();
+    });
   });
 });

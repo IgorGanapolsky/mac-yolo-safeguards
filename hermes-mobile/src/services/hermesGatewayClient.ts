@@ -22,10 +22,10 @@ export class HermesGatewayApiError extends Error {
 export const CHAT_TURN_TIMEOUT_MS = 300_000;
 
 /** Wait for first SSE byte (Ollama cold start on the Mac). */
-export const CHAT_STREAM_FIRST_BYTE_MS = 120_000;
+export const CHAT_STREAM_FIRST_BYTE_MS = 30_000;
 
 /** No SSE activity — agent or model stalled. */
-export const CHAT_STREAM_IDLE_MS = 90_000;
+export const CHAT_STREAM_IDLE_MS = 30_000;
 
 /** Hard cap for one streamed chat turn. */
 export const CHAT_STREAM_MAX_MS = 900_000;

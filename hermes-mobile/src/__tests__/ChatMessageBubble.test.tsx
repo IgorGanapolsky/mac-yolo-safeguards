@@ -78,4 +78,24 @@ describe('ChatMessageBubble', () => {
 
     expect(getByTestId('chat-outbound-failed').props.children).toBe("⚠ Couldn't reach Mac");
   });
+
+  it('renders Leash output feedback controls for assistant messages', () => {
+    const onThumbsUp = jest.fn();
+    const onThumbsDown = jest.fn();
+    const { getByTestId } = renderWithDetailModal({
+      content: 'Here is the finished analysis.',
+      isUser: false,
+      timeLabel: 'Jun 24, 2026 11:55 AM',
+      outputFeedback: {
+        onThumbsUp,
+        onThumbsDown,
+      },
+    });
+
+    fireEvent.press(getByTestId('chat-output-thumbs-up'));
+    fireEvent.press(getByTestId('chat-output-thumbs-down'));
+
+    expect(onThumbsUp).toHaveBeenCalledTimes(1);
+    expect(onThumbsDown).toHaveBeenCalledTimes(1);
+  });
 });

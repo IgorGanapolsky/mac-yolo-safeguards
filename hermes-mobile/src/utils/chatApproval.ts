@@ -1,4 +1,5 @@
 import type { HermesMessage } from '../types/chat';
+import type { PendingApproval } from '../types/gateway';
 
 /** Agent-authored gate: "Reply exactly: APPROVE …" */
 export type ChatTextApproval = {
@@ -21,6 +22,9 @@ export type ChatPendingApproval = ChatTextApproval | ChatRunApproval;
 
 const APPROVE_EXACT_RE = /[Rr]eply\s+(?:[Ww]ith\s+)?[Ee]xactly:?\s*["'`]?([A-Z0-9_\- ]{4,})["'`]?/;
 const APPROVE_LINE_RE = /(?:^|\n)\s*(APPROVE [A-Z0-9_\- ]{4,})\s*(?:\n|$)/i;
+const CONFIRM_PROCEED_RE =
+  /\b(?:please\s+)?confirm\s+(?:that\s+)?(?:you\s+want\s+to\s+)?proceed\b|\b(?:do\s+you\s+want\s+(?:me|us)\s+to\s+proceed|should\s+(?:i|we)\s+proceed|shall\s+(?:i|we)\s+proceed)\b/i;
+const PROCEED_WITH_RE = /\bproceed\s+with\s+([^.!?\n]{3,160})/i;
 const NUDGE_MARKER = '[Hermes Approval Nudge]';
 
 function parseSourceText(message: HermesMessage): string {
@@ -33,17 +37,33 @@ function parseSourceText(message: HermesMessage): string {
 
 export function parseApprovalNudgeFromContent(content: string): Omit<ChatTextApproval, 'sourceMessageIndex'> | null {
   const text = content ?? '';
-  if (!text.includes(NUDGE_MARKER) && !APPROVE_EXACT_RE.test(text) && !APPROVE_LINE_RE.test(text)) {
+  if (
+    !text.includes(NUDGE_MARKER) &&
+    !APPROVE_EXACT_RE.test(text) &&
+    !APPROVE_LINE_RE.test(text) &&
+    !CONFIRM_PROCEED_RE.test(text)
+  ) {
     return null;
   }
   const match = text.match(APPROVE_EXACT_RE) ?? text.match(APPROVE_LINE_RE);
-  if (!match?.[1]) {
+  if (match?.[1]) {
+    const approveText = match[1].trim();
+    const titleMatch = text.match(/Target:\s*([^\n]+)/i);
+    const title = titleMatch?.[1]?.trim() || approveText;
+    return { kind: 'text', approveText, title };
+  }
+  if (!CONFIRM_PROCEED_RE.test(text)) {
     return null;
   }
-  const approveText = match[1].trim();
-  const titleMatch = text.match(/Target:\s*([^\n]+)/i);
-  const title = titleMatch?.[1]?.trim() || approveText;
-  return { kind: 'text', approveText, title };
+  const proceedWith = text.match(PROCEED_WITH_RE)?.[1]?.trim();
+  const firstSentence = text
+    .split(/[.!?\n]/)
+    .map((part) => part.trim())
+    .find(Boolean);
+  const title = proceedWith
+    ? `Proceed with ${proceedWith}`
+    : firstSentence?.slice(0, 90) || 'Confirm proceed';
+  return { kind: 'text', approveText: 'Proceed', title };
 }
 
 /** Target / Thread metadata without an inline APPROVE line (Telegram relay format). */
@@ -240,6 +260,50 @@ export function findPendingTextApproval(
 ): ChatTextApproval | null {
   const all = listAllPendingTextApprovals(messages, resolvedKeys, leashHints);
   return all[0] ?? null;
+}
+
+function slugApprovalPart(value: string): string {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 72);
+}
+
+export function chatTextApprovalActionId(
+  approval: ChatTextApproval,
+  message: HermesMessage | undefined,
+  sessionId: string,
+): string {
+  const messageKey =
+    message?.id?.trim() ||
+    String(message?.timestamp ?? message?.created_at ?? approval.sourceMessageIndex);
+  const slug = slugApprovalPart(approval.approveText || approval.title || 'approval');
+  return `text-nudge:${sessionId}:${messageKey}:${slug}`;
+}
+
+export function pendingApprovalFromChatTextApproval(
+  approval: ChatTextApproval,
+  message: HermesMessage | undefined,
+  sessionId: string,
+): PendingApproval {
+  const riskText = `${approval.approveText} ${approval.title}`;
+  const destructive =
+    /\b(remove|removing|delete|deleting|drop|purge|wipe|overwrite|refund|deploy|post|send|email|payment|checkout)\b/i.test(
+      riskText,
+    );
+  return {
+    actionId: chatTextApprovalActionId(approval, message, sessionId),
+    toolName: 'chat_confirmation',
+    reason: approval.title,
+    command: approval.approveText,
+    receivedAt: new Date().toISOString(),
+    source: 'text_nudge',
+    approveText: approval.approveText,
+    riskTier: destructive ? 'medium' : 'low',
+    allowPermanent: false,
+  };
 }
 
 /** @deprecated Use approvalResolver.CHAT_APPROVAL_UNDO_TEXT */

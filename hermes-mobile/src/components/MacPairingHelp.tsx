@@ -53,8 +53,8 @@ export default function MacPairingHelp({
       ) : null}
       {!compact && variant === 'getting-started' ? (
         <Text style={styles.note}>
-          Already have Hermes running? Skip install and tap Search for my computer. Use Scan QR only if
-          Hermes shows you a pairing code on the computer screen.
+          Already have Hermes running? Pair Hermes Relay for anywhere approvals. Use local search or
+          Scan QR only when you want direct nearby machine control.
         </Text>
       ) : null}
     </View>

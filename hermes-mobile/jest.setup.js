@@ -52,9 +52,12 @@ jest.mock('expo-notifications', () => ({
 jest.mock('@react-native-community/netinfo', () => ({
   fetch: jest.fn(() =>
     Promise.resolve({
+      type: 'wifi',
+      isConnected: true,
       details: { ipAddress: '192.168.12.100' },
     }),
   ),
+  addEventListener: jest.fn(() => jest.fn()),
 }));
 
 jest.mock('react-native-safe-area-context', () => {
@@ -136,3 +139,12 @@ jest.mock('@react-native-ai/dev-tools/react-native', () => ({
     }),
   })),
 }), { virtual: true });
+
+jest.mock('@shopify/flash-list', () => {
+  const React = require('react');
+  const { FlatList } = require('react-native');
+  const FlashList = React.forwardRef((props, ref) =>
+    React.createElement(FlatList, { ...props, ref }),
+  );
+  return { FlashList };
+});

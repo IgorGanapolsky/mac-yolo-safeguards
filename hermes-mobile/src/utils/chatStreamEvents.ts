@@ -1,6 +1,7 @@
 import type { HermesSession } from '../types/chat';
 import type { ChatStreamEvent } from '../types/gatewayApi';
 import type { ChatTimelineItem, RunProgressState } from '../types/chatDisplay';
+import { displayableLlmModel } from './runProgressDisplay';
 
 function readNumber(value: unknown): number | undefined {
   if (typeof value === 'number' && Number.isFinite(value)) {
@@ -70,13 +71,17 @@ export function mergeRunUsageFromPayload(
       ? (inputTokens ?? 0) + (outputTokens ?? 0)
       : progress.totalTokens);
 
-  const model =
+  const payloadModel =
     (typeof data.model === 'string' && data.model.trim() ? data.model.trim() : undefined) ??
     (typeof data.model_id === 'string' && data.model_id.trim() ? data.model_id.trim() : undefined) ??
     (typeof data.model_name === 'string' && data.model_name.trim()
       ? data.model_name.trim()
-      : undefined) ??
-    progress.model;
+      : undefined);
+
+  const model =
+    payloadModel !== undefined
+      ? (displayableLlmModel(payloadModel) ?? displayableLlmModel(progress.model) ?? undefined)
+      : (displayableLlmModel(progress.model) ?? undefined);
 
   const duration = readNumber(data.duration) ?? progress.duration;
 

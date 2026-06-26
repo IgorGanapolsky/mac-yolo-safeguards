@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { ChatProject, ChatProjectState } from '../types/chatProject';
 import { EMPTY_CHAT_PROJECT_STATE } from '../types/chatProject';
+import { isGenericSessionPlaceholderTitle } from '../utils/sessionDisplay';
 import { workspaceDisplayName } from '../utils/workspacePrompt';
 
 const STORAGE_KEY = 'hermes-mobile:chat_projects';
@@ -38,7 +39,9 @@ export function bindSessionToProject(
     project?.name?.trim() ||
     undefined;
   const sessionLabels =
-    label && !state.sessionLabels[sessionId]
+    label &&
+    !isGenericSessionPlaceholderTitle(label) &&
+    !state.sessionLabels[sessionId]
       ? { ...state.sessionLabels, [sessionId]: label }
       : state.sessionLabels;
   return {
@@ -67,7 +70,7 @@ export function pinSessionLabel(
   label: string,
 ): ChatProjectState {
   const trimmed = label.trim();
-  if (!trimmed || state.sessionLabels[sessionId] === trimmed) {
+  if (!trimmed || isGenericSessionPlaceholderTitle(trimmed) || state.sessionLabels[sessionId] === trimmed) {
     return state;
   }
   return {
@@ -89,6 +92,47 @@ export function setActiveSession(
     project.id === projectId ? { ...project, activeSessionId: sessionId } : project,
   );
   return { ...state, projects, activeProjectId: projectId };
+}
+
+/** Drop session bindings/labels after gateway deletes (or clear-all). */
+export function clearBoundSessions(
+  state: ChatProjectState,
+  removedSessionIds: Iterable<string>,
+): ChatProjectState {
+  const removed = new Set(removedSessionIds);
+  if (removed.size === 0) {
+    return state;
+  }
+  const projects = state.projects.map((project) => {
+    const sessionIds = project.sessionIds.filter((id) => !removed.has(id));
+    const activeSessionId =
+      project.activeSessionId && !removed.has(project.activeSessionId)
+        ? project.activeSessionId
+        : undefined;
+    return { ...project, sessionIds, activeSessionId };
+  });
+  const sessionProjectMap = { ...state.sessionProjectMap };
+  const sessionLabels = { ...state.sessionLabels };
+  for (const id of removed) {
+    delete sessionProjectMap[id];
+    delete sessionLabels[id];
+  }
+  return { ...state, projects, sessionProjectMap, sessionLabels };
+}
+
+/** Wipe every mobile session binding after clear-all (gateway deletes are separate). */
+export function clearAllSessionBindings(state: ChatProjectState): ChatProjectState {
+  const projects = state.projects.map((project) => ({
+    ...project,
+    sessionIds: [],
+    activeSessionId: undefined,
+  }));
+  return {
+    ...state,
+    projects,
+    sessionProjectMap: {},
+    sessionLabels: {},
+  };
 }
 
 export function sessionsForProject(state: ChatProjectState, projectId: string): string[] {
@@ -121,11 +165,17 @@ export const chatProjects = {
           }
         }
       }
+      for (const [sessionId, label] of Object.entries(mergedLabels)) {
+        if (isGenericSessionPlaceholderTitle(label)) {
+          delete mergedLabels[sessionId];
+        }
+      }
       return {
         projects,
         sessionProjectMap,
         sessionLabels: mergedLabels,
         activeProjectId: parsed.activeProjectId ?? null,
+        demoCleared: parsed.demoCleared ?? false,
       };
     } catch (error) {
       console.error('[hermes-mobile] chatProjects.load failed:', error);

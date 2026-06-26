@@ -3,7 +3,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import type { HermesSession } from '../types/chat';
 import type { RunProgressState } from '../types/chatDisplay';
 import { colors } from '../theme/colors';
-import { formatSessionLastActive, sessionLastActiveValue } from '../utils/sessionDisplay';
+import { formatSessionLastActive, isCronBoilerplateText, sessionLastActiveValue } from '../utils/sessionDisplay';
 import {
   sortSessionsForAgentRail,
   threadActivityForSession,
@@ -18,6 +18,8 @@ type RecentChatsListProps = {
   isSending?: boolean;
   pendingApprovalSessionIds?: Set<string>;
   onSelectSession: (session: HermesSession) => void;
+  onDeleteSession?: (sessionId: string) => void;
+  onRenameSession?: (sessionId: string, currentTitle: string) => void;
   onClearAll?: () => void;
   onNewChat?: () => void;
   maxItems?: number;
@@ -33,7 +35,7 @@ function previewSnippet(session: HermesSession, activityPreview: string | null):
   if (/^reply\s+with\s+exactly/i.test(raw)) {
     return null;
   }
-  if (/^\[IMPORTANT:\s*You are running as a scheduled cron/i.test(raw)) {
+  if (isCronBoilerplateText(raw)) {
     return 'Scheduled cron on your Mac';
   }
   return raw.length > 72 ? `${raw.slice(0, 72)}…` : raw;
@@ -47,6 +49,8 @@ export default function RecentChatsList({
   isSending = false,
   pendingApprovalSessionIds,
   onSelectSession,
+  onDeleteSession,
+  onRenameSession,
   onClearAll,
   onNewChat,
   maxItems = 5,
@@ -67,7 +71,7 @@ export default function RecentChatsList({
   return (
     <View style={[styles.wrap, expanded && styles.wrapExpanded]} testID={testID}>
       <View style={styles.headerRow}>
-        <Text style={[styles.heading, expanded && styles.headingExpanded]}>Recent chats</Text>
+        <Text style={[styles.heading, expanded && styles.headingExpanded]}>Recents</Text>
         {onNewChat || onClearAll ? (
           <View style={styles.headerActions}>
             {onNewChat ? (
@@ -110,37 +114,66 @@ export default function RecentChatsList({
           const preview = previewSnippet(session, activity.preview);
 
           return (
-            <Pressable
+            <View
               key={session.id}
-              onPress={() => onSelectSession(session)}
-              style={({ pressed }) => [
+              style={[
                 styles.row,
                 expanded && styles.rowExpanded,
                 active && styles.rowActive,
-                pressed && styles.pressed,
               ]}
-              accessibilityRole="button"
-              accessibilityLabel={`Open chat ${sessionLabelFor(session)}`}
-              testID={`recent-chat-${session.id}`}
             >
-              <View style={styles.rowMain}>
-                <View style={styles.titleRow}>
-                  <Text
-                    style={[styles.title, active && styles.titleActive]}
-                    numberOfLines={expanded ? 2 : 1}
-                  >
-                    {sessionLabelFor(session)}
-                  </Text>
-                  {badge ? <Text style={styles.badge}>{badge}</Text> : null}
+              <Pressable
+                onPress={() => onSelectSession(session)}
+                style={({ pressed }) => [
+                  styles.rowTap,
+                  expanded && styles.rowExpandedTap,
+                  pressed && styles.pressed,
+                ]}
+                accessibilityRole="button"
+                accessibilityLabel={`Open chat ${sessionLabelFor(session)}`}
+                testID={`recent-chat-${session.id}`}
+              >
+                <View style={styles.rowMain}>
+                  <View style={styles.titleRow}>
+                    <Text
+                      style={[styles.title, active && styles.titleActive]}
+                      numberOfLines={expanded ? 2 : 1}
+                    >
+                      {sessionLabelFor(session)}
+                    </Text>
+                    {badge ? <Text style={styles.badge}>{badge}</Text> : null}
+                  </View>
+                  {preview ? (
+                    <Text style={styles.preview} numberOfLines={expanded ? 2 : 1}>
+                      {preview}
+                    </Text>
+                  ) : null}
                 </View>
-                {preview ? (
-                  <Text style={styles.preview} numberOfLines={expanded ? 2 : 1}>
-                    {preview}
-                  </Text>
-                ) : null}
-              </View>
-              {lastActive ? <Text style={styles.time}>{lastActive}</Text> : null}
-            </Pressable>
+                {lastActive ? <Text style={styles.time}>{lastActive}</Text> : null}
+              </Pressable>
+              {onRenameSession && session.id !== '__telegram_inbox__' ? (
+                <Pressable
+                  onPress={() => onRenameSession(session.id, sessionLabelFor(session))}
+                  style={({ pressed }) => [styles.renameBtn, pressed && styles.pressed]}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Rename thread ${sessionLabelFor(session)}`}
+                  testID={`recent-chat-rename-${session.id}`}
+                >
+                  <Text style={styles.renameBtnText}>✎</Text>
+                </Pressable>
+              ) : null}
+              {onDeleteSession && session.id !== '__telegram_inbox__' ? (
+                <Pressable
+                  onPress={() => onDeleteSession(session.id)}
+                  style={({ pressed }) => [styles.deleteBtn, pressed && styles.pressed]}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Delete thread ${sessionLabelFor(session)}`}
+                  testID={`recent-chat-delete-${session.id}`}
+                >
+                  <Text style={styles.deleteBtnText}>🗑</Text>
+                </Pressable>
+              ) : null}
+            </View>
           );
         })}
       </View>
@@ -162,14 +195,13 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   heading: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: colors.textMuted,
-    textTransform: 'uppercase',
-    letterSpacing: 0.4,
+    fontSize: 13,
+    fontWeight: '700',
+    color: colors.textSecondary,
+    letterSpacing: 0,
   },
   headingExpanded: {
-    fontSize: 13,
+    fontSize: 14,
     color: colors.textSecondary,
   },
   headerActions: {
@@ -196,23 +228,29 @@ const styles = StyleSheet.create({
   },
   row: {
     flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    paddingRight: 4,
+  },
+  rowTap: {
+    flex: 1,
+    flexDirection: 'row',
     alignItems: 'flex-start',
     gap: 10,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: colors.borderLight,
-    backgroundColor: 'rgba(255, 255, 255, 0.035)',
     paddingHorizontal: 10,
     paddingVertical: 8,
   },
   rowExpanded: {
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+  },
+  rowExpandedTap: {
     paddingHorizontal: 12,
     paddingVertical: 10,
-    backgroundColor: colors.cardBg,
   },
   rowActive: {
-    borderColor: colors.primary,
-    backgroundColor: 'rgba(79, 70, 229, 0.14)',
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
   },
   rowMain: {
     flex: 1,
@@ -254,5 +292,23 @@ const styles = StyleSheet.create({
   },
   pressed: {
     opacity: 0.82,
+  },
+  deleteBtn: {
+    paddingHorizontal: 6,
+    paddingVertical: 4,
+    marginTop: -2,
+  },
+  deleteBtnText: {
+    fontSize: 14,
+    color: colors.error,
+  },
+  renameBtn: {
+    paddingHorizontal: 6,
+    paddingVertical: 4,
+    marginTop: -2,
+  },
+  renameBtnText: {
+    fontSize: 14,
+    color: colors.textMuted,
   },
 });

@@ -1,7 +1,6 @@
 import React from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 import { colors } from '../theme/colors';
-import type { HermesSession } from '../types/chat';
 import type { RunProgressState } from '../types/chatDisplay';
 import type { LeashConnectionState } from '../utils/gatewayEndpoint';
 import { humanizeRunProgressDetail } from '../utils/runProgressDisplay';
@@ -9,18 +8,22 @@ import { humanizeRunProgressDetail } from '../utils/runProgressDisplay';
 type CodexCommandCenterProps = {
   connectionState: LeashConnectionState;
   macHttpReachable?: boolean;
+  macRetryBusy?: boolean;
   pendingApprovalCount: number;
-  sessions: HermesSession[];
   runProgress?: RunProgressState | null;
   isSending?: boolean;
   onOpenApprovals: () => void;
-  onOpenTools: () => void;
+  onMacRetry?: () => void;
 };
 
 function connectionCopy(
   state: LeashConnectionState,
   macHttpReachable = false,
+  macRetryBusy = false,
 ): { label: string; detail: string; color: string } {
+  if (macRetryBusy) {
+    return { label: 'Mac', detail: 'Reconnecting…', color: colors.warning };
+  }
   if (state === 'connected') {
     return { label: 'Connected', detail: 'Ready', color: colors.success };
   }
@@ -33,7 +36,7 @@ function connectionCopy(
   if (state === 'connecting') {
     return { label: 'Connecting', detail: 'Checking Mac', color: colors.warning };
   }
-  return { label: 'Not connected', detail: 'Tap Mac', color: colors.error };
+  return { label: 'Not connected', detail: 'Tap to reconnect', color: colors.error };
 }
 
 const INACTIVE_RUN_PHASES = new Set(['completed', 'failed', 'idle']);
@@ -58,19 +61,21 @@ function shouldShowRunTile(runProgress?: RunProgressState | null, isSending = fa
 export default function CodexCommandCenter({
   connectionState,
   macHttpReachable = false,
+  macRetryBusy = false,
   pendingApprovalCount,
-  sessions,
   runProgress,
   isSending = false,
   onOpenApprovals,
-  onOpenTools,
+  onMacRetry,
 }: CodexCommandCenterProps) {
-  const link = connectionCopy(connectionState, macHttpReachable);
+  const link = connectionCopy(connectionState, macHttpReachable, macRetryBusy);
   const showMacTile = shouldShowMacTile(connectionState, macHttpReachable);
   const showRunTile = shouldShowRunTile(runProgress, isSending);
-  const toolCount = sessions.reduce((sum, session) => sum + (session.tool_call_count ?? 0), 0);
-  const toolsValueLabel = toolCount > 0 ? String(toolCount) : 'Open';
-  const toolsDetailLabel = toolCount > 0 ? 'Tool calls' : 'Open tools';
+  const showApprovalsTile = pendingApprovalCount > 0;
+
+  if (!showMacTile && !showRunTile && !showApprovalsTile) {
+    return null;
+  }
 
   const runDetailLabel = (() => {
     if (isSending) {
@@ -86,14 +91,32 @@ export default function CodexCommandCenter({
     <View style={styles.wrap} testID="codex-command-center">
       <View style={styles.statusRow}>
         {showMacTile ? (
-          <View style={styles.statusChip}>
+          <Pressable
+            style={({ pressed }) => [
+              styles.statusChip,
+              styles.macRetryChip,
+              macRetryBusy && styles.macRetryChipBusy,
+              pressed && !macRetryBusy && styles.pressed,
+            ]}
+            onPress={macRetryBusy ? undefined : onMacRetry}
+            disabled={macRetryBusy || !onMacRetry}
+            accessibilityRole="button"
+            accessibilityLabel="Reconnect to Mac"
+            testID="command-center-mac-tile"
+          >
             <View style={styles.tileHeader}>
-              <View style={[styles.statusDot, { backgroundColor: link.color }]} />
+              {macRetryBusy ? (
+                <ActivityIndicator size="small" color={colors.warning} style={styles.macRetrySpinner} />
+              ) : (
+                <View style={[styles.statusDot, { backgroundColor: link.color }]} />
+              )}
               <Text style={styles.tileLabel}>Mac</Text>
             </View>
             <Text style={styles.tileValue} testID="command-center-link-state">{link.label}</Text>
-            <Text style={styles.tileDetail} numberOfLines={1}>{link.detail}</Text>
-          </View>
+            <Text style={styles.tileDetail} numberOfLines={1} testID="command-center-mac-detail">
+              {link.detail}
+            </Text>
+          </Pressable>
         ) : null}
 
         {showRunTile ? (
@@ -108,7 +131,7 @@ export default function CodexCommandCenter({
           </View>
         ) : null}
 
-        {pendingApprovalCount > 0 ? (
+        {showApprovalsTile ? (
           <Pressable
             style={({ pressed }) => [styles.statusChip, styles.pressableChip, pressed && styles.pressed]}
             onPress={onOpenApprovals}
@@ -121,22 +144,6 @@ export default function CodexCommandCenter({
             <Text style={styles.tileDetail}>Approvals</Text>
           </Pressable>
         ) : null}
-
-        <Pressable
-          style={({ pressed }) => [styles.statusChip, styles.pressableChip, pressed && styles.pressed]}
-          onPress={onOpenTools}
-          accessibilityRole="button"
-          accessibilityLabel={
-            toolCount > 0
-              ? `Open tools. ${toolCount} tool calls.`
-              : 'Open tools'
-          }
-          testID="command-center-tools"
-        >
-          <Text style={styles.tileLabel}>Tools</Text>
-          <Text style={styles.tileValue}>{toolsValueLabel}</Text>
-          <Text style={styles.tileDetail} numberOfLines={2}>{toolsDetailLabel}</Text>
-        </Pressable>
       </View>
     </View>
   );
@@ -162,6 +169,14 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     justifyContent: 'space-between',
   },
+  macRetryChip: {
+    borderColor: 'rgba(239, 68, 68, 0.45)',
+    backgroundColor: 'rgba(127, 29, 29, 0.22)',
+  },
+  macRetryChipBusy: {
+    borderColor: 'rgba(245, 158, 11, 0.45)',
+    backgroundColor: 'rgba(120, 53, 15, 0.22)',
+  },
   pressableChip: {
     borderColor: 'rgba(255, 255, 255, 0.12)',
   },
@@ -174,6 +189,11 @@ const styles = StyleSheet.create({
     width: 7,
     height: 7,
     borderRadius: 4,
+  },
+  macRetrySpinner: {
+    width: 7,
+    height: 7,
+    transform: [{ scale: 0.65 }],
   },
   tileLabel: {
     fontSize: 10,

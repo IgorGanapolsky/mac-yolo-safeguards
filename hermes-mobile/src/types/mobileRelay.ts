@@ -12,6 +12,7 @@ export interface RelayHookEvent {
 export interface EnqueuedEvent {
   id: string;
   device_id?: string;
+  worker_id?: string;
   event: RelayHookEvent;
   enqueued_at?: number;
   status?: string;
@@ -19,8 +20,24 @@ export interface EnqueuedEvent {
   reason?: string;
 }
 
+export interface RelayWorker {
+  id: string;
+  label?: string;
+  machine_id?: string;
+  hostname?: string;
+  project?: string;
+  repo?: string;
+  status?: string;
+  last_seen_at?: number | string;
+  capabilities?: string[];
+}
+
 export interface QueueResponse {
   events: EnqueuedEvent[];
+  workers?: RelayWorker[];
+  devices?: RelayWorker[];
+  active_worker_id?: string;
+  active_device_id?: string;
   tier?: string;
   activity_count?: number;
   total_spend?: number;

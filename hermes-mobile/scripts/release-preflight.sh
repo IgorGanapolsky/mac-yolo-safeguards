@@ -164,6 +164,20 @@ run_accelerated_device_e2e() {
 
 run_accelerated_device_e2e
 
+run_bundle_size_check() {
+  if [[ "${SKIP_BUNDLE_SIZE_CHECK:-0}" == "1" ]]; then
+    echo "Skipping bundle size check (SKIP_BUNDLE_SIZE_CHECK=1)"
+    return 0
+  fi
+
+  echo "Running bundle size check (npm run analyze:bundle)..."
+  if ! (cd "$repo_root" && npm run analyze:bundle); then
+    record_failure "JS bundle exceeds size budget (npm run analyze:bundle — see docs/PERFORMANCE.md)"
+  fi
+}
+
+run_bundle_size_check
+
 if (( ${#failures[@]} > 0 )); then
   printf '%s\n' "${failures[@]}" >&2
   exit 1

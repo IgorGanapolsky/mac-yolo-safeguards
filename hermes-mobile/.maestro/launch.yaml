@@ -1,4 +1,4 @@
-# Flow 1: App launch — Chat tab is the Telegram replacement
+# Flow 1: App launch — Hermes tab is the Telegram-style chat surface
 appId: com.iganapolsky.hermesmobile
 ---
 - launchApp

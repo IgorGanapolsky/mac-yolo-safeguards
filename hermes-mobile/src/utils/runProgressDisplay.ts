@@ -1,4 +1,19 @@
 import type { RunProgressState } from '../types/chatDisplay';
+import { isConnectivityMessage, shortMacUnreachableTitle } from './chatErrors';
+
+const GATEWAY_PLATFORM_MODEL_LABELS = new Set(['hermes-agent', 'hermes', 'gateway']);
+
+/** Return a trimmed LLM model id for UI, or null when value is a gateway platform label. */
+export function displayableLlmModel(model: string | undefined | null): string | null {
+  const trimmed = model?.trim();
+  if (!trimmed) {
+    return null;
+  }
+  if (GATEWAY_PLATFORM_MODEL_LABELS.has(trimmed.toLowerCase())) {
+    return null;
+  }
+  return trimmed;
+}
 
 /** User-facing labels for gateway run / tool progress (hide raw SSE event names). */
 export function humanizeRunProgressDetail(detail: string | undefined, phase?: string): string {
@@ -40,6 +55,22 @@ export function humanizeRunProgressDetail(detail: string | undefined, phase?: st
   }
 
   return raw.replace(/_/g, ' ');
+}
+
+/** One-line title for failed run banner — keeps timer/stop from crushing long errors. */
+export function runProgressFailedTitle(detail: string | undefined): string {
+  const raw = detail?.trim();
+  if (!raw) {
+    return 'Something went wrong on your Mac';
+  }
+  if (isConnectivityMessage(raw)) {
+    return shortMacUnreachableTitle();
+  }
+  const humanized = humanizeRunProgressDetail(raw, 'failed');
+  if (humanized.length > 72) {
+    return humanized.slice(0, 69).trimEnd() + '…';
+  }
+  return humanized;
 }
 
 export function humanizeComposerStatus(status: string): string {

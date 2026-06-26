@@ -164,7 +164,7 @@ export default function GatewayOpsSection() {
       if (message.includes('404') || message.includes('Not Found')) {
         Alert.alert(
           'Gateway update required',
-          'Your computer gateway needs the latest api_server (PUT /v1/toolsets). Restart Hermes gateway after updating.',
+          'Your direct Hermes machine needs the latest api_server (PUT /v1/toolsets). Restart Hermes after updating.',
         );
       } else {
         Alert.alert('Could not update toolset', message);
@@ -239,7 +239,7 @@ export default function GatewayOpsSection() {
   const toolsetsWritable = featureFlags.toolsets_write === true || isDemo;
 
   return (
-    <View testID="gateway-ops-section">
+    <View testID="gateway-ops-section" accessible={true}>
       <View style={styles.healthRow}>
         <HealthPill level={health?.level ?? 'unknown'} />
         {isDemo ? <Text style={styles.demoPill}>DEMO</Text> : null}

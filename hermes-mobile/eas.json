@@ -8,11 +8,17 @@
       "developmentClient": true,
       "distribution": "internal",
       "environment": "development",
-      "channel": "development"
+      "channel": "development",
+      "env": {
+        "EXPO_PUBLIC_HERMES_DEV_UNLOCK": "1"
+      }
     },
     "preview": {
       "distribution": "internal",
       "environment": "preview",
+      "env": {
+        "EXPO_PUBLIC_HERMES_DEV_UNLOCK": "1"
+      },
       "android": {
         "buildType": "apk"
       },
@@ -25,7 +31,8 @@
       "withoutCredentials": true,
       "environment": "preview",
       "env": {
-        "EXPO_PUBLIC_E2E_AUTOMATION": "1"
+        "EXPO_PUBLIC_E2E_AUTOMATION": "1",
+        "EXPO_PUBLIC_HERMES_DEV_UNLOCK": "1"
       },
       "ios": {
         "simulator": true

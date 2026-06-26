@@ -2,8 +2,12 @@ import React from 'react';
 import { StyleSheet, View, Text, TouchableOpacity } from 'react-native';
 import type { GatewayProfile } from '../types/gatewayProfile';
 import type { LanScanProgress, LanScanResult } from '../types/lanScan';
-import { formatProfileLabel } from '../services/gatewayProfiles';
 import MacScanProgressCard from './MacScanProgressCard';
+import {
+  profileConnectionRouteLabel,
+  profilePickerLines,
+} from '../utils/gatewayProfilePicker';
+import { isLoopbackGatewayUrl } from '../utils/gatewayUrlPolicy';
 import { colors } from '../theme/colors';
 
 type GatewayProfilePickerProps = {
@@ -16,6 +20,8 @@ type GatewayProfilePickerProps = {
   scanning?: boolean;
   scanProgress?: LanScanProgress | null;
   scanResult?: LanScanResult | null;
+  wifiConnected?: boolean;
+  showReachabilityHints?: boolean;
 };
 
 export default function GatewayProfilePicker({
@@ -28,8 +34,12 @@ export default function GatewayProfilePicker({
   scanning = false,
   scanProgress = null,
   scanResult = null,
+  wifiConnected = true,
+  showReachabilityHints = false,
 }: GatewayProfilePickerProps) {
   const showScanCard = scanning || scanResult;
+  const multiMac = profiles.length > 1;
+  const showRouteHints = showReachabilityHints || multiMac;
 
   return (
     <View>
@@ -45,13 +55,30 @@ export default function GatewayProfilePicker({
         <View style={styles.list} testID="gateway-profile-list">
       {profiles.map((profile) => {
         const isActive = profile.id === activeProfileId;
+        const lines = profilePickerLines(profile);
+        const usbRoute = isLoopbackGatewayUrl(profile.gatewayUrl);
+        const routeHint = showRouteHints
+          ? profileConnectionRouteLabel(profile, wifiConnected)
+          : null;
         const meta = isActive
           ? activeReachable
-            ? 'Connected'
+            ? usbRoute
+              ? 'Connected · USB'
+              : routeHint
+                ? `Connected · ${routeHint}`
+                : 'Connected'
             : activeConnecting
-              ? 'Connecting…'
-              : 'Cannot reach this Mac'
-          : 'Tap to connect';
+              ? usbRoute
+                ? 'Connecting · USB…'
+                : routeHint
+                  ? `Connecting · ${routeHint}…`
+                  : 'Connecting…'
+              : usbRoute
+                ? 'Cannot reach Mac (USB)'
+                : routeHint === 'Needs tunnel'
+                  ? 'Needs tunnel (cellular)'
+                  : 'Cannot reach this Mac'
+          : routeHint ?? (usbRoute ? 'USB' : 'Select');
         const statusColor = isActive
           ? activeReachable
             ? colors.success
@@ -76,9 +103,14 @@ export default function GatewayProfilePicker({
                 />
               </View>
               <View style={styles.labelBlock}>
-                <Text style={styles.profileLabel} numberOfLines={1}>
-                  {formatProfileLabel(profile)}
+                <Text style={styles.profileLabel} numberOfLines={2} ellipsizeMode="tail">
+                  {lines.title}
                 </Text>
+                {lines.detail ? (
+                  <Text style={styles.profileDetail} numberOfLines={1} ellipsizeMode="middle">
+                    {lines.detail}
+                  </Text>
+                ) : null}
                 <Text
                   style={[
                     styles.meta,
@@ -87,9 +119,9 @@ export default function GatewayProfilePicker({
                   ]}
                 >
                   {meta}
+                  {isActive ? ' · Now' : ''}
                 </Text>
               </View>
-              <Text style={styles.chevron}>{isActive ? 'Now' : '›'}</Text>
             </TouchableOpacity>
             {onRemove && profiles.length > 1 ? (
               <TouchableOpacity
@@ -159,6 +191,14 @@ const styles = StyleSheet.create({
     color: colors.text,
     fontWeight: '800',
     fontSize: 15,
+    flexShrink: 1,
+  },
+  profileDetail: {
+    color: colors.textMuted,
+    fontSize: 12,
+    fontWeight: '600',
+    fontVariant: ['tabular-nums'],
+    marginTop: 2,
   },
   meta: {
     color: colors.textMuted,
@@ -173,13 +213,6 @@ const styles = StyleSheet.create({
   metaUnreachable: {
     color: colors.warning,
     fontWeight: '700',
-  },
-  chevron: {
-    minWidth: 28,
-    textAlign: 'right',
-    color: colors.textMuted,
-    fontSize: 13,
-    fontWeight: '800',
   },
   removeButton: {
     paddingHorizontal: 8,

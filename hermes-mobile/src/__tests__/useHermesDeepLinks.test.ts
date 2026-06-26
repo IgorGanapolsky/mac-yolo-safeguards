@@ -1,6 +1,6 @@
 import { Linking } from 'react-native';
 import { renderHook, act } from '@testing-library/react-native';
-import { useHermesDeepLinks } from '../hooks/useHermesDeepLinks';
+import { useHermesDeepLinks, resetHandledUrls } from '../hooks/useHermesDeepLinks';
 
 describe('useHermesDeepLinks', () => {
   const navigationRef = { current: { navigate: jest.fn() } };
@@ -9,6 +9,7 @@ describe('useHermesDeepLinks', () => {
   const focusChatSession = jest.fn();
 
   beforeEach(() => {
+    resetHandledUrls();
     jest.clearAllMocks();
     jest.spyOn(Linking, 'getInitialURL').mockResolvedValue(null);
     jest.spyOn(Linking, 'addEventListener').mockReturnValue({ remove: jest.fn() } as never);

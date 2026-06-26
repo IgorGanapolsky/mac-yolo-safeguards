@@ -92,13 +92,15 @@ export default function HermesApprovalCard({
   const inner = (
   <>
     <View style={styles.headerRow}>
-      <Text style={styles.badge}>
-        {approval.source === 'text_nudge'
-          ? 'AGENT PROPOSAL'
-          : isChatApproval
-            ? 'NEEDS YOUR APPROVAL'
-            : 'THUMBGATE · BLOCKED'}
-      </Text>
+      <View testID="leash-blocked-badge" accessible={true} collapsable={false}>
+        <Text style={styles.badge}>
+          {approval.source === 'text_nudge'
+            ? 'AGENT PROPOSAL'
+            : isChatApproval
+              ? 'NEEDS YOUR APPROVAL'
+              : 'THUMBGATE · BLOCKED'}
+        </Text>
+      </View>
       <View style={styles.headerBadges}>
         <Text
           style={[
@@ -153,28 +155,34 @@ export default function HermesApprovalCard({
 
     {showThumbs ? (
       <View style={[styles.actions, glance && styles.glanceActions]}>
-        <TouchableOpacity
-          style={[styles.actionButton, styles.rejectButton, glance && styles.glanceButton]}
-          onPress={() => handleChoice('deny')}
-          disabled={busy}
-          activeOpacity={0.85}
-          testID="leash-thumbs-down"
-        >
-          <Text style={styles.rejectEmoji}>👎</Text>
-          <Text style={styles.rejectText}>Thumbs down</Text>
-          <Text style={styles.actionSubtext}>{downHint}</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.actionButton, styles.approveButton, glance && styles.glanceButton]}
-          onPress={() => handleChoice('once')}
-          disabled={busy}
-          activeOpacity={0.85}
-          testID="leash-thumbs-up"
-        >
-          <Text style={styles.approveEmoji}>👍</Text>
-          <Text style={styles.approveText}>Thumbs up</Text>
-          <Text style={styles.actionSubtext}>{upHint}</Text>
-        </TouchableOpacity>
+        <View style={{flex: 1}} collapsable={false}>
+          <TouchableOpacity
+            testID="leash-thumbs-down"
+            accessible={true}
+            style={[styles.actionButton, styles.rejectButton, glance && styles.glanceButton]}
+            onPress={() => handleChoice('deny')}
+            disabled={busy}
+            activeOpacity={0.85}
+          >
+            <Text style={styles.rejectEmoji}>👎</Text>
+            <Text style={styles.rejectText}>Thumbs down</Text>
+            <Text style={styles.actionSubtext}>{downHint}</Text>
+          </TouchableOpacity>
+        </View>
+        <View style={{flex: 1}} collapsable={false}>
+          <TouchableOpacity
+            testID="leash-thumbs-up"
+            accessible={true}
+            style={[styles.actionButton, styles.approveButton, glance && styles.glanceButton]}
+            onPress={() => handleChoice('once')}
+            disabled={busy}
+            activeOpacity={0.85}
+          >
+            <Text style={styles.approveEmoji}>👍</Text>
+            <Text style={styles.approveText}>Thumbs up</Text>
+            <Text style={styles.actionSubtext}>{upHint}</Text>
+          </TouchableOpacity>
+        </View>
       </View>
     ) : (
       <View style={styles.chatActions}>

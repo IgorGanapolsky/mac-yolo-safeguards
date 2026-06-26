@@ -25,21 +25,21 @@ export function formatLanScanStageLabel(progress: LanScanProgress): string {
   const foundHint =
     progress.foundCount > 0 ? ` · ${progress.foundCount} found so far` : '';
   if (progress.stage === 'pair_server') {
-    return `Scanning Wi‑Fi for Hermes (${pct}%)${foundHint}`;
+    return `Scanning local network for Hermes (${pct}%)${foundHint}`;
   }
-  return `Checking computer gateways (${pct}%)${foundHint}`;
+  return `Checking direct Hermes links (${pct}%)${foundHint}`;
 }
 
 export function formatLanScanResultLabel(foundCount: number): string {
   if (foundCount === 0) {
-    return 'No computers found on Wi‑Fi';
+    return 'No local Hermes machines found';
   }
-  return `Found ${foundCount} computer${foundCount === 1 ? '' : 's'} on Wi‑Fi`;
+  return `Found ${foundCount} local Hermes machine${foundCount === 1 ? '' : 's'}`;
 }
 
 export function formatLanScanResultDetail(result: LanScanResult): string {
   if (result.foundCount === 0) {
-    return 'Hermes must be running on your computer, on the same Wi‑Fi as this phone.';
+    return 'Use Hermes Relay for anywhere approvals, or start Hermes nearby and scan again for direct control.';
   }
-  return 'Tap a computer below to switch, or search again to refresh the list.';
+  return 'Tap a machine below to target it, or search again to refresh the local list.';
 }

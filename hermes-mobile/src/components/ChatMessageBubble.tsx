@@ -17,6 +17,12 @@ type InlineApprovalHandlers = {
   onDeny: () => void;
 };
 
+type OutputFeedbackHandlers = {
+  busy?: boolean;
+  onThumbsUp: () => void;
+  onThumbsDown: () => void;
+};
+
 type ChatMessageBubbleProps = {
   messageId?: string;
   content: string;
@@ -29,12 +35,15 @@ type ChatMessageBubbleProps = {
   /** When true, show a divider above the thread label (not for the first thread in the list). */
   threadDivider?: boolean;
   inlineApproval?: InlineApprovalHandlers;
+  outputFeedback?: OutputFeedbackHandlers;
   /** Screen-level handler — Modal must not live inside inverted FlatList cells. */
   onShowDetail?: (body: string) => void;
   outboundStatus?: OutboundDeliveryStatus;
   outboundFailureReason?: string;
   connectionState?: LeashConnectionState;
   macHttpOk?: boolean;
+  leashUnlocked?: boolean;
+  onFeedback?: (signal: 'up' | 'down') => void;
 };
 
 function hasMeaningfulExpansion(preview: string, expanded: string): boolean {
@@ -50,7 +59,7 @@ function hasMeaningfulExpansion(preview: string, expanded: string): boolean {
   return preview.endsWith('…') || preview.endsWith('...');
 }
 
-export default function ChatMessageBubble({
+function ChatMessageBubble({
   messageId,
   content,
   rawContent,
@@ -61,6 +70,7 @@ export default function ChatMessageBubble({
   threadLabel,
   threadDivider = false,
   inlineApproval,
+  outputFeedback,
   onShowDetail,
   outboundStatus,
   outboundFailureReason,
@@ -134,7 +144,52 @@ export default function ChatMessageBubble({
               onDeny={inlineApproval.onDeny}
             />
           ) : null}
-          <View style={styles.timeRow}>
+          {!isUser && outputFeedback ? (
+            <View style={styles.feedbackRow} testID="chat-output-feedback">
+              <Pressable
+                onPress={() => {
+                  haptics.selection();
+                  outputFeedback.onThumbsUp();
+                }}
+                disabled={outputFeedback.busy}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                accessibilityRole="button"
+                accessibilityLabel="Mark Hermes output useful"
+                testID="chat-output-thumbs-up"
+                style={({ pressed }) => [
+                  styles.feedbackButton,
+                  pressed && styles.feedbackButtonPressed,
+                  outputFeedback.busy && styles.feedbackButtonDisabled,
+                ]}
+              >
+                <Text style={styles.feedbackIcon}>👍</Text>
+              </Pressable>
+              <Pressable
+                onPress={() => {
+                  haptics.selection();
+                  outputFeedback.onThumbsDown();
+                }}
+                disabled={outputFeedback.busy}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                accessibilityRole="button"
+                accessibilityLabel="Mark Hermes output unhelpful"
+                testID="chat-output-thumbs-down"
+                style={({ pressed }) => [
+                  styles.feedbackButton,
+                  pressed && styles.feedbackButtonPressed,
+                  outputFeedback.busy && styles.feedbackButtonDisabled,
+                ]}
+              >
+                <Text style={styles.feedbackIcon}>👎</Text>
+              </Pressable>
+            </View>
+          ) : null}
+          <View
+            style={[
+              styles.timeRow,
+              isUser && outboundStatus === 'failed' && styles.timeRowFailed,
+            ]}
+          >
             {isUser && outboundStatus ? (
               <Text
                 style={[
@@ -148,6 +203,7 @@ export default function ChatMessageBubble({
                     }).startsWith('✓') &&
                     styles.deliverySent,
                 ]}
+                numberOfLines={outboundStatus === 'failed' ? 3 : 1}
                 testID={`chat-outbound-${outboundStatus}`}
               >
                 {outboundDeliveryLabel(outboundStatus, {
@@ -158,7 +214,11 @@ export default function ChatMessageBubble({
               </Text>
             ) : null}
             <Text
-              style={[styles.bubbleTime, isUser ? styles.bubbleUserTime : styles.bubbleAssistantTime]}
+              style={[
+                styles.bubbleTime,
+                isUser ? styles.bubbleUserTime : styles.bubbleAssistantTime,
+                isUser && outboundStatus === 'failed' && styles.bubbleTimeBelowDelivery,
+              ]}
               testID="chat-message-timestamp"
             >
               {timeLabel}
@@ -169,10 +229,13 @@ export default function ChatMessageBubble({
   );
 }
 
+export default React.memo(ChatMessageBubble);
+
 const styles = StyleSheet.create({
   bubbleWrapper: {
-    marginBottom: 12,
+    marginBottom: 16,
     flexDirection: 'row',
+    paddingHorizontal: 12,
   },
   bubbleUserWrapper: {
     justifyContent: 'flex-end',
@@ -182,25 +245,29 @@ const styles = StyleSheet.create({
   },
   bubble: {
     maxWidth: '88%',
-    borderRadius: 16,
+    borderRadius: 18,
     paddingHorizontal: 14,
     paddingVertical: 10,
     borderWidth: 1,
   },
   bubbleUser: {
-    backgroundColor: colors.primary,
-    borderColor: 'rgba(139, 92, 246, 0.5)',
+    backgroundColor: colors.userBubble,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
   },
   bubbleAssistant: {
-    backgroundColor: 'rgba(15, 23, 42, 0.85)',
-    borderColor: 'rgba(148, 163, 184, 0.25)',
+    maxWidth: '100%',
+    backgroundColor: 'transparent',
+    borderColor: 'transparent',
+    borderWidth: 0,
+    paddingHorizontal: 4,
+    paddingVertical: 6,
   },
   bubbleText: {
-    fontSize: 15,
-    lineHeight: 22,
+    fontSize: 16,
+    lineHeight: 24,
   },
   bubbleUserText: {
-    color: '#FFFFFF',
+    color: colors.userBubbleText,
   },
   bubbleAssistantText: {
     color: colors.text,
@@ -246,13 +313,48 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'flex-end',
+    flexWrap: 'wrap',
     gap: 8,
     marginTop: 6,
+  },
+  timeRowFailed: {
+    flexDirection: 'column',
+    alignItems: 'flex-end',
+    gap: 4,
+  },
+  feedbackRow: {
+    flexDirection: 'row',
+    alignSelf: 'flex-start',
+    gap: 8,
+    marginTop: 8,
+  },
+  feedbackButton: {
+    minWidth: 34,
+    minHeight: 30,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(148, 163, 184, 0.28)',
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+  },
+  feedbackButtonPressed: {
+    opacity: 0.72,
+    backgroundColor: 'rgba(34, 211, 238, 0.1)',
+  },
+  feedbackButtonDisabled: {
+    opacity: 0.45,
+  },
+  feedbackIcon: {
+    fontSize: 16,
   },
   deliveryMark: {
     fontSize: 10,
     fontWeight: '800',
     color: 'rgba(255, 255, 255, 0.65)',
+    flexShrink: 1,
+    maxWidth: '100%',
+    textAlign: 'right',
   },
   deliverySent: {
     color: colors.success,
@@ -262,6 +364,9 @@ const styles = StyleSheet.create({
   },
   bubbleUserTime: {
     color: 'rgba(255, 255, 255, 0.72)',
+  },
+  bubbleTimeBelowDelivery: {
+    alignSelf: 'flex-end',
   },
   bubbleAssistantTime: {
     color: colors.textMuted,

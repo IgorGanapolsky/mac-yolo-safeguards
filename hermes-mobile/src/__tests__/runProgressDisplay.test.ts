@@ -1,6 +1,8 @@
 import {
+  displayableLlmModel,
   humanizeComposerStatus,
   humanizeRunProgressDetail,
+  runProgressFailedTitle,
   shouldShowComposerProgressBanner,
 } from '../utils/runProgressDisplay';
 
@@ -29,6 +31,18 @@ describe('runProgressDisplay', () => {
     ).toBe(false);
   });
 
+  it('filters gateway platform labels from displayable LLM model', () => {
+    expect(displayableLlmModel('hermes-agent')).toBeNull();
+    expect(displayableLlmModel('HERMES-AGENT')).toBeNull();
+    expect(displayableLlmModel('hermes')).toBeNull();
+    expect(displayableLlmModel('Gateway')).toBeNull();
+    expect(displayableLlmModel('  gateway  ')).toBeNull();
+    expect(displayableLlmModel(null)).toBeNull();
+    expect(displayableLlmModel('')).toBeNull();
+    expect(displayableLlmModel('google/gemini-2.5-flash')).toBe('google/gemini-2.5-flash');
+    expect(displayableLlmModel('  qwen3:8b-64k  ')).toBe('qwen3:8b-64k');
+  });
+
   it('shows composer banner once a run id exists', () => {
     expect(
       shouldShowComposerProgressBanner(
@@ -41,5 +55,13 @@ describe('runProgressDisplay', () => {
         true,
       ),
     ).toBe(true);
+  });
+
+  it('shortens connectivity failures for banner title row', () => {
+    expect(
+      runProgressFailedTitle(
+        "Your phone can't reach that local computer link. Join the same Wi‑Fi, add a tunnel URL in Settings.",
+      ),
+    ).toBe("Couldn't reach your Mac");
   });
 });

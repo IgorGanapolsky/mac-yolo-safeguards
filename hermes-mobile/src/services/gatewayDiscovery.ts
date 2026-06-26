@@ -1,6 +1,6 @@
 import NetInfo from '@react-native-community/netinfo';
 import { parseSetupDeepLink } from '../utils/setupDeepLink';
-import { buildGatewayUrlFromLanIp, extractLanIpFromGatewayUrl } from '../utils/gatewayUrlPolicy';
+import { buildGatewayUrlFromLanIp, extractLanIpFromGatewayUrl, resolveDisplayLanIp } from '../utils/gatewayUrlPolicy';
 import { normalizeGatewayUrl } from './gatewayClient';
 import type { DiscoveredGateway } from '../types/gatewayProfile';
 import type { LanScanProgress, LanScanStage } from '../types/lanScan';
@@ -30,6 +30,7 @@ export type PairServerPayload = {
   qrUrl?: string;
   hostname?: string;
   localIp?: string;
+  relayCode?: string;
 };
 
 async function getPhoneLanIp(): Promise<string | null> {
@@ -78,12 +79,38 @@ async function fetchPairServerConfig(host: string): Promise<PairServerPayload | 
       qrUrl: body.qrUrl,
       hostname: body.hostname,
       localIp: body.localIp,
+      relayCode: typeof body.relayCode === 'string' ? body.relayCode : undefined,
     };
   } catch {
     return null;
   } finally {
     clearTimeout(id);
   }
+}
+
+export async function resolvePairServerMachineName(host: string): Promise<string | null> {
+  const payload = await fetchPairServerConfig(host);
+  if (!payload) {
+    return null;
+  }
+  const fromHostname = payload.hostname?.trim().replace(/\.local$/i, '');
+  if (fromHostname) {
+    return fromHostname;
+  }
+  if (payload.deepLink) {
+    const parsed = parseSetupDeepLink(payload.deepLink);
+    const macName = parsed?.macName?.trim();
+    if (macName) {
+      return macName.replace(/\.local$/i, '');
+    }
+  }
+  return null;
+}
+
+export async function resolvePairServerRelayCode(host: string): Promise<string | null> {
+  const payload = await fetchPairServerConfig(host);
+  const code = payload?.relayCode?.trim();
+  return code ? code.toUpperCase() : null;
 }
 
 function pairPayloadToGatewayUrl(payload: PairServerPayload): string | null {
@@ -137,13 +164,12 @@ async function probeGatewayDetailed(url: string): Promise<DiscoveredGateway | nu
       return null;
     }
     const httpBase = normalizeGatewayUrl(url).httpBase;
+    const reportedIp =
+      typeof body.local_ip === 'string' ? body.local_ip : undefined;
     return {
       gatewayUrl: httpBase,
       hostname: typeof body.hostname === 'string' ? body.hostname : undefined,
-      localIp:
-        typeof body.local_ip === 'string'
-          ? body.local_ip
-          : extractLanIpFromGatewayUrl(httpBase) ?? undefined,
+      localIp: resolveDisplayLanIp(reportedIp, httpBase) ?? undefined,
     };
   } catch {
     return null;

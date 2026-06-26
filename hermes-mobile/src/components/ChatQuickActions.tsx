@@ -7,14 +7,16 @@ export type ChatQuickAction = {
   label: string;
   detail: string;
   prompt: string;
+  dismissible?: boolean;
 };
 
 type ChatQuickActionsProps = {
   actions: ChatQuickAction[];
   onSelect: (action: ChatQuickAction) => void;
+  onDismiss?: (action: ChatQuickAction) => void;
 };
 
-function ChatQuickActions({ actions, onSelect }: ChatQuickActionsProps) {
+function ChatQuickActions({ actions, onSelect, onDismiss }: ChatQuickActionsProps) {
   if (actions.length === 0) {
     return null;
   }
@@ -27,20 +29,40 @@ function ChatQuickActions({ actions, onSelect }: ChatQuickActionsProps) {
         keyboardShouldPersistTaps="handled"
         contentContainerStyle={styles.content}
       >
-        {actions.map((action) => (
-          <Pressable
+        {actions.map((action, index) => (
+          <View
             key={action.id}
-            onPress={() => onSelect(action)}
-            style={({ pressed }) => [styles.chip, pressed && styles.chipPressed]}
-            accessibilityRole="button"
-            accessibilityLabel={`${action.label}: ${action.detail}`}
-            testID={`chat-quick-action-${action.id}`}
+            style={[styles.chipContainer, index < actions.length - 1 && styles.chipSpacing]}
           >
-            <Text style={styles.label}>{action.label}</Text>
-            <Text style={styles.detail} numberOfLines={1}>
-              {action.detail}
-            </Text>
-          </Pressable>
+            <Pressable
+              onPress={() => onSelect(action)}
+              style={({ pressed }) => [styles.chipPressable, pressed && styles.chipPressed]}
+              accessibilityRole="button"
+              accessibilityLabel={`Reuse prompt: ${action.label}`}
+              accessibilityHint="Loads this prompt into the message field"
+              hitSlop={8}
+              testID={`chat-quick-action-${action.id}`}
+            >
+              <Text style={styles.label} numberOfLines={1}>
+                {action.label}
+              </Text>
+              <Text style={styles.detail} numberOfLines={1}>
+                {action.detail}
+              </Text>
+            </Pressable>
+            {onDismiss ? (
+              <Pressable
+                onPress={() => onDismiss(action)}
+                style={({ pressed }) => [styles.dismissBtn, pressed && styles.dismissBtnPressed]}
+                accessibilityRole="button"
+                accessibilityLabel={`Dismiss ${action.label}`}
+                hitSlop={10}
+                testID={`chat-quick-action-dismiss-${action.id}`}
+              >
+                <Text style={styles.dismissText}>×</Text>
+              </Pressable>
+            ) : null}
+          </View>
         ))}
       </ScrollView>
     </View>
@@ -52,36 +74,66 @@ export default memo(ChatQuickActions);
 const styles = StyleSheet.create({
   wrap: {
     paddingTop: 8,
+    paddingBottom: 4,
   },
   content: {
     paddingHorizontal: 12,
-    gap: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
   },
-  chip: {
-    minWidth: 120,
-    maxWidth: 220,
-    borderRadius: 8,
+  chipContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexShrink: 0,
+    maxWidth: 280,
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: colors.borderLight,
     backgroundColor: 'rgba(255, 255, 255, 0.055)',
-    paddingHorizontal: 10,
+    overflow: 'hidden',
+  },
+  chipSpacing: {
+    marginRight: 8,
+  },
+  chipPressable: {
+    paddingLeft: 12,
+    paddingRight: 8,
     paddingVertical: 8,
+    justifyContent: 'center',
   },
   chipPressed: {
-    opacity: 0.82,
     backgroundColor: colors.cardBgHover,
   },
   label: {
     fontSize: 12,
     lineHeight: 15,
-    fontWeight: '900',
+    fontWeight: '800',
     color: colors.text,
   },
   detail: {
     marginTop: 2,
     fontSize: 10,
     lineHeight: 13,
-    fontWeight: '700',
+    fontWeight: '600',
     color: colors.textMuted,
+  },
+  dismissBtn: {
+    minWidth: 36,
+    minHeight: 36,
+    paddingHorizontal: 10,
+    alignSelf: 'stretch',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderLeftWidth: 1,
+    borderLeftColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  dismissBtnPressed: {
+    backgroundColor: 'rgba(255, 255, 255, 0.12)',
+  },
+  dismissText: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: colors.textMuted,
+    lineHeight: 18,
   },
 });

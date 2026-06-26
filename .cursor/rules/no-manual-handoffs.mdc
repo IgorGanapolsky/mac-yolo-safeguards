@@ -1,0 +1,17 @@
+---
+description: Never assign manual steps to the user — agents execute or automate
+alwaysApply: true
+---
+
+# No manual handoffs
+
+Never end responses with instructions for the user to run commands, tap phone UI, import YAML, or configure settings by hand.
+
+**Do instead:**
+- Run `node tools/agent-session-start.js` at session start (includes adb pair when device connected).
+- Run `node tools/hermes-mobile-pair.js` when Hermes Mobile needs gateway credentials.
+- Run `bash scripts/bootstrap-zero-friction.sh` for full local automation install.
+
+**Blocked actions** (report as agent blockers, not user tasks): Reddit posts, Cursor Cloud Automations UI without editor API, OAuth flows requiring human login.
+
+See AGENTS.md § No manual handoffs to the user.

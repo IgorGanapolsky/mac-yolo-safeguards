@@ -72,6 +72,16 @@ elif [ "$PLATFORM" = "ios" ]; then
     FLAGS="$FLAGS --platform ios"
 fi
 
+if [ "$PLATFORM" = "android" ] && [ ! -z "$SERIAL" ]; then
+    echo "🧹 Resetting application state on Android device..."
+    adb -s "$SERIAL" shell pm clear com.iganapolsky.hermesmobile || true
+    echo "🔑 Auto-granting notification permissions..."
+    adb -s "$SERIAL" shell pm grant com.iganapolsky.hermesmobile android.permission.POST_NOTIFICATIONS || true
+    echo "🚀 Pre-launching application to prevent secure app conflicts..."
+    adb -s "$SERIAL" shell am start -n com.iganapolsky.hermesmobile/.MainActivity || true
+    sleep 3
+fi
+
 echo "🚀 Executing accelerated test suite via agent-device (one flow at a time)..."
 echo "=========================================================="
 

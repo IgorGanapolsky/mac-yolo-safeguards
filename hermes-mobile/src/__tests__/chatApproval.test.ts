@@ -5,6 +5,7 @@ import {
   findUnresolvedUserApprovalPhrase,
   listInlineTextApprovals,
   parseApprovalNudgeFromContent,
+  pendingApprovalFromChatTextApproval,
   parseTargetMetadataNudge,
   type ChatPendingApproval,
   type ChatRunApproval,
@@ -22,6 +23,30 @@ describe('chatApproval', () => {
     expect(parseApprovalNudgeFromContent('please reply with exactly "APPROVE DEPLOY TRIAGE"') ?.approveText).toBe('APPROVE DEPLOY TRIAGE');
     expect(parseApprovalNudgeFromContent('Reply exactly APPROVE DEPLOY TRIAGE')?.approveText).toBe('APPROVE DEPLOY TRIAGE');
     expect(parseApprovalNudgeFromContent('Reply with exactly: APPROVE DEPLOY TRIAGE FIT.')?.approveText).toBe('APPROVE DEPLOY TRIAGE FIT');
+  });
+
+  it('turns natural confirm/proceed prompts into one-tap approvals', () => {
+    const parsed = parseApprovalNudgeFromContent(
+      'I will now run those operations. Please confirm you want to proceed with removing all old entries. If not, please provide additional context.',
+    );
+    expect(parsed?.approveText).toBe('Proceed');
+    expect(parsed?.title).toBe('Proceed with removing all old entries');
+  });
+
+  it('builds stable Leash pending approvals from chat text approvals', () => {
+    const parsed = parseApprovalNudgeFromContent(
+      'Please confirm you want to proceed with removing all old entries.',
+    );
+    expect(parsed).toBeTruthy();
+    const pending = pendingApprovalFromChatTextApproval(
+      { ...parsed!, sourceMessageIndex: 4 },
+      { id: 'msg_confirm_1', role: 'assistant', content: 'Please confirm you want to proceed.' },
+      'sess_123',
+    );
+    expect(pending.actionId).toBe('text-nudge:sess_123:msg_confirm_1:proceed');
+    expect(pending.source).toBe('text_nudge');
+    expect(pending.toolName).toBe('chat_confirmation');
+    expect(pending.riskTier).toBe('medium');
   });
 
   it('parses Target metadata nudges without inline APPROVE line', () => {

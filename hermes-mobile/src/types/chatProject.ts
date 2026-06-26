@@ -14,6 +14,8 @@ export interface ChatProjectState {
   /** Mobile-pinned labels — gateway title/preview often mirrors the latest message. */
   sessionLabels: Record<string, string>;
   activeProjectId: string | null;
+  /** Whether the user has cleared the initial demo threads. */
+  demoCleared?: boolean;
 }
 
 export const EMPTY_CHAT_PROJECT_STATE: ChatProjectState = {
@@ -21,4 +23,5 @@ export const EMPTY_CHAT_PROJECT_STATE: ChatProjectState = {
   sessionProjectMap: {},
   sessionLabels: {},
   activeProjectId: null,
+  demoCleared: false,
 };

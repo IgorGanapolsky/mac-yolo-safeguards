@@ -1,0 +1,26 @@
+name: "mac-yolo — weekly RN newsletter ROI"
+description: "Ingest Callstack + Infinite Red newsletters; rank Hermes Mobile ROI; one PR-sized recommendation."
+workflow:
+  triggers:
+    - cron:
+        cron: "0 9 * * 1"
+  actions: []
+  prompts:
+    - |
+      Weekly React Native ecosystem ROI for Hermes Mobile (mac-yolo-safeguards).
+
+      1. Run: `node tools/react-native-newsletter-ingest.js --limit 12 --top 8 --min-score 45 --decision-stack`
+      2. Read top item from `~/Library/Application Support/mac-yolo-safeguards/react-native-newsletter-ingest.md` (or JSON output).
+      3. Run: `node tools/agent-decision-stack.js --task "<#1 recommendation>" --json`
+      4. If #1 is wiring/verification only and not yet done: implement one PR-sized change with tests (per recommendation).
+      5. If #1 is already shipped (e.g. preflight has `npm run e2e:accelerated`): say so with grep/file evidence, pick #2.
+
+      Evidence required: ingest top-3 scores, decision-stack JSON snippet, test command output if code changed.
+      Capture ThumbGate lesson when you ship or when ingest contradicts repo state.
+  model: ""
+  agentOptions:
+    skipInstall: false
+  memoryEnabled: true
+  gitConfig:
+    repo: IgorGanapolsky/mac-yolo-safeguards
+    branch: main

@@ -10,7 +10,7 @@ const WRAPPER_PATH = path.resolve(__dirname, '../hermes-yolo-wrapper.js');
 console.log('=== Running hermes-yolo-wrapper tests ===\n');
 
 // 1. Load the wrapper module (thanks to our module.exports check)
-const { buildChildPromptArgs, HERMES_COMMANDS, DEFAULT_READY_PROMPT } = require(WRAPPER_PATH);
+const { buildChildPromptArgs, defaultModelRoute, hasZaiKey, HERMES_COMMANDS, DEFAULT_READY_PROMPT } = require(WRAPPER_PATH);
 
 console.log('Testing buildChildPromptArgs...');
 
@@ -34,8 +34,8 @@ function runWithMockedTTY(isTTY, fn) {
 // Test case: Empty arguments in interactive terminal (TTY)
 runWithMockedTTY(true, () => {
   const result = buildChildPromptArgs([]);
-  console.log('  [TEST] Empty args + TTY=true -> expected bounded -z probe, got:', result);
-  assert.deepStrictEqual(result, ['-z', DEFAULT_READY_PROMPT]);
+  console.log('  [TEST] Empty args + TTY=true -> expected empty array (interactive shell), got:', result);
+  assert.deepStrictEqual(result, []);
 });
 
 // Test case: Empty arguments in non-interactive pipeline (non-TTY)
@@ -96,6 +96,26 @@ try {
 }
 
 console.log('\nTesting live wrapper execution...');
+
+console.log('\nTesting default model routing...');
+assert.strictEqual(hasZaiKey({}), false);
+assert.strictEqual(hasZaiKey({ Z_AI_API_KEY: 'zai-key' }), true);
+assert.deepStrictEqual(defaultModelRoute({}), {
+  provider: 'custom:ollama-local-64k',
+  model: 'qwen2.5:3b-64k',
+});
+assert.deepStrictEqual(defaultModelRoute({ Z_AI_API_KEY: 'zai-key' }), {
+  provider: 'custom:zai-coding-glm',
+  model: 'glm-5.2',
+});
+assert.deepStrictEqual(defaultModelRoute({
+  Z_AI_API_KEY: 'zai-key',
+  HERMES_YOLO_PROVIDER: 'custom:test-provider',
+  HERMES_YOLO_MODEL: 'test-model',
+}), {
+  provider: 'custom:test-provider',
+  model: 'test-model',
+});
 
 // 2. Test live wrapper execution (using --version as a fast safe check)
 const binaryPath = path.resolve(__dirname, '../hermes-yolo-wrapper.js');

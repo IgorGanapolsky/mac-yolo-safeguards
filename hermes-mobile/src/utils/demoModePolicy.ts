@@ -12,6 +12,14 @@ export function isDemoModeAllowed(): boolean {
   );
 }
 
+export function isDeveloperLeashUnlockAllowed(): boolean {
+  return (
+    isDemoModeAllowed() ||
+    process.env.EXPO_PUBLIC_HERMES_DEV_UNLOCK === '1' ||
+    process.env.EXPO_PUBLIC_HERMES_DEV_UNLOCK === 'true'
+  );
+}
+
 export function sanitizeDemoModeForRelease(settings: GatewaySettings): GatewaySettings {
   if (!isDemoModeAllowed() && settings.demoMode) {
     return { ...settings, demoMode: false };

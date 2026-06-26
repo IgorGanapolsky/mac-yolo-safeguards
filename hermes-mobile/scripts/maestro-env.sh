@@ -33,3 +33,7 @@ fi
 if [ -d "$HOME/.maestro/bin" ]; then
   export PATH="$HOME/.maestro/bin:$PATH"
 fi
+
+if [ -d "$HOME/Library/Android/sdk/platform-tools" ]; then
+  export PATH="$HOME/Library/Android/sdk/platform-tools:$PATH"
+fi

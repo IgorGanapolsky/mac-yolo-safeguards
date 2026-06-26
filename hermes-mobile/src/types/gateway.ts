@@ -55,6 +55,8 @@ export interface GatewayHealthSnapshot {
   errorMessage?: string;
   hostname?: string;
   localIp?: string;
+  /** Direct HTTP to :8642 on the saved gateway URL (distinct from relay cloud health). */
+  directGatewayReachable?: boolean;
 }
 
 export interface GatewayEventMessage {
@@ -93,6 +95,10 @@ export interface GatewaySettings {
   analyticsOptOut: boolean;
   /** ThumbGate Pro — unlocks ThumbGate Leash (mobile approval relay + memory gates). */
   thumbgateProActive: boolean;
+  /** Developer backdoor: unlock Leash without IAP (gesture / deep link / pair script). */
+  developerLeashUnlock?: boolean;
+  /** Route chat "confirm proceed" prompts to Leash tab instead of composer chips. */
+  routeChatConfirmationsToLeash?: boolean;
   /** Whether to show tool execution messages (role tool/function) in transcripts. */
   includeToolActivity?: boolean;
   /** Presentation/personality skin for mobile chat. Style only; execution directives still win. */
@@ -104,9 +110,9 @@ export interface GatewaySettings {
 }
 
 export const DEFAULT_GATEWAY_SETTINGS: GatewaySettings = {
-  connectionMode: 'gateway',
+  connectionMode: 'relay',
   cloudUrl: HERMES_MOBILE_CLOUD_URL,
-  gatewayUrl: 'http://127.0.0.1:8642',
+  gatewayUrl: '',
   usePortal: false,
   redactPii: true,
   notificationsEnabled: true,
@@ -119,6 +125,8 @@ export const DEFAULT_GATEWAY_SETTINGS: GatewaySettings = {
   approvalPolicy: 'balanced',
   analyticsOptOut: false,
   thumbgateProActive: false,
+  developerLeashUnlock: false,
+  routeChatConfirmationsToLeash: true,
   includeToolActivity: true,
   hermesPersona: 'operator',
   hermesAvatar: 'orb',

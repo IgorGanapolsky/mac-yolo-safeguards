@@ -1,6 +1,6 @@
 import React from 'react';
 import { Text } from 'react-native';
-import { render, act, waitFor } from '@testing-library/react-native';
+import { render, act, fireEvent, waitFor } from '@testing-library/react-native';
 import { GatewayProvider, useGateway } from '../context/GatewayContext';
 import { storage } from '../services/storage';
 import { secureCredentials } from '../services/secureCredentials';
@@ -112,10 +112,46 @@ function Probe() {
     <>
       <Text testID="connection-state">{gateway.connectionState}</Text>
       <Text testID="pending-count">{gateway.pendingApprovals.length}</Text>
+      <Text testID="pending-chat-relay-text">{gateway.pendingChatRelayText ?? ''}</Text>
       <Text testID="transcript-nonce">{gateway.transcriptSyncNonce}</Text>
       <Text testID="last-error">{gateway.lastEventError ?? ''}</Text>
       <Text testID="mobile-token">{gateway.mobileToken}</Text>
       <Text testID="connection-mode">{gateway.settings.connectionMode}</Text>
+      <Text testID="relay-worker-count">{gateway.relayWorkers.length}</Text>
+      <Text testID="active-relay-worker-id">{gateway.activeRelayWorkerId ?? ''}</Text>
+      <Text
+        testID="select-profile"
+        onPress={() => {
+          void gateway.selectGatewayProfile('p2');
+        }}
+      >
+        select
+      </Text>
+      <Text
+        testID="enqueue-text-approval"
+        onPress={() =>
+          gateway.enqueueTextApproval({
+            actionId: 'text_confirm_1',
+            toolName: 'chat_confirmation',
+            reason: 'Proceed with removing old entries',
+            command: 'Proceed',
+            approveText: 'Proceed',
+            receivedAt: '2026-06-24T15:40:00.000Z',
+            source: 'text_nudge',
+            allowPermanent: false,
+          })
+        }
+      >
+        queue
+      </Text>
+      <Text
+        testID="approve-text-approval"
+        onPress={() => {
+          void gateway.submitApprovalChoice('text_confirm_1', 'once');
+        }}
+      >
+        approve
+      </Text>
     </>
   );
 }
@@ -161,7 +197,7 @@ describe('GatewayProvider', () => {
 
     (storage.loadGatewaySettings as jest.Mock).mockResolvedValue({
       connectionMode: 'gateway',
-      cloudUrl: 'https://hermes-mobile-cloud.fly.dev',
+      cloudUrl: 'https://hermesmobile-cloud.fly.dev',
       gatewayUrl: 'http://127.0.0.1:8642',
       usePortal: false,
       redactPii: true,
@@ -242,6 +278,41 @@ describe('GatewayProvider', () => {
     });
   });
 
+  it('queues chat confirmation approvals for Leash and relays Proceed once approved', async () => {
+    const { getByTestId } = render(
+      <GatewayProvider>
+        <Probe />
+      </GatewayProvider>,
+    );
+
+    await waitFor(() => {
+      expect(getByTestId('connection-state').props.children).toBe('connected');
+    });
+
+    act(() => {
+      fireEvent.press(getByTestId('enqueue-text-approval'));
+    });
+
+    await waitFor(() => {
+      expect(getByTestId('pending-count').props.children).toBe(1);
+    });
+
+    await act(async () => {
+      fireEvent.press(getByTestId('approve-text-approval'));
+    });
+
+    await waitFor(() => {
+      expect(getByTestId('pending-count').props.children).toBe(0);
+      expect(getByTestId('pending-chat-relay-text').props.children).toBe('Proceed');
+    });
+
+    act(() => {
+      fireEvent.press(getByTestId('enqueue-text-approval'));
+    });
+
+    expect(getByTestId('pending-count').props.children).toBe(0);
+  });
+
   it('bumps transcript nonce on TRANSCRIPT.UPDATED', async () => {
     const { getByTestId } = render(
       <GatewayProvider>
@@ -310,7 +381,7 @@ describe('GatewayProvider', () => {
     thumbgateIap.syncThumbgateLeashEntitlement.mockResolvedValue(false);
     (storage.loadGatewaySettings as jest.Mock).mockResolvedValue({
       connectionMode: 'relay',
-      cloudUrl: 'https://hermes-mobile-cloud.fly.dev',
+      cloudUrl: 'https://hermesmobile-cloud.fly.dev',
       gatewayUrl: 'http://10.2.29.103:8642',
       usePortal: false,
       redactPii: true,
@@ -328,6 +399,15 @@ describe('GatewayProvider', () => {
     });
     (secureCredentials.loadMobileToken as jest.Mock).mockResolvedValue('mobile-token-1');
     (fetchQueue as jest.Mock).mockResolvedValue({
+      workers: [
+        {
+          id: 'mac-mini',
+          hostname: 'Igors-Mac-mini.local',
+          project: 'skool_top1percent',
+          status: 'online',
+        },
+      ],
+      active_worker_id: 'mac-mini',
       events: [
         {
           id: 'relay_evt_1',
@@ -354,12 +434,72 @@ describe('GatewayProvider', () => {
     await waitFor(() => {
       expect(getByTestId('pending-count').props.children).toBe(1);
     });
+    expect(getByTestId('relay-worker-count').props.children).toBe(1);
+    expect(getByTestId('active-relay-worker-id').props.children).toBe('mac-mini');
 
     expect(fetchQueue).toHaveBeenCalledWith(
-      'https://hermes-mobile-cloud.fly.dev',
+      'https://hermesmobile-cloud.fly.dev',
       'mobile-token-1',
     );
     expect(MockWebSocket.instances).toHaveLength(0);
+  });
+
+  it('preserves relay mode when selecting a saved machine profile', async () => {
+    const gatewayProfilesMock = jest.requireMock('../services/gatewayProfiles');
+    gatewayProfilesMock.gatewayProfiles.load.mockResolvedValue({
+      profiles: [
+        {
+          id: 'p2',
+          label: 'Mac mini',
+          gatewayUrl: 'http://10.2.29.103:8642',
+          addedAt: '2026-06-24T12:00:00.000Z',
+        },
+      ],
+      activeProfileId: null,
+    });
+    (storage.loadGatewaySettings as jest.Mock).mockResolvedValue({
+      connectionMode: 'relay',
+      cloudUrl: 'https://hermesmobile-cloud.fly.dev',
+      gatewayUrl: 'http://127.0.0.1:8642',
+      usePortal: false,
+      redactPii: true,
+      notificationsEnabled: false,
+      demoMode: false,
+      glanceMode: false,
+      safetyMode: false,
+      thumbgateCaptureOnDown: true,
+      thumbgateCaptureOnUp: false,
+      thumbgateApiUrl: 'https://thumbgate.example.com',
+      thumbgateProActive: true,
+      approvalPolicy: 'balanced',
+      analyticsOptOut: false,
+      includeToolActivity: true,
+    });
+    (secureCredentials.loadMobileToken as jest.Mock).mockResolvedValue('mobile-token-1');
+    (secureCredentials.resolveApiKeyForProfile as jest.Mock).mockResolvedValue('sk-profile');
+
+    const { getByTestId } = render(
+      <GatewayProvider>
+        <Probe />
+      </GatewayProvider>,
+    );
+
+    await waitFor(() => {
+      expect(getByTestId('connection-mode').props.children).toBe('relay');
+    });
+
+    await act(async () => {
+      fireEvent.press(getByTestId('select-profile'));
+    });
+
+    await waitFor(() => {
+      expect(storage.saveGatewaySettings).toHaveBeenCalledWith(
+        expect.objectContaining({
+          connectionMode: 'relay',
+          gatewayUrl: 'http://10.2.29.103:8642',
+        }),
+      );
+    });
   });
 
   it('handles stop_run action from notifications and calls stopRun API', async () => {
@@ -399,7 +539,7 @@ describe('GatewayProvider', () => {
 
     (storage.loadGatewaySettings as jest.Mock).mockResolvedValue({
       connectionMode: 'gateway',
-      cloudUrl: 'https://hermes-mobile-cloud.fly.dev',
+      cloudUrl: 'https://hermesmobile-cloud.fly.dev',
       gatewayUrl: 'http://127.0.0.1:8642',
       usePortal: false,
       redactPii: true,

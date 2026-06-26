@@ -3,10 +3,12 @@ import {
   formatCronSchedule,
   formatSessionDate,
   formatSessionLastActive,
+  formatSessionTitle,
   parseGatewayTimestamp,
   sessionDisplayTitle,
   sessionPickerLabel,
   sessionLastActiveValue,
+  deriveThreadTitleFromMessage,
 } from '../utils/sessionDisplay';
 
 describe('sessionDisplay', () => {
@@ -45,7 +47,7 @@ describe('sessionDisplay', () => {
     ).toBe('Fixing Conversion Leak via Telegram Stripe Outreach');
   });
 
-  it('sessionPickerLabel ignores drifting gateway title when project is bound', () => {
+  it('sessionPickerLabel prefers preview over project lane when title drifts', () => {
     expect(
       sessionPickerLabel(
         {
@@ -58,17 +60,17 @@ describe('sessionDisplay', () => {
           projectName: 'Resolving CUA Driver Installation',
         },
       ),
-    ).toBe('Resolving CUA Driver Installation');
+    ).toBe('Are you sure?');
   });
 
-  it('sessionPickerLabel skips title when it mirrors preview', () => {
+  it('sessionPickerLabel uses preview when title mirrors preview', () => {
     expect(
       sessionPickerLabel({
         id: '20260623_004900_abc',
         title: 'Are you sure?',
         preview: 'Are you sure?',
       }),
-    ).toBe('Session 20260623 004900');
+    ).toBe('Are you sure?');
   });
 
   it('sessionPickerLabel keeps topic title when preview moved on', () => {
@@ -79,6 +81,26 @@ describe('sessionDisplay', () => {
         preview: 'Are you sure?',
       }),
     ).toBe('Resolving CUA Driver Installation');
+  });
+
+  it('sessionPickerLabel ignores pinned generic placeholder labels', () => {
+    expect(
+      sessionPickerLabel(
+        {
+          id: 'sess_1',
+          title: 'New mobile session',
+          preview: 'print money, make money faster. Use Data Science, ML and Agentic RAG.',
+        },
+        {
+          sessionLabels: { sess_1: 'New mobile session' },
+        },
+      ),
+    ).toBe('print money, make money faster. Use Data Science, M…');
+  });
+
+  it('deriveThreadTitleFromMessage truncates long prompts', () => {
+    const long = 'a'.repeat(60);
+    expect(deriveThreadTitleFromMessage(long)?.endsWith('…')).toBe(true);
   });
 
   it('sessionPickerLabel prefers pinned mobile label', () => {
@@ -93,6 +115,18 @@ describe('sessionDisplay', () => {
     ).toBe('Pinned lane name');
   });
 
+  it('sessionPickerLabel ignores pinned cron boilerplate labels', () => {
+    const session = { id: 'cron_123', title: 'Session cron 123', last_active: undefined };
+    expect(
+      sessionPickerLabel(
+        session,
+        {
+          sessionLabels: { cron_123: '[IMPORTANT: You are running as a scheduled cron job' },
+        },
+      ),
+    ).toBe('Scheduled job');
+  });
+
   it('falls back to started_at for last active', () => {
     expect(sessionLastActiveValue({ id: 'x', started_at: 1781717688.445973 })).toBe(1781717688.445973);
   });
@@ -101,5 +135,72 @@ describe('sessionDisplay', () => {
     expect(formatCronSchedule('0 */6 * * *')).toBe('0 */6 * * *');
     expect(formatCronSchedule({ kind: 'cron', expr: '0 9 * * 1', display: 'Mon 9am' })).toBe('Mon 9am');
     expect(formatCronSchedule(null)).toBe('no schedule');
+  });
+
+  it('formats cron session IDs with smarter titles', () => {
+    const session = { id: 'cron_42446aa3dc68', last_active: Date.now() / 1000 - 90 };
+    expect(sessionPickerLabel(session)).toBe('Scheduled job · 1m ago');
+    expect(sessionDisplayTitle(session)).toBe('Scheduled job · 1m ago');
+  });
+
+  it('humanizes gateway cron titles instead of raw hex ids', () => {
+    const session: HermesSession = {
+      id: 'cron_42446aa3dc68',
+      title: 'Session cron 42446aa3dc68',
+      last_active: Date.now() / 1000 - 120,
+      preview: '[IMPORTANT: You are running as a scheduled cron job',
+    };
+    expect(sessionPickerLabel(session)).toBe('Scheduled job · 2m ago');
+    expect(sessionDisplayTitle(session)).toBe('Scheduled job · 2m ago');
+  });
+  it('humanizes IMPORTANT cron prompt used as session title', () => {
+    const session: HermesSession = {
+      id: '20260625_120000_abc',
+      title: '[IMPORTANT: You are running as a scheduled cron job. Check revenue pipeline.',
+      preview: '[IMPORTANT: You are running as a scheduled cron job. Check revenue pipeline.',
+      last_active: Date.now() / 1000 - 60,
+    };
+    expect(sessionPickerLabel(session)).toBe('Scheduled job · 1m ago');
+    expect(sessionDisplayTitle(session)).toBe('Scheduled job · 1m ago');
+  });
+
+  it('humanizes IMPORTANT cron prompt with literal backslash-n in title', () => {
+    const session: HermesSession = {
+      id: '20260625_120000_abc',
+      title: '[IMPORTANT:\\nYou are running as a scheduled cron job',
+      preview: '[IMPORTANT:\\nYou are running as a scheduled cron job',
+      last_active: Date.now() / 1000 - 60,
+    };
+    expect(sessionPickerLabel(session)).toBe('Scheduled job · 1m ago');
+    expect(sessionDisplayTitle(session)).toBe('Scheduled job · 1m ago');
+  });
+
+  it('formatSessionTitle humanizes cron boilerplate for chat header', () => {
+    const session: HermesSession = {
+      id: '20260625_120000_abc',
+      title: '[IMPORTANT: You are running as a scheduled cron job',
+      preview: '[IMPORTANT: You are running as a scheduled cron job',
+      last_active: Date.now() / 1000 - 90,
+    };
+    expect(formatSessionTitle(session)).toBe('Scheduled job · 1m ago');
+  });
+
+  it('formatSessionTitle end-truncates long user titles for header', () => {
+    const session: HermesSession = {
+      id: 'sess_long',
+      title: 'we are working on skool_top_level_integration_branch today',
+    };
+    const title = formatSessionTitle(session);
+    expect(title.endsWith('…')).toBe(true);
+    expect(title.length).toBeLessThanOrEqual(40);
+    expect(title.startsWith('we are working on skool_top_level')).toBe(true);
+  });
+
+  it('formatSessionTitle strips IMPORTANT prefix from non-cron titles', () => {
+    const session: HermesSession = {
+      id: 'sess_1',
+      title: '[IMPORTANT: Ship the Hermes mobile header fix today',
+    };
+    expect(formatSessionTitle(session)).toBe('Ship the Hermes mobile header fix today');
   });
 });

@@ -2,12 +2,13 @@
 # Parent flows call launchApp first — no Expo dev-client URL (release APK on device).
 appId: com.iganapolsky.hermesmobile
 ---
+- openLink: "hermes://setup?demo=1"
 - runFlow:
     when:
       visible:
-        id: "connect-mac-gate"
+        text: "Open"
     commands:
-      - openLink: "hermes://setup?demo=1"
+      - tapOn: "Open"
 - extendedWaitUntil:
     notVisible:
       id: "connect-mac-gate"
@@ -18,31 +19,26 @@ appId: com.iganapolsky.hermesmobile
     timeout: 45000
 - runFlow:
     when:
-      notVisible: "Chat"
+      platform: ios
     commands:
       - hideKeyboard
-      - tapOn:
-          text: "Settings"
-      - extendedWaitUntil:
-          visible:
-            id: "SETTINGS"
-          timeout: 30000
-      - scrollUntilVisible:
-          element:
-            id: "glance-mode-switch"
-          direction: DOWN
-          timeout: 30000
-      - runFlow:
-          when:
-            notVisible: "Chat"
-          commands:
-            - tapOn:
-                id: "glance-mode-switch"
-            - tapOn:
-                id: "save-settings-button"
-            - tapOn: "OK"
+- waitForAnimationToEnd:
+    timeout: 2000
 - tapOn:
-    text: "Chat"
+    id: "Leash"
+- extendedWaitUntil:
+    visible:
+      id: "THUMBGATE_LEASH"
+    timeout: 30000
+- runFlow:
+    when:
+      visible:
+        id: "unlock-thumbgate-leash"
+    commands:
+      - tapOn:
+          id: "unlock-thumbgate-leash"
+- tapOn:
+    id: "Hermes"
 - extendedWaitUntil:
     visible:
       id: "chat-input"

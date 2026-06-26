@@ -1,0 +1,31 @@
+name: "mac-yolo — PR decision-stack review"
+description: "On new PRs: RAG + ci-verify gate before merge; Hermes Mobile gets test:ci when touched."
+workflow:
+  triggers:
+    - git:
+        pullRequest:
+          action: GIT_PULL_REQUEST_ACTION_OPENED
+          repos:
+            - IgorGanapolsky/mac-yolo-safeguards
+          ignoreDraftPrs: true
+  actions:
+    - prComment: {}
+  prompts:
+    - |
+      New PR on IgorGanapolsky/mac-yolo-safeguards. Follow AGENTS.md Decision stack.
+
+      1. Fetch PR diff scope (files changed). Summarize risk in one sentence.
+      2. Run: `node tools/agent-decision-stack.js --task "PR review: <title> — <file summary>" --json`
+      3. If diff touches `tools/`, `scripts/ci-verify.sh`, `hermes-mobile/`, or `tests/`: run `scripts/ci-verify.sh`.
+      4. If diff touches `hermes-mobile/`: also run `cd hermes-mobile && npm run test:ci`.
+      5. If diff touches `hermes-mobile/scripts/release-preflight.sh`: confirm `npm run e2e:accelerated` is wired (grep release-preflight.sh).
+      6. Post a PR comment with: decision-stack verdict, test results, blockers, and one concrete test plan item.
+
+      Do not merge. Do not claim CI green without showing exit codes. No secrets in comments.
+  model: ""
+  agentOptions:
+    skipInstall: false
+  memoryEnabled: true
+  gitConfig:
+    repo: IgorGanapolsky/mac-yolo-safeguards
+    branch: main

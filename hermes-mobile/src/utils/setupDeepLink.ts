@@ -5,6 +5,8 @@ export interface SetupDeepLinkParams {
   apiKey?: string;
   /** Friendly Mac name from pairing page (hostname without .local). */
   macName?: string;
+  /** Hermes Relay pairing code (MOON-DUST) — completes cloud account link. */
+  relayCode?: string;
   /** Maestro / simulator flows when no live gateway is reachable. */
   demoMode?: boolean;
 }
@@ -25,6 +27,7 @@ export function buildSetupDeepLink(
   gatewayUrl: string,
   apiKey?: string,
   macName?: string,
+  relayCode?: string,
 ): string {
   const params = new URLSearchParams();
   params.set('url', gatewayUrl.trim());
@@ -34,7 +37,40 @@ export function buildSetupDeepLink(
   if (macName?.trim()) {
     params.set('name', macName.trim());
   }
+  if (relayCode?.trim()) {
+    params.set('relay', relayCode.trim().toUpperCase());
+  }
   return `hermes://setup?${params.toString()}`;
+}
+
+export function buildRelayDeepLink(relayCode: string, cloudUrl?: string): string {
+  const params = new URLSearchParams();
+  params.set('relay', relayCode.trim().toUpperCase());
+  if (cloudUrl?.trim()) {
+    params.set('cloud', cloudUrl.trim());
+  }
+  return `hermes://relay?${params.toString()}`;
+}
+
+export function parseRelayDeepLink(url: string): Pick<SetupDeepLinkParams, 'relayCode'> | null {
+  const lower = url.toLowerCase();
+  if (!lower.startsWith('hermes://') || !lower.includes('relay')) {
+    return null;
+  }
+  const queryStart = url.indexOf('?');
+  if (queryStart < 0) {
+    return null;
+  }
+  const params = parseQueryString(url.slice(queryStart + 1));
+  const relayCode =
+    params.relay?.trim() ||
+    params.code?.trim() ||
+    params.relayCode?.trim() ||
+    params.pair?.trim();
+  if (!relayCode) {
+    return null;
+  }
+  return { relayCode: relayCode.toUpperCase() };
 }
 
 export function parseSetupDeepLink(url: string): SetupDeepLinkParams | null {
@@ -76,5 +112,15 @@ export function parseSetupDeepLink(url: string): SetupDeepLinkParams | null {
     params.mac?.trim() ||
     params.macName?.trim() ||
     undefined;
-  return { gatewayUrl, apiKey, macName };
+  const relayCode =
+    params.relay?.trim() ||
+    params.relayCode?.trim() ||
+    params.code?.trim() ||
+    undefined;
+  return {
+    gatewayUrl,
+    apiKey,
+    macName,
+    relayCode: relayCode ? relayCode.toUpperCase() : undefined,
+  };
 }

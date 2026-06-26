@@ -1,4 +1,6 @@
+import { Platform } from 'react-native';
 import { normalizeGatewayUrl } from '../services/gatewayClient';
+import { isLoopbackGatewayUrl } from './gatewayUrlPolicy';
 import type { ConnectionMode, GatewayHealthSnapshot } from '../types/gateway';
 
 const IPV4_RE = /^\d{1,3}(\.\d{1,3}){3}$/;
@@ -17,7 +19,11 @@ function isUsableHost(value: string | undefined): string | undefined {
   if (!trimmed || trimmed === 'unknown') {
     return undefined;
   }
-  return trimmed.replace(/\.local$/i, '');
+  const host = trimmed.replace(/\.local$/i, '');
+  if (Platform.OS !== 'web' && isLoopbackGatewayUrl(`http://${host}:8642`)) {
+    return undefined;
+  }
+  return host;
 }
 
 function parseHostFromGatewayUrl(gatewayUrl: string): { hostname?: string; ip?: string } {
@@ -84,6 +90,16 @@ export function formatGatewayHostLabel(
   gatewayUrl: string,
   health?: GatewayHealthSnapshot | null,
 ): string {
+  if (isLoopbackGatewayUrl(gatewayUrl)) {
+    const fromHealthName = isUsableHost(health?.hostname);
+    const fromUrl = parseHostFromGatewayUrl(gatewayUrl);
+    const name =
+      fromHealthName?.replace(/\.local$/i, '') ??
+      fromUrl.hostname?.replace(/\.local$/i, '') ??
+      'Mac';
+    return `${name} · USB`;
+  }
+
   const fromHealthName = isUsableHost(health?.hostname);
   const fromHealthIp = isUsableHost(health?.localIp);
   const fromUrl = parseHostFromGatewayUrl(gatewayUrl);
@@ -140,28 +156,41 @@ export function formatLeashConnectionDisplay(input: {
 
   if (input.connectionMode === 'relay') {
     if (!input.isPaired) {
+      const directOk =
+        input.health?.directGatewayReachable === true || input.health?.level === 'green';
+      if (directOk && input.gatewayUrl.trim()) {
+        const usb = isLoopbackGatewayUrl(input.gatewayUrl);
+        return {
+          headline: usb
+            ? `USB link to ${machineName.replace(/\.local$/i, '')}`
+            : `Direct link to ${machineName.replace(/\.local$/i, '')}`,
+          machineName,
+          lanIp: usb ? undefined : lanIp,
+          footnote: 'Pair Hermes relay in Settings for approvals on Wi‑Fi or cellular',
+        };
+      }
       return {
-        headline: 'Cloud relay not paired',
-        footnote: 'Pair in Settings with the code from desktop bridge pairing',
+        headline: 'Hermes relay not paired',
+        footnote: 'Pair in Settings — approvals on Wi‑Fi, cellular, or USB',
       };
     }
     if (input.connectionState === 'connected') {
       return {
-        headline: 'Cloud relay linked to your computer',
+        headline: 'Hermes relay linked to your active machine',
         machineName,
         lanIp,
-        footnote: 'Approval alerts over the internet (works off home Wi‑Fi)',
+        footnote: 'Approval alerts route over the internet; Wi-Fi is only a local fallback',
       };
     }
     if (input.connectionState === 'connecting') {
       return {
-        headline: 'Connecting cloud relay to your computer…',
+        headline: 'Connecting Hermes relay to your active machine…',
         machineName,
         lanIp,
       };
     }
     return {
-      headline: 'Cloud relay disconnected',
+      headline: 'Hermes relay disconnected',
       machineName,
       lanIp,
       footnote: 'Check pairing in Settings',
@@ -171,22 +200,22 @@ export function formatLeashConnectionDisplay(input: {
   switch (input.connectionState) {
     case 'connected':
       return {
-        headline: 'Live link to your computer gateway',
+        headline: 'Direct local link to your computer',
         machineName,
         lanIp,
         footnote: 'Phone receives instant alerts when Hermes blocks a risky command',
       };
     case 'connecting':
       return {
-        headline: 'Connecting to your computer gateway…',
+        headline: 'Connecting directly to your computer…',
         machineName,
         lanIp,
       };
     default:
       return {
-        headline: 'Not linked to your computer gateway',
+        headline: 'No direct local link',
         footnote:
-          'Scan the QR on the computer you want — Settings → Scan pairing QR',
+          'Use Hermes relay from Settings, or scan a nearby computer QR for local fallback',
       };
   }
 }

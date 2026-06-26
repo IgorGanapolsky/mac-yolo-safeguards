@@ -1,6 +1,6 @@
 # AGENTS.md — Operating directives for AI agents in this repo
 
-This file is the canonical agent directive. `CLAUDE.md` and `GEMINI.md` redirect here so the rules don't drift.
+This file is the canonical agent directive. `CLAUDE.md` and `GEMINI.md` were removed (2026-06); do not recreate them — edit AGENTS.md only.
 
 Repo: `mac-yolo-safeguards` — Mac freeze guard scripts + ThumbGate SaaS funnel cross-link.
 
@@ -86,6 +86,22 @@ OpenMono `/ship-claim` is the local verifier gate; ThumbGate is the cross-sessio
 2. SessionStart + UserPromptSubmit hooks — `~/.claude/settings.json` hook chain must remain valid JSON
 3. mac-freeze-rescue skill — `~/.claude/skills/mac-freeze-rescue/SKILL.md` is the authoritative triage playbook
 4. The 60s LaunchAgent `com.igor.shutdown-simulators` — must remain `state=running, run interval=60s`
+5. The 15m LaunchAgent `com.igor.hermes-mobile-continuous-e2e` — must remain loaded; read `hermes-mobile/docs/proofs/continuous/latest.json` at session start
+
+## Hermes Mobile verification contract
+
+**User directive:** Do not wait to be reminded. Agents own verification for `hermes-mobile/`.
+
+| When | Agent action (same turn, no user homework) |
+|------|---------------------------------------------|
+| Session start | `node tools/agent-session-start.js` — includes pair + continuous E2E status |
+| Any edit under `hermes-mobile/src`, `app.json`, `.maestro/` | `npm test` then kickstart `com.igor.hermes-mobile-continuous-e2e` or `npm run e2e:continuous:once` |
+| Before "fixed" / "works on device" for chat/UI | Read `latest.json`; `e2e` must be `pass` or report failure honestly |
+| LaunchAgent missing | `bash scripts/install-agent-automations.sh` — not "run this install script" to the user |
+| Phone USB present | `node tools/hermes-mobile-pair.js` — never "open Settings and paste URL" |
+| Phone install / launch | `npm run android:phone` or `scripts/install-phone-release.sh` only — **never** `expo run:android` on a connected device (Metro-only debug → black screen) |
+
+Mobile-specific detail: [hermes-mobile/AGENTS.md](./hermes-mobile/AGENTS.md).
 
 ## Change protocol
 
@@ -104,6 +120,9 @@ When the user describes a symptom, prefer invoking the relevant skill over ad-ho
 - AnswerGuard code edits → `verify-answerguard-fix`
 - Run / screenshot / smoke-test current repo → `run`
 - Verify a PR or branch end-to-end → `verify`
+- Hermes Mobile / RN perf (FPS, TTI, lists, bundle) → read `.cursor/skills/react-native-best-practices/SKILL.md` (Callstack agent-skills; install: `bash scripts/install-callstack-agent-skills.sh`)
+- RN upgrade / Expo SDK bump → `.cursor/skills/upgrading-react-native/SKILL.md`
+- GitHub PR/CI for mobile → `.cursor/skills/github-actions/SKILL.md`
 
 ## What NOT to do
 

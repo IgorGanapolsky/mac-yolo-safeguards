@@ -82,6 +82,8 @@ ensure_release_apk_has_bundle() {
   echo "=== APK missing embedded JS bundle — rerunning bundle + assemble (--rerun-tasks) ==="
   (
     cd android
+    export EXPO_PUBLIC_HERMES_DEV_UNLOCK=1
+    export EXPO_PUBLIC_E2E_AUTOMATION=1
     ./gradlew :app:createBundleReleaseJsAndAssets :app:assembleRelease       -PreactNativeArchitectures=arm64-v8a --rerun-tasks
   ) || {
     echo "Error: Gradle bundle/assemble retry failed." >&2
@@ -105,7 +107,14 @@ build_release() {
   echo "=== Building release APK (embedded bundle) for $DEVICE ==="
   (
     cd android
-    ./gradlew assembleRelease -PreactNativeArchitectures=arm64-v8a
+    export EXPO_PUBLIC_HERMES_DEV_UNLOCK=1
+    export EXPO_PUBLIC_E2E_AUTOMATION=1
+    if [[ "${HERMES_MOBILE_FORCE_BUILD:-}" == "1" ]]; then
+      ./gradlew :app:createBundleReleaseJsAndAssets :app:assembleRelease \
+        -PreactNativeArchitectures=arm64-v8a --rerun-tasks
+    else
+      ./gradlew assembleRelease -PreactNativeArchitectures=arm64-v8a
+    fi
   ) || {
     echo "Error: Gradle assembleRelease failed." >&2
     if [[ -f "$PROBLEMS_REPORT" ]]; then

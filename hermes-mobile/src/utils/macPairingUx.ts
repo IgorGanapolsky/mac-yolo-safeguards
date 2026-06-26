@@ -18,18 +18,18 @@ export const MAC_GETTING_STARTED_STEPS: MacPairingStep[] = [
   },
   {
     step: 2,
-    title: 'Option A: Cloud Relay',
-    body: 'Pair using a simple code under Settings. No shared Wi-Fi required; works on LTE/5G anywhere.',
+    title: 'Pair Hermes Relay',
+    body: 'Pair with a simple code in Settings. Approvals work on Wi‑Fi, cellular, or USB — you do not need the same network.',
   },
   {
     step: 3,
-    title: 'Option B: Scan QR',
-    body: 'In the desktop app, click "Connect phone" to display a QR code, and scan it from Settings.',
+    title: 'Optional: local QR',
+    body: 'If you are near a computer, scan its QR for direct local Chat, tools, and fallback control.',
   },
   {
     step: 4,
     title: 'Local fallback',
-    body: 'If you are near the computer, use local Wi-Fi search. Otherwise keep Cloud Relay paired for LTE/5G approvals.',
+    body: 'Near your Mac? Search on local Wi‑Fi. Away from it? Keep Hermes relay paired for Wi‑Fi, cellular, or USB.',
   },
 ];
 

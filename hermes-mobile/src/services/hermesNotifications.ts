@@ -213,7 +213,7 @@ export async function initHermesNotifications(): Promise<void> {
   if (Platform.OS === 'android') {
     await Notifications.setNotificationChannelAsync(CHANNEL_APPROVALS, {
       name: 'Approvals',
-      description: 'Urgent computer gateway approvals with Approve and Deny actions',
+      description: 'Urgent Hermes approvals with Approve and Deny actions',
       importance: Notifications.AndroidImportance.HIGH,
       vibrationPattern: [0, 220, 120, 220],
       lightColor: NOTIFICATION_COLOR,

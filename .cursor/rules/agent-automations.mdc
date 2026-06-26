@@ -1,0 +1,25 @@
+---
+description: Run agent session automations before non-trivial decisions or ship claims
+alwaysApply: true
+---
+
+# Agent automations
+
+At **session start** (before prioritizing work or claiming shipped/fixed):
+
+```bash
+node tools/agent-session-start.js
+```
+
+Add `--full` before ship claims (includes hermes-mobile Jest CI).
+
+**Hermes Mobile:** session start prints continuous E2E status from `latest.json`. After edits under `hermes-mobile/`, agents kickstart `com.igor.hermes-mobile-continuous-e2e` — see [hermes-mobile/AGENTS.md](../../hermes-mobile/AGENTS.md). Never ask the user to run Maestro or reload the app manually.
+
+If LaunchAgents are missing, install once:
+
+```bash
+bash scripts/install-agent-launchagents.sh
+./install.sh
+```
+
+Catalog: [docs/CURSOR-AUTOMATIONS.md](../../docs/CURSOR-AUTOMATIONS.md). Decision stack: [AGENTS.md](../../AGENTS.md).

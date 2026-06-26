@@ -8,14 +8,14 @@ appId: com.iganapolsky.hermesmobile
       notVisible:
         id: "HERMES CHAT"
     commands:
-      - tapOn: "Chat"
+      - tapOn: "Hermes"
 - extendedWaitUntil:
     visible:
       id: "chat-input"
     timeout: 30000
 - tapOn:
     id: "chat-input"
-- inputText: "e2e persistence check"
+- inputText: "print money, make money faster. Use Data Science, ML and Agentic RAG."
 - waitForAnimationToEnd:
     timeout: 2000
 - tapOn:
@@ -26,12 +26,12 @@ appId: com.iganapolsky.hermesmobile
     timeout: 15000
 - scrollUntilVisible:
     element:
-      text: "e2e persistence check"
+      text: "print money, make money faster. Use Data Science, ML and Agentic RAG."
     direction: UP
     timeout: 20000
     speed: 40
-- assertVisible: "e2e persistence check"
+- assertVisible: "print money, make money faster. Use Data Science, ML and Agentic RAG."
 - extendedWaitUntil:
-    visible: "e2e persistence check"
+    visible: "print money, make money faster. Use Data Science, ML and Agentic RAG."
     timeout: 8000
-- assertVisible: "e2e persistence check"
+- assertVisible: "print money, make money faster. Use Data Science, ML and Agentic RAG."

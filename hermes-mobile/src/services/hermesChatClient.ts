@@ -109,6 +109,29 @@ export async function listSessions(
   return body.data ?? [];
 }
 
+export async function updateSessionTitle(
+  gatewayUrl: string,
+  sessionId: string,
+  title: string,
+  apiKey?: string | null,
+): Promise<HermesSession> {
+  const trimmed = title.trim();
+  if (!trimmed) {
+    throw new HermesChatApiError(400, 'Session title cannot be empty');
+  }
+  const response = await fetchWithTimeout(
+    `${base(gatewayUrl)}/api/sessions/${encodeURIComponent(sessionId)}`,
+    {
+      method: 'PATCH',
+      headers: headers(apiKey),
+      body: JSON.stringify({ title: trimmed }),
+    },
+    15000,
+  );
+  const parsed = await parseJson<{ session: HermesSession }>(response);
+  return parsed.session;
+}
+
 export async function createSession(
   gatewayUrl: string,
   apiKey?: string | null,

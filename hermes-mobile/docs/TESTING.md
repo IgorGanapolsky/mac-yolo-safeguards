@@ -86,8 +86,11 @@ Logs: `~/Library/Logs/hermes-mobile-continuous-e2e.log`
 ## CI
 
 - **Every PR/push:** `mobile-checks` job — typecheck, doctor, `test:ci` with coverage thresholds.
+- **Release preflight:** `npm run launch:preflight:android` — optional bundle budget (`npm run analyze:bundle`) + accelerated Maestro when adb device present. Skip locally: `SKIP_BUNDLE_SIZE_CHECK=1 SKIP_ACCELERATED_E2E=1`.
 - **Internal distribution:** quality gate + `verify-apk-package` before Firebase upload.
 - **Local mirror:** `./scripts/ci-verify.sh` from repo root.
+
+See [PERFORMANCE.md](./PERFORMANCE.md) for FlashList, React Compiler, and bundle audit details.
 
 ## Crises this suite blocks
 

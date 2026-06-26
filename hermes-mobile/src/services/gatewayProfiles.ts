@@ -11,6 +11,8 @@ import {
   extractLanIpFromGatewayUrl,
   gatewayUrlHostname,
   isLoopbackGatewayUrl,
+  resolveDisplayLanIp,
+  isLoopbackHost,
 } from '../utils/gatewayUrlPolicy';
 
 const STORAGE_KEY = 'hermes-mobile:gateway_profiles';
@@ -19,8 +21,14 @@ function normalizeGatewayUrlBase(url: string): string {
   return normalizeGatewayUrl(url.trim()).httpBase;
 }
 
-export function profileIdFromGatewayUrl(gatewayUrl: string): string {
+export function profileIdFromGatewayUrl(gatewayUrl: string, hostname?: string): string {
+  const cleanHostname = hostname?.trim().toLowerCase().replace(/[^a-zA-Z0-9]+/g, '_');
   const ip = extractLanIpFromGatewayUrl(gatewayUrl);
+  const isLoopback = ip ? isLoopbackHost(ip) : isLoopbackGatewayUrl(gatewayUrl);
+
+  if (isLoopback && cleanHostname && cleanHostname !== 'localhost') {
+    return `mac_${cleanHostname}`;
+  }
   if (ip) {
     return `mac_${ip.replace(/\./g, '_')}`;
   }
@@ -39,10 +47,62 @@ function isBareIp(value: string | undefined): boolean {
   return /^\d{1,3}(\.\d{1,3}){3}$/.test(trimmed);
 }
 
+const GENERIC_PROFILE_LABELS = new Set([
+  'mac',
+  'computer',
+  'your mac',
+  'my mac',
+  'mac via usb',
+  'mac via network',
+]);
+
+export function isGenericMachineLabel(label: string | undefined): boolean {
+  const trimmed = label?.trim();
+  if (!trimmed) {
+    return true;
+  }
+  return GENERIC_PROFILE_LABELS.has(trimmed.toLowerCase());
+}
+
+/** Junk rows from partial QR/deep-link paste — label "http" or URL with no host. */
+export function isInvalidGatewayProfile(profile: GatewayProfile): boolean {
+  const label = profile.label?.trim().toLowerCase();
+  if (label === 'http' || label === 'https') {
+    return true;
+  }
+  const rawUrl = profile.gatewayUrl?.trim();
+  if (!rawUrl) {
+    return true;
+  }
+  try {
+    const base = normalizeGatewayUrlBase(rawUrl);
+    const host = gatewayUrlHostname(base);
+    return !host || host === 'http' || host === 'https';
+  } catch {
+    return true;
+  }
+}
+
+export function sanitizeGatewayProfileState(state: GatewayProfileState): GatewayProfileState {
+  const profiles = state.profiles.filter((p) => !isInvalidGatewayProfile(p));
+  let activeProfileId = state.activeProfileId;
+  if (activeProfileId && !profiles.some((p) => p.id === activeProfileId)) {
+    activeProfileId = profiles[0]?.id ?? null;
+  }
+  return dedupeGatewayProfiles({ profiles, activeProfileId });
+}
+
+function isGenericProfileLabel(label: string | undefined): boolean {
+  return isGenericMachineLabel(label);
+}
+
 /** True when stored label is missing or only an IP — prefer hostname from discovery/health. */
 function isIpOnlyProfileLabel(profile: GatewayProfile): boolean {
   const label = profile.label?.trim();
   if (!label) {
+    return true;
+  }
+  if (isGenericProfileLabel(label)) {
     return true;
   }
   if (profile.localIp && label === profile.localIp) {
@@ -52,18 +112,21 @@ function isIpOnlyProfileLabel(profile: GatewayProfile): boolean {
 }
 
 export function profileDisplayName(profile: GatewayProfile): string {
-  const ip = profile.localIp?.trim();
+  const ip = resolveDisplayLanIp(profile.localIp, profile.gatewayUrl);
   const hostname = profile.hostname?.replace(/\.local$/i, '').trim();
   const label = profile.label?.trim();
 
-  if (label && !isBareIp(label) && label !== ip) {
+  if (label && !isBareIp(label) && label !== ip && !isGenericProfileLabel(label)) {
     return label;
   }
   if (hostname && hostname !== ip) {
     return hostname;
   }
+  if (isLoopbackGatewayUrl(profile.gatewayUrl)) {
+    return 'Mac via USB';
+  }
   if (ip) {
-    return `Computer at ${ip}`;
+    return `Mac ${ip}`;
   }
   if (label) {
     return label;
@@ -77,7 +140,7 @@ export function profileDisplayName(profile: GatewayProfile): string {
 export function formatProfileLabel(profile: GatewayProfile): string {
   const name = profileDisplayName(profile);
   const ip = profile.localIp?.trim();
-  if (ip && name !== ip && !name.includes(ip)) {
+  if (ip && ip !== '127.0.0.1' && ip !== 'localhost' && name !== ip && !name.includes(ip)) {
     return `${name} (${ip})`;
   }
   return name;
@@ -110,8 +173,12 @@ export function findProfileForGatewayUrl(
 
 function profileDedupeKey(profile: GatewayProfile): string {
   const ip = profile.localIp?.trim() || extractLanIpFromGatewayUrl(profile.gatewayUrl);
-  if (ip) {
+  if (ip && !isLoopbackHost(ip)) {
     return `ip:${ip}`;
+  }
+  const hostname = profile.hostname?.trim().toLowerCase();
+  if (hostname && hostname !== 'localhost') {
+    return `host:${hostname}`;
   }
   return `url:${normalizeGatewayUrlBase(profile.gatewayUrl)}`;
 }
@@ -132,7 +199,7 @@ function mergeProfileRecords(a: GatewayProfile, b: GatewayProfile): GatewayProfi
     [a.lastConnectedAt, b.lastConnectedAt].filter(Boolean).sort().reverse()[0] ?? a.addedAt;
   const addedAt = a.addedAt <= b.addedAt ? a.addedAt : b.addedAt;
   return {
-    id: profileIdFromGatewayUrl(gatewayUrl),
+    id: profileIdFromGatewayUrl(gatewayUrl, hostname),
     label,
     gatewayUrl,
     hostname,
@@ -180,26 +247,38 @@ export function upsertDiscoveredProfile(
   makeActive = false,
 ): GatewayProfileState {
   const gatewayUrl = normalizeGatewayUrlBase(discovered.gatewayUrl);
-  const id = profileIdFromGatewayUrl(gatewayUrl);
   const hostname = discovered.hostname?.trim();
+  const id = profileIdFromGatewayUrl(gatewayUrl, hostname);
   const localIp =
     discovered.localIp?.trim() || extractLanIpFromGatewayUrl(gatewayUrl) || undefined;
   const label =
     discovered.label?.trim() ||
     hostname?.replace(/\.local$/i, '') ||
-    localIp ||
     gatewayUrlHostname(gatewayUrl) ||
-    'computer';
+    'Mac';
 
   const existing = state.profiles.find((p) => {
     if (p.id === id) {
       return true;
     }
     if (normalizeGatewayUrlBase(p.gatewayUrl) === gatewayUrl) {
+      const isLoopback = isLoopbackGatewayUrl(gatewayUrl);
+      if (isLoopback) {
+        if (hostname && p.hostname) {
+          return hostname.toLowerCase() === p.hostname.toLowerCase();
+        }
+        return true;
+      }
       return true;
     }
     const pIp = p.localIp?.trim() || extractLanIpFromGatewayUrl(p.gatewayUrl);
-    return localIp && pIp === localIp;
+    if (localIp && pIp === localIp && !isLoopbackHost(localIp) && !isLoopbackHost(pIp)) {
+      return true;
+    }
+    if (hostname && p.hostname && hostname.toLowerCase() === p.hostname.toLowerCase() && hostname.toLowerCase() !== 'localhost') {
+      return true;
+    }
+    return false;
   });
   const now = new Date().toISOString();
 
@@ -208,10 +287,17 @@ export function upsertDiscoveredProfile(
       if (p.id !== existing.id) {
         return p;
       }
+      const keepExistingLabel =
+        p.label &&
+        !isBareIp(p.label) &&
+        p.label !== 'computer' &&
+        (!discovered.label?.trim() || isBareIp(label) || label === 'computer');
+      const finalLabel = keepExistingLabel ? p.label : (label || p.label);
+
       return {
         ...p,
         gatewayUrl,
-        label: label || p.label,
+        label: finalLabel,
         hostname: hostname || p.hostname,
         localIp: localIp || p.localIp,
         lastConnectedAt: now,
@@ -266,7 +352,9 @@ export function touchProfileHealth(
       return p;
     }
     const hostname = health.hostname?.trim() || p.hostname;
-    const localIp = health.localIp?.trim() || p.localIp;
+    const localIp =
+      resolveDisplayLanIp(health.localIp, p.gatewayUrl) ||
+      resolveDisplayLanIp(p.localIp, p.gatewayUrl);
     const hostnameLabel = hostname?.replace(/\.local$/i, '').trim();
     const label =
       hostnameLabel && isIpOnlyProfileLabel(p)
@@ -316,7 +404,7 @@ export const gatewayProfiles = {
       }
       const parsed = JSON.parse(raw) as Partial<GatewayProfileState>;
       const profiles = Array.isArray(parsed.profiles) ? parsed.profiles : [];
-      return dedupeGatewayProfiles({
+      return sanitizeGatewayProfileState({
         profiles,
         activeProfileId: parsed.activeProfileId ?? profiles[0]?.id ?? null,
       });

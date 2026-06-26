@@ -22,17 +22,21 @@ export function isConnectivityError(error: unknown): boolean {
 }
 
 export function isConnectivityMessage(message: string): boolean {
-  const lower = message.toLowerCase();
+  const normalized = message.toLowerCase().replace(/\u2011/g, '-');
   return (
-    CONNECTIVITY_MARKERS.some((marker) => lower.includes(marker)) ||
-    lower.includes("can't reach hermes") ||
-    lower.includes("can't reach your mac") ||
-    lower.includes("can't reach your computer") ||
-    lower.includes('failed to connect to your computer') ||
-    lower.includes('failed to connect to your mac') ||
-    lower.includes('gateway is running') ||
-    lower.includes('home wi-fi only') ||
-    lower.includes('same wi-fi')
+    CONNECTIVITY_MARKERS.some((marker) => normalized.includes(marker)) ||
+    normalized.includes("can't reach hermes") ||
+    normalized.includes("can't reach your mac") ||
+    normalized.includes("can't reach your computer") ||
+    normalized.includes("can't reach that local computer link") ||
+    normalized.includes("can't reach direct link") ||
+    normalized.includes('hermes relay is not connected yet') ||
+    normalized.includes('hermes relay is not paired yet') ||
+    normalized.includes('failed to connect to your computer') ||
+    normalized.includes('failed to connect to your mac') ||
+    normalized.includes('gateway is running') ||
+    normalized.includes('home wi-fi only') ||
+    normalized.includes('same wi-fi')
   );
 }
 
@@ -124,9 +128,32 @@ export function humanizeChatError(
 export function friendlyMacUnreachableMessage(gatewayUrl?: string): string {
   const url = gatewayUrl?.trim();
   if (url && isPrivateLanGatewayUrl(url)) {
-    return "Your phone can't reach your computer — it's on your home Wi‑Fi only. Join the same Wi‑Fi or paste a tunnel URL in Settings.";
+    return "Your phone can't reach that local computer link. Join the same Wi‑Fi, add a tunnel URL in Settings, or use relay for approvals only.";
   }
-  return "Your phone can't reach your computer right now.";
+  return 'Hermes relay is not connected yet. Pair relay in Settings, or use a direct computer link as fallback.';
+}
+
+/** Short copy for banners — full guidance lives in chatSendBlockedMessage. */
+export function shortMacUnreachableTitle(): string {
+  return "Couldn't reach your Mac";
+}
+
+export function chatSendBlockedMessage(input: {
+  connectionMode: 'relay' | 'gateway';
+  connectionState: 'disconnected' | 'connecting' | 'connected' | 'demo';
+  gatewayUrl?: string;
+  healthProbePending?: boolean;
+}): string {
+  if (input.healthProbePending) {
+    return 'Still checking your Mac link. Message kept locally.';
+  }
+  if (input.connectionMode === 'relay' && input.connectionState === 'connected') {
+    return 'Chat needs a direct link to your Mac (same Wi‑Fi or tunnel URL). Relay handles approvals only for now.';
+  }
+  if (input.connectionMode === 'relay') {
+    return 'Hermes relay is not paired yet. Pair in Settings, or add a direct computer link for Chat.';
+  }
+  return friendlyMacUnreachableMessage(input.gatewayUrl);
 }
 
 export function isSessionInUseError(error: unknown): boolean {

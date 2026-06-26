@@ -6,12 +6,11 @@ import {
   TextInput,
   TouchableOpacity,
   Pressable,
-  FlatList,
   Platform,
   ActivityIndicator,
   Modal,
-  ScrollView,
   RefreshControl,
+  ScrollView,
   SectionList,
   AppState,
   Keyboard,
@@ -19,9 +18,15 @@ import {
   type NativeSyntheticEvent,
   type NativeScrollEvent,
 } from 'react-native';
+import { FlashList, type FlashListRef } from '@shopify/flash-list';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
-import { useGateway } from '../context/GatewayContext';
+import {
+  useGatewayConnection,
+  useGatewayRelay,
+  useGatewayApprovals,
+  useGatewayChatSync,
+} from '../hooks/useGatewaySelector';
 import { useKeyboardInset } from '../hooks/useKeyboardInset';
 import { composerDockInsets, ANDROID_TAB_BAR_ESTIMATE_PX } from '../utils/composerKeyboard';
 import Constants from 'expo-constants';
@@ -36,22 +41,27 @@ import {
   listMessages,
   sendChatMessage,
 } from '../services/hermesChatClient';
-import { humanizeChatError, isConnectivityMessage, isSessionInUseError } from '../utils/chatErrors';
+import { chatSendBlockedMessage, humanizeChatError, isConnectivityMessage, isSessionInUseError } from '../utils/chatErrors';
 import { HermesGatewayApiError, deleteSession, forkSession, stopRun, streamSessionChat } from '../services/hermesGatewayClient';
+import { fetchGatewayHealth } from '../services/gatewayClient';
 import type { HermesSession, HermesMessage } from '../types/chat';
 import type { ChatProject, ChatProjectState } from '../types/chatProject';
 import { EMPTY_CHAT_PROJECT_STATE } from '../types/chatProject';
 import {
   bindSessionToProject,
   chatProjects,
+  clearAllSessionBindings,
+  clearBoundSessions,
   pinSessionLabel,
   projectNameForSession,
   setActiveProject,
   setActiveSession,
 } from '../services/chatProjects';
+import { storage } from '../services/storage';
 import { buildMobileChatSystemPrompt } from '../utils/workspacePrompt';
 import {
   formatSessionDate,
+  formatSessionTitle,
   sessionDisplayTitle,
   sessionPickerLabel,
   sessionLastActiveValue,
@@ -70,7 +80,7 @@ import {
   humanizeComposerStatus,
   shouldShowComposerProgressBanner,
 } from '../utils/runProgressDisplay';
-import { isInvertedChatNearLatest } from '../utils/chatScrollSync';
+import { isChatNearBottom } from '../utils/chatScrollSync';
 import {
   CHAT_LIST_HEADER_CLEARANCE,
   shouldShowSubmittedPromptStrip,
@@ -80,6 +90,7 @@ import {
   shouldShowRecentChatsPanel,
 } from '../utils/chatRecentChatsPanel';
 import ChatScreenHeader from '../components/ChatScreenHeader';
+import ChatEmptyGreeting from '../components/ChatEmptyGreeting';
 import CodexCommandCenter from '../components/CodexCommandCenter';
 import RecentChatsList from '../components/RecentChatsList';
 import SubmittedPromptStrip from '../components/SubmittedPromptStrip';
@@ -87,10 +98,8 @@ import ChatConnectionPanel from '../components/ChatConnectionPanel';
 import LoadingButton from '../components/ui/LoadingButton';
 import ChatInputBar from '../components/ChatInputBar';
 import ChatQuickActions, { type ChatQuickAction } from '../components/ChatQuickActions';
-import ChatMessageBubble from '../components/ChatMessageBubble';
+import ChatMessageListItem from '../components/ChatMessageListItem';
 import ChatMessageDetailModal from '../components/ChatMessageDetailModal';
-import ToolActivityCard from '../components/ToolActivityCard';
-import ToolCallCard from '../components/ToolCallCard';
 import GatewayOpsSection from '../components/GatewayOpsSection';
 import ChatApprovalBar from '../components/ChatApprovalBar';
 import RunProgressBanner from '../components/RunProgressBanner';
@@ -99,13 +108,25 @@ import type { GatewayEventMessage } from '../types/gateway';
 import { applyStreamEvent, mergeRunUsageFromPayload, mergeSessionUsageIntoRunProgress, runProgressForDisplayEqual } from '../utils/chatStreamEvents';
 import { releaseMacOperatorSlot, retryOnSessionInUse } from '../utils/chatSessionRecovery';
 import { resolveChatProject } from '../utils/chatContext';
-import { profileDisplayName } from '../services/gatewayProfiles';
 import {
-  formatGatewayEndpointLine,
-  formatGatewayMachineParts,
-} from '../utils/gatewayEndpoint';
-import { isGatewayHealthOk, isGatewayHealthPending } from '../utils/gatewayConnection';
+  formatMacConnectionRetryBanner,
+  resolveChatMachineHeaderDisplay,
+} from '../utils/chatMachineHeader';
+import { resolveRelayRouteDisplay } from '../utils/relayRouting';
+import { isLoopbackGatewayUrl } from '../utils/gatewayUrlPolicy';
+import { isPrivateLanGatewayUrl } from '../utils/gatewayEndpoint';
+import { detectUsbHostMismatch } from '../utils/gatewayProfilePicker';
+import { USB_LOOPBACK_GATEWAY_URL } from '../utils/gatewayLoopbackFallback';
+import { isMacGatewayHttpOk, isGatewayHealthPending } from '../utils/gatewayConnection';
 import { isGatewayLiveForDelivery } from '../utils/outboundDeliveryStatus';
+import {
+  OUTBOUND_PENDING_RECOVERY_MS,
+  OUTBOUND_SEND_LOCK_TIMEOUT_MS,
+  OUTBOUND_STUCK_FAILURE_REASON,
+  applyStuckOutboundRecovery,
+  findStuckPendingOutboundIds,
+  shouldRecoverOutboundSendLock,
+} from '../utils/outboundSendRecovery';
 import {
   listAllPendingTextApprovals,
   listInlineTextApprovals,
@@ -143,8 +164,6 @@ import {
   snapshotAssistantBodies,
   TELEGRAM_QUEUED_REPLY_PLACEHOLDER,
 } from '../utils/streamAssistantText';
-import { threadLabelAtMessageIndex } from '../utils/mergedThreadLabels';
-import { isToolActivityRole } from '../utils/toolMessageDetails';
 import { extractTerminalActivityFromMessage, isTerminalToolName } from '../utils/terminalActivity';
 import {
   buildFallbackPromptActions,
@@ -185,28 +204,38 @@ export default function ChatScreen() {
     profileScanProgress,
     profileScanResult,
     autoConnectGateway,
+    connectEvents,
+    addGatewayProfile,
+    completePair,
+    saveSettings,
+    wifiConnected,
+  } = useGatewayConnection();
+  const { relayWorkers, isPaired, activeRelayWorkerId } = useGatewayRelay();
+  const {
     pendingApprovals,
     submitApprovalChoice,
     sendGateAction,
     pendingApprovalEditSeed,
     clearApprovalEditSeed,
+    runProgress,
+    setRunProgress,
+    setChatStreamProgressActive,
+  } = useGatewayApprovals();
+  const {
+    transcriptSyncNonce,
     pendingChatRelayText,
     clearChatRelayText,
     notificationFocusSessionId,
     clearNotificationFocusSession,
-    transcriptSyncNonce,
-    runProgress,
-    setRunProgress,
-    setChatStreamProgressActive,
-    connectEvents,
     addGatewayListener,
     removeGatewayListener,
-  } = useGateway();
+  } = useGatewayChatSync();
   const navigation = useNavigation();
   const gatewayUrl = effectiveGatewayUrl || settings.gatewayUrl;
   const insets = useSafeAreaInsets();
   
   const [sessions, setSessions] = useState<HermesSession[]>([]);
+  const deletedDemoSessionIdsRef = useRef<Set<string>>(new Set());
   const [currentSession, setCurrentSession] = useState<HermesSession | null>(null);
   const [messages, setMessages] = useState<HermesMessage[]>([]);
   const [inputValue, setInputValue] = useState('');
@@ -221,9 +250,15 @@ export default function ChatScreen() {
   const [projectModalVisible, setProjectModalVisible] = useState(false);
   const [newProjectPath, setNewProjectPath] = useState('');
   const [newProjectName, setNewProjectName] = useState('');
+  const [renameModalVisible, setRenameModalVisible] = useState(false);
+  const [renameSessionId, setRenameSessionId] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState('');
+  const [isClearing, setIsClearing] = useState(false);
   const [projectState, setProjectState] = useState<ChatProjectState>(EMPTY_CHAT_PROJECT_STATE);
+  const [isProjectsLoaded, setIsProjectsLoaded] = useState(false);
   const [toolStatus, setToolStatus] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [macRetryBusy, setMacRetryBusy] = useState(false);
   const [pendingRunApproval, setPendingRunApproval] = useState<ChatRunApproval | null>(null);
   const [approvalBusy, setApprovalBusy] = useState(false);
   const [undoSecondsLeft, setUndoSecondsLeft] = useState(0);
@@ -234,10 +269,13 @@ export default function ChatScreen() {
     text: string;
   } | null>(null);
   const [isPullRefreshing, setIsPullRefreshing] = useState(false);
+  const [connectionPanelRefreshing, setConnectionPanelRefreshing] = useState(false);
   const [telegramInboxMeta, setTelegramInboxMeta] = useState({ threadCount: 0, messageCap: 250 });
   const skipSessionAutoSelectRef = useRef(false);
   const [composerFocusNonce, setComposerFocusNonce] = useState(0);
   const [recentChatsDismissed, setRecentChatsDismissed] = useState(false);
+  const [dismissedSessionIds, setDismissedSessionIds] = useState<string[]>([]);
+  const [dismissedPrompts, setDismissedPrompts] = useState<string[]>([]);
   const [messageDetail, setMessageDetail] = useState<{ title: string; body: string } | null>(null);
 
   const applyChatApiError = useCallback(
@@ -255,7 +293,7 @@ export default function ChatScreen() {
     [refreshHealth],
   );
 
-  const flatListRef = useRef<FlatList<HermesMessage>>(null);
+  const flatListRef = useRef<FlashListRef<HermesMessage>>(null);
   const isSendingRef = useRef(false);
   const userNearBottomRef = useRef(true);
   const messagesRef = useRef<HermesMessage[]>([]);
@@ -293,6 +331,7 @@ export default function ChatScreen() {
     async () => false,
   );
   const lastFailedSendTextRef = useRef<string | null>(null);
+  const activeChatStreamRef = useRef(false);
 
   const { inset: keyboardInset, windowShrunk: keyboardWindowShrunk } = useKeyboardInset({
     suppressHideWhileFocusedRef: inputFocusedRef,
@@ -323,7 +362,7 @@ export default function ChatScreen() {
   }, []);
 
   const scrollChatToLatest = useCallback((animated = false) => {
-    const run = () => flatListRef.current?.scrollToOffset({ offset: 0, animated });
+    const run = () => flatListRef.current?.scrollToEnd({ animated });
     requestAnimationFrame(() => {
       run();
       requestAnimationFrame(run);
@@ -340,8 +379,12 @@ export default function ChatScreen() {
   );
 
   const handleChatScroll = useCallback((event: NativeSyntheticEvent<NativeScrollEvent>) => {
-    const { contentOffset } = event.nativeEvent;
-    userNearBottomRef.current = isInvertedChatNearLatest(contentOffset.y);
+    const { contentOffset, layoutMeasurement, contentSize } = event.nativeEvent;
+    userNearBottomRef.current = isChatNearBottom(
+      layoutMeasurement.height,
+      contentOffset.y,
+      contentSize.height,
+    );
   }, []);
 
   const isDemo = useMemo(() => {
@@ -351,16 +394,41 @@ export default function ChatScreen() {
     return settings.demoMode || connectionState === 'demo';
   }, [settings.demoMode, connectionState]);
 
-  const macHttpOk = useMemo(() => isGatewayHealthOk(health), [health]);
+  const macHttpOk = useMemo(() => isMacGatewayHttpOk(health), [health]);
   const healthProbePending = useMemo(() => isGatewayHealthPending(health), [health]);
-  /** Chat uses HTTP to the Mac — works when health is ok even if the live WebSocket is still connecting. */
-  const macChatLive = isDemo || connectionState === 'connected' || macHttpOk;
+  const usbCableLikely = useMemo(
+    () =>
+      Platform.OS === 'android' &&
+      (isLoopbackGatewayUrl(gatewayUrl) ||
+        gatewayProfiles.some((profile) => isLoopbackGatewayUrl(profile.gatewayUrl))),
+    [gatewayUrl, gatewayProfiles],
+  );
+  const usbHostMismatch = useMemo(
+    () =>
+      detectUsbHostMismatch({
+        activeProfile: activeGatewayProfile,
+        gatewayUrl,
+        healthHostname: health?.hostname,
+        profiles: gatewayProfiles,
+        macHttpOk,
+      }),
+    [activeGatewayProfile, gatewayUrl, health?.hostname, gatewayProfiles, macHttpOk],
+  );
+  const cellularBlocksDirect = useMemo(
+    () => !wifiConnected && isPrivateLanGatewayUrl(gatewayUrl),
+    [wifiConnected, gatewayUrl],
+  );
+  /** Chat needs direct HTTP to the Mac — relay WebSocket "connected" is not enough. */
+  const macChatLive = isDemo || macHttpOk;
   const macLiveSocket = isDemo || connectionState === 'connected';
   const showMacConnectionHelp =
     !isDemo && !macChatLive && !healthProbePending && health?.level === 'red';
   /** Only warn when the Mac is actually unreachable — not when HTTP works but WebSocket is optional. */
   const showMacRetryBanner =
-    !isDemo && !macChatLive && !healthProbePending;
+    !isDemo &&
+    !macChatLive &&
+    !healthProbePending &&
+    runProgress?.phase !== 'failed';
   const showChatEmptyState = useMemo(() => {
     if (messages.length > 0) {
       return false;
@@ -397,16 +465,6 @@ export default function ChatScreen() {
     }, 5000);
     return () => clearTimeout(timer);
   }, [connectionState, refreshHealth]);
-
-  const macRetryBannerText = useMemo(() => {
-    if (connectionState === 'connecting' && !connectingStuck) {
-      return 'Connecting to your Mac… tap to retry';
-    }
-    const endpoint = formatGatewayEndpointLine(gatewayUrl, health)?.trim() || gatewayUrl.trim();
-    return endpoint
-      ? `Can't reach your Mac (${endpoint}) — tap to retry`
-      : "Can't reach your Mac — tap to retry";
-  }, [connectionState, connectingStuck, gatewayUrl, health]);
 
   useEffect(() => {
     const handleEvent = (event: GatewayEventMessage) => {
@@ -484,6 +542,29 @@ export default function ChatScreen() {
     scanForGatewayProfiles,
   ]);
 
+  const handleConnectionPanelRefresh = useCallback(async () => {
+    if (connectionPanelRefreshing || isScanningMacs) {
+      return;
+    }
+    haptics.light();
+    setConnectionPanelRefreshing(true);
+    try {
+      await refreshHealth();
+      await retryGatewayBootstrap();
+      await autoConnectGateway();
+      connectEvents();
+    } finally {
+      setConnectionPanelRefreshing(false);
+    }
+  }, [
+    autoConnectGateway,
+    connectEvents,
+    connectionPanelRefreshing,
+    isScanningMacs,
+    refreshHealth,
+    retryGatewayBootstrap,
+  ]);
+
   useEffect(() => {
     if (macChatLive) {
       setErrorMessage((prev) => (prev && isConnectivityMessage(prev) ? null : prev));
@@ -509,27 +590,92 @@ export default function ChatScreen() {
     [projectState],
   );
 
-  const machineParts = useMemo(
-    () => formatGatewayMachineParts(gatewayUrl, health),
-    [gatewayUrl, health],
+  const machineHeaderDisplay = useMemo(
+    () =>
+      resolveChatMachineHeaderDisplay({
+        activeProfile: activeGatewayProfile,
+        gatewayUrl,
+        health,
+        connectionMode: settings.connectionMode,
+        isPaired,
+        workers: relayWorkers,
+        activeWorkerId: activeRelayWorkerId,
+        savedMacCount: gatewayProfiles.length,
+      }),
+    [
+      activeGatewayProfile,
+      gatewayUrl,
+      health,
+      settings.connectionMode,
+      isPaired,
+      relayWorkers,
+      activeRelayWorkerId,
+      gatewayProfiles.length,
+    ],
   );
-  const machineEndpoint = useMemo(
-    () => formatGatewayEndpointLine(gatewayUrl, health),
-    [gatewayUrl, health],
+
+  const relayRouteDisplay = useMemo(
+    () =>
+      resolveRelayRouteDisplay({
+        connectionMode: settings.connectionMode,
+        isPaired,
+        connectionState,
+        workers: relayWorkers,
+        activeWorkerId: activeRelayWorkerId,
+        fallbackMachineLabel: machineHeaderDisplay.machineLabel,
+        fallbackEndpoint: machineHeaderDisplay.machineEndpoint,
+      }),
+    [
+      settings.connectionMode,
+      isPaired,
+      connectionState,
+      relayWorkers,
+      activeRelayWorkerId,
+      machineHeaderDisplay.machineLabel,
+      machineHeaderDisplay.machineEndpoint,
+    ],
   );
-  const machineShortLabel = useMemo(() => {
-    if (activeGatewayProfile) {
-      return profileDisplayName(activeGatewayProfile);
+
+  const routeStatusLabel =
+    settings.connectionMode === 'relay' && !isPaired ? relayRouteDisplay.routeStatus : undefined;
+
+  const machineShortLabel = machineHeaderDisplay.machineLabel;
+  const machineEndpoint = machineHeaderDisplay.machineEndpoint;
+
+  const macRetryBannerText = useMemo(() => {
+    if (macRetryBusy) {
+      return `Reconnecting to ${machineShortLabel}…`;
     }
-    return machineParts.machineName;
-  }, [activeGatewayProfile, machineParts.machineName]);
+    return formatMacConnectionRetryBanner({
+      connectionState,
+      connectingStuck,
+      gatewayUrl,
+      health,
+      activeProfile: activeGatewayProfile,
+      machineLabel: machineHeaderDisplay.machineLabel,
+      machineEndpoint: machineHeaderDisplay.machineEndpoint,
+    });
+  }, [
+    macRetryBusy,
+    machineShortLabel,
+    connectionState,
+    connectingStuck,
+    gatewayUrl,
+    health,
+    activeGatewayProfile,
+    machineHeaderDisplay.machineLabel,
+    machineHeaderDisplay.machineEndpoint,
+  ]);
 
   const threadHeaderTitle = useMemo(() => {
     if (currentSession) {
-      return sessionLabelFor(currentSession);
+      return formatSessionTitle(currentSession, {
+        sessionLabels: projectState.sessionLabels,
+        projectName: projectNameForSession(projectState, currentSession.id),
+      });
     }
     return 'New chat';
-  }, [currentSession, sessionLabelFor]);
+  }, [currentSession, projectState]);
 
   /** Lift composer above software keyboard; tab bar stays mounted (no height collapse). */
   const androidKeyboardMode = Constants.expoConfig?.android?.softwareKeyboardLayoutMode;
@@ -685,14 +831,16 @@ export default function ChatScreen() {
   );
 
   const visibleSessions = useMemo(() => {
-    if (!activeProject) return sessions;
-    const filtered = projectSessions(sessions, projectState, activeProject.id);
-    if (filtered.length > 0) {
-      return filtered;
+    const dismissed = new Set(dismissedSessionIds);
+    let list: HermesSession[];
+    if (!activeProject) {
+      list = sessions;
+    } else {
+      const filtered = projectSessions(sessions, projectState, activeProject.id);
+      list = filtered.length > 0 ? filtered : sessions;
     }
-    // Project has no bound chats yet — show full Mac session list (Telegram + mobile).
-    return sessions;
-  }, [sessions, projectState, activeProject]);
+    return list.filter((session) => !dismissed.has(session.id));
+  }, [sessions, projectState, activeProject, dismissedSessionIds]);
 
   const hasAssistantReply = useMemo(
     () => hasAssistantReplyInMessages(messages),
@@ -804,9 +952,11 @@ export default function ChatScreen() {
           activeProjectId: 'demo-skool',
         };
         setProjectState(demoState);
+        setIsProjectsLoaded(true);
         return;
       }
       setProjectState(loaded);
+      setIsProjectsLoaded(true);
     });
   }, [isDemo]);
 
@@ -823,9 +973,7 @@ export default function ChatScreen() {
 
   const persistProjectState = async (next: ChatProjectState) => {
     setProjectState(next);
-    if (!isDemo) {
-      await chatProjects.save(next);
-    }
+    await chatProjects.save(next);
   };
 
   const selectProject = async (project: ChatProject) => {
@@ -887,10 +1035,26 @@ export default function ChatScreen() {
       const mockSessions: HermesSession[] = [
         { id: 'demo-1', title: 'safeguards setup inquiry', last_active_at: new Date().toISOString() },
         { id: 'demo-2', title: 'fixing runaway simulators loop', last_active_at: new Date(Date.now() - 3600000).toISOString() },
-      ];
+      ].filter(s => !deletedDemoSessionIdsRef.current.has(s.id));
       setSessions(mockSessions);
-      if (selectLatest && mockSessions.length > 0) {
-        setCurrentSession(mockSessions[0]);
+
+      let nextSession: HermesSession | null = null;
+      if (activeProject) {
+        const activeProj = projectState.projects.find((p) => p.id === activeProject.id);
+        const lastSessionId = activeProj?.activeSessionId;
+        if (lastSessionId) {
+          nextSession = mockSessions.find((s) => s.id === lastSessionId) || null;
+        }
+      }
+      if (!nextSession && selectLatest && mockSessions.length > 0) {
+        const activeProj = activeProject ? projectState.projects.find((p) => p.id === activeProject.id) : null;
+        const hasBound = activeProj ? (activeProj.sessionIds || []).length > 0 : false;
+        if (!activeProject || hasBound) {
+          nextSession = mockSessions[0];
+        }
+      }
+      if (nextSession) {
+        setCurrentSession(nextSession);
       }
       return;
     }
@@ -969,8 +1133,38 @@ export default function ChatScreen() {
   }, [sessions.length]);
 
   useEffect(() => {
-    loadSessionsList(true);
-  }, [isDemo, gatewayUrl, apiKey, macChatLive]);
+    if (isDemo) {
+      setDismissedSessionIds([]);
+      return;
+    }
+    let cancelled = false;
+    void storage.loadDismissedSessionIds(gatewayUrl).then((ids) => {
+      if (!cancelled) {
+        setDismissedSessionIds(ids);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [gatewayUrl, isDemo]);
+
+  useEffect(() => {
+    let cancelled = false;
+    void storage.loadDismissedPrompts().then((prompts) => {
+      if (!cancelled) {
+        setDismissedPrompts(prompts || []);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (isProjectsLoaded) {
+      loadSessionsList(true);
+    }
+  }, [isProjectsLoaded, isDemo, gatewayUrl, apiKey, macChatLive]);
 
   useEffect(() => {
     if (!notificationFocusSessionId) {
@@ -1192,6 +1386,123 @@ export default function ChatScreen() {
     }
   }, [isSending, setChatStreamProgressActive]);
 
+  const failPendingOutboundBubbles = useCallback(
+    (failureReason: string) => {
+      let failedText: string | null = null;
+      commitMessages((prev) => {
+        let changed = false;
+        const next = prev.map((message) => {
+          if (message.role?.toLowerCase() !== 'user' || message.outboundStatus !== 'pending') {
+            return message;
+          }
+          changed = true;
+          if (!failedText?.trim()) {
+            failedText = message.content?.trim() || null;
+          }
+          return {
+            ...message,
+            outboundStatus: 'failed' as const,
+            outboundFailureReason: failureReason,
+          };
+        });
+        return changed ? next : prev;
+      });
+      if (failedText) {
+        lastFailedSendTextRef.current = failedText;
+      }
+      pendingOutboundSendsRef.current = 0;
+      setPinnedOutboundStatus('failed');
+      setPinnedOutboundText(null);
+    },
+    [commitMessages],
+  );
+
+  useEffect(() => {
+    if (isDemo || !isSending) {
+      return;
+    }
+    const startedAt = sendStartedAtRef.current;
+    const timer = setTimeout(() => {
+      if (!isSendingRef.current) {
+        return;
+      }
+      if (
+        !shouldRecoverOutboundSendLock(startedAt, Date.now(), {
+          streamInFlight: activeChatStreamRef.current,
+        })
+      ) {
+        return;
+      }
+      isSendingRef.current = false;
+      setIsSending(false);
+      failPendingOutboundBubbles(OUTBOUND_STUCK_FAILURE_REASON);
+      setRunProgress((prev) =>
+        prev && prev.phase !== 'completed' && prev.phase !== 'failed'
+          ? { ...prev, phase: 'failed', detail: OUTBOUND_STUCK_FAILURE_REASON }
+          : prev,
+      );
+      haptics.warning();
+    }, OUTBOUND_SEND_LOCK_TIMEOUT_MS);
+    return () => clearTimeout(timer);
+  }, [failPendingOutboundBubbles, isDemo, isSending, setRunProgress]);
+
+  useEffect(() => {
+    if (isDemo || isSending || activeChatStreamRef.current) {
+      return;
+    }
+    const pendingMessages = messages.filter(
+      (message) => message.role?.toLowerCase() === 'user' && message.outboundStatus === 'pending',
+    );
+    if (pendingMessages.length === 0) {
+      return;
+    }
+
+    const recoverIfStuck = () => {
+      if (isSendingRef.current || activeChatStreamRef.current) {
+        return;
+      }
+      const stuckIds = findStuckPendingOutboundIds(messagesRef.current, Date.now(), {
+        isSending: isSendingRef.current,
+        streamInFlight: activeChatStreamRef.current,
+      });
+      if (stuckIds.length === 0) {
+        return;
+      }
+      commitMessages((prev) =>
+        applyStuckOutboundRecovery(prev, stuckIds, OUTBOUND_STUCK_FAILURE_REASON),
+      );
+      const stuckMessage = messagesRef.current.find(
+        (message) => message.id && stuckIds.includes(message.id),
+      );
+      if (stuckMessage?.content?.trim()) {
+        lastFailedSendTextRef.current = stuckMessage.content.trim();
+      }
+      pendingOutboundSendsRef.current = 0;
+      setPinnedOutboundStatus('failed');
+      setPinnedOutboundText(null);
+      setRunProgress((prev) =>
+        prev && prev.phase !== 'completed' && prev.phase !== 'failed'
+          ? { ...prev, phase: 'failed', detail: OUTBOUND_STUCK_FAILURE_REASON }
+          : prev,
+      );
+      haptics.warning();
+    };
+
+    const now = Date.now();
+    let delayMs = OUTBOUND_PENDING_RECOVERY_MS;
+    for (const message of pendingMessages) {
+      const created = Date.parse(message.created_at ?? '');
+      if (!Number.isFinite(created)) {
+        delayMs = 5_000;
+        break;
+      }
+      delayMs = Math.min(delayMs, Math.max(0, created + OUTBOUND_PENDING_RECOVERY_MS - now));
+    }
+
+    const timer = setTimeout(recoverIfStuck, delayMs);
+    return () => clearTimeout(timer);
+  }, [commitMessages, isDemo, isSending, messages, setRunProgress]);
+
   useEffect(() => {
     return () => {
       setChatStreamProgressActive(false);
@@ -1325,11 +1636,74 @@ export default function ChatScreen() {
     return () => clearInterval(timer);
   }, [currentSession?.id, isDemo, macChatLive, isSending, runProgress, connectionState]);
 
-  const handleMacRetry = useCallback(() => {
+  const handleMacRetry = useCallback(async () => {
+    if (macRetryBusy || isDemo) {
+      return;
+    }
     haptics.selection();
-    void refreshHealth();
-    connectEvents();
-  }, [connectEvents, refreshHealth]);
+    setMacRetryBusy(true);
+    setRunProgress(null);
+    setPinnedOutboundText(null);
+    setPinnedOutboundStatus('pending');
+    setErrorMessage((prev) => (prev && isConnectivityMessage(prev) ? null : prev));
+
+    try {
+      let nextSettings = settings;
+      if (settings.connectionMode !== 'gateway') {
+        nextSettings = { ...settings, connectionMode: 'gateway' as const };
+        await saveSettings(nextSettings, apiKey);
+      }
+
+      if (Platform.OS === 'android') {
+        const loopbackProfile = gatewayProfiles.find((profile) =>
+          isLoopbackGatewayUrl(profile.gatewayUrl),
+        );
+        if (loopbackProfile && loopbackProfile.id !== activeGatewayProfile?.id) {
+          await selectGatewayProfile(loopbackProfile.id);
+        } else if (!isLoopbackGatewayUrl(effectiveGatewayUrl || nextSettings.gatewayUrl)) {
+          await saveSettings(
+            { ...nextSettings, gatewayUrl: USB_LOOPBACK_GATEWAY_URL },
+            apiKey,
+          );
+        }
+      }
+
+      await scanForGatewayProfiles();
+      await autoConnectGateway();
+      await retryGatewayBootstrap();
+      await refreshHealth();
+      connectEvents();
+
+      const retryText = lastFailedSendTextRef.current?.trim();
+      if (retryText) {
+        await sendUserTextRef.current(retryText, true);
+      }
+    } catch (err) {
+      console.warn('[handleMacRetry] failed:', err);
+      setErrorMessage(
+        `Still can't reach ${machineShortLabel}. Check USB cable or same Wi‑Fi, then tap to retry again.`,
+      );
+      haptics.warning();
+    } finally {
+      setMacRetryBusy(false);
+    }
+  }, [
+    macRetryBusy,
+    isDemo,
+    settings,
+    apiKey,
+    saveSettings,
+    gatewayProfiles,
+    activeGatewayProfile?.id,
+    effectiveGatewayUrl,
+    selectGatewayProfile,
+    scanForGatewayProfiles,
+    autoConnectGateway,
+    retryGatewayBootstrap,
+    refreshHealth,
+    connectEvents,
+    machineShortLabel,
+  ]);
 
   const handleManualSync = useCallback(async () => {
     if (!currentSession || isDemo || !macChatLive || isPullRefreshing) {
@@ -1418,34 +1792,58 @@ export default function ChatScreen() {
 
   const executeClearAllChats = useCallback(async () => {
     haptics.warning();
-    setSessionModalVisible(false);
+    setIsClearing(true);
 
-    if (isDemo) {
-      setSessions([]);
-      await handleNewChat();
-      return;
-    }
-
-    const deletable = sessionsRef.current.filter((session) => !isTelegramInboxSession(session));
-    let failed = 0;
-    for (const session of deletable) {
-      try {
-        await deleteSession(gatewayUrl, session.id, apiKey);
-      } catch {
-        failed += 1;
+    try {
+      if (isDemo) {
+        // Mock a brief delay for clearing in demo mode so the UI actually updates
+        await new Promise((resolve) => setTimeout(resolve, 50));
+        deletedDemoSessionIdsRef.current.add('demo-1');
+        deletedDemoSessionIdsRef.current.add('demo-2');
+        setSessions([]);
+        
+        // Wipe local project state bindings
+        const nextState = clearAllSessionBindings(projectState);
+        await persistProjectState(nextState);
+        
+        await handleNewChat();
+        return;
       }
-    }
 
-    await loadSessionsList(true);
-    if (failed > 0) {
-      setErrorMessage(
-        `${failed} thread${failed === 1 ? '' : 's'} could not be deleted on your Mac. The rest were cleared.`,
-      );
-    } else {
-      setErrorMessage(null);
+      const deletable = sessionsRef.current.filter((session) => !isTelegramInboxSession(session));
+      let failed = 0;
+      const locallyDismissed: string[] = [];
+      for (const session of deletable) {
+        try {
+          await deleteSession(gatewayUrl, session.id, apiKey);
+        } catch {
+          failed += 1;
+          locallyDismissed.push(session.id);
+        }
+      }
+
+      if (failed === 0) {
+        await storage.clearDismissedSessionIds(gatewayUrl);
+        setDismissedSessionIds([]);
+      } else if (locallyDismissed.length > 0) {
+        await storage.addDismissedSessionIds(gatewayUrl, locallyDismissed);
+        setDismissedSessionIds((prev) => [...new Set([...prev, ...locallyDismissed])]);
+      }
+
+      await loadSessionsList(true);
+      if (failed > 0) {
+        setErrorMessage(
+          `${failed} thread${failed === 1 ? '' : 's'} could not be deleted on your Mac. The rest were cleared.`,
+        );
+      } else {
+        setErrorMessage(null);
+      }
+      await handleNewChat();
+    } finally {
+      setIsClearing(false);
+      setSessionModalVisible(false);
     }
-    await handleNewChat();
-  }, [apiKey, gatewayUrl, handleNewChat, isDemo, loadSessionsList]);
+  }, [apiKey, gatewayUrl, handleNewChat, isDemo, loadSessionsList, projectState, persistProjectState]);
 
   const handleClearAllChats = useCallback(() => {
     Alert.alert(
@@ -1457,6 +1855,72 @@ export default function ChatScreen() {
       ],
     );
   }, [executeClearAllChats]);
+
+  const handleDeleteSession = useCallback((sessionId: string) => {
+    Alert.alert(
+      'Delete thread?',
+      'This deletes the thread. You cannot undo this.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            if (!isDemo) {
+              let apiDeleted = false;
+              try {
+                await deleteSession(gatewayUrl, sessionId, apiKey);
+                apiDeleted = true;
+              } catch (err) {
+                console.warn('[handleDeleteSession] API delete failed:', err);
+                await storage.addDismissedSessionIds(gatewayUrl, [sessionId]);
+                setDismissedSessionIds((prev) => [...new Set([...prev, sessionId])]);
+              }
+              if (apiDeleted) {
+                await storage.removeDismissedSessionIds(gatewayUrl, [sessionId]);
+              }
+            } else {
+              deletedDemoSessionIdsRef.current.add(sessionId);
+            }
+            const nextState = clearBoundSessions(projectState, [sessionId]);
+            await persistProjectState(nextState);
+            
+            if (currentSession?.id === sessionId) {
+              const activeProj = nextState.projects.find((p) => p.id === nextState.activeProjectId);
+              const nextActiveId = activeProj?.activeSessionId;
+              if (nextActiveId) {
+                const found = sessions.find((s) => s.id === nextActiveId);
+                setCurrentSession(found || null);
+              } else {
+                setCurrentSession(null);
+              }
+            }
+            await loadSessionsList(true);
+          },
+        },
+      ]
+    );
+  }, [apiKey, gatewayUrl, isDemo, projectState, persistProjectState, currentSession, sessions, loadSessionsList]);
+
+  const handleRenameSession = useCallback((sessionId: string, currentTitle: string) => {
+    setRenameSessionId(sessionId);
+    setRenameValue(currentTitle);
+    setRenameModalVisible(true);
+  }, []);
+
+  const handleSaveRename = useCallback(async () => {
+    if (!renameSessionId || !renameValue.trim()) {
+      return;
+    }
+    const label = renameValue.trim();
+    const nextState = pinSessionLabel(projectState, renameSessionId, label);
+    await persistProjectState(nextState);
+    
+    setRenameModalVisible(false);
+    setRenameSessionId(null);
+    setRenameValue('');
+    await loadSessionsList(true);
+  }, [renameSessionId, renameValue, projectState, persistProjectState, loadSessionsList]);
 
   const inputValueRef = useRef(inputValue);
   inputValueRef.current = inputValue;
@@ -1619,13 +2083,61 @@ export default function ChatScreen() {
     }
   };
 
-  const handleInlineTextApproval = (textApproval: ChatTextApproval, choice: ApprovalChoice) => {
-    const request = enrichApprovalRequest(
-      fromChatTextApproval(textApproval),
-      settings.approvalPolicy,
-    );
-    handleApprovalChoice(choice, request, textApproval);
-  };
+  const handleInlineTextApproval = useCallback(
+    (textApproval: ChatTextApproval, choice: ApprovalChoice) => {
+      const request = enrichApprovalRequest(
+        fromChatTextApproval(textApproval),
+        settings.approvalPolicy,
+      );
+      handleApprovalChoice(choice, request, textApproval);
+    },
+    [settings.approvalPolicy, handleApprovalChoice],
+  );
+
+  const handleShowMessageDetail = useCallback((body: string, isUser: boolean) => {
+    setMessageDetail({
+      title: isUser ? 'Your message' : 'Message detail',
+      body,
+    });
+  }, []);
+
+  const isTelegramInbox = isTelegramInboxSession(currentSession);
+
+  const renderChatMessageItem = useCallback(
+    ({ item, index }: { item: HermesMessage; index: number }) => {
+      const inlineNudge = inlineTextApprovals.get(index);
+      return (
+        <ChatMessageListItem
+          item={item}
+          listIndex={index}
+          originalIndex={index}
+          messages={messages}
+          timeLabel={formatMessageTimestamp(item.created_at ?? item.timestamp)}
+          inlineNudge={inlineNudge}
+          includeToolActivity={settings.includeToolActivity ?? false}
+          isTelegramInbox={isTelegramInbox}
+          connectionState={connectionState}
+          macHttpOk={macHttpOk}
+          approvalBusy={approvalBusy}
+          isSending={isSending}
+          onShowDetail={handleShowMessageDetail}
+          onInlineTextApproval={handleInlineTextApproval}
+        />
+      );
+    },
+    [
+      messages,
+      inlineTextApprovals,
+      settings.includeToolActivity,
+      isTelegramInbox,
+      connectionState,
+      macHttpOk,
+      approvalBusy,
+      isSending,
+      handleShowMessageDetail,
+      handleInlineTextApproval,
+    ],
+  );
 
   const handleApprovalEdit = (approval: HermesApprovalRequest) => {
     const seed =
@@ -1762,9 +2274,12 @@ export default function ChatScreen() {
     }
 
     if (!isDemo && !macChatLive) {
-      const blockedMessage = healthProbePending
-        ? 'Still checking connection to your Mac…'
-        : "Your phone can't reach your Mac yet. Tap the banner below to retry.";
+      const blockedMessage = chatSendBlockedMessage({
+        connectionMode: settings.connectionMode,
+        connectionState,
+        gatewayUrl,
+        healthProbePending,
+      });
       setErrorMessage(blockedMessage);
       haptics.warning();
       isSendingRef.current = false;
@@ -1790,6 +2305,7 @@ export default function ChatScreen() {
         pendingOutboundSendsRef.current -= 1;
       }
       setPinnedOutboundStatus('failed');
+      setPinnedOutboundText(null);
       outboundUserBubbleCommitted = false;
       committedUserMessageId = null;
     };
@@ -1894,6 +2410,9 @@ export default function ChatScreen() {
         return;
       }
       setPinnedOutboundStatus(status);
+      if (status === 'failed') {
+        setPinnedOutboundText(null);
+      }
       commitMessages((prev) =>
         prev.map((message) =>
           message.id === committedUserMessageId
@@ -1930,6 +2449,20 @@ export default function ChatScreen() {
 
     if (isDemo) {
       releaseOutboundSendLock();
+      setRunProgress((prev) =>
+        prev
+          ? {
+              ...prev,
+              phase: 'working',
+              detail: 'Hermes is working on your Mac…',
+            }
+          : {
+              phase: 'working',
+              startedAtMs: sendStartedAtRef.current,
+              detail: 'Hermes is working on your Mac…',
+              sessionId: targetSessionIdForProgress,
+            },
+      );
       setTimeout(() => {
         markOutboundBubbleStatus('sent');
         const assistantText = `[Demo Mode] I received: "${userText}". Since the gateway is in demo mode, I'm providing a mock reply. Let me know if you want to test live controls!`;
@@ -1983,6 +2516,7 @@ export default function ChatScreen() {
     let sendFailureDetail: string | null = null;
 
     try {
+      activeChatStreamRef.current = true;
       const assistantId = `asst-${Date.now()}`;
       activeAssistantIdRef.current = assistantId;
       activeAssistantTextRef.current = '';
@@ -2154,6 +2688,7 @@ export default function ChatScreen() {
           },
           mobileChatSystemPrompt,
           () => {
+            markMessageDeliveredToMac();
             releaseOutboundSendLock();
             setRunProgress((prev) =>
               prev
@@ -2255,6 +2790,12 @@ export default function ChatScreen() {
       if (kind === 'connectivity') {
         refreshHealth();
         markOutboundBubbleStatus('failed');
+        sendFailureDetail = chatSendBlockedMessage({
+          connectionMode: settings.connectionMode,
+          connectionState,
+          gatewayUrl,
+          healthProbePending,
+        });
       } else {
         markOutboundBubbleStatus('failed', message);
         setErrorMessage(message);
@@ -2264,6 +2805,7 @@ export default function ChatScreen() {
       haptics.warning();
       return outboundUserBubbleCommitted;
     } finally {
+      activeChatStreamRef.current = false;
       const releaseOutboundPending = () => {
         if (outboundUserBubbleCommitted && pendingOutboundSendsRef.current > 0) {
           pendingOutboundSendsRef.current -= 1;
@@ -2396,27 +2938,53 @@ export default function ChatScreen() {
     return progressBanner.phase !== 'completed' && progressBanner.phase !== 'failed';
   }, [isSending, progressBanner]);
 
+  const connectivityRunFailure = useMemo(
+    () =>
+      Boolean(
+        progressBanner?.phase === 'failed' &&
+          isConnectivityMessage(progressBanner.detail ?? ''),
+      ),
+    [progressBanner],
+  );
+
+  const clearFailedOutboundState = useCallback(() => {
+    setRunProgress(null);
+    setPinnedOutboundText(null);
+    setPinnedOutboundStatus('pending');
+    setErrorMessage((prev) => (prev && isConnectivityMessage(prev) ? null : prev));
+  }, []);
+
+  const handleRetryConnectivity = useCallback(async () => {
+    await handleMacRetry();
+  }, [handleMacRetry]);
+
   const quickActions = useMemo<ChatQuickAction[]>(() => {
     const fallbackActions = buildFallbackPromptActions({
       approvalCount: composerApprovals.length,
       isRunActive,
     });
+    const pinnedForActions =
+      pinnedOutboundStatus === 'failed' || connectivityRunFailure ? undefined : pinnedOutboundText;
     return buildRecentPromptActions(
       {
         messages,
         sessions: visibleSessions,
-        pinnedOutboundText,
+        pinnedOutboundText: pinnedForActions,
         currentSessionId: currentSession?.id,
+        dismissedPrompts,
       },
       fallbackActions,
     );
   }, [
     composerApprovals.length,
+    connectivityRunFailure,
     currentSession?.id,
     isRunActive,
     messages,
+    pinnedOutboundStatus,
     pinnedOutboundText,
     visibleSessions,
+    dismissedPrompts,
   ]);
 
   const handleQuickAction = useCallback((action: ChatQuickAction) => {
@@ -2427,11 +2995,18 @@ export default function ChatScreen() {
     setComposerFocusNonce((nonce) => nonce + 1);
   }, []);
 
+  const handleDismissQuickAction = useCallback(async (action: ChatQuickAction) => {
+    haptics.selection();
+    await storage.saveDismissedPrompt(action.prompt);
+    setDismissedPrompts((prev) => [...prev, action.prompt]);
+  }, []);
+
   const handleStopRun = useCallback(async () => {
     const runId = runProgress?.runId ?? progressBanner?.runId;
     if (!runId || isDemo) {
       isSendingRef.current = false;
       setIsSending(false);
+      failPendingOutboundBubbles('Stopped');
       setRunProgress((prev) =>
         prev ? { ...prev, phase: 'failed', detail: 'Stopped' } : null,
       );
@@ -2454,6 +3029,7 @@ export default function ChatScreen() {
     }
   }, [
     apiKey,
+    failPendingOutboundBubbles,
     gatewayUrl,
     isDemo,
     progressBanner?.runId,
@@ -2516,6 +3092,8 @@ export default function ChatScreen() {
         isSending={isSending}
         pendingApprovalSessionIds={pendingApprovalSessionIds}
         onSelectSession={handleSelectAgentThread}
+        onDeleteSession={handleDeleteSession}
+        onRenameSession={handleRenameSession}
         onClearAll={handleClearAllChats}
         onNewChat={handleNewChat}
         maxItems={12}
@@ -2532,6 +3110,8 @@ export default function ChatScreen() {
     isSending,
     pendingApprovalSessionIds,
     handleSelectAgentThread,
+    handleDeleteSession,
+    handleRenameSession,
     handleClearAllChats,
     handleNewChat,
   ]);
@@ -2612,12 +3192,15 @@ export default function ChatScreen() {
           threadTitle={threadHeaderTitle}
           machineLabel={machineShortLabel}
           machineEndpoint={machineEndpoint}
+          routeStatusLabel={routeStatusLabel}
+          showMachineDetailWhenConnected={machineHeaderDisplay.showDetailWhenConnected}
           connectionState={connectionState}
           macHttpReachable={macHttpOk}
           isDemo={isDemo}
           workspaceName={activeProject?.name}
           canSwitchWorkspace={projectState.projects.length > 1}
           onOpenThreads={openSessionsModal}
+          onOpenTools={() => setToolsModalVisible(true)}
           onPressMachine={() => {
             haptics.selection();
             setMacPickerVisible(true);
@@ -2627,18 +3210,15 @@ export default function ChatScreen() {
         <CodexCommandCenter
           connectionState={connectionState}
           macHttpReachable={macHttpOk}
+          macRetryBusy={macRetryBusy}
           pendingApprovalCount={composerApprovals.length}
-          sessions={visibleSessions}
           runProgress={progressBanner}
           isSending={isSending}
           onOpenApprovals={() => {
             haptics.selection();
             navigation.navigate('Leash' as never);
           }}
-          onOpenTools={() => {
-            haptics.selection();
-            setToolsModalVisible(true);
-          }}
+          onMacRetry={() => void handleMacRetry()}
         />
       </View>
 
@@ -2657,9 +3237,21 @@ export default function ChatScreen() {
             ]}
             keyboardShouldPersistTaps="handled"
             testID="chat-connection-help-scroll"
+            refreshControl={
+              <RefreshControl
+                refreshing={connectionPanelRefreshing || isScanningMacs}
+                onRefresh={() => void handleConnectionPanelRefresh()}
+                testID="chat-connection-panel-refresh"
+              />
+            }
           >
             <ChatConnectionPanel
               connectionState={connectionState}
+              connectionMode={settings.connectionMode}
+              isRelayPaired={isPaired}
+              wifiConnected={wifiConnected}
+              relayWorkers={relayWorkers}
+              activeRelayWorkerId={activeRelayWorkerId}
               macLabel={machineShortLabel}
               searching={isScanningMacs || profileScanning}
               scanProgress={profileScanProgress}
@@ -2668,6 +3260,10 @@ export default function ChatScreen() {
               activeProfileId={activeGatewayProfile?.id ?? null}
               activeProfileReachable={macHttpOk}
               activeProfileConnecting={connectionState === 'connecting'}
+              usbLoopback={isLoopbackGatewayUrl(gatewayUrl)}
+              usbCableLikely={usbCableLikely}
+              cellularBlocksDirect={cellularBlocksDirect}
+              usbHostMismatch={usbHostMismatch}
               onSelectProfile={async (profileId) => {
                 haptics.light();
                 await selectGatewayProfile(profileId);
@@ -2676,6 +3272,8 @@ export default function ChatScreen() {
                 connectEvents();
               }}
               onSearchMac={handleSearchMacFromChat}
+              onFixUsbLink={() => void handleMacRetry()}
+              usbFixBusy={macRetryBusy}
               onOpenSettings={() => navigation.navigate('Settings' as never)}
             />
           </ScrollView>
@@ -2698,6 +3296,10 @@ export default function ChatScreen() {
                 keyboardShouldPersistTaps="handled"
                 testID="chat-empty-state"
               >
+                <ChatEmptyGreeting
+                  routeLabel={isDemo ? 'Demo Mac' : machineShortLabel}
+                  isConnected={connectionState === 'connected' || connectionState === 'demo'}
+                />
                 {showMacConnectionHelp ? (
                   <Text style={styles.emptyPlaceholderText}>
                     Pick a saved computer above, or tap {machineShortLabel} in the header to switch.
@@ -2718,113 +3320,39 @@ export default function ChatScreen() {
                 )}
               </ScrollView>
             ) : (
-              <FlatList
+              <FlashList
                 ref={flatListRef}
-                data={[...messages].reverse()}
+                data={messages}
                 keyExtractor={(item, index) => item.id ?? `${item.role}-${index}`}
                 style={styles.flatList}
                 contentContainerStyle={styles.messageList}
                 nestedScrollEnabled={false}
                 keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'none'}
                 keyboardShouldPersistTaps="handled"
-                removeClippedSubviews={false}
-                extraData={messages.length}
+                drawDistance={400}
+                maintainVisibleContentPosition={{
+                  startRenderingFromBottom: true,
+                  autoscrollToBottomThreshold: 0.2,
+                }}
                 onScroll={handleChatScroll}
                 scrollEventThrottle={16}
-                inverted
-                ListHeaderComponent={
+                ListFooterComponent={
                   showRecentChatsPanel ? (
                     <View style={styles.recentChatsInThread}>{recentChatsList}</View>
                   ) : undefined
                 }
-                refreshControl={
-                  Platform.OS === 'ios' ? (
-                    <RefreshControl
-                      refreshing={isPullRefreshing}
-                      onRefresh={() => void handleManualSync()}
-                      enabled={!keyboardOpen}
-                      tintColor={colors.accent}
-                      colors={[colors.accent]}
-                    />
-                  ) : undefined
+                refreshing={Platform.OS === 'ios' ? isPullRefreshing : undefined}
+                onRefresh={
+                  Platform.OS === 'ios' && !keyboardOpen
+                    ? () => void handleManualSync()
+                    : undefined
                 }
                 onContentSizeChange={() => {
                   if (!inputFocusedRef.current) {
                     scrollChatToLatestIfPinned(isSending);
                   }
                 }}
-                renderItem={({ item, index }) => {
-                  const isUser = item.role === 'user';
-                  const timeLabel = formatMessageTimestamp(item.created_at ?? item.timestamp);
-                  const originalIndex = messages.length - 1 - index;
-                  const inlineNudge = inlineTextApprovals.get(originalIndex);
-                  if (isMessageDisplayEmpty(item.content) && !inlineNudge && !isUser) {
-                    return null;
-                  }
-                  const threadLabel = isTelegramInboxSession(currentSession)
-                    ? threadLabelAtMessageIndex(messages, originalIndex)
-                    : undefined;
-                  if (isToolActivityRole(item.role) && !inlineNudge) {
-                    const terminalActivity = extractTerminalActivityFromMessage(item);
-                    if (terminalActivity) {
-                      return (
-                        <ToolCallCard
-                          toolName={terminalActivity.toolName}
-                          command={terminalActivity.command}
-                          status={terminalActivity.status}
-                        />
-                      );
-                    }
-                    if (!settings.includeToolActivity) {
-                      return null;
-                    }
-                    if (item.gatewayContent || item.rawContent) {
-                      return (
-                        <ToolActivityCard
-                          gatewayContent={item.gatewayContent ?? item.rawContent ?? item.content}
-                          preview={item.content}
-                          timeLabel={timeLabel}
-                          threadLabel={threadLabel}
-                          threadDivider={threadLabel !== undefined && originalIndex > 0}
-                        />
-                      );
-                    }
-                    return null;
-                  }
-                  return (
-                    <ChatMessageBubble
-                      messageId={item.id}
-                      content={item.content}
-                      rawContent={item.rawContent}
-                      gatewayContent={item.gatewayContent}
-                      truncated={item.truncated}
-                      isUser={isUser}
-                      timeLabel={timeLabel}
-                      threadLabel={threadLabel}
-                      threadDivider={threadLabel !== undefined && originalIndex > 0}
-                      outboundStatus={isUser ? item.outboundStatus : undefined}
-                      outboundFailureReason={isUser ? item.outboundFailureReason : undefined}
-                      connectionState={connectionState}
-                      macHttpOk={macHttpOk}
-                      onShowDetail={(body) => {
-                        setMessageDetail({
-                          title: isUser ? 'Your message' : 'Message detail',
-                          body,
-                        });
-                      }}
-                      inlineApproval={
-                        inlineNudge
-                          ? {
-                              title: inlineNudge.title,
-                              busy: approvalBusy || isSending,
-                              onApprove: () => handleInlineTextApproval(inlineNudge, 'once'),
-                              onDeny: () => handleInlineTextApproval(inlineNudge, 'deny'),
-                            }
-                          : undefined
-                      }
-                    />
-                  );
-                }}
+                renderItem={renderChatMessageItem}
               />
             )}
           </View>
@@ -2875,6 +3403,8 @@ export default function ChatScreen() {
             progress={progressBanner}
             showTechnicalStats={settings.includeToolActivity}
             onStop={isRunActive && (runProgress?.runId || progressBanner.runId) ? handleStopRun : undefined}
+            onDismiss={clearFailedOutboundState}
+            onRetry={connectivityRunFailure ? () => void handleRetryConnectivity() : undefined}
             terminalToolName={operatorTerminalLine?.toolName}
             terminalPreview={operatorTerminalLine?.text}
           />
@@ -2911,17 +3441,29 @@ export default function ChatScreen() {
 
         {showMacRetryBanner ? (
           <Pressable
-            onPress={handleMacRetry}
-            style={({ pressed }) => [styles.macRetryBanner, pressed && { opacity: 0.82 }]}
+            onPress={() => void handleMacRetry()}
+            disabled={macRetryBusy}
+            style={({ pressed }) => [
+              styles.macRetryBanner,
+              macRetryBusy && styles.macRetryBannerBusy,
+              pressed && !macRetryBusy && { opacity: 0.82 },
+            ]}
             testID="mac-connection-retry-banner"
             accessibilityRole="button"
             accessibilityLabel={macRetryBannerText}
           >
+            {macRetryBusy ? (
+              <ActivityIndicator size="small" color={colors.warning} style={styles.macRetrySpinner} />
+            ) : null}
             <Text style={styles.macRetryBannerText}>{macRetryBannerText}</Text>
           </Pressable>
         ) : null}
 
-        <ChatQuickActions actions={quickActions} onSelect={handleQuickAction} />
+        <ChatQuickActions
+          actions={quickActions}
+          onSelect={handleQuickAction}
+          onDismiss={handleDismissQuickAction}
+        />
 
         <ChatInputBar
           value={inputValue}
@@ -3061,9 +3603,32 @@ export default function ChatScreen() {
               </Text>
             ) : null}
 
-            <TouchableOpacity style={styles.newChatBtn} onPress={handleNewChat} testID="modal-new-chat-button">
-              <Text style={styles.newChatBtnText}>+ New thread</Text>
-            </TouchableOpacity>
+            <View style={styles.modalActionsRow}>
+              <TouchableOpacity
+                style={[styles.newChatBtn, { flex: 1, marginBottom: 0 }]}
+                onPress={handleNewChat}
+                testID="modal-new-chat-button"
+              >
+                <Text style={styles.newChatBtnText}>+ New thread</Text>
+              </TouchableOpacity>
+
+              {isClearing ? (
+                <View style={[styles.clearingContainer, { flex: 1 }]} testID="threads-modal-clearing">
+                  <ActivityIndicator size="small" color={colors.error} />
+                  <Text style={styles.clearingText}>Clearing…</Text>
+                </View>
+              ) : (
+                visibleSessions.length > 0 && (
+                  <TouchableOpacity
+                    style={[styles.clearAllBtn, { flex: 1, marginBottom: 0 }]}
+                    onPress={handleClearAllChats}
+                    testID="threads-modal-clear-all"
+                  >
+                    <Text style={styles.clearAllBtnText}>Clear all</Text>
+                  </TouchableOpacity>
+                )
+              )}
+            </View>
 
             {isLoadingSessions ? (
               <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: 24 }} />
@@ -3083,39 +3648,64 @@ export default function ChatScreen() {
                   const lastActiveLabel = formatSessionDate(sessionLastActiveValue(item));
                   const sourceLabel = sessionSourceLabel(item);
                   return (
-                    <TouchableOpacity
-                      style={[styles.sessionItem, isActive && styles.sessionItemActive]}
-                      onPress={async () => {
-                        haptics.light();
-                        setRecentChatsDismissed(false);
-                        setCurrentSession(item);
-                        setSessionModalVisible(false);
-                        if (activeProject) {
-                          const next = setActiveSession(projectState, activeProject.id, item.id);
-                          await persistProjectState(next);
-                        }
-                      }}
-                    >
-                      <View style={styles.sessionItemTitleRow}>
-                        <Text
-                          style={[styles.sessionItemTitle, isActive && styles.sessionItemTitleActive]}
-                          numberOfLines={2}
-                        >
-                          {sessionLabelFor(item)}
-                        </Text>
-                        {sourceLabel ? (
-                          <Text style={styles.sessionSourcePill}>{sourceLabel}</Text>
+                    <View style={styles.sessionItemRowContainer}>
+                      <TouchableOpacity
+                        style={[styles.sessionItem, isActive && styles.sessionItemActive, { flex: 1 }]}
+                        onPress={async () => {
+                          haptics.light();
+                          setRecentChatsDismissed(false);
+                          setCurrentSession(item);
+                          setSessionModalVisible(false);
+                          if (activeProject) {
+                            const next = setActiveSession(projectState, activeProject.id, item.id);
+                            await persistProjectState(next);
+                          }
+                        }}
+                      >
+                        <View style={styles.sessionItemTitleRow}>
+                          <Text
+                            style={[styles.sessionItemTitle, isActive && styles.sessionItemTitleActive]}
+                            numberOfLines={2}
+                          >
+                            {sessionLabelFor(item)}
+                          </Text>
+                          {sourceLabel ? (
+                            <Text style={styles.sessionSourcePill}>{sourceLabel}</Text>
+                          ) : null}
+                        </View>
+                        {isTelegramInboxSession(item) ? (
+                          <Text style={styles.sessionItemSubtitle}>
+                            Merged view — pick a single thread for 1:1 parity with your computer
+                          </Text>
                         ) : null}
-                      </View>
-                      {isTelegramInboxSession(item) ? (
-                        <Text style={styles.sessionItemSubtitle}>
-                          Merged view — pick a single thread for 1:1 parity with your computer
-                        </Text>
+                        {lastActiveLabel ? (
+                          <Text style={styles.sessionItemTime}>{lastActiveLabel}</Text>
+                        ) : null}
+                      </TouchableOpacity>
+
+                      {item.id !== '__telegram_inbox__' ? (
+                        <View style={styles.sessionActionRow}>
+                          <Pressable
+                            onPress={() => handleRenameSession(item.id, sessionLabelFor(item))}
+                            style={({ pressed }) => [styles.sessionActionBtn, pressed && { opacity: 0.7 }]}
+                            accessibilityRole="button"
+                            accessibilityLabel={`Rename thread ${sessionLabelFor(item)}`}
+                            testID={`recent-chat-rename-${item.id}`}
+                          >
+                            <Text style={styles.sessionActionText}>✎</Text>
+                          </Pressable>
+                          <Pressable
+                            onPress={() => handleDeleteSession(item.id)}
+                            style={({ pressed }) => [styles.sessionActionBtn, pressed && { opacity: 0.7 }]}
+                            accessibilityRole="button"
+                            accessibilityLabel={`Delete thread ${sessionLabelFor(item)}`}
+                            testID={`recent-chat-delete-${item.id}`}
+                          >
+                            <Text style={styles.sessionActionText}>🗑</Text>
+                          </Pressable>
+                        </View>
                       ) : null}
-                      {lastActiveLabel ? (
-                        <Text style={styles.sessionItemTime}>{lastActiveLabel}</Text>
-                      ) : null}
-                    </TouchableOpacity>
+                    </View>
                   );
                 }}
                 ListEmptyComponent={
@@ -3172,6 +3762,56 @@ export default function ChatScreen() {
             <TouchableOpacity style={styles.newChatBtn} onPress={handleAddProject} testID="save-project-button">
               <Text style={styles.newChatBtnText}>Add project</Text>
             </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal
+        visible={renameModalVisible}
+        animationType="fade"
+        transparent={true}
+        onRequestClose={() => setRenameModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { minHeight: 180, justifyContent: 'center' }]}>
+            <Text style={[styles.modalTitle, { marginBottom: 12 }]} testID="rename-modal-title">
+              Rename thread
+            </Text>
+            <TextInput
+              style={[styles.modalInput, {
+                borderWidth: 1,
+                borderColor: colors.border,
+                borderRadius: 8,
+                padding: 10,
+                color: colors.text,
+                backgroundColor: colors.composerSurface,
+                marginBottom: 16,
+              }]}
+              value={renameValue}
+              onChangeText={setRenameValue}
+              testID="rename-session-input"
+              autoFocus
+            />
+            <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 12 }}>
+              <TouchableOpacity
+                style={{ paddingVertical: 8, paddingHorizontal: 16 }}
+                onPress={() => setRenameModalVisible(false)}
+              >
+                <Text style={{ color: colors.textMuted, fontWeight: '600' }}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={{
+                  backgroundColor: colors.primary,
+                  paddingVertical: 8,
+                  paddingHorizontal: 16,
+                  borderRadius: 6,
+                }}
+                onPress={handleSaveRename}
+                testID="rename-session-save"
+              >
+                <Text style={{ color: colors.text, fontWeight: '700' }}>Save</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
       </Modal>
@@ -3467,8 +4107,18 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(245, 158, 11, 0.45)',
     backgroundColor: 'rgba(245, 158, 11, 0.12)',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  macRetryBannerBusy: {
+    opacity: 0.92,
+  },
+  macRetrySpinner: {
+    flexShrink: 0,
   },
   macRetryBannerText: {
+    flex: 1,
     fontSize: 12,
     fontWeight: '700',
     color: colors.warning,
@@ -3651,19 +4301,49 @@ const styles = StyleSheet.create({
     color: colors.text,
     fontWeight: '700',
   },
+  modalActionsRow: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 16,
+  },
+  clearAllBtn: {
+    backgroundColor: 'rgba(239, 68, 68, 0.08)',
+    borderColor: 'rgba(239, 68, 68, 0.2)',
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  clearAllBtnText: {
+    color: '#EF4444',
+    fontWeight: '700',
+  },
+  clearingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: 'rgba(239, 68, 68, 0.04)',
+    borderColor: 'rgba(239, 68, 68, 0.1)',
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingVertical: 12,
+  },
+  clearingText: {
+    color: colors.textMuted,
+    fontSize: 13,
+    fontWeight: '600',
+  },
   sessionList: {
     marginBottom: 20,
   },
   sessionItem: {
     paddingVertical: 14,
     paddingHorizontal: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.borderLight,
   },
   sessionItemActive: {
     backgroundColor: 'rgba(79, 70, 229, 0.08)',
     borderRadius: 8,
-    borderBottomColor: 'transparent',
   },
   sessionItemTitleRow: {
     flexDirection: 'row',
@@ -3742,5 +4422,24 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 12,
     paddingBottom: 8,
+  },
+  sessionItemRowContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderBottomWidth: 1,
+    borderBottomColor: colors.borderLight,
+  },
+  sessionActionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingRight: 12,
+  },
+  sessionActionBtn: {
+    padding: 8,
+  },
+  sessionActionText: {
+    fontSize: 16,
+    color: colors.textMuted,
   },
 });

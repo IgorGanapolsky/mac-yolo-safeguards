@@ -1,0 +1,25 @@
+name: "mac-yolo — Hermes Mobile ship preflight"
+description: "Weekday afternoon: Jest CI + release-preflight wiring check; device E2E when adb connected."
+workflow:
+  triggers:
+    - cron:
+        cron: "0 14 * * 1-5"
+  actions: []
+  prompts:
+    - |
+      Hermes Mobile ship readiness check (hermes-mobile/).
+
+      1. `cd hermes-mobile && npm run test:ci` — report pass count; fail = stop and file fix plan.
+      2. Verify preflight wires accelerated E2E: `grep -n 'e2e:accelerated' scripts/release-preflight.sh`
+      3. Gateway probe: `curl -sf http://127.0.0.1:8642/health || echo GATEWAY_DOWN`
+      4. If `adb devices` shows a device: `npm run launch:preflight:android` (allow SKIP_ACCELERATED_E2E=1 only if device missing mid-run).
+      5. Summarize: tests, preflight grep, gateway, device E2E proof path under docs/proofs/agent-device/.
+
+      AGENTS.md applies: no "shipped" without evidence. Do not build APK unless tests pass.
+  model: ""
+  agentOptions:
+    skipInstall: false
+  memoryEnabled: true
+  gitConfig:
+    repo: IgorGanapolsky/mac-yolo-safeguards
+    branch: main

@@ -12,6 +12,7 @@ Canonical repo rules: [../AGENTS.md](../AGENTS.md). This file adds **mobile-only
 4. **Read** `docs/proofs/continuous/latest.json` before saying chat/E2E is healthy. If `e2e` ≠ `pass`, say so with the JSON — do not claim device UX is verified.
 5. **Phone connected** (`adb devices`) → E2E prefers Android automatically via `scripts/run-e2e.sh`.
 6. **Phone install only via release path** — `npm run android:phone` or `scripts/install-phone-release.sh`; never `expo run:android` on device (`npm run android` blocks when adb sees a phone).
+7. **RN performance work** — read `.cursor/skills/react-native-best-practices/SKILL.md` first (Callstack 2026 optimization guide skills). Install/refresh: `bash ../scripts/install-callstack-agent-skills.sh`. Measure before optimizing.
 
 ## Autonomous infrastructure (already installed on Igor's Mac)
 

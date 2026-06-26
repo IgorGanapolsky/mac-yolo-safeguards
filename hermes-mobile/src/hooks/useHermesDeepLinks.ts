@@ -2,7 +2,8 @@ import { useEffect, useRef } from 'react';
 import { Linking } from 'react-native';
 import type { NavigationContainerRef } from '@react-navigation/native';
 import type { HermesAgentToolName } from '../services/hermesAgentTools';
-import { parseSetupDeepLink, type SetupDeepLinkParams } from '../utils/setupDeepLink';
+import { parseSetupDeepLink, parseRelayDeepLink, type SetupDeepLinkParams } from '../utils/setupDeepLink';
+import { isDevLeashUnlockDeepLink } from '../utils/developerLeashUnlock';
 
 type RootTabParamList = {
   Leash: undefined;
@@ -36,18 +37,39 @@ function isChatDeepLink(url: string): boolean {
   return lower.includes('/chat') || lower.endsWith('chat');
 }
 
+const handledUrls = new Set<string>();
+
+export function resetHandledUrls() {
+  handledUrls.clear();
+}
+
 export function useHermesDeepLinks(
   navigationRef: React.RefObject<NavigationContainerRef<RootTabParamList> | null>,
   runAgentTool: (name: HermesAgentToolName) => Promise<unknown>,
   refreshHealth: () => Promise<void>,
   applySetupDeepLink?: (params: SetupDeepLinkParams) => Promise<void>,
   focusChatSession?: (sessionId: string) => void,
+  activateDeveloperLeashUnlock?: () => Promise<void>,
 ) {
-  const handled = useRef(new Set<string>());
-
   useEffect(() => {
     const handleUrl = async (url: string | null) => {
       if (!url) return;
+
+      if (handledUrls.has(url)) return;
+      handledUrls.add(url);
+
+      if (isDevLeashUnlockDeepLink(url) && activateDeveloperLeashUnlock) {
+        await activateDeveloperLeashUnlock();
+        navigationRef.current?.navigate('Leash');
+        return;
+      }
+
+      const relayOnly = parseRelayDeepLink(url);
+      if (relayOnly && applySetupDeepLink) {
+        await applySetupDeepLink(relayOnly);
+        navigationRef.current?.navigate('Chat');
+        return;
+      }
 
       const setup = parseSetupDeepLink(url);
       if (setup && applySetupDeepLink) {
@@ -71,9 +93,6 @@ export function useHermesDeepLinks(
         return;
       }
 
-      if (handled.current.has(url)) return;
-      handled.current.add(url);
-
       navigationRef.current?.navigate('Leash');
 
       const action = actionFromUrl(url);
@@ -91,5 +110,5 @@ export function useHermesDeepLinks(
       handleUrl(event.url);
     });
     return () => sub.remove();
-  }, [applySetupDeepLink, focusChatSession, navigationRef, refreshHealth, runAgentTool]);
+  }, [activateDeveloperLeashUnlock, applySetupDeepLink, focusChatSession, navigationRef, refreshHealth, runAgentTool]);
 }

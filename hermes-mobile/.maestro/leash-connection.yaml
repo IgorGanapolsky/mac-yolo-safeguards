@@ -3,19 +3,15 @@ appId: com.iganapolsky.hermesmobile
 ---
 - launchApp
 - runFlow: e2e-bootstrap.yaml
-- tapOn: "Settings"
-- scrollUntilVisible:
-    element:
-      id: "unlock-thumbgate-leash"
-    direction: DOWN
-    timeout: 90000
-- tapOn:
-    id: "unlock-thumbgate-leash"
 - tapOn: "Leash"
 - extendedWaitUntil:
     visible:
-      id: "THUMBGATE_LEASH"
+      id: "leash-connection-status"
     timeout: 30000
 - assertVisible:
-    id: "leash-connection-status"
-- assertVisible: "No pending approvals"
+    id: "no-pending-approvals"
+- scrollUntilVisible:
+    element:
+      id: "leash-smoke-test"
+    direction: DOWN
+    timeout: 30000

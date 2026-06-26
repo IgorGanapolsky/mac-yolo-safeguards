@@ -1,17 +1,25 @@
 import type { ChatQuickAction } from '../components/ChatQuickActions';
 import type { HermesMessage, HermesSession } from '../types/chat';
+import { TELEGRAM_INBOX_SESSION_ID } from '../services/telegramInbox';
+import { normalizeMessageText } from './chatMessageMerge';
 import { isGatewaySmokeTestMessage } from './gatewaySmokeMessages';
+import { isCronBoilerplateText } from './sessionDisplay';
 import { sortSessionsForAgentRail } from './threadActivity';
 
 const MAX_RECENT_ACTIONS = 4;
 const LABEL_MAX = 28;
-const PROMPT_MAX = 1200;
+
+/** Maestro chat-send-persistence.yaml — not a user quick-action chip. */
+export const E2E_CHAT_SEND_PERSISTENCE_PROMPT =
+  'print money, make money faster. Use Data Science, ML and Agentic RAG.';
 
 export type RecentPromptSources = {
   messages: HermesMessage[];
   sessions?: HermesSession[];
   pinnedOutboundText?: string | null;
   currentSessionId?: string | null;
+  localRecentPrompts?: string[];
+  dismissedPrompts?: string[];
 };
 
 function cleanPromptText(value: string): string {
@@ -39,7 +47,7 @@ export function isBlockedRecentPromptText(raw: string): boolean {
   if (/^reply\s+with\s+exactly/i.test(text)) {
     return true;
   }
-  if (/^\[IMPORTANT:\s*You are running as a scheduled cron/i.test(text)) {
+  if (isCronBoilerplateText(text)) {
     return true;
   }
   if (isGatewaySmokeTestMessage(text)) {
@@ -51,7 +59,55 @@ export function isBlockedRecentPromptText(raw: string): boolean {
   if (/run the next-dollar loop:/i.test(text)) {
     return true;
   }
+  if (/merged hermes threads/i.test(text)) {
+    return true;
+  }
+  if (/^active — all threads$/i.test(text)) {
+    return true;
+  }
+  if (
+    text.toLowerCase() === E2E_CHAT_SEND_PERSISTENCE_PROMPT.toLowerCase() ||
+    /e2e[- ]?persistence/i.test(text) ||
+    text.toLowerCase().startsWith('print money, make money faster')
+  ) {
+    return true;
+  }
   return false;
+}
+
+function sessionPromptCandidate(session: HermesSession): string | null {
+  const preview = session.preview?.trim();
+  if (preview && !isBlockedRecentPromptText(preview)) {
+    return preview;
+  }
+  const title = session.title?.trim();
+  if (title && !isBlockedRecentPromptText(title) && !/^session\s+\d{8}/i.test(title)) {
+    return title;
+  }
+  return null;
+}
+
+function transcriptUserPromptNorms(messages: HermesMessage[]): Set<string> {
+  const norms = new Set<string>();
+  for (const message of messages) {
+    if (!isUserPrompt(message)) {
+      continue;
+    }
+    const cleaned = cleanPromptText(message.rawContent || message.content || '');
+    if (!cleaned) {
+      continue;
+    }
+    norms.add(normalizeMessageText(cleaned));
+  }
+  return norms;
+}
+
+export function isPromptVisibleInTranscript(messages: HermesMessage[], prompt: string): boolean {
+  const norm = normalizeMessageText(cleanPromptText(prompt));
+  if (!norm) {
+    return false;
+  }
+  return transcriptUserPromptNorms(messages).has(norm);
 }
 
 function pushRecentPrompt(
@@ -59,14 +115,22 @@ function pushRecentPrompt(
   seen: Set<string>,
   prompt: string,
   detail: string,
+  transcriptNorms?: Set<string>,
+  dismissedNorms?: Set<string>,
 ): void {
   const cleaned = cleanPromptText(prompt);
   if (!cleaned || isBlockedRecentPromptText(cleaned)) {
     return;
   }
 
-  const dedupeKey = cleaned.toLowerCase();
+  const dedupeKey = normalizeMessageText(cleaned);
   if (seen.has(dedupeKey)) {
+    return;
+  }
+  if (transcriptNorms?.has(dedupeKey)) {
+    return;
+  }
+  if (dismissedNorms?.has(dedupeKey)) {
     return;
   }
   seen.add(dedupeKey);
@@ -75,20 +139,34 @@ function pushRecentPrompt(
     id: `recent-${recent.length}`,
     label: truncate(cleaned, LABEL_MAX),
     detail,
-    prompt: truncate(cleaned, PROMPT_MAX),
+    prompt: cleaned,
+    dismissible: true,
   });
 }
 
 export function buildRecentPromptActions(
   sources: RecentPromptSources,
-  fallbackActions: ChatQuickAction[],
+  _fallbackActions: ChatQuickAction[],
 ): ChatQuickAction[] {
   const seen = new Set<string>();
   const recent: ChatQuickAction[] = [];
-  const { messages, sessions, pinnedOutboundText, currentSessionId } = sources;
+  const { messages, sessions, pinnedOutboundText, currentSessionId, localRecentPrompts, dismissedPrompts } = sources;
+  const transcriptNorms = transcriptUserPromptNorms(messages);
+  const dismissedNorms = new Set(
+    (dismissedPrompts || []).map((p) => normalizeMessageText(p)).filter(Boolean),
+  );
 
   if (pinnedOutboundText?.trim()) {
-    pushRecentPrompt(recent, seen, pinnedOutboundText, 'current prompt');
+    pushRecentPrompt(recent, seen, pinnedOutboundText, 'current prompt', transcriptNorms, dismissedNorms);
+  }
+
+  if (localRecentPrompts) {
+    for (const prompt of localRecentPrompts) {
+      pushRecentPrompt(recent, seen, prompt, 'recent prompt', transcriptNorms, dismissedNorms);
+      if (recent.length >= MAX_RECENT_ACTIONS) {
+        return recent;
+      }
+    }
   }
 
   for (let index = messages.length - 1; index >= 0; index -= 1) {
@@ -102,6 +180,8 @@ export function buildRecentPromptActions(
       seen,
       message.rawContent || message.content || '',
       'recent prompt',
+      transcriptNorms,
+      dismissedNorms,
     );
 
     if (recent.length >= MAX_RECENT_ACTIONS) {
@@ -119,16 +199,21 @@ export function buildRecentPromptActions(
       : sorted;
 
     for (const session of ordered) {
-      const preview = session.preview?.trim();
-      if (!preview) {
+      if (session.id === '__telegram_inbox__') {
+        continue;
+      }
+      const candidate = sessionPromptCandidate(session);
+      if (!candidate) {
         continue;
       }
 
       pushRecentPrompt(
         recent,
         seen,
-        preview,
+        candidate,
         session.id === currentSessionId ? 'this chat' : 'recent chat',
+        transcriptNorms,
+        dismissedNorms,
       );
 
       if (recent.length >= MAX_RECENT_ACTIONS) {
@@ -137,7 +222,7 @@ export function buildRecentPromptActions(
     }
   }
 
-  return recent.length > 0 ? recent : fallbackActions;
+  return recent.length > 0 ? recent : [];
 }
 
 export function buildFallbackPromptActions(options: {

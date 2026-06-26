@@ -2,13 +2,16 @@ import React, { useEffect, useState, memo } from 'react';
 import { StyleSheet, Text, View, ActivityIndicator, Platform, Pressable } from 'react-native';
 import { colors } from '../theme/colors';
 import type { RunProgressState } from '../types/chatDisplay';
-import { humanizeRunProgressDetail } from '../utils/runProgressDisplay';
+import { displayableLlmModel, humanizeRunProgressDetail, runProgressFailedTitle } from '../utils/runProgressDisplay';
+import { isConnectivityMessage } from '../utils/chatErrors';
 
 type RunProgressBannerProps = {
   progress: RunProgressState;
   /** Show model + token counts (off by default — operator/debug only). */
   showTechnicalStats?: boolean;
   onStop?: () => void;
+  onDismiss?: () => void;
+  onRetry?: () => void;
   /** Live terminal line from Mac — shown below status, not as a second banner. */
   terminalToolName?: string;
   terminalPreview?: string;
@@ -30,6 +33,8 @@ function RunProgressBanner({
   progress,
   showTechnicalStats = false,
   onStop,
+  onDismiss,
+  onRetry,
   terminalToolName,
   terminalPreview,
 }: RunProgressBannerProps) {
@@ -50,11 +55,14 @@ function RunProgressBanner({
   const isActive = !isCompleted && !isFailed;
 
   const durationSec = progress.duration != null ? Math.round(progress.duration * 10) / 10 : elapsed;
-  const modelLabel = progress.model?.trim() || null;
+  const modelLabel = displayableLlmModel(progress.model);
   const tokenLabel = formatTokenSummary(progress);
   const showStats = Boolean(modelLabel || tokenLabel);
 
   const detailLabel = humanizeRunProgressDetail(progress.detail, progress.phase);
+  const failedTitle = isFailed ? runProgressFailedTitle(progress.detail) : detailLabel;
+  const failedDetail =
+    isFailed && isConnectivityMessage(progress.detail ?? '') ? progress.detail?.trim() : null;
   const terminalLine = terminalPreview?.trim() || '';
 
   return (
@@ -75,14 +83,10 @@ function RunProgressBanner({
             isCompleted && styles.textCompleted,
             isFailed && styles.textFailed,
           ]}
-          numberOfLines={2}
+          numberOfLines={isFailed && failedDetail ? 1 : 2}
           testID="run-progress-detail"
         >
-          {isCompleted
-            ? 'Reply ready on your Mac'
-            : isFailed
-              ? detailLabel
-              : detailLabel}
+          {isCompleted ? 'Reply ready on your Mac' : isFailed ? failedTitle : detailLabel}
         </Text>
         <Text style={styles.timeLabel}>{durationSec}s</Text>
         {isActive && onStop ? (
@@ -95,7 +99,33 @@ function RunProgressBanner({
             <Text style={styles.stopChipText}>Stop</Text>
           </Pressable>
         ) : null}
+        {!isActive && onRetry ? (
+          <Pressable
+            onPress={onRetry}
+            style={({ pressed }) => [styles.retryChip, pressed && styles.stopChipPressed]}
+            testID="run-progress-retry"
+            accessibilityLabel="Retry connection"
+          >
+            <Text style={styles.retryChipText}>Retry</Text>
+          </Pressable>
+        ) : null}
+        {!isActive && onDismiss ? (
+          <Pressable
+            onPress={onDismiss}
+            style={({ pressed }) => [styles.stopChip, pressed && styles.stopChipPressed]}
+            testID="run-progress-dismiss"
+            accessibilityLabel="Dismiss banner"
+          >
+            <Text style={styles.stopChipText}>Dismiss</Text>
+          </Pressable>
+        ) : null}
       </View>
+
+      {failedDetail ? (
+        <Text style={styles.failedDetail} testID="run-progress-failed-detail">
+          {failedDetail}
+        </Text>
+      ) : null}
 
       {showTechnicalStats && showStats ? (
         <View style={styles.statsPanel}>
@@ -137,6 +167,8 @@ export default memo(RunProgressBanner, (prev, next) => {
   return (
     prev.showTechnicalStats === next.showTechnicalStats &&
     prev.onStop === next.onStop &&
+    prev.onDismiss === next.onDismiss &&
+    prev.onRetry === next.onRetry &&
     a.phase === b.phase &&
     a.startedAtMs === b.startedAtMs &&
     (a.detail ?? '') === (b.detail ?? '') &&
@@ -182,6 +214,7 @@ const styles = StyleSheet.create({
   },
   text: {
     flex: 1,
+    flexShrink: 1,
     fontSize: 12,
     fontWeight: '700',
     color: colors.warning,
@@ -192,11 +225,20 @@ const styles = StyleSheet.create({
   textFailed: {
     color: colors.error,
   },
+  failedDetail: {
+    fontSize: 11,
+    lineHeight: 16,
+    fontWeight: '600',
+    color: colors.textSecondary,
+  },
   timeLabel: {
     fontSize: 11,
     fontWeight: '800',
     color: colors.textMuted,
     fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
+    flexShrink: 0,
+    minWidth: 28,
+    textAlign: 'right',
   },
   stopChip: {
     borderRadius: 8,
@@ -213,6 +255,19 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '800',
     color: colors.error,
+  },
+  retryChip: {
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(245, 158, 11, 0.55)',
+    backgroundColor: 'rgba(245, 158, 11, 0.14)',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  retryChipText: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: colors.warning,
   },
   statsPanel: {
     flexDirection: 'row',

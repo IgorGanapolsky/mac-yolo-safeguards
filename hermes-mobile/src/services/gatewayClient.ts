@@ -6,6 +6,7 @@ import type {
   PendingApproval,
   ReclaimFiredPayload,
 } from '../types/gateway';
+import { resolveDisplayLanIp } from '../utils/gatewayUrlPolicy';
 
 export interface NormalizedGatewayBase {
   httpBase: string;
@@ -99,15 +100,18 @@ export async function fetchGatewayHealth(
       };
     }
     const body = (await response.json()) as Record<string, unknown>;
+    const localIpRaw = typeof body.local_ip === 'string' ? body.local_ip : undefined;
+    const level = classifyHealth(body);
     return {
-      level: classifyHealth(body),
+      level,
       status: typeof body.status === 'string' ? body.status : undefined,
       gatewayState: typeof body.gateway_state === 'string' ? body.gateway_state : undefined,
       pid: typeof body.pid === 'number' ? body.pid : undefined,
       platforms: body.platforms as GatewayHealthSnapshot['platforms'],
       checkedAt,
       hostname: typeof body.hostname === 'string' ? body.hostname : undefined,
-      localIp: typeof body.local_ip === 'string' ? body.local_ip : undefined,
+      localIp: resolveDisplayLanIp(localIpRaw, httpBase),
+      directGatewayReachable: level === 'green' || level === 'amber',
     };
   } catch (error) {
     return {

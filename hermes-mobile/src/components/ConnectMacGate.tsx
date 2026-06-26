@@ -17,7 +17,7 @@ const AUTO_RETRY_MS = 12000;
 
 /**
  * First-run gate when no Mac is configured and the gateway is not reachable.
- * Phone-first: Wi‑Fi search, plain-language Mac setup, optional QR scan — no bash.
+ * Phone-first: relay pairing, plain-language Mac setup, optional local QR scan — no bash.
  */
 export default function ConnectMacGate() {
   const {
@@ -87,10 +87,10 @@ export default function ConnectMacGate() {
             keyboardShouldPersistTaps="handled"
           >
             <View style={styles.card}>
-              <Text style={styles.title}>Link your computer</Text>
+              <Text style={styles.title}>Pair Hermes Relay</Text>
               <Text style={styles.body}>
-                Hermes Mobile controls Hermes on your computer — chat, approvals, and ops from your phone.
-                Use cloud relay when paired; local Wi‑Fi search is the fallback.
+                Hermes Mobile should work like Telegram: pair once, then approvals route over the
+                internet. Local Wi‑Fi search is only the nearby fallback.
               </Text>
 
               <MacPairingHelp variant="getting-started" testID="connect-mac-pairing-help" />
@@ -109,7 +109,7 @@ export default function ConnectMacGate() {
               {invalidQrHint ? <Text style={styles.hintError}>{invalidQrHint}</Text> : null}
 
               <LoadingButton
-                label="Search for my computer locally"
+                label="Search local network"
                 loadingLabel="Searching Wi‑Fi…"
                 loading={searching}
                 onPress={() => runWifiSearch()}
@@ -117,7 +117,7 @@ export default function ConnectMacGate() {
               />
 
               <LoadingButton
-                label="Scan QR from my computer screen"
+                label="Scan local QR from computer"
                 variant="secondary"
                 onPress={() => {
                   setInvalidQrHint(null);
@@ -127,8 +127,8 @@ export default function ConnectMacGate() {
               />
 
               <Text style={styles.footnote}>
-                Waiting for Hermes on your computer? Leave this open — we retry every few seconds after
-                you install or start Hermes.
+                Pair relay in Settings for anywhere approvals. Leave this open only when you want
+                local fallback after installing or starting Hermes.
               </Text>
             </View>
           </ScrollView>

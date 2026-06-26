@@ -18,6 +18,12 @@ const profiles: GatewayProfile[] = [
     localIp: '192.168.12.50',
     addedAt: '2026-06-18T12:00:00.000Z',
   },
+  {
+    id: 'mac_usb',
+    label: 'Mac USB',
+    gatewayUrl: 'http://127.0.0.1:8642',
+    addedAt: '2026-06-18T12:00:00.000Z',
+  },
 ];
 
 describe('GatewayProfilePicker', () => {
@@ -46,5 +52,24 @@ describe('GatewayProfilePicker', () => {
     );
     fireEvent.press(getByTestId('select-gateway-profile-mac_192_168_12_50'));
     expect(onSelect).toHaveBeenCalledWith('mac_192_168_12_50');
+  });
+
+  it('shows reachability hints when multiple profiles and off Wi-Fi', () => {
+    const { getByTestId } = render(
+      <GatewayProfilePicker
+        profiles={profiles}
+        activeProfileId="mac_192_168_12_208"
+        onSelect={jest.fn()}
+        wifiConnected={false}
+        showReachabilityHints
+      />,
+    );
+    expect(getByTestId('gateway-profile-item-mac_192_168_12_208')).toHaveTextContent(
+      /Needs tunnel \(cellular\)/,
+    );
+    expect(getByTestId('gateway-profile-item-mac_192_168_12_50')).toHaveTextContent(
+      /Needs tunnel/,
+    );
+    expect(getByTestId('gateway-profile-item-mac_usb')).toHaveTextContent(/USB/);
   });
 });

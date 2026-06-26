@@ -1,6 +1,7 @@
 import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { colors } from '../theme/colors';
+import { resolveChatLinkDisplay } from '../utils/gatewayConnection';
 import type { LeashConnectionState } from '../utils/gatewayEndpoint';
 
 type ChatContextStripProps = {
@@ -18,22 +19,20 @@ function connectionMeta(
   state: LeashConnectionState,
   macHttpReachable = false,
 ): { label: string; color: string } {
-  if (macHttpReachable && state !== 'connected' && state !== 'demo') {
-    return { label: 'Chat linked', color: colors.warning };
+  const link = resolveChatLinkDisplay({
+    connectionState: state,
+    macHttpOk: macHttpReachable,
+  });
+  if (link.chatReachable) {
+    return { label: 'Linked', color: colors.success };
   }
-  switch (state) {
-    case 'connected':
-      return { label: 'Linked', color: colors.success };
-    case 'connecting':
-      return { label: 'Connecting…', color: colors.warning };
-    case 'demo':
-      return { label: 'Demo', color: colors.accent };
-    default:
-      if (macHttpReachable) {
-        return { label: 'Chat linked', color: colors.warning };
-      }
-      return { label: 'Not linked', color: colors.error };
+  if (link.label === 'Relay only') {
+    return { label: 'Relay only', color: colors.warning };
   }
+  if (state === 'connecting') {
+    return { label: 'Connecting…', color: colors.warning };
+  }
+  return { label: 'Not linked', color: colors.error };
 }
 
 export default function ChatContextStrip({

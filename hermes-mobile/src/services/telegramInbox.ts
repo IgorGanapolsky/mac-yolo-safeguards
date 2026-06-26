@@ -33,7 +33,7 @@ export function buildTelegramInboxSession(): HermesSession {
     id: TELEGRAM_INBOX_SESSION_ID,
     source: 'telegram',
     title: 'Active — all threads',
-    preview: 'Merged Hermes threads from your Mac (includes Telegram-linked sessions)',
+    preview: 'All threads from your Mac',
     last_active_at: new Date().toISOString(),
   };
 }

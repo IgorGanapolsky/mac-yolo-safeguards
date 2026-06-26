@@ -4,6 +4,7 @@ import {
   extractLanIpFromGatewayUrl,
   isLoopbackGatewayUrl,
   resolveDeviceGatewayUrl,
+  resolveDisplayLanIp,
 } from '../utils/gatewayUrlPolicy';
 
 describe('gatewayUrlPolicy', () => {
@@ -17,10 +18,14 @@ describe('gatewayUrlPolicy', () => {
     expect(buildGatewayUrlFromLanIp('192.168.12.208')).toBe('http://192.168.12.208:8642');
   });
 
-  it('replaces loopback with last known LAN IP on native', () => {
-    jest.doMock('react-native', () => ({ Platform: { OS: 'android' } }));
+  it('keeps loopback URL as configured', () => {
     const resolved = resolveDeviceGatewayUrl('http://127.0.0.1:8642', '192.168.12.208');
-    expect(resolved).toBe('http://192.168.12.208:8642');
+    expect(resolved).toBe('http://127.0.0.1:8642');
+  });
+
+  it('returns configured URL unchanged', () => {
+    const resolved = resolveDeviceGatewayUrl('http://127.0.0.1:8642', null);
+    expect(resolved).toBe('http://127.0.0.1:8642');
   });
 
   it('extracts LAN IP from gateway URL', () => {
@@ -33,7 +38,12 @@ describe('gatewayUrlPolicy', () => {
       new Error('Network request failed'),
       'http://127.0.0.1:8642',
     );
-    expect(message).toContain('127.0.0.1');
-    expect(message.toLowerCase()).toContain('qr');
+    expect(message.toLowerCase()).toContain('usb');
+    expect(message.toLowerCase()).toContain('pair');
+  });
+
+  it('drops loopback local_ip when gateway URL is LAN', () => {
+    expect(resolveDisplayLanIp('127.0.0.1', 'http://10.2.29.103:8642')).toBe('10.2.29.103');
+    expect(resolveDisplayLanIp('127.0.0.1', 'http://127.0.0.1:8642')).toBeUndefined();
   });
 });

@@ -67,6 +67,23 @@ describe('chatStreamEvents', () => {
     expect(merged.outputTokens).toBe(12881);
   });
 
+  it('drops gateway platform labels from merged run progress model', () => {
+    const merged = mergeRunUsageFromPayload(
+      { phase: 'working', startedAtMs: Date.now(), detail: 'working', model: 'google/gemini-2.5-flash' },
+      { model: 'hermes-agent' },
+    );
+    expect(merged.model).toBe('google/gemini-2.5-flash');
+  });
+
+  it('stores no model when session only reports gateway platform label', () => {
+    const merged = mergeSessionUsageIntoRunProgress(null, {
+      model: 'hermes-agent',
+      input_tokens: 100,
+      output_tokens: 5,
+    });
+    expect(merged.model).toBeUndefined();
+  });
+
   it('merges nested usage blocks on completion events', () => {
     const merged = mergeRunUsageFromPayload(
       { phase: 'working', startedAtMs: Date.now(), detail: 'done' },

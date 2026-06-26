@@ -41,7 +41,7 @@ describe('lanScanLabels', () => {
         foundCount: 0,
       }),
     ).toContain('25%');
-    expect(formatLanScanResultLabel(0)).toBe('No computers found on Wi‑Fi');
-    expect(formatLanScanResultLabel(2)).toBe('Found 2 computers on Wi‑Fi');
+    expect(formatLanScanResultLabel(0)).toBe('No local Hermes machines found');
+    expect(formatLanScanResultLabel(2)).toBe('Found 2 local Hermes machines');
   });
 });

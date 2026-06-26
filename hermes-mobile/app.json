@@ -3,6 +3,9 @@
     "name": "Hermes Mobile",
     "slug": "hermes-mobile",
     "scheme": "hermes",
+    "experiments": {
+      "reactCompiler": true
+    },
     "version": "0.3.1",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -26,7 +29,7 @@
         "backgroundColor": "#0B0F19"
       },
       "package": "com.iganapolsky.hermesmobile",
-      "versionCode": 4,
+      "versionCode": 5,
       "userInterfaceStyle": "dark",
       "allowBackup": false,
       "softwareKeyboardLayoutMode": "resize"

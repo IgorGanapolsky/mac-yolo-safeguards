@@ -39,4 +39,23 @@ describe('ChatQuickActions', () => {
 
     expect(queryByTestId('chat-quick-actions')).toBeNull();
   });
+
+  it('calls onDismiss for dismissible chips', () => {
+    const dismissible: ChatQuickAction[] = [
+      {
+        id: 'recent-0',
+        label: 'print money, make money fas…',
+        detail: 'recent prompt',
+        prompt: 'print money, make money faster. Use Data Science, ML and Agentic RAG.',
+        dismissible: true,
+      },
+    ];
+    const onDismiss = jest.fn();
+    const { getByTestId } = render(
+      <ChatQuickActions actions={dismissible} onSelect={jest.fn()} onDismiss={onDismiss} />,
+    );
+
+    fireEvent.press(getByTestId('chat-quick-action-dismiss-recent-0'));
+    expect(onDismiss).toHaveBeenCalledWith(dismissible[0]);
+  });
 });

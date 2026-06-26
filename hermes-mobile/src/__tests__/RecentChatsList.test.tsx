@@ -38,4 +38,34 @@ describe('RecentChatsList', () => {
     fireEvent.press(getByTestId('recent-chats-clear-all'));
     expect(onClearAll).toHaveBeenCalledTimes(1);
   });
+
+  it('calls onRenameSession when rename pencil is pressed', () => {
+    const onRenameSession = jest.fn();
+    const { getByTestId } = render(
+      <RecentChatsList
+        sessions={sessions}
+        sessionLabelFor={(session) => session.title ?? session.id}
+        onSelectSession={jest.fn()}
+        onRenameSession={onRenameSession}
+      />,
+    );
+
+    fireEvent.press(getByTestId('recent-chat-rename-s1'));
+    expect(onRenameSession).toHaveBeenCalledWith('s1', 'First thread');
+  });
+
+  it('calls onDeleteSession when trash is pressed', () => {
+    const onDeleteSession = jest.fn();
+    const { getByTestId } = render(
+      <RecentChatsList
+        sessions={sessions}
+        sessionLabelFor={(session) => session.title ?? session.id}
+        onSelectSession={jest.fn()}
+        onDeleteSession={onDeleteSession}
+      />,
+    );
+
+    fireEvent.press(getByTestId('recent-chat-delete-s1'));
+    expect(onDeleteSession).toHaveBeenCalledWith('s1');
+  });
 });
