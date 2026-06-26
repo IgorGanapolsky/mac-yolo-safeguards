@@ -1,0 +1,33 @@
+---
+description: Hermes Mobile is a real-user product — never dogfood-only assumptions in tests or UX
+globs:
+  - hermes-mobile/**
+alwaysApply: false
+---
+
+# Hermes Mobile — real users product
+
+**User directive (permanent):** Hermes Mobile is a product for **real users**, not Igor-only USB dogfood.
+
+## Brand-new user mindset (every test)
+
+**Always treat every test as if it is a brand new user.**
+
+Before claiming fixed, shipped, or "works on device", assume the tester has:
+
+- Never paired before; no saved gateway profiles; no dev backdoor unlocked
+- No `adb` cable; may be on **cellular** or home Wi‑Fi only
+- Installed from **release APK / Play** — not Metro, not debug dev-client
+- No knowledge of Mac hostname, tunnel URLs, or relay codes
+- First launch: empty recents, honest disconnected copy, onboarding must work
+
+Do **not** pass tests that only work because Igor's Mac is plugged in, `adb reverse` is set, or `developerLeashUnlock` is on.
+
+## Product bar
+
+- Onboarding: QR/deep link / Find computers — not "paste 127.0.0.1" without context
+- Leash Pro / ThumbGate API for subscribers — dev backdoor is Igor-only, not the user path
+- Cellular + multi-Mac: tunnel wizard copy must be actionable
+- Maestro E2E on release build where possible; unit tests must not assume Igor fixtures as "default user"
+
+See `hermes-mobile/docs/REAL-USER-READINESS.md` when present.

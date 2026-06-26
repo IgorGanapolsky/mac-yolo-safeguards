@@ -88,6 +88,14 @@ OpenMono `/ship-claim` is the local verifier gate; ThumbGate is the cross-sessio
 4. The 60s LaunchAgent `com.igor.shutdown-simulators` — must remain `state=running, run interval=60s`
 5. The 15m LaunchAgent `com.igor.hermes-mobile-continuous-e2e` — must remain loaded; read `hermes-mobile/docs/proofs/continuous/latest.json` at session start
 
+## Hermes Mobile — real users product
+
+**Permanent user directive:** Hermes Mobile is a product Igor wants **real users** on — not Igor-only USB dogfood.
+
+**Always treat every test as if it is a brand new user:** no assumed `adb reverse`, no dev backdoor, no saved Mac profiles, release install, cellular/Wi‑Fi realistic paths. If it only works on Igor's cable-connected MacBook, it is **not** ready for external users.
+
+Mobile detail: [hermes-mobile/AGENTS.md](./hermes-mobile/AGENTS.md), [hermes-mobile/docs/REAL-USER-READINESS.md](./hermes-mobile/docs/REAL-USER-READINESS.md) when present.
+
 ## Hermes Mobile verification contract
 
 **User directive:** Do not wait to be reminded. Agents own verification for `hermes-mobile/`.

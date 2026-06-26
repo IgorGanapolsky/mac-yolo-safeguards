@@ -13,6 +13,8 @@ Canonical repo rules: [../AGENTS.md](../AGENTS.md). This file adds **mobile-only
 5. **Phone connected** (`adb devices`) → E2E prefers Android automatically via `scripts/run-e2e.sh`.
 6. **Phone install only via release path** — `npm run android:phone` or `scripts/install-phone-release.sh`; never `expo run:android` on device (`npm run android` blocks when adb sees a phone).
 7. **RN performance work** — read `.cursor/skills/react-native-best-practices/SKILL.md` first (Callstack 2026 optimization guide skills). Install/refresh: `bash ../scripts/install-callstack-agent-skills.sh`. Measure before optimizing.
+8. **Real users product** — Hermes Mobile ships to **real users**, not Igor-only dogfood. No feature is "done" if it requires `adb`, dev backdoor, or pre-paired Igor Mac.
+9. **Brand-new user testing (permanent)** — **always treat every test as if it is a brand new user:** fresh install, no saved profiles, no `developerLeashUnlock`, cellular or Wi‑Fi only, release APK. Maestro and manual proofs must reflect that mindset.
 
 ## Autonomous infrastructure (already installed on Igor's Mac)
 

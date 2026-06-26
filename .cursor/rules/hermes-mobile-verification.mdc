@@ -17,5 +17,6 @@ When editing anything under `hermes-mobile/`:
    ```
 3. Read `hermes-mobile/docs/proofs/continuous/latest.json` before claiming chat/UI is fixed.
 4. Phone setup: `node tools/hermes-mobile-pair.js` when `adb devices` shows a device — never manual Settings steps.
+5. **Brand-new user mindset** — every test assumes a stranger: no adb, no dev backdoor, release build, realistic network. See [hermes-mobile-real-users.mdc](./hermes-mobile-real-users.mdc).
 
 Full contract: [hermes-mobile/AGENTS.md](../../hermes-mobile/AGENTS.md).
