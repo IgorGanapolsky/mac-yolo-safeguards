@@ -11,6 +11,37 @@ const DB_PATH = process.env.HERMES_MOBILE_DB_PATH || '';
 
 const store = new RelayStore(DB_PATH);
 
+// --- Brute-force protection for the unauthenticated pairing endpoint ---
+// The pair code is the only thing between a stranger and a worker's agent, so cap how
+// fast one client can guess. With the high-entropy code + 256-bit QR secret, this makes
+// pairing brute-force infeasible (account takeover -> agent RCE once chat ships).
+const PAIR_RL_WINDOW_MS = 60 * 1000;
+const PAIR_RL_MAX = 10;
+const pairCompleteHits = new Map(); // clientIp -> timestamp[]
+
+function clientIp(req) {
+  const fly = req.headers['fly-client-ip'];
+  if (fly) return String(fly);
+  const fwd = req.headers['x-forwarded-for'];
+  if (fwd) return String(fwd).split(',')[0].trim();
+  return req.socket?.remoteAddress || 'unknown';
+}
+
+function allowPairComplete(req, now = Date.now()) {
+  const ip = clientIp(req);
+  const recent = (pairCompleteHits.get(ip) || []).filter((t) => now - t < PAIR_RL_WINDOW_MS);
+  recent.push(now);
+  pairCompleteHits.set(ip, recent);
+  if (pairCompleteHits.size > 5000) {
+    for (const [key, hits] of pairCompleteHits) {
+      if (!hits.length || now - hits[hits.length - 1] > PAIR_RL_WINDOW_MS) {
+        pairCompleteHits.delete(key);
+      }
+    }
+  }
+  return recent.length <= PAIR_RL_MAX;
+}
+
 function sendJson(res, status, body) {
   const payload = JSON.stringify(body);
   res.writeHead(status, {
@@ -114,8 +145,13 @@ async function handleRequest(req, res) {
   }
 
   if (req.method === 'POST' && pathname === '/v1/pair/complete') {
+    if (!allowPairComplete(req)) {
+      sendJson(res, 429, { error: 'rate_limited' });
+      return;
+    }
     const body = await readJson(req);
-    const paired = store.completePairing(body.code);
+    // Accept the high-entropy QR secret first, falling back to the typed human code.
+    const paired = store.completePairing(body.secret || body.code);
     if (!paired) {
       sendJson(res, 400, { error: 'invalid_or_expired_code' });
       return;
@@ -140,7 +176,8 @@ async function handleRequest(req, res) {
     sendJson(res, 200, {
       events,
       workers,
-      active_worker_id: account.active_worker_id,
+      // Only report an active worker that is actually live (fresh heartbeat) — no false green.
+      active_worker_id: store.activeWorkerId(account),
       tier: 'free',
       activity_count: events.length,
     });

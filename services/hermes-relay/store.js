@@ -6,11 +6,14 @@ const crypto = require('crypto');
 
 const PAIR_TTL_MS = 15 * 60 * 1000;
 const EVENT_TTL_MS = 24 * 60 * 60 * 1000;
-
-const PAIR_WORDS = [
-  'MOON', 'DUST', 'STAR', 'FOREST', 'RIVER', 'CLOUD', 'SPARK', 'NORTH',
-  'SOUTH', 'EMBER', 'CORAL', 'IVORY', 'OAKEN', 'SILVER', 'BRONZE', 'MAPLE',
-];
+// A worker counts as live only if it heartbeat within this window (~15-25s cadence),
+// so a slept/dead Mac flips to 'offline' instead of a sticky false-green.
+const STALE_WORKER_MS = 60 * 1000;
+// Typed pair code: FAR stronger than the old 16-word^2 = 256-value space
+// (brute-forceable -> token theft -> agent RCE once chat ships). 8 chars over a
+// 30-symbol unambiguous alphabet ~= 2^39, plus a 256-bit QR secret + rate limiting.
+const PAIR_CODE_ALPHABET = '23456789ABCDEFGHJKMNPQRSTVWXYZ'; // no 0/1/I/L/O/U
+const PAIR_CODE_LEN = 8;
 
 function randomId(prefix) {
   return `${prefix}_${crypto.randomBytes(8).toString('hex')}`;
@@ -18,6 +21,24 @@ function randomId(prefix) {
 
 function randomToken() {
   return crypto.randomBytes(24).toString('hex');
+}
+
+// 256-bit secret embedded in the pairing QR — the real cross-user isolation boundary.
+function randomPairSecret() {
+  return crypto.randomBytes(32).toString('hex');
+}
+
+// Dash- and case-insensitive canonical form so "ab2c-def3" == "AB2CDEF3".
+function canonicalizeCode(input) {
+  return String(input || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+}
+
+function isWorkerFresh(worker, now = Date.now()) {
+  return (
+    !!worker &&
+    typeof worker.last_seen_at === 'number' &&
+    now - worker.last_seen_at <= STALE_WORKER_MS
+  );
 }
 
 function slugify(input) {
@@ -31,14 +52,17 @@ function slugify(input) {
 
 function generatePairCode(existingCodes) {
   for (let attempt = 0; attempt < 40; attempt += 1) {
-    const left = PAIR_WORDS[crypto.randomInt(PAIR_WORDS.length)];
-    const right = PAIR_WORDS[crypto.randomInt(PAIR_WORDS.length)];
-    const code = `${left}-${right}`;
+    let raw = '';
+    for (let i = 0; i < PAIR_CODE_LEN; i += 1) {
+      raw += PAIR_CODE_ALPHABET[crypto.randomInt(PAIR_CODE_ALPHABET.length)];
+    }
+    const code = `${raw.slice(0, 4)}-${raw.slice(4)}`;
     if (!existingCodes.has(code)) {
       return code;
     }
   }
-  return `PAIR-${crypto.randomBytes(3).toString('hex').toUpperCase()}`;
+  const raw = crypto.randomBytes(6).toString('hex').toUpperCase();
+  return `${raw.slice(0, 4)}-${raw.slice(4, 8)}`;
 }
 
 class RelayStore {
@@ -179,31 +203,62 @@ class RelayStore {
     const now = Date.now();
     const existingCodes = new Set(Object.keys(this.state.pairCodes));
     const code = generatePairCode(existingCodes);
+    const secret = randomPairSecret();
     this.state.pairCodes[code] = {
       code,
+      secret,
       account_id: worker.account_id,
       worker_id: worker.id,
       created_at: now,
       expires_at: now + PAIR_TTL_MS,
     };
     this.persist();
-    return { code, expires_at: this.state.pairCodes[code].expires_at };
+    return { code, secret, expires_at: this.state.pairCodes[code].expires_at };
   }
 
-  completePairing(code) {
-    const normalized = String(code || '').trim().toUpperCase();
-    const pair = this.state.pairCodes[normalized];
-    if (!pair || pair.expires_at <= Date.now()) {
+  completePairing(credential) {
+    const now = Date.now();
+    const raw = String(credential || '').trim();
+    if (!raw) {
+      return null;
+    }
+    let matchKey = null;
+    // 1) High-entropy QR secret — the real isolation boundary.
+    for (const [key, pair] of Object.entries(this.state.pairCodes)) {
+      if (pair.secret && pair.secret === raw) {
+        matchKey = key;
+        break;
+      }
+    }
+    // 2) Typed human-code fallback (dash- and case-insensitive).
+    if (!matchKey) {
+      const canon = canonicalizeCode(raw);
+      for (const [key, pair] of Object.entries(this.state.pairCodes)) {
+        if (canonicalizeCode(pair.code) === canon) {
+          matchKey = key;
+          break;
+        }
+      }
+    }
+    if (!matchKey) {
+      return null;
+    }
+    const pair = this.state.pairCodes[matchKey];
+    if (!pair || pair.expires_at <= now) {
+      delete this.state.pairCodes[matchKey];
+      this.persist();
       return null;
     }
     const account = this.state.accounts[pair.account_id];
     if (!account) {
       return null;
     }
-    const mobileToken = account.mobile_token || randomToken();
+    // Rotate the mobile token on every successful pairing — never silently reuse a
+    // stable token across re-pairs, so a stale/stolen token can't survive a re-pair.
+    const mobileToken = randomToken();
     account.mobile_token = mobileToken;
     account.active_worker_id = pair.worker_id;
-    delete this.state.pairCodes[normalized];
+    delete this.state.pairCodes[matchKey];
     this.persist();
     return { mobile_token: mobileToken, account_id: account.id };
   }
@@ -217,7 +272,7 @@ class RelayStore {
     return null;
   }
 
-  listWorkersForAccount(account) {
+  listWorkersForAccount(account, now = Date.now()) {
     return account.worker_tokens
       .map((token) => this.state.workers[token])
       .filter(Boolean)
@@ -228,10 +283,28 @@ class RelayStore {
         project: worker.project,
         label: worker.label,
         repo: worker.repo,
-        status: worker.status,
+        // Computed from heartbeat freshness, not the sticky stored value (no false green).
+        status: isWorkerFresh(worker, now) ? 'online' : 'offline',
+        online: isWorkerFresh(worker, now),
         last_seen_at: worker.last_seen_at,
         capabilities: worker.capabilities,
       }));
+  }
+
+  // Active worker id, but only if it is actually live; a stale worker returns null
+  // so the app gates "Send" on a fresh worker, not a sticky pointer.
+  activeWorkerId(account, now = Date.now()) {
+    const id = account.active_worker_id;
+    if (!id) {
+      return null;
+    }
+    for (const token of account.worker_tokens) {
+      const worker = this.state.workers[token];
+      if (worker && worker.id === id) {
+        return isWorkerFresh(worker, now) ? id : null;
+      }
+    }
+    return null;
   }
 
   listPendingEvents(accountId) {
