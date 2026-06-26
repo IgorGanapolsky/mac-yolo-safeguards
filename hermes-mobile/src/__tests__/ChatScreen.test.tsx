@@ -250,9 +250,53 @@ jest.mock('../services/hermesChatClient', () => ({
   getSession: jest.fn().mockResolvedValue(null),
 }));
 
+
+async function confirmAlertButton(label: string) {
+  await act(async () => {
+    const buttons = (Alert.alert as jest.Mock).mock.calls.at(-1)?.[2] as
+      | Array<{ text?: string; onPress?: () => void | Promise<void> }>
+      | undefined;
+    const button = buttons?.find((entry) => entry.text === label);
+    await button?.onPress?.();
+  });
+}
+
 describe('ChatScreen', () => {
   beforeEach(() => {
     jest.useFakeTimers();
+    const { listSessions, listMessages } = jest.requireMock('../services/hermesChatClient') as {
+      listSessions: jest.Mock;
+      listMessages: jest.Mock;
+    };
+    listSessions.mockReset();
+    listMessages.mockReset();
+    listSessions.mockResolvedValue([
+      { id: 'session-1', title: 'Test Session 1', last_active_at: '2026-06-15T12:00:00Z' },
+    ]);
+    listMessages.mockResolvedValue([
+      { role: 'user', content: 'hello' },
+      { role: 'assistant', content: 'hi there' },
+    ]);
+    const { chatProjects } = jest.requireMock('../services/chatProjects') as {
+      chatProjects: { load: jest.Mock; save: jest.Mock };
+    };
+    chatProjects.load.mockReset();
+    chatProjects.save.mockReset();
+    chatProjects.load.mockResolvedValue({
+      projects: [
+        {
+          id: 'demo-hermes-mobile',
+          name: 'hermes-mobile',
+          workspacePath: '~/workspace/git/igor/mac-yolo-safeguards/hermes-mobile',
+          sessionIds: ['demo-1'],
+          activeSessionId: 'demo-1',
+        },
+      ],
+      sessionProjectMap: { 'demo-1': 'demo-hermes-mobile' },
+      sessionLabels: { 'demo-1': 'hermes-mobile' },
+      activeProjectId: 'demo-hermes-mobile',
+    });
+    chatProjects.save.mockResolvedValue(undefined);
     Object.assign(mockGatewayState, {
       connectionState: 'demo',
       effectiveGatewayUrl: 'http://localhost:8642',
@@ -472,9 +516,10 @@ describe('ChatScreen', () => {
   });
 
   it('shows clearing progress and persists empty demo bindings on clear all', async () => {
+    jest.useRealTimers();
     const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation((_title, _message, buttons) => {
       const clearButton = buttons?.find((button) => button.text === 'Clear all');
-      clearButton?.onPress?.();
+      void clearButton?.onPress?.();
     });
     const { chatProjects } = jest.requireMock('../services/chatProjects') as {
       chatProjects: { save: jest.Mock };
@@ -507,10 +552,8 @@ describe('ChatScreen', () => {
   });
 
   it('deletes an individual session from the threads modal in demo mode', async () => {
-    const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation((_title, _message, buttons) => {
-      const deleteButton = buttons?.find((button) => button.text === 'Delete');
-      deleteButton?.onPress?.();
-    });
+    jest.useRealTimers();
+    const alertSpy = jest.spyOn(Alert, 'alert');
     const { deleteSession } = jest.requireMock('../services/hermesGatewayClient') as {
       deleteSession: jest.Mock;
     };
@@ -523,6 +566,7 @@ describe('ChatScreen', () => {
     const { getByTestId, findByTestId, queryByTestId } = renderInTabNavigator(ChatScreen, 'Chat');
     fireEvent.press(getByTestId('open-sessions-modal'));
     fireEvent.press(await findByTestId('recent-chat-delete-demo-1'));
+    await confirmAlertButton('Delete');
 
     await waitFor(() => {
       expect(deleteSession).not.toHaveBeenCalled();
@@ -622,10 +666,8 @@ describe('ChatScreen', () => {
   });
 
   it('clear all deletes cron-only Mac sessions and keeps them dismissed', async () => {
-    const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation((_title, _message, buttons) => {
-      const clearButton = buttons?.find((button) => button.text === 'Clear all');
-      clearButton?.onPress?.();
-    });
+    jest.useRealTimers();
+    const alertSpy = jest.spyOn(Alert, 'alert');
     const { listSessions, listMessages } = jest.requireMock('../services/hermesChatClient') as {
       listSessions: jest.Mock;
       listMessages: jest.Mock;
@@ -691,6 +733,7 @@ describe('ChatScreen', () => {
 
     fireEvent.press(getByTestId('open-sessions-modal'));
     fireEvent.press(await findByTestId('threads-modal-clear-all'));
+    await confirmAlertButton('Clear all');
 
     await waitFor(() => {
       expect(deleteSession).toHaveBeenCalledWith(
