@@ -25,11 +25,14 @@ render "$SRC/icon-master.svg" "$OUT/icon.png" 1024
 # Android adaptive foreground (transparent PNG; bg from app.json).
 render "$SRC/adaptive-foreground.svg" "$OUT/adaptive-icon.png" 1024
 
+# Android adaptive background (Aurora gradient; pairs with the foreground).
+render "$SRC/adaptive-background.svg" "$OUT/adaptive-background.png" 1024
+
 # Android 13+ themed icon layer.
 render "$SRC/adaptive-monochrome.svg" "$OUT/adaptive-monochrome.png" 1024
 
-# Favicon / web.
-render "$SRC/adaptive-foreground.svg" "$OUT/favicon.png" 48
+# Favicon / web: full tile (transparent foreground would vanish on a white page).
+render "$SRC/icon-master.svg" "$OUT/favicon.png" 48
 
 echo "Wrote:"
-ls -la "$OUT/icon.png" "$OUT/adaptive-icon.png" "$OUT/adaptive-monochrome.png" "$OUT/favicon.png"
+ls -la "$OUT/icon.png" "$OUT/adaptive-icon.png" "$OUT/adaptive-background.png" "$OUT/adaptive-monochrome.png" "$OUT/favicon.png"

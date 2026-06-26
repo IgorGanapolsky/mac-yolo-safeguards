@@ -1,6 +1,7 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024" role="img" aria-label="Hermes Mobile monochrome icon">
-  <rect x="352" y="302" width="92" height="420" rx="46" fill="#FFFFFF"/>
-  <rect x="580" y="302" width="92" height="420" rx="46" fill="#FFFFFF"/>
-  <rect x="352" y="468" width="320" height="88" rx="44" fill="#FFFFFF"/>
-  <circle cx="512" cy="512" r="18" fill="#FFFFFF"/>
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024" role="img" aria-label="Hermes Mobile themed icon">
+  <!-- Android 13+ themed-icon layer: single-color H silhouette on transparent. The system
+       tints this to match the user's wallpaper, so it must be one flat color (no gradients). -->
+  <rect x="336" y="300" width="96" height="424" rx="48" fill="#FFFFFF"/>
+  <rect x="592" y="300" width="96" height="424" rx="48" fill="#FFFFFF"/>
+  <rect x="336" y="466" width="352" height="92" rx="46" fill="#FFFFFF"/>
 </svg>
