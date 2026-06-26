@@ -206,4 +206,23 @@ describe('SettingsScreen', () => {
     const { getByTestId } = render(<SettingsScreen />);
     expect(getByTestId('settings-usb-host-mismatch')).toBeTruthy();
   });
+
+  it('shows Tailscale discovery banner when another Mac is reachable', () => {
+    useGateway.mockReturnValue(
+      mockUseGateway({
+        tailscaleDiscoveries: [
+          {
+            gatewayUrl: 'http://100.94.135.78:8642',
+            hostname: 'Igors-Mac-mini.local',
+            localIp: '192.168.68.56',
+            label: 'Igors-Mac-mini',
+          },
+        ],
+      }),
+    );
+
+    const { getByTestId } = render(<SettingsScreen />);
+    expect(getByTestId('tailscale-discovery-banner')).toBeTruthy();
+    expect(getByTestId('tailscale-add-igors-mac-mini')).toBeTruthy();
+  });
 });

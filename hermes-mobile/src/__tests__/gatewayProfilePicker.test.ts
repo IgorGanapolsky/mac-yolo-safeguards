@@ -177,5 +177,16 @@ describe('gatewayProfilePicker', () => {
         false,
       ),
     ).toBe('Tunnel');
+    expect(
+      profileConnectionRouteLabel(
+        {
+          id: 'tailscale',
+          label: 'Mac mini',
+          gatewayUrl: 'http://100.94.135.78:8642',
+          addedAt: '2026-06-24T12:00:00Z',
+        },
+        false,
+      ),
+    ).toBe('Tailscale');
   });
 });

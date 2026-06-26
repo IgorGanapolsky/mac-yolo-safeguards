@@ -16,9 +16,11 @@ const KEYS = {
   RECENT_PROMPTS: 'hermes-mobile:recent_prompts',
   DISMISSED_PROMPTS: 'hermes-mobile:dismissed_prompts',
   DISMISSED_SESSION_IDS: 'hermes-mobile:dismissed_session_ids',
+  HIDE_CRON_SESSIONS: 'hermes-mobile:hide_cron_sessions',
 };
 
 type DismissedSessionMap = Record<string, string[]>;
+type HideCronSessionMap = Record<string, boolean>;
 
 function gatewayDismissKey(gatewayUrl: string): string {
   try {
@@ -39,6 +41,20 @@ async function loadDismissedSessionMap(): Promise<DismissedSessionMap> {
     return parsed && typeof parsed === 'object' ? parsed : {};
   } catch (error) {
     console.error('[hermes-mobile] loadDismissedSessionIds failed:', error);
+    return {};
+  }
+}
+
+async function loadHideCronSessionMap(): Promise<HideCronSessionMap> {
+  try {
+    const raw = await AsyncStorage.getItem(KEYS.HIDE_CRON_SESSIONS);
+    if (!raw) {
+      return {};
+    }
+    const parsed = JSON.parse(raw) as HideCronSessionMap;
+    return parsed && typeof parsed === 'object' ? parsed : {};
+  } catch (error) {
+    console.error('[hermes-mobile] loadHideCronSessions failed:', error);
     return {};
   }
 }
@@ -100,6 +116,7 @@ export const storage = {
         KEYS.RECENT_PROMPTS,
         KEYS.DISMISSED_PROMPTS,
         KEYS.DISMISSED_SESSION_IDS,
+        KEYS.HIDE_CRON_SESSIONS,
       ]);
       await gatewayProfiles.clear();
     } catch (error) {
@@ -264,6 +281,27 @@ export const storage = {
       await AsyncStorage.setItem(KEYS.DISMISSED_SESSION_IDS, JSON.stringify(map));
     } catch (error) {
       console.error('[hermes-mobile] clearDismissedSessionIds failed:', error);
+    }
+  },
+
+  async loadHideCronSessions(gatewayUrl: string): Promise<boolean> {
+    const key = gatewayDismissKey(gatewayUrl);
+    const map = await loadHideCronSessionMap();
+    return map[key] === true;
+  },
+
+  async setHideCronSessions(gatewayUrl: string, hidden: boolean): Promise<void> {
+    const key = gatewayDismissKey(gatewayUrl);
+    try {
+      const map = await loadHideCronSessionMap();
+      if (hidden) {
+        map[key] = true;
+      } else {
+        delete map[key];
+      }
+      await AsyncStorage.setItem(KEYS.HIDE_CRON_SESSIONS, JSON.stringify(map));
+    } catch (error) {
+      console.error('[hermes-mobile] setHideCronSessions failed:', error);
     }
   },
 };

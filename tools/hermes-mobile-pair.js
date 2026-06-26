@@ -91,14 +91,38 @@ function resolveLanIp(health) {
   throw new Error('Gateway health missing localIp — cannot build LAN URL for phone.');
 }
 
-function buildDeepLink(gatewayUrl, apiKey, hostname, relayCode) {
+function buildDeepLink(gatewayUrl, apiKey, hostname, relayCode, tailnetProbeHosts) {
   const params = new URLSearchParams();
   params.set('url', gatewayUrl);
   if (apiKey) params.set('key', apiKey);
   const displayName = (hostname || '').replace(/\.local$/i, '').trim();
   if (displayName) params.set('name', displayName);
   if (relayCode) params.set('relay', relayCode.trim().toUpperCase());
+  for (const host of tailnetProbeHosts || []) {
+    const trimmed = String(host).trim();
+    if (trimmed) params.append('tailnet', trimmed);
+  }
   return `hermes://setup?${params.toString()}`;
+}
+
+function discoverTailnetProbeHosts() {
+  const script = path.join(__dirname, 'hermes-discover-tailscale-macs.js');
+  const result = spawnSync(process.execPath, [script, '--json'], {
+    encoding: 'utf8',
+    timeout: 30_000,
+  });
+  if (result.status !== 0 || !result.stdout?.trim()) {
+    return [];
+  }
+  try {
+    const payload = JSON.parse(result.stdout);
+    const discoveries = Array.isArray(payload.discoveries) ? payload.discoveries : [];
+    return discoveries
+      .map((item) => item.host || item.gatewayUrl?.replace(/^https?:\/\//i, '').split(':')[0])
+      .filter(Boolean);
+  } catch {
+    return [];
+  }
 }
 
 function adbDevice() {
@@ -134,7 +158,7 @@ function openDeepLinkOnDevice(serial, link) {
   return result.status === 0;
 }
 
-function writePairAssets({ gatewayUrl, lanIp, deepLink, pageUrl, hostname, relayCode }) {
+function writePairAssets({ gatewayUrl, lanIp, deepLink, pageUrl, hostname, relayCode, tailnetProbeHosts }) {
   fs.mkdirSync(OUT_DIR, { recursive: true });
   const displayName = (hostname || '').replace(/\.local$/i, '') || 'Mac';
   const qrPath = path.join(OUT_DIR, 'pair-qr.png');
@@ -155,6 +179,9 @@ function writePairAssets({ gatewayUrl, lanIp, deepLink, pageUrl, hostname, relay
     hostname: displayName,
     localIp: lanIp,
     ...(relayCode ? { relayCode: relayCode.trim().toUpperCase() } : {}),
+    ...(Array.isArray(tailnetProbeHosts) && tailnetProbeHosts.length > 0
+      ? { tailnetProbeHosts }
+      : {}),
   };
   fs.writeFileSync(path.join(OUT_DIR, 'pair.json'), JSON.stringify(pairJson, null, 2));
 
@@ -312,8 +339,13 @@ function main() {
     }
   }
 
+  const tailnetProbeHosts = discoverTailnetProbeHosts();
+  if (tailnetProbeHosts.length > 0) {
+    console.log('  Tailnet Hermes hosts:', tailnetProbeHosts.join(', '));
+  }
+
   const gatewayUrl = usbPairing ? 'http://127.0.0.1:8642' : `http://${lanIp}:8642`;
-  const deepLink = buildDeepLink(gatewayUrl, apiKey, hostname, relayCode);
+  const deepLink = buildDeepLink(gatewayUrl, apiKey, hostname, relayCode, tailnetProbeHosts);
   const pageUrl = `http://${lanIp}:${PAIR_PORT}/pair`;
   const { htmlPath } = writePairAssets({
     gatewayUrl,
@@ -322,6 +354,7 @@ function main() {
     pageUrl,
     hostname,
     relayCode,
+    tailnetProbeHosts,
   });
 
   console.log('Hermes Mobile pairing');

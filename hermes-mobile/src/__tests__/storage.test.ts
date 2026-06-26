@@ -48,4 +48,15 @@ describe('storage', () => {
     await storage.clearDismissedSessionIds('http://127.0.0.1:8642');
     expect(await storage.loadDismissedSessionIds('http://127.0.0.1:8642')).toEqual([]);
   });
+
+  it('persists hide-cron preference per gateway host', async () => {
+    expect(await storage.loadHideCronSessions('http://127.0.0.1:8642')).toBe(false);
+
+    await storage.setHideCronSessions('http://127.0.0.1:8642', true);
+    expect(await storage.loadHideCronSessions('http://127.0.0.1:8642')).toBe(true);
+    expect(await storage.loadHideCronSessions('http://192.168.1.10:8642')).toBe(false);
+
+    await storage.setHideCronSessions('http://127.0.0.1:8642', false);
+    expect(await storage.loadHideCronSessions('http://127.0.0.1:8642')).toBe(false);
+  });
 });

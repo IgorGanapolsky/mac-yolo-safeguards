@@ -24,6 +24,7 @@ import MacPairingHelp from '../components/MacPairingHelp';
 
 import { isDemoModeAllowed } from '../utils/demoModePolicy';
 import GatewayProfilePicker from '../components/GatewayProfilePicker';
+import TailscaleDiscoveryBanner from '../components/TailscaleDiscoveryBanner';
 import { profilesForDevicePicker, detectUsbHostMismatch } from '../utils/gatewayProfilePicker';
 import { setProductAnalyticsOptOut } from '../services/productAnalytics';
 import LoadingButton from '../components/ui/LoadingButton';
@@ -62,6 +63,10 @@ export default function SettingsScreen() {
     removeGatewayProfile,
     scanForGatewayProfiles,
     wifiConnected,
+    tailscaleDiscoveries,
+    tailscaleDiscoveryProbing,
+    probeTailscaleComputers,
+    addDiscoveredTailscaleComputer,
   } = useGateway();
 
   const [cloudUrl, setCloudUrl] = useState(settings.cloudUrl);
@@ -143,8 +148,9 @@ export default function SettingsScreen() {
       const frame = requestAnimationFrame(() => {
         scrollRef.current?.scrollTo({ y: 0, animated: false });
       });
+      void probeTailscaleComputers();
       return () => cancelAnimationFrame(frame);
-    }, []),
+    }, [probeTailscaleComputers]),
   );
 
   useEffect(() => {
@@ -489,6 +495,13 @@ export default function SettingsScreen() {
             </Text>
           </GlassCard>
         ) : null}
+        <TailscaleDiscoveryBanner
+          discoveries={tailscaleDiscoveries}
+          adding={tailscaleDiscoveryProbing}
+          onAdd={(discovery) => {
+            void addDiscoveredTailscaleComputer(discovery);
+          }}
+        />
         <GlassCard>
           <Text style={styles.label}>Your active machines</Text>
           <Text style={styles.description}>

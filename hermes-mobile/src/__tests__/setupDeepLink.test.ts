@@ -50,6 +50,20 @@ describe('setupDeepLink', () => {
     expect(buildRelayDeepLink('moon-dust')).toBe('hermes://relay?relay=MOON-DUST');
   });
 
+  it('builds and parses tailnet probe hosts from setup URLs', () => {
+    const link = buildSetupDeepLink(
+      'http://127.0.0.1:8642',
+      'sk-test',
+      'Igors-MacBook-Pro',
+      undefined,
+      ['100.94.135.78', 'mac-mini.tailnet.ts.net'],
+    );
+    const parsed = parseSetupDeepLink(link);
+    expect(parsed?.tailnetProbeHosts?.sort()).toEqual(
+      ['100.94.135.78', 'mac-mini.tailnet.ts.net'].sort(),
+    );
+  });
+
   it('returns null for non-setup links', () => {
     expect(parseSetupDeepLink('hermes://leash/approve')).toBeNull();
   });

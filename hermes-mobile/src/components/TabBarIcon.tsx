@@ -9,6 +9,8 @@ type TabBarIconProps = {
   size?: number;
 };
 
+const STROKE = 2;
+
 /** Vector-style tab icons without icon-font loading (release-safe). */
 export default function TabBarIcon({
   routeName,
@@ -17,15 +19,16 @@ export default function TabBarIcon({
   size = 22,
 }: TabBarIconProps) {
   if (routeName === 'Chat') {
-    return <HermesRemoteIcon color={color} focused={focused} size={size} />;
+    return <HermesMarkIcon color={color} focused={focused} size={size} />;
   }
   if (routeName === 'Leash') {
-    return <LeashShieldIcon color={color} focused={focused} size={size} />;
+    return <LeashLinkIcon color={color} focused={focused} size={size} />;
   }
-  return <SettingsGearIcon color={color} size={size} />;
+  return <GatewayGearIcon color={color} focused={focused} size={size} />;
 }
 
-function HermesRemoteIcon({
+/** Mini Hermes H — matches launcher mark at tab scale. */
+function HermesMarkIcon({
   color,
   focused,
   size,
@@ -34,31 +37,65 @@ function HermesRemoteIcon({
   focused: boolean;
   size: number;
 }) {
-  const screenW = size * 0.82;
-  const screenH = size * 0.52;
+  const barW = Math.max(3, Math.round(size * 0.16));
+  const barH = Math.round(size * 0.62);
+  const gap = Math.round(size * 0.22);
+  const crossH = Math.max(3, Math.round(size * 0.14));
+  const crossW = barW * 2 + gap;
+  const accent = focused ? colors.accent : color;
+
   return (
     <View style={[styles.box, { width: size, height: size }]}>
-      <View
-        style={[
-          styles.monitor,
-          {
-            width: screenW,
-            height: screenH,
-            borderColor: color,
-            backgroundColor: focused ? 'rgba(99, 102, 241, 0.18)' : 'transparent',
-          },
-        ]}
-      >
-        <View style={[styles.monitorBar, { backgroundColor: color, opacity: 0.55 }]} />
-        <View style={[styles.chip, { borderColor: color, backgroundColor: focused ? colors.accent : 'transparent' }]} />
+      <View style={{ width: crossW, height: barH, alignItems: 'center', justifyContent: 'center' }}>
+        <View
+          style={[
+            styles.crossBar,
+            {
+              width: crossW,
+              height: crossH,
+              borderRadius: crossH / 2,
+              backgroundColor: accent,
+              opacity: focused ? 1 : 0.85,
+            },
+          ]}
+        />
+        <View style={[styles.row, { width: crossW, height: barH, position: 'absolute' }]}>
+          <View
+            style={{
+              width: barW,
+              height: barH,
+              borderRadius: barW / 2,
+              backgroundColor: color,
+            }}
+          />
+          <View style={{ width: gap, height: barH }} />
+          <View
+            style={{
+              width: barW,
+              height: barH,
+              borderRadius: barW / 2,
+              backgroundColor: color,
+            }}
+          />
+        </View>
+        {focused ? (
+          <View
+            style={{
+              position: 'absolute',
+              width: Math.max(4, size * 0.16),
+              height: Math.max(4, size * 0.16),
+              borderRadius: 999,
+              backgroundColor: '#FFFFFF',
+            }}
+          />
+        ) : null}
       </View>
-      <View style={[styles.stand, { backgroundColor: color }]} />
-      <View style={[styles.standFoot, { backgroundColor: color }]} />
     </View>
   );
 }
 
-function LeashShieldIcon({
+/** Interlocking links + approval check — Leash tab. */
+function LeashLinkIcon({
   color,
   focused,
   size,
@@ -67,43 +104,106 @@ function LeashShieldIcon({
   focused: boolean;
   size: number;
 }) {
+  const ring = Math.round(size * 0.34);
+  const stroke = STROKE;
+  const offset = Math.round(size * 0.14);
+
   return (
     <View style={[styles.box, { width: size, height: size }]}>
-      <View
-        style={[
-          styles.shield,
-          {
-            borderColor: color,
-            backgroundColor: focused ? 'rgba(34, 211, 238, 0.14)' : 'transparent',
-          },
-        ]}
-      >
-        <View style={[styles.shieldCheckStem, { backgroundColor: color }]} />
-        <View style={[styles.shieldCheckTick, { borderColor: color }]} />
+      <View style={{ width: ring + offset, height: ring, justifyContent: 'center' }}>
+        <View
+          style={[
+            styles.linkRing,
+            {
+              width: ring,
+              height: ring,
+              borderColor: color,
+              borderWidth: stroke,
+              left: 0,
+              backgroundColor: focused ? 'rgba(34, 211, 238, 0.12)' : 'transparent',
+            },
+          ]}
+        />
+        <View
+          style={[
+            styles.linkRing,
+            {
+              width: ring,
+              height: ring,
+              borderColor: focused ? colors.accent : color,
+              borderWidth: stroke,
+              left: offset,
+              backgroundColor: focused ? 'rgba(99, 102, 241, 0.16)' : 'transparent',
+            },
+          ]}
+        >
+          <View style={[styles.checkStem, { backgroundColor: focused ? colors.accent : color }]} />
+          <View
+            style={[
+              styles.checkTick,
+              { borderColor: focused ? colors.accent : color, borderBottomWidth: stroke, borderRightWidth: stroke },
+            ]}
+          />
+        </View>
       </View>
     </View>
   );
 }
 
-function SettingsGearIcon({ color, size }: { color: string; size: number }) {
-  const hub = size * 0.22;
+/** Gateway gear — Settings tab; 6 teeth, consistent stroke. */
+function GatewayGearIcon({
+  color,
+  focused,
+  size,
+}: {
+  color: string;
+  focused: boolean;
+  size: number;
+}) {
+  const outer = size * 0.72;
+  const hub = size * 0.2;
+  const toothW = Math.max(2, size * 0.12);
+  const toothH = Math.max(3, size * 0.18);
+
   return (
     <View style={[styles.box, { width: size, height: size }]}>
-      <View style={[styles.gearRing, { width: size * 0.72, height: size * 0.72, borderColor: color }]}>
-        <View style={[styles.gearHub, { width: hub, height: hub, backgroundColor: color }]} />
-      </View>
-      {[0, 45, 90, 135].map((deg) => (
+      {[0, 60, 120, 180, 240, 300].map((deg) => (
         <View
           key={deg}
           style={[
             styles.gearTooth,
             {
+              width: toothW,
+              height: toothH,
+              borderRadius: toothW / 2,
               backgroundColor: color,
-              transform: [{ rotate: `${deg}deg` }, { translateY: -(size * 0.34) }],
+              opacity: focused ? 1 : 0.9,
+              transform: [{ rotate: `${deg}deg` }, { translateY: -(outer * 0.46) }],
             },
           ]}
         />
       ))}
+      <View
+        style={[
+          styles.gearRing,
+          {
+            width: outer,
+            height: outer,
+            borderColor: color,
+            borderWidth: STROKE,
+            backgroundColor: focused ? 'rgba(99, 102, 241, 0.12)' : 'transparent',
+          },
+        ]}
+      >
+        <View
+          style={{
+            width: hub,
+            height: hub,
+            borderRadius: 999,
+            backgroundColor: focused ? colors.accent : color,
+          }}
+        />
+      </View>
     </View>
   );
 }
@@ -113,76 +213,38 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  monitor: {
-    borderWidth: 2,
-    borderRadius: 4,
-    overflow: 'hidden',
+  row: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
   },
-  monitorBar: {
+  crossBar: {
     position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: 3,
   },
-  chip: {
-    width: 7,
-    height: 7,
-    borderRadius: 2,
-    borderWidth: 1.5,
-  },
-  stand: {
-    width: 2,
-    height: 4,
-    marginTop: 1,
-  },
-  standFoot: {
-    width: 10,
-    height: 2,
-    borderRadius: 1,
-    marginTop: 0,
-  },
-  shield: {
-    width: 16,
-    height: 18,
-    borderWidth: 2,
-    borderTopLeftRadius: 8,
-    borderTopRightRadius: 8,
-    borderBottomLeftRadius: 10,
-    borderBottomRightRadius: 10,
+  linkRing: {
+    position: 'absolute',
+    borderRadius: 999,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  shieldCheckStem: {
+  checkStem: {
     position: 'absolute',
     width: 2,
     height: 5,
     borderRadius: 1,
-    transform: [{ rotate: '-45deg' }, { translateX: -1 }, { translateY: 1 }],
+    transform: [{ rotate: '-45deg' }, { translateX: -1.5 }, { translateY: 1 }],
   },
-  shieldCheckTick: {
+  checkTick: {
     position: 'absolute',
     width: 4,
     height: 2,
-    borderBottomWidth: 2,
-    borderRightWidth: 2,
-    transform: [{ rotate: '45deg' }, { translateX: 2 }, { translateY: 0 }],
+    transform: [{ rotate: '45deg' }, { translateX: 1.5 }, { translateY: 0 }],
   },
   gearRing: {
-    borderWidth: 2,
     borderRadius: 999,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  gearHub: {
-    borderRadius: 999,
-  },
   gearTooth: {
     position: 'absolute',
-    width: 3,
-    height: 5,
-    borderRadius: 1,
   },
 });

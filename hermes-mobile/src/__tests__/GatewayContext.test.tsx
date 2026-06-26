@@ -8,6 +8,7 @@ import {
   fetchMobileRelayHealth,
   fetchQueue,
 } from '../services/mobileRelayClient';
+import { captureThumbgateFeedback } from '../services/thumbgateClient';
 
 jest.mock('../services/storage');
 jest.mock('../services/secureCredentials');
@@ -68,6 +69,27 @@ jest.mock('../services/hermesGatewayClient', () => ({
 }));
 jest.mock('../services/discover', () => ({
   getPackagerHostIp: jest.fn(() => null),
+}));
+jest.mock('../services/gatewayDiscovery', () => ({
+  discoverAllGatewaysOnLan: jest.fn().mockResolvedValue([]),
+  discoverGatewayOnPhoneSubnet: jest.fn().mockResolvedValue(null),
+  discoverGatewayViaPairServer: jest.fn().mockResolvedValue(null),
+  resolvePairServerMachineName: jest.fn().mockResolvedValue(null),
+  resolvePairServerRelayCode: jest.fn().mockResolvedValue(null),
+}));
+
+jest.mock('../services/tailnetProbeStorage', () => ({
+  tailnetProbeStorage: {
+    load: jest.fn().mockResolvedValue([]),
+    save: jest.fn().mockResolvedValue(undefined),
+    merge: jest.fn().mockResolvedValue([]),
+    clear: jest.fn().mockResolvedValue(undefined),
+  },
+}));
+jest.mock('../services/tailscaleDiscovery', () => ({
+  collectTailnetProbeHosts: jest.fn(() => []),
+  discoverTailscaleGateways: jest.fn().mockResolvedValue([]),
+  filterNewTailscaleDiscoveries: jest.fn((_profiles, discovered) => discovered),
 }));
 jest.mock('../services/signOfLife', () => ({
   emitSignOfLife: jest.fn(),
@@ -194,6 +216,10 @@ describe('GatewayProvider', () => {
   beforeEach(() => {
     MockWebSocket.instances = [];
     (global as unknown as { WebSocket: typeof MockWebSocket }).WebSocket = MockWebSocket;
+
+    const thumbgateIap = jest.requireMock('../services/thumbgateIap');
+    thumbgateIap.syncThumbgateLeashEntitlement.mockResolvedValue(true);
+    (captureThumbgateFeedback as jest.Mock).mockResolvedValue({ accepted: true });
 
     (storage.loadGatewaySettings as jest.Mock).mockResolvedValue({
       connectionMode: 'gateway',
@@ -678,5 +704,138 @@ describe('GatewayProvider', () => {
     await waitFor(() => {
       expect(getByTestId('run-progress-detail').props.children).toBe('none');
     });
+  });
+
+  it('captures chat output feedback when Leash is unlocked and thumbs-down capture is enabled', async () => {
+    (storage.loadGatewaySettings as jest.Mock).mockResolvedValue({
+      connectionMode: 'gateway',
+      cloudUrl: 'https://hermesmobile-cloud.fly.dev',
+      gatewayUrl: 'http://127.0.0.1:8642',
+      usePortal: false,
+      redactPii: true,
+      notificationsEnabled: false,
+      demoMode: false,
+      glanceMode: false,
+      safetyMode: false,
+      thumbgateCaptureOnDown: true,
+      thumbgateCaptureOnUp: false,
+      thumbgateApiUrl: 'https://thumbgate.example.com',
+      thumbgateProActive: true,
+      approvalPolicy: 'balanced',
+      analyticsOptOut: false,
+      includeToolActivity: true,
+    });
+
+    function FeedbackProbe() {
+      const gateway = useGateway();
+      return (
+        <>
+          <Text testID="feedback-loaded">{gateway.isLoaded ? 'yes' : 'no'}</Text>
+          <Text
+            testID="submit-chat-output-down"
+            onPress={() => {
+              void gateway.submitChatOutputFeedback(
+                {
+                  id: 'asst-42',
+                  role: 'assistant',
+                  content: 'Try running npm test again.',
+                },
+                'down',
+                { explanation: 'Wrong command suggested' },
+              );
+            }}
+          >
+            down
+          </Text>
+        </>
+      );
+    }
+
+    const { getByTestId } = render(
+      <GatewayProvider>
+        <FeedbackProbe />
+      </GatewayProvider>,
+    );
+
+    await waitFor(() => {
+      expect(getByTestId('feedback-loaded').props.children).toBe('yes');
+    });
+
+    await act(async () => {
+      fireEvent.press(getByTestId('submit-chat-output-down'));
+    });
+
+    await waitFor(() => {
+      expect(captureThumbgateFeedback).toHaveBeenCalledWith(
+        'https://thumbgate.example.com',
+        expect.objectContaining({
+          signal: 'down',
+          whatWentWrong: 'Wrong command suggested',
+          tags: expect.arrayContaining(['chat-output', 'thumbs-down']),
+        }),
+        expect.any(String),
+      );
+    });
+  });
+
+  it('skips chat output feedback capture when Leash is locked', async () => {
+    (captureThumbgateFeedback as jest.Mock).mockClear();
+    const thumbgateIap = jest.requireMock('../services/thumbgateIap');
+    thumbgateIap.syncThumbgateLeashEntitlement.mockResolvedValue(false);
+    (storage.loadGatewaySettings as jest.Mock).mockResolvedValue({
+      connectionMode: 'gateway',
+      cloudUrl: 'https://hermesmobile-cloud.fly.dev',
+      gatewayUrl: 'http://127.0.0.1:8642',
+      usePortal: false,
+      redactPii: true,
+      notificationsEnabled: false,
+      demoMode: false,
+      glanceMode: false,
+      safetyMode: false,
+      thumbgateCaptureOnDown: true,
+      thumbgateCaptureOnUp: true,
+      thumbgateApiUrl: 'https://thumbgate.example.com',
+      thumbgateProActive: false,
+      developerLeashUnlock: false,
+      approvalPolicy: 'balanced',
+      analyticsOptOut: false,
+      includeToolActivity: true,
+    });
+
+    function FeedbackProbe() {
+      const gateway = useGateway();
+      return (
+        <>
+          <Text testID="feedback-loaded">{gateway.isLoaded ? 'yes' : 'no'}</Text>
+          <Text
+            testID="submit-chat-output-up"
+            onPress={() => {
+              void gateway.submitChatOutputFeedback(
+                { id: 'asst-99', role: 'assistant', content: 'Looks good.' },
+                'up',
+              );
+            }}
+          >
+            up
+          </Text>
+        </>
+      );
+    }
+
+    const { getByTestId } = render(
+      <GatewayProvider>
+        <FeedbackProbe />
+      </GatewayProvider>,
+    );
+
+    await waitFor(() => {
+      expect(getByTestId('feedback-loaded').props.children).toBe('yes');
+    });
+
+    await act(async () => {
+      fireEvent.press(getByTestId('submit-chat-output-up'));
+    });
+
+    expect(captureThumbgateFeedback).not.toHaveBeenCalled();
   });
 });
