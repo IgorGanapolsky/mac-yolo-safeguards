@@ -28,6 +28,19 @@ function renderWithDetailModal(props: React.ComponentProps<typeof ChatMessageBub
 }
 
 describe('ChatMessageBubble', () => {
+  it('opens detail modal when truncated message body is pressed', () => {
+    const { getByText, queryByText } = renderWithDetailModal({
+      content: 'clarify: Did you mean a specific bro…',
+      rawContent: 'clarify: Did you mean to target a specific browser profile?',
+      truncated: true,
+      isUser: false,
+      timeLabel: 'Jun 19, 2026 4:48 PM',
+    });
+
+    fireEvent.press(getByText('clarify: Did you mean a specific bro…'));
+    expect(getByText('clarify: Did you mean to target a specific browser profile?')).toBeTruthy();
+  });
+
   it('opens a screen-level detail modal when Show more is pressed', () => {
     const { getByTestId, getByText, queryByText } = renderWithDetailModal({
       content: 'clarify: Did you mean a specific bro…',

@@ -181,7 +181,7 @@ ${manyLines}
 </untrusted_tool_result>`;
     const display = prepareMessageForChatDisplay(raw);
 
-    // In preview mode, it should be truncated to 8 lines (or max chars 200)
+    // In preview mode, untrusted summaries cap at ~8 lines (char cap is higher now)
     const previewLines = display.content.split('\n');
     expect(previewLines.length).toBeLessThanOrEqual(9); // "run command: " + up to 8 lines
 

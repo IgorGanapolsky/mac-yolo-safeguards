@@ -194,11 +194,14 @@ export function normalizeChatMessage(message: HermesMessage): HermesMessage {
 const PREVIEW_MAX_CHARS = 4000;
 const FULL_MAX_CHARS = 32000;
 
+const PREVIEW_UNTRUSTED_MAX_CHARS = 480;
+const PREVIEW_TOOL_JSON_MAX_CHARS = 480;
+
 function formatMessageBody(content: string, mode: 'preview' | 'full'): string {
   if (!content) return '';
 
-  const untrustedCap = mode === 'full' ? 12000 : 200;
-  const toolJsonCap = mode === 'full' ? 8000 : 280;
+  const untrustedCap = mode === 'full' ? 12000 : PREVIEW_UNTRUSTED_MAX_CHARS;
+  const toolJsonCap = mode === 'full' ? 8000 : PREVIEW_TOOL_JSON_MAX_CHARS;
   const hardCap = mode === 'full' ? FULL_MAX_CHARS : PREVIEW_MAX_CHARS;
 
   const trimmedInput = content.trim();

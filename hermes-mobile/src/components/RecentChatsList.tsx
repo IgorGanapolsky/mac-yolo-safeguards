@@ -3,7 +3,12 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import type { HermesSession } from '../types/chat';
 import type { RunProgressState } from '../types/chatDisplay';
 import { colors } from '../theme/colors';
-import { formatSessionLastActive, isCronBoilerplateText, sessionLastActiveValue } from '../utils/sessionDisplay';
+import {
+  formatSessionLastActive,
+  isCronBoilerplateText,
+  RECENTS_PREVIEW_MAX_CHARS,
+  sessionLastActiveValue,
+} from '../utils/sessionDisplay';
 import {
   sortSessionsForAgentRail,
   threadActivityForSession,
@@ -22,6 +27,8 @@ type RecentChatsListProps = {
   onRenameSession?: (sessionId: string, currentTitle: string) => void;
   onClearAll?: () => void;
   onNewChat?: () => void;
+  /** When true, show header actions even if every session is filtered out of the rail (e.g. cron-only). */
+  showActionsWhenEmpty?: boolean;
   maxItems?: number;
   variant?: 'compact' | 'expanded';
   testID?: string;
@@ -38,7 +45,9 @@ function previewSnippet(session: HermesSession, activityPreview: string | null):
   if (isCronBoilerplateText(raw)) {
     return 'Scheduled cron on your Mac';
   }
-  return raw.length > 72 ? `${raw.slice(0, 72)}…` : raw;
+  return raw.length > RECENTS_PREVIEW_MAX_CHARS
+    ? `${raw.slice(0, RECENTS_PREVIEW_MAX_CHARS)}…`
+    : raw;
 }
 
 export default function RecentChatsList({
@@ -53,6 +62,7 @@ export default function RecentChatsList({
   onRenameSession,
   onClearAll,
   onNewChat,
+  showActionsWhenEmpty = false,
   maxItems = 5,
   variant = 'compact',
   testID = 'recent-chats-list',
@@ -62,7 +72,8 @@ export default function RecentChatsList({
     [sessions, maxItems],
   );
 
-  if (recentSessions.length === 0) {
+  const hasHeaderActions = Boolean(onNewChat || onClearAll);
+  if (recentSessions.length === 0 && !(showActionsWhenEmpty && hasHeaderActions)) {
     return null;
   }
 
@@ -100,6 +111,7 @@ export default function RecentChatsList({
         ) : null}
       </View>
 
+      {recentSessions.length > 0 ? (
       <View style={styles.list}>
         {recentSessions.map((session) => {
           const activity = threadActivityForSession(session, {
@@ -137,14 +149,19 @@ export default function RecentChatsList({
                   <View style={styles.titleRow}>
                     <Text
                       style={[styles.title, active && styles.titleActive]}
-                      numberOfLines={expanded ? 2 : 1}
+                      numberOfLines={2}
+                      ellipsizeMode="tail"
                     >
                       {sessionLabelFor(session)}
                     </Text>
                     {badge ? <Text style={styles.badge}>{badge}</Text> : null}
                   </View>
                   {preview ? (
-                    <Text style={styles.preview} numberOfLines={expanded ? 2 : 1}>
+                    <Text
+                      style={styles.preview}
+                      numberOfLines={expanded ? 3 : 2}
+                      ellipsizeMode="tail"
+                    >
                       {preview}
                     </Text>
                   ) : null}
@@ -177,6 +194,7 @@ export default function RecentChatsList({
           );
         })}
       </View>
+      ) : null}
     </View>
   );
 }
@@ -287,7 +305,8 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: colors.textMuted,
     marginTop: 2,
-    maxWidth: 72,
+    maxWidth: 88,
+    flexShrink: 0,
     textAlign: 'right',
   },
   pressed: {

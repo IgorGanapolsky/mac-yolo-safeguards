@@ -117,6 +117,8 @@ export function useGatewayApprovals() {
   const setChatStreamProgressActive = useGatewaySelector(
     (ctx) => ctx.setChatStreamProgressActive,
   );
+  const submitChatOutputFeedback = useGatewaySelector((ctx) => ctx.submitChatOutputFeedback);
+  const chatOutputFeedbackBusyId = useGatewaySelector((ctx) => ctx.chatOutputFeedbackBusyId);
 
   return useMemo(
     () => ({
@@ -128,6 +130,8 @@ export function useGatewayApprovals() {
       runProgress,
       setRunProgress,
       setChatStreamProgressActive,
+      submitChatOutputFeedback,
+      chatOutputFeedbackBusyId,
     }),
     [
       pendingApprovals,
@@ -138,6 +142,8 @@ export function useGatewayApprovals() {
       runProgress,
       setRunProgress,
       setChatStreamProgressActive,
+      submitChatOutputFeedback,
+      chatOutputFeedbackBusyId,
     ],
   );
 }

@@ -595,7 +595,7 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
 
   const refreshHealth = useCallback(async () => {
     const publishHealth = (snapshot: GatewayHealthSnapshot) => {
-      publishHealth(snapshot);
+      setHealth(snapshot);
       healthRef.current = snapshot;
     };
     const currentSettings = settingsRef.current;
@@ -1349,7 +1349,6 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
       return;
     }
     if (isGatewayHealthOk(healthRef.current)) {
-      setConnectionState('disconnected');
       return;
     }
     const timer = setTimeout(() => {
@@ -1634,6 +1633,11 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
     });
     setGatewayBootstrapPhase(reachable ? 'connected' : 'needs_setup');
     setBootstrapReady(true);
+    if (!reachable) {
+      setConnectionState('disconnected');
+    } else if (isGatewayHealthOk(healthRef.current)) {
+      setConnectionState('disconnected');
+    }
     return reachable;
   }, [
     autoDiscoverGateway,

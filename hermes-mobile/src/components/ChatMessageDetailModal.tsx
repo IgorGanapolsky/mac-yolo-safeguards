@@ -38,7 +38,7 @@ export default function ChatMessageDetailModal({
         <Pressable style={styles.backdropTap} onPress={onClose} accessibilityLabel="Close message details" />
         <SafeAreaView style={styles.sheet} edges={['bottom']}>
           <View style={styles.header}>
-            <Text style={styles.title} numberOfLines={1}>
+            <Text style={styles.title} numberOfLines={2} ellipsizeMode="tail">
               {title}
             </Text>
             <Pressable
@@ -114,9 +114,9 @@ const styles = StyleSheet.create({
     paddingBottom: 28,
   },
   body: {
-    fontSize: 13,
-    lineHeight: 19,
-    color: colors.textSecondary,
+    fontSize: 15,
+    lineHeight: 22,
+    color: colors.text,
     fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
   },
 });

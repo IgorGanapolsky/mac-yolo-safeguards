@@ -33,7 +33,7 @@ export default function SubmittedPromptStrip({
   return (
     <View style={styles.wrap} testID="submitted-prompt-strip">
       <Text style={styles.label}>You sent</Text>
-      <Text style={styles.body} numberOfLines={4} selectable>
+      <Text style={styles.body} numberOfLines={8} ellipsizeMode="tail" selectable>
         {trimmed}
       </Text>
       <Text

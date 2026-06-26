@@ -11,6 +11,12 @@ import type { ChatTextApproval } from '../utils/chatApproval';
 import type { ApprovalChoice } from '../types/approval';
 import type { LeashConnectionState } from '../utils/gatewayEndpoint';
 
+type OutputFeedbackHandlers = {
+  busy?: boolean;
+  onThumbsUp: () => void;
+  onThumbsDown: () => void;
+};
+
 export type ChatMessageListItemProps = {
   item: HermesMessage;
   listIndex: number;
@@ -24,6 +30,7 @@ export type ChatMessageListItemProps = {
   macHttpOk: boolean;
   approvalBusy: boolean;
   isSending: boolean;
+  outputFeedback?: OutputFeedbackHandlers;
   onShowDetail: (body: string, isUser: boolean) => void;
   onInlineTextApproval: (textApproval: ChatTextApproval, choice: ApprovalChoice) => void;
 };
@@ -41,6 +48,7 @@ function ChatMessageListItem({
   macHttpOk,
   approvalBusy,
   isSending,
+  outputFeedback,
   onShowDetail,
   onInlineTextApproval,
 }: ChatMessageListItemProps) {
@@ -111,6 +119,7 @@ function ChatMessageListItem({
       macHttpOk={macHttpOk}
       onShowDetail={(body) => onShowDetail(body, isUser)}
       inlineApproval={inlineApproval}
+      outputFeedback={outputFeedback}
     />
   );
 }
@@ -147,6 +156,9 @@ export default React.memo(ChatMessageListItem, (prev, next) => {
     return false;
   }
   if (prev.isSending !== next.isSending) {
+    return false;
+  }
+  if (prev.outputFeedback !== next.outputFeedback) {
     return false;
   }
   if (prev.messages !== next.messages && prev.isTelegramInbox) {

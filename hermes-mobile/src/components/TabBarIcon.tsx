@@ -9,34 +9,25 @@ type TabBarIconProps = {
   size?: number;
 };
 
-const STROKE = 2;
+type IconProps = { color: string; focused: boolean; size: number };
 
-/** Vector-style tab icons without icon-font loading (release-safe). */
-export default function TabBarIcon({
-  routeName,
-  focused,
-  color,
-  size = 22,
-}: TabBarIconProps) {
+/**
+ * Vector-style tab icons drawn as plain Views (no icon-font; release-safe).
+ * Designed to stay legible at ~22px: bold silhouettes, no fine detail that
+ * turns to mud at tab scale. Mark matches the Aurora launcher (H + cyan core).
+ */
+export default function TabBarIcon({ routeName, focused, color, size = 22 }: TabBarIconProps) {
   if (routeName === 'Chat') {
     return <HermesMarkIcon color={color} focused={focused} size={size} />;
   }
   if (routeName === 'Leash') {
-    return <LeashLinkIcon color={color} focused={focused} size={size} />;
+    return <LeashGateIcon color={color} focused={focused} size={size} />;
   }
-  return <GatewayGearIcon color={color} focused={focused} size={size} />;
+  return <SettingsSlidersIcon color={color} focused={focused} size={size} />;
 }
 
-/** Mini Hermes H — matches launcher mark at tab scale. */
-function HermesMarkIcon({
-  color,
-  focused,
-  size,
-}: {
-  color: string;
-  focused: boolean;
-  size: number;
-}) {
+/** Mini Hermes H + cyan core — mirrors the launcher mark (no center dot). */
+function HermesMarkIcon({ color, focused, size }: IconProps) {
   const barW = Math.max(3, Math.round(size * 0.16));
   const barH = Math.round(size * 0.62);
   const gap = Math.round(size * 0.22);
@@ -60,149 +51,90 @@ function HermesMarkIcon({
           ]}
         />
         <View style={[styles.row, { width: crossW, height: barH, position: 'absolute' }]}>
-          <View
-            style={{
-              width: barW,
-              height: barH,
-              borderRadius: barW / 2,
-              backgroundColor: color,
-            }}
-          />
+          <View style={{ width: barW, height: barH, borderRadius: barW / 2, backgroundColor: color }} />
           <View style={{ width: gap, height: barH }} />
-          <View
-            style={{
-              width: barW,
-              height: barH,
-              borderRadius: barW / 2,
-              backgroundColor: color,
-            }}
-          />
-        </View>
-        {focused ? (
-          <View
-            style={{
-              position: 'absolute',
-              width: Math.max(4, size * 0.16),
-              height: Math.max(4, size * 0.16),
-              borderRadius: 999,
-              backgroundColor: '#FFFFFF',
-            }}
-          />
-        ) : null}
-      </View>
-    </View>
-  );
-}
-
-/** Interlocking links + approval check — Leash tab. */
-function LeashLinkIcon({
-  color,
-  focused,
-  size,
-}: {
-  color: string;
-  focused: boolean;
-  size: number;
-}) {
-  const ring = Math.round(size * 0.34);
-  const stroke = STROKE;
-  const offset = Math.round(size * 0.14);
-
-  return (
-    <View style={[styles.box, { width: size, height: size }]}>
-      <View style={{ width: ring + offset, height: ring, justifyContent: 'center' }}>
-        <View
-          style={[
-            styles.linkRing,
-            {
-              width: ring,
-              height: ring,
-              borderColor: color,
-              borderWidth: stroke,
-              left: 0,
-              backgroundColor: focused ? 'rgba(34, 211, 238, 0.12)' : 'transparent',
-            },
-          ]}
-        />
-        <View
-          style={[
-            styles.linkRing,
-            {
-              width: ring,
-              height: ring,
-              borderColor: focused ? colors.accent : color,
-              borderWidth: stroke,
-              left: offset,
-              backgroundColor: focused ? 'rgba(99, 102, 241, 0.16)' : 'transparent',
-            },
-          ]}
-        >
-          <View style={[styles.checkStem, { backgroundColor: focused ? colors.accent : color }]} />
-          <View
-            style={[
-              styles.checkTick,
-              { borderColor: focused ? colors.accent : color, borderBottomWidth: stroke, borderRightWidth: stroke },
-            ]}
-          />
+          <View style={{ width: barW, height: barH, borderRadius: barW / 2, backgroundColor: color }} />
         </View>
       </View>
     </View>
   );
 }
 
-/** Gateway gear — Settings tab; 6 teeth, consistent stroke. */
-function GatewayGearIcon({
-  color,
-  focused,
-  size,
-}: {
-  color: string;
-  focused: boolean;
-  size: number;
-}) {
-  const outer = size * 0.72;
-  const hub = size * 0.2;
-  const toothW = Math.max(2, size * 0.12);
-  const toothH = Math.max(3, size * 0.18);
+/** Leash = approval gate + check. Bold rounded square + checkmark; reads at tab size. */
+function LeashGateIcon({ color, focused, size }: IconProps) {
+  const box = Math.round(size * 0.64);
+  const radius = Math.round(box * 0.3);
+  const border = Math.max(2, Math.round(size * 0.09));
+  const tickColor = focused ? colors.accent : color;
+  const tickW = Math.max(5, Math.round(size * 0.24));
+  const tickH = Math.max(8, Math.round(size * 0.42));
+  const tickStroke = Math.max(2, Math.round(size * 0.1));
 
   return (
     <View style={[styles.box, { width: size, height: size }]}>
-      {[0, 60, 120, 180, 240, 300].map((deg) => (
-        <View
-          key={deg}
-          style={[
-            styles.gearTooth,
-            {
-              width: toothW,
-              height: toothH,
-              borderRadius: toothW / 2,
-              backgroundColor: color,
-              opacity: focused ? 1 : 0.9,
-              transform: [{ rotate: `${deg}deg` }, { translateY: -(outer * 0.46) }],
-            },
-          ]}
-        />
-      ))}
       <View
-        style={[
-          styles.gearRing,
-          {
-            width: outer,
-            height: outer,
-            borderColor: color,
-            borderWidth: STROKE,
-            backgroundColor: focused ? 'rgba(99, 102, 241, 0.12)' : 'transparent',
-          },
-        ]}
+        style={{
+          width: box,
+          height: box,
+          borderRadius: radius,
+          borderWidth: border,
+          borderColor: color,
+          backgroundColor: focused ? 'rgba(34,211,238,0.10)' : 'transparent',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
       >
+        {/* CSS-style checkmark: an L (right + bottom borders) rotated 45°. */}
         <View
           style={{
-            width: hub,
-            height: hub,
-            borderRadius: 999,
-            backgroundColor: focused ? colors.accent : color,
+            width: tickW,
+            height: tickH,
+            borderRightWidth: tickStroke,
+            borderBottomWidth: tickStroke,
+            borderColor: tickColor,
+            transform: [{ rotate: '45deg' }],
+            marginTop: -Math.round(size * 0.05),
           }}
         />
+      </View>
+    </View>
+  );
+}
+
+/** Settings = sliders (tune). Three faders with knobs; legible, no fuzzy gear teeth. */
+function SettingsSlidersIcon({ color, focused, size }: IconProps) {
+  const lineW = Math.round(size * 0.64);
+  const lineH = Math.max(2, Math.round(size * 0.1));
+  const knob = Math.max(4, Math.round(size * 0.2));
+  const knobColor = focused ? colors.accent : color;
+  const rows = [lineW - knob - 1, Math.round(lineW * 0.32), lineW - knob - 2];
+
+  return (
+    <View style={[styles.box, { width: size, height: size }]}>
+      <View style={{ height: size * 0.7, justifyContent: 'space-between' }}>
+        {rows.map((knobLeft, i) => (
+          <View key={i} style={{ width: lineW, height: knob, justifyContent: 'center' }}>
+            <View
+              style={{
+                width: lineW,
+                height: lineH,
+                borderRadius: lineH / 2,
+                backgroundColor: color,
+                opacity: focused ? 1 : 0.9,
+              }}
+            />
+            <View
+              style={{
+                position: 'absolute',
+                left: knobLeft,
+                width: knob,
+                height: knob,
+                borderRadius: knob / 2,
+                backgroundColor: knobColor,
+              }}
+            />
+          </View>
+        ))}
       </View>
     </View>
   );
@@ -218,33 +150,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   crossBar: {
-    position: 'absolute',
-  },
-  linkRing: {
-    position: 'absolute',
-    borderRadius: 999,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  checkStem: {
-    position: 'absolute',
-    width: 2,
-    height: 5,
-    borderRadius: 1,
-    transform: [{ rotate: '-45deg' }, { translateX: -1.5 }, { translateY: 1 }],
-  },
-  checkTick: {
-    position: 'absolute',
-    width: 4,
-    height: 2,
-    transform: [{ rotate: '45deg' }, { translateX: 1.5 }, { translateY: 0 }],
-  },
-  gearRing: {
-    borderRadius: 999,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  gearTooth: {
     position: 'absolute',
   },
 });

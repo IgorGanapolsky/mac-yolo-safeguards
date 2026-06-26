@@ -7,7 +7,9 @@ import { isConnectivityMessage } from '../utils/chatErrors';
 
 type RunProgressBannerProps = {
   progress: RunProgressState;
-  /** Show model + token counts (off by default — operator/debug only). */
+  /** Fallback LLM id when stream/session only report gateway platform labels. */
+  fallbackModel?: string;
+  /** Show model + token counts on completed/failed runs (always on while active). */
   showTechnicalStats?: boolean;
   onStop?: () => void;
   onDismiss?: () => void;
@@ -31,6 +33,7 @@ function formatTokenSummary(progress: RunProgressState): string | null {
 
 function RunProgressBanner({
   progress,
+  fallbackModel,
   showTechnicalStats = false,
   onStop,
   onDismiss,
@@ -55,9 +58,11 @@ function RunProgressBanner({
   const isActive = !isCompleted && !isFailed;
 
   const durationSec = progress.duration != null ? Math.round(progress.duration * 10) / 10 : elapsed;
-  const modelLabel = displayableLlmModel(progress.model);
+  const modelLabel =
+    displayableLlmModel(progress.model) ?? displayableLlmModel(fallbackModel);
   const tokenLabel = formatTokenSummary(progress);
   const showStats = Boolean(modelLabel || tokenLabel);
+  const showStatsPanel = showStats && (isActive || showTechnicalStats);
 
   const detailLabel = humanizeRunProgressDetail(progress.detail, progress.phase);
   const failedTitle = isFailed ? runProgressFailedTitle(progress.detail) : detailLabel;
@@ -127,13 +132,15 @@ function RunProgressBanner({
         </Text>
       ) : null}
 
-      {showTechnicalStats && showStats ? (
+      {showStatsPanel ? (
         <View style={styles.statsPanel}>
           {modelLabel ? (
             <>
               <View style={styles.statItem}>
                 <Text style={styles.statLabel}>MODEL</Text>
-                <Text style={styles.statValue} numberOfLines={1}>{modelLabel}</Text>
+                <Text style={styles.statValue} numberOfLines={2} ellipsizeMode="tail">
+                  {modelLabel}
+                </Text>
               </View>
               {tokenLabel ? <View style={styles.statDivider} /> : null}
             </>
@@ -152,7 +159,7 @@ function RunProgressBanner({
           <Text style={styles.terminalLabel}>
             {terminalToolName ? `Terminal · ${terminalToolName}` : 'Terminal on your Mac'}
           </Text>
-          <Text style={styles.terminalText} numberOfLines={4} selectable>
+          <Text style={styles.terminalText} numberOfLines={8} ellipsizeMode="tail" selectable>
             {terminalLine}
           </Text>
         </View>
@@ -166,6 +173,7 @@ export default memo(RunProgressBanner, (prev, next) => {
   const b = next.progress;
   return (
     prev.showTechnicalStats === next.showTechnicalStats &&
+    (prev.fallbackModel ?? '') === (next.fallbackModel ?? '') &&
     prev.onStop === next.onStop &&
     prev.onDismiss === next.onDismiss &&
     prev.onRetry === next.onRetry &&

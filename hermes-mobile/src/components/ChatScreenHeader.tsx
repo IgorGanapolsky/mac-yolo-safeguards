@@ -94,7 +94,7 @@ export default function ChatScreenHeader({
           <View style={styles.titleTextRow}>
             <Text
               style={styles.threadTitle}
-              numberOfLines={1}
+              numberOfLines={2}
               ellipsizeMode="tail"
               testID="HERMES CHAT"
             >

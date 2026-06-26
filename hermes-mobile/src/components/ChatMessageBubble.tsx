@@ -115,12 +115,28 @@ function ChatMessageBubble({
             </Text>
           ) : null}
           {resolved.content.trim().length > 0 ? (
-            <Text
-              style={[styles.bubbleText, isUser ? styles.bubbleUserText : styles.bubbleAssistantText]}
-              selectable={false}
-            >
-              {resolved.content}
-            </Text>
+            canExpand ? (
+              <Pressable
+                onPress={openDetails}
+                accessibilityRole="button"
+                accessibilityLabel="Show full message"
+                style={({ pressed }) => pressed && styles.expandPressablePressed}
+              >
+                <Text
+                  style={[styles.bubbleText, isUser ? styles.bubbleUserText : styles.bubbleAssistantText]}
+                  selectable={false}
+                >
+                  {resolved.content}
+                </Text>
+              </Pressable>
+            ) : (
+              <Text
+                style={[styles.bubbleText, isUser ? styles.bubbleUserText : styles.bubbleAssistantText]}
+                selectable={false}
+              >
+                {resolved.content}
+              </Text>
+            )
           ) : null}
           {canExpand ? (
             <Pressable
@@ -244,7 +260,7 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-start',
   },
   bubble: {
-    maxWidth: '88%',
+    maxWidth: '92%',
     borderRadius: 18,
     paddingHorizontal: 14,
     paddingVertical: 10,
@@ -327,6 +343,8 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
     gap: 8,
     marginTop: 8,
+    marginBottom: 2,
+    flexShrink: 0,
   },
   feedbackButton: {
     minWidth: 34,

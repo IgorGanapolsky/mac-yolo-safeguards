@@ -39,6 +39,37 @@ describe('RecentChatsList', () => {
     expect(onClearAll).toHaveBeenCalledTimes(1);
   });
 
+  it('shows Clear all when rail sessions are empty but Mac still has threads', () => {
+    const onClearAll = jest.fn();
+    const { getByTestId, queryByTestId } = render(
+      <RecentChatsList
+        sessions={[]}
+        sessionLabelFor={(session) => session.title ?? session.id}
+        onSelectSession={jest.fn()}
+        onClearAll={onClearAll}
+        showActionsWhenEmpty
+      />,
+    );
+
+    expect(getByTestId('recent-chats-clear-all')).toBeTruthy();
+    expect(queryByTestId('recent-chat-s1')).toBeNull();
+    fireEvent.press(getByTestId('recent-chats-clear-all'));
+    expect(onClearAll).toHaveBeenCalledTimes(1);
+  });
+
+  it('hides the panel when sessions are empty and showActionsWhenEmpty is false', () => {
+    const { queryByTestId } = render(
+      <RecentChatsList
+        sessions={[]}
+        sessionLabelFor={(session) => session.title ?? session.id}
+        onSelectSession={jest.fn()}
+        onClearAll={jest.fn()}
+      />,
+    );
+
+    expect(queryByTestId('recent-chats-list')).toBeNull();
+  });
+
   it('calls onRenameSession when rename pencil is pressed', () => {
     const onRenameSession = jest.fn();
     const { getByTestId } = render(

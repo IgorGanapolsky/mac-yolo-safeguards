@@ -64,7 +64,7 @@ export default function ChatContextStrip({
       >
         <View style={styles.macRow}>
           <Text style={styles.rowIcon}>🖥</Text>
-          <Text style={styles.macLabel} numberOfLines={1} testID="chat-context-mac">
+          <Text style={styles.macLabel} numberOfLines={2} ellipsizeMode="tail" testID="chat-context-mac">
             {machineLabel}
           </Text>
           {onPressMac ? <Text style={styles.switchChevron}>▾</Text> : null}
@@ -80,7 +80,7 @@ export default function ChatContextStrip({
       <View style={styles.row}>
         <Text style={styles.rowIcon}>📁</Text>
         {projectName ? (
-          <Text style={styles.projectLine} numberOfLines={2} testID="chat-context-project">
+          <Text style={styles.projectLine} numberOfLines={3} ellipsizeMode="tail" testID="chat-context-project">
             <Text style={styles.projectName}>{projectName}</Text>
             {workspacePath ? (
               <Text style={styles.workspacePath}> · {workspacePath}</Text>
