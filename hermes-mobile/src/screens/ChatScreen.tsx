@@ -42,7 +42,7 @@ import {
   sendChatMessage,
 } from '../services/hermesChatClient';
 import { chatSendBlockedMessage, humanizeChatError, isConnectivityMessage, isSessionInUseError } from '../utils/chatErrors';
-import { HermesGatewayApiError, deleteSession, forkSession, stopRun, streamSessionChat } from '../services/hermesGatewayClient';
+import { HermesGatewayApiError, deleteSession, forkSession, getCapabilities, stopRun, streamSessionChat } from '../services/hermesGatewayClient';
 import { fetchGatewayHealth } from '../services/gatewayClient';
 import type { HermesSession, HermesMessage } from '../types/chat';
 import type { ChatProject, ChatProjectState } from '../types/chatProject';
@@ -62,6 +62,8 @@ import { buildMobileChatSystemPrompt } from '../utils/workspacePrompt';
 import {
   formatSessionDate,
   formatSessionTitle,
+  isAutomatedCronSession,
+  isRecentsRailSession,
   sessionDisplayTitle,
   sessionPickerLabel,
   sessionLastActiveValue,
@@ -77,6 +79,12 @@ import {
   normalizeMessageText,
 } from '../utils/chatMessageMerge';
 import {
+  resolveChatOutputFeedbackBusyKey,
+  shouldShowChatOutputFeedback,
+} from '../utils/chatOutputFeedback';
+import { isThumbgateLeashUnlocked } from '../utils/thumbgateLeash';
+import {
+  displayableLlmModel,
   humanizeComposerStatus,
   shouldShowComposerProgressBanner,
 } from '../utils/runProgressDisplay';
@@ -220,6 +228,8 @@ export default function ChatScreen() {
     runProgress,
     setRunProgress,
     setChatStreamProgressActive,
+    submitChatOutputFeedback,
+    chatOutputFeedbackBusyId,
   } = useGatewayApprovals();
   const {
     transcriptSyncNonce,
@@ -268,6 +278,7 @@ export default function ChatScreen() {
     toolName?: string;
     text: string;
   } | null>(null);
+  const [gatewayModel, setGatewayModel] = useState<string | undefined>();
   const [isPullRefreshing, setIsPullRefreshing] = useState(false);
   const [connectionPanelRefreshing, setConnectionPanelRefreshing] = useState(false);
   const [telegramInboxMeta, setTelegramInboxMeta] = useState({ threadCount: 0, messageCap: 250 });
@@ -275,6 +286,7 @@ export default function ChatScreen() {
   const [composerFocusNonce, setComposerFocusNonce] = useState(0);
   const [recentChatsDismissed, setRecentChatsDismissed] = useState(false);
   const [dismissedSessionIds, setDismissedSessionIds] = useState<string[]>([]);
+  const [hideCronSessions, setHideCronSessions] = useState(false);
   const [dismissedPrompts, setDismissedPrompts] = useState<string[]>([]);
   const [messageDetail, setMessageDetail] = useState<{ title: string; body: string } | null>(null);
 
@@ -393,6 +405,28 @@ export default function ChatScreen() {
     }
     return settings.demoMode || connectionState === 'demo';
   }, [settings.demoMode, connectionState]);
+
+  useEffect(() => {
+    if (isDemo || !gatewayUrl.trim()) {
+      setGatewayModel(undefined);
+      return;
+    }
+    let cancelled = false;
+    void getCapabilities(gatewayUrl, apiKey)
+      .then((caps) => {
+        if (cancelled) {
+          return;
+        }
+        const model = displayableLlmModel(caps.model);
+        if (model) {
+          setGatewayModel(model);
+        }
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [apiKey, gatewayUrl, isDemo]);
 
   const macHttpOk = useMemo(() => isMacGatewayHttpOk(health), [health]);
   const healthProbePending = useMemo(() => isGatewayHealthPending(health), [health]);
@@ -839,8 +873,21 @@ export default function ChatScreen() {
       const filtered = projectSessions(sessions, projectState, activeProject.id);
       list = filtered.length > 0 ? filtered : sessions;
     }
-    return list.filter((session) => !dismissed.has(session.id));
-  }, [sessions, projectState, activeProject, dismissedSessionIds]);
+    return list.filter((session) => {
+      if (dismissed.has(session.id)) {
+        return false;
+      }
+      if (hideCronSessions && isAutomatedCronSession(session)) {
+        return false;
+      }
+      return true;
+    });
+  }, [sessions, projectState, activeProject, dismissedSessionIds, hideCronSessions]);
+
+  const recentsRailSessions = useMemo(
+    () => visibleSessions.filter((session) => isRecentsRailSession(session)),
+    [visibleSessions],
+  );
 
   const hasAssistantReply = useMemo(
     () => hasAssistantReplyInMessages(messages),
@@ -1135,12 +1182,17 @@ export default function ChatScreen() {
   useEffect(() => {
     if (isDemo) {
       setDismissedSessionIds([]);
+      setHideCronSessions(false);
       return;
     }
     let cancelled = false;
-    void storage.loadDismissedSessionIds(gatewayUrl).then((ids) => {
+    void Promise.all([
+      storage.loadDismissedSessionIds(gatewayUrl),
+      storage.loadHideCronSessions(gatewayUrl),
+    ]).then(([ids, hideCron]) => {
       if (!cancelled) {
         setDismissedSessionIds(ids);
+        setHideCronSessions(hideCron);
       }
     });
     return () => {
@@ -1811,24 +1863,30 @@ export default function ChatScreen() {
       }
 
       const deletable = sessionsRef.current.filter((session) => !isTelegramInboxSession(session));
+      const attemptedIds = deletable.map((session) => session.id);
       let failed = 0;
-      const locallyDismissed: string[] = [];
+      const failedIds: string[] = [];
       for (const session of deletable) {
         try {
           await deleteSession(gatewayUrl, session.id, apiKey);
         } catch {
           failed += 1;
-          locallyDismissed.push(session.id);
+          failedIds.push(session.id);
         }
       }
 
-      if (failed === 0) {
-        await storage.clearDismissedSessionIds(gatewayUrl);
-        setDismissedSessionIds([]);
-      } else if (locallyDismissed.length > 0) {
-        await storage.addDismissedSessionIds(gatewayUrl, locallyDismissed);
-        setDismissedSessionIds((prev) => [...new Set([...prev, ...locallyDismissed])]);
+      if (attemptedIds.length > 0) {
+        await storage.addDismissedSessionIds(gatewayUrl, attemptedIds);
+        setDismissedSessionIds((prev) => [...new Set([...prev, ...attemptedIds])]);
       }
+
+      if (deletable.some((session) => isAutomatedCronSession(session))) {
+        await storage.setHideCronSessions(gatewayUrl, true);
+        setHideCronSessions(true);
+      }
+
+      const nextState = clearAllSessionBindings(projectState);
+      await persistProjectState(nextState);
 
       await loadSessionsList(true);
       if (failed > 0) {
@@ -2101,11 +2159,69 @@ export default function ChatScreen() {
     });
   }, []);
 
+  const leashUnlocked = isThumbgateLeashUnlocked(settings);
+
+  const submitChatOutputFeedbackForMessage = useCallback(
+    async (message: HermesMessage, signal: 'up' | 'down', explanation?: string) => {
+      haptics.selection();
+      await submitChatOutputFeedback(message, signal, {
+        session: currentSession,
+        explanation,
+      });
+    },
+    [currentSession, submitChatOutputFeedback],
+  );
+
+  const promptChatOutputDownFeedback = useCallback(
+    (message: HermesMessage) => {
+      const submit = (explanation?: string) => {
+        void submitChatOutputFeedbackForMessage(message, 'down', explanation);
+      };
+      if (Platform.OS === 'ios' && typeof Alert.prompt === 'function') {
+        Alert.prompt(
+          'What went wrong?',
+          'Optional — helps ThumbGate learn from this output.',
+          [
+            { text: 'Cancel', style: 'cancel' },
+            { text: 'Submit', onPress: (text?: string) => submit(text?.trim() || undefined) },
+          ],
+          'plain-text',
+        );
+        return;
+      }
+      Alert.alert('Mark as unhelpful?', 'Send this feedback to ThumbGate.', [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Submit', onPress: () => submit(undefined) },
+      ]);
+    },
+    [submitChatOutputFeedbackForMessage],
+  );
+
   const isTelegramInbox = isTelegramInboxSession(currentSession);
 
   const renderChatMessageItem = useCallback(
     ({ item, index }: { item: HermesMessage; index: number }) => {
       const inlineNudge = inlineTextApprovals.get(index);
+      const isStreamingAssistant =
+        isSending &&
+        item.role?.toLowerCase() === 'assistant' &&
+        index === messages.length - 1;
+      const showOutputFeedback = shouldShowChatOutputFeedback(item, {
+        leashUnlocked,
+        isStreamingAssistant,
+      });
+      const busyKey = resolveChatOutputFeedbackBusyKey(item);
+      const outputFeedback = showOutputFeedback
+        ? {
+            busy: chatOutputFeedbackBusyId === busyKey,
+            onThumbsUp: () => {
+              void submitChatOutputFeedbackForMessage(item, 'up');
+            },
+            onThumbsDown: () => {
+              promptChatOutputDownFeedback(item);
+            },
+          }
+        : undefined;
       return (
         <ChatMessageListItem
           item={item}
@@ -2120,6 +2236,7 @@ export default function ChatScreen() {
           macHttpOk={macHttpOk}
           approvalBusy={approvalBusy}
           isSending={isSending}
+          outputFeedback={outputFeedback}
           onShowDetail={handleShowMessageDetail}
           onInlineTextApproval={handleInlineTextApproval}
         />
@@ -2134,6 +2251,10 @@ export default function ChatScreen() {
       macHttpOk,
       approvalBusy,
       isSending,
+      leashUnlocked,
+      chatOutputFeedbackBusyId,
+      submitChatOutputFeedbackForMessage,
+      promptChatOutputDownFeedback,
       handleShowMessageDetail,
       handleInlineTextApproval,
     ],
@@ -2923,6 +3044,14 @@ export default function ChatScreen() {
     return null;
   }, [runProgress, currentSession?.id, currentSession?.model, currentSession?.input_tokens, currentSession?.output_tokens, telegramReplySessionId, isSending, queuedOutboundCount]);
 
+  const progressBannerFallbackModel = useMemo(
+    () =>
+      displayableLlmModel(currentSession?.model) ??
+      displayableLlmModel(gatewayModel) ??
+      undefined,
+    [currentSession?.model, gatewayModel],
+  );
+
   const showComposerProgressBanner = useMemo(
     () => shouldShowComposerProgressBanner(progressBanner, isSending),
     [progressBanner, isSending],
@@ -3085,7 +3214,7 @@ export default function ChatScreen() {
     }
     return (
       <RecentChatsList
-        sessions={visibleSessions}
+        sessions={recentsRailSessions}
         currentSessionId={currentSession?.id}
         sessionLabelFor={sessionLabelFor}
         runProgress={progressBanner}
@@ -3096,6 +3225,7 @@ export default function ChatScreen() {
         onRenameSession={handleRenameSession}
         onClearAll={handleClearAllChats}
         onNewChat={handleNewChat}
+        showActionsWhenEmpty={visibleSessions.length > 0}
         maxItems={12}
         variant="expanded"
         testID="chat-empty-recent-chats"
@@ -3103,7 +3233,7 @@ export default function ChatScreen() {
     );
   }, [
     showRecentChatsPanel,
-    visibleSessions,
+    recentsRailSessions,
     currentSession?.id,
     sessionLabelFor,
     progressBanner,
@@ -3114,6 +3244,7 @@ export default function ChatScreen() {
     handleRenameSession,
     handleClearAllChats,
     handleNewChat,
+    visibleSessions.length,
   ]);
 
   useEffect(() => {
@@ -3170,7 +3301,7 @@ export default function ChatScreen() {
     };
 
     void pollSessionUsage();
-    const timer = setInterval(pollSessionUsage, 2500);
+    const timer = setInterval(pollSessionUsage, 1000);
     return () => {
       cancelled = true;
       clearInterval(timer);
@@ -3292,6 +3423,7 @@ export default function ChatScreen() {
                 contentContainerStyle={[
                   styles.emptyPlaceholder,
                   showRecentChatsPanel ? styles.emptyPlaceholderRecent : null,
+                  keyboardOpen ? styles.emptyPlaceholderKeyboardOpen : null,
                 ]}
                 keyboardShouldPersistTaps="handled"
                 testID="chat-empty-state"
@@ -3401,6 +3533,7 @@ export default function ChatScreen() {
         {showComposerProgressBanner && progressBanner ? (
           <RunProgressBanner
             progress={progressBanner}
+            fallbackModel={progressBannerFallbackModel}
             showTechnicalStats={settings.includeToolActivity}
             onStop={isRunActive && (runProgress?.runId || progressBanner.runId) ? handleStopRun : undefined}
             onDismiss={clearFailedOutboundState}
@@ -3618,7 +3751,7 @@ export default function ChatScreen() {
                   <Text style={styles.clearingText}>Clearing…</Text>
                 </View>
               ) : (
-                visibleSessions.length > 0 && (
+                visibleSessions.length > 0 ? (
                   <TouchableOpacity
                     style={[styles.clearAllBtn, { flex: 1, marginBottom: 0 }]}
                     onPress={handleClearAllChats}
@@ -3626,7 +3759,7 @@ export default function ChatScreen() {
                   >
                     <Text style={styles.clearAllBtnText}>Clear all</Text>
                   </TouchableOpacity>
-                )
+                ) : null
               )}
             </View>
 
@@ -4049,6 +4182,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 12,
     paddingBottom: 24,
+  },
+  emptyPlaceholderKeyboardOpen: {
+    justifyContent: 'flex-start',
+    paddingTop: 12,
   },
   emptyPlaceholderText: {
     fontSize: 15,

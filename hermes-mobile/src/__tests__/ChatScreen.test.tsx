@@ -42,6 +42,8 @@ const mockGatewayState = {
   runProgress: null,
   setRunProgress: jest.fn(),
   setChatStreamProgressActive: jest.fn(),
+  submitChatOutputFeedback: jest.fn().mockResolvedValue(true),
+  chatOutputFeedbackBusyId: null,
   addGatewayListener: jest.fn(),
   removeGatewayListener: jest.fn(),
   refreshHealth: jest.fn().mockResolvedValue(undefined),
@@ -92,6 +94,8 @@ jest.mock('../hooks/useGatewaySelector', () => ({
     runProgress: mockGatewayState.runProgress,
     setRunProgress: mockGatewayState.setRunProgress,
     setChatStreamProgressActive: mockGatewayState.setChatStreamProgressActive,
+    submitChatOutputFeedback: mockGatewayState.submitChatOutputFeedback,
+    chatOutputFeedbackBusyId: mockGatewayState.chatOutputFeedbackBusyId,
   }),
   useGatewayChatSync: () => ({
     transcriptSyncNonce: 0,
@@ -140,6 +144,8 @@ jest.mock('../services/storage', () => ({
     addDismissedSessionIds: jest.fn().mockResolvedValue(undefined),
     removeDismissedSessionIds: jest.fn().mockResolvedValue(undefined),
     clearDismissedSessionIds: jest.fn().mockResolvedValue(undefined),
+    loadHideCronSessions: jest.fn().mockResolvedValue(false),
+    setHideCronSessions: jest.fn().mockResolvedValue(undefined),
   },
 }));
 
@@ -214,6 +220,7 @@ jest.mock('../services/hermesGatewayClient', () => ({
     }
   },
   deleteSession: jest.fn().mockResolvedValue(undefined),
+  getCapabilities: jest.fn().mockResolvedValue({ features: {} }),
   forkSession: jest.fn(),
   stopRun: jest.fn(),
   streamSessionChat: jest.fn(),
@@ -561,5 +568,144 @@ describe('ChatScreen', () => {
       expect(getAllByText('Updated Thread Name').length).toBeGreaterThanOrEqual(1);
       expect(queryByText('hermes-mobile')).toBeNull();
     });
+  });
+
+  it('shows Clear all in recents when only cron sessions exist on Mac', async () => {
+    const { listSessions, listMessages } = jest.requireMock('../services/hermesChatClient') as {
+      listSessions: jest.Mock;
+      listMessages: jest.Mock;
+    };
+    const { chatProjects } = jest.requireMock('../services/chatProjects') as {
+      chatProjects: { load: jest.Mock };
+    };
+
+    listSessions.mockResolvedValueOnce([
+      {
+        id: 'cron_abc123',
+        source: 'cron',
+        title: '[IMPORTANT: You are running as a scheduled cron job',
+        last_active_at: '2026-06-23T12:00:00Z',
+      },
+    ]);
+    listMessages.mockResolvedValueOnce([]);
+    chatProjects.load.mockResolvedValueOnce({
+      projects: [
+        {
+          id: 'demo-hermes-mobile',
+          name: 'hermes-mobile',
+          workspacePath: '~/workspace/git/igor/mac-yolo-safeguards/hermes-mobile',
+          sessionIds: [],
+          activeSessionId: undefined,
+        },
+      ],
+      sessionProjectMap: {},
+      sessionLabels: {},
+      activeProjectId: 'demo-hermes-mobile',
+    });
+
+    Object.assign(mockGatewayState, {
+      connectionState: 'connected',
+      health: { ok: true, level: 'green', hostname: 'demo-mac.local', localIp: '127.0.0.1', checkedAt: '2026-06-26T00:00:00Z' },
+      settings: {
+        demoMode: false,
+        connectionMode: 'gateway',
+        gatewayUrl: 'http://localhost:8642',
+        cloudUrl: 'https://hermesmobile-cloud.fly.dev',
+        approvalPolicy: 'balanced',
+      },
+    });
+
+    const { findByTestId, queryByTestId } = renderInTabNavigator(ChatScreen, 'Chat');
+
+    expect(await findByTestId('recent-chats-clear-all')).toBeTruthy();
+    expect(queryByTestId('recent-chat-cron_abc123')).toBeNull();
+  });
+
+  it('clear all deletes cron-only Mac sessions and keeps them dismissed', async () => {
+    const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation((_title, _message, buttons) => {
+      const clearButton = buttons?.find((button) => button.text === 'Clear all');
+      clearButton?.onPress?.();
+    });
+    const { listSessions, listMessages } = jest.requireMock('../services/hermesChatClient') as {
+      listSessions: jest.Mock;
+      listMessages: jest.Mock;
+    };
+    const { deleteSession } = jest.requireMock('../services/hermesGatewayClient') as {
+      deleteSession: jest.Mock;
+    };
+    const { storage } = jest.requireMock('../services/storage') as {
+      storage: {
+        addDismissedSessionIds: jest.Mock;
+        clearDismissedSessionIds: jest.Mock;
+        setHideCronSessions: jest.Mock;
+      };
+    };
+    const { chatProjects } = jest.requireMock('../services/chatProjects') as {
+      chatProjects: { load: jest.Mock; save: jest.Mock };
+    };
+
+    const cronSession = {
+      id: 'cron_abc123',
+      source: 'cron',
+      title: '[IMPORTANT: You are running as a scheduled cron job',
+      last_active_at: '2026-06-23T12:00:00Z',
+    };
+
+    listSessions.mockResolvedValue([cronSession]);
+    listMessages.mockResolvedValue([]);
+    deleteSession.mockClear();
+    storage.addDismissedSessionIds.mockClear();
+    storage.clearDismissedSessionIds.mockClear();
+    storage.setHideCronSessions.mockClear();
+    chatProjects.load.mockResolvedValueOnce({
+      projects: [
+        {
+          id: 'demo-hermes-mobile',
+          name: 'hermes-mobile',
+          workspacePath: '~/workspace/git/igor/mac-yolo-safeguards/hermes-mobile',
+          sessionIds: [],
+          activeSessionId: undefined,
+        },
+      ],
+      sessionProjectMap: {},
+      sessionLabels: {},
+      activeProjectId: 'demo-hermes-mobile',
+    });
+    chatProjects.save.mockClear();
+
+    Object.assign(mockGatewayState, {
+      connectionState: 'connected',
+      health: { ok: true, level: 'green', hostname: 'demo-mac.local', localIp: '127.0.0.1', checkedAt: '2026-06-26T00:00:00Z' },
+      settings: {
+        demoMode: false,
+        connectionMode: 'gateway',
+        gatewayUrl: 'http://localhost:8642',
+        cloudUrl: 'https://hermesmobile-cloud.fly.dev',
+        approvalPolicy: 'balanced',
+      },
+    });
+
+    const { findByTestId, getByTestId } = renderInTabNavigator(ChatScreen, 'Chat');
+
+    expect(await findByTestId('recent-chats-clear-all')).toBeTruthy();
+
+    fireEvent.press(getByTestId('open-sessions-modal'));
+    fireEvent.press(await findByTestId('threads-modal-clear-all'));
+
+    await waitFor(() => {
+      expect(deleteSession).toHaveBeenCalledWith(
+        'http://localhost:8642',
+        'cron_abc123',
+        'test-api-key',
+      );
+      expect(storage.addDismissedSessionIds).toHaveBeenCalledWith(
+        'http://localhost:8642',
+        ['cron_abc123'],
+      );
+      expect(storage.setHideCronSessions).toHaveBeenCalledWith('http://localhost:8642', true);
+      expect(storage.clearDismissedSessionIds).not.toHaveBeenCalled();
+    });
+
+    alertSpy.mockRestore();
   });
 });
