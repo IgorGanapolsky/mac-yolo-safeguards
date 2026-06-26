@@ -26,8 +26,9 @@
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundImage": "./assets/adaptive-background.png",
         "monochromeImage": "./assets/adaptive-monochrome.png",
-        "backgroundColor": "#0B0F19"
+        "backgroundColor": "#4F46E5"
       },
       "package": "com.iganapolsky.hermesmobile",
       "versionCode": 5,

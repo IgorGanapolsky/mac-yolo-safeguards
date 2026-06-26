@@ -1,33 +1,25 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024" role="img" aria-label="Hermes Mobile app icon">
+  <!-- Aurora direction (2026-06-26): saturated indigo tile + crisp white H + cyan "core".
+       No Gaussian glow (mud at small sizes); high figure/ground contrast so it pops in the
+       home grid instead of vanishing on dark wallpapers. Square master; platforms mask corners. -->
   <defs>
-    <linearGradient id="barBlue" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%" stop-color="#818CF8"/>
-      <stop offset="100%" stop-color="#4F46E5"/>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#7C7DF9"/>
+      <stop offset="55%" stop-color="#5B53E6"/>
+      <stop offset="100%" stop-color="#3A2FB8"/>
     </linearGradient>
-    <linearGradient id="barCyan" x1="0" y1="0" x2="1" y2="0">
-      <stop offset="0%" stop-color="#22D3EE"/>
-      <stop offset="50%" stop-color="#67E8F9"/>
+    <linearGradient id="sheen" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.20"/>
+      <stop offset="42%" stop-color="#FFFFFF" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="cyan" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#67E8F9"/>
       <stop offset="100%" stop-color="#22D3EE"/>
     </linearGradient>
-    <radialGradient id="coreGlow" cx="50%" cy="50%" r="50%">
-      <stop offset="0%" stop-color="#FFFFFF"/>
-      <stop offset="45%" stop-color="#A5F3FC"/>
-      <stop offset="100%" stop-color="#22D3EE" stop-opacity="0"/>
-    </radialGradient>
-    <filter id="softGlow" x="-30%" y="-30%" width="160%" height="160%">
-      <feGaussianBlur stdDeviation="18" result="blur"/>
-      <feMerge>
-        <feMergeNode in="blur"/>
-        <feMergeNode in="SourceGraphic"/>
-      </feMerge>
-    </filter>
   </defs>
-  <rect width="1024" height="1024" fill="#0B0F19"/>
-  <g filter="url(#softGlow)">
-    <rect x="352" y="302" width="92" height="420" rx="46" fill="url(#barBlue)"/>
-    <rect x="580" y="302" width="92" height="420" rx="46" fill="url(#barBlue)"/>
-    <rect x="352" y="468" width="320" height="88" rx="44" fill="url(#barCyan)"/>
-    <circle cx="512" cy="512" r="34" fill="url(#coreGlow)"/>
-    <circle cx="512" cy="512" r="14" fill="#FFFFFF"/>
-  </g>
+  <rect width="1024" height="1024" fill="url(#bg)"/>
+  <rect width="1024" height="1024" fill="url(#sheen)"/>
+  <rect x="336" y="300" width="96" height="424" rx="48" fill="#FFFFFF"/>
+  <rect x="592" y="300" width="96" height="424" rx="48" fill="#FFFFFF"/>
+  <rect x="336" y="466" width="352" height="92" rx="46" fill="url(#cyan)"/>
 </svg>
