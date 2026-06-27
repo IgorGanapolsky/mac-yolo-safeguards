@@ -1,6 +1,6 @@
 import { Platform } from 'react-native';
 import { isPrivateLanGatewayUrl } from './gatewayEndpoint';
-import { isLoopbackGatewayUrl } from './gatewayUrlPolicy';
+import { buildGatewayUrlFromLanIp, isLoopbackGatewayUrl } from './gatewayUrlPolicy';
 
 export const USB_LOOPBACK_GATEWAY_URL = 'http://127.0.0.1:8642';
 
@@ -18,4 +18,31 @@ export function usbLoopbackFallbackUrls(primaryUrl: string): string[] {
     return [];
   }
   return [USB_LOOPBACK_GATEWAY_URL];
+}
+
+/** When USB adb reverse is down but phone is on Wi‑Fi, try saved LAN addresses. */
+export function wifiLanFallbackUrls(input: {
+  primaryUrl: string;
+  wifiConnected: boolean;
+  lastLanIp?: string | null;
+  profileLanIps?: Array<string | null | undefined>;
+}): string[] {
+  if (Platform.OS === 'web' || !input.wifiConnected || !isLoopbackGatewayUrl(input.primaryUrl)) {
+    return [];
+  }
+  const seen = new Set<string>([input.primaryUrl.trim()]);
+  const urls: string[] = [];
+  for (const rawIp of [input.lastLanIp, ...(input.profileLanIps ?? [])]) {
+    const ip = rawIp?.trim();
+    if (!ip) {
+      continue;
+    }
+    const url = buildGatewayUrlFromLanIp(ip);
+    if (seen.has(url)) {
+      continue;
+    }
+    seen.add(url);
+    urls.push(url);
+  }
+  return urls;
 }

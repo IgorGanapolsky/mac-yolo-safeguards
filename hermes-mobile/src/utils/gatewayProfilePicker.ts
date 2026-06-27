@@ -111,6 +111,39 @@ export function resolveUsbMatchingProfileId(input: {
   return detectUsbHostMismatch(input)?.matchingProfileId ?? null;
 }
 
+/** True when saved URL is USB loopback but phone is on Wi‑Fi — prefer LAN search, not USB repair. */
+export function shouldOfferUsbLinkRepair(input: {
+  gatewayUrl: string;
+  wifiConnected: boolean;
+  macHttpOk: boolean;
+}): boolean {
+  if (!isLoopbackGatewayUrl(input.gatewayUrl) || input.macHttpOk) {
+    return false;
+  }
+  return !input.wifiConnected;
+}
+
+export function profileMatchesDiscoveredGateway(
+  profile: GatewayProfile,
+  discovered: { gatewayUrl: string; hostname?: string; label?: string; localIp?: string },
+): boolean {
+  if (isLoopbackGatewayUrl(discovered.gatewayUrl)) {
+    return false;
+  }
+  const hostNeedle = discovered.hostname?.trim();
+  if (hostNeedle && profileMatchesHostname(profile, hostNeedle)) {
+    return true;
+  }
+  const labelNeedle = discovered.label?.trim();
+  if (labelNeedle && profileMatchesHostname(profile, labelNeedle)) {
+    return true;
+  }
+  const discoveredIp =
+    discovered.localIp?.trim() || extractLanIpFromGatewayUrl(discovered.gatewayUrl);
+  const profileIp = profile.localIp?.trim() || extractLanIpFromGatewayUrl(profile.gatewayUrl);
+  return Boolean(discoveredIp && profileIp && discoveredIp === profileIp);
+}
+
 export function profileMatchesHostname(profile: GatewayProfile, hostname: string): boolean {
   const haystack = [
     profile.hostname,

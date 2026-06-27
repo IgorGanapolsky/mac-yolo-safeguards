@@ -173,6 +173,25 @@ describe('gatewayProfiles', () => {
     expect(state.profiles[0].label).toBe('Igors-MacBook-Pro');
   });
 
+  it('promotes loopback saved profile to LAN URL when the same Mac is discovered', () => {
+    let state = upsertDiscoveredProfile(EMPTY_GATEWAY_PROFILE_STATE, {
+      gatewayUrl: 'http://127.0.0.1:8642',
+      hostname: 'Igors-MacBook-Pro',
+      label: 'Igors-MacBook-Pro',
+    }, true);
+    expect(state.profiles).toHaveLength(1);
+    expect(state.profiles[0].gatewayUrl).toBe('http://127.0.0.1:8642');
+
+    state = upsertDiscoveredProfile(state, {
+      gatewayUrl: 'http://192.168.1.42:8642',
+      hostname: 'Igors-MacBook-Pro.local',
+      localIp: '192.168.1.42',
+    }, true);
+    expect(state.profiles).toHaveLength(1);
+    expect(state.profiles[0].gatewayUrl).toBe('http://192.168.1.42:8642');
+    expect(state.profiles[0].label).toBe('Igors-MacBook-Pro');
+  });
+
   it('prefers hostname for loopback profile if hostname is present and label is Mac via USB', () => {
     const name = profileDisplayName({
       id: 'mac_127_0_0_1',

@@ -171,20 +171,46 @@ export function findProfileForGatewayUrl(
   });
 }
 
+function normalizeMachineKey(value: string | undefined): string | undefined {
+  const trimmed = value?.trim().toLowerCase().replace(/\.local$/i, '');
+  return trimmed && trimmed !== 'localhost' ? trimmed : undefined;
+}
+
+function profileMachineKey(profile: GatewayProfile): string | undefined {
+  return (
+    normalizeMachineKey(profile.hostname) ||
+    (profile.label && !isGenericMachineLabel(profile.label)
+      ? normalizeMachineKey(profile.label)
+      : undefined)
+  );
+}
+
 function profileDedupeKey(profile: GatewayProfile): string {
   const ip = profile.localIp?.trim() || extractLanIpFromGatewayUrl(profile.gatewayUrl);
   if (ip && !isLoopbackHost(ip)) {
     return `ip:${ip}`;
   }
-  const hostname = profile.hostname?.trim().toLowerCase();
-  if (hostname && hostname !== 'localhost') {
-    return `host:${hostname}`;
+  const machineKey = profileMachineKey(profile);
+  if (machineKey) {
+    return `host:${machineKey}`;
   }
   return `url:${normalizeGatewayUrlBase(profile.gatewayUrl)}`;
 }
 
+function preferredGatewayUrl(a: string, b: string): string {
+  const aLoop = isLoopbackGatewayUrl(a);
+  const bLoop = isLoopbackGatewayUrl(b);
+  if (aLoop && !bLoop) {
+    return normalizeGatewayUrlBase(b);
+  }
+  if (!aLoop && bLoop) {
+    return normalizeGatewayUrlBase(a);
+  }
+  return normalizeGatewayUrlBase(a || b);
+}
+
 function mergeProfileRecords(a: GatewayProfile, b: GatewayProfile): GatewayProfile {
-  const gatewayUrl = normalizeGatewayUrlBase(a.gatewayUrl || b.gatewayUrl);
+  const gatewayUrl = preferredGatewayUrl(a.gatewayUrl, b.gatewayUrl);
   const hostname = a.hostname?.trim() || b.hostname?.trim();
   const localIp =
     a.localIp?.trim() ||
@@ -257,6 +283,9 @@ export function upsertDiscoveredProfile(
     gatewayUrlHostname(gatewayUrl) ||
     'Mac';
 
+  const discoveredMachineKey =
+    normalizeMachineKey(hostname) || normalizeMachineKey(label) || undefined;
+
   const existing = state.profiles.find((p) => {
     if (p.id === id) {
       return true;
@@ -276,6 +305,14 @@ export function upsertDiscoveredProfile(
       return true;
     }
     if (hostname && p.hostname && hostname.toLowerCase() === p.hostname.toLowerCase() && hostname.toLowerCase() !== 'localhost') {
+      return true;
+    }
+    if (
+      !isLoopbackGatewayUrl(gatewayUrl) &&
+      isLoopbackGatewayUrl(p.gatewayUrl) &&
+      discoveredMachineKey &&
+      profileMachineKey(p) === discoveredMachineKey
+    ) {
       return true;
     }
     return false;
