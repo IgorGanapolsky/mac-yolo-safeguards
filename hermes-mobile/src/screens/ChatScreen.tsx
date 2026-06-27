@@ -431,11 +431,8 @@ export default function ChatScreen() {
   const macHttpOk = useMemo(() => isMacGatewayHttpOk(health), [health]);
   const healthProbePending = useMemo(() => isGatewayHealthPending(health), [health]);
   const usbCableLikely = useMemo(
-    () =>
-      Platform.OS === 'android' &&
-      (isLoopbackGatewayUrl(gatewayUrl) ||
-        gatewayProfiles.some((profile) => isLoopbackGatewayUrl(profile.gatewayUrl))),
-    [gatewayUrl, gatewayProfiles],
+    () => Platform.OS === 'android' && isLoopbackGatewayUrl(gatewayUrl) && macHttpOk,
+    [gatewayUrl, macHttpOk],
   );
   const usbHostMismatch = useMemo(
     () =>
@@ -1300,8 +1297,9 @@ export default function ChatScreen() {
       };
 
       if (isDemo) {
+        let seedMessages: HermesMessage[] = [];
         if (activeSession.id === 'demo-1') {
-          applyMergedMessages([
+          seedMessages = [
             {
               role: 'user',
               content: 'What is the yolo-health check score?',
@@ -1313,9 +1311,9 @@ export default function ChatScreen() {
                 'Your yolo-health check score is currently 100/100. All safeguards are active and the LaunchAgent is running.',
               created_at: '2026-06-19T10:30:05.000Z',
             },
-          ]);
+          ];
         } else if (activeSession.id === 'demo-2') {
-          applyMergedMessages([
+          seedMessages = [
             {
               role: 'user',
               content: 'Simulators are spawning in a loop, help!',
@@ -1327,10 +1325,9 @@ export default function ChatScreen() {
                 'I detected 62 active simulator processes. Running sim-runaway-guard.sh to auto-terminate runaway runtimes and reclaim memory.',
               created_at: '2026-06-19T09:15:12.000Z',
             },
-          ]);
-        } else {
-          applyMergedMessages([]);
+          ];
         }
+        applyMergedMessages(mergeWithLocalPending(seedMessages));
         refreshInFlightRef.current = false;
         return;
       }
@@ -1706,19 +1703,7 @@ export default function ChatScreen() {
         await saveSettings(nextSettings, apiKey);
       }
 
-      if (Platform.OS === 'android') {
-        const loopbackProfile = gatewayProfiles.find((profile) =>
-          isLoopbackGatewayUrl(profile.gatewayUrl),
-        );
-        if (loopbackProfile && loopbackProfile.id !== activeGatewayProfile?.id) {
-          await selectGatewayProfile(loopbackProfile.id);
-        } else if (!isLoopbackGatewayUrl(effectiveGatewayUrl || nextSettings.gatewayUrl)) {
-          await saveSettings(
-            { ...nextSettings, gatewayUrl: USB_LOOPBACK_GATEWAY_URL },
-            apiKey,
-          );
-        }
-      }
+
 
       await scanForGatewayProfiles();
       await autoConnectGateway();
