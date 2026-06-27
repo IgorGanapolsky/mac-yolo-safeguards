@@ -1,0 +1,21 @@
+{
+  "id": "1782162336624_feedback-positive-fb-1782162336506-i59iy7",
+  "namespace": "raw_history",
+  "title": "feedback_positive_fb_1782162336506_i59iy7",
+  "content": "{\"id\":\"fb_1782162336506_i59iy7\",\"signal\":\"positive\",\"context\":\"2026-06-22: Mac Mini unresponsive/unusable over Screen Sharing. Starting load avg: 3.64, ending load avg: ~3.0. Found VNC loop: Screen Sharing.app (PID 92940) client on Mac Mini was connected back to the user's laptop (100.94.135.78:5900) while the user connected to the Mac Mini. Killed PID 92940 (Screen Sharing client) which broke the loop and restored connection usability without disconnecting the inbound screen share session.\",\"submittedContext\":\"2026-06-22: Mac Mini unresponsive/unusable over Screen Sharing. Starting load avg: 3.64, ending load avg: ~3.0. Found VNC loop: Screen Sharing.app (PID 92940) client on Mac Mini was connected back to the user's laptop (100.94.135.78:5900) while the user connected to the Mac Mini. Killed PID 92940 (Screen Sharing client) which broke the loop and restored connection usability without disconnecting the inbound screen share session.\",\"relatedFeedbackId\":null,\"lastAction\":null,\"whatWentWrong\":null,\"whatToChange\":null,\"whatWorked\":null,\"reasoning\":null,\"visualEvidence\":null,\"conversationWindow\":null,\"distillation\":null,\"tags\":[\"mac-performance\",\"diagnosis\",\"mac-freeze-rescue\",\"screensharing-loop\",\"entity:Customer\"],\"skill\":null,\"failureType\":null,\"rubric\":null,\"actionType\":\"store-learning\",\"actionReason\":null,\"structuredRule\":null,\"gateAction\":null,\"timestamp\":\"2026-06-22T21:05:36.506Z\",\"richContext\":{\"domain\":\"general\",\"filePaths\":[],\"errorType\":null,\"outcomeCategory\":\"standard-success\",\"enforcement\":{\"scopeViolation\":false,\"approvalFailure\":false,\"protectedFileViolation\":false,\"protectedFiles\":[]}}}",
+  "tags": [
+    "mac-performance",
+    "diagnosis",
+    "mac-freeze-rescue",
+    "screensharing-loop",
+    "entity:Customer"
+  ],
+  "source": "feedback-event",
+  "ttl": null,
+  "metadata": {
+    "signal": "positive",
+    "actionType": "store-learning"
+  },
+  "createdAt": "2026-06-22T21:05:36.624Z",
+  "lastUsedAt": null
+}

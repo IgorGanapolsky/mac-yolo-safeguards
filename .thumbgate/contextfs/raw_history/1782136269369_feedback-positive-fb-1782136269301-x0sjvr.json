@@ -1,0 +1,22 @@
+{
+  "id": "1782136269369_feedback-positive-fb-1782136269301-x0sjvr",
+  "namespace": "raw_history",
+  "title": "feedback_positive_fb_1782136269301_x0sjvr",
+  "content": "{\"id\":\"fb_1782136269301_x0sjvr\",\"signal\":\"positive\",\"context\":\"2026-06-22 mac-yolo fan spike diagnosis on Igor’s MacBook Pro. Verified CLAUDE/GEMINI redirect to AGENTS, ran agent-session-start, npx thumbgate lessons, agent-decision-stack, yolo-health, launchctl, uptime/top/vm/simctl. Evidence: com.igor.shutdown-simulators LaunchAgent loaded with StartInterval 60s, last exit code 0, yolo-health 27 passed/0 failed; simruntime count 0 and no booted simulators; guard log showed real simulator shutdowns on 2026-06-21 at sim_procs 160-232 and Chrome Canary memory reclaims. Current fan pressure was not simulator runaway: load 5.32 to 4.16, CPU idle about 40-44%, swap 2233MB/3072MB, memory_pressure free 40%, top CPU Screen Sharing about 57-63%, WindowServer about 41-50%, CuaDriver about 45-46%, Codex about 38-42%, agy about 8-12%; Ollama runner held about 8.18GB RSS but below guard reclaim threshold/pressure gates. Manual guard run exited 0 and took no action because current conditions were outside auto-kill policy. Heuristic: answer narrowly that mac-yolo simulator guard is working, but it does not and should not auto-kill GUI/remote-control processes like Screen Sharing/CuaDriver/WindowServer or unknown active agents.\",\"submittedContext\":\"2026-06-22 mac-yolo fan spike diagnosis on Igor’s MacBook Pro. Verified CLAUDE/GEMINI redirect to AGENTS, ran agent-session-start, npx thumbgate lessons, agent-decision-stack, yolo-health, launchctl, uptime/top/vm/simctl. Evidence: com.igor.shutdown-simulators LaunchAgent loaded with StartInterval 60s, last exit code 0, yolo-health 27 passed/0 failed; simruntime count 0 and no booted simulators; guard log showed real simulator shutdowns on 2026-06-21 at sim_procs 160-232 and Chrome Canary memory reclaims. Current fan pressure was not simulator runaway: load 5.32 to 4.16, CPU idle about 40-44%, swap 2233MB/3072MB, memory_pressure free 40%, top CPU Screen Sharing about 57-63%, WindowServer about 41-50%, CuaDriver about 45-46%, Codex about 38-42%, agy about 8-12%; Ollama runner held about 8.18GB RSS but below guard reclaim threshold/pressure gates. Manual guard run exited 0 and took no action because current conditions were outside auto-kill policy. Heuristic: answer narrowly that mac-yolo simulator guard is working, but it does not and should not auto-kill GUI/remote-control processes like Screen Sharing/CuaDriver/WindowServer or unknown active agents.\",\"relatedFeedbackId\":null,\"lastAction\":null,\"whatWentWrong\":null,\"whatToChange\":\"For future fan questions, report current culprit class separately from protected guard status; do not infer fan relief from simulator guard health alone.\",\"whatWorked\":\"Combining live process/load evidence with yolo-health and guard log avoided a false all-clean claim.\",\"reasoning\":null,\"visualEvidence\":null,\"conversationWindow\":null,\"distillation\":null,\"tags\":[\"mac-performance\",\"mac-freeze-rescue\",\"diagnosis\",\"simulator-guard\",\"fan-spike\",\"entity:Customer\"],\"skill\":null,\"failureType\":null,\"rubric\":null,\"actionType\":\"store-learning\",\"actionReason\":null,\"structuredRule\":null,\"gateAction\":null,\"timestamp\":\"2026-06-22T13:51:09.301Z\",\"richContext\":{\"domain\":\"general\",\"filePaths\":[],\"errorType\":null,\"outcomeCategory\":\"standard-success\",\"enforcement\":{\"scopeViolation\":false,\"approvalFailure\":false,\"protectedFileViolation\":false,\"protectedFiles\":[]}}}",
+  "tags": [
+    "mac-performance",
+    "mac-freeze-rescue",
+    "diagnosis",
+    "simulator-guard",
+    "fan-spike",
+    "entity:Customer"
+  ],
+  "source": "feedback-event",
+  "ttl": null,
+  "metadata": {
+    "signal": "positive",
+    "actionType": "store-learning"
+  },
+  "createdAt": "2026-06-22T13:51:09.369Z",
+  "lastUsedAt": null
+}

@@ -1,0 +1,21 @@
+{
+  "id": "1782498984551_feedback-positive-fb-1782498983173-36jrdk",
+  "namespace": "raw_history",
+  "title": "feedback_positive_fb_1782498983173_36jrdk",
+  "content": "{\"id\":\"fb_1782498983173_36jrdk\",\"signal\":\"positive\",\"context\":\"Date=2026-06-26, starting load avg=294, ending load avg=199. Culprit: Stale Claude agent PID 36599 running since yesterday, 14 stale thumbgate server processes from June 12, and active Jest test suite PID 18047. Fix: killed PID 36599, 14 stale thumbgate servers, and Jest test runner/workers.\",\"submittedContext\":\"Date=2026-06-26, starting load avg=294, ending load avg=199. Culprit: Stale Claude agent PID 36599 running since yesterday, 14 stale thumbgate server processes from June 12, and active Jest test suite PID 18047. Fix: killed PID 36599, 14 stale thumbgate servers, and Jest test runner/workers.\",\"relatedFeedbackId\":null,\"lastAction\":null,\"whatWentWrong\":null,\"whatToChange\":null,\"whatWorked\":null,\"reasoning\":null,\"visualEvidence\":null,\"conversationWindow\":null,\"distillation\":null,\"tags\":[\"mac-performance\",\"diagnosis\",\"mac-freeze-rescue\",\"stale-agents\",\"entity:Customer\"],\"skill\":null,\"failureType\":null,\"rubric\":null,\"actionType\":\"store-learning\",\"actionReason\":null,\"structuredRule\":null,\"gateAction\":null,\"timestamp\":\"2026-06-26T18:36:23.173Z\",\"richContext\":{\"domain\":\"testing\",\"filePaths\":[],\"errorType\":null,\"outcomeCategory\":\"standard-success\",\"enforcement\":{\"scopeViolation\":false,\"approvalFailure\":false,\"protectedFileViolation\":false,\"protectedFiles\":[]}}}",
+  "tags": [
+    "mac-performance",
+    "diagnosis",
+    "mac-freeze-rescue",
+    "stale-agents",
+    "entity:Customer"
+  ],
+  "source": "feedback-event",
+  "ttl": null,
+  "metadata": {
+    "signal": "positive",
+    "actionType": "store-learning"
+  },
+  "createdAt": "2026-06-26T18:36:24.552Z",
+  "lastUsedAt": null
+}

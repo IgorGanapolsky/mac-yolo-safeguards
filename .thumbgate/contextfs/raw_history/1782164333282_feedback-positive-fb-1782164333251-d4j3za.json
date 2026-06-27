@@ -1,0 +1,19 @@
+{
+  "id": "1782164333282_feedback-positive-fb-1782164333251-d4j3za",
+  "namespace": "raw_history",
+  "title": "feedback_positive_fb_1782164333251_d4j3za",
+  "content": "{\"id\":\"fb_1782164333251_d4j3za\",\"signal\":\"positive\",\"context\":\"2026-06-22: Verified active Screen Sharing connection quality on laptop. Used AppleScript to query the menu bar and confirmed that 'Adaptive Quality' is already selected (checked ✓) and window scaling is active, representing the lowest/most optimal bandwidth usage available.\",\"submittedContext\":\"2026-06-22: Verified active Screen Sharing connection quality on laptop. Used AppleScript to query the menu bar and confirmed that 'Adaptive Quality' is already selected (checked ✓) and window scaling is active, representing the lowest/most optimal bandwidth usage available.\",\"relatedFeedbackId\":null,\"lastAction\":null,\"whatWentWrong\":null,\"whatToChange\":null,\"whatWorked\":null,\"reasoning\":null,\"visualEvidence\":null,\"conversationWindow\":null,\"distillation\":null,\"tags\":[\"screensharing\",\"performance-tuning\",\"mac-performance\"],\"skill\":null,\"failureType\":null,\"rubric\":null,\"actionType\":\"store-learning\",\"actionReason\":null,\"structuredRule\":null,\"gateAction\":null,\"timestamp\":\"2026-06-22T21:38:53.251Z\",\"richContext\":{\"domain\":\"general\",\"filePaths\":[],\"errorType\":null,\"outcomeCategory\":\"standard-success\",\"enforcement\":{\"scopeViolation\":false,\"approvalFailure\":false,\"protectedFileViolation\":false,\"protectedFiles\":[]}}}",
+  "tags": [
+    "screensharing",
+    "performance-tuning",
+    "mac-performance"
+  ],
+  "source": "feedback-event",
+  "ttl": null,
+  "metadata": {
+    "signal": "positive",
+    "actionType": "store-learning"
+  },
+  "createdAt": "2026-06-22T21:38:53.282Z",
+  "lastUsedAt": null
+}

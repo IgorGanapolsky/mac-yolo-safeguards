@@ -1,0 +1,19 @@
+{
+  "id": "1782396122080_success-fixed-chatscreen-test-tsx-failures-and-race-conditions-during-startup-in",
+  "namespace": "memory/learning",
+  "title": "SUCCESS: Fixed ChatScreen.test.tsx failures and race conditions during startup in demo mode by serializing projectState loading...",
+  "content": "Approach: Fixed ChatScreen.test.tsx failures and race conditions during startup in demo mode by serializing projectState loading and loadSessionsList calls.",
+  "tags": [
+    "feedback",
+    "positive",
+    "entity:Customer"
+  ],
+  "source": "feedback-memory",
+  "ttl": null,
+  "metadata": {
+    "category": "learning",
+    "sourceFeedbackId": "fb_1782396121994_1kz8so"
+  },
+  "createdAt": "2026-06-25T14:02:02.080Z",
+  "lastUsedAt": null
+}

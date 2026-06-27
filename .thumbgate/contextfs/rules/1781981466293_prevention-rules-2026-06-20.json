@@ -1,0 +1,18 @@
+{
+  "id": "1781981466293_prevention-rules-2026-06-20",
+  "namespace": "rules",
+  "title": "prevention_rules_2026-06-20",
+  "content": "# Prevention Rules\n\nGenerated from negative feedback memories (time-weighted, half-life: 7d).\n\n## general\n- Recurrence count: 20 (weighted: 11.4)\n- Rule: avoid: Assistant gave shallow acknowledgement after user said thumbs up\n- Latest mistake: MISTAKE: Assistant gave shallow acknowledgement after user said thumbs up\n\n## testing\n- Recurrence count: 7 (weighted: 3.7)\n- Rule: Investigate and prevent recurrence\n- Latest mistake: MISTAKE: 2026-06-17 mistake: During Hermes Telegram incident verification, I used live Telegram smoke/public webhook tests that...\n\n## Root Cause Categories\n- tool_output_misread: 7 failures",
+  "tags": [
+    "rules",
+    "prevention"
+  ],
+  "source": "feedback-loop",
+  "ttl": null,
+  "metadata": {
+    "minOccurrences": 2,
+    "outputPath": "/Users/igorganapolsky/workspace/git/igor/mac-yolo-safeguards/.thumbgate/prevention-rules.md"
+  },
+  "createdAt": "2026-06-20T18:51:06.293Z",
+  "lastUsedAt": null
+}

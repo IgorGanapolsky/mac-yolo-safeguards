@@ -1,0 +1,20 @@
+{
+  "id": "1782500281631_feedback-positive-fb-1782500277269-i2xghm",
+  "namespace": "raw_history",
+  "title": "feedback_positive_fb_1782500277269_i2xghm",
+  "content": "{\"id\":\"fb_1782500277269_i2xghm\",\"signal\":\"positive\",\"context\":\"Preventing Mac freeze issues: added rules to AGENTS.md prohibiting concurrent agent sessions (which spawn duplicate heavy commands) and lock-file bypassing (which triggers parallel heavy Gradle compiles).\",\"submittedContext\":\"Preventing Mac freeze issues: added rules to AGENTS.md prohibiting concurrent agent sessions (which spawn duplicate heavy commands) and lock-file bypassing (which triggers parallel heavy Gradle compiles).\",\"relatedFeedbackId\":null,\"lastAction\":null,\"whatWentWrong\":null,\"whatToChange\":null,\"whatWorked\":null,\"reasoning\":null,\"visualEvidence\":null,\"conversationWindow\":null,\"distillation\":null,\"tags\":[\"mac-performance\",\"prevention\",\"mac-freeze-rescue\",\"entity:Customer\"],\"skill\":null,\"failureType\":null,\"rubric\":null,\"actionType\":\"store-learning\",\"actionReason\":null,\"structuredRule\":null,\"gateAction\":null,\"timestamp\":\"2026-06-26T18:57:57.269Z\",\"richContext\":{\"domain\":\"general\",\"filePaths\":[],\"errorType\":null,\"outcomeCategory\":\"standard-success\",\"enforcement\":{\"scopeViolation\":false,\"approvalFailure\":false,\"protectedFileViolation\":false,\"protectedFiles\":[]}}}",
+  "tags": [
+    "mac-performance",
+    "prevention",
+    "mac-freeze-rescue",
+    "entity:Customer"
+  ],
+  "source": "feedback-event",
+  "ttl": null,
+  "metadata": {
+    "signal": "positive",
+    "actionType": "store-learning"
+  },
+  "createdAt": "2026-06-26T18:58:01.632Z",
+  "lastUsedAt": null
+}

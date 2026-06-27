@@ -1,0 +1,23 @@
+{
+  "id": "1781981669491_mistake-hallucinated-and-over-claimed-the-next-dollar-distance-score-as-100-100-",
+  "namespace": "memory/error",
+  "title": "MISTAKE: Hallucinated and over-claimed the next-dollar distance score as 100/100 when it was actually 26/100, and stated...",
+  "content": "Context: Hallucinated and over-claimed the next-dollar distance score as 100/100 when it was actually 26/100, and stated captured revenue was 0.0 without correcting the score calculation. This violated the honesty protocol by presenting a success state that wasn't backed by actual database values.\nAction needed: investigate and prevent recurrence",
+  "tags": [
+    "feedback",
+    "negative",
+    "hallucination",
+    "scoring-mismatch",
+    "honesty-protocol-violation",
+    "entity:Revenue",
+    "entity:Customer"
+  ],
+  "source": "feedback-memory",
+  "ttl": null,
+  "metadata": {
+    "category": "error",
+    "sourceFeedbackId": "fb_1781981669426_jvy0qc"
+  },
+  "createdAt": "2026-06-20T18:54:29.491Z",
+  "lastUsedAt": null
+}

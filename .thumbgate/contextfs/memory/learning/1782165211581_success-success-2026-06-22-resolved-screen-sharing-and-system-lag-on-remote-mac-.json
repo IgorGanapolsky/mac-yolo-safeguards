@@ -1,0 +1,24 @@
+{
+  "id": "1782165211581_success-success-2026-06-22-resolved-screen-sharing-and-system-lag-on-remote-mac-",
+  "namespace": "memory/learning",
+  "title": "SUCCESS: SUCCESS: 2026-06-22: Resolved Screen Sharing and system lag on remote Mac Mini by (1) running install.sh which linked...",
+  "content": "Approach: SUCCESS: 2026-06-22: Resolved Screen Sharing and system lag on remote Mac Mini by (1) running install.sh which linked the Node.js version of hermes-yolo (resolving 7 health failures to 100% green); (2) automatically reclaiming 2 runaway Ollama workers (~21GB RAM total) via yolo-health/sim-runaway-guard.sh, increasing free RAM from 19% to 65%; (3) copying the updated test-mac-text-hotkeys-config.js to sync tests; and (4) establishing bidirectional background keep-alive ping loops between laptop (100.87.85.85) and Mac Mini (100.94.135.78), forcing a direct P2P Tailscale connection over AT&T Lightspeed and T-Mobile 5G networks, bypassing the DERP relay.",
+  "tags": [
+    "feedback",
+    "positive",
+    "network-optimization",
+    "tailscale",
+    "yolo-health",
+    "keepalive",
+    "tmobile-5g",
+    "ram-reclamation"
+  ],
+  "source": "feedback-memory",
+  "ttl": null,
+  "metadata": {
+    "category": "learning",
+    "sourceFeedbackId": "fb_1782165211537_qu7276"
+  },
+  "createdAt": "2026-06-22T21:53:31.581Z",
+  "lastUsedAt": null
+}

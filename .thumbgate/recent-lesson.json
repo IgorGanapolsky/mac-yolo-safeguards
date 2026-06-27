@@ -1,0 +1,15 @@
+{
+  "id": "lesson_8e022964ba5b",
+  "feedbackId": "fb_1782501143456_by5l9c",
+  "signal": "positive",
+  "lesson": "SUCCESS: Diagnosed MacBook Pro slug/freeze (load peaked at 294), cleaned stale agents and Jest tests, broadened runaway guard...",
+  "triggerMessage": "",
+  "priorSummary": "",
+  "confidence": 70,
+  "tags": [
+    "entity:Customer"
+  ],
+  "metadata": {},
+  "createdAt": "2026-06-26T19:12:28.190Z",
+  "link": "http://localhost:3456/lessons#lesson_8e022964ba5b"
+}

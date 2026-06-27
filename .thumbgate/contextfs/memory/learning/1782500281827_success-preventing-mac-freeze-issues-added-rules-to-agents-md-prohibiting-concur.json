@@ -1,0 +1,22 @@
+{
+  "id": "1782500281827_success-preventing-mac-freeze-issues-added-rules-to-agents-md-prohibiting-concur",
+  "namespace": "memory/learning",
+  "title": "SUCCESS: Preventing Mac freeze issues: added rules to AGENTS.md prohibiting concurrent agent sessions (which spawn duplicate...",
+  "content": "Approach: Preventing Mac freeze issues: added rules to AGENTS.md prohibiting concurrent agent sessions (which spawn duplicate heavy commands) and lock-file bypassing (which triggers parallel heavy Gradle compiles).",
+  "tags": [
+    "feedback",
+    "positive",
+    "mac-performance",
+    "prevention",
+    "mac-freeze-rescue",
+    "entity:Customer"
+  ],
+  "source": "feedback-memory",
+  "ttl": null,
+  "metadata": {
+    "category": "learning",
+    "sourceFeedbackId": "fb_1782500277269_i2xghm"
+  },
+  "createdAt": "2026-06-26T18:58:01.827Z",
+  "lastUsedAt": null
+}

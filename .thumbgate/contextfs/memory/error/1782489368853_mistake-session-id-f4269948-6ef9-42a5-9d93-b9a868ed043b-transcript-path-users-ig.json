@@ -1,0 +1,19 @@
+{
+  "id": "1782489368853_mistake-session-id-f4269948-6ef9-42a5-9d93-b9a868ed043b-transcript-path-users-ig",
+  "namespace": "memory/error",
+  "title": "MISTAKE: {\"session_id\":\"f4269948-6ef9-42a5-9d93-b9a868ed043b\",\"transcript_path\":\"/Users/igorganapolsky/.claude/projects/-Users-ig...",
+  "content": "What went wrong: {\"session_id\":\"f4269948-6ef9-42a5-9d93-b9a868ed043b\",\"transcript_path\":\"/Users/igorganapolsky/.claude/projects/-Users-igorganapolsky-workspace-git-igor-mac-yolo-safeguards/f4269948-6ef9-42a5-9d93-b9a868ed043b.jsonl\",\"cwd\":\"/Users/igorganapolsky/workspace/git/igor/mac-yolo-safeguards\",\"permission_mode\":\"bypassPermissions\",\"hook_event_name\":\"UserPromptSubmit\",\"prompt\":\"please fix this: On top of that, the Telegram fallback (the one off‑Wi‑Fi path that does normally work) is currently down too:\\ngateway_state.json → telegram: \\\"fatal\\\" (telegram_polling_conflict)\\n\\n Want it to work on cellular without Wi‑Fi/USB\"}\nAction needed: investigate and prevent recurrence",
+  "tags": [
+    "feedback",
+    "negative",
+    "entity:Customer"
+  ],
+  "source": "feedback-memory",
+  "ttl": null,
+  "metadata": {
+    "category": "error",
+    "sourceFeedbackId": "fb_1782489368778_g9qkk0"
+  },
+  "createdAt": "2026-06-26T15:56:08.853Z",
+  "lastUsedAt": null
+}

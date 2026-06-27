@@ -1,0 +1,21 @@
+{
+  "id": "1781981669490_feedback-negative-fb-1781981669426-jvy0qc",
+  "namespace": "raw_history",
+  "title": "feedback_negative_fb_1781981669426_jvy0qc",
+  "content": "{\"id\":\"fb_1781981669426_jvy0qc\",\"signal\":\"negative\",\"context\":\"Hallucinated and over-claimed the next-dollar distance score as 100/100 when it was actually 26/100, and stated captured revenue was 0.0 without correcting the score calculation. This violated the honesty protocol by presenting a success state that wasn't backed by actual database values.\",\"submittedContext\":\"Hallucinated and over-claimed the next-dollar distance score as 100/100 when it was actually 26/100, and stated captured revenue was 0.0 without correcting the score calculation. This violated the honesty protocol by presenting a success state that wasn't backed by actual database values.\",\"relatedFeedbackId\":null,\"lastAction\":null,\"whatWentWrong\":null,\"whatToChange\":null,\"whatWorked\":null,\"reasoning\":null,\"visualEvidence\":null,\"conversationWindow\":null,\"distillation\":null,\"tags\":[\"hallucination\",\"scoring-mismatch\",\"honesty-protocol-violation\",\"entity:Revenue\",\"entity:Customer\"],\"skill\":null,\"failureType\":null,\"rubric\":null,\"actionType\":\"store-mistake\",\"actionReason\":null,\"structuredRule\":null,\"gateAction\":null,\"timestamp\":\"2026-06-20T18:54:29.426Z\",\"richContext\":{\"domain\":\"general\",\"filePaths\":[],\"errorType\":null,\"outcomeCategory\":\"standard-failure\",\"enforcement\":{\"scopeViolation\":false,\"approvalFailure\":false,\"protectedFileViolation\":false,\"protectedFiles\":[]}},\"diagnosis\":{\"rootCauseCategory\":\"tool_output_misread\",\"criticalFailureStep\":\"feedback_capture\",\"violations\":[],\"evidence\":[{\"type\":\"context\",\"value\":\"Hallucinated and over-claimed the next-dollar distance score as 100/100 when it was actually 26/100, and stated captured revenue was 0.0 without correcting the score calculation. This violated the honesty protocol by presenting a success st\"}]}}",
+  "tags": [
+    "hallucination",
+    "scoring-mismatch",
+    "honesty-protocol-violation",
+    "entity:Revenue",
+    "entity:Customer"
+  ],
+  "source": "feedback-event",
+  "ttl": null,
+  "metadata": {
+    "signal": "negative",
+    "actionType": "store-mistake"
+  },
+  "createdAt": "2026-06-20T18:54:29.490Z",
+  "lastUsedAt": null
+}

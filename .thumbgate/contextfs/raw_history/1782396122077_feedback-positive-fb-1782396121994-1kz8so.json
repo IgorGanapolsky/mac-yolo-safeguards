@@ -1,0 +1,17 @@
+{
+  "id": "1782396122077_feedback-positive-fb-1782396121994-1kz8so",
+  "namespace": "raw_history",
+  "title": "feedback_positive_fb_1782396121994_1kz8so",
+  "content": "{\"id\":\"fb_1782396121994_1kz8so\",\"signal\":\"positive\",\"context\":\"Fixed ChatScreen.test.tsx failures and race conditions during startup in demo mode by serializing projectState loading and loadSessionsList calls.\",\"submittedContext\":\"Fixed ChatScreen.test.tsx failures and race conditions during startup in demo mode by serializing projectState loading and loadSessionsList calls.\",\"relatedFeedbackId\":null,\"lastAction\":null,\"whatWentWrong\":null,\"whatToChange\":null,\"whatWorked\":null,\"reasoning\":null,\"visualEvidence\":null,\"conversationWindow\":null,\"distillation\":null,\"tags\":[\"entity:Customer\"],\"skill\":null,\"failureType\":null,\"rubric\":null,\"actionType\":\"store-learning\",\"actionReason\":null,\"structuredRule\":null,\"gateAction\":null,\"timestamp\":\"2026-06-25T14:02:01.994Z\",\"richContext\":{\"domain\":\"testing\",\"filePaths\":[],\"errorType\":null,\"outcomeCategory\":\"standard-success\",\"enforcement\":{\"scopeViolation\":false,\"approvalFailure\":false,\"protectedFileViolation\":false,\"protectedFiles\":[]}}}",
+  "tags": [
+    "entity:Customer"
+  ],
+  "source": "feedback-event",
+  "ttl": null,
+  "metadata": {
+    "signal": "positive",
+    "actionType": "store-learning"
+  },
+  "createdAt": "2026-06-25T14:02:02.077Z",
+  "lastUsedAt": null
+}

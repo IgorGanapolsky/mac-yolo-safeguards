@@ -1,0 +1,24 @@
+{
+  "id": "1782162637880_success-2026-06-22-mac-mini-screen-sharing-loop-re-triggered-discovered-that-the",
+  "namespace": "memory/learning",
+  "title": "SUCCESS: 2026-06-22: Mac Mini Screen Sharing loop re-triggered. Discovered that the app at...",
+  "content": "Approach: 2026-06-22: Mac Mini Screen Sharing loop re-triggered. Discovered that the app at /Users/igorganapolsky/Documents/Screen Share Mac mini Remote.app contains AppleScript 'open location \\\"vnc://100.94.135.78\\\"', which connects back to the user's laptop IP (100.94.135.78). Running this applet on the Mac Mini immediately creates the feedback loop. Killed the new process (PID 4446) and advised the user to never run this applet on the Mac Mini and instead connect to vnc://100.87.85.85 directly from the laptop.",
+  "tags": [
+    "feedback",
+    "positive",
+    "mac-performance",
+    "diagnosis",
+    "mac-freeze-rescue",
+    "screensharing-loop",
+    "applescript-bug",
+    "entity:Customer"
+  ],
+  "source": "feedback-memory",
+  "ttl": null,
+  "metadata": {
+    "category": "learning",
+    "sourceFeedbackId": "fb_1782162637837_sae5o1"
+  },
+  "createdAt": "2026-06-22T21:10:37.880Z",
+  "lastUsedAt": null
+}

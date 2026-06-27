@@ -1,0 +1,23 @@
+{
+  "id": "1782162336626_success-2026-06-22-mac-mini-unresponsive-unusable-over-screen-sharing-starting-l",
+  "namespace": "memory/learning",
+  "title": "SUCCESS: 2026-06-22: Mac Mini unresponsive/unusable over Screen Sharing. Starting load avg: 3.64, ending load avg: ~3.0. Found...",
+  "content": "Approach: 2026-06-22: Mac Mini unresponsive/unusable over Screen Sharing. Starting load avg: 3.64, ending load avg: ~3.0. Found VNC loop: Screen Sharing.app (PID 92940) client on Mac Mini was connected back to the user's laptop (100.94.135.78:5900) while the user connected to the Mac Mini. Killed PID 92940 (Screen Sharing client) which broke the loop and restored connection usability without disconnecting the inbound screen share session.",
+  "tags": [
+    "feedback",
+    "positive",
+    "mac-performance",
+    "diagnosis",
+    "mac-freeze-rescue",
+    "screensharing-loop",
+    "entity:Customer"
+  ],
+  "source": "feedback-memory",
+  "ttl": null,
+  "metadata": {
+    "category": "learning",
+    "sourceFeedbackId": "fb_1782162336506_i59iy7"
+  },
+  "createdAt": "2026-06-22T21:05:36.626Z",
+  "lastUsedAt": null
+}

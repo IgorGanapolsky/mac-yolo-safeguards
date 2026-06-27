@@ -1,0 +1,20 @@
+{
+  "id": "1782163507585_feedback-positive-fb-1782163507556-abe6dp",
+  "namespace": "raw_history",
+  "title": "feedback_positive_fb_1782163507556_abe6dp",
+  "content": "{\"id\":\"fb_1782163507556_abe6dp\",\"signal\":\"positive\",\"context\":\"2026-06-22: Mac Mini unresponsive. Killed remote runaway cua-driver serve, SkyComputerUseService, and Codex Computer Use on the remote Mac Mini (100.94.135.78) over SSH, immediately freeing CPU resources and resolving UI lag.\",\"submittedContext\":\"2026-06-22: Mac Mini unresponsive. Killed remote runaway cua-driver serve, SkyComputerUseService, and Codex Computer Use on the remote Mac Mini (100.94.135.78) over SSH, immediately freeing CPU resources and resolving UI lag.\",\"relatedFeedbackId\":null,\"lastAction\":null,\"whatWentWrong\":null,\"whatToChange\":null,\"whatWorked\":null,\"reasoning\":null,\"visualEvidence\":null,\"conversationWindow\":null,\"distillation\":null,\"tags\":[\"mac-performance\",\"screensharing\",\"remote-kill\",\"cua-driver\"],\"skill\":null,\"failureType\":null,\"rubric\":null,\"actionType\":\"store-learning\",\"actionReason\":null,\"structuredRule\":null,\"gateAction\":null,\"timestamp\":\"2026-06-22T21:25:07.556Z\",\"richContext\":{\"domain\":\"general\",\"filePaths\":[],\"errorType\":null,\"outcomeCategory\":\"quick-success\",\"enforcement\":{\"scopeViolation\":false,\"approvalFailure\":false,\"protectedFileViolation\":false,\"protectedFiles\":[]}}}",
+  "tags": [
+    "mac-performance",
+    "screensharing",
+    "remote-kill",
+    "cua-driver"
+  ],
+  "source": "feedback-event",
+  "ttl": null,
+  "metadata": {
+    "signal": "positive",
+    "actionType": "store-learning"
+  },
+  "createdAt": "2026-06-22T21:25:07.585Z",
+  "lastUsedAt": null
+}

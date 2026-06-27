@@ -1,0 +1,22 @@
+{
+  "id": "1782185881299_success-date-2026-06-22-concrete-artifacts-file-path-users-igorganapolsky-hermes",
+  "namespace": "memory/learning",
+  "title": "SUCCESS: Date: 2026-06-22\nConcrete Artifacts:\n- File Path: /Users/igorganapolsky/.hermes/hermes-agent/gateway/run.py (line...",
+  "content": "Approach: Date: 2026-06-22\nConcrete Artifacts:\n- File Path: /Users/igorganapolsky/.hermes/hermes-agent/gateway/run.py (line 9512)\n- PID: 25264 (Hermes gateway process)\n- Command Line: /Users/igorganapolsky/.hermes/hermes-agent/venv/bin/python -m hermes_cli.main gateway run --replace\n- Before Metrics: IndentationError on line 9512, gateway service failed to boot.\n- After Metrics: Service running on PID 25264, python compilation syntax check passed.\nRoot Cause: Indentation mismatch (extra space) before the `if _footer_line:` statement.\nFix: Surgically aligned the indentation block using standard 4-space Python rules.\nHeuristic Update: Always execute a dry run syntax check (`python3 -m py_compile`) on python scripts after applying code patches before restarting or claiming verification.",
+  "tags": [
+    "feedback",
+    "positive",
+    "hermes-gateway",
+    "python-indentation-fix",
+    "launchd-recovery",
+    "entity:Customer"
+  ],
+  "source": "feedback-memory",
+  "ttl": null,
+  "metadata": {
+    "category": "learning",
+    "sourceFeedbackId": "fb_1782185881197_imywam"
+  },
+  "createdAt": "2026-06-23T03:38:01.299Z",
+  "lastUsedAt": null
+}

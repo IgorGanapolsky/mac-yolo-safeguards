@@ -1,0 +1,19 @@
+{
+  "id": "1782397477189_success-strategic-decision-deferred-fly-io-cloud-relay-to-prioritize-manual-redd",
+  "namespace": "memory/learning",
+  "title": "SUCCESS: Strategic decision: Deferred Fly.io cloud relay to prioritize manual Reddit/GitHub outreach. Root cause of stuck...",
+  "content": "Approach: Strategic decision: Deferred Fly.io cloud relay to prioritize manual Reddit/GitHub outreach. Root cause of stuck sending: Mac load average was high (11.41) due to Cursor Helper (PID 9452 at 103% CPU), causing local Ollama API requests (10k+ token context evaluation) to time out. Fix: Reduced CHAT_STREAM_FIRST_BYTE_MS from 120s to 30s and CHAT_STREAM_IDLE_MS from 90s to 30s in hermesGatewayClient.ts to fail-fast. Verified: 557 Jest unit tests passing. Tags: mac-performance, diagnosis, mac-freeze-rescue, ollama-timeout, strategic-decision.",
+  "tags": [
+    "feedback",
+    "positive",
+    "testing"
+  ],
+  "source": "feedback-memory",
+  "ttl": null,
+  "metadata": {
+    "category": "learning",
+    "sourceFeedbackId": "fb_1782397477065_xbocno"
+  },
+  "createdAt": "2026-06-25T14:24:37.189Z",
+  "lastUsedAt": null
+}

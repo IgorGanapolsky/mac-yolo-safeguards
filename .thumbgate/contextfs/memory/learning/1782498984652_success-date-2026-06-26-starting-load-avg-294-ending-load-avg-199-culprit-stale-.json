@@ -1,0 +1,23 @@
+{
+  "id": "1782498984652_success-date-2026-06-26-starting-load-avg-294-ending-load-avg-199-culprit-stale-",
+  "namespace": "memory/learning",
+  "title": "SUCCESS: Date=2026-06-26, starting load avg=294, ending load avg=199. Culprit: Stale Claude agent PID 36599 running since...",
+  "content": "Approach: Date=2026-06-26, starting load avg=294, ending load avg=199. Culprit: Stale Claude agent PID 36599 running since yesterday, 14 stale thumbgate server processes from June 12, and active Jest test suite PID 18047. Fix: killed PID 36599, 14 stale thumbgate servers, and Jest test runner/workers.",
+  "tags": [
+    "feedback",
+    "positive",
+    "mac-performance",
+    "diagnosis",
+    "mac-freeze-rescue",
+    "stale-agents",
+    "entity:Customer"
+  ],
+  "source": "feedback-memory",
+  "ttl": null,
+  "metadata": {
+    "category": "learning",
+    "sourceFeedbackId": "fb_1782498983173_36jrdk"
+  },
+  "createdAt": "2026-06-26T18:36:24.652Z",
+  "lastUsedAt": null
+}

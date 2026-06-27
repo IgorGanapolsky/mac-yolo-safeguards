@@ -1,0 +1,55 @@
+{
+  "domains": {
+    "general": {
+      "count": 56,
+      "positive": 33,
+      "negative": 23,
+      "lastSeen": "2026-06-26T18:57:57.269Z"
+    },
+    "performance": {
+      "count": 3,
+      "positive": 3,
+      "negative": 0,
+      "lastSeen": "2026-06-20T20:28:36.422Z"
+    },
+    "ui-components": {
+      "count": 3,
+      "positive": 3,
+      "negative": 0,
+      "lastSeen": "2026-06-20T20:28:36.459Z"
+    },
+    "git-workflow": {
+      "count": 9,
+      "positive": 9,
+      "negative": 0,
+      "lastSeen": "2026-06-20T20:28:36.542Z"
+    },
+    "testing": {
+      "count": 17,
+      "positive": 11,
+      "negative": 6,
+      "lastSeen": "2026-06-26T19:12:23.456Z"
+    },
+    "documentation": {
+      "count": 9,
+      "positive": 9,
+      "negative": 0,
+      "lastSeen": "2026-06-20T20:28:36.831Z"
+    },
+    "security": {
+      "count": 1,
+      "positive": 0,
+      "negative": 1,
+      "lastSeen": "2026-06-22T21:02:44.781Z"
+    },
+    "debugging": {
+      "count": 1,
+      "positive": 1,
+      "negative": 0,
+      "lastSeen": "2026-06-23T03:38:01.197Z"
+    }
+  },
+  "lastUpdated": "2026-06-26T19:12:25.785Z",
+  "diversityScore": "0.0",
+  "recommendation": "Low diversity (0.0%). Try feedback in: api-integration, architecture, data-modeling, behavioral"
+}

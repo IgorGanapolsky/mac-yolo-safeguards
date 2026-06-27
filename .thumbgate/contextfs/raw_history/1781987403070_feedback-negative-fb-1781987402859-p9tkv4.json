@@ -1,0 +1,20 @@
+{
+  "id": "1781987403070_feedback-negative-fb-1781987402859-p9tkv4",
+  "namespace": "raw_history",
+  "title": "feedback_negative_fb_1781987402859_p9tkv4",
+  "content": "{\"id\":\"fb_1781987402859_p9tkv4\",\"signal\":\"negative\",\"context\":\"User said thumbs up as a shallow acknowledgment. Bad assistant behavior: treated thumbs up as a new task and gave repetitive shortcut instructions instead of just acknowledging briefly or continuing prior work. Correct behavior: respond minimally, avoid re-explaining, and continue only if there is active work.\",\"submittedContext\":\"User said thumbs up as a shallow acknowledgment. Bad assistant behavior: treated thumbs up as a new task and gave repetitive shortcut instructions instead of just acknowledging briefly or continuing prior work. Correct behavior: respond minimally, avoid re-explaining, and continue only if there is active work.\",\"relatedFeedbackId\":null,\"lastAction\":null,\"whatWentWrong\":\"User said thumbs up as a shallow acknowledgment. Bad assistant behavior: treated thumbs up as a new task and gave repetitive shortcut instructions instead of just acknowledging briefly or continuing prior work. Correct behavior: respond minimally, avoid re-explaining, and continue only if there is active work.\",\"whatToChange\":\"avoid: User said thumbs up as a shallow acknowledgment. Bad assistant behavior: treated thumbs up as a new task and gave repetitive shortcut instructions instead of just acknowledging briefly or continuing prior work. Correct behavior: respond minimally, avoid re-explaining, and continue only if there is active work.\",\"whatWorked\":null,\"reasoning\":null,\"visualEvidence\":null,\"conversationWindow\":null,\"distillation\":null,\"tags\":[\"shallow-ack\",\"thumbs-up\",\"final-response\",\"entity:Customer\"],\"skill\":null,\"failureType\":null,\"rubric\":null,\"actionType\":\"store-mistake\",\"actionReason\":null,\"structuredRule\":null,\"gateAction\":null,\"timestamp\":\"2026-06-20T20:30:02.858Z\",\"richContext\":{\"domain\":\"general\",\"filePaths\":[],\"errorType\":null,\"outcomeCategory\":\"insufficient-depth\",\"enforcement\":{\"scopeViolation\":false,\"approvalFailure\":false,\"protectedFileViolation\":false,\"protectedFiles\":[]}}}",
+  "tags": [
+    "shallow-ack",
+    "thumbs-up",
+    "final-response",
+    "entity:Customer"
+  ],
+  "source": "feedback-event",
+  "ttl": null,
+  "metadata": {
+    "signal": "negative",
+    "actionType": "store-mistake"
+  },
+  "createdAt": "2026-06-20T20:30:03.070Z",
+  "lastUsedAt": null
+}

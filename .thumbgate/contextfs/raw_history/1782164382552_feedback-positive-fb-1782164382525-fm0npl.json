@@ -1,0 +1,18 @@
+{
+  "id": "1782164382552_feedback-positive-fb-1782164382525-fm0npl",
+  "namespace": "raw_history",
+  "title": "feedback_positive_fb_1782164382525_fm0npl",
+  "content": "{\"id\":\"fb_1782164382525_fm0npl\",\"signal\":\"positive\",\"context\":\"2026-06-22: Double-checked Screen Sharing settings using AppleScript to verify that Adaptive Quality is checked (✓), Full Quality is unchecked, and HDR is unchecked. Confirmed that VNC client side is fully optimized.\",\"submittedContext\":\"2026-06-22: Double-checked Screen Sharing settings using AppleScript to verify that Adaptive Quality is checked (✓), Full Quality is unchecked, and HDR is unchecked. Confirmed that VNC client side is fully optimized.\",\"relatedFeedbackId\":null,\"lastAction\":null,\"whatWentWrong\":null,\"whatToChange\":null,\"whatWorked\":null,\"reasoning\":null,\"visualEvidence\":null,\"conversationWindow\":null,\"distillation\":null,\"tags\":[\"screensharing\",\"quality-check\"],\"skill\":null,\"failureType\":null,\"rubric\":null,\"actionType\":\"store-learning\",\"actionReason\":null,\"structuredRule\":null,\"gateAction\":null,\"timestamp\":\"2026-06-22T21:39:42.525Z\",\"richContext\":{\"domain\":\"general\",\"filePaths\":[],\"errorType\":null,\"outcomeCategory\":\"standard-success\",\"enforcement\":{\"scopeViolation\":false,\"approvalFailure\":false,\"protectedFileViolation\":false,\"protectedFiles\":[]}}}",
+  "tags": [
+    "screensharing",
+    "quality-check"
+  ],
+  "source": "feedback-event",
+  "ttl": null,
+  "metadata": {
+    "signal": "positive",
+    "actionType": "store-learning"
+  },
+  "createdAt": "2026-06-22T21:39:42.552Z",
+  "lastUsedAt": null
+}

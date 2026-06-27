@@ -1,0 +1,22 @@
+{
+  "id": "1782491330356_success-patched-api-server-py-to-fetch-getattr-agent-model-and-token-usage-from-",
+  "namespace": "memory/learning",
+  "title": "SUCCESS: Patched api_server.py to fetch getattr(agent, 'model') and token usage from the running AIAgent and stream them in tool...",
+  "content": "What worked: Patched api_server.py to fetch getattr(agent, 'model') and token usage from the running AIAgent and stream them in tool progress SSE payloads.",
+  "tags": [
+    "feedback",
+    "positive",
+    "model-missing",
+    "token-counts",
+    "api-server",
+    "SSE"
+  ],
+  "source": "feedback-memory",
+  "ttl": null,
+  "metadata": {
+    "category": "learning",
+    "sourceFeedbackId": "fb_1782491330292_shifrx"
+  },
+  "createdAt": "2026-06-26T16:28:50.356Z",
+  "lastUsedAt": null
+}

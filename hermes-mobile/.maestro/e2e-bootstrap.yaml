@@ -17,11 +17,7 @@ appId: com.iganapolsky.hermesmobile
     visible:
       text: "Settings"
     timeout: 45000
-- runFlow:
-    when:
-      platform: ios
-    commands:
-      - hideKeyboard
+- hideKeyboard
 - waitForAnimationToEnd:
     timeout: 2000
 - tapOn:

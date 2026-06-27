@@ -1,0 +1,17 @@
+{
+  "id": "1782411326307_feedback-positive-fb-1782411326219-gnqldc",
+  "namespace": "raw_history",
+  "title": "feedback_positive_fb_1782411326219_gnqldc",
+  "content": "{\"id\":\"fb_1782411326219_gnqldc\",\"signal\":\"positive\",\"context\":\"{\\\"session_id\\\":\\\"987c4185-5897-4971-97cb-6e3dcc6f995c\\\",\\\"transcript_path\\\":\\\"/Users/igorganapolsky/.claude/projects/-Users-igorganapolsky-workspace-git-igor-mac-yolo-safeguards/987c4185-5897-4971-97cb-6e3dcc6f995c.jsonl\\\",\\\"cwd\\\":\\\"/Users/igorganapolsky/workspace/git/igor/mac-yolo-safeguards\\\",\\\"permission_mode\\\":\\\"bypassPermissions\\\",\\\"hook_event_name\\\":\\\"UserPromptSubmit\\\",\\\"prompt\\\":\\\"thumbs up\\\"}\",\"submittedContext\":\"{\\\"session_id\\\":\\\"987c4185-5897-4971-97cb-6e3dcc6f995c\\\",\\\"transcript_path\\\":\\\"/Users/igorganapolsky/.claude/projects/-Users-igorganapolsky-workspace-git-igor-mac-yolo-safeguards/987c4185-5897-4971-97cb-6e3dcc6f995c.jsonl\\\",\\\"cwd\\\":\\\"/Users/igorganapolsky/workspace/git/igor/mac-yolo-safeguards\\\",\\\"permission_mode\\\":\\\"bypassPermissions\\\",\\\"hook_event_name\\\":\\\"UserPromptSubmit\\\",\\\"prompt\\\":\\\"thumbs up\\\"}\",\"relatedFeedbackId\":null,\"lastAction\":null,\"whatWentWrong\":null,\"whatToChange\":null,\"whatWorked\":\"{\\\"session_id\\\":\\\"987c4185-5897-4971-97cb-6e3dcc6f995c\\\",\\\"transcript_path\\\":\\\"/Users/igorganapolsky/.claude/projects/-Users-igorganapolsky-workspace-git-igor-mac-yolo-safeguards/987c4185-5897-4971-97cb-6e3dcc6f995c.jsonl\\\",\\\"cwd\\\":\\\"/Users/igorganapolsky/workspace/git/igor/mac-yolo-safeguards\\\",\\\"permission_mode\\\":\\\"bypassPermissions\\\",\\\"hook_event_name\\\":\\\"UserPromptSubmit\\\",\\\"prompt\\\":\\\"thumbs up\\\"}\",\"reasoning\":null,\"visualEvidence\":null,\"conversationWindow\":null,\"distillation\":null,\"tags\":[\"entity:Customer\"],\"skill\":null,\"failureType\":null,\"rubric\":null,\"actionType\":\"store-learning\",\"actionReason\":null,\"structuredRule\":null,\"gateAction\":null,\"timestamp\":\"2026-06-25T18:15:26.219Z\",\"richContext\":{\"domain\":\"general\",\"filePaths\":[],\"errorType\":null,\"outcomeCategory\":\"standard-success\",\"enforcement\":{\"scopeViolation\":false,\"approvalFailure\":false,\"protectedFileViolation\":false,\"protectedFiles\":[]}}}",
+  "tags": [
+    "entity:Customer"
+  ],
+  "source": "feedback-event",
+  "ttl": null,
+  "metadata": {
+    "signal": "positive",
+    "actionType": "store-learning"
+  },
+  "createdAt": "2026-06-25T18:15:26.307Z",
+  "lastUsedAt": null
+}
