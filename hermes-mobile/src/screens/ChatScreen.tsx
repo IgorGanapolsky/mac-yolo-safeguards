@@ -2189,13 +2189,15 @@ export default function ChatScreen() {
     [submitChatOutputFeedbackForMessage],
   );
 
-  const handleFeedbackPromptSubmit = useCallback(
+  // The thumbs vote ALWAYS records (the modal copy promises "we saved your thumbs up");
+  // the explanation is optional, so Skip / dismiss still logs the bare signal.
+  const resolveFeedbackPrompt = useCallback(
     (explanation?: string) => {
-      if (feedbackPrompt && explanation?.trim()) {
+      if (feedbackPrompt) {
         void submitChatOutputFeedbackForMessage(
           feedbackPrompt.message,
           feedbackPrompt.signal,
-          explanation.trim(),
+          explanation?.trim() || undefined,
         );
       }
       setFeedbackPrompt(null);
@@ -3960,8 +3962,8 @@ export default function ChatScreen() {
       <FeedbackPromptModal
         visible={feedbackPrompt != null}
         signal={feedbackPrompt?.signal ?? 'up'}
-        onClose={() => setFeedbackPrompt(null)}
-        onSubmit={handleFeedbackPromptSubmit}
+        onClose={() => resolveFeedbackPrompt()}
+        onSubmit={resolveFeedbackPrompt}
       />
     </SafeAreaView>
   );

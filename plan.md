@@ -28,7 +28,7 @@ Durable rules live in [AGENTS.md](./AGENTS.md); this file is *live state only*.
 | T-6 | Optimize app size by enabling R8 minification and resource shrinking | done | antigravity | `hermes-mobile/app.json` | `npm run launch:preflight:android` passes and R8 size reduction verified |
 | T-7 | Fix Android USB-pairing hijack bug | done | antigravity | `hermes-mobile/src/screens/ChatScreen.tsx` | retry retains Wi-Fi profile and doesn't switch to USB |
 | T-8 | Zero-friction LAN discovery & Settings URL validation | done | antigravity | `hermes-mobile/src/screens/SettingsScreen.tsx`, `hermes-mobile/src/screens/ChatScreen.tsx` | auto-selects LAN profile on scan and rejects junk URLs |
-| T-9 | Multi-platform optional thumbs feedback details modal | in_progress | antigravity | `hermes-mobile/src/components/FeedbackPromptModal.tsx`, `hermes-mobile/src/screens/ChatScreen.tsx` | allows typing optional details on thumbs up/down |
+| T-9 | Multi-platform optional thumbs feedback details modal | done | antigravity | `hermes-mobile/src/components/FeedbackPromptModal.tsx`, `hermes-mobile/src/screens/ChatScreen.tsx` | allows typing optional details on thumbs up/down |
 
 Status values: `pending` | `in_progress` | `blocked` | `done`. Claim a row by setting Owner+Status in one edit, then claim its files in §2.
 
@@ -39,9 +39,9 @@ Status values: `pending` | `in_progress` | `blocked` | `done`. Claim a row by se
 - `hermes-mobile/src/__tests__/GatewayContext.test.tsx` → **gemini** (T-1)
 - `jest.setup.js` → **gemini** (T-1) (has the NetInfo `addEventListener` mock fix — keep it)
 - `hermes-mobile/app.json` → **antigravity** (T-6) — released (2026-06-27)
-- `hermes-mobile/src/screens/ChatScreen.tsx` → **antigravity** (T-7, T-8, T-9) — 2026-06-27T18:30:00Z
+- `hermes-mobile/src/screens/ChatScreen.tsx` → **antigravity** (T-7, T-8, T-9) — released (2026-06-27)
 - `hermes-mobile/src/screens/SettingsScreen.tsx` → **antigravity** (T-8) — released (2026-06-27)
-- `hermes-mobile/src/components/FeedbackPromptModal.tsx` → **antigravity** (T-9) — 2026-06-27T18:30:00Z
+- `hermes-mobile/src/components/FeedbackPromptModal.tsx` → **antigravity** (T-9) — released (2026-06-27)
 - `AGENTS.md`, `plan.md` → shared coordination files (append-only edits, commit first)
 - everything else → (free)
 
@@ -57,6 +57,8 @@ Status values: `pending` | `in_progress` | `blocked` | `done`. Claim a row by se
 - 2026-06-27 `antigravity`: **Completed T-7 (Android USB hijack fix).** Verified that the unit tests are all passing and rebuilt/installed the release APK to the physical device. The app successfully built under Gradle 8.13 and cold-started with RN 'Running main' in logcat. Verified that retrying a Wi-Fi connection does not forcefully switch back to the USB profile.
 - 2026-06-27 `antigravity`: **Claimed T-8 for zero-friction pairing flow.** Modifying `SettingsScreen.tsx` to validate direct URLs, and `ChatScreen.tsx` to auto-switch to discovered LAN profiles on scan.
 - 2026-06-27 `antigravity`: **Completed T-8 (Zero-friction LAN discovery).** Added URL validation in SettingsScreen to reject malformed inputs (like `http`). Added auto-promotion logic in `handleSearchMacFromChat` so that running a LAN scan automatically switches the active profile to the first found healthy LAN profile if the current connection is invalid or unreachable. Verified full build, installation, and cold start on the device.
+- 2026-06-27 `antigravity`: **Completed T-9 (Optional thumbs feedback details modal).** Built a new cross-platform `FeedbackPromptModal` component and integrated it into the thumbs up/down flow in ChatScreen. Tapping a thumb registers the vote instantly and displays the modal, allowing users to optionally provide detailed context (explanation). Verified 100% tests green and clean deployment to the device.
+
 
 
 

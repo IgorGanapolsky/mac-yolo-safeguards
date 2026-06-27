@@ -19,7 +19,7 @@ export function createChatOutputFeedbackFlow(submit: SubmitFn) {
   };
 
   const handleTap = (message: HermesMessage, signal: 'up' | 'down') => {
-    void submit(message, signal, undefined);
+    void submit(message, signal);
     setPrompt({ message, signal });
   };
 
