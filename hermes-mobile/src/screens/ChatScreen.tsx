@@ -122,6 +122,7 @@ import {
 } from '../utils/chatMachineHeader';
 import { resolveRelayRouteDisplay } from '../utils/relayRouting';
 import { isLoopbackGatewayUrl } from '../utils/gatewayUrlPolicy';
+import { isInvalidGatewayProfile } from '../services/gatewayProfiles';
 import { isPrivateLanGatewayUrl } from '../utils/gatewayEndpoint';
 import { detectUsbHostMismatch } from '../utils/gatewayProfilePicker';
 import { USB_LOOPBACK_GATEWAY_URL } from '../utils/gatewayLoopbackFallback';
@@ -557,7 +558,23 @@ export default function ChatScreen() {
     haptics.selection();
     setIsScanningMacs(true);
     try {
-      await scanForGatewayProfiles();
+      const scanned = await scanForGatewayProfiles();
+
+      const active = activeGatewayProfile;
+      const isLoopbackActive = active ? isLoopbackGatewayUrl(active.gatewayUrl) : true;
+      const isInvalidActive = active ? isInvalidGatewayProfile(active) : true;
+      const isActiveReachable = isMacGatewayHttpOk(health);
+
+      if (isInvalidActive || isLoopbackActive || !isActiveReachable) {
+        // Find a healthy, valid LAN profile from the scanned list
+        const lanProfile = scanned.find(
+          (p) => !isLoopbackGatewayUrl(p.gatewayUrl) && !isInvalidGatewayProfile(p),
+        );
+        if (lanProfile) {
+          await selectGatewayProfile(lanProfile.id);
+        }
+      }
+
       await retryGatewayBootstrap();
       await autoConnectGateway();
       await refreshHealth();
@@ -566,11 +583,14 @@ export default function ChatScreen() {
       setIsScanningMacs(false);
     }
   }, [
+    activeGatewayProfile,
     autoConnectGateway,
     connectEvents,
+    health,
     refreshHealth,
     retryGatewayBootstrap,
     scanForGatewayProfiles,
+    selectGatewayProfile,
   ]);
 
   const handleConnectionPanelRefresh = useCallback(async () => {

@@ -218,6 +218,20 @@ export default function SettingsScreen() {
     haptics.selection();
     setIsSaving(true);
     try {
+      if (gatewayUrl?.trim()) {
+        const trimmed = gatewayUrl.trim();
+        const lower = trimmed.toLowerCase();
+        if (
+          lower === 'http' ||
+          lower === 'https' ||
+          lower === 'http://' ||
+          lower === 'https://' ||
+          lower === 'http:/' ||
+          lower === 'https:/'
+        ) {
+          throw new Error('Please enter a valid URL (e.g. http://192.168.1.100:8642)');
+        }
+      }
       if (notificationsEnabled && Platform.OS !== 'web') {
         const granted = await requestHermesNotificationPermission();
         if (!granted) {
