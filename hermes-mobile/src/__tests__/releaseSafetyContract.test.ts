@@ -39,6 +39,17 @@ describe('appIdentity', () => {
 });
 
 describe('release safety contract', () => {
+  it('EAS preview and production target arm64-only Android (Firebase ~43MB not ~100MB)', () => {
+    const eas = JSON.parse(read('hermes-mobile/eas.json'));
+    expect(eas.build.preview.env.ORG_GRADLE_PROJECT_reactNativeArchitectures).toBe('arm64-v8a');
+    expect(eas.build.production.env.ORG_GRADLE_PROJECT_reactNativeArchitectures).toBe('arm64-v8a');
+    const app = JSON.parse(read('hermes-mobile/app.json'));
+    const buildProps = app.expo.plugins.find(
+      (p: unknown) => Array.isArray(p) && p[0] === 'expo-build-properties',
+    ) as [string, { android?: { buildArchs?: string[] } }] | undefined;
+    expect(buildProps?.[1]?.android?.buildArchs).toEqual(['arm64-v8a']);
+  });
+
   it('EAS submit targets Play production track (LLC org)', () => {
     const eas = JSON.parse(read('hermes-mobile/eas.json'));
     expect(eas.submit.production.android.track).toBe('production');
