@@ -70,9 +70,13 @@ describe('release safety contract', () => {
 
   it('e2e-bootstrap waits for tab bar testIDs (not stray Settings copy)', () => {
     const bootstrap = read('hermes-mobile/.maestro/e2e-bootstrap.yaml');
-    expect(bootstrap).toContain('id: "Settings"');
-    expect(bootstrap).toContain('id: "Leash"');
+    expect(bootstrap).toContain('id: "tab-hermes"');
+    expect(bootstrap).toContain('id: "tab-leash"');
     expect(bootstrap).not.toMatch(/text:\s*"Settings"/);
+    const app = read('hermes-mobile/App.tsx');
+    expect(app).toContain('tab-hermes');
+    expect(app).toContain('tab-leash');
+    expect(app).toContain('tab-settings');
   });
 
   it('settings inputs have stable testIDs for Maestro', () => {

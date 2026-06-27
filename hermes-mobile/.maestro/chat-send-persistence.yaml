@@ -8,7 +8,8 @@ appId: com.iganapolsky.hermesmobile
       notVisible:
         id: "HERMES CHAT"
     commands:
-      - tapOn: "Hermes"
+      - tapOn:
+          id: "tab-hermes"
 - extendedWaitUntil:
     visible:
       id: "chat-input"

@@ -59,6 +59,17 @@ function tabLabelFor(routeName: keyof RootTabParamList): string {
   return 'Settings';
 }
 
+/** Maestro-stable tab selectors — avoid substring hits like chat-connection-settings. */
+function tabTestIdFor(routeName: keyof RootTabParamList): string {
+  if (routeName === 'Chat') {
+    return 'tab-hermes';
+  }
+  if (routeName === 'Leash') {
+    return 'tab-leash';
+  }
+  return 'tab-settings';
+}
+
 const renderTabBar = (props: BottomTabBarProps) => <GlassmorphicTabBar {...props} />;
 
 function HermesTabNavigator() {
@@ -207,7 +218,7 @@ function GlassmorphicTabBar({ state, descriptors, navigation }: BottomTabBarProp
             activeOpacity={0.8}
             onPress={onPress}
             onLongPress={onLongPress}
-            testID={label}
+            testID={tabTestIdFor(route.name as keyof RootTabParamList)}
             accessibilityLabel={label}
           >
             <View style={styles.navIcon}>

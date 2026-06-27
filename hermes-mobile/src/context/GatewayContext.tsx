@@ -1771,6 +1771,7 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
           ...settingsRef.current,
           demoMode: true,
           connectionMode: 'gateway',
+          glanceMode: false,
         };
         await saveSettings(nextSettings, apiKeyRef.current);
         return;

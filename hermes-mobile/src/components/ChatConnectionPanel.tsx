@@ -320,7 +320,7 @@ export default function ChatConnectionPanel({
           <TouchableOpacity
             style={styles.secondaryButton}
             onPress={onOpenSettings}
-            testID="chat-connection-settings"
+            testID="chat-open-settings-link"
           >
             <Text style={styles.secondaryButtonText}>Settings</Text>
           </TouchableOpacity>
