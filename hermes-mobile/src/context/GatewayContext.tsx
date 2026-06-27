@@ -71,6 +71,7 @@ import {
 } from '../utils/presentationMode';
 import {
   isDemoModeAllowed,
+  isDeveloperLeashUnlockAllowed,
   sanitizeDemoModeForRelease,
 } from '../utils/demoModePolicy';
 import {
@@ -1772,6 +1773,7 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
           demoMode: true,
           connectionMode: 'gateway',
           glanceMode: false,
+          ...(isDeveloperLeashUnlockAllowed() ? { developerLeashUnlock: true } : {}),
         };
         await saveSettings(nextSettings, apiKeyRef.current);
         return;

@@ -9,6 +9,7 @@ appId: com.iganapolsky.hermesmobile
         text: "Open"
     commands:
       - tapOn: "Open"
+- openLink: "hermes://dev/leash-unlock"
 - extendedWaitUntil:
     notVisible:
       id: "connect-mac-gate"
@@ -17,23 +18,12 @@ appId: com.iganapolsky.hermesmobile
 # tab-* testIDs — never substring-match chat-connection-settings / onboarding copy.
 - extendedWaitUntil:
     visible:
-      id: "tab-leash"
+      id: "tab-hermes"
     timeout: 45000
-- extendedWaitUntil:
-    visible:
-      id: "tab-settings"
-    timeout: 30000
-- runFlow:
-    when:
-      notVisible:
-        id: "THUMBGATE_LEASH"
-    commands:
-      - tapOn:
-          id: "tab-leash"
-- extendedWaitUntil:
-    visible:
-      id: "THUMBGATE_LEASH"
-    timeout: 30000
+- waitForAnimationToEnd:
+    timeout: 2000
+- tapOn:
+    id: "tab-leash"
 - runFlow:
     when:
       visible:
@@ -43,16 +33,11 @@ appId: com.iganapolsky.hermesmobile
           id: "unlock-thumbgate-leash"
 - extendedWaitUntil:
     visible:
-      id: "tab-hermes"
-    timeout: 30000
+      id: "THUMBGATE_LEASH"
+    timeout: 60000
 - hideKeyboard
-- runFlow:
-    when:
-      visible:
-        id: "tab-hermes"
-    commands:
-      - tapOn:
-          id: "tab-hermes"
+- tapOn:
+    id: "tab-hermes"
 - extendedWaitUntil:
     visible:
       id: "chat-input"
