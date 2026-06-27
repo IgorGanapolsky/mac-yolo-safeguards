@@ -15,13 +15,22 @@ appId: com.iganapolsky.hermesmobile
     timeout: 30000
 - extendedWaitUntil:
     visible:
-      text: "Settings"
+      id: "Settings"
     timeout: 45000
 - hideKeyboard
 - waitForAnimationToEnd:
     timeout: 2000
-- tapOn:
-    id: "Leash"
+- extendedWaitUntil:
+    visible:
+      id: "Leash"
+    timeout: 30000
+- runFlow:
+    when:
+      notVisible:
+        id: "THUMBGATE_LEASH"
+    commands:
+      - tapOn:
+          id: "Leash"
 - extendedWaitUntil:
     visible:
       id: "THUMBGATE_LEASH"
@@ -33,6 +42,11 @@ appId: com.iganapolsky.hermesmobile
     commands:
       - tapOn:
           id: "unlock-thumbgate-leash"
+- extendedWaitUntil:
+    visible:
+      id: "Hermes"
+    timeout: 30000
+- hideKeyboard
 - tapOn:
     id: "Hermes"
 - extendedWaitUntil:
