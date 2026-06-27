@@ -108,6 +108,7 @@ import ChatInputBar from '../components/ChatInputBar';
 import ChatQuickActions, { type ChatQuickAction } from '../components/ChatQuickActions';
 import ChatMessageListItem from '../components/ChatMessageListItem';
 import ChatMessageDetailModal from '../components/ChatMessageDetailModal';
+import FeedbackPromptModal from '../components/FeedbackPromptModal';
 import GatewayOpsSection from '../components/GatewayOpsSection';
 import ChatApprovalBar from '../components/ChatApprovalBar';
 import RunProgressBanner from '../components/RunProgressBanner';
@@ -290,6 +291,10 @@ export default function ChatScreen() {
   const [hideCronSessions, setHideCronSessions] = useState(false);
   const [dismissedPrompts, setDismissedPrompts] = useState<string[]>([]);
   const [messageDetail, setMessageDetail] = useState<{ title: string; body: string } | null>(null);
+  const [feedbackPrompt, setFeedbackPrompt] = useState<{
+    message: HermesMessage;
+    signal: 'up' | 'down';
+  } | null>(null);
 
   const applyChatApiError = useCallback(
     (error: unknown, fallback: string, options?: { background?: boolean }) => {
@@ -2168,7 +2173,6 @@ export default function ChatScreen() {
 
   const submitChatOutputFeedbackForMessage = useCallback(
     async (message: HermesMessage, signal: 'up' | 'down', explanation?: string) => {
-      haptics.selection();
       await submitChatOutputFeedback(message, signal, {
         session: currentSession,
         explanation,
@@ -2177,29 +2181,26 @@ export default function ChatScreen() {
     [currentSession, submitChatOutputFeedback],
   );
 
-  const promptChatOutputDownFeedback = useCallback(
-    (message: HermesMessage) => {
-      const submit = (explanation?: string) => {
-        void submitChatOutputFeedbackForMessage(message, 'down', explanation);
-      };
-      if (Platform.OS === 'ios' && typeof Alert.prompt === 'function') {
-        Alert.prompt(
-          'What went wrong?',
-          'Optional — helps ThumbGate learn from this output.',
-          [
-            { text: 'Cancel', style: 'cancel' },
-            { text: 'Submit', onPress: (text?: string) => submit(text?.trim() || undefined) },
-          ],
-          'plain-text',
-        );
-        return;
-      }
-      Alert.alert('Mark as unhelpful?', 'Send this feedback to ThumbGate.', [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Submit', onPress: () => submit(undefined) },
-      ]);
+  const handleChatOutputFeedbackTap = useCallback(
+    (message: HermesMessage, signal: 'up' | 'down') => {
+      void submitChatOutputFeedbackForMessage(message, signal);
+      setFeedbackPrompt({ message, signal });
     },
     [submitChatOutputFeedbackForMessage],
+  );
+
+  const handleFeedbackPromptSubmit = useCallback(
+    (explanation?: string) => {
+      if (feedbackPrompt && explanation?.trim()) {
+        void submitChatOutputFeedbackForMessage(
+          feedbackPrompt.message,
+          feedbackPrompt.signal,
+          explanation.trim(),
+        );
+      }
+      setFeedbackPrompt(null);
+    },
+    [feedbackPrompt, submitChatOutputFeedbackForMessage],
   );
 
   const isTelegramInbox = isTelegramInboxSession(currentSession);
@@ -2219,12 +2220,8 @@ export default function ChatScreen() {
       const outputFeedback = showOutputFeedback
         ? {
             busy: chatOutputFeedbackBusyId === busyKey,
-            onThumbsUp: () => {
-              void submitChatOutputFeedbackForMessage(item, 'up');
-            },
-            onThumbsDown: () => {
-              promptChatOutputDownFeedback(item);
-            },
+            onThumbsUp: () => handleChatOutputFeedbackTap(item, 'up'),
+            onThumbsDown: () => handleChatOutputFeedbackTap(item, 'down'),
           }
         : undefined;
       return (
@@ -2258,8 +2255,7 @@ export default function ChatScreen() {
       isSending,
       leashUnlocked,
       chatOutputFeedbackBusyId,
-      submitChatOutputFeedbackForMessage,
-      promptChatOutputDownFeedback,
+      handleChatOutputFeedbackTap,
       handleShowMessageDetail,
       handleInlineTextApproval,
     ],
@@ -3959,6 +3955,13 @@ export default function ChatScreen() {
         title={messageDetail?.title ?? ''}
         body={messageDetail?.body ?? ''}
         onClose={() => setMessageDetail(null)}
+      />
+
+      <FeedbackPromptModal
+        visible={feedbackPrompt != null}
+        signal={feedbackPrompt?.signal ?? 'up'}
+        onClose={() => setFeedbackPrompt(null)}
+        onSubmit={handleFeedbackPromptSubmit}
       />
     </SafeAreaView>
   );
