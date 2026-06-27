@@ -23,11 +23,15 @@ type ChatEmptyGreetingProps = {
 export function greetingSubtitle(routeLabel?: string, isConnected = false): string {
   const route = routeLabel?.trim();
   const isGeneric = route
-    ? /^(mac|computer|your mac|my mac|mac via usb|mac via network)$/i.test(route)
+    ? /^(mac|computer|your mac|my mac|mac via usb|mac via network|http|https)$/i.test(route)
     : false;
 
   if (route === 'Hermes account relay') {
     return 'Ask anything — pair Hermes relay for Wi‑Fi, cellular, or USB when you are away from your Mac.';
+  }
+
+  if (route === 'Computer not configured') {
+    return 'Computer URL is incomplete — open Settings to pick or add a Mac.';
   }
 
   if (isConnected) {

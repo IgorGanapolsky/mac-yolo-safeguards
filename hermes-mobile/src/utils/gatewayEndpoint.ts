@@ -1,6 +1,6 @@
 import { Platform } from 'react-native';
 import { normalizeGatewayUrl } from '../services/gatewayClient';
-import { isLoopbackGatewayUrl } from './gatewayUrlPolicy';
+import { isLoopbackGatewayUrl, isValidGatewayUrl } from './gatewayUrlPolicy';
 import type { ConnectionMode, GatewayHealthSnapshot } from '../types/gateway';
 
 const IPV4_RE = /^\d{1,3}(\.\d{1,3}){3}$/;
@@ -86,10 +86,15 @@ function gatewayUrlHost(gatewayUrl: string): string | undefined {
  * Human label for the Mac Hermes gateway — machine name plus LAN IP when known.
  * Prefers /health hostname + local_ip; falls back to the configured gateway URL host.
  */
+const UNCONFIGURED_GATEWAY_LABEL = 'Computer not configured';
+
 export function formatGatewayHostLabel(
   gatewayUrl: string,
   health?: GatewayHealthSnapshot | null,
 ): string {
+  if (!isValidGatewayUrl(gatewayUrl)) {
+    return UNCONFIGURED_GATEWAY_LABEL;
+  }
   if (isLoopbackGatewayUrl(gatewayUrl)) {
     const fromHealthName = isUsableHost(health?.hostname);
     const fromUrl = parseHostFromGatewayUrl(gatewayUrl);
@@ -124,6 +129,9 @@ export function formatGatewayMachineParts(
   gatewayUrl: string,
   health?: GatewayHealthSnapshot | null,
 ): { machineName: string; lanIp?: string } {
+  if (!isValidGatewayUrl(gatewayUrl)) {
+    return { machineName: UNCONFIGURED_GATEWAY_LABEL };
+  }
   const fromHealthName = isUsableHost(health?.hostname);
   const fromHealthIp = isUsableHost(health?.localIp);
   const fromUrl = parseHostFromGatewayUrl(gatewayUrl);
@@ -235,6 +243,9 @@ export function formatGatewayEndpointLine(
   gatewayUrl: string,
   health?: GatewayHealthSnapshot | null,
 ): string {
+  if (!isValidGatewayUrl(gatewayUrl)) {
+    return 'Set computer in Settings';
+  }
   const lanIp = isUsableHost(health?.localIp);
   try {
     const { httpBase } = normalizeGatewayUrl(gatewayUrl);

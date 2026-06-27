@@ -165,6 +165,24 @@ describe('formatMacConnectionRetryBanner', () => {
     expect(text).toBe("Can't reach Igors-MacBook-Pro (USB) — tap to retry");
     expect(text).not.toContain('direct link');
   });
+
+  it('never shows http as the machine name for junk profiles', () => {
+    const text = formatMacConnectionRetryBanner({
+      connectionState: 'disconnected',
+      gatewayUrl: 'http://',
+      health: null,
+      activeProfile: {
+        id: 'junk',
+        label: 'http',
+        gatewayUrl: 'http://',
+        addedAt: '2026-06-24T00:00:00.000Z',
+      },
+      machineLabel: 'http',
+      machineEndpoint: 'http',
+    });
+    expect(text).not.toMatch(/\bhttp\b.*\bhttp\b/i);
+    expect(text).toContain('your Mac');
+  });
 });
 
 describe('profileDisplayName generic labels', () => {

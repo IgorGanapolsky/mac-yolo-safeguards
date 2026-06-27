@@ -56,6 +56,11 @@ describe('formatGatewayHostLabel', () => {
       })),
     ).toBe('Igors-MacBook-Pro (192.168.1.10)');
   });
+
+  it('shows unconfigured label for malformed gateway URLs', () => {
+    expect(formatGatewayHostLabel('http://', null)).toBe('Computer not configured');
+    expect(formatGatewayEndpointLine('http://http:8642', null)).toBe('Set computer in Settings');
+  });
 });
 
 describe('formatGatewayEndpointLine', () => {

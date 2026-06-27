@@ -1,5 +1,6 @@
 import { Platform } from 'react-native';
 import {
+  cellularTailscaleFallbackUrls,
   shouldSkipLanGatewayProbe,
   usbLoopbackFallbackUrls,
   USB_LOOPBACK_GATEWAY_URL,
@@ -50,6 +51,30 @@ describe('gatewayLoopbackFallback', () => {
         primaryUrl: 'http://192.168.68.68:8642',
         wifiConnected: true,
         lastLanIp: '192.168.68.68',
+      }),
+    ).toEqual([]);
+  });
+
+  it('offers Tailscale fallback off Wi‑Fi', () => {
+    expect(
+      cellularTailscaleFallbackUrls({
+        primaryUrl: 'http://192.168.68.68:8642',
+        wifiConnected: false,
+        profileUrls: ['http://100.94.135.78:8642', 'http://192.168.68.68:8642'],
+        tailnetProbeHosts: ['igors-mac-mini.tail12aa33.ts.net'],
+      }),
+    ).toEqual([
+      'http://100.94.135.78:8642',
+      'http://igors-mac-mini.tail12aa33.ts.net:8642',
+    ]);
+  });
+
+  it('skips Tailscale fallback on Wi‑Fi', () => {
+    expect(
+      cellularTailscaleFallbackUrls({
+        primaryUrl: 'http://192.168.68.68:8642',
+        wifiConnected: true,
+        profileUrls: ['http://100.94.135.78:8642'],
       }),
     ).toEqual([]);
   });
