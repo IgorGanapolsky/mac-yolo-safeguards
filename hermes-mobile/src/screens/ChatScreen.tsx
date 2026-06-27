@@ -108,6 +108,7 @@ import ChatInputBar from '../components/ChatInputBar';
 import ChatQuickActions, { type ChatQuickAction } from '../components/ChatQuickActions';
 import ChatMessageListItem from '../components/ChatMessageListItem';
 import ChatMessageDetailModal from '../components/ChatMessageDetailModal';
+import FeedbackPromptModal from '../components/FeedbackPromptModal';
 import GatewayOpsSection from '../components/GatewayOpsSection';
 import ChatApprovalBar from '../components/ChatApprovalBar';
 import RunProgressBanner from '../components/RunProgressBanner';
@@ -122,6 +123,7 @@ import {
 } from '../utils/chatMachineHeader';
 import { resolveRelayRouteDisplay } from '../utils/relayRouting';
 import { isLoopbackGatewayUrl } from '../utils/gatewayUrlPolicy';
+import { isInvalidGatewayProfile } from '../services/gatewayProfiles';
 import { isPrivateLanGatewayUrl } from '../utils/gatewayEndpoint';
 import { detectUsbHostMismatch } from '../utils/gatewayProfilePicker';
 import { USB_LOOPBACK_GATEWAY_URL } from '../utils/gatewayLoopbackFallback';
@@ -289,6 +291,10 @@ export default function ChatScreen() {
   const [hideCronSessions, setHideCronSessions] = useState(false);
   const [dismissedPrompts, setDismissedPrompts] = useState<string[]>([]);
   const [messageDetail, setMessageDetail] = useState<{ title: string; body: string } | null>(null);
+  const [feedbackPrompt, setFeedbackPrompt] = useState<{
+    message: HermesMessage;
+    signal: 'up' | 'down';
+  } | null>(null);
 
   const applyChatApiError = useCallback(
     (error: unknown, fallback: string, options?: { background?: boolean }) => {
@@ -431,11 +437,8 @@ export default function ChatScreen() {
   const macHttpOk = useMemo(() => isMacGatewayHttpOk(health), [health]);
   const healthProbePending = useMemo(() => isGatewayHealthPending(health), [health]);
   const usbCableLikely = useMemo(
-    () =>
-      Platform.OS === 'android' &&
-      (isLoopbackGatewayUrl(gatewayUrl) ||
-        gatewayProfiles.some((profile) => isLoopbackGatewayUrl(profile.gatewayUrl))),
-    [gatewayUrl, gatewayProfiles],
+    () => Platform.OS === 'android' && isLoopbackGatewayUrl(gatewayUrl) && macHttpOk,
+    [gatewayUrl, macHttpOk],
   );
   const usbHostMismatch = useMemo(
     () =>
@@ -560,7 +563,23 @@ export default function ChatScreen() {
     haptics.selection();
     setIsScanningMacs(true);
     try {
-      await scanForGatewayProfiles();
+      const scanned = await scanForGatewayProfiles();
+
+      const active = activeGatewayProfile;
+      const isLoopbackActive = active ? isLoopbackGatewayUrl(active.gatewayUrl) : true;
+      const isInvalidActive = active ? isInvalidGatewayProfile(active) : true;
+      const isActiveReachable = isMacGatewayHttpOk(health);
+
+      if (isInvalidActive || isLoopbackActive || !isActiveReachable) {
+        // Find a healthy, valid LAN profile from the scanned list
+        const lanProfile = scanned.find(
+          (p) => !isLoopbackGatewayUrl(p.gatewayUrl) && !isInvalidGatewayProfile(p),
+        );
+        if (lanProfile) {
+          await selectGatewayProfile(lanProfile.id);
+        }
+      }
+
       await retryGatewayBootstrap();
       await autoConnectGateway();
       await refreshHealth();
@@ -569,11 +588,14 @@ export default function ChatScreen() {
       setIsScanningMacs(false);
     }
   }, [
+    activeGatewayProfile,
     autoConnectGateway,
     connectEvents,
+    health,
     refreshHealth,
     retryGatewayBootstrap,
     scanForGatewayProfiles,
+    selectGatewayProfile,
   ]);
 
   const handleConnectionPanelRefresh = useCallback(async () => {
@@ -1300,8 +1322,9 @@ export default function ChatScreen() {
       };
 
       if (isDemo) {
+        let seedMessages: HermesMessage[] = [];
         if (activeSession.id === 'demo-1') {
-          applyMergedMessages([
+          seedMessages = [
             {
               role: 'user',
               content: 'What is the yolo-health check score?',
@@ -1313,9 +1336,9 @@ export default function ChatScreen() {
                 'Your yolo-health check score is currently 100/100. All safeguards are active and the LaunchAgent is running.',
               created_at: '2026-06-19T10:30:05.000Z',
             },
-          ]);
+          ];
         } else if (activeSession.id === 'demo-2') {
-          applyMergedMessages([
+          seedMessages = [
             {
               role: 'user',
               content: 'Simulators are spawning in a loop, help!',
@@ -1327,10 +1350,9 @@ export default function ChatScreen() {
                 'I detected 62 active simulator processes. Running sim-runaway-guard.sh to auto-terminate runaway runtimes and reclaim memory.',
               created_at: '2026-06-19T09:15:12.000Z',
             },
-          ]);
-        } else {
-          applyMergedMessages([]);
+          ];
         }
+        applyMergedMessages(mergeWithLocalPending(seedMessages));
         refreshInFlightRef.current = false;
         return;
       }
@@ -1706,19 +1728,7 @@ export default function ChatScreen() {
         await saveSettings(nextSettings, apiKey);
       }
 
-      if (Platform.OS === 'android') {
-        const loopbackProfile = gatewayProfiles.find((profile) =>
-          isLoopbackGatewayUrl(profile.gatewayUrl),
-        );
-        if (loopbackProfile && loopbackProfile.id !== activeGatewayProfile?.id) {
-          await selectGatewayProfile(loopbackProfile.id);
-        } else if (!isLoopbackGatewayUrl(effectiveGatewayUrl || nextSettings.gatewayUrl)) {
-          await saveSettings(
-            { ...nextSettings, gatewayUrl: USB_LOOPBACK_GATEWAY_URL },
-            apiKey,
-          );
-        }
-      }
+
 
       await scanForGatewayProfiles();
       await autoConnectGateway();
@@ -2163,7 +2173,6 @@ export default function ChatScreen() {
 
   const submitChatOutputFeedbackForMessage = useCallback(
     async (message: HermesMessage, signal: 'up' | 'down', explanation?: string) => {
-      haptics.selection();
       await submitChatOutputFeedback(message, signal, {
         session: currentSession,
         explanation,
@@ -2172,29 +2181,26 @@ export default function ChatScreen() {
     [currentSession, submitChatOutputFeedback],
   );
 
-  const promptChatOutputDownFeedback = useCallback(
-    (message: HermesMessage) => {
-      const submit = (explanation?: string) => {
-        void submitChatOutputFeedbackForMessage(message, 'down', explanation);
-      };
-      if (Platform.OS === 'ios' && typeof Alert.prompt === 'function') {
-        Alert.prompt(
-          'What went wrong?',
-          'Optional — helps ThumbGate learn from this output.',
-          [
-            { text: 'Cancel', style: 'cancel' },
-            { text: 'Submit', onPress: (text?: string) => submit(text?.trim() || undefined) },
-          ],
-          'plain-text',
-        );
-        return;
-      }
-      Alert.alert('Mark as unhelpful?', 'Send this feedback to ThumbGate.', [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Submit', onPress: () => submit(undefined) },
-      ]);
+  const handleChatOutputFeedbackTap = useCallback(
+    (message: HermesMessage, signal: 'up' | 'down') => {
+      void submitChatOutputFeedbackForMessage(message, signal);
+      setFeedbackPrompt({ message, signal });
     },
     [submitChatOutputFeedbackForMessage],
+  );
+
+  const handleFeedbackPromptSubmit = useCallback(
+    (explanation?: string) => {
+      if (feedbackPrompt && explanation?.trim()) {
+        void submitChatOutputFeedbackForMessage(
+          feedbackPrompt.message,
+          feedbackPrompt.signal,
+          explanation.trim(),
+        );
+      }
+      setFeedbackPrompt(null);
+    },
+    [feedbackPrompt, submitChatOutputFeedbackForMessage],
   );
 
   const isTelegramInbox = isTelegramInboxSession(currentSession);
@@ -2214,12 +2220,8 @@ export default function ChatScreen() {
       const outputFeedback = showOutputFeedback
         ? {
             busy: chatOutputFeedbackBusyId === busyKey,
-            onThumbsUp: () => {
-              void submitChatOutputFeedbackForMessage(item, 'up');
-            },
-            onThumbsDown: () => {
-              promptChatOutputDownFeedback(item);
-            },
+            onThumbsUp: () => handleChatOutputFeedbackTap(item, 'up'),
+            onThumbsDown: () => handleChatOutputFeedbackTap(item, 'down'),
           }
         : undefined;
       return (
@@ -2253,8 +2255,7 @@ export default function ChatScreen() {
       isSending,
       leashUnlocked,
       chatOutputFeedbackBusyId,
-      submitChatOutputFeedbackForMessage,
-      promptChatOutputDownFeedback,
+      handleChatOutputFeedbackTap,
       handleShowMessageDetail,
       handleInlineTextApproval,
     ],
@@ -3954,6 +3955,13 @@ export default function ChatScreen() {
         title={messageDetail?.title ?? ''}
         body={messageDetail?.body ?? ''}
         onClose={() => setMessageDetail(null)}
+      />
+
+      <FeedbackPromptModal
+        visible={feedbackPrompt != null}
+        signal={feedbackPrompt?.signal ?? 'up'}
+        onClose={() => setFeedbackPrompt(null)}
+        onSubmit={handleFeedbackPromptSubmit}
       />
     </SafeAreaView>
   );

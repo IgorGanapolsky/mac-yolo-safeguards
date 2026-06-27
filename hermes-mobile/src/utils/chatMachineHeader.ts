@@ -129,11 +129,14 @@ export function formatMacConnectionRetryBanner(input: {
   const label =
     input.machineLabel &&
     !isGenericMachineLabel(input.machineLabel) &&
-    input.machineLabel !== 'Hermes account relay'
+    input.machineLabel !== 'Hermes account relay' &&
+    !/^(http|https)$/i.test(input.machineLabel)
       ? input.machineLabel
-      : !isGenericMachineLabel(machineName) && machineName !== 'computer'
+      : !isGenericMachineLabel(machineName) &&
+          machineName !== 'computer' &&
+          !/^(http|https)$/i.test(machineName)
         ? machineName
-        : machineName !== 'Hermes account relay'
+        : machineName !== 'Hermes account relay' && !/^(http|https)$/i.test(machineName)
           ? machineName
           : 'your Mac';
 

@@ -71,21 +71,25 @@ import {
 } from '../utils/presentationMode';
 import {
   isDemoModeAllowed,
+  isDeveloperLeashUnlockAllowed,
   sanitizeDemoModeForRelease,
 } from '../utils/demoModePolicy';
 import {
   buildGatewayUrlFromLanIp,
   extractLanIpFromGatewayUrl,
   isLoopbackGatewayUrl,
+  isValidGatewayUrl,
   resolveDisplayLanIp,
 } from '../utils/gatewayUrlPolicy';
 import {
+  cellularTailscaleFallbackUrls,
   shouldSkipLanGatewayProbe,
   usbLoopbackFallbackUrls,
   USB_LOOPBACK_GATEWAY_URL,
   wifiLanFallbackUrls,
 } from '../utils/gatewayLoopbackFallback';
 import { profileMatchesDiscoveredGateway, resolveUsbMatchingProfileId } from '../utils/gatewayProfilePicker';
+import { isTailscaleGatewayUrl } from '../utils/tailscaleHosts';
 import type { SetupDeepLinkParams } from '../utils/setupDeepLink';
 import {
   type GatewayBootstrapPhase,
@@ -480,6 +484,16 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
             resolvedKey = profileKey;
           }
         }
+        if (!isValidGatewayUrl(resolvedSettings.gatewayUrl)) {
+          const fallbackProfile = loadedProfiles.profiles.find((p) =>
+            isValidGatewayUrl(p.gatewayUrl),
+          );
+          const fallbackUrl =
+            (active && isValidGatewayUrl(active.gatewayUrl) ? active.gatewayUrl : undefined) ??
+            fallbackProfile?.gatewayUrl ??
+            USB_LOOPBACK_GATEWAY_URL;
+          resolvedSettings = { ...resolvedSettings, gatewayUrl: fallbackUrl };
+        }
 
         if (!mounted) return;
         profileStateRef.current = loadedProfiles;
@@ -663,6 +677,21 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
           return { snapshot, url: fallbackUrl };
         } catch {
           // try next LAN candidate
+        }
+      }
+      const profileUrls = profileStateRef.current.profiles.map((profile) => profile.gatewayUrl);
+      for (const fallbackUrl of cellularTailscaleFallbackUrls({
+        primaryUrl,
+        wifiConnected: wifiConnectedRef.current,
+        profileUrls,
+        tailnetProbeHosts: tailnetProbeHostsRef.current,
+      })) {
+        try {
+          const snapshot = await probeMacGatewayOk(fallbackUrl);
+          await persistDiscoveredGatewayUrl(fallbackUrl, true);
+          return { snapshot, url: fallbackUrl };
+        } catch {
+          // try next tailnet candidate
         }
       }
       if (skipLan) {
@@ -1128,6 +1157,21 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
     }
 
     if (Platform.OS !== 'web') {
+      for (const fallbackUrl of cellularTailscaleFallbackUrls({
+        primaryUrl: currentUrl || '',
+        wifiConnected: wifiConnectedRef.current,
+        profileUrls: profileStateRef.current.profiles.map((profile) => profile.gatewayUrl),
+        tailnetProbeHosts: tailnetProbeHostsRef.current,
+      })) {
+        if (fallbackUrl === currentUrl) {
+          continue;
+        }
+        try {
+          return await commitDiscoveredUrl(await probe(fallbackUrl), true);
+        } catch (_) {
+          // fall through
+        }
+      }
       for (const fallbackUrl of usbLoopbackFallbackUrls(currentUrl || '')) {
         if (fallbackUrl === currentUrl) {
           continue;
@@ -1161,11 +1205,19 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
 
     const savedProfileUrls = profileStateRef.current.profiles
       .map((profile) => profile.gatewayUrl)
-      .filter(Boolean)
+      .filter((url) => isValidGatewayUrl(url))
       .sort((a, b) => {
         const aLoop = isLoopbackGatewayUrl(a) ? 0 : 1;
         const bLoop = isLoopbackGatewayUrl(b) ? 0 : 1;
-        return aLoop - bLoop;
+        if (aLoop !== bLoop) {
+          return aLoop - bLoop;
+        }
+        if (!wifiConnectedRef.current) {
+          const aTs = isTailscaleGatewayUrl(a) ? 0 : 1;
+          const bTs = isTailscaleGatewayUrl(b) ? 0 : 1;
+          return aTs - bTs;
+        }
+        return 0;
       });
     const savedCandidates = [...new Set(savedProfileUrls)].filter(
       (url) => url !== currentUrl && url !== (lastLanIp ? buildGatewayUrlFromLanIp(lastLanIp) : ''),
@@ -1504,6 +1556,12 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
 
   const addGatewayProfile = useCallback(
     async (label: string, gatewayUrl: string) => {
+      if (!isValidGatewayUrl(gatewayUrl)) {
+        setLastEventError(
+          'That computer URL is incomplete. Use http://YOUR-MAC-IP:8642 or a Tailscale address.',
+        );
+        return;
+      }
       const state = profileStateRef.current;
       const nextState = upsertDiscoveredProfile(
         state,
@@ -1714,6 +1772,8 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
           ...settingsRef.current,
           demoMode: true,
           connectionMode: 'gateway',
+          glanceMode: false,
+          ...(isDeveloperLeashUnlockAllowed() ? { developerLeashUnlock: true } : {}),
         };
         await saveSettings(nextSettings, apiKeyRef.current);
         return;
@@ -1744,6 +1804,14 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
       }
 
       const gatewayUrl = params.gatewayUrl.trim();
+      if (!isValidGatewayUrl(gatewayUrl)) {
+        setLastEventError('Pair link had an incomplete computer URL — try pairing again from your Mac.');
+        if (relayCode) {
+          haptics.success();
+          await refreshHealth();
+        }
+        return;
+      }
       const lanIp = extractLanIpFromGatewayUrl(gatewayUrl);
       const macName = params.macName?.trim();
 

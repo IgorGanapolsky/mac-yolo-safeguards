@@ -2,7 +2,9 @@ import {
   buildGatewayUrlFromLanIp,
   describeGatewayFetchError,
   extractLanIpFromGatewayUrl,
+  gatewayUrlHostname,
   isLoopbackGatewayUrl,
+  isValidGatewayUrl,
   resolveDeviceGatewayUrl,
   resolveDisplayLanIp,
 } from '../utils/gatewayUrlPolicy';
@@ -45,5 +47,13 @@ describe('gatewayUrlPolicy', () => {
   it('drops loopback local_ip when gateway URL is LAN', () => {
     expect(resolveDisplayLanIp('127.0.0.1', 'http://10.2.29.103:8642')).toBe('10.2.29.103');
     expect(resolveDisplayLanIp('127.0.0.1', 'http://127.0.0.1:8642')).toBeUndefined();
+  });
+
+  it('rejects scheme-only gateway URLs', () => {
+    expect(isValidGatewayUrl('http://')).toBe(false);
+    expect(isValidGatewayUrl('http')).toBe(false);
+    expect(isValidGatewayUrl('http://http:8642')).toBe(false);
+    expect(gatewayUrlHostname('http://http:8642')).toBeUndefined();
+    expect(isValidGatewayUrl('http://100.94.135.78:8642')).toBe(true);
   });
 });

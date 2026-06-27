@@ -5,12 +5,12 @@ appId: com.iganapolsky.hermesmobile
 - runFlow: e2e-bootstrap.yaml
 
 - tapOn:
-    id: "Leash"
+    id: "tab-leash"
 - assertVisible:
     id: "THUMBGATE_LEASH"
 
 - tapOn:
-    id: "Settings"
+    id: "tab-settings"
 - assertVisible:
     id: "SETTINGS"
 - runFlow:
@@ -25,7 +25,7 @@ appId: com.iganapolsky.hermesmobile
     timeout: 30000
 
 - tapOn:
-    id: "Hermes"
+    id: "tab-hermes"
 - extendedWaitUntil:
     visible:
       id: "chat-input"

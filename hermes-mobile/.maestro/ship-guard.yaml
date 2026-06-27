@@ -18,7 +18,8 @@ appId: com.iganapolsky.hermesmobile
       notVisible:
         id: "HERMES CHAT"
     commands:
-      - tapOn: "Hermes"
+      - tapOn:
+          id: "tab-hermes"
 
 - extendedWaitUntil:
     visible:
@@ -29,12 +30,12 @@ appId: com.iganapolsky.hermesmobile
     id: "chat-input"
 
 - tapOn:
-    id: "Leash"
+    id: "tab-leash"
 - assertVisible:
     id: "THUMBGATE_LEASH"
 
 - tapOn:
-    id: "Settings"
+    id: "tab-settings"
 - assertVisible:
     id: "SETTINGS"
 

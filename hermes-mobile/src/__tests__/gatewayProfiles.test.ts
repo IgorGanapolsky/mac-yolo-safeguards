@@ -231,6 +231,14 @@ describe('gatewayProfiles', () => {
         gatewayUrl: 'http://10.0.0.1:8642',
         addedAt: '',
       }),
+    ).toBe(false);
+    expect(
+      isInvalidGatewayProfile({
+        id: 'x',
+        label: 'http',
+        gatewayUrl: 'http://http:8642',
+        addedAt: '',
+      }),
     ).toBe(true);
   });
 

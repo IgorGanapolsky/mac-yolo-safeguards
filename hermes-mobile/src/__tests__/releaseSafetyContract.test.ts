@@ -68,6 +68,17 @@ describe('release safety contract', () => {
     expect(shipGuard).toContain('com.iganapolsky.hermesmobile');
   });
 
+  it('e2e-bootstrap waits for tab bar testIDs (not stray Settings copy)', () => {
+    const bootstrap = read('hermes-mobile/.maestro/e2e-bootstrap.yaml');
+    expect(bootstrap).toContain('id: "tab-hermes"');
+    expect(bootstrap).toContain('id: "tab-leash"');
+    expect(bootstrap).not.toMatch(/text:\s*"Settings"/);
+    const app = read('hermes-mobile/App.tsx');
+    expect(app).toContain('tab-hermes');
+    expect(app).toContain('tab-leash');
+    expect(app).toContain('tab-settings');
+  });
+
   it('settings inputs have stable testIDs for Maestro', () => {
     const settings = read('hermes-mobile/src/screens/SettingsScreen.tsx');
     expect(settings).toContain('testID="gateway-api-key-input"');

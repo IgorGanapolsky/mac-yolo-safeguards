@@ -6,7 +6,7 @@ appId: com.iganapolsky.hermesmobile
 - waitForAnimationToEnd:
     timeout: 2000
 - tapOn:
-    id: "Leash"
+    id: "tab-leash"
 - extendedWaitUntil:
     visible:
       id: "THUMBGATE_LEASH"

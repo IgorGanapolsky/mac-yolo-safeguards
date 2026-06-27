@@ -24,11 +24,37 @@ export function resolveDisplayLanIp(
   return undefined;
 }
 
+const SCHEME_ONLY_HOSTS = new Set(['http', 'https']);
+
+/** Hostnames that are not real machine addresses (partial paste / scheme-only URL). */
+export function isSchemeOnlyGatewayHost(host: string | undefined | null): boolean {
+  const trimmed = host?.trim().toLowerCase();
+  return !trimmed || SCHEME_ONLY_HOSTS.has(trimmed);
+}
+
 export function gatewayUrlHostname(gatewayUrl: string): string | undefined {
   try {
-    return new URL(normalizeGatewayUrl(gatewayUrl).httpBase).hostname;
+    const host = new URL(normalizeGatewayUrl(gatewayUrl).httpBase).hostname?.trim();
+    if (isSchemeOnlyGatewayHost(host)) {
+      return undefined;
+    }
+    return host;
   } catch {
     return undefined;
+  }
+}
+
+/** Reject URLs with no usable host (e.g. `http://`, `http`, `http://http:8642`). */
+export function isValidGatewayUrl(gatewayUrl: string | undefined | null): boolean {
+  const trimmed = gatewayUrl?.trim();
+  if (!trimmed) {
+    return false;
+  }
+  try {
+    const host = new URL(normalizeGatewayUrl(trimmed).httpBase).hostname?.trim();
+    return Boolean(host && !isSchemeOnlyGatewayHost(host));
+  } catch {
+    return false;
   }
 }
 

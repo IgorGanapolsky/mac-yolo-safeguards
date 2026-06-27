@@ -13,6 +13,7 @@ import {
   isLoopbackGatewayUrl,
   resolveDisplayLanIp,
   isLoopbackHost,
+  isValidGatewayUrl,
 } from '../utils/gatewayUrlPolicy';
 
 const STORAGE_KEY = 'hermes-mobile:gateway_profiles';
@@ -54,6 +55,8 @@ const GENERIC_PROFILE_LABELS = new Set([
   'my mac',
   'mac via usb',
   'mac via network',
+  'http',
+  'https',
 ]);
 
 export function isGenericMachineLabel(label: string | undefined): boolean {
@@ -66,21 +69,7 @@ export function isGenericMachineLabel(label: string | undefined): boolean {
 
 /** Junk rows from partial QR/deep-link paste — label "http" or URL with no host. */
 export function isInvalidGatewayProfile(profile: GatewayProfile): boolean {
-  const label = profile.label?.trim().toLowerCase();
-  if (label === 'http' || label === 'https') {
-    return true;
-  }
-  const rawUrl = profile.gatewayUrl?.trim();
-  if (!rawUrl) {
-    return true;
-  }
-  try {
-    const base = normalizeGatewayUrlBase(rawUrl);
-    const host = gatewayUrlHostname(base);
-    return !host || host === 'http' || host === 'https';
-  } catch {
-    return true;
-  }
+  return !isValidGatewayUrl(profile.gatewayUrl);
 }
 
 export function sanitizeGatewayProfileState(state: GatewayProfileState): GatewayProfileState {
