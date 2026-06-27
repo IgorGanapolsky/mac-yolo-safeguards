@@ -39,6 +39,11 @@ describe('appIdentity', () => {
 });
 
 describe('release safety contract', () => {
+  it('EAS uses local appVersionSource so app.json versionCode drives builds and Firebase verify', () => {
+    const eas = JSON.parse(read('hermes-mobile/eas.json'));
+    expect(eas.cli.appVersionSource).toBe('local');
+  });
+
   it('EAS preview and production target arm64-only Android (Firebase ~43MB not ~100MB)', () => {
     const eas = JSON.parse(read('hermes-mobile/eas.json'));
     expect(eas.build.preview.env.ORG_GRADLE_PROJECT_reactNativeArchitectures).toBe('arm64-v8a');
