@@ -344,7 +344,10 @@ function main() {
     console.log('  Tailnet Hermes hosts:', tailnetProbeHosts.join(', '));
   }
 
-  const gatewayUrl = usbPairing ? 'http://127.0.0.1:8642' : `http://${lanIp}:8642`;
+  const gatewayUrl = `http://${lanIp}:8642`;
+  if (usbPairing) {
+    console.log('  USB pairing: adb reverse active — saved gateway URL uses LAN for Wi‑Fi-only use');
+  }
   const deepLink = buildDeepLink(gatewayUrl, apiKey, hostname, relayCode, tailnetProbeHosts);
   const pageUrl = `http://${lanIp}:${PAIR_PORT}/pair`;
   const { htmlPath } = writePairAssets({

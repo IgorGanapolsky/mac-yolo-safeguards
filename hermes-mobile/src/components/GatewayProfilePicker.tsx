@@ -74,7 +74,9 @@ export default function GatewayProfilePicker({
                   ? `Connecting · ${routeHint}…`
                   : 'Connecting…'
               : usbRoute
-                ? 'Cannot reach Mac (USB)'
+                ? wifiConnected
+                  ? 'Cannot reach — search Wi‑Fi'
+                  : 'Cannot reach Mac (USB)'
                 : routeHint === 'Needs tunnel'
                   ? 'Needs tunnel (cellular)'
                   : 'Cannot reach this Mac'

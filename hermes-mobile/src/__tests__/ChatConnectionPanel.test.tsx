@@ -113,7 +113,7 @@ describe('ChatConnectionPanel', () => {
     expect(getByTestId('relay-worker-row-mac-mini')).toBeTruthy();
   });
 
-  it('shows Fix USB link CTA and live status chips for loopback failures', () => {
+  it('shows Fix USB link CTA and live status chips for loopback failures off Wi‑Fi', () => {
     const onFixUsbLink = jest.fn();
     const { getByTestId, getByText } = render(
       <ChatConnectionPanel
@@ -121,7 +121,8 @@ describe('ChatConnectionPanel', () => {
         connectionMode="gateway"
         macLabel="Igors-MacBook-Pro"
         usbLoopback
-        usbCableLikely
+        usbCableLikely={false}
+        wifiConnected={false}
         activeProfileReachable={false}
         onFixUsbLink={onFixUsbLink}
         onSearchMac={jest.fn()}
@@ -136,6 +137,25 @@ describe('ChatConnectionPanel', () => {
 
     fireEvent.press(getByTestId('chat-connection-fix-usb'));
     expect(onFixUsbLink).toHaveBeenCalled();
+  });
+
+  it('prefers Search locally over Fix USB when on Wi‑Fi with a saved loopback profile', () => {
+    const onFixUsbLink = jest.fn();
+    const { getByTestId, queryByTestId } = render(
+      <ChatConnectionPanel
+        connectionState="disconnected"
+        connectionMode="gateway"
+        macLabel="Igors-MacBook-Pro"
+        usbLoopback
+        wifiConnected
+        activeProfileReachable={false}
+        onFixUsbLink={onFixUsbLink}
+        onSearchMac={jest.fn()}
+      />,
+    );
+
+    expect(getByTestId('chat-connection-search')).toBeTruthy();
+    expect(queryByTestId('chat-connection-fix-usb')).toBeNull();
   });
 
   it('uses cant reach title in gateway mode', () => {

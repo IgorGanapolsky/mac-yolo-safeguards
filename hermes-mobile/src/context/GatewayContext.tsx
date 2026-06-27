@@ -83,8 +83,9 @@ import {
   shouldSkipLanGatewayProbe,
   usbLoopbackFallbackUrls,
   USB_LOOPBACK_GATEWAY_URL,
+  wifiLanFallbackUrls,
 } from '../utils/gatewayLoopbackFallback';
-import { resolveUsbMatchingProfileId } from '../utils/gatewayProfilePicker';
+import { profileMatchesDiscoveredGateway, resolveUsbMatchingProfileId } from '../utils/gatewayProfilePicker';
 import type { SetupDeepLinkParams } from '../utils/setupDeepLink';
 import {
   type GatewayBootstrapPhase,
@@ -620,21 +621,48 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
     };
 
     const tryMacGatewayWithLoopbackFallback = async (primaryUrl: string) => {
+      const probeMacGatewayOk = async (url: string) => {
+        const snapshot = await probeMacGateway(url);
+        if (!isGatewayHealthOk(snapshot)) {
+          throw new Error(snapshot.errorMessage ?? 'Gateway unreachable');
+        }
+        return snapshot;
+      };
+
       const skipLan = shouldSkipLanGatewayProbe(primaryUrl, wifiConnectedRef.current);
       if (!skipLan) {
         try {
-          return { snapshot: await probeMacGateway(primaryUrl), url: primaryUrl };
+          const snapshot = await probeMacGatewayOk(primaryUrl);
+          return { snapshot, url: primaryUrl };
         } catch {
-          // fall through to USB loopback
+          // fall through to USB loopback or Wi‑Fi LAN
         }
       }
       for (const fallbackUrl of usbLoopbackFallbackUrls(primaryUrl)) {
         try {
-          const snapshot = await probeMacGateway(fallbackUrl);
+          const snapshot = await probeMacGatewayOk(fallbackUrl);
           await persistDiscoveredGatewayUrl(fallbackUrl, true);
           return { snapshot, url: fallbackUrl };
         } catch {
           // try next fallback
+        }
+      }
+      const lastLanIp = await storage.loadLastGatewayLanIp();
+      const profileLanIps = profileStateRef.current.profiles.map(
+        (profile) => profile.localIp?.trim() || extractLanIpFromGatewayUrl(profile.gatewayUrl),
+      );
+      for (const fallbackUrl of wifiLanFallbackUrls({
+        primaryUrl,
+        wifiConnected: wifiConnectedRef.current,
+        lastLanIp,
+        profileLanIps,
+      })) {
+        try {
+          const snapshot = await probeMacGatewayOk(fallbackUrl);
+          await persistDiscoveredGatewayUrl(fallbackUrl, true);
+          return { snapshot, url: fallbackUrl };
+        } catch {
+          // try next LAN candidate
         }
       }
       if (skipLan) {
@@ -1516,9 +1544,27 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
         state = upsertDiscoveredProfile(state, item, false);
       }
       state = dedupeGatewayProfiles(state);
+      const active = activeProfile(state);
+      const lanMatch =
+        active &&
+        isLoopbackGatewayUrl(active.gatewayUrl) &&
+        wifiConnectedRef.current
+          ? discovered.find(
+              (item) =>
+                !isLoopbackGatewayUrl(item.gatewayUrl) &&
+                profileMatchesDiscoveredGateway(active, item),
+            )
+          : undefined;
+      if (lanMatch) {
+        state = upsertDiscoveredProfile(state, lanMatch, true);
+        state = dedupeGatewayProfiles(state);
+      }
       profileStateRef.current = state;
       setProfileState(state);
       await gatewayProfiles.save(state);
+      if (lanMatch) {
+        await persistDiscoveredGatewayUrl(lanMatch.gatewayUrl, true);
+      }
       setProfileScanResult({
         foundCount: discovered.length,
         completedAtMs: Date.now(),
@@ -1534,7 +1580,7 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
       setProfileScanning(false);
       setProfileScanProgress(null);
     }
-  }, []);
+  }, [persistDiscoveredGatewayUrl]);
 
   const probeTailscaleComputers = useCallback(async () => {
     if (tailscaleProbeInFlightRef.current || settingsRef.current.demoMode) {

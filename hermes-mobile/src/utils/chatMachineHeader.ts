@@ -67,7 +67,12 @@ export function resolveChatMachineHeaderDisplay(input: {
   const hasNamedMachine = Boolean(machineLabel && !isGenericMachineLabel(machineLabel));
   let ipLine = formatGatewayEndpointLine(input.gatewayUrl, input.health)?.trim();
   if (loopbackUsb && hasNamedMachine) {
-    ipLine = 'USB';
+    const profileLanIp = input.activeProfile?.localIp?.trim();
+    if (profileLanIp && !profileLanIp.startsWith('127.')) {
+      ipLine = `${profileLanIp}:8642`;
+    } else {
+      ipLine = 'USB';
+    }
   }
   const detailParts: string[] = [];
   const savedMacCount = input.savedMacCount ?? 0;

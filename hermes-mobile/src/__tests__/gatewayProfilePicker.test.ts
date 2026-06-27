@@ -3,10 +3,12 @@ import {
   detectUsbHostMismatch,
   formatUsbHostMismatchMessage,
   profileConnectionRouteLabel,
+  profileMatchesDiscoveredGateway,
   profileMatchesHostname,
   profilePickerLines,
   profilesForDevicePicker,
   resolveUsbMatchingProfileId,
+  shouldOfferUsbLinkRepair,
 } from '../utils/gatewayProfilePicker';
 
 describe('gatewayProfilePicker', () => {
@@ -130,6 +132,40 @@ describe('gatewayProfilePicker', () => {
         macHttpOk: true,
       }),
     ).toBe('mac_book');
+  });
+
+  it('shouldOfferUsbLinkRepair is false on Wi‑Fi with unreachable loopback URL', () => {
+    expect(
+      shouldOfferUsbLinkRepair({
+        gatewayUrl: 'http://127.0.0.1:8642',
+        wifiConnected: true,
+        macHttpOk: false,
+      }),
+    ).toBe(false);
+    expect(
+      shouldOfferUsbLinkRepair({
+        gatewayUrl: 'http://127.0.0.1:8642',
+        wifiConnected: false,
+        macHttpOk: false,
+      }),
+    ).toBe(true);
+  });
+
+  it('matches loopback saved profile to LAN discovery by machine name', () => {
+    const loopbackProfile = {
+      id: 'mac_igors_macbook_pro',
+      label: 'Igors-MacBook-Pro',
+      gatewayUrl: 'http://127.0.0.1:8642',
+      hostname: 'Igors-MacBook-Pro',
+      addedAt: '2026-06-24T12:00:00Z',
+    };
+    expect(
+      profileMatchesDiscoveredGateway(loopbackProfile, {
+        gatewayUrl: 'http://192.168.1.42:8642',
+        hostname: 'Igors-MacBook-Pro.local',
+        localIp: '192.168.1.42',
+      }),
+    ).toBe(true);
   });
 
   it('labels profile connection routes for multi-Mac switcher', () => {

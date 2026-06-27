@@ -8,8 +8,10 @@ import { colors } from '../theme/colors';
 import { HERMES_MAC_GET_STARTED_URL } from '../utils/macPairingUx';
 import {
   formatUsbHostMismatchMessage,
+  profileMatchesDiscoveredGateway,
   profileMatchesHostname,
   profilesForDevicePicker,
+  shouldOfferUsbLinkRepair,
   type UsbHostMismatch,
 } from '../utils/gatewayProfilePicker';
 import { relayWorkerDisplayName } from '../utils/relayRouting';
@@ -150,7 +152,12 @@ function connectionStatusLine(
   if (connectionMode === 'relay' && !isRelayPaired) {
     return 'Pair Hermes relay in Settings for Wi‑Fi, cellular, or USB. Search locally when you are on the same Wi‑Fi.';
   }
-  if (usbLoopback) {
+  if (usbLoopback && wifiConnected) {
+    return macLabel
+      ? `${macLabel} was paired over USB. On Wi‑Fi only, tap Search locally to connect directly.`
+      : 'This Mac was paired over USB. On Wi‑Fi only, tap Search locally to connect directly.';
+  }
+  if (usbLoopback && !wifiConnected) {
     return macLabel
       ? `USB cable is connected, but the adb reverse tunnel to ${macLabel} is down. Tap Fix USB link or pick another saved computer.`
       : 'USB cable may be connected, but the adb reverse tunnel is down. Tap Fix USB link while plugged in with USB debugging authorized.';
@@ -173,6 +180,7 @@ function connectionTitle(
   showUsbFix = false,
   usbHostMismatch: UsbHostMismatch | null = null,
   cellularBlocksDirect = false,
+  wifiConnected = true,
 ): string {
   if (usbHostMismatch) {
     return 'Wrong Mac on USB';
@@ -186,7 +194,7 @@ function connectionTitle(
   if (connectionState === 'connecting') {
     return 'Connecting';
   }
-  if (showUsbFix || usbLoopback) {
+  if (showUsbFix || (usbLoopback && !wifiConnected)) {
     return 'USB tunnel down';
   }
   if (connectionMode === 'relay' && !isRelayPaired) {
@@ -222,7 +230,14 @@ export default function ChatConnectionPanel({
   testID = 'chat-connection-panel',
 }: ChatConnectionPanelProps) {
   const showUsbFix = Boolean(
-    onFixUsbLink && (usbLoopback || usbCableLikely) && !usbHostMismatch,
+    onFixUsbLink &&
+      shouldOfferUsbLinkRepair({
+        gatewayUrl: usbLoopback ? 'http://127.0.0.1:8642' : '',
+        wifiConnected,
+        macHttpOk: activeProfileReachable,
+      }) &&
+      usbLoopback &&
+      !usbHostMismatch,
   );
   const macHttpOk = activeProfileReachable;
   const wifiProfileReachable = macHttpOk && !usbLoopback && wifiConnected;
@@ -257,6 +272,7 @@ export default function ChatConnectionPanel({
     showUsbFix,
     usbHostMismatch,
     cellularBlocksDirect,
+    wifiConnected,
   );
   const relayWorkersNotInSaved = relayWorkers.filter(
     (worker) =>
