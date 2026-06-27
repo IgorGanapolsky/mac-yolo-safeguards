@@ -27,6 +27,7 @@ Durable rules live in [AGENTS.md](./AGENTS.md); this file is *live state only*.
 | T-5 | Explain Tailscale requirement in-app (Igor's UX point) | pending | - | a Settings/onboarding screen | user told to install Tailscale + why |
 | T-6 | Optimize app size by enabling R8 minification and resource shrinking | done | antigravity | `hermes-mobile/app.json` | `npm run launch:preflight:android` passes and R8 size reduction verified |
 | T-7 | Fix Android USB-pairing hijack bug | done | antigravity | `hermes-mobile/src/screens/ChatScreen.tsx` | retry retains Wi-Fi profile and doesn't switch to USB |
+| T-8 | Zero-friction LAN discovery & Settings URL validation | in_progress | antigravity | `hermes-mobile/src/screens/SettingsScreen.tsx`, `hermes-mobile/src/screens/ChatScreen.tsx` | auto-selects LAN profile on scan and rejects junk URLs |
 
 Status values: `pending` | `in_progress` | `blocked` | `done`. Claim a row by setting Owner+Status in one edit, then claim its files in §2.
 
@@ -37,7 +38,8 @@ Status values: `pending` | `in_progress` | `blocked` | `done`. Claim a row by se
 - `hermes-mobile/src/__tests__/GatewayContext.test.tsx` → **gemini** (T-1)
 - `jest.setup.js` → **gemini** (T-1) (has the NetInfo `addEventListener` mock fix — keep it)
 - `hermes-mobile/app.json` → **antigravity** (T-6) — released (2026-06-27)
-- `hermes-mobile/src/screens/ChatScreen.tsx` → **antigravity** (T-7) — released (2026-06-27)
+- `hermes-mobile/src/screens/ChatScreen.tsx` → **antigravity** (T-7, T-8) — 2026-06-27T17:00:00Z
+- `hermes-mobile/src/screens/SettingsScreen.tsx` → **antigravity** (T-8) — 2026-06-27T17:00:00Z
 - `AGENTS.md`, `plan.md` → shared coordination files (append-only edits, commit first)
 - everything else → (free)
 
@@ -51,6 +53,8 @@ Status values: `pending` | `in_progress` | `blocked` | `done`. Claim a row by se
 - 2026-06-27 `antigravity`: **Enabled R8 code minification and resource shrinking for Android.** Downgraded Gradle wrapper to 8.13 to satisfy AGP requirements while bypassing the Gradle 9.0 Foojay toolchain resolver compatibility crash (`IBM_SEMERU` missing field). Increased Gradle daemon JVM settings to 4GB heap and 1GB Metaspace to prevent Metaspace OOM failures. Verified 24.4% APK file size reduction (from 41MB down to 31MB) and all 609 unit tests remain green.
 - 2026-06-27 `antigravity`: **Claimed T-7 to resolve the Android USB hijack bug.** Modifying `ChatScreen.tsx` to prevent incorrect `usbCableLikely` classification and block automatic hijack of active connection profiles back to USB loopback on retries.
 - 2026-06-27 `antigravity`: **Completed T-7 (Android USB hijack fix).** Verified that the unit tests are all passing and rebuilt/installed the release APK to the physical device. The app successfully built under Gradle 8.13 and cold-started with RN 'Running main' in logcat. Verified that retrying a Wi-Fi connection does not forcefully switch back to the USB profile.
+- 2026-06-27 `antigravity`: **Claimed T-8 for zero-friction pairing flow.** Modifying `SettingsScreen.tsx` to validate direct URLs, and `ChatScreen.tsx` to auto-switch to discovered LAN profiles on scan.
+
 
 
 
