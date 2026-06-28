@@ -111,6 +111,7 @@ import {
   selectProfile,
   touchProfileHealth,
   upsertDiscoveredProfile,
+  applyTailscaleDiscoveriesToProfileState,
   dedupeGatewayProfiles,
 } from '../services/gatewayProfiles';
 import {
@@ -1825,6 +1826,15 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
         return;
       }
       const discovered = await discoverTailscaleGateways(probeHosts);
+      if (discovered.length > 0) {
+        const nextState = applyTailscaleDiscoveriesToProfileState(
+          profileStateRef.current,
+          discovered,
+        );
+        profileStateRef.current = nextState;
+        setProfileState(nextState);
+        await gatewayProfiles.save(nextState);
+      }
       const fresh = filterNewTailscaleDiscoveries(profileStateRef.current.profiles, discovered);
       setTailscaleDiscoveries(fresh);
     } finally {
@@ -1879,6 +1889,7 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
     effectiveGatewayUrlRef.current = url;
     setEffectiveGatewayUrl(url);
     await refreshHealth();
+    await probeTailscaleComputers();
 
     if (!isGatewayHealthOk(healthRef.current)) {
       const profiles = await scanForGatewayProfiles();
@@ -1892,6 +1903,7 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
       effectiveGatewayUrlRef.current = url;
       setEffectiveGatewayUrl(url);
       await refreshHealth();
+      await probeTailscaleComputers();
     }
 
     const reachable = checkGatewayReachable({
@@ -1912,6 +1924,7 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
     refreshHealth,
     scanForGatewayProfiles,
     selectGatewayProfile,
+    probeTailscaleComputers,
   ]);
 
   const retryGatewayBootstrap = useCallback(async () => {
@@ -2009,6 +2022,23 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
         },
         true,
       );
+      for (const extra of params.extraComputers ?? []) {
+        const extraUrl = extra.gatewayUrl?.trim();
+        if (!extraUrl || !isValidGatewayUrl(extraUrl)) {
+          continue;
+        }
+        const extraName = extra.macName?.trim();
+        nextProfileState = upsertDiscoveredProfile(
+          nextProfileState,
+          {
+            gatewayUrl: extraUrl,
+            localIp: extractLanIpFromGatewayUrl(extraUrl) ?? undefined,
+            hostname: extraName,
+            label: extraName,
+          },
+          false,
+        );
+      }
       profileStateRef.current = nextProfileState;
       setProfileState(nextProfileState);
       await gatewayProfiles.save(nextProfileState);

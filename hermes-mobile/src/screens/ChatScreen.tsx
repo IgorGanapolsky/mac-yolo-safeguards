@@ -132,7 +132,8 @@ import {
 import { isLoopbackGatewayUrl } from '../utils/gatewayUrlPolicy';
 import { isInvalidGatewayProfile } from '../services/gatewayProfiles';
 import { isPrivateLanGatewayUrl } from '../utils/gatewayEndpoint';
-import { detectUsbHostMismatch } from '../utils/gatewayProfilePicker';
+import { detectUsbHostMismatch, profilesForSwitchComputerPicker } from '../utils/gatewayProfilePicker';
+import TailscaleDiscoveryBanner from '../components/TailscaleDiscoveryBanner';
 import { USB_LOOPBACK_GATEWAY_URL } from '../utils/gatewayLoopbackFallback';
 import { isMacGatewayHttpOk, isGatewayHealthPending } from '../utils/gatewayConnection';
 import { isGatewayLiveForDelivery } from '../utils/outboundDeliveryStatus';
@@ -273,6 +274,10 @@ export default function ChatScreen() {
   const [sessionModalVisible, setSessionModalVisible] = useState(false);
   const [toolsModalVisible, setToolsModalVisible] = useState(false);
   const [macPickerVisible, setMacPickerVisible] = useState(false);
+  const switchComputerProfiles = useMemo(
+    () => profilesForSwitchComputerPicker(gatewayProfiles),
+    [gatewayProfiles],
+  );
   const [isScanningMacs, setIsScanningMacs] = useState(false);
   const [projectModalVisible, setProjectModalVisible] = useState(false);
   const [newProjectPath, setNewProjectPath] = useState('');
@@ -609,6 +614,13 @@ export default function ChatScreen() {
     }
     void probeTailscaleComputers();
   }, [showMacConnectionHelp, isDemo, probeTailscaleComputers]);
+
+  useEffect(() => {
+    if (!macPickerVisible || isDemo) {
+      return;
+    }
+    void probeTailscaleComputers();
+  }, [macPickerVisible, isDemo, probeTailscaleComputers]);
 
   const handleSearchMacFromChat = useCallback(async () => {
     haptics.selection();
@@ -3763,13 +3775,15 @@ export default function ChatScreen() {
               Settings → Advanced → paste a tunnel URL (ngrok, Tailscale, Cloudflare).
             </Text>
             <GatewayProfilePicker
-              profiles={gatewayProfiles}
+              profiles={switchComputerProfiles}
               activeProfileId={activeGatewayProfile?.id ?? null}
               activeReachable={macHttpOk || connectionState === 'connected'}
               activeConnecting={connectionState === 'connecting'}
               scanning={profileScanning || isScanningMacs}
               scanProgress={profileScanProgress}
               scanResult={profileScanResult}
+              wifiConnected={wifiConnected}
+              showReachabilityHints={switchComputerProfiles.length > 1}
               onSelect={async (profileId) => {
                 haptics.light();
                 await selectGatewayProfile(profileId);
@@ -3782,13 +3796,22 @@ export default function ChatScreen() {
                 await loadSessionsList(true);
               }}
               onRemove={
-                gatewayProfiles.length > 1
+                switchComputerProfiles.length > 1
                   ? async (profileId) => {
                       await removeGatewayProfile(profileId);
                     }
                   : undefined
               }
             />
+            {tailscaleDiscoveries.length > 0 ? (
+              <TailscaleDiscoveryBanner
+                discoveries={tailscaleDiscoveries}
+                adding={tailscaleDiscoveryProbing}
+                onAdd={(discovery) => {
+                  void addDiscoveredTailscaleComputer(discovery);
+                }}
+              />
+            ) : null}
             <LoadingButton
               label="Find computers on Wi‑Fi"
               loadingLabel="Searching Wi‑Fi…"

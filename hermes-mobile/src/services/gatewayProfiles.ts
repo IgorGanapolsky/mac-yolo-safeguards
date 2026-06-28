@@ -256,6 +256,18 @@ export function activeProfile(state: GatewayProfileState): GatewayProfile | null
   return state.profiles.find((p) => p.id === state.activeProfileId) ?? null;
 }
 
+/** Persist every healthy Tailscale /health discovery as a saved computer profile. */
+export function applyTailscaleDiscoveriesToProfileState(
+  state: GatewayProfileState,
+  discovered: DiscoveredGateway[],
+): GatewayProfileState {
+  let next = state;
+  for (const item of discovered) {
+    next = upsertDiscoveredProfile(next, item, false);
+  }
+  return next;
+}
+
 export function upsertDiscoveredProfile(
   state: GatewayProfileState,
   discovered: DiscoveredGateway,

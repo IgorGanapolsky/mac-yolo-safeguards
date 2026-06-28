@@ -94,7 +94,7 @@ export default function ChatScreenHeader({
           <View style={styles.titleTextRow}>
             <Text
               style={styles.threadTitle}
-              numberOfLines={2}
+              numberOfLines={1}
               ellipsizeMode="tail"
               testID="HERMES CHAT"
             >
@@ -230,9 +230,10 @@ const styles = StyleSheet.create({
     flex: 1,
     minWidth: 0,
     fontSize: 17,
+    lineHeight: 22,
     fontWeight: '700',
     color: colors.text,
-    letterSpacing: -0.2,
+    letterSpacing: 0,
   },
   renameHeaderBtn: {
     flexShrink: 0,

@@ -97,7 +97,7 @@ function resolveLanIp(health) {
   throw new Error('Gateway health missing localIp — cannot build LAN URL for phone.');
 }
 
-function buildDeepLink(gatewayUrl, apiKey, hostname, relayCode, tailnetProbeHosts) {
+function buildDeepLink(gatewayUrl, apiKey, hostname, relayCode, tailnetProbeHosts, extraComputers) {
   const params = new URLSearchParams();
   params.set('url', gatewayUrl);
   if (apiKey) params.set('key', apiKey);
@@ -107,6 +107,12 @@ function buildDeepLink(gatewayUrl, apiKey, hostname, relayCode, tailnetProbeHost
   for (const host of tailnetProbeHosts || []) {
     const trimmed = String(host).trim();
     if (trimmed) params.append('tailnet', trimmed);
+  }
+  for (const extra of extraComputers || []) {
+    const url = extra?.gatewayUrl?.trim();
+    if (url) params.append('extraUrl', url);
+    const name = extra?.name?.trim();
+    if (name) params.append('extraName', name);
   }
   return `hermes://setup?${params.toString()}`;
 }
@@ -408,13 +414,38 @@ function main() {
     console.log('  Tailnet Hermes hosts:', tailnetProbeHosts.join(', '));
   }
 
+  const extraComputers = [];
+  if (!args.has('--mini-tailscale')) {
+    const mini = resolveMiniTailscaleDiscovery();
+    const miniUrl = mini?.gatewayUrl?.trim().replace(/\/$/, '');
+    const primaryUrl = gatewayUrl.trim().replace(/\/$/, '');
+    if (miniUrl && miniUrl !== primaryUrl) {
+      extraComputers.push({
+        gatewayUrl: miniUrl,
+        name: (mini.hostname || mini.label || 'Igors-Mac-mini').replace(/\.local$/i, '').trim(),
+      });
+      console.log(
+        '  Extra saved computer (Tailscale):',
+        extraComputers[0].name,
+        extraComputers[0].gatewayUrl,
+      );
+    }
+  }
+
   if (usbPairing && !explicitGatewayUrl && !args.has('--mini-tailscale')) {
     console.log('  USB pairing: adb reverse active — saved gateway URL uses LAN for Wi‑Fi-only use');
   }
   if (args.has('--mini-tailscale') || explicitGatewayUrl) {
     console.log('  Pairing target gateway (explicit):', gatewayUrl);
   }
-  const deepLink = buildDeepLink(gatewayUrl, apiKey, hostname, relayCode, tailnetProbeHosts);
+  const deepLink = buildDeepLink(
+    gatewayUrl,
+    apiKey,
+    hostname,
+    relayCode,
+    tailnetProbeHosts,
+    extraComputers,
+  );
   const pageUrl = `http://${lanIp}:${PAIR_PORT}/pair`;
   const { htmlPath } = writePairAssets({
     gatewayUrl,

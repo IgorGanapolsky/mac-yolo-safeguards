@@ -155,7 +155,7 @@ describe('ChatScreenHeader', () => {
     expect(onRename).toHaveBeenCalledTimes(1);
   });
 
-  it('uses tail ellipsis for long thread titles', () => {
+  it('keeps long thread titles to one ellipsized header line', () => {
     const longTitle = 'we are working on skool_top_level_integration_branch';
     const { getByTestId } = render(
       <ChatScreenHeader
@@ -169,7 +169,15 @@ describe('ChatScreenHeader', () => {
       />,
     );
 
-    expect(getByTestId('HERMES CHAT').props.ellipsizeMode).toBe('tail');
-    expect(getByTestId('HERMES CHAT').props.children).toBe(longTitle);
+    const title = getByTestId('HERMES CHAT');
+    expect(title.props.numberOfLines).toBe(1);
+    expect(title.props.ellipsizeMode).toBe('tail');
+    expect(title.props.children).toBe(longTitle);
+    expect(title.props.style).toEqual(
+      expect.objectContaining({
+        lineHeight: 22,
+        letterSpacing: 0,
+      }),
+    );
   });
 });

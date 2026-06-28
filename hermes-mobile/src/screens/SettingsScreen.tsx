@@ -25,7 +25,7 @@ import MacPairingHelp from '../components/MacPairingHelp';
 import { isDemoModeAllowed } from '../utils/demoModePolicy';
 import GatewayProfilePicker from '../components/GatewayProfilePicker';
 import TailscaleDiscoveryBanner from '../components/TailscaleDiscoveryBanner';
-import { profilesForDevicePicker, detectUsbHostMismatch } from '../utils/gatewayProfilePicker';
+import { profilesForSwitchComputerPicker, detectUsbHostMismatch } from '../utils/gatewayProfilePicker';
 import { setProductAnalyticsOptOut } from '../services/productAnalytics';
 import LoadingButton from '../components/ui/LoadingButton';
 import { formatGatewayHostLabel, isPrivateLanGatewayUrl } from '../utils/gatewayEndpoint';
@@ -523,7 +523,7 @@ export default function SettingsScreen() {
             fallbacks for live Chat, tools, and ops until full cloud chat relay is enabled.
           </Text>
           <GatewayProfilePicker
-            profiles={profilesForDevicePicker(savedMacProfiles)}
+            profiles={profilesForSwitchComputerPicker(savedMacProfiles)}
             activeProfileId={activeGatewayProfile?.id ?? null}
             activeReachable={macHttpOk || connectionState === 'connected'}
             activeConnecting={connectionState === 'connecting'}

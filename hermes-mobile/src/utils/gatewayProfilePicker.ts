@@ -34,6 +34,38 @@ export function profilesForDevicePicker(profiles: GatewayProfile[]): GatewayProf
   return profiles.filter((p) => !isInvalidGatewayProfile(p));
 }
 
+const GENERIC_USB_LOOPBACK_ID = 'mac_usb_loopback';
+
+export function isGenericUsbLoopbackProfile(profile: GatewayProfile): boolean {
+  return (
+    profile.id === GENERIC_USB_LOOPBACK_ID ||
+    (isLoopbackGatewayUrl(profile.gatewayUrl) &&
+      profile.label?.trim() === 'Mac via USB' &&
+      !profile.hostname?.trim())
+  );
+}
+
+function hasNamedUsbLoopbackProfile(profiles: GatewayProfile[]): boolean {
+  return profiles.some(
+    (p) =>
+      isLoopbackGatewayUrl(p.gatewayUrl) &&
+      !isGenericUsbLoopbackProfile(p) &&
+      Boolean(
+        p.hostname?.trim() ||
+          (p.label?.trim() && p.label.trim() !== 'Mac via USB'),
+      ),
+  );
+}
+
+/** Switch-computer list: valid profiles minus redundant generic USB when a named USB Mac exists. */
+export function profilesForSwitchComputerPicker(profiles: GatewayProfile[]): GatewayProfile[] {
+  const valid = profilesForDevicePicker(profiles);
+  if (!hasNamedUsbLoopbackProfile(valid)) {
+    return valid;
+  }
+  return valid.filter((p) => !isGenericUsbLoopbackProfile(p));
+}
+
 export type UsbHostMismatch = {
   usbHostLabel: string;
   selectedProfileLabel: string;

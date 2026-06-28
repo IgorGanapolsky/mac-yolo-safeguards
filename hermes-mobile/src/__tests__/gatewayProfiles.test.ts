@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   upsertDiscoveredProfile,
+  applyTailscaleDiscoveriesToProfileState,
   selectProfile,
   removeProfile,
   migrateLegacyGateway,
@@ -240,6 +241,26 @@ describe('gatewayProfiles', () => {
         addedAt: '',
       }),
     ).toBe(true);
+  });
+
+  it('auto-adds Tailscale discoveries as saved profiles without switching active', () => {
+    let state = upsertDiscoveredProfile(EMPTY_GATEWAY_PROFILE_STATE, {
+      gatewayUrl: 'http://127.0.0.1:8642',
+      hostname: 'Igors-MacBook-Pro',
+      label: 'Igors-MacBook-Pro',
+    }, true);
+    state = applyTailscaleDiscoveriesToProfileState(state, [
+      {
+        gatewayUrl: 'http://100.94.135.78:8642',
+        hostname: 'Igors-Mac-mini.local',
+        label: 'Igors-Mac-mini',
+        localIp: '100.94.135.78',
+      },
+    ]);
+    expect(state.profiles.map((p) => p.label).sort()).toEqual(
+      ['Igors-Mac-mini', 'Igors-MacBook-Pro'].sort(),
+    );
+    expect(state.activeProfileId).toBe('mac_igors_macbook_pro');
   });
 
   it('persists to AsyncStorage', async () => {

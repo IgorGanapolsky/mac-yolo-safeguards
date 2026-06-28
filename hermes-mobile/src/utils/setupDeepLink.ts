@@ -1,5 +1,10 @@
 /** Parse hermes://setup deep links from Mac pairing (QR or adb). */
 
+export type SetupExtraComputer = {
+  gatewayUrl: string;
+  macName?: string;
+};
+
 export interface SetupDeepLinkParams {
   gatewayUrl?: string;
   apiKey?: string;
@@ -9,6 +14,8 @@ export interface SetupDeepLinkParams {
   relayCode?: string;
   /** Tailscale / tailnet hosts to probe for other Hermes Macs (100.x or *.ts.net). */
   tailnetProbeHosts?: string[];
+  /** Additional saved computers (e.g. Mac mini on Tailscale while USB-pairing MacBook). */
+  extraComputers?: SetupExtraComputer[];
   /** Maestro / simulator flows when no live gateway is reachable. */
   demoMode?: boolean;
 }
@@ -31,6 +38,7 @@ export function buildSetupDeepLink(
   macName?: string,
   relayCode?: string,
   tailnetProbeHosts?: string[],
+  extraComputers?: SetupExtraComputer[],
 ): string {
   const params = new URLSearchParams();
   params.set('url', gatewayUrl.trim());
@@ -49,7 +57,30 @@ export function buildSetupDeepLink(
       params.append('tailnet', trimmed);
     }
   }
+  for (const extra of extraComputers ?? []) {
+    const url = extra.gatewayUrl?.trim();
+    if (url) {
+      params.append('extraUrl', url);
+    }
+    const name = extra.macName?.trim();
+    if (name) {
+      params.append('extraName', name);
+    }
+  }
   return `hermes://setup?${params.toString()}`;
+}
+
+function parseExtraComputers(query: string): SetupExtraComputer[] {
+  const urls = parseRepeatedQueryValues(query, 'extraUrl');
+  const names = parseRepeatedQueryValues(query, 'extraName');
+  const extras: SetupExtraComputer[] = [];
+  for (let i = 0; i < urls.length; i += 1) {
+    extras.push({
+      gatewayUrl: urls[i],
+      macName: names[i] || undefined,
+    });
+  }
+  return extras;
 }
 
 export function buildRelayDeepLink(relayCode: string, cloudUrl?: string): string {
@@ -137,11 +168,13 @@ export function parseSetupDeepLink(url: string): SetupDeepLinkParams | null {
     params.code?.trim() ||
     undefined;
   const tailnetProbeHosts = parseRepeatedQueryValues(query, 'tailnet');
+  const extraComputers = parseExtraComputers(query);
   return {
     gatewayUrl,
     apiKey,
     macName,
     relayCode: relayCode ? relayCode.toUpperCase() : undefined,
     tailnetProbeHosts: tailnetProbeHosts.length > 0 ? tailnetProbeHosts : undefined,
+    extraComputers: extraComputers.length > 0 ? extraComputers : undefined,
   };
 }
