@@ -42,7 +42,7 @@ import {
   sendChatMessage,
 } from '../services/hermesChatClient';
 import { chatSendBlockedMessage, humanizeChatError, isConnectivityMessage, isSessionInUseError } from '../utils/chatErrors';
-import { HermesGatewayApiError, deleteSession, forkSession, getCapabilities, stopRun, streamSessionChat } from '../services/hermesGatewayClient';
+import { HermesGatewayApiError, deleteSession, clearAllSessions, forkSession, getCapabilities, stopRun, streamSessionChat } from '../services/hermesGatewayClient';
 import { fetchGatewayHealth } from '../services/gatewayClient';
 import type { HermesSession, HermesMessage } from '../types/chat';
 import type { ChatProject, ChatProjectState } from '../types/chatProject';
@@ -1677,7 +1677,13 @@ export default function ChatScreen() {
       return;
     }
     setRunProgress(null);
+    if (currentSession?.id && manualSessionSelectRef.current === currentSession.id) {
+      manualSessionSelectRef.current = null;
+      return;
+    }
     transcriptDigestRef.current = '';
+    messagesRef.current = [];
+    setMessages([]);
     void refreshSessionMessagesRef.current?.({ background: true });
   }, [currentSession?.id, isDemo, setRunProgress]);
 
@@ -1955,11 +1961,16 @@ export default function ChatScreen() {
       const nextDismissed = [...new Set([...dismissedSessionIdsRef.current, ...attemptedIds])];
 
       let failed = 0;
-      for (const session of deletable) {
-        try {
-          await deleteSession(gatewayUrl, session.id, apiKey);
-        } catch {
-          failed += 1;
+      try {
+        await clearAllSessions(gatewayUrl, apiKey);
+      } catch (err) {
+        console.warn('[executeClearAllChats] API clear-all failed, falling back to sequential deletes:', err);
+        for (const session of deletable) {
+          try {
+            await deleteSession(gatewayUrl, session.id, apiKey);
+          } catch {
+            failed += 1;
+          }
         }
       }
 
@@ -3295,7 +3306,10 @@ export default function ChatScreen() {
       setRecentChatsDismissed(false);
       skipSessionAutoSelectRef.current = false;
       manualSessionSelectRef.current = session.id;
+      currentSessionRef.current = session;
       setCurrentSession(session);
+      messagesRef.current = [];
+      setMessages([]);
       if (activeProject) {
         const next = setActiveSession(projectState, activeProject.id, session.id);
         await persistProjectState(next);

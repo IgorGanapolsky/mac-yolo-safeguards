@@ -227,6 +227,7 @@ jest.mock('../services/hermesGatewayClient', () => ({
     }
   },
   deleteSession: jest.fn().mockResolvedValue(undefined),
+  clearAllSessions: jest.fn().mockResolvedValue(undefined),
   getCapabilities: jest.fn().mockResolvedValue({ features: {} }),
   forkSession: jest.fn(),
   stopRun: jest.fn(),
@@ -730,8 +731,9 @@ describe('ChatScreen', () => {
       listSessions: jest.Mock;
       listMessages: jest.Mock;
     };
-    const { deleteSession } = jest.requireMock('../services/hermesGatewayClient') as {
+    const { deleteSession, clearAllSessions } = jest.requireMock('../services/hermesGatewayClient') as {
       deleteSession: jest.Mock;
+      clearAllSessions: jest.Mock;
     };
     const { storage } = jest.requireMock('../services/storage') as {
       storage: {
@@ -754,6 +756,7 @@ describe('ChatScreen', () => {
     listSessions.mockResolvedValue([cronSession]);
     listMessages.mockResolvedValue([]);
     deleteSession.mockClear();
+    clearAllSessions.mockClear();
     storage.addDismissedSessionIds.mockClear();
     storage.clearDismissedSessionIds.mockClear();
     storage.setHideCronSessions.mockClear();
@@ -796,9 +799,8 @@ describe('ChatScreen', () => {
     await confirmAlertButton('Clear all');
 
     await waitFor(() => {
-      expect(deleteSession).toHaveBeenCalledWith(
+      expect(clearAllSessions).toHaveBeenCalledWith(
         'http://localhost:8642',
-        'cron_abc123',
         'test-api-key',
       );
       expect(storage.addDismissedSessionIds).toHaveBeenCalledWith(
@@ -1098,8 +1100,9 @@ describe('ChatScreen', () => {
       listSessions: jest.Mock;
       listMessages: jest.Mock;
     };
-    const { deleteSession } = jest.requireMock('../services/hermesGatewayClient') as {
+    const { deleteSession, clearAllSessions } = jest.requireMock('../services/hermesGatewayClient') as {
       deleteSession: jest.Mock;
+      clearAllSessions: jest.Mock;
     };
     const { chatProjects } = jest.requireMock('../services/chatProjects') as {
       chatProjects: { load: jest.Mock; save: jest.Mock };
@@ -1119,6 +1122,7 @@ describe('ChatScreen', () => {
       { role: 'assistant', content: 'still here before clear' },
     ]);
     deleteSession.mockClear();
+    clearAllSessions.mockClear();
     chatProjects.load.mockResolvedValue({
       projects: [
         {
@@ -1158,9 +1162,8 @@ describe('ChatScreen', () => {
     await confirmAlertButton('Clear all');
 
     await waitFor(() => {
-      expect(deleteSession).toHaveBeenCalledWith(
+      expect(clearAllSessions).toHaveBeenCalledWith(
         'http://localhost:8642',
-        'sess_june15',
         'test-api-key',
       );
       expect(queryByText('still here before clear')).toBeNull();

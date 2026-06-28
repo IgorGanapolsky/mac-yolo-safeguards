@@ -186,6 +186,20 @@ export async function deleteSession(
   }
 }
 
+export async function clearAllSessions(
+  gatewayUrl: string,
+  apiKey?: string | null,
+): Promise<void> {
+  const response = await fetch(`${base(gatewayUrl)}/api/sessions`, {
+    method: 'DELETE',
+    headers: buildAuthHeaders(apiKey),
+  });
+  if (!response.ok) {
+    const text = await response.text();
+    throw new HermesGatewayApiError(response.status, text || `HTTP ${response.status}`);
+  }
+}
+
 export async function forkSession(
   gatewayUrl: string,
   sessionId: string,
