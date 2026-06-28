@@ -49,6 +49,7 @@ Status values: `pending` | `in_progress` | `blocked` | `done`. Claim a row by se
 - `hermes-mobile/scripts/run-continuous-e2e.sh` → **antigravity** (T-4) (2026-06-28)
 - `hermes-mobile/scripts/run-e2e.sh` → **antigravity** (T-4) (2026-06-28)
 - `sim-runaway-guard.sh` → **antigravity** (T-4) (2026-06-28)
+- `hermes-mobile/package.json`, `hermes-mobile/package-lock.json` → **antigravity** (T-4) (2026-06-28)
 - `AGENTS.md`, `plan.md` → shared coordination files (append-only edits, commit first)
 - everything else → (free)
 
