@@ -1,6 +1,6 @@
 import React from 'react';
 import { Alert } from 'react-native';
-import { fireEvent, act, waitFor } from '@testing-library/react-native';
+import { fireEvent, act, waitFor, cleanup } from '@testing-library/react-native';
 import ChatScreen from '../screens/ChatScreen';
 import { renderInTabNavigator } from '../testUtils/navigation';
 
@@ -276,6 +276,22 @@ async function renderChatScreen() {
   return view;
 }
 
+async function drainChatScreenAsync() {
+  await act(async () => {
+    await Promise.resolve();
+    await Promise.resolve();
+  });
+}
+
+async function flushPendingTimers() {
+  if (!jest.isMockFunction(setTimeout)) {
+    return;
+  }
+  await act(async () => {
+    jest.runOnlyPendingTimers();
+  });
+}
+
 describe('ChatScreen', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -349,8 +365,13 @@ describe('ChatScreen', () => {
     }
   });
 
-  afterEach(() => {
+  afterEach(async () => {
+    await flushPendingTimers();
+    await drainChatScreenAsync();
+    cleanup();
+    jest.clearAllTimers();
     jest.useRealTimers();
+    jest.restoreAllMocks();
   });
 
   it('renders header and initial state correctly in demo mode', async () => {
@@ -476,7 +497,7 @@ describe('ChatScreen', () => {
     expect(getAllByTestId('chat-message-assistant').length).toBeGreaterThanOrEqual(1);
     expect(queryByTestId('chat-empty-state')).toBeNull();
     expect(getAllByTestId('chat-message-user').length).toBeGreaterThanOrEqual(1);
-    jest.useRealTimers();
+    await flushPendingTimers();
   });
 
   it('keeps send enabled while a demo reply is in flight (queue path)', async () => {
@@ -497,7 +518,7 @@ describe('ChatScreen', () => {
       fireEvent.press(sendButton);
     });
     expect(getAllByTestId('chat-message-user').length).toBeGreaterThanOrEqual(userCountAfterFirstSend);
-    jest.useRealTimers();
+    await flushPendingTimers();
   });
 
   it('clears composer after send and ignores Android IME echo onChangeText', async () => {
@@ -548,10 +569,7 @@ describe('ChatScreen', () => {
   });
 
   it('shows clearing progress and persists empty demo bindings on clear all', async () => {
-    const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation((_title, _message, buttons) => {
-      const clearButton = buttons?.find((button) => button.text === 'Clear all');
-      void clearButton?.onPress?.();
-    });
+    const alertSpy = jest.spyOn(Alert, 'alert');
     const { chatProjects } = jest.requireMock('../services/chatProjects') as {
       chatProjects: { save: jest.Mock };
     };
@@ -561,7 +579,9 @@ describe('ChatScreen', () => {
     fireEvent.press(getByTestId('open-sessions-modal'));
     fireEvent.press(await findByTestId('threads-modal-clear-all'));
 
+    const clearAllPromise = confirmAlertButton('Clear all');
     expect(await findByTestId('threads-modal-clearing')).toBeTruthy();
+    await clearAllPromise;
 
     await waitFor(() => {
       expect(chatProjects.save).toHaveBeenCalledWith(
