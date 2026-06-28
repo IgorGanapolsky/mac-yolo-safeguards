@@ -14,7 +14,33 @@ if ! command -v maestro >/dev/null 2>&1; then
   exit 1
 fi
 
+wait_for_android_device() {
+  local attempts="${1:-12}"
+  local i=0
+  while [[ $i -lt $attempts ]]; do
+    local id
+    id="$(adb devices 2>/dev/null | awk 'NR>1 && $2=="device" {print $1; exit}')"
+    if [[ -n "$id" ]]; then
+      echo "$id"
+      return 0
+    fi
+    sleep 5
+    i=$((i + 1))
+  done
+  return 1
+}
+
 ANDROID_ID="$(adb devices 2>/dev/null | awk 'NR>1 && $2=="device" {print $1; exit}')"
+
+if [[ -z "$ANDROID_ID" && -n "${HERMES_E2E_ANDROID_UDID:-}" ]]; then
+  echo "Waiting for USB Android device ${HERMES_E2E_ANDROID_UDID}..."
+  ANDROID_ID="$(wait_for_android_device 12 || true)"
+fi
+
+if [[ -z "$ANDROID_ID" && "${HERMES_E2E_ANDROID_ONLY:-}" == "1" ]]; then
+  echo "Android-only E2E requested but no USB device is connected" >&2
+  exit 1
+fi
 
 if [ -n "$ANDROID_ID" ]; then
   echo "=== Hermes Mobile Android Device E2E ==="

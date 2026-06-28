@@ -140,7 +140,8 @@ run_e2e_flow() {
     # Do not tear down iOS simulators while a USB Android device is connected — that
     # race caused Maestro to fall back to simulator mid-cycle.
     if has_adb_device; then
-      adb reconnect >/dev/null 2>&1 || true
+      sleep 8
+      wait_for_adb 12 >/dev/null || true
     else
       xcrun simctl shutdown all 2>/dev/null || true
     fi
@@ -171,6 +172,13 @@ run_e2e_suite() {
 
   wait_for_adb 2 >/dev/null || true
   ensure_metro || true
+
+  if has_adb_device; then
+    export HERMES_E2E_ANDROID_ONLY=1
+    export HERMES_E2E_ANDROID_UDID="$(adb devices 2>/dev/null | awk 'NR>1 && $2=="device" {print $1; exit}')"
+  else
+    unset HERMES_E2E_ANDROID_ONLY HERMES_E2E_ANDROID_UDID
+  fi
 
   local flow
   for flow in "${E2E_FLOWS[@]}"; do
