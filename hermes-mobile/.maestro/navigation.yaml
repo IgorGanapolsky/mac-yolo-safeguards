@@ -23,6 +23,7 @@ appId: com.iganapolsky.hermesmobile
       id: "gateway-ops-section"
     direction: DOWN
     timeout: 30000
+    visibilityPercentage: 40
 
 - tapOn:
     id: "tab-hermes"
