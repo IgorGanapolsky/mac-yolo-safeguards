@@ -144,7 +144,7 @@ SIM_COUNT=$(/bin/ps ax | /usr/bin/grep -i simruntime | /usr/bin/grep -v grep | /
 SIM_MEM=$(/bin/ps aux | /usr/bin/grep -i simruntime | /usr/bin/grep -v grep | /usr/bin/awk '{mem+=$4} END {printf "%d", mem+0}')
 [ -z "$SIM_MEM" ] && SIM_MEM=0
 
-SIM_PROC_HARD_LIMIT=${YOLO_SIM_PROC_HARD_LIMIT:-150}
+SIM_PROC_HARD_LIMIT=${YOLO_SIM_PROC_HARD_LIMIT:-350}
 SIM_LOAD_THRESHOLD=${YOLO_SIM_LOAD_THRESHOLD:-150}
 BOOTED_SIM_LOAD_THRESHOLD=${YOLO_BOOTED_SIM_LOAD_THRESHOLD:-40}
 BOOTED_SIM_CPU_THRESHOLD=${YOLO_BOOTED_SIM_CPU_THRESHOLD:-95}
