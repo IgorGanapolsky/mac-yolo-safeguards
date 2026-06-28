@@ -48,14 +48,14 @@ export function wifiLanFallbackUrls(input: {
   return urls;
 }
 
-/** Off Wi‑Fi / cellular — try saved or probed Tailscale gateway URLs before giving up. */
+/** Try saved or probed Tailscale gateway URLs when LAN/USB paths fail (Wi‑Fi or cellular). */
 export function cellularTailscaleFallbackUrls(input: {
   primaryUrl: string;
   wifiConnected: boolean;
   profileUrls?: string[];
   tailnetProbeHosts?: string[];
 }): string[] {
-  if (Platform.OS === 'web' || input.wifiConnected) {
+  if (Platform.OS === 'web') {
     return [];
   }
   const seen = new Set<string>([input.primaryUrl.trim()]);

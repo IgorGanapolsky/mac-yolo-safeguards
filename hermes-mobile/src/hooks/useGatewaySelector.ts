@@ -36,6 +36,11 @@ export function useGatewayConnection() {
   const saveSettings = useGatewaySelector((ctx) => ctx.saveSettings);
   const wifiConnected = useGatewaySelector((ctx) => ctx.wifiConnected);
   const isPaired = useGatewaySelector((ctx) => ctx.isPaired);
+  const tailscaleDiscoveries = useGatewaySelector((ctx) => ctx.tailscaleDiscoveries);
+  const tailscaleDiscoveryProbing = useGatewaySelector((ctx) => ctx.tailscaleDiscoveryProbing);
+  const addDiscoveredTailscaleComputer = useGatewaySelector(
+    (ctx) => ctx.addDiscoveredTailscaleComputer,
+  );
 
   return useMemo(
     () => ({
@@ -61,6 +66,9 @@ export function useGatewayConnection() {
       saveSettings,
       wifiConnected,
       isPaired,
+      tailscaleDiscoveries,
+      tailscaleDiscoveryProbing,
+      addDiscoveredTailscaleComputer,
     }),
     [
       settings,
@@ -85,6 +93,9 @@ export function useGatewayConnection() {
       saveSettings,
       wifiConnected,
       isPaired,
+      tailscaleDiscoveries,
+      tailscaleDiscoveryProbing,
+      addDiscoveredTailscaleComputer,
     ],
   );
 }

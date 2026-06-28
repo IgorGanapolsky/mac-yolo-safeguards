@@ -69,13 +69,17 @@ describe('gatewayLoopbackFallback', () => {
     ]);
   });
 
-  it('skips Tailscale fallback on Wi‑Fi', () => {
+  it('offers Tailscale fallback on Wi‑Fi when LAN paths fail', () => {
     expect(
       cellularTailscaleFallbackUrls({
         primaryUrl: 'http://192.168.68.68:8642',
         wifiConnected: true,
         profileUrls: ['http://100.94.135.78:8642'],
+        tailnetProbeHosts: ['igors-mac-mini.tail12aa33.ts.net'],
       }),
-    ).toEqual([]);
+    ).toEqual([
+      'http://100.94.135.78:8642',
+      'http://igors-mac-mini.tail12aa33.ts.net:8642',
+    ]);
   });
 });

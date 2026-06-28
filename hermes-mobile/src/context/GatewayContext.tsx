@@ -89,6 +89,7 @@ import {
   wifiLanFallbackUrls,
 } from '../utils/gatewayLoopbackFallback';
 import { profileMatchesDiscoveredGateway, resolveUsbMatchingProfileId } from '../utils/gatewayProfilePicker';
+import { isPrivateLanGatewayUrl } from '../utils/gatewayEndpoint';
 import { isTailscaleGatewayUrl } from '../utils/tailscaleHosts';
 import type { SetupDeepLinkParams } from '../utils/setupDeepLink';
 import {
@@ -115,6 +116,7 @@ import {
 } from '../services/gatewayDiscovery';
 import {
   collectTailnetProbeHosts,
+  discoverTailscaleGatewayForProfile,
   discoverTailscaleGateways,
   filterNewTailscaleDiscoveries,
 } from '../services/tailscaleDiscovery';
@@ -661,9 +663,34 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
           const snapshot = await probeMacGatewayOk(primaryUrl);
           return { snapshot, url: primaryUrl };
         } catch {
-          // fall through to USB loopback or Wi‑Fi LAN
+          // fall through to Tailscale / USB loopback / Wi‑Fi LAN
         }
       }
+
+      const activeProfileForFallback = activeProfile(profileStateRef.current);
+      const primaryIsPrivateLan =
+        isPrivateLanGatewayUrl(primaryUrl) && !isLoopbackGatewayUrl(primaryUrl);
+      if (
+        activeProfileForFallback &&
+        primaryIsPrivateLan &&
+        !isTailscaleGatewayUrl(primaryUrl) &&
+        tailnetProbeHostsRef.current.length > 0
+      ) {
+        const tailDiscovered = await discoverTailscaleGatewayForProfile(
+          activeProfileForFallback,
+          tailnetProbeHostsRef.current,
+        );
+        if (tailDiscovered?.gatewayUrl) {
+          try {
+            const snapshot = await probeMacGatewayOk(tailDiscovered.gatewayUrl);
+            await persistDiscoveredGatewayUrl(tailDiscovered.gatewayUrl, true);
+            return { snapshot, url: tailDiscovered.gatewayUrl };
+          } catch {
+            // try generic tailnet fallbacks next
+          }
+        }
+      }
+
       for (const fallbackUrl of usbLoopbackFallbackUrls(primaryUrl)) {
         try {
           const snapshot = await probeMacGatewayOk(fallbackUrl);
@@ -917,6 +944,7 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
       wifiConnectedRef.current = isWifi;
       setWifiConnected(isWifi);
       refreshHealth();
+      void probeTailscaleComputersRef.current();
     });
     void NetInfo.fetch().then((state) => {
       const isWifi = state.type === 'wifi' && state.isConnected !== false;
@@ -1615,9 +1643,16 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
     });
     try {
       const lastLanIp = await storage.loadLastGatewayLanIp();
-      const discovered = await discoverAllGatewaysOnLan(lastLanIp, {
-        onProgress: setProfileScanProgress,
-      });
+      const { gateways: discovered, tailnetProbeHosts } = await discoverAllGatewaysOnLan(
+        lastLanIp,
+        {
+          onProgress: setProfileScanProgress,
+        },
+      );
+      if (tailnetProbeHosts.length > 0) {
+        const merged = await tailnetProbeStorage.merge(tailnetProbeHosts);
+        tailnetProbeHostsRef.current = merged;
+      }
       let state = profileStateRef.current;
       for (const item of discovered) {
         state = upsertDiscoveredProfile(state, item, false);
@@ -1658,6 +1693,7 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
     } finally {
       setProfileScanning(false);
       setProfileScanProgress(null);
+      void probeTailscaleComputersRef.current();
     }
   }, [persistDiscoveredGatewayUrl]);
 
@@ -1710,7 +1746,7 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
       return;
     }
     void probeTailscaleComputers();
-  }, [isLoaded, settings.demoMode, health?.checkedAt, profileState.profiles.length, probeTailscaleComputers]);
+  }, [isLoaded, settings.demoMode, health?.checkedAt, profileState.profiles.length, wifiConnected, probeTailscaleComputers]);
 
   const bootstrapGateway = useCallback(async (): Promise<boolean> => {
     if (settingsRef.current.demoMode) {

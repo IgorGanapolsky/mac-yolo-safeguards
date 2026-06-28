@@ -220,6 +220,10 @@ export default function ChatScreen() {
     completePair,
     saveSettings,
     wifiConnected,
+    tailscaleDiscoveries,
+    tailscaleDiscoveryProbing,
+    addDiscoveredTailscaleComputer,
+    probeTailscaleComputers,
   } = useGatewayConnection();
   const { relayWorkers, isPaired, activeRelayWorkerId } = useGatewayRelay();
   const {
@@ -565,6 +569,13 @@ export default function ChatScreen() {
     operationalError?.toLowerCase().includes('still on the previous chat'),
   );
 
+  useEffect(() => {
+    if (!showMacConnectionHelp || isDemo) {
+      return;
+    }
+    void probeTailscaleComputers();
+  }, [showMacConnectionHelp, isDemo, probeTailscaleComputers]);
+
   const handleSearchMacFromChat = useCallback(async () => {
     haptics.selection();
     setIsScanningMacs(true);
@@ -590,6 +601,7 @@ export default function ChatScreen() {
       await autoConnectGateway();
       await refreshHealth();
       connectEvents();
+      void probeTailscaleComputers();
     } finally {
       setIsScanningMacs(false);
     }
@@ -598,6 +610,7 @@ export default function ChatScreen() {
     autoConnectGateway,
     connectEvents,
     health,
+    probeTailscaleComputers,
     refreshHealth,
     retryGatewayBootstrap,
     scanForGatewayProfiles,
@@ -615,6 +628,7 @@ export default function ChatScreen() {
       await retryGatewayBootstrap();
       await autoConnectGateway();
       connectEvents();
+      void probeTailscaleComputers();
     } finally {
       setConnectionPanelRefreshing(false);
     }
@@ -623,6 +637,7 @@ export default function ChatScreen() {
     connectEvents,
     connectionPanelRefreshing,
     isScanningMacs,
+    probeTailscaleComputers,
     refreshHealth,
     retryGatewayBootstrap,
   ]);
@@ -3430,6 +3445,11 @@ export default function ChatScreen() {
               onFixUsbLink={() => void handleMacRetry()}
               usbFixBusy={macRetryBusy}
               onOpenSettings={() => navigation.navigate('Settings' as never)}
+              tailscaleDiscoveries={tailscaleDiscoveries}
+              tailscaleDiscoveryProbing={tailscaleDiscoveryProbing}
+              onAddTailscaleComputer={(discovery) => {
+                void addDiscoveredTailscaleComputer(discovery);
+              }}
             />
           </ScrollView>
         ) : null}

@@ -71,7 +71,7 @@ jest.mock('../services/discover', () => ({
   getPackagerHostIp: jest.fn(() => null),
 }));
 jest.mock('../services/gatewayDiscovery', () => ({
-  discoverAllGatewaysOnLan: jest.fn().mockResolvedValue([]),
+  discoverAllGatewaysOnLan: jest.fn().mockResolvedValue({ gateways: [], tailnetProbeHosts: [] }),
   discoverGatewayOnPhoneSubnet: jest.fn().mockResolvedValue(null),
   discoverGatewayViaPairServer: jest.fn().mockResolvedValue(null),
   resolvePairServerMachineName: jest.fn().mockResolvedValue(null),

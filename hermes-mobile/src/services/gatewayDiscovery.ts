@@ -1,6 +1,7 @@
 import NetInfo from '@react-native-community/netinfo';
 import { parseSetupDeepLink } from '../utils/setupDeepLink';
 import { buildGatewayUrlFromLanIp, extractLanIpFromGatewayUrl, resolveDisplayLanIp } from '../utils/gatewayUrlPolicy';
+import { mergeTailnetProbeHosts } from '../utils/tailscaleHosts';
 import { normalizeGatewayUrl } from './gatewayClient';
 import type { DiscoveredGateway } from '../types/gatewayProfile';
 import type { LanScanProgress, LanScanStage } from '../types/lanScan';
@@ -31,6 +32,12 @@ export type PairServerPayload = {
   hostname?: string;
   localIp?: string;
   relayCode?: string;
+  tailnetProbeHosts?: string[];
+};
+
+export type DiscoverAllGatewaysOnLanResult = {
+  gateways: DiscoveredGateway[];
+  tailnetProbeHosts: string[];
 };
 
 async function getPhoneLanIp(): Promise<string | null> {
@@ -73,6 +80,9 @@ async function fetchPairServerConfig(host: string): Promise<PairServerPayload | 
     if (!body.gatewayUrl?.trim()) {
       return null;
     }
+    const tailnetProbeHosts = Array.isArray(body.tailnetProbeHosts)
+      ? body.tailnetProbeHosts.filter((host): host is string => typeof host === 'string')
+      : undefined;
     return {
       gatewayUrl: body.gatewayUrl.trim(),
       deepLink: body.deepLink?.trim() ?? '',
@@ -80,6 +90,7 @@ async function fetchPairServerConfig(host: string): Promise<PairServerPayload | 
       hostname: body.hostname,
       localIp: body.localIp,
       relayCode: typeof body.relayCode === 'string' ? body.relayCode : undefined,
+      tailnetProbeHosts,
     };
   } catch {
     return null;
@@ -213,22 +224,32 @@ async function sweepAllPairServers(
   phoneIp: string,
   preferLanIp?: string | null,
   options?: DiscoverLanOptions,
-): Promise<DiscoveredGateway[]> {
+): Promise<{ gateways: DiscoveredGateway[]; tailnetProbeHosts: string[] }> {
   const hosts = buildHostOrder(phoneIp, preferLanIp);
   const map = new Map<string, DiscoveredGateway>();
+  let tailnetProbeHosts: string[] = [];
   if (hosts.length === 0) {
-    return [];
+    return { gateways: [], tailnetProbeHosts: [] };
   }
 
   for (let start = 0; start < hosts.length; start += SUBNET_BATCH_SIZE) {
     const batch = hosts.slice(start, start + SUBNET_BATCH_SIZE);
     const probes = batch.map(async (host) => {
       const payload = await fetchPairServerConfig(host);
-      return payload ? pairPayloadToDiscovered(payload) : null;
+      return payload;
     });
     const results = await Promise.all(probes);
-    for (const item of results) {
-      mergeDiscovered(map, item);
+    for (const payload of results) {
+      if (!payload) {
+        continue;
+      }
+      if (payload.tailnetProbeHosts?.length) {
+        tailnetProbeHosts = mergeTailnetProbeHosts(
+          tailnetProbeHosts,
+          payload.tailnetProbeHosts,
+        );
+      }
+      mergeDiscovered(map, pairPayloadToDiscovered(payload));
     }
     reportLanScanProgress(
       options?.onProgress,
@@ -239,7 +260,7 @@ async function sweepAllPairServers(
     );
   }
 
-  return Array.from(map.values());
+  return { gateways: Array.from(map.values()), tailnetProbeHosts };
 }
 
 async function sweepAllGateways(
@@ -280,11 +301,11 @@ async function sweepAllGateways(
 export async function discoverAllGatewaysOnLan(
   preferLanIp?: string | null,
   options?: DiscoverLanOptions,
-): Promise<DiscoveredGateway[]> {
+): Promise<DiscoverAllGatewaysOnLanResult> {
   const phoneIp = await getPhoneLanIp();
   if (!phoneIp) {
     reportLanScanProgress(options?.onProgress, 'complete', 0, 0, 0);
-    return [];
+    return { gateways: [], tailnetProbeHosts: [] };
   }
 
   const hosts = buildHostOrder(phoneIp, preferLanIp);
@@ -292,7 +313,7 @@ export async function discoverAllGatewaysOnLan(
 
   const map = new Map<string, DiscoveredGateway>();
   const fromPair = await sweepAllPairServers(phoneIp, preferLanIp, options);
-  for (const item of fromPair) {
+  for (const item of fromPair.gateways) {
     mergeDiscovered(map, item);
   }
   const fromHealth = await sweepAllGateways(phoneIp, preferLanIp, options, map.size);
@@ -313,7 +334,7 @@ export async function discoverAllGatewaysOnLan(
       return a.label?.localeCompare(b.label ?? '') ?? 0;
     });
   }
-  return list;
+  return { gateways: list, tailnetProbeHosts: fromPair.tailnetProbeHosts };
 }
 
 async function sweepSubnetForPairServer(

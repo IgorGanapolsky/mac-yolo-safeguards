@@ -15,9 +15,11 @@ import {
   type UsbHostMismatch,
 } from '../utils/gatewayProfilePicker';
 import { relayWorkerDisplayName } from '../utils/relayRouting';
+import type { DiscoveredGateway } from '../types/gatewayProfile';
 import MacScanProgressCard from './MacScanProgressCard';
 import GatewayProfilePicker from './GatewayProfilePicker';
 import RelayWorkerList from './RelayWorkerList';
+import TailscaleDiscoveryBanner from './TailscaleDiscoveryBanner';
 import LoadingButton from './ui/LoadingButton';
 
 type ChatConnectionPanelProps = {
@@ -44,6 +46,9 @@ type ChatConnectionPanelProps = {
   onFixUsbLink?: () => void;
   usbFixBusy?: boolean;
   onOpenSettings?: () => void;
+  tailscaleDiscoveries?: DiscoveredGateway[];
+  tailscaleDiscoveryProbing?: boolean;
+  onAddTailscaleComputer?: (discovery: DiscoveredGateway) => void;
   testID?: string;
 };
 
@@ -227,6 +232,9 @@ export default function ChatConnectionPanel({
   onFixUsbLink,
   usbFixBusy = false,
   onOpenSettings,
+  tailscaleDiscoveries = [],
+  tailscaleDiscoveryProbing = false,
+  onAddTailscaleComputer,
   testID = 'chat-connection-panel',
 }: ChatConnectionPanelProps) {
   const showUsbFix = Boolean(
@@ -343,6 +351,14 @@ export default function ChatConnectionPanel({
             showReachabilityHints={pickerProfiles.length > 1}
           />
         </View>
+      ) : null}
+
+      {tailscaleDiscoveries.length > 0 && onAddTailscaleComputer ? (
+        <TailscaleDiscoveryBanner
+          discoveries={tailscaleDiscoveries}
+          adding={tailscaleDiscoveryProbing}
+          onAdd={onAddTailscaleComputer}
+        />
       ) : null}
 
       {relayWorkersNotInSaved.length > 0 ? (

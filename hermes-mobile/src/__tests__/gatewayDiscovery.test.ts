@@ -88,9 +88,31 @@ describe('gatewayDiscovery', () => {
       return Promise.resolve({ ok: false });
     });
 
-    const list = await discoverAllGatewaysOnLan();
+    const { gateways: list } = await discoverAllGatewaysOnLan();
     expect(list.length).toBe(2);
     expect(list.map((g) => g.localIp)).toEqual(expect.arrayContaining(['192.168.12.208', '192.168.12.50']));
+  });
+
+  it('collects tailnet probe hosts from pair.json during LAN scan', async () => {
+    (global.fetch as jest.Mock).mockImplementation((url: string) => {
+      if (url.includes(':8765/pair.json')) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            gatewayUrl: 'http://192.168.12.208:8642',
+            deepLink: 'hermes://setup?url=http%3A%2F%2F192.168.12.208%3A8642',
+            tailnetProbeHosts: ['100.94.135.78', 'igors-mac-mini.tail12aa33.ts.net'],
+          }),
+        });
+      }
+      return Promise.resolve({ ok: false });
+    });
+
+    const { gateways, tailnetProbeHosts } = await discoverAllGatewaysOnLan();
+    expect(gateways).toHaveLength(1);
+    expect(tailnetProbeHosts.sort()).toEqual(
+      ['100.94.135.78', 'igors-mac-mini.tail12aa33.ts.net'].sort(),
+    );
   });
 
   it('returns null when phone has no LAN IP', async () => {

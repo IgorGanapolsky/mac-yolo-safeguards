@@ -117,9 +117,13 @@ function discoverTailnetProbeHosts() {
   try {
     const payload = JSON.parse(result.stdout);
     const discoveries = Array.isArray(payload.discoveries) ? payload.discoveries : [];
-    return discoveries
+    const probedHosts = Array.isArray(payload.probedHosts) ? payload.probedHosts : [];
+    const fromDiscoveries = discoveries
       .map((item) => item.host || item.gatewayUrl?.replace(/^https?:\/\//i, '').split(':')[0])
       .filter(Boolean);
+    // Seed all tailnet peers (not only Hermes-responding hosts) so the phone can
+    // discover Mac mini later when :8642 comes online or the user is off-LAN.
+    return [...new Set([...probedHosts, ...fromDiscoveries])];
   } catch {
     return [];
   }
