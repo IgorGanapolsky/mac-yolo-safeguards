@@ -17,7 +17,7 @@ import type {
 } from '../types/gateway';
 import { DEFAULT_GATEWAY_SETTINGS } from '../types/gateway';
 import type { RunProgressState } from '../types/chatDisplay';
-import { applyStreamEvent } from '../utils/chatStreamEvents';
+import { applyStreamEvent, attachRunMetadata } from '../utils/chatStreamEvents';
 import type { ChatStreamEvent } from '../types/gatewayApi';
 import type { GatewayProfile, GatewayProfileState, DiscoveredGateway } from '../types/gatewayProfile';
 import type { LanScanProgress, LanScanResult } from '../types/lanScan';
@@ -1111,27 +1111,13 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
         event: event.event,
         data: payload,
       };
-      const eventRunId = typeof payload.runId === 'string'
-        ? payload.runId
-        : typeof payload.run_id === 'string'
-          ? payload.run_id
-          : undefined;
-      const eventSessionId = typeof payload.sessionId === 'string'
-        ? payload.sessionId
-        : typeof payload.session_id === 'string'
-          ? payload.session_id
-          : undefined;
 
       setRunProgress((prev) => {
         const dummyState = { runProgress: prev, toolCalls: [] };
         const nextState = applyStreamEvent(dummyState, streamEvt);
         const nextProgress = nextState.runProgress;
         if (nextProgress) {
-          return {
-            ...nextProgress,
-            runId: eventRunId ?? prev?.runId,
-            sessionId: eventSessionId ?? prev?.sessionId,
-          };
+          return attachRunMetadata(nextProgress, payload, prev);
         }
         return null;
       });

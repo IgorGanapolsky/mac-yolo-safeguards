@@ -115,7 +115,7 @@ import ChatApprovalBar from '../components/ChatApprovalBar';
 import RunProgressBanner from '../components/RunProgressBanner';
 import type { RunProgressState } from '../types/chatDisplay';
 import type { GatewayEventMessage } from '../types/gateway';
-import { applyStreamEvent, mergeRunUsageFromPayload, mergeSessionUsageIntoRunProgress, runProgressForDisplayEqual } from '../utils/chatStreamEvents';
+import { applyStreamEvent, attachRunMetadata, mergeRunUsageFromPayload, mergeSessionUsageIntoRunProgress, runProgressForDisplayEqual } from '../utils/chatStreamEvents';
 import { releaseMacOperatorSlot, retryOnSessionInUse } from '../utils/chatSessionRecovery';
 import { resolveChatProject } from '../utils/chatContext';
 import {
@@ -2829,21 +2829,28 @@ export default function ChatScreen() {
                 if (!prev) {
                   return prev;
                 }
-                return mergeRunUsageFromPayload(
-                  {
-                    ...prev,
-                    phase: failed ? 'failed' : 'completed',
-                    detail: failed
-                      ? String(evt.data?.error || 'Run ended with error')
-                      : 'Task completed',
-                  },
+                return attachRunMetadata(
+                  mergeRunUsageFromPayload(
+                    {
+                      ...prev,
+                      phase: failed ? 'failed' : 'completed',
+                      detail: failed
+                        ? String(evt.data?.error || 'Run ended with error')
+                        : 'Task completed',
+                    },
+                    evt.data,
+                  ),
                   evt.data,
+                  prev,
                 );
               });
               if (!failed) {
                 setOperatorTerminalLine(null);
               }
             } else if (
+              eventName === 'run.started' ||
+              eventName === 'message.started' ||
+              eventName === 'tool.progress' ||
               eventName === 'run.status' ||
               eventName === 'run.progress' ||
               eventName === 'status.update' ||
@@ -2876,10 +2883,11 @@ export default function ChatScreen() {
                 if (!next) {
                   return prev;
                 }
-                if (runProgressForDisplayEqual(prev, next)) {
+                const merged = attachRunMetadata(next, evt.data, prev);
+                if (runProgressForDisplayEqual(prev, merged)) {
                   return prev;
                 }
-                return next;
+                return merged;
               });
             }
 
@@ -3388,6 +3396,7 @@ export default function ChatScreen() {
             prev,
             session,
             prev?.detail ?? 'Agent working…',
+            { skipUsageFields: Boolean(prev?.runId || prev?.streamUsageLive) },
           );
           if (runProgressForDisplayEqual(prev, next)) {
             return prev;
@@ -3412,7 +3421,7 @@ export default function ChatScreen() {
     };
 
     void pollSessionUsage();
-    const timer = setInterval(pollSessionUsage, 1000);
+    const timer = setInterval(pollSessionUsage, 500);
     return () => {
       cancelled = true;
       clearInterval(timer);

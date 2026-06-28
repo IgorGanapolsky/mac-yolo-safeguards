@@ -23,5 +23,7 @@ export interface RunProgressState {
   outputTokens?: number;
   totalTokens?: number;
   duration?: number;
+  /** Stream events (tool.progress, run.completed) own token counts — session poll must not overwrite. */
+  streamUsageLive?: boolean;
 }
 

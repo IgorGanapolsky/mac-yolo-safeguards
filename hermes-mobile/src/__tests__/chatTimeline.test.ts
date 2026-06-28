@@ -1,4 +1,4 @@
-import { applyStreamEvent, createStreamActivityState, formatRunProgressLabel, mergeRunUsageFromPayload, mergeSessionUsageIntoRunProgress, runProgressForDisplayEqual } from '../utils/chatStreamEvents';
+import { applyStreamEvent, attachRunMetadata, createStreamActivityState, formatRunProgressLabel, mergeRunUsageFromPayload, mergeSessionUsageIntoRunProgress, runProgressForDisplayEqual } from '../utils/chatStreamEvents';
 import { buildChatTimeline, mergeTimelineWithLiveTools } from '../utils/chatTimeline';
 
 describe('chatStreamEvents', () => {
@@ -91,6 +91,73 @@ describe('chatStreamEvents', () => {
     );
     expect(merged.inputTokens).toBe(50);
     expect(merged.outputTokens).toBe(10);
+    expect(merged.streamUsageLive).toBe(true);
+  });
+
+  it('merges live model and tokens from tool.progress without adding tool rows', () => {
+    const state = applyStreamEvent(createStreamActivityState(), {
+      event: 'tool.progress',
+      data: {
+        run_id: 'run_abc',
+        model: 'hermes-local-fast',
+        input_tokens: 100,
+        output_tokens: 5,
+      },
+    });
+    expect(state.toolCalls).toHaveLength(0);
+    expect(state.runProgress?.runId).toBeUndefined();
+    expect(state.runProgress?.model).toBe('hermes-local-fast');
+    expect(state.runProgress?.inputTokens).toBe(100);
+    expect(state.runProgress?.outputTokens).toBe(5);
+    expect(state.runProgress?.streamUsageLive).toBe(true);
+  });
+
+  it('attachRunMetadata preserves run and session ids from stream payloads', () => {
+    const progress = attachRunMetadata(
+      { phase: 'working', startedAtMs: 1, detail: 'working' },
+      { run_id: 'run_1', session_id: 'sess_1' },
+    );
+    expect(progress.runId).toBe('run_1');
+    expect(progress.sessionId).toBe('sess_1');
+  });
+
+  it('session poll skips stale usage when streamUsageLive is set', () => {
+    const merged = mergeSessionUsageIntoRunProgress(
+      {
+        phase: 'working',
+        startedAtMs: 1,
+        detail: 'working',
+        inputTokens: 120,
+        outputTokens: 8,
+        streamUsageLive: true,
+        model: 'hermes-local-fast',
+      },
+      { model: 'hermes-agent', input_tokens: 66476, output_tokens: 535 },
+    );
+    expect(merged.inputTokens).toBe(120);
+    expect(merged.outputTokens).toBe(8);
+    expect(merged.model).toBe('hermes-local-fast');
+  });
+
+  it('reads llm_model aliases from stream payloads', () => {
+    const merged = mergeRunUsageFromPayload(
+      { phase: 'working', startedAtMs: Date.now(), detail: 'working' },
+      { llm_model: 'google/gemini-2.5-flash' },
+    );
+    expect(merged.model).toBe('google/gemini-2.5-flash');
+  });
+
+  it('updates token counts when tool.progress reports new usage', () => {
+    let state = applyStreamEvent(createStreamActivityState(), {
+      event: 'tool.progress',
+      data: { input_tokens: 100, output_tokens: 5 },
+    });
+    state = applyStreamEvent(state, {
+      event: 'tool.progress',
+      data: { input_tokens: 150, output_tokens: 12 },
+    });
+    expect(state.runProgress?.inputTokens).toBe(150);
+    expect(state.runProgress?.outputTokens).toBe(12);
   });
 
   it('detects display-equal run progress to skip banner flicker', () => {

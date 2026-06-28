@@ -69,6 +69,25 @@ describe('RunProgressBanner', () => {
     expect(getByText('In: 89041 | Out: 1989')).toBeTruthy();
   });
 
+  it('shows live model from tool.progress during active runs', () => {
+    const { getByText } = render(
+      <RunProgressBanner
+        progress={{
+          phase: 'working',
+          startedAtMs: Date.now() - 2000,
+          detail: 'Hermes is working on your Mac…',
+          runId: 'run_live',
+          model: 'hermes-local-fast',
+          inputTokens: 66476,
+          outputTokens: 535,
+          streamUsageLive: true,
+        }}
+      />,
+    );
+    expect(getByText('hermes-local-fast')).toBeTruthy();
+    expect(getByText('In: 66476 | Out: 535')).toBeTruthy();
+  });
+
   it('uses fallbackModel when progress model is a gateway platform label', () => {
     const { getByText } = render(
       <RunProgressBanner

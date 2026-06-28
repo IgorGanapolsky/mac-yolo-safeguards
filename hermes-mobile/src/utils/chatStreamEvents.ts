@@ -13,6 +13,14 @@ function readNumber(value: unknown): number | undefined {
   return undefined;
 }
 
+function readString(value: unknown): string | undefined {
+  if (typeof value !== 'string') {
+    return undefined;
+  }
+  const trimmed = value.trim();
+  return trimmed ? trimmed : undefined;
+}
+
 function readUsageBlock(block: unknown): {
   inputTokens?: number;
   outputTokens?: number;
@@ -41,6 +49,38 @@ function readUsageBlock(block: unknown): {
   return { inputTokens, outputTokens, totalTokens };
 }
 
+function readPayloadModel(data: Record<string, unknown>): string | undefined {
+  return (
+    readString(data.model) ??
+    readString(data.model_id) ??
+    readString(data.model_name) ??
+    readString(data.llm_model) ??
+    readString(data.llm) ??
+    readString(data.provider_model) ??
+    readString(data.active_model)
+  );
+}
+
+function payloadHasUsageFields(data: Record<string, unknown>): boolean {
+  const usage = {
+    ...readUsageBlock(data.usage),
+    ...readUsageBlock(data.token_usage),
+    ...readUsageBlock(data.tokenUsage),
+    ...readUsageBlock(data.stats),
+  };
+  return (
+    readNumber(data.input_tokens) != null ||
+    readNumber(data.inputTokens) != null ||
+    readNumber(data.output_tokens) != null ||
+    readNumber(data.outputTokens) != null ||
+    readNumber(data.total_tokens) != null ||
+    readNumber(data.totalTokens) != null ||
+    usage.inputTokens != null ||
+    usage.outputTokens != null ||
+    usage.totalTokens != null
+  );
+}
+
 /** Merge model + token fields from gateway SSE payloads or session records. */
 export function mergeRunUsageFromPayload(
   progress: RunProgressState,
@@ -53,37 +93,35 @@ export function mergeRunUsageFromPayload(
     ...readUsageBlock(data.stats),
   };
 
-  const inputTokens =
+  const payloadInput =
     readNumber(data.input_tokens) ??
     readNumber(data.inputTokens) ??
-    usage.inputTokens ??
-    progress.inputTokens;
-  const outputTokens =
+    usage.inputTokens;
+  const payloadOutput =
     readNumber(data.output_tokens) ??
     readNumber(data.outputTokens) ??
-    usage.outputTokens ??
-    progress.outputTokens;
-  const totalTokens =
+    usage.outputTokens;
+  const payloadTotal =
     readNumber(data.total_tokens) ??
     readNumber(data.totalTokens) ??
-    usage.totalTokens ??
+    usage.totalTokens;
+
+  const inputTokens = payloadInput ?? progress.inputTokens;
+  const outputTokens = payloadOutput ?? progress.outputTokens;
+  const totalTokens =
+    payloadTotal ??
     (inputTokens != null || outputTokens != null
       ? (inputTokens ?? 0) + (outputTokens ?? 0)
       : progress.totalTokens);
 
-  const payloadModel =
-    (typeof data.model === 'string' && data.model.trim() ? data.model.trim() : undefined) ??
-    (typeof data.model_id === 'string' && data.model_id.trim() ? data.model_id.trim() : undefined) ??
-    (typeof data.model_name === 'string' && data.model_name.trim()
-      ? data.model_name.trim()
-      : undefined);
-
+  const payloadModel = readPayloadModel(data);
   const model =
     payloadModel !== undefined
       ? (displayableLlmModel(payloadModel) ?? displayableLlmModel(progress.model) ?? undefined)
-      : (displayableLlmModel(progress.model) ?? undefined);
+      : displayableLlmModel(progress.model) ?? undefined;
 
   const duration = readNumber(data.duration) ?? progress.duration;
+  const streamUsageLive = payloadHasUsageFields(data) ? true : progress.streamUsageLive;
 
   return {
     ...progress,
@@ -92,6 +130,30 @@ export function mergeRunUsageFromPayload(
     outputTokens,
     totalTokens,
     duration,
+    streamUsageLive,
+  };
+}
+
+export function extractRunMetadata(data: Record<string, unknown>): {
+  runId?: string;
+  sessionId?: string;
+} {
+  return {
+    runId: readString(data.run_id) ?? readString(data.runId),
+    sessionId: readString(data.session_id) ?? readString(data.sessionId),
+  };
+}
+
+export function attachRunMetadata(
+  progress: RunProgressState,
+  data: Record<string, unknown>,
+  prev?: RunProgressState | null,
+): RunProgressState {
+  const { runId, sessionId } = extractRunMetadata(data);
+  return {
+    ...progress,
+    runId: runId ?? prev?.runId ?? progress.runId,
+    sessionId: sessionId ?? prev?.sessionId ?? progress.sessionId,
   };
 }
 
@@ -110,7 +172,8 @@ export function runProgressForDisplayEqual(
     (a.model ?? '') === (b.model ?? '') &&
     (a.inputTokens ?? -1) === (b.inputTokens ?? -1) &&
     (a.outputTokens ?? -1) === (b.outputTokens ?? -1) &&
-    (a.totalTokens ?? -1) === (b.totalTokens ?? -1)
+    (a.totalTokens ?? -1) === (b.totalTokens ?? -1) &&
+    Boolean(a.streamUsageLive) === Boolean(b.streamUsageLive)
   );
 }
 
@@ -118,6 +181,7 @@ export function mergeSessionUsageIntoRunProgress(
   progress: RunProgressState | null,
   session: Pick<HermesSession, 'model' | 'input_tokens' | 'output_tokens'>,
   fallbackDetail = 'Agent working…',
+  options?: { skipUsageFields?: boolean },
 ): RunProgressState {
   const base: RunProgressState =
     progress ??
@@ -126,6 +190,10 @@ export function mergeSessionUsageIntoRunProgress(
       startedAtMs: Date.now(),
       detail: fallbackDetail,
     } satisfies RunProgressState);
+
+  if (options?.skipUsageFields || base.streamUsageLive) {
+    return mergeRunUsageFromPayload(base, { model: session.model });
+  }
 
   return mergeRunUsageFromPayload(base, {
     model: session.model,
@@ -225,6 +293,26 @@ export function applyStreamEvent(
   const toolCalls = [...state.toolCalls];
   let runProgress = state.runProgress;
 
+  if (eventName === 'run.started' || eventName === 'message.started') {
+    runProgress = startRunProgress(
+      { ...state, runProgress },
+      runProgress?.detail ?? 'Hermes is working on your Mac…',
+      runProgress?.phase ?? 'working',
+      data,
+    );
+    return { runProgress, toolCalls };
+  }
+
+  if (eventName === 'tool.progress') {
+    runProgress = startRunProgress(
+      { ...state, runProgress },
+      runProgress?.detail ?? 'Hermes is working on your Mac…',
+      runProgress?.phase ?? 'working',
+      data,
+    );
+    return { runProgress, toolCalls };
+  }
+
   if (
     eventName === 'run.status' ||
     eventName === 'run.progress' ||
@@ -283,6 +371,12 @@ export function applyStreamEvent(
           toolStatus: data.error ? 'error' : 'completed',
         });
       }
+      runProgress = startRunProgress(
+        { ...state, runProgress },
+        runProgress?.detail ?? 'Hermes is working on your Mac…',
+        runProgress?.phase ?? 'working',
+        data,
+      );
     }
     return { runProgress, toolCalls };
   }
