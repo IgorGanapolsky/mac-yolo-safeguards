@@ -146,6 +146,7 @@ SIM_MEM=$(/bin/ps aux | /usr/bin/grep -i simruntime | /usr/bin/grep -v grep | /u
 
 SIM_PROC_HARD_LIMIT=${YOLO_SIM_PROC_HARD_LIMIT:-350}
 SIM_LOAD_THRESHOLD=${YOLO_SIM_LOAD_THRESHOLD:-150}
+SIM_MEM_LIMIT=${YOLO_SIM_MEM_LIMIT:-250}
 BOOTED_SIM_LOAD_THRESHOLD=${YOLO_BOOTED_SIM_LOAD_THRESHOLD:-40}
 BOOTED_SIM_CPU_THRESHOLD=${YOLO_BOOTED_SIM_CPU_THRESHOLD:-95}
 BOOTED_SIM_SUSTAINED_FIRES=${YOLO_BOOTED_SIM_SUSTAINED_FIRES:-5}
@@ -157,8 +158,8 @@ if [ "$SIM_COUNT" -gt "$SIM_PROC_HARD_LIMIT" ]; then
 elif [ "$SIM_COUNT" -gt 0 ]; then
   if [ "$LOAD_INT" -gt "$SIM_LOAD_THRESHOLD" ]; then
     REASON="CPU runaway (load=$LOAD threshold=$SIM_LOAD_THRESHOLD sim_procs=$SIM_COUNT)"
-  elif [ "$SIM_MEM" -gt 50 ]; then
-    REASON="memory hog (sim_mem=${SIM_MEM}% sim_procs=$SIM_COUNT)"
+  elif [ "$SIM_MEM" -gt "$SIM_MEM_LIMIT" ]; then
+    REASON="memory hog (sim_mem=${SIM_MEM}% sim_procs=$SIM_COUNT limit=$SIM_MEM_LIMIT)"
   fi
 fi
 
