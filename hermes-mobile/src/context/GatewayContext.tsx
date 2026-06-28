@@ -553,6 +553,9 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
 
   const persistDiscoveredGatewayUrl = useCallback(
     async (successfulUrl: string, makeProfileActive = false): Promise<string> => {
+      if (settingsRef.current.demoMode) {
+        return successfulUrl;
+      }
       const currentUrl = settingsRef.current.gatewayUrl;
       if (successfulUrl !== currentUrl) {
         const nextSettings = { ...settingsRef.current, gatewayUrl: successfulUrl };
@@ -613,8 +616,7 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
       setHealth(snapshot);
       healthRef.current = snapshot;
     };
-    const currentSettings = settingsRef.current;
-    if (currentSettings.demoMode) {
+    const publishDemoHealth = () => {
       publishHealth({
         level: 'green',
         status: 'ok',
@@ -623,8 +625,18 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
         directGatewayReachable: true,
       });
       setConnectionState('demo');
+    };
+    const bailIfDemoMode = (): boolean => {
+      if (!settingsRef.current.demoMode) {
+        return false;
+      }
+      publishDemoHealth();
+      return true;
+    };
+    if (bailIfDemoMode()) {
       return;
     }
+    const currentSettings = settingsRef.current;
     const token = mobileTokenRef.current;
     const key = apiKeyRef.current;
     const gatewayProbeUrl = effectiveGatewayUrlRef.current || currentSettings.gatewayUrl;
@@ -706,6 +718,9 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
           fetchMobileRelayHealth(currentSettings.cloudUrl),
           tryMacGatewayWithLoopbackFallback(gatewayProbeUrl).catch(() => null),
         ]);
+        if (bailIfDemoMode()) {
+          return;
+        }
         const macHealth = macResult?.snapshot ?? null;
         const macReachable = macHealth ? isGatewayHealthOk(macHealth) : false;
         publishHealth({
@@ -738,6 +753,9 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
 
     try {
       const { snapshot, url: resolvedUrl } = await tryMacGatewayWithLoopbackFallback(gatewayProbeUrl);
+      if (bailIfDemoMode()) {
+        return;
+      }
       const sanitizedLocalIp = resolveDisplayLanIp(snapshot.localIp, resolvedUrl);
       if (sanitizedLocalIp) {
         await storage.saveLastGatewayLanIp(sanitizedLocalIp);
@@ -1509,6 +1527,9 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
 
   const selectGatewayProfile = useCallback(
     async (profileId: string) => {
+      if (settingsRef.current.demoMode) {
+        return;
+      }
       const profile = profileStateRef.current.profiles.find((p) => p.id === profileId);
       if (!profile) {
         return;
@@ -1776,6 +1797,7 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
           ...(isDeveloperLeashUnlockAllowed() ? { developerLeashUnlock: true } : {}),
         };
         await saveSettings(nextSettings, apiKeyRef.current);
+        await bootstrapGateway();
         return;
       }
 
@@ -1871,7 +1893,7 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
       await refreshHealth();
       void probeTailscaleComputersRef.current();
     },
-    [refreshHealth, saveSettings],
+    [refreshHealth, saveSettings, bootstrapGateway],
   );
 
   const completePair = useCallback(

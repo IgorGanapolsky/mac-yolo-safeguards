@@ -24,15 +24,16 @@ appId: com.iganapolsky.hermesmobile
 - tapOn:
     id: "chat-send-button"
 # User bubble is the persistence signal — run-progress-banner hides until runId (demo clears it fast).
-- extendedWaitUntil:
-    visible: "print money, make money faster. Use Data Science, ML and Agentic RAG."
-    timeout: 15000
+# Scroll first: long live sessions virtualize off-screen bubbles until offset-0 (latest) is shown.
 - scrollUntilVisible:
     element:
       text: "print money, make money faster. Use Data Science, ML and Agentic RAG."
     direction: UP
     timeout: 20000
     speed: 40
+- extendedWaitUntil:
+    visible: "print money, make money faster. Use Data Science, ML and Agentic RAG."
+    timeout: 15000
 - assertVisible: "print money, make money faster. Use Data Science, ML and Agentic RAG."
 - extendedWaitUntil:
     visible: "print money, make money faster. Use Data Science, ML and Agentic RAG."

@@ -380,7 +380,8 @@ export default function ChatScreen() {
   }, []);
 
   const scrollChatToLatest = useCallback((animated = false) => {
-    const run = () => flatListRef.current?.scrollToEnd({ animated });
+    // Bottom-anchored FlashList (startRenderingFromBottom): offset 0 is the latest messages.
+    const run = () => flatListRef.current?.scrollToOffset({ offset: 0, animated });
     requestAnimationFrame(() => {
       run();
       requestAnimationFrame(run);
