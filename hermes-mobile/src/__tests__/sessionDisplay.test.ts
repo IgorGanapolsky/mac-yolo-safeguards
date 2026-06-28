@@ -4,6 +4,7 @@ import {
   formatSessionDate,
   formatSessionLastActive,
   formatSessionTitle,
+  filterDismissedThreadSessions,
   isRecentsRailSession,
   parseGatewayTimestamp,
   sessionDisplayTitle,
@@ -235,5 +236,32 @@ describe('sessionDisplay', () => {
       }),
     ).toBe(false);
     expect(isRecentsRailSession({ id: 'sess_user', title: 'Print money' })).toBe(true);
+  });
+
+  it('filterDismissedThreadSessions hides dismissed ids and optional cron jobs', () => {
+    const sessions: HermesSession[] = [
+      { id: 'sess_a', title: 'Print money', last_active_at: '2026-06-27T12:00:00Z' },
+      { id: 'sess_b', title: 'Hermes Telegram', last_active_at: '2026-06-15T12:00:00Z' },
+      {
+        id: 'cron_x',
+        source: 'cron',
+        title: '[IMPORTANT: You are running as a scheduled cron job',
+        last_active_at: '2026-06-28T12:00:00Z',
+      },
+    ];
+
+    expect(
+      filterDismissedThreadSessions(sessions, {
+        dismissedSessionIds: ['sess_a', 'sess_b'],
+        hideCronSessions: false,
+      }).map((session) => session.id),
+    ).toEqual(['cron_x']);
+
+    expect(
+      filterDismissedThreadSessions(sessions, {
+        dismissedSessionIds: [],
+        hideCronSessions: true,
+      }).map((session) => session.id),
+    ).toEqual(['sess_a', 'sess_b']);
   });
 });

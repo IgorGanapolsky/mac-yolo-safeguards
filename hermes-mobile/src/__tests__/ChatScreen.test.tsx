@@ -784,4 +784,185 @@ describe('ChatScreen', () => {
 
     alertSpy.mockRestore();
   });
+
+  it('clear all hides mixed Mac threads when gateway delete fails', async () => {
+    const alertSpy = jest.spyOn(Alert, 'alert');
+    const { listSessions, listMessages } = jest.requireMock('../services/hermesChatClient') as {
+      listSessions: jest.Mock;
+      listMessages: jest.Mock;
+    };
+    const { deleteSession } = jest.requireMock('../services/hermesGatewayClient') as {
+      deleteSession: jest.Mock;
+    };
+    const { storage } = jest.requireMock('../services/storage') as {
+      storage: {
+        addDismissedSessionIds: jest.Mock;
+        loadDismissedSessionIds: jest.Mock;
+      };
+    };
+    const { chatProjects } = jest.requireMock('../services/chatProjects') as {
+      chatProjects: { load: jest.Mock };
+    };
+
+    const macSessions = [
+      {
+        id: 'cron_job',
+        source: 'cron',
+        title: '[IMPORTANT: You are running as a scheduled cron job',
+        last_active_at: '2026-06-28T12:00:00Z',
+      },
+      {
+        id: 'sess_print',
+        title: 'Print money make money faster',
+        last_active_at: '2026-06-27T12:00:00Z',
+      },
+      {
+        id: 'sess_june15',
+        title: 'Hermes Telegram Reliability YOLO Safeguar',
+        last_active_at: '2026-06-15T12:00:00Z',
+      },
+    ];
+
+    listSessions.mockResolvedValue(macSessions);
+    listMessages.mockResolvedValue([]);
+    deleteSession.mockRejectedValue(new Error('gateway refused'));
+    storage.loadDismissedSessionIds.mockResolvedValue([]);
+    storage.addDismissedSessionIds.mockClear();
+    chatProjects.load.mockResolvedValue({
+      projects: [
+        {
+          id: 'demo-hermes-mobile',
+          name: 'hermes-mobile',
+          workspacePath: '~/workspace/git/igor/mac-yolo-safeguards/hermes-mobile',
+          sessionIds: [],
+          activeSessionId: undefined,
+        },
+      ],
+      sessionProjectMap: {},
+      sessionLabels: {},
+      activeProjectId: 'demo-hermes-mobile',
+    });
+
+    Object.assign(mockGatewayState, {
+      connectionState: 'connected',
+      health: { ok: true, level: 'green', hostname: 'demo-mac.local', localIp: '127.0.0.1', checkedAt: '2026-06-26T00:00:00Z' },
+      settings: {
+        demoMode: false,
+        connectionMode: 'gateway',
+        gatewayUrl: 'http://localhost:8642',
+        cloudUrl: 'https://hermesmobile-cloud.fly.dev',
+        approvalPolicy: 'balanced',
+      },
+    });
+
+    const { getByTestId, findByTestId, queryByTestId } = await renderChatScreen();
+
+    await waitFor(() => {
+      expect(queryByTestId('recent-chat-delete-sess_print')).toBeTruthy();
+    });
+
+    fireEvent.press(getByTestId('open-sessions-modal'));
+    fireEvent.press(await findByTestId('threads-modal-clear-all'));
+    await confirmAlertButton('Clear all');
+
+    await waitFor(() => {
+      expect(storage.addDismissedSessionIds).toHaveBeenCalledWith(
+        'http://localhost:8642',
+        ['cron_job', 'sess_print', 'sess_june15'],
+      );
+      expect(queryByTestId('threads-modal-clear-all')).toBeNull();
+    });
+
+    fireEvent.press(getByTestId('open-sessions-modal'));
+
+    await waitFor(() => {
+      expect(queryByTestId('recent-chat-delete-sess_print')).toBeNull();
+      expect(queryByTestId('recent-chat-delete-sess_june15')).toBeNull();
+      expect(queryByTestId('recent-chat-delete-cron_job')).toBeNull();
+    });
+
+    alertSpy.mockRestore();
+  });
+
+  it('clear all survives late dismissed-session hydration', async () => {
+    const alertSpy = jest.spyOn(Alert, 'alert');
+    const { listSessions, listMessages } = jest.requireMock('../services/hermesChatClient') as {
+      listSessions: jest.Mock;
+      listMessages: jest.Mock;
+    };
+    const { storage } = jest.requireMock('../services/storage') as {
+      storage: {
+        addDismissedSessionIds: jest.Mock;
+        loadDismissedSessionIds: jest.Mock;
+      };
+    };
+    const { chatProjects } = jest.requireMock('../services/chatProjects') as {
+      chatProjects: { load: jest.Mock };
+    };
+
+    let resolveDismissed: ((ids: string[]) => void) | undefined;
+    const dismissedHydration = new Promise<string[]>((resolve) => {
+      resolveDismissed = resolve;
+    });
+    storage.loadDismissedSessionIds.mockReturnValue(dismissedHydration);
+
+    listSessions.mockResolvedValue([
+      {
+        id: 'sess_stale',
+        title: 'Session 20260623 131050',
+        last_active_at: '2026-06-23T13:10:50Z',
+      },
+    ]);
+    listMessages.mockResolvedValue([]);
+    storage.addDismissedSessionIds.mockClear();
+    chatProjects.load.mockResolvedValue({
+      projects: [
+        {
+          id: 'demo-hermes-mobile',
+          name: 'hermes-mobile',
+          workspacePath: '~/workspace/git/igor/mac-yolo-safeguards/hermes-mobile',
+          sessionIds: [],
+          activeSessionId: undefined,
+        },
+      ],
+      sessionProjectMap: {},
+      sessionLabels: {},
+      activeProjectId: 'demo-hermes-mobile',
+    });
+
+    Object.assign(mockGatewayState, {
+      connectionState: 'connected',
+      health: { ok: true, level: 'green', hostname: 'demo-mac.local', localIp: '127.0.0.1', checkedAt: '2026-06-26T00:00:00Z' },
+      settings: {
+        demoMode: false,
+        connectionMode: 'gateway',
+        gatewayUrl: 'http://localhost:8642',
+        cloudUrl: 'https://hermesmobile-cloud.fly.dev',
+        approvalPolicy: 'balanced',
+      },
+    });
+
+    const { getByTestId, findByTestId, queryByTestId } = await renderChatScreen();
+    fireEvent.press(getByTestId('open-sessions-modal'));
+
+    fireEvent.press(await findByTestId('threads-modal-clear-all'));
+    await confirmAlertButton('Clear all');
+
+    await waitFor(() => {
+      expect(queryByTestId('threads-modal-clear-all')).toBeNull();
+    });
+
+    await act(async () => {
+      resolveDismissed?.([]);
+      await dismissedHydration;
+    });
+
+    fireEvent.press(getByTestId('open-sessions-modal'));
+
+    await waitFor(() => {
+      expect(queryByTestId('recent-chat-delete-sess_stale')).toBeNull();
+    });
+
+    alertSpy.mockRestore();
+  });
 });

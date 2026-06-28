@@ -251,6 +251,28 @@ export function isAutomatedCronSession(session: HermesSession, title?: string | 
   return false;
 }
 
+export type ThreadListFilterOptions = {
+  dismissedSessionIds: readonly string[];
+  hideCronSessions: boolean;
+};
+
+/** Hide locally dismissed threads and optional cron jobs from thread picker / recents. */
+export function filterDismissedThreadSessions(
+  sessions: HermesSession[],
+  options: ThreadListFilterOptions,
+): HermesSession[] {
+  const dismissed = new Set(options.dismissedSessionIds);
+  return sessions.filter((session) => {
+    if (dismissed.has(session.id)) {
+      return false;
+    }
+    if (options.hideCronSessions && isAutomatedCronSession(session)) {
+      return false;
+    }
+    return true;
+  });
+}
+
 /** Operator recents rail — hide inbox aggregate + automated cron (still in full threads list). */
 export function isRecentsRailSession(session: HermesSession): boolean {
   if (isTelegramInboxSession(session)) {

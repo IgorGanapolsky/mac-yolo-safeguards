@@ -62,6 +62,7 @@ import { buildMobileChatSystemPrompt } from '../utils/workspacePrompt';
 import {
   formatSessionDate,
   formatSessionTitle,
+  filterDismissedThreadSessions,
   isAutomatedCronSession,
   isRecentsRailSession,
   sessionDisplayTitle,
@@ -285,6 +286,10 @@ export default function ChatScreen() {
   const [connectionPanelRefreshing, setConnectionPanelRefreshing] = useState(false);
   const [telegramInboxMeta, setTelegramInboxMeta] = useState({ threadCount: 0, messageCap: 250 });
   const skipSessionAutoSelectRef = useRef(false);
+  /** Invalidates in-flight dismissed-session hydration after clear-all. */
+  const dismissedHydrationGenRef = useRef(0);
+  const dismissedSessionIdsRef = useRef<string[]>([]);
+  const hideCronSessionsRef = useRef(false);
   const [composerFocusNonce, setComposerFocusNonce] = useState(0);
   const [recentChatsDismissed, setRecentChatsDismissed] = useState(false);
   const [dismissedSessionIds, setDismissedSessionIds] = useState<string[]>([]);
@@ -888,7 +893,6 @@ export default function ChatScreen() {
   );
 
   const visibleSessions = useMemo(() => {
-    const dismissed = new Set(dismissedSessionIds);
     let list: HermesSession[];
     if (!activeProject) {
       list = sessions;
@@ -896,16 +900,14 @@ export default function ChatScreen() {
       const filtered = projectSessions(sessions, projectState, activeProject.id);
       list = filtered.length > 0 ? filtered : sessions;
     }
-    return list.filter((session) => {
-      if (dismissed.has(session.id)) {
-        return false;
-      }
-      if (hideCronSessions && isAutomatedCronSession(session)) {
-        return false;
-      }
-      return true;
+    return filterDismissedThreadSessions(list, {
+      dismissedSessionIds,
+      hideCronSessions,
     });
   }, [sessions, projectState, activeProject, dismissedSessionIds, hideCronSessions]);
+
+  dismissedSessionIdsRef.current = dismissedSessionIds;
+  hideCronSessionsRef.current = hideCronSessions;
 
   const recentsRailSessions = useMemo(
     () => visibleSessions.filter((session) => isRecentsRailSession(session)),
@@ -1208,12 +1210,13 @@ export default function ChatScreen() {
       setHideCronSessions(false);
       return;
     }
+    const hydrationGen = ++dismissedHydrationGenRef.current;
     let cancelled = false;
     void Promise.all([
       storage.loadDismissedSessionIds(gatewayUrl),
       storage.loadHideCronSessions(gatewayUrl),
     ]).then(([ids, hideCron]) => {
-      if (!cancelled) {
+      if (!cancelled && hydrationGen === dismissedHydrationGenRef.current) {
         setDismissedSessionIds(ids);
         setHideCronSessions(hideCron);
       }
@@ -1875,31 +1878,47 @@ export default function ChatScreen() {
 
       const deletable = sessionsRef.current.filter((session) => !isTelegramInboxSession(session));
       const attemptedIds = deletable.map((session) => session.id);
+      const hideCronAfterClear = deletable.some((session) => isAutomatedCronSession(session));
+      const effectiveHideCron = hideCronAfterClear || hideCronSessionsRef.current;
+      dismissedHydrationGenRef.current += 1;
+      const nextDismissed = [...new Set([...dismissedSessionIdsRef.current, ...attemptedIds])];
+
       let failed = 0;
-      const failedIds: string[] = [];
       for (const session of deletable) {
         try {
           await deleteSession(gatewayUrl, session.id, apiKey);
         } catch {
           failed += 1;
-          failedIds.push(session.id);
         }
       }
 
       if (attemptedIds.length > 0) {
         await storage.addDismissedSessionIds(gatewayUrl, attemptedIds);
-        setDismissedSessionIds((prev) => [...new Set([...prev, ...attemptedIds])]);
       }
 
-      if (deletable.some((session) => isAutomatedCronSession(session))) {
+      if (hideCronAfterClear) {
         await storage.setHideCronSessions(gatewayUrl, true);
         setHideCronSessions(true);
       }
+
+      setDismissedSessionIds(nextDismissed);
+
+      const applyClearedFilter = (list: HermesSession[]) =>
+        filterDismissedThreadSessions(list, {
+          dismissedSessionIds: nextDismissed,
+          hideCronSessions: effectiveHideCron,
+        });
+
+      setSessions((prev) => applyClearedFilter(prev));
 
       const nextState = clearAllSessionBindings(projectState);
       await persistProjectState(nextState);
 
       await loadSessionsList(true);
+
+      dismissedHydrationGenRef.current += 1;
+      setDismissedSessionIds(nextDismissed);
+      setSessions((prev) => applyClearedFilter(prev));
       if (failed > 0) {
         setErrorMessage(
           `${failed} thread${failed === 1 ? '' : 's'} could not be deleted on your Mac. The rest were cleared.`,
