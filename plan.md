@@ -30,6 +30,7 @@ Durable rules live in [AGENTS.md](./AGENTS.md); this file is *live state only*.
 | T-8 | Zero-friction LAN discovery & Settings URL validation | done | antigravity | `hermes-mobile/src/screens/SettingsScreen.tsx`, `hermes-mobile/src/screens/ChatScreen.tsx` | auto-selects LAN profile on scan and rejects junk URLs |
 | T-9 | Multi-platform optional thumbs feedback details modal | done | antigravity | `hermes-mobile/src/components/FeedbackPromptModal.tsx`, `hermes-mobile/src/screens/ChatScreen.tsx` | allows typing optional details on thumbs up/down |
 | T-10 | Display active machine name in connection/reconnection status tiles | done | antigravity | `hermes-mobile/src/components/CodexCommandCenter.tsx`, `hermes-mobile/src/screens/ChatScreen.tsx` | npm test passes |
+| T-11 | Fix clipped long chat header title on Android | in_progress | codex | `hermes-mobile/src/components/ChatScreenHeader.tsx`, `hermes-mobile/src/__tests__/ChatScreenHeader.test.tsx` | long prompt title is one-line ellipsized and header tests pass |
 
 Status values: `pending` | `in_progress` | `blocked` | `done`. Claim a row by setting Owner+Status in one edit, then claim its files in §2.
 
@@ -50,6 +51,7 @@ Status values: `pending` | `in_progress` | `blocked` | `done`. Claim a row by se
 - `sim-runaway-guard.sh` → **antigravity** (T-4) — released (2026-06-28)
 - `hermes-mobile/package.json`, `hermes-mobile/package-lock.json` → **antigravity** (T-4) — released (2026-06-28)
 - `hermes-mobile/.maestro/ship-guard.yaml`, `hermes-mobile/.maestro/navigation.yaml` → **antigravity** (T-4) — released (2026-06-28)
+- `hermes-mobile/src/components/ChatScreenHeader.tsx`, `hermes-mobile/src/__tests__/ChatScreenHeader.test.tsx` → **codex** (T-11) — claimed 2026-06-28
 - `AGENTS.md`, `plan.md` → shared coordination files (append-only edits, commit first)
 - everything else → (free)
 
