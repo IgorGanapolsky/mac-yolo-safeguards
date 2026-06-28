@@ -1,3 +1,11 @@
+# Internal Distribution — EAS preview APK + Firebase App Distribution.
+#
+# EAS credits: each android_firebase run submits `eas build --profile preview --wait`
+# (~$1+ on Starter). Do NOT auto-run on every main push — use local dogfood
+# (`hermes-mobile/scripts/install-phone-release.sh`) for Igor USB testing.
+# CI EAS: workflow_dispatch or push tag hermes-internal-v* only.
+# Reuse a finished build: workflow_dispatch with eas_build_id (no new EAS build).
+# GitHub cancel-in-progress does NOT cancel an EAS build already queued on Expo.
 name: Internal Distribution
 
 on:
@@ -23,20 +31,17 @@ on:
         required: false
         type: string
   push:
-    branches:
-      - main
-    paths:
-      - "hermes-mobile/**"
-      - ".github/workflows/internal-distribution.yml"
+    tags:
+      - "hermes-internal-v*"
 
 env:
   HERMES_MOBILE_ANDROID_PACKAGE: com.iganapolsky.hermesmobile
 
 concurrency:
-  # EAS Android builds often run 45–90m; do not cancel on new pushes or Firebase never ships.
+  # EAS Android builds often run 45–90m; cancel older runs on new pushes to prevent concurrent build costs.
   # Firebase-only reuse (eas_build_id) uses a separate group so it is not blocked behind --wait.
   group: ${{ github.event_name == 'workflow_dispatch' && inputs.eas_build_id != '' && format('internal-distribution-firebase-reuse-{0}', github.ref) || format('internal-distribution-{0}-{1}', github.workflow, github.ref) }}
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 permissions:
   contents: read
@@ -87,7 +92,7 @@ jobs:
           REF="${INPUT_REF:-${GITHUB_REF_NAME_VALUE}}"
           TARGET="${INPUT_TARGET:-}"
 
-          # Auto-distribute Hermes Mobile to Firebase on main pushes (June 2026 default).
+          # Tag push (hermes-internal-v*) → Firebase internal APK. Ordinary main pushes do not trigger EAS.
           if [[ "$GITHUB_EVENT_NAME" == "push" && -z "$TARGET" ]]; then
             TARGET="android_firebase"
           fi

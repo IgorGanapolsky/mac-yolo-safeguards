@@ -33,6 +33,19 @@ FIREBASE_SERVICE_ACCOUNT_JSON_PATH=~/path/to/hermes-firebase-sa.json \
   ./scripts/sync-firebase-secrets.sh
 ```
 
+## EAS build credits (do not burn on every commit)
+
+Each `android_firebase` CI run queues an **EAS `preview` Android build** (`eas build --wait`). Expo Starter credits are ~$1+ per build. Failed quality-gate runs skip EAS; **cancelled** or **failed** EAS jobs may still consume credits once Expo accepts the build.
+
+| Use case | Command |
+|---|---|
+| Igor USB dogfood (no EAS) | `cd hermes-mobile && npm run android:phone` or `scripts/install-phone-release.sh` |
+| Firebase internal testers | `gh workflow run internal-distribution.yml -f target=android_firebase` |
+| Tag-triggered internal ship | `git tag hermes-internal-v0.3.2 && git push origin hermes-internal-v0.3.2` |
+| Reuse existing EAS APK (no new build) | `gh workflow run internal-distribution.yml -f target=android_firebase -f eas_build_id=<uuid>` |
+
+**Policy (2026-06-28):** Internal Distribution does **not** run on every `main` push. Only `workflow_dispatch`, or push of tag `hermes-internal-v*`. Do not redispatch failed runs until the quality gate passes locally.
+
 ## Manual distribute
 
 ```bash
