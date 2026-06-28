@@ -214,7 +214,7 @@ jest.mock('../services/chatProjects', () => {
       return state.projects?.find((p: { id: string }) => p.id === projectId)?.name ?? null;
     }),
     setActiveProject: jest.fn((state, projectId) => ({ ...state, activeProjectId: projectId })),
-    setActiveSession: jest.fn((state) => state),
+    setActiveSession: actual.setActiveSession,
   };
 });
 
@@ -989,6 +989,207 @@ describe('ChatScreen', () => {
     await waitFor(() => {
       expect(queryByTestId('recent-chat-delete-sess_stale')).toBeNull();
     });
+
+    alertSpy.mockRestore();
+  });
+
+  it('switches session and loads messages when a recent chat row is tapped', async () => {
+    const { listSessions, listMessages } = jest.requireMock('../services/hermesChatClient') as {
+      listSessions: jest.Mock;
+      listMessages: jest.Mock;
+    };
+    const { chatProjects } = jest.requireMock('../services/chatProjects') as {
+      chatProjects: { load: jest.Mock; save: jest.Mock };
+    };
+
+    const macSessions = [
+      {
+        id: 'sess_print',
+        title: 'Print money make money faster',
+        last_active_at: '2026-06-28T12:00:00Z',
+      },
+      {
+        id: 'sess_june15',
+        title: 'Hermes Telegram Reliability YOLO Safeguar',
+        last_active_at: '2026-06-15T12:00:00Z',
+      },
+    ];
+
+    listSessions.mockResolvedValue(macSessions);
+    listMessages.mockResolvedValue([]);
+    chatProjects.load.mockResolvedValue({
+      projects: [
+        {
+          id: 'demo-hermes-mobile',
+          name: 'hermes-mobile',
+          workspacePath: '~/workspace/git/igor/mac-yolo-safeguards/hermes-mobile',
+          sessionIds: ['sess_print', 'sess_june15'],
+          activeSessionId: 'sess_print',
+        },
+      ],
+      sessionProjectMap: {
+        sess_print: 'demo-hermes-mobile',
+        sess_june15: 'demo-hermes-mobile',
+      },
+      sessionLabels: {},
+      activeProjectId: 'demo-hermes-mobile',
+    });
+    chatProjects.save.mockClear();
+
+    Object.assign(mockGatewayState, {
+      connectionState: 'disconnected',
+      effectiveGatewayUrl: 'http://localhost:8642',
+      health: {
+        ok: true,
+        level: 'green',
+        hostname: 'Igors-MacBook-Pro.local',
+        localIp: '10.154.137.152',
+        directGatewayReachable: true,
+        checkedAt: '2026-06-28T19:00:00Z',
+      },
+      settings: {
+        demoMode: false,
+        connectionMode: 'gateway',
+        gatewayUrl: 'http://localhost:8642',
+        cloudUrl: 'https://hermesmobile-cloud.fly.dev',
+        approvalPolicy: 'balanced',
+      },
+      activeGatewayProfile: {
+        id: 'mac_igor',
+        label: 'Igors-MacBook-Pro',
+        gatewayUrl: 'http://localhost:8642',
+        localIp: '10.154.137.152',
+        addedAt: '2026-06-18T00:00:00Z',
+      },
+    });
+
+    const { findByTestId, getByTestId } = await renderChatScreen();
+
+    await waitFor(() => {
+      expect(getByTestId('recent-chat-sess_june15')).toBeTruthy();
+    });
+
+    fireEvent.press(getByTestId('recent-chat-sess_june15'));
+
+    await waitFor(() => {
+      expect(chatProjects.save).toHaveBeenCalledWith(
+        expect.objectContaining({
+          projects: [
+            expect.objectContaining({
+              activeSessionId: 'sess_june15',
+            }),
+          ],
+        }),
+      );
+      expect(listMessages).toHaveBeenCalledWith(
+        'http://localhost:8642',
+        'sess_june15',
+        'test-api-key',
+      );
+    });
+
+    expect(getByTestId('chat-empty-greeting-subtitle').props.children).not.toMatch(/Can't reach/);
+    expect(await findByTestId('recent-chat-sess_june15')).toBeTruthy();
+  });
+
+  it('clear all empties messages and stays on new chat after gateway reload', async () => {
+    const alertSpy = jest.spyOn(Alert, 'alert');
+    const { listSessions, listMessages } = jest.requireMock('../services/hermesChatClient') as {
+      listSessions: jest.Mock;
+      listMessages: jest.Mock;
+    };
+    const { deleteSession } = jest.requireMock('../services/hermesGatewayClient') as {
+      deleteSession: jest.Mock;
+    };
+    const { chatProjects } = jest.requireMock('../services/chatProjects') as {
+      chatProjects: { load: jest.Mock; save: jest.Mock };
+    };
+
+    const macSessions = [
+      {
+        id: 'sess_june15',
+        title: 'Hermes Telegram Reliability YOLO Safeguar',
+        last_active_at: '2026-06-15T12:00:00Z',
+      },
+    ];
+
+    listSessions.mockResolvedValue(macSessions);
+    listMessages.mockResolvedValue([
+      { role: 'user', content: 'old telegram thread' },
+      { role: 'assistant', content: 'still here before clear' },
+    ]);
+    deleteSession.mockClear();
+    chatProjects.load.mockResolvedValue({
+      projects: [
+        {
+          id: 'demo-hermes-mobile',
+          name: 'hermes-mobile',
+          workspacePath: '~/workspace/git/igor/mac-yolo-safeguards/hermes-mobile',
+          sessionIds: ['sess_june15'],
+          activeSessionId: 'sess_june15',
+        },
+      ],
+      sessionProjectMap: { sess_june15: 'demo-hermes-mobile' },
+      sessionLabels: {},
+      activeProjectId: 'demo-hermes-mobile',
+    });
+    chatProjects.save.mockClear();
+
+    Object.assign(mockGatewayState, {
+      connectionState: 'connected',
+      health: { ok: true, level: 'green', hostname: 'demo-mac.local', localIp: '127.0.0.1', checkedAt: '2026-06-26T00:00:00Z' },
+      settings: {
+        demoMode: false,
+        connectionMode: 'gateway',
+        gatewayUrl: 'http://localhost:8642',
+        cloudUrl: 'https://hermesmobile-cloud.fly.dev',
+        approvalPolicy: 'balanced',
+      },
+    });
+
+    const { getByTestId, findByTestId, queryByText } = await renderChatScreen();
+
+    await waitFor(() => {
+      expect(queryByText('still here before clear')).toBeTruthy();
+    });
+
+    fireEvent.press(getByTestId('open-sessions-modal'));
+    fireEvent.press(await findByTestId('threads-modal-clear-all'));
+    await confirmAlertButton('Clear all');
+
+    await waitFor(() => {
+      expect(deleteSession).toHaveBeenCalledWith(
+        'http://localhost:8642',
+        'sess_june15',
+        'test-api-key',
+      );
+      expect(queryByText('still here before clear')).toBeNull();
+      expect(getByTestId('chat-empty-state')).toBeTruthy();
+      expect(chatProjects.save).toHaveBeenCalledWith(
+        expect.objectContaining({
+          sessionProjectMap: {},
+          projects: [
+            expect.objectContaining({
+              sessionIds: [],
+              activeSessionId: undefined,
+            }),
+          ],
+        }),
+      );
+    });
+
+    listSessions.mockResolvedValue(macSessions);
+    listMessages.mockResolvedValue([
+      { role: 'user', content: 'old telegram thread' },
+      { role: 'assistant', content: 'still here before clear' },
+    ]);
+
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(queryByText('still here before clear')).toBeNull();
 
     alertSpy.mockRestore();
   });

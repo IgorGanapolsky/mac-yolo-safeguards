@@ -16,8 +16,7 @@ describe('internal distribution workflow', () => {
     expect(internalDistribution).toContain('default: android_firebase');
     expect(internalDistribution).toContain('- android_firebase');
     expect(internalDistribution).toContain('RUN_FIREBASE="true"');
-    expect(internalDistribution).toContain('paths:');
-    expect(internalDistribution).toContain('hermes-mobile/**');
+    expect(internalDistribution).toContain('hermes-internal-v*');
     expect(internalDistribution).toContain('expo/expo-github-action@v8');
     expect(internalDistribution).toContain('--wait');
     expect(internalDistribution).toContain('FIREBASE_SERVICE_ACCOUNT_JSON');
@@ -31,9 +30,9 @@ describe('internal distribution workflow', () => {
     expect(internalDistribution).toContain('internal-signoff/firebase-android');
     expect(internalDistribution).toContain('HERMES_MOBILE_ANDROID_PACKAGE: com.iganapolsky.hermesmobile');
     expect(internalDistribution).toContain('working-directory: hermes-mobile');
-    expect(internalDistribution).toContain('cancel-in-progress: false');
     expect(internalDistribution).toContain('eas_build_id:');
     expect(internalDistribution).toContain('Reuse existing EAS Android build');
+    expect(internalDistribution).toContain('Do NOT auto-run on every main push');
   });
 
   it('requires Firebase Android proof before Android production release', () => {

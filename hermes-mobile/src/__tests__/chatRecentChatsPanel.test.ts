@@ -62,8 +62,18 @@ describe('shouldShowRecentChatsPanel', () => {
     ).toBe(false);
   });
 
+  it('shows recents during heal when chat is empty but sessions exist', () => {
+    expect(
+      shouldShowRecentChatsPanel({
+        ...base,
+        macChatLive: false,
+        showChatEmptyState: true,
+      }),
+    ).toBe(true);
+  });
+
   it('hides when Mac is unreachable or there are no sessions', () => {
-    expect(shouldShowRecentChatsPanel({ ...base, macChatLive: false })).toBe(false);
+    expect(shouldShowRecentChatsPanel({ ...base, macChatLive: false, showChatEmptyState: false })).toBe(false);
     expect(shouldShowRecentChatsPanel({ ...base, showMacConnectionHelp: true })).toBe(false);
     expect(shouldShowRecentChatsPanel({ ...base, visibleSessionCount: 0 })).toBe(false);
   });

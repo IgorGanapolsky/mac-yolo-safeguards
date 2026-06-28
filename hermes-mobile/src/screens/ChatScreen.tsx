@@ -172,7 +172,8 @@ import {
   fetchTelegramInboxMessages,
   resolveTelegramInboxReplySessionId,
 } from '../services/telegramInbox';
-import { isTelegramSession, pickPrimaryTelegramSession, pickDefaultSession, buildSessionPickerSections, sessionSourceLabel } from '../utils/sessionSelection';
+import { isTelegramSession, pickPrimaryTelegramSession, buildSessionPickerSections, sessionSourceLabel } from '../utils/sessionSelection';
+import { resolveSessionAfterListLoad } from '../utils/sessionListSelection';
 import {
   extractAssistantFromRunCompletedPayload,
   findNewAssistantReply,
@@ -299,6 +300,8 @@ export default function ChatScreen() {
   const [connectionPanelRefreshing, setConnectionPanelRefreshing] = useState(false);
   const [telegramInboxMeta, setTelegramInboxMeta] = useState({ threadCount: 0, messageCap: 250 });
   const skipSessionAutoSelectRef = useRef(false);
+  /** Recent-thread tap — survives in-flight listSessions before project state persists. */
+  const manualSessionSelectRef = useRef<string | null>(null);
   /** Invalidates in-flight dismissed-session hydration after clear-all. */
   const dismissedHydrationGenRef = useRef(0);
   const dismissedSessionIdsRef = useRef<string[]>([]);
@@ -347,7 +350,7 @@ export default function ChatScreen() {
   const currentSessionRef = useRef(currentSession);
   const telegramReplySessionIdRef = useRef(telegramReplySessionId);
   const refreshSessionMessagesRef = useRef<
-    ((options?: { background?: boolean; manual?: boolean }) => Promise<void>) | null
+    ((options?: { background?: boolean; manual?: boolean; force?: boolean }) => Promise<void>) | null
   >(null);
   const inputFocusedRef = useRef(false);
   /** Android-only: one re-render when composer focuses so padding latches before keyboard inset. */
@@ -1160,8 +1163,9 @@ export default function ChatScreen() {
 
   const loadSessionsList = async (
     selectLatest = false,
-    options?: { silent?: boolean },
+    options?: { silent?: boolean; projectState?: ChatProjectState },
   ) => {
+    const selectionProjectState = options?.projectState ?? projectState;
     const loadGen = ++sessionsLoadGenRef.current;
     if (isDemo) {
       const mockSessions: HermesSession[] = [
@@ -1215,40 +1219,37 @@ export default function ChatScreen() {
         }
       }
 
-      // Determine the next session to select to avoid stale/ghost selected sessions
-      let nextSession: HermesSession | null = null;
-
-      // 1. Try to find the preferred session for the active project
-      if (projectState.activeProjectId) {
-        const project = projectState.projects.find((p) => p.id === projectState.activeProjectId);
-        const preferredId = project?.activeSessionId ?? project?.sessionIds[0];
-        if (preferredId) {
-          const match = finalSessions.find((s) => s.id === preferredId);
-          if (match) {
-            nextSession = match;
-          }
-        }
+      const skipAutoSelect = skipSessionAutoSelectRef.current;
+      if (skipAutoSelect) {
+        skipSessionAutoSelectRef.current = false;
       }
 
-      // 2. If no preferred session resolved, check if currently selected session still exists on the server
-      if (!nextSession && currentSession) {
-        const match = finalSessions.find((s) => s.id === currentSession.id);
-        if (match) {
-          nextSession = match;
-        }
+      const selectableSessions = filterDismissedThreadSessions(finalSessions, {
+        dismissedSessionIds: dismissedSessionIdsRef.current,
+        hideCronSessions: hideCronSessionsRef.current,
+      });
+
+      const resolvedSession = resolveSessionAfterListLoad({
+        sessions: selectableSessions,
+        projectState: selectionProjectState,
+        currentSessionId: currentSessionRef.current?.id,
+        manualSelectSessionId: manualSessionSelectRef.current,
+        skipAutoSelect,
+        selectLatest,
+      });
+
+      if (resolvedSession !== undefined) {
+        setCurrentSession(resolvedSession);
       }
 
-      // 3. Default session — skip after + (new chat) so we don't immediately re-open the last thread
-      if (!nextSession && finalSessions.length > 0) {
-        if (skipSessionAutoSelectRef.current) {
-          skipSessionAutoSelectRef.current = false;
-        } else if (selectLatest || !currentSessionRef.current) {
-          nextSession = pickDefaultSession(finalSessions, projectState) ?? finalSessions[0];
-        }
+      if (
+        manualSessionSelectRef.current &&
+        (resolvedSession === undefined
+          ? currentSessionRef.current?.id === manualSessionSelectRef.current
+          : resolvedSession?.id === manualSessionSelectRef.current)
+      ) {
+        manualSessionSelectRef.current = null;
       }
-
-      // 4. Update the active session
-      setCurrentSession(nextSession);
     } catch (err) {
       applyChatApiError(err, 'Could not load your chats from the computer.');
     } finally {
@@ -1335,7 +1336,7 @@ export default function ChatScreen() {
   }, [sessions, currentSession?.id, telegramReplySessionId]);
 
   const refreshSessionMessages = useCallback(
-    async (options?: { background?: boolean; manual?: boolean }) => {
+    async (options?: { background?: boolean; manual?: boolean; force?: boolean }) => {
       const activeSession = currentSessionRef.current;
       if (!activeSession) {
         transcriptDigestRef.current = '';
@@ -1343,7 +1344,7 @@ export default function ChatScreen() {
         return;
       }
 
-      if (!macChatLive) {
+      if (!macChatLive && !options?.force) {
         const localSnapshot = messagesRef.current;
         if (
           pendingOutboundSendsRef.current > 0 ||
@@ -1920,6 +1921,16 @@ export default function ChatScreen() {
     haptics.warning();
     setIsClearing(true);
 
+    // Drop transcript immediately so a slow gateway reload cannot flash old messages.
+    skipSessionAutoSelectRef.current = true;
+    manualSessionSelectRef.current = null;
+    setCurrentSession(null);
+    setMessages([]);
+    messagesRef.current = [];
+    transcriptDigestRef.current = '';
+    setTelegramReplySessionId('');
+    setRecentChatsDismissed(true);
+
     try {
       if (isDemo) {
         // Mock a brief delay for clearing in demo mode so the UI actually updates
@@ -1974,7 +1985,8 @@ export default function ChatScreen() {
       const nextState = clearAllSessionBindings(projectState);
       await persistProjectState(nextState);
 
-      await loadSessionsList(true);
+      skipSessionAutoSelectRef.current = true;
+      await loadSessionsList(false, { silent: true, projectState: nextState });
 
       dismissedHydrationGenRef.current += 1;
       setDismissedSessionIds(nextDismissed);
@@ -3282,11 +3294,13 @@ export default function ChatScreen() {
       haptics.light();
       setRecentChatsDismissed(false);
       skipSessionAutoSelectRef.current = false;
+      manualSessionSelectRef.current = session.id;
       setCurrentSession(session);
       if (activeProject) {
         const next = setActiveSession(projectState, activeProject.id, session.id);
         await persistProjectState(next);
       }
+      void refreshSessionMessagesRef.current?.({ background: false, force: true });
     },
     [activeProject, projectState, persistProjectState],
   );
@@ -3520,7 +3534,7 @@ export default function ChatScreen() {
               >
                 <ChatEmptyGreeting
                   routeLabel={isDemo ? 'Demo Mac' : machineShortLabel}
-                  isConnected={connectionState === 'connected' || connectionState === 'demo'}
+                  isConnected={macChatLive}
                 />
                 {showMacConnectionHelp ? (
                   <Text style={styles.emptyPlaceholderText}>

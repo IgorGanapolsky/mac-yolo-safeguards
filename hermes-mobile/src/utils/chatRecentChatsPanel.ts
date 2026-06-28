@@ -15,8 +15,11 @@ export function shouldShowRecentChatsPanel(input: RecentChatsPanelInput): boolea
   if (input.recentChatsDismissed) {
     return false;
   }
-  if (!input.macChatLive || input.showMacConnectionHelp || input.visibleSessionCount === 0) {
+  if (input.showMacConnectionHelp || input.visibleSessionCount === 0) {
     return false;
+  }
+  if (!input.macChatLive) {
+    return input.showChatEmptyState;
   }
   if (input.showChatEmptyState) {
     return true;

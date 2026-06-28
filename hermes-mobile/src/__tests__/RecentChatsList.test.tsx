@@ -70,6 +70,21 @@ describe('RecentChatsList', () => {
     expect(queryByTestId('recent-chats-list')).toBeNull();
   });
 
+  it('calls onSelectSession when a recent row is pressed', () => {
+    const onSelectSession = jest.fn();
+    const { getByTestId } = render(
+      <RecentChatsList
+        sessions={sessions}
+        sessionLabelFor={(session) => session.title ?? session.id}
+        onSelectSession={onSelectSession}
+      />,
+    );
+
+    fireEvent.press(getByTestId('recent-chat-s1'));
+    expect(onSelectSession).toHaveBeenCalledTimes(1);
+    expect(onSelectSession).toHaveBeenCalledWith(sessions[0]);
+  });
+
   it('calls onRenameSession when rename pencil is pressed', () => {
     const onRenameSession = jest.fn();
     const { getByTestId } = render(
