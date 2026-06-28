@@ -92,6 +92,10 @@ wait_for_adb() {
   return 1
 }
 
+has_adb_device() {
+  adb devices 2>/dev/null | awk 'NR>1 && $2=="device" {found=1} END {exit !found}'
+}
+
 ensure_metro() {
   if curl -sf "http://127.0.0.1:8081/status" >/dev/null 2>&1; then
     echo "metro=running"
@@ -135,7 +139,9 @@ run_e2e_flow() {
     attempt=$((attempt + 1))
     # Do not tear down iOS simulators while a USB Android device is connected — that
     # race caused Maestro to fall back to simulator mid-cycle.
-    if ! adb devices 2>/dev/null | awk 'NR>1 && $2=="device" {found=1} END {exit !found}'; then
+    if has_adb_device; then
+      adb reconnect >/dev/null 2>&1 || true
+    else
       xcrun simctl shutdown all 2>/dev/null || true
     fi
     sleep 8
@@ -152,6 +158,15 @@ run_e2e_suite() {
   if ! java -version >/dev/null 2>&1; then
     echo "Java not available — skipping E2E"
     return 2
+  fi
+
+  if has_adb_device; then
+    echo "E2E target: Android USB ($(adb devices 2>/dev/null | awk 'NR>1 && $2=="device" {print $1; exit}'))"
+  elif ! xcrun simctl list devices available 2>/dev/null | grep -qE 'iPhone.*\([0-9A-F-]{36}\)'; then
+    echo "No Android device and no iOS simulator — skipping E2E"
+    return 2
+  else
+    echo "E2E target: iOS simulator"
   fi
 
   wait_for_adb 2 >/dev/null || true
