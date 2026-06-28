@@ -209,4 +209,28 @@ describe('ChatConnectionPanel', () => {
     expect(getByText(/tunnel URL/)).toBeTruthy();
     expect(getByText(/8642/)).toBeTruthy();
   });
+
+  it('shows Tailscale discovery banner for reachable tailnet Macs', () => {
+    const onAdd = jest.fn();
+    const { getByTestId } = render(
+      <ChatConnectionPanel
+        connectionState="disconnected"
+        onSearchMac={jest.fn()}
+        tailscaleDiscoveries={[
+          {
+            gatewayUrl: 'http://100.94.135.78:8642',
+            hostname: 'Igors-Mac-mini.local',
+            localIp: '192.168.68.56',
+            label: 'Igors-Mac-mini',
+          },
+        ]}
+        onAddTailscaleComputer={onAdd}
+      />,
+    );
+    expect(getByTestId('tailscale-discovery-banner')).toBeTruthy();
+    fireEvent.press(getByTestId('tailscale-add-igors-mac-mini'));
+    expect(onAdd).toHaveBeenCalledWith(
+      expect.objectContaining({ gatewayUrl: 'http://100.94.135.78:8642' }),
+    );
+  });
 });
