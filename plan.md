@@ -46,6 +46,8 @@ Status values: `pending` | `in_progress` | `blocked` | `done`. Claim a row by se
 - `hermes-mobile/src/components/CodexCommandCenter.tsx` → **antigravity** (T-10) — released (2026-06-28)
 - `hermes-mobile/src/screens/ChatScreen.tsx` → **antigravity** (T-10) — released (2026-06-28)
 - `hermes-mobile/scripts/run-simulator-e2e.sh` → **antigravity** (T-4) (2026-06-28)
+- `hermes-mobile/scripts/run-continuous-e2e.sh` → **antigravity** (T-4) (2026-06-28)
+- `hermes-mobile/scripts/run-e2e.sh` → **antigravity** (T-4) (2026-06-28)
 - `AGENTS.md`, `plan.md` → shared coordination files (append-only edits, commit first)
 - everything else → (free)
 
