@@ -78,6 +78,35 @@ describe('CodexCommandCenter', () => {
     expect(getByTestId('command-center-mac-detail').props.children).toBe('Reconnecting…');
   });
 
+  it('shows custom machine name when mac retry is busy', () => {
+    const { getByTestId } = render(
+      <CodexCommandCenter
+        connectionState="disconnected"
+        macRetryBusy
+        machineName="Igors-Mac-mini"
+        pendingApprovalCount={0}
+        onOpenApprovals={jest.fn()}
+      />,
+    );
+
+    expect(getByTestId('command-center-link-state').props.children).toBe('Igors-Mac-mini');
+    expect(getByTestId('command-center-mac-detail').props.children).toBe('Reconnecting…');
+  });
+
+  it('shows checking status with custom machine name when connecting', () => {
+    const { getByTestId } = render(
+      <CodexCommandCenter
+        connectionState="connecting"
+        machineName="Igors-Mac-mini"
+        pendingApprovalCount={0}
+        onOpenApprovals={jest.fn()}
+      />,
+    );
+
+    expect(getByTestId('command-center-link-state').props.children).toBe('Connecting');
+    expect(getByTestId('command-center-mac-detail').props.children).toBe('Checking Igors-Mac-mini');
+  });
+
   it('calls onMacRetry when Mac tile is pressed', () => {
     const onMacRetry = jest.fn();
     const { getByTestId } = render(

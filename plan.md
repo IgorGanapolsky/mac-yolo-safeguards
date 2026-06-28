@@ -29,7 +29,7 @@ Durable rules live in [AGENTS.md](./AGENTS.md); this file is *live state only*.
 | T-7 | Fix Android USB-pairing hijack bug | done | antigravity | `hermes-mobile/src/screens/ChatScreen.tsx` | retry retains Wi-Fi profile and doesn't switch to USB |
 | T-8 | Zero-friction LAN discovery & Settings URL validation | done | antigravity | `hermes-mobile/src/screens/SettingsScreen.tsx`, `hermes-mobile/src/screens/ChatScreen.tsx` | auto-selects LAN profile on scan and rejects junk URLs |
 | T-9 | Multi-platform optional thumbs feedback details modal | done | antigravity | `hermes-mobile/src/components/FeedbackPromptModal.tsx`, `hermes-mobile/src/screens/ChatScreen.tsx` | allows typing optional details on thumbs up/down |
-| T-10 | Display active machine name in connection/reconnection status tiles | in_progress | antigravity | `hermes-mobile/src/components/CodexCommandCenter.tsx`, `hermes-mobile/src/screens/ChatScreen.tsx` | npm test passes |
+| T-10 | Display active machine name in connection/reconnection status tiles | done | antigravity | `hermes-mobile/src/components/CodexCommandCenter.tsx`, `hermes-mobile/src/screens/ChatScreen.tsx` | npm test passes |
 
 Status values: `pending` | `in_progress` | `blocked` | `done`. Claim a row by setting Owner+Status in one edit, then claim its files in §2.
 
@@ -43,8 +43,8 @@ Status values: `pending` | `in_progress` | `blocked` | `done`. Claim a row by se
 - `hermes-mobile/src/screens/ChatScreen.tsx` → **antigravity** (T-7, T-8, T-9) — released (2026-06-27)
 - `hermes-mobile/src/screens/SettingsScreen.tsx` → **antigravity** (T-8) — released (2026-06-27)
 - `hermes-mobile/src/components/FeedbackPromptModal.tsx` → **antigravity** (T-9) — released (2026-06-27)
-- `hermes-mobile/src/components/CodexCommandCenter.tsx` → **antigravity** (T-10) — claimed (2026-06-28)
-- `hermes-mobile/src/screens/ChatScreen.tsx` → **antigravity** (T-10) — claimed (2026-06-28)
+- `hermes-mobile/src/components/CodexCommandCenter.tsx` → **antigravity** (T-10) — released (2026-06-28)
+- `hermes-mobile/src/screens/ChatScreen.tsx` → **antigravity** (T-10) — released (2026-06-28)
 - `AGENTS.md`, `plan.md` → shared coordination files (append-only edits, commit first)
 - everything else → (free)
 
@@ -61,6 +61,7 @@ Status values: `pending` | `in_progress` | `blocked` | `done`. Claim a row by se
 - 2026-06-27 `antigravity`: **Claimed T-8 for zero-friction pairing flow.** Modifying `SettingsScreen.tsx` to validate direct URLs, and `ChatScreen.tsx` to auto-switch to discovered LAN profiles on scan.
 - 2026-06-27 `antigravity`: **Completed T-8 (Zero-friction LAN discovery).** Added URL validation in SettingsScreen to reject malformed inputs (like `http`). Added auto-promotion logic in `handleSearchMacFromChat` so that running a LAN scan automatically switches the active profile to the first found healthy LAN profile if the current connection is invalid or unreachable. Verified full build, installation, and cold start on the device.
 - 2026-06-27 `antigravity`: **Completed T-9 (Optional thumbs feedback details modal).** Built a new cross-platform `FeedbackPromptModal` component and integrated it into the thumbs up/down flow in ChatScreen. Tapping a thumb registers the vote instantly and displays the modal, allowing users to optionally provide detailed context (explanation). Verified 100% tests green and clean deployment to the device.
+- 2026-06-28 `antigravity`: **Completed T-10 (Display machine name during connect/reconnect).** Added machineName optional property to CodexCommandCenter to display the targeted machine's label (e.g. Igors-Mac-mini) during connection ('Checking Igors-Mac-mini') and reconnection ('Igors-Mac-mini Reconnecting...'), resolving the generic status copy. Verified all 633 unit tests are green.
 
 
 

@@ -14,15 +14,17 @@ type CodexCommandCenterProps = {
   isSending?: boolean;
   onOpenApprovals: () => void;
   onMacRetry?: () => void;
+  machineName?: string;
 };
 
 function connectionCopy(
   state: LeashConnectionState,
   macHttpReachable = false,
   macRetryBusy = false,
+  machineName = 'Mac',
 ): { label: string; detail: string; color: string } {
   if (macRetryBusy) {
-    return { label: 'Mac', detail: 'Reconnecting…', color: colors.warning };
+    return { label: machineName, detail: 'Reconnecting…', color: colors.warning };
   }
   if (state === 'connected') {
     return { label: 'Connected', detail: 'Ready', color: colors.success };
@@ -34,7 +36,7 @@ function connectionCopy(
     return { label: 'Connected', detail: 'Ready', color: colors.success };
   }
   if (state === 'connecting') {
-    return { label: 'Connecting', detail: 'Checking Mac', color: colors.warning };
+    return { label: 'Connecting', detail: `Checking ${machineName}`, color: colors.warning };
   }
   return { label: 'Not connected', detail: 'Tap to reconnect', color: colors.error };
 }
@@ -67,8 +69,9 @@ export default function CodexCommandCenter({
   isSending = false,
   onOpenApprovals,
   onMacRetry,
+  machineName = 'Mac',
 }: CodexCommandCenterProps) {
-  const link = connectionCopy(connectionState, macHttpReachable, macRetryBusy);
+  const link = connectionCopy(connectionState, macHttpReachable, macRetryBusy, machineName);
   const showMacTile = shouldShowMacTile(connectionState, macHttpReachable);
   const showRunTile = shouldShowRunTile(runProgress, isSending);
   const showApprovalsTile = pendingApprovalCount > 0;

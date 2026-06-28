@@ -3348,6 +3348,7 @@ export default function ChatScreen() {
           pendingApprovalCount={composerApprovals.length}
           runProgress={progressBanner}
           isSending={isSending}
+          machineName={machineShortLabel}
           onOpenApprovals={() => {
             haptics.selection();
             navigation.navigate('Leash' as never);
