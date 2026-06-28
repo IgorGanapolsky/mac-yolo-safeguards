@@ -9,6 +9,7 @@ type CodexCommandCenterProps = {
   connectionState: LeashConnectionState;
   macHttpReachable?: boolean;
   macRetryBusy?: boolean;
+  silentHealInFlight?: boolean;
   pendingApprovalCount: number;
   runProgress?: RunProgressState | null;
   isSending?: boolean;
@@ -64,6 +65,7 @@ export default function CodexCommandCenter({
   connectionState,
   macHttpReachable = false,
   macRetryBusy = false,
+  silentHealInFlight = false,
   pendingApprovalCount,
   runProgress,
   isSending = false,
@@ -72,7 +74,8 @@ export default function CodexCommandCenter({
   machineName = 'Mac',
 }: CodexCommandCenterProps) {
   const link = connectionCopy(connectionState, macHttpReachable, macRetryBusy, machineName);
-  const showMacTile = shouldShowMacTile(connectionState, macHttpReachable);
+  const showMacTile =
+    shouldShowMacTile(connectionState, macHttpReachable) && !silentHealInFlight;
   const showRunTile = shouldShowRunTile(runProgress, isSending);
   const showApprovalsTile = pendingApprovalCount > 0;
 

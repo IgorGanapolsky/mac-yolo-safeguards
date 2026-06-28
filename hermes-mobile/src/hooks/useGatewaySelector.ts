@@ -41,6 +41,10 @@ export function useGatewayConnection() {
   const addDiscoveredTailscaleComputer = useGatewaySelector(
     (ctx) => ctx.addDiscoveredTailscaleComputer,
   );
+  const probeTailscaleComputers = useGatewaySelector((ctx) => ctx.probeTailscaleComputers);
+  const connectionHealAttempt = useGatewaySelector((ctx) => ctx.connectionHealAttempt);
+  const connectionHealInFlight = useGatewaySelector((ctx) => ctx.connectionHealInFlight);
+  const connectionHealExhausted = useGatewaySelector((ctx) => ctx.connectionHealExhausted);
 
   return useMemo(
     () => ({
@@ -69,6 +73,10 @@ export function useGatewayConnection() {
       tailscaleDiscoveries,
       tailscaleDiscoveryProbing,
       addDiscoveredTailscaleComputer,
+      probeTailscaleComputers,
+      connectionHealAttempt,
+      connectionHealInFlight,
+      connectionHealExhausted,
     }),
     [
       settings,
@@ -96,6 +104,10 @@ export function useGatewayConnection() {
       tailscaleDiscoveries,
       tailscaleDiscoveryProbing,
       addDiscoveredTailscaleComputer,
+      probeTailscaleComputers,
+      connectionHealAttempt,
+      connectionHealInFlight,
+      connectionHealExhausted,
     ],
   );
 }

@@ -88,6 +88,12 @@ import {
   USB_LOOPBACK_GATEWAY_URL,
   wifiLanFallbackUrls,
 } from '../utils/gatewayLoopbackFallback';
+import {
+  CONNECTION_SELF_HEAL_INTERVAL_MS,
+  buildSelfHealProbeUrls,
+  savedProfileFallbackUrls,
+} from '../utils/connectionSelfHeal';
+import { CONNECTION_HEAL_EXHAUSTED_AFTER } from '../utils/connectionErrorPolicy';
 import { profileMatchesDiscoveredGateway, resolveUsbMatchingProfileId } from '../utils/gatewayProfilePicker';
 import { isPrivateLanGatewayUrl } from '../utils/gatewayEndpoint';
 import { isTailscaleGatewayUrl } from '../utils/tailscaleHosts';
@@ -191,6 +197,9 @@ export type GatewayContextValue = {
   tailscaleDiscoveryProbing: boolean;
   probeTailscaleComputers: () => Promise<void>;
   addDiscoveredTailscaleComputer: (discovery: DiscoveredGateway) => Promise<void>;
+  connectionHealAttempt: number;
+  connectionHealInFlight: boolean;
+  connectionHealExhausted: boolean;
   saveSettings: (
     settings: GatewaySettings,
     apiKey: string,
@@ -316,6 +325,10 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
   const tailnetProbeHostsRef = useRef<string[]>([]);
   const tailscaleProbeInFlightRef = useRef(false);
   const probeTailscaleComputersRef = useRef<() => Promise<void>>(async () => {});
+  const connectionHealInFlightRef = useRef(false);
+  const connectionHealAttemptRef = useRef(0);
+  const [connectionHealAttempt, setConnectionHealAttempt] = useState(0);
+  const [connectionHealInFlight, setConnectionHealInFlight] = useState(false);
 
   const addGatewayListener = useCallback((listener: (event: GatewayEventMessage) => void) => {
     listenersRef.current.add(listener);
@@ -688,6 +701,22 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
           } catch {
             // try generic tailnet fallbacks next
           }
+        }
+      }
+
+      for (const fallbackUrl of savedProfileFallbackUrls({
+        primaryUrl,
+        profiles: profileStateRef.current.profiles,
+        preferTailscaleFirst: true,
+      })) {
+        try {
+          const snapshot = await probeMacGatewayOk(fallbackUrl);
+          await persistDiscoveredGatewayUrl(fallbackUrl, true);
+          connectionHealAttemptRef.current = 0;
+          setConnectionHealAttempt(0);
+          return { snapshot, url: fallbackUrl };
+        } catch {
+          // try next saved profile / tailnet URL
         }
       }
 
@@ -1350,6 +1379,60 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
     }
   }, [persistDiscoveredGatewayUrl]);
 
+  const runConnectionSelfHeal = useCallback(async () => {
+    if (
+      !isLoaded ||
+      settingsRef.current.demoMode ||
+      connectionHealInFlightRef.current ||
+      isGatewayHealthOk(healthRef.current)
+    ) {
+      return;
+    }
+    connectionHealInFlightRef.current = true;
+    setConnectionHealInFlight(true);
+    try {
+      await probeTailscaleComputersRef.current();
+      const lastLanIp = await storage.loadLastGatewayLanIp();
+      const probeUrls = buildSelfHealProbeUrls({
+        primaryUrl: effectiveGatewayUrlRef.current || settingsRef.current.gatewayUrl,
+        wifiConnected: wifiConnectedRef.current,
+        lastLanIp,
+        profiles: profileStateRef.current.profiles,
+        tailnetProbeHosts: tailnetProbeHostsRef.current,
+      });
+      for (const url of probeUrls.slice(0, 8)) {
+        try {
+          const snapshot = await fetchGatewayHealth(url, apiKeyRef.current);
+          if (!isGatewayHealthOk(snapshot)) {
+            continue;
+          }
+          await persistDiscoveredGatewayUrl(url, true);
+          setHealth({ ...snapshot, directGatewayReachable: true });
+          healthRef.current = { ...snapshot, directGatewayReachable: true };
+          connectionHealAttemptRef.current = 0;
+          setConnectionHealAttempt(0);
+          connectEventsRef.current();
+          return;
+        } catch {
+          // silent failover
+        }
+      }
+      await autoDiscoverGateway();
+      await refreshHealth();
+      if (isGatewayHealthOk(healthRef.current)) {
+        connectionHealAttemptRef.current = 0;
+        setConnectionHealAttempt(0);
+        connectEventsRef.current();
+        return;
+      }
+      connectionHealAttemptRef.current += 1;
+      setConnectionHealAttempt(connectionHealAttemptRef.current);
+    } finally {
+      connectionHealInFlightRef.current = false;
+      setConnectionHealInFlight(false);
+    }
+  }, [autoDiscoverGateway, isLoaded, persistDiscoveredGatewayUrl, refreshHealth]);
+
   const connectGatewayWebSocket = useCallback(async () => {
     disconnectEvents();
     setLastEventError(undefined);
@@ -1509,6 +1592,21 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
     }, 5000);
     return () => clearTimeout(timer);
   }, [connectionState, settings.demoMode, refreshHealth]);
+
+  useEffect(() => {
+    if (!isLoaded || settings.demoMode || isGatewayHealthOk(health)) {
+      if (isGatewayHealthOk(health)) {
+        connectionHealAttemptRef.current = 0;
+        setConnectionHealAttempt(0);
+      }
+      return;
+    }
+    void runConnectionSelfHeal();
+    const interval = setInterval(() => {
+      void runConnectionSelfHeal();
+    }, CONNECTION_SELF_HEAL_INTERVAL_MS);
+    return () => clearInterval(interval);
+  }, [isLoaded, settings.demoMode, health?.level, health?.checkedAt, wifiConnected, runConnectionSelfHeal]);
 
   const autoConnectGateway = useCallback(async () => {
     return autoDiscoverGateway();
@@ -2329,6 +2427,8 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
     });
   }, [settings.demoMode, effectiveConnectionState, health, effectiveGatewayUrl]);
 
+  const connectionHealExhausted = connectionHealAttempt >= CONNECTION_HEAL_EXHAUSTED_AFTER;
+
   const value = useMemo<GatewayContextValue>(
     () => ({
       settings,
@@ -2368,6 +2468,9 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
       tailscaleDiscoveryProbing,
       probeTailscaleComputers,
       addDiscoveredTailscaleComputer,
+      connectionHealAttempt,
+      connectionHealInFlight,
+      connectionHealExhausted,
       saveSettings,
       patchSettings,
       activateDeveloperLeashUnlock,
@@ -2437,6 +2540,9 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
       tailscaleDiscoveryProbing,
       probeTailscaleComputers,
       addDiscoveredTailscaleComputer,
+      connectionHealAttempt,
+      connectionHealInFlight,
+      connectionHealExhausted,
       saveSettings,
       patchSettings,
       activateDeveloperLeashUnlock,

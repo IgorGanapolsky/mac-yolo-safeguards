@@ -1,5 +1,7 @@
 import type { ConnectionMode } from '../types/gateway';
 import type { RelayWorker } from '../types/mobileRelay';
+import type { ConnectionHealSnapshot } from './connectionErrorPolicy';
+import { shouldShowPairRelayRouteStatus } from './connectionErrorPolicy';
 
 export type RelayRouteDisplay = {
   machineLabel: string;
@@ -53,6 +55,11 @@ export function resolveRelayRouteDisplay(input: {
   activeWorkerId?: string | null;
   fallbackMachineLabel: string;
   fallbackEndpoint?: string;
+  heal?: ConnectionHealSnapshot;
+  hasAlternateRoutes?: boolean;
+  wifiConnected?: boolean;
+  gatewayUrl?: string;
+  macHttpOk?: boolean;
 }): RelayRouteDisplay {
   if (input.connectionMode === 'gateway') {
     return {
@@ -63,9 +70,22 @@ export function resolveRelayRouteDisplay(input: {
   }
 
   if (!input.isPaired) {
+    const heal = input.heal ?? { attempt: 0, inFlight: false, exhausted: true };
+    const showPairNudge = shouldShowPairRelayRouteStatus({
+      isPaired: false,
+      wifiConnected: input.wifiConnected ?? true,
+      gatewayUrl: input.gatewayUrl ?? '',
+      hasAlternateRoutes: input.hasAlternateRoutes ?? false,
+      heal,
+      macHttpOk: input.macHttpOk ?? false,
+    });
     return {
       machineLabel: 'Hermes account relay',
-      routeStatus: 'Pair relay in Settings for Wi‑Fi, cellular, or USB',
+      routeStatus: showPairNudge
+        ? 'Pair relay in Settings for Wi‑Fi, cellular, or USB'
+        : heal.inFlight
+          ? 'Reconnecting…'
+          : 'Direct link',
     };
   }
 

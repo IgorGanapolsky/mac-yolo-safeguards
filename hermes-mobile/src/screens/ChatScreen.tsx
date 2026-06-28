@@ -123,6 +123,12 @@ import {
   resolveChatMachineHeaderDisplay,
 } from '../utils/chatMachineHeader';
 import { resolveRelayRouteDisplay } from '../utils/relayRouting';
+import {
+  connectionHealSnapshot,
+  hasAlternateHealRoutes,
+  shouldShowMacConnectionHelp,
+  shouldShowMacRetryBanner,
+} from '../utils/connectionErrorPolicy';
 import { isLoopbackGatewayUrl } from '../utils/gatewayUrlPolicy';
 import { isInvalidGatewayProfile } from '../services/gatewayProfiles';
 import { isPrivateLanGatewayUrl } from '../utils/gatewayEndpoint';
@@ -224,6 +230,9 @@ export default function ChatScreen() {
     tailscaleDiscoveryProbing,
     addDiscoveredTailscaleComputer,
     probeTailscaleComputers,
+    connectionHealAttempt,
+    connectionHealInFlight,
+    connectionHealExhausted,
   } = useGatewayConnection();
   const { relayWorkers, isPaired, activeRelayWorkerId } = useGatewayRelay();
   const {
@@ -468,14 +477,36 @@ export default function ChatScreen() {
   /** Chat needs direct HTTP to the Mac — relay WebSocket "connected" is not enough. */
   const macChatLive = isDemo || macHttpOk;
   const macLiveSocket = isDemo || connectionState === 'connected';
-  const showMacConnectionHelp =
-    !isDemo && !macChatLive && !healthProbePending && health?.level === 'red';
-  /** Only warn when the Mac is actually unreachable — not when HTTP works but WebSocket is optional. */
-  const showMacRetryBanner =
-    !isDemo &&
-    !macChatLive &&
-    !healthProbePending &&
-    runProgress?.phase !== 'failed';
+  const connectionHeal = useMemo(
+    () => connectionHealSnapshot(connectionHealAttempt, connectionHealInFlight),
+    [connectionHealAttempt, connectionHealInFlight],
+  );
+  const alternateHealRoutes = useMemo(
+    () =>
+      hasAlternateHealRoutes({
+        gatewayUrl,
+        profiles: gatewayProfiles,
+        tailscaleDiscoveries,
+      }),
+    [gatewayUrl, gatewayProfiles, tailscaleDiscoveries],
+  );
+  const userSendFailed = pinnedOutboundStatus === 'failed';
+  const showMacConnectionHelp = shouldShowMacConnectionHelp({
+    isDemo,
+    macChatLive,
+    healthProbePending,
+    healthLevel: health?.level,
+    heal: connectionHeal,
+    userSendFailed,
+  });
+  const showMacRetryBanner = shouldShowMacRetryBanner({
+    isDemo,
+    macChatLive,
+    healthProbePending,
+    runProgressFailed: runProgress?.phase === 'failed',
+    heal: connectionHeal,
+    userSendFailed,
+  });
   const showChatEmptyState = useMemo(() => {
     if (messages.length > 0) {
       return false;
@@ -701,6 +732,11 @@ export default function ChatScreen() {
         activeWorkerId: activeRelayWorkerId,
         fallbackMachineLabel: machineHeaderDisplay.machineLabel,
         fallbackEndpoint: machineHeaderDisplay.machineEndpoint,
+        heal: connectionHeal,
+        hasAlternateRoutes: alternateHealRoutes,
+        wifiConnected,
+        gatewayUrl,
+        macHttpOk,
       }),
     [
       settings.connectionMode,
@@ -710,17 +746,26 @@ export default function ChatScreen() {
       activeRelayWorkerId,
       machineHeaderDisplay.machineLabel,
       machineHeaderDisplay.machineEndpoint,
+      connectionHeal,
+      alternateHealRoutes,
+      wifiConnected,
+      gatewayUrl,
+      macHttpOk,
     ],
   );
 
   const routeStatusLabel =
-    settings.connectionMode === 'relay' && !isPaired ? relayRouteDisplay.routeStatus : undefined;
+    settings.connectionMode === 'relay' &&
+    !isPaired &&
+    relayRouteDisplay.routeStatus !== 'Direct link'
+      ? relayRouteDisplay.routeStatus
+      : undefined;
 
   const machineShortLabel = machineHeaderDisplay.machineLabel;
   const machineEndpoint = machineHeaderDisplay.machineEndpoint;
 
   const macRetryBannerText = useMemo(() => {
-    if (macRetryBusy) {
+    if (macRetryBusy || connectionHealInFlight) {
       return `Reconnecting to ${machineShortLabel}…`;
     }
     return formatMacConnectionRetryBanner({
@@ -3380,6 +3425,7 @@ export default function ChatScreen() {
           connectionState={connectionState}
           macHttpReachable={macHttpOk}
           macRetryBusy={macRetryBusy}
+          silentHealInFlight={connectionHealInFlight && !macRetryBusy}
           pendingApprovalCount={composerApprovals.length}
           runProgress={progressBanner}
           isSending={isSending}

@@ -421,27 +421,40 @@ export function migrateLegacyGateway(
   );
 }
 
+let cachedProfileState: GatewayProfileState | null = null;
+
+export function getCachedProfileStateSync(): GatewayProfileState | null {
+  return cachedProfileState;
+}
+
 export const gatewayProfiles = {
   async load(): Promise<GatewayProfileState> {
     try {
       const raw = await AsyncStorage.getItem(STORAGE_KEY);
       if (!raw) {
-        return { ...EMPTY_GATEWAY_PROFILE_STATE };
+        const state = { ...EMPTY_GATEWAY_PROFILE_STATE };
+        cachedProfileState = state;
+        return state;
       }
       const parsed = JSON.parse(raw) as Partial<GatewayProfileState>;
       const profiles = Array.isArray(parsed.profiles) ? parsed.profiles : [];
-      return sanitizeGatewayProfileState({
+      const state = sanitizeGatewayProfileState({
         profiles,
         activeProfileId: parsed.activeProfileId ?? profiles[0]?.id ?? null,
       });
+      cachedProfileState = state;
+      return state;
     } catch (error) {
       console.error('[hermes-mobile] gatewayProfiles.load failed:', error);
-      return { ...EMPTY_GATEWAY_PROFILE_STATE };
+      const state = { ...EMPTY_GATEWAY_PROFILE_STATE };
+      cachedProfileState = state;
+      return state;
     }
   },
 
   async save(state: GatewayProfileState): Promise<void> {
     try {
+      cachedProfileState = state;
       await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(state));
     } catch (error) {
       console.error('[hermes-mobile] gatewayProfiles.save failed:', error);
@@ -450,6 +463,7 @@ export const gatewayProfiles = {
 
   async clear(): Promise<void> {
     try {
+      cachedProfileState = null;
       await AsyncStorage.removeItem(STORAGE_KEY);
     } catch (error) {
       console.error('[hermes-mobile] gatewayProfiles.clear failed:', error);

@@ -37,19 +37,25 @@ function readEnvKey(filePath, names) {
   return '';
 }
 
-function fetchHealth() {
-  const result = spawnSync('curl', ['-sf', 'http://127.0.0.1:8642/health'], {
+function fetchHealthAt(baseUrl) {
+  const trimmed = String(baseUrl || '').trim().replace(/\/$/, '');
+  const healthUrl = `${trimmed}/health`;
+  const result = spawnSync('curl', ['-sf', healthUrl], {
     encoding: 'utf8',
-    timeout: 5000,
+    timeout: 8000,
   });
   if (result.status !== 0) {
-    throw new Error('Gateway not reachable at http://127.0.0.1:8642/health — start Hermes gateway first.');
+    throw new Error(`Gateway not reachable at ${healthUrl}`);
   }
   try {
     return JSON.parse(result.stdout);
   } catch {
     throw new Error('Invalid health JSON from gateway');
   }
+}
+
+function fetchHealth() {
+  return fetchHealthAt('http://127.0.0.1:8642');
 }
 
 function isPrivateIpv4(address) {
@@ -103,6 +109,43 @@ function buildDeepLink(gatewayUrl, apiKey, hostname, relayCode, tailnetProbeHost
     if (trimmed) params.append('tailnet', trimmed);
   }
   return `hermes://setup?${params.toString()}`;
+}
+
+
+function resolveMiniTailscaleDiscovery() {
+  const script = path.join(__dirname, 'hermes-discover-tailscale-macs.js');
+  const result = spawnSync(process.execPath, [script, '--json'], {
+    encoding: 'utf8',
+    timeout: 30_000,
+  });
+  if (result.status !== 0 || !result.stdout?.trim()) {
+    return null;
+  }
+  try {
+    const payload = JSON.parse(result.stdout);
+    const discoveries = Array.isArray(payload.discoveries) ? payload.discoveries : [];
+    const mini =
+      discoveries.find((item) => /mac-mini/i.test(item.hostname || item.label || '')) ||
+      discoveries.find((item) => item.host === '100.94.135.78') ||
+      discoveries[0];
+    return mini || null;
+  } catch {
+    return null;
+  }
+}
+
+function parseGatewayUrlArg(args) {
+  const argv = process.argv.slice(2);
+  const flagIdx = argv.indexOf('--gateway-url');
+  if (flagIdx >= 0 && argv[flagIdx + 1]) {
+    return argv[flagIdx + 1].trim();
+  }
+  for (const entry of argv) {
+    if (entry.startsWith('--gateway-url=')) {
+      return entry.slice('--gateway-url='.length).trim();
+    }
+  }
+  return null;
 }
 
 function discoverTailnetProbeHosts() {
@@ -304,8 +347,25 @@ function main() {
     runServerOnly();
     return;
   }
-  const health = fetchHealth();
-  const lanIp = resolveLanIp(health);
+  const explicitGatewayUrl = parseGatewayUrlArg(args);
+  let gatewayUrl;
+  let health;
+  if (args.has('--mini-tailscale')) {
+    const mini = resolveMiniTailscaleDiscovery();
+    if (!mini?.gatewayUrl) {
+      throw new Error('No Hermes Mac mini found on Tailscale (run tools/hermes-discover-tailscale-macs.js).');
+    }
+    gatewayUrl = mini.gatewayUrl.trim();
+    health = fetchHealthAt(gatewayUrl);
+  } else if (explicitGatewayUrl) {
+    gatewayUrl = explicitGatewayUrl.replace(/\/$/, '');
+    health = fetchHealthAt(gatewayUrl);
+  } else {
+    health = fetchHealth();
+    const lanIpFromHealth = resolveLanIp(health);
+    gatewayUrl = `http://${lanIpFromHealth}:8642`;
+  }
+  const lanIp = detectLocalLanIp() || resolveLanIp(health);
   const apiKey = readEnvKey(HERMES_ENV, [
     'API_SERVER_KEY',
     'HERMES_API_SERVER_KEY',
@@ -348,9 +408,11 @@ function main() {
     console.log('  Tailnet Hermes hosts:', tailnetProbeHosts.join(', '));
   }
 
-  const gatewayUrl = `http://${lanIp}:8642`;
-  if (usbPairing) {
+  if (usbPairing && !explicitGatewayUrl && !args.has('--mini-tailscale')) {
     console.log('  USB pairing: adb reverse active — saved gateway URL uses LAN for Wi‑Fi-only use');
+  }
+  if (args.has('--mini-tailscale') || explicitGatewayUrl) {
+    console.log('  Pairing target gateway (explicit):', gatewayUrl);
   }
   const deepLink = buildDeepLink(gatewayUrl, apiKey, hostname, relayCode, tailnetProbeHosts);
   const pageUrl = `http://${lanIp}:${PAIR_PORT}/pair`;

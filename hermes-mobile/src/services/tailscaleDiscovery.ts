@@ -172,7 +172,16 @@ export function isDiscoveredComputerAlreadySaved(
     return profiles.some((profile) => {
       const profileIp =
         profile.localIp?.trim() || extractLanIpFromGatewayUrl(profile.gatewayUrl);
-      return profileIp === ip;
+      if (profileIp !== ip) {
+        return false;
+      }
+      if (
+        isTailscaleGatewayUrl(discovered.gatewayUrl) &&
+        !isTailscaleGatewayUrl(profile.gatewayUrl)
+      ) {
+        return false;
+      }
+      return true;
     });
   }
   return false;

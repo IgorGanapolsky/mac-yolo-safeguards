@@ -45,6 +45,24 @@ describe('relayRouting', () => {
     expect(display.routeStatus).toContain('Pair relay in Settings');
   });
 
+  it('suppresses pair relay nag while silently reconnecting on Wi-Fi', () => {
+    const display = resolveRelayRouteDisplay({
+      connectionMode: 'relay',
+      isPaired: false,
+      connectionState: 'disconnected',
+      workers,
+      activeWorkerId: 'mac-mini',
+      fallbackMachineLabel: 'Mac mini',
+      gatewayUrl: 'http://192.168.68.56:8642',
+      wifiConnected: true,
+      hasAlternateRoutes: true,
+      heal: { attempt: 1, inFlight: true, exhausted: false },
+      macHttpOk: false,
+    });
+
+    expect(display.routeStatus).toBe('Reconnecting…');
+  });
+
   it('routes paired relay to active worker and hides LAN endpoint details', () => {
     const display = resolveRelayRouteDisplay({
       connectionMode: 'relay',

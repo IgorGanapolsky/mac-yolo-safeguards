@@ -54,6 +54,13 @@ const mockGatewayState = {
   completePair: jest.fn().mockResolvedValue(undefined),
   saveSettings: jest.fn().mockResolvedValue(undefined),
   wifiConnected: true,
+  tailscaleDiscoveries: [],
+  tailscaleDiscoveryProbing: false,
+  addDiscoveredTailscaleComputer: jest.fn().mockResolvedValue(undefined),
+  probeTailscaleComputers: jest.fn().mockResolvedValue(undefined),
+  connectionHealAttempt: 6,
+  connectionHealInFlight: false,
+  connectionHealExhausted: true,
   settings: {
     demoMode: true,
     connectionMode: 'gateway',
