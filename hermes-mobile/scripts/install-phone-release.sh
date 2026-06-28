@@ -84,7 +84,8 @@ ensure_release_apk_has_bundle() {
     cd android
     export EXPO_PUBLIC_HERMES_DEV_UNLOCK=1
     export EXPO_PUBLIC_E2E_AUTOMATION=1
-    ./gradlew :app:createBundleReleaseJsAndAssets :app:assembleRelease       -PreactNativeArchitectures=arm64-v8a --rerun-tasks
+    ./gradlew :app:createBundleReleaseJsAndAssets :app:assembleRelease \
+      -PreactNativeArchitectures=arm64-v8a --rerun-tasks --no-daemon
   ) || {
     echo "Error: Gradle bundle/assemble retry failed." >&2
     if [[ -f "$PROBLEMS_REPORT" ]]; then
@@ -98,30 +99,53 @@ ensure_release_apk_has_bundle() {
   }
 }
 
-build_release() {
-  if [[ ! -d android ]]; then
-    echo "=== Generating android/ (expo prebuild) ==="
-    npx expo prebuild --platform android
+gradle_release_args() {
+  if [[ "${HERMES_MOBILE_FORCE_BUILD:-}" == "1" ]]; then
+    echo ":app:createBundleReleaseJsAndAssets :app:assembleRelease -PreactNativeArchitectures=arm64-v8a --rerun-tasks"
+  else
+    echo "assembleRelease -PreactNativeArchitectures=arm64-v8a"
   fi
+}
 
-  echo "=== Building release APK (embedded bundle) for $DEVICE ==="
+run_gradle_release() {
   (
     cd android
     export EXPO_PUBLIC_HERMES_DEV_UNLOCK=1
     export EXPO_PUBLIC_E2E_AUTOMATION=1
-    if [[ "${HERMES_MOBILE_FORCE_BUILD:-}" == "1" ]]; then
-      ./gradlew :app:createBundleReleaseJsAndAssets :app:assembleRelease \
-        -PreactNativeArchitectures=arm64-v8a --rerun-tasks
-    else
-      ./gradlew assembleRelease -PreactNativeArchitectures=arm64-v8a
-    fi
-  ) || {
-    echo "Error: Gradle assembleRelease failed." >&2
-    if [[ -f "$PROBLEMS_REPORT" ]]; then
-      echo "  See: $PROBLEMS_REPORT" >&2
-    fi
-    exit 1
-  }
+    # --no-daemon avoids parallel Kotlin/CMake races (e.g. unresolved UpdatesPackage).
+    # shellcheck disable=SC2046
+    ./gradlew $(gradle_release_args) --no-daemon
+  )
+}
+
+ensure_android_native_project() {
+  if [[ ! -d android ]]; then
+    echo "=== Generating android/ (expo prebuild) ==="
+    npx expo prebuild --platform android
+    return
+  fi
+  # Stale android/ from before expo-updates autolinking breaks :expo:compileReleaseKotlin.
+  if [[ ! -f android/settings.gradle ]] || ! grep -q 'expoAutolinking.useExpoModules' android/settings.gradle; then
+    echo "=== Regenerating malformed android/ (expo prebuild --clean) ==="
+    npx expo prebuild --platform android --clean
+  fi
+}
+
+build_release() {
+  ensure_android_native_project
+
+  echo "=== Building release APK (embedded bundle) for $DEVICE ==="
+  if ! run_gradle_release; then
+    echo "Warning: Gradle assembleRelease failed — regenerating android/ and retrying once." >&2
+    npx expo prebuild --platform android --clean
+    run_gradle_release || {
+      echo "Error: Gradle assembleRelease failed after prebuild --clean." >&2
+      if [[ -f "$PROBLEMS_REPORT" ]]; then
+        echo "  See: $PROBLEMS_REPORT" >&2
+      fi
+      exit 1
+    }
+  fi
   ensure_release_apk_has_bundle
 }
 

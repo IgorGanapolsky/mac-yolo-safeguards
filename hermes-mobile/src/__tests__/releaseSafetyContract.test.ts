@@ -64,6 +64,7 @@ describe('release safety contract', () => {
     const app = JSON.parse(read('hermes-mobile/app.json'));
     expect(app.expo.android.package).toBe('com.iganapolsky.hermesmobile');
     expect(app.expo.updates.enabled).toBe(false);
+    expect(app.expo.plugins).toContain('expo-updates');
   });
 
   it('maestro ship-guard blocks Metro crash and legacy shell', () => {
@@ -128,6 +129,8 @@ describe('release safety contract', () => {
     expect(script).toContain('assembleRelease');
     expect(script).toContain('verify-apk-package.cjs');
     expect(script).toContain('embedded bundle');
+    expect(script).toContain('--no-daemon');
+    expect(script).toContain('prebuild --platform android --clean');
   });
 
   it('run-hermes-mobile uses phone release install (not Metro-only debug)', () => {

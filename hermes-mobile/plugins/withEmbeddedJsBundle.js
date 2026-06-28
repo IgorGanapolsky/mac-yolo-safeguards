@@ -12,7 +12,9 @@ function withEmbeddedJsBundle(config) {
     if (contents.includes(MARKER)) {
       return mod;
     }
-    if (/debuggableVariants\s*=\s*\[[^\]]*\]/.test(contents)) {
+    if (/\/\/\s*debuggableVariants\s*=\s*\[[^\]]*\]/.test(contents)) {
+      contents = contents.replace(/\/\/\s*debuggableVariants\s*=\s*\[[^\]]*\]/, MARKER);
+    } else if (/debuggableVariants\s*=\s*\[[^\]]*\]/.test(contents)) {
       contents = contents.replace(/debuggableVariants\s*=\s*\[[^\]]*\]/, MARKER);
     } else {
       contents = contents.replace(
