@@ -23,7 +23,7 @@ Durable rules live in [AGENTS.md](./AGENTS.md); this file is *live state only*.
 | T-1 | Off-WiFi LAN/relay detection refactor | in_progress | gemini | `hermes-mobile/src/context/GatewayContext.tsx`, `src/utils/gatewayEndpoint.ts`, `src/__tests__/GatewayContext.test.tsx`, `jest.setup.js` | `npm test` (542/542 currently green) |
 | T-2 | Fix `onDismiss` crash on `hermes://setup` deep link | pending | - | TBD (likely a modal/banner in setup flow) | deep link applies gatewayUrl without ErrorBoundary crash |
 | T-3 | Make off-WiFi actually work = **Tailscale** (not a relay) | pending | - | docs + app onboarding copy | phone reaches Mac via tailnet IP from app |
-| T-4 | Fix failing Maestro E2E flows | pending | - | `.maestro/ship-guard.yaml`, `.maestro/chat-send-persistence.yaml` | `latest.json` e2e=pass |
+| T-4 | Fix failing Maestro E2E flows | in_progress | antigravity | `hermes-mobile/scripts/run-simulator-e2e.sh`, `.maestro/ship-guard.yaml`, `.maestro/chat-send-persistence.yaml` | `latest.json` e2e=pass |
 | T-5 | Explain Tailscale requirement in-app (Igor's UX point) | pending | - | a Settings/onboarding screen | user told to install Tailscale + why |
 | T-6 | Optimize app size by enabling R8 minification and resource shrinking | done | antigravity | `hermes-mobile/app.json` | `npm run launch:preflight:android` passes and R8 size reduction verified |
 | T-7 | Fix Android USB-pairing hijack bug | done | antigravity | `hermes-mobile/src/screens/ChatScreen.tsx` | retry retains Wi-Fi profile and doesn't switch to USB |
@@ -45,6 +45,7 @@ Status values: `pending` | `in_progress` | `blocked` | `done`. Claim a row by se
 - `hermes-mobile/src/components/FeedbackPromptModal.tsx` → **antigravity** (T-9) — released (2026-06-27)
 - `hermes-mobile/src/components/CodexCommandCenter.tsx` → **antigravity** (T-10) — released (2026-06-28)
 - `hermes-mobile/src/screens/ChatScreen.tsx` → **antigravity** (T-10) — released (2026-06-28)
+- `hermes-mobile/scripts/run-simulator-e2e.sh` → **antigravity** (T-4) (2026-06-28)
 - `AGENTS.md`, `plan.md` → shared coordination files (append-only edits, commit first)
 - everything else → (free)
 
