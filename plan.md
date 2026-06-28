@@ -29,6 +29,7 @@ Durable rules live in [AGENTS.md](./AGENTS.md); this file is *live state only*.
 | T-7 | Fix Android USB-pairing hijack bug | done | antigravity | `hermes-mobile/src/screens/ChatScreen.tsx` | retry retains Wi-Fi profile and doesn't switch to USB |
 | T-8 | Zero-friction LAN discovery & Settings URL validation | done | antigravity | `hermes-mobile/src/screens/SettingsScreen.tsx`, `hermes-mobile/src/screens/ChatScreen.tsx` | auto-selects LAN profile on scan and rejects junk URLs |
 | T-9 | Multi-platform optional thumbs feedback details modal | done | antigravity | `hermes-mobile/src/components/FeedbackPromptModal.tsx`, `hermes-mobile/src/screens/ChatScreen.tsx` | allows typing optional details on thumbs up/down |
+| T-10 | Display active machine name in connection/reconnection status tiles | in_progress | antigravity | `hermes-mobile/src/components/CodexCommandCenter.tsx`, `hermes-mobile/src/screens/ChatScreen.tsx` | npm test passes |
 
 Status values: `pending` | `in_progress` | `blocked` | `done`. Claim a row by setting Owner+Status in one edit, then claim its files in §2.
 
@@ -42,6 +43,8 @@ Status values: `pending` | `in_progress` | `blocked` | `done`. Claim a row by se
 - `hermes-mobile/src/screens/ChatScreen.tsx` → **antigravity** (T-7, T-8, T-9) — released (2026-06-27)
 - `hermes-mobile/src/screens/SettingsScreen.tsx` → **antigravity** (T-8) — released (2026-06-27)
 - `hermes-mobile/src/components/FeedbackPromptModal.tsx` → **antigravity** (T-9) — released (2026-06-27)
+- `hermes-mobile/src/components/CodexCommandCenter.tsx` → **antigravity** (T-10) — claimed (2026-06-28)
+- `hermes-mobile/src/screens/ChatScreen.tsx` → **antigravity** (T-10) — claimed (2026-06-28)
 - `AGENTS.md`, `plan.md` → shared coordination files (append-only edits, commit first)
 - everything else → (free)
 
