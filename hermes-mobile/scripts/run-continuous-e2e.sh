@@ -133,9 +133,13 @@ run_e2e_flow() {
     fi
     echo "E2E attempt ${attempt} failed for ${flow}" >&2
     attempt=$((attempt + 1))
-    xcrun simctl shutdown all 2>/dev/null || true
+    # Do not tear down iOS simulators while a USB Android device is connected — that
+    # race caused Maestro to fall back to simulator mid-cycle.
+    if ! adb devices 2>/dev/null | awk 'NR>1 && $2=="device" {found=1} END {exit !found}'; then
+      xcrun simctl shutdown all 2>/dev/null || true
+    fi
     sleep 8
-    wait_for_adb 3 >/dev/null || true
+    wait_for_adb 6 >/dev/null || true
   done
   return 1
 }
