@@ -93,6 +93,9 @@ wait_for_adb() {
 }
 
 has_adb_device() {
+  if [[ "${HERMES_E2E_IOS_ONLY:-}" == "1" ]]; then
+    return 1
+  fi
   adb devices 2>/dev/null | awk 'NR>1 && $2=="device" {found=1} END {exit !found}'
 }
 

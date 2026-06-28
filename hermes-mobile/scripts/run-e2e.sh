@@ -30,7 +30,11 @@ wait_for_android_device() {
   return 1
 }
 
-ANDROID_ID="$(adb devices 2>/dev/null | awk 'NR>1 && $2=="device" {print $1; exit}')"
+if [[ "${HERMES_E2E_IOS_ONLY:-}" == "1" ]]; then
+  ANDROID_ID=""
+else
+  ANDROID_ID="$(adb devices 2>/dev/null | awk 'NR>1 && $2=="device" {print $1; exit}')"
+fi
 
 if [[ -z "$ANDROID_ID" && -n "${HERMES_E2E_ANDROID_UDID:-}" ]]; then
   echo "Waiting for USB Android device ${HERMES_E2E_ANDROID_UDID}..."
