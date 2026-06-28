@@ -36,7 +36,7 @@ resolve_sim_udid() {
   echo "Booting $DEFAULT_SIM_NAME ($udid)..." >&2
   xcrun simctl boot "$udid" || true
   open -a Simulator || true
-  xcrun simctl bootstatus "$udid" -b
+  xcrun simctl bootstatus "$udid" -b || true
   echo "$udid"
 }
 
