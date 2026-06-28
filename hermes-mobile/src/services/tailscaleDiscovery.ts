@@ -2,6 +2,7 @@ import type { DiscoveredGateway } from '../types/gatewayProfile';
 import type { GatewayProfile } from '../types/gatewayProfile';
 import { normalizeGatewayUrl } from './gatewayClient';
 import { findProfileForGatewayUrl, profileDisplayName } from './gatewayProfiles';
+import { profileMatchesDiscoveredGateway } from '../utils/gatewayProfilePicker';
 import {
   buildTailscaleGatewayUrl,
   isTailscaleGatewayHost,
@@ -88,6 +89,19 @@ export function collectTailnetProbeHosts(
   return mergeTailnetProbeHosts(storedHosts, fromProfiles, extraHosts);
 }
 
+/** Probe tailnet hosts and return a Tailscale route for an existing saved Mac profile. */
+export async function discoverTailscaleGatewayForProfile(
+  profile: GatewayProfile,
+  probeHosts: string[],
+): Promise<DiscoveredGateway | null> {
+  const hosts = mergeTailnetProbeHosts(probeHosts);
+  if (hosts.length === 0) {
+    return null;
+  }
+  const discovered = await discoverTailscaleGateways(hosts);
+  return discovered.find((item) => profileMatchesDiscoveredGateway(profile, item)) ?? null;
+}
+
 export async function discoverTailscaleGateways(
   probeHosts: string[],
 ): Promise<DiscoveredGateway[]> {
@@ -137,7 +151,17 @@ export function isDiscoveredComputerAlreadySaved(
         .join(' ')
         .toLowerCase()
         .replace(/\.local/gi, '');
-      return haystack.includes(needle);
+      if (!haystack.includes(needle)) {
+        return false;
+      }
+      // Same machine saved on LAN only — still offer the Tailscale route.
+      if (
+        isTailscaleGatewayUrl(discovered.gatewayUrl) &&
+        !isTailscaleGatewayUrl(profile.gatewayUrl)
+      ) {
+        return false;
+      }
+      return true;
     });
     if (hit) {
       return true;

@@ -101,5 +101,20 @@ describe('tailscaleDiscovery', () => {
       discovered,
     );
     expect(alreadySaved).toHaveLength(0);
+
+    const lanOnlyStillShowsTailscale = filterNewTailscaleDiscoveries(
+      [
+        {
+          id: 'mini-lan',
+          label: 'Igors-Mac-mini',
+          gatewayUrl: 'http://192.168.68.56:8642',
+          hostname: 'Igors-Mac-mini.local',
+          localIp: '192.168.68.56',
+          addedAt: '2026-06-26T00:00:00Z',
+        },
+      ],
+      discovered,
+    );
+    expect(lanOnlyStillShowsTailscale).toHaveLength(1);
   });
 });

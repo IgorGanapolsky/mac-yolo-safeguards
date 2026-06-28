@@ -1202,6 +1202,29 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
       }
     }
 
+    const activeForDiscovery = activeProfile(profileStateRef.current);
+    if (
+      Platform.OS !== 'web' &&
+      activeForDiscovery &&
+      currentUrl &&
+      isPrivateLanGatewayUrl(currentUrl) &&
+      !isLoopbackGatewayUrl(currentUrl) &&
+      !isTailscaleGatewayUrl(currentUrl) &&
+      tailnetProbeHostsRef.current.length > 0
+    ) {
+      const tailDiscovered = await discoverTailscaleGatewayForProfile(
+        activeForDiscovery,
+        tailnetProbeHostsRef.current,
+      );
+      if (tailDiscovered?.gatewayUrl && tailDiscovered.gatewayUrl !== currentUrl) {
+        try {
+          return await commitDiscoveredUrl(await probe(tailDiscovered.gatewayUrl), true);
+        } catch (_) {
+          // fall through
+        }
+      }
+    }
+
     if (Platform.OS !== 'web') {
       for (const fallbackUrl of cellularTailscaleFallbackUrls({
         primaryUrl: currentUrl || '',
