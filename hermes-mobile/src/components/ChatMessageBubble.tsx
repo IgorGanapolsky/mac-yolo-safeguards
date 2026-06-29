@@ -19,8 +19,10 @@ type InlineApprovalHandlers = {
 
 type OutputFeedbackHandlers = {
   busy?: boolean;
+  selected?: 'up' | 'down';
   onThumbsUp: () => void;
   onThumbsDown: () => void;
+  onAddDetails?: () => void;
 };
 
 type ChatMessageBubbleProps = {
@@ -170,10 +172,12 @@ function ChatMessageBubble({
                 disabled={outputFeedback.busy}
                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                 accessibilityRole="button"
+                accessibilityState={{ selected: outputFeedback.selected === 'up' }}
                 accessibilityLabel="Mark Hermes output useful"
                 testID="chat-output-thumbs-up"
                 style={({ pressed }) => [
                   styles.feedbackButton,
+                  outputFeedback.selected === 'up' && styles.feedbackButtonSelected,
                   pressed && styles.feedbackButtonPressed,
                   outputFeedback.busy && styles.feedbackButtonDisabled,
                 ]}
@@ -188,16 +192,33 @@ function ChatMessageBubble({
                 disabled={outputFeedback.busy}
                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                 accessibilityRole="button"
+                accessibilityState={{ selected: outputFeedback.selected === 'down' }}
                 accessibilityLabel="Mark Hermes output unhelpful"
                 testID="chat-output-thumbs-down"
                 style={({ pressed }) => [
                   styles.feedbackButton,
+                  outputFeedback.selected === 'down' && styles.feedbackButtonSelectedDown,
                   pressed && styles.feedbackButtonPressed,
                   outputFeedback.busy && styles.feedbackButtonDisabled,
                 ]}
               >
                 <Text style={styles.feedbackIcon}>👎</Text>
               </Pressable>
+              {outputFeedback.selected && outputFeedback.onAddDetails ? (
+                <Pressable
+                  onPress={outputFeedback.onAddDetails}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  accessibilityRole="button"
+                  accessibilityLabel="Add feedback details"
+                  testID="chat-output-add-details"
+                  style={({ pressed }) => [
+                    styles.addDetailsButton,
+                    pressed && styles.feedbackButtonPressed,
+                  ]}
+                >
+                  <Text style={styles.addDetailsText}>Add details</Text>
+                </Pressable>
+              ) : null}
             </View>
           ) : null}
           <View
@@ -362,6 +383,26 @@ const styles = StyleSheet.create({
   },
   feedbackButtonDisabled: {
     opacity: 0.45,
+  },
+  feedbackButtonSelected: {
+    borderColor: 'rgba(34, 211, 238, 0.9)',
+    backgroundColor: 'rgba(34, 211, 238, 0.18)',
+  },
+  feedbackButtonSelectedDown: {
+    borderColor: 'rgba(248, 113, 113, 0.9)',
+    backgroundColor: 'rgba(248, 113, 113, 0.18)',
+  },
+  addDetailsButton: {
+    minHeight: 30,
+    paddingHorizontal: 10,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  addDetailsText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: 'rgba(34, 211, 238, 0.95)',
   },
   feedbackIcon: {
     fontSize: 16,

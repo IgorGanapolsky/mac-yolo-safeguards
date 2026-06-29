@@ -327,6 +327,12 @@ export default function ChatScreen() {
     message: HermesMessage;
     signal: 'up' | 'down';
   } | null>(null);
+  // Per-message selected thumb (highlight state). Keyed by the same stable key as
+  // the busy flag so it survives re-renders. The vote is submitted to ThumbGate on
+  // tap; the details sheet is opt-in (no longer auto-opened).
+  const [feedbackSelections, setFeedbackSelections] = useState<
+    Record<string, 'up' | 'down'>
+  >({});
 
   const applyChatApiError = useCallback(
     (error: unknown, fallback: string, options?: { background?: boolean }) => {
@@ -2320,10 +2326,26 @@ export default function ChatScreen() {
 
   const handleChatOutputFeedbackTap = useCallback(
     (message: HermesMessage, signal: 'up' | 'down') => {
+      const key = resolveChatOutputFeedbackBusyKey(message);
+      // Highlight the tapped thumb; user can switch up<->down freely.
+      setFeedbackSelections((prev) => ({ ...prev, [key]: signal }));
+      // Always record the vote to ThumbGate. The explanation sheet is now
+      // opt-in (via the "Add details" link), not auto-opened on every tap.
       void submitChatOutputFeedbackForMessage(message, signal);
-      setFeedbackPrompt({ message, signal });
     },
     [submitChatOutputFeedbackForMessage],
+  );
+
+  const handleAddFeedbackDetails = useCallback(
+    (message: HermesMessage) => {
+      const key = resolveChatOutputFeedbackBusyKey(message);
+      const signal = feedbackSelections[key];
+      if (!signal) {
+        return;
+      }
+      setFeedbackPrompt({ message, signal });
+    },
+    [feedbackSelections],
   );
 
   // The thumbs vote ALWAYS records (the modal copy promises "we saved your thumbs up");
@@ -2359,8 +2381,10 @@ export default function ChatScreen() {
       const outputFeedback = showOutputFeedback
         ? {
             busy: chatOutputFeedbackBusyId === busyKey,
+            selected: feedbackSelections[busyKey],
             onThumbsUp: () => handleChatOutputFeedbackTap(item, 'up'),
             onThumbsDown: () => handleChatOutputFeedbackTap(item, 'down'),
+            onAddDetails: () => handleAddFeedbackDetails(item),
           }
         : undefined;
       return (
@@ -2394,7 +2418,9 @@ export default function ChatScreen() {
       isSending,
       leashUnlocked,
       chatOutputFeedbackBusyId,
+      feedbackSelections,
       handleChatOutputFeedbackTap,
+      handleAddFeedbackDetails,
       handleShowMessageDetail,
       handleInlineTextApproval,
     ],
