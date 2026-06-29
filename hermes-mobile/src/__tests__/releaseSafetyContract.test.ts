@@ -193,10 +193,21 @@ describe('release safety contract', () => {
 
   it('e2e-bootstrap waits for lazy Leash tab load', () => {
     const bootstrap = read('hermes-mobile/.maestro/e2e-bootstrap.yaml');
+    expect(bootstrap).toContain('hermes://dev/leash-unlock');
+    expect(bootstrap).toContain('hermes://leash');
     expect(bootstrap).toContain('tab-screen-loading');
     expect(bootstrap).toContain('THUMBGATE_LEASH');
     expect(bootstrap).toContain('hermes://chat');
     expect(bootstrap).toContain('chat-screen-header');
+  });
+
+  it('chat-send-persistence uses chat bootstrap without Leash assert', () => {
+    const flow = read('hermes-mobile/.maestro/chat-send-persistence.yaml');
+    const chatBootstrap = read('hermes-mobile/.maestro/chat-e2e-bootstrap.yaml');
+    expect(flow).toContain('chat-e2e-bootstrap.yaml');
+    expect(chatBootstrap).toContain('hermes://dev/leash-unlock');
+    expect(chatBootstrap).toContain('hermes://chat');
+    expect(chatBootstrap).not.toContain('id: "THUMBGATE_LEASH"');
   });
 
   it('continuous E2E runner and LaunchAgent exist', () => {

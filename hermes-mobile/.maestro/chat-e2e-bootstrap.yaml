@@ -1,0 +1,31 @@
+# Chat-only Maestro bootstrap — skips Leash tab (ship-guard validates Leash screen).
+appId: com.iganapolsky.hermesmobile
+---
+- openLink: "hermes://setup?demo=1"
+- runFlow:
+    when:
+      visible:
+        text: "Open"
+    commands:
+      - tapOn: "Open"
+- openLink: "hermes://dev/leash-unlock"
+- extendedWaitUntil:
+    notVisible:
+      id: "connect-mac-gate"
+    timeout: 30000
+- hideKeyboard
+- openLink: "hermes://chat"
+- extendedWaitUntil:
+    notVisible:
+      id: "tab-screen-loading"
+    timeout: 90000
+- extendedWaitUntil:
+    visible:
+      id: "chat-screen-header"
+    timeout: 90000
+- hideKeyboard
+- scrollUntilVisible:
+    element:
+      id: "chat-input"
+    direction: UP
+    timeout: 90000
