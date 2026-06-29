@@ -39,7 +39,7 @@ On 2026-05-26 an iPhone 17 simulator was auto-booted (first by macOS window rest
 | File | Installs to | Purpose |
 |---|---|---|
 | `agy-yolo-wrapper.js` | `~/workspace/git/igor/antigravity-hub/antigravity-cli/bin/` | Hardened wrapper around `agy --dangerously-skip-permissions`. Adds singleton lock, hard timeout, stuck-loop watchdog, spawn-error handling, and `--sandbox`. |
-| `hermes-yolo-wrapper.js` | `~/.local/bin/hermes-yolo` | Same safeguards for `hermes --yolo` (singleton lock, timeout, CPU watchdog). |
+| `hermes-yolo-wrapper.js` | `~/.local/bin/hermes-yolo` | Hardened local-first wrapper for `hermes --yolo` (singleton lock, hard timeout, opt-in CPU watchdog). |
 | `sim-runaway-guard.sh` | `~/.local/bin/` | Threshold-checking script. Shuts down booted simulators when simruntime processes exceed the hard ceiling, or when lower-count simulator pressure crosses load/memory thresholds. |
 | `com.igor.shutdown-simulators.plist` | `~/Library/LaunchAgents/` | LaunchAgent that runs the guard script every 60 seconds. |
 | `yolo-health` | `~/.local/bin/` | Health-check that verifies all safeguards are installed and active. Run anytime: `yolo-health` |
@@ -89,6 +89,13 @@ cd ~/workspace/git/igor/mac-yolo-safeguards
 | `AGY_YOLO_LOCK_PATH` | `/tmp/agy-yolo.lock` | Singleton lock path (override for tests). |
 | `AGY_YOLO_LOG_PATH` | `/tmp/agy-yolo.log` | Wrapper log path (override for tests). |
 | `AGY_YOLO_NO_DEFAULT_ARGS` | unset | If set, don't auto-add `--sandbox --dangerously-skip-permissions`. |
+| `HERMES_YOLO_PROVIDER` | `custom:ollama-local-64k` | Override the Hermes provider. Defaults to local Ollama unless a Z.ai key is present. |
+| `HERMES_YOLO_MODEL` | `qwen2.5:3b-64k` | Override the Hermes model. |
+| `HERMES_YOLO_TOOLSETS` | `terminal,file,web,code_execution,memory,clarify` | Override the slim default toolset. |
+| `HERMES_YOLO_TIMEOUT_MS` | `7200000` (120 min) | Hard kill after N ms. |
+| `HERMES_YOLO_CPU_STUCK_SAMPLES` | `0` | CPU watchdog is disabled by default; set this to a positive sample count to opt in. |
+| `HERMES_YOLO_CPU_SAMPLE_MS` | `30000` (30 s) | Watchdog sample interval when enabled. |
+| `HERMES_YOLO_CPU_THRESHOLD` | `90` | %CPU above which an enabled watchdog sample counts as high. |
 
 ## Hermes Runtime Readiness
 
