@@ -2,7 +2,7 @@
 type: "context-pack"
 project: "restaurant-ai-answering"
 source_status: "local-export"
-last_verified: "2026-06-29T08:01:01+00:00"
+last_verified: "2026-06-29T13:51:03+00:00"
 canonical_source: "sales/restaurant-ai-answering-system-gsd-focus.md"
 ---
 # Restaurant AI Answering System GSD Focus

@@ -2,12 +2,12 @@
 type: "approval-guard"
 project: "restaurant-ai-answering"
 source_status: "local-export"
-last_verified: "2026-06-29T08:01:01+00:00"
+last_verified: "2026-06-29T13:51:03+00:00"
 canonical_source: "reports/gtm/2026-06-29-money-today/restaurant-scout-guard.md"
 ---
 # Restaurant Scout Guard
 
-Generated: `2026-06-29T07:40:46+00:00`
+Generated: `2026-06-29T09:56:08+00:00`
 
 Scope: approval packet only. No Reddit post, DM, email, checkout send, deploy, form submission, phone call, or payment action was executed.
 

@@ -2,12 +2,12 @@
 type: "stripe-readiness"
 project: "restaurant-ai-answering"
 source_status: "local-export"
-last_verified: "2026-06-29T08:01:01+00:00"
+last_verified: "2026-06-29T13:51:03+00:00"
 canonical_source: "reports/gtm/stripe_readiness.md"
 ---
 # Stripe Readiness
 
-Generated: 2026-06-29T07:58:06+00:00
+Generated: 2026-06-29T13:49:43+00:00
 
 ## Status
 
@@ -18,6 +18,8 @@ Generated: 2026-06-29T07:58:06+00:00
 - details submitted: `true`
 - webhook secret configured locally: `true`
 - captured today: `$0.00`
+- restaurant diagnostic candidate charges: `0`
+- restaurant diagnostic candidate captured: `$0.00`
 
 ## Blockers
 

@@ -2,12 +2,12 @@
 type: "live-intake-fallback"
 project: "restaurant-ai-answering"
 source_status: "local-export"
-last_verified: "2026-06-29T08:01:01+00:00"
+last_verified: "2026-06-29T13:51:03+00:00"
 canonical_source: "reports/gtm/2026-06-29-money-today/restaurant-live-intake-fallback.md"
 ---
 # Restaurant Live Intake Fallback
 
-Generated: `2026-06-29T07:45:29+00:00`
+Generated: `2026-06-29T13:46:57+00:00`
 
 Scope: validation-only. No deploy, post, DM, email, checkout creation, phone call, or payment action was executed.
 
