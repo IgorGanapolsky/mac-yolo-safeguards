@@ -17,6 +17,7 @@ const fs = require('fs');
 
 const REPO = path.resolve(__dirname, '..');
 const LATEST_E2E_JSON = path.join(REPO, 'hermes-mobile/docs/proofs/continuous/latest.json');
+const { formatHuman, snapshotPlan } = require('./plan-coordination-snapshot');
 const E2E_STALE_MS = 30 * 60 * 1000;
 const args = process.argv.slice(2);
 const json = args.includes('--json');
@@ -38,6 +39,11 @@ function runBash(script, timeoutMs) {
     timeout: timeoutMs,
     maxBuffer: 2 * 1024 * 1024,
   });
+}
+
+const planSnapshot = snapshotPlan();
+if (!json) {
+  process.stdout.write(`\n${formatHuman(planSnapshot)}\n`);
 }
 
 const verify = runBash('scripts/verify-agent-automations.sh', 20_000);
