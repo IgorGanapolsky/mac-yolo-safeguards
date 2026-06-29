@@ -122,8 +122,8 @@ wait_for_adb() {
   local i=0
   while [[ $i -lt $attempts ]]; do
     local id
-    id="$(adb devices 2>/dev/null | awk 'NR>1 && $2=="device" {print $1; exit}')"
-    if [[ -n "$id" ]]; then
+    id="$(adb devices 2>/dev/null | awk 'NR>1 && $2=="device" && $1 !~ /^emulator-/ {print $1; exit}')"
+    if [[ -n "$id" ]] && adb -s "$id" shell echo ok >/dev/null 2>&1; then
       echo "$id"
       return 0
     fi
@@ -133,11 +133,17 @@ wait_for_adb() {
   return 1
 }
 
-has_adb_device() {
+has_usb_adb_device() {
   if [[ "${HERMES_E2E_IOS_ONLY:-}" == "1" ]]; then
     return 1
   fi
-  adb devices 2>/dev/null | awk 'NR>1 && $2=="device" {found=1} END {exit !found}'
+  local id
+  id="$(adb devices 2>/dev/null | awk 'NR>1 && $2=="device" && $1 !~ /^emulator-/ {print $1; exit}')"
+  [[ -n "$id" ]] && adb -s "$id" shell echo ok >/dev/null 2>&1
+}
+
+has_adb_device() {
+  has_usb_adb_device
 }
 
 ensure_metro() {
@@ -183,7 +189,7 @@ run_e2e_flow() {
     attempt=$((attempt + 1))
     # Do not tear down iOS simulators while a USB Android device is connected — that
     # race caused Maestro to fall back to simulator mid-cycle.
-    if has_adb_device; then
+    if has_usb_adb_device; then
       sleep 8
       wait_for_adb 12 >/dev/null || true
     else
@@ -205,23 +211,25 @@ run_e2e_suite() {
     return 2
   fi
 
-  if has_adb_device; then
-    echo "E2E target: Android USB ($(adb devices 2>/dev/null | awk 'NR>1 && $2=="device" {print $1; exit}'))"
+  if has_usb_adb_device; then
+    echo "E2E target: Android USB ($(adb devices 2>/dev/null | awk 'NR>1 && $2=="device" && $1 !~ /^emulator-/ {print $1; exit}'))"
   elif ! xcrun simctl list devices available 2>/dev/null | grep -qE 'iPhone.*\([0-9A-F-]{36}\)'; then
-    echo "No Android device and no iOS simulator — skipping E2E"
+    echo "No Android USB device and no iOS simulator — skipping E2E"
     return 2
   else
-    echo "E2E target: iOS simulator"
+    echo "E2E target: iOS simulator (no USB Android device)"
   fi
 
   wait_for_adb 2 >/dev/null || true
   ensure_metro || true
 
-  if has_adb_device; then
+  if has_usb_adb_device; then
     export HERMES_E2E_ANDROID_ONLY=1
-    export HERMES_E2E_ANDROID_UDID="$(adb devices 2>/dev/null | awk 'NR>1 && $2=="device" {print $1; exit}')"
+    export HERMES_E2E_ANDROID_UDID="$(adb devices 2>/dev/null | awk 'NR>1 && $2=="device" && $1 !~ /^emulator-/ {print $1; exit}')"
+    unset HERMES_E2E_IOS_ONLY
   else
     unset HERMES_E2E_ANDROID_ONLY HERMES_E2E_ANDROID_UDID
+    export HERMES_E2E_IOS_ONLY=1
   fi
 
   local flow

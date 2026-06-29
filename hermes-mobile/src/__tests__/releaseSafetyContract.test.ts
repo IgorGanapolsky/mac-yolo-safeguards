@@ -77,7 +77,7 @@ describe('release safety contract', () => {
   it('e2e-bootstrap waits for tab bar testIDs (not stray Settings copy)', () => {
     const bootstrap = read('hermes-mobile/.maestro/e2e-bootstrap.yaml');
     expect(bootstrap).toContain('id: "tab-hermes"');
-    expect(bootstrap).toContain('id: "tab-leash"');
+    expect(bootstrap).toContain('hermes://dev/leash-unlock');
     expect(bootstrap).not.toMatch(/text:\s*"Settings"/);
     const app = read('hermes-mobile/App.tsx');
     expect(app).toContain('tab-hermes');
