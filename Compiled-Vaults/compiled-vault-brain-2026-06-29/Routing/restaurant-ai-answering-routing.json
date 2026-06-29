@@ -1,0 +1,52 @@
+{
+  "generated_at": "2026-06-29T08:01:01+00:00",
+  "project": "restaurant-ai-answering",
+  "central_vault_url": "https://github.com/IgorGanapolsky/mac-yolo-safeguards/tree/main/Compiled-Vaults/compiled-vault-brain-2026-06-29",
+  "source_repo": "/Users/igorganapolsky/workspace/git/igor/skool_top1percent",
+  "read_order": [
+    "Context-Packs/restaurant-ai-answering-money-focus.md",
+    "Status/restaurant-ai-answering-current-state.md",
+    "Project-Reports/restaurant-ai-answering-operator-close-packet-2026-06-29.md",
+    "Project-Reports/restaurant-ai-answering-lead-queue-2026-06-29.md",
+    "Project-Reports/restaurant-ai-answering-deploy-readiness-2026-06-29.md",
+    "Project-Reports/restaurant-deploy-approval-request.md",
+    "Project-Reports/restaurant-stripe-readiness.md",
+    "Project-Reports/restaurant-checkout-recovery-queue-2026-06-29.md",
+    "Project-Reports/restaurant-fresh-buyer-scout-2026-06-29.md",
+    "Project-Reports/restaurant-scout-guard-2026-06-29.md",
+    "Project-Reports/restaurant-scout-guard-toast-menu-2026-06-29.md",
+    "Project-Reports/restaurant-scout-guard-missed-reservations-2026-06-29.md",
+    "Project-Reports/restaurant-scout-guard-toast-marketplace-2026-06-29.md",
+    "Project-Reports/restaurant-scout-close-packet-2026-06-29.md",
+    "Project-Reports/restaurant-live-intake-fallback-2026-06-29.md",
+    "Project-Reports/restaurant-approval-execution-packet-2026-06-29.md",
+    "LLM Entry Points/Restaurant AI Answering Codex.md"
+  ],
+  "approval_gates": {
+    "deploy": "APPROVE DEPLOY RESTAURANT AI ANSWERING ROUTE",
+    "restaurant_scout_phone_orders": "APPROVE RESTAURANT SCOUT PHONE ORDERS",
+    "restaurant_scout_toast_menu": "APPROVE RESTAURANT SCOUT TOAST MENU",
+    "restaurant_scout_missed_reservations": "APPROVE RESTAURANT SCOUT MISSED RESERVATIONS",
+    "restaurant_scout_toast_marketplace": "APPROVE RESTAURANT SCOUT TOAST MARKETPLACE"
+  },
+  "written_files": [
+    "Context-Packs/restaurant-ai-answering-money-focus.md",
+    "Project-Reports/restaurant-ai-answering-lead-queue-2026-06-29.md",
+    "Project-Reports/restaurant-ai-answering-operator-close-packet-2026-06-29.md",
+    "Project-Reports/restaurant-ai-answering-deploy-readiness-2026-06-29.md",
+    "Project-Reports/restaurant-deploy-approval-request.md",
+    "Project-Reports/restaurant-stripe-readiness.md",
+    "Project-Reports/restaurant-checkout-recovery-queue-2026-06-29.md",
+    "Project-Reports/restaurant-fresh-buyer-scout-2026-06-29.md",
+    "Project-Reports/restaurant-scout-guard-2026-06-29.md",
+    "Project-Reports/restaurant-scout-guard-toast-menu-2026-06-29.md",
+    "Project-Reports/restaurant-scout-guard-missed-reservations-2026-06-29.md",
+    "Project-Reports/restaurant-scout-guard-toast-marketplace-2026-06-29.md",
+    "Project-Reports/restaurant-scout-close-packet-2026-06-29.md",
+    "Project-Reports/restaurant-live-intake-fallback-2026-06-29.md",
+    "Project-Reports/restaurant-approval-execution-packet-2026-06-29.md",
+    "Status/restaurant-ai-answering-current-state.md",
+    "LLM Entry Points/Restaurant AI Answering Codex.md",
+    "Routing/restaurant-ai-answering-routing.json"
+  ]
+}
