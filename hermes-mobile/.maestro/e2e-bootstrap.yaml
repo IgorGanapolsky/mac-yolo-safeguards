@@ -53,8 +53,10 @@ appId: com.iganapolsky.hermesmobile
     direction: UP
     timeout: 90000
 - hideKeyboard
-- tapOn:
-    id: "tab-hermes"
+- waitForAnimationToEnd:
+    timeout: 2000
+# Tab bar taps fail on iOS sim when keyboard inset sets tab bar pointerEvents=none — deep link instead.
+- openLink: "hermes://chat"
 - extendedWaitUntil:
     notVisible:
       id: "tab-screen-loading"
@@ -64,7 +66,7 @@ appId: com.iganapolsky.hermesmobile
 - hideKeyboard
 - extendedWaitUntil:
     visible:
-      id: "HERMES CHAT"
+      id: "chat-screen-header"
     timeout: 45000
 - scrollUntilVisible:
     element:

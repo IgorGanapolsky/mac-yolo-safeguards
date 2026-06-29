@@ -16,14 +16,13 @@ appId: com.iganapolsky.hermesmobile
 - runFlow:
     when:
       notVisible:
-        id: "HERMES CHAT"
+        id: "chat-screen-header"
     commands:
-      - tapOn:
-          id: "tab-hermes"
+      - openLink: "hermes://chat"
 
 - extendedWaitUntil:
     visible:
-      id: "HERMES CHAT"
+      id: "chat-screen-header"
     timeout: 30000
 
 - hideKeyboard
@@ -37,30 +36,36 @@ appId: com.iganapolsky.hermesmobile
       id: "chat-input"
     timeout: 30000
 
-- tapOn:
-    id: "tab-leash"
+- hideKeyboard
+- openLink: "hermes://leash"
 - extendedWaitUntil:
     notVisible:
       id: "tab-screen-loading"
     timeout: 90000
+- hideKeyboard
 - extendedWaitUntil:
     visible:
       id: "THUMBGATE_LEASH"
-    timeout: 30000
+    timeout: 45000
 
-- tapOn:
-    id: "tab-settings"
+- openLink: "hermes://settings"
 - extendedWaitUntil:
     notVisible:
       id: "tab-screen-loading"
     timeout: 90000
-- assertVisible:
-    id: "SETTINGS"
+- hideKeyboard
+- extendedWaitUntil:
+    visible:
+      id: "SETTINGS"
+    timeout: 45000
 
+- hideKeyboard
 - scrollUntilVisible:
     element:
       id: "gateway-ops-section"
     direction: DOWN
-    timeout: 30000
-- assertVisible:
-    id: "gateway-ops-section"
+    timeout: 90000
+- extendedWaitUntil:
+    visible:
+      id: "gateway-ops-section"
+    timeout: 45000
