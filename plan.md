@@ -44,6 +44,7 @@ Durable rules live in [AGENTS.md](./AGENTS.md); this file is *live state only*.
 | T-23 | Arena-style token efficiency gate for Hermes model routing | done | codex | `tools/recursive-experiment-loop.js`, `tests/test-recursive-experiment-loop.js`, `docs/RECURSIVE-EXPERIMENT-LOOP.md`, `plan.md` | scorer reports task improvement per 1k output tokens and penalizes tool hallucination / bash recovery failures; tests pass |
 | T-24 | Skool Money Project: AI VoIP restaurant answering and booking engine | done | antigravity | `tools/skool-restaurant-answering.js`, `tests/test-skool-restaurant-answering.js`, `docs/SKOOL-RESTAURANT-ANSWERING.md` | VoIP simulated answering, RAG query intents, Resy/OpenTable booking sync, and SMS reservations; tests pass |
 | T-25 | Fix agent-device E2E compatibility for navigation and ship-guard scroll commands | in_progress | antigravity | `hermes-mobile/.maestro/navigation.yaml`, `hermes-mobile/.maestro/ship-guard.yaml` | `npm run launch:preflight:android` passes |
+| T-26 | Sakana-inspired Hermes setup verifier for all Macs | in_progress | codex | `tools/hermes-all-macs-setup.js`, `tests/test-hermes-all-macs-setup.js`, `docs/HERMES-ALL-MACS-SETUP.md`, `plan.md` | verifier emits all-Mac readiness matrix, Sakana/Fugu provider candidate gates, DGM-style adoption actions, and tests pass |
 
 Status values: `pending` | `in_progress` | `blocked` | `done`. Claim a row by setting Owner+Status in one edit, then claim its files in §2.
 
@@ -84,6 +85,7 @@ Status values: `pending` | `in_progress` | `blocked` | `done`. Claim a row by se
 - `tools/recursive-experiment-loop.js`, `tests/test-recursive-experiment-loop.js`, `docs/RECURSIVE-EXPERIMENT-LOOP.md` → **codex** (T-23 Arena-style token efficiency gate) (2026-06-29)
 - `tools/skool-restaurant-answering.js`, `tests/test-skool-restaurant-answering.js`, `docs/SKOOL-RESTAURANT-ANSWERING.md` → **antigravity** (T-24) — released (2026-06-29)
 - `hermes-mobile/.maestro/navigation.yaml`, `hermes-mobile/.maestro/ship-guard.yaml` → **antigravity** (T-25) (2026-06-29)
+- `tools/hermes-all-macs-setup.js`, `tests/test-hermes-all-macs-setup.js`, `docs/HERMES-ALL-MACS-SETUP.md` → **codex** (T-26) (2026-06-29)
 - `AGENTS.md`, `plan.md` → shared coordination files (append-only edits, commit first)
 - everything else → (free)
 
