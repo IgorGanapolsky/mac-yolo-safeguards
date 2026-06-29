@@ -24,3 +24,14 @@ This vault is organized into clean, markdown-based directories designed for high
 ## 🔁 Git & Obsidian Layering
 - **Durable Sync:** This vault is checked directly into our GitHub repository to sync automatically across dev workspaces, laptop terminals, and remote hosts.
 - **Obsidian Graph View:** Open this folder directly as an Obsidian vault to visualize node connections and manage your knowledge base.
+
+## Canonical Vault Truth — 2026-06-29
+
+There is one live Obsidian coordination vault and one compiled brain snapshot:
+
+- **Live vault:** `/Users/igorganapolsky/Documents/AI-Agent-Sync`
+- **Live vault remote:** `https://github.com/IgorGanapolsky/AI-Agent-Sync.git`
+- **Canonical compiled snapshot:** `/Users/igorganapolsky/workspace/git/igor/mac-yolo-safeguards/Compiled-Vaults/compiled-vault-brain-2026-06-29`
+- **Canonical compiled remote:** `https://github.com/IgorGanapolsky/mac-yolo-safeguards.git`
+
+Project checkouts such as `Resume`, `ThumbGate`, and `AI_Voice_Phone_Ordering` should write durable cross-agent state into the live vault and/or this compiled snapshot. They should not create competing compiled vaults.
