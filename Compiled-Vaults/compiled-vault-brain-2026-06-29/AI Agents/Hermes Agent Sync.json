@@ -1,0 +1,437 @@
+{
+  "schema": "hermes-agent-sync-brief/v1",
+  "generatedAt": "2026-06-29T04:32:38.024Z",
+  "machine": {
+    "hostname": "Igors-MacBook-Pro.local",
+    "platform": "darwin",
+    "arch": "arm64",
+    "cwd": "/Users/igorganapolsky/workspace/git/igor/mac-yolo-safeguards"
+  },
+  "git": {
+    "branch": "main",
+    "head": "c699116",
+    "dirtyCount": 20,
+    "dirtyFiles": [
+      "M OBSIDIAN.md",
+      " M tools/agent-session-start.js",
+      "?? .idea/",
+      "?? .thumbgate/",
+      "?? .venv/",
+      "?? .vscode/",
+      "?? Reports/",
+      "?? docs/AGENT-SYNC-BRIEF.md",
+      "?? docs/HERMES-HARDWARE-LEASH.md",
+      "?? docs/HERMES-LOOP-ENGINE.md",
+      "?? hermes-mobile/scripts/__pycache__/",
+      "?? scripts/__pycache__/",
+      "?? tests/test-agent-sync-brief.js",
+      "?? tests/test-hermes-hardware-leash.js",
+      "?? tests/test-hermes-loop-engine.js",
+      "?? tests/test-plan-coordination-snapshot.js",
+      "?? tools/agent-sync-brief.js",
+      "?? tools/hermes-hardware-leash.js",
+      "?? tools/hermes-loop-engine.js",
+      "?? tools/plan-coordination-snapshot.js"
+    ],
+    "dirtyFilesTruncated": false,
+    "branchStatus": "## main...origin/main\n M OBSIDIAN.md\n M tools/agent-session-start.js\n?? .idea/\n?? .thumbgate/\n?? .venv/\n?? .vscode/\n?? Reports/\n?? docs/AGENT-SYNC-BRIEF.md\n?? docs/HERMES-HARDWARE-LEASH.md\n?? docs/HERMES-LOOP-ENGINE.md\n?? hermes-mobile/scripts/__pycache__/\n?? scripts/__pycache__/\n?? tests/test-agent-sync-brief.js\n?? tests/test-hermes-hardware-leash.js\n?? tests/test-hermes-loop-engine.js\n?? tests/test-plan-coordination-snapshot.js\n?? tools/agent-sync-brief.js\n?? tools/hermes-hardware-leash.js\n?? tools/hermes-loop-engine.js\n?? tools/plan-coordination-snapshot.js"
+  },
+  "plan": {
+    "path": "/Users/igorganapolsky/workspace/git/igor/mac-yolo-safeguards/plan.md",
+    "exists": true,
+    "tasks": [
+      {
+        "id": "T-1",
+        "task": "Off-WiFi LAN/relay detection refactor",
+        "status": "in_progress",
+        "owner": "gemini",
+        "files": "`hermes-mobile/src/context/GatewayContext.tsx`, `src/utils/gatewayEndpoint.ts`, `src/__tests__/GatewayContext.test.tsx`, `jest.setup.js`",
+        "acceptanceCheck": "`npm test` (542/542 currently green)"
+      },
+      {
+        "id": "T-2",
+        "task": "Fix `onDismiss` crash on `hermes://setup` deep link",
+        "status": "done",
+        "owner": "antigravity",
+        "files": "`hermes-mobile/src/components/ConnectMacGate.tsx`, `hermes-mobile/src/context/GatewayContext.tsx`",
+        "acceptanceCheck": "deep link applies gatewayUrl without ErrorBoundary crash"
+      },
+      {
+        "id": "T-3",
+        "task": "Make off-WiFi actually work = **Tailscale** (not a relay)",
+        "status": "done",
+        "owner": "antigravity",
+        "files": "docs + app onboarding copy",
+        "acceptanceCheck": "phone reaches Mac via tailnet IP from app"
+      },
+      {
+        "id": "T-4",
+        "task": "Fix failing Maestro E2E flows",
+        "status": "done",
+        "owner": "antigravity",
+        "files": "`hermes-mobile/src/utils/otelPolyfill.ts`, `.maestro/chat-send-persistence.yaml`, `hermes-mobile/assets/splash.png`, `hermes-mobile/src/components/FreshUserOnboardingCard.tsx`, `hermes-mobile/src/utils/freshUserOnboarding.ts`, `hermes-mobile/src/__tests__/ChatConnectionPanel.test.tsx`",
+        "acceptanceCheck": "`latest.json` e2e=pass"
+      },
+      {
+        "id": "T-5",
+        "task": "Explain Tailscale requirement in-app (Igor's UX point)",
+        "status": "done",
+        "owner": "antigravity",
+        "files": "a Settings/onboarding screen",
+        "acceptanceCheck": "user told to install Tailscale + why"
+      },
+      {
+        "id": "T-6",
+        "task": "Optimize app size by enabling R8 minification and resource shrinking",
+        "status": "done",
+        "owner": "antigravity",
+        "files": "`hermes-mobile/app.json`",
+        "acceptanceCheck": "`npm run launch:preflight:android` passes and R8 size reduction verified"
+      },
+      {
+        "id": "T-7",
+        "task": "Fix Android USB-pairing hijack bug",
+        "status": "done",
+        "owner": "antigravity",
+        "files": "`hermes-mobile/src/screens/ChatScreen.tsx`",
+        "acceptanceCheck": "retry retains Wi-Fi profile and doesn't switch to USB"
+      },
+      {
+        "id": "T-8",
+        "task": "Zero-friction LAN discovery & Settings URL validation",
+        "status": "done",
+        "owner": "antigravity",
+        "files": "`hermes-mobile/src/screens/SettingsScreen.tsx`, `hermes-mobile/src/screens/ChatScreen.tsx`",
+        "acceptanceCheck": "auto-selects LAN profile on scan and rejects junk URLs"
+      },
+      {
+        "id": "T-9",
+        "task": "Multi-platform optional thumbs feedback details modal",
+        "status": "done",
+        "owner": "antigravity",
+        "files": "`hermes-mobile/src/components/FeedbackPromptModal.tsx`, `hermes-mobile/src/screens/ChatScreen.tsx`",
+        "acceptanceCheck": "allows typing optional details on thumbs up/down"
+      },
+      {
+        "id": "T-10",
+        "task": "Display active machine name in connection/reconnection status tiles",
+        "status": "done",
+        "owner": "antigravity",
+        "files": "`hermes-mobile/src/components/CodexCommandCenter.tsx`, `hermes-mobile/src/screens/ChatScreen.tsx`",
+        "acceptanceCheck": "npm test passes"
+      },
+      {
+        "id": "T-11",
+        "task": "Fix clipped long chat header title on Android",
+        "status": "done",
+        "owner": "codex",
+        "files": "`hermes-mobile/src/components/ChatScreenHeader.tsx`, `hermes-mobile/src/__tests__/ChatScreenHeader.test.tsx`",
+        "acceptanceCheck": "long prompt title is one-line ellipsized and header tests pass"
+      },
+      {
+        "id": "T-13",
+        "task": "Discover Mac mini over Tailscale/USB loopback",
+        "status": "done",
+        "owner": "antigravity",
+        "files": "`hermes-mobile/src/services/gatewayDiscovery.ts`, `hermes-mobile/src/__tests__/gatewayDiscovery.test.ts`",
+        "acceptanceCheck": "`npm test` passes and Mac mini discovered during scan"
+      },
+      {
+        "id": "T-14",
+        "task": "Research-to-Hermes intelligence gate for multi-machine/provider improvements",
+        "status": "done",
+        "owner": "codex",
+        "files": "`tools/hermes-research-intelligence.js`, `tests/test-hermes-research-intelligence.js`",
+        "acceptanceCheck": "tool emits scored, verifiable recommendations and tests pass"
+      },
+      {
+        "id": "T-15",
+        "task": "Hermes hardware leash / M5Stack control surface",
+        "status": "done",
+        "owner": "codex",
+        "files": "`tools/hermes-hardware-leash.js`, `tests/test-hermes-hardware-leash.js`, `docs/HERMES-HARDWARE-LEASH.md`",
+        "acceptanceCheck": "`node tests/test-hermes-hardware-leash.js` passes; snapshot reports local gateway online; signed event verification passes"
+      },
+      {
+        "id": "T-16",
+        "task": "Hermes loop engine / Tasklet-Beads-CodeRabbit operating kernel",
+        "status": "done",
+        "owner": "codex",
+        "files": "`tools/hermes-loop-engine.js`, `tests/test-hermes-loop-engine.js`, `docs/HERMES-LOOP-ENGINE.md`",
+        "acceptanceCheck": "`node tests/test-hermes-loop-engine.js` passes; `NEW_REPLY` selects buyer reply with approval gate; `PAYMENT_SUCCEEDED` selects paid fulfillment first"
+      },
+      {
+        "id": "T-17",
+        "task": "Obsidian-readable cross-agent sync brief",
+        "status": "in_progress",
+        "owner": "codex",
+        "files": "`tools/agent-sync-brief.js`, `tests/test-agent-sync-brief.js`, `docs/AGENT-SYNC-BRIEF.md`",
+        "acceptanceCheck": "tool writes source-backed Markdown+JSON sync packets, redacts secrets, and tests pass"
+      }
+    ],
+    "activeTasks": [
+      {
+        "id": "T-1",
+        "task": "Off-WiFi LAN/relay detection refactor",
+        "status": "in_progress",
+        "owner": "gemini",
+        "files": "`hermes-mobile/src/context/GatewayContext.tsx`, `src/utils/gatewayEndpoint.ts`, `src/__tests__/GatewayContext.test.tsx`, `jest.setup.js`",
+        "acceptanceCheck": "`npm test` (542/542 currently green)"
+      },
+      {
+        "id": "T-17",
+        "task": "Obsidian-readable cross-agent sync brief",
+        "status": "in_progress",
+        "owner": "codex",
+        "files": "`tools/agent-sync-brief.js`, `tests/test-agent-sync-brief.js`, `docs/AGENT-SYNC-BRIEF.md`",
+        "acceptanceCheck": "tool writes source-backed Markdown+JSON sync packets, redacts secrets, and tests pass"
+      }
+    ],
+    "fileLocks": [
+      {
+        "raw": "`hermes-mobile/src/context/GatewayContext.tsx` → **gemini** (T-1) — DO NOT EDIT (active WIP, verified live 2026-06-24)",
+        "active": true
+      },
+      {
+        "raw": "`hermes-mobile/src/utils/gatewayEndpoint.ts` → **gemini** (T-1)",
+        "active": true
+      },
+      {
+        "raw": "`hermes-mobile/src/__tests__/GatewayContext.test.tsx` → **gemini** (T-1)",
+        "active": true
+      },
+      {
+        "raw": "`jest.setup.js` → **gemini** (T-1) (has the NetInfo `addEventListener` mock fix — keep it)",
+        "active": true
+      },
+      {
+        "raw": "`hermes-mobile/app.json` → **antigravity** (T-6) — released (2026-06-27)",
+        "active": false
+      },
+      {
+        "raw": "`hermes-mobile/src/screens/ChatScreen.tsx` → **antigravity** (T-7, T-8, T-9, T-10) — released (2026-06-28)",
+        "active": false
+      },
+      {
+        "raw": "`hermes-mobile/src/screens/SettingsScreen.tsx` → **antigravity** (T-8) — released (2026-06-27)",
+        "active": false
+      },
+      {
+        "raw": "`hermes-mobile/src/components/FeedbackPromptModal.tsx` → **antigravity** (T-9) — released (2026-06-27)",
+        "active": false
+      },
+      {
+        "raw": "`hermes-mobile/src/components/CodexCommandCenter.tsx` → **antigravity** (T-10) — released (2026-06-28)",
+        "active": false
+      },
+      {
+        "raw": "`hermes-mobile/scripts/run-simulator-e2e.sh` → **antigravity** (T-4) — released (2026-06-28)",
+        "active": false
+      },
+      {
+        "raw": "`hermes-mobile/scripts/run-continuous-e2e.sh` → **antigravity** (T-4) — released (2026-06-28)",
+        "active": false
+      },
+      {
+        "raw": "`hermes-mobile/scripts/run-e2e.sh` → **antigravity** (T-4) — released (2026-06-28)",
+        "active": false
+      },
+      {
+        "raw": "`sim-runaway-guard.sh` → **antigravity** (T-4) — released (2026-06-28)",
+        "active": false
+      },
+      {
+        "raw": "`hermes-mobile/package.json`, `hermes-mobile/package-lock.json` → **antigravity** (T-4) — released (2026-06-28)",
+        "active": false
+      },
+      {
+        "raw": "`hermes-mobile/.maestro/ship-guard.yaml`, `hermes-mobile/.maestro/navigation.yaml` → **antigravity** (T-4) — released (2026-06-28)",
+        "active": false
+      },
+      {
+        "raw": "`hermes-mobile/src/components/ChatScreenHeader.tsx`, `hermes-mobile/src/__tests__/ChatScreenHeader.test.tsx` → **codex** (T-11) — released 2026-06-28",
+        "active": false
+      },
+      {
+        "raw": "`hermes-mobile/src/services/gatewayDiscovery.ts`, `hermes-mobile/src/__tests__/gatewayDiscovery.test.ts` → **antigravity** (T-13) — released (2026-06-28)",
+        "active": false
+      },
+      {
+        "raw": "`hermes-mobile/src/utils/freshUserOnboarding.ts` → **antigravity** (T-4) — released (2026-06-29)",
+        "active": false
+      },
+      {
+        "raw": "`hermes-mobile/src/utils/otelPolyfill.ts`, `.maestro/chat-send-persistence.yaml`, `hermes-mobile/assets/splash.png`, `hermes-mobile/src/components/FreshUserOnboardingCard.tsx` → **antigravity** (T-4) (2026-06-29)",
+        "active": true
+      },
+      {
+        "raw": "`hermes-mobile/src/components/ConnectMacGate.tsx` → **antigravity** (T-2/T-4) — released (2026-06-29)",
+        "active": false
+      },
+      {
+        "raw": "`hermes-mobile/src/context/GatewayContext.tsx` → **antigravity** (T-2) (2026-06-29)",
+        "active": true
+      },
+      {
+        "raw": "`hermes-mobile/src/__tests__/ChatConnectionPanel.test.tsx` → **antigravity** (T-4) — released (2026-06-29)",
+        "active": false
+      },
+      {
+        "raw": "`hermes-mobile/src/screens/ChatScreen.tsx` → **antigravity** (T-4) — released (2026-06-29)",
+        "active": false
+      },
+      {
+        "raw": "`tools/hermes-research-intelligence.js`, `tests/test-hermes-research-intelligence.js` → **codex** (T-14) (2026-06-29)",
+        "active": true
+      },
+      {
+        "raw": "`tools/hermes-hardware-leash.js`, `tests/test-hermes-hardware-leash.js`, `docs/HERMES-HARDWARE-LEASH.md` → **codex** (T-15) (2026-06-29)",
+        "active": true
+      },
+      {
+        "raw": "`tools/hermes-loop-engine.js`, `tests/test-hermes-loop-engine.js`, `docs/HERMES-LOOP-ENGINE.md` → **codex** (T-16) (2026-06-29)",
+        "active": true
+      },
+      {
+        "raw": "`tools/agent-sync-brief.js`, `tests/test-agent-sync-brief.js`, `docs/AGENT-SYNC-BRIEF.md` → **codex** (T-17) (2026-06-29)",
+        "active": true
+      },
+      {
+        "raw": "`AGENTS.md`, `plan.md` → shared coordination files (append-only edits, commit first)",
+        "active": true
+      }
+    ],
+    "activeLocks": [
+      {
+        "raw": "`hermes-mobile/src/context/GatewayContext.tsx` → **gemini** (T-1) — DO NOT EDIT (active WIP, verified live 2026-06-24)",
+        "active": true
+      },
+      {
+        "raw": "`hermes-mobile/src/utils/gatewayEndpoint.ts` → **gemini** (T-1)",
+        "active": true
+      },
+      {
+        "raw": "`hermes-mobile/src/__tests__/GatewayContext.test.tsx` → **gemini** (T-1)",
+        "active": true
+      },
+      {
+        "raw": "`jest.setup.js` → **gemini** (T-1) (has the NetInfo `addEventListener` mock fix — keep it)",
+        "active": true
+      },
+      {
+        "raw": "`hermes-mobile/src/utils/otelPolyfill.ts`, `.maestro/chat-send-persistence.yaml`, `hermes-mobile/assets/splash.png`, `hermes-mobile/src/components/FreshUserOnboardingCard.tsx` → **antigravity** (T-4) (2026-06-29)",
+        "active": true
+      },
+      {
+        "raw": "`hermes-mobile/src/context/GatewayContext.tsx` → **antigravity** (T-2) (2026-06-29)",
+        "active": true
+      },
+      {
+        "raw": "`tools/hermes-research-intelligence.js`, `tests/test-hermes-research-intelligence.js` → **codex** (T-14) (2026-06-29)",
+        "active": true
+      },
+      {
+        "raw": "`tools/hermes-hardware-leash.js`, `tests/test-hermes-hardware-leash.js`, `docs/HERMES-HARDWARE-LEASH.md` → **codex** (T-15) (2026-06-29)",
+        "active": true
+      },
+      {
+        "raw": "`tools/hermes-loop-engine.js`, `tests/test-hermes-loop-engine.js`, `docs/HERMES-LOOP-ENGINE.md` → **codex** (T-16) (2026-06-29)",
+        "active": true
+      },
+      {
+        "raw": "`tools/agent-sync-brief.js`, `tests/test-agent-sync-brief.js`, `docs/AGENT-SYNC-BRIEF.md` → **codex** (T-17) (2026-06-29)",
+        "active": true
+      },
+      {
+        "raw": "`AGENTS.md`, `plan.md` → shared coordination files (append-only edits, commit first)",
+        "active": true
+      }
+    ],
+    "recentDecisions": [
+      "2026-06-28 `antigravity`: **Completed T-13 (Discover Mac mini over Tailscale/USB loopback).** Modified `gatewayDiscovery.ts` sweeping functions to always include loopback addresses `127.0.0.1` and `localhost` first, and allowed scanning to continue even when Wi-Fi is disabled. This enables USB-paired devices to fetch `pair.json` from the local MacBook pair server over the reverse-forwarded ADB tunnel and instantly merge `tailnetProbeHosts`, discovering the Mac mini on Tailscale. Added corresponding unit tests in `gatewayDiscovery.test.ts` and verified all 668 tests are green.",
+      "2026-06-29 `antigravity`: **Redesigned splash screen and built a friction-free onboarding assistant card.** Generated and applied a high-resolution, premium neon-accented futuristic winged sandal of Hermes design for `splash.png`. Solved the OpenTelemetry module resolution crash inside Metro by explicitly adding `@opentelemetry/core` to the dependencies block of `package.json` to guarantee top-level package resolution. Implemented `FreshUserOnboardingCard` to automatically instruct new users with 100% clear, actionable, and self-healing pairing advice upon first launch. Verified that both the units and full Maestro E2E suites pass 100% on the physical S25 device (`E2E: PASS`).",
+      "2026-06-29 `antigravity`: **Fixed freshUserOnboarding.ts template syntax error.** Repaired unescaped single quote in cellular fallback string which broke Babel parser during unit test run. Deleted Jest cache and ran all 109 test suites / 679 unit tests successfully (100% PASS).",
+      "2026-06-29 `codex`: **Completed T-15 (Hermes hardware leash / M5Stack control surface).** Added `tools/hermes-hardware-leash.js` for signed, replay-limited M5Stack-style events, high-ROI action ranking, local `/health` `/snapshot` `/event` firmware endpoints, and safe JSONL event capture. Added `tests/test-hermes-hardware-leash.js` and `docs/HERMES-HARDWARE-LEASH.md`. Verification: `node tests/test-hermes-hardware-leash.js` passes 8/8; `node tools/hermes-hardware-leash.js snapshot --json` reports local gateway `status=online`, `health.status=200`, display color `green`; signed approve event verification returns `{ ok: true, reason: \"verified\" }`.",
+      "2026-06-29 `codex`: **Completed T-16 (Hermes loop engine / Tasklet-Beads-CodeRabbit operating kernel).** Added `tools/hermes-loop-engine.js`, `tests/test-hermes-loop-engine.js`, and `docs/HERMES-LOOP-ENGINE.md`. The engine defines Hermes/Codex/ThumbGate/verifier responsibilities, ranks ready tasks, emits up to five executable actions, preserves approval gates, and transitions tasks through verifier evidence. Verification: `node tests/test-hermes-loop-engine.js` passes 10/10; `node tools/hermes-loop-engine.js next --event NEW_REPLY --buyer --json` selects `answer_interested_buyer` with `approval_required=true`; `node tools/hermes-loop-engine.js next --event PAYMENT_SUCCEEDED --paid --json` selects `fulfill_paid_work`; `node tools/hermes-loop-engine.js validate --json` returns `ok=true`.",
+      "2026-06-29 `codex`: **Completed T-14 (research-to-Hermes intelligence gate).** Added `tools/hermes-research-intelligence.js` to score research links and operator text into existing, verifiable Hermes improvements instead of auto-scraping, auto-training, or auto-installing generated skills. Output ranked five actions: hybrid RAG 15/15, provider capability routing 14/15, guarded skill compilation 12/15, MLX readiness 12/15, Android E2E portability 11/15. Verification: `node tests/test-hermes-research-intelligence.js`, `node tests/test-openrouter-graphify-tools.js`, `node tests/test-hermes-source-packs.js`, `node tests/test-kimi-model-upgrade-audit.js`, `node tests/test-glm52-hermes-config.js`, `node tests/test-tencentdb-memory-readiness.js`, `node tests/test-hermes-self-harness.js`, and `node tests/test-hermes-governance-audit.js` passed. Runtime evidence: graphify graph exists; local Ollama fallback is reachable with 8 models; `oMLX` at `127.0.0.1:8011` is not reachable; Tailscale discovery found `Igors-Mac-mini` at `100.94.135.78:8642`.",
+      "2026-06-29 `antigravity`: **Completed T-3 & T-5 (Direct manual Tailscale/IP connection entry).** Implemented a clean manual URL/IP entry interface directly in both `ConnectMacGate` and `ChatConnectionPanel` along with automatic cleanup and validation (cleanManualGatewayUrl). This allows cellular or Tailscale users to immediately connect to their Mac mini by entering its IP (e.g. `100.87.85.85`) directly from the connection status panel without navigating Settings. Verified that 100% of unit tests pass.",
+      "2026-06-24 `claude-code`: T-2 (onDismiss crash) and T-4 (Maestro E2E red) block any \"off-WiFi works on device\" claim. Sequence: T-2 → then T-3/T-5 → then T-4 verify."
+    ]
+  },
+  "protectedState": {
+    "latestE2e": {
+      "exists": true,
+      "path": "/Users/igorganapolsky/workspace/git/igor/mac-yolo-safeguards/hermes-mobile/docs/proofs/continuous/latest.json",
+      "e2e": "skipped",
+      "unit": "fail",
+      "checkedAt": null,
+      "rawKeys": [
+        "detail",
+        "e2e",
+        "flows",
+        "logDir",
+        "unit",
+        "updatedAt"
+      ]
+    },
+    "launchAgents": {
+      "com.igor.shutdown-simulators": {
+        "ok": true,
+        "state": "not running",
+        "lastExitStatus": "0",
+        "command": "launchctl print gui/501/com.igor.shutdown-simulators"
+      },
+      "com.igor.hermes-mobile-continuous-e2e": {
+        "ok": true,
+        "state": "running",
+        "lastExitStatus": "1",
+        "command": "launchctl print gui/501/com.igor.hermes-mobile-continuous-e2e"
+      }
+    }
+  },
+  "syncContract": {
+    "writeBoundary": "Agents must claim files in plan.md before editing and must not overwrite unowned dirty files.",
+    "obsidianBoundary": "Obsidian AI Agent should read this note and AGENTS.md before proposing or editing repo work.",
+    "evidenceBoundary": "Claims require source paths, command output, or latest proof artifacts in the same report.",
+    "stopGates": [
+      "blocked plan task",
+      "active file lock owned by another agent",
+      "dirty unowned file in target path",
+      "missing verification for fixed/shipped language"
+    ]
+  },
+  "blockers": [
+    "dirty worktree has 20 entries; do not overwrite unowned work",
+    "continuous E2E is skipped"
+  ],
+  "sources": [
+    {
+      "label": "agent directives",
+      "path": "/Users/igorganapolsky/workspace/git/igor/mac-yolo-safeguards/AGENTS.md",
+      "exists": true,
+      "sizeBytes": 12538,
+      "mtime": "2026-06-26T21:57:51.955Z"
+    },
+    {
+      "label": "coordination board",
+      "path": "/Users/igorganapolsky/workspace/git/igor/mac-yolo-safeguards/plan.md",
+      "exists": true,
+      "sizeBytes": 18981,
+      "mtime": "2026-06-29T04:26:05.842Z"
+    },
+    {
+      "label": "obsidian index",
+      "path": "/Users/igorganapolsky/workspace/git/igor/mac-yolo-safeguards/OBSIDIAN.md",
+      "exists": true,
+      "sizeBytes": 2615,
+      "mtime": "2026-06-29T04:24:02.376Z"
+    },
+    {
+      "label": "continuous e2e latest",
+      "path": "/Users/igorganapolsky/workspace/git/igor/mac-yolo-safeguards/hermes-mobile/docs/proofs/continuous/latest.json",
+      "exists": true,
+      "sizeBytes": 306,
+      "mtime": "2026-06-29T04:31:32.833Z"
+    }
+  ]
+}
