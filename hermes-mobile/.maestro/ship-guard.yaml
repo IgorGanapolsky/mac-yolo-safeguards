@@ -62,9 +62,10 @@ appId: com.iganapolsky.hermesmobile
 - hideKeyboard
 - scrollUntilVisible:
     element:
-      id: "gateway-ops-section"
+      id: "GATEWAY_OPS"
     direction: DOWN
     timeout: 90000
+    visibilityPercentage: 50
 - extendedWaitUntil:
     visible:
       id: "gateway-ops-section"

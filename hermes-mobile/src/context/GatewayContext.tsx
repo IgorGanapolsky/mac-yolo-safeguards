@@ -1685,8 +1685,14 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
   );
 
   const activateDeveloperLeashUnlock = useCallback(async () => {
-    const nextSettings = withDeveloperLeashUnlocked(settingsRef.current);
-    if (nextSettings.developerLeashUnlock === settingsRef.current.developerLeashUnlock) {
+    const nextSettings = {
+      ...withDeveloperLeashUnlocked(settingsRef.current),
+      thumbgateProActive: true,
+    };
+    if (
+      nextSettings.developerLeashUnlock === settingsRef.current.developerLeashUnlock &&
+      nextSettings.thumbgateProActive === settingsRef.current.thumbgateProActive
+    ) {
       return;
     }
     await saveSettings(nextSettings, apiKeyRef.current);
@@ -2047,7 +2053,9 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
           demoMode: true,
           connectionMode: 'gateway',
           glanceMode: false,
-          ...(isDeveloperLeashUnlockAllowed() ? { developerLeashUnlock: true } : {}),
+          ...(isDeveloperLeashUnlockAllowed()
+            ? { developerLeashUnlock: true, thumbgateProActive: true }
+            : {}),
         };
         await saveSettings(nextSettings, apiKeyRef.current);
         await bootstrapGateway();

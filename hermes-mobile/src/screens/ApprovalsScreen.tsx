@@ -139,7 +139,7 @@ export default function ApprovalsScreen() {
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
       <View style={styles.header}>
-        <View testID="THUMBGATE_LEASH" accessible={true}>
+        <View testID="THUMBGATE_LEASH" accessible={true} collapsable={false}>
           <Text style={styles.title}>THUMBGATE LEASH</Text>
         </View>
         <Text style={styles.subtitle}>

@@ -22,19 +22,15 @@ appId: com.iganapolsky.hermesmobile
     timeout: 45000
 - waitForAnimationToEnd:
     timeout: 2000
-- runFlow:
-    when:
-      notVisible:
-        id: "THUMBGATE_LEASH"
-    commands:
-      - tapOn:
-          id: "tab-leash"
-      - extendedWaitUntil:
-          notVisible:
-            id: "tab-screen-loading"
-          timeout: 90000
-      - waitForAnimationToEnd:
-          timeout: 3000
+# hermes://dev/leash-unlock already navigates to Leash — wait for lazy tab mount (no tab-bar tap).
+- extendedWaitUntil:
+    notVisible:
+      id: "tab-screen-loading"
+    timeout: 90000
+- extendedWaitUntil:
+    visible:
+      id: "THUMBGATE_LEASH"
+    timeout: 90000
 - runFlow:
     when:
       visible:
@@ -58,16 +54,10 @@ appId: com.iganapolsky.hermesmobile
 # Tab bar taps fail on iOS sim when keyboard inset sets tab bar pointerEvents=none — deep link instead.
 - openLink: "hermes://chat"
 - extendedWaitUntil:
-    notVisible:
-      id: "tab-screen-loading"
-    timeout: 90000
-- waitForAnimationToEnd:
-    timeout: 3000
-- hideKeyboard
-- extendedWaitUntil:
     visible:
       id: "chat-screen-header"
-    timeout: 45000
+    timeout: 90000
+- hideKeyboard
 - scrollUntilVisible:
     element:
       id: "chat-input"
