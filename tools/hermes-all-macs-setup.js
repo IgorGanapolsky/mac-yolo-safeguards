@@ -142,6 +142,17 @@ function run(command, args, options = {}) {
   };
 }
 
+function readEnvFile(file) {
+  const env = {};
+  if (!fs.existsSync(file)) return env;
+  for (const line of fs.readFileSync(file, 'utf8').split(/\r?\n/)) {
+    if (!line || line.trim().startsWith('#') || !line.includes('=')) continue;
+    const [key, ...rest] = line.split('=');
+    env[key.trim()] = rest.join('=').trim().replace(/^['"]|['"]$/g, '');
+  }
+  return env;
+}
+
 function fileState(filePath) {
   if (!fs.existsSync(filePath)) return { path: filePath, exists: false };
   const stat = fs.statSync(filePath);
@@ -434,7 +445,14 @@ function buildReport(options = {}) {
     ...machine,
     status: statusForMachine(machine),
   }));
-  const providers = providerCandidates(options.env || process.env);
+  const hermesEnvPath = path.join(os.homedir(), '.hermes', '.env');
+  const mergedEnv = Object.assign(
+    {},
+    process.env,
+    readEnvFile(hermesEnvPath),
+    options.env || {}
+  );
+  const providers = providerCandidates(mergedEnv);
   const gates = readinessGates(runtime, machines, providers);
   const overallReady = gates.every((gate) => gate.ok);
   return {
@@ -521,6 +539,7 @@ module.exports = {
   isTailscaleIpv4,
   parseArgs,
   providerCandidates,
+  readEnvFile,
   readinessGates,
   render,
 };

@@ -12,6 +12,7 @@ const {
   isTailscaleIpv4,
   parseArgs,
   providerCandidates,
+  readEnvFile,
   readinessGates,
   render,
 } = require('../tools/hermes-all-macs-setup');
@@ -98,6 +99,13 @@ const gates = readinessGates(
 );
 assert(gates.filter((gate) => !gate.ok).length >= 4);
 assert(dgmActions(gates, providersNoKeys).some((action) => action.includes('Tailscale')));
+
+const testEnvPath = path.join(tmp, 'test.env');
+fs.writeFileSync(testEnvPath, 'TEST_KEY=test_value\n# Comment\n  OTHER_KEY = "other_value"\n');
+const parsedEnv = readEnvFile(testEnvPath);
+assert.strictEqual(parsedEnv.TEST_KEY, 'test_value');
+assert.strictEqual(parsedEnv.OTHER_KEY, 'other_value');
+assert.strictEqual(Object.keys(parsedEnv).length, 2);
 
 fs.rmSync(tmp, { recursive: true, force: true });
 console.log('Hermes all-Macs setup tests: PASS');
