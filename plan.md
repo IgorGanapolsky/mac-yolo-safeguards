@@ -32,6 +32,7 @@ Durable rules live in [AGENTS.md](./AGENTS.md); this file is *live state only*.
 | T-10 | Display active machine name in connection/reconnection status tiles | done | antigravity | `hermes-mobile/src/components/CodexCommandCenter.tsx`, `hermes-mobile/src/screens/ChatScreen.tsx` | npm test passes |
 | T-11 | Fix clipped long chat header title on Android | done | codex | `hermes-mobile/src/components/ChatScreenHeader.tsx`, `hermes-mobile/src/__tests__/ChatScreenHeader.test.tsx` | long prompt title is one-line ellipsized and header tests pass |
 | T-13 | Discover Mac mini over Tailscale/USB loopback | done | antigravity | `hermes-mobile/src/services/gatewayDiscovery.ts`, `hermes-mobile/src/__tests__/gatewayDiscovery.test.ts` | `npm test` passes and Mac mini discovered during scan |
+| T-14 | Research-to-Hermes intelligence gate for multi-machine/provider improvements | in_progress | codex | `tools/hermes-research-intelligence.js`, `tests/test-hermes-research-intelligence.js` | tool emits scored, verifiable recommendations and tests pass |
 
 Status values: `pending` | `in_progress` | `blocked` | `done`. Claim a row by setting Owner+Status in one edit, then claim its files in §2.
 
@@ -54,6 +55,7 @@ Status values: `pending` | `in_progress` | `blocked` | `done`. Claim a row by se
 - `hermes-mobile/.maestro/ship-guard.yaml`, `hermes-mobile/.maestro/navigation.yaml` → **antigravity** (T-4) — released (2026-06-28)
 - `hermes-mobile/src/components/ChatScreenHeader.tsx`, `hermes-mobile/src/__tests__/ChatScreenHeader.test.tsx` → **codex** (T-11) — released 2026-06-28
 - `hermes-mobile/src/services/gatewayDiscovery.ts`, `hermes-mobile/src/__tests__/gatewayDiscovery.test.ts` → **antigravity** (T-13) — released (2026-06-28)
+- `tools/hermes-research-intelligence.js`, `tests/test-hermes-research-intelligence.js` → **codex** (T-14) (2026-06-29)
 - `AGENTS.md`, `plan.md` → shared coordination files (append-only edits, commit first)
 - everything else → (free)
 
