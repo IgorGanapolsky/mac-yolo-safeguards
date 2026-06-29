@@ -77,7 +77,7 @@ describe('release safety contract', () => {
   it('e2e-bootstrap waits for tab bar testIDs (not stray Settings copy)', () => {
     const bootstrap = read('hermes-mobile/.maestro/e2e-bootstrap.yaml');
     expect(bootstrap).toContain('id: "tab-hermes"');
-    expect(bootstrap).toContain('id: "tab-leash"');
+    expect(bootstrap).toContain('hermes://dev/leash-unlock');
     expect(bootstrap).not.toMatch(/text:\s*"Settings"/);
     const app = read('hermes-mobile/App.tsx');
     expect(app).toContain('tab-hermes');
@@ -184,6 +184,16 @@ describe('release safety contract', () => {
     const script = read('hermes-mobile/scripts/run-e2e.sh');
     expect(script).toContain('maestro test -p android');
     expect(script).toContain('run-simulator-e2e.sh');
+    expect(script).toContain('HERMES_E2E_IOS_ONLY=1');
+    expect(script).toContain('Maestro_ANDROID');
+  });
+
+  it('e2e-bootstrap waits for lazy Leash tab load', () => {
+    const bootstrap = read('hermes-mobile/.maestro/e2e-bootstrap.yaml');
+    expect(bootstrap).toContain('tab-screen-loading');
+    expect(bootstrap).toContain('THUMBGATE_LEASH');
+    expect(bootstrap).toContain('hermes://chat');
+    expect(bootstrap).toContain('chat-screen-header');
   });
 
   it('continuous E2E runner and LaunchAgent exist', () => {
@@ -191,6 +201,7 @@ describe('release safety contract', () => {
     expect(runner).toContain('--once');
     expect(runner).toContain('ship-guard.yaml');
     expect(runner).toContain('chat-send-persistence.yaml');
+    expect(runner).toContain('HERMES_E2E_IOS_ONLY=1');
     const plist = read('com.igor.hermes-mobile-continuous-e2e.plist');
     expect(plist).toContain('com.igor.hermes-mobile-continuous-e2e');
     expect(plist).toContain('StartInterval');

@@ -97,6 +97,7 @@ export default function ChatScreenHeader({
               numberOfLines={1}
               ellipsizeMode="tail"
               testID="HERMES CHAT"
+              accessibilityLabel="HERMES CHAT"
             >
               {threadTitle}
             </Text>

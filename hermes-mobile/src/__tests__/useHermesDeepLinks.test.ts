@@ -68,4 +68,31 @@ describe('useHermesDeepLinks', () => {
     });
     expect(navigationRef.current.navigate).toHaveBeenCalledWith('Chat');
   });
+
+  it('opens Settings from hermes://settings', async () => {
+    renderHook(() =>
+      useHermesDeepLinks(navigationRef as never, runAgentTool, refreshHealth),
+    );
+    const handler = (Linking.addEventListener as jest.Mock).mock.calls[0][1];
+    await act(async () => {
+      await handler({ url: 'hermes://settings' });
+      await handler({ url: 'hermes://settings' });
+    });
+    expect(navigationRef.current.navigate).toHaveBeenCalledWith('Settings');
+    expect(navigationRef.current.navigate).toHaveBeenCalledTimes(2);
+  });
+
+  it('re-navigates to Chat when hermes://chat is opened again', async () => {
+    renderHook(() =>
+      useHermesDeepLinks(navigationRef as never, runAgentTool, refreshHealth),
+    );
+    const handler = (Linking.addEventListener as jest.Mock).mock.calls[0][1];
+    await act(async () => {
+      await handler({ url: 'hermes://chat' });
+      await handler({ url: 'hermes://chat' });
+    });
+    expect(navigationRef.current.navigate).toHaveBeenCalledTimes(2);
+    expect(navigationRef.current.navigate).toHaveBeenNthCalledWith(1, 'Chat');
+    expect(navigationRef.current.navigate).toHaveBeenNthCalledWith(2, 'Chat');
+  });
 });

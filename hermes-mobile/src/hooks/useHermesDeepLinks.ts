@@ -37,6 +37,16 @@ function isChatDeepLink(url: string): boolean {
   return lower.includes('/chat') || lower.endsWith('chat');
 }
 
+function isSettingsDeepLink(url: string): boolean {
+  const lower = url.toLowerCase();
+  return lower.includes('/settings') || lower.endsWith('settings');
+}
+
+function isLeashTabDeepLink(url: string): boolean {
+  const lower = url.toLowerCase();
+  return lower === 'hermes://leash' || lower.endsWith('/leash');
+}
+
 const handledUrls = new Set<string>();
 
 export function resetHandledUrls() {
@@ -55,8 +65,17 @@ export function useHermesDeepLinks(
     const handleUrl = async (url: string | null) => {
       if (!url) return;
 
-      if (handledUrls.has(url)) return;
-      handledUrls.add(url);
+      const lower = url.toLowerCase();
+      const navigationOnly =
+        isChatDeepLink(url) ||
+        isSettingsDeepLink(url) ||
+        isLeashTabDeepLink(url) ||
+        lower.includes('/ops') ||
+        lower.endsWith('ops') ||
+        isDevLeashUnlockDeepLink(url);
+
+      if (!navigationOnly && handledUrls.has(url)) return;
+      if (!navigationOnly) handledUrls.add(url);
 
       if (isDevLeashUnlockDeepLink(url) && activateDeveloperLeashUnlock) {
         await activateDeveloperLeashUnlock();
@@ -78,8 +97,7 @@ export function useHermesDeepLinks(
         return;
       }
 
-      const lower = url.toLowerCase();
-      if (lower.includes('/ops') || lower.endsWith('ops')) {
+      if (lower.includes('/ops') || lower.endsWith('ops') || isSettingsDeepLink(url)) {
         navigationRef.current?.navigate('Settings');
         return;
       }
@@ -90,6 +108,11 @@ export function useHermesDeepLinks(
         if (sessionId && focusChatSession) {
           focusChatSession(sessionId);
         }
+        return;
+      }
+
+      if (isLeashTabDeepLink(url)) {
+        navigationRef.current?.navigate('Leash');
         return;
       }
 
