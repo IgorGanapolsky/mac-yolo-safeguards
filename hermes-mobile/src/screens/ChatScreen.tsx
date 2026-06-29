@@ -517,9 +517,11 @@ export default function ChatScreen() {
       hasAlternateHealRoutes({
         gatewayUrl,
         profiles: gatewayProfiles,
+        tailnetProbeHosts:
+          tailnetProbeHostCount > 0 ? Array(tailnetProbeHostCount).fill('probe') : [],
         tailscaleDiscoveries,
       }),
-    [gatewayUrl, gatewayProfiles, tailscaleDiscoveries],
+    [gatewayUrl, gatewayProfiles, tailnetProbeHostCount, tailscaleDiscoveries],
   );
   const userSendFailed = pinnedOutboundStatus === 'failed';
   const showMacConnectionHelp = shouldShowMacConnectionHelp({
@@ -3573,9 +3575,11 @@ export default function ChatScreen() {
               onOpenSettings={() => navigation.navigate('Settings' as never)}
               tailscaleDiscoveries={tailscaleDiscoveries}
               tailscaleDiscoveryProbing={tailscaleDiscoveryProbing}
+              tailnetProbeHostCount={tailnetProbeHostCount}
               onAddTailscaleComputer={(discovery) => {
                 void addDiscoveredTailscaleComputer(discovery);
               }}
+              onAddProfile={addGatewayProfile}
             />
           </ScrollView>
         ) : null}
@@ -3804,10 +3808,11 @@ export default function ChatScreen() {
               Pick a saved Mac, or tap Find computers to search your home Wi‑Fi. On cellular or away
               from home? Use the Tailscale Add button when it appears below.
             </Text>
-            {tailscaleDiscoveries.length > 0 ? (
+            {tailscaleDiscoveries.length > 0 || tailscaleDiscoveryProbing ? (
               <TailscaleDiscoveryBanner
                 discoveries={tailscaleDiscoveries}
                 adding={tailscaleDiscoveryProbing}
+                probing={tailscaleDiscoveryProbing && tailscaleDiscoveries.length === 0}
                 onAdd={(discovery) => {
                   void addDiscoveredTailscaleComputer(discovery);
                 }}
@@ -3852,6 +3857,7 @@ export default function ChatScreen() {
                 setIsScanningMacs(true);
                 try {
                   await scanForGatewayProfiles();
+                  void probeTailscaleComputers();
                 } finally {
                   setIsScanningMacs(false);
                 }

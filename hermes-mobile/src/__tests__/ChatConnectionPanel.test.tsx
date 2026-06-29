@@ -1,5 +1,5 @@
 import React from 'react';
-import { fireEvent, render } from '@testing-library/react-native';
+import { fireEvent, render, waitFor } from '@testing-library/react-native';
 import ChatConnectionPanel, { buildConnectionStatusChips } from '../components/ChatConnectionPanel';
 
 describe('buildConnectionStatusChips', () => {
@@ -243,6 +243,50 @@ describe('ChatConnectionPanel', () => {
     expect(getByText(/Home Wi‑Fi addresses won't work on cellular/)).toBeTruthy();
   });
 
+  it('prefers Find computers over USB fix when only loopback profile saved on cellular', () => {
+    const { getByTestId, queryByTestId } = render(
+      <ChatConnectionPanel
+        connectionState="disconnected"
+        connectionMode="gateway"
+        wifiConnected={false}
+        usbLoopback
+        profiles={[
+          {
+            id: 'usb',
+            label: 'Mac via USB',
+            gatewayUrl: 'http://127.0.0.1:8642',
+            addedAt: '2026-06-28T00:00:00Z',
+          },
+        ]}
+        connectionHealAttempt={6}
+        onSearchMac={jest.fn()}
+        onFixUsbLink={jest.fn()}
+      />,
+    );
+    expect(getByTestId('chat-connection-search')).toBeTruthy();
+    expect(queryByTestId('chat-connection-fix-usb')).toBeNull();
+  });
+
+  it('shows Tailscale probing banner while searching tailnet', () => {
+    const { getByTestId } = render(
+      <ChatConnectionPanel
+        connectionState="disconnected"
+        onSearchMac={jest.fn()}
+        profiles={[
+          {
+            id: 'usb',
+            label: 'Mac via USB',
+            gatewayUrl: 'http://127.0.0.1:8642',
+            addedAt: '2026-06-28T00:00:00Z',
+          },
+        ]}
+        tailscaleDiscoveryProbing
+        tailnetProbeHostCount={2}
+      />,
+    );
+    expect(getByTestId('tailscale-discovery-probing')).toBeTruthy();
+  });
+
   it('shows Tailscale discovery banner for reachable tailnet Macs', () => {
     const onAdd = jest.fn();
     const { getByTestId } = render(
@@ -285,5 +329,43 @@ describe('ChatConnectionPanel', () => {
       />,
     );
     expect(queryByTestId('chat-connection-status-pills')).toBeNull();
+  });
+
+  it('allows manual connection using a custom IP or URL', async () => {
+    const onAddProfile = jest.fn().mockResolvedValue(undefined);
+    const { getByTestId } = render(
+      <ChatConnectionPanel
+        connectionState="disconnected"
+        onSearchMac={jest.fn()}
+        onAddProfile={onAddProfile}
+      />,
+    );
+
+    expect(getByTestId('chat-manual-input')).toBeTruthy();
+    expect(getByTestId('chat-manual-submit')).toBeTruthy();
+
+    // Type a simple Tailscale IP address
+    fireEvent.changeText(getByTestId('chat-manual-input'), '100.87.85.85');
+    fireEvent.press(getByTestId('chat-manual-submit'));
+
+    await waitFor(() => {
+      expect(onAddProfile).toHaveBeenCalledWith('Mac mini (Tailscale)', 'http://100.87.85.85:8642');
+    });
+  });
+
+  it('displays an error message for invalid manual connection entries', async () => {
+    const { getByTestId, findByText } = render(
+      <ChatConnectionPanel
+        connectionState="disconnected"
+        onSearchMac={jest.fn()}
+        onAddProfile={jest.fn().mockResolvedValue(undefined)}
+      />,
+    );
+
+    // Test invalid input handling
+    fireEvent.changeText(getByTestId('chat-manual-input'), '   ');
+    fireEvent.press(getByTestId('chat-manual-submit'));
+
+    expect(await findByText('Please enter an IP address or URL.')).toBeTruthy();
   });
 });

@@ -10,6 +10,7 @@ import {
   profilesForSwitchComputerPicker,
   resolveUsbMatchingProfileId,
   shouldOfferUsbLinkRepair,
+  hasOnlyLoopbackProfiles,
 } from '../utils/gatewayProfilePicker';
 
 describe('gatewayProfilePicker', () => {
@@ -179,6 +180,54 @@ describe('gatewayProfilePicker', () => {
         macHttpOk: false,
       }),
     ).toBe(true);
+  });
+
+  it('shouldOfferUsbLinkRepair prefers Tailscale over USB fix on cellular', () => {
+    expect(
+      shouldOfferUsbLinkRepair({
+        gatewayUrl: 'http://127.0.0.1:8642',
+        wifiConnected: false,
+        macHttpOk: false,
+        tailnetProbeHostCount: 2,
+      }),
+    ).toBe(false);
+    expect(
+      shouldOfferUsbLinkRepair({
+        gatewayUrl: 'http://127.0.0.1:8642',
+        wifiConnected: false,
+        macHttpOk: false,
+        onlyLoopbackProfiles: true,
+      }),
+    ).toBe(false);
+  });
+
+  it('hasOnlyLoopbackProfiles detects stale USB-only saved state', () => {
+    expect(
+      hasOnlyLoopbackProfiles([
+        {
+          id: 'usb',
+          label: 'Mac via USB',
+          gatewayUrl: 'http://127.0.0.1:8642',
+          addedAt: '2026-06-28T00:00:00Z',
+        },
+      ]),
+    ).toBe(true);
+    expect(
+      hasOnlyLoopbackProfiles([
+        {
+          id: 'usb',
+          label: 'Mac via USB',
+          gatewayUrl: 'http://127.0.0.1:8642',
+          addedAt: '2026-06-28T00:00:00Z',
+        },
+        {
+          id: 'mini',
+          label: 'Igors-Mac-mini',
+          gatewayUrl: 'http://100.94.135.78:8642',
+          addedAt: '2026-06-28T00:00:01Z',
+        },
+      ]),
+    ).toBe(false);
   });
 
   it('matches loopback saved profile to LAN discovery by machine name', () => {

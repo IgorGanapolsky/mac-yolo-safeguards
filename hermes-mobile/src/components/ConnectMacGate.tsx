@@ -1,8 +1,10 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import {
+  Keyboard,
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from 'react-native';
 import { useGateway } from '../context/GatewayContext';
@@ -14,6 +16,9 @@ import TailscaleDiscoveryBanner from './TailscaleDiscoveryBanner';
 import MacScanProgressCard from './MacScanProgressCard';
 import LoadingButton from './ui/LoadingButton';
 import { tailscaleDiscoveryLabel } from '../services/tailscaleDiscovery';
+import { cleanManualGatewayUrl } from '../utils/gatewayUrlPolicy';
+import { isTailscaleGatewayUrl } from '../utils/tailscaleHosts';
+import { haptics } from '../services/haptics';
 
 const AUTO_RETRY_MS = 12000;
 
@@ -39,11 +44,40 @@ export default function ConnectMacGate() {
     tailscaleDiscoveryProbing,
     addDiscoveredTailscaleComputer,
     probeTailscaleComputers,
+    addGatewayProfile,
   } = useGateway();
 
   const [qrVisible, setQrVisible] = useState(false);
   const [invalidQrHint, setInvalidQrHint] = useState<string | null>(null);
   const [isSearching, setIsSearching] = useState(false);
+
+  const [manualInput, setManualInput] = useState('');
+  const [addingProfile, setAddingProfile] = useState(false);
+  const [manualInputError, setManualInputError] = useState<string | null>(null);
+
+  const handleManualConnect = async () => {
+    Keyboard.dismiss();
+    const cleaned = cleanManualGatewayUrl(manualInput);
+    if (!cleaned) {
+      setManualInputError('Please enter an IP address or URL.');
+      return;
+    }
+    setManualInputError(null);
+    setAddingProfile(true);
+    try {
+      const isTailscale = isTailscaleGatewayUrl(cleaned);
+      const label = isTailscale ? 'Mac mini (Tailscale)' : 'Custom Mac';
+      await addGatewayProfile(label, cleaned);
+      setManualInput('');
+      haptics.success();
+      await retryGatewayBootstrap();
+    } catch (err) {
+      setManualInputError(err instanceof Error ? err.message : 'Could not add profile.');
+      haptics.warning();
+    } finally {
+      setAddingProfile(false);
+    }
+  };
 
   const hasSavedMac =
     gatewayProfiles.length > 0 ||

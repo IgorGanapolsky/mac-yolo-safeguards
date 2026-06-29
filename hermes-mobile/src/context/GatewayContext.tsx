@@ -92,6 +92,7 @@ import {
   CONNECTION_SELF_HEAL_INTERVAL_MS,
   buildSelfHealProbeUrls,
   savedProfileFallbackUrls,
+  resolveCellularTailscaleFailoverUrl,
 } from '../utils/connectionSelfHeal';
 import { CONNECTION_HEAL_EXHAUSTED_AFTER } from '../utils/connectionErrorPolicy';
 import { profileMatchesDiscoveredGateway, resolveUsbMatchingProfileId } from '../utils/gatewayProfilePicker';
@@ -1604,8 +1605,8 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
   }, [connectionState, settings.demoMode, refreshHealth]);
 
   useEffect(() => {
-    if (!isLoaded || settings.demoMode || isGatewayHealthOk(health)) {
-      if (isGatewayHealthOk(health)) {
+    if (!isLoaded || settings.demoMode || isMacGatewayHttpOk(health)) {
+      if (isMacGatewayHttpOk(health)) {
         connectionHealAttemptRef.current = 0;
         setConnectionHealAttempt(0);
       }
@@ -1616,7 +1617,15 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
       void runConnectionSelfHeal();
     }, CONNECTION_SELF_HEAL_INTERVAL_MS);
     return () => clearInterval(interval);
-  }, [isLoaded, settings.demoMode, health?.level, health?.checkedAt, wifiConnected, runConnectionSelfHeal]);
+  }, [
+    isLoaded,
+    settings.demoMode,
+    health?.level,
+    health?.checkedAt,
+    health?.directGatewayReachable,
+    wifiConnected,
+    runConnectionSelfHeal,
+  ]);
 
   const autoConnectGateway = useCallback(async () => {
     return autoDiscoverGateway();
@@ -2643,6 +2652,7 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
       scanForGatewayProfiles,
       tailscaleDiscoveries,
       tailscaleDiscoveryProbing,
+      tailnetProbeHostCount,
       probeTailscaleComputers,
       addDiscoveredTailscaleComputer,
       connectionHealAttempt,
