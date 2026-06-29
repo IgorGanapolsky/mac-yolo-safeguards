@@ -19,6 +19,7 @@ const { planExperiments } = require('./recursive-experiment-loop');
 
 const DEFAULT_REPO = path.resolve(__dirname, '..');
 const DEFAULT_OUT = path.join(DEFAULT_REPO, 'artifacts', 'hermes-ai-vault');
+const DEFAULT_INSTALL_OUT = path.join(os.homedir(), '.hermes', 'ai-vault');
 
 const REQUIRED_PATHS = [
   'README.md',
@@ -31,9 +32,20 @@ const REQUIRED_PATHS = [
   'Context Packs/Token Efficiency Context.md',
   'Procedures/Agent Sync Procedure.md',
   'Procedures/Experiment Loop Procedure.md',
+  'Procedures/Vault Interview Procedure.md',
   'Decisions/Recent Decisions.md',
+  'LLM Entry Points/Codex.md',
+  'LLM Entry Points/Claude.md',
+  'LLM Entry Points/Gemini.md',
+  'LLM Entry Points/GPT.md',
+  'LLM Entry Points/Hermes.md',
+  'LLM Entry Points/Ollama Local.md',
+  'LLM Entry Points/Obsidian.md',
+  'Routing/llm-routing.json',
   'Status/Vault Conditions.md',
   'Sources/source-index.json',
+  'Templates/Context Request.md',
+  'Templates/Task Brief.md',
 ];
 
 const SOURCE_CANDIDATES = [
@@ -44,15 +56,21 @@ const SOURCE_CANDIDATES = [
   { id: 'recursive-loop-doc', path: 'docs/RECURSIVE-EXPERIMENT-LOOP.md', role: 'experiment loop contract' },
   { id: 'loop-engine-doc', path: 'docs/HERMES-LOOP-ENGINE.md', role: 'Hermes task loop contract' },
   { id: 'latest-e2e', path: 'hermes-mobile/docs/proofs/continuous/latest.json', role: 'latest mobile proof state' },
+  { id: 'skool-restaurant-answering-doc', path: 'docs/SKOOL-RESTAURANT-ANSWERING.md', role: 'restaurant answering doc' },
+  { id: 'skool-restaurant-answering-code', path: 'tools/skool-restaurant-answering.js', role: 'restaurant answering engine' },
 ];
 
 function usage() {
   return `Usage:
   node tools/hermes-ai-vault.js build [--repo PATH] [--out PATH] [--json]
+  node tools/hermes-ai-vault.js install [--repo PATH] [--out PATH] [--json]
   node tools/hermes-ai-vault.js validate [--vault PATH] [--json]
 
 Builds a local Markdown vault for shared AI context. Defaults to:
-  artifacts/hermes-ai-vault/`;
+  artifacts/hermes-ai-vault/
+
+Install target defaults to:
+  ~/.hermes/ai-vault/`;
 }
 
 function parseArgs(argv) {
@@ -69,6 +87,10 @@ function parseArgs(argv) {
     else args._.push(arg);
   }
   if (args._.length === 0) args._.push('build');
+  if (args._[0] === 'install' && args.out === DEFAULT_OUT) {
+    args.out = DEFAULT_INSTALL_OUT;
+    args.vault = DEFAULT_INSTALL_OUT;
+  }
   return args;
 }
 
@@ -214,6 +236,201 @@ plan.md too.
 - The answer would claim revenue, delivery, CI pass, external send, or release
   without provider/source evidence.
 `;
+}
+
+function llmEntryPoint({ tool, mode, readOrder, doThis, doNotDo, manifest }) {
+  return `${markdownFrontmatter({
+    type: 'llm-entrypoint',
+    tool,
+    mode,
+    source_status: 'generated',
+    last_verified: manifest.generatedAt,
+  })}# ${tool}
+
+## Role
+
+${mode}
+
+## Read Order
+
+${readOrder.map((item, index) => `${index + 1}. [[${item}]]`).join('\n')}
+
+## Do This
+
+${doThis.map((item) => `- ${item}`).join('\n')}
+
+## Do Not Do
+
+${doNotDo.map((item) => `- ${item}`).join('\n')}
+
+## Provenance
+
+- SOURCE-MANIFEST.md
+- AGENTS.md
+- Routing/llm-routing.json
+`;
+}
+
+function llmEntryPoints(manifest) {
+  const baseDoNot = [
+    'Do not claim local execution, sends, deploys, payments, CI, or revenue without external/source evidence.',
+    'Do not paste secrets into prompts or generated notes.',
+    'Do not edit repo files without checking plan.md ownership first.',
+  ];
+  return {
+    'LLM Entry Points/Codex.md': llmEntryPoint({
+      tool: 'Codex',
+      mode: 'Repository executor: implement, test, verify, and report with file/command evidence.',
+      readOrder: ['AGENTS', 'Context Packs/Hermes Operating Context', 'Procedures/Agent Sync Procedure', 'Procedures/Experiment Loop Procedure'],
+      doThis: [
+        'Use repo source and tests as the truth source.',
+        'Prefer small diffs and focused verification.',
+        'Update generated vault state only through tools/hermes-ai-vault.js.',
+      ],
+      doNotDo: baseDoNot,
+      manifest,
+    }),
+    'LLM Entry Points/Claude.md': llmEntryPoint({
+      tool: 'Claude',
+      mode: 'Synthesis and long-form reasoning partner: use compact packs, then ask Codex/Hermes for execution evidence.',
+      readOrder: ['AGENTS', 'Context Packs/Token Efficiency Context', 'Context Packs/LLM Routing Context', 'Decisions/Recent Decisions'],
+      doThis: [
+        'Use the smallest source-backed context pack first.',
+        'Separate advice from executed work.',
+        'When suggesting code changes, name the verifier that should run.',
+      ],
+      doNotDo: baseDoNot,
+      manifest,
+    }),
+    'LLM Entry Points/Gemini.md': llmEntryPoint({
+      tool: 'Gemini',
+      mode: 'Large-context reviewer: compare source packs, catch contradictions, and summarize risks.',
+      readOrder: ['AGENTS', 'SOURCE-MANIFEST', 'Context Packs/Hermes Operating Context', 'Context Packs/LLM Routing Context'],
+      doThis: [
+        'Use broad context only when the task needs cross-file or cross-project synthesis.',
+        'Flag stale context and missing provenance.',
+        'Return concise, source-linked deltas for Codex/Hermes to execute.',
+      ],
+      doNotDo: baseDoNot,
+      manifest,
+    }),
+    'LLM Entry Points/GPT.md': llmEntryPoint({
+      tool: 'GPT',
+      mode: 'General reasoning and product operator: use routing/context packs and avoid execution claims.',
+      readOrder: ['AGENTS', 'Context Packs/LLM Routing Context', 'Templates/Task Brief', 'Templates/Context Request'],
+      doThis: [
+        'Turn vague requests into a bounded objective, evidence request, and verifier.',
+        'Prefer operational decisions that reduce token burn or speed revenue execution.',
+        'Ask Hermes/Codex for current local truth when needed.',
+      ],
+      doNotDo: baseDoNot,
+      manifest,
+    }),
+    'LLM Entry Points/Hermes.md': llmEntryPoint({
+      tool: 'Hermes',
+      mode: 'Always-on orchestrator: route goals, maintain state, trigger Codex for code, and verify with provider truth.',
+      readOrder: ['AGENTS', 'Context Packs/Hermes Operating Context', 'Routing/llm-routing.json', 'Status/Vault Conditions'],
+      doThis: [
+        'Load Routing/llm-routing.json before selecting a model or sub-agent.',
+        'Use Codex for code and tests; use local models for cheap classification/summarization.',
+        'Record evidence events and never mark work done from self-report alone.',
+      ],
+      doNotDo: [
+        ...baseDoNot,
+        'Do not contact prospects, create payment links, deploy, or merge without the existing approval boundary.',
+      ],
+      manifest,
+    }),
+    'LLM Entry Points/Ollama Local.md': llmEntryPoint({
+      tool: 'Ollama Local',
+      mode: 'Cheap local assistant: summarize, classify, draft, and compress context when privacy/cost matters.',
+      readOrder: ['AGENTS', 'Context Packs/Token Efficiency Context', 'Context Packs/LLM Routing Context'],
+      doThis: [
+        'Handle low-risk summaries, tags, checklist extraction, and first-pass triage.',
+        'Return uncertainty and hand off to stronger/code-capable tools for implementation.',
+        'Keep prompts compact and source-backed.',
+      ],
+      doNotDo: baseDoNot,
+      manifest,
+    }),
+    'LLM Entry Points/Obsidian.md': llmEntryPoint({
+      tool: 'Obsidian',
+      mode: 'Human-facing knowledge graph: browse and edit Markdown notes without becoming the source of execution truth.',
+      readOrder: ['README', 'AGENTS', 'SOURCE-MANIFEST', 'Decisions/Recent Decisions'],
+      doThis: [
+        'Use links and graph navigation for human sensemaking.',
+        'Keep notes plain Markdown so every AI tool can read them.',
+        'Route repo edits back through plan.md and Codex.',
+      ],
+      doNotDo: baseDoNot,
+      manifest,
+    }),
+  };
+}
+
+function buildRoutingMap(manifest, experimentPlan) {
+  return {
+    schema: 'hermes-llm-routing/v1',
+    generatedAt: manifest.generatedAt,
+    objective: 'Make Hermes and all LLM tools share one source-backed AI vault.',
+    defaultReadOrder: [
+      'README.md',
+      'AGENTS.md',
+      'SOURCE-MANIFEST.md',
+      'Context Packs/Hermes Operating Context.md',
+      'Routing/llm-routing.json',
+    ],
+    routes: [
+      {
+        id: 'code_edit_or_test',
+        primary: 'Codex',
+        entrypoint: 'LLM Entry Points/Codex.md',
+        trigger: 'repo edits, tests, patches, PR review, build failures',
+        verifier: 'local command output, diff, test result',
+      },
+      {
+        id: 'always_on_orchestration',
+        primary: 'Hermes',
+        entrypoint: 'LLM Entry Points/Hermes.md',
+        trigger: 'goal routing, reminders, followups, Telegram, job dispatch',
+        verifier: 'provider truth, event ledger, RESULT/REPORT artifacts',
+      },
+      {
+        id: 'cheap_private_context_work',
+        primary: 'Ollama Local',
+        entrypoint: 'LLM Entry Points/Ollama Local.md',
+        trigger: 'summaries, classification, low-risk drafts, context compression',
+        verifier: 'source paths preserved; uncertainty reported',
+      },
+      {
+        id: 'large_context_review',
+        primary: 'Gemini',
+        entrypoint: 'LLM Entry Points/Gemini.md',
+        trigger: 'cross-file synthesis, contradiction checks, architecture review',
+        verifier: 'cited source packs and specific contradictions',
+      },
+      {
+        id: 'strategy_or_product_reasoning',
+        primary: 'GPT or Claude',
+        entrypoint: 'LLM Entry Points/GPT.md',
+        trigger: 'offer, UX, product, strategy, explanation',
+        verifier: 'explicit assumptions and handoff to executable tool when needed',
+      },
+      {
+        id: 'human_knowledge_graph',
+        primary: 'Obsidian',
+        entrypoint: 'LLM Entry Points/Obsidian.md',
+        trigger: 'browse, connect, and maintain notes',
+        verifier: 'Markdown notes with provenance; no execution claims',
+      },
+    ],
+    experimentGates: experimentPlan.selected.map((experiment) => ({
+      id: experiment.id,
+      score: experiment.score,
+      evaluator: experiment.evaluator,
+      metric: experiment.targetMetric,
+    })),
+  };
 }
 
 function renderSourceManifest(manifest) {
@@ -386,6 +603,70 @@ ${body}
 `;
 }
 
+function renderContextRequestTemplate(manifest) {
+  return `${markdownFrontmatter({
+    type: 'template',
+    source_status: 'generated',
+    last_verified: manifest.generatedAt,
+  })}# Context Request
+
+Use this when an LLM needs more context before acting.
+
+## Task
+
+<!-- What are we trying to decide or execute? -->
+
+## Needed Context
+
+- Source files:
+- Current state:
+- Prior decision:
+- Privacy boundary:
+
+## Preferred Tool
+
+<!-- Codex, Hermes, Gemini, Claude, GPT, Ollama Local, or Obsidian -->
+
+## Verifier
+
+<!-- Command, provider result, file evidence, test, or human approval gate -->
+
+## Provenance
+
+- SOURCE-MANIFEST.md
+`;
+}
+
+function renderTaskBriefTemplate(manifest) {
+  return `${markdownFrontmatter({
+    type: 'template',
+    source_status: 'generated',
+    last_verified: manifest.generatedAt,
+  })}# Task Brief
+
+## Objective
+
+## Scope
+
+## Files / Systems
+
+## Boundaries
+
+## Acceptance Checks
+
+## Evidence Required
+
+## LLM Route
+
+Consult [[Routing/llm-routing.json]] and the matching entrypoint in
+[[LLM Entry Points]] before acting.
+
+## Provenance
+
+- SOURCE-MANIFEST.md
+`;
+}
+
 function renderDecisions(manifest, planText) {
   const decisions = extractRecentDecisions(planText);
   return `${markdownFrontmatter({
@@ -504,6 +785,7 @@ function compileVault(options = {}) {
   const sources = SOURCE_CANDIDATES.map((candidate) => readSource(repo, candidate));
   const syncBrief = buildBrief({ repo, skipLaunchctl: true });
   const experimentPlan = planExperiments({ repo, task: 'ai second brain llm context vault', limit: 5 });
+  const routingMap = buildRoutingMap(manifest, experimentPlan);
   const planText = sources.find((source) => source.id === 'coordination-board')?.text || '';
 
   fs.mkdirSync(out, { recursive: true });
@@ -529,7 +811,26 @@ function compileVault(options = {}) {
     '5. Run `node tools/recursive-experiment-loop.js plan --json --task "<task>"` in the source repo.',
     '6. Promote only experiments with validation evidence.',
   ].join('\n'), manifest)));
+  writes.push(writeFile(out, 'Procedures/Vault Interview Procedure.md', renderProcedure('Vault Interview Procedure', [
+    'Use this procedure to grow the vault without turning it into noise.',
+    '',
+    '1. Ask one question at a time about roles, active projects, repeated workflows, and privacy boundaries.',
+    '2. Convert answers into Markdown notes or context-pack deltas with provenance.',
+    '3. Keep private/sensitive details out of broad context packs; use summaries and pointers.',
+    '4. Rebuild with `node tools/hermes-ai-vault.js build` or install to Hermes with `node tools/hermes-ai-vault.js install`.',
+    '5. Validate before telling any LLM to rely on the new context.',
+    '',
+    'Seed prompt:',
+    '',
+    '> I want to create a vendor-agnostic AI vault that acts as a shared brain across my tools. Use markdown files and folders. Interview me one question at a time about my daily life and roles, my work and active projects, repeated context workflows I want AI to help with, and privacy boundaries. Then propose a vault structure, agent rules, templates, and migration plan. Ask me the first question now.',
+  ].join('\n'), manifest)));
   writes.push(writeFile(out, 'Decisions/Recent Decisions.md', renderDecisions(manifest, planText)));
+  for (const [relativePath, text] of Object.entries(llmEntryPoints(manifest))) {
+    writes.push(writeFile(out, relativePath, text));
+  }
+  writes.push(writeFile(out, 'Routing/llm-routing.json', `${JSON.stringify(routingMap, null, 2)}\n`));
+  writes.push(writeFile(out, 'Templates/Context Request.md', renderContextRequestTemplate(manifest)));
+  writes.push(writeFile(out, 'Templates/Task Brief.md', renderTaskBriefTemplate(manifest)));
   const preValidation = validateVault(out);
   const conditions = buildConditions({ manifest, syncBrief, validation: preValidation, generation: 1 });
   writes.push(writeFile(out, 'Status/Vault Conditions.md', renderConditions(manifest, conditions)));
@@ -545,6 +846,8 @@ function compileVault(options = {}) {
     sourcesIngested: manifest.sources.filter((source) => source.exists).length,
     connectorStatus: manifest.blockedConnectors,
     contextPacksCreated: 3,
+    llmEntrypointsCreated: Object.keys(llmEntryPoints(manifest)).length,
+    routingMap: 'Routing/llm-routing.json',
     nextActions: ['Run validate before using this vault as current context.', 'Export to an Obsidian vault only after reviewing SOURCE-MANIFEST.md.'],
     blockers: [],
     conditions,
@@ -560,6 +863,34 @@ function compileVault(options = {}) {
     writes,
     validation: finalValidation,
     manifest,
+  };
+}
+
+function installVault(options = {}) {
+  const result = compileVault({
+    ...options,
+    out: options.out || DEFAULT_INSTALL_OUT,
+  });
+  const pointerPath = path.resolve(options.pointerPath || path.join(os.homedir(), '.hermes', 'AI_VAULT.md'));
+  const pointerText = `# Hermes AI Vault
+
+Current vault: ${result.out}
+
+Read order:
+
+1. ${path.join(result.out, 'README.md')}
+2. ${path.join(result.out, 'AGENTS.md')}
+3. ${path.join(result.out, 'Routing/llm-routing.json')}
+4. ${path.join(result.out, 'LLM Entry Points/Hermes.md')}
+
+Validation ok: ${result.ok}
+Generated: ${result.manifest.generatedAt}
+`;
+  fs.mkdirSync(path.dirname(pointerPath), { recursive: true });
+  fs.writeFileSync(pointerPath, redact(pointerText));
+  return {
+    ...result,
+    pointerPath,
   };
 }
 
@@ -631,6 +962,18 @@ function main() {
     process.exit(result.ok ? 0 : 1);
   }
 
+  if (command === 'install') {
+    const result = installVault(args);
+    if (args.json) console.log(JSON.stringify(result, null, 2));
+    else {
+      console.log(`Installed Hermes AI vault: ${result.out}`);
+      console.log(`Pointer: ${result.pointerPath}`);
+      console.log(`Files written: ${result.writes.length}`);
+      console.log(`Validation ok: ${result.ok}`);
+    }
+    process.exit(result.ok ? 0 : 1);
+  }
+
   if (command === 'validate') {
     const result = validateVault(args.vault);
     if (args.json) console.log(JSON.stringify(result, null, 2));
@@ -651,12 +994,16 @@ function main() {
 module.exports = {
   REQUIRED_PATHS,
   SOURCE_CANDIDATES,
+  DEFAULT_INSTALL_OUT,
   buildManifest,
   buildConditions,
+  buildRoutingMap,
   compileVault,
   condition,
   estimateTokens,
   extractRecentDecisions,
+  installVault,
+  llmEntryPoints,
   parseArgs,
   validateVault,
 };

@@ -1,0 +1,88 @@
+{
+  "schema": "hermes-llm-routing/v1",
+  "generatedAt": "2026-06-29T05:23:41.303Z",
+  "objective": "Make Hermes and all LLM tools share one source-backed AI vault.",
+  "defaultReadOrder": [
+    "README.md",
+    "AGENTS.md",
+    "SOURCE-MANIFEST.md",
+    "Context Packs/Hermes Operating Context.md",
+    "Routing/llm-routing.json"
+  ],
+  "routes": [
+    {
+      "id": "code_edit_or_test",
+      "primary": "Codex",
+      "entrypoint": "LLM Entry Points/Codex.md",
+      "trigger": "repo edits, tests, patches, PR review, build failures",
+      "verifier": "local command output, diff, test result"
+    },
+    {
+      "id": "always_on_orchestration",
+      "primary": "Hermes",
+      "entrypoint": "LLM Entry Points/Hermes.md",
+      "trigger": "goal routing, reminders, followups, Telegram, job dispatch",
+      "verifier": "provider truth, event ledger, RESULT/REPORT artifacts"
+    },
+    {
+      "id": "cheap_private_context_work",
+      "primary": "Ollama Local",
+      "entrypoint": "LLM Entry Points/Ollama Local.md",
+      "trigger": "summaries, classification, low-risk drafts, context compression",
+      "verifier": "source paths preserved; uncertainty reported"
+    },
+    {
+      "id": "large_context_review",
+      "primary": "Gemini",
+      "entrypoint": "LLM Entry Points/Gemini.md",
+      "trigger": "cross-file synthesis, contradiction checks, architecture review",
+      "verifier": "cited source packs and specific contradictions"
+    },
+    {
+      "id": "strategy_or_product_reasoning",
+      "primary": "GPT or Claude",
+      "entrypoint": "LLM Entry Points/GPT.md",
+      "trigger": "offer, UX, product, strategy, explanation",
+      "verifier": "explicit assumptions and handoff to executable tool when needed"
+    },
+    {
+      "id": "human_knowledge_graph",
+      "primary": "Obsidian",
+      "entrypoint": "LLM Entry Points/Obsidian.md",
+      "trigger": "browse, connect, and maintain notes",
+      "verifier": "Markdown notes with provenance; no execution claims"
+    }
+  ],
+  "experimentGates": [
+    {
+      "id": "cross_agent_sync_packet",
+      "score": 151,
+      "evaluator": "node tests/test-agent-sync-brief.js && node tools/agent-sync-brief.js --no-write --stdout",
+      "metric": "sync_packet_generated=true, redaction_tests_pass=true, active_locks_visible=true"
+    },
+    {
+      "id": "arena_token_efficiency_benchmark",
+      "score": 141,
+      "evaluator": "node tests/test-recursive-experiment-loop.js && node tools/recursive-experiment-loop.js efficiency --before 40 --after 64 --output-tokens 800 --tool-hallucinations 0 --bash-recovery-failures 0 --evaluator pass --json",
+      "metric": "task_improvement_per_1k_output_tokens, tool_hallucinations, bash_recovery_failures, evaluator_pass"
+    },
+    {
+      "id": "checkout_recovery_experiment",
+      "score": 140,
+      "evaluator": "node tools/payment-waiting-audit.js && node tools/revenue-control-checks.js",
+      "metric": "qualified_followups_sent, checkout_reopened, payment_succeeded_count, complaint_count"
+    },
+    {
+      "id": "provider_routing_benchmark",
+      "score": 137,
+      "evaluator": "node tests/test-openrouter-graphify-tools.js && node tests/test-kimi-model-upgrade-audit.js && node tests/test-glm52-hermes-config.js",
+      "metric": "latency_ms, cost_usd, context_tokens, smoke_pass, quality_score"
+    },
+    {
+      "id": "rag_source_grounding_eval",
+      "score": 137,
+      "evaluator": "node tests/test-hermes-source-packs.js && node tests/test-openrouter-graphify-tools.js",
+      "metric": "source_pack_present=true, graph_query_success=true, cited_files_count>=2"
+    }
+  ]
+}

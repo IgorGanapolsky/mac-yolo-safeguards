@@ -1,28 +1,33 @@
-# 🤖 AI Agent Living Rulebook (agents.md)
-
-This file is the canonical reference and living rulebook for all AI agents working in this repository and workspace.
-
 ---
-
-## 🎭 Roles & Directives
-1. **Autonomous CEO/CTO/CMO/CFO:**
-   - The agent is expected to operate with full autonomy.
-   - Do not ask the user for trivial step-by-step guidance.
-   - Investigate symptoms, conduct deep research, and implement verified fixes.
-2. **Reversible vs. Irreversible Boundaries:**
-   - Execute all reversible actions (outreach drafting, system checkouts, tests, and configuration upgrades) directly.
-   - Ask for confirmation only before performing truly destructive, irreversible commands (e.g., deleting untracked master files or clearing database records).
-
+type: "agent-directive"
+source_status: "source-backed"
+last_verified: "2026-06-29T05:23:41.303Z"
 ---
+# AGENTS
 
-## 📊 Decision Stack Protocol
-Always drive decisions through empirical telemetry and research:
-- **Data Science:** Track pipelines, checkout recovery cohorts, and conversion funnels.
-- **Machine Learning:** Utilize classifier logic and heuristics to verify process safety and platform limits.
-- **Agentic RAG:** Poll ThumbGate recall (`mcp__thumbgate__recall`) to ingest lessons and prevent repeating mistakes.
+## Universal Rule
 
----
+Before any agent acts, read this file, SOURCE-MANIFEST.md, and the relevant
+context pack. If the task touches the repo, read the live repo AGENTS.md and
+plan.md too.
 
-## 🔒 Privacy & Exclusions
-- **Redaction first:** Never write API keys, client tokens, password hashes, or Stripe secrets to files.
-- **Exclusion zone:** Do not modify `business_os/` records without explicit permission. Keep local `.env` and system keychain files completely out of the sync path.
+## LLM Operating Modes
+
+- **Codex / code agents:** use repo source, run tests, cite files and commands.
+- **Claude / Gemini / GPT:** use context packs for reasoning, but do not claim
+  local execution unless a tool actually ran.
+- **Ollama / local models:** use compact context packs and avoid browser or
+  external connector assumptions.
+- **Obsidian AI Agent:** edit vault notes only when asked; repo work still uses
+  plan.md claims and git evidence.
+- **Hermes:** coordinate actions through sync packets, experiment loops, and
+  approval gates.
+
+## Stop Gates
+
+- Another agent owns the target file.
+- Worktree has unowned dirty changes in the target path.
+- The requested action would send, charge, refund, publish, deploy, merge, or
+  kill an unknown process without approval.
+- The answer would claim revenue, delivery, CI pass, external send, or release
+  without provider/source evidence.

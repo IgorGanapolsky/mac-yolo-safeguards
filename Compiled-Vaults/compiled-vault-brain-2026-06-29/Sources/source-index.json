@@ -1,0 +1,91 @@
+{
+  "generatedAt": "2026-06-29T05:23:41.303Z",
+  "repo": "/Users/igorganapolsky/workspace/git/igor/mac-yolo-safeguards",
+  "hostname": "Igors-MacBook-Pro.local",
+  "sources": [
+    {
+      "id": "agent-directives",
+      "path": "AGENTS.md",
+      "role": "canonical agent directive",
+      "exists": true,
+      "sizeBytes": 12538,
+      "mtime": "2026-06-26T21:57:51.955Z",
+      "shaHint": "12538:1782511071955"
+    },
+    {
+      "id": "coordination-board",
+      "path": "plan.md",
+      "role": "live task board and ownership map",
+      "exists": true,
+      "sizeBytes": 27417,
+      "mtime": "2026-06-29T05:22:49.372Z",
+      "shaHint": "27417:1782710569372"
+    },
+    {
+      "id": "obsidian-index",
+      "path": "OBSIDIAN.md",
+      "role": "Obsidian AI Agent entrypoint",
+      "exists": true,
+      "sizeBytes": 2615,
+      "mtime": "2026-06-29T05:01:01.433Z",
+      "shaHint": "2615:1782709261433"
+    },
+    {
+      "id": "agent-sync-brief-doc",
+      "path": "docs/AGENT-SYNC-BRIEF.md",
+      "role": "sync packet contract",
+      "exists": true,
+      "sizeBytes": 1406,
+      "mtime": "2026-06-29T04:31:42.617Z",
+      "shaHint": "1406:1782707502617"
+    },
+    {
+      "id": "recursive-loop-doc",
+      "path": "docs/RECURSIVE-EXPERIMENT-LOOP.md",
+      "role": "experiment loop contract",
+      "exists": true,
+      "sizeBytes": 5255,
+      "mtime": "2026-06-29T05:23:00.211Z",
+      "shaHint": "5255:1782710580211"
+    },
+    {
+      "id": "loop-engine-doc",
+      "path": "docs/HERMES-LOOP-ENGINE.md",
+      "role": "Hermes task loop contract",
+      "exists": true,
+      "sizeBytes": 3797,
+      "mtime": "2026-06-29T05:23:00.231Z",
+      "shaHint": "3797:1782710580231"
+    },
+    {
+      "id": "latest-e2e",
+      "path": "hermes-mobile/docs/proofs/continuous/latest.json",
+      "role": "latest mobile proof state",
+      "exists": true,
+      "sizeBytes": 318,
+      "mtime": "2026-06-29T05:20:27.528Z",
+      "shaHint": "318:1782710427528"
+    },
+    {
+      "id": "skool-restaurant-answering-doc",
+      "path": "docs/SKOOL-RESTAURANT-ANSWERING.md",
+      "role": "restaurant answering doc",
+      "exists": true,
+      "sizeBytes": 1280,
+      "mtime": "2026-06-29T05:22:41.899Z",
+      "shaHint": "1280:1782710561899"
+    },
+    {
+      "id": "skool-restaurant-answering-code",
+      "path": "tools/skool-restaurant-answering.js",
+      "role": "restaurant answering engine",
+      "exists": true,
+      "sizeBytes": 5206,
+      "mtime": "2026-06-29T05:23:00.232Z",
+      "shaHint": "5206:1782710580232"
+    }
+  ],
+  "blockedConnectors": [
+    "External email/message/payment/browser connector ingestion is intentionally out of scope for this compiler."
+  ]
+}
