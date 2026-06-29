@@ -181,6 +181,7 @@ export default function ChatConnectionPanel({
     searching,
     healInFlight: heal.inFlight,
     healExhausted: heal.exhausted,
+    healAttempt: heal.attempt,
     freshUser: profiles.length === 0,
     macLabel,
     cellularBlocksDirect,

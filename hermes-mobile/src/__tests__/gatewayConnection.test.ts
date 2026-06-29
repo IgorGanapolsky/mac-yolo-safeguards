@@ -38,7 +38,7 @@ describe('gatewayConnection', () => {
   });
 
   it('describes bootstrap phases for UI', () => {
-    expect(describeBootstrapPhase('searching')).toContain('computers');
+    expect(describeBootstrapPhase('searching')).toContain('Wi‑Fi');
     expect(isGatewayHealthOk({ level: 'amber', checkedAt: '' })).toBe(true);
   });
 

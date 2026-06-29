@@ -88,6 +88,7 @@ describe('freshUserOnboarding', () => {
       searching: false,
       healInFlight: true,
       healExhausted: false,
+      healAttempt: 3,
       freshUser: false,
       macLabel: 'Mac mini',
       cellularBlocksDirect: false,
@@ -95,5 +96,6 @@ describe('freshUserOnboarding', () => {
     });
     expect(body).toContain('automatically');
     expect(body).toContain('Mac mini');
+    expect(body).toContain('(3 of 6)');
   });
 });

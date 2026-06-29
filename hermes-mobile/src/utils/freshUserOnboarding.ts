@@ -110,6 +110,7 @@ export function freshUserConnectionBody(input: {
   searching: boolean;
   healInFlight: boolean;
   healExhausted: boolean;
+  healAttempt?: number;
   freshUser: boolean;
   macLabel?: string;
   cellularBlocksDirect: boolean;
@@ -123,9 +124,14 @@ export function freshUserConnectionBody(input: {
     return 'Searching your home Wi‑Fi for Hermes on your Mac…';
   }
   if (input.healInFlight && !input.healExhausted && !input.freshUser) {
+    const attempt = Math.max(0, input.healAttempt ?? 0);
+    const progress =
+      attempt > 0
+        ? ` (${Math.min(attempt, FRESH_USER_HEAL_ATTEMPTS)} of ${FRESH_USER_HEAL_ATTEMPTS})`
+        : '';
     return input.macLabel
-      ? `Trying to reach ${input.macLabel} automatically…`
-      : 'Trying to reach your Mac automatically…';
+      ? `Trying to reach ${input.macLabel} automatically${progress}…`
+      : `Trying to reach your Mac automatically${progress}…`;
   }
   if (input.cellularBlocksDirect) {
     return input.macLabel
