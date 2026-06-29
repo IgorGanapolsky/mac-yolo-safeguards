@@ -2,12 +2,12 @@
 type: "post-approval-runbook"
 project: "restaurant-ai-answering"
 source_status: "local-export"
-last_verified: "2026-06-29T13:51:03+00:00"
+last_verified: "2026-06-29T13:54:46+00:00"
 canonical_source: "reports/gtm/hermes-post-approval-runbook.md"
 ---
 # Hermes Post-Approval Runbook
 
-Generated: `2026-06-29T13:51:02+00:00`
+Generated: `2026-06-29T13:53:57+00:00`
 
 Scope: local runbook only. No Skool post, DM, reaction, phone call, Telegram message, or payment action was executed.
 

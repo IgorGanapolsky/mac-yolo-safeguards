@@ -3,7 +3,7 @@ type: "llm-entrypoint"
 tool: "Codex"
 project: "restaurant-ai-answering"
 source_status: "local-export"
-last_verified: "2026-06-29T13:51:03+00:00"
+last_verified: "2026-06-29T13:54:46+00:00"
 ---
 # Restaurant AI Answering Codex
 

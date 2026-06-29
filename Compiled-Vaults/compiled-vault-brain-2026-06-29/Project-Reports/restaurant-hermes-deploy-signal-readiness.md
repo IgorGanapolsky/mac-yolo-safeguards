@@ -2,12 +2,12 @@
 type: "deploy-signal-readiness"
 project: "restaurant-ai-answering"
 source_status: "local-export"
-last_verified: "2026-06-29T13:51:03+00:00"
+last_verified: "2026-06-29T13:54:46+00:00"
 canonical_source: "reports/gtm/hermes-deploy-signal-readiness.md"
 ---
 # Hermes Deploy Signal Readiness
 
-Generated: `2026-06-29T13:51:00+00:00`
+Generated: `2026-06-29T13:53:55+00:00`
 
 - Status: `waiting_for_exact_deploy_approval`
 - Ready to deploy: `false`

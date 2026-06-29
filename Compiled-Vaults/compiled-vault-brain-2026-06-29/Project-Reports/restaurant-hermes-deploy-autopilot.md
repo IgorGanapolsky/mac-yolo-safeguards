@@ -2,12 +2,12 @@
 type: "deploy-autopilot"
 project: "restaurant-ai-answering"
 source_status: "local-export"
-last_verified: "2026-06-29T13:51:03+00:00"
+last_verified: "2026-06-29T13:54:46+00:00"
 canonical_source: "reports/gtm/hermes-deploy-autopilot.md"
 ---
 # Hermes Deploy Autopilot
 
-Generated: `2026-06-29T13:51:00+00:00`
+Generated: `2026-06-29T13:53:56+00:00`
 
 Scope: approval-gated Vercel deploy. No deploy runs unless `--apply` is used and exact deploy approval is detected after the deploy request.
 

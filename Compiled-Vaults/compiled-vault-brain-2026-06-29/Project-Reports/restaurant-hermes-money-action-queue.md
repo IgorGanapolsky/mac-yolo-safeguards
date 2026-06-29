@@ -2,12 +2,12 @@
 type: "operator-money-queue"
 project: "restaurant-ai-answering"
 source_status: "local-export"
-last_verified: "2026-06-29T13:51:03+00:00"
+last_verified: "2026-06-29T13:54:46+00:00"
 canonical_source: "reports/gtm/hermes-money-action-queue.md"
 ---
 # Hermes Money Action Queue
 
-Generated: `2026-06-29T13:51:01+00:00`
+Generated: `2026-06-29T13:53:56+00:00`
 
 Purpose: one canonical no-phone queue for Hermes/Telegram. Codex prepares and verifies; Hermes owns live operator execution.
 

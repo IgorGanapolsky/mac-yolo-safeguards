@@ -2,7 +2,7 @@
 type: "project-report"
 project: "restaurant-ai-answering"
 source_status: "local-export"
-last_verified: "2026-06-29T13:51:03+00:00"
+last_verified: "2026-06-29T13:54:46+00:00"
 canonical_source: "sales/restaurant-ai-answering-lead-queue-2026-06-29.md"
 ---
 # Restaurant AI Answering Lead Queue

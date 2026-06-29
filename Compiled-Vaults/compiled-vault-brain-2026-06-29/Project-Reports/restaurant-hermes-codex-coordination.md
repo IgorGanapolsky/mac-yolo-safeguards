@@ -2,12 +2,12 @@
 type: "operator-coordination"
 project: "restaurant-ai-answering"
 source_status: "local-export"
-last_verified: "2026-06-29T13:51:03+00:00"
+last_verified: "2026-06-29T13:54:46+00:00"
 canonical_source: "reports/gtm/hermes-codex-coordination.md"
 ---
 # Hermes/Codex Coordination
 
-Generated: `2026-06-29T13:49:42+00:00`
+Generated: `2026-06-29T13:54:00+00:00`
 
 - Active operator: `hermes_telegram`
 - Codex role: `evidence_scoring_guardrails_patches`

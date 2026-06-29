@@ -2,7 +2,7 @@
 type: "stripe-readiness"
 project: "restaurant-ai-answering"
 source_status: "local-export"
-last_verified: "2026-06-29T13:51:03+00:00"
+last_verified: "2026-06-29T13:54:46+00:00"
 canonical_source: "reports/gtm/stripe_readiness.md"
 ---
 # Stripe Readiness
