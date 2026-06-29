@@ -13,8 +13,10 @@ import type { LeashConnectionState } from '../utils/gatewayEndpoint';
 
 type OutputFeedbackHandlers = {
   busy?: boolean;
+  selected?: 'up' | 'down';
   onThumbsUp: () => void;
   onThumbsDown: () => void;
+  onAddDetails?: () => void;
 };
 
 export type ChatMessageListItemProps = {
