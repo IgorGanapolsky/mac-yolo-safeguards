@@ -1,4 +1,4 @@
-import React, { Suspense, useEffect, useRef } from 'react';
+import React, { Suspense, useCallback, useEffect, useRef } from 'react';
 import { StyleSheet, View, Text, TouchableOpacity, StatusBar, ActivityIndicator, Platform, Alert } from 'react-native';
 import * as SplashScreen from 'expo-splash-screen';
 import TabBarIcon from './src/components/TabBarIcon';
@@ -15,6 +15,7 @@ import { resolveInitialTab } from './src/utils/leashUx';
 import ErrorBoundary from './src/components/ErrorBoundary';
 import ConnectMacGate from './src/components/ConnectMacGate';
 import { useHermesDeepLinks } from './src/hooks/useHermesDeepLinks';
+import type { SetupDeepLinkParams } from './src/utils/setupDeepLink';
 import { trackAppOpen, trackScreenView } from './src/services/productAnalytics';
 import { useKeyboardInset } from './src/hooks/useKeyboardInset';
 import { LEASH_TAB_LABEL } from './src/constants/monetization';
@@ -270,13 +271,41 @@ const linking = {
 
 function HermesNavigationRoot() {
   const navigationRef = useRef<NavigationContainerRef<RootTabParamList>>(null);
-  const { runAgentTool, refreshHealth, applySetupDeepLink, focusChatSession, activateDeveloperLeashUnlock } =
-    useGateway();
+  const {
+    runAgentTool,
+    refreshHealth,
+    applySetupDeepLink,
+    saveSettings,
+    settings,
+    apiKey,
+    focusChatSession,
+    activateDeveloperLeashUnlock,
+  } = useGateway();
+  const applySetupDeepLinkWithThumbgate = useCallback(
+    async (params: SetupDeepLinkParams) => {
+      await applySetupDeepLink(params);
+      const thumbgateKey = params.thumbgateApiKey?.trim();
+      if (!thumbgateKey) {
+        return;
+      }
+      const nextKey = params.apiKey?.trim() || apiKey;
+      const nextSettings = params.gatewayUrl?.trim()
+        ? {
+            ...settings,
+            gatewayUrl: params.gatewayUrl.trim(),
+            connectionMode: 'relay' as const,
+            demoMode: false,
+          }
+        : settings;
+      await saveSettings(nextSettings, nextKey, thumbgateKey);
+    },
+    [applySetupDeepLink, apiKey, saveSettings, settings],
+  );
   useHermesDeepLinks(
     navigationRef,
     runAgentTool,
     refreshHealth,
-    applySetupDeepLink,
+    applySetupDeepLinkWithThumbgate,
     focusChatSession,
     activateDeveloperLeashUnlock,
   );

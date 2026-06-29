@@ -18,6 +18,8 @@ export interface SetupDeepLinkParams {
   extraComputers?: SetupExtraComputer[];
   /** Maestro / simulator flows when no live gateway is reachable. */
   demoMode?: boolean;
+  /** ThumbGate API key from Mac pairing (hermes://setup?thumbgate=…). */
+  thumbgateApiKey?: string;
 }
 
 function parseQueryString(query: string): Record<string, string> {
@@ -39,11 +41,15 @@ export function buildSetupDeepLink(
   relayCode?: string,
   tailnetProbeHosts?: string[],
   extraComputers?: SetupExtraComputer[],
+  thumbgateApiKey?: string,
 ): string {
   const params = new URLSearchParams();
   params.set('url', gatewayUrl.trim());
   if (apiKey?.trim()) {
     params.set('key', apiKey.trim());
+  }
+  if (thumbgateApiKey?.trim()) {
+    params.set('thumbgate', thumbgateApiKey.trim());
   }
   if (macName?.trim()) {
     params.set('name', macName.trim());
@@ -169,6 +175,11 @@ export function parseSetupDeepLink(url: string): SetupDeepLinkParams | null {
     undefined;
   const tailnetProbeHosts = parseRepeatedQueryValues(query, 'tailnet');
   const extraComputers = parseExtraComputers(query);
+  const thumbgateApiKey =
+    params.thumbgate?.trim() ||
+    params.thumbgateKey?.trim() ||
+    params.thumbgateApiKey?.trim() ||
+    undefined;
   return {
     gatewayUrl,
     apiKey,
@@ -176,5 +187,6 @@ export function parseSetupDeepLink(url: string): SetupDeepLinkParams | null {
     relayCode: relayCode ? relayCode.toUpperCase() : undefined,
     tailnetProbeHosts: tailnetProbeHosts.length > 0 ? tailnetProbeHosts : undefined,
     extraComputers: extraComputers.length > 0 ? extraComputers : undefined,
+    thumbgateApiKey,
   };
 }

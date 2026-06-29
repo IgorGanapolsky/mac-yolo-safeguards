@@ -37,6 +37,23 @@ function readEnvKey(filePath, names) {
   return '';
 }
 
+function readThumbgateApiKey() {
+  const fromEnv = process.env.THUMBGATE_API_KEY?.trim();
+  if (fromEnv) {
+    return fromEnv;
+  }
+  const licensePath = path.join(os.homedir(), '.thumbgate', 'license.json');
+  if (!fs.existsSync(licensePath)) {
+    return '';
+  }
+  try {
+    const license = JSON.parse(fs.readFileSync(licensePath, 'utf8'));
+    return typeof license.key === 'string' ? license.key.trim() : '';
+  } catch {
+    return '';
+  }
+}
+
 function fetchHealthAt(baseUrl) {
   const trimmed = String(baseUrl || '').trim().replace(/\/$/, '');
   const healthUrl = `${trimmed}/health`;
@@ -97,10 +114,19 @@ function resolveLanIp(health) {
   throw new Error('Gateway health missing localIp — cannot build LAN URL for phone.');
 }
 
-function buildDeepLink(gatewayUrl, apiKey, hostname, relayCode, tailnetProbeHosts, extraComputers) {
+function buildDeepLink(
+  gatewayUrl,
+  apiKey,
+  hostname,
+  relayCode,
+  tailnetProbeHosts,
+  extraComputers,
+  thumbgateApiKey,
+) {
   const params = new URLSearchParams();
   params.set('url', gatewayUrl);
   if (apiKey) params.set('key', apiKey);
+  if (thumbgateApiKey) params.set('thumbgate', thumbgateApiKey);
   const displayName = (hostname || '').replace(/\.local$/i, '').trim();
   if (displayName) params.set('name', displayName);
   if (relayCode) params.set('relay', relayCode.trim().toUpperCase());
@@ -377,6 +403,7 @@ function main() {
     'HERMES_API_SERVER_KEY',
     'API_KEY',
   ]);
+  const thumbgateApiKey = readThumbgateApiKey();
   const hostname = health.hostname || os.hostname();
   const relayCode =
     readEnvKey(HERMES_ENV, [
@@ -445,6 +472,7 @@ function main() {
     relayCode,
     tailnetProbeHosts,
     extraComputers,
+    thumbgateApiKey,
   );
   const pageUrl = `http://${lanIp}:${PAIR_PORT}/pair`;
   const { htmlPath } = writePairAssets({
@@ -461,10 +489,12 @@ function main() {
   console.log('  Gateway:', gatewayUrl);
   console.log('  Pair page:', pageUrl);
   console.log('  Local file:', htmlPath);
-  console.log(
-    '  Deep link:',
-    deepLink.replace(apiKey, apiKey ? `${apiKey.slice(0, 12)}…` : ''),
-  );
+  let redactedLink = deepLink.replace(apiKey, apiKey ? `${apiKey.slice(0, 12)}…` : '');
+  if (thumbgateApiKey) {
+    redactedLink = redactedLink.replace(thumbgateApiKey, `${thumbgateApiKey.slice(0, 12)}…`);
+    console.log('  ThumbGate key: embedded in deep link');
+  }
+  console.log('  Deep link:', redactedLink);
 
   printTerminalQr(pageUrl);
 
