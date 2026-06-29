@@ -126,7 +126,8 @@ Tab bar icons are **React Native Views** in `TabBarIcon.tsx` (no `@expo/vector-i
 |-------|--------|
 | `assets/icon.png` | AI-generated glowing H on dark rounded square; readable but heavy glow; same file duplicated for adaptive/favicon (~819 KB each) |
 | `assets/adaptive-icon.png` | Identical to `icon.png` (background baked into foreground — suboptimal for adaptive masking) |
-| `assets/splash.png` | Dark splash, separate art (unchanged) |
+| `assets/source/splash.svg` | Transparent H mark + subtle halo; `#0B0F19` from `app.json` |
+| `assets/splash.png` | Rendered from `splash.svg` via `generate-app-icons.sh` |
 | `TabBarIcon.tsx` | Custom Views: monitor+stand (Hermes), shield+check (Leash), 4-tooth gear (Settings) — **not aligned** with launcher H mark |
 | Android `mipmap-*` | WebP launcher from prior prebuild (stale until rebuild) |
 | iOS AppIcon | Not vendored in repo (Expo/EAS generates from `icon`) |

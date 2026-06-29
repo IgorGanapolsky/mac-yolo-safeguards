@@ -34,5 +34,8 @@ render "$SRC/adaptive-monochrome.svg" "$OUT/adaptive-monochrome.png" 1024
 # Favicon / web: full tile (transparent foreground would vanish on a white page).
 render "$SRC/icon-master.svg" "$OUT/favicon.png" 48
 
+# Splash: transparent H mark — backgroundColor in app.json fills the screen.
+render "$SRC/splash.svg" "$OUT/splash.png" 1024
+
 echo "Wrote:"
-ls -la "$OUT/icon.png" "$OUT/adaptive-icon.png" "$OUT/adaptive-background.png" "$OUT/adaptive-monochrome.png" "$OUT/favicon.png"
+ls -la "$OUT/icon.png" "$OUT/adaptive-icon.png" "$OUT/adaptive-background.png" "$OUT/adaptive-monochrome.png" "$OUT/favicon.png" "$OUT/splash.png"
