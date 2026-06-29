@@ -16,8 +16,13 @@ console.log('Testing buildChildPromptArgs...');
 
 // Helper to temporarily mock process.stdout.isTTY
 function runWithMockedTTY(isTTY, fn) {
-  const originalIsTTY = process.stdout.isTTY;
+  const originalStdoutIsTTY = process.stdout.isTTY;
+  const originalStdinIsTTY = process.stdin.isTTY;
   Object.defineProperty(process.stdout, 'isTTY', {
+    value: isTTY,
+    configurable: true
+  });
+  Object.defineProperty(process.stdin, 'isTTY', {
     value: isTTY,
     configurable: true
   });
@@ -25,7 +30,11 @@ function runWithMockedTTY(isTTY, fn) {
     fn();
   } finally {
     Object.defineProperty(process.stdout, 'isTTY', {
-      value: originalIsTTY,
+      value: originalStdoutIsTTY,
+      configurable: true
+    });
+    Object.defineProperty(process.stdin, 'isTTY', {
+      value: originalStdinIsTTY,
       configurable: true
     });
   }

@@ -28,10 +28,36 @@ const LOG_PATH = process.env.HERMES_YOLO_LOG_PATH || `/tmp/hermes-yolo-${cwdHash
 
 // All thresholds overridable via env vars.
 const HERMES_BIN = process.env.HERMES_BIN || path.join(HOME, '.local/bin/hermes');
-const DEFAULT_TOOLSETS = process.env.HERMES_YOLO_TOOLSETS || 'terminal,file,web,browser,code_execution,vision,computer_use,skills,todo,memory,context_engine,session_search,moa';
+const DEFAULT_TOOLSETS = process.env.HERMES_YOLO_TOOLSETS || 'terminal,file,web,code_execution,memory,clarify';
 
-const DEFAULT_PROVIDER = process.env.HERMES_YOLO_PROVIDER || 'zai';
-const DEFAULT_MODEL = process.env.HERMES_YOLO_MODEL || 'glm-5.2';
+function hasZaiKey(env = process.env) {
+  return Boolean(env.Z_AI_API_KEY || env.ZAI_API_KEY);
+}
+
+function defaultModelRoute(env = process.env) {
+  if (env.HERMES_YOLO_PROVIDER || env.HERMES_YOLO_MODEL) {
+    return {
+      provider: env.HERMES_YOLO_PROVIDER || 'custom:ollama-local-64k',
+      model: env.HERMES_YOLO_MODEL || 'qwen2.5:3b-64k',
+    };
+  }
+
+  if (hasZaiKey(env)) {
+    return {
+      provider: 'custom:zai-coding-glm',
+      model: 'glm-5.2',
+    };
+  }
+
+  return {
+    provider: 'custom:ollama-local-64k',
+    model: 'qwen2.5:3b-64k',
+  };
+}
+
+const DEFAULT_ROUTE = defaultModelRoute();
+const DEFAULT_PROVIDER = DEFAULT_ROUTE.provider;
+const DEFAULT_MODEL = DEFAULT_ROUTE.model;
 
 const EXTRA_ARGS = process.env.HERMES_YOLO_NO_DEFAULT_ARGS
   ? []
@@ -40,7 +66,8 @@ const EXTRA_ARGS = process.env.HERMES_YOLO_NO_DEFAULT_ARGS
 const TIMEOUT_MS = parseInt(process.env.HERMES_YOLO_TIMEOUT_MS || (120 * 60 * 1000), 10);
 const CPU_SAMPLE_INTERVAL_MS = parseInt(process.env.HERMES_YOLO_CPU_SAMPLE_MS || 30000, 10);
 const CPU_THRESHOLD = parseFloat(process.env.HERMES_YOLO_CPU_THRESHOLD || 90);
-const CPU_STUCK_SAMPLES = parseInt(process.env.HERMES_YOLO_CPU_STUCK_SAMPLES || 10, 10);
+const CPU_STUCK_SAMPLES = parseInt(process.env.HERMES_YOLO_CPU_STUCK_SAMPLES || 0, 10);
+const CPU_WATCHDOG_ENABLED = CPU_STUCK_SAMPLES > 0;
 
 const DEFAULT_READY_PROMPT = 'Reply with exactly HERMES-YOLO-READY';
 const args = process.argv.slice(2);
@@ -180,7 +207,7 @@ if (process.env.HERMES_YOLO_PREFLIGHT === '1') {
   }
 }
 
-log(`START pid=${process.pid} bin=${HERMES_BIN} extraArgs=${JSON.stringify(EXTRA_ARGS)} args=${JSON.stringify(childPromptArgs)} timeout=${TIMEOUT_MS}ms cpuThreshold=${CPU_THRESHOLD}% stuckSamples=${CPU_STUCK_SAMPLES}@${CPU_SAMPLE_INTERVAL_MS}ms`);
+log(`START pid=${process.pid} bin=${HERMES_BIN} extraArgs=${JSON.stringify(EXTRA_ARGS)} args=${JSON.stringify(childPromptArgs)} timeout=${TIMEOUT_MS}ms cpuWatchdog=${CPU_WATCHDOG_ENABLED ? 'enabled' : 'disabled'} cpuThreshold=${CPU_THRESHOLD}% stuckSamples=${CPU_STUCK_SAMPLES}@${CPU_SAMPLE_INTERVAL_MS}ms`);
 
 updateStatus(data => {
   data.savedTokens += 50000;
@@ -275,9 +302,10 @@ const timeoutHandle = setTimeout(
   TIMEOUT_MS
 );
 
-// Stuck-loop watchdog with descendant support
+// Stuck-loop watchdog with descendant support. Disabled by default because
+// sustained high CPU is expected while local Ollama models are actively working.
 let highCpuSamples = 0;
-const watchdog = setInterval(() => {
+const watchdog = CPU_WATCHDOG_ENABLED ? setInterval(() => {
   if (killed || child.killed) return;
   
   const descendants = getDescendantPids(child.pid);
@@ -293,11 +321,11 @@ const watchdog = setInterval(() => {
     log(`watchdog cpu=${cpu}% — reset stuck-counter (was ${highCpuSamples})`);
     highCpuSamples = 0;
   }
-}, CPU_SAMPLE_INTERVAL_MS);
+}, CPU_SAMPLE_INTERVAL_MS) : null;
 
 child.on('close', (code, signal) => {
   clearTimeout(timeoutHandle);
-  clearInterval(watchdog);
+  if (watchdog) clearInterval(watchdog);
   releaseLock();
   log(`EXIT code=${code} signal=${signal} killed=${killed} reason=${killReason || ''}`);
 
@@ -341,6 +369,8 @@ process.on('exit', releaseLock);
 } else {
 module.exports = {
   buildChildPromptArgs,
+  defaultModelRoute,
+  hasZaiKey,
   HERMES_COMMANDS,
   DEFAULT_READY_PROMPT
 };
