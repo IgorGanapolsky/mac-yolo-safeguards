@@ -90,7 +90,11 @@ jobs:
     name: Maestro ship-guard (macOS sim)
     runs-on: macos-latest
     needs: unit-and-contract
-    if: github.event_name == 'workflow_dispatch'
+    # Run on PRs too (not just manual dispatch) so launch/runtime regressions are
+    # caught before merge — e.g. the otel v2 crash that only surfaces at app launch
+    # and which unit tests + a build job cannot detect. Make this a required check
+    # in branch protection to block merges on E2E failure.
+    if: github.event_name == 'workflow_dispatch' || github.event_name == 'pull_request'
     timeout-minutes: 45
     defaults:
       run:
