@@ -35,6 +35,7 @@ Durable rules live in [AGENTS.md](./AGENTS.md); this file is *live state only*.
 | T-14 | Research-to-Hermes intelligence gate for multi-machine/provider improvements | done | codex | `tools/hermes-research-intelligence.js`, `tests/test-hermes-research-intelligence.js` | tool emits scored, verifiable recommendations and tests pass |
 | T-15 | Hermes hardware leash / M5Stack control surface | done | codex | `tools/hermes-hardware-leash.js`, `tests/test-hermes-hardware-leash.js`, `docs/HERMES-HARDWARE-LEASH.md` | `node tests/test-hermes-hardware-leash.js` passes; snapshot reports local gateway online; signed event verification passes |
 | T-16 | Hermes loop engine / Tasklet-Beads-CodeRabbit operating kernel | done | codex | `tools/hermes-loop-engine.js`, `tests/test-hermes-loop-engine.js`, `docs/HERMES-LOOP-ENGINE.md` | `node tests/test-hermes-loop-engine.js` passes; `NEW_REPLY` selects buyer reply with approval gate; `PAYMENT_SUCCEEDED` selects paid fulfillment first |
+| T-17 | Obsidian-readable cross-agent sync brief | in_progress | codex | `tools/agent-sync-brief.js`, `tests/test-agent-sync-brief.js`, `docs/AGENT-SYNC-BRIEF.md` | tool writes source-backed Markdown+JSON sync packets, redacts secrets, and tests pass |
 
 Status values: `pending` | `in_progress` | `blocked` | `done`. Claim a row by setting Owner+Status in one edit, then claim its files in §2.
 
@@ -66,6 +67,7 @@ Status values: `pending` | `in_progress` | `blocked` | `done`. Claim a row by se
 - `tools/hermes-research-intelligence.js`, `tests/test-hermes-research-intelligence.js` → **codex** (T-14) (2026-06-29)
 - `tools/hermes-hardware-leash.js`, `tests/test-hermes-hardware-leash.js`, `docs/HERMES-HARDWARE-LEASH.md` → **codex** (T-15) (2026-06-29)
 - `tools/hermes-loop-engine.js`, `tests/test-hermes-loop-engine.js`, `docs/HERMES-LOOP-ENGINE.md` → **codex** (T-16) (2026-06-29)
+- `tools/agent-sync-brief.js`, `tests/test-agent-sync-brief.js`, `docs/AGENT-SYNC-BRIEF.md` → **codex** (T-17) (2026-06-29)
 - `AGENTS.md`, `plan.md` → shared coordination files (append-only edits, commit first)
 - everything else → (free)
 
