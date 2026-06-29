@@ -13,9 +13,11 @@
  */
 
 const fs = require('fs');
+const os = require('os');
 const path = require('path');
 
 const DEFAULT_REPO = path.resolve(__dirname, '..');
+const DEFAULT_LEDGER = path.join(os.homedir(), '.hermes', 'recursive-experiment-ledger.jsonl');
 
 const RECURSIVE_PUBLIC_PATTERNS = [
   {
@@ -177,6 +179,8 @@ function usage() {
   return `Usage:
   node tools/recursive-experiment-loop.js plan [--json] [--task TEXT] [--repo PATH]
   node tools/recursive-experiment-loop.js validate [--json] [--file experiments.json]
+  node tools/recursive-experiment-loop.js record --experiment ID --before N --after N --evaluator pass --reward-hack pass --variance pass [--ledger PATH] [--json]
+  node tools/recursive-experiment-loop.js ledger [--ledger PATH] [--json]
 
 Ranks Hermes improvements using public Recursive-style automated research gates:
 clear objective, tight evaluator, retained context, branch combination,
@@ -184,13 +188,41 @@ reward-hack checks, and variance checks.`;
 }
 
 function parseArgs(argv) {
-  const args = { _: [], repo: DEFAULT_REPO, task: '', json: false, file: null, limit: 5, help: false };
+  const args = {
+    _: [],
+    repo: DEFAULT_REPO,
+    task: '',
+    json: false,
+    file: null,
+    limit: 5,
+    help: false,
+    ledger: DEFAULT_LEDGER,
+    experiment: '',
+    before: null,
+    after: null,
+    direction: 'higher',
+    minDelta: 0,
+    evaluator: null,
+    rewardHack: null,
+    variance: null,
+    evidence: '',
+  };
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i];
     if (arg === '--repo') args.repo = path.resolve(requireValue(argv, ++i, arg));
     else if (arg === '--task') args.task = requireValue(argv, ++i, arg);
     else if (arg === '--file') args.file = path.resolve(requireValue(argv, ++i, arg));
     else if (arg === '--limit') args.limit = Number(requireValue(argv, ++i, arg));
+    else if (arg === '--ledger') args.ledger = path.resolve(requireValue(argv, ++i, arg));
+    else if (arg === '--experiment') args.experiment = requireValue(argv, ++i, arg);
+    else if (arg === '--before') args.before = Number(requireValue(argv, ++i, arg));
+    else if (arg === '--after') args.after = Number(requireValue(argv, ++i, arg));
+    else if (arg === '--direction') args.direction = requireValue(argv, ++i, arg);
+    else if (arg === '--min-delta') args.minDelta = Number(requireValue(argv, ++i, arg));
+    else if (arg === '--evaluator') args.evaluator = requireValue(argv, ++i, arg);
+    else if (arg === '--reward-hack') args.rewardHack = requireValue(argv, ++i, arg);
+    else if (arg === '--variance') args.variance = requireValue(argv, ++i, arg);
+    else if (arg === '--evidence') args.evidence = requireValue(argv, ++i, arg);
     else if (arg === '--json') args.json = true;
     else if (arg === '--help' || arg === '-h') args.help = true;
     else args._.push(arg);
@@ -321,6 +353,149 @@ function validateExperiments(options = {}) {
   };
 }
 
+function statusPass(value) {
+  if (value === true) return true;
+  if (value === false) return false;
+  if (value == null || value === '') return null;
+  const normalized = String(value).trim().toLowerCase();
+  if (['pass', 'passed', 'ok', 'true', 'yes', 'green', 'success'].includes(normalized)) return true;
+  if (['fail', 'failed', 'false', 'no', 'red', 'error'].includes(normalized)) return false;
+  return null;
+}
+
+function metricDelta(before, after, direction = 'higher') {
+  if (!Number.isFinite(Number(before)) || !Number.isFinite(Number(after))) {
+    return { ok: false, delta: null, improved: false, reason: 'before and after must be finite numbers' };
+  }
+  const rawDelta = Number(after) - Number(before);
+  const lowerIsBetter = String(direction || 'higher').toLowerCase().startsWith('low');
+  const delta = lowerIsBetter ? -rawDelta : rawDelta;
+  return {
+    ok: true,
+    delta,
+    rawDelta,
+    improved: delta > 0,
+    direction: lowerIsBetter ? 'lower' : 'higher',
+  };
+}
+
+function evaluateOutcome(outcome = {}) {
+  const evaluatorPassed = statusPass(outcome.evaluator ?? outcome.evaluatorStatus);
+  const rewardHackPassed = statusPass(outcome.rewardHack ?? outcome.rewardHackStatus);
+  const variancePassed = statusPass(outcome.variance ?? outcome.varianceStatus);
+  const metric = metricDelta(outcome.before, outcome.after, outcome.direction);
+  const minDelta = Number(outcome.minDelta ?? outcome.minimumDelta ?? 0);
+  const issues = [];
+
+  if (!metric.ok) issues.push(metric.reason);
+  if (evaluatorPassed !== true) issues.push(evaluatorPassed === false ? 'evaluator failed' : 'evaluator evidence missing');
+  if (rewardHackPassed !== true) issues.push(rewardHackPassed === false ? 'reward-hack check failed' : 'reward-hack check missing');
+  if (variancePassed !== true) issues.push(variancePassed === false ? 'variance check failed' : 'variance check missing');
+  if (metric.ok && metric.delta <= minDelta) {
+    issues.push(`metric did not improve by more than ${minDelta}`);
+  }
+
+  let decision = 'adopt';
+  if (issues.some((issue) => /failed|did not improve/.test(issue))) {
+    decision = 'reject';
+  } else if (issues.length > 0) {
+    decision = 'retry';
+  }
+
+  return {
+    decision,
+    okToAdopt: decision === 'adopt',
+    issues,
+    metric: {
+      before: Number(outcome.before),
+      after: Number(outcome.after),
+      direction: metric.direction,
+      delta: metric.delta,
+      rawDelta: metric.rawDelta,
+      minDelta,
+    },
+    gates: {
+      evaluatorPassed,
+      rewardHackPassed,
+      variancePassed,
+    },
+  };
+}
+
+function recordOutcome(options = {}) {
+  const experiments = loadExperiments(options.file);
+  const experimentId = options.experiment || options.experimentId || options.experiment_id;
+  const experiment = experiments.find((candidate) => candidate.id === experimentId);
+  if (!experiment) throw new Error(`Unknown experiment: ${experimentId || '(missing)'}`);
+  const outcome = {
+    experimentId,
+    before: options.before,
+    after: options.after,
+    direction: options.direction || 'higher',
+    minDelta: Number(options.minDelta ?? 0),
+    evaluator: options.evaluator,
+    rewardHack: options.rewardHack,
+    variance: options.variance,
+    evidence: options.evidence || '',
+  };
+  const evaluation = evaluateOutcome(outcome);
+  const record = {
+    schema: 'hermes-recursive-experiment-outcome/v1',
+    recordedAt: new Date().toISOString(),
+    experimentId,
+    title: experiment.title,
+    objective: experiment.objective,
+    targetMetric: experiment.targetMetric,
+    evaluator: experiment.evaluator,
+    retainedContext: experiment.retainedContext,
+    outcome,
+    evaluation,
+  };
+  const ledgerPath = path.resolve(options.ledger || DEFAULT_LEDGER);
+  fs.mkdirSync(path.dirname(ledgerPath), { recursive: true });
+  fs.appendFileSync(ledgerPath, `${JSON.stringify(record)}\n`, { mode: 0o600 });
+  return { ledger: ledgerPath, record };
+}
+
+function readLedger(filePath = DEFAULT_LEDGER) {
+  const ledgerPath = path.resolve(filePath);
+  if (!fs.existsSync(ledgerPath)) {
+    return {
+      schema: 'hermes-recursive-experiment-ledger/v1',
+      ledger: ledgerPath,
+      total: 0,
+      adopt: 0,
+      retry: 0,
+      reject: 0,
+      latest: [],
+    };
+  }
+  const records = fs.readFileSync(ledgerPath, 'utf8')
+    .split('\n')
+    .filter(Boolean)
+    .map((line) => JSON.parse(line));
+  const counts = records.reduce((acc, record) => {
+    const decision = record.evaluation?.decision || 'unknown';
+    acc[decision] = (acc[decision] || 0) + 1;
+    return acc;
+  }, {});
+  return {
+    schema: 'hermes-recursive-experiment-ledger/v1',
+    ledger: ledgerPath,
+    total: records.length,
+    adopt: counts.adopt || 0,
+    retry: counts.retry || 0,
+    reject: counts.reject || 0,
+    latest: records.slice(-5).reverse().map((record) => ({
+      recordedAt: record.recordedAt,
+      experimentId: record.experimentId,
+      decision: record.evaluation?.decision,
+      issues: record.evaluation?.issues || [],
+      delta: record.evaluation?.metric?.delta,
+    })),
+  };
+}
+
 function render(plan) {
   const lines = [
     '# Recursive Experiment Loop',
@@ -387,6 +562,18 @@ function main() {
     process.exit(result.ok ? 0 : 1);
   }
 
+  if (command === 'record') {
+    const result = recordOutcome(args);
+    console.log(args.json ? JSON.stringify(result, null, 2) : `Recorded ${result.record.experimentId}: ${result.record.evaluation.decision}\nLedger: ${result.ledger}`);
+    process.exit(result.record.evaluation.decision === 'reject' ? 1 : 0);
+  }
+
+  if (command === 'ledger') {
+    const result = readLedger(args.ledger);
+    console.log(args.json ? JSON.stringify(result, null, 2) : JSON.stringify(result, null, 2));
+    return;
+  }
+
   if (command !== 'plan') throw new Error(`Unknown command: ${command}`);
   const plan = planExperiments(args);
   console.log(args.json ? JSON.stringify(plan, null, 2) : render(plan));
@@ -394,11 +581,17 @@ function main() {
 
 module.exports = {
   DEFAULT_EXPERIMENTS,
+  DEFAULT_LEDGER,
   RECURSIVE_PUBLIC_PATTERNS,
   artifactCoverage,
+  evaluateOutcome,
+  metricDelta,
   parseArgs,
   planExperiments,
+  readLedger,
+  recordOutcome,
   scoreExperiment,
+  statusPass,
   validateExperiment,
   validateExperiments,
 };

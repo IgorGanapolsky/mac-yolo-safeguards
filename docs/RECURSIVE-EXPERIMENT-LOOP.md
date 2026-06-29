@@ -10,6 +10,8 @@ source-backed, and guarded against fake wins.
   context, and next action.
 - Tight evaluator: every selected experiment must have a runnable command or
   explicit verifier.
+- Adoption ledger: improvements are recorded as `adopt`, `retry`, or `reject`
+  from before/after metrics plus evaluator, reward-hack, and variance gates.
 - Context retention: every loop names the state or lesson artifact that survives
   interruptions.
 - Branch combination: promising ideas need a combine test before becoming a
@@ -26,7 +28,33 @@ node tools/recursive-experiment-loop.js plan
 node tools/recursive-experiment-loop.js plan --json --task "sync all agents"
 node tools/recursive-experiment-loop.js validate --json
 node tools/recursive-experiment-loop.js validate --file experiments.json
+node tools/recursive-experiment-loop.js record \
+  --experiment cross_agent_sync_packet \
+  --before 1 \
+  --after 3 \
+  --evaluator pass \
+  --reward-hack pass \
+  --variance pass \
+  --evidence "tests and sync packet diff verified" \
+  --json
+node tools/recursive-experiment-loop.js ledger --json
 ```
+
+The default ledger path is `~/.hermes/recursive-experiment-ledger.jsonl` so
+experiment outcomes persist across sessions without writing private operating
+state into the repo.
+
+## Adoption Rules
+
+| Decision | Meaning |
+| --- | --- |
+| `adopt` | The evaluator passed, reward-hack check passed, variance check passed, and the metric improved beyond `--min-delta`. Hermes may keep the change. |
+| `retry` | The metric improved but a required evidence gate is missing. Run the experiment again with complete evidence before changing defaults. |
+| `reject` | The evaluator failed, reward-hack check failed, variance failed, or the metric did not improve. Do not promote the change. |
+
+This is the important Recursive-style upgrade: Hermes must not accept its own
+claim that a loop got smarter. It needs a before/after metric and independent
+verification.
 
 ## High-ROI Default Experiments
 
@@ -47,5 +75,6 @@ node tools/recursive-experiment-loop.js validate --file experiments.json
 
 This tool plans and validates local experiments. It does not send customer
 messages, mutate Stripe, merge PRs, kill processes, deploy, train models, or
-change provider defaults. Those actions still require the repo's existing
-approval and evidence gates.
+change provider defaults. Recording an `adopt` decision means "safe to keep the
+local improvement," not "safe to perform consequential external actions." Those
+actions still require the repo's existing approval and evidence gates.

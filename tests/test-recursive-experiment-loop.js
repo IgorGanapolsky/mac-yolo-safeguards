@@ -10,9 +10,14 @@ const {
   DEFAULT_EXPERIMENTS,
   RECURSIVE_PUBLIC_PATTERNS,
   artifactCoverage,
+  evaluateOutcome,
+  metricDelta,
   parseArgs,
   planExperiments,
+  readLedger,
+  recordOutcome,
   scoreExperiment,
+  statusPass,
   validateExperiment,
   validateExperiments,
 } = require('../tools/recursive-experiment-loop');
@@ -130,4 +135,99 @@ test('parseArgs supports task and limit', () => {
   assert.strictEqual(args.json, true);
   assert.strictEqual(args.task, 'checkout recovery');
   assert.strictEqual(args.limit, 2);
+});
+
+test('statusPass normalizes evaluator statuses', () => {
+  assert.strictEqual(statusPass('pass'), true);
+  assert.strictEqual(statusPass('success'), true);
+  assert.strictEqual(statusPass('fail'), false);
+  assert.strictEqual(statusPass('unknown'), null);
+});
+
+test('metricDelta supports higher-is-better and lower-is-better metrics', () => {
+  assert.deepStrictEqual(metricDelta(10, 13, 'higher').improved, true);
+  const lower = metricDelta(100, 80, 'lower');
+  assert.strictEqual(lower.improved, true);
+  assert.strictEqual(lower.delta, 20);
+  assert.strictEqual(metricDelta('nope', 1).ok, false);
+});
+
+test('evaluateOutcome adopts only when evaluator, reward-hack, variance, and metric gates pass', () => {
+  const outcome = evaluateOutcome({
+    before: 4,
+    after: 9,
+    evaluator: 'pass',
+    rewardHack: 'pass',
+    variance: 'pass',
+    minDelta: 1,
+  });
+  assert.strictEqual(outcome.decision, 'adopt');
+  assert.strictEqual(outcome.okToAdopt, true);
+});
+
+test('evaluateOutcome retries incomplete evidence instead of adopting from vibes', () => {
+  const outcome = evaluateOutcome({
+    before: 4,
+    after: 9,
+    evaluator: 'pass',
+    rewardHack: 'pass',
+  });
+  assert.strictEqual(outcome.decision, 'retry');
+  assert(outcome.issues.includes('variance check missing'));
+});
+
+test('evaluateOutcome rejects failed evaluators and non-improvements', () => {
+  const outcome = evaluateOutcome({
+    before: 9,
+    after: 4,
+    evaluator: 'fail',
+    rewardHack: 'pass',
+    variance: 'pass',
+  });
+  assert.strictEqual(outcome.decision, 'reject');
+  assert(outcome.issues.includes('evaluator failed'));
+  assert(outcome.issues.some((issue) => /did not improve/.test(issue)));
+});
+
+test('recordOutcome appends a private ledger record and summarizes decisions', () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'recursive-ledger-'));
+  const ledger = path.join(tmp, 'ledger.jsonl');
+  const result = recordOutcome({
+    ledger,
+    experiment: 'cross_agent_sync_packet',
+    before: 1,
+    after: 3,
+    evaluator: 'pass',
+    rewardHack: 'pass',
+    variance: 'pass',
+    evidence: 'unit test fixture',
+  });
+  assert.strictEqual(result.record.evaluation.decision, 'adopt');
+  const summary = readLedger(ledger);
+  assert.strictEqual(summary.total, 1);
+  assert.strictEqual(summary.adopt, 1);
+  assert.strictEqual(summary.latest[0].experimentId, 'cross_agent_sync_packet');
+  fs.rmSync(tmp, { recursive: true, force: true });
+});
+
+test('parseArgs supports outcome recording flags', () => {
+  const args = parseArgs([
+    'record',
+    '--experiment',
+    'cross_agent_sync_packet',
+    '--before',
+    '1',
+    '--after',
+    '2',
+    '--evaluator',
+    'pass',
+    '--reward-hack',
+    'pass',
+    '--variance',
+    'pass',
+  ]);
+  assert.strictEqual(args._[0], 'record');
+  assert.strictEqual(args.experiment, 'cross_agent_sync_packet');
+  assert.strictEqual(args.before, 1);
+  assert.strictEqual(args.after, 2);
 });
