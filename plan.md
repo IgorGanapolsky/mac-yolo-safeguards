@@ -31,7 +31,7 @@ Durable rules live in [AGENTS.md](./AGENTS.md); this file is *live state only*.
 | T-9 | Multi-platform optional thumbs feedback details modal | done | antigravity | `hermes-mobile/src/components/FeedbackPromptModal.tsx`, `hermes-mobile/src/screens/ChatScreen.tsx` | allows typing optional details on thumbs up/down |
 | T-10 | Display active machine name in connection/reconnection status tiles | done | antigravity | `hermes-mobile/src/components/CodexCommandCenter.tsx`, `hermes-mobile/src/screens/ChatScreen.tsx` | npm test passes |
 | T-11 | Fix clipped long chat header title on Android | done | codex | `hermes-mobile/src/components/ChatScreenHeader.tsx`, `hermes-mobile/src/__tests__/ChatScreenHeader.test.tsx` | long prompt title is one-line ellipsized and header tests pass |
-| T-13 | Discover Mac mini over Tailscale/USB loopback | in_progress | antigravity | `hermes-mobile/src/services/gatewayDiscovery.ts`, `hermes-mobile/src/__tests__/gatewayDiscovery.test.ts` | `npm test` passes and Mac mini discovered during scan |
+| T-13 | Discover Mac mini over Tailscale/USB loopback | done | antigravity | `hermes-mobile/src/services/gatewayDiscovery.ts`, `hermes-mobile/src/__tests__/gatewayDiscovery.test.ts` | `npm test` passes and Mac mini discovered during scan |
 
 Status values: `pending` | `in_progress` | `blocked` | `done`. Claim a row by setting Owner+Status in one edit, then claim its files in §2.
 
@@ -53,7 +53,7 @@ Status values: `pending` | `in_progress` | `blocked` | `done`. Claim a row by se
 - `hermes-mobile/package.json`, `hermes-mobile/package-lock.json` → **antigravity** (T-4) — released (2026-06-28)
 - `hermes-mobile/.maestro/ship-guard.yaml`, `hermes-mobile/.maestro/navigation.yaml` → **antigravity** (T-4) — released (2026-06-28)
 - `hermes-mobile/src/components/ChatScreenHeader.tsx`, `hermes-mobile/src/__tests__/ChatScreenHeader.test.tsx` → **codex** (T-11) — released 2026-06-28
-- `hermes-mobile/src/services/gatewayDiscovery.ts`, `hermes-mobile/src/__tests__/gatewayDiscovery.test.ts` → **antigravity** (T-13) (2026-06-28)
+- `hermes-mobile/src/services/gatewayDiscovery.ts`, `hermes-mobile/src/__tests__/gatewayDiscovery.test.ts` → **antigravity** (T-13) — released (2026-06-28)
 - `AGENTS.md`, `plan.md` → shared coordination files (append-only edits, commit first)
 - everything else → (free)
 
@@ -73,6 +73,7 @@ Status values: `pending` | `in_progress` | `blocked` | `done`. Claim a row by se
 - 2026-06-28 `antigravity`: **Completed T-10 (Display machine name during connect/reconnect).** Added machineName optional property to CodexCommandCenter to display the targeted machine's label (e.g. Igors-Mac-mini) during connection ('Checking Igors-Mac-mini') and reconnection ('Igors-Mac-mini Reconnecting...'), resolving the generic status copy. Verified all 633 unit tests are green.
 - 2026-06-28 `antigravity`: **Completed T-4 (Failing Maestro E2E flows).** Solved the runaway simulator guard conflicts by increasing the simruntime process limit from 150 to 350 and the memory limit to 250 in sim-runaway-guard.sh. Fixed the OpenTelemetry v2 runtime crash (TypeError: Cannot read property 'AlwaysOn' of undefined) by removing the incompatible @opentelemetry/core and @opentelemetry/sdk-trace-base package overrides from package.json, restoring full compatibility with @react-native-ai/dev-tools. Adjusted scrollUntilVisible visibilityPercentage to 40 for gateway-ops-section in both ship-guard.yaml and navigation.yaml to prevent E2E failures on partially visible lists. Verified that continuous E2E tests are 100% green and latest.json shows e2e=pass.
 - 2026-06-28 `codex`: **Completed T-11 (clipped chat header title).** Changed `ChatScreenHeader` to render long prompt-derived thread titles as one ellipsized line with explicit `lineHeight: 22` and non-negative letter spacing. Verification: `ChatScreenHeader.test.tsx` 10/10 passed, full `npm test -- --runInBand` 107 suites / 664 tests passed, `npm run typecheck` passed, release APK built and verified, emulator cold launch focused `com.iganapolsky.hermesmobile/.MainActivity`, and emulator Hermes-tab screenshot showed `Print money, make money faster. Use ...` as a clean one-line title. Physical S25 install blocked because ADB stopped seeing `R3CY90QPM7E`; `adb devices -l` showed only `emulator-5554`.
+- 2026-06-28 `antigravity`: **Completed T-13 (Discover Mac mini over Tailscale/USB loopback).** Modified `gatewayDiscovery.ts` sweeping functions to always include loopback addresses `127.0.0.1` and `localhost` first, and allowed scanning to continue even when Wi-Fi is disabled. This enables USB-paired devices to fetch `pair.json` from the local MacBook pair server over the reverse-forwarded ADB tunnel and instantly merge `tailnetProbeHosts`, discovering the Mac mini on Tailscale. Added corresponding unit tests in `gatewayDiscovery.test.ts` and verified all 668 tests are green.
 
 ## 4. Discovered Tasks (append-only inbox → promote into §1)
 
