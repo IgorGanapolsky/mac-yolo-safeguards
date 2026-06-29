@@ -20,6 +20,7 @@ appId: com.iganapolsky.hermesmobile
     notVisible:
       id: "tab-screen-loading"
     timeout: 90000
+- hideKeyboard
 - extendedWaitUntil:
     visible:
       id: "THUMBGATE_LEASH"

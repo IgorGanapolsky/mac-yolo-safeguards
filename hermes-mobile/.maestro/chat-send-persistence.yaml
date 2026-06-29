@@ -2,7 +2,7 @@
 appId: com.iganapolsky.hermesmobile
 ---
 - launchApp
-- runFlow: e2e-bootstrap.yaml
+- runFlow: chat-e2e-bootstrap.yaml
 - runFlow:
     when:
       notVisible:
