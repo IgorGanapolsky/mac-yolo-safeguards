@@ -36,6 +36,7 @@ Durable rules live in [AGENTS.md](./AGENTS.md); this file is *live state only*.
 | T-15 | Hermes hardware leash / M5Stack control surface | done | codex | `tools/hermes-hardware-leash.js`, `tests/test-hermes-hardware-leash.js`, `docs/HERMES-HARDWARE-LEASH.md` | `node tests/test-hermes-hardware-leash.js` passes; snapshot reports local gateway online; signed event verification passes |
 | T-16 | Hermes loop engine / Tasklet-Beads-CodeRabbit operating kernel | done | codex | `tools/hermes-loop-engine.js`, `tests/test-hermes-loop-engine.js`, `docs/HERMES-LOOP-ENGINE.md` | `node tests/test-hermes-loop-engine.js` passes; `NEW_REPLY` selects buyer reply with approval gate; `PAYMENT_SUCCEEDED` selects paid fulfillment first |
 | T-17 | Obsidian-readable cross-agent sync brief | done | codex | `tools/agent-sync-brief.js`, `tests/test-agent-sync-brief.js`, `docs/AGENT-SYNC-BRIEF.md` | `node tests/test-agent-sync-brief.js` passes; `node tools/agent-sync-brief.js` writes Markdown+JSON sync artifacts |
+| T-18 | Recursive experiment loop evaluator for Hermes improvements | in_progress | codex | `tools/recursive-experiment-loop.js`, `tests/test-recursive-experiment-loop.js`, `docs/RECURSIVE-EXPERIMENT-LOOP.md` | tool ranks idea→experiment→validation loops, rejects reward hacks, and tests pass |
 
 Status values: `pending` | `in_progress` | `blocked` | `done`. Claim a row by setting Owner+Status in one edit, then claim its files in §2.
 
@@ -68,6 +69,7 @@ Status values: `pending` | `in_progress` | `blocked` | `done`. Claim a row by se
 - `tools/hermes-hardware-leash.js`, `tests/test-hermes-hardware-leash.js`, `docs/HERMES-HARDWARE-LEASH.md` → **codex** (T-15) (2026-06-29)
 - `tools/hermes-loop-engine.js`, `tests/test-hermes-loop-engine.js`, `docs/HERMES-LOOP-ENGINE.md` → **codex** (T-16) (2026-06-29)
 - `tools/agent-sync-brief.js`, `tests/test-agent-sync-brief.js`, `docs/AGENT-SYNC-BRIEF.md` → **codex** (T-17) (2026-06-29)
+- `tools/recursive-experiment-loop.js`, `tests/test-recursive-experiment-loop.js`, `docs/RECURSIVE-EXPERIMENT-LOOP.md` → **codex** (T-18) (2026-06-29)
 - `AGENTS.md`, `plan.md` → shared coordination files (append-only edits, commit first)
 - everything else → (free)
 
