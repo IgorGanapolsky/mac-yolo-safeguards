@@ -43,6 +43,7 @@ Durable rules live in [AGENTS.md](./AGENTS.md); this file is *live state only*.
 | T-22 | Wire Hermes AI vault into all LLM tools | done | codex | `tools/hermes-ai-vault.js`, `tests/test-hermes-ai-vault.js`, `docs/HERMES-AI-VAULT.md`, `plan.md` | vault builds LLM entrypoints, routing map, interview template, and install target for `~/.hermes/ai-vault`; tests pass |
 | T-23 | Arena-style token efficiency gate for Hermes model routing | done | codex | `tools/recursive-experiment-loop.js`, `tests/test-recursive-experiment-loop.js`, `docs/RECURSIVE-EXPERIMENT-LOOP.md`, `plan.md` | scorer reports task improvement per 1k output tokens and penalizes tool hallucination / bash recovery failures; tests pass |
 | T-24 | Skool Money Project: AI VoIP restaurant answering and booking engine | done | antigravity | `tools/skool-restaurant-answering.js`, `tests/test-skool-restaurant-answering.js`, `docs/SKOOL-RESTAURANT-ANSWERING.md` | VoIP simulated answering, RAG query intents, Resy/OpenTable booking sync, and SMS reservations; tests pass |
+| T-25 | Fix agent-device E2E compatibility for navigation and ship-guard scroll commands | in_progress | antigravity | `hermes-mobile/.maestro/navigation.yaml`, `hermes-mobile/.maestro/ship-guard.yaml` | `npm run launch:preflight:android` passes |
 
 Status values: `pending` | `in_progress` | `blocked` | `done`. Claim a row by setting Owner+Status in one edit, then claim its files in §2.
 
@@ -82,6 +83,7 @@ Status values: `pending` | `in_progress` | `blocked` | `done`. Claim a row by se
 - `tools/hermes-ai-vault.js`, `tests/test-hermes-ai-vault.js`, `docs/HERMES-AI-VAULT.md` → **codex** (T-22 LLM vault wiring) (2026-06-29)
 - `tools/recursive-experiment-loop.js`, `tests/test-recursive-experiment-loop.js`, `docs/RECURSIVE-EXPERIMENT-LOOP.md` → **codex** (T-23 Arena-style token efficiency gate) (2026-06-29)
 - `tools/skool-restaurant-answering.js`, `tests/test-skool-restaurant-answering.js`, `docs/SKOOL-RESTAURANT-ANSWERING.md` → **antigravity** (T-24) — released (2026-06-29)
+- `hermes-mobile/.maestro/navigation.yaml`, `hermes-mobile/.maestro/ship-guard.yaml` → **antigravity** (T-25) (2026-06-29)
 - `AGENTS.md`, `plan.md` → shared coordination files (append-only edits, commit first)
 - everything else → (free)
 
