@@ -225,7 +225,9 @@ async function sweepAllPairServers(
   preferLanIp?: string | null,
   options?: DiscoverLanOptions,
 ): Promise<{ gateways: DiscoveredGateway[]; tailnetProbeHosts: string[] }> {
-  const hosts = buildHostOrder(phoneIp, preferLanIp);
+  const baseHosts = ['127.0.0.1', 'localhost'];
+  const subnetHosts = phoneIp ? buildHostOrder(phoneIp, preferLanIp) : [];
+  const hosts = [...baseHosts, ...subnetHosts];
   const map = new Map<string, DiscoveredGateway>();
   let tailnetProbeHosts: string[] = [];
   if (hosts.length === 0) {
@@ -269,7 +271,9 @@ async function sweepAllGateways(
   options?: DiscoverLanOptions,
   foundSoFar = 0,
 ): Promise<DiscoveredGateway[]> {
-  const hosts = buildHostOrder(phoneIp, preferLanIp);
+  const baseHosts = ['127.0.0.1', 'localhost'];
+  const subnetHosts = phoneIp ? buildHostOrder(phoneIp, preferLanIp) : [];
+  const hosts = [...baseHosts, ...subnetHosts];
   const map = new Map<string, DiscoveredGateway>();
   if (hosts.length === 0) {
     return [];
@@ -303,20 +307,18 @@ export async function discoverAllGatewaysOnLan(
   options?: DiscoverLanOptions,
 ): Promise<DiscoverAllGatewaysOnLanResult> {
   const phoneIp = await getPhoneLanIp();
-  if (!phoneIp) {
-    reportLanScanProgress(options?.onProgress, 'complete', 0, 0, 0);
-    return { gateways: [], tailnetProbeHosts: [] };
-  }
+  const baseHosts = ['127.0.0.1', 'localhost'];
+  const subnetHosts = phoneIp ? buildHostOrder(phoneIp, preferLanIp) : [];
+  const hosts = [...baseHosts, ...subnetHosts];
 
-  const hosts = buildHostOrder(phoneIp, preferLanIp);
   reportLanScanProgress(options?.onProgress, 'pair_server', 0, hosts.length, 0);
 
   const map = new Map<string, DiscoveredGateway>();
-  const fromPair = await sweepAllPairServers(phoneIp, preferLanIp, options);
+  const fromPair = await sweepAllPairServers(phoneIp ?? '', preferLanIp, options);
   for (const item of fromPair.gateways) {
     mergeDiscovered(map, item);
   }
-  const fromHealth = await sweepAllGateways(phoneIp, preferLanIp, options, map.size);
+  const fromHealth = await sweepAllGateways(phoneIp ?? '', preferLanIp, options, map.size);
   for (const item of fromHealth) {
     mergeDiscovered(map, item);
   }
@@ -341,7 +343,9 @@ async function sweepSubnetForPairServer(
   phoneIp: string,
   preferLanIp?: string | null,
 ): Promise<string | null> {
-  const hosts = buildHostOrder(phoneIp, preferLanIp);
+  const baseHosts = ['127.0.0.1', 'localhost'];
+  const subnetHosts = phoneIp ? buildHostOrder(phoneIp, preferLanIp) : [];
+  const hosts = [...baseHosts, ...subnetHosts];
   if (hosts.length === 0) {
     return null;
   }
@@ -369,10 +373,7 @@ export async function discoverGatewayViaPairServer(
   preferLanIp?: string | null,
 ): Promise<string | null> {
   const phoneIp = await getPhoneLanIp();
-  if (!phoneIp) {
-    return null;
-  }
-  return sweepSubnetForPairServer(phoneIp, preferLanIp);
+  return sweepSubnetForPairServer(phoneIp ?? '', preferLanIp);
 }
 
 /**
@@ -382,11 +383,9 @@ export async function discoverGatewayOnPhoneSubnet(
   preferLanIp?: string | null,
 ): Promise<string | null> {
   const phoneIp = await getPhoneLanIp();
-  if (!phoneIp) {
-    return null;
-  }
-
-  const hosts = buildHostOrder(phoneIp, preferLanIp);
+  const baseHosts = ['127.0.0.1', 'localhost'];
+  const subnetHosts = phoneIp ? buildHostOrder(phoneIp, preferLanIp) : [];
+  const hosts = [...baseHosts, ...subnetHosts];
   if (hosts.length === 0) {
     return null;
   }

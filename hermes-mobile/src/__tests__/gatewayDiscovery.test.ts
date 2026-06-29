@@ -115,9 +115,36 @@ describe('gatewayDiscovery', () => {
     );
   });
 
-  it('returns null when phone has no LAN IP', async () => {
+  it('returns null when phone has no LAN IP and no loopback pair server', async () => {
     (NetInfo.fetch as jest.Mock).mockResolvedValue({ details: {} });
     expect(await discoverGatewayViaPairServer()).toBeNull();
     expect(await discoverGatewayOnPhoneSubnet()).toBeNull();
+  });
+
+  it('scans loopback when phone has no LAN IP but loopback pair server is up', async () => {
+    (NetInfo.fetch as jest.Mock).mockResolvedValue({ details: {} });
+    (global.fetch as jest.Mock).mockImplementation((url: string) => {
+      if (url.includes('127.0.0.1:8765/pair.json') || url.includes('localhost:8765/pair.json')) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            gatewayUrl: 'http://127.0.0.1:8642',
+            deepLink: 'hermes://setup?url=http%3A%2F%2F127.0.0.1%3A8642',
+            tailnetProbeHosts: ['100.94.135.78', 'igors-mac-mini.tail12aa33.ts.net'],
+          }),
+        });
+      }
+      return Promise.resolve({ ok: false });
+    });
+
+    const url = await discoverGatewayViaPairServer();
+    expect(url).toBe('http://127.0.0.1:8642');
+
+    const { gateways, tailnetProbeHosts } = await discoverAllGatewaysOnLan();
+    expect(gateways).toHaveLength(1);
+    expect(gateways[0].gatewayUrl).toBe('http://127.0.0.1:8642');
+    expect(tailnetProbeHosts).toEqual(
+      expect.arrayContaining(['100.94.135.78', 'igors-mac-mini.tail12aa33.ts.net']),
+    );
   });
 });
