@@ -7,7 +7,7 @@ Durable rules live in [AGENTS.md](./AGENTS.md); this file is *live state only*.
 ## 0. Meta (read this header first)
 
 - Repo: `mac-yolo-safeguards` (+ `hermes-mobile/` app, `~/.hermes` desktop agent — separate, not this repo)
-- Updated: 2026-06-29 by `cursor`
+- Updated: 2026-06-29 by `cursor` (§0 meta refresh) (retry pass) (audit redirect + vault sync pass)
 - Active agents (claim your id here): `claude-code`, `cursor`, `antigravity`, `gemini`
 - Active branch of record: `main`
 - Merge discipline: branch-per-agent → rebase onto `main` → **sequential** merge, gated on `npm test` + Maestro E2E (`hermes-mobile/docs/proofs/continuous/latest.json`).
