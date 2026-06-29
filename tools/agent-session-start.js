@@ -14,8 +14,10 @@ const { spawnSync } = require('child_process');
 const path = require('path');
 
 const fs = require('fs');
+const os = require('os');
 
 const REPO = path.resolve(__dirname, '..');
+const DEFAULT_VAULT = path.join(os.homedir(), 'Documents', 'AI-Agent-Sync');
 const LATEST_E2E_JSON = path.join(REPO, 'hermes-mobile/docs/proofs/continuous/latest.json');
 const { formatHuman, snapshotPlan } = require('./plan-coordination-snapshot');
 const E2E_STALE_MS = 30 * 60 * 1000;
@@ -115,5 +117,18 @@ if (full) briefArgs.push('--full');
 const brief = runNode(briefArgs[0], briefArgs.slice(1), full ? 300_000 : 180_000);
 if (brief.stdout) process.stdout.write(brief.stdout);
 if (brief.stderr) process.stderr.write(brief.stderr);
+
+if (fs.existsSync(DEFAULT_VAULT)) {
+  const syncBrief = runNode('tools/agent-sync-brief.js', ['--vault', DEFAULT_VAULT], 60_000);
+  if (!json && syncBrief.status === 0 && syncBrief.stdout) {
+    const syncLines = syncBrief.stdout
+      .split('\n')
+      .filter((line) => /Wrote|Dirty entries|Active tasks/.test(line));
+    if (syncLines.length > 0) {
+      process.stdout.write('\n=== AI-Agent-Sync vault brief ===\n');
+      syncLines.forEach((line) => process.stdout.write(`${line}\n`));
+    }
+  }
+}
 
 process.exit(brief.status ?? 1);

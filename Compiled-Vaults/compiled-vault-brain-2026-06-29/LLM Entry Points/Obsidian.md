@@ -3,7 +3,7 @@ type: "llm-entrypoint"
 tool: "Obsidian"
 mode: "Human-facing knowledge graph: browse and edit Markdown notes without becoming the source of execution truth."
 source_status: "generated"
-last_verified: "2026-06-29T13:49:05.760Z"
+last_verified: "2026-06-29T14:18:42.522Z"
 ---
 # Obsidian
 

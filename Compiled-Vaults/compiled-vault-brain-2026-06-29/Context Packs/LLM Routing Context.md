@@ -2,7 +2,7 @@
 type: "context-pack"
 scope: "LLM routing and context selection"
 source_status: "source-backed"
-last_verified: "2026-06-29T13:49:05.760Z"
+last_verified: "2026-06-29T14:18:42.522Z"
 tags:
   - "llm"
   - "routing"

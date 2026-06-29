@@ -3,7 +3,7 @@ type: "llm-entrypoint"
 tool: "Claude"
 mode: "Synthesis and long-form reasoning partner: use compact packs, then ask Codex/Hermes for execution evidence."
 source_status: "generated"
-last_verified: "2026-06-29T13:49:05.760Z"
+last_verified: "2026-06-29T14:18:42.522Z"
 ---
 # Claude
 

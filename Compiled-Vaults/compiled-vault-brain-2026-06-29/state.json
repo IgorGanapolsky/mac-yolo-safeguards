@@ -1,6 +1,6 @@
 {
   "schema": "hermes-ai-vault-state/v1",
-  "generatedAt": "2026-06-29T13:49:05.760Z",
+  "generatedAt": "2026-06-29T14:18:42.522Z",
   "observedGeneration": 1,
   "outputPath": "/Users/igorganapolsky/workspace/git/igor/mac-yolo-safeguards/artifacts/hermes-ai-vault",
   "currentPhase": "compiled",
@@ -29,15 +29,15 @@
       "reason": "MinimumSourcesFound",
       "message": "9/9 source candidates exist.",
       "observedGeneration": 1,
-      "lastTransitionTime": "2026-06-29T13:49:05.844Z"
+      "lastTransitionTime": "2026-06-29T14:18:42.606Z"
     },
     {
       "type": "AgentSyncReadable",
       "status": "True",
       "reason": "SyncBriefGenerated",
-      "message": "Sync brief branch=main dirty=18.",
+      "message": "Sync brief branch=main dirty=23.",
       "observedGeneration": 1,
-      "lastTransitionTime": "2026-06-29T13:49:05.844Z"
+      "lastTransitionTime": "2026-06-29T14:18:42.606Z"
     },
     {
       "type": "ValidationPassed",
@@ -45,7 +45,7 @@
       "reason": "RequiredArtifactsPresent",
       "message": "24 files checked; missing=0; secretFindings=[REDACTED]",
       "observedGeneration": 1,
-      "lastTransitionTime": "2026-06-29T13:49:05.844Z"
+      "lastTransitionTime": "2026-06-29T14:18:42.606Z"
     }
   ]
 }

@@ -2,7 +2,7 @@
 type: "context-pack"
 scope: "Token-efficient LLM context selection"
 source_status: "source-backed"
-last_verified: "2026-06-29T13:49:05.760Z"
+last_verified: "2026-06-29T14:18:42.522Z"
 tags:
   - "llm"
   - "token-efficiency"
@@ -31,10 +31,10 @@ the task, then fetch targeted source files only when needed.
 
 | Source | Exists | Est. Tokens | Recommendation |
 |--------|--------|-------------|----------------|
-| agent-directives | yes | 3110 | use only when directly relevant |
-| coordination-board | yes | 6821 | use excerpt or targeted source query |
-| obsidian-index | yes | 650 | safe for compact prompt |
-| agent-sync-brief-doc | yes | 352 | safe for compact prompt |
+| agent-directives | yes | 3103 | use only when directly relevant |
+| coordination-board | yes | 6801 | use excerpt or targeted source query |
+| obsidian-index | yes | 1519 | safe for compact prompt |
+| agent-sync-brief-doc | yes | 414 | safe for compact prompt |
 | recursive-loop-doc | yes | 1314 | safe for compact prompt |
 | loop-engine-doc | yes | 950 | safe for compact prompt |
 | latest-e2e | yes | 80 | safe for compact prompt |

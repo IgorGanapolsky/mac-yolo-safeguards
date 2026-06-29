@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-06-29T13:49:05.760Z",
+  "generatedAt": "2026-06-29T14:18:42.522Z",
   "repo": "/Users/igorganapolsky/workspace/git/igor/mac-yolo-safeguards",
   "hostname": "Igors-MacBook-Pro.local",
   "sources": [
@@ -8,36 +8,36 @@
       "path": "AGENTS.md",
       "role": "canonical agent directive",
       "exists": true,
-      "sizeBytes": 12538,
-      "mtime": "2026-06-26T21:57:51.955Z",
-      "shaHint": "12538:1782511071955"
+      "sizeBytes": 12508,
+      "mtime": "2026-06-29T13:55:19.219Z",
+      "shaHint": "12508:1782741319219"
     },
     {
       "id": "coordination-board",
       "path": "plan.md",
       "role": "live task board and ownership map",
       "exists": true,
-      "sizeBytes": 27417,
-      "mtime": "2026-06-29T05:22:49.372Z",
-      "shaHint": "27417:1782710569372"
+      "sizeBytes": 27340,
+      "mtime": "2026-06-29T13:55:19.789Z",
+      "shaHint": "27340:1782741319789"
     },
     {
       "id": "obsidian-index",
       "path": "OBSIDIAN.md",
       "role": "Obsidian AI Agent entrypoint",
       "exists": true,
-      "sizeBytes": 2615,
-      "mtime": "2026-06-29T05:01:01.433Z",
-      "shaHint": "2615:1782709261433"
+      "sizeBytes": 6101,
+      "mtime": "2026-06-29T13:54:46.272Z",
+      "shaHint": "6101:1782741286272"
     },
     {
       "id": "agent-sync-brief-doc",
       "path": "docs/AGENT-SYNC-BRIEF.md",
       "role": "sync packet contract",
       "exists": true,
-      "sizeBytes": 1406,
-      "mtime": "2026-06-29T04:31:42.617Z",
-      "shaHint": "1406:1782707502617"
+      "sizeBytes": 1653,
+      "mtime": "2026-06-29T13:54:35.020Z",
+      "shaHint": "1653:1782741275020"
     },
     {
       "id": "recursive-loop-doc",
@@ -45,8 +45,8 @@
       "role": "experiment loop contract",
       "exists": true,
       "sizeBytes": 5255,
-      "mtime": "2026-06-29T05:25:26.988Z",
-      "shaHint": "5255:1782710726988"
+      "mtime": "2026-06-29T13:49:26.718Z",
+      "shaHint": "5255:1782740966718"
     },
     {
       "id": "loop-engine-doc",
@@ -63,8 +63,8 @@
       "role": "latest mobile proof state",
       "exists": true,
       "sizeBytes": 318,
-      "mtime": "2026-06-29T13:40:21.612Z",
-      "shaHint": "318:1782740421612"
+      "mtime": "2026-06-29T14:13:32.938Z",
+      "shaHint": "318:1782742412938"
     },
     {
       "id": "skool-restaurant-answering-doc",

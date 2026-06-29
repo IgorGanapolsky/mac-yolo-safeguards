@@ -109,3 +109,6 @@ hermes-mobile/docs/proofs/
 
 # ThumbGate AI-Memories dump — untracked from public repo for PII safety
 Compiled-Vaults/compiled-vault-brain-2026-06-29/AI-Memories/
+
+# Redundant alias symlink — canonical snapshot is compiled-vault-brain-2026-06-29/
+Compiled-Vaults/goal

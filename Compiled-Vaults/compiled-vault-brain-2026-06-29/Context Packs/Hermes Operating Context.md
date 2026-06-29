@@ -2,7 +2,7 @@
 type: "context-pack"
 scope: "Hermes operating context"
 source_status: "source-backed"
-last_verified: "2026-06-29T13:49:05.760Z"
+last_verified: "2026-06-29T14:18:42.522Z"
 tags:
   - "hermes"
   - "agents"
@@ -26,10 +26,10 @@ and local safeguards should coordinate.
 ## Current Sync Snapshot
 
 - Branch: main
-- Head: ebc10e0
-- Dirty entries: 18
-- Active tasks: 2
-- Active locks: 18
+- Head: 2ca24a1
+- Dirty entries: 23
+- Active tasks: 1
+- Active locks: 17
 
 ## Highest-Ranked Experiment
 
@@ -38,7 +38,7 @@ and local safeguards should coordinate.
 ## Directive Excerpt
 
 # AGENTS.md — Operating directives for AI agents in this repo
-This file is the canonical agent directive. `CLAUDE.md` and `GEMINI.md` were removed (2026-06); do not recreate them — edit AGENTS.md only.
+This file is the canonical agent directive. `CLAUDE.md` and `GEMINI.md` redirect here so the rules don't drift.
 Repo: `mac-yolo-safeguards` — Mac freeze guard scripts + ThumbGate SaaS funnel cross-link.
 ---
 ## Multi-agent coordination (READ FIRST — prevents divergence)
@@ -50,7 +50,7 @@ clobber each other, follow the two-layer model (researched 2026-06-24):
 1. **Read `plan.md`.** Pick a `pending` task whose claimed files are `(free)`.
 2. **Claim before you touch** — set Owner+Status in the Task Board AND add your files to the File Ownership Map (your `agent-id` + UTC date), and commit `plan.md` *first*, before editing code.
 3. Work only on your claimed files, in your worktree.
-4. **Discovered work** →
+4. **Discovered work** → append to plan.md §4; don't
 
 [excerpt truncated; read source file for full context]
 
@@ -60,16 +60,14 @@ clobber each other, follow the two-layer model (researched 2026-06-24):
 Welcome, Agent. If you are reading this from inside Obsidian (using the [AI Agent](https://community.obsidian.md/plugins/ai-agent) plugin or similar), this workspace is configured for **file-based** multi-agent coordination.
 The Obsidian AI Agent plugin has **no built-in cross-agent sync** — it reads/writes vault notes locally. Sync with Cursor, Claude Code, Hermes, and Telegram agents happens through **shared git files** and **ThumbGate RAG**, not through the plugin API.
 ---
-## 🗺️ Workspace Map
-- **`plan.md`**: Live coordination board — task ownership, file locks, decisions log.
-- **`AGENTS.md`**: Canonical behavioral guidelines, verification contracts, coordination protocol.
-- **`tools/plan-coordination-snapshot.js`**: Machine-readable parse of active tasks/locks (also printed by `node tools/agent-session-start.js`).
-- **`~/.hermes/`**: Desktop Hermes gateway + operator loop (Mac mini / laptop).
-- **`hermes-mobile/`**: React Native / Expo mobile codebase.
-- **`tools/`**: Automation scripts, CEO brief, decision stack, loop engine.
----
-## 🤝 Coordination Protocol for Obsidian Agents
-To prevent clobbering other active agents (Cursor
+## Multi-project teammate collaboration
+**User directive:** All teammates from multiple projects collaborate on **one shared Obsidian vault**.
+| What | Where | Who writes |
+|------|-------|------------|
+| **Shared vault (all projects, all teammates)** | `~/Documents/AI-Agent-Sync` — repo `IgorGanapolsky/AI-Agent-Sync` | Everyone with GitHub access |
+| **Per-repo task ownership** | `<project>/plan.md` in each git repo | Agents working that repo |
+| **Cross-project index** | `Projects/README.md` in the vault | Any teammate; PR-style via git |
+| **People, decisions, context packs** | `Agent-State/`, `Handoffs/`, `Project-Reports/`, `Context-Packs/` in vault | Team
 
 [excerpt truncated; read source file for full context]
 

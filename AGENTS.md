@@ -1,6 +1,6 @@
 # AGENTS.md — Operating directives for AI agents in this repo
 
-This file is the canonical agent directive. `CLAUDE.md` and `GEMINI.md` were removed (2026-06); do not recreate them — edit AGENTS.md only.
+This file is the canonical agent directive. `CLAUDE.md` and `GEMINI.md` redirect here so the rules don't drift.
 
 Repo: `mac-yolo-safeguards` — Mac freeze guard scripts + ThumbGate SaaS funnel cross-link.
 

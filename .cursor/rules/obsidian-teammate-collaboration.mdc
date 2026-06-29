@@ -1,0 +1,16 @@
+---
+description: Teammates collaborate via the shared AI-Agent-Sync Obsidian vault across all projects
+alwaysApply: true
+---
+
+# Obsidian teammate collaboration
+
+**User directive:** All teammates from multiple projects collaborate on **one shared Obsidian vault**.
+
+- **Canonical vault:** `~/Documents/AI-Agent-Sync` (`IgorGanapolsky/AI-Agent-Sync`) — git pull/push, not Obsidian Sync.
+- **Cross-project index:** `Projects/README.md` in the vault lists all projects and links to each repo's `plan.md`.
+- **Per-repo ownership:** `plan.md` stays in each project repo; vault holds people, handoffs, decisions, and `Project-Reports/`.
+- **Onboarding:** GitHub repo access → clone vault → `bash ~/Documents/AI-Agent-Sync/scripts/bootstrap_central_vault.sh` → open vault in Obsidian.
+- **Refresh:** After major `plan.md` changes in mac-yolo-safeguards, run `node tools/agent-sync-brief.js --vault ~/Documents/AI-Agent-Sync`.
+
+Detail: [OBSIDIAN.md](../../OBSIDIAN.md), vault [ORGANIZATIONAL_MEMORY.md](file:///Users/igorganapolsky/Documents/AI-Agent-Sync/ORGANIZATIONAL_MEMORY.md).
