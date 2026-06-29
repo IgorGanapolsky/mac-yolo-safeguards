@@ -82,6 +82,7 @@ ensure_release_apk_has_bundle() {
   echo "=== APK missing embedded JS bundle — rerunning bundle + assemble (--rerun-tasks) ==="
   (
     cd android
+    ensure_android_gradle_jvmargs
     export EXPO_PUBLIC_HERMES_DEV_UNLOCK=1
     export EXPO_PUBLIC_E2E_AUTOMATION=1
     ./gradlew :app:createBundleReleaseJsAndAssets :app:assembleRelease \
@@ -99,6 +100,23 @@ ensure_release_apk_has_bundle() {
   }
 }
 
+ensure_android_gradle_jvmargs() {
+  local props="$HERMES_DIR/android/gradle.properties"
+  if [[ ! -f "$props" ]]; then
+    return 0
+  fi
+  local jvmargs="-Xmx2048m -XX:MaxMetaspaceSize=512m"
+  if grep -q '^org.gradle.jvmargs=' "$props"; then
+    if ! grep -q 'MaxMetaspaceSize=512m' "$props"; then
+      sed -i '' "s/^org.gradle.jvmargs=.*/org.gradle.jvmargs=${jvmargs}/" "$props"
+    fi
+  else
+    printf '
+org.gradle.jvmargs=%s
+' "$jvmargs" >>"$props"
+  fi
+}
+
 gradle_release_args() {
   if [[ "${HERMES_MOBILE_FORCE_BUILD:-}" == "1" ]]; then
     echo ":app:createBundleReleaseJsAndAssets :app:assembleRelease -PreactNativeArchitectures=arm64-v8a --rerun-tasks"
@@ -110,6 +128,7 @@ gradle_release_args() {
 run_gradle_release() {
   (
     cd android
+    ensure_android_gradle_jvmargs
     export EXPO_PUBLIC_HERMES_DEV_UNLOCK=1
     export EXPO_PUBLIC_E2E_AUTOMATION=1
     # --no-daemon avoids parallel Kotlin/CMake races (e.g. unresolved UpdatesPackage).
