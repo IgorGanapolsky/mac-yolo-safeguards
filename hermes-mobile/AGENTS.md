@@ -35,3 +35,26 @@ Install/repair: `bash ../scripts/install-agent-launchagents.sh` (agent runs this
 | E2E (device release) | `npm run e2e:device` |
 
 Details: [docs/TESTING.md](./docs/TESTING.md).
+
+## Fresh-user onboarding contract (permanent)
+
+**North star:** Every launch is a stranger who knows nothing. One primary CTA per connection state. Silent auto-heal ~30s before numbered human steps.
+
+| State | User sees | Must NOT see |
+|-------|-----------|--------------|
+| First launch, no saved Mac | `ConnectMacGate` + numbered steps + **Find computers** | "Pair relay", "gateway", "LAN", competing banners |
+| Disconnected, saved Mac | Silent heal in `CodexCommandCenter`; after ~30s `ChatConnectionPanel` + steps | "Connected" + "Can't reach" at once |
+| Choose Mac modal | Tailscale **Add [name]** at top when tailnet probe succeeds | Mac mini buried only in Settings |
+| Cellular, no Tailscale | Step 4 + **Use Tailscale from cellular** title | Home Wi‑Fi IP instructions without context |
+
+**Infer onboarding complete** from valid saved `gatewayProfiles` (no separate flag required).
+
+**Unit tests (required on onboarding copy changes):**
+
+- `src/__tests__/freshUserOnboarding.test.ts` — step copy, heal timing, jargon-free
+- `src/__tests__/FreshUserOnboardingCard.test.tsx` — numbered steps render
+- `src/__tests__/ChatConnectionPanel.test.tsx` — fresh-user card, single CTA, Tailscale chip
+
+**Maestro:** `connect-mac-gate` must show `connect-mac-onboarding-card` on cold start without demo deep link (future flow); demo bootstrap uses `hermes://setup?demo=1` and hides the gate.
+
+**Copy rules:** Say **Your Mac**, **Home Wi‑Fi**, **Find computers** — never "gateway", "LAN", or "Pair relay" in first-run / disconnected primary UI.

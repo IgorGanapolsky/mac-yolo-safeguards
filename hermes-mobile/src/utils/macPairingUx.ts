@@ -13,23 +13,23 @@ export type MacPairingStep = {
 export const MAC_GETTING_STARTED_STEPS: MacPairingStep[] = [
   {
     step: 1,
-    title: 'Get the Desktop App',
-    body: 'Download and install Hermes directly on your computer from our website.',
+    title: 'Same home Wi‑Fi',
+    body: 'Connect your phone to the same Wi‑Fi network as your Mac.',
   },
   {
     step: 2,
-    title: 'Pair Hermes Relay',
-    body: 'Pair with a simple code in Settings. Approvals work on Wi‑Fi, cellular, or USB — you do not need the same network.',
+    title: 'Open Hermes on your Mac',
+    body: 'Start Hermes on your computer and leave it running.',
   },
   {
     step: 3,
-    title: 'Optional: local QR',
-    body: 'If you are near a computer, scan its QR for direct local Chat, tools, and fallback control.',
+    title: 'Find your Mac',
+    body: 'Tap Find computers. We search your home network for you.',
   },
   {
     step: 4,
-    title: 'Local fallback',
-    body: 'Near your Mac? Search on local Wi‑Fi. Away from it? Keep Hermes relay paired for Wi‑Fi, cellular, or USB.',
+    title: 'Away from home?',
+    body: 'Install Tailscale on phone and Mac. Tap Add [Mac name] when it appears in the app.',
   },
 ];
 
@@ -72,6 +72,6 @@ export function macPairingStepsForVariant(
 
 export function macPairingHeadingForVariant(variant: MacPairingHelpVariant): string {
   return variant === 'getting-started'
-    ? 'New to Hermes on your computer?'
+    ? 'Connect your Mac'
     : 'How to show the QR on your computer';
 }

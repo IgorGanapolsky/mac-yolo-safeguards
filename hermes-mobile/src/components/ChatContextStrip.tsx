@@ -57,7 +57,7 @@ export default function ChatContextStrip({
           onPressMac && pressed && styles.macPressablePressed,
         ]}
         accessibilityRole={onPressMac ? 'button' : undefined}
-        accessibilityLabel={onPressMac ? `Switch computer — ${machineLabel}` : undefined}
+        accessibilityLabel={onPressMac ? `Choose your Mac — ${machineLabel}` : undefined}
         accessibilityHint={macSwitchHint}
         testID="chat-context-mac-button"
         hitSlop={{ top: 6, bottom: 6, left: 4, right: 4 }}

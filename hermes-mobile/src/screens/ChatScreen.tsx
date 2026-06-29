@@ -506,6 +506,7 @@ export default function ChatScreen() {
     healthLevel: health?.level,
     heal: connectionHeal,
     userSendFailed,
+    profiles: gatewayProfiles,
   });
   const showMacRetryBanner = shouldShowMacRetryBanner({
     isDemo,
@@ -3529,6 +3530,8 @@ export default function ChatScreen() {
               usbCableLikely={usbCableLikely}
               cellularBlocksDirect={cellularBlocksDirect}
               usbHostMismatch={usbHostMismatch}
+              connectionHealAttempt={connectionHealAttempt}
+              connectionHealInFlight={connectionHealInFlight}
               onSelectProfile={async (profileId) => {
                 haptics.light();
                 await selectGatewayProfile(profileId);
@@ -3764,16 +3767,25 @@ export default function ChatScreen() {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Switch computer</Text>
+              <Text style={styles.modalTitle}>Choose your Mac</Text>
               <TouchableOpacity onPress={() => setMacPickerVisible(false)}>
                 <Text style={styles.modalCloseBtn}>Close</Text>
               </TouchableOpacity>
             </View>
             <Text style={styles.modalSubtitle}>
-              Pick a saved computer or search Wi‑Fi for Hermes on your network. Another computer not listed?
-              Open Hermes on that computer (same Wi‑Fi), then tap Find computers below. Away from home?
-              Settings → Advanced → paste a tunnel URL (ngrok, Tailscale, Cloudflare).
+              Pick a saved Mac, or tap Find computers to search your home Wi‑Fi. On cellular or away
+              from home? Use the Tailscale Add button when it appears below.
             </Text>
+            {tailscaleDiscoveries.length > 0 ? (
+              <TailscaleDiscoveryBanner
+                discoveries={tailscaleDiscoveries}
+                adding={tailscaleDiscoveryProbing}
+                onAdd={(discovery) => {
+                  void addDiscoveredTailscaleComputer(discovery);
+                }}
+                prominent
+              />
+            ) : null}
             <GatewayProfilePicker
               profiles={switchComputerProfiles}
               activeProfileId={activeGatewayProfile?.id ?? null}
@@ -3803,18 +3815,9 @@ export default function ChatScreen() {
                   : undefined
               }
             />
-            {tailscaleDiscoveries.length > 0 ? (
-              <TailscaleDiscoveryBanner
-                discoveries={tailscaleDiscoveries}
-                adding={tailscaleDiscoveryProbing}
-                onAdd={(discovery) => {
-                  void addDiscoveredTailscaleComputer(discovery);
-                }}
-              />
-            ) : null}
             <LoadingButton
-              label="Find computers on Wi‑Fi"
-              loadingLabel="Searching Wi‑Fi…"
+              label="Find computers"
+              loadingLabel="Finding computers…"
               loading={isScanningMacs || profileScanning}
               variant="secondary"
               onPress={async () => {

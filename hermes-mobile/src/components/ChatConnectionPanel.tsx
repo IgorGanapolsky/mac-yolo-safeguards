@@ -16,10 +16,20 @@ import {
 } from '../utils/gatewayProfilePicker';
 import { relayWorkerDisplayName } from '../utils/relayRouting';
 import type { DiscoveredGateway } from '../types/gatewayProfile';
+import {
+  freshUserConnectionBody,
+  freshUserConnectionTitle,
+  freshUserPrimaryActionLabel,
+  shouldHideConnectionStatusChips,
+  shouldShowFreshUserOnboardingSteps,
+} from '../utils/freshUserOnboarding';
+import { connectionHealSnapshot } from '../utils/connectionErrorPolicy';
+import { tailscaleDiscoveryLabel } from '../services/tailscaleDiscovery';
 import MacScanProgressCard from './MacScanProgressCard';
 import GatewayProfilePicker from './GatewayProfilePicker';
 import RelayWorkerList from './RelayWorkerList';
 import TailscaleDiscoveryBanner from './TailscaleDiscoveryBanner';
+import FreshUserOnboardingCard from './FreshUserOnboardingCard';
 import LoadingButton from './ui/LoadingButton';
 
 type ChatConnectionPanelProps = {
@@ -41,6 +51,8 @@ type ChatConnectionPanelProps = {
   wifiConnected?: boolean;
   cellularBlocksDirect?: boolean;
   usbHostMismatch?: UsbHostMismatch | null;
+  connectionHealAttempt?: number;
+  connectionHealInFlight?: boolean;
   onSelectProfile?: (profileId: string) => void;
   onSearchMac: () => void;
   onFixUsbLink?: () => void;
@@ -74,30 +86,25 @@ export function buildConnectionStatusChips(input: {
       id: 'usb-tunnel',
       label: input.usbLoopback
         ? usbTunnelUp
-          ? 'USB tunnel: Up'
-          : 'USB tunnel: Down'
+          ? 'USB: Connected'
+          : 'USB: Not ready'
         : input.usbCableLikely
-          ? 'USB cable: Connected'
-          : 'USB tunnel: Off',
+          ? 'USB cable detected'
+          : 'USB: Off',
       tone: usbTunnelUp ? 'ok' : usbTunnelDown || input.usbCableLikely ? 'bad' : 'idle',
     },
     {
       id: 'mac-http',
-      label: input.macHttpOk ? 'Mac HTTP: OK' : 'Mac HTTP: Down',
+      label: input.macHttpOk ? 'Your Mac: Reachable' : 'Your Mac: Unreachable',
       tone: input.macHttpOk ? 'ok' : 'bad',
-    },
-    {
-      id: 'relay',
-      label: input.isRelayPaired ? 'Relay: Paired' : 'Relay: Unpaired',
-      tone: input.isRelayPaired ? 'ok' : 'idle',
     },
     {
       id: 'wifi',
       label: input.wifiConnected
         ? input.wifiProfileReachable
-          ? 'Local Wi‑Fi: Reachable'
-          : 'Local Wi‑Fi: On'
-        : 'Local Wi‑Fi: Off',
+          ? 'Home Wi‑Fi: Connected'
+          : 'Home Wi‑Fi: On'
+        : 'Home Wi‑Fi: Off',
       tone: input.wifiProfileReachable ? 'ok' : input.wifiConnected ? 'warn' : 'idle',
     },
   ];
@@ -110,102 +117,6 @@ function chipColor(tone: ConnectionStatusChip['tone']): string {
   if (tone === 'bad') return colors.error;
   if (tone === 'warn') return colors.warning;
   return colors.textMuted;
-}
-
-function connectionStatusLine(
-  connectionState: ChatConnectionPanelProps['connectionState'],
-  searching: boolean,
-  macLabel?: string,
-  connectionMode: ConnectionMode = 'gateway',
-  isRelayPaired = false,
-  usbLoopback = false,
-  usbCableLikely = false,
-  showUsbFix = false,
-  wifiConnected = true,
-  cellularBlocksDirect = false,
-  usbHostMismatch: UsbHostMismatch | null = null,
-): string {
-  if (usbHostMismatch) {
-    return formatUsbHostMismatchMessage(usbHostMismatch);
-  }
-  if (searching) {
-    return 'Checking Hermes relay and nearby computers on your Wi‑Fi.';
-  }
-  if (cellularBlocksDirect) {
-    if (!isRelayPaired) {
-      return macLabel
-        ? `On cellular — ${macLabel}'s Wi‑Fi address won't work here. Pair Hermes relay in Settings, or add a tunnel URL (Tailscale/ngrok → :8642) for Chat.`
-        : "On cellular — local Wi‑Fi IPs won't reach your Mac. Pair Hermes relay or add a tunnel URL in Settings → Advanced.";
-    }
-    return macLabel
-      ? `On cellular — Chat to ${macLabel} needs a tunnel URL in Settings → Advanced (port 8642). Relay handles approvals only.`
-      : 'On cellular — Chat needs a tunnel URL in Settings → Advanced. Relay handles approvals only.';
-  }
-  if (!wifiConnected && connectionMode === 'relay' && !isRelayPaired) {
-    return 'Off Wi‑Fi — pair Hermes relay in Settings for approvals on cellular, or add a tunnel URL for direct Chat.';
-  }
-  if (connectionState === 'connecting') {
-    return macLabel
-      ? `Connecting to ${macLabel}.`
-      : 'Connecting to your Mac.';
-  }
-  if (showUsbFix) {
-    return macLabel
-      ? `Your phone is plugged in, but the USB tunnel to ${macLabel} is not up yet. Tap Fix USB link — we will set up the connection through your cable.`
-      : 'Your phone is plugged in, but the USB tunnel to Hermes is not up yet. Tap Fix USB link — we will set up the connection through your cable.';
-  }
-  if (connectionMode === 'relay' && !isRelayPaired) {
-    return 'Pair Hermes relay in Settings for Wi‑Fi, cellular, or USB. Search locally when you are on the same Wi‑Fi.';
-  }
-  if (usbLoopback && wifiConnected) {
-    return macLabel
-      ? `${macLabel} was paired over USB. On Wi‑Fi only, tap Search locally to connect directly.`
-      : 'This Mac was paired over USB. On Wi‑Fi only, tap Search locally to connect directly.';
-  }
-  if (usbLoopback && !wifiConnected) {
-    return macLabel
-      ? `USB cable is connected, but the adb reverse tunnel to ${macLabel} is down. Tap Fix USB link or pick another saved computer.`
-      : 'USB cable may be connected, but the adb reverse tunnel is down. Tap Fix USB link while plugged in with USB debugging authorized.';
-  }
-  if (usbCableLikely && Platform.OS === 'android') {
-    return 'USB debugging may be active, but Hermes is not reachable through the cable yet. Tap Fix USB link or search on Wi‑Fi.';
-  }
-  if (macLabel) {
-    return `Your phone cannot reach ${macLabel} on this network. Pair Hermes relay, connect via USB, pick another saved Mac, or search on Wi‑Fi.`;
-  }
-  return 'Pair Hermes relay for Wi‑Fi, cellular, or USB, connect via USB, or search locally on the same Wi‑Fi.';
-}
-
-function connectionTitle(
-  connectionState: ChatConnectionPanelProps['connectionState'],
-  searching: boolean,
-  connectionMode: ConnectionMode = 'gateway',
-  isRelayPaired = false,
-  usbLoopback = false,
-  showUsbFix = false,
-  usbHostMismatch: UsbHostMismatch | null = null,
-  cellularBlocksDirect = false,
-  wifiConnected = true,
-): string {
-  if (usbHostMismatch) {
-    return 'Wrong Mac on USB';
-  }
-  if (cellularBlocksDirect) {
-    return 'Cellular — need tunnel';
-  }
-  if (searching) {
-    return 'Finding Hermes';
-  }
-  if (connectionState === 'connecting') {
-    return 'Connecting';
-  }
-  if (showUsbFix || (usbLoopback && !wifiConnected)) {
-    return 'USB tunnel down';
-  }
-  if (connectionMode === 'relay' && !isRelayPaired) {
-    return 'Relay not paired';
-  }
-  return "Can't reach your Mac";
 }
 
 export default function ChatConnectionPanel({
@@ -227,6 +138,8 @@ export default function ChatConnectionPanel({
   wifiConnected = true,
   cellularBlocksDirect = false,
   usbHostMismatch = null,
+  connectionHealAttempt = 0,
+  connectionHealInFlight = false,
   onSelectProfile,
   onSearchMac,
   onFixUsbLink,
@@ -237,6 +150,7 @@ export default function ChatConnectionPanel({
   onAddTailscaleComputer,
   testID = 'chat-connection-panel',
 }: ChatConnectionPanelProps) {
+  const heal = connectionHealSnapshot(connectionHealAttempt, connectionHealInFlight);
   const showUsbFix = Boolean(
     onFixUsbLink &&
       shouldOfferUsbLinkRepair({
@@ -249,39 +163,33 @@ export default function ChatConnectionPanel({
   );
   const macHttpOk = activeProfileReachable;
   const wifiProfileReachable = macHttpOk && !usbLoopback && wifiConnected;
-  const statusChips = buildConnectionStatusChips({
-    macHttpOk,
-    usbLoopback,
-    usbCableLikely,
-    isRelayPaired,
-    wifiConnected,
-    wifiProfileReachable,
+  const showOnboardingSteps = shouldShowFreshUserOnboardingSteps({ profiles, heal });
+  const hideStatusChips = shouldHideConnectionStatusChips({ profiles, heal });
+  const freshUser = profiles.length === 0 || showOnboardingSteps;
+  const primaryTailscaleLabel =
+    tailscaleDiscoveries.length > 0
+      ? tailscaleDiscoveryLabel(tailscaleDiscoveries[0])
+      : undefined;
+  const title = freshUserConnectionTitle({
+    searching,
+    showUsbFix,
+    usbHostMismatch: Boolean(usbHostMismatch),
+    cellularBlocksDirect,
+    freshUser: profiles.length === 0,
   });
-  const statusLine = connectionStatusLine(
-    connectionState,
+  const statusLine = freshUserConnectionBody({
     searching,
+    healInFlight: heal.inFlight,
+    healExhausted: heal.exhausted,
+    freshUser: profiles.length === 0,
     macLabel,
-    connectionMode,
-    isRelayPaired,
-    usbLoopback,
-    usbCableLikely,
-    showUsbFix,
-    wifiConnected,
     cellularBlocksDirect,
-    usbHostMismatch,
-  );
+    showUsbFix,
+    usbHostMismatchMessage: usbHostMismatch
+      ? formatUsbHostMismatchMessage(usbHostMismatch)
+      : undefined,
+  });
   const showScanCard = searching || scanResult;
-  const title = connectionTitle(
-    connectionState,
-    searching,
-    connectionMode,
-    isRelayPaired,
-    usbLoopback,
-    showUsbFix,
-    usbHostMismatch,
-    cellularBlocksDirect,
-    wifiConnected,
-  );
   const relayWorkersNotInSaved = relayWorkers.filter(
     (worker) =>
       !profiles.some((profile) =>
@@ -289,6 +197,7 @@ export default function ChatConnectionPanel({
       ),
   );
   const pickerProfiles = profilesForDevicePicker(profiles);
+  const primaryActionLabel = freshUserPrimaryActionLabel(showUsbFix);
 
   return (
     <View style={styles.wrap} testID={testID}>
@@ -304,11 +213,27 @@ export default function ChatConnectionPanel({
         </View>
       </View>
 
+      {showOnboardingSteps ? (
+        <FreshUserOnboardingCard
+          profiles={profiles}
+          tailscaleMacLabel={primaryTailscaleLabel}
+        />
+      ) : null}
+
+      {tailscaleDiscoveries.length > 0 && onAddTailscaleComputer ? (
+        <TailscaleDiscoveryBanner
+          discoveries={tailscaleDiscoveries}
+          adding={tailscaleDiscoveryProbing}
+          onAdd={onAddTailscaleComputer}
+          prominent
+        />
+      ) : null}
+
       <View style={styles.actionRow}>
         {showUsbFix ? (
           <LoadingButton
-            label="Fix USB link"
-            loadingLabel="Fixing USB link…"
+            label={primaryActionLabel}
+            loadingLabel="Fixing USB connection…"
             loading={usbFixBusy}
             onPress={() => onFixUsbLink?.()}
             testID="chat-connection-fix-usb"
@@ -316,30 +241,31 @@ export default function ChatConnectionPanel({
           />
         ) : (
           <LoadingButton
-            label="Search locally"
-            loadingLabel="Searching…"
+            label={primaryActionLabel}
+            loadingLabel="Finding computers…"
             loading={searching}
             onPress={onSearchMac}
             testID="chat-connection-search"
             style={styles.primaryAction}
           />
         )}
-        {onOpenSettings ? (
-          <TouchableOpacity
-            style={styles.secondaryButton}
-            onPress={onOpenSettings}
-            testID="chat-open-settings-link"
-          >
-            <Text style={styles.secondaryButtonText}>Settings</Text>
-          </TouchableOpacity>
-        ) : null}
       </View>
+
+      {onOpenSettings ? (
+        <TouchableOpacity
+          onPress={onOpenSettings}
+          testID="chat-open-settings-link"
+          accessibilityRole="link"
+        >
+          <Text style={styles.settingsLink}>Advanced options in Settings</Text>
+        </TouchableOpacity>
+      ) : null}
 
       {pickerProfiles.length > 0 ? (
         <View style={styles.savedBlock}>
-          <Text style={styles.savedHeading}>Saved computers (direct Wi‑Fi)</Text>
+          <Text style={styles.savedHeading}>Your saved Macs</Text>
           <Text style={styles.savedHint}>
-            Tap a machine for direct chat when you are on the same network.
+            Tap one to connect when you are on the same home Wi‑Fi.
           </Text>
           <GatewayProfilePicker
             profiles={pickerProfiles}
@@ -353,14 +279,6 @@ export default function ChatConnectionPanel({
         </View>
       ) : null}
 
-      {tailscaleDiscoveries.length > 0 && onAddTailscaleComputer ? (
-        <TailscaleDiscoveryBanner
-          discoveries={tailscaleDiscoveries}
-          adding={tailscaleDiscoveryProbing}
-          onAdd={onAddTailscaleComputer}
-        />
-      ) : null}
-
       {relayWorkersNotInSaved.length > 0 ? (
         <RelayWorkerList workers={relayWorkersNotInSaved} activeWorkerId={activeRelayWorkerId} />
       ) : null}
@@ -372,9 +290,16 @@ export default function ChatConnectionPanel({
           result={scanResult}
           testID="chat-connection-scan-progress"
         />
-      ) : (
+      ) : hideStatusChips ? null : (
         <View style={styles.tipRow} testID="chat-connection-status-pills">
-          {statusChips.map((chip) => (
+          {buildConnectionStatusChips({
+            macHttpOk,
+            usbLoopback,
+            usbCableLikely,
+            isRelayPaired,
+            wifiConnected,
+            wifiProfileReachable,
+          }).map((chip) => (
             <View
               key={chip.id}
               style={[styles.tipPill, styles.statusPill]}
@@ -396,7 +321,7 @@ export default function ChatConnectionPanel({
         onPress={() => Linking.openURL(HERMES_MAC_GET_STARTED_URL)}
         testID="chat-connection-install-link"
       >
-        <Text style={styles.installLink}>Need Hermes on your Mac? Open setup →</Text>
+        <Text style={styles.installLink}>Need Hermes on your Mac? Open setup guide →</Text>
       </TouchableOpacity>
     </View>
   );
@@ -469,6 +394,12 @@ const styles = StyleSheet.create({
   primaryAction: {
     flex: 1,
   },
+  settingsLink: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.textMuted,
+    textAlign: 'center',
+  },
   savedBlock: {
     gap: 10,
   },
@@ -511,21 +442,6 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     fontSize: 11,
     fontWeight: '700',
-  },
-  secondaryButton: {
-    minWidth: 104,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: colors.border,
-    paddingVertical: 12,
-    paddingHorizontal: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  secondaryButtonText: {
-    color: colors.textSecondary,
-    fontWeight: '800',
-    fontSize: 14,
   },
   installLink: {
     fontSize: 12,

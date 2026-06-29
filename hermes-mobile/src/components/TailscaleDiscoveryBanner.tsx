@@ -9,23 +9,29 @@ type TailscaleDiscoveryBannerProps = {
   discoveries: DiscoveredGateway[];
   adding?: boolean;
   onAdd: (discovery: DiscoveredGateway) => void;
+  /** When true, renders as the primary action block (Switch computer / onboarding). */
+  prominent?: boolean;
 };
 
 export default function TailscaleDiscoveryBanner({
   discoveries,
   adding = false,
   onAdd,
+  prominent = false,
 }: TailscaleDiscoveryBannerProps) {
   if (discoveries.length === 0) {
     return null;
   }
 
+  const cardStyle = prominent ? styles.cardProminent : styles.card;
+
   return (
-    <GlassCard style={styles.card} testID="tailscale-discovery-banner">
-      <Text style={styles.title}>Mac reachable on Tailscale</Text>
+    <GlassCard style={cardStyle} testID="tailscale-discovery-banner">
+      <Text style={styles.title}>Mac found on Tailscale</Text>
       <Text style={styles.body}>
-        Hermes found another computer on your tailnet. Add it to switch between machines without
-        replugging USB.
+        {prominent
+          ? 'Tap below to add your Mac — works on cellular or any Wi‑Fi when Tailscale is running on both devices.'
+          : 'Add your Mac to switch between computers without a USB cable.'}
       </Text>
       <View style={styles.chips}>
         {discoveries.map((discovery) => {
@@ -33,7 +39,7 @@ export default function TailscaleDiscoveryBanner({
           return (
             <TouchableOpacity
               key={discovery.gatewayUrl}
-              style={styles.chip}
+              style={[styles.chip, prominent ? styles.chipProminent : null]}
               onPress={() => onAdd(discovery)}
               disabled={adding}
               testID={`tailscale-add-${label.replace(/[^a-zA-Z0-9]+/g, '-').toLowerCase()}`}
@@ -52,6 +58,11 @@ export default function TailscaleDiscoveryBanner({
 const styles = StyleSheet.create({
   card: {
     marginBottom: 12,
+  },
+  cardProminent: {
+    marginBottom: 0,
+    borderColor: colors.accent,
+    borderWidth: 1,
   },
   title: {
     color: colors.text,
@@ -77,6 +88,12 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(34, 211, 238, 0.12)',
     borderWidth: 1,
     borderColor: colors.accent,
+  },
+  chipProminent: {
+    paddingVertical: 14,
+    paddingHorizontal: 18,
+    alignSelf: 'stretch',
+    alignItems: 'center',
   },
   chipText: {
     color: colors.accent,

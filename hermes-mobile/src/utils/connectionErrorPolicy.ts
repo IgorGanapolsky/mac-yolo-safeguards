@@ -3,9 +3,15 @@ import type { DiscoveredGateway } from '../types/gatewayProfile';
 import { isPrivateLanGatewayUrl } from './gatewayEndpoint';
 import { isLoopbackGatewayUrl } from './gatewayUrlPolicy';
 import { isTailscaleGatewayUrl } from './tailscaleHosts';
+import { hasValidSavedComputer } from './freshUserOnboarding';
+import { CONNECTION_SELF_HEAL_INTERVAL_MS } from './connectionSelfHeal';
 
-/** Silent heal attempts before surfacing loud connection UI. */
+/** Silent heal attempts before surfacing loud connection UI (~30s at 5s interval). */
 export const CONNECTION_HEAL_EXHAUSTED_AFTER = 6;
+
+/** Wall-clock budget for silent auto-heal before human onboarding copy. */
+export const CONNECTION_HEAL_DURATION_MS =
+  CONNECTION_SELF_HEAL_INTERVAL_MS * CONNECTION_HEAL_EXHAUSTED_AFTER;
 
 /** Minimum ms between counting duplicate user-visible error surfaces. */
 export const CONNECTION_ERROR_DEBOUNCE_MS = 12_000;
@@ -56,9 +62,14 @@ export function shouldShowMacConnectionHelp(input: {
   healthLevel?: string;
   heal: ConnectionHealSnapshot;
   userSendFailed?: boolean;
+  profiles?: GatewayProfile[];
 }): boolean {
   if (input.isDemo || input.macChatLive || input.healthProbePending) {
     return false;
+  }
+  const freshUser = !hasValidSavedComputer(input.profiles ?? []);
+  if (freshUser) {
+    return input.healthLevel === 'red' || input.healthLevel === undefined;
   }
   if (input.healthLevel !== 'red') {
     return false;

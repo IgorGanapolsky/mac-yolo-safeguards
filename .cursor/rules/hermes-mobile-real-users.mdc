@@ -31,3 +31,12 @@ Do **not** pass tests that only work because Igor's Mac is plugged in, `adb reve
 - Maestro E2E on release build where possible; unit tests must not assume Igor fixtures as "default user"
 
 See `hermes-mobile/docs/REAL-USER-READINESS.md` when present.
+
+## Fresh-user test contract
+
+1. **Cold start (no profiles):** `ConnectMacGate` shows `fresh-user-onboarding-card` with steps 1–4 and primary CTA **Find computers** (`connect-search-wifi`).
+2. **Silent heal:** Returning users with a saved Mac get ~30s auto-heal (`CONNECTION_HEAL_EXHAUSTED_AFTER=6` × 5s) before `ChatConnectionPanel` + numbered steps; status pills hidden during heal.
+3. **One CTA:** Exactly one primary button in connection UI (Find computers / Fix USB connection / Add [Mac] via Tailscale chip — not three competing banners).
+4. **Tailscale on cellular:** `TailscaleDiscoveryBanner` with **Add Igors-Mac-mini** (or discovered hostname) appears in **Choose your Mac** modal and connection panel — not Settings-only.
+5. **Jargon ban in primary onboarding:** No "gateway", "LAN", "Pair relay" in `ConnectMacGate`, `FreshUserOnboardingCard`, or `ChatConnectionPanel` hero copy.
+6. **Tests:** Run `npm run test:ci`; onboarding copy guarded by `freshUserOnboarding.test.ts`, `FreshUserOnboardingCard.test.tsx`, `ChatConnectionPanel.test.tsx`.

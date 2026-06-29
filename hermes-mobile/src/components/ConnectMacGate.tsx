@@ -9,15 +9,17 @@ import { useGateway } from '../context/GatewayContext';
 import { colors } from '../theme/colors';
 import { describeBootstrapPhase } from '../utils/gatewayConnection';
 import PairQrScannerModal from './PairQrScannerModal';
-import MacPairingHelp from './MacPairingHelp';
+import FreshUserOnboardingCard from './FreshUserOnboardingCard';
+import TailscaleDiscoveryBanner from './TailscaleDiscoveryBanner';
 import MacScanProgressCard from './MacScanProgressCard';
 import LoadingButton from './ui/LoadingButton';
+import { tailscaleDiscoveryLabel } from '../services/tailscaleDiscovery';
 
 const AUTO_RETRY_MS = 12000;
 
 /**
  * First-run gate when no Mac is configured and the gateway is not reachable.
- * Phone-first: relay pairing, plain-language Mac setup, optional local QR scan — no bash.
+ * Plain-language numbered steps — one primary CTA (Find computers).
  */
 export default function ConnectMacGate() {
   const {
@@ -33,6 +35,10 @@ export default function ConnectMacGate() {
     applySetupDeepLink,
     retryGatewayBootstrap,
     scanForGatewayProfiles,
+    tailscaleDiscoveries,
+    tailscaleDiscoveryProbing,
+    addDiscoveredTailscaleComputer,
+    probeTailscaleComputers,
   } = useGateway();
 
   const [qrVisible, setQrVisible] = useState(false);
@@ -62,10 +68,18 @@ export default function ConnectMacGate() {
     try {
       await scanForGatewayProfiles();
       await retryGatewayBootstrap();
+      void probeTailscaleComputers();
     } finally {
       setIsSearching(false);
     }
-  }, [scanForGatewayProfiles, retryGatewayBootstrap]);
+  }, [probeTailscaleComputers, retryGatewayBootstrap, scanForGatewayProfiles]);
+
+  useEffect(() => {
+    if (!showGate) {
+      return;
+    }
+    void probeTailscaleComputers();
+  }, [probeTailscaleComputers, showGate]);
 
   useEffect(() => {
     if (!showGate || searching) {
@@ -77,6 +91,11 @@ export default function ConnectMacGate() {
     return () => clearInterval(timer);
   }, [showGate, searching, runWifiSearch]);
 
+  const primaryTailscaleLabel =
+    tailscaleDiscoveries.length > 0
+      ? tailscaleDiscoveryLabel(tailscaleDiscoveries[0])
+      : undefined;
+
   return (
     <>
       {showGate ? (
@@ -87,13 +106,28 @@ export default function ConnectMacGate() {
             keyboardShouldPersistTaps="handled"
           >
             <View style={styles.card}>
-              <Text style={styles.title}>Pair Hermes Relay</Text>
+              <Text style={styles.title}>Connect your Mac</Text>
               <Text style={styles.body}>
-                Hermes Mobile should work like Telegram: pair once, then approvals route over the
-                internet. Local Wi‑Fi search is only the nearby fallback.
+                Hermes on your phone talks to Hermes on your Mac. Follow the steps below — we
+                search your home Wi‑Fi automatically.
               </Text>
 
-              <MacPairingHelp variant="getting-started" testID="connect-mac-pairing-help" />
+              <FreshUserOnboardingCard
+                profiles={gatewayProfiles}
+                tailscaleMacLabel={primaryTailscaleLabel}
+                testID="connect-mac-onboarding-card"
+              />
+
+              {tailscaleDiscoveries.length > 0 ? (
+                <TailscaleDiscoveryBanner
+                  discoveries={tailscaleDiscoveries}
+                  adding={tailscaleDiscoveryProbing}
+                  onAdd={(discovery) => {
+                    void addDiscoveredTailscaleComputer(discovery);
+                  }}
+                  prominent
+                />
+              ) : null}
 
               <MacScanProgressCard
                 scanning={searching}
@@ -109,15 +143,15 @@ export default function ConnectMacGate() {
               {invalidQrHint ? <Text style={styles.hintError}>{invalidQrHint}</Text> : null}
 
               <LoadingButton
-                label="Search local network"
-                loadingLabel="Searching Wi‑Fi…"
+                label="Find computers"
+                loadingLabel="Finding computers…"
                 loading={searching}
                 onPress={() => runWifiSearch()}
                 testID="connect-search-wifi"
               />
 
               <LoadingButton
-                label="Scan local QR from computer"
+                label="Scan QR from your Mac"
                 variant="secondary"
                 onPress={() => {
                   setInvalidQrHint(null);
@@ -127,8 +161,8 @@ export default function ConnectMacGate() {
               />
 
               <Text style={styles.footnote}>
-                Pair relay in Settings for anywhere approvals. Leave this open only when you want
-                local fallback after installing or starting Hermes.
+                Need Hermes on your Mac first? Use the setup guide link in Settings after you dismiss
+                this screen.
               </Text>
             </View>
           </ScrollView>
@@ -146,7 +180,7 @@ export default function ConnectMacGate() {
           await retryGatewayBootstrap();
         }}
         onInvalidScan={() =>
-          setInvalidQrHint('That QR is not a Hermes computer pairing code. Open Connect phone on your computer.')
+          setInvalidQrHint('That QR is not a Hermes pairing code. Open Connect phone on your Mac.')
         }
       />
     </>

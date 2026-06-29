@@ -141,7 +141,7 @@ export default function ChatScreenHeader({
         onPress={onPressMachine}
         style={({ pressed }) => [styles.macRow, pressed && styles.pressed]}
         testID="chat-context-mac-button"
-        accessibilityLabel="Switch computer"
+        accessibilityLabel="Choose your Mac"
       >
         <View style={[styles.statusDot, { backgroundColor: link.color }]} />
         <View style={styles.macTextBlock}>

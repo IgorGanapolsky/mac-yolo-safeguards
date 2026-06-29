@@ -12,7 +12,8 @@ describe('macPairingUx', () => {
     expect(bodies.toLowerCase()).not.toContain('bash');
     expect(bodies.toLowerCase()).not.toContain('terminal');
     expect(MAC_GETTING_STARTED_STEPS.length).toBe(4);
-    expect(MAC_GETTING_STARTED_STEPS[3].title).toMatch(/fallback/i);
+    expect(MAC_GETTING_STARTED_STEPS[3].title).toMatch(/away from home/i);
+    expect(bodies).toContain('Find computers');
   });
 
   it('documents QR pairing in plain language', () => {
@@ -24,7 +25,7 @@ describe('macPairingUx', () => {
   it('selects steps by variant', () => {
     expect(macPairingStepsForVariant('getting-started', true).length).toBe(3);
     expect(macPairingStepsForVariant('qr-pairing', false).length).toBe(3);
-    expect(macPairingHeadingForVariant('getting-started')).toContain('New to Hermes');
+    expect(macPairingHeadingForVariant('getting-started')).toContain('Connect your Mac');
   });
 
   it('links to public Hermes Mac docs', () => {

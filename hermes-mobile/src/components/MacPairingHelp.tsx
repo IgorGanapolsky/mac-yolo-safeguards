@@ -53,8 +53,7 @@ export default function MacPairingHelp({
       ) : null}
       {!compact && variant === 'getting-started' ? (
         <Text style={styles.note}>
-          Already have Hermes running? Pair Hermes Relay for anywhere approvals. Use local search or
-          Scan QR only when you want direct nearby machine control.
+          Already connected once? Your saved Macs appear in Choose your Mac from the chat header.
         </Text>
       ) : null}
     </View>

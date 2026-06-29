@@ -13,10 +13,11 @@ describe('buildConnectionStatusChips', () => {
       wifiProfileReachable: false,
     });
 
-    expect(chips.find((chip) => chip.id === 'mac-http')?.label).toBe('Mac HTTP: Down');
+    expect(chips.find((chip) => chip.id === 'mac-http')?.label).toBe('Your Mac: Unreachable');
     expect(chips.find((chip) => chip.id === 'mac-http')?.tone).toBe('bad');
-    expect(chips.find((chip) => chip.id === 'usb-tunnel')?.label).toBe('USB tunnel: Down');
+    expect(chips.find((chip) => chip.id === 'usb-tunnel')?.label).toBe('USB: Not ready');
     expect(chips.some((chip) => /Hermes running/i.test(chip.label))).toBe(false);
+    expect(chips.some((chip) => /Relay/i.test(chip.label))).toBe(false);
   });
 
   it('marks USB tunnel up only when loopback and HTTP are healthy', () => {
@@ -29,17 +30,28 @@ describe('buildConnectionStatusChips', () => {
       wifiProfileReachable: false,
     });
 
-    expect(chips.find((chip) => chip.id === 'usb-tunnel')?.label).toBe('USB tunnel: Up');
+    expect(chips.find((chip) => chip.id === 'usb-tunnel')?.label).toBe('USB: Connected');
     expect(chips.find((chip) => chip.id === 'mac-http')?.tone).toBe('ok');
   });
 });
 
 describe('ChatConnectionPanel', () => {
+  it('shows fresh-user onboarding card when no profiles are saved', () => {
+    const { getByTestId, getAllByText } = render(
+      <ChatConnectionPanel connectionState="disconnected" onSearchMac={jest.fn()} profiles={[]} />,
+    );
+
+    expect(getByTestId('fresh-user-onboarding-card')).toBeTruthy();
+    expect(getAllByText('Connect your Mac').length).toBeGreaterThan(0);
+    expect(getByTestId('chat-connection-search')).toBeTruthy();
+  });
+
   it('shows saved computers when profiles are provided', () => {
     const { getByTestId, getByText } = render(
       <ChatConnectionPanel
         connectionState="disconnected"
         macLabel="MacBook Pro"
+        connectionHealAttempt={6}
         profiles={[
           { id: 'p1', label: 'Mac mini', gatewayUrl: 'http://192.168.1.50:8642', addedAt: '2026-06-23T12:00:00Z' },
           { id: 'p2', label: 'MacBook Pro', gatewayUrl: 'http://10.2.29.103:8642', addedAt: '2026-06-23T12:01:00Z' },
@@ -50,7 +62,7 @@ describe('ChatConnectionPanel', () => {
       />,
     );
 
-    expect(getByText(/Saved computers/)).toBeTruthy();
+    expect(getByText(/Your saved Macs/)).toBeTruthy();
     expect(getByTestId('gateway-profile-list')).toBeTruthy();
     expect(getByTestId('select-gateway-profile-p1')).toBeTruthy();
   });
@@ -61,6 +73,7 @@ describe('ChatConnectionPanel', () => {
         connectionState="disconnected"
         connectionMode="gateway"
         macLabel="Computer at 192.168.68.61"
+        connectionHealAttempt={6}
         profiles={[
           {
             id: 'stale',
@@ -88,6 +101,7 @@ describe('ChatConnectionPanel', () => {
         connectionState="disconnected"
         connectionMode="gateway"
         isRelayPaired
+        connectionHealAttempt={6}
         relayWorkers={[
           {
             id: 'mac-mini',
@@ -113,7 +127,7 @@ describe('ChatConnectionPanel', () => {
     expect(getByTestId('relay-worker-row-mac-mini')).toBeTruthy();
   });
 
-  it('shows Fix USB link CTA and live status chips for loopback failures off Wi‑Fi', () => {
+  it('shows Fix USB connection CTA for loopback failures off Wi‑Fi', () => {
     const onFixUsbLink = jest.fn();
     const { getByTestId, getByText } = render(
       <ChatConnectionPanel
@@ -124,22 +138,22 @@ describe('ChatConnectionPanel', () => {
         usbCableLikely={false}
         wifiConnected={false}
         activeProfileReachable={false}
+        connectionHealAttempt={6}
         onFixUsbLink={onFixUsbLink}
         onSearchMac={jest.fn()}
       />,
     );
 
-    expect(getByText('USB tunnel down')).toBeTruthy();
-    expect(getByText(/USB tunnel to Igors-MacBook-Pro is not up yet/)).toBeTruthy();
+    expect(getByText('USB connection needs setup')).toBeTruthy();
+    expect(getByText(/USB link is not ready yet/)).toBeTruthy();
     expect(getByTestId('chat-connection-fix-usb')).toBeTruthy();
-    expect(getByTestId('status-pill-mac-http')).toBeTruthy();
-    expect(getByText('Mac HTTP: Down')).toBeTruthy();
+    expect(getByText('Fix USB connection')).toBeTruthy();
 
     fireEvent.press(getByTestId('chat-connection-fix-usb'));
     expect(onFixUsbLink).toHaveBeenCalled();
   });
 
-  it('prefers Search locally over Fix USB when on Wi‑Fi with a saved loopback profile', () => {
+  it('prefers Find computers over Fix USB when on Wi‑Fi with a saved loopback profile', () => {
     const onFixUsbLink = jest.fn();
     const { getByTestId, queryByTestId } = render(
       <ChatConnectionPanel
@@ -149,6 +163,15 @@ describe('ChatConnectionPanel', () => {
         usbLoopback
         wifiConnected
         activeProfileReachable={false}
+        connectionHealAttempt={6}
+        profiles={[
+          {
+            id: 'usb',
+            label: 'Igors-MacBook-Pro',
+            gatewayUrl: 'http://127.0.0.1:8642',
+            addedAt: '2026-06-28T00:00:00Z',
+          },
+        ]}
         onFixUsbLink={onFixUsbLink}
         onSearchMac={jest.fn()}
       />,
@@ -158,12 +181,21 @@ describe('ChatConnectionPanel', () => {
     expect(queryByTestId('chat-connection-fix-usb')).toBeNull();
   });
 
-  it('uses cant reach title in gateway mode', () => {
+  it('uses cant reach title after heal exhausted for returning users', () => {
     const { getByText } = render(
       <ChatConnectionPanel
         connectionState="disconnected"
         connectionMode="gateway"
         macLabel="MacBook Pro"
+        connectionHealAttempt={6}
+        profiles={[
+          {
+            id: 'p1',
+            label: 'MacBook Pro',
+            gatewayUrl: 'http://192.168.1.50:8642',
+            addedAt: '2026-06-28T00:00:00Z',
+          },
+        ]}
         onSearchMac={jest.fn()}
       />,
     );
@@ -177,6 +209,7 @@ describe('ChatConnectionPanel', () => {
         connectionMode="gateway"
         macLabel="Mac mini"
         usbLoopback
+        connectionHealAttempt={6}
         usbHostMismatch={{
           usbHostLabel: 'Igors-MacBook-Pro',
           selectedProfileLabel: 'Mac mini',
@@ -190,11 +223,11 @@ describe('ChatConnectionPanel', () => {
         onSearchMac={jest.fn()}
       />,
     );
-    expect(getByText('Wrong Mac on USB')).toBeTruthy();
+    expect(getByText('Wrong Mac plugged in')).toBeTruthy();
     expect(getByText(/USB is connected to Igors-MacBook-Pro/)).toBeTruthy();
   });
 
-  it('explains cellular blocks direct LAN URLs', () => {
+  it('explains cellular blocks direct home Wi‑Fi URLs', () => {
     const { getByText } = render(
       <ChatConnectionPanel
         connectionState="disconnected"
@@ -202,12 +235,12 @@ describe('ChatConnectionPanel', () => {
         wifiConnected={false}
         cellularBlocksDirect
         macLabel="Mac mini"
+        connectionHealAttempt={6}
         onSearchMac={jest.fn()}
       />,
     );
-    expect(getByText('Cellular — need tunnel')).toBeTruthy();
-    expect(getByText(/tunnel URL/)).toBeTruthy();
-    expect(getByText(/8642/)).toBeTruthy();
+    expect(getByText('Use Tailscale from cellular')).toBeTruthy();
+    expect(getByText(/Home Wi‑Fi addresses won't work on cellular/)).toBeTruthy();
   });
 
   it('shows Tailscale discovery banner for reachable tailnet Macs', () => {
@@ -232,5 +265,25 @@ describe('ChatConnectionPanel', () => {
     expect(onAdd).toHaveBeenCalledWith(
       expect.objectContaining({ gatewayUrl: 'http://100.94.135.78:8642' }),
     );
+  });
+
+  it('hides status pills during silent heal for returning users', () => {
+    const { queryByTestId } = render(
+      <ChatConnectionPanel
+        connectionState="disconnected"
+        connectionHealAttempt={2}
+        connectionHealInFlight
+        profiles={[
+          {
+            id: 'p1',
+            label: 'Mac mini',
+            gatewayUrl: 'http://192.168.1.50:8642',
+            addedAt: '2026-06-28T00:00:00Z',
+          },
+        ]}
+        onSearchMac={jest.fn()}
+      />,
+    );
+    expect(queryByTestId('chat-connection-status-pills')).toBeNull();
   });
 });

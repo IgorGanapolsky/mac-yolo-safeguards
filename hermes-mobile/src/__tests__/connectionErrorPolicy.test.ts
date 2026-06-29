@@ -26,8 +26,29 @@ const profiles: GatewayProfile[] = [
 ];
 
 describe('connectionErrorPolicy', () => {
+  it('shows connection help immediately for fresh users with no saved Mac', () => {
+    expect(
+      shouldShowMacConnectionHelp({
+        isDemo: false,
+        macChatLive: false,
+        healthProbePending: false,
+        healthLevel: 'red',
+        heal: connectionHealSnapshot(0, true),
+        profiles: [],
+      }),
+    ).toBe(true);
+  });
+
   it('suppresses loud UI while silent heal is in progress', () => {
     const healing = connectionHealSnapshot(2, true);
+    const savedProfiles = [
+      {
+        id: 'mac',
+        label: 'Mac mini',
+        gatewayUrl: 'http://192.168.1.50:8642',
+        addedAt: '2026-06-28T00:00:00Z',
+      },
+    ];
     expect(
       shouldShowMacRetryBanner({
         isDemo: false,
@@ -43,6 +64,7 @@ describe('connectionErrorPolicy', () => {
         healthProbePending: false,
         healthLevel: 'red',
         heal: healing,
+        profiles: savedProfiles,
       }),
     ).toBe(false);
   });

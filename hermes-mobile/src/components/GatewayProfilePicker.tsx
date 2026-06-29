@@ -48,7 +48,7 @@ export default function GatewayProfilePicker({
       ) : null}
       {profiles.length === 0 && !scanning ? (
         <Text style={styles.emptyText}>
-          No saved Macs yet. Search Wi‑Fi or scan the QR on your Mac.
+          No saved Macs yet. Tap Find computers or scan the QR on your Mac.
         </Text>
       ) : null}
       {profiles.length > 0 ? (
