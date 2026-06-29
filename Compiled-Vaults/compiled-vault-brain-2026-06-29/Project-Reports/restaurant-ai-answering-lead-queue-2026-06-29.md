@@ -1,68 +1,118 @@
+---
+type: "project-report"
+project: "restaurant-ai-answering"
+source_status: "local-export"
+last_verified: "2026-06-29T08:01:01+00:00"
+canonical_source: "sales/restaurant-ai-answering-lead-queue-2026-06-29.md"
+---
 # Restaurant AI Answering Lead Queue
 
 Date: 2026-06-29
-Project: restaurant AI answering system
-Status: shared-vault copy; no outreach sent from this file
 
-## Use
+This is the local lead queue named by the centralized compiled vault. It is prepare-only. It does not authorize posting, DMing, emailing, or submitting anything externally.
 
-This queue is for getting a restaurant operator, restaurant group, caterer, or restaurant-agency buyer into a paid next step for AI phone answering, booking/catering capture, follow-up, and analytics.
+## Current Selection Rule
 
-Do not count a lead as contacted until there is send proof from the real channel.
+Pick one lead only if it has a restaurant/QSR/POS customer-interaction leak and one of:
+- fresh reply or ask-for-help signal
+- request for demo, docs, pricing, implementation, or examples
+- clear integration surface such as POS/API/webhook/export/VoIP/booking/catering
+- current thread that can be read back live before action
 
-## Lead Queue
+## Active Candidate 1: POS Compatibility / Pointless POS Pattern
 
-| Priority | Target | Source | Why This Fits | First Action |
-|---:|---|---|---|---|
-| 1 | Kitchen 57, South Miami | https://www.kitchen57miami.com/private-events/ | Private events, catering, large-party flow, and reservations create high-value inquiry leakage risk. | Send private-events speed-to-lead note. |
-| 2 | Kitsune House, Downtown Miami | https://www.kitsunehouse.com/ | Catering is visible and the location is surrounded by office lunch demand. | Send missed catering call / office lunch capture note. |
-| 3 | Coyo Taco, Miami multi-location | https://www.coyo-taco.com/catering-and-events | Multi-location QSR with catering/events page and central contact surface. | Send franchise/operator missed catering lead note. |
-| 4 | Lolo's Surf Cantina, Miami Beach | https://www.loloscantina.com/ | Hotel-adjacent restaurant with events/large-party potential and phone-driven demand. | Send group-dining and phone-answering qualification note. |
-| 5 | NOMA Beach, Miami | https://www.noma-beach.com/private-events | Private dining/events page explicitly pushes calls and inquiries. | Send event-coordinator overflow answering note. |
-| 6 | Tropezon, Miami Beach | https://www.tropezonmiami.com/private-events-and-catering/ | Private events and catering request form with required phone/company fields. | Send form-to-phone follow-up analytics note. |
-| 7 | Smith & Wollensky, Miami Beach | https://www.smithandwollensky.com/locations/miami-beach/private-events/ | Multiple private rooms and inquiry CTAs mean high-value event leads. | Send after-hours event inquiry capture note. |
-| 8 | Daniel's Steakhouse, Miami | https://www.danielssteak.com/miami/private-dining/ | Private dining page invites event inquiries; likely higher ticket sizes. | Send event-lead qualification and manager summary note. |
-| 9 | Wyn Wyn, Wynwood | https://www.wynwynmiami.com/private-events/ | Public catering team phone/email and private events flow. | Send phone/email lead status tracking note. |
-| 10 | Pisco y Nazca, Kendall | https://piscoynazca.com/kendall/private-events/ | Private dining menus and direct private-event phone/email CTA. | Send catering phone answering and analytics note. |
-| 11 | Red Rooster Overtown | https://www.redroosterovertown.com/private-dining/ | Large private dining capacities and brand/event collaboration positioning. | Send event-inquiry triage note. |
-| 12 | The Palm, Miami | https://www.thepalm.com/miami-private-events/ | Private dining event inquiry page with planning CTA. | Send missed private-event inquiry note. |
-| 13 | CASA NEOS, Miami | https://www.casa-neos.com/private-events | Private dining/event spaces for intimate to large gatherings. | Send luxury-event lead capture note. |
-| 14 | Fogo de Chao, Miami Beach | https://fogodechao.com/group-dining/miami/ | Group/private dining page with named sales manager, phone, and email. | Send sales-manager overflow and follow-up note. |
-| 15 | Aviv, Miami Beach | https://www.avivsb.com/private-events | Private events page for parties of 8+ with RFP flow. | Send RFP-to-SMS follow-up note. |
-| 16 | Lona Cocina, Fort Lauderdale | https://www.lonarestaurant.com/private-dining-fort-lauderdale | Private dining and catering for groups up to 350. | Send large-event call capture note. |
-| 17 | Level 6, Coconut Grove | https://level6miami.com/private-events/ | Corporate/private-event positioning with multiple room capacities. | Send corporate-event inquiry response note. |
-| 18 | Spuntino Catering, Miami | https://spuntinocatering.com/ | Full-service catering with phone and inquiry CTA. | Send quote request follow-up analytics note. |
-| 19 | Douglas K Catering, South Florida | https://douglaskkatering.com/ | Corporate catering and full-service event quote flow. | Send quote-call answering and tracking note. |
-| 20 | Corporate Caterers Miami | https://www.corporatecaterers.com/location/corporate-caterers-miami-fl/ | Corporate lunch catering with request-a-quote flow. | Send catering quote capture note. |
+Evidence:
+- `sales/pos-compatibility-audit.md`
+- `scripts/revenue_ops/skool_lead_analyzer.py`
+- Historical report evidence mentions `Calm-Republic9370`, a Pointless POS owner, asking whether MCP is better than webhooks.
 
-## Send-Ready First Touch
+Workflow pain:
+Restaurant/POS operator needs to decide whether order export, webhooks, API docs, manager notes, or reporting surfaces can support a safe first automation.
 
-Subject:
+Diagnostic path:
+Ask for API/webhook/export docs, then route to the $499 POS compatibility diagnostic only after the integration surface is real.
 
-```text
-quick question about missed catering calls
-```
+Approval-ready next action:
+Prepare a reply that asks for the integration surface first. Do not paste checkout unless the buyer asks for pricing or confirms they want the diagnostic.
 
-Body:
+## Active Candidate 2: AI Restaurant Empire / Partnership Structure
 
-```text
-Hi {first_name},
+Evidence:
+- `reports/gtm/2026-06-24-money-today/skool-outcome-queue.md`
+- `reports/gtm/skool_prediction_scores_latest.json`
+- `sales/close-packet-restaurant-answering-ai-restaurant-empire.md`
+- URL: `https://www.skool.com/ai-restaurant-empire-6153/guys-whats-the-best-partnership-structure-that-actually-works`
 
-Quick observation: most restaurant AI pitches are too broad. The practical leak is smaller: missed calls during rush, slow catering follow-up, and private-event inquiries sitting in a general inbox with no visible owner status.
+Workflow pain:
+Commission or partnership structure is premature until the customer path can attribute conversions, reorders, gym-member referrals, or catering/review outcomes.
 
-I built a 60-second demo of an always-on lead recovery playbook that catches those inquiries, qualifies date / party size / budget, updates status, and sends the owner a clean summary.
+Diagnostic path:
+Qualify tracking first: code, landing page, POS tag, CRM field, order export, or manager log. Then offer diagnostic only after they ask for help.
 
-Worth seeing it?
+Caution:
+This thread has prior Igor comment risk from 2026-05-14, and unauthenticated `curl` readback returned `HTTP/2 403` on 2026-06-29. Require authenticated browser readback before any action.
 
-Igor
-```
+Approval phrase:
+`APPROVE ALMA PURA RESTAURANT DIAGNOSTIC REPLY`
 
-## Tracking Rule
+## Active Candidate 3: Restaurant/QSR Promo Reply Watch
 
-For every send, log:
+Evidence:
+- `reports/gtm/2026-06-24-money-today/skool-outcome-queue.md`
+- URL: `https://www.skool.com/classifieds/i-am-looking-for-one-restaurant-venue-or-local-service-business`
+- Existing status: posted, awaiting outcome check.
 
-```text
-date, target, channel, exact message path, send proof path, reply status, next action, payment status
-```
+Workflow pain:
+Generic restaurant/QSR offer only becomes actionable if someone asks for link, demo, docs, pricing, or help.
 
-Payment status must stay `none` until Stripe, bank, invoice, or signed paid agreement evidence exists.
+Diagnostic path:
+If there is a reply, classify it:
+- operator with restaurant pain
+- agency builder wanting a sellable QSR offer
+- low-intent curiosity
+
+Caution:
+Do not bump without fresh reply evidence.
+
+## Prepared No-Send Packet: Kitchen 57
+
+Evidence:
+- `reports/gtm/2026-06-29-money-today/kitchen57-restaurant-answering-no-send-packet.md`
+- `sales/pre-audits/kitchen57-restaurant-answering-map-2026-06-29.md`
+- `output/pdf/kitchen57-restaurant-answering-map-2026-06-29.pdf`
+- `scripts/revenue_ops/render_kitchen57_answering_map_pdf.py`
+- Public private-events page verified 2026-06-29.
+- Public reservation page verified 2026-06-29.
+- Prior Kitchen 57 contact evidence exists from 2026-05-14 and 2026-06-11.
+
+Workflow pain:
+Kitchen 57 has separate public paths for Resy reservations, parties over 6 by email, private-events inquiry form, catering, phone, and general email. The diagnostic wedge is whether private-event and catering inquiries get acknowledged, qualified, and routed as quickly as table reservations.
+
+Approval-ready next action:
+Use only if duplicate-risk is explicitly accepted or a fresh inbound/reply/context creates a legitimate continuation reason.
+
+Approval phrase:
+`APPROVE KITCHEN57 RESTAURANT DIAGNOSTIC REPLY`
+
+## Disqualified Or Stale Without Fresh Readback
+
+### Mo Anwary / Spin The Wheel
+
+Evidence:
+- `reports/gtm/followup_ledger.csv` marks it disqualified on 2026-06-24: seller-room peer engagement, no buyer-shape, no reply.
+- Prior `APPROVE MO` action was already posted.
+
+Rule:
+Do not bump. Only re-open if live readback shows a new buyer reply, ask-for-link, DM, checkout intent, or paid conversion.
+
+## Next GSD Action
+
+Before any external action on Kitchen 57:
+
+- re-read the intended send/reply surface
+- confirm this is not a duplicate cold send against the same recipient
+- confirm the send/reply control is enabled
+- require the approval phrase `APPROVE KITCHEN57 RESTAURANT DIAGNOSTIC REPLY`
+- after any approved send, record URL, timestamp, recipient/surface, and proof artifact
+
+If Kitchen 57 remains too duplication-risky, return to Active Candidate 1 and live-read the POS Compatibility / Pointless POS thread before preparing a send.

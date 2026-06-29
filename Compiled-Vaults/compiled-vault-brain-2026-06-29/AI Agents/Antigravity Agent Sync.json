@@ -1,6 +1,6 @@
 {
   "schema": "antigravity-agent-sync-brief/v1",
-  "generatedAt": "2026-06-29T06:11:36.395821Z",
+  "generatedAt": "2026-06-29T08:03:16.706984Z",
   "machine": {
     "hostname": "Igors-MacBook-Pro.local",
     "platform": "darwin",
@@ -9,7 +9,7 @@
   },
   "git": {
     "branch": "feature/mercor-referrals-june28",
-    "head": "26181d963"
+    "head": "4c28ff950"
   },
   "recentDecisions": [
     {
@@ -36,6 +36,11 @@
       "date": "2026-06-29",
       "author": "antigravity",
       "summary": "Executed first iteration of daily Mercor bulk apply at 2:00 AM; processed all 26 jobs successfully."
+    },
+    {
+      "date": "2026-06-29",
+      "author": "antigravity",
+      "summary": "Executed first iteration of 12-hour Micro1 monitor at 4:00 AM; logged TAB_NOT_FOUND since tab was not open."
     }
   ]
 }

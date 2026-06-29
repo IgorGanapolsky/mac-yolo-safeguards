@@ -1,60 +1,78 @@
-# Active Money Focus - Restaurant AI Answering
+---
+type: "context-pack"
+project: "restaurant-ai-answering"
+source_status: "local-export"
+last_verified: "2026-06-29T08:01:01+00:00"
+canonical_source: "sales/restaurant-ai-answering-system-gsd-focus.md"
+---
+# Restaurant AI Answering System GSD Focus
 
 Date: 2026-06-29
-Authority: CEO directive in current session
-Primary repo: `/Users/igorganapolsky/workspace/git/igor/skool_top1percent`
-Source image: `/Users/igorganapolsky/Downloads/20260628_165222.jpg`
 
-## Focus
+This is the local source-of-truth file named by the centralized compiled vault.
 
-The active money project is an agentic AI answering system for restaurants.
+Centralized vault reference:
+`https://github.com/IgorGanapolsky/mac-yolo-safeguards/tree/main/Compiled-Vaults/compiled-vault-brain-2026-06-29`
 
-Whiteboard requirements:
-- commission-based / revenue-share model
-- VOIP answering
-- booking, reservations, and catering lead capture
-- online analytics
-- tracking
-- customer interaction follow-up
+## Objective
 
-## GSD Rule
+Earn $300/day after tax from an agentic AI answering system for restaurants.
 
-Every agent should optimize for one of these outcomes:
-- book a buyer conversation
-- convert an existing high-intent lead
-- build a demo that helps sell the restaurant answering system
-- verify a payment, signed agreement, send, reply, or blocker
-
-If an action does not move one of those outcomes today, treat it as lower priority.
+Planning math:
+- 30% tax reserve until accounting evidence changes it.
+- Required pre-tax net: about $429/day.
+- Current daily close unit: $499 diagnostic.
 
 ## Offer
 
-AI answers restaurant calls, qualifies booking and catering intent, follows up with SMS, and reports recovered revenue opportunities to the manager.
+Restaurant Agentic AI Answering Diagnostic.
 
-Suggested first pricing:
-- $99 pilot setup plus commission on recovered bookings/catering
-- $499 setup sprint
-- $1,500+ multi-location implementation
+The diagnostic maps one restaurant customer-interaction path:
+- phone or VoIP answering
+- booking, reservation, or catering capture
+- online ordering/review/customer signal
+- POS/API/export/webhook integration surface
+- manager summary and tracking
+- owner-visible revenue outcome
 
-## Truth Boundary
+## Sellable Wedge
 
-No agent may claim:
-- money was made without payment or signed paid agreement evidence
-- a message was sent without logged-in send proof
-- a demo works without a transcript/output artifact
+Do not sell "AI for restaurants."
 
-## Hermes Routing
+Sell one leak:
+- missed catering calls
+- unanswered DMs
+- slow reservation/private-event follow-up
+- review recovery
+- repeat-visit follow-up
+- POS handoff/manager summary gap
 
-When Hermes or another LLM asks what to work on, route to:
+## Ralph Loop
 
-`/Users/igorganapolsky/workspace/git/igor/skool_top1percent/sales/restaurant-ai-answering-system-gsd-focus.md`
+Bet:
+If the reply names one restaurant workflow leak and the proof needed to diagnose it, a serious operator or builder will either send integration evidence, ask for pricing, or accept a paid diagnostic.
 
-First lead queue:
+Measurement:
+- fresh buyer signal found
+- workflow named
+- integration surface named
+- approval-ready packet written
+- payment or booked diagnostic call verified
 
-`/Users/igorganapolsky/workspace/git/igor/skool_top1percent/sales/restaurant-ai-answering-lead-queue-2026-06-29.md`
+## GSD Rule
 
-Shared-vault lead queue:
+One concrete action per loop:
+1. Find the best non-stale restaurant/QSR/POS lead.
+2. Prepare one approval-gated close packet.
+3. Verify action only with source output, URL, message id, payment id, or artifact path.
 
-`Compiled-Vaults/compiled-vault-brain-2026-06-29/Project-Reports/restaurant-ai-answering-lead-queue-2026-06-29.md`
+No external send is authorized by this file.
 
-This file supersedes generic AI-vault, model-research, and broad Skool content work unless the CEO explicitly changes the money focus.
+## Source Assets
+
+- `sales/restaurant-ai-answering-lead-queue-2026-06-29.md`
+- `sales/pos-compatibility-audit.md`
+- `sales/restaurant-ai-agent-bundle-copy.md`
+- `docs/revenue_offers/current_offer.md`
+- `docs/trajectories/2026-06-29-restaurant-agentic-answering-ralph-gsd.md`
+- `obsidian_vault/projects/restaurant-ai-answering-money-focus.md`
