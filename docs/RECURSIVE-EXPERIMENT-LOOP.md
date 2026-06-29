@@ -12,6 +12,9 @@ source-backed, and guarded against fake wins.
   explicit verifier.
 - Adoption ledger: improvements are recorded as `adopt`, `retry`, or `reject`
   from before/after metrics plus evaluator, reward-hack, and variance gates.
+- Agent Arena-style token efficiency: candidate model runs are scored by
+  verified task improvement per 1k output tokens, with penalties for tool
+  hallucinations, bash recovery failures, latency, cost, and evaluator failure.
 - Context retention: every loop names the state or lesson artifact that survives
   interruptions.
 - Branch combination: promising ideas need a combine test before becoming a
@@ -38,6 +41,15 @@ node tools/recursive-experiment-loop.js record \
   --evidence "tests and sync packet diff verified" \
   --json
 node tools/recursive-experiment-loop.js ledger --json
+node tools/recursive-experiment-loop.js efficiency \
+  --before 40 \
+  --after 64 \
+  --input-tokens 2000 \
+  --output-tokens 800 \
+  --tool-hallucinations 0 \
+  --bash-recovery-failures 0 \
+  --evaluator pass \
+  --json
 ```
 
 The default ledger path is `~/.hermes/recursive-experiment-ledger.jsonl` so
@@ -56,12 +68,44 @@ This is the important Recursive-style upgrade: Hermes must not accept its own
 claim that a loop got smarter. It needs a before/after metric and independent
 verification.
 
+## Token Efficiency Gate
+
+The `efficiency` command turns Agent Arena-style ranking into a local Hermes
+routing rule. It answers: "Did this model produce verified task improvement
+cheaply enough to earn cheap/local/default routing?"
+
+The score is:
+
+```text
+verified task improvement per 1k output tokens
+- tool hallucination penalty
+- bash recovery failure penalty
+- latency penalty
+- cost penalty
+- evaluator failure penalty
+```
+
+Routes:
+
+| Route | Meaning |
+| --- | --- |
+| `cheap_or_local_candidate` | Efficient, evaluator-passing run. Candidate for North Mini, local GLM/Gemma/Ollama, or another cheaper route. |
+| `expensive_model_allowed` | Not efficient enough to promote downward, but not disqualified. Keep frontier/Codex/Claude/GPT available. |
+| `do_not_promote` | Evaluator failed, evidence missing, or penalties dominated. Do not use this run to change routing. |
+
+This directly attacks Igor's token-burn problem: small jobs need measured cheap
+routes, not expensive default models. It also prevents fake savings from
+choosing a cheap model that hallucinates tools or cannot recover from shell
+errors.
+
 ## High-ROI Default Experiments
 
 - `cross_agent_sync_packet`: keeps agents aligned through source-backed sync
   packets.
 - `provider_routing_benchmark`: prevents model/provider defaults from changing
   without latency, cost, context, and smoke evidence.
+- `arena_token_efficiency_benchmark`: measures task improvement per output
+  token and blocks cheap-route promotion when tool or shell reliability regresses.
 - `rag_source_grounding_eval`: requires graph/source-pack evidence before broad
   architecture claims.
 - `freeze_guard_feedback_loop`: turns Mac freeze incidents into safe guard

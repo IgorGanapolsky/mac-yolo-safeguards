@@ -2,7 +2,7 @@
 type: "context-pack"
 scope: "Hermes operating context"
 source_status: "source-backed"
-last_verified: "2026-06-29T05:23:41.303Z"
+last_verified: "2026-06-29T13:49:05.760Z"
 tags:
   - "hermes"
   - "agents"
@@ -26,8 +26,8 @@ and local safeguards should coordinate.
 ## Current Sync Snapshot
 
 - Branch: main
-- Head: 7d74c61
-- Dirty entries: 23
+- Head: ebc10e0
+- Dirty entries: 18
 - Active tasks: 2
 - Active locks: 18
 

@@ -1,7 +1,7 @@
 ---
 type: "status-conditions"
 source_status: "generated"
-last_verified: "2026-06-29T05:23:41.303Z"
+last_verified: "2026-06-29T13:49:05.760Z"
 ---
 # Vault Conditions
 
@@ -13,7 +13,7 @@ condition.
 | Type | Status | Reason | Message | Observed Generation |
 |------|--------|--------|---------|---------------------|
 | SourceInventoryReady | True | MinimumSourcesFound | 9/9 source candidates exist. | 1 |
-| AgentSyncReadable | True | SyncBriefGenerated | Sync brief branch=main dirty=23. | 1 |
+| AgentSyncReadable | True | SyncBriefGenerated | Sync brief branch=main dirty=18. | 1 |
 | ValidationPassed | True | RequiredArtifactsPresent | 24 files checked; missing=0; secretFindings=[REDACTED] | 1 |
 
 ## Provenance

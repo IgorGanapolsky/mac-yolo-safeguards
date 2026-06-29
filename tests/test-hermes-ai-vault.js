@@ -7,12 +7,16 @@ const os = require('os');
 const path = require('path');
 
 const {
+  DEFAULT_INSTALL_OUT,
   REQUIRED_PATHS,
+  buildRoutingMap,
   buildConditions,
   buildManifest,
   compileVault,
   estimateTokens,
   extractRecentDecisions,
+  installVault,
+  llmEntryPoints,
   parseArgs,
   validateVault,
 } = require('../tools/hermes-ai-vault');
@@ -105,6 +109,13 @@ test('compileVault writes required Markdown and JSON files', () => {
   }
   assert.match(fs.readFileSync(path.join(out, 'Context Packs/Token Efficiency Context.md'), 'utf8'), /Source Token Estimates/);
   assert.match(fs.readFileSync(path.join(out, 'Status/Vault Conditions.md'), 'utf8'), /Observed Generation/);
+  assert.match(fs.readFileSync(path.join(out, 'LLM Entry Points/Hermes.md'), 'utf8'), /Always-on orchestrator/);
+  assert.match(fs.readFileSync(path.join(out, 'Templates/Task Brief.md'), 'utf8'), /Acceptance Checks/);
+  const routing = JSON.parse(fs.readFileSync(path.join(out, 'Routing/llm-routing.json'), 'utf8'));
+  assert.strictEqual(routing.schema, 'hermes-llm-routing/v1');
+  assert(routing.routes.some((route) => route.primary === 'Codex'));
+  assert(routing.routes.some((route) => route.primary === 'Hermes'));
+  assert(routing.routes.some((route) => route.primary === 'Ollama Local'));
 });
 
 test('validateVault catches missing required files', () => {
@@ -125,6 +136,37 @@ test('compiled vault redacts token-shaped source content', () => {
   }
 });
 
+test('llmEntryPoints creates vendor-specific Markdown without proprietary formats', () => {
+  const manifest = buildManifest(fixtureRepo());
+  const entries = llmEntryPoints(manifest);
+  assert(Object.keys(entries).includes('LLM Entry Points/Codex.md'));
+  assert(Object.keys(entries).includes('LLM Entry Points/Obsidian.md'));
+  assert.match(entries['LLM Entry Points/Codex.md'], /Repository executor/);
+  assert.match(entries['LLM Entry Points/Obsidian.md'], /Human-facing knowledge graph/);
+});
+
+test('buildRoutingMap provides mechanical Hermes route selection', () => {
+  const manifest = buildManifest(fixtureRepo());
+  const routing = buildRoutingMap(manifest, { selected: [{ id: 'x', score: 1, evaluator: 'node x', targetMetric: 'pass' }] });
+  assert.strictEqual(routing.schema, 'hermes-llm-routing/v1');
+  assert(routing.defaultReadOrder.includes('Routing/llm-routing.json'));
+  assert(routing.routes.some((route) => route.id === 'always_on_orchestration' && route.primary === 'Hermes'));
+});
+
+test('installVault writes a Hermes pointer and validates install target', () => {
+  const repo = fixtureRepo();
+  const tempHome = fs.mkdtempSync(path.join(os.tmpdir(), 'hermes-ai-vault-home-'));
+  const out = path.join(tempHome, '.hermes', 'ai-vault');
+  const pointerPath = path.join(tempHome, '.hermes', 'AI_VAULT.md');
+  const result = installVault({ repo, out, pointerPath });
+  assert.strictEqual(result.ok, true);
+  assert.strictEqual(result.out, out);
+  assert.ok(fs.existsSync(path.join(out, 'Routing/llm-routing.json')));
+  assert.ok(fs.existsSync(result.pointerPath));
+  assert.match(fs.readFileSync(result.pointerPath, 'utf8'), /Current vault:/);
+  fs.rmSync(tempHome, { recursive: true, force: true });
+});
+
 test('parseArgs supports build and validate modes', () => {
   const buildArgs = parseArgs(['build', '--out', '/tmp/vault', '--json']);
   assert.strictEqual(buildArgs._[0], 'build');
@@ -133,4 +175,7 @@ test('parseArgs supports build and validate modes', () => {
   const validateArgs = parseArgs(['validate', '--vault', '/tmp/vault']);
   assert.strictEqual(validateArgs._[0], 'validate');
   assert.strictEqual(validateArgs.vault, '/tmp/vault');
+  const installArgs = parseArgs(['install']);
+  assert.strictEqual(installArgs._[0], 'install');
+  assert.strictEqual(installArgs.out, DEFAULT_INSTALL_OUT);
 });

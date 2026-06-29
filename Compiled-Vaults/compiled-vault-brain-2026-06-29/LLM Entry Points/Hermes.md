@@ -3,7 +3,7 @@ type: "llm-entrypoint"
 tool: "Hermes"
 mode: "Always-on orchestrator: route goals, maintain state, trigger Codex for code, and verify with provider truth."
 source_status: "generated"
-last_verified: "2026-06-29T05:23:41.303Z"
+last_verified: "2026-06-29T13:49:05.760Z"
 ---
 # Hermes
 

@@ -102,6 +102,24 @@ const DEFAULT_EXPERIMENTS = [
     approvalRequired: false,
   },
   {
+    id: 'arena_token_efficiency_benchmark',
+    title: 'Arena-style token efficiency benchmark for Hermes model routing',
+    objective: 'Route cheap agent work away from expensive frontier models unless a run proves higher task improvement per output token.',
+    targetMetric: 'task_improvement_per_1k_output_tokens, tool_hallucinations, bash_recovery_failures, evaluator_pass',
+    implementation: 'Score candidate model/tool runs by verified task improvement per 1k output tokens and subtract penalties for tool hallucination, bash recovery failures, slow runtime, and evaluator failure.',
+    evaluator: 'node tests/test-recursive-experiment-loop.js && node tools/recursive-experiment-loop.js efficiency --before 40 --after 64 --output-tokens 800 --tool-hallucinations 0 --bash-recovery-failures 0 --evaluator pass --json',
+    existingArtifacts: ['tools/recursive-experiment-loop.js', 'tests/test-recursive-experiment-loop.js', 'docs/RECURSIVE-EXPERIMENT-LOOP.md'],
+    rewardHackChecks: ['Do not choose a model from output-token efficiency alone if the evaluator failed or tool calls were hallucinated.'],
+    varianceChecks: ['Compare at least two task classes: cheap local work and high-context repair work.'],
+    retainedContext: 'recursive experiment ledger plus provider benchmark JSON',
+    branchCombinePlan: 'Combine with provider_routing_benchmark only after both routing quality and token efficiency agree.',
+    roi: 9,
+    cost: 1,
+    risk: 1,
+    sideEffect: 'read_only',
+    approvalRequired: false,
+  },
+  {
     id: 'rag_source_grounding_eval',
     title: 'Harden RAG and source-pack grounding before architecture claims',
     objective: 'Prevent stale or hallucinated architecture decisions by requiring graph/source evidence.',
@@ -181,6 +199,7 @@ function usage() {
   node tools/recursive-experiment-loop.js validate [--json] [--file experiments.json]
   node tools/recursive-experiment-loop.js record --experiment ID --before N --after N --evaluator pass --reward-hack pass --variance pass [--ledger PATH] [--json]
   node tools/recursive-experiment-loop.js ledger [--ledger PATH] [--json]
+  node tools/recursive-experiment-loop.js efficiency --before N --after N --output-tokens N [--input-tokens N] [--tool-hallucinations N] [--bash-recovery-failures N] [--evaluator pass] [--json]
 
 Ranks Hermes improvements using public Recursive-style automated research gates:
 clear objective, tight evaluator, retained context, branch combination,
@@ -206,6 +225,12 @@ function parseArgs(argv) {
     rewardHack: null,
     variance: null,
     evidence: '',
+    inputTokens: 0,
+    outputTokens: 0,
+    toolHallucinations: 0,
+    bashRecoveryFailures: 0,
+    latencyMs: 0,
+    costUsd: 0,
   };
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i];
@@ -223,6 +248,12 @@ function parseArgs(argv) {
     else if (arg === '--reward-hack') args.rewardHack = requireValue(argv, ++i, arg);
     else if (arg === '--variance') args.variance = requireValue(argv, ++i, arg);
     else if (arg === '--evidence') args.evidence = requireValue(argv, ++i, arg);
+    else if (arg === '--input-tokens') args.inputTokens = Number(requireValue(argv, ++i, arg));
+    else if (arg === '--output-tokens') args.outputTokens = Number(requireValue(argv, ++i, arg));
+    else if (arg === '--tool-hallucinations') args.toolHallucinations = Number(requireValue(argv, ++i, arg));
+    else if (arg === '--bash-recovery-failures') args.bashRecoveryFailures = Number(requireValue(argv, ++i, arg));
+    else if (arg === '--latency-ms') args.latencyMs = Number(requireValue(argv, ++i, arg));
+    else if (arg === '--cost-usd') args.costUsd = Number(requireValue(argv, ++i, arg));
     else if (arg === '--json') args.json = true;
     else if (arg === '--help' || arg === '-h') args.help = true;
     else args._.push(arg);
@@ -422,6 +453,64 @@ function evaluateOutcome(outcome = {}) {
   };
 }
 
+function scoreEfficiencyRun(run = {}) {
+  const before = Number(run.before);
+  const after = Number(run.after);
+  const outputTokens = Number(run.outputTokens ?? run.output_tokens ?? 0);
+  const inputTokens = Number(run.inputTokens ?? run.input_tokens ?? 0);
+  const evaluatorPassed = statusPass(run.evaluator ?? run.evaluatorStatus);
+  const metric = metricDelta(before, after, run.direction || 'higher');
+  const toolHallucinations = Math.max(0, Number(run.toolHallucinations ?? run.tool_hallucinations ?? 0));
+  const bashRecoveryFailures = Math.max(0, Number(run.bashRecoveryFailures ?? run.bash_recovery_failures ?? 0));
+  const latencyMs = Math.max(0, Number(run.latencyMs ?? run.latency_ms ?? 0));
+  const costUsd = Math.max(0, Number(run.costUsd ?? run.cost_usd ?? 0));
+  const issues = [];
+
+  if (!metric.ok) issues.push(metric.reason);
+  if (!Number.isFinite(outputTokens) || outputTokens <= 0) issues.push('outputTokens must be a positive number');
+  if (evaluatorPassed !== true) issues.push(evaluatorPassed === false ? 'evaluator failed' : 'evaluator evidence missing');
+  if (toolHallucinations > 0) issues.push('tool hallucination penalty applied');
+  if (bashRecoveryFailures > 0) issues.push('bash recovery failure penalty applied');
+
+  const per1kOutputTokens = metric.ok && outputTokens > 0 ? metric.delta / (outputTokens / 1000) : 0;
+  const hallucinationPenalty = toolHallucinations * 25;
+  const bashPenalty = bashRecoveryFailures * 20;
+  const latencyPenalty = latencyMs > 0 ? Math.min(20, latencyMs / 15000) : 0;
+  const costPenalty = costUsd > 0 ? Math.min(25, costUsd * 10) : 0;
+  const evaluatorPenalty = evaluatorPassed === true ? 0 : 100;
+  const score = Number((per1kOutputTokens - hallucinationPenalty - bashPenalty - latencyPenalty - costPenalty - evaluatorPenalty).toFixed(3));
+
+  let route = 'expensive_model_allowed';
+  if (score >= 20 && toolHallucinations === 0 && bashRecoveryFailures === 0 && evaluatorPassed === true) {
+    route = 'cheap_or_local_candidate';
+  } else if (score < 0 || evaluatorPassed !== true) {
+    route = 'do_not_promote';
+  }
+
+  return {
+    schema: 'hermes-agent-arena-efficiency/v1',
+    score,
+    route,
+    inputTokens,
+    outputTokens,
+    taskImprovement: metric.delta,
+    per1kOutputTokens: Number(per1kOutputTokens.toFixed(3)),
+    penalties: {
+      toolHallucinations: hallucinationPenalty,
+      bashRecoveryFailures: bashPenalty,
+      latency: Number(latencyPenalty.toFixed(3)),
+      cost: Number(costPenalty.toFixed(3)),
+      evaluator: evaluatorPenalty,
+    },
+    gates: {
+      evaluatorPassed,
+      toolHallucinations,
+      bashRecoveryFailures,
+    },
+    issues,
+  };
+}
+
 function recordOutcome(options = {}) {
   const experiments = loadExperiments(options.file);
   const experimentId = options.experiment || options.experimentId || options.experiment_id;
@@ -574,6 +663,12 @@ function main() {
     return;
   }
 
+  if (command === 'efficiency') {
+    const result = scoreEfficiencyRun(args);
+    console.log(args.json ? JSON.stringify(result, null, 2) : JSON.stringify(result, null, 2));
+    process.exit(result.route === 'do_not_promote' ? 1 : 0);
+  }
+
   if (command !== 'plan') throw new Error(`Unknown command: ${command}`);
   const plan = planExperiments(args);
   console.log(args.json ? JSON.stringify(plan, null, 2) : render(plan));
@@ -590,6 +685,7 @@ module.exports = {
   planExperiments,
   readLedger,
   recordOutcome,
+  scoreEfficiencyRun,
   scoreExperiment,
   statusPass,
   validateExperiment,

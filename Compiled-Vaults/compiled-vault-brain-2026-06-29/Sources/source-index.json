@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-06-29T05:23:41.303Z",
+  "generatedAt": "2026-06-29T13:49:05.760Z",
   "repo": "/Users/igorganapolsky/workspace/git/igor/mac-yolo-safeguards",
   "hostname": "Igors-MacBook-Pro.local",
   "sources": [
@@ -45,8 +45,8 @@
       "role": "experiment loop contract",
       "exists": true,
       "sizeBytes": 5255,
-      "mtime": "2026-06-29T05:23:00.211Z",
-      "shaHint": "5255:1782710580211"
+      "mtime": "2026-06-29T05:25:26.988Z",
+      "shaHint": "5255:1782710726988"
     },
     {
       "id": "loop-engine-doc",
@@ -63,8 +63,8 @@
       "role": "latest mobile proof state",
       "exists": true,
       "sizeBytes": 318,
-      "mtime": "2026-06-29T05:20:27.528Z",
-      "shaHint": "318:1782710427528"
+      "mtime": "2026-06-29T13:40:21.612Z",
+      "shaHint": "318:1782740421612"
     },
     {
       "id": "skool-restaurant-answering-doc",

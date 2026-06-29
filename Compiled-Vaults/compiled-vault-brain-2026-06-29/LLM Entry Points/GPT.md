@@ -3,7 +3,7 @@ type: "llm-entrypoint"
 tool: "GPT"
 mode: "General reasoning and product operator: use routing/context packs and avoid execution claims."
 source_status: "generated"
-last_verified: "2026-06-29T05:23:41.303Z"
+last_verified: "2026-06-29T13:49:05.760Z"
 ---
 # GPT
 

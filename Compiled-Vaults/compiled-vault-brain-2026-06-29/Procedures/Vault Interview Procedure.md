@@ -1,7 +1,7 @@
 ---
 type: "procedure"
 source_status: "source-backed"
-last_verified: "2026-06-29T05:23:41.303Z"
+last_verified: "2026-06-29T13:49:05.760Z"
 ---
 # Vault Interview Procedure
 

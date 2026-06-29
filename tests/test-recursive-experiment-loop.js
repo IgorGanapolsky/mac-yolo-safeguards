@@ -16,6 +16,7 @@ const {
   planExperiments,
   readLedger,
   recordOutcome,
+  scoreEfficiencyRun,
   scoreExperiment,
   statusPass,
   validateExperiment,
@@ -55,6 +56,13 @@ test('public patterns include reward-hack and variance validation gates', () => 
   assert(keys.includes('reward-hack-validation'));
   assert(keys.includes('variance-validation'));
   assert(keys.includes('context-retention'));
+});
+
+test('default experiments include Arena-style token efficiency benchmark', () => {
+  const experiment = DEFAULT_EXPERIMENTS.find((item) => item.id === 'arena_token_efficiency_benchmark');
+  assert(experiment);
+  assert(/output token/i.test(experiment.objective));
+  assert(/tool_hallucinations/.test(experiment.targetMetric));
 });
 
 test('valid default experiments include metrics, evaluators, and checks', () => {
@@ -230,4 +238,72 @@ test('parseArgs supports outcome recording flags', () => {
   assert.strictEqual(args.experiment, 'cross_agent_sync_packet');
   assert.strictEqual(args.before, 1);
   assert.strictEqual(args.after, 2);
+});
+
+test('scoreEfficiencyRun promotes efficient evaluated runs to cheap or local candidates', () => {
+  const result = scoreEfficiencyRun({
+    before: 40,
+    after: 64,
+    outputTokens: 800,
+    inputTokens: 2000,
+    toolHallucinations: 0,
+    bashRecoveryFailures: 0,
+    evaluator: 'pass',
+  });
+  assert.strictEqual(result.schema, 'hermes-agent-arena-efficiency/v1');
+  assert.strictEqual(result.route, 'cheap_or_local_candidate');
+  assert.strictEqual(result.per1kOutputTokens, 30);
+  assert.strictEqual(result.gates.evaluatorPassed, true);
+});
+
+test('scoreEfficiencyRun refuses failed or hallucinated runs despite token efficiency', () => {
+  const failed = scoreEfficiencyRun({
+    before: 40,
+    after: 80,
+    outputTokens: 500,
+    evaluator: 'fail',
+  });
+  assert.strictEqual(failed.route, 'do_not_promote');
+  assert(failed.issues.includes('evaluator failed'));
+
+  const hallucinated = scoreEfficiencyRun({
+    before: 40,
+    after: 80,
+    outputTokens: 500,
+    evaluator: 'pass',
+    toolHallucinations: 4,
+  });
+  assert.strictEqual(hallucinated.route, 'do_not_promote');
+  assert(hallucinated.issues.includes('tool hallucination penalty applied'));
+});
+
+test('parseArgs supports efficiency scoring flags', () => {
+  const args = parseArgs([
+    'efficiency',
+    '--before',
+    '10',
+    '--after',
+    '20',
+    '--input-tokens',
+    '100',
+    '--output-tokens',
+    '250',
+    '--tool-hallucinations',
+    '1',
+    '--bash-recovery-failures',
+    '2',
+    '--latency-ms',
+    '30000',
+    '--cost-usd',
+    '0.25',
+    '--evaluator',
+    'pass',
+  ]);
+  assert.strictEqual(args._[0], 'efficiency');
+  assert.strictEqual(args.inputTokens, 100);
+  assert.strictEqual(args.outputTokens, 250);
+  assert.strictEqual(args.toolHallucinations, 1);
+  assert.strictEqual(args.bashRecoveryFailures, 2);
+  assert.strictEqual(args.latencyMs, 30000);
+  assert.strictEqual(args.costUsd, 0.25);
 });
