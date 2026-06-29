@@ -6,6 +6,7 @@ import {
   type GatewayProfile,
   type GatewayProfileState,
 } from '../types/gatewayProfile';
+import { isPrivateLanGatewayUrl } from '../utils/gatewayEndpoint';
 import {
   buildGatewayUrlFromLanIp,
   extractLanIpFromGatewayUrl,
@@ -15,6 +16,7 @@ import {
   isLoopbackHost,
   isValidGatewayUrl,
 } from '../utils/gatewayUrlPolicy';
+import { isTailscaleGatewayUrl } from '../utils/tailscaleHosts';
 
 const STORAGE_KEY = 'hermes-mobile:gateway_profiles';
 
@@ -194,6 +196,22 @@ function preferredGatewayUrl(a: string, b: string): string {
   }
   if (!aLoop && bLoop) {
     return normalizeGatewayUrlBase(a);
+  }
+  const aTail = isTailscaleGatewayUrl(a);
+  const bTail = isTailscaleGatewayUrl(b);
+  if (aTail && !bTail) {
+    return normalizeGatewayUrlBase(a);
+  }
+  if (!aTail && bTail) {
+    return normalizeGatewayUrlBase(b);
+  }
+  const aLan = isPrivateLanGatewayUrl(a);
+  const bLan = isPrivateLanGatewayUrl(b);
+  if (!aLan && bLan) {
+    return normalizeGatewayUrlBase(a);
+  }
+  if (aLan && !bLan) {
+    return normalizeGatewayUrlBase(b);
   }
   return normalizeGatewayUrlBase(a || b);
 }

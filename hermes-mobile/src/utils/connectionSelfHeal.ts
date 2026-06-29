@@ -1,4 +1,5 @@
 import type { GatewayProfile } from '../types/gatewayProfile';
+import type { DiscoveredGateway } from '../types/gatewayProfile';
 import { isPrivateLanGatewayUrl } from './gatewayEndpoint';
 import {
   cellularTailscaleFallbackUrls,
@@ -7,6 +8,7 @@ import {
 } from './gatewayLoopbackFallback';
 import { isLoopbackGatewayUrl, isValidGatewayUrl } from './gatewayUrlPolicy';
 import { isTailscaleGatewayUrl } from './tailscaleHosts';
+import { profileMatchesDiscoveredGateway } from './gatewayProfilePicker';
 
 export const CONNECTION_SELF_HEAL_INTERVAL_MS = 5_000;
 
@@ -100,4 +102,65 @@ export function buildSelfHealProbeUrls(input: {
   }
 
   return ordered;
+}
+
+/** When cellular blocks LAN, pick a reachable Tailscale URL for the active Mac (or any saved tailnet route). */
+export function resolveCellularTailscaleFailoverUrl(input: {
+  primaryUrl: string;
+  profiles: GatewayProfile[];
+  activeProfile: GatewayProfile | null;
+  discoveries?: DiscoveredGateway[];
+}): string | null {
+  const primary = input.primaryUrl.trim();
+  if (!primary || isTailscaleGatewayUrl(primary)) {
+    return null;
+  }
+  if (!isPrivateLanGatewayUrl(primary) && !isLoopbackGatewayUrl(primary)) {
+    return null;
+  }
+
+  const active = input.activeProfile;
+  const discoveries = input.discoveries ?? [];
+
+  if (active) {
+    if (isTailscaleGatewayUrl(active.gatewayUrl) && active.gatewayUrl !== primary) {
+      return active.gatewayUrl;
+    }
+    for (const discovery of discoveries) {
+      if (
+        isTailscaleGatewayUrl(discovery.gatewayUrl) &&
+        profileMatchesDiscoveredGateway(active, discovery)
+      ) {
+        return discovery.gatewayUrl;
+      }
+    }
+    for (const profile of input.profiles) {
+      if (
+        profile.id !== active.id &&
+        isTailscaleGatewayUrl(profile.gatewayUrl) &&
+        profileMatchesDiscoveredGateway(active, {
+          gatewayUrl: profile.gatewayUrl,
+          hostname: profile.hostname,
+          label: profile.label,
+          localIp: profile.localIp,
+        })
+      ) {
+        return profile.gatewayUrl;
+      }
+    }
+  }
+
+  for (const profile of input.profiles) {
+    const url = profile.gatewayUrl.trim();
+    if (url && url !== primary && isTailscaleGatewayUrl(url)) {
+      return url;
+    }
+  }
+  for (const discovery of discoveries) {
+    const url = discovery.gatewayUrl.trim();
+    if (url && url !== primary && isTailscaleGatewayUrl(url)) {
+      return url;
+    }
+  }
+  return null;
 }

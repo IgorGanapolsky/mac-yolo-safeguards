@@ -7,6 +7,7 @@ import {
   shouldShowMacConnectionHelp,
   shouldShowMacRetryBanner,
   shouldShowPairRelayRouteStatus,
+  shouldShowConnectivityRunBanner,
 } from '../utils/connectionErrorPolicy';
 
 const profiles: GatewayProfile[] = [
@@ -129,5 +130,25 @@ describe('connectionErrorPolicy', () => {
     const now = 1_000_000;
     expect(shouldDebounceConnectionError(now - 5_000, now)).toBe(true);
     expect(shouldDebounceConnectionError(now - 20_000, now)).toBe(false);
+  });
+
+  it('suppresses connectivity run banner during silent heal with alternate routes', () => {
+    const healing = connectionHealSnapshot(2, true);
+    expect(
+      shouldShowConnectivityRunBanner({
+        isDemo: false,
+        connectivityFailure: true,
+        heal: healing,
+        hasAlternateRoutes: true,
+      }),
+    ).toBe(false);
+    expect(
+      shouldShowConnectivityRunBanner({
+        isDemo: false,
+        connectivityFailure: true,
+        heal: connectionHealSnapshot(CONNECTION_HEAL_EXHAUSTED_AFTER, false),
+        hasAlternateRoutes: true,
+      }),
+    ).toBe(true);
   });
 });

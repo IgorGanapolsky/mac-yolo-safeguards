@@ -157,6 +157,33 @@ describe('gatewayProfiles', () => {
     expect(state.activeProfileId).toBe('mac_192_168_12_208');
   });
 
+  it('prefers Tailscale URL when deduping LAN and tailnet routes for the same Mac', () => {
+    const state = dedupeGatewayProfiles({
+      profiles: [
+        {
+          id: 'mac_lan',
+          label: 'Igors-Mac-mini',
+          hostname: 'Igors-Mac-mini',
+          gatewayUrl: 'http://192.168.68.56:8642',
+          localIp: '192.168.68.56',
+          addedAt: '2026-06-28T00:00:00Z',
+        },
+        {
+          id: 'mac_tailscale',
+          label: 'Igors-Mac-mini',
+          hostname: 'Igors-Mac-mini.local',
+          gatewayUrl: 'http://100.94.135.78:8642',
+          localIp: '192.168.68.56',
+          addedAt: '2026-06-28T00:00:01Z',
+        },
+      ],
+      activeProfileId: 'mac_lan',
+    });
+    expect(state.profiles.length).toBe(1);
+    expect(state.profiles[0].gatewayUrl).toBe('http://100.94.135.78:8642');
+    expect(state.profiles[0].localIp).toBe('192.168.68.56');
+  });
+
   it('preserves existing friendly label when upserting with only IP', () => {
     let state = upsertDiscoveredProfile(EMPTY_GATEWAY_PROFILE_STATE, {
       gatewayUrl: 'http://192.168.12.208:8642',

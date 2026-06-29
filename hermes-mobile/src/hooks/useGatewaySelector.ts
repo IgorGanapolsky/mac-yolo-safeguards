@@ -38,6 +38,7 @@ export function useGatewayConnection() {
   const isPaired = useGatewaySelector((ctx) => ctx.isPaired);
   const tailscaleDiscoveries = useGatewaySelector((ctx) => ctx.tailscaleDiscoveries);
   const tailscaleDiscoveryProbing = useGatewaySelector((ctx) => ctx.tailscaleDiscoveryProbing);
+  const tailnetProbeHostCount = useGatewaySelector((ctx) => ctx.tailnetProbeHostCount);
   const addDiscoveredTailscaleComputer = useGatewaySelector(
     (ctx) => ctx.addDiscoveredTailscaleComputer,
   );
@@ -72,6 +73,7 @@ export function useGatewayConnection() {
       isPaired,
       tailscaleDiscoveries,
       tailscaleDiscoveryProbing,
+      tailnetProbeHostCount,
       addDiscoveredTailscaleComputer,
       probeTailscaleComputers,
       connectionHealAttempt,
@@ -103,6 +105,7 @@ export function useGatewayConnection() {
       isPaired,
       tailscaleDiscoveries,
       tailscaleDiscoveryProbing,
+      tailnetProbeHostCount,
       addDiscoveredTailscaleComputer,
       probeTailscaleComputers,
       connectionHealAttempt,

@@ -33,6 +33,8 @@ export function resolveSessionAfterListLoad(
     if (manual) {
       return manual.id === currentSessionId ? undefined : manual;
     }
+    // User tapped a recent thread before listSessions finished — never resurrect project binding.
+    return undefined;
   }
 
   if (currentSessionId) {

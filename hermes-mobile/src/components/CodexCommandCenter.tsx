@@ -27,14 +27,14 @@ function connectionCopy(
   if (macRetryBusy) {
     return { label: machineName, detail: 'Reconnecting…', color: colors.warning };
   }
-  if (state === 'connected') {
-    return { label: 'Connected', detail: 'Ready', color: colors.success };
-  }
   if (state === 'demo') {
     return { label: 'Demo', detail: 'Preview', color: colors.accent };
   }
   if (macHttpReachable) {
     return { label: 'Connected', detail: 'Ready', color: colors.success };
+  }
+  if (state === 'connected') {
+    return { label: 'Relay only', detail: 'Chat needs direct link', color: colors.warning };
   }
   if (state === 'connecting') {
     return { label: 'Connecting', detail: `Checking ${machineName}`, color: colors.warning };

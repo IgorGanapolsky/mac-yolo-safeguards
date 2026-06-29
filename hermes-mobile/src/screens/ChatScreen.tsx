@@ -128,6 +128,7 @@ import {
   hasAlternateHealRoutes,
   shouldShowMacConnectionHelp,
   shouldShowMacRetryBanner,
+  shouldShowConnectivityRunBanner,
 } from '../utils/connectionErrorPolicy';
 import { isLoopbackGatewayUrl } from '../utils/gatewayUrlPolicy';
 import { isInvalidGatewayProfile } from '../services/gatewayProfiles';
@@ -135,7 +136,11 @@ import { isPrivateLanGatewayUrl } from '../utils/gatewayEndpoint';
 import { detectUsbHostMismatch, profilesForSwitchComputerPicker } from '../utils/gatewayProfilePicker';
 import TailscaleDiscoveryBanner from '../components/TailscaleDiscoveryBanner';
 import { USB_LOOPBACK_GATEWAY_URL } from '../utils/gatewayLoopbackFallback';
-import { isMacGatewayHttpOk, isGatewayHealthPending } from '../utils/gatewayConnection';
+import {
+  isMacGatewayHttpOk,
+  isGatewayHealthPending,
+  resolveEffectiveMacHttpOk,
+} from '../utils/gatewayConnection';
 import { isGatewayLiveForDelivery } from '../utils/outboundDeliveryStatus';
 import {
   OUTBOUND_PENDING_RECOVERY_MS,
@@ -230,6 +235,7 @@ export default function ChatScreen() {
     wifiConnected,
     tailscaleDiscoveries,
     tailscaleDiscoveryProbing,
+    tailnetProbeHostCount,
     addDiscoveredTailscaleComputer,
     probeTailscaleComputers,
     connectionHealAttempt,
@@ -484,6 +490,23 @@ export default function ChatScreen() {
   );
   /** Chat needs direct HTTP to the Mac — relay WebSocket "connected" is not enough. */
   const macChatLive = isDemo || macHttpOk;
+  const connectivityRunFailure = useMemo(
+    () =>
+      Boolean(
+        runProgress?.phase === 'failed' &&
+          isConnectivityMessage(runProgress.detail ?? ''),
+      ),
+    [runProgress],
+  );
+  const effectiveMacHttpOk = useMemo(
+    () =>
+      resolveEffectiveMacHttpOk({
+        macHttpOk,
+        connectivityFailure: connectivityRunFailure,
+      }),
+    [macHttpOk, connectivityRunFailure],
+  );
+  const effectiveMacChatLive = isDemo || effectiveMacHttpOk;
   const macLiveSocket = isDemo || connectionState === 'connected';
   const connectionHeal = useMemo(
     () => connectionHealSnapshot(connectionHealAttempt, connectionHealInFlight),
@@ -501,7 +524,7 @@ export default function ChatScreen() {
   const userSendFailed = pinnedOutboundStatus === 'failed';
   const showMacConnectionHelp = shouldShowMacConnectionHelp({
     isDemo,
-    macChatLive,
+    macChatLive: effectiveMacChatLive,
     healthProbePending,
     healthLevel: health?.level,
     heal: connectionHeal,
@@ -510,7 +533,7 @@ export default function ChatScreen() {
   });
   const showMacRetryBanner = shouldShowMacRetryBanner({
     isDemo,
-    macChatLive,
+    macChatLive: effectiveMacChatLive,
     healthProbePending,
     runProgressFailed: runProgress?.phase === 'failed',
     heal: connectionHeal,
@@ -690,10 +713,10 @@ export default function ChatScreen() {
   ]);
 
   useEffect(() => {
-    if (macChatLive) {
+    if (effectiveMacChatLive) {
       setErrorMessage((prev) => (prev && isConnectivityMessage(prev) ? null : prev));
     }
-  }, [macChatLive]);
+  }, [effectiveMacChatLive]);
 
   const activeProject = useMemo(() => {
     if (!projectState.activeProjectId) return null;
@@ -1690,14 +1713,10 @@ export default function ChatScreen() {
       return;
     }
     setRunProgress(null);
-    if (currentSession?.id && manualSessionSelectRef.current === currentSession.id) {
-      manualSessionSelectRef.current = null;
-      return;
-    }
     transcriptDigestRef.current = '';
     messagesRef.current = [];
     setMessages([]);
-    void refreshSessionMessagesRef.current?.({ background: true });
+    void refreshSessionMessagesRef.current?.({ background: true, force: manualSessionSelectRef.current === currentSession?.id });
   }, [currentSession?.id, isDemo, setRunProgress]);
 
   useFocusEffect(
@@ -3037,6 +3056,8 @@ export default function ChatScreen() {
       }
       if (kind === 'connectivity') {
         refreshHealth();
+        void probeTailscaleComputers();
+        void retryGatewayBootstrap();
         markOutboundBubbleStatus('failed');
         sendFailureDetail = chatSendBlockedMessage({
           connectionMode: settings.connectionMode,
@@ -3047,8 +3068,8 @@ export default function ChatScreen() {
       } else {
         markOutboundBubbleStatus('failed', message);
         setErrorMessage(message);
+        sendFailureDetail = message;
       }
-      sendFailureDetail = message;
       lastFailedSendTextRef.current = userText;
       haptics.warning();
       return outboundUserBubbleCommitted;
@@ -3179,10 +3200,26 @@ export default function ChatScreen() {
     [currentSession?.model, gatewayModel],
   );
 
-  const showComposerProgressBanner = useMemo(
-    () => shouldShowComposerProgressBanner(progressBanner, isSending),
-    [progressBanner, isSending],
-  );
+  const showComposerProgressBanner = useMemo(() => {
+    if (!shouldShowComposerProgressBanner(progressBanner, isSending)) {
+      return false;
+    }
+    const failedConnectivity =
+      progressBanner?.phase === 'failed' &&
+      isConnectivityMessage(progressBanner.detail ?? '');
+    return shouldShowConnectivityRunBanner({
+      isDemo,
+      connectivityFailure: Boolean(failedConnectivity),
+      heal: connectionHeal,
+      hasAlternateRoutes: alternateHealRoutes,
+    });
+  }, [
+    progressBanner,
+    isSending,
+    isDemo,
+    connectionHeal,
+    alternateHealRoutes,
+  ]);
 
   const isRunActive = useMemo(() => {
     if (isSending) {
@@ -3193,15 +3230,6 @@ export default function ChatScreen() {
     }
     return progressBanner.phase !== 'completed' && progressBanner.phase !== 'failed';
   }, [isSending, progressBanner]);
-
-  const connectivityRunFailure = useMemo(
-    () =>
-      Boolean(
-        progressBanner?.phase === 'failed' &&
-          isConnectivityMessage(progressBanner.detail ?? ''),
-      ),
-    [progressBanner],
-  );
 
   const clearFailedOutboundState = useCallback(() => {
     setRunProgress(null);
@@ -3459,7 +3487,7 @@ export default function ChatScreen() {
           routeStatusLabel={routeStatusLabel}
           showMachineDetailWhenConnected={machineHeaderDisplay.showDetailWhenConnected}
           connectionState={connectionState}
-          macHttpReachable={macHttpOk}
+          macHttpReachable={effectiveMacHttpOk}
           isDemo={isDemo}
           workspaceName={activeProject?.name}
           canSwitchWorkspace={projectState.projects.length > 1}
@@ -3473,7 +3501,7 @@ export default function ChatScreen() {
         />
         <CodexCommandCenter
           connectionState={connectionState}
-          macHttpReachable={macHttpOk}
+          macHttpReachable={effectiveMacHttpOk}
           macRetryBusy={macRetryBusy}
           silentHealInFlight={connectionHealInFlight && !macRetryBusy}
           pendingApprovalCount={composerApprovals.length}
@@ -3572,7 +3600,7 @@ export default function ChatScreen() {
               >
                 <ChatEmptyGreeting
                   routeLabel={isDemo ? 'Demo Mac' : machineShortLabel}
-                  isConnected={macChatLive}
+                  isConnected={effectiveMacChatLive}
                 />
                 {showMacConnectionHelp ? (
                   <Text style={styles.emptyPlaceholderText}>

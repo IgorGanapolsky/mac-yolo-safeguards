@@ -4,6 +4,7 @@ import {
   isGatewayReachable,
   describeBootstrapPhase,
   resolveChatLinkDisplay,
+  resolveEffectiveMacHttpOk,
 } from '../utils/gatewayConnection';
 
 describe('gatewayConnection', () => {
@@ -64,6 +65,21 @@ describe('gatewayConnection', () => {
         level: 'green',
         checkedAt: '',
         directGatewayReachable: true,
+      }),
+    ).toBe(true);
+  });
+
+  it('effective mac HTTP false after connectivity send failure despite stale health', () => {
+    expect(
+      resolveEffectiveMacHttpOk({
+        macHttpOk: true,
+        connectivityFailure: true,
+      }),
+    ).toBe(false);
+    expect(
+      resolveEffectiveMacHttpOk({
+        macHttpOk: true,
+        connectivityFailure: false,
       }),
     ).toBe(true);
   });

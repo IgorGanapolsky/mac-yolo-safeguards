@@ -1,13 +1,17 @@
-import React from 'react';
-import { Linking, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import React, { useState } from 'react';
+import { Keyboard, Linking, Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import type { LanScanProgress, LanScanResult } from '../types/lanScan';
 import type { GatewayProfile } from '../types/gatewayProfile';
 import type { ConnectionMode } from '../types/gateway';
 import type { RelayWorker } from '../types/mobileRelay';
 import { colors } from '../theme/colors';
+import { cleanManualGatewayUrl } from '../utils/gatewayUrlPolicy';
+import { isTailscaleGatewayUrl } from '../utils/tailscaleHosts';
+import { haptics } from '../services/haptics';
 import { HERMES_MAC_GET_STARTED_URL } from '../utils/macPairingUx';
 import {
   formatUsbHostMismatchMessage,
+  hasOnlyLoopbackProfiles,
   profileMatchesDiscoveredGateway,
   profileMatchesHostname,
   profilesForDevicePicker,
@@ -60,7 +64,9 @@ type ChatConnectionPanelProps = {
   onOpenSettings?: () => void;
   tailscaleDiscoveries?: DiscoveredGateway[];
   tailscaleDiscoveryProbing?: boolean;
+  tailnetProbeHostCount?: number;
   onAddTailscaleComputer?: (discovery: DiscoveredGateway) => void;
+  onAddProfile?: (label: string, gatewayUrl: string) => Promise<void>;
   testID?: string;
 };
 
@@ -147,20 +153,59 @@ export default function ChatConnectionPanel({
   onOpenSettings,
   tailscaleDiscoveries = [],
   tailscaleDiscoveryProbing = false,
+  tailnetProbeHostCount = 0,
   onAddTailscaleComputer,
+  onAddProfile,
   testID = 'chat-connection-panel',
 }: ChatConnectionPanelProps) {
+  const [manualInput, setManualInput] = useState('');
+  const [addingProfile, setAddingProfile] = useState(false);
+  const [manualInputError, setManualInputError] = useState<string | null>(null);
+
+  const handleManualConnect = async () => {
+    Keyboard.dismiss();
+    const cleaned = cleanManualGatewayUrl(manualInput);
+    if (!cleaned) {
+      setManualInputError('Please enter an IP address or URL.');
+      return;
+    }
+    setManualInputError(null);
+    setAddingProfile(true);
+    try {
+      const isTailscale = isTailscaleGatewayUrl(cleaned);
+      const label = isTailscale ? 'Mac mini (Tailscale)' : 'Custom Mac';
+      if (onAddProfile) {
+        await onAddProfile(label, cleaned);
+      }
+      setManualInput('');
+      haptics.success();
+    } catch (err) {
+      setManualInputError(err instanceof Error ? err.message : 'Could not add profile.');
+      haptics.warning();
+    } finally {
+      setAddingProfile(false);
+    }
+  };
+
   const heal = connectionHealSnapshot(connectionHealAttempt, connectionHealInFlight);
+  const onlyLoopbackProfiles = hasOnlyLoopbackProfiles(profiles);
   const showUsbFix = Boolean(
     onFixUsbLink &&
       shouldOfferUsbLinkRepair({
         gatewayUrl: usbLoopback ? 'http://127.0.0.1:8642' : '',
         wifiConnected,
         macHttpOk: activeProfileReachable,
+        tailnetProbeHostCount,
+        tailscaleDiscoveryCount: tailscaleDiscoveries.length,
+        onlyLoopbackProfiles,
       }) &&
       usbLoopback &&
       !usbHostMismatch,
   );
+  const tailscaleSearching =
+    tailscaleDiscoveryProbing &&
+    tailscaleDiscoveries.length === 0 &&
+    (tailnetProbeHostCount > 0 || onlyLoopbackProfiles);
   const macHttpOk = activeProfileReachable;
   const wifiProfileReachable = macHttpOk && !usbLoopback && wifiConnected;
   const showOnboardingSteps = shouldShowFreshUserOnboardingSteps({ profiles, heal });
@@ -176,6 +221,7 @@ export default function ChatConnectionPanel({
     usbHostMismatch: Boolean(usbHostMismatch),
     cellularBlocksDirect,
     freshUser: profiles.length === 0,
+    tailscaleSearching,
   });
   const statusLine = freshUserConnectionBody({
     searching,
@@ -186,6 +232,7 @@ export default function ChatConnectionPanel({
     macLabel,
     cellularBlocksDirect,
     showUsbFix,
+    tailscaleSearching,
     usbHostMismatchMessage: usbHostMismatch
       ? formatUsbHostMismatchMessage(usbHostMismatch)
       : undefined,
@@ -221,10 +268,11 @@ export default function ChatConnectionPanel({
         />
       ) : null}
 
-      {tailscaleDiscoveries.length > 0 && onAddTailscaleComputer ? (
+      {(tailscaleDiscoveries.length > 0 || tailscaleSearching) ? (
         <TailscaleDiscoveryBanner
           discoveries={tailscaleDiscoveries}
           adding={tailscaleDiscoveryProbing}
+          probing={tailscaleSearching}
           onAdd={onAddTailscaleComputer}
           prominent
         />
@@ -251,6 +299,41 @@ export default function ChatConnectionPanel({
           />
         )}
       </View>
+
+      {onAddProfile ? (
+        <View style={styles.manualEntry}>
+          <Text style={styles.manualEntryTitle}>Connect manually (Tailscale or IP)</Text>
+          <Text style={styles.manualEntrySubtitle}>
+            Add by entering your computer's Tailscale or local IP address:
+          </Text>
+          <View style={styles.manualInputRow}>
+            <TextInput
+              style={styles.manualInput}
+              placeholder="e.g. 100.87.85.85 or http://100.87.85.85:8642"
+              placeholderTextColor={colors.textMuted}
+              value={manualInput}
+              onChangeText={setManualInput}
+              autoCapitalize="none"
+              autoCorrect={false}
+              keyboardType="url"
+              testID="chat-manual-input"
+            />
+            <LoadingButton
+              label="Connect"
+              loadingLabel="Connecting…"
+              loading={addingProfile}
+              onPress={handleManualConnect}
+              testID="chat-manual-submit"
+              style={styles.manualButton}
+            />
+          </View>
+          {manualInputError ? (
+            <Text style={styles.manualError} testID="chat-manual-error">
+              {manualInputError}
+            </Text>
+          ) : null}
+        </View>
+      ) : null}
 
       {onOpenSettings ? (
         <TouchableOpacity
@@ -448,5 +531,48 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
     color: colors.accent,
+  },
+  manualEntry: {
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: colors.borderLight,
+    gap: 8,
+  },
+  manualEntryTitle: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: colors.text,
+  },
+  manualEntrySubtitle: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    lineHeight: 16,
+  },
+  manualInputRow: {
+    flexDirection: 'row',
+    gap: 8,
+    alignItems: 'center',
+  },
+  manualInput: {
+    flex: 1,
+    height: 44,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.borderLight,
+    paddingHorizontal: 12,
+    color: colors.text,
+    fontSize: 13,
+  },
+  manualButton: {
+    paddingVertical: 10,
+    height: 44,
+    minWidth: 90,
+  },
+  manualError: {
+    fontSize: 12,
+    color: colors.error,
+    marginTop: 2,
   },
 });

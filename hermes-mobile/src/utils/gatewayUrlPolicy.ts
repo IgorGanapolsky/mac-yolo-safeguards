@@ -104,3 +104,30 @@ export function describeGatewayFetchError(
 
   return baseMessage;
 }
+
+/** Format manual IP/URL entries into valid gateway URLs with protocol and default port. */
+export function cleanManualGatewayUrl(input: string | undefined | null): string | null {
+  let val = input?.trim();
+  if (!val) {
+    return null;
+  }
+  // Strip trailing slashes temporarily for easier port check
+  let path = '';
+  const slashIdx = val.indexOf('/', val.indexOf('://') !== -1 ? val.indexOf('://') + 3 : 0);
+  if (slashIdx !== -1) {
+    path = val.substring(slashIdx);
+    val = val.substring(0, slashIdx);
+  }
+  
+  if (!/^https?:\/\//i.test(val)) {
+    val = `http://${val}`;
+  }
+  
+  // If no port is specified, append :8642
+  const hostPart = val.replace(/^https?:\/\//i, '');
+  if (!hostPart.includes(':')) {
+    val = `${val}:8642`;
+  }
+  
+  return val + path;
+}

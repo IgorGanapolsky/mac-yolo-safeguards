@@ -160,6 +160,39 @@ export default function ConnectMacGate() {
                 testID="connect-scan-qr"
               />
 
+              <View style={styles.manualEntry}>
+                <Text style={styles.manualEntryTitle}>Connect manually (Tailscale or IP)</Text>
+                <Text style={styles.manualEntrySubtitle}>
+                  Add by entering your computer's Tailscale or local IP address:
+                </Text>
+                <View style={styles.manualInputRow}>
+                  <TextInput
+                    style={styles.manualInput}
+                    placeholder="e.g. 100.87.85.85 or http://100.87.85.85:8642"
+                    placeholderTextColor={colors.textMuted}
+                    value={manualInput}
+                    onChangeText={setManualInput}
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    keyboardType="url"
+                    testID="connect-manual-input"
+                  />
+                  <LoadingButton
+                    label="Connect"
+                    loadingLabel="Connecting…"
+                    loading={addingProfile}
+                    onPress={handleManualConnect}
+                    testID="connect-manual-submit"
+                    style={styles.manualButton}
+                  />
+                </View>
+                {manualInputError ? (
+                  <Text style={styles.manualError} testID="connect-manual-error">
+                    {manualInputError}
+                  </Text>
+                ) : null}
+              </View>
+
               <Text style={styles.footnote}>
                 Need Hermes on your Mac first? Use the setup guide link in Settings after you dismiss
                 this screen.
@@ -236,5 +269,48 @@ const styles = StyleSheet.create({
     lineHeight: 16,
     color: colors.textMuted,
     marginTop: 4,
+  },
+  manualEntry: {
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: colors.borderLight,
+    gap: 8,
+  },
+  manualEntryTitle: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: colors.text,
+  },
+  manualEntrySubtitle: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    lineHeight: 16,
+  },
+  manualInputRow: {
+    flexDirection: 'row',
+    gap: 8,
+    alignItems: 'center',
+  },
+  manualInput: {
+    flex: 1,
+    height: 44,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.borderLight,
+    paddingHorizontal: 12,
+    color: colors.text,
+    fontSize: 13,
+  },
+  manualButton: {
+    paddingVertical: 10,
+    height: 44,
+    minWidth: 90,
+  },
+  manualError: {
+    fontSize: 12,
+    color: colors.error,
+    marginTop: 2,
   },
 });

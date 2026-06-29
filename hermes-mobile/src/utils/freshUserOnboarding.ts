@@ -1,5 +1,6 @@
 import type { GatewayProfile } from '../types/gatewayProfile';
 import { isInvalidGatewayProfile } from '../services/gatewayProfiles';
+import { hasOnlyLoopbackProfiles } from './gatewayProfilePicker';
 import type { ConnectionHealSnapshot } from './connectionErrorPolicy';
 import {
   CONNECTION_HEAL_DURATION_MS,
@@ -26,6 +27,9 @@ export function shouldShowFreshUserOnboardingSteps(input: {
   heal: ConnectionHealSnapshot;
 }): boolean {
   if (isFreshUserUnpaired(input.profiles)) {
+    return true;
+  }
+  if (hasOnlyLoopbackProfiles(input.profiles) && input.heal.exhausted) {
     return true;
   }
   return input.heal.exhausted;
@@ -87,9 +91,13 @@ export function freshUserConnectionTitle(input: {
   usbHostMismatch: boolean;
   cellularBlocksDirect: boolean;
   freshUser: boolean;
+  tailscaleSearching?: boolean;
 }): string {
   if (input.usbHostMismatch) {
     return 'Wrong Mac plugged in';
+  }
+  if (input.tailscaleSearching) {
+    return 'On Tailscale — adding your Mac';
   }
   if (input.cellularBlocksDirect) {
     return 'Use Tailscale from cellular';
@@ -115,6 +123,7 @@ export function freshUserConnectionBody(input: {
   macLabel?: string;
   cellularBlocksDirect: boolean;
   showUsbFix: boolean;
+  tailscaleSearching?: boolean;
   usbHostMismatchMessage?: string;
 }): string {
   if (input.usbHostMismatchMessage) {
@@ -142,6 +151,9 @@ export function freshUserConnectionBody(input: {
     return input.macLabel
       ? `Your phone is plugged into ${input.macLabel}, but the USB link is not ready yet. Tap Fix USB connection.`
       : 'Your phone is plugged in, but the USB link is not ready yet. Tap Fix USB connection.';
+  }
+  if (input.tailscaleSearching) {
+    return 'On Tailscale — searching for your Mac mini. This works without a USB cable.';
   }
   if (input.freshUser) {
     return 'Follow the steps below — no technical setup on your phone.';

@@ -1,6 +1,7 @@
 import type { GatewayProfile } from '../types/gatewayProfile';
 import {
   buildSelfHealProbeUrls,
+  resolveCellularTailscaleFailoverUrl,
   savedProfileFallbackUrls,
 } from '../utils/connectionSelfHeal';
 
@@ -40,5 +41,22 @@ describe('connectionSelfHeal', () => {
     });
     expect(urls[0]).toBe('http://100.94.135.78:8642');
     expect(urls).toContain('http://igors-mac-mini.tail12aa33.ts.net:8642');
+  });
+
+  it('resolves Tailscale failover URL for cellular with LAN primary', () => {
+    const failover = resolveCellularTailscaleFailoverUrl({
+      primaryUrl: 'http://192.168.68.56:8642',
+      profiles,
+      activeProfile: profiles[0],
+      discoveries: [
+        {
+          gatewayUrl: 'http://100.94.135.78:8642',
+          hostname: 'Igors-Mac-mini.local',
+          localIp: '192.168.68.56',
+          label: 'Igors-Mac-mini',
+        },
+      ],
+    });
+    expect(failover).toBe('http://100.94.135.78:8642');
   });
 });

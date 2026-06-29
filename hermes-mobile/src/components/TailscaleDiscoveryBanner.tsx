@@ -8,7 +8,8 @@ import GlassCard from './GlassCard';
 type TailscaleDiscoveryBannerProps = {
   discoveries: DiscoveredGateway[];
   adding?: boolean;
-  onAdd: (discovery: DiscoveredGateway) => void;
+  probing?: boolean;
+  onAdd?: (discovery: DiscoveredGateway) => void;
   /** When true, renders as the primary action block (Switch computer / onboarding). */
   prominent?: boolean;
 };
@@ -16,14 +17,27 @@ type TailscaleDiscoveryBannerProps = {
 export default function TailscaleDiscoveryBanner({
   discoveries,
   adding = false,
+  probing = false,
   onAdd,
   prominent = false,
 }: TailscaleDiscoveryBannerProps) {
-  if (discoveries.length === 0) {
+  if (discoveries.length === 0 && !probing) {
     return null;
   }
 
   const cardStyle = prominent ? styles.cardProminent : styles.card;
+
+  if (discoveries.length === 0 && probing) {
+    return (
+      <GlassCard style={cardStyle} testID="tailscale-discovery-probing">
+        <Text style={styles.title}>On Tailscale — searching for your Mac</Text>
+        <Text style={styles.body}>
+          Looking for Hermes on your tailnet. Works on cellular or any Wi‑Fi when Tailscale is on
+          both devices.
+        </Text>
+      </GlassCard>
+    );
+  }
 
   return (
     <GlassCard style={cardStyle} testID="tailscale-discovery-banner">
@@ -40,8 +54,8 @@ export default function TailscaleDiscoveryBanner({
             <TouchableOpacity
               key={discovery.gatewayUrl}
               style={[styles.chip, prominent ? styles.chipProminent : null]}
-              onPress={() => onAdd(discovery)}
-              disabled={adding}
+              onPress={() => onAdd?.(discovery)}
+              disabled={adding || !onAdd}
               testID={`tailscale-add-${label.replace(/[^a-zA-Z0-9]+/g, '-').toLowerCase()}`}
             >
               <Text style={styles.chipText}>

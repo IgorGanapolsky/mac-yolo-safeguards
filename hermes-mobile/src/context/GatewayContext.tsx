@@ -101,6 +101,7 @@ import type { SetupDeepLinkParams } from '../utils/setupDeepLink';
 import {
   type GatewayBootstrapPhase,
   isGatewayHealthOk,
+  isMacGatewayHttpOk,
   isGatewayReachable as checkGatewayReachable,
 } from '../utils/gatewayConnection';
 import {
@@ -113,6 +114,7 @@ import {
   upsertDiscoveredProfile,
   applyTailscaleDiscoveriesToProfileState,
   dedupeGatewayProfiles,
+  findProfileForGatewayUrl,
 } from '../services/gatewayProfiles';
 import {
   discoverAllGatewaysOnLan,
@@ -126,6 +128,7 @@ import {
   discoverTailscaleGatewayForProfile,
   discoverTailscaleGateways,
   filterNewTailscaleDiscoveries,
+  mergeTailnetProbeHostsFromScan,
 } from '../services/tailscaleDiscovery';
 import { tailnetProbeStorage } from '../services/tailnetProbeStorage';
 import { isGatewaySmokeTestMessage } from '../utils/gatewaySmokeMessages';
@@ -196,6 +199,7 @@ export type GatewayContextValue = {
   scanForGatewayProfiles: () => Promise<GatewayProfile[]>;
   tailscaleDiscoveries: DiscoveredGateway[];
   tailscaleDiscoveryProbing: boolean;
+  tailnetProbeHostCount: number;
   probeTailscaleComputers: () => Promise<void>;
   addDiscoveredTailscaleComputer: (discovery: DiscoveredGateway) => Promise<void>;
   connectionHealAttempt: number;
@@ -281,6 +285,7 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
   const [profileScanResult, setProfileScanResult] = useState<LanScanResult | null>(null);
   const [tailscaleDiscoveries, setTailscaleDiscoveries] = useState<DiscoveredGateway[]>([]);
   const [tailscaleDiscoveryProbing, setTailscaleDiscoveryProbing] = useState(false);
+  const [tailnetProbeHostCount, setTailnetProbeHostCount] = useState(0);
   const [effectiveGatewayUrl, setEffectiveGatewayUrl] = useState(
     DEFAULT_GATEWAY_SETTINGS.gatewayUrl,
   );
@@ -515,6 +520,7 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
         profileStateRef.current = loadedProfiles;
         setProfileState(loadedProfiles);
         tailnetProbeHostsRef.current = await tailnetProbeStorage.load();
+        setTailnetProbeHostCount(tailnetProbeHostsRef.current.length);
         setSettings(resolvedSettings);
         settingsRef.current = resolvedSettings;
         setProductAnalyticsOptOut(Boolean(resolvedSettings.analyticsOptOut));
@@ -672,6 +678,23 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
       };
 
       const skipLan = shouldSkipLanGatewayProbe(primaryUrl, wifiConnectedRef.current);
+      if (skipLan) {
+        for (const fallbackUrl of savedProfileFallbackUrls({
+          primaryUrl,
+          profiles: profileStateRef.current.profiles,
+          preferTailscaleFirst: true,
+        })) {
+          try {
+            const snapshot = await probeMacGatewayOk(fallbackUrl);
+            await persistDiscoveredGatewayUrl(fallbackUrl, true);
+            connectionHealAttemptRef.current = 0;
+            setConnectionHealAttempt(0);
+            return { snapshot, url: fallbackUrl };
+          } catch {
+            // try next saved profile / tailnet URL
+          }
+        }
+      }
       if (!skipLan) {
         try {
           const snapshot = await probeMacGatewayOk(primaryUrl);
@@ -1371,7 +1394,7 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
       !isLoaded ||
       settingsRef.current.demoMode ||
       connectionHealInFlightRef.current ||
-      isGatewayHealthOk(healthRef.current)
+      isMacGatewayHttpOk(healthRef.current)
     ) {
       return;
     }
@@ -1760,6 +1783,7 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
       if (tailnetProbeHosts.length > 0) {
         const merged = await tailnetProbeStorage.merge(tailnetProbeHosts);
         tailnetProbeHostsRef.current = merged;
+        setTailnetProbeHostCount(merged.length);
       }
       let state = profileStateRef.current;
       for (const item of discovered) {
@@ -1812,11 +1836,25 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
     tailscaleProbeInFlightRef.current = true;
     setTailscaleDiscoveryProbing(true);
     try {
-      const storedHosts =
+      let storedHosts =
         tailnetProbeHostsRef.current.length > 0
           ? tailnetProbeHostsRef.current
           : await tailnetProbeStorage.load();
       tailnetProbeHostsRef.current = storedHosts;
+
+      if (storedHosts.length === 0) {
+        const lastLanIp = await storage.loadLastGatewayLanIp();
+        const { tailnetProbeHosts } = await discoverAllGatewaysOnLan(lastLanIp);
+        if (tailnetProbeHosts.length > 0) {
+          storedHosts = await mergeTailnetProbeHostsFromScan(
+            tailnetProbeHosts,
+            tailnetProbeStorage,
+            tailnetProbeHostsRef,
+          );
+        }
+      }
+      setTailnetProbeHostCount(storedHosts.length);
+
       const probeHosts = collectTailnetProbeHosts(
         profileStateRef.current.profiles,
         storedHosts,
@@ -1827,13 +1865,46 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
       }
       const discovered = await discoverTailscaleGateways(probeHosts);
       if (discovered.length > 0) {
-        const nextState = applyTailscaleDiscoveriesToProfileState(
+        const priorActive = activeProfile(profileStateRef.current);
+        let nextState = applyTailscaleDiscoveriesToProfileState(
           profileStateRef.current,
           discovered,
         );
+        if (priorActive && isLoopbackGatewayUrl(priorActive.gatewayUrl)) {
+          const tailProfile = discovered
+            .map((item) => findProfileForGatewayUrl(nextState.profiles, item.gatewayUrl))
+            .find((profile) => profile && isTailscaleGatewayUrl(profile.gatewayUrl));
+          if (tailProfile) {
+            nextState = { ...nextState, activeProfileId: tailProfile.id };
+          }
+        }
         profileStateRef.current = nextState;
         setProfileState(nextState);
         await gatewayProfiles.save(nextState);
+        const activeAfter = activeProfile(nextState);
+        const priorUrl = settingsRef.current.gatewayUrl.trim();
+        const failoverUrl = resolveCellularTailscaleFailoverUrl({
+          primaryUrl: priorUrl,
+          profiles: nextState.profiles,
+          activeProfile: activeAfter,
+          discoveries: discovered,
+        });
+        if (
+          failoverUrl &&
+          failoverUrl !== priorUrl &&
+          (!wifiConnectedRef.current || isPrivateLanGatewayUrl(priorUrl))
+        ) {
+          await persistDiscoveredGatewayUrl(failoverUrl, true);
+          void refreshHealth();
+        } else if (
+          activeAfter &&
+          isTailscaleGatewayUrl(activeAfter.gatewayUrl) &&
+          activeAfter.id !== priorActive?.id
+        ) {
+          await selectGatewayProfileRef.current(activeAfter.id);
+          await persistDiscoveredGatewayUrl(activeAfter.gatewayUrl, true);
+          void refreshHealth();
+        }
       }
       const fresh = filterNewTailscaleDiscoveries(profileStateRef.current.profiles, discovered);
       setTailscaleDiscoveries(fresh);
@@ -1841,7 +1912,7 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
       tailscaleProbeInFlightRef.current = false;
       setTailscaleDiscoveryProbing(false);
     }
-  }, []);
+  }, [persistDiscoveredGatewayUrl, refreshHealth]);
 
   const addDiscoveredTailscaleComputer = useCallback(async (discovery: DiscoveredGateway) => {
     const nextState = upsertDiscoveredProfile(profileStateRef.current, discovery, false);
@@ -1864,6 +1935,23 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
     }
     void probeTailscaleComputers();
   }, [isLoaded, settings.demoMode, health?.checkedAt, profileState.profiles.length, wifiConnected, probeTailscaleComputers]);
+
+  useEffect(() => {
+    if (Platform.OS === 'web' || !isLoaded || settings.demoMode) {
+      return;
+    }
+    const handleAppStateChange = (nextAppState: string) => {
+      if (nextAppState !== 'active') {
+        return;
+      }
+      if (isGatewayHealthOk(healthRef.current)) {
+        return;
+      }
+      void probeTailscaleComputersRef.current();
+    };
+    const sub = AppState.addEventListener('change', handleAppStateChange);
+    return () => sub.remove();
+  }, [isLoaded, settings.demoMode]);
 
   const bootstrapGateway = useCallback(async (): Promise<boolean> => {
     if (settingsRef.current.demoMode) {
@@ -2482,6 +2570,7 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
       scanForGatewayProfiles,
       tailscaleDiscoveries,
       tailscaleDiscoveryProbing,
+      tailnetProbeHostCount,
       probeTailscaleComputers,
       addDiscoveredTailscaleComputer,
       connectionHealAttempt,

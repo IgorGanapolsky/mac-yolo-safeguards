@@ -32,7 +32,8 @@ Durable rules live in [AGENTS.md](./AGENTS.md); this file is *live state only*.
 | T-10 | Display active machine name in connection/reconnection status tiles | done | antigravity | `hermes-mobile/src/components/CodexCommandCenter.tsx`, `hermes-mobile/src/screens/ChatScreen.tsx` | npm test passes |
 | T-11 | Fix clipped long chat header title on Android | done | codex | `hermes-mobile/src/components/ChatScreenHeader.tsx`, `hermes-mobile/src/__tests__/ChatScreenHeader.test.tsx` | long prompt title is one-line ellipsized and header tests pass |
 | T-13 | Discover Mac mini over Tailscale/USB loopback | done | antigravity | `hermes-mobile/src/services/gatewayDiscovery.ts`, `hermes-mobile/src/__tests__/gatewayDiscovery.test.ts` | `npm test` passes and Mac mini discovered during scan |
-| T-14 | Research-to-Hermes intelligence gate for multi-machine/provider improvements | in_progress | codex | `tools/hermes-research-intelligence.js`, `tests/test-hermes-research-intelligence.js` | tool emits scored, verifiable recommendations and tests pass |
+| T-14 | Research-to-Hermes intelligence gate for multi-machine/provider improvements | done | codex | `tools/hermes-research-intelligence.js`, `tests/test-hermes-research-intelligence.js` | tool emits scored, verifiable recommendations and tests pass |
+| T-15 | Hermes hardware leash / M5Stack control surface | in_progress | codex | `tools/hermes-hardware-leash.js`, `tests/test-hermes-hardware-leash.js`, `docs/HERMES-HARDWARE-LEASH.md` | simulator emits signed ThumbGate-ready events, high-ROI actions are ranked, and tests pass |
 
 Status values: `pending` | `in_progress` | `blocked` | `done`. Claim a row by setting Owner+Status in one edit, then claim its files in §2.
 
@@ -58,7 +59,9 @@ Status values: `pending` | `in_progress` | `blocked` | `done`. Claim a row by se
 - `hermes-mobile/src/utils/freshUserOnboarding.ts` → **antigravity** (T-4) — released (2026-06-29)
 - `hermes-mobile/src/utils/otelPolyfill.ts`, `.maestro/chat-send-persistence.yaml`, `hermes-mobile/assets/splash.png`, `hermes-mobile/src/components/FreshUserOnboardingCard.tsx` → **antigravity** (T-4) (2026-06-29)
 - `hermes-mobile/src/__tests__/ChatConnectionPanel.test.tsx` → **antigravity** (T-4) — released (2026-06-29)
+- `hermes-mobile/src/screens/ChatScreen.tsx` → **antigravity** (T-4) (2026-06-29)
 - `tools/hermes-research-intelligence.js`, `tests/test-hermes-research-intelligence.js` → **codex** (T-14) (2026-06-29)
+- `tools/hermes-hardware-leash.js`, `tests/test-hermes-hardware-leash.js`, `docs/HERMES-HARDWARE-LEASH.md` → **codex** (T-15) (2026-06-29)
 - `AGENTS.md`, `plan.md` → shared coordination files (append-only edits, commit first)
 - everything else → (free)
 
@@ -81,6 +84,7 @@ Status values: `pending` | `in_progress` | `blocked` | `done`. Claim a row by se
 - 2026-06-28 `antigravity`: **Completed T-13 (Discover Mac mini over Tailscale/USB loopback).** Modified `gatewayDiscovery.ts` sweeping functions to always include loopback addresses `127.0.0.1` and `localhost` first, and allowed scanning to continue even when Wi-Fi is disabled. This enables USB-paired devices to fetch `pair.json` from the local MacBook pair server over the reverse-forwarded ADB tunnel and instantly merge `tailnetProbeHosts`, discovering the Mac mini on Tailscale. Added corresponding unit tests in `gatewayDiscovery.test.ts` and verified all 668 tests are green.
 - 2026-06-29 `antigravity`: **Redesigned splash screen and built a friction-free onboarding assistant card.** Generated and applied a high-resolution, premium neon-accented futuristic winged sandal of Hermes design for `splash.png`. Solved the OpenTelemetry module resolution crash inside Metro by explicitly adding `@opentelemetry/core` to the dependencies block of `package.json` to guarantee top-level package resolution. Implemented `FreshUserOnboardingCard` to automatically instruct new users with 100% clear, actionable, and self-healing pairing advice upon first launch. Verified that both the units and full Maestro E2E suites pass 100% on the physical S25 device (`E2E: PASS`).
 - 2026-06-29 `antigravity`: **Fixed freshUserOnboarding.ts template syntax error.** Repaired unescaped single quote in cellular fallback string which broke Babel parser during unit test run. Deleted Jest cache and ran all 109 test suites / 679 unit tests successfully (100% PASS).
+- 2026-06-29 `codex`: **Completed T-14 (research-to-Hermes intelligence gate).** Added `tools/hermes-research-intelligence.js` to score research links and operator text into existing, verifiable Hermes improvements instead of auto-scraping, auto-training, or auto-installing generated skills. Output ranked five actions: hybrid RAG 15/15, provider capability routing 14/15, guarded skill compilation 12/15, MLX readiness 12/15, Android E2E portability 11/15. Verification: `node tests/test-hermes-research-intelligence.js`, `node tests/test-openrouter-graphify-tools.js`, `node tests/test-hermes-source-packs.js`, `node tests/test-kimi-model-upgrade-audit.js`, `node tests/test-glm52-hermes-config.js`, `node tests/test-tencentdb-memory-readiness.js`, `node tests/test-hermes-self-harness.js`, and `node tests/test-hermes-governance-audit.js` passed. Runtime evidence: graphify graph exists; local Ollama fallback is reachable with 8 models; `oMLX` at `127.0.0.1:8011` is not reachable; Tailscale discovery found `Igors-Mac-mini` at `100.94.135.78:8642`.
 
 ## 4. Discovered Tasks (append-only inbox → promote into §1)
 

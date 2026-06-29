@@ -70,6 +70,22 @@ export async function probeTailscaleGatewayHost(host: string): Promise<Discovere
   }
 }
 
+/** Merge tailnet probe hosts from a LAN/USB pair-server sweep into storage. */
+export async function mergeTailnetProbeHostsFromScan(
+  tailnetProbeHosts: string[],
+  storage: {
+    merge: (hosts: string[]) => Promise<string[]>;
+  },
+  currentRef: { current: string[] },
+): Promise<string[]> {
+  if (tailnetProbeHosts.length === 0) {
+    return currentRef.current;
+  }
+  const merged = await storage.merge(tailnetProbeHosts);
+  currentRef.current = merged;
+  return merged;
+}
+
 export function collectTailnetProbeHosts(
   profiles: GatewayProfile[],
   storedHosts: string[] = [],

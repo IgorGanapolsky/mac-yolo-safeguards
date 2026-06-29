@@ -7,6 +7,7 @@ import {
   isValidGatewayUrl,
   resolveDeviceGatewayUrl,
   resolveDisplayLanIp,
+  cleanManualGatewayUrl,
 } from '../utils/gatewayUrlPolicy';
 
 describe('gatewayUrlPolicy', () => {
@@ -55,5 +56,32 @@ describe('gatewayUrlPolicy', () => {
     expect(isValidGatewayUrl('http://http:8642')).toBe(false);
     expect(gatewayUrlHostname('http://http:8642')).toBeUndefined();
     expect(isValidGatewayUrl('http://100.94.135.78:8642')).toBe(true);
+  });
+});
+
+describe('cleanManualGatewayUrl', () => {
+  it('handles null/undefined/empty input', () => {
+    expect(cleanManualGatewayUrl(null)).toBeNull();
+    expect(cleanManualGatewayUrl(undefined)).toBeNull();
+    expect(cleanManualGatewayUrl('   ')).toBeNull();
+  });
+
+  it('adds default protocol and port to simple IP', () => {
+    expect(cleanManualGatewayUrl('100.87.85.85')).toBe('http://100.87.85.85:8642');
+  });
+
+  it('retains protocol and adds port', () => {
+    expect(cleanManualGatewayUrl('http://100.87.85.85')).toBe('http://100.87.85.85:8642');
+    expect(cleanManualGatewayUrl('https://100.87.85.85')).toBe('https://100.87.85.85:8642');
+  });
+
+  it('keeps port if specified', () => {
+    expect(cleanManualGatewayUrl('100.87.85.85:9000')).toBe('http://100.87.85.85:9000');
+    expect(cleanManualGatewayUrl('http://100.87.85.85:8642')).toBe('http://100.87.85.85:8642');
+  });
+
+  it('preserves path segments', () => {
+    expect(cleanManualGatewayUrl('100.87.85.85/v1/health')).toBe('http://100.87.85.85:8642/v1/health');
+    expect(cleanManualGatewayUrl('http://100.87.85.85:8642/v1')).toBe('http://100.87.85.85:8642/v1');
   });
 });

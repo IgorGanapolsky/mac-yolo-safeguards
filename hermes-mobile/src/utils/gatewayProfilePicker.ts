@@ -143,13 +143,34 @@ export function resolveUsbMatchingProfileId(input: {
   return detectUsbHostMismatch(input)?.matchingProfileId ?? null;
 }
 
+export function hasOnlyLoopbackProfiles(profiles: GatewayProfile[]): boolean {
+  const valid = profilesForDevicePicker(profiles);
+  return valid.length > 0 && valid.every((p) => isLoopbackGatewayUrl(p.gatewayUrl));
+}
+
+export function hasNonLoopbackSavedProfile(profiles: GatewayProfile[]): boolean {
+  return profilesForDevicePicker(profiles).some((p) => !isLoopbackGatewayUrl(p.gatewayUrl));
+}
+
 /** True when saved URL is USB loopback but phone is on Wi‑Fi — prefer LAN search, not USB repair. */
 export function shouldOfferUsbLinkRepair(input: {
   gatewayUrl: string;
   wifiConnected: boolean;
   macHttpOk: boolean;
+  tailnetProbeHostCount?: number;
+  tailscaleDiscoveryCount?: number;
+  onlyLoopbackProfiles?: boolean;
 }): boolean {
   if (!isLoopbackGatewayUrl(input.gatewayUrl) || input.macHttpOk) {
+    return false;
+  }
+  if ((input.tailnetProbeHostCount ?? 0) > 0) {
+    return false;
+  }
+  if ((input.tailscaleDiscoveryCount ?? 0) > 0) {
+    return false;
+  }
+  if (input.onlyLoopbackProfiles) {
     return false;
   }
   return !input.wifiConnected;

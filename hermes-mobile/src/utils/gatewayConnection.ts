@@ -10,6 +10,20 @@ export type ChatLinkDisplay = {
   chatReachable: boolean;
 };
 
+/** Stale health can read green while send/stream just failed — don't show Connected. */
+export function resolveEffectiveMacHttpOk(input: {
+  macHttpOk: boolean;
+  connectivityFailure?: boolean;
+}): boolean {
+  if (!input.macHttpOk) {
+    return false;
+  }
+  if (input.connectivityFailure) {
+    return false;
+  }
+  return true;
+}
+
 /** Header / status copy — relay WebSocket alone does not mean Chat can stream. */
 export function resolveChatLinkDisplay(input: {
   connectionState: LeashConnectionState;

@@ -56,6 +56,18 @@ describe('resolveSessionAfterListLoad', () => {
     ).toBeUndefined();
   });
 
+  it('does not override manual pick when listSessions has not returned that thread yet', () => {
+    expect(
+      resolveSessionAfterListLoad({
+        sessions: [sessions[0]],
+        projectState,
+        currentSessionId: 'sess_b',
+        manualSelectSessionId: 'sess_b',
+        selectLatest: true,
+      }),
+    ).toBeUndefined();
+  });
+
   it('uses project preferred session when nothing is selected yet', () => {
     expect(
       resolveSessionAfterListLoad({

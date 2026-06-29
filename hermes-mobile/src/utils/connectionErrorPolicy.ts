@@ -106,6 +106,25 @@ export function shouldShowMacRetryBanner(input: {
   return true;
 }
 
+/** Hide scary connectivity run banner while silent heal still has Tailscale/LAN routes to try. */
+export function shouldShowConnectivityRunBanner(input: {
+  isDemo: boolean;
+  connectivityFailure: boolean;
+  heal: ConnectionHealSnapshot;
+  hasAlternateRoutes: boolean;
+}): boolean {
+  if (input.isDemo || !input.connectivityFailure) {
+    return true;
+  }
+  if (input.hasAlternateRoutes && input.heal.inFlight && !input.heal.exhausted) {
+    return false;
+  }
+  if (!input.heal.exhausted && input.hasAlternateRoutes) {
+    return false;
+  }
+  return true;
+}
+
 export function shouldShowPairRelayRouteStatus(input: {
   isPaired: boolean;
   wifiConnected: boolean;
