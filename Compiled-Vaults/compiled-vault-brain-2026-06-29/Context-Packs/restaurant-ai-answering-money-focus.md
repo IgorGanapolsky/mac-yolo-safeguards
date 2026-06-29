@@ -49,4 +49,8 @@ When Hermes or another LLM asks what to work on, route to:
 
 `/Users/igorganapolsky/workspace/git/igor/skool_top1percent/sales/restaurant-ai-answering-system-gsd-focus.md`
 
+First lead queue:
+
+`/Users/igorganapolsky/workspace/git/igor/skool_top1percent/sales/restaurant-ai-answering-lead-queue-2026-06-29.md`
+
 This file supersedes generic AI-vault, model-research, and broad Skool content work unless the CEO explicitly changes the money focus.
