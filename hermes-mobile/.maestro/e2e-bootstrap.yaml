@@ -15,13 +15,6 @@ appId: com.iganapolsky.hermesmobile
       id: "connect-mac-gate"
     timeout: 30000
 - hideKeyboard
-# tab-* testIDs — never substring-match chat-connection-settings / onboarding copy.
-- extendedWaitUntil:
-    visible:
-      id: "tab-hermes"
-    timeout: 45000
-- waitForAnimationToEnd:
-    timeout: 2000
 # hermes://dev/leash-unlock already navigates to Leash — wait for lazy tab mount (no tab-bar tap).
 - extendedWaitUntil:
     notVisible:
