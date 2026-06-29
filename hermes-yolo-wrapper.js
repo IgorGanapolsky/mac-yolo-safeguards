@@ -5,6 +5,7 @@ const fs = require('fs');
 const { spawn, execSync } = require('child_process');
 const os = require('os');
 const path = require('path');
+const crypto = require('crypto');
 
 const HOME = os.homedir();
 const USER = os.userInfo().username;
@@ -21,44 +22,29 @@ function findStatusPath() {
 }
 
 const STATUS_PATH = findStatusPath();
-const LOCK_PATH = process.env.HERMES_YOLO_LOCK_PATH || '/tmp/hermes-yolo.lock';
-const LOG_PATH = process.env.HERMES_YOLO_LOG_PATH || '/tmp/hermes-yolo.log';
+const cwdHash = crypto.createHash('md5').update(process.cwd()).digest('hex').substring(0, 8);
+const LOCK_PATH = process.env.HERMES_YOLO_LOCK_PATH || `/tmp/hermes-yolo-${cwdHash}.lock`;
+const LOG_PATH = process.env.HERMES_YOLO_LOG_PATH || `/tmp/hermes-yolo-${cwdHash}.log`;
 
 // All thresholds overridable via env vars.
 const HERMES_BIN = process.env.HERMES_BIN || path.join(HOME, '.local/bin/hermes');
-const DEFAULT_TOOLSETS = process.env.HERMES_YOLO_TOOLSETS || 'terminal,file,web,code_execution,memory,clarify';
-function hasZaiKey(env = process.env) {
-  return Boolean(env.Z_AI_API_KEY || env.ZAI_API_KEY || env.GLM_API_KEY);
-}
+const DEFAULT_TOOLSETS = process.env.HERMES_YOLO_TOOLSETS || 'terminal,file,web,browser,code_execution,vision,computer_use,skills,todo,memory,context_engine,session_search,moa';
 
-function defaultModelRoute(env = process.env) {
-  const zaiReady = hasZaiKey(env);
-  return {
-    provider: env.HERMES_YOLO_PROVIDER || (zaiReady ? 'custom:zai-coding-glm' : 'custom:ollama-local-64k'),
-    model: env.HERMES_YOLO_MODEL || (zaiReady ? 'glm-5.2' : 'qwen2.5:3b-64k'),
-  };
-}
+const DEFAULT_PROVIDER = process.env.HERMES_YOLO_PROVIDER || 'zai';
+const DEFAULT_MODEL = process.env.HERMES_YOLO_MODEL || 'glm-5.2';
 
-const DEFAULT_ROUTE = defaultModelRoute();
-const DEFAULT_PROVIDER = DEFAULT_ROUTE.provider;
-const DEFAULT_MODEL = DEFAULT_ROUTE.model;
-
-const DEFAULT_READY_PROMPT = 'Reply with exactly HERMES-YOLO-READY';
-const args = process.argv.slice(2);
-const promptText = args.join(' ') || DEFAULT_READY_PROMPT;
-
-const isReadyProbe = (args.length === 0 && !process.stdout.isTTY);
 const EXTRA_ARGS = process.env.HERMES_YOLO_NO_DEFAULT_ARGS
   ? []
-  : (isReadyProbe
-      ? ['--yolo', '--accept-hooks', '--toolsets', 'clarify', '--ignore-rules', '--provider', DEFAULT_PROVIDER, '--model', DEFAULT_MODEL]
-      : ['--yolo', '--accept-hooks', '--toolsets', DEFAULT_TOOLSETS, '--provider', DEFAULT_PROVIDER, '--model', DEFAULT_MODEL]);
+  : ['--provider', DEFAULT_PROVIDER, '--model', DEFAULT_MODEL, '--yolo', '--accept-hooks', '--toolsets', DEFAULT_TOOLSETS];
 
 const TIMEOUT_MS = parseInt(process.env.HERMES_YOLO_TIMEOUT_MS || (120 * 60 * 1000), 10);
 const CPU_SAMPLE_INTERVAL_MS = parseInt(process.env.HERMES_YOLO_CPU_SAMPLE_MS || 30000, 10);
 const CPU_THRESHOLD = parseFloat(process.env.HERMES_YOLO_CPU_THRESHOLD || 90);
 const CPU_STUCK_SAMPLES = parseInt(process.env.HERMES_YOLO_CPU_STUCK_SAMPLES || 10, 10);
 
+const DEFAULT_READY_PROMPT = 'Reply with exactly HERMES-YOLO-READY';
+const args = process.argv.slice(2);
+const promptText = args.join(' ') || DEFAULT_READY_PROMPT;
 const HERMES_COMMANDS = new Set([
   'chat', 'model', 'fallback', 'secrets', 'migrate', 'gateway', 'proxy', 'lsp',
   'setup', 'postinstall', 'whatsapp', 'whatsapp-cloud', 'slack', 'send', 'login',
@@ -73,7 +59,10 @@ const HERMES_COMMANDS = new Set([
 function buildChildPromptArgs(rawArgs, prompt = rawArgs.join(' ') || DEFAULT_READY_PROMPT) {
   if (process.env.HERMES_YOLO_INTERACTIVE === '1') return rawArgs;
   if (rawArgs.length === 0) {
-    return process.stdout.isTTY ? [] : ['-z', DEFAULT_READY_PROMPT];
+    if (process.stdout.isTTY && process.stdin.isTTY) {
+      return [];
+    }
+    return ['-z', DEFAULT_READY_PROMPT];
   }
   if (rawArgs[0].startsWith('-') || HERMES_COMMANDS.has(rawArgs[0])) return rawArgs;
   return ['-z', prompt];
@@ -286,9 +275,9 @@ const timeoutHandle = setTimeout(
   TIMEOUT_MS
 );
 
-// Stuck-loop watchdog with descendant support (disabled for interactive TTY sessions)
+// Stuck-loop watchdog with descendant support
 let highCpuSamples = 0;
-const watchdog = !process.stdout.isTTY ? setInterval(() => {
+const watchdog = setInterval(() => {
   if (killed || child.killed) return;
   
   const descendants = getDescendantPids(child.pid);
@@ -304,11 +293,11 @@ const watchdog = !process.stdout.isTTY ? setInterval(() => {
     log(`watchdog cpu=${cpu}% — reset stuck-counter (was ${highCpuSamples})`);
     highCpuSamples = 0;
   }
-}, CPU_SAMPLE_INTERVAL_MS) : null;
+}, CPU_SAMPLE_INTERVAL_MS);
 
 child.on('close', (code, signal) => {
   clearTimeout(timeoutHandle);
-  if (watchdog) clearInterval(watchdog);
+  clearInterval(watchdog);
   releaseLock();
   log(`EXIT code=${code} signal=${signal} killed=${killed} reason=${killReason || ''}`);
 
@@ -352,8 +341,6 @@ process.on('exit', releaseLock);
 } else {
 module.exports = {
   buildChildPromptArgs,
-  defaultModelRoute,
-  hasZaiKey,
   HERMES_COMMANDS,
   DEFAULT_READY_PROMPT
 };

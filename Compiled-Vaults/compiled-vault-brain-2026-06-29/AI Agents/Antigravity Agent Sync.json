@@ -1,0 +1,26 @@
+{
+  "schema": "antigravity-agent-sync-brief/v1",
+  "generatedAt": "2026-06-29T05:17:01.240983Z",
+  "machine": {
+    "hostname": "Igors-MacBook-Pro.local",
+    "platform": "darwin",
+    "arch": "arm64",
+    "cwd": "/Users/igorganapolsky/workspace/git/igor/Resume"
+  },
+  "git": {
+    "branch": "feature/mercor-referrals-june28",
+    "head": "1b89bb247"
+  },
+  "recentDecisions": [
+    {
+      "date": "2026-06-29",
+      "author": "antigravity",
+      "summary": "Completed CUDA Expert Assessment autonomously and skipped feedback modal."
+    },
+    {
+      "date": "2026-06-29",
+      "author": "antigravity",
+      "summary": "Deployed 12-hour status check cron monitor for DataAnnotation."
+    }
+  ]
+}
