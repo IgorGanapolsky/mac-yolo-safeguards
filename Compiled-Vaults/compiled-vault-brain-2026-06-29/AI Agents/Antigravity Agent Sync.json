@@ -1,6 +1,6 @@
 {
   "schema": "antigravity-agent-sync-brief/v1",
-  "generatedAt": "2026-06-29T05:31:20.108095Z",
+  "generatedAt": "2026-06-29T06:11:36.395821Z",
   "machine": {
     "hostname": "Igors-MacBook-Pro.local",
     "platform": "darwin",
@@ -9,7 +9,7 @@
   },
   "git": {
     "branch": "feature/mercor-referrals-june28",
-    "head": "3e33e7f10"
+    "head": "26181d963"
   },
   "recentDecisions": [
     {
@@ -31,6 +31,11 @@
       "date": "2026-06-29",
       "author": "antigravity",
       "summary": "Registered daily 24h cron automation for Mercor bulk apply."
+    },
+    {
+      "date": "2026-06-29",
+      "author": "antigravity",
+      "summary": "Executed first iteration of daily Mercor bulk apply at 2:00 AM; processed all 26 jobs successfully."
     }
   ]
 }

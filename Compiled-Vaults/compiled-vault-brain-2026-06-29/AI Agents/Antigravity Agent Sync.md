@@ -1,16 +1,16 @@
 # Antigravity Agent Sync
 
-Generated: 2026-06-29T05:31:20.108095Z
+Generated: 2026-06-29T06:11:36.395821Z
 Machine: Igors-MacBook-Pro.local (darwin/arm64)
 Repo: /Users/igorganapolsky/workspace/git/igor/Resume
-Git: feature/mercor-referrals-june28 @ 3e33e7f10
+Git: feature/mercor-referrals-june28 @ 26181d963
 
 ## Read First
 - This sync brief tracks Antigravity's job search, bulk apply, and assessment submissions.
 - Verified screenshots and database status updates are logged locally and mirrored to the vault.
 
 ## Current Status
-- **Mercor applications:** Scanned explore pages 1–4, applied to 26 matching listings. Wrote daily 24h cron automation.
+- **Mercor applications:** Scanned explore pages 1–4, checked 26 matching listings. Wrote daily 24h cron automation. First iteration ran successfully at 2:00 AM.
 - **CUDA Expert Assessment:** Submitted autonomously using Playwright/CDP (100% complete).
 - **DataAnnotation Monitor:** Background cron job checks status every 12 hours.
 - **Micro1 Monitor:** Background cron job checks status every 12 hours.
@@ -20,3 +20,4 @@ Git: feature/mercor-referrals-june28 @ 3e33e7f10
 - **2026-06-29:** Deployed background status check monitor for DataAnnotation onboarding review and scheduled it via 12-hour cron job.
 - **2026-06-29:** Deployed background status check monitor for Micro1 onboarding/assessments and scheduled it via 12-hour cron job.
 - **2026-06-29:** Synced all state, health, handoff, and log files to both the local vault and repository-mirrored  directory.
+- **2026-06-29:** Ran the first automated iteration of the daily Mercor bulk apply cron at 2:00 AM. Verified that the responsive tab was resolved dynamically, all 26 matching job listings were checked/confirmed, and screenshots re-captured without hanging.
