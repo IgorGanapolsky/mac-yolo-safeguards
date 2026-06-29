@@ -53,4 +53,8 @@ First lead queue:
 
 `/Users/igorganapolsky/workspace/git/igor/skool_top1percent/sales/restaurant-ai-answering-lead-queue-2026-06-29.md`
 
+Shared-vault lead queue:
+
+`Compiled-Vaults/compiled-vault-brain-2026-06-29/Project-Reports/restaurant-ai-answering-lead-queue-2026-06-29.md`
+
 This file supersedes generic AI-vault, model-research, and broad Skool content work unless the CEO explicitly changes the money focus.
