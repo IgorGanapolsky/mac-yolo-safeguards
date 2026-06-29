@@ -66,7 +66,7 @@ const PATTERNS = [
     gate: 'hermes-yolo final smoke returns an exact cwd marker and /tmp/hermes-yolo.lock is absent or owned by the live wrapper.',
     configChecks: [
       ['wrapper slim toolsets', /DEFAULT_TOOLSETS.*terminal,file,web,code_execution,memory,clarify/],
-      ['wrapper local provider', /DEFAULT_PROVIDER.*custom:ollama-local-64k/],
+      ['wrapper local provider', /provider:.*custom:ollama-local-64k/],
     ],
   },
   {
@@ -76,7 +76,9 @@ const PATTERNS = [
     match: (evidence) => /Operation timed out after 90006 milliseconds|idle for \d+s|waiting for stream response/i.test(evidence.logs),
     proposal: 'Treat gateway health and gateway completion as separate checks; keep CLI/yolo as the fast control path until API completion latency has its own fix.',
     gate: 'health/detailed is ok with active_agents=0, and a separate API completion smoke is tracked with timeout evidence.',
-    configChecks: [],
+    configChecks: [
+      ['fallback max_tokens <= 2048', /max_tokens:\s*(1024|1536|2048)/],
+    ],
   },
 ];
 
