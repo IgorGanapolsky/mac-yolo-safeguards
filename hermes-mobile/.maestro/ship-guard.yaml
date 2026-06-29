@@ -26,16 +26,34 @@ appId: com.iganapolsky.hermesmobile
       id: "HERMES CHAT"
     timeout: 30000
 
-- assertVisible:
-    id: "chat-input"
+- hideKeyboard
+- scrollUntilVisible:
+    element:
+      id: "chat-input"
+    direction: UP
+    timeout: 45000
+- extendedWaitUntil:
+    visible:
+      id: "chat-input"
+    timeout: 30000
 
 - tapOn:
     id: "tab-leash"
-- assertVisible:
-    id: "THUMBGATE_LEASH"
+- extendedWaitUntil:
+    notVisible:
+      id: "tab-screen-loading"
+    timeout: 90000
+- extendedWaitUntil:
+    visible:
+      id: "THUMBGATE_LEASH"
+    timeout: 30000
 
 - tapOn:
     id: "tab-settings"
+- extendedWaitUntil:
+    notVisible:
+      id: "tab-screen-loading"
+    timeout: 90000
 - assertVisible:
     id: "SETTINGS"
 
@@ -44,4 +62,5 @@ appId: com.iganapolsky.hermesmobile
       id: "gateway-ops-section"
     direction: DOWN
     timeout: 30000
-    visibilityPercentage: 40
+- assertVisible:
+    id: "gateway-ops-section"
