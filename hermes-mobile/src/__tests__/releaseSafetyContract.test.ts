@@ -74,10 +74,13 @@ describe('release safety contract', () => {
     expect(shipGuard).toContain('com.iganapolsky.hermesmobile');
   });
 
-  it('e2e-bootstrap waits for tab bar testIDs (not stray Settings copy)', () => {
+  it('e2e-bootstrap uses deep links for tab navigation (not tab-bar taps)', () => {
     const bootstrap = read('hermes-mobile/.maestro/e2e-bootstrap.yaml');
-    expect(bootstrap).toContain('id: "tab-hermes"');
     expect(bootstrap).toContain('hermes://dev/leash-unlock');
+    expect(bootstrap).toContain('hermes://leash');
+    expect(bootstrap).toContain('hermes://chat');
+    expect(bootstrap).toContain('id: "THUMBGATE_LEASH"');
+    expect(bootstrap).not.toContain('id: "tab-hermes"');
     expect(bootstrap).not.toMatch(/text:\s*"Settings"/);
     const app = read('hermes-mobile/App.tsx');
     expect(app).toContain('tab-hermes');
