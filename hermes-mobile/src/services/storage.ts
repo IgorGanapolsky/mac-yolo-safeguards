@@ -85,10 +85,15 @@ export const storage = {
       const cloudUrl = shouldMigrateCloudRelayUrl(parsed.cloudUrl)
         ? HERMES_MOBILE_CLOUD_URL
         : parsed.cloudUrl;
+      const thumbgateCaptureOnUp =
+        typeof parsed.thumbgateCaptureOnUp === 'boolean'
+          ? parsed.thumbgateCaptureOnUp
+          : DEFAULT_GATEWAY_SETTINGS.thumbgateCaptureOnUp;
       const merged = {
         ...DEFAULT_GATEWAY_SETTINGS,
         ...parsed,
         connectionMode,
+        thumbgateCaptureOnUp,
         ...(cloudUrl ? { cloudUrl } : {}),
       };
       const lastLanIp = await this.loadLastGatewayLanIp();

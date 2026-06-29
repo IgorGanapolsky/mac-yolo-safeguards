@@ -85,7 +85,7 @@ export interface GatewaySettings {
   safetyMode: boolean;
   /** ThumbGate: capture thumbs-down verdicts to agent memory (default on). */
   thumbgateCaptureOnDown: boolean;
-  /** ThumbGate: capture thumbs-up verdicts to agent memory (default off). */
+  /** ThumbGate: capture thumbs-up verdicts to agent memory (default on). */
   thumbgateCaptureOnUp: boolean;
   /** ThumbGate API base URL for /v1/feedback/capture. */
   thumbgateApiUrl: string;
@@ -120,7 +120,7 @@ export const DEFAULT_GATEWAY_SETTINGS: GatewaySettings = {
   glanceMode: false,
   safetyMode: false,
   thumbgateCaptureOnDown: true,
-  thumbgateCaptureOnUp: false,
+  thumbgateCaptureOnUp: true,
   thumbgateApiUrl: THUMBGATE_API_URL,
   approvalPolicy: 'balanced',
   analyticsOptOut: false,

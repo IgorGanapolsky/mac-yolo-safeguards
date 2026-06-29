@@ -1,3 +1,4 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { storage } from '../services/storage';
 import { DEFAULT_GATEWAY_SETTINGS } from '../types/gateway';
 
@@ -11,6 +12,29 @@ describe('storage', () => {
     expect(settings.connectionMode).toBe('relay');
     expect(settings.gatewayUrl).toBe(DEFAULT_GATEWAY_SETTINGS.gatewayUrl);
     expect(settings.redactPii).toBe(true);
+    expect(settings.thumbgateCaptureOnUp).toBe(true);
+  });
+
+  it('defaults thumbgateCaptureOnUp to true when key is unset in stored settings', async () => {
+    await AsyncStorage.setItem(
+      'hermes-mobile:gateway_settings',
+      JSON.stringify({
+        connectionMode: 'relay',
+        gatewayUrl: 'http://192.168.1.10:8642',
+        thumbgateCaptureOnDown: true,
+      }),
+    );
+    const loaded = await storage.loadGatewaySettings();
+    expect(loaded.thumbgateCaptureOnUp).toBe(true);
+  });
+
+  it('respects explicit thumbgateCaptureOnUp false when saved', async () => {
+    await storage.saveGatewaySettings({
+      ...DEFAULT_GATEWAY_SETTINGS,
+      thumbgateCaptureOnUp: false,
+    });
+    const loaded = await storage.loadGatewaySettings();
+    expect(loaded.thumbgateCaptureOnUp).toBe(false);
   });
 
   it('persists gateway settings round-trip', async () => {

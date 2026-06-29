@@ -25,7 +25,7 @@ export default function GateApprovalCard({
   glance = false,
   approvalPolicy = 'balanced',
   thumbgateCaptureOnDown = true,
-  thumbgateCaptureOnUp = false,
+  thumbgateCaptureOnUp = true,
 }: GateApprovalCardProps) {
   const request = fromPendingApproval(approval, approvalPolicy);
 

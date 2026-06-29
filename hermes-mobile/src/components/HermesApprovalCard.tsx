@@ -45,7 +45,7 @@ export default function HermesApprovalCard({
   busy = false,
   undoSecondsLeft = 0,
   thumbgateCaptureOnDown = true,
-  thumbgateCaptureOnUp = false,
+  thumbgateCaptureOnUp = true,
   approvalPolicy = 'balanced',
   onChoice,
   onEdit,
