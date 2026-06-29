@@ -1,6 +1,6 @@
 {
   "schema": "antigravity-agent-sync-brief/v1",
-  "generatedAt": "2026-06-29T05:17:01.240983Z",
+  "generatedAt": "2026-06-29T05:31:20.108095Z",
   "machine": {
     "hostname": "Igors-MacBook-Pro.local",
     "platform": "darwin",
@@ -9,7 +9,7 @@
   },
   "git": {
     "branch": "feature/mercor-referrals-june28",
-    "head": "1b89bb247"
+    "head": "3e33e7f10"
   },
   "recentDecisions": [
     {
@@ -21,6 +21,16 @@
       "date": "2026-06-29",
       "author": "antigravity",
       "summary": "Deployed 12-hour status check cron monitor for DataAnnotation."
+    },
+    {
+      "date": "2026-06-29",
+      "author": "antigravity",
+      "summary": "Deployed 12-hour status check cron monitor for Micro1."
+    },
+    {
+      "date": "2026-06-29",
+      "author": "antigravity",
+      "summary": "Registered daily 24h cron automation for Mercor bulk apply."
     }
   ]
 }
