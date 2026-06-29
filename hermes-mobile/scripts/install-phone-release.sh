@@ -45,8 +45,8 @@ fi
 
 DEVICE="$(adb devices 2>/dev/null | awk 'NR>1 && $2=="device" {print $1; exit}')"
 if [[ -z "$DEVICE" ]]; then
-  echo "Error: no Android device in 'device' state (check: adb devices)" >&2
-  exit 1
+  echo "Skip install: no Android device in 'device' state (check: adb devices)" >&2
+  exit 0
 fi
 
 if [[ -z "${JAVA_HOME:-}" ]] || ! "$JAVA_HOME/bin/java" -version >/dev/null 2>&1; then

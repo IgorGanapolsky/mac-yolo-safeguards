@@ -18,6 +18,9 @@ WATCH_DEBOUNCE="${HERMES_E2E_WATCH_DEBOUNCE_SEC:-45}"
 LOG_DIR="${HERMES_E2E_LOG_DIR:-$HERMES_DIR/docs/proofs/continuous}"
 PID_FILE="${HOME}/Library/Logs/hermes-mobile-continuous-e2e.pid"
 LATEST_JSON="${LOG_DIR}/latest.json"
+CPU_COUNT="$(sysctl -n hw.ncpu 2>/dev/null || echo 8)"
+MAX_LOAD="${HERMES_E2E_MAX_LOAD:-6}"
+MAX_SIMRUNTIME_PROCS="${HERMES_E2E_MAX_SIMRUNTIME_PROCS:-80}"
 E2E_FLOWS=(
   ".maestro/ship-guard.yaml"
   ".maestro/chat-send-persistence.yaml"
@@ -74,6 +77,44 @@ write_status() {
   "logDir": "${LOG_DIR}"
 }
 EOF
+}
+
+load1() {
+  uptime | sed -E 's/.*load averages?: ([0-9.]+).*/\1/'
+}
+
+number_gt() {
+  awk -v left="$1" -v right="$2" 'BEGIN { exit !(left > right) }'
+}
+
+simruntime_process_count() {
+  pgrep -f 'CoreSimulator/Volumes/iOS_.*\.simruntime' 2>/dev/null | wc -l | tr -d ' '
+}
+
+guard_system_pressure() {
+  if [[ "${HERMES_E2E_FORCE:-}" == "1" ]]; then
+    return 0
+  fi
+
+  local current_load current_sim_count detail
+  current_load="$(load1)"
+  current_sim_count="$(simruntime_process_count)"
+
+  if number_gt "$current_load" "$MAX_LOAD"; then
+    detail="skipped continuous E2E: load ${current_load} exceeds max ${MAX_LOAD}; set HERMES_E2E_FORCE=1 to override"
+    echo "$detail"
+    write_status "skipped" "skipped" "$detail"
+    return 1
+  fi
+
+  if [[ "$current_sim_count" =~ ^[0-9]+$ ]] && (( current_sim_count > MAX_SIMRUNTIME_PROCS )); then
+    detail="skipped continuous E2E: simruntime process count ${current_sim_count} exceeds max ${MAX_SIMRUNTIME_PROCS}"
+    echo "$detail"
+    write_status "skipped" "skipped" "$detail"
+    return 1
+  fi
+
+  return 0
 }
 
 wait_for_adb() {
@@ -198,6 +239,10 @@ run_cycle() {
   local unit_status="fail"
   local e2e_status="skipped"
   local detail=""
+
+  if ! guard_system_pressure; then
+    return 0
+  fi
 
   {
     echo "=== Hermes Mobile continuous cycle $(timestamp) ==="

@@ -28,6 +28,20 @@ export function isTailscaleGatewayUrl(gatewayUrl: string): boolean {
   return host ? isTailscaleGatewayHost(host) : false;
 }
 
+/** True when a display string is a Tailscale route (MagicDNS / CGNAT), not a Mac name. */
+export function isTailnetRouteLabel(value: string | undefined): boolean {
+  const trimmed = value?.trim();
+  if (!trimmed) {
+    return false;
+  }
+  const hostOnly = trimmed
+    .replace(/^https?:\/\//i, '')
+    .split('/')[0]
+    ?.split(':')[0]
+    ?.trim();
+  return hostOnly ? isTailscaleGatewayHost(hostOnly) : false;
+}
+
 export function buildTailscaleGatewayUrl(host: string, port = 8642): string {
   const trimmed = host.trim();
   const withPort = trimmed.includes(':') ? trimmed : `${trimmed}:${port}`;

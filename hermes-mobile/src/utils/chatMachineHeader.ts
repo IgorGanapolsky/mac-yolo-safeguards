@@ -7,6 +7,7 @@ import type { LeashConnectionState } from './gatewayEndpoint';
 import { formatGatewayEndpointLine, formatGatewayMachineParts } from './gatewayEndpoint';
 import { isLoopbackGatewayUrl } from './gatewayUrlPolicy';
 import { relayWorkerDisplayName, selectRelayWorker } from './relayRouting';
+import { isTailnetRouteLabel, isTailscaleGatewayUrl } from './tailscaleHosts';
 
 function healthHostname(health?: GatewayHealthSnapshot | null): string | undefined {
   return health?.hostname?.replace(/\.local$/i, '').trim() || undefined;
@@ -23,7 +24,10 @@ export function resolveMachineDisplayName(
     : formatGatewayMachineParts(gatewayUrl, health).machineName;
 
   const fromHealth = healthHostname(health);
-  if (fromHealth && (isGenericMachineLabel(name) || name === 'computer')) {
+  if (
+    fromHealth &&
+    (isGenericMachineLabel(name) || name === 'computer' || isTailnetRouteLabel(name))
+  ) {
     return fromHealth;
   }
   return name;
@@ -66,6 +70,9 @@ export function resolveChatMachineHeaderDisplay(input: {
   const loopbackUsb = isLoopbackGatewayUrl(input.gatewayUrl);
   const hasNamedMachine = Boolean(machineLabel && !isGenericMachineLabel(machineLabel));
   let ipLine = formatGatewayEndpointLine(input.gatewayUrl, input.health)?.trim();
+  if (isTailscaleGatewayUrl(input.gatewayUrl)) {
+    ipLine = 'Tailscale';
+  }
   if (loopbackUsb && hasNamedMachine) {
     const profileLanIp = input.activeProfile?.localIp?.trim();
     if (profileLanIp && !profileLanIp.startsWith('127.')) {
@@ -80,7 +87,12 @@ export function resolveChatMachineHeaderDisplay(input: {
 
   const labelContainsIp =
     Boolean(profileIp && machineLabel.includes(profileIp)) ||
-    Boolean(ipLine && ipLine !== 'USB' && machineLabel.includes(ipLine.split(':')[0]));
+    Boolean(
+      ipLine &&
+        ipLine !== 'USB' &&
+        ipLine !== 'Tailscale' &&
+        machineLabel.includes(ipLine.split(':')[0]),
+    );
 
   if (ipLine && (savedMacCount > 1 || loopbackUsb || !labelContainsIp)) {
     detailParts.push(ipLine);
@@ -107,7 +119,10 @@ export function resolveChatMachineHeaderDisplay(input: {
     showDetailWhenConnected:
       savedMacCount > 1 ||
       (loopbackUsb && hasNamedMachine) ||
-      detailParts.some((part) => part.startsWith('relay ·')),
+      detailParts.some((part) => part.startsWith('relay ·')) ||
+      (isTailscaleGatewayUrl(input.gatewayUrl) &&
+        hasNamedMachine &&
+        !isTailnetRouteLabel(machineLabel)),
   };
 }
 

@@ -16,7 +16,7 @@ import {
   isLoopbackHost,
   isValidGatewayUrl,
 } from '../utils/gatewayUrlPolicy';
-import { isTailscaleGatewayUrl } from '../utils/tailscaleHosts';
+import { isTailnetRouteLabel, isTailscaleGatewayUrl, isTailscaleIpv4 } from '../utils/tailscaleHosts';
 
 const STORAGE_KEY = 'hermes-mobile:gateway_profiles';
 
@@ -102,12 +102,36 @@ function isIpOnlyProfileLabel(profile: GatewayProfile): boolean {
   return isBareIp(label);
 }
 
+function bonjourHostname(hostname: string | undefined): string | undefined {
+  const host = hostname?.replace(/\.local$/i, '').trim();
+  if (!host || isTailnetRouteLabel(host)) {
+    return undefined;
+  }
+  return host;
+}
+
+function pickFriendlyProfileLabel(...candidates: (string | undefined)[]): string | undefined {
+  for (const value of candidates) {
+    const trimmed = value?.trim();
+    if (trimmed && !isBareIp(trimmed) && !isGenericProfileLabel(trimmed) && !isTailnetRouteLabel(trimmed)) {
+      return trimmed;
+    }
+  }
+  for (const value of candidates) {
+    const trimmed = value?.trim();
+    if (trimmed && !isBareIp(trimmed) && !isGenericProfileLabel(trimmed)) {
+      return trimmed;
+    }
+  }
+  return undefined;
+}
+
 export function profileDisplayName(profile: GatewayProfile): string {
   const ip = resolveDisplayLanIp(profile.localIp, profile.gatewayUrl);
-  const hostname = profile.hostname?.replace(/\.local$/i, '').trim();
+  const hostname = bonjourHostname(profile.hostname);
   const label = profile.label?.trim();
 
-  if (label && !isBareIp(label) && label !== ip && !isGenericProfileLabel(label)) {
+  if (label && !isBareIp(label) && label !== ip && !isGenericProfileLabel(label) && !isTailnetRouteLabel(label)) {
     return label;
   }
   if (hostname && hostname !== ip) {
@@ -116,16 +140,23 @@ export function profileDisplayName(profile: GatewayProfile): string {
   if (isLoopbackGatewayUrl(profile.gatewayUrl)) {
     return 'Mac via USB';
   }
-  if (ip) {
+  if (ip && !isTailscaleIpv4(ip)) {
     return `Mac ${ip}`;
   }
-  if (label) {
+  if (label && !isTailnetRouteLabel(label)) {
     return label;
   }
   if (hostname) {
     return hostname;
   }
-  return gatewayUrlHostname(profile.gatewayUrl) ?? profile.gatewayUrl;
+  const urlHost = gatewayUrlHostname(profile.gatewayUrl);
+  if (urlHost && !isTailnetRouteLabel(urlHost)) {
+    return urlHost;
+  }
+  if (isTailscaleGatewayUrl(profile.gatewayUrl)) {
+    return 'Mac via Tailscale';
+  }
+  return urlHost ?? profile.gatewayUrl;
 }
 
 export function formatProfileLabel(profile: GatewayProfile): string {
@@ -224,10 +255,19 @@ function mergeProfileRecords(a: GatewayProfile, b: GatewayProfile): GatewayProfi
     b.localIp?.trim() ||
     extractLanIpFromGatewayUrl(gatewayUrl) ||
     undefined;
-  const labelPick = [a.label, b.label, hostname?.replace(/\.local$/i, '')]
-    .map((v) => v?.trim())
-    .find((v) => v && !isBareIp(v));
-  const label = labelPick || a.label || b.label || localIp || 'computer';
+  const label =
+    pickFriendlyProfileLabel(
+      a.label,
+      b.label,
+      bonjourHostname(a.hostname),
+      bonjourHostname(b.hostname),
+      a.hostname?.replace(/\.local$/i, ''),
+      b.hostname?.replace(/\.local$/i, ''),
+    ) ||
+    a.label ||
+    b.label ||
+    localIp ||
+    'computer';
   const lastConnectedAt =
     [a.lastConnectedAt, b.lastConnectedAt].filter(Boolean).sort().reverse()[0] ?? a.addedAt;
   const addedAt = a.addedAt <= b.addedAt ? a.addedAt : b.addedAt;
@@ -296,10 +336,11 @@ export function upsertDiscoveredProfile(
   const id = profileIdFromGatewayUrl(gatewayUrl, hostname);
   const localIp =
     discovered.localIp?.trim() || extractLanIpFromGatewayUrl(gatewayUrl) || undefined;
+  const urlHost = gatewayUrlHostname(gatewayUrl);
   const label =
     discovered.label?.trim() ||
-    hostname?.replace(/\.local$/i, '') ||
-    gatewayUrlHostname(gatewayUrl) ||
+    bonjourHostname(hostname) ||
+    (urlHost && !isTailnetRouteLabel(urlHost) ? urlHost : undefined) ||
     'Mac';
 
   const discoveredMachineKey =
@@ -411,9 +452,9 @@ export function touchProfileHealth(
     const localIp =
       resolveDisplayLanIp(health.localIp, p.gatewayUrl) ||
       resolveDisplayLanIp(p.localIp, p.gatewayUrl);
-    const hostnameLabel = hostname?.replace(/\.local$/i, '').trim();
+    const hostnameLabel = bonjourHostname(hostname);
     const label =
-      hostnameLabel && isIpOnlyProfileLabel(p)
+      hostnameLabel && (isIpOnlyProfileLabel(p) || isTailnetRouteLabel(p.label))
         ? hostnameLabel
         : p.label;
     return {

@@ -6,6 +6,7 @@ import {
 } from '../services/tailscaleDiscovery';
 import {
   buildTailscaleGatewayUrl,
+  isTailnetRouteLabel,
   isTailscaleGatewayUrl,
   isTailscaleIpv4,
   mergeTailnetProbeHosts,
@@ -22,6 +23,13 @@ describe('tailscaleDiscovery', () => {
     expect(buildTailscaleGatewayUrl('100.94.135.78')).toBe('http://100.94.135.78:8642');
     expect(isTailscaleGatewayUrl('http://100.94.135.78:8642')).toBe(true);
     expect(isTailscaleGatewayUrl('http://mac-mini.tailnet.ts.net:8642')).toBe(true);
+  });
+
+  it('detects tailnet route labels vs Bonjour machine names', () => {
+    expect(isTailnetRouteLabel('igors-mac-mini.tail12aa33.ts.net')).toBe(true);
+    expect(isTailnetRouteLabel('100.94.135.78')).toBe(true);
+    expect(isTailnetRouteLabel('Igors-Mac-mini')).toBe(false);
+    expect(isTailnetRouteLabel('Igors-Mac-mini.local')).toBe(false);
   });
 
   it('creates a saved profile payload from /health JSON', () => {

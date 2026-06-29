@@ -1,6 +1,7 @@
 import { Platform } from 'react-native';
 import { normalizeGatewayUrl } from '../services/gatewayClient';
 import { isLoopbackGatewayUrl, isValidGatewayUrl } from './gatewayUrlPolicy';
+import { isTailnetRouteLabel } from './tailscaleHosts';
 import type { ConnectionMode, GatewayHealthSnapshot } from '../types/gateway';
 
 const IPV4_RE = /^\d{1,3}(\.\d{1,3}){3}$/;
@@ -136,8 +137,10 @@ export function formatGatewayMachineParts(
   const fromHealthIp = isUsableHost(health?.localIp);
   const fromUrl = parseHostFromGatewayUrl(gatewayUrl);
 
+  const urlHostname =
+    fromUrl.hostname && !isTailnetRouteLabel(fromUrl.hostname) ? fromUrl.hostname : undefined;
   const machineName =
-    fromHealthName ?? fromUrl.hostname ?? gatewayUrlHost(gatewayUrl) ?? 'computer';
+    fromHealthName ?? urlHostname ?? (isTailnetRouteLabel(fromUrl.hostname) ? 'Mac via Tailscale' : fromUrl.hostname) ?? gatewayUrlHost(gatewayUrl) ?? 'computer';
   const lanIp = fromHealthIp ?? fromUrl.ip;
 
   return {

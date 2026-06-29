@@ -139,6 +139,33 @@ describe('resolveChatMachineHeaderDisplay', () => {
     expect(display.machineLabel).toBe('Igors-MacBook-Pro');
     expect(display.machineEndpoint).toBe('USB');
   });
+
+  it('shows friendly Mac name with Tailscale route detail when connected via MagicDNS', () => {
+    const display = resolveChatMachineHeaderDisplay({
+      activeProfile: {
+        id: 'mac_tail',
+        label: 'igors-mac-mini.tail12aa33.ts.net',
+        gatewayUrl: 'http://igors-mac-mini.tail12aa33.ts.net:8642',
+        hostname: 'Igors-Mac-mini.local',
+        localIp: '192.168.68.56',
+        addedAt: '2026-06-29T00:00:00.000Z',
+      },
+      gatewayUrl: 'http://igors-mac-mini.tail12aa33.ts.net:8642',
+      health: {
+        level: 'green',
+        checkedAt: '2026-06-29T00:00:00.000Z',
+        hostname: 'Igors-Mac-mini.local',
+        localIp: '192.168.68.56',
+      },
+      connectionMode: 'gateway',
+      isPaired: false,
+      workers: [],
+      savedMacCount: 1,
+    });
+    expect(display.machineLabel).toBe('Igors-Mac-mini');
+    expect(display.machineEndpoint).toBe('Tailscale');
+    expect(display.showDetailWhenConnected).toBe(true);
+  });
 });
 
 describe('formatMacConnectionRetryBanner', () => {
@@ -197,5 +224,18 @@ describe('profileDisplayName generic labels', () => {
         addedAt: '2026-06-24T00:00:00.000Z',
       }),
     ).toBe('Igors-MacBook-Pro');
+  });
+
+  it('prefers Bonjour hostname over Tailscale MagicDNS label', () => {
+    expect(
+      profileDisplayName({
+        id: 'tail',
+        label: 'igors-mac-mini.tail12aa33.ts.net',
+        gatewayUrl: 'http://igors-mac-mini.tail12aa33.ts.net:8642',
+        hostname: 'Igors-Mac-mini.local',
+        localIp: '192.168.68.56',
+        addedAt: '2026-06-29T00:00:00.000Z',
+      }),
+    ).toBe('Igors-Mac-mini');
   });
 });

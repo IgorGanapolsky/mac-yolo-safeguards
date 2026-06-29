@@ -123,6 +123,41 @@ describe('gatewayProfiles', () => {
     ).toBe('Mac 10.2.29.103');
   });
 
+  it('does not use MagicDNS host as profile label when health has no hostname', () => {
+    const state = upsertDiscoveredProfile(EMPTY_GATEWAY_PROFILE_STATE, {
+      gatewayUrl: 'http://igors-mac-mini.tail12aa33.ts.net:8642',
+      localIp: '192.168.68.56',
+    }, true);
+    expect(state.profiles[0].label).toBe('Mac');
+    expect(state.profiles[0].gatewayUrl).toBe('http://igors-mac-mini.tail12aa33.ts.net:8642');
+  });
+
+  it('keeps friendly label when deduping LAN and tailnet routes', () => {
+    const state = dedupeGatewayProfiles({
+      profiles: [
+        {
+          id: 'mac_lan',
+          label: 'Igors-Mac-mini',
+          hostname: 'Igors-Mac-mini.local',
+          gatewayUrl: 'http://192.168.68.56:8642',
+          localIp: '192.168.68.56',
+          addedAt: '2026-06-28T00:00:00Z',
+        },
+        {
+          id: 'mac_tail',
+          label: 'igors-mac-mini.tail12aa33.ts.net',
+          hostname: 'Igors-Mac-mini.local',
+          gatewayUrl: 'http://igors-mac-mini.tail12aa33.ts.net:8642',
+          localIp: '192.168.68.56',
+          addedAt: '2026-06-28T00:00:01Z',
+        },
+      ],
+      activeProfileId: 'mac_lan',
+    });
+    expect(state.profiles.length).toBe(1);
+    expect(state.profiles[0].label).toBe('Igors-Mac-mini');
+  });
+
   it('dedupes profiles that share the same LAN IP', () => {
     const state = dedupeGatewayProfiles({
       profiles: [
