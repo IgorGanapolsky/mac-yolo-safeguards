@@ -35,3 +35,6 @@ There is one live Obsidian coordination vault and one compiled brain snapshot:
 - **Canonical compiled remote:** `https://github.com/IgorGanapolsky/mac-yolo-safeguards.git`
 
 Project checkouts such as `Resume`, `ThumbGate`, and `AI_Voice_Phone_Ordering` should write durable cross-agent state into the live vault and/or this compiled snapshot. They should not create competing compiled vaults.
+
+**Live authority vs. compiled export:** The repo-root `plan.md` (and `AGENTS.md`) are the live coordination source of truth. This `Compiled-Vaults/compiled-vault-brain-*` folder is a git-synced export for Obsidian and cross-agent reading—not a second board. Refresh it manually with `cp plan.md Compiled-Vaults/compiled-vault-brain-2026-06-29/Source-Traces/plan-snapshot.md` and `node tools/agent-sync-brief.js --vault Compiled-Vaults/compiled-vault-brain-2026-06-29` whenever you need the vault to match live state.
+
