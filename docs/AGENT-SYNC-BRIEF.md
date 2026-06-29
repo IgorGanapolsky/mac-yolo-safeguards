@@ -6,10 +6,13 @@ Codex, Claude, Cursor, Gemini, Hermes, and Obsidian AI Agent.
 
 ## Contract
 
-- Source of truth remains `AGENTS.md` plus `plan.md`.
+- Source of truth remains `AGENTS.md` plus `plan.md` in this repo.
+- **Canonical Obsidian vault:** `~/Documents/AI-Agent-Sync` (`IgorGanapolsky/AI-Agent-Sync`).
+  `Compiled-Vaults/compiled-vault-brain-2026-06-29/` here is an archived reference
+  snapshot, not a parallel live vault.
 - Generated packets default to `artifacts/agent-sync/`, which is gitignored.
 - Obsidian export is optional via `--vault`; it writes an ordinary note under
-  `AI Agents/Hermes Agent Sync.md` plus a sibling JSON file.
+  `AI Agents/Hermes Agent Sync.md` plus a sibling JSON file in the live vault.
 - The packet is bounded: git status, plan tasks, file locks, recent decisions,
   latest continuous E2E proof, LaunchAgent state, and source mtimes.
 - The packet redacts common token forms before writing Markdown or JSON.
@@ -19,7 +22,7 @@ Codex, Claude, Cursor, Gemini, Hermes, and Obsidian AI Agent.
 ```bash
 node tools/agent-sync-brief.js
 node tools/agent-sync-brief.js --json
-node tools/agent-sync-brief.js --vault "$HOME/Documents/ObsidianVault"
+node tools/agent-sync-brief.js --vault "$HOME/Documents/AI-Agent-Sync"
 node tools/agent-sync-brief.js --stdout --no-write
 ```
 

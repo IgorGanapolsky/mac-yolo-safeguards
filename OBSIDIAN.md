@@ -37,4 +37,10 @@ To prevent clobbering other active agents (Cursor, Antigravity, Codex):
 | Operator loop | `~/.hermes/` + gateway `:8642` | Telegram, revenue, fulfillment |
 | Product health | `hermes-mobile/docs/proofs/continuous/latest.json` | E2E + unit status |
 
-**Recommended vault setup:** symlink or git-clone this repo into your Obsidian vault (or open the repo folder as a vault) so the AI Agent plugin reads the same `plan.md` Cursor agents use.
+## Canonical Obsidian vault
+
+- **Live vault (canonical):** `~/Documents/AI-Agent-Sync` — private repo `IgorGanapolsky/AI-Agent-Sync`. Clone it, open that folder in Obsidian, and run `node tools/agent-sync-brief.js --vault ~/Documents/AI-Agent-Sync` from this repo after major `plan.md` changes.
+- **Archived compiled snapshot:** `Compiled-Vaults/compiled-vault-brain-2026-06-29/` in this repo — reference-only export (ThumbGate memory archive + historical brain). Not a second live vault; task ownership authority stays in repo-root `plan.md`.
+- **Bootstrap on a new Mac:** `bash ~/Documents/AI-Agent-Sync/scripts/bootstrap_central_vault.sh` wires the compiled snapshot symlink and machine pointers after clone.
+
+Do not open this repo root as your only Obsidian vault unless you are doing repo-local development; cross-agent coordination notes live in **AI-Agent-Sync**.
