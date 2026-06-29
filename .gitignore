@@ -106,3 +106,6 @@ hermes-mobile/report.xml
 hermes-mobile/.agent-device/
 .metadata_never_index
 hermes-mobile/docs/proofs/
+
+# ThumbGate AI-Memories dump — untracked from public repo for PII safety
+Compiled-Vaults/compiled-vault-brain-2026-06-29/AI-Memories/
