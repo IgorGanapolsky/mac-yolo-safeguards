@@ -77,6 +77,7 @@ describe('release safety contract', () => {
   it('e2e-bootstrap uses deep links for tab navigation (not tab-bar taps)', () => {
     const bootstrap = read('hermes-mobile/.maestro/e2e-bootstrap.yaml');
     expect(bootstrap).toContain('hermes://dev/leash-unlock');
+    expect(bootstrap).toContain('hermes://leash');
     expect(bootstrap).toContain('hermes://chat');
     expect(bootstrap).toContain('id: "THUMBGATE_LEASH"');
     expect(bootstrap).not.toContain('id: "tab-hermes"');

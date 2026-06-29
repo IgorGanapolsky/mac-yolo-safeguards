@@ -15,7 +15,7 @@ appId: com.iganapolsky.hermesmobile
       id: "connect-mac-gate"
     timeout: 30000
 - hideKeyboard
-# hermes://dev/leash-unlock already navigates to Leash — wait for lazy tab mount (no tab-bar tap).
+- openLink: "hermes://leash"
 - extendedWaitUntil:
     notVisible:
       id: "tab-screen-loading"
