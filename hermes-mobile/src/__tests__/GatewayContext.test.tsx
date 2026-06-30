@@ -272,6 +272,47 @@ describe('GatewayProvider', () => {
     expect(MockWebSocket.instances[MockWebSocket.instances.length - 1].url).toContain('/v1/events');
   });
 
+  it('shows connected (not Reconnecting) when HTTP /health is OK even if the events socket never opens', async () => {
+    // The real :8642 gateway exposes NO events WebSocket — the socket errors/closes
+    // forever. A reachable /health means chat works, so the app must report
+    // connected instead of looping the doomed socket and flashing "Reconnecting…".
+    class FailingWebSocket {
+      static instances: FailingWebSocket[] = [];
+      static OPEN = 1;
+      static CLOSED = 3;
+      url: string;
+      readyState = 3;
+      onopen: ((event: unknown) => void) | null = null;
+      onmessage: ((event: { data: string }) => void) | null = null;
+      onclose: ((event: unknown) => void) | null = null;
+      onerror: ((event: unknown) => void) | null = null;
+      send = jest.fn();
+      close = jest.fn();
+      constructor(url: string) {
+        this.url = url;
+        FailingWebSocket.instances.push(this);
+        // Never fires onopen — mimics a gateway with no WS route (404 on upgrade).
+        setTimeout(() => {
+          this.onerror?.({});
+          this.onclose?.({});
+        }, 0);
+      }
+    }
+    (global as unknown as { WebSocket: typeof FailingWebSocket }).WebSocket = FailingWebSocket;
+
+    const { getByTestId } = render(
+      <GatewayProvider>
+        <Probe />
+      </GatewayProvider>,
+    );
+
+    await waitFor(() => {
+      expect(getByTestId('connection-state').props.children).toBe('connected');
+    });
+    // No misleading loopback error when the Mac is actually reachable over HTTP.
+    expect(getByTestId('last-error').props.children).toBe('');
+  });
+
   it('queues GATE.BLOCKED from websocket', async () => {
     const { getByTestId } = render(
       <GatewayProvider>
