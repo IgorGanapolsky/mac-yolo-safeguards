@@ -182,19 +182,50 @@ const HERMES_COMMANDS = new Set([
   'desktop', 'gui', 'logs', 'prompt-size'
 ]);
 
-function buildChildPromptArgs(rawArgs, prompt = rawArgs.join(' ') || DEFAULT_READY_PROMPT) {
+function buildChildPromptArgs(rawArgs, prompt = rawArgs.join(' ') || DEFAULT_READY_PROMPT, options = {}) {
+  if (options.forceOneshot) return ['-z', prompt || DEFAULT_READY_PROMPT];
   if (process.env.HERMES_YOLO_INTERACTIVE === '1') return rawArgs;
   if (rawArgs.length === 0) {
-    if (process.stdout.isTTY && process.stdin.isTTY) {
-      return [];
-    }
     return ['-z', DEFAULT_READY_PROMPT];
   }
   if (rawArgs[0].startsWith('-') || HERMES_COMMANDS.has(rawArgs[0])) return rawArgs;
   return ['-z', prompt];
 }
 
-const childPromptArgs = buildChildPromptArgs(args);
+function readPromptLineFromTty() {
+  fs.writeSync(process.stdout.fd, 'hermes-yolo> ');
+  const chunks = [];
+  const buf = Buffer.alloc(1);
+  while (true) {
+    let bytesRead = 0;
+    try {
+      bytesRead = fs.readSync(process.stdin.fd, buf, 0, 1, null);
+    } catch (e) {
+      if (e && e.code === 'EAGAIN') {
+        Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 50);
+        continue;
+      }
+      throw e;
+    }
+    if (bytesRead === 0) break;
+    const ch = buf.toString('utf8', 0, bytesRead);
+    if (ch === '\n' || ch === '\r') break;
+    chunks.push(ch);
+  }
+  return chunks.join('').trim();
+}
+
+const wrapperPromptMode = (
+  args.length === 0 &&
+  process.stdin.isTTY &&
+  process.stdout.isTTY &&
+  process.env.HERMES_YOLO_INTERACTIVE !== '1'
+);
+const wrapperPromptText = wrapperPromptMode ? readPromptLineFromTty() : null;
+const effectivePromptText = wrapperPromptText || promptText;
+const childPromptArgs = buildChildPromptArgs(args, effectivePromptText, {
+  forceOneshot: wrapperPromptMode,
+});
 
 function log(msg) {
   try { fs.appendFileSync(LOG_PATH, `${new Date().toISOString()} ${msg}\n`); } catch (e) {}
@@ -315,7 +346,7 @@ updateStatus(data => {
     watcher.status = 'RUNNING';
     watcher.tasks.push({
       id: `task-hermes-yolo-${Date.now()}`,
-      name: `Hermes YOLO Run: "${promptText.substring(0, 50)}${promptText.length > 50 ? '...' : ''}"`,
+      name: `Hermes YOLO Run: "${effectivePromptText.substring(0, 50)}${effectivePromptText.length > 50 ? '...' : ''}"`,
       status: 'RUNNING'
     });
   }
@@ -330,7 +361,8 @@ const env = Object.assign({}, ROUTE_ENV, {
   HERMES_ACCEPT_HOOKS: '1'
 });
 
-const child = spawn(HERMES_BIN, [...EXTRA_ARGS, ...childPromptArgs], { stdio: 'inherit', env });
+const childStdio = wrapperPromptMode ? ['ignore', 'inherit', 'inherit'] : 'inherit';
+const child = spawn(HERMES_BIN, [...EXTRA_ARGS, ...childPromptArgs], { stdio: childStdio, env });
 log(`SPAWNED childPid=${child.pid}`);
 
 child.on('error', (err) => {
@@ -441,7 +473,7 @@ child.on('close', (code, signal) => {
       sender: 'spark',
       text: killed
         ? `hermes-yolo killed by wrapper: ${killReason}. Exit code ${code}.`
-        : `Successfully completed Hermes YOLO task: "${promptText}". Resolved with status code ${code}. Saved 50,000 tokens via active caching.`
+        : `Successfully completed Hermes YOLO task: "${effectivePromptText}". Resolved with status code ${code}. Saved 50,000 tokens via active caching.`
     });
     data.termHistory.push(`[Hermes YOLO Wrapper] Process completed with code ${code}${killed ? ` (killed: ${killReason})` : ''}.`);
     data.termHistory.push('');

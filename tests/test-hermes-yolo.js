@@ -56,8 +56,8 @@ function runWithMockedTTY(isTTY, fn) {
 // Test case: Empty arguments in interactive terminal (TTY)
 runWithMockedTTY(true, () => {
   const result = buildChildPromptArgs([]);
-  console.log('  [TEST] Empty args + TTY=true -> expected empty array (interactive shell), got:', result);
-  assert.deepStrictEqual(result, []);
+  console.log('  [TEST] Empty args + TTY=true -> expected bounded -z probe, got:', result);
+  assert.deepStrictEqual(result, ['-z', DEFAULT_READY_PROMPT]);
 });
 
 // Test case: Empty arguments in non-interactive pipeline (non-TTY)
@@ -72,6 +72,12 @@ runWithMockedTTY(true, () => {
   const result = buildChildPromptArgs(['Write a python hello world script']);
   console.log('  [TEST] Custom prompt -> expected ["-z", prompt], got:', result);
   assert.deepStrictEqual(result, ['-z', 'Write a python hello world script']);
+});
+
+runWithMockedTTY(true, () => {
+  const result = buildChildPromptArgs([], 'Use wrapper prompt text', { forceOneshot: true });
+  console.log('  [TEST] Wrapper prompt mode -> expected ["-z", prompt], got:', result);
+  assert.deepStrictEqual(result, ['-z', 'Use wrapper prompt text']);
 });
 
 // Test case: Hermes subcommands (e.g. chat, doctor, version)
@@ -207,9 +213,14 @@ try {
 
 // 2. Test live wrapper execution (using --version as a fast safe check)
 const binaryPath = path.resolve(__dirname, '../hermes-yolo-wrapper.js');
+// Isolate the singleton lock from any concurrently-running hermes-yolo (e.g. the
+// live session) via the wrapper's HERMES_YOLO_LOCK_PATH escape hatch. The
+// production singleton guard stays intact; the test just must not collide with it.
+const testLockPath = path.join(require('os').tmpdir(), `hermes-yolo-test-${process.pid}.lock`);
 try {
-  // Use HERMES_YOLO_NO_PREFLIGHT to bypass the slow Telegram API calls during testing
-  const stdout = execSync(`HERMES_YOLO_NO_PREFLIGHT=1 node ${binaryPath} --version`, {
+  try { fs.unlinkSync(testLockPath); } catch (e) { /* may not exist */ }
+  // HERMES_YOLO_NO_PREFLIGHT bypasses slow Telegram API calls during testing
+  const stdout = execSync(`HERMES_YOLO_NO_PREFLIGHT=1 HERMES_YOLO_LOCK_PATH=${testLockPath} node ${binaryPath} --version`, {
     encoding: 'utf8'
   });
   console.log('  [TEST] Execution output:\n' + stdout.split('\n').map(l => '    ' + l).join('\n'));
