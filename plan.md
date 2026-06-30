@@ -51,6 +51,7 @@ Durable rules live in [AGENTS.md](./AGENTS.md); this file is *live state only*.
 | T-30 | Hermes economic multi-agent router with budget receipts | done | codex | `tools/hermes-economic-router.js`, `tests/test-hermes-economic-router.js`, `docs/HERMES-ECONOMIC-ROUTER.md`, `plan.md` | router chooses local/paid/escalation routes by risk, budget, latency, and proof gates; emits receipts; tests pass |
 | T-31 | Fix Mac mini `hermes-yolo` missing-model crash and GLM routing | done | codex | `hermes-yolo-wrapper.js`, `tests/test-hermes-yolo.js`, `plan.md` | Mac mini wrapper selects `custom:openrouter-glm52` / `z-ai/glm-5.2` when OpenRouter is present; smoke returned `HERMES-YOLO-SMOKE`; tests pass |
 | T-32 | Align direct Z.ai `hermes-yolo` provider ids across Macs | done | codex | `hermes-yolo-wrapper.js`, `tests/test-hermes-yolo.js`, `plan.md` | Local and Mac mini `hermes-yolo` route direct Z.ai when `Z_AI_API_KEY` exists and smoke passes |
+| T-33 | Multi-agent pipeline guards (retry ceiling + failure_source + independent-context critic) | done | hermes | `tools/multi-agent-pipeline.js`, `tests/test-multi-agent-pipeline.js`, `docs/MULTI-AGENT-PIPELINE.md`, `plan.md` | `node tests/test-multi-agent-pipeline.js` passes (11/11): retry ceiling halts loops, `failure_source` attributes the failing agent, critic runs with an empty history (no anchoring), and an end-to-end pipeline surfaces best-effort output when critique keeps failing |
 
 Status values: `pending` | `in_progress` | `blocked` | `done`. Claim a row by setting Owner+Status in one edit, then claim its files in §2.
 
@@ -90,6 +91,7 @@ Status values: `pending` | `in_progress` | `blocked` | `done`. Claim a row by se
 - `tools/hermes-ai-vault.js`, `tests/test-hermes-ai-vault.js`, `docs/HERMES-AI-VAULT.md` → **codex** (T-22 LLM vault wiring) (2026-06-29)
 - `tools/recursive-experiment-loop.js`, `tests/test-recursive-experiment-loop.js`, `docs/RECURSIVE-EXPERIMENT-LOOP.md` → **codex** (T-23 Arena-style token efficiency gate) (2026-06-29)
 - `tools/skool-restaurant-answering.js`, `tests/test-skool-restaurant-answering.js`, `docs/SKOOL-RESTAURANT-ANSWERING.md` → **antigravity** (T-24) — released (2026-06-29)
+- `tools/multi-agent-pipeline.js`, `tests/test-multi-agent-pipeline.js`, `docs/MULTI-AGENT-PIPELINE.md` → **hermes** (T-33) (2026-06-30)
 - `hermes-mobile/.maestro/navigation.yaml`, `hermes-mobile/.maestro/ship-guard.yaml` → **antigravity** (T-25) (2026-06-29)
 - `tools/hermes-all-macs-setup.js`, `tests/test-hermes-all-macs-setup.js`, `docs/HERMES-ALL-MACS-SETUP.md` → **codex** (T-26) — released (2026-06-29)
 - `tools/hermes-all-macs-setup.js`, `tests/test-hermes-all-macs-setup.js` → **antigravity** (T-27) (2026-06-29)
