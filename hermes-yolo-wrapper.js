@@ -2,7 +2,7 @@
 'use strict';
 
 const fs = require('fs');
-const { spawn, execSync } = require('child_process');
+const { spawn, execFileSync, execSync } = require('child_process');
 const os = require('os');
 const path = require('path');
 const crypto = require('crypto');
@@ -25,20 +25,93 @@ const STATUS_PATH = findStatusPath();
 const cwdHash = crypto.createHash('md5').update(process.cwd()).digest('hex').substring(0, 8);
 const LOCK_PATH = process.env.HERMES_YOLO_LOCK_PATH || `/tmp/hermes-yolo-${cwdHash}.lock`;
 const LOG_PATH = process.env.HERMES_YOLO_LOG_PATH || `/tmp/hermes-yolo-${cwdHash}.log`;
+const HERMES_ENV_PATH = process.env.HERMES_ENV_PATH || path.join(HOME, '.hermes', '.env');
 
 // All thresholds overridable via env vars.
 const HERMES_BIN = process.env.HERMES_BIN || path.join(HOME, '.local/bin/hermes');
 const DEFAULT_TOOLSETS = process.env.HERMES_YOLO_TOOLSETS || 'terminal,file,web,code_execution,memory,clarify';
 
+function parseEnvFile(filePath = HERMES_ENV_PATH) {
+  if (!filePath || !fs.existsSync(filePath)) return {};
+  const parsed = {};
+  const text = fs.readFileSync(filePath, 'utf8');
+  for (const rawLine of text.split(/\r?\n/)) {
+    const line = rawLine.trim();
+    if (!line || line.startsWith('#')) continue;
+    const match = line.match(/^(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)=(.*)$/);
+    if (!match) continue;
+    let value = match[2].trim();
+    if (
+      (value.startsWith('"') && value.endsWith('"')) ||
+      (value.startsWith("'") && value.endsWith("'"))
+    ) {
+      value = value.slice(1, -1);
+    }
+    parsed[match[1]] = value;
+  }
+  return parsed;
+}
+
+function mergedHermesEnv(env = process.env, envFilePath = HERMES_ENV_PATH) {
+  return Object.assign({}, parseEnvFile(envFilePath), env);
+}
+
 function hasZaiKey(env = process.env) {
   return Boolean(env.Z_AI_API_KEY || env.ZAI_API_KEY);
 }
 
-function defaultModelRoute(env = process.env) {
+function hasOpenRouterKey(env = process.env) {
+  return Boolean(env.OPENROUTER_API_KEY);
+}
+
+function findOllamaBinary() {
+  const candidates = [
+    process.env.OLLAMA_BIN,
+    '/opt/homebrew/bin/ollama',
+    '/usr/local/bin/ollama',
+    '/Applications/Ollama.app/Contents/Resources/ollama',
+  ].filter(Boolean);
+  for (const candidate of candidates) {
+    if (fs.existsSync(candidate)) return candidate;
+  }
+  try {
+    return execSync('command -v ollama', { encoding: 'utf8', timeout: 2000, stdio: ['ignore', 'pipe', 'ignore'] }).trim();
+  } catch (e) {
+    return null;
+  }
+}
+
+function listOllamaModels() {
+  const ollamaBin = findOllamaBinary();
+  if (!ollamaBin) return [];
+  try {
+    return execFileSync(ollamaBin, ['list'], { encoding: 'utf8', timeout: 5000, stdio: ['ignore', 'pipe', 'ignore'] })
+      .split('\n')
+      .slice(1)
+      .map((line) => line.trim().split(/\s+/)[0])
+      .filter(Boolean);
+  } catch (e) {
+    return [];
+  }
+}
+
+function chooseLocalModel(availableModels = listOllamaModels()) {
+  const candidates = [
+    'qwen2.5:3b-64k',
+    'qwen3:8b-agent-64k',
+    'qwen3:8b-64k',
+    'qwen3:8b-agent-32k',
+    'qwen3:8b',
+    'qwen2.5:3b',
+  ];
+  return candidates.find((model) => availableModels.includes(model)) || 'qwen2.5:3b-64k';
+}
+
+function defaultModelRoute(env = process.env, options = {}) {
   if (env.HERMES_YOLO_PROVIDER || env.HERMES_YOLO_MODEL) {
     return {
       provider: env.HERMES_YOLO_PROVIDER || 'custom:ollama-local-64k',
-      model: env.HERMES_YOLO_MODEL || 'qwen2.5:3b-64k',
+      model: env.HERMES_YOLO_MODEL || chooseLocalModel(options.availableModels),
     };
   }
 
@@ -49,13 +122,21 @@ function defaultModelRoute(env = process.env) {
     };
   }
 
+  if (hasOpenRouterKey(env)) {
+    return {
+      provider: 'custom:openrouter-glm52',
+      model: 'z-ai/glm-5.2',
+    };
+  }
+
   return {
     provider: 'custom:ollama-local-64k',
-    model: 'qwen2.5:3b-64k',
+    model: chooseLocalModel(options.availableModels),
   };
 }
 
-const DEFAULT_ROUTE = defaultModelRoute();
+const ROUTE_ENV = mergedHermesEnv();
+const DEFAULT_ROUTE = defaultModelRoute(ROUTE_ENV);
 const DEFAULT_PROVIDER = DEFAULT_ROUTE.provider;
 const DEFAULT_MODEL = DEFAULT_ROUTE.model;
 
@@ -226,7 +307,7 @@ updateStatus(data => {
 });
 
 // Run with HERMES_YOLO=1 and HERMES_ACCEPT_HOOKS=1 env set.
-const env = Object.assign({}, process.env, {
+const env = Object.assign({}, ROUTE_ENV, {
   HERMES_YOLO: '1',
   HERMES_ACCEPT_HOOKS: '1'
 });
@@ -370,7 +451,12 @@ process.on('exit', releaseLock);
 module.exports = {
   buildChildPromptArgs,
   defaultModelRoute,
+  chooseLocalModel,
+  findOllamaBinary,
+  hasOpenRouterKey,
   hasZaiKey,
+  mergedHermesEnv,
+  parseEnvFile,
   HERMES_COMMANDS,
   DEFAULT_READY_PROMPT
 };
