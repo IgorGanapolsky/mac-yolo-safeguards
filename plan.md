@@ -49,6 +49,7 @@ Durable rules live in [AGENTS.md](./AGENTS.md); this file is *live state only*.
 | T-28 | Stop `hermes-yolo` 5-minute crash loop on all Macs | done | codex | `hermes-yolo-wrapper.js`, `tests/test-hermes-yolo.js`, `README.md` | wrapper defaults to local Ollama route, CPU watchdog is opt-in, local and Mac mini smokes return `HERMES-YOLO-SMOKE` with exit 0 |
 | T-29 | Split chat-send Maestro bootstrap from Leash assertions | done | codex | `hermes-mobile/.maestro/chat-e2e-bootstrap.yaml`, `hermes-mobile/.maestro/chat-send-persistence.yaml`, `hermes-mobile/.maestro/e2e-bootstrap.yaml`, `hermes-mobile/src/__tests__/releaseSafetyContract.test.ts`, `plan.md` | targeted release safety contract passes and chat-send-persistence uses chat bootstrap without Leash assertion |
 | T-30 | Hermes economic multi-agent router with budget receipts | done | codex | `tools/hermes-economic-router.js`, `tests/test-hermes-economic-router.js`, `docs/HERMES-ECONOMIC-ROUTER.md`, `plan.md` | router chooses local/paid/escalation routes by risk, budget, latency, and proof gates; emits receipts; tests pass |
+| T-31 | Fix Mac mini `hermes-yolo` missing-model crash and GLM routing | in_progress | codex | `hermes-yolo-wrapper.js`, `tests/test-hermes-yolo.js`, `plan.md` | Mac mini wrapper no longer selects missing `qwen2.5:3b-64k`; smoke returns `HERMES-YOLO-SMOKE`; tests pass |
 
 Status values: `pending` | `in_progress` | `blocked` | `done`. Claim a row by setting Owner+Status in one edit, then claim its files in §2.
 
@@ -94,6 +95,7 @@ Status values: `pending` | `in_progress` | `blocked` | `done`. Claim a row by se
 - `hermes-yolo-wrapper.js`, `tests/test-hermes-yolo.js`, `README.md` → **codex** (T-28) — released (2026-06-29)
 - `hermes-mobile/.maestro/chat-e2e-bootstrap.yaml`, `hermes-mobile/.maestro/chat-send-persistence.yaml`, `hermes-mobile/.maestro/e2e-bootstrap.yaml`, `hermes-mobile/src/__tests__/releaseSafetyContract.test.ts` → **codex** (T-29 cleanup branch) (2026-06-29)
 - `tools/hermes-economic-router.js`, `tests/test-hermes-economic-router.js`, `docs/HERMES-ECONOMIC-ROUTER.md` → **codex** (T-30 economic multi-agent router) (2026-06-30)
+- `hermes-yolo-wrapper.js`, `tests/test-hermes-yolo.js` → **codex** (T-31 Mac mini missing-model crash fix) (2026-06-30)
 - `AGENTS.md`, `plan.md` → shared coordination files (append-only edits, commit first)
 - everything else → (free)
 
