@@ -9,18 +9,50 @@ appId: com.iganapolsky.hermesmobile
         text: "Open"
     commands:
       - tapOn: "Open"
-- openLink: "hermes://dev/leash-unlock"
+- runFlow: dismiss-print-interruption.yaml
+# setup?demo=1 is async — wait for demo Chat before leash-unlock or setup races back to Chat.
+- extendedWaitUntil:
+    notVisible:
+      id: "hermes-bootstrap"
+    timeout: 90000
+- openLink: "hermes://chat"
+- runFlow:
+    when:
+      notVisible:
+        id: "chat-screen-header"
+    commands:
+      - hideKeyboard
+      - tapOn:
+          id: "tab-hermes"
 - extendedWaitUntil:
     notVisible:
       id: "connect-mac-gate"
     timeout: 30000
+- extendedWaitUntil:
+    visible:
+      id: "chat-screen-header"
+    timeout: 90000
+- extendedWaitUntil:
+    visible:
+      id: "chat-input"
+    timeout: 90000
 - hideKeyboard
-- openLink: "hermes://leash"
+- openLink: "hermes://dev/leash-unlock"
 - extendedWaitUntil:
     notVisible:
       id: "tab-screen-loading"
     timeout: 90000
 - hideKeyboard
+- openLink: "hermes://leash"
+# Android release: Maestro openLink may not switch tabs — tap Leash when deep link is a no-op.
+- runFlow:
+    when:
+      notVisible:
+        id: "THUMBGATE_LEASH"
+    commands:
+      - hideKeyboard
+      - tapOn:
+          id: "tab-leash"
 - extendedWaitUntil:
     visible:
       id: "THUMBGATE_LEASH"
@@ -47,13 +79,27 @@ appId: com.iganapolsky.hermesmobile
     timeout: 2000
 # Tab bar taps fail on iOS sim when keyboard inset sets tab bar pointerEvents=none — deep link instead.
 - openLink: "hermes://chat"
+- runFlow: dismiss-print-interruption.yaml
+- runFlow:
+    when:
+      notVisible:
+        id: "chat-screen-header"
+    commands:
+      - hideKeyboard
+      - tapOn:
+          id: "tab-hermes"
 - extendedWaitUntil:
     visible:
       id: "chat-screen-header"
     timeout: 90000
 - hideKeyboard
+- extendedWaitUntil:
+    visible:
+      id: "chat-composer-dock"
+    timeout: 90000
 - scrollUntilVisible:
     element:
       id: "chat-input"
     direction: UP
     timeout: 90000
+    visibilityPercentage: 50

@@ -1,0 +1,28 @@
+# Dismiss Canon/Android print sheets that steal focus during USB Maestro runs.
+appId: com.iganapolsky.hermesmobile
+---
+- repeat:
+    times: 4
+    commands:
+      - runFlow:
+          when:
+            visible: "Do you want to use the following printer?"
+          commands:
+            - tapOn: "No"
+      - runFlow:
+          when:
+            visible: "Cancel"
+          commands:
+            - tapOn: "Cancel"
+      - runFlow:
+          when:
+            visible: "Print"
+          commands:
+            - back
+      - waitForAnimationToEnd:
+          timeout: 400
+- runFlow:
+    when:
+      visible: "Print"
+    commands:
+      - launchApp

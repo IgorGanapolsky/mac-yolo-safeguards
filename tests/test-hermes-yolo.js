@@ -10,7 +10,20 @@ const WRAPPER_PATH = path.resolve(__dirname, '../hermes-yolo-wrapper.js');
 console.log('=== Running hermes-yolo-wrapper tests ===\n');
 
 // 1. Load the wrapper module (thanks to our module.exports check)
-const { buildChildPromptArgs, defaultModelRoute, hasZaiKey, HERMES_COMMANDS, DEFAULT_READY_PROMPT } = require(WRAPPER_PATH);
+const {
+  buildChildPromptArgs,
+  chooseLocalModel,
+  chooseZaiProvider,
+  configuredProviderIds,
+  defaultModelRoute,
+  findOllamaBinary,
+  hasOpenRouterKey,
+  hasZaiKey,
+  mergedHermesEnv,
+  parseEnvFile,
+  HERMES_COMMANDS,
+  DEFAULT_READY_PROMPT,
+} = require(WRAPPER_PATH);
 
 console.log('Testing buildChildPromptArgs...');
 
@@ -109,13 +122,45 @@ console.log('\nTesting live wrapper execution...');
 console.log('\nTesting default model routing...');
 assert.strictEqual(hasZaiKey({}), false);
 assert.strictEqual(hasZaiKey({ Z_AI_API_KEY: 'zai-key' }), true);
-assert.deepStrictEqual(defaultModelRoute({}), {
+assert.strictEqual(hasOpenRouterKey({}), false);
+assert.strictEqual(hasOpenRouterKey({ OPENROUTER_API_KEY: 'openrouter-key' }), true);
+assert.strictEqual(typeof findOllamaBinary, 'function');
+assert.strictEqual(chooseZaiProvider(['zai-coding-glm']), 'custom:zai-coding-glm');
+assert.strictEqual(chooseZaiProvider(['zai-coding-nothink']), 'custom:zai-coding-nothink');
+assert.strictEqual(chooseZaiProvider([]), 'zai');
+assert.strictEqual(chooseLocalModel(['qwen3:8b-agent-64k', 'qwen3:8b']), 'qwen3:8b-agent-64k');
+assert.strictEqual(chooseLocalModel(['qwen3:8b-64k']), 'qwen3:8b-64k');
+assert.deepStrictEqual(defaultModelRoute({}, { availableModels: ['qwen2.5:3b-64k'] }), {
   provider: 'custom:ollama-local-64k',
   model: 'qwen2.5:3b-64k',
 });
-assert.deepStrictEqual(defaultModelRoute({ Z_AI_API_KEY: 'zai-key' }), {
+assert.deepStrictEqual(defaultModelRoute({}, { availableModels: ['qwen3:8b-agent-64k'] }), {
+  provider: 'custom:ollama-local-64k',
+  model: 'qwen3:8b-agent-64k',
+});
+assert.deepStrictEqual(defaultModelRoute({ Z_AI_API_KEY: 'zai-key' }, {
+  configuredProviderIds: ['zai-coding-glm'],
+}), {
   provider: 'custom:zai-coding-glm',
   model: 'glm-5.2',
+});
+assert.deepStrictEqual(defaultModelRoute({ Z_AI_API_KEY: 'zai-key' }, {
+  configuredProviderIds: ['zai-coding-nothink'],
+}), {
+  provider: 'custom:zai-coding-nothink',
+  model: 'glm-5.2',
+});
+assert.deepStrictEqual(defaultModelRoute({ Z_AI_API_KEY: 'zai-key' }, {
+  configuredProviderIds: [],
+}), {
+  provider: 'zai',
+  model: 'glm-5.2',
+});
+assert.deepStrictEqual(defaultModelRoute({
+  OPENROUTER_API_KEY: 'openrouter-key',
+}, { availableModels: ['qwen3:8b-agent-64k'] }), {
+  provider: 'custom:openrouter-glm52',
+  model: 'z-ai/glm-5.2',
 });
 assert.deepStrictEqual(defaultModelRoute({
   Z_AI_API_KEY: 'zai-key',
@@ -125,6 +170,40 @@ assert.deepStrictEqual(defaultModelRoute({
   provider: 'custom:test-provider',
   model: 'test-model',
 });
+
+const tmpEnvPath = path.join(require('os').tmpdir(), `hermes-yolo-env-${process.pid}.env`);
+fs.writeFileSync(tmpEnvPath, [
+  '# comment',
+  'OPENROUTER_API_KEY=openrouter-key',
+  'Z_AI_API_KEY=',
+  'HERMES_YOLO_MODEL="qwen3:8b-agent-64k"',
+  '',
+].join('\n'));
+try {
+  const parsed = parseEnvFile(tmpEnvPath);
+  assert.strictEqual(parsed.OPENROUTER_API_KEY, 'openrouter-key');
+  assert.strictEqual(parsed.HERMES_YOLO_MODEL, 'qwen3:8b-agent-64k');
+  const merged = mergedHermesEnv({ HERMES_YOLO_MODEL: 'override-model' }, tmpEnvPath);
+  assert.strictEqual(merged.OPENROUTER_API_KEY, 'openrouter-key');
+  assert.strictEqual(merged.HERMES_YOLO_MODEL, 'override-model');
+} finally {
+  fs.unlinkSync(tmpEnvPath);
+}
+
+const tmpConfigPath = path.join(require('os').tmpdir(), `hermes-yolo-config-${process.pid}.yaml`);
+fs.writeFileSync(tmpConfigPath, [
+  'providers:',
+  '  zai-coding-nothink:',
+  '    model: glm-5.2',
+  '  openrouter-glm52:',
+  '    model: z-ai/glm-5.2',
+  '',
+].join('\n'));
+try {
+  assert.deepStrictEqual(configuredProviderIds(tmpConfigPath), ['zai-coding-nothink', 'openrouter-glm52']);
+} finally {
+  fs.unlinkSync(tmpConfigPath);
+}
 
 // 2. Test live wrapper execution (using --version as a fast safe check)
 const binaryPath = path.resolve(__dirname, '../hermes-yolo-wrapper.js');

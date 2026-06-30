@@ -135,12 +135,38 @@ if [[ -z "$ANDROID_ID" && "${HERMES_E2E_ANDROID_ONLY:-}" == "1" ]]; then
   exit 1
 fi
 
+run_android_maestro_flow() {
+  local device_id="$1"
+  local flow="$2"
+  local attempt=1
+  local max_attempts="${MAESTRO_ANDROID_PREP_RETRIES:-3}"
+  cd "$HERMES_DIR"
+  while [[ $attempt -le $max_attempts ]]; do
+    echo "Maestro Android attempt ${attempt}/${max_attempts}..."
+    if ! prepare_android_maestro_driver "$device_id"; then
+      attempt=$((attempt + 1))
+      sleep 5
+      continue
+    fi
+    if maestro test -p android --udid "$device_id" "$flow"; then
+      return 0
+    fi
+    echo "Maestro attempt ${attempt} failed for ${flow}" >&2
+    attempt=$((attempt + 1))
+    sleep 8
+  done
+  return 1
+}
+
 if [[ -n "$ANDROID_ID" ]]; then
   echo "=== Hermes Mobile Android Device E2E ==="
   echo "Device: $ANDROID_ID"
   echo "Flow:   $FLOW"
-  cd "$HERMES_DIR"
-  maestro test -p android --udid "$ANDROID_ID" "$FLOW"
+  echo "Maestro driver timeout: ${MAESTRO_DRIVER_STARTUP_TIMEOUT}ms"
+  if ! run_android_maestro_flow "$ANDROID_ID" "$FLOW"; then
+    echo "=== Android Device E2E: FAIL ===" >&2
+    exit 1
+  fi
   echo "=== Android Device E2E: PASS ==="
   exit 0
 fi

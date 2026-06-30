@@ -2,6 +2,11 @@
 appId: com.iganapolsky.hermesmobile
 ---
 - launchApp
+- extendedWaitUntil:
+    notVisible:
+      id: "hermes-bootstrap"
+    timeout: 90000
+- runFlow: dismiss-print-interruption.yaml
 - runFlow: e2e-bootstrap.yaml
 
 # Metro / debug crash screen
@@ -19,6 +24,9 @@ appId: com.iganapolsky.hermesmobile
         id: "chat-screen-header"
     commands:
       - openLink: "hermes://chat"
+      - hideKeyboard
+      - tapOn:
+          id: "tab-hermes"
 
 - extendedWaitUntil:
     visible:
@@ -26,15 +34,11 @@ appId: com.iganapolsky.hermesmobile
     timeout: 30000
 
 - hideKeyboard
-- scrollUntilVisible:
-    element:
-      id: "chat-input"
-    direction: UP
-    timeout: 45000
+- runFlow: dismiss-print-interruption.yaml
 - extendedWaitUntil:
     visible:
       id: "chat-input"
-    timeout: 30000
+    timeout: 45000
 
 - hideKeyboard
 - openLink: "hermes://leash"
@@ -43,10 +47,18 @@ appId: com.iganapolsky.hermesmobile
       id: "tab-screen-loading"
     timeout: 90000
 - hideKeyboard
+- runFlow:
+    when:
+      notVisible:
+        id: "THUMBGATE_LEASH"
+    commands:
+      - hideKeyboard
+      - tapOn:
+          id: "tab-leash"
 - extendedWaitUntil:
     visible:
       id: "THUMBGATE_LEASH"
-    timeout: 45000
+    timeout: 90000
 
 - openLink: "hermes://settings"
 - extendedWaitUntil:
