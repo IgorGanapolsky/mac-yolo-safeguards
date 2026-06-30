@@ -13,6 +13,8 @@ console.log('=== Running hermes-yolo-wrapper tests ===\n');
 const {
   buildChildPromptArgs,
   chooseLocalModel,
+  chooseZaiProvider,
+  configuredProviderIds,
   defaultModelRoute,
   findOllamaBinary,
   hasOpenRouterKey,
@@ -123,6 +125,9 @@ assert.strictEqual(hasZaiKey({ Z_AI_API_KEY: 'zai-key' }), true);
 assert.strictEqual(hasOpenRouterKey({}), false);
 assert.strictEqual(hasOpenRouterKey({ OPENROUTER_API_KEY: 'openrouter-key' }), true);
 assert.strictEqual(typeof findOllamaBinary, 'function');
+assert.strictEqual(chooseZaiProvider(['zai-coding-glm']), 'custom:zai-coding-glm');
+assert.strictEqual(chooseZaiProvider(['zai-coding-nothink']), 'custom:zai-coding-nothink');
+assert.strictEqual(chooseZaiProvider([]), 'zai');
 assert.strictEqual(chooseLocalModel(['qwen3:8b-agent-64k', 'qwen3:8b']), 'qwen3:8b-agent-64k');
 assert.strictEqual(chooseLocalModel(['qwen3:8b-64k']), 'qwen3:8b-64k');
 assert.deepStrictEqual(defaultModelRoute({}, { availableModels: ['qwen2.5:3b-64k'] }), {
@@ -133,8 +138,22 @@ assert.deepStrictEqual(defaultModelRoute({}, { availableModels: ['qwen3:8b-agent
   provider: 'custom:ollama-local-64k',
   model: 'qwen3:8b-agent-64k',
 });
-assert.deepStrictEqual(defaultModelRoute({ Z_AI_API_KEY: 'zai-key' }), {
+assert.deepStrictEqual(defaultModelRoute({ Z_AI_API_KEY: 'zai-key' }, {
+  configuredProviderIds: ['zai-coding-glm'],
+}), {
   provider: 'custom:zai-coding-glm',
+  model: 'glm-5.2',
+});
+assert.deepStrictEqual(defaultModelRoute({ Z_AI_API_KEY: 'zai-key' }, {
+  configuredProviderIds: ['zai-coding-nothink'],
+}), {
+  provider: 'custom:zai-coding-nothink',
+  model: 'glm-5.2',
+});
+assert.deepStrictEqual(defaultModelRoute({ Z_AI_API_KEY: 'zai-key' }, {
+  configuredProviderIds: [],
+}), {
+  provider: 'zai',
   model: 'glm-5.2',
 });
 assert.deepStrictEqual(defaultModelRoute({
@@ -169,6 +188,21 @@ try {
   assert.strictEqual(merged.HERMES_YOLO_MODEL, 'override-model');
 } finally {
   fs.unlinkSync(tmpEnvPath);
+}
+
+const tmpConfigPath = path.join(require('os').tmpdir(), `hermes-yolo-config-${process.pid}.yaml`);
+fs.writeFileSync(tmpConfigPath, [
+  'providers:',
+  '  zai-coding-nothink:',
+  '    model: glm-5.2',
+  '  openrouter-glm52:',
+  '    model: z-ai/glm-5.2',
+  '',
+].join('\n'));
+try {
+  assert.deepStrictEqual(configuredProviderIds(tmpConfigPath), ['zai-coding-nothink', 'openrouter-glm52']);
+} finally {
+  fs.unlinkSync(tmpConfigPath);
 }
 
 // 2. Test live wrapper execution (using --version as a fast safe check)

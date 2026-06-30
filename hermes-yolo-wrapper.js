@@ -26,6 +26,7 @@ const cwdHash = crypto.createHash('md5').update(process.cwd()).digest('hex').sub
 const LOCK_PATH = process.env.HERMES_YOLO_LOCK_PATH || `/tmp/hermes-yolo-${cwdHash}.lock`;
 const LOG_PATH = process.env.HERMES_YOLO_LOG_PATH || `/tmp/hermes-yolo-${cwdHash}.log`;
 const HERMES_ENV_PATH = process.env.HERMES_ENV_PATH || path.join(HOME, '.hermes', '.env');
+const HERMES_CONFIG_PATH = process.env.HERMES_CONFIG_PATH || path.join(HOME, '.hermes', 'config.yaml');
 
 // All thresholds overridable via env vars.
 const HERMES_BIN = process.env.HERMES_BIN || path.join(HOME, '.local/bin/hermes');
@@ -62,6 +63,23 @@ function hasZaiKey(env = process.env) {
 
 function hasOpenRouterKey(env = process.env) {
   return Boolean(env.OPENROUTER_API_KEY);
+}
+
+function configuredProviderIds(configPath = HERMES_CONFIG_PATH) {
+  if (!configPath || !fs.existsSync(configPath)) return [];
+  const text = fs.readFileSync(configPath, 'utf8');
+  const ids = [];
+  for (const line of text.split(/\r?\n/)) {
+    const match = line.match(/^\s{2}([A-Za-z0-9_-]+):\s*$/);
+    if (match) ids.push(match[1]);
+  }
+  return ids;
+}
+
+function chooseZaiProvider(configuredIds = configuredProviderIds()) {
+  const preferred = ['zai-coding-glm', 'zai-coding-nothink'];
+  const id = preferred.find((candidate) => configuredIds.includes(candidate));
+  return id ? `custom:${id}` : 'zai';
 }
 
 function findOllamaBinary() {
@@ -117,7 +135,7 @@ function defaultModelRoute(env = process.env, options = {}) {
 
   if (hasZaiKey(env)) {
     return {
-      provider: 'custom:zai-coding-glm',
+      provider: chooseZaiProvider(options.configuredProviderIds),
       model: 'glm-5.2',
     };
   }
@@ -452,6 +470,8 @@ module.exports = {
   buildChildPromptArgs,
   defaultModelRoute,
   chooseLocalModel,
+  chooseZaiProvider,
+  configuredProviderIds,
   findOllamaBinary,
   hasOpenRouterKey,
   hasZaiKey,
