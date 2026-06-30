@@ -2,6 +2,10 @@
 appId: com.iganapolsky.hermesmobile
 ---
 - launchApp
+- extendedWaitUntil:
+    notVisible:
+      id: "hermes-bootstrap"
+    timeout: 90000
 - runFlow: dismiss-print-interruption.yaml
 - runFlow: chat-e2e-bootstrap.yaml
 - runFlow:

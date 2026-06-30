@@ -10,6 +10,10 @@ appId: com.iganapolsky.hermesmobile
       - tapOn: "Open"
 - runFlow: dismiss-print-interruption.yaml
 # Wait for async demo setup (navigates to Chat) before leash-unlock.
+- extendedWaitUntil:
+    notVisible:
+      id: "hermes-bootstrap"
+    timeout: 90000
 - openLink: "hermes://chat"
 - runFlow:
     when:
@@ -26,6 +30,10 @@ appId: com.iganapolsky.hermesmobile
 - extendedWaitUntil:
     visible:
       id: "chat-screen-header"
+    timeout: 90000
+- extendedWaitUntil:
+    visible:
+      id: "chat-input"
     timeout: 90000
 - hideKeyboard
 - openLink: "hermes://dev/leash-unlock"
@@ -51,11 +59,5 @@ appId: com.iganapolsky.hermesmobile
 - hideKeyboard
 - extendedWaitUntil:
     visible:
-      id: "chat-composer-dock"
-    timeout: 90000
-- scrollUntilVisible:
-    element:
       id: "chat-input"
-    direction: UP
     timeout: 90000
-    visibilityPercentage: 50
