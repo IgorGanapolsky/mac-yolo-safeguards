@@ -14,7 +14,7 @@ FLOW="${1:-.maestro/full-suite.yaml}"
 wait_for_simulator_boot() {
   local udid="$1"
   echo "Waiting for simulator boot (bootstatus, up to ${MAESTRO_READY_TIMEOUT_SEC}s)..." >&2
-  xcrun simctl bootstatus "$udid" -b &
+  xcrun simctl bootstatus "$udid" -b >&2 &
   local pid=$!
   local elapsed=0
   while kill -0 "$pid" 2>/dev/null; do
@@ -36,8 +36,8 @@ wait_for_maestro_ios_device() {
   local elapsed=0
   local interval=3
   while [[ $elapsed -lt $MAESTRO_READY_TIMEOUT_SEC ]]; do
-    if xcrun simctl list devices booted 2>/dev/null | grep -q "$udid"; then
-      if maestro list-devices 2>/dev/null | grep -qiE 'iPhone|iOS'; then
+    if xcrun simctl list devices booted 2>/dev/null | grep -Fq "$udid"; then
+      if maestro list-devices 2>/dev/null | grep -Fqi 'iPhone'; then
         echo "Maestro sees iOS simulator (${elapsed}s)" >&2
         return 0
       fi
@@ -61,13 +61,13 @@ fi
 
 resolve_sim_udid() {
   local booted
-  booted="$(xcrun simctl list devices booted 2>/dev/null | grep -oE '[0-9A-F-]{36}' | head -1 || true)"
+  booted="$(xcrun simctl list devices booted 2>/dev/null | grep -Eo '[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12}' | head -1 || true)"
   if [ -n "$booted" ]; then
     echo "$booted"
     return
   fi
   local udid
-  udid="$(xcrun simctl list devices available 2>/dev/null | grep "$DEFAULT_SIM_NAME (" | head -1 | grep -oE '[0-9A-F-]{36}' || true)"
+  udid="$(xcrun simctl list devices available 2>/dev/null | grep "$DEFAULT_SIM_NAME (" | head -1 | grep -Eo '[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12}' || true)"
   if [ -z "$udid" ]; then
     echo "No simulator named '$DEFAULT_SIM_NAME' found." >&2
     exit 1
