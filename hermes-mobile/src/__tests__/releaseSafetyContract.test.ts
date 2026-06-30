@@ -79,7 +79,7 @@ describe('release safety contract', () => {
     expect(bootstrap).toContain('hermes://dev/leash-unlock');
     expect(bootstrap).toContain('hermes://chat');
     expect(bootstrap).toContain('chat-screen-header');
-    expect(bootstrap).toContain('chat-composer-dock');
+    expect(bootstrap).toContain('id: "chat-input"');
     expect(bootstrap).toContain('id: "THUMBGATE_LEASH"');
     expect(bootstrap).toContain('id: "tab-leash"');
     expect(bootstrap).toContain('id: "tab-hermes"');
@@ -200,7 +200,7 @@ describe('release safety contract', () => {
     expect(bootstrap).toContain('THUMBGATE_LEASH');
     expect(bootstrap).toContain('hermes://chat');
     expect(bootstrap).toContain('chat-screen-header');
-    expect(bootstrap).toContain('chat-composer-dock');
+    expect(bootstrap).toContain('chat-input');
   });
 
   it('chat-send-persistence uses chat bootstrap without Leash assert', () => {

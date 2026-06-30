@@ -95,5 +95,11 @@ appId: com.iganapolsky.hermesmobile
 - hideKeyboard
 - extendedWaitUntil:
     visible:
-      id: "chat-input"
+      id: "chat-composer-dock"
     timeout: 90000
+- scrollUntilVisible:
+    element:
+      id: "chat-input"
+    direction: UP
+    timeout: 90000
+    visibilityPercentage: 50
