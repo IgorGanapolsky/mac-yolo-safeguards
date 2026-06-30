@@ -1,3 +1,4 @@
+import { isRunningInExpoGo } from 'expo';
 import { AppState, Platform } from 'react-native';
 import type { RunProgressState } from '../types/chatDisplay';
 import type { PendingApproval } from '../types/gateway';
@@ -48,6 +49,12 @@ export type ApprovalNotificationAction = {
 
 async function loadNotifications(): Promise<NotificationModule | null> {
   if (Platform.OS === 'web') {
+    return null;
+  }
+  // expo-notifications throws synchronously at import time on Android Expo Go
+  // (push notifications were removed from Expo Go in SDK 53). Skip the import
+  // entirely there instead of letting it crash the app on launch.
+  if (Platform.OS === 'android' && isRunningInExpoGo()) {
     return null;
   }
   if (!notificationsModule) {
