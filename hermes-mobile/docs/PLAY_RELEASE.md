@@ -11,11 +11,14 @@ Hermes uses a **Google Play Organization** developer account (LLC), not a person
 
 ## Accounts
 
-| Role | Email |
+| Role | Email / ID |
 |---|---|
 | Play Console org admin | `iganapolsky@gmail.com` |
-| Play API service account | Created in Play Console → Setup → API access (LLC org) |
+| Play API service account (CI today) | `liposhield-publisher@random-timer-dist-new.iam.gserviceaccount.com` |
+| GCP project (Play API key) | `random-timer-dist-new` |
 | Firebase / GCP (separate) | `hermes-mobile-dist-78361` — see [FIREBASE_CI.md](./FIREBASE_CI.md) |
+
+CI reads the Play key from GitHub secret **`GOOGLE_SERVICE_ACCOUNT_JSON`**, populated by `./scripts/sync-hermes-secrets.sh` from `EXPO_ANDROID_SERVICE_ACCOUNT_KEY_PATH` in `hermes-mobile/.env`. `store-release.yml` writes that secret to `$RUNNER_TEMP/google-service-account.json` before EAS submit. **Never commit or paste the JSON key** — only the service-account email above is safe to reference in docs and logs.
 
 **Do not** reuse the Firebase service account JSON for Play submit. Play needs a key linked under **Play Console → API access**.
 
@@ -27,18 +30,51 @@ Prerequisites: registered **LLC** (or other legal entity), **D-U-N-S** number (l
 
 ## One-time Play Console setup (LLC org)
 
+**Prerequisite:** the app must already exist in Play Console under the **LLC organization** developer account before API access or submit will work. EAS can build an AAB without this, but submit fails with permission / app-not-found errors until **Hermes Mobile** (`com.iganapolsky.hermesmobile`) is created there.
+
 1. [Google Play Console](https://play.google.com/console) → confirm account type is **Organization** (LLC), or **Developer account → About you → Change account type → Organization**.
-2. Create app **Hermes Mobile** with package `com.iganapolsky.hermesmobile`.
+2. **Create app** → **Hermes Mobile** with package `com.iganapolsky.hermesmobile`.
 3. Complete required store listing, content rating, data safety, and target audience.
-4. **Setup → API access** → link a Google Cloud project → create service account → grant **Release to production** (or Admin).
-5. Download JSON key → set `EXPO_ANDROID_SERVICE_ACCOUNT_KEY_PATH` in `hermes-mobile/.env`.
+4. **Setup → API access** → link GCP project `random-timer-dist-new` (or create a Hermes-specific SA — see below).
+5. Download JSON key → set `EXPO_ANDROID_SERVICE_ACCOUNT_KEY_PATH` in `hermes-mobile/.env` → run `./scripts/sync-hermes-secrets.sh`.
 
-## GitHub secrets
+### Grant Play permissions to the CI service account
 
-| Secret | Source |
-|---|---|
-| `GOOGLE_SERVICE_ACCOUNT_JSON` | Play Console API service account (LLC org) |
-| `FIREBASE_SERVICE_ACCOUNT_JSON` | Firebase `hermes-mobile-dist-78361` only (`firebase-distributor@...`) |
+Run **28536743657** built AAB **0.3.2 (vc7)** but submit failed because `liposhield-publisher@random-timer-dist-new.iam.gserviceaccount.com` has Play access for LipoShield only, not Hermes.
+
+**Option A — reuse existing SA (fastest):**
+
+1. Play Console (LLC org) → **Setup → API access**.
+2. Under linked project `random-timer-dist-new`, confirm `liposhield-publisher@random-timer-dist-new.iam.gserviceaccount.com` is listed (invite it if missing: **Invite new users** → paste that email → send invite → accept in GCP if prompted).
+3. Open **Users and permissions** (or the SA row → **Manage permissions**).
+4. **Add app** → select **Hermes Mobile** (`com.iganapolsky.hermesmobile`).
+5. Grant **Release manager** (minimum) or **Admin** for that app.
+6. Wait a few minutes, then re-run: `gh workflow run store-release.yml -f platform=android -f submit=true`.
+
+**Option B — Hermes-specific SA:**
+
+1. Play Console → **Setup → API access** → **Create new service account** (or create in GCP IAM, then link).
+2. Grant **Release manager** on `com.iganapolsky.hermesmobile` only.
+3. Download JSON key → update `EXPO_ANDROID_SERVICE_ACCOUNT_KEY_PATH` → `./scripts/sync-hermes-secrets.sh` to refresh `GOOGLE_SERVICE_ACCOUNT_JSON`.
+
+## GitHub secrets & credential wiring
+
+| Secret | Source | Used by |
+|---|---|---|
+| `GOOGLE_SERVICE_ACCOUNT_JSON` | Play Console API SA JSON (LLC org) | `store-release.yml` → temp file → `EXPO_ANDROID_SERVICE_ACCOUNT_KEY_PATH` |
+| `FIREBASE_SERVICE_ACCOUNT_JSON` | Firebase `hermes-mobile-dist-78361` only | `internal-distribution.yml` only |
+
+Local `.env` uses a **file path**; CI injects the same JSON via the GitHub secret:
+
+```bash
+# hermes-mobile/.env (local)
+EXPO_ANDROID_SERVICE_ACCOUNT_KEY_PATH=~/.gcloud-keys/liposhield-publisher.json
+
+# Sync path → GOOGLE_SERVICE_ACCOUNT_JSON (repo root)
+./scripts/sync-hermes-secrets.sh
+```
+
+`sync-hermes-secrets.sh` reads `EXPO_ANDROID_SERVICE_ACCOUNT_KEY_PATH` from `hermes-mobile/.env`, rejects Firebase project IDs, and sets `GOOGLE_SERVICE_ACCOUNT_JSON` on `IgorGanapolsky/mac-yolo-safeguards`. `store-release.yml` writes that secret to `$RUNNER_TEMP/google-service-account.json` before EAS submit. `release-preflight.sh` validates the credential is present and not a Firebase key when `REQUIRE_ANDROID_SUBMIT_CREDS=1`.
 
 ```bash
 # Play (LLC org API key — not Firebase)
@@ -49,6 +85,8 @@ EXPO_ANDROID_SERVICE_ACCOUNT_KEY_PATH=~/path/to/play-org-api-sa.json \
 FIREBASE_SERVICE_ACCOUNT_JSON_PATH=~/path/to/hermes-firebase-sa.json \
   ./scripts/sync-firebase-secrets.sh
 ```
+
+Never commit or paste the JSON key contents — only the SA email and file path.
 
 ## Release
 
@@ -64,7 +102,9 @@ Requires successful internal signoff statuses on the commit SHA (`internal-signo
 
 | Symptom | Fix |
 |---|---|
-| Submit 403 / permission denied | SA must be invited under Play Console → API access (org account), not only GCP IAM |
+| Submit 403 / permission denied / SA missing Play permissions | App must exist under LLC org first. Then Play Console → **Setup → API access** → invite `liposhield-publisher@random-timer-dist-new.iam.gserviceaccount.com` (or Hermes-specific SA) → **Release manager** on `com.iganapolsky.hermesmobile`. GCP IAM alone is not enough. |
+| AAB built, submit step failed (e.g. run 28536743657) | Same as above — build succeeded; only Play Console app + SA permissions are missing. |
 | Wrong package / app not found | Create `com.iganapolsky.hermesmobile` under the **LLC** Play developer account |
 | Still asked for testers | You are on **internal** testing track — use `store-release.yml` with `submit=true` (production track) |
 | Firebase SA used for Play | Use separate keys; preflight rejects Firebase `project_id` in Play credentials |
+| Missing `GOOGLE_SERVICE_ACCOUNT_JSON` in CI | Set `EXPO_ANDROID_SERVICE_ACCOUNT_KEY_PATH` locally, run `./scripts/sync-hermes-secrets.sh` |
