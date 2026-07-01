@@ -19,9 +19,15 @@ Hermes uses a **Google Play Organization** developer account (LLC), not a person
 
 **Do not** reuse the Firebase service account JSON for Play submit. Play needs a key linked under **Play Console → API access**.
 
+## Personal → Organization (prerequisite)
+
+Personal Play accounts created after **2023-11-13** must run **closed testing** (≥12 opted-in testers for **14 consecutive days**) before **Production** unlocks. **Organization** accounts are exempt — see [Google: personal testing requirements](https://support.google.com/googleplay/android-developer/answer/14151465) and [convert personal → organization](https://support.google.com/googleplay/android-developer/answer/16260648#convert).
+
+Prerequisites: registered **LLC** (or other legal entity), **D-U-N-S** number (legal name/address must match Dun & Bradstreet exactly; allow up to 30 days to obtain). After conversion completes, wait **72 hours** before submitting new apps.
+
 ## One-time Play Console setup (LLC org)
 
-1. [Google Play Console](https://play.google.com/console) → confirm account type is **Organization** (LLC).
+1. [Google Play Console](https://play.google.com/console) → confirm account type is **Organization** (LLC), or **Developer account → About you → Change account type → Organization**.
 2. Create app **Hermes Mobile** with package `com.iganapolsky.hermesmobile`.
 3. Complete required store listing, content rating, data safety, and target audience.
 4. **Setup → API access** → link a Google Cloud project → create service account → grant **Release to production** (or Admin).
