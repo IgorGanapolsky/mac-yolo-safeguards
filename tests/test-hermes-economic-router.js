@@ -6,6 +6,7 @@ const os = require('os');
 const path = require('path');
 
 const {
+  buildExecutionPlan,
   decision,
   parseArgs,
   taskSignals,
@@ -15,6 +16,7 @@ const {
 assert.throws(() => parseArgs([]), /--task is required/);
 assert.throws(() => parseArgs(['--task', 'x', '--risk', 'huge']), /Unsupported risk/);
 assert.throws(() => parseArgs(['--task', 'x', '--max-cost-usd', '-1']), /non-negative/);
+assert.strictEqual(parseArgs(['--task', 'x', '--execute-plan']).executePlan, true);
 
 const routine = decision(parseArgs([
   '--task', 'quick local smoke test for hermes-yolo',
@@ -31,6 +33,9 @@ assert.strictEqual(routine.microAgentRecipe.modelAlias, 'hermes/auto');
 assert.strictEqual(routine.microAgentRecipe.pattern, 'confidence');
 assert.strictEqual(routine.microAgentRecipe.id, 'local_confidence_escalation');
 assert.strictEqual(routine.microAgentRecipe.hardCaps.maxConcurrent, 1);
+const routinePlan = buildExecutionPlan(routine);
+assert.strictEqual(routinePlan.status, 'planned');
+assert.strictEqual(routinePlan.steps[0].id, 'cheap-candidate');
 
 const glm = decision(parseArgs([
   '--task', 'are you sure? use GLM 5.2 for cross-file architecture debugging with proof',
@@ -134,6 +139,69 @@ assert.strictEqual(fugu.selectedRoute.id, 'fugu_escalation');
 assert.strictEqual(fugu.microAgentRecipe.pattern, 'fusion');
 assert.strictEqual(fugu.microAgentRecipe.id, 'rare_research_fusion');
 assert.strictEqual(fugu.requiresApproval, true);
+assert.strictEqual(buildExecutionPlan(fugu).status, 'blocked');
+
+const fusion = decision(parseArgs([
+  '--task', 'use OpenRouter Fusion for a hard grounded answer with web search panel answers',
+  '--risk', 'critical',
+  '--max-cost-usd', '0.20',
+  '--latency-ms', '40000',
+  '--paid-ok',
+]));
+assert.strictEqual(fusion.selectedRoute.id, 'openrouter_fusion');
+assert.strictEqual(fusion.microAgentRecipe.id, 'openrouter_fusion_panel');
+assert.strictEqual(fusion.microAgentRecipe.pattern, 'fusion');
+assert.strictEqual(fusion.requiresApproval, true);
+assert(fusion.modelCatalogCandidates.some((model) => model.slug === 'sakana/fugu-ultra'));
+const fusionPlan = buildExecutionPlan(fusion);
+assert.strictEqual(fusionPlan.status, 'blocked');
+assert(fusionPlan.steps.some((step) => step.id === 'approval-gate'));
+assert.strictEqual(fusionPlan.steps.find((step) => step.id === 'panel').openRouterPayload.tools[0].type, 'openrouter:fusion');
+assert.strictEqual(fusionPlan.steps.find((step) => step.id === 'panel').modelsApi.query.supported_parameters, 'tools');
+
+const advisor = decision(parseArgs([
+  '--task', 'use Advisor: cheap executor gets stuck then consult a stronger model',
+  '--risk', 'high',
+  '--max-cost-usd', '0.10',
+  '--latency-ms', '30000',
+  '--paid-ok',
+]));
+assert.strictEqual(advisor.selectedRoute.id, 'openrouter_advisor');
+assert.strictEqual(advisor.microAgentRecipe.id, 'openrouter_advisor_escalation');
+assert.strictEqual(advisor.microAgentRecipe.pattern, 'advisor');
+assert(advisor.microAgentRecipe.modelPriceProof.some((model) => model.slug === 'z-ai/glm-5.2'));
+const advisorPlan = buildExecutionPlan(advisor);
+assert.strictEqual(advisorPlan.status, 'blocked');
+assert.strictEqual(advisorPlan.steps.find((step) => step.id === 'advisor-consult').openRouterPayload.tools[0].type, 'openrouter:advisor');
+assert.strictEqual(advisorPlan.steps.find((step) => step.id === 'advisor-consult').modelsApi.query.sort, 'intelligence-high-to-low');
+
+const subagent = decision(parseArgs([
+  '--task', 'use Subagent to delegate routine subtasks to a smaller worker model',
+  '--risk', 'high',
+  '--max-cost-usd', '0.10',
+  '--latency-ms', '30000',
+  '--paid-ok',
+]));
+assert.strictEqual(subagent.selectedRoute.id, 'openrouter_subagent');
+assert.strictEqual(subagent.microAgentRecipe.id, 'openrouter_subagent_delegation');
+assert.strictEqual(subagent.microAgentRecipe.pattern, 'subagent');
+assert(subagent.microAgentRecipe.modelPriceProof.some((model) => model.slug === 'cohere/north-mini-code:free'));
+const subagentPlan = buildExecutionPlan(subagent);
+assert.strictEqual(subagentPlan.status, 'blocked');
+assert.strictEqual(subagentPlan.steps.find((step) => step.id === 'worker-delegation').openRouterPayload.tools[0].type, 'openrouter:subagent');
+assert.strictEqual(subagentPlan.steps.find((step) => step.id === 'worker-delegation').modelsApi.query.sort, 'pricing-low-to-high');
+
+const catalog = decision(parseArgs([
+  '--task', 'compare price with Models API before you commit to a model benchmark',
+  '--risk', 'medium',
+  '--max-cost-usd', '0',
+  '--latency-ms', '30000',
+]));
+assert.strictEqual(catalog.selectedRoute.id, 'local_fast');
+assert(catalog.signals.needsModelPrice);
+assert.strictEqual(catalog.modelCatalogQuery.query.sort, 'pricing-low-to-high');
+assert(catalog.modelCatalogQuery.url.includes('/api/v1/models?'));
+assert(catalog.modelCatalogCandidates.some((model) => model.slug === 'anthropic/claude-sonnet-5'));
 
 const remom = decision(parseArgs([
   '--task', 'solve hard reasoning with strict JSON schema output contract and quorum synthesis',
