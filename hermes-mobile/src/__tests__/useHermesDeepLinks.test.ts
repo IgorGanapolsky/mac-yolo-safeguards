@@ -1,6 +1,10 @@
 import { Linking } from 'react-native';
 import { renderHook, act } from '@testing-library/react-native';
 import { useHermesDeepLinks, resetHandledUrls } from '../hooks/useHermesDeepLinks';
+import {
+  clearMarketingAttribution,
+  getMarketingAttributionProperties,
+} from '../services/marketingAttribution';
 
 describe('useHermesDeepLinks', () => {
   const navigationRef = { current: { navigate: jest.fn() } };
@@ -8,7 +12,8 @@ describe('useHermesDeepLinks', () => {
   const refreshHealth = jest.fn().mockResolvedValue(undefined);
   const focusChatSession = jest.fn();
 
-  beforeEach(() => {
+  beforeEach(async () => {
+    await clearMarketingAttribution();
     resetHandledUrls();
     jest.clearAllMocks();
     jest.spyOn(Linking, 'getInitialURL').mockResolvedValue(null);
@@ -94,5 +99,23 @@ describe('useHermesDeepLinks', () => {
     expect(navigationRef.current.navigate).toHaveBeenCalledTimes(2);
     expect(navigationRef.current.navigate).toHaveBeenNthCalledWith(1, 'Chat');
     expect(navigationRef.current.navigate).toHaveBeenNthCalledWith(2, 'Chat');
+  });
+
+  it('records marketing attribution before routing deep links', async () => {
+    renderHook(() =>
+      useHermesDeepLinks(navigationRef as never, runAgentTool, refreshHealth),
+    );
+    const handler = (Linking.addEventListener as jest.Mock).mock.calls[0][1];
+    await act(async () => {
+      await handler({
+        url: 'hermes://chat?utm_source=applovin&utm_medium=roas&utm_campaign=day7-leash&network=applovin',
+      });
+    });
+
+    const props = await getMarketingAttributionProperties();
+    expect(props.attribution_source).toBe('applovin');
+    expect(props.attribution_medium).toBe('roas');
+    expect(props.attribution_campaign).toBe('day7-leash');
+    expect(props.attribution_window).toBe('day7');
   });
 });

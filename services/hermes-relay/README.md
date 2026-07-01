@@ -15,6 +15,7 @@ Fly app name: `hermesmobile-cloud` (no hyphen — matches `fly apps list`).
 | GET | `/v1/queue` | `Mobile <token>` | — | `{ events, workers, active_worker_id, ... }` |
 | POST | `/v1/verdicts/:eventId` | `Mobile <token>` | `{ decision: allow\|block, reason? }` | `{ ok }` |
 | POST | `/v1/test-intercept` | `Mobile <token>` | — | `{ ok, id? }` |
+| POST | `/v1/entitlements/thumbgate-leash/verify` | `Mobile <token>` | `{ platform, product_id, purchase_token? transaction_id?, signed_transaction? }` | `{ ok, entitlement }` |
 
 ## Mac worker API
 
@@ -34,6 +35,30 @@ npm test
 PORT=8787 node server.js
 curl -s http://127.0.0.1:8787/v1/health
 ```
+
+## ThumbGate Leash entitlement verification
+
+The relay owns the server-side entitlement record for `thumbgate_leash_monthly`.
+Mobile clients may submit a Play/App Store receipt to:
+
+```http
+POST /v1/entitlements/thumbgate-leash/verify
+Authorization: Mobile <token>
+Content-Type: application/json
+
+{
+  "platform": "android",
+  "product_id": "thumbgate_leash_monthly",
+  "purchase_token": "<google-play-purchase-token>"
+}
+```
+
+The endpoint is intentionally fail-closed. Without a configured store verifier it
+returns `503 { "error": "store_verifier_not_configured" }` and does not grant
+Pro. Once Play/App Store credentials are available, wire the verifier function to
+Google Play Developer API / App Store Server API and return `{ ok: true,
+expires_at }` only for active subscriptions. `/v1/queue` then reports `tier:
+"pro"` and an active `entitlement.thumbgate_leash`.
 
 ## Deploy (Fly.io)
 

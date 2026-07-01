@@ -2,6 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 import appConfig from '../../app.json';
+import { getMarketingAttributionProperties } from './marketingAttribution';
 
 const POSTHOG_HOST =
   process.env.EXPO_PUBLIC_POSTHOG_HOST?.trim() || 'https://us.i.posthog.com';
@@ -55,6 +56,7 @@ export async function trackProductEvent(
 
   try {
     const distinctId = await getDistinctId();
+    const attribution = await getMarketingAttributionProperties();
     await fetch(`${POSTHOG_HOST.replace(/\/+$/, '')}/capture/`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -67,6 +69,7 @@ export async function trackProductEvent(
           platform: Platform.OS,
           app_version: APP_VERSION,
           build_number: BUILD_NUMBER,
+          ...attribution,
           ...properties,
         },
       }),

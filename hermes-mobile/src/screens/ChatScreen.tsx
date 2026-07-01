@@ -13,6 +13,7 @@ import {
   ScrollView,
   SectionList,
   AppState,
+  BackHandler,
   Keyboard,
   Alert,
   type NativeSyntheticEvent,
@@ -547,6 +548,31 @@ export default function ChatScreen() {
     heal: connectionHeal,
     userSendFailed,
   });
+  const chatBlockingSurfaceOpen =
+    sessionModalVisible ||
+    toolsModalVisible ||
+    macPickerVisible ||
+    projectModalVisible ||
+    renameModalVisible ||
+    Boolean(messageDetail) ||
+    Boolean(feedbackPrompt) ||
+    showMacConnectionHelp;
+
+  useFocusEffect(
+    useCallback(() => {
+      if (Platform.OS !== 'android' || !isDemo) {
+        return undefined;
+      }
+      const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
+        if (chatBlockingSurfaceOpen) {
+          return false;
+        }
+        return true;
+      });
+      return () => subscription.remove();
+    }, [chatBlockingSurfaceOpen, isDemo]),
+  );
+
   const showChatEmptyState = useMemo(() => {
     if (messages.length > 0) {
       return false;
