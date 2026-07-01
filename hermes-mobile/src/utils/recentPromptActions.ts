@@ -6,7 +6,7 @@ import { isGatewaySmokeTestMessage } from './gatewaySmokeMessages';
 import { isCronBoilerplateText } from './sessionDisplay';
 import { sortSessionsForAgentRail } from './threadActivity';
 
-const MAX_RECENT_ACTIONS = 4;
+const MAX_RECENT_ACTIONS = 3;
 const LABEL_MAX = 28;
 
 /** Maestro chat-send-persistence.yaml — not a user quick-action chip. */
@@ -118,6 +118,10 @@ function pushRecentPrompt(
   transcriptNorms?: Set<string>,
   dismissedNorms?: Set<string>,
 ): void {
+  if (recent.length >= MAX_RECENT_ACTIONS) {
+    return;
+  }
+
   const cleaned = cleanPromptText(prompt);
   if (!cleaned || isBlockedRecentPromptText(cleaned)) {
     return;
@@ -222,7 +226,7 @@ export function buildRecentPromptActions(
     }
   }
 
-  return recent.length > 0 ? recent : [];
+  return recent.length > 0 ? recent.slice(0, MAX_RECENT_ACTIONS) : [];
 }
 
 export function buildFallbackPromptActions(options: {

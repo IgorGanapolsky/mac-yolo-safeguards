@@ -174,6 +174,27 @@ describe('recentPromptActions', () => {
     expect(actions[2]).toBeUndefined();
   });
 
+  it('caps recent prompt chips at three', () => {
+    const actions = buildRecentPromptActions(
+      {
+        messages: [],
+        localRecentPrompts: [
+          'first local',
+          'second local',
+          'third local',
+          'fourth local',
+        ],
+      },
+      buildFallbackPromptActions({ approvalCount: 0, isRunActive: false }),
+    );
+
+    expect(actions.map((action) => action.prompt)).toEqual([
+      'first local',
+      'second local',
+      'third local',
+    ]);
+  });
+
   it('filters out the Telegram inbox virtual session', () => {
     const sessions: HermesSession[] = [
       {

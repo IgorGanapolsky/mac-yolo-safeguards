@@ -36,6 +36,41 @@ describe('appIdentity', () => {
       expect(firebaseProject.gcpProjectId.toLowerCase()).not.toContain(term);
     }
   });
+
+  it('uses Hermes Mobile display name and package in app.json', () => {
+    const app = JSON.parse(read('hermes-mobile/app.json'));
+    expect(app.expo.name).toBe('Hermes Mobile');
+    expect(app.expo.slug).toBe('hermes-mobile');
+    expect(app.expo.android.package).toBe('com.iganapolsky.hermesmobile');
+    expect(app.expo.ios.bundleIdentifier).toBe('com.iganapolsky.hermesmobile');
+  });
+});
+
+const legacyBrandingTerms = [
+  ['lipo', 'shield'].join(''),
+  ['random', '-timer-dist'].join(''),
+];
+
+describe('Hermes Mobile release docs', () => {
+  it('does not reference legacy LipoShield / random-timer-dist Play credentials', () => {
+    const paths = [
+      'hermes-mobile/docs/PLAY_RELEASE.md',
+      'scripts/sync-hermes-secrets.sh',
+      'hermes-mobile/.env.example',
+    ];
+    for (const relativePath of paths) {
+      const content = read(relativePath).toLowerCase();
+      for (const term of legacyBrandingTerms) {
+        expect(content).not.toContain(term);
+      }
+    }
+  });
+
+  it('documents hermes-mobile-publisher Play service account convention', () => {
+    const playRelease = read('hermes-mobile/docs/PLAY_RELEASE.md');
+    expect(playRelease).toContain('hermes-mobile-publisher');
+    expect(playRelease).toContain('Hermes Mobile');
+  });
 });
 
 describe('release safety contract', () => {
@@ -187,10 +222,13 @@ describe('release safety contract', () => {
 
   it('unified E2E runner prefers Android USB then iOS sim', () => {
     const script = read('hermes-mobile/scripts/run-e2e.sh');
+    const env = read('hermes-mobile/scripts/maestro-env.sh');
     expect(script).toContain('maestro test -p android');
     expect(script).toContain('run-simulator-e2e.sh');
     expect(script).toContain('HERMES_E2E_IOS_ONLY=1');
     expect(script).toContain('Maestro_ANDROID');
+    expect(env).toContain('MAESTRO_ANDROID_ADB_WAIT_ATTEMPTS');
+    expect(env).toContain('wait_for_adb_device "$device_id" "$MAESTRO_ANDROID_ADB_WAIT_ATTEMPTS"');
   });
 
   it('e2e-bootstrap waits for lazy Leash tab load', () => {
@@ -198,6 +236,7 @@ describe('release safety contract', () => {
     expect(bootstrap).toContain('hermes://dev/leash-unlock');
     expect(bootstrap).toContain('tab-screen-loading');
     expect(bootstrap).toContain('THUMBGATE_LEASH');
+    expect(bootstrap).toContain('id: "tab-leash"');
     expect(bootstrap).toContain('hermes://chat');
     expect(bootstrap).toContain('chat-screen-header');
     expect(bootstrap).toContain('chat-input');

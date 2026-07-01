@@ -1462,8 +1462,13 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
     setEffectiveGatewayUrl(activeUrl);
     const wsUrl = buildEventsWebSocketUrl(activeUrl);
 
-    // HTTP chat works without the live socket — don't flash "Linking" when Mac is already reachable.
-    if (!httpOk) {
+    // HTTP chat works without the live socket. This gateway exposes no events
+    // WebSocket (live updates arrive via SSE on the chat/run streams), so a
+    // reachable /health is the real connection signal — treat it as connected
+    // instead of waiting on a socket.onopen that may never fire.
+    if (httpOk) {
+      setConnectionState('connected');
+    } else {
       setConnectionState('connecting');
     }
 
@@ -1495,8 +1500,13 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
               : 'Live link interrupted — pull down on Leash to retry.',
           );
         } else {
+          // Loopback/USB: this gateway has no events socket, so a WS error is
+          // expected and meaningless while HTTP chat is healthy. Only surface the
+          // fallback hint when the Mac is genuinely unreachable over HTTP.
           setLastEventError(
-            'Phone cannot use 127.0.0.1 for your computer. Use Hermes Relay or scan that computer QR for direct fallback.',
+            isGatewayHealthOk(healthRef.current)
+              ? undefined
+              : 'Phone cannot use 127.0.0.1 for your computer. Use Hermes Relay or scan that computer QR for direct fallback.',
           );
         }
         if (!isGatewayHealthOk(healthRef.current)) {
