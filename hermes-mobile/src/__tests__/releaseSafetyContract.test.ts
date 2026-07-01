@@ -227,8 +227,7 @@ describe('release safety contract', () => {
     expect(script).toContain('run-simulator-e2e.sh');
     expect(script).toContain('HERMES_E2E_IOS_ONLY=1');
     expect(script).toContain('Maestro_ANDROID');
-    expect(env).toContain('MAESTRO_ANDROID_ADB_WAIT_ATTEMPTS');
-    expect(env).toContain('wait_for_adb_device "$device_id" "$MAESTRO_ANDROID_ADB_WAIT_ATTEMPTS"');
+    expect(env).toContain('wait_for_adb_device "$device_id" 24');
   });
 
   it('e2e-bootstrap waits for lazy Leash tab load', () => {

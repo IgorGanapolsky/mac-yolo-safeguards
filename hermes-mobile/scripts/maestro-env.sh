@@ -2,6 +2,7 @@
 # Shared Maestro + Java env for Hermes Mobile E2E scripts. Source, do not execute.
 export MAESTRO_DRIVER_STARTUP_TIMEOUT="${MAESTRO_DRIVER_STARTUP_TIMEOUT:-180000}"
 export MAESTRO_ANDROID_PREP_RETRIES="${MAESTRO_ANDROID_PREP_RETRIES:-3}"
+export MAESTRO_ANDROID_ADB_WAIT_ATTEMPTS="${MAESTRO_ANDROID_ADB_WAIT_ATTEMPTS:-45}"
 
 if [ -z "${JAVA_HOME:-}" ] || ! "$JAVA_HOME/bin/java" -version >/dev/null 2>&1; then
   for candidate in \
@@ -87,7 +88,7 @@ prepare_android_maestro_driver() {
   kill_competing_maestro_processes "$$"
   clear_maestro_sessions
   restart_adb_server
-  if ! wait_for_adb_device "$device_id" 24; then
+  if ! wait_for_adb_device "$device_id" "$MAESTRO_ANDROID_ADB_WAIT_ATTEMPTS"; then
     echo "ADB device ${device_id} not responsive after restart" >&2
     return 1
   fi
