@@ -14,13 +14,15 @@ Hermes uses a **Google Play Organization** developer account (LLC), not a person
 | Role | Email / ID |
 |---|---|
 | Play Console org admin | `iganapolsky@gmail.com` |
-| Play API service account (CI today) | `liposhield-publisher@random-timer-dist-new.iam.gserviceaccount.com` |
-| GCP project (Play API key) | `random-timer-dist-new` |
+| Play API service account (CI) | `hermes-mobile-publisher@<gcp-project-id>.iam.gserviceaccount.com` |
+| GCP project (Play API key) | Hermes-specific project linked under Play Console → **Setup → API access** (not Firebase `hermes-mobile-dist-78361`) |
 | Firebase / GCP (separate) | `hermes-mobile-dist-78361` — see [FIREBASE_CI.md](./FIREBASE_CI.md) |
 
 CI reads the Play key from GitHub secret **`GOOGLE_SERVICE_ACCOUNT_JSON`**, populated by `./scripts/sync-hermes-secrets.sh` from `EXPO_ANDROID_SERVICE_ACCOUNT_KEY_PATH` in `hermes-mobile/.env`. `store-release.yml` writes that secret to `$RUNNER_TEMP/google-service-account.json` before EAS submit. **Never commit or paste the JSON key** — only the service-account email above is safe to reference in docs and logs.
 
 **Do not** reuse the Firebase service account JSON for Play submit. Play needs a key linked under **Play Console → API access**.
+
+**Legacy:** Do not reuse Play API keys created for other Igor apps. Hermes Mobile needs its own `hermes-mobile-publisher` service account with **Release manager** on `com.iganapolsky.hermesmobile` only.
 
 ## Personal → Organization (prerequisite)
 
@@ -35,27 +37,32 @@ Prerequisites: registered **LLC** (or other legal entity), **D-U-N-S** number (l
 1. [Google Play Console](https://play.google.com/console) → confirm account type is **Organization** (LLC), or **Developer account → About you → Change account type → Organization**.
 2. **Create app** → **Hermes Mobile** with package `com.iganapolsky.hermesmobile`.
 3. Complete required store listing, content rating, data safety, and target audience.
-4. **Setup → API access** → link GCP project `random-timer-dist-new` (or create a Hermes-specific SA — see below).
+4. **Setup → API access** → link a GCP project (create one for Play if needed) and create a Hermes Play service account — see below.
 5. Download JSON key → set `EXPO_ANDROID_SERVICE_ACCOUNT_KEY_PATH` in `hermes-mobile/.env` → run `./scripts/sync-hermes-secrets.sh`.
 
-### Grant Play permissions to the CI service account
+### Create the Hermes Mobile Play service account (manual)
 
-Run **28536743657** built AAB **0.3.2 (vc7)** but submit failed because `liposhield-publisher@random-timer-dist-new.iam.gserviceaccount.com` has Play access for LipoShield only, not Hermes.
+Run **28536743657** built AAB **0.3.2 (vc7)** but submit failed because the CI key still pointed at a Play service account scoped to another app, not Hermes Mobile. Replace it with a Hermes-specific publisher account:
 
-**Option A — reuse existing SA (fastest):**
+1. [Google Cloud Console](https://console.cloud.google.com/) → select or create a GCP project for Play API (keep it separate from Firebase `hermes-mobile-dist-78361`).
+2. **IAM & Admin → Service Accounts → Create service account**
+   - Name: `hermes-mobile-publisher`
+   - Email (convention): `hermes-mobile-publisher@<gcp-project-id>.iam.gserviceaccount.com`
+3. **Keys → Add key → Create new key → JSON** → save locally as `~/.gcloud-keys/hermes-mobile-publisher.json` (mode `600`).
+4. Play Console (LLC org) → **Setup → API access** → link the same GCP project.
+5. **Invite new users** → paste `hermes-mobile-publisher@<gcp-project-id>.iam.gserviceaccount.com` → send invite → accept in GCP if prompted.
+6. **Users and permissions** → open the service account → **Add app** → **Hermes Mobile** (`com.iganapolsky.hermesmobile`).
+7. Grant **Release manager** (minimum) or **Admin** for that app only.
+8. Update local env and sync CI:
 
-1. Play Console (LLC org) → **Setup → API access**.
-2. Under linked project `random-timer-dist-new`, confirm `liposhield-publisher@random-timer-dist-new.iam.gserviceaccount.com` is listed (invite it if missing: **Invite new users** → paste that email → send invite → accept in GCP if prompted).
-3. Open **Users and permissions** (or the SA row → **Manage permissions**).
-4. **Add app** → select **Hermes Mobile** (`com.iganapolsky.hermesmobile`).
-5. Grant **Release manager** (minimum) or **Admin** for that app.
-6. Wait a few minutes, then re-run: `gh workflow run store-release.yml -f platform=android -f submit=true`.
+```bash
+# hermes-mobile/.env
+EXPO_ANDROID_SERVICE_ACCOUNT_KEY_PATH=~/.gcloud-keys/hermes-mobile-publisher.json
 
-**Option B — Hermes-specific SA:**
+./scripts/sync-hermes-secrets.sh
+```
 
-1. Play Console → **Setup → API access** → **Create new service account** (or create in GCP IAM, then link).
-2. Grant **Release manager** on `com.iganapolsky.hermesmobile` only.
-3. Download JSON key → update `EXPO_ANDROID_SERVICE_ACCOUNT_KEY_PATH` → `./scripts/sync-hermes-secrets.sh` to refresh `GOOGLE_SERVICE_ACCOUNT_JSON`.
+9. Wait a few minutes, then re-run: `gh workflow run store-release.yml -f platform=android -f submit=true`
 
 ## GitHub secrets & credential wiring
 
@@ -68,7 +75,7 @@ Local `.env` uses a **file path**; CI injects the same JSON via the GitHub secre
 
 ```bash
 # hermes-mobile/.env (local)
-EXPO_ANDROID_SERVICE_ACCOUNT_KEY_PATH=~/.gcloud-keys/liposhield-publisher.json
+EXPO_ANDROID_SERVICE_ACCOUNT_KEY_PATH=~/.gcloud-keys/hermes-mobile-publisher.json
 
 # Sync path → GOOGLE_SERVICE_ACCOUNT_JSON (repo root)
 ./scripts/sync-hermes-secrets.sh
@@ -78,7 +85,7 @@ EXPO_ANDROID_SERVICE_ACCOUNT_KEY_PATH=~/.gcloud-keys/liposhield-publisher.json
 
 ```bash
 # Play (LLC org API key — not Firebase)
-EXPO_ANDROID_SERVICE_ACCOUNT_KEY_PATH=~/path/to/play-org-api-sa.json \
+EXPO_ANDROID_SERVICE_ACCOUNT_KEY_PATH=~/path/to/hermes-mobile-publisher.json \
   ./scripts/sync-hermes-secrets.sh
 
 # Firebase (separate)
@@ -102,9 +109,10 @@ Requires successful internal signoff statuses on the commit SHA (`internal-signo
 
 | Symptom | Fix |
 |---|---|
-| Submit 403 / permission denied / SA missing Play permissions | App must exist under LLC org first. Then Play Console → **Setup → API access** → invite `liposhield-publisher@random-timer-dist-new.iam.gserviceaccount.com` (or Hermes-specific SA) → **Release manager** on `com.iganapolsky.hermesmobile`. GCP IAM alone is not enough. |
-| AAB built, submit step failed (e.g. run 28536743657) | Same as above — build succeeded; only Play Console app + SA permissions are missing. |
+| Submit 403 / permission denied / SA missing Play permissions | App must exist under LLC org first. Then Play Console → **Setup → API access** → invite `hermes-mobile-publisher@<gcp-project-id>.iam.gserviceaccount.com` → **Release manager** on `com.iganapolsky.hermesmobile`. GCP IAM alone is not enough. |
+| AAB built, submit step failed (e.g. run 28536743657) | Same as above — build succeeded; only Play Console app + Hermes SA permissions are missing. |
 | Wrong package / app not found | Create `com.iganapolsky.hermesmobile` under the **LLC** Play developer account |
 | Still asked for testers | You are on **internal** testing track — use `store-release.yml` with `submit=true` (production track) |
 | Firebase SA used for Play | Use separate keys; preflight rejects Firebase `project_id` in Play credentials |
 | Missing `GOOGLE_SERVICE_ACCOUNT_JSON` in CI | Set `EXPO_ANDROID_SERVICE_ACCOUNT_KEY_PATH` locally, run `./scripts/sync-hermes-secrets.sh` |
+| Wrong Play SA in CI (other-app publisher key) | Replace with `hermes-mobile-publisher` JSON; re-run `./scripts/sync-hermes-secrets.sh` |

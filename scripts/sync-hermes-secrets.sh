@@ -1,6 +1,11 @@
 #!/usr/bin/env bash
 # Mirror Hermes Mobile EAS / Apple signing secrets to GitHub.
 # Firebase: use scripts/sync-firebase-secrets.sh (separate Hermes project).
+#
+# Play submit: EXPO_ANDROID_SERVICE_ACCOUNT_KEY_PATH must point at a Hermes Mobile
+# Play Console API key (convention: hermes-mobile-publisher@<gcp-project>.iam.gserviceaccount.com,
+# local file ~/.gcloud-keys/hermes-mobile-publisher.json). Do NOT reuse Play keys from other apps —
+# see hermes-mobile/docs/PLAY_RELEASE.md.
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
