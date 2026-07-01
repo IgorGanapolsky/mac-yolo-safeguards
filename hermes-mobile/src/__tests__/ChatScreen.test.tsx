@@ -1,5 +1,5 @@
 import React from 'react';
-import { Alert } from 'react-native';
+import { Alert, BackHandler, Platform } from 'react-native';
 import { fireEvent, act, waitFor, cleanup } from '@testing-library/react-native';
 import ChatScreen from '../screens/ChatScreen';
 import { renderInTabNavigator } from '../testUtils/navigation';
@@ -409,6 +409,27 @@ describe('ChatScreen', () => {
     expect(getByTestId('chat-screen-header')).toBeTruthy();
     expect(getByTestId('chat-context-mac').props.children).toBe('Demo Mac');
     expect(getByTestId('chat-empty-greeting')).toBeTruthy();
+  });
+
+  it('keeps Android demo Chat foregrounded on hardware Back when no sheet is open', async () => {
+    const originalOs = Platform.OS;
+    Platform.OS = 'android';
+    const remove = jest.fn();
+    const addBackHandler = jest
+      .spyOn(BackHandler, 'addEventListener')
+      .mockReturnValue({ remove } as never);
+
+    try {
+      await renderChatScreen();
+      const handler = addBackHandler.mock.calls.find(
+        ([eventName]) => eventName === 'hardwareBackPress',
+      )?.[1] as (() => boolean) | undefined;
+
+      expect(handler).toBeTruthy();
+      expect(handler?.()).toBe(true);
+    } finally {
+      Platform.OS = originalOs;
+    }
   });
 
   it('keeps chat available in relay mode when the account is not paired yet', async () => {

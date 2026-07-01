@@ -2,7 +2,7 @@
 
 const http = require('http');
 const { URL } = require('url');
-const { RelayStore } = require('./store');
+const { RelayStore, THUMBGATE_LEASH_PRODUCT_ID } = require('./store');
 
 const VERSION = '0.1.0';
 const PORT = Number(process.env.PORT || 8080);
@@ -18,6 +18,7 @@ const store = new RelayStore(DB_PATH);
 const PAIR_RL_WINDOW_MS = 60 * 1000;
 const PAIR_RL_MAX = 10;
 const pairCompleteHits = new Map(); // clientIp -> timestamp[]
+let storePurchaseVerifier = defaultStorePurchaseVerifier;
 
 function clientIp(req) {
   const fly = req.headers['fly-client-ip'];
@@ -83,6 +84,44 @@ function parseAuth(req, scheme) {
     return '';
   }
   return header.slice(prefix.length).trim();
+}
+
+function normalizeThumbgateLeashReceipt(body) {
+  const platform = String(body.platform || '').trim().toLowerCase();
+  const productId = String(body.product_id || body.productId || '').trim();
+  if (platform !== 'android' && platform !== 'ios') {
+    return { ok: false, error: 'invalid_platform' };
+  }
+  if (productId !== THUMBGATE_LEASH_PRODUCT_ID) {
+    return { ok: false, error: 'invalid_product' };
+  }
+  const purchaseToken = String(body.purchase_token || body.purchaseToken || '').trim();
+  const transactionId = String(body.transaction_id || body.transactionId || '').trim();
+  const signedTransaction = String(body.signed_transaction || body.signedTransaction || '').trim();
+  if (platform === 'android' && !purchaseToken) {
+    return { ok: false, error: 'missing_purchase_token' };
+  }
+  if (platform === 'ios' && !transactionId && !signedTransaction) {
+    return { ok: false, error: 'missing_transaction' };
+  }
+  return {
+    ok: true,
+    receipt: {
+      platform,
+      product_id: productId,
+      purchase_token: purchaseToken || null,
+      transaction_id: transactionId || null,
+      signed_transaction: signedTransaction || null,
+    },
+  };
+}
+
+async function defaultStorePurchaseVerifier() {
+  return { ok: false, status: 503, error: 'store_verifier_not_configured' };
+}
+
+function setStorePurchaseVerifierForTest(verifier) {
+  storePurchaseVerifier = verifier || defaultStorePurchaseVerifier;
 }
 
 async function handleRequest(req, res) {
@@ -178,8 +217,53 @@ async function handleRequest(req, res) {
       workers,
       // Only report an active worker that is actually live (fresh heartbeat) — no false green.
       active_worker_id: store.activeWorkerId(account),
-      tier: 'free',
+      tier: store.thumbgateLeashEntitlement(account).active ? 'pro' : 'free',
+      entitlement: {
+        thumbgate_leash: store.thumbgateLeashEntitlement(account),
+      },
       activity_count: events.length,
+    });
+    return;
+  }
+
+  if (req.method === 'POST' && pathname === '/v1/entitlements/thumbgate-leash/verify') {
+    const mobileToken = parseAuth(req, 'Mobile');
+    if (!mobileToken) {
+      sendJson(res, 401, { error: 'unauthorized' });
+      return;
+    }
+    const account = store.findAccountByMobileToken(mobileToken);
+    if (!account) {
+      sendJson(res, 401, { error: 'unauthorized' });
+      return;
+    }
+    const body = await readJson(req);
+    const normalized = normalizeThumbgateLeashReceipt(body);
+    if (!normalized.ok) {
+      sendJson(res, 400, { error: normalized.error });
+      return;
+    }
+    const verified = await storePurchaseVerifier(normalized.receipt);
+    if (!verified?.ok) {
+      sendJson(res, Number(verified?.status || 402), {
+        error: verified?.error || 'purchase_not_active',
+      });
+      return;
+    }
+    const entitlement = store.recordThumbgateLeashEntitlement(account.id, {
+      ...verified,
+      platform: normalized.receipt.platform,
+      product_id: THUMBGATE_LEASH_PRODUCT_ID,
+    });
+    if (!entitlement) {
+      sendJson(res, 402, { error: 'purchase_not_active' });
+      return;
+    }
+    sendJson(res, 200, {
+      ok: true,
+      entitlement: {
+        thumbgate_leash: store.thumbgateLeashEntitlement(account),
+      },
     });
     return;
   }
@@ -273,7 +357,15 @@ function startServer(port = PORT, host = HOST) {
   });
 }
 
-module.exports = { server, startServer, handleRequest, store, VERSION };
+module.exports = {
+  server,
+  startServer,
+  handleRequest,
+  normalizeThumbgateLeashReceipt,
+  setStorePurchaseVerifierForTest,
+  store,
+  VERSION,
+};
 
 if (require.main === module) {
   startServer(PORT, HOST).then(({ port, host }) => {

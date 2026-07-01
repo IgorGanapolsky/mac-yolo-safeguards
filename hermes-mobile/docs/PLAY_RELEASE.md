@@ -105,12 +105,16 @@ gh workflow run store-release.yml -f platform=android -f submit=true
 
 Requires successful internal signoff statuses on the commit SHA (`internal-signoff/eas-android`, `internal-signoff/firebase-android`).
 
+## Troubleshooting (manual Play Console fix)
+
+When CI submit fails with “service account is missing the necessary permissions” (e.g. run **28542135705**), open [Play Console → Setup → API access](https://play.google.com/console/developers/api-access) signed in as `iganapolsky@gmail.com` (LLC org): **(1)** if **hermes-mobile-play** is not linked, click **Link** and choose that GCP project; **(2)** under **Service accounts**, find `hermes-mobile-publisher@hermes-mobile-play.iam.gserviceaccount.com` and click **Manage Play Console permissions** (or **Grant access** if it is not listed — paste that email, send invite, accept in GCP if prompted); **(3)** click **Add app** → select **Hermes Mobile** (`com.iganapolsky.hermesmobile`) → check **Release manager** → **Apply**. If **Hermes Mobile** is missing from the app picker, go to **All apps → Create app** first (name **Hermes Mobile**, package `com.iganapolsky.hermesmobile`), then repeat step 3. Wait ~5 minutes, then re-run `gh workflow run store-release.yml -f platform=android -f submit=true --ref main`.
+
 ## Failure modes
 
 | Symptom | Fix |
 |---|---|
 | Submit 403 / permission denied / SA missing Play permissions | App must exist under LLC org first. Then Play Console → **Setup → API access** → invite `hermes-mobile-publisher@<gcp-project-id>.iam.gserviceaccount.com` → **Release manager** on `com.iganapolsky.hermesmobile`. GCP IAM alone is not enough. |
-| AAB built, submit step failed (e.g. run 28536743657) | Same as above — build succeeded; only Play Console app + Hermes SA permissions are missing. |
+| AAB built, submit step failed (e.g. run 28536743657, 28542135705) | Same as above — build succeeded; only Play Console app + Hermes SA permissions are missing. See **Troubleshooting** above. |
 | Wrong package / app not found | Create `com.iganapolsky.hermesmobile` under the **LLC** Play developer account |
 | Still asked for testers | You are on **internal** testing track — use `store-release.yml` with `submit=true` (production track) |
 | Firebase SA used for Play | Use separate keys; preflight rejects Firebase `project_id` in Play credentials |

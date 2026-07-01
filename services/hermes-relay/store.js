@@ -9,6 +9,7 @@ const EVENT_TTL_MS = 24 * 60 * 60 * 1000;
 // A worker counts as live only if it heartbeat within this window (~15-25s cadence),
 // so a slept/dead Mac flips to 'offline' instead of a sticky false-green.
 const STALE_WORKER_MS = 60 * 1000;
+const THUMBGATE_LEASH_PRODUCT_ID = 'thumbgate_leash_monthly';
 // Typed pair code: FAR stronger than the old 16-word^2 = 256-value space
 // (brute-forceable -> token theft -> agent RCE once chat ships). 8 chars over a
 // 30-symbol unambiguous alphabet ~= 2^39, plus a 256-bit QR secret + rate limiting.
@@ -74,6 +75,7 @@ class RelayStore {
       pairCodes: {},
       events: {},
       verdicts: {},
+      entitlements: {},
     };
     this.load();
   }
@@ -90,6 +92,7 @@ class RelayStore {
         pairCodes: parsed.pairCodes ?? {},
         events: parsed.events ?? {},
         verdicts: parsed.verdicts ?? {},
+        entitlements: parsed.entitlements ?? {},
       };
     } catch {
       // Start fresh on corrupt state.
@@ -272,6 +275,49 @@ class RelayStore {
     return null;
   }
 
+  recordThumbgateLeashEntitlement(accountId, verification, now = Date.now()) {
+    const account = this.state.accounts[accountId];
+    if (!account || !verification || verification.product_id !== THUMBGATE_LEASH_PRODUCT_ID) {
+      return null;
+    }
+    const expiresAt = Number(verification.expires_at || verification.expiresAt || 0);
+    if (!Number.isFinite(expiresAt) || expiresAt <= now) {
+      return null;
+    }
+    const entitlement = {
+      product_id: THUMBGATE_LEASH_PRODUCT_ID,
+      platform: verification.platform,
+      verified_at: now,
+      expires_at: expiresAt,
+      source: verification.source || 'store_verifier',
+      transaction_id: verification.transaction_id || verification.transactionId || null,
+    };
+    this.state.entitlements[accountId] = {
+      ...(this.state.entitlements[accountId] || {}),
+      thumbgate_leash: entitlement,
+    };
+    this.persist();
+    return entitlement;
+  }
+
+  thumbgateLeashEntitlement(account, now = Date.now()) {
+    if (!account) {
+      return { active: false };
+    }
+    const entitlement = this.state.entitlements[account.id]?.thumbgate_leash;
+    if (!entitlement || Number(entitlement.expires_at || 0) <= now) {
+      return { active: false };
+    }
+    return {
+      active: true,
+      product_id: entitlement.product_id,
+      platform: entitlement.platform,
+      verified_at: entitlement.verified_at,
+      expires_at: entitlement.expires_at,
+      source: entitlement.source,
+    };
+  }
+
   listWorkersForAccount(account, now = Date.now()) {
     return account.worker_tokens
       .map((token) => this.state.workers[token])
@@ -407,4 +453,4 @@ class RelayStore {
   }
 }
 
-module.exports = { RelayStore, randomToken, slugify };
+module.exports = { RelayStore, THUMBGATE_LEASH_PRODUCT_ID, randomToken, slugify };

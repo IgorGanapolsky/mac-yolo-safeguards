@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Alert,
   Linking,
@@ -14,6 +14,7 @@ import {
   THUMBGATE_PRO_URL,
 } from '../constants/monetization';
 import {
+  THUMBGATE_LEASH_IAP_PRODUCT_ID,
   purchaseThumbgateLeash,
   restoreThumbgateLeashPurchases,
   thumbgateIapSubscribeLabel,
@@ -30,6 +31,12 @@ type ProUpgradeCardProps = {
 export default function ProUpgradeCard({ onUnlocked, onTesterUnlock }: ProUpgradeCardProps) {
   const [busy, setBusy] = useState(false);
 
+  useEffect(() => {
+    void trackProductEvent('leash_paywall_view', {
+      product_id: THUMBGATE_LEASH_IAP_PRODUCT_ID,
+    });
+  }, []);
+
   const openLearnMore = async () => {
     await trackProductEvent('upgrade_tap_thumbgate_learn_more', { url: THUMBGATE_PRO_URL });
     await Linking.openURL(THUMBGATE_PRO_URL);
@@ -42,7 +49,14 @@ export default function ProUpgradeCard({ onUnlocked, onTesterUnlock }: ProUpgrad
     setBusy(true);
     try {
       await trackProductEvent('upgrade_tap_thumbgate_iap');
+      await trackProductEvent('leash_purchase_start', {
+        product_id: THUMBGATE_LEASH_IAP_PRODUCT_ID,
+      });
       const result = await purchaseThumbgateLeash();
+      await trackProductEvent('leash_purchase_result', {
+        product_id: THUMBGATE_LEASH_IAP_PRODUCT_ID,
+        status: result.status,
+      });
       if (result.status === 'purchased') {
         await onUnlocked?.();
         return;
@@ -69,6 +83,10 @@ export default function ProUpgradeCard({ onUnlocked, onTesterUnlock }: ProUpgrad
     try {
       await trackProductEvent('upgrade_tap_thumbgate_restore');
       const result = await restoreThumbgateLeashPurchases();
+      await trackProductEvent('leash_restore_result', {
+        product_id: THUMBGATE_LEASH_IAP_PRODUCT_ID,
+        status: result.status,
+      });
       if (result.status === 'purchased') {
         await onUnlocked?.();
         return;
