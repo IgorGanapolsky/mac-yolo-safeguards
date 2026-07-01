@@ -6,6 +6,11 @@ import TabBarIcon from './src/components/TabBarIcon';
 // Hold native splash until React paints — prevents flash of empty black window.
 void SplashScreen.preventAutoHideAsync().catch(() => {});
 
+// Install the global JS exception handler as early as possible, before any
+// component renders. Fatal exceptions are persisted to the crash queue and
+// flushed to PostHog on the next launch.
+installGlobalCrashHandler();
+
 import { NavigationContainer, type NavigationContainerRef } from '@react-navigation/native';
 import { createBottomTabNavigator, BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { SafeAreaProvider, SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -17,6 +22,10 @@ import ConnectMacGate from './src/components/ConnectMacGate';
 import { useHermesDeepLinks } from './src/hooks/useHermesDeepLinks';
 import type { SetupDeepLinkParams } from './src/utils/setupDeepLink';
 import { trackAppOpen, trackScreenView } from './src/services/productAnalytics';
+import {
+  flushCrashQueue,
+  installGlobalCrashHandler,
+} from './src/services/crashReporting';
 import { useKeyboardInset } from './src/hooks/useKeyboardInset';
 import { LEASH_TAB_LABEL } from './src/constants/monetization';
 import { colors } from './src/theme/colors';
@@ -360,6 +369,9 @@ function HermesAppShell() {
 export default function App() {
   useEffect(() => {
     void trackAppOpen();
+    // Flush any crashes persisted from a previous (crashed) launch now that the
+    // process is healthy. Non-blocking; failures are retained for next launch.
+    void flushCrashQueue();
     // Safety net: never leave the native splash covering a working UI.
     void SplashScreen.hideAsync();
     const splashFallback = setTimeout(() => {
