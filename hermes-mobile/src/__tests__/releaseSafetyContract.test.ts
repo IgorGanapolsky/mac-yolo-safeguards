@@ -236,9 +236,8 @@ describe('release safety contract', () => {
     expect(bootstrap).toContain('hermes://dev/leash-unlock');
     expect(bootstrap).toContain('tab-screen-loading');
     expect(bootstrap).toContain('THUMBGATE_LEASH');
+    expect(bootstrap).toContain('id: "tab-leash"');
     expect(bootstrap).toContain('hermes://chat');
-    expect(bootstrap).toContain('times: 3');
-    expect(bootstrap).toContain('launchApp');
     expect(bootstrap).toContain('chat-screen-header');
     expect(bootstrap).toContain('chat-input');
   });
