@@ -29,12 +29,12 @@ export const APPROVALS_SUMMARY_NOTIFICATION_ID = 'hermes-approvals-summary';
 
 export function approvalNotificationTitle(pending: PendingApproval): string {
   if (pending.riskTier === 'high') {
-    return 'High-risk approval on your Mac';
+    return 'High-risk approval on your computer';
   }
   if (pending.sessionKey) {
     return 'Chat thread needs your approval';
   }
-  return 'Approval needed on your Mac';
+  return 'Approval needed on your computer';
 }
 
 export function buildApprovalNotificationBody(pending: PendingApproval): string {

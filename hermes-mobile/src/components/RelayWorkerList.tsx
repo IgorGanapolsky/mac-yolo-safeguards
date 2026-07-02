@@ -23,8 +23,8 @@ export default function RelayWorkerList({
     <View style={styles.wrap} testID={testID}>
       <Text style={styles.heading}>On your Hermes account</Text>
       <Text style={styles.hint}>
-        These Macs check in over the internet. Direct chat still needs Wi‑Fi or a tunnel URL unless
-        cloud chat relay is enabled.
+        These computers check in over the internet. Direct chat still needs Wi‑Fi or a tunnel URL
+        unless cloud chat relay is enabled.
       </Text>
       {workers.map((worker) => {
         const active =

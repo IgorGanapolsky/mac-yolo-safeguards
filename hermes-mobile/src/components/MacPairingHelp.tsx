@@ -53,7 +53,7 @@ export default function MacPairingHelp({
       ) : null}
       {!compact && variant === 'getting-started' ? (
         <Text style={styles.note}>
-          Already connected once? Your saved Macs appear in Choose your Mac from the chat header.
+          Already connected once? Your saved computers appear in Choose your computer from the chat header.
         </Text>
       ) : null}
     </View>

@@ -37,7 +37,7 @@ function moodFor(
   if (connectionState === 'connecting') {
     return { label: 'Linking', color: colors.warning };
   }
-  return { label: 'Waiting for Mac', color: colors.error };
+  return { label: 'Waiting for computer', color: colors.error };
 }
 
 export default function HermesPersonaCard({

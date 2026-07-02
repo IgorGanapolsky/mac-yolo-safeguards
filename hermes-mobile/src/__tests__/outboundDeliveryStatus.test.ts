@@ -8,7 +8,7 @@ describe('outboundDeliveryStatus', () => {
   it('shows waiting instead of sent when Mac is unreachable', () => {
     expect(
       outboundDeliveryLabel('sent', { connectionState: 'connecting', macHttpOk: false }),
-    ).toBe('○ Waiting for Mac…');
+    ).toBe('○ Waiting for computer…');
   });
 
   it('shows sent when HTTP health is ok even if socket is connecting', () => {
@@ -32,12 +32,12 @@ describe('outboundDeliveryStatus', () => {
   it('shows reachability hint when send failed and Mac health is down', () => {
     expect(
       outboundDeliveryLabel('failed', { connectionState: 'connecting', macHttpOk: false }),
-    ).toBe("⚠ Couldn't reach Mac");
+    ).toBe("⚠ Couldn't reach your computer");
   });
 
   it('shows truncated failure reason on bubble when provided', () => {
     const longReason =
-      'Sign-in to your computer failed. Open Settings and pair again with your Mac.';
+      'Sign-in to your computer failed. Open Settings and pair again.';
     expect(
       outboundDeliveryLabel('failed', {
         connectionState: 'connected',

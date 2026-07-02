@@ -11,7 +11,7 @@ const mockGatewayState = {
   health: { ok: true, hostname: 'demo-mac.local', localIp: '127.0.0.1' },
   activeGatewayProfile: {
     id: 'mac_demo',
-    label: 'Demo Mac',
+    label: 'Demo computer',
     gatewayUrl: 'http://localhost:8642',
     localIp: '127.0.0.1',
     addedAt: '2026-06-18T00:00:00Z',
@@ -19,7 +19,7 @@ const mockGatewayState = {
   gatewayProfiles: [
     {
       id: 'mac_demo',
-      label: 'Demo Mac',
+      label: 'Demo computer',
       gatewayUrl: 'http://localhost:8642',
       localIp: '127.0.0.1',
       addedAt: '2026-06-18T00:00:00Z',
@@ -342,7 +342,7 @@ describe('ChatScreen', () => {
       health: { ok: true, hostname: 'demo-mac.local', localIp: '127.0.0.1' },
       activeGatewayProfile: {
         id: 'mac_demo',
-        label: 'Demo Mac',
+        label: 'Demo computer',
         gatewayUrl: 'http://localhost:8642',
         localIp: '127.0.0.1',
         addedAt: '2026-06-18T00:00:00Z',
@@ -350,7 +350,7 @@ describe('ChatScreen', () => {
       gatewayProfiles: [
         {
           id: 'mac_demo',
-          label: 'Demo Mac',
+          label: 'Demo computer',
           gatewayUrl: 'http://localhost:8642',
           localIp: '127.0.0.1',
           addedAt: '2026-06-18T00:00:00Z',
@@ -416,7 +416,7 @@ describe('ChatScreen', () => {
     expect(getByText('DEMO')).toBeTruthy();
     expect(getByTestId('chat-input')).toBeTruthy();
     expect(getByTestId('chat-screen-header')).toBeTruthy();
-    expect(getByTestId('chat-context-mac').props.children).toBe('Demo Mac');
+    expect(getByTestId('chat-context-mac').props.children).toBe('Demo computer');
     expect(getByTestId('chat-empty-greeting')).toBeTruthy();
   });
 
@@ -579,8 +579,8 @@ describe('ChatScreen', () => {
 
     expect(getByTestId('mac-picker-scroll')).toBeTruthy();
     expect(getByTestId('mac-picker-setup-help')).toBeTruthy();
-    expect(getByText('Missing your Mac mini?')).toBeTruthy();
-    expect(getByText(/Start Hermes on the Mac mini/)).toBeTruthy();
+    expect(getByText('Missing your other machine?')).toBeTruthy();
+    expect(getByText(/Start Hermes on your other machine/)).toBeTruthy();
     expect(getByText(/Tailscale MagicDNS name or 100.x address in Settings/)).toBeTruthy();
   });
 

@@ -153,11 +153,11 @@ export function formatMacConnectionRetryBanner(input: {
         ? machineName
         : machineName !== 'Hermes account relay' && !/^(http|https)$/i.test(machineName)
           ? machineName
-          : 'your Mac';
+          : 'your computer';
 
   if (input.connectionState === 'connecting' && !input.connectingStuck) {
-    return label === 'your Mac'
-      ? 'Connecting to your Mac… tap to retry'
+    return label === 'your computer'
+      ? 'Connecting to your computer… tap to retry'
       : `Connecting to ${label}… tap to retry`;
   }
 

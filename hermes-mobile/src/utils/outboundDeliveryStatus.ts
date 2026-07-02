@@ -40,7 +40,7 @@ export function outboundDeliveryLabel(
     if (input.macHttpOk) {
       return "⚠ Didn't send — tap ↑ again";
     }
-    return "⚠ Couldn't reach Mac";
+    return "⚠ Couldn't reach your computer";
   }
 
   const live = isGatewayLiveForDelivery(input);
@@ -49,11 +49,11 @@ export function outboundDeliveryLabel(
     if (live) {
       return '✓ Sent';
     }
-    return '○ Waiting for Mac…';
+    return '○ Waiting for computer…';
   }
 
   if (!live) {
-    return '○ Waiting for Mac…';
+    return '○ Waiting for computer…';
   }
   if (input.connectionState === 'connecting') {
     return '○ Sending…';

@@ -34,7 +34,7 @@ export default function RelayPairStrip({
           <Text style={styles.title}>Hermes relay linked</Text>
           <Text style={styles.body}>
             Relay is paired. Approvals work on Wi‑Fi, cellular, or USB. Workers appear when Hermes
-            checks in from your Macs.
+            checks in from your computers.
           </Text>
         </View>
       );
@@ -56,7 +56,7 @@ export default function RelayPairStrip({
     <View style={styles.wrap} testID={testID}>
       <Text style={styles.title}>Link Hermes relay (like Telegram)</Text>
       <Text style={styles.body}>
-        Pair relay so approvals reach your phone on Wi‑Fi, cellular, or USB. On your Mac, open relay
+        Pair relay so approvals reach your phone on Wi‑Fi, cellular, or USB. On your computer, open relay
         pairing and enter the code Hermes shows you.
       </Text>
       <TextInput

@@ -66,7 +66,7 @@ export default function ConnectMacGate() {
     setAddingProfile(true);
     try {
       const isTailscale = isTailscaleGatewayUrl(cleaned);
-      const label = isTailscale ? 'Mac mini (Tailscale)' : 'Custom Mac';
+      const label = isTailscale ? 'Tailscale computer' : 'Custom computer';
       await addGatewayProfile(label, cleaned);
       setManualInput('');
       haptics.success();
@@ -140,9 +140,9 @@ export default function ConnectMacGate() {
             keyboardShouldPersistTaps="handled"
           >
             <View style={styles.card}>
-              <Text style={styles.title}>Connect your Mac</Text>
+              <Text style={styles.title}>Connect your computer</Text>
               <Text style={styles.body}>
-                Hermes on your phone talks to Hermes on your Mac. Follow the steps below — we
+                Hermes on your phone talks to Hermes on your computer. Follow the steps below — we
                 search your home Wi‑Fi automatically.
               </Text>
 
@@ -185,7 +185,7 @@ export default function ConnectMacGate() {
               />
 
               <LoadingButton
-                label="Scan QR from your Mac"
+                label="Scan QR from your computer"
                 variant="secondary"
                 onPress={() => {
                   setInvalidQrHint(null);
@@ -228,7 +228,7 @@ export default function ConnectMacGate() {
               </View>
 
               <Text style={styles.footnote}>
-                Need Hermes on your Mac first? Use the setup guide link in Settings after you dismiss
+                Need Hermes on your computer first? Use the setup guide link in Settings after you dismiss
                 this screen.
               </Text>
             </View>
@@ -247,7 +247,7 @@ export default function ConnectMacGate() {
           await retryGatewayBootstrap();
         }}
         onInvalidScan={() =>
-          setInvalidQrHint('That QR is not a Hermes pairing code. Open Connect phone on your Mac.')
+          setInvalidQrHint('That QR is not a Hermes pairing code. Open Connect phone on your computer.')
         }
       />
     </>

@@ -30,7 +30,7 @@ export default function TailscaleDiscoveryBanner({
   if (discoveries.length === 0 && probing) {
     return (
       <GlassCard style={cardStyle} testID="tailscale-discovery-probing">
-        <Text style={styles.title}>On Tailscale — searching for your Mac</Text>
+        <Text style={styles.title}>On Tailscale — searching for your computer</Text>
         <Text style={styles.body}>
           Looking for Hermes on your tailnet. Works on cellular or any Wi‑Fi when Tailscale is on
           both devices.
@@ -41,11 +41,11 @@ export default function TailscaleDiscoveryBanner({
 
   return (
     <GlassCard style={cardStyle} testID="tailscale-discovery-banner">
-      <Text style={styles.title}>Mac found on Tailscale</Text>
+      <Text style={styles.title}>Computer found on Tailscale</Text>
       <Text style={styles.body}>
         {prominent
-          ? 'Tap below to add your Mac — works on cellular or any Wi‑Fi when Tailscale is running on both devices.'
-          : 'Add your Mac to switch between computers without a USB cable.'}
+          ? 'Tap below to add your computer — works on cellular or any Wi‑Fi when Tailscale is running on both devices.'
+          : 'Add your computer to switch between machines without a USB cable.'}
       </Text>
       <View style={styles.chips}>
         {discoveries.map((discovery) => {

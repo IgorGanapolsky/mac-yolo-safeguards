@@ -10,7 +10,7 @@ export function formatDiffPreview(diff: string, maxLines = 14): string {
   if (lines.length <= maxLines) {
     return lines.join('\n');
   }
-  return `${lines.slice(0, maxLines).join('\n')}\n… (${lines.length - maxLines} more lines on Mac)`;
+  return `${lines.slice(0, maxLines).join('\n')}\n… (${lines.length - maxLines} more lines on computer)`;
 }
 
 export function diffStats(diff: string): { additions: number; deletions: number } | null {

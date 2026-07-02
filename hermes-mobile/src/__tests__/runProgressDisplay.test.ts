@@ -9,12 +9,12 @@ import {
 describe('runProgressDisplay', () => {
   it('humanizes sending and tool labels for chat banner', () => {
     expect(humanizeRunProgressDetail('Sending to your computer…')).toBe('Delivering your message…');
-    expect(humanizeRunProgressDetail('running skill_view')).toBe('Reading a skill on your Mac…');
-    expect(humanizeRunProgressDetail('running web_search')).toBe('Running web search on your Mac…');
+    expect(humanizeRunProgressDetail('running skill_view')).toBe('Reading a skill on your computer…');
+    expect(humanizeRunProgressDetail('running web_search')).toBe('Running web search on your computer…');
   });
 
   it('humanizes composer status lines', () => {
-    expect(humanizeComposerStatus('tool.completed: skill_view')).toBe('Hermes is working on your Mac…');
+    expect(humanizeComposerStatus('tool.completed: skill_view')).toBe('Hermes is working on your computer…');
     expect(humanizeComposerStatus('Queued on active Hermes thread — waiting for reply…')).toContain('Queued');
   });
 
@@ -62,6 +62,6 @@ describe('runProgressDisplay', () => {
       runProgressFailedTitle(
         "Your phone can't reach that local computer link. Join the same Wi‑Fi, add a tunnel URL in Settings.",
       ),
-    ).toBe("Couldn't reach your Mac");
+    ).toBe("Couldn't reach your computer");
   });
 });

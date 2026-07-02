@@ -93,11 +93,11 @@ export function describeBootstrapPhase(phase: GatewayBootstrapPhase): string {
     case 'booting':
       return 'Starting Hermes Mobile…';
     case 'searching':
-      return 'Searching your home Wi‑Fi for your Mac…';
+      return 'Searching your home Wi‑Fi for your computer…';
     case 'connected':
-      return 'Connected to your Mac';
+      return 'Connected to your computer';
     case 'needs_setup':
-      return 'No Mac found yet — follow the steps below';
+      return 'No computer found yet — follow the steps below';
     default:
       return '';
   }

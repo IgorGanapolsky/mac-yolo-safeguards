@@ -45,7 +45,7 @@ describe('smartNotificationPolicy', () => {
       'Chat thread needs your approval',
     );
     expect(approvalNotificationTitle(basePending({ riskTier: 'high' }))).toBe(
-      'High-risk approval on your Mac',
+      'High-risk approval on your computer',
     );
   });
 

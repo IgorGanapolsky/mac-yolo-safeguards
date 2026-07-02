@@ -91,7 +91,7 @@ function RunProgressBanner({
           numberOfLines={isFailed && failedDetail ? 1 : 2}
           testID="run-progress-detail"
         >
-          {isCompleted ? 'Reply ready on your Mac' : isFailed ? failedTitle : detailLabel}
+          {isCompleted ? 'Reply ready on your computer' : isFailed ? failedTitle : detailLabel}
         </Text>
         <Text style={styles.timeLabel}>{durationSec}s</Text>
         {isActive && onStop ? (
@@ -157,7 +157,7 @@ function RunProgressBanner({
       {terminalLine ? (
         <View style={styles.terminalBox} testID="operator-terminal-preview">
           <Text style={styles.terminalLabel}>
-            {terminalToolName ? `Terminal · ${terminalToolName}` : 'Terminal on your Mac'}
+            {terminalToolName ? `Terminal · ${terminalToolName}` : 'Terminal on your computer'}
           </Text>
           <Text style={styles.terminalText} numberOfLines={8} ellipsizeMode="tail" selectable>
             {terminalLine}

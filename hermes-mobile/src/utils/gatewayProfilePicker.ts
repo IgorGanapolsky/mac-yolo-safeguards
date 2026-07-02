@@ -8,7 +8,7 @@ import {
   resolveDisplayLanIp,
 } from './gatewayUrlPolicy';
 import { isPrivateLanGatewayUrl } from './gatewayEndpoint';
-import { isInvalidGatewayProfile, profileDisplayName } from '../services/gatewayProfiles';
+import { isInvalidGatewayProfile, profileDisplayName, GENERIC_USB_PROFILE_LABEL, LEGACY_USB_PROFILE_LABEL } from '../services/gatewayProfiles';
 import { isTailscaleGatewayUrl } from './tailscaleHosts';
 
 export type ProfilePickerLines = {
@@ -40,7 +40,8 @@ export function isGenericUsbLoopbackProfile(profile: GatewayProfile): boolean {
   return (
     profile.id === GENERIC_USB_LOOPBACK_ID ||
     (isLoopbackGatewayUrl(profile.gatewayUrl) &&
-      profile.label?.trim() === 'Mac via USB' &&
+      (profile.label?.trim() === GENERIC_USB_PROFILE_LABEL ||
+        profile.label?.trim() === LEGACY_USB_PROFILE_LABEL) &&
       !profile.hostname?.trim())
   );
 }
@@ -52,7 +53,9 @@ function hasNamedUsbLoopbackProfile(profiles: GatewayProfile[]): boolean {
       !isGenericUsbLoopbackProfile(p) &&
       Boolean(
         p.hostname?.trim() ||
-          (p.label?.trim() && p.label.trim() !== 'Mac via USB'),
+          (p.label?.trim() &&
+            p.label.trim() !== GENERIC_USB_PROFILE_LABEL &&
+            p.label.trim() !== LEGACY_USB_PROFILE_LABEL),
       ),
   );
 }
@@ -110,7 +113,7 @@ export function formatUsbHostMismatchMessage(mismatch: UsbHostMismatch): string 
   if (mismatch.matchingProfileId) {
     return `USB is connected to ${mismatch.usbHostLabel}, but you selected ${mismatch.selectedProfileLabel}. Tap ${mismatch.usbHostLabel} in Saved computers below.`;
   }
-  return `USB is connected to ${mismatch.usbHostLabel}, not ${mismatch.selectedProfileLabel}. Switch saved computers or unplug from the other Mac.`;
+  return `USB is connected to ${mismatch.usbHostLabel}, not ${mismatch.selectedProfileLabel}. Switch saved computers or unplug from the other computer.`;
 }
 
 export type ProfileConnectionRoute = 'USB' | 'Wi-Fi' | 'Tailscale' | 'Tunnel' | 'Needs tunnel';

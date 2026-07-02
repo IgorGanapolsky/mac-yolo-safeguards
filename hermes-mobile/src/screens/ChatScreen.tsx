@@ -1122,7 +1122,7 @@ export default function ChatScreen() {
 
   const inputPlaceholder = useMemo(() => {
     if (!currentSession) {
-      return 'Message your Mac…';
+      return 'Message your computer…';
     }
     if (isSending) {
       return queuedOutboundCount > 0
@@ -1215,7 +1215,7 @@ export default function ChatScreen() {
     haptics.selection();
     Alert.alert(
       'Workspace',
-      'Hermes runs in this folder on your Mac.',
+      'Hermes runs in this folder on your computer.',
       [
         ...projectState.projects.map((project) => ({
           text: project.name,
@@ -2071,7 +2071,7 @@ export default function ChatScreen() {
       setSessions((prev) => applyClearedFilter(prev));
       if (failed > 0) {
         setErrorMessage(
-          `${failed} thread${failed === 1 ? '' : 's'} could not be deleted on your Mac. The rest were cleared.`,
+          `${failed} thread${failed === 1 ? '' : 's'} could not be deleted on your computer. The rest were cleared.`,
         );
       } else {
         setErrorMessage(null);
@@ -2086,7 +2086,7 @@ export default function ChatScreen() {
   const handleClearAllChats = useCallback(() => {
     Alert.alert(
       'Clear all chats?',
-      'This deletes every thread on your Mac from Hermes. You cannot undo this.',
+      'This deletes every thread on your computer from Hermes. You cannot undo this.',
       [
         { text: 'Cancel', style: 'cancel' },
         { text: 'Clear all', style: 'destructive', onPress: () => void executeClearAllChats() },
@@ -2528,11 +2528,11 @@ export default function ChatScreen() {
     const notifyWaitingForMacSlot = () => {
       setRunProgress((prev) =>
         prev
-          ? { ...prev, detail: 'Waiting for your Mac to finish the previous chat…' }
+          ? { ...prev, detail: 'Waiting for your computer to finish the previous chat…' }
           : {
               phase: 'sending',
               startedAtMs: Date.now(),
-              detail: 'Waiting for your Mac to finish the previous chat…',
+              detail: 'Waiting for your computer to finish the previous chat…',
             },
       );
     };
@@ -2755,7 +2755,7 @@ export default function ChatScreen() {
           ? {
               ...prev,
               phase: 'working',
-              detail: 'Hermes is working on your Mac…',
+              detail: 'Hermes is working on your computer…',
             }
           : prev,
       );
@@ -2768,12 +2768,12 @@ export default function ChatScreen() {
           ? {
               ...prev,
               phase: 'working',
-              detail: 'Hermes is working on your Mac…',
+              detail: 'Hermes is working on your computer…',
             }
           : {
               phase: 'working',
               startedAtMs: sendStartedAtRef.current,
-              detail: 'Hermes is working on your Mac…',
+              detail: 'Hermes is working on your computer…',
               sessionId: targetSessionIdForProgress,
             },
       );
@@ -3017,7 +3017,7 @@ export default function ChatScreen() {
                 ? {
                     ...prev,
                     phase: 'working',
-                    detail: 'Hermes is working on your Mac…',
+                    detail: 'Hermes is working on your computer…',
                   }
                 : prev,
             );
@@ -3077,7 +3077,7 @@ export default function ChatScreen() {
               ? {
                   ...prev,
                   phase: 'running',
-                  detail: 'Queued on Hermes thread — your Mac may still be running tools',
+                  detail: 'Queued on Hermes thread — your computer may still be running tools',
                 }
               : prev,
           );
@@ -3146,7 +3146,7 @@ export default function ChatScreen() {
               sessionId: targetSessionId,
             }),
             phase: 'completed',
-            detail: 'Reply ready on your Mac',
+            detail: 'Reply ready on your computer',
             duration: Math.max(0, (Date.now() - completedStartedAt) / 1000),
           }));
           setTimeout(() => {
@@ -3312,14 +3312,14 @@ export default function ChatScreen() {
     try {
       await stopRun(gatewayUrl, runId, apiKey);
       setRunProgress((prev) =>
-        prev ? { ...prev, phase: 'failed', detail: 'Stopped on your Mac' } : null,
+        prev ? { ...prev, phase: 'failed', detail: 'Stopped on your computer' } : null,
       );
       isSendingRef.current = false;
       setIsSending(false);
       haptics.warning();
     } catch (error) {
       setErrorMessage(
-        error instanceof Error ? error.message : 'Could not stop the run on your Mac',
+        error instanceof Error ? error.message : 'Could not stop the run on your computer',
       );
       haptics.warning();
     }
@@ -3352,7 +3352,7 @@ export default function ChatScreen() {
     isSendingRef.current = false;
     setIsSending(false);
     setRunProgress((prev) =>
-      prev ? { ...prev, phase: 'failed', detail: 'Stopped on your Mac' } : null,
+      prev ? { ...prev, phase: 'failed', detail: 'Stopped on your computer' } : null,
     );
     setErrorMessage(null);
     const retryText = lastFailedSendTextRef.current?.trim();
@@ -3612,7 +3612,7 @@ export default function ChatScreen() {
                 testID="chat-empty-state"
               >
                 <ChatEmptyGreeting
-                  routeLabel={isDemo ? 'Demo Mac' : machineShortLabel}
+                  routeLabel={isDemo ? 'Demo computer' : machineShortLabel}
                   isConnected={effectiveMacChatLive}
                 />
                 {showMacConnectionHelp ? (
@@ -3694,7 +3694,7 @@ export default function ChatScreen() {
                   onPress={() => void handleStopMacAndRetrySend()}
                   testID="chat-stop-mac-run"
                 >
-                  <Text style={styles.errorAction}>Stop run on Mac & retry</Text>
+                  <Text style={styles.errorAction}>Stop run on computer & retry</Text>
                 </TouchableOpacity>
               ) : null}
             </View>
@@ -3802,7 +3802,7 @@ export default function ChatScreen() {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Choose your Mac</Text>
+              <Text style={styles.modalTitle}>Choose your computer</Text>
               <TouchableOpacity onPress={() => setMacPickerVisible(false)}>
                 <Text style={styles.modalCloseBtn}>Close</Text>
               </TouchableOpacity>
@@ -3814,15 +3814,15 @@ export default function ChatScreen() {
               testID="mac-picker-scroll"
             >
               <Text style={styles.modalSubtitle}>
-                Pick a saved Mac, or tap Find computers to search your home Wi‑Fi and known
+                Pick a saved computer, or tap Find computers to search your home Wi‑Fi and known
                 Tailscale addresses.
               </Text>
               <View style={styles.macSetupCard} testID="mac-picker-setup-help">
-                <Text style={styles.macSetupTitle}>Missing your Mac mini?</Text>
+                <Text style={styles.macSetupTitle}>Missing your other machine?</Text>
                 <Text style={styles.macSetupText}>
-                  Start Hermes on the Mac mini, keep Tailscale on for both devices, then tap Find
-                  computers. If it still does not appear, add its Tailscale MagicDNS name or 100.x
-                  address in Settings.
+                  Start Hermes on your other machine, keep Tailscale on for both devices, then tap
+                  Find computers. If it still does not appear, add its Tailscale MagicDNS name or
+                  100.x address in Settings.
                 </Text>
               </View>
               {tailscaleDiscoveries.length > 0 || tailscaleDiscoveryProbing ? (
@@ -3901,7 +3901,7 @@ export default function ChatScreen() {
               </TouchableOpacity>
             </View>
             <Text style={styles.modalSubtitle}>
-              Toolsets, skills, and scheduled jobs on your Mac gateway.
+              Toolsets, skills, and scheduled jobs on your computer gateway.
             </Text>
             <ScrollView style={styles.toolsModalScroll} keyboardShouldPersistTaps="handled">
               <GatewayOpsSection />

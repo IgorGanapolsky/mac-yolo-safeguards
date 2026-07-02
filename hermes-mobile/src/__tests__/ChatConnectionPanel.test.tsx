@@ -13,7 +13,7 @@ describe('buildConnectionStatusChips', () => {
       wifiProfileReachable: false,
     });
 
-    expect(chips.find((chip) => chip.id === 'mac-http')?.label).toBe('Your Mac: Unreachable');
+    expect(chips.find((chip) => chip.id === 'mac-http')?.label).toBe('Your computer: Unreachable');
     expect(chips.find((chip) => chip.id === 'mac-http')?.tone).toBe('bad');
     expect(chips.find((chip) => chip.id === 'usb-tunnel')?.label).toBe('USB: Not ready');
     expect(chips.some((chip) => /Hermes running/i.test(chip.label))).toBe(false);
@@ -42,7 +42,7 @@ describe('ChatConnectionPanel', () => {
     );
 
     expect(getByTestId('fresh-user-onboarding-card')).toBeTruthy();
-    expect(getAllByText('Connect your Mac').length).toBeGreaterThan(0);
+    expect(getAllByText('Connect your computer').length).toBeGreaterThan(0);
     expect(getByTestId('chat-connection-search')).toBeTruthy();
   });
 
@@ -62,7 +62,7 @@ describe('ChatConnectionPanel', () => {
       />,
     );
 
-    expect(getByText(/Your saved Macs/)).toBeTruthy();
+    expect(getByText(/Your saved computers/)).toBeTruthy();
     expect(getByTestId('gateway-profile-list')).toBeTruthy();
     expect(getByTestId('select-gateway-profile-p1')).toBeTruthy();
   });
@@ -91,7 +91,7 @@ describe('ChatConnectionPanel', () => {
       />,
     );
 
-    expect(getByText(/Cannot reach this Mac/)).toBeTruthy();
+    expect(getByText(/Cannot reach this computer/)).toBeTruthy();
     expect(queryByText(/· Now/)).toBeTruthy();
   });
 
@@ -199,7 +199,7 @@ describe('ChatConnectionPanel', () => {
         onSearchMac={jest.fn()}
       />,
     );
-    expect(getByText("Can't reach your Mac")).toBeTruthy();
+    expect(getByText("Can't reach your computer")).toBeTruthy();
   });
 
   it('shows wrong Mac on USB when health hostname differs from selected profile', () => {
@@ -223,7 +223,7 @@ describe('ChatConnectionPanel', () => {
         onSearchMac={jest.fn()}
       />,
     );
-    expect(getByText('Wrong Mac plugged in')).toBeTruthy();
+    expect(getByText('Wrong computer plugged in')).toBeTruthy();
     expect(getByText(/USB is connected to Igors-MacBook-Pro/)).toBeTruthy();
   });
 
@@ -349,7 +349,7 @@ describe('ChatConnectionPanel', () => {
     fireEvent.press(getByTestId('chat-manual-submit'));
 
     await waitFor(() => {
-      expect(onAddProfile).toHaveBeenCalledWith('Mac mini (Tailscale)', 'http://100.87.85.85:8642');
+      expect(onAddProfile).toHaveBeenCalledWith('Tailscale computer', 'http://100.87.85.85:8642');
     });
   });
 
