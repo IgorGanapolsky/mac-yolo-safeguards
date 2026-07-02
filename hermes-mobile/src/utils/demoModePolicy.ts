@@ -1,4 +1,5 @@
 import type { GatewaySettings } from '../types/gateway';
+import Constants from 'expo-constants';
 
 /**
  * Demo/sandbox is for local dev and E2E automation builds only.
@@ -7,8 +8,18 @@ import type { GatewaySettings } from '../types/gateway';
 export function isDemoModeAllowed(): boolean {
   return (
     __DEV__ ||
+    isE2eAutomationBuild()
+  );
+}
+
+export function isE2eAutomationBuild(): boolean {
+  const extra = Constants.expoConfig?.extra as Record<string, unknown> | undefined;
+  return (
     process.env.EXPO_PUBLIC_E2E_AUTOMATION === '1' ||
-    process.env.EXPO_PUBLIC_E2E_AUTOMATION === 'true'
+    process.env.EXPO_PUBLIC_E2E_AUTOMATION === 'true' ||
+    extra?.e2eAutomation === true ||
+    extra?.e2eAutomation === 'true' ||
+    extra?.e2eAutomation === '1'
   );
 }
 

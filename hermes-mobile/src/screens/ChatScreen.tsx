@@ -8,7 +8,6 @@ import {
   Pressable,
   Platform,
   ActivityIndicator,
-  Modal,
   RefreshControl,
   ScrollView,
   SectionList,
@@ -115,6 +114,7 @@ import ChatInputBar from '../components/ChatInputBar';
 import ChatMessageListItem from '../components/ChatMessageListItem';
 import ChatMessageDetailModal from '../components/ChatMessageDetailModal';
 import FeedbackPromptModal from '../components/FeedbackPromptModal';
+import BottomSheetModal from '../components/BottomSheetModal';
 import GatewayOpsSection from '../components/GatewayOpsSection';
 import ChatApprovalBar from '../components/ChatApprovalBar';
 import RunProgressBanner from '../components/RunProgressBanner';
@@ -3806,368 +3806,345 @@ export default function ChatScreen() {
         ) : null}
       </View>
 
-      <Modal
+      <BottomSheetModal
         visible={macPickerVisible}
-        animationType="slide"
-        transparent={true}
-        statusBarTranslucent
-        onRequestClose={() => setMacPickerVisible(false)}
+        onClose={() => setMacPickerVisible(false)}
+        testID="mac-picker-sheet"
       >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Choose your computer</Text>
-              <TouchableOpacity onPress={() => setMacPickerVisible(false)}>
-                <Text style={styles.modalCloseBtn}>Close</Text>
-              </TouchableOpacity>
-            </View>
-            <ScrollView
-              style={styles.macPickerScroll}
-              contentContainerStyle={styles.macPickerContent}
-              keyboardShouldPersistTaps="handled"
-              testID="mac-picker-scroll"
-            >
-              <Text style={styles.modalSubtitle}>
-                Pick a saved computer, or tap Find computers to search your home Wi‑Fi and known
-                Tailscale addresses.
-              </Text>
-              <View style={styles.macSetupCard} testID="mac-picker-setup-help">
-                <Text style={styles.macSetupTitle}>Missing your other machine?</Text>
-                <Text style={styles.macSetupText}>
-                  Start Hermes on your other machine, keep Tailscale on for both devices, then tap
-                  Find computers. If it still does not appear, add its Tailscale MagicDNS name or
-                  100.x address in Settings.
-                </Text>
-              </View>
-              {tailscaleDiscoveries.length > 0 || tailscaleDiscoveryProbing ? (
-                <TailscaleDiscoveryBanner
-                  discoveries={tailscaleDiscoveries}
-                  adding={tailscaleDiscoveryProbing}
-                  probing={tailscaleDiscoveryProbing && tailscaleDiscoveries.length === 0}
-                  onAdd={(discovery) => {
-                    void addDiscoveredTailscaleComputer(discovery);
-                  }}
-                  prominent
-                />
-              ) : null}
-              <GatewayProfilePicker
-                profiles={switchComputerProfiles}
-                activeProfileId={activeGatewayProfile?.id ?? null}
-                activeReachable={macHttpOk || connectionState === 'connected'}
-                activeConnecting={connectionState === 'connecting'}
-                scanning={profileScanning || isScanningMacs}
-                scanProgress={profileScanProgress}
-                scanResult={profileScanResult}
-                wifiConnected={wifiConnected}
-                showReachabilityHints={switchComputerProfiles.length > 1}
-                onSelect={async (profileId) => {
-                  haptics.light();
-                  await selectGatewayProfile(profileId);
-                  await refreshHealth();
-                  connectEvents();
-                  setMacPickerVisible(false);
-                  pinScrollAfterHydrationRef.current = true;
-                  userNearBottomRef.current = true;
-                  setCurrentSession(null);
-                  setMessages([]);
-                  await loadSessionsList(true);
-                }}
-                onRemove={
-                  switchComputerProfiles.length > 1
-                    ? async (profileId) => {
-                        await removeGatewayProfile(profileId);
-                      }
-                    : undefined
-                }
-              />
-              <LoadingButton
-                label="Find computers"
-                loadingLabel="Finding computers…"
-                loading={isScanningMacs || profileScanning}
-                variant="secondary"
-                onPress={async () => {
-                  setIsScanningMacs(true);
-                  try {
-                    await scanForGatewayProfiles();
-                    void probeTailscaleComputers();
-                  } finally {
-                    setIsScanningMacs(false);
-                  }
-                }}
-                testID="chat-find-macs-on-wifi"
-                style={styles.newChatBtn}
-              />
-            </ScrollView>
-          </View>
+        <View style={styles.modalHeader}>
+          <Text style={styles.modalTitle}>Choose your computer</Text>
+          <TouchableOpacity onPress={() => setMacPickerVisible(false)}>
+            <Text style={styles.modalCloseBtn}>Close</Text>
+          </TouchableOpacity>
         </View>
-      </Modal>
-
-      <Modal
-        visible={toolsModalVisible}
-        animationType="slide"
-        transparent={true}
-        onRequestClose={() => setToolsModalVisible(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, styles.toolsModalContent]}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle} testID="tools-modal-title">Tools</Text>
-              <TouchableOpacity onPress={() => setToolsModalVisible(false)}>
-                <Text style={styles.modalCloseBtn}>Close</Text>
-              </TouchableOpacity>
-            </View>
-            <Text style={styles.modalSubtitle}>
-              Toolsets, skills, and scheduled jobs on your computer gateway.
+        <ScrollView
+          style={styles.macPickerScroll}
+          contentContainerStyle={styles.macPickerContent}
+          keyboardShouldPersistTaps="handled"
+          testID="mac-picker-scroll"
+        >
+          <Text style={styles.modalSubtitle}>
+            Pick a saved computer, or tap Find computers to search your home Wi‑Fi and known
+            Tailscale addresses.
+          </Text>
+          <View style={styles.macSetupCard} testID="mac-picker-setup-help">
+            <Text style={styles.macSetupTitle}>Missing your other machine?</Text>
+            <Text style={styles.macSetupText}>
+              Start Hermes on your other machine, keep Tailscale on for both devices, then tap
+              Find computers. If it still does not appear, add its Tailscale MagicDNS name or
+              100.x address in Settings.
             </Text>
-            <ScrollView style={styles.toolsModalScroll} keyboardShouldPersistTaps="handled">
-              <GatewayOpsSection />
-            </ScrollView>
           </View>
-        </View>
-      </Modal>
+          {tailscaleDiscoveries.length > 0 || tailscaleDiscoveryProbing ? (
+            <TailscaleDiscoveryBanner
+              discoveries={tailscaleDiscoveries}
+              adding={tailscaleDiscoveryProbing}
+              probing={tailscaleDiscoveryProbing && tailscaleDiscoveries.length === 0}
+              onAdd={(discovery) => {
+                void addDiscoveredTailscaleComputer(discovery);
+              }}
+              prominent
+            />
+          ) : null}
+          <GatewayProfilePicker
+            profiles={switchComputerProfiles}
+            activeProfileId={activeGatewayProfile?.id ?? null}
+            activeReachable={macHttpOk || connectionState === 'connected'}
+            activeConnecting={connectionState === 'connecting'}
+            scanning={profileScanning || isScanningMacs}
+            scanProgress={profileScanProgress}
+            scanResult={profileScanResult}
+            wifiConnected={wifiConnected}
+            showReachabilityHints={switchComputerProfiles.length > 1}
+            onSelect={async (profileId) => {
+              haptics.light();
+              await selectGatewayProfile(profileId);
+              await refreshHealth();
+              connectEvents();
+              setMacPickerVisible(false);
+              pinScrollAfterHydrationRef.current = true;
+              userNearBottomRef.current = true;
+              setCurrentSession(null);
+              setMessages([]);
+              await loadSessionsList(true);
+            }}
+            onRemove={
+              switchComputerProfiles.length > 1
+                ? async (profileId) => {
+                    await removeGatewayProfile(profileId);
+                  }
+                : undefined
+            }
+          />
+          <LoadingButton
+            label="Find computers"
+            loadingLabel="Finding computers…"
+            loading={isScanningMacs || profileScanning}
+            variant="secondary"
+            onPress={async () => {
+              setIsScanningMacs(true);
+              try {
+                await scanForGatewayProfiles();
+                void probeTailscaleComputers();
+              } finally {
+                setIsScanningMacs(false);
+              }
+            }}
+            testID="chat-find-macs-on-wifi"
+            style={styles.newChatBtn}
+          />
+        </ScrollView>
+      </BottomSheetModal>
 
-      <Modal
-        visible={sessionModalVisible}
-        animationType="slide"
-        transparent={true}
-        onRequestClose={() => setSessionModalVisible(false)}
+      <BottomSheetModal
+        visible={toolsModalVisible}
+        onClose={() => setToolsModalVisible(false)}
+        contentStyle={styles.toolsModalContent}
+        testID="tools-sheet"
       >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <View>
-                <Text style={styles.modalTitle} testID="threads-modal-title">Threads</Text>
-                {activeProject ? (
-                  <Text style={{ fontSize: 11, color: colors.textMuted, marginTop: 2 }}>
-                    {activeProject.name} chats
-                  </Text>
-                ) : null}
-              </View>
-              <TouchableOpacity onPress={() => setSessionModalVisible(false)}>
-                <Text style={styles.modalCloseBtn}>Close</Text>
-              </TouchableOpacity>
-            </View>
+        <View style={styles.modalHeader}>
+          <Text style={styles.modalTitle} testID="tools-modal-title">Tools</Text>
+          <TouchableOpacity onPress={() => setToolsModalVisible(false)}>
+            <Text style={styles.modalCloseBtn}>Close</Text>
+          </TouchableOpacity>
+        </View>
+        <Text style={styles.modalSubtitle}>
+          Toolsets, skills, and scheduled jobs on your computer gateway.
+        </Text>
+        <ScrollView style={styles.toolsModalScroll} keyboardShouldPersistTaps="handled">
+          <GatewayOpsSection />
+        </ScrollView>
+      </BottomSheetModal>
 
+      <BottomSheetModal
+        visible={sessionModalVisible}
+        onClose={() => setSessionModalVisible(false)}
+        testID="threads-sheet"
+      >
+        <View style={styles.modalHeader}>
+          <View>
+            <Text style={styles.modalTitle} testID="threads-modal-title">Threads</Text>
             {activeProject ? (
-              <Text style={styles.modalSubtitle} numberOfLines={3}>
-                {sessionPickerShowsAllMacSessions
-                  ? `No chats bound to ${activeProject.name} yet — showing all computer sessions (active + mobile). Start one below or pick a thread.`
-                  : `Sessions in this project use workspace: ${activeProject.workspacePath}`}
+              <Text style={{ fontSize: 11, color: colors.textMuted, marginTop: 2 }}>
+                {activeProject.name} chats
               </Text>
             ) : null}
+          </View>
+          <TouchableOpacity onPress={() => setSessionModalVisible(false)}>
+            <Text style={styles.modalCloseBtn}>Close</Text>
+          </TouchableOpacity>
+        </View>
 
-            <View style={styles.modalActionsRow}>
-              <TouchableOpacity
-                style={[styles.newChatBtn, { flex: 1, marginBottom: 0 }]}
-                onPress={handleNewChat}
-                testID="modal-new-chat-button"
-              >
-                <Text style={styles.newChatBtnText}>+ New thread</Text>
-              </TouchableOpacity>
+        {activeProject ? (
+          <Text style={styles.modalSubtitle} numberOfLines={3}>
+            {sessionPickerShowsAllMacSessions
+              ? `No chats bound to ${activeProject.name} yet — showing all computer sessions (active + mobile). Start one below or pick a thread.`
+              : `Sessions in this project use workspace: ${activeProject.workspacePath}`}
+          </Text>
+        ) : null}
 
-              {isClearing ? (
-                <View style={[styles.clearingContainer, { flex: 1 }]} testID="threads-modal-clearing">
-                  <ActivityIndicator size="small" color={colors.error} />
-                  <Text style={styles.clearingText}>Clearing…</Text>
-                </View>
-              ) : (
-                visibleSessions.length > 0 ? (
-                  <TouchableOpacity
-                    style={[styles.clearAllBtn, { flex: 1, marginBottom: 0 }]}
-                    onPress={handleClearAllChats}
-                    testID="threads-modal-clear-all"
-                  >
-                    <Text style={styles.clearAllBtnText}>Clear all</Text>
-                  </TouchableOpacity>
-                ) : null
-              )}
+        <View style={styles.modalActionsRow}>
+          <TouchableOpacity
+            style={[styles.newChatBtn, { flex: 1, marginBottom: 0 }]}
+            onPress={handleNewChat}
+            testID="modal-new-chat-button"
+          >
+            <Text style={styles.newChatBtnText}>+ New thread</Text>
+          </TouchableOpacity>
+
+          {isClearing ? (
+            <View style={[styles.clearingContainer, { flex: 1 }]} testID="threads-modal-clearing">
+              <ActivityIndicator size="small" color={colors.error} />
+              <Text style={styles.clearingText}>Clearing…</Text>
             </View>
+          ) : (
+            visibleSessions.length > 0 ? (
+              <TouchableOpacity
+                style={[styles.clearAllBtn, { flex: 1, marginBottom: 0 }]}
+                onPress={handleClearAllChats}
+                testID="threads-modal-clear-all"
+              >
+                <Text style={styles.clearAllBtnText}>Clear all</Text>
+              </TouchableOpacity>
+            ) : null
+          )}
+        </View>
 
-            {isLoadingSessions ? (
-              <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: 24 }} />
-            ) : (
-              <SectionList
-                sections={sessionPickerSections}
-                keyExtractor={(item) => item.id}
-                style={styles.sessionList}
-                stickySectionHeadersEnabled={false}
-                renderSectionHeader={({ section }) =>
-                  section.title ? (
-                    <Text style={styles.sessionSectionHeader}>{section.title}</Text>
-                  ) : null
-                }
-                renderItem={({ item }) => {
-                  const isActive = currentSession?.id === item.id;
-                  const lastActiveLabel = formatSessionDate(sessionLastActiveValue(item));
-                  const sourceLabel = sessionSourceLabel(item);
-                  return (
-                    <View style={styles.sessionItemRowContainer}>
-                      <TouchableOpacity
-                        style={[styles.sessionItem, isActive && styles.sessionItemActive, { flex: 1 }]}
-                        onPress={async () => {
-                          haptics.light();
-                          setRecentChatsDismissed(false);
-                          setCurrentSession(item);
-                          setSessionModalVisible(false);
-                          if (activeProject) {
-                            const next = setActiveSession(projectState, activeProject.id, item.id);
-                            await persistProjectState(next);
-                          }
-                        }}
+        {isLoadingSessions ? (
+          <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: 24 }} />
+        ) : (
+          <SectionList
+            sections={sessionPickerSections}
+            keyExtractor={(item) => item.id}
+            style={styles.sessionList}
+            stickySectionHeadersEnabled={false}
+            renderSectionHeader={({ section }) =>
+              section.title ? (
+                <Text style={styles.sessionSectionHeader}>{section.title}</Text>
+              ) : null
+            }
+            renderItem={({ item }) => {
+              const isActive = currentSession?.id === item.id;
+              const lastActiveLabel = formatSessionDate(sessionLastActiveValue(item));
+              const sourceLabel = sessionSourceLabel(item);
+              return (
+                <View style={styles.sessionItemRowContainer}>
+                  <TouchableOpacity
+                    style={[styles.sessionItem, isActive && styles.sessionItemActive, { flex: 1 }]}
+                    onPress={async () => {
+                      haptics.light();
+                      setRecentChatsDismissed(false);
+                      setCurrentSession(item);
+                      setSessionModalVisible(false);
+                      if (activeProject) {
+                        const next = setActiveSession(projectState, activeProject.id, item.id);
+                        await persistProjectState(next);
+                      }
+                    }}
+                  >
+                    <View style={styles.sessionItemTitleRow}>
+                      <Text
+                        style={[styles.sessionItemTitle, isActive && styles.sessionItemTitleActive]}
+                        numberOfLines={2}
                       >
-                        <View style={styles.sessionItemTitleRow}>
-                          <Text
-                            style={[styles.sessionItemTitle, isActive && styles.sessionItemTitleActive]}
-                            numberOfLines={2}
-                          >
-                            {sessionLabelFor(item)}
-                          </Text>
-                          {sourceLabel ? (
-                            <Text style={styles.sessionSourcePill}>{sourceLabel}</Text>
-                          ) : null}
-                        </View>
-                        {isTelegramInboxSession(item) ? (
-                          <Text style={styles.sessionItemSubtitle}>
-                            Merged view — pick a single thread for 1:1 parity with your computer
-                          </Text>
-                        ) : null}
-                        {lastActiveLabel ? (
-                          <Text style={styles.sessionItemTime}>{lastActiveLabel}</Text>
-                        ) : null}
-                      </TouchableOpacity>
-
-                      {item.id !== '__telegram_inbox__' ? (
-                        <View style={styles.sessionActionRow}>
-                          <Pressable
-                            onPress={() => handleRenameSession(item.id, sessionLabelFor(item))}
-                            style={({ pressed }) => [styles.sessionActionBtn, pressed && { opacity: 0.7 }]}
-                            accessibilityRole="button"
-                            accessibilityLabel={`Rename thread ${sessionLabelFor(item)}`}
-                            testID={`recent-chat-rename-${item.id}`}
-                          >
-                            <Text style={styles.sessionActionText}>✎</Text>
-                          </Pressable>
-                          <Pressable
-                            onPress={() => handleDeleteSession(item.id)}
-                            style={({ pressed }) => [styles.sessionActionBtn, pressed && { opacity: 0.7 }]}
-                            accessibilityRole="button"
-                            accessibilityLabel={`Delete thread ${sessionLabelFor(item)}`}
-                            testID={`recent-chat-delete-${item.id}`}
-                          >
-                            <Text style={styles.sessionActionText}>🗑</Text>
-                          </Pressable>
-                        </View>
+                        {sessionLabelFor(item)}
+                      </Text>
+                      {sourceLabel ? (
+                        <Text style={styles.sessionSourcePill}>{sourceLabel}</Text>
                       ) : null}
                     </View>
-                  );
-                }}
-                ListEmptyComponent={
-                  <Text style={styles.emptySessionsText}>
-                    {activeProject
-                      ? `No chats yet for ${activeProject.name}. Start one below.`
-                      : 'No past sessions found.'}
-                  </Text>
-                }
-              />
-            )}
-          </View>
-        </View>
-      </Modal>
+                    {isTelegramInboxSession(item) ? (
+                      <Text style={styles.sessionItemSubtitle}>
+                        Merged view — pick a single thread for 1:1 parity with your computer
+                      </Text>
+                    ) : null}
+                    {lastActiveLabel ? (
+                      <Text style={styles.sessionItemTime}>{lastActiveLabel}</Text>
+                    ) : null}
+                  </TouchableOpacity>
 
-      <Modal
+                  {item.id !== '__telegram_inbox__' ? (
+                    <View style={styles.sessionActionRow}>
+                      <Pressable
+                        onPress={() => handleRenameSession(item.id, sessionLabelFor(item))}
+                        style={({ pressed }) => [styles.sessionActionBtn, pressed && { opacity: 0.7 }]}
+                        accessibilityRole="button"
+                        accessibilityLabel={`Rename thread ${sessionLabelFor(item)}`}
+                        testID={`recent-chat-rename-${item.id}`}
+                      >
+                        <Text style={styles.sessionActionText}>✎</Text>
+                      </Pressable>
+                      <Pressable
+                        onPress={() => handleDeleteSession(item.id)}
+                        style={({ pressed }) => [styles.sessionActionBtn, pressed && { opacity: 0.7 }]}
+                        accessibilityRole="button"
+                        accessibilityLabel={`Delete thread ${sessionLabelFor(item)}`}
+                        testID={`recent-chat-delete-${item.id}`}
+                      >
+                        <Text style={styles.sessionActionText}>🗑</Text>
+                      </Pressable>
+                    </View>
+                  ) : null}
+                </View>
+              );
+            }}
+            ListEmptyComponent={
+              <Text style={styles.emptySessionsText}>
+                {activeProject
+                  ? `No chats yet for ${activeProject.name}. Start one below.`
+                  : 'No past sessions found.'}
+              </Text>
+            }
+          />
+        )}
+      </BottomSheetModal>
+
+      <BottomSheetModal
         visible={projectModalVisible}
-        animationType="slide"
-        transparent={true}
-        onRequestClose={() => setProjectModalVisible(false)}
+        onClose={() => setProjectModalVisible(false)}
+        testID="project-sheet"
       >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Add computer workspace</Text>
-              <TouchableOpacity onPress={() => setProjectModalVisible(false)}>
-                <Text style={styles.modalCloseBtn}>Close</Text>
-              </TouchableOpacity>
-            </View>
-            <Text style={styles.modalSubtitle}>
-              Each project gets its own chat history and pins Hermes tools to that folder on your computer.
-            </Text>
-            <Text style={styles.fieldLabel}>Workspace path</Text>
-            <TextInput
-              style={styles.modalInput}
-              value={newProjectPath}
-              onChangeText={setNewProjectPath}
-              placeholder="~/workspace/git/igor/ThumbGate"
-              placeholderTextColor={colors.textMuted}
-              autoCapitalize="none"
-              autoCorrect={false}
-              testID="new-project-path-input"
-            />
-            <Text style={styles.fieldLabel}>Display name (optional)</Text>
-            <TextInput
-              style={styles.modalInput}
-              value={newProjectName}
-              onChangeText={setNewProjectName}
-              placeholder="ThumbGate"
-              placeholderTextColor={colors.textMuted}
-              autoCapitalize="words"
-              testID="new-project-name-input"
-            />
-            <TouchableOpacity style={styles.newChatBtn} onPress={handleAddProject} testID="save-project-button">
-              <Text style={styles.newChatBtnText}>Add project</Text>
-            </TouchableOpacity>
-          </View>
+        <View style={styles.modalHeader}>
+          <Text style={styles.modalTitle}>Add computer workspace</Text>
+          <TouchableOpacity onPress={() => setProjectModalVisible(false)}>
+            <Text style={styles.modalCloseBtn}>Close</Text>
+          </TouchableOpacity>
         </View>
-      </Modal>
+        <Text style={styles.modalSubtitle}>
+          Each project gets its own chat history and pins Hermes tools to that folder on your computer.
+        </Text>
+        <Text style={styles.fieldLabel}>Workspace path</Text>
+        <TextInput
+          style={styles.modalInput}
+          value={newProjectPath}
+          onChangeText={setNewProjectPath}
+          placeholder="~/workspace/git/igor/ThumbGate"
+          placeholderTextColor={colors.textMuted}
+          autoCapitalize="none"
+          autoCorrect={false}
+          testID="new-project-path-input"
+        />
+        <Text style={styles.fieldLabel}>Display name (optional)</Text>
+        <TextInput
+          style={styles.modalInput}
+          value={newProjectName}
+          onChangeText={setNewProjectName}
+          placeholder="ThumbGate"
+          placeholderTextColor={colors.textMuted}
+          autoCapitalize="words"
+          testID="new-project-name-input"
+        />
+        <TouchableOpacity style={styles.newChatBtn} onPress={handleAddProject} testID="save-project-button">
+          <Text style={styles.newChatBtnText}>Add project</Text>
+        </TouchableOpacity>
+      </BottomSheetModal>
 
-      <Modal
+      <BottomSheetModal
         visible={renameModalVisible}
         animationType="fade"
-        transparent={true}
-        onRequestClose={() => setRenameModalVisible(false)}
+        onClose={() => setRenameModalVisible(false)}
+        contentStyle={styles.renameSheetContent}
+        testID="rename-sheet"
       >
-        <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, { minHeight: 180, justifyContent: 'center' }]}>
-            <Text style={[styles.modalTitle, { marginBottom: 12 }]} testID="rename-modal-title">
-              Rename thread
-            </Text>
-            <TextInput
-              style={[styles.modalInput, {
-                borderWidth: 1,
-                borderColor: colors.border,
-                borderRadius: 8,
-                padding: 10,
-                color: colors.text,
-                backgroundColor: colors.composerSurface,
-                marginBottom: 16,
-              }]}
-              value={renameValue}
-              onChangeText={setRenameValue}
-              testID="rename-session-input"
-              autoFocus
-            />
-            <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 12 }}>
-              <TouchableOpacity
-                style={{ paddingVertical: 8, paddingHorizontal: 16 }}
-                onPress={() => setRenameModalVisible(false)}
-              >
-                <Text style={{ color: colors.textMuted, fontWeight: '600' }}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={{
-                  backgroundColor: colors.primary,
-                  paddingVertical: 8,
-                  paddingHorizontal: 16,
-                  borderRadius: 6,
-                }}
-                onPress={handleSaveRename}
-                testID="rename-session-save"
-              >
-                <Text style={{ color: colors.text, fontWeight: '700' }}>Save</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
+        <Text style={[styles.modalTitle, { marginBottom: 12 }]} testID="rename-modal-title">
+          Rename thread
+        </Text>
+        <TextInput
+          style={[styles.modalInput, {
+            borderWidth: 1,
+            borderColor: colors.border,
+            borderRadius: 8,
+            padding: 10,
+            color: colors.text,
+            backgroundColor: colors.composerSurface,
+            marginBottom: 16,
+          }]}
+          value={renameValue}
+          onChangeText={setRenameValue}
+          testID="rename-session-input"
+          autoFocus
+        />
+        <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 12 }}>
+          <TouchableOpacity
+            style={{ paddingVertical: 8, paddingHorizontal: 16 }}
+            onPress={() => setRenameModalVisible(false)}
+          >
+            <Text style={{ color: colors.textMuted, fontWeight: '600' }}>Cancel</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={{
+              backgroundColor: colors.primary,
+              paddingVertical: 8,
+              paddingHorizontal: 16,
+              borderRadius: 6,
+            }}
+            onPress={handleSaveRename}
+            testID="rename-session-save"
+          >
+            <Text style={{ color: colors.text, fontWeight: '700' }}>Save</Text>
+          </TouchableOpacity>
         </View>
-      </Modal>
+      </BottomSheetModal>
 
       <ChatMessageDetailModal
         visible={messageDetail != null}
@@ -4593,22 +4570,12 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '800',
   },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
-    justifyContent: 'flex-end',
-  },
-  modalContent: {
-    backgroundColor: '#0F1321',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    maxHeight: '80%',
-    padding: 20,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-  },
   toolsModalContent: {
     maxHeight: '88%',
+  },
+  renameSheetContent: {
+    minHeight: 180,
+    justifyContent: 'center',
   },
   toolsModalScroll: {
     flexGrow: 0,

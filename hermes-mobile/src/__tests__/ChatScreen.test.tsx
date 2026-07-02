@@ -560,6 +560,16 @@ describe('ChatScreen', () => {
     expect(queryByTestId('modal-new-chat-button')).toBeNull();
   });
 
+  it('dismisses the threads sheet when tapping outside it', async () => {
+    const { getByTestId, queryByTestId } = await renderChatScreen();
+
+    fireEvent.press(getByTestId('open-sessions-modal'));
+    expect(getByTestId('threads-modal-title')).toBeTruthy();
+
+    fireEvent.press(getByTestId('threads-sheet-backdrop'));
+    expect(queryByTestId('threads-modal-title')).toBeNull();
+  });
+
   it('opens tools modal from header Tools button, not threads', async () => {
     const { getByTestId, getByText, queryByTestId } = await renderChatScreen();
 
@@ -569,6 +579,16 @@ describe('ChatScreen', () => {
     expect(getByTestId('gateway-ops-section')).toBeTruthy();
 
     fireEvent.press(getByText('Close'));
+    expect(queryByTestId('tools-modal-title')).toBeNull();
+  });
+
+  it('dismisses the tools sheet when tapping outside it', async () => {
+    const { getByTestId, queryByTestId } = await renderChatScreen();
+
+    fireEvent.press(getByTestId('chat-header-tools'));
+    expect(getByTestId('tools-modal-title')).toBeTruthy();
+
+    fireEvent.press(getByTestId('tools-sheet-backdrop'));
     expect(queryByTestId('tools-modal-title')).toBeNull();
   });
 
@@ -582,6 +602,16 @@ describe('ChatScreen', () => {
     expect(getByText('Missing your other machine?')).toBeTruthy();
     expect(getByText(/Start Hermes on your other machine/)).toBeTruthy();
     expect(getByText(/Tailscale MagicDNS name or 100.x address in Settings/)).toBeTruthy();
+  });
+
+  it('dismisses the computer picker sheet when tapping outside it', async () => {
+    const { getByTestId, queryByTestId } = await renderChatScreen();
+
+    fireEvent.press(getByTestId('chat-context-mac-button'));
+    expect(getByTestId('mac-picker-scroll')).toBeTruthy();
+
+    fireEvent.press(getByTestId('mac-picker-sheet-backdrop'));
+    expect(queryByTestId('mac-picker-scroll')).toBeNull();
   });
 
   it('keeps an explicitly selected Mac primary instead of immediately auto-discovering over it', async () => {
@@ -857,6 +887,17 @@ describe('ChatScreen', () => {
       expect(getAllByText('Updated Thread Name').length).toBeGreaterThanOrEqual(1);
       expect(queryByText('hermes-mobile')).toBeNull();
     });
+  });
+
+  it('dismisses the rename sheet when tapping outside it', async () => {
+    const { getByTestId, queryByTestId, findByTestId } = await renderChatScreen();
+
+    fireEvent.press(getByTestId('open-sessions-modal'));
+    fireEvent.press(await findByTestId('recent-chat-rename-demo-1'));
+    expect(getByTestId('rename-modal-title')).toBeTruthy();
+
+    fireEvent.press(getByTestId('rename-sheet-backdrop'));
+    expect(queryByTestId('rename-modal-title')).toBeNull();
   });
 
   it('shows Clear all in recents when only cron sessions exist on Mac', async () => {
