@@ -107,7 +107,6 @@ import SubmittedPromptStrip from '../components/SubmittedPromptStrip';
 import ChatConnectionPanel from '../components/ChatConnectionPanel';
 import LoadingButton from '../components/ui/LoadingButton';
 import ChatInputBar from '../components/ChatInputBar';
-import ChatQuickActions, { type ChatQuickAction } from '../components/ChatQuickActions';
 import ChatMessageListItem from '../components/ChatMessageListItem';
 import ChatMessageDetailModal from '../components/ChatMessageDetailModal';
 import FeedbackPromptModal from '../components/FeedbackPromptModal';
@@ -190,10 +189,6 @@ import {
   TELEGRAM_QUEUED_REPLY_PLACEHOLDER,
 } from '../utils/streamAssistantText';
 import { extractTerminalActivityFromMessage, isTerminalToolName } from '../utils/terminalActivity';
-import {
-  buildFallbackPromptActions,
-  buildRecentPromptActions,
-} from '../utils/recentPromptActions';
 
 function projectSessions(
   allSessions: HermesSession[],
@@ -322,7 +317,6 @@ export default function ChatScreen() {
   const [recentChatsDismissed, setRecentChatsDismissed] = useState(false);
   const [dismissedSessionIds, setDismissedSessionIds] = useState<string[]>([]);
   const [hideCronSessions, setHideCronSessions] = useState(false);
-  const [dismissedPrompts, setDismissedPrompts] = useState<string[]>([]);
   const [messageDetail, setMessageDetail] = useState<{ title: string; body: string } | null>(null);
   const [feedbackPrompt, setFeedbackPrompt] = useState<{
     message: HermesMessage;
@@ -1356,18 +1350,6 @@ export default function ChatScreen() {
       cancelled = true;
     };
   }, [gatewayUrl, isDemo]);
-
-  useEffect(() => {
-    let cancelled = false;
-    void storage.loadDismissedPrompts().then((prompts) => {
-      if (!cancelled) {
-        setDismissedPrompts(prompts || []);
-      }
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
 
   useEffect(() => {
     if (isProjectsLoaded) {
@@ -3296,49 +3278,6 @@ export default function ChatScreen() {
     await handleMacRetry();
   }, [handleMacRetry]);
 
-  const quickActions = useMemo<ChatQuickAction[]>(() => {
-    const fallbackActions = buildFallbackPromptActions({
-      approvalCount: composerApprovals.length,
-      isRunActive,
-    });
-    const pinnedForActions =
-      pinnedOutboundStatus === 'failed' || connectivityRunFailure ? undefined : pinnedOutboundText;
-    return buildRecentPromptActions(
-      {
-        messages,
-        sessions: visibleSessions,
-        pinnedOutboundText: pinnedForActions,
-        currentSessionId: currentSession?.id,
-        dismissedPrompts,
-      },
-      fallbackActions,
-    );
-  }, [
-    composerApprovals.length,
-    connectivityRunFailure,
-    currentSession?.id,
-    isRunActive,
-    messages,
-    pinnedOutboundStatus,
-    pinnedOutboundText,
-    visibleSessions,
-    dismissedPrompts,
-  ]);
-
-  const handleQuickAction = useCallback((action: ChatQuickAction) => {
-    haptics.selection();
-    inputValueRef.current = action.prompt;
-    sendClearSuppressRef.current = false;
-    setInputValue(action.prompt);
-    setComposerFocusNonce((nonce) => nonce + 1);
-  }, []);
-
-  const handleDismissQuickAction = useCallback(async (action: ChatQuickAction) => {
-    haptics.selection();
-    await storage.saveDismissedPrompt(action.prompt);
-    setDismissedPrompts((prev) => [...prev, action.prompt]);
-  }, []);
-
   const handleStopRun = useCallback(async () => {
     const runId = runProgress?.runId ?? progressBanner?.runId;
     if (!runId || isDemo) {
@@ -3816,12 +3755,6 @@ export default function ChatScreen() {
             <Text style={styles.macRetryBannerText}>{macRetryBannerText}</Text>
           </Pressable>
         ) : null}
-
-        <ChatQuickActions
-          actions={quickActions}
-          onSelect={handleQuickAction}
-          onDismiss={handleDismissQuickAction}
-        />
 
         <ChatInputBar
           value={inputValue}

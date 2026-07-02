@@ -475,42 +475,19 @@ describe('ChatScreen', () => {
     expect(sendButton).toBeTruthy();
   });
 
-  it('fills the composer from a quick action without sending', async () => {
+  it('does not render bottom recent prompt chips above the composer', async () => {
     const { sendChatMessage } = jest.requireMock('../services/hermesChatClient') as {
       sendChatMessage: jest.Mock;
     };
     sendChatMessage.mockClear();
-    const { getByTestId, queryByText, queryByTestId } = await renderChatScreen();
+    const { getByTestId, queryByTestId } = await renderChatScreen();
     const input = getByTestId('chat-input');
 
-    await waitFor(() => {
-      expect(queryByTestId('chat-quick-action-continue')).toBeNull();
-    });
-    const action = getByTestId('chat-quick-action-recent-0');
-    fireEvent.press(action);
-
-    expect(input.props.value).toBe('safeguards setup inquiry');
-    expect(queryByText('processed reply')).toBeNull();
-  });
-
-  it('dismisses a quick action when pressing the dismiss button', async () => {
-    const { saveDismissedPrompt } = jest.requireMock('../services/storage').storage as {
-      saveDismissedPrompt: jest.Mock;
-    };
-    saveDismissedPrompt.mockClear();
-
-    const { findByTestId, queryByTestId } = await renderChatScreen();
-
-    const dismissBtn = await findByTestId('chat-quick-action-dismiss-recent-0');
-    await act(async () => {
-      fireEvent.press(dismissBtn);
-    });
-
-    // Verify it saved to storage
-    expect(saveDismissedPrompt).toHaveBeenCalledWith('safeguards setup inquiry');
-    
-    // Verify it is removed from UI
+    expect(queryByTestId('chat-quick-actions')).toBeNull();
     expect(queryByTestId('chat-quick-action-recent-0')).toBeNull();
+    expect(queryByTestId('chat-quick-action-continue')).toBeNull();
+    expect(input.props.value).toBe('');
+    expect(sendChatMessage).not.toHaveBeenCalled();
   });
 
   it('triggers mock message sending and demo reply in demo mode', async () => {
