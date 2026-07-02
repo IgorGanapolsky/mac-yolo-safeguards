@@ -7,6 +7,12 @@ import type { GatewaySettings } from '../types/gateway';
 export function isDemoModeAllowed(): boolean {
   return (
     __DEV__ ||
+    isE2eAutomationBuild()
+  );
+}
+
+export function isE2eAutomationBuild(): boolean {
+  return (
     process.env.EXPO_PUBLIC_E2E_AUTOMATION === '1' ||
     process.env.EXPO_PUBLIC_E2E_AUTOMATION === 'true'
   );
