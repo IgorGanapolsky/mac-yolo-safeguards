@@ -9,6 +9,7 @@ source "$SCRIPT_DIR/maestro-env.sh"
 
 DEFAULT_SIM_NAME="${HERMES_SIM_NAME:-iPhone 17 Pro}"
 MAESTRO_READY_TIMEOUT_SEC="${MAESTRO_READY_TIMEOUT_SEC:-120}"
+IOS_BUNDLE_ID="${HERMES_IOS_BUNDLE_ID:-com.iganapolsky.hermesmobile}"
 FLOW="${1:-.maestro/full-suite.yaml}"
 
 wait_for_simulator_boot() {
@@ -49,6 +50,22 @@ wait_for_maestro_ios_device() {
   return 1
 }
 
+ensure_ios_app_installed() {
+  local udid="$1"
+  if xcrun simctl get_app_container "$udid" "$IOS_BUNDLE_ID" app >/dev/null 2>&1; then
+    echo "iOS app:   $IOS_BUNDLE_ID already installed" >&2
+    return 0
+  fi
+
+  echo "iOS app:   $IOS_BUNDLE_ID not installed — building and installing on simulator" >&2
+  npx expo run:ios --no-bundler --device "$udid"
+
+  if ! xcrun simctl get_app_container "$udid" "$IOS_BUNDLE_ID" app >/dev/null 2>&1; then
+    echo "Failed to install $IOS_BUNDLE_ID on simulator $udid" >&2
+    return 1
+  fi
+}
+
 if ! command -v maestro >/dev/null 2>&1; then
   echo "Maestro required: curl -fsSL https://get.maestro.mobile.dev | bash" >&2
   exit 1
@@ -83,6 +100,7 @@ UDID="$(resolve_sim_udid)"
 echo "=== Hermes Mobile iOS Simulator E2E ==="
 echo "Simulator: $UDID"
 echo "Flow:      $FLOW"
+echo "Bundle:    $IOS_BUNDLE_ID"
 echo "Java:      ${JAVA_HOME:-system}"
 echo "Maestro driver timeout: ${MAESTRO_DRIVER_STARTUP_TIMEOUT}ms"
 
@@ -94,6 +112,7 @@ fi
 
 open -a Simulator >/dev/null 2>&1 || true
 wait_for_maestro_ios_device "$UDID"
+ensure_ios_app_installed "$UDID"
 
 cd "$HERMES_DIR"
 maestro test -p ios --udid "$UDID" "$FLOW"

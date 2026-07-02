@@ -12,6 +12,10 @@ export const COMPOSER_REST_BOTTOM_INSET = 12;
 /** Bottom tab bar footprint (must match App.tsx navBar — used for keyboard lift math). */
 export const ANDROID_TAB_BAR_ESTIMATE_PX = 64;
 
+const ANDROID_KEYBOARD_FALLBACK_RATIO = 0.42;
+const ANDROID_KEYBOARD_FALLBACK_MIN_PX = 280;
+const ANDROID_KEYBOARD_FALLBACK_MAX_PX = 360;
+
 export type ComposerDockInsets = {
   paddingBottom: number;
   /** Lifts the whole composer dock above the keyboard without reflowing the TextInput. */
@@ -60,6 +64,29 @@ export function detectWindowShrunkForKeyboard(
   // (status bar / IME shim) must not skip manual composer lift on Android dev clients.
   const minShrink = Math.max(56, keyboardInset * 0.7);
   return shrink >= minShrink;
+}
+
+/**
+ * Android can report a zero keyboard inset in edge-to-edge / pan layouts while Gboard
+ * still overlays the composer. When the TextInput is focused, estimate a conservative
+ * keyboard height so the send box remains usable instead of hiding behind the IME.
+ */
+export function focusedAndroidKeyboardFallbackInset(
+  inputFocused: boolean,
+  keyboardInset: number,
+  windowHeight: number,
+  platformOs = Platform.OS,
+): number {
+  if (platformOs !== 'android' || !inputFocused || keyboardInset > 0 || windowHeight <= 0) {
+    return 0;
+  }
+  return Math.min(
+    ANDROID_KEYBOARD_FALLBACK_MAX_PX,
+    Math.max(
+      ANDROID_KEYBOARD_FALLBACK_MIN_PX,
+      Math.round(windowHeight * ANDROID_KEYBOARD_FALLBACK_RATIO),
+    ),
+  );
 }
 
 /**

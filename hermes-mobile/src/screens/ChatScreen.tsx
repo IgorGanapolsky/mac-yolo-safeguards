@@ -16,6 +16,7 @@ import {
   BackHandler,
   Keyboard,
   Alert,
+  useWindowDimensions,
   type NativeSyntheticEvent,
   type NativeScrollEvent,
 } from 'react-native';
@@ -29,7 +30,11 @@ import {
   useGatewayChatSync,
 } from '../hooks/useGatewaySelector';
 import { useKeyboardInset } from '../hooks/useKeyboardInset';
-import { composerDockInsets, ANDROID_TAB_BAR_ESTIMATE_PX } from '../utils/composerKeyboard';
+import {
+  composerDockInsets,
+  focusedAndroidKeyboardFallbackInset,
+  ANDROID_TAB_BAR_ESTIMATE_PX,
+} from '../utils/composerKeyboard';
 import Constants from 'expo-constants';
 import { colors } from '../theme/colors';
 import { isDemoModeAllowed } from '../utils/demoModePolicy';
@@ -107,7 +112,6 @@ import SubmittedPromptStrip from '../components/SubmittedPromptStrip';
 import ChatConnectionPanel from '../components/ChatConnectionPanel';
 import LoadingButton from '../components/ui/LoadingButton';
 import ChatInputBar from '../components/ChatInputBar';
-import ChatQuickActions, { type ChatQuickAction } from '../components/ChatQuickActions';
 import ChatMessageListItem from '../components/ChatMessageListItem';
 import ChatMessageDetailModal from '../components/ChatMessageDetailModal';
 import FeedbackPromptModal from '../components/FeedbackPromptModal';
@@ -190,10 +194,6 @@ import {
   TELEGRAM_QUEUED_REPLY_PLACEHOLDER,
 } from '../utils/streamAssistantText';
 import { extractTerminalActivityFromMessage, isTerminalToolName } from '../utils/terminalActivity';
-import {
-  buildFallbackPromptActions,
-  buildRecentPromptActions,
-} from '../utils/recentPromptActions';
 
 function projectSessions(
   allSessions: HermesSession[],
@@ -268,6 +268,7 @@ export default function ChatScreen() {
   const navigation = useNavigation();
   const gatewayUrl = effectiveGatewayUrl || settings.gatewayUrl;
   const insets = useSafeAreaInsets();
+  const windowDimensions = useWindowDimensions();
   
   const [sessions, setSessions] = useState<HermesSession[]>([]);
   const deletedDemoSessionIdsRef = useRef<Set<string>>(new Set());
@@ -322,7 +323,6 @@ export default function ChatScreen() {
   const [recentChatsDismissed, setRecentChatsDismissed] = useState(false);
   const [dismissedSessionIds, setDismissedSessionIds] = useState<string[]>([]);
   const [hideCronSessions, setHideCronSessions] = useState(false);
-  const [dismissedPrompts, setDismissedPrompts] = useState<string[]>([]);
   const [messageDetail, setMessageDetail] = useState<{ title: string; body: string } | null>(null);
   const [feedbackPrompt, setFeedbackPrompt] = useState<{
     message: HermesMessage;
@@ -389,9 +389,11 @@ export default function ChatScreen() {
   );
   const lastFailedSendTextRef = useRef<string | null>(null);
   const activeChatStreamRef = useRef(false);
+  const [inputFocused, setInputFocused] = useState(false);
 
   const { inset: keyboardInset, windowShrunk: keyboardWindowShrunk } = useKeyboardInset({
     suppressHideWhileFocusedRef: inputFocusedRef,
+    focused: inputFocused,
   });
 
   const [queuedOutboundCount, setQueuedOutboundCount] = useState(0);
@@ -874,18 +876,27 @@ export default function ChatScreen() {
 
   /** Lift composer above software keyboard; tab bar stays mounted (no height collapse). */
   const androidKeyboardMode = Constants.expoConfig?.android?.softwareKeyboardLayoutMode;
+  const effectiveKeyboardInset =
+    keyboardInset ||
+    focusedAndroidKeyboardFallbackInset(inputFocused, keyboardInset, windowDimensions.height);
   const composerDockSpacing = useMemo(
     () =>
       composerDockInsets(
-        keyboardInset,
+        effectiveKeyboardInset,
         insets.bottom,
         androidKeyboardMode,
         keyboardWindowShrunk,
-        keyboardInset > 0 ? 0 : ANDROID_TAB_BAR_ESTIMATE_PX,
+        effectiveKeyboardInset > 0 ? 0 : ANDROID_TAB_BAR_ESTIMATE_PX,
       ),
-    [keyboardInset, insets.bottom, androidKeyboardMode, keyboardWindowShrunk, composerLayoutNonce],
+    [
+      effectiveKeyboardInset,
+      insets.bottom,
+      androidKeyboardMode,
+      keyboardWindowShrunk,
+      composerLayoutNonce,
+    ],
   );
-  const keyboardOpen = keyboardInset > 0;
+  const keyboardOpen = effectiveKeyboardInset > 0;
 
   const leashPhraseHints = useMemo((): LeashPhraseHint[] => {
     const hints: LeashPhraseHint[] = [];
@@ -1358,18 +1369,6 @@ export default function ChatScreen() {
   }, [gatewayUrl, isDemo]);
 
   useEffect(() => {
-    let cancelled = false;
-    void storage.loadDismissedPrompts().then((prompts) => {
-      if (!cancelled) {
-        setDismissedPrompts(prompts || []);
-      }
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  useEffect(() => {
     if (isProjectsLoaded) {
       loadSessionsList(true);
     }
@@ -1724,6 +1723,7 @@ export default function ChatScreen() {
 
   const handleInputFocus = useCallback(() => {
     inputFocusedRef.current = true;
+    setInputFocused(true);
     if (Platform.OS === 'android') {
       setComposerLayoutNonce((n) => n + 1);
     }
@@ -1731,6 +1731,7 @@ export default function ChatScreen() {
 
   const handleInputBlur = useCallback(() => {
     inputFocusedRef.current = false;
+    setInputFocused(false);
     if (pendingTranscriptSyncRef.current) {
       pendingTranscriptSyncRef.current = false;
       void refreshSessionMessages({ background: true });
@@ -3296,49 +3297,6 @@ export default function ChatScreen() {
     await handleMacRetry();
   }, [handleMacRetry]);
 
-  const quickActions = useMemo<ChatQuickAction[]>(() => {
-    const fallbackActions = buildFallbackPromptActions({
-      approvalCount: composerApprovals.length,
-      isRunActive,
-    });
-    const pinnedForActions =
-      pinnedOutboundStatus === 'failed' || connectivityRunFailure ? undefined : pinnedOutboundText;
-    return buildRecentPromptActions(
-      {
-        messages,
-        sessions: visibleSessions,
-        pinnedOutboundText: pinnedForActions,
-        currentSessionId: currentSession?.id,
-        dismissedPrompts,
-      },
-      fallbackActions,
-    );
-  }, [
-    composerApprovals.length,
-    connectivityRunFailure,
-    currentSession?.id,
-    isRunActive,
-    messages,
-    pinnedOutboundStatus,
-    pinnedOutboundText,
-    visibleSessions,
-    dismissedPrompts,
-  ]);
-
-  const handleQuickAction = useCallback((action: ChatQuickAction) => {
-    haptics.selection();
-    inputValueRef.current = action.prompt;
-    sendClearSuppressRef.current = false;
-    setInputValue(action.prompt);
-    setComposerFocusNonce((nonce) => nonce + 1);
-  }, []);
-
-  const handleDismissQuickAction = useCallback(async (action: ChatQuickAction) => {
-    haptics.selection();
-    await storage.saveDismissedPrompt(action.prompt);
-    setDismissedPrompts((prev) => [...prev, action.prompt]);
-  }, []);
-
   const handleStopRun = useCallback(async () => {
     const runId = runProgress?.runId ?? progressBanner?.runId;
     if (!runId || isDemo) {
@@ -3816,12 +3774,6 @@ export default function ChatScreen() {
             <Text style={styles.macRetryBannerText}>{macRetryBannerText}</Text>
           </Pressable>
         ) : null}
-
-        <ChatQuickActions
-          actions={quickActions}
-          onSelect={handleQuickAction}
-          onDismiss={handleDismissQuickAction}
-        />
 
         <ChatInputBar
           value={inputValue}
