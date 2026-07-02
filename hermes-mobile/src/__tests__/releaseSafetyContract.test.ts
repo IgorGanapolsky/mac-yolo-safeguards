@@ -245,6 +245,15 @@ describe('release safety contract', () => {
     expect(bootstrap).toContain('chat-input');
   });
 
+  it('iOS simulator E2E builds with automation deep links enabled', () => {
+    const script = read('hermes-mobile/scripts/run-simulator-e2e.sh');
+    const exportIndex = script.indexOf('export EXPO_PUBLIC_E2E_AUTOMATION="${EXPO_PUBLIC_E2E_AUTOMATION:-1}"');
+    const buildIndex = script.indexOf('npx expo run:ios');
+
+    expect(exportIndex).toBeGreaterThan(-1);
+    expect(buildIndex).toBeGreaterThan(exportIndex);
+  });
+
   it('chat-send-persistence uses chat bootstrap without Leash assert', () => {
     const flow = read('hermes-mobile/.maestro/chat-send-persistence.yaml');
     const chatBootstrap = read('hermes-mobile/.maestro/chat-e2e-bootstrap.yaml');

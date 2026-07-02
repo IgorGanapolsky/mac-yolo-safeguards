@@ -12,6 +12,10 @@ MAESTRO_READY_TIMEOUT_SEC="${MAESTRO_READY_TIMEOUT_SEC:-120}"
 IOS_BUNDLE_ID="${HERMES_IOS_BUNDLE_ID:-com.iganapolsky.hermesmobile}"
 FLOW="${1:-.maestro/full-suite.yaml}"
 
+# Simulator E2E relies on hermes://setup?demo=1 and developer unlock links.
+# Export before `expo run:ios` so the native build embeds the automation flag.
+export EXPO_PUBLIC_E2E_AUTOMATION="${EXPO_PUBLIC_E2E_AUTOMATION:-1}"
+
 wait_for_simulator_boot() {
   local udid="$1"
   echo "Waiting for simulator boot (bootstatus, up to ${MAESTRO_READY_TIMEOUT_SEC}s)..." >&2
