@@ -216,6 +216,9 @@ describe('release safety contract', () => {
   it('simulator E2E script sets Java and targets iOS sim', () => {
     const script = read('hermes-mobile/scripts/run-simulator-e2e.sh');
     expect(script).toContain('maestro-env.sh');
+    expect(script).toContain('com.iganapolsky.hermesmobile');
+    expect(script).toContain('xcrun simctl get_app_container');
+    expect(script).toContain('expo run:ios --no-bundler --udid');
     expect(script).toContain('maestro test -p ios');
     expect(script).toContain('full-suite.yaml');
   });
