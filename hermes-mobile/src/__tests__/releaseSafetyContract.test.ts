@@ -182,7 +182,7 @@ describe('release safety contract', () => {
   it('run-hermes-mobile boots simulator before expo run:ios', () => {
     const script = read('hermes-mobile/scripts/run-hermes-mobile.sh');
     expect(script).toContain('resolve_ios_sim_udid');
-    expect(script).toContain('expo run:ios --no-bundler --udid');
+    expect(script).toContain('expo run:ios --no-bundler --device');
   });
 
   it('npm run android blocks phone installs (run-android-safe.sh)', () => {
@@ -216,6 +216,9 @@ describe('release safety contract', () => {
   it('simulator E2E script sets Java and targets iOS sim', () => {
     const script = read('hermes-mobile/scripts/run-simulator-e2e.sh');
     expect(script).toContain('maestro-env.sh');
+    expect(script).toContain('com.iganapolsky.hermesmobile');
+    expect(script).toContain('xcrun simctl get_app_container');
+    expect(script).toContain('expo run:ios --no-bundler --device');
     expect(script).toContain('maestro test -p ios');
     expect(script).toContain('full-suite.yaml');
   });
@@ -258,9 +261,12 @@ describe('release safety contract', () => {
     expect(runner).toContain('--once');
     expect(runner).toContain('ship-guard.yaml');
     expect(runner).toContain('chat-send-persistence.yaml');
-    expect(runner).toContain('HERMES_E2E_IOS_ONLY=1');
+    expect(runner).toContain('Android-only continuous E2E requested');
+    expect(runner).toContain('android-only continuous E2E skipped');
+    expect(runner).toContain('HERMES_E2E_ANDROID_ONLY');
     const plist = read('com.igor.hermes-mobile-continuous-e2e.plist');
     expect(plist).toContain('com.igor.hermes-mobile-continuous-e2e');
+    expect(plist).toContain('HERMES_E2E_ANDROID_ONLY');
     expect(plist).toContain('StartInterval');
     const workflow = read('.github/workflows/mobile-continuous.yml');
     expect(workflow).toContain('schedule:');

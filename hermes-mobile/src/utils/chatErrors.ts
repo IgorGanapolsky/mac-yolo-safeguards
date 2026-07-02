@@ -69,7 +69,7 @@ export function humanizeChatError(
     return {
       kind: 'operational',
       message:
-        'Your Mac is still on the previous chat. Wait a moment, pick another thread, or try again.',
+        'Your computer is still on the previous chat. Wait a moment, pick another thread, or try again.',
     };
   }
 
@@ -98,7 +98,7 @@ export function humanizeChatError(
           return {
             kind: 'operational',
             message:
-              'Your Mac is still on the previous chat. Wait a moment, pick another thread, or try again.',
+              'Your computer is still on the previous chat. Wait a moment, pick another thread, or try again.',
           };
         }
         if (code === 'invalid_api_key' || code === 'unauthorized') {
@@ -135,7 +135,7 @@ export function friendlyMacUnreachableMessage(gatewayUrl?: string): string {
 
 /** Short copy for banners — full guidance lives in chatSendBlockedMessage. */
 export function shortMacUnreachableTitle(): string {
-  return "Couldn't reach your Mac";
+  return "Couldn't reach your computer";
 }
 
 export function chatSendBlockedMessage(input: {
@@ -145,10 +145,10 @@ export function chatSendBlockedMessage(input: {
   healthProbePending?: boolean;
 }): string {
   if (input.healthProbePending) {
-    return 'Still checking your Mac link. Message kept locally.';
+    return 'Still checking your computer link. Message kept locally.';
   }
   if (input.connectionMode === 'relay' && input.connectionState === 'connected') {
-    return 'Chat needs a direct link to your Mac (same Wi‑Fi or tunnel URL). Relay handles approvals only for now.';
+    return 'Chat needs a direct link to your computer (same Wi‑Fi or tunnel URL). Relay handles approvals only for now.';
   }
   if (input.connectionMode === 'relay') {
     return 'Hermes relay is not paired yet. Pair in Settings, or add a direct computer link for Chat.';

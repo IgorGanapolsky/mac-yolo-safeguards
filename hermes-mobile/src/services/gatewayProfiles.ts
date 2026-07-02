@@ -54,12 +54,24 @@ const GENERIC_PROFILE_LABELS = new Set([
   'mac',
   'computer',
   'your mac',
+  'your computer',
   'my mac',
   'mac via usb',
+  'computer via usb',
+  'mac via tailscale',
+  'computer via tailscale',
   'mac via network',
+  'custom mac',
+  'custom computer',
+  'tailscale computer',
   'http',
   'https',
 ]);
+
+export const GENERIC_USB_PROFILE_LABEL = 'Computer via USB';
+export const GENERIC_TAILSCALE_PROFILE_LABEL = 'Computer via Tailscale';
+
+export const LEGACY_USB_PROFILE_LABEL = 'Mac via USB';
 
 export function isGenericMachineLabel(label: string | undefined): boolean {
   const trimmed = label?.trim();
@@ -138,10 +150,10 @@ export function profileDisplayName(profile: GatewayProfile): string {
     return hostname;
   }
   if (isLoopbackGatewayUrl(profile.gatewayUrl)) {
-    return 'Mac via USB';
+    return GENERIC_USB_PROFILE_LABEL;
   }
   if (ip && !isTailscaleIpv4(ip)) {
-    return `Mac ${ip}`;
+    return `Computer ${ip}`;
   }
   if (label && !isTailnetRouteLabel(label)) {
     return label;
@@ -154,7 +166,7 @@ export function profileDisplayName(profile: GatewayProfile): string {
     return urlHost;
   }
   if (isTailscaleGatewayUrl(profile.gatewayUrl)) {
-    return 'Mac via Tailscale';
+    return GENERIC_TAILSCALE_PROFILE_LABEL;
   }
   return urlHost ?? profile.gatewayUrl;
 }
@@ -341,7 +353,7 @@ export function upsertDiscoveredProfile(
     discovered.label?.trim() ||
     bonjourHostname(hostname) ||
     (urlHost && !isTailnetRouteLabel(urlHost) ? urlHost : undefined) ||
-    'Mac';
+    'Computer';
 
   const discoveredMachineKey =
     normalizeMachineKey(hostname) || normalizeMachineKey(label) || undefined;

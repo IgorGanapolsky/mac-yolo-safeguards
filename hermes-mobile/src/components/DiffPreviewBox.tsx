@@ -15,7 +15,7 @@ function DiffPreviewBox({ diff, testID = 'diff-preview-box' }: DiffPreviewBoxPro
   return (
     <View style={styles.wrap} testID={testID}>
       <View style={styles.header}>
-        <Text style={styles.title}>Changes on your Mac</Text>
+        <Text style={styles.title}>Changes on your computer</Text>
         {stats ? (
           <Text style={styles.stats}>
             +{stats.additions} −{stats.deletions}

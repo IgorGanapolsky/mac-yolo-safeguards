@@ -93,7 +93,7 @@ export function describeGatewayFetchError(
   if (baseMessage === 'Network request failed' || baseMessage.includes('Failed to fetch')) {
     if (isLoopbackGatewayUrl(gatewayUrl)) {
       return (
-        'USB link to your Mac is down. Plug in via USB and run pairing on your Mac ' +
+        'USB link to your computer is down. Plug in via USB and run pairing on your computer ' +
         '(node tools/hermes-mobile-pair.js), or join the same Wi‑Fi and scan the local QR.'
       );
     }

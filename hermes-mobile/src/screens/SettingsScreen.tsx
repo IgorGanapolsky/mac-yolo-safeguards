@@ -475,11 +475,11 @@ export default function SettingsScreen() {
               Cellular — tunnel required
             </Text>
             <Text style={styles.description} testID="settings-tunnel-wizard-body">
-              Your saved Mac uses a private Wi‑Fi address. On cellular, Chat needs a tunnel URL
-              pointing at Hermes port 8642 on your Mac.
+              Your saved computer uses a private Wi‑Fi address. On cellular, Chat needs a tunnel URL
+              pointing at Hermes port 8642 on your computer.
             </Text>
             <Text style={styles.tunnelStep} testID="settings-tunnel-step-1">
-              1. On your Mac, expose Hermes on port 8642 — Tailscale MagicDNS, ngrok, or Cloudflare
+              1. On your computer, expose Hermes on port 8642 — Tailscale MagicDNS, ngrok, or Cloudflare
               Tunnel.
             </Text>
             <Text style={styles.tunnelStep} testID="settings-tunnel-step-2">
@@ -502,7 +502,7 @@ export default function SettingsScreen() {
         ) : null}
         {usbHostMismatch ? (
           <GlassCard style={styles.usbMismatchCard} testID="settings-usb-host-mismatch">
-            <Text style={styles.tunnelWizardTitle}>Wrong Mac on USB</Text>
+            <Text style={styles.tunnelWizardTitle}>Wrong computer on USB</Text>
             <Text style={styles.description}>
               USB is connected to {usbHostMismatch.usbHostLabel}, but you selected{' '}
               {usbHostMismatch.selectedProfileLabel}. Tap the matching computer below.
@@ -554,7 +554,7 @@ export default function SettingsScreen() {
             testID="auto-connect-gateway"
           >
             <Text style={styles.primaryButtonText}>
-              {isAutoConnecting ? 'Connecting…' : 'Find Mac on USB or Wi‑Fi'}
+              {isAutoConnecting ? 'Connecting…' : 'Find computer on USB or Wi‑Fi'}
             </Text>
           </TouchableOpacity>
           <TouchableOpacity
@@ -606,7 +606,7 @@ export default function SettingsScreen() {
         </GlassCard>
 
         <View testID="GATEWAY_OPS" accessible={true}>
-          <Text style={styles.sectionTitle}>Mac gateway ops</Text>
+          <Text style={styles.sectionTitle}>Computer gateway ops</Text>
         </View>
         <Text style={styles.description}>
           Toolsets, cron jobs, and skills from a direct Hermes machine link. Relay remains the

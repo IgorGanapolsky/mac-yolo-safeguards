@@ -101,7 +101,7 @@ export function buildConnectionStatusChips(input: {
     },
     {
       id: 'mac-http',
-      label: input.macHttpOk ? 'Your Mac: Reachable' : 'Your Mac: Unreachable',
+      label: input.macHttpOk ? 'Your computer: Reachable' : 'Your computer: Unreachable',
       tone: input.macHttpOk ? 'ok' : 'bad',
     },
     {
@@ -173,7 +173,7 @@ export default function ChatConnectionPanel({
     setAddingProfile(true);
     try {
       const isTailscale = isTailscaleGatewayUrl(cleaned);
-      const label = isTailscale ? 'Mac mini (Tailscale)' : 'Custom Mac';
+      const label = isTailscale ? 'Tailscale computer' : 'Custom computer';
       if (onAddProfile) {
         await onAddProfile(label, cleaned);
       }
@@ -347,7 +347,7 @@ export default function ChatConnectionPanel({
 
       {pickerProfiles.length > 0 ? (
         <View style={styles.savedBlock}>
-          <Text style={styles.savedHeading}>Your saved Macs</Text>
+          <Text style={styles.savedHeading}>Your saved computers</Text>
           <Text style={styles.savedHint}>
             Tap one to connect when you are on the same home Wi‑Fi.
           </Text>
@@ -405,7 +405,7 @@ export default function ChatConnectionPanel({
         onPress={() => Linking.openURL(HERMES_MAC_GET_STARTED_URL)}
         testID="chat-connection-install-link"
       >
-        <Text style={styles.installLink}>Need Hermes on your Mac? Open setup guide →</Text>
+        <Text style={styles.installLink}>Need Hermes on your computer? Open setup guide →</Text>
       </TouchableOpacity>
     </View>
   );

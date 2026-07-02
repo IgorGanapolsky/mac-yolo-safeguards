@@ -75,7 +75,7 @@ describe('RunProgressBanner', () => {
         progress={{
           phase: 'working',
           startedAtMs: Date.now() - 2000,
-          detail: 'Hermes is working on your Mac…',
+          detail: 'Hermes is working on your computer…',
           runId: 'run_live',
           model: 'hermes-local-fast',
           inputTokens: 66476,
@@ -115,7 +115,7 @@ describe('RunProgressBanner', () => {
         }}
       />,
     );
-    expect(getByTestId('run-progress-detail').props.children).toBe("Couldn't reach your Mac");
+    expect(getByTestId('run-progress-detail').props.children).toBe("Couldn't reach your computer");
     expect(getByTestId('run-progress-failed-detail').props.children).toBe(detail);
     expect(getByText('229s')).toBeTruthy();
   });

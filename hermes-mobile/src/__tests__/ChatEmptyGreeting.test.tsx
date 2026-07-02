@@ -31,12 +31,12 @@ describe('ChatEmptyGreeting', () => {
     const { getByTestId } = render(<ChatEmptyGreeting routeLabel="Hermes account relay" />);
 
     expect(getByTestId('chat-empty-greeting-subtitle').props.children).toBe(
-      'Ask anything — pair Hermes relay for Wi‑Fi, cellular, or USB when you are away from your Mac.',
+      'Ask anything — pair Hermes relay for Wi‑Fi, cellular, or USB when you are away from your computer.',
     );
   });
 
   it('does not claim connected for generic routes when disconnected', () => {
-    const { getByTestId } = render(<ChatEmptyGreeting routeLabel="Mac via USB" />);
+    const { getByTestId } = render(<ChatEmptyGreeting routeLabel="Computer via USB" />);
     expect(getByTestId('chat-empty-greeting-subtitle').props.children).toBe(
       'Ask anything. Plug in USB or pick a computer above to connect.',
     );

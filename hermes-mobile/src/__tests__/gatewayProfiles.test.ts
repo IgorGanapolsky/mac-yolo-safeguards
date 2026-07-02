@@ -67,13 +67,13 @@ describe('gatewayProfiles', () => {
   it('formats labels with hostname and IP', () => {
     const label = formatProfileLabel({
       id: 'mac_192_168_12_208',
-      label: 'Mac Pro',
+      label: 'Computer Pro',
       gatewayUrl: 'http://192.168.12.208:8642',
       hostname: 'Mac-Pro',
       localIp: '192.168.12.208',
       addedAt: '2026-06-18T12:00:00.000Z',
     });
-    expect(label).toContain('Mac Pro');
+    expect(label).toContain('Computer Pro');
     expect(label).toContain('192.168.12.208');
   });
 
@@ -97,10 +97,10 @@ describe('gatewayProfiles', () => {
       localIp: '192.168.12.138',
       addedAt: '2026-06-18T12:00:00.000Z',
     });
-    expect(label).toBe('Mac 192.168.12.138');
+    expect(label).toBe('Computer 192.168.12.138');
   });
 
-  it('displays Mac via USB for loopback gateway URLs', () => {
+  it('displays Computer via USB for loopback gateway URLs', () => {
     const label = formatProfileLabel({
       id: 'mac_127_0_0_1',
       label: '127.0.0.1',
@@ -108,7 +108,7 @@ describe('gatewayProfiles', () => {
       localIp: '127.0.0.1',
       addedAt: '2026-06-18T12:00:00.000Z',
     });
-    expect(label).toBe('Mac via USB');
+    expect(label).toBe('Computer via USB');
   });
 
   it('uses LAN URL IP when stored localIp is loopback', () => {
@@ -120,7 +120,7 @@ describe('gatewayProfiles', () => {
         localIp: '127.0.0.1',
         addedAt: '2026-06-18T12:00:00.000Z',
       }),
-    ).toBe('Mac 10.2.29.103');
+    ).toBe('Computer 10.2.29.103');
   });
 
   it('does not use MagicDNS host as profile label when health has no hostname', () => {
@@ -128,7 +128,7 @@ describe('gatewayProfiles', () => {
       gatewayUrl: 'http://igors-mac-mini.tail12aa33.ts.net:8642',
       localIp: '192.168.68.56',
     }, true);
-    expect(state.profiles[0].label).toBe('Mac');
+    expect(state.profiles[0].label).toBe('Computer');
     expect(state.profiles[0].gatewayUrl).toBe('http://igors-mac-mini.tail12aa33.ts.net:8642');
   });
 
@@ -236,7 +236,7 @@ describe('gatewayProfiles', () => {
     expect(state.profiles[0].label).toBe('Igors-MacBook-Pro');
   });
 
-  it('promotes loopback saved profile to LAN URL when the same Mac is discovered', () => {
+  it('promotes loopback saved profile to LAN URL when the same Computer is discovered', () => {
     let state = upsertDiscoveredProfile(EMPTY_GATEWAY_PROFILE_STATE, {
       gatewayUrl: 'http://127.0.0.1:8642',
       hostname: 'Igors-MacBook-Pro',
@@ -255,10 +255,10 @@ describe('gatewayProfiles', () => {
     expect(state.profiles[0].label).toBe('Igors-MacBook-Pro');
   });
 
-  it('prefers hostname for loopback profile if hostname is present and label is Mac via USB', () => {
+  it('prefers hostname for loopback profile if hostname is present and label is Computer via USB', () => {
     const name = profileDisplayName({
       id: 'mac_127_0_0_1',
-      label: 'Mac via USB',
+      label: 'Computer via USB',
       gatewayUrl: 'http://127.0.0.1:8642',
       hostname: 'Igors-Mac-mini',
       localIp: '127.0.0.1',
@@ -338,7 +338,7 @@ describe('gatewayProfiles', () => {
   });
 
   it('prevents loopback/USB profile overwrite collisions and handles dynamic upgrades', () => {
-    // 1. Initial state: add Mac Mini via USB loopback
+    // 1. Initial state: add Computer Mini via USB loopback
     let state = upsertDiscoveredProfile(EMPTY_GATEWAY_PROFILE_STATE, {
       gatewayUrl: 'http://127.0.0.1:8642',
       hostname: 'Igors-Mac-mini',
@@ -348,7 +348,7 @@ describe('gatewayProfiles', () => {
     expect(state.profiles[0].id).toBe('mac_igors_mac_mini');
     expect(state.activeProfileId).toBe('mac_igors_mac_mini');
 
-    // 2. Discover MacBook Pro via USB loopback — should NOT overwrite Mac Mini
+    // 2. Discover MacBook Pro via USB loopback — should NOT overwrite Computer Mini
     state = upsertDiscoveredProfile(state, {
       gatewayUrl: 'http://127.0.0.1:8642',
       hostname: 'Igors-MacBook-Pro',

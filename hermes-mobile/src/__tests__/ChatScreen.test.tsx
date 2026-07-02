@@ -1,5 +1,5 @@
 import React from 'react';
-import { Alert } from 'react-native';
+import { Alert, BackHandler, Platform } from 'react-native';
 import { fireEvent, act, waitFor, cleanup } from '@testing-library/react-native';
 import ChatScreen from '../screens/ChatScreen';
 import { renderInTabNavigator } from '../testUtils/navigation';
@@ -11,7 +11,7 @@ const mockGatewayState = {
   health: { ok: true, hostname: 'demo-mac.local', localIp: '127.0.0.1' },
   activeGatewayProfile: {
     id: 'mac_demo',
-    label: 'Demo Mac',
+    label: 'Demo computer',
     gatewayUrl: 'http://localhost:8642',
     localIp: '127.0.0.1',
     addedAt: '2026-06-18T00:00:00Z',
@@ -19,7 +19,7 @@ const mockGatewayState = {
   gatewayProfiles: [
     {
       id: 'mac_demo',
-      label: 'Demo Mac',
+      label: 'Demo computer',
       gatewayUrl: 'http://localhost:8642',
       localIp: '127.0.0.1',
       addedAt: '2026-06-18T00:00:00Z',
@@ -342,11 +342,20 @@ describe('ChatScreen', () => {
       health: { ok: true, hostname: 'demo-mac.local', localIp: '127.0.0.1' },
       activeGatewayProfile: {
         id: 'mac_demo',
-        label: 'Demo Mac',
+        label: 'Demo computer',
         gatewayUrl: 'http://localhost:8642',
         localIp: '127.0.0.1',
         addedAt: '2026-06-18T00:00:00Z',
       },
+      gatewayProfiles: [
+        {
+          id: 'mac_demo',
+          label: 'Demo computer',
+          gatewayUrl: 'http://localhost:8642',
+          localIp: '127.0.0.1',
+          addedAt: '2026-06-18T00:00:00Z',
+        },
+      ],
       relayWorkers: [],
       activeRelayWorkerId: null,
       isPaired: true,
@@ -407,8 +416,29 @@ describe('ChatScreen', () => {
     expect(getByText('DEMO')).toBeTruthy();
     expect(getByTestId('chat-input')).toBeTruthy();
     expect(getByTestId('chat-screen-header')).toBeTruthy();
-    expect(getByTestId('chat-context-mac').props.children).toBe('Demo Mac');
+    expect(getByTestId('chat-context-mac').props.children).toBe('Demo computer');
     expect(getByTestId('chat-empty-greeting')).toBeTruthy();
+  });
+
+  it('keeps Android demo Chat foregrounded on hardware Back when no sheet is open', async () => {
+    const originalOs = Platform.OS;
+    Platform.OS = 'android';
+    const remove = jest.fn();
+    const addBackHandler = jest
+      .spyOn(BackHandler, 'addEventListener')
+      .mockReturnValue({ remove } as never);
+
+    try {
+      await renderChatScreen();
+      const handler = addBackHandler.mock.calls.find(
+        ([eventName]) => eventName === 'hardwareBackPress',
+      )?.[1] as (() => boolean) | undefined;
+
+      expect(handler).toBeTruthy();
+      expect(handler?.()).toBe(true);
+    } finally {
+      Platform.OS = originalOs;
+    }
   });
 
   it('keeps chat available in relay mode when the account is not paired yet', async () => {
@@ -445,42 +475,19 @@ describe('ChatScreen', () => {
     expect(sendButton).toBeTruthy();
   });
 
-  it('fills the composer from a quick action without sending', async () => {
+  it('does not render bottom recent prompt chips above the composer', async () => {
     const { sendChatMessage } = jest.requireMock('../services/hermesChatClient') as {
       sendChatMessage: jest.Mock;
     };
     sendChatMessage.mockClear();
-    const { getByTestId, queryByText, queryByTestId } = await renderChatScreen();
+    const { getByTestId, queryByTestId } = await renderChatScreen();
     const input = getByTestId('chat-input');
 
-    await waitFor(() => {
-      expect(queryByTestId('chat-quick-action-continue')).toBeNull();
-    });
-    const action = getByTestId('chat-quick-action-recent-0');
-    fireEvent.press(action);
-
-    expect(input.props.value).toBe('safeguards setup inquiry');
-    expect(queryByText('processed reply')).toBeNull();
-  });
-
-  it('dismisses a quick action when pressing the dismiss button', async () => {
-    const { saveDismissedPrompt } = jest.requireMock('../services/storage').storage as {
-      saveDismissedPrompt: jest.Mock;
-    };
-    saveDismissedPrompt.mockClear();
-
-    const { findByTestId, queryByTestId } = await renderChatScreen();
-
-    const dismissBtn = await findByTestId('chat-quick-action-dismiss-recent-0');
-    await act(async () => {
-      fireEvent.press(dismissBtn);
-    });
-
-    // Verify it saved to storage
-    expect(saveDismissedPrompt).toHaveBeenCalledWith('safeguards setup inquiry');
-    
-    // Verify it is removed from UI
+    expect(queryByTestId('chat-quick-actions')).toBeNull();
     expect(queryByTestId('chat-quick-action-recent-0')).toBeNull();
+    expect(queryByTestId('chat-quick-action-continue')).toBeNull();
+    expect(input.props.value).toBe('');
+    expect(sendChatMessage).not.toHaveBeenCalled();
   });
 
   it('triggers mock message sending and demo reply in demo mode', async () => {
@@ -563,6 +570,63 @@ describe('ChatScreen', () => {
 
     fireEvent.press(getByText('Close'));
     expect(queryByTestId('tools-modal-title')).toBeNull();
+  });
+
+  it('explains how a new user adds a missing Tailscale Mac from the Mac picker', async () => {
+    const { getByTestId, getByText } = await renderChatScreen();
+
+    fireEvent.press(getByTestId('chat-context-mac-button'));
+
+    expect(getByTestId('mac-picker-scroll')).toBeTruthy();
+    expect(getByTestId('mac-picker-setup-help')).toBeTruthy();
+    expect(getByText('Missing your other machine?')).toBeTruthy();
+    expect(getByText(/Start Hermes on your other machine/)).toBeTruthy();
+    expect(getByText(/Tailscale MagicDNS name or 100.x address in Settings/)).toBeTruthy();
+  });
+
+  it('keeps an explicitly selected Mac primary instead of immediately auto-discovering over it', async () => {
+    const autoConnectGateway = jest.fn().mockResolvedValue('http://10.2.29.103:8642');
+    const selectGatewayProfile = jest.fn().mockResolvedValue(undefined);
+    Object.assign(mockGatewayState, {
+      connectionState: 'connected',
+      autoConnectGateway,
+      selectGatewayProfile,
+      activeGatewayProfile: {
+        id: 'macbook',
+        label: 'Igors-MacBook-Pro',
+        gatewayUrl: 'http://10.2.29.103:8642',
+        localIp: '10.2.29.103',
+        addedAt: '2026-07-02T00:00:00Z',
+      },
+      gatewayProfiles: [
+        {
+          id: 'macmini',
+          label: 'Igors-Mac-mini',
+          gatewayUrl: 'http://100.87.85.85:8642',
+          localIp: '100.87.85.85',
+          addedAt: '2026-07-02T00:00:00Z',
+        },
+        {
+          id: 'macbook',
+          label: 'Igors-MacBook-Pro',
+          gatewayUrl: 'http://10.2.29.103:8642',
+          localIp: '10.2.29.103',
+          addedAt: '2026-07-02T00:00:00Z',
+        },
+      ],
+    });
+
+    const { getByTestId } = await renderChatScreen();
+    autoConnectGateway.mockClear();
+
+    fireEvent.press(getByTestId('chat-context-mac-button'));
+    fireEvent.press(getByTestId('select-gateway-profile-macmini'));
+
+    await waitFor(() => {
+      expect(selectGatewayProfile).toHaveBeenCalledWith('macmini');
+    });
+    expect(autoConnectGateway).not.toHaveBeenCalled();
+    expect(mockGatewayState.refreshHealth).toHaveBeenCalled();
   });
 
   it('can start a new session from modal', async () => {

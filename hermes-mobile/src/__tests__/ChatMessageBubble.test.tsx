@@ -89,7 +89,7 @@ describe('ChatMessageBubble', () => {
       macHttpOk: false,
     });
 
-    expect(getByTestId('chat-outbound-failed').props.children).toBe("⚠ Couldn't reach Mac");
+    expect(getByTestId('chat-outbound-failed').props.children).toBe("⚠ Couldn't reach your computer");
   });
 
   it('renders Leash output feedback controls for assistant messages', () => {

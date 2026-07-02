@@ -3,7 +3,7 @@
 # EAS credits: each android_firebase run submits `eas build --profile preview --wait`
 # (~$1+ on Starter). Do NOT auto-run on every main push — use local dogfood
 # (`hermes-mobile/scripts/install-phone-release.sh`) for Igor USB testing.
-# CI EAS: workflow_dispatch or push tag hermes-internal-v* only.
+# CI EAS: workflow_dispatch ONLY (confirm_eas_spend=yes or eas_build_id reuse).
 # Reuse a finished build: workflow_dispatch with eas_build_id (no new EAS build).
 # GitHub cancel-in-progress does NOT cancel an EAS build already queued on Expo.
 name: Internal Distribution
@@ -26,13 +26,18 @@ on:
           - android_eas
           - android_firebase
           - ios_eas
+      confirm_eas_spend:
+        description: "I know this queues a paid EAS cloud build (~$1+ Starter credit)"
+        required: true
+        default: "no"
+        type: choice
+        options:
+          - "no"
+          - "yes"
       eas_build_id:
         description: "Reuse a finished EAS Android build UUID (skips eas build --wait)"
         required: false
         type: string
-  push:
-    tags:
-      - "hermes-internal-v*"
 
 env:
   HERMES_MOBILE_ANDROID_PACKAGE: com.iganapolsky.hermesmobile
@@ -83,6 +88,8 @@ jobs:
         env:
           INPUT_REF: ${{ inputs.ref }}
           INPUT_TARGET: ${{ inputs.target }}
+          INPUT_CONFIRM_EAS: ${{ inputs.confirm_eas_spend }}
+          INPUT_EAS_BUILD_ID: ${{ inputs.eas_build_id }}
           GITHUB_REF_NAME_VALUE: ${{ github.ref_name }}
           GITHUB_EVENT_NAME: ${{ github.event_name }}
         run: |
@@ -90,13 +97,9 @@ jobs:
 
           SHOULD_RUN="true"
           REF="${INPUT_REF:-${GITHUB_REF_NAME_VALUE}}"
-          TARGET="${INPUT_TARGET:-}"
-
-          # Tag push (hermes-internal-v*) → Firebase internal APK. Ordinary main pushes do not trigger EAS.
-          if [[ "$GITHUB_EVENT_NAME" == "push" && -z "$TARGET" ]]; then
-            TARGET="android_firebase"
-          fi
-          TARGET="${TARGET:-all}"
+          TARGET="${INPUT_TARGET:-all}"
+          REUSE_BUILD_ID="${INPUT_EAS_BUILD_ID:-}"
+          CONFIRM_EAS="${INPUT_CONFIRM_EAS:-no}"
 
           RUN_ANDROID="false"
           RUN_IOS="false"
@@ -126,6 +129,20 @@ jobs:
               exit 1
               ;;
           esac
+
+          NEEDS_NEW_EAS="false"
+          if [[ "$RUN_ANDROID" == "true" && -z "$REUSE_BUILD_ID" ]]; then
+            NEEDS_NEW_EAS="true"
+          fi
+          if [[ "$RUN_IOS" == "true" ]]; then
+            NEEDS_NEW_EAS="true"
+          fi
+
+          if [[ "$NEEDS_NEW_EAS" == "true" && "$CONFIRM_EAS" != "yes" ]]; then
+            echo "::error::EAS cloud builds cost Starter credits (~\$1+ each). Set confirm_eas_spend=yes to queue a new build, or pass eas_build_id to reuse an existing APK (no new build)." >&2
+            echo "Igor USB dogfood (no EAS): cd hermes-mobile && npm run android:phone" >&2
+            exit 1
+          fi
 
           {
             echo "should_run=$SHOULD_RUN"
@@ -305,7 +322,7 @@ jobs:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
         run: |
           set -euo pipefail
-          eas build \
+          node ./scripts/eas-build-guard.cjs --platform android --profile preview -- eas build \
             --platform android \
             --profile preview \
             --non-interactive \
@@ -504,7 +521,7 @@ jobs:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
         run: |
           set -euo pipefail
-          npx eas-cli@latest build \
+          node ./scripts/eas-build-guard.cjs --platform ios --profile preview -- npx eas-cli@latest build \
             --platform ios \
             --profile preview \
             --non-interactive \

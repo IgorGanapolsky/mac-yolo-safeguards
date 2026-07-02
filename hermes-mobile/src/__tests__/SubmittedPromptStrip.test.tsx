@@ -29,6 +29,6 @@ describe('SubmittedPromptStrip', () => {
         macHttpOk={false}
       />,
     );
-    expect(getByText('○ Waiting for Mac…')).toBeTruthy();
+    expect(getByText('○ Waiting for computer…')).toBeTruthy();
   });
 });

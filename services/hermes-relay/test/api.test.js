@@ -4,7 +4,7 @@ const { describe, it, before, after } = require('node:test');
 const assert = require('node:assert/strict');
 const http = require('http');
 const { RelayStore } = require('../store');
-const { startServer, store } = require('../server');
+const { setStorePurchaseVerifierForTest, startServer, store } = require('../server');
 
 function request(baseUrl, method, pathname, options = {}) {
   const url = new URL(pathname, baseUrl);
@@ -59,11 +59,14 @@ describe('hermes-relay API', () => {
     Object.keys(store.state.pairCodes).forEach((key) => delete store.state.pairCodes[key]);
     Object.keys(store.state.events).forEach((key) => delete store.state.events[key]);
     Object.keys(store.state.verdicts).forEach((key) => delete store.state.verdicts[key]);
+    Object.keys(store.state.entitlements).forEach((key) => delete store.state.entitlements[key]);
+    setStorePurchaseVerifierForTest(null);
     const started = await startServer(0, '127.0.0.1');
     baseUrl = `http://127.0.0.1:${started.port}`;
   });
 
   after(async () => {
+    setStorePurchaseVerifierForTest(null);
     await new Promise((resolve) => require('../server').server.close(resolve));
   });
 
@@ -141,6 +144,65 @@ describe('hermes-relay API', () => {
       auth: `Mobile ${mobileToken}`,
     });
     assert.equal(queueAfter.body.events.length, 0);
+  });
+
+  it('rejects unauthenticated ThumbGate Leash entitlement verification', async () => {
+    const res = await request(baseUrl, 'POST', '/v1/entitlements/thumbgate-leash/verify', {
+      body: {
+        platform: 'android',
+        product_id: 'thumbgate_leash_monthly',
+        purchase_token: 'purchase-token',
+      },
+    });
+    assert.equal(res.status, 401);
+  });
+
+  it('fails closed when store receipt verifier is not configured', async () => {
+    const res = await request(baseUrl, 'POST', '/v1/entitlements/thumbgate-leash/verify', {
+      auth: `Mobile ${mobileToken}`,
+      body: {
+        platform: 'android',
+        product_id: 'thumbgate_leash_monthly',
+        purchase_token: 'purchase-token',
+      },
+    });
+    assert.equal(res.status, 503);
+    assert.equal(res.body.error, 'store_verifier_not_configured');
+  });
+
+  it('records Pro only after a positive store receipt verifier result', async () => {
+    setStorePurchaseVerifierForTest(async (receipt) => {
+      assert.equal(receipt.platform, 'android');
+      assert.equal(receipt.product_id, 'thumbgate_leash_monthly');
+      assert.equal(receipt.purchase_token, 'purchase-token');
+      return {
+        ok: true,
+        expires_at: Date.now() + 30 * 24 * 60 * 60 * 1000,
+        transaction_id: 'order-123',
+        source: 'test_store_verifier',
+      };
+    });
+
+    const verify = await request(baseUrl, 'POST', '/v1/entitlements/thumbgate-leash/verify', {
+      auth: `Mobile ${mobileToken}`,
+      body: {
+        platform: 'android',
+        product_id: 'thumbgate_leash_monthly',
+        purchase_token: 'purchase-token',
+      },
+    });
+    assert.equal(verify.status, 200);
+    assert.equal(verify.body.ok, true);
+    assert.equal(verify.body.entitlement.thumbgate_leash.active, true);
+
+    const queue = await request(baseUrl, 'GET', '/v1/queue', {
+      auth: `Mobile ${mobileToken}`,
+    });
+    assert.equal(queue.status, 200);
+    assert.equal(queue.body.tier, 'pro');
+    assert.equal(queue.body.entitlement.thumbgate_leash.active, true);
+
+    setStorePurchaseVerifierForTest(null);
   });
 });
 
@@ -248,5 +310,22 @@ describe('RelayStore', () => {
     const registered = relayStore.registerWorker({ hostname: 'wrong-mac', machine_id: 'wrong-mac' });
     relayStore.startPairing(registered.worker_token);
     assert.equal(relayStore.completePairing('NOPE-NOPE'), null);
+  });
+
+  it('expires ThumbGate Leash entitlement instead of returning sticky Pro', () => {
+    const relayStore = new RelayStore('');
+    const registered = relayStore.registerWorker({ hostname: 'pro-mac', machine_id: 'pro-mac' });
+    const account = relayStore.state.accounts[registered.account_id];
+    const recorded = relayStore.recordThumbgateLeashEntitlement(account.id, {
+      platform: 'ios',
+      product_id: 'thumbgate_leash_monthly',
+      transaction_id: 'tx-1',
+      expires_at: Date.now() + 60_000,
+      source: 'test',
+    });
+    assert.ok(recorded);
+    assert.equal(relayStore.thumbgateLeashEntitlement(account).active, true);
+    relayStore.state.entitlements[account.id].thumbgate_leash.expires_at = Date.now() - 1;
+    assert.equal(relayStore.thumbgateLeashEntitlement(account).active, false);
   });
 });

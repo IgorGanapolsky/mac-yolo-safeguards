@@ -43,7 +43,7 @@ function previewSnippet(session: HermesSession, activityPreview: string | null):
     return null;
   }
   if (isCronBoilerplateText(raw)) {
-    return 'Scheduled cron on your Mac';
+    return 'Scheduled cron on your computer';
   }
   return raw.length > RECENTS_PREVIEW_MAX_CHARS
     ? `${raw.slice(0, RECENTS_PREVIEW_MAX_CHARS)}…`

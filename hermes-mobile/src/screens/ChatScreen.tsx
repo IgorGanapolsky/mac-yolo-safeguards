@@ -13,8 +13,10 @@ import {
   ScrollView,
   SectionList,
   AppState,
+  BackHandler,
   Keyboard,
   Alert,
+  useWindowDimensions,
   type NativeSyntheticEvent,
   type NativeScrollEvent,
 } from 'react-native';
@@ -28,7 +30,11 @@ import {
   useGatewayChatSync,
 } from '../hooks/useGatewaySelector';
 import { useKeyboardInset } from '../hooks/useKeyboardInset';
-import { composerDockInsets, ANDROID_TAB_BAR_ESTIMATE_PX } from '../utils/composerKeyboard';
+import {
+  composerDockInsets,
+  focusedAndroidKeyboardFallbackInset,
+  ANDROID_TAB_BAR_ESTIMATE_PX,
+} from '../utils/composerKeyboard';
 import Constants from 'expo-constants';
 import { colors } from '../theme/colors';
 import { isDemoModeAllowed } from '../utils/demoModePolicy';
@@ -106,7 +112,6 @@ import SubmittedPromptStrip from '../components/SubmittedPromptStrip';
 import ChatConnectionPanel from '../components/ChatConnectionPanel';
 import LoadingButton from '../components/ui/LoadingButton';
 import ChatInputBar from '../components/ChatInputBar';
-import ChatQuickActions, { type ChatQuickAction } from '../components/ChatQuickActions';
 import ChatMessageListItem from '../components/ChatMessageListItem';
 import ChatMessageDetailModal from '../components/ChatMessageDetailModal';
 import FeedbackPromptModal from '../components/FeedbackPromptModal';
@@ -189,10 +194,6 @@ import {
   TELEGRAM_QUEUED_REPLY_PLACEHOLDER,
 } from '../utils/streamAssistantText';
 import { extractTerminalActivityFromMessage, isTerminalToolName } from '../utils/terminalActivity';
-import {
-  buildFallbackPromptActions,
-  buildRecentPromptActions,
-} from '../utils/recentPromptActions';
 
 function projectSessions(
   allSessions: HermesSession[],
@@ -267,6 +268,7 @@ export default function ChatScreen() {
   const navigation = useNavigation();
   const gatewayUrl = effectiveGatewayUrl || settings.gatewayUrl;
   const insets = useSafeAreaInsets();
+  const windowDimensions = useWindowDimensions();
   
   const [sessions, setSessions] = useState<HermesSession[]>([]);
   const deletedDemoSessionIdsRef = useRef<Set<string>>(new Set());
@@ -321,7 +323,6 @@ export default function ChatScreen() {
   const [recentChatsDismissed, setRecentChatsDismissed] = useState(false);
   const [dismissedSessionIds, setDismissedSessionIds] = useState<string[]>([]);
   const [hideCronSessions, setHideCronSessions] = useState(false);
-  const [dismissedPrompts, setDismissedPrompts] = useState<string[]>([]);
   const [messageDetail, setMessageDetail] = useState<{ title: string; body: string } | null>(null);
   const [feedbackPrompt, setFeedbackPrompt] = useState<{
     message: HermesMessage;
@@ -388,9 +389,11 @@ export default function ChatScreen() {
   );
   const lastFailedSendTextRef = useRef<string | null>(null);
   const activeChatStreamRef = useRef(false);
+  const [inputFocused, setInputFocused] = useState(false);
 
   const { inset: keyboardInset, windowShrunk: keyboardWindowShrunk } = useKeyboardInset({
     suppressHideWhileFocusedRef: inputFocusedRef,
+    focused: inputFocused,
   });
 
   const [queuedOutboundCount, setQueuedOutboundCount] = useState(0);
@@ -547,6 +550,31 @@ export default function ChatScreen() {
     heal: connectionHeal,
     userSendFailed,
   });
+  const chatBlockingSurfaceOpen =
+    sessionModalVisible ||
+    toolsModalVisible ||
+    macPickerVisible ||
+    projectModalVisible ||
+    renameModalVisible ||
+    Boolean(messageDetail) ||
+    Boolean(feedbackPrompt) ||
+    showMacConnectionHelp;
+
+  useFocusEffect(
+    useCallback(() => {
+      if (Platform.OS !== 'android' || !isDemo) {
+        return undefined;
+      }
+      const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
+        if (chatBlockingSurfaceOpen) {
+          return false;
+        }
+        return true;
+      });
+      return () => subscription.remove();
+    }, [chatBlockingSurfaceOpen, isDemo]),
+  );
+
   const showChatEmptyState = useMemo(() => {
     if (messages.length > 0) {
       return false;
@@ -848,18 +876,27 @@ export default function ChatScreen() {
 
   /** Lift composer above software keyboard; tab bar stays mounted (no height collapse). */
   const androidKeyboardMode = Constants.expoConfig?.android?.softwareKeyboardLayoutMode;
+  const effectiveKeyboardInset =
+    keyboardInset ||
+    focusedAndroidKeyboardFallbackInset(inputFocused, keyboardInset, windowDimensions.height);
   const composerDockSpacing = useMemo(
     () =>
       composerDockInsets(
-        keyboardInset,
+        effectiveKeyboardInset,
         insets.bottom,
         androidKeyboardMode,
         keyboardWindowShrunk,
-        keyboardInset > 0 ? 0 : ANDROID_TAB_BAR_ESTIMATE_PX,
+        effectiveKeyboardInset > 0 ? 0 : ANDROID_TAB_BAR_ESTIMATE_PX,
       ),
-    [keyboardInset, insets.bottom, androidKeyboardMode, keyboardWindowShrunk, composerLayoutNonce],
+    [
+      effectiveKeyboardInset,
+      insets.bottom,
+      androidKeyboardMode,
+      keyboardWindowShrunk,
+      composerLayoutNonce,
+    ],
   );
-  const keyboardOpen = keyboardInset > 0;
+  const keyboardOpen = effectiveKeyboardInset > 0;
 
   const leashPhraseHints = useMemo((): LeashPhraseHint[] => {
     const hints: LeashPhraseHint[] = [];
@@ -1085,7 +1122,7 @@ export default function ChatScreen() {
 
   const inputPlaceholder = useMemo(() => {
     if (!currentSession) {
-      return 'Message your Mac…';
+      return 'Message your computer…';
     }
     if (isSending) {
       return queuedOutboundCount > 0
@@ -1178,7 +1215,7 @@ export default function ChatScreen() {
     haptics.selection();
     Alert.alert(
       'Workspace',
-      'Hermes runs in this folder on your Mac.',
+      'Hermes runs in this folder on your computer.',
       [
         ...projectState.projects.map((project) => ({
           text: project.name,
@@ -1330,18 +1367,6 @@ export default function ChatScreen() {
       cancelled = true;
     };
   }, [gatewayUrl, isDemo]);
-
-  useEffect(() => {
-    let cancelled = false;
-    void storage.loadDismissedPrompts().then((prompts) => {
-      if (!cancelled) {
-        setDismissedPrompts(prompts || []);
-      }
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
 
   useEffect(() => {
     if (isProjectsLoaded) {
@@ -1698,6 +1723,7 @@ export default function ChatScreen() {
 
   const handleInputFocus = useCallback(() => {
     inputFocusedRef.current = true;
+    setInputFocused(true);
     if (Platform.OS === 'android') {
       setComposerLayoutNonce((n) => n + 1);
     }
@@ -1705,6 +1731,7 @@ export default function ChatScreen() {
 
   const handleInputBlur = useCallback(() => {
     inputFocusedRef.current = false;
+    setInputFocused(false);
     if (pendingTranscriptSyncRef.current) {
       pendingTranscriptSyncRef.current = false;
       void refreshSessionMessages({ background: true });
@@ -2044,7 +2071,7 @@ export default function ChatScreen() {
       setSessions((prev) => applyClearedFilter(prev));
       if (failed > 0) {
         setErrorMessage(
-          `${failed} thread${failed === 1 ? '' : 's'} could not be deleted on your Mac. The rest were cleared.`,
+          `${failed} thread${failed === 1 ? '' : 's'} could not be deleted on your computer. The rest were cleared.`,
         );
       } else {
         setErrorMessage(null);
@@ -2059,7 +2086,7 @@ export default function ChatScreen() {
   const handleClearAllChats = useCallback(() => {
     Alert.alert(
       'Clear all chats?',
-      'This deletes every thread on your Mac from Hermes. You cannot undo this.',
+      'This deletes every thread on your computer from Hermes. You cannot undo this.',
       [
         { text: 'Cancel', style: 'cancel' },
         { text: 'Clear all', style: 'destructive', onPress: () => void executeClearAllChats() },
@@ -2501,11 +2528,11 @@ export default function ChatScreen() {
     const notifyWaitingForMacSlot = () => {
       setRunProgress((prev) =>
         prev
-          ? { ...prev, detail: 'Waiting for your Mac to finish the previous chat…' }
+          ? { ...prev, detail: 'Waiting for your computer to finish the previous chat…' }
           : {
               phase: 'sending',
               startedAtMs: Date.now(),
-              detail: 'Waiting for your Mac to finish the previous chat…',
+              detail: 'Waiting for your computer to finish the previous chat…',
             },
       );
     };
@@ -2728,7 +2755,7 @@ export default function ChatScreen() {
           ? {
               ...prev,
               phase: 'working',
-              detail: 'Hermes is working on your Mac…',
+              detail: 'Hermes is working on your computer…',
             }
           : prev,
       );
@@ -2741,12 +2768,12 @@ export default function ChatScreen() {
           ? {
               ...prev,
               phase: 'working',
-              detail: 'Hermes is working on your Mac…',
+              detail: 'Hermes is working on your computer…',
             }
           : {
               phase: 'working',
               startedAtMs: sendStartedAtRef.current,
-              detail: 'Hermes is working on your Mac…',
+              detail: 'Hermes is working on your computer…',
               sessionId: targetSessionIdForProgress,
             },
       );
@@ -2990,7 +3017,7 @@ export default function ChatScreen() {
                 ? {
                     ...prev,
                     phase: 'working',
-                    detail: 'Hermes is working on your Mac…',
+                    detail: 'Hermes is working on your computer…',
                   }
                 : prev,
             );
@@ -3050,7 +3077,7 @@ export default function ChatScreen() {
               ? {
                   ...prev,
                   phase: 'running',
-                  detail: 'Queued on Hermes thread — your Mac may still be running tools',
+                  detail: 'Queued on Hermes thread — your computer may still be running tools',
                 }
               : prev,
           );
@@ -3119,7 +3146,7 @@ export default function ChatScreen() {
               sessionId: targetSessionId,
             }),
             phase: 'completed',
-            detail: 'Reply ready on your Mac',
+            detail: 'Reply ready on your computer',
             duration: Math.max(0, (Date.now() - completedStartedAt) / 1000),
           }));
           setTimeout(() => {
@@ -3270,49 +3297,6 @@ export default function ChatScreen() {
     await handleMacRetry();
   }, [handleMacRetry]);
 
-  const quickActions = useMemo<ChatQuickAction[]>(() => {
-    const fallbackActions = buildFallbackPromptActions({
-      approvalCount: composerApprovals.length,
-      isRunActive,
-    });
-    const pinnedForActions =
-      pinnedOutboundStatus === 'failed' || connectivityRunFailure ? undefined : pinnedOutboundText;
-    return buildRecentPromptActions(
-      {
-        messages,
-        sessions: visibleSessions,
-        pinnedOutboundText: pinnedForActions,
-        currentSessionId: currentSession?.id,
-        dismissedPrompts,
-      },
-      fallbackActions,
-    );
-  }, [
-    composerApprovals.length,
-    connectivityRunFailure,
-    currentSession?.id,
-    isRunActive,
-    messages,
-    pinnedOutboundStatus,
-    pinnedOutboundText,
-    visibleSessions,
-    dismissedPrompts,
-  ]);
-
-  const handleQuickAction = useCallback((action: ChatQuickAction) => {
-    haptics.selection();
-    inputValueRef.current = action.prompt;
-    sendClearSuppressRef.current = false;
-    setInputValue(action.prompt);
-    setComposerFocusNonce((nonce) => nonce + 1);
-  }, []);
-
-  const handleDismissQuickAction = useCallback(async (action: ChatQuickAction) => {
-    haptics.selection();
-    await storage.saveDismissedPrompt(action.prompt);
-    setDismissedPrompts((prev) => [...prev, action.prompt]);
-  }, []);
-
   const handleStopRun = useCallback(async () => {
     const runId = runProgress?.runId ?? progressBanner?.runId;
     if (!runId || isDemo) {
@@ -3328,14 +3312,14 @@ export default function ChatScreen() {
     try {
       await stopRun(gatewayUrl, runId, apiKey);
       setRunProgress((prev) =>
-        prev ? { ...prev, phase: 'failed', detail: 'Stopped on your Mac' } : null,
+        prev ? { ...prev, phase: 'failed', detail: 'Stopped on your computer' } : null,
       );
       isSendingRef.current = false;
       setIsSending(false);
       haptics.warning();
     } catch (error) {
       setErrorMessage(
-        error instanceof Error ? error.message : 'Could not stop the run on your Mac',
+        error instanceof Error ? error.message : 'Could not stop the run on your computer',
       );
       haptics.warning();
     }
@@ -3368,7 +3352,7 @@ export default function ChatScreen() {
     isSendingRef.current = false;
     setIsSending(false);
     setRunProgress((prev) =>
-      prev ? { ...prev, phase: 'failed', detail: 'Stopped on your Mac' } : null,
+      prev ? { ...prev, phase: 'failed', detail: 'Stopped on your computer' } : null,
     );
     setErrorMessage(null);
     const retryText = lastFailedSendTextRef.current?.trim();
@@ -3591,7 +3575,6 @@ export default function ChatScreen() {
               onSelectProfile={async (profileId) => {
                 haptics.light();
                 await selectGatewayProfile(profileId);
-                await autoConnectGateway();
                 await refreshHealth();
                 connectEvents();
               }}
@@ -3629,7 +3612,7 @@ export default function ChatScreen() {
                 testID="chat-empty-state"
               >
                 <ChatEmptyGreeting
-                  routeLabel={isDemo ? 'Demo Mac' : machineShortLabel}
+                  routeLabel={isDemo ? 'Demo computer' : machineShortLabel}
                   isConnected={effectiveMacChatLive}
                 />
                 {showMacConnectionHelp ? (
@@ -3711,7 +3694,7 @@ export default function ChatScreen() {
                   onPress={() => void handleStopMacAndRetrySend()}
                   testID="chat-stop-mac-run"
                 >
-                  <Text style={styles.errorAction}>Stop run on Mac & retry</Text>
+                  <Text style={styles.errorAction}>Stop run on computer & retry</Text>
                 </TouchableOpacity>
               ) : null}
             </View>
@@ -3792,12 +3775,6 @@ export default function ChatScreen() {
           </Pressable>
         ) : null}
 
-        <ChatQuickActions
-          actions={quickActions}
-          onSelect={handleQuickAction}
-          onDismiss={handleDismissQuickAction}
-        />
-
         <ChatInputBar
           value={inputValue}
           onChangeText={handleComposerTextChange}
@@ -3825,72 +3802,86 @@ export default function ChatScreen() {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Choose your Mac</Text>
+              <Text style={styles.modalTitle}>Choose your computer</Text>
               <TouchableOpacity onPress={() => setMacPickerVisible(false)}>
                 <Text style={styles.modalCloseBtn}>Close</Text>
               </TouchableOpacity>
             </View>
-            <Text style={styles.modalSubtitle}>
-              Pick a saved Mac, or tap Find computers to search your home Wi‑Fi. On cellular or away
-              from home? Use the Tailscale Add button when it appears below.
-            </Text>
-            {tailscaleDiscoveries.length > 0 || tailscaleDiscoveryProbing ? (
-              <TailscaleDiscoveryBanner
-                discoveries={tailscaleDiscoveries}
-                adding={tailscaleDiscoveryProbing}
-                probing={tailscaleDiscoveryProbing && tailscaleDiscoveries.length === 0}
-                onAdd={(discovery) => {
-                  void addDiscoveredTailscaleComputer(discovery);
+            <ScrollView
+              style={styles.macPickerScroll}
+              contentContainerStyle={styles.macPickerContent}
+              keyboardShouldPersistTaps="handled"
+              testID="mac-picker-scroll"
+            >
+              <Text style={styles.modalSubtitle}>
+                Pick a saved computer, or tap Find computers to search your home Wi‑Fi and known
+                Tailscale addresses.
+              </Text>
+              <View style={styles.macSetupCard} testID="mac-picker-setup-help">
+                <Text style={styles.macSetupTitle}>Missing your other machine?</Text>
+                <Text style={styles.macSetupText}>
+                  Start Hermes on your other machine, keep Tailscale on for both devices, then tap
+                  Find computers. If it still does not appear, add its Tailscale MagicDNS name or
+                  100.x address in Settings.
+                </Text>
+              </View>
+              {tailscaleDiscoveries.length > 0 || tailscaleDiscoveryProbing ? (
+                <TailscaleDiscoveryBanner
+                  discoveries={tailscaleDiscoveries}
+                  adding={tailscaleDiscoveryProbing}
+                  probing={tailscaleDiscoveryProbing && tailscaleDiscoveries.length === 0}
+                  onAdd={(discovery) => {
+                    void addDiscoveredTailscaleComputer(discovery);
+                  }}
+                  prominent
+                />
+              ) : null}
+              <GatewayProfilePicker
+                profiles={switchComputerProfiles}
+                activeProfileId={activeGatewayProfile?.id ?? null}
+                activeReachable={macHttpOk || connectionState === 'connected'}
+                activeConnecting={connectionState === 'connecting'}
+                scanning={profileScanning || isScanningMacs}
+                scanProgress={profileScanProgress}
+                scanResult={profileScanResult}
+                wifiConnected={wifiConnected}
+                showReachabilityHints={switchComputerProfiles.length > 1}
+                onSelect={async (profileId) => {
+                  haptics.light();
+                  await selectGatewayProfile(profileId);
+                  await refreshHealth();
+                  connectEvents();
+                  setMacPickerVisible(false);
+                  setCurrentSession(null);
+                  setMessages([]);
+                  await loadSessionsList(true);
                 }}
-                prominent
-              />
-            ) : null}
-            <GatewayProfilePicker
-              profiles={switchComputerProfiles}
-              activeProfileId={activeGatewayProfile?.id ?? null}
-              activeReachable={macHttpOk || connectionState === 'connected'}
-              activeConnecting={connectionState === 'connecting'}
-              scanning={profileScanning || isScanningMacs}
-              scanProgress={profileScanProgress}
-              scanResult={profileScanResult}
-              wifiConnected={wifiConnected}
-              showReachabilityHints={switchComputerProfiles.length > 1}
-              onSelect={async (profileId) => {
-                haptics.light();
-                await selectGatewayProfile(profileId);
-                await autoConnectGateway();
-                await refreshHealth();
-                connectEvents();
-                setMacPickerVisible(false);
-                setCurrentSession(null);
-                setMessages([]);
-                await loadSessionsList(true);
-              }}
-              onRemove={
-                switchComputerProfiles.length > 1
-                  ? async (profileId) => {
-                      await removeGatewayProfile(profileId);
-                    }
-                  : undefined
-              }
-            />
-            <LoadingButton
-              label="Find computers"
-              loadingLabel="Finding computers…"
-              loading={isScanningMacs || profileScanning}
-              variant="secondary"
-              onPress={async () => {
-                setIsScanningMacs(true);
-                try {
-                  await scanForGatewayProfiles();
-                  void probeTailscaleComputers();
-                } finally {
-                  setIsScanningMacs(false);
+                onRemove={
+                  switchComputerProfiles.length > 1
+                    ? async (profileId) => {
+                        await removeGatewayProfile(profileId);
+                      }
+                    : undefined
                 }
-              }}
-              testID="chat-find-macs-on-wifi"
-              style={styles.newChatBtn}
-            />
+              />
+              <LoadingButton
+                label="Find computers"
+                loadingLabel="Finding computers…"
+                loading={isScanningMacs || profileScanning}
+                variant="secondary"
+                onPress={async () => {
+                  setIsScanningMacs(true);
+                  try {
+                    await scanForGatewayProfiles();
+                    void probeTailscaleComputers();
+                  } finally {
+                    setIsScanningMacs(false);
+                  }
+                }}
+                testID="chat-find-macs-on-wifi"
+                style={styles.newChatBtn}
+              />
+            </ScrollView>
           </View>
         </View>
       </Modal>
@@ -3910,7 +3901,7 @@ export default function ChatScreen() {
               </TouchableOpacity>
             </View>
             <Text style={styles.modalSubtitle}>
-              Toolsets, skills, and scheduled jobs on your Mac gateway.
+              Toolsets, skills, and scheduled jobs on your computer gateway.
             </Text>
             <ScrollView style={styles.toolsModalScroll} keyboardShouldPersistTaps="handled">
               <GatewayOpsSection />
@@ -4606,6 +4597,12 @@ const styles = StyleSheet.create({
   toolsModalScroll: {
     flexGrow: 0,
   },
+  macPickerScroll: {
+    flexGrow: 0,
+  },
+  macPickerContent: {
+    paddingBottom: 4,
+  },
   modalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -4621,6 +4618,25 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: colors.textMuted,
     marginBottom: 12,
+    lineHeight: 16,
+  },
+  macSetupCard: {
+    backgroundColor: 'rgba(34, 211, 238, 0.08)',
+    borderColor: 'rgba(34, 211, 238, 0.28)',
+    borderWidth: 1,
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 12,
+  },
+  macSetupTitle: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: colors.accent,
+    marginBottom: 6,
+  },
+  macSetupText: {
+    fontSize: 11,
+    color: colors.textSecondary,
     lineHeight: 16,
   },
   fieldLabel: {

@@ -44,7 +44,8 @@
             "NSPrivacyAccessedAPITypeReasons": ["35F9.1"]
           }
         ]
-      }
+      },
+      "buildNumber": "4"
     },
     "android": {
       "adaptiveIcon": {
@@ -54,7 +55,7 @@
         "backgroundColor": "#4F46E5"
       },
       "package": "com.iganapolsky.hermesmobile",
-      "versionCode": 6,
+      "versionCode": 7,
       "userInterfaceStyle": "dark",
       "allowBackup": false,
       "softwareKeyboardLayoutMode": "resize"

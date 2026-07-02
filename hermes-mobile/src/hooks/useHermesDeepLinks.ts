@@ -4,6 +4,7 @@ import type { NavigationContainerRef } from '@react-navigation/native';
 import type { HermesAgentToolName } from '../services/hermesAgentTools';
 import { parseSetupDeepLink, parseRelayDeepLink, type SetupDeepLinkParams } from '../utils/setupDeepLink';
 import { isDevLeashUnlockDeepLink } from '../utils/developerLeashUnlock';
+import { recordAttributionFromUrl } from '../services/marketingAttribution';
 
 type RootTabParamList = {
   Leash: undefined;
@@ -64,6 +65,7 @@ export function useHermesDeepLinks(
   useEffect(() => {
     const handleUrl = async (url: string | null) => {
       if (!url) return;
+      await recordAttributionFromUrl(url);
 
       const lower = url.toLowerCase();
       const navigationOnly =

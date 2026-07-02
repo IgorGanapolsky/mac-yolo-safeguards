@@ -356,7 +356,7 @@ async function readChatStreamFromReader(
           new Error(
             assistantText
               ? 'Chat stream stalled — no updates from your computer.'
-              : 'Chat stream timed out waiting for your computer. Check that Ollama is running on your Mac.',
+              : 'Chat stream timed out waiting for your computer. Check that Ollama is running on your computer.',
           ),
         );
       }, waitMs);
@@ -443,7 +443,7 @@ function readChatStreamViaXhr(
       if (!firstByteSeen && now - startedAt > CHAT_STREAM_FIRST_BYTE_MS) {
         fail(
           new Error(
-            'Chat stream timed out waiting for your computer. Check that Ollama is running on your Mac.',
+            'Chat stream timed out waiting for your computer. Check that Ollama is running on your computer.',
           ),
         );
         return;

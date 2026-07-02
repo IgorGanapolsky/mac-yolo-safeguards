@@ -95,22 +95,74 @@ FIREBASE_SERVICE_ACCOUNT_JSON_PATH=~/path/to/hermes-firebase-sa.json \
 
 Never commit or paste the JSON key contents — only the SA email and file path.
 
+## EAS build credits (Starter plan)
+
+Expo Starter includes **~$45/month** of EAS build credits (~30 builds at ~$1.40 each). Credits reset monthly (next reset shown in Expo billing email).
+
+**What burned credits (Jul 2026 audit):**
+
+| Source | Approx builds | Notes |
+|---|---|---|
+| `internal-distribution.yml` push auto-runs (Jun 17–28) | ~20+ | Fixed 2026-06-28 — no longer runs on every `main` push |
+| Manual `store-release.yml` retries (Jul 1) | 4 production AABs | Each retry built a **new** AAB; submit failed on Play 403, not credits |
+| Manual `internal-distribution.yml` (Jul 1–2) | ~5 preview APKs | Agents dispatching without `eas_build_id` reuse |
+
+**`mobile-continuous.yml` does NOT use EAS** — it builds release APK locally via Gradle (free).
+
+| Use case | Command | EAS credits? |
+|---|---|---|
+| Igor USB dogfood | `cd hermes-mobile && npm run android:phone` | No — local Gradle |
+| CI unit + local APK guard | `mobile-continuous.yml` (schedule/PR) | No |
+| Firebase internal APK | `internal-distribution.yml` + `confirm_eas_spend=yes` | Yes (~$1+) |
+| Play production AAB (new) | `store-release.yml` + `confirm_eas_spend=yes` | Yes (~$1+) |
+| Play submit only (existing AAB) | `store-release.yml -f eas_build_id=<uuid> -f submit=true` | No new build |
+
+**Hard guardrail (2026-07-02):** every new EAS build path must run `scripts/eas-build-guard.cjs` first. The guard blocks builds when credits are exhausted or when a build already exists for the same commit/platform/profile. Only bypass it with `HERMES_EAS_SPEND_APPROVED=YES_SPEND_EAS_CREDITS` or `HERMES_EAS_REBUILD_EXISTING=YES_REBUILD_EXISTING_ARTIFACT` after an explicit cost checkpoint.
+
+**Existing production AAB ready to submit** (built 2026-07-02):
+
+- Build ID: `ab9ed28d-9038-40e4-a9c5-864ddb2bc1e1`
+- Version: **0.3.2** (versionCode **7**)
+- Commit: `56d479f9eac75e9d7d7b03db370c869d3cb144ca`
+- Artifact already exists; do not rebuild only to submit.
+
+Once Play permissions are fixed, retry submit **without a new build**:
+
+```bash
+gh workflow run store-release.yml \
+  -f platform=android \
+  -f submit=true \
+  -f skip_internal_proof=true \
+  -f eas_build_id=ab9ed28d-9038-40e4-a9c5-864ddb2bc1e1
+```
+
+If Starter credits are exhausted until the next reset, **new** EAS builds may fail or bill overage — use local builds for dogfood and `eas_build_id` reuse for submit.
+
 ## Release
 
 EAS submit profile: `production` → Play track **`production`** (`hermes-mobile/eas.json`).
 
 ```bash
-gh workflow run store-release.yml -f platform=android -f submit=true
+# New production AAB + submit (costs credits)
+gh workflow run store-release.yml -f platform=android -f submit=true -f confirm_eas_spend=yes
+
+# Submit existing AAB only (no new build)
+gh workflow run store-release.yml -f platform=android -f submit=true \
+  -f skip_internal_proof=true -f eas_build_id=ab9ed28d-9038-40e4-a9c5-864ddb2bc1e1
 ```
 
 Requires successful internal signoff statuses on the commit SHA (`internal-signoff/eas-android`, `internal-signoff/firebase-android`).
+
+## Troubleshooting (manual Play Console fix)
+
+When CI submit fails with “service account is missing the necessary permissions” (e.g. run **28542135705**), open [Play Console → Setup → API access](https://play.google.com/console/developers/api-access) signed in as `iganapolsky@gmail.com` (LLC org): **(1)** if **hermes-mobile-play** is not linked, click **Link** and choose that GCP project; **(2)** under **Service accounts**, find `hermes-mobile-publisher@hermes-mobile-play.iam.gserviceaccount.com` and click **Manage Play Console permissions** (or **Grant access** if it is not listed — paste that email, send invite, accept in GCP if prompted); **(3)** click **Add app** → select **Hermes Mobile** (`com.iganapolsky.hermesmobile`) → check **Release manager** → **Apply**. If **Hermes Mobile** is missing from the app picker, go to **All apps → Create app** first (name **Hermes Mobile**, package `com.iganapolsky.hermesmobile`), then repeat step 3. Wait ~5 minutes, then re-run submit-only with `gh workflow run store-release.yml -f platform=android -f submit=true -f skip_internal_proof=true -f eas_build_id=ab9ed28d-9038-40e4-a9c5-864ddb2bc1e1 --ref main`.
 
 ## Failure modes
 
 | Symptom | Fix |
 |---|---|
 | Submit 403 / permission denied / SA missing Play permissions | App must exist under LLC org first. Then Play Console → **Setup → API access** → invite `hermes-mobile-publisher@<gcp-project-id>.iam.gserviceaccount.com` → **Release manager** on `com.iganapolsky.hermesmobile`. GCP IAM alone is not enough. |
-| AAB built, submit step failed (e.g. run 28536743657) | Same as above — build succeeded; only Play Console app + Hermes SA permissions are missing. |
+| AAB built, submit step failed (e.g. run 28536743657, 28542135705) | Same as above — build succeeded; only Play Console app + Hermes SA permissions are missing. See **Troubleshooting** above. |
 | Wrong package / app not found | Create `com.iganapolsky.hermesmobile` under the **LLC** Play developer account |
 | Still asked for testers | You are on **internal** testing track — use `store-release.yml` with `submit=true` (production track) |
 | Firebase SA used for Play | Use separate keys; preflight rejects Firebase `project_id` in Play credentials |

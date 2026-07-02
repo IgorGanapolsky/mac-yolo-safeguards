@@ -48,7 +48,7 @@ export default function GatewayProfilePicker({
       ) : null}
       {profiles.length === 0 && !scanning ? (
         <Text style={styles.emptyText}>
-          No saved Macs yet. Tap Find computers or scan the QR on your Mac.
+          No saved computers yet. Tap Find computers or scan the QR on your computer.
         </Text>
       ) : null}
       {profiles.length > 0 ? (
@@ -76,10 +76,10 @@ export default function GatewayProfilePicker({
               : usbRoute
                 ? wifiConnected
                   ? 'Cannot reach — search Wi‑Fi'
-                  : 'Cannot reach Mac (USB)'
+                  : 'Cannot reach computer (USB)'
                 : routeHint === 'Needs tunnel'
                   ? 'Needs tunnel (cellular)'
-                  : 'Cannot reach this Mac'
+                  : 'Cannot reach this computer'
           : routeHint ?? (usbRoute ? 'USB' : 'Select');
         const statusColor = isActive
           ? activeReachable

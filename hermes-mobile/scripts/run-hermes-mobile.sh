@@ -141,7 +141,7 @@ else
   }
 
   echo "-> Building and launching iOS Simulator app (udid=$SIM_UDID)..."
-  if npx expo run:ios --no-bundler --udid "$SIM_UDID" "$@"; then
+  if npx expo run:ios --no-bundler --device "$SIM_UDID" "$@"; then
     echo "iOS build and deploy completed."
     IOS_OK=1
   else
