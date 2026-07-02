@@ -5,6 +5,7 @@ import {
   composerBottomInset,
   composerDockInsets,
   detectWindowShrunkForKeyboard,
+  focusedAndroidKeyboardFallbackInset,
   keyboardOverlapHeight,
 } from '../utils/composerKeyboard';
 
@@ -67,5 +68,17 @@ describe('composerKeyboard', () => {
     } finally {
       platform.OS = prevOs;
     }
+  });
+
+  it('estimates Android keyboard height when focused input has no reported inset', () => {
+    expect(focusedAndroidKeyboardFallbackInset(true, 0, 800, 'android')).toBe(336);
+    expect(focusedAndroidKeyboardFallbackInset(true, 0, 400, 'android')).toBe(280);
+    expect(focusedAndroidKeyboardFallbackInset(true, 0, 1200, 'android')).toBe(360);
+  });
+
+  it('does not use Android keyboard fallback when inset is known or input is not focused', () => {
+    expect(focusedAndroidKeyboardFallbackInset(true, 280, 800, 'android')).toBe(0);
+    expect(focusedAndroidKeyboardFallbackInset(false, 0, 800, 'android')).toBe(0);
+    expect(focusedAndroidKeyboardFallbackInset(true, 0, 800, 'ios')).toBe(0);
   });
 });

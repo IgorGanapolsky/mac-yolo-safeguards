@@ -16,6 +16,7 @@ import {
   BackHandler,
   Keyboard,
   Alert,
+  useWindowDimensions,
   type NativeSyntheticEvent,
   type NativeScrollEvent,
 } from 'react-native';
@@ -29,7 +30,11 @@ import {
   useGatewayChatSync,
 } from '../hooks/useGatewaySelector';
 import { useKeyboardInset } from '../hooks/useKeyboardInset';
-import { composerDockInsets, ANDROID_TAB_BAR_ESTIMATE_PX } from '../utils/composerKeyboard';
+import {
+  composerDockInsets,
+  focusedAndroidKeyboardFallbackInset,
+  ANDROID_TAB_BAR_ESTIMATE_PX,
+} from '../utils/composerKeyboard';
 import Constants from 'expo-constants';
 import { colors } from '../theme/colors';
 import { isDemoModeAllowed } from '../utils/demoModePolicy';
@@ -263,6 +268,7 @@ export default function ChatScreen() {
   const navigation = useNavigation();
   const gatewayUrl = effectiveGatewayUrl || settings.gatewayUrl;
   const insets = useSafeAreaInsets();
+  const windowDimensions = useWindowDimensions();
   
   const [sessions, setSessions] = useState<HermesSession[]>([]);
   const deletedDemoSessionIdsRef = useRef<Set<string>>(new Set());
@@ -383,9 +389,11 @@ export default function ChatScreen() {
   );
   const lastFailedSendTextRef = useRef<string | null>(null);
   const activeChatStreamRef = useRef(false);
+  const [inputFocused, setInputFocused] = useState(false);
 
   const { inset: keyboardInset, windowShrunk: keyboardWindowShrunk } = useKeyboardInset({
     suppressHideWhileFocusedRef: inputFocusedRef,
+    focused: inputFocused,
   });
 
   const [queuedOutboundCount, setQueuedOutboundCount] = useState(0);
@@ -868,18 +876,27 @@ export default function ChatScreen() {
 
   /** Lift composer above software keyboard; tab bar stays mounted (no height collapse). */
   const androidKeyboardMode = Constants.expoConfig?.android?.softwareKeyboardLayoutMode;
+  const effectiveKeyboardInset =
+    keyboardInset ||
+    focusedAndroidKeyboardFallbackInset(inputFocused, keyboardInset, windowDimensions.height);
   const composerDockSpacing = useMemo(
     () =>
       composerDockInsets(
-        keyboardInset,
+        effectiveKeyboardInset,
         insets.bottom,
         androidKeyboardMode,
         keyboardWindowShrunk,
-        keyboardInset > 0 ? 0 : ANDROID_TAB_BAR_ESTIMATE_PX,
+        effectiveKeyboardInset > 0 ? 0 : ANDROID_TAB_BAR_ESTIMATE_PX,
       ),
-    [keyboardInset, insets.bottom, androidKeyboardMode, keyboardWindowShrunk, composerLayoutNonce],
+    [
+      effectiveKeyboardInset,
+      insets.bottom,
+      androidKeyboardMode,
+      keyboardWindowShrunk,
+      composerLayoutNonce,
+    ],
   );
-  const keyboardOpen = keyboardInset > 0;
+  const keyboardOpen = effectiveKeyboardInset > 0;
 
   const leashPhraseHints = useMemo((): LeashPhraseHint[] => {
     const hints: LeashPhraseHint[] = [];
@@ -1706,6 +1723,7 @@ export default function ChatScreen() {
 
   const handleInputFocus = useCallback(() => {
     inputFocusedRef.current = true;
+    setInputFocused(true);
     if (Platform.OS === 'android') {
       setComposerLayoutNonce((n) => n + 1);
     }
@@ -1713,6 +1731,7 @@ export default function ChatScreen() {
 
   const handleInputBlur = useCallback(() => {
     inputFocusedRef.current = false;
+    setInputFocused(false);
     if (pendingTranscriptSyncRef.current) {
       pendingTranscriptSyncRef.current = false;
       void refreshSessionMessages({ background: true });
