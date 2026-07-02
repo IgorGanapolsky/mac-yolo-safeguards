@@ -95,12 +95,57 @@ FIREBASE_SERVICE_ACCOUNT_JSON_PATH=~/path/to/hermes-firebase-sa.json \
 
 Never commit or paste the JSON key contents — only the SA email and file path.
 
+## EAS build credits (Starter plan)
+
+Expo Starter includes **~$45/month** of EAS build credits (~30 builds at ~$1.40 each). Credits reset monthly (next reset shown in Expo billing email).
+
+**What burned credits (Jul 2026 audit):**
+
+| Source | Approx builds | Notes |
+|---|---|---|
+| `internal-distribution.yml` push auto-runs (Jun 17–28) | ~20+ | Fixed 2026-06-28 — no longer runs on every `main` push |
+| Manual `store-release.yml` retries (Jul 1) | 4 production AABs | Each retry built a **new** AAB; submit failed on Play 403, not credits |
+| Manual `internal-distribution.yml` (Jul 1–2) | ~5 preview APKs | Agents dispatching without `eas_build_id` reuse |
+
+**`mobile-continuous.yml` does NOT use EAS** — it builds release APK locally via Gradle (free).
+
+| Use case | Command | EAS credits? |
+|---|---|---|
+| Igor USB dogfood | `cd hermes-mobile && npm run android:phone` | No — local Gradle |
+| CI unit + local APK guard | `mobile-continuous.yml` (schedule/PR) | No |
+| Firebase internal APK | `internal-distribution.yml` + `confirm_eas_spend=yes` | Yes (~$1+) |
+| Play production AAB (new) | `store-release.yml` + `confirm_eas_spend=yes` | Yes (~$1+) |
+| Play submit only (existing AAB) | `store-release.yml -f eas_build_id=<uuid> -f submit=true` | No new build |
+
+**Existing production AAB ready to submit** (built 2026-07-01, run 28542135705):
+
+- Build ID: `e0e46777-b655-4df0-be1e-169672429ea9`
+- Version: **0.3.2** (versionCode **7**)
+- Submit blocked by **Play Console SA permissions**, not missing AAB
+
+Once Play permissions are fixed, retry submit **without a new build**:
+
+```bash
+gh workflow run store-release.yml \
+  -f platform=android \
+  -f submit=true \
+  -f skip_internal_proof=true \
+  -f eas_build_id=e0e46777-b655-4df0-be1e-169672429ea9
+```
+
+If Starter credits are exhausted until the next reset, **new** EAS builds may fail or bill overage — use local builds for dogfood and `eas_build_id` reuse for submit.
+
 ## Release
 
 EAS submit profile: `production` → Play track **`production`** (`hermes-mobile/eas.json`).
 
 ```bash
-gh workflow run store-release.yml -f platform=android -f submit=true
+# New production AAB + submit (costs credits)
+gh workflow run store-release.yml -f platform=android -f submit=true -f confirm_eas_spend=yes
+
+# Submit existing AAB only (no new build)
+gh workflow run store-release.yml -f platform=android -f submit=true \
+  -f skip_internal_proof=true -f eas_build_id=e0e46777-b655-4df0-be1e-169672429ea9
 ```
 
 Requires successful internal signoff statuses on the commit SHA (`internal-signoff/eas-android`, `internal-signoff/firebase-android`).
