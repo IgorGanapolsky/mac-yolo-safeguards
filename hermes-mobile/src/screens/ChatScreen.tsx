@@ -353,6 +353,8 @@ export default function ChatScreen() {
   const flatListRef = useRef<FlashListRef<HermesMessage>>(null);
   const isSendingRef = useRef(false);
   const userNearBottomRef = useRef(true);
+  /** Force one bottom pin after session/computer switch once transcript content lays out. */
+  const pinScrollAfterHydrationRef = useRef(false);
   const messagesRef = useRef<HermesMessage[]>([]);
   const sessionsLoadGenRef = useRef(0);
   const sendStartedAtRef = useRef(Date.now());
@@ -421,8 +423,8 @@ export default function ChatScreen() {
   }, []);
 
   const scrollChatToLatest = useCallback((animated = false) => {
-    // Bottom-anchored FlashList (startRenderingFromBottom): offset 0 is the latest messages.
-    const run = () => flatListRef.current?.scrollToOffset({ offset: 0, animated });
+    // Non-inverted FlashList: scrollToEnd scrolls to the latest messages at the bottom.
+    const run = () => flatListRef.current?.scrollToEnd({ animated });
     requestAnimationFrame(() => {
       run();
       requestAnimationFrame(run);
@@ -1751,7 +1753,12 @@ export default function ChatScreen() {
     transcriptDigestRef.current = '';
     messagesRef.current = [];
     setMessages([]);
-    void refreshSessionMessagesRef.current?.({ background: true, force: manualSessionSelectRef.current === currentSession?.id });
+    pinScrollAfterHydrationRef.current = true;
+    userNearBottomRef.current = true;
+    void refreshSessionMessagesRef.current?.({
+      background: false,
+      force: manualSessionSelectRef.current === currentSession?.id,
+    });
   }, [currentSession?.id, isDemo, setRunProgress]);
 
   useFocusEffect(
@@ -1933,7 +1940,7 @@ export default function ChatScreen() {
     scrollChatToLatest(false);
     const retryTimer = setTimeout(() => scrollChatToLatest(false), 200);
     return () => clearTimeout(retryTimer);
-  }, [currentSession?.id, isLoadingMessages, scrollChatToLatest]);
+  }, [activeGatewayProfile?.id, currentSession?.id, isLoadingMessages, scrollChatToLatest]);
 
   useEffect(() => {
     if (inputFocusedRef.current || !isSending || isLoadingMessages || messages.length === 0) {
@@ -3663,9 +3670,16 @@ export default function ChatScreen() {
                     : undefined
                 }
                 onContentSizeChange={() => {
-                  if (!inputFocusedRef.current) {
-                    scrollChatToLatestIfPinned(isSending);
+                  if (inputFocusedRef.current) {
+                    return;
                   }
+                  if (pinScrollAfterHydrationRef.current) {
+                    pinScrollAfterHydrationRef.current = false;
+                    userNearBottomRef.current = true;
+                    scrollChatToLatest(false);
+                    return;
+                  }
+                  scrollChatToLatestIfPinned(isSending);
                 }}
                 renderItem={renderChatMessageItem}
               />
@@ -3852,6 +3866,8 @@ export default function ChatScreen() {
                   await refreshHealth();
                   connectEvents();
                   setMacPickerVisible(false);
+                  pinScrollAfterHydrationRef.current = true;
+                  userNearBottomRef.current = true;
                   setCurrentSession(null);
                   setMessages([]);
                   await loadSessionsList(true);
