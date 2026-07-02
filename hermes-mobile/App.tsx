@@ -176,8 +176,9 @@ function GlassmorphicTabBar({ state, descriptors, navigation }: BottomTabBarProp
     <View
       style={[
         styles.navBar,
+        keyboardOpen ? styles.navBarKeyboardHidden : null,
         {
-          paddingBottom: Math.max(insets.bottom, 8),
+          paddingBottom: keyboardOpen ? 0 : Math.max(insets.bottom, 8),
           opacity: keyboardOpen ? 0 : 1,
         },
       ]}
@@ -427,6 +428,13 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.25,
     shadowRadius: 10,
     elevation: 10,
+  },
+  navBarKeyboardHidden: {
+    height: 0,
+    overflow: 'hidden',
+    paddingTop: 0,
+    borderTopWidth: 0,
+    elevation: 0,
   },
   navItem: {
     flex: 1,

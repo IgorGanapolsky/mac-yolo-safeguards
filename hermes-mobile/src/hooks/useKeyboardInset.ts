@@ -51,13 +51,48 @@ export function useKeyboardInset(options?: {
       if ((Keyboard.metrics()?.height ?? 0) > 0) {
         return;
       }
+      if (options?.suppressHideWhileFocusedRef?.current) {
+        return;
+      }
       setInset(0);
       setWindowShrunk(false);
       baselineWindowHeight.current = Dimensions.get('window').height;
     }, 250);
 
     return () => clearInterval(timer);
-  }, [inset, options?.focused]);
+  }, [inset, options?.focused, options?.suppressHideWhileFocusedRef]);
+
+  useEffect(() => {
+    if (Platform.OS !== 'android' || options?.focused === false) {
+      return;
+    }
+
+    const focused =
+      options?.focused === true || options?.suppressHideWhileFocusedRef?.current === true;
+    if (!focused) {
+      return;
+    }
+
+    const syncFromMetrics = () => {
+      const metricsHeight = Keyboard.metrics()?.height ?? 0;
+      if (metricsHeight <= 0) {
+        return;
+      }
+      const currentWindowHeight = Dimensions.get('window').height;
+      setInset(metricsHeight);
+      setWindowShrunk(
+        detectWindowShrunkForKeyboard(
+          metricsHeight,
+          baselineWindowHeight.current,
+          currentWindowHeight,
+        ),
+      );
+    };
+
+    syncFromMetrics();
+    const poll = setInterval(syncFromMetrics, 120);
+    return () => clearInterval(poll);
+  }, [options?.focused, options?.suppressHideWhileFocusedRef]);
 
   useEffect(() => {
     const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
@@ -93,6 +128,9 @@ export function useKeyboardInset(options?: {
       }
     };
     const onHide = () => {
+      if (options?.suppressHideWhileFocusedRef?.current) {
+        return;
+      }
       setInset(0);
       setWindowShrunk(false);
       baselineWindowHeight.current = Dimensions.get('window').height;

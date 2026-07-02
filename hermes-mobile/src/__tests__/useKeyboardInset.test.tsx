@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import { act, render } from '@testing-library/react-native';
 import { Keyboard, Platform, Text } from 'react-native';
 import { useKeyboardInset } from '../hooks/useKeyboardInset';
@@ -6,6 +6,15 @@ import { useKeyboardInset } from '../hooks/useKeyboardInset';
 function KeyboardProbe({ focused }: { focused: boolean }) {
   const { inset, windowShrunk } = useKeyboardInset({ focused });
   return <Text testID="keyboard-probe">{`${inset}:${windowShrunk ? 'shrunk' : 'steady'}`}</Text>;
+}
+
+function SuppressedKeyboardProbe() {
+  const suppressRef = useRef(true);
+  const { inset } = useKeyboardInset({
+    suppressHideWhileFocusedRef: suppressRef,
+    focused: true,
+  });
+  return <Text testID="keyboard-probe">{inset}</Text>;
 }
 
 describe('useKeyboardInset', () => {
@@ -47,5 +56,39 @@ describe('useKeyboardInset', () => {
     });
 
     expect(getByTestId('keyboard-probe').props.children).toBe('0:steady');
+  });
+
+  it('ignores keyboardDidHide while suppressHideWhileFocusedRef is true', () => {
+    jest.spyOn(Keyboard, 'metrics').mockReturnValue({ height: 320 } as never);
+    const { getByTestId } = render(<SuppressedKeyboardProbe />);
+
+    act(() => {
+      listeners.get('keyboardDidShow')?.({
+        endCoordinates: { screenX: 0, screenY: 0, width: 360, height: 320 },
+      });
+    });
+
+    expect(getByTestId('keyboard-probe').props.children).toBe(320);
+
+    act(() => {
+      listeners.get('keyboardDidHide')?.();
+    });
+
+    expect(getByTestId('keyboard-probe').props.children).toBe(320);
+  });
+
+  it('polls Android keyboard metrics while the composer is focused', () => {
+    jest.spyOn(Keyboard, 'metrics').mockReturnValue(undefined);
+    const { getByTestId } = render(<KeyboardProbe focused />);
+
+    expect(getByTestId('keyboard-probe').props.children).toBe('0:steady');
+
+    (Keyboard.metrics as jest.Mock).mockReturnValue({ height: 280 } as never);
+
+    act(() => {
+      jest.advanceTimersByTime(120);
+    });
+
+    expect(getByTestId('keyboard-probe').props.children).toContain('280');
   });
 });
