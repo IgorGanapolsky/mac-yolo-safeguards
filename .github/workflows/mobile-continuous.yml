@@ -97,7 +97,9 @@ jobs:
 
   macos-maestro-smoke:
     name: Maestro ship-guard (macOS sim)
-    runs-on: macos-latest
+    # macos-latest began migrating to macOS 26 in June 2026; Expo's current
+    # iOS native deps fail Swift compilation there before Maestro can run.
+    runs-on: macos-15
     needs: unit-and-contract
     # Run on PRs too (not just manual dispatch) so launch/runtime regressions are
     # caught before merge — e.g. the otel v2 crash that only surfaces at app launch
