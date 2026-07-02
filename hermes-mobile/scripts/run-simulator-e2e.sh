@@ -58,7 +58,7 @@ ensure_ios_app_installed() {
   fi
 
   echo "iOS app:   $IOS_BUNDLE_ID not installed — building and installing on simulator" >&2
-  npx expo run:ios --no-bundler --udid "$udid"
+  npx expo run:ios --no-bundler --device "$udid"
 
   if ! xcrun simctl get_app_container "$udid" "$IOS_BUNDLE_ID" app >/dev/null 2>&1; then
     echo "Failed to install $IOS_BUNDLE_ID on simulator $udid" >&2
