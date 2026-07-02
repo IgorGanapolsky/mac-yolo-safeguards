@@ -25,7 +25,7 @@ describe('macPairingUx', () => {
   it('selects steps by variant', () => {
     expect(macPairingStepsForVariant('getting-started', true).length).toBe(3);
     expect(macPairingStepsForVariant('qr-pairing', false).length).toBe(3);
-    expect(macPairingHeadingForVariant('getting-started')).toContain('Connect your Mac');
+    expect(macPairingHeadingForVariant('getting-started')).toContain('Connect your computer');
   });
 
   it('links to public Hermes Mac docs', () => {

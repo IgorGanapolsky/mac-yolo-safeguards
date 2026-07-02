@@ -11,7 +11,7 @@ describe('FreshUserOnboardingCard', () => {
     expect(getByTestId('fresh-user-onboarding-card')).toBeTruthy();
     expect(getByTestId('fresh-user-step-1')).toBeTruthy();
     expect(getByTestId('fresh-user-step-3')).toBeTruthy();
-    expect(getByText('Connect your Mac')).toBeTruthy();
+    expect(getByText('Connect your computer')).toBeTruthy();
     expect(getByText(/Find computers below/)).toBeTruthy();
     expect(getByText(/Igors-Mac-mini/)).toBeTruthy();
   });

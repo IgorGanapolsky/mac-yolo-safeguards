@@ -4,7 +4,7 @@ import { isTelegramSession } from './sessionSelection';
 
 /** Shown when gateway returns an empty stream for a Telegram-bound session (message queued). */
 export const TELEGRAM_QUEUED_REPLY_PLACEHOLDER =
-  'Message queued on this Hermes thread. Your Mac may still be running tools from a prior turn — the reply will appear here when it finishes.';
+  'Message queued on this Hermes thread. Your computer may still be running tools from a prior turn — the reply will appear here when it finishes.';
 
 export const GENERIC_EMPTY_STREAM_PLACEHOLDER =
   '(Hermes did not return text yet — still running on your computer.)';

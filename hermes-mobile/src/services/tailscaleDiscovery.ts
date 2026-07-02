@@ -219,7 +219,7 @@ export function tailscaleDiscoveryLabel(discovered: DiscoveredGateway): string {
     return discovered.label.trim();
   }
   const host = gatewayUrlHostname(discovered.gatewayUrl);
-  return host ?? 'Mac';
+  return host ?? 'Computer';
 }
 
 export function isTailscaleRouteProfile(profile: GatewayProfile): boolean {

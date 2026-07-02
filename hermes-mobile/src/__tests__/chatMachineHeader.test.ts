@@ -111,7 +111,7 @@ describe('resolveChatMachineHeaderDisplay', () => {
       workers: [],
       savedMacCount: 1,
     });
-    expect(display.machineLabel).toBe('Mac via USB');
+    expect(display.machineLabel).toBe('Computer via USB');
     expect(display.machineEndpoint).toBe('127.0.0.1:8642');
   });
 
@@ -208,7 +208,7 @@ describe('formatMacConnectionRetryBanner', () => {
       machineEndpoint: 'http',
     });
     expect(text).not.toMatch(/\bhttp\b.*\bhttp\b/i);
-    expect(text).toContain('your Mac');
+    expect(text).toContain('your computer');
   });
 });
 

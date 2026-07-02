@@ -22,7 +22,7 @@ function connectionCopy(
   state: LeashConnectionState,
   macHttpReachable = false,
   macRetryBusy = false,
-  machineName = 'Mac',
+  machineName = 'Computer',
 ): { label: string; detail: string; color: string } {
   if (macRetryBusy) {
     return { label: machineName, detail: 'Reconnecting…', color: colors.warning };
@@ -71,7 +71,7 @@ export default function CodexCommandCenter({
   isSending = false,
   onOpenApprovals,
   onMacRetry,
-  machineName = 'Mac',
+  machineName = 'Computer',
 }: CodexCommandCenterProps) {
   const link = connectionCopy(connectionState, macHttpReachable, macRetryBusy, machineName);
   const showMacTile =
@@ -107,7 +107,7 @@ export default function CodexCommandCenter({
             onPress={macRetryBusy ? undefined : onMacRetry}
             disabled={macRetryBusy || !onMacRetry}
             accessibilityRole="button"
-            accessibilityLabel="Reconnect to Mac"
+            accessibilityLabel="Reconnect to computer"
             testID="command-center-mac-tile"
           >
             <View style={styles.tileHeader}>
@@ -116,7 +116,7 @@ export default function CodexCommandCenter({
               ) : (
                 <View style={[styles.statusDot, { backgroundColor: link.color }]} />
               )}
-              <Text style={styles.tileLabel}>Mac</Text>
+              <Text style={styles.tileLabel}>Computer</Text>
             </View>
             <Text style={styles.tileValue} testID="command-center-link-state">{link.label}</Text>
             <Text style={styles.tileDetail} numberOfLines={1} testID="command-center-mac-detail">

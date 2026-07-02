@@ -14,22 +14,22 @@ export const MAC_GETTING_STARTED_STEPS: MacPairingStep[] = [
   {
     step: 1,
     title: 'Same home Wi‑Fi',
-    body: 'Connect your phone to the same Wi‑Fi network as your Mac.',
+    body: 'Connect your phone to the same Wi‑Fi network as your computer.',
   },
   {
     step: 2,
-    title: 'Open Hermes on your Mac',
+    title: 'Open Hermes on your computer',
     body: 'Start Hermes on your computer and leave it running.',
   },
   {
     step: 3,
-    title: 'Find your Mac',
+    title: 'Find your computer',
     body: 'Tap Find computers. We search your home network for you.',
   },
   {
     step: 4,
     title: 'Away from home?',
-    body: 'Install Tailscale on phone and Mac. Tap Add [Mac name] when it appears in the app.',
+    body: 'Install Tailscale on phone and computer. Tap Add [computer name] when it appears in the app.',
   },
 ];
 
@@ -72,6 +72,6 @@ export function macPairingStepsForVariant(
 
 export function macPairingHeadingForVariant(variant: MacPairingHelpVariant): string {
   return variant === 'getting-started'
-    ? 'Connect your Mac'
+    ? 'Connect your computer'
     : 'How to show the QR on your computer';
 }

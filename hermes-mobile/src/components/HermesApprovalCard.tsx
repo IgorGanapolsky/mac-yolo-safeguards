@@ -129,7 +129,7 @@ export default function HermesApprovalCard({
     {commandPreview && !glance ? (
       <View style={styles.commandBox}>
         <Text style={styles.commandLabel}>
-          {isChatApproval ? 'Command on your Mac' : 'Command'}
+          {isChatApproval ? 'Command on your computer' : 'Command'}
         </Text>
         <Text style={styles.commandText}>{commandPreview}</Text>
       </View>

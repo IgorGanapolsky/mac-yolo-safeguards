@@ -23,9 +23,9 @@ export function humanizeRunProgressDetail(detail: string | undefined, phase?: st
       return 'Done';
     }
     if (phase === 'failed') {
-      return 'Something went wrong on your Mac';
+      return 'Something went wrong on your computer';
     }
-    return 'Hermes is working on your Mac…';
+    return 'Hermes is working on your computer…';
   }
 
   if (raw === 'Sending to your computer…') {
@@ -39,9 +39,9 @@ export function humanizeRunProgressDetail(detail: string | undefined, phase?: st
   if (runningTool) {
     const label = runningTool[1].replace(/_/g, ' ').trim();
     if (label.toLowerCase().includes('skill')) {
-      return 'Reading a skill on your Mac…';
+      return 'Reading a skill on your computer…';
     }
-    return `Running ${label} on your Mac…`;
+    return `Running ${label} on your computer…`;
   }
 
   if (/waiting for provider/i.test(raw)) {
@@ -51,7 +51,7 @@ export function humanizeRunProgressDetail(detail: string | undefined, phase?: st
     return 'Waiting for your approval';
   }
   if (/tool\.completed/i.test(raw) || /tool\.started/i.test(raw)) {
-    return 'Hermes is working on your Mac…';
+    return 'Hermes is working on your computer…';
   }
 
   return raw.replace(/_/g, ' ');
@@ -61,7 +61,7 @@ export function humanizeRunProgressDetail(detail: string | undefined, phase?: st
 export function runProgressFailedTitle(detail: string | undefined): string {
   const raw = detail?.trim();
   if (!raw) {
-    return 'Something went wrong on your Mac';
+    return 'Something went wrong on your computer';
   }
   if (isConnectivityMessage(raw)) {
     return shortMacUnreachableTitle();
@@ -76,13 +76,13 @@ export function runProgressFailedTitle(detail: string | undefined): string {
 export function humanizeComposerStatus(status: string): string {
   const trimmed = status.trim();
   if (trimmed === 'Sent without live stream (connection fallback)') {
-    return 'Message sent — waiting for reply from your Mac…';
+    return 'Message sent — waiting for reply from your computer…';
   }
   if (trimmed === 'Queued on active Hermes thread — waiting for reply…') {
-    return 'Queued on your Mac — reply will appear when the current task finishes…';
+    return 'Queued on your computer — reply will appear when the current task finishes…';
   }
   if (/^tool\./i.test(trimmed)) {
-    return 'Hermes is working on your Mac…';
+    return 'Hermes is working on your computer…';
   }
   return humanizeRunProgressDetail(trimmed);
 }

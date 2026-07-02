@@ -148,7 +148,7 @@ describe('recentPromptActions', () => {
       ),
     ).toBe(true);
     expect(isBlockedRecentPromptText('run ls in workspace')).toBe(false);
-    expect(isBlockedRecentPromptText('Merged Hermes threads from your Mac')).toBe(true);
+    expect(isBlockedRecentPromptText('Merged Hermes threads from your computer')).toBe(true);
     expect(isBlockedRecentPromptText('e2e-persistence-check-ls')).toBe(true);
     expect(isBlockedRecentPromptText('e2e persistence check')).toBe(true);
     expect(isBlockedRecentPromptText(E2E_CHAT_SEND_PERSISTENCE_PROMPT)).toBe(true);
@@ -200,7 +200,7 @@ describe('recentPromptActions', () => {
       {
         id: '__telegram_inbox__',
         title: 'Active — all threads',
-        preview: 'Merged Hermes threads from your Mac (includes Telegram-linked sessions)',
+        preview: 'Merged Hermes threads from your computer (includes Telegram-linked sessions)',
         last_active_at: '2026-06-24T12:00:00Z',
       },
       {
@@ -219,7 +219,7 @@ describe('recentPromptActions', () => {
     );
 
     expect(actions.map((a) => a.prompt)).not.toContain(
-      'Merged Hermes threads from your Mac (includes Telegram-linked sessions)',
+      'Merged Hermes threads from your computer (includes Telegram-linked sessions)',
     );
     expect(actions.map((a) => a.prompt)).toContain('This is a normal session preview');
   });
