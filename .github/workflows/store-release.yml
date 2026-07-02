@@ -28,6 +28,18 @@ on:
         options:
           - "false"
           - "true"
+      confirm_eas_spend:
+        description: "I know this queues a paid EAS production build (~$1+ Starter credit)"
+        required: true
+        default: "no"
+        type: choice
+        options:
+          - "no"
+          - "yes"
+      eas_build_id:
+        description: "Reuse finished production build UUID (submit-only — skips eas build --wait)"
+        required: false
+        type: string
 
 concurrency:
   group: store-release-${{ github.ref_name }}-${{ inputs.platform }}
@@ -123,8 +135,21 @@ jobs:
           REQUIRE_ANDROID_SUBMIT_CREDS: ${{ inputs.submit == 'true' && '1' || '0' }}
         run: npm run launch:preflight:android
 
+      - name: Require EAS spend confirmation for new production builds
+        if: inputs.eas_build_id == ''
+        env:
+          CONFIRM_EAS: ${{ inputs.confirm_eas_spend }}
+        run: |
+          set -euo pipefail
+          if [ "${CONFIRM_EAS:-no}" != "yes" ]; then
+            echo "::error::New EAS production builds cost Starter credits (~\$1+ each). Set confirm_eas_spend=yes, or pass eas_build_id to submit an existing AAB without a new build." >&2
+            echo "Latest production AAB from run 28542135705: e0e46777-b655-4df0-be1e-169672429ea9 (v0.3.2 vc7)" >&2
+            exit 1
+          fi
+
       - name: Build Android production AAB
         id: build
+        if: inputs.eas_build_id == ''
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
         run: |
@@ -149,10 +174,20 @@ jobs:
           fi
           echo "build_id=$BUILD_ID" >> "$GITHUB_OUTPUT"
 
+      - name: Reuse existing EAS Android production build
+        id: adopt_build
+        if: inputs.eas_build_id != ''
+        run: |
+          set -euo pipefail
+          BUILD_ID="${{ inputs.eas_build_id }}"
+          printf '%s\n' "{\"id\":\"$BUILD_ID\"}" > /tmp/eas-android-production-build.json
+          echo "Reusing EAS production build $BUILD_ID (no new build credits)"
+          echo "build_id=$BUILD_ID" >> "$GITHUB_OUTPUT"
+
       - name: Verify Android production AAB read-back
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
-          BUILD_ID: ${{ steps.build.outputs.build_id }}
+          BUILD_ID: ${{ steps.build.outputs.build_id || steps.adopt_build.outputs.build_id }}
         run: |
           set -euo pipefail
           npx eas-cli@latest build:view "$BUILD_ID" --json > /tmp/eas-android-production-build-view.json
@@ -170,7 +205,7 @@ jobs:
         if: inputs.submit == 'true'
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
-          BUILD_ID: ${{ steps.build.outputs.build_id }}
+          BUILD_ID: ${{ steps.build.outputs.build_id || steps.adopt_build.outputs.build_id }}
         run: |
           set -euo pipefail
           npx eas-cli@latest submit \

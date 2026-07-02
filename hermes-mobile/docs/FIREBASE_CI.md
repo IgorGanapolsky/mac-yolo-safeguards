@@ -40,11 +40,10 @@ Each `android_firebase` CI run queues an **EAS `preview` Android build** (`eas b
 | Use case | Command |
 |---|---|
 | Igor USB dogfood (no EAS) | `cd hermes-mobile && npm run android:phone` or `scripts/install-phone-release.sh` |
-| Firebase internal testers | `gh workflow run internal-distribution.yml -f target=android_firebase` |
-| Tag-triggered internal ship | `git tag hermes-internal-v0.3.2 && git push origin hermes-internal-v0.3.2` |
+| Firebase internal testers | `gh workflow run internal-distribution.yml -f target=android_firebase -f confirm_eas_spend=yes` |
 | Reuse existing EAS APK (no new build) | `gh workflow run internal-distribution.yml -f target=android_firebase -f eas_build_id=<uuid>` |
 
-**Policy (2026-06-28):** Internal Distribution does **not** run on every `main` push. Only `workflow_dispatch`, or push of tag `hermes-internal-v*`. Do not redispatch failed runs until the quality gate passes locally.
+**Policy (2026-07-02):** Internal Distribution is **workflow_dispatch only** (no tag push auto-build). New EAS builds require `confirm_eas_spend=yes`. Do not redispatch failed runs until the quality gate passes locally.
 
 ## Manual distribute
 
