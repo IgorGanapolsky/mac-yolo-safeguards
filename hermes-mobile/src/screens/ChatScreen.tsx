@@ -3617,7 +3617,6 @@ export default function ChatScreen() {
               onSelectProfile={async (profileId) => {
                 haptics.light();
                 await selectGatewayProfile(profileId);
-                await autoConnectGateway();
                 await refreshHealth();
                 connectEvents();
               }}
@@ -3856,67 +3855,81 @@ export default function ChatScreen() {
                 <Text style={styles.modalCloseBtn}>Close</Text>
               </TouchableOpacity>
             </View>
-            <Text style={styles.modalSubtitle}>
-              Pick a saved Mac, or tap Find computers to search your home Wi‑Fi. On cellular or away
-              from home? Use the Tailscale Add button when it appears below.
-            </Text>
-            {tailscaleDiscoveries.length > 0 || tailscaleDiscoveryProbing ? (
-              <TailscaleDiscoveryBanner
-                discoveries={tailscaleDiscoveries}
-                adding={tailscaleDiscoveryProbing}
-                probing={tailscaleDiscoveryProbing && tailscaleDiscoveries.length === 0}
-                onAdd={(discovery) => {
-                  void addDiscoveredTailscaleComputer(discovery);
+            <ScrollView
+              style={styles.macPickerScroll}
+              contentContainerStyle={styles.macPickerContent}
+              keyboardShouldPersistTaps="handled"
+              testID="mac-picker-scroll"
+            >
+              <Text style={styles.modalSubtitle}>
+                Pick a saved Mac, or tap Find computers to search your home Wi‑Fi and known
+                Tailscale addresses.
+              </Text>
+              <View style={styles.macSetupCard} testID="mac-picker-setup-help">
+                <Text style={styles.macSetupTitle}>Missing your Mac mini?</Text>
+                <Text style={styles.macSetupText}>
+                  Start Hermes on the Mac mini, keep Tailscale on for both devices, then tap Find
+                  computers. If it still does not appear, add its Tailscale MagicDNS name or 100.x
+                  address in Settings.
+                </Text>
+              </View>
+              {tailscaleDiscoveries.length > 0 || tailscaleDiscoveryProbing ? (
+                <TailscaleDiscoveryBanner
+                  discoveries={tailscaleDiscoveries}
+                  adding={tailscaleDiscoveryProbing}
+                  probing={tailscaleDiscoveryProbing && tailscaleDiscoveries.length === 0}
+                  onAdd={(discovery) => {
+                    void addDiscoveredTailscaleComputer(discovery);
+                  }}
+                  prominent
+                />
+              ) : null}
+              <GatewayProfilePicker
+                profiles={switchComputerProfiles}
+                activeProfileId={activeGatewayProfile?.id ?? null}
+                activeReachable={macHttpOk || connectionState === 'connected'}
+                activeConnecting={connectionState === 'connecting'}
+                scanning={profileScanning || isScanningMacs}
+                scanProgress={profileScanProgress}
+                scanResult={profileScanResult}
+                wifiConnected={wifiConnected}
+                showReachabilityHints={switchComputerProfiles.length > 1}
+                onSelect={async (profileId) => {
+                  haptics.light();
+                  await selectGatewayProfile(profileId);
+                  await refreshHealth();
+                  connectEvents();
+                  setMacPickerVisible(false);
+                  setCurrentSession(null);
+                  setMessages([]);
+                  await loadSessionsList(true);
                 }}
-                prominent
-              />
-            ) : null}
-            <GatewayProfilePicker
-              profiles={switchComputerProfiles}
-              activeProfileId={activeGatewayProfile?.id ?? null}
-              activeReachable={macHttpOk || connectionState === 'connected'}
-              activeConnecting={connectionState === 'connecting'}
-              scanning={profileScanning || isScanningMacs}
-              scanProgress={profileScanProgress}
-              scanResult={profileScanResult}
-              wifiConnected={wifiConnected}
-              showReachabilityHints={switchComputerProfiles.length > 1}
-              onSelect={async (profileId) => {
-                haptics.light();
-                await selectGatewayProfile(profileId);
-                await autoConnectGateway();
-                await refreshHealth();
-                connectEvents();
-                setMacPickerVisible(false);
-                setCurrentSession(null);
-                setMessages([]);
-                await loadSessionsList(true);
-              }}
-              onRemove={
-                switchComputerProfiles.length > 1
-                  ? async (profileId) => {
-                      await removeGatewayProfile(profileId);
-                    }
-                  : undefined
-              }
-            />
-            <LoadingButton
-              label="Find computers"
-              loadingLabel="Finding computers…"
-              loading={isScanningMacs || profileScanning}
-              variant="secondary"
-              onPress={async () => {
-                setIsScanningMacs(true);
-                try {
-                  await scanForGatewayProfiles();
-                  void probeTailscaleComputers();
-                } finally {
-                  setIsScanningMacs(false);
+                onRemove={
+                  switchComputerProfiles.length > 1
+                    ? async (profileId) => {
+                        await removeGatewayProfile(profileId);
+                      }
+                    : undefined
                 }
-              }}
-              testID="chat-find-macs-on-wifi"
-              style={styles.newChatBtn}
-            />
+              />
+              <LoadingButton
+                label="Find computers"
+                loadingLabel="Finding computers…"
+                loading={isScanningMacs || profileScanning}
+                variant="secondary"
+                onPress={async () => {
+                  setIsScanningMacs(true);
+                  try {
+                    await scanForGatewayProfiles();
+                    void probeTailscaleComputers();
+                  } finally {
+                    setIsScanningMacs(false);
+                  }
+                }}
+                testID="chat-find-macs-on-wifi"
+                style={styles.newChatBtn}
+              />
+            </ScrollView>
           </View>
         </View>
       </Modal>
@@ -4632,6 +4645,12 @@ const styles = StyleSheet.create({
   toolsModalScroll: {
     flexGrow: 0,
   },
+  macPickerScroll: {
+    flexGrow: 0,
+  },
+  macPickerContent: {
+    paddingBottom: 4,
+  },
   modalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -4647,6 +4666,25 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: colors.textMuted,
     marginBottom: 12,
+    lineHeight: 16,
+  },
+  macSetupCard: {
+    backgroundColor: 'rgba(34, 211, 238, 0.08)',
+    borderColor: 'rgba(34, 211, 238, 0.28)',
+    borderWidth: 1,
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 12,
+  },
+  macSetupTitle: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: colors.accent,
+    marginBottom: 6,
+  },
+  macSetupText: {
+    fontSize: 11,
+    color: colors.textSecondary,
     lineHeight: 16,
   },
   fieldLabel: {

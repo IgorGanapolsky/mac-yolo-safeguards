@@ -347,6 +347,15 @@ describe('ChatScreen', () => {
         localIp: '127.0.0.1',
         addedAt: '2026-06-18T00:00:00Z',
       },
+      gatewayProfiles: [
+        {
+          id: 'mac_demo',
+          label: 'Demo Mac',
+          gatewayUrl: 'http://localhost:8642',
+          localIp: '127.0.0.1',
+          addedAt: '2026-06-18T00:00:00Z',
+        },
+      ],
       relayWorkers: [],
       activeRelayWorkerId: null,
       isPaired: true,
@@ -584,6 +593,63 @@ describe('ChatScreen', () => {
 
     fireEvent.press(getByText('Close'));
     expect(queryByTestId('tools-modal-title')).toBeNull();
+  });
+
+  it('explains how a new user adds a missing Tailscale Mac from the Mac picker', async () => {
+    const { getByTestId, getByText } = await renderChatScreen();
+
+    fireEvent.press(getByTestId('chat-context-mac-button'));
+
+    expect(getByTestId('mac-picker-scroll')).toBeTruthy();
+    expect(getByTestId('mac-picker-setup-help')).toBeTruthy();
+    expect(getByText('Missing your Mac mini?')).toBeTruthy();
+    expect(getByText(/Start Hermes on the Mac mini/)).toBeTruthy();
+    expect(getByText(/Tailscale MagicDNS name or 100.x address in Settings/)).toBeTruthy();
+  });
+
+  it('keeps an explicitly selected Mac primary instead of immediately auto-discovering over it', async () => {
+    const autoConnectGateway = jest.fn().mockResolvedValue('http://10.2.29.103:8642');
+    const selectGatewayProfile = jest.fn().mockResolvedValue(undefined);
+    Object.assign(mockGatewayState, {
+      connectionState: 'connected',
+      autoConnectGateway,
+      selectGatewayProfile,
+      activeGatewayProfile: {
+        id: 'macbook',
+        label: 'Igors-MacBook-Pro',
+        gatewayUrl: 'http://10.2.29.103:8642',
+        localIp: '10.2.29.103',
+        addedAt: '2026-07-02T00:00:00Z',
+      },
+      gatewayProfiles: [
+        {
+          id: 'macmini',
+          label: 'Igors-Mac-mini',
+          gatewayUrl: 'http://100.87.85.85:8642',
+          localIp: '100.87.85.85',
+          addedAt: '2026-07-02T00:00:00Z',
+        },
+        {
+          id: 'macbook',
+          label: 'Igors-MacBook-Pro',
+          gatewayUrl: 'http://10.2.29.103:8642',
+          localIp: '10.2.29.103',
+          addedAt: '2026-07-02T00:00:00Z',
+        },
+      ],
+    });
+
+    const { getByTestId } = await renderChatScreen();
+    autoConnectGateway.mockClear();
+
+    fireEvent.press(getByTestId('chat-context-mac-button'));
+    fireEvent.press(getByTestId('select-gateway-profile-macmini'));
+
+    await waitFor(() => {
+      expect(selectGatewayProfile).toHaveBeenCalledWith('macmini');
+    });
+    expect(autoConnectGateway).not.toHaveBeenCalled();
+    expect(mockGatewayState.refreshHealth).toHaveBeenCalled();
   });
 
   it('can start a new session from modal', async () => {
