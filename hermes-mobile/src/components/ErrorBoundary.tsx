@@ -1,7 +1,7 @@
 import React from 'react';
 import { StyleSheet, View, Text, TouchableOpacity } from 'react-native';
 import { colors } from '../theme/colors';
-import { trackProductEvent } from '../services/productAnalytics';
+import { captureCrash } from '../services/crashReporting';
 
 interface ErrorBoundaryProps {
   children: React.ReactNode;
@@ -24,8 +24,10 @@ export default class ErrorBoundary extends React.Component<
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
     console.error('[hermes-mobile] Uncaught UI error:', error, errorInfo);
-    void trackProductEvent('ui_crash', {
-      message: error.message,
+    // Persist to the crash queue (survives process death). trackProductEvent is
+    // fire-and-forget and cannot complete when the app is dying — captureCrash
+    // writes durably and flushes on the next launch.
+    void captureCrash('ui_crash', error, {
       component_stack: errorInfo.componentStack?.slice(0, 500) ?? '',
     });
   }
