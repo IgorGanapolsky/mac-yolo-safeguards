@@ -2,6 +2,7 @@ import { DEFAULT_GATEWAY_SETTINGS } from '../types/gateway';
 import {
   isDemoModeAllowed,
   isDeveloperLeashUnlockAllowed,
+  isE2eAutomationBuild,
   sanitizeDemoModeForRelease,
 } from '../utils/demoModePolicy';
 
@@ -31,6 +32,14 @@ describe('demoModePolicy', () => {
     (global as { __DEV__?: boolean }).__DEV__ = false;
     process.env.EXPO_PUBLIC_E2E_AUTOMATION = '1';
     expect(isDemoModeAllowed()).toBe(true);
+    expect(isE2eAutomationBuild()).toBe(true);
+  });
+
+  it('does not classify normal dev builds as E2E automation', () => {
+    (global as { __DEV__?: boolean }).__DEV__ = true;
+    delete process.env.EXPO_PUBLIC_E2E_AUTOMATION;
+    expect(isDemoModeAllowed()).toBe(true);
+    expect(isE2eAutomationBuild()).toBe(false);
   });
 
   it('allows developer Leash unlock in internal builds without enabling demo mode', () => {
