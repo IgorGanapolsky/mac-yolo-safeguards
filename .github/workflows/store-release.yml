@@ -143,7 +143,7 @@ jobs:
           set -euo pipefail
           if [ "${CONFIRM_EAS:-no}" != "yes" ]; then
             echo "::error::New EAS production builds cost Starter credits (~\$1+ each). Set confirm_eas_spend=yes, or pass eas_build_id to submit an existing AAB without a new build." >&2
-            echo "Latest production AAB from run 28542135705: e0e46777-b655-4df0-be1e-169672429ea9 (v0.3.2 vc7)" >&2
+            echo "Current production AAB to reuse: ab9ed28d-9038-40e4-a9c5-864ddb2bc1e1 (v0.3.2 vc7, commit 56d479f9eac7)" >&2
             exit 1
           fi
 
@@ -158,7 +158,7 @@ jobs:
             echo "Missing required secret: EXPO_TOKEN" >&2
             exit 1
           fi
-          npx eas-cli@latest build \
+          node ./scripts/eas-build-guard.cjs --platform android --profile production -- npx eas-cli@latest build \
             --platform android \
             --profile production \
             --non-interactive \
@@ -284,7 +284,7 @@ jobs:
             echo "Missing required secret: EXPO_TOKEN" >&2
             exit 1
           fi
-          npx eas-cli@latest build \
+          node ./scripts/eas-build-guard.cjs --platform ios --profile production -- npx eas-cli@latest build \
             --platform ios \
             --profile production \
             --non-interactive \

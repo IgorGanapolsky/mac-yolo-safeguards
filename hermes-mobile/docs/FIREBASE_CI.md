@@ -43,12 +43,14 @@ Each `android_firebase` CI run queues an **EAS `preview` Android build** (`eas b
 | Firebase internal testers | `gh workflow run internal-distribution.yml -f target=android_firebase -f confirm_eas_spend=yes` |
 | Reuse existing EAS APK (no new build) | `gh workflow run internal-distribution.yml -f target=android_firebase -f eas_build_id=<uuid>` |
 
-**Policy (2026-07-02):** Internal Distribution is **workflow_dispatch only** (no tag push auto-build). New EAS builds require `confirm_eas_spend=yes`. Do not redispatch failed runs until the quality gate passes locally.
+**Policy (2026-07-02):** Internal Distribution is **workflow_dispatch only** (no tag push auto-build). New EAS builds require `confirm_eas_spend=yes` and must pass `scripts/eas-build-guard.cjs`, which blocks exhausted-credit and duplicate same-SHA builds. Do not redispatch failed runs until the quality gate passes locally.
 
 ## Manual distribute
 
 ```bash
-gh workflow run internal-distribution.yml -f target=android_firebase
+gh workflow run internal-distribution.yml \
+  -f target=android_firebase \
+  -f confirm_eas_spend=yes
 ```
 
 ## Failure modes

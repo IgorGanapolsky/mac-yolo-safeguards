@@ -62,7 +62,8 @@ Or local:
 
 ```bash
 cd hermes-mobile
-eas build --platform android --profile production --non-interactive
+node ./scripts/eas-build-guard.cjs --platform android --profile production -- \
+  npx eas-cli build --platform android --profile production --non-interactive
 eas submit --platform android --profile production --latest
 ```
 

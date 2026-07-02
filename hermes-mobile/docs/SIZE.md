@@ -10,7 +10,8 @@
 Firebase App Distribution ships the **EAS `preview` profile APK** from [internal-distribution.yml](../../.github/workflows/internal-distribution.yml):
 
 ```yaml
-eas build --platform android --profile preview
+node ./scripts/eas-build-guard.cjs --platform android --profile preview -- \
+  eas build --platform android --profile preview
 ```
 
 That build is a **release APK** (not a dev client), but EAS defaults to **all four ABIs** unless constrained:

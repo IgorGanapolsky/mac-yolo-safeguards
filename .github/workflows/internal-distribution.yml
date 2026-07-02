@@ -322,7 +322,7 @@ jobs:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
         run: |
           set -euo pipefail
-          eas build \
+          node ./scripts/eas-build-guard.cjs --platform android --profile preview -- eas build \
             --platform android \
             --profile preview \
             --non-interactive \
@@ -521,7 +521,7 @@ jobs:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
         run: |
           set -euo pipefail
-          npx eas-cli@latest build \
+          node ./scripts/eas-build-guard.cjs --platform ios --profile preview -- npx eas-cli@latest build \
             --platform ios \
             --profile preview \
             --non-interactive \
