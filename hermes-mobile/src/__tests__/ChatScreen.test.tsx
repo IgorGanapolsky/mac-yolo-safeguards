@@ -629,6 +629,129 @@ describe('ChatScreen', () => {
     expect(mockGatewayState.refreshHealth).toHaveBeenCalled();
   });
 
+  it('scrolls to the latest message after switching computers from the Mac picker', async () => {
+    const { FlatList } = require('react-native');
+    const scrollToEnd = jest.spyOn(FlatList.prototype, 'scrollToEnd');
+    const { listSessions, listMessages } = jest.requireMock('../services/hermesChatClient') as {
+      listSessions: jest.Mock;
+      listMessages: jest.Mock;
+    };
+    const { chatProjects } = jest.requireMock('../services/chatProjects') as {
+      chatProjects: { load: jest.Mock };
+    };
+
+    const macBookSession = {
+      id: 'sess_macbook',
+      title: 'MacBook chat',
+      last_active_at: '2026-06-15T14:00:00Z',
+    };
+    const macMiniSession = {
+      id: 'sess_macmini',
+      title: 'Mac mini chat',
+      last_active_at: '2026-06-15T15:00:00Z',
+    };
+
+    listSessions
+      .mockResolvedValueOnce([macBookSession])
+      .mockResolvedValue([macMiniSession]);
+    listMessages
+      .mockResolvedValueOnce([
+        { role: 'user', content: 'on macbook' },
+        { role: 'assistant', content: 'macbook reply' },
+      ])
+      .mockResolvedValue([
+        { role: 'user', content: 'on mac mini' },
+        { role: 'assistant', content: 'mac mini latest reply at the bottom' },
+      ]);
+
+    chatProjects.load.mockResolvedValue({
+      projects: [
+        {
+          id: 'demo-hermes-mobile',
+          name: 'hermes-mobile',
+          workspacePath: '~/workspace/git/igor/mac-yolo-safeguards/hermes-mobile',
+          sessionIds: ['sess_macbook'],
+          activeSessionId: 'sess_macbook',
+        },
+      ],
+      sessionProjectMap: { sess_macbook: 'demo-hermes-mobile' },
+      sessionLabels: {},
+      activeProjectId: 'demo-hermes-mobile',
+    });
+
+    Object.assign(mockGatewayState, {
+      connectionState: 'connected',
+      effectiveGatewayUrl: 'http://10.2.29.103:8642',
+      health: {
+        ok: true,
+        level: 'green',
+        hostname: 'Igors-MacBook-Pro',
+        localIp: '10.2.29.103',
+        checkedAt: '2026-07-02T00:00:00Z',
+      },
+      settings: {
+        demoMode: false,
+        connectionMode: 'gateway',
+        gatewayUrl: 'http://10.2.29.103:8642',
+        cloudUrl: 'https://hermesmobile-cloud.fly.dev',
+        approvalPolicy: 'balanced',
+      },
+      activeGatewayProfile: {
+        id: 'macbook',
+        label: 'Igors-MacBook-Pro',
+        gatewayUrl: 'http://10.2.29.103:8642',
+        localIp: '10.2.29.103',
+        addedAt: '2026-07-02T00:00:00Z',
+      },
+      gatewayProfiles: [
+        {
+          id: 'macmini',
+          label: 'Igors-Mac-mini',
+          gatewayUrl: 'http://100.87.85.85:8642',
+          localIp: '100.87.85.85',
+          addedAt: '2026-07-02T00:00:00Z',
+        },
+        {
+          id: 'macbook',
+          label: 'Igors-MacBook-Pro',
+          gatewayUrl: 'http://10.2.29.103:8642',
+          localIp: '10.2.29.103',
+          addedAt: '2026-07-02T00:00:00Z',
+        },
+      ],
+    });
+
+    const { getByTestId, getByText } = await renderChatScreen();
+
+    await waitFor(() => {
+      expect(listMessages).toHaveBeenCalledWith(
+        'http://10.2.29.103:8642',
+        'sess_macbook',
+        'test-api-key',
+      );
+    });
+
+    scrollToEnd.mockClear();
+
+    fireEvent.press(getByTestId('chat-context-mac-button'));
+    fireEvent.press(getByTestId('select-gateway-profile-macmini'));
+
+    await waitFor(() => {
+      expect(getByText('mac mini latest reply at the bottom')).toBeTruthy();
+    });
+
+    await waitFor(() => {
+      expect(
+        scrollToEnd.mock.calls.some((call) => {
+          const options = call[0] as { animated?: boolean } | undefined;
+          return options?.animated === false;
+        }),
+      ).toBe(true);
+    });
+
+    scrollToEnd.mockRestore();
+  });
+
   it('can start a new session from modal', async () => {
     const { getByTestId, queryByTestId } = await renderChatScreen();
 
