@@ -261,9 +261,12 @@ describe('release safety contract', () => {
     expect(runner).toContain('--once');
     expect(runner).toContain('ship-guard.yaml');
     expect(runner).toContain('chat-send-persistence.yaml');
-    expect(runner).toContain('HERMES_E2E_IOS_ONLY=1');
+    expect(runner).toContain('Android-only continuous E2E requested');
+    expect(runner).toContain('android-only continuous E2E skipped');
+    expect(runner).toContain('HERMES_E2E_ANDROID_ONLY');
     const plist = read('com.igor.hermes-mobile-continuous-e2e.plist');
     expect(plist).toContain('com.igor.hermes-mobile-continuous-e2e');
+    expect(plist).toContain('HERMES_E2E_ANDROID_ONLY');
     expect(plist).toContain('StartInterval');
     const workflow = read('.github/workflows/mobile-continuous.yml');
     expect(workflow).toContain('schedule:');

@@ -213,6 +213,9 @@ run_e2e_suite() {
 
   if has_usb_adb_device; then
     echo "E2E target: Android USB ($(adb devices 2>/dev/null | awk 'NR>1 && $2=="device" && $1 !~ /^emulator-/ {print $1; exit}'))"
+  elif [[ "${HERMES_E2E_ANDROID_ONLY:-}" == "1" ]]; then
+    echo "Android-only continuous E2E requested but no USB Android device is connected — skipping E2E"
+    return 2
   elif ! xcrun simctl list devices available 2>/dev/null | grep -qE 'iPhone.*\([0-9A-F-]{36}\)'; then
     echo "No Android USB device and no iOS simulator — skipping E2E"
     return 2
@@ -273,7 +276,14 @@ run_cycle() {
     set -e
     case $e2e_rc in
       0) e2e_status="pass"; echo "E2E: PASS" ;;
-      2) e2e_status="skipped"; detail="maestro or java unavailable" ;;
+      2)
+        e2e_status="skipped"
+        if [[ "${HERMES_E2E_ANDROID_ONLY:-}" == "1" ]] && ! has_usb_adb_device; then
+          detail="android-only continuous E2E skipped: no USB Android device connected"
+        else
+          detail="maestro or java unavailable"
+        fi
+        ;;
       *) e2e_status="fail"; detail="one or more Maestro flows failed" ;;
     esac
 

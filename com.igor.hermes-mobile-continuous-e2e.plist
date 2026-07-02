@@ -24,6 +24,8 @@
         <string>180000</string>
         <key>HERMES_E2E_INTERVAL_SEC</key>
         <string>900</string>
+        <key>HERMES_E2E_ANDROID_ONLY</key>
+        <string>1</string>
     </dict>
     <key>StandardOutPath</key>
     <string>{{HOME}}/Library/Logs/hermes-mobile-continuous-e2e.log</string>
