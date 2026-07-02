@@ -75,6 +75,7 @@ Durable rules live in [AGENTS.md](./AGENTS.md); this file is *live state only*.
 | T-54 | Keep Chat foregrounded on accidental Android Back during E2E/bootstrap | done | codex | `hermes-mobile/src/screens/ChatScreen.tsx`, `hermes-mobile/src/__tests__/ChatScreen.test.tsx`, `plan.md` | Android demo Chat consumes hardware Back when no modal is open; focused Jest, typecheck, full Jest pass; continuous proof ran but remains red from external call/owned E2E surface |
 | T-55 | CodeRabbit-style loop state gate for resumable agent runs | done | codex | `tools/hermes-loop-state.js`, `tests/test-hermes-loop-state.js`, `docs/HERMES-LOOP-STATE.md`, `plan.md` | loop state packet reads plan/worktree/latest E2E proof, classifies blockers, writes JSON+Markdown resume artifacts, and tests pass |
 | T-56 | Relay-side ThumbGate Leash receipt validation contract | done | codex | `services/hermes-relay/server.js`, `services/hermes-relay/store.js`, `services/hermes-relay/test/api.test.js`, `services/hermes-relay/README.md`, `plan.md` | relay entitlement endpoint is mobile-token authenticated, fail-closed without store verifier, records Pro only after positive verifier result, and relay tests pass |
+| T-57 | Explain new-Mac setup from the Mac picker | in_progress | codex | `hermes-mobile/src/screens/ChatScreen.tsx`, `hermes-mobile/src/__tests__/ChatScreen.test.tsx`, `plan.md` | Choose Mac explains why another Tailscale Mac may be missing, how to start/add a second Mac, remains scrollable, and explicit Mac selection is not overridden by auto-discovery |
 
 Status values: `pending` | `in_progress` | `blocked` | `done`. Claim a row by setting Owner+Status in one edit, then claim its files in §2.
 
@@ -159,6 +160,7 @@ Status values: `pending` | `in_progress` | `blocked` | `done`. Claim a row by se
 - `tools/hermes-loop-state.js`, `tests/test-hermes-loop-state.js`, `docs/HERMES-LOOP-STATE.md` → **codex** (T-55) — released (2026-07-01)
 - `services/hermes-relay/server.js`, `services/hermes-relay/store.js`, `services/hermes-relay/test/api.test.js`, `services/hermes-relay/README.md` → **codex** (T-56 relay-side ThumbGate Leash receipt validation contract) (2026-07-01)
 - `services/hermes-relay/server.js`, `services/hermes-relay/store.js`, `services/hermes-relay/test/api.test.js`, `services/hermes-relay/README.md` → **codex** (T-56) — released fail-closed contract; Play/ASC verifier credentials still needed for live grants (2026-07-01)
+- `hermes-mobile/src/screens/ChatScreen.tsx`, `hermes-mobile/src/__tests__/ChatScreen.test.tsx`, `plan.md` → **codex** (T-57 Mac picker new-Mac setup) (2026-07-02T15:30:10Z)
 - `AGENTS.md`, `plan.md` → shared coordination files (append-only edits, commit first)
 - everything else → (free)
 
