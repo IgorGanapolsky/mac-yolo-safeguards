@@ -30,14 +30,15 @@ to the user's own computer — not to us.
 - **Collection optional:** Analytics is optional via in-app `analyticsOptOut`.
 
 ## Apple privacy label — `NSPrivacyCollectedDataTypes`
-Currently `app.json` ships an **empty** `NSPrivacyCollectedDataTypes` while PostHog is active in
-the production profile — this is a **5.1.1 rejection risk** and must be reconciled to declare:
+Declared in `app.json` (`expo.ios.privacyManifests.NSPrivacyCollectedDataTypes`) as of 2026-07-03:
 - `NSPrivacyCollectedDataTypeProductInteraction` — purpose Analytics, linked, **not** used for tracking.
 - `NSPrivacyCollectedDataTypeDeviceID` (the PostHog `distinct_id`) — purpose Analytics, linked, not tracking.
 - Tracking = **false** across the board (no IDFA, no ATT).
 
+Keep this in sync with the App Store Connect privacy questionnaire, which must answer identically.
+
 ## Pre-submission checklist
-- [ ] `NSPrivacyCollectedDataTypes` in `app.json` matches the Apple table above (currently empty — FIX).
+- [x] `NSPrivacyCollectedDataTypes` in `app.json` matches the Apple table above (done 2026-07-03).
 - [ ] Play Console Data Safety form matches the table above.
 - [ ] `RECORD_AUDIO` and `SYSTEM_ALERT_WINDOW` are blocked (done in `app.json` `android.blockedPermissions`).
 - [ ] Apple granular age-rating questionnaire re-answered for AI-chatbot content.
