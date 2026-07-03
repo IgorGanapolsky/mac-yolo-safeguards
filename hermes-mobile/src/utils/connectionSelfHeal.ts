@@ -16,6 +16,7 @@ export function savedProfileFallbackUrls(input: {
   primaryUrl: string;
   profiles: GatewayProfile[];
   preferTailscaleFirst?: boolean;
+  activeProfileId?: string | null;
 }): string[] {
   const primary = input.primaryUrl.trim();
   const seen = new Set<string>([primary]);
@@ -41,12 +42,26 @@ export function savedProfileFallbackUrls(input: {
     }
   }
 
-  const preferTailscale =
-    input.preferTailscaleFirst ?? isPrivateLanGatewayUrl(primary);
-  if (preferTailscale) {
-    return [...tailscale, ...lan, ...other, ...loopback];
+  const activeUrl = input.activeProfileId
+    ? input.profiles.find((profile) => profile.id === input.activeProfileId)?.gatewayUrl.trim()
+    : undefined;
+
+  let ordered: string[];
+  if (input.activeProfileId !== undefined) {
+    ordered = [...loopback, ...lan, ...tailscale, ...other];
+  } else {
+    const preferTailscale =
+      input.preferTailscaleFirst ?? isPrivateLanGatewayUrl(primary);
+    ordered = preferTailscale
+      ? [...tailscale, ...lan, ...other, ...loopback]
+      : [...lan, ...tailscale, ...other, ...loopback];
   }
-  return [...lan, ...tailscale, ...other, ...loopback];
+
+  if (activeUrl && activeUrl !== primary) {
+    ordered = [activeUrl, ...ordered.filter((url) => url !== activeUrl)];
+  }
+
+  return ordered;
 }
 
 export function buildSelfHealProbeUrls(input: {
@@ -55,6 +70,7 @@ export function buildSelfHealProbeUrls(input: {
   lastLanIp?: string | null;
   profiles: GatewayProfile[];
   tailnetProbeHosts?: string[];
+  activeProfileId?: string | null;
 }): string[] {
   const primary = input.primaryUrl.trim();
   const seen = new Set<string>();
@@ -72,7 +88,7 @@ export function buildSelfHealProbeUrls(input: {
   for (const url of savedProfileFallbackUrls({
     primaryUrl: primary,
     profiles: input.profiles,
-    preferTailscaleFirst: true,
+    activeProfileId: input.activeProfileId ?? null,
   })) {
     push(url);
   }

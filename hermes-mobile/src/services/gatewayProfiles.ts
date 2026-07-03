@@ -326,6 +326,58 @@ export function activeProfile(state: GatewayProfileState): GatewayProfile | null
   return state.profiles.find((p) => p.id === state.activeProfileId) ?? null;
 }
 
+/** Cold-start priority: last-used active id → USB loopback → most recently connected. */
+export function resolvePreferredActiveProfileId(
+  state: GatewayProfileState,
+  options?: { preferUsb?: boolean },
+): string | null {
+  const profiles = state.profiles.filter((p) => !isInvalidGatewayProfile(p));
+  if (profiles.length === 0) {
+    return null;
+  }
+  if (state.activeProfileId && profiles.some((p) => p.id === state.activeProfileId)) {
+    return state.activeProfileId;
+  }
+  if (options?.preferUsb) {
+    const usb = profiles.find((p) => isLoopbackGatewayUrl(p.gatewayUrl));
+    if (usb) {
+      return usb.id;
+    }
+  }
+  const sorted = [...profiles].sort((a, b) =>
+    (b.lastConnectedAt ?? b.addedAt).localeCompare(a.lastConnectedAt ?? a.addedAt),
+  );
+  return sorted[0]?.id ?? profiles[0]?.id ?? null;
+}
+
+/** Only switch active profile on heal/discovery when user has no selection or same machine. */
+export function shouldActivateDiscoveredUrl(
+  state: GatewayProfileState,
+  successfulUrl: string,
+  requested: boolean,
+): boolean {
+  if (!requested) {
+    return false;
+  }
+  if (!state.activeProfileId) {
+    return true;
+  }
+  const active = activeProfile(state);
+  if (!active) {
+    return true;
+  }
+  const matched = findProfileForGatewayUrl(state.profiles, successfulUrl);
+  if (!matched) {
+    return false;
+  }
+  if (matched.id === state.activeProfileId) {
+    return true;
+  }
+  const activeKey = profileMachineKey(active);
+  const matchedKey = profileMachineKey(matched);
+  return Boolean(activeKey && matchedKey && activeKey === matchedKey);
+}
+
 /** Persist every healthy Tailscale /health discovery as a saved computer profile. */
 export function applyTailscaleDiscoveriesToProfileState(
   state: GatewayProfileState,
@@ -414,7 +466,7 @@ export function upsertDiscoveredProfile(
     });
     return dedupeGatewayProfiles({
       profiles,
-      activeProfileId: makeActive ? existing.id : state.activeProfileId ?? existing.id,
+      activeProfileId: makeActive ? existing.id : state.activeProfileId,
     });
   }
 
@@ -430,7 +482,7 @@ export function upsertDiscoveredProfile(
 
   return dedupeGatewayProfiles({
     profiles: [profile, ...state.profiles],
-    activeProfileId: makeActive ? id : state.activeProfileId ?? id,
+    activeProfileId: makeActive ? id : state.activeProfileId,
   });
 }
 
@@ -439,7 +491,11 @@ export function selectProfile(state: GatewayProfileState, profileId: string): Ga
   if (!exists) {
     return state;
   }
-  return dedupeGatewayProfiles({ ...state, activeProfileId: profileId });
+  const now = new Date().toISOString();
+  const profiles = state.profiles.map((p) =>
+    p.id === profileId ? { ...p, lastConnectedAt: now } : p,
+  );
+  return dedupeGatewayProfiles({ ...state, profiles, activeProfileId: profileId });
 }
 
 export function removeProfile(state: GatewayProfileState, profileId: string): GatewayProfileState {

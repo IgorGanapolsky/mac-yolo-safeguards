@@ -1,7 +1,7 @@
 {
   "name": "hermes-mobile",
   "version": "0.1.0",
-  "description": "Hermes mobile companion \u2014 ThumbGate approvals, gateway health, YOLO safeguard telemetry",
+  "description": "Hermes mobile companion — ThumbGate approvals, gateway health, YOLO safeguard telemetry",
   "main": "node_modules/expo/AppEntry.js",
   "scripts": {
     "start": "expo start",
@@ -68,6 +68,7 @@
     "expo-notifications": "~55.0.24",
     "expo-secure-store": "~55.0.15",
     "expo-splash-screen": "~55.0.22",
+    "expo-store-review": "~55.0.15",
     "expo-updates": "~55.0.25",
     "react": "19.2.0",
     "react-native": "0.83.6",

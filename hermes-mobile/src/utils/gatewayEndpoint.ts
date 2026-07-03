@@ -102,7 +102,7 @@ export function formatGatewayHostLabel(
     const name =
       fromHealthName?.replace(/\.local$/i, '') ??
       fromUrl.hostname?.replace(/\.local$/i, '') ??
-      'Mac';
+      'Computer';
     return `${name} · USB`;
   }
 
@@ -140,7 +140,7 @@ export function formatGatewayMachineParts(
   const urlHostname =
     fromUrl.hostname && !isTailnetRouteLabel(fromUrl.hostname) ? fromUrl.hostname : undefined;
   const machineName =
-    fromHealthName ?? urlHostname ?? (isTailnetRouteLabel(fromUrl.hostname) ? 'Mac via Tailscale' : fromUrl.hostname) ?? gatewayUrlHost(gatewayUrl) ?? 'computer';
+    fromHealthName ?? urlHostname ?? (isTailnetRouteLabel(fromUrl.hostname) ? 'Computer via Tailscale' : fromUrl.hostname) ?? gatewayUrlHost(gatewayUrl) ?? 'computer';
   const lanIp = fromHealthIp ?? fromUrl.ip;
 
   return {

@@ -116,6 +116,9 @@ import {
   applyTailscaleDiscoveriesToProfileState,
   dedupeGatewayProfiles,
   findProfileForGatewayUrl,
+  GENERIC_USB_PROFILE_LABEL,
+  resolvePreferredActiveProfileId,
+  shouldActivateDiscoveredUrl,
 } from '../services/gatewayProfiles';
 import {
   discoverAllGatewaysOnLan,
@@ -142,6 +145,7 @@ import {
 import type { ApprovalChoice } from '../types/approval';
 import type { RelayWorker } from '../types/mobileRelay';
 import { resolveApprovalChoice } from '../services/approvalResolver';
+import { requestStoreReviewIfThresholdReached } from '../services/storeReview';
 import { fromPendingApproval } from '../utils/approvalNormalize';
 import { shouldScheduleApprovalNotification } from '../utils/smartNotificationPolicy';
 import {
@@ -479,13 +483,19 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
           if (!hasLoopback) {
             loadedProfiles.profiles.push({
               id: 'mac_usb_loopback',
-              label: 'Mac via USB',
+              label: GENERIC_USB_PROFILE_LABEL,
               gatewayUrl: USB_LOOPBACK_GATEWAY_URL,
               addedAt: new Date().toISOString(),
             });
           }
         }
         if (loadedProfiles.profiles.length > 0) {
+          const preferredActiveId = resolvePreferredActiveProfileId(loadedProfiles, {
+            preferUsb: Platform.OS !== 'web',
+          });
+          if (preferredActiveId && preferredActiveId !== loadedProfiles.activeProfileId) {
+            loadedProfiles = { ...loadedProfiles, activeProfileId: preferredActiveId };
+          }
           await gatewayProfiles.save(loadedProfiles);
         }
 
@@ -602,7 +612,11 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
           hostname: pairName ?? healthRef.current?.hostname ?? active?.hostname,
           label: pairName ?? active?.label ?? undefined,
         },
-        makeProfileActive || !profileStateRef.current.activeProfileId,
+        shouldActivateDiscoveredUrl(
+          profileStateRef.current,
+          successfulUrl,
+          makeProfileActive || !profileStateRef.current.activeProfileId,
+        ),
       );
       profileStateRef.current = upserted;
       setProfileState(upserted);
@@ -679,11 +693,12 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
       };
 
       const skipLan = shouldSkipLanGatewayProbe(primaryUrl, wifiConnectedRef.current);
+      const activeProfileId = profileStateRef.current.activeProfileId;
       if (skipLan) {
         for (const fallbackUrl of savedProfileFallbackUrls({
           primaryUrl,
           profiles: profileStateRef.current.profiles,
-          preferTailscaleFirst: true,
+          activeProfileId,
         })) {
           try {
             const snapshot = await probeMacGatewayOk(fallbackUrl);
@@ -732,7 +747,7 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
       for (const fallbackUrl of savedProfileFallbackUrls({
         primaryUrl,
         profiles: profileStateRef.current.profiles,
-        preferTailscaleFirst: true,
+        activeProfileId,
       })) {
         try {
           const snapshot = await probeMacGatewayOk(fallbackUrl);
@@ -1229,12 +1244,39 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
 
     const commitDiscoveredUrl = persistDiscoveredGatewayUrl;
 
+    // 1. Prefer USB if it is available (fastest local link)
+    if (Platform.OS !== 'web') {
+      for (const fallbackUrl of usbLoopbackFallbackUrls(currentUrl || '')) {
+        try {
+          return await commitDiscoveredUrl(await probe(fallbackUrl), true);
+        } catch (_) {
+          // fall through
+        }
+      }
+    }
+
+    // 2. Remember and prefer the last explicitly user-selected computer
+    const lastSelectedId = await storage.loadLastSelectedProfileId();
+    let lastSelectedUrl: string | undefined;
+    if (lastSelectedId) {
+      const preferredProfile = profileStateRef.current.profiles.find((p) => p.id === lastSelectedId);
+      if (preferredProfile && preferredProfile.gatewayUrl) {
+        lastSelectedUrl = preferredProfile.gatewayUrl;
+        try {
+          return await commitDiscoveredUrl(await probe(preferredProfile.gatewayUrl), true);
+        } catch (_) {
+          // fall through
+        }
+      }
+    }
+
     const skipCurrentLan =
       currentUrl &&
       !isLoopbackGatewayUrl(currentUrl) &&
       shouldSkipLanGatewayProbe(currentUrl, wifiConnectedRef.current);
 
-    if (currentUrl && !skipCurrentLan) {
+    // 3. Fallback to current settings URL (if not already tried above)
+    if (currentUrl && !skipCurrentLan && currentUrl !== lastSelectedUrl) {
       try {
         return await commitDiscoveredUrl(await probe(currentUrl));
       } catch (_) {
@@ -1272,16 +1314,6 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
         profileUrls: profileStateRef.current.profiles.map((profile) => profile.gatewayUrl),
         tailnetProbeHosts: tailnetProbeHostsRef.current,
       })) {
-        if (fallbackUrl === currentUrl) {
-          continue;
-        }
-        try {
-          return await commitDiscoveredUrl(await probe(fallbackUrl), true);
-        } catch (_) {
-          // fall through
-        }
-      }
-      for (const fallbackUrl of usbLoopbackFallbackUrls(currentUrl || '')) {
         if (fallbackUrl === currentUrl) {
           continue;
         }
@@ -1410,6 +1442,7 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
         lastLanIp,
         profiles: profileStateRef.current.profiles,
         tailnetProbeHosts: tailnetProbeHostsRef.current,
+        activeProfileId: profileStateRef.current.activeProfileId,
       });
       for (const url of probeUrls.slice(0, 8)) {
         try {
@@ -1722,6 +1755,7 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
       profileStateRef.current = nextState;
       setProfileState(nextState);
       await gatewayProfiles.save(nextState);
+      await storage.saveLastSelectedProfileId(profileId);
 
       const profileKey = await secureCredentials.resolveApiKeyForProfile(profileId);
       const nextSettings: GatewaySettings = {
@@ -1891,18 +1925,10 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
       const discovered = await discoverTailscaleGateways(probeHosts);
       if (discovered.length > 0) {
         const priorActive = activeProfile(profileStateRef.current);
-        let nextState = applyTailscaleDiscoveriesToProfileState(
+        const nextState = applyTailscaleDiscoveriesToProfileState(
           profileStateRef.current,
           discovered,
         );
-        if (priorActive && isLoopbackGatewayUrl(priorActive.gatewayUrl)) {
-          const tailProfile = discovered
-            .map((item) => findProfileForGatewayUrl(nextState.profiles, item.gatewayUrl))
-            .find((profile) => profile && isTailscaleGatewayUrl(profile.gatewayUrl));
-          if (tailProfile) {
-            nextState = { ...nextState, activeProfileId: tailProfile.id };
-          }
-        }
         profileStateRef.current = nextState;
         setProfileState(nextState);
         await gatewayProfiles.save(nextState);
@@ -1920,14 +1946,6 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
           (!wifiConnectedRef.current || isPrivateLanGatewayUrl(priorUrl))
         ) {
           await persistDiscoveredGatewayUrl(failoverUrl, true);
-          void refreshHealth();
-        } else if (
-          activeAfter &&
-          isTailscaleGatewayUrl(activeAfter.gatewayUrl) &&
-          activeAfter.id !== priorActive?.id
-        ) {
-          await selectGatewayProfileRef.current(activeAfter.id);
-          await persistDiscoveredGatewayUrl(activeAfter.gatewayUrl, true);
           void refreshHealth();
         }
       }
@@ -2098,7 +2116,7 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
 
       const gatewayUrl = params.gatewayUrl.trim();
       if (!isValidGatewayUrl(gatewayUrl)) {
-        setLastEventError('Pair link had an incomplete computer URL — try pairing again from your Mac.');
+        setLastEventError('Pair link had an incomplete computer URL — try pairing again from your computer.');
         if (relayCode) {
           haptics.success();
           await refreshHealth();
@@ -2389,6 +2407,9 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
           ),
         );
         void dismissSingleApprovalNotification(pending.actionId);
+        if (choice === 'once' || choice === 'always') {
+          void storage.incrementApprovalsCount().then(() => requestStoreReviewIfThresholdReached());
+        }
         return;
       }
 
@@ -2420,6 +2441,9 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
           );
         }
         void dismissSingleApprovalNotification(pending.actionId);
+        if (choice === 'once' || choice === 'always') {
+          void storage.incrementApprovalsCount().then(() => requestStoreReviewIfThresholdReached());
+        }
         return;
       }
 
@@ -2450,6 +2474,9 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
       }
 
       void dismissSingleApprovalNotification(pending.actionId);
+      if (choice === 'once' || choice === 'always') {
+        void storage.incrementApprovalsCount().then(() => requestStoreReviewIfThresholdReached());
+      }
     },
     [captureLeashThumbgate, pendingApprovals, sendGateAction],
   );

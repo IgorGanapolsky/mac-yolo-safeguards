@@ -12,6 +12,8 @@ import {
   isInvalidGatewayProfile,
   sanitizeGatewayProfileState,
   gatewayProfiles,
+  resolvePreferredActiveProfileId,
+  shouldActivateDiscoveredUrl,
 } from '../services/gatewayProfiles';
 import { EMPTY_GATEWAY_PROFILE_STATE } from '../types/gatewayProfile';
 
@@ -323,6 +325,61 @@ describe('gatewayProfiles', () => {
       ['Igors-Mac-mini', 'Igors-MacBook-Pro'].sort(),
     );
     expect(state.activeProfileId).toBe('mac_igors_macbook_pro');
+  });
+
+  it('resolvePreferredActiveProfileId keeps last-used then prefers USB', () => {
+    let state = upsertDiscoveredProfile(EMPTY_GATEWAY_PROFILE_STATE, {
+      gatewayUrl: 'http://100.94.135.78:8642',
+      label: 'Igors-MacBook-Pro',
+      hostname: 'Igors-MacBook-Pro',
+    }, true);
+    state = upsertDiscoveredProfile(state, {
+      gatewayUrl: 'http://127.0.0.1:8642',
+      label: 'Computer via USB',
+    }, false);
+    expect(resolvePreferredActiveProfileId(state)).toBe(state.activeProfileId);
+
+    const noActive = { ...state, activeProfileId: null };
+    const usbId = state.profiles.find((p) => p.gatewayUrl.includes('127.0.0.1'))?.id;
+    expect(resolvePreferredActiveProfileId(noActive, { preferUsb: true })).toBe(usbId);
+  });
+
+  it('shouldActivateDiscoveredUrl blocks switching to a different saved Mac', () => {
+    const state = dedupeGatewayProfiles({
+      profiles: [
+        {
+          id: 'mac_mini',
+          label: 'Igors-Mac-mini',
+          hostname: 'Igors-Mac-mini',
+          gatewayUrl: 'http://192.168.68.56:8642',
+          localIp: '192.168.68.56',
+          addedAt: '2026-06-28T00:00:00Z',
+        },
+        {
+          id: 'mac_book_tail',
+          label: 'Igors-MacBook-Pro',
+          hostname: 'Igors-MacBook-Pro',
+          gatewayUrl: 'http://100.94.135.78:8642',
+          addedAt: '2026-06-28T00:00:01Z',
+        },
+      ],
+      activeProfileId: 'mac_mini',
+    });
+    expect(
+      shouldActivateDiscoveredUrl(state, 'http://100.94.135.78:8642', true),
+    ).toBe(false);
+    expect(
+      shouldActivateDiscoveredUrl(state, 'http://192.168.68.56:8642', true),
+    ).toBe(true);
+  });
+
+  it('selectProfile stamps lastConnectedAt', () => {
+    let state = upsertDiscoveredProfile(EMPTY_GATEWAY_PROFILE_STATE, {
+      gatewayUrl: 'http://192.168.12.208:8642',
+      localIp: '192.168.12.208',
+    }, true);
+    state = selectProfile(state, 'mac_192_168_12_208');
+    expect(state.profiles[0]?.lastConnectedAt).toBeTruthy();
   });
 
   it('persists to AsyncStorage', async () => {

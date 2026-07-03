@@ -153,6 +153,10 @@ jest.mock('../services/storage', () => ({
     clearDismissedSessionIds: jest.fn().mockResolvedValue(undefined),
     loadHideCronSessions: jest.fn().mockResolvedValue(false),
     setHideCronSessions: jest.fn().mockResolvedValue(undefined),
+    saveLastSelectedProfileId: jest.fn().mockResolvedValue(undefined),
+    loadLastSelectedProfileId: jest.fn().mockResolvedValue(null),
+    loadApprovalsCount: jest.fn().mockResolvedValue(0),
+    incrementApprovalsCount: jest.fn().mockResolvedValue(1),
   },
 }));
 
@@ -584,6 +588,16 @@ describe('ChatScreen', () => {
     expect(getByText(/Tailscale MagicDNS name or 100.x address in Settings/)).toBeTruthy();
   });
 
+  it('dismisses the Mac picker when backdrop is pressed', async () => {
+    const { getByTestId, queryByTestId } = await renderChatScreen();
+
+    fireEvent.press(getByTestId('chat-context-mac-button'));
+    expect(getByTestId('mac-picker-scroll')).toBeTruthy();
+
+    fireEvent.press(getByTestId('mac-picker-modal-backdrop'));
+    expect(queryByTestId('mac-picker-scroll')).toBeNull();
+  });
+
   it('keeps an explicitly selected Mac primary instead of immediately auto-discovering over it', async () => {
     const autoConnectGateway = jest.fn().mockResolvedValue('http://10.2.29.103:8642');
     const selectGatewayProfile = jest.fn().mockResolvedValue(undefined);
@@ -764,37 +778,52 @@ describe('ChatScreen', () => {
   });
 
   it('shows clearing progress and persists empty demo bindings on clear all', async () => {
+    jest.useFakeTimers({ advanceTimers: true });
     const alertSpy = jest.spyOn(Alert, 'alert');
     const { chatProjects } = jest.requireMock('../services/chatProjects') as {
       chatProjects: { save: jest.Mock };
     };
     chatProjects.save.mockClear();
 
-    const { getByTestId, findByTestId, queryByTestId } = await renderChatScreen();
-    fireEvent.press(getByTestId('open-sessions-modal'));
-    fireEvent.press(await findByTestId('threads-modal-clear-all'));
+    try {
+      const { getByTestId, findByTestId, queryByTestId } = await renderChatScreen();
+      fireEvent.press(getByTestId('open-sessions-modal'));
+      fireEvent.press(await findByTestId('threads-modal-clear-all'));
 
-    const clearAllPromise = confirmAlertButton('Clear all');
-    expect(await findByTestId('threads-modal-clearing')).toBeTruthy();
-    await clearAllPromise;
+      await act(async () => {
+        const buttons = (Alert.alert as jest.Mock).mock.calls.at(-1)?.[2] as
+          | Array<{ text?: string; onPress?: () => void | Promise<void> }>
+          | undefined;
+        const clearButton = buttons?.find((entry) => entry.text === 'Clear all');
+        void clearButton?.onPress?.();
+      });
 
-    await waitFor(() => {
-      expect(chatProjects.save).toHaveBeenCalledWith(
-        expect.objectContaining({
-          projects: [
-            expect.objectContaining({
-              sessionIds: [],
-              activeSessionId: undefined,
-            }),
-          ],
-          sessionProjectMap: {},
-          sessionLabels: {},
-        }),
-      );
-      expect(queryByTestId('threads-modal-clear-all')).toBeNull();
-    });
+      expect(getByTestId('threads-modal-clearing')).toBeTruthy();
 
-    alertSpy.mockRestore();
+      await act(async () => {
+        jest.advanceTimersByTime(50);
+        await Promise.resolve();
+      });
+
+      await waitFor(() => {
+        expect(chatProjects.save).toHaveBeenCalledWith(
+          expect.objectContaining({
+            projects: [
+              expect.objectContaining({
+                sessionIds: [],
+                activeSessionId: undefined,
+              }),
+            ],
+            sessionProjectMap: {},
+            sessionLabels: {},
+          }),
+        );
+        expect(queryByTestId('threads-modal-clear-all')).toBeNull();
+      });
+    } finally {
+      alertSpy.mockRestore();
+      jest.useRealTimers();
+    }
   });
 
   it('deletes an individual session from the threads modal in demo mode', async () => {
