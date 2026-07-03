@@ -101,6 +101,9 @@ jobs:
           REQUIRE_EAS_PROJECT: "1"
         run: npm run release:check
 
+      - name: July 2026 mobile standards audit
+        run: npm run standards:audit
+
       - name: Type check
         run: npm run typecheck
 

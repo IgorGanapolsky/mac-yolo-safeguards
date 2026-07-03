@@ -19,4 +19,10 @@ describe('App startup safety', () => {
     const appBody = appTsx.split('export default function App')[1] ?? '';
     expect(appBody).not.toContain('useAiSdkDevTools()');
   });
+
+  it('records startup and interactive performance marks', () => {
+    expect(appTsx).toContain("from './src/services/appPerformance'");
+    expect(appTsx).toContain('markAppStart();');
+    expect(appTsx).toContain('markAppInteractive();');
+  });
 });

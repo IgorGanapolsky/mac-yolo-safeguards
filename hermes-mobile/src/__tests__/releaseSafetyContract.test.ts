@@ -155,6 +155,8 @@ describe('release safety contract', () => {
     expect(script).toContain('maestro-env.sh');
     expect(script).toContain('Running main');
     expect(script).toContain('HERMES_MOBILE_SKIP_BUILD');
+    expect(script).toContain('LOCK_DIR="$HERMES_DIR/.install-phone-release.lockdir"');
+    expect(script).not.toContain('LOCK_DIR="$HERMES_DIR/android/.install-phone-release.lockdir"');
   });
 
   it('run-hermes-mobile resolves repo via symlink-safe bootstrap', () => {

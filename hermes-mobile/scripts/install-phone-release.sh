@@ -36,7 +36,9 @@ fi
 
 APK_OUT="$HERMES_DIR/android/app/build/outputs/apk/release/app-release.apk"
 PROBLEMS_REPORT="$HERMES_DIR/android/build/reports/problems/problems-report.html"
-LOCK_DIR="$HERMES_DIR/android/.install-phone-release.lockdir"
+# Keep the install mutex outside android/: clean Expo prebuilds can create,
+# delete, or regenerate android/ while this script is already running.
+LOCK_DIR="$HERMES_DIR/.install-phone-release.lockdir"
 
 if ! command -v adb >/dev/null 2>&1; then
   echo "Error: adb not on PATH (install Android platform-tools)" >&2

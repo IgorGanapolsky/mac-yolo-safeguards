@@ -5,6 +5,7 @@ import TabBarIcon from './src/components/TabBarIcon';
 
 // Hold native splash until React paints — prevents flash of empty black window.
 void SplashScreen.preventAutoHideAsync().catch(() => {});
+markAppStart();
 
 // Install the global JS exception handler as early as possible, before any
 // component renders. Fatal exceptions are persisted to the crash queue and
@@ -22,6 +23,7 @@ import ConnectMacGate from './src/components/ConnectMacGate';
 import { useHermesDeepLinks } from './src/hooks/useHermesDeepLinks';
 import type { SetupDeepLinkParams } from './src/utils/setupDeepLink';
 import { trackAppOpen, trackScreenView } from './src/services/productAnalytics';
+import { markAppInteractive, markAppStart } from './src/services/appPerformance';
 import {
   flushCrashQueue,
   installGlobalCrashHandler,
@@ -370,6 +372,7 @@ function HermesAppShell() {
 export default function App() {
   useEffect(() => {
     void trackAppOpen();
+    markAppInteractive();
     // Flush any crashes persisted from a previous (crashed) launch now that the
     // process is healthy. Non-blocking; failures are retained for next launch.
     void flushCrashQueue();
