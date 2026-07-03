@@ -18,6 +18,8 @@ const KEYS = {
   DISMISSED_SESSION_IDS: 'hermes-mobile:dismissed_session_ids',
   HIDE_CRON_SESSIONS: 'hermes-mobile:hide_cron_sessions',
   LAST_SELECTED_PROFILE_ID: 'hermes-mobile:last_selected_profile_id',
+  APPROVALS_COUNT: 'hermes-mobile:approvals_count',
+  STORE_REVIEW_REQUESTED: 'hermes-mobile:store_review_requested',
 };
 
 type DismissedSessionMap = Record<string, string[]>;
@@ -251,6 +253,46 @@ export const storage = {
     } catch (error) {
       console.error('[hermes-mobile] loadLastSelectedProfileId failed:', error);
       return null;
+    }
+  },
+
+  async loadApprovalsCount(): Promise<number> {
+    try {
+      const raw = await AsyncStorage.getItem(KEYS.APPROVALS_COUNT);
+      return raw ? parseInt(raw, 10) || 0 : 0;
+    } catch (error) {
+      console.error('[hermes-mobile] loadApprovalsCount failed:', error);
+      return 0;
+    }
+  },
+
+  async incrementApprovalsCount(): Promise<number> {
+    try {
+      const count = await this.loadApprovalsCount();
+      const next = count + 1;
+      await AsyncStorage.setItem(KEYS.APPROVALS_COUNT, String(next));
+      return next;
+    } catch (error) {
+      console.error('[hermes-mobile] incrementApprovalsCount failed:', error);
+      return 0;
+    }
+  },
+
+  async hasRequestedReview(): Promise<boolean> {
+    try {
+      const raw = await AsyncStorage.getItem(KEYS.STORE_REVIEW_REQUESTED);
+      return raw === 'true';
+    } catch (error) {
+      console.error('[hermes-mobile] hasRequestedReview failed:', error);
+      return false;
+    }
+  },
+
+  async setRequestedReview(value: boolean): Promise<void> {
+    try {
+      await AsyncStorage.setItem(KEYS.STORE_REVIEW_REQUESTED, String(value));
+    } catch (error) {
+      console.error('[hermes-mobile] setRequestedReview failed:', error);
     }
   },
 

@@ -155,6 +155,8 @@ jest.mock('../services/storage', () => ({
     setHideCronSessions: jest.fn().mockResolvedValue(undefined),
     saveLastSelectedProfileId: jest.fn().mockResolvedValue(undefined),
     loadLastSelectedProfileId: jest.fn().mockResolvedValue(null),
+    loadApprovalsCount: jest.fn().mockResolvedValue(0),
+    incrementApprovalsCount: jest.fn().mockResolvedValue(1),
   },
 }));
 

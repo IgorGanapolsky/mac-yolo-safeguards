@@ -251,6 +251,8 @@ describe('GatewayProvider', () => {
     (storage.saveLastGatewayLanIp as jest.Mock).mockResolvedValue(undefined);
     (storage.loadLastSelectedProfileId as jest.Mock).mockResolvedValue(null);
     (storage.saveLastSelectedProfileId as jest.Mock).mockResolvedValue(undefined);
+    (storage.loadApprovalsCount as jest.Mock).mockResolvedValue(0);
+    (storage.incrementApprovalsCount as jest.Mock).mockResolvedValue(1);
     (secureCredentials.saveApiKey as jest.Mock).mockResolvedValue(undefined);
     (fetchMobileRelayHealth as jest.Mock).mockResolvedValue({ ok: true });
     (fetchQueue as jest.Mock).mockResolvedValue({ events: [] });

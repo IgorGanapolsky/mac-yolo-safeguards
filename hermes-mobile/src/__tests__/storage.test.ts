@@ -83,4 +83,26 @@ describe('storage', () => {
     await storage.setHideCronSessions('http://127.0.0.1:8642', false);
     expect(await storage.loadHideCronSessions('http://127.0.0.1:8642')).toBe(false);
   });
+
+  it('persists approvals count and increments correctly', async () => {
+    expect(await storage.loadApprovalsCount()).toBe(0);
+
+    const count1 = await storage.incrementApprovalsCount();
+    expect(count1).toBe(1);
+    expect(await storage.loadApprovalsCount()).toBe(1);
+
+    const count2 = await storage.incrementApprovalsCount();
+    expect(count2).toBe(2);
+    expect(await storage.loadApprovalsCount()).toBe(2);
+  });
+
+  it('persists store review requested flag', async () => {
+    expect(await storage.hasRequestedReview()).toBe(false);
+
+    await storage.setRequestedReview(true);
+    expect(await storage.hasRequestedReview()).toBe(true);
+
+    await storage.setRequestedReview(false);
+    expect(await storage.hasRequestedReview()).toBe(false);
+  });
 });

@@ -145,6 +145,7 @@ import {
 import type { ApprovalChoice } from '../types/approval';
 import type { RelayWorker } from '../types/mobileRelay';
 import { resolveApprovalChoice } from '../services/approvalResolver';
+import { requestStoreReviewIfThresholdReached } from '../services/storeReview';
 import { fromPendingApproval } from '../utils/approvalNormalize';
 import { shouldScheduleApprovalNotification } from '../utils/smartNotificationPolicy';
 import {
@@ -2406,6 +2407,9 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
           ),
         );
         void dismissSingleApprovalNotification(pending.actionId);
+        if (choice === 'once' || choice === 'always') {
+          void storage.incrementApprovalsCount().then(() => requestStoreReviewIfThresholdReached());
+        }
         return;
       }
 
@@ -2437,6 +2441,9 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
           );
         }
         void dismissSingleApprovalNotification(pending.actionId);
+        if (choice === 'once' || choice === 'always') {
+          void storage.incrementApprovalsCount().then(() => requestStoreReviewIfThresholdReached());
+        }
         return;
       }
 
@@ -2467,6 +2474,9 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
       }
 
       void dismissSingleApprovalNotification(pending.actionId);
+      if (choice === 'once' || choice === 'always') {
+        void storage.incrementApprovalsCount().then(() => requestStoreReviewIfThresholdReached());
+      }
     },
     [captureLeashThumbgate, pendingApprovals, sendGateAction],
   );
