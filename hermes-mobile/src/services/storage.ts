@@ -17,6 +17,7 @@ const KEYS = {
   DISMISSED_PROMPTS: 'hermes-mobile:dismissed_prompts',
   DISMISSED_SESSION_IDS: 'hermes-mobile:dismissed_session_ids',
   HIDE_CRON_SESSIONS: 'hermes-mobile:hide_cron_sessions',
+  LAST_SELECTED_PROFILE_ID: 'hermes-mobile:last_selected_profile_id',
 };
 
 type DismissedSessionMap = Record<string, string[]>;
@@ -228,6 +229,27 @@ export const storage = {
       return await AsyncStorage.getItem(KEYS.LAST_GATEWAY_LAN_IP);
     } catch (error) {
       console.error('[hermes-mobile] loadLastGatewayLanIp failed:', error);
+      return null;
+    }
+  },
+
+  async saveLastSelectedProfileId(profileId: string | null): Promise<void> {
+    try {
+      if (profileId) {
+        await AsyncStorage.setItem(KEYS.LAST_SELECTED_PROFILE_ID, profileId);
+      } else {
+        await AsyncStorage.removeItem(KEYS.LAST_SELECTED_PROFILE_ID);
+      }
+    } catch (error) {
+      console.error('[hermes-mobile] saveLastSelectedProfileId failed:', error);
+    }
+  },
+
+  async loadLastSelectedProfileId(): Promise<string | null> {
+    try {
+      return await AsyncStorage.getItem(KEYS.LAST_SELECTED_PROFILE_ID);
+    } catch (error) {
+      console.error('[hermes-mobile] loadLastSelectedProfileId failed:', error);
       return null;
     }
   },

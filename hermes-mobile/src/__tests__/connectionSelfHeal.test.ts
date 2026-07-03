@@ -22,7 +22,17 @@ const profiles: GatewayProfile[] = [
 ];
 
 describe('connectionSelfHeal', () => {
-  it('prefers Tailscale saved URLs when LAN primary fails', () => {
+  it('prefers active profile URL then USB when activeProfileId is set', () => {
+    expect(
+      savedProfileFallbackUrls({
+        primaryUrl: 'http://192.168.68.56:8642',
+        profiles,
+        activeProfileId: 'lan',
+      }),
+    ).toEqual(['http://100.94.135.78:8642']);
+  });
+
+  it('prefers Tailscale saved URLs when LAN primary fails and no active id', () => {
     expect(
       savedProfileFallbackUrls({
         primaryUrl: 'http://192.168.68.56:8642',
@@ -32,14 +42,24 @@ describe('connectionSelfHeal', () => {
     ).toEqual(['http://100.94.135.78:8642']);
   });
 
-  it('builds probe list with Tailscale before USB loopback', () => {
+  it('builds probe list with active profile first then USB before Tailscale', () => {
     const urls = buildSelfHealProbeUrls({
       primaryUrl: 'http://192.168.68.56:8642',
       wifiConnected: true,
-      profiles,
+      profiles: [
+        ...profiles,
+        {
+          id: 'usb',
+          label: 'Computer via USB',
+          gatewayUrl: 'http://127.0.0.1:8642',
+          addedAt: '2026-06-28T00:00:02Z',
+        },
+      ],
       tailnetProbeHosts: ['igors-mac-mini.tail12aa33.ts.net'],
+      activeProfileId: 'lan',
     });
-    expect(urls[0]).toBe('http://100.94.135.78:8642');
+    expect(urls[0]).toBe('http://127.0.0.1:8642');
+    expect(urls).toContain('http://100.94.135.78:8642');
     expect(urls).toContain('http://igors-mac-mini.tail12aa33.ts.net:8642');
   });
 

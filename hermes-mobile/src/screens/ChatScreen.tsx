@@ -8,7 +8,6 @@ import {
   Pressable,
   Platform,
   ActivityIndicator,
-  Modal,
   RefreshControl,
   ScrollView,
   SectionList,
@@ -113,6 +112,7 @@ import ChatConnectionPanel from '../components/ChatConnectionPanel';
 import LoadingButton from '../components/ui/LoadingButton';
 import ChatInputBar from '../components/ChatInputBar';
 import ChatMessageListItem from '../components/ChatMessageListItem';
+import BottomSheetModal from '../components/BottomSheetModal';
 import ChatMessageDetailModal from '../components/ChatMessageDetailModal';
 import FeedbackPromptModal from '../components/FeedbackPromptModal';
 import GatewayOpsSection from '../components/GatewayOpsSection';
@@ -3806,15 +3806,11 @@ export default function ChatScreen() {
         ) : null}
       </View>
 
-      <Modal
+      <BottomSheetModal
         visible={macPickerVisible}
-        animationType="slide"
-        transparent={true}
-        statusBarTranslucent
-        onRequestClose={() => setMacPickerVisible(false)}
+        onClose={() => setMacPickerVisible(false)}
+        testID="mac-picker-modal"
       >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Choose your computer</Text>
               <TouchableOpacity onPress={() => setMacPickerVisible(false)}>
@@ -3898,18 +3894,14 @@ export default function ChatScreen() {
                 style={styles.newChatBtn}
               />
             </ScrollView>
-          </View>
-        </View>
-      </Modal>
+      </BottomSheetModal>
 
-      <Modal
+      <BottomSheetModal
         visible={toolsModalVisible}
-        animationType="slide"
-        transparent={true}
-        onRequestClose={() => setToolsModalVisible(false)}
+        onClose={() => setToolsModalVisible(false)}
+        contentStyle={styles.toolsModalContent}
+        testID="tools-modal"
       >
-        <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, styles.toolsModalContent]}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle} testID="tools-modal-title">Tools</Text>
               <TouchableOpacity onPress={() => setToolsModalVisible(false)}>
@@ -3922,18 +3914,13 @@ export default function ChatScreen() {
             <ScrollView style={styles.toolsModalScroll} keyboardShouldPersistTaps="handled">
               <GatewayOpsSection />
             </ScrollView>
-          </View>
-        </View>
-      </Modal>
+      </BottomSheetModal>
 
-      <Modal
+      <BottomSheetModal
         visible={sessionModalVisible}
-        animationType="slide"
-        transparent={true}
-        onRequestClose={() => setSessionModalVisible(false)}
+        onClose={() => setSessionModalVisible(false)}
+        testID="threads-modal"
       >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
               <View>
                 <Text style={styles.modalTitle} testID="threads-modal-title">Threads</Text>
@@ -4070,18 +4057,13 @@ export default function ChatScreen() {
                 }
               />
             )}
-          </View>
-        </View>
-      </Modal>
+      </BottomSheetModal>
 
-      <Modal
+      <BottomSheetModal
         visible={projectModalVisible}
-        animationType="slide"
-        transparent={true}
-        onRequestClose={() => setProjectModalVisible(false)}
+        onClose={() => setProjectModalVisible(false)}
+        testID="project-modal"
       >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Add computer workspace</Text>
               <TouchableOpacity onPress={() => setProjectModalVisible(false)}>
@@ -4115,18 +4097,15 @@ export default function ChatScreen() {
             <TouchableOpacity style={styles.newChatBtn} onPress={handleAddProject} testID="save-project-button">
               <Text style={styles.newChatBtnText}>Add project</Text>
             </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
+      </BottomSheetModal>
 
-      <Modal
+      <BottomSheetModal
         visible={renameModalVisible}
+        onClose={() => setRenameModalVisible(false)}
         animationType="fade"
-        transparent={true}
-        onRequestClose={() => setRenameModalVisible(false)}
+        contentStyle={{ minHeight: 180, justifyContent: 'center' }}
+        testID="rename-modal"
       >
-        <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, { minHeight: 180, justifyContent: 'center' }]}>
             <Text style={[styles.modalTitle, { marginBottom: 12 }]} testID="rename-modal-title">
               Rename thread
             </Text>
@@ -4165,9 +4144,7 @@ export default function ChatScreen() {
                 <Text style={{ color: colors.text, fontWeight: '700' }}>Save</Text>
               </TouchableOpacity>
             </View>
-          </View>
-        </View>
-      </Modal>
+      </BottomSheetModal>
 
       <ChatMessageDetailModal
         visible={messageDetail != null}
@@ -4592,20 +4569,6 @@ const styles = StyleSheet.create({
     color: colors.error,
     fontSize: 16,
     fontWeight: '800',
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
-    justifyContent: 'flex-end',
-  },
-  modalContent: {
-    backgroundColor: '#0F1321',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    maxHeight: '80%',
-    padding: 20,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
   },
   toolsModalContent: {
     maxHeight: '88%',

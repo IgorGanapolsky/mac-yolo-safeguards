@@ -32,23 +32,27 @@ jest.mock('../services/approvalNotifications', () => ({
   syncSmartApprovalNotifications: jest.fn().mockResolvedValue(undefined),
   addApprovalNotificationResponseListener: jest.fn().mockResolvedValue({ remove: jest.fn() }),
 }));
-jest.mock('../services/gatewayProfiles', () => ({
-  gatewayProfiles: {
-    load: jest.fn().mockResolvedValue({ profiles: [], activeProfileId: null }),
-    save: jest.fn().mockResolvedValue(undefined),
-    clear: jest.fn().mockResolvedValue(undefined),
-  },
-  activeProfile: jest.fn(() => null),
-  migrateLegacyGateway: jest.fn((state) => state),
-  upsertDiscoveredProfile: jest.fn((state, discovered, makeActive) => ({
-    profiles: [...state.profiles, { id: 'p1', label: 'Mac', gatewayUrl: discovered.gatewayUrl, addedAt: '' }],
-    activeProfileId: makeActive ? 'p1' : state.activeProfileId,
-  })),
-  selectProfile: jest.fn((state, id) => ({ ...state, activeProfileId: id })),
-  removeProfile: jest.fn((state) => state),
-  touchProfileHealth: jest.fn((state) => state),
-  dedupeGatewayProfiles: jest.fn((state) => state),
-}));
+jest.mock('../services/gatewayProfiles', () => {
+  const actual = jest.requireActual('../services/gatewayProfiles');
+  return {
+    ...actual,
+    gatewayProfiles: {
+      load: jest.fn().mockResolvedValue({ profiles: [], activeProfileId: null }),
+      save: jest.fn().mockResolvedValue(undefined),
+      clear: jest.fn().mockResolvedValue(undefined),
+    },
+    activeProfile: jest.fn(() => null),
+    migrateLegacyGateway: jest.fn((state) => state),
+    upsertDiscoveredProfile: jest.fn((state, discovered, makeActive) => ({
+      profiles: [...state.profiles, { id: 'p1', label: 'Mac', gatewayUrl: discovered.gatewayUrl, addedAt: '' }],
+      activeProfileId: makeActive ? 'p1' : state.activeProfileId,
+    })),
+    selectProfile: jest.fn((state, id) => ({ ...state, activeProfileId: id })),
+    removeProfile: jest.fn((state) => state),
+    touchProfileHealth: jest.fn((state) => state),
+    dedupeGatewayProfiles: jest.fn((state) => state),
+  };
+});
 jest.mock('../services/thumbgateIap', () => ({
   initializeThumbgateIapListeners: jest.fn(),
   syncThumbgateLeashEntitlement: jest.fn(() => Promise.resolve(true)),
@@ -245,6 +249,8 @@ describe('GatewayProvider', () => {
     (storage.saveGatewaySettings as jest.Mock).mockResolvedValue(undefined);
     (storage.loadLastGatewayLanIp as jest.Mock).mockResolvedValue(null);
     (storage.saveLastGatewayLanIp as jest.Mock).mockResolvedValue(undefined);
+    (storage.loadLastSelectedProfileId as jest.Mock).mockResolvedValue(null);
+    (storage.saveLastSelectedProfileId as jest.Mock).mockResolvedValue(undefined);
     (secureCredentials.saveApiKey as jest.Mock).mockResolvedValue(undefined);
     (fetchMobileRelayHealth as jest.Mock).mockResolvedValue({ ok: true });
     (fetchQueue as jest.Mock).mockResolvedValue({ events: [] });
