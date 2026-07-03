@@ -87,6 +87,14 @@ export function humanizeComposerStatus(status: string): string {
   return humanizeRunProgressDetail(trimmed);
 }
 
+/** True while Hermes is still sending or working on an outbound prompt (not terminal). */
+export function isActiveChatRun(runProgress: RunProgressState | null | undefined): boolean {
+  if (!runProgress) {
+    return false;
+  }
+  return runProgress.phase !== 'completed' && runProgress.phase !== 'failed';
+}
+
 /** Outbound bubbles already show Sending — skip the bulky composer banner until a run id exists. */
 export function shouldShowComposerProgressBanner(
   progress: RunProgressState | null | undefined,
