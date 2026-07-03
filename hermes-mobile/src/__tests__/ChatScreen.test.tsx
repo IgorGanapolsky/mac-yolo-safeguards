@@ -507,6 +507,7 @@ describe('ChatScreen', () => {
 
     expect(queryByTestId('submitted-prompt-strip')).toBeNull();
     expect(queryByTestId('chat-empty-state')).toBeNull();
+    expect(queryByTestId('chat-empty-recent-chats')).toBeNull();
     expect(getAllByTestId('chat-message-user').length).toBeGreaterThanOrEqual(1);
 
     act(() => {
@@ -538,6 +539,89 @@ describe('ChatScreen', () => {
     });
     expect(getAllByTestId('chat-message-user').length).toBeGreaterThanOrEqual(userCountAfterFirstSend);
     await flushPendingTimers();
+  });
+
+  it('hides recent thread cards after send on connected Mac with empty thread', async () => {
+    const { listSessions, listMessages } = jest.requireMock('../services/hermesChatClient') as {
+      listSessions: jest.Mock;
+      listMessages: jest.Mock;
+    };
+    const { streamSessionChat } = jest.requireMock('../services/hermesGatewayClient') as {
+      streamSessionChat: jest.Mock;
+    };
+    const { chatProjects } = jest.requireMock('../services/chatProjects') as {
+      chatProjects: { load: jest.Mock };
+    };
+
+    listSessions.mockResolvedValue([
+      {
+        id: 'sess-diagnose',
+        title: 'Diagnosing Hermes 20-Minu',
+        last_active_at: '2026-06-23T12:00:00Z',
+      },
+      {
+        id: 'sess-ibm',
+        title: 'IBM Job Application',
+        last_active_at: '2026-06-22T12:00:00Z',
+      },
+      {
+        id: 'sess-empty',
+        title: 'Empty active thread',
+        last_active_at: '2026-06-24T12:00:00Z',
+      },
+    ]);
+    listMessages.mockResolvedValue([]);
+    chatProjects.load.mockResolvedValue({
+      projects: [
+        {
+          id: 'demo-hermes-mobile',
+          name: 'hermes-mobile',
+          workspacePath: '~/workspace/git/igor/mac-yolo-safeguards/hermes-mobile',
+          sessionIds: ['sess-empty'],
+          activeSessionId: 'sess-empty',
+        },
+      ],
+      sessionProjectMap: { 'sess-empty': 'demo-hermes-mobile' },
+      sessionLabels: { 'sess-empty': 'hermes-mobile' },
+      activeProjectId: 'demo-hermes-mobile',
+    });
+    streamSessionChat.mockResolvedValue('');
+
+    Object.assign(mockGatewayState, {
+      connectionState: 'connected',
+      health: {
+        ok: true,
+        level: 'green',
+        hostname: 'demo-mac.local',
+        localIp: '127.0.0.1',
+        checkedAt: '2026-06-26T00:00:00Z',
+      },
+      settings: {
+        demoMode: false,
+        connectionMode: 'gateway',
+        gatewayUrl: 'http://localhost:8642',
+        cloudUrl: 'https://hermesmobile-cloud.fly.dev',
+        approvalPolicy: 'balanced',
+      },
+    });
+
+    const { getByTestId, getAllByTestId, queryByTestId } = await renderChatScreen();
+
+    await waitFor(() => {
+      expect(queryByTestId('chat-empty-recent-chats')).toBeTruthy();
+    });
+
+    act(() => {
+      fireEvent.changeText(getByTestId('chat-input'), 'Fix the send visibility bug');
+      fireEvent.press(getByTestId('chat-send-button'));
+    });
+
+    await waitFor(() => {
+      expect(queryByTestId('chat-empty-recent-chats')).toBeNull();
+      expect(queryByTestId('chat-empty-state')).toBeNull();
+      expect(getAllByTestId('chat-message-user').length).toBeGreaterThanOrEqual(1);
+      expect(getByTestId('chat-input').props.placeholder).toMatch(/Sending|Add another message/i);
+    });
   });
 
   it('clears composer after send and ignores Android IME echo onChangeText', async () => {
@@ -1234,7 +1318,15 @@ describe('ChatScreen', () => {
     ];
 
     listSessions.mockResolvedValue(macSessions);
-    listMessages.mockResolvedValue([]);
+    listMessages.mockImplementation(async (_url: string, sessionId: string) => {
+      if (sessionId === 'sess_june15') {
+        return [
+          { role: 'user', content: 'telegram reliability check', id: 'm-june-u' },
+          { role: 'assistant', content: 'gateway is healthy', id: 'm-june-a' },
+        ];
+      }
+      return [];
+    });
     chatProjects.load.mockResolvedValue({
       projects: [
         {
@@ -1281,7 +1373,7 @@ describe('ChatScreen', () => {
       },
     });
 
-    const { findByTestId, getByTestId } = await renderChatScreen();
+    const { findByText, getByTestId, queryByTestId } = await renderChatScreen();
 
     await waitFor(() => {
       expect(getByTestId('recent-chat-sess_june15')).toBeTruthy();
@@ -1306,8 +1398,9 @@ describe('ChatScreen', () => {
       );
     });
 
-    expect(getByTestId('chat-empty-greeting-subtitle').props.children).not.toMatch(/Can't reach/);
-    expect(await findByTestId('recent-chat-sess_june15')).toBeTruthy();
+    expect(await findByText('telegram reliability check')).toBeTruthy();
+    expect(await findByText('gateway is healthy')).toBeTruthy();
+    expect(queryByTestId('chat-empty-recent-chats')).toBeNull();
   });
 
   it('clear all empties messages and stays on new chat after gateway reload', async () => {

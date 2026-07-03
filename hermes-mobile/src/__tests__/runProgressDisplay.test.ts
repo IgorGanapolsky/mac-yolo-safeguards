@@ -2,6 +2,7 @@ import {
   displayableLlmModel,
   humanizeComposerStatus,
   humanizeRunProgressDetail,
+  isActiveChatRun,
   runProgressFailedTitle,
   shouldShowComposerProgressBanner,
 } from '../utils/runProgressDisplay';
@@ -16,6 +17,40 @@ describe('runProgressDisplay', () => {
   it('humanizes composer status lines', () => {
     expect(humanizeComposerStatus('tool.completed: skill_view')).toBe('Hermes is working on your computer…');
     expect(humanizeComposerStatus('Queued on active Hermes thread — waiting for reply…')).toContain('Queued');
+  });
+
+  it('treats non-terminal run progress as an active chat run', () => {
+    expect(isActiveChatRun(null)).toBe(false);
+    expect(isActiveChatRun(undefined)).toBe(false);
+    expect(
+      isActiveChatRun({
+        phase: 'sending',
+        startedAtMs: Date.now(),
+        detail: 'Delivering your message…',
+      }),
+    ).toBe(true);
+    expect(
+      isActiveChatRun({
+        phase: 'streaming',
+        startedAtMs: Date.now(),
+        detail: 'Running tests',
+        runId: 'run-1',
+      }),
+    ).toBe(true);
+    expect(
+      isActiveChatRun({
+        phase: 'completed',
+        startedAtMs: Date.now(),
+        detail: 'Done',
+      }),
+    ).toBe(false);
+    expect(
+      isActiveChatRun({
+        phase: 'failed',
+        startedAtMs: Date.now(),
+        detail: 'Something went wrong',
+      }),
+    ).toBe(false);
   });
 
   it('hides composer banner while sending before a run id exists', () => {

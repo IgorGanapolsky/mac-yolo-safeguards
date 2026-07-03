@@ -92,6 +92,7 @@ import { isThumbgateLeashUnlocked } from '../utils/thumbgateLeash';
 import {
   displayableLlmModel,
   humanizeComposerStatus,
+  isActiveChatRun,
   shouldShowComposerProgressBanner,
 } from '../utils/runProgressDisplay';
 import { isChatNearBottom } from '../utils/chatScrollSync';
@@ -101,6 +102,7 @@ import {
 } from '../utils/chatOutboundDisplay';
 import {
   hasAssistantReplyInMessages,
+  hasUserMessageInTranscript,
   shouldShowRecentChatsPanel,
 } from '../utils/chatRecentChatsPanel';
 import ChatScreenHeader from '../components/ChatScreenHeader';
@@ -379,6 +381,8 @@ export default function ChatScreen() {
   const transcriptSyncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const refreshInFlightRef = useRef(false);
   const refreshQueuedRef = useRef(false);
+  /** When a force/manual select is requested while a refresh is in flight, replay with force. */
+  const refreshQueuedForceRef = useRef(false);
   const deferredTelegramPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const runProgressRef = useRef<RunProgressState | null>(null);
   const sendProgressSnapshotRef = useRef<RunProgressState | null>(null);
@@ -587,11 +591,16 @@ export default function ChatScreen() {
     if (isSending) {
       return false;
     }
+    if (isActiveChatRun(runProgress)) {
+      return false;
+    }
     if (messages.some((message) => message.role === 'user' && message.id?.startsWith('user-'))) {
       return false;
     }
     return true;
-  }, [messages, pinnedOutboundText, isSending]);
+  }, [messages, pinnedOutboundText, isSending, runProgress]);
+
+  const hasUserMessage = useMemo(() => hasUserMessageInTranscript(messages), [messages]);
 
   const showSubmittedPromptStrip = useMemo(
     () => shouldShowSubmittedPromptStrip(pinnedOutboundText, messages),
@@ -1076,6 +1085,10 @@ export default function ChatScreen() {
         messageCount: messages.length,
         hasAssistantReply,
         recentChatsDismissed,
+        isSending,
+        pinnedOutboundText,
+        hasActiveRun: isActiveChatRun(runProgress),
+        hasUserMessage,
       }),
     [
       macChatLive,
@@ -1086,6 +1099,10 @@ export default function ChatScreen() {
       messages.length,
       hasAssistantReply,
       recentChatsDismissed,
+      isSending,
+      pinnedOutboundText,
+      runProgress,
+      hasUserMessage,
     ],
   );
 
@@ -1429,17 +1446,40 @@ export default function ChatScreen() {
         return;
       }
 
-
-
       if (refreshInFlightRef.current) {
-        if (options?.background || options?.manual) {
+        // Force/manual selects must not be dropped — empty-state Recents taps race background polls.
+        if (options?.background || options?.manual || options?.force) {
           refreshQueuedRef.current = true;
+          if (options?.force || options?.manual) {
+            refreshQueuedForceRef.current = true;
+          }
         }
         return;
       }
       refreshInFlightRef.current = true;
+      const requestedSessionId = activeSession.id;
+
+      const finishRefresh = () => {
+        setIsLoadingMessages(false);
+        setIsPullRefreshing(false);
+        refreshInFlightRef.current = false;
+        if (!refreshQueuedRef.current) {
+          return;
+        }
+        refreshQueuedRef.current = false;
+        const force = refreshQueuedForceRef.current;
+        refreshQueuedForceRef.current = false;
+        queueMicrotask(() => {
+          void refreshSessionMessages(
+            force ? { background: false, force: true } : { background: true },
+          );
+        });
+      };
 
       const applyMergedMessages = (merged: HermesMessage[]) => {
+        if (currentSessionRef.current?.id !== requestedSessionId) {
+          return;
+        }
         const digest = transcriptDigest(merged);
         if (digest === transcriptDigestRef.current) {
           return;
@@ -1489,7 +1529,7 @@ export default function ChatScreen() {
           ];
         }
         applyMergedMessages(mergeWithLocalPending(seedMessages));
-        refreshInFlightRef.current = false;
+        finishRefresh();
         return;
       }
 
@@ -1513,11 +1553,17 @@ export default function ChatScreen() {
                 includeHermesStatus: true,
               },
             );
+          if (currentSessionRef.current?.id !== requestedSessionId) {
+            return;
+          }
           applyMergedMessages(mergeWithLocalPending(dedupeChatMessages(tgMessages)));
           setTelegramReplySessionId(replySessionId);
           setTelegramInboxMeta({ threadCount, messageCap });
         } else {
           const history = await listMessages(gatewayUrl, activeSession.id, apiKey);
+          if (currentSessionRef.current?.id !== requestedSessionId) {
+            return;
+          }
           const displayMessages = dedupeChatMessages(
             prepareMessagesForDisplay(history, {
               includeToolActivity: settings.includeToolActivity,
@@ -1529,20 +1575,14 @@ export default function ChatScreen() {
           setTelegramInboxMeta({ threadCount: 0, messageCap: 0 });
         }
       } catch (err) {
-        applyChatApiError(err, 'Could not load messages from your computer.', options);
-      } finally {
-        setIsLoadingMessages(false);
-        setIsPullRefreshing(false);
-        refreshInFlightRef.current = false;
-        if (refreshQueuedRef.current) {
-          refreshQueuedRef.current = false;
-          queueMicrotask(() => {
-            void refreshSessionMessages({ background: true });
-          });
+        if (currentSessionRef.current?.id === requestedSessionId) {
+          applyChatApiError(err, 'Could not load messages from your computer.', options);
         }
+      } finally {
+        finishRefresh();
       }
     },
-    [isDemo, gatewayUrl, apiKey, settings.includeToolActivity, applyChatApiError],
+    [isDemo, gatewayUrl, apiKey, macChatLive, settings.includeToolActivity, applyChatApiError],
   );
 
   refreshSessionMessagesRef.current = refreshSessionMessages;
@@ -1742,13 +1782,14 @@ export default function ChatScreen() {
 
   useEffect(() => {
     setUndoSecondsLeft(0);
-    if (pendingOutboundSendsRef.current === 0 && !isSendingRef.current) {
-      setPinnedOutboundText(null);
-      setPinnedOutboundStatus('pending');
-    }
-    if (pendingOutboundSendsRef.current > 0 || isSendingRef.current) {
+    const hasActiveOutbound =
+      pendingOutboundSendsRef.current > 0 || isSendingRef.current;
+    const hasActiveRun = isActiveChatRun(runProgressRef.current);
+    if (hasActiveOutbound || hasActiveRun) {
       return;
     }
+    setPinnedOutboundText(null);
+    setPinnedOutboundStatus('pending');
     setRunProgress(null);
     transcriptDigestRef.current = '';
     messagesRef.current = [];
@@ -2488,6 +2529,7 @@ export default function ChatScreen() {
     };
     pendingOutboundSendsRef.current += 1;
     commitMessages((prev) => [...prev, userMessage]);
+    setRecentChatsDismissed(true);
     setPinnedOutboundText(trimmed);
     setPinnedOutboundStatus('pending');
     setToolStatus(null);
@@ -3372,17 +3414,20 @@ export default function ChatScreen() {
     async (session: HermesSession) => {
       haptics.light();
       setRecentChatsDismissed(false);
+      setSessionModalVisible(false);
       skipSessionAutoSelectRef.current = false;
       manualSessionSelectRef.current = session.id;
       currentSessionRef.current = session;
-      setCurrentSession(session);
+      transcriptDigestRef.current = '';
       messagesRef.current = [];
       setMessages([]);
+      setCurrentSession(session);
+      // Load transcript immediately — do not wait on project persist (Recents taps felt dead).
+      void refreshSessionMessagesRef.current?.({ background: false, force: true });
       if (activeProject) {
         const next = setActiveSession(projectState, activeProject.id, session.id);
         await persistProjectState(next);
       }
-      void refreshSessionMessagesRef.current?.({ background: false, force: true });
     },
     [activeProject, projectState, persistProjectState],
   );
@@ -3991,15 +4036,8 @@ export default function ChatScreen() {
                     <View style={styles.sessionItemRowContainer}>
                       <TouchableOpacity
                         style={[styles.sessionItem, isActive && styles.sessionItemActive, { flex: 1 }]}
-                        onPress={async () => {
-                          haptics.light();
-                          setRecentChatsDismissed(false);
-                          setCurrentSession(item);
-                          setSessionModalVisible(false);
-                          if (activeProject) {
-                            const next = setActiveSession(projectState, activeProject.id, item.id);
-                            await persistProjectState(next);
-                          }
+                        onPress={() => {
+                          void handleSelectAgentThread(item);
                         }}
                       >
                         <View style={styles.sessionItemTitleRow}>
