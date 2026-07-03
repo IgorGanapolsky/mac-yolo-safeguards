@@ -1073,9 +1073,17 @@ export default function ChatScreen() {
     () => hasAssistantReplyInMessages(messages),
     [messages],
   );
+  const activeOutboundTurn = Boolean(
+    isSending ||
+      pinnedOutboundText?.trim() ||
+      (runProgress &&
+        runProgress.phase !== 'completed' &&
+        runProgress.phase !== 'failed'),
+  );
 
   const showRecentChatsPanel = useMemo(
     () =>
+      !activeOutboundTurn &&
       shouldShowRecentChatsPanel({
         macChatLive,
         showMacConnectionHelp,
@@ -1091,6 +1099,7 @@ export default function ChatScreen() {
         hasUserMessage,
       }),
     [
+      activeOutboundTurn,
       macChatLive,
       showMacConnectionHelp,
       visibleSessions.length,

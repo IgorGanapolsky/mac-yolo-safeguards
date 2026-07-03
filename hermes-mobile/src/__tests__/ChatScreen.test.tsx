@@ -494,6 +494,58 @@ describe('ChatScreen', () => {
     expect(sendChatMessage).not.toHaveBeenCalled();
   });
 
+  it('shows the submitted prompt immediately instead of keeping recents visible', async () => {
+    const { listMessages } = jest.requireMock('../services/hermesChatClient') as {
+      listMessages: jest.Mock;
+    };
+    const { streamSessionChat } = jest.requireMock('../services/hermesGatewayClient') as {
+      streamSessionChat: jest.Mock;
+    };
+    let resolveStream: (value: string) => void = () => {};
+    listMessages.mockResolvedValue([]);
+    streamSessionChat.mockImplementation(
+      () =>
+        new Promise<string>((resolve) => {
+          resolveStream = resolve;
+        }),
+    );
+    Object.assign(mockGatewayState, {
+      connectionState: 'connected',
+      health: {
+        ok: true,
+        level: 'green',
+        hostname: 'demo-mac.local',
+        localIp: '127.0.0.1',
+        directGatewayReachable: true,
+        checkedAt: '2026-07-03T17:24:00Z',
+      },
+      settings: {
+        demoMode: false,
+        connectionMode: 'gateway',
+        gatewayUrl: 'http://localhost:8642',
+        cloudUrl: 'https://hermesmobile-cloud.fly.dev',
+        approvalPolicy: 'balanced',
+      },
+    });
+    const { getByTestId, getByText, queryByTestId } = await renderChatScreen();
+
+    await waitFor(() => {
+      expect(getByTestId('chat-empty-recent-chats')).toBeTruthy();
+    });
+
+    act(() => {
+      fireEvent.changeText(getByTestId('chat-input'), 'show this prompt now');
+      fireEvent.press(getByTestId('chat-send-button'));
+    });
+
+    expect(getByText('show this prompt now')).toBeTruthy();
+    expect(queryByTestId('chat-empty-recent-chats')).toBeNull();
+    expect(queryByTestId('recent-chat-session-1')).toBeNull();
+    await act(async () => {
+      resolveStream('done');
+    });
+  });
+
   it('triggers mock message sending and demo reply in demo mode', async () => {
     const { getByTestId, getAllByTestId, queryByTestId } = await renderChatScreen();
     jest.useFakeTimers();
