@@ -16,7 +16,7 @@ import {
   isLoopbackHost,
   isValidGatewayUrl,
 } from '../utils/gatewayUrlPolicy';
-import { isTailnetRouteLabel, isTailscaleGatewayUrl, isTailscaleIpv4 } from '../utils/tailscaleHosts';
+import { isTailnetRouteLabel, isTailscaleGatewayUrl, isTailscaleIpv4, magicDnsDeviceName } from '../utils/tailscaleHosts';
 
 const STORAGE_KEY = 'hermes-mobile:gateway_profiles';
 
@@ -149,6 +149,13 @@ export function profileDisplayName(profile: GatewayProfile): string {
   if (hostname && hostname !== ip) {
     return hostname;
   }
+  // Derive a real device name from a Tailscale MagicDNS host (igors-s25-1.tailXXXX.ts.net ->
+  // igors-s25-1) so name-less or stale-generic-labelled Tailscale profiles show a real name
+  // instead of "Computer". Must run before the stale-label fallback below.
+  const magicName = magicDnsDeviceName(profile.hostname) ?? magicDnsDeviceName(profile.gatewayUrl);
+  if (magicName) {
+    return magicName;
+  }
   if (isLoopbackGatewayUrl(profile.gatewayUrl)) {
     return GENERIC_USB_PROFILE_LABEL;
   }
@@ -213,6 +220,7 @@ function normalizeMachineKey(value: string | undefined): string | undefined {
 function profileMachineKey(profile: GatewayProfile): string | undefined {
   return (
     normalizeMachineKey(profile.hostname) ||
+    normalizeMachineKey(magicDnsDeviceName(profile.gatewayUrl)) ||
     (profile.label && !isGenericMachineLabel(profile.label)
       ? normalizeMachineKey(profile.label)
       : undefined)

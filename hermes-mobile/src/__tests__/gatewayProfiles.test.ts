@@ -269,6 +269,35 @@ describe('gatewayProfiles', () => {
     expect(name).toBe('Igors-Mac-mini');
   });
 
+  it('derives the device name from a Tailscale MagicDNS URL instead of a generic Computer label', () => {
+    const s25 = profileDisplayName({
+      id: 's25',
+      label: 'Computer via Tailscale',
+      gatewayUrl: 'http://igors-s25-1.tail12aa33.ts.net:8642',
+      addedAt: '2026-07-03T12:00:00.000Z',
+    });
+    expect(s25).toBe('igors-s25-1');
+
+    const mini = profileDisplayName({
+      id: 'mini',
+      label: 'Computer via Tailscale',
+      gatewayUrl: 'http://igors-mac-mini.tail12aa33.ts.net:8642',
+      addedAt: '2026-07-03T12:00:00.000Z',
+    });
+    expect(mini).toBe('igors-mac-mini');
+  });
+
+  it('does not invent a name for a raw Tailscale CGNAT IP profile', () => {
+    const name = profileDisplayName({
+      id: 'raw',
+      label: 'Computer via Tailscale',
+      gatewayUrl: 'http://100.94.135.78:8642',
+      addedAt: '2026-07-03T12:00:00.000Z',
+    });
+    expect(name).not.toBe('100.94.135.78');
+    expect(name.toLowerCase()).toContain('computer');
+  });
+
   it('filters junk http-label profiles on sanitize', () => {
     const state = sanitizeGatewayProfileState({
       profiles: [
