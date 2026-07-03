@@ -16,7 +16,7 @@ import {
   isLoopbackHost,
   isValidGatewayUrl,
 } from '../utils/gatewayUrlPolicy';
-import { isTailnetRouteLabel, isTailscaleGatewayUrl, isTailscaleIpv4 } from '../utils/tailscaleHosts';
+import { isTailnetRouteLabel, isTailscaleGatewayHost, isTailscaleGatewayUrl, isTailscaleIpv4 } from '../utils/tailscaleHosts';
 
 const STORAGE_KEY = 'hermes-mobile:gateway_profiles';
 
@@ -122,11 +122,34 @@ function bonjourHostname(hostname: string | undefined): string | undefined {
   return host;
 }
 
+function tailnetMachineName(value: string | undefined): string | undefined {
+  const host = value
+    ?.trim()
+    .replace(/^https?:\/\//i, '')
+    .split('/')[0]
+    ?.split(':')[0]
+    ?.trim();
+  if (!host || !isTailscaleGatewayHost(host) || isTailscaleIpv4(host)) {
+    return undefined;
+  }
+  const machine = host.split('.')[0]?.trim();
+  if (!machine || isGenericProfileLabel(machine)) {
+    return undefined;
+  }
+  return machine;
+}
+
 function pickFriendlyProfileLabel(...candidates: (string | undefined)[]): string | undefined {
   for (const value of candidates) {
     const trimmed = value?.trim();
     if (trimmed && !isBareIp(trimmed) && !isGenericProfileLabel(trimmed) && !isTailnetRouteLabel(trimmed)) {
       return trimmed;
+    }
+  }
+  for (const value of candidates) {
+    const tailnetName = tailnetMachineName(value);
+    if (tailnetName) {
+      return tailnetName;
     }
   }
   for (const value of candidates) {
@@ -142,6 +165,11 @@ export function profileDisplayName(profile: GatewayProfile): string {
   const ip = resolveDisplayLanIp(profile.localIp, profile.gatewayUrl);
   const hostname = bonjourHostname(profile.hostname);
   const label = profile.label?.trim();
+  const urlHost = gatewayUrlHostname(profile.gatewayUrl);
+  const tailnetName =
+    tailnetMachineName(label) ||
+    tailnetMachineName(profile.hostname) ||
+    tailnetMachineName(urlHost);
 
   if (label && !isBareIp(label) && label !== ip && !isGenericProfileLabel(label) && !isTailnetRouteLabel(label)) {
     return label;
@@ -149,19 +177,24 @@ export function profileDisplayName(profile: GatewayProfile): string {
   if (hostname && hostname !== ip) {
     return hostname;
   }
+  if (tailnetName) {
+    return tailnetName;
+  }
   if (isLoopbackGatewayUrl(profile.gatewayUrl)) {
     return GENERIC_USB_PROFILE_LABEL;
   }
   if (ip && !isTailscaleIpv4(ip)) {
     return `Computer ${ip}`;
   }
-  if (label && !isTailnetRouteLabel(label)) {
+  if (ip && isTailscaleIpv4(ip)) {
+    return `Tailscale ${ip}`;
+  }
+  if (label && !isTailnetRouteLabel(label) && !isGenericProfileLabel(label)) {
     return label;
   }
   if (hostname) {
     return hostname;
   }
-  const urlHost = gatewayUrlHostname(profile.gatewayUrl);
   if (urlHost && !isTailnetRouteLabel(urlHost)) {
     return urlHost;
   }
@@ -212,6 +245,9 @@ function normalizeMachineKey(value: string | undefined): string | undefined {
 
 function profileMachineKey(profile: GatewayProfile): string | undefined {
   return (
+    tailnetMachineName(profile.hostname) ||
+    tailnetMachineName(profile.label) ||
+    tailnetMachineName(gatewayUrlHostname(profile.gatewayUrl)) ||
     normalizeMachineKey(profile.hostname) ||
     (profile.label && !isGenericMachineLabel(profile.label)
       ? normalizeMachineKey(profile.label)
@@ -404,6 +440,8 @@ export function upsertDiscoveredProfile(
   const label =
     discovered.label?.trim() ||
     bonjourHostname(hostname) ||
+    tailnetMachineName(hostname) ||
+    tailnetMachineName(urlHost) ||
     (urlHost && !isTailnetRouteLabel(urlHost) ? urlHost : undefined) ||
     'Computer';
 

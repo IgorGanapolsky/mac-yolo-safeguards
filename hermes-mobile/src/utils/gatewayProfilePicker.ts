@@ -30,8 +30,30 @@ export function profilePickerLines(profile: GatewayProfile): ProfilePickerLines 
   return { title };
 }
 
+function profilePickerDedupeKey(profile: GatewayProfile): string {
+  const route = profileConnectionRouteLabel(profile, true);
+  const title = profileDisplayName(profile).trim().toLowerCase();
+  if (title) {
+    return `${route}:${title}`;
+  }
+  return `${route}:${gatewayUrlHostname(profile.gatewayUrl) ?? profile.gatewayUrl}`;
+}
+
 export function profilesForDevicePicker(profiles: GatewayProfile[]): GatewayProfile[] {
-  return profiles.filter((p) => !isInvalidGatewayProfile(p));
+  const seen = new Set<string>();
+  const result: GatewayProfile[] = [];
+  for (const profile of profiles) {
+    if (isInvalidGatewayProfile(profile)) {
+      continue;
+    }
+    const key = profilePickerDedupeKey(profile);
+    if (seen.has(key)) {
+      continue;
+    }
+    seen.add(key);
+    result.push(profile);
+  }
+  return result;
 }
 
 const GENERIC_USB_LOOPBACK_ID = 'mac_usb_loopback';
