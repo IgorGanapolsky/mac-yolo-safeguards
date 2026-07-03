@@ -70,6 +70,7 @@ import {
   filterDismissedThreadSessions,
   isAutomatedCronSession,
   isRecentsRailSession,
+  deriveThreadTitleFromMessage,
   sessionDisplayTitle,
   sessionPickerLabel,
   sessionLastActiveValue,
@@ -607,6 +608,24 @@ export default function ChatScreen() {
     [pinnedOutboundText, messages],
   );
 
+  const lastVisibleMessageKey = useMemo(() => {
+    const last = messages[messages.length - 1];
+    if (!last) {
+      return '';
+    }
+    return `${last.id ?? messages.length}:${last.role ?? ''}:${last.content ?? ''}`;
+  }, [messages]);
+
+  useEffect(() => {
+    if (!lastVisibleMessageKey) {
+      return;
+    }
+    if (isSending || runProgress || pinnedOutboundText?.trim()) {
+      userNearBottomRef.current = true;
+      scrollChatToLatest(false);
+    }
+  }, [isSending, lastVisibleMessageKey, pinnedOutboundText, runProgress, scrollChatToLatest]);
+
   useEffect(() => {
     if (connectionState !== 'connecting') {
       connectingSinceRef.current = null;
@@ -1073,9 +1092,17 @@ export default function ChatScreen() {
     () => hasAssistantReplyInMessages(messages),
     [messages],
   );
+  const activeOutboundTurn = Boolean(
+    isSending ||
+      pinnedOutboundText?.trim() ||
+      (runProgress &&
+        runProgress.phase !== 'completed' &&
+        runProgress.phase !== 'failed'),
+  );
 
   const showRecentChatsPanel = useMemo(
     () =>
+      !activeOutboundTurn &&
       shouldShowRecentChatsPanel({
         macChatLive,
         showMacConnectionHelp,
@@ -1091,6 +1118,7 @@ export default function ChatScreen() {
         hasUserMessage,
       }),
     [
+      activeOutboundTurn,
       macChatLive,
       showMacConnectionHelp,
       visibleSessions.length,
@@ -1549,7 +1577,7 @@ export default function ChatScreen() {
               undefined,
               undefined,
               {
-                includeToolActivity: settings.includeToolActivity,
+                includeToolActivity: false,
                 includeHermesStatus: true,
               },
             );
@@ -1566,7 +1594,7 @@ export default function ChatScreen() {
           }
           const displayMessages = dedupeChatMessages(
             prepareMessagesForDisplay(history, {
-              includeToolActivity: settings.includeToolActivity,
+              includeToolActivity: false,
               includeHermesStatus: true,
             }),
           );
@@ -1582,7 +1610,7 @@ export default function ChatScreen() {
         finishRefresh();
       }
     },
-    [isDemo, gatewayUrl, apiKey, macChatLive, settings.includeToolActivity, applyChatApiError],
+    [isDemo, gatewayUrl, apiKey, macChatLive, applyChatApiError],
   );
 
   refreshSessionMessagesRef.current = refreshSessionMessages;
@@ -2470,7 +2498,7 @@ export default function ChatScreen() {
           messages={messages}
           timeLabel={formatMessageTimestamp(item.created_at ?? item.timestamp)}
           inlineNudge={inlineNudge}
-          includeToolActivity={settings.includeToolActivity ?? false}
+          includeToolActivity={false}
           isTelegramInbox={isTelegramInbox}
           connectionState={connectionState}
           macHttpOk={macHttpOk}
@@ -2485,7 +2513,6 @@ export default function ChatScreen() {
     [
       messages,
       inlineTextApprovals,
-      settings.includeToolActivity,
       isTelegramInbox,
       connectionState,
       macHttpOk,
@@ -2588,6 +2615,8 @@ export default function ChatScreen() {
 
     const typed = userText.trim();
     const typedUpper = typed.toUpperCase();
+    const firstPromptThreadTitle =
+      deriveThreadTitleFromMessage(typed) ?? activeProject?.name ?? 'New chat';
 
     const approvalUiVisibleForPhrase = (phrase: string): boolean => {
       const upper = phrase.trim().toUpperCase();
@@ -2681,13 +2710,13 @@ export default function ChatScreen() {
       if (isDemo) {
         activeSess = {
           id: `demo-${Date.now()}`,
-          title: 'Auto-created session',
+          title: firstPromptThreadTitle,
           last_active_at: new Date().toISOString(),
         };
         setSessions([activeSess]);
         setCurrentSession(activeSess);
       } else {
-        const title = activeProject?.name ?? 'New mobile session';
+        const title = firstPromptThreadTitle;
         await releaseMacOperatorSlot(gatewayUrl, apiKey, collectRecoveryRunIds());
         try {
           activeSess = await retryOnSessionInUse(
@@ -2851,7 +2880,7 @@ export default function ChatScreen() {
     }
     if (isTelegramInboxSession(activeSess) && !targetSessionId) {
       try {
-        const title = activeProject?.name ?? 'New mobile session';
+        const title = firstPromptThreadTitle;
         const mobileSess = await createSession(
           gatewayUrl,
           apiKey,
@@ -4583,14 +4612,15 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     marginHorizontal: 12,
     marginBottom: 8,
-    paddingVertical: 8,
+    paddingVertical: 10,
     paddingHorizontal: 12,
-    alignItems: 'center',
+    alignItems: 'flex-start',
     justifyContent: 'space-between',
   },
   errorText: {
     color: colors.error,
     fontSize: 12,
+    lineHeight: 18,
     flex: 1,
     marginRight: 8,
   },

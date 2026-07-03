@@ -285,7 +285,7 @@ export function prepareMessagesForDisplay(
   messages: HermesMessage[],
   options?: { includeToolActivity?: boolean; includeHermesStatus?: boolean },
 ): HermesMessage[] {
-  const includeTools = options?.includeToolActivity ?? true;
+  const includeTools = options?.includeToolActivity ?? false;
   const includeHermesStatus = options?.includeHermesStatus ?? false;
   const filtered = messages
     .filter((message) => {

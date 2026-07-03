@@ -18,6 +18,7 @@ import LoadingButton from './ui/LoadingButton';
 import { tailscaleDiscoveryLabel } from '../services/tailscaleDiscovery';
 import { cleanManualGatewayUrl } from '../utils/gatewayUrlPolicy';
 import { isTailscaleGatewayUrl } from '../utils/tailscaleHosts';
+import { isE2eAutomationBuild } from '../utils/demoModePolicy';
 import { haptics } from '../services/haptics';
 
 const AUTO_RETRY_MS = 12000;
@@ -85,6 +86,7 @@ export default function ConnectMacGate() {
 
   const showGate =
     bootstrapReady &&
+    !isE2eAutomationBuild() &&
     !settings.demoMode &&
     !isGatewayReachable &&
     settings.connectionMode === 'gateway' &&

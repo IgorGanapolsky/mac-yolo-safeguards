@@ -109,7 +109,11 @@ export function isGenericSessionPlaceholderTitle(title: string | null | undefine
   if (!trimmed) {
     return false;
   }
-  return GENERIC_SESSION_PLACEHOLDER_TITLES.has(trimmed.toLowerCase());
+  const normalized = trimmed.toLowerCase();
+  if (GENERIC_SESSION_PLACEHOLDER_TITLES.has(normalized)) {
+    return true;
+  }
+  return /^new\s+mobile\s+session(?:\s+#?\d+)?$/i.test(trimmed);
 }
 
 /** First-line thread title from the user's opening message. */

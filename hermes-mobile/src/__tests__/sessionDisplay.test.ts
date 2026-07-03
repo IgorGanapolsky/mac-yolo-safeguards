@@ -119,6 +119,17 @@ describe('sessionDisplay', () => {
     expect(deriveThreadTitleFromMessage(long)?.endsWith('…')).toBe(true);
   });
 
+  it('sessionPickerLabel treats numbered mobile session titles as placeholders', () => {
+    expect(
+      sessionPickerLabel({
+        id: 'sess_3',
+        title: 'New mobile session #3',
+        preview: 'Print money make money faster',
+        started_at: '2026-07-02T18:24:00.000Z',
+      }),
+    ).toBe('Print money make money faster');
+  });
+
   it('sessionPickerLabel prefers pinned mobile label', () => {
     expect(
       sessionPickerLabel(
