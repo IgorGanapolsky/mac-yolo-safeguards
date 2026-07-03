@@ -92,6 +92,7 @@ import { isThumbgateLeashUnlocked } from '../utils/thumbgateLeash';
 import {
   displayableLlmModel,
   humanizeComposerStatus,
+  isActiveChatRun,
   shouldShowComposerProgressBanner,
 } from '../utils/runProgressDisplay';
 import { isChatNearBottom } from '../utils/chatScrollSync';
@@ -101,6 +102,7 @@ import {
 } from '../utils/chatOutboundDisplay';
 import {
   hasAssistantReplyInMessages,
+  hasUserMessageInTranscript,
   shouldShowRecentChatsPanel,
 } from '../utils/chatRecentChatsPanel';
 import ChatScreenHeader from '../components/ChatScreenHeader';
@@ -587,11 +589,16 @@ export default function ChatScreen() {
     if (isSending) {
       return false;
     }
+    if (isActiveChatRun(runProgress)) {
+      return false;
+    }
     if (messages.some((message) => message.role === 'user' && message.id?.startsWith('user-'))) {
       return false;
     }
     return true;
-  }, [messages, pinnedOutboundText, isSending]);
+  }, [messages, pinnedOutboundText, isSending, runProgress]);
+
+  const hasUserMessage = useMemo(() => hasUserMessageInTranscript(messages), [messages]);
 
   const showSubmittedPromptStrip = useMemo(
     () => shouldShowSubmittedPromptStrip(pinnedOutboundText, messages),
@@ -1076,6 +1083,10 @@ export default function ChatScreen() {
         messageCount: messages.length,
         hasAssistantReply,
         recentChatsDismissed,
+        isSending,
+        pinnedOutboundText,
+        hasActiveRun: isActiveChatRun(runProgress),
+        hasUserMessage,
       }),
     [
       macChatLive,
@@ -1086,6 +1097,10 @@ export default function ChatScreen() {
       messages.length,
       hasAssistantReply,
       recentChatsDismissed,
+      isSending,
+      pinnedOutboundText,
+      runProgress,
+      hasUserMessage,
     ],
   );
 
@@ -1742,13 +1757,14 @@ export default function ChatScreen() {
 
   useEffect(() => {
     setUndoSecondsLeft(0);
-    if (pendingOutboundSendsRef.current === 0 && !isSendingRef.current) {
-      setPinnedOutboundText(null);
-      setPinnedOutboundStatus('pending');
-    }
-    if (pendingOutboundSendsRef.current > 0 || isSendingRef.current) {
+    const hasActiveOutbound =
+      pendingOutboundSendsRef.current > 0 || isSendingRef.current;
+    const hasActiveRun = isActiveChatRun(runProgressRef.current);
+    if (hasActiveOutbound || hasActiveRun) {
       return;
     }
+    setPinnedOutboundText(null);
+    setPinnedOutboundStatus('pending');
     setRunProgress(null);
     transcriptDigestRef.current = '';
     messagesRef.current = [];
@@ -2488,6 +2504,7 @@ export default function ChatScreen() {
     };
     pendingOutboundSendsRef.current += 1;
     commitMessages((prev) => [...prev, userMessage]);
+    setRecentChatsDismissed(true);
     setPinnedOutboundText(trimmed);
     setPinnedOutboundStatus('pending');
     setToolStatus(null);

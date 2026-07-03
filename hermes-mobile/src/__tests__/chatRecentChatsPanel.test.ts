@@ -1,5 +1,6 @@
 import {
   hasAssistantReplyInMessages,
+  hasUserMessageInTranscript,
   shouldShowRecentChatsPanel,
 } from '../utils/chatRecentChatsPanel';
 
@@ -23,13 +24,42 @@ describe('shouldShowRecentChatsPanel', () => {
     ).toBe(true);
   });
 
-  it('shows when a thread has one user message and no assistant reply', () => {
+  it('hides once the user has sent into the current thread', () => {
     expect(
       shouldShowRecentChatsPanel({
         ...base,
         messageCount: 1,
+        hasUserMessage: true,
       }),
-    ).toBe(true);
+    ).toBe(false);
+  });
+
+  it('hides while outbound send is in flight', () => {
+    expect(
+      shouldShowRecentChatsPanel({
+        ...base,
+        showChatEmptyState: false,
+        isSending: true,
+      }),
+    ).toBe(false);
+  });
+
+  it('hides while pinned outbound text is visible', () => {
+    expect(
+      shouldShowRecentChatsPanel({
+        ...base,
+        pinnedOutboundText: 'ship hermes mobile fix',
+      }),
+    ).toBe(false);
+  });
+
+  it('hides while Hermes is still working on the computer', () => {
+    expect(
+      shouldShowRecentChatsPanel({
+        ...base,
+        hasActiveRun: true,
+      }),
+    ).toBe(false);
   });
 
   it('hides once an assistant reply exists', () => {
@@ -42,17 +72,7 @@ describe('shouldShowRecentChatsPanel', () => {
     ).toBe(false);
   });
 
-  it('hides while history is loading', () => {
-    expect(
-      shouldShowRecentChatsPanel({
-        ...base,
-        showChatEmptyState: true,
-        isLoadingMessages: true,
-      }),
-    ).toBe(true);
-  });
-
-  it('hides sparse panel while loading messages in a non-empty state', () => {
+  it('hides while history is loading in a non-empty state', () => {
     expect(
       shouldShowRecentChatsPanel({
         ...base,
@@ -87,6 +107,18 @@ describe('shouldShowRecentChatsPanel', () => {
       }),
     ).toBe(false);
   });
+
+  it('does not show recents inline after send when chat is no longer empty', () => {
+    expect(
+      shouldShowRecentChatsPanel({
+        ...base,
+        showChatEmptyState: false,
+        messageCount: 1,
+        hasUserMessage: true,
+        hasAssistantReply: false,
+      }),
+    ).toBe(false);
+  });
 });
 
 describe('hasAssistantReplyInMessages', () => {
@@ -94,5 +126,14 @@ describe('hasAssistantReplyInMessages', () => {
     expect(
       hasAssistantReplyInMessages([{ role: 'user' }, { role: 'assistant' }]),
     ).toBe(true);
+  });
+});
+
+describe('hasUserMessageInTranscript', () => {
+  it('detects non-empty user bubbles', () => {
+    expect(
+      hasUserMessageInTranscript([{ role: 'user', content: 'hello' }]),
+    ).toBe(true);
+    expect(hasUserMessageInTranscript([{ role: 'user', content: '   ' }])).toBe(false);
   });
 });
