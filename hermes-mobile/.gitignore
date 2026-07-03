@@ -14,3 +14,9 @@ ios-credentials/
 android/
 ios/
 docs/proofs
+
+# Phone install coordination lock (runtime, per-machine)
+.install-phone-release.lock
+.install-phone-release.lock.meta
+.install-phone-release.lockdir/
+.install-phone-release.last
