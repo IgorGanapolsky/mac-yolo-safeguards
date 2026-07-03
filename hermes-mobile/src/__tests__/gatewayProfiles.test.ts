@@ -125,13 +125,26 @@ describe('gatewayProfiles', () => {
     ).toBe('Computer 10.2.29.103');
   });
 
-  it('does not use MagicDNS host as profile label when health has no hostname', () => {
+  it('uses MagicDNS machine name when health has no hostname', () => {
     const state = upsertDiscoveredProfile(EMPTY_GATEWAY_PROFILE_STATE, {
       gatewayUrl: 'http://igors-mac-mini.tail12aa33.ts.net:8642',
       localIp: '192.168.68.56',
     }, true);
-    expect(state.profiles[0].label).toBe('Computer');
+    expect(state.profiles[0].label).toBe('igors-mac-mini');
+    expect(profileDisplayName(state.profiles[0])).toBe('igors-mac-mini');
     expect(state.profiles[0].gatewayUrl).toBe('http://igors-mac-mini.tail12aa33.ts.net:8642');
+  });
+
+  it('does not show generic Computer for Tailscale IP-only profiles', () => {
+    expect(
+      profileDisplayName({
+        id: 'mac_100_94_135_78',
+        label: 'Computer',
+        gatewayUrl: 'http://100.94.135.78:8642',
+        localIp: '100.94.135.78',
+        addedAt: '2026-06-18T12:00:00.000Z',
+      }),
+    ).toBe('Tailscale 100.94.135.78');
   });
 
   it('keeps friendly label when deduping LAN and tailnet routes', () => {

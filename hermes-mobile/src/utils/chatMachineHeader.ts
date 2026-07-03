@@ -13,6 +13,14 @@ function healthHostname(health?: GatewayHealthSnapshot | null): string | undefin
   return health?.hostname?.replace(/\.local$/i, '').trim() || undefined;
 }
 
+function isJunkConnectionLabel(value: string | undefined): boolean {
+  const trimmed = value?.trim();
+  if (!trimmed) {
+    return true;
+  }
+  return /^(https?:\/\/?|https?)$/i.test(trimmed);
+}
+
 /** Prefer profile hostname; fall back to /health when the saved label is generic or missing. */
 export function resolveMachineDisplayName(
   activeProfile: GatewayProfile | null | undefined,
@@ -145,13 +153,13 @@ export function formatMacConnectionRetryBanner(input: {
     input.machineLabel &&
     !isGenericMachineLabel(input.machineLabel) &&
     input.machineLabel !== 'Hermes account relay' &&
-    !/^(http|https)$/i.test(input.machineLabel)
+    !isJunkConnectionLabel(input.machineLabel)
       ? input.machineLabel
       : !isGenericMachineLabel(machineName) &&
           machineName !== 'computer' &&
-          !/^(http|https)$/i.test(machineName)
+          !isJunkConnectionLabel(machineName)
         ? machineName
-        : machineName !== 'Hermes account relay' && !/^(http|https)$/i.test(machineName)
+        : machineName !== 'Hermes account relay' && !isJunkConnectionLabel(machineName)
           ? machineName
           : 'your computer';
 
@@ -166,6 +174,10 @@ export function formatMacConnectionRetryBanner(input: {
   if (!routeDetail || (loopbackUsb && routeDetail.includes('127.0.0.1'))) {
     const endpointLine = formatGatewayEndpointLine(input.gatewayUrl, input.health)?.trim();
     routeDetail = loopbackUsb ? 'USB' : endpointLine || input.gatewayUrl.trim();
+  }
+
+  if (isJunkConnectionLabel(routeDetail)) {
+    routeDetail = undefined;
   }
 
   if (routeDetail) {

@@ -55,6 +55,48 @@ describe('gatewayProfilePicker', () => {
     expect(profilePickerLines(profiles[1]).detail).toBe('100.94.135.78:8642');
   });
 
+  it('shows MagicDNS machine names instead of generic Computer rows', () => {
+    const profiles = profilesForSwitchComputerPicker([
+      {
+        id: 'mac_magicdns',
+        label: 'Computer',
+        gatewayUrl: 'http://igors-mac-mini.tail12aa33.ts.net:8642',
+        addedAt: '2026-07-03T20:00:00Z',
+      },
+      {
+        id: 'mac_tail_ip',
+        label: 'Computer',
+        gatewayUrl: 'http://100.94.135.78:8642',
+        localIp: '100.94.135.78',
+        addedAt: '2026-07-03T20:01:00Z',
+      },
+    ]);
+
+    expect(profilePickerLines(profiles[0]).title).toBe('igors-mac-mini');
+    expect(profilePickerLines(profiles[0]).detail).toBe('igors-mac-mini.tail12aa33.ts.net:8642');
+    expect(profilePickerLines(profiles[1]).title).toBe('Tailscale 100.94.135.78');
+  });
+
+  it('dedupes stale duplicate MagicDNS profiles before rendering the picker', () => {
+    const profiles = profilesForSwitchComputerPicker([
+      {
+        id: 'mac_magicdns_a',
+        label: 'Computer',
+        gatewayUrl: 'http://igors-mac-mini.tail12aa33.ts.net:8642',
+        addedAt: '2026-07-03T20:00:00Z',
+      },
+      {
+        id: 'mac_magicdns_b',
+        label: 'igors-mac-mini.tail12aa33.ts.net',
+        gatewayUrl: 'http://igors-mac-mini.tail12aa33.ts.net:8642/',
+        addedAt: '2026-07-03T20:01:00Z',
+      },
+    ]);
+
+    expect(profiles).toHaveLength(1);
+    expect(profilePickerLines(profiles[0]).title).toBe('igors-mac-mini');
+  });
+
   it('does not filter loopback profiles even when LAN profiles exist', () => {
     const profiles = profilesForDevicePicker([
       {
