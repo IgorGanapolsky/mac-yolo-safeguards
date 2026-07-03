@@ -546,6 +546,102 @@ describe('ChatScreen', () => {
     });
   });
 
+  it('does not show raw tool or browser console errors in the chat transcript', async () => {
+    const { listMessages } = jest.requireMock('../services/hermesChatClient') as {
+      listMessages: jest.Mock;
+    };
+    listMessages.mockResolvedValue([
+      { role: 'user', content: 'Are you lost?' },
+      {
+        role: 'tool',
+        content:
+          '{"success":false,"error":"Uncaught: SyntaxError: Identifier \\"result\\" has already been declared","tool":"browser_console"}',
+        created_at: '2026-07-02T21:31:00Z',
+      },
+      { role: 'assistant', content: 'I will recover without showing internal debug payloads.' },
+    ]);
+    Object.assign(mockGatewayState, {
+      settings: {
+        demoMode: false,
+        connectionMode: 'gateway',
+        gatewayUrl: 'http://localhost:8642',
+        cloudUrl: 'https://hermesmobile-cloud.fly.dev',
+        approvalPolicy: 'balanced',
+        includeToolActivity: true,
+      },
+      connectionState: 'connected',
+      health: { ok: true, level: 'green', hostname: 'demo-mac.local' },
+    });
+
+    const { getByText, queryByText } = await renderChatScreen();
+
+    expect(getByText('Are you lost?')).toBeTruthy();
+    expect(getByText('I will recover without showing internal debug payloads.')).toBeTruthy();
+    expect(queryByText(/SyntaxError/)).toBeNull();
+    expect(queryByText(/\[tool/)).toBeNull();
+  });
+
+  it('creates new mobile sessions with the first prompt as the title', async () => {
+    const { createSession } = jest.requireMock('../services/hermesChatClient') as {
+      createSession: jest.Mock;
+    };
+    const { streamSessionChat } = jest.requireMock('../services/hermesGatewayClient') as {
+      streamSessionChat: jest.Mock;
+    };
+    createSession.mockClear();
+    createSession.mockResolvedValueOnce({
+      id: 'session-first-prompt',
+      title: 'New mobile session #4',
+      last_active_at: '2026-07-03T20:30:00Z',
+    });
+    streamSessionChat.mockImplementation(
+      (
+        _gatewayUrl: string,
+        _sessionId: string,
+        _text: string,
+        _apiKey: string,
+        onEvent: (event: { event: string; data: Record<string, unknown> }) => void,
+        _systemPrompt: string,
+        onOpen?: () => void,
+      ) => {
+        onOpen?.();
+        onEvent({ event: 'assistant.delta', data: { delta: 'Working on it.' } });
+        return Promise.resolve('Working on it.');
+      },
+    );
+    Object.assign(mockGatewayState, {
+      connectionState: 'connected',
+      health: { ok: true, level: 'green', hostname: 'demo-mac.local' },
+      settings: {
+        demoMode: false,
+        connectionMode: 'gateway',
+        gatewayUrl: 'http://localhost:8642',
+        cloudUrl: 'https://hermesmobile-cloud.fly.dev',
+        approvalPolicy: 'balanced',
+      },
+    });
+
+    const { getByTestId, queryByTestId } = await renderChatScreen();
+    fireEvent.press(getByTestId('open-sessions-modal'));
+    fireEvent.press(getByTestId('modal-new-chat-button'));
+    expect(queryByTestId('modal-new-chat-button')).toBeNull();
+
+    await act(async () => {
+      fireEvent.changeText(getByTestId('chat-input'), 'Fix Hermes mobile transcript noise now');
+      fireEvent.press(getByTestId('chat-send-button'));
+      await Promise.resolve();
+    });
+
+    await waitFor(() => {
+      expect(createSession).toHaveBeenCalledWith(
+        'http://localhost:8642',
+        'test-api-key',
+        'Fix Hermes mobile transcript noise now',
+        expect.any(String),
+      );
+    });
+  });
+
   it('triggers mock message sending and demo reply in demo mode', async () => {
     const { getByTestId, getAllByTestId, queryByTestId } = await renderChatScreen();
     jest.useFakeTimers();
