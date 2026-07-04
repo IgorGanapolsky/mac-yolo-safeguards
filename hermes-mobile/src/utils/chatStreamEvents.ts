@@ -168,6 +168,7 @@ export function runProgressForDisplayEqual(
   return (
     a.phase === b.phase &&
     a.startedAtMs === b.startedAtMs &&
+    (a.updatedAtMs ?? -1) === (b.updatedAtMs ?? -1) &&
     (a.detail ?? '') === (b.detail ?? '') &&
     (a.model ?? '') === (b.model ?? '') &&
     (a.inputTokens ?? -1) === (b.inputTokens ?? -1) &&
@@ -278,9 +279,10 @@ function startRunProgress(
   phase = 'working',
   data?: Record<string, unknown>,
 ): RunProgressState {
+  const nowMs = Date.now();
   const next = state.runProgress
-    ? { ...state.runProgress, detail, phase }
-    : { phase, startedAtMs: Date.now(), detail };
+    ? { ...state.runProgress, detail, phase, updatedAtMs: nowMs }
+    : { phase, startedAtMs: nowMs, updatedAtMs: nowMs, detail };
   return data ? mergeRunUsageFromPayload(next, data) : next;
 }
 

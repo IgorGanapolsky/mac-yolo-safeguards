@@ -5,6 +5,7 @@ import {
   isActiveChatRun,
   isRunProgressStale,
   runProgressElapsedSeconds,
+  runProgressSecondsSinceUpdate,
   runProgressFailedTitle,
   shouldShowComposerProgressBanner,
   staleRunProgressDetail,
@@ -104,27 +105,40 @@ describe('runProgressDisplay', () => {
   });
 
   it('marks active runs stale after a long no-update window', () => {
-    const startedAtMs = Date.now() - 12 * 60 * 60 * 1000;
+    const nowMs = Date.now();
+    const startedAtMs = nowMs - 12 * 60 * 60 * 1000;
+    const updatedAtMs = nowMs - 11 * 60 * 60 * 1000;
     expect(
       isRunProgressStale({
         phase: 'working',
         startedAtMs,
+        updatedAtMs,
+        duration: 10,
         detail: 'Hermes is working on your computer…',
-      }),
+      }, nowMs),
     ).toBe(true);
+    expect(
+      runProgressSecondsSinceUpdate({
+        phase: 'working',
+        startedAtMs,
+        updatedAtMs,
+        duration: 10,
+      }, nowMs),
+    ).toBe(11 * 60 * 60);
     expect(
       isRunProgressStale({
         phase: 'completed',
         startedAtMs,
+        updatedAtMs,
         detail: 'Done',
-      }),
+      }, nowMs),
     ).toBe(false);
     expect(
       runProgressElapsedSeconds({
         phase: 'working',
-        startedAtMs: Date.now(),
+        startedAtMs: nowMs,
         duration: 3939.3,
-      }),
+      }, nowMs),
     ).toBe(3939);
     expect(staleRunProgressDetail()).toContain('may be stuck');
   });

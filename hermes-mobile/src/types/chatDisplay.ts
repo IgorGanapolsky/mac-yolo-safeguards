@@ -15,6 +15,8 @@ export interface ChatTimelineItem {
 export interface RunProgressState {
   phase: string;
   startedAtMs: number;
+  /** Last live gateway stream/status event seen for this run. Session polling must not refresh it. */
+  updatedAtMs?: number;
   detail?: string;
   runId?: string;
   sessionId?: string;
@@ -26,4 +28,3 @@ export interface RunProgressState {
   /** Stream events (tool.progress, run.completed) own token counts — session poll must not overwrite. */
   streamUsageLive?: boolean;
 }
-

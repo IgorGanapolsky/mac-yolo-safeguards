@@ -7,6 +7,7 @@ import {
   humanizeRunProgressDetail,
   isRunProgressStale,
   runProgressElapsedSeconds,
+  runProgressSecondsSinceUpdate,
   runProgressFailedTitle,
   staleRunProgressDetail,
   staleRunProgressTitle,
@@ -49,23 +50,27 @@ function RunProgressBanner({
   terminalToolName,
   terminalPreview,
 }: RunProgressBannerProps) {
-  const [elapsed, setElapsed] = useState(0);
+  const [nowMs, setNowMs] = useState(Date.now());
 
   useEffect(() => {
     const update = () => {
-      setElapsed(runProgressElapsedSeconds(progress));
+      setNowMs(Date.now());
     };
     update();
     const timer = setInterval(update, 1000);
     return () => clearInterval(timer);
-  }, [progress.startedAtMs]);
+  }, [progress.startedAtMs, progress.updatedAtMs, progress.duration]);
 
   const isCompleted = progress.phase === 'completed';
   const isFailed = progress.phase === 'failed';
   const isActive = !isCompleted && !isFailed;
-  const isStale = isActive && isRunProgressStale(progress);
+  const isStale = isActive && isRunProgressStale(progress, nowMs);
 
-  const durationSec = progress.duration != null ? Math.round(progress.duration * 10) / 10 : elapsed;
+  const durationSec =
+    progress.duration != null
+      ? Math.round(progress.duration * 10) / 10
+      : runProgressElapsedSeconds(progress, nowMs);
+  const staleAgeSeconds = isStale ? runProgressSecondsSinceUpdate(progress, nowMs) : 0;
   const modelLabel =
     displayableLlmModel(progress.model) ?? displayableLlmModel(fallbackModel);
   const tokenLabel = formatTokenSummary(progress);
@@ -77,6 +82,9 @@ function RunProgressBanner({
   const failedDetail =
     isFailed && isConnectivityMessage(progress.detail ?? '') ? progress.detail?.trim() : null;
   const terminalLine = terminalPreview?.trim() || '';
+  const staleDetailLabel = isStale
+    ? `${staleRunProgressDetail()}${staleAgeSeconds > 2 * 60 * 60 ? ' This has been quiet for hours.' : ''}`
+    : '';
 
   return (
     <View style={[
@@ -101,10 +109,10 @@ function RunProgressBanner({
         >
           {isCompleted
             ? 'Reply ready on your computer'
-            : isFailed
-              ? failedTitle
-              : isStale
-                ? staleRunProgressTitle(progress)
+              : isFailed
+                ? failedTitle
+                : isStale
+                ? staleRunProgressTitle(progress, nowMs)
                 : detailLabel}
         </Text>
         <Text style={styles.timeLabel}>{durationSec}s</Text>
@@ -148,7 +156,7 @@ function RunProgressBanner({
 
       {isStale ? (
         <Text style={styles.failedDetail} testID="run-progress-stale-detail">
-          {staleRunProgressDetail()}
+          {staleDetailLabel}
         </Text>
       ) : null}
 
@@ -199,6 +207,7 @@ export default memo(RunProgressBanner, (prev, next) => {
     prev.onRetry === next.onRetry &&
     a.phase === b.phase &&
     a.startedAtMs === b.startedAtMs &&
+    (a.updatedAtMs ?? -1) === (b.updatedAtMs ?? -1) &&
     (a.detail ?? '') === (b.detail ?? '') &&
     (a.model ?? '') === (b.model ?? '') &&
     (a.inputTokens ?? -1) === (b.inputTokens ?? -1) &&

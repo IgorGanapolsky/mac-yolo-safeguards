@@ -148,6 +148,8 @@ describe('chatStreamEvents', () => {
   });
 
   it('updates token counts when tool.progress reports new usage', () => {
+    const nowSpy = jest.spyOn(Date, 'now');
+    nowSpy.mockReturnValueOnce(1_000).mockReturnValueOnce(10_000);
     let state = applyStreamEvent(createStreamActivityState(), {
       event: 'tool.progress',
       data: { input_tokens: 100, output_tokens: 5 },
@@ -158,18 +160,22 @@ describe('chatStreamEvents', () => {
     });
     expect(state.runProgress?.inputTokens).toBe(150);
     expect(state.runProgress?.outputTokens).toBe(12);
+    expect(state.runProgress?.updatedAtMs).toBe(10_000);
+    nowSpy.mockRestore();
   });
 
   it('detects display-equal run progress to skip banner flicker', () => {
     const base = {
       phase: 'sending',
       startedAtMs: 1_000,
+      updatedAtMs: 1_000,
       detail: 'Sending to your computer…',
       model: 'google/gemini-2.5-flash',
       inputTokens: 100,
       outputTokens: 5,
     };
     expect(runProgressForDisplayEqual(base, { ...base })).toBe(true);
+    expect(runProgressForDisplayEqual(base, { ...base, updatedAtMs: 2_000 })).toBe(false);
     expect(runProgressForDisplayEqual(base, { ...base, detail: 'running web_extract' })).toBe(false);
   });
 });

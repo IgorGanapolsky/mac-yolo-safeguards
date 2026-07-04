@@ -126,6 +126,7 @@ describe('RunProgressBanner', () => {
         progress={{
           phase: 'working',
           startedAtMs: Date.now() - 12 * 60 * 60 * 1000,
+          updatedAtMs: Date.now() - 12 * 60 * 60 * 1000,
           duration: 3939.3,
           detail: 'Hermes is working on your computer…',
           runId: 'run-stale',
@@ -133,8 +134,9 @@ describe('RunProgressBanner', () => {
         onStop={jest.fn()}
       />,
     );
-    expect(getByTestId('run-progress-detail').props.children).toBe('No updates for 65 min');
+    expect(getByTestId('run-progress-detail').props.children).toBe('No updates for 720 min');
     expect(getByTestId('run-progress-stale-detail').props.children).toContain('may be stuck');
+    expect(getByTestId('run-progress-stale-detail').props.children).toContain('quiet for hours');
     expect(getByText('3939.3s')).toBeTruthy();
   });
 });

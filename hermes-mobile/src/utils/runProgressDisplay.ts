@@ -87,6 +87,20 @@ export function runProgressElapsedSeconds(
   return Math.max(0, Math.floor((nowMs - progress.startedAtMs) / 1000));
 }
 
+export function runProgressSecondsSinceUpdate(
+  progress: RunProgressState,
+  nowMs = Date.now(),
+): number {
+  const updatedAtMs =
+    typeof progress.updatedAtMs === 'number' && Number.isFinite(progress.updatedAtMs)
+      ? progress.updatedAtMs
+      : progress.startedAtMs;
+  if (!Number.isFinite(updatedAtMs)) {
+    return 0;
+  }
+  return Math.max(0, Math.floor((nowMs - updatedAtMs) / 1000));
+}
+
 export function isRunProgressStale(
   progress: RunProgressState | null | undefined,
   nowMs = Date.now(),
@@ -94,11 +108,11 @@ export function isRunProgressStale(
   if (!progress || progress.phase === 'completed' || progress.phase === 'failed') {
     return false;
   }
-  return runProgressElapsedSeconds(progress, nowMs) >= STALE_RUN_SECONDS;
+  return runProgressSecondsSinceUpdate(progress, nowMs) >= STALE_RUN_SECONDS;
 }
 
-export function staleRunProgressTitle(progress: RunProgressState): string {
-  const elapsed = runProgressElapsedSeconds(progress);
+export function staleRunProgressTitle(progress: RunProgressState, nowMs = Date.now()): string {
+  const elapsed = runProgressSecondsSinceUpdate(progress, nowMs);
   const minutes = Math.max(1, Math.floor(elapsed / 60));
   return `No updates for ${minutes} min`;
 }
