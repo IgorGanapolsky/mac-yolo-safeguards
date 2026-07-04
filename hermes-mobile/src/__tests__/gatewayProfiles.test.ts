@@ -110,6 +110,28 @@ describe('gatewayProfiles', () => {
     expect(profiles).toHaveLength(2);
   });
 
+  it('collapses multiple loopback/USB profiles (localhost + Computer via USB) into one', () => {
+    const { profiles } = dedupeGatewayProfiles({
+      profiles: [
+        {
+          id: 'mac_usb_loopback',
+          label: 'Computer via USB',
+          gatewayUrl: 'http://127.0.0.1:8642',
+          localIp: '127.0.0.1',
+          addedAt: '2026-07-04T10:00:00.000Z',
+        },
+        {
+          id: 'localhost_usb',
+          label: 'localhost',
+          gatewayUrl: 'http://localhost:8642',
+          addedAt: '2026-07-04T11:00:00.000Z',
+        },
+      ],
+      activeProfileId: null,
+    });
+    expect(profiles).toHaveLength(1);
+  });
+
   it('migrates legacy single gateway into first profile', () => {
     const state = migrateLegacyGateway(EMPTY_GATEWAY_PROFILE_STATE, 'http://127.0.0.1:8642', '192.168.12.208');
     expect(state.profiles[0]?.gatewayUrl).toBe('http://192.168.12.208:8642');

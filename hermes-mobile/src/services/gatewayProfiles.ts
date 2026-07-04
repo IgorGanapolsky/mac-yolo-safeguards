@@ -229,18 +229,20 @@ function profileMachineKey(profile: GatewayProfile): string | undefined {
 
 function profileDedupeKey(profile: GatewayProfile): string {
   const machineKey = profileMachineKey(profile);
+  // Loopback/USB WITH a known machine identity → key by that machine (the USB route merges with the
+  // same Mac's Wi-Fi/Tailscale entry, and USB-to-Pro stays distinct from USB-to-mini). Loopback
+  // WITHOUT identity → collapse every generic "localhost"/"Computer via USB" row into ONE.
+  if (isLoopbackGatewayUrl(profile.gatewayUrl)) {
+    return machineKey ? `host:${machineKey}` : 'loopback:usb';
+  }
   // The same physical Mac gets a new LAN IP from DHCP (Igors-MacBook-Pro at .54 then .66), which
   // used to split it into duplicate rows. De-dupe by resolved machine identity (hostname), not IP.
-  // Loopback/USB stays distinct — it's a separate, more-reliable route to the machine, not a dup.
-  if (machineKey && !isLoopbackGatewayUrl(profile.gatewayUrl)) {
+  if (machineKey) {
     return `host:${machineKey}`;
   }
   const ip = profile.localIp?.trim() || extractLanIpFromGatewayUrl(profile.gatewayUrl);
   if (ip && !isLoopbackHost(ip)) {
     return `ip:${ip}`;
-  }
-  if (machineKey) {
-    return `host:${machineKey}`;
   }
   return `url:${normalizeGatewayUrlBase(profile.gatewayUrl)}`;
 }
