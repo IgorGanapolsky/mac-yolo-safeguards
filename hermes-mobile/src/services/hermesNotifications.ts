@@ -202,7 +202,11 @@ export async function initHermesNotifications(): Promise<void> {
       const data = notification.request.content.data;
       const type = typeof data?.type === 'string' ? data.type : '';
       const foreground = AppState.currentState === 'active';
-      const suppressRunBanner = foreground && type === 'run_progress';
+      // Any run-status notification is redundant as a heads-up banner while the user is
+      // actively in the app — they already see the run banner/transcript on screen.
+      const suppressRunBanner =
+        foreground &&
+        (type === 'run_progress' || type === 'run_stall' || type === 'run_completed');
       const suppressApprovalBanner =
         foreground && type === 'approval' && data?.riskTier !== 'high';
 
