@@ -119,4 +119,22 @@ describe('RunProgressBanner', () => {
     expect(getByTestId('run-progress-failed-detail').props.children).toBe(detail);
     expect(getByText('229s')).toBeTruthy();
   });
+
+  it('shows an honest stale state for long-running active runs', () => {
+    const { getByTestId, getByText } = render(
+      <RunProgressBanner
+        progress={{
+          phase: 'working',
+          startedAtMs: Date.now() - 12 * 60 * 60 * 1000,
+          duration: 3939.3,
+          detail: 'Hermes is working on your computer…',
+          runId: 'run-stale',
+        }}
+        onStop={jest.fn()}
+      />,
+    );
+    expect(getByTestId('run-progress-detail').props.children).toBe('No updates for 65 min');
+    expect(getByTestId('run-progress-stale-detail').props.children).toContain('may be stuck');
+    expect(getByText('3939.3s')).toBeTruthy();
+  });
 });

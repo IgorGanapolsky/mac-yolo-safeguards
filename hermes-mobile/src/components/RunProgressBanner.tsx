@@ -2,7 +2,15 @@ import React, { useEffect, useState, memo } from 'react';
 import { StyleSheet, Text, View, ActivityIndicator, Platform, Pressable } from 'react-native';
 import { colors } from '../theme/colors';
 import type { RunProgressState } from '../types/chatDisplay';
-import { displayableLlmModel, humanizeRunProgressDetail, runProgressFailedTitle } from '../utils/runProgressDisplay';
+import {
+  displayableLlmModel,
+  humanizeRunProgressDetail,
+  isRunProgressStale,
+  runProgressElapsedSeconds,
+  runProgressFailedTitle,
+  staleRunProgressDetail,
+  staleRunProgressTitle,
+} from '../utils/runProgressDisplay';
 import { isConnectivityMessage } from '../utils/chatErrors';
 
 type RunProgressBannerProps = {
@@ -45,8 +53,7 @@ function RunProgressBanner({
 
   useEffect(() => {
     const update = () => {
-      const sec = Math.max(0, Math.floor((Date.now() - progress.startedAtMs) / 1000));
-      setElapsed(sec);
+      setElapsed(runProgressElapsedSeconds(progress));
     };
     update();
     const timer = setInterval(update, 1000);
@@ -56,6 +63,7 @@ function RunProgressBanner({
   const isCompleted = progress.phase === 'completed';
   const isFailed = progress.phase === 'failed';
   const isActive = !isCompleted && !isFailed;
+  const isStale = isActive && isRunProgressStale(progress);
 
   const durationSec = progress.duration != null ? Math.round(progress.duration * 10) / 10 : elapsed;
   const modelLabel =
@@ -77,7 +85,7 @@ function RunProgressBanner({
       isFailed && styles.bannerFailed,
     ]} testID="run-progress-banner">
       <View style={styles.headerRow}>
-        {isActive ? (
+        {isActive && !isStale ? (
           <ActivityIndicator size="small" color={colors.warning} style={styles.spinner} />
         ) : (
           <Text style={styles.statusIcon}>{isCompleted ? '✅' : '⚠️'}</Text>
@@ -86,12 +94,18 @@ function RunProgressBanner({
           style={[
             styles.text,
             isCompleted && styles.textCompleted,
-            isFailed && styles.textFailed,
+            (isFailed || isStale) && styles.textFailed,
           ]}
           numberOfLines={isFailed && failedDetail ? 1 : 2}
           testID="run-progress-detail"
         >
-          {isCompleted ? 'Reply ready on your computer' : isFailed ? failedTitle : detailLabel}
+          {isCompleted
+            ? 'Reply ready on your computer'
+            : isFailed
+              ? failedTitle
+              : isStale
+                ? staleRunProgressTitle(progress)
+                : detailLabel}
         </Text>
         <Text style={styles.timeLabel}>{durationSec}s</Text>
         {isActive && onStop ? (
@@ -129,6 +143,12 @@ function RunProgressBanner({
       {failedDetail ? (
         <Text style={styles.failedDetail} testID="run-progress-failed-detail">
           {failedDetail}
+        </Text>
+      ) : null}
+
+      {isStale ? (
+        <Text style={styles.failedDetail} testID="run-progress-stale-detail">
+          {staleRunProgressDetail()}
         </Text>
       ) : null}
 

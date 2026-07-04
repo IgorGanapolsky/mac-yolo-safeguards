@@ -389,6 +389,7 @@ export default function ChatScreen() {
   const transcriptDigestRef = useRef('');
   /** Ignore spurious onChangeText after Send clears the field (Android IME blur). */
   const sendClearSuppressRef = useRef(false);
+  const sendClearSuppressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastSentComposerTextRef = useRef('');
   const sendUserTextRef = useRef<(text: string, isProgrammatic?: boolean) => Promise<boolean>>(
     async () => false,
@@ -402,8 +403,18 @@ export default function ChatScreen() {
     focused: inputFocused,
   });
 
+  useEffect(
+    () => () => {
+      if (sendClearSuppressTimerRef.current) {
+        clearTimeout(sendClearSuppressTimerRef.current);
+      }
+    },
+    [],
+  );
+
   const [queuedOutboundCount, setQueuedOutboundCount] = useState(0);
   const [pinnedOutboundText, setPinnedOutboundText] = useState<string | null>(null);
+  const [lastSubmittedPromptText, setLastSubmittedPromptText] = useState<string | null>(null);
   const [pinnedOutboundStatus, setPinnedOutboundStatus] = useState<'pending' | 'sent' | 'failed'>(
     'pending',
   );
@@ -603,8 +614,18 @@ export default function ChatScreen() {
   const hasUserMessage = useMemo(() => hasUserMessageInTranscript(messages), [messages]);
 
   const showSubmittedPromptStrip = useMemo(
-    () => shouldShowSubmittedPromptStrip(pinnedOutboundText, messages),
-    [pinnedOutboundText, messages],
+    () => {
+      const promptText = pinnedOutboundText?.trim() || lastSubmittedPromptText?.trim();
+      if (!promptText) {
+        return false;
+      }
+      return (
+        isSending ||
+        pinnedOutboundStatus !== 'sent' ||
+        shouldShowSubmittedPromptStrip(promptText, messages)
+      );
+    },
+    [pinnedOutboundText, lastSubmittedPromptText, pinnedOutboundStatus, isSending, messages],
   );
 
   useEffect(() => {
@@ -1549,7 +1570,7 @@ export default function ChatScreen() {
               undefined,
               undefined,
               {
-                includeToolActivity: settings.includeToolActivity,
+                includeToolActivity: false,
                 includeHermesStatus: true,
               },
             );
@@ -1566,7 +1587,7 @@ export default function ChatScreen() {
           }
           const displayMessages = dedupeChatMessages(
             prepareMessagesForDisplay(history, {
-              includeToolActivity: settings.includeToolActivity,
+              includeToolActivity: false,
               includeHermesStatus: true,
             }),
           );
@@ -1582,7 +1603,7 @@ export default function ChatScreen() {
         finishRefresh();
       }
     },
-    [isDemo, gatewayUrl, apiKey, macChatLive, settings.includeToolActivity, applyChatApiError],
+    [isDemo, gatewayUrl, apiKey, macChatLive, applyChatApiError],
   );
 
   refreshSessionMessagesRef.current = refreshSessionMessages;
@@ -1663,6 +1684,7 @@ export default function ChatScreen() {
       pendingOutboundSendsRef.current = 0;
       setPinnedOutboundStatus('failed');
       setPinnedOutboundText(null);
+      setLastSubmittedPromptText(null);
     },
     [commitMessages],
   );
@@ -1730,6 +1752,7 @@ export default function ChatScreen() {
       pendingOutboundSendsRef.current = 0;
       setPinnedOutboundStatus('failed');
       setPinnedOutboundText(null);
+      setLastSubmittedPromptText(null);
       setRunProgress((prev) =>
         prev && prev.phase !== 'completed' && prev.phase !== 'failed'
           ? { ...prev, phase: 'failed', detail: OUTBOUND_STUCK_FAILURE_REASON }
@@ -1789,6 +1812,7 @@ export default function ChatScreen() {
       return;
     }
     setPinnedOutboundText(null);
+    setLastSubmittedPromptText(null);
     setPinnedOutboundStatus('pending');
     setRunProgress(null);
     transcriptDigestRef.current = '';
@@ -1904,6 +1928,7 @@ export default function ChatScreen() {
     setMacRetryBusy(true);
     setRunProgress(null);
     setPinnedOutboundText(null);
+    setLastSubmittedPromptText(null);
     setPinnedOutboundStatus('pending');
     setErrorMessage((prev) => (prev && isConnectivityMessage(prev) ? null : prev));
 
@@ -1997,6 +2022,7 @@ export default function ChatScreen() {
     setErrorMessage(null);
     setMessages([]);
     setPinnedOutboundText(null);
+    setLastSubmittedPromptText(null);
     setPinnedOutboundStatus('pending');
     setTelegramReplySessionId('');
     transcriptDigestRef.current = '';
@@ -2223,22 +2249,43 @@ export default function ChatScreen() {
     setInputValue(text);
   }, []);
 
-  const handleSendMessage = async () => {
-    const userText = inputValueRef.current.trim();
+  const clearSendSuppressSoon = useCallback(() => {
+    if (sendClearSuppressTimerRef.current) {
+      clearTimeout(sendClearSuppressTimerRef.current);
+    }
+    sendClearSuppressTimerRef.current = setTimeout(() => {
+      sendClearSuppressRef.current = false;
+      sendClearSuppressTimerRef.current = null;
+    }, 250);
+  }, []);
+
+  const handleSendMessage = async (latestText?: string) => {
+    const userText = (inputValueRef.current.trim() || latestText?.trim() || '').trim();
     if (!userText) return;
 
+    setPinnedOutboundText(userText);
+    setLastSubmittedPromptText(userText);
+    setPinnedOutboundStatus('pending');
     lastSentComposerTextRef.current = userText;
     sendClearSuppressRef.current = true;
     inputValueRef.current = '';
     setInputValue('');
     Keyboard.dismiss();
+    clearSendSuppressSoon();
 
     const accepted = await sendUserText(userText);
     if (!accepted) {
+      if (sendClearSuppressTimerRef.current) {
+        clearTimeout(sendClearSuppressTimerRef.current);
+        sendClearSuppressTimerRef.current = null;
+      }
       sendClearSuppressRef.current = false;
       lastSentComposerTextRef.current = '';
       inputValueRef.current = userText;
       setInputValue(userText);
+      setPinnedOutboundText(null);
+      setLastSubmittedPromptText(null);
+      setPinnedOutboundStatus('pending');
     } else {
       haptics.light();
     }
@@ -2249,12 +2296,12 @@ export default function ChatScreen() {
 
   const handleSubmit = useCallback(() => {
     if (inputValueRef.current.trim()) {
-      void handleSendMessageRef.current();
+      void handleSendMessageRef.current(inputValueRef.current);
     }
   }, []);
 
-  const handleSend = useCallback(() => {
-    void handleSendMessageRef.current();
+  const handleSend = useCallback((latestText?: string) => {
+    void handleSendMessageRef.current(latestText);
   }, []);
 
   const drainOutboundQueue = () => {
@@ -2470,7 +2517,7 @@ export default function ChatScreen() {
           messages={messages}
           timeLabel={formatMessageTimestamp(item.created_at ?? item.timestamp)}
           inlineNudge={inlineNudge}
-          includeToolActivity={settings.includeToolActivity ?? false}
+          includeToolActivity={false}
           isTelegramInbox={isTelegramInbox}
           connectionState={connectionState}
           macHttpOk={macHttpOk}
@@ -2485,7 +2532,6 @@ export default function ChatScreen() {
     [
       messages,
       inlineTextApprovals,
-      settings.includeToolActivity,
       isTelegramInbox,
       connectionState,
       macHttpOk,
@@ -2669,6 +2715,7 @@ export default function ChatScreen() {
       }
       setPinnedOutboundStatus('failed');
       setPinnedOutboundText(null);
+      setLastSubmittedPromptText(null);
       outboundUserBubbleCommitted = false;
       committedUserMessageId = null;
     };
@@ -2775,6 +2822,7 @@ export default function ChatScreen() {
       setPinnedOutboundStatus(status);
       if (status === 'failed') {
         setPinnedOutboundText(null);
+        setLastSubmittedPromptText(null);
       }
       commitMessages((prev) =>
         prev.map((message) =>
@@ -3228,10 +3276,11 @@ export default function ChatScreen() {
   sendUserTextRef.current = sendUserText;
 
   useEffect(() => {
-    if (!pinnedOutboundText) {
+    const promptText = pinnedOutboundText || lastSubmittedPromptText;
+    if (!promptText) {
       return;
     }
-    const norm = normalizeMessageText(pinnedOutboundText);
+    const norm = normalizeMessageText(promptText);
     const inTranscript = messages.some(
       (message) =>
         message.role === 'user' &&
@@ -3241,11 +3290,12 @@ export default function ChatScreen() {
     if (inTranscript && pinnedOutboundStatus === 'sent' && !isSending) {
       const timer = setTimeout(() => {
         setPinnedOutboundText(null);
+        setLastSubmittedPromptText(null);
         setPinnedOutboundStatus('pending');
       }, 1200);
       return () => clearTimeout(timer);
     }
-  }, [messages, pinnedOutboundText, pinnedOutboundStatus, isSending]);
+  }, [messages, pinnedOutboundText, lastSubmittedPromptText, pinnedOutboundStatus, isSending]);
 
   useEffect(() => {
     if (!pendingChatRelayText || isSending) {
@@ -3335,9 +3385,13 @@ export default function ChatScreen() {
     return progressBanner.phase !== 'completed' && progressBanner.phase !== 'failed';
   }, [isSending, progressBanner]);
 
+  const visibleSubmittedPromptText =
+    pinnedOutboundText?.trim() || lastSubmittedPromptText?.trim() || '';
+
   const clearFailedOutboundState = useCallback(() => {
     setRunProgress(null);
     setPinnedOutboundText(null);
+    setLastSubmittedPromptText(null);
     setPinnedOutboundStatus('pending');
     setErrorMessage((prev) => (prev && isConnectivityMessage(prev) ? null : prev));
   }, []);
@@ -3763,9 +3817,9 @@ export default function ChatScreen() {
           </View>
         ) : null}
 
-        {showSubmittedPromptStrip && pinnedOutboundText ? (
+        {showSubmittedPromptStrip && visibleSubmittedPromptText ? (
           <SubmittedPromptStrip
-            text={pinnedOutboundText}
+            text={visibleSubmittedPromptText}
             status={pinnedOutboundStatus}
             connectionState={connectionState}
             macHttpOk={macHttpOk}
