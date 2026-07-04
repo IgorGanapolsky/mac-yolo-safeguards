@@ -285,7 +285,9 @@ export function prepareMessagesForDisplay(
   messages: HermesMessage[],
   options?: { includeToolActivity?: boolean; includeHermesStatus?: boolean },
 ): HermesMessage[] {
-  const includeTools = options?.includeToolActivity ?? true;
+  // Default OFF: raw tool payloads ([tool data], {"total_count":0}, {"bytes_written":…}) are
+  // noise to a normal user. They only render when the user explicitly enables tool activity.
+  const includeTools = options?.includeToolActivity ?? false;
   const includeHermesStatus = options?.includeHermesStatus ?? false;
   const filtered = messages
     .filter((message) => {
