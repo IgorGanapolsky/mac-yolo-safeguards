@@ -64,6 +64,7 @@ const GENERIC_PROFILE_LABELS = new Set([
   'custom mac',
   'custom computer',
   'tailscale computer',
+  'localhost',
   'http',
   'https',
 ]);
@@ -243,7 +244,7 @@ function normalizeMachineKey(value: string | undefined): string | undefined {
   return trimmed && trimmed !== 'localhost' ? trimmed : undefined;
 }
 
-function profileMachineKey(profile: GatewayProfile): string | undefined {
+export function profileMachineKey(profile: GatewayProfile): string | undefined {
   return (
     tailnetMachineName(profile.hostname) ||
     tailnetMachineName(profile.label) ||

@@ -113,6 +113,17 @@ describe('gatewayProfiles', () => {
     expect(label).toBe('Computer via USB');
   });
 
+  it('treats localhost as a USB transport alias, not a machine name', () => {
+    expect(
+      profileDisplayName({
+        id: 'mac_localhost',
+        label: 'localhost',
+        gatewayUrl: 'http://127.0.0.1:8642',
+        addedAt: '2026-07-04T23:00:00Z',
+      }),
+    ).toBe('Computer via USB');
+  });
+
   it('uses LAN URL IP when stored localIp is loopback', () => {
     expect(
       profileDisplayName({

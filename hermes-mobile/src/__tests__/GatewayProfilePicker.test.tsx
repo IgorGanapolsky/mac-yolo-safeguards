@@ -70,6 +70,26 @@ describe('GatewayProfilePicker', () => {
     expect(getByTestId('gateway-profile-item-mac_192_168_12_50')).toHaveTextContent(
       /Needs tunnel/,
     );
-    expect(getByTestId('gateway-profile-item-mac_usb')).toHaveTextContent(/USB/);
+    expect(getByTestId('gateway-profile-item-mac_usb')).toHaveTextContent(/USB route/);
+  });
+
+  it('labels reachable routes explicitly', () => {
+    const { getByTestId } = render(
+      <GatewayProfilePicker
+        profiles={profiles}
+        activeProfileId="mac_192_168_12_208"
+        activeReachable
+        onSelect={jest.fn()}
+        wifiConnected
+        showReachabilityHints
+      />,
+    );
+
+    expect(getByTestId('gateway-profile-item-mac_192_168_12_208')).toHaveTextContent(
+      /Connected · Wi-Fi route/,
+    );
+    expect(getByTestId('gateway-profile-item-mac_192_168_12_50')).toHaveTextContent(
+      /Wi-Fi route/,
+    );
   });
 });

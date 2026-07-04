@@ -286,8 +286,10 @@ export default function ChatScreen() {
   const [toolsModalVisible, setToolsModalVisible] = useState(false);
   const [macPickerVisible, setMacPickerVisible] = useState(false);
   const switchComputerProfiles = useMemo(
-    () => profilesForSwitchComputerPicker(gatewayProfiles),
-    [gatewayProfiles],
+    () => profilesForSwitchComputerPicker(gatewayProfiles, {
+      activeProfileId: activeGatewayProfile?.id ?? null,
+    }),
+    [activeGatewayProfile?.id, gatewayProfiles],
   );
   const [isScanningMacs, setIsScanningMacs] = useState(false);
   const [projectModalVisible, setProjectModalVisible] = useState(false);

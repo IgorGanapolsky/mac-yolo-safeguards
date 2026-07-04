@@ -27,32 +27,100 @@ describe('gatewayProfilePicker', () => {
   });
 
   it('lists Mac mini from Tailscale alongside USB MacBook in switch picker', () => {
-    const profiles = profilesForSwitchComputerPicker([
-      {
-        id: 'mac_usb_loopback',
-        label: 'Mac via USB',
-        gatewayUrl: 'http://127.0.0.1:8642',
-        addedAt: '2026-06-28T12:00:00Z',
-      },
-      {
-        id: 'mac_book_usb',
-        label: 'Igors-MacBook-Pro',
-        gatewayUrl: 'http://127.0.0.1:8642',
-        hostname: 'Igors-MacBook-Pro',
-        addedAt: '2026-06-28T12:00:00Z',
-      },
-      {
-        id: 'mac_mini_ts',
-        label: 'Igors-Mac-mini',
-        gatewayUrl: 'http://100.94.135.78:8642',
-        hostname: 'Igors-Mac-mini',
-        localIp: '100.94.135.78',
-        addedAt: '2026-06-28T12:01:00Z',
-      },
-    ]);
+    const profiles = profilesForSwitchComputerPicker(
+      [
+        {
+          id: 'mac_usb_loopback',
+          label: 'Mac via USB',
+          gatewayUrl: 'http://127.0.0.1:8642',
+          addedAt: '2026-06-28T12:00:00Z',
+        },
+        {
+          id: 'mac_book_usb',
+          label: 'Igors-MacBook-Pro',
+          gatewayUrl: 'http://127.0.0.1:8642',
+          hostname: 'Igors-MacBook-Pro',
+          addedAt: '2026-06-28T12:00:00Z',
+        },
+        {
+          id: 'mac_mini_ts',
+          label: 'Igors-Mac-mini',
+          gatewayUrl: 'http://100.94.135.78:8642',
+          hostname: 'Igors-Mac-mini',
+          localIp: '100.94.135.78',
+          addedAt: '2026-06-28T12:01:00Z',
+        },
+      ],
+      { activeProfileId: 'mac_book_usb' },
+    );
     expect(profiles.map((p) => p.id)).toEqual(['mac_book_usb', 'mac_mini_ts']);
     expect(profilePickerLines(profiles[1]).title).toBe('Igors-Mac-mini');
     expect(profilePickerLines(profiles[1]).detail).toBe('100.94.135.78:8642');
+  });
+
+  it('renders localhost loopback as a USB route instead of a computer name', () => {
+    const lines = profilePickerLines({
+      id: 'mac_usb',
+      label: 'localhost',
+      gatewayUrl: 'http://127.0.0.1:8642',
+      addedAt: '2026-07-04T23:00:00Z',
+    });
+
+    expect(lines.title).toBe('Computer via USB');
+  });
+
+  it('collapses same-machine Wi-Fi aliases and keeps the active address', () => {
+    const profiles = profilesForSwitchComputerPicker(
+      [
+        {
+          id: 'mac_192_168_68_66',
+          label: 'Igors-MacBook-Pro',
+          gatewayUrl: 'http://192.168.68.66:8642',
+          localIp: '192.168.68.66',
+          addedAt: '2026-07-04T22:00:00Z',
+          lastConnectedAt: '2026-07-04T22:00:00Z',
+        },
+        {
+          id: 'mac_192_168_68_54',
+          label: 'Igors-MacBook-Pro',
+          gatewayUrl: 'http://192.168.68.54:8642',
+          localIp: '192.168.68.54',
+          addedAt: '2026-07-04T22:30:00Z',
+          lastConnectedAt: '2026-07-04T23:00:00Z',
+        },
+      ],
+      { activeProfileId: 'mac_192_168_68_54' },
+    );
+
+    expect(profiles.map((p) => p.id)).toEqual(['mac_192_168_68_54']);
+    expect(profilePickerLines(profiles[0])).toEqual({
+      title: 'Igors-MacBook-Pro',
+      detail: '192.168.68.54:8642',
+    });
+  });
+
+  it('ranks named computers above generic IP-only Wi-Fi rows', () => {
+    const profiles = profilesForSwitchComputerPicker([
+      {
+        id: 'mac_192_168_68_54',
+        label: '192.168.68.54',
+        gatewayUrl: 'http://192.168.68.54:8642',
+        localIp: '192.168.68.54',
+        addedAt: '2026-07-04T23:00:00Z',
+      },
+      {
+        id: 'mac_mini',
+        label: 'Igors-Mac-mini',
+        gatewayUrl: 'http://igors-mac-mini.tail12aa33.ts.net:8642',
+        hostname: 'igors-mac-mini.tail12aa33.ts.net',
+        addedAt: '2026-07-04T22:00:00Z',
+      },
+    ]);
+
+    expect(profiles.map((p) => profilePickerLines(p).title)).toEqual([
+      'Igors-Mac-mini',
+      'Computer 192.168.68.54',
+    ]);
   });
 
   it('shows MagicDNS machine names instead of generic Computer rows', () => {

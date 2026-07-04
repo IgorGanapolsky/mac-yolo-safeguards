@@ -10,6 +10,13 @@ import {
 import { isLoopbackGatewayUrl } from '../utils/gatewayUrlPolicy';
 import { colors } from '../theme/colors';
 
+function routeHintCopy(route: ReturnType<typeof profileConnectionRouteLabel>): string {
+  if (route === 'Needs tunnel') {
+    return 'Needs tunnel';
+  }
+  return `${route} route`;
+}
+
 type GatewayProfilePickerProps = {
   profiles: GatewayProfile[];
   activeProfileId: string | null;
@@ -60,18 +67,19 @@ export default function GatewayProfilePicker({
         const routeHint = showRouteHints
           ? profileConnectionRouteLabel(profile, wifiConnected)
           : null;
+        const routeCopy = routeHint ? routeHintCopy(routeHint) : null;
         const meta = isActive
           ? activeReachable
             ? usbRoute
-              ? 'Connected · USB'
-              : routeHint
-                ? `Connected · ${routeHint}`
+              ? 'Connected · USB route'
+              : routeCopy
+                ? `Connected · ${routeCopy}`
                 : 'Connected'
             : activeConnecting
               ? usbRoute
-                ? 'Connecting · USB…'
-                : routeHint
-                  ? `Connecting · ${routeHint}…`
+                ? 'Connecting · USB route…'
+                : routeCopy
+                  ? `Connecting · ${routeCopy}…`
                   : 'Connecting…'
               : usbRoute
                 ? wifiConnected
@@ -80,7 +88,7 @@ export default function GatewayProfilePicker({
                 : routeHint === 'Needs tunnel'
                   ? 'Needs tunnel (cellular)'
                   : 'Cannot reach this computer'
-          : routeHint ?? (usbRoute ? 'USB' : 'Select');
+          : routeCopy ?? (usbRoute ? 'USB route' : 'Select');
         const statusColor = isActive
           ? activeReachable
             ? colors.success

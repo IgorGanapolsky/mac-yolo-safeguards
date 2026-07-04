@@ -8,7 +8,13 @@ import {
   resolveDisplayLanIp,
 } from './gatewayUrlPolicy';
 import { isPrivateLanGatewayUrl } from './gatewayEndpoint';
-import { isInvalidGatewayProfile, profileDisplayName, GENERIC_USB_PROFILE_LABEL, LEGACY_USB_PROFILE_LABEL } from '../services/gatewayProfiles';
+import {
+  isInvalidGatewayProfile,
+  profileDisplayName,
+  profileMachineKey,
+  GENERIC_USB_PROFILE_LABEL,
+  LEGACY_USB_PROFILE_LABEL,
+} from '../services/gatewayProfiles';
 import { isTailscaleGatewayUrl } from './tailscaleHosts';
 
 export type ProfilePickerLines = {
@@ -82,13 +88,139 @@ function hasNamedUsbLoopbackProfile(profiles: GatewayProfile[]): boolean {
   );
 }
 
-/** Switch-computer list: valid profiles minus redundant generic USB when a named USB Mac exists. */
-export function profilesForSwitchComputerPicker(profiles: GatewayProfile[]): GatewayProfile[] {
-  const valid = profilesForDevicePicker(profiles);
-  if (!hasNamedUsbLoopbackProfile(valid)) {
-    return valid;
+export type SwitchComputerPickerOptions = {
+  activeProfileId?: string | null;
+};
+
+function profileRecency(profile: GatewayProfile): string {
+  return profile.lastConnectedAt ?? profile.addedAt;
+}
+
+function profilePickerAliasKey(profile: GatewayProfile): string {
+  const route = profileConnectionRouteLabel(profile, true);
+  const machineKey =
+    profileMachineKey(profile) ??
+    profileDisplayName(profile)
+      .trim()
+      .toLowerCase()
+      .replace(/\s+/g, ' ');
+  return `${route}:${machineKey || gatewayUrlHostname(profile.gatewayUrl) || profile.gatewayUrl}`;
+}
+
+function preferPickerAlias(
+  current: GatewayProfile,
+  candidate: GatewayProfile,
+  activeProfileId?: string | null,
+): GatewayProfile {
+  if (candidate.id === activeProfileId && current.id !== activeProfileId) {
+    return candidate;
   }
-  return valid.filter((p) => !isGenericUsbLoopbackProfile(p));
+  if (current.id === activeProfileId && candidate.id !== activeProfileId) {
+    return current;
+  }
+  const currentName = profileDisplayName(current);
+  const candidateName = profileDisplayName(candidate);
+  const currentGeneric = isGenericPickerTitle(currentName);
+  const candidateGeneric = isGenericPickerTitle(candidateName);
+  if (currentGeneric !== candidateGeneric) {
+    return candidateGeneric ? current : candidate;
+  }
+  return profileRecency(candidate) > profileRecency(current) ? candidate : current;
+}
+
+function collapsePickerAliases(
+  profiles: GatewayProfile[],
+  activeProfileId?: string | null,
+): GatewayProfile[] {
+  const byAlias = new Map<string, GatewayProfile>();
+  for (const profile of profiles) {
+    const key = profilePickerAliasKey(profile);
+    const current = byAlias.get(key);
+    byAlias.set(
+      key,
+      current ? preferPickerAlias(current, profile, activeProfileId) : profile,
+    );
+  }
+  return Array.from(byAlias.values());
+}
+
+function isGenericPickerTitle(title: string): boolean {
+  const normalized = title.trim().toLowerCase();
+  return (
+    !normalized ||
+    normalized === GENERIC_USB_PROFILE_LABEL.toLowerCase() ||
+    normalized === 'localhost' ||
+    normalized.startsWith('computer ') ||
+    normalized.startsWith('tailscale ')
+  );
+}
+
+function profilePickerSortRank(profile: GatewayProfile, activeProfileId?: string | null): number {
+  if (profile.id === activeProfileId) {
+    return 0;
+  }
+  const route = profileConnectionRouteLabel(profile, true);
+  const generic = isGenericPickerTitle(profileDisplayName(profile));
+  if (!generic && route === 'Tailscale') {
+    return 1;
+  }
+  if (!generic && route === 'Wi-Fi') {
+    return 2;
+  }
+  if (!generic && route === 'USB') {
+    return 3;
+  }
+  if (!generic) {
+    return 4;
+  }
+  if (route === 'Tailscale') {
+    return 5;
+  }
+  if (route === 'Wi-Fi') {
+    return 6;
+  }
+  if (route === 'USB') {
+    return 7;
+  }
+  return 8;
+}
+
+function sortProfilesForSwitchPicker(
+  profiles: GatewayProfile[],
+  activeProfileId?: string | null,
+): GatewayProfile[] {
+  return profiles
+    .map((profile, index) => ({ profile, index }))
+    .sort((a, b) => {
+      const rank = profilePickerSortRank(a.profile, activeProfileId) -
+        profilePickerSortRank(b.profile, activeProfileId);
+      if (rank !== 0) {
+        return rank;
+      }
+      const recency = profileRecency(b.profile).localeCompare(profileRecency(a.profile));
+      if (recency !== 0) {
+        return recency;
+      }
+      const name = profileDisplayName(a.profile).localeCompare(profileDisplayName(b.profile));
+      if (name !== 0) {
+        return name;
+      }
+      return a.index - b.index;
+    })
+    .map((item) => item.profile);
+}
+
+/** Switch-computer list: valid profiles, readable names, and canonical rows for duplicate aliases. */
+export function profilesForSwitchComputerPicker(
+  profiles: GatewayProfile[],
+  options: SwitchComputerPickerOptions = {},
+): GatewayProfile[] {
+  const valid = profiles.filter((p) => !isInvalidGatewayProfile(p));
+  const withoutRedundantUsb = hasNamedUsbLoopbackProfile(valid)
+    ? valid.filter((p) => !isGenericUsbLoopbackProfile(p))
+    : valid;
+  const collapsed = collapsePickerAliases(withoutRedundantUsb, options.activeProfileId);
+  return sortProfilesForSwitchPicker(collapsed, options.activeProfileId);
 }
 
 export type UsbHostMismatch = {
