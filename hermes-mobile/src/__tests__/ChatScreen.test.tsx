@@ -527,7 +527,7 @@ describe('ChatScreen', () => {
         approvalPolicy: 'balanced',
       },
     });
-    const { getByTestId, getByText, queryByTestId } = await renderChatScreen();
+    const { getByTestId, getAllByText, queryByTestId } = await renderChatScreen();
 
     await waitFor(() => {
       expect(getByTestId('chat-empty-recent-chats')).toBeTruthy();
@@ -538,7 +538,7 @@ describe('ChatScreen', () => {
       fireEvent.press(getByTestId('chat-send-button'));
     });
 
-    expect(getByText('show this prompt now')).toBeTruthy();
+    expect(getAllByText('show this prompt now').length).toBeGreaterThanOrEqual(1);
     expect(queryByTestId('chat-empty-recent-chats')).toBeNull();
     expect(queryByTestId('recent-chat-session-1')).toBeNull();
     await act(async () => {
@@ -642,6 +642,48 @@ describe('ChatScreen', () => {
     });
   });
 
+  it('does not render tool transcript cards even when old settings enable tool activity', async () => {
+    const { listMessages } = jest.requireMock('../services/hermesChatClient') as {
+      listMessages: jest.Mock;
+    };
+    listMessages.mockResolvedValue([
+      { id: 'u1', role: 'user', content: 'Are you stuck?' },
+      {
+        id: 'tool1',
+        role: 'tool',
+        content: '{"name":"terminal","command":"cat /tmp/internal-output"}',
+      },
+      { id: 'a1', role: 'assistant', content: 'Visible user answer' },
+    ]);
+    Object.assign(mockGatewayState, {
+      connectionState: 'connected',
+      health: {
+        ok: true,
+        level: 'green',
+        hostname: 'demo-mac.local',
+        localIp: '127.0.0.1',
+        checkedAt: '2026-07-04T00:00:00Z',
+      },
+      settings: {
+        demoMode: false,
+        connectionMode: 'gateway',
+        gatewayUrl: 'http://localhost:8642',
+        cloudUrl: 'https://hermesmobile-cloud.fly.dev',
+        approvalPolicy: 'balanced',
+        includeToolActivity: true,
+      },
+    });
+
+    const { getByText, queryByText, queryByTestId } = await renderChatScreen();
+
+    await waitFor(() => {
+      expect(getByText('Visible user answer')).toBeTruthy();
+    });
+    expect(queryByText(/internal-output/)).toBeNull();
+    expect(queryByText(/Geek details/)).toBeNull();
+    expect(queryByTestId('tool-call-terminal')).toBeNull();
+  });
+
   it('triggers mock message sending and demo reply in demo mode', async () => {
     const { getByTestId, getAllByTestId, queryByTestId } = await renderChatScreen();
     jest.useFakeTimers();
@@ -653,7 +695,7 @@ describe('ChatScreen', () => {
       fireEvent.press(sendButton);
     });
 
-    expect(queryByTestId('submitted-prompt-strip')).toBeNull();
+    expect(queryByTestId('submitted-prompt-strip')).toBeTruthy();
     expect(queryByTestId('chat-empty-state')).toBeNull();
     expect(queryByTestId('chat-empty-recent-chats')).toBeNull();
     expect(getAllByTestId('chat-message-user').length).toBeGreaterThanOrEqual(1);
@@ -686,6 +728,26 @@ describe('ChatScreen', () => {
       fireEvent.press(sendButton);
     });
     expect(getAllByTestId('chat-message-user').length).toBeGreaterThanOrEqual(userCountAfterFirstSend);
+    await flushPendingTimers();
+  });
+
+  it('accepts the same prompt again after the send-clear suppression window expires', async () => {
+    const { getByTestId, getAllByTestId, queryByTestId } = await renderChatScreen();
+    jest.useFakeTimers();
+    const input = getByTestId('chat-input');
+    const sendButton = getByTestId('chat-send-button');
+    const prompt = 'print money, make money faster. Use Data Science, ML and Agentic RAG.';
+
+    act(() => {
+      fireEvent.changeText(input, prompt);
+      fireEvent.press(sendButton);
+      jest.advanceTimersByTime(300);
+      fireEvent.changeText(input, prompt);
+      fireEvent.press(sendButton);
+    });
+
+    expect(queryByTestId('submitted-prompt-strip')).toBeTruthy();
+    expect(getAllByTestId('chat-message-user').length).toBeGreaterThanOrEqual(2);
     await flushPendingTimers();
   });
 
