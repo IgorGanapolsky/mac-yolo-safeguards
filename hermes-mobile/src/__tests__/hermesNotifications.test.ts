@@ -2,7 +2,9 @@ import {
   approvalNotificationSubtitle,
   parseApprovalNotificationResponse,
   parseHermesNotificationResponse,
+  runProgressNotificationBody,
   runProgressNotificationTitle,
+  shouldPresentHermesNotification,
 } from '../services/hermesNotifications';
 
 describe('hermesNotifications', () => {
@@ -92,5 +94,37 @@ describe('hermesNotifications', () => {
         startedAtMs: Date.now(),
       }),
     ).toBe('Hermes is responding');
+  });
+
+  it('suppresses Hermes notification banners while app is foregrounded', () => {
+    expect(shouldPresentHermesNotification({ type: 'run_stall' }, 'active')).toMatchObject({
+      shouldShowAlert: false,
+      shouldShowBanner: false,
+      shouldShowList: false,
+      shouldPlaySound: false,
+    });
+    expect(shouldPresentHermesNotification({ type: 'approval', riskTier: 'high' }, 'active')).toMatchObject({
+      shouldShowAlert: false,
+      shouldShowBanner: false,
+      shouldShowList: false,
+      shouldPlaySound: false,
+    });
+  });
+
+  it('keeps background run notifications actionable and informative', () => {
+    expect(shouldPresentHermesNotification({ type: 'run_stall' }, 'background')).toMatchObject({
+      shouldShowBanner: true,
+      shouldPlaySound: true,
+    });
+    expect(
+      runProgressNotificationBody({
+        phase: 'working',
+        startedAtMs: Date.now() - 7000,
+        detail: 'running terminal',
+        model: 'glm-5.2',
+        inputTokens: 147474,
+        outputTokens: 14403,
+      }),
+    ).toContain('glm-5.2 · In 147474 / Out 14403');
   });
 });
