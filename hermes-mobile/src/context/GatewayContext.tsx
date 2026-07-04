@@ -1848,6 +1848,21 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
       for (const item of discovered) {
         state = upsertDiscoveredProfile(state, item, false);
       }
+      // Probe known Tailscale hosts for their /health hostname so raw 100.x CGNAT IPs show the
+      // real machine name (e.g. igors-mac-mini) instead of a nameless "Computer <IP>". Reuses the
+      // existing per-host probe; unreachable hosts return null and are skipped.
+      if (tailnetProbeHostsRef.current.length > 0) {
+        try {
+          const namedTailscale = await discoverTailscaleGateways(tailnetProbeHostsRef.current);
+          for (const item of namedTailscale) {
+            if (item.hostname) {
+              state = upsertDiscoveredProfile(state, item, false);
+            }
+          }
+        } catch {
+          // Naming is best-effort; a probe failure must never break discovery.
+        }
+      }
       state = dedupeGatewayProfiles(state);
       const active = activeProfile(state);
       const lanMatch =
