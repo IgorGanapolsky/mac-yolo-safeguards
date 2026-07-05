@@ -2,6 +2,14 @@ export interface ChatProject {
   id: string;
   name: string;
   workspacePath: string;
+  /** Obsidian vault slug when sourced from AI-Agent-Sync Projects/. */
+  vaultSlug?: string;
+  /** Repo path from vault catalog (source_repo). */
+  sourceRepo?: string;
+  /** Latest handoff one-liner for this project lane. */
+  handoffSummary?: string;
+  /** Human-readable role from the AI-Agent-Sync project catalog. */
+  role?: string;
   /** Hermes session ids created under this project (most recent first). */
   sessionIds: string[];
   activeSessionId?: string;
@@ -14,6 +22,8 @@ export interface ChatProjectState {
   /** Mobile-pinned labels — gateway title/preview often mirrors the latest message. */
   sessionLabels: Record<string, string>;
   activeProjectId: string | null;
+  /** Active project per saved computer profile (gateway profile id). */
+  activeProjectByComputer?: Record<string, string | null>;
   /** Whether the user has cleared the initial demo threads. */
   demoCleared?: boolean;
 }

@@ -606,3 +606,40 @@ export async function streamSessionChat(
     clearTimeout(maxTimer);
   }
 }
+
+export interface ObsidianProject {
+  name: string;
+  workspacePath: string;
+  vaultHome: string;
+  rule: string;
+}
+
+export interface ObsidianAgent {
+  name: string;
+  status: string;
+  role: string;
+  lastActive: number;
+}
+
+export async function getObsidianProjects(
+  gatewayUrl: string,
+  apiKey?: string | null,
+): Promise<ObsidianProject[]> {
+  const response = await fetch(`${base(gatewayUrl)}/v1/obsidian/projects`, {
+    headers: buildAuthHeaders(apiKey),
+  });
+  const body = await parseJson<{ data?: ObsidianProject[] }>(response);
+  return body.data ?? [];
+}
+
+export async function getObsidianAgents(
+  gatewayUrl: string,
+  apiKey?: string | null,
+): Promise<ObsidianAgent[]> {
+  const response = await fetch(`${base(gatewayUrl)}/v1/obsidian/agents`, {
+    headers: buildAuthHeaders(apiKey),
+  });
+  const body = await parseJson<{ data?: ObsidianAgent[] }>(response);
+  return body.data ?? [];
+}
+

@@ -237,8 +237,24 @@ function openDeepLinkOnDevice(serial, link) {
   return result.status === 0;
 }
 
+function syncVaultProjectsCatalog() {
+  try {
+    const { collectCatalog, DEFAULT_OUT } = require('./hermes-vault-projects-sync.js');
+    const catalog = collectCatalog(
+      fs.existsSync(path.join(os.homedir(), 'Documents', 'AI-Agent-Sync'))
+        ? path.join(os.homedir(), 'Documents', 'AI-Agent-Sync')
+        : require('./hermes-vault-projects-sync.js').DEFAULT_VAULT,
+    );
+    fs.mkdirSync(path.dirname(DEFAULT_OUT), { recursive: true });
+    fs.writeFileSync(DEFAULT_OUT, `${JSON.stringify(catalog, null, 2)}\n`);
+  } catch (error) {
+    console.warn(`  vault-projects sync skipped: ${error.message || error}`);
+  }
+}
+
 function writePairAssets({ gatewayUrl, lanIp, deepLink, pageUrl, hostname, relayCode, tailnetProbeHosts }) {
   fs.mkdirSync(OUT_DIR, { recursive: true });
+  syncVaultProjectsCatalog();
   const displayName = (hostname || '').replace(/\.local$/i, '') || 'Mac';
   const qrPath = path.join(OUT_DIR, 'pair-qr.png');
   let imgTag = '';
@@ -329,6 +345,7 @@ function ensurePairServerDaemon(lanIp) {
 }
 
 function runServerOnly() {
+  syncVaultProjectsCatalog();
   const health = fetchHealth();
   const lanIp = resolveLanIp(health);
   if (portInUse(PAIR_PORT)) {
@@ -338,10 +355,22 @@ function runServerOnly() {
 }
 
 function createPairServer(lanIp) {
+  const vaultProjectsPath = path.join(OUT_DIR, 'vault-projects.json');
   const server = http.createServer((req, res) => {
     const url = req.url?.split('?')[0] ?? '/';
     if (url === '/pair.json') {
       const json = fs.readFileSync(path.join(OUT_DIR, 'pair.json'), 'utf8');
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(json);
+      return;
+    }
+    if (url === '/vault-projects.json') {
+      if (!fs.existsSync(vaultProjectsPath)) {
+        res.writeHead(404);
+        res.end('vault catalog missing — run node tools/hermes-vault-projects-sync.js');
+        return;
+      }
+      const json = fs.readFileSync(vaultProjectsPath, 'utf8');
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(json);
       return;

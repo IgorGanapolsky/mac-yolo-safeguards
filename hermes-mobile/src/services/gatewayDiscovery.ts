@@ -8,7 +8,7 @@ import type { LanScanProgress, LanScanStage } from '../types/lanScan';
 
 const IPV4_RE = /^\d{1,3}(\.\d{1,3}){3}$/;
 const PROBE_TIMEOUT_MS = 1500;
-const PAIR_SERVER_PORT = 8765;
+export const PAIR_SERVER_PORT = 8765;
 const SUBNET_BATCH_SIZE = 48;
 
 export type DiscoverLanOptions = {

@@ -10,10 +10,14 @@ describe('workspacePrompt', () => {
     expect(workspaceDisplayName('/Users/igor/workspace/git/igor/ThumbGate')).toBe('ThumbGate');
   });
 
-  it('pins workspace in system prompt', () => {
-    const prompt = buildWorkspaceSystemPrompt('~/workspace/git/igor/skool_top1percent');
+  it('pins workspace and vault lane in system prompt', () => {
+    const prompt = buildWorkspaceSystemPrompt('~/workspace/git/igor/skool_top1percent', {
+      vaultSlug: 'Skool',
+      handoffSummary: 'Post the triple-offer thread.',
+    });
     expect(prompt).toContain('skool_top1percent');
-    expect(prompt).toContain('Active workspace');
+    expect(prompt).toContain('AI-Agent-Sync/Projects/Skool/');
+    expect(prompt).toContain('triple-offer');
   });
 
   it('always includes mobile execution mandate even without a project', () => {

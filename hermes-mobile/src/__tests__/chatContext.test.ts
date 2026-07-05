@@ -81,4 +81,14 @@ describe('chatContext', () => {
     const project = resolveChatProject(state, 'other-session');
     expect(project?.id).toBe('proj-1');
   });
+
+  it('uses per-computer active project when profile id is provided', () => {
+    const state: ChatProjectState = {
+      ...projectState,
+      activeProjectId: null,
+      activeProjectByComputer: { mac_mini: 'proj-1' },
+    };
+    const project = resolveChatProject(state, 'other-session', 'mac_mini');
+    expect(project?.id).toBe('proj-1');
+  });
 });

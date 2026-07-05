@@ -48,7 +48,18 @@ import {
   updateSessionTitle,
 } from '../services/hermesChatClient';
 import { chatSendBlockedMessage, humanizeChatError, isConnectivityMessage, isSessionInUseError } from '../utils/chatErrors';
-import { HermesGatewayApiError, deleteSession, clearAllSessions, forkSession, getCapabilities, getRunStatus, stopRun, streamSessionChat } from '../services/hermesGatewayClient';
+import {
+  HermesGatewayApiError,
+  deleteSession,
+  clearAllSessions,
+  forkSession,
+  getCapabilities,
+  getRunStatus,
+  stopRun,
+  streamSessionChat,
+  getObsidianProjects,
+  getObsidianAgents,
+} from '../services/hermesGatewayClient';
 import { fetchGatewayHealth } from '../services/gatewayClient';
 import type { HermesSession, HermesMessage } from '../types/chat';
 import type { ChatProject, ChatProjectState } from '../types/chatProject';
@@ -58,11 +69,15 @@ import {
   chatProjects,
   clearAllSessionBindings,
   clearBoundSessions,
+  mergeVaultCatalogIntoState,
   pinSessionLabel,
   projectNameForSession,
-  setActiveProject,
+  resolveActiveProjectId,
+  setActiveProjectForComputer,
   setActiveSession,
 } from '../services/chatProjects';
+import { fetchVaultProjectCatalog } from '../services/vaultProjects';
+import type { VaultProjectCatalog } from '../types/vaultProject';
 import { storage } from '../services/storage';
 import { buildMobileChatSystemPrompt } from '../utils/workspacePrompt';
 import {
@@ -129,6 +144,7 @@ import SubmittedPromptStrip from '../components/SubmittedPromptStrip';
 import ChatConnectionPanel from '../components/ChatConnectionPanel';
 import LoadingButton from '../components/ui/LoadingButton';
 import ChatInputBar from '../components/ChatInputBar';
+import VaultProjectPickerChip from '../components/VaultProjectPickerChip';
 import ChatMessageListItem from '../components/ChatMessageListItem';
 import BottomSheetModal from '../components/BottomSheetModal';
 import ChatMessageDetailModal from '../components/ChatMessageDetailModal';
@@ -268,6 +284,7 @@ export default function ChatScreen() {
     connectionHealInFlight,
     connectionHealExhausted,
   } = useGatewayConnection();
+  const [activeAgents, setActiveAgents] = useState<{ name: string; status: string }[]>([]);
   const { relayWorkers, isPaired, activeRelayWorkerId } = useGatewayRelay();
   const {
     pendingApprovals,
@@ -324,6 +341,8 @@ export default function ChatScreen() {
   const [isClearing, setIsClearing] = useState(false);
   const [projectState, setProjectState] = useState<ChatProjectState>(EMPTY_CHAT_PROJECT_STATE);
   const [isProjectsLoaded, setIsProjectsLoaded] = useState(false);
+  const [vaultCatalog, setVaultCatalog] = useState<VaultProjectCatalog | null>(null);
+  const [vaultCatalogLoading, setVaultCatalogLoading] = useState(false);
   const [toolStatus, setToolStatus] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [macRetryBusy, setMacRetryBusy] = useState(false);
@@ -845,13 +864,14 @@ export default function ChatScreen() {
   }, [effectiveMacChatLive]);
 
   const activeProject = useMemo(() => {
-    if (!projectState.activeProjectId) return null;
-    return projectState.projects.find((p) => p.id === projectState.activeProjectId) ?? null;
-  }, [projectState]);
+    const activeId = resolveActiveProjectId(projectState, activeGatewayProfile?.id ?? null);
+    if (!activeId) return null;
+    return projectState.projects.find((p) => p.id === activeId) ?? null;
+  }, [projectState, activeGatewayProfile?.id]);
 
   const contextProject = useMemo(
-    () => resolveChatProject(projectState, currentSession?.id),
-    [projectState, currentSession?.id],
+    () => resolveChatProject(projectState, currentSession?.id, activeGatewayProfile?.id ?? null),
+    [projectState, currentSession?.id, activeGatewayProfile?.id],
   );
 
   const sessionLabelFor = useCallback(
@@ -1129,8 +1149,17 @@ export default function ChatScreen() {
   }, [undoSecondsLeft]);
 
   const mobileChatSystemPrompt = useMemo(
-    () => buildMobileChatSystemPrompt(contextProject?.workspacePath, settings.hermesPersona),
-    [contextProject?.workspacePath, settings.hermesPersona],
+    () =>
+      buildMobileChatSystemPrompt(contextProject?.workspacePath, settings.hermesPersona, {
+        vaultSlug: contextProject?.vaultSlug,
+        handoffSummary: contextProject?.handoffSummary,
+      }),
+    [
+      contextProject?.workspacePath,
+      contextProject?.vaultSlug,
+      contextProject?.handoffSummary,
+      settings.hermesPersona,
+    ],
   );
 
   const visibleSessions = useMemo(() => {
@@ -1257,6 +1286,7 @@ export default function ChatScreen() {
               id: 'demo-skool',
               name: 'skool_top1percent',
               workspacePath: '~/workspace/git/igor/skool_top1percent',
+              vaultSlug: 'Skool',
               sessionIds: ['demo-1'],
               activeSessionId: 'demo-1',
             },
@@ -1264,6 +1294,7 @@ export default function ChatScreen() {
               id: 'demo-thumbgate',
               name: 'ThumbGate',
               workspacePath: '~/workspace/git/igor/ThumbGate',
+              vaultSlug: 'ThumbGate',
               sessionIds: ['demo-2'],
               activeSessionId: 'demo-2',
             },
@@ -1271,6 +1302,7 @@ export default function ChatScreen() {
           sessionProjectMap: { 'demo-1': 'demo-skool', 'demo-2': 'demo-thumbgate' },
           sessionLabels: {},
           activeProjectId: 'demo-skool',
+          activeProjectByComputer: {},
         };
         setProjectState(demoState);
         setIsProjectsLoaded(true);
@@ -1280,6 +1312,118 @@ export default function ChatScreen() {
       setIsProjectsLoaded(true);
     });
   }, [isDemo]);
+
+  useEffect(() => {
+    if (isDemo || !gatewayUrl.trim() || !macHttpOk) {
+      return;
+    }
+    let cancelled = false;
+    setVaultCatalogLoading(true);
+    void (async () => {
+      const catalog = await fetchVaultProjectCatalog(
+        gatewayUrl,
+        activeGatewayProfile?.localIp ? [activeGatewayProfile.localIp] : [],
+      );
+      if (cancelled) return;
+      setVaultCatalog(catalog);
+      setVaultCatalogLoading(false);
+      if (!catalog?.projects.length) return;
+      setProjectState((prev) => {
+        const merged = mergeVaultCatalogIntoState(prev, catalog.projects);
+        if (merged === prev) return prev;
+        void chatProjects.save(merged);
+        return merged;
+      });
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [isDemo, gatewayUrl, macHttpOk, activeGatewayProfile?.id, activeGatewayProfile?.localIp]);
+
+  // Dynamic sync from central Obsidian PROJECTS.md table
+  useEffect(() => {
+    if (isDemo || !gatewayUrl.trim() || !macHttpOk) {
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      try {
+        const obsidianProjects = await getObsidianProjects(gatewayUrl, apiKey);
+        if (cancelled) return;
+        if (obsidianProjects && obsidianProjects.length > 0) {
+          setProjectState((prev) => {
+            let stateChanged = false;
+            const projects = [...prev.projects];
+            for (const op of obsidianProjects) {
+              const exists = projects.some(
+                (p) => p.workspacePath.toLowerCase() === op.workspacePath.toLowerCase()
+              );
+              const cleanSlug = op.vaultHome.replace(/^Projects\//i, '').split('/')[0] || '';
+              if (!exists) {
+                const id = `proj_obsidian_${op.name.toLowerCase().replace(/[^a-z0-9]/g, '_')}`;
+                projects.push({
+                  id,
+                  name: op.name,
+                  workspacePath: op.workspacePath,
+                  vaultSlug: cleanSlug || undefined,
+                  handoffSummary: op.rule || undefined,
+                  sessionIds: [],
+                });
+                stateChanged = true;
+              } else {
+                const idx = projects.findIndex(
+                  (p) => p.workspacePath.toLowerCase() === op.workspacePath.toLowerCase()
+                );
+                if (idx !== -1) {
+                  const p = projects[idx]!;
+                  if (p.vaultSlug !== cleanSlug || p.handoffSummary !== op.rule) {
+                    projects[idx] = {
+                      ...p,
+                      vaultSlug: cleanSlug || undefined,
+                      handoffSummary: op.rule || undefined,
+                    };
+                    stateChanged = true;
+                  }
+                }
+              }
+            }
+            if (!stateChanged) return prev;
+            const next = { ...prev, projects };
+            void chatProjects.save(next);
+            return next;
+          });
+        }
+      } catch (err) {
+        console.log('Failed to fetch Obsidian projects:', err);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [isDemo, gatewayUrl, apiKey, macHttpOk]);
+
+  useEffect(() => {
+    if (!macHttpOk || isDemo) {
+      setActiveAgents([]);
+      return;
+    }
+    let cancelled = false;
+    const fetchAgents = async () => {
+      try {
+        const agents = await getObsidianAgents(gatewayUrl, apiKey);
+        if (cancelled) return;
+        setActiveAgents(agents.map(a => ({ name: a.name, status: a.status })));
+      } catch (err) {
+        console.log('Failed to fetch active agents:', err);
+      }
+    };
+    fetchAgents();
+    const interval = setInterval(fetchAgents, 30000);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, [macHttpOk, gatewayUrl, apiKey, isDemo]);
 
   useEffect(() => {
     if (!isDemo || projectState.projects.length === 0) return;
@@ -1299,37 +1443,52 @@ export default function ChatScreen() {
 
   const selectProject = async (project: ChatProject) => {
     haptics.selection();
-    const next = setActiveProject(projectState, project.id);
+    const next = setActiveProjectForComputer(
+      projectState,
+      activeGatewayProfile?.id ?? null,
+      project.id,
+    );
     await persistProjectState(next);
     const boundSessionId = project.activeSessionId ?? project.sessionIds[0];
     if (boundSessionId) {
       const match = sessions.find((s) => s.id === boundSessionId);
       if (match) {
         setCurrentSession(match);
+        setProjectModalVisible(false);
         return;
       }
     }
     setCurrentSession(null);
     setMessages([]);
+    setProjectModalVisible(false);
   };
 
-  const handlePickWorkspace = useCallback(() => {
-    if (projectState.projects.length <= 1) {
-      return;
-    }
+  const openProjectPicker = useCallback(() => {
     haptics.selection();
-    Alert.alert(
-      'Workspace',
-      'Hermes runs in this folder on your computer.',
-      [
-        ...projectState.projects.map((project) => ({
-          text: project.name,
-          onPress: () => void selectProject(project),
-        })),
-        { text: 'Cancel', style: 'cancel' },
-      ],
+    setProjectModalVisible(true);
+  }, []);
+
+  const handlePickWorkspace = useCallback(() => {
+    openProjectPicker();
+  }, [openProjectPicker]);
+
+  const handleSelectVaultProject = useCallback(
+    (project: ChatProject) => {
+      void selectProject(project);
+    },
+    [projectState, activeGatewayProfile?.id, sessions],
+  );
+
+  const handleClearProject = useCallback(async () => {
+    haptics.selection();
+    const next = setActiveProjectForComputer(
+      projectState,
+      activeGatewayProfile?.id ?? null,
+      null,
     );
-  }, [projectState.projects, selectProject]);
+    await persistProjectState(next);
+    setProjectModalVisible(false);
+  }, [projectState, activeGatewayProfile?.id]);
 
   const handleAddProject = async () => {
     const path = newProjectPath.trim();
@@ -3892,7 +4051,9 @@ export default function ChatScreen() {
           macHttpReachable={effectiveMacHttpOk}
           isDemo={isDemo}
           workspaceName={activeProject?.name}
-          canSwitchWorkspace={projectState.projects.length > 1}
+          workspaceHandoff={activeProject?.handoffSummary}
+          canSwitchWorkspace={!showMacConnectionHelp}
+          activeAgents={activeAgents}
           onOpenThreads={openSessionsModal}
           onOpenTools={() => setToolsModalVisible(true)}
           onPressMachine={() => {
@@ -4173,6 +4334,12 @@ export default function ChatScreen() {
           </Pressable>
         ) : null}
 
+        <VaultProjectPickerChip
+          projectName={activeProject?.name}
+          handoffSummary={activeProject?.handoffSummary}
+          onPress={!showMacConnectionHelp ? openProjectPicker : undefined}
+        />
+
         <ChatInputBar
           value={inputValue}
           onChangeText={handleComposerTextChange}
@@ -4448,15 +4615,50 @@ export default function ChatScreen() {
         testID="project-modal"
       >
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Add computer workspace</Text>
+              <Text style={styles.modalTitle}>Choose project</Text>
               <TouchableOpacity onPress={() => setProjectModalVisible(false)}>
                 <Text style={styles.modalCloseBtn}>Close</Text>
               </TouchableOpacity>
             </View>
             <Text style={styles.modalSubtitle}>
-              Each project gets its own chat history and pins Hermes tools to that folder on your computer.
+              Tag prompts with an AI-Agent-Sync project lane. Hermes runs tools in that repo on your computer.
             </Text>
-            <Text style={styles.fieldLabel}>Workspace path</Text>
+            {vaultCatalogLoading ? (
+              <ActivityIndicator size="small" color={colors.primary} style={{ marginBottom: 12 }} />
+            ) : null}
+            {vaultCatalog?.handoffs?.[0]?.summary ? (
+              <Text style={styles.modalSubtitle} numberOfLines={3} testID="project-modal-latest-handoff">
+                Latest handoff: {vaultCatalog.handoffs[0].summary}
+              </Text>
+            ) : null}
+            <ScrollView style={{ maxHeight: 280 }} keyboardShouldPersistTaps="handled">
+              {projectState.projects.map((project) => {
+                const isActive = activeProject?.id === project.id;
+                return (
+                  <TouchableOpacity
+                    key={project.id}
+                    style={[styles.projectPickRow, isActive && styles.projectPickRowActive]}
+                    onPress={() => handleSelectVaultProject(project)}
+                    testID={`project-pick-${project.vaultSlug ?? project.id}`}
+                  >
+                    <Text style={styles.projectPickName}>{project.name}</Text>
+                    {project.role ? (
+                      <Text style={styles.projectPickMeta} numberOfLines={1}>{project.role}</Text>
+                    ) : null}
+                    <Text style={styles.projectPickPath} numberOfLines={1}>{project.workspacePath}</Text>
+                    {project.handoffSummary ? (
+                      <Text style={styles.projectPickHandoff} numberOfLines={2}>{project.handoffSummary}</Text>
+                    ) : null}
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+            {activeProject ? (
+              <TouchableOpacity style={styles.clearProjectBtn} onPress={() => void handleClearProject()} testID="clear-project-button">
+                <Text style={styles.clearProjectBtnText}>Clear project tag</Text>
+              </TouchableOpacity>
+            ) : null}
+            <Text style={[styles.fieldLabel, { marginTop: 12 }]}>Custom workspace</Text>
             <TextInput
               style={styles.modalInput}
               value={newProjectPath}
@@ -4478,7 +4680,7 @@ export default function ChatScreen() {
               testID="new-project-name-input"
             />
             <TouchableOpacity style={styles.newChatBtn} onPress={handleAddProject} testID="save-project-button">
-              <Text style={styles.newChatBtnText}>Add project</Text>
+              <Text style={styles.newChatBtnText}>Add custom workspace</Text>
             </TouchableOpacity>
       </BottomSheetModal>
 
@@ -4962,6 +5164,51 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: colors.textSecondary,
     marginBottom: 6,
+  },
+  projectPickRow: {
+    borderWidth: 1,
+    borderColor: colors.borderLight,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginBottom: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+  },
+  projectPickRowActive: {
+    borderColor: colors.accent,
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+  },
+  projectPickName: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: colors.text,
+    marginBottom: 2,
+  },
+  projectPickMeta: {
+    fontSize: 11,
+    color: colors.textMuted,
+    marginBottom: 2,
+  },
+  projectPickPath: {
+    fontSize: 10,
+    color: colors.textSecondary,
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+  },
+  projectPickHandoff: {
+    fontSize: 10,
+    lineHeight: 14,
+    color: colors.textMuted,
+    marginTop: 4,
+  },
+  clearProjectBtn: {
+    marginTop: 8,
+    marginBottom: 4,
+    alignSelf: 'flex-start',
+  },
+  clearProjectBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.textMuted,
   },
   modalInput: {
     backgroundColor: 'rgba(255, 255, 255, 0.05)',

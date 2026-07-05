@@ -224,6 +224,12 @@ jest.mock('../services/chatProjects', () => {
   };
 });
 
+jest.mock('../services/vaultProjects', () => ({
+  fetchVaultProjectCatalog: jest.fn().mockResolvedValue(null),
+  fetchVaultProjectCatalogFromHost: jest.fn().mockResolvedValue(null),
+  VAULT_PROJECTS_PATH: '/vault-projects.json',
+}));
+
 jest.mock('../services/hermesGatewayClient', () => ({
   HermesGatewayApiError: class HermesGatewayApiError extends Error {
     status: number;
@@ -238,6 +244,8 @@ jest.mock('../services/hermesGatewayClient', () => ({
   forkSession: jest.fn(),
   stopRun: jest.fn(),
   streamSessionChat: jest.fn(),
+  getObsidianProjects: jest.fn().mockResolvedValue([]),
+  getObsidianAgents: jest.fn().mockResolvedValue([]),
 }));
 
 jest.mock('../services/hermesChatClient', () => ({
@@ -1717,6 +1725,27 @@ describe('ChatScreen', () => {
     expect(queryByText('still here before clear')).toBeNull();
 
     alertSpy.mockRestore();
+  });
+
+  describe('Obsidian vault project picker', () => {
+    it('shows active project chip and opens vault project modal', async () => {
+      const { getByTestId } = await renderChatScreen();
+
+      await act(async () => {
+        await Promise.resolve();
+        await Promise.resolve();
+      });
+
+      expect(getByTestId('vault-project-picker-chip')).toBeTruthy();
+      expect(getByTestId('chat-header-project-picker')).toBeTruthy();
+
+      fireEvent.press(getByTestId('vault-project-picker-chip'));
+
+      await waitFor(() => {
+        expect(getByTestId('project-modal')).toBeTruthy();
+        expect(getByTestId('project-pick-demo-hermes-mobile')).toBeTruthy();
+      });
+    });
   });
 
   it('shows jump-to-bottom after scrolling up and scrolls on tap', async () => {

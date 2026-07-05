@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { ChatProject, ChatProjectState } from '../types/chatProject';
+import type { VaultProjectCatalogEntry } from '../types/vaultProject';
 import { EMPTY_CHAT_PROJECT_STATE } from '../types/chatProject';
 import { isGenericSessionPlaceholderTitle } from '../utils/sessionDisplay';
 import { workspaceDisplayName } from '../utils/workspacePrompt';
@@ -8,6 +9,39 @@ const STORAGE_KEY = 'hermes-mobile:chat_projects';
 
 function normalizePath(path: string): string {
   return path.trim().replace(/\/+$/, '');
+}
+
+function normalizeRepoPath(path: string): string {
+  return normalizePath(path).replace(/^~(?=\/)/, '');
+}
+
+export function resolveActiveProjectId(
+  state: ChatProjectState,
+  computerProfileId?: string | null,
+): string | null {
+  const profileId = computerProfileId?.trim();
+  if (profileId && state.activeProjectByComputer && profileId in state.activeProjectByComputer) {
+    return state.activeProjectByComputer[profileId] ?? null;
+  }
+  return state.activeProjectId;
+}
+
+export function setActiveProjectForComputer(
+  state: ChatProjectState,
+  computerProfileId: string | null | undefined,
+  projectId: string | null,
+): ChatProjectState {
+  const next: ChatProjectState = { ...state, activeProjectId: projectId };
+  if (!computerProfileId?.trim()) {
+    return next;
+  }
+  return {
+    ...next,
+    activeProjectByComputer: {
+      ...(state.activeProjectByComputer ?? {}),
+      [computerProfileId]: projectId,
+    },
+  };
 }
 
 export function createProject(workspacePath: string, name?: string): ChatProject {
@@ -19,6 +53,53 @@ export function createProject(workspacePath: string, name?: string): ChatProject
     workspacePath: normalized,
     sessionIds: [],
   };
+}
+
+export function createProjectFromVaultEntry(entry: VaultProjectCatalogEntry): ChatProject {
+  const workspacePath = normalizePath(entry.sourceRepo);
+  const id = `vault_${entry.slug}`;
+  return {
+    id,
+    name: entry.name,
+    workspacePath,
+    vaultSlug: entry.slug,
+    sourceRepo: entry.sourceRepo,
+    role: entry.role,
+    handoffSummary: entry.handoffSummary,
+    sessionIds: [],
+  };
+}
+
+function projectMatchesVaultEntry(project: ChatProject, entry: VaultProjectCatalogEntry): boolean {
+  if (project.vaultSlug && project.vaultSlug === entry.slug) return true;
+  if (project.id === `vault_${entry.slug}`) return true;
+  return normalizeRepoPath(project.workspacePath) === normalizeRepoPath(entry.sourceRepo);
+}
+
+export function mergeVaultCatalogIntoState(
+  state: ChatProjectState,
+  entries: VaultProjectCatalogEntry[],
+): ChatProjectState {
+  if (entries.length === 0) return state;
+  const projects = [...state.projects];
+  for (const entry of entries) {
+    const index = projects.findIndex((project) => projectMatchesVaultEntry(project, entry));
+    if (index >= 0) {
+      const existing = projects[index];
+      projects[index] = {
+        ...existing,
+        name: entry.name || existing.name,
+        workspacePath: normalizePath(entry.sourceRepo),
+        vaultSlug: entry.slug,
+        sourceRepo: entry.sourceRepo,
+        role: entry.role ?? existing.role,
+        handoffSummary: entry.handoffSummary ?? existing.handoffSummary,
+      };
+      continue;
+    }
+    projects.push(createProjectFromVaultEntry(entry));
+  }
+  return { ...state, projects };
 }
 
 export function bindSessionToProject(
@@ -175,6 +256,10 @@ export const chatProjects = {
         sessionProjectMap,
         sessionLabels: mergedLabels,
         activeProjectId: parsed.activeProjectId ?? null,
+        activeProjectByComputer:
+          parsed.activeProjectByComputer && typeof parsed.activeProjectByComputer === 'object'
+            ? parsed.activeProjectByComputer
+            : {},
         demoCleared: parsed.demoCleared ?? false,
       };
     } catch (error) {
