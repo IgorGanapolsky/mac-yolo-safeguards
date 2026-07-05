@@ -96,6 +96,7 @@ Durable rules live in [AGENTS.md](./AGENTS.md); this file is *live state only*.
 | T-75 | Add DMAIC chat-send performance control loop | in_progress | codex | `hermes-mobile/src/services/hermesGatewayClient.ts`, `hermes-mobile/src/services/chatSendPerformance.ts`, `hermes-mobile/src/__tests__/chatSendPerformance.test.ts`, `hermes-mobile/src/__tests__/hermesGatewayClient.test.ts`, `hermes-mobile/docs/DMAIC-MESSAGING-PERFORMANCE.md`, `plan.md` | Expensify/Callstack DMAIC research translated into streamed chat-send latency telemetry without touching active Cursor ChatScreen UX work; focused tests, typecheck, full Jest, and continuous E2E status required |
 | T-76 | Remove relay-pairing scare copy from chat blockers | in_progress | codex | `hermes-mobile/src/utils/chatErrors.ts`, `hermes-mobile/src/__tests__/chatErrors.test.ts`, `plan.md` | Relay-unpaired state points users to direct computer link / seamless auto-reconnect instead of implying manual relay pairing is required |
 | T-77 | Meaningful run notification copy + context wiring | in_progress | cursor | `hermes-mobile/src/services/hermesNotifications.ts`, `hermes-mobile/src/services/runNotificationContext.ts`, `hermes-mobile/src/utils/runNotificationContent.ts`, `hermes-mobile/src/__tests__/runNotificationContent.test.ts`, `hermes-mobile/src/__tests__/hermesNotifications.test.ts`, `hermes-mobile/src/screens/ChatScreen.tsx`, `hermes-mobile/docs/NOTIFICATIONS-UX.md`, `plan.md` | Title=WHAT (project+prompt/tool), body=PROGRESS (elapsed+step+computer); suppress relay/connectivity noise in run channel; unit tests + npm test pass |
+| T-78 | Implement lightweight Hermes Page-Agent DOM controller | in_progress | antigravity | `tools/hermes-page-agent.js`, `tests/test-hermes-page-agent.js`, `docs/HERMES-PAGE-AGENT.md`, `plan.md` | lightweight DOM agent executes clicks/inputs/submits in page context; tests pass |
 
 Status values: `pending` | `in_progress` | `blocked` | `done`. Claim a row by setting Owner+Status in one edit, then claim its files in §2.
 
@@ -215,7 +216,9 @@ Status values: `pending` | `in_progress` | `blocked` | `done`. Claim a row by se
 - `hermes-mobile/src/screens/ChatScreen.tsx`, `hermes-mobile/src/utils/chatMessageDisplay.ts`, `hermes-mobile/src/utils/sessionDisplay.ts`, `hermes-mobile/src/__tests__/ChatScreen.test.tsx`, `hermes-mobile/src/__tests__/chatMessageDisplay.test.ts`, `hermes-mobile/src/__tests__/sessionDisplay.test.ts`, `plan.md` → **codex** (T-67) — released app-side; transcript hides tool/debug cards, active output scrolls latest, first prompt names new sessions (2026-07-03T20:46:00Z)
 - `hermes-mobile/src/services/gatewayProfiles.ts`, `hermes-mobile/src/utils/gatewayProfilePicker.ts`, `hermes-mobile/src/utils/chatMachineHeader.ts`, `hermes-mobile/src/__tests__/gatewayProfiles.test.ts`, `hermes-mobile/src/__tests__/gatewayProfilePicker.test.ts`, `hermes-mobile/src/__tests__/chatMachineHeader.test.ts`, `plan.md` → **codex** (T-68 picker dedupe + useful names) (2026-07-03T21:08:00Z)
 - `AGENTS.md`, `plan.md` → shared coordination files (append-only edits, commit first)
+- `tools/hermes-page-agent.js`, `tests/test-hermes-page-agent.js`, `docs/HERMES-PAGE-AGENT.md` → **antigravity** (T-78 DOM controller) (2026-07-05)
 - everything else → (free)
+
 
 ## 3. Decisions Log (append-only, newest at bottom)
 
