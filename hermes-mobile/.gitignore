@@ -20,3 +20,4 @@ docs/proofs
 .install-phone-release.lock.meta
 .install-phone-release.lockdir/
 .install-phone-release.last
+.reassure/
