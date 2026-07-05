@@ -2,6 +2,7 @@ import type { RunProgressState } from '../types/chatDisplay';
 import { isConnectivityMessage, shortMacUnreachableTitle } from './chatErrors';
 
 const GATEWAY_PLATFORM_MODEL_LABELS = new Set(['hermes-agent', 'hermes', 'gateway']);
+export const STALE_RUN_SECONDS = 15 * 60;
 
 /** Return a trimmed LLM model id for UI, or null when value is a gateway platform label. */
 export function displayableLlmModel(model: string | undefined | null): string | null {
@@ -71,6 +72,39 @@ export function runProgressFailedTitle(detail: string | undefined): string {
     return humanized.slice(0, 69).trimEnd() + '…';
   }
   return humanized;
+}
+
+export function runProgressElapsedSeconds(
+  progress: RunProgressState,
+  nowMs = Date.now(),
+): number {
+  if (typeof progress.duration === 'number' && Number.isFinite(progress.duration)) {
+    return Math.max(0, Math.floor(progress.duration));
+  }
+  if (!Number.isFinite(progress.startedAtMs)) {
+    return 0;
+  }
+  return Math.max(0, Math.floor((nowMs - progress.startedAtMs) / 1000));
+}
+
+export function isRunProgressStale(
+  progress: RunProgressState | null | undefined,
+  nowMs = Date.now(),
+): boolean {
+  if (!progress || progress.phase === 'completed' || progress.phase === 'failed') {
+    return false;
+  }
+  return runProgressElapsedSeconds(progress, nowMs) >= STALE_RUN_SECONDS;
+}
+
+export function staleRunProgressTitle(progress: RunProgressState): string {
+  const elapsed = runProgressElapsedSeconds(progress);
+  const minutes = Math.max(1, Math.floor(elapsed / 60));
+  return `No updates for ${minutes} min`;
+}
+
+export function staleRunProgressDetail(): string {
+  return 'Hermes may be stuck. Stop the run and try again if nothing changes.';
 }
 
 export function humanizeComposerStatus(status: string): string {

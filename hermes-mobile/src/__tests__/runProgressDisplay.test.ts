@@ -3,8 +3,11 @@ import {
   humanizeComposerStatus,
   humanizeRunProgressDetail,
   isActiveChatRun,
+  isRunProgressStale,
+  runProgressElapsedSeconds,
   runProgressFailedTitle,
   shouldShowComposerProgressBanner,
+  staleRunProgressDetail,
 } from '../utils/runProgressDisplay';
 
 describe('runProgressDisplay', () => {
@@ -98,5 +101,31 @@ describe('runProgressDisplay', () => {
         "Your phone can't reach that local computer link. Join the same Wi‑Fi, add a tunnel URL in Settings.",
       ),
     ).toBe("Couldn't reach your computer");
+  });
+
+  it('marks active runs stale after a long no-update window', () => {
+    const startedAtMs = Date.now() - 12 * 60 * 60 * 1000;
+    expect(
+      isRunProgressStale({
+        phase: 'working',
+        startedAtMs,
+        detail: 'Hermes is working on your computer…',
+      }),
+    ).toBe(true);
+    expect(
+      isRunProgressStale({
+        phase: 'completed',
+        startedAtMs,
+        detail: 'Done',
+      }),
+    ).toBe(false);
+    expect(
+      runProgressElapsedSeconds({
+        phase: 'working',
+        startedAtMs: Date.now(),
+        duration: 3939.3,
+      }),
+    ).toBe(3939);
+    expect(staleRunProgressDetail()).toContain('may be stuck');
   });
 });

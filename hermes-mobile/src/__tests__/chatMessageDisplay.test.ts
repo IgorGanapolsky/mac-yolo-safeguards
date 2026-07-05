@@ -30,6 +30,21 @@ describe('chatMessageDisplay', () => {
     expect(visible.map((m) => m.role)).toEqual(['user', 'assistant']);
   });
 
+  it('defaults to hiding raw tool errors from the user transcript', () => {
+    const visible = prepareMessagesForDisplay([
+      { role: 'user', content: 'Are you lost?' },
+      {
+        role: 'tool',
+        content:
+          '{"success":false,"error":"Uncaught: SyntaxError: Identifier \\"result\\" has already been declared"}',
+      },
+      { role: 'assistant', content: 'I will recover without showing debug output.' },
+    ]);
+    expect(visible).toHaveLength(2);
+    expect(visible.map((m) => m.content).join('\n')).not.toContain('SyntaxError');
+    expect(visible.map((m) => m.content).join('\n')).not.toContain('[tool');
+  });
+
   it('formats markdown help text readably', () => {
     const raw =
       'zsh Shell completions\\nhermes acp ACP server\\n\\n## Slash Commands\\n\\nType `/help` for the list.';

@@ -97,6 +97,9 @@ function ChatMessageListItem({
   }
 
   if (isToolActivityRole(item.role) && !inlineNudge) {
+    if (!includeToolActivity) {
+      return null;
+    }
     const terminalActivity = extractTerminalActivityFromMessage(item);
     if (terminalActivity) {
       if (!includeToolActivity) {
@@ -109,9 +112,6 @@ function ChatMessageListItem({
           status={terminalActivity.status}
         />
       );
-    }
-    if (!includeToolActivity) {
-      return null;
     }
     if (item.gatewayContent || item.rawContent) {
       return (

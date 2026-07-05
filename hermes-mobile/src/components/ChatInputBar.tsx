@@ -18,12 +18,12 @@ type ChatInputBarProps = {
   onChangeText: (text: string) => void;
   onFocus: () => void;
   onBlur: () => void;
-  onSubmit: () => void;
+  onSubmit: (latestText?: string) => void;
   placeholder: string;
   /** Muted styling when empty — button stays tappable so Android does not swallow the first tap. */
   sendMuted: boolean;
   sendLabel?: string;
-  onSend: () => void;
+  onSend: (latestText?: string) => void;
   /** Codex-style: square Stop replaces Send while Mac run is active and composer is empty. */
   showStop?: boolean;
   onStop?: () => void;
@@ -46,8 +46,15 @@ function ChatInputBar({
   focusNonce = 0,
 }: ChatInputBarProps) {
   const inputRef = useRef<TextInput>(null);
+  const latestTextRef = useRef(value);
   const stopMode = showStop && !value.trim();
-  const canSend = value.trim().length > 0;
+  const canSend = value.trim().length > 0 || latestTextRef.current.trim().length > 0;
+
+  useEffect(() => {
+    if (value.trim() || !latestTextRef.current.trim()) {
+      latestTextRef.current = value;
+    }
+  }, [value]);
 
   useEffect(() => {
     if (focusNonce <= 0) {
@@ -66,7 +73,10 @@ function ChatInputBar({
           ref={inputRef}
           style={[styles.input, androidComposerInputStyle]}
           value={value}
-          onChangeText={onChangeText}
+          onChangeText={(text) => {
+            latestTextRef.current = text;
+            onChangeText(text);
+          }}
           placeholder={placeholder}
           placeholderTextColor={colors.textMuted}
           selectionColor={colors.primary}
@@ -77,8 +87,19 @@ function ChatInputBar({
           returnKeyType="send"
           blurOnSubmit={false}
           onFocus={onFocus}
-          onBlur={onBlur}
-          onSubmitEditing={onSubmit}
+          onBlur={() => {
+            onBlur();
+          }}
+          onEndEditing={(event) => {
+            const endedText = event.nativeEvent.text;
+            if (endedText.trim() || !latestTextRef.current.trim()) {
+              latestTextRef.current = endedText;
+            }
+          }}
+          onSubmitEditing={(event) => {
+            latestTextRef.current = event.nativeEvent.text;
+            onSubmit(event.nativeEvent.text);
+          }}
           testID="chat-input"
         />
         {stopMode ? (
@@ -93,7 +114,11 @@ function ChatInputBar({
         ) : (
           <TouchableOpacity
             style={[styles.sendButton, !canSend && styles.sendButtonMuted]}
-            onPress={onSend}
+            onPress={() => {
+              const latest = latestTextRef.current;
+              latestTextRef.current = '';
+              onSend(latest);
+            }}
             testID="chat-send-button"
             accessibilityLabel="Send"
           >

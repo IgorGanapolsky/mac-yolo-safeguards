@@ -97,7 +97,9 @@ jobs:
 
   macos-maestro-smoke:
     name: Maestro ship-guard (macOS sim)
-    runs-on: macos-latest
+    # Expo SDK 55's iOS native modules require Xcode 26; pin the runner so
+    # the simulator smoke does not drift onto older Xcode 15/16 images.
+    runs-on: macos-26
     needs: unit-and-contract
     # Run on PRs too (not just manual dispatch) so launch/runtime regressions are
     # caught before merge — e.g. the otel v2 crash that only surfaces at app launch

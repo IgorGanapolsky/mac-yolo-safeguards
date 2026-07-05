@@ -73,6 +73,7 @@ import {
   isAutomatedCronSession,
   isRecentsRailSession,
   sessionCreatedValue,
+  deriveThreadTitleFromMessage,
   sessionDisplayTitle,
   sessionPickerLabel,
   sessionLastActiveValue,
@@ -664,22 +665,25 @@ export default function ChatScreen() {
 
   const hasUserMessage = useMemo(() => hasUserMessageInTranscript(messages), [messages]);
 
-  const showSubmittedPromptStrip = useMemo(
-    () =>
-      shouldShowSubmittedPromptStrip({
-        pinnedText: pinnedOutboundText,
-        messages,
-      }),
-    [pinnedOutboundText, messages],
-  );
+  const showSubmittedPromptStrip = useMemo(() => {
+    const promptText = pinnedOutboundText?.trim();
+    if (!promptText) {
+      return false;
+    }
+    return (
+      isSending ||
+      pinnedOutboundStatus !== 'sent' ||
+      shouldShowSubmittedPromptStrip({ pinnedText: promptText, messages })
+    );
+  }, [pinnedOutboundText, pinnedOutboundStatus, isSending, messages]);
 
   const chatTimelineMessages = useMemo(
     () =>
       filterChatTimelineMessages({
         messages,
-        includeToolActivity: settings.includeToolActivity ?? false,
+        includeToolActivity: false,
       }),
-    [messages, settings.includeToolActivity],
+    [messages],
   );
 
   useEffect(() => {
@@ -2702,6 +2706,8 @@ export default function ChatScreen() {
 
     const typed = userText.trim();
     const typedUpper = typed.toUpperCase();
+    const firstPromptThreadTitle =
+      deriveThreadTitleFromMessage(typed) ?? activeProject?.name ?? 'New chat';
 
     const approvalUiVisibleForPhrase = (phrase: string): boolean => {
       const upper = phrase.trim().toUpperCase();
@@ -2822,7 +2828,7 @@ export default function ChatScreen() {
         setSessions([activeSess]);
         setCurrentSession(activeSess);
       } else {
-        const placeholderTitle = GENERIC_NEW_SESSION_TITLE;
+        const placeholderTitle = firstPromptThreadTitle;
         await releaseMacOperatorSlot(gatewayUrl, apiKey, collectRecoveryRunIds());
         try {
           activeSess = await retryOnSessionInUse(
