@@ -75,7 +75,7 @@ export function buildChatTimeline(
   messages: HermesMessage[],
   options?: { includeToolActivity?: boolean },
 ): ChatTimelineItem[] {
-  const includeTools = options?.includeToolActivity ?? true;
+  const includeTools = options?.includeToolActivity ?? false;
   const items: ChatTimelineItem[] = [];
 
   messages.forEach((message, index) => {

@@ -18,12 +18,14 @@ const KEYS = {
   DISMISSED_SESSION_IDS: 'hermes-mobile:dismissed_session_ids',
   HIDE_CRON_SESSIONS: 'hermes-mobile:hide_cron_sessions',
   LAST_SELECTED_PROFILE_ID: 'hermes-mobile:last_selected_profile_id',
+  LAST_SESSION_BY_COMPUTER: 'hermes-mobile:last_session_by_computer',
   APPROVALS_COUNT: 'hermes-mobile:approvals_count',
   STORE_REVIEW_REQUESTED: 'hermes-mobile:store_review_requested',
 };
 
 type DismissedSessionMap = Record<string, string[]>;
 type HideCronSessionMap = Record<string, boolean>;
+type LastSessionByComputerMap = Record<string, string>;
 
 function gatewayDismissKey(gatewayUrl: string): string {
   try {
@@ -58,6 +60,24 @@ async function loadHideCronSessionMap(): Promise<HideCronSessionMap> {
     return parsed && typeof parsed === 'object' ? parsed : {};
   } catch (error) {
     console.error('[hermes-mobile] loadHideCronSessions failed:', error);
+    return {};
+  }
+}
+
+function normalizeComputerSessionKey(key: string | null | undefined): string {
+  return key?.trim().toLowerCase() ?? '';
+}
+
+async function loadLastSessionByComputerMap(): Promise<LastSessionByComputerMap> {
+  try {
+    const raw = await AsyncStorage.getItem(KEYS.LAST_SESSION_BY_COMPUTER);
+    if (!raw) {
+      return {};
+    }
+    const parsed = JSON.parse(raw) as LastSessionByComputerMap;
+    return parsed && typeof parsed === 'object' ? parsed : {};
+  } catch (error) {
+    console.error('[hermes-mobile] loadLastSessionByComputer failed:', error);
     return {};
   }
 }
@@ -125,6 +145,7 @@ export const storage = {
         KEYS.DISMISSED_PROMPTS,
         KEYS.DISMISSED_SESSION_IDS,
         KEYS.HIDE_CRON_SESSIONS,
+        KEYS.LAST_SESSION_BY_COMPUTER,
       ]);
       await gatewayProfiles.clear();
     } catch (error) {
@@ -254,6 +275,51 @@ export const storage = {
       console.error('[hermes-mobile] loadLastSelectedProfileId failed:', error);
       return null;
     }
+  },
+
+  async saveLastSessionForComputer(
+    computerKeys: string | string[] | null | undefined,
+    sessionId: string | null | undefined,
+  ): Promise<void> {
+    const id = sessionId?.trim();
+    if (!id) {
+      return;
+    }
+    const keys = (Array.isArray(computerKeys) ? computerKeys : [computerKeys])
+      .map((key) => normalizeComputerSessionKey(key))
+      .filter(Boolean);
+    if (keys.length === 0) {
+      return;
+    }
+    try {
+      const map = await loadLastSessionByComputerMap();
+      const next = { ...map };
+      for (const key of keys) {
+        next[key] = id;
+      }
+      await AsyncStorage.setItem(KEYS.LAST_SESSION_BY_COMPUTER, JSON.stringify(next));
+    } catch (error) {
+      console.error('[hermes-mobile] saveLastSessionForComputer failed:', error);
+    }
+  },
+
+  async loadLastSessionForComputer(
+    computerKeys: string | string[] | null | undefined,
+  ): Promise<string | null> {
+    const keys = (Array.isArray(computerKeys) ? computerKeys : [computerKeys])
+      .map((key) => normalizeComputerSessionKey(key))
+      .filter(Boolean);
+    if (keys.length === 0) {
+      return null;
+    }
+    const map = await loadLastSessionByComputerMap();
+    for (const key of keys) {
+      const sessionId = map[key]?.trim();
+      if (sessionId) {
+        return sessionId;
+      }
+    }
+    return null;
   },
 
   async loadApprovalsCount(): Promise<number> {

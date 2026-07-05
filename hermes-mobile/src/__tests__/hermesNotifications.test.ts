@@ -3,7 +3,12 @@ import {
   parseApprovalNotificationResponse,
   parseHermesNotificationResponse,
   runProgressNotificationTitle,
+  scheduleRunProgressNotification,
+  scheduleRunStallNotification,
+  shouldDismissRunNotificationsForAppState,
 } from '../services/hermesNotifications';
+import * as Notifications from 'expo-notifications';
+import { AppState } from 'react-native';
 
 describe('hermesNotifications', () => {
   it('parses approve_once notification actions', () => {
@@ -92,5 +97,48 @@ describe('hermesNotifications', () => {
         startedAtMs: Date.now(),
       }),
     ).toBe('Hermes is responding');
+  });
+
+  it('dismisses run notifications when the app is foregrounded', () => {
+    expect(shouldDismissRunNotificationsForAppState('active')).toBe(true);
+    expect(shouldDismissRunNotificationsForAppState('background')).toBe(false);
+    expect(shouldDismissRunNotificationsForAppState('inactive')).toBe(false);
+  });
+
+  describe('foreground suppression', () => {
+    const originalCurrentState = AppState.currentState;
+
+    afterEach(() => {
+      Object.defineProperty(AppState, 'currentState', {
+        value: originalCurrentState,
+        configurable: true,
+      });
+      jest.clearAllMocks();
+    });
+
+    it('does not schedule run progress notification while app is active', async () => {
+      Object.defineProperty(AppState, 'currentState', {
+        value: 'active',
+        configurable: true,
+      });
+
+      await scheduleRunProgressNotification(
+        { phase: 'working', startedAtMs: Date.now() },
+        { runId: 'run-1', sessionId: 'sess-1' },
+      );
+
+      expect(Notifications.scheduleNotificationAsync).not.toHaveBeenCalled();
+    });
+
+    it('does not schedule stall notification while app is active', async () => {
+      Object.defineProperty(AppState, 'currentState', {
+        value: 'active',
+        configurable: true,
+      });
+
+      await scheduleRunStallNotification('run-1', 'sess-1');
+
+      expect(Notifications.scheduleNotificationAsync).not.toHaveBeenCalled();
+    });
   });
 });

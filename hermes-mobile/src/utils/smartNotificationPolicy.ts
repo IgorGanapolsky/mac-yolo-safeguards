@@ -21,6 +21,13 @@ export function shouldScheduleRunCompletedNotification(
   return appState !== 'active';
 }
 
+/** Live run progress + stall watchdog notifications — background only. */
+export function shouldScheduleRunProgressNotification(
+  appState: SmartNotificationAppState = AppState.currentState,
+): boolean {
+  return appState !== 'active';
+}
+
 export function approvalNotificationIdentifier(actionId: string): string {
   return `hermes-approval-${actionId}`;
 }

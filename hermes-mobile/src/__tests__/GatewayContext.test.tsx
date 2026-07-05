@@ -41,13 +41,11 @@ jest.mock('../services/gatewayProfiles', () => {
       save: jest.fn().mockResolvedValue(undefined),
       clear: jest.fn().mockResolvedValue(undefined),
     },
-    activeProfile: jest.fn(() => null),
+    activeProfile: actual.activeProfile,
     migrateLegacyGateway: jest.fn((state) => state),
-    upsertDiscoveredProfile: jest.fn((state, discovered, makeActive) => ({
-      profiles: [...state.profiles, { id: 'p1', label: 'Mac', gatewayUrl: discovered.gatewayUrl, addedAt: '' }],
-      activeProfileId: makeActive ? 'p1' : state.activeProfileId,
-    })),
-    selectProfile: jest.fn((state, id) => ({ ...state, activeProfileId: id })),
+    upsertDiscoveredProfile: actual.upsertDiscoveredProfile,
+    applyHealDiscoveredUrl: actual.applyHealDiscoveredUrl,
+    selectProfile: jest.fn((state, id) => actual.selectProfile(state, id)),
     removeProfile: jest.fn((state) => state),
     touchProfileHealth: jest.fn((state) => state),
     dedupeGatewayProfiles: jest.fn((state) => state),
@@ -143,12 +141,18 @@ function Probe() {
       <Text testID="last-error">{gateway.lastEventError ?? ''}</Text>
       <Text testID="mobile-token">{gateway.mobileToken}</Text>
       <Text testID="connection-mode">{gateway.settings.connectionMode}</Text>
+      <Text testID="profiles-ids">{gateway.gatewayProfiles.map(p => p.id).join(',')}</Text>
       <Text testID="relay-worker-count">{gateway.relayWorkers.length}</Text>
       <Text testID="active-relay-worker-id">{gateway.activeRelayWorkerId ?? ''}</Text>
       <Text
         testID="select-profile"
         onPress={() => {
-          void gateway.selectGatewayProfile('p2');
+          const macProfile = gateway.gatewayProfiles.find(
+            (profile) => profile.gatewayUrl === 'http://10.2.29.103:8642',
+          );
+          if (macProfile) {
+            void gateway.selectGatewayProfile(macProfile.id);
+          }
         }}
       >
         select
@@ -561,10 +565,13 @@ describe('GatewayProvider', () => {
 
     await waitFor(() => {
       expect(getByTestId('connection-mode').props.children).toBe('relay');
+      expect(getByTestId('profiles-ids').props.children).toContain('mac_10_2_29_103');
     });
 
     await act(async () => {
       fireEvent.press(getByTestId('select-profile'));
+      await Promise.resolve();
+      await Promise.resolve();
     });
 
     await waitFor(() => {
@@ -676,6 +683,65 @@ describe('GatewayProvider', () => {
     });
 
     await waitFor(() => {
+      expect(approvalNotifications.cancelRunStallNotification).toHaveBeenCalled();
+    });
+
+    Object.defineProperty(AppState, 'currentState', {
+      value: originalCurrentState,
+      configurable: true,
+    });
+  });
+
+  it('clears run progress notification while app is in foreground', async () => {
+    const approvalNotifications = jest.requireMock('../services/approvalNotifications');
+
+    (storage.loadGatewaySettings as jest.Mock).mockResolvedValue({
+      connectionMode: 'gateway',
+      cloudUrl: 'https://hermesmobile-cloud.fly.dev',
+      gatewayUrl: 'http://127.0.0.1:8642',
+      usePortal: false,
+      redactPii: true,
+      notificationsEnabled: true,
+      demoMode: false,
+      glanceMode: false,
+      thumbgateCaptureOnDown: true,
+      thumbgateCaptureOnUp: false,
+      thumbgateApiUrl: 'https://thumbgate.example.com',
+    });
+
+    const { getByTestId } = render(
+      <GatewayProvider>
+        <Probe />
+      </GatewayProvider>,
+    );
+
+    await waitFor(() => {
+      expect(getByTestId('connection-state').props.children).toBe('connected');
+    });
+
+    const ws = MockWebSocket.instances[MockWebSocket.instances.length - 1];
+    const { AppState } = require('react-native');
+    const originalCurrentState = AppState.currentState;
+
+    Object.defineProperty(AppState, 'currentState', {
+      value: 'active',
+      configurable: true,
+    });
+
+    jest.clearAllMocks();
+
+    act(() => {
+      ws.onmessage?.({
+        data: JSON.stringify({
+          event: 'RUN.STATUS',
+          payload: { runId: 'run_fg_1', status: 'working' },
+        }),
+      });
+    });
+
+    await waitFor(() => {
+      expect(approvalNotifications.scheduleRunProgressNotification).not.toHaveBeenCalled();
+      expect(approvalNotifications.clearRunProgressNotification).toHaveBeenCalled();
       expect(approvalNotifications.cancelRunStallNotification).toHaveBeenCalled();
     });
 

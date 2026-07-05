@@ -7,7 +7,7 @@ export const OUTBOUND_PENDING_RECOVERY_MS = CHAT_STREAM_FIRST_BYTE_MS + 5_000;
 /** Force-release composer send lock if outbound never completes. */
 export const OUTBOUND_SEND_LOCK_TIMEOUT_MS = OUTBOUND_PENDING_RECOVERY_MS;
 
-export const OUTBOUND_STUCK_FAILURE_REASON = "Didn't send — tap ↑ again";
+export const OUTBOUND_STUCK_FAILURE_REASON = 'Sent — no reply from computer';
 
 export function shouldRecoverOutboundSendLock(
   startedAtMs: number,

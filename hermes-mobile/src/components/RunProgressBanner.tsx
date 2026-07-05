@@ -4,6 +4,7 @@ import { colors } from '../theme/colors';
 import type { RunProgressState } from '../types/chatDisplay';
 import { displayableLlmModel, humanizeRunProgressDetail, runProgressFailedTitle } from '../utils/runProgressDisplay';
 import { isConnectivityMessage } from '../utils/chatErrors';
+import { classifyRunStale, runStaleHint } from '../utils/runStaleDetection';
 
 type RunProgressBannerProps = {
   progress: RunProgressState;
@@ -56,6 +57,9 @@ function RunProgressBanner({
   const isCompleted = progress.phase === 'completed';
   const isFailed = progress.phase === 'failed';
   const isActive = !isCompleted && !isFailed;
+  const staleLevel = isActive ? classifyRunStale(progress) : 'normal';
+  const staleMessage = runStaleHint(staleLevel);
+  const emphasizeStop = isActive && staleLevel !== 'normal' && Boolean(onStop);
 
   const durationSec = progress.duration != null ? Math.round(progress.duration * 10) / 10 : elapsed;
   const modelLabel =
@@ -97,11 +101,17 @@ function RunProgressBanner({
         {isActive && onStop ? (
           <Pressable
             onPress={onStop}
-            style={({ pressed }) => [styles.stopChip, pressed && styles.stopChipPressed]}
+            style={({ pressed }) => [
+              styles.stopChip,
+              emphasizeStop && styles.stopChipEmphasis,
+              pressed && styles.stopChipPressed,
+            ]}
             testID="run-progress-stop"
-            accessibilityLabel="Stop run"
+            accessibilityLabel={emphasizeStop ? 'Stop stuck run' : 'Stop run'}
           >
-            <Text style={styles.stopChipText}>Stop</Text>
+            <Text style={[styles.stopChipText, emphasizeStop && styles.stopChipTextEmphasis]}>
+              {emphasizeStop ? 'Stop stuck run' : 'Stop'}
+            </Text>
           </Pressable>
         ) : null}
         {!isActive && onRetry ? (
@@ -129,6 +139,12 @@ function RunProgressBanner({
       {failedDetail ? (
         <Text style={styles.failedDetail} testID="run-progress-failed-detail">
           {failedDetail}
+        </Text>
+      ) : null}
+
+      {staleMessage ? (
+        <Text style={styles.staleHint} testID="run-progress-stale-hint">
+          {staleMessage}
         </Text>
       ) : null}
 
@@ -239,6 +255,12 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: colors.textSecondary,
   },
+  staleHint: {
+    fontSize: 11,
+    lineHeight: 16,
+    fontWeight: '700',
+    color: colors.warning,
+  },
   timeLabel: {
     fontSize: 11,
     fontWeight: '800',
@@ -256,6 +278,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 4,
   },
+  stopChipEmphasis: {
+    borderColor: colors.error,
+    backgroundColor: 'rgba(239, 68, 68, 0.28)',
+    borderWidth: 2,
+    paddingHorizontal: 12,
+  },
   stopChipPressed: {
     opacity: 0.85,
   },
@@ -263,6 +291,9 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '800',
     color: colors.error,
+  },
+  stopChipTextEmphasis: {
+    fontSize: 12,
   },
   retryChip: {
     borderRadius: 8,

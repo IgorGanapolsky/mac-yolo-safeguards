@@ -6,6 +6,8 @@ import type { LeashConnectionState } from '../utils/gatewayEndpoint';
 
 type ChatScreenHeaderProps = {
   threadTitle: string;
+  /** When the current thread was created — shown under the title. */
+  threadCreatedLabel?: string | null;
   machineLabel: string;
   machineEndpoint?: string;
   routeStatusLabel?: string;
@@ -52,6 +54,7 @@ function linkMeta(
  */
 export default function ChatScreenHeader({
   threadTitle,
+  threadCreatedLabel,
   machineLabel,
   machineEndpoint,
   routeStatusLabel,
@@ -117,6 +120,11 @@ export default function ChatScreenHeader({
               </Pressable>
             ) : null}
           </View>
+          {threadCreatedLabel ? (
+            <Text style={styles.threadCreated} numberOfLines={1} testID="chat-thread-created">
+              {threadCreatedLabel}
+            </Text>
+          ) : null}
         </Pressable>
         <View style={styles.titleActions}>
           {isDemo ? (
@@ -235,6 +243,13 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: colors.text,
     letterSpacing: 0,
+  },
+  threadCreated: {
+    fontSize: 11,
+    lineHeight: 14,
+    fontWeight: '600',
+    color: colors.textMuted,
+    marginTop: 1,
   },
   renameHeaderBtn: {
     flexShrink: 0,

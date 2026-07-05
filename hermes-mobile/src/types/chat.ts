@@ -9,6 +9,8 @@ export interface HermesSession {
   tool_call_count?: number;
   /** ISO string from mobile-created sessions */
   last_active_at?: string;
+  /** ISO string when the session was first created (mobile or gateway started_at). */
+  created_at?: string;
   /** Unix seconds (float) from Hermes gateway :8642 */
   last_active?: number | string;
   started_at?: number | string;
@@ -38,6 +40,8 @@ export interface HermesMessage {
   outboundStatus?: 'pending' | 'sent' | 'failed';
   /** Short human reason when outboundStatus is failed (API/auth/session, not connectivity). */
   outboundFailureReason?: string;
+  isCollapsedToolActivity?: boolean;
+  activities?: HermesMessage[];
 }
 
 export interface SessionListResponse {

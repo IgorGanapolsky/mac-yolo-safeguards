@@ -122,10 +122,71 @@ ${UNTRUSTED_BOILERPLATE}
     expect(visible[1].content).toBe('Link: https://example.com/page');
   });
 
+  it('collapses consecutive tool outputs into one activity row', () => {
+    const visible = prepareMessagesForDisplay(
+      [
+        { role: 'user', content: 'restart chrome' },
+        { role: 'tool', content: '{"output":"--args --remote-debugging-port=9222"}', id: 'tool-1' },
+        { role: 'tool', content: '{"output":"Chrome profile found"}', id: 'tool-2' },
+        { role: 'tool', content: '{"output":"Browser relaunched"}', id: 'tool-3' },
+        { role: 'assistant', content: 'Chrome is ready.' },
+      ],
+      { includeToolActivity: true },
+    );
+
+    expect(visible).toHaveLength(3);
+    expect(visible[1].isCollapsedToolActivity).toBe(true);
+    expect(visible[1].activities?.map((activity) => activity.id)).toEqual([
+      'tool-1',
+      'tool-2',
+      'tool-3',
+    ]);
+    expect(visible.map((message) => message.content)).toEqual([
+      'restart chrome',
+      'Collapsed 3 tools',
+      'Chrome is ready.',
+    ]);
+  });
+
+  it('keeps separate collapsed tool batches visible', () => {
+    const visible = prepareMessagesForDisplay(
+      [
+        { role: 'user', content: 'first task' },
+        { role: 'tool', content: '{"output":"first stdout"}', id: 'tool-1' },
+        { role: 'tool', content: '{"output":"first stderr"}', id: 'tool-2' },
+        { role: 'assistant', content: 'First task done.' },
+        { role: 'user', content: 'second task' },
+        { role: 'tool', content: '{"output":"second stdout"}', id: 'tool-3' },
+        { role: 'tool', content: '{"output":"second stderr"}', id: 'tool-4' },
+        { role: 'assistant', content: 'Second task done.' },
+      ],
+      { includeToolActivity: true },
+    );
+
+    const collapsed = visible.filter((message) => message.isCollapsedToolActivity);
+    expect(collapsed).toHaveLength(2);
+    expect(collapsed.map((message) => message.activities?.map((activity) => activity.id))).toEqual([
+      ['tool-1', 'tool-2'],
+      ['tool-3', 'tool-4'],
+    ]);
+  });
+
   it('summarizes nested tool output json', () => {
     const raw = '{"output":"{\\"status\\":\\"ok\\",\\"pid\\":12345}"}';
     expect(formatMessageForDisplay(raw)).toContain('[tool output]');
     expect(formatMessageForDisplay(raw)).toContain('status=ok');
+  });
+
+  it('drops formatted tool dump lines from the default transcript', () => {
+    const visible = prepareMessagesForDisplay(
+      [
+        { role: 'user', content: 'run delegate task' },
+        { role: 'assistant', content: '[tool output] status=ok, pid=12345' },
+        { role: 'assistant', content: 'Finished on your Mac.' },
+      ],
+      { includeToolActivity: false },
+    );
+    expect(visible.map((m) => m.content)).toEqual(['run delegate task', 'Finished on your Mac.']);
   });
 
   it('summarizes untrusted browser snapshots as plain text', () => {

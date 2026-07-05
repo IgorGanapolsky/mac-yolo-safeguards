@@ -95,7 +95,7 @@ import {
   resolveCellularTailscaleFailoverUrl,
 } from '../utils/connectionSelfHeal';
 import { CONNECTION_HEAL_EXHAUSTED_AFTER } from '../utils/connectionErrorPolicy';
-import { profileMatchesDiscoveredGateway, resolveUsbMatchingProfileId } from '../utils/gatewayProfilePicker';
+import { profileMatchesDiscoveredGateway } from '../utils/gatewayProfilePicker';
 import { isPrivateLanGatewayUrl } from '../utils/gatewayEndpoint';
 import { isTailscaleGatewayUrl } from '../utils/tailscaleHosts';
 import type { SetupDeepLinkParams } from '../utils/setupDeepLink';
@@ -113,12 +113,13 @@ import {
   selectProfile,
   touchProfileHealth,
   upsertDiscoveredProfile,
+  applyHealDiscoveredUrl,
   applyTailscaleDiscoveriesToProfileState,
   dedupeGatewayProfiles,
   findProfileForGatewayUrl,
   GENERIC_USB_PROFILE_LABEL,
+  isDiscoveredUrlAllowedForActiveProfile,
   resolvePreferredActiveProfileId,
-  shouldActivateDiscoveredUrl,
 } from '../services/gatewayProfiles';
 import {
   discoverAllGatewaysOnLan,
@@ -332,7 +333,6 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
   const selectGatewayProfileRef = useRef<(profileId: string) => Promise<void>>(
     async () => {},
   );
-  const usbAutoSelectKeyRef = useRef<string | null>(null);
   const tailnetProbeHostsRef = useRef<string[]>([]);
   const tailscaleProbeInFlightRef = useRef(false);
   const probeTailscaleComputersRef = useRef<() => Promise<void>>(async () => {});
@@ -490,11 +490,20 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
           }
         }
         if (loadedProfiles.profiles.length > 0) {
-          const preferredActiveId = resolvePreferredActiveProfileId(loadedProfiles, {
-            preferUsb: Platform.OS !== 'web',
-          });
-          if (preferredActiveId && preferredActiveId !== loadedProfiles.activeProfileId) {
-            loadedProfiles = { ...loadedProfiles, activeProfileId: preferredActiveId };
+          const hasValidActive =
+            loadedProfiles.activeProfileId &&
+            loadedProfiles.profiles.some((p) => p.id === loadedProfiles.activeProfileId);
+          if (!hasValidActive) {
+            const lastSelectedId = await storage.loadLastSelectedProfileId();
+            const lastSelectedValid =
+              lastSelectedId &&
+              loadedProfiles.profiles.some((profile) => profile.id === lastSelectedId);
+            const preferredActiveId = lastSelectedValid
+              ? lastSelectedId
+              : resolvePreferredActiveProfileId(loadedProfiles);
+            if (preferredActiveId) {
+              loadedProfiles = { ...loadedProfiles, activeProfileId: preferredActiveId };
+            }
           }
           await gatewayProfiles.save(loadedProfiles);
         }
@@ -604,20 +613,14 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
       }
       const active = activeProfile(profileStateRef.current);
       const pairName = lanIp ? await resolvePairServerMachineName(lanIp).catch(() => null) : null;
-      const upserted = upsertDiscoveredProfile(
-        profileStateRef.current,
-        {
-          gatewayUrl: successfulUrl,
-          localIp: lanIp ?? active?.localIp ?? undefined,
-          hostname: pairName ?? healthRef.current?.hostname ?? active?.hostname,
-          label: pairName ?? active?.label ?? undefined,
-        },
-        shouldActivateDiscoveredUrl(
-          profileStateRef.current,
-          successfulUrl,
-          makeProfileActive || !profileStateRef.current.activeProfileId,
-        ),
-      );
+      const requestedActivation =
+        makeProfileActive || !profileStateRef.current.activeProfileId;
+      const upserted = applyHealDiscoveredUrl(profileStateRef.current, {
+        gatewayUrl: successfulUrl,
+        localIp: lanIp ?? active?.localIp ?? undefined,
+        hostname: pairName ?? healthRef.current?.hostname ?? active?.hostname,
+        label: pairName ?? active?.label ?? undefined,
+      }, requestedActivation);
       profileStateRef.current = upserted;
       setProfileState(upserted);
       await gatewayProfiles.save(upserted);
@@ -876,26 +879,6 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
         sanitizedLocalIp || extractLanIpFromGatewayUrl(resolvedUrl) || undefined;
       if (lanIp) {
         await enrichActiveProfileFromPairServer(lanIp);
-      }
-
-      if (isLoopbackGatewayUrl(resolvedUrl) && isGatewayHealthOk(snapshot) && snapshot.hostname) {
-        const active = activeProfile(profileStateRef.current);
-        const matchingId = resolveUsbMatchingProfileId({
-          activeProfile: active,
-          gatewayUrl: resolvedUrl,
-          healthHostname: snapshot.hostname,
-          profiles: profileStateRef.current.profiles,
-          macHttpOk: true,
-        });
-        if (matchingId && matchingId !== profileStateRef.current.activeProfileId) {
-          const autoKey = `${matchingId}:${snapshot.hostname}`;
-          if (usbAutoSelectKeyRef.current !== autoKey) {
-            usbAutoSelectKeyRef.current = autoKey;
-            await selectGatewayProfileRef.current(matchingId);
-          }
-        }
-      } else if (!isLoopbackGatewayUrl(resolvedUrl)) {
-        usbAutoSelectKeyRef.current = null;
       }
     } catch (error) {
       publishHealth({
@@ -1185,6 +1168,7 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
       }).catch(() => {});
       scheduleRunStallNotification(runProgress.runId, runProgress.sessionId).catch(() => {});
     } else {
+      clearRunProgressNotification().catch(() => {});
       cancelRunStallNotification().catch(() => {});
     }
   }, [runProgress, settings.notificationsEnabled]);
@@ -1206,6 +1190,7 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
           scheduleRunStallNotification(progress.runId, progress.sessionId).catch(() => {});
         }
       } else if (nextAppState === 'active') {
+        clearRunProgressNotification().catch(() => {});
         cancelRunStallNotification().catch(() => {});
       }
     };
@@ -1244,8 +1229,12 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
 
     const commitDiscoveredUrl = persistDiscoveredGatewayUrl;
 
-    // 1. Prefer USB if it is available (fastest local link)
-    if (Platform.OS !== 'web') {
+    const activeForDiscovery = activeProfile(profileStateRef.current);
+    const preferUsbFirst =
+      !activeForDiscovery || isLoopbackGatewayUrl(activeForDiscovery.gatewayUrl);
+
+    // 1. Prefer USB only when user has no named selection or active profile is USB loopback
+    if (Platform.OS !== 'web' && preferUsbFirst) {
       for (const fallbackUrl of usbLoopbackFallbackUrls(currentUrl || '')) {
         try {
           return await commitDiscoveredUrl(await probe(fallbackUrl), true);
@@ -1284,7 +1273,6 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
       }
     }
 
-    const activeForDiscovery = activeProfile(profileStateRef.current);
     if (
       Platform.OS !== 'web' &&
       activeForDiscovery &&
@@ -1361,7 +1349,10 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
         return 0;
       });
     const savedCandidates = [...new Set(savedProfileUrls)].filter(
-      (url) => url !== currentUrl && url !== (lastLanIp ? buildGatewayUrlFromLanIp(lastLanIp) : ''),
+      (url) =>
+        url !== currentUrl &&
+        url !== (lastLanIp ? buildGatewayUrlFromLanIp(lastLanIp) : '') &&
+        isDiscoveredUrlAllowedForActiveProfile(profileStateRef.current, url),
     );
     for (const profileUrl of savedCandidates) {
       try {
@@ -1698,14 +1689,14 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
         await secureCredentials.saveProfileApiKey(activeId, nextApiKey);
       }
 
-      const upserted = upsertDiscoveredProfile(
+      const upserted = applyHealDiscoveredUrl(
         profileStateRef.current,
         {
           gatewayUrl: persistedSettings.gatewayUrl,
           localIp: lanIp ?? undefined,
           hostname: healthRef.current?.hostname,
         },
-        true,
+        !profileStateRef.current.activeProfileId,
       );
       profileStateRef.current = upserted;
       setProfileState(upserted);
@@ -1876,14 +1867,14 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
             )
           : undefined;
       if (lanMatch) {
-        state = upsertDiscoveredProfile(state, lanMatch, true);
+        state = upsertDiscoveredProfile(state, lanMatch, false);
         state = dedupeGatewayProfiles(state);
       }
       profileStateRef.current = state;
       setProfileState(state);
       await gatewayProfiles.save(state);
       if (lanMatch) {
-        await persistDiscoveredGatewayUrl(lanMatch.gatewayUrl, true);
+        await persistDiscoveredGatewayUrl(lanMatch.gatewayUrl, false);
       }
       setProfileScanResult({
         foundCount: discovered.length,

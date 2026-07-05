@@ -1,5 +1,6 @@
 import type { HermesMessage } from '../types/chat';
 import { normalizeMessageText } from './chatMessageMerge';
+import { isToolActivityRole, isToolDumpDisplayContent } from './chatToolDump';
 
 /** Hermes often logs each outreach persona as its own assistant turn — collapse for mobile. */
 const OUTREACH_VARIANT_RE =
@@ -97,6 +98,66 @@ export function collapseOutreachVariantBatches(messages: HermesMessage[]): Herme
         index += 1;
       }
       result.push(batch.length === 1 ? batch[0] : buildCollapsedOutreachMessage(batch));
+      continue;
+    }
+
+    result.push(current);
+    index += 1;
+  }
+
+  return result;
+}
+
+/** Standalone check to identify tool activity / output messages without causing circular dependencies. */
+function isToolMessage(message: HermesMessage): boolean {
+  if (isToolActivityRole(message.role)) {
+    return true;
+  }
+  const raw = message.gatewayContent ?? message.rawContent ?? message.content;
+  return isToolDumpDisplayContent(raw) || isToolDumpDisplayContent(message.content);
+}
+
+function buildCollapsedToolMessage(batch: HermesMessage[]): HermesMessage {
+  const activities = batch.map((message) => ({
+    id: message.id,
+    role: message.role,
+    content: message.content,
+    rawContent: message.rawContent,
+    gatewayContent: message.gatewayContent,
+    created_at: message.created_at,
+  }));
+
+  const anchor = batch[batch.length - 1] ?? batch[0];
+  const anchorId = anchor.id ?? 'tool-batch';
+
+  return {
+    ...anchor,
+    id: `collapsed-tools-${anchorId}-${batch.length}`,
+    role: 'tool',
+    content: `Collapsed ${batch.length} tools`,
+    isCollapsedToolActivity: true,
+    activities,
+  };
+}
+
+/** Collapse consecutive tool activity / output messages into a single collapsed entry. */
+export function collapseToolActivityMessages(messages: HermesMessage[]): HermesMessage[] {
+  const result: HermesMessage[] = [];
+  let index = 0;
+
+  while (index < messages.length) {
+    const current = messages[index];
+    if (isToolMessage(current)) {
+      const batch: HermesMessage[] = [];
+      while (index < messages.length) {
+        const candidate = messages[index];
+        if (!isToolMessage(candidate)) {
+          break;
+        }
+        batch.push(candidate);
+        index += 1;
+      }
+      result.push(batch.length === 1 ? batch[0] : buildCollapsedToolMessage(batch));
       continue;
     }
 

@@ -2,6 +2,7 @@ import type { HermesSession } from '../types/chat';
 import type { ChatStreamEvent } from '../types/gatewayApi';
 import type { ChatTimelineItem, RunProgressState } from '../types/chatDisplay';
 import { displayableLlmModel } from './runProgressDisplay';
+import { stampRunProgressActivity } from './runStaleDetection';
 
 function readNumber(value: unknown): number | undefined {
   if (typeof value === 'number' && Number.isFinite(value)) {
@@ -150,11 +151,11 @@ export function attachRunMetadata(
   prev?: RunProgressState | null,
 ): RunProgressState {
   const { runId, sessionId } = extractRunMetadata(data);
-  return {
+  return stampRunProgressActivity(prev ?? null, {
     ...progress,
     runId: runId ?? prev?.runId ?? progress.runId,
     sessionId: sessionId ?? prev?.sessionId ?? progress.sessionId,
-  };
+  });
 }
 
 /** True when banner-visible run progress fields are unchanged (skip pointless re-renders). */
@@ -278,10 +279,11 @@ function startRunProgress(
   phase = 'working',
   data?: Record<string, unknown>,
 ): RunProgressState {
-  const next = state.runProgress
+  const raw = state.runProgress
     ? { ...state.runProgress, detail, phase }
     : { phase, startedAtMs: Date.now(), detail };
-  return data ? mergeRunUsageFromPayload(next, data) : next;
+  const merged = data ? mergeRunUsageFromPayload(raw, data) : raw;
+  return stampRunProgressActivity(state.runProgress, merged);
 }
 
 export function applyStreamEvent(

@@ -52,4 +52,13 @@ describe('isConnectivityMessage', () => {
     expect(message).toContain('direct link');
     expect(isConnectivityMessage(message)).toBe(true);
   });
+
+  it('returns health-probe pending copy for blocked sends', () => {
+    const message = chatSendBlockedMessage({
+      connectionMode: 'gateway',
+      connectionState: 'connecting',
+      healthProbePending: true,
+    });
+    expect(message).toBe('Still checking your computer link. Message kept locally.');
+  });
 });

@@ -212,6 +212,34 @@ export async function forkSession(
   return parseJson<{ session_id?: string }>(response);
 }
 
+export type HermesRunStatus = {
+  object?: string;
+  run_id?: string;
+  status?: string;
+  last_event?: string;
+  updated_at?: number;
+  created_at?: number;
+};
+
+export async function getRunStatus(
+  gatewayUrl: string,
+  runId: string,
+  apiKey?: string | null,
+): Promise<HermesRunStatus | null> {
+  const response = await fetch(
+    `${base(gatewayUrl)}/v1/runs/${encodeURIComponent(runId)}`,
+    { headers: buildAuthHeaders(apiKey) },
+  );
+  if (response.status === 404) {
+    return null;
+  }
+  if (!response.ok) {
+    const text = await response.text();
+    throw new HermesGatewayApiError(response.status, text || `HTTP ${response.status}`);
+  }
+  return (await response.json()) as HermesRunStatus;
+}
+
 export async function stopRun(
   gatewayUrl: string,
   runId: string,
