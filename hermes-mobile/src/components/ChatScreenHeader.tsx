@@ -15,7 +15,9 @@ type ChatScreenHeaderProps = {
   /** Keep IP / relay detail visible when connected (multi-Mac setups). */
   showMachineDetailWhenConnected?: boolean;
   workspaceName?: string;
+  workspaceHandoff?: string;
   canSwitchWorkspace?: boolean;
+  activeAgents?: { name: string; status: string }[];
   onOpenThreads: () => void;
   onPressThreadTitle?: () => void;
   onOpenTools?: () => void;
@@ -60,7 +62,9 @@ export default function ChatScreenHeader({
   isDemo = false,
   showMachineDetailWhenConnected = false,
   workspaceName,
+  workspaceHandoff,
   canSwitchWorkspace = false,
+  activeAgents,
   onOpenThreads,
   onPressThreadTitle,
   onOpenTools,
@@ -71,7 +75,7 @@ export default function ChatScreenHeader({
   const endpoint = machineEndpoint?.trim() || '';
   const showEndpoint =
     endpoint.length > 0 && (!link.connected || showMachineDetailWhenConnected);
-  const showWorkspace = Boolean(workspaceName) && (!link.connected || canSwitchWorkspace);
+  const showWorkspace = canSwitchWorkspace || Boolean(workspaceName);
 
   return (
     <View style={styles.wrap} testID="chat-screen-header">
@@ -175,12 +179,29 @@ export default function ChatScreenHeader({
             styles.workspaceRow,
             canSwitchWorkspace && pressed && styles.pressed,
           ]}
+          testID="chat-header-project-picker"
         >
           <Text style={styles.workspaceLabel} numberOfLines={1} testID="chat-context-project">
-            {workspaceName}
+            {workspaceName ?? 'Choose project'}
             {canSwitchWorkspace ? ' ›' : ''}
           </Text>
+          {workspaceHandoff ? (
+            <Text style={styles.workspaceHandoff} numberOfLines={1} testID="chat-header-handoff">
+              {workspaceHandoff}
+            </Text>
+          ) : null}
         </Pressable>
+      ) : null}
+
+      {activeAgents && activeAgents.length > 0 ? (
+        <View style={styles.agentsRow} testID="chat-header-active-agents">
+          <Text style={styles.agentsLabel}>
+            Active Agents:{' '}
+            {activeAgents
+              .map((a) => `${a.name} (${a.status})`)
+              .join(', ')}
+          </Text>
+        </View>
       ) : null}
     </View>
   );
@@ -323,6 +344,21 @@ const styles = StyleSheet.create({
   },
   workspaceLabel: {
     fontSize: 11,
+    fontWeight: '600',
+    color: colors.textMuted,
+  },
+  workspaceHandoff: {
+    fontSize: 10,
+    lineHeight: 14,
+    color: colors.textMuted,
+    marginTop: 2,
+  },
+  agentsRow: {
+    paddingHorizontal: 4,
+    paddingVertical: 1,
+  },
+  agentsLabel: {
+    fontSize: 10,
     fontWeight: '600',
     color: colors.textMuted,
   },

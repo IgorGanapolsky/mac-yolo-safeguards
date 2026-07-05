@@ -18,15 +18,27 @@ const MOBILE_EXECUTION_DIRECTIVE = [
 ].join('\n');
 
 /** System prompt pinned on session create and each chat turn for workspace isolation. */
-export function buildWorkspaceSystemPrompt(workspacePath: string): string {
+export function buildWorkspaceSystemPrompt(
+  workspacePath: string,
+  options?: { vaultSlug?: string; handoffSummary?: string },
+): string {
   const path = workspacePath.trim();
-  return [
+  const lines = [
     'Hermes Mobile project context (do not ignore):',
     `- Active workspace: ${path}`,
     '- Run terminal and file tools from this directory unless the operator explicitly switches projects.',
     '- If asked which project is active, answer with this workspace path.',
     '- Do not ask the operator to paste the project path when this prompt already provides it.',
-  ].join('\n');
+  ];
+  const vaultSlug = options?.vaultSlug?.trim();
+  if (vaultSlug) {
+    lines.push(`- Obsidian vault project lane: ${vaultSlug} (AI-Agent-Sync/Projects/${vaultSlug}/).`);
+  }
+  const handoff = options?.handoffSummary?.trim();
+  if (handoff) {
+    lines.push(`- Latest agent handoff for this lane: ${handoff}`);
+  }
+  return lines.join('\n');
 }
 
 /**
@@ -36,11 +48,12 @@ export function buildWorkspaceSystemPrompt(workspacePath: string): string {
 export function buildMobileChatSystemPrompt(
   workspacePath?: string,
   persona?: HermesPersona,
+  projectContext?: { vaultSlug?: string; handoffSummary?: string },
 ): string {
   const sections = [MOBILE_EXECUTION_DIRECTIVE, buildPersonaSystemPrompt(persona)];
   const path = workspacePath?.trim();
   if (path) {
-    sections.push(buildWorkspaceSystemPrompt(path));
+    sections.push(buildWorkspaceSystemPrompt(path, projectContext));
   }
   return sections.join('\n\n');
 }

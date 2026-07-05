@@ -10,7 +10,9 @@ type ChatContextStripProps = {
   macHttpReachable?: boolean;
   projectName?: string;
   workspacePath?: string;
+  handoffSummary?: string;
   onPressMac?: () => void;
+  onPressProject?: () => void;
   macSwitchHint?: string;
   channelHint?: string;
 };
@@ -41,7 +43,9 @@ export default function ChatContextStrip({
   macHttpReachable = false,
   projectName,
   workspacePath,
+  handoffSummary,
   onPressMac,
+  onPressProject,
   macSwitchHint,
   channelHint,
 }: ChatContextStripProps) {
@@ -77,7 +81,18 @@ export default function ChatContextStrip({
           <Text style={styles.macHint} testID="chat-context-mac-hint">{macSwitchHint}</Text>
         ) : null}
       </Pressable>
-      <View style={styles.row}>
+      <Pressable
+        onPress={onPressProject ?? undefined}
+        disabled={!onPressProject}
+        style={({ pressed }) => [
+          styles.row,
+          onPressProject && styles.projectPressable,
+          onPressProject && pressed && styles.projectPressablePressed,
+        ]}
+        accessibilityRole={onPressProject ? 'button' : undefined}
+        accessibilityLabel={onPressProject ? 'Choose project' : undefined}
+        testID="chat-context-project-row"
+      >
         <Text style={styles.rowIcon}>📁</Text>
         {projectName ? (
           <Text style={styles.projectLine} numberOfLines={3} ellipsizeMode="tail" testID="chat-context-project">
@@ -91,7 +106,13 @@ export default function ChatContextStrip({
             {channelHint ?? 'No project pinned — Hermes uses the computer default workspace'}
           </Text>
         )}
-      </View>
+        {onPressProject ? <Text style={styles.switchChevron}>▾</Text> : null}
+      </Pressable>
+      {handoffSummary ? (
+        <Text style={styles.handoffLine} numberOfLines={2} testID="chat-context-handoff">
+          ↪ {handoffSummary}
+        </Text>
+      ) : null}
     </View>
   );
 }
@@ -177,5 +198,20 @@ const styles = StyleSheet.create({
     lineHeight: 16,
     color: colors.textMuted,
     fontStyle: 'italic',
+  },
+  projectPressable: {
+    borderRadius: 8,
+    marginHorizontal: -4,
+    paddingHorizontal: 4,
+    paddingVertical: 2,
+  },
+  projectPressablePressed: {
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+  },
+  handoffLine: {
+    fontSize: 10,
+    lineHeight: 14,
+    color: colors.textMuted,
+    paddingLeft: 22,
   },
 });

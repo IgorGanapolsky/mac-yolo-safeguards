@@ -5,6 +5,7 @@ import {
   findProfileForGatewayUrl,
   formatProfileLabel,
 } from '../services/gatewayProfiles';
+import { resolveActiveProjectId } from '../services/chatProjects';
 import { formatGatewayHostLabel } from './gatewayEndpoint';
 
 export function resolveChatMachineLabel(
@@ -28,9 +29,13 @@ export function resolveChatMachineLabel(
 export function resolveChatProject(
   projectState: ChatProjectState,
   currentSessionId?: string | null,
+  computerProfileId?: string | null,
 ): ChatProject | null {
-  if (projectState.activeProjectId) {
-    return projectState.projects.find((p) => p.id === projectState.activeProjectId) ?? null;
+  const activeId = computerProfileId
+    ? resolveActiveProjectId(projectState, computerProfileId)
+    : projectState.activeProjectId;
+  if (activeId) {
+    return projectState.projects.find((p) => p.id === activeId) ?? null;
   }
   if (!currentSessionId) {
     return null;
