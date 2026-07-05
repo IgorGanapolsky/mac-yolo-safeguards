@@ -8,6 +8,8 @@ export type SessionListSelectionInput = {
   currentSessionId?: string | null;
   /** User tapped a recent thread — must win over stale project bindings. */
   manualSelectSessionId?: string | null;
+  /** Last selected session for the active saved computer/profile. */
+  rememberedSessionId?: string | null;
   skipAutoSelect?: boolean;
   selectLatest?: boolean;
 };
@@ -24,6 +26,7 @@ export function resolveSessionAfterListLoad(
     projectState,
     currentSessionId,
     manualSelectSessionId,
+    rememberedSessionId,
     skipAutoSelect,
     selectLatest,
   } = input;
@@ -51,10 +54,14 @@ export function resolveSessionAfterListLoad(
 
   let nextSession: HermesSession | null = null;
 
+  if (rememberedSessionId) {
+    nextSession = sessions.find((session) => session.id === rememberedSessionId) ?? null;
+  }
+
   if (projectState.activeProjectId) {
     const project = projectState.projects.find((p) => p.id === projectState.activeProjectId);
     const preferredId = project?.activeSessionId ?? project?.sessionIds[0];
-    if (preferredId) {
+    if (!nextSession && preferredId) {
       nextSession = sessions.find((session) => session.id === preferredId) ?? null;
     }
   }

@@ -38,7 +38,7 @@ export function outboundDeliveryLabel(
       return `⚠ ${truncateOutboundFailureReason(reason)}`;
     }
     if (input.macHttpOk) {
-      return "⚠ Didn't send — tap ↑ again";
+      return '⚠ No reply — tap ↑ again';
     }
     return "⚠ Couldn't reach your computer";
   }

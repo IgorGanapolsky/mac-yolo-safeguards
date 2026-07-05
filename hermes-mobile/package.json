@@ -23,6 +23,7 @@
     "launch:preflight:android": "npm run release:check && bash ./scripts/release-preflight.sh android",
     "launch:preflight:ios": "npm run release:check && bash ./scripts/release-preflight.sh ios",
     "launch:preflight:all": "npm run release:check && bash ./scripts/release-preflight.sh all",
+    "e2e:validate": "node scripts/validate-maestro-flows.js",
     "e2e": "bash ./scripts/run-e2e.sh",
     "e2e:all": "bash ./scripts/run-e2e.sh",
     "e2e:simulator": "bash ./scripts/run-simulator-e2e.sh",

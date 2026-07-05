@@ -79,6 +79,30 @@ describe('resolveSessionAfterListLoad', () => {
     ).toBe('sess_a');
   });
 
+  it('restores the last selected session for the active computer before project fallback', () => {
+    expect(
+      resolveSessionAfterListLoad({
+        sessions,
+        projectState,
+        currentSessionId: null,
+        rememberedSessionId: 'sess_b',
+        selectLatest: true,
+      })?.id,
+    ).toBe('sess_b');
+  });
+
+  it('falls back when the remembered computer session is no longer on the server', () => {
+    expect(
+      resolveSessionAfterListLoad({
+        sessions,
+        projectState,
+        currentSessionId: null,
+        rememberedSessionId: 'sess_gone',
+        selectLatest: true,
+      })?.id,
+    ).toBe('sess_a');
+  });
+
   it('returns undefined when already on resolved session', () => {
     expect(
       resolveSessionAfterListLoad({

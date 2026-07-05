@@ -42,6 +42,21 @@ export function formatSessionDate(value: unknown): string | null {
   return `${dateStr} ${timeStr}`;
 }
 
+/** Absolute created timestamp — e.g. "Jul 2, 2026, 6:53 PM". */
+export function formatSessionCreated(value: unknown): string | null {
+  const date = parseGatewayTimestamp(value);
+  if (!date) {
+    return null;
+  }
+  return date.toLocaleString([], {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  });
+}
+
 /** Relative label for session lists — emphasizes recency (e.g. "2m ago", "11:24 AM"). */
 export function formatSessionLastActive(value: unknown): string | null {
   const date = parseGatewayTimestamp(value);
@@ -67,6 +82,27 @@ export function formatSessionLastActive(value: unknown): string | null {
 
 export function sessionLastActiveValue(session: HermesSession): unknown {
   return session.last_active_at ?? session.last_active ?? session.started_at;
+}
+
+export function sessionCreatedValue(session: HermesSession): unknown {
+  return session.created_at ?? session.started_at ?? session.last_active_at ?? session.last_active;
+}
+
+/** Ensure mobile-local created_at is set (gateway may only provide started_at). */
+export function ensureSessionCreatedAt(session: HermesSession): HermesSession {
+  if (session.created_at?.trim()) {
+    return session;
+  }
+  const fromStarted = parseGatewayTimestamp(session.started_at);
+  if (fromStarted) {
+    return { ...session, created_at: fromStarted.toISOString() };
+  }
+  const nowIso = new Date().toISOString();
+  return {
+    ...session,
+    created_at: nowIso,
+    last_active_at: session.last_active_at ?? nowIso,
+  };
 }
 
 export type SessionPickerLabelOptions = {
@@ -96,11 +132,15 @@ export function isCronBoilerplateText(text: string | null | undefined): boolean 
   return CRON_BOILERPLATE_RE.test(normalized);
 }
 
+export const GENERIC_NEW_SESSION_TITLE = 'New mobile session';
+
 const GENERIC_SESSION_PLACEHOLDER_TITLES = new Set([
   'new chat',
   'new mobile session',
   'new thread',
   'new session',
+  'mobile chat',
+  'auto-created session',
 ]);
 
 /** Auto-generated gateway/mobile titles with no user meaning — treat like empty. */
@@ -116,16 +156,54 @@ export function isGenericSessionPlaceholderTitle(title: string | null | undefine
   return /^new\s+mobile\s+session(?:\s+#?\d+)?$/i.test(trimmed);
 }
 
-/** First-line thread title from the user's opening message. */
-export function deriveThreadTitleFromMessage(text: string, maxLen = 64): string | null {
-  const cleaned = text.trim().replace(/\s+/g, ' ');
-  if (!cleaned) {
+/** Auto-title from the user's first prompt — first sentence or smart truncate. */
+export function titleFromFirstPrompt(text: string, maxLen = 56): string | null {
+  const normalized = text.replace(/\r?\n+/g, ' ').replace(/\s+/g, ' ').trim();
+  if (!normalized) {
     return null;
   }
-  if (cleaned.length <= maxLen) {
-    return cleaned;
+  const sentenceMatch = normalized.match(/^(.{1,200}?[.!?])(?:\s|$)/);
+  let candidate = sentenceMatch?.[1]?.trim() ?? normalized;
+  if (candidate.length > maxLen) {
+    return `${candidate.slice(0, maxLen - 1).trimEnd()}…`;
   }
-  return `${cleaned.slice(0, maxLen - 1).trimEnd()}…`;
+  return candidate;
+}
+
+/** @deprecated Prefer titleFromFirstPrompt */
+export function deriveThreadTitleFromMessage(text: string, maxLen = 64): string | null {
+  return titleFromFirstPrompt(text, maxLen);
+}
+
+/** Legacy dated/counter titles — keep on backfill, do not overwrite. */
+export function isBackfillPreservedSessionTitle(title: string | null | undefined): boolean {
+  const trimmed = title?.trim();
+  if (!trimmed) {
+    return false;
+  }
+  if (/^hermes mobile\s*[—–-]/i.test(trimmed)) {
+    return true;
+  }
+  if (/^session\s+#\d+$/i.test(trimmed)) {
+    return true;
+  }
+  return false;
+}
+
+/** True when the session should pick up a title from the first outbound prompt. */
+export function shouldAutoTitleSession(
+  session: HermesSession,
+  sessionLabels?: Record<string, string>,
+): boolean {
+  const pinned = sessionLabels?.[session.id]?.trim();
+  if (pinned && !isGenericSessionPlaceholderTitle(pinned)) {
+    return false;
+  }
+  const title = session.title?.trim();
+  if (isBackfillPreservedSessionTitle(title)) {
+    return false;
+  }
+  return !title || isGenericSessionPlaceholderTitle(title);
 }
 
 

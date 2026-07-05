@@ -95,6 +95,28 @@ describe('resolveChatMachineHeaderDisplay', () => {
     expect(display.showDetailWhenConnected).toBe(true);
   });
 
+  it('keeps saved Mac name during transient health hostname from USB heal', () => {
+    const display = resolveChatMachineHeaderDisplay({
+      activeProfile: {
+        ...macBook,
+        gatewayUrl: 'http://127.0.0.1:8642',
+        localIp: '127.0.0.1',
+      },
+      gatewayUrl: 'http://127.0.0.1:8642',
+      health: {
+        level: 'green',
+        checkedAt: '2026-06-24T00:00:00.000Z',
+        hostname: 'Igors-Mac-mini.local',
+      },
+      connectionMode: 'gateway',
+      isPaired: false,
+      workers: [],
+      savedMacCount: 2,
+    });
+    expect(display.machineLabel).toBe('Igors-MacBook-Pro');
+    expect(display.machineEndpoint).toBe('USB');
+  });
+
   it('keeps loopback address when machine name is still generic', () => {
     const display = resolveChatMachineHeaderDisplay({
       activeProfile: {

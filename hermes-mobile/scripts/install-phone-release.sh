@@ -36,7 +36,15 @@ fi
 
 APK_OUT="$HERMES_DIR/android/app/build/outputs/apk/release/app-release.apk"
 PROBLEMS_REPORT="$HERMES_DIR/android/build/reports/problems/problems-report.html"
-LOCK_DIR="$HERMES_DIR/android/.install-phone-release.lockdir"
+# Coordination lock for the phone build+install pipeline. Lives OUTSIDE android/ so the
+# failure-recovery step (`expo prebuild --clean`, which wipes android/) cannot delete the
+# lock mid-build — the exact bug that let two agents' Gradle builds corrupt each other.
+LOCK_FILE="$HERMES_DIR/.install-phone-release.lock"
+LOCK_META="$HERMES_DIR/.install-phone-release.lock.meta"
+LOCK_MKDIR="$HERMES_DIR/.install-phone-release.lockdir"   # portable fallback when flock is absent
+LOCK_WAIT_SECONDS="${HERMES_INSTALL_LOCK_WAIT:-2400}"     # queue up to 40m behind an in-flight build
+LAST_INSTALL_MARKER="$HERMES_DIR/.install-phone-release.last"
+LOCK_OWNED=0
 
 if ! command -v adb >/dev/null 2>&1; then
   echo "Error: adb not on PATH (install Android platform-tools)" >&2
@@ -206,26 +214,79 @@ cold_start_and_smoke() {
   return 0
 }
 
+_write_lock_meta() {
+  printf 'pid=%s agent=%s branch=%s sha=%s started=%s\n' \
+    "$$" "${HERMES_AGENT_LABEL:-agent}" \
+    "$(git -C "$HERMES_DIR" rev-parse --abbrev-ref HEAD 2>/dev/null || echo '?')" \
+    "$(git -C "$HERMES_DIR" rev-parse --short HEAD 2>/dev/null || echo '?')" \
+    "$(date '+%H:%M:%S')" >"$LOCK_META" 2>/dev/null || true
+}
+
+# Serialize the whole build+install critical section across every agent that runs this script.
+# QUEUE when busy (never fail-fast — that drove the retry storm). Reclaim only a DEAD holder.
 acquire_install_lock() {
-  if [[ -d "$LOCK_DIR" ]]; then
-    local lock_pid=""
-    if [[ -f "$LOCK_DIR/pid" ]]; then
-      lock_pid="$(<"$LOCK_DIR/pid")"
+  if command -v flock >/dev/null 2>&1; then
+    # flock: kernel releases the fd lock automatically on holder death (even kill -9),
+    # so there is no stale lock to garbage-collect and no force-clear race.
+    exec 9>"$LOCK_FILE" || { echo "Error: cannot open lock file $LOCK_FILE" >&2; exit 1; }
+    if ! flock -n 9; then
+      local held="another agent"; [[ -s "$LOCK_META" ]] && held="$(tr '\n' ' ' <"$LOCK_META" 2>/dev/null)"
+      echo "=== Phone pipeline busy ($held). Queueing up to ${LOCK_WAIT_SECONDS}s — no concurrent build ===" >&2
+      if ! flock -w "$LOCK_WAIT_SECONDS" 9; then
+        echo "Error: phone pipeline still busy after ${LOCK_WAIT_SECONDS}s ($held)." >&2
+        echo "       Standing down (exit 75). Do NOT auto-retry — another agent owns the build+device." >&2
+        exit 75
+      fi
     fi
-    if [[ -n "$lock_pid" ]] && kill -0 "$lock_pid" 2>/dev/null; then
-      echo "Error: another phone release install/build is in progress (pid $lock_pid, lock: $LOCK_DIR)" >&2
-      exit 1
-    fi
-    echo "Warning: removing stale install lock ($LOCK_DIR) — prior run may have crashed after Gradle." >&2
-    rm -rf "$LOCK_DIR"
+    LOCK_OWNED=1; _write_lock_meta; return 0
   fi
-  mkdir "$LOCK_DIR"
-  echo "$$" >"$LOCK_DIR/pid"
+  # Portable fallback (no flock): atomic mkdir + PID liveness, queue with jittered backoff.
+  local deadline=$((SECONDS + LOCK_WAIT_SECONDS))
+  while true; do
+    if mkdir "$LOCK_MKDIR" 2>/dev/null; then
+      echo "$$" >"$LOCK_MKDIR/pid"; LOCK_OWNED=1; _write_lock_meta; return 0
+    fi
+    local pid=""; [[ -f "$LOCK_MKDIR/pid" ]] && pid="$(<"$LOCK_MKDIR/pid" 2>/dev/null)"
+    if [[ -z "$pid" ]] || ! kill -0 "$pid" 2>/dev/null; then
+      echo "Reclaiming lock from dead holder (pid=${pid:-none})…" >&2
+      rm -rf "$LOCK_MKDIR"; continue
+    fi
+    if (( SECONDS >= deadline )); then
+      echo "Error: pipeline still busy after ${LOCK_WAIT_SECONDS}s (live pid $pid). Standing down (exit 75)." >&2
+      exit 75
+    fi
+    sleep $(( 3 + RANDOM % 8 ))
+  done
+}
+
+# Single-flight: if this exact commit is already installed on this device, skip the whole build.
+skip_if_already_installed() {
+  local target; target="$(git -C "$HERMES_DIR" rev-parse HEAD 2>/dev/null)" || return 0
+  [[ -n "$target" && -f "$LAST_INSTALL_MARKER" ]] || return 0
+  local last_sha last_dev; read -r last_sha last_dev <"$LAST_INSTALL_MARKER" 2>/dev/null || return 0
+  if [[ "$last_sha" == "$target" && "$last_dev" == "$DEVICE" ]] \
+     && adb -s "$DEVICE" shell pm list packages 2>/dev/null | grep -q 'com.iganapolsky.hermesmobile'; then
+    echo "=== Single-flight: commit ${target:0:12} already installed on $DEVICE by a prior run — nothing to do ==="
+    exit 0
+  fi
+}
+
+record_install_marker() {
+  local target; target="$(git -C "$HERMES_DIR" rev-parse HEAD 2>/dev/null)" || return 0
+  [[ -n "$target" ]] && printf '%s %s\n' "$target" "$DEVICE" >"$LAST_INSTALL_MARKER" 2>/dev/null || true
+}
+
+cleanup_lock() {
+  rm -f "$LOCK_META" 2>/dev/null || true
+  # flock releases on fd close; only clean the mkdir-fallback dir, and only if WE own it.
+  if [[ "$LOCK_OWNED" == "1" && -f "$LOCK_MKDIR/pid" && "$(<"$LOCK_MKDIR/pid" 2>/dev/null)" == "$$" ]]; then
+    rm -rf "$LOCK_MKDIR" 2>/dev/null || true
+  fi
 }
 
 acquire_install_lock
-cleanup_lock() { rm -rf "$LOCK_DIR" 2>/dev/null || true; }
-trap cleanup_lock EXIT
+trap cleanup_lock EXIT INT TERM
+skip_if_already_installed
 
 if maybe_build_release; then
   build_release
@@ -233,5 +294,6 @@ fi
 
 verify_and_install
 cold_start_and_smoke
+record_install_marker
 
 echo "=== Done: Hermes Mobile installed (release, bundle embedded) ==="

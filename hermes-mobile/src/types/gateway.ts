@@ -127,7 +127,7 @@ export const DEFAULT_GATEWAY_SETTINGS: GatewaySettings = {
   thumbgateProActive: false,
   developerLeashUnlock: false,
   routeChatConfirmationsToLeash: true,
-  includeToolActivity: true,
+  includeToolActivity: false,
   hermesPersona: 'operator',
   hermesAvatar: 'orb',
   playfulMotion: true,

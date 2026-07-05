@@ -2,10 +2,13 @@ import {
   approvalNotificationSubtitle,
   parseApprovalNotificationResponse,
   parseHermesNotificationResponse,
-  runProgressNotificationBody,
   runProgressNotificationTitle,
-  shouldPresentHermesNotification,
+  scheduleRunProgressNotification,
+  scheduleRunStallNotification,
+  shouldDismissRunNotificationsForAppState,
 } from '../services/hermesNotifications';
+import * as Notifications from 'expo-notifications';
+import { AppState } from 'react-native';
 
 describe('hermesNotifications', () => {
   it('parses approve_once notification actions', () => {
@@ -96,35 +99,46 @@ describe('hermesNotifications', () => {
     ).toBe('Hermes is responding');
   });
 
-  it('suppresses Hermes notification banners while app is foregrounded', () => {
-    expect(shouldPresentHermesNotification({ type: 'run_stall' }, 'active')).toMatchObject({
-      shouldShowAlert: false,
-      shouldShowBanner: false,
-      shouldShowList: false,
-      shouldPlaySound: false,
-    });
-    expect(shouldPresentHermesNotification({ type: 'approval', riskTier: 'high' }, 'active')).toMatchObject({
-      shouldShowAlert: false,
-      shouldShowBanner: false,
-      shouldShowList: false,
-      shouldPlaySound: false,
-    });
+  it('dismisses run notifications when the app is foregrounded', () => {
+    expect(shouldDismissRunNotificationsForAppState('active')).toBe(true);
+    expect(shouldDismissRunNotificationsForAppState('background')).toBe(false);
+    expect(shouldDismissRunNotificationsForAppState('inactive')).toBe(false);
   });
 
-  it('keeps background run notifications actionable and informative', () => {
-    expect(shouldPresentHermesNotification({ type: 'run_stall' }, 'background')).toMatchObject({
-      shouldShowBanner: true,
-      shouldPlaySound: true,
+  describe('foreground suppression', () => {
+    const originalCurrentState = AppState.currentState;
+
+    afterEach(() => {
+      Object.defineProperty(AppState, 'currentState', {
+        value: originalCurrentState,
+        configurable: true,
+      });
+      jest.clearAllMocks();
     });
-    expect(
-      runProgressNotificationBody({
-        phase: 'working',
-        startedAtMs: Date.now() - 7000,
-        detail: 'running terminal',
-        model: 'glm-5.2',
-        inputTokens: 147474,
-        outputTokens: 14403,
-      }),
-    ).toContain('glm-5.2 · In 147474 / Out 14403');
+
+    it('does not schedule run progress notification while app is active', async () => {
+      Object.defineProperty(AppState, 'currentState', {
+        value: 'active',
+        configurable: true,
+      });
+
+      await scheduleRunProgressNotification(
+        { phase: 'working', startedAtMs: Date.now() },
+        { runId: 'run-1', sessionId: 'sess-1' },
+      );
+
+      expect(Notifications.scheduleNotificationAsync).not.toHaveBeenCalled();
+    });
+
+    it('does not schedule stall notification while app is active', async () => {
+      Object.defineProperty(AppState, 'currentState', {
+        value: 'active',
+        configurable: true,
+      });
+
+      await scheduleRunStallNotification('run-1', 'sess-1');
+
+      expect(Notifications.scheduleNotificationAsync).not.toHaveBeenCalled();
+    });
   });
 });

@@ -8,8 +8,12 @@ import {
   resolveDisplayLanIp,
 } from './gatewayUrlPolicy';
 import { isPrivateLanGatewayUrl } from './gatewayEndpoint';
-import { isInvalidGatewayProfile, profileDisplayName, GENERIC_USB_PROFILE_LABEL, LEGACY_USB_PROFILE_LABEL } from '../services/gatewayProfiles';
-import { isTailscaleGatewayUrl } from './tailscaleHosts';
+import {
+  isGenericMachineLabel,
+  isInvalidGatewayProfile,
+  profileDisplayName,
+} from '../services/gatewayProfiles';
+import { isTailscaleGatewayUrl, isTailscaleIpv4 } from './tailscaleHosts';
 
 export type ProfilePickerLines = {
   title: string;
@@ -61,10 +65,7 @@ const GENERIC_USB_LOOPBACK_ID = 'mac_usb_loopback';
 export function isGenericUsbLoopbackProfile(profile: GatewayProfile): boolean {
   return (
     profile.id === GENERIC_USB_LOOPBACK_ID ||
-    (isLoopbackGatewayUrl(profile.gatewayUrl) &&
-      (profile.label?.trim() === GENERIC_USB_PROFILE_LABEL ||
-        profile.label?.trim() === LEGACY_USB_PROFILE_LABEL) &&
-      !profile.hostname?.trim())
+    (isLoopbackGatewayUrl(profile.gatewayUrl) && isGenericMachineLabel(profile.label) && !profile.hostname?.trim())
   );
 }
 
@@ -76,15 +77,92 @@ function hasNamedUsbLoopbackProfile(profiles: GatewayProfile[]): boolean {
       Boolean(
         p.hostname?.trim() ||
           (p.label?.trim() &&
-            p.label.trim() !== GENERIC_USB_PROFILE_LABEL &&
-            p.label.trim() !== LEGACY_USB_PROFILE_LABEL),
+            !isGenericMachineLabel(p.label)),
       ),
   );
 }
 
-/** Switch-computer list: valid profiles minus redundant generic USB when a named USB Mac exists. */
-export function profilesForSwitchComputerPicker(profiles: GatewayProfile[]): GatewayProfile[] {
-  const valid = profilesForDevicePicker(profiles);
+export type SwitchComputerPickerOptions = {
+  activeProfileId?: string | null;
+};
+
+function isLikelyMobileTailscaleProfile(profile: GatewayProfile): boolean {
+  if (!isTailscaleGatewayUrl(profile.gatewayUrl)) {
+    return false;
+  }
+  const haystack = [
+    profile.label,
+    profile.hostname,
+    gatewayUrlHostname(profile.gatewayUrl),
+    profileDisplayName(profile),
+  ]
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase();
+  return /\b(android|iphone|ipad|pixel|galaxy|s2[0-9]|s25)\b/.test(haystack);
+}
+
+function isUnnamedInactiveTailscaleIpProfile(
+  profile: GatewayProfile,
+  activeProfileId?: string | null,
+): boolean {
+  if (profile.id === activeProfileId || !isTailscaleGatewayUrl(profile.gatewayUrl)) {
+    return false;
+  }
+  const ip = profile.localIp?.trim() || extractLanIpFromGatewayUrl(profile.gatewayUrl);
+  if (!ip || !isTailscaleIpv4(ip)) {
+    return false;
+  }
+  if (profile.hostname?.trim()) {
+    return false;
+  }
+  if (profile.lastConnectedAt?.trim()) {
+    return false;
+  }
+  return isGenericMachineLabel(profile.label);
+}
+
+function switchPickerRowKey(profile: GatewayProfile): string {
+  if (isGenericUsbLoopbackProfile(profile)) {
+    return 'usb:generic';
+  }
+  const name = profileDisplayName(profile).toLowerCase();
+  if (!isGenericMachineLabel(name)) {
+    return `name:${name}`;
+  }
+  const ip = profile.localIp?.trim() || extractLanIpFromGatewayUrl(profile.gatewayUrl);
+  if (ip) {
+    return `ip:${ip}`;
+  }
+  return `url:${profile.gatewayUrl.trim().toLowerCase()}`;
+}
+
+function dedupeSwitchPickerRows(profiles: GatewayProfile[]): GatewayProfile[] {
+  const seen = new Set<string>();
+  const rows: GatewayProfile[] = [];
+  for (const profile of profiles) {
+    const key = switchPickerRowKey(profile);
+    if (seen.has(key)) {
+      continue;
+    }
+    seen.add(key);
+    rows.push(profile);
+  }
+  return rows;
+}
+
+/** Switch-computer list: valid profiles minus phone/self, duplicate, and redundant USB rows. */
+export function profilesForSwitchComputerPicker(
+  profiles: GatewayProfile[],
+  options: SwitchComputerPickerOptions = {},
+): GatewayProfile[] {
+  const valid = dedupeSwitchPickerRows(
+    profilesForDevicePicker(profiles).filter(
+      (profile) =>
+        !isLikelyMobileTailscaleProfile(profile) &&
+        !isUnnamedInactiveTailscaleIpProfile(profile, options.activeProfileId),
+    ),
+  );
   if (!hasNamedUsbLoopbackProfile(valid)) {
     return valid;
   }

@@ -42,6 +42,33 @@ export function isTailnetRouteLabel(value: string | undefined): boolean {
   return hostOnly ? isTailscaleGatewayHost(hostOnly) : false;
 }
 
+/**
+ * Extract the human device name from a Tailscale MagicDNS host, e.g.
+ * `igors-s25-1.tail12aa33.ts.net:8642` -> `igors-s25-1`. Returns undefined for raw
+ * CGNAT IPs (100.x, which carry no name) or non-Tailscale values. This is what lets the
+ * computer picker show real machine names instead of a generic "Computer" for saved
+ * profiles that only have a MagicDNS URL (no separately-stored hostname).
+ */
+export function magicDnsDeviceName(value: string | undefined): string | undefined {
+  const trimmed = value?.trim();
+  if (!trimmed) {
+    return undefined;
+  }
+  const hostOnly = trimmed
+    .replace(/^https?:\/\//i, '')
+    .split('/')[0]
+    ?.split(':')[0]
+    ?.trim();
+  if (!hostOnly || !isTailscaleGatewayHost(hostOnly)) {
+    return undefined;
+  }
+  const first = hostOnly.split('.')[0]?.trim();
+  if (!first || /^\d+$/.test(first)) {
+    return undefined;
+  }
+  return first;
+}
+
 export function buildTailscaleGatewayUrl(host: string, port = 8642): string {
   const trimmed = host.trim();
   const withPort = trimmed.includes(':') ? trimmed : `${trimmed}:${port}`;

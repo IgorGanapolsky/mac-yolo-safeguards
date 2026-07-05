@@ -10,6 +10,7 @@ import {
   approvalsSummaryBody,
   APPROVALS_SUMMARY_NOTIFICATION_ID,
   shouldScheduleApprovalNotification,
+  shouldScheduleRunProgressNotification,
 } from '../utils/smartNotificationPolicy';
 
 type NotificationModule = typeof import('expo-notifications');
@@ -26,7 +27,6 @@ const RUN_STATUS_NOTIFICATION_ID = 'hermes-run-status';
 const RUN_COMPLETED_NOTIFICATION_ID = 'hermes-run-completed';
 
 const notifiedApprovalIds = new Set<string>();
-let appStateSubscription: { remove: () => void } | null = null;
 
 const THREAD_APPROVALS = 'hermes.thread.approvals';
 const THREAD_RUNS = 'hermes.thread.runs';
@@ -34,7 +34,7 @@ const NOTIFICATION_COLOR = '#6366F1';
 
 let lastRunStatusAt = 0;
 const RUN_STATUS_MIN_INTERVAL_MS = 8_000;
-const RUN_STALL_SECONDS = 5 * 60;
+let foregroundRunCleanupSub: { remove: () => void } | null = null;
 
 export type HermesNotificationTab = 'Chat' | 'Leash';
 
@@ -47,14 +47,6 @@ export type ApprovalNotificationAction = {
   actionId: string;
   runId?: string;
   choice: 'once' | 'deny';
-};
-
-export type HermesNotificationPresentation = {
-  shouldShowAlert: boolean;
-  shouldPlaySound: boolean;
-  shouldSetBadge: boolean;
-  shouldShowBanner: boolean;
-  shouldShowList: boolean;
 };
 
 async function loadNotifications(): Promise<NotificationModule | null> {
@@ -122,56 +114,14 @@ export function runProgressNotificationTitle(progress: RunProgressState): string
   return 'Hermes is working';
 }
 
-export function runProgressNotificationBody(progress: RunProgressState): string {
-  const label = formatRunProgressLabel(progress)
-    .replace(/^⌛\s*Working\s*—\s*/i, '')
-    .replace(/^Working\s*—\s*/i, '')
-    .trim();
-  const model = progress.model?.trim();
-  const modelLabel =
-    model && !['hermes-agent', 'hermes', 'gateway'].includes(model.toLowerCase())
-      ? model
-      : '';
-  const tokenLabel =
-    progress.inputTokens != null || progress.outputTokens != null
-      ? `In ${progress.inputTokens ?? 0} / Out ${progress.outputTokens ?? 0}`
-      : progress.totalTokens != null
-        ? `${progress.totalTokens} tokens`
-        : '';
-  const meta = [modelLabel, tokenLabel].filter(Boolean).join(' · ');
-  return [label || 'Working on your computer', meta].filter(Boolean).join('\n').slice(0, 220);
+export function shouldDismissRunNotificationsForAppState(appState: string): boolean {
+  return appState === 'active';
 }
 
-export function shouldPresentHermesNotification(
-  data: Record<string, unknown> | undefined,
-  appState: typeof AppState.currentState = AppState.currentState,
-): HermesNotificationPresentation {
-  const type = typeof data?.type === 'string' ? data.type : '';
-  const foreground = appState === 'active';
-
-  if (foreground) {
-    return {
-      shouldShowAlert: false,
-      shouldPlaySound: false,
-      shouldSetBadge: true,
-      shouldShowBanner: false,
-      shouldShowList: false,
-    };
-  }
-
-  const sound =
-    type === 'approval' ||
-    type === 'approval_summary' ||
-    type === 'run_completed' ||
-    type === 'run_stall';
-
-  return {
-    shouldShowAlert: true,
-    shouldPlaySound: sound,
-    shouldSetBadge: true,
-    shouldShowBanner: true,
-    shouldShowList: true,
-  };
+/** Cancel sticky run-status + stall notifications (safe when backgrounded). */
+export async function dismissActiveRunNotifications(): Promise<void> {
+  await clearRunProgressNotification();
+  await cancelRunStallNotification();
 }
 
 export function parseHermesNotificationResponse(response: unknown): HermesNotificationAction | null {
@@ -259,9 +209,39 @@ export async function initHermesNotifications(): Promise<void> {
     return;
   }
 
+  if (!foregroundRunCleanupSub) {
+    foregroundRunCleanupSub = AppState.addEventListener('change', (nextAppState) => {
+      if (shouldDismissRunNotificationsForAppState(nextAppState)) {
+        dismissActiveRunNotifications().catch(() => {});
+      }
+    });
+  }
+
+  if (shouldDismissRunNotificationsForAppState(AppState.currentState)) {
+    await dismissActiveRunNotifications();
+  }
+
   Notifications.setNotificationHandler({
     handleNotification: async (notification) => {
-      return shouldPresentHermesNotification(notification.request.content.data);
+      const data = notification.request.content.data;
+      const type = typeof data?.type === 'string' ? data.type : '';
+      const foreground = AppState.currentState === 'active';
+      // Any run-status notification is redundant as a heads-up banner while the user is
+      // actively in the app — they already see the run banner/transcript on screen.
+      const suppressRunBanner =
+        foreground &&
+        (type === 'run_progress' || type === 'run_stall' || type === 'run_completed');
+      const suppressApprovalBanner =
+        foreground && type === 'approval' && data?.riskTier !== 'high';
+
+      return {
+        shouldShowAlert: !suppressRunBanner && !suppressApprovalBanner,
+        shouldPlaySound:
+          (type === 'approval' || type === 'approval_summary') && !foreground,
+        shouldSetBadge: true,
+        shouldShowBanner: !suppressRunBanner && !suppressApprovalBanner,
+        shouldShowList: true,
+      };
     },
   });
 
@@ -319,15 +299,6 @@ export async function initHermesNotifications(): Promise<void> {
       options: { opensAppToForeground: true },
     },
   ]);
-
-  if (!appStateSubscription) {
-    appStateSubscription = AppState.addEventListener('change', (state) => {
-      if (state === 'active') {
-        clearRunProgressNotification().catch(() => {});
-        cancelRunStallNotification().catch(() => {});
-      }
-    });
-  }
 }
 
 /** @deprecated use initHermesNotifications */
@@ -537,7 +508,7 @@ export async function scheduleRunProgressNotification(
   progress: RunProgressState,
   options?: { runId?: string; sessionId?: string; force?: boolean },
 ): Promise<void> {
-  if (AppState.currentState === 'active') {
+  if (!shouldScheduleRunProgressNotification()) {
     return;
   }
 
@@ -557,7 +528,9 @@ export async function scheduleRunProgressNotification(
   }
   lastRunStatusAt = now;
 
-  const body = runProgressNotificationBody(progress);
+  const body = formatRunProgressLabel(progress)
+    .replace(/^⌛\s*Working\s*—\s*/i, '')
+    .slice(0, 180);
 
   await Notifications.scheduleNotificationAsync({
     identifier: RUN_STATUS_NOTIFICATION_ID,
@@ -592,7 +565,7 @@ export async function scheduleRunCompletedNotification(
   detail: string,
   options?: { success?: boolean; runId?: string; sessionId?: string },
 ): Promise<void> {
-  if (AppState.currentState === 'active') {
+  if (!shouldScheduleRunProgressNotification()) {
     return;
   }
 
@@ -659,7 +632,8 @@ export async function scheduleRunStallNotification(
   runId?: string,
   sessionId?: string,
 ): Promise<void> {
-  if (AppState.currentState === 'active') {
+  if (!shouldScheduleRunProgressNotification()) {
+    await cancelRunStallNotification();
     return;
   }
 
@@ -678,8 +652,8 @@ export async function scheduleRunStallNotification(
     identifier: RUN_STALL_NOTIFICATION_ID,
     content: {
       title: 'Hermes run might be stalled',
-      subtitle: 'Background task warning',
-      body: 'No updates for 5 minutes. Open chat or stop the run.',
+      subtitle: 'Computer gateway · warning',
+      body: 'No updates from your computer for 45 seconds. Open chat or stop the run.',
       categoryIdentifier: CATEGORY_RUN,
       threadIdentifier: THREAD_RUNS,
       sound: 'default',
@@ -699,7 +673,7 @@ export async function scheduleRunStallNotification(
     } as NotificationContentInput,
     trigger: {
       type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
-      seconds: RUN_STALL_SECONDS,
+      seconds: 45,
       repeats: false,
     },
   });

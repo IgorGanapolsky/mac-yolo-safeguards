@@ -120,21 +120,22 @@ describe('RunProgressBanner', () => {
     expect(getByText('229s')).toBeTruthy();
   });
 
-  it('shows an honest stale state for long-running active runs', () => {
+  it('shows stale hint and emphasized stop after warn threshold', () => {
+    const onStop = jest.fn();
     const { getByTestId, getByText } = render(
       <RunProgressBanner
         progress={{
           phase: 'working',
-          startedAtMs: Date.now() - 12 * 60 * 60 * 1000,
-          duration: 3939.3,
-          detail: 'Hermes is working on your computer…',
+          startedAtMs: Date.now() - 16 * 60 * 1000,
+          detail: 'Agent working…',
           runId: 'run-stale',
         }}
-        onStop={jest.fn()}
+        onStop={onStop}
       />,
     );
-    expect(getByTestId('run-progress-detail').props.children).toBe('No updates for 65 min');
-    expect(getByTestId('run-progress-stale-detail').props.children).toContain('may be stuck');
-    expect(getByText('3939.3s')).toBeTruthy();
+    expect(getByTestId('run-progress-stale-hint').props.children).toContain(
+      'Taking longer than expected',
+    );
+    expect(getByText('Stop stuck run')).toBeTruthy();
   });
 });

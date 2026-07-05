@@ -7,6 +7,7 @@ import {
   buildApprovalNotificationBody,
   shouldScheduleApprovalNotification,
   shouldScheduleRunCompletedNotification,
+  shouldScheduleRunProgressNotification,
 } from '../utils/smartNotificationPolicy';
 
 const basePending = (overrides: Partial<PendingApproval> = {}): PendingApproval => ({
@@ -68,5 +69,11 @@ describe('smartNotificationPolicy', () => {
     expect(shouldScheduleRunCompletedNotification(AppState.currentState)).toBe(
       AppState.currentState !== 'active',
     );
+  });
+
+  it('schedules run progress only when not active', () => {
+    expect(shouldScheduleRunProgressNotification('active')).toBe(false);
+    expect(shouldScheduleRunProgressNotification('background')).toBe(true);
+    expect(shouldScheduleRunProgressNotification('inactive')).toBe(true);
   });
 });

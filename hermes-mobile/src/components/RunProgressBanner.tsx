@@ -2,16 +2,9 @@ import React, { useEffect, useState, memo } from 'react';
 import { StyleSheet, Text, View, ActivityIndicator, Platform, Pressable } from 'react-native';
 import { colors } from '../theme/colors';
 import type { RunProgressState } from '../types/chatDisplay';
-import {
-  displayableLlmModel,
-  humanizeRunProgressDetail,
-  isRunProgressStale,
-  runProgressElapsedSeconds,
-  runProgressFailedTitle,
-  staleRunProgressDetail,
-  staleRunProgressTitle,
-} from '../utils/runProgressDisplay';
+import { displayableLlmModel, humanizeRunProgressDetail, runProgressFailedTitle } from '../utils/runProgressDisplay';
 import { isConnectivityMessage } from '../utils/chatErrors';
+import { classifyRunStale, runStaleHint } from '../utils/runStaleDetection';
 
 type RunProgressBannerProps = {
   progress: RunProgressState;
@@ -53,7 +46,8 @@ function RunProgressBanner({
 
   useEffect(() => {
     const update = () => {
-      setElapsed(runProgressElapsedSeconds(progress));
+      const sec = Math.max(0, Math.floor((Date.now() - progress.startedAtMs) / 1000));
+      setElapsed(sec);
     };
     update();
     const timer = setInterval(update, 1000);
@@ -63,7 +57,9 @@ function RunProgressBanner({
   const isCompleted = progress.phase === 'completed';
   const isFailed = progress.phase === 'failed';
   const isActive = !isCompleted && !isFailed;
-  const isStale = isActive && isRunProgressStale(progress);
+  const staleLevel = isActive ? classifyRunStale(progress) : 'normal';
+  const staleMessage = runStaleHint(staleLevel);
+  const emphasizeStop = isActive && staleLevel !== 'normal' && Boolean(onStop);
 
   const durationSec = progress.duration != null ? Math.round(progress.duration * 10) / 10 : elapsed;
   const modelLabel =
@@ -85,7 +81,7 @@ function RunProgressBanner({
       isFailed && styles.bannerFailed,
     ]} testID="run-progress-banner">
       <View style={styles.headerRow}>
-        {isActive && !isStale ? (
+        {isActive ? (
           <ActivityIndicator size="small" color={colors.warning} style={styles.spinner} />
         ) : (
           <Text style={styles.statusIcon}>{isCompleted ? '✅' : '⚠️'}</Text>
@@ -94,28 +90,28 @@ function RunProgressBanner({
           style={[
             styles.text,
             isCompleted && styles.textCompleted,
-            (isFailed || isStale) && styles.textFailed,
+            isFailed && styles.textFailed,
           ]}
           numberOfLines={isFailed && failedDetail ? 1 : 2}
           testID="run-progress-detail"
         >
-          {isCompleted
-            ? 'Reply ready on your computer'
-            : isFailed
-              ? failedTitle
-              : isStale
-                ? staleRunProgressTitle(progress)
-                : detailLabel}
+          {isCompleted ? 'Reply ready on your computer' : isFailed ? failedTitle : detailLabel}
         </Text>
         <Text style={styles.timeLabel}>{durationSec}s</Text>
         {isActive && onStop ? (
           <Pressable
             onPress={onStop}
-            style={({ pressed }) => [styles.stopChip, pressed && styles.stopChipPressed]}
+            style={({ pressed }) => [
+              styles.stopChip,
+              emphasizeStop && styles.stopChipEmphasis,
+              pressed && styles.stopChipPressed,
+            ]}
             testID="run-progress-stop"
-            accessibilityLabel="Stop run"
+            accessibilityLabel={emphasizeStop ? 'Stop stuck run' : 'Stop run'}
           >
-            <Text style={styles.stopChipText}>Stop</Text>
+            <Text style={[styles.stopChipText, emphasizeStop && styles.stopChipTextEmphasis]}>
+              {emphasizeStop ? 'Stop stuck run' : 'Stop'}
+            </Text>
           </Pressable>
         ) : null}
         {!isActive && onRetry ? (
@@ -146,9 +142,9 @@ function RunProgressBanner({
         </Text>
       ) : null}
 
-      {isStale ? (
-        <Text style={styles.failedDetail} testID="run-progress-stale-detail">
-          {staleRunProgressDetail()}
+      {staleMessage ? (
+        <Text style={styles.staleHint} testID="run-progress-stale-hint">
+          {staleMessage}
         </Text>
       ) : null}
 
@@ -259,6 +255,12 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: colors.textSecondary,
   },
+  staleHint: {
+    fontSize: 11,
+    lineHeight: 16,
+    fontWeight: '700',
+    color: colors.warning,
+  },
   timeLabel: {
     fontSize: 11,
     fontWeight: '800',
@@ -276,6 +278,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 4,
   },
+  stopChipEmphasis: {
+    borderColor: colors.error,
+    backgroundColor: 'rgba(239, 68, 68, 0.28)',
+    borderWidth: 2,
+    paddingHorizontal: 12,
+  },
   stopChipPressed: {
     opacity: 0.85,
   },
@@ -283,6 +291,9 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '800',
     color: colors.error,
+  },
+  stopChipTextEmphasis: {
+    fontSize: 12,
   },
   retryChip: {
     borderRadius: 8,

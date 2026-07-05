@@ -102,6 +102,27 @@ describe('release safety contract', () => {
     expect(app.expo.plugins).toContain('expo-updates');
   });
 
+  it('declares PostHog analytics data in the iOS privacy manifest', () => {
+    const app = JSON.parse(read('hermes-mobile/app.json'));
+    const collected = app.expo.ios.privacyManifests.NSPrivacyCollectedDataTypes;
+    expect(collected).toEqual(
+      expect.arrayContaining([
+        {
+          NSPrivacyCollectedDataType: 'NSPrivacyCollectedDataTypeProductInteraction',
+          NSPrivacyCollectedDataTypeLinked: true,
+          NSPrivacyCollectedDataTypeTracking: false,
+          NSPrivacyCollectedDataTypePurposes: ['NSPrivacyCollectedDataTypePurposeAnalytics'],
+        },
+        {
+          NSPrivacyCollectedDataType: 'NSPrivacyCollectedDataTypeDeviceID',
+          NSPrivacyCollectedDataTypeLinked: true,
+          NSPrivacyCollectedDataTypeTracking: false,
+          NSPrivacyCollectedDataTypePurposes: ['NSPrivacyCollectedDataTypePurposeAnalytics'],
+        },
+      ]),
+    );
+  });
+
   it('maestro ship-guard blocks Metro crash and legacy shell', () => {
     const shipGuard = read('hermes-mobile/.maestro/ship-guard.yaml');
     expect(shipGuard).toContain('Unable to load script');

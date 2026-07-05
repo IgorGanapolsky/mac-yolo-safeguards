@@ -59,7 +59,7 @@ describe('mergeServerMessagesWithPending', () => {
     expect(merged.map((m) => m.content)).toEqual(['from gateway', 'pending send']);
   });
 
-  it('drops optimistic user bubble when server transcript caught up (raw vs preview)', () => {
+  it('drops optimistic user bubble when the latest server user line matches', () => {
     const question = "Aren't we working in Skool_top1percent project?";
     const server: HermesMessage[] = [
       {
@@ -76,6 +76,21 @@ describe('mergeServerMessagesWithPending', () => {
     const merged = mergeServerMessagesWithPending(server, local);
     expect(merged.length).toBe(1);
     expect(merged[0]?.rawContent ?? merged[0]?.content).toContain('Skool_top1percent');
+  });
+
+  it('keeps a new optimistic user bubble when an older server turn repeats the same text', () => {
+    const repeated = 'run delegate task';
+    const server: HermesMessage[] = [
+      { id: 'gw-u1', role: 'user', content: repeated },
+      { id: 'gw-a1', role: 'assistant', content: 'first answer' },
+    ];
+    const local: HermesMessage[] = [
+      ...server,
+      { id: 'user-99', role: 'user', content: repeated, outboundStatus: 'pending' },
+    ];
+    const merged = mergeServerMessagesWithPending(server, local);
+    expect(merged.filter((m) => m.role === 'user')).toHaveLength(2);
+    expect(merged[merged.length - 1]?.id).toBe('user-99');
   });
 
   it('dedupes identical user echoes from gateway', () => {

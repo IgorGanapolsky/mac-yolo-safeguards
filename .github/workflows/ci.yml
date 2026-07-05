@@ -112,5 +112,8 @@ jobs:
       - name: Unit tests with coverage
         run: npm run test:ci
 
+      - name: E2E flow validation (Maestro tier-0)
+        run: npm run e2e:validate
+
       - name: Release safety contract
         run: npm run test:release-safety

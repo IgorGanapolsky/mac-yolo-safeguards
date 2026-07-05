@@ -1,5 +1,6 @@
 import type { HermesMessage } from '../types/chat';
 import { coerceMessageId, idHasPrefix } from './messageIds';
+import { dedupeToolDumpMessages } from './chatToolDump';
 
 /** Normalize text so optimistic phone bubbles match gateway transcript formatting. */
 export function normalizeMessageText(text: string): string {
@@ -70,13 +71,19 @@ export function hasUnsyncedLocalMessages(messages: HermesMessage[]): boolean {
   });
 }
 
-function serverHasUserMessage(serverMessages: HermesMessage[], body: string): boolean {
+/** Match only the latest server user line — avoids dropping a new optimistic bubble when an older turn repeats the same text. */
+function serverHasLatestUserMessage(serverMessages: HermesMessage[], body: string): boolean {
   if (!body) {
     return false;
   }
-  return serverMessages.some(
-    (message) => message.role?.toLowerCase() === 'user' && messageBody(message) === body,
-  );
+  for (let index = serverMessages.length - 1; index >= 0; index -= 1) {
+    const message = serverMessages[index];
+    if (message.role?.toLowerCase() !== 'user') {
+      continue;
+    }
+    return messageBody(message) === body;
+  }
+  return false;
 }
 
 function serverHasAssistantMessage(serverMessages: HermesMessage[], body: string): boolean {
@@ -130,8 +137,15 @@ export function mergeServerMessagesWithPending(
       continue;
     }
     if (isOptimisticUserMessage(message)) {
+      if (message.outboundStatus === 'pending') {
+        pendingTail.push(message);
+        continue;
+      }
       const body = messageBody(message);
-      if (serverFingerprints.has(messageFingerprint(message)) || serverHasUserMessage(dedupedServer, body)) {
+      if (
+        serverFingerprints.has(messageFingerprint(message)) ||
+        serverHasLatestUserMessage(dedupedServer, body)
+      ) {
         continue;
       }
     }
@@ -141,9 +155,16 @@ export function mergeServerMessagesWithPending(
   }
 
   if (pendingTail.length === 0) {
-    return dedupedServer;
+    return dedupeToolDumpMessages(dedupedServer);
   }
-  return dedupeChatMessages([...dedupedServer, ...pendingTail]);
+  const merged = dedupeToolDumpMessages([...dedupedServer, ...pendingTail]);
+  const hasPendingUser = pendingTail.some(
+    (message) => isOptimisticUserMessage(message) && message.outboundStatus === 'pending',
+  );
+  if (hasPendingUser) {
+    return merged;
+  }
+  return dedupeChatMessages(merged);
 }
 
 /** Cheap fingerprint to skip FlatList updates when a gateway refresh returns the same transcript. */

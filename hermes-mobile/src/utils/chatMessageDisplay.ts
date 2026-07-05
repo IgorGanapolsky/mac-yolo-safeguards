@@ -1,8 +1,15 @@
 import type { HermesMessage } from '../types/chat';
 import { isMessageDisplayEmpty } from './chatMessageMerge';
-import { collapseOutreachVariantBatches } from './chatMessageCollapse';
+import { collapseOutreachVariantBatches, collapseToolActivityMessages } from './chatMessageCollapse';
 import { isGatewaySmokeTestMessage } from './gatewaySmokeMessages';
 import { parseGatewayTimestamp } from './sessionDisplay';
+import {
+  dedupeToolDumpMessages,
+  isToolDumpDisplayContent,
+  shouldHideToolDumpFromTimeline,
+} from './chatToolDump';
+
+export { isToolDumpDisplayContent, shouldHideToolDumpFromTimeline } from './chatToolDump';
 
 const HIDDEN_ROLES = new Set(['tool', 'session_meta', 'function', 'tool_result']);
 
@@ -285,10 +292,15 @@ export function prepareMessagesForDisplay(
   messages: HermesMessage[],
   options?: { includeToolActivity?: boolean; includeHermesStatus?: boolean },
 ): HermesMessage[] {
+  // Default OFF: raw tool payloads ([tool data], {"total_count":0}, {"bytes_written":…}) are
+  // noise to a normal user. They only render when the user explicitly enables tool activity.
   const includeTools = options?.includeToolActivity ?? false;
   const includeHermesStatus = options?.includeHermesStatus ?? false;
   const filtered = messages
     .filter((message) => {
+      if (shouldHideToolDumpFromTimeline(message, includeTools)) {
+        return false;
+      }
       const raw =
         typeof message.content === 'string' ? message.content : String(message.content ?? '');
       if (includeHermesStatus && isHermesLiveStatusContent(raw)) {
@@ -308,27 +320,47 @@ export function prepareMessagesForDisplay(
         gatewayContent: raw,
       };
     });
-  return finalizeMessagesForDisplay(filtered);
+  return finalizeMessagesForDisplay(filtered, includeTools);
 }
 
-function finalizeMessagesForDisplay(messages: HermesMessage[]): HermesMessage[] {
-  return collapseOutreachVariantBatches(messages)
-    .map((message) => {
-      if (typeof message.id === 'string' && message.id.startsWith('collapsed-outreach-')) {
-        return message;
-      }
-      const raw = message.gatewayContent ?? message.content;
-      const display = prepareMessageForChatDisplay(raw);
-      return {
-        ...message,
-        gatewayContent: raw,
-        content: display.content,
-        rawContent: display.rawContent,
-        truncated: display.truncated,
-      };
-    })
-    .filter(
-      (message) =>
-        !isMessageDisplayEmpty(message.content) && !isGatewaySmokeTestMessage(message.content),
-    );
+function finalizeMessagesForDisplay(messages: HermesMessage[], includeTools: boolean): HermesMessage[] {
+  const collapsedOutreach = collapseOutreachVariantBatches(messages);
+  const collapsedTools = includeTools
+    ? collapseToolActivityMessages(collapsedOutreach)
+    : collapsedOutreach;
+  return dedupeToolDumpMessages(
+    collapsedTools
+      .map((message) => {
+        if (message.isCollapsedToolActivity) {
+          return message;
+        }
+        if (typeof message.id === 'string' && message.id.startsWith('collapsed-outreach-')) {
+          return message;
+        }
+        const raw = message.gatewayContent ?? message.content;
+        const display = prepareMessageForChatDisplay(raw);
+        return {
+          ...message,
+          gatewayContent: raw,
+          content: display.content,
+          rawContent: display.rawContent,
+          truncated: display.truncated,
+        };
+      })
+      .filter((message) => {
+        if (message.isCollapsedToolActivity) {
+          return includeTools;
+        }
+        if (isMessageDisplayEmpty(message.content) || isGatewaySmokeTestMessage(message.content)) {
+          return false;
+        }
+        if (!includeTools) {
+          return (
+            !isToolDumpDisplayContent(message.content) &&
+            !isToolDumpDisplayContent(message.gatewayContent)
+          );
+        }
+        return true;
+      }),
+  );
 }

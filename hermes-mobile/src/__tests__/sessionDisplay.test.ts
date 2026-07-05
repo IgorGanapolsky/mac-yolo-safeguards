@@ -1,16 +1,22 @@
 import type { HermesSession } from '../types/chat';
 import {
   formatCronSchedule,
+  formatSessionCreated,
   formatSessionDate,
   formatSessionLastActive,
   formatSessionTitle,
   filterDismissedThreadSessions,
   isRecentsRailSession,
   parseGatewayTimestamp,
+  sessionCreatedValue,
   sessionDisplayTitle,
   sessionPickerLabel,
   sessionLastActiveValue,
   deriveThreadTitleFromMessage,
+  titleFromFirstPrompt,
+  shouldAutoTitleSession,
+  isBackfillPreservedSessionTitle,
+  ensureSessionCreatedAt,
 } from '../utils/sessionDisplay';
 
 describe('sessionDisplay', () => {
@@ -119,15 +125,50 @@ describe('sessionDisplay', () => {
     expect(deriveThreadTitleFromMessage(long)?.endsWith('…')).toBe(true);
   });
 
-  it('sessionPickerLabel treats numbered mobile session titles as placeholders', () => {
+  it('titleFromFirstPrompt uses the opening question as title', () => {
+    expect(titleFromFirstPrompt('Print money make money faster')).toBe(
+      'Print money make money faster',
+    );
+  });
+
+  it('titleFromFirstPrompt strips newlines and uses first sentence', () => {
+    expect(titleFromFirstPrompt('Ship the fix today.\nAlso check CI.')).toBe('Ship the fix today.');
+  });
+
+  it('titleFromFirstPrompt truncates long single-line prompts', () => {
+    const long = 'Optimize '.repeat(20).trim();
+    const title = titleFromFirstPrompt(long);
+    expect(title?.endsWith('…')).toBe(true);
+    expect(title!.length).toBeLessThanOrEqual(56);
+  });
+
+  it('shouldAutoTitleSession skips pinned and backfill titles', () => {
     expect(
-      sessionPickerLabel({
-        id: 'sess_3',
-        title: 'New mobile session #3',
-        preview: 'Print money make money faster',
-        started_at: '2026-07-02T18:24:00.000Z',
-      }),
-    ).toBe('Print money make money faster');
+      shouldAutoTitleSession({ id: 's1', title: 'New mobile session' }, {}),
+    ).toBe(true);
+    expect(
+      shouldAutoTitleSession(
+        { id: 's1', title: 'New mobile session' },
+        { s1: 'Pinned name' },
+      ),
+    ).toBe(false);
+    expect(
+      shouldAutoTitleSession({ id: 's1', title: 'Hermes Mobile — Jun 18, 3:00 PM' }, {}),
+    ).toBe(false);
+    expect(isBackfillPreservedSessionTitle('Session #3')).toBe(true);
+  });
+
+  it('formatSessionCreated renders absolute created timestamp', () => {
+    const label = formatSessionCreated('2026-07-02T22:53:00.000Z');
+    expect(label).toMatch(/Jul/);
+    expect(label).toMatch(/2026/);
+    expect(label).toMatch(/53/);
+  });
+
+  it('ensureSessionCreatedAt copies gateway started_at to created_at', () => {
+    const stamped = ensureSessionCreatedAt({ id: 's1', started_at: 1781717688.445973 });
+    expect(stamped.created_at).toBeTruthy();
+    expect(sessionCreatedValue(stamped)).toBe(stamped.created_at);
   });
 
   it('sessionPickerLabel prefers pinned mobile label', () => {

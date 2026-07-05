@@ -8,16 +8,13 @@ module.exports = {
     '!src/types/**',
     '!src/native/**',
     '!App.tsx',
-    '!src/screens/WorkspaceScreen.tsx',
-    '!src/utils/chatStreamEvents.ts',
-    '!src/utils/chatTimeline.ts',
   ],
   coverageThreshold: {
     global: {
-      branches: 43,
-      functions: 50,
-      lines: 54,
-      statements: 53,
+      branches: 55,
+      functions: 62,
+      lines: 64,
+      statements: 64,
     },
     './src/utils/apkReleaseGuards.ts': {
       branches: 85,
