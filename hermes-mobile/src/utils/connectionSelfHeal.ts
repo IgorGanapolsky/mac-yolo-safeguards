@@ -1,5 +1,7 @@
 import type { GatewayProfile } from '../types/gatewayProfile';
 import type { DiscoveredGateway } from '../types/gatewayProfile';
+import { profilesShareMachine } from '../services/gatewayProfiles';
+import { profileMatchesDiscoveredGateway } from './gatewayProfilePicker';
 import { isPrivateLanGatewayUrl } from './gatewayEndpoint';
 import {
   cellularTailscaleFallbackUrls,
@@ -8,7 +10,6 @@ import {
 } from './gatewayLoopbackFallback';
 import { isLoopbackGatewayUrl, isValidGatewayUrl } from './gatewayUrlPolicy';
 import { isTailscaleGatewayUrl } from './tailscaleHosts';
-import { profileMatchesDiscoveredGateway } from './gatewayProfilePicker';
 
 export const CONNECTION_SELF_HEAL_INTERVAL_MS = 5_000;
 
@@ -25,7 +26,14 @@ export function savedProfileFallbackUrls(input: {
   const loopback: string[] = [];
   const other: string[] = [];
 
+  const activeProfile = input.activeProfileId
+    ? input.profiles.find((profile) => profile.id === input.activeProfileId)
+    : undefined;
+
   for (const profile of input.profiles) {
+    if (activeProfile && profile.id !== activeProfile.id && !profilesShareMachine(activeProfile, profile)) {
+      continue;
+    }
     const url = profile.gatewayUrl.trim();
     if (!url || seen.has(url) || !isValidGatewayUrl(url)) {
       continue;
@@ -166,16 +174,18 @@ export function resolveCellularTailscaleFailoverUrl(input: {
     }
   }
 
-  for (const profile of input.profiles) {
-    const url = profile.gatewayUrl.trim();
-    if (url && url !== primary && isTailscaleGatewayUrl(url)) {
-      return url;
+  if (!active) {
+    for (const profile of input.profiles) {
+      const url = profile.gatewayUrl.trim();
+      if (url && url !== primary && isTailscaleGatewayUrl(url)) {
+        return url;
+      }
     }
-  }
-  for (const discovery of discoveries) {
-    const url = discovery.gatewayUrl.trim();
-    if (url && url !== primary && isTailscaleGatewayUrl(url)) {
-      return url;
+    for (const discovery of discoveries) {
+      const url = discovery.gatewayUrl.trim();
+      if (url && url !== primary && isTailscaleGatewayUrl(url)) {
+        return url;
+      }
     }
   }
   return null;

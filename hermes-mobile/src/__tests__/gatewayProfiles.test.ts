@@ -12,6 +12,9 @@ import {
   isInvalidGatewayProfile,
   sanitizeGatewayProfileState,
   gatewayProfiles,
+  applyHealDiscoveredUrl,
+  activeProfile,
+  profileMachineKey,
   resolvePreferredActiveProfileId,
   shouldActivateDiscoveredUrl,
 } from '../services/gatewayProfiles';
@@ -26,21 +29,25 @@ describe('gatewayProfiles', () => {
     expect(profileIdFromGatewayUrl('http://192.168.12.208:8642')).toBe('mac_192_168_12_208');
   });
 
-  it('upserts and selects profiles', () => {
+  it('upserts and selects profiles with distinct hostname labels', () => {
     let state = upsertDiscoveredProfile(EMPTY_GATEWAY_PROFILE_STATE, {
       gatewayUrl: 'http://192.168.12.208:8642',
-      hostname: 'Mac-Pro',
+      hostname: 'Igors-MacBook-Pro',
       localIp: '192.168.12.208',
     }, true);
     expect(state.profiles.length).toBe(1);
+    expect(state.profiles[0].label).toBe('Igors-MacBook-Pro');
     expect(state.activeProfileId).toBe('mac_192_168_12_208');
 
     state = upsertDiscoveredProfile(state, {
       gatewayUrl: 'http://192.168.12.50:8642',
-      hostname: 'Mac-Mini',
+      hostname: 'Igors-Mac-mini',
       localIp: '192.168.12.50',
     }, false);
     expect(state.profiles.length).toBe(2);
+    expect(state.profiles.map((p) => p.label).sort()).toEqual(
+      ['Igors-Mac-mini', 'Igors-MacBook-Pro'].sort(),
+    );
 
     state = selectProfile(state, 'mac_192_168_12_50');
     expect(state.activeProfileId).toBe('mac_192_168_12_50');
@@ -197,13 +204,50 @@ describe('gatewayProfiles', () => {
     ).toBe('Computer 10.2.29.103');
   });
 
-  it('does not use MagicDNS host as profile label when health has no hostname', () => {
+  it('stores MagicDNS short name as profile label when health has no hostname', () => {
     const state = upsertDiscoveredProfile(EMPTY_GATEWAY_PROFILE_STATE, {
       gatewayUrl: 'http://igors-mac-mini.tail12aa33.ts.net:8642',
       localIp: '192.168.68.56',
     }, true);
-    expect(state.profiles[0].label).toBe('Computer');
+    expect(state.profiles[0].label).toBe('igors-mac-mini');
     expect(state.profiles[0].gatewayUrl).toBe('http://igors-mac-mini.tail12aa33.ts.net:8642');
+  });
+
+  it('migrates generic Computer labels to hostname on sanitize load', () => {
+    const state = sanitizeGatewayProfileState({
+      profiles: [
+        {
+          id: 'mac_mini',
+          label: 'Computer',
+          hostname: 'Igors-Mac-mini',
+          gatewayUrl: 'http://100.94.135.78:8642',
+          addedAt: '2026-07-04T10:00:00Z',
+        },
+        {
+          id: 'mac_book',
+          label: 'Computer via USB',
+          hostname: 'Igors-MacBook-Pro',
+          gatewayUrl: 'http://127.0.0.1:8642',
+          localIp: '127.0.0.1',
+          addedAt: '2026-07-04T11:00:00Z',
+        },
+        {
+          id: 'lan_stale',
+          label: 'Computer 192.168.88.54',
+          hostname: 'Igors-MacBook-Pro',
+          gatewayUrl: 'http://192.168.88.54:8642',
+          localIp: '192.168.88.54',
+          addedAt: '2026-07-04T12:00:00Z',
+        },
+      ],
+      activeProfileId: 'mac_mini',
+    });
+    expect(state.profiles.map((p) => p.label).sort()).toEqual(
+      ['Igors-Mac-mini', 'Igors-MacBook-Pro'].sort(),
+    );
+    const mini = state.profiles.find((p) => p.label === 'Igors-Mac-mini');
+    expect(mini).toBeTruthy();
+    expect(profileDisplayName(mini!)).toBe('Igors-Mac-mini');
   });
 
   it('keeps friendly label when deduping LAN and tailnet routes', () => {
@@ -366,8 +410,7 @@ describe('gatewayProfiles', () => {
       gatewayUrl: 'http://100.94.135.78:8642',
       addedAt: '2026-07-03T12:00:00.000Z',
     });
-    expect(name).not.toBe('100.94.135.78');
-    expect(name.toLowerCase()).toContain('computer');
+    expect(name).toBe('Tailscale 100.94.135.78');
   });
 
   it('filters junk http-label profiles on sanitize', () => {
@@ -472,6 +515,74 @@ describe('gatewayProfiles', () => {
     expect(
       shouldActivateDiscoveredUrl(state, 'http://192.168.68.56:8642', true),
     ).toBe(true);
+  });
+
+  it('applyHealDiscoveredUrl keeps activeProfileId when another Mac is reachable', () => {
+    const state = dedupeGatewayProfiles({
+      profiles: [
+        {
+          id: 'mac_mini',
+          label: 'Igors-Mac-mini',
+          hostname: 'Igors-Mac-mini',
+          gatewayUrl: 'http://192.168.68.56:8642',
+          localIp: '192.168.68.56',
+          addedAt: '2026-06-28T00:00:00Z',
+        },
+        {
+          id: 'mac_book_tail',
+          label: 'Igors-MacBook-Pro',
+          hostname: 'Igors-MacBook-Pro',
+          gatewayUrl: 'http://100.94.135.78:8642',
+          addedAt: '2026-06-28T00:00:01Z',
+        },
+      ],
+      activeProfileId: 'mac_mini',
+    });
+    const next = applyHealDiscoveredUrl(
+      state,
+      {
+        gatewayUrl: 'http://100.94.135.78:8642',
+        hostname: 'Igors-MacBook-Pro',
+      },
+      true,
+    );
+    expect(profileMachineKey(activeProfile(next)!)).toBe('igors-mac-mini');
+    expect(next.activeProfileId).not.toBe('mac_book_tail');
+  });
+
+  it('applyHealDiscoveredUrl updates active profile URL for same-machine Tailscale heal', () => {
+    const state = dedupeGatewayProfiles({
+      profiles: [
+        {
+          id: 'mac_mini',
+          label: 'Igors-Mac-mini',
+          hostname: 'Igors-Mac-mini',
+          gatewayUrl: 'http://192.168.68.56:8642',
+          localIp: '192.168.68.56',
+          addedAt: '2026-06-28T00:00:00Z',
+        },
+        {
+          id: 'mac_mini_tail',
+          label: 'Igors-Mac-mini',
+          hostname: 'Igors-Mac-mini',
+          gatewayUrl: 'http://100.94.135.78:8642',
+          addedAt: '2026-06-28T00:00:01Z',
+        },
+      ],
+      activeProfileId: 'mac_mini',
+    });
+    const next = applyHealDiscoveredUrl(
+      state,
+      {
+        gatewayUrl: 'http://100.94.135.78:8642',
+        hostname: 'Igors-Mac-mini.local',
+        localIp: '192.168.68.56',
+      },
+      true,
+    );
+    const healedActive = activeProfile(next);
+    expect(profileMachineKey(healedActive!)).toBe('igors-mac-mini');
+    expect(healedActive?.gatewayUrl).toBe('http://100.94.135.78:8642');
   });
 
   it('selectProfile stamps lastConnectedAt', () => {

@@ -155,6 +155,22 @@ describe('ChatScreenHeader', () => {
     expect(onRename).toHaveBeenCalledTimes(1);
   });
 
+  it('shows created timestamp under thread title', () => {
+    const { getByTestId } = render(
+      <ChatScreenHeader
+        threadTitle="Print money make money faster"
+        threadCreatedLabel="Jul 2, 2026, 6:53 PM"
+        machineLabel="Mac mini"
+        connectionState="connected"
+        macHttpReachable
+        onOpenThreads={jest.fn()}
+        onPressMachine={jest.fn()}
+      />,
+    );
+
+    expect(getByTestId('chat-thread-created').props.children).toBe('Jul 2, 2026, 6:53 PM');
+  });
+
   it('keeps long thread titles to one ellipsized header line', () => {
     const longTitle = 'we are working on skool_top_level_integration_branch';
     const { getByTestId } = render(

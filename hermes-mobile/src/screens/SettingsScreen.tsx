@@ -80,7 +80,7 @@ export default function SettingsScreen() {
   const [thumbgateApiUrl, setThumbgateApiUrl] = useState(settings.thumbgateApiUrl);
   const [approvalPolicy, setApprovalPolicy] = useState<ApprovalPolicy>(settings.approvalPolicy);
   const [analyticsOptOut, setAnalyticsOptOut] = useState(settings.analyticsOptOut ?? false);
-  const [includeToolActivity, setIncludeToolActivity] = useState(settings.includeToolActivity ?? true);
+  const [includeToolActivity, setIncludeToolActivity] = useState(settings.includeToolActivity ?? false);
   const [hermesPersona, setHermesPersona] = useState<HermesPersona>(
     settings.hermesPersona ?? 'operator',
   );
@@ -171,7 +171,7 @@ export default function SettingsScreen() {
     setApprovalPolicy(settings.approvalPolicy ?? 'balanced');
     setAnalyticsOptOut(settings.analyticsOptOut ?? false);
     setProductAnalyticsOptOut(settings.analyticsOptOut ?? false);
-    setIncludeToolActivity(settings.includeToolActivity ?? true);
+    setIncludeToolActivity(settings.includeToolActivity ?? false);
     setHermesPersona(settings.hermesPersona ?? 'operator');
     setHermesAvatar(settings.hermesAvatar ?? 'orb');
     setPlayfulMotion(settings.playfulMotion ?? true);

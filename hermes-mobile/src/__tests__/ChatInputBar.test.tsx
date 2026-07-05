@@ -58,4 +58,42 @@ describe('ChatInputBar', () => {
     );
     expect(getByTestId('chat-input').props.value).toBe('Hello Mac');
   });
+
+  it('passes the latest native text to send even before controlled value catches up', () => {
+    const onChangeText = jest.fn();
+    const onSend = jest.fn();
+    const { getByTestId } = render(
+      <ChatInputBar {...baseProps} onChangeText={onChangeText} onSend={onSend} />,
+    );
+    const input = getByTestId('chat-input');
+
+    fireEvent.changeText(input, 'print money faster');
+    fireEvent.press(getByTestId('chat-send-button'));
+
+    expect(onChangeText).toHaveBeenCalledWith('print money faster');
+    expect(onSend).toHaveBeenCalledWith('print money faster');
+  });
+
+  it('keeps native end-editing text available for send after the keyboard hides', () => {
+    const onSend = jest.fn();
+    const { getByTestId } = render(<ChatInputBar {...baseProps} onSend={onSend} />);
+    const input = getByTestId('chat-input');
+
+    fireEvent(input, 'endEditing', { nativeEvent: { text: 'same prompt after keyboard hide' } });
+    fireEvent.press(getByTestId('chat-send-button'));
+
+    expect(onSend).toHaveBeenCalledWith('same prompt after keyboard hide');
+  });
+
+  it('does not let an empty end-editing event erase the typed native draft', () => {
+    const onSend = jest.fn();
+    const { getByTestId } = render(<ChatInputBar {...baseProps} onSend={onSend} />);
+    const input = getByTestId('chat-input');
+
+    fireEvent.changeText(input, 'typed before keyboard hide');
+    fireEvent(input, 'endEditing', { nativeEvent: { text: '' } });
+    fireEvent.press(getByTestId('chat-send-button'));
+
+    expect(onSend).toHaveBeenCalledWith('typed before keyboard hide');
+  });
 });

@@ -175,7 +175,16 @@ describe('chatStreamEvents', () => {
 });
 
 describe('chatTimeline', () => {
-  it('renders tool roles as tool_call timeline items', () => {
+  it('hides tool roles from timeline by default', () => {
+    const timeline = buildChatTimeline([
+      { role: 'user', content: 'run metrics' },
+      { role: 'tool', content: '{"name":"run_command","arguments":{"command":"ls"}}' },
+      { role: 'assistant', content: 'Score is 70.' },
+    ]);
+    expect(timeline.map((item) => item.kind)).toEqual(['user', 'assistant']);
+  });
+
+  it('renders tool roles as tool_call timeline items when enabled', () => {
     const timeline = buildChatTimeline(
       [
         { role: 'user', content: 'run metrics' },

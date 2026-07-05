@@ -45,9 +45,21 @@ import {
   getSession,
   listMessages,
   sendChatMessage,
+  updateSessionTitle,
 } from '../services/hermesChatClient';
 import { chatSendBlockedMessage, humanizeChatError, isConnectivityMessage, isSessionInUseError } from '../utils/chatErrors';
-import { HermesGatewayApiError, deleteSession, clearAllSessions, forkSession, getCapabilities, stopRun, streamSessionChat, getObsidianProjects, getObsidianAgents } from '../services/hermesGatewayClient';
+import {
+  HermesGatewayApiError,
+  deleteSession,
+  clearAllSessions,
+  forkSession,
+  getCapabilities,
+  getRunStatus,
+  stopRun,
+  streamSessionChat,
+  getObsidianProjects,
+  getObsidianAgents,
+} from '../services/hermesGatewayClient';
 import { fetchGatewayHealth } from '../services/gatewayClient';
 import type { HermesSession, HermesMessage } from '../types/chat';
 import type { ChatProject, ChatProjectState } from '../types/chatProject';
@@ -69,14 +81,20 @@ import type { VaultProjectCatalog } from '../types/vaultProject';
 import { storage } from '../services/storage';
 import { buildMobileChatSystemPrompt } from '../utils/workspacePrompt';
 import {
-  formatSessionDate,
+  formatSessionCreated,
   formatSessionTitle,
   filterDismissedThreadSessions,
+  GENERIC_NEW_SESSION_TITLE,
   isAutomatedCronSession,
   isRecentsRailSession,
+  sessionCreatedValue,
+  deriveThreadTitleFromMessage,
   sessionDisplayTitle,
   sessionPickerLabel,
   sessionLastActiveValue,
+  shouldAutoTitleSession,
+  titleFromFirstPrompt,
+  ensureSessionCreatedAt,
 } from '../utils/sessionDisplay';
 import { formatMessageTimestamp, prepareMessagesForDisplay } from '../utils/chatMessageDisplay';
 import {
@@ -99,10 +117,19 @@ import {
   isActiveChatRun,
   shouldShowComposerProgressBanner,
 } from '../utils/runProgressDisplay';
-import { isChatNearBottom } from '../utils/chatScrollSync';
+import {
+  classifyRunStale,
+  isTerminalGatewayRunStatus,
+  msUntilRunStaleAutoFail,
+  RUN_STALE_TIMEOUT_DETAIL,
+} from '../utils/runStaleDetection';
+import { isChatAtTop, isChatNearBottom } from '../utils/chatScrollSync';
+import ChatScrollControls from '../components/ChatScrollControls';
 import {
   CHAT_LIST_HEADER_CLEARANCE,
+  filterChatTimelineMessages,
   shouldShowSubmittedPromptStrip,
+  type ChatTimelineEntry,
 } from '../utils/chatOutboundDisplay';
 import {
   hasAssistantReplyInMessages,
@@ -125,11 +152,18 @@ import FeedbackPromptModal from '../components/FeedbackPromptModal';
 import GatewayOpsSection from '../components/GatewayOpsSection';
 import ChatApprovalBar from '../components/ChatApprovalBar';
 import RunProgressBanner from '../components/RunProgressBanner';
+import ComposerErrorBanner from '../components/ComposerErrorBanner';
 import type { RunProgressState } from '../types/chatDisplay';
 import type { GatewayEventMessage } from '../types/gateway';
 import { applyStreamEvent, attachRunMetadata, mergeRunUsageFromPayload, mergeSessionUsageIntoRunProgress, runProgressForDisplayEqual } from '../utils/chatStreamEvents';
-import { releaseMacOperatorSlot, retryOnSessionInUse } from '../utils/chatSessionRecovery';
+import {
+  WAITING_FOR_PRIOR_CHAT_DETAIL,
+  reconcileStaleActiveRunProgress,
+  releaseMacOperatorSlot,
+  retryOnSessionInUse,
+} from '../utils/chatSessionRecovery';
 import { resolveChatProject } from '../utils/chatContext';
+import { resolveComputerSessionStorageKeys } from '../utils/computerSessionStorage';
 import {
   formatMacConnectionRetryBanner,
   resolveChatMachineHeaderDisplay,
@@ -291,8 +325,11 @@ export default function ChatScreen() {
   const [toolsModalVisible, setToolsModalVisible] = useState(false);
   const [macPickerVisible, setMacPickerVisible] = useState(false);
   const switchComputerProfiles = useMemo(
-    () => profilesForSwitchComputerPicker(gatewayProfiles),
-    [gatewayProfiles],
+    () =>
+      profilesForSwitchComputerPicker(gatewayProfiles, {
+        activeProfileId: activeGatewayProfile?.id ?? null,
+      }),
+    [activeGatewayProfile?.id, gatewayProfiles],
   );
   const [isScanningMacs, setIsScanningMacs] = useState(false);
   const [projectModalVisible, setProjectModalVisible] = useState(false);
@@ -360,13 +397,15 @@ export default function ChatScreen() {
     [refreshHealth],
   );
 
-  const flatListRef = useRef<FlashListRef<HermesMessage>>(null);
+  const flatListRef = useRef<FlashListRef<ChatTimelineEntry>>(null);
   const isSendingRef = useRef(false);
   const userNearBottomRef = useRef(true);
+  const scrollCancelGenerationRef = useRef(0);
   /** Force one bottom pin after session/computer switch once transcript content lays out. */
   const pinScrollAfterHydrationRef = useRef(false);
   const messagesRef = useRef<HermesMessage[]>([]);
   const sessionsLoadGenRef = useRef(0);
+  const prevMacChatLiveRef = useRef<boolean | null>(null);
   const sendStartedAtRef = useRef(Date.now());
   const outboundQueueRef = useRef<string[]>([]);
   /** In-flight mobile sends with optimistic bubbles not yet on gateway transcript. */
@@ -404,6 +443,8 @@ export default function ChatScreen() {
   const lastFailedSendTextRef = useRef<string | null>(null);
   const activeChatStreamRef = useRef(false);
   const [inputFocused, setInputFocused] = useState(false);
+  const [chatNearBottom, setChatNearBottom] = useState(true);
+  const [chatNearTop, setChatNearTop] = useState(true);
 
   const { inset: keyboardInset, windowShrunk: keyboardWindowShrunk } = useKeyboardInset({
     suppressHideWhileFocusedRef: inputFocusedRef,
@@ -436,7 +477,13 @@ export default function ChatScreen() {
 
   const scrollChatToLatest = useCallback((animated = false) => {
     // Non-inverted FlashList: scrollToEnd scrolls to the latest messages at the bottom.
-    const run = () => flatListRef.current?.scrollToEnd({ animated });
+    const generation = scrollCancelGenerationRef.current;
+    const run = () => {
+      if (generation !== scrollCancelGenerationRef.current) {
+        return;
+      }
+      flatListRef.current?.scrollToEnd({ animated });
+    };
     requestAnimationFrame(() => {
       run();
       requestAnimationFrame(run);
@@ -445,20 +492,43 @@ export default function ChatScreen() {
 
   const scrollChatToLatestIfPinned = useCallback(
     (animated = false, force = false) => {
-      if (force || userNearBottomRef.current || isSendingRef.current) {
+      if (force || userNearBottomRef.current) {
         scrollChatToLatest(animated);
       }
     },
     [scrollChatToLatest],
   );
 
+  const scrollChatToTop = useCallback((animated = true) => {
+    flatListRef.current?.scrollToOffset({ offset: 0, animated });
+  }, []);
+
+  const handleJumpToBottom = useCallback(() => {
+    haptics.light();
+    userNearBottomRef.current = true;
+    setChatNearBottom(true);
+    scrollChatToLatest(true);
+  }, [scrollChatToLatest]);
+
+  const handleJumpToTop = useCallback(() => {
+    haptics.light();
+    scrollChatToTop(true);
+  }, [scrollChatToTop]);
+
   const handleChatScroll = useCallback((event: NativeSyntheticEvent<NativeScrollEvent>) => {
     const { contentOffset, layoutMeasurement, contentSize } = event.nativeEvent;
-    userNearBottomRef.current = isChatNearBottom(
+    const nearBottom = isChatNearBottom(
       layoutMeasurement.height,
       contentOffset.y,
       contentSize.height,
     );
+    const nearTop = isChatAtTop(contentOffset.y);
+    if (!nearBottom && userNearBottomRef.current) {
+      scrollCancelGenerationRef.current += 1;
+    }
+    userNearBottomRef.current = nearBottom;
+    setChatNearBottom((prev) => (prev === nearBottom ? prev : nearBottom));
+    setChatNearTop((prev) => (prev === nearTop ? prev : nearTop));
   }, []);
 
   const isDemo = useMemo(() => {
@@ -506,6 +576,10 @@ export default function ChatScreen() {
         macHttpOk,
       }),
     [activeGatewayProfile, gatewayUrl, health?.hostname, gatewayProfiles, macHttpOk],
+  );
+  const activeComputerSessionKeys = useMemo(
+    () => resolveComputerSessionStorageKeys(activeGatewayProfile, gatewayUrl),
+    [activeGatewayProfile, gatewayUrl],
   );
   const cellularBlocksDirect = useMemo(
     () => !wifiConnected && isPrivateLanGatewayUrl(gatewayUrl),
@@ -610,9 +684,25 @@ export default function ChatScreen() {
 
   const hasUserMessage = useMemo(() => hasUserMessageInTranscript(messages), [messages]);
 
-  const showSubmittedPromptStrip = useMemo(
-    () => shouldShowSubmittedPromptStrip(pinnedOutboundText, messages),
-    [pinnedOutboundText, messages],
+  const showSubmittedPromptStrip = useMemo(() => {
+    const promptText = pinnedOutboundText?.trim();
+    if (!promptText) {
+      return false;
+    }
+    return (
+      isSending ||
+      pinnedOutboundStatus !== 'sent' ||
+      shouldShowSubmittedPromptStrip({ pinnedText: promptText, messages })
+    );
+  }, [pinnedOutboundText, pinnedOutboundStatus, isSending, messages]);
+
+  const chatTimelineMessages = useMemo(
+    () =>
+      filterChatTimelineMessages({
+        messages,
+        includeToolActivity: false,
+      }),
+    [messages],
   );
 
   useEffect(() => {
@@ -672,7 +762,7 @@ export default function ChatScreen() {
             messagesRef.current = next;
             return next;
           });
-          scrollChatToLatestIfPinned(true, true);
+          scrollChatToLatestIfPinned(true);
         }
       }
     };
@@ -893,6 +983,13 @@ export default function ChatScreen() {
     }
     return 'New chat';
   }, [currentSession, projectState]);
+
+  const threadCreatedLabel = useMemo(() => {
+    if (!currentSession) {
+      return null;
+    }
+    return formatSessionCreated(sessionCreatedValue(currentSession));
+  }, [currentSession]);
 
   /** Lift composer above software keyboard; tab bar stays mounted (no height collapse). */
   const androidKeyboardMode = Constants.expoConfig?.android?.softwareKeyboardLayoutMode;
@@ -1411,9 +1508,14 @@ export default function ChatScreen() {
 
   const loadSessionsList = async (
     selectLatest = false,
-    options?: { silent?: boolean; projectState?: ChatProjectState },
+    options?: {
+      silent?: boolean;
+      projectState?: ChatProjectState;
+      computerSessionKeys?: string[] | null;
+    },
   ) => {
     const selectionProjectState = options?.projectState ?? projectState;
+    const computerSessionKeys = options?.computerSessionKeys ?? activeComputerSessionKeys;
     const loadGen = ++sessionsLoadGenRef.current;
     if (isDemo) {
       const mockSessions: HermesSession[] = [
@@ -1476,12 +1578,14 @@ export default function ChatScreen() {
         dismissedSessionIds: dismissedSessionIdsRef.current,
         hideCronSessions: hideCronSessionsRef.current,
       });
+      const rememberedSessionId = await storage.loadLastSessionForComputer(computerSessionKeys);
 
       const resolvedSession = resolveSessionAfterListLoad({
         sessions: selectableSessions,
         projectState: selectionProjectState,
         currentSessionId: currentSessionRef.current?.id,
         manualSelectSessionId: manualSessionSelectRef.current,
+        rememberedSessionId,
         skipAutoSelect,
         selectLatest,
       });
@@ -1542,6 +1646,26 @@ export default function ChatScreen() {
   }, [isProjectsLoaded, isDemo, gatewayUrl, apiKey, macChatLive]);
 
   useEffect(() => {
+    const wasLive = prevMacChatLiveRef.current;
+    prevMacChatLiveRef.current = macChatLive;
+    if (isDemo || wasLive === null || wasLive || !macChatLive) {
+      return;
+    }
+    void loadSessionsList(false, { silent: true }).then(() => {
+      if (currentSessionRef.current) {
+        void refreshSessionMessagesRef.current?.({ background: false, force: true });
+      }
+    });
+  }, [macChatLive, isDemo]);
+
+  useEffect(() => {
+    if (isDemo || !currentSession?.id || activeComputerSessionKeys.length === 0) {
+      return;
+    }
+    void storage.saveLastSessionForComputer(activeComputerSessionKeys, currentSession.id);
+  }, [activeComputerSessionKeys, currentSession?.id, isDemo]);
+
+  useEffect(() => {
     if (!notificationFocusSessionId) {
       return;
     }
@@ -1581,16 +1705,7 @@ export default function ChatScreen() {
       }
 
       if (!macChatLive && !options?.force) {
-        const localSnapshot = messagesRef.current;
-        if (
-          pendingOutboundSendsRef.current > 0 ||
-          hasUnsyncedLocalMessages(localSnapshot) ||
-          localSnapshot.length > 0
-        ) {
-          return;
-        }
-        transcriptDigestRef.current = '';
-        setMessages([]);
+        // Keep the transcript visible during transient disconnect; reload on reconnect.
         return;
       }
 
@@ -2126,17 +2241,25 @@ export default function ChatScreen() {
       return;
     }
     userNearBottomRef.current = true;
+    setChatNearBottom(true);
     scrollChatToLatest(false);
     const retryTimer = setTimeout(() => scrollChatToLatest(false), 200);
     return () => clearTimeout(retryTimer);
   }, [activeGatewayProfile?.id, currentSession?.id, isLoadingMessages, scrollChatToLatest]);
 
   useEffect(() => {
-    if (inputFocusedRef.current || !isSending || isLoadingMessages || messages.length === 0) {
+    if (isLoadingMessages || messages.length === 0) {
       return;
     }
-    scrollChatToLatest(true);
-  }, [messages, isSending, isLoadingMessages, scrollChatToLatest]);
+    const runInFlight =
+      isSending ||
+      activeChatStreamRef.current ||
+      isActiveChatRun(runProgressRef.current);
+    if (!runInFlight && !userNearBottomRef.current) {
+      return;
+    }
+    scrollChatToLatestIfPinned(true);
+  }, [messages, isSending, runProgress, isLoadingMessages, scrollChatToLatestIfPinned]);
 
   const handleNewChat = async () => {
     haptics.selection();
@@ -2590,33 +2713,34 @@ export default function ChatScreen() {
   const isTelegramInbox = isTelegramInboxSession(currentSession);
 
   const renderChatMessageItem = useCallback(
-    ({ item, index }: { item: HermesMessage; index: number }) => {
-      const inlineNudge = inlineTextApprovals.get(index);
+    ({ item, index }: { item: ChatTimelineEntry; index: number }) => {
+      const { message, originalIndex } = item;
+      const inlineNudge = inlineTextApprovals.get(originalIndex);
       const isStreamingAssistant =
         isSending &&
-        item.role?.toLowerCase() === 'assistant' &&
-        index === messages.length - 1;
-      const showOutputFeedback = shouldShowChatOutputFeedback(item, {
+        message.role?.toLowerCase() === 'assistant' &&
+        originalIndex === messages.length - 1;
+      const showOutputFeedback = shouldShowChatOutputFeedback(message, {
         leashUnlocked,
         isStreamingAssistant,
       });
-      const busyKey = resolveChatOutputFeedbackBusyKey(item);
+      const busyKey = resolveChatOutputFeedbackBusyKey(message);
       const outputFeedback = showOutputFeedback
         ? {
             busy: chatOutputFeedbackBusyId === busyKey,
             selected: feedbackSelections[busyKey],
-            onThumbsUp: () => handleChatOutputFeedbackTap(item, 'up'),
-            onThumbsDown: () => handleChatOutputFeedbackTap(item, 'down'),
-            onAddDetails: () => handleAddFeedbackDetails(item),
+            onThumbsUp: () => handleChatOutputFeedbackTap(message, 'up'),
+            onThumbsDown: () => handleChatOutputFeedbackTap(message, 'down'),
+            onAddDetails: () => handleAddFeedbackDetails(message),
           }
         : undefined;
       return (
         <ChatMessageListItem
-          item={item}
+          item={message}
           listIndex={index}
-          originalIndex={index}
+          originalIndex={originalIndex}
           messages={messages}
-          timeLabel={formatMessageTimestamp(item.created_at ?? item.timestamp)}
+          timeLabel={formatMessageTimestamp(message.created_at ?? message.timestamp)}
           inlineNudge={inlineNudge}
           includeToolActivity={settings.includeToolActivity ?? false}
           isTelegramInbox={isTelegramInbox}
@@ -2681,6 +2805,8 @@ export default function ChatScreen() {
     setPinnedOutboundText(trimmed);
     setPinnedOutboundStatus('pending');
     setToolStatus(null);
+    userNearBottomRef.current = true;
+    setChatNearBottom(true);
     scrollChatToLatest(true);
     return userMessage.id ?? '';
   };
@@ -2722,20 +2848,25 @@ export default function ChatScreen() {
       return [...new Set(ids.filter((id): id is string => Boolean(id?.trim())))];
     };
 
-    const notifyWaitingForMacSlot = () => {
+    const notifyWaitingForMacSlot = (context?: { hasLiveRun?: boolean }) => {
+      if (context?.hasLiveRun === false) {
+        return;
+      }
       setRunProgress((prev) =>
         prev
-          ? { ...prev, detail: 'Waiting for your computer to finish the previous chat…' }
+          ? { ...prev, detail: WAITING_FOR_PRIOR_CHAT_DETAIL }
           : {
               phase: 'sending',
               startedAtMs: Date.now(),
-              detail: 'Waiting for your computer to finish the previous chat…',
+              detail: WAITING_FOR_PRIOR_CHAT_DETAIL,
             },
       );
     };
 
     const typed = userText.trim();
     const typedUpper = typed.toUpperCase();
+    const firstPromptThreadTitle =
+      deriveThreadTitleFromMessage(typed) ?? activeProject?.name ?? 'New chat';
 
     const approvalUiVisibleForPhrase = (phrase: string): boolean => {
       const upper = phrase.trim().toUpperCase();
@@ -2799,6 +2930,24 @@ export default function ChatScreen() {
       return false;
     }
 
+    if (!isDemo && macChatLive) {
+      const staleProgress = runProgressRef.current;
+      if (staleProgress && isActiveChatRun(staleProgress)) {
+        const staleAction = await reconcileStaleActiveRunProgress(
+          gatewayUrl,
+          apiKey,
+          staleProgress,
+          collectRecoveryRunIds(),
+        );
+        if (staleAction === 'clear') {
+          setRunProgress(null);
+        }
+      }
+      setErrorMessage((prev) =>
+        prev?.toLowerCase().includes('still on the previous chat') ? null : prev,
+      );
+    }
+
     let outboundUserBubbleCommitted = false;
     let committedUserMessageId: string | null = null;
 
@@ -2825,24 +2974,27 @@ export default function ChatScreen() {
     outboundUserBubbleCommitted = true;
 
     let activeSess = currentSession;
+    const createdNewSession = !activeSess;
     if (!activeSess) {
       if (isDemo) {
+        const demoTitle = titleFromFirstPrompt(userText) ?? GENERIC_NEW_SESSION_TITLE;
         activeSess = {
           id: `demo-${Date.now()}`,
-          title: 'Auto-created session',
+          title: demoTitle,
+          created_at: new Date().toISOString(),
           last_active_at: new Date().toISOString(),
         };
         setSessions([activeSess]);
         setCurrentSession(activeSess);
       } else {
-        const title = activeProject?.name ?? 'New mobile session';
+        const placeholderTitle = firstPromptThreadTitle;
         await releaseMacOperatorSlot(gatewayUrl, apiKey, collectRecoveryRunIds());
         try {
           activeSess = await retryOnSessionInUse(
             gatewayUrl,
             apiKey,
-            collectRecoveryRunIds(),
-            () => createSession(gatewayUrl, apiKey, title, mobileChatSystemPrompt),
+            collectRecoveryRunIds,
+            () => createSession(gatewayUrl, apiKey, placeholderTitle, mobileChatSystemPrompt),
             notifyWaitingForMacSlot,
           );
         } catch (err) {
@@ -2853,11 +3005,11 @@ export default function ChatScreen() {
                 const forked = await forkSession(gatewayUrl, forkSource.id, apiKey);
                 const forkId = forked.session_id?.trim();
                 if (forkId) {
-                  activeSess = {
+                  activeSess = ensureSessionCreatedAt({
                     id: forkId,
-                    title,
+                    title: placeholderTitle,
                     last_active_at: new Date().toISOString(),
-                  };
+                  });
                 }
               } catch {
                 // fall through
@@ -2871,21 +3023,56 @@ export default function ChatScreen() {
             return false;
           }
         }
+        activeSess = ensureSessionCreatedAt(activeSess);
         setSessions((prev) => [activeSess!, ...prev.filter((session) => session.id !== activeSess!.id)]);
         setCurrentSession(activeSess);
-        if (activeProject) {
-          const next = bindSessionToProject(
-            projectState,
-            activeProject.id,
-            activeSess.id,
-            title,
+      }
+    }
+
+    let sessionBindingPersisted = false;
+
+    if (activeSess && !isProgrammatic) {
+      const derived = titleFromFirstPrompt(userText);
+      if (
+        derived &&
+        (isDemo || shouldAutoTitleSession(activeSess, projectState.sessionLabels))
+      ) {
+        const titled = ensureSessionCreatedAt({ ...activeSess, title: derived });
+        activeSess = titled;
+        setSessions((prev) =>
+          prev.map((session) => (session.id === titled.id ? titled : session)),
+        );
+        setCurrentSession(titled);
+        const nextState = activeProject
+          ? bindSessionToProject(projectState, activeProject.id, titled.id, derived)
+          : pinSessionLabel(projectState, titled.id, derived);
+        await persistProjectState(nextState);
+        sessionBindingPersisted = true;
+        if (!isDemo) {
+          void updateSessionTitle(gatewayUrl, titled.id, derived, apiKey).catch(() => {});
+        }
+      } else {
+        const stamped = ensureSessionCreatedAt(activeSess);
+        if (stamped !== activeSess) {
+          activeSess = stamped;
+          setSessions((prev) =>
+            prev.map((session) => (session.id === stamped.id ? stamped : session)),
           );
-          await persistProjectState(next);
-        } else {
-          const next = pinSessionLabel(projectState, activeSess.id, title);
-          await persistProjectState(next);
+          setCurrentSession(stamped);
         }
       }
+    } else if (activeSess) {
+      activeSess = ensureSessionCreatedAt(activeSess);
+    }
+
+    if (createdNewSession && activeSess && !isDemo && !sessionBindingPersisted && activeProject) {
+      const next = bindSessionToProject(
+        projectState,
+        activeProject.id,
+        activeSess.id,
+        activeSess.title ?? GENERIC_NEW_SESSION_TITLE,
+      );
+      await persistProjectState(next);
     }
 
     sendStartedAtRef.current = Date.now();
@@ -2999,13 +3186,23 @@ export default function ChatScreen() {
     }
     if (isTelegramInboxSession(activeSess) && !targetSessionId) {
       try {
-        const title = activeProject?.name ?? 'New mobile session';
-        const mobileSess = await createSession(
-          gatewayUrl,
-          apiKey,
-          title,
-          mobileChatSystemPrompt,
+        let mobileSess = ensureSessionCreatedAt(
+          await createSession(
+            gatewayUrl,
+            apiKey,
+            GENERIC_NEW_SESSION_TITLE,
+            mobileChatSystemPrompt,
+          ),
         );
+        const derived = titleFromFirstPrompt(userText);
+        if (derived) {
+          mobileSess = { ...mobileSess, title: derived };
+          void updateSessionTitle(gatewayUrl, mobileSess.id, derived, apiKey).catch(() => {});
+          const nextState = activeProject
+            ? bindSessionToProject(projectState, activeProject.id, mobileSess.id, derived)
+            : pinSessionLabel(projectState, mobileSess.id, derived);
+          await persistProjectState(nextState);
+        }
         setSessions((prev) => [mobileSess, ...prev.filter((s) => s.id !== mobileSess.id)]);
         setCurrentSession(mobileSess);
         setTelegramReplySessionId('');
@@ -3050,11 +3247,13 @@ export default function ChatScreen() {
               created_at: new Date().toISOString(),
             },
           ]);
+          scrollChatToLatestIfPinned(true);
           return;
         }
         commitMessages((prev) =>
           prev.map((m) => (m.id === assistantId ? { ...m, content: body } : m)),
         );
+        scrollChatToLatestIfPinned(true);
       };
 
       let switchedSessionId = targetSessionId;
@@ -3063,7 +3262,7 @@ export default function ChatScreen() {
         assistantText = await retryOnSessionInUse(
           gatewayUrl,
           apiKey,
-          collectRecoveryRunIds(),
+          collectRecoveryRunIds,
           () =>
             streamSessionChat(
           gatewayUrl,
@@ -3241,7 +3440,7 @@ export default function ChatScreen() {
           const response = await retryOnSessionInUse(
             gatewayUrl,
             apiKey,
-            collectRecoveryRunIds(),
+            collectRecoveryRunIds,
             () =>
               sendChatMessage(
                 gatewayUrl,
@@ -3386,14 +3585,14 @@ export default function ChatScreen() {
         !isMessageDisplayEmpty(message.content) &&
         normalizeMessageText(message.content || '') === norm,
     );
-    if (inTranscript && pinnedOutboundStatus === 'sent' && !isSending) {
+    if (inTranscript && pinnedOutboundStatus === 'sent' && !isSending && !isActiveChatRun(runProgress)) {
       const timer = setTimeout(() => {
         setPinnedOutboundText(null);
         setPinnedOutboundStatus('pending');
       }, 1200);
       return () => clearTimeout(timer);
     }
-  }, [messages, pinnedOutboundText, pinnedOutboundStatus, isSending]);
+  }, [messages, pinnedOutboundText, pinnedOutboundStatus, isSending, runProgress]);
 
   useEffect(() => {
     if (!pendingChatRelayText || isSending) {
@@ -3539,19 +3738,12 @@ export default function ChatScreen() {
       progressBanner?.runId,
     ].filter((id): id is string => Boolean(id?.trim()));
     await releaseMacOperatorSlot(gatewayUrl, apiKey, runIds);
-    for (const runId of runIds) {
-      try {
-        await stopRun(gatewayUrl, runId, apiKey);
-      } catch {
-        // best effort
-      }
-    }
     isSendingRef.current = false;
     setIsSending(false);
-    setRunProgress((prev) =>
-      prev ? { ...prev, phase: 'failed', detail: 'Stopped on your computer' } : null,
-    );
+    setRunProgress(null);
     setErrorMessage(null);
+    setPinnedOutboundText(null);
+    setPinnedOutboundStatus('pending');
     const retryText = lastFailedSendTextRef.current?.trim();
     if (retryText) {
       await sendUserTextRef.current(retryText, true);
@@ -3689,11 +3881,168 @@ export default function ChatScreen() {
     telegramReplySessionId,
   ]);
 
+  useEffect(() => {
+    const progress = runProgressRef.current;
+    if (isDemo || !progress || !isActiveChatRun(progress)) {
+      return;
+    }
+    if (classifyRunStale(progress) !== 'expired') {
+      const waitMs = msUntilRunStaleAutoFail(progress);
+      const timer = setTimeout(() => {
+        const current = runProgressRef.current;
+        if (!current || !isActiveChatRun(current)) {
+          return;
+        }
+        if (classifyRunStale(current) !== 'expired') {
+          return;
+        }
+        isSendingRef.current = false;
+        setIsSending(false);
+        setRunProgress((prev) =>
+          prev && isActiveChatRun(prev)
+            ? {
+                ...prev,
+                phase: 'failed',
+                detail: RUN_STALE_TIMEOUT_DETAIL,
+                duration: Math.max(0, (Date.now() - prev.startedAtMs) / 1000),
+              }
+            : prev,
+        );
+        haptics.warning();
+      }, waitMs);
+      return () => clearTimeout(timer);
+    }
+    isSendingRef.current = false;
+    setIsSending(false);
+    setRunProgress((prev) =>
+      prev && isActiveChatRun(prev)
+        ? {
+            ...prev,
+            phase: 'failed',
+            detail: RUN_STALE_TIMEOUT_DETAIL,
+            duration: Math.max(0, (Date.now() - prev.startedAtMs) / 1000),
+          }
+        : prev,
+    );
+  }, [
+    isDemo,
+    runProgress?.startedAtMs,
+    runProgress?.phase,
+    runProgress?.lastProgressAtMs,
+    runProgress?.detail,
+    setRunProgress,
+  ]);
+
+  useEffect(() => {
+    const progress = runProgress;
+    if (isDemo || !macChatLive || !progress || !isActiveChatRun(progress)) {
+      return;
+    }
+
+    let cancelled = false;
+    const clearSessionBusyError = () => {
+      setErrorMessage((prev) =>
+        prev?.toLowerCase().includes('still on the previous chat') ? null : prev,
+      );
+    };
+
+    const reconcileGatewayRun = async () => {
+      try {
+        const current = runProgressRef.current;
+        if (!current || !isActiveChatRun(current)) {
+          return;
+        }
+        const runId = current.runId?.trim();
+        if (!runId) {
+          const knownRunIds = [
+            runProgressRef.current?.runId,
+            sendProgressSnapshotRef.current?.runId,
+          ].filter((id): id is string => Boolean(id?.trim()));
+          const action = await reconcileStaleActiveRunProgress(
+            gatewayUrl,
+            apiKey,
+            current,
+            knownRunIds,
+          );
+          if (cancelled || action !== 'clear') {
+            return;
+          }
+          isSendingRef.current = false;
+          setIsSending(false);
+          setRunProgress(null);
+          clearSessionBusyError();
+          return;
+        }
+
+        const status = await getRunStatus(gatewayUrl, runId, apiKey);
+        if (cancelled) {
+          return;
+        }
+        if (!status) {
+          isSendingRef.current = false;
+          setIsSending(false);
+          setRunProgress(null);
+          clearSessionBusyError();
+          void refreshSessionMessagesRef.current?.({ background: true });
+          return;
+        }
+        const gatewayStatus = status.status?.toLowerCase();
+        if (!isTerminalGatewayRunStatus(gatewayStatus)) {
+          return;
+        }
+        isSendingRef.current = false;
+        setIsSending(false);
+        setRunProgress((prev) => {
+          if (!prev || !isActiveChatRun(prev)) {
+            return prev;
+          }
+          if (gatewayStatus === 'completed') {
+            return {
+              ...prev,
+              phase: 'completed',
+              detail: 'Reply ready on your computer',
+              duration: Math.max(0, (Date.now() - prev.startedAtMs) / 1000),
+            };
+          }
+          return null;
+        });
+        clearSessionBusyError();
+        void refreshSessionMessagesRef.current?.({ background: true, force: true });
+      } catch {
+        // transient gateway errors — keep showing banner
+      }
+    };
+
+    void reconcileGatewayRun();
+    const appStateSub = AppState.addEventListener('change', (nextState) => {
+      if (nextState === 'active') {
+        void reconcileGatewayRun();
+      }
+    });
+    const timer = setInterval(reconcileGatewayRun, 30_000);
+    return () => {
+      cancelled = true;
+      appStateSub.remove();
+      clearInterval(timer);
+    };
+  }, [
+    apiKey,
+    gatewayUrl,
+    isDemo,
+    macChatLive,
+    effectiveMacHttpOk,
+    runProgress?.runId,
+    runProgress?.phase,
+    runProgress?.detail,
+    setRunProgress,
+  ]);
+
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
       <View style={styles.header}>
         <ChatScreenHeader
           threadTitle={threadHeaderTitle}
+          threadCreatedLabel={threadCreatedLabel}
           machineLabel={machineShortLabel}
           machineEndpoint={machineEndpoint}
           routeStatusLabel={routeStatusLabel}
@@ -3837,10 +4186,14 @@ export default function ChatScreen() {
                 )}
               </ScrollView>
             ) : (
+              <>
               <FlashList
                 ref={flatListRef}
-                data={messages}
-                keyExtractor={(item, index) => item.id ?? `${item.role}-${index}`}
+                data={chatTimelineMessages}
+                testID="chat-message-list"
+                keyExtractor={(item, index) =>
+                  item.message.id ?? `${item.message.role}-${item.originalIndex}-${index}`
+                }
                 style={styles.flatList}
                 contentContainerStyle={styles.messageList}
                 nestedScrollEnabled={false}
@@ -3865,19 +4218,24 @@ export default function ChatScreen() {
                     : undefined
                 }
                 onContentSizeChange={() => {
-                  if (inputFocusedRef.current) {
-                    return;
-                  }
                   if (pinScrollAfterHydrationRef.current) {
                     pinScrollAfterHydrationRef.current = false;
                     userNearBottomRef.current = true;
+                    setChatNearBottom(true);
                     scrollChatToLatest(false);
                     return;
                   }
-                  scrollChatToLatestIfPinned(isSending);
+                  scrollChatToLatestIfPinned(true);
                 }}
                 renderItem={renderChatMessageItem}
               />
+              <ChatScrollControls
+                showJumpToBottom={!chatNearBottom && chatTimelineMessages.length > 0}
+                showJumpToTop={!chatNearTop && chatTimelineMessages.length > 2}
+                onJumpToBottom={handleJumpToBottom}
+                onJumpToTop={handleJumpToTop}
+              />
+              </>
             )}
           </View>
         ))}
@@ -3895,22 +4253,12 @@ export default function ChatScreen() {
           testID="chat-composer-dock"
         >
         {operationalError ? (
-          <View style={styles.composerErrorContainer} testID="chat-operational-error">
-            <View style={styles.errorBody}>
-              <Text style={styles.errorText}>{operationalError}</Text>
-              {showSessionBusyStop ? (
-                <TouchableOpacity
-                  onPress={() => void handleStopMacAndRetrySend()}
-                  testID="chat-stop-mac-run"
-                >
-                  <Text style={styles.errorAction}>Stop run on computer & retry</Text>
-                </TouchableOpacity>
-              ) : null}
-            </View>
-            <TouchableOpacity onPress={() => setErrorMessage(null)}>
-              <Text style={styles.errorClose}>×</Text>
-            </TouchableOpacity>
-          </View>
+          <ComposerErrorBanner
+            message={operationalError}
+            onDismiss={() => setErrorMessage(null)}
+            actionLabel={showSessionBusyStop ? 'Stop run on computer & retry' : undefined}
+            onAction={showSessionBusyStop ? () => void handleStopMacAndRetrySend() : undefined}
+          />
         ) : null}
 
         {showSubmittedPromptStrip && pinnedOutboundText ? (
@@ -3980,7 +4328,9 @@ export default function ChatScreen() {
             {macRetryBusy ? (
               <ActivityIndicator size="small" color={colors.warning} style={styles.macRetrySpinner} />
             ) : null}
-            <Text style={styles.macRetryBannerText}>{macRetryBannerText}</Text>
+            <Text style={styles.macRetryBannerText} testID="mac-connection-retry-banner-text">
+              {macRetryBannerText}
+            </Text>
           </Pressable>
         ) : null}
 
@@ -4067,7 +4417,13 @@ export default function ChatScreen() {
                   userNearBottomRef.current = true;
                   setCurrentSession(null);
                   setMessages([]);
-                  await loadSessionsList(true);
+                  const pickedProfile = gatewayProfiles.find((profile) => profile.id === profileId);
+                  await loadSessionsList(true, {
+                    computerSessionKeys: resolveComputerSessionStorageKeys(
+                      pickedProfile,
+                      pickedProfile?.gatewayUrl,
+                    ),
+                  });
                 }}
                 onRemove={
                   switchComputerProfiles.length > 1
@@ -4186,7 +4542,7 @@ export default function ChatScreen() {
                 }
                 renderItem={({ item }) => {
                   const isActive = currentSession?.id === item.id;
-                  const lastActiveLabel = formatSessionDate(sessionLastActiveValue(item));
+                  const createdLabel = formatSessionCreated(sessionCreatedValue(item));
                   const sourceLabel = sessionSourceLabel(item);
                   return (
                     <View style={styles.sessionItemRowContainer}>
@@ -4212,8 +4568,8 @@ export default function ChatScreen() {
                             Merged view — pick a single thread for 1:1 parity with your computer
                           </Text>
                         ) : null}
-                        {lastActiveLabel ? (
-                          <Text style={styles.sessionItemTime}>{lastActiveLabel}</Text>
+                        {createdLabel ? (
+                          <Text style={styles.sessionItemTime}>{createdLabel}</Text>
                         ) : null}
                       </TouchableOpacity>
 
@@ -4678,7 +5034,7 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(245, 158, 11, 0.45)',
     backgroundColor: 'rgba(245, 158, 11, 0.12)',
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     gap: 8,
   },
   macRetryBannerBusy: {
@@ -4689,10 +5045,11 @@ const styles = StyleSheet.create({
   },
   macRetryBannerText: {
     flex: 1,
+    flexShrink: 1,
     fontSize: 12,
     fontWeight: '700',
     color: colors.warning,
-    lineHeight: 17,
+    lineHeight: 18,
   },
   toolStatusRow: {
     paddingHorizontal: 20,
@@ -4753,51 +5110,6 @@ const styles = StyleSheet.create({
     color: colors.text,
     fontWeight: '700',
     fontSize: 13,
-  },
-  errorContainer: {
-    flexDirection: 'row',
-    backgroundColor: 'rgba(239, 68, 68, 0.15)',
-    borderColor: colors.error,
-    borderWidth: 1,
-    borderRadius: 8,
-    margin: 12,
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  composerErrorContainer: {
-    flexDirection: 'row',
-    backgroundColor: 'rgba(239, 68, 68, 0.15)',
-    borderColor: colors.error,
-    borderWidth: 1,
-    borderRadius: 8,
-    marginHorizontal: 12,
-    marginBottom: 8,
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  errorText: {
-    color: colors.error,
-    fontSize: 12,
-    flex: 1,
-    marginRight: 8,
-  },
-  errorBody: {
-    flex: 1,
-    gap: 6,
-  },
-  errorAction: {
-    color: colors.accent,
-    fontSize: 12,
-    fontWeight: '800',
-  },
-  errorClose: {
-    color: colors.error,
-    fontSize: 16,
-    fontWeight: '800',
   },
   toolsModalContent: {
     maxHeight: '88%',

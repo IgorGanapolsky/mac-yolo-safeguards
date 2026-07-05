@@ -68,4 +68,21 @@ describe('storeReview service', () => {
     expect(StoreReview.requestReview).not.toHaveBeenCalled();
     expect(storage.setRequestedReview).not.toHaveBeenCalled();
   });
+
+  it('should fail closed if the native StoreReview module is missing', async () => {
+    jest.resetModules();
+    jest.doMock('expo-store-review', () => {
+      throw new Error("Cannot find native module 'ExpoStoreReview'");
+    });
+    jest.doMock('../services/storage', () => ({
+      storage: {
+        hasRequestedReview: jest.fn().mockResolvedValue(false),
+        loadApprovalsCount: jest.fn().mockResolvedValue(STORE_REVIEW_THRESHOLD),
+        setRequestedReview: jest.fn(),
+      },
+    }));
+
+    const service = require('../services/storeReview') as typeof import('../services/storeReview');
+    await expect(service.requestStoreReviewIfThresholdReached()).resolves.toBe(false);
+  });
 });

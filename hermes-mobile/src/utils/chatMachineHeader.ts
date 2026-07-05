@@ -13,12 +13,23 @@ function healthHostname(health?: GatewayHealthSnapshot | null): string | undefin
   return health?.hostname?.replace(/\.local$/i, '').trim() || undefined;
 }
 
-/** Prefer profile hostname; fall back to /health when the saved label is generic or missing. */
+/** Prefer the saved active profile name; only borrow /health hostname when identity is still generic. */
 export function resolveMachineDisplayName(
   activeProfile: GatewayProfile | null | undefined,
   gatewayUrl: string,
   health?: GatewayHealthSnapshot | null,
 ): string {
+  if (activeProfile) {
+    const fromProfile = profileDisplayName(activeProfile);
+    if (!isGenericMachineLabel(fromProfile) && fromProfile !== 'computer') {
+      return fromProfile;
+    }
+    const profileHost = activeProfile.hostname?.replace(/\.local$/i, '').trim();
+    if (profileHost) {
+      return profileHost;
+    }
+  }
+
   let name = activeProfile
     ? profileDisplayName(activeProfile)
     : formatGatewayMachineParts(gatewayUrl, health).machineName;

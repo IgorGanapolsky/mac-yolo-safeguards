@@ -55,6 +55,60 @@ describe('gatewayProfilePicker', () => {
     expect(profilePickerLines(profiles[1]).detail).toBe('100.94.135.78:8642');
   });
 
+  it('hides duplicate generic picker rows from stale Tailscale and USB profiles', () => {
+    const profiles = profilesForSwitchComputerPicker(
+      [
+        {
+          id: 'lan_stale',
+          label: 'Computer',
+          gatewayUrl: 'http://192.168.68.54:8642',
+          localIp: '192.168.68.54',
+          addedAt: '2026-07-04T19:00:00Z',
+        },
+        {
+          id: 'mac_100_94_135_78',
+          label: 'Computer',
+          gatewayUrl: 'http://100.94.135.78:8642',
+          addedAt: '2026-07-04T20:00:00Z',
+          lastConnectedAt: '2026-07-04T20:48:00Z',
+        },
+        {
+          id: 'phone_named',
+          label: 'igors-s25-1',
+          gatewayUrl: 'http://igors-s25-1.tail12aa33.ts.net:8642',
+          addedAt: '2026-07-04T20:01:00Z',
+        },
+        {
+          id: 'phone_ip_seed',
+          label: 'Computer',
+          gatewayUrl: 'http://100.70.124.54:8642',
+          addedAt: '2026-07-04T20:02:00Z',
+        },
+        {
+          id: 'usb',
+          label: 'Computer via USB',
+          gatewayUrl: 'http://127.0.0.1:8642',
+          addedAt: '2026-07-04T20:03:00Z',
+        },
+        {
+          id: 'localhost',
+          label: 'localhost',
+          gatewayUrl: 'http://localhost:8642',
+          addedAt: '2026-07-04T20:04:00Z',
+        },
+      ],
+      { activeProfileId: 'mac_100_94_135_78' },
+    );
+
+    expect(profiles.map((profile) => profile.id)).toEqual([
+      'lan_stale',
+      'mac_100_94_135_78',
+      'usb',
+    ]);
+    expect(profilePickerLines(profiles[1]).title).toBe('Tailscale 100.94.135.78');
+    expect(profilePickerLines(profiles[2]).title).toBe('Computer via USB');
+  });
+
   it('does not filter loopback profiles even when LAN profiles exist', () => {
     const profiles = profilesForDevicePicker([
       {

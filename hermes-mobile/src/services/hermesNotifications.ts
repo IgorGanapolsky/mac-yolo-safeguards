@@ -10,6 +10,7 @@ import {
   approvalsSummaryBody,
   APPROVALS_SUMMARY_NOTIFICATION_ID,
   shouldScheduleApprovalNotification,
+  shouldScheduleRunProgressNotification,
 } from '../utils/smartNotificationPolicy';
 
 type NotificationModule = typeof import('expo-notifications');
@@ -33,6 +34,7 @@ const NOTIFICATION_COLOR = '#6366F1';
 
 let lastRunStatusAt = 0;
 const RUN_STATUS_MIN_INTERVAL_MS = 8_000;
+let foregroundRunCleanupSub: { remove: () => void } | null = null;
 
 export type HermesNotificationTab = 'Chat' | 'Leash';
 
@@ -110,6 +112,16 @@ export function runProgressNotificationTitle(progress: RunProgressState): string
     return 'Hermes is responding';
   }
   return 'Hermes is working';
+}
+
+export function shouldDismissRunNotificationsForAppState(appState: string): boolean {
+  return appState === 'active';
+}
+
+/** Cancel sticky run-status + stall notifications (safe when backgrounded). */
+export async function dismissActiveRunNotifications(): Promise<void> {
+  await clearRunProgressNotification();
+  await cancelRunStallNotification();
 }
 
 export function parseHermesNotificationResponse(response: unknown): HermesNotificationAction | null {
@@ -195,6 +207,18 @@ export async function initHermesNotifications(): Promise<void> {
   const Notifications = await loadNotifications();
   if (!Notifications) {
     return;
+  }
+
+  if (!foregroundRunCleanupSub) {
+    foregroundRunCleanupSub = AppState.addEventListener('change', (nextAppState) => {
+      if (shouldDismissRunNotificationsForAppState(nextAppState)) {
+        dismissActiveRunNotifications().catch(() => {});
+      }
+    });
+  }
+
+  if (shouldDismissRunNotificationsForAppState(AppState.currentState)) {
+    await dismissActiveRunNotifications();
   }
 
   Notifications.setNotificationHandler({
@@ -484,7 +508,7 @@ export async function scheduleRunProgressNotification(
   progress: RunProgressState,
   options?: { runId?: string; sessionId?: string; force?: boolean },
 ): Promise<void> {
-  if (AppState.currentState === 'active') {
+  if (!shouldScheduleRunProgressNotification()) {
     return;
   }
 
@@ -541,7 +565,7 @@ export async function scheduleRunCompletedNotification(
   detail: string,
   options?: { success?: boolean; runId?: string; sessionId?: string },
 ): Promise<void> {
-  if (AppState.currentState === 'active') {
+  if (!shouldScheduleRunProgressNotification()) {
     return;
   }
 
@@ -608,6 +632,11 @@ export async function scheduleRunStallNotification(
   runId?: string,
   sessionId?: string,
 ): Promise<void> {
+  if (!shouldScheduleRunProgressNotification()) {
+    await cancelRunStallNotification();
+    return;
+  }
+
   const Notifications = await loadNotifications();
   if (!Notifications) {
     return;

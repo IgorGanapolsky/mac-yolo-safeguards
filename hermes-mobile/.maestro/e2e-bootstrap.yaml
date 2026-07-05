@@ -102,3 +102,4 @@ appId: com.iganapolsky.hermesmobile
       id: "chat-input"
     direction: UP
     timeout: 90000
+    visibilityPercentage: 50

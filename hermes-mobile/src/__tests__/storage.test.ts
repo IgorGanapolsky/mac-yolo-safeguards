@@ -84,6 +84,31 @@ describe('storage', () => {
     expect(await storage.loadHideCronSessions('http://127.0.0.1:8642')).toBe(false);
   });
 
+  it('persists last selected chat session per saved computer key', async () => {
+    await storage.saveLastSessionForComputer('mac_100_94_135_78', 'sess_mini');
+    await storage.saveLastSessionForComputer('MAC_100_94_135_78', 'sess_mini_latest');
+    await storage.saveLastSessionForComputer('mac_192_168_68_66', 'sess_macbook');
+
+    expect(await storage.loadLastSessionForComputer('mac_100_94_135_78')).toBe(
+      'sess_mini_latest',
+    );
+    expect(await storage.loadLastSessionForComputer('mac_192_168_68_66')).toBe(
+      'sess_macbook',
+    );
+    expect(await storage.loadLastSessionForComputer('missing')).toBeNull();
+  });
+
+  it('writes and reads last session across alias keys for the same Mac', async () => {
+    await storage.saveLastSessionForComputer(
+      ['host:igors-mac-mini', 'mac_192_168_68_56', 'mac_100_94_135_78'],
+      'sess_shared',
+    );
+
+    expect(await storage.loadLastSessionForComputer('host:igors-mac-mini')).toBe('sess_shared');
+    expect(await storage.loadLastSessionForComputer('mac_100_94_135_78')).toBe('sess_shared');
+    expect(await storage.loadLastSessionForComputer(['mac_192_168_68_56'])).toBe('sess_shared');
+  });
+
   it('persists approvals count and increments correctly', async () => {
     expect(await storage.loadApprovalsCount()).toBe(0);
 

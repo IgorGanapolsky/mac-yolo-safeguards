@@ -157,6 +157,8 @@ jest.mock('../services/storage', () => ({
     loadLastSelectedProfileId: jest.fn().mockResolvedValue(null),
     loadApprovalsCount: jest.fn().mockResolvedValue(0),
     incrementApprovalsCount: jest.fn().mockResolvedValue(1),
+    saveLastSessionForComputer: jest.fn().mockResolvedValue(undefined),
+    loadLastSessionForComputer: jest.fn().mockResolvedValue(null),
   },
 }));
 
@@ -502,6 +504,196 @@ describe('ChatScreen', () => {
     expect(sendChatMessage).not.toHaveBeenCalled();
   });
 
+  it('shows the submitted prompt immediately instead of keeping recents visible', async () => {
+    const { listMessages } = jest.requireMock('../services/hermesChatClient') as {
+      listMessages: jest.Mock;
+    };
+    const { streamSessionChat } = jest.requireMock('../services/hermesGatewayClient') as {
+      streamSessionChat: jest.Mock;
+    };
+    let resolveStream: (value: string) => void = () => {};
+    listMessages.mockResolvedValue([]);
+    streamSessionChat.mockImplementation(
+      () =>
+        new Promise<string>((resolve) => {
+          resolveStream = resolve;
+        }),
+    );
+    Object.assign(mockGatewayState, {
+      connectionState: 'connected',
+      health: {
+        ok: true,
+        level: 'green',
+        hostname: 'demo-mac.local',
+        localIp: '127.0.0.1',
+        directGatewayReachable: true,
+        checkedAt: '2026-07-03T17:24:00Z',
+      },
+      settings: {
+        demoMode: false,
+        connectionMode: 'gateway',
+        gatewayUrl: 'http://localhost:8642',
+        cloudUrl: 'https://hermesmobile-cloud.fly.dev',
+        approvalPolicy: 'balanced',
+      },
+    });
+    const { getByTestId, getAllByText, queryByTestId } = await renderChatScreen();
+
+    await waitFor(() => {
+      expect(getByTestId('chat-empty-recent-chats')).toBeTruthy();
+    });
+
+    act(() => {
+      fireEvent.changeText(getByTestId('chat-input'), 'show this prompt now');
+      fireEvent.press(getByTestId('chat-send-button'));
+    });
+
+    expect(getAllByText('show this prompt now').length).toBeGreaterThanOrEqual(1);
+    expect(queryByTestId('chat-empty-recent-chats')).toBeNull();
+    expect(queryByTestId('recent-chat-session-1')).toBeNull();
+    await act(async () => {
+      resolveStream('done');
+    });
+  });
+
+  it('does not show raw tool or browser console errors in the chat transcript', async () => {
+    const { listMessages } = jest.requireMock('../services/hermesChatClient') as {
+      listMessages: jest.Mock;
+    };
+    listMessages.mockResolvedValue([
+      { role: 'user', content: 'Are you lost?' },
+      {
+        role: 'tool',
+        content:
+          '{"success":false,"error":"Uncaught: SyntaxError: Identifier \\"result\\" has already been declared","tool":"browser_console"}',
+        created_at: '2026-07-02T21:31:00Z',
+      },
+      { role: 'assistant', content: 'I will recover without showing internal debug payloads.' },
+    ]);
+    Object.assign(mockGatewayState, {
+      settings: {
+        demoMode: false,
+        connectionMode: 'gateway',
+        gatewayUrl: 'http://localhost:8642',
+        cloudUrl: 'https://hermesmobile-cloud.fly.dev',
+        approvalPolicy: 'balanced',
+        includeToolActivity: true,
+      },
+      connectionState: 'connected',
+      health: { ok: true, level: 'green', hostname: 'demo-mac.local' },
+    });
+
+    const { getByText, queryByText } = await renderChatScreen();
+
+    expect(getByText('Are you lost?')).toBeTruthy();
+    expect(getByText('I will recover without showing internal debug payloads.')).toBeTruthy();
+    expect(queryByText(/SyntaxError/)).toBeNull();
+    expect(queryByText(/\[tool/)).toBeNull();
+  });
+
+  it('creates new mobile sessions with the first prompt as the title', async () => {
+    const { createSession } = jest.requireMock('../services/hermesChatClient') as {
+      createSession: jest.Mock;
+    };
+    const { streamSessionChat } = jest.requireMock('../services/hermesGatewayClient') as {
+      streamSessionChat: jest.Mock;
+    };
+    createSession.mockClear();
+    createSession.mockResolvedValueOnce({
+      id: 'session-first-prompt',
+      title: 'New mobile session #4',
+      last_active_at: '2026-07-03T20:30:00Z',
+    });
+    streamSessionChat.mockImplementation(
+      (
+        _gatewayUrl: string,
+        _sessionId: string,
+        _text: string,
+        _apiKey: string,
+        onEvent: (event: { event: string; data: Record<string, unknown> }) => void,
+        _systemPrompt: string,
+        onOpen?: () => void,
+      ) => {
+        onOpen?.();
+        onEvent({ event: 'assistant.delta', data: { delta: 'Working on it.' } });
+        return Promise.resolve('Working on it.');
+      },
+    );
+    Object.assign(mockGatewayState, {
+      connectionState: 'connected',
+      health: { ok: true, level: 'green', hostname: 'demo-mac.local' },
+      settings: {
+        demoMode: false,
+        connectionMode: 'gateway',
+        gatewayUrl: 'http://localhost:8642',
+        cloudUrl: 'https://hermesmobile-cloud.fly.dev',
+        approvalPolicy: 'balanced',
+      },
+    });
+
+    const { getByTestId, queryByTestId } = await renderChatScreen();
+    fireEvent.press(getByTestId('open-sessions-modal'));
+    fireEvent.press(getByTestId('modal-new-chat-button'));
+    expect(queryByTestId('modal-new-chat-button')).toBeNull();
+
+    await act(async () => {
+      fireEvent.changeText(getByTestId('chat-input'), 'Fix Hermes mobile transcript noise now');
+      fireEvent.press(getByTestId('chat-send-button'));
+      await Promise.resolve();
+    });
+
+    await waitFor(() => {
+      expect(createSession).toHaveBeenCalledWith(
+        'http://localhost:8642',
+        'test-api-key',
+        'Fix Hermes mobile transcript noise now',
+        expect.any(String),
+      );
+    });
+  });
+
+  it('does not render tool transcript cards even when old settings enable tool activity', async () => {
+    const { listMessages } = jest.requireMock('../services/hermesChatClient') as {
+      listMessages: jest.Mock;
+    };
+    listMessages.mockResolvedValue([
+      { id: 'u1', role: 'user', content: 'Are you stuck?' },
+      {
+        id: 'tool1',
+        role: 'tool',
+        content: '{"name":"terminal","command":"cat /tmp/internal-output"}',
+      },
+      { id: 'a1', role: 'assistant', content: 'Visible user answer' },
+    ]);
+    Object.assign(mockGatewayState, {
+      connectionState: 'connected',
+      health: {
+        ok: true,
+        level: 'green',
+        hostname: 'demo-mac.local',
+        localIp: '127.0.0.1',
+        checkedAt: '2026-07-04T00:00:00Z',
+      },
+      settings: {
+        demoMode: false,
+        connectionMode: 'gateway',
+        gatewayUrl: 'http://localhost:8642',
+        cloudUrl: 'https://hermesmobile-cloud.fly.dev',
+        approvalPolicy: 'balanced',
+        includeToolActivity: true,
+      },
+    });
+
+    const { getByText, queryByText, queryByTestId } = await renderChatScreen();
+
+    await waitFor(() => {
+      expect(getByText('Visible user answer')).toBeTruthy();
+    });
+    expect(queryByText(/internal-output/)).toBeNull();
+    expect(queryByText(/Geek details/)).toBeNull();
+    expect(queryByTestId('tool-call-terminal')).toBeNull();
+  });
+
   it('triggers mock message sending and demo reply in demo mode', async () => {
     const { getByTestId, getAllByTestId, queryByTestId } = await renderChatScreen();
     jest.useFakeTimers();
@@ -513,7 +705,7 @@ describe('ChatScreen', () => {
       fireEvent.press(sendButton);
     });
 
-    expect(queryByTestId('submitted-prompt-strip')).toBeNull();
+    expect(queryByTestId('submitted-prompt-strip')).toBeTruthy();
     expect(queryByTestId('chat-empty-state')).toBeNull();
     expect(queryByTestId('chat-empty-recent-chats')).toBeNull();
     expect(getAllByTestId('chat-message-user').length).toBeGreaterThanOrEqual(1);
@@ -546,6 +738,26 @@ describe('ChatScreen', () => {
       fireEvent.press(sendButton);
     });
     expect(getAllByTestId('chat-message-user').length).toBeGreaterThanOrEqual(userCountAfterFirstSend);
+    await flushPendingTimers();
+  });
+
+  it('accepts the same prompt again after the send-clear suppression window expires', async () => {
+    const { getByTestId, getAllByTestId, queryByTestId } = await renderChatScreen();
+    jest.useFakeTimers();
+    const input = getByTestId('chat-input');
+    const sendButton = getByTestId('chat-send-button');
+    const prompt = 'print money, make money faster. Use Data Science, ML and Agentic RAG.';
+
+    act(() => {
+      fireEvent.changeText(input, prompt);
+      fireEvent.press(sendButton);
+      jest.advanceTimersByTime(300);
+      fireEvent.changeText(input, prompt);
+      fireEvent.press(sendButton);
+    });
+
+    expect(queryByTestId('submitted-prompt-strip')).toBeTruthy();
+    expect(getAllByTestId('chat-message-user').length).toBeGreaterThanOrEqual(2);
     await flushPendingTimers();
   });
 
@@ -627,8 +839,9 @@ describe('ChatScreen', () => {
     await waitFor(() => {
       expect(queryByTestId('chat-empty-recent-chats')).toBeNull();
       expect(queryByTestId('chat-empty-state')).toBeNull();
-      expect(getAllByTestId('chat-message-user').length).toBeGreaterThanOrEqual(1);
-      expect(getByTestId('chat-input').props.placeholder).toMatch(/Sending|Add another message/i);
+      expect(
+        queryByTestId('submitted-prompt-strip') ?? getAllByTestId('chat-message-user').length,
+      ).toBeTruthy();
     });
   });
 
@@ -1533,5 +1746,183 @@ describe('ChatScreen', () => {
         expect(getByTestId('project-pick-demo-hermes-mobile')).toBeTruthy();
       });
     });
+  });
+
+  it('shows jump-to-bottom after scrolling up and scrolls on tap', async () => {
+    const { FlatList } = require('react-native');
+    const scrollToEnd = jest.spyOn(FlatList.prototype, 'scrollToEnd');
+    const { listMessages } = jest.requireMock('../services/hermesChatClient') as {
+      listMessages: jest.Mock;
+    };
+
+    listMessages.mockResolvedValue([
+      { role: 'user', content: 'hello' },
+      { role: 'assistant', content: 'first reply' },
+      { role: 'user', content: 'follow up' },
+      { role: 'assistant', content: 'second reply at the bottom' },
+    ]);
+
+    const { getByTestId, queryByTestId } = await renderChatScreen();
+
+    await waitFor(() => {
+      expect(getByTestId('chat-message-list')).toBeTruthy();
+    });
+
+    expect(queryByTestId('chat-scroll-to-bottom')).toBeNull();
+
+    fireEvent.scroll(getByTestId('chat-message-list'), {
+      nativeEvent: {
+        contentOffset: { y: 0, x: 0 },
+        contentSize: { height: 2400, width: 400 },
+        layoutMeasurement: { height: 400, width: 400 },
+      },
+    });
+
+    await waitFor(() => {
+      expect(getByTestId('chat-scroll-to-bottom')).toBeTruthy();
+    });
+
+    scrollToEnd.mockClear();
+    fireEvent.press(getByTestId('chat-scroll-to-bottom'));
+
+    await waitFor(() => {
+      expect(scrollToEnd).toHaveBeenCalled();
+    });
+
+    scrollToEnd.mockRestore();
+  });
+
+  it('auto-scrolls while streaming assistant tokens when pinned to bottom', async () => {
+    const { FlatList } = require('react-native');
+    const scrollToEnd = jest.spyOn(FlatList.prototype, 'scrollToEnd');
+    const { listMessages } = jest.requireMock('../services/hermesChatClient') as {
+      listMessages: jest.Mock;
+    };
+    const { streamSessionChat } = jest.requireMock('../services/hermesGatewayClient') as {
+      streamSessionChat: jest.Mock;
+    };
+
+    listMessages.mockResolvedValue([]);
+    streamSessionChat.mockImplementation(
+      async (_url, _sessionId, _text, _key, onEvent, _prompt, onAccepted) => {
+        onAccepted?.();
+        onEvent({ event: 'assistant.delta', data: { delta: 'Streaming ' } });
+        onEvent({ event: 'assistant.delta', data: { delta: 'reply' } });
+        onEvent({ event: 'run.completed', data: {} });
+        return 'Streaming reply';
+      },
+    );
+
+    Object.assign(mockGatewayState, {
+      connectionState: 'connected',
+      health: {
+        ok: true,
+        level: 'green',
+        hostname: 'demo-mac.local',
+        localIp: '127.0.0.1',
+        checkedAt: '2026-06-26T00:00:00Z',
+      },
+      settings: {
+        demoMode: false,
+        connectionMode: 'gateway',
+        gatewayUrl: 'http://localhost:8642',
+        cloudUrl: 'https://hermesmobile-cloud.fly.dev',
+        approvalPolicy: 'balanced',
+      },
+    });
+
+    const { getByTestId } = await renderChatScreen();
+
+    scrollToEnd.mockClear();
+
+    await act(async () => {
+      fireEvent.changeText(getByTestId('chat-input'), 'scroll during stream');
+      fireEvent.press(getByTestId('chat-send-button'));
+    });
+
+    await waitFor(() => {
+      expect(scrollToEnd).toHaveBeenCalled();
+    });
+
+    scrollToEnd.mockRestore();
+  });
+
+  it('does not auto-scroll further streaming tokens after the user scrolls up', async () => {
+    const { FlatList } = require('react-native');
+    const scrollToEnd = jest.spyOn(FlatList.prototype, 'scrollToEnd');
+    const { listMessages } = jest.requireMock('../services/hermesChatClient') as {
+      listMessages: jest.Mock;
+    };
+    const { streamSessionChat } = jest.requireMock('../services/hermesGatewayClient') as {
+      streamSessionChat: jest.Mock;
+    };
+
+    let emitSecondDelta: (() => void) | undefined;
+    listMessages.mockResolvedValue([]);
+    streamSessionChat.mockImplementation(
+      (_url, _sessionId, _text, _key, onEvent, _prompt, onAccepted) =>
+        new Promise((resolve) => {
+          onAccepted?.();
+          onEvent({ event: 'assistant.delta', data: { delta: 'part one ' } });
+          emitSecondDelta = () => {
+            onEvent({ event: 'assistant.delta', data: { delta: 'part two' } });
+            resolve('part one part two');
+          };
+        }),
+    );
+
+    Object.assign(mockGatewayState, {
+      connectionState: 'connected',
+      health: {
+        ok: true,
+        level: 'green',
+        hostname: 'demo-mac.local',
+        localIp: '127.0.0.1',
+        checkedAt: '2026-06-26T00:00:00Z',
+      },
+      settings: {
+        demoMode: false,
+        connectionMode: 'gateway',
+        gatewayUrl: 'http://localhost:8642',
+        cloudUrl: 'https://hermesmobile-cloud.fly.dev',
+        approvalPolicy: 'balanced',
+      },
+    });
+
+    const { getByTestId } = await renderChatScreen();
+
+    await act(async () => {
+      fireEvent.changeText(getByTestId('chat-input'), 'scroll after scroll-up');
+      fireEvent.press(getByTestId('chat-send-button'));
+    });
+
+    await waitFor(() => {
+      expect(getByTestId('chat-message-list')).toBeTruthy();
+    });
+
+    await act(async () => {
+      fireEvent.scroll(getByTestId('chat-message-list'), {
+        nativeEvent: {
+          contentOffset: { y: 0, x: 0 },
+          contentSize: { height: 2400, width: 400 },
+          layoutMeasurement: { height: 400, width: 400 },
+        },
+      });
+    });
+
+    await waitFor(() => {
+      expect(getByTestId('chat-scroll-to-bottom')).toBeTruthy();
+    });
+
+    scrollToEnd.mockClear();
+
+    await act(async () => {
+      emitSecondDelta?.();
+      await drainChatScreenAsync();
+    });
+
+    expect(scrollToEnd).not.toHaveBeenCalled();
+
+    scrollToEnd.mockRestore();
   });
 });

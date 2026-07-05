@@ -119,4 +119,23 @@ describe('RunProgressBanner', () => {
     expect(getByTestId('run-progress-failed-detail').props.children).toBe(detail);
     expect(getByText('229s')).toBeTruthy();
   });
+
+  it('shows stale hint and emphasized stop after warn threshold', () => {
+    const onStop = jest.fn();
+    const { getByTestId, getByText } = render(
+      <RunProgressBanner
+        progress={{
+          phase: 'working',
+          startedAtMs: Date.now() - 16 * 60 * 1000,
+          detail: 'Agent working…',
+          runId: 'run-stale',
+        }}
+        onStop={onStop}
+      />,
+    );
+    expect(getByTestId('run-progress-stale-hint').props.children).toContain(
+      'Taking longer than expected',
+    );
+    expect(getByText('Stop stuck run')).toBeTruthy();
+  });
 });

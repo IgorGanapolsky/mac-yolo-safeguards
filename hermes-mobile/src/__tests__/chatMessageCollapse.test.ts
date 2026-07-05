@@ -1,5 +1,5 @@
 import type { HermesMessage } from '../types/chat';
-import { collapseOutreachVariantBatches, parseOutreachVariant } from '../utils/chatMessageCollapse';
+import { collapseOutreachVariantBatches, collapseToolActivityMessages, parseOutreachVariant } from '../utils/chatMessageCollapse';
 import { prepareMessagesForDisplay } from '../utils/chatMessageDisplay';
 
 function skoolDraft(persona: string, question: string): HermesMessage {
@@ -65,5 +65,39 @@ describe('prepareMessagesForDisplay outreach collapse', () => {
     const assistant = visible.filter((m) => m.role === 'assistant');
     expect(assistant).toHaveLength(1);
     expect(assistant[0]?.content).toContain('2 Skool Warm outreach drafts');
+  });
+});
+
+describe('collapseToolActivityMessages', () => {
+  it('collapses consecutive tool messages', () => {
+    const messages: HermesMessage[] = [
+      { id: 't1', role: 'tool', content: '[tool output] status=ok' },
+      { id: 't2', role: 'tool', content: '[tool output] Ch...' },
+      { id: 't3', role: 'tool_result', content: '{"success":true}' },
+    ];
+    const collapsed = collapseToolActivityMessages(messages);
+    expect(collapsed).toHaveLength(1);
+    expect(collapsed[0].isCollapsedToolActivity).toBe(true);
+    expect(collapsed[0].activities).toHaveLength(3);
+    expect(collapsed[0].id).toContain('collapsed-tools-t3-3');
+  });
+
+  it('leaves a single tool message unchanged', () => {
+    const messages: HermesMessage[] = [
+      { id: 't1', role: 'tool', content: '[tool output] status=ok' },
+    ];
+    expect(collapseToolActivityMessages(messages)).toEqual(messages);
+  });
+
+  it('does not collapse tool messages separated by user or assistant messages', () => {
+    const messages: HermesMessage[] = [
+      { id: 't1', role: 'tool', content: '[tool output] status=ok' },
+      { id: 'u1', role: 'user', content: 'hello' },
+      { id: 't2', role: 'tool', content: '[tool output] Ch...' },
+    ];
+    const collapsed = collapseToolActivityMessages(messages);
+    expect(collapsed).toHaveLength(3);
+    expect(collapsed[0].isCollapsedToolActivity).toBeUndefined();
+    expect(collapsed[2].isCollapsedToolActivity).toBeUndefined();
   });
 });

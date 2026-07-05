@@ -64,6 +64,8 @@ const GENERIC_PROFILE_LABELS = new Set([
   'custom mac',
   'custom computer',
   'tailscale computer',
+  'localhost',
+  '127.0.0.1',
   'http',
   'https',
 ]);
@@ -73,12 +75,19 @@ export const GENERIC_TAILSCALE_PROFILE_LABEL = 'Computer via Tailscale';
 
 export const LEGACY_USB_PROFILE_LABEL = 'Mac via USB';
 
+const GENERIC_COMPUTER_IP_LABEL = /^computer \d{1,3}(\.\d{1,3}){3}$/i;
+const GENERIC_TAILSCALE_IP_LABEL = /^tailscale \d{1,3}(\.\d{1,3}){3}$/i;
+
 export function isGenericMachineLabel(label: string | undefined): boolean {
   const trimmed = label?.trim();
   if (!trimmed) {
     return true;
   }
-  return GENERIC_PROFILE_LABELS.has(trimmed.toLowerCase());
+  const lower = trimmed.toLowerCase();
+  if (GENERIC_PROFILE_LABELS.has(lower)) {
+    return true;
+  }
+  return GENERIC_COMPUTER_IP_LABEL.test(trimmed) || GENERIC_TAILSCALE_IP_LABEL.test(trimmed);
 }
 
 /** Junk rows from partial QR/deep-link paste — label "http" or URL with no host. */
@@ -87,7 +96,9 @@ export function isInvalidGatewayProfile(profile: GatewayProfile): boolean {
 }
 
 export function sanitizeGatewayProfileState(state: GatewayProfileState): GatewayProfileState {
-  const profiles = state.profiles.filter((p) => !isInvalidGatewayProfile(p));
+  const profiles = state.profiles
+    .filter((p) => !isInvalidGatewayProfile(p))
+    .map(relabelStoredProfile);
   let activeProfileId = state.activeProfileId;
   if (activeProfileId && !profiles.some((p) => p.id === activeProfileId)) {
     activeProfileId = profiles[0]?.id ?? null;
@@ -138,6 +149,55 @@ function pickFriendlyProfileLabel(...candidates: (string | undefined)[]): string
   return undefined;
 }
 
+/** Stored profile label: hostname from /health, pairing extraName, or MagicDNS — never bare "Computer" when identity is known. */
+function resolveStoredProfileLabel(input: {
+  gatewayUrl: string;
+  hostname?: string;
+  label?: string;
+  localIp?: string;
+}): string {
+  const gatewayUrl = normalizeGatewayUrlBase(input.gatewayUrl);
+  const hostname = input.hostname?.trim();
+  const urlHost = gatewayUrlHostname(gatewayUrl);
+
+  const friendly = pickFriendlyProfileLabel(
+    input.label,
+    bonjourHostname(hostname),
+    magicDnsDeviceName(hostname),
+    magicDnsDeviceName(gatewayUrl),
+    urlHost && !isTailnetRouteLabel(urlHost) ? urlHost : undefined,
+    urlHost ? magicDnsDeviceName(urlHost) : undefined,
+  );
+  if (friendly) {
+    return friendly;
+  }
+
+  if (isLoopbackGatewayUrl(gatewayUrl)) {
+    return bonjourHostname(hostname) ?? GENERIC_USB_PROFILE_LABEL;
+  }
+  if (isTailscaleGatewayUrl(gatewayUrl)) {
+    return magicDnsDeviceName(gatewayUrl) ?? GENERIC_TAILSCALE_PROFILE_LABEL;
+  }
+  const ip = input.localIp?.trim() || extractLanIpFromGatewayUrl(gatewayUrl);
+  if (ip) {
+    return isTailscaleIpv4(ip) ? `Tailscale ${ip}` : `Computer ${ip}`;
+  }
+  return input.label?.trim() || 'Computer';
+}
+
+function relabelStoredProfile(profile: GatewayProfile): GatewayProfile {
+  if (!isIpOnlyProfileLabel(profile)) {
+    return profile;
+  }
+  const label = resolveStoredProfileLabel({
+    gatewayUrl: profile.gatewayUrl,
+    hostname: profile.hostname,
+    label: profile.label,
+    localIp: profile.localIp,
+  });
+  return label === profile.label ? profile : { ...profile, label };
+}
+
 export function profileDisplayName(profile: GatewayProfile): string {
   const ip = resolveDisplayLanIp(profile.localIp, profile.gatewayUrl);
   const hostname = bonjourHostname(profile.hostname);
@@ -161,6 +221,9 @@ export function profileDisplayName(profile: GatewayProfile): string {
   }
   if (ip && !isTailscaleIpv4(ip)) {
     return `Computer ${ip}`;
+  }
+  if (ip && isTailscaleIpv4(ip)) {
+    return `Tailscale ${ip}`;
   }
   if (label && !isTailnetRouteLabel(label)) {
     return label;
@@ -217,7 +280,7 @@ function normalizeMachineKey(value: string | undefined): string | undefined {
   return trimmed && trimmed !== 'localhost' ? trimmed : undefined;
 }
 
-function profileMachineKey(profile: GatewayProfile): string | undefined {
+export function profileMachineKey(profile: GatewayProfile): string | undefined {
   return (
     normalizeMachineKey(profile.hostname) ||
     normalizeMachineKey(magicDnsDeviceName(profile.gatewayUrl)) ||
@@ -225,6 +288,102 @@ function profileMachineKey(profile: GatewayProfile): string | undefined {
       ? normalizeMachineKey(profile.label)
       : undefined)
   );
+}
+
+export function profilesShareMachine(a: GatewayProfile, b: GatewayProfile): boolean {
+  const aKey = profileMachineKey(a);
+  const bKey = profileMachineKey(b);
+  return Boolean(aKey && bKey && aKey === bKey);
+}
+
+/** Heal may connect via this URL without switching away from the user's active profile. */
+export function isDiscoveredUrlAllowedForActiveProfile(
+  state: GatewayProfileState,
+  successfulUrl: string,
+): boolean {
+  if (!state.activeProfileId) {
+    return true;
+  }
+  const active = activeProfile(state);
+  if (!active) {
+    return false;
+  }
+  const matched = findProfileForGatewayUrl(state.profiles, successfulUrl);
+  if (!matched) {
+    return isLoopbackGatewayUrl(successfulUrl);
+  }
+  if (matched.id === active.id) {
+    return true;
+  }
+  return profilesShareMachine(active, matched);
+}
+
+/** Update the active profile's gateway URL when heal finds an alternate route to the same Mac. */
+export function updateActiveProfileGatewayUrl(
+  state: GatewayProfileState,
+  successfulUrl: string,
+  meta?: { hostname?: string; localIp?: string; label?: string },
+): GatewayProfileState {
+  const activeId = state.activeProfileId;
+  if (!activeId) {
+    return state;
+  }
+  const gatewayUrl = normalizeGatewayUrlBase(successfulUrl);
+  const now = new Date().toISOString();
+  const profiles = state.profiles.map((profile) => {
+    if (profile.id !== activeId) {
+      return profile;
+    }
+    return {
+      ...profile,
+      gatewayUrl,
+      hostname: meta?.hostname?.trim() || profile.hostname,
+      localIp: meta?.localIp?.trim() || profile.localIp,
+      label: meta?.label?.trim() || profile.label,
+      lastConnectedAt: now,
+    };
+  });
+  return dedupeGatewayProfiles({ ...state, profiles });
+}
+
+/** Catalog discovery and optionally activate — never switches to a different saved Mac on heal. */
+export function applyHealDiscoveredUrl(
+  state: GatewayProfileState,
+  discovered: DiscoveredGateway,
+  requestedActivation: boolean,
+): GatewayProfileState {
+  const url = discovered.gatewayUrl;
+  const priorActive = activeProfile(state);
+  const priorMachineKey = priorActive ? profileMachineKey(priorActive) : undefined;
+  let next = upsertDiscoveredProfile(state, discovered, false);
+  if (shouldActivateDiscoveredUrl(next, url, requestedActivation)) {
+    next = upsertDiscoveredProfile(next, discovered, true);
+  } else if (
+    requestedActivation &&
+    priorActive &&
+    isDiscoveredUrlAllowedForActiveProfile(next, url) &&
+    normalizeGatewayUrlBase(priorActive.gatewayUrl) !== normalizeGatewayUrlBase(url)
+  ) {
+    next = updateActiveProfileGatewayUrl(next, url, {
+      hostname: discovered.hostname,
+      localIp: discovered.localIp,
+      label: discovered.label,
+    });
+  }
+  if (priorMachineKey) {
+    const afterActive = activeProfile(next);
+    if (!afterActive || profileMachineKey(afterActive) !== priorMachineKey) {
+      const sameMachine = next.profiles.find(
+        (profile) => profileMachineKey(profile) === priorMachineKey,
+      );
+      if (sameMachine) {
+        next = { ...next, activeProfileId: sameMachine.id };
+      } else if (state.activeProfileId) {
+        next = { ...next, activeProfileId: state.activeProfileId };
+      }
+    }
+  }
+  return next;
 }
 
 function profileDedupeKey(profile: GatewayProfile): string {
@@ -283,19 +442,22 @@ function mergeProfileRecords(a: GatewayProfile, b: GatewayProfile): GatewayProfi
     b.localIp?.trim() ||
     extractLanIpFromGatewayUrl(gatewayUrl) ||
     undefined;
-  const label =
-    pickFriendlyProfileLabel(
-      a.label,
+  const label = resolveStoredProfileLabel({
+    gatewayUrl,
+    hostname,
+    localIp,
+    label:
+      pickFriendlyProfileLabel(
+        a.label,
+        b.label,
+        bonjourHostname(a.hostname),
+        bonjourHostname(b.hostname),
+        a.hostname?.replace(/\.local$/i, ''),
+        b.hostname?.replace(/\.local$/i, ''),
+      ) ||
+      a.label ||
       b.label,
-      bonjourHostname(a.hostname),
-      bonjourHostname(b.hostname),
-      a.hostname?.replace(/\.local$/i, ''),
-      b.hostname?.replace(/\.local$/i, ''),
-    ) ||
-    a.label ||
-    b.label ||
-    localIp ||
-    'computer';
+  });
   const lastConnectedAt =
     [a.lastConnectedAt, b.lastConnectedAt].filter(Boolean).sort().reverse()[0] ?? a.addedAt;
   const addedAt = a.addedAt <= b.addedAt ? a.addedAt : b.addedAt;
@@ -322,15 +484,21 @@ export function dedupeGatewayProfiles(state: GatewayProfileState): GatewayProfil
   let activeProfileId = state.activeProfileId;
   if (activeProfileId && !profiles.some((p) => p.id === activeProfileId)) {
     const prev = state.profiles.find((p) => p.id === activeProfileId);
+    const prevKey = prev ? profileMachineKey(prev) : undefined;
+    if (prevKey) {
+      const sameMachine = profiles.find((profile) => profileMachineKey(profile) === prevKey);
+      if (sameMachine) {
+        activeProfileId = sameMachine.id;
+        return { profiles, activeProfileId };
+      }
+    }
     const prevIp = prev?.localIp || extractLanIpFromGatewayUrl(prev?.gatewayUrl ?? '');
     activeProfileId =
       profiles.find(
         (p) =>
           p.id === activeProfileId ||
           (prevIp && (p.localIp === prevIp || extractLanIpFromGatewayUrl(p.gatewayUrl) === prevIp)),
-      )?.id ??
-      profiles[0]?.id ??
-      null;
+      )?.id ?? activeProfileId;
   }
   return { profiles, activeProfileId };
 }
@@ -366,7 +534,7 @@ export function resolvePreferredActiveProfileId(
   return sorted[0]?.id ?? profiles[0]?.id ?? null;
 }
 
-/** Only switch active profile on heal/discovery when user has no selection or same machine. */
+/** Only switch active profile on heal/discovery when user has no selection or exact profile match. */
 export function shouldActivateDiscoveredUrl(
   state: GatewayProfileState,
   successfulUrl: string,
@@ -380,18 +548,13 @@ export function shouldActivateDiscoveredUrl(
   }
   const active = activeProfile(state);
   if (!active) {
-    return true;
+    return false;
   }
   const matched = findProfileForGatewayUrl(state.profiles, successfulUrl);
   if (!matched) {
     return false;
   }
-  if (matched.id === state.activeProfileId) {
-    return true;
-  }
-  const activeKey = profileMachineKey(active);
-  const matchedKey = profileMachineKey(matched);
-  return Boolean(activeKey && matchedKey && activeKey === matchedKey);
+  return matched.id === state.activeProfileId;
 }
 
 /** Persist every healthy Tailscale /health discovery as a saved computer profile. */
@@ -416,12 +579,12 @@ export function upsertDiscoveredProfile(
   const id = profileIdFromGatewayUrl(gatewayUrl, hostname);
   const localIp =
     discovered.localIp?.trim() || extractLanIpFromGatewayUrl(gatewayUrl) || undefined;
-  const urlHost = gatewayUrlHostname(gatewayUrl);
-  const label =
-    discovered.label?.trim() ||
-    bonjourHostname(hostname) ||
-    (urlHost && !isTailnetRouteLabel(urlHost) ? urlHost : undefined) ||
-    'Computer';
+  const label = resolveStoredProfileLabel({
+    gatewayUrl,
+    hostname,
+    label: discovered.label,
+    localIp,
+  });
 
   const discoveredMachineKey =
     normalizeMachineKey(hostname) || normalizeMachineKey(label) || undefined;
@@ -466,10 +629,16 @@ export function upsertDiscoveredProfile(
       }
       const keepExistingLabel =
         p.label &&
-        !isBareIp(p.label) &&
-        p.label !== 'computer' &&
-        (!discovered.label?.trim() || isBareIp(label) || label === 'computer');
-      const finalLabel = keepExistingLabel ? p.label : (label || p.label);
+        !isGenericProfileLabel(p.label) &&
+        (!discovered.label?.trim() || isGenericProfileLabel(label));
+      const finalLabel = keepExistingLabel
+        ? p.label
+        : resolveStoredProfileLabel({
+            gatewayUrl,
+            hostname: hostname || p.hostname,
+            label: discovered.label || label || p.label,
+            localIp: localIp || p.localIp,
+          });
 
       return {
         ...p,
@@ -536,10 +705,14 @@ export function touchProfileHealth(
     const localIp =
       resolveDisplayLanIp(health.localIp, p.gatewayUrl) ||
       resolveDisplayLanIp(p.localIp, p.gatewayUrl);
-    const hostnameLabel = bonjourHostname(hostname);
     const label =
-      hostnameLabel && (isIpOnlyProfileLabel(p) || isTailnetRouteLabel(p.label))
-        ? hostnameLabel
+      isIpOnlyProfileLabel(p) || isTailnetRouteLabel(p.label)
+        ? resolveStoredProfileLabel({
+            gatewayUrl: p.gatewayUrl,
+            hostname,
+            label: p.label,
+            localIp,
+          })
         : p.label;
     return {
       ...p,

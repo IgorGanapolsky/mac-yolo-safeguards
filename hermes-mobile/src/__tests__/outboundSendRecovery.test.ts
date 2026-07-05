@@ -44,7 +44,7 @@ describe('outboundSendRecovery', () => {
     );
   });
 
-  it('marks stuck bubbles failed with retry copy', () => {
+  it('marks stuck bubbles failed with no-reply copy', () => {
     const next = applyStuckOutboundRecovery(
       [
         {
@@ -57,7 +57,7 @@ describe('outboundSendRecovery', () => {
       ['user-old'],
     );
     expect(next[0]?.outboundStatus).toBe('failed');
-    expect(next[0]?.outboundFailureReason).toContain('tap');
+    expect(next[0]?.outboundFailureReason).toBe('Sent — no reply from computer');
   });
 
   it('releases send lock after timeout when stream never starts', () => {

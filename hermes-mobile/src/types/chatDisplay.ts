@@ -25,5 +25,7 @@ export interface RunProgressState {
   duration?: number;
   /** Stream events (tool.progress, run.completed) own token counts — session poll must not overwrite. */
   streamUsageLive?: boolean;
+  /** Last detail/phase change — token-only ticks must not reset idle stall detection. */
+  lastProgressAtMs?: number;
 }
 

@@ -10,6 +10,7 @@ const profiles: GatewayProfile[] = [
     id: 'lan',
     label: 'Mac mini',
     gatewayUrl: 'http://192.168.68.56:8642',
+    hostname: 'Igors-Mac-mini',
     localIp: '192.168.68.56',
     addedAt: '2026-06-28T00:00:00Z',
   },
@@ -17,12 +18,31 @@ const profiles: GatewayProfile[] = [
     id: 'ts',
     label: 'Mac mini tailnet',
     gatewayUrl: 'http://100.94.135.78:8642',
+    hostname: 'Igors-Mac-mini',
+    addedAt: '2026-06-28T00:00:01Z',
+  },
+];
+
+const twoMacProfiles: GatewayProfile[] = [
+  {
+    id: 'mini',
+    label: 'Igors-Mac-mini',
+    hostname: 'Igors-Mac-mini',
+    gatewayUrl: 'http://192.168.68.56:8642',
+    localIp: '192.168.68.56',
+    addedAt: '2026-06-28T00:00:00Z',
+  },
+  {
+    id: 'book',
+    label: 'Igors-MacBook-Pro',
+    hostname: 'Igors-MacBook-Pro',
+    gatewayUrl: 'http://100.94.135.78:8642',
     addedAt: '2026-06-28T00:00:01Z',
   },
 ];
 
 describe('connectionSelfHeal', () => {
-  it('prefers active profile URL then USB when activeProfileId is set', () => {
+  it('includes same-machine alternate routes when activeProfileId is set', () => {
     expect(
       savedProfileFallbackUrls({
         primaryUrl: 'http://192.168.68.56:8642',
@@ -30,6 +50,16 @@ describe('connectionSelfHeal', () => {
         activeProfileId: 'lan',
       }),
     ).toEqual(['http://100.94.135.78:8642']);
+  });
+
+  it('does not include other saved Mac URLs when activeProfileId is set', () => {
+    expect(
+      savedProfileFallbackUrls({
+        primaryUrl: 'http://192.168.68.56:8642',
+        profiles: twoMacProfiles,
+        activeProfileId: 'mini',
+      }),
+    ).toEqual([]);
   });
 
   it('prefers Tailscale saved URLs when LAN primary fails and no active id', () => {
@@ -58,8 +88,8 @@ describe('connectionSelfHeal', () => {
       tailnetProbeHosts: ['igors-mac-mini.tail12aa33.ts.net'],
       activeProfileId: 'lan',
     });
-    expect(urls[0]).toBe('http://127.0.0.1:8642');
-    expect(urls).toContain('http://100.94.135.78:8642');
+    expect(urls[0]).toBe('http://100.94.135.78:8642');
+    expect(urls).toContain('http://127.0.0.1:8642');
     expect(urls).toContain('http://igors-mac-mini.tail12aa33.ts.net:8642');
   });
 

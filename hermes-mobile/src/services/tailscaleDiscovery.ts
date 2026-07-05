@@ -8,6 +8,7 @@ import {
   isTailscaleGatewayHost,
   isTailscaleGatewayUrl,
   isTailscaleIpv4,
+  magicDnsDeviceName,
   mergeTailnetProbeHosts,
   normalizeTailnetProbeHost,
 } from '../utils/tailscaleHosts';
@@ -217,6 +218,10 @@ export function tailscaleDiscoveryLabel(discovered: DiscoveredGateway): string {
   }
   if (discovered.label?.trim()) {
     return discovered.label.trim();
+  }
+  const magicName = magicDnsDeviceName(discovered.gatewayUrl);
+  if (magicName) {
+    return magicName;
   }
   const host = gatewayUrlHostname(discovered.gatewayUrl);
   return host ?? 'Computer';

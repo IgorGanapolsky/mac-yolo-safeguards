@@ -23,10 +23,10 @@ describe('outboundDeliveryStatus', () => {
     ).toBe('✓ Sent');
   });
 
-  it('shows retry hint when send failed but Mac health is ok', () => {
+  it('shows no-reply hint when send failed but Mac health is ok', () => {
     expect(
       outboundDeliveryLabel('failed', { connectionState: 'connected', macHttpOk: true }),
-    ).toBe("⚠ Didn't send — tap ↑ again");
+    ).toBe('⚠ No reply — tap ↑ again');
   });
 
   it('shows reachability hint when send failed and Mac health is down', () => {
