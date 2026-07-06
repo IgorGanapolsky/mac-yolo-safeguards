@@ -1,6 +1,7 @@
 import type { HermesSession } from '../types/chat';
 import type { ChatProjectState } from '../types/chatProject';
 import { pickDefaultSession } from './sessionSelection';
+import { isAutomatedCronSession } from './sessionDisplay';
 
 export type SessionListSelectionInput = {
   sessions: HermesSession[];
@@ -54,21 +55,27 @@ export function resolveSessionAfterListLoad(
 
   let nextSession: HermesSession | null = null;
 
+  // Never AUTO-open an automated scheduled/cron session — it's not a user
+  // conversation. An overnight cron run is often the newest session, which
+  // otherwise hijacks resume/reconnect and shows an empty "Good morning"
+  // instead of the user's last real chat. Manual taps still open cron threads.
+  const conversational = sessions.filter((session) => !isAutomatedCronSession(session));
+
   if (rememberedSessionId) {
-    nextSession = sessions.find((session) => session.id === rememberedSessionId) ?? null;
+    nextSession = conversational.find((session) => session.id === rememberedSessionId) ?? null;
   }
 
   if (projectState.activeProjectId) {
     const project = projectState.projects.find((p) => p.id === projectState.activeProjectId);
     const preferredId = project?.activeSessionId ?? project?.sessionIds[0];
     if (!nextSession && preferredId) {
-      nextSession = sessions.find((session) => session.id === preferredId) ?? null;
+      nextSession = conversational.find((session) => session.id === preferredId) ?? null;
     }
   }
 
-  if (!nextSession && sessions.length > 0) {
+  if (!nextSession && conversational.length > 0) {
     if (selectLatest || !currentSessionId) {
-      nextSession = pickDefaultSession(sessions, projectState) ?? sessions[0];
+      nextSession = pickDefaultSession(conversational, projectState) ?? conversational[0];
     }
   }
 

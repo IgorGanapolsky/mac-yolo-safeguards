@@ -139,9 +139,20 @@ export default function ApprovalsScreen() {
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
       <View style={styles.header}>
-        <View testID="THUMBGATE_LEASH" accessible={true} collapsable={false}>
+        <TouchableOpacity
+          testID="THUMBGATE_LEASH"
+          accessible={true}
+          activeOpacity={1}
+          delayLongPress={8000}
+          onLongPress={() => {
+            if (!leashUnlocked) {
+              void unlockThumbgateLeash();
+              Alert.alert('Developer unlock', 'ThumbGate Leash Pro enabled on this device.');
+            }
+          }}
+        >
           <Text style={styles.title}>THUMBGATE LEASH</Text>
-        </View>
+        </TouchableOpacity>
         <Text style={styles.subtitle}>
           {leashUnlocked
             ? settings.safetyMode || settings.glanceMode
@@ -221,9 +232,21 @@ export default function ApprovalsScreen() {
           <GlassCard style={styles.emptyCard}>
             <Text style={styles.emptyTitle}>ThumbGate Leash is a Pro feature</Text>
             <Text style={styles.emptyBody}>
-              When your coding agent hits a risky command on your computer, the approval card appears
-              here so you can approve or reject from your phone — with ThumbGate memory gates behind
-              every decision.
+              Leash is the paid control layer for your AI coding agent. When the agent hits a risky
+              command on your computer, the approval card appears here so you approve or reject it
+              from your phone. Three things power it:
+            </Text>
+            <Text style={styles.emptyBody}>
+              • ThumbGate — a memory layer. Your approvals, rejections, and 👍/👎 become durable rules,
+              so the agent learns what you allow and stops asking twice.
+            </Text>
+            <Text style={styles.emptyBody}>
+              • Permissions — see every standing allow / block rule your agent follows, and edit or
+              delete any of them from your phone.
+            </Text>
+            <Text style={styles.emptyBody}>
+              • OpenClaw — bring OpenClaw-style permission gates into Leash so the same guardrails
+              cover your whole agent setup.
             </Text>
             <ProUpgradeCard
               onUnlocked={unlockThumbgateLeash}
