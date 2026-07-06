@@ -17,35 +17,68 @@ jest.mock('../services/haptics', () => ({
   },
 }));
 
+jest.mock('../utils/demoModePolicy', () => ({
+  isDeveloperLeashUnlockAllowed: jest.fn(() => true),
+  isLeashSmokeTestUiAllowed: jest.fn(() => false),
+}));
+
+jest.mock('../utils/developerLeashUnlock', () => {
+  const actual = jest.requireActual('../utils/developerLeashUnlock');
+  return {
+    ...actual,
+    canUseDeveloperLeashBackdoor: jest.fn(() => true),
+  };
+});
+
 const { useGateway } = jest.requireMock('../context/GatewayContext');
+const { isDeveloperLeashUnlockAllowed, isLeashSmokeTestUiAllowed } =
+  jest.requireMock('../utils/demoModePolicy');
+const { canUseDeveloperLeashBackdoor } = jest.requireMock('../utils/developerLeashUnlock');
 
 describe('ApprovalsScreen', () => {
   beforeEach(() => {
+    isDeveloperLeashUnlockAllowed.mockReturnValue(true);
+    isLeashSmokeTestUiAllowed.mockReturnValue(false);
+    canUseDeveloperLeashBackdoor.mockReturnValue(true);
     useGateway.mockReturnValue(mockUseGateway());
   });
 
-  it('renders thumbgate leash header and connection block', () => {
+  it('renders thumbgate leash header and connection block for Pro users', () => {
     const { getByTestId, getByText } = renderInTabNavigator(ApprovalsScreen, 'Leash');
     expect(getByTestId('THUMBGATE_LEASH')).toBeTruthy();
-    expect(getByText('Approve blocked agent tools from your phone')).toBeTruthy();
+    expect(getByTestId('leash-title-dev-unlock')).toBeTruthy();
+    expect(getByText('Pro approval queue for blocked agent tools')).toBeTruthy();
+    expect(getByText('THUMBGATE LEASH')).toBeTruthy();
   });
 
-  it('shows paywall when ThumbGate Leash is not unlocked', () => {
+  it('shows free-tier education and upgrade CTA without Pro', () => {
     useGateway.mockReturnValue(
       mockUseGateway({
-        settings: { ...mockGatewaySettings, thumbgateProActive: false },
+        settings: { ...mockGatewaySettings, thumbgateProActive: false, developerLeashUnlock: false },
       }),
     );
-    const { getByText } = renderInTabNavigator(ApprovalsScreen, 'Leash');
-    expect(getByText('ThumbGate Leash is a Pro feature')).toBeTruthy();
+    const { getByTestId, getByText, queryByTestId, queryByText } = renderInTabNavigator(
+      ApprovalsScreen,
+      'Leash',
+    );
+    expect(getByTestId('leash-free-tier-education')).toBeTruthy();
+    expect(getByTestId('leash-free-tier-upgrade')).toBeTruthy();
+    expect(getByText('What is ThumbGate Pro?')).toBeTruthy();
+    expect(getByText('What is ThumbGate Leash?')).toBeTruthy();
+    expect(getByText('Permissions and gate rules')).toBeTruthy();
+    expect(getByText('OpenClaw (coming soon)')).toBeTruthy();
+    expect(queryByTestId('no-pending-approvals')).toBeNull();
+    expect(queryByText('No pending approvals')).toBeNull();
+    expect(queryByTestId('leash-smoke-test')).toBeNull();
+    expect(queryByTestId('unlock-thumbgate-leash')).toBeNull();
   });
 
-  it('shows empty state when no pending approvals', () => {
+  it('shows empty state when Pro user has no pending approvals', () => {
     const { getByText } = renderInTabNavigator(ApprovalsScreen, 'Leash');
     expect(getByText('No pending approvals')).toBeTruthy();
   });
 
-  it('renders approval card and resolves via thumbs up', () => {
+  it('renders approval card and resolves via thumbs up for Pro users', () => {
     const submitApprovalChoice = jest.fn();
     useGateway.mockReturnValue(
       mockUseGateway({
@@ -66,19 +99,70 @@ describe('ApprovalsScreen', () => {
     );
   });
 
-  it('injects smoke approval for Leash E2E', () => {
+  it('injects smoke approval when QA build context allows smoke UI', () => {
+    isLeashSmokeTestUiAllowed.mockReturnValue(true);
     const injectSmokeApproval = jest.fn();
-    useGateway.mockReturnValue(mockUseGateway({ injectSmokeApproval }));
+    useGateway.mockReturnValue(
+      mockUseGateway({
+        injectSmokeApproval,
+        settings: { ...mockGatewaySettings, developerLeashUnlock: true },
+      }),
+    );
 
     const { getByTestId } = renderInTabNavigator(ApprovalsScreen, 'Leash');
     fireEvent.press(getByTestId('leash-smoke-test'));
     expect(injectSmokeApproval).toHaveBeenCalledTimes(1);
   });
 
-  it('shows leash memory and display toggles when unlocked', () => {
+  it('never renders smoke-test controls on release builds even when Pro is unlocked', () => {
+    isLeashSmokeTestUiAllowed.mockReturnValue(false);
+    useGateway.mockReturnValue(
+      mockUseGateway({
+        settings: { ...mockGatewaySettings, developerLeashUnlock: true, thumbgateProActive: true },
+      }),
+    );
+
+    const { queryByText, queryByTestId, getByText } = renderInTabNavigator(ApprovalsScreen, 'Leash');
+    expect(queryByTestId('leash-smoke-test')).toBeNull();
+    expect(queryByText(/smoke test/i)).toBeNull();
+    expect(getByText('Thumbs down → remember block')).toBeTruthy();
+  });
+
+  it('shows leash memory and display toggles when Pro is enabled', () => {
     const { getByText } = renderInTabNavigator(ApprovalsScreen, 'Leash');
     expect(getByText('Thumbs down → remember block')).toBeTruthy();
     expect(getByText('Glanceable approvals')).toBeTruthy();
+  });
+
+  it('long-presses title to trigger developer Leash unlock when allowed', () => {
+    const activateDeveloperLeashUnlock = jest.fn().mockResolvedValue(undefined);
+    useGateway.mockReturnValue(
+      mockUseGateway({
+        settings: { ...mockGatewaySettings, thumbgateProActive: false },
+        activateDeveloperLeashUnlock,
+      }),
+    );
+
+    const { getByTestId } = renderInTabNavigator(ApprovalsScreen, 'Leash');
+    fireEvent(getByTestId('leash-title-dev-unlock'), 'longPress');
+    expect(activateDeveloperLeashUnlock).toHaveBeenCalledTimes(1);
+  });
+
+  it('long-presses title to unlock Pro on release builds when deep-link backdoor is disallowed', () => {
+    canUseDeveloperLeashBackdoor.mockReturnValue(false);
+    const activateDeveloperLeashUnlock = jest.fn().mockResolvedValue(undefined);
+    useGateway.mockReturnValue(
+      mockUseGateway({
+        settings: { ...mockGatewaySettings, thumbgateProActive: false, developerLeashUnlock: false },
+        activateDeveloperLeashUnlock,
+      }),
+    );
+
+    const { getByTestId, getByText } = renderInTabNavigator(ApprovalsScreen, 'Leash');
+    expect(getByTestId('leash-free-tier-education')).toBeTruthy();
+    fireEvent(getByTestId('leash-title-dev-unlock'), 'longPress');
+    expect(activateDeveloperLeashUnlock).toHaveBeenCalledTimes(1);
+    expect(getByText('THUMBGATE LEASH')).toBeTruthy();
   });
 
   it('refreshes from header button, bottom button, and pull-to-refresh', async () => {

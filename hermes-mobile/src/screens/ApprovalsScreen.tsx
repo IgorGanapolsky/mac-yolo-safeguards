@@ -7,9 +7,9 @@ import {
   Text,
   RefreshControl,
   Alert,
-  Platform,
   ActivityIndicator,
   Switch,
+  Pressable,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
@@ -17,19 +17,26 @@ import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import GateApprovalCard from '../components/GateApprovalCard';
 import GlassCard from '../components/GlassCard';
 import HealthPill from '../components/HealthPill';
-import ProUpgradeCard from '../components/ProUpgradeCard';
-import { isDeveloperLeashUnlockAllowed } from '../utils/demoModePolicy';
-import { THUMBGATE_PRO_PRICE_LABEL } from '../constants/monetization';
+import LeashProUpsellBanner from '../components/LeashProUpsellBanner';
 import { colors } from '../theme/colors';
 import { useGateway } from '../context/GatewayContext';
 import {
   formatLeashConnectionDisplay,
   formatListeningOnGatewayLine,
 } from '../utils/gatewayEndpoint';
-import { buildLeashEmptyExplanation } from '../utils/leashUx';
-import { isThumbgateLeashUnlocked } from '../utils/thumbgateLeash';
+import {
+  buildLeashEmptyExplanation,
+  getLeashFreeTierEducationSections,
+} from '../utils/leashUx';
 import { CHAT_APPROVAL_EDIT_PREFIX } from '../services/approvalResolver';
 import { fromPendingApproval } from '../utils/approvalNormalize';
+import { THUMBGATE_LEASH_PRODUCT_NAME, THUMBGATE_PRO_SCREEN_TITLE } from '../constants/monetization';
+import {
+  canUseDeveloperLeashBackdoor,
+  LEASH_TITLE_DEV_UNLOCK_LONG_PRESS_MS,
+} from '../utils/developerLeashUnlock';
+import { isLeashProEnabled } from '../utils/leashPro';
+import { isLeashSmokeTestUiAllowed } from '../utils/demoModePolicy';
 
 type RootTabParamList = {
   Leash: undefined;
@@ -58,19 +65,15 @@ export default function ApprovalsScreen() {
     setApprovalEditSeed,
     patchSettings,
     injectSmokeApproval,
+    activateDeveloperLeashUnlock,
   } = useGateway();
 
-  const leashUnlocked = isThumbgateLeashUnlocked(settings);
-  const showTesterUnlock = isDeveloperLeashUnlockAllowed();
-
-  const unlockThumbgateLeash = React.useCallback(async () => {
-    await patchSettings({ thumbgateProActive: true, developerLeashUnlock: true });
-  }, [patchSettings]);
-
   const [refreshing, setRefreshing] = React.useState(false);
+  const leashProEnabled = isLeashProEnabled(settings);
+  const educationSections = React.useMemo(() => getLeashFreeTierEducationSections(), []);
 
   const onRefresh = React.useCallback(async () => {
-    if (!leashUnlocked || refreshing) {
+    if (refreshing) {
       return;
     }
     setRefreshing(true);
@@ -83,16 +86,52 @@ export default function ApprovalsScreen() {
     } finally {
       setRefreshing(false);
     }
-  }, [autoConnectGateway, connectEvents, leashUnlocked, refreshHealth, refreshing]);
+  }, [autoConnectGateway, connectEvents, refreshHealth, refreshing]);
 
   useFocusEffect(
     React.useCallback(() => {
-      if (!leashUnlocked || connectionState === 'connected' || connectionState === 'demo') {
+      if (connectionState === 'connected' || connectionState === 'demo') {
         return;
       }
       void onRefresh();
-    }, [connectionState, leashUnlocked, onRefresh]),
+  }, [connectionState, onRefresh]),
   );
+
+  const devUnlockTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const handleTitleDevUnlock = React.useCallback(() => {
+    if (devUnlockTimerRef.current) {
+      clearTimeout(devUnlockTimerRef.current);
+      devUnlockTimerRef.current = null;
+    }
+    void activateDeveloperLeashUnlock().then(() => {
+      Alert.alert('Developer Pro unlock enabled');
+    });
+  }, [activateDeveloperLeashUnlock]);
+
+  const handlePressIn = React.useCallback(() => {
+    if (devUnlockTimerRef.current) {
+      clearTimeout(devUnlockTimerRef.current);
+    }
+    devUnlockTimerRef.current = setTimeout(() => {
+      handleTitleDevUnlock();
+    }, LEASH_TITLE_DEV_UNLOCK_LONG_PRESS_MS);
+  }, [handleTitleDevUnlock]);
+
+  const handlePressOut = React.useCallback(() => {
+    if (devUnlockTimerRef.current) {
+      clearTimeout(devUnlockTimerRef.current);
+      devUnlockTimerRef.current = null;
+    }
+  }, []);
+
+  React.useEffect(() => {
+    return () => {
+      if (devUnlockTimerRef.current) {
+        clearTimeout(devUnlockTimerRef.current);
+      }
+    };
+  }, []);
 
   const glance = !presentation.visualsOn;
   const stackApproval = glance ? pendingApprovals[0] : undefined;
@@ -136,61 +175,73 @@ export default function ApprovalsScreen() {
     navigation.navigate('Chat');
   };
 
+  const unlockLeashPro = React.useCallback(async () => {
+    await patchSettings({ thumbgateProActive: true });
+  }, [patchSettings]);
+
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
       <View style={styles.header}>
-        <View testID="THUMBGATE_LEASH" accessible={true} collapsable={false}>
-          <Text style={styles.title}>THUMBGATE LEASH</Text>
-        </View>
+        <Pressable
+          testID="leash-title-dev-unlock"
+          accessible={true}
+          collapsable={false}
+          onPressIn={handlePressIn}
+          onPressOut={handlePressOut}
+          delayLongPress={LEASH_TITLE_DEV_UNLOCK_LONG_PRESS_MS}
+          onLongPress={handleTitleDevUnlock}
+        >
+          <View testID="THUMBGATE_LEASH" accessible={false} collapsable={false}>
+            <Text style={styles.title}>{THUMBGATE_LEASH_PRODUCT_NAME.toUpperCase()}</Text>
+          </View>
+        </Pressable>
         <Text style={styles.subtitle}>
-          {leashUnlocked
+          {leashProEnabled
             ? settings.safetyMode || settings.glanceMode
-              ? 'Approval-first Leash — approve blocked agent tools'
-              : 'Approve blocked agent tools from your phone'
-            : `Paid add-on (${THUMBGATE_PRO_PRICE_LABEL}) via ${Platform.OS === 'ios' ? 'App Store' : 'Google Play'}`}
+              ? 'Approval-first — blocked agent tools land here'
+              : 'Pro approval queue for blocked agent tools'
+            : `${THUMBGATE_LEASH_PRODUCT_NAME} is included in Pro — permissions, gate rules, OpenClaw, and ThumbGate memory`}
         </Text>
-        {leashUnlocked ? (
-          <>
-            <View style={styles.pillRow}>
-              <HealthPill level={healthLevel} detail={gatewayHealthDetail} />
-              <TouchableOpacity
-                style={[styles.headerRefreshBtn, refreshing && styles.headerRefreshBtnDisabled]}
-                onPress={() => void onRefresh()}
-                disabled={refreshing}
-                testID="leash-header-refresh"
-                accessibilityRole="button"
-                accessibilityLabel="Refresh connection status"
-              >
-                {refreshing ? (
-                  <ActivityIndicator size="small" color={colors.secondary} />
-                ) : (
-                  <Text style={styles.headerRefreshText}>↻ Refresh</Text>
-                )}
-              </TouchableOpacity>
-            </View>
-            <View style={styles.connectionBlock} testID="leash-connection-status">
-              <Text style={styles.connectionHeadline}>{connectionDisplay.headline}</Text>
-              {connectionDisplay.machineName ? (
-                <Text style={styles.connectionDetail}>
-                  Machine: <Text style={styles.connectionValue}>{connectionDisplay.machineName}</Text>
-                </Text>
-              ) : null}
-              {connectionDisplay.lanIp ? (
-                <Text style={styles.connectionDetail}>
-                  IP: <Text style={styles.connectionValue}>{connectionDisplay.lanIp}</Text>
-                </Text>
-              ) : null}
-              {connectionDisplay.footnote ? (
-                <Text style={styles.connectionFootnote}>{connectionDisplay.footnote}</Text>
-              ) : null}
-            </View>
-            {sessionGreeting ? (
-              <Text style={styles.greeting} accessibilityRole="text">
-                {sessionGreeting}
+        <>
+          <View style={styles.pillRow}>
+            <HealthPill level={healthLevel} detail={gatewayHealthDetail} />
+            <TouchableOpacity
+              style={[styles.headerRefreshBtn, refreshing && styles.headerRefreshBtnDisabled]}
+              onPress={() => void onRefresh()}
+              disabled={refreshing}
+              testID="leash-header-refresh"
+              accessibilityRole="button"
+              accessibilityLabel="Refresh connection status"
+            >
+              {refreshing ? (
+                <ActivityIndicator size="small" color={colors.secondary} />
+              ) : (
+                <Text style={styles.headerRefreshText}>↻ Refresh</Text>
+              )}
+            </TouchableOpacity>
+          </View>
+          <View style={styles.connectionBlock} testID="leash-connection-status">
+            <Text style={styles.connectionHeadline}>{connectionDisplay.headline}</Text>
+            {connectionDisplay.machineName ? (
+              <Text style={styles.connectionDetail}>
+                Machine: <Text style={styles.connectionValue}>{connectionDisplay.machineName}</Text>
               </Text>
             ) : null}
-          </>
-        ) : null}
+            {connectionDisplay.lanIp ? (
+              <Text style={styles.connectionDetail}>
+                IP: <Text style={styles.connectionValue}>{connectionDisplay.lanIp}</Text>
+              </Text>
+            ) : null}
+            {connectionDisplay.footnote ? (
+              <Text style={styles.connectionFootnote}>{connectionDisplay.footnote}</Text>
+            ) : null}
+          </View>
+          {sessionGreeting ? (
+            <Text style={styles.greeting} accessibilityRole="text">
+              {sessionGreeting}
+            </Text>
+          ) : null}
+        </>
       </View>
 
       <ScrollView
@@ -200,209 +251,218 @@ export default function ApprovalsScreen() {
         overScrollMode="always"
         keyboardShouldPersistTaps="handled"
         refreshControl={
-          leashUnlocked ? (
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={onRefresh}
-              tintColor={colors.primary}
-              colors={[colors.primary]}
-            />
-          ) : undefined
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={colors.primary}
+            colors={[colors.primary]}
+          />
         }
       >
-        {leashUnlocked ? (
-          <View testID="leash-pull-hint" accessible={true}>
-            <Text style={styles.pullHint}>
-              Tap Refresh above to recheck Hermes Relay or the selected direct machine.
-            </Text>
-          </View>
-        ) : null}
-        {!leashUnlocked ? (
-          <GlassCard style={styles.emptyCard}>
-            <Text style={styles.emptyTitle}>ThumbGate Leash is a Pro feature</Text>
-            <Text style={styles.emptyBody}>
-              When your coding agent hits a risky command on your computer, the approval card appears
-              here so you can approve or reject from your phone — with ThumbGate memory gates behind
-              every decision.
-            </Text>
-            <ProUpgradeCard
-              onUnlocked={unlockThumbgateLeash}
-              onTesterUnlock={showTesterUnlock ? unlockThumbgateLeash : undefined}
-            />
-          </GlassCard>
-        ) : pendingApprovals.length === 0 ? (
-          <GlassCard style={styles.emptyCard}>
-            <View testID="no-pending-approvals" accessible={true} collapsable={false}>
-              <Text style={styles.emptyTitle}>No pending approvals</Text>
-            </View>
-            <Text style={styles.emptyBody}>
-              When your coding agent tries a risky tool (rm, git push --force, etc.) or asks
-              “confirm you want to proceed” in chat, the approval card appears here — approve,
-              deny, or thumbs up/down with ThumbGate memory.
-            </Text>
-            <Text style={styles.hintMuted}>{buildLeashEmptyExplanation(settings)}</Text>
-            {settings.connectionMode === 'relay' && !isPaired ? (
-              <Text style={styles.hintMuted}>
-                Relay mode — pair in Settings with your Hermes desktop bridge.
-              </Text>
-            ) : settings.connectionMode === 'relay' && connectionState === 'connected' ? (
-              <Text style={styles.hintMuted}>
-                {formatListeningOnGatewayLine(
-                  effectiveGatewayUrl,
-                  health,
-                  '— waiting for blocked commands.',
-                )}
-              </Text>
-            ) : settings.connectionMode === 'gateway' ? (
-              <Text style={styles.hintMuted}>
-                Local fallback: run node tools/hermes-mobile-pair.js on a machine, then Settings → Scan pairing QR.
-              </Text>
-            ) : null}
-
-          </GlassCard>
-        ) : glance && stackApproval ? (
+        {!leashProEnabled ? (
           <>
-            <GateApprovalCard
-              key={stackApproval.actionId}
-              approval={stackApproval}
-              glance
-              approvalPolicy={settings.approvalPolicy}
-              thumbgateCaptureOnDown={settings.thumbgateCaptureOnDown}
-              thumbgateCaptureOnUp={settings.thumbgateCaptureOnUp}
-              onApprove={() => resolveApproval(stackApproval.actionId, 'approve', stackApproval)}
-              onReject={() => resolveApproval(stackApproval.actionId, 'reject', stackApproval)}
-              onChoice={(choice) =>
-                submitApprovalChoice(stackApproval.actionId, choice, stackApproval)
-              }
-              onEdit={() => handleApprovalEdit(stackApproval)}
-            />
-            {stackedCount > 1 ? (
-              <Text style={styles.stackHint}>
-                {stackedCount - 1} more approval{stackedCount > 2 ? 's' : ''} queued — resolve top item first
+            <GlassCard style={styles.educationCard} testID="leash-free-tier-education">
+              <Text style={styles.educationIntro}>
+                {THUMBGATE_LEASH_PRODUCT_NAME} is the paid safety layer inside {THUMBGATE_PRO_SCREEN_TITLE} — not required to chat.
+                Hermes stays free on the Hermes tab; this Pro tab explains permission review, standing gate rules,
+                OpenClaw, and ThumbGate memory before you subscribe.
               </Text>
-            ) : null}
+              {educationSections.map((section) => (
+                <View key={section.title} style={styles.educationSection}>
+                  <Text style={styles.educationTitle}>{section.title}</Text>
+                  <Text style={styles.educationBody}>{section.body}</Text>
+                </View>
+              ))}
+            </GlassCard>
+            <GlassCard style={styles.upgradeCard} testID="leash-free-tier-upgrade">
+              <LeashProUpsellBanner
+                onUnlocked={unlockLeashPro}
+              />
+            </GlassCard>
           </>
         ) : (
-          pendingApprovals.map((approval) => (
-            <GateApprovalCard
-              key={approval.actionId}
-              approval={approval}
-              approvalPolicy={settings.approvalPolicy}
-              thumbgateCaptureOnDown={settings.thumbgateCaptureOnDown}
-              thumbgateCaptureOnUp={settings.thumbgateCaptureOnUp}
-              onApprove={() => resolveApproval(approval.actionId, 'approve', approval)}
-              onReject={() => resolveApproval(approval.actionId, 'reject', approval)}
-              onChoice={(choice) => submitApprovalChoice(approval.actionId, choice, approval)}
-              onEdit={() => handleApprovalEdit(approval)}
-            />
-          ))
+          <>
+            <View testID="leash-pull-hint" accessible={true}>
+              <Text style={styles.pullHint}>
+                Tap Refresh above to recheck Hermes Relay or the selected direct machine.
+              </Text>
+            </View>
+            {pendingApprovals.length === 0 ? (
+              <GlassCard style={styles.emptyCard}>
+                <View testID="no-pending-approvals" accessible={true} collapsable={false}>
+                  <Text style={styles.emptyTitle}>No pending approvals</Text>
+                </View>
+                <Text style={styles.emptyBody}>
+                  When your coding agent tries a risky tool (rm, git push --force, etc.) or asks
+                  “confirm you want to proceed” in chat, the approval card appears here — approve,
+                  deny, or thumbs up/down with ThumbGate memory.
+                </Text>
+                <Text style={styles.hintMuted}>{buildLeashEmptyExplanation(settings)}</Text>
+                {settings.connectionMode === 'relay' && !isPaired ? (
+                  <Text style={styles.hintMuted}>
+                    Relay mode — pair in Settings with your Hermes desktop bridge.
+                  </Text>
+                ) : settings.connectionMode === 'relay' && connectionState === 'connected' ? (
+                  <Text style={styles.hintMuted}>
+                    {formatListeningOnGatewayLine(
+                      effectiveGatewayUrl,
+                      health,
+                      '— waiting for blocked commands.',
+                    )}
+                  </Text>
+                ) : settings.connectionMode === 'gateway' ? (
+                  <Text style={styles.hintMuted}>
+                    Direct computer link — use Chat or Settings to find your Mac and keep the Pro queue ready.
+                  </Text>
+                ) : null}
+              </GlassCard>
+            ) : glance && stackApproval ? (
+              <>
+                <GateApprovalCard
+                  key={stackApproval.actionId}
+                  approval={stackApproval}
+                  glance
+                  approvalPolicy={settings.approvalPolicy}
+                  thumbgateCaptureOnDown={settings.thumbgateCaptureOnDown}
+                  thumbgateCaptureOnUp={settings.thumbgateCaptureOnUp}
+                  onApprove={() => resolveApproval(stackApproval.actionId, 'approve', stackApproval)}
+                  onReject={() => resolveApproval(stackApproval.actionId, 'reject', stackApproval)}
+                  onChoice={(choice) =>
+                    submitApprovalChoice(stackApproval.actionId, choice, stackApproval)
+                  }
+                  onEdit={() => handleApprovalEdit(stackApproval)}
+                />
+                {stackedCount > 1 ? (
+                  <Text style={styles.stackHint}>
+                    {stackedCount - 1} more approval{stackedCount > 2 ? 's' : ''} queued — resolve top item first
+                  </Text>
+                ) : null}
+              </>
+            ) : (
+              pendingApprovals.map((approval) => (
+                <GateApprovalCard
+                  key={approval.actionId}
+                  approval={approval}
+                  approvalPolicy={settings.approvalPolicy}
+                  thumbgateCaptureOnDown={settings.thumbgateCaptureOnDown}
+                  thumbgateCaptureOnUp={settings.thumbgateCaptureOnUp}
+                  onApprove={() => resolveApproval(approval.actionId, 'approve', approval)}
+                  onReject={() => resolveApproval(approval.actionId, 'reject', approval)}
+                  onChoice={(choice) => submitApprovalChoice(approval.actionId, choice, approval)}
+                  onEdit={() => handleApprovalEdit(approval)}
+                />
+              ))
+            )}
+
+            {recentReclaims.length > 0 && !glance ? (
+              <GlassCard style={styles.reclaimCard}>
+                <Text style={styles.sectionTitle}>Recent YOLO reclaims</Text>
+                {recentReclaims.slice(0, 5).map((item, index) => (
+                  <Text key={`${item.target}-${index}`} style={styles.reclaimLine}>
+                    • {item.target}
+                    {item.rssReclaimedMb ? ` (~${item.rssReclaimedMb}MB)` : ''}
+                    {item.triggerCondition ? ` — ${item.triggerCondition}` : ''}
+                  </Text>
+                ))}
+              </GlassCard>
+            ) : null}
+
+            <GlassCard style={styles.leashSettingsCard} testID="pro-options-card">
+              <Text style={styles.sectionTitle}>Pro options</Text>
+              {settings.developerLeashUnlock && isLeashSmokeTestUiAllowed() ? (
+                <>
+                  <TouchableOpacity
+                    style={styles.secondaryButton}
+                    onPress={() => {
+                      injectSmokeApproval();
+                    }}
+                    testID="leash-smoke-test"
+                  >
+                    <Text style={styles.secondaryButtonText}>Preview approval card (smoke test)</Text>
+                  </TouchableOpacity>
+                  <Text style={styles.hintMuted}>
+                    Injects a fake blocked-command card here. Does not touch your relay or computer.
+                  </Text>
+                </>
+              ) : null}
+              <View style={styles.switchRow}>
+                <View style={styles.switchLabelCol}>
+                  <Text style={styles.switchLabel}>Thumbs down → remember block</Text>
+                  <Text style={styles.switchDesc}>Capture to ThumbGate when you reject a tool</Text>
+                </View>
+                <Switch
+                  value={settings.thumbgateCaptureOnDown}
+                  onValueChange={(val) => {
+                    void patchSettings({ thumbgateCaptureOnDown: val });
+                  }}
+                  trackColor={{ false: '#1F2937', true: colors.primary }}
+                  thumbColor={settings.thumbgateCaptureOnDown ? '#ffffff' : '#9CA3AF'}
+                />
+              </View>
+              <View style={styles.switchRow}>
+                <View style={styles.switchLabelCol}>
+                  <Text style={styles.switchLabel}>Thumbs up → record approval</Text>
+                  <Text style={styles.switchDesc}>Optional positive signal when you allow a tool</Text>
+                </View>
+                <Switch
+                  value={settings.thumbgateCaptureOnUp}
+                  onValueChange={(val) => {
+                    void patchSettings({ thumbgateCaptureOnUp: val });
+                  }}
+                  trackColor={{ false: '#1F2937', true: colors.primary }}
+                  thumbColor={settings.thumbgateCaptureOnUp ? '#ffffff' : '#9CA3AF'}
+                />
+              </View>
+              <View style={styles.switchRow}>
+                <View style={styles.switchLabelCol}>
+                  <Text style={styles.switchLabel}>Open Pro tab first on launch</Text>
+                  <Text style={styles.switchDesc}>Jump to Pro when approval-first mode is enabled</Text>
+                </View>
+                <Switch
+                  value={settings.safetyMode}
+                  onValueChange={(val) => {
+                    void patchSettings({ safetyMode: val });
+                  }}
+                  testID="safety-mode-switch"
+                  trackColor={{ false: '#1F2937', true: colors.primary }}
+                  thumbColor={settings.safetyMode ? '#ffffff' : '#9CA3AF'}
+                />
+              </View>
+              <View style={styles.switchRow}>
+                <View style={styles.switchLabelCol}>
+                  <Text style={styles.switchLabel}>Glanceable approvals</Text>
+                  <Text style={styles.switchDesc}>
+                    Simplified approval cards (not push notifications). Stack UI, larger targets, spoken status on connect.
+                  </Text>
+                </View>
+                <Switch
+                  value={settings.glanceMode}
+                  onValueChange={(val) => {
+                    void patchSettings({ glanceMode: val });
+                  }}
+                  testID="glance-mode-switch"
+                  trackColor={{ false: '#1F2937', true: colors.primary }}
+                  thumbColor={settings.glanceMode ? '#ffffff' : '#9CA3AF'}
+                />
+              </View>
+            </GlassCard>
+          </>
         )}
 
-        {leashUnlocked && recentReclaims.length > 0 && !glance ? (
-          <GlassCard style={styles.reclaimCard}>
-            <Text style={styles.sectionTitle}>Recent YOLO reclaims</Text>
-            {recentReclaims.slice(0, 5).map((item, index) => (
-              <Text key={`${item.target}-${index}`} style={styles.reclaimLine}>
-                • {item.target}
-                {item.rssReclaimedMb ? ` (~${item.rssReclaimedMb}MB)` : ''}
-                {item.triggerCondition ? ` — ${item.triggerCondition}` : ''}
-              </Text>
-            ))}
-          </GlassCard>
-        ) : null}
+        {lastEventError ? <Text style={styles.errorText}>{lastEventError}</Text> : null}
 
-        {leashUnlocked ? (
-          <GlassCard style={styles.leashSettingsCard}>
-            <Text style={styles.sectionTitle}>Leash options</Text>
-            <TouchableOpacity
-              style={styles.secondaryButton}
-              onPress={() => {
-                injectSmokeApproval();
-              }}
-              testID="leash-smoke-test"
-            >
-              <Text style={styles.secondaryButtonText}>Preview approval card (smoke test)</Text>
-            </TouchableOpacity>
-            <Text style={styles.hintMuted}>
-              Injects a fake blocked-command card here. Does not touch your relay or computer.
-            </Text>
-            <View style={styles.switchRow}>
-              <View style={styles.switchLabelCol}>
-                <Text style={styles.switchLabel}>Thumbs down → remember block</Text>
-                <Text style={styles.switchDesc}>Capture to ThumbGate when you reject a tool</Text>
-              </View>
-              <Switch
-                value={settings.thumbgateCaptureOnDown}
-                onValueChange={(val) => {
-                  void patchSettings({ thumbgateCaptureOnDown: val });
-                }}
-                trackColor={{ false: '#1F2937', true: colors.primary }}
-                thumbColor={settings.thumbgateCaptureOnDown ? '#ffffff' : '#9CA3AF'}
-              />
-            </View>
-            <View style={styles.switchRow}>
-              <View style={styles.switchLabelCol}>
-                <Text style={styles.switchLabel}>Thumbs up → record approval</Text>
-                <Text style={styles.switchDesc}>Optional positive signal when you allow a tool</Text>
-              </View>
-              <Switch
-                value={settings.thumbgateCaptureOnUp}
-                onValueChange={(val) => {
-                  void patchSettings({ thumbgateCaptureOnUp: val });
-                }}
-                trackColor={{ false: '#1F2937', true: colors.primary }}
-                thumbColor={settings.thumbgateCaptureOnUp ? '#ffffff' : '#9CA3AF'}
-              />
-            </View>
-            <View style={styles.switchRow}>
-              <View style={styles.switchLabelCol}>
-                <Text style={styles.switchLabel}>Prioritize Leash on launch</Text>
-                <Text style={styles.switchDesc}>Open Leash first when approval-first mode is enabled</Text>
-              </View>
-              <Switch
-                value={settings.safetyMode}
-                onValueChange={(val) => {
-                  void patchSettings({ safetyMode: val });
-                }}
-                testID="safety-mode-switch"
-                trackColor={{ false: '#1F2937', true: colors.primary }}
-                thumbColor={settings.safetyMode ? '#ffffff' : '#9CA3AF'}
-              />
-            </View>
-            <View style={styles.switchRow}>
-              <View style={styles.switchLabelCol}>
-                <Text style={styles.switchLabel}>Glanceable approvals</Text>
-                <Text style={styles.switchDesc}>Stack UI, larger targets, spoken status on connect</Text>
-              </View>
-              <Switch
-                value={settings.glanceMode}
-                onValueChange={(val) => {
-                  void patchSettings({ glanceMode: val });
-                }}
-                testID="glance-mode-switch"
-                trackColor={{ false: '#1F2937', true: colors.primary }}
-                thumbColor={settings.glanceMode ? '#ffffff' : '#9CA3AF'}
-              />
-            </View>
-          </GlassCard>
-        ) : null}
-
-        {leashUnlocked && lastEventError ? <Text style={styles.errorText}>{lastEventError}</Text> : null}
-
-        {leashUnlocked ? (
-          <TouchableOpacity
-            style={[styles.refreshButton, refreshing && styles.refreshButtonDisabled]}
-            onPress={onRefresh}
-            disabled={refreshing}
-            accessibilityRole="button"
-            accessibilityLabel="Refresh Leash connection status"
-            testID="leash-refresh-status"
-          >
-            <Text style={styles.refreshButtonText}>
-              {refreshing ? 'Refreshing connection…' : 'Tap to refresh connection'}
-            </Text>
-          </TouchableOpacity>
-        ) : null}
+        <TouchableOpacity
+          style={[styles.refreshButton, refreshing && styles.refreshButtonDisabled]}
+          onPress={onRefresh}
+          disabled={refreshing}
+          accessibilityRole="button"
+          accessibilityLabel="Refresh Pro tab connection status"
+          testID="leash-refresh-status"
+        >
+          <Text style={styles.refreshButtonText}>
+            {refreshing ? 'Refreshing connection…' : 'Tap to refresh connection'}
+          </Text>
+        </TouchableOpacity>
       </ScrollView>
     </SafeAreaView>
   );
@@ -505,6 +565,33 @@ const styles = StyleSheet.create({
     lineHeight: 15,
     color: colors.textMuted,
     textAlign: 'center',
+  },
+  educationCard: {
+    marginHorizontal: 16,
+  },
+  educationIntro: {
+    fontSize: 13,
+    lineHeight: 19,
+    color: colors.textSecondary,
+    marginBottom: 12,
+  },
+  educationSection: {
+    marginTop: 12,
+  },
+  educationTitle: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: colors.text,
+    marginBottom: 4,
+  },
+  educationBody: {
+    fontSize: 12,
+    lineHeight: 18,
+    color: colors.textMuted,
+  },
+  upgradeCard: {
+    marginHorizontal: 16,
+    marginTop: 12,
   },
   emptyCard: {
     marginHorizontal: 16,
