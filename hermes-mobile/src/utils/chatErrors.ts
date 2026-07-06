@@ -30,6 +30,10 @@ export function isConnectivityMessage(message: string): boolean {
     normalized.includes("can't reach your computer") ||
     normalized.includes("can't reach that local computer link") ||
     normalized.includes("can't reach direct link") ||
+    normalized.includes('chat needs your computer link') ||
+    normalized.includes('your computer is reachable') ||
+    normalized.includes('computer link automatically') ||
+    normalized.includes('direct computer link') ||
     normalized.includes('hermes relay is not connected yet') ||
     normalized.includes('hermes relay is not paired yet') ||
     normalized.includes('failed to connect to your computer') ||
@@ -65,7 +69,7 @@ export function humanizeChatError(
   const message = error.message;
   const lower = message.toLowerCase();
 
-  if (lower.includes('already in use')) {
+  if (lower.includes('already in use') && !lower.includes('title')) {
     return {
       kind: 'operational',
       message:
@@ -91,9 +95,15 @@ export function humanizeChatError(
             message: 'That chat was removed or your computer restarted. Pick another session or start a new one.',
           };
         }
+        if (code === 'invalid_title') {
+          return {
+            kind: 'operational',
+            message: 'A chat with this title already exists. Please choose a different title.',
+          };
+        }
         if (
           code === 'session_in_use' ||
-          (typeof msg === 'string' && msg.toLowerCase().includes('already in use'))
+          (typeof msg === 'string' && msg.toLowerCase().includes('already in use') && !msg.toLowerCase().includes('title'))
         ) {
           return {
             kind: 'operational',
@@ -128,9 +138,9 @@ export function humanizeChatError(
 export function friendlyMacUnreachableMessage(gatewayUrl?: string): string {
   const url = gatewayUrl?.trim();
   if (url && isPrivateLanGatewayUrl(url)) {
-    return "Your phone can't reach that local computer link. Join the same Wi‑Fi, add a tunnel URL in Settings, or use relay for approvals only.";
+    return "Your phone can't reach that local computer link. Use the same Home Wi‑Fi or add your Mac's Tailscale address in Settings.";
   }
-  return 'Hermes relay is not connected yet. Pair relay in Settings, or use a direct computer link as fallback.';
+  return 'Chat will reconnect to your computer automatically when the direct computer link is reachable. Use Find computers to refresh the link.';
 }
 
 /** Short copy for banners — full guidance lives in chatSendBlockedMessage. */
@@ -143,15 +153,20 @@ export function chatSendBlockedMessage(input: {
   connectionState: 'disconnected' | 'connecting' | 'connected' | 'demo';
   gatewayUrl?: string;
   healthProbePending?: boolean;
+  /** Gateway /health is green, but Chat cannot stream yet. */
+  macHttpOk?: boolean;
 }): string {
   if (input.healthProbePending) {
     return 'Still checking your computer link. Message kept locally.';
   }
+  if (input.macHttpOk) {
+    return 'Your computer is reachable. Chat is reconnecting and will send when the session is ready.';
+  }
   if (input.connectionMode === 'relay' && input.connectionState === 'connected') {
-    return 'Chat needs a direct link to your computer (same Wi‑Fi or tunnel URL). Relay handles approvals only for now.';
+    return 'Approvals are online. Chat needs your computer link (Home Wi‑Fi or Tailscale) before it can send.';
   }
   if (input.connectionMode === 'relay') {
-    return 'Hermes relay is not paired yet. Pair in Settings, or add a direct computer link for Chat.';
+    return "Chat needs your computer link. Use Find computers, Home Wi‑Fi, or your Mac's Tailscale address.";
   }
   return friendlyMacUnreachableMessage(input.gatewayUrl);
 }
@@ -162,9 +177,12 @@ export function isSessionInUseError(error: unknown): boolean {
   }
   const message = error.message;
   const lower = message.toLowerCase();
-  if (lower.includes('already in use') || lower.includes('session_in_use')) {
-    return true;
+
+  // Title conflicts are not session-in-use errors
+  if (lower.includes('title') && lower.includes('already in use')) {
+    return false;
   }
+
   if (message.trim().startsWith('{')) {
     try {
       const parsed = JSON.parse(message);
@@ -172,16 +190,26 @@ export function isSessionInUseError(error: unknown): boolean {
       if (errorObj && typeof errorObj === 'object') {
         const code = errorObj.code;
         const msg = errorObj.message;
+        if (code === 'invalid_title') {
+          return false;
+        }
         if (code === 'session_in_use') {
           return true;
         }
         if (typeof msg === 'string' && msg.toLowerCase().includes('already in use')) {
+          if (msg.toLowerCase().includes('title')) {
+            return false;
+          }
           return true;
         }
       }
     } catch {
       // not JSON
     }
+  }
+
+  if (lower.includes('already in use') || lower.includes('session_in_use')) {
+    return true;
   }
   return false;
 }

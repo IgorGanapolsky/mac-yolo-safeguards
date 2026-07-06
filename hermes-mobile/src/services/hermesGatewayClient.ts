@@ -8,6 +8,8 @@ import type {
   ChatStreamEvent,
 } from '../types/gatewayApi';
 import { extractAssistantFromRunCompletedPayload } from '../utils/streamAssistantText';
+import { createChatSendPerformanceTracker } from './chatSendPerformance';
+import type { GatewayContentPart } from '../utils/chatAttachments';
 
 export class HermesGatewayApiError extends Error {
   status: number;
@@ -564,22 +566,46 @@ async function readChatStreamFromResponse(
 export async function streamSessionChat(
   gatewayUrl: string,
   sessionId: string,
-  message: string,
+  message: string | GatewayContentPart[],
   apiKey?: string | null,
   onEvent?: (event: ChatStreamEvent) => void,
   systemMessage?: string,
   onStreamAccepted?: () => void,
 ): Promise<string> {
-  const body: Record<string, string> = { message };
+  const body: Record<string, any> = { message };
   if (systemMessage?.trim()) {
     body.system_message = systemMessage.trim();
   }
   const url = `${base(gatewayUrl)}/api/sessions/${encodeURIComponent(sessionId)}/chat/stream`;
   const headers = jsonHeaders(apiKey);
   const payload = JSON.stringify(body);
+  const nativeTransport = useNativeChatStreamTransport();
+  const performanceTracker = createChatSendPerformanceTracker({
+    transport: nativeTransport ? 'xhr-sse' : 'fetch-sse',
+    message,
+    hasSystemMessage: Boolean(systemMessage?.trim()),
+  });
+  const trackedOnEvent = performanceTracker.wrapEventHandler(onEvent);
+  const trackedStreamAccepted = () => {
+    performanceTracker.markAccepted();
+    onStreamAccepted?.();
+  };
 
-  if (useNativeChatStreamTransport()) {
-    return readChatStreamViaXhr(url, headers, payload, onEvent, onStreamAccepted);
+  if (nativeTransport) {
+    try {
+      const result = await readChatStreamViaXhr(
+        url,
+        headers,
+        payload,
+        trackedOnEvent,
+        trackedStreamAccepted,
+      );
+      void performanceTracker.trackSuccess();
+      return result;
+    } catch (error) {
+      void performanceTracker.trackFailure(error);
+      throw error;
+    }
   }
 
   const controller = new AbortController();
@@ -595,12 +621,17 @@ export async function streamSessionChat(
       const text = await response.text();
       throw new HermesGatewayApiError(response.status, text || `HTTP ${response.status}`);
     }
-    onStreamAccepted?.();
-    return await readChatStreamFromResponse(response, onEvent);
+    trackedStreamAccepted();
+    const result = await readChatStreamFromResponse(response, trackedOnEvent);
+    void performanceTracker.trackSuccess();
+    return result;
   } catch (error) {
     if (error instanceof Error && error.name === 'AbortError') {
-      throw new Error('Chat stream exceeded maximum wait time.');
+      const timeoutError = new Error('Chat stream exceeded maximum wait time.');
+      void performanceTracker.trackFailure(timeoutError);
+      throw timeoutError;
     }
+    void performanceTracker.trackFailure(error);
     throw error;
   } finally {
     clearTimeout(maxTimer);
@@ -642,4 +673,3 @@ export async function getObsidianAgents(
   const body = await parseJson<{ data?: ObsidianAgent[] }>(response);
   return body.data ?? [];
 }
-

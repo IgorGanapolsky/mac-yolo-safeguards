@@ -9,6 +9,7 @@ import {
 } from '../services/hermesNotifications';
 import * as Notifications from 'expo-notifications';
 import { AppState } from 'react-native';
+import { setChatScreenForegroundFocused } from '../services/runNotificationContext';
 
 describe('hermesNotifications', () => {
   it('parses approve_once notification actions', () => {
@@ -86,17 +87,23 @@ describe('hermesNotifications', () => {
 
   it('maps run progress phases to notification titles', () => {
     expect(
-      runProgressNotificationTitle({
-        phase: 'approval',
-        startedAtMs: Date.now(),
-      }),
-    ).toBe('Waiting for your approval');
+      runProgressNotificationTitle(
+        {
+          phase: 'approval',
+          startedAtMs: Date.now(),
+        },
+        { projectName: 'mac-yolo', promptSnippet: 'ship notifications' },
+      ),
+    ).toBe('mac-yolo · Needs approval');
     expect(
-      runProgressNotificationTitle({
-        phase: 'streaming',
-        startedAtMs: Date.now(),
-      }),
-    ).toBe('Hermes is responding');
+      runProgressNotificationTitle(
+        {
+          phase: 'streaming',
+          startedAtMs: Date.now(),
+        },
+        { promptSnippet: 'Write the summary' },
+      ),
+    ).toBe('Write the summary');
   });
 
   it('dismisses run notifications when the app is foregrounded', () => {
@@ -130,13 +137,36 @@ describe('hermesNotifications', () => {
       expect(Notifications.scheduleNotificationAsync).not.toHaveBeenCalled();
     });
 
-    it('does not schedule stall notification while app is active', async () => {
+    it('does not schedule run progress while Chat is foreground even if app state is background', async () => {
       Object.defineProperty(AppState, 'currentState', {
-        value: 'active',
+        value: 'background',
+        configurable: true,
+      });
+      setChatScreenForegroundFocused(true);
+
+      await scheduleRunProgressNotification(
+        { phase: 'working', startedAtMs: Date.now(), detail: 'running terminal' },
+        { runId: 'run-1', sessionId: 'sess-1', force: true },
+      );
+
+      expect(Notifications.scheduleNotificationAsync).not.toHaveBeenCalled();
+      setChatScreenForegroundFocused(false);
+    });
+
+    it('suppresses connectivity noise instead of posting a live-run notification', async () => {
+      Object.defineProperty(AppState, 'currentState', {
+        value: 'background',
         configurable: true,
       });
 
-      await scheduleRunStallNotification('run-1', 'sess-1');
+      await scheduleRunProgressNotification(
+        {
+          phase: 'failed',
+          startedAtMs: Date.now() - 120_000,
+          detail: 'Hermes relay is not paired yet. Pair in Settings, or add a direct computer link for Chat.',
+        },
+        { runId: 'run-1', sessionId: 'sess-1', force: true },
+      );
 
       expect(Notifications.scheduleNotificationAsync).not.toHaveBeenCalled();
     });

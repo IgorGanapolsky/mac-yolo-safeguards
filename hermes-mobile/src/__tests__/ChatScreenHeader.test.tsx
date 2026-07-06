@@ -196,4 +196,28 @@ describe('ChatScreenHeader', () => {
       }),
     );
   });
+
+  it('shows active project lane and handoff prominently in header', () => {
+    const { getByTestId } = render(
+      <ChatScreenHeader
+        threadTitle="Deploy fix"
+        machineLabel="Mac mini"
+        connectionState="connected"
+        macHttpReachable
+        workspaceName="mac-yolo-safeguards"
+        workspaceHandoff="Read plan.md before editing."
+        canSwitchWorkspace
+        onOpenThreads={jest.fn()}
+        onPressWorkspace={jest.fn()}
+        onPressMachine={jest.fn()}
+      />,
+    );
+
+    expect(getByTestId('chat-context-project').props.children.join('')).toContain(
+      'mac-yolo-safeguards',
+    );
+    expect(getByTestId('chat-header-handoff').props.children.join('')).toContain(
+      'Read plan.md before editing.',
+    );
+  });
 });

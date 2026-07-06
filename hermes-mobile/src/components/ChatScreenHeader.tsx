@@ -185,19 +185,35 @@ export default function ChatScreenHeader({
           disabled={!canSwitchWorkspace || !onPressWorkspace}
           style={({ pressed }) => [
             styles.workspaceRow,
+            workspaceName ? styles.workspaceRowActive : null,
             canSwitchWorkspace && pressed && styles.pressed,
           ]}
           testID="chat-header-project-picker"
+          accessibilityRole={canSwitchWorkspace ? 'button' : undefined}
+          accessibilityLabel={
+            workspaceName ? `Project ${workspaceName}` : 'Choose project'
+          }
         >
-          <Text style={styles.workspaceLabel} numberOfLines={1} testID="chat-context-project">
-            {workspaceName ?? 'Choose project'}
-            {canSwitchWorkspace ? ' ›' : ''}
-          </Text>
-          {workspaceHandoff ? (
-            <Text style={styles.workspaceHandoff} numberOfLines={1} testID="chat-header-handoff">
-              {workspaceHandoff}
+          <Text style={styles.workspaceIcon}>📁</Text>
+          <View style={styles.workspaceTextBlock}>
+            <Text
+              style={[styles.workspaceLabel, workspaceName ? styles.workspaceLabelActive : null]}
+              numberOfLines={1}
+              testID="chat-context-project"
+            >
+              {workspaceName ?? 'Choose project'}
+              {canSwitchWorkspace ? ' ▾' : ''}
             </Text>
-          ) : null}
+            {workspaceHandoff ? (
+              <Text style={styles.workspaceHandoff} numberOfLines={2} testID="chat-header-handoff">
+                ↪ {workspaceHandoff}
+              </Text>
+            ) : !workspaceName ? (
+              <Text style={styles.workspaceHint} numberOfLines={1}>
+                Pick where Hermes should work
+              </Text>
+            ) : null}
+          </View>
         </Pressable>
       ) : null}
 
@@ -354,19 +370,49 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   workspaceRow: {
-    paddingHorizontal: 4,
-    paddingVertical: 2,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 8,
+    borderRadius: 10,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.borderLight,
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+  },
+  workspaceRowActive: {
+    borderColor: 'rgba(99, 102, 241, 0.35)',
+    backgroundColor: 'rgba(99, 102, 241, 0.08)',
+  },
+  workspaceIcon: {
+    fontSize: 13,
+    width: 18,
+    marginTop: 1,
+  },
+  workspaceTextBlock: {
+    flex: 1,
+    minWidth: 0,
+    gap: 2,
   },
   workspaceLabel: {
     fontSize: 11,
-    fontWeight: '600',
+    fontWeight: '700',
+    color: colors.textMuted,
+  },
+  workspaceLabelActive: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: colors.accent,
+  },
+  workspaceHint: {
+    fontSize: 10,
+    lineHeight: 14,
     color: colors.textMuted,
   },
   workspaceHandoff: {
     fontSize: 10,
     lineHeight: 14,
-    color: colors.textMuted,
-    marginTop: 2,
+    color: colors.textSecondary,
   },
   agentsRow: {
     paddingHorizontal: 4,

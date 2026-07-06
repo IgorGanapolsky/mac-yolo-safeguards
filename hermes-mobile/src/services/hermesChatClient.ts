@@ -13,6 +13,7 @@ import {
   formatMessageForDisplay,
   normalizeChatMessage,
 } from '../utils/chatMessageDisplay';
+import type { GatewayContentPart } from '../utils/chatAttachments';
 
 export class HermesChatApiError extends Error {
   status: number;
@@ -178,11 +179,11 @@ export async function listMessages(
 export async function sendChatMessage(
   gatewayUrl: string,
   sessionId: string,
-  message: string,
+  message: string | GatewayContentPart[],
   apiKey?: string | null,
   systemMessage?: string,
 ): Promise<{ assistantText: string; raw: ChatTurnResponse }> {
-  const body: Record<string, string> = { message };
+  const body: Record<string, any> = { message };
   if (systemMessage?.trim()) {
     body.system_message = systemMessage.trim();
   }

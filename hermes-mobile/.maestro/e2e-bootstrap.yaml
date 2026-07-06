@@ -22,8 +22,7 @@ appId: com.iganapolsky.hermesmobile
         id: "chat-screen-header"
     commands:
       - hideKeyboard
-      - tapOn:
-          id: "tab-hermes"
+      - openLink: "hermes://chat"
 - extendedWaitUntil:
     notVisible:
       id: "connect-mac-gate"
@@ -44,15 +43,14 @@ appId: com.iganapolsky.hermesmobile
     timeout: 90000
 - hideKeyboard
 - openLink: "hermes://leash"
-# Android release: Maestro openLink may not switch tabs — tap Leash when deep link is a no-op.
+# Android release: Maestro openLink may not switch tabs — tap Pro tab when deep link is a no-op.
 - runFlow:
     when:
       notVisible:
         id: "THUMBGATE_LEASH"
     commands:
       - hideKeyboard
-      - tapOn:
-          id: "tab-leash"
+      - openLink: "hermes://leash"
 - extendedWaitUntil:
     visible:
       id: "THUMBGATE_LEASH"
@@ -79,6 +77,9 @@ appId: com.iganapolsky.hermesmobile
     timeout: 2000
 # Tab bar taps fail on iOS sim when keyboard inset sets tab bar pointerEvents=none — deep link instead.
 - openLink: "hermes://chat"
+# Android can briefly lose foreground to another app after repeated deep links; relaunch Hermes before
+# asserting composer visibility so the gate checks the app under test, not stale phone focus.
+- launchApp
 - runFlow: dismiss-print-interruption.yaml
 - runFlow:
     when:
@@ -86,12 +87,13 @@ appId: com.iganapolsky.hermesmobile
         id: "chat-screen-header"
     commands:
       - hideKeyboard
-      - tapOn:
-          id: "tab-hermes"
+      - openLink: "hermes://chat"
 - extendedWaitUntil:
     visible:
       id: "chat-screen-header"
     timeout: 90000
+- hideKeyboard
+- launchApp
 - hideKeyboard
 - extendedWaitUntil:
     visible:
@@ -102,4 +104,3 @@ appId: com.iganapolsky.hermesmobile
       id: "chat-input"
     direction: UP
     timeout: 90000
-    visibilityPercentage: 50

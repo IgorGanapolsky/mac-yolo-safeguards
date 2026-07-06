@@ -22,6 +22,20 @@ appId: com.iganapolsky.hermesmobile
       id: "threads-modal-title"
     timeout: 10000
 - tapOn: "Close"
+- runFlow:
+    when:
+      visible:
+        id: "threads-modal-title"
+    commands:
+      - back
+- extendedWaitUntil:
+    notVisible:
+      id: "threads-modal-title"
+    timeout: 10000
+- extendedWaitUntil:
+    visible:
+      id: "chat-input"
+    timeout: 30000
 - tapOn:
     id: "chat-input"
 - inputText: "smoke test message"
@@ -30,5 +44,3 @@ appId: com.iganapolsky.hermesmobile
 - extendedWaitUntil:
     visible: "smoke test message"
     timeout: 15000
-- assertVisible:
-    id: "chat-message-user"

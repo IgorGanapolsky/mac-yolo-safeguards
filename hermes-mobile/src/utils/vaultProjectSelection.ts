@@ -76,7 +76,7 @@ export function applyAutoSelectedProject(
   return setActiveProjectForComputer(state, computerProfileId, projectId);
 }
 
-/** Prefix thread title with active project lane for at-a-glance context. */
+/** Prefix thread title with the active project for at-a-glance context. */
 export function formatThreadTitleWithProject(
   baseTitle: string,
   projectName?: string | null,

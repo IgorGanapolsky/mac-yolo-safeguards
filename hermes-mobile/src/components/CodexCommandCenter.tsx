@@ -45,7 +45,7 @@ function connectionCopy(
 const INACTIVE_RUN_PHASES = new Set(['completed', 'failed', 'idle']);
 
 function shouldShowMacTile(state: LeashConnectionState, macHttpReachable = false): boolean {
-  if (state === 'connected' || state === 'demo' || macHttpReachable) {
+  if (state === 'demo' || macHttpReachable) {
     return false;
   }
   return true;
@@ -63,7 +63,7 @@ function shouldShowRunTile(runProgress?: RunProgressState | null, isSending = fa
 
 export default function CodexCommandCenter({
   connectionState,
-  macHttpReachable = false,
+  macHttpReachable = connectionState === 'connected',
   macRetryBusy = false,
   silentHealInFlight = false,
   pendingApprovalCount,
@@ -142,10 +142,10 @@ export default function CodexCommandCenter({
             style={({ pressed }) => [styles.statusChip, styles.pressableChip, pressed && styles.pressed]}
             onPress={onOpenApprovals}
             accessibilityRole="button"
-            accessibilityLabel="Open approvals"
+            accessibilityLabel="Open Pro approvals"
             testID="command-center-approvals"
           >
-            <Text style={styles.tileLabel}>Leash</Text>
+            <Text style={styles.tileLabel}>Pro</Text>
             <Text style={styles.tileValue}>{pendingApprovalCount}</Text>
             <Text style={styles.tileDetail}>Approvals</Text>
           </Pressable>

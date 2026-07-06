@@ -1,5 +1,6 @@
 import {
   attachHandoffsToProjects,
+  catalogFromGatewayApiProjects,
   parseProjectsReadmeTable,
   normalizeVaultProjectCatalog,
 } from '../utils/vaultProjectCatalog';
@@ -55,5 +56,20 @@ describe('vaultProjectCatalog', () => {
       ],
     });
     expect(catalog?.projects).toHaveLength(1);
+  });
+
+  it('maps gateway /api/projects payload into catalog entries', () => {
+    const catalog = catalogFromGatewayApiProjects({
+      projects: [
+        {
+          id: 'mac-yolo-safeguards',
+          name: 'mac-yolo-safeguards',
+          workspace_path: '/Users/igor/workspace/git/igor/mac-yolo-safeguards',
+          has_plan: true,
+        },
+      ],
+    });
+    expect(catalog?.vaultPath).toBe('gateway:/api/projects');
+    expect(catalog?.projects[0]?.sourceRepo).toContain('mac-yolo-safeguards');
   });
 });

@@ -1,8 +1,17 @@
 import { Platform } from 'react-native';
 import { parseSseChunk, streamSessionChat } from '../services/hermesGatewayClient';
+import { trackProductEvent } from '../services/productAnalytics';
+
+jest.mock('../services/productAnalytics', () => ({
+  trackProductEvent: jest.fn(() => Promise.resolve()),
+}));
 
 describe('hermesGatewayClient SSE', () => {
   const originalOs = Platform.OS;
+
+  beforeEach(() => {
+    (trackProductEvent as jest.Mock).mockClear();
+  });
 
   afterEach(() => {
     Platform.OS = originalOs;
@@ -46,6 +55,16 @@ describe('hermesGatewayClient SSE', () => {
       expect(result).toBe('hello world');
       expect(onEvent).toHaveBeenCalled();
       expect(onStreamAccepted).toHaveBeenCalledTimes(1);
+      expect(trackProductEvent).toHaveBeenCalledWith(
+        'chat_send_performance',
+        expect.objectContaining({
+          transport: 'fetch-sse',
+          status: 'success',
+          message_length: 2,
+          has_system_message: false,
+        }),
+      );
+      expect(Object.values((trackProductEvent as jest.Mock).mock.calls[0][1])).not.toContain('hi');
       expect(fetchMock).toHaveBeenCalledWith(
         'http://127.0.0.1:8642/api/sessions/sess-1/chat/stream',
         expect.objectContaining({ method: 'POST' }),

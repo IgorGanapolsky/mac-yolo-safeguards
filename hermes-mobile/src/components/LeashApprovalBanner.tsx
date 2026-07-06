@@ -21,17 +21,17 @@ export default function LeashApprovalBanner({
       style={({ pressed }) => [styles.wrap, pressed && styles.pressed]}
       testID={testID}
       accessibilityRole="button"
-      accessibilityLabel={`Open Leash to approve or deny: ${title}`}
+      accessibilityLabel={`Open Pro to approve or deny: ${title}`}
     >
       <View style={styles.row}>
-        <Text style={styles.kicker}>Leash</Text>
+        <Text style={styles.kicker}>Pro</Text>
         <Text style={styles.action}>Review →</Text>
       </View>
       <Text style={styles.title} numberOfLines={2}>
         {title}
       </Text>
       <Text style={styles.hint}>
-        Approve or deny on the Leash tab — faster than typing “{approveLabel}” in chat.
+        Approve or deny on the Pro tab — faster than typing “{approveLabel}” in chat.
       </Text>
     </Pressable>
   );

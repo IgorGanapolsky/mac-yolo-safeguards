@@ -4,13 +4,13 @@ import type { ConnectionMode } from '../types/gateway';
 import type { RelayWorker } from '../types/mobileRelay';
 import { isGenericMachineLabel, profileDisplayName } from '../services/gatewayProfiles';
 import type { LeashConnectionState } from './gatewayEndpoint';
-import { formatGatewayEndpointLine, formatGatewayMachineParts } from './gatewayEndpoint';
+import { formatGatewayEndpointLine, formatGatewayMachineParts, isUsableGatewayHost } from './gatewayEndpoint';
 import { isLoopbackGatewayUrl } from './gatewayUrlPolicy';
 import { relayWorkerDisplayName, selectRelayWorker } from './relayRouting';
 import { isTailnetRouteLabel, isTailscaleGatewayUrl } from './tailscaleHosts';
 
 function healthHostname(health?: GatewayHealthSnapshot | null): string | undefined {
-  return health?.hostname?.replace(/\.local$/i, '').trim() || undefined;
+  return isUsableGatewayHost(health?.hostname)?.replace(/\.local$/i, '').trim() || undefined;
 }
 
 /** Prefer the saved active profile name; only borrow /health hostname when identity is still generic. */
@@ -24,7 +24,7 @@ export function resolveMachineDisplayName(
     if (!isGenericMachineLabel(fromProfile) && fromProfile !== 'computer') {
       return fromProfile;
     }
-    const profileHost = activeProfile.hostname?.replace(/\.local$/i, '').trim();
+    const profileHost = isUsableGatewayHost(activeProfile.hostname?.replace(/\.local$/i, ''));
     if (profileHost) {
       return profileHost;
     }

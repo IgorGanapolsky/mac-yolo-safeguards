@@ -1,20 +1,21 @@
-# Leash tab — scroll through Leash options to smoke test
+# Pro tab — scroll through paid options without fake production smoke-test UI
 appId: com.iganapolsky.hermesmobile
 ---
 - launchApp
 - runFlow: e2e-bootstrap.yaml
-- tapOn: "Leash"
+- tapOn:
+    id: "tab-leash"
 - extendedWaitUntil:
     visible:
       id: "THUMBGATE_LEASH"
     timeout: 30000
 - scrollUntilVisible:
     element:
-      id: "leash-smoke-test"
+      id: "pro-options-card"
     direction: DOWN
     timeout: 90000
-- assertVisible:
-    id: "leash-smoke-test"
+- assertNotVisible: "Preview approval card (smoke test)"
+- assertNotVisible: "smoke test"
 - scrollUntilVisible:
     element:
       id: "glance-mode-switch"

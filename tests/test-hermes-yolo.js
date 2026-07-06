@@ -244,8 +244,10 @@ const binaryPath = path.resolve(__dirname, '../hermes-yolo-wrapper.js');
 const testLockPath = path.join(require('os').tmpdir(), `hermes-yolo-test-${process.pid}.lock`);
 try {
   try { fs.unlinkSync(testLockPath); } catch (e) { /* may not exist */ }
-  // HERMES_YOLO_NO_PREFLIGHT bypasses slow Telegram API calls during testing
-  const stdout = execSync(`HERMES_YOLO_NO_PREFLIGHT=1 HERMES_YOLO_LOCK_PATH=${testLockPath} node ${binaryPath} --version`, {
+  // HERMES_YOLO_NO_PREFLIGHT bypasses slow Telegram API calls during testing.
+  // STATUS_PATH/NO_SWEEP isolate the run from the live Antigravity dashboard
+  // data and from SIGKILLing real suspended hermes sessions.
+  const stdout = execSync(`HERMES_YOLO_NO_PREFLIGHT=1 HERMES_YOLO_NO_SWEEP=1 HERMES_YOLO_STATUS_PATH=/nonexistent-hermes-yolo-test-status.json HERMES_YOLO_LOCK_PATH=${testLockPath} node ${binaryPath} --version`, {
     encoding: 'utf8'
   });
   console.log('  [TEST] Execution output:\n' + stdout.split('\n').map(l => '    ' + l).join('\n'));
@@ -332,12 +334,20 @@ try {
 (async () => {
   const pidFilePath = path.join(tmpDir, `hermes-yolo-pids-${process.pid}.json`);
   const slowBinPath = path.join(tmpDir, `hermes-yolo-slowbin-${process.pid}.js`);
+  // The grandchild must be reachable ONLY via the process group: a middle
+  // process forks it into the shared group and exits, so the grandchild
+  // reparents to pid 1 and the recursive pgrep -P walk can never find it.
+  // This test FAILS if killTree's group-kill is removed (mutation-verified).
   fs.writeFileSync(slowBinPath, [
     '#!/usr/bin/env node',
     "const { spawn } = require('child_process');",
     "const fs = require('fs');",
-    "const grandchild = spawn(process.execPath, ['-e', 'setTimeout(() => {}, 30000)']);",
-    `fs.writeFileSync(${JSON.stringify(pidFilePath)}, JSON.stringify({ me: process.pid, grandchild: grandchild.pid }));`,
+    "const mid = spawn(process.execPath, ['-e', \"const{spawn}=require('child_process');const g=spawn(process.execPath,['-e','setTimeout(()=>{},30000)']);process.stdout.write(String(g.pid));setTimeout(()=>process.exit(0),100)\"], { stdio: ['ignore', 'pipe', 'ignore'] });",
+    "let midOut = '';",
+    "mid.stdout.on('data', (d) => { midOut += d; });",
+    "mid.on('exit', () => {",
+    `  fs.writeFileSync(${JSON.stringify(pidFilePath)}, JSON.stringify({ me: process.pid, grandchild: parseInt(midOut, 10) }));`,
+    '});',
     'setTimeout(() => {}, 30000);',
     '',
   ].join('\n'), { mode: 0o755 });

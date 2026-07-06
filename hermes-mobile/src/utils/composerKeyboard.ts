@@ -12,6 +12,16 @@ export const COMPOSER_REST_BOTTOM_INSET = 12;
 /** Bottom tab bar footprint (must match App.tsx navBar — used for keyboard lift math). */
 export const ANDROID_TAB_BAR_ESTIMATE_PX = 64;
 
+/** Cap composer dock height so banners + vault strips cannot consume half the screen. */
+export const COMPOSER_DOCK_MAX_HEIGHT_RATIO = 0.34;
+
+export function composerDockMaxHeight(windowHeight: number): number {
+  if (windowHeight <= 0) {
+    return 280;
+  }
+  return Math.max(180, Math.round(windowHeight * COMPOSER_DOCK_MAX_HEIGHT_RATIO));
+}
+
 const ANDROID_KEYBOARD_FALLBACK_RATIO = 0.42;
 const ANDROID_KEYBOARD_FALLBACK_MIN_PX = 280;
 const ANDROID_KEYBOARD_FALLBACK_MAX_PX = 360;
@@ -149,6 +159,13 @@ export function composerDockInsets(
   }
 
   if (Platform.OS === 'android' && keyboardInset > 0) {
+    const resizeHandled = androidKeyboardLayoutMode === 'resize' && windowShrunk;
+    if (resizeHandled) {
+      return {
+        paddingBottom: Math.max(restPadding, COMPOSER_KEYBOARD_GAP),
+        marginBottom: 0,
+      };
+    }
     const marginBottom = Math.max(
       0,
       keyboardInset + COMPOSER_KEYBOARD_GAP - tabBarOccupiedPx,

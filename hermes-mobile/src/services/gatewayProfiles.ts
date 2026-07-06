@@ -6,7 +6,7 @@ import {
   type GatewayProfile,
   type GatewayProfileState,
 } from '../types/gatewayProfile';
-import { isPrivateLanGatewayUrl } from '../utils/gatewayEndpoint';
+import { isPrivateLanGatewayUrl, isUsableGatewayHost } from '../utils/gatewayEndpoint';
 import {
   buildGatewayUrlFromLanIp,
   extractLanIpFromGatewayUrl,
@@ -66,6 +66,7 @@ const GENERIC_PROFILE_LABELS = new Set([
   'tailscale computer',
   'localhost',
   '127.0.0.1',
+  'unknown',
   'http',
   'https',
 ]);
@@ -126,7 +127,7 @@ function isIpOnlyProfileLabel(profile: GatewayProfile): boolean {
 }
 
 function bonjourHostname(hostname: string | undefined): string | undefined {
-  const host = hostname?.replace(/\.local$/i, '').trim();
+  const host = isUsableGatewayHost(hostname)?.replace(/\.local$/i, '').trim();
   if (!host || isTailnetRouteLabel(host)) {
     return undefined;
   }
@@ -186,16 +187,22 @@ function resolveStoredProfileLabel(input: {
 }
 
 function relabelStoredProfile(profile: GatewayProfile): GatewayProfile {
-  if (!isIpOnlyProfileLabel(profile)) {
-    return profile;
+  const hostname = isUsableGatewayHost(profile.hostname);
+  const localIp = isUsableGatewayHost(profile.localIp);
+  const cleaned =
+    hostname !== profile.hostname || localIp !== profile.localIp
+      ? { ...profile, hostname, localIp }
+      : profile;
+  if (!isIpOnlyProfileLabel(cleaned)) {
+    return cleaned;
   }
   const label = resolveStoredProfileLabel({
-    gatewayUrl: profile.gatewayUrl,
-    hostname: profile.hostname,
-    label: profile.label,
-    localIp: profile.localIp,
+    gatewayUrl: cleaned.gatewayUrl,
+    hostname: cleaned.hostname,
+    label: cleaned.label,
+    localIp: cleaned.localIp,
   });
-  return label === profile.label ? profile : { ...profile, label };
+  return label === cleaned.label ? cleaned : { ...cleaned, label };
 }
 
 export function profileDisplayName(profile: GatewayProfile): string {
@@ -701,10 +708,13 @@ export function touchProfileHealth(
     if (p.id !== profileId) {
       return p;
     }
-    const hostname = health.hostname?.trim() || p.hostname;
+    const hostname =
+      isUsableGatewayHost(health.hostname?.trim() || p.hostname) || undefined;
     const localIp =
-      resolveDisplayLanIp(health.localIp, p.gatewayUrl) ||
-      resolveDisplayLanIp(p.localIp, p.gatewayUrl);
+      resolveDisplayLanIp(
+        isUsableGatewayHost(health.localIp?.trim()) || p.localIp,
+        p.gatewayUrl,
+      ) || resolveDisplayLanIp(p.localIp, p.gatewayUrl);
     const label =
       isIpOnlyProfileLabel(p) || isTailnetRouteLabel(p.label)
         ? resolveStoredProfileLabel({

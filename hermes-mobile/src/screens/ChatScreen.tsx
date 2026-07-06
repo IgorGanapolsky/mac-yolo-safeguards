@@ -31,6 +31,7 @@ import {
 import { useKeyboardInset } from '../hooks/useKeyboardInset';
 import {
   composerDockInsets,
+  composerDockMaxHeight,
   focusedAndroidKeyboardFallbackInset,
   ANDROID_TAB_BAR_ESTIMATE_PX,
 } from '../utils/composerKeyboard';
@@ -38,6 +39,8 @@ import Constants from 'expo-constants';
 import { colors } from '../theme/colors';
 import { isDemoModeAllowed } from '../utils/demoModePolicy';
 import { haptics } from '../services/haptics';
+import { setRunNotificationContext, setChatScreenForegroundFocused } from '../services/runNotificationContext';
+import { dismissActiveRunNotifications } from '../services/hermesNotifications';
 import GatewayProfilePicker from '../components/GatewayProfilePicker';
 import {
   listSessions,
@@ -76,8 +79,18 @@ import {
   setActiveProjectForComputer,
   setActiveSession,
 } from '../services/chatProjects';
-import { fetchVaultProjectCatalog } from '../services/vaultProjects';
+import {
+  fetchVaultProjectCatalogWithCache,
+  type VaultCatalogFetchSource,
+} from '../services/vaultProjects';
 import type { VaultProjectCatalog } from '../types/vaultProject';
+import {
+  applyAutoSelectedProject,
+  formatThreadTitleWithProject,
+  inferAutoSelectProjectId,
+  resolveComposerVaultStrip,
+  shouldShowProjectPickNudge,
+} from '../utils/vaultProjectSelection';
 import { storage } from '../services/storage';
 import { buildMobileChatSystemPrompt } from '../utils/workspacePrompt';
 import {
@@ -96,7 +109,15 @@ import {
   titleFromFirstPrompt,
   ensureSessionCreatedAt,
 } from '../utils/sessionDisplay';
-import { formatMessageTimestamp, prepareMessagesForDisplay } from '../utils/chatMessageDisplay';
+import { formatMessageTimestamp, prepareMessagesForDisplay, parseMessageContent } from '../utils/chatMessageDisplay';
+import {
+  buildGatewayMessagePayload,
+  composerHasSendPayload,
+  formatOutboundBubbleContent,
+  type GatewayContentPart,
+  mergeLinkAttachmentsFromText,
+  type ChatComposerAttachment,
+} from '../utils/chatAttachments';
 import {
   isMessageBodyEmpty,
   isMessageDisplayEmpty,
@@ -110,11 +131,12 @@ import {
   resolveChatOutputFeedbackBusyKey,
   shouldShowChatOutputFeedback,
 } from '../utils/chatOutputFeedback';
-import { isThumbgateLeashUnlocked } from '../utils/thumbgateLeash';
+import { isLeashProEnabled } from '../utils/leashPro';
 import {
   displayableLlmModel,
   humanizeComposerStatus,
   isActiveChatRun,
+  shouldHideForegroundChatRunSurfaces,
   shouldShowComposerProgressBanner,
 } from '../utils/runProgressDisplay';
 import {
@@ -144,7 +166,7 @@ import SubmittedPromptStrip from '../components/SubmittedPromptStrip';
 import ChatConnectionPanel from '../components/ChatConnectionPanel';
 import LoadingButton from '../components/ui/LoadingButton';
 import ChatInputBar from '../components/ChatInputBar';
-import VaultProjectPickerChip from '../components/VaultProjectPickerChip';
+import ProjectPickNudgeBanner from '../components/ProjectPickNudgeBanner';
 import ChatMessageListItem from '../components/ChatMessageListItem';
 import BottomSheetModal from '../components/BottomSheetModal';
 import ChatMessageDetailModal from '../components/ChatMessageDetailModal';
@@ -226,6 +248,7 @@ import {
 } from '../services/telegramInbox';
 import { isTelegramSession, pickPrimaryTelegramSession, buildSessionPickerSections, sessionSourceLabel } from '../utils/sessionSelection';
 import { resolveSessionAfterListLoad } from '../utils/sessionListSelection';
+import { resolveTranscriptReloadOnResume } from '../utils/chatResumeReload';
 import {
   extractAssistantFromRunCompletedPayload,
   findNewAssistantReply,
@@ -235,6 +258,8 @@ import {
   TELEGRAM_QUEUED_REPLY_PLACEHOLDER,
 } from '../utils/streamAssistantText';
 import { extractTerminalActivityFromMessage, isTerminalToolName } from '../utils/terminalActivity';
+
+type ChatOutboundPayload = string | GatewayContentPart[];
 
 function projectSessions(
   allSessions: HermesSession[],
@@ -308,6 +333,30 @@ export default function ChatScreen() {
     removeGatewayListener,
   } = useGatewayChatSync();
   const navigation = useNavigation();
+  const [chatForegroundActive, setChatForegroundActive] = useState(
+    () => AppState.currentState === 'active',
+  );
+
+  useFocusEffect(
+    useCallback(() => {
+      const syncChatForeground = (nextAppState?: string) => {
+        const appActive = (nextAppState ?? AppState.currentState) === 'active';
+        setChatScreenForegroundFocused(appActive);
+        setChatForegroundActive(appActive);
+        if (appActive) {
+          dismissActiveRunNotifications().catch(() => {});
+        }
+      };
+      syncChatForeground();
+      const sub = AppState.addEventListener('change', syncChatForeground);
+      return () => {
+        sub.remove();
+        setChatScreenForegroundFocused(false);
+        setChatForegroundActive(false);
+      };
+    }, []),
+  );
+
   const gatewayUrl = effectiveGatewayUrl || settings.gatewayUrl;
   const insets = useSafeAreaInsets();
   const windowDimensions = useWindowDimensions();
@@ -343,6 +392,9 @@ export default function ChatScreen() {
   const [isProjectsLoaded, setIsProjectsLoaded] = useState(false);
   const [vaultCatalog, setVaultCatalog] = useState<VaultProjectCatalog | null>(null);
   const [vaultCatalogLoading, setVaultCatalogLoading] = useState(false);
+  const [vaultCatalogSource, setVaultCatalogSource] = useState<VaultCatalogFetchSource>('none');
+  const [gatewayWorkspacePaths, setGatewayWorkspacePaths] = useState<string[]>([]);
+  const [projectPickNudgeDismissed, setProjectPickNudgeDismissed] = useState(false);
   const [toolStatus, setToolStatus] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [macRetryBusy, setMacRetryBusy] = useState(false);
@@ -358,6 +410,9 @@ export default function ChatScreen() {
   const [gatewayModel, setGatewayModel] = useState<string | undefined>();
   const [isPullRefreshing, setIsPullRefreshing] = useState(false);
   const [connectionPanelRefreshing, setConnectionPanelRefreshing] = useState(false);
+  const [attachments, setAttachments] = useState<ChatComposerAttachment[]>([]);
+  const attachmentsRef = useRef<ChatComposerAttachment[]>([]);
+  attachmentsRef.current = attachments;
   const [telegramInboxMeta, setTelegramInboxMeta] = useState({ threadCount: 0, messageCap: 250 });
   const skipSessionAutoSelectRef = useRef(false);
   /** Recent-thread tap — survives in-flight listSessions before project state persists. */
@@ -406,8 +461,10 @@ export default function ChatScreen() {
   const messagesRef = useRef<HermesMessage[]>([]);
   const sessionsLoadGenRef = useRef(0);
   const prevMacChatLiveRef = useRef<boolean | null>(null);
+  const macChatLiveRef = useRef(false);
+  const appBackgroundedAtRef = useRef<number | null>(null);
   const sendStartedAtRef = useRef(Date.now());
-  const outboundQueueRef = useRef<string[]>([]);
+  const outboundQueueRef = useRef<ChatOutboundPayload[]>([]);
   /** In-flight mobile sends with optimistic bubbles not yet on gateway transcript. */
   const pendingOutboundSendsRef = useRef(0);
   const outboundMessageSeqRef = useRef(0);
@@ -437,7 +494,7 @@ export default function ChatScreen() {
   /** Ignore spurious onChangeText after Send clears the field (Android IME blur). */
   const sendClearSuppressRef = useRef(false);
   const lastSentComposerTextRef = useRef('');
-  const sendUserTextRef = useRef<(text: string, isProgrammatic?: boolean) => Promise<boolean>>(
+  const sendUserTextRef = useRef<(text: ChatOutboundPayload, isProgrammatic?: boolean) => Promise<boolean>>(
     async () => false,
   );
   const lastFailedSendTextRef = useRef<string | null>(null);
@@ -587,6 +644,7 @@ export default function ChatScreen() {
   );
   /** Chat needs direct HTTP to the Mac — relay WebSocket "connected" is not enough. */
   const macChatLive = isDemo || macHttpOk;
+  macChatLiveRef.current = macChatLive;
   const connectivityRunFailure = useMemo(
     () =>
       Boolean(
@@ -874,6 +932,45 @@ export default function ChatScreen() {
     [projectState, currentSession?.id, activeGatewayProfile?.id],
   );
 
+  const mergeCatalogIntoProjectState = useCallback(
+    (prev: ChatProjectState, catalog: VaultProjectCatalog, workspacePaths: string[]) => {
+      let merged = mergeVaultCatalogIntoState(prev, catalog.projects);
+      const autoId = inferAutoSelectProjectId(
+        merged,
+        activeGatewayProfile?.id ?? null,
+        workspacePaths,
+      );
+      if (autoId) {
+        merged = applyAutoSelectedProject(merged, activeGatewayProfile?.id ?? null, autoId);
+      }
+      return merged;
+    },
+    [activeGatewayProfile?.id],
+  );
+
+  const vaultLaneProjects = useMemo(
+    () => projectState.projects.filter((project) => Boolean(project.vaultSlug)),
+    [projectState.projects],
+  );
+
+  const showProjectPickNudge = useMemo(
+    () =>
+      shouldShowProjectPickNudge({
+        isDemo,
+        macConnected: effectiveMacHttpOk,
+        activeProjectId: resolveActiveProjectId(projectState, activeGatewayProfile?.id ?? null),
+        vaultProjectCount: vaultLaneProjects.length,
+      }) && !projectPickNudgeDismissed,
+    [
+      isDemo,
+      effectiveMacHttpOk,
+      projectState,
+      activeGatewayProfile?.id,
+      vaultLaneProjects.length,
+      projectPickNudgeDismissed,
+    ],
+  );
+
   const sessionLabelFor = useCallback(
     (session: HermesSession) =>
       sessionPickerLabel(session, {
@@ -975,14 +1072,15 @@ export default function ChatScreen() {
   ]);
 
   const threadHeaderTitle = useMemo(() => {
+    let base = 'New chat';
     if (currentSession) {
-      return formatSessionTitle(currentSession, {
+      base = formatSessionTitle(currentSession, {
         sessionLabels: projectState.sessionLabels,
         projectName: projectNameForSession(projectState, currentSession.id),
       });
     }
-    return 'New chat';
-  }, [currentSession, projectState]);
+    return formatThreadTitleWithProject(base, activeProject?.name);
+  }, [currentSession, projectState, activeProject?.name]);
 
   const threadCreatedLabel = useMemo(() => {
     if (!currentSession) {
@@ -993,9 +1091,10 @@ export default function ChatScreen() {
 
   /** Lift composer above software keyboard; tab bar stays mounted (no height collapse). */
   const androidKeyboardMode = Constants.expoConfig?.android?.softwareKeyboardLayoutMode;
-  const effectiveKeyboardInset =
-    keyboardInset ||
-    focusedAndroidKeyboardFallbackInset(inputFocused, keyboardInset, windowDimensions.height);
+  const effectiveKeyboardInset = inputFocused
+    ? keyboardInset ||
+      focusedAndroidKeyboardFallbackInset(inputFocused, keyboardInset, windowDimensions.height)
+    : 0;
   const composerDockSpacing = useMemo(
     () =>
       composerDockInsets(
@@ -1014,6 +1113,15 @@ export default function ChatScreen() {
     ],
   );
   const keyboardOpen = effectiveKeyboardInset > 0;
+
+  const composerVaultStrip = useMemo(
+    () =>
+      resolveComposerVaultStrip({
+        keyboardOpen,
+        showProjectPickNudge,
+      }),
+    [keyboardOpen, showProjectPickNudge],
+  );
 
   const leashPhraseHints = useMemo((): LeashPhraseHint[] => {
     const hints: LeashPhraseHint[] = [];
@@ -1278,30 +1386,34 @@ export default function ChatScreen() {
   }, [currentSession, currentSession?.id, currentSession?.source, telegramReplySessionId, sessions, isSending, queuedOutboundCount, runProgress?.phase]);
 
   useEffect(() => {
+    setProjectPickNudgeDismissed(false);
+  }, [activeGatewayProfile?.id]);
+
+  useEffect(() => {
     chatProjects.load().then((loaded) => {
       if (isDemo && loaded.projects.length === 0) {
         const demoState: ChatProjectState = {
           projects: [
             {
-              id: 'demo-skool',
-              name: 'skool_top1percent',
-              workspacePath: '~/workspace/git/igor/skool_top1percent',
-              vaultSlug: 'Skool',
+              id: 'demo-sample-app',
+              name: 'Sample app',
+              workspacePath: '~/projects/sample-app',
+              vaultSlug: 'SampleApp',
               sessionIds: ['demo-1'],
               activeSessionId: 'demo-1',
             },
             {
-              id: 'demo-thumbgate',
-              name: 'ThumbGate',
-              workspacePath: '~/workspace/git/igor/ThumbGate',
-              vaultSlug: 'ThumbGate',
+              id: 'demo-website-redesign',
+              name: 'Website redesign',
+              workspacePath: '~/projects/website-redesign',
+              vaultSlug: 'WebsiteRedesign',
               sessionIds: ['demo-2'],
               activeSessionId: 'demo-2',
             },
           ],
-          sessionProjectMap: { 'demo-1': 'demo-skool', 'demo-2': 'demo-thumbgate' },
+          sessionProjectMap: { 'demo-1': 'demo-sample-app', 'demo-2': 'demo-website-redesign' },
           sessionLabels: {},
-          activeProjectId: 'demo-skool',
+          activeProjectId: 'demo-sample-app',
           activeProjectByComputer: {},
         };
         setProjectState(demoState);
@@ -1320,16 +1432,19 @@ export default function ChatScreen() {
     let cancelled = false;
     setVaultCatalogLoading(true);
     void (async () => {
-      const catalog = await fetchVaultProjectCatalog(
+      const { catalog, source } = await fetchVaultProjectCatalogWithCache(
         gatewayUrl,
         activeGatewayProfile?.localIp ? [activeGatewayProfile.localIp] : [],
+        activeGatewayProfile?.id ?? null,
+        apiKey,
       );
       if (cancelled) return;
       setVaultCatalog(catalog);
+      setVaultCatalogSource(source);
       setVaultCatalogLoading(false);
       if (!catalog?.projects.length) return;
       setProjectState((prev) => {
-        const merged = mergeVaultCatalogIntoState(prev, catalog.projects);
+        const merged = mergeCatalogIntoProjectState(prev, catalog, gatewayWorkspacePaths);
         if (merged === prev) return prev;
         void chatProjects.save(merged);
         return merged;
@@ -1338,7 +1453,16 @@ export default function ChatScreen() {
     return () => {
       cancelled = true;
     };
-  }, [isDemo, gatewayUrl, macHttpOk, activeGatewayProfile?.id, activeGatewayProfile?.localIp]);
+  }, [
+    isDemo,
+    gatewayUrl,
+    apiKey,
+    macHttpOk,
+    activeGatewayProfile?.id,
+    activeGatewayProfile?.localIp,
+    gatewayWorkspacePaths,
+    mergeCatalogIntoProjectState,
+  ]);
 
   // Dynamic sync from central Obsidian PROJECTS.md table
   useEffect(() => {
@@ -1350,6 +1474,8 @@ export default function ChatScreen() {
       try {
         const obsidianProjects = await getObsidianProjects(gatewayUrl, apiKey);
         if (cancelled) return;
+        const workspacePaths = obsidianProjects.map((project) => project.workspacePath).filter(Boolean);
+        setGatewayWorkspacePaths(workspacePaths);
         if (obsidianProjects && obsidianProjects.length > 0) {
           setProjectState((prev) => {
             let stateChanged = false;
@@ -1388,7 +1514,15 @@ export default function ChatScreen() {
               }
             }
             if (!stateChanged) return prev;
-            const next = { ...prev, projects };
+            let next = { ...prev, projects };
+            const autoId = inferAutoSelectProjectId(
+              next,
+              activeGatewayProfile?.id ?? null,
+              workspacePaths,
+            );
+            if (autoId) {
+              next = applyAutoSelectedProject(next, activeGatewayProfile?.id ?? null, autoId);
+            }
             void chatProjects.save(next);
             return next;
           });
@@ -1443,6 +1577,7 @@ export default function ChatScreen() {
 
   const selectProject = async (project: ChatProject) => {
     haptics.selection();
+    setProjectPickNudgeDismissed(true);
     const next = setActiveProjectForComputer(
       projectState,
       activeGatewayProfile?.id ?? null,
@@ -1493,7 +1628,7 @@ export default function ChatScreen() {
   const handleAddProject = async () => {
     const path = newProjectPath.trim();
     if (!path) {
-      setErrorMessage('Enter a workspace path (e.g. ~/workspace/git/igor/ThumbGate)');
+      setErrorMessage('Enter a workspace path from your computer.');
       return;
     }
     haptics.selection();
@@ -1519,8 +1654,8 @@ export default function ChatScreen() {
     const loadGen = ++sessionsLoadGenRef.current;
     if (isDemo) {
       const mockSessions: HermesSession[] = [
-        { id: 'demo-1', title: 'safeguards setup inquiry', last_active_at: new Date().toISOString() },
-        { id: 'demo-2', title: 'fixing runaway simulators loop', last_active_at: new Date(Date.now() - 3600000).toISOString() },
+        { id: 'demo-1', title: 'sample app health check', last_active_at: new Date().toISOString() },
+        { id: 'demo-2', title: 'fixing runaway simulator loop', last_active_at: new Date(Date.now() - 3600000).toISOString() },
       ].filter(s => !deletedDemoSessionIdsRef.current.has(s.id));
       setSessions(mockSessions);
 
@@ -1644,19 +1779,6 @@ export default function ChatScreen() {
       loadSessionsList(true);
     }
   }, [isProjectsLoaded, isDemo, gatewayUrl, apiKey, macChatLive]);
-
-  useEffect(() => {
-    const wasLive = prevMacChatLiveRef.current;
-    prevMacChatLiveRef.current = macChatLive;
-    if (isDemo || wasLive === null || wasLive || !macChatLive) {
-      return;
-    }
-    void loadSessionsList(false, { silent: true }).then(() => {
-      if (currentSessionRef.current) {
-        void refreshSessionMessagesRef.current?.({ background: false, force: true });
-      }
-    });
-  }, [macChatLive, isDemo]);
 
   useEffect(() => {
     if (isDemo || !currentSession?.id || activeComputerSessionKeys.length === 0) {
@@ -1849,6 +1971,65 @@ export default function ChatScreen() {
   );
 
   refreshSessionMessagesRef.current = refreshSessionMessages;
+
+  const reloadTranscriptOnResume = useCallback(
+    (backgroundDurationMs?: number, appState: string = AppState.currentState) => {
+      const activeSession = currentSessionRef.current;
+      if (!activeSession || isDemo) {
+        return;
+      }
+      const options = resolveTranscriptReloadOnResume({
+        appState,
+        macChatLive: macChatLiveRef.current,
+        messageCount: messagesRef.current.length,
+        hasActiveSession: true,
+        backgroundDurationMs,
+      });
+      if (!options) {
+        return;
+      }
+      void refreshSessionMessagesRef.current?.(options);
+    },
+    [isDemo],
+  );
+
+  useEffect(() => {
+    const wasLive = prevMacChatLiveRef.current;
+    prevMacChatLiveRef.current = macChatLive;
+    if (isDemo || wasLive === null || wasLive || !macChatLive) {
+      return;
+    }
+    void loadSessionsList(false, { silent: true }).then(() => {
+      if (currentSessionRef.current) {
+        reloadTranscriptOnResume();
+      }
+    });
+  }, [macChatLive, isDemo, reloadTranscriptOnResume]);
+
+  useEffect(() => {
+    if (isDemo) {
+      return;
+    }
+    const handleAppStateChange = (nextState: string) => {
+      if (nextState === 'background' || nextState === 'inactive') {
+        appBackgroundedAtRef.current = Date.now();
+        return;
+      }
+      if (nextState !== 'active') {
+        return;
+      }
+      const backgroundDurationMs =
+        appBackgroundedAtRef.current != null
+          ? Date.now() - appBackgroundedAtRef.current
+          : undefined;
+      appBackgroundedAtRef.current = null;
+      void loadSessionsList(false, { silent: true }).then(() => {
+        reloadTranscriptOnResume(backgroundDurationMs, nextState);
+      });
+    };
+    const sub = AppState.addEventListener('change', handleAppStateChange);
+    return () => sub.remove();
+  }, [isDemo, currentSession?.id, reloadTranscriptOnResume]);
 
   const clearDeferredTelegramPoll = useCallback(() => {
     if (deferredTelegramPollRef.current) {
@@ -2075,7 +2256,7 @@ export default function ChatScreen() {
         connectEvents();
       }
       if (!isLoadingMessagesRef.current && !isPullRefreshingRef.current) {
-        refreshSessionMessagesRef.current?.({ background: true });
+        reloadTranscriptOnResume();
       }
     }, [
       currentSession?.id,
@@ -2084,6 +2265,7 @@ export default function ChatScreen() {
       macHttpOk,
       connectionState,
       connectEvents,
+      reloadTranscriptOnResume,
     ]),
   );
 
@@ -2127,19 +2309,6 @@ export default function ChatScreen() {
     }, intervalMs);
     return () => clearInterval(timer);
   }, [currentSession?.id, isDemo, macChatLive, isTelegramView, connectionState]);
-
-  useEffect(() => {
-    const activeSession = currentSessionRef.current;
-    if (!activeSession || isDemo || !macChatLive) {
-      return;
-    }
-    const sub = AppState.addEventListener('change', (nextState) => {
-      if (nextState === 'active') {
-        refreshSessionMessagesRef.current?.({ background: true });
-      }
-    });
-    return () => sub.remove();
-  }, [currentSession?.id, isDemo, macChatLive]);
 
   useEffect(() => {
     const activeSession = currentSessionRef.current;
@@ -2490,26 +2659,57 @@ export default function ChatScreen() {
       return;
     }
     sendClearSuppressRef.current = false;
-    inputValueRef.current = text;
-    setInputValue(text);
+    const merged = mergeLinkAttachmentsFromText(text, attachmentsRef.current);
+    attachmentsRef.current = merged.attachments;
+    setAttachments(merged.attachments);
+    inputValueRef.current = merged.text;
+    setInputValue(merged.text);
   }, []);
 
   const handleSendMessage = async () => {
     const userText = inputValueRef.current.trim();
-    if (!userText) return;
+    const pendingAttachments = attachmentsRef.current;
+    if (!composerHasSendPayload(userText, pendingAttachments)) {
+      return;
+    }
 
+    let gatewayPayload: ChatOutboundPayload;
+    try {
+      gatewayPayload = buildGatewayMessagePayload(userText, pendingAttachments);
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : 'Could not prepare attachments.');
+      haptics.warning();
+      return;
+    }
+
+    const promptText =
+      typeof gatewayPayload === 'string'
+        ? gatewayPayload
+        : parseMessageContent(gatewayPayload).text || 'Attachment';
+
+    setRunNotificationContext({
+      projectName: activeProject?.name,
+      computerName: machineShortLabel,
+      promptSnippet: promptText,
+    });
+
+    const originalAttachments = [...pendingAttachments];
     lastSentComposerTextRef.current = userText;
     sendClearSuppressRef.current = true;
     inputValueRef.current = '';
     setInputValue('');
+    attachmentsRef.current = [];
+    setAttachments([]);
     Keyboard.dismiss();
 
-    const accepted = await sendUserText(userText);
+    const accepted = await sendUserText(gatewayPayload);
     if (!accepted) {
       sendClearSuppressRef.current = false;
       lastSentComposerTextRef.current = '';
       inputValueRef.current = userText;
       setInputValue(userText);
+      attachmentsRef.current = originalAttachments;
+      setAttachments(originalAttachments);
     } else {
       haptics.light();
     }
@@ -2519,7 +2719,7 @@ export default function ChatScreen() {
   handleSendMessageRef.current = handleSendMessage;
 
   const handleSubmit = useCallback(() => {
-    if (inputValueRef.current.trim()) {
+    if (composerHasSendPayload(inputValueRef.current, attachmentsRef.current)) {
       void handleSendMessageRef.current();
     }
   }, []);
@@ -2658,8 +2858,6 @@ export default function ChatScreen() {
     });
   }, []);
 
-  const leashUnlocked = isThumbgateLeashUnlocked(settings);
-
   const submitChatOutputFeedbackForMessage = useCallback(
     async (message: HermesMessage, signal: 'up' | 'down', explanation?: string) => {
       await submitChatOutputFeedback(message, signal, {
@@ -2720,9 +2918,9 @@ export default function ChatScreen() {
         isSending &&
         message.role?.toLowerCase() === 'assistant' &&
         originalIndex === messages.length - 1;
-      const showOutputFeedback = shouldShowChatOutputFeedback(message, {
-        leashUnlocked,
+      const showOutputFeedback = isLeashProEnabled(settings) && shouldShowChatOutputFeedback(message, {
         isStreamingAssistant,
+        settings,
       });
       const busyKey = resolveChatOutputFeedbackBusyKey(message);
       const outputFeedback = showOutputFeedback
@@ -2763,7 +2961,6 @@ export default function ChatScreen() {
       macHttpOk,
       approvalBusy,
       isSending,
-      leashUnlocked,
       chatOutputFeedbackBusyId,
       feedbackSelections,
       handleChatOutputFeedbackTap,
@@ -2789,20 +2986,20 @@ export default function ChatScreen() {
     await sendUserText(CHAT_APPROVAL_UNDO_TEXT, true);
   };
 
-  const commitOutboundUserBubble = (text: string): string => {
-    const trimmed = text.trim();
+  const commitOutboundUserBubble = (textOrPayload: ChatOutboundPayload): string => {
+    const serializedContent = formatOutboundBubbleContent(textOrPayload).trim();
     outboundMessageSeqRef.current += 1;
     const userMessage: HermesMessage = {
       id: `user-${Date.now()}-${outboundMessageSeqRef.current}`,
       role: 'user',
-      content: trimmed,
+      content: serializedContent,
       created_at: new Date().toISOString(),
       outboundStatus: 'pending',
     };
     pendingOutboundSendsRef.current += 1;
     commitMessages((prev) => [...prev, userMessage]);
     setRecentChatsDismissed(true);
-    setPinnedOutboundText(trimmed);
+    setPinnedOutboundText(serializedContent);
     setPinnedOutboundStatus('pending');
     setToolStatus(null);
     userNearBottomRef.current = true;
@@ -2811,14 +3008,17 @@ export default function ChatScreen() {
     return userMessage.id ?? '';
   };
 
-  async function sendUserText(userText: string, isProgrammatic = false): Promise<boolean> {
-    if (!userText.trim()) return false;
+  async function sendUserText(userTextOrPayload: ChatOutboundPayload, isProgrammatic = false): Promise<boolean> {
+    const isPayloadString = typeof userTextOrPayload === 'string';
+    const isPayloadEmpty = isPayloadString ? !userTextOrPayload.trim() : userTextOrPayload.length === 0;
+    if (isPayloadEmpty) return false;
+
+    const serializedContent = formatOutboundBubbleContent(userTextOrPayload).trim();
 
     if (isSendingRef.current) {
-      const trimmed = userText.trim();
-      outboundQueueRef.current.push(trimmed);
+      outboundQueueRef.current.push(userTextOrPayload);
       setQueuedOutboundCount(outboundQueueRef.current.length);
-      commitOutboundUserBubble(trimmed);
+      commitOutboundUserBubble(userTextOrPayload);
       if (!isProgrammatic) {
         haptics.light();
       }
@@ -2863,7 +3063,7 @@ export default function ChatScreen() {
       );
     };
 
-    const typed = userText.trim();
+    const typed = isPayloadString ? userTextOrPayload.trim() : parseMessageContent(userTextOrPayload).text;
     const typedUpper = typed.toUpperCase();
     const firstPromptThreadTitle =
       deriveThreadTitleFromMessage(typed) ?? activeProject?.name ?? 'New chat';
@@ -2921,6 +3121,7 @@ export default function ChatScreen() {
         connectionState,
         gatewayUrl,
         healthProbePending,
+        macHttpOk,
       });
       setErrorMessage(blockedMessage);
       haptics.warning();
@@ -2970,14 +3171,14 @@ export default function ChatScreen() {
       committedUserMessageId = null;
     };
 
-    committedUserMessageId = commitOutboundUserBubble(typed);
+    committedUserMessageId = commitOutboundUserBubble(userTextOrPayload);
     outboundUserBubbleCommitted = true;
 
     let activeSess = currentSession;
     const createdNewSession = !activeSess;
     if (!activeSess) {
       if (isDemo) {
-        const demoTitle = titleFromFirstPrompt(userText) ?? GENERIC_NEW_SESSION_TITLE;
+        const demoTitle = titleFromFirstPrompt(typed) ?? GENERIC_NEW_SESSION_TITLE;
         activeSess = {
           id: `demo-${Date.now()}`,
           title: demoTitle,
@@ -3032,7 +3233,7 @@ export default function ChatScreen() {
     let sessionBindingPersisted = false;
 
     if (activeSess && !isProgrammatic) {
-      const derived = titleFromFirstPrompt(userText);
+      const derived = titleFromFirstPrompt(typed);
       if (
         derived &&
         (isDemo || shouldAutoTitleSession(activeSess, projectState.sessionLabels))
@@ -3163,7 +3364,7 @@ export default function ChatScreen() {
       );
       setTimeout(() => {
         markOutboundBubbleStatus('sent');
-        const assistantText = `[Demo Mode] I received: "${userText}". Since the gateway is in demo mode, I'm providing a mock reply. Let me know if you want to test live controls!`;
+        const assistantText = `[Demo Mode] I received: "${typed || 'your attachment'}". Since the gateway is in demo mode, I'm providing a mock reply. Let me know if you want to test live controls!`;
         const assistantMessage: HermesMessage = {
           role: 'assistant',
           content: assistantText,
@@ -3194,7 +3395,7 @@ export default function ChatScreen() {
             mobileChatSystemPrompt,
           ),
         );
-        const derived = titleFromFirstPrompt(userText);
+        const derived = titleFromFirstPrompt(typed);
         if (derived) {
           mobileSess = { ...mobileSess, title: derived };
           void updateSessionTitle(gatewayUrl, mobileSess.id, derived, apiKey).catch(() => {});
@@ -3267,7 +3468,7 @@ export default function ChatScreen() {
             streamSessionChat(
           gatewayUrl,
           targetSessionId,
-          userText,
+          userTextOrPayload,
           apiKey,
           (evt) => {
             const rawSessionId = evt.data?.session_id;
@@ -3445,7 +3646,7 @@ export default function ChatScreen() {
               sendChatMessage(
                 gatewayUrl,
                 targetSessionId,
-                userText,
+                userTextOrPayload,
                 apiKey,
                 mobileChatSystemPrompt,
               ),
@@ -3515,13 +3716,14 @@ export default function ChatScreen() {
           connectionState,
           gatewayUrl,
           healthProbePending,
+          macHttpOk,
         });
       } else {
         markOutboundBubbleStatus('failed', message);
         setErrorMessage(message);
         sendFailureDetail = message;
       }
-      lastFailedSendTextRef.current = userText;
+      lastFailedSendTextRef.current = serializedContent;
       haptics.warning();
       return outboundUserBubbleCommitted;
     } finally {
@@ -3652,6 +3854,11 @@ export default function ChatScreen() {
   );
 
   const showComposerProgressBanner = useMemo(() => {
+    if (
+      shouldHideForegroundChatRunSurfaces(progressBanner, isSending, chatForegroundActive)
+    ) {
+      return false;
+    }
     if (!shouldShowComposerProgressBanner(progressBanner, isSending)) {
       return false;
     }
@@ -3667,6 +3874,7 @@ export default function ChatScreen() {
   }, [
     progressBanner,
     isSending,
+    chatForegroundActive,
     isDemo,
     connectionHeal,
     alternateHealRoutes,
@@ -4068,7 +4276,11 @@ export default function ChatScreen() {
           macRetryBusy={macRetryBusy}
           silentHealInFlight={connectionHealInFlight && !macRetryBusy}
           pendingApprovalCount={composerApprovals.length}
-          runProgress={progressBanner}
+          runProgress={
+            shouldHideForegroundChatRunSurfaces(progressBanner, isSending, chatForegroundActive)
+              ? null
+              : progressBanner
+          }
           isSending={isSending}
           machineName={machineShortLabel}
           onOpenApprovals={() => {
@@ -4206,6 +4418,7 @@ export default function ChatScreen() {
                 }}
                 onScroll={handleChatScroll}
                 scrollEventThrottle={16}
+                ListHeaderComponent={undefined}
                 ListFooterComponent={
                   showRecentChatsPanel ? (
                     <View style={styles.recentChatsInThread}>{recentChatsList}</View>
@@ -4245,12 +4458,14 @@ export default function ChatScreen() {
           style={[
             styles.composerDock,
             Platform.OS === 'ios' && keyboardOpen && styles.composerDockKeyboardOpen,
+            { maxHeight: composerDockMaxHeight(windowDimensions.height) },
             {
               paddingBottom: composerDockSpacing.paddingBottom,
               marginBottom: composerDockSpacing.marginBottom,
             },
           ]}
           testID="chat-composer-dock"
+          collapsable={false}
         >
         {operationalError ? (
           <ComposerErrorBanner
@@ -4283,7 +4498,9 @@ export default function ChatScreen() {
           />
         ) : null}
 
-        {toolStatus && !showComposerProgressBanner ? (
+        {toolStatus &&
+        !showComposerProgressBanner &&
+        !shouldHideForegroundChatRunSurfaces(progressBanner, isSending, chatForegroundActive) ? (
           <View style={styles.toolStatusRow}>
             <Text style={styles.toolStatusText}>{humanizeComposerStatus(toolStatus)}</Text>
           </View>
@@ -4334,11 +4551,12 @@ export default function ChatScreen() {
           </Pressable>
         ) : null}
 
-        <VaultProjectPickerChip
-          projectName={activeProject?.name}
-          handoffSummary={activeProject?.handoffSummary}
-          onPress={!showMacConnectionHelp ? openProjectPicker : undefined}
-        />
+        {composerVaultStrip.showNudge ? (
+          <ProjectPickNudgeBanner
+            onPickProject={openProjectPicker}
+            onDismiss={() => setProjectPickNudgeDismissed(true)}
+          />
+        ) : null}
 
         <ChatInputBar
           value={inputValue}
@@ -4347,11 +4565,26 @@ export default function ChatScreen() {
           onBlur={handleInputBlur}
           onSubmit={handleSubmit}
           placeholder={inputPlaceholder}
-          sendMuted={!inputValue.trim()}
+          sendMuted={!inputValue.trim() && attachments.length === 0}
           onSend={handleSend}
           showStop={isRunActive}
           onStop={() => void handleStopRun()}
           focusNonce={composerFocusNonce}
+          attachments={attachments}
+          onAddAttachment={(attachment) =>
+            setAttachments((prev) => {
+              const next = [...prev, attachment];
+              attachmentsRef.current = next;
+              return next;
+            })
+          }
+          onRemoveAttachment={(id) =>
+            setAttachments((prev) => {
+              const next = prev.filter((item) => item.id !== id);
+              attachmentsRef.current = next;
+              return next;
+            })
+          }
         />
         </View>
         ) : null}
@@ -4396,6 +4629,20 @@ export default function ChatScreen() {
                   }}
                   prominent
                 />
+              ) : null}
+              {!effectiveMacHttpOk && activeGatewayProfile ? (
+                <TouchableOpacity
+                  style={styles.retryConnectionBtn}
+                  onPress={() => {
+                    setMacPickerVisible(false);
+                    void handleMacRetry();
+                  }}
+                  testID="mac-picker-retry-btn"
+                >
+                  <Text style={styles.retryConnectionText}>
+                    ↻ Reconnect to {activeGatewayProfile.label}
+                  </Text>
+                </TouchableOpacity>
               ) : null}
               <GatewayProfilePicker
                 profiles={switchComputerProfiles}
@@ -4621,10 +4868,15 @@ export default function ChatScreen() {
               </TouchableOpacity>
             </View>
             <Text style={styles.modalSubtitle}>
-              Tag prompts with an AI-Agent-Sync project lane. Hermes runs tools in that repo on your computer.
+              Tag prompts with a project on your computer so Hermes runs tools in the right repo.
             </Text>
             {vaultCatalogLoading ? (
               <ActivityIndicator size="small" color={colors.primary} style={{ marginBottom: 12 }} />
+            ) : null}
+            {vaultCatalogSource === 'cache' ? (
+              <Text style={styles.modalSubtitle} testID="project-modal-catalog-cache">
+                Using cached project list — pair server unreachable; reconnect on home Wi‑Fi to refresh.
+              </Text>
             ) : null}
             {vaultCatalog?.handoffs?.[0]?.summary ? (
               <Text style={styles.modalSubtitle} numberOfLines={3} testID="project-modal-latest-handoff">
@@ -4645,7 +4897,6 @@ export default function ChatScreen() {
                     {project.role ? (
                       <Text style={styles.projectPickMeta} numberOfLines={1}>{project.role}</Text>
                     ) : null}
-                    <Text style={styles.projectPickPath} numberOfLines={1}>{project.workspacePath}</Text>
                     {project.handoffSummary ? (
                       <Text style={styles.projectPickHandoff} numberOfLines={2}>{project.handoffSummary}</Text>
                     ) : null}
@@ -4663,7 +4914,7 @@ export default function ChatScreen() {
               style={styles.modalInput}
               value={newProjectPath}
               onChangeText={setNewProjectPath}
-              placeholder="~/workspace/git/igor/ThumbGate"
+              placeholder="~/projects/my-app"
               placeholderTextColor={colors.textMuted}
               autoCapitalize="none"
               autoCorrect={false}
@@ -4674,7 +4925,7 @@ export default function ChatScreen() {
               style={styles.modalInput}
               value={newProjectName}
               onChangeText={setNewProjectName}
-              placeholder="ThumbGate"
+              placeholder="My app"
               placeholderTextColor={colors.textMuted}
               autoCapitalize="words"
               testID="new-project-name-input"
@@ -4749,6 +5000,22 @@ export default function ChatScreen() {
 }
 
 const styles = StyleSheet.create({
+  retryConnectionBtn: {
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    backgroundColor: 'rgba(239, 68, 68, 0.08)',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(239, 68, 68, 0.3)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 16,
+  },
+  retryConnectionText: {
+    color: colors.error,
+    fontWeight: '800',
+    fontSize: 15,
+  },
   safeArea: {
     flex: 1,
     backgroundColor: colors.backgroundStart,
@@ -5061,6 +5328,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   composerDock: {
+    flexShrink: 0,
     borderTopWidth: 1,
     borderTopColor: colors.borderLight,
     backgroundColor: 'rgba(9, 11, 20, 0.96)',
@@ -5189,16 +5457,32 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
     marginBottom: 2,
   },
-  projectPickPath: {
-    fontSize: 10,
-    color: colors.textSecondary,
-    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
-  },
   projectPickHandoff: {
     fontSize: 10,
     lineHeight: 14,
     color: colors.textMuted,
     marginTop: 4,
+  },
+  threadProjectStrip: {
+    marginHorizontal: 12,
+    marginBottom: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    borderRadius: 10,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(99, 102, 241, 0.35)',
+    backgroundColor: 'rgba(99, 102, 241, 0.08)',
+    gap: 4,
+  },
+  threadProjectTag: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: colors.accent,
+  },
+  threadProjectHandoff: {
+    fontSize: 10,
+    lineHeight: 14,
+    color: colors.textSecondary,
   },
   clearProjectBtn: {
     marginTop: 8,

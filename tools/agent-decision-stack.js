@@ -24,6 +24,8 @@ Options:
   --graphify-query     Optional override for graphify query (default: --task).
   --skip-thumbgate     Skip ThumbGate lessons search.
   --skip-graphify      Skip graphify query.
+  --skip-local-retrieval
+                      Skip Hermes local find/retrieve/read/grep harness evidence.
   --json               Print structured brief only.`;
 
 function parseArgs(argv) {
@@ -33,6 +35,7 @@ function parseArgs(argv) {
     graphifyQuery: '',
     skipThumbgate: false,
     skipGraphify: false,
+    skipLocalRetrieval: false,
     json: false,
     help: false,
   };
@@ -43,6 +46,7 @@ function parseArgs(argv) {
     else if (arg === '--graphify-query') args.graphifyQuery = argv[++i] || '';
     else if (arg === '--skip-thumbgate') args.skipThumbgate = true;
     else if (arg === '--skip-graphify') args.skipGraphify = true;
+    else if (arg === '--skip-local-retrieval') args.skipLocalRetrieval = true;
     else if (arg === '--json') args.json = true;
     else if (arg === '--help' || arg === '-h') args.help = true;
     else throw new Error(`Unknown argument: ${arg}`);
@@ -180,6 +184,29 @@ function graphifyQuery(task) {
   };
 }
 
+function localRetrieval(task) {
+  try {
+    const { retrieve } = require('./hermes-retrieval-harness');
+    const result = retrieve({ repo: REPO, query: task, topK: 5 });
+    return {
+      query: task,
+      searchedFiles: result.searchedFiles,
+      resultCount: result.resultCount,
+      results: result.results.map((item) => ({
+        citation: item.citation,
+        path: item.path,
+        lineStart: item.lineStart,
+        lineEnd: item.lineEnd,
+        score: item.score,
+        preview: item.preview,
+      })),
+      nextTool: 'Confirm cited facts with readFile or grepFile before final claims.',
+    };
+  } catch (error) {
+    return { error: error.message || String(error) };
+  }
+}
+
 function recommendNextAction(brief) {
   const gh = brief.telemetry?.githubRun;
   if (gh?.status === 'in_progress') {
@@ -212,6 +239,9 @@ function buildBrief(args) {
   if (!args.skipGraphify) {
     brief.rag.graphify = graphifyQuery(args.graphifyQuery || task);
   }
+  if (!args.skipLocalRetrieval) {
+    brief.rag.localRetrieval = localRetrieval(task);
+  }
   brief.telemetry.githubRun = extractGhRunFeatures(args.ghRun);
   brief.recommendation = recommendNextAction(brief);
   return brief;
@@ -241,6 +271,13 @@ function main() {
     console.log('## Graphify files');
     for (const file of brief.rag.graphify.relevantFiles) {
       console.log(`- ${file}`);
+    }
+    console.log('');
+  }
+  if (brief.rag.localRetrieval?.results?.length) {
+    console.log('## Local retrieval evidence');
+    for (const item of brief.rag.localRetrieval.results) {
+      console.log(`- ${item.citation} ${item.path}:${item.lineStart}-${item.lineEnd} score=${item.score}`);
     }
     console.log('');
   }

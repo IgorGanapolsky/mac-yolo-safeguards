@@ -101,3 +101,11 @@ See [PERFORMANCE.md](./PERFORMANCE.md) for FlashList, React Compiler, and bundle
 5. **Broken Settings JSX** → `SettingsScreen.test.tsx` + Maestro settings flow FAIL.
 6. **Leash UI regression** → `approvals.yaml` thumbs testIDs FAIL.
 7. **WS event handling drift** → `GatewayContext.test.tsx` FAIL.
+
+## Rozenite / Inspector Debugging Checklist
+
+When debugging layout lag, interaction latency, or rendering performance using Rozenite / React Native Inspector:
+1. **Disable Inspector in E2E runs**: React Native Inspector overlays block element touch coordinates in Maestro. Always close the inspector overlay before initiating Maestro sweeps.
+2. **Profile with Release builds or Profiling profile**: Performance metrics gathered on Dev/Debug builds contain development shims that skew frame times. For accurate results, run `npm run android:phone` or use `EXPO_PUBLIC_PROFILING=1` to compile without developer features.
+3. **Trace JS lag**: Check `App.tsx` performance logs to ensure interaction lag remains under 100ms and event-loop delays do not exceed 50ms.
+

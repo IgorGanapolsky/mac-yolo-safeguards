@@ -8,6 +8,7 @@ import {
   TouchableOpacity,
   Switch,
   Alert,
+  Linking,
   Platform,
   Keyboard,
 } from 'react-native';
@@ -33,9 +34,17 @@ import { resolveRelayRouteDisplay, relayWorkerDisplayName } from '../utils/relay
 import { isMacGatewayHttpOk } from '../utils/gatewayConnection';
 import type { ApprovalPolicy, HermesAvatar, HermesPersona } from '../types/gateway';
 import GatewayOpsSection from '../components/GatewayOpsSection';
+import GateRulesScreen from '../screens/GateRulesScreen';
 import { secureCredentials } from '../services/secureCredentials';
 import { requestHermesNotificationPermission } from '../services/approvalNotifications';
 import { AVATARS, PERSONAS } from '../utils/hermesPersona';
+import { isLeashProEnabled } from '../utils/leashPro';
+import ProUpgradeCard from '../components/ProUpgradeCard';
+import {
+  HERMES_HARDENING_SPRINT_URL,
+  LEASH_PRO_PRODUCT_NAME,
+  THUMBGATE_PRO_PRICE_LABEL,
+} from '../constants/monetization';
 
 export default function SettingsScreen() {
   const {
@@ -51,7 +60,6 @@ export default function SettingsScreen() {
     injectDemoApproval,
     completePair,
     disconnectPair,
-    requestTestIntercept,
     relayWorkers,
     activeRelayWorkerId,
     gatewayProfiles: savedMacProfiles,
@@ -67,6 +75,7 @@ export default function SettingsScreen() {
     tailscaleDiscoveryProbing,
     probeTailscaleComputers,
     addDiscoveredTailscaleComputer,
+    patchSettings,
   } = useGateway();
 
   const [cloudUrl, setCloudUrl] = useState(settings.cloudUrl);
@@ -95,6 +104,8 @@ export default function SettingsScreen() {
   const [isScanningMacs, setIsScanningMacs] = useState(false);
   const [qrScannerVisible, setQrScannerVisible] = useState(false);
   const [glassesConnected, setGlassesConnected] = useState(false);
+  const [gateRulesVisible, setGateRulesVisible] = useState(false);
+  const leashProEnabled = isLeashProEnabled(settings);
   const scrollRef = useRef<ScrollView>(null);
   const gatewayUrlInputRef = useRef<TextInput>(null);
   const relayRouteDisplay = useMemo(
@@ -322,14 +333,6 @@ export default function SettingsScreen() {
     }
   };
 
-  const handleTestIntercept = async () => {
-    try {
-      await requestTestIntercept();
-      Alert.alert('Test sent', 'Check ThumbGate Leash for a fake agent tool approval.');
-    } catch (err) {
-      Alert.alert('Test failed', err instanceof Error ? err.message : 'Could not inject test event');
-    }
-  };
   const handleFindMacs = async () => {
     haptics.selection();
     setIsScanningMacs(true);
@@ -716,9 +719,6 @@ export default function SettingsScreen() {
           {isPaired ? (
             <>
               <Text style={styles.pairedText}>Paired — mobile token stored in secure storage.</Text>
-              <TouchableOpacity style={styles.secondaryButton} onPress={handleTestIntercept}>
-                <Text style={styles.secondaryButtonText}>⚡ Send test approval to ThumbGate Leash</Text>
-              </TouchableOpacity>
               <TouchableOpacity style={styles.unlinkButton} onPress={() => disconnectPair()}>
                 <Text style={styles.unlinkButtonText}>Disconnect pairing</Text>
               </TouchableOpacity>
@@ -756,6 +756,22 @@ export default function SettingsScreen() {
         {/* Safeguard Options */}
         <Text style={styles.sectionTitle}>🛡 Safeguard Rules</Text>
         <GlassCard>
+          <TouchableOpacity
+            style={styles.gateRulesRow}
+            onPress={() => setGateRulesVisible(true)}
+            testID="open-gate-rules"
+          >
+            <View style={styles.switchLabelCol}>
+              <Text style={styles.switchLabel}>Gate rules</Text>
+              <Text style={styles.switchDesc}>
+                {leashProEnabled
+                  ? 'View and edit standing allow/block rules from your computer'
+                  : `Manage standing rules with ${LEASH_PRO_PRODUCT_NAME}`}
+              </Text>
+            </View>
+            <Text style={styles.gateRulesChevron}>›</Text>
+          </TouchableOpacity>
+          <View style={styles.divider} />
           <Text style={styles.switchLabel}>Approval policy</Text>
           <Text style={styles.switchDesc}>
             Strict hides “always allow” and gates prod deploy. Autonomous defers to computer standing approvals.
@@ -871,6 +887,30 @@ export default function SettingsScreen() {
           </View>
         </GlassCard>
 
+        {!leashProEnabled ? (
+          <>
+            <Text style={styles.sectionTitle}>💰 Support development</Text>
+            <GlassCard testID="support-development-section">
+              <Text style={styles.description}>
+                Hermes Mobile is free. {LEASH_PRO_PRODUCT_NAME} ({THUMBGATE_PRO_PRICE_LABEL}) unlocks
+                the Pro approval queue, standing gate rules, and ThumbGate memory on assistant output
+                — including chat 👍/👎 feedback.
+              </Text>
+              <ProUpgradeCard
+                onUnlocked={async () => {
+                  await patchSettings({ thumbgateProActive: true });
+                }}
+              />
+              <TouchableOpacity
+                onPress={() => void Linking.openURL(HERMES_HARDENING_SPRINT_URL)}
+                testID="hardening-sprint-link"
+              >
+                <Text style={styles.linkText}>Agent hardening sprints (GitHub)</Text>
+              </TouchableOpacity>
+            </GlassCard>
+          </>
+        ) : null}
+
         {Platform.OS === 'android' ? (
           <>
             <Text style={styles.sectionTitle}>🕶️ AI glasses</Text>
@@ -939,6 +979,8 @@ export default function SettingsScreen() {
             </GlassCard>
           </>
         ) : null}
+
+        <GateRulesScreen visible={gateRulesVisible} onClose={() => setGateRulesVisible(false)} />
 
         {/* Save Button */}
         <TouchableOpacity
@@ -1021,6 +1063,13 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
     marginTop: 6,
   },
+  linkText: {
+    fontSize: 12,
+    color: colors.secondary,
+    textAlign: 'center',
+    textDecorationLine: 'underline',
+    marginTop: 4,
+  },
   spacer: {
     height: 16,
   },
@@ -1028,6 +1077,17 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+  },
+  gateRulesRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 4,
+  },
+  gateRulesChevron: {
+    fontSize: 22,
+    color: colors.textMuted,
+    fontWeight: '300',
   },
   switchLabelCol: {
     flex: 1,

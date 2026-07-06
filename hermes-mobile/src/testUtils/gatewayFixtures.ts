@@ -113,6 +113,8 @@ export function mockUseGateway(overrides: Record<string, unknown> = {}) {
     removeGatewayListener: jest.fn(),
     chatOutputFeedbackBusyId: null,
     submitChatOutputFeedback: jest.fn().mockResolvedValue(true),
+    activateDeveloperLeashUnlock: jest.fn().mockResolvedValue(undefined),
+    patchSettings: jest.fn().mockResolvedValue(undefined),
     ...overrides,
   };
 }

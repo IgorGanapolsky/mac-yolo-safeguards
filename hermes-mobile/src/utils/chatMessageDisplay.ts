@@ -204,21 +204,57 @@ const FULL_MAX_CHARS = 32000;
 const PREVIEW_UNTRUSTED_MAX_CHARS = 480;
 const PREVIEW_TOOL_JSON_MAX_CHARS = 480;
 
-function formatMessageBody(content: string, mode: 'preview' | 'full'): string {
+export function parseMessageContent(content: any): { text: string; images: string[] } {
+  if (!content) {
+    return { text: '', images: [] };
+  }
+  let parsed = content;
+  if (typeof content === 'string' && (content.trim().startsWith('[') || content.trim().startsWith('{'))) {
+    try {
+      parsed = JSON.parse(content);
+    } catch {
+      // ignore
+    }
+  }
+
+  if (typeof parsed === 'string') {
+    return { text: parsed, images: [] };
+  }
+
+  if (Array.isArray(parsed)) {
+    const textParts = parsed
+      .filter((p) => p && (p.type === 'text' || typeof p.text === 'string'))
+      .map((p) => p.text || '')
+      .join('\n')
+      .trim();
+
+    const imageParts = parsed
+      .filter((p) => p && p.type === 'image_url')
+      .map((p) => p.image_url?.url || p.url)
+      .filter(Boolean);
+
+    return { text: textParts, images: imageParts };
+  }
+
+  return { text: String(content), images: [] };
+}
+
+function formatMessageBody(content: any, mode: 'preview' | 'full'): string {
   if (!content) return '';
+  const textStr = typeof content === 'string' ? content : parseMessageContent(content).text;
 
   const untrustedCap = mode === 'full' ? 12000 : PREVIEW_UNTRUSTED_MAX_CHARS;
   const toolJsonCap = mode === 'full' ? 8000 : PREVIEW_TOOL_JSON_MAX_CHARS;
   const hardCap = mode === 'full' ? FULL_MAX_CHARS : PREVIEW_MAX_CHARS;
 
-  const trimmedInput = content.trim();
+  const trimmedInput = textStr.trim();
   const jsonEarly = tryParseJsonObject(trimmedInput);
   if (jsonEarly && mode === 'preview') {
     const summary = summarizeToolJson(jsonEarly, toolJsonCap);
     if (summary) return summary;
   }
 
-  let text = stripUntrustedToolBlocks(unescapeChatText(content), untrustedCap);
+  let text = stripUntrustedToolBlocks(unescapeChatText(textStr), untrustedCap);
   const trimmed = text.trim();
 
   const json = tryParseJsonObject(trimmed);
@@ -237,17 +273,19 @@ function formatMessageBody(content: string, mode: 'preview' | 'full'): string {
   return text;
 }
 
-export function formatMessageFull(content: string): string {
+export function formatMessageFull(content: any): string {
   return formatMessageBody(content, 'full');
 }
 
-export function formatMessageForDisplay(content: string): string {
+export function formatMessageForDisplay(content: any): string {
   return formatMessageBody(content, 'preview');
 }
 
 /** Full expandable body — pretty JSON when possible, not the short preview summary. */
-export function formatExpandedMessageContent(raw: string): string {
-  const unescaped = unescapeChatText(raw);
+export function formatExpandedMessageContent(raw: any): string {
+  if (!raw) return '';
+  const textStr = typeof raw === 'string' ? raw : parseMessageContent(raw).text;
+  const unescaped = unescapeChatText(textStr);
   const stripped = stripUntrustedToolBlocks(unescaped, 12000).trim();
   const json = tryParseJsonValue(stripped);
   if (json != null) {
@@ -261,7 +299,7 @@ export function formatExpandedMessageContent(raw: string): string {
   return formatMessageBody(raw, 'full');
 }
 
-export function prepareMessageForChatDisplay(raw: string): {
+export function prepareMessageForChatDisplay(raw: any): {
   content: string;
   rawContent: string;
   truncated: boolean;

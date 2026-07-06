@@ -32,11 +32,11 @@ export function buildWorkspaceSystemPrompt(
   ];
   const vaultSlug = options?.vaultSlug?.trim();
   if (vaultSlug) {
-    lines.push(`- Obsidian vault project lane: ${vaultSlug} (AI-Agent-Sync/Projects/${vaultSlug}/).`);
+    lines.push(`- Project catalog id: ${vaultSlug}.`);
   }
   const handoff = options?.handoffSummary?.trim();
   if (handoff) {
-    lines.push(`- Latest agent handoff for this lane: ${handoff}`);
+    lines.push(`- Latest agent handoff for this project: ${handoff}`);
   }
   return lines.join('\n');
 }

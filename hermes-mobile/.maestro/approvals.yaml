@@ -1,4 +1,4 @@
-# Flow 3: ThumbGate Leash tab — smoke-test approval card (release-safe, no __DEV__ demo mode)
+# Flow 3: Pro tab — paid approval controls without fake production smoke-test UI
 appId: com.iganapolsky.hermesmobile
 ---
 - launchApp
@@ -13,32 +13,26 @@ appId: com.iganapolsky.hermesmobile
     timeout: 30000
 - scrollUntilVisible:
     element:
-      id: "leash-smoke-test"
+      id: "pro-options-card"
     direction: DOWN
     timeout: 90000
-- tapOn:
-    id: "leash-smoke-test"
 - scrollUntilVisible:
     element:
-      id: "leash-thumbs-up"
+      id: "glance-mode-switch"
+    direction: DOWN
+    timeout: 60000
+- assertVisible:
+    id: "glance-mode-switch"
+- assertVisible: "Thumbs down → remember block"
+- assertVisible: "Thumbs up → record approval"
+- assertNotVisible: "Preview approval card (smoke test)"
+- assertNotVisible: "smoke test"
+- scrollUntilVisible:
+    element:
+      id: "THUMBGATE_LEASH"
     direction: UP
     timeout: 10000
 - extendedWaitUntil:
     visible:
-      id: "leash-thumbs-up"
-    timeout: 10000
-- assertVisible:
-    id: "leash-thumbs-down"
-- assertVisible:
-    id: "leash-thumbs-up"
-- tapOn:
-    id: "leash-thumbs-up"
-- scrollUntilVisible:
-    element:
-      id: "no-pending-approvals"
-    direction: UP
-    timeout: 10000
-- extendedWaitUntil:
-    visible:
-      id: "no-pending-approvals"
+      id: "THUMBGATE_LEASH"
     timeout: 10000

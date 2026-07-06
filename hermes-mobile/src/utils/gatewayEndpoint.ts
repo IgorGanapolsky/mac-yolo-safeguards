@@ -15,7 +15,8 @@ export type LeashConnectionDisplay = {
   footnote?: string;
 };
 
-function isUsableHost(value: string | undefined): string | undefined {
+/** Rejects empty, loopback-on-device, and gateway `/health` placeholders like `unknown`. */
+export function isUsableGatewayHost(value: string | undefined): string | undefined {
   const trimmed = value?.trim();
   if (!trimmed || trimmed === 'unknown') {
     return undefined;
@@ -97,7 +98,7 @@ export function formatGatewayHostLabel(
     return UNCONFIGURED_GATEWAY_LABEL;
   }
   if (isLoopbackGatewayUrl(gatewayUrl)) {
-    const fromHealthName = isUsableHost(health?.hostname);
+    const fromHealthName = isUsableGatewayHost(health?.hostname);
     const fromUrl = parseHostFromGatewayUrl(gatewayUrl);
     const name =
       fromHealthName?.replace(/\.local$/i, '') ??
@@ -106,8 +107,8 @@ export function formatGatewayHostLabel(
     return `${name} · USB`;
   }
 
-  const fromHealthName = isUsableHost(health?.hostname);
-  const fromHealthIp = isUsableHost(health?.localIp);
+  const fromHealthName = isUsableGatewayHost(health?.hostname);
+  const fromHealthIp = isUsableGatewayHost(health?.localIp);
   const fromUrl = parseHostFromGatewayUrl(gatewayUrl);
 
   const name = fromHealthName ?? fromUrl.hostname;
@@ -133,8 +134,8 @@ export function formatGatewayMachineParts(
   if (!isValidGatewayUrl(gatewayUrl)) {
     return { machineName: UNCONFIGURED_GATEWAY_LABEL };
   }
-  const fromHealthName = isUsableHost(health?.hostname);
-  const fromHealthIp = isUsableHost(health?.localIp);
+  const fromHealthName = isUsableGatewayHost(health?.hostname);
+  const fromHealthIp = isUsableGatewayHost(health?.localIp);
   const fromUrl = parseHostFromGatewayUrl(gatewayUrl);
 
   const urlHostname =
@@ -249,7 +250,7 @@ export function formatGatewayEndpointLine(
   if (!isValidGatewayUrl(gatewayUrl)) {
     return 'Set computer in Settings';
   }
-  const lanIp = isUsableHost(health?.localIp);
+  const lanIp = isUsableGatewayHost(health?.localIp);
   try {
     const { httpBase } = normalizeGatewayUrl(gatewayUrl);
     const url = new URL(httpBase);

@@ -22,6 +22,13 @@ const DEFAULT_RESEARCH_ITEMS = [
     text: 'Build an LLM knowledge base with hybrid retrieval, dense vectors, metadata, and graph relationships.',
   },
   {
+    id: 'llamaindex-legal-kb-retrieval-harness',
+    title: 'LlamaIndex legal-kb Retrieval Harness',
+    url: 'https://github.com/run-llama/legal-kb',
+    confidence: 'public_reference_app',
+    text: 'Agentic retrieval harness over legal documents: findFiles first, retrieve with hybrid search, then readFile or grepFile exact passages before citing. Versioned files and citations reduce stale or unsupported answers.',
+  },
+  {
     id: 'claude-engineer-10x',
     title: 'How to 10x the 100x Claude engineer',
     url: 'https://dataengineeringcentral.substack.com/p/how-to-10x-the-100x-claude-engineer',
@@ -68,13 +75,13 @@ const DEFAULT_RESEARCH_ITEMS = [
 const SIGNALS = [
   {
     key: 'hybrid-rag',
-    label: 'Hybrid RAG and source-grounded knowledge base',
-    patterns: [/\bhybrid\b/i, /\bknowledge base\b/i, /\bknowledge graph\b/i, /\bgraph rag\b/i, /\bvector\b/i, /\bdense\b/i, /\bmetadata\b/i],
+    label: 'Hybrid RAG and source-grounded retrieval harness',
+    patterns: [/\bhybrid\b/i, /\bknowledge base\b/i, /\bknowledge graph\b/i, /\bgraph rag\b/i, /\bvector\b/i, /\bdense\b/i, /\bmetadata\b/i, /\bretrieval harness\b/i, /\bfindFiles\b/i, /\breadFile\b/i, /\bgrepFile\b/i, /\bcitations?\b/i],
     roi: 10,
     impact: 'Fewer stale-context mistakes across machines; faster cross-file decisions; better evidence for claims.',
-    existingTools: ['tools/agent-decision-stack.js', 'tools/graphify-readiness.js', 'tools/hermes-source-packs.js'],
-    action: 'Require graph/source-pack evidence before architecture, routing, revenue, or multi-machine claims.',
-    verification: ['node tests/test-openrouter-graphify-tools.js', 'node tests/test-hermes-source-packs.js'],
+    existingTools: ['tools/agent-decision-stack.js', 'tools/graphify-readiness.js', 'tools/hermes-source-packs.js', 'tools/hermes-retrieval-harness.js'],
+    action: 'Require inventory, retrieval, and exact read/grep citations before architecture, routing, revenue, or multi-machine claims.',
+    verification: ['node tests/test-hermes-retrieval-harness.js', 'node tests/test-openrouter-graphify-tools.js', 'node tests/test-hermes-source-packs.js'],
     guardrail: 'read_only_until_recommendation',
   },
   {

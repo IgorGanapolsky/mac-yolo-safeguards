@@ -48,6 +48,12 @@ describe('formatGatewayHostLabel', () => {
     ).toBe('192.168.5.42');
   });
 
+  it('exports isUsableGatewayHost for profile and header sanitizers', () => {
+    const { isUsableGatewayHost } = require('../utils/gatewayEndpoint');
+    expect(isUsableGatewayHost('unknown')).toBeUndefined();
+    expect(isUsableGatewayHost('Igors-MacBook-Pro.local')).toBe('Igors-MacBook-Pro');
+  });
+
   it('strips .local from machine hostname', () => {
     expect(
       formatGatewayHostLabel('http://192.168.1.10:8642', sampleHealth({

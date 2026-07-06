@@ -6,6 +6,7 @@ import {
   isRunProgressStale,
   runProgressElapsedSeconds,
   runProgressFailedTitle,
+  shouldHideForegroundChatRunSurfaces,
   shouldShowComposerProgressBanner,
   staleRunProgressDetail,
 } from '../utils/runProgressDisplay';
@@ -93,6 +94,25 @@ describe('runProgressDisplay', () => {
         true,
       ),
     ).toBe(true);
+  });
+
+  it('hides duplicate run surfaces while Chat is foreground', () => {
+    const activeRun = {
+      phase: 'working' as const,
+      startedAtMs: Date.now(),
+      detail: 'running terminal',
+      runId: 'run-1',
+    };
+    expect(shouldHideForegroundChatRunSurfaces(activeRun, false, true)).toBe(true);
+    expect(shouldHideForegroundChatRunSurfaces(activeRun, false, false)).toBe(false);
+    expect(shouldHideForegroundChatRunSurfaces(activeRun, true, true)).toBe(true);
+    expect(
+      shouldHideForegroundChatRunSurfaces(
+        { ...activeRun, phase: 'failed', detail: 'Stopped' },
+        false,
+        true,
+      ),
+    ).toBe(false);
   });
 
   it('shortens connectivity failures for banner title row', () => {

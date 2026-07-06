@@ -1,5 +1,6 @@
 import Constants from 'expo-constants';
 import { Platform } from 'react-native';
+import { THUMBGATE_PRO_PRICE_LABEL } from '../constants/monetization';
 
 /** Play / App Store subscription id — must match Play Console + App Store Connect. */
 export const THUMBGATE_LEASH_IAP_PRODUCT_ID = 'thumbgate_leash_monthly';
@@ -9,6 +10,10 @@ export type ThumbgateIapResult =
   | { status: 'cancelled' }
   | { status: 'not_configured'; message: string }
   | { status: 'error'; message: string };
+
+export type ThumbgateLeashProductCheck =
+  | { configured: true }
+  | { configured: false; message: string };
 
 type ExpoIapModule = typeof import('expo-iap');
 type Purchase = import('expo-iap').Purchase;
@@ -84,6 +89,21 @@ function isThumbgateLeashPurchase(purchase: Purchase): boolean {
   return productId === THUMBGATE_LEASH_IAP_PRODUCT_ID;
 }
 
+function productIdFromStoreListing(product: { id?: string; productId?: string }): string | undefined {
+  return product.productId ?? product.id;
+}
+
+function storeAdminLabel(): string {
+  return Platform.OS === 'ios' ? 'App Store Connect' : 'Google Play Console';
+}
+
+function productNotConfiguredMessage(): string {
+  return (
+    `Subscription "${THUMBGATE_LEASH_IAP_PRODUCT_ID}" is not configured in ${storeAdminLabel()} yet. ` +
+    'Create the Leash Pro subscription before testing purchases.'
+  );
+}
+
 async function ensureStoreConnection(iap: ExpoIapModule): Promise<void> {
   if (connectionReady) {
     return;
@@ -145,6 +165,39 @@ export function initializeThumbgateIapListeners(): void {
 }
 
 /** Read active subscription from Google Play / App Store. Never blocks app startup. */
+/** Verify Play Console / ASC exposes thumbgate_leash_monthly before opening checkout. */
+export async function verifyThumbgateLeashProductConfigured(): Promise<ThumbgateLeashProductCheck> {
+  if (!isNativeMobileApp() || isExpoGoClient()) {
+    return { configured: false, message: storeUnavailableMessage() };
+  }
+
+  try {
+    const iap = await loadExpoIapModule();
+    if (!iap || typeof iap.fetchProducts !== 'function') {
+      return { configured: false, message: storeUnavailableMessage() };
+    }
+    await ensureStoreConnection(iap);
+    const products = await withTimeout(
+      iap.fetchProducts({ skus: [THUMBGATE_LEASH_IAP_PRODUCT_ID], type: 'subs' }),
+      IAP_INIT_TIMEOUT_MS,
+    );
+    const configured = Array.isArray(products)
+      ? products.some(
+          (product) => productIdFromStoreListing(product) === THUMBGATE_LEASH_IAP_PRODUCT_ID,
+        )
+      : false;
+    if (!configured) {
+      return { configured: false, message: productNotConfiguredMessage() };
+    }
+    return { configured: true };
+  } catch (error) {
+    return {
+      configured: false,
+      message: error instanceof Error ? error.message : 'Could not verify store product.',
+    };
+  }
+}
+
 export async function syncThumbgateLeashEntitlement(): Promise<boolean> {
   if (!isNativeMobileApp() || isExpoGoClient()) {
     return false;
@@ -182,6 +235,11 @@ export async function purchaseThumbgateLeash(): Promise<ThumbgateIapResult> {
     const alreadyActive = await iap.hasActiveSubscriptions([THUMBGATE_LEASH_IAP_PRODUCT_ID]);
     if (alreadyActive) {
       return { status: 'purchased' };
+    }
+
+    const productCheck = await verifyThumbgateLeashProductConfigured();
+    if (!productCheck.configured) {
+      return { status: 'not_configured', message: productCheck.message };
     }
 
     return await new Promise<ThumbgateIapResult>((resolve) => {
@@ -242,5 +300,5 @@ export async function restoreThumbgateLeashPurchases(): Promise<ThumbgateIapResu
 }
 
 export function thumbgateIapSubscribeLabel(): string {
-  return Platform.OS === 'ios' ? 'Subscribe in App Store' : 'Subscribe in Google Play';
+  return `Start Pro - ${THUMBGATE_PRO_PRICE_LABEL}`;
 }

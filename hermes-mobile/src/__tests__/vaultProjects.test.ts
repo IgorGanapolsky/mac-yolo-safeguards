@@ -4,8 +4,15 @@ import {
   resolveActiveProjectId,
   setActiveProjectForComputer,
 } from '../services/chatProjects';
-import { fetchVaultProjectCatalogFromHost } from '../services/vaultProjects';
+import {
+  fetchVaultProjectCatalogFromGateway,
+  fetchVaultProjectCatalogFromHost,
+  fetchVaultProjectCatalogWithCache,
+  loadCachedVaultProjectCatalog,
+  saveCachedVaultProjectCatalog,
+} from '../services/vaultProjects';
 import { EMPTY_CHAT_PROJECT_STATE } from '../types/chatProject';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 describe('vaultProjects integration helpers', () => {
   it('resolves active project per computer profile', () => {
@@ -59,6 +66,10 @@ describe('vaultProjects integration helpers', () => {
 });
 
 describe('fetchVaultProjectCatalogFromHost', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
   it('returns null when pair server has no catalog', async () => {
     (global.fetch as jest.Mock).mockResolvedValueOnce({ ok: false });
     await expect(fetchVaultProjectCatalogFromHost('192.168.1.10')).resolves.toBeNull();
@@ -87,5 +98,82 @@ describe('fetchVaultProjectCatalogFromHost', () => {
       'http://127.0.0.1:8765/vault-projects.json',
       expect.objectContaining({ signal: expect.any(AbortSignal) }),
     );
+  });
+});
+
+describe('fetchVaultProjectCatalogFromGateway', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('prefers /api/projects over pair server when gateway returns data', async () => {
+    (global.fetch as jest.Mock).mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        projects: [
+          {
+            id: 'ThumbGate',
+            name: 'ThumbGate',
+            workspace_path: '/Users/igor/workspace/git/igor/ThumbGate/repo',
+          },
+        ],
+      }),
+    });
+    const catalog = await fetchVaultProjectCatalogFromGateway(
+      'http://100.94.135.78:8642',
+      'sk-test-key',
+    );
+    expect(catalog?.vaultPath).toBe('gateway:/api/projects');
+    expect(global.fetch).toHaveBeenCalledWith(
+      'http://100.94.135.78:8642/api/projects',
+      expect.objectContaining({
+        headers: expect.objectContaining({ Authorization: 'Bearer sk-test-key' }),
+      }),
+    );
+  });
+});
+
+describe('fetchVaultProjectCatalogWithCache', () => {
+  const sampleCatalog = {
+    schema: 'hermes-vault-projects/v1' as const,
+    generatedAt: '2026-07-05T00:00:00.000Z',
+    vaultPath: '/Users/igor/Documents/AI-Agent-Sync',
+    projects: [
+      {
+        slug: 'mac-yolo-safeguards',
+        name: 'mac-yolo-safeguards',
+        startHerePath: 'Projects/mac-yolo-safeguards/Start Here.md',
+        sourceRepo: '/Users/igor/workspace/git/igor/mac-yolo-safeguards',
+      },
+    ],
+  };
+
+  beforeEach(async () => {
+    jest.clearAllMocks();
+    await AsyncStorage.clear();
+  });
+
+  it('persists live catalog and returns cache when live fetch fails', async () => {
+    (global.fetch as jest.Mock)
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => sampleCatalog,
+      })
+      .mockResolvedValueOnce({ ok: false });
+
+    const live = await fetchVaultProjectCatalogWithCache('http://127.0.0.1:8642', [], 'mac_a');
+    expect(live.source).toBe('live');
+    expect(live.catalog?.projects).toHaveLength(1);
+
+    const cached = await fetchVaultProjectCatalogWithCache('http://127.0.0.1:8642', [], 'mac_a');
+    expect(cached.source).toBe('cache');
+    expect(cached.catalog?.projects[0]?.slug).toBe('mac-yolo-safeguards');
+  });
+
+  it('loads and saves cached catalog per computer profile', async () => {
+    await saveCachedVaultProjectCatalog(sampleCatalog, 'mac_b');
+    await expect(loadCachedVaultProjectCatalog('mac_b')).resolves.toMatchObject({
+      projects: [{ slug: 'mac-yolo-safeguards' }],
+    });
   });
 });

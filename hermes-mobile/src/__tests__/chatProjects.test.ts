@@ -10,13 +10,13 @@ describe('workspacePrompt', () => {
     expect(workspaceDisplayName('/Users/igor/workspace/git/igor/ThumbGate')).toBe('ThumbGate');
   });
 
-  it('pins workspace and vault lane in system prompt', () => {
+  it('pins workspace and project catalog context in system prompt', () => {
     const prompt = buildWorkspaceSystemPrompt('~/workspace/git/igor/skool_top1percent', {
       vaultSlug: 'Skool',
       handoffSummary: 'Post the triple-offer thread.',
     });
     expect(prompt).toContain('skool_top1percent');
-    expect(prompt).toContain('AI-Agent-Sync/Projects/Skool/');
+    expect(prompt).toContain('Project catalog id: Skool.');
     expect(prompt).toContain('triple-offer');
   });
 
@@ -41,7 +41,7 @@ describe('chatProjects', () => {
     expect(project.workspacePath).toBe('~/workspace/git/igor/ThumbGate');
   });
 
-  it('binds sessions to a project lane', () => {
+  it('binds sessions to a project', () => {
     const project = createProject('/tmp/foo');
     const state = bindSessionToProject(
       { projects: [project], sessionProjectMap: {}, sessionLabels: {}, activeProjectId: null },

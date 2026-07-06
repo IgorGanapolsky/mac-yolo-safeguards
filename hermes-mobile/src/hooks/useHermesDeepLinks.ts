@@ -3,7 +3,7 @@ import { Linking } from 'react-native';
 import type { NavigationContainerRef } from '@react-navigation/native';
 import type { HermesAgentToolName } from '../services/hermesAgentTools';
 import { parseSetupDeepLink, parseRelayDeepLink, type SetupDeepLinkParams } from '../utils/setupDeepLink';
-import { isDevLeashUnlockDeepLink } from '../utils/developerLeashUnlock';
+import { isDevLeashUnlockDeepLink, canUseDeveloperLeashBackdoor } from '../utils/developerLeashUnlock';
 import { recordAttributionFromUrl } from '../services/marketingAttribution';
 
 type RootTabParamList = {
@@ -79,7 +79,7 @@ export function useHermesDeepLinks(
       if (!navigationOnly && handledUrls.has(url)) return;
       if (!navigationOnly) handledUrls.add(url);
 
-      if (isDevLeashUnlockDeepLink(url) && activateDeveloperLeashUnlock) {
+      if (isDevLeashUnlockDeepLink(url) && activateDeveloperLeashUnlock && canUseDeveloperLeashBackdoor()) {
         await activateDeveloperLeashUnlock();
         navigationRef.current?.navigate('Leash');
         return;

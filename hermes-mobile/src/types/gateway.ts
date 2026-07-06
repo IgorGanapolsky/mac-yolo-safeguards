@@ -115,7 +115,7 @@ export const DEFAULT_GATEWAY_SETTINGS: GatewaySettings = {
   gatewayUrl: '',
   usePortal: false,
   redactPii: true,
-  notificationsEnabled: true,
+  notificationsEnabled: false,
   demoMode: false,
   glanceMode: false,
   safetyMode: false,

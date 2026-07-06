@@ -135,9 +135,49 @@ describe('SettingsScreen', () => {
     );
   });
 
-  it('does not render Pro subscribe UI', () => {
+  it('does not render visible developer Leash unlock controls in Settings', () => {
     const { queryByTestId } = render(<SettingsScreen />);
     expect(queryByTestId('unlock-thumbgate-leash')).toBeNull();
+    expect(queryByTestId('leash-pro-dev-toggle')).toBeNull();
+  });
+
+  it('shows Support development upsell when Leash Pro is inactive', () => {
+    useGateway.mockReturnValue(
+      mockUseGateway({
+        settings: {
+          ...mockGatewaySettings,
+          thumbgateProActive: false,
+          developerLeashUnlock: false,
+        },
+      }),
+    );
+
+    const { getByTestId } = render(<SettingsScreen />);
+    expect(getByTestId('support-development-section')).toBeTruthy();
+    expect(getByTestId('pro-upgrade-card')).toBeTruthy();
+    expect(getByTestId('upgrade-thumbgate-pro')).toBeTruthy();
+  });
+
+  it('hides Support development upsell when Leash Pro is active', () => {
+    useGateway.mockReturnValue(
+      mockUseGateway({
+        settings: {
+          ...mockGatewaySettings,
+          thumbgateProActive: true,
+        },
+      }),
+    );
+
+    const { queryByTestId } = render(<SettingsScreen />);
+    expect(queryByTestId('support-development-section')).toBeNull();
+  });
+
+  it('shows gate rules entry without unrelated OpenClaw scaffold copy', () => {
+    const { getByTestId, getByText, queryByTestId, queryByText } = render(<SettingsScreen />);
+    expect(getByTestId('open-gate-rules')).toBeTruthy();
+    expect(getByText('Gate rules')).toBeTruthy();
+    expect(queryByTestId('openclaw-settings-row')).toBeNull();
+    expect(queryByText(/OpenClaw workflows/)).toBeNull();
   });
 
   it('shows cellular tunnel wizard when off Wi-Fi with LAN profile', () => {

@@ -1,8 +1,8 @@
 import React, { useMemo } from 'react';
-import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Image, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { colors } from '../theme/colors';
 import { haptics } from '../services/haptics';
-import { formatExpandedMessageContent, prepareMessageForChatDisplay } from '../utils/chatMessageDisplay';
+import { formatExpandedMessageContent, prepareMessageForChatDisplay, parseMessageContent } from '../utils/chatMessageDisplay';
 import InlineMessageApproval from './InlineMessageApproval';
 import {
   outboundDeliveryLabel,
@@ -87,6 +87,14 @@ function ChatMessageBubble({
     return prepareMessageForChatDisplay(fallbackRaw);
   }, [content, rawContent, gatewayContent, truncated]);
 
+  const parsed = useMemo(() => {
+    return parseMessageContent(gatewayContent ?? rawContent ?? content);
+  }, [content, rawContent, gatewayContent]);
+
+  const images = useMemo(() => {
+    return parsed.images;
+  }, [parsed]);
+
   const expandedContent = useMemo(() => {
     if (gatewayContent?.trim()) {
       return formatExpandedMessageContent(gatewayContent);
@@ -140,6 +148,15 @@ function ChatMessageBubble({
               </Text>
             )
           ) : null}
+          {images.map((imgUri, index) => (
+            <Image
+              key={index}
+              source={{ uri: imgUri }}
+              style={styles.attachedImage}
+              resizeMode="cover"
+              testID={`attached-image-${index}`}
+            />
+          ))}
           {canExpand ? (
             <Pressable
               onPress={openDetails}
@@ -429,5 +446,12 @@ const styles = StyleSheet.create({
   },
   bubbleAssistantTime: {
     color: colors.textMuted,
+  },
+  attachedImage: {
+    width: 240,
+    height: 180,
+    borderRadius: 12,
+    marginTop: 8,
+    backgroundColor: '#1e293b',
   },
 });

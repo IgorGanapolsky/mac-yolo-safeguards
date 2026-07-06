@@ -48,10 +48,8 @@ export function useKeyboardInset(options?: {
     }
 
     const timer = setInterval(() => {
-      if ((Keyboard.metrics()?.height ?? 0) > 0) {
-        return;
-      }
-      if (options?.suppressHideWhileFocusedRef?.current) {
+      const metricsHeight = Keyboard.metrics()?.height ?? 0;
+      if (metricsHeight > 0) {
         return;
       }
       setInset(0);
@@ -128,7 +126,8 @@ export function useKeyboardInset(options?: {
       }
     };
     const onHide = () => {
-      if (options?.suppressHideWhileFocusedRef?.current) {
+      const metricsHeight = Keyboard.metrics()?.height ?? 0;
+      if (options?.suppressHideWhileFocusedRef?.current && metricsHeight > 0) {
         return;
       }
       setInset(0);

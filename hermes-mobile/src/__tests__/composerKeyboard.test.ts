@@ -4,6 +4,7 @@ import {
   ANDROID_TAB_BAR_ESTIMATE_PX,
   composerBottomInset,
   composerDockInsets,
+  composerDockMaxHeight,
   detectWindowShrunkForKeyboard,
   focusedAndroidKeyboardFallbackInset,
   keyboardOverlapHeight,
@@ -44,14 +45,27 @@ describe('composerKeyboard', () => {
     expect(detectWindowShrunkForKeyboard(360, 2200, 2120)).toBe(false);
   });
 
-  it('lifts Android composer via margin even when resize reports shrink', () => {
+  it('lifts Android composer via margin when resize did not shrink the window', () => {
+    const platform = require('react-native').Platform as { OS: string };
+    const prevOs = platform.OS;
+    platform.OS = 'android';
+    try {
+      const { paddingBottom, marginBottom } = composerDockInsets(320, 34, 'resize', false, 0);
+      expect(paddingBottom).toBe(34);
+      expect(marginBottom).toBe(320 + COMPOSER_KEYBOARD_GAP);
+    } finally {
+      platform.OS = prevOs;
+    }
+  });
+
+  it('skips Android margin lift when adjustResize already shrank the window', () => {
     const platform = require('react-native').Platform as { OS: string };
     const prevOs = platform.OS;
     platform.OS = 'android';
     try {
       const { paddingBottom, marginBottom } = composerDockInsets(320, 34, 'resize', true, 0);
-      expect(paddingBottom).toBe(34);
-      expect(marginBottom).toBe(320 + COMPOSER_KEYBOARD_GAP);
+      expect(paddingBottom).toBe(Math.max(34, COMPOSER_KEYBOARD_GAP));
+      expect(marginBottom).toBe(0);
     } finally {
       platform.OS = prevOs;
     }
@@ -80,5 +94,10 @@ describe('composerKeyboard', () => {
     expect(focusedAndroidKeyboardFallbackInset(true, 280, 800, 'android')).toBe(0);
     expect(focusedAndroidKeyboardFallbackInset(false, 0, 800, 'android')).toBe(0);
     expect(focusedAndroidKeyboardFallbackInset(true, 0, 800, 'ios')).toBe(0);
+  });
+
+  it('caps composer dock height relative to the window', () => {
+    expect(composerDockMaxHeight(800)).toBe(272);
+    expect(composerDockMaxHeight(0)).toBe(280);
   });
 });

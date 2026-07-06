@@ -157,7 +157,6 @@ import {
   dismissApprovalNotification as dismissSingleApprovalNotification,
   initApprovalNotifications,
   parseHermesNotificationResponse,
-  requestApprovalNotificationPermission,
   scheduleApprovalNotification,
   scheduleRunCompletedNotification,
   scheduleRunProgressNotification,
@@ -382,7 +381,6 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
 
     const setup = async () => {
       await initApprovalNotifications();
-      await requestApprovalNotificationPermission();
       const listener = await addApprovalNotificationResponseListener(async (response) => {
         const parsed = parseHermesNotificationResponse(response);
         if (!parsed) {

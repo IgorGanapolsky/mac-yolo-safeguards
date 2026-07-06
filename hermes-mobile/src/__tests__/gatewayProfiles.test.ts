@@ -646,4 +646,22 @@ describe('gatewayProfiles', () => {
     expect(legacyState.profiles[0].id).toBe('mac_igors_mac_mini');
     expect(legacyState.activeProfileId).toBe('mac_igors_mac_mini');
   });
+
+  it('strips unknown /health hostname placeholders from saved profiles on load', () => {
+    const state = sanitizeGatewayProfileState({
+      profiles: [
+        {
+          id: 'mac_stale',
+          label: 'Your Mac',
+          gatewayUrl: 'http://192.168.68.79:8642',
+          hostname: 'unknown',
+          localIp: '192.168.68.79',
+          addedAt: '2026-07-06T00:00:00.000Z',
+        },
+      ],
+      activeProfileId: 'mac_stale',
+    });
+    expect(state.profiles[0].hostname).toBeUndefined();
+    expect(profileDisplayName(state.profiles[0])).toBe('Computer 192.168.68.79');
+  });
 });

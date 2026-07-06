@@ -12,30 +12,42 @@ const assistantMessage: HermesMessage = {
   created_at: '2026-06-26T12:00:00.000Z',
 };
 
+const freeSettings = { ...DEFAULT_GATEWAY_SETTINGS, thumbgateProActive: false };
+const proSettings = { ...DEFAULT_GATEWAY_SETTINGS, thumbgateProActive: true };
+
 describe('shouldShowChatOutputFeedback', () => {
-  it('shows feedback for completed assistant output when Leash is unlocked', () => {
+  it('shows feedback for completed assistant output when Leash Pro is enabled', () => {
     expect(
       shouldShowChatOutputFeedback(assistantMessage, {
-        leashUnlocked: true,
         isStreamingAssistant: false,
+        settings: proSettings,
       }),
     ).toBe(true);
   });
 
-  it('hides feedback when Leash is locked', () => {
+  it('hides feedback for free tier without Leash Pro', () => {
     expect(
       shouldShowChatOutputFeedback(assistantMessage, {
-        leashUnlocked: false,
         isStreamingAssistant: false,
+        settings: freeSettings,
       }),
     ).toBe(false);
+  });
+
+  it('shows feedback when developer Leash unlock is active', () => {
+    expect(
+      shouldShowChatOutputFeedback(assistantMessage, {
+        isStreamingAssistant: false,
+        settings: { ...freeSettings, developerLeashUnlock: true },
+      }),
+    ).toBe(true);
   });
 
   it('hides feedback while the assistant message is still streaming', () => {
     expect(
       shouldShowChatOutputFeedback(assistantMessage, {
-        leashUnlocked: true,
         isStreamingAssistant: true,
+        settings: proSettings,
       }),
     ).toBe(false);
   });
@@ -44,7 +56,7 @@ describe('shouldShowChatOutputFeedback', () => {
     expect(
       shouldShowChatOutputFeedback(
         { role: 'assistant', content: '   ' },
-        { leashUnlocked: true, isStreamingAssistant: false },
+        { isStreamingAssistant: false, settings: proSettings },
       ),
     ).toBe(false);
   });
@@ -53,7 +65,7 @@ describe('shouldShowChatOutputFeedback', () => {
     expect(
       shouldShowChatOutputFeedback(
         { role: 'user', content: 'Hello' },
-        { leashUnlocked: true, isStreamingAssistant: false },
+        { isStreamingAssistant: false, settings: proSettings },
       ),
     ).toBe(false);
   });
@@ -76,11 +88,12 @@ describe('resolveChatOutputFeedbackBusyKey', () => {
 });
 
 describe('chat output feedback gating', () => {
-  it('requires Pro or developer unlock via settings helper', () => {
+  it('defaults fresh installs to Pro-off for assistant thumbs', () => {
+    expect(DEFAULT_GATEWAY_SETTINGS.thumbgateProActive).toBe(false);
     expect(
       shouldShowChatOutputFeedback(assistantMessage, {
-        leashUnlocked: DEFAULT_GATEWAY_SETTINGS.thumbgateProActive === true,
         isStreamingAssistant: false,
+        settings: DEFAULT_GATEWAY_SETTINGS,
       }),
     ).toBe(false);
   });

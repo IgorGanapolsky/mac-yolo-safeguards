@@ -24,19 +24,12 @@ import {
   formatLeashConnectionDisplay,
   formatListeningOnGatewayLine,
 } from '../utils/gatewayEndpoint';
-import {
-  buildLeashEmptyExplanation,
-  getLeashFreeTierEducationSections,
-} from '../utils/leashUx';
+import { buildLeashEmptyExplanation } from '../utils/leashUx';
 import { CHAT_APPROVAL_EDIT_PREFIX } from '../services/approvalResolver';
 import { fromPendingApproval } from '../utils/approvalNormalize';
-import { THUMBGATE_LEASH_PRODUCT_NAME, THUMBGATE_PRO_SCREEN_TITLE } from '../constants/monetization';
-import {
-  canUseDeveloperLeashBackdoor,
-  LEASH_TITLE_DEV_UNLOCK_LONG_PRESS_MS,
-} from '../utils/developerLeashUnlock';
+import { THUMBGATE_LEASH_PRODUCT_NAME } from '../constants/monetization';
+import { LEASH_TITLE_DEV_UNLOCK_LONG_PRESS_MS } from '../utils/developerLeashUnlock';
 import { isLeashProEnabled } from '../utils/leashPro';
-import { isLeashSmokeTestUiAllowed } from '../utils/demoModePolicy';
 
 type RootTabParamList = {
   Leash: undefined;
@@ -64,13 +57,11 @@ export default function ApprovalsScreen() {
     effectiveGatewayUrl,
     setApprovalEditSeed,
     patchSettings,
-    injectSmokeApproval,
     activateDeveloperLeashUnlock,
   } = useGateway();
 
   const [refreshing, setRefreshing] = React.useState(false);
   const leashProEnabled = isLeashProEnabled(settings);
-  const educationSections = React.useMemo(() => getLeashFreeTierEducationSections(), []);
 
   const onRefresh = React.useCallback(async () => {
     if (refreshing) {
@@ -97,41 +88,11 @@ export default function ApprovalsScreen() {
   }, [connectionState, onRefresh]),
   );
 
-  const devUnlockTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
-
   const handleTitleDevUnlock = React.useCallback(() => {
-    if (devUnlockTimerRef.current) {
-      clearTimeout(devUnlockTimerRef.current);
-      devUnlockTimerRef.current = null;
-    }
     void activateDeveloperLeashUnlock().then(() => {
-      Alert.alert('Developer Pro unlock enabled');
+      Alert.alert(`${THUMBGATE_LEASH_PRODUCT_NAME} unlocked on this phone.`);
     });
   }, [activateDeveloperLeashUnlock]);
-
-  const handlePressIn = React.useCallback(() => {
-    if (devUnlockTimerRef.current) {
-      clearTimeout(devUnlockTimerRef.current);
-    }
-    devUnlockTimerRef.current = setTimeout(() => {
-      handleTitleDevUnlock();
-    }, LEASH_TITLE_DEV_UNLOCK_LONG_PRESS_MS);
-  }, [handleTitleDevUnlock]);
-
-  const handlePressOut = React.useCallback(() => {
-    if (devUnlockTimerRef.current) {
-      clearTimeout(devUnlockTimerRef.current);
-      devUnlockTimerRef.current = null;
-    }
-  }, []);
-
-  React.useEffect(() => {
-    return () => {
-      if (devUnlockTimerRef.current) {
-        clearTimeout(devUnlockTimerRef.current);
-      }
-    };
-  }, []);
 
   const glance = !presentation.visualsOn;
   const stackApproval = glance ? pendingApprovals[0] : undefined;
@@ -186,8 +147,6 @@ export default function ApprovalsScreen() {
           testID="leash-title-dev-unlock"
           accessible={true}
           collapsable={false}
-          onPressIn={handlePressIn}
-          onPressOut={handlePressOut}
           delayLongPress={LEASH_TITLE_DEV_UNLOCK_LONG_PRESS_MS}
           onLongPress={handleTitleDevUnlock}
         >
@@ -200,7 +159,7 @@ export default function ApprovalsScreen() {
             ? settings.safetyMode || settings.glanceMode
               ? 'Approval-first — blocked agent tools land here'
               : 'Pro approval queue for blocked agent tools'
-            : `${THUMBGATE_LEASH_PRODUCT_NAME} is included in Pro — permissions, gate rules, OpenClaw, and ThumbGate memory`}
+            : 'AI agent firewall — Hermes chat stays free'}
         </Text>
         <>
           <View style={styles.pillRow}>
@@ -260,26 +219,9 @@ export default function ApprovalsScreen() {
         }
       >
         {!leashProEnabled ? (
-          <>
-            <GlassCard style={styles.educationCard} testID="leash-free-tier-education">
-              <Text style={styles.educationIntro}>
-                {THUMBGATE_LEASH_PRODUCT_NAME} is the paid safety layer inside {THUMBGATE_PRO_SCREEN_TITLE} — not required to chat.
-                Hermes stays free on the Hermes tab; this Pro tab explains permission review, standing gate rules,
-                OpenClaw, and ThumbGate memory before you subscribe.
-              </Text>
-              {educationSections.map((section) => (
-                <View key={section.title} style={styles.educationSection}>
-                  <Text style={styles.educationTitle}>{section.title}</Text>
-                  <Text style={styles.educationBody}>{section.body}</Text>
-                </View>
-              ))}
-            </GlassCard>
-            <GlassCard style={styles.upgradeCard} testID="leash-free-tier-upgrade">
-              <LeashProUpsellBanner
-                onUnlocked={unlockLeashPro}
-              />
-            </GlassCard>
-          </>
+          <GlassCard style={styles.paywallCard} testID="leash-free-tier-paywall">
+            <LeashProUpsellBanner onUnlocked={unlockLeashPro} />
+          </GlassCard>
         ) : (
           <>
             <View testID="leash-pull-hint" accessible={true}>
@@ -369,22 +311,6 @@ export default function ApprovalsScreen() {
 
             <GlassCard style={styles.leashSettingsCard} testID="pro-options-card">
               <Text style={styles.sectionTitle}>Pro options</Text>
-              {settings.developerLeashUnlock && isLeashSmokeTestUiAllowed() ? (
-                <>
-                  <TouchableOpacity
-                    style={styles.secondaryButton}
-                    onPress={() => {
-                      injectSmokeApproval();
-                    }}
-                    testID="leash-smoke-test"
-                  >
-                    <Text style={styles.secondaryButtonText}>Preview approval card (smoke test)</Text>
-                  </TouchableOpacity>
-                  <Text style={styles.hintMuted}>
-                    Injects a fake blocked-command card here. Does not touch your relay or computer.
-                  </Text>
-                </>
-              ) : null}
               <View style={styles.switchRow}>
                 <View style={styles.switchLabelCol}>
                   <Text style={styles.switchLabel}>Thumbs down → remember block</Text>
@@ -566,32 +492,8 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
     textAlign: 'center',
   },
-  educationCard: {
+  paywallCard: {
     marginHorizontal: 16,
-  },
-  educationIntro: {
-    fontSize: 13,
-    lineHeight: 19,
-    color: colors.textSecondary,
-    marginBottom: 12,
-  },
-  educationSection: {
-    marginTop: 12,
-  },
-  educationTitle: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: colors.text,
-    marginBottom: 4,
-  },
-  educationBody: {
-    fontSize: 12,
-    lineHeight: 18,
-    color: colors.textMuted,
-  },
-  upgradeCard: {
-    marginHorizontal: 16,
-    marginTop: 12,
   },
   emptyCard: {
     marginHorizontal: 16,
@@ -624,20 +526,6 @@ const styles = StyleSheet.create({
   leashSettingsCard: {
     marginHorizontal: 16,
     marginTop: 12,
-  },
-  secondaryButton: {
-    marginTop: 8,
-    backgroundColor: 'rgba(34, 211, 238, 0.1)',
-    borderColor: colors.accent,
-    borderWidth: 1,
-    borderRadius: 12,
-    paddingVertical: 12,
-    alignItems: 'center',
-  },
-  secondaryButtonText: {
-    fontSize: 12,
-    fontWeight: '800',
-    color: colors.accent,
   },
   switchRow: {
     flexDirection: 'row',

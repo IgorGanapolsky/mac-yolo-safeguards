@@ -88,3 +88,69 @@ export function normalizeVaultProjectCatalog(value: unknown): VaultProjectCatalo
     handoffs: Array.isArray(value.handoffs) ? value.handoffs : [],
   };
 }
+
+type GatewayApiProject = {
+  id?: string;
+  name?: string;
+  workspace_path?: string;
+  has_plan?: boolean;
+  plan_updated_at?: string;
+};
+
+/** Map claude-code `GET /api/projects` payload into the vault catalog shape. */
+export function catalogFromGatewayApiProjects(body: unknown): VaultProjectCatalog | null {
+  if (!body || typeof body !== 'object') return null;
+  const record = body as { projects?: GatewayApiProject[]; agents?: unknown[] };
+  if (!Array.isArray(record.projects) || record.projects.length === 0) return null;
+  const projects: VaultProjectCatalogEntry[] = record.projects
+    .map((project): VaultProjectCatalogEntry | null => {
+      const slug = project.id?.trim() || project.name?.trim().replace(/\s+/g, '-') || '';
+      const name = project.name?.trim() || slug;
+      const sourceRepo = project.workspace_path?.trim() || '';
+      if (!slug || !sourceRepo) return null;
+      return {
+        slug,
+        name,
+        startHerePath: `Projects/${slug}/Start Here.md`,
+        sourceRepo,
+        role: project.has_plan ? 'plan on disk' : undefined,
+      };
+    })
+    .filter((entry): entry is VaultProjectCatalogEntry => entry !== null);
+  if (projects.length === 0) return null;
+  return {
+    schema: VAULT_PROJECT_CATALOG_SCHEMA,
+    generatedAt: new Date().toISOString(),
+    vaultPath: 'gateway:/api/projects',
+    projects,
+  };
+}
+
+/** Map legacy `/v1/obsidian/projects` rows into the vault catalog shape. */
+export function catalogFromObsidianProjects(
+  rows: Array<{ name: string; workspacePath: string; vaultHome: string; rule?: string }>,
+): VaultProjectCatalog | null {
+  if (!rows.length) return null;
+  const projects: VaultProjectCatalogEntry[] = rows
+    .map((row): VaultProjectCatalogEntry | null => {
+      const sourceRepo = row.workspacePath?.trim();
+      const name = row.name?.trim();
+      if (!sourceRepo || !name) return null;
+      const cleanSlug = row.vaultHome.replace(/^Projects\//i, '').split('/')[0] || name;
+      return {
+        slug: cleanSlug,
+        name,
+        startHerePath: row.vaultHome || `Projects/${cleanSlug}/Start Here.md`,
+        sourceRepo,
+        handoffSummary: row.rule?.trim() || undefined,
+      };
+    })
+    .filter((entry): entry is VaultProjectCatalogEntry => entry !== null);
+  if (projects.length === 0) return null;
+  return {
+    schema: VAULT_PROJECT_CATALOG_SCHEMA,
+    generatedAt: new Date().toISOString(),
+    vaultPath: 'gateway:/v1/obsidian/projects',
+    projects,
+  };
+}

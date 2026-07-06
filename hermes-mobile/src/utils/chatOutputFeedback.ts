@@ -1,14 +1,16 @@
 import type { HermesMessage } from '../types/chat';
+import type { GatewaySettings } from '../types/gateway';
 import { isMessageBodyEmpty } from './chatMessageMerge';
+import { isLeashProEnabled } from './leashPro';
 
 export function shouldShowChatOutputFeedback(
   message: HermesMessage,
   options: {
-    leashUnlocked: boolean;
     isStreamingAssistant: boolean;
+    settings: GatewaySettings;
   },
 ): boolean {
-  if (!options.leashUnlocked) {
+  if (!isLeashProEnabled(options.settings)) {
     return false;
   }
   if (message.role?.toLowerCase() !== 'assistant') {

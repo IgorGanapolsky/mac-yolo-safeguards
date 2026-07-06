@@ -1,13 +1,7 @@
 import type { GatewaySettings } from '../types/gateway';
-import { isDeveloperLeashBackdoorActive } from './developerLeashUnlock';
+import { isLeashProEnabled } from './leashPro';
 
-/** ThumbGate Leash (mobile approval relay) requires Pro or the explicit dev backdoor. */
+/** @deprecated Use isLeashProEnabled — Pro now gates rule management, not chat approvals. */
 export function isThumbgateLeashUnlocked(settings: GatewaySettings): boolean {
-  if (settings.thumbgateProActive === true) {
-    return true;
-  }
-  if (isDeveloperLeashBackdoorActive(settings)) {
-    return true;
-  }
-  return false;
+  return isLeashProEnabled(settings);
 }

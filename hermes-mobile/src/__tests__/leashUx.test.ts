@@ -35,16 +35,22 @@ describe('leashUx', () => {
     expect(text).toContain(`${LEASH_TAB_LABEL} tab opens first`);
   });
 
-  it('returns compact paywall copy under 120 words above Subscribe', () => {
+  it('returns compact paywall copy under 70 words above Subscribe', () => {
     const copy = getLeashFreeTierPaywallCopy();
-    expect(copy.headline).toMatch(/kill switch/);
+    expect(copy.headline).toMatch(/AI agent firewall/i);
+    expect(copy.headline).not.toMatch(/kill switch/i);
     expect(copy.outcome).toContain('Hermes chat stays free');
+    expect(copy.outcome).toContain('serious agent work');
     expect(copy.bullets).toHaveLength(3);
+    expect(copy.bullets.join(' ')).toMatch(/risky tools/i);
+    expect(copy.bullets.join(' ')).toMatch(/allow\/block rules/i);
+    expect(copy.bullets.join(' ')).toMatch(/ThumbGate memory/i);
     expect(copy.positioningLine).toContain('$19/mo');
 
     const aboveFold = [copy.headline, copy.outcome, ...copy.bullets, copy.positioningLine].join(' ');
+    expect(aboveFold).not.toMatch(/OpenClaw/i);
     const wordCount = aboveFold.split(/\s+/).filter(Boolean).length;
-    expect(wordCount).toBeLessThanOrEqual(120);
+    expect(wordCount).toBeLessThanOrEqual(70);
   });
 
   it('returns short learn-more sections for collapsed expander', () => {
@@ -54,6 +60,8 @@ describe('leashUx', () => {
       THUMBGATE_LEASH_PRODUCT_NAME,
     ]);
     expect(sections[0]?.body).toContain(THUMBGATE_PRO_SCREEN_TITLE);
-    expect(sections[1]?.body).toContain('pauses risky tools');
+    expect(sections[0]?.body).toContain('firewall rules');
+    expect(sections[0]?.body).not.toMatch(/openclaw/i);
+    expect(sections[1]?.body).toContain('phone-side firewall');
   });
 });

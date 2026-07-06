@@ -2,7 +2,21 @@ import { isRunningInExpoGo } from 'expo';
 import { AppState, Platform } from 'react-native';
 import type { RunProgressState } from '../types/chatDisplay';
 import type { PendingApproval } from '../types/gateway';
-import { formatRunProgressLabel } from '../utils/chatStreamEvents';
+import {
+  buildRunCompletedNotificationBody,
+  buildRunCompletedNotificationTitle,
+  buildRunProgressNotificationBody,
+  buildRunProgressNotificationSubtitle,
+  buildRunProgressNotificationTitle,
+  buildRunStallNotificationBody,
+  buildRunStallNotificationTitle,
+  shouldSuppressRunProgressNotification,
+} from '../utils/runNotificationContent';
+import {
+  getRunNotificationContext,
+  isChatScreenForegroundFocused,
+  type RunNotificationContext,
+} from './runNotificationContext';
 import {
   approvalNotificationIdentifier,
   approvalNotificationTitle,
@@ -20,6 +34,7 @@ let notificationsModule: NotificationModule | null = null;
 
 const CATEGORY_APPROVAL = 'hermes_approval';
 const CATEGORY_RUN = 'hermes_run';
+const CATEGORY_RUN_DONE = 'hermes_run_done';
 const CHANNEL_APPROVALS = 'hermes-approvals';
 const CHANNEL_RUNS = 'hermes-runs';
 const CHANNEL_RESULTS = 'hermes-results';
@@ -104,14 +119,11 @@ export function approvalNotificationSubtitle(pending: PendingApproval): string {
   return tier ? `${tier} · ${kind}` : kind;
 }
 
-export function runProgressNotificationTitle(progress: RunProgressState): string {
-  if (progress.phase === 'approval') {
-    return 'Waiting for your approval';
-  }
-  if (progress.phase === 'streaming') {
-    return 'Hermes is responding';
-  }
-  return 'Hermes is working';
+export function runProgressNotificationTitle(
+  progress: RunProgressState,
+  context?: RunNotificationContext | null,
+): string {
+  return buildRunProgressNotificationTitle(progress, context ?? getRunNotificationContext());
 }
 
 export function shouldDismissRunNotificationsForAppState(appState: string): boolean {
@@ -226,10 +238,10 @@ export async function initHermesNotifications(): Promise<void> {
       const data = notification.request.content.data;
       const type = typeof data?.type === 'string' ? data.type : '';
       const foreground = AppState.currentState === 'active';
-      // Any run-status notification is redundant as a heads-up banner while the user is
-      // actively in the app — they already see the run banner/transcript on screen.
+      const chatForeground = isChatScreenForegroundFocused();
+      // Run-status heads-up banners are redundant while Chat is foreground — progress lives in transcript.
       const suppressRunBanner =
-        foreground &&
+        (foreground || chatForeground) &&
         (type === 'run_progress' || type === 'run_stall' || type === 'run_completed');
       const suppressApprovalBanner =
         foreground && type === 'approval' && data?.riskTier !== 'high';
@@ -256,14 +268,14 @@ export async function initHermesNotifications(): Promise<void> {
       bypassDnd: true,
     });
     await Notifications.setNotificationChannelAsync(CHANNEL_RUNS, {
-      name: 'Live activity',
-      description: 'Ongoing status while Hermes works on your computer',
+      name: 'Agent runs',
+      description: 'Live progress while Hermes works on a task you started',
       importance: Notifications.AndroidImportance.LOW,
       lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
     });
     await Notifications.setNotificationChannelAsync(CHANNEL_RESULTS, {
-      name: 'Results',
-      description: 'When a background task finishes on your computer',
+      name: 'Run results',
+      description: 'When a background task finishes or needs attention',
       importance: Notifications.AndroidImportance.DEFAULT,
       lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
     });
@@ -296,6 +308,14 @@ export async function initHermesNotifications(): Promise<void> {
     {
       identifier: 'view_chat',
       buttonTitle: 'Open chat',
+      options: { opensAppToForeground: true },
+    },
+  ]);
+
+  await Notifications.setNotificationCategoryAsync(CATEGORY_RUN_DONE, [
+    {
+      identifier: 'view_chat',
+      buttonTitle: 'View output',
       options: { opensAppToForeground: true },
     },
   ]);
@@ -506,9 +526,14 @@ export function resetApprovalNotificationState(): void {
 /** Throttled live-activity style notification for background run progress. */
 export async function scheduleRunProgressNotification(
   progress: RunProgressState,
-  options?: { runId?: string; sessionId?: string; force?: boolean },
+  options?: { runId?: string; sessionId?: string; force?: boolean; context?: RunNotificationContext },
 ): Promise<void> {
   if (!shouldScheduleRunProgressNotification()) {
+    return;
+  }
+
+  if (shouldSuppressRunProgressNotification(progress)) {
+    await clearRunProgressNotification();
     return;
   }
 
@@ -528,15 +553,16 @@ export async function scheduleRunProgressNotification(
   }
   lastRunStatusAt = now;
 
-  const body = formatRunProgressLabel(progress)
-    .replace(/^⌛\s*Working\s*—\s*/i, '')
-    .slice(0, 180);
+  const context = options?.context ?? getRunNotificationContext();
+  const title = buildRunProgressNotificationTitle(progress, context);
+  const subtitle = buildRunProgressNotificationSubtitle(context);
+  const body = buildRunProgressNotificationBody(progress, context, now);
 
   await Notifications.scheduleNotificationAsync({
     identifier: RUN_STATUS_NOTIFICATION_ID,
     content: {
-      title: runProgressNotificationTitle(progress),
-      subtitle: 'Computer gateway · live status',
+      title,
+      subtitle,
       body,
       categoryIdentifier: CATEGORY_RUN,
       threadIdentifier: THREAD_RUNS,
@@ -563,7 +589,12 @@ export async function scheduleRunProgressNotification(
 
 export async function scheduleRunCompletedNotification(
   detail: string,
-  options?: { success?: boolean; runId?: string; sessionId?: string },
+  options?: {
+    success?: boolean;
+    runId?: string;
+    sessionId?: string;
+    context?: RunNotificationContext;
+  },
 ): Promise<void> {
   if (!shouldScheduleRunProgressNotification()) {
     return;
@@ -581,16 +612,17 @@ export async function scheduleRunCompletedNotification(
 
   await clearRunProgressNotification();
 
-  const trimmed = detail.trim().slice(0, 180);
   const success = options?.success ?? true;
+  const context = options?.context ?? getRunNotificationContext();
+  const title = buildRunCompletedNotificationTitle(success, context);
+  const body = buildRunCompletedNotificationBody(detail, success, context);
 
   await Notifications.scheduleNotificationAsync({
     identifier: RUN_COMPLETED_NOTIFICATION_ID,
     content: {
-      title: success ? 'Hermes finished' : 'Hermes run stopped',
-      subtitle: success ? 'Computer gateway' : 'Check chat for details',
-      body: trimmed || (success ? 'Background task completed.' : 'The run ended with an error.'),
-      categoryIdentifier: CATEGORY_RUN,
+      title,
+      body,
+      categoryIdentifier: CATEGORY_RUN_DONE,
       threadIdentifier: THREAD_RUNS,
       sound: success ? 'default' : undefined,
       ...(Platform.OS === 'ios' ? { interruptionLevel: 'active' as const } : {}),
@@ -631,6 +663,7 @@ export const RUN_STALL_NOTIFICATION_ID = 'hermes-run-stall';
 export async function scheduleRunStallNotification(
   runId?: string,
   sessionId?: string,
+  context?: RunNotificationContext,
 ): Promise<void> {
   if (!shouldScheduleRunProgressNotification()) {
     await cancelRunStallNotification();
@@ -648,12 +681,13 @@ export async function scheduleRunStallNotification(
     return;
   }
 
+  const ctx = context ?? getRunNotificationContext();
+
   await Notifications.scheduleNotificationAsync({
     identifier: RUN_STALL_NOTIFICATION_ID,
     content: {
-      title: 'Hermes run might be stalled',
-      subtitle: 'Computer gateway · warning',
-      body: 'No updates from your computer for 45 seconds. Open chat or stop the run.',
+      title: buildRunStallNotificationTitle(ctx),
+      body: buildRunStallNotificationBody(ctx),
       categoryIdentifier: CATEGORY_RUN,
       threadIdentifier: THREAD_RUNS,
       sound: 'default',

@@ -188,6 +188,32 @@ describe('resolveChatMachineHeaderDisplay', () => {
     expect(display.machineEndpoint).toBe('Tailscale');
     expect(display.showDetailWhenConnected).toBe(true);
   });
+
+  it('never shows gateway /health hostname placeholder unknown in the Mac row', () => {
+    const display = resolveChatMachineHeaderDisplay({
+      activeProfile: {
+        id: 'mac_stale',
+        label: 'Your Mac',
+        gatewayUrl: 'http://192.168.68.79:8642',
+        hostname: 'unknown',
+        localIp: '192.168.68.79',
+        addedAt: '2026-07-06T00:00:00.000Z',
+      },
+      gatewayUrl: 'http://192.168.68.79:8642',
+      health: {
+        level: 'green',
+        checkedAt: '2026-07-06T00:00:00.000Z',
+        hostname: 'unknown',
+        localIp: 'unknown',
+      },
+      connectionMode: 'gateway',
+      isPaired: false,
+      workers: [],
+      savedMacCount: 1,
+    });
+    expect(display.machineLabel).toBe('Computer 192.168.68.79');
+    expect(display.machineLabel).not.toBe('unknown');
+  });
 });
 
 describe('formatMacConnectionRetryBanner', () => {

@@ -2,17 +2,18 @@
 
 ### Your AI built the app. Nobody's watching the bill.
 
-A fixed-fee, 5-day safety audit for founders who shipped with **Cursor, Claude Code, Lovable, Bolt, v0, or Replit** — *before* a runaway loop, a leaked API key, or an open database turns your launch into a disaster.
+A fixed-fee, 5-day safety audit for founders who shipped with **Cursor, Claude Code, Lovable, Bolt, v0, or Replit** — *before* a runaway loop, a leaked API key, an open database, or your users' private data turns your launch into a disaster.
 
 **You don't need to read the code. I'll tell you exactly what's dangerous and how to fix it.**
 
 ---
 
-## What I check — the 3 silent killers
+## What I check — the 4 silent killers
 
 1. **Leaked secrets & open doors** — exposed API keys, hardcoded credentials, public database tables, missing auth, unprotected admin routes.
 2. **Cost runaways** — infinite loops, unbounded API/LLM calls, missing rate limits, and the agent-spawn patterns that turn a $20 month into a $4,000 surprise.
 3. **Crash-under-load bugs** — the things that work in the demo and die when 50 real people show up.
+4. **Private data leaks** — your users' emails, uploads, chat logs, or payment details quietly flowing into the AI model, its logs, or a third-party API — data you can't see, can't take back, and are legally on the hook for. *(If your app handles user data, this is the one that becomes a breach notice or a lawsuit.)*
 
 ## What you get
 

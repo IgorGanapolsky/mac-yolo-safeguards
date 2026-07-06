@@ -237,7 +237,7 @@ export const chatProjects = {
           ? parsed.sessionLabels
           : {};
       const projects = Array.isArray(parsed.projects) ? parsed.projects : [];
-      // Backfill pinned labels for sessions already bound to a project lane.
+      // Backfill pinned labels for sessions already bound to a project.
       const mergedLabels = { ...sessionLabels };
       for (const project of projects) {
         for (const sessionId of project.sessionIds) {

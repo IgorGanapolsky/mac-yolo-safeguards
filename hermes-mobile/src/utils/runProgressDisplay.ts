@@ -148,3 +148,18 @@ export function shouldShowComposerProgressBanner(
   }
   return true;
 }
+
+/** Hide duplicate run-progress chrome while Chat is foreground — transcript owns live progress. */
+export function shouldHideForegroundChatRunSurfaces(
+  progress: RunProgressState | null | undefined,
+  isSending: boolean,
+  chatForeground: boolean,
+): boolean {
+  if (!chatForeground) {
+    return false;
+  }
+  if (isSending) {
+    return true;
+  }
+  return isActiveChatRun(progress);
+}

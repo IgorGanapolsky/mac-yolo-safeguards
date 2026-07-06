@@ -588,6 +588,20 @@ describe('GatewayProvider', () => {
     const approvalNotifications = jest.requireMock('../services/approvalNotifications');
     const hermesGatewayClient = jest.requireMock('../services/hermesGatewayClient');
 
+    (storage.loadGatewaySettings as jest.Mock).mockResolvedValue({
+      connectionMode: 'gateway',
+      cloudUrl: 'https://hermesmobile-cloud.fly.dev',
+      gatewayUrl: 'http://127.0.0.1:8642',
+      usePortal: false,
+      redactPii: true,
+      notificationsEnabled: true,
+      demoMode: false,
+      glanceMode: false,
+      thumbgateCaptureOnDown: true,
+      thumbgateCaptureOnUp: false,
+      thumbgateApiUrl: 'https://thumbgate.example.com',
+    });
+
     approvalNotifications.parseHermesNotificationResponse.mockReturnValue({
       kind: 'stop_run',
       runId: 'run_123',
@@ -893,7 +907,7 @@ describe('GatewayProvider', () => {
     });
   });
 
-  it('skips chat output feedback capture when Leash is locked', async () => {
+  it('skips chat output feedback without Leash Pro even when capture is enabled', async () => {
     (captureThumbgateFeedback as jest.Mock).mockClear();
     const thumbgateIap = jest.requireMock('../services/thumbgateIap');
     thumbgateIap.syncThumbgateLeashEntitlement.mockResolvedValue(false);
@@ -951,6 +965,8 @@ describe('GatewayProvider', () => {
       fireEvent.press(getByTestId('submit-chat-output-up'));
     });
 
-    expect(captureThumbgateFeedback).not.toHaveBeenCalled();
+    await waitFor(() => {
+      expect(captureThumbgateFeedback).not.toHaveBeenCalled();
+    });
   });
 });

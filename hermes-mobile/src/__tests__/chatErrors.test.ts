@@ -3,6 +3,7 @@ import {
   friendlyMacUnreachableMessage,
   isConnectivityMessage,
   isSessionInUseError,
+  humanizeChatError,
 } from '../utils/chatErrors';
 
 describe('isSessionInUseError', () => {
@@ -25,6 +26,32 @@ describe('isSessionInUseError', () => {
   it('returns false for unrelated errors', () => {
     expect(isSessionInUseError(new Error('invalid_api_key'))).toBe(false);
   });
+
+  it('returns false for title conflict errors', () => {
+    expect(isSessionInUseError(new Error("Title 'Skool' is already in use by session api_123"))).toBe(false);
+    expect(
+      isSessionInUseError(
+        new Error(
+          JSON.stringify({
+            error: { code: 'invalid_title', message: "Title 'Skool' is already in use" },
+          }),
+        ),
+      ),
+    ).toBe(false);
+  });
+});
+
+describe('humanizeChatError', () => {
+  it('friendly maps title conflicts', () => {
+    const error = new Error(
+      JSON.stringify({
+        error: { code: 'invalid_title', message: "Title 'Skool' is already in use" },
+      }),
+    );
+    const humanized = humanizeChatError(error, 'Fallback');
+    expect(humanized.kind).toBe('operational');
+    expect(humanized.message).toBe('A chat with this title already exists. Please choose a different title.');
+  });
 });
 
 describe('isConnectivityMessage', () => {
@@ -36,7 +63,10 @@ describe('isConnectivityMessage', () => {
   });
 
   it('explains LAN-only gateway URLs', () => {
-    expect(friendlyMacUnreachableMessage('http://10.2.29.103:8642')).toContain('relay');
+    const message = friendlyMacUnreachableMessage('http://10.2.29.103:8642');
+    expect(message).toContain('Home Wi‑Fi');
+    expect(message).toContain('Tailscale');
+    expect(message.toLowerCase()).not.toContain('relay');
   });
 
   it('recognizes Mac unreachable retry banner copy as connectivity', () => {
@@ -49,7 +79,45 @@ describe('isConnectivityMessage', () => {
       connectionState: 'connected',
       gatewayUrl: 'http://10.2.29.103:8642',
     });
-    expect(message).toContain('direct link');
+    expect(message).toContain('computer link');
+    expect(message).toContain('Home Wi‑Fi');
+    expect(isConnectivityMessage(message)).toBe(true);
+  });
+
+  it('does not tell users to pair relay when chat is missing a computer link', () => {
+    const message = chatSendBlockedMessage({
+      connectionMode: 'relay',
+      connectionState: 'disconnected',
+    });
+    expect(message).toContain('Find computers');
+    expect(message.toLowerCase()).not.toContain('pair');
+    expect(message.toLowerCase()).not.toContain('relay');
+    expect(isConnectivityMessage(message)).toBe(true);
+  });
+
+  it('avoids relay-pairing scare copy when a saved local computer link is unreachable', () => {
+    const message = chatSendBlockedMessage({
+      connectionMode: 'relay',
+      connectionState: 'disconnected',
+      gatewayUrl: 'http://192.168.68.79:8642',
+    });
+    expect(message).not.toContain('relay is not paired');
+    expect(message).toContain('computer link');
+    expect(message).toContain('Home Wi‑Fi');
+    expect(isConnectivityMessage(message)).toBe(true);
+  });
+
+  it('says Chat is reconnecting when the computer health check is green', () => {
+    const message = chatSendBlockedMessage({
+      connectionMode: 'relay',
+      connectionState: 'disconnected',
+      gatewayUrl: 'http://192.168.68.79:8642',
+      macHttpOk: true,
+    });
+    expect(message).toContain('computer is reachable');
+    expect(message).toContain('reconnecting');
+    expect(message.toLowerCase()).not.toContain('pair');
+    expect(message.toLowerCase()).not.toContain('relay');
     expect(isConnectivityMessage(message)).toBe(true);
   });
 

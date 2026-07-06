@@ -36,6 +36,7 @@ fi
 
 APK_OUT="$HERMES_DIR/android/app/build/outputs/apk/release/app-release.apk"
 PROBLEMS_REPORT="$HERMES_DIR/android/build/reports/problems/problems-report.html"
+APP_PACKAGE="com.iganapolsky.hermesmobile"
 # Coordination lock for the phone build+install pipeline. Lives OUTSIDE android/ so the
 # failure-recovery step (`expo prebuild --clean`, which wipes android/) cannot delete the
 # lock mid-build — the exact bug that let two agents' Gradle builds corrupt each other.
@@ -81,6 +82,10 @@ maybe_build_release() {
     return 1
   fi
   return 0
+}
+
+fresh_install_enabled() {
+  [[ "${HERMES_MOBILE_PRESERVE_DATA:-}" != "1" ]]
 }
 
 ensure_release_apk_has_bundle() {
@@ -188,17 +193,26 @@ verify_and_install() {
   }
 
   echo "=== Installing on $DEVICE ==="
-  adb -s "$DEVICE" install -r "$APK_OUT" || {
-    echo "Error: adb install failed (device $DEVICE)" >&2
-    exit 1
-  }
+  if fresh_install_enabled; then
+    echo "=== Fresh install: clearing previous app data first (set HERMES_MOBILE_PRESERVE_DATA=1 to keep data) ==="
+    adb -s "$DEVICE" uninstall "$APP_PACKAGE" >/dev/null 2>&1 || true
+    adb -s "$DEVICE" install "$APK_OUT" || {
+      echo "Error: adb install failed (device $DEVICE)" >&2
+      exit 1
+    }
+  else
+    adb -s "$DEVICE" install -r "$APK_OUT" || {
+      echo "Error: adb install failed (device $DEVICE)" >&2
+      exit 1
+    }
+  fi
 }
 
 cold_start_and_smoke() {
   echo "=== Cold start ==="
   adb -s "$DEVICE" logcat -c >/dev/null 2>&1 || true
-  adb -s "$DEVICE" shell am force-stop com.iganapolsky.hermesmobile
-  adb -s "$DEVICE" shell am start -n com.iganapolsky.hermesmobile/.MainActivity
+  adb -s "$DEVICE" shell am force-stop "$APP_PACKAGE"
+  adb -s "$DEVICE" shell am start -n "$APP_PACKAGE/.MainActivity"
 
   local deadline=$((SECONDS + 45))
   while (( SECONDS < deadline )); do
@@ -261,11 +275,17 @@ acquire_install_lock() {
 
 # Single-flight: if this exact commit is already installed on this device, skip the whole build.
 skip_if_already_installed() {
+  if fresh_install_enabled; then
+    return 0
+  fi
+  if [[ "${HERMES_MOBILE_FORCE_BUILD:-}" == "1" ]]; then
+    return 0
+  fi
   local target; target="$(git -C "$HERMES_DIR" rev-parse HEAD 2>/dev/null)" || return 0
   [[ -n "$target" && -f "$LAST_INSTALL_MARKER" ]] || return 0
   local last_sha last_dev; read -r last_sha last_dev <"$LAST_INSTALL_MARKER" 2>/dev/null || return 0
   if [[ "$last_sha" == "$target" && "$last_dev" == "$DEVICE" ]] \
-     && adb -s "$DEVICE" shell pm list packages 2>/dev/null | grep -q 'com.iganapolsky.hermesmobile'; then
+     && adb -s "$DEVICE" shell pm list packages 2>/dev/null | grep -q "$APP_PACKAGE"; then
     echo "=== Single-flight: commit ${target:0:12} already installed on $DEVICE by a prior run — nothing to do ==="
     exit 0
   fi

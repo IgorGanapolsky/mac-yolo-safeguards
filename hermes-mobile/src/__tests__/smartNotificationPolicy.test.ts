@@ -1,6 +1,9 @@
 import { AppState } from 'react-native';
 import type { PendingApproval } from '../types/gateway';
 import {
+  setChatScreenForegroundFocused,
+} from '../services/runNotificationContext';
+import {
   approvalNotificationIdentifier,
   approvalNotificationTitle,
   approvalsSummaryBody,
@@ -75,5 +78,12 @@ describe('smartNotificationPolicy', () => {
     expect(shouldScheduleRunProgressNotification('active')).toBe(false);
     expect(shouldScheduleRunProgressNotification('background')).toBe(true);
     expect(shouldScheduleRunProgressNotification('inactive')).toBe(true);
+  });
+
+  it('blocks run progress while Chat screen is foreground', () => {
+    setChatScreenForegroundFocused(true);
+    expect(shouldScheduleRunProgressNotification('background')).toBe(false);
+    setChatScreenForegroundFocused(false);
+    expect(shouldScheduleRunProgressNotification('background')).toBe(true);
   });
 });

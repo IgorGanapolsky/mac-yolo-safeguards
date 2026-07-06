@@ -26,6 +26,7 @@ const signals = extractSignals([
     confidence: 'test',
     text: [
       'hybrid knowledge graph vector retrieval',
+      'legal-kb retrieval harness findFiles readFile grepFile citations',
       'MLX Apple Silicon fine-tuning with an eval set',
       'OpenRouter provider routing for speculative decoding and coding model throughput',
       'autonomous skill compilation must stay candidate-only',
@@ -47,6 +48,7 @@ const requiredFiles = [
   'tools/agent-decision-stack.js',
   'tools/graphify-readiness.js',
   'tools/hermes-source-packs.js',
+  'tools/hermes-retrieval-harness.js',
   'tools/local-inference-readiness.js',
   'tools/openrouter-reasoning-plan.js',
   'tools/kimi-model-upgrade-audit.js',

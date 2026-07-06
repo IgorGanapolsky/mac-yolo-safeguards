@@ -27,7 +27,7 @@ export default function VaultProjectPickerChip({
       testID="vault-project-picker-chip"
       accessibilityRole={onPress ? 'button' : undefined}
       accessibilityLabel={projectName ? `Project ${projectName}` : 'Choose project'}
-      accessibilityHint="Opens the Obsidian vault project picker"
+      accessibilityHint="Opens the project picker"
     >
       <Text style={styles.icon}>📁</Text>
       <View style={styles.textBlock}>
@@ -41,7 +41,7 @@ export default function VaultProjectPickerChip({
           </Text>
         ) : !projectName ? (
           <Text style={styles.hint} numberOfLines={1}>
-            Tag prompts with an AI-Agent-Sync project lane
+            Pick where Hermes should work
           </Text>
         ) : null}
       </View>

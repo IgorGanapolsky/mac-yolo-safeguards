@@ -6,7 +6,10 @@
  * - LAN HTTP server on :8765 (phone camera scans http://LAN:8765/pair)
  * - hermes://setup deep link + optional adb intent
  *
- * Usage: node tools/hermes-mobile-pair.js [--no-adb] [--no-serve] [--open]
+ * Usage: node tools/hermes-mobile-pair.js [--no-adb] [--no-serve] [--open] [--dev-unlock]
+ *
+ * By default pairing only sends hermes://setup (gateway URL/key/relay).
+ * Pass --dev-unlock to also open hermes://dev/leash-unlock (E2E / Igor dev only).
  */
 
 const fs = require('fs');
@@ -225,6 +228,11 @@ function setupAdbReverse(serial) {
     timeout: 10_000,
   });
   return result.status === 0;
+}
+
+/** Real-user pairing must not auto-unlock Pro — opt in with --dev-unlock only. */
+function shouldSendDeveloperLeashUnlock(args) {
+  return args.has('--dev-unlock');
 }
 
 function openDeepLinkOnDevice(serial, link) {
@@ -534,11 +542,13 @@ function main() {
   if (serial && !args.has('--no-adb')) {
     const ok = openDeepLinkOnDevice(serial, deepLink);
     console.log(ok ? `  adb: opened on ${serial}` : '  adb: intent failed — scan QR on pair page');
-    try {
-      openDeepLinkOnDevice(serial, 'hermes://dev/leash-unlock');
-      console.log('  adb: developer Leash unlock intent sent');
-    } catch {
-      // App may still be cold-starting after install.
+    if (shouldSendDeveloperLeashUnlock(args)) {
+      const unlockOk = openDeepLinkOnDevice(serial, 'hermes://dev/leash-unlock');
+      console.log(
+        unlockOk
+          ? '  adb: developer Leash unlock intent sent (--dev-unlock)'
+          : '  adb: developer Leash unlock intent failed',
+      );
     }
   } else if (!serial) {
     console.log('  adb: no device — scan QR on pair page');
@@ -549,9 +559,15 @@ function main() {
   }
 }
 
-try {
-  main();
-} catch (err) {
-  console.error(`[hermes-mobile-pair] ${err instanceof Error ? err.message : err}`);
-  process.exit(1);
+module.exports = {
+  shouldSendDeveloperLeashUnlock,
+};
+
+if (require.main === module) {
+  try {
+    main();
+  } catch (err) {
+    console.error(`[hermes-mobile-pair] ${err instanceof Error ? err.message : err}`);
+    process.exit(1);
+  }
 }

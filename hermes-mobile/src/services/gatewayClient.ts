@@ -7,6 +7,7 @@ import type {
   ReclaimFiredPayload,
 } from '../types/gateway';
 import { resolveDisplayLanIp } from '../utils/gatewayUrlPolicy';
+import { isUsableGatewayHost } from '../utils/gatewayEndpoint';
 
 export interface NormalizedGatewayBase {
   httpBase: string;
@@ -100,7 +101,8 @@ export async function fetchGatewayHealth(
       };
     }
     const body = (await response.json()) as Record<string, unknown>;
-    const localIpRaw = typeof body.local_ip === 'string' ? body.local_ip : undefined;
+    const localIpRaw =
+      typeof body.local_ip === 'string' ? isUsableGatewayHost(body.local_ip) : undefined;
     const level = classifyHealth(body);
     return {
       level,
@@ -109,7 +111,7 @@ export async function fetchGatewayHealth(
       pid: typeof body.pid === 'number' ? body.pid : undefined,
       platforms: body.platforms as GatewayHealthSnapshot['platforms'],
       checkedAt,
-      hostname: typeof body.hostname === 'string' ? body.hostname : undefined,
+      hostname: typeof body.hostname === 'string' ? isUsableGatewayHost(body.hostname) : undefined,
       localIp: resolveDisplayLanIp(localIpRaw, httpBase),
       directGatewayReachable: level === 'green' || level === 'amber',
     };

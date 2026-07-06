@@ -35,7 +35,6 @@ appId: com.iganapolsky.hermesmobile
       text: "print money, make money faster. Use Data Science, ML and Agentic RAG."
     direction: UP
     timeout: 20000
-    speed: 40
 - extendedWaitUntil:
     visible: "print money, make money faster. Use Data Science, ML and Agentic RAG."
     timeout: 15000

@@ -130,15 +130,14 @@ describe('release safety contract', () => {
     expect(shipGuard).toContain('com.iganapolsky.hermesmobile');
   });
 
-  it('e2e-bootstrap uses deep links for tab navigation with Android tab-leash fallback', () => {
+  it('e2e-bootstrap uses deep links for tab navigation with Android Leash retry', () => {
     const bootstrap = read('hermes-mobile/.maestro/e2e-bootstrap.yaml');
     expect(bootstrap).toContain('hermes://dev/leash-unlock');
     expect(bootstrap).toContain('hermes://chat');
+    expect(bootstrap).toContain('hermes://leash');
     expect(bootstrap).toContain('chat-screen-header');
     expect(bootstrap).toContain('id: "chat-input"');
     expect(bootstrap).toContain('id: "THUMBGATE_LEASH"');
-    expect(bootstrap).toContain('id: "tab-leash"');
-    expect(bootstrap).toContain('id: "tab-hermes"');
     expect(bootstrap).not.toMatch(/text:\s*"Settings"/);
     const app = read('hermes-mobile/App.tsx');
     expect(app).toContain('tab-hermes');
@@ -178,6 +177,30 @@ describe('release safety contract', () => {
     expect(script).toContain('HERMES_MOBILE_SKIP_BUILD');
   });
 
+  it('phone install script defaults to fresh store-user data', () => {
+    const script = read('hermes-mobile/scripts/install-phone-release.sh');
+    expect(script).toContain('fresh_install_enabled');
+    expect(script).toContain('HERMES_MOBILE_PRESERVE_DATA');
+    expect(script).toContain('uninstall "$APP_PACKAGE"');
+    expect(script).toContain('install "$APK_OUT"');
+  });
+
+  it('Android release disables OS data restore across reinstall', () => {
+    const app = read('hermes-mobile/app.json');
+    const manifest = read('hermes-mobile/android/app/src/main/AndroidManifest.xml');
+    expect(app).toContain('"allowBackup": false');
+    expect(manifest).toContain('android:allowBackup="false"');
+  });
+
+  it('fresh startup does not ask for notification permission', () => {
+    const gatewayTypes = read('hermes-mobile/src/types/gateway.ts');
+    const gatewayContext = read('hermes-mobile/src/context/GatewayContext.tsx');
+    const settings = read('hermes-mobile/src/screens/SettingsScreen.tsx');
+    expect(gatewayTypes).toContain('notificationsEnabled: false');
+    expect(gatewayContext).not.toContain('requestApprovalNotificationPermission');
+    expect(settings).toContain('requestHermesNotificationPermission');
+  });
+
   it('run-hermes-mobile resolves repo via symlink-safe bootstrap', () => {
     const script = read('hermes-mobile/scripts/run-hermes-mobile.sh');
     expect(script).toContain('_hermes_bootstrap_script_dir');
@@ -198,6 +221,35 @@ describe('release safety contract', () => {
     const script = read('hermes-mobile/scripts/run-hermes-mobile.sh');
     expect(script).toContain('install-phone-release.sh');
     expect(script).not.toContain('expo run:android');
+  });
+
+  it('project picker custom workspace copy is production-user safe', () => {
+    const chatScreen = read('hermes-mobile/src/screens/ChatScreen.tsx');
+    expect(chatScreen).toContain('placeholder="~/projects/my-app"');
+    expect(chatScreen).toContain('placeholder="My app"');
+    expect(chatScreen).toContain('Enter a workspace path from your computer.');
+    expect(chatScreen).not.toContain('projectPickPath');
+    expect(chatScreen).not.toContain('{project.workspacePath}</Text>');
+    expect(chatScreen).not.toContain('placeholder="~/workspace/git/igor/ThumbGate"');
+    expect(chatScreen).not.toContain('placeholder="ThumbGate"');
+    expect(chatScreen).not.toContain('Tag prompts with an AI-Agent-Sync project lane');
+    expect(chatScreen).not.toContain('~/workspace/git/igor/');
+    expect(chatScreen).not.toContain('skool_top1percent');
+  });
+
+  it('visible project picker copy does not expose internal coordination jargon', () => {
+    const visibleFiles = [
+      'hermes-mobile/src/components/ChatScreenHeader.tsx',
+      'hermes-mobile/src/components/ProjectPickNudgeBanner.tsx',
+      'hermes-mobile/src/components/VaultProjectPickerChip.tsx',
+    ].map(read).join('\n');
+
+    expect(visibleFiles).toContain('Choose project');
+    expect(visibleFiles).toContain('Pick where Hermes should work');
+    expect(visibleFiles).not.toContain('AI-Agent-Sync');
+    expect(visibleFiles).not.toContain('project lane');
+    expect(visibleFiles).not.toContain('repo lane');
+    expect(visibleFiles).not.toContain('Obsidian vault');
   });
 
   it('run-hermes-mobile boots simulator before expo run:ios', () => {
@@ -260,7 +312,7 @@ describe('release safety contract', () => {
     expect(bootstrap).toContain('hermes://dev/leash-unlock');
     expect(bootstrap).toContain('tab-screen-loading');
     expect(bootstrap).toContain('THUMBGATE_LEASH');
-    expect(bootstrap).toContain('id: "tab-leash"');
+    expect(bootstrap).toContain('hermes://leash');
     expect(bootstrap).toContain('hermes://chat');
     expect(bootstrap).toContain('chat-screen-header');
     expect(bootstrap).toContain('chat-input');
@@ -279,6 +331,25 @@ describe('release safety contract', () => {
     expect(appConfig).toContain('e2eAutomation');
     expect(policy).toContain('Constants.expoConfig?.extra');
     expect(policy).toContain('extra?.e2eAutomation === true');
+  });
+
+  it('Pro tab never exposes fake smoke-test controls and keeps the hidden title unlock gesture', () => {
+    const approvals = read('hermes-mobile/src/screens/ApprovalsScreen.tsx');
+    const policy = read('hermes-mobile/src/utils/demoModePolicy.ts');
+    const pairScript = read('tools/hermes-mobile-pair.js');
+    expect(approvals).toContain('testID="leash-title-dev-unlock"');
+    expect(approvals).toContain('delayLongPress={LEASH_TITLE_DEV_UNLOCK_LONG_PRESS_MS}');
+    expect(approvals).toContain('onLongPress={handleTitleDevUnlock}');
+    expect(approvals).not.toContain('canUseDeveloperLeashBackdoor()');
+    expect(approvals).not.toContain('isLeashSmokeTestUiAllowed()');
+    expect(approvals).not.toContain('leash-smoke-test');
+    expect(approvals).not.toContain('Preview approval card (smoke test)');
+    expect(approvals).not.toContain('injectSmokeApproval');
+    expect(approvals).not.toContain('settings.developerLeashUnlock ? (');
+    expect(policy).not.toContain('isLeashSmokeTestUiAllowed');
+    expect(pairScript).toContain('shouldSendDeveloperLeashUnlock');
+    expect(pairScript).toContain('--dev-unlock');
+    expect(pairScript).not.toMatch(/openDeepLinkOnDevice\(serial, 'hermes:\/\/dev\/leash-unlock'\);\s*\n\s*console\.log\('  adb: developer Leash unlock intent sent'\)/);
   });
 
   it('chat-send-persistence uses chat bootstrap without Leash assert', () => {

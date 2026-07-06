@@ -28,6 +28,7 @@ import {
 } from './src/services/crashReporting';
 import { useKeyboardInset } from './src/hooks/useKeyboardInset';
 import { LEASH_TAB_LABEL } from './src/constants/monetization';
+import { canUseDeveloperLeashBackdoor } from './src/utils/developerLeashUnlock';
 import { colors } from './src/theme/colors';
 
 const ChatScreen = React.lazy(() => import('./src/screens/ChatScreen'));
@@ -158,6 +159,9 @@ function GlassmorphicTabBar({ state, descriptors, navigation }: BottomTabBarProp
   const leashDevTapTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const registerLeashDeveloperTap = () => {
+    if (!canUseDeveloperLeashBackdoor()) {
+      return;
+    }
     leashDevTapCountRef.current += 1;
     if (leashDevTapTimerRef.current) {
       clearTimeout(leashDevTapTimerRef.current);

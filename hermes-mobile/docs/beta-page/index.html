@@ -489,42 +489,47 @@
         <div class="card">
           <h2 style="font-family: 'Space Grotesk', sans-serif; margin-bottom: 1rem;">Get early access</h2>
           <p style="color: var(--text-muted); margin-bottom: 2rem; font-size: 0.95rem;">
-            Secure your early adopter spot, unlock lifetime Pro features, and support the development of safe agent safeguards.
+            Hermes Mobile stays free. Lock founding <strong>Leash Pro</strong> pricing before public App Store launch — 14-day refund if pairing fails.
           </p>
 
           <div class="tier-select">
-            <div class="tier-option selected" onclick="selectTier(this, 'beta', 19)">
+            <div class="tier-option selected" onclick="selectTier(this, 'founding', 9)">
               <div class="tier-details">
-                <h3>Early Beta Access</h3>
-                <p>Lifetime Leash Pro + Discord</p>
+                <h3>Founding Leash Pro</h3>
+                <p>$9/mo for 12 months, then $19/mo · first 200 seats</p>
               </div>
-              <div class="tier-price">$19</div>
+              <div class="tier-price">$9<span style="font-size:0.9rem;color:var(--text-muted)">/mo</span></div>
             </div>
 
-            <div class="tier-option" onclick="selectTier(this, 'vip', 79)">
+            <div class="tier-option" onclick="selectTier(this, 'year', 49)">
               <div class="tier-details">
-                <h3>Safeguards Pro VIP</h3>
-                <p>Pro + 1-on-1 setup session</p>
+                <h3>Founding Year</h3>
+                <p>12 months Leash Pro · one-time · 100 seats</p>
               </div>
-              <div class="tier-price">$79</div>
+              <div class="tier-price">$49</div>
             </div>
 
-            <div class="tier-option" onclick="selectTier(this, 'team', 299)">
+            <div class="tier-option" onclick="selectTier(this, 'lifetime', 149)">
               <div class="tier-details">
-                <h3>Team Shield</h3>
-                <p>Up to 10 developer seats</p>
+                <h3>Gate Keeper Lifetime</h3>
+                <p>Leash Pro forever · capped at 150 seats</p>
               </div>
-              <div class="tier-price">$299</div>
+              <div class="tier-price">$149</div>
             </div>
           </div>
 
+          <!-- Replace STRIPE_LINKS values with live Stripe Payment Link URLs from dashboard -->
           <form id="signup-form" onsubmit="handleSignup(event)">
             <div class="form-group">
-              <label for="email">Work Email</label>
-              <input type="email" id="email" required placeholder="name@company.com">
+              <label for="email">Email</label>
+              <input type="email" id="email" required placeholder="you@domain.com">
             </div>
-            <button type="submit" class="submit-btn" id="submit-button">Secure My Spot</button>
+            <button type="submit" class="submit-btn" id="submit-button">Lock founding Pro — $9/mo</button>
           </form>
+          <p style="color: var(--text-muted); margin-top: 1rem; font-size: 0.8rem;">
+            Free tier: in-chat approve/deny + ThumbGate thumbs. VIP setup ($79) and Team Shield ($299) —
+            <a href="mailto:igor.ganapolsky@icloud.com?subject=Hermes%20Team%20Shield" style="color: var(--accent-color);">email us</a>.
+          </p>
         </div>
       </section>
     </main>
@@ -541,8 +546,15 @@
   </div>
 
   <script>
-    let activeTier = 'beta';
-    let activePrice = 19;
+    // Paste Stripe Payment Link URLs after creating products in dashboard.
+    const STRIPE_LINKS = {
+      founding: '', // $9/mo founding Leash Pro subscription
+      year: '',     // $49 one-time founding year
+      lifetime: '', // $149 capped lifetime Gate Keeper
+    };
+
+    let activeTier = 'founding';
+    let activePrice = 9;
 
     function switchTab(tabId) {
       document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
@@ -559,28 +571,35 @@
       activePrice = price;
 
       const btn = document.getElementById('submit-button');
-      if (tier === 'beta') {
-        btn.textContent = 'Secure My Spot';
+      if (tier === 'founding') {
+        btn.textContent = 'Lock founding Pro — $9/mo';
+      } else if (tier === 'year') {
+        btn.textContent = 'Pay $49 — founding year';
       } else {
-        btn.textContent = `Get Early Access ($${price})`;
+        btn.textContent = 'Pay $149 — Gate Keeper lifetime';
       }
     }
 
     function handleSignup(event) {
       event.preventDefault();
-      const email = document.getElementById('email').value;
-      
-      // Update success message based on selection
+      const email = document.getElementById('email').value.trim();
+      const stripeUrl = STRIPE_LINKS[activeTier];
+
+      if (stripeUrl) {
+        const url = new URL(stripeUrl);
+        url.searchParams.set('prefilled_email', email);
+        url.searchParams.set('client_reference_id', activeTier);
+        window.location.href = url.toString();
+        return;
+      }
+
       const title = document.getElementById('success-title');
       const message = document.getElementById('success-message');
-      
-      if (activeTier === 'beta') {
-        title.textContent = "Beta Access Secured!";
-        message.textContent = `Spot reserved for ${email}. We've sent a confirmation email with details on how to set up your local safeguards wrapper.`;
-      } else {
-        title.textContent = "Thank you for your support!";
-        message.textContent = `We've locked in your spot under the $${activePrice} tier for ${email}. You'll receive a secure invoice and priority setup link shortly.`;
-      }
+      title.textContent = 'Almost there — wire Stripe Payment Links';
+      message.textContent =
+        `Selected ${activeTier} ($${activePrice}) for ${email}. ` +
+        'Paste live Stripe Payment Link URLs into STRIPE_LINKS in this page, or connect Tally/Loops webhook. ' +
+        'See hermes-mobile/docs/BETA-LAUNCH-CAMPAIGN-RESEARCH.md.';
 
       document.getElementById('success-overlay').classList.add('active');
     }

@@ -17,29 +17,10 @@ jest.mock('../services/haptics', () => ({
   },
 }));
 
-jest.mock('../utils/demoModePolicy', () => ({
-  isDeveloperLeashUnlockAllowed: jest.fn(() => true),
-  isLeashSmokeTestUiAllowed: jest.fn(() => false),
-}));
-
-jest.mock('../utils/developerLeashUnlock', () => {
-  const actual = jest.requireActual('../utils/developerLeashUnlock');
-  return {
-    ...actual,
-    canUseDeveloperLeashBackdoor: jest.fn(() => true),
-  };
-});
-
 const { useGateway } = jest.requireMock('../context/GatewayContext');
-const { isDeveloperLeashUnlockAllowed, isLeashSmokeTestUiAllowed } =
-  jest.requireMock('../utils/demoModePolicy');
-const { canUseDeveloperLeashBackdoor } = jest.requireMock('../utils/developerLeashUnlock');
 
 describe('ApprovalsScreen', () => {
   beforeEach(() => {
-    isDeveloperLeashUnlockAllowed.mockReturnValue(true);
-    isLeashSmokeTestUiAllowed.mockReturnValue(false);
-    canUseDeveloperLeashBackdoor.mockReturnValue(true);
     useGateway.mockReturnValue(mockUseGateway());
   });
 
@@ -51,7 +32,7 @@ describe('ApprovalsScreen', () => {
     expect(getByText('THUMBGATE LEASH')).toBeTruthy();
   });
 
-  it('shows free-tier education and upgrade CTA without Pro', () => {
+  it('shows free-tier paywall and upgrade CTA without Pro', () => {
     useGateway.mockReturnValue(
       mockUseGateway({
         settings: { ...mockGatewaySettings, thumbgateProActive: false, developerLeashUnlock: false },
@@ -61,12 +42,9 @@ describe('ApprovalsScreen', () => {
       ApprovalsScreen,
       'Leash',
     );
-    expect(getByTestId('leash-free-tier-education')).toBeTruthy();
-    expect(getByTestId('leash-free-tier-upgrade')).toBeTruthy();
-    expect(getByText('What is ThumbGate Pro?')).toBeTruthy();
-    expect(getByText('What is ThumbGate Leash?')).toBeTruthy();
-    expect(getByText('Permissions and gate rules')).toBeTruthy();
-    expect(getByText('OpenClaw (coming soon)')).toBeTruthy();
+    expect(getByTestId('leash-free-tier-paywall')).toBeTruthy();
+    expect(getByTestId('leash-paywall-headline')).toHaveTextContent(/firewall/i);
+    expect(getByTestId('gate-rules-pro-upsell')).toHaveTextContent(/Hermes chat stays free/);
     expect(queryByTestId('no-pending-approvals')).toBeNull();
     expect(queryByText('No pending approvals')).toBeNull();
     expect(queryByTestId('leash-smoke-test')).toBeNull();
@@ -99,23 +77,7 @@ describe('ApprovalsScreen', () => {
     );
   });
 
-  it('injects smoke approval when QA build context allows smoke UI', () => {
-    isLeashSmokeTestUiAllowed.mockReturnValue(true);
-    const injectSmokeApproval = jest.fn();
-    useGateway.mockReturnValue(
-      mockUseGateway({
-        injectSmokeApproval,
-        settings: { ...mockGatewaySettings, developerLeashUnlock: true },
-      }),
-    );
-
-    const { getByTestId } = renderInTabNavigator(ApprovalsScreen, 'Leash');
-    fireEvent.press(getByTestId('leash-smoke-test'));
-    expect(injectSmokeApproval).toHaveBeenCalledTimes(1);
-  });
-
-  it('never renders smoke-test controls on release builds even when Pro is unlocked', () => {
-    isLeashSmokeTestUiAllowed.mockReturnValue(false);
+  it('never renders fake smoke-test approval controls even when Pro is unlocked', () => {
     useGateway.mockReturnValue(
       mockUseGateway({
         settings: { ...mockGatewaySettings, developerLeashUnlock: true, thumbgateProActive: true },
@@ -148,8 +110,7 @@ describe('ApprovalsScreen', () => {
     expect(activateDeveloperLeashUnlock).toHaveBeenCalledTimes(1);
   });
 
-  it('long-presses title to unlock Pro on release builds when deep-link backdoor is disallowed', () => {
-    canUseDeveloperLeashBackdoor.mockReturnValue(false);
+  it('keeps the hidden title long-press backdoor without visible free-tier unlock controls', () => {
     const activateDeveloperLeashUnlock = jest.fn().mockResolvedValue(undefined);
     useGateway.mockReturnValue(
       mockUseGateway({
@@ -159,7 +120,7 @@ describe('ApprovalsScreen', () => {
     );
 
     const { getByTestId, getByText } = renderInTabNavigator(ApprovalsScreen, 'Leash');
-    expect(getByTestId('leash-free-tier-education')).toBeTruthy();
+    expect(getByTestId('leash-free-tier-paywall')).toBeTruthy();
     fireEvent(getByTestId('leash-title-dev-unlock'), 'longPress');
     expect(activateDeveloperLeashUnlock).toHaveBeenCalledTimes(1);
     expect(getByText('THUMBGATE LEASH')).toBeTruthy();

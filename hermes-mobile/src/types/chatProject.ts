@@ -2,13 +2,13 @@ export interface ChatProject {
   id: string;
   name: string;
   workspacePath: string;
-  /** Obsidian vault slug when sourced from AI-Agent-Sync Projects/. */
+  /** Stable project catalog slug. */
   vaultSlug?: string;
   /** Repo path from vault catalog (source_repo). */
   sourceRepo?: string;
-  /** Latest handoff one-liner for this project lane. */
+  /** Latest handoff one-liner for this project. */
   handoffSummary?: string;
-  /** Human-readable role from the AI-Agent-Sync project catalog. */
+  /** Human-readable project role from the catalog. */
   role?: string;
   /** Hermes session ids created under this project (most recent first). */
   sessionIds: string[];

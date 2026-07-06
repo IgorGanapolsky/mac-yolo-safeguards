@@ -22,6 +22,26 @@ jest.mock('expo-camera', () => {
   };
 });
 
+jest.mock('expo-document-picker', () => ({
+  getDocumentAsync: jest.fn(() => Promise.resolve({ canceled: true, assets: [] })),
+}));
+
+jest.mock('expo-image-picker', () => ({
+  requestCameraPermissionsAsync: jest.fn(() => Promise.resolve({ granted: true })),
+  requestMediaLibraryPermissionsAsync: jest.fn(() => Promise.resolve({ granted: true })),
+  launchCameraAsync: jest.fn(() => Promise.resolve({ canceled: true, assets: [] })),
+  launchImageLibraryAsync: jest.fn(() => Promise.resolve({ canceled: true, assets: [] })),
+}));
+
+jest.mock('expo-file-system', () => ({
+  readAsStringAsync: jest.fn(() => Promise.resolve('file body')),
+  File: jest.fn().mockImplementation((uri) => ({
+    uri,
+    text: jest.fn(() => Promise.resolve('file body')),
+    arrayBuffer: jest.fn(() => Promise.resolve(new ArrayBuffer(8))),
+  })),
+}));
+
 jest.mock('expo-notifications', () => ({
   setNotificationHandler: jest.fn(),
   setNotificationChannelAsync: jest.fn(() => Promise.resolve()),
@@ -90,6 +110,33 @@ jest.mock('expo-iap', () => ({
   restorePurchases: jest.fn(() => Promise.resolve()),
   purchaseUpdatedListener: jest.fn(() => ({ remove: jest.fn() })),
   purchaseErrorListener: jest.fn(() => ({ remove: jest.fn() })),
+}));
+
+jest.mock('expo-image-picker', () => ({
+  requestCameraPermissionsAsync: jest.fn(() => Promise.resolve({ granted: true })),
+  requestMediaLibraryPermissionsAsync: jest.fn(() => Promise.resolve({ granted: true })),
+  launchCameraAsync: jest.fn(() => Promise.resolve({ canceled: true, assets: [] })),
+  launchImageLibraryAsync: jest.fn(() => Promise.resolve({ canceled: true, assets: [] })),
+}));
+
+jest.mock('expo-document-picker', () => ({
+  getDocumentAsync: jest.fn(() => Promise.resolve({ canceled: true, assets: [] })),
+}));
+
+jest.mock('expo-pdf-text-extract', () => ({
+  isAvailable: jest.fn(() => true),
+  extractTextWithInfo: jest.fn(() =>
+    Promise.resolve({
+      success: true,
+      text: 'mock pdf text',
+      pageCount: 1,
+      isEncrypted: false,
+    }),
+  ),
+}));
+
+jest.mock('mammoth', () => ({
+  extractRawText: jest.fn(() => Promise.resolve({ value: 'mock docx text' })),
 }));
 
 global.fetch = jest.fn(() =>

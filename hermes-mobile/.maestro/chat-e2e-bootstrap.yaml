@@ -21,8 +21,7 @@ appId: com.iganapolsky.hermesmobile
         id: "chat-screen-header"
     commands:
       - hideKeyboard
-      - tapOn:
-          id: "tab-hermes"
+      - openLink: "hermes://chat"
 - extendedWaitUntil:
     notVisible:
       id: "connect-mac-gate"
@@ -46,8 +45,7 @@ appId: com.iganapolsky.hermesmobile
         id: "chat-screen-header"
     commands:
       - hideKeyboard
-      - tapOn:
-          id: "tab-hermes"
+      - openLink: "hermes://chat"
 - extendedWaitUntil:
     notVisible:
       id: "tab-screen-loading"

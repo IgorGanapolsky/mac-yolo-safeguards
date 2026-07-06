@@ -226,6 +226,7 @@ jest.mock('../services/chatProjects', () => {
 
 jest.mock('../services/vaultProjects', () => ({
   fetchVaultProjectCatalog: jest.fn().mockResolvedValue(null),
+  fetchVaultProjectCatalogWithCache: jest.fn().mockResolvedValue({ catalog: null, source: 'none' }),
   fetchVaultProjectCatalogFromHost: jest.fn().mockResolvedValue(null),
   VAULT_PROJECTS_PATH: '/vault-projects.json',
 }));
@@ -1728,18 +1729,18 @@ describe('ChatScreen', () => {
   });
 
   describe('Obsidian vault project picker', () => {
-    it('shows active project chip and opens vault project modal', async () => {
-      const { getByTestId } = await renderChatScreen();
+    it('shows active project in header and opens vault project modal', async () => {
+      const { getByTestId, queryByTestId } = await renderChatScreen();
 
       await act(async () => {
         await Promise.resolve();
         await Promise.resolve();
       });
 
-      expect(getByTestId('vault-project-picker-chip')).toBeTruthy();
+      expect(queryByTestId('vault-project-picker-chip')).toBeNull();
       expect(getByTestId('chat-header-project-picker')).toBeTruthy();
 
-      fireEvent.press(getByTestId('vault-project-picker-chip'));
+      fireEvent.press(getByTestId('chat-header-project-picker'));
 
       await waitFor(() => {
         expect(getByTestId('project-modal')).toBeTruthy();
@@ -1924,5 +1925,105 @@ describe('ChatScreen', () => {
     expect(scrollToEnd).not.toHaveBeenCalled();
 
     scrollToEnd.mockRestore();
+  });
+
+  it('force-reloads cron session transcript when app returns to foreground with empty messages', async () => {
+    const { AppState } = require('react-native');
+    const resumeHandlers: Array<(state: string) => void> = [];
+    const addEventListenerSpy = jest
+      .spyOn(AppState, 'addEventListener')
+      .mockImplementation((...args: unknown[]) => {
+        const handler = args[1] as (state: string) => void;
+        resumeHandlers.push(handler);
+        return { remove: jest.fn() };
+      });
+
+    const { listSessions, listMessages } = jest.requireMock('../services/hermesChatClient') as {
+      listSessions: jest.Mock;
+      listMessages: jest.Mock;
+    };
+    const { storage } = jest.requireMock('../services/storage') as {
+      storage: { loadLastSessionForComputer: jest.Mock };
+    };
+
+    const cronSession = {
+      id: 'cron_42446aa3dc68',
+      source: 'cron',
+      title: '[IMPORTANT: You are running as a scheduled cron job',
+      last_active_at: '2026-07-06T07:11:00Z',
+    };
+
+    listSessions.mockResolvedValue([cronSession]);
+    listMessages
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([
+        { role: 'user', content: 'Check revenue pipeline', id: 'm-u1' },
+        { role: 'assistant', content: 'Pipeline looks healthy', id: 'm-a1' },
+      ]);
+    storage.loadLastSessionForComputer.mockResolvedValue('cron_42446aa3dc68');
+
+    Object.assign(mockGatewayState, {
+      connectionState: 'connected',
+      effectiveGatewayUrl: 'http://100.94.135.78:8642',
+      health: {
+        ok: true,
+        level: 'green',
+        hostname: 'Igors-Mac-mini.local',
+        localIp: '100.94.135.78',
+        directGatewayReachable: true,
+        checkedAt: '2026-07-06T07:11:00Z',
+      },
+      settings: {
+        demoMode: false,
+        connectionMode: 'gateway',
+        gatewayUrl: 'http://100.94.135.78:8642',
+        cloudUrl: 'https://hermesmobile-cloud.fly.dev',
+        approvalPolicy: 'balanced',
+      },
+      activeGatewayProfile: {
+        id: 'mac_mini',
+        label: 'Igors-Mac-mini',
+        gatewayUrl: 'http://100.94.135.78:8642',
+        localIp: '100.94.135.78',
+        addedAt: '2026-06-18T00:00:00Z',
+      },
+    });
+
+    Object.defineProperty(AppState, 'currentState', {
+      value: 'active',
+      configurable: true,
+    });
+
+    await renderChatScreen();
+
+    await waitFor(() => {
+      expect(listMessages).toHaveBeenCalledWith(
+        'http://100.94.135.78:8642',
+        'cron_42446aa3dc68',
+        'test-api-key',
+      );
+    });
+
+    const callsBeforeResume = listMessages.mock.calls.length;
+
+    await act(async () => {
+      for (const handler of resumeHandlers) {
+        handler('background');
+      }
+      for (const handler of resumeHandlers) {
+        handler('active');
+      }
+      await drainChatScreenAsync();
+    });
+
+    await waitFor(() => {
+      expect(listMessages.mock.calls.length).toBeGreaterThan(callsBeforeResume);
+    });
+
+    addEventListenerSpy.mockRestore();
+    Object.defineProperty(AppState, 'currentState', {
+      value: 'active',
+      configurable: true,
+    });
   });
 });

@@ -1,5 +1,6 @@
 import { AppState } from 'react-native';
 import type { PendingApproval } from '../types/gateway';
+import { isChatScreenForegroundFocused } from '../services/runNotificationContext';
 import { hasDiffContent } from './diffDisplay';
 
 export type SmartNotificationAppState = 'active' | 'background' | 'inactive' | string;
@@ -25,6 +26,9 @@ export function shouldScheduleRunCompletedNotification(
 export function shouldScheduleRunProgressNotification(
   appState: SmartNotificationAppState = AppState.currentState,
 ): boolean {
+  if (isChatScreenForegroundFocused()) {
+    return false;
+  }
   return appState !== 'active';
 }
 

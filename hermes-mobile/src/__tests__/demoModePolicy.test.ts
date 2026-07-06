@@ -72,6 +72,13 @@ describe('demoModePolicy', () => {
     expect(isDeveloperLeashUnlockAllowed()).toBe(true);
   });
 
+  it('does not allow developer Leash unlock on production release builds without the internal flag', () => {
+    (global as { __DEV__?: boolean }).__DEV__ = false;
+    delete process.env.EXPO_PUBLIC_E2E_AUTOMATION;
+    delete process.env.EXPO_PUBLIC_HERMES_DEV_UNLOCK;
+    expect(isDeveloperLeashUnlockAllowed()).toBe(false);
+  });
+
   it('strips persisted demoMode on release builds', () => {
     (global as { __DEV__?: boolean }).__DEV__ = false;
     delete process.env.EXPO_PUBLIC_E2E_AUTOMATION;

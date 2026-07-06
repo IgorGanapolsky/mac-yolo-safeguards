@@ -15,7 +15,7 @@ jest.mock('../services/thumbgateIap', () => ({
   THUMBGATE_LEASH_IAP_PRODUCT_ID: 'thumbgate_leash_monthly',
   purchaseThumbgateLeash: jest.fn(() => Promise.resolve({ status: 'purchased' })),
   restoreThumbgateLeashPurchases: jest.fn(() => Promise.resolve({ status: 'error', message: 'none' })),
-  thumbgateIapSubscribeLabel: jest.fn(() => 'Subscribe in Google Play'),
+  thumbgateIapSubscribeLabel: jest.fn(() => 'Start Pro - $19/mo'),
 }));
 
 describe('ProUpgradeCard', () => {
@@ -25,7 +25,8 @@ describe('ProUpgradeCard', () => {
 
   it('tracks paywall view and purchase funnel outcome', async () => {
     const onUnlocked = jest.fn();
-    const { getByTestId } = render(<ProUpgradeCard onUnlocked={onUnlocked} />);
+    const { getByTestId, getByText } = render(<ProUpgradeCard onUnlocked={onUnlocked} />);
+    expect(getByText('Start Pro - $19/mo')).toBeTruthy();
 
     await waitFor(() => {
       expect(trackProductEvent).toHaveBeenCalledWith('leash_paywall_view', {
