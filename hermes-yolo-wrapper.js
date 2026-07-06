@@ -11,6 +11,9 @@ const HOME = os.homedir();
 const USER = os.userInfo().username;
 
 function findStatusPath() {
+  // Tests point this at a tmp path so live-wrapper runs can't pollute the real
+  // Antigravity dashboard data with fake tasks/savedTokens.
+  if (process.env.HERMES_YOLO_STATUS_PATH) return process.env.HERMES_YOLO_STATUS_PATH;
   const possiblePaths = [
     path.join(HOME, 'workspace/git', USER, 'antigravity-hub/antigravity-desktop/public/status.json'),
     path.join(HOME, 'workspace/git/igor/antigravity-hub/antigravity-desktop/public/status.json')
@@ -174,6 +177,8 @@ const EXTRA_ARGS = process.env.HERMES_YOLO_NO_DEFAULT_ARGS
   : ['--provider', DEFAULT_PROVIDER, '--model', DEFAULT_MODEL, '--yolo', '--accept-hooks', '--toolsets', DEFAULT_TOOLSETS];
 
 const TIMEOUT_MS = parseInt(process.env.HERMES_YOLO_TIMEOUT_MS || (120 * 60 * 1000), 10);
+const heartbeatMsRaw = parseInt(process.env.HERMES_YOLO_HEARTBEAT_MS || '', 10);
+const HEARTBEAT_MS = Number.isFinite(heartbeatMsRaw) ? Math.max(100, heartbeatMsRaw) : 15000;
 const CPU_SAMPLE_INTERVAL_MS = parseInt(process.env.HERMES_YOLO_CPU_SAMPLE_MS || 30000, 10);
 const CPU_THRESHOLD = parseFloat(process.env.HERMES_YOLO_CPU_THRESHOLD || 90);
 const CPU_STUCK_SAMPLES = parseInt(process.env.HERMES_YOLO_CPU_STUCK_SAMPLES || 0, 10);
@@ -201,6 +206,29 @@ function buildChildPromptArgs(rawArgs, prompt = rawArgs.join(' ') || DEFAULT_REA
   }
   if (rawArgs[0].startsWith('-') || HERMES_COMMANDS.has(rawArgs[0])) return rawArgs;
   return ['-z', prompt];
+}
+
+function isOneshotArgs(childArgs) {
+  return Array.isArray(childArgs) && childArgs[0] === '-z';
+}
+
+// One-shot (-z) runs never read stdin, so the child can run detached in its own
+// process group; that lets the wrapper kill the ENTIRE agent tree with one group
+// signal when the terminal closes. Passthrough subcommands (chat, doctor, ...)
+// keep full TTY inheritance and stay in the foreground group so stdin works.
+function buildChildStdio(childArgs) {
+  return isOneshotArgs(childArgs) ? ['ignore', 'inherit', 'inherit'] : 'inherit';
+}
+
+// A one-shot agent run prints nothing until its final answer, which can be
+// minutes away while it works tools — a bare terminal looks dead meanwhile.
+// Progress lines go to stderr so scripted/captured stdout stays clean.
+function shouldShowProgress(childArgs, options = {}) {
+  const progressEnv = options.progressEnv !== undefined ? options.progressEnv : process.env.HERMES_YOLO_PROGRESS;
+  if (progressEnv === '1') return true;
+  if (progressEnv === '0') return false;
+  const stderrIsTTY = options.stderrIsTTY !== undefined ? options.stderrIsTTY : Boolean(process.stderr.isTTY);
+  return stderrIsTTY && isOneshotArgs(childArgs);
 }
 
 function readPromptLineFromTty() {
@@ -277,7 +305,9 @@ if (fs.existsSync(LOCK_PATH)) {
         if (childrenStr) {
           const children = childrenStr.split(/\s+/).map(p => parseInt(p, 10)).filter(Boolean);
           for (const childPid of children) {
-            try { process.kill(childPid, 'SIGKILL'); } catch (e) {}
+            // Direct children may be detached group LEADERS — SIGKILLing just
+            // the leader strands its group members; reap each as a full group.
+            killTree(childPid, { processGroup: true });
           }
         }
       } catch (e) {}
@@ -290,11 +320,30 @@ if (fs.existsSync(LOCK_PATH)) {
     }
   } else {
     console.error(`\x1b[33m[hermes-yolo]\x1b[0m Clearing stale lock from dead PID ${lockPid}.`);
+    // A SIGKILLed wrapper (jetsam) never runs its kill handlers, leaving its
+    // detached one-shot agent alive with no terminal and no watchdog. Its pid is
+    // the lock file's second line — reap that orphaned group, but only after
+    // confirming the pid still looks like a hermes process (guards pid reuse).
+    try {
+      const lockLines = fs.readFileSync(LOCK_PATH, 'utf8').split(/\r?\n/);
+      const orphanPid = parseInt((lockLines[1] || '').trim(), 10);
+      if (orphanPid) {
+        let orphanCmd = '';
+        try {
+          orphanCmd = execSync(`ps -p ${orphanPid} -o command=`, { encoding: 'utf8' }).trim();
+        } catch (e) {}
+        if (orphanCmd.includes('hermes')) {
+          console.warn(`\x1b[33m[hermes-yolo]\x1b[0m Reaping orphaned agent (PID ${orphanPid}) left by dead wrapper ${lockPid}.`);
+          killTree(orphanPid, { processGroup: true });
+        }
+      }
+    } catch (e) {}
     try { fs.unlinkSync(LOCK_PATH); } catch (e) {}
   }
 }
 
 // Clean up any other suspended/zombie hermes/hermes-yolo processes owned by the user
+if (process.env.HERMES_YOLO_NO_SWEEP !== '1') {
 try {
   const psOutput = execSync(`ps -axo pid,state,command`, { encoding: 'utf8' });
   const lines = psOutput.split('\n');
@@ -313,6 +362,7 @@ try {
     }
   }
 } catch (e) {}
+}
 
 fs.writeFileSync(LOCK_PATH, String(process.pid));
 
@@ -372,9 +422,32 @@ const env = Object.assign({}, ROUTE_ENV, {
   HERMES_ACCEPT_HOOKS: '1'
 });
 
-const childStdio = wrapperPromptMode ? ['ignore', 'inherit', 'inherit'] : 'inherit';
-const child = spawn(HERMES_BIN, [...EXTRA_ARGS, ...childPromptArgs], { stdio: childStdio, env });
-log(`SPAWNED childPid=${child.pid}`);
+const childIsOneshot = isOneshotArgs(childPromptArgs);
+const childStdio = buildChildStdio(childPromptArgs);
+const child = spawn(HERMES_BIN, [...EXTRA_ARGS, ...childPromptArgs], {
+  stdio: childStdio,
+  env,
+  detached: childIsOneshot,
+});
+log(`SPAWNED childPid=${child.pid} oneshot=${childIsOneshot} detached=${childIsOneshot}`);
+
+// Record the child pid alongside ours so a future invocation can reap an
+// orphaned detached agent even if THIS wrapper is SIGKILLed (jetsam) and never
+// runs its handlers. parseInt on the first line keeps old readers working.
+if (childIsOneshot && child.pid) {
+  try { fs.appendFileSync(LOCK_PATH, `\n${child.pid}`); } catch (e) {}
+}
+
+const showProgress = shouldShowProgress(childPromptArgs) && Boolean(child.pid);
+const startedAt = Date.now();
+const elapsedSec = () => Math.round((Date.now() - startedAt) / 1000);
+let heartbeat = null;
+if (showProgress) {
+  process.stderr.write(`\x1b[35m[hermes-yolo]\x1b[0m agent started (pid ${child.pid}, provider ${DEFAULT_PROVIDER}, model ${DEFAULT_MODEL}) — answer prints when the run finishes; Ctrl+C cancels. Log: ${LOG_PATH}\n`);
+  heartbeat = setInterval(() => {
+    process.stderr.write(`\x1b[35m[hermes-yolo]\x1b[0m still working… ${elapsedSec()}s elapsed\n`);
+  }, HEARTBEAT_MS);
+}
 
 child.on('error', (err) => {
   log(`SPAWN_ERROR ${err.code} ${err.message}`);
@@ -392,13 +465,22 @@ function killChild(reason) {
   killReason = reason;
   log(`KILL reason=${reason} childPid=${child.pid}`);
   console.error(`\n\x1b[31m[hermes-yolo watchdog]\x1b[0m Killing child (${reason})`);
-  
-  // Kill descendants recursively
-  const descendants = getDescendantPids(child.pid);
+  killTree(child.pid, { processGroup: childIsOneshot });
+  try { child.kill('SIGKILL'); } catch (e) {}
+}
+
+// Snapshot descendants FIRST (while the parent chain is still walkable), then
+// group-kill: the group signal catches processes that left the walkable tree,
+// and the snapshot catches ones that left the process group (setsid tools) —
+// killing the group first would let those reparent to pid 1 and evade the walk.
+function killTree(rootPid, options = {}) {
+  const descendants = getDescendantPids(rootPid);
+  if (options.processGroup) {
+    try { process.kill(-rootPid, 'SIGKILL'); } catch (e) {}
+  }
   for (const pid of descendants) {
     try { process.kill(pid, 'SIGKILL'); } catch (e) {}
   }
-  try { child.kill('SIGKILL'); } catch (e) {}
 }
 
 // Helper to recursively find descendant PIDs (handles child CLI agents spinning sub-processes)
@@ -468,8 +550,14 @@ const watchdog = CPU_WATCHDOG_ENABLED ? setInterval(() => {
 child.on('close', (code, signal) => {
   clearTimeout(timeoutHandle);
   if (watchdog) clearInterval(watchdog);
+  if (heartbeat) clearInterval(heartbeat);
   releaseLock();
   log(`EXIT code=${code} signal=${signal} killed=${killed} reason=${killReason || ''}`);
+  if (showProgress && !killed) {
+    process.stderr.write(signal
+      ? `\x1b[31m[hermes-yolo]\x1b[0m child killed by signal ${signal} after ${elapsedSec()}s\n`
+      : `\x1b[35m[hermes-yolo]\x1b[0m done in ${elapsedSec()}s (exit ${code ?? 0})\n`);
+  }
 
   updateStatus(data => {
     const watcher = data.agents.find(a => a.id === 'antigravity-coder-1');
@@ -496,21 +584,34 @@ child.on('close', (code, signal) => {
 // Forward wrapper-level signals
 ['SIGINT', 'SIGTERM', 'SIGHUP'].forEach(sig => {
   process.on(sig, () => {
-    log(`wrapper received ${sig}`);
-    const descendants = getDescendantPids(child.pid);
-    for (const pid of descendants) {
-      try { process.kill(pid, 'SIGKILL'); } catch (e) {}
-    }
+    log(`wrapper received ${sig} — killing agent tree (group=${childIsOneshot})`);
+    killTree(child.pid, { processGroup: childIsOneshot });
     try { child.kill('SIGKILL'); } catch (e) {}
     releaseLock();
+    log(`SIGNAL_EXIT sig=${sig}`);
     process.exit(1);
   });
+});
+
+// Keep Ctrl+Z coherent: a detached agent never sees the terminal's SIGTSTP, so
+// stop/resume its whole group in lockstep with the wrapper — otherwise the
+// agent runs on unwatched while the wrapper (and its timeout/CPU watchdog
+// timers) sits frozen in state T.
+process.on('SIGTSTP', () => {
+  log('wrapper received SIGTSTP — stopping agent group');
+  if (childIsOneshot && child.pid) { try { process.kill(-child.pid, 'SIGSTOP'); } catch (e) {} }
+  process.kill(process.pid, 'SIGSTOP');
+});
+process.on('SIGCONT', () => {
+  log('wrapper received SIGCONT — resuming agent group');
+  if (childIsOneshot && child.pid) { try { process.kill(-child.pid, 'SIGCONT'); } catch (e) {} }
 });
 
 process.on('exit', releaseLock);
 } else {
 module.exports = {
   buildChildPromptArgs,
+  buildChildStdio,
   defaultModelRoute,
   chooseLocalModel,
   chooseZaiProvider,
@@ -518,8 +619,10 @@ module.exports = {
   findOllamaBinary,
   hasOpenRouterKey,
   hasZaiKey,
+  isOneshotArgs,
   mergedHermesEnv,
   parseEnvFile,
+  shouldShowProgress,
   HERMES_COMMANDS,
   DEFAULT_READY_PROMPT
 };
