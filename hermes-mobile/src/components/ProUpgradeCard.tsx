@@ -9,6 +9,7 @@ import {
   View,
 } from 'react-native';
 import {
+  HERMES_BETA_LANDING_URL,
   THUMBGATE_LEASH_PRODUCT_NAME,
   THUMBGATE_PRO_PRICE_LABEL,
   THUMBGATE_PRO_URL,
@@ -24,11 +25,11 @@ import { colors } from '../theme/colors';
 
 type ProUpgradeCardProps = {
   onUnlocked?: () => void | Promise<void>;
-  /** Dev / internal QA only — never shown in production store builds. */
-  onTesterUnlock?: () => void | Promise<void>;
+  /** When true, render CTA buttons only — paywall copy lives in LeashProUpsellBanner. */
+  compact?: boolean;
 };
 
-export default function ProUpgradeCard({ onUnlocked, onTesterUnlock }: ProUpgradeCardProps) {
+export default function ProUpgradeCard({ onUnlocked, compact = false }: ProUpgradeCardProps) {
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
@@ -40,6 +41,11 @@ export default function ProUpgradeCard({ onUnlocked, onTesterUnlock }: ProUpgrad
   const openLearnMore = async () => {
     await trackProductEvent('upgrade_tap_thumbgate_learn_more', { url: THUMBGATE_PRO_URL });
     await Linking.openURL(THUMBGATE_PRO_URL);
+  };
+
+  const openFoundingBeta = async () => {
+    await trackProductEvent('founding_beta_tap', { url: HERMES_BETA_LANDING_URL });
+    await Linking.openURL(HERMES_BETA_LANDING_URL);
   };
 
   const handleSubscribe = async () => {
@@ -104,12 +110,40 @@ export default function ProUpgradeCard({ onUnlocked, onTesterUnlock }: ProUpgrad
 
   return (
     <View style={styles.wrap} testID="pro-upgrade-card">
-      <Text style={styles.title}>ThumbGate Pro</Text>
-      <Text style={styles.body}>
-        Hermes Chat is free. {THUMBGATE_LEASH_PRODUCT_NAME} ({THUMBGATE_PRO_PRICE_LABEL}) unlocks
-        mobile approval cards on this phone — subscription through{' '}
-        {Platform.OS === 'ios' ? 'Apple' : 'Google'}, same as any other mobile app.
-      </Text>
+      {!compact ? (
+        <>
+          <Text style={styles.title}>SECURE YOUR WORKSPACE</Text>
+          <Text style={styles.hypnoticText}>
+            Imagine your AI agent running wild on your computer—reading private SSH keys, force-pushing broken code, or wiping your primary codebase while you sleep.
+          </Text>
+          <Text style={styles.body}>
+            No corporate fluff here. If you run agent loops on your primary machine, you are unprotected. Standard chat is a sandbox. Pro is your active firewall.
+          </Text>
+          <Text style={styles.warningText}>
+            Warning: This is not a toy. If you write simple scripts, stick to the free tier. This is a weapon for developers who value their workspace security.
+          </Text>
+          <View style={styles.bulletRow}>
+            <Text style={styles.bulletTitle}>• Real-Time Firewalls</Text>
+            <Text style={styles.bulletBody}>Pause and inspect risky command executions on your phone before they run.</Text>
+          </View>
+          <View style={styles.bulletRow}>
+            <Text style={styles.bulletTitle}>• ThumbGate Rule Engine</Text>
+            <Text style={styles.bulletBody}>Auto-learn allowed/blocked rules from 👍/👎 actions so it stops asking twice.</Text>
+          </View>
+          <View style={styles.bulletRow}>
+            <Text style={styles.bulletTitle}>• OpenClaw Relays</Text>
+            <Text style={styles.bulletBody}>Deploy enterprise-grade permission gates to secure your whole setup.</Text>
+          </View>
+        </>
+      ) : null}
+      <TouchableOpacity
+        style={styles.foundingBetaButton}
+        onPress={() => void openFoundingBeta()}
+        disabled={busy}
+        testID="join-founding-beta"
+      >
+        <Text style={styles.foundingBetaButtonText}>Join founding beta</Text>
+      </TouchableOpacity>
       <TouchableOpacity
         style={[styles.primaryButton, busy && styles.primaryButtonDisabled]}
         onPress={() => void handleSubscribe()}
@@ -120,6 +154,9 @@ export default function ProUpgradeCard({ onUnlocked, onTesterUnlock }: ProUpgrad
           {busy ? 'Connecting to store…' : thumbgateIapSubscribeLabel()}
         </Text>
       </TouchableOpacity>
+      <Text style={styles.riskReversal}>
+        Cancel anytime in {Platform.OS === 'ios' ? 'App Store' : 'Google Play'} settings.
+      </Text>
       <TouchableOpacity
         style={styles.secondaryButton}
         onPress={() => void handleRestore()}
@@ -131,20 +168,6 @@ export default function ProUpgradeCard({ onUnlocked, onTesterUnlock }: ProUpgrad
       <TouchableOpacity onPress={() => void openLearnMore()} testID="upgrade-thumbgate-pro">
         <Text style={styles.learnMoreLink}>Learn what ThumbGate Pro includes</Text>
       </TouchableOpacity>
-      {onTesterUnlock ? (
-        <TouchableOpacity
-          style={styles.testerButton}
-          onPress={() => {
-            void trackProductEvent('thumbgate_leash_tester_unlock_tap');
-            void onTesterUnlock();
-          }}
-          testID="unlock-thumbgate-leash"
-        >
-          <Text style={styles.testerButtonText}>
-            Unlock for testing (dev builds only)
-          </Text>
-        </TouchableOpacity>
-      ) : null}
     </View>
   );
 }
@@ -177,6 +200,12 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     fontSize: 14,
   },
+  riskReversal: {
+    fontSize: 11,
+    lineHeight: 16,
+    color: colors.textMuted,
+    textAlign: 'center',
+  },
   secondaryButton: {
     borderRadius: 12,
     paddingVertical: 12,
@@ -189,19 +218,56 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     fontSize: 13,
   },
+  foundingBetaButton: {
+    backgroundColor: colors.success,
+    borderRadius: 12,
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  foundingBetaButtonText: {
+    color: '#052e16',
+    fontWeight: '800',
+    fontSize: 13,
+    textAlign: 'center',
+  },
   learnMoreLink: {
     fontSize: 12,
     color: colors.textMuted,
     textAlign: 'center',
     textDecorationLine: 'underline',
   },
-  testerButton: {
-    paddingVertical: 8,
-    alignItems: 'center',
+  hypnoticText: {
+    fontSize: 13,
+    lineHeight: 19,
+    color: colors.textSecondary,
+    fontStyle: 'italic',
+    marginBottom: 4,
   },
-  testerButtonText: {
-    fontSize: 11,
+  warningText: {
+    fontSize: 12,
+    lineHeight: 18,
+    color: colors.warning,
+    fontWeight: '700',
+    backgroundColor: 'rgba(245, 158, 11, 0.08)',
+    padding: 10,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(245, 158, 11, 0.2)',
+    marginVertical: 4,
+  },
+  bulletRow: {
+    marginVertical: 4,
+    paddingLeft: 4,
+  },
+  bulletTitle: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: colors.text,
+  },
+  bulletBody: {
+    fontSize: 12,
+    lineHeight: 17,
     color: colors.textMuted,
-    fontWeight: '600',
+    marginTop: 2,
   },
 });
