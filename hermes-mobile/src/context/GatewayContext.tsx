@@ -8,6 +8,7 @@ import React, {
 import { createContext, useContext } from 'use-context-selector';
 import { AppState, Linking, Platform } from 'react-native';
 import NetInfo from '@react-native-community/netinfo';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import type {
   GatewayEventMessage,
   GatewayHealthSnapshot,
@@ -137,8 +138,8 @@ import {
 } from '../services/tailscaleDiscovery';
 import { tailnetProbeStorage } from '../services/tailnetProbeStorage';
 import { isGatewaySmokeTestMessage } from '../utils/gatewaySmokeMessages';
-import { isThumbgateLeashUnlocked } from '../utils/thumbgateLeash';
 import { withDeveloperLeashUnlocked } from '../utils/developerLeashUnlock';
+import { isLeashProEnabled } from '../utils/leashPro';
 import {
   initializeThumbgateIapListeners,
   syncThumbgateLeashEntitlement,
@@ -391,6 +392,9 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
           if (parsed.sessionId) {
             setNotificationFocusSessionId(parsed.sessionId);
           }
+          clearRunProgressNotification().catch(() => {});
+          cancelRunStallNotification().catch(() => {});
+          dismissApprovalNotifications().catch(() => {});
           const path =
             parsed.tab === 'Chat'
               ? parsed.sessionId
@@ -472,6 +476,14 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
 
     (async () => {
       try {
+        const firstLaunchDone = await AsyncStorage.getItem('hermes_first_launch_done');
+        if (!firstLaunchDone) {
+          console.log('[hermes-mobile] First launch detected — clearing persistent secure credentials');
+          await secureCredentials.clearAll();
+          await AsyncStorage.clear();
+          await AsyncStorage.setItem('hermes_first_launch_done', 'true');
+        }
+
         const savedSettings = await storage.loadGatewaySettings();
         const lastLanIp = await storage.loadLastGatewayLanIp();
         let loadedProfiles = await gatewayProfiles.load();
@@ -1040,9 +1052,6 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
 
     const pending = gateBlockedToPending(event);
     if (pending) {
-      if (!isThumbgateLeashUnlocked(settingsRef.current)) {
-        return;
-      }
       if (
         isGatewaySmokeTestMessage(pending.reason) ||
         (pending.command && isGatewaySmokeTestMessage(pending.command))
@@ -1993,14 +2002,12 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
       if (nextAppState !== 'active') {
         return;
       }
-      if (isGatewayHealthOk(healthRef.current)) {
-        return;
-      }
-      void probeTailscaleComputersRef.current();
+      void refreshHealth().catch(() => {});
+      void probeTailscaleComputersRef.current().catch(() => {});
     };
     const sub = AppState.addEventListener('change', handleAppStateChange);
     return () => sub.remove();
-  }, [isLoaded, settings.demoMode]);
+  }, [isLoaded, settings.demoMode, refreshHealth]);
 
   const bootstrapGateway = useCallback(async (): Promise<boolean> => {
     if (settingsRef.current.demoMode) {
@@ -2304,7 +2311,7 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
       options: { session?: HermesSession | null; explanation?: string } = {},
     ): Promise<boolean> => {
       const currentSettings = settingsRef.current;
-      if (!isThumbgateLeashUnlocked(currentSettings)) {
+      if (!isLeashProEnabled(currentSettings)) {
         return false;
       }
       const shouldCaptureDown = signal === 'down' && currentSettings.thumbgateCaptureOnDown;

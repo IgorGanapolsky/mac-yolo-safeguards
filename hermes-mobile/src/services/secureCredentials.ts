@@ -116,4 +116,16 @@ export const secureCredentials = {
       return null;
     }
   },
+
+  async clearAll(): Promise<void> {
+    try {
+      await SecureStore.deleteItemAsync(API_KEY_KEY);
+      await SecureStore.deleteItemAsync(PROFILE_API_KEYS_KEY);
+      await SecureStore.deleteItemAsync(MOBILE_TOKEN_KEY);
+      await SecureStore.deleteItemAsync(THUMBGATE_API_KEY);
+    } catch (error) {
+      console.error('[hermes-mobile] clearAll secure credentials failed:', error);
+    }
+  },
 };
+
