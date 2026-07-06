@@ -1284,16 +1284,16 @@ export default function ChatScreen() {
           projects: [
             {
               id: 'demo-skool',
-              name: 'skool_top1percent',
-              workspacePath: '~/workspace/git/igor/skool_top1percent',
-              vaultSlug: 'Skool',
+              name: 'Demo Project',
+              workspacePath: '~/projects/another-app',
+              vaultSlug: 'Demo',
               sessionIds: ['demo-1'],
               activeSessionId: 'demo-1',
             },
             {
               id: 'demo-thumbgate',
               name: 'ThumbGate',
-              workspacePath: '~/workspace/git/igor/ThumbGate',
+              workspacePath: '~/projects/my-app',
               vaultSlug: 'ThumbGate',
               sessionIds: ['demo-2'],
               activeSessionId: 'demo-2',
@@ -1493,7 +1493,7 @@ export default function ChatScreen() {
   const handleAddProject = async () => {
     const path = newProjectPath.trim();
     if (!path) {
-      setErrorMessage('Enter a workspace path (e.g. ~/workspace/git/igor/ThumbGate)');
+      setErrorMessage('Enter a workspace path (e.g. ~/projects/my-app)');
       return;
     }
     haptics.selection();
@@ -4663,7 +4663,7 @@ export default function ChatScreen() {
               style={styles.modalInput}
               value={newProjectPath}
               onChangeText={setNewProjectPath}
-              placeholder="~/workspace/git/igor/ThumbGate"
+              placeholder="~/projects/my-app"
               placeholderTextColor={colors.textMuted}
               autoCapitalize="none"
               autoCorrect={false}
@@ -4674,7 +4674,7 @@ export default function ChatScreen() {
               style={styles.modalInput}
               value={newProjectName}
               onChangeText={setNewProjectName}
-              placeholder="ThumbGate"
+              placeholder="My App"
               placeholderTextColor={colors.textMuted}
               autoCapitalize="words"
               testID="new-project-name-input"

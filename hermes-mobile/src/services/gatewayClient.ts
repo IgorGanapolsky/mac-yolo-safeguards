@@ -211,7 +211,7 @@ export function buildDemoGateBlockedEvent(): GatewayEventMessage {
       toolName: 'run_command',
       reason: 'Pre-action rule blocked execution to prevent memory runaway.',
       command: 'node tests/test-runaway.js --force-leak',
-      workspacePath: '/Users/igorganapolsky/workspace/git/igor/mac-yolo-safeguards',
+      workspacePath: '~/projects/my-app',
       diff: '--- a/sim-runaway-guard.sh\n+++ b/sim-runaway-guard.sh\n@@ -124,1 +124,2 @@\n-  if [ "$mem_pct" -lt 10 ]\n+  local min_pct=${YOLO_MEM_FREE_PCT_THRESHOLD:-15}',
     },
   };
