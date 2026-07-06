@@ -18,19 +18,19 @@ export type LeashPaywallCopy = {
   positioningLine: string;
 };
 
-/** Above-fold paywall copy for the Pro tab free tier (~120 words max before Subscribe). */
+/** Above-fold paywall copy for the Pro tab free tier (~65 words before Subscribe). */
 export function getLeashFreeTierPaywallCopy(): LeashPaywallCopy {
   return {
-    headline: 'Put a kill switch on your AI agent.',
+    headline: 'ThumbGate is an AI agent firewall.',
     outcome:
-      'Approve dangerous commands from your phone before they touch your files, browser, or deploys. ' +
-      'Hermes chat stays free. Pro is for real agent work.',
+      'Review blocked tool calls on your phone before they hit shell, git, browser, or deploys. ' +
+      'Hermes chat stays free. Pro is for serious agent work.',
     bullets: [
-      'Block rm, force-push, deploy, and browser actions',
-      'Turn repeat decisions into editable allow/block rules',
-      'Save thumbs-up/down feedback as agent memory',
+      'Approve or block risky tools from your phone',
+      'Turn repeat decisions into allow/block rules',
+      'Save thumbs-up/down feedback as ThumbGate memory',
     ],
-    positioningLine: `One blocked mistake can be worth more than a year of Pro. ${THUMBGATE_PRO_PRICE_LABEL}.`,
+    positioningLine: `One blocked file wipe, force-push, or bad deploy can cover Pro. ${THUMBGATE_PRO_PRICE_LABEL}.`,
   };
 }
 
@@ -40,13 +40,13 @@ export function getLeashFreeTierLearnMoreSections(): LeashEducationSection[] {
     {
       title: 'Included controls',
       body:
-        `${THUMBGATE_PRO_SCREEN_TITLE} adds phone approvals, editable gate rules, OpenClaw prep, ` +
-        'and output thumbs on top of free Hermes chat.',
+        `${THUMBGATE_PRO_SCREEN_TITLE} adds phone approvals, editable firewall rules, ` +
+        'and ThumbGate memory on top of free Hermes chat.',
     },
     {
       title: `${THUMBGATE_LEASH_PRODUCT_NAME}`,
       body:
-        'The permission layer that pauses risky tools until you approve or block them.',
+        'The phone-side firewall that pauses risky tools until you approve or block them.',
     },
   ];
 }

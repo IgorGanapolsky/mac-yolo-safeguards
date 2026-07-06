@@ -112,38 +112,16 @@ export default function ProUpgradeCard({ onUnlocked, compact = false }: ProUpgra
     <View style={styles.wrap} testID="pro-upgrade-card">
       {!compact ? (
         <>
-          <Text style={styles.title}>SECURE YOUR WORKSPACE</Text>
-          <Text style={styles.hypnoticText}>
-            Imagine your AI agent running wild on your computer—reading private SSH keys, force-pushing broken code, or wiping your primary codebase while you sleep.
-          </Text>
+          <Text style={styles.title}>{THUMBGATE_LEASH_PRODUCT_NAME} is your AI agent firewall</Text>
           <Text style={styles.body}>
-            No corporate fluff here. If you run agent loops on your primary machine, you are unprotected. Standard chat is a sandbox. Pro is your active firewall.
+            Block risky tools before they run, keep editable firewall rules, and save
+            repeat decisions as ThumbGate memory. Free Hermes chat stays free.
           </Text>
-          <Text style={styles.warningText}>
-            Warning: This is not a toy. If you write simple scripts, stick to the free tier. This is a weapon for developers who value their workspace security.
+          <Text style={styles.valueLine}>
+            One blocked file wipe, force-push, or bad deploy can cover Pro. {THUMBGATE_PRO_PRICE_LABEL}.
           </Text>
-          <View style={styles.bulletRow}>
-            <Text style={styles.bulletTitle}>• Real-Time Firewalls</Text>
-            <Text style={styles.bulletBody}>Pause and inspect risky command executions on your phone before they run.</Text>
-          </View>
-          <View style={styles.bulletRow}>
-            <Text style={styles.bulletTitle}>• ThumbGate Rule Engine</Text>
-            <Text style={styles.bulletBody}>Auto-learn allowed/blocked rules from 👍/👎 actions so it stops asking twice.</Text>
-          </View>
-          <View style={styles.bulletRow}>
-            <Text style={styles.bulletTitle}>• OpenClaw Relays</Text>
-            <Text style={styles.bulletBody}>Deploy enterprise-grade permission gates to secure your whole setup.</Text>
-          </View>
         </>
       ) : null}
-      <TouchableOpacity
-        style={styles.foundingBetaButton}
-        onPress={() => void openFoundingBeta()}
-        disabled={busy}
-        testID="join-founding-beta"
-      >
-        <Text style={styles.foundingBetaButtonText}>Join founding beta</Text>
-      </TouchableOpacity>
       <TouchableOpacity
         style={[styles.primaryButton, busy && styles.primaryButtonDisabled]}
         onPress={() => void handleSubscribe()}
@@ -165,6 +143,14 @@ export default function ProUpgradeCard({ onUnlocked, compact = false }: ProUpgra
       >
         <Text style={styles.secondaryButtonText}>Restore purchases</Text>
       </TouchableOpacity>
+      <TouchableOpacity
+        style={styles.betaLinkButton}
+        onPress={() => void openFoundingBeta()}
+        disabled={busy}
+        testID="join-founding-beta"
+      >
+        <Text style={styles.betaLinkText}>Join founding beta instead</Text>
+      </TouchableOpacity>
       <TouchableOpacity onPress={() => void openLearnMore()} testID="upgrade-thumbgate-pro">
         <Text style={styles.learnMoreLink}>Learn what ThumbGate Pro includes</Text>
       </TouchableOpacity>
@@ -185,6 +171,12 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 19,
     color: colors.textSecondary,
+  },
+  valueLine: {
+    fontSize: 12,
+    lineHeight: 18,
+    color: colors.textMuted,
+    fontStyle: 'italic',
   },
   primaryButton: {
     backgroundColor: colors.primary,
@@ -218,16 +210,14 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     fontSize: 13,
   },
-  foundingBetaButton: {
-    backgroundColor: colors.success,
-    borderRadius: 12,
-    paddingVertical: 12,
+  betaLinkButton: {
+    paddingVertical: 4,
     alignItems: 'center',
   },
-  foundingBetaButtonText: {
-    color: '#052e16',
-    fontWeight: '800',
-    fontSize: 13,
+  betaLinkText: {
+    color: colors.textMuted,
+    fontWeight: '700',
+    fontSize: 12,
     textAlign: 'center',
   },
   learnMoreLink: {
@@ -235,39 +225,5 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
     textAlign: 'center',
     textDecorationLine: 'underline',
-  },
-  hypnoticText: {
-    fontSize: 13,
-    lineHeight: 19,
-    color: colors.textSecondary,
-    fontStyle: 'italic',
-    marginBottom: 4,
-  },
-  warningText: {
-    fontSize: 12,
-    lineHeight: 18,
-    color: colors.warning,
-    fontWeight: '700',
-    backgroundColor: 'rgba(245, 158, 11, 0.08)',
-    padding: 10,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: 'rgba(245, 158, 11, 0.2)',
-    marginVertical: 4,
-  },
-  bulletRow: {
-    marginVertical: 4,
-    paddingLeft: 4,
-  },
-  bulletTitle: {
-    fontSize: 13,
-    fontWeight: '800',
-    color: colors.text,
-  },
-  bulletBody: {
-    fontSize: 12,
-    lineHeight: 17,
-    color: colors.textMuted,
-    marginTop: 2,
   },
 });
