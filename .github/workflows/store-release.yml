@@ -146,6 +146,7 @@ jobs:
             echo "Current production AAB to reuse: ab9ed28d-9038-40e4-a9c5-864ddb2bc1e1 (v0.3.2 vc7, commit 56d479f9eac7)" >&2
             exit 1
           fi
+          echo "HERMES_EAS_SPEND_APPROVED=YES_SPEND_EAS_CREDITS" >> "$GITHUB_ENV"
 
       - name: Build Android production AAB
         id: build
@@ -273,6 +274,17 @@ jobs:
           EXPO_ASC_API_KEY_ID: ${{ secrets.EXPO_ASC_API_KEY_ID }}
           EXPO_ASC_API_KEY_ISSUER_ID: ${{ secrets.EXPO_ASC_API_KEY_ISSUER_ID }}
         run: npm run launch:preflight:ios
+
+      - name: Require EAS spend confirmation for new production builds
+        env:
+          CONFIRM_EAS: ${{ inputs.confirm_eas_spend }}
+        run: |
+          set -euo pipefail
+          if [ "${CONFIRM_EAS:-no}" != "yes" ]; then
+            echo "::error::New EAS production builds cost Starter credits (~\$1+ each). Set confirm_eas_spend=yes to build." >&2
+            exit 1
+          fi
+          echo "HERMES_EAS_SPEND_APPROVED=YES_SPEND_EAS_CREDITS" >> "$GITHUB_ENV"
 
       - name: Build iOS production artifact
         id: build
