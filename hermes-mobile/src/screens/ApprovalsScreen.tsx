@@ -336,19 +336,24 @@ export default function ApprovalsScreen() {
 
         {leashUnlocked ? (
           <GlassCard style={styles.leashSettingsCard}>
-            <Text style={styles.sectionTitle}>Leash options</Text>
-            <TouchableOpacity
-              style={styles.secondaryButton}
-              onPress={() => {
-                injectSmokeApproval();
-              }}
-              testID="leash-smoke-test"
-            >
-              <Text style={styles.secondaryButtonText}>Preview approval card (smoke test)</Text>
-            </TouchableOpacity>
-            <Text style={styles.hintMuted}>
-              Injects a fake blocked-command card here. Does not touch your relay or computer.
-            </Text>
+            <Text style={styles.sectionTitle}>Pro options</Text>
+            {showTesterUnlock ? (
+              <>
+                <TouchableOpacity
+                  style={styles.secondaryButton}
+                  onPress={() => {
+                    injectSmokeApproval();
+                  }}
+                  testID="leash-smoke-test"
+                >
+                  <Text style={styles.secondaryButtonText}>Preview approval card (developer)</Text>
+                </TouchableOpacity>
+                <Text style={styles.hintMuted}>
+                  Developer-only: injects a fake blocked-command card here. Does not touch your relay
+                  or computer.
+                </Text>
+              </>
+            ) : null}
             <View style={styles.switchRow}>
               <View style={styles.switchLabelCol}>
                 <Text style={styles.switchLabel}>Thumbs down → remember block</Text>
