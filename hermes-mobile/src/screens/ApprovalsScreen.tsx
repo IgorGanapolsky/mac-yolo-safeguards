@@ -250,23 +250,23 @@ export default function ApprovalsScreen() {
         ) : null}
         {!leashUnlocked ? (
           <GlassCard style={styles.emptyCard}>
-            <Text style={styles.emptyTitle}>ThumbGate Leash is a Pro feature</Text>
+            <Text style={styles.emptyTitle}>A firewall for your AI coding agent</Text>
             <Text style={styles.emptyBody}>
-              Leash is the paid control layer for your AI coding agent. When the agent hits a risky
-              command on your computer, the approval card appears here so you approve or reject it
-              from your phone. Three things power it:
+              Every risky move your agent makes on your computer — deletes, force-pushes, deploys,
+              runaway API calls, browser clicks — stops at your phone. Approve or block it with one
+              thumb. Hermes chat stays free.
             </Text>
             <Text style={styles.emptyBody}>
-              • ThumbGate — a memory layer. Your approvals, rejections, and 👍/👎 become durable rules,
-              so the agent learns what you allow and stops asking twice.
+              • Block a destructive command before it runs — not in the postmortem.
             </Text>
             <Text style={styles.emptyBody}>
-              • Permissions — see every standing allow / block rule your agent follows, and edit or
-              delete any of them from your phone.
+              • Stop a runaway agent before it burns your API budget.
             </Text>
             <Text style={styles.emptyBody}>
-              • OpenClaw — bring OpenClaw-style permission gates into Leash so the same guardrails
-              cover your whole agent setup.
+              • Decide once — ThumbGate remembers and enforces it forever.
+            </Text>
+            <Text style={styles.emptyBody}>
+              $19/mo — about $0.63 a day. One blocked mistake pays for a year.
             </Text>
             <ProUpgradeCard
               onUnlocked={unlockThumbgateLeash}

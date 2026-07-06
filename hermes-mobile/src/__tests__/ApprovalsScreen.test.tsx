@@ -37,7 +37,7 @@ describe('ApprovalsScreen', () => {
       }),
     );
     const { getByText } = renderInTabNavigator(ApprovalsScreen, 'Leash');
-    expect(getByText('ThumbGate Leash is a Pro feature')).toBeTruthy();
+    expect(getByText('A firewall for your AI coding agent')).toBeTruthy();
   });
 
   it('shows empty state when no pending approvals', () => {
