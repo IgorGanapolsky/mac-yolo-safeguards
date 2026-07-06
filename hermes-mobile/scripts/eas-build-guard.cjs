@@ -317,7 +317,7 @@ function main() {
     process.exit(2);
   }
 
-  console.log(`Hermes EAS build guard: PASS (${normalizePlatform(args.platform)}/${args.profile}/${args.commit})`);
+  console.error(`Hermes EAS build guard: PASS (${normalizePlatform(args.platform)}/${args.profile}/${args.commit})`);
 
   if (args.dryRun || args.command.length === 0) {
     return;
