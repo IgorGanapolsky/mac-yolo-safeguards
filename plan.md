@@ -118,6 +118,7 @@ Durable rules live in [AGENTS.md](./AGENTS.md); this file is *live state only*.
 | T-97 | Chat composer PDF/DOCX document extraction | in_progress | cursor | `hermes-mobile/src/utils/documentContentExtractor.ts`, `hermes-mobile/src/utils/chatAttachments.ts`, `hermes-mobile/src/components/ChatInputBar.tsx`, `hermes-mobile/docs/CHAT-ATTACHMENTS.md`, `hermes-mobile/src/__tests__/documentContentExtractor.test.ts`, `hermes-mobile/src/__tests__/chatAttachments.test.ts`, `hermes-mobile/src/__tests__/ChatInputBar.test.tsx`, `hermes-mobile/jest.setup.js`, `hermes-mobile/package.json`, `plan.md` | PDF text via expo-pdf-text-extract; DOCX via mammoth; inline as [Document: name]; Document first in + menu; npm test + phone install R3CY90QPM7E |
 | T-99 | Fix session creation title conflict mapping bug | in_progress | antigravity | `hermes-mobile/src/utils/chatErrors.ts`, `hermes-mobile/src/__tests__/chatErrors.test.ts`, `plan.md` | `npm test` passes, and `isSessionInUseError` returns `false` on title conflict |
 | T-100 | Fix `hermes-yolo` bare hangs on external interactive commands | done | antigravity | `hermes-yolo-wrapper.js`, `tests/test-hermes-yolo.js`, `plan.md` | `npm test` passes and `node tests/test-hermes-yolo.js` passes |
+| T-101 | hermes-yolo interactive UX: live progress output + reliable terminal-close kill | in_progress | claude-code | `hermes-yolo-wrapper.js`, `tests/test-hermes-yolo.js`, `plan.md` | `node tests/test-hermes-yolo.js` passes; bare-prompt run prints start+heartbeat+done lines to stderr; SIGHUP/terminal-close kills the whole agent process group (no orphaned GLM traffic) |
 
 
 Status values: `pending` | `in_progress` | `blocked` | `done`. Claim a row by setting Owner+Status in one edit, then claim its files in §2.
@@ -251,6 +252,7 @@ Status values: `pending` | `in_progress` | `blocked` | `done`. Claim a row by se
 - `~/.hermes/hermes-agent/gateway/platforms/api_server.py`, `~/.hermes/hermes-agent/tests/gateway/test_api_server.py` → **antigravity** (T-84 robust agent status parsing) (2026-07-06)
 - `hermes-mobile/src/screens/ApprovalsScreen.tsx`, `hermes-mobile/src/utils/chatOutputFeedback.ts`, `hermes-mobile/src/utils/leashUx.ts`, `hermes-mobile/src/components/ProUpgradeCard.tsx`, `hermes-mobile/src/components/LeashProUpsellBanner.tsx`, `hermes-mobile/src/screens/SettingsScreen.tsx`, `hermes-mobile/src/context/GatewayContext.tsx` (submitChatOutputFeedback gate only), `hermes-mobile/src/__tests__/ApprovalsScreen.test.tsx`, `hermes-mobile/src/__tests__/chatOutputFeedback.test.ts`, `hermes-mobile/src/__tests__/GatewayContext.test.tsx`, `plan.md` → **antigravity** (T-86 Leash free-tier education + dev unlock + chat thumbs paywall) (2026-07-06T14:20:00Z)
 - `hermes-yolo-wrapper.js`, `tests/test-hermes-yolo.js` → **antigravity** (T-100) — released (2026-07-06)
+- `hermes-yolo-wrapper.js`, `tests/test-hermes-yolo.js` → **claude-code** (T-101 interactive progress + SIGHUP tree-kill) (2026-07-06T15:45)
 - everything else → (free)
 
 
