@@ -192,6 +192,28 @@ try {
   const merged = mergedHermesEnv({ HERMES_YOLO_MODEL: 'override-model' }, tmpEnvPath);
   assert.strictEqual(merged.OPENROUTER_API_KEY, 'openrouter-key');
   assert.strictEqual(merged.HERMES_YOLO_MODEL, 'override-model');
+
+  // Test local repository env loading:
+  const originalCwd = process.cwd();
+  const tempRepoDir = path.join(require('os').tmpdir(), `hermes-yolo-test-repo-${process.pid}`);
+  fs.mkdirSync(tempRepoDir, { recursive: true });
+  fs.mkdirSync(path.join(tempRepoDir, 'hermes-mobile'), { recursive: true });
+  fs.writeFileSync(path.join(tempRepoDir, '.env'), 'LOCAL_KEY_ROOT=root-val\n');
+  fs.writeFileSync(path.join(tempRepoDir, 'hermes-mobile', '.env'), 'LOCAL_KEY_MOBILE=mobile-val\n');
+  try {
+    process.chdir(tempRepoDir);
+    const mergedLocal = mergedHermesEnv({ OVERRIDE_KEY: 'override-val' }, tmpEnvPath);
+    assert.strictEqual(mergedLocal.LOCAL_KEY_ROOT, 'root-val');
+    assert.strictEqual(mergedLocal.LOCAL_KEY_MOBILE, 'mobile-val');
+    assert.strictEqual(mergedLocal.OPENROUTER_API_KEY, 'openrouter-key');
+    assert.strictEqual(mergedLocal.OVERRIDE_KEY, 'override-val');
+  } finally {
+    process.chdir(originalCwd);
+    try { fs.unlinkSync(path.join(tempRepoDir, '.env')); } catch(e){}
+    try { fs.unlinkSync(path.join(tempRepoDir, 'hermes-mobile', '.env')); } catch(e){}
+    try { fs.rmdirSync(path.join(tempRepoDir, 'hermes-mobile')); } catch(e){}
+    try { fs.rmdirSync(tempRepoDir); } catch(e){}
+  }
 } finally {
   fs.unlinkSync(tmpEnvPath);
 }

@@ -54,7 +54,18 @@ function parseEnvFile(filePath = HERMES_ENV_PATH) {
 }
 
 function mergedHermesEnv(env = process.env, envFilePath = HERMES_ENV_PATH) {
-  return Object.assign({}, parseEnvFile(envFilePath), env);
+  const localEnvPaths = [
+    path.join(process.cwd(), '.env'),
+    path.join(process.cwd(), 'hermes-mobile', '.env'),
+    path.join(process.cwd(), '..', '.env'),
+  ];
+  let merged = Object.assign({}, parseEnvFile(envFilePath));
+  for (const localPath of localEnvPaths) {
+    if (fs.existsSync(localPath)) {
+      merged = Object.assign(merged, parseEnvFile(localPath));
+    }
+  }
+  return Object.assign(merged, env);
 }
 
 function hasZaiKey(env = process.env) {
