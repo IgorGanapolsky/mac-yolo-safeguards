@@ -67,6 +67,30 @@ export default function ApprovalsScreen() {
     await patchSettings({ thumbgateProActive: true, developerLeashUnlock: true });
   }, [patchSettings]);
 
+  // Developer backdoor: press-and-hold the title for 8s to unlock Pro. Uses an
+  // explicit press-in/press-out timer instead of `delayLongPress`, which the
+  // Android long-press recognizer cancels on the slightest finger movement.
+  const leashUnlockHoldRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const startLeashUnlockHold = React.useCallback(() => {
+    if (leashUnlocked) {
+      return;
+    }
+    if (leashUnlockHoldRef.current) {
+      clearTimeout(leashUnlockHoldRef.current);
+    }
+    leashUnlockHoldRef.current = setTimeout(() => {
+      leashUnlockHoldRef.current = null;
+      void unlockThumbgateLeash();
+      Alert.alert('Developer unlock', 'ThumbGate Leash Pro enabled on this device.');
+    }, 8000);
+  }, [leashUnlocked, unlockThumbgateLeash]);
+  const cancelLeashUnlockHold = React.useCallback(() => {
+    if (leashUnlockHoldRef.current) {
+      clearTimeout(leashUnlockHoldRef.current);
+      leashUnlockHoldRef.current = null;
+    }
+  }, []);
+
   const [refreshing, setRefreshing] = React.useState(false);
 
   const onRefresh = React.useCallback(async () => {
@@ -143,13 +167,9 @@ export default function ApprovalsScreen() {
           testID="THUMBGATE_LEASH"
           accessible={true}
           activeOpacity={1}
-          delayLongPress={8000}
-          onLongPress={() => {
-            if (!leashUnlocked) {
-              void unlockThumbgateLeash();
-              Alert.alert('Developer unlock', 'ThumbGate Leash Pro enabled on this device.');
-            }
-          }}
+          hitSlop={{ top: 24, bottom: 24, left: 24, right: 24 }}
+          onPressIn={startLeashUnlockHold}
+          onPressOut={cancelLeashUnlockHold}
         >
           <Text style={styles.title}>THUMBGATE LEASH</Text>
         </TouchableOpacity>
