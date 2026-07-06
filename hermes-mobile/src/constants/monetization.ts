@@ -4,8 +4,8 @@ export const THUMBGATE_PRO_URL =
 
 export const THUMBGATE_PRO_PRICE_LABEL = '$19/mo';
 
-/** Bottom navigation tab label (short). */
-export const LEASH_TAB_LABEL = 'Leash';
+/** Bottom navigation tab label (short). Named "Pro" — it's the paid upgrade surface. */
+export const LEASH_TAB_LABEL = 'Pro';
 
 /** Product name shown inside the Leash tab and Settings. */
 export const THUMBGATE_LEASH_PRODUCT_NAME = 'ThumbGate Leash';
