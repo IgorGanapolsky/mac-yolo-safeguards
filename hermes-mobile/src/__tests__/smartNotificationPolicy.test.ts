@@ -5,7 +5,10 @@ import {
   approvalNotificationTitle,
   approvalsSummaryBody,
   buildApprovalNotificationBody,
+  resolveHermesNotificationPresentation,
+  shouldPresentIntrusiveNotification,
   shouldScheduleApprovalNotification,
+  shouldScheduleApprovalsSummaryNotification,
   shouldScheduleRunCompletedNotification,
   shouldScheduleRunProgressNotification,
 } from '../utils/smartNotificationPolicy';
@@ -75,5 +78,34 @@ describe('smartNotificationPolicy', () => {
     expect(shouldScheduleRunProgressNotification('active')).toBe(false);
     expect(shouldScheduleRunProgressNotification('background')).toBe(true);
     expect(shouldScheduleRunProgressNotification('inactive')).toBe(true);
+  });
+
+  it('schedules approvals summary only when backgrounded', () => {
+    expect(shouldScheduleApprovalsSummaryNotification('active')).toBe(false);
+    expect(shouldScheduleApprovalsSummaryNotification('background')).toBe(true);
+    expect(shouldScheduleApprovalsSummaryNotification('inactive')).toBe(true);
+  });
+
+  it('never presents intrusive notifications while active', () => {
+    expect(shouldPresentIntrusiveNotification('active')).toBe(false);
+    expect(shouldPresentIntrusiveNotification('background')).toBe(true);
+    expect(shouldPresentIntrusiveNotification('inactive')).toBe(true);
+  });
+
+  it('resolves handler presentation from app state', () => {
+    expect(resolveHermesNotificationPresentation('active')).toEqual({
+      shouldShowAlert: false,
+      shouldShowBanner: false,
+      shouldPlaySound: false,
+      shouldSetBadge: true,
+      shouldShowList: true,
+    });
+    expect(resolveHermesNotificationPresentation('background', { playSound: true })).toEqual({
+      shouldShowAlert: true,
+      shouldShowBanner: true,
+      shouldPlaySound: true,
+      shouldSetBadge: true,
+      shouldShowList: true,
+    });
   });
 });

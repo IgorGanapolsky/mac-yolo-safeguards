@@ -2,7 +2,9 @@ import {
   approvalNotificationSubtitle,
   parseApprovalNotificationResponse,
   parseHermesNotificationResponse,
+  resolveHermesNotificationHandlerResult,
   runProgressNotificationTitle,
+  scheduleApprovalsSummaryNotification,
   scheduleRunProgressNotification,
   scheduleRunStallNotification,
   shouldDismissRunNotificationsForAppState,
@@ -139,6 +141,81 @@ describe('hermesNotifications', () => {
       await scheduleRunStallNotification('run-1', 'sess-1');
 
       expect(Notifications.scheduleNotificationAsync).not.toHaveBeenCalled();
+    });
+
+    it('does not schedule approvals summary while app is active', async () => {
+      Object.defineProperty(AppState, 'currentState', {
+        value: 'active',
+        configurable: true,
+      });
+
+      await scheduleApprovalsSummaryNotification(
+        [
+          {
+            actionId: 'act-1',
+            toolName: 'bash',
+            reason: 'deploy',
+            receivedAt: '',
+          },
+          {
+            actionId: 'act-2',
+            toolName: 'bash',
+            reason: 'rollback',
+            receivedAt: '',
+          },
+        ],
+        { badgeCount: 2 },
+      );
+
+      expect(Notifications.scheduleNotificationAsync).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('notification handler foreground policy', () => {
+    function handlerPresentation(
+      appState: string,
+      type: string,
+      extraData: Record<string, unknown> = {},
+    ) {
+      return resolveHermesNotificationHandlerResult(
+        { request: { content: { data: { type, ...extraData } } } },
+        appState,
+      );
+    }
+
+    it('suppresses banner and sound for every Hermes type while active', () => {
+      for (const type of [
+        'run_progress',
+        'run_stall',
+        'run_completed',
+        'approval',
+        'approval_summary',
+      ]) {
+        const result = handlerPresentation('active', type, { riskTier: 'high' });
+        expect(result).toEqual({
+          shouldShowAlert: false,
+          shouldShowBanner: false,
+          shouldPlaySound: false,
+          shouldSetBadge: true,
+          shouldShowList: true,
+        });
+      }
+    });
+
+    it('allows banners in background and inactive', () => {
+      for (const appState of ['background', 'inactive'] as const) {
+        const result = handlerPresentation(appState, 'run_progress');
+        expect(result.shouldShowBanner).toBe(true);
+        expect(result.shouldShowAlert).toBe(true);
+      }
+    });
+
+    it('plays approval sounds only when not active', () => {
+      const active = handlerPresentation('active', 'approval');
+      expect(active.shouldPlaySound).toBe(false);
+
+      const background = handlerPresentation('background', 'approval');
+      expect(background.shouldPlaySound).toBe(true);
     });
   });
 });

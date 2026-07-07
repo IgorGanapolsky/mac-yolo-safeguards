@@ -9,7 +9,9 @@ import {
   buildApprovalNotificationBody,
   approvalsSummaryBody,
   APPROVALS_SUMMARY_NOTIFICATION_ID,
+  resolveHermesNotificationPresentation,
   shouldScheduleApprovalNotification,
+  shouldScheduleApprovalsSummaryNotification,
   shouldScheduleRunProgressNotification,
 } from '../utils/smartNotificationPolicy';
 
@@ -118,6 +120,16 @@ export function shouldDismissRunNotificationsForAppState(appState: string): bool
   return appState === 'active';
 }
 
+export function resolveHermesNotificationHandlerResult(
+  notification: { request: { content: { data?: Record<string, unknown> } } },
+  appState: string = AppState.currentState,
+) {
+  const data = notification.request.content.data;
+  const type = typeof data?.type === 'string' ? data.type : '';
+  const playSound = type === 'approval' || type === 'approval_summary';
+  return resolveHermesNotificationPresentation(appState, { playSound });
+}
+
 /** Cancel sticky run-status + stall notifications (safe when backgrounded). */
 export async function dismissActiveRunNotifications(): Promise<void> {
   await clearRunProgressNotification();
@@ -222,27 +234,8 @@ export async function initHermesNotifications(): Promise<void> {
   }
 
   Notifications.setNotificationHandler({
-    handleNotification: async (notification) => {
-      const data = notification.request.content.data;
-      const type = typeof data?.type === 'string' ? data.type : '';
-      const foreground = AppState.currentState === 'active';
-      // Any run-status notification is redundant as a heads-up banner while the user is
-      // actively in the app — they already see the run banner/transcript on screen.
-      const suppressRunBanner =
-        foreground &&
-        (type === 'run_progress' || type === 'run_stall' || type === 'run_completed');
-      const suppressApprovalBanner =
-        foreground && type === 'approval' && data?.riskTier !== 'high';
-
-      return {
-        shouldShowAlert: !suppressRunBanner && !suppressApprovalBanner,
-        shouldPlaySound:
-          (type === 'approval' || type === 'approval_summary') && !foreground,
-        shouldSetBadge: true,
-        shouldShowBanner: !suppressRunBanner && !suppressApprovalBanner,
-        shouldShowList: true,
-      };
-    },
+    handleNotification: async (notification) =>
+      resolveHermesNotificationHandlerResult(notification, AppState.currentState),
   });
 
   if (Platform.OS === 'android') {
@@ -408,6 +401,10 @@ export async function scheduleApprovalsSummaryNotification(
 
   const Notifications = await loadNotifications();
   if (!Notifications) {
+    return;
+  }
+
+  if (!shouldScheduleApprovalsSummaryNotification(AppState.currentState)) {
     return;
   }
 
