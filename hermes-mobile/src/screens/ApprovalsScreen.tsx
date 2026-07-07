@@ -71,30 +71,39 @@ export default function ApprovalsScreen() {
 
   const [refreshing, setRefreshing] = React.useState(false);
   const refreshingRef = React.useRef(false);
+  const refreshPromiseRef = React.useRef<Promise<void> | null>(null);
   const connectionStateRef = React.useRef(connectionState);
 
   React.useEffect(() => {
     connectionStateRef.current = connectionState;
   }, [connectionState]);
 
-  const runRefresh = React.useCallback(async () => {
-    if (!leashUnlocked || refreshingRef.current) {
-      return;
+  const runRefresh = React.useCallback(async (): Promise<void> => {
+    if (!leashUnlocked) {
+      return Promise.resolve();
+    }
+    if (refreshingRef.current) {
+      return refreshPromiseRef.current || Promise.resolve();
     }
     refreshingRef.current = true;
-    try {
-      await autoConnectGateway();
-      await refreshHealth();
-      connectEvents();
-    } catch (e) {
-      // Swallow: the HealthPill already reflects the real connection state.
-    } finally {
-      refreshingRef.current = false;
-    }
+    const promise = (async () => {
+      try {
+        await autoConnectGateway();
+        await refreshHealth();
+        connectEvents();
+      } catch (e) {
+        // Swallow: the HealthPill already reflects the real connection state.
+      } finally {
+        refreshingRef.current = false;
+        refreshPromiseRef.current = null;
+      }
+    })();
+    refreshPromiseRef.current = promise;
+    return promise;
   }, [autoConnectGateway, connectEvents, leashUnlocked, refreshHealth]);
 
   const onRefresh = React.useCallback(async () => {
-    if (!leashUnlocked || refreshingRef.current) {
+    if (!leashUnlocked) {
       return;
     }
     setRefreshing(true);

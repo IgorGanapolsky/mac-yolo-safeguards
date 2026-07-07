@@ -9,30 +9,27 @@ export function shouldScheduleApprovalNotification(
   pending: PendingApproval,
   appState: SmartNotificationAppState = AppState.currentState,
 ): boolean {
-  if (pending.riskTier === 'high') {
-    return appState !== 'active';
-  }
-  return appState === 'background' || appState === 'inactive';
+  return appState === 'background';
 }
 
 export function shouldScheduleRunCompletedNotification(
   appState: SmartNotificationAppState = AppState.currentState,
 ): boolean {
-  return appState !== 'active';
+  return appState === 'background';
 }
 
 /** Live run progress + stall watchdog notifications — background only. */
 export function shouldScheduleRunProgressNotification(
   appState: SmartNotificationAppState = AppState.currentState,
 ): boolean {
-  return appState !== 'active';
+  return appState === 'background';
 }
 
 /** Batch approval summary — background only (same bar as single approvals). */
 export function shouldScheduleApprovalsSummaryNotification(
   appState: SmartNotificationAppState = AppState.currentState,
 ): boolean {
-  return appState === 'background' || appState === 'inactive';
+  return appState === 'background';
 }
 
 /** Whether heads-up banners / sounds may interrupt the user (never while foregrounded). */
