@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.igor.hermes-repo-watcher</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/Users/igorganapolsky/workspace/git/igor/mac-yolo-safeguards/tools/hermes-repo-watcher.js</string>
+    </array>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>StartInterval</key>
+    <integer>3600</integer>
+    <key>StandardOutPath</key>
+    <string>/Users/igorganapolsky/workspace/git/igor/mac-yolo-safeguards/watcher-stdout.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/igorganapolsky/workspace/git/igor/mac-yolo-safeguards/watcher-stderr.log</string>
+</dict>
+</plist>

@@ -1,7 +1,7 @@
 {
   "name": "hermes-mobile",
   "version": "0.1.0",
-  "description": "Hermes mobile companion \u2014 ThumbGate approvals, gateway health, YOLO safeguard telemetry",
+  "description": "Hermes mobile companion — ThumbGate approvals, gateway health, YOLO safeguard telemetry",
   "main": "node_modules/expo/AppEntry.js",
   "scripts": {
     "start": "expo start",
@@ -51,8 +51,7 @@
     "devtools:rozenite-agent": "rozenite agent",
     "ota:preview": "eas update --channel preview --environment preview",
     "ota:e2e": "eas update --channel e2e-test --environment preview",
-    "ota:production": "eas update --channel production --environment production",
-    "test:perf": "reassure"
+    "ota:production": "eas update --channel production --environment production"
   },
   "dependencies": {
     "@react-native-ai/dev-tools": "^0.12.0",
@@ -65,13 +64,18 @@
     "expo-build-properties": "~55.0.15",
     "expo-camera": "~55.0.20",
     "expo-constants": "~55.0.16",
+    "expo-document-picker": "~55.0.14",
+    "expo-file-system": "~55.0.23",
     "expo-haptics": "~55.0.15",
     "expo-iap": "^4.3.1",
+    "expo-image-picker": "~55.0.21",
     "expo-notifications": "~55.0.24",
+    "expo-pdf-text-extract": "^1.1.0",
     "expo-secure-store": "~55.0.15",
     "expo-splash-screen": "~55.0.22",
     "expo-store-review": "~55.0.15",
     "expo-updates": "~55.0.25",
+    "mammoth": "^1.12.0",
     "react": "19.2.0",
     "react-native": "0.83.6",
     "react-native-safe-area-context": "~5.6.2",
@@ -91,7 +95,6 @@
     "jest": "^29.7.0",
     "jest-expo": "~55.0.19",
     "react-test-renderer": "19.2.0",
-    "reassure": "^1.5.1",
     "rozenite": "^1.10.0",
     "source-map-explorer": "^2.5.3",
     "typescript": "~5.9.2"
@@ -99,6 +102,7 @@
   "private": true,
   "overrides": {
     "js-yaml": "^4.2.0",
-    "uuid": "^11.1.1"
+    "uuid": "^11.1.1",
+    "@opentelemetry/core": "2.8.0"
   }
 }
