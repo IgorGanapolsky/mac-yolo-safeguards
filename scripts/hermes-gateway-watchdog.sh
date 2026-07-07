@@ -63,7 +63,7 @@ if [ "$PIN_MODEL" != "0" ]; then
   if [ "${resident:-0}" = "0" ]; then
     logline "model $MODEL not resident -> pinning (keep_alive=-1)"
     "$CURL_BIN" -s -m120 "$OLLAMA_URL/api/generate" \
-      -d "{\"model\":\"$MODEL\",\"prompt\":\"ok\",\"stream\":false,\"keep_alive\":-1,\"options\":{\"num_predict\":2}}" \
+      -d "{\"model\":\"$MODEL\",\"prompt\":\"ok\",\"stream\":false,\"keep_alive\":-1,\"options\":{\"num_predict\":2,\"num_ctx\":24576}}" \
       >/dev/null 2>&1 &
   fi
 fi
