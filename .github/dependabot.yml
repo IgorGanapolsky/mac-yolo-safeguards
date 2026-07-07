@@ -22,6 +22,11 @@ updates:
         update-types: ["version-update:semver-major"]
       - dependency-name: expo-*
         update-types: ["version-update:semver-major"]
+      - dependency-name: jest-expo
+        update-types: ["version-update:semver-major"]
+      # v3 requires RN >=0.84 / new arch; app is on SDK 55 (RN 0.83) — PR #60
+      - dependency-name: "@react-native-async-storage/async-storage"
+        update-types: ["version-update:semver-major"]
       # v14 makes render() async — requires rewriting every test suite (PR #54)
       - dependency-name: "@testing-library/react-native"
         update-types: ["version-update:semver-major"]
