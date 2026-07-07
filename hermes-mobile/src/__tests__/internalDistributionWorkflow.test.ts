@@ -18,7 +18,7 @@ describe('internal distribution workflow', () => {
     expect(internalDistribution).toContain('RUN_FIREBASE="true"');
     expect(internalDistribution).toContain('confirm_eas_spend:');
     expect(internalDistribution).toContain('confirm_eas_spend=yes');
-    expect(internalDistribution).toContain('expo/expo-github-action@v8');
+    expect(internalDistribution).toContain('expo/expo-github-action@v9');
     expect(internalDistribution).toContain('--wait');
     expect(internalDistribution).toContain('FIREBASE_SERVICE_ACCOUNT_JSON');
     expect(internalDistribution).toContain('FIREBASE_ANDROID_APP_ID');
