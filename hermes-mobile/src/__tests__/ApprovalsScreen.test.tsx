@@ -112,4 +112,72 @@ describe('ApprovalsScreen', () => {
       expect(connectEvents).toHaveBeenCalledTimes(3);
     });
   });
+
+  it('clears the pull-to-refresh spinner after a successful refresh', async () => {
+    useGateway.mockReturnValue(
+      mockUseGateway({ refreshHealth: jest.fn().mockResolvedValue(undefined) }),
+    );
+
+    const { UNSAFE_getByType } = renderInTabNavigator(ApprovalsScreen, 'Leash');
+    const scrollView = UNSAFE_getByType(require('react-native').ScrollView);
+
+    expect(scrollView.props.refreshControl.props.refreshing).toBe(false);
+
+    await act(async () => {
+      await scrollView.props.refreshControl.props.onRefresh();
+    });
+
+    await waitFor(() => {
+      expect(
+        UNSAFE_getByType(require('react-native').ScrollView).props.refreshControl.props.refreshing,
+      ).toBe(false);
+    });
+  });
+
+  it('clears the pull-to-refresh spinner even when the refresh throws', async () => {
+    useGateway.mockReturnValue(
+      mockUseGateway({
+        refreshHealth: jest.fn().mockRejectedValue(new Error('gateway unreachable')),
+      }),
+    );
+
+    const { UNSAFE_getByType } = renderInTabNavigator(ApprovalsScreen, 'Leash');
+    const scrollView = UNSAFE_getByType(require('react-native').ScrollView);
+
+    await act(async () => {
+      await scrollView.props.refreshControl.props.onRefresh();
+    });
+
+    await waitFor(() => {
+      expect(
+        UNSAFE_getByType(require('react-native').ScrollView).props.refreshControl.props.refreshing,
+      ).toBe(false);
+    });
+  });
+
+  it('does not spin the pull-to-refresh control for a background focus refresh', async () => {
+    let resolveHealth: (() => void) | undefined;
+    const refreshHealth = jest.fn(
+      () =>
+        new Promise<void>((resolve) => {
+          resolveHealth = resolve;
+        }),
+    );
+    useGateway.mockReturnValue(
+      mockUseGateway({ connectionState: 'disconnected', refreshHealth }),
+    );
+
+    const { UNSAFE_getByType } = renderInTabNavigator(ApprovalsScreen, 'Leash');
+
+    await waitFor(() => {
+      expect(refreshHealth).toHaveBeenCalledTimes(1);
+    });
+
+    const scrollView = UNSAFE_getByType(require('react-native').ScrollView);
+    expect(scrollView.props.refreshControl.props.refreshing).toBe(false);
+
+    await act(async () => {
+      resolveHealth?.();
+    });
+  });
 });

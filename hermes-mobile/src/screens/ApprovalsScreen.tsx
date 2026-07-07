@@ -37,6 +37,8 @@ type RootTabParamList = {
   Settings: undefined;
 };
 
+const REFRESH_SPINNER_TIMEOUT_MS = 12000;
+
 export default function ApprovalsScreen() {
   const navigation = useNavigation<BottomTabNavigationProp<RootTabParamList>>();
   const {
@@ -75,31 +77,50 @@ export default function ApprovalsScreen() {
     connectionStateRef.current = connectionState;
   }, [connectionState]);
 
-  const onRefresh = React.useCallback(async () => {
+  const runRefresh = React.useCallback(async () => {
     if (!leashUnlocked || refreshingRef.current) {
       return;
     }
     refreshingRef.current = true;
-    setRefreshing(true);
     try {
       await autoConnectGateway();
       await refreshHealth();
       connectEvents();
     } catch (e) {
-      // ignore
+      // Swallow: the HealthPill already reflects the real connection state.
     } finally {
       refreshingRef.current = false;
-      setRefreshing(false);
     }
   }, [autoConnectGateway, connectEvents, leashUnlocked, refreshHealth]);
+
+  const onRefresh = React.useCallback(async () => {
+    if (!leashUnlocked || refreshingRef.current) {
+      return;
+    }
+    setRefreshing(true);
+    let spinnerTimeout: ReturnType<typeof setTimeout> | undefined;
+    try {
+      await Promise.race([
+        runRefresh(),
+        new Promise<void>((resolve) => {
+          spinnerTimeout = setTimeout(resolve, REFRESH_SPINNER_TIMEOUT_MS);
+        }),
+      ]);
+    } finally {
+      if (spinnerTimeout) {
+        clearTimeout(spinnerTimeout);
+      }
+      setRefreshing(false);
+    }
+  }, [leashUnlocked, runRefresh]);
 
   useFocusEffect(
     React.useCallback(() => {
       if (!leashUnlocked || connectionStateRef.current === 'connected' || connectionStateRef.current === 'demo') {
         return;
       }
-      void onRefresh();
-    }, [leashUnlocked, onRefresh]),
+      void runRefresh();
+    }, [leashUnlocked, runRefresh]),
   );
 
   const glance = !presentation.visualsOn;
