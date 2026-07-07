@@ -20,6 +20,12 @@ type ChatScreenHeaderProps = {
   workspaceHandoff?: string;
   canSwitchWorkspace?: boolean;
   activeAgents?: { name: string; status: string }[];
+  currentSession?: {
+    model?: string | null;
+    input_tokens?: number;
+    output_tokens?: number;
+    cache_read_tokens?: number;
+  } | null;
   onOpenThreads: () => void;
   onPressThreadTitle?: () => void;
   onOpenTools?: () => void;
@@ -68,6 +74,7 @@ export default function ChatScreenHeader({
   workspaceHandoff,
   canSwitchWorkspace = false,
   activeAgents,
+  currentSession,
   onOpenThreads,
   onPressThreadTitle,
   onOpenTools,
@@ -201,16 +208,25 @@ export default function ChatScreenHeader({
         </Pressable>
       ) : null}
 
-      {activeAgents && activeAgents.length > 0 ? (
-        <View style={styles.agentsRow} testID="chat-header-active-agents">
-          <Text style={styles.agentsLabel}>
-            Active Agents:{' '}
-            {activeAgents
-              .map((a) => `${a.name} (${a.status})`)
-              .join(', ')}
-          </Text>
-        </View>
-      ) : null}
+      {(() => {
+        const hermesAgent = activeAgents?.find((a) => a.name.toLowerCase() === 'hermes');
+        if (!hermesAgent) return null;
+        
+        const totalTokens = (currentSession?.input_tokens ?? 0) + (currentSession?.output_tokens ?? 0);
+        const modelLabel = currentSession?.model ? ` · ${currentSession.model}` : '';
+        const tokensLabel = totalTokens > 0 ? ` · ${totalTokens.toLocaleString()} tokens` : '';
+        const cacheLabel = currentSession?.cache_read_tokens
+          ? ` (${(currentSession.cache_read_tokens / 1000).toFixed(0)}k cached)`
+          : '';
+
+        return (
+          <View style={styles.agentsRow} testID="chat-header-active-agents">
+            <Text style={styles.agentsLabel}>
+              Hermes ({hermesAgent.status}){modelLabel}{tokensLabel}{cacheLabel}
+            </Text>
+          </View>
+        );
+      })()}
     </View>
   );
 }

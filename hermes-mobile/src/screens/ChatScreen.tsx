@@ -3194,7 +3194,7 @@ export default function ChatScreen() {
     if (isTelegramInboxSession(activeSess) && !targetSessionId) {
       try {
         let mobileSess = ensureSessionCreatedAt(
-          await createSession(
+          await createSessionWithUniqueTitle(
             gatewayUrl,
             apiKey,
             GENERIC_NEW_SESSION_TITLE,
@@ -4061,6 +4061,7 @@ export default function ChatScreen() {
           workspaceHandoff={activeProject?.handoffSummary}
           canSwitchWorkspace={!showMacConnectionHelp}
           activeAgents={activeAgents}
+          currentSession={currentSession}
           onOpenThreads={openSessionsModal}
           onOpenTools={() => setToolsModalVisible(true)}
           onPressMachine={() => {

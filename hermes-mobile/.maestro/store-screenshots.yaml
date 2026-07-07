@@ -1,0 +1,37 @@
+# Capture store listing screenshots (demo mode, release build).
+appId: com.iganapolsky.hermesmobile
+---
+- launchApp
+- runFlow: e2e-bootstrap.yaml
+
+- extendedWaitUntil:
+    visible:
+      id: "chat-input"
+    timeout: 45000
+- hideKeyboard
+
+- tapOn:
+    id: "tab-leash"
+- extendedWaitUntil:
+    visible:
+      id: "THUMBGATE_LEASH"
+    timeout: 30000
+
+- tapOn:
+    id: "tab-settings"
+- extendedWaitUntil:
+    visible:
+      id: "SETTINGS"
+    timeout: 30000
+- scrollUntilVisible:
+    element:
+      id: "gateway-ops-section"
+    direction: DOWN
+    timeout: 30000
+
+- tapOn:
+    id: "tab-hermes"
+- extendedWaitUntil:
+    visible:
+      id: "HERMES CHAT"
+    timeout: 45000
