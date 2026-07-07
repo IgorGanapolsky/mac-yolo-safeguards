@@ -65,6 +65,13 @@ export function humanizeChatError(
   const message = error.message;
   const lower = message.toLowerCase();
 
+  if (isTitleInUseError(error)) {
+    return {
+      kind: 'operational',
+      message: 'A chat with that title already exists. Starting a new one instead.',
+    };
+  }
+
   if (lower.includes('already in use')) {
     return {
       kind: 'operational',
@@ -156,8 +163,59 @@ export function chatSendBlockedMessage(input: {
   return friendlyMacUnreachableMessage(input.gatewayUrl);
 }
 
+const TITLE_IN_USE_MARKERS = [
+  'already in use by session',
+  'chat with this title already exists',
+  'title is already in use',
+  'title already exists',
+  'choose a different title',
+];
+
+function messageMatchesTitleInUse(lower: string): boolean {
+  return TITLE_IN_USE_MARKERS.some((marker) => lower.includes(marker));
+}
+
+/**
+ * A session title collides with another session's title. Distinct from
+ * {@link isSessionInUseError} (operator busy on another chat): here the create
+ * itself was rejected because the first-prompt title is already taken, so the
+ * caller should retry with a de-duplicated title rather than fork or wait.
+ */
+export function isTitleInUseError(error: unknown): boolean {
+  if (!(error instanceof Error) || !error.message) {
+    return false;
+  }
+  const message = error.message;
+  if (messageMatchesTitleInUse(message.toLowerCase())) {
+    return true;
+  }
+  if (message.trim().startsWith('{')) {
+    try {
+      const parsed = JSON.parse(message);
+      const errorObj = parsed.error;
+      if (errorObj && typeof errorObj === 'object') {
+        if (errorObj.code === 'invalid_title') {
+          return true;
+        }
+        const msg = errorObj.message;
+        if (typeof msg === 'string' && messageMatchesTitleInUse(msg.toLowerCase())) {
+          return true;
+        }
+      }
+    } catch {
+      // not JSON
+    }
+  }
+  return false;
+}
+
 export function isSessionInUseError(error: unknown): boolean {
   if (!(error instanceof Error) || !error.message) {
+    return false;
+  }
+  // A title collision ("… already in use by session …") also contains
+  // "already in use"; treat it as a title error, not operator-busy.
+  if (isTitleInUseError(error)) {
     return false;
   }
   const message = error.message;

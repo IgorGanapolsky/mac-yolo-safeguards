@@ -13,6 +13,9 @@ import {
   formatMessageForDisplay,
   normalizeChatMessage,
 } from '../utils/chatMessageDisplay';
+import { isTitleInUseError } from '../utils/chatErrors';
+
+const MAX_SESSION_TITLE_LEN = 56;
 
 export class HermesChatApiError extends Error {
   status: number;
@@ -149,6 +152,53 @@ export async function createSession(
   });
   const parsed = await parseJson<{ session: HermesSession }>(response);
   return parsed.session;
+}
+
+/**
+ * Build a collision-free title candidate. Attempt 1 is the base title; later
+ * attempts append " #2", " #3", … (matching the app's existing dedup convention)
+ * while keeping the result within the gateway's title length budget.
+ */
+export function buildUniqueTitleCandidate(base: string, attempt: number): string {
+  if (attempt <= 1) {
+    return base;
+  }
+  const suffix = ` #${attempt}`;
+  const room = MAX_SESSION_TITLE_LEN - suffix.length;
+  const trimmedBase = base.length > room ? base.slice(0, room).trimEnd() : base;
+  return `${trimmedBase}${suffix}`;
+}
+
+/**
+ * Create a session, retrying with a de-duplicated title when the gateway rejects
+ * the first-prompt title because another chat already owns it. The gateway
+ * enforces globally-unique session titles, so reusing an opening line (e.g.
+ * "Print money make money faster") would otherwise hard-fail the send.
+ */
+export async function createSessionWithUniqueTitle(
+  gatewayUrl: string,
+  apiKey?: string | null,
+  title?: string,
+  systemPrompt?: string,
+  maxAttempts = 6,
+): Promise<HermesSession> {
+  const base = (title ?? '').trim();
+  if (!base) {
+    return createSession(gatewayUrl, apiKey, title, systemPrompt);
+  }
+  let lastError: unknown;
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    const candidate = buildUniqueTitleCandidate(base, attempt);
+    try {
+      return await createSession(gatewayUrl, apiKey, candidate, systemPrompt);
+    } catch (err) {
+      lastError = err;
+      if (!isTitleInUseError(err)) {
+        throw err;
+      }
+    }
+  }
+  throw lastError;
 }
 
 export async function listMessages(
