@@ -726,6 +726,146 @@ describe('ChatScreen', () => {
     });
   });
 
+  it('auto-creates a fresh session and retries once when the gateway reports the target session was removed', async () => {
+    const { listSessions, createSessionWithUniqueTitle, sendChatMessage } = jest.requireMock(
+      '../services/hermesChatClient',
+    ) as {
+      listSessions: jest.Mock;
+      createSessionWithUniqueTitle: jest.Mock;
+      sendChatMessage: jest.Mock;
+    };
+    const { streamSessionChat } = jest.requireMock('../services/hermesGatewayClient') as {
+      streamSessionChat: jest.Mock;
+    };
+    // Stale local cache still lists a thread the restarted gateway has dropped.
+    listSessions.mockResolvedValueOnce([
+      {
+        id: 'stale-removed',
+        title: 'Print money make money faster',
+        last_active_at: '2026-07-07T16:00:00.000Z',
+      },
+    ]);
+    createSessionWithUniqueTitle.mockClear();
+    createSessionWithUniqueTitle.mockResolvedValueOnce({
+      id: 'fresh-session',
+      title: 'Print money make money faster',
+      last_active_at: '2026-07-07T17:00:00.000Z',
+    });
+    sendChatMessage.mockClear();
+    streamSessionChat.mockReset();
+    streamSessionChat.mockImplementation(
+      (
+        _gatewayUrl: string,
+        sessionId: string,
+        _text: string,
+        _apiKey: string,
+        onEvent: (event: { event: string; data: Record<string, unknown> }) => void,
+        _systemPrompt: string,
+        onOpen?: () => void,
+      ) => {
+        if (sessionId === 'stale-removed') {
+          return Promise.reject(
+            new Error(JSON.stringify({ error: { code: 'session_not_found', message: 'gone' } })),
+          );
+        }
+        onOpen?.();
+        onEvent({ event: 'assistant.delta', data: { delta: 'Recovered reply.' } });
+        return Promise.resolve('Recovered reply.');
+      },
+    );
+    Object.assign(mockGatewayState, {
+      connectionState: 'connected',
+      health: { ok: true, level: 'green', hostname: 'demo-mac.local' },
+      settings: {
+        demoMode: false,
+        connectionMode: 'gateway',
+        gatewayUrl: 'http://localhost:8642',
+        cloudUrl: 'https://hermesmobile-cloud.fly.dev',
+        approvalPolicy: 'balanced',
+      },
+    });
+
+    const { getByTestId, queryByText } = await renderChatScreen();
+    fireEvent.press(getByTestId('open-sessions-modal'));
+    fireEvent.press(getByTestId('modal-new-chat-button'));
+
+    await act(async () => {
+      fireEvent.changeText(getByTestId('chat-input'), 'Print money make money faster');
+      fireEvent.press(getByTestId('chat-send-button'));
+      await Promise.resolve();
+    });
+
+    // Exactly one auto-create + retry: the second stream targets the NEW id.
+    await waitFor(() => {
+      expect(createSessionWithUniqueTitle).toHaveBeenCalledTimes(1);
+      expect(streamSessionChat).toHaveBeenCalledTimes(2);
+    });
+    expect(streamSessionChat.mock.calls[0][1]).toBe('stale-removed');
+    expect(streamSessionChat.mock.calls[1][1]).toBe('fresh-session');
+    // The removed-session error must NOT trigger the raw send fallback path.
+    expect(sendChatMessage).not.toHaveBeenCalled();
+    // The transparent recovery must not surface the red "removed" banner.
+    expect(queryByText(/That chat was removed or your computer restarted/)).toBeNull();
+  });
+
+  it('surfaces the removed-session error only if the auto-retry also fails', async () => {
+    const { listSessions, createSessionWithUniqueTitle } = jest.requireMock(
+      '../services/hermesChatClient',
+    ) as {
+      listSessions: jest.Mock;
+      createSessionWithUniqueTitle: jest.Mock;
+    };
+    const { streamSessionChat } = jest.requireMock('../services/hermesGatewayClient') as {
+      streamSessionChat: jest.Mock;
+    };
+    listSessions.mockResolvedValueOnce([
+      {
+        id: 'stale-removed',
+        title: 'Print money make money faster',
+        last_active_at: '2026-07-07T16:00:00.000Z',
+      },
+    ]);
+    createSessionWithUniqueTitle.mockClear();
+    createSessionWithUniqueTitle.mockResolvedValueOnce({
+      id: 'fresh-session',
+      title: 'Print money make money faster',
+      last_active_at: '2026-07-07T17:00:00.000Z',
+    });
+    streamSessionChat.mockReset();
+    streamSessionChat.mockImplementation(() =>
+      Promise.reject(
+        new Error(JSON.stringify({ error: { code: 'session_not_found', message: 'gone' } })),
+      ),
+    );
+    Object.assign(mockGatewayState, {
+      connectionState: 'connected',
+      health: { ok: true, level: 'green', hostname: 'demo-mac.local' },
+      settings: {
+        demoMode: false,
+        connectionMode: 'gateway',
+        gatewayUrl: 'http://localhost:8642',
+        cloudUrl: 'https://hermesmobile-cloud.fly.dev',
+        approvalPolicy: 'balanced',
+      },
+    });
+
+    const { getByTestId, findByText } = await renderChatScreen();
+    fireEvent.press(getByTestId('open-sessions-modal'));
+    fireEvent.press(getByTestId('modal-new-chat-button'));
+
+    await act(async () => {
+      fireEvent.changeText(getByTestId('chat-input'), 'Print money make money faster');
+      fireEvent.press(getByTestId('chat-send-button'));
+      await Promise.resolve();
+    });
+
+    await waitFor(() => {
+      expect(createSessionWithUniqueTitle).toHaveBeenCalledTimes(1);
+      expect(streamSessionChat).toHaveBeenCalledTimes(2);
+    });
+    expect(await findByText(/That chat was removed or your computer restarted/)).toBeTruthy();
+  });
+
   it('does not render tool transcript cards even when old settings enable tool activity', async () => {
     const { listMessages } = jest.requireMock('../services/hermesChatClient') as {
       listMessages: jest.Mock;

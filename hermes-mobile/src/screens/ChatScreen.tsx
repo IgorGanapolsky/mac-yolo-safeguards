@@ -48,7 +48,13 @@ import {
   sendChatMessage,
   updateSessionTitle,
 } from '../services/hermesChatClient';
-import { chatSendBlockedMessage, humanizeChatError, isConnectivityMessage, isSessionInUseError } from '../utils/chatErrors';
+import {
+  chatSendBlockedMessage,
+  humanizeChatError,
+  isConnectivityMessage,
+  isSessionInUseError,
+  isSessionRemovedError,
+} from '../utils/chatErrors';
 import {
   HermesGatewayApiError,
   deleteSession,
@@ -474,6 +480,8 @@ export default function ChatScreen() {
   );
   const lastFailedSendTextRef = useRef<string | null>(null);
   const activeChatStreamRef = useRef(false);
+  /** Session ids the gateway rejected as removed/restarted — never resume or target these again. */
+  const removedSessionIdsRef = useRef<Set<string>>(new Set());
   const [inputFocused, setInputFocused] = useState(false);
   const [chatNearBottom, setChatNearBottom] = useState(true);
   const [chatNearTop, setChatNearTop] = useState(true);
@@ -2897,6 +2905,22 @@ export default function ChatScreen() {
       return [...new Set(ids.filter((id): id is string => Boolean(id?.trim())))];
     };
 
+    // Mark a session id the gateway rejected as removed and drop it from the
+    // local cache so the picker/resume logic never offers a dead thread again.
+    // Kept local so we don't stomp a freshly-surfaced error banner; the picker
+    // refetches from the gateway the next time it opens.
+    const invalidateRemovedSession = (sessionId: string | undefined | null) => {
+      const id = sessionId?.trim();
+      if (!id) {
+        return;
+      }
+      removedSessionIdsRef.current.add(id);
+      setSessions((prev) => prev.filter((session) => session.id !== id));
+    };
+    // Set when a send dead-ends on a removed session so the finally block does
+    // not immediately reload a stale transcript over the surfaced error.
+    let suppressPostSendRefresh = false;
+
     const notifyWaitingForMacSlot = (context?: { hasLiveRun?: boolean }) => {
       if (context?.hasLiveRun === false) {
         return;
@@ -3022,7 +3046,15 @@ export default function ChatScreen() {
     committedUserMessageId = commitOutboundUserBubble(typed);
     outboundUserBubbleCommitted = true;
 
-    let activeSess = currentSession;
+    // A gateway restart drops in-memory session ids; never carry a known-removed
+    // id into a send (even on a "New chat") — clear it so we start fresh.
+    if (currentSession && !isDemo && removedSessionIdsRef.current.has(currentSession.id)) {
+      setCurrentSession(null);
+    }
+    let activeSess =
+      currentSession && !isDemo && removedSessionIdsRef.current.has(currentSession.id)
+        ? null
+        : currentSession;
     const createdNewSession = !activeSess;
     if (!activeSess) {
       if (isDemo) {
@@ -3037,7 +3069,10 @@ export default function ChatScreen() {
         setCurrentSession(activeSess);
       } else {
         const resumable = findResumableSessionByPromptTitle(
-          sessionsRef.current.filter((session) => !isTelegramInboxSession(session)),
+          sessionsRef.current.filter(
+            (session) =>
+              !isTelegramInboxSession(session) && !removedSessionIdsRef.current.has(session.id),
+          ),
           userText,
         );
         if (resumable) {
@@ -3322,15 +3357,16 @@ export default function ChatScreen() {
 
       let switchedSessionId = targetSessionId;
       let assistantText = '';
-      try {
-        assistantText = await retryOnSessionInUse(
+      const streamChatToSession = (streamTargetSessionId: string) => {
+        switchedSessionId = streamTargetSessionId;
+        return retryOnSessionInUse(
           gatewayUrl,
           apiKey,
           collectRecoveryRunIds,
           () =>
             streamSessionChat(
           gatewayUrl,
-          targetSessionId,
+          streamTargetSessionId,
           userText,
           apiKey,
           (evt) => {
@@ -3485,12 +3521,77 @@ export default function ChatScreen() {
         ),
           notifyWaitingForMacSlot,
         );
+      };
+
+      // Create a fresh session and rebind chat state to it — used to self-heal
+      // when the gateway reports the target session was removed/restarted.
+      const recoverWithFreshSession = async (staleSessionId: string): Promise<boolean> => {
+        invalidateRemovedSession(staleSessionId);
+        let fresh: HermesSession;
+        try {
+          fresh = ensureSessionCreatedAt(
+            await retryOnSessionInUse(
+              gatewayUrl,
+              apiKey,
+              collectRecoveryRunIds,
+              () =>
+                createSessionWithUniqueTitle(
+                  gatewayUrl,
+                  apiKey,
+                  firstPromptThreadTitle,
+                  mobileChatSystemPrompt,
+                ),
+              notifyWaitingForMacSlot,
+            ),
+          );
+        } catch {
+          return false;
+        }
+        activeSess = fresh;
+        targetSessionId = fresh.id;
+        setSessions((prev) => [
+          fresh,
+          ...prev.filter((s) => s.id !== fresh.id && s.id !== staleSessionId),
+        ]);
+        setCurrentSession(fresh);
+        setErrorMessage((prev) => (prev?.includes('That chat was removed') ? null : prev));
+        if (activeProject) {
+          const nextState = bindSessionToProject(
+            projectState,
+            activeProject.id,
+            fresh.id,
+            fresh.title ?? firstPromptThreadTitle,
+          );
+          await persistProjectState(nextState);
+        }
+        return true;
+      };
+
+      let removedSessionRecoveryAttempted = false;
+      try {
+        assistantText = await streamChatToSession(targetSessionId);
       } catch (streamErr) {
         const streamMessage =
           streamErr instanceof Error ? streamErr.message : String(streamErr);
         const streamStatus =
           streamErr instanceof HermesGatewayApiError ? streamErr.status : 0;
-        const shouldFallback =
+        const sessionRemoved =
+          !isTelegramInboxSession(activeSess) &&
+          (isSessionRemovedError(streamErr) || streamStatus === 404);
+
+        if (sessionRemoved && !removedSessionRecoveryAttempted) {
+          removedSessionRecoveryAttempted = true;
+          const staleSessionId = targetSessionId;
+          const recovered = await recoverWithFreshSession(staleSessionId);
+          if (!recovered) {
+            throw streamErr;
+          }
+          // Retry the send once against the fresh session. If this also fails,
+          // let it surface through the outer catch (the visible error).
+          assistantText = await streamChatToSession(targetSessionId);
+          updateAssistant(assistantText);
+        } else {
+          const shouldFallback =
           isSessionInUseError(streamErr) ||
           streamStatus >= 400 ||
           streamMessage.includes('Network request failed') ||
@@ -3520,6 +3621,7 @@ export default function ChatScreen() {
           setToolStatus('Sent without live stream (connection fallback)');
         } else {
           throw streamErr;
+        }
         }
       }
 
@@ -3563,8 +3665,10 @@ export default function ChatScreen() {
       const { kind, message } = humanizeChatError(err, 'Message could not send. Try again.', {
         gatewayUrl,
       });
-      if (message.includes('That chat was removed')) {
+      if (isSessionRemovedError(err) || message.includes('That chat was removed')) {
+        invalidateRemovedSession(targetSessionId);
         skipSessionAutoSelectRef.current = true;
+        suppressPostSendRefresh = true;
         setCurrentSession(null);
         setMessages([]);
         transcriptDigestRef.current = '';
@@ -3628,7 +3732,7 @@ export default function ChatScreen() {
         }
       }
 
-      if (!isDemo && currentSessionRef.current) {
+      if (!isDemo && !suppressPostSendRefresh && currentSessionRef.current) {
         void refreshSessionMessagesRef.current?.({ background: true }).finally(releaseOutboundPending);
       } else {
         releaseOutboundPending();
