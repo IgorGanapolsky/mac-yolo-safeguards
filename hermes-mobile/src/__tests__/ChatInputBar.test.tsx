@@ -43,6 +43,27 @@ describe('ChatInputBar', () => {
     expect(input.props.secureTextEntry).toBeFalsy();
   });
 
+  it('enables best-in-class predictive text, spell-check, and auto-capitalization', () => {
+    const { getByTestId } = render(<ChatInputBar {...baseProps} />);
+    const input = getByTestId('chat-input');
+
+    expect(input.props.autoCorrect).toBe(true);
+    expect(input.props.spellCheck).toBe(true);
+    expect(input.props.autoCapitalize).toBe('sentences');
+    expect(input.props.keyboardType).toBe('default');
+    expect(input.props.multiline).toBe(true);
+  });
+
+  it('does not use suggestion-killing input configuration', () => {
+    const { getByTestId } = render(<ChatInputBar {...baseProps} />);
+    const input = getByTestId('chat-input');
+
+    expect(input.props.secureTextEntry).toBeFalsy();
+    expect(input.props.keyboardType).not.toBe('visible-password');
+    expect(input.props.textContentType).toBe('none');
+    expect(input.props.importantForAutofill).toBe('no');
+  });
+
   it('reflects controlled value while typing', () => {
     const onChangeText = jest.fn();
     const { getByTestId, rerender } = render(
