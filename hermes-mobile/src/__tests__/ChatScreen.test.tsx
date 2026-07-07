@@ -2115,7 +2115,21 @@ describe('ChatScreen', () => {
     });
 
     await act(async () => {
+      fireEvent(getByTestId('chat-message-list'), 'scrollBeginDrag', {
+        nativeEvent: {
+          contentOffset: { y: 0, x: 0 },
+          contentSize: { height: 2400, width: 400 },
+          layoutMeasurement: { height: 400, width: 400 },
+        },
+      });
       fireEvent.scroll(getByTestId('chat-message-list'), {
+        nativeEvent: {
+          contentOffset: { y: 0, x: 0 },
+          contentSize: { height: 2400, width: 400 },
+          layoutMeasurement: { height: 400, width: 400 },
+        },
+      });
+      fireEvent(getByTestId('chat-message-list'), 'scrollEndDrag', {
         nativeEvent: {
           contentOffset: { y: 0, x: 0 },
           contentSize: { height: 2400, width: 400 },
@@ -2129,6 +2143,10 @@ describe('ChatScreen', () => {
     });
 
     scrollToEnd.mockClear();
+
+    await act(async () => {
+      await flushPendingTimers();
+    });
 
     await act(async () => {
       emitSecondDelta?.();

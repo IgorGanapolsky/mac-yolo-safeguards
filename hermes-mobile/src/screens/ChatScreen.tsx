@@ -134,6 +134,12 @@ import {
   RUN_STALE_TIMEOUT_DETAIL,
 } from '../utils/runStaleDetection';
 import { isChatAtTop, isChatNearBottom } from '../utils/chatScrollSync';
+import {
+  chatDistanceFromBottom,
+  resolveUserScrolledUp,
+  shouldAutoScroll,
+  shouldCancelPendingScroll,
+} from '../utils/chatAutoScroll';
 import ChatScrollControls from '../components/ChatScrollControls';
 import {
   CHAT_LIST_HEADER_CLEARANCE,
@@ -287,6 +293,12 @@ export function resolveEffectiveKeyboardInset(
   return focusedAndroidKeyboardFallbackInset(inputFocused, keyboardInset, windowHeight);
 }
 
+/** How long the "Reply ready on your computer" banner stays before auto-dismiss. */
+const RUN_COMPLETED_BANNER_DISMISS_MS = 2500;
+
+/** How long the per-message "Saved to ThumbGate" confirmation stays visible. */
+const FEEDBACK_NOTE_TTL_MS = 4000;
+
 export default function ChatScreen() {
   const {
     settings,
@@ -419,6 +431,12 @@ export default function ChatScreen() {
   const [feedbackSelections, setFeedbackSelections] = useState<
     Record<string, 'up' | 'down'>
   >({});
+  // Per-message transient confirmation shown after a thumbs tap, so the operator
+  // can SEE the vote reached ThumbGate (chat feedback does not surface in the
+  // Leash tab or the local dashboard — those are different stores).
+  const [feedbackNotes, setFeedbackNotes] = useState<
+    Record<string, { text: string; error: boolean }>
+  >({});
 
   const applyChatApiError = useCallback(
     (error: unknown, fallback: string, options?: { background?: boolean }) => {
@@ -437,7 +455,10 @@ export default function ChatScreen() {
 
   const flatListRef = useRef<FlashListRef<ChatTimelineEntry>>(null);
   const isSendingRef = useRef(false);
-  const userNearBottomRef = useRef(true);
+  /** User explicitly scrolled up to read history — suppress auto-follow until they return. */
+  const userScrolledUpRef = useRef(false);
+  const userDraggingRef = useRef(false);
+  const lastDistanceFromBottomRef = useRef(0);
   const scrollCancelGenerationRef = useRef(0);
   /** Force one bottom pin after session/computer switch once transcript content lays out. */
   const pinScrollAfterHydrationRef = useRef(false);
@@ -543,13 +564,28 @@ export default function ChatScreen() {
     });
   }, []);
 
+  const isChatStreamingActive = useCallback(() => {
+    return (
+      isSendingRef.current ||
+      activeChatStreamRef.current ||
+      isActiveChatRun(runProgressRef.current)
+    );
+  }, []);
+
   const scrollChatToLatestIfPinned = useCallback(
     (animated = false, force = false) => {
-      if (force || userNearBottomRef.current) {
-        scrollChatToLatest(animated);
+      if (userScrolledUpRef.current) {
+        return;
+      }
+      const streaming = isChatStreamingActive();
+      if (
+        force ||
+        shouldAutoScroll(lastDistanceFromBottomRef.current, streaming, false)
+      ) {
+        scrollChatToLatest(animated && !streaming);
       }
     },
-    [scrollChatToLatest],
+    [isChatStreamingActive, scrollChatToLatest],
   );
 
   const scrollChatToTop = useCallback((animated = true) => {
@@ -558,7 +594,8 @@ export default function ChatScreen() {
 
   const handleJumpToBottom = useCallback(() => {
     haptics.light();
-    userNearBottomRef.current = true;
+    userScrolledUpRef.current = false;
+    lastDistanceFromBottomRef.current = 0;
     setChatNearBottom(true);
     scrollChatToLatest(true);
   }, [scrollChatToLatest]);
@@ -568,21 +605,54 @@ export default function ChatScreen() {
     scrollChatToTop(true);
   }, [scrollChatToTop]);
 
-  const handleChatScroll = useCallback((event: NativeSyntheticEvent<NativeScrollEvent>) => {
-    const { contentOffset, layoutMeasurement, contentSize } = event.nativeEvent;
-    const nearBottom = isChatNearBottom(
-      layoutMeasurement.height,
-      contentOffset.y,
-      contentSize.height,
-    );
-    const nearTop = isChatAtTop(contentOffset.y);
-    if (!nearBottom && userNearBottomRef.current) {
-      scrollCancelGenerationRef.current += 1;
-    }
-    userNearBottomRef.current = nearBottom;
-    setChatNearBottom((prev) => (prev === nearBottom ? prev : nearBottom));
-    setChatNearTop((prev) => (prev === nearTop ? prev : nearTop));
+  const handleChatScrollBeginDrag = useCallback(() => {
+    userDraggingRef.current = true;
   }, []);
+
+  const handleChatScrollEndDrag = useCallback(() => {
+    userDraggingRef.current = false;
+  }, []);
+
+  const handleChatScroll = useCallback(
+    (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+      const { contentOffset, layoutMeasurement, contentSize } = event.nativeEvent;
+      const distanceFromBottom = chatDistanceFromBottom(
+        layoutMeasurement.height,
+        contentOffset.y,
+        contentSize.height,
+      );
+      lastDistanceFromBottomRef.current = distanceFromBottom;
+      const nearBottom = isChatNearBottom(
+        layoutMeasurement.height,
+        contentOffset.y,
+        contentSize.height,
+      );
+      const nearTop = isChatAtTop(contentOffset.y);
+      const streaming = isChatStreamingActive();
+      const wasFollowing = shouldAutoScroll(
+        distanceFromBottom,
+        streaming,
+        userScrolledUpRef.current,
+      );
+      if (
+        shouldCancelPendingScroll({
+          userScrolledUp: userScrolledUpRef.current,
+          wasFollowing,
+          nearBottom,
+        })
+      ) {
+        scrollCancelGenerationRef.current += 1;
+      }
+      userScrolledUpRef.current = resolveUserScrolledUp({
+        nearBottom,
+        userDragging: userDraggingRef.current,
+        prevUserScrolledUp: userScrolledUpRef.current,
+      });
+      setChatNearBottom((prev) => (prev === nearBottom ? prev : nearBottom));
+      setChatNearTop((prev) => (prev === nearTop ? prev : nearTop));
+    },
+    [isChatStreamingActive],
+  );
 
   const isDemo = useMemo(() => {
     if (!isDemoModeAllowed()) {
@@ -2115,7 +2185,8 @@ export default function ChatScreen() {
     messagesRef.current = [];
     setMessages([]);
     pinScrollAfterHydrationRef.current = true;
-    userNearBottomRef.current = true;
+    userScrolledUpRef.current = false;
+    lastDistanceFromBottomRef.current = 0;
     void refreshSessionMessagesRef.current?.({
       background: false,
       force: manualSessionSelectRef.current === currentSession?.id,
@@ -2278,7 +2349,11 @@ export default function ChatScreen() {
       return;
     }
     haptics.light();
-    const stickToBottom = userNearBottomRef.current || isSending;
+    const stickToBottom = shouldAutoScroll(
+      lastDistanceFromBottomRef.current,
+      isSending,
+      userScrolledUpRef.current,
+    );
     await refreshSessionMessages({ manual: true });
     if (stickToBottom) {
       requestAnimationFrame(() => scrollChatToLatest(true));
@@ -2297,7 +2372,8 @@ export default function ChatScreen() {
     if (inputFocusedRef.current || isLoadingMessages) {
       return;
     }
-    userNearBottomRef.current = true;
+    userScrolledUpRef.current = false;
+    lastDistanceFromBottomRef.current = 0;
     setChatNearBottom(true);
     scrollChatToLatest(false);
     const retryTimer = setTimeout(() => scrollChatToLatest(false), 200);
@@ -2308,15 +2384,11 @@ export default function ChatScreen() {
     if (isLoadingMessages || messages.length === 0) {
       return;
     }
-    const runInFlight =
-      isSending ||
-      activeChatStreamRef.current ||
-      isActiveChatRun(runProgressRef.current);
-    if (!runInFlight && !userNearBottomRef.current) {
+    if (userScrolledUpRef.current) {
       return;
     }
-    scrollChatToLatestIfPinned(true);
-  }, [messages, isSending, runProgress, isLoadingMessages, scrollChatToLatestIfPinned]);
+    scrollChatToLatestIfPinned(true, isChatStreamingActive());
+  }, [messages, isSending, runProgress, isLoadingMessages, scrollChatToLatestIfPinned, isChatStreamingActive]);
 
   const handleNewChat = async () => {
     haptics.selection();
@@ -2719,13 +2791,27 @@ export default function ChatScreen() {
 
   const submitChatOutputFeedbackForMessage = useCallback(
     async (message: HermesMessage, signal: 'up' | 'down', explanation?: string) => {
-      await submitChatOutputFeedback(message, signal, {
+      return submitChatOutputFeedback(message, signal, {
         session: currentSession,
         explanation,
       });
     },
     [currentSession, submitChatOutputFeedback],
   );
+
+  const setTransientFeedbackNote = useCallback((key: string, text: string, error: boolean) => {
+    setFeedbackNotes((prev) => ({ ...prev, [key]: { text, error } }));
+    setTimeout(() => {
+      setFeedbackNotes((prev) => {
+        if (!prev[key]) {
+          return prev;
+        }
+        const next = { ...prev };
+        delete next[key];
+        return next;
+      });
+    }, FEEDBACK_NOTE_TTL_MS);
+  }, []);
 
   const handleChatOutputFeedbackTap = useCallback(
     (message: HermesMessage, signal: 'up' | 'down') => {
@@ -2734,9 +2820,11 @@ export default function ChatScreen() {
       setFeedbackSelections((prev) => ({ ...prev, [key]: signal }));
       // Always record the vote to ThumbGate. The explanation sheet is now
       // opt-in (via the "Add details" link), not auto-opened on every tap.
-      void submitChatOutputFeedbackForMessage(message, signal);
+      void submitChatOutputFeedbackForMessage(message, signal).then((ok) => {
+        setTransientFeedbackNote(key, ok ? 'Saved to ThumbGate' : 'Not recorded', !ok);
+      });
     },
-    [submitChatOutputFeedbackForMessage],
+    [submitChatOutputFeedbackForMessage, setTransientFeedbackNote],
   );
 
   const handleAddFeedbackDetails = useCallback(
@@ -2782,6 +2870,7 @@ export default function ChatScreen() {
         isStreamingAssistant,
       });
       const busyKey = resolveChatOutputFeedbackBusyKey(message);
+      const feedbackNote = feedbackNotes[busyKey];
       const outputFeedback = showOutputFeedback
         ? {
             busy: chatOutputFeedbackBusyId === busyKey,
@@ -2789,6 +2878,8 @@ export default function ChatScreen() {
             onThumbsUp: () => handleChatOutputFeedbackTap(message, 'up'),
             onThumbsDown: () => handleChatOutputFeedbackTap(message, 'down'),
             onAddDetails: () => handleAddFeedbackDetails(message),
+            note: feedbackNote?.text,
+            noteIsError: feedbackNote?.error,
           }
         : undefined;
       return (
@@ -2823,6 +2914,7 @@ export default function ChatScreen() {
       leashUnlocked,
       chatOutputFeedbackBusyId,
       feedbackSelections,
+      feedbackNotes,
       handleChatOutputFeedbackTap,
       handleAddFeedbackDetails,
       handleShowMessageDetail,
@@ -2862,7 +2954,8 @@ export default function ChatScreen() {
     setPinnedOutboundText(trimmed);
     setPinnedOutboundStatus('pending');
     setToolStatus(null);
-    userNearBottomRef.current = true;
+    userScrolledUpRef.current = false;
+    lastDistanceFromBottomRef.current = 0;
     setChatNearBottom(true);
     scrollChatToLatest(true);
     return userMessage.id ?? '';
@@ -3717,7 +3810,7 @@ export default function ChatScreen() {
             setRunProgress((prev) =>
               prev?.phase === 'completed' && prev.startedAtMs === completedStartedAt ? null : prev,
             );
-          }, 2500);
+          }, RUN_COMPLETED_BANNER_DISMISS_MS);
         } else if (sendFailureDetail) {
           const failureDetail = sendFailureDetail;
           setRunProgress((prev) => ({
@@ -4174,6 +4267,7 @@ export default function ChatScreen() {
         }
         isSendingRef.current = false;
         setIsSending(false);
+        const reconciledStartedAt = runProgressRef.current?.startedAtMs;
         setRunProgress((prev) => {
           if (!prev || !isActiveChatRun(prev)) {
             return prev;
@@ -4188,6 +4282,18 @@ export default function ChatScreen() {
           }
           return null;
         });
+        if (gatewayStatus === 'completed') {
+          // Mirror the send-success path: auto-dismiss the completed banner. Without
+          // this the reconcile path leaves "Reply ready on your computer" pinned
+          // until the user taps Dismiss, and keeps re-posting the run notification.
+          setTimeout(() => {
+            setRunProgress((prev) =>
+              prev?.phase === 'completed' && prev.startedAtMs === reconciledStartedAt
+                ? null
+                : prev,
+            );
+          }, RUN_COMPLETED_BANNER_DISMISS_MS);
+        }
         clearSessionBusyError();
         void refreshSessionMessagesRef.current?.({ background: true, force: true });
       } catch {
@@ -4390,6 +4496,9 @@ export default function ChatScreen() {
                   autoscrollToBottomThreshold: 0.2,
                 }}
                 onScroll={handleChatScroll}
+                onScrollBeginDrag={handleChatScrollBeginDrag}
+                onScrollEndDrag={handleChatScrollEndDrag}
+                onMomentumScrollEnd={handleChatScrollEndDrag}
                 scrollEventThrottle={16}
                 ListFooterComponent={
                   showRecentChatsPanel ? (
@@ -4405,12 +4514,13 @@ export default function ChatScreen() {
                 onContentSizeChange={() => {
                   if (pinScrollAfterHydrationRef.current) {
                     pinScrollAfterHydrationRef.current = false;
-                    userNearBottomRef.current = true;
+                    userScrolledUpRef.current = false;
+                    lastDistanceFromBottomRef.current = 0;
                     setChatNearBottom(true);
                     scrollChatToLatest(false);
                     return;
                   }
-                  scrollChatToLatestIfPinned(true);
+                  scrollChatToLatestIfPinned(true, isChatStreamingActive());
                 }}
                 renderItem={renderChatMessageItem}
               />
@@ -4599,7 +4709,8 @@ export default function ChatScreen() {
                   connectEvents();
                   setMacPickerVisible(false);
                   pinScrollAfterHydrationRef.current = true;
-                  userNearBottomRef.current = true;
+                  userScrolledUpRef.current = false;
+                  lastDistanceFromBottomRef.current = 0;
                   setCurrentSession(null);
                   setMessages([]);
                   const pickedProfile = gatewayProfiles.find((profile) => profile.id === profileId);
