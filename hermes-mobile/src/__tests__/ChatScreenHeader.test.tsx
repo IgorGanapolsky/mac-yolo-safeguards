@@ -1,7 +1,7 @@
 import React from 'react';
 import { fireEvent } from '@testing-library/react-native';
 import { render } from '@testing-library/react-native';
-import ChatScreenHeader from '../components/ChatScreenHeader';
+import ChatScreenHeader, { buildHermesStatusLabel } from '../components/ChatScreenHeader';
 
 describe('ChatScreenHeader', () => {
   it('shows relay only when socket is connected but HTTP is not', () => {
@@ -194,6 +194,71 @@ describe('ChatScreenHeader', () => {
         lineHeight: 22,
         letterSpacing: 0,
       }),
+    );
+  });
+
+  it('shows Hermes model from gateway fallback when session has no model yet', () => {
+    const { getByTestId } = render(
+      <ChatScreenHeader
+        threadTitle="Session"
+        machineLabel="MacBook Pro"
+        connectionState="connected"
+        macHttpReachable
+        activeAgents={[{ name: 'Hermes', status: 'active' }]}
+        gatewayModel="google/gemini-2.5-flash"
+        onOpenThreads={jest.fn()}
+        onPressMachine={jest.fn()}
+      />,
+    );
+
+    expect(getByTestId('chat-header-hermes-status').props.children).toContain(
+      'Hermes (active) · google/gemini-2.5-flash',
+    );
+  });
+
+  it('shows live in/out tokens from run progress while a turn is active', () => {
+    const { getByTestId } = render(
+      <ChatScreenHeader
+        threadTitle="Session"
+        machineLabel="MacBook Pro"
+        connectionState="connected"
+        macHttpReachable
+        activeAgents={[{ name: 'Hermes', status: 'active' }]}
+        currentSession={{ model: 'qwen3:8b-64k', input_tokens: 1200, output_tokens: 40 }}
+        runProgress={{
+          phase: 'streaming',
+          startedAtMs: Date.now(),
+          model: 'qwen3:8b-64k',
+          inputTokens: 34000,
+          outputTokens: 128,
+        }}
+        onOpenThreads={jest.fn()}
+        onPressMachine={jest.fn()}
+      />,
+    );
+
+    expect(getByTestId('chat-header-hermes-status').props.children).toBe(
+      'Hermes (active) · qwen3:8b-64k · In: 34,000 | Out: 128',
+    );
+  });
+});
+
+describe('buildHermesStatusLabel', () => {
+  const hermes = { name: 'Hermes', status: 'active' };
+
+  it('prefers session model over gateway fallback', () => {
+    expect(
+      buildHermesStatusLabel(
+        hermes,
+        { model: 'qwen3:8b-64k', input_tokens: 500, output_tokens: 20 },
+        'google/gemini-2.5-flash',
+      ),
+    ).toBe('Hermes (active) · qwen3:8b-64k · 520 tokens');
+  });
+
+  it('hides gateway platform labels and falls back to the next source', () => {
+    expect(buildHermesStatusLabel(hermes, { model: 'hermes-agent' }, 'google/gemini-2.5-flash')).toBe(
+      'Hermes (active) · google/gemini-2.5-flash',
     );
   });
 });

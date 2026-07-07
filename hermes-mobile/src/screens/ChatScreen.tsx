@@ -4075,6 +4075,8 @@ export default function ChatScreen() {
           canSwitchWorkspace={!showMacConnectionHelp}
           activeAgents={activeAgents}
           currentSession={currentSession}
+          gatewayModel={gatewayModel}
+          runProgress={progressBanner}
           onOpenThreads={openSessionsModal}
           onOpenTools={() => setToolsModalVisible(true)}
           onPressMachine={() => {

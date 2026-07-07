@@ -1,8 +1,10 @@
 import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { colors } from '../theme/colors';
+import type { RunProgressState } from '../types/chatDisplay';
 import { resolveChatLinkDisplay } from '../utils/gatewayConnection';
 import type { LeashConnectionState } from '../utils/gatewayEndpoint';
+import { displayableLlmModel } from '../utils/runProgressDisplay';
 
 type ChatScreenHeaderProps = {
   threadTitle: string;
@@ -26,6 +28,10 @@ type ChatScreenHeaderProps = {
     output_tokens?: number;
     cache_read_tokens?: number;
   } | null;
+  /** Gateway default model when the session has not reported one yet. */
+  gatewayModel?: string;
+  /** Live run usage — preferred over session totals while a turn is in flight. */
+  runProgress?: RunProgressState | null;
   onOpenThreads: () => void;
   onPressThreadTitle?: () => void;
   onOpenTools?: () => void;
@@ -57,6 +63,48 @@ function linkMeta(
   return { label: link.label, color: colors.error, connected: false };
 }
 
+function isActiveRunProgress(progress: RunProgressState | null | undefined): boolean {
+  if (!progress) {
+    return false;
+  }
+  return progress.phase !== 'completed' && progress.phase !== 'failed';
+}
+
+/** Compact Hermes status line: presence + model + live or session token counts. */
+export function buildHermesStatusLabel(
+  hermesAgent: { name: string; status: string },
+  currentSession?: ChatScreenHeaderProps['currentSession'],
+  gatewayModel?: string,
+  runProgress?: RunProgressState | null,
+): string {
+  const model =
+    displayableLlmModel(currentSession?.model) ??
+    displayableLlmModel(runProgress?.model) ??
+    displayableLlmModel(gatewayModel);
+  const modelLabel = model ? ` · ${model}` : '';
+
+  let tokensLabel = '';
+  if (
+    isActiveRunProgress(runProgress) &&
+    (runProgress?.inputTokens != null || runProgress?.outputTokens != null)
+  ) {
+    const input = (runProgress?.inputTokens ?? 0).toLocaleString();
+    const output = (runProgress?.outputTokens ?? 0).toLocaleString();
+    tokensLabel = ` · In: ${input} | Out: ${output}`;
+  } else {
+    const totalTokens = (currentSession?.input_tokens ?? 0) + (currentSession?.output_tokens ?? 0);
+    if (totalTokens > 0) {
+      tokensLabel = ` · ${totalTokens.toLocaleString()} tokens`;
+    }
+  }
+
+  const cacheLabel = currentSession?.cache_read_tokens
+    ? ` (${(currentSession.cache_read_tokens / 1000).toFixed(0)}k cached)`
+    : '';
+
+  return `Hermes (${hermesAgent.status})${modelLabel}${tokensLabel}${cacheLabel}`;
+}
+
 /**
  * Conversation-first header — Claude/Codex style: title, subtle Mac line, menu affordances.
  */
@@ -75,6 +123,8 @@ export default function ChatScreenHeader({
   canSwitchWorkspace = false,
   activeAgents,
   currentSession,
+  gatewayModel,
+  runProgress,
   onOpenThreads,
   onPressThreadTitle,
   onOpenTools,
@@ -211,18 +261,11 @@ export default function ChatScreenHeader({
       {(() => {
         const hermesAgent = activeAgents?.find((a) => a.name.toLowerCase() === 'hermes');
         if (!hermesAgent) return null;
-        
-        const totalTokens = (currentSession?.input_tokens ?? 0) + (currentSession?.output_tokens ?? 0);
-        const modelLabel = currentSession?.model ? ` · ${currentSession.model}` : '';
-        const tokensLabel = totalTokens > 0 ? ` · ${totalTokens.toLocaleString()} tokens` : '';
-        const cacheLabel = currentSession?.cache_read_tokens
-          ? ` (${(currentSession.cache_read_tokens / 1000).toFixed(0)}k cached)`
-          : '';
 
         return (
           <View style={styles.agentsRow} testID="chat-header-active-agents">
-            <Text style={styles.agentsLabel}>
-              Hermes ({hermesAgent.status}){modelLabel}{tokensLabel}{cacheLabel}
+            <Text style={styles.agentsLabel} testID="chat-header-hermes-status">
+              {buildHermesStatusLabel(hermesAgent, currentSession, gatewayModel, runProgress)}
             </Text>
           </View>
         );
