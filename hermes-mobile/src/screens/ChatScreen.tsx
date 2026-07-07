@@ -255,6 +255,31 @@ function projectSessions(
   );
 }
 
+/**
+ * Effective software-keyboard inset used to lift the composer dock.
+ *
+ * The Android fallback ({@link focusedAndroidKeyboardFallbackInset}) estimates a keyboard
+ * height when the OS reports 0 while the IME is genuinely on screen (edge-to-edge / pan
+ * layouts). That estimate must ONLY apply while the keyboard is actually visible: a
+ * TextInput that keeps focus after the keyboard is dismissed (Android back button, plus
+ * `blurOnSubmit={false}` on the composer) would otherwise lift the whole dock ~280–360dp
+ * into mid-screen and leave a large dead region below the composer.
+ */
+export function resolveEffectiveKeyboardInset(
+  keyboardInset: number,
+  keyboardScreenVisible: boolean,
+  inputFocused: boolean,
+  windowHeight: number,
+): number {
+  if (keyboardInset > 0) {
+    return keyboardInset;
+  }
+  if (!keyboardScreenVisible) {
+    return 0;
+  }
+  return focusedAndroidKeyboardFallbackInset(inputFocused, keyboardInset, windowHeight);
+}
+
 export default function ChatScreen() {
   const {
     settings,
@@ -449,11 +474,24 @@ export default function ChatScreen() {
   const [inputFocused, setInputFocused] = useState(false);
   const [chatNearBottom, setChatNearBottom] = useState(true);
   const [chatNearTop, setChatNearTop] = useState(true);
+  /** True only while the software keyboard is actually on screen (didShow → didHide). */
+  const [keyboardScreenVisible, setKeyboardScreenVisible] = useState(false);
 
   const { inset: keyboardInset, windowShrunk: keyboardWindowShrunk } = useKeyboardInset({
     suppressHideWhileFocusedRef: inputFocusedRef,
     focused: inputFocused,
   });
+
+  useEffect(() => {
+    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+    const showSub = Keyboard.addListener(showEvent, () => setKeyboardScreenVisible(true));
+    const hideSub = Keyboard.addListener(hideEvent, () => setKeyboardScreenVisible(false));
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
 
   const [queuedOutboundCount, setQueuedOutboundCount] = useState(0);
   const [pinnedOutboundText, setPinnedOutboundText] = useState<string | null>(null);
@@ -997,9 +1035,12 @@ export default function ChatScreen() {
 
   /** Lift composer above software keyboard; tab bar stays mounted (no height collapse). */
   const androidKeyboardMode = Constants.expoConfig?.android?.softwareKeyboardLayoutMode;
-  const effectiveKeyboardInset =
-    keyboardInset ||
-    focusedAndroidKeyboardFallbackInset(inputFocused, keyboardInset, windowDimensions.height);
+  const effectiveKeyboardInset = resolveEffectiveKeyboardInset(
+    keyboardInset,
+    keyboardScreenVisible,
+    inputFocused,
+    windowDimensions.height,
+  );
   const composerDockSpacing = useMemo(
     () =>
       composerDockInsets(

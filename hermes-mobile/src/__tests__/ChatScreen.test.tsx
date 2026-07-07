@@ -1,7 +1,7 @@
 import React from 'react';
 import { Alert, BackHandler, Platform } from 'react-native';
 import { fireEvent, act, waitFor, cleanup } from '@testing-library/react-native';
-import ChatScreen from '../screens/ChatScreen';
+import ChatScreen, { resolveEffectiveKeyboardInset } from '../screens/ChatScreen';
 import { renderInTabNavigator } from '../testUtils/navigation';
 
 const mockGatewayState = {
@@ -1998,5 +1998,35 @@ describe('ChatScreen', () => {
     expect(scrollToEnd).not.toHaveBeenCalled();
 
     scrollToEnd.mockRestore();
+  });
+});
+
+describe('resolveEffectiveKeyboardInset', () => {
+  const originalOs = Platform.OS;
+  afterEach(() => {
+    Platform.OS = originalOs;
+  });
+
+  it('uses the real keyboard inset when the OS reports one', () => {
+    Platform.OS = 'android';
+    expect(resolveEffectiveKeyboardInset(310, true, true, 800)).toBe(310);
+  });
+
+  it('returns 0 when the keyboard is not on screen even if the input keeps focus', () => {
+    // Regression: Android retains TextInput focus after the keyboard is dismissed
+    // (back button + blurOnSubmit={false}). Without gating, the composer dock was lifted
+    // ~336dp into mid-screen, leaving dead space below it.
+    Platform.OS = 'android';
+    expect(resolveEffectiveKeyboardInset(0, false, true, 800)).toBe(0);
+  });
+
+  it('applies the Android estimate only while the keyboard is genuinely visible', () => {
+    Platform.OS = 'android';
+    expect(resolveEffectiveKeyboardInset(0, true, true, 800)).toBe(336);
+  });
+
+  it('never estimates a lift on iOS', () => {
+    Platform.OS = 'ios';
+    expect(resolveEffectiveKeyboardInset(0, true, true, 800)).toBe(0);
   });
 });
