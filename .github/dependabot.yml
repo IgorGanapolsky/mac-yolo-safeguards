@@ -11,6 +11,20 @@ updates:
         update-types:
           - minor
           - patch
+    ignore:
+      # Expo SDK 55 pins these — they only move via `npx expo install --fix`
+      # during an SDK upgrade, never via standalone bumps (PR #53/#55 fallout)
+      - dependency-name: react-native
+        update-types: ["version-update:semver-major", "version-update:semver-minor"]
+      - dependency-name: react
+        update-types: ["version-update:semver-major", "version-update:semver-minor"]
+      - dependency-name: expo
+        update-types: ["version-update:semver-major"]
+      - dependency-name: expo-*
+        update-types: ["version-update:semver-major"]
+      # v14 makes render() async — requires rewriting every test suite (PR #54)
+      - dependency-name: "@testing-library/react-native"
+        update-types: ["version-update:semver-major"]
     labels:
       - dependencies
   - package-ecosystem: github-actions
