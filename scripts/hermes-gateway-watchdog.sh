@@ -33,6 +33,12 @@ PGREP_BIN="${HERMES_PGREP_BIN:-pgrep}"
 # or shared daily-driver (the MacBook Pro serves gemini/glm; pinning an 8B model
 # there would waste ~5-6GB of the user's RAM for a path it never serves from).
 PIN_MODEL="${HERMES_PIN_MODEL:-1}"
+# Vault presence file the gateway ages to derive the mobile "active/idle/away" badge
+# (gateway reads its mtime: <15m=active, <6h=idle, else away). Nothing else refreshes
+# it, so it drifts to "away" even while the gateway is serving. Touch it every healthy
+# tick so the badge tracks real gateway liveness. Set HERMES_PRESENCE_FILE="" to skip.
+PRESENCE_FILE="${HERMES_PRESENCE_FILE:-/Users/igorganapolsky/Documents/AI-Agent-Sync/Agent-State/Hermes.md}"
+TOUCH_BIN="${HERMES_TOUCH_BIN:-touch}"
 
 ts()  { date "+%Y-%m-%dT%H:%M:%S%z"; }
 logline() { printf '%s %s\n' "$(ts)" "$1" >> "$LOG" 2>/dev/null || true; }
@@ -66,6 +72,13 @@ if [ "$PIN_MODEL" != "0" ]; then
       -d "{\"model\":\"$MODEL\",\"prompt\":\"ok\",\"stream\":false,\"keep_alive\":-1,\"options\":{\"num_predict\":2}}" \
       >/dev/null 2>&1 &
   fi
+fi
+
+# 4) Refresh the vault presence file while healthy so the mobile badge reads "active"
+# from real gateway liveness rather than a file that drifts stale (the "Hermes away"
+# bug). Only bump mtime on a live gateway; a down gateway must be allowed to age out.
+if [ -n "$PRESENCE_FILE" ] && [ "$(gateway_health)" = "200" ] && [ -f "$PRESENCE_FILE" ]; then
+  "$TOUCH_BIN" "$PRESENCE_FILE" 2>/dev/null || true
 fi
 
 # 3) Pre-warm the agent path once per gateway (re)start (pid change).
