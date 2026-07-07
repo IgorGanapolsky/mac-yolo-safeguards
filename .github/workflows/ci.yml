@@ -32,6 +32,17 @@ jobs:
         run: |
           set -eu
           sh -n install.sh sim-runaway-guard.sh yolo-health tests/test-secondary-browser-reclaim.sh
+          bash -n scripts/hermes-gateway-watchdog.sh tests/test-hermes-gateway-watchdog.sh tests/test-hermes-gateway-watchdog-e2e.sh scripts/hermes-enable-remote-login.sh scripts/hermes-fleet-ssh-trust.sh
+
+      - name: Hermes gateway watchdog unit tests
+        run: |
+          set -eu
+          bash tests/test-hermes-gateway-watchdog.sh
+
+      - name: Hermes gateway watchdog e2e orchestration suite
+        run: |
+          set -eu
+          bash tests/test-hermes-gateway-watchdog-e2e.sh
 
       - name: Smoke install and yolo-health
         run: |
