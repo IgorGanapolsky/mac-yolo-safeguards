@@ -1,7 +1,7 @@
 {
   "name": "hermes-mobile",
   "version": "0.1.0",
-  "description": "Hermes mobile companion \u2014 ThumbGate approvals, gateway health, YOLO safeguard telemetry",
+  "description": "Hermes mobile companion — ThumbGate approvals, gateway health, YOLO safeguard telemetry",
   "main": "node_modules/expo/AppEntry.js",
   "scripts": {
     "start": "expo start",
@@ -93,6 +93,7 @@
   "private": true,
   "overrides": {
     "js-yaml": "^4.2.0",
-    "uuid": "^11.1.1"
+    "uuid": "^11.1.1",
+    "@opentelemetry/core": "2.8.0"
   }
 }
