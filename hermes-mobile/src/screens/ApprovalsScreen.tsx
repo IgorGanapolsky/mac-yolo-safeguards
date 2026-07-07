@@ -68,11 +68,18 @@ export default function ApprovalsScreen() {
   }, [patchSettings]);
 
   const [refreshing, setRefreshing] = React.useState(false);
+  const refreshingRef = React.useRef(false);
+  const connectionStateRef = React.useRef(connectionState);
+
+  React.useEffect(() => {
+    connectionStateRef.current = connectionState;
+  }, [connectionState]);
 
   const onRefresh = React.useCallback(async () => {
-    if (!leashUnlocked || refreshing) {
+    if (!leashUnlocked || refreshingRef.current) {
       return;
     }
+    refreshingRef.current = true;
     setRefreshing(true);
     try {
       await autoConnectGateway();
@@ -81,17 +88,18 @@ export default function ApprovalsScreen() {
     } catch (e) {
       // ignore
     } finally {
+      refreshingRef.current = false;
       setRefreshing(false);
     }
-  }, [autoConnectGateway, connectEvents, leashUnlocked, refreshHealth, refreshing]);
+  }, [autoConnectGateway, connectEvents, leashUnlocked, refreshHealth]);
 
   useFocusEffect(
     React.useCallback(() => {
-      if (!leashUnlocked || connectionState === 'connected' || connectionState === 'demo') {
+      if (!leashUnlocked || connectionStateRef.current === 'connected' || connectionStateRef.current === 'demo') {
         return;
       }
       void onRefresh();
-    }, [connectionState, leashUnlocked, onRefresh]),
+    }, [leashUnlocked, onRefresh]),
   );
 
   const glance = !presentation.visualsOn;
