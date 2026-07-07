@@ -55,6 +55,7 @@ import {
   clearAllSessions,
   forkSession,
   getCapabilities,
+  extractCapabilitiesModel,
   getRunStatus,
   stopRun,
   streamSessionChat,
@@ -385,6 +386,8 @@ export default function ChatScreen() {
     text: string;
   } | null>(null);
   const [gatewayModel, setGatewayModel] = useState<string | undefined>();
+  /** Sticky real model from the latest session/run, so idle turns never fall back to a bare label. */
+  const [lastKnownModel, setLastKnownModel] = useState<string | undefined>();
   const [isPullRefreshing, setIsPullRefreshing] = useState(false);
   const [connectionPanelRefreshing, setConnectionPanelRefreshing] = useState(false);
   const [telegramInboxMeta, setTelegramInboxMeta] = useState({ threadCount: 0, messageCap: 250 });
@@ -591,7 +594,7 @@ export default function ChatScreen() {
         if (cancelled) {
           return;
         }
-        const model = displayableLlmModel(caps.model);
+        const model = extractCapabilitiesModel(caps);
         if (model) {
           setGatewayModel(model);
         }
@@ -3704,12 +3707,26 @@ export default function ChatScreen() {
     return null;
   }, [runProgress, currentSession?.id, currentSession?.model, currentSession?.input_tokens, currentSession?.output_tokens, telegramReplySessionId, isSending, queuedOutboundCount]);
 
+  useEffect(() => {
+    const observed =
+      displayableLlmModel(currentSession?.model) ?? displayableLlmModel(progressBanner?.model);
+    if (observed && observed !== lastKnownModel) {
+      setLastKnownModel(observed);
+    }
+  }, [currentSession?.model, progressBanner?.model, lastKnownModel]);
+
+  const headerGatewayModel = useMemo(
+    () => gatewayModel ?? lastKnownModel,
+    [gatewayModel, lastKnownModel],
+  );
+
   const progressBannerFallbackModel = useMemo(
     () =>
       displayableLlmModel(currentSession?.model) ??
       displayableLlmModel(gatewayModel) ??
+      displayableLlmModel(lastKnownModel) ??
       undefined,
-    [currentSession?.model, gatewayModel],
+    [currentSession?.model, gatewayModel, lastKnownModel],
   );
 
   const showComposerProgressBanner = useMemo(() => {
@@ -4116,7 +4133,7 @@ export default function ChatScreen() {
           canSwitchWorkspace={!showMacConnectionHelp}
           activeAgents={activeAgents}
           currentSession={currentSession}
-          gatewayModel={gatewayModel}
+          gatewayModel={headerGatewayModel}
           runProgress={progressBanner}
           onOpenThreads={openSessionsModal}
           onOpenTools={() => setToolsModalVisible(true)}

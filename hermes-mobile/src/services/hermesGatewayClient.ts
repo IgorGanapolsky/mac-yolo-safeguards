@@ -8,6 +8,7 @@ import type {
   ChatStreamEvent,
 } from '../types/gatewayApi';
 import { extractAssistantFromRunCompletedPayload } from '../utils/streamAssistantText';
+import { displayableLlmModel } from '../utils/runProgressDisplay';
 
 export class HermesGatewayApiError extends Error {
   status: number;
@@ -57,6 +58,37 @@ export async function getCapabilities(
     headers: buildAuthHeaders(apiKey),
   });
   return parseJson<HermesCapabilities>(response);
+}
+
+/**
+ * Pull the real underlying LLM id out of /capabilities regardless of which field
+ * the gateway build uses. Different gateway versions report the routed model as
+ * `model`, `default_model`, `llm`, or as the first entry in a `models` list — and
+ * some report only the platform label `hermes-agent` in `model`. We probe every
+ * known field and return the first that survives `displayableLlmModel` (which drops
+ * platform labels), so the chat header shows a real model instead of a bare label.
+ */
+export function extractCapabilitiesModel(
+  caps: HermesCapabilities | null | undefined,
+): string | null {
+  if (!caps) {
+    return null;
+  }
+  const scalarCandidates = [caps.model, caps.default_model, caps.llm];
+  for (const candidate of scalarCandidates) {
+    const model = displayableLlmModel(candidate);
+    if (model) {
+      return model;
+    }
+  }
+  for (const entry of caps.models ?? []) {
+    const raw = typeof entry === 'string' ? entry : entry?.id ?? entry?.name ?? entry?.model;
+    const model = displayableLlmModel(raw);
+    if (model) {
+      return model;
+    }
+  }
+  return null;
 }
 
 export async function listSkills(

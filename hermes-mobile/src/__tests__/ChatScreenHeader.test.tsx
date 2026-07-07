@@ -216,6 +216,27 @@ describe('ChatScreenHeader', () => {
     );
   });
 
+  it('falls back to gatewayModel when an idle session only reports the platform label', () => {
+    const { getByTestId } = render(
+      <ChatScreenHeader
+        threadTitle="Session"
+        machineLabel="MacBook Pro"
+        connectionState="connected"
+        macHttpReachable
+        activeAgents={[{ name: 'Hermes', status: 'active' }]}
+        currentSession={{ model: 'hermes-agent', input_tokens: 800, output_tokens: 200 }}
+        gatewayModel="qwen3:8b-64k"
+        onOpenThreads={jest.fn()}
+        onPressMachine={jest.fn()}
+      />,
+    );
+
+    const label = getByTestId('chat-header-hermes-status').props.children;
+    expect(label).toContain('qwen3:8b-64k');
+    expect(label).not.toContain('hermes-agent');
+    expect(label).toBe('Hermes (active) · qwen3:8b-64k · 1,000 tokens');
+  });
+
   it('shows live in/out tokens from run progress while a turn is active', () => {
     const { getByTestId } = render(
       <ChatScreenHeader
