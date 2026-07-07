@@ -18,9 +18,15 @@ set -uo pipefail
 HEALTH_URL="${HERMES_HEALTH_URL:-http://127.0.0.1:8642/health}"
 CHAT_URL="${HERMES_CHAT_URL:-http://127.0.0.1:8642/v1/chat/completions}"
 OLLAMA_URL="${HERMES_OLLAMA_URL:-http://127.0.0.1:11434}"
+ENV_FILE="${HERMES_ENV_FILE:-/Users/igorganapolsky/.hermes/.env}"
+if [ -z "${HERMES_MODEL:-}" ] && [ -f "$ENV_FILE" ]; then
+  env_model="$(grep -E "^HERMES_MODEL=" "$ENV_FILE" 2>/dev/null | cut -d= -f2- | tr -d '"' | tr -d "'" | head -1)"
+  if [ -n "$env_model" ]; then
+    HERMES_MODEL="$env_model"
+  fi
+fi
 MODEL="${HERMES_MODEL:-qwen3:8b-64k}"
 PYBIN="${HERMES_PYBIN:-/Users/igorganapolsky/.hermes/hermes-agent/venv/bin/python}"
-ENV_FILE="${HERMES_ENV_FILE:-/Users/igorganapolsky/.hermes/.env}"
 AGENT_LOG="${HERMES_AGENT_LOG:-/Users/igorganapolsky/.hermes/logs/agent.log}"
 LOG="${HERMES_WATCHDOG_LOG:-/Users/igorganapolsky/.hermes/logs/gateway-watchdog.log}"
 STATE="${HERMES_WATCHDOG_STATE:-/Users/igorganapolsky/.hermes/.watchdog-warmed-pid}"

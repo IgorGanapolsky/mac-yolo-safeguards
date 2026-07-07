@@ -115,11 +115,13 @@ function listOllamaModels() {
 
 function chooseLocalModel(availableModels = listOllamaModels()) {
   const candidates = [
-    'qwen2.5:3b-64k',
+    'qwen3.6:35b-a3b',
+    'gpt-oss:20b',
     'qwen3:8b-agent-64k',
     'qwen3:8b-64k',
     'qwen3:8b-agent-32k',
     'qwen3:8b',
+    'qwen2.5:3b-64k',
     'qwen2.5:3b',
   ];
   return candidates.find((model) => availableModels.includes(model)) || 'qwen2.5:3b-64k';
