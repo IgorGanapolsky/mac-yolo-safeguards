@@ -78,6 +78,7 @@ import {
   setActiveSession,
 } from '../services/chatProjects';
 import { fetchVaultProjectCatalog } from '../services/vaultProjects';
+import { filterChatProjects } from '../utils/filterChatProjects';
 import type { VaultProjectCatalog } from '../types/vaultProject';
 import { storage } from '../services/storage';
 import { buildMobileChatSystemPrompt } from '../utils/workspacePrompt';
@@ -334,6 +335,7 @@ export default function ChatScreen() {
   );
   const [isScanningMacs, setIsScanningMacs] = useState(false);
   const [projectModalVisible, setProjectModalVisible] = useState(false);
+  const [projectSearchQuery, setProjectSearchQuery] = useState('');
   const [newProjectPath, setNewProjectPath] = useState('');
   const [newProjectName, setNewProjectName] = useState('');
   const [renameModalVisible, setRenameModalVisible] = useState(false);
@@ -1466,6 +1468,7 @@ export default function ChatScreen() {
 
   const openProjectPicker = useCallback(() => {
     haptics.selection();
+    setProjectSearchQuery('');
     setProjectModalVisible(true);
   }, []);
 
@@ -4639,8 +4642,18 @@ export default function ChatScreen() {
                 Latest handoff: {vaultCatalog.handoffs[0].summary}
               </Text>
             ) : null}
+            <TextInput
+              style={[styles.modalInput, { marginBottom: 12 }]}
+              value={projectSearchQuery}
+              onChangeText={setProjectSearchQuery}
+              placeholder="Search projects..."
+              placeholderTextColor={colors.textMuted}
+              autoCapitalize="none"
+              autoCorrect={false}
+              testID="project-search-input"
+            />
             <ScrollView style={{ maxHeight: 280 }} keyboardShouldPersistTaps="handled">
-              {projectState.projects.map((project) => {
+              {filterChatProjects(projectState.projects, projectSearchQuery).map((project) => {
                 const isActive = activeProject?.id === project.id;
                 return (
                   <TouchableOpacity
