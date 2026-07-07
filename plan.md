@@ -98,11 +98,13 @@ Durable rules live in [AGENTS.md](./AGENTS.md); this file is *live state only*.
 | T-112 | Implement local 16GB VRAM routing improvements (gpt-oss-20b, Qwen3.6-35B-A3B) | done | antigravity | `tools/hermes-economic-router.js`, `hermes-yolo-wrapper.js`, `scripts/hermes-gateway-watchdog.sh`, `plan.md` | local fast, candidate, and watchdog pin use gpt-oss-20b and Qwen3.6-35B-A3B |
 | T-74 | Fix Leash tab infinite swipe-to-refresh spinner loop and release-safety test regex | done | antigravity | `hermes-mobile/src/screens/ApprovalsScreen.tsx`, `hermes-mobile/src/__tests__/releaseSafetyContract.test.ts` | Leash tab doesn't loop refresh and release safety tests pass |
 | T-75 | Fix Android keyboard stuck inset and always show model/tokens in run progress banner | done | antigravity | `hermes-mobile/src/hooks/useKeyboardInset.ts`, `hermes-mobile/src/utils/runProgressDisplay.ts`, `hermes-mobile/src/components/RunProgressBanner.tsx`, `hermes-mobile/src/__tests__/runProgressDisplay.test.ts`, `hermes-mobile/src/utils/smartNotificationPolicy.ts`, `hermes-mobile/src/__tests__/smartNotificationPolicy.test.ts`, `hermes-mobile/src/screens/ApprovalsScreen.tsx` | Keyboard doesn't get stuck, stats show, foreground notifications suppressed, and refresh spinner doesn't get stuck |
+| T-76 | Fix chat transcript auto-scroll during assistant streaming | in_progress | cursor | `hermes-mobile/src/screens/ChatScreen.tsx`, `hermes-mobile/src/utils/chatAutoScroll.ts`, `hermes-mobile/src/__tests__/chatAutoScroll.test.ts`, `hermes-mobile/src/__tests__/ChatScreen.test.tsx`, `plan.md` | streaming tokens and new messages auto-follow when near bottom; user scroll-up detaches; focused + full Jest pass |
 
 Status values: `pending` | `in_progress` | `blocked` | `done`. Claim a row by setting Owner+Status in one edit, then claim its files in §2.
 
 ## 2. File Ownership Map (append-only lock table — claim before touching)
 
+- `hermes-mobile/src/screens/ChatScreen.tsx`, `hermes-mobile/src/utils/chatAutoScroll.ts`, `hermes-mobile/src/__tests__/chatAutoScroll.test.ts`, `hermes-mobile/src/__tests__/ChatScreen.test.tsx`, `plan.md` → **cursor** (T-76 chat streaming auto-scroll) (2026-07-07T23:45:00Z)
 - `hermes-mobile/src/screens/ApprovalsScreen.tsx` → **antigravity** (T-75) — released (2026-07-07)
 - `hermes-mobile/src/utils/smartNotificationPolicy.ts` → **antigravity** (T-75) — released (2026-07-07)
 - `hermes-mobile/src/__tests__/smartNotificationPolicy.test.ts` → **antigravity** (T-75) — released (2026-07-07)
