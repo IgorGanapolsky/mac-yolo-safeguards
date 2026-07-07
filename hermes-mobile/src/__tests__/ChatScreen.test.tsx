@@ -657,6 +657,75 @@ describe('ChatScreen', () => {
     });
   });
 
+  it('resumes an existing thread when the first prompt title already exists', async () => {
+    const { listSessions, createSessionWithUniqueTitle } = jest.requireMock(
+      '../services/hermesChatClient',
+    ) as {
+      listSessions: jest.Mock;
+      createSessionWithUniqueTitle: jest.Mock;
+    };
+    const { streamSessionChat } = jest.requireMock('../services/hermesGatewayClient') as {
+      streamSessionChat: jest.Mock;
+    };
+    listSessions.mockResolvedValueOnce([
+      {
+        id: 'existing-print-money',
+        title: 'Print money make money faster',
+        last_active_at: '2026-07-07T16:00:00.000Z',
+      },
+    ]);
+    createSessionWithUniqueTitle.mockClear();
+    streamSessionChat.mockImplementation(
+      (
+        _gatewayUrl: string,
+        _sessionId: string,
+        _text: string,
+        _apiKey: string,
+        onEvent: (event: { event: string; data: Record<string, unknown> }) => void,
+        _systemPrompt: string,
+        onOpen?: () => void,
+      ) => {
+        onOpen?.();
+        onEvent({ event: 'assistant.delta', data: { delta: 'Continuing prior thread.' } });
+        return Promise.resolve('Continuing prior thread.');
+      },
+    );
+    Object.assign(mockGatewayState, {
+      connectionState: 'connected',
+      health: { ok: true, level: 'green', hostname: 'demo-mac.local' },
+      settings: {
+        demoMode: false,
+        connectionMode: 'gateway',
+        gatewayUrl: 'http://localhost:8642',
+        cloudUrl: 'https://hermesmobile-cloud.fly.dev',
+        approvalPolicy: 'balanced',
+      },
+    });
+
+    const { getByTestId } = await renderChatScreen();
+    fireEvent.press(getByTestId('open-sessions-modal'));
+    fireEvent.press(getByTestId('modal-new-chat-button'));
+
+    await act(async () => {
+      fireEvent.changeText(getByTestId('chat-input'), 'Print money make money faster');
+      fireEvent.press(getByTestId('chat-send-button'));
+      await Promise.resolve();
+    });
+
+    await waitFor(() => {
+      expect(createSessionWithUniqueTitle).not.toHaveBeenCalled();
+      expect(streamSessionChat).toHaveBeenCalledWith(
+        'http://localhost:8642',
+        'existing-print-money',
+        'Print money make money faster',
+        'test-api-key',
+        expect.any(Function),
+        expect.any(String),
+        expect.any(Function),
+      );
+    });
+  });
+
   it('does not render tool transcript cards even when old settings enable tool activity', async () => {
     const { listMessages } = jest.requireMock('../services/hermesChatClient') as {
       listMessages: jest.Mock;

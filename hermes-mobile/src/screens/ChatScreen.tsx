@@ -98,6 +98,7 @@ import {
   titleFromFirstPrompt,
   ensureSessionCreatedAt,
 } from '../utils/sessionDisplay';
+import { findResumableSessionByPromptTitle } from '../utils/resumeExistingSession';
 import { formatMessageTimestamp, prepareMessagesForDisplay } from '../utils/chatMessageDisplay';
 import {
   isMessageBodyEmpty,
@@ -2991,51 +2992,60 @@ export default function ChatScreen() {
         setSessions([activeSess]);
         setCurrentSession(activeSess);
       } else {
-        const placeholderTitle = firstPromptThreadTitle;
-        await releaseMacOperatorSlot(gatewayUrl, apiKey, collectRecoveryRunIds());
-        try {
-          activeSess = await retryOnSessionInUse(
-            gatewayUrl,
-            apiKey,
-            collectRecoveryRunIds,
-            () =>
-              createSessionWithUniqueTitle(
-                gatewayUrl,
-                apiKey,
-                placeholderTitle,
-                mobileChatSystemPrompt,
-              ),
-            notifyWaitingForMacSlot,
-          );
-        } catch (err) {
-          if (isSessionInUseError(err)) {
-            const forkSource = sessionsRef.current.find((session) => !isTelegramInboxSession(session));
-            if (forkSource) {
-              try {
-                const forked = await forkSession(gatewayUrl, forkSource.id, apiKey);
-                const forkId = forked.session_id?.trim();
-                if (forkId) {
-                  activeSess = ensureSessionCreatedAt({
-                    id: forkId,
-                    title: placeholderTitle,
-                    last_active_at: new Date().toISOString(),
-                  });
+        const resumable = findResumableSessionByPromptTitle(
+          sessionsRef.current.filter((session) => !isTelegramInboxSession(session)),
+          userText,
+        );
+        if (resumable) {
+          activeSess = ensureSessionCreatedAt(resumable);
+          setCurrentSession(activeSess);
+        } else {
+          const placeholderTitle = firstPromptThreadTitle;
+          await releaseMacOperatorSlot(gatewayUrl, apiKey, collectRecoveryRunIds());
+          try {
+            activeSess = await retryOnSessionInUse(
+              gatewayUrl,
+              apiKey,
+              collectRecoveryRunIds,
+              () =>
+                createSessionWithUniqueTitle(
+                  gatewayUrl,
+                  apiKey,
+                  placeholderTitle,
+                  mobileChatSystemPrompt,
+                ),
+              notifyWaitingForMacSlot,
+            );
+          } catch (err) {
+            if (isSessionInUseError(err)) {
+              const forkSource = sessionsRef.current.find((session) => !isTelegramInboxSession(session));
+              if (forkSource) {
+                try {
+                  const forked = await forkSession(gatewayUrl, forkSource.id, apiKey);
+                  const forkId = forked.session_id?.trim();
+                  if (forkId) {
+                    activeSess = ensureSessionCreatedAt({
+                      id: forkId,
+                      title: placeholderTitle,
+                      last_active_at: new Date().toISOString(),
+                    });
+                  }
+                } catch {
+                  // fall through
                 }
-              } catch {
-                // fall through
               }
             }
+            if (!activeSess) {
+              rollbackOutboundBubble();
+              applyChatApiError(err, 'Could not start chat on your computer.');
+              releaseOutboundSendLock();
+              return false;
+            }
           }
-          if (!activeSess) {
-            rollbackOutboundBubble();
-            applyChatApiError(err, 'Could not start chat on your computer.');
-            releaseOutboundSendLock();
-            return false;
-          }
+          activeSess = ensureSessionCreatedAt(activeSess);
+          setSessions((prev) => [activeSess!, ...prev.filter((session) => session.id !== activeSess!.id)]);
+          setCurrentSession(activeSess);
         }
-        activeSess = ensureSessionCreatedAt(activeSess);
-        setSessions((prev) => [activeSess!, ...prev.filter((session) => session.id !== activeSess!.id)]);
-        setCurrentSession(activeSess);
       }
     }
 
