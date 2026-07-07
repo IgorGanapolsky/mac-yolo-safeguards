@@ -131,7 +131,8 @@
           "color": "#6366F1"
         }
       ],
-      "expo-iap"
+      "expo-iap",
+      "@sentry/react-native"
     ]
   }
 }

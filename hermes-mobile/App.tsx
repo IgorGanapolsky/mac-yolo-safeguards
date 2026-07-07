@@ -6,6 +6,11 @@ import TabBarIcon from './src/components/TabBarIcon';
 // Hold native splash until React paints — prevents flash of empty black window.
 void SplashScreen.preventAutoHideAsync().catch(() => {});
 
+// Initialize Sentry (JS + native crashes, unhandled rejections, performance)
+// as early as possible, before any component renders. No-op when
+// EXPO_PUBLIC_SENTRY_DSN is unset, so DSN-less builds run unchanged.
+initCrashReporting();
+
 // Install the global JS exception handler as early as possible, before any
 // component renders. Fatal exceptions are persisted to the crash queue and
 // flushed to PostHog on the next launch.
@@ -16,7 +21,7 @@ import { createBottomTabNavigator, BottomTabBarProps } from '@react-navigation/b
 import { SafeAreaProvider, SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAiSdkDevTools } from '@react-native-ai/dev-tools/react-native';
 import { GatewayProvider, useGateway } from './src/context/GatewayContext';
-import { resolveInitialTab } from './src/utils/leashUx';
+import { resolveInitialTab, resolveTabOrder, type HermesTabName } from './src/utils/leashUx';
 import ErrorBoundary from './src/components/ErrorBoundary';
 import ConnectMacGate from './src/components/ConnectMacGate';
 import { useHermesDeepLinks } from './src/hooks/useHermesDeepLinks';
@@ -26,6 +31,10 @@ import {
   flushCrashQueue,
   installGlobalCrashHandler,
 } from './src/services/crashReporting';
+import {
+  initCrashReporting,
+  withCrashReporting,
+} from './src/services/telemetry';
 import { useKeyboardInset } from './src/hooks/useKeyboardInset';
 import { LEASH_TAB_LABEL } from './src/constants/monetization';
 import { colors } from './src/theme/colors';
@@ -82,9 +91,31 @@ function tabTestIdFor(routeName: keyof RootTabParamList): string {
 
 const renderTabBar = (props: BottomTabBarProps) => <GlassmorphicTabBar {...props} />;
 
+const TAB_SCREENS: Record<HermesTabName, () => React.ReactNode> = {
+  Chat: () => (
+    <LazyTabScreen>
+      <ChatScreen />
+    </LazyTabScreen>
+  ),
+  Leash: () => (
+    <LazyTabScreen>
+      <ApprovalsScreen />
+    </LazyTabScreen>
+  ),
+  Settings: () => (
+    <LazyTabScreen>
+      <SettingsScreen />
+    </LazyTabScreen>
+  ),
+};
+
 function HermesTabNavigator() {
   const { settings } = useGateway();
-  const glance = settings.glanceMode;
+
+  // Chat is ALWAYS in this list — glance mode only reorders (Leash first) and
+  // resolveInitialTab focuses Leash. Never drop the Chat tab, or the operator is
+  // stranded on Leash/Settings with no way back to chat.
+  const tabOrder = resolveTabOrder(settings);
 
   return (
     <Tab.Navigator
@@ -96,53 +127,9 @@ function HermesTabNavigator() {
         tabBarHideOnKeyboard: Platform.OS === 'android',
       }}
     >
-      {glance ? (
-        <>
-          <Tab.Screen
-            name="Leash"
-            children={() => (
-              <LazyTabScreen>
-                <ApprovalsScreen />
-              </LazyTabScreen>
-            )}
-          />
-          <Tab.Screen
-            name="Settings"
-            children={() => (
-              <LazyTabScreen>
-                <SettingsScreen />
-              </LazyTabScreen>
-            )}
-          />
-        </>
-      ) : (
-        <>
-          <Tab.Screen
-            name="Chat"
-            children={() => (
-              <LazyTabScreen>
-                <ChatScreen />
-              </LazyTabScreen>
-            )}
-          />
-          <Tab.Screen
-            name="Leash"
-            children={() => (
-              <LazyTabScreen>
-                <ApprovalsScreen />
-              </LazyTabScreen>
-            )}
-          />
-          <Tab.Screen
-            name="Settings"
-            children={() => (
-              <LazyTabScreen>
-                <SettingsScreen />
-              </LazyTabScreen>
-            )}
-          />
-        </>
-      )}
+      {tabOrder.map((name) => (
+        <Tab.Screen key={name} name={name} children={TAB_SCREENS[name]} />
+      ))}
     </Tab.Navigator>
   );
 }
@@ -367,7 +354,7 @@ function HermesAppShell() {
   );
 }
 
-export default function App() {
+function App() {
   useEffect(() => {
     void trackAppOpen();
     // Flush any crashes persisted from a previous (crashed) launch now that the
@@ -399,6 +386,11 @@ export default function App() {
     </ErrorBoundary>
   );
 }
+
+// Wrap the root with Sentry's error boundary / touch / profiling integrations.
+// Coexists with the user-facing <ErrorBoundary> above; harmless when Sentry is
+// not initialized (no DSN).
+export default withCrashReporting(App);
 
 const styles = StyleSheet.create({
   container: {
