@@ -84,6 +84,10 @@ function ChatInputBar({
           underlineColorAndroid="transparent"
           editable
           multiline
+          autoCorrect={true}
+          autoCapitalize="sentences"
+          spellCheck={true}
+          keyboardType="default"
           returnKeyType="send"
           blurOnSubmit={false}
           onFocus={onFocus}
