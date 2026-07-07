@@ -12,15 +12,22 @@ updates:
           - minor
           - patch
     ignore:
-      # Expo SDK 55 pins these — they only move via `npx expo install --fix`
-      # during an SDK upgrade, never via standalone bumps (PR #53/#55 fallout)
+      # Expo SDK 55 manages these at EXACT versions (expo-doctor gate fails on
+      # ANY bump, even patch — PR #58). They move only via `npx expo install
+      # --fix` during an SDK upgrade. No update-types = ignore all updates.
       - dependency-name: react-native
-        update-types: ["version-update:semver-major", "version-update:semver-minor"]
       - dependency-name: react
-        update-types: ["version-update:semver-major", "version-update:semver-minor"]
+      - dependency-name: react-native-screens
+      - dependency-name: react-native-safe-area-context
+      - dependency-name: "@shopify/flash-list"
       - dependency-name: expo
         update-types: ["version-update:semver-major"]
       - dependency-name: expo-*
+        update-types: ["version-update:semver-major"]
+      - dependency-name: jest-expo
+        update-types: ["version-update:semver-major"]
+      # v3 requires RN >=0.84 / new arch; app is on SDK 55 (RN 0.83) — PR #60
+      - dependency-name: "@react-native-async-storage/async-storage"
         update-types: ["version-update:semver-major"]
       # v14 makes render() async — requires rewriting every test suite (PR #54)
       - dependency-name: "@testing-library/react-native"
