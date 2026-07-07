@@ -1,8 +1,10 @@
 import {
   chatSendBlockedMessage,
   friendlyMacUnreachableMessage,
+  humanizeChatError,
   isConnectivityMessage,
   isSessionInUseError,
+  isTitleInUseError,
 } from '../utils/chatErrors';
 
 describe('isSessionInUseError', () => {
@@ -24,6 +26,56 @@ describe('isSessionInUseError', () => {
 
   it('returns false for unrelated errors', () => {
     expect(isSessionInUseError(new Error('invalid_api_key'))).toBe(false);
+  });
+
+  it('does not classify a title collision as session-in-use', () => {
+    expect(
+      isSessionInUseError(
+        new Error("Title 'Print money make money faster' is already in use by session other-1"),
+      ),
+    ).toBe(false);
+  });
+});
+
+describe('isTitleInUseError', () => {
+  it('detects the gateway "already in use by session" message', () => {
+    expect(
+      isTitleInUseError(
+        new Error("Title 'Print money make money faster' is already in use by session other-1"),
+      ),
+    ).toBe(true);
+  });
+
+  it('detects the older friendly duplicate-title copy', () => {
+    expect(
+      isTitleInUseError(
+        new Error('A chat with this title already exists. Please choose a different title.'),
+      ),
+    ).toBe(true);
+  });
+
+  it('detects the JSON invalid_title code', () => {
+    expect(
+      isTitleInUseError(
+        new Error(JSON.stringify({ error: { code: 'invalid_title', message: 'nope' } })),
+      ),
+    ).toBe(true);
+  });
+
+  it('returns false for operator-busy errors', () => {
+    expect(
+      isTitleInUseError(
+        new Error(JSON.stringify({ error: { code: 'session_in_use', message: 'operator busy' } })),
+      ),
+    ).toBe(false);
+  });
+
+  it('humanizes a title collision without operator-busy copy', () => {
+    const { message } = humanizeChatError(
+      new Error("Title 'x' is already in use by session other-1"),
+      'fallback',
+    );
+    expect(message.toLowerCase()).toContain('title already exists');
   });
 });
 

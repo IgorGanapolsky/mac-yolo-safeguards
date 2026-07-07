@@ -257,6 +257,11 @@ jest.mock('../services/hermesChatClient', () => ({
     title: 'New Session 2',
     last_active_at: '2026-06-15T12:00:00Z',
   }),
+  createSessionWithUniqueTitle: jest.fn().mockResolvedValue({
+    id: 'session-2',
+    title: 'New Session 2',
+    last_active_at: '2026-06-15T12:00:00Z',
+  }),
   listMessages: jest.fn().mockResolvedValue([
     { role: 'user', content: 'hello' },
     { role: 'assistant', content: 'hi there' },
@@ -592,14 +597,14 @@ describe('ChatScreen', () => {
   });
 
   it('creates new mobile sessions with the first prompt as the title', async () => {
-    const { createSession } = jest.requireMock('../services/hermesChatClient') as {
-      createSession: jest.Mock;
+    const { createSessionWithUniqueTitle } = jest.requireMock('../services/hermesChatClient') as {
+      createSessionWithUniqueTitle: jest.Mock;
     };
     const { streamSessionChat } = jest.requireMock('../services/hermesGatewayClient') as {
       streamSessionChat: jest.Mock;
     };
-    createSession.mockClear();
-    createSession.mockResolvedValueOnce({
+    createSessionWithUniqueTitle.mockClear();
+    createSessionWithUniqueTitle.mockResolvedValueOnce({
       id: 'session-first-prompt',
       title: 'New mobile session #4',
       last_active_at: '2026-07-03T20:30:00Z',
@@ -643,7 +648,7 @@ describe('ChatScreen', () => {
     });
 
     await waitFor(() => {
-      expect(createSession).toHaveBeenCalledWith(
+      expect(createSessionWithUniqueTitle).toHaveBeenCalledWith(
         'http://localhost:8642',
         'test-api-key',
         'Fix Hermes mobile transcript noise now',

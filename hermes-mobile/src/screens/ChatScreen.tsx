@@ -42,6 +42,7 @@ import GatewayProfilePicker from '../components/GatewayProfilePicker';
 import {
   listSessions,
   createSession,
+  createSessionWithUniqueTitle,
   getSession,
   listMessages,
   sendChatMessage,
@@ -2994,7 +2995,13 @@ export default function ChatScreen() {
             gatewayUrl,
             apiKey,
             collectRecoveryRunIds,
-            () => createSession(gatewayUrl, apiKey, placeholderTitle, mobileChatSystemPrompt),
+            () =>
+              createSessionWithUniqueTitle(
+                gatewayUrl,
+                apiKey,
+                placeholderTitle,
+                mobileChatSystemPrompt,
+              ),
             notifyWaitingForMacSlot,
           );
         } catch (err) {
