@@ -97,11 +97,16 @@ Durable rules live in [AGENTS.md](./AGENTS.md); this file is *live state only*.
 | T-111 | Fix "MacBook Pro has SSH refused" + Tailscale fleet SSH (sshd + key auth over tailnet) | done | cursor | `scripts/hermes-enable-remote-login.sh`, `scripts/hermes-fleet-ssh-trust.sh`, `.github/workflows/ci.yml`, `plan.md` | CEO decision (RAG+Tailscale docs): App Store Tailscale CANNOT run Tailscale SSH server (Apple sandbox) — official workaround is macOS sshd + keys over 100.x tailnet, NOT reinstalling brew tailscaled; enabled Remote Login on MBP (`nc :22 OPEN` loopback+100.87.85.85); `hermes-fleet-ssh-trust.sh` installs mini pubkey + seeds known_hosts + fleet `~/.ssh/config`; proof BatchMode: mini→MBP PASS, MBP→mini PASS; aliases `hermes-mini`/`hermes-mbp` |
 | T-112 | Implement local 16GB VRAM routing improvements (gpt-oss-20b, Qwen3.6-35B-A3B) | done | antigravity | `tools/hermes-economic-router.js`, `hermes-yolo-wrapper.js`, `scripts/hermes-gateway-watchdog.sh`, `plan.md` | local fast, candidate, and watchdog pin use gpt-oss-20b and Qwen3.6-35B-A3B |
 | T-74 | Fix Leash tab infinite swipe-to-refresh spinner loop and release-safety test regex | done | antigravity | `hermes-mobile/src/screens/ApprovalsScreen.tsx`, `hermes-mobile/src/__tests__/releaseSafetyContract.test.ts` | Leash tab doesn't loop refresh and release safety tests pass |
+| T-75 | Fix Android keyboard stuck inset and always show model/tokens in run progress banner | in_progress | antigravity | `hermes-mobile/src/hooks/useKeyboardInset.ts`, `hermes-mobile/src/utils/runProgressDisplay.ts`, `hermes-mobile/src/components/RunProgressBanner.tsx`, `hermes-mobile/src/__tests__/runProgressDisplay.test.ts` | Keyboard doesn't get stuck and stats show on completed/failed runs |
 
 Status values: `pending` | `in_progress` | `blocked` | `done`. Claim a row by setting Owner+Status in one edit, then claim its files in §2.
 
 ## 2. File Ownership Map (append-only lock table — claim before touching)
 
+- `hermes-mobile/src/hooks/useKeyboardInset.ts` → **antigravity** (T-75) — (2026-07-07)
+- `hermes-mobile/src/utils/runProgressDisplay.ts` → **antigravity** (T-75) — (2026-07-07)
+- `hermes-mobile/src/components/RunProgressBanner.tsx` → **antigravity** (T-75) — (2026-07-07)
+- `hermes-mobile/src/__tests__/runProgressDisplay.test.ts` → **antigravity** (T-75) — (2026-07-07)
 - `hermes-mobile/src/screens/ApprovalsScreen.tsx` → **antigravity** (T-74) — released (2026-07-07)
 - `hermes-mobile/src/__tests__/releaseSafetyContract.test.ts` → **antigravity** (T-74) — released (2026-07-07)
 - `tools/hermes-economic-router.js`, `hermes-yolo-wrapper.js`, `scripts/hermes-gateway-watchdog.sh`, `plan.md` → **antigravity** (T-112) — released (2026-07-07)
