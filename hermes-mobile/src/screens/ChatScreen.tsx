@@ -213,6 +213,12 @@ import {
   shouldRecoverOutboundSendLock,
 } from '../utils/outboundSendRecovery';
 import {
+  findLastFailedOutboundText,
+  resolveComposerSendAction,
+  shouldHideMacTileForSilentHeal,
+  shouldShowFailedSendRetry,
+} from '../utils/failedSendRetry';
+import {
   listAllPendingTextApprovals,
   listInlineTextApprovals,
   nudgeResolutionKey,
@@ -721,13 +727,18 @@ export default function ChatScreen() {
   );
   /** Chat needs direct HTTP to the Mac — relay WebSocket "connected" is not enough. */
   const macChatLive = isDemo || macHttpOk;
+  const lastFailedOutboundText = useMemo(
+    () => findLastFailedOutboundText(messages),
+    [messages],
+  );
   const connectivityRunFailure = useMemo(
     () =>
-      Boolean(
-        runProgress?.phase === 'failed' &&
-          isConnectivityMessage(runProgress.detail ?? ''),
-      ),
-    [runProgress],
+      shouldShowFailedSendRetry({
+        runPhase: runProgress?.phase,
+        runDetail: runProgress?.detail,
+        lastFailedText: lastFailedOutboundText,
+      }),
+    [runProgress, lastFailedOutboundText],
   );
   const effectiveMacHttpOk = useMemo(
     () =>
@@ -755,6 +766,13 @@ export default function ChatScreen() {
     [gatewayUrl, gatewayProfiles, tailnetProbeHostCount, tailscaleDiscoveries],
   );
   const userSendFailed = pinnedOutboundStatus === 'failed';
+  const hasRetryableFailedSend = Boolean(lastFailedOutboundText?.trim());
+  const hideMacTileForSilentHeal = shouldHideMacTileForSilentHeal({
+    silentHealInFlight: connectionHealInFlight,
+    macRetryBusy,
+    userSendFailed,
+    hasRetryableFailedSend,
+  });
   const showMacConnectionHelp = shouldShowMacConnectionHelp({
     isDemo,
     macChatLive: effectiveMacChatLive,
@@ -2666,9 +2684,34 @@ export default function ChatScreen() {
     setInputValue(text);
   }, []);
 
-  const handleSendMessage = async () => {
-    const userText = inputValueRef.current.trim();
-    if (!userText) return;
+  const handleSendMessage = async (composerLatest?: string) => {
+    const action = resolveComposerSendAction({
+      composerText: composerLatest ?? inputValueRef.current,
+      lastFailedText: lastFailedOutboundText ?? lastFailedSendTextRef.current,
+      isDemo,
+      macChatLive,
+    });
+
+    if (action.kind === 'none') {
+      return;
+    }
+
+    if (action.kind === 'retry_reconnect') {
+      haptics.selection();
+      await handleMacRetry();
+      return;
+    }
+
+    const userText = action.text;
+
+    if (action.kind === 'retry_resend') {
+      haptics.selection();
+      const accepted = await sendUserText(userText, true);
+      if (accepted) {
+        haptics.light();
+      }
+      return;
+    }
 
     lastSentComposerTextRef.current = userText;
     sendClearSuppressRef.current = true;
@@ -2690,14 +2733,17 @@ export default function ChatScreen() {
   const handleSendMessageRef = useRef(handleSendMessage);
   handleSendMessageRef.current = handleSendMessage;
 
-  const handleSubmit = useCallback(() => {
-    if (inputValueRef.current.trim()) {
-      void handleSendMessageRef.current();
+  const handleSubmit = useCallback((latestText?: string) => {
+    const text = (latestText ?? inputValueRef.current).trim();
+    if (text) {
+      void handleSendMessageRef.current(latestText);
+      return;
     }
+    void handleSendMessageRef.current();
   }, []);
 
-  const handleSend = useCallback(() => {
-    void handleSendMessageRef.current();
+  const handleSend = useCallback((latestText?: string) => {
+    void handleSendMessageRef.current(latestText);
   }, []);
 
   const drainOutboundQueue = () => {
@@ -2936,7 +2982,7 @@ export default function ChatScreen() {
           includeToolActivity={settings.includeToolActivity ?? false}
           isTelegramInbox={isTelegramInbox}
           connectionState={connectionState}
-          macHttpOk={macHttpOk}
+          macHttpOk={effectiveMacHttpOk}
           approvalBusy={approvalBusy}
           isSending={isSending}
           outputFeedback={outputFeedback}
@@ -2951,7 +2997,7 @@ export default function ChatScreen() {
       settings.includeToolActivity,
       isTelegramInbox,
       connectionState,
-      macHttpOk,
+      effectiveMacHttpOk,
       approvalBusy,
       isSending,
       leashUnlocked,
@@ -4467,7 +4513,7 @@ export default function ChatScreen() {
           connectionState={connectionState}
           macHttpReachable={effectiveMacHttpOk}
           macRetryBusy={macRetryBusy}
-          silentHealInFlight={connectionHealInFlight && !macRetryBusy}
+          silentHealInFlight={hideMacTileForSilentHeal}
           pendingApprovalCount={composerApprovals.length}
           runProgress={progressBanner}
           isSending={isSending}
@@ -4671,7 +4717,7 @@ export default function ChatScreen() {
             text={pinnedOutboundText}
             status={pinnedOutboundStatus}
             connectionState={connectionState}
-            macHttpOk={macHttpOk}
+            macHttpOk={effectiveMacHttpOk}
           />
         ) : null}
 

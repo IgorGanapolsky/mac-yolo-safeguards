@@ -502,6 +502,58 @@ describe('ChatScreen', () => {
     expect(sendButton).toBeTruthy();
   });
 
+  it('runs reconnect heal when Computer tile is pressed while disconnected', async () => {
+    mockGatewayState.retryGatewayBootstrap.mockClear();
+    mockGatewayState.scanForGatewayProfiles.mockClear();
+    mockGatewayState.autoConnectGateway.mockClear();
+    mockGatewayState.refreshHealth.mockClear();
+    mockGatewayState.connectEvents.mockClear();
+
+    Object.assign(mockGatewayState, {
+      connectionState: 'disconnected',
+      connectionHealAttempt: 6,
+      connectionHealInFlight: false,
+      effectiveGatewayUrl: 'http://100.94.135.78:8642',
+      health: {
+        ok: false,
+        level: 'red',
+        hostname: 'Igors-Mac-mini',
+        directGatewayReachable: false,
+        checkedAt: '2026-07-08T12:00:00Z',
+      },
+      settings: {
+        demoMode: false,
+        connectionMode: 'gateway',
+        gatewayUrl: 'http://100.94.135.78:8642',
+        cloudUrl: 'https://hermesmobile-cloud.fly.dev',
+        approvalPolicy: 'balanced',
+      },
+      activeGatewayProfile: {
+        id: 'mac_mini',
+        label: 'Igors-Mac-mini',
+        gatewayUrl: 'http://100.94.135.78:8642',
+        addedAt: '2026-06-18T00:00:00Z',
+      },
+    });
+
+    const { getByTestId } = await renderChatScreen();
+
+    await waitFor(() => {
+      expect(getByTestId('command-center-mac-tile')).toBeTruthy();
+    });
+
+    await act(async () => {
+      fireEvent.press(getByTestId('command-center-mac-tile'));
+      await drainChatScreenAsync();
+    });
+
+    expect(mockGatewayState.scanForGatewayProfiles).toHaveBeenCalled();
+    expect(mockGatewayState.autoConnectGateway).toHaveBeenCalled();
+    expect(mockGatewayState.retryGatewayBootstrap).toHaveBeenCalled();
+    expect(mockGatewayState.refreshHealth).toHaveBeenCalled();
+    expect(mockGatewayState.connectEvents).toHaveBeenCalled();
+  });
+
   it('does not render bottom recent prompt chips above the composer', async () => {
     const { sendChatMessage } = jest.requireMock('../services/hermesChatClient') as {
       sendChatMessage: jest.Mock;

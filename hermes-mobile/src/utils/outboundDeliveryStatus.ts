@@ -16,11 +16,16 @@ export function isGatewayLiveForDelivery(input: {
   connectionState: LeashConnectionState;
   macHttpOk: boolean;
 }): boolean {
-  return (
-    input.connectionState === 'connected' ||
-    input.connectionState === 'demo' ||
-    input.macHttpOk
-  );
+  if (input.connectionState === 'demo') {
+    return true;
+  }
+  if (input.connectionState === 'connected') {
+    return true;
+  }
+  if (input.connectionState === 'disconnected') {
+    return false;
+  }
+  return input.macHttpOk;
 }
 
 /** Human label for outbound bubbles / submitted strip — never show ✓ Sent when Mac isn't reachable. */
@@ -37,10 +42,14 @@ export function outboundDeliveryLabel(
     if (reason) {
       return `⚠ ${truncateOutboundFailureReason(reason)}`;
     }
-    if (input.macHttpOk) {
+    const live = isGatewayLiveForDelivery(input);
+    if (live) {
       return '⚠ No reply — tap ↑ again';
     }
-    return "⚠ Couldn't reach your computer";
+    if (input.macHttpOk) {
+      return '⚠ No reply — tap Computer above or ↑';
+    }
+    return "⚠ Couldn't reach your computer — tap Computer above";
   }
 
   const live = isGatewayLiveForDelivery(input);
