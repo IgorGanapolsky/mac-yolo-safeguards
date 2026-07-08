@@ -1,4 +1,11 @@
-# Chat send — user bubble must stay visible (guards refresh-race regression).
+# Chat send — user bubble must stay visible (guards refresh-race / virtualization regression).
+#
+# ROOT CAUSE NOTE (open harness bug, not solely app bug):
+# On Android, Maestro `inputText` often leaves RN TextInput empty (IME composing region), so
+# Send taps with blank composer and this flow fails even when unit optimistic-send tests pass
+# (see plan.md T-70 Decision Log 2026-07-04). Desired product behavior is still asserted here
+# so CI/device E2E fail closed once IME input is fixed or a clipboard-paste path is adopted.
+# Continuous E2E still runs this flow; PR emulator gate uses ship-guard only (no typing).
 appId: com.iganapolsky.hermesmobile
 ---
 - launchApp
@@ -22,25 +29,23 @@ appId: com.iganapolsky.hermesmobile
 - tapOn:
     id: "chat-input"
 - eraseText
-- inputText: "print money, make money faster. Use Data Science, ML and Agentic RAG."
+- inputText: "e2e-chat-send-persist"
 - waitForAnimationToEnd:
     timeout: 2000
 - hideKeyboard
 - tapOn:
     id: "chat-send-button"
-# User bubble is the persistence signal — run-progress-banner hides until runId (demo clears it fast).
-# Scroll first: long live sessions virtualize off-screen bubbles until offset-0 (latest) is shown.
+# Prefer stable testID; scroll first because long sessions virtualize off-screen bubbles.
 - scrollUntilVisible:
     element:
-      text: "print money, make money faster. Use Data Science, ML and Agentic RAG."
+      id: "chat-message-user"
     direction: UP
     timeout: 20000
     speed: 40
 - extendedWaitUntil:
-    visible: "print money, make money faster. Use Data Science, ML and Agentic RAG."
+    visible:
+      id: "chat-message-user"
     timeout: 15000
-- assertVisible: "print money, make money faster. Use Data Science, ML and Agentic RAG."
-- extendedWaitUntil:
-    visible: "print money, make money faster. Use Data Science, ML and Agentic RAG."
-    timeout: 8000
-- assertVisible: "print money, make money faster. Use Data Science, ML and Agentic RAG."
+- assertVisible:
+    id: "chat-message-user"
+- assertVisible: "e2e-chat-send-persist"

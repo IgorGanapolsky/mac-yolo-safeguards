@@ -9,7 +9,14 @@ source "$SCRIPT_DIR/maestro-env.sh"
 
 FLOW="${1:-.maestro/full-suite.yaml}"
 MAESTRO_AVD_NAME="${HERMES_E2E_AVD_NAME:-Maestro_ANDROID_pixel_6_android-33}"
-MAX_LOAD="${HERMES_E2E_MAX_LOAD:-6}"
+CPU_COUNT="$(sysctl -n hw.ncpu 2>/dev/null || nproc 2>/dev/null || echo 8)"
+if [[ -n "${HERMES_E2E_MAX_LOAD:-}" ]]; then
+  MAX_LOAD="$HERMES_E2E_MAX_LOAD"
+elif [[ "$CPU_COUNT" =~ ^[0-9]+$ ]] && (( CPU_COUNT > 6 )); then
+  MAX_LOAD="$CPU_COUNT"
+else
+  MAX_LOAD="6"
+fi
 
 if ! command -v maestro >/dev/null 2>&1; then
   echo "Maestro required: curl -fsSL https://get.maestro.mobile.dev | bash" >&2

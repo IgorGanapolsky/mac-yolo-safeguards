@@ -19,7 +19,15 @@ LOG_DIR="${HERMES_E2E_LOG_DIR:-$HERMES_DIR/docs/proofs/continuous}"
 PID_FILE="${HOME}/Library/Logs/hermes-mobile-continuous-e2e.pid"
 LATEST_JSON="${LOG_DIR}/latest.json"
 CPU_COUNT="$(sysctl -n hw.ncpu 2>/dev/null || echo 8)"
-MAX_LOAD="${HERMES_E2E_MAX_LOAD:-6}"
+# Scale with core count (8-core Mac → 8, not 6) so normal dev load does not silently skip E2E.
+if [[ -n "${HERMES_E2E_MAX_LOAD:-}" ]]; then
+  MAX_LOAD="$HERMES_E2E_MAX_LOAD"
+elif (( CPU_COUNT > 6 )); then
+  MAX_LOAD="$CPU_COUNT"
+else
+  MAX_LOAD="6"
+fi
+LOAD_WAIT_SEC="${HERMES_E2E_LOAD_WAIT_SEC:-900}"
 MAX_SIMRUNTIME_PROCS="${HERMES_E2E_MAX_SIMRUNTIME_PROCS:-80}"
 E2E_FLOWS=(
   ".maestro/ship-guard.yaml"
@@ -101,10 +109,18 @@ guard_system_pressure() {
   current_sim_count="$(simruntime_process_count)"
 
   if number_gt "$current_load" "$MAX_LOAD"; then
-    detail="skipped continuous E2E: load ${current_load} exceeds max ${MAX_LOAD}; set HERMES_E2E_FORCE=1 to override"
-    echo "$detail"
-    write_status "skipped" "skipped" "$detail"
-    return 1
+    local deadline=$((SECONDS + LOAD_WAIT_SEC))
+    echo "Load ${current_load} exceeds max ${MAX_LOAD} — queueing up to ${LOAD_WAIT_SEC}s (HERMES_E2E_FORCE=1 to bypass)"
+    while number_gt "$(load1)" "$MAX_LOAD"; do
+      if (( SECONDS >= deadline )); then
+        detail="skipped continuous E2E after ${LOAD_WAIT_SEC}s wait: load $(load1) still exceeds max ${MAX_LOAD}; set HERMES_E2E_FORCE=1 to override"
+        echo "$detail"
+        write_status "skipped" "skipped" "$detail"
+        return 1
+      fi
+      sleep 30
+    done
+    echo "Load dropped to $(load1) — proceeding with continuous E2E"
   fi
 
   if [[ "$current_sim_count" =~ ^[0-9]+$ ]] && (( current_sim_count > MAX_SIMRUNTIME_PROCS )); then

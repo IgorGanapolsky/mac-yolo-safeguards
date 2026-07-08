@@ -1,0 +1,18 @@
+# Regression: chat header exposes stable hermes status row; model text is unit-gated
+# (ChatScreenHeader.test.tsx). E2E only asserts the row is present after bootstrap so a
+# missing header/status cannot ship silently.
+appId: com.iganapolsky.hermesmobile
+---
+- launchApp
+- extendedWaitUntil:
+    notVisible:
+      id: "hermes-bootstrap"
+    timeout: 90000
+- runFlow: dismiss-print-interruption.yaml
+- runFlow: chat-e2e-bootstrap.yaml
+- extendedWaitUntil:
+    visible:
+      id: "chat-screen-header"
+    timeout: 30000
+- assertVisible:
+    id: "chat-header-hermes-status"

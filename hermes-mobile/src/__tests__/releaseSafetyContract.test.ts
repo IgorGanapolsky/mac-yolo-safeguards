@@ -324,6 +324,8 @@ describe('release safety contract', () => {
     expect(runner).toContain('Android-only continuous E2E requested');
     expect(runner).toContain('android-only continuous E2E skipped');
     expect(runner).toContain('HERMES_E2E_ANDROID_ONLY');
+    expect(runner).toContain('LOAD_WAIT_SEC');
+    expect(runner).toContain('queueing up to');
     const plist = read('com.igor.hermes-mobile-continuous-e2e.plist');
     expect(plist).toContain('com.igor.hermes-mobile-continuous-e2e');
     expect(plist).toContain('HERMES_E2E_ANDROID_ONLY');
@@ -333,5 +335,13 @@ describe('release safety contract', () => {
     expect(workflow).toContain('test:ci');
     expect(workflow).toContain('assembleRelease');
     expect(workflow).toContain('verify-apk-package.cjs');
+  });
+
+  it('maestro full-suite includes T-114 regression flows', () => {
+    const suite = read('hermes-mobile/.maestro/full-suite.yaml');
+    expect(suite).toContain('regression-glanceable-tab.yaml');
+    expect(suite).toContain('regression-chat-send-visible.yaml');
+    expect(suite).toContain('regression-leash-refresh.yaml');
+    expect(suite).toContain('regression-chat-header-model.yaml');
   });
 });

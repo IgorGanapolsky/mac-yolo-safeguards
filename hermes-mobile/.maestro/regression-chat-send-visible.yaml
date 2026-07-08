@@ -1,0 +1,43 @@
+# Regression: after Send, the user bubble must stay visible and latest content reachable
+# (send persistence + auto-scroll / virtualization pins latest).
+# Note: Android Maestro inputText can fail to hydrate RN TextInput (IME composing) — see
+# docs/RELEASE-SAFETY-NET.md. Unit tests in ChatScreen.test.tsx are the reliable gate until
+# Maestro clipboard/paste path is proven green on device.
+appId: com.iganapolsky.hermesmobile
+---
+- launchApp
+- extendedWaitUntil:
+    notVisible:
+      id: "hermes-bootstrap"
+    timeout: 90000
+- runFlow: dismiss-print-interruption.yaml
+- runFlow: chat-e2e-bootstrap.yaml
+- runFlow:
+    when:
+      notVisible:
+        id: "chat-input"
+    commands:
+      - tapOn:
+          id: "tab-hermes"
+- extendedWaitUntil:
+    visible:
+      id: "chat-input"
+    timeout: 30000
+- tapOn:
+    id: "chat-input"
+- eraseText
+- inputText: "e2e-persist-probe-keep-visible"
+- waitForAnimationToEnd:
+    timeout: 2000
+- hideKeyboard
+- tapOn:
+    id: "chat-send-button"
+- scrollUntilVisible:
+    element:
+      id: "chat-message-user"
+    direction: UP
+    timeout: 20000
+    speed: 40
+- assertVisible:
+    id: "chat-message-user"
+- assertVisible: "e2e-persist-probe-keep-visible"
