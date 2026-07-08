@@ -4,6 +4,8 @@ import {
   buildGateActionMessage,
   buildEventsWebSocketUrl,
   fetchGatewayHealth,
+  probeGatewayAuth,
+  GATEWAY_WRONG_KEY_MESSAGE,
   parseGatewayEvent,
   parseReclaimEvent,
 } from '../services/gatewayClient';
@@ -88,25 +90,72 @@ describe('parseReclaimEvent', () => {
   });
 });
 
+describe('probeGatewayAuth', () => {
+  beforeEach(() => {
+    global.fetch = jest.fn();
+  });
+
+  it('returns ok when no api key configured', async () => {
+    const result = await probeGatewayAuth('http://127.0.0.1:8642');
+    expect(result.ok).toBe(true);
+    expect(global.fetch).not.toHaveBeenCalled();
+  });
+
+  it('flags 401 as wrong key', async () => {
+    (global.fetch as jest.Mock).mockResolvedValue({ ok: false, status: 401 });
+    const result = await probeGatewayAuth('http://100.94.135.78:8642', 'wrong-key');
+    expect(result.ok).toBe(false);
+    expect(result.status).toBe(401);
+    expect(result.errorMessage).toBe(GATEWAY_WRONG_KEY_MESSAGE);
+  });
+
+  it('passes when sessions endpoint accepts the key', async () => {
+    (global.fetch as jest.Mock).mockResolvedValue({ ok: true, status: 200 });
+    const result = await probeGatewayAuth('http://127.0.0.1:8642', 'good-key');
+    expect(result.ok).toBe(true);
+  });
+});
+
 describe('fetchGatewayHealth', () => {
   beforeEach(() => {
     global.fetch = jest.fn();
   });
 
-  it('returns green snapshot for ok+running', async () => {
-    (global.fetch as jest.Mock).mockResolvedValue({
-      ok: true,
-      json: async () => ({
-        status: 'ok',
-        gateway_state: 'running',
-        hostname: 'mac',
-        local_ip: '10.0.0.1',
-      }),
+  function mockHealthThenAuth(authStatus: number, authOk: boolean) {
+    (global.fetch as jest.Mock).mockImplementation((url: string) => {
+      if (url.includes('/api/sessions')) {
+        return Promise.resolve({ ok: authOk, status: authStatus });
+      }
+      return Promise.resolve({
+        ok: true,
+        json: async () => ({
+          status: 'ok',
+          gateway_state: 'running',
+          hostname: 'mac',
+          local_ip: '10.0.0.1',
+        }),
+      });
     });
+  }
+
+  it('returns green snapshot for ok+running with valid auth', async () => {
+    mockHealthThenAuth(200, true);
 
     const health = await fetchGatewayHealth('http://127.0.0.1:8642', 'sk-key');
     expect(health.level).toBe('green');
     expect(health.hostname).toBe('mac');
+    expect(health.directGatewayReachable).toBe(true);
+    expect(health.authMismatch).toBeUndefined();
+  });
+
+  it('marks authMismatch when health is ok but sessions returns 401', async () => {
+    mockHealthThenAuth(401, false);
+
+    const health = await fetchGatewayHealth('http://100.94.135.78:8642', 'laptop-key');
+    expect(health.level).toBe('green');
+    expect(health.directGatewayReachable).toBe(false);
+    expect(health.authMismatch).toBe(true);
+    expect(health.errorMessage).toBe(GATEWAY_WRONG_KEY_MESSAGE);
   });
 
   it('returns green for hermes-agent /health without gateway_state', async () => {

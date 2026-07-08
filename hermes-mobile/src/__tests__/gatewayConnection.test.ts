@@ -83,4 +83,25 @@ describe('gatewayConnection', () => {
       }),
     ).toBe(true);
   });
+
+  it('shows wrong-key copy instead of Connected when auth mismatches', () => {
+    expect(
+      resolveChatLinkDisplay({
+        connectionState: 'connected',
+        macHttpOk: false,
+        authMismatch: true,
+      }),
+    ).toEqual({ label: 'Wrong key for this computer', chatReachable: false });
+  });
+
+  it('treats authMismatch health as not mac HTTP ok', () => {
+    expect(
+      isMacGatewayHttpOk({
+        level: 'green',
+        checkedAt: '2026-07-08T12:00:00Z',
+        directGatewayReachable: true,
+        authMismatch: true,
+      }),
+    ).toBe(false);
+  });
 });

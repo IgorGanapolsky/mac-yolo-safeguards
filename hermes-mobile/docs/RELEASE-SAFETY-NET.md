@@ -12,6 +12,22 @@ Prevention hardening so today's bug class fails closed in CI / install / continu
 | No foreground notification while app active | **Unit yes** | `hermesNotifications.test.ts` + `GatewayContext.test.tsx`. No Maestro assertion (notification shade is OS-owned). |
 | Leash pull-to-refresh spinner clears | **Unit + Maestro** | `ApprovalsScreen.test.tsx` spinner clearing. Maestro: `regression-leash-refresh.yaml`. |
 | Chat header shows real model, not bare `Hermes (active)` | **Unit yes** | `ChatScreenHeader.test.tsx` (`buildHermesStatusLabel`). Maestro: `regression-chat-header-model.yaml` asserts status row present. |
+| `/health` green but chat API key wrong (multi-Mac fleet) | **Unit yes** | `gatewayClient.test.ts` auth probe + `gatewayConnection.test.ts` wrong-key label; `tests/test-hermes-mobile-pair.sh` mini SSH key; `releaseSafetyNet.test.ts` contract. |
+
+## Wrong-key class (T-120, 2026-07-08)
+
+**Failure mode:** Phone saved Mac mini URL (`100.94.135.78:8642`) with MacBook Pro `API_SERVER_KEY`. Unauthenticated `GET /health` returned 200 → UI showed Connected; authenticated `POST /api/sessions/.../chat` returned 401 → "No reply — tap ↑ again".
+
+**Prevention:**
+
+| Layer | What it catches | Evidence |
+|-------|-----------------|----------|
+| Pair script | Laptop pairs mini with laptop key | `tests/test-hermes-mobile-pair.sh` — mini URL must SSH-fetch key |
+| Auth probe | Green health + wrong key | `gatewayClient.test.ts` — `authMismatch` when sessions=401 |
+| UI | False Connected | `gatewayConnection.test.ts` — "Wrong key for this computer" |
+| Release contract | Regression in pair/auth wiring | `releaseSafetyNet.test.ts` + this doc |
+
+Pair Mac mini over Tailscale: `node tools/hermes-mobile-pair.js --mini-tailscale` (never manual key paste from laptop `.env`).
 
 ## CI / E2E gates
 

@@ -8,6 +8,7 @@ type ChatContextStripProps = {
   machineLabel: string;
   connectionState: LeashConnectionState;
   macHttpReachable?: boolean;
+  authMismatch?: boolean;
   projectName?: string;
   workspacePath?: string;
   handoffSummary?: string;
@@ -20,13 +21,18 @@ type ChatContextStripProps = {
 function connectionMeta(
   state: LeashConnectionState,
   macHttpReachable = false,
+  authMismatch = false,
 ): { label: string; color: string } {
   const link = resolveChatLinkDisplay({
     connectionState: state,
     macHttpOk: macHttpReachable,
+    authMismatch,
   });
   if (link.chatReachable) {
     return { label: 'Linked', color: colors.success };
+  }
+  if (link.label === 'Wrong key for this computer') {
+    return { label: link.label, color: colors.error };
   }
   if (link.label === 'Relay only') {
     return { label: 'Relay only', color: colors.warning };
@@ -41,6 +47,7 @@ export default function ChatContextStrip({
   machineLabel,
   connectionState,
   macHttpReachable = false,
+  authMismatch = false,
   projectName,
   workspacePath,
   handoffSummary,
@@ -49,7 +56,7 @@ export default function ChatContextStrip({
   macSwitchHint,
   channelHint,
 }: ChatContextStripProps) {
-  const status = connectionMeta(connectionState, macHttpReachable);
+  const status = connectionMeta(connectionState, macHttpReachable, authMismatch);
 
   return (
     <View style={styles.strip} testID="chat-context-strip">

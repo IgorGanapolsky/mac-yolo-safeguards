@@ -117,5 +117,27 @@ describe('release safety net (T-114)', () => {
     expect(docs).toContain('Maestro ship-guard (Android emulator)');
     expect(docs).toContain('chat-send-persistence');
     expect(docs).toContain('IME');
+    expect(docs).toContain('Wrong key');
+    expect(docs).toContain('auth probe');
+  });
+
+  it('pair script resolves per-machine API keys for Mac mini Tailscale', () => {
+    const pairLib = read('tools/hermes-mobile-pair-lib.js');
+    expect(pairLib).toContain('resolveApiKeyForGatewayUrl');
+    expect(pairLib).toContain('100.94.135.78');
+    expect(pairLib).toContain('hermes-mini');
+    const pairTest = read('tests/test-hermes-mobile-pair.sh');
+    expect(pairTest).toContain('mini-key-from-ssh');
+    expect(pairTest).toContain('laptop-key-from-env');
+  });
+
+  it('fetchGatewayHealth runs authenticated sessions probe before Connected', () => {
+    const client = read('hermes-mobile/src/services/gatewayClient.ts');
+    expect(client).toContain('probeGatewayAuth');
+    expect(client).toContain('/api/sessions?limit=1');
+    expect(client).toContain('authMismatch');
+    const connection = read('hermes-mobile/src/utils/gatewayConnection.ts');
+    expect(connection).toContain('GATEWAY_WRONG_KEY_MESSAGE');
+    expect(connection).toContain('authMismatch');
   });
 });

@@ -1,6 +1,7 @@
 import type { GatewayHealthSnapshot } from '../types/gateway';
 import type { LeashConnectionState } from './gatewayEndpoint';
 import { isLoopbackGatewayUrl } from './gatewayUrlPolicy';
+import { GATEWAY_WRONG_KEY_MESSAGE } from '../services/gatewayClient';
 
 export type GatewayBootstrapPhase = 'booting' | 'searching' | 'connected' | 'needs_setup';
 
@@ -30,7 +31,11 @@ export function resolveChatLinkDisplay(input: {
   macHttpOk: boolean;
   disconnectedLabel?: string;
   isDemo?: boolean;
+  authMismatch?: boolean;
 }): ChatLinkDisplay {
+  if (input.authMismatch) {
+    return { label: GATEWAY_WRONG_KEY_MESSAGE, chatReachable: false };
+  }
   if (input.isDemo || input.connectionState === 'demo') {
     return { label: 'Demo', chatReachable: true };
   }
@@ -56,7 +61,7 @@ export function isGatewayHealthOk(health: GatewayHealthSnapshot | null | undefin
 
 /** Chat HTTP to Mac :8642 — not cloud relay reachability. */
 export function isMacGatewayHttpOk(health: GatewayHealthSnapshot | null | undefined): boolean {
-  if (!health) {
+  if (!health || health.authMismatch) {
     return false;
   }
   if (typeof health.directGatewayReachable === 'boolean') {

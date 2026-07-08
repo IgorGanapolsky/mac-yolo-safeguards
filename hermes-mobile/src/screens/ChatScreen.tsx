@@ -4493,6 +4493,7 @@ export default function ChatScreen() {
           showMachineDetailWhenConnected={machineHeaderDisplay.showDetailWhenConnected}
           connectionState={connectionState}
           macHttpReachable={effectiveMacHttpOk}
+          authMismatch={health?.authMismatch === true}
           isDemo={isDemo}
           workspaceName={activeProject?.name}
           workspaceHandoff={activeProject?.handoffSummary}
