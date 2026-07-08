@@ -1,6 +1,8 @@
 import type { HermesMessage } from '../types/chat';
 import { coerceMessageId, idHasPrefix } from './messageIds';
 import { dedupeToolDumpMessages } from './chatToolDump';
+import { serverHasAssistantReplyAfterLastUser } from './emptyStreamReplyRecovery';
+import { isDeferredStreamPlaceholder } from './streamAssistantText';
 
 /** Normalize text so optimistic phone bubbles match gateway transcript formatting. */
 export function normalizeMessageText(text: string): string {
@@ -52,6 +54,19 @@ function isStreamingPlaceholder(message: HermesMessage): boolean {
     idHasPrefix(message.id, 'asst-') &&
     isMessageBodyEmpty(message.content, message.rawContent)
   );
+}
+
+function isLocalAssistantPlaceholder(message: HermesMessage): boolean {
+  if (message.role?.toLowerCase() !== 'assistant' || !idHasPrefix(message.id, 'asst-')) {
+    return false;
+  }
+  if (isStreamingPlaceholder(message)) {
+    return true;
+  }
+  if (isDeferredStreamPlaceholder(message.content)) {
+    return true;
+  }
+  return isMessageBodyEmpty(message.content, message.rawContent);
 }
 
 function isOptimisticUserMessage(message: HermesMessage): boolean {
@@ -123,8 +138,13 @@ export function mergeServerMessagesWithPending(
   const serverFingerprints = new Set(dedupedServer.map(messageFingerprint));
   const pendingTail: HermesMessage[] = [];
 
+  const serverHasFreshAssistantReply = serverHasAssistantReplyAfterLastUser(dedupedServer);
+
   for (const message of localMessages) {
-    if (isStreamingPlaceholder(message)) {
+    if (isLocalAssistantPlaceholder(message)) {
+      if (serverHasFreshAssistantReply) {
+        continue;
+      }
       pendingTail.push(message);
       continue;
     }
