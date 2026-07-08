@@ -250,6 +250,12 @@ import {
   snapshotAssistantBodies,
   TELEGRAM_QUEUED_REPLY_PLACEHOLDER,
 } from '../utils/streamAssistantText';
+import {
+  DEFERRED_REPLY_POLL_MAX_MS,
+  DEFERRED_REPLY_POLL_MS,
+  EMPTY_REPLY_FAILURE_REASON,
+  shouldAwaitGatewayReplyAfterSend,
+} from '../utils/emptyStreamReplyRecovery';
 import { extractTerminalActivityFromMessage, isTerminalToolName } from '../utils/terminalActivity';
 
 function projectSessions(
@@ -492,6 +498,9 @@ export default function ChatScreen() {
   /** When a force/manual select is requested while a refresh is in flight, replay with force. */
   const refreshQueuedForceRef = useRef(false);
   const deferredTelegramPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  /** Keep HTTP transcript polling alive until gateway reply text lands (relay WS ≠ chat transport). */
+  const awaitingGatewayReplyRef = useRef(false);
+  const [awaitingGatewayReply, setAwaitingGatewayReply] = useState(false);
   const runProgressRef = useRef<RunProgressState | null>(null);
   const sendProgressSnapshotRef = useRef<RunProgressState | null>(null);
   const transcriptDigestRef = useRef('');
@@ -1984,25 +1993,42 @@ export default function ChatScreen() {
       clearInterval(deferredTelegramPollRef.current);
       deferredTelegramPollRef.current = null;
     }
+    awaitingGatewayReplyRef.current = false;
+    setAwaitingGatewayReply(false);
   }, []);
 
-  const startDeferredTelegramPoll = useCallback(
-    (assistantId: string, priorAssistants: Set<string>) => {
+  const startDeferredReplyPoll = useCallback(
+    (
+      assistantId: string,
+      priorAssistants: Set<string>,
+      options?: { onTimeout?: () => void },
+    ) => {
       clearDeferredTelegramPoll();
+      awaitingGatewayReplyRef.current = true;
+      setAwaitingGatewayReply(true);
       const startedAt = Date.now();
       deferredTelegramPollRef.current = setInterval(() => {
-        if (Date.now() - startedAt > 90_000) {
+        if (Date.now() - startedAt > DEFERRED_REPLY_POLL_MAX_MS) {
           clearDeferredTelegramPoll();
+          awaitingGatewayReplyRef.current = false;
+          setAwaitingGatewayReply(false);
           setToolStatus(null);
-          setRunProgress(null);
+          setRunProgress((prev) =>
+            prev && prev.phase !== 'completed'
+              ? { ...prev, phase: 'failed', detail: EMPTY_REPLY_FAILURE_REASON }
+              : prev,
+          );
+          options?.onTimeout?.();
           return;
         }
-        void refreshSessionMessages({ background: true }).then(() => {
+        void refreshSessionMessages({ background: true, force: true }).then(() => {
           const reply = findNewAssistantReply(messagesRef.current, priorAssistants);
           if (!reply) {
             return;
           }
           clearDeferredTelegramPoll();
+          awaitingGatewayReplyRef.current = false;
+          setAwaitingGatewayReply(false);
           setToolStatus(null);
           setRunProgress(null);
           commitMessages((prev) =>
@@ -2010,9 +2036,16 @@ export default function ChatScreen() {
           );
           haptics.success();
         });
-      }, 3000);
+      }, DEFERRED_REPLY_POLL_MS);
     },
-    [clearDeferredTelegramPoll, refreshSessionMessages, commitMessages],
+    [clearDeferredTelegramPoll, commitMessages, refreshSessionMessages],
+  );
+
+  const startDeferredTelegramPoll = useCallback(
+    (assistantId: string, priorAssistants: Set<string>) => {
+      startDeferredReplyPoll(assistantId, priorAssistants);
+    },
+    [startDeferredReplyPoll],
   );
 
   useEffect(() => {
@@ -2246,17 +2279,25 @@ export default function ChatScreen() {
     // We poll if:
     // 1. Gateway-backed thread view (4–5s)
     // 2. WebSocket is down (8s HTTP fallback for all sessions)
-    const shouldPoll = isTelegramView || connectionState !== 'connected';
+    const shouldPoll =
+      isTelegramView || connectionState !== 'connected' || awaitingGatewayReply;
     if (!shouldPoll) {
       return;
     }
-    const intervalMs =
-      isTelegramView ? (connectionState === 'connected' ? 5000 : 4000) : connectionState === 'connected' ? 12000 : 8000;
+    const intervalMs = awaitingGatewayReply
+        ? DEFERRED_REPLY_POLL_MS
+        : isTelegramView
+          ? connectionState === 'connected'
+            ? 5000
+            : 4000
+          : connectionState === 'connected'
+            ? 12000
+            : 8000;
     const timer = setInterval(() => {
       refreshSessionMessagesRef.current?.({ background: true });
     }, intervalMs);
     return () => clearInterval(timer);
-  }, [currentSession?.id, isDemo, macChatLive, isTelegramView, connectionState]);
+  }, [currentSession?.id, isDemo, macChatLive, isTelegramView, connectionState, awaitingGatewayReply]);
 
   useEffect(() => {
     const activeSession = currentSessionRef.current;
@@ -3479,6 +3520,7 @@ export default function ChatScreen() {
 
       let switchedSessionId = targetSessionId;
       let assistantText = '';
+      let streamAccepted = false;
       const streamChatToSession = (streamTargetSessionId: string) => {
         switchedSessionId = streamTargetSessionId;
         return retryOnSessionInUse(
@@ -3628,6 +3670,7 @@ export default function ChatScreen() {
           },
           mobileChatSystemPrompt,
           () => {
+            streamAccepted = true;
             markMessageDeliveredToMac();
             releaseOutboundSendLock();
             setRunProgress((prev) =>
@@ -3705,6 +3748,15 @@ export default function ChatScreen() {
         const sessionRemoved =
           !isTelegramInboxSession(activeSess) &&
           (isSessionRemovedError(streamErr) || streamStatus === 404);
+        const shouldFallback =
+          isSessionInUseError(streamErr) ||
+          streamStatus >= 400 ||
+          streamMessage.includes('Network request failed') ||
+          streamMessage.includes('Failed to fetch') ||
+          streamMessage.toLowerCase().includes('timed out') ||
+          streamMessage.toLowerCase().includes('stalled') ||
+          streamMessage.includes('AbortError') ||
+          streamMessage.toLowerCase().includes('connection error');
 
         if (sessionRemoved && !removedSessionRecoveryAttempted) {
           removedSessionRecoveryAttempted = true;
@@ -3717,18 +3769,10 @@ export default function ChatScreen() {
           // let it surface through the outer catch (the visible error).
           assistantText = await streamChatToSession(targetSessionId);
           updateAssistant(assistantText);
-        } else {
-          const shouldFallback =
-          isSessionInUseError(streamErr) ||
-          streamStatus >= 400 ||
-          streamMessage.includes('Network request failed') ||
-          streamMessage.includes('Failed to fetch') ||
-          streamMessage.toLowerCase().includes('timed out') ||
-          streamMessage.toLowerCase().includes('stalled') ||
-          streamMessage.includes('AbortError') ||
-          streamMessage.toLowerCase().includes('connection error');
-
-        if (shouldFallback) {
+        } else if (streamAccepted && shouldFallback) {
+          // User message already reached the Mac; polling beats re-sending and duplicating turns.
+          assistantText = '';
+        } else if (shouldFallback) {
           const response = await retryOnSessionInUse(
             gatewayUrl,
             apiKey,
@@ -3748,7 +3792,6 @@ export default function ChatScreen() {
           setToolStatus('Sent without live stream (connection fallback)');
         } else {
           throw streamErr;
-        }
         }
       }
 
@@ -3771,9 +3814,39 @@ export default function ChatScreen() {
               : prev,
           );
           startDeferredTelegramPoll(assistantId, priorAssistants);
+        } else if (
+          shouldAwaitGatewayReplyAfterSend({
+            assistantText,
+            streamAccepted,
+            streamFailed: false,
+          })
+        ) {
+          setToolStatus('Waiting for reply from your computer…');
+          setRunProgress((prev) =>
+            prev
+              ? {
+                  ...prev,
+                  phase: 'working',
+                  detail: 'Your computer is still working — fetching reply…',
+                }
+              : {
+                  phase: 'working',
+                  startedAtMs: sendStartedAtRef.current,
+                  detail: 'Your computer is still working — fetching reply…',
+                  sessionId: targetSessionIdForProgress,
+                },
+          );
+          startDeferredReplyPoll(assistantId, priorAssistants, {
+            onTimeout: () => {
+              lastFailedSendTextRef.current = userText;
+              setErrorMessage(EMPTY_REPLY_FAILURE_REASON);
+            },
+          });
         }
       }
-      if (!telegramDeferred) {
+      if (!telegramDeferred && assistantText.trim()) {
+        setToolStatus(null);
+      } else if (!telegramDeferred && !assistantText.trim() && !awaitingGatewayReplyRef.current) {
         setToolStatus(null);
       }
       const typedNudge = parseApprovalNudgeFromContent(typed);
