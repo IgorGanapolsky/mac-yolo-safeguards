@@ -368,6 +368,8 @@ export default function ChatScreen() {
   const [isLoadingSessions, setIsLoadingSessions] = useState(false);
   const [isLoadingMessages, setIsLoadingMessages] = useState(false);
   const [isSending, setIsSending] = useState(false);
+  /** HTTP chat stream in flight — keep WS from clearing runProgress before first token. */
+  const [isChatStreamActive, setIsChatStreamActive] = useState(false);
   const [sessionModalVisible, setSessionModalVisible] = useState(false);
   const [toolsModalVisible, setToolsModalVisible] = useState(false);
   const [macPickerVisible, setMacPickerVisible] = useState(false);
@@ -2020,11 +2022,11 @@ export default function ChatScreen() {
   }, [clearDeferredTelegramPoll]);
 
   useEffect(() => {
-    setChatStreamProgressActive(isSending);
-    if (!isSending) {
+    setChatStreamProgressActive(isSending || isChatStreamActive);
+    if (!isSending && !isChatStreamActive) {
       sendProgressSnapshotRef.current = null;
     }
-  }, [isSending, setChatStreamProgressActive]);
+  }, [isSending, isChatStreamActive, setChatStreamProgressActive]);
 
   const failPendingOutboundBubbles = useCallback(
     (failureReason: string) => {
@@ -3139,6 +3141,32 @@ export default function ChatScreen() {
     committedUserMessageId = commitOutboundUserBubble(typed);
     outboundUserBubbleCommitted = true;
 
+    sendStartedAtRef.current = Date.now();
+    const earlyProgressSessionId = isTelegramInboxSession(currentSession)
+      ? telegramReplySessionId
+      : currentSession?.id;
+    setRunProgress((prev) => {
+      const base: RunProgressState =
+        prev && isActiveChatRun(prev)
+          ? {
+              ...prev,
+              phase: 'sending',
+              startedAtMs: sendStartedAtRef.current,
+              detail: 'Delivering your message…',
+              sessionId: earlyProgressSessionId ?? prev.sessionId,
+            }
+          : {
+              phase: 'sending',
+              startedAtMs: sendStartedAtRef.current,
+              detail: 'Delivering your message…',
+              sessionId: earlyProgressSessionId,
+            };
+      if (currentSession) {
+        return mergeSessionUsageIntoRunProgress(base, currentSession, 'Delivering your message…');
+      }
+      return base;
+    });
+
     // A gateway restart drops in-memory session ids; never carry a known-removed
     // id into a send (even on a "New chat") — clear it so we start fresh.
     if (currentSession && !isDemo && removedSessionIdsRef.current.has(currentSession.id)) {
@@ -3417,6 +3445,7 @@ export default function ChatScreen() {
 
     try {
       activeChatStreamRef.current = true;
+      setIsChatStreamActive(true);
       const assistantId = `asst-${Date.now()}`;
       activeAssistantIdRef.current = assistantId;
       activeAssistantTextRef.current = '';
@@ -3608,7 +3637,12 @@ export default function ChatScreen() {
                     phase: 'working',
                     detail: 'Hermes is working on your computer…',
                   }
-                : prev,
+                : {
+                    phase: 'working',
+                    startedAtMs: sendStartedAtRef.current,
+                    detail: 'Hermes is working on your computer…',
+                    sessionId: targetSessionIdForProgress,
+                  },
             );
           },
         ),
@@ -3787,6 +3821,7 @@ export default function ChatScreen() {
       return outboundUserBubbleCommitted;
     } finally {
       activeChatStreamRef.current = false;
+      setIsChatStreamActive(false);
       const releaseOutboundPending = () => {
         if (outboundUserBubbleCommitted && pendingOutboundSendsRef.current > 0) {
           pendingOutboundSendsRef.current -= 1;
@@ -3876,7 +3911,7 @@ export default function ChatScreen() {
       return runProgress;
     }
 
-    if (isSending) {
+    if (isSending || isChatStreamActive) {
       if (sendProgressSnapshotRef.current) {
         return currentSession
           ? mergeSessionUsageIntoRunProgress(
@@ -3887,12 +3922,14 @@ export default function ChatScreen() {
           : sendProgressSnapshotRef.current;
       }
       const fallback: RunProgressState = {
-        phase: 'sending',
+        phase: isSending ? 'sending' : 'working',
         startedAtMs: sendStartedAtRef.current,
         detail:
           queuedOutboundCount > 0
             ? `${queuedOutboundCount} more message(s) queued after this`
-            : 'Delivering your message…',
+            : isSending
+              ? 'Delivering your message…'
+              : 'Hermes is working on your computer…',
         sessionId: activeId,
       };
       if (currentSession) {
@@ -3902,7 +3939,7 @@ export default function ChatScreen() {
     }
 
     return null;
-  }, [runProgress, currentSession?.id, currentSession?.model, currentSession?.input_tokens, currentSession?.output_tokens, telegramReplySessionId, isSending, queuedOutboundCount]);
+  }, [runProgress, currentSession?.id, currentSession?.model, currentSession?.input_tokens, currentSession?.output_tokens, telegramReplySessionId, isSending, isChatStreamActive, queuedOutboundCount]);
 
   useEffect(() => {
     const observed =

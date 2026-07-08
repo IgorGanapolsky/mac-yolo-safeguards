@@ -4,6 +4,20 @@ import { render } from '@testing-library/react-native';
 import RunProgressBanner from '../components/RunProgressBanner';
 
 describe('RunProgressBanner', () => {
+  it('shows delivering copy before a run id exists', () => {
+    const { getByTestId } = render(
+      <RunProgressBanner
+        progress={{
+          phase: 'sending',
+          startedAtMs: Date.now() - 1200,
+          detail: 'Delivering your message…',
+        }}
+      />,
+    );
+    expect(getByTestId('run-progress-banner')).toBeTruthy();
+    expect(getByTestId('run-progress-detail').props.children).toBe('Delivering your message…');
+  });
+
   it('shows stop chip while run is active', () => {
     const onStop = jest.fn();
     const { getByTestId } = render(

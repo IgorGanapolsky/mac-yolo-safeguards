@@ -56,7 +56,7 @@ describe('runProgressDisplay', () => {
     ).toBe(false);
   });
 
-  it('hides composer banner while sending before a run id exists', () => {
+  it('shows composer banner while sending before a run id exists', () => {
     expect(
       shouldShowComposerProgressBanner(
         {
@@ -66,7 +66,20 @@ describe('runProgressDisplay', () => {
         },
         true,
       ),
-    ).toBe(false);
+    ).toBe(true);
+  });
+
+  it('shows composer banner while working before stream events attach a run id', () => {
+    expect(
+      shouldShowComposerProgressBanner(
+        {
+          phase: 'working',
+          startedAtMs: Date.now(),
+          detail: 'Hermes is working on your computer…',
+        },
+        false,
+      ),
+    ).toBe(true);
   });
 
   it('filters gateway platform labels from displayable LLM model', () => {
