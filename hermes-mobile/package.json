@@ -12,7 +12,7 @@
     "typecheck": "tsc --noEmit",
     "test": "jest --watchman=false",
     "test:ci": "jest --runInBand --coverage --watchman=false",
-    "test:release-safety": "jest --runInBand --watchman=false src/__tests__/apkReleaseGuards.test.ts src/__tests__/releaseSafetyContract.test.ts src/__tests__/internalDistributionWorkflow.test.ts",
+    "test:release-safety": "jest --runInBand --watchman=false src/__tests__/apkReleaseGuards.test.ts src/__tests__/releaseSafetyContract.test.ts src/__tests__/internalDistributionWorkflow.test.ts src/__tests__/releaseSafetyNet.test.ts",
     "verify:apk": "bash ./scripts/verify-apk-package.sh",
     "e2e:device": "bash ./scripts/run-device-e2e.sh",
     "doctor:expo": "node ./scripts/run-expo-doctor.cjs",

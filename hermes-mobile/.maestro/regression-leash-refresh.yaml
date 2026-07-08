@@ -1,0 +1,37 @@
+# Regression: Leash pull-to-refresh / refresh control must clear (no stuck spinner).
+# Desired: after tapping refresh, Leash returns to a non-refreshing idle label.
+appId: com.iganapolsky.hermesmobile
+---
+- launchApp
+- extendedWaitUntil:
+    notVisible:
+      id: "hermes-bootstrap"
+    timeout: 90000
+- runFlow: dismiss-print-interruption.yaml
+- runFlow: e2e-bootstrap.yaml
+- openLink: "hermes://leash"
+- runFlow:
+    when:
+      notVisible:
+        id: "THUMBGATE_LEASH"
+    commands:
+      - hideKeyboard
+      - tapOn:
+          id: "tab-leash"
+- extendedWaitUntil:
+    visible:
+      id: "THUMBGATE_LEASH"
+    timeout: 30000
+- scrollUntilVisible:
+    element:
+      id: "leash-refresh-status"
+    direction: DOWN
+    timeout: 30000
+- tapOn:
+    id: "leash-refresh-status"
+- waitForAnimationToEnd:
+    timeout: 3000
+- extendedWaitUntil:
+    visible: "Tap to refresh connection"
+    timeout: 20000
+- assertNotVisible: "Refreshing connection…"

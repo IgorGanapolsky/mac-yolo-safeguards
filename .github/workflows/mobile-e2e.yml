@@ -3,15 +3,35 @@ name: Mobile E2E (Android emulator)
 # Tier-1 E2E: runs the Maestro ship-guard critical-path flow on a real Android emulator.
 # The fast tier-0 gate (flow validation) already runs on every PR inside CI / mobile-checks.
 #
-# This job is intentionally on workflow_dispatch only — NOT yet a required PR check — because:
-#   1. The two actions marked TODO below must be SHA-pinned to match this repo's security
-#      policy (every other action is pinned by commit SHA, not a floating tag).
-#   2. Emulator boot + a from-source debug build must be proven green here at least once
-#      before it is promoted to a required check via branch protection.
-# Promote it by adding `pull_request:` to the triggers and pinning the TODO actions.
+# This is a REQUIRED-capable PR gate (T-114): it runs on pull_request (scoped to hermes-mobile
+# changes so unrelated PRs are not blocked/slowed) and on push, plus manual dispatch. Every
+# action is pinned by commit SHA per this repo's security policy — the two previously-floating
+# TODO tags (setup-java@v4, android-emulator-runner@v2) are now pinned below.
+#
+# It intentionally runs ONLY the single ship-guard critical-path flow (no chat text entry) so it
+# stays fast and reliable enough to keep enabled as a required check. ship-guard does not type
+# into the composer, so it is NOT affected by the Android IME composing-region issue that keeps
+# chat-send-persistence red (see hermes-mobile/docs/RELEASE-SAFETY-NET.md).
+#
+# To make this a required status check, a repo admin must add the job's check name
+# "Maestro ship-guard (Android emulator)" to branch protection for `main` (see the docs file).
 
 on:
   workflow_dispatch:
+  push:
+    paths:
+      - 'hermes-mobile/**'
+      - '.github/workflows/mobile-e2e.yml'
+  pull_request:
+    paths:
+      - 'hermes-mobile/**'
+      - '.github/workflows/mobile-e2e.yml'
+
+# Cancel superseded runs on the same ref so a fast-moving PR does not queue a backlog of
+# 40-minute emulator jobs (which is how a slow required check gets disabled in frustration).
+concurrency:
+  group: mobile-e2e-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   android-e2e:
@@ -30,7 +50,7 @@ jobs:
           cache: npm
           cache-dependency-path: hermes-mobile/package-lock.json
 
-      - uses: actions/setup-java@v4 # TODO: SHA-pin before making this a required check
+      - uses: actions/setup-java@c1e323688fd81a25caa38c78aa6df2d33d3e20d9 # v4.8.0
         with:
           distribution: temurin
           java-version: 17
@@ -40,6 +60,9 @@ jobs:
 
       - name: Validate Maestro flows (tier-0, fail fast before the emulator boots)
         run: npm run e2e:validate
+
+      - name: Release safety net contract
+        run: npm run test:release-safety
 
       - name: Enable KVM (hardware acceleration for the emulator)
         run: |
@@ -58,7 +81,7 @@ jobs:
           (cd android && ./gradlew assembleDebug -PreactNativeArchitectures=x86_64 --no-daemon)
 
       - name: Run Maestro ship-guard on emulator
-        uses: reactivecircus/android-emulator-runner@v2 # TODO: SHA-pin before making this a required check
+        uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2.38.0
         with:
           api-level: 34
           arch: x86_64
