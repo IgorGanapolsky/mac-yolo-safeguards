@@ -4,6 +4,7 @@ import {
   humanizeChatError,
   isConnectivityMessage,
   isSessionInUseError,
+  isSessionRemovedError,
   isTitleInUseError,
 } from '../utils/chatErrors';
 
@@ -76,6 +77,56 @@ describe('isTitleInUseError', () => {
       'fallback',
     );
     expect(message.toLowerCase()).toContain('title already exists');
+  });
+});
+
+describe('isSessionRemovedError', () => {
+  it('detects the JSON session_not_found code from a restarted gateway', () => {
+    expect(
+      isSessionRemovedError(
+        new Error(JSON.stringify({ error: { code: 'session_not_found', message: 'no session' } })),
+      ),
+    ).toBe(true);
+  });
+
+  it('detects plain "session not found" text', () => {
+    expect(isSessionRemovedError(new Error('session not found'))).toBe(true);
+  });
+
+  it('detects the humanized removed/restarted banner copy', () => {
+    expect(
+      isSessionRemovedError(
+        new Error('That chat was removed or your computer restarted. Pick another session.'),
+      ),
+    ).toBe(true);
+  });
+
+  it('is distinct from a title-in-use collision', () => {
+    expect(
+      isSessionRemovedError(
+        new Error("Title 'Print money make money faster' is already in use by session other-1"),
+      ),
+    ).toBe(false);
+  });
+
+  it('is distinct from an operator session-in-use error', () => {
+    expect(
+      isSessionRemovedError(
+        new Error(JSON.stringify({ error: { code: 'session_in_use', message: 'operator busy' } })),
+      ),
+    ).toBe(false);
+  });
+
+  it('returns false for unrelated errors', () => {
+    expect(isSessionRemovedError(new Error('invalid_api_key'))).toBe(false);
+  });
+
+  it('humanizes session_not_found to the removed/restarted copy', () => {
+    const { message } = humanizeChatError(
+      new Error(JSON.stringify({ error: { code: 'session_not_found', message: 'gone' } })),
+      'fallback',
+    );
+    expect(message).toContain('That chat was removed or your computer restarted');
   });
 });
 

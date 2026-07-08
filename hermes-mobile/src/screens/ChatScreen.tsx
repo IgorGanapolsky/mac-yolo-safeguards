@@ -48,13 +48,20 @@ import {
   sendChatMessage,
   updateSessionTitle,
 } from '../services/hermesChatClient';
-import { chatSendBlockedMessage, humanizeChatError, isConnectivityMessage, isSessionInUseError } from '../utils/chatErrors';
+import {
+  chatSendBlockedMessage,
+  humanizeChatError,
+  isConnectivityMessage,
+  isSessionInUseError,
+  isSessionRemovedError,
+} from '../utils/chatErrors';
 import {
   HermesGatewayApiError,
   deleteSession,
   clearAllSessions,
   forkSession,
   getCapabilities,
+  extractCapabilitiesModel,
   getRunStatus,
   stopRun,
   streamSessionChat,
@@ -78,6 +85,7 @@ import {
   setActiveSession,
 } from '../services/chatProjects';
 import { fetchVaultProjectCatalog } from '../services/vaultProjects';
+import { filterChatProjects } from '../utils/filterChatProjects';
 import type { VaultProjectCatalog } from '../types/vaultProject';
 import { storage } from '../services/storage';
 import { buildMobileChatSystemPrompt } from '../utils/workspacePrompt';
@@ -97,6 +105,7 @@ import {
   titleFromFirstPrompt,
   ensureSessionCreatedAt,
 } from '../utils/sessionDisplay';
+import { findResumableSessionByPromptTitle } from '../utils/resumeExistingSession';
 import { formatMessageTimestamp, prepareMessagesForDisplay } from '../utils/chatMessageDisplay';
 import {
   isMessageBodyEmpty,
@@ -125,6 +134,12 @@ import {
   RUN_STALE_TIMEOUT_DETAIL,
 } from '../utils/runStaleDetection';
 import { isChatAtTop, isChatNearBottom } from '../utils/chatScrollSync';
+import {
+  chatDistanceFromBottom,
+  resolveUserScrolledUp,
+  shouldAutoScroll,
+  shouldCancelPendingScroll,
+} from '../utils/chatAutoScroll';
 import ChatScrollControls from '../components/ChatScrollControls';
 import {
   CHAT_LIST_HEADER_CLEARANCE,
@@ -253,6 +268,37 @@ function projectSessions(
   );
 }
 
+/**
+ * Effective software-keyboard inset used to lift the composer dock.
+ *
+ * The Android fallback ({@link focusedAndroidKeyboardFallbackInset}) estimates a keyboard
+ * height when the OS reports 0 while the IME is genuinely on screen (edge-to-edge / pan
+ * layouts). That estimate must ONLY apply while the keyboard is actually visible: a
+ * TextInput that keeps focus after the keyboard is dismissed (Android back button, plus
+ * `blurOnSubmit={false}` on the composer) would otherwise lift the whole dock ~280–360dp
+ * into mid-screen and leave a large dead region below the composer.
+ */
+export function resolveEffectiveKeyboardInset(
+  keyboardInset: number,
+  keyboardScreenVisible: boolean,
+  inputFocused: boolean,
+  windowHeight: number,
+): number {
+  if (keyboardInset > 0) {
+    return keyboardInset;
+  }
+  if (!keyboardScreenVisible) {
+    return 0;
+  }
+  return focusedAndroidKeyboardFallbackInset(inputFocused, keyboardInset, windowHeight);
+}
+
+/** How long the "Reply ready on your computer" banner stays before auto-dismiss. */
+const RUN_COMPLETED_BANNER_DISMISS_MS = 2500;
+
+/** How long the per-message "Saved to ThumbGate" confirmation stays visible. */
+const FEEDBACK_NOTE_TTL_MS = 4000;
+
 export default function ChatScreen() {
   const {
     settings,
@@ -334,6 +380,7 @@ export default function ChatScreen() {
   );
   const [isScanningMacs, setIsScanningMacs] = useState(false);
   const [projectModalVisible, setProjectModalVisible] = useState(false);
+  const [projectSearchQuery, setProjectSearchQuery] = useState('');
   const [newProjectPath, setNewProjectPath] = useState('');
   const [newProjectName, setNewProjectName] = useState('');
   const [renameModalVisible, setRenameModalVisible] = useState(false);
@@ -357,6 +404,8 @@ export default function ChatScreen() {
     text: string;
   } | null>(null);
   const [gatewayModel, setGatewayModel] = useState<string | undefined>();
+  /** Sticky real model from the latest session/run, so idle turns never fall back to a bare label. */
+  const [lastKnownModel, setLastKnownModel] = useState<string | undefined>();
   const [isPullRefreshing, setIsPullRefreshing] = useState(false);
   const [connectionPanelRefreshing, setConnectionPanelRefreshing] = useState(false);
   const [telegramInboxMeta, setTelegramInboxMeta] = useState({ threadCount: 0, messageCap: 250 });
@@ -382,6 +431,12 @@ export default function ChatScreen() {
   const [feedbackSelections, setFeedbackSelections] = useState<
     Record<string, 'up' | 'down'>
   >({});
+  // Per-message transient confirmation shown after a thumbs tap, so the operator
+  // can SEE the vote reached ThumbGate (chat feedback does not surface in the
+  // Leash tab or the local dashboard — those are different stores).
+  const [feedbackNotes, setFeedbackNotes] = useState<
+    Record<string, { text: string; error: boolean }>
+  >({});
 
   const applyChatApiError = useCallback(
     (error: unknown, fallback: string, options?: { background?: boolean }) => {
@@ -400,7 +455,10 @@ export default function ChatScreen() {
 
   const flatListRef = useRef<FlashListRef<ChatTimelineEntry>>(null);
   const isSendingRef = useRef(false);
-  const userNearBottomRef = useRef(true);
+  /** User explicitly scrolled up to read history — suppress auto-follow until they return. */
+  const userScrolledUpRef = useRef(false);
+  const userDraggingRef = useRef(false);
+  const lastDistanceFromBottomRef = useRef(0);
   const scrollCancelGenerationRef = useRef(0);
   /** Force one bottom pin after session/computer switch once transcript content lays out. */
   const pinScrollAfterHydrationRef = useRef(false);
@@ -443,14 +501,29 @@ export default function ChatScreen() {
   );
   const lastFailedSendTextRef = useRef<string | null>(null);
   const activeChatStreamRef = useRef(false);
+  /** Session ids the gateway rejected as removed/restarted — never resume or target these again. */
+  const removedSessionIdsRef = useRef<Set<string>>(new Set());
   const [inputFocused, setInputFocused] = useState(false);
   const [chatNearBottom, setChatNearBottom] = useState(true);
   const [chatNearTop, setChatNearTop] = useState(true);
+  /** True only while the software keyboard is actually on screen (didShow → didHide). */
+  const [keyboardScreenVisible, setKeyboardScreenVisible] = useState(false);
 
   const { inset: keyboardInset, windowShrunk: keyboardWindowShrunk } = useKeyboardInset({
     suppressHideWhileFocusedRef: inputFocusedRef,
     focused: inputFocused,
   });
+
+  useEffect(() => {
+    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+    const showSub = Keyboard.addListener(showEvent, () => setKeyboardScreenVisible(true));
+    const hideSub = Keyboard.addListener(hideEvent, () => setKeyboardScreenVisible(false));
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
 
   const [queuedOutboundCount, setQueuedOutboundCount] = useState(0);
   const [pinnedOutboundText, setPinnedOutboundText] = useState<string | null>(null);
@@ -491,13 +564,28 @@ export default function ChatScreen() {
     });
   }, []);
 
+  const isChatStreamingActive = useCallback(() => {
+    return (
+      isSendingRef.current ||
+      activeChatStreamRef.current ||
+      isActiveChatRun(runProgressRef.current)
+    );
+  }, []);
+
   const scrollChatToLatestIfPinned = useCallback(
     (animated = false, force = false) => {
-      if (force || userNearBottomRef.current) {
-        scrollChatToLatest(animated);
+      if (userScrolledUpRef.current) {
+        return;
+      }
+      const streaming = isChatStreamingActive();
+      if (
+        force ||
+        shouldAutoScroll(lastDistanceFromBottomRef.current, streaming, false)
+      ) {
+        scrollChatToLatest(animated && !streaming);
       }
     },
-    [scrollChatToLatest],
+    [isChatStreamingActive, scrollChatToLatest],
   );
 
   const scrollChatToTop = useCallback((animated = true) => {
@@ -506,7 +594,8 @@ export default function ChatScreen() {
 
   const handleJumpToBottom = useCallback(() => {
     haptics.light();
-    userNearBottomRef.current = true;
+    userScrolledUpRef.current = false;
+    lastDistanceFromBottomRef.current = 0;
     setChatNearBottom(true);
     scrollChatToLatest(true);
   }, [scrollChatToLatest]);
@@ -516,21 +605,54 @@ export default function ChatScreen() {
     scrollChatToTop(true);
   }, [scrollChatToTop]);
 
-  const handleChatScroll = useCallback((event: NativeSyntheticEvent<NativeScrollEvent>) => {
-    const { contentOffset, layoutMeasurement, contentSize } = event.nativeEvent;
-    const nearBottom = isChatNearBottom(
-      layoutMeasurement.height,
-      contentOffset.y,
-      contentSize.height,
-    );
-    const nearTop = isChatAtTop(contentOffset.y);
-    if (!nearBottom && userNearBottomRef.current) {
-      scrollCancelGenerationRef.current += 1;
-    }
-    userNearBottomRef.current = nearBottom;
-    setChatNearBottom((prev) => (prev === nearBottom ? prev : nearBottom));
-    setChatNearTop((prev) => (prev === nearTop ? prev : nearTop));
+  const handleChatScrollBeginDrag = useCallback(() => {
+    userDraggingRef.current = true;
   }, []);
+
+  const handleChatScrollEndDrag = useCallback(() => {
+    userDraggingRef.current = false;
+  }, []);
+
+  const handleChatScroll = useCallback(
+    (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+      const { contentOffset, layoutMeasurement, contentSize } = event.nativeEvent;
+      const distanceFromBottom = chatDistanceFromBottom(
+        layoutMeasurement.height,
+        contentOffset.y,
+        contentSize.height,
+      );
+      lastDistanceFromBottomRef.current = distanceFromBottom;
+      const nearBottom = isChatNearBottom(
+        layoutMeasurement.height,
+        contentOffset.y,
+        contentSize.height,
+      );
+      const nearTop = isChatAtTop(contentOffset.y);
+      const streaming = isChatStreamingActive();
+      const wasFollowing = shouldAutoScroll(
+        distanceFromBottom,
+        streaming,
+        userScrolledUpRef.current,
+      );
+      if (
+        shouldCancelPendingScroll({
+          userScrolledUp: userScrolledUpRef.current,
+          wasFollowing,
+          nearBottom,
+        })
+      ) {
+        scrollCancelGenerationRef.current += 1;
+      }
+      userScrolledUpRef.current = resolveUserScrolledUp({
+        nearBottom,
+        userDragging: userDraggingRef.current,
+        prevUserScrolledUp: userScrolledUpRef.current,
+      });
+      setChatNearBottom((prev) => (prev === nearBottom ? prev : nearBottom));
+      setChatNearTop((prev) => (prev === nearTop ? prev : nearTop));
+    },
+    [isChatStreamingActive],
+  );
 
   const isDemo = useMemo(() => {
     if (!isDemoModeAllowed()) {
@@ -550,7 +672,7 @@ export default function ChatScreen() {
         if (cancelled) {
           return;
         }
-        const model = displayableLlmModel(caps.model);
+        const model = extractCapabilitiesModel(caps);
         if (model) {
           setGatewayModel(model);
         }
@@ -994,9 +1116,12 @@ export default function ChatScreen() {
 
   /** Lift composer above software keyboard; tab bar stays mounted (no height collapse). */
   const androidKeyboardMode = Constants.expoConfig?.android?.softwareKeyboardLayoutMode;
-  const effectiveKeyboardInset =
-    keyboardInset ||
-    focusedAndroidKeyboardFallbackInset(inputFocused, keyboardInset, windowDimensions.height);
+  const effectiveKeyboardInset = resolveEffectiveKeyboardInset(
+    keyboardInset,
+    keyboardScreenVisible,
+    inputFocused,
+    windowDimensions.height,
+  );
   const composerDockSpacing = useMemo(
     () =>
       composerDockInsets(
@@ -1466,6 +1591,7 @@ export default function ChatScreen() {
 
   const openProjectPicker = useCallback(() => {
     haptics.selection();
+    setProjectSearchQuery('');
     setProjectModalVisible(true);
   }, []);
 
@@ -2059,7 +2185,8 @@ export default function ChatScreen() {
     messagesRef.current = [];
     setMessages([]);
     pinScrollAfterHydrationRef.current = true;
-    userNearBottomRef.current = true;
+    userScrolledUpRef.current = false;
+    lastDistanceFromBottomRef.current = 0;
     void refreshSessionMessagesRef.current?.({
       background: false,
       force: manualSessionSelectRef.current === currentSession?.id,
@@ -2222,7 +2349,11 @@ export default function ChatScreen() {
       return;
     }
     haptics.light();
-    const stickToBottom = userNearBottomRef.current || isSending;
+    const stickToBottom = shouldAutoScroll(
+      lastDistanceFromBottomRef.current,
+      isSending,
+      userScrolledUpRef.current,
+    );
     await refreshSessionMessages({ manual: true });
     if (stickToBottom) {
       requestAnimationFrame(() => scrollChatToLatest(true));
@@ -2241,7 +2372,8 @@ export default function ChatScreen() {
     if (inputFocusedRef.current || isLoadingMessages) {
       return;
     }
-    userNearBottomRef.current = true;
+    userScrolledUpRef.current = false;
+    lastDistanceFromBottomRef.current = 0;
     setChatNearBottom(true);
     scrollChatToLatest(false);
     const retryTimer = setTimeout(() => scrollChatToLatest(false), 200);
@@ -2252,15 +2384,11 @@ export default function ChatScreen() {
     if (isLoadingMessages || messages.length === 0) {
       return;
     }
-    const runInFlight =
-      isSending ||
-      activeChatStreamRef.current ||
-      isActiveChatRun(runProgressRef.current);
-    if (!runInFlight && !userNearBottomRef.current) {
+    if (userScrolledUpRef.current) {
       return;
     }
-    scrollChatToLatestIfPinned(true);
-  }, [messages, isSending, runProgress, isLoadingMessages, scrollChatToLatestIfPinned]);
+    scrollChatToLatestIfPinned(true, isChatStreamingActive());
+  }, [messages, isSending, runProgress, isLoadingMessages, scrollChatToLatestIfPinned, isChatStreamingActive]);
 
   const handleNewChat = async () => {
     haptics.selection();
@@ -2663,13 +2791,27 @@ export default function ChatScreen() {
 
   const submitChatOutputFeedbackForMessage = useCallback(
     async (message: HermesMessage, signal: 'up' | 'down', explanation?: string) => {
-      await submitChatOutputFeedback(message, signal, {
+      return submitChatOutputFeedback(message, signal, {
         session: currentSession,
         explanation,
       });
     },
     [currentSession, submitChatOutputFeedback],
   );
+
+  const setTransientFeedbackNote = useCallback((key: string, text: string, error: boolean) => {
+    setFeedbackNotes((prev) => ({ ...prev, [key]: { text, error } }));
+    setTimeout(() => {
+      setFeedbackNotes((prev) => {
+        if (!prev[key]) {
+          return prev;
+        }
+        const next = { ...prev };
+        delete next[key];
+        return next;
+      });
+    }, FEEDBACK_NOTE_TTL_MS);
+  }, []);
 
   const handleChatOutputFeedbackTap = useCallback(
     (message: HermesMessage, signal: 'up' | 'down') => {
@@ -2678,9 +2820,11 @@ export default function ChatScreen() {
       setFeedbackSelections((prev) => ({ ...prev, [key]: signal }));
       // Always record the vote to ThumbGate. The explanation sheet is now
       // opt-in (via the "Add details" link), not auto-opened on every tap.
-      void submitChatOutputFeedbackForMessage(message, signal);
+      void submitChatOutputFeedbackForMessage(message, signal).then((ok) => {
+        setTransientFeedbackNote(key, ok ? 'Saved to ThumbGate' : 'Not recorded', !ok);
+      });
     },
-    [submitChatOutputFeedbackForMessage],
+    [submitChatOutputFeedbackForMessage, setTransientFeedbackNote],
   );
 
   const handleAddFeedbackDetails = useCallback(
@@ -2726,6 +2870,7 @@ export default function ChatScreen() {
         isStreamingAssistant,
       });
       const busyKey = resolveChatOutputFeedbackBusyKey(message);
+      const feedbackNote = feedbackNotes[busyKey];
       const outputFeedback = showOutputFeedback
         ? {
             busy: chatOutputFeedbackBusyId === busyKey,
@@ -2733,6 +2878,8 @@ export default function ChatScreen() {
             onThumbsUp: () => handleChatOutputFeedbackTap(message, 'up'),
             onThumbsDown: () => handleChatOutputFeedbackTap(message, 'down'),
             onAddDetails: () => handleAddFeedbackDetails(message),
+            note: feedbackNote?.text,
+            noteIsError: feedbackNote?.error,
           }
         : undefined;
       return (
@@ -2767,6 +2914,7 @@ export default function ChatScreen() {
       leashUnlocked,
       chatOutputFeedbackBusyId,
       feedbackSelections,
+      feedbackNotes,
       handleChatOutputFeedbackTap,
       handleAddFeedbackDetails,
       handleShowMessageDetail,
@@ -2806,7 +2954,8 @@ export default function ChatScreen() {
     setPinnedOutboundText(trimmed);
     setPinnedOutboundStatus('pending');
     setToolStatus(null);
-    userNearBottomRef.current = true;
+    userScrolledUpRef.current = false;
+    lastDistanceFromBottomRef.current = 0;
     setChatNearBottom(true);
     scrollChatToLatest(true);
     return userMessage.id ?? '';
@@ -2848,6 +2997,22 @@ export default function ChatScreen() {
       ];
       return [...new Set(ids.filter((id): id is string => Boolean(id?.trim())))];
     };
+
+    // Mark a session id the gateway rejected as removed and drop it from the
+    // local cache so the picker/resume logic never offers a dead thread again.
+    // Kept local so we don't stomp a freshly-surfaced error banner; the picker
+    // refetches from the gateway the next time it opens.
+    const invalidateRemovedSession = (sessionId: string | undefined | null) => {
+      const id = sessionId?.trim();
+      if (!id) {
+        return;
+      }
+      removedSessionIdsRef.current.add(id);
+      setSessions((prev) => prev.filter((session) => session.id !== id));
+    };
+    // Set when a send dead-ends on a removed session so the finally block does
+    // not immediately reload a stale transcript over the surfaced error.
+    let suppressPostSendRefresh = false;
 
     const notifyWaitingForMacSlot = (context?: { hasLiveRun?: boolean }) => {
       if (context?.hasLiveRun === false) {
@@ -2974,7 +3139,15 @@ export default function ChatScreen() {
     committedUserMessageId = commitOutboundUserBubble(typed);
     outboundUserBubbleCommitted = true;
 
-    let activeSess = currentSession;
+    // A gateway restart drops in-memory session ids; never carry a known-removed
+    // id into a send (even on a "New chat") — clear it so we start fresh.
+    if (currentSession && !isDemo && removedSessionIdsRef.current.has(currentSession.id)) {
+      setCurrentSession(null);
+    }
+    let activeSess =
+      currentSession && !isDemo && removedSessionIdsRef.current.has(currentSession.id)
+        ? null
+        : currentSession;
     const createdNewSession = !activeSess;
     if (!activeSess) {
       if (isDemo) {
@@ -2988,51 +3161,63 @@ export default function ChatScreen() {
         setSessions([activeSess]);
         setCurrentSession(activeSess);
       } else {
-        const placeholderTitle = firstPromptThreadTitle;
-        await releaseMacOperatorSlot(gatewayUrl, apiKey, collectRecoveryRunIds());
-        try {
-          activeSess = await retryOnSessionInUse(
-            gatewayUrl,
-            apiKey,
-            collectRecoveryRunIds,
-            () =>
-              createSessionWithUniqueTitle(
-                gatewayUrl,
-                apiKey,
-                placeholderTitle,
-                mobileChatSystemPrompt,
-              ),
-            notifyWaitingForMacSlot,
-          );
-        } catch (err) {
-          if (isSessionInUseError(err)) {
-            const forkSource = sessionsRef.current.find((session) => !isTelegramInboxSession(session));
-            if (forkSource) {
-              try {
-                const forked = await forkSession(gatewayUrl, forkSource.id, apiKey);
-                const forkId = forked.session_id?.trim();
-                if (forkId) {
-                  activeSess = ensureSessionCreatedAt({
-                    id: forkId,
-                    title: placeholderTitle,
-                    last_active_at: new Date().toISOString(),
-                  });
+        const resumable = findResumableSessionByPromptTitle(
+          sessionsRef.current.filter(
+            (session) =>
+              !isTelegramInboxSession(session) && !removedSessionIdsRef.current.has(session.id),
+          ),
+          userText,
+        );
+        if (resumable) {
+          activeSess = ensureSessionCreatedAt(resumable);
+          setCurrentSession(activeSess);
+        } else {
+          const placeholderTitle = firstPromptThreadTitle;
+          await releaseMacOperatorSlot(gatewayUrl, apiKey, collectRecoveryRunIds());
+          try {
+            activeSess = await retryOnSessionInUse(
+              gatewayUrl,
+              apiKey,
+              collectRecoveryRunIds,
+              () =>
+                createSessionWithUniqueTitle(
+                  gatewayUrl,
+                  apiKey,
+                  placeholderTitle,
+                  mobileChatSystemPrompt,
+                ),
+              notifyWaitingForMacSlot,
+            );
+          } catch (err) {
+            if (isSessionInUseError(err)) {
+              const forkSource = sessionsRef.current.find((session) => !isTelegramInboxSession(session));
+              if (forkSource) {
+                try {
+                  const forked = await forkSession(gatewayUrl, forkSource.id, apiKey);
+                  const forkId = forked.session_id?.trim();
+                  if (forkId) {
+                    activeSess = ensureSessionCreatedAt({
+                      id: forkId,
+                      title: placeholderTitle,
+                      last_active_at: new Date().toISOString(),
+                    });
+                  }
+                } catch {
+                  // fall through
                 }
-              } catch {
-                // fall through
               }
             }
+            if (!activeSess) {
+              rollbackOutboundBubble();
+              applyChatApiError(err, 'Could not start chat on your computer.');
+              releaseOutboundSendLock();
+              return false;
+            }
           }
-          if (!activeSess) {
-            rollbackOutboundBubble();
-            applyChatApiError(err, 'Could not start chat on your computer.');
-            releaseOutboundSendLock();
-            return false;
-          }
+          activeSess = ensureSessionCreatedAt(activeSess);
+          setSessions((prev) => [activeSess!, ...prev.filter((session) => session.id !== activeSess!.id)]);
+          setCurrentSession(activeSess);
         }
-        activeSess = ensureSessionCreatedAt(activeSess);
-        setSessions((prev) => [activeSess!, ...prev.filter((session) => session.id !== activeSess!.id)]);
-        setCurrentSession(activeSess);
       }
     }
 
@@ -3194,7 +3379,7 @@ export default function ChatScreen() {
     if (isTelegramInboxSession(activeSess) && !targetSessionId) {
       try {
         let mobileSess = ensureSessionCreatedAt(
-          await createSession(
+          await createSessionWithUniqueTitle(
             gatewayUrl,
             apiKey,
             GENERIC_NEW_SESSION_TITLE,
@@ -3265,15 +3450,16 @@ export default function ChatScreen() {
 
       let switchedSessionId = targetSessionId;
       let assistantText = '';
-      try {
-        assistantText = await retryOnSessionInUse(
+      const streamChatToSession = (streamTargetSessionId: string) => {
+        switchedSessionId = streamTargetSessionId;
+        return retryOnSessionInUse(
           gatewayUrl,
           apiKey,
           collectRecoveryRunIds,
           () =>
             streamSessionChat(
           gatewayUrl,
-          targetSessionId,
+          streamTargetSessionId,
           userText,
           apiKey,
           (evt) => {
@@ -3428,12 +3614,77 @@ export default function ChatScreen() {
         ),
           notifyWaitingForMacSlot,
         );
+      };
+
+      // Create a fresh session and rebind chat state to it — used to self-heal
+      // when the gateway reports the target session was removed/restarted.
+      const recoverWithFreshSession = async (staleSessionId: string): Promise<boolean> => {
+        invalidateRemovedSession(staleSessionId);
+        let fresh: HermesSession;
+        try {
+          fresh = ensureSessionCreatedAt(
+            await retryOnSessionInUse(
+              gatewayUrl,
+              apiKey,
+              collectRecoveryRunIds,
+              () =>
+                createSessionWithUniqueTitle(
+                  gatewayUrl,
+                  apiKey,
+                  firstPromptThreadTitle,
+                  mobileChatSystemPrompt,
+                ),
+              notifyWaitingForMacSlot,
+            ),
+          );
+        } catch {
+          return false;
+        }
+        activeSess = fresh;
+        targetSessionId = fresh.id;
+        setSessions((prev) => [
+          fresh,
+          ...prev.filter((s) => s.id !== fresh.id && s.id !== staleSessionId),
+        ]);
+        setCurrentSession(fresh);
+        setErrorMessage((prev) => (prev?.includes('That chat was removed') ? null : prev));
+        if (activeProject) {
+          const nextState = bindSessionToProject(
+            projectState,
+            activeProject.id,
+            fresh.id,
+            fresh.title ?? firstPromptThreadTitle,
+          );
+          await persistProjectState(nextState);
+        }
+        return true;
+      };
+
+      let removedSessionRecoveryAttempted = false;
+      try {
+        assistantText = await streamChatToSession(targetSessionId);
       } catch (streamErr) {
         const streamMessage =
           streamErr instanceof Error ? streamErr.message : String(streamErr);
         const streamStatus =
           streamErr instanceof HermesGatewayApiError ? streamErr.status : 0;
-        const shouldFallback =
+        const sessionRemoved =
+          !isTelegramInboxSession(activeSess) &&
+          (isSessionRemovedError(streamErr) || streamStatus === 404);
+
+        if (sessionRemoved && !removedSessionRecoveryAttempted) {
+          removedSessionRecoveryAttempted = true;
+          const staleSessionId = targetSessionId;
+          const recovered = await recoverWithFreshSession(staleSessionId);
+          if (!recovered) {
+            throw streamErr;
+          }
+          // Retry the send once against the fresh session. If this also fails,
+          // let it surface through the outer catch (the visible error).
+          assistantText = await streamChatToSession(targetSessionId);
+          updateAssistant(assistantText);
+        } else {
+          const shouldFallback =
           isSessionInUseError(streamErr) ||
           streamStatus >= 400 ||
           streamMessage.includes('Network request failed') ||
@@ -3463,6 +3714,7 @@ export default function ChatScreen() {
           setToolStatus('Sent without live stream (connection fallback)');
         } else {
           throw streamErr;
+        }
         }
       }
 
@@ -3506,8 +3758,10 @@ export default function ChatScreen() {
       const { kind, message } = humanizeChatError(err, 'Message could not send. Try again.', {
         gatewayUrl,
       });
-      if (message.includes('That chat was removed')) {
+      if (isSessionRemovedError(err) || message.includes('That chat was removed')) {
+        invalidateRemovedSession(targetSessionId);
         skipSessionAutoSelectRef.current = true;
+        suppressPostSendRefresh = true;
         setCurrentSession(null);
         setMessages([]);
         transcriptDigestRef.current = '';
@@ -3556,7 +3810,7 @@ export default function ChatScreen() {
             setRunProgress((prev) =>
               prev?.phase === 'completed' && prev.startedAtMs === completedStartedAt ? null : prev,
             );
-          }, 2500);
+          }, RUN_COMPLETED_BANNER_DISMISS_MS);
         } else if (sendFailureDetail) {
           const failureDetail = sendFailureDetail;
           setRunProgress((prev) => ({
@@ -3571,7 +3825,7 @@ export default function ChatScreen() {
         }
       }
 
-      if (!isDemo && currentSessionRef.current) {
+      if (!isDemo && !suppressPostSendRefresh && currentSessionRef.current) {
         void refreshSessionMessagesRef.current?.({ background: true }).finally(releaseOutboundPending);
       } else {
         releaseOutboundPending();
@@ -3650,12 +3904,26 @@ export default function ChatScreen() {
     return null;
   }, [runProgress, currentSession?.id, currentSession?.model, currentSession?.input_tokens, currentSession?.output_tokens, telegramReplySessionId, isSending, queuedOutboundCount]);
 
+  useEffect(() => {
+    const observed =
+      displayableLlmModel(currentSession?.model) ?? displayableLlmModel(progressBanner?.model);
+    if (observed && observed !== lastKnownModel) {
+      setLastKnownModel(observed);
+    }
+  }, [currentSession?.model, progressBanner?.model, lastKnownModel]);
+
+  const headerGatewayModel = useMemo(
+    () => gatewayModel ?? lastKnownModel,
+    [gatewayModel, lastKnownModel],
+  );
+
   const progressBannerFallbackModel = useMemo(
     () =>
       displayableLlmModel(currentSession?.model) ??
       displayableLlmModel(gatewayModel) ??
+      displayableLlmModel(lastKnownModel) ??
       undefined,
-    [currentSession?.model, gatewayModel],
+    [currentSession?.model, gatewayModel, lastKnownModel],
   );
 
   const showComposerProgressBanner = useMemo(() => {
@@ -3999,6 +4267,7 @@ export default function ChatScreen() {
         }
         isSendingRef.current = false;
         setIsSending(false);
+        const reconciledStartedAt = runProgressRef.current?.startedAtMs;
         setRunProgress((prev) => {
           if (!prev || !isActiveChatRun(prev)) {
             return prev;
@@ -4013,6 +4282,18 @@ export default function ChatScreen() {
           }
           return null;
         });
+        if (gatewayStatus === 'completed') {
+          // Mirror the send-success path: auto-dismiss the completed banner. Without
+          // this the reconcile path leaves "Reply ready on your computer" pinned
+          // until the user taps Dismiss, and keeps re-posting the run notification.
+          setTimeout(() => {
+            setRunProgress((prev) =>
+              prev?.phase === 'completed' && prev.startedAtMs === reconciledStartedAt
+                ? null
+                : prev,
+            );
+          }, RUN_COMPLETED_BANNER_DISMISS_MS);
+        }
         clearSessionBusyError();
         void refreshSessionMessagesRef.current?.({ background: true, force: true });
       } catch {
@@ -4061,6 +4342,9 @@ export default function ChatScreen() {
           workspaceHandoff={activeProject?.handoffSummary}
           canSwitchWorkspace={!showMacConnectionHelp}
           activeAgents={activeAgents}
+          currentSession={currentSession}
+          gatewayModel={headerGatewayModel}
+          runProgress={progressBanner}
           onOpenThreads={openSessionsModal}
           onOpenTools={() => setToolsModalVisible(true)}
           onPressMachine={() => {
@@ -4212,6 +4496,9 @@ export default function ChatScreen() {
                   autoscrollToBottomThreshold: 0.2,
                 }}
                 onScroll={handleChatScroll}
+                onScrollBeginDrag={handleChatScrollBeginDrag}
+                onScrollEndDrag={handleChatScrollEndDrag}
+                onMomentumScrollEnd={handleChatScrollEndDrag}
                 scrollEventThrottle={16}
                 ListFooterComponent={
                   showRecentChatsPanel ? (
@@ -4227,12 +4514,13 @@ export default function ChatScreen() {
                 onContentSizeChange={() => {
                   if (pinScrollAfterHydrationRef.current) {
                     pinScrollAfterHydrationRef.current = false;
-                    userNearBottomRef.current = true;
+                    userScrolledUpRef.current = false;
+                    lastDistanceFromBottomRef.current = 0;
                     setChatNearBottom(true);
                     scrollChatToLatest(false);
                     return;
                   }
-                  scrollChatToLatestIfPinned(true);
+                  scrollChatToLatestIfPinned(true, isChatStreamingActive());
                 }}
                 renderItem={renderChatMessageItem}
               />
@@ -4421,7 +4709,8 @@ export default function ChatScreen() {
                   connectEvents();
                   setMacPickerVisible(false);
                   pinScrollAfterHydrationRef.current = true;
-                  userNearBottomRef.current = true;
+                  userScrolledUpRef.current = false;
+                  lastDistanceFromBottomRef.current = 0;
                   setCurrentSession(null);
                   setMessages([]);
                   const pickedProfile = gatewayProfiles.find((profile) => profile.id === profileId);
@@ -4638,8 +4927,18 @@ export default function ChatScreen() {
                 Latest handoff: {vaultCatalog.handoffs[0].summary}
               </Text>
             ) : null}
+            <TextInput
+              style={[styles.modalInput, { marginBottom: 12 }]}
+              value={projectSearchQuery}
+              onChangeText={setProjectSearchQuery}
+              placeholder="Search projects..."
+              placeholderTextColor={colors.textMuted}
+              autoCapitalize="none"
+              autoCorrect={false}
+              testID="project-search-input"
+            />
             <ScrollView style={{ maxHeight: 280 }} keyboardShouldPersistTaps="handled">
-              {projectState.projects.map((project) => {
+              {filterChatProjects(projectState.projects, projectSearchQuery).map((project) => {
                 const isActive = activeProject?.id === project.id;
                 return (
                   <TouchableOpacity

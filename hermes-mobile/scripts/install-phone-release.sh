@@ -83,6 +83,21 @@ maybe_build_release() {
   return 0
 }
 
+# Production APKs must NOT be demo-capable. Baking EXPO_PUBLIC_E2E_AUTOMATION /
+# EXPO_PUBLIC_HERMES_DEV_UNLOCK into every build is what kept real users stuck in demo mode
+# (isDemoModeAllowed()/isDeveloperLeashUnlockAllowed() in src/utils/demoModePolicy.ts honor
+# those flags). Opt in ONLY for Maestro/E2E builds via HERMES_E2E_BUILD=1; the default install
+# is a clean production build with neither flag set (explicitly unset so a stray caller env
+# cannot leak demo capability into a shipped APK).
+apply_release_build_flags() {
+  if [[ "${HERMES_E2E_BUILD:-}" == "1" ]]; then
+    export EXPO_PUBLIC_HERMES_DEV_UNLOCK=1
+    export EXPO_PUBLIC_E2E_AUTOMATION=1
+  else
+    unset EXPO_PUBLIC_HERMES_DEV_UNLOCK EXPO_PUBLIC_E2E_AUTOMATION
+  fi
+}
+
 ensure_release_apk_has_bundle() {
   if apk_is_ready; then
     return 0
@@ -91,8 +106,7 @@ ensure_release_apk_has_bundle() {
   (
     cd android
     ensure_android_gradle_jvmargs
-    export EXPO_PUBLIC_HERMES_DEV_UNLOCK=1
-    export EXPO_PUBLIC_E2E_AUTOMATION=1
+    apply_release_build_flags
     ./gradlew :app:createBundleReleaseJsAndAssets :app:assembleRelease \
       -PreactNativeArchitectures=arm64-v8a --rerun-tasks --no-daemon
   ) || {
@@ -137,8 +151,7 @@ run_gradle_release() {
   (
     cd android
     ensure_android_gradle_jvmargs
-    export EXPO_PUBLIC_HERMES_DEV_UNLOCK=1
-    export EXPO_PUBLIC_E2E_AUTOMATION=1
+    apply_release_build_flags
     # --no-daemon avoids parallel Kotlin/CMake races (e.g. unresolved UpdatesPackage).
     # shellcheck disable=SC2046
     ./gradlew $(gradle_release_args) --no-daemon

@@ -33,15 +33,33 @@ const ROUTES = [
     label: 'Measured local coding candidate',
     agent: 'coding-specialist',
     provider: 'custom:ollama-local-64k',
-    model: 'ornith-or-local-coder-candidate',
+    model: 'gpt-oss:20b',
     costUsd: 0,
     latencyMs: 18000,
-    reliability: 0.58,
+    reliability: 0.68,
     riskCeiling: 'medium',
-    strengths: ['ornith', 'coding-model', 'benchmark', 'local', 'candidate'],
+    strengths: ['gpt-oss', 'mxfp4', 'coding-model', 'benchmark', 'local', 'candidate'],
     commandEnv: {
       HERMES_YOLO_PROVIDER: 'custom:ollama-local-64k',
-      HERMES_YOLO_MODEL: 'ornith-or-local-coder-candidate',
+      HERMES_YOLO_MODEL: 'gpt-oss:20b',
+    },
+    proofGates: ['benchmark-before-default', 'exact-marker-smoke', 'unit-test-pass'],
+    candidateOnly: true,
+  },
+  {
+    id: 'local_qwen36_candidate',
+    label: 'Ambitious local Qwen3.6 candidate',
+    agent: 'coding-specialist',
+    provider: 'custom:ollama-local-64k',
+    model: 'qwen3.6:35b-a3b',
+    costUsd: 0,
+    latencyMs: 35000,
+    reliability: 0.72,
+    riskCeiling: 'high',
+    strengths: ['qwen3.6', 'low-bit', 'offload', 'reasoning-model', 'benchmark', 'local', 'candidate'],
+    commandEnv: {
+      HERMES_YOLO_PROVIDER: 'custom:ollama-local-64k',
+      HERMES_YOLO_MODEL: 'qwen3.6:35b-a3b',
     },
     proofGates: ['benchmark-before-default', 'exact-marker-smoke', 'unit-test-pass'],
     candidateOnly: true,
@@ -261,7 +279,7 @@ function taskSignals(task) {
     asksForAdvisor: /\badvisor\b|gets stuck|stuck escalation|consult a stronger|cheap executor/.test(text),
     asksForSubagent: /\bsubagent\b|grunt work|routine subtasks|self-contained subtasks|smaller worker|delegate/.test(text),
     needsModelPrice: /price|pricing|model catalog|models api|mcp server|benchmark|before you commit|cost.*correct/.test(text),
-    asksForOrnith: /\bornith\b|coding model|open[- ]source coding/.test(text),
+    asksForOrnith: /\bornith\b|coding model|open[- ]source coding|gpt-oss|qwen3\.6/.test(text),
     mobile: /\bmobile\b|android|ios|maestro|release|fresh user|phone/.test(text),
     userDoubt: /are you sure|verify|proof|evidence|regression|root cause/.test(text),
     architecture: /architecture|cross[- ]file|multi[- ]agent|pipeline|router|design|strategy/.test(text),
@@ -312,7 +330,7 @@ function scoreRoute(route, args, signals) {
     if (signals.asksForSubagent) score += 80;
     if (signals.routine) score += 10;
   }
-  if (route.id === 'local_coder_candidate') {
+  if (route.id === 'local_coder_candidate' || route.id === 'local_qwen36_candidate') {
     if (signals.asksForOrnith) score += 80;
     if (!signals.asksForOrnith) score -= 15;
     if (route.candidateOnly) score -= 12;
@@ -781,7 +799,7 @@ function decision(args) {
     policy: {
       defaultRule: 'Use local qwen2.5 for routine low/medium-risk work; use GLM 5.2 only when risk, ROI, and budget justify paid reasoning.',
       autoRecipeRule: 'Expose one hermes/auto model alias while the router selects bounded confidence, ratings, ReMoM, fusion, or workflow recipes.',
-      ornithRule: 'Treat Ornith and other new coding models as measured candidates until benchmark receipts promote them.',
+      ornithRule: 'Treat gpt-oss, Qwen3.6, and other new coding models as measured candidates until benchmark receipts promote them.',
       paymentRule: 'Never execute wallet, stablecoin, Stripe, send, post, or publish actions from this router; emit an approval gate only.',
       modelPriceRule: 'Use OpenRouter Models API/MCP-style price and benchmark evidence before committing paid routes.',
     },

@@ -194,6 +194,30 @@ describe('release safety contract', () => {
     expect(script).toContain('prebuild --platform android --clean');
   });
 
+  it('phone install default build is not demo-capable; E2E flags are opt-in via HERMES_E2E_BUILD', () => {
+    const script = read('hermes-mobile/scripts/install-phone-release.sh');
+    // Default path explicitly unsets the demo/E2E flags so a shipped production APK can never
+    // honor demo deep links; only HERMES_E2E_BUILD=1 opts back into automation capability.
+    expect(script).toContain('HERMES_E2E_BUILD');
+    expect(script).toContain('unset EXPO_PUBLIC_HERMES_DEV_UNLOCK EXPO_PUBLIC_E2E_AUTOMATION');
+    // The demo/E2E exports must live ONLY inside the opt-in gate (exactly once each), never
+    // inlined into a gradle build path where every install would bake them in.
+    // Neither gradle path may unconditionally export the demo/E2E flags anymore.
+    const automationCount = (script.match(/export EXPO_PUBLIC_E2E_AUTOMATION=1/g) || []).length;
+    expect(automationCount).toBe(1);
+    const devUnlockCount = (script.match(/export EXPO_PUBLIC_HERMES_DEV_UNLOCK=1/g) || []).length;
+    expect(devUnlockCount).toBe(1);
+    // Both gradle build paths must route flags through the gate helper.
+    const countMatches = (re: RegExp) => (script.match(re) ?? []).length;
+    expect(countMatches(/apply_release_build_flags\b(?!\(\))/g)).toBe(2);
+    const gateStart = script.indexOf('apply_release_build_flags() {');
+    const gateEnd = script.indexOf('\n}', gateStart);
+    const gate = script.slice(gateStart, gateEnd);
+    expect(gate).toContain('HERMES_E2E_BUILD');
+    expect(gate).toContain('export EXPO_PUBLIC_HERMES_DEV_UNLOCK=1');
+    expect(gate).toContain('export EXPO_PUBLIC_E2E_AUTOMATION=1');
+  });
+
   it('run-hermes-mobile uses phone release install (not Metro-only debug)', () => {
     const script = read('hermes-mobile/scripts/run-hermes-mobile.sh');
     expect(script).toContain('install-phone-release.sh');

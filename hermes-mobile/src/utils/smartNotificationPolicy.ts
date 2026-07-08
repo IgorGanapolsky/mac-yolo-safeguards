@@ -9,23 +9,57 @@ export function shouldScheduleApprovalNotification(
   pending: PendingApproval,
   appState: SmartNotificationAppState = AppState.currentState,
 ): boolean {
-  if (pending.riskTier === 'high') {
-    return appState !== 'active';
-  }
-  return appState === 'background' || appState === 'inactive';
+  return appState === 'background';
 }
 
 export function shouldScheduleRunCompletedNotification(
   appState: SmartNotificationAppState = AppState.currentState,
 ): boolean {
-  return appState !== 'active';
+  return appState === 'background';
 }
 
 /** Live run progress + stall watchdog notifications — background only. */
 export function shouldScheduleRunProgressNotification(
   appState: SmartNotificationAppState = AppState.currentState,
 ): boolean {
+  return appState === 'background';
+}
+
+/** Batch approval summary — background only (same bar as single approvals). */
+export function shouldScheduleApprovalsSummaryNotification(
+  appState: SmartNotificationAppState = AppState.currentState,
+): boolean {
+  return appState === 'background';
+}
+
+/** Whether heads-up banners / sounds may interrupt the user (never while foregrounded). */
+export function shouldPresentIntrusiveNotification(
+  appState: SmartNotificationAppState = AppState.currentState,
+): boolean {
   return appState !== 'active';
+}
+
+export type HermesNotificationPresentation = {
+  shouldShowAlert: boolean;
+  shouldShowBanner: boolean;
+  shouldPlaySound: boolean;
+  shouldSetBadge: boolean;
+  shouldShowList: boolean;
+};
+
+/** expo-notifications handler shape — suppress banners/sound when app is active. */
+export function resolveHermesNotificationPresentation(
+  appState: SmartNotificationAppState = AppState.currentState,
+  options?: { playSound?: boolean },
+): HermesNotificationPresentation {
+  const intrusive = shouldPresentIntrusiveNotification(appState);
+  return {
+    shouldShowAlert: intrusive,
+    shouldShowBanner: intrusive,
+    shouldPlaySound: intrusive && (options?.playSound ?? false),
+    shouldSetBadge: true,
+    shouldShowList: true,
+  };
 }
 
 export function approvalNotificationIdentifier(actionId: string): string {

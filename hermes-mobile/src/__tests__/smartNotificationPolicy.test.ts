@@ -5,7 +5,10 @@ import {
   approvalNotificationTitle,
   approvalsSummaryBody,
   buildApprovalNotificationBody,
+  resolveHermesNotificationPresentation,
+  shouldPresentIntrusiveNotification,
   shouldScheduleApprovalNotification,
+  shouldScheduleApprovalsSummaryNotification,
   shouldScheduleRunCompletedNotification,
   shouldScheduleRunProgressNotification,
 } from '../utils/smartNotificationPolicy';
@@ -19,11 +22,15 @@ const basePending = (overrides: Partial<PendingApproval> = {}): PendingApproval 
 });
 
 describe('smartNotificationPolicy', () => {
-  it('schedules approval notifications only when backgrounded (except high risk)', () => {
+  it('schedules approval notifications only when backgrounded', () => {
     expect(shouldScheduleApprovalNotification(basePending(), 'active')).toBe(false);
+    expect(shouldScheduleApprovalNotification(basePending(), 'inactive')).toBe(false);
     expect(shouldScheduleApprovalNotification(basePending(), 'background')).toBe(true);
     expect(
       shouldScheduleApprovalNotification(basePending({ riskTier: 'high' }), 'active'),
+    ).toBe(false);
+    expect(
+      shouldScheduleApprovalNotification(basePending({ riskTier: 'high' }), 'inactive'),
     ).toBe(false);
     expect(
       shouldScheduleApprovalNotification(basePending({ riskTier: 'high' }), 'background'),
@@ -63,17 +70,44 @@ describe('smartNotificationPolicy', () => {
     expect(approvalNotificationIdentifier('act-99')).toBe('hermes-approval-act-99');
   });
 
-  it('schedules run completed only when not active', () => {
+  it('schedules run completed only when backgrounded', () => {
     expect(shouldScheduleRunCompletedNotification('active')).toBe(false);
+    expect(shouldScheduleRunCompletedNotification('inactive')).toBe(false);
     expect(shouldScheduleRunCompletedNotification('background')).toBe(true);
-    expect(shouldScheduleRunCompletedNotification(AppState.currentState)).toBe(
-      AppState.currentState !== 'active',
-    );
   });
 
-  it('schedules run progress only when not active', () => {
+  it('schedules run progress only when backgrounded', () => {
     expect(shouldScheduleRunProgressNotification('active')).toBe(false);
+    expect(shouldScheduleRunProgressNotification('inactive')).toBe(false);
     expect(shouldScheduleRunProgressNotification('background')).toBe(true);
-    expect(shouldScheduleRunProgressNotification('inactive')).toBe(true);
+  });
+
+  it('schedules approvals summary only when backgrounded', () => {
+    expect(shouldScheduleApprovalsSummaryNotification('active')).toBe(false);
+    expect(shouldScheduleApprovalsSummaryNotification('inactive')).toBe(false);
+    expect(shouldScheduleApprovalsSummaryNotification('background')).toBe(true);
+  });
+
+  it('never presents intrusive notifications while active', () => {
+    expect(shouldPresentIntrusiveNotification('active')).toBe(false);
+    expect(shouldPresentIntrusiveNotification('background')).toBe(true);
+    expect(shouldPresentIntrusiveNotification('inactive')).toBe(true);
+  });
+
+  it('resolves handler presentation from app state', () => {
+    expect(resolveHermesNotificationPresentation('active')).toEqual({
+      shouldShowAlert: false,
+      shouldShowBanner: false,
+      shouldPlaySound: false,
+      shouldSetBadge: true,
+      shouldShowList: true,
+    });
+    expect(resolveHermesNotificationPresentation('background', { playSound: true })).toEqual({
+      shouldShowAlert: true,
+      shouldShowBanner: true,
+      shouldPlaySound: true,
+      shouldSetBadge: true,
+      shouldShowList: true,
+    });
   });
 });

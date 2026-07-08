@@ -137,9 +137,6 @@ export function shouldShowComposerProgressBanner(
   if (!progress) {
     return false;
   }
-  if (progress.phase === 'completed') {
-    return false;
-  }
   if (isSending && !progress.runId) {
     return false;
   }

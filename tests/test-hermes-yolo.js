@@ -136,6 +136,8 @@ assert.strictEqual(chooseZaiProvider(['zai-coding-nothink']), 'custom:zai-coding
 assert.strictEqual(chooseZaiProvider([]), 'zai');
 assert.strictEqual(chooseLocalModel(['qwen3:8b-agent-64k', 'qwen3:8b']), 'qwen3:8b-agent-64k');
 assert.strictEqual(chooseLocalModel(['qwen3:8b-64k']), 'qwen3:8b-64k');
+assert.strictEqual(chooseLocalModel(['gpt-oss:20b', 'qwen3:8b-64k']), 'gpt-oss:20b');
+assert.strictEqual(chooseLocalModel(['qwen3.6:35b-a3b', 'gpt-oss:20b']), 'qwen3.6:35b-a3b');
 assert.deepStrictEqual(defaultModelRoute({}, { availableModels: ['qwen2.5:3b-64k'] }), {
   provider: 'custom:ollama-local-64k',
   model: 'qwen2.5:3b-64k',

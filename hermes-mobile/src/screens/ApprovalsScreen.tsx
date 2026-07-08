@@ -37,6 +37,8 @@ type RootTabParamList = {
   Settings: undefined;
 };
 
+const REFRESH_SPINNER_TIMEOUT_MS = 12000;
+
 export default function ApprovalsScreen() {
   const navigation = useNavigation<BottomTabNavigationProp<RootTabParamList>>();
   const {
@@ -68,30 +70,66 @@ export default function ApprovalsScreen() {
   }, [patchSettings]);
 
   const [refreshing, setRefreshing] = React.useState(false);
+  const refreshingRef = React.useRef(false);
+  const refreshPromiseRef = React.useRef<Promise<void> | null>(null);
+  const connectionStateRef = React.useRef(connectionState);
+
+  React.useEffect(() => {
+    connectionStateRef.current = connectionState;
+  }, [connectionState]);
+
+  const runRefresh = React.useCallback(async (): Promise<void> => {
+    if (!leashUnlocked) {
+      return Promise.resolve();
+    }
+    if (refreshingRef.current) {
+      return refreshPromiseRef.current || Promise.resolve();
+    }
+    refreshingRef.current = true;
+    const promise = (async () => {
+      try {
+        await autoConnectGateway();
+        await refreshHealth();
+        connectEvents();
+      } catch (e) {
+        // Swallow: the HealthPill already reflects the real connection state.
+      } finally {
+        refreshingRef.current = false;
+        refreshPromiseRef.current = null;
+      }
+    })();
+    refreshPromiseRef.current = promise;
+    return promise;
+  }, [autoConnectGateway, connectEvents, leashUnlocked, refreshHealth]);
 
   const onRefresh = React.useCallback(async () => {
-    if (!leashUnlocked || refreshing) {
+    if (!leashUnlocked) {
       return;
     }
     setRefreshing(true);
+    let spinnerTimeout: ReturnType<typeof setTimeout> | undefined;
     try {
-      await autoConnectGateway();
-      await refreshHealth();
-      connectEvents();
-    } catch (e) {
-      // ignore
+      await Promise.race([
+        runRefresh(),
+        new Promise<void>((resolve) => {
+          spinnerTimeout = setTimeout(resolve, REFRESH_SPINNER_TIMEOUT_MS);
+        }),
+      ]);
     } finally {
+      if (spinnerTimeout) {
+        clearTimeout(spinnerTimeout);
+      }
       setRefreshing(false);
     }
-  }, [autoConnectGateway, connectEvents, leashUnlocked, refreshHealth, refreshing]);
+  }, [leashUnlocked, runRefresh]);
 
   useFocusEffect(
     React.useCallback(() => {
-      if (!leashUnlocked || connectionState === 'connected' || connectionState === 'demo') {
+      if (!leashUnlocked || connectionStateRef.current === 'connected' || connectionStateRef.current === 'demo') {
         return;
       }
-      void onRefresh();
-    }, [connectionState, leashUnlocked, onRefresh]),
+      void runRefresh();
+    }, [leashUnlocked, runRefresh]),
   );
 
   const glance = !presentation.visualsOn;

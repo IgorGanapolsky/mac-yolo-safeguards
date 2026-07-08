@@ -95,6 +95,20 @@ describe('runProgressDisplay', () => {
     ).toBe(true);
   });
 
+  it('shows composer banner for completed runs to display final stats', () => {
+    expect(
+      shouldShowComposerProgressBanner(
+        {
+          phase: 'completed',
+          startedAtMs: Date.now(),
+          detail: 'Done',
+          runId: 'run-1',
+        },
+        false,
+      ),
+    ).toBe(true);
+  });
+
   it('shortens connectivity failures for banner title row', () => {
     expect(
       runProgressFailedTitle(

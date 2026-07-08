@@ -51,16 +51,15 @@ export function useKeyboardInset(options?: {
       if ((Keyboard.metrics()?.height ?? 0) > 0) {
         return;
       }
-      if (options?.suppressHideWhileFocusedRef?.current) {
-        return;
-      }
+      // If the keyboard is actually gone from metrics, clear the inset even if focused.
+      // This recovers from cases where Gboard/IME hides but the TextInput retains focus.
       setInset(0);
       setWindowShrunk(false);
       baselineWindowHeight.current = Dimensions.get('window').height;
     }, 250);
 
     return () => clearInterval(timer);
-  }, [inset, options?.focused, options?.suppressHideWhileFocusedRef]);
+  }, [inset, options?.focused]);
 
   useEffect(() => {
     if (Platform.OS !== 'android' || options?.focused === false) {

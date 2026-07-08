@@ -66,7 +66,7 @@ function RunProgressBanner({
     displayableLlmModel(progress.model) ?? displayableLlmModel(fallbackModel);
   const tokenLabel = formatTokenSummary(progress);
   const showStats = Boolean(modelLabel || tokenLabel);
-  const showStatsPanel = showStats && (isActive || showTechnicalStats);
+  const showStatsPanel = showStats;
 
   const detailLabel = humanizeRunProgressDetail(progress.detail, progress.phase);
   const failedTitle = isFailed ? runProgressFailedTitle(progress.detail) : detailLabel;

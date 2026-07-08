@@ -1,0 +1,89 @@
+{
+  "frames": 6,
+  "assets": {
+    "fastlane/metadata/android/en-US/images/phoneScreenshots/01_approve.png": {
+      "width": 1080,
+      "height": 1920
+    },
+    "fastlane/metadata/android/en-US/images/phoneScreenshots/02_block.png": {
+      "width": 1080,
+      "height": 1920
+    },
+    "fastlane/metadata/android/en-US/images/phoneScreenshots/03_standing.png": {
+      "width": 1080,
+      "height": 1920
+    },
+    "fastlane/metadata/android/en-US/images/phoneScreenshots/04_pair.png": {
+      "width": 1080,
+      "height": 1920
+    },
+    "fastlane/metadata/android/en-US/images/phoneScreenshots/05_thumbgate.png": {
+      "width": 1080,
+      "height": 1920
+    },
+    "fastlane/metadata/android/en-US/images/phoneScreenshots/06_works.png": {
+      "width": 1080,
+      "height": 1920
+    },
+    "fastlane/screenshots/en-US/01_approve_65.png": {
+      "width": 1242,
+      "height": 2688
+    },
+    "fastlane/screenshots/en-US/01_approve_67.png": {
+      "width": 1290,
+      "height": 2796
+    },
+    "fastlane/screenshots/en-US/01_approve_ipad129.png": {
+      "width": 2048,
+      "height": 2732
+    },
+    "fastlane/screenshots/en-US/02_block_65.png": {
+      "width": 1242,
+      "height": 2688
+    },
+    "fastlane/screenshots/en-US/02_block_67.png": {
+      "width": 1290,
+      "height": 2796
+    },
+    "fastlane/screenshots/en-US/02_block_ipad129.png": {
+      "width": 2048,
+      "height": 2732
+    },
+    "fastlane/screenshots/en-US/03_standing_65.png": {
+      "width": 1242,
+      "height": 2688
+    },
+    "fastlane/screenshots/en-US/03_standing_67.png": {
+      "width": 1290,
+      "height": 2796
+    },
+    "fastlane/screenshots/en-US/03_standing_ipad129.png": {
+      "width": 2048,
+      "height": 2732
+    },
+    "fastlane/screenshots/en-US/04_pair_65.png": {
+      "width": 1242,
+      "height": 2688
+    },
+    "fastlane/screenshots/en-US/04_pair_67.png": {
+      "width": 1290,
+      "height": 2796
+    },
+    "fastlane/screenshots/en-US/05_thumbgate_65.png": {
+      "width": 1242,
+      "height": 2688
+    },
+    "fastlane/screenshots/en-US/05_thumbgate_67.png": {
+      "width": 1290,
+      "height": 2796
+    },
+    "fastlane/screenshots/en-US/06_works_65.png": {
+      "width": 1242,
+      "height": 2688
+    },
+    "fastlane/screenshots/en-US/06_works_67.png": {
+      "width": 1290,
+      "height": 2796
+    }
+  }
+}

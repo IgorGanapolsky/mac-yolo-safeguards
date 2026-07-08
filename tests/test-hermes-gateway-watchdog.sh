@@ -148,6 +148,30 @@ run_wd
   && ok "T8: missing API key -> warmup skipped (no crash)" \
   || bad "T8: attempted warmup without an API key"
 
+# T9: healthy gateway -> refreshes the vault presence file (fixes "Hermes away" badge).
+echo 200 > "$TMP/health"; echo '{"models":["qwen3:8b-64k"]}' > "$TMP/ps"; echo 4242 > "$TMP/gwpid"; echo 4242 > "$TMP/state"
+touch -t 202001010000 "$TMP/presence.md"
+run_wd HERMES_PRESENCE_FILE="$TMP/presence.md"
+[ "$(find "$TMP/presence.md" -newermt "2020-06-01" 2>/dev/null)" = "$TMP/presence.md" ] \
+  && ok "T9: healthy gateway -> refreshes presence file mtime" \
+  || bad "T9: presence file mtime not refreshed on a healthy gateway"
+
+# T10: gateway down -> must NOT touch presence (let a dead gateway age out to "away").
+echo 000 > "$TMP/health"; echo '{"models":["qwen3:8b-64k"]}' > "$TMP/ps"; : > "$TMP/gwpid"
+touch -t 202001010000 "$TMP/presence.md"
+run_wd HERMES_PRESENCE_FILE="$TMP/presence.md"
+[ -z "$(find "$TMP/presence.md" -newermt "2020-06-01" 2>/dev/null)" ] \
+  && ok "T10: down gateway -> presence file left stale (ages out to away)" \
+  || bad "T10: refreshed presence while gateway was down (would mask an outage)"
+
+# T11: presence file missing -> no crash, nothing created.
+echo 200 > "$TMP/health"; echo '{"models":["qwen3:8b-64k"]}' > "$TMP/ps"; echo 4242 > "$TMP/gwpid"; echo 4242 > "$TMP/state"
+rm -f "$TMP/presence.md"
+run_wd HERMES_PRESENCE_FILE="$TMP/presence.md"
+[ ! -f "$TMP/presence.md" ] \
+  && ok "T11: missing presence file -> not created, no crash" \
+  || bad "T11: created a presence file that did not exist"
+
 echo ""
 echo "=== $pass passed, $fail failed ==="
 [ "$fail" -eq 0 ]

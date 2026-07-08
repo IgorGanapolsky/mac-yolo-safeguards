@@ -1,5 +1,60 @@
 import { Platform } from 'react-native';
-import { parseSseChunk, streamSessionChat } from '../services/hermesGatewayClient';
+import {
+  extractCapabilitiesModel,
+  parseSseChunk,
+  streamSessionChat,
+} from '../services/hermesGatewayClient';
+
+describe('extractCapabilitiesModel', () => {
+  it('returns the real model from the model field', () => {
+    expect(extractCapabilitiesModel({ object: 'capabilities', model: 'qwen3:8b-64k' })).toBe(
+      'qwen3:8b-64k',
+    );
+  });
+
+  it('skips the hermes-agent platform label and falls back to default_model', () => {
+    expect(
+      extractCapabilitiesModel({
+        object: 'capabilities',
+        model: 'hermes-agent',
+        default_model: 'glm-coding',
+      }),
+    ).toBe('glm-coding');
+  });
+
+  it('reads llm when model and default_model are platform labels', () => {
+    expect(
+      extractCapabilitiesModel({
+        object: 'capabilities',
+        model: 'hermes',
+        default_model: 'gateway',
+        llm: 'google/gemini-2.5-flash',
+      }),
+    ).toBe('google/gemini-2.5-flash');
+  });
+
+  it('reads the first real entry from a models list (string or object shapes)', () => {
+    expect(
+      extractCapabilitiesModel({ object: 'capabilities', models: ['hermes-agent', 'qwen3:8b-64k'] }),
+    ).toBe('qwen3:8b-64k');
+    expect(
+      extractCapabilitiesModel({
+        object: 'capabilities',
+        model: 'hermes-agent',
+        models: [{ id: 'glm-coding' }],
+      }),
+    ).toBe('glm-coding');
+    expect(
+      extractCapabilitiesModel({ object: 'capabilities', models: [{ name: 'qwen2.5:3b-64k' }] }),
+    ).toBe('qwen2.5:3b-64k');
+  });
+
+  it('returns null when only the platform label is knowable', () => {
+    expect(extractCapabilitiesModel({ object: 'capabilities', model: 'hermes-agent' })).toBeNull();
+    expect(extractCapabilitiesModel(null)).toBeNull();
+    expect(extractCapabilitiesModel({ object: 'capabilities' })).toBeNull();
+  });
+});
 
 describe('hermesGatewayClient SSE', () => {
   const originalOs = Platform.OS;

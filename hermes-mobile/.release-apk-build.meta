@@ -1,0 +1,4 @@
+# Written by install-phone-release.sh — do not hand-edit
+E2E_AUTOMATION=0
+HERMES_DEV_UNLOCK=1
+BUILT_AT="2026-07-07T18:23:35Z"

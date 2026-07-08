@@ -84,6 +84,20 @@ function ChatInputBar({
           underlineColorAndroid="transparent"
           editable
           multiline
+          autoCorrect={true}
+          autoCapitalize="sentences"
+          spellCheck={true}
+          keyboardType="default"
+          // iOS: keep QuickType predictions/autofill neutral for a free-text chat box.
+          // A specialized textContentType (username, oneTimeCode, ...) hides the predictive bar.
+          textContentType="none"
+          smartInsertDelete={true}
+          keyboardAppearance="dark"
+          // Android: suppress the OS autofill overlay only. Verified in RN 0.83.6
+          // ReactTextInputManager: this maps to IMPORTANT_FOR_AUTOFILL_NO and does NOT touch
+          // the inputType suggestion strip, which stays on via autoCorrect. keyboardType stays
+          // "default" (never "visible-password", which would kill predictive text/suggestions).
+          importantForAutofill="no"
           returnKeyType="send"
           blurOnSubmit={false}
           onFocus={onFocus}

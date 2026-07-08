@@ -1736,7 +1736,11 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
   const selectGatewayProfile = useCallback(
     async (profileId: string) => {
       if (settingsRef.current.demoMode) {
-        return;
+        const nextSettings: GatewaySettings = {
+          ...settingsRef.current,
+          demoMode: false,
+        };
+        await saveSettings(nextSettings, apiKeyRef.current);
       }
       const profile = profileStateRef.current.profiles.find((p) => p.id === profileId);
       if (!profile) {
@@ -2080,6 +2084,11 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
     async (params: SetupDeepLinkParams) => {
       if (params.demoMode) {
         if (!isDemoModeAllowed()) {
+          return;
+        }
+        // If the user already has profiles configured or has a set gatewayUrl, do not force demoMode on them
+        if (settingsRef.current.gatewayUrl || profileStateRef.current.profiles.length > 0) {
+          console.log('[useHermesDeepLinks] Ignoring demo setup link because gateway/profiles are already configured.');
           return;
         }
         const nextSettings: GatewaySettings = {

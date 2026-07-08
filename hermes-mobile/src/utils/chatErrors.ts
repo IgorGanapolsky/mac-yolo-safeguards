@@ -209,6 +209,59 @@ export function isTitleInUseError(error: unknown): boolean {
   return false;
 }
 
+const SESSION_REMOVED_MARKERS = [
+  'session_not_found',
+  'session not found',
+  'was removed or your computer restarted',
+  'computer restarted',
+  'unknown session',
+  'no such session',
+];
+
+/**
+ * The target session id no longer exists on the gateway — typically because the
+ * Mac gateway restarted (which drops in-memory session ids) while the app still
+ * held a stale `currentSession` / cached sessions list. Distinct from
+ * {@link isTitleInUseError} (title collision, retry with a new title) and
+ * {@link isSessionInUseError} (operator busy on another chat, wait and retry):
+ * here the id itself is gone, so the caller must create a fresh session before
+ * retrying rather than reusing or forking the dead id.
+ */
+export function isSessionRemovedError(error: unknown): boolean {
+  if (!(error instanceof Error) || !error.message) {
+    return false;
+  }
+  if (isTitleInUseError(error) || isSessionInUseError(error)) {
+    return false;
+  }
+  const message = error.message;
+  const lower = message.toLowerCase();
+  if (SESSION_REMOVED_MARKERS.some((marker) => lower.includes(marker))) {
+    return true;
+  }
+  if (message.trim().startsWith('{')) {
+    try {
+      const parsed = JSON.parse(message);
+      const errorObj = parsed.error;
+      if (errorObj && typeof errorObj === 'object') {
+        if (errorObj.code === 'session_not_found') {
+          return true;
+        }
+        const msg = errorObj.message;
+        if (
+          typeof msg === 'string' &&
+          SESSION_REMOVED_MARKERS.some((marker) => msg.toLowerCase().includes(marker))
+        ) {
+          return true;
+        }
+      }
+    } catch {
+      // not JSON
+    }
+  }
+  return false;
+}
+
 export function isSessionInUseError(error: unknown): boolean {
   if (!(error instanceof Error) || !error.message) {
     return false;

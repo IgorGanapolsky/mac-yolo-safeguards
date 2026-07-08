@@ -2,6 +2,7 @@ import React from 'react';
 import { StyleSheet, View, Text, TouchableOpacity } from 'react-native';
 import { colors } from '../theme/colors';
 import { captureCrash } from '../services/crashReporting';
+import { captureException } from '../services/telemetry';
 
 interface ErrorBoundaryProps {
   children: React.ReactNode;
@@ -28,6 +29,12 @@ export default class ErrorBoundary extends React.Component<
     // fire-and-forget and cannot complete when the app is dying — captureCrash
     // writes durably and flushes on the next launch.
     void captureCrash('ui_crash', error, {
+      component_stack: errorInfo.componentStack?.slice(0, 500) ?? '',
+    });
+    // Also report to Sentry (no-op without a DSN) so UI crashes surface in the
+    // same dashboard as native/JS crashes.
+    captureException(error, {
+      source: 'ui_error_boundary',
       component_stack: errorInfo.componentStack?.slice(0, 500) ?? '',
     });
   }
