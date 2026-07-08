@@ -71,11 +71,21 @@ describe('setupDeepLink', () => {
       'Igors-MacBook-Pro',
       undefined,
       ['igors-mac-mini.tail12aa33.ts.net'],
-      [{ gatewayUrl: 'http://100.94.135.78:8642', macName: 'Igors-Mac-mini' }],
+      [
+        {
+          gatewayUrl: 'http://100.94.135.78:8642',
+          macName: 'Igors-Mac-mini',
+          apiKey: 'sk-mini-key',
+        },
+      ],
     );
     const parsed = parseSetupDeepLink(link);
     expect(parsed?.extraComputers).toEqual([
-      { gatewayUrl: 'http://100.94.135.78:8642', macName: 'Igors-Mac-mini' },
+      {
+        gatewayUrl: 'http://100.94.135.78:8642',
+        macName: 'Igors-Mac-mini',
+        apiKey: 'sk-mini-key',
+      },
     ]);
   });
 

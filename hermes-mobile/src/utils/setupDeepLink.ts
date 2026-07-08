@@ -3,6 +3,8 @@
 export type SetupExtraComputer = {
   gatewayUrl: string;
   macName?: string;
+  /** Per-machine API key when fleet Macs use different API_SERVER_KEY values. */
+  apiKey?: string;
 };
 
 export interface SetupDeepLinkParams {
@@ -72,6 +74,10 @@ export function buildSetupDeepLink(
     if (name) {
       params.append('extraName', name);
     }
+    const extraKey = extra.apiKey?.trim();
+    if (extraKey) {
+      params.append('extraKey', extraKey);
+    }
   }
   return `hermes://setup?${params.toString()}`;
 }
@@ -79,11 +85,13 @@ export function buildSetupDeepLink(
 function parseExtraComputers(query: string): SetupExtraComputer[] {
   const urls = parseRepeatedQueryValues(query, 'extraUrl');
   const names = parseRepeatedQueryValues(query, 'extraName');
+  const keys = parseRepeatedQueryValues(query, 'extraKey');
   const extras: SetupExtraComputer[] = [];
   for (let i = 0; i < urls.length; i += 1) {
     extras.push({
       gatewayUrl: urls[i],
       macName: names[i] || undefined,
+      apiKey: keys[i] || undefined,
     });
   }
   return extras;

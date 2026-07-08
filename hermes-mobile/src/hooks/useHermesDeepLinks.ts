@@ -3,6 +3,7 @@ import { Linking } from 'react-native';
 import type { NavigationContainerRef } from '@react-navigation/native';
 import type { HermesAgentToolName } from '../services/hermesAgentTools';
 import { parseSetupDeepLink, parseRelayDeepLink, type SetupDeepLinkParams } from '../utils/setupDeepLink';
+import { syncExtraProfileApiKeys } from '../utils/gatewayProfileCredentialSync';
 import { isDevLeashUnlockDeepLink } from '../utils/developerLeashUnlock';
 import { recordAttributionFromUrl } from '../services/marketingAttribution';
 
@@ -95,6 +96,7 @@ export function useHermesDeepLinks(
       const setup = parseSetupDeepLink(url);
       if (setup && applySetupDeepLink) {
         await applySetupDeepLink(setup);
+        await syncExtraProfileApiKeys(setup.extraComputers);
         navigationRef.current?.navigate('Chat');
         return;
       }

@@ -37,6 +37,50 @@ function readEnvKey(filePath, names) {
   return '';
 }
 
+function readLocalApiKey() {
+  return readEnvKey(HERMES_ENV, ['API_SERVER_KEY', 'HERMES_API_SERVER_KEY', 'API_KEY']);
+}
+
+function gatewayUrlHost(gatewayUrl) {
+  try {
+    return new URL(gatewayUrl.trim()).hostname.toLowerCase();
+  } catch {
+    return '';
+  }
+}
+
+function isMacMiniGatewayUrl(gatewayUrl) {
+  const host = gatewayUrlHost(gatewayUrl);
+  return host === '100.94.135.78' || /mac-mini|igors-mac-mini/.test(host);
+}
+
+/** Fleet Macs can have different API_SERVER_KEY values — fetch the target machine's key over SSH. */
+function resolveApiKeyForGatewayUrl(gatewayUrl) {
+  const localKey = readLocalApiKey();
+  if (!gatewayUrl?.trim() || !isMacMiniGatewayUrl(gatewayUrl)) {
+    return localKey;
+  }
+  const remote = spawnSync(
+    'ssh',
+    [
+      '-o',
+      'BatchMode=yes',
+      '-o',
+      'ConnectTimeout=8',
+      'hermes-mini',
+      "grep -E '^API_SERVER_KEY=' ~/.hermes/.env | cut -d= -f2-",
+    ],
+    { encoding: 'utf8', timeout: 15_000 },
+  );
+  const remoteKey = remote.stdout?.trim();
+  if (remote.status === 0 && remoteKey) {
+    console.log('  API key: loaded from Mac mini (~/.hermes/.env via SSH)');
+    return remoteKey;
+  }
+  console.warn('  API key: Mac mini SSH lookup failed — using local key (chat may 401)');
+  return localKey;
+}
+
 function readThumbgateApiKey() {
   const fromEnv = process.env.THUMBGATE_API_KEY?.trim();
   if (fromEnv) {
@@ -139,6 +183,8 @@ function buildDeepLink(
     if (url) params.append('extraUrl', url);
     const name = extra?.name?.trim();
     if (name) params.append('extraName', name);
+    const extraKey = extra?.apiKey?.trim();
+    if (extraKey) params.append('extraKey', extraKey);
   }
   return `hermes://setup?${params.toString()}`;
 }
@@ -427,11 +473,7 @@ function main() {
     gatewayUrl = `http://${lanIpFromHealth}:8642`;
   }
   const lanIp = detectLocalLanIp() || resolveLanIp(health);
-  const apiKey = readEnvKey(HERMES_ENV, [
-    'API_SERVER_KEY',
-    'HERMES_API_SERVER_KEY',
-    'API_KEY',
-  ]);
+  const apiKey = resolveApiKeyForGatewayUrl(gatewayUrl);
   const thumbgateApiKey = readThumbgateApiKey();
   const hostname = health.hostname || os.hostname();
   const relayCode =
@@ -479,6 +521,7 @@ function main() {
       extraComputers.push({
         gatewayUrl: miniUrl,
         name: (mini.hostname || mini.label || 'Igors-Mac-mini').replace(/\.local$/i, '').trim(),
+        apiKey: resolveApiKeyForGatewayUrl(miniUrl),
       });
       console.log(
         '  Extra saved computer (Tailscale):',
