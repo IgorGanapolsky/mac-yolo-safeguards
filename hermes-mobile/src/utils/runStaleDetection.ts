@@ -18,7 +18,33 @@ export const RUN_STALE_IDLE_HINT =
 export const RUN_STALE_TIMEOUT_DETAIL =
   'Run timed out — stopped waiting on your computer. Tap Stop on your Mac or start a new message.';
 
+export const RUN_NO_TOKEN_FAIL_MS = 90_000;
+
+export const RUN_NO_TOKEN_FAIL_DETAIL =
+  'No reply yet — your computer may be slow or stuck. Tap Stop and try again.';
+
 export type RunStaleLevel = 'normal' | 'long' | 'idle' | 'expired';
+
+export function isRunAwaitingFirstToken(progress: RunProgressState): boolean {
+  if (progress.phase === 'completed' || progress.phase === 'failed') {
+    return false;
+  }
+  return (progress.outputTokens ?? 0) <= 0;
+}
+
+export function shouldFailRunAwaitingFirstToken(
+  progress: RunProgressState | null | undefined,
+  nowMs = Date.now(),
+): boolean {
+  if (!progress || !isRunAwaitingFirstToken(progress)) {
+    return false;
+  }
+  return nowMs - progress.startedAtMs >= RUN_NO_TOKEN_FAIL_MS;
+}
+
+export function msUntilNoTokenFail(progress: RunProgressState, nowMs = Date.now()): number {
+  return Math.max(0, RUN_NO_TOKEN_FAIL_MS - (nowMs - progress.startedAtMs));
+}
 
 export function isMeaningfulRunProgressChange(
   prev: RunProgressState | null | undefined,

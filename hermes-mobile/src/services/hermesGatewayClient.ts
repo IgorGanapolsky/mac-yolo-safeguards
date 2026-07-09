@@ -22,8 +22,8 @@ export class HermesGatewayApiError extends Error {
 /** Non-stream chat turn — LLM/agent runs can exceed default fetch timeouts. */
 export const CHAT_TURN_TIMEOUT_MS = 300_000;
 
-/** Wait for first SSE byte (Ollama cold start on the Mac). */
-export const CHAT_STREAM_FIRST_BYTE_MS = 30_000;
+/** Wait for first SSE byte (cloud models on the Mac can exceed 30s — mini measured ~31.6s). */
+export const CHAT_STREAM_FIRST_BYTE_MS = 60_000;
 
 /** No SSE activity — agent or model stalled. */
 export const CHAT_STREAM_IDLE_MS = 30_000;
@@ -498,9 +498,22 @@ function readChatStreamViaXhr(
       resolve(text);
     };
 
+    const detachAcceptedWithoutFirstByte = () => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      clearInterval(timer);
+      resolve(assistantText);
+    };
+
     const timer = setInterval(() => {
       const now = Date.now();
       if (!firstByteSeen && now - startedAt > CHAT_STREAM_FIRST_BYTE_MS) {
+        if (acceptedNotified) {
+          detachAcceptedWithoutFirstByte();
+          return;
+        }
         fail(
           new Error(
             'Chat stream timed out waiting for your computer. Check that Ollama is running on your computer.',
@@ -600,13 +613,13 @@ async function readChatStreamFromResponse(
 export async function streamSessionChat(
   gatewayUrl: string,
   sessionId: string,
-  message: string,
+  message: string | Array<{ type: string; text?: string; image_url?: { url: string; detail?: string } }>,
   apiKey?: string | null,
   onEvent?: (event: ChatStreamEvent) => void,
   systemMessage?: string,
   onStreamAccepted?: () => void,
 ): Promise<string> {
-  const body: Record<string, string> = { message };
+  const body: Record<string, unknown> = { message };
   if (systemMessage?.trim()) {
     body.system_message = systemMessage.trim();
   }

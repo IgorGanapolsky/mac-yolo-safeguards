@@ -5,8 +5,10 @@ import {
   classifyRunStale,
   isMeaningfulRunProgressChange,
   isTerminalGatewayRunStatus,
+  msUntilNoTokenFail,
   msUntilRunStaleAutoFail,
   runStaleHint,
+  shouldFailRunAwaitingFirstToken,
   stampRunProgressActivity,
 } from '../utils/runStaleDetection';
 import type { RunProgressState } from '../types/chatDisplay';
@@ -55,6 +57,18 @@ describe('runStaleDetection', () => {
   it('computes ms until auto-fail', () => {
     const progress = baseProgress({ startedAtMs: 1_000 });
     expect(msUntilRunStaleAutoFail(progress, 1_000 + 60_000)).toBe(RUN_STALE_AUTO_FAIL_MS - 60_000);
+  });
+
+  it('fails runs with zero output tokens after 90s', () => {
+    const progress = baseProgress({ startedAtMs: 1_000, outputTokens: 0 });
+    expect(shouldFailRunAwaitingFirstToken(progress, 1_000 + 89_999)).toBe(false);
+    expect(shouldFailRunAwaitingFirstToken(progress, 1_000 + 90_000)).toBe(true);
+    expect(msUntilNoTokenFail(progress, 1_000 + 30_000)).toBe(60_000);
+  });
+
+  it('does not fail awaiting-first-token once output tokens arrive', () => {
+    const progress = baseProgress({ startedAtMs: 0, outputTokens: 3 });
+    expect(shouldFailRunAwaitingFirstToken(progress, 120_000)).toBe(false);
   });
 
   it('recognizes terminal gateway run statuses', () => {
