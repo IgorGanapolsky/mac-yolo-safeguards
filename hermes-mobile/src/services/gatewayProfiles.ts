@@ -243,6 +243,16 @@ export function profileDisplayName(profile: GatewayProfile): string {
 
 export function formatProfileLabel(profile: GatewayProfile): string {
   const name = profileDisplayName(profile);
+  if (isLoopbackGatewayUrl(profile.gatewayUrl)) {
+    return name;
+  }
+  if (isTailscaleGatewayUrl(profile.gatewayUrl)) {
+    const host = gatewayUrlHostname(profile.gatewayUrl);
+    if (host && name !== host && !name.includes(host) && !isTailnetRouteLabel(name)) {
+      return `${name} (${host})`;
+    }
+    return name;
+  }
   const ip = profile.localIp?.trim();
   if (ip && ip !== '127.0.0.1' && ip !== 'localhost' && name !== ip && !name.includes(ip)) {
     return `${name} (${ip})`;

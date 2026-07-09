@@ -85,12 +85,7 @@ export function resolveChatMachineHeaderDisplay(input: {
     ipLine = 'Tailscale';
   }
   if (loopbackUsb && hasNamedMachine) {
-    const profileLanIp = input.activeProfile?.localIp?.trim();
-    if (profileLanIp && !profileLanIp.startsWith('127.')) {
-      ipLine = `${profileLanIp}:8642`;
-    } else {
-      ipLine = 'USB';
-    }
+    ipLine = 'USB';
   }
   const detailParts: string[] = [];
   const savedMacCount = input.savedMacCount ?? 0;

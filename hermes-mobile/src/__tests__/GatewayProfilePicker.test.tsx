@@ -20,7 +20,7 @@ const profiles: GatewayProfile[] = [
   },
   {
     id: 'mac_usb',
-    label: 'Mac USB',
+    label: 'Test Laptop',
     gatewayUrl: 'http://127.0.0.1:8642',
     addedAt: '2026-06-18T12:00:00.000Z',
   },
@@ -70,6 +70,7 @@ describe('GatewayProfilePicker', () => {
     expect(getByTestId('gateway-profile-item-mac_192_168_12_50')).toHaveTextContent(
       /Needs tunnel/,
     );
-    expect(getByTestId('gateway-profile-item-mac_usb')).toHaveTextContent(/USB/);
+    expect(getByTestId('gateway-profile-item-mac_usb')).toHaveTextContent(/Select/);
+    expect(getByTestId('gateway-profile-item-mac_usb')).not.toHaveTextContent(/USB/);
   });
 });

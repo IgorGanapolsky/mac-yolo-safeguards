@@ -145,6 +145,19 @@ describe('gatewayProfiles', () => {
     expect(state.activeProfileId).toBe('mac_192_168_12_208');
   });
 
+  it('prefers Tailscale host over home LAN IP in profile labels', () => {
+    const label = formatProfileLabel({
+      id: 'mac_mini_ts',
+      label: 'Igors-Mac-mini',
+      gatewayUrl: 'http://100.94.135.78:8642',
+      hostname: 'Igors-Mac-mini.local',
+      localIp: '192.168.68.73',
+      addedAt: '2026-07-08T12:00:00.000Z',
+    });
+    expect(label).toBe('Igors-Mac-mini (100.94.135.78)');
+    expect(label).not.toContain('192.168.68.73');
+  });
+
   it('formats labels with hostname and IP', () => {
     const label = formatProfileLabel({
       id: 'mac_192_168_12_208',

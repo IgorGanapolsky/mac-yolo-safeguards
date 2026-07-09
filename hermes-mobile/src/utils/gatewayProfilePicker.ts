@@ -20,15 +20,32 @@ export type ProfilePickerLines = {
   detail?: string;
 };
 
-export function profilePickerLines(profile: GatewayProfile): ProfilePickerLines {
-  const title = profileDisplayName(profile);
+function profilePickerEndpoint(profile: GatewayProfile): string | undefined {
+  if (isLoopbackGatewayUrl(profile.gatewayUrl)) {
+    return undefined;
+  }
+  if (isTailscaleGatewayUrl(profile.gatewayUrl)) {
+    const host = gatewayUrlHostname(profile.gatewayUrl);
+    if (!host) {
+      return undefined;
+    }
+    return host.includes(':') ? host : `${host}:8642`;
+  }
   const ip = resolveDisplayLanIp(profile.localIp, profile.gatewayUrl);
-  if (ip && !title.includes(ip)) {
-    return { title, detail: `${ip}:8642` };
+  if (ip) {
+    return `${ip}:8642`;
   }
   const host = gatewayUrlHostname(profile.gatewayUrl);
-  if (host && !isLoopbackHost(host) && !title.toLowerCase().includes(host.toLowerCase())) {
-    const endpoint = host.includes(':') ? host : `${host}:8642`;
+  if (host && !isLoopbackHost(host)) {
+    return host.includes(':') ? host : `${host}:8642`;
+  }
+  return undefined;
+}
+
+export function profilePickerLines(profile: GatewayProfile): ProfilePickerLines {
+  const title = profileDisplayName(profile);
+  const endpoint = profilePickerEndpoint(profile);
+  if (endpoint && !title.toLowerCase().includes(endpoint.split(':')[0].toLowerCase())) {
     return { title, detail: endpoint };
   }
   return { title };
@@ -156,17 +173,20 @@ export function profilesForSwitchComputerPicker(
   profiles: GatewayProfile[],
   options: SwitchComputerPickerOptions = {},
 ): GatewayProfile[] {
-  const valid = dedupeSwitchPickerRows(
+  let valid = dedupeSwitchPickerRows(
     profilesForDevicePicker(profiles).filter(
       (profile) =>
         !isLikelyMobileTailscaleProfile(profile) &&
         !isUnnamedInactiveTailscaleIpProfile(profile, options.activeProfileId),
     ),
   );
-  if (!hasNamedUsbLoopbackProfile(valid)) {
-    return valid;
+  if (hasNamedUsbLoopbackProfile(valid)) {
+    valid = valid.filter((p) => !isGenericUsbLoopbackProfile(p));
   }
-  return valid.filter((p) => !isGenericUsbLoopbackProfile(p));
+  if (hasNonLoopbackSavedProfile(valid)) {
+    valid = valid.filter((profile) => !isLoopbackGatewayUrl(profile.gatewayUrl));
+  }
+  return valid;
 }
 
 export type UsbHostMismatch = {
