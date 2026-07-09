@@ -103,6 +103,14 @@ export type SwitchComputerPickerOptions = {
   activeProfileId?: string | null;
 };
 
+/** Loopback/USB rows are adb-dev only — never show them in Choose your computer. */
+export function shouldShowProfileInUserPicker(profile: GatewayProfile): boolean {
+  if (isInvalidGatewayProfile(profile)) {
+    return false;
+  }
+  return !isLoopbackGatewayUrl(profile.gatewayUrl);
+}
+
 function isLikelyMobileTailscaleProfile(profile: GatewayProfile): boolean {
   if (!isTailscaleGatewayUrl(profile.gatewayUrl)) {
     return false;
@@ -168,7 +176,7 @@ function dedupeSwitchPickerRows(profiles: GatewayProfile[]): GatewayProfile[] {
   return rows;
 }
 
-/** Switch-computer list: valid profiles minus phone/self, duplicate, and redundant USB rows. */
+/** Switch-computer list: valid profiles minus phone/self, loopback/USB, and duplicate rows. */
 export function profilesForSwitchComputerPicker(
   profiles: GatewayProfile[],
   options: SwitchComputerPickerOptions = {},
@@ -176,15 +184,13 @@ export function profilesForSwitchComputerPicker(
   let valid = dedupeSwitchPickerRows(
     profilesForDevicePicker(profiles).filter(
       (profile) =>
+        shouldShowProfileInUserPicker(profile) &&
         !isLikelyMobileTailscaleProfile(profile) &&
         !isUnnamedInactiveTailscaleIpProfile(profile, options.activeProfileId),
     ),
   );
   if (hasNamedUsbLoopbackProfile(valid)) {
     valid = valid.filter((p) => !isGenericUsbLoopbackProfile(p));
-  }
-  if (hasNonLoopbackSavedProfile(valid)) {
-    valid = valid.filter((profile) => !isLoopbackGatewayUrl(profile.gatewayUrl));
   }
   return valid;
 }
