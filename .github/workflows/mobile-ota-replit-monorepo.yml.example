@@ -1,0 +1,136 @@
+# EXAMPLE — Replit monorepo OTA workflow (app at artifacts/hermes-mobile).
+#
+# Copy to YOUR Replit GitHub repo as .github/workflows/mobile-ota.yml
+# ONLY if mac-yolo-safeguards is NOT your production OTA source.
+#
+# Production OTA for Hermes Mobile lives on:
+#   https://github.com/IgorGanapolsky/mac-yolo-safeguards
+#   path: hermes-mobile/  workflow: .github/workflows/mobile-ota.yml
+#
+# This template uses preview channel by default — do NOT publish to production
+# from a Replit fork unless you intentionally own that release line.
+#
+# Required secret: EXPO_TOKEN (repo → Settings → Secrets)
+# EAS project: 4ed13e30-9b97-4ddd-8a12-59106cae90d6
+# runtimeVersion: appVersion (see artifacts/hermes-mobile/app.json)
+name: Hermes Mobile OTA (Replit monorepo)
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'artifacts/hermes-mobile/**'
+      - '.github/workflows/mobile-ota.yml'
+  workflow_dispatch:
+    inputs:
+      channel:
+        description: EAS channel (default preview — avoid production unless intentional)
+        required: false
+        default: preview
+        type: choice
+        options:
+          - preview
+          - production
+      message:
+        description: Optional OTA publish message
+        required: false
+        type: string
+
+concurrency:
+  group: hermes-mobile-ota-replit
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  quality-gate:
+    name: Unit + release safety
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: artifacts/hermes-mobile
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: artifacts/hermes-mobile/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Release readiness audit
+        env:
+          REQUIRE_EAS_PROJECT: '1'
+        run: npm run release:check
+
+      - name: Type check
+        run: npm run typecheck
+
+      - name: Unit tests
+        run: npm run test:ci
+
+      - name: Release safety contract
+        run: npm run test:release-safety
+
+  publish-ota:
+    name: Publish OTA
+    needs: [quality-gate]
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: artifacts/hermes-mobile
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: artifacts/hermes-mobile/package-lock.json
+
+      - uses: expo/expo-github-action@v9
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+          packager: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Fail fast on required EAS auth
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ -z "${EXPO_TOKEN:-}" ]; then
+            echo "Missing required secret: EXPO_TOKEN" >&2
+            exit 1
+          fi
+
+      - name: Publish OTA
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+          OTA_CHANNEL: ${{ github.event_name == 'workflow_dispatch' && inputs.channel || 'preview' }}
+          OTA_ENV: ${{ github.event_name == 'workflow_dispatch' && (inputs.channel == 'production' && 'production' || 'preview') || 'preview' }}
+          OTA_MESSAGE: ${{ github.event_name == 'workflow_dispatch' && (inputs.message || format('manual {0}', github.sha)) || format('main {0}: {1}', github.sha, github.event.head_commit.message || 'Hermes Mobile OTA') }}
+        run: |
+          set -euo pipefail
+          eas update \
+            --channel "${OTA_CHANNEL}" \
+            --environment "${OTA_ENV}" \
+            --non-interactive \
+            --message "${OTA_MESSAGE}" \
+            | tee /tmp/eas-ota-replit.json
+
+      - name: Upload OTA publish evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: always()
+        with:
+          name: hermes-mobile-ota-replit
+          path: /tmp/eas-ota-replit.json
+          retention-days: 14

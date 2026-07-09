@@ -120,6 +120,9 @@ import {
   GENERIC_USB_PROFILE_LABEL,
   isDiscoveredUrlAllowedForActiveProfile,
   resolvePreferredActiveProfileId,
+  resolveHealPersistDecision,
+  shouldProbeGatewayUrlForActiveProfile,
+  profilesForActiveMachine,
 } from '../services/gatewayProfiles';
 import {
   discoverAllGatewaysOnLan,
@@ -599,6 +602,34 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
         return successfulUrl;
       }
       const currentUrl = settingsRef.current.gatewayUrl;
+      const requestedActivation =
+        makeProfileActive || !profileStateRef.current.activeProfileId;
+      const healDecision = resolveHealPersistDecision(
+        profileStateRef.current,
+        successfulUrl,
+        requestedActivation,
+      );
+      const active = activeProfile(profileStateRef.current);
+      const lanIp = extractLanIpFromGatewayUrl(successfulUrl);
+      const pairName = lanIp ? await resolvePairServerMachineName(lanIp).catch(() => null) : null;
+      const upserted = applyHealDiscoveredUrl(
+        profileStateRef.current,
+        {
+          gatewayUrl: successfulUrl,
+          localIp: lanIp ?? active?.localIp ?? undefined,
+          hostname: pairName ?? healthRef.current?.hostname ?? active?.hostname,
+          label: pairName ?? active?.label ?? undefined,
+        },
+        healDecision.requestedActivation,
+      );
+      profileStateRef.current = upserted;
+      setProfileState(upserted);
+      await gatewayProfiles.save(upserted);
+
+      if (healDecision.catalogOnly) {
+        return healDecision.returnUrl;
+      }
+
       if (successfulUrl !== currentUrl) {
         const nextSettings = { ...settingsRef.current, gatewayUrl: successfulUrl };
         await storage.saveGatewaySettings(nextSettings);
@@ -607,23 +638,9 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
       }
       effectiveGatewayUrlRef.current = successfulUrl;
       setEffectiveGatewayUrl(successfulUrl);
-      const lanIp = extractLanIpFromGatewayUrl(successfulUrl);
       if (lanIp) {
         await storage.saveLastGatewayLanIp(lanIp);
       }
-      const active = activeProfile(profileStateRef.current);
-      const pairName = lanIp ? await resolvePairServerMachineName(lanIp).catch(() => null) : null;
-      const requestedActivation =
-        makeProfileActive || !profileStateRef.current.activeProfileId;
-      const upserted = applyHealDiscoveredUrl(profileStateRef.current, {
-        gatewayUrl: successfulUrl,
-        localIp: lanIp ?? active?.localIp ?? undefined,
-        hostname: pairName ?? healthRef.current?.hostname ?? active?.hostname,
-        label: pairName ?? active?.label ?? undefined,
-      }, requestedActivation);
-      profileStateRef.current = upserted;
-      setProfileState(upserted);
-      await gatewayProfiles.save(upserted);
       return successfulUrl;
     },
     [],
@@ -773,14 +790,25 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
         }
       }
       const lastLanIp = await storage.loadLastGatewayLanIp();
-      const profileLanIps = profileStateRef.current.profiles.map(
+      const profileLanIps = profilesForActiveMachine(
+        profileStateRef.current.profiles,
+        activeProfileId,
+      ).map(
         (profile) => profile.localIp?.trim() || extractLanIpFromGatewayUrl(profile.gatewayUrl),
       );
       for (const fallbackUrl of wifiLanFallbackUrls({
         primaryUrl,
         wifiConnected: wifiConnectedRef.current,
-        lastLanIp,
+        lastLanIp:
+          activeProfileId && lastLanIp && !shouldProbeGatewayUrlForActiveProfile(
+            profileStateRef.current,
+            buildGatewayUrlFromLanIp(lastLanIp),
+          )
+            ? null
+            : lastLanIp,
         profileLanIps,
+        activeProfileId,
+        profiles: profileStateRef.current.profiles,
       })) {
         try {
           const snapshot = await probeMacGatewayOk(fallbackUrl);
@@ -790,12 +818,17 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
           // try next LAN candidate
         }
       }
-      const profileUrls = profileStateRef.current.profiles.map((profile) => profile.gatewayUrl);
+      const profileUrls = profilesForActiveMachine(
+        profileStateRef.current.profiles,
+        activeProfileId,
+      ).map((profile) => profile.gatewayUrl);
       for (const fallbackUrl of cellularTailscaleFallbackUrls({
         primaryUrl,
         wifiConnected: wifiConnectedRef.current,
         profileUrls,
         tailnetProbeHosts: tailnetProbeHostsRef.current,
+        activeProfileId,
+        profiles: profileStateRef.current.profiles,
       })) {
         try {
           const snapshot = await probeMacGatewayOk(fallbackUrl);
@@ -1299,10 +1332,20 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
       for (const fallbackUrl of cellularTailscaleFallbackUrls({
         primaryUrl: currentUrl || '',
         wifiConnected: wifiConnectedRef.current,
-        profileUrls: profileStateRef.current.profiles.map((profile) => profile.gatewayUrl),
+        profileUrls: profilesForActiveMachine(
+          profileStateRef.current.profiles,
+          profileStateRef.current.activeProfileId,
+        ).map((profile) => profile.gatewayUrl),
         tailnetProbeHosts: tailnetProbeHostsRef.current,
+        activeProfileId: profileStateRef.current.activeProfileId,
+        profiles: profileStateRef.current.profiles,
       })) {
         if (fallbackUrl === currentUrl) {
+          continue;
+        }
+        if (
+          !shouldProbeGatewayUrlForActiveProfile(profileStateRef.current, fallbackUrl)
+        ) {
           continue;
         }
         try {
@@ -1321,7 +1364,13 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
       }
     }
 
-    if (lastLanIp) {
+    if (
+      lastLanIp &&
+      shouldProbeGatewayUrlForActiveProfile(
+        profileStateRef.current,
+        buildGatewayUrlFromLanIp(lastLanIp),
+      )
+    ) {
       const lastUrl = buildGatewayUrlFromLanIp(lastLanIp);
       if (lastUrl !== currentUrl) {
         try {
@@ -1332,7 +1381,10 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
       }
     }
 
-    const savedProfileUrls = profileStateRef.current.profiles
+    const savedProfileUrls = profilesForActiveMachine(
+      profileStateRef.current.profiles,
+      profileStateRef.current.activeProfileId,
+    )
       .map((profile) => profile.gatewayUrl)
       .filter((url) => isValidGatewayUrl(url))
       .sort((a, b) => {

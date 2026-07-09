@@ -15,12 +15,13 @@ describe('buildConnectionStatusChips', () => {
 
     expect(chips.find((chip) => chip.id === 'mac-http')?.label).toBe('Your computer: Unreachable');
     expect(chips.find((chip) => chip.id === 'mac-http')?.tone).toBe('bad');
-    expect(chips.find((chip) => chip.id === 'usb-tunnel')?.label).toBe('USB: Not ready');
+    expect(chips.find((chip) => chip.id === 'usb-tunnel')).toBeUndefined();
     expect(chips.some((chip) => /Hermes running/i.test(chip.label))).toBe(false);
     expect(chips.some((chip) => /Relay/i.test(chip.label))).toBe(false);
+    expect(chips.some((chip) => /USB/i.test(chip.label))).toBe(false);
   });
 
-  it('marks USB tunnel up only when loopback and HTTP are healthy', () => {
+  it('omits USB status chips even when loopback is active', () => {
     const chips = buildConnectionStatusChips({
       macHttpOk: true,
       usbLoopback: true,
@@ -30,8 +31,9 @@ describe('buildConnectionStatusChips', () => {
       wifiProfileReachable: false,
     });
 
-    expect(chips.find((chip) => chip.id === 'usb-tunnel')?.label).toBe('USB: Connected');
+    expect(chips.find((chip) => chip.id === 'usb-tunnel')).toBeUndefined();
     expect(chips.find((chip) => chip.id === 'mac-http')?.tone).toBe('ok');
+    expect(chips.some((chip) => /USB/i.test(chip.label))).toBe(false);
   });
 });
 

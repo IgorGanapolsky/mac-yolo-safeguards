@@ -26,7 +26,7 @@ describe('gatewayProfilePicker', () => {
     expect(lines.detail).toBe('10.2.29.103:8642');
   });
 
-  it('lists Mac mini from Tailscale alongside USB MacBook in switch picker', () => {
+  it('lists Mac mini from Tailscale without USB MacBook when network routes exist', () => {
     const profiles = profilesForSwitchComputerPicker([
       {
         id: 'mac_usb_loopback',
@@ -50,9 +50,23 @@ describe('gatewayProfilePicker', () => {
         addedAt: '2026-06-28T12:01:00Z',
       },
     ]);
-    expect(profiles.map((p) => p.id)).toEqual(['mac_book_usb', 'mac_mini_ts']);
-    expect(profilePickerLines(profiles[1]).title).toBe('Igors-Mac-mini');
-    expect(profilePickerLines(profiles[1]).detail).toBe('100.94.135.78:8642');
+    expect(profiles.map((p) => p.id)).toEqual(['mac_mini_ts']);
+    expect(profilePickerLines(profiles[0]).title).toBe('Igors-Mac-mini');
+    expect(profilePickerLines(profiles[0]).detail).toBe('100.94.135.78:8642');
+  });
+
+  it('shows Tailscale endpoint instead of home LAN IP for the same Mac mini profile', () => {
+    const lines = profilePickerLines({
+      id: 'mac_mini_ts',
+      label: 'Igors-Mac-mini',
+      gatewayUrl: 'http://100.94.135.78:8642',
+      hostname: 'Igors-Mac-mini.local',
+      localIp: '192.168.68.73',
+      addedAt: '2026-07-08T12:00:00Z',
+    });
+    expect(lines.title).toBe('Igors-Mac-mini');
+    expect(lines.detail).toBe('100.94.135.78:8642');
+    expect(lines.detail).not.toContain('192.168.68.73');
   });
 
   it('hides duplicate generic picker rows from stale Tailscale and USB profiles', () => {
@@ -103,10 +117,36 @@ describe('gatewayProfilePicker', () => {
     expect(profiles.map((profile) => profile.id)).toEqual([
       'lan_stale',
       'mac_100_94_135_78',
-      'usb',
     ]);
     expect(profilePickerLines(profiles[1]).title).toBe('Tailscale 100.94.135.78');
-    expect(profilePickerLines(profiles[2]).title).toBe('Computer via USB');
+  });
+
+  it('hides loopback Mac mini from switch picker when only USB route is saved', () => {
+    const profiles = profilesForSwitchComputerPicker([
+      {
+        id: 'mac_book_lan',
+        label: 'Igors-MacBook-Pro',
+        gatewayUrl: 'http://192.168.68.71:8642',
+        localIp: '192.168.68.71',
+        hostname: 'Igors-MacBook-Pro',
+        addedAt: '2026-07-08T12:00:00Z',
+      },
+      {
+        id: 'mac_igors_mac_mini',
+        label: 'Igors-Mac-mini',
+        gatewayUrl: 'http://127.0.0.1:8642',
+        hostname: 'Igors-Mac-mini',
+        addedAt: '2026-07-08T12:01:00Z',
+      },
+    ]);
+    expect(profiles.map((p) => p.id)).toEqual(['mac_book_lan']);
+    expect(
+      profiles.some(
+        (p) =>
+          profileDisplayName(p).includes('Mac-mini') &&
+          profileConnectionRouteLabel(p, true) === 'USB',
+      ),
+    ).toBe(false);
   });
 
   it('does not filter loopback profiles even when LAN profiles exist', () => {

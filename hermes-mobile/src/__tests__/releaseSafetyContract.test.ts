@@ -128,18 +128,33 @@ describe('release safety contract', () => {
     expect(shipGuard).toContain('Unable to load script');
     expect(shipGuard).toContain('Hold the cord on your AI');
     expect(shipGuard).toContain('com.iganapolsky.hermesmobile');
+    expect(shipGuard).toContain('e2e-bootstrap.yaml');
+    expect(shipGuard).not.toContain('recover-chat-tab.yaml');
+  });
+
+  it('recover-chat-tab re-bootstraps demo and waits for composer dock', () => {
+    const recover = read('hermes-mobile/.maestro/recover-chat-tab.yaml');
+    expect(recover).toContain('hermes://setup?demo=1');
+    expect(recover).toContain('hermes://chat');
+    expect(recover).toContain('chat-screen-header');
+    expect(recover).toContain('chat-composer-dock');
+    expect(recover).toContain('chat-input');
+    expect(recover).toContain('id: "tab-hermes"');
+    expect(recover).toContain('connect-mac-gate');
   });
 
   it('e2e-bootstrap uses deep links for tab navigation with Android tab-leash fallback', () => {
     const bootstrap = read('hermes-mobile/.maestro/e2e-bootstrap.yaml');
-    expect(bootstrap).toContain('hermes://dev/leash-unlock');
+    expect(bootstrap).toContain('hermes://setup?demo=1');
     expect(bootstrap).toContain('hermes://chat');
+    expect(bootstrap).toContain('hermes://leash');
     expect(bootstrap).toContain('chat-screen-header');
     expect(bootstrap).toContain('id: "chat-input"');
     expect(bootstrap).toContain('id: "THUMBGATE_LEASH"');
     expect(bootstrap).toContain('id: "tab-leash"');
     expect(bootstrap).toContain('id: "tab-hermes"');
     expect(bootstrap).not.toMatch(/text:\s*"Settings"/);
+    expect(bootstrap).not.toContain('hermes://dev/leash-unlock');
     const app = read('hermes-mobile/App.tsx');
     expect(app).toContain('tab-hermes');
     expect(app).toContain('tab-leash');
@@ -281,13 +296,22 @@ describe('release safety contract', () => {
 
   it('e2e-bootstrap waits for lazy Leash tab load', () => {
     const bootstrap = read('hermes-mobile/.maestro/e2e-bootstrap.yaml');
-    expect(bootstrap).toContain('hermes://dev/leash-unlock');
-    expect(bootstrap).toContain('tab-screen-loading');
+    expect(bootstrap).toContain('hermes://setup?demo=1');
+    expect(bootstrap).toContain('hermes://leash');
     expect(bootstrap).toContain('THUMBGATE_LEASH');
     expect(bootstrap).toContain('id: "tab-leash"');
     expect(bootstrap).toContain('hermes://chat');
     expect(bootstrap).toContain('chat-screen-header');
     expect(bootstrap).toContain('chat-input');
+    expect(bootstrap).not.toContain('hermes://dev/leash-unlock');
+  });
+
+  it('Android emulator CI builds with E2E automation flag (not production release)', () => {
+    const workflow = read('.github/workflows/mobile-e2e.yml');
+    expect(workflow).toContain('EXPO_PUBLIC_E2E_AUTOMATION');
+    expect(workflow).toContain('assembleDebug');
+    expect(workflow).not.toContain('assembleRelease');
+    expect(workflow).toContain('SENTRY_DISABLE_AUTO_UPLOAD');
   });
 
   it('iOS simulator E2E builds with automation deep links enabled', () => {
@@ -309,11 +333,12 @@ describe('release safety contract', () => {
     const flow = read('hermes-mobile/.maestro/chat-send-persistence.yaml');
     const chatBootstrap = read('hermes-mobile/.maestro/chat-e2e-bootstrap.yaml');
     expect(flow).toContain('chat-e2e-bootstrap.yaml');
-    expect(chatBootstrap).toContain('hermes://dev/leash-unlock');
+    expect(chatBootstrap).toContain('hermes://setup?demo=1');
     expect(chatBootstrap).toContain('hermes://chat');
     expect(chatBootstrap).toContain('chat-input');
     expect(chatBootstrap).toContain('dismiss-print-interruption.yaml');
     expect(chatBootstrap).not.toContain('id: "THUMBGATE_LEASH"');
+    expect(chatBootstrap).not.toContain('hermes://dev/leash-unlock');
   });
 
   it('continuous E2E runner and LaunchAgent exist', () => {

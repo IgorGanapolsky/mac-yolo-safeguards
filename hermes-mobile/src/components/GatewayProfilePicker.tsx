@@ -7,7 +7,6 @@ import {
   profileConnectionRouteLabel,
   profilePickerLines,
 } from '../utils/gatewayProfilePicker';
-import { isLoopbackGatewayUrl } from '../utils/gatewayUrlPolicy';
 import { colors } from '../theme/colors';
 
 type GatewayProfilePickerProps = {
@@ -56,31 +55,23 @@ export default function GatewayProfilePicker({
       {profiles.map((profile) => {
         const isActive = profile.id === activeProfileId;
         const lines = profilePickerLines(profile);
-        const usbRoute = isLoopbackGatewayUrl(profile.gatewayUrl);
-        const routeHint = showRouteHints
+        const rawRouteHint = showRouteHints
           ? profileConnectionRouteLabel(profile, wifiConnected)
           : null;
+        const routeHint = rawRouteHint === 'USB' ? null : rawRouteHint;
         const meta = isActive
           ? activeReachable
-            ? usbRoute
-              ? 'Connected · USB'
-              : routeHint
-                ? `Connected · ${routeHint}`
-                : 'Connected'
+            ? routeHint
+              ? `Connected · ${routeHint}`
+              : 'Connected'
             : activeConnecting
-              ? usbRoute
-                ? 'Connecting · USB…'
-                : routeHint
-                  ? `Connecting · ${routeHint}…`
-                  : 'Connecting…'
-              : usbRoute
-                ? wifiConnected
-                  ? 'Cannot reach — search Wi‑Fi'
-                  : 'Cannot reach computer (USB)'
-                : routeHint === 'Needs tunnel'
-                  ? 'Needs tunnel (cellular)'
-                  : 'Cannot reach this computer'
-          : routeHint ?? (usbRoute ? 'USB' : 'Select');
+              ? routeHint
+                ? `Connecting · ${routeHint}…`
+                : 'Connecting…'
+              : routeHint === 'Needs tunnel'
+                ? 'Needs tunnel (cellular)'
+                : 'Cannot reach this computer'
+          : routeHint ?? 'Select';
         const statusColor = isActive
           ? activeReachable
             ? colors.success
