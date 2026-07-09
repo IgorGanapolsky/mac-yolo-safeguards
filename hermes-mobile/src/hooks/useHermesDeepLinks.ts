@@ -4,6 +4,7 @@ import type { NavigationContainerRef } from '@react-navigation/native';
 import type { HermesAgentToolName } from '../services/hermesAgentTools';
 import { parseSetupDeepLink, parseRelayDeepLink, type SetupDeepLinkParams } from '../utils/setupDeepLink';
 import { isDevLeashUnlockDeepLink } from '../utils/developerLeashUnlock';
+import { isE2eAutomationBuild } from '../utils/demoModePolicy';
 import { recordAttributionFromUrl } from '../services/marketingAttribution';
 
 type RootTabParamList = {
@@ -61,6 +62,7 @@ export function useHermesDeepLinks(
   applySetupDeepLink?: (params: SetupDeepLinkParams) => Promise<void>,
   focusChatSession?: (sessionId: string) => void,
   activateDeveloperLeashUnlock?: () => Promise<void>,
+  forceE2eDemoMode?: () => Promise<void>,
 ) {
   useEffect(() => {
     const handleUrl = async (url: string | null) => {
@@ -68,6 +70,9 @@ export function useHermesDeepLinks(
       await recordAttributionFromUrl(url);
 
       const lower = url.toLowerCase();
+      const setupParams = parseSetupDeepLink(url);
+      const isE2eDemoReentry =
+        setupParams?.demoMode && isE2eAutomationBuild() && Boolean(forceE2eDemoMode);
       const navigationOnly =
         isChatDeepLink(url) ||
         isSettingsDeepLink(url) ||
@@ -76,8 +81,8 @@ export function useHermesDeepLinks(
         lower.endsWith('ops') ||
         isDevLeashUnlockDeepLink(url);
 
-      if (!navigationOnly && handledUrls.has(url)) return;
-      if (!navigationOnly) handledUrls.add(url);
+      if (!navigationOnly && !isE2eDemoReentry && handledUrls.has(url)) return;
+      if (!navigationOnly && !isE2eDemoReentry) handledUrls.add(url);
 
       if (isDevLeashUnlockDeepLink(url) && activateDeveloperLeashUnlock) {
         await activateDeveloperLeashUnlock();
@@ -92,9 +97,13 @@ export function useHermesDeepLinks(
         return;
       }
 
-      const setup = parseSetupDeepLink(url);
-      if (setup && applySetupDeepLink) {
-        await applySetupDeepLink(setup);
+      if (setupParams?.demoMode && isE2eAutomationBuild() && forceE2eDemoMode) {
+        await forceE2eDemoMode();
+        navigationRef.current?.navigate('Chat');
+        return;
+      }
+      if (setupParams && applySetupDeepLink) {
+        await applySetupDeepLink(setupParams);
         navigationRef.current?.navigate('Chat');
         return;
       }
@@ -135,5 +144,5 @@ export function useHermesDeepLinks(
       handleUrl(event.url);
     });
     return () => sub.remove();
-  }, [activateDeveloperLeashUnlock, applySetupDeepLink, focusChatSession, navigationRef, refreshHealth, runAgentTool]);
+  }, [activateDeveloperLeashUnlock, applySetupDeepLink, focusChatSession, forceE2eDemoMode, navigationRef, refreshHealth, runAgentTool]);
 }

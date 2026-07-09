@@ -10,7 +10,7 @@ appId: com.iganapolsky.hermesmobile
     commands:
       - tapOn: "Open"
 - runFlow: dismiss-print-interruption.yaml
-# setup?demo=1 is async — wait for demo Chat before leash-unlock or setup races back to Chat.
+# setup?demo=1 is async — wait for demo Chat before visiting Leash.
 - extendedWaitUntil:
     notVisible:
       id: "hermes-bootstrap"
@@ -35,12 +35,6 @@ appId: com.iganapolsky.hermesmobile
 - extendedWaitUntil:
     visible:
       id: "chat-input"
-    timeout: 90000
-- hideKeyboard
-- openLink: "hermes://dev/leash-unlock"
-- extendedWaitUntil:
-    notVisible:
-      id: "tab-screen-loading"
     timeout: 90000
 - hideKeyboard
 - openLink: "hermes://leash"
@@ -77,5 +71,5 @@ appId: com.iganapolsky.hermesmobile
 - hideKeyboard
 - waitForAnimationToEnd:
     timeout: 2000
-# Leave bootstrap on Leash — ship-guard / chat flows recover Chat via recover-chat-tab.yaml.
+# Leave bootstrap on Leash — ship-guard / navigation flows recover Chat themselves.
 # Returning to Chat here drops demo composer on CI after the Leash round-trip.

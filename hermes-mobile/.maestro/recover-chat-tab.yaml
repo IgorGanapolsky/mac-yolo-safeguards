@@ -1,6 +1,17 @@
-# Recover demo Chat after Leash/other tabs — deep link first, tab bar fallback, scroll composer into view.
+# Recover demo Chat after Leash tab — re-assert demo mode, deep link, tab fallback, scroll composer.
 appId: com.iganapolsky.hermesmobile
 ---
+- openLink: "hermes://setup?demo=1"
+- runFlow:
+    when:
+      visible:
+        text: "Open"
+    commands:
+      - tapOn: "Open"
+- extendedWaitUntil:
+    notVisible:
+      id: "hermes-bootstrap"
+    timeout: 90000
 - hideKeyboard
 - openLink: "hermes://chat"
 - runFlow: dismiss-print-interruption.yaml

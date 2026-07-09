@@ -18,29 +18,8 @@ appId: com.iganapolsky.hermesmobile
 - assertNotVisible: "Connect your computer"
 - assertNotVisible: "Hermes Mobile Agent"
 
-# Bootstrap ends on Leash — recover Chat with composer before continuing tab checks.
-- runFlow: recover-chat-tab.yaml
-
+# e2e-bootstrap validates Chat (header + input) before Leash and ends on Leash tab.
 - hideKeyboard
-- openLink: "hermes://leash"
-- extendedWaitUntil:
-    notVisible:
-      id: "tab-screen-loading"
-    timeout: 90000
-- hideKeyboard
-- runFlow:
-    when:
-      notVisible:
-        id: "THUMBGATE_LEASH"
-    commands:
-      - hideKeyboard
-      - tapOn:
-          id: "tab-leash"
-- extendedWaitUntil:
-    visible:
-      id: "THUMBGATE_LEASH"
-    timeout: 90000
-
 - openLink: "hermes://settings"
 - extendedWaitUntil:
     notVisible:
