@@ -43,11 +43,12 @@ on:
       - '.github/workflows/mobile-e2e.yml'
       - '.github/workflows/mobile-ota.yml'
 
-# Cancel superseded runs on the same ref so a fast-moving PR does not queue a backlog of
-# 40-minute emulator jobs (which is how a slow required check gets disabled in frustration).
+# One global Maestro emulator slot: parallel PR branches used per-ref groups with
+# cancel-in-progress, which cancelled each other's ship-guard runs and left checks CANCELLED.
+# Queue globally; never cancel in-flight runs from another ref.
 concurrency:
-  group: mobile-e2e-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  group: hermes-mobile-maestro-ship-guard
+  cancel-in-progress: false
 
 jobs:
   android-e2e:
