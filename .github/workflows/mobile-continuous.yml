@@ -90,6 +90,10 @@ jobs:
         run: grep -F 'debuggableVariants = []' android/app/build.gradle
 
       - name: Build release APK
+        env:
+          # No SENTRY_AUTH_TOKEN in CI — skip native sourcemap upload (T-121 / PR #71).
+          SENTRY_DISABLE_AUTO_UPLOAD: "true"
+          SENTRY_ALLOW_FAILURE: "true"
         run: cd android && ./gradlew assembleRelease --no-daemon --no-parallel --max-workers=1 -PreactNativeArchitectures=arm64-v8a
 
       - name: Verify embedded JS bundle
@@ -135,6 +139,8 @@ jobs:
         env:
           MAESTRO_DRIVER_STARTUP_TIMEOUT: '180000'
           JAVA_HOME: /opt/homebrew/opt/openjdk@17/libexec/openjdk.jdk/Contents/Home
+          SENTRY_DISABLE_AUTO_UPLOAD: 'true'
+          SENTRY_ALLOW_FAILURE: 'true'
         run: |
           export PATH="$JAVA_HOME/bin:$HOME/.maestro/bin:$PATH"
           bash ./scripts/run-simulator-e2e.sh .maestro/ship-guard.yaml

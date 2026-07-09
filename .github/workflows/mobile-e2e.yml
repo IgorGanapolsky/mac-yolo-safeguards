@@ -76,6 +76,13 @@ jobs:
           echo "$HOME/.maestro/bin" >> "$GITHUB_PATH"
 
       - name: Prebuild + assemble debug APK (x86_64 for the emulator)
+        env:
+          # CI-only: embed demo/dev deep links (hermes://setup?demo=1, leash-unlock) in the APK.
+          # Production release builds must NOT set this — see install-phone-release.sh.
+          EXPO_PUBLIC_E2E_AUTOMATION: "1"
+          # No SENTRY_AUTH_TOKEN in CI — skip native sourcemap upload (T-121 / PR #71).
+          SENTRY_DISABLE_AUTO_UPLOAD: "true"
+          SENTRY_ALLOW_FAILURE: "true"
         run: |
           npx expo prebuild -p android --no-install
           (cd android && ./gradlew assembleDebug -PreactNativeArchitectures=x86_64 --no-daemon)
