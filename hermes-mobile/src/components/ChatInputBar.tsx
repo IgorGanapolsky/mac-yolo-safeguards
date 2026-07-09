@@ -1,6 +1,8 @@
 import React, { memo, useEffect, useRef } from 'react';
 import { Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { colors } from '../theme/colors';
+import type { ComposerAttachment } from '../types/chatAttachment';
+import { composerHasSendableContent } from '../utils/chatAttachments';
 
 /** Android multiline fields clip typed glyphs without vertical alignment + font padding fix. */
 const androidComposerInputStyle = Platform.select({
@@ -30,6 +32,9 @@ type ChatInputBarProps = {
   stopLabel?: string;
   /** Increment to request keyboard focus (e.g. New chat +). */
   focusNonce?: number;
+  attachments?: ComposerAttachment[];
+  onRemoveAttachment?: (id: string) => void;
+  onAttachPress?: () => void;
 };
 
 function ChatInputBar({
@@ -44,11 +49,15 @@ function ChatInputBar({
   showStop = false,
   onStop,
   focusNonce = 0,
+  attachments = [],
+  onRemoveAttachment,
+  onAttachPress,
 }: ChatInputBarProps) {
   const inputRef = useRef<TextInput>(null);
   const latestTextRef = useRef(value);
-  const stopMode = showStop && !value.trim();
-  const canSend = value.trim().length > 0 || latestTextRef.current.trim().length > 0;
+  const stopMode = showStop && !composerHasSendableContent(value, attachments);
+  const canSend = composerHasSendableContent(value, attachments)
+    || composerHasSendableContent(latestTextRef.current, attachments);
 
   useEffect(() => {
     if (value.trim() || !latestTextRef.current.trim()) {
@@ -68,7 +77,35 @@ function ChatInputBar({
 
   return (
     <View style={styles.shell}>
+      {attachments.length > 0 ? (
+        <View style={styles.chipsRow} testID="chat-attachment-chips">
+          {attachments.map((attachment) => (
+            <View key={attachment.id} style={styles.chip} testID={`chat-attach-chip-${attachment.id}`}>
+              <Text style={styles.chipText} numberOfLines={1}>
+                {attachment.name}
+              </Text>
+              <TouchableOpacity
+                onPress={() => onRemoveAttachment?.(attachment.id)}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                testID={`chat-attach-remove-${attachment.id}`}
+                accessibilityLabel={`Remove ${attachment.name}`}
+              >
+                <Text style={styles.chipRemove}>×</Text>
+              </TouchableOpacity>
+            </View>
+          ))}
+        </View>
+      ) : null}
       <View style={styles.inputBar}>
+        <TouchableOpacity
+          style={styles.attachButton}
+          onPress={onAttachPress}
+          disabled={!onAttachPress}
+          testID="chat-attach-button"
+          accessibilityLabel="Attach file"
+        >
+          <Text style={styles.attachIcon}>📎</Text>
+        </TouchableOpacity>
         <TextInput
           ref={inputRef}
           style={[styles.input, androidComposerInputStyle]}
@@ -88,15 +125,9 @@ function ChatInputBar({
           autoCapitalize="sentences"
           spellCheck={true}
           keyboardType="default"
-          // iOS: keep QuickType predictions/autofill neutral for a free-text chat box.
-          // A specialized textContentType (username, oneTimeCode, ...) hides the predictive bar.
           textContentType="none"
           smartInsertDelete={true}
           keyboardAppearance="dark"
-          // Android: suppress the OS autofill overlay only. Verified in RN 0.83.6
-          // ReactTextInputManager: this maps to IMPORTANT_FOR_AUTOFILL_NO and does NOT touch
-          // the inputType suggestion strip, which stays on via autoCorrect. keyboardType stays
-          // "default" (never "visible-password", which would kill predictive text/suggestions).
           importantForAutofill="no"
           returnKeyType="send"
           blurOnSubmit={false}
@@ -127,7 +158,7 @@ function ChatInputBar({
           </TouchableOpacity>
         ) : (
           <TouchableOpacity
-            style={[styles.sendButton, !canSend && styles.sendButtonMuted]}
+            style={[styles.sendButton, (sendMuted || !canSend) && styles.sendButtonMuted]}
             onPress={() => {
               const latest = latestTextRef.current;
               latestTextRef.current = '';
@@ -153,6 +184,36 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     backgroundColor: 'transparent',
   },
+  chipsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    paddingHorizontal: 4,
+    paddingBottom: 8,
+  },
+  chip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    maxWidth: '100%',
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 14,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.borderLight,
+  },
+  chipText: {
+    flexShrink: 1,
+    color: colors.text,
+    fontSize: 13,
+  },
+  chipRemove: {
+    color: colors.textMuted,
+    fontSize: 16,
+    lineHeight: 16,
+    fontWeight: '600',
+  },
   inputBar: {
     flexDirection: 'row',
     paddingHorizontal: 4,
@@ -167,6 +228,17 @@ const styles = StyleSheet.create({
     paddingRight: 6,
     paddingTop: 6,
     minHeight: 52,
+  },
+  attachButton: {
+    width: 36,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: Platform.OS === 'android' ? 0 : 2,
+  },
+  attachIcon: {
+    fontSize: 20,
+    lineHeight: 22,
   },
   input: {
     flex: 1,

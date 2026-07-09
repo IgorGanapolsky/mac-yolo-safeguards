@@ -117,4 +117,66 @@ describe('ChatInputBar', () => {
 
     expect(onSend).toHaveBeenCalledWith('typed before keyboard hide');
   });
+
+  it('shows paperclip attach control', () => {
+    const onAttachPress = jest.fn();
+    const { getByTestId } = render(
+      <ChatInputBar {...baseProps} onAttachPress={onAttachPress} />,
+    );
+
+    fireEvent.press(getByTestId('chat-attach-button'));
+    expect(onAttachPress).toHaveBeenCalledTimes(1);
+  });
+
+  it('renders attachment chips and enables send without typed text', () => {
+    const onSend = jest.fn();
+    const attachments = [
+      {
+        id: 'att-1',
+        name: 'screenshot.png',
+        mimeType: 'image/png',
+        uri: 'file:///screenshot.png',
+        kind: 'image' as const,
+        sizeBytes: 100,
+      },
+    ];
+    const { getByTestId } = render(
+      <ChatInputBar
+        {...baseProps}
+        attachments={attachments}
+        sendMuted={false}
+        onSend={onSend}
+        onRemoveAttachment={jest.fn()}
+      />,
+    );
+
+    expect(getByTestId('chat-attachment-chips')).toBeTruthy();
+    expect(getByTestId('chat-attach-chip-att-1')).toBeTruthy();
+    fireEvent.press(getByTestId('chat-send-button'));
+    expect(onSend).toHaveBeenCalledWith('');
+  });
+
+  it('calls onRemoveAttachment when chip remove is pressed', () => {
+    const onRemoveAttachment = jest.fn();
+    const attachments = [
+      {
+        id: 'att-2',
+        name: 'notes.txt',
+        mimeType: 'text/plain',
+        uri: 'file:///notes.txt',
+        kind: 'text' as const,
+        sizeBytes: 20,
+      },
+    ];
+    const { getByTestId } = render(
+      <ChatInputBar
+        {...baseProps}
+        attachments={attachments}
+        onRemoveAttachment={onRemoveAttachment}
+      />,
+    );
+
+    fireEvent.press(getByTestId('chat-attach-remove-att-2'));
+    expect(onRemoveAttachment).toHaveBeenCalledWith('att-2');
+  });
 });

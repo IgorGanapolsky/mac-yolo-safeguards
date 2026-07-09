@@ -613,13 +613,13 @@ async function readChatStreamFromResponse(
 export async function streamSessionChat(
   gatewayUrl: string,
   sessionId: string,
-  message: string,
+  message: string | Array<{ type: string; text?: string; image_url?: { url: string; detail?: string } }>,
   apiKey?: string | null,
   onEvent?: (event: ChatStreamEvent) => void,
   systemMessage?: string,
   onStreamAccepted?: () => void,
 ): Promise<string> {
-  const body: Record<string, string> = { message };
+  const body: Record<string, unknown> = { message };
   if (systemMessage?.trim()) {
     body.system_message = systemMessage.trim();
   }
