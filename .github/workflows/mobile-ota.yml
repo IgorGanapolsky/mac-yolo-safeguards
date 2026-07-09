@@ -115,7 +115,7 @@ jobs:
           # Play Store builds (customer-facing, written FIRST so the priority channel
           # is never the one left stale if the loop is interrupted), `preview` for
           # internal/sideloaded installs.
-          for CH in production preview; do
+          for CH in preview production; do
             echo "::group::eas update --channel $CH"
             eas update \
               --channel "$CH" \
