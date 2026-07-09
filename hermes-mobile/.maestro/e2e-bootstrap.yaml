@@ -77,29 +77,5 @@ appId: com.iganapolsky.hermesmobile
 - hideKeyboard
 - waitForAnimationToEnd:
     timeout: 2000
-# Tab bar taps fail on iOS sim when keyboard inset sets tab bar pointerEvents=none — deep link instead.
-- openLink: "hermes://chat"
-- runFlow: dismiss-print-interruption.yaml
-- runFlow:
-    when:
-      notVisible:
-        id: "chat-screen-header"
-    commands:
-      - hideKeyboard
-      - tapOn:
-          id: "tab-hermes"
-- extendedWaitUntil:
-    visible:
-      id: "chat-screen-header"
-    timeout: 90000
-- hideKeyboard
-- extendedWaitUntil:
-    visible:
-      id: "chat-composer-dock"
-    timeout: 90000
-- scrollUntilVisible:
-    element:
-      id: "chat-input"
-    direction: UP
-    timeout: 90000
-    visibilityPercentage: 50
+# Leave bootstrap on Leash — ship-guard / chat flows recover Chat via recover-chat-tab.yaml.
+# Returning to Chat here drops demo composer on CI after the Leash round-trip.

@@ -159,6 +159,17 @@ describe('release safety contract', () => {
     expect(shipGuard).toContain('Unable to load script');
     expect(shipGuard).toContain('Hold the cord on your AI');
     expect(shipGuard).toContain('com.iganapolsky.hermesmobile');
+    expect(shipGuard).toContain('recover-chat-tab.yaml');
+  });
+
+  it('recover-chat-tab waits for composer dock after tab round-trip', () => {
+    const recover = read('hermes-mobile/.maestro/recover-chat-tab.yaml');
+    expect(recover).toContain('hermes://chat');
+    expect(recover).toContain('chat-screen-header');
+    expect(recover).toContain('chat-composer-dock');
+    expect(recover).toContain('chat-input');
+    expect(recover).toContain('id: "tab-hermes"');
+    expect(recover).toContain('connect-mac-gate');
   });
 
   it('e2e-bootstrap uses deep links for tab navigation with Android tab-leash fallback', () => {
@@ -310,7 +321,7 @@ describe('release safety contract', () => {
     expect(env).toContain('wait_for_adb_device "$device_id" "$MAESTRO_ANDROID_ADB_WAIT_ATTEMPTS"');
   });
 
-  it('e2e-bootstrap waits for lazy Leash tab load', () => {
+  it('e2e-bootstrap waits for lazy Leash tab load and ends on Leash', () => {
     const bootstrap = read('hermes-mobile/.maestro/e2e-bootstrap.yaml');
     expect(bootstrap).toContain('hermes://dev/leash-unlock');
     expect(bootstrap).toContain('tab-screen-loading');
@@ -319,6 +330,8 @@ describe('release safety contract', () => {
     expect(bootstrap).toContain('hermes://chat');
     expect(bootstrap).toContain('chat-screen-header');
     expect(bootstrap).toContain('chat-input');
+    expect(bootstrap).toContain('recover-chat-tab.yaml');
+    expect(bootstrap).not.toContain('chat-composer-dock');
   });
 
   it('iOS simulator E2E builds with automation deep links enabled', () => {
@@ -344,6 +357,7 @@ describe('release safety contract', () => {
     expect(chatBootstrap).toContain('hermes://chat');
     expect(chatBootstrap).toContain('chat-input');
     expect(chatBootstrap).toContain('dismiss-print-interruption.yaml');
+    expect(chatBootstrap).toContain('recover-chat-tab.yaml');
     expect(chatBootstrap).not.toContain('id: "THUMBGATE_LEASH"');
   });
 

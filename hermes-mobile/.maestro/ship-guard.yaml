@@ -18,27 +18,8 @@ appId: com.iganapolsky.hermesmobile
 - assertNotVisible: "Connect your computer"
 - assertNotVisible: "Hermes Mobile Agent"
 
-- runFlow:
-    when:
-      notVisible:
-        id: "chat-screen-header"
-    commands:
-      - openLink: "hermes://chat"
-      - hideKeyboard
-      - tapOn:
-          id: "tab-hermes"
-
-- extendedWaitUntil:
-    visible:
-      id: "chat-screen-header"
-    timeout: 30000
-
-- hideKeyboard
-- runFlow: dismiss-print-interruption.yaml
-- extendedWaitUntil:
-    visible:
-      id: "chat-input"
-    timeout: 45000
+# Bootstrap ends on Leash — recover Chat with composer before continuing tab checks.
+- runFlow: recover-chat-tab.yaml
 
 - hideKeyboard
 - openLink: "hermes://leash"

@@ -1,0 +1,48 @@
+# Recover demo Chat after Leash/other tabs — deep link first, tab bar fallback, scroll composer into view.
+appId: com.iganapolsky.hermesmobile
+---
+- hideKeyboard
+- openLink: "hermes://chat"
+- runFlow: dismiss-print-interruption.yaml
+- extendedWaitUntil:
+    notVisible:
+      id: "tab-screen-loading"
+    timeout: 90000
+- extendedWaitUntil:
+    notVisible:
+      id: "connect-mac-gate"
+    timeout: 30000
+- runFlow:
+    when:
+      notVisible:
+        id: "chat-screen-header"
+    commands:
+      - hideKeyboard
+      - extendedWaitUntil:
+          visible:
+            id: "tab-hermes"
+          timeout: 30000
+      - tapOn:
+          id: "tab-hermes"
+- runFlow:
+    when:
+      notVisible:
+        id: "chat-screen-header"
+    commands:
+      - hideKeyboard
+      - tapOn: "Hermes"
+- extendedWaitUntil:
+    visible:
+      id: "chat-screen-header"
+    timeout: 90000
+- hideKeyboard
+- scrollUntilVisible:
+    element:
+      id: "chat-composer-dock"
+    direction: UP
+    timeout: 90000
+    visibilityPercentage: 50
+- extendedWaitUntil:
+    visible:
+      id: "chat-input"
+    timeout: 90000
