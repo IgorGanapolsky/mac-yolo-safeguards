@@ -340,25 +340,6 @@ export function shouldClearKeyboardScreenVisible(
   return metricsHeight <= 0;
 }
 
-type ComposerDockSpacing = {
-  paddingBottom: number;
-  marginBottom: number;
-};
-
-/**
- * Layout style for the chat composer dock. Android MUST lift with marginBottom — never
- * translateY when marginBottom > 0, or the TextInput stays visible but untappable (#91).
- */
-export function composerDockContainerStyle(
-  _platformOs: string,
-  spacing: ComposerDockSpacing,
-): ComposerDockSpacing {
-  return {
-    paddingBottom: spacing.paddingBottom,
-    marginBottom: spacing.marginBottom,
-  };
-}
-
 /**
  * Android can fire keyboardDidHide during transient layout shifts while typing
  * (for example, when progress/banner content reflows). Ignore those only when
@@ -4943,7 +4924,17 @@ export default function ChatScreen() {
           style={[
             styles.composerDock,
             Platform.OS === 'ios' && keyboardOpen && styles.composerDockKeyboardOpen,
-            composerDockContainerStyle(Platform.OS, composerDockSpacing),
+            {
+              paddingBottom: composerDockSpacing.paddingBottom,
+              marginBottom:
+                Platform.OS === 'android' && composerDockSpacing.marginBottom > 0
+                  ? 0
+                  : composerDockSpacing.marginBottom,
+              transform:
+                Platform.OS === 'android' && composerDockSpacing.marginBottom > 0
+                  ? [{ translateY: -composerDockSpacing.marginBottom }]
+                  : undefined,
+            },
           ]}
           testID="chat-composer-dock"
         >
