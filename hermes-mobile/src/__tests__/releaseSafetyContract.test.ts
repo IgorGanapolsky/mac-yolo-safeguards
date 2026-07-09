@@ -95,11 +95,42 @@ describe('release safety contract', () => {
     expect(eas.submit.production.android.track).toBe('production');
   });
 
-  it('app.json disables OTA updates for standalone APKs', () => {
+  it('app.json enables OTA updates with expo-updates plugin and appVersion runtime', () => {
     const app = JSON.parse(read('hermes-mobile/app.json'));
     expect(app.expo.android.package).toBe('com.iganapolsky.hermesmobile');
-    expect(app.expo.updates.enabled).toBe(false);
+    expect(app.expo.updates.enabled).toBe(true);
+    expect(app.expo.updates.checkAutomatically).toBe('ON_LOAD');
+    expect(app.expo.updates.url).toBe(
+      'https://u.expo.dev/4ed13e30-9b97-4ddd-8a12-59106cae90d6',
+    );
+    expect(app.expo.runtimeVersion).toEqual({ policy: 'appVersion' });
     expect(app.expo.plugins).toContain('expo-updates');
+  });
+
+  it('app.config.js disables OTA for E2E automation and pins production channel otherwise', () => {
+    const appConfig = read('hermes-mobile/app.config.js');
+    expect(appConfig).toContain('EXPO_PUBLIC_E2E_AUTOMATION');
+    expect(appConfig).toContain('expo-channel-name');
+    expect(appConfig).toContain("checkAutomatically: e2eAutomation ? 'NEVER' :");
+  });
+
+  it('eas.json defines production OTA update profile aligned with build channel', () => {
+    const eas = JSON.parse(read('hermes-mobile/eas.json'));
+    expect(eas.update.production.channel).toBe('production');
+    expect(eas.build.production.channel).toBe('production');
+  });
+
+  it('mobile-ota workflow publishes production channel on main push', () => {
+    const workflow = read('.github/workflows/mobile-ota.yml');
+    expect(workflow).toContain('branches:');
+    expect(workflow).toContain('- main');
+    expect(workflow).toContain('hermes-mobile/**');
+    expect(workflow).toContain('workflow_dispatch');
+    expect(workflow).toContain('runtimeVersion');
+    expect(workflow).toContain('eas update');
+    expect(workflow).toContain('--channel production');
+    expect(workflow).toContain('secrets.EXPO_TOKEN');
+    expect(workflow).toContain('test:release-safety');
   });
 
   it('declares PostHog analytics data in the iOS privacy manifest', () => {
