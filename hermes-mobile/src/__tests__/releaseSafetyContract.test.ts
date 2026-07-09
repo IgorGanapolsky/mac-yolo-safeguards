@@ -288,6 +288,16 @@ describe('release safety contract', () => {
     expect(bootstrap).toContain('hermes://chat');
     expect(bootstrap).toContain('chat-screen-header');
     expect(bootstrap).toContain('chat-input');
+    expect(bootstrap).toContain('chat-connection-help-scroll');
+    expect(bootstrap).toContain('chat-composer-dock');
+  });
+
+  it('Android emulator CI builds with E2E automation flag (not production release)', () => {
+    const workflow = read('.github/workflows/mobile-e2e.yml');
+    expect(workflow).toContain('EXPO_PUBLIC_E2E_AUTOMATION');
+    expect(workflow).toContain('assembleDebug');
+    expect(workflow).not.toContain('assembleRelease');
+    expect(workflow).toContain('SENTRY_DISABLE_AUTO_UPLOAD');
   });
 
   it('iOS simulator E2E builds with automation deep links enabled', () => {
@@ -335,6 +345,7 @@ describe('release safety contract', () => {
     expect(workflow).toContain('test:ci');
     expect(workflow).toContain('assembleRelease');
     expect(workflow).toContain('verify-apk-package.cjs');
+    expect(workflow).toContain('SENTRY_DISABLE_AUTO_UPLOAD');
   });
 
   it('maestro full-suite includes T-114 regression flows', () => {

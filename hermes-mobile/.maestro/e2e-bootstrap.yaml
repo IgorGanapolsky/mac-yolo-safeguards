@@ -93,10 +93,45 @@ appId: com.iganapolsky.hermesmobile
       id: "chat-screen-header"
     timeout: 90000
 - hideKeyboard
+# Post-Leash: CI emulator silent heal can surface ChatConnectionPanel and hide composer.
+- runFlow:
+    when:
+      visible:
+        id: "chat-connection-help-scroll"
+    commands:
+      - openLink: "hermes://setup?demo=1"
+      - extendedWaitUntil:
+          notVisible:
+            id: "hermes-bootstrap"
+          timeout: 90000
+      - openLink: "hermes://dev/leash-unlock"
+      - openLink: "hermes://chat"
+      - hideKeyboard
+      - runFlow:
+          when:
+            notVisible:
+              id: "chat-screen-header"
+          commands:
+            - tapOn:
+                id: "tab-hermes"
+      - extendedWaitUntil:
+          visible:
+            id: "chat-screen-header"
+          timeout: 30000
+- extendedWaitUntil:
+    notVisible:
+      id: "chat-connection-help-scroll"
+    timeout: 45000
+- scrollUntilVisible:
+    element:
+      id: "chat-composer-dock"
+    direction: UP
+    timeout: 90000
+    visibilityPercentage: 50
 - extendedWaitUntil:
     visible:
       id: "chat-composer-dock"
-    timeout: 90000
+    timeout: 30000
 - scrollUntilVisible:
     element:
       id: "chat-input"
