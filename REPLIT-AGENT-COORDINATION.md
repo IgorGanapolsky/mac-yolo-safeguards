@@ -67,6 +67,8 @@ and PRs, right alongside the local agents.
 
 ## 4. Identity + handoff bus
 
+> **Status (2026-07-09):** the handoff router (`.github/workflows/handoff.yml`) ships with PR #79 (`ci/agent-handoff-router`) and is **not yet on `main`**. Until it merges, treat label routing and the draft-PR announcement as **manual** — state handoffs explicitly in the PR/issue body. The `plan.md` §2 claim board is the source of truth for file ownership regardless of the router.
+
 - **agent-id:** `replit` (used in `plan.md` claims) · **branch prefix:** `replit/*` ·
   **handoff label:** `handoff:replit`.
 - Labels are routed by `.github/workflows/handoff.yml`:
