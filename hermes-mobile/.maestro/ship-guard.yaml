@@ -25,9 +25,24 @@ appId: com.iganapolsky.hermesmobile
     commands:
       - openLink: "hermes://chat"
       - hideKeyboard
+      - extendedWaitUntil:
+          visible:
+            id: "tab-hermes"
+          timeout: 30000
       - tapOn:
           id: "tab-hermes"
+- runFlow:
+    when:
+      notVisible:
+        id: "chat-screen-header"
+    commands:
+      - hideKeyboard
+      - tapOn: "Hermes"
 
+- extendedWaitUntil:
+    notVisible:
+      id: "connect-mac-gate"
+    timeout: 30000
 - extendedWaitUntil:
     visible:
       id: "chat-screen-header"
