@@ -22,10 +22,12 @@ on:
     paths:
       - 'hermes-mobile/**'
       - '.github/workflows/mobile-e2e.yml'
+      - '.github/workflows/mobile-ota.yml'
   pull_request:
     paths:
       - 'hermes-mobile/**'
       - '.github/workflows/mobile-e2e.yml'
+      - '.github/workflows/mobile-ota.yml'
 
 # Cancel superseded runs on the same ref so a fast-moving PR does not queue a backlog of
 # 40-minute emulator jobs (which is how a slow required check gets disabled in frustration).
