@@ -4912,14 +4912,15 @@ export default function ChatScreen() {
             Platform.OS === 'ios' && keyboardOpen && styles.composerDockKeyboardOpen,
             {
               paddingBottom: composerDockSpacing.paddingBottom,
-              marginBottom:
-                Platform.OS === 'android' && composerDockSpacing.marginBottom > 0
-                  ? 0
-                  : composerDockSpacing.marginBottom,
-              transform:
-                Platform.OS === 'android' && composerDockSpacing.marginBottom > 0
-                  ? [{ translateY: -composerDockSpacing.marginBottom }]
-                  : undefined,
+              // Lift the composer above the keyboard with a real layout margin, NOT a
+              // translateY transform. On Android a transformed View keeps its ORIGINAL
+              // touch hit-rect (and the sibling messages ScrollView occupies the region
+              // the dock visually moved into), so a translateY'd TextInput is visible but
+              // UNTAPPABLE — "keyboard opens, can't type" (the #91 OTA regression).
+              // composerDock is the last child of the full-height flex `keyboardContainer`,
+              // so a positive marginBottom forces the messages list to yield and the dock
+              // (with its hit-rect) moves up by the same amount, staying focusable.
+              marginBottom: composerDockSpacing.marginBottom,
             },
           ]}
           testID="chat-composer-dock"
