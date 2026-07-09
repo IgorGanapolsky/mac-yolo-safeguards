@@ -38,6 +38,8 @@ jobs:
     name: Maestro ship-guard (Android emulator)
     runs-on: ubuntu-latest
     timeout-minutes: 45
+    env:
+      SENTRY_DISABLE_AUTO_UPLOAD: "true"
     defaults:
       run:
         working-directory: hermes-mobile
