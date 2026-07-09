@@ -10,6 +10,7 @@ const {
   buildBrief,
   parseFileLocks,
   parsePlanTasks,
+  readReplitAgentState,
   redact,
   renderMarkdown,
   writeOutputs,
@@ -109,11 +110,31 @@ test('writeOutputs writes markdown and json artifacts including vault note', () 
   const repo = makeFixtureRepo();
   const outDir = fs.mkdtempSync(path.join(os.tmpdir(), 'agent-sync-out-'));
   const vault = fs.mkdtempSync(path.join(os.tmpdir(), 'agent-sync-vault-'));
-  const brief = buildBrief({ repo, skipLaunchctl: true });
+  fs.mkdirSync(path.join(vault, 'Agent-State'), { recursive: true });
+  fs.writeFileSync(
+    path.join(vault, 'Agent-State', 'replit-mobile.md'),
+    '# Replit\n\n| **Branch** | feat/test |\n| **Last commit** | abc1234 |\n- [ ] task one\n',
+  );
+  const brief = buildBrief({ repo, vault, skipLaunchctl: true });
   const outputs = writeOutputs(brief, { outDir, vault, notePath: path.join('AI Agents', 'Sync.md'), noWrite: false });
   assert.strictEqual(outputs.writes.length, 4);
   assert.ok(fs.existsSync(path.join(outDir, 'Hermes-Agent-Sync.md')));
   assert.ok(fs.existsSync(path.join(outDir, 'Hermes-Agent-Sync.json')));
   assert.ok(fs.existsSync(path.join(vault, 'AI Agents', 'Sync.md')));
   assert.ok(fs.existsSync(path.join(vault, 'AI Agents', 'Sync.json')));
+  assert.strictEqual(brief.protectedState.replitAgent.branch, 'feat/test');
+  assert.match(outputs.markdown, /## Replit Mobile Agent/);
+});
+
+test('readReplitAgentState parses branch and mid-flight tasks', () => {
+  const vault = fs.mkdtempSync(path.join(os.tmpdir(), 'agent-sync-replit-'));
+  fs.mkdirSync(path.join(vault, 'Agent-State'), { recursive: true });
+  fs.writeFileSync(
+    path.join(vault, 'Agent-State', 'replit-mobile.md'),
+    'Last updated: 2026-07-08\n| **Branch** | fix/foo |\n| **Last commit** | deadbeef |\n- [ ] first task\n',
+  );
+  const state = readReplitAgentState(vault);
+  assert.strictEqual(state.branch, 'fix/foo');
+  assert.strictEqual(state.lastCommit, 'deadbeef');
+  assert.deepStrictEqual(state.midFlightTasks, ['first task']);
 });
