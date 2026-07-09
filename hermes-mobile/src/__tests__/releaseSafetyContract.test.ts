@@ -288,8 +288,7 @@ describe('release safety contract', () => {
     expect(bootstrap).toContain('hermes://chat');
     expect(bootstrap).toContain('chat-screen-header');
     expect(bootstrap).toContain('chat-input');
-    expect(bootstrap).toContain('chat-connection-help-scroll');
-    expect(bootstrap).toContain('chat-composer-dock');
+    expect(bootstrap).toContain('hermes://setup?demo=1');
   });
 
   it('Android emulator CI builds with E2E automation flag (not production release)', () => {
