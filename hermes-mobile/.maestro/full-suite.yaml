@@ -12,6 +12,7 @@ appId: com.iganapolsky.hermesmobile
 - runFlow: regression-chat-send-visible.yaml
 - runFlow: regression-leash-refresh.yaml
 - runFlow: regression-chat-header-model.yaml
+- runFlow: regression-composer-typeable.yaml
 - runFlow: settings-thumbgate.yaml
 - runFlow: approvals.yaml
 - runFlow: save_key.yaml

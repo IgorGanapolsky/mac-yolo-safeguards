@@ -164,6 +164,7 @@ describe('release safety contract', () => {
     expect(shipGuard).toContain('com.iganapolsky.hermesmobile');
     expect(shipGuard).toContain('chat-e2e-bootstrap.yaml');
     expect(shipGuard).toContain('recover-chat-tab.yaml');
+    expect(shipGuard).toContain('regression-composer-typeable.yaml');
     expect(shipGuard).not.toMatch(/runFlow:\s*e2e-bootstrap\.yaml/);
   });
 
@@ -367,8 +368,10 @@ describe('release safety contract', () => {
 
   it('continuous E2E runner and LaunchAgent exist', () => {
     const runner = read('hermes-mobile/scripts/run-continuous-e2e.sh');
+    const shipGuard = read('hermes-mobile/.maestro/ship-guard.yaml');
     expect(runner).toContain('--once');
     expect(runner).toContain('ship-guard.yaml');
+    expect(shipGuard).toContain('regression-composer-typeable.yaml');
     expect(runner).toContain('chat-send-persistence.yaml');
     expect(runner).toContain('Android-only continuous E2E requested');
     expect(runner).toContain('android-only continuous E2E skipped');
@@ -393,5 +396,19 @@ describe('release safety contract', () => {
     expect(suite).toContain('regression-chat-send-visible.yaml');
     expect(suite).toContain('regression-leash-refresh.yaml');
     expect(suite).toContain('regression-chat-header-model.yaml');
+    expect(suite).toContain('regression-composer-typeable.yaml');
+  });
+
+  it('tier-0 Maestro validator requires composer typeable regression flow', () => {
+    const validator = read('hermes-mobile/scripts/validate-maestro-flows.js');
+    expect(validator).toContain("'regression-composer-typeable'");
+  });
+
+  it('Android composer dock lifts via marginBottom only (no translateY hit-rect regression)', () => {
+    const chatScreen = read('hermes-mobile/src/screens/ChatScreen.tsx');
+    expect(chatScreen).toContain('composerDockContainerStyle');
+    expect(chatScreen).not.toMatch(
+      /Platform\.OS === 'android'[\s\S]{0,200}translateY:\s*-composerDockSpacing\.marginBottom/,
+    );
   });
 });

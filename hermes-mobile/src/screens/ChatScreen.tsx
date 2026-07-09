@@ -340,6 +340,25 @@ export function shouldClearKeyboardScreenVisible(
   return metricsHeight <= 0;
 }
 
+type ComposerDockSpacing = {
+  paddingBottom: number;
+  marginBottom: number;
+};
+
+/**
+ * Layout style for the chat composer dock. Android MUST lift with marginBottom — never
+ * translateY when marginBottom > 0, or the TextInput stays visible but untappable (#91).
+ */
+export function composerDockContainerStyle(
+  _platformOs: string,
+  spacing: ComposerDockSpacing,
+): ComposerDockSpacing {
+  return {
+    paddingBottom: spacing.paddingBottom,
+    marginBottom: spacing.marginBottom,
+  };
+}
+
 /**
  * Android can fire keyboardDidHide during transient layout shifts while typing
  * (for example, when progress/banner content reflows). Ignore those only when
@@ -4924,18 +4943,7 @@ export default function ChatScreen() {
           style={[
             styles.composerDock,
             Platform.OS === 'ios' && keyboardOpen && styles.composerDockKeyboardOpen,
-            {
-              paddingBottom: composerDockSpacing.paddingBottom,
-              // Lift the composer above the keyboard with a real layout margin, NOT a
-              // translateY transform. On Android a transformed View keeps its ORIGINAL
-              // touch hit-rect (and the sibling messages ScrollView occupies the region
-              // the dock visually moved into), so a translateY'd TextInput is visible but
-              // UNTAPPABLE — "keyboard opens, can't type" (the #91 OTA regression).
-              // composerDock is the last child of the full-height flex `keyboardContainer`,
-              // so a positive marginBottom forces the messages list to yield and the dock
-              // (with its hit-rect) moves up by the same amount, staying focusable.
-              marginBottom: composerDockSpacing.marginBottom,
-            },
+            composerDockContainerStyle(Platform.OS, composerDockSpacing),
           ]}
           testID="chat-composer-dock"
         >
