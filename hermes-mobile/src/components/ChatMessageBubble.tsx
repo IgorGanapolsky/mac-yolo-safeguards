@@ -126,7 +126,9 @@ function ChatMessageBubble({
               >
                 <Text
                   style={[styles.bubbleText, isUser ? styles.bubbleUserText : styles.bubbleAssistantText]}
-                  selectable={true}
+                  // Truncated preview: keep NON-selectable so a tap reaches the parent
+                  // Pressable (tap-to-expand). Full text is selectable in the expanded view.
+                  selectable={false}
                 >
                   {resolved.content}
                 </Text>
