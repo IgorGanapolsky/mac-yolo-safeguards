@@ -16,12 +16,17 @@ name: Mobile E2E (Android emulator)
 # To make this a required status check, a repo admin must add the job's check name
 # "Maestro ship-guard (Android emulator)" to branch protection for `main` (see the docs file).
 
-# Only pull_request + manual dispatch fire this required check. The push: trigger was
-# removed: on a merge to main it fired a SECOND identically-named "Maestro ship-guard
-# (Android emulator)" run that raced the PR's run, and concurrency cancel-in-progress
-# cancelled one — a cancelled run is misread as a red required check.
+# Runs on both push (post-merge on main) and pull_request — the releaseSafetyNet contract
+# requires the push: trigger so e2e still guards direct merges to main. The duplicate-run
+# race is handled by the `concurrency` group below (cancel-in-progress) rather than by
+# dropping the trigger, which would leave main merges un-tested.
 on:
   workflow_dispatch:
+  push:
+    paths:
+      - 'hermes-mobile/**'
+      - '.github/workflows/mobile-e2e.yml'
+      - '.github/workflows/mobile-ota.yml'
   pull_request:
     paths:
       - 'hermes-mobile/**'
