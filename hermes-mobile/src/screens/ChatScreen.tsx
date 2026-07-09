@@ -130,8 +130,11 @@ import {
 import {
   classifyRunStale,
   isTerminalGatewayRunStatus,
+  msUntilNoTokenFail,
   msUntilRunStaleAutoFail,
+  RUN_NO_TOKEN_FAIL_DETAIL,
   RUN_STALE_TIMEOUT_DETAIL,
+  shouldFailRunAwaitingFirstToken,
 } from '../utils/runStaleDetection';
 import { isChatAtTop, isChatNearBottom } from '../utils/chatScrollSync';
 import {
@@ -4358,6 +4361,59 @@ export default function ChatScreen() {
     runProgress?.phase,
     runProgress?.lastProgressAtMs,
     runProgress?.detail,
+    setRunProgress,
+  ]);
+
+  useEffect(() => {
+    const progress = runProgressRef.current;
+    if (isDemo || !progress || !isActiveChatRun(progress)) {
+      return;
+    }
+    if (shouldFailRunAwaitingFirstToken(progress)) {
+      isSendingRef.current = false;
+      setIsSending(false);
+      clearDeferredTelegramPoll();
+      setRunProgress((prev) =>
+        prev && isActiveChatRun(prev)
+          ? {
+              ...prev,
+              phase: 'failed',
+              detail: RUN_NO_TOKEN_FAIL_DETAIL,
+              duration: Math.max(0, (Date.now() - prev.startedAtMs) / 1000),
+            }
+          : prev,
+      );
+      haptics.warning();
+      return;
+    }
+    const waitMs = msUntilNoTokenFail(progress);
+    const timer = setTimeout(() => {
+      const current = runProgressRef.current;
+      if (!current || !shouldFailRunAwaitingFirstToken(current)) {
+        return;
+      }
+      isSendingRef.current = false;
+      setIsSending(false);
+      clearDeferredTelegramPoll();
+      setRunProgress((prev) =>
+        prev && isActiveChatRun(prev)
+          ? {
+              ...prev,
+              phase: 'failed',
+              detail: RUN_NO_TOKEN_FAIL_DETAIL,
+              duration: Math.max(0, (Date.now() - prev.startedAtMs) / 1000),
+            }
+          : prev,
+      );
+      haptics.warning();
+    }, waitMs);
+    return () => clearTimeout(timer);
+  }, [
+    clearDeferredTelegramPoll,
+    isDemo,
+    runProgress?.outputTokens,
+    runProgress?.phase,
+    runProgress?.startedAtMs,
     setRunProgress,
   ]);
 
