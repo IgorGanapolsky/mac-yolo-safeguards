@@ -5265,7 +5265,7 @@ export default function ChatScreen() {
                     {project.role ? (
                       <Text style={styles.projectPickMeta} numberOfLines={1}>{project.role}</Text>
                     ) : null}
-                    <Text style={styles.projectPickPath} numberOfLines={1}>{project.workspacePath}</Text>
+                    <Text style={styles.projectPickPath} numberOfLines={2}>{project.workspacePath}</Text>
                     {project.handoffSummary ? (
                       <Text style={styles.projectPickHandoff} numberOfLines={2}>{project.handoffSummary}</Text>
                     ) : null}
