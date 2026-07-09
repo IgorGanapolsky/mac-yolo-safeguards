@@ -190,12 +190,39 @@ function readLatestE2e(repo) {
       path: latestPath,
       e2e: parsed.e2e || parsed.status || null,
       unit: parsed.unit || null,
-      checkedAt: parsed.checkedAt || parsed.timestamp || null,
+      checkedAt: parsed.checkedAt || parsed.timestamp || parsed.updatedAt || null,
       rawKeys: Object.keys(parsed).sort(),
     };
   } catch (error) {
     return { exists: true, path: latestPath, parseError: error.message };
   }
+}
+
+function readReplitAgentState(vaultPath) {
+  if (!vaultPath) return { exists: false, path: null };
+  const statePath = path.join(vaultPath, 'Agent-State', 'replit-mobile.md');
+  if (!fs.existsSync(statePath)) {
+    return { exists: false, path: statePath };
+  }
+  const text = fs.readFileSync(statePath, 'utf8');
+  const stat = fs.statSync(statePath);
+  const branchMatch = text.match(/\|\s*\*\*Branch\*\*\s*\|\s*([^|]+)\|/);
+  const commitMatch = text.match(/\|\s*\*\*Last commit\*\*\s*\|\s*([^|]+)\|/);
+  const midFlight = [];
+  for (const line of text.split('\n')) {
+    const taskMatch = line.match(/^- \[[ x]\] (.+)$/);
+    if (taskMatch) midFlight.push(taskMatch[1].trim());
+  }
+  const handoffMatch = text.match(/Last updated:\s*(.+)/);
+  return {
+    exists: true,
+    path: statePath,
+    mtime: stat.mtime.toISOString(),
+    lastUpdated: handoffMatch ? handoffMatch[1].trim() : null,
+    branch: branchMatch ? branchMatch[1].trim() : null,
+    lastCommit: commitMatch ? commitMatch[1].trim() : null,
+    midFlightTasks: midFlight.slice(0, 8),
+  };
 }
 
 function collectLaunchAgents(skipLaunchctl) {
@@ -219,10 +246,12 @@ function collectLaunchAgents(skipLaunchctl) {
 
 function buildBrief(options = {}) {
   const repo = path.resolve(options.repo || DEFAULT_REPO);
+  const vaultPath = options.vault ? path.resolve(options.vault) : null;
   const now = new Date().toISOString();
   const plan = readPlan(repo);
   const git = collectGit(repo);
   const latestE2e = readLatestE2e(repo);
+  const replitAgent = readReplitAgentState(vaultPath);
   const launchAgents = collectLaunchAgents(Boolean(options.skipLaunchctl));
   const sources = [
     statSource(path.join(repo, 'AGENTS.md'), 'agent directives'),
@@ -230,6 +259,9 @@ function buildBrief(options = {}) {
     statSource(path.join(repo, 'OBSIDIAN.md'), 'obsidian index'),
     statSource(latestE2e.path, 'continuous e2e latest'),
   ];
+  if (replitAgent.path) {
+    sources.push(statSource(replitAgent.path, 'replit mobile agent state'));
+  }
 
   const blockers = [];
   for (const task of plan.activeTasks.filter((task) => task.status === 'blocked')) {
@@ -252,6 +284,7 @@ function buildBrief(options = {}) {
     protectedState: {
       latestE2e,
       launchAgents,
+      replitAgent,
     },
     syncContract: {
       writeBoundary: 'Agents must claim files in plan.md before editing and must not overwrite unowned dirty files.',
@@ -283,6 +316,20 @@ function renderMarkdown(brief) {
     if (!source.exists) return `${source.label}: missing (${source.path})`;
     return `${source.label}: ${source.path} (${source.sizeBytes} bytes, mtime ${source.mtime})`;
   });
+  const replit = brief.protectedState.replitAgent;
+  let replitSection = '- Replit mobile agent state: not included (run with `--vault` pointing at AI-Agent-Sync)';
+  if (replit && replit.exists) {
+    const tasks = replit.midFlightTasks.length
+      ? replit.midFlightTasks.map((task) => `  - ${task}`).join('\n')
+      : '  - (none parsed)';
+    replitSection = `- Replit state: ${replit.path} (mtime ${replit.mtime})
+- Branch: ${replit.branch || 'unknown'}
+- Last commit: ${replit.lastCommit || 'unknown'}
+- Mid-flight:
+${tasks}`;
+  } else if (replit && replit.path) {
+    replitSection = `- Replit mobile agent state: missing (${replit.path})`;
+  }
 
   return redact(`# Hermes Agent Sync
 
@@ -323,6 +370,10 @@ ${brief.git.dirtyFilesTruncated ? '\nAdditional dirty entries were truncated; ru
 - Continuous E2E latest: ${brief.protectedState.latestE2e.exists ? `${brief.protectedState.latestE2e.e2e || 'unknown'} (${brief.protectedState.latestE2e.path})` : `missing (${brief.protectedState.latestE2e.path})`}
 - Simulator guard LaunchAgent: ${brief.protectedState.launchAgents['com.igor.shutdown-simulators'] ? brief.protectedState.launchAgents['com.igor.shutdown-simulators'].state || 'unknown' : 'not checked'}
 - Hermes continuous E2E LaunchAgent: ${brief.protectedState.launchAgents['com.igor.hermes-mobile-continuous-e2e'] ? brief.protectedState.launchAgents['com.igor.hermes-mobile-continuous-e2e'].state || 'unknown' : 'not checked'}
+
+## Replit Mobile Agent
+
+${replitSection}
 
 ## Recent Decisions
 
@@ -397,6 +448,7 @@ module.exports = {
   parseArgs,
   parseFileLocks,
   parsePlanTasks,
+  readReplitAgentState,
   redact,
   renderMarkdown,
   writeOutputs,
