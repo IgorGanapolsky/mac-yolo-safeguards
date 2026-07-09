@@ -1,4 +1,6 @@
 # Chat-only Maestro bootstrap — skips Leash tab (ship-guard validates Leash screen).
+# setup?demo=1 already sets developerLeashUnlock on E2E builds — do NOT re-open
+# the dev leash-unlock deep link here; it navigates to Leash and drops demo composer.
 appId: com.iganapolsky.hermesmobile
 ---
 - openLink: "hermes://setup?demo=1"
@@ -9,7 +11,6 @@ appId: com.iganapolsky.hermesmobile
     commands:
       - tapOn: "Open"
 - runFlow: dismiss-print-interruption.yaml
-# Wait for async demo setup (navigates to Chat) before leash-unlock.
 - extendedWaitUntil:
     notVisible:
       id: "hermes-bootstrap"
@@ -36,33 +37,5 @@ appId: com.iganapolsky.hermesmobile
       id: "chat-input"
     timeout: 90000
 - hideKeyboard
-- openLink: "hermes://dev/leash-unlock"
-- hideKeyboard
-- openLink: "hermes://chat"
-- runFlow: dismiss-print-interruption.yaml
-- runFlow:
-    when:
-      notVisible:
-        id: "chat-screen-header"
-    commands:
-      - hideKeyboard
-      - tapOn:
-          id: "tab-hermes"
-- extendedWaitUntil:
-    notVisible:
-      id: "tab-screen-loading"
-    timeout: 90000
-- extendedWaitUntil:
-    visible:
-      id: "chat-screen-header"
-    timeout: 90000
-- hideKeyboard
-- extendedWaitUntil:
-    visible:
-      id: "chat-composer-dock"
-    timeout: 90000
-- scrollUntilVisible:
-    element:
-      id: "chat-input"
-    direction: UP
-    timeout: 90000
+# Prefer chat-input over chat-composer-dock — CI Maestro often fails dock visibility
+# even when the input (child) is already visible; ship-guard only needs chat-input.

@@ -5,6 +5,16 @@ import {
   clearMarketingAttribution,
   getMarketingAttributionProperties,
 } from '../services/marketingAttribution';
+import Constants from 'expo-constants';
+
+jest.mock('expo-constants', () => ({
+  __esModule: true,
+  default: {
+    expoConfig: {
+      extra: {},
+    },
+  },
+}));
 
 describe('useHermesDeepLinks', () => {
   const navigationRef = { current: { navigate: jest.fn() } };
@@ -85,6 +95,32 @@ describe('useHermesDeepLinks', () => {
     });
     expect(navigationRef.current.navigate).toHaveBeenCalledWith('Settings');
     expect(navigationRef.current.navigate).toHaveBeenCalledTimes(2);
+  });
+
+  it('forces demo mode on E2E builds for hermes://setup?demo=1', async () => {
+    const forceE2eDemoMode = jest.fn().mockResolvedValue(undefined);
+    const applySetupDeepLink = jest.fn().mockResolvedValue(undefined);
+    (Constants.expoConfig as { extra?: Record<string, unknown> }).extra = {
+      e2eAutomation: true,
+    };
+    renderHook(() =>
+      useHermesDeepLinks(
+        navigationRef as never,
+        runAgentTool,
+        refreshHealth,
+        applySetupDeepLink,
+        undefined,
+        undefined,
+        forceE2eDemoMode,
+      ),
+    );
+    const handler = (Linking.addEventListener as jest.Mock).mock.calls[0][1];
+    await act(async () => {
+      await handler({ url: 'hermes://setup?demo=1' });
+    });
+    expect(forceE2eDemoMode).toHaveBeenCalled();
+    expect(applySetupDeepLink).not.toHaveBeenCalled();
+    expect(navigationRef.current.navigate).toHaveBeenCalledWith('Chat');
   });
 
   it('re-navigates to Chat when hermes://chat is opened again', async () => {

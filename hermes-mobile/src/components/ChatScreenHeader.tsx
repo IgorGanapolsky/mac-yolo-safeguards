@@ -15,6 +15,7 @@ type ChatScreenHeaderProps = {
   routeStatusLabel?: string;
   connectionState: LeashConnectionState;
   macHttpReachable?: boolean;
+  authMismatch?: boolean;
   isDemo?: boolean;
   /** Keep IP / relay detail visible when connected (multi-Mac setups). */
   showMachineDetailWhenConnected?: boolean;
@@ -44,15 +45,20 @@ function linkMeta(
   macHttpReachable = false,
   disconnectedLabel = 'Not connected',
   isDemo = false,
+  authMismatch = false,
 ): { label: string; color: string; connected: boolean } {
   const link = resolveChatLinkDisplay({
     connectionState: state,
     macHttpOk: macHttpReachable,
     disconnectedLabel,
     isDemo,
+    authMismatch,
   });
   if (link.chatReachable) {
     return { label: link.label, color: colors.success, connected: true };
+  }
+  if (link.label === 'Wrong key for this computer') {
+    return { label: link.label, color: colors.error, connected: false };
   }
   if (link.label === 'Relay only') {
     return { label: link.label, color: colors.warning, connected: false };
@@ -116,6 +122,7 @@ export default function ChatScreenHeader({
   routeStatusLabel,
   connectionState,
   macHttpReachable = false,
+  authMismatch = false,
   isDemo = false,
   showMachineDetailWhenConnected = false,
   workspaceName,
@@ -131,7 +138,7 @@ export default function ChatScreenHeader({
   onPressMachine,
   onPressWorkspace,
 }: ChatScreenHeaderProps) {
-  const link = linkMeta(connectionState, macHttpReachable, routeStatusLabel, isDemo);
+  const link = linkMeta(connectionState, macHttpReachable, routeStatusLabel, isDemo, authMismatch);
   const endpoint = machineEndpoint?.trim() || '';
   const showEndpoint =
     endpoint.length > 0 && (!link.connected || showMachineDetailWhenConnected);

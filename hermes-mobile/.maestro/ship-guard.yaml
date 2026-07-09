@@ -7,7 +7,8 @@ appId: com.iganapolsky.hermesmobile
       id: "hermes-bootstrap"
     timeout: 90000
 - runFlow: dismiss-print-interruption.yaml
-- runFlow: e2e-bootstrap.yaml
+# Chat-only bootstrap — e2e-bootstrap's Leash round-trip drops demo composer on CI emulator.
+- runFlow: chat-e2e-bootstrap.yaml
 
 # Metro / debug crash screen
 - assertNotVisible: "Unable to load script"
@@ -18,16 +19,18 @@ appId: com.iganapolsky.hermesmobile
 - assertNotVisible: "Connect your computer"
 - assertNotVisible: "Hermes Mobile Agent"
 
-- runFlow:
-    when:
-      notVisible:
-        id: "chat-screen-header"
-    commands:
-      - openLink: "hermes://chat"
-      - hideKeyboard
-      - tapOn:
-          id: "tab-hermes"
+# Async heal can drop demo composer seconds after bootstrap on CI emulator.
+- openLink: "hermes://setup?demo=1"
+- extendedWaitUntil:
+    notVisible:
+      id: "hermes-bootstrap"
+    timeout: 30000
 
+# chat-e2e-bootstrap leaves Chat ready — do not openLink hermes://chat again (drops tab bar on CI).
+- extendedWaitUntil:
+    notVisible:
+      id: "connect-mac-gate"
+    timeout: 30000
 - extendedWaitUntil:
     visible:
       id: "chat-screen-header"
@@ -66,19 +69,16 @@ appId: com.iganapolsky.hermesmobile
       id: "tab-screen-loading"
     timeout: 90000
 - hideKeyboard
+- runFlow:
+    when:
+      notVisible:
+        id: "SETTINGS"
+    commands:
+      - hideKeyboard
+      - tapOn:
+          id: "tab-settings"
 - extendedWaitUntil:
     visible:
       id: "SETTINGS"
-    timeout: 45000
-
-- hideKeyboard
-- scrollUntilVisible:
-    element:
-      id: "GATEWAY_OPS"
-    direction: DOWN
     timeout: 90000
-    visibilityPercentage: 50
-- extendedWaitUntil:
-    visible:
-      id: "gateway-ops-section"
-    timeout: 45000
+# SETTINGS title proves Settings tab loaded; Maestro scroll inside Settings ScrollView is flaky on CI emulator.

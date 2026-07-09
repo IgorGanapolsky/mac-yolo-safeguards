@@ -1,0 +1,62 @@
+# Regression: Glanceable approvals toggle must not steal the active tab.
+# Desired: after toggling Glanceable on Leash, Leash stays visible and Hermes tab remains in the bar.
+# (T-113 / bug class: glance toggle hijacked bottom-tab nav away from Hermes.)
+appId: com.iganapolsky.hermesmobile
+---
+- launchApp
+- extendedWaitUntil:
+    notVisible:
+      id: "hermes-bootstrap"
+    timeout: 90000
+- runFlow: dismiss-print-interruption.yaml
+- runFlow: e2e-bootstrap.yaml
+- openLink: "hermes://chat"
+- runFlow:
+    when:
+      notVisible:
+        id: "chat-screen-header"
+    commands:
+      - hideKeyboard
+      - tapOn:
+          id: "tab-hermes"
+- extendedWaitUntil:
+    visible:
+      id: "chat-screen-header"
+    timeout: 30000
+- assertVisible:
+    id: "tab-hermes"
+- openLink: "hermes://leash"
+- runFlow:
+    when:
+      notVisible:
+        id: "THUMBGATE_LEASH"
+    commands:
+      - hideKeyboard
+      - tapOn:
+          id: "tab-leash"
+- extendedWaitUntil:
+    visible:
+      id: "THUMBGATE_LEASH"
+    timeout: 30000
+- scrollUntilVisible:
+    element:
+      id: "glance-mode-switch"
+    direction: DOWN
+    timeout: 30000
+- tapOn:
+    id: "glance-mode-switch"
+- waitForAnimationToEnd:
+    timeout: 2000
+# Must remain on Leash — toggle must not navigate away or drop Hermes from the tab bar.
+- assertVisible:
+    id: "THUMBGATE_LEASH"
+- assertVisible:
+    id: "tab-hermes"
+- tapOn:
+    id: "tab-hermes"
+- extendedWaitUntil:
+    visible:
+      id: "chat-screen-header"
+    timeout: 30000
+- assertVisible:
+    id: "chat-input"

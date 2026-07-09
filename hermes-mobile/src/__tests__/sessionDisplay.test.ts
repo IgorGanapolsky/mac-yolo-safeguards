@@ -205,10 +205,10 @@ describe('sessionDisplay', () => {
     expect(formatCronSchedule(null)).toBe('no schedule');
   });
 
-  it('formats cron session IDs with smarter titles', () => {
+  it('formats cron session IDs with stable titles (no embedded last_active time)', () => {
     const session = { id: 'cron_42446aa3dc68', last_active: Date.now() / 1000 - 90 };
-    expect(sessionPickerLabel(session)).toBe('Scheduled job · 1m ago');
-    expect(sessionDisplayTitle(session)).toBe('Scheduled job · 1m ago');
+    expect(sessionPickerLabel(session)).toBe('Scheduled job');
+    expect(sessionDisplayTitle(session)).toBe('Scheduled job');
   });
 
   it('humanizes gateway cron titles instead of raw hex ids', () => {
@@ -218,8 +218,8 @@ describe('sessionDisplay', () => {
       last_active: Date.now() / 1000 - 120,
       preview: '[IMPORTANT: You are running as a scheduled cron job',
     };
-    expect(sessionPickerLabel(session)).toBe('Scheduled job · 2m ago');
-    expect(sessionDisplayTitle(session)).toBe('Scheduled job · 2m ago');
+    expect(sessionPickerLabel(session)).toBe('Scheduled job');
+    expect(sessionDisplayTitle(session)).toBe('Scheduled job');
   });
   it('humanizes IMPORTANT cron prompt used as session title', () => {
     const session: HermesSession = {
@@ -228,8 +228,8 @@ describe('sessionDisplay', () => {
       preview: '[IMPORTANT: You are running as a scheduled cron job. Check revenue pipeline.',
       last_active: Date.now() / 1000 - 60,
     };
-    expect(sessionPickerLabel(session)).toBe('Scheduled job · 1m ago');
-    expect(sessionDisplayTitle(session)).toBe('Scheduled job · 1m ago');
+    expect(sessionPickerLabel(session)).toBe('Scheduled job');
+    expect(sessionDisplayTitle(session)).toBe('Scheduled job');
   });
 
   it('humanizes IMPORTANT cron prompt with literal backslash-n in title', () => {
@@ -239,8 +239,8 @@ describe('sessionDisplay', () => {
       preview: '[IMPORTANT:\\nYou are running as a scheduled cron job',
       last_active: Date.now() / 1000 - 60,
     };
-    expect(sessionPickerLabel(session)).toBe('Scheduled job · 1m ago');
-    expect(sessionDisplayTitle(session)).toBe('Scheduled job · 1m ago');
+    expect(sessionPickerLabel(session)).toBe('Scheduled job');
+    expect(sessionDisplayTitle(session)).toBe('Scheduled job');
   });
 
   it('formatSessionTitle humanizes cron boilerplate for chat header', () => {
@@ -250,7 +250,25 @@ describe('sessionDisplay', () => {
       preview: '[IMPORTANT: You are running as a scheduled cron job',
       last_active: Date.now() / 1000 - 90,
     };
-    expect(formatSessionTitle(session)).toBe('Scheduled job · 1m ago');
+    expect(formatSessionTitle(session)).toBe('Scheduled job');
+  });
+
+  it('cron title does not embed last_active when created_at differs (Jul 8 screenshot regression)', () => {
+    const createdAt = '2026-07-08T21:23:00.000Z';
+    const lastActiveAt = '2026-07-08T21:25:00.000Z';
+    const session: HermesSession = {
+      id: 'cron_42446aa3dc68',
+      title: 'Session cron 42446aa3dc68',
+      source: 'cron',
+      created_at: createdAt,
+      last_active_at: lastActiveAt,
+    };
+    const title = formatSessionTitle(session);
+    const subtitle = formatSessionCreated(sessionCreatedValue(session));
+
+    expect(title).toBe('Scheduled job');
+    expect(subtitle).toBe(formatSessionCreated(createdAt));
+    expect(title).not.toMatch(/\d{1,2}:\d{2}/);
   });
 
   it('formatSessionTitle end-truncates long user titles for header', () => {

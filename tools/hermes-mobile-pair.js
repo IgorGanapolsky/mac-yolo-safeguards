@@ -14,6 +14,11 @@ const http = require('http');
 const os = require('os');
 const path = require('path');
 const { spawnSync, spawn } = require('child_process');
+const {
+  readEnvKey,
+  readLocalApiKey,
+  resolveApiKeyForGatewayUrl,
+} = require('./hermes-mobile-pair-lib.js');
 
 const REPO = path.resolve(__dirname, '..');
 const HERMES_ENV = path.join(os.homedir(), '.hermes', '.env');
@@ -26,16 +31,6 @@ const OUT_DIR = path.join(
   'mac-yolo-safeguards',
   'hermes-mobile-pair',
 );
-
-function readEnvKey(filePath, names) {
-  if (!fs.existsSync(filePath)) return '';
-  const text = fs.readFileSync(filePath, 'utf8');
-  for (const name of names) {
-    const match = text.match(new RegExp(`^${name}=(.+)$`, 'm'));
-    if (match) return match[1].trim().replace(/^["']|["']$/g, '');
-  }
-  return '';
-}
 
 function readThumbgateApiKey() {
   const fromEnv = process.env.THUMBGATE_API_KEY?.trim();
@@ -139,6 +134,8 @@ function buildDeepLink(
     if (url) params.append('extraUrl', url);
     const name = extra?.name?.trim();
     if (name) params.append('extraName', name);
+    const extraKey = extra?.apiKey?.trim();
+    if (extraKey) params.append('extraKey', extraKey);
   }
   return `hermes://setup?${params.toString()}`;
 }
@@ -427,11 +424,13 @@ function main() {
     gatewayUrl = `http://${lanIpFromHealth}:8642`;
   }
   const lanIp = detectLocalLanIp() || resolveLanIp(health);
-  const apiKey = readEnvKey(HERMES_ENV, [
-    'API_SERVER_KEY',
-    'HERMES_API_SERVER_KEY',
-    'API_KEY',
-  ]);
+  const apiKeyBefore = readLocalApiKey();
+  const apiKey = resolveApiKeyForGatewayUrl(gatewayUrl);
+  if (apiKey !== apiKeyBefore && apiKey) {
+    console.log('  API key: loaded from Mac mini (~/.hermes/.env via SSH)');
+  } else if (apiKey === apiKeyBefore && gatewayUrl.includes('100.94.135.78')) {
+    console.warn('  API key: Mac mini SSH lookup failed — using local key (chat may 401)');
+  }
   const thumbgateApiKey = readThumbgateApiKey();
   const hostname = health.hostname || os.hostname();
   const relayCode =
@@ -479,6 +478,7 @@ function main() {
       extraComputers.push({
         gatewayUrl: miniUrl,
         name: (mini.hostname || mini.label || 'Igors-Mac-mini').replace(/\.local$/i, '').trim(),
+        apiKey: resolveApiKeyForGatewayUrl(miniUrl),
       });
       console.log(
         '  Extra saved computer (Tailscale):',

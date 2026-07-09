@@ -32,7 +32,13 @@ describe('outboundDeliveryStatus', () => {
   it('shows reachability hint when send failed and Mac health is down', () => {
     expect(
       outboundDeliveryLabel('failed', { connectionState: 'connecting', macHttpOk: false }),
-    ).toBe("⚠ Couldn't reach your computer");
+    ).toBe("⚠ Couldn't reach your computer — tap Computer above");
+  });
+
+  it('shows reconnect hint when health is stale but link is not live', () => {
+    expect(
+      outboundDeliveryLabel('failed', { connectionState: 'disconnected', macHttpOk: true }),
+    ).toBe('⚠ No reply — tap Computer above or ↑');
   });
 
   it('shows truncated failure reason on bubble when provided', () => {

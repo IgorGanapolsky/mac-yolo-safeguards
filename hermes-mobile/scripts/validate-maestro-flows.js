@@ -17,7 +17,18 @@ const FLOW_DIR = path.join(APP_DIR, '.maestro');
 
 // Critical user journeys that MUST always have a flow. Adding a journey here makes its
 // absence a CI failure — the point is that these can never silently disappear.
-const REQUIRED_FLOWS = ['launch', 'chat', 'approvals', 'navigation', 'ship-guard'];
+const REQUIRED_FLOWS = [
+  'launch',
+  'chat',
+  'approvals',
+  'navigation',
+  'ship-guard',
+  'chat-send-persistence',
+  'regression-glanceable-tab',
+  'regression-chat-send-visible',
+  'regression-leash-refresh',
+  'regression-chat-header-model',
+];
 
 function bundleIdFromAppJson() {
   const app = JSON.parse(fs.readFileSync(path.join(APP_DIR, 'app.json'), 'utf8'));

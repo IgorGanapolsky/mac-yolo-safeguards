@@ -37,6 +37,41 @@ export function buildAuthHeaders(apiKey?: string | null): Record<string, string>
   return headers;
 }
 
+export const GATEWAY_WRONG_KEY_MESSAGE = 'Wrong key for this computer';
+
+export type GatewayAuthProbeResult = {
+  ok: boolean;
+  status?: number;
+  errorMessage?: string;
+};
+
+/** Lightweight authenticated probe — catches /health=200 + chat=401 wrong-key class. */
+export async function probeGatewayAuth(
+  gatewayUrl: string,
+  apiKey?: string | null,
+  timeoutMs = 5000,
+): Promise<GatewayAuthProbeResult> {
+  const trimmed = apiKey?.trim();
+  if (!trimmed) {
+    return { ok: true };
+  }
+  const { httpBase } = normalizeGatewayUrl(gatewayUrl);
+  const url = `${httpBase}/api/sessions?limit=1`;
+  try {
+    const response = await fetchWithTimeout(url, { headers: buildAuthHeaders(trimmed) }, timeoutMs);
+    if (response.status === 401 || response.status === 403) {
+      return {
+        ok: false,
+        status: response.status,
+        errorMessage: GATEWAY_WRONG_KEY_MESSAGE,
+      };
+    }
+    return { ok: true, status: response.status };
+  } catch {
+    return { ok: true };
+  }
+}
+
 function classifyHealth(body: Record<string, unknown>, errorMessage?: string): GatewayHealthLevel {
   if (errorMessage) {
     return 'red';
@@ -102,6 +137,17 @@ export async function fetchGatewayHealth(
     const body = (await response.json()) as Record<string, unknown>;
     const localIpRaw = typeof body.local_ip === 'string' ? body.local_ip : undefined;
     const level = classifyHealth(body);
+    let directGatewayReachable = level === 'green' || level === 'amber';
+    let authMismatch = false;
+    let authErrorMessage: string | undefined;
+    if (directGatewayReachable && apiKey?.trim()) {
+      const auth = await probeGatewayAuth(gatewayUrl, apiKey, timeoutMs);
+      if (!auth.ok) {
+        directGatewayReachable = false;
+        authMismatch = true;
+        authErrorMessage = auth.errorMessage;
+      }
+    }
     return {
       level,
       status: typeof body.status === 'string' ? body.status : undefined,
@@ -111,7 +157,9 @@ export async function fetchGatewayHealth(
       checkedAt,
       hostname: typeof body.hostname === 'string' ? body.hostname : undefined,
       localIp: resolveDisplayLanIp(localIpRaw, httpBase),
-      directGatewayReachable: level === 'green' || level === 'amber',
+      directGatewayReachable,
+      authMismatch: authMismatch || undefined,
+      errorMessage: authMismatch ? authErrorMessage : undefined,
     };
   } catch (error) {
     return {

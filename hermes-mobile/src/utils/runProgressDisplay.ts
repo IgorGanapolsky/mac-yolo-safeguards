@@ -129,19 +129,10 @@ export function isActiveChatRun(runProgress: RunProgressState | null | undefined
   return runProgress.phase !== 'completed' && runProgress.phase !== 'failed';
 }
 
-/** Outbound bubbles already show Sending — skip the bulky composer banner until a run id exists. */
+/** Show composer progress whenever run state exists — including pre-runId delivery/thinking. */
 export function shouldShowComposerProgressBanner(
   progress: RunProgressState | null | undefined,
-  isSending: boolean,
+  _isSending: boolean,
 ): boolean {
-  if (!progress) {
-    return false;
-  }
-  if (isSending && !progress.runId) {
-    return false;
-  }
-  if (progress.phase === 'sending' && !progress.runId) {
-    return false;
-  }
-  return true;
+  return Boolean(progress);
 }

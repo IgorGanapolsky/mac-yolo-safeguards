@@ -301,6 +301,54 @@ acquire_install_lock
 trap cleanup_lock EXIT INT TERM
 skip_if_already_installed
 
+# --- Safety gates (T-114): refuse install when unit/contract tests fail; warn on stale E2E ---
+# Override: HERMES_INSTALL_SKIP_TESTS=1 (unit) · HERMES_INSTALL_ALLOW_BAD_E2E=1 (ignore latest.json)
+gate_install_proofs() {
+  if [[ "${HERMES_INSTALL_SKIP_TESTS:-}" == "1" ]]; then
+    echo "=== WARNING: skipping unit/release-safety gate (HERMES_INSTALL_SKIP_TESTS=1) ===" >&2
+  else
+    echo "=== Gate: unit + release-safety before phone install ==="
+    (cd "$HERMES_DIR" && npm test -- --no-coverage --watchman=false) || {
+      echo "Error: unit tests failed — refusing phone install." >&2
+      echo "       Override only with HERMES_INSTALL_SKIP_TESTS=1 (not for real-user builds)." >&2
+      exit 1
+    }
+    (cd "$HERMES_DIR" && npm run test:release-safety) || {
+      echo "Error: release-safety contract failed — refusing phone install." >&2
+      exit 1
+    }
+  fi
+
+  local latest="$HERMES_DIR/docs/proofs/continuous/latest.json"
+  if [[ ! -f "$latest" ]]; then
+    echo "=== WARNING: no continuous E2E proof at $latest — install continues ===" >&2
+    return 0
+  fi
+  local e2e_status
+  e2e_status="$(node -e "const j=require(process.argv[1]); process.stdout.write(String(j.e2e||''))" "$latest" 2>/dev/null || true)"
+  if [[ "$e2e_status" == "pass" ]]; then
+    echo "=== Continuous E2E proof: pass ==="
+    return 0
+  fi
+  if [[ "${HERMES_INSTALL_ALLOW_BAD_E2E:-}" == "1" ]]; then
+    echo "=== WARNING: continuous E2E is '${e2e_status:-missing}' but HERMES_INSTALL_ALLOW_BAD_E2E=1 — continuing ===" >&2
+    return 0
+  fi
+  if [[ "$e2e_status" == "fail" ]]; then
+    echo "=== WARNING: continuous E2E is fail (see $latest). Install continues; set HERMES_INSTALL_REQUIRE_E2E=1 to hard-block. ===" >&2
+  elif [[ "$e2e_status" == "skipped" || -z "$e2e_status" ]]; then
+    echo "=== WARNING: continuous E2E is '${e2e_status:-missing}' (often no USB phone). Prefer a pass proof before store/dogfood. ===" >&2
+  else
+    echo "=== WARNING: continuous E2E status '${e2e_status}' — see $latest ===" >&2
+  fi
+  if [[ "${HERMES_INSTALL_REQUIRE_E2E:-}" == "1" && "$e2e_status" != "pass" ]]; then
+    echo "Error: HERMES_INSTALL_REQUIRE_E2E=1 and e2e != pass — refusing install." >&2
+    exit 1
+  fi
+}
+
+gate_install_proofs
+
 if maybe_build_release; then
   build_release
 fi

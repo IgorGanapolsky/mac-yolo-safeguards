@@ -128,18 +128,22 @@ describe('release safety contract', () => {
     expect(shipGuard).toContain('Unable to load script');
     expect(shipGuard).toContain('Hold the cord on your AI');
     expect(shipGuard).toContain('com.iganapolsky.hermesmobile');
+    expect(shipGuard).toContain('chat-e2e-bootstrap.yaml');
+    expect(shipGuard).not.toMatch(/runFlow:\s*e2e-bootstrap\.yaml/);
   });
 
   it('e2e-bootstrap uses deep links for tab navigation with Android tab-leash fallback', () => {
     const bootstrap = read('hermes-mobile/.maestro/e2e-bootstrap.yaml');
-    expect(bootstrap).toContain('hermes://dev/leash-unlock');
+    expect(bootstrap).toContain('hermes://setup?demo=1');
     expect(bootstrap).toContain('hermes://chat');
+    expect(bootstrap).toContain('hermes://leash');
     expect(bootstrap).toContain('chat-screen-header');
     expect(bootstrap).toContain('id: "chat-input"');
     expect(bootstrap).toContain('id: "THUMBGATE_LEASH"');
     expect(bootstrap).toContain('id: "tab-leash"');
     expect(bootstrap).toContain('id: "tab-hermes"');
     expect(bootstrap).not.toMatch(/text:\s*"Settings"/);
+    expect(bootstrap).not.toContain('hermes://dev/leash-unlock');
     const app = read('hermes-mobile/App.tsx');
     expect(app).toContain('tab-hermes');
     expect(app).toContain('tab-leash');
@@ -281,13 +285,22 @@ describe('release safety contract', () => {
 
   it('e2e-bootstrap waits for lazy Leash tab load', () => {
     const bootstrap = read('hermes-mobile/.maestro/e2e-bootstrap.yaml');
-    expect(bootstrap).toContain('hermes://dev/leash-unlock');
-    expect(bootstrap).toContain('tab-screen-loading');
+    expect(bootstrap).toContain('hermes://setup?demo=1');
+    expect(bootstrap).toContain('hermes://leash');
     expect(bootstrap).toContain('THUMBGATE_LEASH');
     expect(bootstrap).toContain('id: "tab-leash"');
     expect(bootstrap).toContain('hermes://chat');
     expect(bootstrap).toContain('chat-screen-header');
     expect(bootstrap).toContain('chat-input');
+    expect(bootstrap).not.toContain('hermes://dev/leash-unlock');
+  });
+
+  it('Android emulator CI builds with E2E automation flag (not production release)', () => {
+    const workflow = read('.github/workflows/mobile-e2e.yml');
+    expect(workflow).toContain('EXPO_PUBLIC_E2E_AUTOMATION');
+    expect(workflow).toContain('assembleDebug');
+    expect(workflow).not.toContain('assembleRelease');
+    expect(workflow).toContain('SENTRY_DISABLE_AUTO_UPLOAD');
   });
 
   it('iOS simulator E2E builds with automation deep links enabled', () => {
@@ -309,11 +322,12 @@ describe('release safety contract', () => {
     const flow = read('hermes-mobile/.maestro/chat-send-persistence.yaml');
     const chatBootstrap = read('hermes-mobile/.maestro/chat-e2e-bootstrap.yaml');
     expect(flow).toContain('chat-e2e-bootstrap.yaml');
-    expect(chatBootstrap).toContain('hermes://dev/leash-unlock');
+    expect(chatBootstrap).toContain('hermes://setup?demo=1');
     expect(chatBootstrap).toContain('hermes://chat');
     expect(chatBootstrap).toContain('chat-input');
     expect(chatBootstrap).toContain('dismiss-print-interruption.yaml');
     expect(chatBootstrap).not.toContain('id: "THUMBGATE_LEASH"');
+    expect(chatBootstrap).not.toContain('hermes://dev/leash-unlock');
   });
 
   it('continuous E2E runner and LaunchAgent exist', () => {
@@ -324,6 +338,8 @@ describe('release safety contract', () => {
     expect(runner).toContain('Android-only continuous E2E requested');
     expect(runner).toContain('android-only continuous E2E skipped');
     expect(runner).toContain('HERMES_E2E_ANDROID_ONLY');
+    expect(runner).toContain('LOAD_WAIT_SEC');
+    expect(runner).toContain('queueing up to');
     const plist = read('com.igor.hermes-mobile-continuous-e2e.plist');
     expect(plist).toContain('com.igor.hermes-mobile-continuous-e2e');
     expect(plist).toContain('HERMES_E2E_ANDROID_ONLY');
@@ -333,5 +349,14 @@ describe('release safety contract', () => {
     expect(workflow).toContain('test:ci');
     expect(workflow).toContain('assembleRelease');
     expect(workflow).toContain('verify-apk-package.cjs');
+    expect(workflow).toContain('SENTRY_DISABLE_AUTO_UPLOAD');
+  });
+
+  it('maestro full-suite includes T-114 regression flows', () => {
+    const suite = read('hermes-mobile/.maestro/full-suite.yaml');
+    expect(suite).toContain('regression-glanceable-tab.yaml');
+    expect(suite).toContain('regression-chat-send-visible.yaml');
+    expect(suite).toContain('regression-leash-refresh.yaml');
+    expect(suite).toContain('regression-chat-header-model.yaml');
   });
 });

@@ -3,7 +3,9 @@ import { Linking } from 'react-native';
 import type { NavigationContainerRef } from '@react-navigation/native';
 import type { HermesAgentToolName } from '../services/hermesAgentTools';
 import { parseSetupDeepLink, parseRelayDeepLink, type SetupDeepLinkParams } from '../utils/setupDeepLink';
+import { syncExtraProfileApiKeys } from '../utils/gatewayProfileCredentialSync';
 import { isDevLeashUnlockDeepLink } from '../utils/developerLeashUnlock';
+import { isE2eAutomationBuild } from '../utils/demoModePolicy';
 import { recordAttributionFromUrl } from '../services/marketingAttribution';
 
 type RootTabParamList = {
@@ -61,6 +63,7 @@ export function useHermesDeepLinks(
   applySetupDeepLink?: (params: SetupDeepLinkParams) => Promise<void>,
   focusChatSession?: (sessionId: string) => void,
   activateDeveloperLeashUnlock?: () => Promise<void>,
+  forceE2eDemoMode?: () => Promise<void>,
 ) {
   useEffect(() => {
     const handleUrl = async (url: string | null) => {
@@ -93,8 +96,15 @@ export function useHermesDeepLinks(
       }
 
       const setup = parseSetupDeepLink(url);
+      if (setup?.demoMode && isE2eAutomationBuild() && forceE2eDemoMode) {
+        await forceE2eDemoMode();
+        await syncExtraProfileApiKeys(setup.extraComputers);
+        navigationRef.current?.navigate('Chat');
+        return;
+      }
       if (setup && applySetupDeepLink) {
         await applySetupDeepLink(setup);
+        await syncExtraProfileApiKeys(setup.extraComputers);
         navigationRef.current?.navigate('Chat');
         return;
       }
@@ -135,5 +145,5 @@ export function useHermesDeepLinks(
       handleUrl(event.url);
     });
     return () => sub.remove();
-  }, [activateDeveloperLeashUnlock, applySetupDeepLink, focusChatSession, navigationRef, refreshHealth, runAgentTool]);
+  }, [activateDeveloperLeashUnlock, applySetupDeepLink, focusChatSession, forceE2eDemoMode, navigationRef, refreshHealth, runAgentTool]);
 }

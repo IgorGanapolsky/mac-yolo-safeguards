@@ -1,0 +1,70 @@
+#!/usr/bin/env bash
+# Unit tests for tools/hermes-mobile-pair-lib.js — per-machine API key resolution.
+set -u
+
+REPO="$(cd "$(dirname "$0")/.." && pwd)"
+TMP="$(mktemp -d "${TMPDIR:-/tmp}/hermes-pair-test.XXXXXX")"
+trap 'rm -rf "$TMP"' EXIT INT TERM
+
+pass=0; fail=0
+G="\033[32m"; R="\033[31m"; Z="\033[0m"
+ok()  { printf "  ${G}[PASS]${Z} %s\n" "$1"; pass=$((pass + 1)); }
+bad() { printf "  ${R}[FAIL]${Z} %s\n" "$1"; fail=$((fail + 1)); }
+
+BIN="$TMP/bin"
+mkdir -p "$BIN" "$TMP/home/.hermes"
+
+cat > "$BIN/ssh" <<'MOCK'
+#!/usr/bin/env bash
+if [[ "$*" == *hermes-mini* ]]; then
+  echo "mini-key-from-ssh"
+  exit 0
+fi
+exit 1
+MOCK
+chmod +x "$BIN/ssh"
+
+echo 'API_SERVER_KEY=laptop-key-from-env' > "$TMP/home/.hermes/.env"
+
+run_node() {
+  HOME="$TMP/home" PATH="$BIN:$PATH" node -e "$1"
+}
+
+# Mac mini Tailscale URL must use SSH key, not laptop .env key
+if run_node "
+  const lib = require('$REPO/tools/hermes-mobile-pair-lib.js');
+  const miniKey = lib.resolveApiKeyForGatewayUrl('http://100.94.135.78:8642', {
+    hermesEnvPath: '$TMP/home/.hermes/.env',
+    sshCommand: '$BIN/ssh',
+  });
+  if (miniKey !== 'mini-key-from-ssh') process.exit(1);
+"; then
+  ok "mini Tailscale URL resolves SSH key (not laptop .env)"
+else
+  bad "mini Tailscale URL resolves SSH key (not laptop .env)"
+fi
+
+# MacBook / non-mini URL keeps local .env key
+if run_node "
+  const lib = require('$REPO/tools/hermes-mobile-pair-lib.js');
+  const laptopKey = lib.resolveApiKeyForGatewayUrl('http://100.87.85.85:8642', {
+    hermesEnvPath: '$TMP/home/.hermes/.env',
+    sshCommand: '$BIN/ssh',
+  });
+  if (laptopKey !== 'laptop-key-from-env') process.exit(1);
+"; then
+  ok "MacBook URL keeps local .env key"
+else
+  bad "MacBook URL keeps local .env key"
+fi
+
+# Pair script wires --mini-tailscale and extraKey (regression guard)
+PAIR_JS="$(cat "$REPO/tools/hermes-mobile-pair.js")"
+if [[ "$PAIR_JS" == *"--mini-tailscale"* ]] && [[ "$PAIR_JS" == *"extraKey"* ]] && [[ "$PAIR_JS" == *"hermes-mobile-pair-lib.js"* ]]; then
+  ok "pair script exports mini-tailscale + extraKey contract"
+else
+  bad "pair script exports mini-tailscale + extraKey contract"
+fi
+
+printf "\nResults: %s passed, %s failed\n" "$pass" "$fail"
+[[ "$fail" -eq 0 ]]

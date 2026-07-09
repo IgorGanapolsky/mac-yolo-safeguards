@@ -132,4 +132,18 @@ describe('mergeServerMessagesWithPending', () => {
     expect(merged.filter((m) => m.role === 'assistant')).toHaveLength(1);
     expect(merged[1]?.id).toBe('gw-asst-1');
   });
+
+  it('drops empty local assistant placeholder once server has a real reply', () => {
+    const server: HermesMessage[] = [
+      { role: 'user', content: 'Print money make money faster' },
+      { id: 'gw-asst-1', role: 'assistant', content: 'Monetization plan ready.' },
+    ];
+    const local: HermesMessage[] = [
+      { role: 'user', content: 'Print money make money faster', id: 'user-1' },
+      { id: 'asst-empty', role: 'assistant', content: '' },
+    ];
+    const merged = mergeServerMessagesWithPending(server, local);
+    expect(merged.filter((m) => m.role === 'assistant')).toHaveLength(1);
+    expect(merged[1]?.content).toBe('Monetization plan ready.');
+  });
 });

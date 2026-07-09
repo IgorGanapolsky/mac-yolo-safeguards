@@ -15,6 +15,7 @@ Canonical repo rules: [../AGENTS.md](../AGENTS.md). This file adds **mobile-only
 7. **RN performance work** — read `.cursor/skills/react-native-best-practices/SKILL.md` first (Callstack 2026 optimization guide skills). Install/refresh: `bash ../scripts/install-callstack-agent-skills.sh`. Measure before optimizing.
 8. **Real users product** — Hermes Mobile ships to **real users**, not Igor-only dogfood. No feature is "done" if it requires `adb`, dev backdoor, or pre-paired Igor Mac.
 9. **Brand-new user testing (permanent)** — **always treat every test as if it is a brand new user:** fresh install, no saved profiles, no `developerLeashUnlock`, cellular or Wi‑Fi only, release APK. Maestro and manual proofs must reflect that mindset.
+10. **Multi-Mac API keys** — Mac mini and MacBook Pro can have different `API_SERVER_KEY` values. Pair mini via `node tools/hermes-mobile-pair.js --mini-tailscale` (SSH-fetches mini key); never paste the laptop `.env` key when targeting another machine.
 
 ## Autonomous infrastructure (already installed on Igor's Mac)
 

@@ -213,6 +213,12 @@ import {
   shouldRecoverOutboundSendLock,
 } from '../utils/outboundSendRecovery';
 import {
+  findLastFailedOutboundText,
+  resolveComposerSendAction,
+  shouldHideMacTileForSilentHeal,
+  shouldShowFailedSendRetry,
+} from '../utils/failedSendRetry';
+import {
   listAllPendingTextApprovals,
   listInlineTextApprovals,
   nudgeResolutionKey,
@@ -250,6 +256,12 @@ import {
   snapshotAssistantBodies,
   TELEGRAM_QUEUED_REPLY_PLACEHOLDER,
 } from '../utils/streamAssistantText';
+import {
+  DEFERRED_REPLY_POLL_MAX_MS,
+  DEFERRED_REPLY_POLL_MS,
+  EMPTY_REPLY_FAILURE_REASON,
+  shouldAwaitGatewayReplyAfterSend,
+} from '../utils/emptyStreamReplyRecovery';
 import { extractTerminalActivityFromMessage, isTerminalToolName } from '../utils/terminalActivity';
 
 function projectSessions(
@@ -368,6 +380,8 @@ export default function ChatScreen() {
   const [isLoadingSessions, setIsLoadingSessions] = useState(false);
   const [isLoadingMessages, setIsLoadingMessages] = useState(false);
   const [isSending, setIsSending] = useState(false);
+  /** HTTP chat stream in flight — keep WS from clearing runProgress before first token. */
+  const [isChatStreamActive, setIsChatStreamActive] = useState(false);
   const [sessionModalVisible, setSessionModalVisible] = useState(false);
   const [toolsModalVisible, setToolsModalVisible] = useState(false);
   const [macPickerVisible, setMacPickerVisible] = useState(false);
@@ -490,6 +504,9 @@ export default function ChatScreen() {
   /** When a force/manual select is requested while a refresh is in flight, replay with force. */
   const refreshQueuedForceRef = useRef(false);
   const deferredTelegramPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  /** Keep HTTP transcript polling alive until gateway reply text lands (relay WS ≠ chat transport). */
+  const awaitingGatewayReplyRef = useRef(false);
+  const [awaitingGatewayReply, setAwaitingGatewayReply] = useState(false);
   const runProgressRef = useRef<RunProgressState | null>(null);
   const sendProgressSnapshotRef = useRef<RunProgressState | null>(null);
   const transcriptDigestRef = useRef('');
@@ -710,13 +727,18 @@ export default function ChatScreen() {
   );
   /** Chat needs direct HTTP to the Mac — relay WebSocket "connected" is not enough. */
   const macChatLive = isDemo || macHttpOk;
+  const lastFailedOutboundText = useMemo(
+    () => findLastFailedOutboundText(messages),
+    [messages],
+  );
   const connectivityRunFailure = useMemo(
     () =>
-      Boolean(
-        runProgress?.phase === 'failed' &&
-          isConnectivityMessage(runProgress.detail ?? ''),
-      ),
-    [runProgress],
+      shouldShowFailedSendRetry({
+        runPhase: runProgress?.phase,
+        runDetail: runProgress?.detail,
+        lastFailedText: lastFailedOutboundText,
+      }),
+    [runProgress, lastFailedOutboundText],
   );
   const effectiveMacHttpOk = useMemo(
     () =>
@@ -744,6 +766,13 @@ export default function ChatScreen() {
     [gatewayUrl, gatewayProfiles, tailnetProbeHostCount, tailscaleDiscoveries],
   );
   const userSendFailed = pinnedOutboundStatus === 'failed';
+  const hasRetryableFailedSend = Boolean(lastFailedOutboundText?.trim());
+  const hideMacTileForSilentHeal = shouldHideMacTileForSilentHeal({
+    silentHealInFlight: connectionHealInFlight,
+    macRetryBusy,
+    userSendFailed,
+    hasRetryableFailedSend,
+  });
   const showMacConnectionHelp = shouldShowMacConnectionHelp({
     isDemo,
     macChatLive: effectiveMacChatLive,
@@ -1982,25 +2011,42 @@ export default function ChatScreen() {
       clearInterval(deferredTelegramPollRef.current);
       deferredTelegramPollRef.current = null;
     }
+    awaitingGatewayReplyRef.current = false;
+    setAwaitingGatewayReply(false);
   }, []);
 
-  const startDeferredTelegramPoll = useCallback(
-    (assistantId: string, priorAssistants: Set<string>) => {
+  const startDeferredReplyPoll = useCallback(
+    (
+      assistantId: string,
+      priorAssistants: Set<string>,
+      options?: { onTimeout?: () => void },
+    ) => {
       clearDeferredTelegramPoll();
+      awaitingGatewayReplyRef.current = true;
+      setAwaitingGatewayReply(true);
       const startedAt = Date.now();
       deferredTelegramPollRef.current = setInterval(() => {
-        if (Date.now() - startedAt > 90_000) {
+        if (Date.now() - startedAt > DEFERRED_REPLY_POLL_MAX_MS) {
           clearDeferredTelegramPoll();
+          awaitingGatewayReplyRef.current = false;
+          setAwaitingGatewayReply(false);
           setToolStatus(null);
-          setRunProgress(null);
+          setRunProgress((prev) =>
+            prev && prev.phase !== 'completed'
+              ? { ...prev, phase: 'failed', detail: EMPTY_REPLY_FAILURE_REASON }
+              : prev,
+          );
+          options?.onTimeout?.();
           return;
         }
-        void refreshSessionMessages({ background: true }).then(() => {
+        void refreshSessionMessages({ background: true, force: true }).then(() => {
           const reply = findNewAssistantReply(messagesRef.current, priorAssistants);
           if (!reply) {
             return;
           }
           clearDeferredTelegramPoll();
+          awaitingGatewayReplyRef.current = false;
+          setAwaitingGatewayReply(false);
           setToolStatus(null);
           setRunProgress(null);
           commitMessages((prev) =>
@@ -2008,9 +2054,16 @@ export default function ChatScreen() {
           );
           haptics.success();
         });
-      }, 3000);
+      }, DEFERRED_REPLY_POLL_MS);
     },
-    [clearDeferredTelegramPoll, refreshSessionMessages, commitMessages],
+    [clearDeferredTelegramPoll, commitMessages, refreshSessionMessages],
+  );
+
+  const startDeferredTelegramPoll = useCallback(
+    (assistantId: string, priorAssistants: Set<string>) => {
+      startDeferredReplyPoll(assistantId, priorAssistants);
+    },
+    [startDeferredReplyPoll],
   );
 
   useEffect(() => {
@@ -2020,11 +2073,11 @@ export default function ChatScreen() {
   }, [clearDeferredTelegramPoll]);
 
   useEffect(() => {
-    setChatStreamProgressActive(isSending);
-    if (!isSending) {
+    setChatStreamProgressActive(isSending || isChatStreamActive);
+    if (!isSending && !isChatStreamActive) {
       sendProgressSnapshotRef.current = null;
     }
-  }, [isSending, setChatStreamProgressActive]);
+  }, [isSending, isChatStreamActive, setChatStreamProgressActive]);
 
   const failPendingOutboundBubbles = useCallback(
     (failureReason: string) => {
@@ -2244,17 +2297,25 @@ export default function ChatScreen() {
     // We poll if:
     // 1. Gateway-backed thread view (4–5s)
     // 2. WebSocket is down (8s HTTP fallback for all sessions)
-    const shouldPoll = isTelegramView || connectionState !== 'connected';
+    const shouldPoll =
+      isTelegramView || connectionState !== 'connected' || awaitingGatewayReply;
     if (!shouldPoll) {
       return;
     }
-    const intervalMs =
-      isTelegramView ? (connectionState === 'connected' ? 5000 : 4000) : connectionState === 'connected' ? 12000 : 8000;
+    const intervalMs = awaitingGatewayReply
+        ? DEFERRED_REPLY_POLL_MS
+        : isTelegramView
+          ? connectionState === 'connected'
+            ? 5000
+            : 4000
+          : connectionState === 'connected'
+            ? 12000
+            : 8000;
     const timer = setInterval(() => {
       refreshSessionMessagesRef.current?.({ background: true });
     }, intervalMs);
     return () => clearInterval(timer);
-  }, [currentSession?.id, isDemo, macChatLive, isTelegramView, connectionState]);
+  }, [currentSession?.id, isDemo, macChatLive, isTelegramView, connectionState, awaitingGatewayReply]);
 
   useEffect(() => {
     const activeSession = currentSessionRef.current;
@@ -2623,9 +2684,34 @@ export default function ChatScreen() {
     setInputValue(text);
   }, []);
 
-  const handleSendMessage = async () => {
-    const userText = inputValueRef.current.trim();
-    if (!userText) return;
+  const handleSendMessage = async (composerLatest?: string) => {
+    const action = resolveComposerSendAction({
+      composerText: composerLatest ?? inputValueRef.current,
+      lastFailedText: lastFailedOutboundText ?? lastFailedSendTextRef.current,
+      isDemo,
+      macChatLive,
+    });
+
+    if (action.kind === 'none') {
+      return;
+    }
+
+    if (action.kind === 'retry_reconnect') {
+      haptics.selection();
+      await handleMacRetry();
+      return;
+    }
+
+    const userText = action.text;
+
+    if (action.kind === 'retry_resend') {
+      haptics.selection();
+      const accepted = await sendUserText(userText, true);
+      if (accepted) {
+        haptics.light();
+      }
+      return;
+    }
 
     lastSentComposerTextRef.current = userText;
     sendClearSuppressRef.current = true;
@@ -2647,14 +2733,17 @@ export default function ChatScreen() {
   const handleSendMessageRef = useRef(handleSendMessage);
   handleSendMessageRef.current = handleSendMessage;
 
-  const handleSubmit = useCallback(() => {
-    if (inputValueRef.current.trim()) {
-      void handleSendMessageRef.current();
+  const handleSubmit = useCallback((latestText?: string) => {
+    const text = (latestText ?? inputValueRef.current).trim();
+    if (text) {
+      void handleSendMessageRef.current(latestText);
+      return;
     }
+    void handleSendMessageRef.current();
   }, []);
 
-  const handleSend = useCallback(() => {
-    void handleSendMessageRef.current();
+  const handleSend = useCallback((latestText?: string) => {
+    void handleSendMessageRef.current(latestText);
   }, []);
 
   const drainOutboundQueue = () => {
@@ -2893,7 +2982,7 @@ export default function ChatScreen() {
           includeToolActivity={settings.includeToolActivity ?? false}
           isTelegramInbox={isTelegramInbox}
           connectionState={connectionState}
-          macHttpOk={macHttpOk}
+          macHttpOk={effectiveMacHttpOk}
           approvalBusy={approvalBusy}
           isSending={isSending}
           outputFeedback={outputFeedback}
@@ -2908,7 +2997,7 @@ export default function ChatScreen() {
       settings.includeToolActivity,
       isTelegramInbox,
       connectionState,
-      macHttpOk,
+      effectiveMacHttpOk,
       approvalBusy,
       isSending,
       leashUnlocked,
@@ -3138,6 +3227,32 @@ export default function ChatScreen() {
 
     committedUserMessageId = commitOutboundUserBubble(typed);
     outboundUserBubbleCommitted = true;
+
+    sendStartedAtRef.current = Date.now();
+    const earlyProgressSessionId = isTelegramInboxSession(currentSession)
+      ? telegramReplySessionId
+      : currentSession?.id;
+    setRunProgress((prev) => {
+      const base: RunProgressState =
+        prev && isActiveChatRun(prev)
+          ? {
+              ...prev,
+              phase: 'sending',
+              startedAtMs: sendStartedAtRef.current,
+              detail: 'Delivering your message…',
+              sessionId: earlyProgressSessionId ?? prev.sessionId,
+            }
+          : {
+              phase: 'sending',
+              startedAtMs: sendStartedAtRef.current,
+              detail: 'Delivering your message…',
+              sessionId: earlyProgressSessionId,
+            };
+      if (currentSession) {
+        return mergeSessionUsageIntoRunProgress(base, currentSession, 'Delivering your message…');
+      }
+      return base;
+    });
 
     // A gateway restart drops in-memory session ids; never carry a known-removed
     // id into a send (even on a "New chat") — clear it so we start fresh.
@@ -3417,6 +3532,7 @@ export default function ChatScreen() {
 
     try {
       activeChatStreamRef.current = true;
+      setIsChatStreamActive(true);
       const assistantId = `asst-${Date.now()}`;
       activeAssistantIdRef.current = assistantId;
       activeAssistantTextRef.current = '';
@@ -3450,6 +3566,7 @@ export default function ChatScreen() {
 
       let switchedSessionId = targetSessionId;
       let assistantText = '';
+      let streamAccepted = false;
       const streamChatToSession = (streamTargetSessionId: string) => {
         switchedSessionId = streamTargetSessionId;
         return retryOnSessionInUse(
@@ -3599,6 +3716,7 @@ export default function ChatScreen() {
           },
           mobileChatSystemPrompt,
           () => {
+            streamAccepted = true;
             markMessageDeliveredToMac();
             releaseOutboundSendLock();
             setRunProgress((prev) =>
@@ -3608,7 +3726,12 @@ export default function ChatScreen() {
                     phase: 'working',
                     detail: 'Hermes is working on your computer…',
                   }
-                : prev,
+                : {
+                    phase: 'working',
+                    startedAtMs: sendStartedAtRef.current,
+                    detail: 'Hermes is working on your computer…',
+                    sessionId: targetSessionIdForProgress,
+                  },
             );
           },
         ),
@@ -3671,6 +3794,15 @@ export default function ChatScreen() {
         const sessionRemoved =
           !isTelegramInboxSession(activeSess) &&
           (isSessionRemovedError(streamErr) || streamStatus === 404);
+        const shouldFallback =
+          isSessionInUseError(streamErr) ||
+          streamStatus >= 400 ||
+          streamMessage.includes('Network request failed') ||
+          streamMessage.includes('Failed to fetch') ||
+          streamMessage.toLowerCase().includes('timed out') ||
+          streamMessage.toLowerCase().includes('stalled') ||
+          streamMessage.includes('AbortError') ||
+          streamMessage.toLowerCase().includes('connection error');
 
         if (sessionRemoved && !removedSessionRecoveryAttempted) {
           removedSessionRecoveryAttempted = true;
@@ -3683,18 +3815,10 @@ export default function ChatScreen() {
           // let it surface through the outer catch (the visible error).
           assistantText = await streamChatToSession(targetSessionId);
           updateAssistant(assistantText);
-        } else {
-          const shouldFallback =
-          isSessionInUseError(streamErr) ||
-          streamStatus >= 400 ||
-          streamMessage.includes('Network request failed') ||
-          streamMessage.includes('Failed to fetch') ||
-          streamMessage.toLowerCase().includes('timed out') ||
-          streamMessage.toLowerCase().includes('stalled') ||
-          streamMessage.includes('AbortError') ||
-          streamMessage.toLowerCase().includes('connection error');
-
-        if (shouldFallback) {
+        } else if (streamAccepted && shouldFallback) {
+          // User message already reached the Mac; polling beats re-sending and duplicating turns.
+          assistantText = '';
+        } else if (shouldFallback) {
           const response = await retryOnSessionInUse(
             gatewayUrl,
             apiKey,
@@ -3714,7 +3838,6 @@ export default function ChatScreen() {
           setToolStatus('Sent without live stream (connection fallback)');
         } else {
           throw streamErr;
-        }
         }
       }
 
@@ -3737,9 +3860,39 @@ export default function ChatScreen() {
               : prev,
           );
           startDeferredTelegramPoll(assistantId, priorAssistants);
+        } else if (
+          shouldAwaitGatewayReplyAfterSend({
+            assistantText,
+            streamAccepted,
+            streamFailed: false,
+          })
+        ) {
+          setToolStatus('Waiting for reply from your computer…');
+          setRunProgress((prev) =>
+            prev
+              ? {
+                  ...prev,
+                  phase: 'working',
+                  detail: 'Your computer is still working — fetching reply…',
+                }
+              : {
+                  phase: 'working',
+                  startedAtMs: sendStartedAtRef.current,
+                  detail: 'Your computer is still working — fetching reply…',
+                  sessionId: targetSessionIdForProgress,
+                },
+          );
+          startDeferredReplyPoll(assistantId, priorAssistants, {
+            onTimeout: () => {
+              lastFailedSendTextRef.current = userText;
+              setErrorMessage(EMPTY_REPLY_FAILURE_REASON);
+            },
+          });
         }
       }
-      if (!telegramDeferred) {
+      if (!telegramDeferred && assistantText.trim()) {
+        setToolStatus(null);
+      } else if (!telegramDeferred && !assistantText.trim() && !awaitingGatewayReplyRef.current) {
         setToolStatus(null);
       }
       const typedNudge = parseApprovalNudgeFromContent(typed);
@@ -3787,6 +3940,7 @@ export default function ChatScreen() {
       return outboundUserBubbleCommitted;
     } finally {
       activeChatStreamRef.current = false;
+      setIsChatStreamActive(false);
       const releaseOutboundPending = () => {
         if (outboundUserBubbleCommitted && pendingOutboundSendsRef.current > 0) {
           pendingOutboundSendsRef.current -= 1;
@@ -3876,7 +4030,7 @@ export default function ChatScreen() {
       return runProgress;
     }
 
-    if (isSending) {
+    if (isSending || isChatStreamActive) {
       if (sendProgressSnapshotRef.current) {
         return currentSession
           ? mergeSessionUsageIntoRunProgress(
@@ -3887,12 +4041,14 @@ export default function ChatScreen() {
           : sendProgressSnapshotRef.current;
       }
       const fallback: RunProgressState = {
-        phase: 'sending',
+        phase: isSending ? 'sending' : 'working',
         startedAtMs: sendStartedAtRef.current,
         detail:
           queuedOutboundCount > 0
             ? `${queuedOutboundCount} more message(s) queued after this`
-            : 'Delivering your message…',
+            : isSending
+              ? 'Delivering your message…'
+              : 'Hermes is working on your computer…',
         sessionId: activeId,
       };
       if (currentSession) {
@@ -3902,7 +4058,7 @@ export default function ChatScreen() {
     }
 
     return null;
-  }, [runProgress, currentSession?.id, currentSession?.model, currentSession?.input_tokens, currentSession?.output_tokens, telegramReplySessionId, isSending, queuedOutboundCount]);
+  }, [runProgress, currentSession?.id, currentSession?.model, currentSession?.input_tokens, currentSession?.output_tokens, telegramReplySessionId, isSending, isChatStreamActive, queuedOutboundCount]);
 
   useEffect(() => {
     const observed =
@@ -4337,6 +4493,7 @@ export default function ChatScreen() {
           showMachineDetailWhenConnected={machineHeaderDisplay.showDetailWhenConnected}
           connectionState={connectionState}
           macHttpReachable={effectiveMacHttpOk}
+          authMismatch={health?.authMismatch === true}
           isDemo={isDemo}
           workspaceName={activeProject?.name}
           workspaceHandoff={activeProject?.handoffSummary}
@@ -4357,7 +4514,7 @@ export default function ChatScreen() {
           connectionState={connectionState}
           macHttpReachable={effectiveMacHttpOk}
           macRetryBusy={macRetryBusy}
-          silentHealInFlight={connectionHealInFlight && !macRetryBusy}
+          silentHealInFlight={hideMacTileForSilentHeal}
           pendingApprovalCount={composerApprovals.length}
           runProgress={progressBanner}
           isSending={isSending}
@@ -4561,7 +4718,7 @@ export default function ChatScreen() {
             text={pinnedOutboundText}
             status={pinnedOutboundStatus}
             connectionState={connectionState}
-            macHttpOk={macHttpOk}
+            macHttpOk={effectiveMacHttpOk}
           />
         ) : null}
 

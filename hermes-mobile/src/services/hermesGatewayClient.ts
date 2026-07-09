@@ -559,6 +559,10 @@ function readChatStreamViaXhr(
       succeed(assistantText);
     };
     xhr.onerror = () => {
+      if (assistantText.trim()) {
+        succeed(assistantText);
+        return;
+      }
       fail(new Error('Network request failed while streaming chat from your computer.'));
     };
     xhr.onabort = () => {
