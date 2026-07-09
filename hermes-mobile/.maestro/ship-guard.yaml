@@ -69,10 +69,18 @@ appId: com.iganapolsky.hermesmobile
       id: "tab-screen-loading"
     timeout: 90000
 - hideKeyboard
+- runFlow:
+    when:
+      notVisible:
+        id: "SETTINGS"
+    commands:
+      - hideKeyboard
+      - tapOn:
+          id: "tab-settings"
 - extendedWaitUntil:
     visible:
       id: "SETTINGS"
-    timeout: 45000
+    timeout: 90000
 
 - hideKeyboard
 - scrollUntilVisible:
