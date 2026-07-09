@@ -1,4 +1,6 @@
 import { Platform } from 'react-native';
+import type { GatewayProfile } from '../types/gatewayProfile';
+import { profilesForActiveMachine } from '../services/gatewayProfiles';
 import { isPrivateLanGatewayUrl } from './gatewayEndpoint';
 import { buildGatewayUrlFromLanIp, isLoopbackGatewayUrl } from './gatewayUrlPolicy';
 import { buildTailscaleGatewayUrl, isTailscaleGatewayUrl } from './tailscaleHosts';
@@ -27,13 +29,22 @@ export function wifiLanFallbackUrls(input: {
   wifiConnected: boolean;
   lastLanIp?: string | null;
   profileLanIps?: Array<string | null | undefined>;
+  activeProfileId?: string | null;
+  profiles?: GatewayProfile[];
 }): string[] {
   if (Platform.OS === 'web' || !input.wifiConnected || !isLoopbackGatewayUrl(input.primaryUrl)) {
     return [];
   }
+  const scopedProfiles = input.profiles?.length
+    ? profilesForActiveMachine(input.profiles, input.activeProfileId)
+    : undefined;
+  const profileLanIps =
+    scopedProfiles?.map((profile) => profile.localIp?.trim() || undefined) ??
+    input.profileLanIps ??
+    [];
   const seen = new Set<string>([input.primaryUrl.trim()]);
   const urls: string[] = [];
-  for (const rawIp of [input.lastLanIp, ...(input.profileLanIps ?? [])]) {
+  for (const rawIp of [input.lastLanIp, ...profileLanIps]) {
     const ip = rawIp?.trim();
     if (!ip) {
       continue;
@@ -54,13 +65,20 @@ export function cellularTailscaleFallbackUrls(input: {
   wifiConnected: boolean;
   profileUrls?: string[];
   tailnetProbeHosts?: string[];
+  activeProfileId?: string | null;
+  profiles?: GatewayProfile[];
 }): string[] {
   if (Platform.OS === 'web') {
     return [];
   }
+  const scopedProfiles = input.profiles?.length
+    ? profilesForActiveMachine(input.profiles, input.activeProfileId)
+    : undefined;
+  const profileUrls =
+    scopedProfiles?.map((profile) => profile.gatewayUrl) ?? input.profileUrls ?? [];
   const seen = new Set<string>([input.primaryUrl.trim()]);
   const urls: string[] = [];
-  for (const url of input.profileUrls ?? []) {
+  for (const url of profileUrls) {
     const trimmed = url.trim();
     if (!trimmed || seen.has(trimmed) || !isTailscaleGatewayUrl(trimmed)) {
       continue;

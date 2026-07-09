@@ -70,6 +70,33 @@ describe('resolveChatMachineHeaderDisplay', () => {
     expect(display.machineEndpoint).toContain('relay · Igors-Mac-mini · skool');
   });
 
+  it('shows USB route for loopback when health has hostname (not home LAN IP)', () => {
+    const display = resolveChatMachineHeaderDisplay({
+      activeProfile: {
+        id: 'mac_127_0_0_1',
+        label: '127.0.0.1',
+        gatewayUrl: 'http://127.0.0.1:8642',
+        localIp: '192.168.68.73',
+        hostname: 'Igors-Mac-mini.local',
+        addedAt: '2026-06-24T00:00:00.000Z',
+      },
+      gatewayUrl: 'http://127.0.0.1:8642',
+      health: {
+        level: 'green',
+        checkedAt: '2026-06-24T00:00:00.000Z',
+        hostname: 'Igors-Mac-mini.local',
+        localIp: '192.168.68.73',
+      },
+      connectionMode: 'gateway',
+      isPaired: false,
+      workers: [],
+      savedMacCount: 1,
+    });
+    expect(display.machineLabel).toBe('Igors-Mac-mini');
+    expect(display.machineEndpoint).toBe('USB');
+    expect(display.machineEndpoint).not.toContain('192.168.68.73');
+  });
+
   it('shows hostname and USB for adb reverse loopback when health has hostname', () => {
     const display = resolveChatMachineHeaderDisplay({
       activeProfile: {

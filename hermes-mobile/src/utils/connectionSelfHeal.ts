@@ -1,6 +1,6 @@
 import type { GatewayProfile } from '../types/gatewayProfile';
 import type { DiscoveredGateway } from '../types/gatewayProfile';
-import { profilesShareMachine } from '../services/gatewayProfiles';
+import { profilesForActiveMachine, profilesShareMachine } from '../services/gatewayProfiles';
 import { profileMatchesDiscoveredGateway } from './gatewayProfilePicker';
 import { isPrivateLanGatewayUrl } from './gatewayEndpoint';
 import {
@@ -104,7 +104,9 @@ export function buildSelfHealProbeUrls(input: {
   for (const url of cellularTailscaleFallbackUrls({
     primaryUrl: primary,
     wifiConnected: input.wifiConnected,
-    profileUrls: input.profiles.map((p) => p.gatewayUrl),
+    profileUrls: profilesForActiveMachine(input.profiles, input.activeProfileId).map(
+      (profile) => profile.gatewayUrl,
+    ),
     tailnetProbeHosts: input.tailnetProbeHosts,
   })) {
     push(url);
@@ -118,7 +120,7 @@ export function buildSelfHealProbeUrls(input: {
     primaryUrl: primary,
     wifiConnected: input.wifiConnected,
     lastLanIp: input.lastLanIp,
-    profileLanIps: input.profiles.map(
+    profileLanIps: profilesForActiveMachine(input.profiles, input.activeProfileId).map(
       (profile) => profile.localIp?.trim() || undefined,
     ),
   })) {
