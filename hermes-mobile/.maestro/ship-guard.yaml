@@ -7,7 +7,8 @@ appId: com.iganapolsky.hermesmobile
       id: "hermes-bootstrap"
     timeout: 90000
 - runFlow: dismiss-print-interruption.yaml
-- runFlow: e2e-bootstrap.yaml
+# Chat-only bootstrap — e2e-bootstrap's Leash round-trip drops demo composer on CI emulator.
+- runFlow: chat-e2e-bootstrap.yaml
 
 # Metro / debug crash screen
 - assertNotVisible: "Unable to load script"
