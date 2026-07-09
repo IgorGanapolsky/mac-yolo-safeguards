@@ -80,6 +80,11 @@ appId: com.iganapolsky.hermesmobile
 # Tab bar taps fail on iOS sim when keyboard inset sets tab bar pointerEvents=none — deep link instead.
 - openLink: "hermes://chat"
 - runFlow: dismiss-print-interruption.yaml
+- hideKeyboard
+- extendedWaitUntil:
+    visible:
+      id: "tab-hermes"
+    timeout: 30000
 - runFlow:
     when:
       notVisible:
@@ -88,27 +93,13 @@ appId: com.iganapolsky.hermesmobile
       - hideKeyboard
       - tapOn:
           id: "tab-hermes"
-- extendedWaitUntil:
-    visible:
-      id: "chat-screen-header"
-    timeout: 90000
-- hideKeyboard
-# Post-Leash tab switch can drop demo composer on CI — always re-seed demo mode.
-- openLink: "hermes://setup?demo=1"
-- extendedWaitUntil:
-    notVisible:
-      id: "hermes-bootstrap"
-    timeout: 90000
-- openLink: "hermes://dev/leash-unlock"
-- openLink: "hermes://chat"
-- hideKeyboard
 - runFlow:
     when:
       notVisible:
         id: "chat-screen-header"
     commands:
-      - tapOn:
-          id: "tab-hermes"
+      - hideKeyboard
+      - tapOn: "Hermes"
 - extendedWaitUntil:
     notVisible:
       id: "connect-mac-gate"
@@ -117,8 +108,14 @@ appId: com.iganapolsky.hermesmobile
     visible:
       id: "chat-screen-header"
     timeout: 90000
+- hideKeyboard
 - extendedWaitUntil:
     visible:
-      id: "chat-input"
+      id: "chat-composer-dock"
     timeout: 90000
-- hideKeyboard
+- scrollUntilVisible:
+    element:
+      id: "chat-input"
+    direction: UP
+    timeout: 90000
+    visibilityPercentage: 50
