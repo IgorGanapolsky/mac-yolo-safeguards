@@ -109,4 +109,16 @@ describe('connectionSelfHeal', () => {
     });
     expect(failover).toBe('http://100.94.135.78:8642');
   });
+
+  it('buildSelfHealProbeUrls skips other Mac LAN IPs when mini is active', () => {
+    const urls = buildSelfHealProbeUrls({
+      primaryUrl: 'http://100.94.135.78:8642',
+      wifiConnected: true,
+      lastLanIp: '192.168.68.71',
+      profiles: twoMacProfiles,
+      activeProfileId: 'mini',
+    });
+    expect(urls).not.toContain('http://192.168.68.71:8642');
+    expect(urls).not.toContain('http://100.94.135.78:8642');
+  });
 });

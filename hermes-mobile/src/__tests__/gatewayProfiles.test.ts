@@ -5,6 +5,8 @@ import {
   selectProfile,
   removeProfile,
   migrateLegacyGateway,
+  migrateLoopbackMacMiniToTailscale,
+  MAC_MINI_TAILSCALE_GATEWAY_URL,
   profileIdFromGatewayUrl,
   dedupeGatewayProfiles,
   formatProfileLabel,
@@ -17,6 +19,9 @@ import {
   profileMachineKey,
   resolvePreferredActiveProfileId,
   shouldActivateDiscoveredUrl,
+  profilesForActiveMachine,
+  shouldProbeGatewayUrlForActiveProfile,
+  resolveHealPersistDecision,
 } from '../services/gatewayProfiles';
 import { EMPTY_GATEWAY_PROFILE_STATE } from '../types/gatewayProfile';
 
@@ -143,6 +148,28 @@ describe('gatewayProfiles', () => {
     const state = migrateLegacyGateway(EMPTY_GATEWAY_PROFILE_STATE, 'http://127.0.0.1:8642', '192.168.12.208');
     expect(state.profiles[0]?.gatewayUrl).toBe('http://192.168.12.208:8642');
     expect(state.activeProfileId).toBe('mac_192_168_12_208');
+  });
+
+  it('migrates loopback Igors-Mac-mini profile to Tailscale on sanitize', () => {
+    const state = migrateLoopbackMacMiniToTailscale({
+      profiles: [
+        {
+          id: 'mac_igors_mac_mini',
+          label: 'Igors-Mac-mini',
+          gatewayUrl: 'http://127.0.0.1:8642',
+          hostname: 'Igors-Mac-mini',
+          addedAt: '2026-07-08T12:00:00Z',
+        },
+      ],
+      activeProfileId: 'mac_igors_mac_mini',
+    });
+    expect(state.profiles).toHaveLength(1);
+    expect(state.profiles[0].gatewayUrl).toBe(MAC_MINI_TAILSCALE_GATEWAY_URL);
+    expect(state.profiles[0].localIp).toBe('100.94.135.78');
+    expect(profileDisplayName(state.profiles[0])).toBe('Igors-Mac-mini');
+    expect(sanitizeGatewayProfileState(state).profiles[0].gatewayUrl).toBe(
+      MAC_MINI_TAILSCALE_GATEWAY_URL,
+    );
   });
 
   it('prefers Tailscale host over home LAN IP in profile labels', () => {
@@ -596,6 +623,83 @@ describe('gatewayProfiles', () => {
     const healedActive = activeProfile(next);
     expect(profileMachineKey(healedActive!)).toBe('igors-mac-mini');
     expect(healedActive?.gatewayUrl).toBe('http://100.94.135.78:8642');
+  });
+
+  it('profilesForActiveMachine scopes heal candidates to the selected computer', () => {
+    const profiles = [
+      {
+        id: 'mini',
+        label: 'Igors-Mac-mini',
+        hostname: 'Igors-Mac-mini',
+        gatewayUrl: 'http://100.94.135.78:8642',
+        addedAt: '2026-06-28T00:00:00Z',
+      },
+      {
+        id: 'book',
+        label: 'Igors-MacBook-Pro',
+        hostname: 'Igors-MacBook-Pro',
+        gatewayUrl: 'http://192.168.68.71:8642',
+        localIp: '192.168.68.71',
+        addedAt: '2026-06-28T00:00:01Z',
+      },
+    ];
+    expect(profilesForActiveMachine(profiles, 'mini').map((p) => p.id)).toEqual(['mini']);
+  });
+
+  it('resolveHealPersistDecision blocks cross-machine gateway repointing', () => {
+    const state = dedupeGatewayProfiles({
+      profiles: [
+        {
+          id: 'mini',
+          label: 'Igors-Mac-mini',
+          hostname: 'Igors-Mac-mini',
+          gatewayUrl: 'http://100.94.135.78:8642',
+          addedAt: '2026-06-28T00:00:00Z',
+        },
+        {
+          id: 'book',
+          label: 'Igors-MacBook-Pro',
+          hostname: 'Igors-MacBook-Pro',
+          gatewayUrl: 'http://192.168.68.71:8642',
+          localIp: '192.168.68.71',
+          addedAt: '2026-06-28T00:00:01Z',
+        },
+      ],
+      activeProfileId: 'mini',
+    });
+    const decision = resolveHealPersistDecision(state, 'http://192.168.68.71:8642', true);
+    expect(decision.catalogOnly).toBe(true);
+    expect(decision.returnUrl).toBe('http://100.94.135.78:8642');
+    expect(decision.requestedActivation).toBe(false);
+  });
+
+  it('shouldProbeGatewayUrlForActiveProfile rejects another Mac LAN IP', () => {
+    const state = dedupeGatewayProfiles({
+      profiles: [
+        {
+          id: 'mini',
+          label: 'Igors-Mac-mini',
+          hostname: 'Igors-Mac-mini',
+          gatewayUrl: 'http://100.94.135.78:8642',
+          addedAt: '2026-06-28T00:00:00Z',
+        },
+        {
+          id: 'book',
+          label: 'Igors-MacBook-Pro',
+          hostname: 'Igors-MacBook-Pro',
+          gatewayUrl: 'http://192.168.68.71:8642',
+          localIp: '192.168.68.71',
+          addedAt: '2026-06-28T00:00:01Z',
+        },
+      ],
+      activeProfileId: 'mini',
+    });
+    expect(
+      shouldProbeGatewayUrlForActiveProfile(state, 'http://192.168.68.71:8642'),
+    ).toBe(false);
+    expect(
+      shouldProbeGatewayUrlForActiveProfile(state, 'http://100.94.135.78:8642'),
+    ).toBe(true);
   });
 
   it('selectProfile stamps lastConnectedAt', () => {
