@@ -117,30 +117,13 @@ function ChatMessageBubble({
             </Text>
           ) : null}
           {resolved.content.trim().length > 0 ? (
-            canExpand ? (
-              <Pressable
-                onPress={openDetails}
-                accessibilityRole="button"
-                accessibilityLabel="Show full message"
-                style={({ pressed }) => pressed && styles.expandPressablePressed}
-              >
-                <Text
-                  style={[styles.bubbleText, isUser ? styles.bubbleUserText : styles.bubbleAssistantText]}
-                  // Truncated preview: keep NON-selectable so a tap reaches the parent
-                  // Pressable (tap-to-expand). Full text is selectable in the expanded view.
-                  selectable={false}
-                >
-                  {resolved.content}
-                </Text>
-              </Pressable>
-            ) : (
-              <Text
-                style={[styles.bubbleText, isUser ? styles.bubbleUserText : styles.bubbleAssistantText]}
-                selectable={true}
-              >
-                {resolved.content}
-              </Text>
-            )
+            <Text
+              style={[styles.bubbleText, isUser ? styles.bubbleUserText : styles.bubbleAssistantText]}
+              selectable
+              testID="chat-message-body"
+            >
+              {resolved.content}
+            </Text>
           ) : null}
           {canExpand ? (
             <Pressable

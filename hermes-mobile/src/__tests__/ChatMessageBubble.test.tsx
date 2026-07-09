@@ -28,8 +28,18 @@ function renderWithDetailModal(props: React.ComponentProps<typeof ChatMessageBub
 }
 
 describe('ChatMessageBubble', () => {
-  it('opens detail modal when truncated message body is pressed', () => {
-    const { getByText, queryByText } = renderWithDetailModal({
+  it('renders message body as selectable text for copy', () => {
+    const { getByTestId } = renderWithDetailModal({
+      content: 'Here is the finished analysis.',
+      isUser: false,
+      timeLabel: 'Jun 24, 2026 11:55 AM',
+    });
+
+    expect(getByTestId('chat-message-body').props.selectable).toBe(true);
+  });
+
+  it('keeps truncated preview selectable without wrapping it in Pressable', () => {
+    const { getByTestId } = renderWithDetailModal({
       content: 'clarify: Did you mean a specific bro…',
       rawContent: 'clarify: Did you mean to target a specific browser profile?',
       truncated: true,
@@ -37,8 +47,7 @@ describe('ChatMessageBubble', () => {
       timeLabel: 'Jun 19, 2026 4:48 PM',
     });
 
-    fireEvent.press(getByText('clarify: Did you mean a specific bro…'));
-    expect(getByText('clarify: Did you mean to target a specific browser profile?')).toBeTruthy();
+    expect(getByTestId('chat-message-body').props.selectable).toBe(true);
   });
 
   it('opens a screen-level detail modal when Show more is pressed', () => {
