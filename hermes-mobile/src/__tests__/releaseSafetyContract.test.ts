@@ -114,10 +114,12 @@ describe('release safety contract', () => {
     expect(appConfig).toContain("checkAutomatically: e2eAutomation ? 'NEVER' :");
   });
 
-  it('eas.json defines production OTA update profile aligned with build channel', () => {
+  it('eas.json defines build channels for OTA (eas update --channel, no top-level update key)', () => {
     const eas = JSON.parse(read('hermes-mobile/eas.json'));
-    expect(eas.update.production.channel).toBe('production');
+    expect(eas).not.toHaveProperty('update');
     expect(eas.build.production.channel).toBe('production');
+    expect(eas.build.preview.channel).toBe('preview');
+    expect(eas.build['e2e-test'].channel).toBe('e2e-test');
   });
 
   it('mobile-ota workflow publishes production channel on main push', () => {
