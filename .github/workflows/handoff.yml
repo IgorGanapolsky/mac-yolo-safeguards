@@ -1,0 +1,58 @@
+name: Agent Handoff Router
+
+# Cross-agent coordination bus: turns labels on issues/PRs into machine handoffs
+# between the cloud agent (Replit) and local agents (Claude Code, Cursor). No server,
+# no secrets beyond GITHUB_TOKEN. See REPLIT-AGENT-COORDINATION.md + AGENTS.md.
+on:
+  pull_request_target:
+    types: [labeled, opened, ready_for_review]
+  issues:
+    types: [labeled]
+
+permissions:
+  issues: write
+  pull-requests: write
+
+jobs:
+  route:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Route handoff by label
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const evt = context.payload;
+            const label = (evt.label && evt.label.name) || '';
+            const isPR = !!evt.pull_request;
+            const num = isPR ? evt.pull_request.number : (evt.issue && evt.issue.number);
+            if (!num) return;
+            const post = (body) => github.rest.issues.createComment({
+              owner: context.repo.owner, repo: context.repo.repo, issue_number: num, body });
+
+            // handoff:claude — a cloud/other agent hands work to Claude Code (local)
+            if (label === 'handoff:claude') {
+              await post([
+                '### 🤝 Handoff → Claude Code',
+                'Picked up from the coordination bus. Next agent must:',
+                '1. `git pull` + read `plan.md` §2 (claim/lock table) before touching files.',
+                '2. Verify: `npm test` + Maestro gate (`hermes-mobile/docs/proofs/continuous/latest.json`).',
+                '3. Merge only after CI is green. Re-label `status:review` when ready for the human.',
+              ].join('\n'));
+            }
+            // handoff:replit — hand work to the cloud Replit agent
+            else if (label === 'handoff:replit') {
+              await post([
+                '### 🤝 Handoff → Replit Agent',
+                'Replit: `git pull`, claim your files in `plan.md` §2 (push the claim first),',
+                'work on a `replit/*` branch, open a **draft PR** — do NOT merge `main`.',
+                'Full protocol: `REPLIT-AGENT-COORDINATION.md`.',
+              ].join('\n'));
+            }
+            // status:review — flag for the human to review/merge
+            else if (label === 'status:review') {
+              await post('### 👀 Ready for human review — CI must be green before merge.');
+            }
+            // draft PR opened — announce work is visible mid-flight (anti-divergence)
+            else if (isPR && evt.action === 'opened' && evt.pull_request.draft) {
+              await post('### 📣 Draft PR open — work is visible mid-flight. Other agents: do not touch these files (see `plan.md` §2).');
+            }
