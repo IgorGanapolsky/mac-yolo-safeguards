@@ -116,6 +116,7 @@ Status values: `pending` | `in_progress` | `blocked` | `done`. Claim a row by se
 ## 2. File Ownership Map (append-only lock table — claim before touching)
 
 - `hermes-mobile/src/components/RunProgressBanner.tsx`, `hermes-mobile/src/__tests__/RunProgressBanner.test.tsx`, `plan.md` → **cursor** (T-127 collapsible run progress banner; avoids ChatScreen keyboard workers 8b5730dd/5cb24926) (2026-07-09)
+- `hermes-mobile/src/screens/ChatScreen.tsx`, `hermes-mobile/src/__tests__/ChatScreen.test.tsx`, `plan.md` → **cursor** (T-128 Android composer keyboard lift during run-progress banner) (2026-07-09)
 - `hermes-mobile/src/screens/ChatScreen.tsx`, `hermes-mobile/src/utils/chatAutoScroll.ts`, `hermes-mobile/src/__tests__/chatAutoScroll.test.ts`, `hermes-mobile/src/__tests__/ChatScreen.test.tsx`, `plan.md` → **cursor** (T-76 chat streaming auto-scroll) — released (2026-07-07)
 - `hermes-mobile/src/utils/leashUx.ts`, `hermes-mobile/src/__tests__/leashUx.test.ts` → **cursor** (T-113 glance-toggle nav hijack fix; `resolveInitialTab` gated on `safetyMode` only) — released (2026-07-07)
 - `hermes-mobile/src/screens/ApprovalsScreen.tsx` → **antigravity** (T-75) — released (2026-07-07)
