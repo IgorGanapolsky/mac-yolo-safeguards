@@ -1,0 +1,119 @@
+# Hermes Mobile OTA — publish JS/asset fixes to production channel on main merges.
+# Native changes (new modules, plugins, SDK bump, app version bump) still need EAS build
+# or `npm run android:phone` — OTA cannot replace native binaries.
+#
+# runtimeVersion policy: appVersion (see hermes-mobile/app.json). OTA bundles apply only
+# to native builds whose embedded runtime matches expo.version (e.g. 0.3.2). Bump app.json
+# version → new native build required before OTA resumes for that line.
+name: Hermes Mobile OTA
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'hermes-mobile/**'
+      - '.github/workflows/mobile-ota.yml'
+  workflow_dispatch:
+    inputs:
+      message:
+        description: Optional OTA publish message (defaults to manual dispatch + SHA)
+        required: false
+        type: string
+
+concurrency:
+  group: hermes-mobile-ota-main
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  quality-gate:
+    name: Unit + release safety
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: hermes-mobile
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: hermes-mobile/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Release readiness audit
+        env:
+          REQUIRE_EAS_PROJECT: '1'
+        run: npm run release:check
+
+      - name: Type check
+        run: npm run typecheck
+
+      - name: Unit tests
+        run: npm run test:ci
+
+      - name: Release safety contract
+        run: npm run test:release-safety
+
+  publish-production-ota:
+    name: Publish production OTA
+    needs: [quality-gate]
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: hermes-mobile
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: hermes-mobile/package-lock.json
+
+      - name: Setup Expo and EAS
+        uses: expo/expo-github-action@v9
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+          packager: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Fail fast on required EAS auth
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ -z "${EXPO_TOKEN:-}" ]; then
+            echo "Missing required secret: EXPO_TOKEN" >&2
+            exit 1
+          fi
+
+      - name: Publish OTA to production channel
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+          OTA_MESSAGE: ${{ github.event_name == 'workflow_dispatch' && (inputs.message || format('manual {0}', github.sha)) || format('main {0}: {1}', github.sha, github.event.head_commit.message || 'Hermes Mobile OTA') }}
+        run: |
+          set -euo pipefail
+          eas update \
+            --channel production \
+            --environment production \
+            --non-interactive \
+            --message "${OTA_MESSAGE}" \
+            | tee /tmp/eas-ota-production.json
+
+      - name: Upload OTA publish evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: always()
+        with:
+          name: hermes-mobile-ota-production
+          path: /tmp/eas-ota-production.json
+          retention-days: 14
