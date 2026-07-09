@@ -132,7 +132,13 @@
         }
       ],
       "expo-iap",
-      "@sentry/react-native"
+      [
+        "@sentry/react-native",
+        {
+          "organization": "max-smith-kdp-llc",
+          "project": "hermes-mobile"
+        }
+      ]
     ]
   }
 }

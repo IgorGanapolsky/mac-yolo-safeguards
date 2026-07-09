@@ -21,9 +21,13 @@ on:
         required: false
         type: string
 
+# Serialize deploys instead of cancelling mid-run: cancel-in-progress:true can kill a
+# run partway through the eas-update loop, leaving one channel published and the other
+# stale (a silent split where the customer-facing production channel is the one left
+# behind). false makes runs queue so every publish completes both channels.
 concurrency:
   group: hermes-mobile-ota-main
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 permissions:
   contents: read
@@ -107,9 +111,11 @@ jobs:
           # preview->preview), so a build only receives updates on its own channel.
           # The only sideloadable build (eas.json `preview` = installable APK) is on
           # the `preview` channel — publishing to `production` alone means a
-          # sideloaded install NEVER sees OTA fixes. Publish to both: `preview` for
-          # internal/sideloaded installs, `production` for Play Store builds.
-          for CH in preview production; do
+          # sideloaded install NEVER sees OTA fixes. Publish to both: `production` for
+          # Play Store builds (customer-facing, written FIRST so the priority channel
+          # is never the one left stale if the loop is interrupted), `preview` for
+          # internal/sideloaded installs.
+          for CH in production preview; do
             echo "::group::eas update --channel $CH"
             eas update \
               --channel "$CH" \

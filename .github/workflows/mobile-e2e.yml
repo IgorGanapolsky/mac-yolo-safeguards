@@ -16,13 +16,12 @@ name: Mobile E2E (Android emulator)
 # To make this a required status check, a repo admin must add the job's check name
 # "Maestro ship-guard (Android emulator)" to branch protection for `main` (see the docs file).
 
+# Only pull_request + manual dispatch fire this required check. The push: trigger was
+# removed: on a merge to main it fired a SECOND identically-named "Maestro ship-guard
+# (Android emulator)" run that raced the PR's run, and concurrency cancel-in-progress
+# cancelled one — a cancelled run is misread as a red required check.
 on:
   workflow_dispatch:
-  push:
-    paths:
-      - 'hermes-mobile/**'
-      - '.github/workflows/mobile-e2e.yml'
-      - '.github/workflows/mobile-ota.yml'
   pull_request:
     paths:
       - 'hermes-mobile/**'
@@ -98,6 +97,13 @@ jobs:
           arch: x86_64
           profile: pixel_6
           working-directory: hermes-mobile
+          # Harden the cold emulator boot so this required check stops flaking on
+          # "device emulator-5554 not found" / boot timeout: headless swiftshader GPU,
+          # no audio/boot-anim/snapshot/cameras, animations off, and a generous boot
+          # timeout. All additive and reversible.
+          disable-animations: true
+          emulator-boot-timeout: 900
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot -camera-back none -camera-front none
           script: |
             adb install -r android/app/build/outputs/apk/debug/app-debug.apk
             export PATH="$HOME/.maestro/bin:$PATH"

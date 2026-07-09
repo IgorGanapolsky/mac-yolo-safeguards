@@ -11,7 +11,8 @@
       "channel": "development",
       "env": {
         "EXPO_PUBLIC_HERMES_DEV_UNLOCK": "1",
-        "ORG_GRADLE_PROJECT_reactNativeArchitectures": "arm64-v8a"
+        "ORG_GRADLE_PROJECT_reactNativeArchitectures": "arm64-v8a",
+        "SENTRY_DISABLE_AUTO_UPLOAD": "true"
       }
     },
     "preview": {
@@ -19,7 +20,8 @@
       "environment": "preview",
       "env": {
         "EXPO_PUBLIC_HERMES_DEV_UNLOCK": "1",
-        "ORG_GRADLE_PROJECT_reactNativeArchitectures": "arm64-v8a"
+        "ORG_GRADLE_PROJECT_reactNativeArchitectures": "arm64-v8a",
+        "SENTRY_DISABLE_AUTO_UPLOAD": "true"
       },
       "android": {
         "buildType": "apk"
@@ -34,7 +36,8 @@
       "environment": "preview",
       "env": {
         "EXPO_PUBLIC_E2E_AUTOMATION": "1",
-        "EXPO_PUBLIC_HERMES_DEV_UNLOCK": "1"
+        "EXPO_PUBLIC_HERMES_DEV_UNLOCK": "1",
+        "SENTRY_DISABLE_AUTO_UPLOAD": "true"
       },
       "ios": {
         "simulator": true
@@ -50,6 +53,7 @@
       "env": {
         "EXPO_PUBLIC_POSTHOG_HOST": "https://us.i.posthog.com",
         "SENTRY_ORG": "max-smith-kdp-llc",
+        "SENTRY_PROJECT": "hermes-mobile",
         "ORG_GRADLE_PROJECT_reactNativeArchitectures": "arm64-v8a"
       },
       "android": {
