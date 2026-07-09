@@ -1,8 +1,7 @@
 import type { HermesMessage } from '../types/chat';
-import { CHAT_STREAM_FIRST_BYTE_MS } from '../services/hermesGatewayClient';
 
-/** Grace after first-byte timeout before failing orphaned pending bubbles. */
-export const OUTBOUND_PENDING_RECOVERY_MS = CHAT_STREAM_FIRST_BYTE_MS + 5_000;
+/** Grace before failing orphaned pending bubbles (tool-heavy Mac runs can exceed 3 min). */
+export const OUTBOUND_PENDING_RECOVERY_MS = 5 * 60_000;
 
 /** Force-release composer send lock if outbound never completes. */
 export const OUTBOUND_SEND_LOCK_TIMEOUT_MS = OUTBOUND_PENDING_RECOVERY_MS;
@@ -17,7 +16,7 @@ export function shouldRecoverOutboundSendLock(
   if (nowMs - startedAtMs < OUTBOUND_SEND_LOCK_TIMEOUT_MS) {
     return false;
   }
-  if (options.streamInFlight && nowMs - startedAtMs < OUTBOUND_SEND_LOCK_TIMEOUT_MS * 2) {
+  if (options.streamInFlight && nowMs - startedAtMs < OUTBOUND_SEND_LOCK_TIMEOUT_MS * 6) {
     return false;
   }
   return true;
