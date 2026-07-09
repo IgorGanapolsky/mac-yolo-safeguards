@@ -56,6 +56,8 @@ export function useKeyboardInset(options?: {
     const syncFromMetrics = () => {
       const metricsHeight = Keyboard.metrics()?.height ?? 0;
       if (metricsHeight <= 0) {
+        setInset(0);
+        setWindowShrunk(false);
         return;
       }
       const currentWindowHeight = Dimensions.get('window').height;
@@ -109,9 +111,11 @@ export function useKeyboardInset(options?: {
     };
     const onHide = () => {
       if (options?.suppressHideWhileFocusedRef?.current) {
-        // Gboard / layout shifts emit spurious didHide while the IME is still up.
-        // keyboardDidChangeFrame clears inset when the keyboard truly dismisses.
-        return;
+        const metricsHeight = Keyboard.metrics()?.height ?? 0;
+        if (metricsHeight > 0) {
+          // Gboard / layout shifts emit spurious didHide while the IME is still up.
+          return;
+        }
       }
       setInset(0);
       setWindowShrunk(false);

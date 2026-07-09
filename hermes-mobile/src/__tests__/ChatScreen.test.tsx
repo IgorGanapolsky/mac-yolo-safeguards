@@ -2303,8 +2303,9 @@ describe('resolveEffectiveKeyboardInset', () => {
     expect(resolveEffectiveKeyboardInset(0, true, true, 800)).toBe(0);
   });
 
-  it('ignores stale Android metrics after the keyboard is dismissed', () => {
+  it('uses live Android keyboard metrics only while the keyboard is on screen', () => {
     Platform.OS = 'android';
+    expect(resolveEffectiveKeyboardInset(0, true, true, 800, 292)).toBe(292);
     expect(resolveEffectiveKeyboardInset(0, false, true, 800, 292)).toBe(0);
   });
 
