@@ -4,12 +4,21 @@ import { collapseOutreachVariantBatches, collapseToolActivityMessages } from './
 import { isGatewaySmokeTestMessage } from './gatewaySmokeMessages';
 import { parseGatewayTimestamp } from './sessionDisplay';
 import {
+  isContextCompactionHandoff,
+  stripCompactionHandoffsFromMessages,
+} from './chatCompactionHandoff';
+import {
   dedupeToolDumpMessages,
   isToolDumpDisplayContent,
   shouldHideToolDumpFromTimeline,
 } from './chatToolDump';
 
 export { isToolDumpDisplayContent, shouldHideToolDumpFromTimeline } from './chatToolDump';
+export {
+  isContextCompactionHandoff,
+  splitCompactionHandoff,
+  stripCompactionHandoffsFromMessages,
+} from './chatCompactionHandoff';
 
 const HIDDEN_ROLES = new Set(['tool', 'session_meta', 'function', 'tool_result']);
 
@@ -296,7 +305,8 @@ export function prepareMessagesForDisplay(
   // noise to a normal user. They only render when the user explicitly enables tool activity.
   const includeTools = options?.includeToolActivity ?? false;
   const includeHermesStatus = options?.includeHermesStatus ?? false;
-  const filtered = messages
+  const withoutCompaction = stripCompactionHandoffsFromMessages(messages);
+  const filtered = withoutCompaction
     .filter((message) => {
       if (shouldHideToolDumpFromTimeline(message, includeTools)) {
         return false;
@@ -351,7 +361,11 @@ function finalizeMessagesForDisplay(messages: HermesMessage[], includeTools: boo
         if (message.isCollapsedToolActivity) {
           return includeTools;
         }
-        if (isMessageDisplayEmpty(message.content) || isGatewaySmokeTestMessage(message.content)) {
+        if (
+          isMessageDisplayEmpty(message.content) ||
+          isGatewaySmokeTestMessage(message.content) ||
+          isContextCompactionHandoff(message.gatewayContent ?? message.content)
+        ) {
           return false;
         }
         if (!includeTools) {

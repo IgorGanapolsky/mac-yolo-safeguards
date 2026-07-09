@@ -387,11 +387,9 @@ function cleanGatewayTitlePrefix(title: string): string {
   return stripped || title;
 }
 
-export function humanizeCronSessionTitle(session: HermesSession): string {
-  const when = formatSessionLastActive(sessionLastActiveValue(session));
-  if (when) {
-    return `Scheduled job · ${when}`;
-  }
+export function humanizeCronSessionTitle(_session: HermesSession): string {
+  // Subtitle/header use sessionCreatedValue (created_at). Do not embed last_active time here —
+  // cron runs often finish minutes after creation and the two timestamps disagree.
   return 'Scheduled job';
 }
 
