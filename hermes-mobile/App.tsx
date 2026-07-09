@@ -36,6 +36,7 @@ import {
   withCrashReporting,
 } from './src/services/telemetry';
 import { useKeyboardInset } from './src/hooks/useKeyboardInset';
+import { isE2eAutomationBuild } from './src/utils/demoModePolicy';
 import { LEASH_TAB_LABEL } from './src/constants/monetization';
 import { colors } from './src/theme/colors';
 
@@ -277,6 +278,7 @@ function HermesNavigationRoot() {
     apiKey,
     focusChatSession,
     activateDeveloperLeashUnlock,
+    retryGatewayBootstrap,
   } = useGateway();
   const applySetupDeepLinkWithThumbgate = useCallback(
     async (params: SetupDeepLinkParams) => {
@@ -298,6 +300,22 @@ function HermesNavigationRoot() {
     },
     [applySetupDeepLink, apiKey, saveSettings, settings],
   );
+  const forceE2eDemoMode = useCallback(async () => {
+    if (!isE2eAutomationBuild()) {
+      return;
+    }
+    await saveSettings(
+      {
+        ...settings,
+        demoMode: true,
+        glanceMode: false,
+        developerLeashUnlock: true,
+        thumbgateProActive: true,
+      },
+      apiKey,
+    );
+    await retryGatewayBootstrap();
+  }, [apiKey, retryGatewayBootstrap, saveSettings, settings]);
   useHermesDeepLinks(
     navigationRef,
     runAgentTool,
@@ -305,6 +323,7 @@ function HermesNavigationRoot() {
     applySetupDeepLinkWithThumbgate,
     focusChatSession,
     activateDeveloperLeashUnlock,
+    forceE2eDemoMode,
   );
 
   return (

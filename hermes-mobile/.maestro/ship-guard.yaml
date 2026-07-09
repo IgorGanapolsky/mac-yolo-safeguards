@@ -19,6 +19,13 @@ appId: com.iganapolsky.hermesmobile
 - assertNotVisible: "Connect your computer"
 - assertNotVisible: "Hermes Mobile Agent"
 
+# Async heal can drop demo composer seconds after bootstrap on CI emulator.
+- openLink: "hermes://setup?demo=1"
+- extendedWaitUntil:
+    notVisible:
+      id: "hermes-bootstrap"
+    timeout: 30000
+
 # chat-e2e-bootstrap leaves Chat ready — do not openLink hermes://chat again (drops tab bar on CI).
 - extendedWaitUntil:
     notVisible:
