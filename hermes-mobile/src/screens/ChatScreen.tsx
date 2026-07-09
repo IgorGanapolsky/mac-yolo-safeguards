@@ -318,7 +318,9 @@ export function resolveEffectiveKeyboardInset(
   const metricsHeight =
     androidMetricsHeight ??
     (Platform.OS === 'android' ? (Keyboard.metrics()?.height ?? 0) : 0);
-  if (metricsHeight > 0) {
+  // Only trust live metrics while the keyboard is on screen — stale metrics after
+  // dismiss (or run-banner layout shifts) otherwise lift the dock into mid-screen.
+  if (metricsHeight > 0 && keyboardScreenVisible) {
     return metricsHeight;
   }
   if (!keyboardScreenVisible) {
@@ -336,6 +338,19 @@ export function shouldClearKeyboardScreenVisible(
     return true;
   }
   return metricsHeight <= 0;
+}
+
+/**
+ * Android can fire keyboardDidHide during transient layout shifts while typing
+ * (for example, when progress/banner content reflows). Ignore those only when
+ * the composer is still focused and keyboard metrics still report height.
+ */
+export function shouldIgnoreKeyboardHide(
+  platformOs: string,
+  metricsHeight: number,
+  inputFocused: boolean,
+): boolean {
+  return platformOs === 'android' && inputFocused && metricsHeight > 0;
 }
 
 /** How long the "Reply ready on your computer" banner stays before auto-dismiss. */
@@ -571,11 +586,10 @@ export default function ChatScreen() {
     const showSub = Keyboard.addListener(showEvent, () => setKeyboardScreenVisible(true));
     const hideSub = Keyboard.addListener(hideEvent, () => {
       const settleHide = () => {
-        if (Platform.OS === 'android' && inputFocusedRef.current) {
-          // Run-progress banner / adjustResize shifts emit spurious keyboardDidHide while typing.
+        const metricsHeight = Keyboard.metrics()?.height ?? 0;
+        if (shouldIgnoreKeyboardHide(Platform.OS, metricsHeight, inputFocusedRef.current)) {
           return;
         }
-        const metricsHeight = Keyboard.metrics()?.height ?? 0;
         if (!shouldClearKeyboardScreenVisible(Platform.OS, metricsHeight)) {
           return;
         }

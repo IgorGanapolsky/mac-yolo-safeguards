@@ -3,6 +3,7 @@ import { Alert, BackHandler, Platform } from 'react-native';
 import { fireEvent, act, waitFor, cleanup } from '@testing-library/react-native';
 import ChatScreen, {
   resolveEffectiveKeyboardInset,
+  shouldIgnoreKeyboardHide,
   shouldClearKeyboardScreenVisible,
 } from '../screens/ChatScreen';
 import { renderInTabNavigator } from '../testUtils/navigation';
@@ -2302,9 +2303,9 @@ describe('resolveEffectiveKeyboardInset', () => {
     expect(resolveEffectiveKeyboardInset(0, true, true, 800)).toBe(0);
   });
 
-  it('uses live Android keyboard metrics when inset and visibility are out of sync', () => {
+  it('ignores stale Android metrics after the keyboard is dismissed', () => {
     Platform.OS = 'android';
-    expect(resolveEffectiveKeyboardInset(0, false, true, 800, 292)).toBe(292);
+    expect(resolveEffectiveKeyboardInset(0, false, true, 800, 292)).toBe(0);
   });
 
   it('still returns 0 after dismiss when metrics, inset, and visibility are all clear', () => {
@@ -2321,5 +2322,17 @@ describe('shouldClearKeyboardScreenVisible', () => {
 
   it('clears visibility immediately on iOS hide events', () => {
     expect(shouldClearKeyboardScreenVisible('ios', 280)).toBe(true);
+  });
+});
+
+describe('shouldIgnoreKeyboardHide', () => {
+  it('ignores Android hide only when input remains focused and metrics still show keyboard height', () => {
+    expect(shouldIgnoreKeyboardHide('android', 260, true)).toBe(true);
+    expect(shouldIgnoreKeyboardHide('android', 0, true)).toBe(false);
+    expect(shouldIgnoreKeyboardHide('android', 260, false)).toBe(false);
+  });
+
+  it('never ignores iOS hide events', () => {
+    expect(shouldIgnoreKeyboardHide('ios', 260, true)).toBe(false);
   });
 });
