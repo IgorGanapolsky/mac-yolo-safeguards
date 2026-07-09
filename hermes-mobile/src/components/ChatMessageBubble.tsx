@@ -126,7 +126,7 @@ function ChatMessageBubble({
               >
                 <Text
                   style={[styles.bubbleText, isUser ? styles.bubbleUserText : styles.bubbleAssistantText]}
-                  selectable={false}
+                  selectable={true}
                 >
                   {resolved.content}
                 </Text>
@@ -134,7 +134,7 @@ function ChatMessageBubble({
             ) : (
               <Text
                 style={[styles.bubbleText, isUser ? styles.bubbleUserText : styles.bubbleAssistantText]}
-                selectable={false}
+                selectable={true}
               >
                 {resolved.content}
               </Text>
