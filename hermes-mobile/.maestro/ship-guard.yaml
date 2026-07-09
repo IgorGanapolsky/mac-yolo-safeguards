@@ -22,20 +22,19 @@ appId: com.iganapolsky.hermesmobile
 - runFlow:
     when:
       notVisible:
-        id: "chat-screen-header"
+        id: "chat-input"
     commands:
       - openLink: "hermes://chat"
+      - runFlow: dismiss-print-interruption.yaml
       - hideKeyboard
-      - extendedWaitUntil:
-          visible:
-            id: "tab-hermes"
-          timeout: 30000
+      - waitForAnimationToEnd:
+          timeout: 2000
       - tapOn:
           id: "tab-hermes"
 - runFlow:
     when:
       notVisible:
-        id: "chat-screen-header"
+        id: "chat-input"
     commands:
       - hideKeyboard
       - tapOn: "Hermes"
