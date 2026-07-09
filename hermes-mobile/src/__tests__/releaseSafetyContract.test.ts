@@ -120,7 +120,7 @@ describe('release safety contract', () => {
     expect(eas.build.production.channel).toBe('production');
   });
 
-  it('mobile-ota workflow publishes production channel on main push', () => {
+  it('mobile-ota workflow publishes preview + production channels on main push', () => {
     const workflow = read('.github/workflows/mobile-ota.yml');
     expect(workflow).toContain('branches:');
     expect(workflow).toContain('- main');
@@ -128,7 +128,8 @@ describe('release safety contract', () => {
     expect(workflow).toContain('workflow_dispatch');
     expect(workflow).toContain('runtimeVersion');
     expect(workflow).toContain('eas update');
-    expect(workflow).toContain('--channel production');
+    expect(workflow).toContain('for CH in preview production');
+    expect(workflow).toContain('--channel "$CH"');
     expect(workflow).toContain('secrets.EXPO_TOKEN');
     expect(workflow).toContain('test:release-safety');
   });
