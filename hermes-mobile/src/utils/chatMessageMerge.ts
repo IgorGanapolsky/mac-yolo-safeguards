@@ -73,6 +73,59 @@ function isOptimisticUserMessage(message: HermesMessage): boolean {
   return message.role?.toLowerCase() === 'user' && idHasPrefix(message.id, 'user-');
 }
 
+function hasAnyDeferredStreamPlaceholder(messages: HermesMessage[]): boolean {
+  return messages.some(
+    (message) =>
+      message.role?.toLowerCase() === 'assistant' && isDeferredStreamPlaceholder(message.content),
+  );
+}
+
+function indexOfLastUserMessage(messages: HermesMessage[]): number {
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    if (messages[index]?.role?.toLowerCase() === 'user') {
+      return index;
+    }
+  }
+  return -1;
+}
+
+/** True when the transcript already shows a deferred empty-stream placeholder for the active turn. */
+export function hasDeferredPlaceholderAfterLastUser(messages: HermesMessage[]): boolean {
+  return findDeferredPlaceholderAfterLastUser(messages) !== undefined;
+}
+
+export function findDeferredPlaceholderAfterLastUser(
+  messages: HermesMessage[],
+): HermesMessage | undefined {
+  const lastUserIndex = indexOfLastUserMessage(messages);
+  for (let index = lastUserIndex + 1; index < messages.length; index += 1) {
+    const message = messages[index];
+    if (message?.role?.toLowerCase() === 'assistant' && isDeferredStreamPlaceholder(message.content)) {
+      return message;
+    }
+  }
+  return undefined;
+}
+
+/** Keep one deferred placeholder per transcript (SSE-drop poll + local insert race). */
+export function dedupeDeferredStreamPlaceholders(messages: HermesMessage[]): HermesMessage[] {
+  const deferredIndices: number[] = [];
+  for (let index = 0; index < messages.length; index += 1) {
+    const message = messages[index];
+    if (message?.role?.toLowerCase() === 'assistant' && isDeferredStreamPlaceholder(message.content)) {
+      deferredIndices.push(index);
+    }
+  }
+  if (deferredIndices.length <= 1) {
+    return messages;
+  }
+  const keepIndex =
+    deferredIndices.find((index) => idHasPrefix(messages[index]?.id, 'asst-')) ??
+    deferredIndices[deferredIndices.length - 1];
+  const drop = new Set(deferredIndices.filter((index) => index !== keepIndex));
+  return messages.filter((_, index) => !drop.has(index));
+}
+
 /** True when the phone still has bubbles the gateway transcript may not include yet. */
 export function hasUnsyncedLocalMessages(messages: HermesMessage[]): boolean {
   return messages.some((message) => {
@@ -130,7 +183,7 @@ export function mergeServerMessagesWithPending(
   serverMessages: HermesMessage[],
   localMessages: HermesMessage[],
 ): HermesMessage[] {
-  const dedupedServer = dedupeChatMessages(serverMessages);
+  const dedupedServer = dedupeDeferredStreamPlaceholders(dedupeChatMessages(serverMessages));
   if (localMessages.length === 0) {
     return dedupedServer;
   }
@@ -143,6 +196,19 @@ export function mergeServerMessagesWithPending(
   for (const message of localMessages) {
     if (isLocalAssistantPlaceholder(message)) {
       if (serverHasFreshAssistantReply) {
+        continue;
+      }
+      if (
+        isDeferredStreamPlaceholder(message.content) &&
+        hasAnyDeferredStreamPlaceholder(pendingTail)
+      ) {
+        continue;
+      }
+      if (
+        isDeferredStreamPlaceholder(message.content) &&
+        hasAnyDeferredStreamPlaceholder(dedupedServer) &&
+        !idHasPrefix(message.id, 'asst-')
+      ) {
         continue;
       }
       pendingTail.push(message);
@@ -175,16 +241,14 @@ export function mergeServerMessagesWithPending(
   }
 
   if (pendingTail.length === 0) {
-    return dedupeToolDumpMessages(dedupedServer);
+    return dedupeDeferredStreamPlaceholders(dedupeToolDumpMessages(dedupedServer));
   }
   const merged = dedupeToolDumpMessages([...dedupedServer, ...pendingTail]);
   const hasPendingUser = pendingTail.some(
     (message) => isOptimisticUserMessage(message) && message.outboundStatus === 'pending',
   );
-  if (hasPendingUser) {
-    return merged;
-  }
-  return dedupeChatMessages(merged);
+  const normalized = hasPendingUser ? merged : dedupeChatMessages(merged);
+  return dedupeDeferredStreamPlaceholders(normalized);
 }
 
 /** Cheap fingerprint to skip FlatList updates when a gateway refresh returns the same transcript. */

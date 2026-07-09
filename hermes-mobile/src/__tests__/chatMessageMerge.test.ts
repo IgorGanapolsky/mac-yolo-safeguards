@@ -1,5 +1,6 @@
-import { dedupeChatMessages, hasUnsyncedLocalMessages, isMessageBodyEmpty, isMessageDisplayEmpty, mergeServerMessagesWithPending, transcriptDigest } from '../utils/chatMessageMerge';
+import { dedupeChatMessages, dedupeDeferredStreamPlaceholders, hasUnsyncedLocalMessages, isMessageBodyEmpty, isMessageDisplayEmpty, mergeServerMessagesWithPending, transcriptDigest } from '../utils/chatMessageMerge';
 import type { HermesMessage } from '../types/chat';
+import { GENERIC_EMPTY_STREAM_PLACEHOLDER, TELEGRAM_QUEUED_REPLY_PLACEHOLDER } from '../utils/streamAssistantText';
 
 describe('mergeServerMessagesWithPending', () => {
   it('treats zero-width-only content as empty', () => {
@@ -145,5 +146,44 @@ describe('mergeServerMessagesWithPending', () => {
     const merged = mergeServerMessagesWithPending(server, local);
     expect(merged.filter((m) => m.role === 'assistant')).toHaveLength(1);
     expect(merged[1]?.content).toBe('Monetization plan ready.');
+  });
+
+  it('dedupes duplicate deferred stream placeholders for the same user turn', () => {
+    const server: HermesMessage[] = [{ role: 'user', content: 'Print money make money faster' }];
+    const local: HermesMessage[] = [
+      { role: 'user', content: 'Print money make money faster', id: 'user-1' },
+      { id: 'asst-1', role: 'assistant', content: GENERIC_EMPTY_STREAM_PLACEHOLDER },
+      { id: 'asst-2', role: 'assistant', content: GENERIC_EMPTY_STREAM_PLACEHOLDER },
+    ];
+    const merged = mergeServerMessagesWithPending(server, local);
+    expect(merged.filter((m) => m.role === 'assistant')).toHaveLength(1);
+    expect(merged[1]?.content).toBe(GENERIC_EMPTY_STREAM_PLACEHOLDER);
+    expect(merged[1]?.id).toBe('asst-1');
+  });
+
+  it('does not append a second deferred placeholder when one already exists after refresh merge', () => {
+    const server: HermesMessage[] = [
+      { role: 'user', content: 'Print money make money faster' },
+      { id: 'gw-asst-1', role: 'assistant', content: GENERIC_EMPTY_STREAM_PLACEHOLDER },
+    ];
+    const local: HermesMessage[] = [
+      { role: 'user', content: 'Print money make money faster', id: 'user-1', outboundStatus: 'pending' },
+      { id: 'asst-local', role: 'assistant', content: GENERIC_EMPTY_STREAM_PLACEHOLDER },
+    ];
+    const merged = mergeServerMessagesWithPending(server, local);
+    const assistants = merged.filter((m) => m.role === 'assistant');
+    expect(assistants).toHaveLength(1);
+    expect(assistants[0]?.id).toBe('asst-local');
+  });
+
+  it('dedupeDeferredStreamPlaceholders keeps local asst- bubble over server echo', () => {
+    const messages: HermesMessage[] = [
+      { role: 'user', content: 'hello' },
+      { id: 'gw-1', role: 'assistant', content: TELEGRAM_QUEUED_REPLY_PLACEHOLDER },
+      { id: 'asst-9', role: 'assistant', content: TELEGRAM_QUEUED_REPLY_PLACEHOLDER },
+    ];
+    const deduped = dedupeDeferredStreamPlaceholders(messages);
+    expect(deduped.filter((m) => m.role === 'assistant')).toHaveLength(1);
+    expect(deduped[1]?.id).toBe('asst-9');
   });
 });

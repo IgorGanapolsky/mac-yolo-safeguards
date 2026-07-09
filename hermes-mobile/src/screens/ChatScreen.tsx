@@ -117,6 +117,7 @@ import {
   transcriptDigest,
   hasUnsyncedLocalMessages,
   normalizeMessageText,
+  findDeferredPlaceholderAfterLastUser,
 } from '../utils/chatMessageMerge';
 import {
   resolveChatOutputFeedbackBusyKey,
@@ -257,6 +258,7 @@ import {
   extractAssistantFromRunCompletedPayload,
   findNewAssistantReply,
   GENERIC_EMPTY_STREAM_PLACEHOLDER,
+  isDeferredStreamPlaceholder,
   isTelegramDeferredEmptyStream,
   snapshotAssistantBodies,
   TELEGRAM_QUEUED_REPLY_PLACEHOLDER,
@@ -3736,6 +3738,18 @@ export default function ChatScreen() {
         const body = text.trim();
         if (!body) {
           return;
+        }
+        if (!assistantBubbleAdded && isDeferredStreamPlaceholder(body)) {
+          const existing = findDeferredPlaceholderAfterLastUser(messagesRef.current);
+          if (existing?.id) {
+            assistantBubbleAdded = true;
+            activeAssistantIdRef.current = existing.id;
+            commitMessages((prev) =>
+              prev.map((m) => (m.id === existing.id ? { ...m, content: body } : m)),
+            );
+            scrollChatToLatestIfPinned(true);
+            return;
+          }
         }
         if (!assistantBubbleAdded) {
           assistantBubbleAdded = true;
