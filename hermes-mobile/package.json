@@ -49,9 +49,12 @@
     "device:rn": "agent-device help react-native",
     "devtools:rozenite": "rozenite dev",
     "devtools:rozenite-agent": "rozenite agent",
-    "ota:preview": "eas update --channel preview --environment preview",
-    "ota:e2e": "eas update --channel e2e-test --environment preview",
-    "ota:production": "eas update --channel production --environment production",
+    "ota:preview": "eas update --channel preview --environment preview --non-interactive",
+    "ota:e2e": "eas update --channel e2e-test --environment preview --non-interactive",
+    "ota:production": "eas update --channel production --environment production --non-interactive",
+    "ota:publish": "eas update --channel production --environment production --non-interactive",
+    "ota:validate": "REQUIRE_EAS_PROJECT=1 npm run release:check",
+    "ota:dry-run": "npm run ota:validate",
     "test:perf": "reassure"
   },
   "dependencies": {

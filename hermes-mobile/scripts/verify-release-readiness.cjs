@@ -49,6 +49,12 @@ check(
   'app.json runtimeVersion.policy must be appVersion for OTA safety',
 );
 
+check(appConfig.updates?.enabled === true, 'app.json updates.enabled must be true for production OTA');
+check(
+  appConfig.updates?.checkAutomatically === 'ON_LOAD',
+  'app.json updates.checkAutomatically must be ON_LOAD for launch-time OTA checks',
+);
+
 if (process.env.REQUIRE_EAS_PROJECT === '1') {
   check(!placeholderProjectIds.has(projectId), 'app.json extra.eas.projectId is still a local placeholder');
   const updatesUrl = appConfig.updates?.url;

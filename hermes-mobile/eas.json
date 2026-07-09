@@ -61,6 +61,17 @@
       "channel": "production"
     }
   },
+  "update": {
+    "production": {
+      "channel": "production"
+    },
+    "preview": {
+      "channel": "preview"
+    },
+    "e2e-test": {
+      "channel": "e2e-test"
+    }
+  },
   "submit": {
     "production": {
       "android": {
