@@ -162,6 +162,7 @@ describe('release safety contract', () => {
     expect(shipGuard).toContain('Hold the cord on your AI');
     expect(shipGuard).toContain('com.iganapolsky.hermesmobile');
     expect(shipGuard).toContain('chat-e2e-bootstrap.yaml');
+    expect(shipGuard).toContain('recover-chat-tab.yaml');
     expect(shipGuard).not.toMatch(/runFlow:\s*e2e-bootstrap\.yaml/);
   });
 
