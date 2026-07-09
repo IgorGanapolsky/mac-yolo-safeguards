@@ -79,8 +79,13 @@ export function useHermesDeepLinks(
         lower.endsWith('ops') ||
         isDevLeashUnlockDeepLink(url);
 
-      if (!navigationOnly && handledUrls.has(url)) return;
-      if (!navigationOnly) handledUrls.add(url);
+      const setup = parseSetupDeepLink(url);
+      const e2eDemoRebootstrap =
+        setup?.demoMode && isE2eAutomationBuild() && Boolean(forceE2eDemoMode);
+
+      // Maestro ship-guard opens hermes://setup?demo=1 twice; dedupe would skip the heal recovery.
+      if (!navigationOnly && !e2eDemoRebootstrap && handledUrls.has(url)) return;
+      if (!navigationOnly && !e2eDemoRebootstrap) handledUrls.add(url);
 
       if (isDevLeashUnlockDeepLink(url) && activateDeveloperLeashUnlock) {
         await activateDeveloperLeashUnlock();
@@ -95,7 +100,6 @@ export function useHermesDeepLinks(
         return;
       }
 
-      const setup = parseSetupDeepLink(url);
       if (setup?.demoMode && isE2eAutomationBuild() && forceE2eDemoMode) {
         await forceE2eDemoMode();
         await syncExtraProfileApiKeys(setup.extraComputers);
