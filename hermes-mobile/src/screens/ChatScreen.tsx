@@ -141,6 +141,12 @@ import {
 } from '../utils/runStaleDetection';
 import { isChatAtTop, isChatNearBottom } from '../utils/chatScrollSync';
 import {
+  COMPOSER_DRAFT_SAVE_DEBOUNCE_MS,
+  clearComposerDraft,
+  loadComposerDraft,
+  saveComposerDraft,
+} from '../utils/composerDraftStorage';
+import {
   chatDistanceFromBottom,
   resolveUserScrolledUp,
   shouldAutoScroll,
@@ -583,6 +589,8 @@ export default function ChatScreen() {
   /** Ignore spurious onChangeText after Send clears the field (Android IME blur). */
   const sendClearSuppressRef = useRef(false);
   const lastSentComposerTextRef = useRef('');
+  const composerDraftSessionRef = useRef<string | null>(null);
+  const composerDraftSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const sendUserTextRef = useRef<(text: string, isProgrammatic?: boolean) => Promise<boolean>>(
     async () => false,
   );
@@ -2321,11 +2329,15 @@ export default function ChatScreen() {
     if (Platform.OS === 'android') {
       setKeyboardScreenVisible(false);
     }
+    const sessionId = currentSessionRef.current?.id;
+    if (sessionId && !isDemo) {
+      void saveComposerDraft(sessionId, inputValueRef.current);
+    }
     if (pendingTranscriptSyncRef.current) {
       pendingTranscriptSyncRef.current = false;
       void refreshSessionMessages({ background: true });
     }
-  }, [refreshSessionMessages]);
+  }, [refreshSessionMessages, isDemo]);
 
   useEffect(() => {
     setUndoSecondsLeft(0);
@@ -2788,7 +2800,71 @@ export default function ChatScreen() {
     sendClearSuppressRef.current = false;
     inputValueRef.current = text;
     setInputValue(text);
-  }, []);
+    const sessionId = currentSessionRef.current?.id;
+    if (!sessionId || isDemo) {
+      return;
+    }
+    if (composerDraftSaveTimerRef.current) {
+      clearTimeout(composerDraftSaveTimerRef.current);
+    }
+    composerDraftSaveTimerRef.current = setTimeout(() => {
+      composerDraftSaveTimerRef.current = null;
+      void saveComposerDraft(sessionId, text);
+    }, COMPOSER_DRAFT_SAVE_DEBOUNCE_MS);
+  }, [isDemo]);
+
+  const flushComposerDraft = useCallback(() => {
+    if (composerDraftSaveTimerRef.current) {
+      clearTimeout(composerDraftSaveTimerRef.current);
+      composerDraftSaveTimerRef.current = null;
+    }
+    const sessionId = currentSessionRef.current?.id;
+    if (sessionId && !isDemo) {
+      void saveComposerDraft(sessionId, inputValueRef.current);
+    }
+  }, [isDemo]);
+
+  useEffect(() => {
+    const sessionId = currentSession?.id ?? null;
+    const previousSessionId = composerDraftSessionRef.current;
+    if (previousSessionId && previousSessionId !== sessionId) {
+      void saveComposerDraft(previousSessionId, inputValueRef.current);
+    }
+    composerDraftSessionRef.current = sessionId;
+
+    if (!sessionId || isDemo || pendingApprovalEditSeed) {
+      return;
+    }
+
+    let cancelled = false;
+    void (async () => {
+      const draft = await loadComposerDraft(sessionId);
+      if (cancelled || pendingApprovalEditSeed) {
+        return;
+      }
+      inputValueRef.current = draft;
+      setInputValue(draft);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [currentSession?.id, isDemo, pendingApprovalEditSeed]);
+
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (nextState) => {
+      if (nextState === 'background' || nextState === 'inactive') {
+        flushComposerDraft();
+      }
+    });
+    return () => sub.remove();
+  }, [flushComposerDraft]);
+
+  useEffect(() => {
+    return () => {
+      flushComposerDraft();
+    };
+  }, [flushComposerDraft]);
 
   const handleAttachPress = useCallback(() => {
     const remainingSlots = MAX_COMPOSER_ATTACHMENTS - composerAttachmentsRef.current.length;
@@ -2879,6 +2955,10 @@ export default function ChatScreen() {
     setInputValue('');
     setComposerAttachments([]);
     Keyboard.dismiss();
+    const sentSessionId = currentSessionRef.current?.id;
+    if (sentSessionId && !isDemo) {
+      void clearComposerDraft(sentSessionId);
+    }
 
     const prepared =
       attachments.length === 0
