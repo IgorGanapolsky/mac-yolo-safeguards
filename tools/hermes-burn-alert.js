@@ -57,8 +57,23 @@ function detectDegraded(records) {
   return glm.length >= 3 && glm[glm.length - 1].status === 'failure' && fails >= 3;
 }
 
-function decideAlerts({ summary, degraded, state, now, dayStr, cap = DAILY_TOKEN_CAP,
-                        degradedRealertMs = DEGRADED_REALERT_MS }) {
+// Truncated-empty guard. After the GLM max_tokens floor (hermes-eval hermes_logger),
+// a GLM reply that comes back EMPTY because reasoning hit the length limit
+// (empty_kind === 'truncated') should be rare. If it climbs, the floor regressed
+// (HERMES_GLM_MIN_MAX_TOKENS unset / config reverted / callback dropped) and agents are
+// silently getting blank answers again. Rate-based over a recent window, like
+// detectDegraded. Legit tool-call empties are empty_kind 'tool_call' and are ignored.
+function detectTruncated(records, { window = 20, minSample = 8, rate = 0.25 } = {}) {
+  const glmOk = records
+    .filter(r => String(r.model || '').toLowerCase().includes('glm') && r.status === 'success')
+    .slice(-window);
+  const truncated = glmOk.filter(r => r.empty_kind === 'truncated').length;
+  const hit = glmOk.length >= minSample && truncated / glmOk.length >= rate;
+  return { truncated, sample: glmOk.length, hit };
+}
+
+function decideAlerts({ summary, degraded, truncated = null, state, now, dayStr,
+                        cap = DAILY_TOKEN_CAP, degradedRealertMs = DEGRADED_REALERT_MS }) {
   const alerts = [];
   const next = { ...state };
   if (summary.totalTokens > cap && state.burnAlertedDay !== dayStr) {
@@ -82,6 +97,18 @@ function decideAlerts({ summary, degraded, state, now, dayStr, cap = DAILY_TOKEN
     next.degradedAlertedAt = now;
   }
   if (!degraded) next.degradedAlertedAt = null;
+  if (truncated && truncated.hit &&
+      (!state.truncatedAlertedAt || now - state.truncatedAlertedAt > degradedRealertMs)) {
+    alerts.push({
+      title: 'Hermes GLM empty (truncation)',
+      priority: 'high',
+      body: `${truncated.truncated}/${truncated.sample} recent GLM replies came back EMPTY ` +
+        `(reasoning truncated, finish_reason=length). The max_tokens floor likely regressed — ` +
+        `check HERMES_GLM_MIN_MAX_TOKENS and that the proxy loaded hermes_logger.`,
+    });
+    next.truncatedAlertedAt = now;
+  }
+  if (truncated && !truncated.hit) next.truncatedAlertedAt = null;
   return { alerts, next };
 }
 
@@ -115,7 +142,8 @@ async function main() {
   const dayStr = new Date(now - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10);
   const summary = summarizeDay(records, dayStr);
   const degraded = detectDegraded(records);
-  const { alerts, next } = decideAlerts({ summary, degraded, state: loadState(), now, dayStr });
+  const truncated = detectTruncated(records);
+  const { alerts, next } = decideAlerts({ summary, degraded, truncated, state: loadState(), now, dayStr });
   for (const a of alerts) {
     const ok = await pushNtfy(a);
     console.log(`[burn-alert] ${ok ? 'sent' : 'FAILED'}: ${a.title} — ${a.body}`);
@@ -132,5 +160,5 @@ async function main() {
 if (require.main === module) {
   main();
 } else {
-  module.exports = { parseLines, summarizeDay, detectDegraded, decideAlerts };
+  module.exports = { parseLines, summarizeDay, detectDegraded, detectTruncated, decideAlerts };
 }
