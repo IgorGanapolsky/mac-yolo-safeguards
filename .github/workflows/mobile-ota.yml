@@ -100,7 +100,7 @@ jobs:
       - name: Publish OTA to production channel
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
-          OTA_MESSAGE: ${{ github.event_name == 'workflow_dispatch' && (inputs.message || format('manual {0}', github.sha)) || format('main {0}: {1}', github.sha, github.event.head_commit.message || 'Hermes Mobile OTA') }}
+          OTA_MESSAGE: "${{ github.event_name == 'workflow_dispatch' && (inputs.message || format('manual {0}', github.sha)) || format('main {0}: {1}', github.sha, github.event.head_commit.message || 'Hermes Mobile OTA') }}"
         run: |
           set -euo pipefail
           eas update \
