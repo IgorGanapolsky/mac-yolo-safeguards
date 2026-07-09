@@ -29,6 +29,9 @@ appId: com.iganapolsky.hermesmobile
 # Async heal can hide composer on paired devices — recover re-opens Chat and scrolls input into view.
 - runFlow: recover-chat-tab.yaml
 
+# Composer must stay tappable while keyboard is open (regression #91 / translateY hit-rect).
+- runFlow: regression-composer-typeable.yaml
+
 # Leash tab (THUMBGATE_LEASH) is covered by e2e-bootstrap / regression-leash-refresh.
 # Device ship-guard ends at SETTINGS — Leash deep-link is flaky after demo re-bootstrap.
 - hideKeyboard
