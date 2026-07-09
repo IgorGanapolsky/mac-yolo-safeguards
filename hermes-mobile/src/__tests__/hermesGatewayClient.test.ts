@@ -1,5 +1,6 @@
 import { Platform } from 'react-native';
 import {
+  CHAT_STREAM_FIRST_BYTE_MS,
   extractCapabilitiesModel,
   parseSseChunk,
   streamSessionChat,
@@ -182,6 +183,59 @@ describe('hermesGatewayClient SSE', () => {
       expect(onEvent).toHaveBeenCalled();
       expect(onStreamAccepted).toHaveBeenCalledTimes(1);
     } finally {
+      global.XMLHttpRequest = originalXhr;
+    }
+  });
+
+  it('detaches native XHR after first-byte wait when HTTP already accepted', async () => {
+    Platform.OS = 'android';
+    jest.useFakeTimers();
+
+    class SlowXHR {
+      responseText = '';
+      status = 200;
+      readyState = 0;
+      onprogress: (() => void) | null = null;
+      onload: (() => void) | null = null;
+      onerror: (() => void) | null = null;
+      onreadystatechange: (() => void) | null = null;
+      onabort: (() => void) | null = null;
+      aborted = false;
+
+      open() {}
+      setRequestHeader() {}
+      send() {
+        this.readyState = 2;
+        this.onreadystatechange?.();
+      }
+      abort() {
+        this.aborted = true;
+        this.onabort?.();
+      }
+    }
+
+    const originalXhr = global.XMLHttpRequest;
+    const xhrInstance = new SlowXHR();
+    global.XMLHttpRequest = jest.fn(() => xhrInstance) as unknown as typeof XMLHttpRequest;
+
+    try {
+      const onStreamAccepted = jest.fn();
+      const streamPromise = streamSessionChat(
+        'http://127.0.0.1:8642',
+        'sess-slow',
+        'hi',
+        'sk-test',
+        undefined,
+        undefined,
+        onStreamAccepted,
+      );
+      await Promise.resolve();
+      expect(onStreamAccepted).toHaveBeenCalledTimes(1);
+      jest.advanceTimersByTime(CHAT_STREAM_FIRST_BYTE_MS + 1_000);
+      await expect(streamPromise).resolves.toBe('');
+      expect(xhrInstance.aborted).toBe(false);
+    } finally {
+      jest.useRealTimers();
       global.XMLHttpRequest = originalXhr;
     }
   });
