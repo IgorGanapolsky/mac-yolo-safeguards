@@ -152,4 +152,78 @@ describe('RunProgressBanner', () => {
     );
     expect(getByText('Stop stuck run')).toBeTruthy();
   });
+
+  it('expands model and token stats by default', () => {
+    const { getByTestId, getByText } = render(
+      <RunProgressBanner
+        progress={{
+          phase: 'streaming',
+          startedAtMs: Date.now() - 2000,
+          detail: 'Delivering your message…',
+          model: 'google/gemini-2.5-flash',
+          inputTokens: 120,
+          outputTokens: 45,
+        }}
+      />,
+    );
+    expect(getByTestId('run-progress-toggle')).toBeTruthy();
+    expect(getByTestId('run-progress-stats')).toBeTruthy();
+    expect(getByText('google/gemini-2.5-flash')).toBeTruthy();
+    expect(getByText('In: 120 | Out: 45')).toBeTruthy();
+  });
+
+  it('collapses model and token stats while keeping status header', () => {
+    const { getByTestId, getByText, queryByTestId, queryByText } = render(
+      <RunProgressBanner
+        progress={{
+          phase: 'streaming',
+          startedAtMs: Date.now() - 2000,
+          detail: 'Delivering your message…',
+          model: 'google/gemini-2.5-flash',
+          inputTokens: 120,
+          outputTokens: 45,
+        }}
+      />,
+    );
+
+    fireEvent.press(getByTestId('run-progress-toggle'));
+
+    expect(getByTestId('run-progress-detail').props.children).toBe('Delivering your message…');
+    expect(queryByTestId('run-progress-stats')).toBeNull();
+    expect(queryByText('google/gemini-2.5-flash')).toBeNull();
+    expect(queryByText('In: 120 | Out: 45')).toBeNull();
+  });
+
+  it('toggles details when tapping the header row', () => {
+    const { getByTestId, queryByTestId } = render(
+      <RunProgressBanner
+        progress={{
+          phase: 'working',
+          startedAtMs: Date.now() - 1000,
+          detail: 'Hermes is thinking…',
+          inputTokens: 10,
+          outputTokens: 2,
+        }}
+      />,
+    );
+
+    expect(getByTestId('run-progress-stats')).toBeTruthy();
+    fireEvent.press(getByTestId('run-progress-header'));
+    expect(queryByTestId('run-progress-stats')).toBeNull();
+    fireEvent.press(getByTestId('run-progress-header'));
+    expect(getByTestId('run-progress-stats')).toBeTruthy();
+  });
+
+  it('does not show collapse toggle when there are no detail rows', () => {
+    const { queryByTestId } = render(
+      <RunProgressBanner
+        progress={{
+          phase: 'sending',
+          startedAtMs: Date.now() - 500,
+          detail: 'Delivering your message…',
+        }}
+      />,
+    );
+    expect(queryByTestId('run-progress-toggle')).toBeNull();
+  });
 });
