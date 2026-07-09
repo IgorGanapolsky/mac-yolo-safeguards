@@ -121,6 +121,34 @@ describe('gatewayProfilePicker', () => {
     expect(profilePickerLines(profiles[1]).title).toBe('Tailscale 100.94.135.78');
   });
 
+  it('hides loopback Mac mini from switch picker when only USB route is saved', () => {
+    const profiles = profilesForSwitchComputerPicker([
+      {
+        id: 'mac_book_lan',
+        label: 'Igors-MacBook-Pro',
+        gatewayUrl: 'http://192.168.68.71:8642',
+        localIp: '192.168.68.71',
+        hostname: 'Igors-MacBook-Pro',
+        addedAt: '2026-07-08T12:00:00Z',
+      },
+      {
+        id: 'mac_igors_mac_mini',
+        label: 'Igors-Mac-mini',
+        gatewayUrl: 'http://127.0.0.1:8642',
+        hostname: 'Igors-Mac-mini',
+        addedAt: '2026-07-08T12:01:00Z',
+      },
+    ]);
+    expect(profiles.map((p) => p.id)).toEqual(['mac_book_lan']);
+    expect(
+      profiles.some(
+        (p) =>
+          profileDisplayName(p).includes('Mac-mini') &&
+          profileConnectionRouteLabel(p, true) === 'USB',
+      ),
+    ).toBe(false);
+  });
+
   it('does not filter loopback profiles even when LAN profiles exist', () => {
     const profiles = profilesForDevicePicker([
       {
