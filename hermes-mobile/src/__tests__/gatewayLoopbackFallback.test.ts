@@ -82,4 +82,32 @@ describe('gatewayLoopbackFallback', () => {
       'http://igors-mac-mini.tail12aa33.ts.net:8642',
     ]);
   });
+
+  it('scopes Tailscale fallback to the active machine when activeProfileId is set', () => {
+    const profiles = [
+      {
+        id: 'mini',
+        label: 'Igors-Mac-mini',
+        hostname: 'Igors-Mac-mini',
+        gatewayUrl: 'http://100.94.135.78:8642',
+        addedAt: '2026-06-28T00:00:00Z',
+      },
+      {
+        id: 'book',
+        label: 'Igors-MacBook-Pro',
+        hostname: 'Igors-MacBook-Pro',
+        gatewayUrl: 'http://100.87.85.85:8642',
+        addedAt: '2026-06-28T00:00:01Z',
+      },
+    ];
+    expect(
+      cellularTailscaleFallbackUrls({
+        primaryUrl: 'http://100.94.135.78:8642',
+        wifiConnected: true,
+        profiles,
+        activeProfileId: 'mini',
+        tailnetProbeHosts: ['igors-macbook.tail12aa33.ts.net'],
+      }),
+    ).toEqual(['http://igors-macbook.tail12aa33.ts.net:8642']);
+  });
 });

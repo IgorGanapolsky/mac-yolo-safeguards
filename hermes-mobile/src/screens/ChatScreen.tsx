@@ -923,10 +923,8 @@ export default function ChatScreen() {
       const active = activeGatewayProfile;
       const isLoopbackActive = active ? isLoopbackGatewayUrl(active.gatewayUrl) : true;
       const isInvalidActive = active ? isInvalidGatewayProfile(active) : true;
-      const isActiveReachable = isMacGatewayHttpOk(health);
 
-      if (isInvalidActive || isLoopbackActive || !isActiveReachable) {
-        // Find a healthy, valid LAN profile from the scanned list
+      if (isInvalidActive || isLoopbackActive) {
         const lanProfile = scanned.find(
           (p) => !isLoopbackGatewayUrl(p.gatewayUrl) && !isInvalidGatewayProfile(p),
         );
@@ -947,7 +945,6 @@ export default function ChatScreen() {
     activeGatewayProfile,
     autoConnectGateway,
     connectEvents,
-    health,
     probeTailscaleComputers,
     refreshHealth,
     retryGatewayBootstrap,

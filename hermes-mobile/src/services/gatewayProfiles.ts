@@ -20,6 +20,10 @@ import { isTailnetRouteLabel, isTailscaleGatewayUrl, isTailscaleIpv4, magicDnsDe
 
 const STORAGE_KEY = 'hermes-mobile:gateway_profiles';
 
+/** Igor fleet Mac mini — Tailscale CGNAT (no USB path on this machine). */
+export const MAC_MINI_TAILSCALE_GATEWAY_URL = 'http://100.94.135.78:8642';
+const MAC_MINI_TAILSCALE_IP = '100.94.135.78';
+
 function normalizeGatewayUrlBase(url: string): string {
   return normalizeGatewayUrl(url.trim()).httpBase;
 }
@@ -95,6 +99,47 @@ export function isInvalidGatewayProfile(profile: GatewayProfile): boolean {
   return !isValidGatewayUrl(profile.gatewayUrl);
 }
 
+function isMacMiniMachineProfile(profile: GatewayProfile): boolean {
+  const machineKey = profileMachineKey(profile);
+  if (machineKey?.includes('mac-mini')) {
+    return true;
+  }
+  const haystack = [profile.hostname, profile.label, profileDisplayName(profile)]
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase();
+  return haystack.includes('mac-mini');
+}
+
+/** Saved loopback mini rows came from adb reverse — rewrite to Tailscale on load/pair. */
+export function migrateLoopbackMacMiniToTailscale(
+  state: GatewayProfileState,
+): GatewayProfileState {
+  let changed = false;
+  const profiles = state.profiles.map((profile) => {
+    if (!isLoopbackGatewayUrl(profile.gatewayUrl) || !isMacMiniMachineProfile(profile)) {
+      return profile;
+    }
+    changed = true;
+    const hostname = profile.hostname?.trim() || 'Igors-Mac-mini';
+    const gatewayUrl = MAC_MINI_TAILSCALE_GATEWAY_URL;
+    return {
+      ...profile,
+      id: profileIdFromGatewayUrl(gatewayUrl, hostname),
+      gatewayUrl,
+      hostname,
+      localIp: MAC_MINI_TAILSCALE_IP,
+      label: profile.label?.trim() && !isGenericMachineLabel(profile.label)
+        ? profile.label
+        : 'Igors-Mac-mini',
+    };
+  });
+  if (!changed) {
+    return state;
+  }
+  return dedupeGatewayProfiles({ ...state, profiles });
+}
+
 export function sanitizeGatewayProfileState(state: GatewayProfileState): GatewayProfileState {
   const profiles = state.profiles
     .filter((p) => !isInvalidGatewayProfile(p))
@@ -103,7 +148,9 @@ export function sanitizeGatewayProfileState(state: GatewayProfileState): Gateway
   if (activeProfileId && !profiles.some((p) => p.id === activeProfileId)) {
     activeProfileId = profiles[0]?.id ?? null;
   }
-  return dedupeGatewayProfiles({ profiles, activeProfileId });
+  return migrateLoopbackMacMiniToTailscale(
+    dedupeGatewayProfiles({ profiles, activeProfileId }),
+  );
 }
 
 function isGenericProfileLabel(label: string | undefined): boolean {
@@ -304,6 +351,59 @@ export function profilesShareMachine(a: GatewayProfile, b: GatewayProfile): bool
   const aKey = profileMachineKey(a);
   const bKey = profileMachineKey(b);
   return Boolean(aKey && bKey && aKey === bKey);
+}
+
+/** When the user picked a computer, heal/discovery may only use that machine's routes. */
+export function profilesForActiveMachine(
+  profiles: GatewayProfile[],
+  activeProfileId: string | null | undefined,
+): GatewayProfile[] {
+  if (!activeProfileId) {
+    return profiles;
+  }
+  const active = profiles.find((profile) => profile.id === activeProfileId);
+  if (!active) {
+    return profiles;
+  }
+  return profiles.filter(
+    (profile) => profile.id === active.id || profilesShareMachine(active, profile),
+  );
+}
+
+export function shouldProbeGatewayUrlForActiveProfile(
+  state: GatewayProfileState,
+  gatewayUrl: string,
+): boolean {
+  if (!state.activeProfileId) {
+    return true;
+  }
+  return isDiscoveredUrlAllowedForActiveProfile(state, gatewayUrl);
+}
+
+/** Heal must not repoint settings/active profile at another saved Mac. */
+export function resolveHealPersistDecision(
+  state: GatewayProfileState,
+  successfulUrl: string,
+  requestedActivation: boolean,
+): {
+  catalogOnly: boolean;
+  returnUrl: string;
+  requestedActivation: boolean;
+} {
+  const active = activeProfile(state);
+  const allowed = isDiscoveredUrlAllowedForActiveProfile(state, successfulUrl);
+  if (state.activeProfileId && !allowed) {
+    return {
+      catalogOnly: true,
+      returnUrl: active?.gatewayUrl?.trim() || successfulUrl,
+      requestedActivation: false,
+    };
+  }
+  return {
+    catalogOnly: false,
+    returnUrl: successfulUrl,
+    requestedActivation,
+  };
 }
 
 /** Heal may connect via this URL without switching away from the user's active profile. */
