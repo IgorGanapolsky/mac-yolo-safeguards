@@ -16,13 +16,23 @@ name: Mobile E2E (Android emulator)
 # To make this a required status check, a repo admin must add the job's check name
 # "Maestro ship-guard (Android emulator)" to branch protection for `main` (see the docs file).
 
-# Runs on both push (post-merge on main) and pull_request — the releaseSafetyNet contract
-# requires the push: trigger so e2e still guards direct merges to main. The duplicate-run
-# race is handled by the `concurrency` group below (cancel-in-progress) rather than by
-# dropping the trigger, which would leave main merges un-tested.
+# Runs on push to `main` (post-merge guard) and on pull_request — the releaseSafetyNet
+# contract requires BOTH the push: and pull_request: triggers, and this keeps them.
+#
+# Why push is scoped to `main` (previously: all branches): on a PR branch the
+# pull_request event already runs this job once. An UNSCOPED push: fired a SECOND,
+# simultaneous 45-min emulator run on the very same commit — the two never deduped
+# because the `concurrency` group below is keyed on github.ref, which differs between the
+# push event (refs/heads/<branch>) and the pull_request event (refs/pull/<n>/merge). The
+# two runs then contended for the emulator until one hung, wedging the required
+# "Maestro ship-guard (Android emulator)" check. Scoping push to `main` yields exactly
+# one run per commit (pull_request on PR branches; push on main) while STILL guarding
+# direct merges to main via the post-merge push run.
 on:
   workflow_dispatch:
   push:
+    branches:
+      - main
     paths:
       - 'hermes-mobile/**'
       - '.github/workflows/mobile-e2e.yml'
