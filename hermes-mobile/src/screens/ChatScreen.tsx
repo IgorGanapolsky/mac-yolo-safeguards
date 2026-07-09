@@ -16,6 +16,7 @@ import {
   Keyboard,
   Alert,
   useWindowDimensions,
+  Dimensions,
   type NativeSyntheticEvent,
   type NativeScrollEvent,
 } from 'react-native';
@@ -32,6 +33,7 @@ import { useKeyboardInset } from '../hooks/useKeyboardInset';
 import {
   composerDockInsets,
   focusedAndroidKeyboardFallbackInset,
+  keyboardOverlapHeight,
   ANDROID_TAB_BAR_ESTIMATE_PX,
 } from '../utils/composerKeyboard';
 import Constants from 'expo-constants';
@@ -307,14 +309,33 @@ export function resolveEffectiveKeyboardInset(
   keyboardScreenVisible: boolean,
   inputFocused: boolean,
   windowHeight: number,
+  /** Test seam: Android Keyboard.metrics().height without mocking Keyboard globally. */
+  androidMetricsHeight?: number,
 ): number {
   if (keyboardInset > 0) {
     return keyboardInset;
+  }
+  const metricsHeight =
+    androidMetricsHeight ??
+    (Platform.OS === 'android' ? (Keyboard.metrics()?.height ?? 0) : 0);
+  if (metricsHeight > 0) {
+    return metricsHeight;
   }
   if (!keyboardScreenVisible) {
     return 0;
   }
   return focusedAndroidKeyboardFallbackInset(inputFocused, keyboardInset, windowHeight);
+}
+
+/** Android layout shifts (e.g. run-progress banner) can spuriously emit keyboardDidHide. */
+export function shouldClearKeyboardScreenVisible(
+  platformOs: string,
+  metricsHeight: number,
+): boolean {
+  if (platformOs !== 'android') {
+    return true;
+  }
+  return metricsHeight <= 0;
 }
 
 /** How long the "Reply ready on your computer" banner stays before auto-dismiss. */
@@ -548,10 +569,44 @@ export default function ChatScreen() {
     const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
     const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
     const showSub = Keyboard.addListener(showEvent, () => setKeyboardScreenVisible(true));
-    const hideSub = Keyboard.addListener(hideEvent, () => setKeyboardScreenVisible(false));
+    const hideSub = Keyboard.addListener(hideEvent, () => {
+      const settleHide = () => {
+        if (Platform.OS === 'android' && inputFocusedRef.current) {
+          // Run-progress banner / adjustResize shifts emit spurious keyboardDidHide while typing.
+          return;
+        }
+        const metricsHeight = Keyboard.metrics()?.height ?? 0;
+        if (!shouldClearKeyboardScreenVisible(Platform.OS, metricsHeight)) {
+          return;
+        }
+        setKeyboardScreenVisible(false);
+      };
+      if (Platform.OS === 'android') {
+        requestAnimationFrame(() => requestAnimationFrame(settleHide));
+        return;
+      }
+      settleHide();
+    });
+    const subs = [showSub, hideSub];
+    if (Platform.OS === 'android') {
+      subs.push(
+        Keyboard.addListener('keyboardDidChangeFrame', (event) => {
+          const overlap = keyboardOverlapHeight(
+            event.endCoordinates,
+            Dimensions.get('window').height,
+          );
+          if (overlap <= 0) {
+            setKeyboardScreenVisible(false);
+          } else {
+            setKeyboardScreenVisible(true);
+          }
+        }),
+      );
+    }
     return () => {
-      showSub.remove();
-      hideSub.remove();
+      for (const sub of subs) {
+        sub.remove();
+      }
     };
   }, []);
 
@@ -2220,6 +2275,7 @@ export default function ChatScreen() {
     inputFocusedRef.current = true;
     setInputFocused(true);
     if (Platform.OS === 'android') {
+      setKeyboardScreenVisible(true);
       setComposerLayoutNonce((n) => n + 1);
     }
   }, []);
@@ -2227,6 +2283,9 @@ export default function ChatScreen() {
   const handleInputBlur = useCallback(() => {
     inputFocusedRef.current = false;
     setInputFocused(false);
+    if (Platform.OS === 'android') {
+      setKeyboardScreenVisible(false);
+    }
     if (pendingTranscriptSyncRef.current) {
       pendingTranscriptSyncRef.current = false;
       void refreshSessionMessages({ background: true });
@@ -4853,7 +4912,14 @@ export default function ChatScreen() {
             Platform.OS === 'ios' && keyboardOpen && styles.composerDockKeyboardOpen,
             {
               paddingBottom: composerDockSpacing.paddingBottom,
-              marginBottom: composerDockSpacing.marginBottom,
+              marginBottom:
+                Platform.OS === 'android' && composerDockSpacing.marginBottom > 0
+                  ? 0
+                  : composerDockSpacing.marginBottom,
+              transform:
+                Platform.OS === 'android' && composerDockSpacing.marginBottom > 0
+                  ? [{ translateY: -composerDockSpacing.marginBottom }]
+                  : undefined,
             },
           ]}
           testID="chat-composer-dock"
