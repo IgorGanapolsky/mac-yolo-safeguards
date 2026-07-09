@@ -14,7 +14,7 @@ import {
   hasOnlyLoopbackProfiles,
   profileMatchesDiscoveredGateway,
   profileMatchesHostname,
-  profilesForDevicePicker,
+  profilesForSwitchComputerPicker,
   shouldOfferUsbLinkRepair,
   type UsbHostMismatch,
 } from '../utils/gatewayProfilePicker';
@@ -84,21 +84,7 @@ export function buildConnectionStatusChips(input: {
   wifiConnected: boolean;
   wifiProfileReachable: boolean;
 }): ConnectionStatusChip[] {
-  const usbTunnelUp = input.usbLoopback && input.macHttpOk;
-  const usbTunnelDown = input.usbLoopback && !input.macHttpOk;
-
   const chips: ConnectionStatusChip[] = [
-    {
-      id: 'usb-tunnel',
-      label: input.usbLoopback
-        ? usbTunnelUp
-          ? 'USB: Connected'
-          : 'USB: Not ready'
-        : input.usbCableLikely
-          ? 'USB cable detected'
-          : 'USB: Off',
-      tone: usbTunnelUp ? 'ok' : usbTunnelDown || input.usbCableLikely ? 'bad' : 'idle',
-    },
     {
       id: 'mac-http',
       label: input.macHttpOk ? 'Your computer: Reachable' : 'Your computer: Unreachable',
@@ -244,7 +230,7 @@ export default function ChatConnectionPanel({
         profileMatchesHostname(profile, relayWorkerDisplayName(worker)),
       ),
   );
-  const pickerProfiles = profilesForDevicePicker(profiles);
+  const pickerProfiles = profilesForSwitchComputerPicker(profiles, { activeProfileId });
   const primaryActionLabel = freshUserPrimaryActionLabel(showUsbFix);
 
   return (
