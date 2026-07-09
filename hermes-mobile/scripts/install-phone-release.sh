@@ -90,6 +90,11 @@ maybe_build_release() {
 # is a clean production build with neither flag set (explicitly unset so a stray caller env
 # cannot leak demo capability into a shipped APK).
 apply_release_build_flags() {
+  # Local phone installs default to skipping Sentry native source-map upload because
+  # most dev shells do not carry SENTRY_AUTH_TOKEN. Override with
+  # SENTRY_DISABLE_AUTO_UPLOAD=false when you intentionally want upload.
+  export SENTRY_DISABLE_AUTO_UPLOAD="${SENTRY_DISABLE_AUTO_UPLOAD:-true}"
+  export SENTRY_ALLOW_FAILURE="${SENTRY_ALLOW_FAILURE:-true}"
   if [[ "${HERMES_E2E_BUILD:-}" == "1" ]]; then
     export EXPO_PUBLIC_HERMES_DEV_UNLOCK=1
     export EXPO_PUBLIC_E2E_AUTOMATION=1

@@ -20,8 +20,7 @@
       "environment": "preview",
       "env": {
         "EXPO_PUBLIC_HERMES_DEV_UNLOCK": "1",
-        "ORG_GRADLE_PROJECT_reactNativeArchitectures": "arm64-v8a",
-        "SENTRY_DISABLE_AUTO_UPLOAD": "true"
+        "ORG_GRADLE_PROJECT_reactNativeArchitectures": "arm64-v8a"
       },
       "android": {
         "buildType": "apk"
