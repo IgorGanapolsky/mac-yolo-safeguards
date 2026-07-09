@@ -4,6 +4,7 @@ const path = require('path');
 const { loadEnv, ascGet } = require('./asc-api');
 
 const ROOT = path.join(__dirname, '..');
+const LEASH_PRODUCT_ID = 'thumbgate_leash_monthly';
 
 async function main() {
   loadEnv(ROOT);
@@ -49,15 +50,62 @@ async function main() {
   }
 
   const groups = await ascGet(`/v1/apps/${appId}/subscriptionGroups?limit=10`);
+  const subscriptionGroups = [];
   const subs = [];
   for (const g of groups.data || []) {
+    const groupLocs = await ascGet(`/v1/subscriptionGroups/${g.id}/subscriptionGroupLocalizations?limit=10`);
+    subscriptionGroups.push({
+      id: g.id,
+      referenceName: g.attributes?.referenceName,
+      localizations: (groupLocs.data || []).map((l) => ({
+        locale: l.attributes?.locale,
+        name: l.attributes?.name,
+      })),
+    });
+
     const list = await ascGet(`/v1/subscriptionGroups/${g.id}/subscriptions?limit=20`);
     for (const s of list.data || []) {
+      let reviewScreenshot = null;
+      try {
+        const shot = await ascGet(`/v1/subscriptions/${s.id}/appStoreReviewScreenshot`);
+        reviewScreenshot = shot.data
+          ? {
+              id: shot.data.id,
+              fileName: shot.data.attributes?.fileName,
+              state: shot.data.attributes?.assetDeliveryState?.state,
+            }
+          : null;
+      } catch {
+        reviewScreenshot = null;
+      }
+
+      const subLocs = await ascGet(`/v1/subscriptions/${s.id}/subscriptionLocalizations?limit=10`);
       subs.push({
         productId: s.attributes?.productId,
         state: s.attributes?.state,
         name: s.attributes?.name,
+        subscriptionLocalizations: (subLocs.data || []).map((l) => l.attributes?.locale),
+        appStoreReviewScreenshot: reviewScreenshot,
       });
+    }
+  }
+
+  const leash = subs.find((s) => s.productId === LEASH_PRODUCT_ID);
+  const leashReady =
+    leash?.state === 'READY_TO_SUBMIT' ||
+    leash?.state === 'APPROVED' ||
+    leash?.state === 'WAITING_FOR_REVIEW';
+  const leashMetadataGaps = [];
+  if (leash) {
+    const group = subscriptionGroups.find((g) => g.referenceName === 'Leash Pro');
+    if (!group?.localizations?.some((l) => l.locale === 'en-US')) {
+      leashMetadataGaps.push('subscriptionGroupLocalizations.en-US');
+    }
+    if (!leash.appStoreReviewScreenshot?.id) {
+      leashMetadataGaps.push('appStoreReviewScreenshot');
+    }
+    if (leash.state === 'MISSING_METADATA') {
+      leashMetadataGaps.push('state:MISSING_METADATA');
     }
   }
 
@@ -82,7 +130,14 @@ async function main() {
           : null,
         localizations,
         screenshots,
+        subscriptionGroups,
         subscriptions: subs,
+        leashSubscription: leash
+          ? {
+              readyToSubmit: leashReady && leashMetadataGaps.length === 0,
+              metadataGaps: leashMetadataGaps,
+            }
+          : null,
         privacyPolicyUrl,
       },
       null,
