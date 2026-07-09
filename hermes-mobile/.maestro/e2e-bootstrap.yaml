@@ -80,6 +80,11 @@ appId: com.iganapolsky.hermesmobile
 # Tab bar taps fail on iOS sim when keyboard inset sets tab bar pointerEvents=none — deep link instead.
 - openLink: "hermes://chat"
 - runFlow: dismiss-print-interruption.yaml
+- hideKeyboard
+- extendedWaitUntil:
+    visible:
+      id: "tab-hermes"
+    timeout: 30000
 - runFlow:
     when:
       notVisible:
@@ -88,6 +93,17 @@ appId: com.iganapolsky.hermesmobile
       - hideKeyboard
       - tapOn:
           id: "tab-hermes"
+- runFlow:
+    when:
+      notVisible:
+        id: "chat-screen-header"
+    commands:
+      - hideKeyboard
+      - tapOn: "Hermes"
+- extendedWaitUntil:
+    notVisible:
+      id: "connect-mac-gate"
+    timeout: 30000
 - extendedWaitUntil:
     visible:
       id: "chat-screen-header"
