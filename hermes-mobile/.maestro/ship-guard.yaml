@@ -19,26 +19,7 @@ appId: com.iganapolsky.hermesmobile
 - assertNotVisible: "Connect your computer"
 - assertNotVisible: "Hermes Mobile Agent"
 
-- runFlow:
-    when:
-      notVisible:
-        id: "chat-input"
-    commands:
-      - openLink: "hermes://chat"
-      - runFlow: dismiss-print-interruption.yaml
-      - hideKeyboard
-      - waitForAnimationToEnd:
-          timeout: 2000
-      - tapOn:
-          id: "tab-hermes"
-- runFlow:
-    when:
-      notVisible:
-        id: "chat-input"
-    commands:
-      - hideKeyboard
-      - tapOn: "Hermes"
-
+# chat-e2e-bootstrap leaves Chat ready — do not openLink hermes://chat again (drops tab bar on CI).
 - extendedWaitUntil:
     notVisible:
       id: "connect-mac-gate"
