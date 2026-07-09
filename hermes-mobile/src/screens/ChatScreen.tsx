@@ -254,6 +254,15 @@ import {
   TELEGRAM_QUEUED_REPLY_PLACEHOLDER,
 } from '../utils/streamAssistantText';
 import { extractTerminalActivityFromMessage, isTerminalToolName } from '../utils/terminalActivity';
+import type { ChatMessageContent, ComposerAttachment } from '../types/chatAttachment';
+import {
+  composerHasSendableContent,
+  formatAttachmentBubbleText,
+  MAX_COMPOSER_ATTACHMENTS,
+  pickDocumentAttachments,
+  pickImageAttachments,
+  prepareChatMessageContent,
+} from '../utils/chatAttachments';
 
 function projectSessions(
   allSessions: HermesSession[],
@@ -367,6 +376,7 @@ export default function ChatScreen() {
   const [currentSession, setCurrentSession] = useState<HermesSession | null>(null);
   const [messages, setMessages] = useState<HermesMessage[]>([]);
   const [inputValue, setInputValue] = useState('');
+  const [composerAttachments, setComposerAttachments] = useState<ComposerAttachment[]>([]);
   
   const [isLoadingSessions, setIsLoadingSessions] = useState(false);
   const [isLoadingMessages, setIsLoadingMessages] = useState(false);
@@ -2613,6 +2623,8 @@ export default function ChatScreen() {
 
   const inputValueRef = useRef(inputValue);
   inputValueRef.current = inputValue;
+  const composerAttachmentsRef = useRef(composerAttachments);
+  composerAttachmentsRef.current = composerAttachments;
 
   const handleComposerTextChange = useCallback((text: string) => {
     if (
@@ -2626,22 +2638,98 @@ export default function ChatScreen() {
     setInputValue(text);
   }, []);
 
+  const handleAttachPress = useCallback(() => {
+    const remainingSlots = MAX_COMPOSER_ATTACHMENTS - composerAttachmentsRef.current.length;
+    if (remainingSlots <= 0) {
+      setErrorMessage(`You can attach up to ${MAX_COMPOSER_ATTACHMENTS} files.`);
+      haptics.warning();
+      return;
+    }
+    Alert.alert('Attach', undefined, [
+      {
+        text: 'Photo library',
+        onPress: () => {
+          void (async () => {
+            const picked = await pickImageAttachments(remainingSlots);
+            if (picked.error) {
+              setErrorMessage(picked.error);
+              haptics.warning();
+              return;
+            }
+            if (picked.attachments.length > 0) {
+              setComposerAttachments((prev) => [...prev, ...picked.attachments]);
+              haptics.light();
+            }
+          })();
+        },
+      },
+      {
+        text: 'File',
+        onPress: () => {
+          void (async () => {
+            const picked = await pickDocumentAttachments(remainingSlots);
+            if (picked.error) {
+              setErrorMessage(picked.error);
+              haptics.warning();
+              return;
+            }
+            if (picked.attachments.length > 0) {
+              setComposerAttachments((prev) => [...prev, ...picked.attachments]);
+              haptics.light();
+            }
+          })();
+        },
+      },
+      { text: 'Cancel', style: 'cancel' },
+    ]);
+  }, []);
+
+  const handleRemoveAttachment = useCallback((attachmentId: string) => {
+    setComposerAttachments((prev) => prev.filter((item) => item.id !== attachmentId));
+    haptics.selection();
+  }, []);
+
   const handleSendMessage = async () => {
     const userText = inputValueRef.current.trim();
-    if (!userText) return;
+    const attachments = [...composerAttachmentsRef.current];
+    if (!composerHasSendableContent(userText, attachments)) {
+      return;
+    }
 
-    lastSentComposerTextRef.current = userText;
+    const displayText = formatAttachmentBubbleText(userText, attachments);
+    lastSentComposerTextRef.current = displayText;
     sendClearSuppressRef.current = true;
     inputValueRef.current = '';
     setInputValue('');
+    setComposerAttachments([]);
     Keyboard.dismiss();
 
-    const accepted = await sendUserText(userText);
+    const prepared =
+      attachments.length === 0
+        ? { content: userText.trim() as ChatMessageContent }
+        : await prepareChatMessageContent(userText, attachments);
+    if (prepared.error) {
+      setErrorMessage(prepared.error);
+      haptics.warning();
+      sendClearSuppressRef.current = false;
+      lastSentComposerTextRef.current = '';
+      inputValueRef.current = userText;
+      setInputValue(userText);
+      setComposerAttachments(attachments);
+      return;
+    }
+
+    const accepted = await sendUserText(userText, false, {
+      gatewayContent: prepared.content,
+      displayText,
+      attachments,
+    });
     if (!accepted) {
       sendClearSuppressRef.current = false;
       lastSentComposerTextRef.current = '';
       inputValueRef.current = userText;
       setInputValue(userText);
+      setComposerAttachments(attachments);
     } else {
       haptics.light();
     }
@@ -2651,7 +2739,7 @@ export default function ChatScreen() {
   handleSendMessageRef.current = handleSendMessage;
 
   const handleSubmit = useCallback(() => {
-    if (inputValueRef.current.trim()) {
+    if (composerHasSendableContent(inputValueRef.current, composerAttachmentsRef.current)) {
       void handleSendMessageRef.current();
     }
   }, []);
@@ -2964,8 +3052,20 @@ export default function ChatScreen() {
     return userMessage.id ?? '';
   };
 
-  async function sendUserText(userText: string, isProgrammatic = false): Promise<boolean> {
-    if (!userText.trim()) return false;
+  async function sendUserText(
+    userText: string,
+    isProgrammatic = false,
+    outboundExtras?: {
+      gatewayContent?: ChatMessageContent;
+      displayText?: string;
+      attachments?: ComposerAttachment[];
+    },
+  ): Promise<boolean> {
+    const typed = userText.trim();
+    const attachments = outboundExtras?.attachments ?? [];
+    const displayText = outboundExtras?.displayText?.trim() ?? typed;
+    const gatewayMessage = outboundExtras?.gatewayContent ?? typed;
+    if (!displayText) return false;
 
     if (isSendingRef.current) {
       const trimmed = userText.trim();
@@ -3032,10 +3132,12 @@ export default function ChatScreen() {
       );
     };
 
-    const typed = userText.trim();
     const typedUpper = typed.toUpperCase();
     const firstPromptThreadTitle =
-      deriveThreadTitleFromMessage(typed) ?? activeProject?.name ?? 'New chat';
+      deriveThreadTitleFromMessage(typed) ??
+      attachments[0]?.name ??
+      activeProject?.name ??
+      'New chat';
 
     const approvalUiVisibleForPhrase = (phrase: string): boolean => {
       const upper = phrase.trim().toUpperCase();
@@ -3139,7 +3241,7 @@ export default function ChatScreen() {
       committedUserMessageId = null;
     };
 
-    committedUserMessageId = commitOutboundUserBubble(typed);
+    committedUserMessageId = commitOutboundUserBubble(displayText);
     outboundUserBubbleCommitted = true;
 
     // A gateway restart drops in-memory session ids; never carry a known-removed
@@ -3463,7 +3565,7 @@ export default function ChatScreen() {
             streamSessionChat(
           gatewayUrl,
           streamTargetSessionId,
-          userText,
+          gatewayMessage,
           apiKey,
           (evt) => {
             const rawSessionId = evt.data?.session_id;
@@ -4698,11 +4800,14 @@ export default function ChatScreen() {
           onBlur={handleInputBlur}
           onSubmit={handleSubmit}
           placeholder={inputPlaceholder}
-          sendMuted={!inputValue.trim()}
+          sendMuted={!composerHasSendableContent(inputValue, composerAttachments)}
           onSend={handleSend}
           showStop={isRunActive}
           onStop={() => void handleStopRun()}
           focusNonce={composerFocusNonce}
+          attachments={composerAttachments}
+          onRemoveAttachment={handleRemoveAttachment}
+          onAttachPress={handleAttachPress}
         />
         </View>
         ) : null}
