@@ -1,7 +1,10 @@
 import React from 'react';
 import { Alert, BackHandler, Platform } from 'react-native';
 import { fireEvent, act, waitFor, cleanup } from '@testing-library/react-native';
-import ChatScreen, { resolveEffectiveKeyboardInset } from '../screens/ChatScreen';
+import ChatScreen, {
+  resolveEffectiveKeyboardInset,
+  shouldClearKeyboardScreenVisible,
+} from '../screens/ChatScreen';
 import { renderInTabNavigator } from '../testUtils/navigation';
 
 const mockGatewayState = {
@@ -2297,5 +2300,26 @@ describe('resolveEffectiveKeyboardInset', () => {
   it('never estimates a lift on iOS', () => {
     Platform.OS = 'ios';
     expect(resolveEffectiveKeyboardInset(0, true, true, 800)).toBe(0);
+  });
+
+  it('uses live Android keyboard metrics when inset and visibility are out of sync', () => {
+    Platform.OS = 'android';
+    expect(resolveEffectiveKeyboardInset(0, false, true, 800, 292)).toBe(292);
+  });
+
+  it('still returns 0 after dismiss when metrics, inset, and visibility are all clear', () => {
+    Platform.OS = 'android';
+    expect(resolveEffectiveKeyboardInset(0, false, true, 800, 0)).toBe(0);
+  });
+});
+
+describe('shouldClearKeyboardScreenVisible', () => {
+  it('defers Android hide while keyboard metrics still report height', () => {
+    expect(shouldClearKeyboardScreenVisible('android', 280)).toBe(false);
+    expect(shouldClearKeyboardScreenVisible('android', 0)).toBe(true);
+  });
+
+  it('clears visibility immediately on iOS hide events', () => {
+    expect(shouldClearKeyboardScreenVisible('ios', 280)).toBe(true);
   });
 });

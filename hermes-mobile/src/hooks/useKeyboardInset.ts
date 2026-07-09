@@ -43,25 +43,6 @@ export function useKeyboardInset(options?: {
   }, [options?.focused]);
 
   useEffect(() => {
-    if (Platform.OS !== 'android' || !options?.focused || inset <= 0) {
-      return;
-    }
-
-    const timer = setInterval(() => {
-      if ((Keyboard.metrics()?.height ?? 0) > 0) {
-        return;
-      }
-      // If the keyboard is actually gone from metrics, clear the inset even if focused.
-      // This recovers from cases where Gboard/IME hides but the TextInput retains focus.
-      setInset(0);
-      setWindowShrunk(false);
-      baselineWindowHeight.current = Dimensions.get('window').height;
-    }, 250);
-
-    return () => clearInterval(timer);
-  }, [inset, options?.focused]);
-
-  useEffect(() => {
     if (Platform.OS !== 'android' || options?.focused === false) {
       return;
     }
@@ -128,6 +109,8 @@ export function useKeyboardInset(options?: {
     };
     const onHide = () => {
       if (options?.suppressHideWhileFocusedRef?.current) {
+        // Gboard / layout shifts emit spurious didHide while the IME is still up.
+        // keyboardDidChangeFrame clears inset when the keyboard truly dismisses.
         return;
       }
       setInset(0);
@@ -135,17 +118,23 @@ export function useKeyboardInset(options?: {
       baselineWindowHeight.current = Dimensions.get('window').height;
     };
     const onFrame = (event: KeyboardEvent) => {
-      const kbHeight = resolveKeyboardInset(event);
-      if (kbHeight > 0) {
-        const currentWindowHeight = Dimensions.get('window').height;
-        setInset(kbHeight);
+      const currentWindowHeight = Dimensions.get('window').height;
+      const overlap = keyboardOverlapHeight(event.endCoordinates, currentWindowHeight);
+      if (overlap > 0) {
+        setInset(overlap);
         setWindowShrunk(
           detectWindowShrunkForKeyboard(
-            kbHeight,
+            overlap,
             baselineWindowHeight.current,
             currentWindowHeight,
           ),
         );
+        return;
+      }
+      if (Platform.OS === 'android') {
+        setInset(0);
+        setWindowShrunk(false);
+        baselineWindowHeight.current = currentWindowHeight;
       }
     };
 

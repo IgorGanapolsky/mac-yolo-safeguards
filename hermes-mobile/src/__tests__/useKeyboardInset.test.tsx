@@ -1,6 +1,6 @@
 import React, { useRef } from 'react';
 import { act, render } from '@testing-library/react-native';
-import { Keyboard, Platform, Text } from 'react-native';
+import { Dimensions, Keyboard, Platform, Text } from 'react-native';
 import { useKeyboardInset } from '../hooks/useKeyboardInset';
 
 function KeyboardProbe({ focused }: { focused: boolean }) {
@@ -37,7 +37,7 @@ describe('useKeyboardInset', () => {
     jest.useRealTimers();
   });
 
-  it('clears stale Android keyboard inset when no keyboard metrics remain visible', () => {
+  it('clears stale Android keyboard inset when the keyboard frame collapses', () => {
     jest.spyOn(Keyboard, 'metrics').mockReturnValue({ height: 320 } as never);
     const { getByTestId } = render(<KeyboardProbe focused />);
 
@@ -49,10 +49,11 @@ describe('useKeyboardInset', () => {
 
     expect(getByTestId('keyboard-probe').props.children).toContain('320');
 
-    (Keyboard.metrics as jest.Mock).mockReturnValue(undefined);
-
     act(() => {
-      jest.advanceTimersByTime(250);
+      const windowHeight = Dimensions.get('window').height;
+      listeners.get('keyboardDidChangeFrame')?.({
+        endCoordinates: { screenX: 0, screenY: windowHeight, width: 360, height: 0 },
+      });
     });
 
     expect(getByTestId('keyboard-probe').props.children).toBe('0:steady');
