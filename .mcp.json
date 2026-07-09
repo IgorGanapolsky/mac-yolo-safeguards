@@ -1,0 +1,19 @@
+{
+  "$comment": "Shared remote MCP tools for every agent on this repo (Claude Code, Cursor, and Replit — all REMOTE/http endpoints so the cloud Replit agent can reach them too). Tokens come from env vars, never committed. github = the cross-agent coordination bus (issues/PRs/reviews); context7 = current library docs. Verified live 2026-07-09: POST https://api.githubcopilot.com/mcp/ initialize returns tools/prompts/resources.",
+  "mcpServers": {
+    "github": {
+      "type": "http",
+      "url": "https://api.githubcopilot.com/mcp/",
+      "headers": {
+        "Authorization": "Bearer ${GITHUB_MCP_PAT}"
+      }
+    },
+    "context7": {
+      "type": "http",
+      "url": "https://mcp.context7.com/mcp",
+      "headers": {
+        "Authorization": "Bearer ${CONTEXT7_API_KEY:-}"
+      }
+    }
+  }
+}
