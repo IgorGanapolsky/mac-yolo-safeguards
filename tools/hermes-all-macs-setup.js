@@ -37,6 +37,16 @@ const SAKANA_SOURCES = [
     url: 'https://sakana.ai/dgm/',
     evidence: 'Darwin Godel Machine pattern: keep an archive of candidates, evaluate empirically, and retain lineage.',
   },
+  {
+    id: 'nvidia-nemotron',
+    url: 'https://developer.nvidia.com/topics/ai/nemotron',
+    evidence: 'NVIDIA Nemotron 3 positions Ultra for highest-accuracy agentic reasoning, planning, tool use, synthesis, verification, and recovery with up to 1M-token context.',
+  },
+  {
+    id: 'openrouter-nemotron3-ultra',
+    url: 'https://openrouter.ai/nvidia/nemotron-3-ultra-550b-a55b',
+    evidence: 'OpenRouter exposes NVIDIA Nemotron 3 Ultra as nvidia/nemotron-3-ultra-550b-a55b for agent orchestration, coding agents, deep research, and complex tasks.',
+  },
 ];
 
 const SAKANA_PROVIDER_CANDIDATES = [
@@ -73,6 +83,39 @@ const SAKANA_PROVIDER_CANDIDATES = [
     statusWhenKeyPresent: 'needs_direct_endpoint_confirmation',
     statusWhenKeyMissing: 'missing_sakana_key',
   },
+  {
+    id: 'openrouter-nemotron3-ultra',
+    label: 'NVIDIA Nemotron 3 Ultra via OpenRouter',
+    provider: 'openrouter',
+    baseUrl: 'https://openrouter.ai/api/v1',
+    model: 'nvidia/nemotron-3-ultra-550b-a55b',
+    apiKeyEnv: 'OPENROUTER_API_KEY',
+    bestFor: 'frontier open model candidate for long-context agent orchestration, coding agents, deep research, planning, verification, and recovery',
+    statusWhenKeyPresent: 'smoke_ready',
+    statusWhenKeyMissing: 'missing_openrouter_key',
+  },
+  {
+    id: 'openrouter-nemotron3-super-free',
+    label: 'NVIDIA Nemotron 3 Super free via OpenRouter',
+    provider: 'openrouter',
+    baseUrl: 'https://openrouter.ai/api/v1',
+    model: 'nvidia/nemotron-3-super-120b-a12b:free',
+    apiKeyEnv: 'OPENROUTER_API_KEY',
+    bestFor: 'free/low-cost multi-agent reasoning candidate before promoting any heavier Nemotron route',
+    statusWhenKeyPresent: 'smoke_ready',
+    statusWhenKeyMissing: 'missing_openrouter_key',
+  },
+  {
+    id: 'nvidia-nim-nemotron3-ultra',
+    label: 'NVIDIA Nemotron 3 Ultra via NIM',
+    provider: 'nvidia-nim',
+    baseUrlEnv: 'NVIDIA_NIM_BASE_URL',
+    model: 'nvidia/nemotron-3-ultra-550b-a55b',
+    apiKeyEnv: 'NVIDIA_API_KEY',
+    bestFor: 'GPU-backed self-managed or hosted NIM deployments after endpoint, region, cost, and smoke proof exist',
+    statusWhenKeyPresent: 'needs_nim_endpoint_confirmation',
+    statusWhenKeyMissing: 'missing_nvidia_key',
+  },
 ];
 
 function usage() {
@@ -83,7 +126,7 @@ Builds a source-backed all-Macs Hermes setup report:
 - local Mac runtime facts
 - Tailscale/Hermes gateway reachability
 - AI vault and sync artifact readiness
-- Sakana/Fugu provider candidates with DGM-style adoption gates
+- Sakana/Fugu and NVIDIA Nemotron provider candidates with DGM-style adoption gates
 
 No runtime defaults are changed by this verifier.`;
 }
@@ -410,6 +453,11 @@ function readinessGates(runtime, machines, providers) {
       ok: providers.some((provider) => provider.status === 'smoke_ready' || provider.runnableSmoke),
       evidence: providers.map((provider) => `${provider.id}:${provider.status}`).join(', '),
     },
+    {
+      id: 'nemotron_candidate',
+      ok: providers.some((provider) => provider.id.includes('nemotron') && (provider.status === 'smoke_ready' || provider.runnableSmoke)),
+      evidence: providers.filter((provider) => provider.id.includes('nemotron')).map((provider) => `${provider.id}:${provider.status}`).join(', '),
+    },
   ];
   return gates;
 }
@@ -430,7 +478,7 @@ function dgmActions(gates, providers) {
   if (smokeReady.length > 0) {
     actions.push(`Run a capped smoke for ${smokeReady.map((provider) => provider.id).join(', ')} and record latency/cost/quality before default promotion.`);
   } else {
-    actions.push('Keep Sakana/Fugu as a candidate route until API key, endpoint, region, cost, and smoke evidence are present.');
+    actions.push('Keep Sakana/Fugu/Nemotron as candidate routes until API key, endpoint, region, cost, and smoke evidence are present.');
   }
   actions.push('Adopt setup changes only through the recursive experiment ledger after evaluator, reward-hack, and variance checks pass.');
   return actions;
@@ -458,7 +506,7 @@ function buildReport(options = {}) {
   return {
     schema: 'hermes-all-macs-setup/v1',
     generatedAt: new Date().toISOString(),
-    sourcePattern: 'Sakana Fugu multi-agent API plus Darwin Godel Machine empirical adoption gates.',
+    sourcePattern: 'Sakana Fugu and NVIDIA Nemotron agentic model routes plus Darwin Godel Machine empirical adoption gates.',
     sources: SAKANA_SOURCES,
     repo,
     inventory,
@@ -496,7 +544,7 @@ function render(report) {
   for (const gate of report.gates) {
     lines.push(`- ${gate.ok ? 'PASS' : 'FAIL'} ${gate.id}: ${gate.evidence}`);
   }
-  lines.push('', '## Sakana/Fugu Candidates', '');
+  lines.push('', '## Provider Candidates', '');
   for (const provider of report.providers) {
     lines.push(`- ${provider.id}: ${provider.status}; model=${provider.model}; key=${provider.apiKeyPresent ? 'present' : 'missing'}`);
   }

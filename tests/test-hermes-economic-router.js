@@ -141,6 +141,36 @@ assert.strictEqual(fugu.microAgentRecipe.id, 'rare_research_fusion');
 assert.strictEqual(fugu.requiresApproval, true);
 assert.strictEqual(buildExecutionPlan(fugu).status, 'blocked');
 
+const nemotronNoBudget = decision(parseArgs([
+  '--task', 'use NVIDIA Nemotron 3 Ultra for all-machine Hermes harness agentic planning and recovery',
+  '--risk', 'critical',
+  '--max-cost-usd', '0',
+  '--latency-ms', '60000',
+]));
+assert.strictEqual(nemotronNoBudget.signals.asksForNemotron, true);
+assert.notStrictEqual(nemotronNoBudget.selectedRoute.id, 'nemotron3_ultra_escalation');
+assert(
+  nemotronNoBudget.rejectedRoutes.some((route) => route.id === 'nemotron3_ultra_escalation' && route.reasons.some((reason) => reason.includes('paid route'))),
+);
+
+const nemotron = decision(parseArgs([
+  '--task', 'use NVIDIA Nemotron 3 Ultra for all-machine Hermes harness agentic planning and recovery',
+  '--risk', 'critical',
+  '--max-cost-usd', '0.20',
+  '--latency-ms', '60000',
+  '--paid-ok',
+]));
+assert.strictEqual(nemotron.selectedRoute.id, 'nemotron3_ultra_escalation');
+assert.strictEqual(nemotron.selectedRoute.provider, 'openrouter');
+assert.strictEqual(nemotron.selectedRoute.model, 'nvidia/nemotron-3-ultra-550b-a55b');
+assert.strictEqual(nemotron.selectedRoute.candidateOnly, true);
+assert.strictEqual(nemotron.requiresApproval, true);
+assert.strictEqual(nemotron.microAgentRecipe.id, 'nemotron3_ultra_candidate_fusion');
+assert.strictEqual(nemotron.microAgentRecipe.pattern, 'fusion');
+assert(nemotron.microAgentRecipe.modelPriceProof.some((model) => model.slug === 'nvidia/nemotron-3-ultra-550b-a55b'));
+assert(nemotron.microAgentRecipe.adoptionGates.includes('do-not-change-default-route'));
+assert.strictEqual(buildExecutionPlan(nemotron).status, 'blocked');
+
 const fusion = decision(parseArgs([
   '--task', 'use OpenRouter Fusion for a hard grounded answer with web search panel answers',
   '--risk', 'critical',
@@ -202,6 +232,7 @@ assert(catalog.signals.needsModelPrice);
 assert.strictEqual(catalog.modelCatalogQuery.query.sort, 'pricing-low-to-high');
 assert(catalog.modelCatalogQuery.url.includes('/api/v1/models?'));
 assert(catalog.modelCatalogCandidates.some((model) => model.slug === 'anthropic/claude-sonnet-5'));
+assert(catalog.modelCatalogCandidates.some((model) => model.slug === 'nvidia/nemotron-3-super-120b-a12b:free'));
 
 const remom = decision(parseArgs([
   '--task', 'solve hard reasoning with strict JSON schema output contract and quorum synthesis',
