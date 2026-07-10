@@ -1,6 +1,6 @@
 appId: com.iganapolsky.hermesmobile
 ---
-- openLink: "hermes://settings"
+- openLink: "hermes://settings?pair=qr"
 - extendedWaitUntil:
     visible:
       id: "SETTINGS"

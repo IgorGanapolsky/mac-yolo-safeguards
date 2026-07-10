@@ -25,11 +25,25 @@ STORE_FRAMES="${STORE_FRAMES:-01_approve,02_block,03_standing,04_pair,05_thumbga
 
 mkdir -p "$OUT_ANDROID" "$OUT_IOS"
 
+wait_for_device() {
+  adb -s "$DEVICE" wait-for-device >/dev/null 2>&1 || true
+  for _ in 1 2 3 4 5 6 7 8 9 10; do
+    if adb -s "$DEVICE" get-state >/dev/null 2>&1; then
+      return 0
+    fi
+    sleep 1
+  done
+  echo "Error: device $DEVICE not connected" >&2
+  return 1
+}
+
 open_link() {
+  wait_for_device || return 1
   adb -s "$DEVICE" shell am start -a android.intent.action.VIEW -d "$1" "$PKG" >/dev/null 2>&1 || true
 }
 
 screencap() {
+  wait_for_device || return 1
   local name="$1"
   local wait="${2:-3}"
   sleep "$wait"
@@ -49,9 +63,9 @@ want_frame() {
 swipe_up() {
   local times="${1:-1}"
   local w h wm_size
-  wm_size="$(adb -s "$DEVICE" shell wm size 2>/dev/null | awk -F'[: x]+' '/Physical size/{print $2,$3; exit}')"
+  wm_size="$(adb -s "$DEVICE" shell 'wm size' 2>/dev/null | awk -F'[: x]+' '/Physical size/{print $2,$3; exit}')"
   w="${wm_size%% *}"
-  h="${size##* }"
+  h="${wm_size##* }"
   w="${w:-1080}"
   h="${h:-2340}"
   local x=$((w / 2))
@@ -80,7 +94,17 @@ verify_qr_pairing() {
     echo "verify 04_pair: QR pairing UI visible"
     return 0
   fi
-  echo "verify 04_pair: WARN QR pairing UI not detected" >&2
+  echo "verify 04_pair: FAIL QR pairing UI not detected" >&2
+  return 1
+}
+
+verify_thumbgate_leash() {
+  adb -s "$DEVICE" shell uiautomator dump /sdcard/hermes-ui.xml >/dev/null 2>&1 || true
+  if adb -s "$DEVICE" shell "grep -qE 'Thumbs down|remember block|ThumbGate' /sdcard/hermes-ui.xml" 2>/dev/null; then
+    echo "verify 05_thumbgate: ThumbGate leash options visible"
+    return 0
+  fi
+  echo "verify 05_thumbgate: FAIL ThumbGate leash options not detected" >&2
   return 1
 }
 
@@ -158,12 +182,15 @@ capture_03_standing() {
 }
 
 capture_04_pair() {
-  open_link "hermes://settings/pair/qr"
+  open_link "hermes://settings?pair=qr"
   sleep 3
   if ! verify_qr_pairing; then
     maestro_open_qr_pairing || true
     sleep 2
-    verify_qr_pairing || true
+  fi
+  if ! verify_qr_pairing; then
+    echo "capture 04_pair: abort — Settings QR scanner must be visible" >&2
+    return 1
   fi
   screencap "04_pair" 4
 }
@@ -177,14 +204,31 @@ if want_frame "01_approve"; then
   screencap "01_approve" 5 && CAPTURE_OK+=("01_approve") || CAPTURE_FAIL+=("01_approve")
 fi
 
-if want_frame "05_thumbgate"; then
-  open_link "hermes://chat"
-  screencap "05_thumbgate" 4 && CAPTURE_OK+=("05_thumbgate") || CAPTURE_FAIL+=("05_thumbgate")
-fi
+capture_05_thumbgate() {
+  open_link "hermes://leash"
+  sleep 2
+  swipe_up 4
+  if ! verify_thumbgate_leash; then
+    swipe_up 3
+  fi
+  if ! verify_thumbgate_leash; then
+    echo "capture 05_thumbgate: abort — Leash ThumbGate options must be visible" >&2
+    return 1
+  fi
+  screencap "05_thumbgate" 4
+}
+
+run_frame "05_thumbgate" capture_05_thumbgate
 
 if want_frame "06_works"; then
   open_link "hermes://settings"
   screencap "06_works" 5 && CAPTURE_OK+=("06_works") || CAPTURE_FAIL+=("06_works")
+fi
+
+if want_frame "01_approve" && want_frame "05_thumbgate"; then
+  if ! python3 "$ROOT/scripts/_assert_store_frame_distinct.py" "$OUT_ANDROID"; then
+    CAPTURE_FAIL+=("05_thumbgate_distinct")
+  fi
 fi
 
 echo "=== capture summary ==="
