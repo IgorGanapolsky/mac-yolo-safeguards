@@ -5,6 +5,7 @@ import {
   shouldShowFailedSendRetry,
 } from '../utils/failedSendRetry';
 import { EMPTY_REPLY_FAILURE_REASON } from '../utils/emptyStreamReplyRecovery';
+import { GATEWAY_WRONG_KEY_MESSAGE } from '../services/gatewayClient';
 
 describe('resolveComposerSendAction', () => {
   it('returns none when composer and last failed are empty', () => {
@@ -107,7 +108,7 @@ describe('shouldShowFailedSendRetry', () => {
     expect(
       shouldShowFailedSendRetry({
         runPhase: 'failed',
-        runDetail: 'Sign-in to your computer failed. Open Settings and pair again.',
+        runDetail: GATEWAY_WRONG_KEY_MESSAGE,
         lastFailedText: 'hello',
       }),
     ).toBe(true);

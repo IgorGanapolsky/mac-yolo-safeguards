@@ -1,6 +1,7 @@
 import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { colors } from '../theme/colors';
+import { GATEWAY_AUTH_REPAIR_HEADER } from '../services/gatewayClient';
 import { resolveChatLinkDisplay } from '../utils/gatewayConnection';
 import type { LeashConnectionState } from '../utils/gatewayEndpoint';
 
@@ -31,7 +32,7 @@ function connectionMeta(
   if (link.chatReachable) {
     return { label: 'Linked', color: colors.success };
   }
-  if (link.label === 'Wrong key for this computer') {
+  if (link.label === GATEWAY_AUTH_REPAIR_HEADER) {
     return { label: link.label, color: colors.error };
   }
   if (link.label === 'Relay only') {

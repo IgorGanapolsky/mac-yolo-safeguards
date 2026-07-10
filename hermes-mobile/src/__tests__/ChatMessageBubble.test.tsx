@@ -3,6 +3,7 @@ import { fireEvent, render } from '@testing-library/react-native';
 import ChatMessageBubble from '../components/ChatMessageBubble';
 import ChatMessageDetailModal from '../components/ChatMessageDetailModal';
 import { outboundDeliveryLabel } from '../utils/outboundDeliveryStatus';
+import { GATEWAY_WRONG_KEY_MESSAGE } from '../services/gatewayClient';
 
 function renderWithDetailModal(props: React.ComponentProps<typeof ChatMessageBubble>) {
   const Host = () => {
@@ -68,7 +69,7 @@ describe('ChatMessageBubble', () => {
   });
 
   it('shows operational failure reason when Mac is reachable but send failed', () => {
-    const failureReason = 'Sign-in to your computer failed. Open Settings and pair again.';
+    const failureReason = GATEWAY_WRONG_KEY_MESSAGE;
     const { getByTestId } = renderWithDetailModal({
       content: 'Make money faster',
       isUser: true,
