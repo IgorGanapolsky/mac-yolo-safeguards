@@ -59,6 +59,16 @@ function isTruthyQueryFlag(url: string, key: string, ...accepted: string[]): boo
   return accepted.some((value) => value.toLowerCase() === lower);
 }
 
+function isLeashSmokePreviewDeepLink(url: string): boolean {
+  const lower = url.toLowerCase();
+  return (
+    isTruthyQueryFlag(url, 'preview', 'smoke') ||
+    isTruthyQueryFlag(url, 'smoke', '1', 'true') ||
+    lower.includes('leash/preview/smoke') ||
+    lower.includes('leash/preview')
+  );
+}
+
 function isChatDeepLink(url: string): boolean {
   const lower = url.toLowerCase();
   return lower.includes('/chat') || lower.endsWith('chat');
@@ -149,7 +159,12 @@ export function useHermesDeepLinks(
       }
 
       if (lower.includes('/ops') || lower.endsWith('ops') || isSettingsDeepLink(url)) {
-        if (isTruthyQueryFlag(url, 'pair', 'qr', 'scan') || isTruthyQueryFlag(url, 'qr', '1', 'true', 'scan')) {
+        if (
+          isTruthyQueryFlag(url, 'pair', 'qr', 'scan') ||
+          isTruthyQueryFlag(url, 'qr', '1', 'true', 'scan') ||
+          lower.includes('settings/pair/qr') ||
+          lower.includes('settings/pair')
+        ) {
           requestSettingsPairQrOnFocus();
         }
         navigationRef.current?.navigate('Settings');
@@ -167,7 +182,7 @@ export function useHermesDeepLinks(
 
       if (isLeashTabDeepLink(url)) {
         navigationRef.current?.navigate('Leash');
-        if (isTruthyQueryFlag(url, 'preview', 'smoke') || isTruthyQueryFlag(url, 'smoke', '1', 'true')) {
+        if (isLeashSmokePreviewDeepLink(url)) {
           activateStoreLeashPreview?.();
           injectSmokeApproval?.();
         }

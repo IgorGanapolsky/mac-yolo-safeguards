@@ -140,7 +140,7 @@ run_frame() {
 }
 
 capture_02_block() {
-  open_link "hermes://leash?preview=smoke"
+  open_link "hermes://leash/preview/smoke"
   sleep 2
   if ! verify_leash_approval; then
     maestro_seed_leash_smoke || true
@@ -151,14 +151,14 @@ capture_02_block() {
 }
 
 capture_03_standing() {
-  open_link "hermes://leash?preview=smoke"
+  open_link "hermes://leash/preview/smoke"
   sleep 2
   swipe_up 3
   screencap "03_standing" 4
 }
 
 capture_04_pair() {
-  open_link "hermes://settings?pair=qr"
+  open_link "hermes://settings/pair/qr"
   sleep 3
   if ! verify_qr_pairing; then
     maestro_open_qr_pairing || true
