@@ -10,9 +10,9 @@ firebase-dist/
 credentials.json
 ios-credentials/
 
-# Generated native projects (EAS prebuild)
-android/
-ios/
+# Generated native projects (EAS prebuild) — root only; keep fastlane/metadata/android|ios tracked
+/android/
+/ios/
 docs/proofs
 
 # Phone install coordination lock (runtime, per-machine)
