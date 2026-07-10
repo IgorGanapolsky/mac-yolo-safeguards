@@ -100,8 +100,9 @@ curl -s 'https://itunes.apple.com/lookup?bundleId=com.iganapolsky.hermesmobile'
 | Screenshots (6.5/6.7/iPad) | 7+6+3 + 1 preview | ✅ |
 | Privacy policy URL | `https://thumbgate.ai/privacy` | ✅ |
 | Privacy manifest | `app.json` `privacyManifests` (PostHog analytics) | ✅ |
-| Export compliance | `usesNonExemptEncryption: false` | ✅ |
-| Review notes (no secrets) | 507 chars, demo path, guard clean | ✅ |
+| Export compliance | `usesNonExemptEncryption: false` on build 12 | ✅ |
+| Age rating | API `ageRatingDeclaration` — all content flags `NONE`/false (4+) | ✅ |
+| Review notes (no secrets) | 507 chars, demo path, guard clean (re-patched this pass) | ✅ |
 | IAP metadata | `READY_TO_SUBMIT` → `WAITING_FOR_REVIEW`, 175 territories, $19.99 USA | ✅ |
 | IAP review screenshot | `COMPLETE` | ✅ |
 | Demo mode in production iOS build | `EXPO_PUBLIC_STORE_REVIEW_DEMO=1` in `eas.json` | ✅ |
@@ -111,7 +112,23 @@ curl -s 'https://itunes.apple.com/lookup?bundleId=com.iganapolsky.hermesmobile'
 
 ---
 
-## App Store review times (July 2026 research)
+## Actions taken (this pass — 2026-07-10 ~11:45 ET)
+
+| Action | Result |
+|--------|--------|
+| `node tools/agent-session-start.js` | LaunchAgents OK; E2E `fail` (load guard, unrelated to iOS publish) |
+| `node scripts/verify-asc-listing.js --json` | v1.0 + IAP both `WAITING_FOR_REVIEW`; review notes safe |
+| `curl itunes lookup` | `resultCount: 0` — not live |
+| `node scripts/patch-asc-review-notes.js` | Idempotent — 507 chars, demo path, no secrets |
+| `node scripts/ensure-asc-leash-subscription.js` | IAP `WAITING_FOR_REVIEW`, screenshot `COMPLETE` |
+| `node scripts/submit-asc-for-review.js` | No-op — already `WAITING_FOR_REVIEW` |
+| Deep ASC API audit | Build **12** attached `VALID`; submission `e8d02adc…` at `2026-07-10T06:02:29Z` |
+| Chrome ASC UI check | **Blocked** — `authResult=FAILED` on login tabs; cannot verify agreements/IAP UI |
+| Pull from review | **Not done** — no rejection; submission <48h old |
+
+**Not done (correctly):** new EAS build, pull from review, expedited review request (too early).
+
+---
 
 Sources: [Apple App Review](https://developer.apple.com/distribute/app-review/), [LaunchShots 2026](https://launchshots.app/blog/app-store-review-process-2026), [Silpho checklist 2026](https://silpho.com/blog/app-store-submission-checklist-2026), [Capgo first-time guide](https://capgo.app/blog/first-time-app-review-guide/).
 

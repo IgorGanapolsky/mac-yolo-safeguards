@@ -1,6 +1,6 @@
 # App Store Connect — iOS blockers (Hermes Mobile 1.0)
 
-**Updated:** 2026-07-09 21:25 ET (review notes redacted via API; demo-only template enforced)
+**Updated:** 2026-07-10 ~11:45 ET (IAP now in review; prior IAP-attach blocker largely resolved)
 
 ## Review notes (fixed)
 
@@ -16,9 +16,9 @@ App Review Information notes were patched via `node scripts/patch-asc-review-not
 | Listing metadata | en-US description ~1319 chars; iPhone 6.5/6.7 + iPad + 1 app preview present |
 | Privacy policy URL | **`https://thumbgate.ai/privacy`** on `appInfoLocalizations` en-US (`e5cb7b2a-f43c-40f5-ace4-e6248c8fd1f7`) — set/confirmed via ASC API PATCH |
 | Subscription group | Leash Pro (`22213637`), en-US localization present |
-| IAP `thumbgate_leash_monthly` | Subscription id `6788168309`, **state `READY_TO_SUBMIT`** (was `MISSING_METADATA`) |
-| IAP API-filled fields | en-US name/description, **175 territory prices** (USA $19.99 + equalizations), review screenshot `COMPLETE`, `availableInNewTerritories: true` |
-| IAP localization state | `PREPARE_FOR_SUBMISSION` (not yet attached to version 1.0 review) |
+| IAP `thumbgate_leash_monthly` | Subscription id `6788168309`, **state `WAITING_FOR_REVIEW`** (was `READY_TO_SUBMIT` Jul 9) |
+| IAP API-filled fields | en-US name/description, territory prices, review screenshot `COMPLETE`, `availableInNewTerritories: true` |
+| IAP localization state | In review with product (`WAITING_FOR_REVIEW`) |
 | IAP root cause (fixed) | `availableInNewTerritories: true` required pricing for all territories; only USA was priced → `MISSING_METADATA` |
 | Public App Store | `itunes lookup` → **0 results** (not searchable / not live) |
 
@@ -36,9 +36,10 @@ App Review notes must **never** contain operator gateway URLs, Tailscale hostnam
 
 ## Blockers to **public** listing
 
-1. **Apple review queue** — binary + metadata submitted; app not approved/released yet (`WAITING_FOR_REVIEW`).
-2. **IAP not in review with version** — `thumbgate_leash_monthly` is `READY_TO_SUBMIT` but **not attached** to version 1.0 submission. API error: `FIRST_SUBSCRIPTION_MUST_BE_SUBMITTED_ON_VERSION`. Active review submission (`9013e09a…`) is **app-only** and rejects new items while `WAITING_FOR_REVIEW`.
-3. **Monetization parity** — until IAP is submitted with the version and reaches `WAITING_FOR_REVIEW` / `APPROVED`, Leash Pro cannot charge on iOS even if the app goes live.
+1. **Apple review queue** — binary + metadata submitted; app not approved/released yet (`WAITING_FOR_REVIEW`). Submitted **2026-07-10T06:02:29Z** with build 12.
+2. **Agreements / tax / banking** — **unverified** (ASC API has no agreements endpoint for this key; Chrome `authResult=FAILED`). Igor must confirm Paid Applications agreement active.
+3. **IAP version-page attachment** — product is `WAITING_FOR_REVIEW` (improvement). API still cannot confirm IAP is listed on version 1.0 page; Igor 2-min UI check recommended. **Do not pull from review** unless Apple rejects.
+4. **Monetization parity** — IAP must reach `APPROVED` with app; currently both `WAITING_FOR_REVIEW`.
 
 Play Android is **out of scope** here (already verified correct elsewhere).
 
