@@ -70,7 +70,7 @@ import {
   getObsidianProjects,
   getObsidianAgents,
 } from '../services/hermesGatewayClient';
-import { fetchGatewayHealth, GATEWAY_WRONG_KEY_MESSAGE } from '../services/gatewayClient';
+import { fetchGatewayHealth, GATEWAY_WRONG_KEY_MESSAGE, gatewayAuthRepairBanner } from '../services/gatewayClient';
 import { secureCredentials } from '../services/secureCredentials';
 import type { HermesSession, HermesMessage } from '../types/chat';
 import type { ChatProject, ChatProjectState } from '../types/chatProject';
@@ -535,9 +535,20 @@ export default function ChatScreen() {
 
   const applyChatApiError = useCallback(
     (error: unknown, fallback: string, options?: { background?: boolean }) => {
-      const { kind, message } = humanizeChatError(error, fallback, { gatewayUrl });
+      const { kind, message } = humanizeChatError(error, fallback, {
+        gatewayUrl,
+        machineLabel: activeGatewayProfile?.label,
+      });
       if (kind === 'connectivity') {
         refreshHealth();
+        return;
+      }
+      if (kind === 'auth') {
+        refreshHealth();
+        if (options?.background) {
+          return;
+        }
+        setErrorMessage(message);
         return;
       }
       if (options?.background) {
@@ -545,7 +556,7 @@ export default function ChatScreen() {
       }
       setErrorMessage(message);
     },
-    [refreshHealth],
+    [refreshHealth, gatewayUrl, activeGatewayProfile?.label],
   );
 
   const flatListRef = useRef<FlashListRef<ChatTimelineEntry>>(null);
@@ -2526,7 +2537,7 @@ export default function ChatScreen() {
       const postRetryHealth = await fetchGatewayHealth(probeUrl, profileKey);
       if (postRetryHealth.authMismatch) {
         setMacPickerVisible(true);
-        setErrorMessage(GATEWAY_WRONG_KEY_MESSAGE);
+        setErrorMessage(gatewayAuthRepairBanner(machineShortLabel));
         haptics.warning();
         return;
       }
@@ -4244,6 +4255,7 @@ export default function ChatScreen() {
     } catch (err) {
       const { kind, message } = humanizeChatError(err, 'Message could not send. Try again.', {
         gatewayUrl,
+        machineLabel: machineShortLabel,
       });
       if (isSessionRemovedError(err) || message.includes('That chat was removed')) {
         invalidateRemovedSession(targetSessionId);
@@ -4264,6 +4276,11 @@ export default function ChatScreen() {
           gatewayUrl,
           healthProbePending,
         });
+      } else if (kind === 'auth') {
+        refreshHealth();
+        markOutboundBubbleStatus('failed', message);
+        setErrorMessage(message);
+        sendFailureDetail = message;
       } else {
         markOutboundBubbleStatus('failed', message);
         setErrorMessage(message);
@@ -5243,7 +5260,8 @@ export default function ChatScreen() {
               <GatewayProfilePicker
                 profiles={switchComputerProfiles}
                 activeProfileId={activeGatewayProfile?.id ?? null}
-                activeReachable={macHttpOk || connectionState === 'connected'}
+                activeReachable={macHttpOk}
+                authNeedsRepair={health?.authMismatch === true}
                 activeConnecting={connectionState === 'connecting'}
                 scanning={profileScanning || isScanningMacs}
                 scanProgress={profileScanProgress}

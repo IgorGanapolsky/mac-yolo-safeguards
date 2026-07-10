@@ -8,6 +8,7 @@ import {
   profilePickerLines,
 } from '../utils/gatewayProfilePicker';
 import { colors } from '../theme/colors';
+import { GATEWAY_AUTH_REPAIR_SETTINGS_STATUS } from '../services/gatewayClient';
 
 type GatewayProfilePickerProps = {
   profiles: GatewayProfile[];
@@ -16,6 +17,7 @@ type GatewayProfilePickerProps = {
   onRemove?: (profileId: string) => void;
   activeReachable?: boolean;
   activeConnecting?: boolean;
+  authNeedsRepair?: boolean;
   scanning?: boolean;
   scanProgress?: LanScanProgress | null;
   scanResult?: LanScanResult | null;
@@ -30,6 +32,7 @@ export default function GatewayProfilePicker({
   onRemove,
   activeReachable = false,
   activeConnecting = false,
+  authNeedsRepair = false,
   scanning = false,
   scanProgress = null,
   scanResult = null,
@@ -60,7 +63,11 @@ export default function GatewayProfilePicker({
           : null;
         const routeHint = rawRouteHint === 'USB' ? null : rawRouteHint;
         const meta = isActive
-          ? activeReachable
+          ? authNeedsRepair
+            ? routeHint
+              ? `${GATEWAY_AUTH_REPAIR_SETTINGS_STATUS} · ${routeHint}`
+              : GATEWAY_AUTH_REPAIR_SETTINGS_STATUS
+            : activeReachable
             ? routeHint
               ? `Connected · ${routeHint}`
               : 'Connected'
@@ -73,7 +80,9 @@ export default function GatewayProfilePicker({
                 : 'Cannot reach this computer'
           : routeHint ?? 'Select';
         const statusColor = isActive
-          ? activeReachable
+          ? authNeedsRepair
+            ? colors.warning
+            : activeReachable
             ? colors.success
             : activeConnecting
               ? colors.warning
@@ -107,8 +116,9 @@ export default function GatewayProfilePicker({
                 <Text
                   style={[
                     styles.meta,
-                    isActive && activeReachable ? styles.metaConnected : null,
-                    isActive && !activeReachable ? styles.metaUnreachable : null,
+                    isActive && activeReachable && !authNeedsRepair ? styles.metaConnected : null,
+                    isActive && authNeedsRepair ? styles.metaNeedsRepair : null,
+                    isActive && !activeReachable && !authNeedsRepair ? styles.metaUnreachable : null,
                   ]}
                 >
                   {meta}
@@ -204,6 +214,10 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   metaUnreachable: {
+    color: colors.warning,
+    fontWeight: '700',
+  },
+  metaNeedsRepair: {
     color: colors.warning,
     fontWeight: '700',
   },

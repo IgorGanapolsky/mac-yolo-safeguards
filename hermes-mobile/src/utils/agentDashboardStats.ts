@@ -30,7 +30,7 @@ export function resolveConnectionHealthLabel(
     return 'Demo preview';
   }
   if (health?.authMismatch) {
-    return 'Wrong API key';
+    return 'Needs re-pair';
   }
   if (macHttpReachable || health?.level === 'green') {
     return 'Computer linked';

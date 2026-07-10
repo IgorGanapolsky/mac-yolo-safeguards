@@ -1,5 +1,5 @@
 import type { LeashConnectionState } from './gatewayEndpoint';
-import { GATEWAY_WRONG_KEY_MESSAGE } from '../services/gatewayClient';
+import { GATEWAY_WRONG_KEY_MESSAGE, GATEWAY_AUTH_REPAIR_HEADER } from '../services/gatewayClient';
 
 export type OutboundDeliveryStatus = 'pending' | 'sent' | 'failed';
 
@@ -44,8 +44,8 @@ export function outboundDeliveryLabel(
   if (status === 'failed') {
     const reason = input.failureReason?.trim();
     if (reason) {
-      if (reason === GATEWAY_WRONG_KEY_MESSAGE) {
-        return '⚠ Wrong key — tap Computer above to refresh';
+      if (reason === GATEWAY_WRONG_KEY_MESSAGE || reason.includes(GATEWAY_AUTH_REPAIR_HEADER)) {
+        return '⚠ Wrong key — tap Computer → Re-pair';
       }
       return `⚠ ${truncateOutboundFailureReason(reason)}`;
     }
