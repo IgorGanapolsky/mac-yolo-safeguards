@@ -15,7 +15,7 @@ if [[ -z "${JAVA_HOME:-}" ]]; then
 fi
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-OUT_ANDROID="$ROOT/fastlane/metadata/android/en-US/images/phoneScreenshots"
+OUT_ANDROID="$ROOT/fastlane/store-capture/raw"
 OUT_IOS="$ROOT/fastlane/metadata/ios/en-US/screenshots"
 DEVICE="${HERMES_ANDROID_DEVICE:-R3CY90QPM7E}"
 PKG="com.iganapolsky.hermesmobile"
@@ -62,10 +62,10 @@ want_frame() {
 
 swipe_up() {
   local times="${1:-1}"
-  local w h wm_size
-  wm_size="$(adb -s "$DEVICE" shell 'wm size' 2>/dev/null | awk -F'[: x]+' '/Physical size/{print $2,$3; exit}')"
-  w="${wm_size%% *}"
-  h="${wm_size##* }"
+  local w h wm_line
+  wm_line="$(adb -s "$DEVICE" shell 'wm size' 2>/dev/null | awk '/Physical size/{sub(/^.*: /, ""); print; exit}')"
+  w="${wm_line%%x*}"
+  h="${wm_line##*x}"
   w="${w:-1080}"
   h="${h:-2340}"
   local x=$((w / 2))

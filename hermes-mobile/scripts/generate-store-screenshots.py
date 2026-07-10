@@ -9,7 +9,7 @@ from pathlib import Path
 from PIL import Image, ImageDraw, ImageFont
 
 ROOT = Path(__file__).resolve().parents[1]
-RAW_ANDROID = ROOT / "fastlane/metadata/android/en-US/images/phoneScreenshots"
+RAW_ANDROID = ROOT / "fastlane/store-capture/raw"
 RAW_IOS = ROOT / "fastlane/metadata/ios/en-US/screenshots"
 PROOFS = ROOT / "docs/proofs/device-test-2026-06-25"
 ICON = ROOT / "assets/icon.png"
