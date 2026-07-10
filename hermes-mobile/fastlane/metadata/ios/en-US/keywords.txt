@@ -1,1 +1,1 @@
-agent,cursor,claude,code,approve,mac,linux,windows,qr,pair,tailscale,leash,gateway,operator,coding,remote,safety,devtools
+agent,cursor,claude,code,approve,linux,windows,pair,tailscale,gateway,remote,control,openclaw
