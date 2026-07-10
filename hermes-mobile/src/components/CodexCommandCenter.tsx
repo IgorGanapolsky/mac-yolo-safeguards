@@ -45,7 +45,7 @@ function connectionCopy(
 const INACTIVE_RUN_PHASES = new Set(['completed', 'failed', 'idle']);
 
 function shouldShowMacTile(state: LeashConnectionState, macHttpReachable = false): boolean {
-  if (state === 'connected' || state === 'demo' || macHttpReachable) {
+  if (state === 'demo' || macHttpReachable) {
     return false;
   }
   return true;

@@ -216,6 +216,10 @@ import {
   isGatewayHealthPending,
   resolveEffectiveMacHttpOk,
 } from '../utils/gatewayConnection';
+import {
+  pairServerHostFromGatewayUrl,
+  resolvePairServerSetupParams,
+} from '../services/gatewayDiscovery';
 import { isGatewayLiveForDelivery } from '../utils/outboundDeliveryStatus';
 import {
   OUTBOUND_PENDING_RECOVERY_MS,
@@ -2496,6 +2500,21 @@ export default function ChatScreen() {
         await saveSettings(nextSettings, apiKey);
       }
 
+      if (health?.authMismatch) {
+        const pairHost = pairServerHostFromGatewayUrl(
+          effectiveGatewayUrl || nextSettings.gatewayUrl,
+        );
+        if (pairHost) {
+          const setup = await resolvePairServerSetupParams(pairHost);
+          const freshKey = setup?.apiKey?.trim();
+          if (freshKey) {
+            const gatewayUrl = setup?.gatewayUrl?.trim() || effectiveGatewayUrl;
+            nextSettings = { ...nextSettings, gatewayUrl };
+            await saveSettings(nextSettings, freshKey);
+          }
+        }
+      }
+
       await scanForGatewayProfiles();
       await autoConnectGateway();
       await retryGatewayBootstrap();
@@ -2530,10 +2549,11 @@ export default function ChatScreen() {
     isDemo,
     settings,
     apiKey,
+    health?.authMismatch,
+    effectiveGatewayUrl,
     saveSettings,
     gatewayProfiles,
     activeGatewayProfile?.id,
-    effectiveGatewayUrl,
     selectGatewayProfile,
     scanForGatewayProfiles,
     autoConnectGateway,
