@@ -18,7 +18,7 @@ npm start
 
 Internal QA (Firebase APK): [docs/FIREBASE_CI.md](./docs/FIREBASE_CI.md)
 
-Store (Play Production, LLC org — no tester list): [docs/PLAY_RELEASE.md](./docs/PLAY_RELEASE.md)
+Store (Play Production, Igor Ganapolsky — no tester list): [docs/PLAY_RELEASE.md](./docs/PLAY_RELEASE.md)
 
 ```bash
 REQUIRE_EAS_PROJECT=1 npm run release:check

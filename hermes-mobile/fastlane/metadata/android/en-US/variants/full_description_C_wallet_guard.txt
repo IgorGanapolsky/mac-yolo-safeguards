@@ -25,4 +25,4 @@ SECURITY
 
 Requires a Mac running Hermes gateway. Install the free Mac watchdog at github.com/IgorGanapolsky/mac-yolo-safeguards.
 
-Publisher: Max Smith KDP LLC
+Publisher: Igor Ganapolsky
