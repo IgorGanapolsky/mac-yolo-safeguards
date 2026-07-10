@@ -28,6 +28,12 @@ describe('demoModePolicy', () => {
     expect(isDemoModeAllowed()).toBe(true);
   });
 
+  it('allows demo when EXPO_PUBLIC_STORE_REVIEW_DEMO env is set', () => {
+    process.env.EXPO_PUBLIC_STORE_REVIEW_DEMO = '1';
+    expect(isStoreReviewDemoBuild()).toBe(true);
+    expect(isDemoModeAllowed()).toBe(true);
+  });
+
   it('strips persisted demo mode on standard release builds', () => {
     expect(
       sanitizeDemoModeForRelease({
