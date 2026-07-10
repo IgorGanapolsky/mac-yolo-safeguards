@@ -164,6 +164,76 @@ describe('resolveChatMachineHeaderDisplay', () => {
     expect(display.machineEndpoint).toBe('127.0.0.1:8642');
   });
 
+  it('borrows saved profile hostname for generic USB loopback while reconnecting', () => {
+    const usbProfile = {
+      id: 'mac_127_0_0_1',
+      label: 'Computer via USB',
+      gatewayUrl: 'http://127.0.0.1:8642',
+      localIp: '127.0.0.1',
+      addedAt: '2026-06-24T00:00:00.000Z',
+    };
+    const namedProfile = {
+      id: 'mac_127_0_0_1',
+      label: 'Computer via USB',
+      gatewayUrl: 'http://127.0.0.1:8642',
+      hostname: 'Igors-Mac-mini.local',
+      localIp: '127.0.0.1',
+      addedAt: '2026-06-24T00:00:00.000Z',
+    };
+    const display = resolveChatMachineHeaderDisplay({
+      activeProfile: usbProfile,
+      profiles: [namedProfile],
+      gatewayUrl: 'http://127.0.0.1:8642',
+      health: null,
+      connectionMode: 'gateway',
+      isPaired: false,
+      workers: [],
+      savedMacCount: 1,
+    });
+    expect(display.machineLabel).toBe('Igors-Mac-mini');
+    expect(display.machineEndpoint).toBe('USB');
+  });
+
+  it('borrows matching saved computer name from stale health during USB reconnect', () => {
+    const display = resolveChatMachineHeaderDisplay({
+      activeProfile: {
+        id: 'mac_usb',
+        label: 'Computer via USB',
+        gatewayUrl: 'http://127.0.0.1:8642',
+        localIp: '127.0.0.1',
+        addedAt: '2026-06-24T00:00:00.000Z',
+      },
+      profiles: [
+        {
+          id: 'mac_usb',
+          label: 'Computer via USB',
+          gatewayUrl: 'http://127.0.0.1:8642',
+          localIp: '127.0.0.1',
+          addedAt: '2026-06-24T00:00:00.000Z',
+        },
+        {
+          id: 'mac_mini',
+          label: 'Igors-Mac-mini',
+          gatewayUrl: 'http://100.94.135.78:8642',
+          hostname: 'Igors-Mac-mini.local',
+          addedAt: '2026-06-24T00:00:00.000Z',
+        },
+      ],
+      gatewayUrl: 'http://127.0.0.1:8642',
+      health: {
+        level: 'red',
+        checkedAt: '2026-06-24T00:00:00.000Z',
+        hostname: 'Igors-MacBook-Pro.local',
+      },
+      connectionMode: 'gateway',
+      isPaired: false,
+      workers: [],
+      savedMacCount: 2,
+    });
+    expect(display.machineLabel).toBe('Igors-MacBook-Pro');
+    expect(display.machineEndpoint).toBe('USB');
+  });
+
   it('keeps saved Mac name in relay mode when unpaired with a direct profile', () => {
     const display = resolveChatMachineHeaderDisplay({
       activeProfile: {
