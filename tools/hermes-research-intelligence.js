@@ -63,9 +63,47 @@ const DEFAULT_RESEARCH_ITEMS = [
     confidence: 'operator_paste_unverified',
     text: 'Loop engineering, autonomous skill compilation, ingestion agents, hybrid vector graph RAG, and curator loops.',
   },
+  {
+    id: 'specification-driven-design',
+    title: 'Specification-Driven Design for governed AI agent work',
+    url: 'operator-pdf-audit',
+    confidence: 'local_pdf_audit',
+    text: 'Specification-Driven Design decomposes work into modular markdown specifications, governance guardrails, requirement traceability, DevOps/testing artifacts, and continuous gap analysis before execution.',
+  },
 ];
 
 const SIGNALS = [
+  {
+    key: 'specification-driven-design',
+    label: 'Specification-Driven Design governance and gap-analysis lane',
+    patterns: [
+      /\bspecification[- ]driven design\b/i,
+      /\bmodular markdown specifications?\b/i,
+      /\bcontinuous gap analysis\b/i,
+      /\brequirements? traceability\b/i,
+      /\bgovernance\b/i,
+      /\bguardrails?\b/i,
+      /\bplanless execution\b/i,
+      /\bsystem decomposition\b/i,
+      /\bdevops\/testing artifacts?\b/i,
+      /\bsecure,? production[- ]ready\b/i,
+    ],
+    roi: 10,
+    impact: 'Turns ambiguous agent asks into source-backed specs, requirement-to-test traces, and explicit execution gates before code changes.',
+    existingTools: [
+      'tools/agent-decision-stack.js',
+      'tools/hermes-retrieval-harness.js',
+      'tools/hermes-self-harness.js',
+      'tools/hermes-loop-state.js',
+    ],
+    action: 'Create or update a modular spec, retrieve local citations, map requirements to tests/gates, then execute only the bounded implementation lane.',
+    verification: [
+      'node tests/test-hermes-retrieval-harness.js',
+      'node tests/test-hermes-research-intelligence.js',
+      'node tools/hermes-loop-state.js --json --no-write',
+    ],
+    guardrail: 'require_spec_traceability_before_execution',
+  },
   {
     key: 'hybrid-rag',
     label: 'Hybrid RAG and source-grounded knowledge base',
