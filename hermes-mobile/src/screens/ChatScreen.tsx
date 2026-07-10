@@ -108,7 +108,7 @@ import {
   ensureSessionCreatedAt,
 } from '../utils/sessionDisplay';
 import { findResumableSessionByPromptTitle } from '../utils/resumeExistingSession';
-import { formatMessageTimestamp, prepareMessagesForDisplay } from '../utils/chatMessageDisplay';
+import { formatMessageTimestamp, prepareMessagesForDisplay, resolveMessageTimestamp } from '../utils/chatMessageDisplay';
 import {
   isMessageBodyEmpty,
   isMessageDisplayEmpty,
@@ -655,6 +655,7 @@ export default function ChatScreen() {
 
   const [queuedOutboundCount, setQueuedOutboundCount] = useState(0);
   const [pinnedOutboundText, setPinnedOutboundText] = useState<string | null>(null);
+  const [pinnedOutboundSentAt, setPinnedOutboundSentAt] = useState<string | null>(null);
   const [pinnedOutboundStatus, setPinnedOutboundStatus] = useState<'pending' | 'sent' | 'failed'>(
     'pending',
   );
@@ -2214,6 +2215,7 @@ export default function ChatScreen() {
       pendingOutboundSendsRef.current = 0;
       setPinnedOutboundStatus('failed');
       setPinnedOutboundText(null);
+      setPinnedOutboundSentAt(null);
     },
     [commitMessages],
   );
@@ -2281,6 +2283,7 @@ export default function ChatScreen() {
       pendingOutboundSendsRef.current = 0;
       setPinnedOutboundStatus('failed');
       setPinnedOutboundText(null);
+      setPinnedOutboundSentAt(null);
       setRunProgress((prev) =>
         prev && prev.phase !== 'completed' && prev.phase !== 'failed'
           ? { ...prev, phase: 'failed', detail: OUTBOUND_STUCK_FAILURE_REASON }
@@ -2348,6 +2351,7 @@ export default function ChatScreen() {
       return;
     }
     setPinnedOutboundText(null);
+    setPinnedOutboundSentAt(null);
     setPinnedOutboundStatus('pending');
     setRunProgress(null);
     transcriptDigestRef.current = '';
@@ -2472,6 +2476,7 @@ export default function ChatScreen() {
     setMacRetryBusy(true);
     setRunProgress(null);
     setPinnedOutboundText(null);
+    setPinnedOutboundSentAt(null);
     setPinnedOutboundStatus('pending');
     setErrorMessage((prev) => (prev && isConnectivityMessage(prev) ? null : prev));
 
@@ -2574,6 +2579,7 @@ export default function ChatScreen() {
     setErrorMessage(null);
     setMessages([]);
     setPinnedOutboundText(null);
+    setPinnedOutboundSentAt(null);
     setPinnedOutboundStatus('pending');
     setTelegramReplySessionId('');
     transcriptDigestRef.current = '';
@@ -3238,7 +3244,7 @@ export default function ChatScreen() {
           listIndex={index}
           originalIndex={originalIndex}
           messages={messages}
-          timeLabel={formatMessageTimestamp(message.created_at ?? message.timestamp)}
+          timeLabel={formatMessageTimestamp(resolveMessageTimestamp(message))}
           inlineNudge={inlineNudge}
           includeToolActivity={settings.includeToolActivity ?? false}
           isTelegramInbox={isTelegramInbox}
@@ -3291,17 +3297,19 @@ export default function ChatScreen() {
   const commitOutboundUserBubble = (text: string): string => {
     const trimmed = text.trim();
     outboundMessageSeqRef.current += 1;
+    const sentAt = new Date().toISOString();
     const userMessage: HermesMessage = {
       id: `user-${Date.now()}-${outboundMessageSeqRef.current}`,
       role: 'user',
       content: trimmed,
-      created_at: new Date().toISOString(),
+      created_at: sentAt,
       outboundStatus: 'pending',
     };
     pendingOutboundSendsRef.current += 1;
     commitMessages((prev) => [...prev, userMessage]);
     setRecentChatsDismissed(true);
     setPinnedOutboundText(trimmed);
+    setPinnedOutboundSentAt(sentAt);
     setPinnedOutboundStatus('pending');
     setToolStatus(null);
     userScrolledUpRef.current = false;
@@ -3496,6 +3504,7 @@ export default function ChatScreen() {
       }
       setPinnedOutboundStatus('failed');
       setPinnedOutboundText(null);
+      setPinnedOutboundSentAt(null);
       outboundUserBubbleCommitted = false;
       committedUserMessageId = null;
     };
@@ -3692,6 +3701,7 @@ export default function ChatScreen() {
       setPinnedOutboundStatus(status);
       if (status === 'failed') {
         setPinnedOutboundText(null);
+        setPinnedOutboundSentAt(null);
       }
       commitMessages((prev) =>
         prev.map((message) =>
@@ -4290,6 +4300,7 @@ export default function ChatScreen() {
     if (inTranscript && pinnedOutboundStatus === 'sent' && !isSending && !isActiveChatRun(runProgress)) {
       const timer = setTimeout(() => {
         setPinnedOutboundText(null);
+        setPinnedOutboundSentAt(null);
         setPinnedOutboundStatus('pending');
       }, 1200);
       return () => clearTimeout(timer);
@@ -4403,6 +4414,7 @@ export default function ChatScreen() {
   const clearFailedOutboundState = useCallback(() => {
     setRunProgress(null);
     setPinnedOutboundText(null);
+    setPinnedOutboundSentAt(null);
     setPinnedOutboundStatus('pending');
     setErrorMessage((prev) => (prev && isConnectivityMessage(prev) ? null : prev));
   }, []);
@@ -4461,6 +4473,7 @@ export default function ChatScreen() {
     setRunProgress(null);
     setErrorMessage(null);
     setPinnedOutboundText(null);
+    setPinnedOutboundSentAt(null);
     setPinnedOutboundStatus('pending');
     const retryText = lastFailedSendTextRef.current?.trim();
     if (retryText) {
@@ -5053,6 +5066,7 @@ export default function ChatScreen() {
         {showSubmittedPromptStrip && pinnedOutboundText ? (
           <SubmittedPromptStrip
             text={pinnedOutboundText}
+            sentAt={pinnedOutboundSentAt ?? undefined}
             status={pinnedOutboundStatus}
             connectionState={connectionState}
             macHttpOk={effectiveMacHttpOk}

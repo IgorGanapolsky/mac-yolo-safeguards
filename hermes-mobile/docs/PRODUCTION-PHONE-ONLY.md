@@ -24,15 +24,15 @@ After the first **production** APK install (`updates.enabled: true`, channel `pr
 - The app checks for updates **on cold start** (`checkAutomatically: ON_LOAD`).
 - No USB reinstall required for JS-only fixes; native changes still need a new APK.
 
-## Pairing
+## Pairing (operator dogfood only)
 
-Use Mac mini over Tailscale, not MacBook LAN:
+Use your own Mac over Tailscale or LAN — never paste fleet credentials into store review fields:
 
 ```bash
-node tools/hermes-mobile-pair.js --mini-tailscale
+node tools/hermes-mobile-pair.js --mini-tailscale   # example: pair to a specific fleet Mac
 ```
 
-Target gateway should be `http://100.94.135.78:8642` (or current mini Tailscale IP).
+Target gateway is whatever machine the operator runs Hermes on (see pairing script output).
 
 ## Evidence
 

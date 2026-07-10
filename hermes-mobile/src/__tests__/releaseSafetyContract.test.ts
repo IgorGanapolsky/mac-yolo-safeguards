@@ -5,6 +5,9 @@ import {
   HERMES_ANDROID_OPERATOR_EMAIL,
   HERMES_IOS_APPLE_ID_EMAIL,
   HERMES_MOBILE_ANDROID_PACKAGE,
+  HERMES_PLAY_CONSOLE_ADMIN_EMAIL,
+  HERMES_PLAY_DEVELOPER_ID,
+  HERMES_PLAY_DEVELOPER_PUBLIC_NAME,
 } from '../constants/appIdentity';
 import firebaseProject from '../../firebase-project.json';
 
@@ -22,6 +25,12 @@ describe('appIdentity', () => {
     expect(HERMES_ANDROID_OPERATOR_EMAIL).toBe('iganapolsky@gmail.com');
     expect(HERMES_IOS_APPLE_ID_EMAIL).toBe('igor.ganapolsky@icloud.com');
     expect(HERMES_ANDROID_OPERATOR_EMAIL).not.toBe(HERMES_IOS_APPLE_ID_EMAIL);
+  });
+
+  it('pins Play publisher to Igor Ganapolsky (not Tactical Training)', () => {
+    expect(HERMES_PLAY_CONSOLE_ADMIN_EMAIL).toBe('iganapolsky@gmail.com');
+    expect(HERMES_PLAY_DEVELOPER_PUBLIC_NAME).toBe('IgorGanapolsky');
+    expect(HERMES_PLAY_DEVELOPER_ID).toBe('5120393192891708058');
   });
 
   it('points Firebase at hermes-mobile-dist-78361 only', () => {
@@ -66,10 +75,18 @@ describe('Hermes Mobile release docs', () => {
     }
   });
 
-  it('documents hermes-mobile-publisher Play service account convention', () => {
+  it('documents Igor Ganapolsky Play publisher identity', () => {
     const playRelease = read('hermes-mobile/docs/PLAY_RELEASE.md');
+    expect(playRelease).toContain('iganapolsky@gmail.com');
+    expect(playRelease).toContain('IgorGanapolsky');
+    expect(playRelease).toContain('5120393192891708058');
     expect(playRelease).toContain('hermes-mobile-publisher');
-    expect(playRelease).toContain('Hermes Mobile');
+    if (playRelease.toLowerCase().includes('tactical training')) {
+      expect(playRelease.toLowerCase()).toMatch(/do not/);
+    }
+    if (playRelease.includes('ig5973700')) {
+      expect(playRelease.toLowerCase()).toMatch(/do not/);
+    }
   });
 });
 
@@ -90,7 +107,7 @@ describe('release safety contract', () => {
     expect(buildProps?.[1]?.android?.buildArchs).toEqual(['arm64-v8a']);
   });
 
-  it('EAS submit targets Play production track (LLC org)', () => {
+  it('EAS submit targets Play production track (Igor Ganapolsky account)', () => {
     const eas = JSON.parse(read('hermes-mobile/eas.json'));
     expect(eas.submit.production.android.track).toBe('production');
   });
@@ -337,6 +354,17 @@ describe('release safety contract', () => {
     expect(workflow).toContain('assembleDebug');
     expect(workflow).not.toContain('assembleRelease');
     expect(workflow).toContain('SENTRY_DISABLE_AUTO_UPLOAD');
+  });
+
+  it('iOS App Store production EAS enables store review demo only on iOS', () => {
+    const eas = JSON.parse(read('hermes-mobile/eas.json'));
+    expect(eas.build.production.ios.env.EXPO_PUBLIC_STORE_REVIEW_DEMO).toBe('1');
+    expect(eas.build.production.env.EXPO_PUBLIC_STORE_REVIEW_DEMO).toBeUndefined();
+    const safeNotes = read('hermes-mobile/scripts/asc-review-notes-template.txt');
+    expect(safeNotes).toContain('Demo mode');
+    expect(safeNotes).toContain('macOS, Linux, or Windows');
+    expect(safeNotes).not.toMatch(/hermes:\/\/setup\?demo=1/i);
+    expect(safeNotes).not.toMatch(/ts\.net/);
   });
 
   it('iOS simulator E2E builds with automation deep links enabled', () => {

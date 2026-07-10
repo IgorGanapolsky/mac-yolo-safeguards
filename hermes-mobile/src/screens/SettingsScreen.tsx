@@ -36,6 +36,7 @@ import GatewayOpsSection from '../components/GatewayOpsSection';
 import { secureCredentials } from '../services/secureCredentials';
 import { requestHermesNotificationPermission } from '../services/approvalNotifications';
 import { AVATARS, PERSONAS } from '../utils/hermesPersona';
+import { consumeSettingsPairQrOnFocus } from '../utils/storeCaptureDeepLink';
 
 export default function SettingsScreen() {
   const {
@@ -95,6 +96,14 @@ export default function SettingsScreen() {
   const [isScanningMacs, setIsScanningMacs] = useState(false);
   const [qrScannerVisible, setQrScannerVisible] = useState(false);
   const [glassesConnected, setGlassesConnected] = useState(false);
+  useFocusEffect(
+    useCallback(() => {
+      if (consumeSettingsPairQrOnFocus()) {
+        setQrScannerVisible(true);
+      }
+    }, []),
+  );
+
   const scrollRef = useRef<ScrollView>(null);
   const gatewayUrlInputRef = useRef<TextInput>(null);
   const relayRouteDisplay = useMemo(

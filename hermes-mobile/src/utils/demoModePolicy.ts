@@ -2,14 +2,22 @@ import type { GatewaySettings } from '../types/gateway';
 import Constants from 'expo-constants';
 
 /**
- * Demo/sandbox is for local dev and E2E automation builds only.
- * Release APKs must not persist or honor demo deep links — they poison real sessions.
+ * Demo/sandbox is for local dev, E2E automation, and App Store review builds only.
+ * Standard release APKs/AABs must not persist or honor demo deep links — they poison real sessions.
  */
-export function isDemoModeAllowed(): boolean {
+export function isStoreReviewDemoBuild(): boolean {
+  const extra = Constants.expoConfig?.extra as Record<string, unknown> | undefined;
   return (
-    __DEV__ ||
-    isE2eAutomationBuild()
+    process.env.EXPO_PUBLIC_STORE_REVIEW_DEMO === '1' ||
+    process.env.EXPO_PUBLIC_STORE_REVIEW_DEMO === 'true' ||
+    extra?.storeReviewDemo === true ||
+    extra?.storeReviewDemo === 'true' ||
+    extra?.storeReviewDemo === '1'
   );
+}
+
+export function isDemoModeAllowed(): boolean {
+  return __DEV__ || isE2eAutomationBuild() || isStoreReviewDemoBuild();
 }
 
 export function isE2eAutomationBuild(): boolean {

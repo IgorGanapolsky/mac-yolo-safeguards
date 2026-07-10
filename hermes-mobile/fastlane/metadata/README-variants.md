@@ -53,4 +53,14 @@ cp fastlane/metadata/android/en-US/variants/short_description_C_wallet_guard.txt
 cd hermes-mobile && bundle exec fastlane supply --skip_upload_apk --skip_upload_aab
 ```
 
-Default shipped copy = **Variant A** in parent `en-US/` folders.
+## Hybrid C wedge (2026-07-09) — active shipped copy
+
+Active `en-US/` short description + iOS subtitle/promo use **Variant C hybrid** (own-Mac + $19.99 vs cloud credits) per [MONETIZATION-PROMOTION.md](../../docs/MONETIZATION-PROMOTION.md). Variant files updated to match for Play/Apple experiments. Full descriptions merge safety + Replit wedge in opening paragraph.
+
+| Field | Hybrid C copy | Limit |
+|-------|---------------|-------|
+| Play short | `Your Mac, not cloud credits. Leash Pro $19.99 — approve AI from phone.` | 80 |
+| iOS subtitle | `Own Mac. No cloud credit burn` | 30 |
+| iOS promo | Control AI on your Mac… $19.99/mo vs credit burn… | 170 |
+
+Suggested experiment: **Short description A (safety) vs C hybrid (wallet + price)** — 7 days, metric first-time installers retained.

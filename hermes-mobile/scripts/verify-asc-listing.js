@@ -2,6 +2,7 @@
 /** Query ASC listing + IAP status for Hermes Mobile 1.0 */
 const path = require('path');
 const { loadEnv, ascGet } = require('./asc-api');
+const { findReviewNotesViolations } = require('./asc-review-notes-guard');
 
 const ROOT = path.join(__dirname, '..');
 const LEASH_PRODUCT_ID = 'thumbgate_leash_monthly';
@@ -112,38 +113,67 @@ async function main() {
   let privacyPolicyUrl = null;
   try {
     const info = await ascGet(`/v1/apps/${appId}/appInfos?limit=1`);
-    privacyPolicyUrl = info.data?.[0]?.attributes?.privacyPolicyUrl ?? null;
+    const infoId = info.data?.[0]?.id;
+    if (infoId) {
+      const locs = await ascGet(`/v1/appInfos/${infoId}/appInfoLocalizations?limit=20`);
+      const enUs = (locs.data || []).find((l) => l.attributes?.locale === 'en-US');
+      privacyPolicyUrl = enUs?.attributes?.privacyPolicyUrl ?? null;
+    }
   } catch {
     /* optional */
   }
 
-  console.log(
-    JSON.stringify(
-      {
-        appName: app.data?.attributes?.name,
-        bundleId: app.data?.attributes?.bundleId,
-        version10: v10
-          ? {
-              state: v10.attributes?.appStoreState,
-              version: v10.attributes?.versionString,
-            }
-          : null,
-        localizations,
-        screenshots,
-        subscriptionGroups,
-        subscriptions: subs,
-        leashSubscription: leash
-          ? {
-              readyToSubmit: leashReady && leashMetadataGaps.length === 0,
-              metadataGaps: leashMetadataGaps,
-            }
-          : null,
-        privacyPolicyUrl,
-      },
-      null,
-      2,
-    ),
-  );
+  let reviewNotes = null;
+  let reviewNotesSafe = { ok: true, violations: [] };
+  if (v10) {
+    try {
+      const detail = await ascGet(`/v1/appStoreVersions/${v10.id}/appStoreReviewDetail`);
+      reviewNotes = detail.data?.attributes?.notes ?? null;
+      const violations = findReviewNotesViolations(reviewNotes || '');
+      reviewNotesSafe = { ok: violations.length === 0, violations };
+    } catch {
+      reviewNotesSafe = { ok: false, violations: ['review_detail_unavailable'] };
+    }
+  }
+
+  const payload = {
+    appName: app.data?.attributes?.name,
+    bundleId: app.data?.attributes?.bundleId,
+    version10: v10
+      ? {
+          state: v10.attributes?.appStoreState,
+          version: v10.attributes?.versionString,
+        }
+      : null,
+    localizations,
+    screenshots,
+    subscriptionGroups,
+    subscriptions: subs,
+    leashSubscription: leash
+      ? {
+          readyToSubmit: leashReady && leashMetadataGaps.length === 0,
+          metadataGaps: leashMetadataGaps,
+        }
+      : null,
+    privacyPolicyUrl,
+    reviewNotes: reviewNotes
+      ? {
+          len: reviewNotes.length,
+          hasDemo: /Demo mode/i.test(reviewNotes),
+          safe: reviewNotesSafe.ok,
+          violations: reviewNotesSafe.violations,
+        }
+      : null,
+  };
+
+  console.log(JSON.stringify(payload, null, 2));
+
+  if (reviewNotesSafe.violations.some((v) => v !== 'review_detail_unavailable')) {
+    console.error(
+      `ASC review notes guard FAILED: ${reviewNotesSafe.violations.join(', ')} — run node scripts/patch-asc-review-notes.js`,
+    );
+    process.exit(1);
+  }
 }
 
 main().catch((err) => {
