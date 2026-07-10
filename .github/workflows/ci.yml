@@ -59,6 +59,8 @@ jobs:
           for f in tests/test-*.js; do
             case "$f" in
               tests/test-mac-text-hotkeys-config.js) continue ;;
+              # Live hermes binary + ~/.hermes env; verified on Igor Macs only.
+              tests/test-hermes-yolo.js) continue ;;
             esac
             if node "$f" >/tmp/node-test.log 2>&1; then
               echo "ok   $f"
