@@ -1,1 +1,1 @@
-AI agent,cursor,claude code,developer tools,approve,mac gateway,hermes,openclaw,automation,safety
+agent,cursor,claude,code,approve,mac,linux,windows,qr,pair,tailscale,leash,gateway,operator,coding,remote,safety,devtools
