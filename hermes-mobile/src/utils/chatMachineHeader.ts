@@ -2,6 +2,7 @@ import type { GatewayHealthSnapshot } from '../types/gateway';
 import type { GatewayProfile } from '../types/gatewayProfile';
 import type { ConnectionMode } from '../types/gateway';
 import type { RelayWorker } from '../types/mobileRelay';
+import { GATEWAY_WRONG_KEY_MESSAGE } from '../services/gatewayClient';
 import { isGenericMachineLabel, profileDisplayName } from '../services/gatewayProfiles';
 import type { LeashConnectionState } from './gatewayEndpoint';
 import { formatGatewayEndpointLine, formatGatewayMachineParts } from './gatewayEndpoint';
@@ -141,6 +142,7 @@ export function formatMacConnectionRetryBanner(input: {
   activeProfile?: GatewayProfile | null;
   machineLabel?: string;
   machineEndpoint?: string;
+  authMismatch?: boolean;
 }): string {
   const machineName = resolveMachineDisplayName(
     input.activeProfile,
@@ -160,6 +162,12 @@ export function formatMacConnectionRetryBanner(input: {
         : machineName !== 'Hermes account relay' && !/^(http|https)$/i.test(machineName)
           ? machineName
           : 'your computer';
+
+  if (input.authMismatch) {
+    return label === 'your computer'
+      ? `${GATEWAY_WRONG_KEY_MESSAGE} — tap to re-pair`
+      : `${GATEWAY_WRONG_KEY_MESSAGE} (${label}) — tap to re-pair`;
+  }
 
   if (input.connectionState === 'connecting' && !input.connectingStuck) {
     return label === 'your computer'

@@ -259,6 +259,29 @@ describe('formatMacConnectionRetryBanner', () => {
     expect(text).not.toMatch(/\bhttp\b.*\bhttp\b/i);
     expect(text).toContain('your computer');
   });
+
+  it('shows re-pair copy when auth mismatches instead of tap to retry', () => {
+    const text = formatMacConnectionRetryBanner({
+      connectionState: 'connected',
+      gatewayUrl: 'http://100.94.135.78:8642',
+      health: {
+        level: 'green',
+        checkedAt: '2026-06-24T00:00:00.000Z',
+        authMismatch: true,
+      },
+      activeProfile: {
+        id: 'mini',
+        label: 'Mac mini',
+        gatewayUrl: 'http://100.94.135.78:8642',
+        addedAt: '2026-06-24T00:00:00.000Z',
+      },
+      machineLabel: 'Igors-Mac-mini',
+      machineEndpoint: 'Tailscale',
+      authMismatch: true,
+    });
+    expect(text).toBe('Wrong key for this computer (Igors-Mac-mini) — tap to re-pair');
+    expect(text).not.toContain('tap to retry');
+  });
 });
 
 describe('profileDisplayName generic labels', () => {

@@ -17,16 +17,32 @@ describe('outboundDeliveryStatus', () => {
     ).toBe('✓ Sent');
   });
 
-  it('shows sent when live socket is connected', () => {
+  it('shows waiting instead of sent when relay is up but Mac HTTP is down', () => {
     expect(
       outboundDeliveryLabel('sent', { connectionState: 'connected', macHttpOk: false }),
-    ).toBe('✓ Sent');
+    ).toBe('○ Waiting for computer…');
   });
 
   it('shows no-reply hint when send failed but Mac health is ok', () => {
     expect(
       outboundDeliveryLabel('failed', { connectionState: 'connected', macHttpOk: true }),
     ).toBe('⚠ No reply — tap ↑ again');
+  });
+
+  it('does not treat relay connected as live when Mac HTTP auth failed', () => {
+    expect(
+      outboundDeliveryLabel('failed', { connectionState: 'connected', macHttpOk: false }),
+    ).toBe("⚠ Couldn't reach your computer — tap Computer above");
+  });
+
+  it('shows wrong-key repair hint when failure reason is auth mismatch', () => {
+    expect(
+      outboundDeliveryLabel('failed', {
+        connectionState: 'connected',
+        macHttpOk: false,
+        failureReason: 'Wrong key for this computer',
+      }),
+    ).toBe('⚠ Wrong key — tap Computer above to refresh');
   });
 
   it('shows reachability hint when send failed and Mac health is down', () => {

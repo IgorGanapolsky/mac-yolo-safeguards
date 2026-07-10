@@ -46,23 +46,34 @@
         "NSPrivacyAccessedAPITypes": [
           {
             "NSPrivacyAccessedAPIType": "NSPrivacyAccessedAPICategoryFileTimestamp",
-            "NSPrivacyAccessedAPITypeReasons": ["C617.1", "0A2A.1", "3B52.1"]
+            "NSPrivacyAccessedAPITypeReasons": [
+              "C617.1",
+              "0A2A.1",
+              "3B52.1"
+            ]
           },
           {
             "NSPrivacyAccessedAPIType": "NSPrivacyAccessedAPICategoryUserDefaults",
-            "NSPrivacyAccessedAPITypeReasons": ["CA92.1"]
+            "NSPrivacyAccessedAPITypeReasons": [
+              "CA92.1"
+            ]
           },
           {
             "NSPrivacyAccessedAPIType": "NSPrivacyAccessedAPICategoryDiskSpace",
-            "NSPrivacyAccessedAPITypeReasons": ["E174.1", "85F4.1"]
+            "NSPrivacyAccessedAPITypeReasons": [
+              "E174.1",
+              "85F4.1"
+            ]
           },
           {
             "NSPrivacyAccessedAPIType": "NSPrivacyAccessedAPICategorySystemBootTime",
-            "NSPrivacyAccessedAPITypeReasons": ["35F9.1"]
+            "NSPrivacyAccessedAPITypeReasons": [
+              "35F9.1"
+            ]
           }
         ]
       },
-      "buildNumber": "6"
+      "buildNumber": "12"
     },
     "android": {
       "adaptiveIcon": {
@@ -110,7 +121,9 @@
           "android": {
             "usesCleartextTraffic": true,
             "softwareKeyboardLayoutMode": "resize",
-            "buildArchs": ["arm64-v8a"],
+            "buildArchs": [
+              "arm64-v8a"
+            ],
             "enableMinifyInReleaseBuilds": true,
             "enableShrinkResourcesInReleaseBuilds": true,
             "extraProguardRules": "# Play Billing (expo-iap)\n-keep class com.android.billingclient.api.** { *; }\n-dontwarn com.android.billingclient.api.**\n# ML Kit barcode + libbarhopper (expo-camera QR scanner)\n-keep class com.google.mlkit.** { *; }\n-keep class com.google.android.gms.internal.mlkit_vision_** { *; }\n-keep class com.google.android.libraries.barhopper.** { *; }\n-keep class com.google.android.gms.vision.** { *; }\n-dontwarn com.google.mlkit.**\n-dontwarn com.google.android.gms.internal.mlkit_vision_**\n# react-native-reanimated (ships no consumer rules)\n-keep class com.swmansion.reanimated.** { *; }\n-keep class com.swmansion.gesturehandler.** { *; }\n# JNI / reflection native methods safety net\n-keepclasseswithmembernames class * { native <methods>; }"
