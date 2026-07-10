@@ -37,11 +37,13 @@ on:
       - 'hermes-mobile/**'
       - '.github/workflows/mobile-e2e.yml'
       - '.github/workflows/mobile-ota.yml'
+  # NO `paths:` filter on pull_request. This job's check name is a REQUIRED status
+  # check on `main`. A path-filtered workflow that does not trigger reports no check
+  # at all, so GitHub blocks the PR forever — that is what stranded every PR touching
+  # no hermes-mobile file (#87, #106, #114). A job SKIPPED via `if:` does report, and
+  # branch protection treats a skipped required check as satisfied. So: always trigger
+  # the workflow, and skip the expensive emulator job when mobile files are untouched.
   pull_request:
-    paths:
-      - 'hermes-mobile/**'
-      - '.github/workflows/mobile-e2e.yml'
-      - '.github/workflows/mobile-ota.yml'
 
 # One global Maestro emulator slot: parallel PR branches used per-ref groups with
 # cancel-in-progress, which cancelled each other's ship-guard runs and left checks CANCELLED.
@@ -51,8 +53,37 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  # Cheap gate (~20s): decides whether the emulator job is relevant to this PR.
+  # On push/workflow_dispatch it always reports true so main keeps its post-merge guard.
+  changes:
+    name: Detect hermes-mobile changes
+    runs-on: ubuntu-latest
+    outputs:
+      mobile: ${{ steps.filter.outputs.mobile }}
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          fetch-depth: 0
+      - id: filter
+        run: |
+          set -eu
+          if [ "${{ github.event_name }}" != "pull_request" ]; then
+            echo "mobile=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          base="${{ github.event.pull_request.base.sha }}"
+          head="${{ github.event.pull_request.head.sha }}"
+          if git diff --name-only "$base" "$head" \
+            | grep -qE '^(hermes-mobile/|\.github/workflows/mobile-(e2e|ota)\.yml$)'; then
+            echo "mobile=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "mobile=false" >> "$GITHUB_OUTPUT"
+          fi
+
   android-e2e:
     name: Maestro ship-guard (Android emulator)
+    needs: changes
+    if: needs.changes.outputs.mobile == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 45
     env:
