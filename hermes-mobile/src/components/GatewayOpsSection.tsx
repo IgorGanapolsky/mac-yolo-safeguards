@@ -30,6 +30,11 @@ import {
 import type { HermesCronJob, HermesSkill, HermesToolset } from '../types/gatewayApi';
 import { formatCronSchedule } from '../utils/sessionDisplay';
 import { formatToolsetLabel, toolsetStatusLine } from '../utils/opsToolsets';
+import ConnectionHealthHub from './ConnectionHealthHub';
+import AgentDashboardStrip from './AgentDashboardStrip';
+import { buildAgentDashboardStats } from '../utils/agentDashboardStats';
+import { formatGatewayModelPickerLabel, primaryGatewayModelLabel } from '../utils/gatewayCapabilitiesDisplay';
+import { isMacGatewayHttpOk } from '../utils/gatewayConnection';
 
 const DEMO_SKILLS: HermesSkill[] = [
   { name: 'mac-freeze-rescue', description: 'Rescue frozen / sluggish computer (macOS)', category: 'ops' },
@@ -42,7 +47,15 @@ const DEMO_JOBS: HermesCronJob[] = [
 ];
 
 export default function GatewayOpsSection() {
-  const { settings, apiKey, health, connectionState, refreshHealth, effectiveGatewayUrl } = useGateway();
+  const {
+    settings,
+    apiKey,
+    health,
+    connectionState,
+    refreshHealth,
+    autoConnectGateway,
+    effectiveGatewayUrl,
+  } = useGateway();
   const isDemo =
     isDemoModeAllowed() && (settings.demoMode || connectionState === 'demo');
   const gatewayUrl = effectiveGatewayUrl || settings.gatewayUrl;
@@ -51,6 +64,7 @@ export default function GatewayOpsSection() {
   const [toolsets, setToolsets] = useState<HermesToolset[]>([]);
   const [jobs, setJobs] = useState<HermesCronJob[]>([]);
   const [featureFlags, setFeatureFlags] = useState<Record<string, boolean | string>>({});
+  const [gatewayModel, setGatewayModel] = useState<string | null>(null);
   const [initialLoading, setInitialLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | undefined>();
@@ -77,6 +91,7 @@ export default function GatewayOpsSection() {
   const loadOps = useCallback(async (options?: { refresh?: boolean }) => {
     if (isDemo) {
       setSkills(DEMO_SKILLS);
+      setGatewayModel('qwen3:8b-64k');
       setToolsets([
         { name: 'terminal', label: 'Terminal', enabled: true, configured: true, tools: ['run_command'] },
         { name: 'files', label: 'Files', enabled: true, configured: true, tools: ['read_file', 'write_file'] },
@@ -105,6 +120,7 @@ export default function GatewayOpsSection() {
         listJobs(gatewayUrl, apiKey),
       ]);
       setFeatureFlags(caps.features ?? {});
+      setGatewayModel(primaryGatewayModelLabel(caps));
       setSkills(skillList);
       applyToolsetsFromServer(toolsetList);
       setJobs(jobList);
@@ -237,9 +253,42 @@ export default function GatewayOpsSection() {
 
   const enabledFeatures = Object.entries(featureFlags).filter(([, v]) => v === true);
   const toolsetsWritable = featureFlags.toolsets_write === true || isDemo;
+  const macHttpReachable = isMacGatewayHttpOk(health);
+  const dashboardStats = buildAgentDashboardStats({
+    toolsets,
+    skills,
+    jobs,
+    gatewayModel,
+    connectionState,
+    health,
+    macHttpReachable,
+  });
+  const modelPickerLabel = gatewayModel
+    ? formatGatewayModelPickerLabel({
+        object: 'capabilities',
+        default_model: gatewayModel,
+        models: [gatewayModel],
+      })
+    : 'Model routed on your computer';
+
+  const handleRepairConnection = useCallback(async () => {
+    await refreshHealth();
+    await autoConnectGateway();
+    await loadOps({ refresh: true });
+  }, [autoConnectGateway, loadOps, refreshHealth]);
 
   return (
     <View testID="gateway-ops-section" accessible={true}>
+      <ConnectionHealthHub
+        connectionState={connectionState}
+        health={health}
+        macHttpReachable={macHttpReachable}
+        gatewayModelLabel={modelPickerLabel}
+        onRepairConnection={handleRepairConnection}
+      />
+
+      <AgentDashboardStrip stats={dashboardStats} />
+
       <View style={styles.healthRow}>
         <HealthPill level={health?.level ?? 'unknown'} />
         {isDemo ? <Text style={styles.demoPill}>DEMO</Text> : null}
