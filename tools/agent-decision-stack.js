@@ -24,6 +24,8 @@ Options:
   --graphify-query     Optional override for graphify query (default: --task).
   --skip-thumbgate     Skip ThumbGate lessons search.
   --skip-graphify      Skip graphify query.
+  --skip-local-retrieval
+                       Skip local repo retrieval harness query.
   --json               Print structured brief only.`;
 
 function parseArgs(argv) {
@@ -33,6 +35,7 @@ function parseArgs(argv) {
     graphifyQuery: '',
     skipThumbgate: false,
     skipGraphify: false,
+    skipLocalRetrieval: false,
     json: false,
     help: false,
   };
@@ -43,6 +46,7 @@ function parseArgs(argv) {
     else if (arg === '--graphify-query') args.graphifyQuery = argv[++i] || '';
     else if (arg === '--skip-thumbgate') args.skipThumbgate = true;
     else if (arg === '--skip-graphify') args.skipGraphify = true;
+    else if (arg === '--skip-local-retrieval') args.skipLocalRetrieval = true;
     else if (arg === '--json') args.json = true;
     else if (arg === '--help' || arg === '-h') args.help = true;
     else throw new Error(`Unknown argument: ${arg}`);
@@ -180,6 +184,34 @@ function graphifyQuery(task) {
   };
 }
 
+function localRetrieval(task) {
+  const harnessPath = path.join(REPO, 'tools', 'hermes-retrieval-harness.js');
+  if (!fs.existsSync(harnessPath)) {
+    return { skipped: true, reason: 'tools/hermes-retrieval-harness.js missing' };
+  }
+  try {
+    const { retrieve } = require(harnessPath);
+    const result = retrieve(task, {
+      repo: REPO,
+      limit: 5,
+      maxFiles: 4000,
+      maxBytes: 160000,
+    });
+    return {
+      query: task.slice(0, 200),
+      fileCount: result.fileCount,
+      citations: result.matches.map((match) => ({
+        path: match.path,
+        score: match.score,
+        reasons: match.reasons,
+        snippet: match.snippet,
+      })),
+    };
+  } catch (error) {
+    return { error: error.message || String(error) };
+  }
+}
+
 function recommendNextAction(brief) {
   const gh = brief.telemetry?.githubRun;
   if (gh?.status === 'in_progress') {
@@ -211,6 +243,9 @@ function buildBrief(args) {
   }
   if (!args.skipGraphify) {
     brief.rag.graphify = graphifyQuery(args.graphifyQuery || task);
+  }
+  if (!args.skipLocalRetrieval) {
+    brief.rag.localRetrieval = localRetrieval(args.graphifyQuery || task);
   }
   brief.telemetry.githubRun = extractGhRunFeatures(args.ghRun);
   brief.recommendation = recommendNextAction(brief);
@@ -244,6 +279,13 @@ function main() {
     }
     console.log('');
   }
+  if (brief.rag.localRetrieval?.citations?.length) {
+    console.log('## Local retrieval citations');
+    for (const citation of brief.rag.localRetrieval.citations) {
+      console.log(`- ${citation.path} score=${citation.score}`);
+    }
+    console.log('');
+  }
   if (brief.telemetry.githubRun && !brief.telemetry.githubRun.skipped) {
     console.log('## CI telemetry');
     console.log(JSON.stringify(brief.telemetry.githubRun, null, 2));
@@ -252,9 +294,21 @@ function main() {
   console.log(`## Recommendation\n${brief.recommendation}`);
 }
 
-try {
-  main();
-} catch (error) {
-  console.error(error.message || error);
-  process.exit(1);
+module.exports = {
+  buildBrief,
+  extractGhRunFeatures,
+  graphifyQuery,
+  localRetrieval,
+  parseArgs,
+  recommendNextAction,
+  thumbgateLessons,
+};
+
+if (require.main === module) {
+  try {
+    main();
+  } catch (error) {
+    console.error(error.message || error);
+    process.exit(1);
+  }
 }
