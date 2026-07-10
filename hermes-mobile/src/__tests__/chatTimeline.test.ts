@@ -9,7 +9,7 @@ describe('chatStreamEvents', () => {
       startedAtMs,
       detail: 'waiting for provider response (streaming)',
     });
-    expect(label).toContain('⌛ Working');
+    expect(label).toContain('⌛ Live streaming');
     expect(label).toContain('2 min');
     expect(label).toContain('waiting for provider response (streaming)');
   });

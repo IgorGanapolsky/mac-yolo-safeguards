@@ -185,7 +185,7 @@ export default function ApprovalsScreen() {
           {leashUnlocked
             ? settings.safetyMode || settings.glanceMode
               ? 'Approval-first Leash — approve blocked agent tools'
-              : 'Approve blocked agent tools from your phone'
+              : 'Approve blocked tools from your phone — tap notifications on lock screen'
             : `Paid add-on (${THUMBGATE_PRO_PRICE_LABEL}) via ${Platform.OS === 'ios' ? 'App Store' : 'Google Play'}`}
         </Text>
         {leashUnlocked ? (
