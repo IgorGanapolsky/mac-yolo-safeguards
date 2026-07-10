@@ -52,9 +52,18 @@ jobs:
       - name: Node tool unit tests
         run: |
           set -u
-          # tests/test-mac-text-hotkeys-config.js asserts against a real macOS
-          # user keybinding file under $HOME; it only passes on a configured
-          # workstation. Excluded until it reads a fixture instead.
+          # test-hermes-yolo.js spawns the real Hermes binary. The runner has no
+          # ~/.local/bin/hermes, so point the wrapper's HERMES_BIN override at a
+          # stub emitting the version string the test asserts on.
+          stub_dir="$(mktemp -d)"
+          printf '#!/bin/sh\necho "Hermes Agent 0.17.0 (ci-stub)"\n' > "$stub_dir/hermes"
+          chmod +x "$stub_dir/hermes"
+          export HERMES_BIN="$stub_dir/hermes"
+
+          # test-mac-text-hotkeys-config.js asserts on the contents of a personal
+          # Hammerspoon config (~/Documents/mac-text-hotkeys/init.lua) not present
+          # in the repo. Stubbing it would assert against the stub, so it stays
+          # excluded until that config is checked in.
           failed=0
           for f in tests/test-*.js; do
             case "$f" in
