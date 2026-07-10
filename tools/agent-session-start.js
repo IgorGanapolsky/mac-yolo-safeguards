@@ -136,6 +136,8 @@ if (!json) {
   }
 }
 
+runBash('hermes-mobile/scripts/agent-adb-refresh.sh', 15_000);
+
 const pair = runNode('tools/hermes-mobile-pair.js', [], 60_000);
 if (!json && pair.stdout) {
   const pairLines = pair.stdout
