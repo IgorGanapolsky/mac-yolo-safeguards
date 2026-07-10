@@ -5,7 +5,7 @@ import type { HermesAgentToolName } from '../services/hermesAgentTools';
 import { parseSetupDeepLink, parseRelayDeepLink, type SetupDeepLinkParams } from '../utils/setupDeepLink';
 import { syncExtraProfileApiKeys } from '../utils/gatewayProfileCredentialSync';
 import { isDevLeashUnlockDeepLink } from '../utils/developerLeashUnlock';
-import { isE2eAutomationBuild } from '../utils/demoModePolicy';
+import { isDemoModeAllowed } from '../utils/demoModePolicy';
 import { recordAttributionFromUrl } from '../services/marketingAttribution';
 import { requestSettingsPairQrOnFocus } from '../utils/storeCaptureDeepLink';
 
@@ -126,7 +126,7 @@ export function useHermesDeepLinks(
 
       const setup = parseSetupDeepLink(url);
       const e2eDemoRebootstrap =
-        setup?.demoMode && isE2eAutomationBuild() && Boolean(forceE2eDemoMode);
+        setup?.demoMode && isDemoModeAllowed() && Boolean(forceE2eDemoMode);
 
       // Maestro ship-guard opens hermes://setup?demo=1 twice; dedupe would skip the heal recovery.
       if (!navigationOnly && !e2eDemoRebootstrap && handledUrls.has(url)) return;
@@ -145,7 +145,7 @@ export function useHermesDeepLinks(
         return;
       }
 
-      if (setup?.demoMode && isE2eAutomationBuild() && forceE2eDemoMode) {
+      if (setup?.demoMode && isDemoModeAllowed() && forceE2eDemoMode) {
         await forceE2eDemoMode();
         await syncExtraProfileApiKeys(setup.extraComputers);
         navigationRef.current?.navigate('Chat');

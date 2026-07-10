@@ -356,6 +356,15 @@ describe('release safety contract', () => {
     expect(workflow).toContain('SENTRY_DISABLE_AUTO_UPLOAD');
   });
 
+  it('iOS App Store production EAS enables store review demo only on iOS', () => {
+    const eas = JSON.parse(read('hermes-mobile/eas.json'));
+    expect(eas.build.production.ios.env.EXPO_PUBLIC_STORE_REVIEW_DEMO).toBe('1');
+    expect(eas.build.production.env.EXPO_PUBLIC_STORE_REVIEW_DEMO).toBeUndefined();
+    const safeNotes = read('hermes-mobile/scripts/asc-review-notes-safe.js');
+    expect(safeNotes).toContain('hermes://setup?demo=1');
+    expect(safeNotes).not.toMatch(/ts\.net/);
+  });
+
   it('iOS simulator E2E builds with automation deep links enabled', () => {
     const script = read('hermes-mobile/scripts/run-simulator-e2e.sh');
     const appConfig = read('hermes-mobile/app.config.js');

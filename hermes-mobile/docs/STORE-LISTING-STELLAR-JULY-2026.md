@@ -163,13 +163,13 @@ Use for: seasonal hooks, competitor news, launch week updates ([AppTweak](https:
 
 ### Review notes (App Review Information)
 
-Include for Apple reviewer:
+Use **`node scripts/patch-asc-review-notes.js`** (imports `asc-review-notes-safe.js`). Never paste operator gateway URLs, tailnet hostnames, or API keys.
 
-1. **Demo path:** `hermes://setup?demo=1` on test build (if included) OR relay pair instructions
-2. **Mac dependency:** "Requires user-operated Hermes gateway on Mac — not a standalone cloud IDE"
+1. **Demo path:** `hermes://setup?demo=1` — no Mac credentials (iOS production EAS builds only)
+2. **Mac dependency:** "Requires user-operated Hermes gateway on **the user's** Mac"
 3. **Camera:** QR pairing only; no storage
-4. **IAP:** Leash Pro unlocks standing gate rules + ThumbGate priority — attach subscription to this submission
-5. **Test account:** If relay demo unavailable, provide pair code or Tailscale test host
+4. **IAP:** Leash Pro — attach subscription to submission
+5. **Live gateway:** Contact support email only — no shared test host
 
 ### Product Page Optimization (PPO)
 

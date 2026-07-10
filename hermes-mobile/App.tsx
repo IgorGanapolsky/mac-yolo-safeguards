@@ -36,7 +36,7 @@ import {
   withCrashReporting,
 } from './src/services/telemetry';
 import { useKeyboardInset } from './src/hooks/useKeyboardInset';
-import { isE2eAutomationBuild } from './src/utils/demoModePolicy';
+import { isDemoModeAllowed } from './src/utils/demoModePolicy';
 import { LEASH_TAB_LABEL } from './src/constants/monetization';
 import { colors } from './src/theme/colors';
 
@@ -303,7 +303,7 @@ function HermesNavigationRoot() {
     [applySetupDeepLink, apiKey, saveSettings, settings],
   );
   const forceE2eDemoMode = useCallback(async () => {
-    if (!isE2eAutomationBuild()) {
+    if (!isDemoModeAllowed()) {
       return;
     }
     await saveSettings(
