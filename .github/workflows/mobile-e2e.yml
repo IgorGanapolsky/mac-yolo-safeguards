@@ -45,12 +45,16 @@ on:
   # the workflow, and skip the expensive emulator job when mobile files are untouched.
   pull_request:
 
-# One global Maestro emulator slot: parallel PR branches used per-ref groups with
-# cancel-in-progress, which cancelled each other's ship-guard runs and left checks CANCELLED.
-# Queue globally; never cancel in-flight runs from another ref.
+# Per-ref concurrency. A single GLOBAL group was tried to serialise the emulator, but
+# GitHub keeps only ONE pending run per concurrency group: each new run cancelled the
+# previously-queued one. Measured 2026-07-10 with 4 agents pushing: 18 of the last 20
+# mobile-e2e runs ended `cancelled`, so this REQUIRED check almost never reported and
+# PRs could not merge. GitHub-hosted runners are isolated, so there is no shared
+# emulator resource to protect — scope the group to the ref and cancel only this ref's
+# own superseded runs.
 concurrency:
-  group: hermes-mobile-maestro-ship-guard
-  cancel-in-progress: false
+  group: hermes-mobile-maestro-ship-guard-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   # Cheap gate (~20s): decides whether the emulator job is relevant to this PR.
