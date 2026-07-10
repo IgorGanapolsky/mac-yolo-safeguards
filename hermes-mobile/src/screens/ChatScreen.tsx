@@ -70,7 +70,8 @@ import {
   getObsidianProjects,
   getObsidianAgents,
 } from '../services/hermesGatewayClient';
-import { fetchGatewayHealth } from '../services/gatewayClient';
+import { fetchGatewayHealth, GATEWAY_WRONG_KEY_MESSAGE } from '../services/gatewayClient';
+import { secureCredentials } from '../services/secureCredentials';
 import type { HermesSession, HermesMessage } from '../types/chat';
 import type { ChatProject, ChatProjectState } from '../types/chatProject';
 import { EMPTY_CHAT_PROJECT_STATE } from '../types/chatProject';
@@ -1222,9 +1223,11 @@ export default function ChatScreen() {
       activeProfile: activeGatewayProfile,
       machineLabel: machineHeaderDisplay.machineLabel,
       machineEndpoint: machineHeaderDisplay.machineEndpoint,
+      authMismatch: health?.authMismatch === true,
     });
   }, [
     macRetryBusy,
+    connectionHealInFlight,
     machineShortLabel,
     connectionState,
     connectingStuck,
@@ -2480,20 +2483,34 @@ export default function ChatScreen() {
     setPinnedOutboundStatus('pending');
     setErrorMessage((prev) => (prev && isConnectivityMessage(prev) ? null : prev));
 
+    const activeProfileId = activeGatewayProfile?.id ?? null;
+
     try {
+      if (activeProfileId) {
+        await selectGatewayProfile(activeProfileId);
+      }
+
       let nextSettings = settings;
       if (settings.connectionMode !== 'gateway') {
         nextSettings = { ...settings, connectionMode: 'gateway' as const };
         await saveSettings(nextSettings, apiKey);
       }
 
-
-
       await scanForGatewayProfiles();
       await autoConnectGateway();
       await retryGatewayBootstrap();
       await refreshHealth();
       connectEvents();
+
+      const profileKey = await secureCredentials.resolveApiKeyForProfile(activeProfileId);
+      const probeUrl = effectiveGatewayUrl || settings.gatewayUrl;
+      const postRetryHealth = await fetchGatewayHealth(probeUrl, profileKey);
+      if (postRetryHealth.authMismatch) {
+        setMacPickerVisible(true);
+        setErrorMessage(GATEWAY_WRONG_KEY_MESSAGE);
+        haptics.warning();
+        return;
+      }
 
       const retryText = lastFailedSendTextRef.current?.trim();
       if (retryText) {

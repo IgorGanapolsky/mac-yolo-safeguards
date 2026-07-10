@@ -96,6 +96,23 @@ describe('shouldShowFailedSendRetry', () => {
     ).toBe(true);
   });
 
+  it('shows retry for wrong-key auth failures', () => {
+    expect(
+      shouldShowFailedSendRetry({
+        runPhase: 'failed',
+        runDetail: 'Wrong key for this computer',
+        lastFailedText: null,
+      }),
+    ).toBe(true);
+    expect(
+      shouldShowFailedSendRetry({
+        runPhase: 'failed',
+        runDetail: 'Sign-in to your computer failed. Open Settings and pair again.',
+        lastFailedText: 'hello',
+      }),
+    ).toBe(true);
+  });
+
   it('hides retry when run is not failed', () => {
     expect(
       shouldShowFailedSendRetry({
