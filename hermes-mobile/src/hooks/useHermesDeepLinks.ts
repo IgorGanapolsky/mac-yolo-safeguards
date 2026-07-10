@@ -7,6 +7,7 @@ import { syncExtraProfileApiKeys } from '../utils/gatewayProfileCredentialSync';
 import { isDevLeashUnlockDeepLink } from '../utils/developerLeashUnlock';
 import { isE2eAutomationBuild } from '../utils/demoModePolicy';
 import { recordAttributionFromUrl } from '../services/marketingAttribution';
+import { requestSettingsPairQrOnFocus } from '../utils/storeCaptureDeepLink';
 
 type RootTabParamList = {
   Leash: undefined;
@@ -35,6 +36,29 @@ function sessionIdFromUrl(url: string): string | undefined {
   }
 }
 
+
+function queryParam(url: string, key: string): string | undefined {
+  const idx = url.indexOf('?');
+  if (idx < 0) {
+    return undefined;
+  }
+  const params = new URLSearchParams(url.slice(idx + 1));
+  const value = params.get(key);
+  return value?.trim() || undefined;
+}
+
+function isTruthyQueryFlag(url: string, key: string, ...accepted: string[]): boolean {
+  const raw = queryParam(url, key);
+  if (!raw) {
+    return false;
+  }
+  const lower = raw.toLowerCase();
+  if (accepted.length === 0) {
+    return lower === '1' || lower === 'true' || lower === 'yes';
+  }
+  return accepted.some((value) => value.toLowerCase() === lower);
+}
+
 function isChatDeepLink(url: string): boolean {
   const lower = url.toLowerCase();
   return lower.includes('/chat') || lower.endsWith('chat');
@@ -42,12 +66,21 @@ function isChatDeepLink(url: string): boolean {
 
 function isSettingsDeepLink(url: string): boolean {
   const lower = url.toLowerCase();
-  return lower.includes('/settings') || lower.endsWith('settings');
+  if (!lower.startsWith('hermes://')) {
+    return false;
+  }
+  return /^hermes:\/\/settings([/?]|$)/i.test(url) || lower.endsWith('/settings');
 }
 
 function isLeashTabDeepLink(url: string): boolean {
   const lower = url.toLowerCase();
-  return lower === 'hermes://leash' || lower.endsWith('/leash');
+  if (!lower.startsWith('hermes://') || !lower.includes('leash')) {
+    return false;
+  }
+  if (lower.includes('leash/approve') || lower.includes('leash/reject') || lower.includes('leash/health')) {
+    return false;
+  }
+  return /^hermes:\/\/leash([/?]|$)/i.test(url) || lower.endsWith('/leash');
 }
 
 const handledUrls = new Set<string>();
@@ -64,6 +97,7 @@ export function useHermesDeepLinks(
   focusChatSession?: (sessionId: string) => void,
   activateDeveloperLeashUnlock?: () => Promise<void>,
   forceE2eDemoMode?: () => Promise<void>,
+  injectSmokeApproval?: () => void,
 ) {
   useEffect(() => {
     const handleUrl = async (url: string | null) => {
@@ -114,6 +148,9 @@ export function useHermesDeepLinks(
       }
 
       if (lower.includes('/ops') || lower.endsWith('ops') || isSettingsDeepLink(url)) {
+        if (isTruthyQueryFlag(url, 'pair', 'qr', 'scan') || isTruthyQueryFlag(url, 'qr', '1', 'true', 'scan')) {
+          requestSettingsPairQrOnFocus();
+        }
         navigationRef.current?.navigate('Settings');
         return;
       }
@@ -129,6 +166,12 @@ export function useHermesDeepLinks(
 
       if (isLeashTabDeepLink(url)) {
         navigationRef.current?.navigate('Leash');
+        if (
+          injectSmokeApproval &&
+          (isTruthyQueryFlag(url, 'preview', 'smoke') || isTruthyQueryFlag(url, 'smoke', '1', 'true'))
+        ) {
+          injectSmokeApproval();
+        }
         return;
       }
 
@@ -149,5 +192,5 @@ export function useHermesDeepLinks(
       handleUrl(event.url);
     });
     return () => sub.remove();
-  }, [activateDeveloperLeashUnlock, applySetupDeepLink, focusChatSession, forceE2eDemoMode, navigationRef, refreshHealth, runAgentTool]);
+  }, [activateDeveloperLeashUnlock, applySetupDeepLink, focusChatSession, forceE2eDemoMode, injectSmokeApproval, navigationRef, refreshHealth, runAgentTool]);
 }

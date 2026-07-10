@@ -278,6 +278,7 @@ function HermesNavigationRoot() {
     apiKey,
     focusChatSession,
     activateDeveloperLeashUnlock,
+    injectSmokeApproval,
     retryGatewayBootstrap,
   } = useGateway();
   const applySetupDeepLinkWithThumbgate = useCallback(
@@ -324,6 +325,7 @@ function HermesNavigationRoot() {
     focusChatSession,
     activateDeveloperLeashUnlock,
     forceE2eDemoMode,
+    injectSmokeApproval,
   );
 
   return (
