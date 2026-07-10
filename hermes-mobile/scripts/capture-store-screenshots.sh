@@ -53,8 +53,8 @@ screencap "01_onboarding" 5
 open_link "hermes://chat"
 screencap "02_chat" 4
 open_link "hermes://leash"
-screencap "03_pro" 4
+screencap "03_pro" 6
 open_link "hermes://settings"
-screencap "04_settings" 4
+screencap "04_settings" 5
 
 echo "Done — $OUT_ANDROID (production paired state, no demo)"
