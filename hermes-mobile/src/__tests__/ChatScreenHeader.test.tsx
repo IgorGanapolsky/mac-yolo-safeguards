@@ -119,6 +119,24 @@ describe('ChatScreenHeader', () => {
     expect(onThreads).toHaveBeenCalled();
   });
 
+  it('shows optional project lane label when workspace picker is enabled without a selection', () => {
+    const { getByTestId } = render(
+      <ChatScreenHeader
+        threadTitle="New chat"
+        machineLabel="Igors-Mac-mini"
+        connectionState="connected"
+        macHttpReachable
+        canSwitchWorkspace
+        onOpenThreads={jest.fn()}
+        onPressMachine={jest.fn()}
+        onPressWorkspace={jest.fn()}
+      />,
+    );
+
+    expect(getByTestId('chat-header-project-picker')).toBeTruthy();
+    expect(getByTestId('chat-context-project').props.children).toContain('Project lane (optional)');
+  });
+
   it('renames from title press when handler provided', () => {
     const onRename = jest.fn();
     const { getByTestId } = render(

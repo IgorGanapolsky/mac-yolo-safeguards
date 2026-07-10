@@ -254,7 +254,7 @@ export default function ChatScreenHeader({
           testID="chat-header-project-picker"
         >
           <Text style={styles.workspaceLabel} numberOfLines={1} testID="chat-context-project">
-            {workspaceName ?? 'Choose project'}
+            {workspaceName ?? 'Project lane (optional)'}
             {canSwitchWorkspace ? ' ›' : ''}
           </Text>
           {workspaceHandoff ? (

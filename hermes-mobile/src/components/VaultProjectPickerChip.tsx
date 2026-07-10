@@ -13,7 +13,7 @@ export default function VaultProjectPickerChip({
   handoffSummary,
   onPress,
 }: VaultProjectPickerChipProps) {
-  const label = projectName?.trim() || 'Choose project';
+  const label = projectName?.trim() || 'Project lane (optional)';
   const hint = handoffSummary?.trim();
 
   return (
@@ -26,7 +26,7 @@ export default function VaultProjectPickerChip({
       ]}
       testID="vault-project-picker-chip"
       accessibilityRole={onPress ? 'button' : undefined}
-      accessibilityLabel={projectName ? `Project ${projectName}` : 'Choose project'}
+      accessibilityLabel={projectName ? `Project ${projectName}` : 'Optional project lane'}
       accessibilityHint="Opens the Obsidian vault project picker"
     >
       <Text style={styles.icon}>📁</Text>
@@ -40,8 +40,8 @@ export default function VaultProjectPickerChip({
             {hint}
           </Text>
         ) : !projectName ? (
-          <Text style={styles.hint} numberOfLines={1}>
-            Tag prompts with an AI-Agent-Sync project lane
+          <Text style={styles.hint} numberOfLines={1} testID="vault-project-optional-hint">
+            Chat works without this — tags which repo Hermes uses
           </Text>
         ) : null}
       </View>

@@ -1,0 +1,129 @@
+# Prevent Recurrence — July 2026 Session Lessons
+
+**Audience:** Igor's AI fleet (Cursor parent + workers, Claude Code, Codex, Gemini, Antigravity)  
+**Companion:** [MULTI-AGENT-VAULT-COORDINATION-JULY-2026.md](./MULTI-AGENT-VAULT-COORDINATION-JULY-2026.md)  
+**Last updated:** 2026-07-10
+
+This document maps **eight failures from the 2026-07-10 session** to durable prevention: automated guards, process rituals, and vault coordination. One pass — no duplicate research subagents.
+
+---
+
+## Problem → root cause → prevention
+
+| # | Problem | Root cause | Prevention | Type |
+|---|---------|------------|------------|------|
+| 1 | Duplicate Cursor subagents (tap-again, merge PRs, research twice) | Parent spawned workers on an already-owned file domain; no `plan.md` §2 check before `Task` | **Single-pass rule** (below); one parent per lock domain; workers inherit worktree | Process + Cursor rule |
+| 2 | ASC review notes pasted operator gateway URL + API key | Human/agent pasted live infra into App Review Information; Chrome path bypassed safe template | `asc-review-notes-guard.js` + `verify-asc-listing.js` exit 1; **`bash scripts/agent-pre-asc-edit.sh`** before any ASC edit; only `patch-asc-review-notes.js` / `ASC_SAFE_REVIEW_NOTES` | **Automated guard** |
+| 3 | False "phone not connected" from stale adb | `adb devices` read without `kill-server` retry; `agent-session-start.js` and `hermes-mobile-pair.js` call raw `adb` | **`bash scripts/agent-adb-refresh.sh`** at session start when USB work expected; Maestro already uses `restart_adb_server` in `maestro-env.sh` | **Automated + checklist** |
+| 4 | LipoShield splash on stale simulator dev build after template fork | iOS sim ran old **dev-client** binary from LipoShield/random-timer fork; splash assets baked into stale `.app` | Release path only on device; sim: delete app + `npx expo prebuild --clean` when branding wrong; `releaseSafetyContract.test.ts` bans LipoShield creds in docs | Process + unit contract |
+| 5 | "Tap again" no-op on wrong-key retry | Phone saved Mac mini URL with laptop `API_SERVER_KEY`; `/health` unauthenticated = 200, chat 401 | `probeGatewayAuth` + UI "Wrong key for this computer"; **`node tools/hermes-mobile-pair.js --mini-tailscale`** (SSH-fetches mini key); `RELEASE-SAFETY-NET.md` T-120 | **Automated (unit) + pair ritual** |
+| 6 | Multi-agent branch thrashing without vault coordination | Agents edited shared checkout; skipped vault pull + `plan.md` claim; uncommitted WIP lost on switch | Vault session start (2 min); `plan.md` claim + commit first; worktree per parallel agent; `Handoffs/` for cross-agent | **Vault + plan.md** |
+| 7 | Continuous E2E skipped (`simruntime 159 > 80`) — no green proof | `run-continuous-e2e.sh` correctly skipped under load; agents still claimed "fixed" | Read `docs/proofs/continuous/latest.json`; if `e2e=skipped`, run `sim-runaway-guard.sh` or wait; **`HERMES_E2E_FORCE=1`** only after load drop; never ship on skipped proof | Process + honesty |
+| 8 | Ship claims without evidence ("are you sure?") | Skipped `agent-session-start.js --full`, ThumbGate recall, and `latest.json` | Honesty protocol in parent `AGENTS.md`; same-turn evidence (test output, JSON, SHA); `mcp__thumbgate__capture_memory_feedback` after false claims | **Process + RAG** |
+
+---
+
+## Cursor-specific: when NOT to spawn subagents
+
+**Single-pass rule:** The parent agent does the work in one pass unless file domains are **disjoint** and **unowned** in `plan.md` §2.
+
+| Do NOT spawn | Why |
+|--------------|-----|
+| Second worker on same file(s) another agent owns | Duplicate PRs, revert wars |
+| Research subagent when parent already read vault + `plan.md` | Duplicate synthesis, wasted tokens |
+| Parallel merge/PR subagents on same branch | Race on `git push` |
+| Subagent to "verify" without parent reading `latest.json` | False green claims |
+| Worker to edit ASC review notes | Parent must run `agent-pre-asc-edit.sh` first; use API patch script only |
+
+**When spawning is OK:** Disjoint file sets, all `(free)` in §2, parent already claimed `plan.md`, child inherits parent's worktree path.
+
+**Hierarchy that scales:** planner (vault + plan + recall) → single worker (one file set) → verifier (tests + `latest.json`) — not planner → two workers on chat send.
+
+---
+
+## Mandatory session checklist
+
+Run at **every** Hermes Mobile / store / device session (≤3 min):
+
+```bash
+# 1. Vault coordination (separate repo — survives branch churn)
+git -C ~/Documents/AI-Agent-Sync pull
+# Read: Agent-State/latest.json, current-handoff.md, newest Handoffs/
+git -C ~/Documents/AI-Agent-Sync status --porcelain   # uncommitted = agent LIVE
+
+# 2. Repo orchestrator + E2E truth
+node tools/agent-session-start.js                     # parent repo root
+# Before ship claims:
+node tools/agent-session-start.js --full
+
+# 3. plan.md locks
+node tools/plan-coordination-snapshot.js --json       # parse §2 before edit
+
+# 4. ADB refresh (before phone/pair/E2E — not optional when USB expected)
+bash hermes-mobile/scripts/agent-adb-refresh.sh
+
+# 5. ASC edits ONLY after guard passes
+bash hermes-mobile/scripts/agent-pre-asc-edit.sh      # runs verify-asc-listing review-notes check
+
+# 6. ThumbGate recall for current task
+# mcp__thumbgate__recall or node tools/agent-decision-stack.js --task "..." --json
+```
+
+**Before claiming chat/UI fixed:** `cat hermes-mobile/docs/proofs/continuous/latest.json` — report `unit` + `e2e` verbatim if not `pass`.
+
+**Before ASC / App Review copy:** Never paste from operator `.env`, gateway health output, or Tailscale URLs. Canonical: `scripts/asc-review-notes-safe.js` → `hermes://setup?demo=1` only.
+
+**Before simulator UX proof:** Uninstall stale app; prefer release APK on USB Android over sim dev-client when branding matters.
+
+---
+
+## CI / pre-commit hooks — in place vs gaps
+
+### Already in place
+
+| Gate | Location | Catches |
+|------|----------|---------|
+| Hermes TS pre-commit | `.githooks/pre-commit` | Typecheck + related Jest on staged `hermes-mobile/**/*.ts(x)` |
+| ASC review notes patterns | `scripts/asc-review-notes-guard.js` | `ts.net`, `sk-hermes`, tailnet IPs, gateway deeplinks in notes text |
+| ASC listing verifier | `scripts/verify-asc-listing.js` | Live ASC notes violations → exit 1 |
+| Safe notes unit tests | `ascReviewNotesGuard.test.ts`, `ascReviewNotesSafe.test.ts` | Regressions in guard + template |
+| Release safety contract | `npm run test:release-safety` | Wrong-key pair wiring, LipoShield doc ban, Maestro tier-0 list |
+| Wrong-key auth probe | `gatewayClient.test.ts`, `gatewayConnection.test.ts` | False Connected + tap-again class |
+| E2E load guard | `run-continuous-e2e.sh` | Mac freeze when load/simruntime high |
+| ADB restart in E2E | `maestro-env.sh` → `restart_adb_server` | Stale adb during Maestro only |
+| Runtime lock | `agent-resource-lock.js` in continuous E2E | Metro/ADB fights between agents |
+| GitHub mobile CI | `.github/workflows/mobile-continuous.yml` | Unit + coverage on schedule |
+| Honesty / ship gate | Parent `AGENTS.md`, OpenMono `/ship-claim` | Evidence before "shipped" language |
+
+### Gaps to add (prioritized)
+
+| Gap | Risk | Proposed fix |
+|-----|------|--------------|
+| `check-staged-ownership` documented but **not wired** in current `.githooks/pre-commit` | Cross-agent file clobber at commit time | Re-add `node tools/plan-coordination-snapshot.js check-staged-ownership` to pre-commit (T-37 intent) |
+| `agent-session-start.js` skips `adb kill-server` | False "no device" at session start | Call `agent-adb-refresh.sh` when pairing queued |
+| `hermes-mobile-pair.js` raw `adb devices` | Pair fails on stale daemon | Retry after `restart_adb_server` once |
+| `e2e=skipped` in `latest.json` not escalated | Ship theater | `verify-continuous-e2e.sh` warn + CEO brief flag when skipped >30m |
+| No pre-commit on ASC note **draft files** in repo | Accidental commit of secrets in draft md | Optional: guard staged `*review*notes*` paths |
+| Sim stale branding | Wrong splash on sim | Document: `xcrun simctl uninstall` + clean prebuild in install runbook |
+
+---
+
+## Quick reference scripts
+
+| Script | When |
+|--------|------|
+| `bash scripts/agent-pre-asc-edit.sh` | Before any ASC review notes / App Review Information edit |
+| `bash scripts/agent-adb-refresh.sh` | Session start, before pair, before "phone not connected" diagnosis |
+| `node scripts/verify-asc-listing.js` | ASC status audit; fails on unsafe live notes |
+| `node scripts/patch-asc-review-notes.js` | Apply safe template via API (preferred) |
+| `node tools/hermes-mobile-pair.js --mini-tailscale` | Multi-Mac — never laptop key on mini URL |
+
+---
+
+## Related docs
+
+- [MULTI-AGENT-VAULT-COORDINATION-JULY-2026.md](./MULTI-AGENT-VAULT-COORDINATION-JULY-2026.md)
+- [ASC-REVIEW-DEMO.md](./ASC-REVIEW-DEMO.md)
+- [RELEASE-SAFETY-NET.md](./RELEASE-SAFETY-NET.md)
+- [AGENTS.md](../AGENTS.md)
+- Vault: `~/Documents/AI-Agent-Sync/Handoffs/2026-07-10-prevent-recurrence.md`
