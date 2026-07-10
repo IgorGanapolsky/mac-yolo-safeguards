@@ -49,7 +49,7 @@ const saveResult = JSON.parse(
     ok: true,
     len: target.value.length,
     saved: !!save,
-    hasDemo: /demo=1/i.test(target.value),
+    hasDemo: /Demo mode/i.test(target.value),
     hasTailscale: /ts\\.net/i.test(target.value),
   });
 })();`),
@@ -63,7 +63,7 @@ const after = JSON.parse(
   const val = target?.value || '';
   return JSON.stringify({
     notesLen: val.length,
-    hasDemo: /demo=1/i.test(val),
+    hasDemo: /Demo mode/i.test(val),
     hasTailscale: /ts\\.net/i.test(val),
     hasApiKeyInstruction: /Set the API key/i.test(val),
   });

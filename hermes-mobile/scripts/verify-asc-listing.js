@@ -159,7 +159,7 @@ async function main() {
     reviewNotes: reviewNotes
       ? {
           len: reviewNotes.length,
-          hasDemo: /demo=1/i.test(reviewNotes),
+          hasDemo: /Demo mode/i.test(reviewNotes),
           safe: reviewNotesSafe.ok,
           violations: reviewNotesSafe.violations,
         }

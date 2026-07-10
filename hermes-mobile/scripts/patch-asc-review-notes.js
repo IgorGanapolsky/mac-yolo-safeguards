@@ -50,7 +50,7 @@ async function main() {
         detailId: detail.id,
         beforeViolations,
         notesLen: notes.length,
-        hasDemo: /demo=1/i.test(notes),
+        hasDemo: /Demo mode/i.test(notes),
         hasTailscale: /ts\.net/i.test(notes),
         hasApiKeyInstruction: /Set the API key/i.test(notes),
       },
