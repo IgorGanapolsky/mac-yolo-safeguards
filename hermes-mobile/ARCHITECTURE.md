@@ -13,7 +13,7 @@
 | Platform | Email | Used for |
 |---|---|---|
 | Android (Firebase / GCP) | `iganapolsky@gmail.com` | Firebase App Distribution, GCP |
-| Android (Play) | `iganapolsky@gmail.com` | **Organization (LLC)** Play Console admin + API access |
+| Android (Play) | `iganapolsky@gmail.com` | IgorGanapolsky developer page — Play Console admin + API access |
 | iOS | `igor.ganapolsky@icloud.com` | App Store Connect, TestFlight, `EXPO_APPLE_ID` |
 
 Play production releases: [docs/PLAY_RELEASE.md](docs/PLAY_RELEASE.md) — **Production** track, no tester list.

@@ -40,7 +40,7 @@ require_android_submit_credential() {
       local play_project_id
       play_project_id="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1])).get("project_id",""))' "$credential_path" 2>/dev/null || true)"
       if [[ "$play_project_id" == "$firebase_project_id" ]]; then
-        record_failure "Play submit credential uses Firebase project_id ($firebase_project_id). Use a Play Console API service account from your LLC org account (see docs/PLAY_RELEASE.md)."
+        record_failure "Play submit credential uses Firebase project_id ($firebase_project_id). Use a Play Console API service account from iganapolsky@gmail.com (see docs/PLAY_RELEASE.md)."
       fi
     fi
     return 0

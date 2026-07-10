@@ -9,7 +9,7 @@ from pathlib import Path
 from PIL import Image, ImageDraw, ImageFont
 
 ROOT = Path(__file__).resolve().parents[1]
-RAW_ANDROID = ROOT / "fastlane/metadata/android/en-US/images/phoneScreenshots"
+RAW_ANDROID = ROOT / "fastlane/store-capture/raw"
 RAW_IOS = ROOT / "fastlane/metadata/ios/en-US/screenshots"
 PROOFS = ROOT / "docs/proofs/device-test-2026-06-25"
 ICON = ROOT / "assets/icon.png"
@@ -28,12 +28,12 @@ COLORS = {
 }
 
 FRAMES = [
-    ("02_chat.png", "Approve AI agents from phone", "Deny risky commands in one tap"),
-    ("03_pro.png", "Block destructive commands remotely", "Stop rm, force-push, prod writes"),
-    ("03_pro.png", "Standing gate rules synced", "Persistent allow and block policies"),
-    ("04_settings.png", "Pair your computer in one scan", "QR pairing, no cloud account"),
-    ("02_chat.png", "ThumbGate memory on replies", "Capture operator feedback per reply"),
-    ("04_settings.png", "Works on cellular and tunnel", "Honest connection status every route"),
+    ("01_approve.png", "Approve AI agents from phone", "Deny risky commands in one tap"),
+    ("02_block.png", "Block destructive commands remotely", "Stop rm, force-push, prod writes"),
+    ("03_standing.png", "Standing gate rules synced", "Persistent allow and block policies"),
+    ("04_pair.png", "Pair your computer in one scan", "QR pairing, no cloud account"),
+    ("05_thumbgate.png", "ThumbGate memory on replies", "Capture operator feedback per reply"),
+    ("06_works.png", "Works on cellular and tunnel", "Honest connection status every route"),
 ]
 
 
@@ -67,10 +67,12 @@ def resolve_raw(name: str) -> Path:
         if candidate.is_file():
             return candidate
     fallback = {
-        "02_chat.png": PROOFS / "10-cold-start-hermes.png",
-        "03_pro.png": PROOFS / "21-leash-tab.png",
-        "04_settings.png": PROOFS / "22-settings-relay.png",
-        "01_onboarding.png": PROOFS / "10-cold-start-hermes.png",
+        "01_approve.png": PROOFS / "10-cold-start-hermes.png",
+        "02_block.png": PROOFS / "21-leash-tab.png",
+        "03_standing.png": PROOFS / "21-leash-tab.png",
+        "04_pair.png": PROOFS / "22-settings-relay.png",
+        "05_thumbgate.png": PROOFS / "10-cold-start-hermes.png",
+        "06_works.png": PROOFS / "22-settings-relay.png",
     }
     path = fallback.get(name)
     if path and path.is_file():

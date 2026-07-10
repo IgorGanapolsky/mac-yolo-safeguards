@@ -1,15 +1,20 @@
 import React from 'react';
 import { render } from '@testing-library/react-native';
 import SubmittedPromptStrip from '../components/SubmittedPromptStrip';
+import { formatMessageTimestamp } from '../utils/chatMessageDisplay';
 
 describe('SubmittedPromptStrip', () => {
-  it('renders submitted text and pending status', () => {
+  const sentAt = '2026-07-09T23:42:00.000Z';
+
+  it('renders submitted text, send timestamp, and pending status', () => {
     const { getByTestId, getByText } = render(
-      <SubmittedPromptStrip text="run ls in workspace" status="pending" />,
+      <SubmittedPromptStrip text="run ls in workspace" sentAt={sentAt} status="pending" />,
     );
     expect(getByTestId('submitted-prompt-strip')).toBeTruthy();
     expect(getByText('You sent')).toBeTruthy();
     expect(getByText('run ls in workspace')).toBeTruthy();
+    expect(getByText(formatMessageTimestamp(sentAt))).toBeTruthy();
+    expect(getByTestId('submitted-prompt-timestamp')).toBeTruthy();
     expect(getByText('○ Sending')).toBeTruthy();
   });
 
@@ -24,11 +29,13 @@ describe('SubmittedPromptStrip', () => {
     const { getByText } = render(
       <SubmittedPromptStrip
         text="Make money faster"
+        sentAt={sentAt}
         status="sent"
         connectionState="connecting"
         macHttpOk={false}
       />,
     );
     expect(getByText('○ Waiting for computer…')).toBeTruthy();
+    expect(getByText(formatMessageTimestamp(sentAt))).toBeTruthy();
   });
 });

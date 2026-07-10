@@ -103,6 +103,20 @@ describe('ChatMessageBubble', () => {
     );
   });
 
+  it('renders timestamp on user outbound bubbles', () => {
+    const { getByTestId } = renderWithDetailModal({
+      content: 'Print money make money faster',
+      isUser: true,
+      timeLabel: 'Jul 9, 2026 7:42 PM',
+      outboundStatus: 'sent',
+      connectionState: 'connecting',
+      macHttpOk: false,
+    });
+
+    expect(getByTestId('chat-message-timestamp').props.children).toBe('Jul 9, 2026 7:42 PM');
+    expect(getByTestId('chat-outbound-sent').props.children).toBe('○ Waiting for computer…');
+  });
+
   it('renders Leash output feedback controls for assistant messages', () => {
     const onThumbsUp = jest.fn();
     const onThumbsDown = jest.fn();

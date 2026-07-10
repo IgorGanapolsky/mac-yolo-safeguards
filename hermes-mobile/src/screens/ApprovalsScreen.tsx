@@ -60,9 +60,10 @@ export default function ApprovalsScreen() {
     setApprovalEditSeed,
     patchSettings,
     injectSmokeApproval,
+    storeLeashPreviewActive,
   } = useGateway();
 
-  const leashUnlocked = isThumbgateLeashUnlocked(settings);
+  const leashUnlocked = isThumbgateLeashUnlocked(settings) || storeLeashPreviewActive;
   const showTesterUnlock = isDeveloperLeashUnlockAllowed();
 
   const unlockThumbgateLeash = React.useCallback(async () => {

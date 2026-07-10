@@ -1,0 +1,1 @@
+Hermes Mobile 0.3.2 — mobile control plane for AI coding agents. Approve blocked tools from your phone, chat with your gateway, and manage Leash Pro gate rules.

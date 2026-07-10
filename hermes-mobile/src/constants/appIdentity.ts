@@ -7,9 +7,14 @@ export const HERMES_MOBILE_IOS_BUNDLE_ID = 'com.iganapolsky.hermesmobile';
 /** Android Firebase App Distribution + GCP (iganapolsky@gmail.com). */
 export const HERMES_ANDROID_OPERATOR_EMAIL = 'iganapolsky@gmail.com';
 
-/** Google Play Console — organization (LLC) developer account, same Gmail admin. */
-export const HERMES_PLAY_CONSOLE_ACCOUNT_TYPE = 'organization' as const;
+/** Google Play Console — Igor Ganapolsky personal developer account (iganapolsky@gmail.com admin). */
+export const HERMES_PLAY_CONSOLE_ACCOUNT_TYPE = 'personal' as const;
 export const HERMES_PLAY_CONSOLE_ADMIN_EMAIL = 'iganapolsky@gmail.com';
+/** Public Play Store developer slug (no space — Play handle, not login email). */
+export const HERMES_PLAY_DEVELOPER_PUBLIC_NAME = 'IgorGanapolsky';
+export const HERMES_PLAY_DEVELOPER_ID = '5120393192891708058';
+export const HERMES_PLAY_DEVELOPER_PAGE_URL =
+  'https://play.google.com/store/apps/developer?id=IgorGanapolsky';
 
 /** iOS App Store Connect / Apple ID for EAS submit and TestFlight. */
 export const HERMES_IOS_APPLE_ID_EMAIL = 'igor.ganapolsky@icloud.com';
