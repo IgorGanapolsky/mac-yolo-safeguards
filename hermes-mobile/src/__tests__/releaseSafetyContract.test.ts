@@ -360,8 +360,10 @@ describe('release safety contract', () => {
     const eas = JSON.parse(read('hermes-mobile/eas.json'));
     expect(eas.build.production.ios.env.EXPO_PUBLIC_STORE_REVIEW_DEMO).toBe('1');
     expect(eas.build.production.env.EXPO_PUBLIC_STORE_REVIEW_DEMO).toBeUndefined();
-    const safeNotes = read('hermes-mobile/scripts/asc-review-notes-safe.js');
-    expect(safeNotes).toContain('hermes://setup?demo=1');
+    const safeNotes = read('hermes-mobile/scripts/asc-review-notes-template.txt');
+    expect(safeNotes).toContain('Demo mode');
+    expect(safeNotes).toContain('macOS, Linux, or Windows');
+    expect(safeNotes).not.toMatch(/hermes:\/\/setup\?demo=1/i);
     expect(safeNotes).not.toMatch(/ts\.net/);
   });
 

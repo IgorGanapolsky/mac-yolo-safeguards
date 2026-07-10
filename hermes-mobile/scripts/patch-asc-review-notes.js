@@ -3,6 +3,7 @@
 const path = require('path');
 const { loadEnv, ascGet, ascPatch } = require('./asc-api');
 const { ASC_SAFE_REVIEW_NOTES } = require('./asc-review-notes-safe');
+const { assertReviewNotesSafe, findReviewNotesViolations } = require('./asc-review-notes-guard');
 
 const ROOT = path.join(__dirname, '..');
 const VERSION = process.env.ASC_APP_VERSION || '1.0';
@@ -19,6 +20,9 @@ async function main() {
   if (!detail?.id) throw new Error('No appStoreReviewDetail on version');
 
   const attrs = detail.attributes || {};
+  const beforeNotes = attrs.notes || '';
+  const beforeViolations = findReviewNotesViolations(beforeNotes);
+  assertReviewNotesSafe(ASC_SAFE_REVIEW_NOTES, 'safe template');
   await ascPatch(`/v1/appStoreReviewDetails/${detail.id}`, {
     type: 'appStoreReviewDetails',
     id: detail.id,
@@ -36,6 +40,7 @@ async function main() {
 
   const after = await ascGet(`/v1/appStoreVersions/${version.id}/appStoreReviewDetail`);
   const notes = after.data?.attributes?.notes || '';
+  assertReviewNotesSafe(notes, 'ASC review notes after patch');
   console.log(
     JSON.stringify(
       {
@@ -43,6 +48,7 @@ async function main() {
         versionId: version.id,
         versionState: version.attributes?.appStoreState,
         detailId: detail.id,
+        beforeViolations,
         notesLen: notes.length,
         hasDemo: /demo=1/i.test(notes),
         hasTailscale: /ts\.net/i.test(notes),

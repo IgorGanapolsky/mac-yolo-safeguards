@@ -30,6 +30,10 @@ App Review Information notes were patched via `node scripts/patch-asc-review-not
 2. `node scripts/ensure-asc-leash-subscription.js` — group/loc/price/screenshot already present; subscription still `MISSING_METADATA`.
 3. PATCH `appInfoLocalizations` en-US → `privacyPolicyUrl: https://thumbgate.ai/privacy` (idempotent).
 
+## Security (2026-07-09)
+
+App Review notes must **never** contain operator gateway URLs, Tailscale hostnames, or API keys. Use `hermes://setup?demo=1` only. Guard: `node scripts/verify-asc-listing.js` (fails on `ts.net` / `sk-hermes-api` in notes). Emergency redact: `node scripts/asc-chrome-redact-review-notes.js`.
+
 ## Blockers to **public** listing
 
 1. **Apple review queue** — binary + metadata submitted; app not approved/released yet (`WAITING_FOR_REVIEW`).

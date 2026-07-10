@@ -1,19 +1,16 @@
 /** Safe App Store Connect reviewer notes — never embed real gateway URLs or API keys. */
+const fs = require('fs');
+const path = require('path');
+const { assertReviewNotesSafe } = require('./asc-review-notes-guard');
+
 const HERMES_IOS_SUPPORT_EMAIL = 'igor.ganapolsky@icloud.com';
+const TEMPLATE_PATH = path.join(__dirname, 'asc-review-notes-template.txt');
 
-const ASC_SAFE_REVIEW_NOTES = `Hermes Mobile requires a user-operated Hermes gateway on a Mac. For App Review:
+const ASC_SAFE_REVIEW_NOTES = fs
+  .readFileSync(TEMPLATE_PATH, 'utf8')
+  .replace(/\{\{SUPPORT_EMAIL\}\}/g, HERMES_IOS_SUPPORT_EMAIL)
+  .trim();
 
-Demo mode (no Mac credentials needed):
-1. On the review device, open: hermes://setup?demo=1
-   (Paste in Notes or Safari if the link does not open directly.)
-2. Return to Hermes Mobile — demo mode enables sample chat and approval flows.
-3. In Chat, send any message and tap Approve or Deny on approval prompts.
-4. Open the Leash tab to preview subscription gate rules UI.
+assertReviewNotesSafe(ASC_SAFE_REVIEW_NOTES, 'asc-review-notes-template');
 
-Camera: QR pairing only during setup; no photo storage.
-
-IAP: Leash Pro (thumbgate_leash_monthly) unlocks always-on remote access. Free tier includes chat, approvals, and guardrails.
-
-Live gateway testing: Contact ${HERMES_IOS_SUPPORT_EMAIL} for time-limited review credentials.`;
-
-module.exports = { ASC_SAFE_REVIEW_NOTES, HERMES_IOS_SUPPORT_EMAIL };
+module.exports = { ASC_SAFE_REVIEW_NOTES, HERMES_IOS_SUPPORT_EMAIL, TEMPLATE_PATH };

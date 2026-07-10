@@ -4,7 +4,7 @@
 
 ## Reviewer instructions (ASC App Review Information)
 
-Use the template in `scripts/asc-review-notes-safe.js`. Apply with:
+Use the template in `scripts/asc-review-notes-template.txt` (loaded by `asc-review-notes-safe.js`). Apply with:
 
 ```bash
 cd hermes-mobile
@@ -33,7 +33,9 @@ If demo mode does not activate on an older binary, contact support (email in rev
 
 | Script | Behavior |
 |--------|----------|
-| `asc-review-notes-safe.js` | Single source of truth for reviewer copy |
+| `asc-review-notes-template.txt` | Canonical reviewer copy (no secrets) |
+| `asc-review-notes-safe.js` | Loads template + support email |
+| `asc-review-notes-guard.js` | Fails if notes contain tailnet/API key patterns |
 | `patch-asc-review-notes.js` | ASC API PATCH — preferred over Chrome |
 | `asc-chrome-*-review-notes.js` | Chrome fill; imports safe template only |
 | `asc-chrome-redact-review-notes.js` | Emergency redact on inflight ASC tab |
