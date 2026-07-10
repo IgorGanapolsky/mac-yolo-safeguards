@@ -1,1 +1,1 @@
-AI agent,cursor,claude code,developer tools,approve,mac gateway,hermes,openclaw,automation,safety
+coding,remote,approve,devtools,terminal,gateway,operator,safety,local,pair,tailscale,codex,cli
