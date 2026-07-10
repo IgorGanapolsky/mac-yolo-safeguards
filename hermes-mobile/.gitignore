@@ -21,3 +21,7 @@ docs/proofs
 .install-phone-release.lockdir/
 .install-phone-release.last
 .reassure/
+
+# Higgsfield / ImageMagick scratch (canonical outputs live under fastlane/metadata)
+docs/store-assets/higgsfield/_*.js
+docs/store-assets/higgsfield/_*.png

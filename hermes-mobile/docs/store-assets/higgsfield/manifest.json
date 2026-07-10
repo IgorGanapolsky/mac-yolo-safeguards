@@ -1,0 +1,37 @@
+{
+  "generatedAt": "2026-07-10T01:30:00Z",
+  "higgsfieldUsed": false,
+  "higgsfieldAttempts": 2,
+  "higgsfieldResult": "Generations queued but did not complete within 3+ minutes; assets library still shows only 1 video from 2026-07-07",
+  "recommendation": "NOT required for Hermes Mobile store assets",
+  "assets": [
+    {
+      "path": "docs/store-assets/higgsfield/feature-graphic-v2-composite-1024x500.png",
+      "type": "play-feature-graphic-1024x500",
+      "source": "ImageMagick composite with REAL device screenshot (02_block.png)",
+      "shippedTo": "fastlane/metadata/android/en-US/images/featureGraphic.png"
+    },
+    {
+      "path": "docs/store-assets/higgsfield/feature-graphic-v1-baseline-1024x500.png",
+      "type": "baseline",
+      "source": "Previous icon+text only (generate-feature-graphic.sh)"
+    },
+    {
+      "path": "docs/store-assets/higgsfield/higgsfield-existing-asset-july7-thumb.webp",
+      "type": "higgsfield-library-existing",
+      "source": "Pre-existing Higgsfield video thumbnail (July 7)"
+    }
+  ],
+  "stillNeedsDeviceCapture": [
+    "01_approve — clean demo thread, distinct from frame 5",
+    "05_thumbgate — chat thread with thumbs-up on completed reply",
+    "22s app preview video — real in-app screenrecord (Apple requires in-app footage only)",
+    "Play promo YouTube video — 16:9 cut from same real footage"
+  ],
+  "higgsfieldFit": {
+    "screenshots": "NO — must be real device UI; AI fakes hurt trust for dev tool",
+    "featureGraphic": "OPTIONAL background only — composite with real screenshot is better",
+    "appPreviewVideo": "NO for Apple — policy requires in-app footage only",
+    "playPromoBroll": "MAYBE — abstract transitions/end cards only, not fake UI"
+  }
+}
