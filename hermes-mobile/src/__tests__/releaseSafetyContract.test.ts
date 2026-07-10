@@ -207,6 +207,9 @@ describe('release safety contract', () => {
     const settings = read('hermes-mobile/src/screens/SettingsScreen.tsx');
     expect(settings).toContain('testID="gateway-api-key-input"');
     expect(settings).toContain('testID="gateway-url-input"');
+    expect(settings).toContain('isDemoModeAllowed()');
+    expect(settings).toContain('Demo mode');
+    expect(settings).not.toMatch(/\{__DEV__ \? \([\s\S]*demo-mode-switch/);
     const saveKey = read('hermes-mobile/.maestro/save_key.yaml');
     expect(saveKey).toContain('gateway-api-key-input');
   });

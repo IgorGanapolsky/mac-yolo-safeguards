@@ -916,13 +916,13 @@ export default function SettingsScreen() {
           </>
         ) : null}
 
-        {__DEV__ ? (
+        {isDemoModeAllowed() ? (
           <>
             <Text style={styles.sectionTitle}>🧪 Developer Tools</Text>
             <GlassCard>
               <View style={styles.switchRow}>
                 <View style={styles.switchLabelCol}>
-                  <Text style={styles.switchLabel}>Demo & Sandbox Mode</Text>
+                  <Text style={styles.switchLabel}>Demo mode</Text>
                   <Text style={styles.switchDesc}>Simulate approvals without a running server</Text>
                 </View>
                 <Switch
