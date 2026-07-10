@@ -30,6 +30,12 @@ the task is high-risk, cross-file, architecture-heavy, or when the user is
 explicitly challenging certainty. It must also pass budget and paid-provider
 gates.
 
+NVIDIA Nemotron 3 Ultra is now modeled as a gated candidate for long-context
+agentic harness work: planning, coding agents, deep research, synthesis,
+verification, and recovery. It is not the default route. The router can select
+it only when the task explicitly asks for Nemotron/NVIDIA/NIM-style evaluation,
+the caller allows paid/external escalation, and cost/latency caps fit.
+
 ## Route Classes
 
 | Route | Provider/model | Use when | Gate |
@@ -38,6 +44,7 @@ gates.
 | `local_coder_candidate` | local coding candidate such as Ornith | benchmark new coding models | benchmark before default |
 | `glm52_reasoning` | `custom:zai-coding-glm` / `glm-5.2` | high-risk reasoning, architecture, "are you sure?" loops | paid OK, cost cap, provider smoke |
 | `fugu_escalation` | OpenRouter `sakana/fugu-ultra` | rare hard multi-agent research/review | explicit approval and cost cap |
+| `nemotron3_ultra_escalation` | OpenRouter `nvidia/nemotron-3-ultra-550b-a55b` | long-context agentic planning, code/deep-research review, verification/recovery evaluation | explicit approval, model catalog proof, provider smoke |
 | `openrouter_fusion` | OpenRouter `openrouter/fusion` | hard grounded questions where one model may miss | explicit approval, cost cap, grounding required |
 | `openrouter_advisor` | OpenRouter Advisor | cheap executor consults stronger model only when stuck | explicit approval, executor/advisor selected |
 | `openrouter_subagent` | OpenRouter Subagent | delegate self-contained routine subtasks to cheaper workers | explicit approval, worker model must be cheaper |
@@ -88,6 +95,7 @@ Receipts include:
 | `strict_contract_remom` | remom | exact-answer, hidden-test, high-variance reasoning, or strict output-contract tasks | require two successful evidence samples, synthesize with contract repair, fall back to best valid evidence |
 | `coding_candidate_ratings` | ratings | Ornith/new coding model evaluation | benchmark against local baseline before promotion |
 | `rare_research_fusion` | fusion | rare approved Fugu/Sakana-style research review | explicit paid approval and cost cap |
+| `nemotron3_ultra_candidate_fusion` | fusion | approved NVIDIA Nemotron harness evaluation | model catalog confirmation, provider smoke, cost receipt, no default-route change |
 | `openrouter_fusion_panel` | fusion | grounded hard questions with web-search/panel value | explicit approval; do not use for routine work |
 | `openrouter_advisor_escalation` | advisor | cheap executor gets stuck | consult stronger advisor only on missing proof or low confidence |
 | `openrouter_subagent_delegation` | subagent | routine self-contained subtasks | delegate to cheaper worker, then assemble evidence |
@@ -125,6 +133,8 @@ so the operator can inspect cost and routing before any provider call exists.
   may plan them, but it does not call them directly.
 - Model price/catalog checks are receipt evidence. They are not a substitute for
   a live provider smoke before promotion.
+- Nemotron routes are candidates only until all-Macs setup and router receipts
+  show catalog confirmation, capped smoke, cost, and quality evidence.
 - Wallet, stablecoin, Stripe, send, post, publish, and external-action tasks
   only emit an approval gate. The router never executes them.
 - Ornith and other new coding models are candidates until benchmark receipts
