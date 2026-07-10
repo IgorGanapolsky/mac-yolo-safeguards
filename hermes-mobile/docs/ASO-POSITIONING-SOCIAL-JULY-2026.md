@@ -2,7 +2,7 @@
 
 Research date: **2026-07-10**. Package: `com.iganapolsky.hermesmobile`. Play search audit: [hermes mobile](https://play.google.com/store/search?q=hermes%20mobile&c=apps).
 
-Related: [STORE-ASO-JULY-2026.md](./STORE-ASO-JULY-2026.md) (screenshots/video), [PROMOTION-PLAYBOOK.md](./PROMOTION-PLAYBOOK.md) (paid attribution).
+Related: [STORE-ASO-JULY-2026.md](./STORE-ASO-JULY-2026.md) (screenshots/video), [ASO-AI-AGENT-KEYWORDS-JULY-2026.md](./ASO-AI-AGENT-KEYWORDS-JULY-2026.md) (AI coding agent wedge + policy), [PROMOTION-PLAYBOOK.md](./PROMOTION-PLAYBOOK.md) (paid attribution).
 
 ---
 
