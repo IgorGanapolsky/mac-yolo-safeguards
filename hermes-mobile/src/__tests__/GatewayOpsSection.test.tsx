@@ -36,6 +36,18 @@ jest.mock('../services/hermesGatewayClient', () => ({
   runJobNow: jest.fn(),
   deleteJob: jest.fn(),
   setToolsetEnabled: jest.fn(),
+  extractCapabilitiesModel: jest.fn((caps: { default_model?: string }) => caps?.default_model ?? null),
+}));
+
+jest.mock('../services/appOtaUpdate', () => ({
+  isOtaUpdatesEnabled: jest.fn(() => false),
+  checkForAppUpdate: jest.fn(),
+  checkAndApplyAppUpdate: jest.fn(),
+}));
+
+jest.mock('expo-constants', () => ({
+  expoConfig: { version: '1.0.0' },
+  nativeAppVersion: '1.0.0',
 }));
 
 const { useGateway } = jest.requireMock('../context/GatewayContext');
@@ -47,6 +59,7 @@ describe('GatewayOpsSection', () => {
     useGateway.mockReturnValue(mockUseGateway());
     gatewayClient.getCapabilities.mockResolvedValue({
       features: { toolsets_write: true },
+      default_model: 'qwen3:8b-64k',
     });
     gatewayClient.listSkills.mockResolvedValue([]);
     gatewayClient.listJobs.mockResolvedValue([]);
@@ -85,6 +98,15 @@ describe('GatewayOpsSection', () => {
     });
 
     expect(getByTestId('toolset-switch-web').props.value).toBe(false);
+  });
+
+  it('renders connection health hub and agent dashboard', async () => {
+    const { getByTestId } = render(<GatewayOpsSection />);
+
+    await waitFor(() => {
+      expect(getByTestId('connection-health-hub')).toBeTruthy();
+      expect(getByTestId('agent-dashboard-strip')).toBeTruthy();
+    });
   });
 
   it('shows delete for long cron job names (actions not clipped off-screen)', async () => {
