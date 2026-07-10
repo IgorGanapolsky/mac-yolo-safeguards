@@ -98,6 +98,7 @@ export function useHermesDeepLinks(
   activateDeveloperLeashUnlock?: () => Promise<void>,
   forceE2eDemoMode?: () => Promise<void>,
   injectSmokeApproval?: () => void,
+  activateStoreLeashPreview?: () => void,
 ) {
   useEffect(() => {
     const handleUrl = async (url: string | null) => {
@@ -166,11 +167,9 @@ export function useHermesDeepLinks(
 
       if (isLeashTabDeepLink(url)) {
         navigationRef.current?.navigate('Leash');
-        if (
-          injectSmokeApproval &&
-          (isTruthyQueryFlag(url, 'preview', 'smoke') || isTruthyQueryFlag(url, 'smoke', '1', 'true'))
-        ) {
-          injectSmokeApproval();
+        if (isTruthyQueryFlag(url, 'preview', 'smoke') || isTruthyQueryFlag(url, 'smoke', '1', 'true')) {
+          activateStoreLeashPreview?.();
+          injectSmokeApproval?.();
         }
         return;
       }
@@ -192,5 +191,5 @@ export function useHermesDeepLinks(
       handleUrl(event.url);
     });
     return () => sub.remove();
-  }, [activateDeveloperLeashUnlock, applySetupDeepLink, focusChatSession, forceE2eDemoMode, injectSmokeApproval, navigationRef, refreshHealth, runAgentTool]);
+  }, [activateDeveloperLeashUnlock, activateStoreLeashPreview, applySetupDeepLink, focusChatSession, forceE2eDemoMode, injectSmokeApproval, navigationRef, refreshHealth, runAgentTool]);
 }

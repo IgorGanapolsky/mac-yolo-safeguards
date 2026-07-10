@@ -3,6 +3,17 @@
 # Never uses hermes://setup?demo=1 — demo mode is Maestro-only and poisons dogfood sessions.
 set -euo pipefail
 
+if [[ -z "${JAVA_HOME:-}" ]]; then
+  for _j in /opt/homebrew/opt/openjdk@17/libexec/openjdk.jdk/Contents/Home \
+            /usr/local/opt/openjdk@17/libexec/openjdk.jdk/Contents/Home; do
+    if [[ -x "$_j/bin/java" ]]; then
+      export JAVA_HOME="$_j"
+      export PATH="$JAVA_HOME/bin:$PATH"
+      break
+    fi
+  done
+fi
+
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 OUT_ANDROID="$ROOT/fastlane/metadata/android/en-US/images/phoneScreenshots"
 OUT_IOS="$ROOT/fastlane/metadata/ios/en-US/screenshots"
@@ -37,10 +48,12 @@ want_frame() {
 
 swipe_up() {
   local times="${1:-1}"
-  local w h
-  read -r w h < <(adb -s "$DEVICE" shell wm size | awk -F'[: x]+' '/Physical size/{print $2,$3; exit}')
+  local w h wm_size
+  wm_size="$(adb -s "$DEVICE" shell wm size 2>/dev/null | awk -F'[: x]+' '/Physical size/{print $2,$3; exit}')"
+  w="${wm_size%% *}"
+  h="${size##* }"
   w="${w:-1080}"
-  h="${h:-2400}"
+  h="${h:-2340}"
   local x=$((w / 2))
   local y1=$((h * 72 / 100))
   local y0=$((h * 28 / 100))
@@ -53,7 +66,7 @@ swipe_up() {
 
 verify_leash_approval() {
   adb -s "$DEVICE" shell uiautomator dump /sdcard/hermes-ui.xml >/dev/null 2>&1 || true
-  if adb -s "$DEVICE" shell "grep -q leash-thumbs-up /sdcard/hermes-ui.xml" 2>/dev/null; then
+  if adb -s "$DEVICE" shell "grep -qE 'leash-thumbs-up|leash_thumbs_up' /sdcard/hermes-ui.xml" 2>/dev/null; then
     echo "verify 02_block: approval card visible (leash-thumbs-up)"
     return 0
   fi
@@ -157,7 +170,7 @@ capture_04_pair() {
 
 run_frame "02_block" capture_02_block
 run_frame "03_standing" capture_03_standing
-run_frame "04_pair" capture_04_pair'
+run_frame "04_pair" capture_04_pair
 
 if want_frame "01_approve"; then
   open_link "hermes://chat"
