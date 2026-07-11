@@ -836,8 +836,9 @@ export default function SettingsScreen() {
             <View style={styles.switchLabelCol}>
               <Text style={styles.switchLabel}>Smart notifications</Text>
               <Text style={styles.switchDesc}>
-                Time-sensitive approvals (Approve/Deny actions), live computer activity while
-                backgrounded, and finish summaries with badge counts
+                Get approval alerts on your lock screen (Approve / Deny), background activity while
+                Hermes works on your Mac, and summaries when tasks finish. Does not change how Leash
+                looks in the app.
               </Text>
             </View>
             <Switch
