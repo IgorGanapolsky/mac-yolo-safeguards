@@ -410,8 +410,8 @@ export default function ApprovalsScreen() {
             </View>
             <View style={styles.switchRow}>
               <View style={styles.switchLabelCol}>
-                <Text style={styles.switchLabel}>Glanceable approvals</Text>
-                <Text style={styles.switchDesc}>Stack UI, larger targets, spoken status on connect</Text>
+                <Text style={styles.switchLabel}>Quick-approve layout</Text>
+                <Text style={styles.switchDesc}>One approval at a time with bigger buttons. Hides diffs and thumbs. Announces connection status with VoiceOver.</Text>
               </View>
               <Switch
                 value={settings.glanceMode}
