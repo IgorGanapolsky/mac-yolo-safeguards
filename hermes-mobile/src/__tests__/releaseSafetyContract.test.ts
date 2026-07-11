@@ -366,7 +366,7 @@ describe('release safety contract', () => {
     const safeNotes = read('hermes-mobile/scripts/asc-review-notes-template.txt');
     expect(safeNotes).toContain('Demo mode');
     expect(safeNotes).toContain('macOS, Linux, or Windows');
-    expect(safeNotes).not.toMatch(/hermes:\/\/setup\?demo=1/i);
+    expect(safeNotes).toContain('hermes://setup?demo=1');
     expect(safeNotes).not.toMatch(/ts\.net/);
   });
 
