@@ -166,6 +166,7 @@ import {
   shouldShowRecentChatsPanel,
 } from '../utils/chatRecentChatsPanel';
 import ChatScreenHeader from '../components/ChatScreenHeader';
+import ExpandableThreadTitle from '../components/ExpandableThreadTitle';
 import ChatEmptyGreeting from '../components/ChatEmptyGreeting';
 import CodexCommandCenter from '../components/CodexCommandCenter';
 import RecentChatsList from '../components/RecentChatsList';
@@ -5415,12 +5416,12 @@ export default function ChatScreen() {
                         }}
                       >
                         <View style={styles.sessionItemTitleRow}>
-                          <Text
+                          <ExpandableThreadTitle
+                            title={sessionLabelFor(item)}
+                            collapsedLines={2}
                             style={[styles.sessionItemTitle, isActive && styles.sessionItemTitleActive]}
-                            numberOfLines={2}
-                          >
-                            {sessionLabelFor(item)}
-                          </Text>
+                            testID={`threads-modal-title-${item.id}`}
+                          />
                           {sourceLabel ? (
                             <Text style={styles.sessionSourcePill}>{sourceLabel}</Text>
                           ) : null}

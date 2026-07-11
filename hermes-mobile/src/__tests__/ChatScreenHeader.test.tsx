@@ -156,24 +156,6 @@ describe('ChatScreenHeader', () => {
     expect(getByTestId('chat-context-project').props.children).toContain('Project lane (optional)');
   });
 
-  it('renames from title press when handler provided', () => {
-    const onRename = jest.fn();
-    const { getByTestId } = render(
-      <ChatScreenHeader
-        threadTitle="Skool project"
-        machineLabel="Mac mini"
-        connectionState="connected"
-        macHttpReachable
-        onOpenThreads={jest.fn()}
-        onPressThreadTitle={onRename}
-        onPressMachine={jest.fn()}
-      />,
-    );
-
-    fireEvent.press(getByTestId('chat-thread-title'));
-    expect(onRename).toHaveBeenCalledTimes(1);
-  });
-
   it('renames from pencil without double-firing title press', () => {
     const onRename = jest.fn();
     const { getByTestId } = render(
@@ -192,6 +174,27 @@ describe('ChatScreenHeader', () => {
     expect(onRename).toHaveBeenCalledTimes(1);
   });
 
+  it('expands long thread title on title tap', () => {
+    const longTitle = 'Choosing the Right Body of Water for Your Next Adventure';
+    const { getByTestId } = render(
+      <ChatScreenHeader
+        threadTitle={longTitle}
+        machineLabel="Mac mini"
+        connectionState="connected"
+        macHttpReachable
+        onOpenThreads={jest.fn()}
+        onPressMachine={jest.fn()}
+      />,
+    );
+
+    const title = getByTestId('HERMES CHAT');
+    expect(title.props.numberOfLines).toBe(1);
+    expect(title.props.accessibilityLabel).toBe(longTitle);
+
+    fireEvent.press(getByTestId('chat-thread-title-expand'));
+    expect(getByTestId('HERMES CHAT').props.numberOfLines).toBe(6);
+  });
+
   it('shows created timestamp under thread title', () => {
     const { getByTestId } = render(
       <ChatScreenHeader
@@ -208,7 +211,7 @@ describe('ChatScreenHeader', () => {
     expect(getByTestId('chat-thread-created').props.children).toBe('Jul 2, 2026, 6:53 PM');
   });
 
-  it('keeps long thread titles to one ellipsized header line', () => {
+  it('keeps long thread titles to one ellipsized header line when collapsed', () => {
     const longTitle = 'we are working on skool_top_level_integration_branch';
     const { getByTestId } = render(
       <ChatScreenHeader
@@ -226,11 +229,14 @@ describe('ChatScreenHeader', () => {
     expect(title.props.numberOfLines).toBe(1);
     expect(title.props.ellipsizeMode).toBe('tail');
     expect(title.props.children).toBe(longTitle);
+    expect(title.props.accessibilityLabel).toBe(longTitle);
     expect(title.props.style).toEqual(
-      expect.objectContaining({
-        lineHeight: 22,
-        letterSpacing: 0,
-      }),
+      expect.arrayContaining([
+        expect.objectContaining({
+          lineHeight: 22,
+          letterSpacing: 0,
+        }),
+      ]),
     );
   });
 
