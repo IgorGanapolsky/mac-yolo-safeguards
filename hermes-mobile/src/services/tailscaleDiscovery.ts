@@ -39,8 +39,11 @@ export function discoveredGatewayFromHealth(
       : typeof body.localIp === 'string'
         ? body.localIp
         : undefined;
-  const hostname = typeof body.hostname === 'string' ? body.hostname : undefined;
-  const label = hostname?.replace(/\.local$/i, '').trim();
+  const bodyHostname = typeof body.hostname === 'string' ? body.hostname : undefined;
+  const magicName = magicDnsDeviceName(httpBase);
+  const hostname = bodyHostname || (magicName ? `${magicName}.local` : undefined);
+  const label =
+    bodyHostname?.replace(/\.local$/i, '').trim() || magicName || undefined;
   return {
     gatewayUrl: httpBase,
     hostname,

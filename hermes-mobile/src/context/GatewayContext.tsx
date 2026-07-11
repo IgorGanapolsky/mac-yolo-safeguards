@@ -95,7 +95,10 @@ import {
   resolveCellularTailscaleFailoverUrl,
 } from '../utils/connectionSelfHeal';
 import { CONNECTION_HEAL_EXHAUSTED_AFTER } from '../utils/connectionErrorPolicy';
-import { profileMatchesDiscoveredGateway } from '../utils/gatewayProfilePicker';
+import {
+  profileMatchesDiscoveredGateway,
+  profilesForSwitchComputerPicker,
+} from '../utils/gatewayProfilePicker';
 import { isPrivateLanGatewayUrl } from '../utils/gatewayEndpoint';
 import { isTailscaleGatewayUrl } from '../utils/tailscaleHosts';
 import type { SetupDeepLinkParams } from '../utils/setupDeepLink';
@@ -1904,9 +1907,7 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
         try {
           const namedTailscale = await discoverTailscaleGateways(tailnetProbeHostsRef.current);
           for (const item of namedTailscale) {
-            if (item.hostname) {
-              state = upsertDiscoveredProfile(state, item, false);
-            }
+            state = upsertDiscoveredProfile(state, item, false);
           }
         } catch {
           // Naming is best-effort; a probe failure must never break discovery.
@@ -1934,11 +1935,14 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
       if (lanMatch) {
         await persistDiscoveredGatewayUrl(lanMatch.gatewayUrl, false);
       }
+      const visiblePickerCount = profilesForSwitchComputerPicker(state.profiles, {
+        activeProfileId: state.activeProfileId,
+      }).length;
       setProfileScanResult({
-        foundCount: discovered.length,
+        foundCount: visiblePickerCount,
         completedAtMs: Date.now(),
       });
-      void trackProductEvent('mac_scan_complete', { found_count: discovered.length });
+      void trackProductEvent('mac_scan_complete', { found_count: visiblePickerCount });
       if (discovered.length > 0) {
         haptics.success();
       } else {

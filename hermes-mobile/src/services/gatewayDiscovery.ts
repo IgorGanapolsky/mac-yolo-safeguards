@@ -5,10 +5,12 @@ import {
   extractLanIpFromGatewayUrl,
   gatewayUrlHostname,
   isLoopbackGatewayUrl,
+  isLoopbackHost,
   resolveDisplayLanIp,
 } from '../utils/gatewayUrlPolicy';
 import type { SetupDeepLinkParams } from '../utils/setupDeepLink';
-import { mergeTailnetProbeHosts } from '../utils/tailscaleHosts';
+import { magicDnsDeviceName, mergeTailnetProbeHosts } from '../utils/tailscaleHosts';
+import { isGenericMachineLabel } from './gatewayProfiles';
 import { normalizeGatewayUrl } from './gatewayClient';
 import type { DiscoveredGateway } from '../types/gatewayProfile';
 import type { LanScanProgress, LanScanStage } from '../types/lanScan';
@@ -21,6 +23,36 @@ const SUBNET_BATCH_SIZE = 48;
 export type DiscoverLanOptions = {
   onProgress?: (progress: LanScanProgress) => void;
 };
+
+/** Stable identity for a discovered endpoint — mirrors saved-profile machine de-dupe. */
+export function discoveredMachineKey(discovered: DiscoveredGateway): string {
+  const hostname = discovered.hostname?.trim().toLowerCase().replace(/\.local$/i, '');
+  if (hostname && hostname !== 'localhost') {
+    return `host:${hostname}`;
+  }
+  const magic = magicDnsDeviceName(discovered.gatewayUrl);
+  if (magic) {
+    return `host:${magic.toLowerCase()}`;
+  }
+  const label = discovered.label?.trim().toLowerCase().replace(/\.local$/i, '');
+  if (label && !isGenericMachineLabel(label)) {
+    return `host:${label}`;
+  }
+  const ip = discovered.localIp?.trim() || extractLanIpFromGatewayUrl(discovered.gatewayUrl);
+  if (ip && !isLoopbackHost(ip)) {
+    return `ip:${ip}`;
+  }
+  return `url:${normalizeGatewayUrl(discovered.gatewayUrl).httpBase}`;
+}
+
+/** Count distinct physical computers, not every gateway URL alias (LAN + Tailscale + MagicDNS). */
+export function countUniqueDiscoveredMachines(gateways: DiscoveredGateway[]): number {
+  const keys = new Set<string>();
+  for (const gateway of gateways) {
+    keys.add(discoveredMachineKey(gateway));
+  }
+  return keys.size;
+}
 
 function reportLanScanProgress(
   onProgress: DiscoverLanOptions['onProgress'],
@@ -286,7 +318,7 @@ async function sweepAllPairServers(
       'pair_server',
       Math.min(start + batch.length, hosts.length),
       hosts.length,
-      map.size,
+      countUniqueDiscoveredMachines(Array.from(map.values())),
     );
   }
 
@@ -322,7 +354,8 @@ async function sweepAllGateways(
       'gateway_health',
       Math.min(start + batch.length, hosts.length),
       hosts.length,
-      foundSoFar + map.size,
+      foundSoFar +
+        countUniqueDiscoveredMachines(Array.from(map.values())),
     );
   }
 
@@ -346,13 +379,24 @@ export async function discoverAllGatewaysOnLan(
   for (const item of fromPair.gateways) {
     mergeDiscovered(map, item);
   }
-  const fromHealth = await sweepAllGateways(phoneIp ?? '', preferLanIp, options, map.size);
+  const fromHealth = await sweepAllGateways(
+    phoneIp ?? '',
+    preferLanIp,
+    options,
+    countUniqueDiscoveredMachines(Array.from(map.values())),
+  );
   for (const item of fromHealth) {
     mergeDiscovered(map, item);
   }
 
   const list = Array.from(map.values());
-  reportLanScanProgress(options?.onProgress, 'complete', hosts.length, hosts.length, list.length);
+  reportLanScanProgress(
+    options?.onProgress,
+    'complete',
+    hosts.length,
+    hosts.length,
+    countUniqueDiscoveredMachines(list),
+  );
   if (preferLanIp && IPV4_RE.test(preferLanIp.trim())) {
     const preferUrl = buildGatewayUrlFromLanIp(preferLanIp.trim());
     const preferKey = normalizeGatewayUrl(preferUrl).httpBase;

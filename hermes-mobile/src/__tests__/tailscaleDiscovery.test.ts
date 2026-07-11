@@ -47,6 +47,20 @@ describe('tailscaleDiscovery', () => {
     expect(tailscaleDiscoveryLabel(discovered!)).toBe('Igors-Mac-mini');
   });
 
+  it('names MagicDNS-only /health responses when hostname is omitted', () => {
+    const discovered = discoveredGatewayFromHealth(
+      'http://igors-macbook-pro.tail12aa33.ts.net:8642',
+      { status: 'ok' },
+    );
+    expect(discovered).toEqual({
+      gatewayUrl: 'http://igors-macbook-pro.tail12aa33.ts.net:8642',
+      hostname: 'igors-macbook-pro.local',
+      localIp: undefined,
+      label: 'igors-macbook-pro',
+    });
+    expect(tailscaleDiscoveryLabel(discovered!)).toBe('igors-macbook-pro');
+  });
+
   it('ignores unhealthy gateway responses', () => {
     expect(
       discoveredGatewayFromHealth('http://100.94.135.78:8642', {

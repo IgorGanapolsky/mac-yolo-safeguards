@@ -3,9 +3,14 @@ import {
   discoverGatewayOnPhoneSubnet,
   discoverGatewayViaPairServer,
   discoverAllGatewaysOnLan,
+  countUniqueDiscoveredMachines,
+  discoveredMachineKey,
   pairServerHostFromGatewayUrl,
   resolvePairServerSetupParams,
 } from '../services/gatewayDiscovery';
+import { profilesForSwitchComputerPicker } from '../utils/gatewayProfilePicker';
+import { upsertDiscoveredProfile, dedupeGatewayProfiles } from '../services/gatewayProfiles';
+import { EMPTY_GATEWAY_PROFILE_STATE } from '../types/gatewayProfile';
 
 jest.mock('@react-native-community/netinfo', () => ({
   fetch: jest.fn(),
@@ -173,5 +178,62 @@ describe('gatewayDiscovery', () => {
     expect(tailnetProbeHosts).toEqual(
       expect.arrayContaining(['100.94.135.78', 'igors-mac-mini.tail12aa33.ts.net']),
     );
+  });
+
+  it('counts three gateway URL aliases for one Mac mini as one machine', () => {
+    const aliases = [
+      {
+        gatewayUrl: 'http://192.168.68.73:8642',
+        hostname: 'Igors-Mac-mini.local',
+        localIp: '192.168.68.73',
+      },
+      {
+        gatewayUrl: 'http://100.94.135.78:8642',
+        hostname: 'Igors-Mac-mini.local',
+        localIp: '100.94.135.78',
+      },
+      {
+        gatewayUrl: 'http://igors-mac-mini.tail12aa33.ts.net:8642',
+        hostname: 'Igors-Mac-mini.local',
+      },
+    ];
+    expect(countUniqueDiscoveredMachines(aliases)).toBe(1);
+    expect(aliases.map(discoveredMachineKey)).toEqual([
+      'host:igors-mac-mini',
+      'host:igors-mac-mini',
+      'host:igors-mac-mini',
+    ]);
+  });
+
+  it('matches picker row count after de-duping multi-route discoveries', () => {
+    const discovered = [
+      {
+        gatewayUrl: 'http://192.168.68.73:8642',
+        hostname: 'Igors-Mac-mini.local',
+        localIp: '192.168.68.73',
+      },
+      {
+        gatewayUrl: 'http://100.94.135.78:8642',
+        hostname: 'Igors-Mac-mini.local',
+        localIp: '100.94.135.78',
+      },
+      {
+        gatewayUrl: 'http://igors-macbook-pro.tail12aa33.ts.net:8642',
+        label: 'igors-macbook-pro',
+      },
+    ];
+    let state = EMPTY_GATEWAY_PROFILE_STATE;
+    for (const item of discovered) {
+      state = upsertDiscoveredProfile(state, item, false);
+    }
+    state = dedupeGatewayProfiles(state);
+    const visible = profilesForSwitchComputerPicker(state.profiles, {
+      activeProfileId: state.activeProfileId,
+    });
+    expect(countUniqueDiscoveredMachines(discovered)).toBe(visible.length);
+    expect(visible.map((profile) => profile.label).sort()).toEqual([
+      'Igors-Mac-mini',
+      'igors-macbook-pro',
+    ]);
   });
 });
