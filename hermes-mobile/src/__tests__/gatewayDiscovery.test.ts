@@ -3,6 +3,8 @@ import {
   discoverGatewayOnPhoneSubnet,
   discoverGatewayViaPairServer,
   discoverAllGatewaysOnLan,
+  pairServerHostFromGatewayUrl,
+  resolvePairServerSetupParams,
 } from '../services/gatewayDiscovery';
 
 jest.mock('@react-native-community/netinfo', () => ({
@@ -33,6 +35,31 @@ describe('gatewayDiscovery', () => {
 
     const url = await discoverGatewayViaPairServer();
     expect(url).toBe('http://192.168.12.208:8642');
+  });
+
+  it('resolves setup params with API key from pair server deep link', async () => {
+    (global.fetch as jest.Mock).mockImplementation((url: string) => {
+      if (url === 'http://100.94.135.78:8765/pair.json') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            gatewayUrl: 'http://100.94.135.78:8642',
+            deepLink:
+              'hermes://setup?url=http%3A%2F%2F100.94.135.78%3A8642&key=sk-mini-rotated-key',
+          }),
+        });
+      }
+      return Promise.resolve({ ok: false });
+    });
+
+    const setup = await resolvePairServerSetupParams('100.94.135.78');
+    expect(setup?.gatewayUrl).toBe('http://100.94.135.78:8642');
+    expect(setup?.apiKey).toBe('sk-mini-rotated-key');
+  });
+
+  it('maps loopback gateway URL to pair server on 127.0.0.1', () => {
+    expect(pairServerHostFromGatewayUrl('http://127.0.0.1:8642')).toBe('127.0.0.1');
+    expect(pairServerHostFromGatewayUrl('http://100.94.135.78:8642')).toBe('100.94.135.78');
   });
 
   it('discovers gateway health on phone subnet', async () => {

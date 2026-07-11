@@ -1,0 +1,19 @@
+# Production-paired store frames (no demo bootstrap).
+appId: com.iganapolsky.hermesmobile
+---
+- openLink: "hermes://leash"
+- extendedWaitUntil:
+    visible:
+      id: "THUMBGATE_LEASH"
+    timeout: 45000
+- scrollUntilVisible:
+    element:
+      id: "leash-smoke-test"
+    direction: DOWN
+    timeout: 90000
+- tapOn:
+    id: "leash-smoke-test"
+- extendedWaitUntil:
+    visible:
+      id: "leash-thumbs-up"
+    timeout: 15000

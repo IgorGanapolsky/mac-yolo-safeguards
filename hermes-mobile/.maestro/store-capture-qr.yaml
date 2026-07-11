@@ -1,0 +1,18 @@
+appId: com.iganapolsky.hermesmobile
+---
+- openLink: "hermes://settings?pair=qr"
+- extendedWaitUntil:
+    visible:
+      id: "SETTINGS"
+    timeout: 45000
+- scrollUntilVisible:
+    element:
+      id: "scan-pairing-qr"
+    direction: DOWN
+    timeout: 60000
+- tapOn:
+    id: "scan-pairing-qr"
+- extendedWaitUntil:
+    visible:
+      id: "pair-qr-scanner-help"
+    timeout: 15000

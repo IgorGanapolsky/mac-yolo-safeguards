@@ -36,6 +36,7 @@ import GatewayOpsSection from '../components/GatewayOpsSection';
 import { secureCredentials } from '../services/secureCredentials';
 import { requestHermesNotificationPermission } from '../services/approvalNotifications';
 import { AVATARS, PERSONAS } from '../utils/hermesPersona';
+import { consumeSettingsPairQrOnFocus } from '../utils/storeCaptureDeepLink';
 
 export default function SettingsScreen() {
   const {
@@ -95,6 +96,14 @@ export default function SettingsScreen() {
   const [isScanningMacs, setIsScanningMacs] = useState(false);
   const [qrScannerVisible, setQrScannerVisible] = useState(false);
   const [glassesConnected, setGlassesConnected] = useState(false);
+  useFocusEffect(
+    useCallback(() => {
+      if (consumeSettingsPairQrOnFocus()) {
+        setQrScannerVisible(true);
+      }
+    }, []),
+  );
+
   const scrollRef = useRef<ScrollView>(null);
   const gatewayUrlInputRef = useRef<TextInput>(null);
   const relayRouteDisplay = useMemo(
@@ -525,7 +534,8 @@ export default function SettingsScreen() {
           <GatewayProfilePicker
             profiles={profilesForSwitchComputerPicker(savedMacProfiles)}
             activeProfileId={activeGatewayProfile?.id ?? null}
-            activeReachable={macHttpOk || connectionState === 'connected'}
+            activeReachable={macHttpOk}
+            authNeedsRepair={health?.authMismatch === true}
             activeConnecting={connectionState === 'connecting'}
             onSelect={handleSelectProfile}
             onRemove={handleRemoveProfile}
@@ -907,13 +917,13 @@ export default function SettingsScreen() {
           </>
         ) : null}
 
-        {__DEV__ ? (
+        {isDemoModeAllowed() ? (
           <>
             <Text style={styles.sectionTitle}>🧪 Developer Tools</Text>
             <GlassCard>
               <View style={styles.switchRow}>
                 <View style={styles.switchLabelCol}>
-                  <Text style={styles.switchLabel}>Demo & Sandbox Mode</Text>
+                  <Text style={styles.switchLabel}>Demo mode</Text>
                   <Text style={styles.switchDesc}>Simulate approvals without a running server</Text>
                 </View>
                 <Switch

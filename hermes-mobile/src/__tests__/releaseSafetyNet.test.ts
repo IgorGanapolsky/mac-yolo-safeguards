@@ -137,7 +137,7 @@ describe('release safety net (T-114)', () => {
     expect(client).toContain('/api/sessions?limit=1');
     expect(client).toContain('authMismatch');
     const connection = read('hermes-mobile/src/utils/gatewayConnection.ts');
-    expect(connection).toContain('GATEWAY_WRONG_KEY_MESSAGE');
+    expect(connection).toContain('GATEWAY_AUTH_REPAIR_HEADER');
     expect(connection).toContain('authMismatch');
   });
 });

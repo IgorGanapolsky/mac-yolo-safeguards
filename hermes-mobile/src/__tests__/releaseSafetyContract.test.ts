@@ -5,6 +5,9 @@ import {
   HERMES_ANDROID_OPERATOR_EMAIL,
   HERMES_IOS_APPLE_ID_EMAIL,
   HERMES_MOBILE_ANDROID_PACKAGE,
+  HERMES_PLAY_CONSOLE_ADMIN_EMAIL,
+  HERMES_PLAY_DEVELOPER_ID,
+  HERMES_PLAY_DEVELOPER_PUBLIC_NAME,
 } from '../constants/appIdentity';
 import firebaseProject from '../../firebase-project.json';
 
@@ -22,6 +25,12 @@ describe('appIdentity', () => {
     expect(HERMES_ANDROID_OPERATOR_EMAIL).toBe('iganapolsky@gmail.com');
     expect(HERMES_IOS_APPLE_ID_EMAIL).toBe('igor.ganapolsky@icloud.com');
     expect(HERMES_ANDROID_OPERATOR_EMAIL).not.toBe(HERMES_IOS_APPLE_ID_EMAIL);
+  });
+
+  it('pins Play publisher to Igor Ganapolsky (not Tactical Training)', () => {
+    expect(HERMES_PLAY_CONSOLE_ADMIN_EMAIL).toBe('iganapolsky@gmail.com');
+    expect(HERMES_PLAY_DEVELOPER_PUBLIC_NAME).toBe('IgorGanapolsky');
+    expect(HERMES_PLAY_DEVELOPER_ID).toBe('5120393192891708058');
   });
 
   it('points Firebase at hermes-mobile-dist-78361 only', () => {
@@ -66,10 +75,18 @@ describe('Hermes Mobile release docs', () => {
     }
   });
 
-  it('documents hermes-mobile-publisher Play service account convention', () => {
+  it('documents Igor Ganapolsky Play publisher identity', () => {
     const playRelease = read('hermes-mobile/docs/PLAY_RELEASE.md');
+    expect(playRelease).toContain('iganapolsky@gmail.com');
+    expect(playRelease).toContain('IgorGanapolsky');
+    expect(playRelease).toContain('5120393192891708058');
     expect(playRelease).toContain('hermes-mobile-publisher');
-    expect(playRelease).toContain('Hermes Mobile');
+    if (playRelease.toLowerCase().includes('tactical training')) {
+      expect(playRelease.toLowerCase()).toMatch(/do not/);
+    }
+    if (playRelease.includes('ig5973700')) {
+      expect(playRelease.toLowerCase()).toMatch(/do not/);
+    }
   });
 });
 
@@ -90,7 +107,7 @@ describe('release safety contract', () => {
     expect(buildProps?.[1]?.android?.buildArchs).toEqual(['arm64-v8a']);
   });
 
-  it('EAS submit targets Play production track (LLC org)', () => {
+  it('EAS submit targets Play production track (Igor Ganapolsky account)', () => {
     const eas = JSON.parse(read('hermes-mobile/eas.json'));
     expect(eas.submit.production.android.track).toBe('production');
   });
@@ -122,7 +139,7 @@ describe('release safety contract', () => {
     expect(eas.build['e2e-test'].channel).toBe('e2e-test');
   });
 
-  it('mobile-ota workflow publishes production channel on main push', () => {
+  it('mobile-ota workflow publishes preview + production channels on main push', () => {
     const workflow = read('.github/workflows/mobile-ota.yml');
     expect(workflow).toContain('branches:');
     expect(workflow).toContain('- main');
@@ -130,7 +147,8 @@ describe('release safety contract', () => {
     expect(workflow).toContain('workflow_dispatch');
     expect(workflow).toContain('runtimeVersion');
     expect(workflow).toContain('eas update');
-    expect(workflow).toContain('--channel production');
+    expect(workflow).toContain('for CH in preview production');
+    expect(workflow).toContain('--channel "$CH"');
     expect(workflow).toContain('secrets.EXPO_TOKEN');
     expect(workflow).toContain('test:release-safety');
   });
@@ -162,6 +180,8 @@ describe('release safety contract', () => {
     expect(shipGuard).toContain('Hold the cord on your AI');
     expect(shipGuard).toContain('com.iganapolsky.hermesmobile');
     expect(shipGuard).toContain('chat-e2e-bootstrap.yaml');
+    expect(shipGuard).toContain('recover-chat-tab.yaml');
+    expect(shipGuard).toContain('regression-composer-typeable.yaml');
     expect(shipGuard).not.toMatch(/runFlow:\s*e2e-bootstrap\.yaml/);
   });
 
@@ -187,6 +207,9 @@ describe('release safety contract', () => {
     const settings = read('hermes-mobile/src/screens/SettingsScreen.tsx');
     expect(settings).toContain('testID="gateway-api-key-input"');
     expect(settings).toContain('testID="gateway-url-input"');
+    expect(settings).toContain('isDemoModeAllowed()');
+    expect(settings).toContain('Demo mode');
+    expect(settings).not.toMatch(/\{__DEV__ \? \([\s\S]*demo-mode-switch/);
     const saveKey = read('hermes-mobile/.maestro/save_key.yaml');
     expect(saveKey).toContain('gateway-api-key-input');
   });
@@ -336,6 +359,17 @@ describe('release safety contract', () => {
     expect(workflow).toContain('SENTRY_DISABLE_AUTO_UPLOAD');
   });
 
+  it('iOS App Store production EAS enables store review demo only on iOS', () => {
+    const eas = JSON.parse(read('hermes-mobile/eas.json'));
+    expect(eas.build.production.ios.env.EXPO_PUBLIC_STORE_REVIEW_DEMO).toBe('1');
+    expect(eas.build.production.env.EXPO_PUBLIC_STORE_REVIEW_DEMO).toBeUndefined();
+    const safeNotes = read('hermes-mobile/scripts/asc-review-notes-template.txt');
+    expect(safeNotes).toContain('Demo mode');
+    expect(safeNotes).toContain('macOS, Linux, or Windows');
+    expect(safeNotes).not.toMatch(/hermes:\/\/setup\?demo=1/i);
+    expect(safeNotes).not.toMatch(/ts\.net/);
+  });
+
   it('iOS simulator E2E builds with automation deep links enabled', () => {
     const script = read('hermes-mobile/scripts/run-simulator-e2e.sh');
     const appConfig = read('hermes-mobile/app.config.js');
@@ -365,8 +399,10 @@ describe('release safety contract', () => {
 
   it('continuous E2E runner and LaunchAgent exist', () => {
     const runner = read('hermes-mobile/scripts/run-continuous-e2e.sh');
+    const shipGuard = read('hermes-mobile/.maestro/ship-guard.yaml');
     expect(runner).toContain('--once');
     expect(runner).toContain('ship-guard.yaml');
+    expect(shipGuard).toContain('regression-composer-typeable.yaml');
     expect(runner).toContain('chat-send-persistence.yaml');
     expect(runner).toContain('Android-only continuous E2E requested');
     expect(runner).toContain('android-only continuous E2E skipped');
@@ -391,5 +427,19 @@ describe('release safety contract', () => {
     expect(suite).toContain('regression-chat-send-visible.yaml');
     expect(suite).toContain('regression-leash-refresh.yaml');
     expect(suite).toContain('regression-chat-header-model.yaml');
+    expect(suite).toContain('regression-composer-typeable.yaml');
+  });
+
+  it('tier-0 Maestro validator requires composer typeable regression flow', () => {
+    const validator = read('hermes-mobile/scripts/validate-maestro-flows.js');
+    expect(validator).toContain("'regression-composer-typeable'");
+  });
+
+  it('Android composer dock lifts via marginBottom only (no translateY hit-rect regression)', () => {
+    const chatScreen = read('hermes-mobile/src/screens/ChatScreen.tsx');
+    expect(chatScreen).toContain('composerDockContainerStyle');
+    expect(chatScreen).not.toMatch(
+      /Platform\.OS === 'android'[\s\S]{0,200}translateY:\s*-composerDockSpacing\.marginBottom/,
+    );
   });
 });

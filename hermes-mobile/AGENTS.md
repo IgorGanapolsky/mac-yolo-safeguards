@@ -59,3 +59,7 @@ Details: [docs/TESTING.md](./docs/TESTING.md).
 **Maestro:** `connect-mac-gate` must show `connect-mac-onboarding-card` on cold start without demo deep link (future flow); demo bootstrap uses `hermes://setup?demo=1` and hides the gate.
 
 **Copy rules:** Say **Your Mac**, **Home Wi‑Fi**, **Find computers** — never "gateway", "LAN", or "Pair relay" in first-run / disconnected primary UI.
+
+## Prevent recurrence (July 2026)
+
+Playbook: [docs/PREVENT-RECURRENCE-JULY-2026.md](./docs/PREVENT-RECURRENCE-JULY-2026.md). **Session gates:** vault pull + `plan.md` §2 before parallel work; `bash scripts/agent-adb-refresh.sh` before phone/pair; `bash scripts/agent-pre-asc-edit.sh` before ASC review notes; read `docs/proofs/continuous/latest.json` before device/chat ship claims (`e2e=skipped` is not pass). **Cursor:** single-pass — no duplicate subagents on the same file domain or PR.

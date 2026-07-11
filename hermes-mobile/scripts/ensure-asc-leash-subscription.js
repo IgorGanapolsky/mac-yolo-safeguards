@@ -1,14 +1,86 @@
 #!/usr/bin/env node
 /**
  * Ensure thumbgate_leash_monthly subscription exists in App Store Connect.
- * Creates subscription group + subscription if missing; sets US price tier 19.
+ * Creates subscription group + subscription if missing; sets US price tier 19;
+ * en-US group localization + subscription review screenshot for MISSING_METADATA.
  */
+const fs = require('fs');
 const path = require('path');
-const { loadEnv, ascGet, ascPost } = require('./asc-api');
+const { loadEnv, ascGet, ascPost, ascUploadBinaryAsset } = require('./asc-api');
 
 const ROOT = path.join(__dirname, '..');
 const PRODUCT_ID = 'thumbgate_leash_monthly';
 const GROUP_REF = 'Leash Pro';
+const GROUP_DISPLAY_NAME = 'Leash Pro';
+
+const DEFAULT_REVIEW_SCREENSHOT_CANDIDATES = [
+  'fastlane/screenshots/en-US/05_thumbgate_67.png',
+  'fastlane/screenshots/en-US/03_standing_67.png',
+  'fastlane/screenshots/en-US/01_approve_67.png',
+  'docs/store-assets/subscription-review-screenshot.png',
+];
+
+function resolveReviewScreenshotPath() {
+  const fromEnv = process.env.ASC_SUBSCRIPTION_REVIEW_SCREENSHOT?.trim();
+  if (fromEnv) {
+    const abs = path.isAbsolute(fromEnv) ? fromEnv : path.join(ROOT, fromEnv);
+    if (!fs.existsSync(abs)) throw new Error(`ASC_SUBSCRIPTION_REVIEW_SCREENSHOT not found: ${abs}`);
+    return abs;
+  }
+  for (const rel of DEFAULT_REVIEW_SCREENSHOT_CANDIDATES) {
+    const abs = path.join(ROOT, rel);
+    if (fs.existsSync(abs)) return abs;
+  }
+  return null;
+}
+
+async function ensureGroupLocalization(groupId) {
+  const locs = await ascGet(`/v1/subscriptionGroups/${groupId}/subscriptionGroupLocalizations?limit=10`);
+  if ((locs.data || []).some((l) => l.attributes?.locale === 'en-US')) {
+    console.log('Group en-US localization exists');
+    return;
+  }
+  console.log('Adding subscription group en-US localization…');
+  await ascPost('/v1/subscriptionGroupLocalizations', {
+    type: 'subscriptionGroupLocalizations',
+    attributes: {
+      locale: 'en-US',
+      name: GROUP_DISPLAY_NAME,
+    },
+    relationships: {
+      subscriptionGroup: { data: { type: 'subscriptionGroups', id: groupId } },
+    },
+  });
+}
+
+async function ensureReviewScreenshot(subscriptionId) {
+  const existing = await ascGet(`/v1/subscriptions/${subscriptionId}/appStoreReviewScreenshot`);
+  if (existing.data?.id) {
+    console.log('Subscription review screenshot exists', existing.data.id);
+    return { skipped: true, screenshotId: existing.data.id };
+  }
+
+  const screenshotPath = resolveReviewScreenshotPath();
+  if (!screenshotPath) {
+    console.warn('No local subscription review screenshot found; set ASC_SUBSCRIPTION_REVIEW_SCREENSHOT');
+    return { skipped: true, missingAsset: true };
+  }
+
+  console.log('Uploading subscription review screenshot from', path.relative(ROOT, screenshotPath));
+  const screenshotId = await ascUploadBinaryAsset(screenshotPath, {
+    reservePath: '/v1/subscriptionAppStoreReviewScreenshots',
+    reserveData: {
+      type: 'subscriptionAppStoreReviewScreenshots',
+      attributes: {},
+      relationships: {
+        subscription: { data: { type: 'subscriptions', id: subscriptionId } },
+      },
+    },
+    assetType: 'subscriptionAppStoreReviewScreenshots',
+  });
+  console.log('Uploaded subscription review screenshot', screenshotId);
+  return { uploaded: true, screenshotId };
+}
 
 async function main() {
   loadEnv(ROOT);
@@ -29,6 +101,8 @@ async function main() {
   } else {
     console.log('Found group', group.id, group.attributes?.referenceName);
   }
+
+  await ensureGroupLocalization(group.id);
 
   const subs = await ascGet(`/v1/subscriptionGroups/${group.id}/subscriptions?limit=50`);
   let sub = (subs.data || []).find((s) => s.attributes?.productId === PRODUCT_ID);
@@ -91,7 +165,23 @@ async function main() {
     });
   }
 
-  console.log(JSON.stringify({ ok: true, groupId: group.id, subscriptionId: sub.id, productId: PRODUCT_ID }, null, 2));
+  const screenshot = await ensureReviewScreenshot(sub.id);
+
+  const refreshed = await ascGet(`/v1/subscriptions/${sub.id}`);
+  console.log(
+    JSON.stringify(
+      {
+        ok: true,
+        groupId: group.id,
+        subscriptionId: sub.id,
+        productId: PRODUCT_ID,
+        state: refreshed.data?.attributes?.state,
+        reviewScreenshot: screenshot,
+      },
+      null,
+      2,
+    ),
+  );
 }
 
 main().catch((err) => {

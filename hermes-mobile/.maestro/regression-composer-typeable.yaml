@@ -1,0 +1,40 @@
+# Regression for the #91 OTA "keyboard opens, can't type" bug: the composer was lifted
+# above the keyboard with transform:translateY, which on Android leaves the TextInput's
+# touch hit-rect behind — visible but UNTAPPABLE. The fix uses layout marginBottom so the
+# hit-rect moves with the input. This flow taps the composer WHILE THE KEYBOARD IS OPEN
+# (the lifted state) and asserts a second typed probe lands — the exact path unit tests
+# and the old send-visible flow (single tap, keyboard closed) never exercised.
+appId: com.iganapolsky.hermesmobile
+---
+- launchApp
+- extendedWaitUntil:
+    notVisible:
+      id: "hermes-bootstrap"
+    timeout: 90000
+- runFlow: dismiss-print-interruption.yaml
+- runFlow: chat-e2e-bootstrap.yaml
+- runFlow:
+    when:
+      notVisible:
+        id: "chat-input"
+    commands:
+      - tapOn:
+          id: "tab-hermes"
+- extendedWaitUntil:
+    visible:
+      id: "chat-input"
+    timeout: 30000
+# First tap: keyboard closed -> focuses -> keyboard opens and the dock lifts (marginBottom>0).
+- tapOn:
+    id: "chat-input"
+- eraseText
+- inputText: "typeable-probe-1"
+- assertVisible: "typeable-probe-1"
+# CRITICAL: keyboard now OPEN and dock lifted. Re-tap the lifted composer and type again.
+# Under the translateY transform the hit-rect is left behind, this tap misses, and
+# "-probe-2" never lands. With marginBottom the input stays tappable and the probe lands.
+- tapOn:
+    id: "chat-input"
+- inputText: "-probe-2"
+- assertVisible: "typeable-probe-1-probe-2"
+- eraseText

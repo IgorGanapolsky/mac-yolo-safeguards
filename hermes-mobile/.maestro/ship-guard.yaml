@@ -20,49 +20,21 @@ appId: com.iganapolsky.hermesmobile
 - assertNotVisible: "Hermes Mobile Agent"
 
 # Async heal can drop demo composer seconds after bootstrap on CI emulator.
-- openLink: "hermes://setup?demo=1"
+- openLink: "hermes://setup?demo=1&recover=1"
 - extendedWaitUntil:
     notVisible:
       id: "hermes-bootstrap"
     timeout: 30000
 
-# chat-e2e-bootstrap leaves Chat ready — do not openLink hermes://chat again (drops tab bar on CI).
-- extendedWaitUntil:
-    notVisible:
-      id: "connect-mac-gate"
-    timeout: 30000
-- extendedWaitUntil:
-    visible:
-      id: "chat-screen-header"
-    timeout: 30000
+# Async heal can hide composer on paired devices — recover re-opens Chat and scrolls input into view.
+- runFlow: recover-chat-tab.yaml
 
-- hideKeyboard
-- runFlow: dismiss-print-interruption.yaml
-- extendedWaitUntil:
-    visible:
-      id: "chat-input"
-    timeout: 45000
+# Composer must stay tappable while keyboard is open (regression #91 / translateY hit-rect).
+- runFlow: regression-composer-typeable.yaml
 
+# Leash tab (THUMBGATE_LEASH) is covered by e2e-bootstrap / regression-leash-refresh.
+# Device ship-guard ends at SETTINGS — Leash deep-link is flaky after demo re-bootstrap.
 - hideKeyboard
-- openLink: "hermes://leash"
-- extendedWaitUntil:
-    notVisible:
-      id: "tab-screen-loading"
-    timeout: 90000
-- hideKeyboard
-- runFlow:
-    when:
-      notVisible:
-        id: "THUMBGATE_LEASH"
-    commands:
-      - hideKeyboard
-      - tapOn:
-          id: "tab-leash"
-- extendedWaitUntil:
-    visible:
-      id: "THUMBGATE_LEASH"
-    timeout: 90000
-
 - openLink: "hermes://settings"
 - extendedWaitUntil:
     notVisible:

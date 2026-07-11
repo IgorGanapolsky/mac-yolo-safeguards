@@ -16,28 +16,78 @@ name: Mobile E2E (Android emulator)
 # To make this a required status check, a repo admin must add the job's check name
 # "Maestro ship-guard (Android emulator)" to branch protection for `main` (see the docs file).
 
+# Runs on push to `main` (post-merge guard) and on pull_request — the releaseSafetyNet
+# contract requires BOTH the push: and pull_request: triggers, and this keeps them.
+#
+# Why push is scoped to `main` (previously: all branches): on a PR branch the
+# pull_request event already runs this job once. An UNSCOPED push: fired a SECOND,
+# simultaneous 45-min emulator run on the very same commit — the two never deduped
+# because the `concurrency` group below is keyed on github.ref, which differs between the
+# push event (refs/heads/<branch>) and the pull_request event (refs/pull/<n>/merge). The
+# two runs then contended for the emulator until one hung, wedging the required
+# "Maestro ship-guard (Android emulator)" check. Scoping push to `main` yields exactly
+# one run per commit (pull_request on PR branches; push on main) while STILL guarding
+# direct merges to main via the post-merge push run.
 on:
   workflow_dispatch:
   push:
+    branches:
+      - main
     paths:
       - 'hermes-mobile/**'
       - '.github/workflows/mobile-e2e.yml'
       - '.github/workflows/mobile-ota.yml'
+  # NO `paths:` filter on pull_request. This job's check name is a REQUIRED status
+  # check on `main`. A path-filtered workflow that does not trigger reports no check
+  # at all, so GitHub blocks the PR forever — that is what stranded every PR touching
+  # no hermes-mobile file (#87, #106, #114). A job SKIPPED via `if:` does report, and
+  # branch protection treats a skipped required check as satisfied. So: always trigger
+  # the workflow, and skip the expensive emulator job when mobile files are untouched.
   pull_request:
-    paths:
-      - 'hermes-mobile/**'
-      - '.github/workflows/mobile-e2e.yml'
-      - '.github/workflows/mobile-ota.yml'
 
-# Cancel superseded runs on the same ref so a fast-moving PR does not queue a backlog of
-# 40-minute emulator jobs (which is how a slow required check gets disabled in frustration).
+# Per-ref concurrency. A single GLOBAL group was tried to serialise the emulator, but
+# GitHub keeps only ONE pending run per concurrency group: each new run cancelled the
+# previously-queued one. Measured 2026-07-10 with 4 agents pushing: 18 of the last 20
+# mobile-e2e runs ended `cancelled`, so this REQUIRED check almost never reported and
+# PRs could not merge. GitHub-hosted runners are isolated, so there is no shared
+# emulator resource to protect — scope the group to the ref and cancel only this ref's
+# own superseded runs.
 concurrency:
-  group: mobile-e2e-${{ github.workflow }}-${{ github.ref }}
+  group: hermes-mobile-maestro-ship-guard-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
+  # Cheap gate (~20s): decides whether the emulator job is relevant to this PR.
+  # On push/workflow_dispatch it always reports true so main keeps its post-merge guard.
+  changes:
+    name: Detect hermes-mobile changes
+    runs-on: ubuntu-latest
+    outputs:
+      mobile: ${{ steps.filter.outputs.mobile }}
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          fetch-depth: 0
+      - id: filter
+        run: |
+          set -eu
+          if [ "${{ github.event_name }}" != "pull_request" ]; then
+            echo "mobile=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          base="${{ github.event.pull_request.base.sha }}"
+          head="${{ github.event.pull_request.head.sha }}"
+          if git diff --name-only "$base" "$head" \
+            | grep -qE '^(hermes-mobile/|\.github/workflows/mobile-(e2e|ota)\.yml$)'; then
+            echo "mobile=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "mobile=false" >> "$GITHUB_OUTPUT"
+          fi
+
   android-e2e:
     name: Maestro ship-guard (Android emulator)
+    needs: changes
+    if: needs.changes.outputs.mobile == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 45
     env:
@@ -98,6 +148,13 @@ jobs:
           arch: x86_64
           profile: pixel_6
           working-directory: hermes-mobile
+          # Harden the cold emulator boot so this required check stops flaking on
+          # "device emulator-5554 not found" / boot timeout: headless swiftshader GPU,
+          # no audio/boot-anim/snapshot/cameras, animations off, and a generous boot
+          # timeout. All additive and reversible.
+          disable-animations: true
+          emulator-boot-timeout: 900
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot -camera-back none -camera-front none
           script: |
             adb install -r android/app/build/outputs/apk/debug/app-debug.apk
             export PATH="$HOME/.maestro/bin:$PATH"

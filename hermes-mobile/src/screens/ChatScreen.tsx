@@ -16,6 +16,7 @@ import {
   Keyboard,
   Alert,
   useWindowDimensions,
+  Dimensions,
   type NativeSyntheticEvent,
   type NativeScrollEvent,
 } from 'react-native';
@@ -32,6 +33,7 @@ import { useKeyboardInset } from '../hooks/useKeyboardInset';
 import {
   composerDockInsets,
   focusedAndroidKeyboardFallbackInset,
+  keyboardOverlapHeight,
   ANDROID_TAB_BAR_ESTIMATE_PX,
 } from '../utils/composerKeyboard';
 import Constants from 'expo-constants';
@@ -68,7 +70,8 @@ import {
   getObsidianProjects,
   getObsidianAgents,
 } from '../services/hermesGatewayClient';
-import { fetchGatewayHealth } from '../services/gatewayClient';
+import { fetchGatewayHealth, GATEWAY_WRONG_KEY_MESSAGE, gatewayAuthRepairBanner } from '../services/gatewayClient';
+import { secureCredentials } from '../services/secureCredentials';
 import type { HermesSession, HermesMessage } from '../types/chat';
 import type { ChatProject, ChatProjectState } from '../types/chatProject';
 import { EMPTY_CHAT_PROJECT_STATE } from '../types/chatProject';
@@ -106,7 +109,7 @@ import {
   ensureSessionCreatedAt,
 } from '../utils/sessionDisplay';
 import { findResumableSessionByPromptTitle } from '../utils/resumeExistingSession';
-import { formatMessageTimestamp, prepareMessagesForDisplay } from '../utils/chatMessageDisplay';
+import { formatMessageTimestamp, prepareMessagesForDisplay, resolveMessageTimestamp } from '../utils/chatMessageDisplay';
 import {
   isMessageBodyEmpty,
   isMessageDisplayEmpty,
@@ -115,6 +118,7 @@ import {
   transcriptDigest,
   hasUnsyncedLocalMessages,
   normalizeMessageText,
+  findDeferredPlaceholderAfterLastUser,
 } from '../utils/chatMessageMerge';
 import {
   resolveChatOutputFeedbackBusyKey,
@@ -137,6 +141,12 @@ import {
   shouldFailRunAwaitingFirstToken,
 } from '../utils/runStaleDetection';
 import { isChatAtTop, isChatNearBottom } from '../utils/chatScrollSync';
+import {
+  COMPOSER_DRAFT_SAVE_DEBOUNCE_MS,
+  clearComposerDraft,
+  loadComposerDraft,
+  saveComposerDraft,
+} from '../utils/composerDraftStorage';
 import {
   chatDistanceFromBottom,
   resolveUserScrolledUp,
@@ -206,6 +216,10 @@ import {
   isGatewayHealthPending,
   resolveEffectiveMacHttpOk,
 } from '../utils/gatewayConnection';
+import {
+  pairServerHostFromGatewayUrl,
+  resolvePairServerSetupParams,
+} from '../services/gatewayDiscovery';
 import { isGatewayLiveForDelivery } from '../utils/outboundDeliveryStatus';
 import {
   OUTBOUND_PENDING_RECOVERY_MS,
@@ -255,6 +269,7 @@ import {
   extractAssistantFromRunCompletedPayload,
   findNewAssistantReply,
   GENERIC_EMPTY_STREAM_PLACEHOLDER,
+  isDeferredStreamPlaceholder,
   isTelegramDeferredEmptyStream,
   snapshotAssistantBodies,
   TELEGRAM_QUEUED_REPLY_PLACEHOLDER,
@@ -307,14 +322,67 @@ export function resolveEffectiveKeyboardInset(
   keyboardScreenVisible: boolean,
   inputFocused: boolean,
   windowHeight: number,
+  /** Test seam: Android Keyboard.metrics().height without mocking Keyboard globally. */
+  androidMetricsHeight?: number,
 ): number {
   if (keyboardInset > 0) {
     return keyboardInset;
+  }
+  const metricsHeight =
+    androidMetricsHeight ??
+    (Platform.OS === 'android' ? (Keyboard.metrics()?.height ?? 0) : 0);
+  // Only trust live metrics while the keyboard is on screen — stale metrics after
+  // dismiss (or run-banner layout shifts) otherwise lift the dock into mid-screen.
+  if (metricsHeight > 0 && keyboardScreenVisible) {
+    return metricsHeight;
   }
   if (!keyboardScreenVisible) {
     return 0;
   }
   return focusedAndroidKeyboardFallbackInset(inputFocused, keyboardInset, windowHeight);
+}
+
+/** Android layout shifts (e.g. run-progress banner) can spuriously emit keyboardDidHide. */
+export function shouldClearKeyboardScreenVisible(
+  platformOs: string,
+  metricsHeight: number,
+): boolean {
+  if (platformOs !== 'android') {
+    return true;
+  }
+  return metricsHeight <= 0;
+}
+
+type ComposerDockSpacing = {
+  paddingBottom: number;
+  marginBottom: number;
+};
+
+/**
+ * Layout style for the chat composer dock. Android MUST lift with marginBottom — never
+ * translateY when marginBottom > 0, or the TextInput stays visible but untappable (#91).
+ */
+export function composerDockContainerStyle(
+  _platformOs: string,
+  spacing: ComposerDockSpacing,
+): ComposerDockSpacing {
+  return {
+    paddingBottom: spacing.paddingBottom,
+    marginBottom: spacing.marginBottom,
+  };
+}
+
+/**
+ * Android can fire keyboardDidHide during transient layout shifts while typing
+ * (for example, when progress/banner content reflows). Ignore those only when
+ * the composer is still focused and keyboard metrics still report height.
+ */
+export function shouldIgnoreKeyboardHide(
+  platformOs: string,
+  metricsHeight: number,
+  inputFocused: boolean,
+): boolean {
+  return platformOs === 'android' && inputFocused && metricsHeight > 0;
 }
 
 /** How long the "Reply ready on your computer" banner stays before auto-dismiss. */
@@ -467,9 +535,20 @@ export default function ChatScreen() {
 
   const applyChatApiError = useCallback(
     (error: unknown, fallback: string, options?: { background?: boolean }) => {
-      const { kind, message } = humanizeChatError(error, fallback, { gatewayUrl });
+      const { kind, message } = humanizeChatError(error, fallback, {
+        gatewayUrl,
+        machineLabel: activeGatewayProfile?.label,
+      });
       if (kind === 'connectivity') {
         refreshHealth();
+        return;
+      }
+      if (kind === 'auth') {
+        refreshHealth();
+        if (options?.background) {
+          return;
+        }
+        setErrorMessage(message);
         return;
       }
       if (options?.background) {
@@ -477,7 +556,7 @@ export default function ChatScreen() {
       }
       setErrorMessage(message);
     },
-    [refreshHealth],
+    [refreshHealth, gatewayUrl, activeGatewayProfile?.label],
   );
 
   const flatListRef = useRef<FlashListRef<ChatTimelineEntry>>(null);
@@ -526,6 +605,8 @@ export default function ChatScreen() {
   /** Ignore spurious onChangeText after Send clears the field (Android IME blur). */
   const sendClearSuppressRef = useRef(false);
   const lastSentComposerTextRef = useRef('');
+  const composerDraftSessionRef = useRef<string | null>(null);
+  const composerDraftSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const sendUserTextRef = useRef<(text: string, isProgrammatic?: boolean) => Promise<boolean>>(
     async () => false,
   );
@@ -548,15 +629,49 @@ export default function ChatScreen() {
     const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
     const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
     const showSub = Keyboard.addListener(showEvent, () => setKeyboardScreenVisible(true));
-    const hideSub = Keyboard.addListener(hideEvent, () => setKeyboardScreenVisible(false));
+    const hideSub = Keyboard.addListener(hideEvent, () => {
+      const settleHide = () => {
+        const metricsHeight = Keyboard.metrics()?.height ?? 0;
+        if (shouldIgnoreKeyboardHide(Platform.OS, metricsHeight, inputFocusedRef.current)) {
+          return;
+        }
+        if (!shouldClearKeyboardScreenVisible(Platform.OS, metricsHeight)) {
+          return;
+        }
+        setKeyboardScreenVisible(false);
+      };
+      if (Platform.OS === 'android') {
+        requestAnimationFrame(() => requestAnimationFrame(settleHide));
+        return;
+      }
+      settleHide();
+    });
+    const subs = [showSub, hideSub];
+    if (Platform.OS === 'android') {
+      subs.push(
+        Keyboard.addListener('keyboardDidChangeFrame', (event) => {
+          const overlap = keyboardOverlapHeight(
+            event.endCoordinates,
+            Dimensions.get('window').height,
+          );
+          if (overlap <= 0) {
+            setKeyboardScreenVisible(false);
+          } else {
+            setKeyboardScreenVisible(true);
+          }
+        }),
+      );
+    }
     return () => {
-      showSub.remove();
-      hideSub.remove();
+      for (const sub of subs) {
+        sub.remove();
+      }
     };
   }, []);
 
   const [queuedOutboundCount, setQueuedOutboundCount] = useState(0);
   const [pinnedOutboundText, setPinnedOutboundText] = useState<string | null>(null);
+  const [pinnedOutboundSentAt, setPinnedOutboundSentAt] = useState<string | null>(null);
   const [pinnedOutboundStatus, setPinnedOutboundStatus] = useState<'pending' | 'sent' | 'failed'>(
     'pending',
   );
@@ -1123,9 +1238,11 @@ export default function ChatScreen() {
       activeProfile: activeGatewayProfile,
       machineLabel: machineHeaderDisplay.machineLabel,
       machineEndpoint: machineHeaderDisplay.machineEndpoint,
+      authMismatch: health?.authMismatch === true,
     });
   }, [
     macRetryBusy,
+    connectionHealInFlight,
     machineShortLabel,
     connectionState,
     connectingStuck,
@@ -2116,6 +2233,7 @@ export default function ChatScreen() {
       pendingOutboundSendsRef.current = 0;
       setPinnedOutboundStatus('failed');
       setPinnedOutboundText(null);
+      setPinnedOutboundSentAt(null);
     },
     [commitMessages],
   );
@@ -2183,6 +2301,7 @@ export default function ChatScreen() {
       pendingOutboundSendsRef.current = 0;
       setPinnedOutboundStatus('failed');
       setPinnedOutboundText(null);
+      setPinnedOutboundSentAt(null);
       setRunProgress((prev) =>
         prev && prev.phase !== 'completed' && prev.phase !== 'failed'
           ? { ...prev, phase: 'failed', detail: OUTBOUND_STUCK_FAILURE_REASON }
@@ -2220,6 +2339,7 @@ export default function ChatScreen() {
     inputFocusedRef.current = true;
     setInputFocused(true);
     if (Platform.OS === 'android') {
+      setKeyboardScreenVisible(true);
       setComposerLayoutNonce((n) => n + 1);
     }
   }, []);
@@ -2227,11 +2347,18 @@ export default function ChatScreen() {
   const handleInputBlur = useCallback(() => {
     inputFocusedRef.current = false;
     setInputFocused(false);
+    if (Platform.OS === 'android') {
+      setKeyboardScreenVisible(false);
+    }
+    const sessionId = currentSessionRef.current?.id;
+    if (sessionId && !isDemo) {
+      void saveComposerDraft(sessionId, inputValueRef.current);
+    }
     if (pendingTranscriptSyncRef.current) {
       pendingTranscriptSyncRef.current = false;
       void refreshSessionMessages({ background: true });
     }
-  }, [refreshSessionMessages]);
+  }, [refreshSessionMessages, isDemo]);
 
   useEffect(() => {
     setUndoSecondsLeft(0);
@@ -2242,6 +2369,7 @@ export default function ChatScreen() {
       return;
     }
     setPinnedOutboundText(null);
+    setPinnedOutboundSentAt(null);
     setPinnedOutboundStatus('pending');
     setRunProgress(null);
     transcriptDigestRef.current = '';
@@ -2366,23 +2494,53 @@ export default function ChatScreen() {
     setMacRetryBusy(true);
     setRunProgress(null);
     setPinnedOutboundText(null);
+    setPinnedOutboundSentAt(null);
     setPinnedOutboundStatus('pending');
     setErrorMessage((prev) => (prev && isConnectivityMessage(prev) ? null : prev));
 
+    const activeProfileId = activeGatewayProfile?.id ?? null;
+
     try {
+      if (activeProfileId) {
+        await selectGatewayProfile(activeProfileId);
+      }
+
       let nextSettings = settings;
       if (settings.connectionMode !== 'gateway') {
         nextSettings = { ...settings, connectionMode: 'gateway' as const };
         await saveSettings(nextSettings, apiKey);
       }
 
-
+      if (health?.authMismatch) {
+        const pairHost = pairServerHostFromGatewayUrl(
+          effectiveGatewayUrl || nextSettings.gatewayUrl,
+        );
+        if (pairHost) {
+          const setup = await resolvePairServerSetupParams(pairHost);
+          const freshKey = setup?.apiKey?.trim();
+          if (freshKey) {
+            const gatewayUrl = setup?.gatewayUrl?.trim() || effectiveGatewayUrl;
+            nextSettings = { ...nextSettings, gatewayUrl };
+            await saveSettings(nextSettings, freshKey);
+          }
+        }
+      }
 
       await scanForGatewayProfiles();
       await autoConnectGateway();
       await retryGatewayBootstrap();
       await refreshHealth();
       connectEvents();
+
+      const profileKey = await secureCredentials.resolveApiKeyForProfile(activeProfileId);
+      const probeUrl = effectiveGatewayUrl || settings.gatewayUrl;
+      const postRetryHealth = await fetchGatewayHealth(probeUrl, profileKey);
+      if (postRetryHealth.authMismatch) {
+        setMacPickerVisible(true);
+        setErrorMessage(gatewayAuthRepairBanner(machineShortLabel));
+        haptics.warning();
+        return;
+      }
 
       const retryText = lastFailedSendTextRef.current?.trim();
       if (retryText) {
@@ -2402,10 +2560,11 @@ export default function ChatScreen() {
     isDemo,
     settings,
     apiKey,
+    health?.authMismatch,
+    effectiveGatewayUrl,
     saveSettings,
     gatewayProfiles,
     activeGatewayProfile?.id,
-    effectiveGatewayUrl,
     selectGatewayProfile,
     scanForGatewayProfiles,
     autoConnectGateway,
@@ -2468,6 +2627,7 @@ export default function ChatScreen() {
     setErrorMessage(null);
     setMessages([]);
     setPinnedOutboundText(null);
+    setPinnedOutboundSentAt(null);
     setPinnedOutboundStatus('pending');
     setTelegramReplySessionId('');
     transcriptDigestRef.current = '';
@@ -2694,7 +2854,71 @@ export default function ChatScreen() {
     sendClearSuppressRef.current = false;
     inputValueRef.current = text;
     setInputValue(text);
-  }, []);
+    const sessionId = currentSessionRef.current?.id;
+    if (!sessionId || isDemo) {
+      return;
+    }
+    if (composerDraftSaveTimerRef.current) {
+      clearTimeout(composerDraftSaveTimerRef.current);
+    }
+    composerDraftSaveTimerRef.current = setTimeout(() => {
+      composerDraftSaveTimerRef.current = null;
+      void saveComposerDraft(sessionId, text);
+    }, COMPOSER_DRAFT_SAVE_DEBOUNCE_MS);
+  }, [isDemo]);
+
+  const flushComposerDraft = useCallback(() => {
+    if (composerDraftSaveTimerRef.current) {
+      clearTimeout(composerDraftSaveTimerRef.current);
+      composerDraftSaveTimerRef.current = null;
+    }
+    const sessionId = currentSessionRef.current?.id;
+    if (sessionId && !isDemo) {
+      void saveComposerDraft(sessionId, inputValueRef.current);
+    }
+  }, [isDemo]);
+
+  useEffect(() => {
+    const sessionId = currentSession?.id ?? null;
+    const previousSessionId = composerDraftSessionRef.current;
+    if (previousSessionId && previousSessionId !== sessionId) {
+      void saveComposerDraft(previousSessionId, inputValueRef.current);
+    }
+    composerDraftSessionRef.current = sessionId;
+
+    if (!sessionId || isDemo || pendingApprovalEditSeed) {
+      return;
+    }
+
+    let cancelled = false;
+    void (async () => {
+      const draft = await loadComposerDraft(sessionId);
+      if (cancelled || pendingApprovalEditSeed) {
+        return;
+      }
+      inputValueRef.current = draft;
+      setInputValue(draft);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [currentSession?.id, isDemo, pendingApprovalEditSeed]);
+
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (nextState) => {
+      if (nextState === 'background' || nextState === 'inactive') {
+        flushComposerDraft();
+      }
+    });
+    return () => sub.remove();
+  }, [flushComposerDraft]);
+
+  useEffect(() => {
+    return () => {
+      flushComposerDraft();
+    };
+  }, [flushComposerDraft]);
 
   const handleAttachPress = useCallback(() => {
     const remainingSlots = MAX_COMPOSER_ATTACHMENTS - composerAttachmentsRef.current.length;
@@ -2785,6 +3009,10 @@ export default function ChatScreen() {
     setInputValue('');
     setComposerAttachments([]);
     Keyboard.dismiss();
+    const sentSessionId = currentSessionRef.current?.id;
+    if (sentSessionId && !isDemo) {
+      void clearComposerDraft(sentSessionId);
+    }
 
     const prepared =
       attachments.length === 0
@@ -3064,7 +3292,7 @@ export default function ChatScreen() {
           listIndex={index}
           originalIndex={originalIndex}
           messages={messages}
-          timeLabel={formatMessageTimestamp(message.created_at ?? message.timestamp)}
+          timeLabel={formatMessageTimestamp(resolveMessageTimestamp(message))}
           inlineNudge={inlineNudge}
           includeToolActivity={settings.includeToolActivity ?? false}
           isTelegramInbox={isTelegramInbox}
@@ -3117,17 +3345,19 @@ export default function ChatScreen() {
   const commitOutboundUserBubble = (text: string): string => {
     const trimmed = text.trim();
     outboundMessageSeqRef.current += 1;
+    const sentAt = new Date().toISOString();
     const userMessage: HermesMessage = {
       id: `user-${Date.now()}-${outboundMessageSeqRef.current}`,
       role: 'user',
       content: trimmed,
-      created_at: new Date().toISOString(),
+      created_at: sentAt,
       outboundStatus: 'pending',
     };
     pendingOutboundSendsRef.current += 1;
     commitMessages((prev) => [...prev, userMessage]);
     setRecentChatsDismissed(true);
     setPinnedOutboundText(trimmed);
+    setPinnedOutboundSentAt(sentAt);
     setPinnedOutboundStatus('pending');
     setToolStatus(null);
     userScrolledUpRef.current = false;
@@ -3322,6 +3552,7 @@ export default function ChatScreen() {
       }
       setPinnedOutboundStatus('failed');
       setPinnedOutboundText(null);
+      setPinnedOutboundSentAt(null);
       outboundUserBubbleCommitted = false;
       committedUserMessageId = null;
     };
@@ -3518,6 +3749,7 @@ export default function ChatScreen() {
       setPinnedOutboundStatus(status);
       if (status === 'failed') {
         setPinnedOutboundText(null);
+        setPinnedOutboundSentAt(null);
       }
       commitMessages((prev) =>
         prev.map((message) =>
@@ -3644,6 +3876,18 @@ export default function ChatScreen() {
         const body = text.trim();
         if (!body) {
           return;
+        }
+        if (!assistantBubbleAdded && isDeferredStreamPlaceholder(body)) {
+          const existing = findDeferredPlaceholderAfterLastUser(messagesRef.current);
+          if (existing?.id) {
+            assistantBubbleAdded = true;
+            activeAssistantIdRef.current = existing.id;
+            commitMessages((prev) =>
+              prev.map((m) => (m.id === existing.id ? { ...m, content: body } : m)),
+            );
+            scrollChatToLatestIfPinned(true);
+            return;
+          }
         }
         if (!assistantBubbleAdded) {
           assistantBubbleAdded = true;
@@ -4011,6 +4255,7 @@ export default function ChatScreen() {
     } catch (err) {
       const { kind, message } = humanizeChatError(err, 'Message could not send. Try again.', {
         gatewayUrl,
+        machineLabel: machineShortLabel,
       });
       if (isSessionRemovedError(err) || message.includes('That chat was removed')) {
         invalidateRemovedSession(targetSessionId);
@@ -4031,6 +4276,11 @@ export default function ChatScreen() {
           gatewayUrl,
           healthProbePending,
         });
+      } else if (kind === 'auth') {
+        refreshHealth();
+        markOutboundBubbleStatus('failed', message);
+        setErrorMessage(message);
+        sendFailureDetail = message;
       } else {
         markOutboundBubbleStatus('failed', message);
         setErrorMessage(message);
@@ -4104,6 +4354,7 @@ export default function ChatScreen() {
     if (inTranscript && pinnedOutboundStatus === 'sent' && !isSending && !isActiveChatRun(runProgress)) {
       const timer = setTimeout(() => {
         setPinnedOutboundText(null);
+        setPinnedOutboundSentAt(null);
         setPinnedOutboundStatus('pending');
       }, 1200);
       return () => clearTimeout(timer);
@@ -4217,6 +4468,7 @@ export default function ChatScreen() {
   const clearFailedOutboundState = useCallback(() => {
     setRunProgress(null);
     setPinnedOutboundText(null);
+    setPinnedOutboundSentAt(null);
     setPinnedOutboundStatus('pending');
     setErrorMessage((prev) => (prev && isConnectivityMessage(prev) ? null : prev));
   }, []);
@@ -4275,6 +4527,7 @@ export default function ChatScreen() {
     setRunProgress(null);
     setErrorMessage(null);
     setPinnedOutboundText(null);
+    setPinnedOutboundSentAt(null);
     setPinnedOutboundStatus('pending');
     const retryText = lastFailedSendTextRef.current?.trim();
     if (retryText) {
@@ -4851,10 +5104,7 @@ export default function ChatScreen() {
           style={[
             styles.composerDock,
             Platform.OS === 'ios' && keyboardOpen && styles.composerDockKeyboardOpen,
-            {
-              paddingBottom: composerDockSpacing.paddingBottom,
-              marginBottom: composerDockSpacing.marginBottom,
-            },
+            composerDockContainerStyle(Platform.OS, composerDockSpacing),
           ]}
           testID="chat-composer-dock"
         >
@@ -4870,6 +5120,7 @@ export default function ChatScreen() {
         {showSubmittedPromptStrip && pinnedOutboundText ? (
           <SubmittedPromptStrip
             text={pinnedOutboundText}
+            sentAt={pinnedOutboundSentAt ?? undefined}
             status={pinnedOutboundStatus}
             connectionState={connectionState}
             macHttpOk={effectiveMacHttpOk}
@@ -5009,7 +5260,8 @@ export default function ChatScreen() {
               <GatewayProfilePicker
                 profiles={switchComputerProfiles}
                 activeProfileId={activeGatewayProfile?.id ?? null}
-                activeReachable={macHttpOk || connectionState === 'connected'}
+                activeReachable={macHttpOk}
+                authNeedsRepair={health?.authMismatch === true}
                 activeConnecting={connectionState === 'connecting'}
                 scanning={profileScanning || isScanningMacs}
                 scanProgress={profileScanProgress}
@@ -5265,7 +5517,7 @@ export default function ChatScreen() {
                     {project.role ? (
                       <Text style={styles.projectPickMeta} numberOfLines={1}>{project.role}</Text>
                     ) : null}
-                    <Text style={styles.projectPickPath} numberOfLines={1}>{project.workspacePath}</Text>
+                    <Text style={styles.projectPickPath} numberOfLines={2}>{project.workspacePath}</Text>
                     {project.handoffSummary ? (
                       <Text style={styles.projectPickHandoff} numberOfLines={2}>{project.handoffSummary}</Text>
                     ) : null}

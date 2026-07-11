@@ -1,0 +1,29 @@
+---
+description: July 2026 session recurrence prevention for Hermes Mobile agents
+globs: hermes-mobile/**/*
+alwaysApply: false
+---
+
+# Hermes Mobile — prevent recurrence (July 2026)
+
+Full playbook: [hermes-mobile/docs/PREVENT-RECURRENCE-JULY-2026.md](../../hermes-mobile/docs/PREVENT-RECURRENCE-JULY-2026.md).
+
+## Cursor single-pass (no duplicate subagents)
+
+- Do **not** spawn subagents for the same file domain, PR merge, or research already done in the parent turn.
+- Check `plan.md` §2 before `Task` — if `(in_progress)` by another agent, **STOP** or hand off via vault `Handoffs/`.
+- One parent per lock domain; parallelize **disjoint** files only.
+
+## Session gates (agent runs — never user homework)
+
+1. Vault pull + newest `Handoffs/` before multi-file Hermes work.
+2. `bash hermes-mobile/scripts/agent-adb-refresh.sh` before phone/pair claims.
+3. `bash hermes-mobile/scripts/agent-pre-asc-edit.sh` before any ASC review notes edit.
+4. Read `hermes-mobile/docs/proofs/continuous/latest.json` before "fixed" / "works on device".
+5. `node tools/agent-session-start.js --full` before ship language.
+
+## Hard bans
+
+- ASC notes: no gateway URLs, tailnet hostnames, or API keys — `hermes://setup?demo=1` only.
+- Multi-Mac: `node tools/hermes-mobile-pair.js --mini-tailscale` — never laptop `.env` key on mini URL.
+- If `e2e=skipped` in `latest.json`, report it — do not claim device UX verified.

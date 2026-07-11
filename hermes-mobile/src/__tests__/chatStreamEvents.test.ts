@@ -227,7 +227,7 @@ describe('formatRunProgressLabel', () => {
 
   it('falls back to the phase when detail is blank and never goes negative', () => {
     expect(formatRunProgressLabel(baseProgress({ startedAtMs: 10_000, detail: '   ', phase: 'streaming' }), 0)).toBe(
-      '⌛ Working — 0s — streaming',
+      '⌛ Live streaming — 0s — streaming',
     );
   });
 });

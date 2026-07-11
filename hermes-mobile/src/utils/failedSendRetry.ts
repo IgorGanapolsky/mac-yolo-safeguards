@@ -1,4 +1,5 @@
 import type { HermesMessage } from '../types/chat';
+import { GATEWAY_WRONG_KEY_MESSAGE } from '../services/gatewayClient';
 import { EMPTY_REPLY_FAILURE_REASON } from './emptyStreamReplyRecovery';
 import { OUTBOUND_STUCK_FAILURE_REASON } from './outboundSendRecovery';
 import { isConnectivityMessage } from './chatErrors';
@@ -64,9 +65,12 @@ export function shouldShowFailedSendRetry(input: {
   }
   return (
     isConnectivityMessage(detail) ||
+    detail === GATEWAY_WRONG_KEY_MESSAGE ||
+    detail.includes(GATEWAY_WRONG_KEY_MESSAGE) ||
     detail === EMPTY_REPLY_FAILURE_REASON ||
     detail === OUTBOUND_STUCK_FAILURE_REASON ||
-    detail.toLowerCase().includes('no reply')
+    detail.toLowerCase().includes('no reply') ||
+    detail.toLowerCase().includes('pair again')
   );
 }
 

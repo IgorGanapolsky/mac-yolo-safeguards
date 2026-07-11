@@ -58,52 +58,84 @@ function makeJwt() {
   return `${data}.${sig}`;
 }
 
-async function ascGet(apiPath) {
+async function ascRequest(method, apiPath, { body, json } = {}) {
   const token = makeJwt();
+  const headers = { Authorization: `Bearer ${token}`, Accept: 'application/json' };
+  let payload;
+  if (json !== undefined) {
+    headers['Content-Type'] = 'application/json';
+    payload = JSON.stringify(json);
+  } else if (body !== undefined) {
+    payload = body;
+  }
   const res = await fetch(`https://api.appstoreconnect.apple.com${apiPath}`, {
-    headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' },
+    method,
+    headers,
+    body: payload,
   });
-  const body = await res.text();
-  let json;
+  const text = await res.text();
+  let parsed;
   try {
-    json = JSON.parse(body);
+    parsed = JSON.parse(text);
   } catch {
-    json = { raw: body };
+    parsed = { raw: text };
   }
   if (!res.ok) {
-    const err = new Error(`ASC ${res.status} ${apiPath}: ${body.slice(0, 500)}`);
+    const err = new Error(`ASC ${method} ${res.status} ${apiPath}: ${text.slice(0, 800)}`);
     err.status = res.status;
-    err.body = json;
+    err.body = parsed;
     throw err;
   }
-  return json;
+  return parsed;
+}
+
+async function ascGet(apiPath) {
+  return ascRequest('GET', apiPath);
 }
 
 async function ascPost(apiPath, data) {
-  const token = makeJwt();
-  const res = await fetch(`https://api.appstoreconnect.apple.com${apiPath}`, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${token}`,
-      Accept: 'application/json',
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ data }),
-  });
-  const body = await res.text();
-  let json;
-  try {
-    json = JSON.parse(body);
-  } catch {
-    json = { raw: body };
-  }
-  if (!res.ok) {
-    const err = new Error(`ASC POST ${res.status} ${apiPath}: ${body.slice(0, 800)}`);
-    err.status = res.status;
-    err.body = json;
-    throw err;
-  }
-  return json;
+  return ascRequest('POST', apiPath, { json: { data } });
 }
 
-module.exports = { loadEnv, ascGet, ascPost };
+async function ascPatch(apiPath, data) {
+  return ascRequest('PATCH', apiPath, { json: { data } });
+}
+
+/**
+ * Reserve → chunk upload → commit for ASC binary assets (screenshots, etc.).
+ * @param {{ reservePath: string, reserveData: object, assetType: string }} opts
+ */
+async function ascUploadBinaryAsset(filePath, { reservePath, reserveData, assetType }) {
+  const fileBytes = fs.readFileSync(filePath);
+  const fileName = path.basename(filePath);
+  const fileSize = fileBytes.length;
+  const sourceFileChecksum = crypto.createHash('md5').update(fileBytes).digest('hex');
+
+  const reserved = await ascPost(reservePath, {
+    ...reserveData,
+    attributes: { ...(reserveData.attributes || {}), fileName, fileSize },
+  });
+  const asset = reserved.data;
+  const ops = asset.attributes?.uploadOperations || [];
+  for (const op of ops) {
+    const offset = op.offset || 0;
+    const length = op.length;
+    const chunk = fileBytes.subarray(offset, offset + length);
+    const headers = {};
+    for (const h of op.requestHeaders || []) headers[h.name] = h.value;
+    const res = await fetch(op.url, { method: op.method, headers, body: chunk });
+    if (!res.ok) {
+      const errText = await res.text().catch(() => '');
+      throw new Error(`ASC upload chunk failed ${res.status}: ${errText.slice(0, 200)}`);
+    }
+  }
+
+  await ascPatch(`/v1/${assetType}/${asset.id}`, {
+    type: assetType,
+    id: asset.id,
+    attributes: { uploaded: true, sourceFileChecksum },
+  });
+  return asset.id;
+}
+
+module.exports = { loadEnv, ascGet, ascPost, ascPatch, ascUploadBinaryAsset };

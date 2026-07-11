@@ -8,6 +8,7 @@ import {
   focusedAndroidKeyboardFallbackInset,
   keyboardOverlapHeight,
 } from '../utils/composerKeyboard';
+import { composerDockContainerStyle } from '../screens/ChatScreen';
 
 describe('composerKeyboard', () => {
   it('adds gap above the keyboard when open (pan mode)', () => {
@@ -80,5 +81,15 @@ describe('composerKeyboard', () => {
     expect(focusedAndroidKeyboardFallbackInset(true, 280, 800, 'android')).toBe(0);
     expect(focusedAndroidKeyboardFallbackInset(false, 0, 800, 'android')).toBe(0);
     expect(focusedAndroidKeyboardFallbackInset(true, 0, 800, 'ios')).toBe(0);
+  });
+
+  it('composer dock container style never uses translateY when marginBottom lifts Android dock', () => {
+    const lifted = composerDockContainerStyle('android', {
+      paddingBottom: 34,
+      marginBottom: 320 + COMPOSER_KEYBOARD_GAP,
+    });
+    expect(lifted.marginBottom).toBeGreaterThan(0);
+    expect(lifted).not.toHaveProperty('transform');
+    expect(JSON.stringify(lifted)).not.toContain('translateY');
   });
 });

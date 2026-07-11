@@ -3,6 +3,7 @@ import { fireEvent, render } from '@testing-library/react-native';
 import ChatMessageBubble from '../components/ChatMessageBubble';
 import ChatMessageDetailModal from '../components/ChatMessageDetailModal';
 import { outboundDeliveryLabel } from '../utils/outboundDeliveryStatus';
+import { GATEWAY_WRONG_KEY_MESSAGE } from '../services/gatewayClient';
 
 function renderWithDetailModal(props: React.ComponentProps<typeof ChatMessageBubble>) {
   const Host = () => {
@@ -28,8 +29,18 @@ function renderWithDetailModal(props: React.ComponentProps<typeof ChatMessageBub
 }
 
 describe('ChatMessageBubble', () => {
-  it('opens detail modal when truncated message body is pressed', () => {
-    const { getByText, queryByText } = renderWithDetailModal({
+  it('renders message body as selectable text for copy', () => {
+    const { getByTestId } = renderWithDetailModal({
+      content: 'Here is the finished analysis.',
+      isUser: false,
+      timeLabel: 'Jun 24, 2026 11:55 AM',
+    });
+
+    expect(getByTestId('chat-message-body').props.selectable).toBe(true);
+  });
+
+  it('keeps truncated preview selectable without wrapping it in Pressable', () => {
+    const { getByTestId } = renderWithDetailModal({
       content: 'clarify: Did you mean a specific bro…',
       rawContent: 'clarify: Did you mean to target a specific browser profile?',
       truncated: true,
@@ -37,8 +48,7 @@ describe('ChatMessageBubble', () => {
       timeLabel: 'Jun 19, 2026 4:48 PM',
     });
 
-    fireEvent.press(getByText('clarify: Did you mean a specific bro…'));
-    expect(getByText('clarify: Did you mean to target a specific browser profile?')).toBeTruthy();
+    expect(getByTestId('chat-message-body').props.selectable).toBe(true);
   });
 
   it('opens a screen-level detail modal when Show more is pressed', () => {
@@ -59,7 +69,7 @@ describe('ChatMessageBubble', () => {
   });
 
   it('shows operational failure reason when Mac is reachable but send failed', () => {
-    const failureReason = 'Sign-in to your computer failed. Open Settings and pair again.';
+    const failureReason = GATEWAY_WRONG_KEY_MESSAGE;
     const { getByTestId } = renderWithDetailModal({
       content: 'Make money faster',
       isUser: true,
@@ -92,6 +102,20 @@ describe('ChatMessageBubble', () => {
     expect(getByTestId('chat-outbound-failed').props.children).toBe(
       "⚠ Couldn't reach your computer — tap Computer above",
     );
+  });
+
+  it('renders timestamp on user outbound bubbles', () => {
+    const { getByTestId } = renderWithDetailModal({
+      content: 'Print money make money faster',
+      isUser: true,
+      timeLabel: 'Jul 9, 2026 7:42 PM',
+      outboundStatus: 'sent',
+      connectionState: 'connecting',
+      macHttpOk: false,
+    });
+
+    expect(getByTestId('chat-message-timestamp').props.children).toBe('Jul 9, 2026 7:42 PM');
+    expect(getByTestId('chat-outbound-sent').props.children).toBe('○ Waiting for computer…');
   });
 
   it('renders Leash output feedback controls for assistant messages', () => {

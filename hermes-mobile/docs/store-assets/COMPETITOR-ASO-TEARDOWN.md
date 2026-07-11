@@ -39,6 +39,12 @@ Research date: 2026-07-06. See [STORE-ASO-JULY-2026.md](../STORE-ASO-JULY-2026.m
 - **Angle:** Cloud IDE on phone
 - **Hermes counter:** Local Mac compute, credentials stay on your machine
 
+## Axiom Labs Android client (Play search: "hermes mobile")
+
+- **Play:** [com.axiomlabs.hermesrelay](https://play.google.com/store/apps/details?id=com.axiomlabs.hermesrelay)
+- **Hook:** "YOUR HERMES AGENT, IN YOUR POCKET" + streaming / voice / dashboard screenshots
+- **Hermes counters:** Mac Leash + lock-screen approve + no cloud credits; live-stream banner in-app
+
 ## ASO tactics to copy
 
 | Tactic | Who does it well | Hermes action |

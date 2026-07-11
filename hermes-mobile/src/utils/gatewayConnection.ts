@@ -1,7 +1,7 @@
 import type { GatewayHealthSnapshot } from '../types/gateway';
 import type { LeashConnectionState } from './gatewayEndpoint';
 import { isLoopbackGatewayUrl } from './gatewayUrlPolicy';
-import { GATEWAY_WRONG_KEY_MESSAGE } from '../services/gatewayClient';
+import { GATEWAY_AUTH_REPAIR_HEADER } from '../services/gatewayClient';
 
 export type GatewayBootstrapPhase = 'booting' | 'searching' | 'connected' | 'needs_setup';
 
@@ -34,7 +34,7 @@ export function resolveChatLinkDisplay(input: {
   authMismatch?: boolean;
 }): ChatLinkDisplay {
   if (input.authMismatch) {
-    return { label: GATEWAY_WRONG_KEY_MESSAGE, chatReachable: false };
+    return { label: GATEWAY_AUTH_REPAIR_HEADER, chatReachable: false };
   }
   if (input.isDemo || input.connectionState === 'demo') {
     return { label: 'Demo', chatReachable: true };

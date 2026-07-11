@@ -230,6 +230,8 @@ export type GatewayContextValue = {
   requestTestIntercept: () => Promise<void>;
   injectDemoApproval: () => void;
   injectSmokeApproval: () => void;
+  activateStoreLeashPreview: () => void;
+  storeLeashPreviewActive: boolean;
   enqueueTextApproval: (approval: PendingApproval) => boolean;
   resolveApproval: (
     actionId: string,
@@ -2302,6 +2304,12 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
     await pollRelayQueue();
   }, [pollRelayQueue, settings.cloudUrl]);
 
+  const [storeLeashPreviewActive, setStoreLeashPreviewActive] = useState(false);
+
+  const activateStoreLeashPreview = useCallback(() => {
+    setStoreLeashPreviewActive(true);
+  }, []);
+
   const injectSmokeApproval = useCallback(() => {
     const event = buildDemoGateBlockedEvent();
     const pending = gateBlockedToPending(event);
@@ -2708,6 +2716,8 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
       requestTestIntercept: triggerTestIntercept,
       injectDemoApproval,
       injectSmokeApproval,
+      activateStoreLeashPreview,
+      storeLeashPreviewActive,
       enqueueTextApproval,
       resolveApproval,
       submitApprovalChoice,
@@ -2781,6 +2791,8 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
       triggerTestIntercept,
       injectDemoApproval,
       injectSmokeApproval,
+      activateStoreLeashPreview,
+      storeLeashPreviewActive,
       enqueueTextApproval,
       resolveApproval,
       submitApprovalChoice,

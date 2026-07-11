@@ -60,7 +60,7 @@ if [[ -n "$ANDROID_KEY_PATH" && -f "$ANDROID_KEY_PATH" ]]; then
   PLAY_PROJECT_ID="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1])).get("project_id",""))' "$ANDROID_KEY_PATH" 2>/dev/null || true)"
   if [[ -n "$FIREBASE_PROJECT_ID" && "$PLAY_PROJECT_ID" == "$FIREBASE_PROJECT_ID" ]]; then
     echo "ERROR: EXPO_ANDROID_SERVICE_ACCOUNT_KEY_PATH points at Firebase project $FIREBASE_PROJECT_ID." >&2
-    echo "Play submit needs a Play Console API key (LLC org). See hermes-mobile/docs/PLAY_RELEASE.md" >&2
+    echo "Play submit needs a Play Console API key (iganapolsky@gmail.com). See hermes-mobile/docs/PLAY_RELEASE.md" >&2
     exit 1
   fi
   set_secret GOOGLE_SERVICE_ACCOUNT_JSON "$(cat "$ANDROID_KEY_PATH")"

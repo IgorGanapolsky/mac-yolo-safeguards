@@ -1,4 +1,4 @@
-# Hermes Mobile OTA — publish JS/asset fixes to production channel on main merges.
+# Hermes Mobile OTA — publish JS/asset fixes to preview + production channels on main merges.
 # Native changes (new modules, plugins, SDK bump, app version bump) still need EAS build
 # or `npm run android:phone` — OTA cannot replace native binaries.
 #
@@ -21,9 +21,13 @@ on:
         required: false
         type: string
 
+# Serialize deploys instead of cancelling mid-run: cancel-in-progress:true can kill a
+# run partway through the eas-update loop, leaving one channel published and the other
+# stale (a silent split where the customer-facing production channel is the one left
+# behind). false makes runs queue so every publish completes both channels.
 concurrency:
   group: hermes-mobile-ota-main
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 permissions:
   contents: read
@@ -97,23 +101,35 @@ jobs:
             exit 1
           fi
 
-      - name: Publish OTA to production channel
+      - name: Publish OTA to installable (preview) + production channels
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
           OTA_MESSAGE: "${{ github.event_name == 'workflow_dispatch' && (inputs.message || format('manual {0}', github.sha)) || format('main {0}: {1}', github.sha, github.event.head_commit.message || 'Hermes Mobile OTA') }}"
         run: |
           set -euo pipefail
-          eas update \
-            --channel production \
-            --environment production \
-            --non-interactive \
-            --message "${OTA_MESSAGE}" \
-            | tee /tmp/eas-ota-production.json
+          # Channels map to SEPARATE branches in EAS (production->production,
+          # preview->preview), so a build only receives updates on its own channel.
+          # The only sideloadable build (eas.json `preview` = installable APK) is on
+          # the `preview` channel — publishing to `production` alone means a
+          # sideloaded install NEVER sees OTA fixes. Publish to both: `production` for
+          # Play Store builds (customer-facing, written FIRST so the priority channel
+          # is never the one left stale if the loop is interrupted), `preview` for
+          # internal/sideloaded installs.
+          for CH in preview production; do
+            echo "::group::eas update --channel $CH"
+            eas update \
+              --channel "$CH" \
+              --environment "$CH" \
+              --non-interactive \
+              --message "${OTA_MESSAGE}" \
+              | tee "/tmp/eas-ota-${CH}.json"
+            echo "::endgroup::"
+          done
 
       - name: Upload OTA publish evidence
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: always()
         with:
-          name: hermes-mobile-ota-production
-          path: /tmp/eas-ota-production.json
+          name: hermes-mobile-ota-updates
+          path: /tmp/eas-ota-*.json
           retention-days: 14

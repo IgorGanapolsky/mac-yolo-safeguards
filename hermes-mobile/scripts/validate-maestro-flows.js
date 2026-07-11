@@ -28,6 +28,7 @@ const REQUIRED_FLOWS = [
   'regression-chat-send-visible',
   'regression-leash-refresh',
   'regression-chat-header-model',
+  'regression-composer-typeable',
 ];
 
 function bundleIdFromAppJson() {

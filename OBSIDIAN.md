@@ -36,8 +36,20 @@ Do **not** use Obsidian Sync for this — git is the cross-machine, cross-teamma
 | **Cursor** | Same vault paths via `~/.ai-agent-vault`; `.cursor/rules/obsidian-teammate-collaboration.mdc` | `plan.md`, `AGENTS.md`, `OBSIDIAN.md` in active repo | `node tools/agent-sync-brief.js --vault ~/Documents/AI-Agent-Sync` after major `plan.md` changes |
 | **Hermes** | `AI Agents/Hermes Agent Sync.md`, `Agent-State/`, `Health/` | `~/.hermes/ai-vault/` runtime packs | `Handoffs/Hermes_handoff.md`, `Health/Hermes.md` |
 | **Claude Code / Codex / Antigravity** | Vault `AGENTS.md` + `Declarative-Memory/agents-directives.md` | Per-repo `AGENTS.md`, `plan.md` | Same as Cursor — durable state to vault, tasks stay in repo `plan.md` |
+| **Replit Agent (phone)** | `Agent-State/replit-mobile.md`, `Handoffs/2026-07-08-hermes-mobile-replit-coordination.md`, `Projects/Hermes-Mobile-Replit-Agent.md` | `plan.md`, `hermes-mobile/docs/REPLIT_AGENT_COORDINATION.md` | `Agent-State/replit-mobile.md` + own Handoffs only |
 
 **Rule:** Task locks and file ownership live in each repo's `plan.md`. Cross-project status, people, and durable decisions live in **AI-Agent-Sync**.
+
+### Replit Agent vault sync
+
+Replit runs in a separate clone (phone preview). It participates in the fleet via git-synced vault files:
+
+1. **Bootstrap:** `git clone https://github.com/IgorGanapolsky/AI-Agent-Sync.git ~/Documents/AI-Agent-Sync`
+2. **Before edit:** `git pull` → read `plan.md` §2 + `Handoffs/` + `Agent-State/replit-mobile.md`
+3. **After edit:** update `replit-mobile.md`, add Handoffs note if needed, commit + push vault
+4. **Code ship path:** PR to mac-yolo-safeguards `main` — Mac agents run `node tools/agent-sync-brief.js --vault ~/Documents/AI-Agent-Sync`
+
+Detail: [hermes-mobile/docs/AGENT-COORDINATION.md](./hermes-mobile/docs/AGENT-COORDINATION.md), [hermes-mobile/docs/REPLIT_AGENT_COORDINATION.md](./hermes-mobile/docs/REPLIT_AGENT_COORDINATION.md).
 
 ---
 

@@ -10,7 +10,7 @@
  * Runs LaunchAgent health check then CEO operating brief (DS / ML / RAG stack).
  */
 
-const { spawnSync } = require('child_process');
+const { spawnSync, spawn } = require('child_process');
 const path = require('path');
 
 const fs = require('fs');
@@ -19,6 +19,9 @@ const os = require('os');
 const REPO = path.resolve(__dirname, '..');
 const DEFAULT_VAULT = path.join(os.homedir(), 'Documents', 'AI-Agent-Sync');
 const LATEST_E2E_JSON = path.join(REPO, 'hermes-mobile/docs/proofs/continuous/latest.json');
+const HERMES_MOBILE_DIR = path.join(REPO, 'hermes-mobile');
+const PHONE_INSTALL_MARKER = path.join(HERMES_MOBILE_DIR, '.install-phone-release.last');
+const PHONE_DEVICE_ID = 'R3CY90QPM7E';
 const { formatHuman, snapshotPlan } = require('./plan-coordination-snapshot');
 const E2E_STALE_MS = 30 * 60 * 1000;
 const args = process.argv.slice(2);
@@ -43,6 +46,80 @@ function runBash(script, timeoutMs) {
   });
 }
 
+function adbSeesPhoneDevice() {
+  const adb = spawnSync('adb', ['devices'], { encoding: 'utf8', timeout: 5000 });
+  if (adb.status !== 0 || !adb.stdout) return false;
+  return adb.stdout.split('\n').some((line) => {
+    const parts = line.trim().split(/\s+/);
+    return parts[0] === PHONE_DEVICE_ID && parts[1] === 'device';
+  });
+}
+
+function phoneInstallMarkerSha() {
+  try {
+    const marker = fs.readFileSync(PHONE_INSTALL_MARKER, 'utf8').trim().split(/\s+/);
+    if (marker[1] === PHONE_DEVICE_ID) return marker[0];
+  } catch {
+    /* no marker yet */
+  }
+  return '';
+}
+
+function repoHeadSha() {
+  const head = spawnSync('git', ['-C', HERMES_MOBILE_DIR, 'rev-parse', 'HEAD'], {
+    encoding: 'utf8',
+    timeout: 5000,
+  });
+  return head.status === 0 ? head.stdout.trim() : '';
+}
+
+/** One-shot async install when Igor's phone is stale vs consolidated HEAD. */
+function maybeQueuePhoneInstall() {
+  if (!adbSeesPhoneDevice()) return { queued: false, reason: 'no-device' };
+
+  const targetSha = repoHeadSha();
+  if (!targetSha) return { queued: false, reason: 'no-head' };
+
+  const lastSha = phoneInstallMarkerSha();
+  if (lastSha === targetSha) {
+    return { queued: false, reason: 'current', sha: targetSha };
+  }
+
+  const logPath = path.join(HERMES_MOBILE_DIR, 'docs/proofs/phone-install-once.log');
+  fs.mkdirSync(path.dirname(logPath), { recursive: true });
+  const label = `com.igor.hermes-phone-install-once.${process.getuid?.() ?? '0'}`;
+  const cmd = [
+    'export SENTRY_DISABLE_AUTO_UPLOAD=true HERMES_AGENT_LABEL=session-start',
+    `cd "${HERMES_MOBILE_DIR}" && bash scripts/install-phone-release.sh`,
+    `node "${path.join(REPO, 'tools/hermes-mobile-pair.js')}" --mini-tailscale`,
+  ].join(' && ');
+
+  const submit = spawnSync(
+    'launchctl',
+    ['submit', '-l', label, '-o', logPath, '-e', logPath, '--', '/bin/bash', '-lc', cmd],
+    { encoding: 'utf8', timeout: 10_000 },
+  );
+
+  if (submit.status === 0) {
+    return { queued: true, sha: targetSha, lastSha: lastSha || null, logPath };
+  }
+
+  const child = spawn('/bin/bash', ['-lc', cmd], {
+    cwd: REPO,
+    detached: true,
+    stdio: 'ignore',
+    env: { ...process.env, SENTRY_DISABLE_AUTO_UPLOAD: 'true', HERMES_AGENT_LABEL: 'session-start' },
+  });
+  child.unref();
+  return {
+    queued: Boolean(child.pid),
+    sha: targetSha,
+    lastSha: lastSha || null,
+    fallback: true,
+    pid: child.pid || null,
+  };
+}
+
 const planSnapshot = snapshotPlan();
 if (!json) {
   process.stdout.write(`\n${formatHuman(planSnapshot)}\n`);
@@ -59,6 +136,8 @@ if (!json) {
   }
 }
 
+runBash('hermes-mobile/scripts/agent-adb-refresh.sh', 15_000);
+
 const pair = runNode('tools/hermes-mobile-pair.js', [], 60_000);
 if (!json && pair.stdout) {
   const pairLines = pair.stdout
@@ -68,6 +147,23 @@ if (!json && pair.stdout) {
     process.stdout.write('\n=== Hermes Mobile auto-pair ===\n');
     pairLines.forEach((line) => process.stdout.write(`${line}\n`));
   }
+}
+
+const phoneInstall = maybeQueuePhoneInstall();
+if (!json && phoneInstall.queued) {
+  process.stdout.write('\n=== Hermes Mobile phone install (stale marker) ===\n');
+  process.stdout.write(
+    `Queued release install for ${PHONE_DEVICE_ID} @ ${phoneInstall.sha.slice(0, 12)}` +
+      (phoneInstall.lastSha ? ` (was ${phoneInstall.lastSha.slice(0, 12)})` : '') +
+      `${phoneInstall.fallback ? ' [detached fallback]' : ''}\n`,
+  );
+  if (phoneInstall.logPath) {
+    process.stdout.write(`Log: ${phoneInstall.logPath}\n`);
+  }
+} else if (!json && phoneInstall.reason === 'current') {
+  process.stdout.write(
+    `\n=== Hermes Mobile phone install: ${PHONE_DEVICE_ID} already at ${phoneInstall.sha.slice(0, 12)} ===\n`,
+  );
 }
 
 function readLatestE2e() {

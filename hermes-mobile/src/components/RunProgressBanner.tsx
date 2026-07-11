@@ -2,7 +2,12 @@ import React, { useEffect, useState, memo } from 'react';
 import { StyleSheet, Text, View, ActivityIndicator, Platform, Pressable } from 'react-native';
 import { colors } from '../theme/colors';
 import type { RunProgressState } from '../types/chatDisplay';
-import { displayableLlmModel, humanizeRunProgressDetail, runProgressFailedTitle } from '../utils/runProgressDisplay';
+import {
+  displayableLlmModel,
+  humanizeRunProgressDetail,
+  runProgressBannerTitle,
+  runProgressFailedTitle,
+} from '../utils/runProgressDisplay';
 import { isConnectivityMessage } from '../utils/chatErrors';
 import { classifyRunStale, runStaleHint } from '../utils/runStaleDetection';
 
@@ -43,6 +48,7 @@ function RunProgressBanner({
   terminalPreview,
 }: RunProgressBannerProps) {
   const [elapsed, setElapsed] = useState(0);
+  const [detailsExpanded, setDetailsExpanded] = useState(true);
 
   useEffect(() => {
     const update = () => {
@@ -68,36 +74,76 @@ function RunProgressBanner({
   const showStats = Boolean(modelLabel || tokenLabel);
   const showStatsPanel = showStats;
 
-  const detailLabel = humanizeRunProgressDetail(progress.detail, progress.phase);
+  const detailLabel = isActive
+    ? runProgressBannerTitle(progress)
+    : humanizeRunProgressDetail(progress.detail, progress.phase);
   const failedTitle = isFailed ? runProgressFailedTitle(progress.detail) : detailLabel;
   const failedDetail =
     isFailed && isConnectivityMessage(progress.detail ?? '') ? progress.detail?.trim() : null;
   const terminalLine = terminalPreview?.trim() || '';
+  const hasCollapsibleDetails = Boolean(
+    showStatsPanel || terminalLine || failedDetail || staleMessage,
+  );
+  const showDetailSections = detailsExpanded && hasCollapsibleDetails;
+
+  const toggleDetails = () => {
+    if (hasCollapsibleDetails) {
+      setDetailsExpanded((prev) => !prev);
+    }
+  };
 
   return (
     <View style={[
       styles.banner,
       isCompleted && styles.bannerCompleted,
       isFailed && styles.bannerFailed,
+      !detailsExpanded && styles.bannerCollapsed,
     ]} testID="run-progress-banner">
       <View style={styles.headerRow}>
-        {isActive ? (
-          <ActivityIndicator size="small" color={colors.warning} style={styles.spinner} />
-        ) : (
-          <Text style={styles.statusIcon}>{isCompleted ? '✅' : '⚠️'}</Text>
-        )}
-        <Text
-          style={[
-            styles.text,
-            isCompleted && styles.textCompleted,
-            isFailed && styles.textFailed,
-          ]}
-          numberOfLines={isFailed && failedDetail ? 1 : 2}
-          testID="run-progress-detail"
+        <Pressable
+          style={styles.headerToggle}
+          onPress={toggleDetails}
+          disabled={!hasCollapsibleDetails}
+          accessibilityRole="button"
+          accessibilityState={{ expanded: detailsExpanded }}
+          accessibilityLabel={
+            hasCollapsibleDetails
+              ? detailsExpanded
+                ? 'Collapse run details'
+                : 'Expand run details'
+              : undefined
+          }
+          testID="run-progress-header"
         >
-          {isCompleted ? 'Reply ready on your computer' : isFailed ? failedTitle : detailLabel}
-        </Text>
-        <Text style={styles.timeLabel}>{durationSec}s</Text>
+          {isActive ? (
+            <ActivityIndicator size="small" color={colors.warning} style={styles.spinner} />
+          ) : (
+            <Text style={styles.statusIcon}>{isCompleted ? '✅' : '⚠️'}</Text>
+          )}
+          <Text
+            style={[
+              styles.text,
+              isCompleted && styles.textCompleted,
+              isFailed && styles.textFailed,
+            ]}
+            numberOfLines={showDetailSections && isFailed && failedDetail ? 1 : 2}
+            testID="run-progress-detail"
+          >
+            {isCompleted ? 'Reply ready on your computer' : isFailed ? failedTitle : detailLabel}
+          </Text>
+          <Text style={styles.timeLabel}>{durationSec}s</Text>
+        </Pressable>
+        {hasCollapsibleDetails ? (
+          <Pressable
+            onPress={toggleDetails}
+            hitSlop={8}
+            style={({ pressed }) => [styles.chevronChip, pressed && styles.stopChipPressed]}
+            testID="run-progress-toggle"
+            accessibilityLabel={detailsExpanded ? 'Collapse details' : 'Expand details'}
+          >
+            <Text style={styles.chevron}>{detailsExpanded ? '▾' : '▸'}</Text>
+          </Pressable>
+        ) : null}
         {isActive && onStop ? (
           <Pressable
             onPress={onStop}
@@ -136,20 +182,20 @@ function RunProgressBanner({
         ) : null}
       </View>
 
-      {failedDetail ? (
+      {showDetailSections && failedDetail ? (
         <Text style={styles.failedDetail} testID="run-progress-failed-detail">
           {failedDetail}
         </Text>
       ) : null}
 
-      {staleMessage ? (
+      {showDetailSections && staleMessage ? (
         <Text style={styles.staleHint} testID="run-progress-stale-hint">
           {staleMessage}
         </Text>
       ) : null}
 
-      {showStatsPanel ? (
-        <View style={styles.statsPanel}>
+      {showDetailSections && showStatsPanel ? (
+        <View style={styles.statsPanel} testID="run-progress-stats">
           {modelLabel ? (
             <>
               <View style={styles.statItem}>
@@ -170,7 +216,7 @@ function RunProgressBanner({
         </View>
       ) : null}
 
-      {terminalLine ? (
+      {showDetailSections && terminalLine ? (
         <View style={styles.terminalBox} testID="operator-terminal-preview">
           <Text style={styles.terminalLabel}>
             {terminalToolName ? `Terminal · ${terminalToolName}` : 'Terminal on your computer'}
@@ -225,10 +271,31 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(239, 68, 68, 0.25)',
     backgroundColor: 'rgba(239, 68, 68, 0.05)',
   },
+  bannerCollapsed: {
+    paddingVertical: 8,
+  },
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+  },
+  headerToggle: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    minWidth: 0,
+  },
+  chevronChip: {
+    paddingHorizontal: 2,
+    paddingVertical: 2,
+    flexShrink: 0,
+  },
+  chevron: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.textMuted,
+    lineHeight: 16,
   },
   spinner: {
     marginRight: 2,

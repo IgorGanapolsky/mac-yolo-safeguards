@@ -1,4 +1,5 @@
 import type { LeashConnectionState } from './gatewayEndpoint';
+import { GATEWAY_WRONG_KEY_MESSAGE, GATEWAY_AUTH_REPAIR_HEADER } from '../services/gatewayClient';
 
 export type OutboundDeliveryStatus = 'pending' | 'sent' | 'failed';
 
@@ -19,13 +20,16 @@ export function isGatewayLiveForDelivery(input: {
   if (input.connectionState === 'demo') {
     return true;
   }
+  if (!input.macHttpOk) {
+    return false;
+  }
   if (input.connectionState === 'connected') {
     return true;
   }
   if (input.connectionState === 'disconnected') {
     return false;
   }
-  return input.macHttpOk;
+  return true;
 }
 
 /** Human label for outbound bubbles / submitted strip — never show ✓ Sent when Mac isn't reachable. */
@@ -40,6 +44,9 @@ export function outboundDeliveryLabel(
   if (status === 'failed') {
     const reason = input.failureReason?.trim();
     if (reason) {
+      if (reason === GATEWAY_WRONG_KEY_MESSAGE || reason.includes(GATEWAY_AUTH_REPAIR_HEADER)) {
+        return '⚠ Wrong key — tap Computer → Re-pair';
+      }
       return `⚠ ${truncateOutboundFailureReason(reason)}`;
     }
     const live = isGatewayLiveForDelivery(input);

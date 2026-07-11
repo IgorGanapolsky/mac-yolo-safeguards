@@ -30,7 +30,7 @@ fi
 LOAD_WAIT_SEC="${HERMES_E2E_LOAD_WAIT_SEC:-900}"
 MAX_SIMRUNTIME_PROCS="${HERMES_E2E_MAX_SIMRUNTIME_PROCS:-80}"
 E2E_FLOWS=(
-  ".maestro/ship-guard.yaml"
+  ".maestro/ship-guard.yaml" # includes regression-composer-typeable (#91 keyboard hit-rect)
   ".maestro/chat-send-persistence.yaml"
 )
 

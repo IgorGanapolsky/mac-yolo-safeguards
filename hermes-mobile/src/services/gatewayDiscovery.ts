@@ -1,6 +1,13 @@
 import NetInfo from '@react-native-community/netinfo';
 import { parseSetupDeepLink } from '../utils/setupDeepLink';
-import { buildGatewayUrlFromLanIp, extractLanIpFromGatewayUrl, resolveDisplayLanIp } from '../utils/gatewayUrlPolicy';
+import {
+  buildGatewayUrlFromLanIp,
+  extractLanIpFromGatewayUrl,
+  gatewayUrlHostname,
+  isLoopbackGatewayUrl,
+  resolveDisplayLanIp,
+} from '../utils/gatewayUrlPolicy';
+import type { SetupDeepLinkParams } from '../utils/setupDeepLink';
 import { mergeTailnetProbeHosts } from '../utils/tailscaleHosts';
 import { normalizeGatewayUrl } from './gatewayClient';
 import type { DiscoveredGateway } from '../types/gatewayProfile';
@@ -122,6 +129,27 @@ export async function resolvePairServerRelayCode(host: string): Promise<string |
   const payload = await fetchPairServerConfig(host);
   const code = payload?.relayCode?.trim();
   return code ? code.toUpperCase() : null;
+}
+
+/** Host for :8765/pair.json given the active gateway URL (USB loopback → 127.0.0.1). */
+export function pairServerHostFromGatewayUrl(gatewayUrl: string): string | null {
+  const trimmed = gatewayUrl.trim();
+  if (!trimmed) {
+    return null;
+  }
+  if (isLoopbackGatewayUrl(trimmed)) {
+    return '127.0.0.1';
+  }
+  return extractLanIpFromGatewayUrl(trimmed) || gatewayUrlHostname(trimmed) || null;
+}
+
+/** Fetch fresh gateway URL + API key from the Mac pair server (rotated keys). */
+export async function resolvePairServerSetupParams(host: string): Promise<SetupDeepLinkParams | null> {
+  const payload = await fetchPairServerConfig(host.trim());
+  if (!payload?.deepLink?.trim()) {
+    return null;
+  }
+  return parseSetupDeepLink(payload.deepLink);
 }
 
 function pairPayloadToGatewayUrl(payload: PairServerPayload): string | null {
