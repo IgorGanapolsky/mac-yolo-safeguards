@@ -3,6 +3,7 @@ import {
   outboundDeliveryLabel,
   truncateOutboundFailureReason,
 } from '../utils/outboundDeliveryStatus';
+import { GATEWAY_WRONG_KEY_MESSAGE } from '../services/gatewayClient';
 
 describe('outboundDeliveryStatus', () => {
   it('shows waiting instead of sent when Mac is unreachable', () => {
@@ -42,7 +43,7 @@ describe('outboundDeliveryStatus', () => {
         macHttpOk: false,
         failureReason: 'Wrong key for this computer',
       }),
-    ).toBe('⚠ Wrong key — tap Computer above to refresh');
+    ).toBe('⚠ Wrong key — tap Computer → Re-pair');
   });
 
   it('shows reachability hint when send failed and Mac health is down', () => {
@@ -57,17 +58,14 @@ describe('outboundDeliveryStatus', () => {
     ).toBe('⚠ No reply — tap Computer above or ↑');
   });
 
-  it('shows truncated failure reason on bubble when provided', () => {
-    const longReason =
-      'Sign-in to your computer failed. Open Settings and pair again.';
+  it('shows wrong-key guidance on bubble when auth failed', () => {
     expect(
       outboundDeliveryLabel('failed', {
         connectionState: 'connected',
         macHttpOk: true,
-        failureReason: longReason,
+        failureReason: GATEWAY_WRONG_KEY_MESSAGE,
       }),
-    ).toBe(`⚠ ${truncateOutboundFailureReason(longReason)}`);
-    expect(truncateOutboundFailureReason(longReason).length).toBeLessThanOrEqual(40);
+    ).toBe('⚠ Wrong key — tap Computer → Re-pair');
   });
 
   it('treats demo as live for delivery', () => {

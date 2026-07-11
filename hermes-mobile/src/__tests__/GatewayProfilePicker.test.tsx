@@ -73,4 +73,24 @@ describe('GatewayProfilePicker', () => {
     expect(getByTestId('gateway-profile-item-mac_usb')).toHaveTextContent(/Select/);
     expect(getByTestId('gateway-profile-item-mac_usb')).not.toHaveTextContent(/USB/);
   });
+
+  it('shows amber needs re-pair for active profile when auth fails', () => {
+    const { getByTestId } = render(
+      <GatewayProfilePicker
+        profiles={profiles}
+        activeProfileId="mac_192_168_12_208"
+        onSelect={jest.fn()}
+        activeReachable={false}
+        authNeedsRepair
+        wifiConnected
+        showReachabilityHints
+      />,
+    );
+    expect(getByTestId('gateway-profile-item-mac_192_168_12_208')).toHaveTextContent(
+      /Needs re-pair/,
+    );
+    expect(getByTestId('gateway-profile-item-mac_192_168_12_208')).not.toHaveTextContent(
+      /Connected/,
+    );
+  });
 });

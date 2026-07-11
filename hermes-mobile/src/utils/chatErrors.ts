@@ -1,3 +1,4 @@
+import { GATEWAY_WRONG_KEY_MESSAGE, gatewayAuthRepairBanner } from '../services/gatewayClient';
 import { isPrivateLanGatewayUrl } from './gatewayEndpoint';
 
 const CONNECTIVITY_MARKERS = [
@@ -41,16 +42,52 @@ export function isConnectivityMessage(message: string): boolean {
 }
 
 export type HumanChatError = {
-  kind: 'connectivity' | 'operational';
+  kind: 'connectivity' | 'operational' | 'auth';
   message: string;
 };
+
+/** Chat/API 401 — wrong API key for the saved computer URL (multi-Mac fleet). */
+export function isAuthApiError(error: unknown): boolean {
+  if (!(error instanceof Error) || !error.message) {
+    return false;
+  }
+  const message = error.message;
+  const lower = message.toLowerCase();
+  if (lower.includes('invalid_api_key') || lower.includes('unauthorized')) {
+    return true;
+  }
+  if (lower.includes('http 401') || lower.includes('status 401')) {
+    return true;
+  }
+  if (!message.trim().startsWith('{')) {
+    return false;
+  }
+  try {
+    const parsed = JSON.parse(message);
+    const errorObj = parsed.error;
+    if (errorObj && typeof errorObj === 'object') {
+      const code = errorObj.code;
+      return code === 'invalid_api_key' || code === 'unauthorized';
+    }
+  } catch {
+    // not JSON
+  }
+  return false;
+}
 
 /** Map gateway/API failures to copy a new user can act on — no "gateway" jargon. */
 export function humanizeChatError(
   error: unknown,
   fallback: string,
-  options?: { gatewayUrl?: string },
+  options?: { gatewayUrl?: string; machineLabel?: string },
 ): HumanChatError {
+  if (isAuthApiError(error)) {
+    return {
+      kind: 'auth',
+      message: gatewayAuthRepairBanner(options?.machineLabel),
+    };
+  }
+
   if (isConnectivityError(error)) {
     return {
       kind: 'connectivity',
@@ -110,8 +147,8 @@ export function humanizeChatError(
         }
         if (code === 'invalid_api_key' || code === 'unauthorized') {
           return {
-            kind: 'operational',
-            message: 'Sign-in to your computer failed. Open Settings and pair again.',
+            kind: 'auth',
+            message: gatewayAuthRepairBanner(options?.machineLabel),
           };
         }
         if (msg && typeof msg === 'string') {

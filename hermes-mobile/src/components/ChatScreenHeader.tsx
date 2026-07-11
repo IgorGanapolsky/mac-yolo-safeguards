@@ -4,6 +4,7 @@ import { colors } from '../theme/colors';
 import type { RunProgressState } from '../types/chatDisplay';
 import { resolveChatLinkDisplay } from '../utils/gatewayConnection';
 import type { LeashConnectionState } from '../utils/gatewayEndpoint';
+import { GATEWAY_AUTH_REPAIR_HEADER } from '../services/gatewayClient';
 import { displayableLlmModel } from '../utils/runProgressDisplay';
 
 type ChatScreenHeaderProps = {
@@ -57,7 +58,7 @@ function linkMeta(
   if (link.chatReachable) {
     return { label: link.label, color: colors.success, connected: true };
   }
-  if (link.label === 'Wrong key for this computer') {
+  if (link.label === GATEWAY_AUTH_REPAIR_HEADER) {
     return { label: link.label, color: colors.error, connected: false };
   }
   if (link.label === 'Relay only') {

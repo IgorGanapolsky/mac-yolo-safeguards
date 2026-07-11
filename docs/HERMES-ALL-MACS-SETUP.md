@@ -24,11 +24,11 @@ single read-only readiness matrix:
 - Tailscale/Hermes gateway discovery through the existing
   `tools/hermes-discover-tailscale-macs.js` probe
 - AI vault and sync artifact presence
-- Sakana/Fugu provider candidate readiness
+- Sakana/Fugu and NVIDIA Nemotron provider candidate readiness
 - Darwin Godel Machine style adoption actions: propose, smoke, evaluate, record,
   then promote only after evidence
 
-## Sakana Mapping
+## Provider Mapping
 
 Sakana Fugu is treated as an optional multi-agent model route, not an automatic
 default. The verifier currently models:
@@ -45,9 +45,26 @@ Fugu Ultra aimed at harder multi-step reasoning. It also links OpenRouter and
 Vercel availability for Fugu Ultra. Those are candidate signals only; they are
 not live Hermes routing proof.
 
+NVIDIA Nemotron is also treated as a candidate route, not an automatic default.
+The verifier models:
+
+- `openrouter-nemotron3-ultra`: `nvidia/nemotron-3-ultra-550b-a55b` through
+  OpenRouter, smoke-ready only when `OPENROUTER_API_KEY` exists
+- `openrouter-nemotron3-super-free`:
+  `nvidia/nemotron-3-super-120b-a12b:free` through OpenRouter, useful as a
+  low/no-cost candidate before promoting heavier Nemotron routing
+- `nvidia-nim-nemotron3-ultra`: direct NVIDIA NIM-style candidate, blocked
+  until `NVIDIA_API_KEY`, `NVIDIA_NIM_BASE_URL`, region, endpoint, cost, and
+  smoke evidence are confirmed
+
+The NVIDIA Nemotron page positions Nemotron 3 Ultra for complex agentic tasks:
+planning, code generation, deep research, tool use, synthesis, verification,
+and recovery with long context. That makes it relevant to Hermes harness
+evaluation, but still only after catalog, smoke, cost, and quality receipts.
+
 ## Adoption Gate
 
-Do not promote a Sakana/Fugu route to Hermes default until all of these are true:
+Do not promote a Sakana/Fugu/Nemotron route to Hermes default until all of these are true:
 
 1. At least one Hermes gateway is reachable over tailnet `:8642/health`.
 2. The installed Hermes AI vault validates locally.

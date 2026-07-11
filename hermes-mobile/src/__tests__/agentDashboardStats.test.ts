@@ -38,7 +38,7 @@ describe('agentDashboardStats', () => {
         checkedAt: 'x',
         authMismatch: true,
       }),
-    ).toBe('Wrong API key');
+    ).toBe('Needs re-pair');
   });
 
   it('builds dashboard stats snapshot', () => {
