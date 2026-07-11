@@ -626,6 +626,9 @@ describe('GatewayProvider', () => {
       usePortal: false,
       redactPii: true,
       notificationsEnabled: true,
+      notificationApprovals: true,
+      notificationLiveRunStatus: true,
+      notificationCompletion: true,
       demoMode: false,
       glanceMode: false,
       thumbgateCaptureOnDown: true,
@@ -668,6 +671,7 @@ describe('GatewayProvider', () => {
       expect(approvalNotifications.scheduleRunStallNotification).toHaveBeenCalledWith(
         'run_watchdog_1',
         undefined,
+        { categoryEnabled: true },
       );
     });
 
@@ -702,6 +706,9 @@ describe('GatewayProvider', () => {
       usePortal: false,
       redactPii: true,
       notificationsEnabled: true,
+      notificationApprovals: true,
+      notificationLiveRunStatus: true,
+      notificationCompletion: true,
       demoMode: false,
       glanceMode: false,
       thumbgateCaptureOnDown: true,

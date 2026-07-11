@@ -251,4 +251,37 @@ describe('SettingsScreen', () => {
       ),
     ).toBeTruthy();
   });
+
+  it('renders per-category notification toggles', () => {
+    const { getByTestId, getByText } = render(<SettingsScreen />);
+    expect(getByText('Approval alerts')).toBeTruthy();
+    expect(getByText('Live run status')).toBeTruthy();
+    expect(getByText('Completion / failure')).toBeTruthy();
+    expect(getByTestId('notification-approvals-switch')).toBeTruthy();
+    expect(getByTestId('notification-live-run-switch')).toBeTruthy();
+    expect(getByTestId('notification-completion-switch')).toBeTruthy();
+  });
+
+  it('saves granular notification preferences', async () => {
+    const saveSettings = jest.fn().mockResolvedValue(undefined);
+    useGateway.mockReturnValue(mockUseGateway({ saveSettings }));
+
+    const { getByTestId } = render(<SettingsScreen />);
+    fireEvent(getByTestId('notification-approvals-switch'), 'valueChange', false);
+    fireEvent(getByTestId('notification-live-run-switch'), 'valueChange', true);
+    fireEvent(getByTestId('notification-completion-switch'), 'valueChange', false);
+    fireEvent.press(getByTestId('save-settings-button'));
+
+    await waitFor(() => {
+      expect(saveSettings).toHaveBeenCalled();
+    });
+    expect(saveSettings.mock.calls[0][0]).toEqual(
+      expect.objectContaining({
+        notificationApprovals: false,
+        notificationLiveRunStatus: true,
+        notificationCompletion: false,
+        notificationsEnabled: true,
+      }),
+    );
+  });
 });
