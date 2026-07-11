@@ -92,6 +92,7 @@ import {
   CONNECTION_SELF_HEAL_INTERVAL_MS,
   buildSelfHealProbeUrls,
   savedProfileFallbackUrls,
+  resolveApiKeyForGatewayProbe,
   resolveCellularTailscaleFailoverUrl,
 } from '../utils/connectionSelfHeal';
 import { CONNECTION_HEAL_EXHAUSTED_AFTER } from '../utils/connectionErrorPolicy';
@@ -630,6 +631,15 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
       setProfileState(upserted);
       await gatewayProfiles.save(upserted);
 
+      const activeIdAfterHeal = profileStateRef.current.activeProfileId;
+      if (activeIdAfterHeal) {
+        const profileKey = await secureCredentials.resolveApiKeyForProfile(activeIdAfterHeal);
+        if (profileKey && profileKey !== apiKeyRef.current) {
+          setApiKey(profileKey);
+          apiKeyRef.current = profileKey;
+        }
+      }
+
       if (healDecision.catalogOnly) {
         return healDecision.returnUrl;
       }
@@ -699,11 +709,21 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
     }
     const currentSettings = settingsRef.current;
     const token = mobileTokenRef.current;
-    const key = apiKeyRef.current;
     const gatewayProbeUrl = effectiveGatewayUrlRef.current || currentSettings.gatewayUrl;
 
     const probeMacGateway = async (url: string) => {
-      const snapshot = await fetchGatewayHealth(url, key);
+      const probeKey = await resolveApiKeyForGatewayProbe({
+        gatewayUrl: url,
+        profiles: profileStateRef.current.profiles,
+        activeProfileId: profileStateRef.current.activeProfileId,
+        fallbackKey: apiKeyRef.current,
+        resolveProfileKey: (profileId) => secureCredentials.resolveApiKeyForProfile(profileId),
+      });
+      if (probeKey !== apiKeyRef.current) {
+        setApiKey(probeKey);
+        apiKeyRef.current = probeKey;
+      }
+      const snapshot = await fetchGatewayHealth(url, probeKey);
       return snapshot;
     };
 
