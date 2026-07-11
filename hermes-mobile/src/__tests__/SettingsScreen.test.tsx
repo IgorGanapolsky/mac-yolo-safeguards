@@ -241,4 +241,14 @@ describe('SettingsScreen', () => {
     expect(getByTestId('tailscale-discovery-banner')).toBeTruthy();
     expect(getByTestId('tailscale-add-igors-mac-mini')).toBeTruthy();
   });
+
+  it('clarifies smart notifications do not change Leash layout', () => {
+    const { getByText } = render(<SettingsScreen />);
+    expect(getByText('Smart notifications')).toBeTruthy();
+    expect(
+      getByText(
+        'Get approval alerts on your lock screen (Approve / Deny), background activity while Hermes works on your Mac, and summaries when tasks finish. Does not change how Leash looks in the app.',
+      ),
+    ).toBeTruthy();
+  });
 });
