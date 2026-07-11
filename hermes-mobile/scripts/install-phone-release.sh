@@ -297,6 +297,41 @@ cleanup_lock() {
   fi
 }
 
+# --- Human-presence device lease (2026-07-11) ---------------------------------
+# The flock below SERIALIZES builds but its policy is queue-never-fail, so N agents
+# (Codex, Cursor, continuous-e2e) each still install + force-stop the app: the queue
+# IS the churn. This gate fail-fasts (exit 0, does NOT queue) when a human is using
+# the phone, so concurrent agents stand down instead of reinstalling on top of a live
+# session. Modeled on the Kubernetes Lease (holder + TTL). Honors an explicit hold
+# file AND auto-detects a live on-device session (screen awake + unlocked) — zero-config.
+# Deliberate human-run install: HERMES_PHONE_FORCE=1
+PHONE_HOLD_FILE="$HERMES_DIR/.phone-human-hold"
+PHONE_HOLD_TTL="${HERMES_PHONE_HOLD_TTL:-1800}"   # 30m TTL so a forgotten hold self-expires
+phone_in_human_use() {
+  [[ "${HERMES_PHONE_FORCE:-}" == "1" ]] && return 1
+  # (a) explicit hold file, still within TTL (mtime = renewTime)
+  if [[ -f "$PHONE_HOLD_FILE" ]]; then
+    local now mtime; now="$(date +%s)"; mtime="$(stat -f %m "$PHONE_HOLD_FILE" 2>/dev/null || echo 0)"
+    if (( now - mtime < PHONE_HOLD_TTL )); then
+      PHONE_HOLD_WHO="$(head -1 "$PHONE_HOLD_FILE" 2>/dev/null || echo hold-file)"; return 0
+    fi
+  fi
+  # (b) auto-detect: screen awake AND not on the lockscreen == a human is likely using it now
+  [[ -z "${DEVICE:-}" ]] && return 1
+  local pw=""; pw="$(adb -s "$DEVICE" shell dumpsys power 2>/dev/null || true)"
+  if grep -q 'mWakefulness=Awake' <<<"$pw" \
+     && ! adb -s "$DEVICE" shell dumpsys window 2>/dev/null | grep -q 'mDreamingLockscreen=true'; then
+    PHONE_HOLD_WHO="live on-device session (screen awake, unlocked)"; return 0
+  fi
+  return 1
+}
+if phone_in_human_use; then
+  echo "=== Skip install: phone in use (${PHONE_HOLD_WHO}). NOT building/installing. ===" >&2
+  echo "    Stand down — do not retry. Deliberate human install: re-run with HERMES_PHONE_FORCE=1" >&2
+  exit 0
+fi
+# -----------------------------------------------------------------------------
+
 acquire_install_lock
 trap cleanup_lock EXIT INT TERM
 skip_if_already_installed
