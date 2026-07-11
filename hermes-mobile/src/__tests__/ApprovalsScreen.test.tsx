@@ -78,7 +78,12 @@ describe('ApprovalsScreen', () => {
   it('shows leash memory and display toggles when unlocked', () => {
     const { getByText } = renderInTabNavigator(ApprovalsScreen, 'Leash');
     expect(getByText('Thumbs down → remember block')).toBeTruthy();
-    expect(getByText('Glanceable approvals')).toBeTruthy();
+    expect(getByText('Quick-approve layout')).toBeTruthy();
+    expect(
+      getByText(
+        'One approval at a time with bigger buttons. Hides diffs and thumbs. Announces connection status with VoiceOver.',
+      ),
+    ).toBeTruthy();
   });
 
   it('refreshes from header button, bottom button, and pull-to-refresh', async () => {
