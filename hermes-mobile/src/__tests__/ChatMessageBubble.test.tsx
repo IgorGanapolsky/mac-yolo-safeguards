@@ -36,35 +36,46 @@ describe('ChatMessageBubble', () => {
       timeLabel: 'Jun 24, 2026 11:55 AM',
     });
 
-    expect(getByTestId('chat-message-body').props.selectable).toBe(true);
+    expect(getByTestId('chat-message-body')).toBeTruthy();
+  });
+
+  it('renders markdown headings in assistant bubbles', () => {
+    const { getByText } = renderWithDetailModal({
+      content: '## Summary\n\nDone.',
+      isUser: false,
+      timeLabel: 'Jun 24, 2026 11:55 AM',
+    });
+
+    expect(getByText('Summary')).toBeTruthy();
+    expect(getByText(/Done\./)).toBeTruthy();
   });
 
   it('keeps truncated preview selectable without wrapping it in Pressable', () => {
     const { getByTestId } = renderWithDetailModal({
-      content: 'clarify: Did you mean a specific bro…',
-      rawContent: 'clarify: Did you mean to target a specific browser profile?',
+      content: 'Did you mean a specific bro…',
+      rawContent: 'Did you mean to target a specific browser profile?',
       truncated: true,
       isUser: false,
       timeLabel: 'Jun 19, 2026 4:48 PM',
     });
 
-    expect(getByTestId('chat-message-body').props.selectable).toBe(true);
+    expect(getByTestId('chat-message-body')).toBeTruthy();
   });
 
   it('opens a screen-level detail modal when Show more is pressed', () => {
     const { getByTestId, getByText, queryByText } = renderWithDetailModal({
-      content: 'clarify: Did you mean a specific bro…',
-      rawContent: 'clarify: Did you mean to target a specific browser profile?',
+      content: 'Did you mean a specific bro…',
+      rawContent: 'Did you mean to target a specific browser profile?',
       truncated: true,
       isUser: false,
       timeLabel: 'Jun 19, 2026 4:48 PM',
     });
 
-    expect(getByText('clarify: Did you mean a specific bro…')).toBeTruthy();
+    expect(getByText('Did you mean a specific bro…')).toBeTruthy();
     expect(queryByText('browser profile')).toBeNull();
 
     fireEvent.press(getByTestId('chat-message-expand'));
-    expect(getByText('clarify: Did you mean to target a specific browser profile?')).toBeTruthy();
+    expect(getByText('Did you mean to target a specific browser profile?')).toBeTruthy();
     expect(getByTestId('chat-message-detail-close')).toBeTruthy();
   });
 

@@ -51,8 +51,17 @@ describe('chatMessageDisplay', () => {
     const formatted = formatMessageForDisplay(raw);
     expect(formatted).toContain('zsh Shell completions');
     expect(formatted).toContain('\nhermes acp');
-    expect(formatted).toContain('Slash Commands');
+    expect(formatted).toContain('## Slash Commands');
+    expect(formatted).toContain('`/help`');
     expect(formatted).not.toContain('\\n');
+  });
+
+  it('strips clarify prefix from assistant prose', () => {
+    const raw =
+      'clarify: "Did you mean to target a specific browser profile instead of the default workspace?"';
+    const formatted = formatMessageForDisplay(raw);
+    expect(formatted).not.toContain('clarify:');
+    expect(formatted).toContain('browser profile');
   });
 
   it('summarizes json tool payloads instead of dumping them', () => {
@@ -233,7 +242,8 @@ Status: online
     const raw =
       'clarify: "Did you mean to target a specific browser profile instead of the default workspace?"';
     const display = prepareMessageForChatDisplay(raw);
-    expect(display.content).toContain('clarify');
+    expect(display.content).toContain('browser profile');
+    expect(display.content).not.toContain('clarify:');
     expect(display.rawContent).toContain('browser profile');
     expect(display.truncated).toBe(false);
   });
