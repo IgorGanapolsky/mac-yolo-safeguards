@@ -1,6 +1,6 @@
 # App Store Connect — iOS blockers (Hermes Mobile 1.0)
 
-**Updated:** 2026-07-11 ~15:50 ET (IAP `DEVELOPER_ACTION_NEEDED` **fixed via API**)
+**Updated:** 2026-07-11 ~16:05 ET (IAP `DEVELOPER_ACTION_NEEDED` **fixed via API**; PR **#125** merged)
 
 ## Jul 11 — IAP regression fixed (API)
 
@@ -22,9 +22,11 @@
 
 **Remaining:**
 
-- **Binary 12** lacks Guideline **3.1.2** paywall footer — merge PR **#125** + EAS iOS build **15** if Apple rejects on 3.1.2.
+- **Binary 12** may still lack Guideline **3.1.2** paywall footer in the **review binary** — PR **#125** merged (`e308cf6`); trigger EAS iOS build **15** only if Apple rejects on 3.1.2 (not triggered in this worker pass).
 - **Agreements / tax / banking** — ASC API cannot read; Igor 2-min UI check.
 - **Release after approval** — `AFTER_APPROVAL` requires manual **Release this version**.
+
+---
 
 ## Review notes (fixed)
 

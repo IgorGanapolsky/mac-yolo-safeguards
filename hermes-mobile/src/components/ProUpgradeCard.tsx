@@ -128,6 +128,20 @@ export default function ProUpgradeCard({ onUnlocked, onTesterUnlock }: ProUpgrad
       >
         <Text style={styles.secondaryButtonText}>Restore purchases</Text>
       </TouchableOpacity>
+      <Text style={styles.legalText} testID="subscription-legal-disclosure">
+        {THUMBGATE_PRO_PRICE_LABEL}/month, auto-renewing until canceled. Payment charged to your{' '}
+        {Platform.OS === 'ios' ? 'Apple ID' : 'Google Play'} account at confirmation. Subscription
+        renews unless canceled at least 24 hours before the period ends. Manage or cancel in{' '}
+        {Platform.OS === 'ios' ? 'Settings → Apple ID → Subscriptions' : 'Google Play → Subscriptions'}
+        .{' '}
+        <Text style={styles.legalLink} onPress={() => void Linking.openURL('https://www.apple.com/legal/internet-services/itunes/dev/stdeula/')}>
+          Terms of Use
+        </Text>
+        {' · '}
+        <Text style={styles.legalLink} onPress={() => void Linking.openURL('https://thumbgate.ai/privacy')}>
+          Privacy Policy
+        </Text>
+      </Text>
       <TouchableOpacity onPress={() => void openLearnMore()} testID="upgrade-thumbgate-pro">
         <Text style={styles.learnMoreLink}>Learn what ThumbGate Pro includes</Text>
       </TouchableOpacity>
@@ -188,6 +202,15 @@ const styles = StyleSheet.create({
     color: colors.secondary,
     fontWeight: '700',
     fontSize: 13,
+  },
+  legalText: {
+    fontSize: 11,
+    lineHeight: 16,
+    color: colors.textMuted,
+  },
+  legalLink: {
+    color: colors.secondary,
+    textDecorationLine: 'underline',
   },
   learnMoreLink: {
     fontSize: 12,
