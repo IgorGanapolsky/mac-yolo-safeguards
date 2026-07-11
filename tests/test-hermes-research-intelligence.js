@@ -30,11 +30,13 @@ const signals = extractSignals([
       'OpenRouter provider routing for speculative decoding and coding model throughput',
       'autonomous skill compilation must stay candidate-only',
       'Docker Android emulator E2E tests',
+      'Specification-Driven Design uses modular markdown specifications and continuous gap analysis',
     ].join(' '),
   },
 ]);
 
 const keys = signals.map((signal) => signal.key);
+assert(keys.includes('specification-driven-design'));
 assert(keys.includes('hybrid-rag'));
 assert(keys.includes('provider-capability-routing'));
 assert(keys.includes('mlx-readiness'));
@@ -45,6 +47,8 @@ assert(signals.every((signal) => signal.score >= signal.roi));
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'hermes-research-intel-'));
 const requiredFiles = [
   'tools/agent-decision-stack.js',
+  'tools/hermes-retrieval-harness.js',
+  'tools/hermes-loop-state.js',
   'tools/graphify-readiness.js',
   'tools/hermes-source-packs.js',
   'tools/local-inference-readiness.js',
@@ -71,8 +75,9 @@ assert.strictEqual(evidence.graphBuilt, true);
 assert.strictEqual(evidence.missingTools.length, 0);
 
 const brief = buildBrief({ repo: tmp, items: DEFAULT_RESEARCH_ITEMS });
-assert(brief.summary.recommendationCount >= 5);
-assert(brief.summary.implementNowCount >= 4);
+assert(brief.summary.recommendationCount >= 6);
+assert(brief.summary.implementNowCount >= 5);
+assert(brief.recommendations.some((item) => item.key === 'specification-driven-design' && item.stage === 'implement_now'));
 assert(brief.recommendations.some((item) => item.key === 'hybrid-rag' && item.stage === 'implement_now'));
 assert(brief.recommendations.some((item) => item.key === 'android-e2e-portability' && item.stage === 'verify_existing_lane_first'));
 assert(
@@ -83,7 +88,7 @@ assert(
 assert(render(brief).includes('No-dead-code rule'));
 
 const filePath = path.join(tmp, 'research.txt');
-fs.writeFileSync(filePath, 'OpenRouter provider routing with knowledge graph RAG.');
+fs.writeFileSync(filePath, 'OpenRouter provider routing with knowledge graph RAG and Specification-Driven Design.');
 const items = sourceItemsFromArgs({
   defaults: false,
   texts: ['MLX Apple Silicon fine-tuning needs evals.'],

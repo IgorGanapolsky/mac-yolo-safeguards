@@ -4,6 +4,7 @@ import {
   humanizeRunProgressDetail,
   isActiveChatRun,
   isRunProgressStale,
+  runProgressBannerTitle,
   runProgressElapsedSeconds,
   runProgressFailedTitle,
   shouldShowComposerProgressBanner,
@@ -15,6 +16,16 @@ describe('runProgressDisplay', () => {
     expect(humanizeRunProgressDetail('Sending to your computer…')).toBe('Delivering your message…');
     expect(humanizeRunProgressDetail('running skill_view')).toBe('Reading a skill on your computer…');
     expect(humanizeRunProgressDetail('running web_search')).toBe('Running web search on your computer…');
+  });
+
+  it('emphasizes live streaming in banner title during token stream', () => {
+    expect(
+      runProgressBannerTitle({
+        phase: 'streaming',
+        startedAtMs: Date.now(),
+        detail: '   ',
+      }),
+    ).toBe('Live streaming from your computer');
   });
 
   it('humanizes composer status lines', () => {

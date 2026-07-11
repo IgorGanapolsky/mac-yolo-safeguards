@@ -123,6 +123,32 @@ describe('useHermesDeepLinks', () => {
     expect(navigationRef.current.navigate).toHaveBeenCalledWith('Chat');
   });
 
+  it('forces demo mode on App Store review builds for hermes://setup?demo=1', async () => {
+    const forceE2eDemoMode = jest.fn().mockResolvedValue(undefined);
+    const applySetupDeepLink = jest.fn().mockResolvedValue(undefined);
+    (Constants.expoConfig as { extra?: Record<string, unknown> }).extra = {
+      storeReviewDemo: true,
+    };
+    renderHook(() =>
+      useHermesDeepLinks(
+        navigationRef as never,
+        runAgentTool,
+        refreshHealth,
+        applySetupDeepLink,
+        undefined,
+        undefined,
+        forceE2eDemoMode,
+      ),
+    );
+    const handler = (Linking.addEventListener as jest.Mock).mock.calls[0][1];
+    await act(async () => {
+      await handler({ url: 'hermes://setup?demo=1' });
+    });
+    expect(forceE2eDemoMode).toHaveBeenCalled();
+    expect(applySetupDeepLink).not.toHaveBeenCalled();
+    expect(navigationRef.current.navigate).toHaveBeenCalledWith('Chat');
+  });
+
   it('re-applies E2E demo mode when hermes://setup?demo=1 is opened again', async () => {
     const forceE2eDemoMode = jest.fn().mockResolvedValue(undefined);
     const applySetupDeepLink = jest.fn().mockResolvedValue(undefined);
@@ -181,5 +207,38 @@ describe('useHermesDeepLinks', () => {
     expect(props.attribution_medium).toBe('roas');
     expect(props.attribution_campaign).toBe('day7-leash');
     expect(props.attribution_window).toBe('day7');
+  });
+
+  it('opens Leash and injects smoke preview from hermes://leash?preview=smoke', async () => {
+    const injectSmokeApproval = jest.fn();
+    renderHook(() =>
+      useHermesDeepLinks(
+        navigationRef as never,
+        runAgentTool,
+        refreshHealth,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        injectSmokeApproval,
+      ),
+    );
+    const handler = (Linking.addEventListener as jest.Mock).mock.calls[0][1];
+    await act(async () => {
+      await handler({ url: 'hermes://leash?preview=smoke' });
+    });
+    expect(navigationRef.current.navigate).toHaveBeenCalledWith('Leash');
+    expect(injectSmokeApproval).toHaveBeenCalledTimes(1);
+  });
+
+  it('queues QR scanner from hermes://settings?pair=qr', async () => {
+    renderHook(() =>
+      useHermesDeepLinks(navigationRef as never, runAgentTool, refreshHealth),
+    );
+    const handler = (Linking.addEventListener as jest.Mock).mock.calls[0][1];
+    await act(async () => {
+      await handler({ url: 'hermes://settings?pair=qr' });
+    });
+    expect(navigationRef.current.navigate).toHaveBeenCalledWith('Settings');
   });
 });

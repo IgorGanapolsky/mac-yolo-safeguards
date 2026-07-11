@@ -1,6 +1,7 @@
 import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Platform, StyleSheet, Text, View } from 'react-native';
 import { colors } from '../theme/colors';
+import { formatMessageTimestamp } from '../utils/chatMessageDisplay';
 import {
   outboundDeliveryLabel,
   type OutboundDeliveryStatus,
@@ -9,6 +10,8 @@ import type { LeashConnectionState } from '../utils/gatewayEndpoint';
 
 type SubmittedPromptStripProps = {
   text: string;
+  /** ISO string — when the user tapped send (optimistic bubble may not be in list yet). */
+  sentAt?: string;
   status?: OutboundDeliveryStatus;
   connectionState?: LeashConnectionState;
   macHttpOk?: boolean;
@@ -16,6 +19,7 @@ type SubmittedPromptStripProps = {
 
 export default function SubmittedPromptStrip({
   text,
+  sentAt,
   status = 'pending',
   connectionState = 'demo',
   macHttpOk = true,
@@ -29,10 +33,18 @@ export default function SubmittedPromptStrip({
   const displayPending =
     status === 'pending' ||
     (status === 'sent' && statusLabel.startsWith('○'));
+  const timeLabel = sentAt ? formatMessageTimestamp(sentAt) : null;
 
   return (
     <View style={styles.wrap} testID="submitted-prompt-strip">
-      <Text style={styles.label}>You sent</Text>
+      <View style={styles.headerRow}>
+        <Text style={styles.label}>You sent</Text>
+        {timeLabel ? (
+          <Text style={styles.timeLabel} testID="submitted-prompt-timestamp">
+            {timeLabel}
+          </Text>
+        ) : null}
+      </View>
       <Text style={styles.body} numberOfLines={8} ellipsizeMode="tail" selectable>
         {trimmed}
       </Text>
@@ -61,12 +73,26 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     gap: 4,
   },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
   label: {
     fontSize: 10,
     fontWeight: '800',
     letterSpacing: 0.6,
     color: colors.accent,
     textTransform: 'uppercase',
+    flexShrink: 0,
+  },
+  timeLabel: {
+    fontSize: 10,
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+    color: colors.textMuted,
+    flexShrink: 1,
+    textAlign: 'right',
   },
   body: {
     fontSize: 14,

@@ -70,7 +70,8 @@ import {
   getObsidianProjects,
   getObsidianAgents,
 } from '../services/hermesGatewayClient';
-import { fetchGatewayHealth } from '../services/gatewayClient';
+import { fetchGatewayHealth, GATEWAY_WRONG_KEY_MESSAGE, gatewayAuthRepairBanner } from '../services/gatewayClient';
+import { secureCredentials } from '../services/secureCredentials';
 import type { HermesSession, HermesMessage } from '../types/chat';
 import type { ChatProject, ChatProjectState } from '../types/chatProject';
 import { EMPTY_CHAT_PROJECT_STATE } from '../types/chatProject';
@@ -108,7 +109,7 @@ import {
   ensureSessionCreatedAt,
 } from '../utils/sessionDisplay';
 import { findResumableSessionByPromptTitle } from '../utils/resumeExistingSession';
-import { formatMessageTimestamp, prepareMessagesForDisplay } from '../utils/chatMessageDisplay';
+import { formatMessageTimestamp, prepareMessagesForDisplay, resolveMessageTimestamp } from '../utils/chatMessageDisplay';
 import {
   isMessageBodyEmpty,
   isMessageDisplayEmpty,
@@ -117,6 +118,7 @@ import {
   transcriptDigest,
   hasUnsyncedLocalMessages,
   normalizeMessageText,
+  findDeferredPlaceholderAfterLastUser,
 } from '../utils/chatMessageMerge';
 import {
   resolveChatOutputFeedbackBusyKey,
@@ -214,6 +216,10 @@ import {
   isGatewayHealthPending,
   resolveEffectiveMacHttpOk,
 } from '../utils/gatewayConnection';
+import {
+  pairServerHostFromGatewayUrl,
+  resolvePairServerSetupParams,
+} from '../services/gatewayDiscovery';
 import { isGatewayLiveForDelivery } from '../utils/outboundDeliveryStatus';
 import {
   OUTBOUND_PENDING_RECOVERY_MS,
@@ -263,6 +269,7 @@ import {
   extractAssistantFromRunCompletedPayload,
   findNewAssistantReply,
   GENERIC_EMPTY_STREAM_PLACEHOLDER,
+  isDeferredStreamPlaceholder,
   isTelegramDeferredEmptyStream,
   snapshotAssistantBodies,
   TELEGRAM_QUEUED_REPLY_PLACEHOLDER,
@@ -528,9 +535,20 @@ export default function ChatScreen() {
 
   const applyChatApiError = useCallback(
     (error: unknown, fallback: string, options?: { background?: boolean }) => {
-      const { kind, message } = humanizeChatError(error, fallback, { gatewayUrl });
+      const { kind, message } = humanizeChatError(error, fallback, {
+        gatewayUrl,
+        machineLabel: activeGatewayProfile?.label,
+      });
       if (kind === 'connectivity') {
         refreshHealth();
+        return;
+      }
+      if (kind === 'auth') {
+        refreshHealth();
+        if (options?.background) {
+          return;
+        }
+        setErrorMessage(message);
         return;
       }
       if (options?.background) {
@@ -538,7 +556,7 @@ export default function ChatScreen() {
       }
       setErrorMessage(message);
     },
-    [refreshHealth],
+    [refreshHealth, gatewayUrl, activeGatewayProfile?.label],
   );
 
   const flatListRef = useRef<FlashListRef<ChatTimelineEntry>>(null);
@@ -653,6 +671,7 @@ export default function ChatScreen() {
 
   const [queuedOutboundCount, setQueuedOutboundCount] = useState(0);
   const [pinnedOutboundText, setPinnedOutboundText] = useState<string | null>(null);
+  const [pinnedOutboundSentAt, setPinnedOutboundSentAt] = useState<string | null>(null);
   const [pinnedOutboundStatus, setPinnedOutboundStatus] = useState<'pending' | 'sent' | 'failed'>(
     'pending',
   );
@@ -1219,9 +1238,11 @@ export default function ChatScreen() {
       activeProfile: activeGatewayProfile,
       machineLabel: machineHeaderDisplay.machineLabel,
       machineEndpoint: machineHeaderDisplay.machineEndpoint,
+      authMismatch: health?.authMismatch === true,
     });
   }, [
     macRetryBusy,
+    connectionHealInFlight,
     machineShortLabel,
     connectionState,
     connectingStuck,
@@ -2212,6 +2233,7 @@ export default function ChatScreen() {
       pendingOutboundSendsRef.current = 0;
       setPinnedOutboundStatus('failed');
       setPinnedOutboundText(null);
+      setPinnedOutboundSentAt(null);
     },
     [commitMessages],
   );
@@ -2279,6 +2301,7 @@ export default function ChatScreen() {
       pendingOutboundSendsRef.current = 0;
       setPinnedOutboundStatus('failed');
       setPinnedOutboundText(null);
+      setPinnedOutboundSentAt(null);
       setRunProgress((prev) =>
         prev && prev.phase !== 'completed' && prev.phase !== 'failed'
           ? { ...prev, phase: 'failed', detail: OUTBOUND_STUCK_FAILURE_REASON }
@@ -2346,6 +2369,7 @@ export default function ChatScreen() {
       return;
     }
     setPinnedOutboundText(null);
+    setPinnedOutboundSentAt(null);
     setPinnedOutboundStatus('pending');
     setRunProgress(null);
     transcriptDigestRef.current = '';
@@ -2470,23 +2494,53 @@ export default function ChatScreen() {
     setMacRetryBusy(true);
     setRunProgress(null);
     setPinnedOutboundText(null);
+    setPinnedOutboundSentAt(null);
     setPinnedOutboundStatus('pending');
     setErrorMessage((prev) => (prev && isConnectivityMessage(prev) ? null : prev));
 
+    const activeProfileId = activeGatewayProfile?.id ?? null;
+
     try {
+      if (activeProfileId) {
+        await selectGatewayProfile(activeProfileId);
+      }
+
       let nextSettings = settings;
       if (settings.connectionMode !== 'gateway') {
         nextSettings = { ...settings, connectionMode: 'gateway' as const };
         await saveSettings(nextSettings, apiKey);
       }
 
-
+      if (health?.authMismatch) {
+        const pairHost = pairServerHostFromGatewayUrl(
+          effectiveGatewayUrl || nextSettings.gatewayUrl,
+        );
+        if (pairHost) {
+          const setup = await resolvePairServerSetupParams(pairHost);
+          const freshKey = setup?.apiKey?.trim();
+          if (freshKey) {
+            const gatewayUrl = setup?.gatewayUrl?.trim() || effectiveGatewayUrl;
+            nextSettings = { ...nextSettings, gatewayUrl };
+            await saveSettings(nextSettings, freshKey);
+          }
+        }
+      }
 
       await scanForGatewayProfiles();
       await autoConnectGateway();
       await retryGatewayBootstrap();
       await refreshHealth();
       connectEvents();
+
+      const profileKey = await secureCredentials.resolveApiKeyForProfile(activeProfileId);
+      const probeUrl = effectiveGatewayUrl || settings.gatewayUrl;
+      const postRetryHealth = await fetchGatewayHealth(probeUrl, profileKey);
+      if (postRetryHealth.authMismatch) {
+        setMacPickerVisible(true);
+        setErrorMessage(gatewayAuthRepairBanner(machineShortLabel));
+        haptics.warning();
+        return;
+      }
 
       const retryText = lastFailedSendTextRef.current?.trim();
       if (retryText) {
@@ -2506,10 +2560,11 @@ export default function ChatScreen() {
     isDemo,
     settings,
     apiKey,
+    health?.authMismatch,
+    effectiveGatewayUrl,
     saveSettings,
     gatewayProfiles,
     activeGatewayProfile?.id,
-    effectiveGatewayUrl,
     selectGatewayProfile,
     scanForGatewayProfiles,
     autoConnectGateway,
@@ -2572,6 +2627,7 @@ export default function ChatScreen() {
     setErrorMessage(null);
     setMessages([]);
     setPinnedOutboundText(null);
+    setPinnedOutboundSentAt(null);
     setPinnedOutboundStatus('pending');
     setTelegramReplySessionId('');
     transcriptDigestRef.current = '';
@@ -3236,7 +3292,7 @@ export default function ChatScreen() {
           listIndex={index}
           originalIndex={originalIndex}
           messages={messages}
-          timeLabel={formatMessageTimestamp(message.created_at ?? message.timestamp)}
+          timeLabel={formatMessageTimestamp(resolveMessageTimestamp(message))}
           inlineNudge={inlineNudge}
           includeToolActivity={settings.includeToolActivity ?? false}
           isTelegramInbox={isTelegramInbox}
@@ -3289,17 +3345,19 @@ export default function ChatScreen() {
   const commitOutboundUserBubble = (text: string): string => {
     const trimmed = text.trim();
     outboundMessageSeqRef.current += 1;
+    const sentAt = new Date().toISOString();
     const userMessage: HermesMessage = {
       id: `user-${Date.now()}-${outboundMessageSeqRef.current}`,
       role: 'user',
       content: trimmed,
-      created_at: new Date().toISOString(),
+      created_at: sentAt,
       outboundStatus: 'pending',
     };
     pendingOutboundSendsRef.current += 1;
     commitMessages((prev) => [...prev, userMessage]);
     setRecentChatsDismissed(true);
     setPinnedOutboundText(trimmed);
+    setPinnedOutboundSentAt(sentAt);
     setPinnedOutboundStatus('pending');
     setToolStatus(null);
     userScrolledUpRef.current = false;
@@ -3494,6 +3552,7 @@ export default function ChatScreen() {
       }
       setPinnedOutboundStatus('failed');
       setPinnedOutboundText(null);
+      setPinnedOutboundSentAt(null);
       outboundUserBubbleCommitted = false;
       committedUserMessageId = null;
     };
@@ -3690,6 +3749,7 @@ export default function ChatScreen() {
       setPinnedOutboundStatus(status);
       if (status === 'failed') {
         setPinnedOutboundText(null);
+        setPinnedOutboundSentAt(null);
       }
       commitMessages((prev) =>
         prev.map((message) =>
@@ -3816,6 +3876,18 @@ export default function ChatScreen() {
         const body = text.trim();
         if (!body) {
           return;
+        }
+        if (!assistantBubbleAdded && isDeferredStreamPlaceholder(body)) {
+          const existing = findDeferredPlaceholderAfterLastUser(messagesRef.current);
+          if (existing?.id) {
+            assistantBubbleAdded = true;
+            activeAssistantIdRef.current = existing.id;
+            commitMessages((prev) =>
+              prev.map((m) => (m.id === existing.id ? { ...m, content: body } : m)),
+            );
+            scrollChatToLatestIfPinned(true);
+            return;
+          }
         }
         if (!assistantBubbleAdded) {
           assistantBubbleAdded = true;
@@ -4183,6 +4255,7 @@ export default function ChatScreen() {
     } catch (err) {
       const { kind, message } = humanizeChatError(err, 'Message could not send. Try again.', {
         gatewayUrl,
+        machineLabel: machineShortLabel,
       });
       if (isSessionRemovedError(err) || message.includes('That chat was removed')) {
         invalidateRemovedSession(targetSessionId);
@@ -4203,6 +4276,11 @@ export default function ChatScreen() {
           gatewayUrl,
           healthProbePending,
         });
+      } else if (kind === 'auth') {
+        refreshHealth();
+        markOutboundBubbleStatus('failed', message);
+        setErrorMessage(message);
+        sendFailureDetail = message;
       } else {
         markOutboundBubbleStatus('failed', message);
         setErrorMessage(message);
@@ -4276,6 +4354,7 @@ export default function ChatScreen() {
     if (inTranscript && pinnedOutboundStatus === 'sent' && !isSending && !isActiveChatRun(runProgress)) {
       const timer = setTimeout(() => {
         setPinnedOutboundText(null);
+        setPinnedOutboundSentAt(null);
         setPinnedOutboundStatus('pending');
       }, 1200);
       return () => clearTimeout(timer);
@@ -4389,6 +4468,7 @@ export default function ChatScreen() {
   const clearFailedOutboundState = useCallback(() => {
     setRunProgress(null);
     setPinnedOutboundText(null);
+    setPinnedOutboundSentAt(null);
     setPinnedOutboundStatus('pending');
     setErrorMessage((prev) => (prev && isConnectivityMessage(prev) ? null : prev));
   }, []);
@@ -4447,6 +4527,7 @@ export default function ChatScreen() {
     setRunProgress(null);
     setErrorMessage(null);
     setPinnedOutboundText(null);
+    setPinnedOutboundSentAt(null);
     setPinnedOutboundStatus('pending');
     const retryText = lastFailedSendTextRef.current?.trim();
     if (retryText) {
@@ -5039,6 +5120,7 @@ export default function ChatScreen() {
         {showSubmittedPromptStrip && pinnedOutboundText ? (
           <SubmittedPromptStrip
             text={pinnedOutboundText}
+            sentAt={pinnedOutboundSentAt ?? undefined}
             status={pinnedOutboundStatus}
             connectionState={connectionState}
             macHttpOk={effectiveMacHttpOk}
@@ -5178,7 +5260,8 @@ export default function ChatScreen() {
               <GatewayProfilePicker
                 profiles={switchComputerProfiles}
                 activeProfileId={activeGatewayProfile?.id ?? null}
-                activeReachable={macHttpOk || connectionState === 'connected'}
+                activeReachable={macHttpOk}
+                authNeedsRepair={health?.authMismatch === true}
                 activeConnecting={connectionState === 'connecting'}
                 scanning={profileScanning || isScanningMacs}
                 scanProgress={profileScanProgress}

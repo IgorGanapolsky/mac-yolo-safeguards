@@ -5,6 +5,7 @@ import {
   shouldShowFailedSendRetry,
 } from '../utils/failedSendRetry';
 import { EMPTY_REPLY_FAILURE_REASON } from '../utils/emptyStreamReplyRecovery';
+import { GATEWAY_WRONG_KEY_MESSAGE } from '../services/gatewayClient';
 
 describe('resolveComposerSendAction', () => {
   it('returns none when composer and last failed are empty', () => {
@@ -92,6 +93,23 @@ describe('shouldShowFailedSendRetry', () => {
         runPhase: 'failed',
         runDetail: EMPTY_REPLY_FAILURE_REASON,
         lastFailedText: null,
+      }),
+    ).toBe(true);
+  });
+
+  it('shows retry for wrong-key auth failures', () => {
+    expect(
+      shouldShowFailedSendRetry({
+        runPhase: 'failed',
+        runDetail: 'Wrong key for this computer',
+        lastFailedText: null,
+      }),
+    ).toBe(true);
+    expect(
+      shouldShowFailedSendRetry({
+        runPhase: 'failed',
+        runDetail: GATEWAY_WRONG_KEY_MESSAGE,
+        lastFailedText: 'hello',
       }),
     ).toBe(true);
   });

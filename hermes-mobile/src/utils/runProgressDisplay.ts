@@ -16,6 +16,25 @@ export function displayableLlmModel(model: string | undefined | null): string | 
   return trimmed;
 }
 
+/** Banner headline while a run is active — emphasizes live streaming vs generic "working". */
+export function runProgressBannerTitle(progress: RunProgressState): string {
+  const { phase, detail } = progress;
+  const humanized = humanizeRunProgressDetail(detail, phase);
+
+  if (phase === 'streaming') {
+    const raw = detail?.trim();
+    if (!raw || raw === 'streaming' || /thinking/i.test(raw)) {
+      return 'Live streaming from your computer';
+    }
+    if (/delivering|sending to your computer/i.test(raw) || /delivering/i.test(humanized)) {
+      return humanized;
+    }
+    return `Live stream · ${humanized}`;
+  }
+
+  return humanized;
+}
+
 /** User-facing labels for gateway run / tool progress (hide raw SSE event names). */
 export function humanizeRunProgressDetail(detail: string | undefined, phase?: string): string {
   const raw = detail?.trim();

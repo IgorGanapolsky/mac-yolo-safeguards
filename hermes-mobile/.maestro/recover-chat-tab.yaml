@@ -1,4 +1,4 @@
-# Recover demo Chat after Leash/other tabs — deep link first, tab bar fallback, scroll composer into view.
+# Recover demo Chat after Leash/other tabs — deep link first, tab bar fallback, assert chat-input.
 appId: com.iganapolsky.hermesmobile
 ---
 - hideKeyboard
@@ -36,12 +36,8 @@ appId: com.iganapolsky.hermesmobile
       id: "chat-screen-header"
     timeout: 90000
 - hideKeyboard
-- scrollUntilVisible:
-    element:
-      id: "chat-composer-dock"
-    direction: UP
-    timeout: 90000
-    visibilityPercentage: 50
+# Prefer chat-input over chat-composer-dock — release Android often omits the dock
+# parent from the a11y tree even when the composer is on screen (see chat-e2e-bootstrap).
 - extendedWaitUntil:
     visible:
       id: "chat-input"

@@ -3,7 +3,7 @@ import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-nati
 import { colors } from '../theme/colors';
 import type { RunProgressState } from '../types/chatDisplay';
 import type { LeashConnectionState } from '../utils/gatewayEndpoint';
-import { humanizeRunProgressDetail } from '../utils/runProgressDisplay';
+import { displayableLlmModel, humanizeRunProgressDetail } from '../utils/runProgressDisplay';
 
 type CodexCommandCenterProps = {
   connectionState: LeashConnectionState;
@@ -45,7 +45,7 @@ function connectionCopy(
 const INACTIVE_RUN_PHASES = new Set(['completed', 'failed', 'idle']);
 
 function shouldShowMacTile(state: LeashConnectionState, macHttpReachable = false): boolean {
-  if (state === 'connected' || state === 'demo' || macHttpReachable) {
+  if (state === 'demo' || macHttpReachable) {
     return false;
   }
   return true;
@@ -59,6 +59,22 @@ function shouldShowRunTile(runProgress?: RunProgressState | null, isSending = fa
     return false;
   }
   return !INACTIVE_RUN_PHASES.has(runProgress.phase);
+}
+
+function runTileMeta(runProgress?: RunProgressState | null): {
+  detail: string;
+  model: string | null;
+  toolHint: string | null;
+} {
+  const detail = runProgress?.detail?.trim()
+    ? humanizeRunProgressDetail(runProgress.detail, runProgress.phase)
+    : 'Working…';
+  const model = displayableLlmModel(runProgress?.model);
+  const runningTool = /^running\s+(.+)$/i.exec(runProgress?.detail?.trim() ?? '');
+  const toolHint = runningTool
+    ? runningTool[1].replace(/_/g, ' ').trim()
+    : null;
+  return { detail, model, toolHint };
 }
 
 export default function CodexCommandCenter({
@@ -87,11 +103,9 @@ export default function CodexCommandCenter({
     if (isSending) {
       return 'Working…';
     }
-    if (runProgress?.detail?.trim()) {
-      return humanizeRunProgressDetail(runProgress.detail, runProgress.phase);
-    }
-    return 'Working…';
+    return runTileMeta(runProgress).detail;
   })();
+  const runMeta = runTileMeta(runProgress);
 
   return (
     <View style={styles.wrap} testID="codex-command-center">
@@ -126,7 +140,7 @@ export default function CodexCommandCenter({
         ) : null}
 
         {showRunTile ? (
-          <View style={styles.statusChip}>
+          <View style={styles.statusChip} testID="command-center-run-tile">
             <Text style={styles.tileLabel}>Run</Text>
             <Text style={styles.tileValue} testID="command-center-run-state">
               Running
@@ -134,6 +148,16 @@ export default function CodexCommandCenter({
             <Text style={styles.tileDetail} numberOfLines={2}>
               {runDetailLabel}
             </Text>
+            {runMeta.model ? (
+              <Text style={styles.runMeta} numberOfLines={1} testID="command-center-run-model">
+                {runMeta.model}
+              </Text>
+            ) : null}
+            {runMeta.toolHint ? (
+              <Text style={styles.runMeta} numberOfLines={1} testID="command-center-run-tool">
+                Tool: {runMeta.toolHint}
+              </Text>
+            ) : null}
           </View>
         ) : null}
 
@@ -219,6 +243,13 @@ const styles = StyleSheet.create({
     lineHeight: 13,
     fontWeight: '700',
     color: colors.textSecondary,
+  },
+  runMeta: {
+    fontSize: 9,
+    lineHeight: 12,
+    fontWeight: '700',
+    color: colors.accent,
+    fontFamily: 'monospace',
   },
   pressed: {
     opacity: 0.82,

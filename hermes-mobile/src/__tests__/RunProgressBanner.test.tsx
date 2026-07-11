@@ -18,6 +18,20 @@ describe('RunProgressBanner', () => {
     expect(getByTestId('run-progress-detail').props.children).toBe('Delivering your message…');
   });
 
+  it('shows live streaming copy while tokens stream', () => {
+    const { getByTestId } = render(
+      <RunProgressBanner
+        progress={{
+          phase: 'streaming',
+          startedAtMs: Date.now() - 3000,
+          detail: '   ',
+          runId: 'run-1',
+        }}
+      />,
+    );
+    expect(getByTestId('run-progress-detail').props.children).toBe('Live streaming from your computer');
+  });
+
   it('shows stop chip while run is active', () => {
     const onStop = jest.fn();
     const { getByTestId } = render(

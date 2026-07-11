@@ -1,0 +1,1 @@
+coding,remote,approve,devtools,terminal,gateway,operator,safety,local,pair,tailscale,codex,cli

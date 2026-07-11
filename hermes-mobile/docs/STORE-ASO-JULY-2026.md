@@ -152,6 +152,7 @@ bash scripts/generate-feature-graphic.sh   # see §8
 | **[Codex (ChatGPT app)](https://openai.com/index/work-with-codex-from-anywhere/)** | Productivity (bundled) | Remote Codex from phone — QR pair per host | ChatGPT mobile UI, threads, approvals | **ChatGPT subscription** | Hermes = **multi-agent / own gateway**, not OpenAI-only |
 | **[meshTerm](https://apps.apple.com/ie/app/meshterm-ssh-ftp-via-tailscale/id6761196011)** | Developer tools | SSH/FTP via Tailscale | Tailscale-native SSH sessions | Paid app | Hermes = **Leash + ThumbGate**, Tailscale as transport |
 | **Replit mobile** | Developer tools | "Vibe Code with AI" | Cloud IDE on phone | Freemium + subscription | Hermes = **local Mac gateway**, not cloud IDE |
+| **Axiom Labs client** ([Play](https://play.google.com/store/apps/details?id=com.axiomlabs.hermesrelay)) | Tools | "YOUR HERMES AGENT, IN YOUR POCKET" | Streaming · voice · dashboard | Free OSS companion | Hermes = **Mac Leash + lock-screen approve + no cloud credits** |
 
 ### Termius listing patterns (Play, Jun 2026)
 

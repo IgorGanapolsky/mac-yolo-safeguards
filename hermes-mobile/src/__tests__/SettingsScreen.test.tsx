@@ -54,8 +54,15 @@ jest.mock('@react-navigation/native', () => {
 
 const { useGateway } = jest.requireMock('../context/GatewayContext');
 
+jest.mock('../utils/demoModePolicy', () => ({
+  isDemoModeAllowed: jest.fn(() => false),
+}));
+
+const { isDemoModeAllowed } = jest.requireMock('../utils/demoModePolicy');
+
 describe('SettingsScreen', () => {
   beforeEach(() => {
+    isDemoModeAllowed.mockReturnValue(false);
     useGateway.mockReturnValue(mockUseGateway());
   });
 
@@ -138,6 +145,15 @@ describe('SettingsScreen', () => {
   it('does not render Pro subscribe UI', () => {
     const { queryByTestId } = render(<SettingsScreen />);
     expect(queryByTestId('unlock-thumbgate-leash')).toBeNull();
+  });
+
+  it('shows Demo mode toggle when store review demo is allowed', () => {
+    isDemoModeAllowed.mockReturnValue(true);
+
+    const { getByTestId, getByText, queryByTestId } = render(<SettingsScreen />);
+    expect(getByText('Demo mode')).toBeTruthy();
+    expect(getByTestId('demo-mode-switch')).toBeTruthy();
+    expect(queryByTestId('inject-mock-approval')).toBeNull();
   });
 
   it('shows cellular tunnel wizard when off Wi-Fi with LAN profile', () => {

@@ -7,6 +7,7 @@ describe('CodexCommandCenter', () => {
     const { getByTestId, getByText, queryByTestId } = render(
       <CodexCommandCenter
         connectionState="connected"
+        macHttpReachable
         pendingApprovalCount={2}
         runProgress={{
           phase: 'streaming',
@@ -122,6 +123,21 @@ describe('CodexCommandCenter', () => {
     expect(onMacRetry).toHaveBeenCalled();
   });
 
+  it('shows Mac tile when relay is connected but direct HTTP auth failed', () => {
+    const { getByTestId } = render(
+      <CodexCommandCenter
+        connectionState="connected"
+        macHttpReachable={false}
+        pendingApprovalCount={0}
+        onOpenApprovals={jest.fn()}
+        onMacRetry={jest.fn()}
+      />,
+    );
+
+    expect(getByTestId('command-center-link-state').props.children).toBe('Relay only');
+    expect(getByTestId('command-center-mac-detail').props.children).toBe('Chat needs direct link');
+  });
+
   it('hides entire command center when connected and idle', () => {
     const { queryByTestId } = render(
       <CodexCommandCenter
@@ -141,6 +157,7 @@ describe('CodexCommandCenter', () => {
     const { queryByTestId } = render(
       <CodexCommandCenter
         connectionState="connected"
+        macHttpReachable
         pendingApprovalCount={0}
         runProgress={{
           phase: 'completed',
@@ -160,6 +177,7 @@ describe('CodexCommandCenter', () => {
     const { getByTestId } = render(
       <CodexCommandCenter
         connectionState="connected"
+        macHttpReachable
         pendingApprovalCount={0}
         runProgress={{
           phase: 'streaming',
@@ -172,6 +190,27 @@ describe('CodexCommandCenter', () => {
     );
 
     expect(getByTestId('command-center-run-state').props.children).toBe('Running');
+  });
+
+  it('shows model and tool hint on active run tile', () => {
+    const { getByTestId } = render(
+      <CodexCommandCenter
+        connectionState="connected"
+        macHttpReachable
+        pendingApprovalCount={0}
+        runProgress={{
+          phase: 'tool',
+          startedAtMs: Date.now() - 1000,
+          detail: 'running web_search',
+          model: 'qwen3:8b-64k',
+          sessionId: 'session-1',
+        }}
+        onOpenApprovals={jest.fn()}
+      />,
+    );
+
+    expect(getByTestId('command-center-run-model').props.children).toBe('qwen3:8b-64k');
+    expect(getByTestId('command-center-run-tool').props.children.join('')).toContain('web search');
   });
 
   it('shows Leash tile when there are pending approvals', () => {

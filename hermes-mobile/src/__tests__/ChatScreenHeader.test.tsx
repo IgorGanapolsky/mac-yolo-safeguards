@@ -2,6 +2,7 @@ import React from 'react';
 import { fireEvent } from '@testing-library/react-native';
 import { render } from '@testing-library/react-native';
 import ChatScreenHeader, { buildHermesStatusLabel } from '../components/ChatScreenHeader';
+import { GATEWAY_AUTH_REPAIR_HEADER } from '../services/gatewayClient';
 
 describe('ChatScreenHeader', () => {
   it('shows relay only when socket is connected but HTTP is not', () => {
@@ -71,6 +72,24 @@ describe('ChatScreenHeader', () => {
     );
   });
 
+  it('shows auth repair header instead of Connected when auth mismatches', () => {
+    const { getByTestId } = render(
+      <ChatScreenHeader
+        threadTitle="Deploy fix"
+        machineLabel="Igors-Mac-mini"
+        machineEndpoint="100.94.135.78:8642"
+        connectionState="connected"
+        macHttpReachable={false}
+        authMismatch
+        onOpenThreads={jest.fn()}
+        onPressMachine={jest.fn()}
+      />,
+    );
+
+    expect(getByTestId('chat-context-link').props.children).toContain(GATEWAY_AUTH_REPAIR_HEADER);
+    expect(getByTestId('chat-context-link').props.children).not.toContain('Connected');
+  });
+
   it('shows connected when HTTP reachable but socket not live', () => {
     const { getByTestId } = render(
       <ChatScreenHeader
@@ -117,6 +136,24 @@ describe('ChatScreenHeader', () => {
 
     fireEvent.press(getByTestId('open-sessions-modal'));
     expect(onThreads).toHaveBeenCalled();
+  });
+
+  it('shows optional project lane label when workspace picker is enabled without a selection', () => {
+    const { getByTestId } = render(
+      <ChatScreenHeader
+        threadTitle="New chat"
+        machineLabel="Igors-Mac-mini"
+        connectionState="connected"
+        macHttpReachable
+        canSwitchWorkspace
+        onOpenThreads={jest.fn()}
+        onPressMachine={jest.fn()}
+        onPressWorkspace={jest.fn()}
+      />,
+    );
+
+    expect(getByTestId('chat-header-project-picker')).toBeTruthy();
+    expect(getByTestId('chat-context-project').props.children).toContain('Project lane (optional)');
   });
 
   it('renames from title press when handler provided', () => {
