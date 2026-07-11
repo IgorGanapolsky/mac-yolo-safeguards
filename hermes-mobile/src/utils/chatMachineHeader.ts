@@ -3,10 +3,15 @@ import type { GatewayProfile } from '../types/gatewayProfile';
 import type { ConnectionMode } from '../types/gateway';
 import type { RelayWorker } from '../types/mobileRelay';
 import { GATEWAY_WRONG_KEY_MESSAGE } from '../services/gatewayClient';
-import { isGenericMachineLabel, profileDisplayName } from '../services/gatewayProfiles';
+import {
+  isGenericMachineLabel,
+  profileDisplayName,
+  profilesShareMachine,
+} from '../services/gatewayProfiles';
 import type { LeashConnectionState } from './gatewayEndpoint';
 import { formatGatewayEndpointLine, formatGatewayMachineParts } from './gatewayEndpoint';
 import { isLoopbackGatewayUrl } from './gatewayUrlPolicy';
+import { profileMatchesHostname } from './gatewayProfilePicker';
 import { relayWorkerDisplayName, selectRelayWorker } from './relayRouting';
 import { isTailnetRouteLabel, isTailscaleGatewayUrl } from './tailscaleHosts';
 
@@ -14,19 +19,87 @@ function healthHostname(health?: GatewayHealthSnapshot | null): string | undefin
   return health?.hostname?.replace(/\.local$/i, '').trim() || undefined;
 }
 
+function isUnresolvedMachineName(name: string): boolean {
+  return (
+    isGenericMachineLabel(name) ||
+    name === 'computer' ||
+    isTailnetRouteLabel(name) ||
+    /^(http|https)$/i.test(name)
+  );
+}
+
+/** Borrow a friendly name from saved profiles when the active row is still generic (USB loopback). */
+function borrowMachineNameFromProfiles(input: {
+  activeProfile?: GatewayProfile | null;
+  profiles?: GatewayProfile[];
+  health?: GatewayHealthSnapshot | null;
+}): string | undefined {
+  const profiles = input.profiles ?? [];
+  if (profiles.length === 0) {
+    return undefined;
+  }
+
+  const active = input.activeProfile;
+  const fromHealth = healthHostname(input.health);
+  if (fromHealth) {
+    const match = profiles.find((profile) => profileMatchesHostname(profile, fromHealth));
+    if (match) {
+      const matchedName = profileDisplayName(match);
+      if (!isUnresolvedMachineName(matchedName)) {
+        return matchedName;
+      }
+    }
+    if (!isUnresolvedMachineName(fromHealth)) {
+      return fromHealth;
+    }
+  }
+
+  if (!active) {
+    return undefined;
+  }
+
+  const canonical = profiles.find((profile) => profile.id === active.id) ?? active;
+  const canonicalHost = canonical.hostname?.replace(/\.local$/i, '').trim();
+  if (canonicalHost && !isUnresolvedMachineName(canonicalHost)) {
+    return canonicalHost;
+  }
+  const canonicalLabel = profileDisplayName(canonical);
+  if (!isUnresolvedMachineName(canonicalLabel)) {
+    return canonicalLabel;
+  }
+
+  if (!isLoopbackGatewayUrl(active.gatewayUrl)) {
+    return undefined;
+  }
+
+  const namedSiblings = profiles.filter((profile) => {
+    if (profile.id === active.id) {
+      return false;
+    }
+    const name = profileDisplayName(profile);
+    return !isUnresolvedMachineName(name) && profilesShareMachine(profile, canonical);
+  });
+  if (namedSiblings.length === 1) {
+    return profileDisplayName(namedSiblings[0]);
+  }
+
+  return undefined;
+}
+
 /** Prefer the saved active profile name; only borrow /health hostname when identity is still generic. */
 export function resolveMachineDisplayName(
   activeProfile: GatewayProfile | null | undefined,
   gatewayUrl: string,
   health?: GatewayHealthSnapshot | null,
+  profiles?: GatewayProfile[],
 ): string {
   if (activeProfile) {
     const fromProfile = profileDisplayName(activeProfile);
-    if (!isGenericMachineLabel(fromProfile) && fromProfile !== 'computer') {
+    if (!isUnresolvedMachineName(fromProfile)) {
       return fromProfile;
     }
     const profileHost = activeProfile.hostname?.replace(/\.local$/i, '').trim();
-    if (profileHost) {
+    if (profileHost && !isUnresolvedMachineName(profileHost)) {
       return profileHost;
     }
   }
@@ -36,12 +109,17 @@ export function resolveMachineDisplayName(
     : formatGatewayMachineParts(gatewayUrl, health).machineName;
 
   const fromHealth = healthHostname(health);
-  if (
-    fromHealth &&
-    (isGenericMachineLabel(name) || name === 'computer' || isTailnetRouteLabel(name))
-  ) {
-    return fromHealth;
+  if (fromHealth && isUnresolvedMachineName(name)) {
+    name = fromHealth;
   }
+
+  if (isUnresolvedMachineName(name)) {
+    const borrowed = borrowMachineNameFromProfiles({ activeProfile, profiles, health });
+    if (borrowed) {
+      return borrowed;
+    }
+  }
+
   return name;
 }
 
@@ -61,11 +139,13 @@ export function resolveChatMachineHeaderDisplay(input: {
   workers: RelayWorker[];
   activeWorkerId?: string | null;
   savedMacCount?: number;
+  profiles?: GatewayProfile[];
 }): ChatMachineHeaderDisplay {
   let machineLabel = resolveMachineDisplayName(
     input.activeProfile,
     input.gatewayUrl,
     input.health,
+    input.profiles,
   );
 
   if (input.connectionMode === 'relay') {
@@ -140,6 +220,7 @@ export function formatMacConnectionRetryBanner(input: {
   gatewayUrl: string;
   health?: GatewayHealthSnapshot | null;
   activeProfile?: GatewayProfile | null;
+  profiles?: GatewayProfile[];
   machineLabel?: string;
   machineEndpoint?: string;
   authMismatch?: boolean;
@@ -148,6 +229,7 @@ export function formatMacConnectionRetryBanner(input: {
     input.activeProfile,
     input.gatewayUrl,
     input.health,
+    input.profiles,
   );
   const label =
     input.machineLabel &&

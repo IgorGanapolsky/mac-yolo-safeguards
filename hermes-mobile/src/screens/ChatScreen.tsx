@@ -70,7 +70,7 @@ import {
   getObsidianProjects,
   getObsidianAgents,
 } from '../services/hermesGatewayClient';
-import { fetchGatewayHealth, GATEWAY_WRONG_KEY_MESSAGE, gatewayAuthRepairBanner } from '../services/gatewayClient';
+import { fetchGatewayHealth, gatewayAuthRepairBanner } from '../services/gatewayClient';
 import { secureCredentials } from '../services/secureCredentials';
 import type { HermesSession, HermesMessage } from '../types/chat';
 import type { ChatProject, ChatProjectState } from '../types/chatProject';
@@ -1172,6 +1172,7 @@ export default function ChatScreen() {
         workers: relayWorkers,
         activeWorkerId: activeRelayWorkerId,
         savedMacCount: gatewayProfiles.length,
+        profiles: gatewayProfiles,
       }),
     [
       activeGatewayProfile,
@@ -1181,7 +1182,7 @@ export default function ChatScreen() {
       isPaired,
       relayWorkers,
       activeRelayWorkerId,
-      gatewayProfiles.length,
+      gatewayProfiles,
     ],
   );
 
@@ -1237,6 +1238,7 @@ export default function ChatScreen() {
       gatewayUrl,
       health,
       activeProfile: activeGatewayProfile,
+      profiles: gatewayProfiles,
       machineLabel: machineHeaderDisplay.machineLabel,
       machineEndpoint: machineHeaderDisplay.machineEndpoint,
       authMismatch: health?.authMismatch === true,
@@ -1250,6 +1252,7 @@ export default function ChatScreen() {
     gatewayUrl,
     health,
     activeGatewayProfile,
+    gatewayProfiles,
     machineHeaderDisplay.machineLabel,
     machineHeaderDisplay.machineEndpoint,
   ]);
