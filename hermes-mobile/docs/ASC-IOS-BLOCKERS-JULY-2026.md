@@ -1,30 +1,30 @@
 # App Store Connect — iOS blockers (Hermes Mobile 1.0)
 
-**Updated:** 2026-07-11 ~10:40 ET (IAP `DEVELOPER_ACTION_NEEDED` regression confirmed)
+**Updated:** 2026-07-11 ~16:05 ET (IAP `DEVELOPER_ACTION_NEEDED` **fixed via API**; PR **#125** merged)
 
-## Jul 11 regression — IAP `DEVELOPER_ACTION_NEEDED`
+## Jul 11 — IAP regression fixed (API)
 
-**Evidence** (`node scripts/verify-asc-listing.js --json`, 2026-07-11 ~10:36 ET):
+**Before** (`verify-asc-listing.js --json`, ~10:36 ET): IAP `DEVELOPER_ACTION_NEEDED`, en-US localization `REJECTED`, `readyToSubmit: false`.
 
-| Item | Jul 10 (prior audit) | Jul 11 (now) |
-|------|----------------------|--------------|
-| Version **1.0** | `WAITING_FOR_REVIEW` | `WAITING_FOR_REVIEW` (resubmitted `caea665c…`) |
-| IAP `thumbgate_leash_monthly` | `WAITING_FOR_REVIEW` | **`DEVELOPER_ACTION_NEEDED`** |
-| `leashSubscription.readyToSubmit` | `true` | **`false`** |
-| IAP en-US localization | In review | **`REJECTED`** (API: `409 Cannot edit when REJECTED`) |
-| Active submission items | 1 (app only) | 1 (app only — IAP still not coupled) |
+**Fix** (`node scripts/fix-asc-iap-developer-action-needed.js --json`, ~15:45 ET):
 
-**Root cause (API + prior rejection triage):** First subscription was rejected with the app; localization locked `REJECTED`. API cannot cancel the rejected localization change or attach IAP to the in-flight submission (`reviewSubmissionItems` rejects `subscription` relationship; `subscriptionAppStoreReviewSubmissions` → 404).
+1. POST fresh `subscriptionLocalizations` en-US (`PREPARE_FOR_SUBMISSION`) — Apple retires the locked `REJECTED` row.
+2. POST `/v1/subscriptionSubmissions` for `thumbgate_leash_monthly`.
 
-**Agent reference — Igor ASC UI steps (cannot automate):**
+**After:**
 
-1. [App Store Connect](https://appstoreconnect.apple.com) → **Agreements, Tax, and Banking** — confirm Paid Apps + subscriptions active (no red banners).
-2. **Monetization → Subscriptions → Leash Pro → Hermes Pro Monthly (`thumbgate_leash_monthly`)** → dismiss/cancel the **rejected en-US localization change** (yellow banner) until state is `READY_TO_SUBMIT`.
-3. **Distribution → iOS App → Version 1.0 → In-App Purchases and Subscriptions → +** → select `thumbgate_leash_monthly`.
-4. **Submit** subscription with version 1.0 (first subscription must ship on the same submission as the binary).
-5. Re-verify: `node scripts/verify-asc-listing.js --json` — target IAP state ∈ `READY_TO_SUBMIT` / `WAITING_FOR_REVIEW`.
+| Item | State |
+|------|--------|
+| Version **1.0** | `WAITING_FOR_REVIEW` |
+| IAP `thumbgate_leash_monthly` | **`WAITING_FOR_REVIEW`** |
+| `leashSubscription.readyToSubmit` | **`true`** |
+| Public App Store | `itunes lookup` → **0** (not live until approved) |
 
-**Code fixes merged separately (agent):** Guideline 3.1.2 paywall legal footer (`ProUpgradeCard`), demo gate escape (`ConnectMacGate` + build **13**). EAS build 13 required if Apple cites 3.1.2 on binary review.
+**Remaining:**
+
+- **Binary 12** may still lack Guideline **3.1.2** paywall footer in the **review binary** — PR **#125** merged (`e308cf6`); trigger EAS iOS build **15** only if Apple rejects on 3.1.2 (not triggered in this worker pass).
+- **Agreements / tax / banking** — ASC API cannot read; Igor 2-min UI check.
+- **Release after approval** — `AFTER_APPROVAL` requires manual **Release this version**.
 
 ---
 
@@ -103,5 +103,6 @@ Do these in [App Store Connect](https://appstoreconnect.apple.com) (sign in as a
 cd hermes-mobile
 node scripts/verify-asc-listing.js
 node scripts/ensure-asc-leash-subscription.js
+node scripts/fix-asc-iap-developer-action-needed.js --json
 node scripts/submit-asc-for-review.js   # no-op if already WAITING_FOR_REVIEW
 ```
