@@ -813,12 +813,11 @@ export default function SettingsScreen() {
           </Text>
         </GlassCard>
 
-        <Text style={styles.sectionTitle}>Smart notifications</Text>
+        <Text style={styles.sectionTitle}>Notification preferences</Text>
         <GlassCard>
           <Text style={styles.switchDesc}>
-            Get approval alerts on your lock screen (Approve / Deny), background activity while
-            Hermes works on your Mac, and summaries when tasks finish. Does not change how Leash
-            looks in the app.
+            Choose which background alerts Hermes may send. Does not change how Leash looks in the
+            app.
           </Text>
 
           <View style={styles.divider} />
