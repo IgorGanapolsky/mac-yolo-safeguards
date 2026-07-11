@@ -8,7 +8,7 @@ describe('VaultProjectPickerChip', () => {
 
     expect(getByTestId('vault-project-picker-chip')).toBeTruthy();
     expect(getByTestId('vault-project-optional-hint').props.children).toBe(
-      'Chat works without this — tags which repo Hermes uses',
+      'Optional — tells Hermes which folder on your Mac to use',
     );
   });
 

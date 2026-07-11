@@ -41,7 +41,7 @@ export default function VaultProjectPickerChip({
           </Text>
         ) : !projectName ? (
           <Text style={styles.hint} numberOfLines={1} testID="vault-project-optional-hint">
-            Chat works without this — tags which repo Hermes uses
+            Optional — tells Hermes which folder on your Mac to use
           </Text>
         ) : null}
       </View>
