@@ -19,6 +19,7 @@ const {
   readLocalApiKey,
   resolveApiKeyForGatewayUrl,
 } = require('./hermes-mobile-pair-lib.js');
+const { withPhonePipelineLock, pipelineBusyReason } = require('./agent-phone-pipeline-lock.js');
 
 const REPO = path.resolve(__dirname, '..');
 const HERMES_ENV = path.join(os.homedir(), '.hermes', '.env');
@@ -225,9 +226,10 @@ function setupAdbReverse(serial) {
 }
 
 function openDeepLinkOnDevice(serial, link) {
-  const args = serial
-    ? ['-s', serial, 'shell', 'am', 'start', '-a', 'android.intent.action.VIEW', '-d', link]
-    : ['shell', 'am', 'start', '-a', 'android.intent.action.VIEW', '-d', link];
+  // Android device shell splits on '&' unless the URI is single-quoted (breaks &name=… params).
+  const quoted = `'${String(link).replace(/'/g, `'\\''`)}'`;
+  const shellCmd = `am start -a android.intent.action.VIEW -d ${quoted}`;
+  const args = serial ? ['-s', serial, 'shell', shellCmd] : ['shell', shellCmd];
   const result = spawnSync('adb', args, {
     encoding: 'utf8',
   });
@@ -405,6 +407,21 @@ function main() {
     runServerOnly();
     return;
   }
+
+  const lockResult = withPhonePipelineLock(
+    `hermes-mobile-pair:${[...args].join(',') || 'default'}`,
+    () => runPairMain(args),
+    { waitMs: Number(process.env.HERMES_PAIR_LOCK_WAIT_MS || 180_000), skipIfBusy: false },
+  );
+  if (!lockResult.ran) {
+    console.error(
+      `[hermes-mobile-pair] skipped — ${lockResult.reason || pipelineBusyReason() || 'pipeline busy'}`,
+    );
+    process.exit(75);
+  }
+}
+
+function runPairMain(args) {
   const explicitGatewayUrl = parseGatewayUrlArg(args);
   let gatewayUrl;
   let health;

@@ -37,6 +37,53 @@ describe('storage', () => {
     expect(loaded.thumbgateCaptureOnUp).toBe(false);
   });
 
+  it('migrates legacy notificationsEnabled into category toggles on load', async () => {
+    await AsyncStorage.setItem(
+      'hermes-mobile:gateway_settings',
+      JSON.stringify({
+        connectionMode: 'relay',
+        gatewayUrl: 'http://192.168.1.10:8642',
+        notificationsEnabled: false,
+      }),
+    );
+    const loaded = await storage.loadGatewaySettings();
+    expect(loaded.notificationApprovals).toBe(false);
+    expect(loaded.notificationLiveRunStatus).toBe(false);
+    expect(loaded.notificationCompletion).toBe(false);
+    expect(loaded.notificationsEnabled).toBe(false);
+  });
+
+  it('migrates legacy notificationsEnabled into per-purpose toggles on load', async () => {
+    await AsyncStorage.setItem(
+      'hermes-mobile:gateway_settings',
+      JSON.stringify({
+        connectionMode: 'relay',
+        gatewayUrl: 'http://192.168.1.10:8642',
+        notificationsEnabled: false,
+      }),
+    );
+    const loaded = await storage.loadGatewaySettings();
+    expect(loaded.notificationApprovals).toBe(false);
+    expect(loaded.notificationLiveRunStatus).toBe(false);
+    expect(loaded.notificationCompletion).toBe(false);
+    expect(loaded.notificationsEnabled).toBe(false);
+  });
+
+  it('loads explicit per-purpose notification toggles', async () => {
+    await storage.saveGatewaySettings({
+      ...DEFAULT_GATEWAY_SETTINGS,
+      notificationApprovals: true,
+      notificationLiveRunStatus: false,
+      notificationCompletion: true,
+      notificationsEnabled: true,
+    });
+    const loaded = await storage.loadGatewaySettings();
+    expect(loaded.notificationApprovals).toBe(true);
+    expect(loaded.notificationLiveRunStatus).toBe(false);
+    expect(loaded.notificationCompletion).toBe(true);
+    expect(loaded.notificationsEnabled).toBe(true);
+  });
+
   it('persists gateway settings round-trip', async () => {
     await storage.saveGatewaySettings({
       ...DEFAULT_GATEWAY_SETTINGS,

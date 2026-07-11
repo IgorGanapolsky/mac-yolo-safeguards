@@ -152,6 +152,7 @@ import { resolveApprovalChoice } from '../services/approvalResolver';
 import { requestStoreReviewIfThresholdReached } from '../services/storeReview';
 import { fromPendingApproval } from '../utils/approvalNormalize';
 import { shouldScheduleApprovalNotification } from '../utils/smartNotificationPolicy';
+import { withDerivedNotificationsEnabled } from '../utils/notificationPreferences';
 import {
   dismissApprovalNotifications,
   dismissApprovalNotification,
@@ -367,15 +368,16 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
   }, [runProgress]);
 
   useEffect(() => {
-    if (!settings.notificationsEnabled || Platform.OS === 'web') {
+    if (!settings.notificationApprovals || Platform.OS === 'web') {
       syncHermesNotificationBadge(0).catch(() => {});
       return;
     }
     syncHermesNotificationBadge(pendingApprovals.length).catch(() => {});
     syncSmartApprovalNotifications(pendingApprovals, {
       badgeCount: pendingApprovals.length,
+      categoryEnabled: settings.notificationApprovals,
     }).catch(() => {});
-  }, [pendingApprovals, settings.notificationsEnabled]);
+  }, [pendingApprovals, settings.notificationApprovals]);
 
   useEffect(() => {
     if (!settings.notificationsEnabled || Platform.OS === 'web') {
@@ -1094,12 +1096,19 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
       );
       if (isNew) {
         haptics.warning();
-        if (settingsRef.current.notificationsEnabled) {
+        if (settingsRef.current.notificationApprovals) {
           emitSignOfLife(`Approval needed: ${pending.reason.slice(0, 80)}`, { haptic: false });
           const appState = AppState.currentState;
-          if (shouldScheduleApprovalNotification(pending, appState)) {
+          if (
+            shouldScheduleApprovalNotification(
+              pending,
+              appState,
+              settingsRef.current.notificationApprovals,
+            )
+          ) {
             scheduleApprovalNotification(pending, {
               badgeCount: pendingApprovalsRef.current.length + 1,
+              categoryEnabled: settingsRef.current.notificationApprovals,
             }).catch(() => {});
           }
         }
@@ -1139,13 +1148,14 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
         (typeof payload.message === 'string' ? payload.message : '') ||
         (failed ? 'Run ended with an error' : 'Task finished');
       if (
-        settingsRef.current.notificationsEnabled &&
+        settingsRef.current.notificationCompletion &&
         AppState.currentState !== 'active'
       ) {
         scheduleRunCompletedNotification(detail, {
           success: !failed,
           runId: progress?.runId,
           sessionId: progress?.sessionId,
+          categoryEnabled: settingsRef.current.notificationCompletion,
         }).catch(() => {});
       }
       if (!chatStreamProgressActiveRef.current) {
@@ -1186,7 +1196,7 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
     if (Platform.OS === 'web') {
       return;
     }
-    if (!settings.notificationsEnabled) {
+    if (!settings.notificationLiveRunStatus) {
       clearRunProgressNotification().catch(() => {});
       cancelRunStallNotification().catch(() => {});
       return;
@@ -1200,16 +1210,19 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
       scheduleRunProgressNotification(runProgress, {
         runId: runProgress.runId,
         sessionId: runProgress.sessionId,
+        categoryEnabled: settings.notificationLiveRunStatus,
       }).catch(() => {});
-      scheduleRunStallNotification(runProgress.runId, runProgress.sessionId).catch(() => {});
+      scheduleRunStallNotification(runProgress.runId, runProgress.sessionId, {
+        categoryEnabled: settings.notificationLiveRunStatus,
+      }).catch(() => {});
     } else {
       clearRunProgressNotification().catch(() => {});
       cancelRunStallNotification().catch(() => {});
     }
-  }, [runProgress, settings.notificationsEnabled]);
+  }, [runProgress, settings.notificationLiveRunStatus]);
 
   useEffect(() => {
-    if (!settings.notificationsEnabled || Platform.OS === 'web') {
+    if (!settings.notificationLiveRunStatus || Platform.OS === 'web') {
       return;
     }
 
@@ -1221,8 +1234,11 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
             force: true,
             runId: progress.runId,
             sessionId: progress.sessionId,
+            categoryEnabled: settings.notificationLiveRunStatus,
           }).catch(() => {});
-          scheduleRunStallNotification(progress.runId, progress.sessionId).catch(() => {});
+          scheduleRunStallNotification(progress.runId, progress.sessionId, {
+            categoryEnabled: settings.notificationLiveRunStatus,
+          }).catch(() => {});
         }
       } else if (nextAppState === 'active') {
         clearRunProgressNotification().catch(() => {});
@@ -1234,7 +1250,7 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
     return () => {
       sub.remove();
     };
-  }, [settings.notificationsEnabled]);
+  }, [settings.notificationLiveRunStatus]);
 
   const autoDiscoverGateway = useCallback(async (): Promise<string> => {
     const currentUrl = settingsRef.current.gatewayUrl;
@@ -1721,7 +1737,9 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
 
   const saveSettings = useCallback(
     async (nextSettings: GatewaySettings, nextApiKey: string, nextThumbgateApiKey?: string) => {
-      const persistedSettings = sanitizeDemoModeForRelease(nextSettings);
+      const persistedSettings = sanitizeDemoModeForRelease(
+        withDerivedNotificationsEnabled(nextSettings),
+      );
       await storage.saveGatewaySettings(persistedSettings);
       await secureCredentials.saveApiKey(nextApiKey);
       if (nextThumbgateApiKey !== undefined) {

@@ -35,6 +35,7 @@ import type { ApprovalPolicy, HermesAvatar, HermesPersona } from '../types/gatew
 import GatewayOpsSection from '../components/GatewayOpsSection';
 import { secureCredentials } from '../services/secureCredentials';
 import { requestHermesNotificationPermission } from '../services/approvalNotifications';
+import { deriveNotificationsEnabled } from '../utils/notificationPreferences';
 import { AVATARS, PERSONAS } from '../utils/hermesPersona';
 import { consumeSettingsPairQrOnFocus } from '../utils/storeCaptureDeepLink';
 
@@ -76,7 +77,11 @@ export default function SettingsScreen() {
   const [gatewayUrl, setGatewayUrl] = useState(settings.gatewayUrl);
   const [usePortal, setUsePortal] = useState(settings.usePortal);
   const [redactPii, setRedactPii] = useState(settings.redactPii);
-  const [notificationsEnabled, setNotificationsEnabled] = useState(settings.notificationsEnabled);
+  const [notificationApprovals, setNotificationApprovals] = useState(settings.notificationApprovals);
+  const [notificationLiveRunStatus, setNotificationLiveRunStatus] = useState(
+    settings.notificationLiveRunStatus,
+  );
+  const [notificationCompletion, setNotificationCompletion] = useState(settings.notificationCompletion);
   const [demoMode, setDemoMode] = useState(settings.demoMode);
   const [thumbgateApiUrl, setThumbgateApiUrl] = useState(settings.thumbgateApiUrl);
   const [approvalPolicy, setApprovalPolicy] = useState<ApprovalPolicy>(settings.approvalPolicy);
@@ -147,6 +152,36 @@ export default function SettingsScreen() {
     [activeGatewayProfile, activeGatewayUrl, health?.hostname, savedMacProfiles, macHttpOk],
   );
 
+  const anyNotificationEnabled =
+    notificationApprovals || notificationLiveRunStatus || notificationCompletion;
+
+  const ensureNotificationPermission = useCallback(async (): Promise<boolean> => {
+    if (Platform.OS === 'web') {
+      return true;
+    }
+    const granted = await requestHermesNotificationPermission();
+    if (!granted) {
+      Alert.alert(
+        'Notifications blocked',
+        'Enable notifications in system settings to get approval alerts and live run status while Hermes is in the background.',
+      );
+    }
+    return granted;
+  }, []);
+
+  const handleNotificationToggle = useCallback(
+    async (val: boolean, setter: (next: boolean) => void): Promise<void> => {
+      if (val) {
+        const granted = await ensureNotificationPermission();
+        if (!granted) {
+          return;
+        }
+      }
+      setter(val);
+    },
+    [ensureNotificationPermission],
+  );
+
   const focusTunnelField = useCallback(() => {
     gatewayUrlInputRef.current?.focus();
     scrollRef.current?.scrollToEnd({ animated: true });
@@ -174,7 +209,9 @@ export default function SettingsScreen() {
     setGatewayUrl(settings.gatewayUrl);
     setUsePortal(settings.usePortal);
     setRedactPii(settings.redactPii);
-    setNotificationsEnabled(settings.notificationsEnabled);
+    setNotificationApprovals(settings.notificationApprovals);
+    setNotificationLiveRunStatus(settings.notificationLiveRunStatus);
+    setNotificationCompletion(settings.notificationCompletion);
     setDemoMode(settings.demoMode);
     setThumbgateApiUrl(settings.thumbgateApiUrl);
     setApprovalPolicy(settings.approvalPolicy ?? 'balanced');
@@ -241,18 +278,21 @@ export default function SettingsScreen() {
           throw new Error('Please enter a valid URL (e.g. http://192.168.1.100:8642)');
         }
       }
-      if (notificationsEnabled && Platform.OS !== 'web') {
-        const granted = await requestHermesNotificationPermission();
+      if (anyNotificationEnabled && Platform.OS !== 'web') {
+        const granted = await ensureNotificationPermission();
         if (!granted) {
-          setNotificationsEnabled(false);
-          Alert.alert(
-            'Notifications blocked',
-            'Enable notifications in system settings to get approval alerts and live activity while Hermes is in the background.',
-          );
+          setNotificationApprovals(false);
+          setNotificationLiveRunStatus(false);
+          setNotificationCompletion(false);
           setIsSaving(false);
           return;
         }
       }
+      const notificationsEnabled = deriveNotificationsEnabled({
+        notificationApprovals,
+        notificationLiveRunStatus,
+        notificationCompletion,
+      });
       await saveSettings(
         {
           connectionMode,
@@ -261,6 +301,9 @@ export default function SettingsScreen() {
           usePortal,
           redactPii,
           notificationsEnabled,
+          notificationApprovals,
+          notificationLiveRunStatus,
+          notificationCompletion,
           demoMode,
           glanceMode: settings.glanceMode,
           safetyMode: settings.safetyMode,
@@ -306,7 +349,14 @@ export default function SettingsScreen() {
           gatewayUrl,
           usePortal,
           redactPii,
-          notificationsEnabled,
+          notificationsEnabled: deriveNotificationsEnabled({
+            notificationApprovals,
+            notificationLiveRunStatus,
+            notificationCompletion,
+          }),
+          notificationApprovals,
+          notificationLiveRunStatus,
+          notificationCompletion,
           demoMode: false,
           glanceMode: settings.glanceMode,
           safetyMode: settings.safetyMode,
@@ -763,6 +813,74 @@ export default function SettingsScreen() {
           </Text>
         </GlassCard>
 
+        <Text style={styles.sectionTitle}>Notification preferences</Text>
+        <GlassCard>
+          <Text style={styles.switchDesc}>
+            Choose which background alerts Hermes may send. Does not change how Leash looks in the
+            app.
+          </Text>
+
+          <View style={styles.divider} />
+
+          <View style={styles.switchRow}>
+            <View style={styles.switchLabelCol}>
+              <Text style={styles.switchLabel}>Approval alerts</Text>
+              <Text style={styles.switchDesc}>
+                Time-sensitive approval requests with Approve and Deny on your lock screen.
+              </Text>
+            </View>
+            <Switch
+              testID="notification-approvals-switch"
+              value={notificationApprovals}
+              onValueChange={(val) => {
+                void handleNotificationToggle(val, setNotificationApprovals);
+              }}
+              trackColor={{ false: '#1F2937', true: colors.primary }}
+              thumbColor={notificationApprovals ? '#ffffff' : '#9CA3AF'}
+            />
+          </View>
+
+          <View style={styles.divider} />
+
+          <View style={styles.switchRow}>
+            <View style={styles.switchLabelCol}>
+              <Text style={styles.switchLabel}>Live run status</Text>
+              <Text style={styles.switchDesc}>
+                Ongoing runs you started while Hermes works on your Mac in the background.
+              </Text>
+            </View>
+            <Switch
+              testID="notification-live-run-switch"
+              value={notificationLiveRunStatus}
+              onValueChange={(val) => {
+                void handleNotificationToggle(val, setNotificationLiveRunStatus);
+              }}
+              trackColor={{ false: '#1F2937', true: colors.primary }}
+              thumbColor={notificationLiveRunStatus ? '#ffffff' : '#9CA3AF'}
+            />
+          </View>
+
+          <View style={styles.divider} />
+
+          <View style={styles.switchRow}>
+            <View style={styles.switchLabelCol}>
+              <Text style={styles.switchLabel}>Completion / failure</Text>
+              <Text style={styles.switchDesc}>
+                Summaries when a background task finishes or stops with an error.
+              </Text>
+            </View>
+            <Switch
+              testID="notification-completion-switch"
+              value={notificationCompletion}
+              onValueChange={(val) => {
+                void handleNotificationToggle(val, setNotificationCompletion);
+              }}
+              trackColor={{ false: '#1F2937', true: colors.primary }}
+              thumbColor={notificationCompletion ? '#ffffff' : '#9CA3AF'}
+            />
+          </View>
+        </GlassCard>
+
         {/* Safeguard Options */}
         <Text style={styles.sectionTitle}>🛡 Safeguard Rules</Text>
         <GlassCard>
@@ -827,36 +945,6 @@ export default function SettingsScreen() {
               }}
               trackColor={{ false: '#1F2937', true: colors.primary }}
               thumbColor={redactPii ? '#ffffff' : '#9CA3AF'}
-            />
-          </View>
-
-          <View style={styles.divider} />
-
-          <View style={styles.switchRow}>
-            <View style={styles.switchLabelCol}>
-              <Text style={styles.switchLabel}>Smart notifications</Text>
-              <Text style={styles.switchDesc}>
-                Time-sensitive approvals (Approve/Deny actions), live computer activity while
-                backgrounded, and finish summaries with badge counts
-              </Text>
-            </View>
-            <Switch
-              value={notificationsEnabled}
-              onValueChange={async (val) => {
-                if (val && Platform.OS !== 'web') {
-                  const granted = await requestHermesNotificationPermission();
-                  if (!granted) {
-                    Alert.alert(
-                      'Notifications blocked',
-                      'Enable notifications in system settings to get approval alerts and live activity while Hermes is in the background.',
-                    );
-                    return;
-                  }
-                }
-                setNotificationsEnabled(val);
-              }}
-              trackColor={{ false: '#1F2937', true: colors.primary }}
-              thumbColor={notificationsEnabled ? '#ffffff' : '#9CA3AF'}
             />
           </View>
 

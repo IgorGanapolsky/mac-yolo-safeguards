@@ -164,7 +164,7 @@ export default function ApprovalsScreen() {
     if (settings.glanceMode) {
       Alert.alert(
         'Edit in Chat',
-        'Turn off Glance mode in Settings to edit plans in the Chat tab.',
+        'Turn off Quick-approve layout on Leash in Settings to edit plans in the Chat tab.',
       );
       return;
     }
@@ -184,7 +184,7 @@ export default function ApprovalsScreen() {
         <Text style={styles.subtitle}>
           {leashUnlocked
             ? settings.safetyMode || settings.glanceMode
-              ? 'Approval-first Leash — approve blocked agent tools'
+              ? 'Approve blocked agent tools — from lock screen (Approve / Deny) or cards below'
               : 'Approve blocked tools from your phone — tap notifications on lock screen'
             : `Paid add-on (${THUMBGATE_PRO_PRICE_LABEL}) via ${Platform.OS === 'ios' ? 'App Store' : 'Google Play'}`}
         </Text>
@@ -410,8 +410,12 @@ export default function ApprovalsScreen() {
             </View>
             <View style={styles.switchRow}>
               <View style={styles.switchLabelCol}>
-                <Text style={styles.switchLabel}>Glanceable approvals</Text>
-                <Text style={styles.switchDesc}>Stack UI, larger targets, spoken status on connect</Text>
+                <Text style={styles.switchLabel}>Quick-approve layout</Text>
+                <Text style={styles.switchDesc}>
+                  One approval at a time with bigger buttons. Hides diffs and thumbs. Announces
+                  connection status with VoiceOver. This only changes the Leash screen — not push
+                  alerts (see Settings → Smart notifications).
+                </Text>
               </View>
               <Switch
                 value={settings.glanceMode}
