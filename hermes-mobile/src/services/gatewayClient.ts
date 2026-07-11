@@ -38,6 +38,18 @@ export function buildAuthHeaders(apiKey?: string | null): Record<string, string>
 }
 
 export const GATEWAY_WRONG_KEY_MESSAGE = 'Wrong key for this computer';
+export const GATEWAY_AUTH_REPAIR_HEADER = 'Wrong key — tap to re-pair';
+export const GATEWAY_AUTH_REPAIR_SETTINGS_STATUS = 'Needs re-pair';
+
+/** Numbered re-pair steps for composer banners — no vague "open Settings". */
+export function gatewayAuthRepairBanner(machineLabel?: string | null): string {
+  const target = machineLabel?.trim() || 'your computer';
+  return (
+    `Wrong key for this computer. Re-pair: ` +
+    `1) Settings → Your active machines → tap ${target}, or ` +
+    `2) Chat → tap Computer → Re-pair.`
+  );
+}
 
 export type GatewayAuthProbeResult = {
   ok: boolean;

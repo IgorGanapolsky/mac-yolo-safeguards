@@ -2,7 +2,12 @@ import React, { useEffect, useState, memo } from 'react';
 import { StyleSheet, Text, View, ActivityIndicator, Platform, Pressable } from 'react-native';
 import { colors } from '../theme/colors';
 import type { RunProgressState } from '../types/chatDisplay';
-import { displayableLlmModel, humanizeRunProgressDetail, runProgressFailedTitle } from '../utils/runProgressDisplay';
+import {
+  displayableLlmModel,
+  humanizeRunProgressDetail,
+  runProgressBannerTitle,
+  runProgressFailedTitle,
+} from '../utils/runProgressDisplay';
 import { isConnectivityMessage } from '../utils/chatErrors';
 import { classifyRunStale, runStaleHint } from '../utils/runStaleDetection';
 
@@ -69,7 +74,9 @@ function RunProgressBanner({
   const showStats = Boolean(modelLabel || tokenLabel);
   const showStatsPanel = showStats;
 
-  const detailLabel = humanizeRunProgressDetail(progress.detail, progress.phase);
+  const detailLabel = isActive
+    ? runProgressBannerTitle(progress)
+    : humanizeRunProgressDetail(progress.detail, progress.phase);
   const failedTitle = isFailed ? runProgressFailedTitle(progress.detail) : detailLabel;
   const failedDetail =
     isFailed && isConnectivityMessage(progress.detail ?? '') ? progress.detail?.trim() : null;

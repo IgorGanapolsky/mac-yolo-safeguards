@@ -36,12 +36,24 @@ assert.strictEqual(openRouter.status, 'smoke_ready');
 assert.strictEqual(openRouter.runnableSmoke, true);
 assert.strictEqual(openRouter.model, 'sakana/fugu-ultra');
 assert(!JSON.stringify(openRouter).includes('not-printed'));
+const nemotronOpenRouter = providersOpenRouter.find((provider) => provider.id === 'openrouter-nemotron3-ultra');
+assert.strictEqual(nemotronOpenRouter.status, 'smoke_ready');
+assert.strictEqual(nemotronOpenRouter.runnableSmoke, true);
+assert.strictEqual(nemotronOpenRouter.model, 'nvidia/nemotron-3-ultra-550b-a55b');
+assert(!JSON.stringify(nemotronOpenRouter).includes('not-printed'));
 
 const providersDirect = providerCandidates({ SAKANA_API_KEY: 'not-printed', SAKANA_BASE_URL: 'https://example.invalid/v1' });
 const direct = providersDirect.find((provider) => provider.id === 'sakana-direct-fugu');
 assert.strictEqual(direct.status, 'needs_direct_endpoint_confirmation');
 assert.strictEqual(direct.apiKeyPresent, true);
 assert(!JSON.stringify(direct).includes('not-printed'));
+
+const providersNim = providerCandidates({ NVIDIA_API_KEY: 'not-printed', NVIDIA_NIM_BASE_URL: 'https://example.invalid/v1' });
+const nim = providersNim.find((provider) => provider.id === 'nvidia-nim-nemotron3-ultra');
+assert.strictEqual(nim.status, 'needs_nim_endpoint_confirmation');
+assert.strictEqual(nim.apiKeyPresent, true);
+assert.strictEqual(nim.baseUrlPresent, true);
+assert(!JSON.stringify(nim).includes('not-printed'));
 
 const machines = buildMachines(
   {
@@ -80,10 +92,12 @@ const report = buildReport({
 assert.strictEqual(report.schema, 'hermes-all-macs-setup/v1');
 assert.strictEqual(report.discovery.skipped, true);
 assert(report.providers.some((provider) => provider.id === 'openrouter-fugu-ultra' && provider.runnableSmoke));
+assert(report.providers.some((provider) => provider.id === 'openrouter-nemotron3-ultra' && provider.runnableSmoke));
 assert(report.gates.some((gate) => gate.id === 'sakana_fugu_candidate' && gate.ok));
+assert(report.gates.some((gate) => gate.id === 'nemotron_candidate' && gate.ok));
 assert(report.nextActions.some((action) => action.includes('capped smoke')));
 assert(!JSON.stringify(report).includes('not-printed'));
-assert(render(report).includes('Sakana/Fugu Candidates'));
+assert(render(report).includes('Provider Candidates'));
 
 const gates = readinessGates(
   {

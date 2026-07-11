@@ -27,7 +27,7 @@ describe('ApprovalsScreen', () => {
   it('renders thumbgate leash header and connection block', () => {
     const { getByTestId, getByText } = renderInTabNavigator(ApprovalsScreen, 'Leash');
     expect(getByTestId('THUMBGATE_LEASH')).toBeTruthy();
-    expect(getByText('Approve blocked agent tools from your phone')).toBeTruthy();
+    expect(getByText('Approve blocked tools from your phone — tap notifications on lock screen')).toBeTruthy();
   });
 
   it('shows paywall when ThumbGate Leash is not unlocked', () => {

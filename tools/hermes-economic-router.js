@@ -100,6 +100,24 @@ const ROUTES = [
     requiresApproval: true,
   },
   {
+    id: 'nemotron3_ultra_escalation',
+    label: 'NVIDIA Nemotron 3 Ultra escalation',
+    agent: 'long-context-agentic-reasoner',
+    provider: 'openrouter',
+    model: 'nvidia/nemotron-3-ultra-550b-a55b',
+    costUsd: 0.12,
+    latencyMs: 50000,
+    reliability: 0.7,
+    riskCeiling: 'critical',
+    strengths: ['nemotron', 'nvidia', 'long-context', 'agentic-reasoning', 'planning', 'tool-use', 'verification', 'recovery', 'deep-research'],
+    commandEnv: {
+      HERMES_OPENROUTER_MODEL: 'nvidia/nemotron-3-ultra-550b-a55b',
+    },
+    proofGates: ['explicit-approval', 'cost-cap', 'openrouter-model-catalog-confirmed', 'provider-smoke-pass', 'receipt-written'],
+    requiresApproval: true,
+    candidateOnly: true,
+  },
+  {
     id: 'openrouter_fusion',
     label: 'OpenRouter Fusion grounded panel',
     agent: 'research-panel',
@@ -174,12 +192,14 @@ const OPENROUTER_JUNE_MODELS = [
   { slug: 'cohere/north-mini-code:free', inputPerM: 0, outputPerM: 0, context: '256K', use: 'free code worker candidate' },
   { slug: 'nex-agi/nex-n2-pro', inputPerM: 0.25, outputPerM: 1.00, context: '262K', use: 'low-cost agentic candidate' },
   { slug: 'sakana/fugu-ultra', inputPerM: 5.00, outputPerM: 30.00, context: '1M', use: 'rare high-cost multi-agent escalation' },
+  { slug: 'nvidia/nemotron-3-ultra-550b-a55b', inputPerM: null, outputPerM: null, context: '1M', use: 'long-context agent orchestration, coding agents, deep research, planning, verification, recovery' },
+  { slug: 'nvidia/nemotron-3-super-120b-a12b:free', inputPerM: 0, outputPerM: 0, context: '1M', use: 'free Nemotron reasoning candidate before heavier Ultra promotion' },
 ];
 
 function openRouterModelsApiQuery(signals = {}) {
   const params = new URLSearchParams();
   params.set('output_modalities', 'text');
-  if (signals.asksForOpenRouterFusion || signals.asksForFugu) {
+  if (signals.asksForOpenRouterFusion || signals.asksForFugu || signals.asksForNemotron) {
     params.set('sort', 'intelligence-high-to-low');
     params.set('supported_parameters', 'tools');
     params.set('context', '262000');
@@ -275,6 +295,7 @@ function taskSignals(task) {
   return {
     asksForGlm: /\bglm\b|glm[- ]?5\.?2|z\.?ai|zai/.test(text),
     asksForFugu: /\bfugu\b|sakana/.test(text),
+    asksForNemotron: /\bnemotron\b|\bnvidia\b|\bnim\b/.test(text),
     asksForOpenRouterFusion: /\bfusion\b|grounded answer|web search|panel answers|hard question/.test(text),
     asksForAdvisor: /\badvisor\b|gets stuck|stuck escalation|consult a stronger|cheap executor/.test(text),
     asksForSubagent: /\bsubagent\b|grunt work|routine subtasks|self-contained subtasks|smaller worker|delegate/.test(text),
@@ -317,6 +338,11 @@ function scoreRoute(route, args, signals) {
   if (route.id === 'fugu_escalation') {
     if (signals.asksForFugu) score += 90;
     if (signals.architecture && riskValue(args.risk) === riskValue('critical')) score += 20;
+  }
+  if (route.id === 'nemotron3_ultra_escalation') {
+    if (signals.asksForNemotron) score += 92;
+    if (signals.highVarianceReasoning || signals.architecture) score += 18;
+    if (route.candidateOnly) score -= 10;
   }
   if (route.id === 'openrouter_fusion') {
     if (signals.asksForOpenRouterFusion) score += 75;
@@ -406,11 +432,14 @@ function firstAllowed(evaluated, ids) {
 }
 
 function catalogCandidates(signals) {
-  if (!(signals.needsModelPrice || signals.asksForAdvisor || signals.asksForSubagent || signals.asksForOpenRouterFusion)) {
+  if (!(signals.needsModelPrice || signals.asksForAdvisor || signals.asksForSubagent || signals.asksForOpenRouterFusion || signals.asksForNemotron)) {
     return [];
   }
+  if (signals.asksForNemotron) {
+    return OPENROUTER_JUNE_MODELS.filter((model) => /nemotron|glm|qwen|sonnet/.test(model.slug));
+  }
   if (signals.asksForFugu || signals.asksForOpenRouterFusion) {
-    return OPENROUTER_JUNE_MODELS.filter((model) => /fugu|glm|qwen|sonnet/.test(model.slug));
+    return OPENROUTER_JUNE_MODELS.filter((model) => /fugu|glm|qwen|sonnet|nemotron/.test(model.slug));
   }
   if (signals.asksForSubagent) {
     return OPENROUTER_JUNE_MODELS.filter((model) => /north-mini-code|nex-n2-pro|qwen3\.7|kimi/.test(model.slug));
@@ -480,6 +509,7 @@ function buildMicroAgentRecipe(selected, args, signals, evaluated) {
   const glm52 = allowedRoute(evaluated, 'glm52_reasoning');
   const coderCandidate = allowedRoute(evaluated, 'local_coder_candidate');
   const fugu = allowedRoute(evaluated, 'fugu_escalation');
+  const nemotron = allowedRoute(evaluated, 'nemotron3_ultra_escalation');
   const openrouterFusion = allowedRoute(evaluated, 'openrouter_fusion');
   const openrouterAdvisor = allowedRoute(evaluated, 'openrouter_advisor');
   const openrouterSubagent = allowedRoute(evaluated, 'openrouter_subagent');
@@ -666,6 +696,29 @@ function buildMicroAgentRecipe(selected, args, signals, evaluated) {
       ],
       judge: compactRoute(primaryReasoner, 'judge'),
       finalizer: compactRoute(localFast, 'contract-finalizer'),
+    };
+  }
+
+  if (signals.asksForNemotron && nemotron) {
+    return {
+      ...base,
+      id: 'nemotron3_ultra_candidate_fusion',
+      pattern: 'fusion',
+      reason: 'Nemotron 3 Ultra is a long-context agentic reasoning candidate; use it only after approval, catalog confirmation, and smoke evidence.',
+      hardCaps: {
+        ...base.hardCaps,
+        maxConcurrent: 2,
+        maxSteps: 3,
+      },
+      panel: [
+        compactRoute(primaryReasoner, 'baseline-reasoner'),
+        compactRoute(nemotron, 'nemotron-agentic-reviewer'),
+      ],
+      judge: compactRoute(primaryReasoner, 'judge'),
+      finalizer: compactRoute(localFast, 'contract-finalizer'),
+      adoptionGates: ['openrouter-model-catalog-confirmed', 'provider-smoke-pass', 'cost-recorded', 'do-not-change-default-route'],
+      modelPriceProof: catalogCandidates(signals),
+      modelsApi: openRouterModelsApiQuery(signals),
     };
   }
 

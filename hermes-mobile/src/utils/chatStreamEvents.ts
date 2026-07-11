@@ -216,8 +216,10 @@ export function formatRunProgressLabel(progress: RunProgressState, nowMs = Date.
   const elapsedSec = Math.max(0, Math.floor((nowMs - progress.startedAtMs) / 1000));
   const elapsedMin = Math.floor(elapsedSec / 60);
   const timeLabel = elapsedMin >= 1 ? `${elapsedMin} min` : `${elapsedSec}s`;
+  const phasePrefix =
+    progress.phase === 'streaming' ? 'Live streaming' : progress.phase === 'sending' ? 'Sending' : 'Working';
   const detail = progress.detail?.trim() || progress.phase;
-  return `⌛ Working — ${timeLabel} — ${detail}`;
+  return `⌛ ${phasePrefix} — ${timeLabel} — ${detail}`;
 }
 
 function extractCommandFromToolData(data: Record<string, unknown>): string | undefined {

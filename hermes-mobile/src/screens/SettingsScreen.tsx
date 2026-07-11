@@ -534,7 +534,8 @@ export default function SettingsScreen() {
           <GatewayProfilePicker
             profiles={profilesForSwitchComputerPicker(savedMacProfiles)}
             activeProfileId={activeGatewayProfile?.id ?? null}
-            activeReachable={macHttpOk || connectionState === 'connected'}
+            activeReachable={macHttpOk}
+            authNeedsRepair={health?.authMismatch === true}
             activeConnecting={connectionState === 'connecting'}
             onSelect={handleSelectProfile}
             onRemove={handleRemoveProfile}

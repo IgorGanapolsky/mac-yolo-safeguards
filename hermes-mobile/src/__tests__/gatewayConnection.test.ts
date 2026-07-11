@@ -6,6 +6,7 @@ import {
   resolveChatLinkDisplay,
   resolveEffectiveMacHttpOk,
 } from '../utils/gatewayConnection';
+import { GATEWAY_AUTH_REPAIR_HEADER } from '../services/gatewayClient';
 
 describe('gatewayConnection', () => {
   it('treats green health as reachable', () => {
@@ -91,7 +92,7 @@ describe('gatewayConnection', () => {
         macHttpOk: false,
         authMismatch: true,
       }),
-    ).toEqual({ label: 'Wrong key for this computer', chatReachable: false });
+    ).toEqual({ label: GATEWAY_AUTH_REPAIR_HEADER, chatReachable: false });
   });
 
   it('treats authMismatch health as not mac HTTP ok', () => {

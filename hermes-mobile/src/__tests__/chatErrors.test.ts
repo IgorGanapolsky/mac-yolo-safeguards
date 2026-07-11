@@ -2,11 +2,41 @@ import {
   chatSendBlockedMessage,
   friendlyMacUnreachableMessage,
   humanizeChatError,
+  isAuthApiError,
   isConnectivityMessage,
   isSessionInUseError,
   isSessionRemovedError,
   isTitleInUseError,
 } from '../utils/chatErrors';
+import { gatewayAuthRepairBanner } from '../services/gatewayClient';
+
+describe('isAuthApiError', () => {
+  it('detects JSON invalid_api_key from gateway', () => {
+    expect(
+      isAuthApiError(
+        new Error(JSON.stringify({ error: { code: 'invalid_api_key', message: 'bad key' } })),
+      ),
+    ).toBe(true);
+  });
+
+  it('detects JSON unauthorized from gateway', () => {
+    expect(
+      isAuthApiError(new Error(JSON.stringify({ error: { code: 'unauthorized' } }))),
+    ).toBe(true);
+  });
+
+  it('humanizes auth errors to numbered re-pair steps and auth kind', () => {
+    const { kind, message } = humanizeChatError(
+      new Error(JSON.stringify({ error: { code: 'invalid_api_key' } })),
+      'fallback',
+      { machineLabel: 'Igors-Mac-mini' },
+    );
+    expect(kind).toBe('auth');
+    expect(message).toBe(gatewayAuthRepairBanner('Igors-Mac-mini'));
+    expect(message).toContain('Settings → Your active machines');
+    expect(message).toContain('tap Computer → Re-pair');
+  });
+});
 
 describe('isSessionInUseError', () => {
   it('detects plain already in use text', () => {
