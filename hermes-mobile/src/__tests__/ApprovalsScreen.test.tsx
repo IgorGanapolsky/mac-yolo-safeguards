@@ -81,8 +81,32 @@ describe('ApprovalsScreen', () => {
     expect(getByText('Quick-approve layout')).toBeTruthy();
     expect(
       getByText(
-        'One approval at a time with bigger buttons. Hides diffs and thumbs. Announces connection status with VoiceOver.',
+        'One approval at a time with bigger buttons. Hides diffs and thumbs. Announces connection status with VoiceOver. This only changes the Leash screen — not push alerts (see Settings → Smart notifications).',
       ),
+    ).toBeTruthy();
+  });
+
+  it('mentions lock screen in hero subtitle when quick-approve layout is on', () => {
+    useGateway.mockReturnValue(
+      mockUseGateway({
+        settings: { ...mockGatewaySettings, glanceMode: true },
+      }),
+    );
+    const { getByText } = renderInTabNavigator(ApprovalsScreen, 'Leash');
+    expect(
+      getByText('Approve blocked agent tools — from lock screen (Approve / Deny) or cards below'),
+    ).toBeTruthy();
+  });
+
+  it('mentions lock screen in hero subtitle when approval-first mode is on', () => {
+    useGateway.mockReturnValue(
+      mockUseGateway({
+        settings: { ...mockGatewaySettings, safetyMode: true },
+      }),
+    );
+    const { getByText } = renderInTabNavigator(ApprovalsScreen, 'Leash');
+    expect(
+      getByText('Approve blocked agent tools — from lock screen (Approve / Deny) or cards below'),
     ).toBeTruthy();
   });
 
