@@ -1,4 +1,6 @@
 import type { HermesMessage } from '../types/chat';
+import { humanizeAssistantProse, looksLikeAssistantProse } from './chatAssistantProse';
+import { normalizeMarkdownSpacing } from './chatFormattedBlocks';
 import { isMessageDisplayEmpty } from './chatMessageMerge';
 import { collapseOutreachVariantBatches, collapseToolActivityMessages } from './chatMessageCollapse';
 import { isGatewaySmokeTestMessage } from './gatewaySmokeMessages';
@@ -162,17 +164,13 @@ function summarizeToolJson(obj: Record<string, unknown>, maxLen = 280): string |
   return null;
 }
 
-function simplifyMarkdown(text: string): string {
-  return text
-    .replace(/```/g, '')
-    .replace(/'''/g, '')
-    .replace(/\*\*([^*]+)\*\*/g, '$1')
-    .replace(/\*([^*]+)\*/g, '$1')
-    .replace(/`([^`]+)`/g, '$1')
-    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '$1 ($2)')
-    .replace(/\r\n/g, '\n')
-    .replace(/\n{3,}/g, '\n\n')
-    .trim();
+function formatAssistantReadableText(text: string): string {
+  let out = text;
+  if (looksLikeAssistantProse(out)) {
+    out = humanizeAssistantProse(out);
+  }
+  out = out.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '$1 ($2)');
+  return normalizeMarkdownSpacing(out);
 }
 
 /** Resolve gateway/mobile timestamp fields onto one value for display. */
@@ -239,7 +237,7 @@ function formatMessageBody(content: string, mode: 'preview' | 'full'): string {
     }
   }
 
-  text = simplifyMarkdown(text);
+  text = formatAssistantReadableText(text);
   if (text.length > hardCap) {
     return `${text.slice(0, hardCap)}…`;
   }
