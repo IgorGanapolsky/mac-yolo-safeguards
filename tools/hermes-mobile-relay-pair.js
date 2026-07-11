@@ -77,7 +77,8 @@ function main() {
     process.exit(0);
   }
 
-  const result = spawnSync('adb', ['-s', serial, 'shell', 'am', 'start', '-a', 'android.intent.action.VIEW', '-d', link], {
+  const quoted = `'${link.replace(/'/g, `'\\''`)}'`;
+  const result = spawnSync('adb', ['-s', serial, 'shell', `am start -a android.intent.action.VIEW -d ${quoted}`], {
     encoding: 'utf8',
   });
   if (result.status === 0) {

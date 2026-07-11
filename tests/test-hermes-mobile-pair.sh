@@ -66,5 +66,12 @@ else
   bad "pair script exports mini-tailscale + extraKey contract"
 fi
 
+# Deep link adb intent must single-quote URI so device shell does not split on &name=
+if [[ "$PAIR_JS" == *"device shell splits"* ]] && [[ "$PAIR_JS" == *"single-quoted"* ]] && [[ "$PAIR_JS" == *"am start -a android.intent.action.VIEW -d"* ]]; then
+  ok "pair adb deep link quotes URI for &name= params"
+else
+  bad "pair adb deep link quotes URI for &name= params"
+fi
+
 printf "\nResults: %s passed, %s failed\n" "$pass" "$fail"
 [[ "$fail" -eq 0 ]]
