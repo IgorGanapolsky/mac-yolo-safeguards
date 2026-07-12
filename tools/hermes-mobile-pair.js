@@ -20,6 +20,7 @@ const {
   resolveApiKeyForGatewayUrl,
 } = require('./hermes-mobile-pair-lib.js');
 const { withPhonePipelineLock, pipelineBusyReason } = require('./agent-phone-pipeline-lock.js');
+const { localTailscaleIpv4 } = require('./hermes-discover-tailscale-macs.js');
 
 const REPO = path.resolve(__dirname, '..');
 const HERMES_ENV = path.join(os.homedir(), '.hermes', '.env');
@@ -154,10 +155,16 @@ function resolveMiniTailscaleDiscovery() {
   try {
     const payload = JSON.parse(result.stdout);
     const discoveries = Array.isArray(payload.discoveries) ? payload.discoveries : [];
+    const isPhoneDiscovery = (item) =>
+      /s25|iphone|ipad|android/i.test(
+        `${item.hostname || ''} ${item.label || ''} ${item.host || ''}`,
+      );
     const mini =
-      discoveries.find((item) => /mac-mini/i.test(item.hostname || item.label || '')) ||
-      discoveries.find((item) => item.host === '100.94.135.78') ||
-      discoveries[0];
+      discoveries.find(
+        (item) => !isPhoneDiscovery(item) && /mac-mini/i.test(item.hostname || item.label || ''),
+      ) ||
+      discoveries.find((item) => !isPhoneDiscovery(item) && item.host === '100.94.135.78') ||
+      discoveries.find((item) => !isPhoneDiscovery(item));
     return mini || null;
   } catch {
     return null;
@@ -194,8 +201,7 @@ function discoverTailnetProbeHosts() {
     const fromDiscoveries = discoveries
       .map((item) => item.host || item.gatewayUrl?.replace(/^https?:\/\//i, '').split(':')[0])
       .filter(Boolean);
-    // Seed all tailnet peers (not only Hermes-responding hosts) so the phone can
-    // discover Mac mini later when :8642 comes online or the user is off-LAN.
+    // Only online tailnet peers (discover script skips Online===false) plus live Hermes hosts.
     return [...new Set([...probedHosts, ...fromDiscoveries])];
   } catch {
     return [];
@@ -437,8 +443,14 @@ function runPairMain(args) {
     health = fetchHealthAt(gatewayUrl);
   } else {
     health = fetchHealth();
-    const lanIpFromHealth = resolveLanIp(health);
-    gatewayUrl = `http://${lanIpFromHealth}:8642`;
+    const tailnetIp = localTailscaleIpv4();
+    if (tailnetIp) {
+      gatewayUrl = `http://${tailnetIp}:8642`;
+      console.log('  Gateway: tailnet (5G/cellular-safe)', gatewayUrl);
+    } else {
+      const lanIpFromHealth = resolveLanIp(health);
+      gatewayUrl = `http://${lanIpFromHealth}:8642`;
+    }
   }
   const lanIp = detectLocalLanIp() || resolveLanIp(health);
   const apiKeyBefore = readLocalApiKey();
@@ -506,7 +518,7 @@ function runPairMain(args) {
   }
 
   if (usbPairing && !explicitGatewayUrl && !args.has('--mini-tailscale')) {
-    console.log('  USB pairing: adb reverse active — saved gateway URL uses LAN for Wi‑Fi-only use');
+    console.log('  USB pairing: adb reverse active — saved gateway URL uses tailnet for 5G/cellular');
   }
   if (args.has('--mini-tailscale') || explicitGatewayUrl) {
     console.log('  Pairing target gateway (explicit):', gatewayUrl);
