@@ -129,6 +129,7 @@ import {
   discoverAllGatewaysOnLan,
   discoverGatewayOnPhoneSubnet,
   discoverGatewayViaPairServer,
+  pairServerHostFromGatewayUrl,
   resolvePairServerMachineName,
   resolvePairServerRelayCode,
 } from '../services/gatewayDiscovery';
@@ -724,6 +725,19 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
         apiKeyRef.current = probeKey;
       }
       const snapshot = await fetchGatewayHealth(url, probeKey);
+      if (
+        isLoopbackGatewayUrl(url) &&
+        isGatewayHealthOk(snapshot) &&
+        !snapshot.hostname?.trim()
+      ) {
+        const pairHost = pairServerHostFromGatewayUrl(url);
+        if (pairHost) {
+          const pairName = await resolvePairServerMachineName(pairHost).catch(() => null);
+          if (pairName) {
+            return { ...snapshot, hostname: pairName };
+          }
+        }
+      }
       return snapshot;
     };
 
@@ -934,7 +948,10 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
       }
       const lanIp =
         sanitizedLocalIp || extractLanIpFromGatewayUrl(resolvedUrl) || undefined;
-      if (lanIp) {
+      const pairHost = pairServerHostFromGatewayUrl(resolvedUrl);
+      if (pairHost) {
+        await enrichActiveProfileFromPairServer(pairHost);
+      } else if (lanIp) {
         await enrichActiveProfileFromPairServer(lanIp);
       }
     } catch (error) {
