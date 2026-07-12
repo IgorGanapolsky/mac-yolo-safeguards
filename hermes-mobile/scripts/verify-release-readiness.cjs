@@ -37,6 +37,10 @@ check(typeof projectId === 'string' && projectId.length > 0, 'app.json extra.eas
 check(projectId === expectedProjectId, `app.json extra.eas.projectId must be ${expectedProjectId}`);
 
 check(easConfig.build?.preview?.distribution === 'internal', 'eas.json preview profile must use internal distribution');
+check(
+  easConfig.cli?.appVersionSource === 'remote',
+  'eas.json must use remote appVersionSource so production build numbers persist across CI runs',
+);
 check(easConfig.build?.production?.autoIncrement === true, 'eas.json production profile must auto-increment build numbers');
 check(easConfig.build?.production?.android?.buildType === 'app-bundle', 'eas.json production android buildType must be app-bundle');
 
