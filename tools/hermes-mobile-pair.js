@@ -358,9 +358,35 @@ function createPairServer(lanIp) {
   const server = http.createServer((req, res) => {
     const url = req.url?.split('?')[0] ?? '/';
     if (url === '/pair.json') {
-      const json = fs.readFileSync(path.join(OUT_DIR, 'pair.json'), 'utf8');
+      let payload = {};
+      const pairPath = path.join(OUT_DIR, 'pair.json');
+      if (fs.existsSync(pairPath)) {
+        try {
+          payload = JSON.parse(fs.readFileSync(pairPath, 'utf8'));
+        } catch {
+          payload = {};
+        }
+      }
+      // USB adb reverse reaches whichever Mac is plugged in — never serve a stale hostname
+      // from a prior pair run on another machine (e.g. mini assets while on MacBook Pro).
+      try {
+        const liveHealth = fetchHealth();
+        if (liveHealth?.status === 'ok') {
+          const liveHostname = os.hostname().replace(/\.local$/i, '').trim();
+          const liveLanIp = detectLocalLanIp();
+          if (liveHostname) {
+            payload.hostname = liveHostname;
+          }
+          if (liveLanIp) {
+            payload.localIp = liveLanIp;
+            payload.gatewayUrl = `http://${liveLanIp}:8642`;
+          }
+        }
+      } catch {
+        // fall back to stored pair.json
+      }
       res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(json);
+      res.end(JSON.stringify(payload));
       return;
     }
     if (url === '/vault-projects.json') {

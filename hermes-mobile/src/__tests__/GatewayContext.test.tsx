@@ -72,13 +72,17 @@ jest.mock('../services/hermesGatewayClient', () => ({
 jest.mock('../services/discover', () => ({
   getPackagerHostIp: jest.fn(() => null),
 }));
-jest.mock('../services/gatewayDiscovery', () => ({
-  discoverAllGatewaysOnLan: jest.fn().mockResolvedValue({ gateways: [], tailnetProbeHosts: [] }),
-  discoverGatewayOnPhoneSubnet: jest.fn().mockResolvedValue(null),
-  discoverGatewayViaPairServer: jest.fn().mockResolvedValue(null),
-  resolvePairServerMachineName: jest.fn().mockResolvedValue(null),
-  resolvePairServerRelayCode: jest.fn().mockResolvedValue(null),
-}));
+jest.mock('../services/gatewayDiscovery', () => {
+  const actual = jest.requireActual('../services/gatewayDiscovery');
+  return {
+    discoverAllGatewaysOnLan: jest.fn().mockResolvedValue({ gateways: [], tailnetProbeHosts: [] }),
+    discoverGatewayOnPhoneSubnet: jest.fn().mockResolvedValue(null),
+    discoverGatewayViaPairServer: jest.fn().mockResolvedValue(null),
+    pairServerHostFromGatewayUrl: actual.pairServerHostFromGatewayUrl,
+    resolvePairServerMachineName: jest.fn().mockResolvedValue(null),
+    resolvePairServerRelayCode: jest.fn().mockResolvedValue(null),
+  };
+});
 
 jest.mock('../services/tailnetProbeStorage', () => ({
   tailnetProbeStorage: {
