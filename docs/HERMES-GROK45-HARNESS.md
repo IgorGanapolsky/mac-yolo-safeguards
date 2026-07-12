@@ -94,8 +94,10 @@ unchanged until comparison receipts justify promotion.
 Every `hermes-yolo` route writes a prompt-free receipt. The receipt records the
 selected backend/model, explicit routing reason, exit status, duration, wrapper
 hash, and whether any Qwen route was explicitly requested. It stores only a
-digest of the task, never the prompt. The verifier writes a compact history
-trace when `--write` is enabled:
+fresh random request identifier, never the prompt or a content-derived hash.
+Legacy receipt fields retain names such as `taskDigest` for schema compatibility,
+but their values are non-derived and intentionally unlinkable. The verifier
+writes a compact history trace when `--write` is enabled:
 
 ```text
 ~/.hermes/receipts/hermes-yolo/latest.json
@@ -147,10 +149,11 @@ hermes-parallel-search \
   --json
 ```
 
-The wrapper uses Parallel's documented `POST /v1/search` contract, records query
-digests rather than raw query text, marks every excerpt as untrusted external
-content, and never executes retrieved instructions. The pricing estimate assumes
-no free credits: ten results cost $0.005 under the current documented pricing;
+The wrapper uses Parallel's documented `POST /v1/search` contract, records fresh
+random request identifiers rather than raw query text or content-derived hashes,
+marks every excerpt as untrusted external content, and never executes retrieved
+instructions. The pricing estimate assumes no free credits: ten results cost
+$0.005 under the current documented pricing;
 additional results add $0.001 each. Sources: [Parallel Search quickstart](https://docs.parallel.ai/search/search-quickstart),
 [pricing](https://docs.parallel.ai/getting-started/pricing), and
 [source policy](https://docs.parallel.ai/resources/source-policy).
