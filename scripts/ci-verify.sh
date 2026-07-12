@@ -45,7 +45,7 @@ node --check tests/test-kimi-model-upgrade-audit.js
 node --check tests/test-mac-text-hotkeys-config.js
 
 echo "=== Shell syntax ==="
-sh -n install.sh sim-runaway-guard.sh yolo-health tests/test-secondary-browser-reclaim.sh scripts/verify-mac-text-hotkeys-e2e.sh
+sh -n install.sh sim-runaway-guard.sh yolo-health tests/test-secondary-browser-reclaim.sh tests/test-adb-reverse-device-filter.sh scripts/verify-mac-text-hotkeys-e2e.sh
 
 echo "=== Guard E2E ==="
 node tests/test-hermes-contribution-opportunities.js
@@ -65,6 +65,7 @@ node tests/test-cash-discipline-board.js
 node tests/test-openmono-roi-audit.js
 node tests/test-kimi-model-upgrade-audit.js
 tests/test-secondary-browser-reclaim.sh
+tests/test-adb-reverse-device-filter.sh
 if [ -f "$HOME/Documents/mac-text-hotkeys/init.lua" ]; then
   node tests/test-mac-text-hotkeys-config.js
 else

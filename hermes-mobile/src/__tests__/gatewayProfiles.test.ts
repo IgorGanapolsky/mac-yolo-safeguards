@@ -5,8 +5,6 @@ import {
   selectProfile,
   removeProfile,
   migrateLegacyGateway,
-  migrateLoopbackMacMiniToTailscale,
-  MAC_MINI_TAILSCALE_GATEWAY_URL,
   profileIdFromGatewayUrl,
   dedupeGatewayProfiles,
   formatProfileLabel,
@@ -150,26 +148,23 @@ describe('gatewayProfiles', () => {
     expect(state.activeProfileId).toBe('mac_192_168_12_208');
   });
 
-  it('migrates loopback Igors-Mac-mini profile to Tailscale on sanitize', () => {
-    const state = migrateLoopbackMacMiniToTailscale({
+  it('does not rewrite a saved loopback profile to an owner-specific machine', () => {
+    const state = sanitizeGatewayProfileState({
       profiles: [
         {
-          id: 'mac_igors_mac_mini',
-          label: 'Igors-Mac-mini',
+          id: 'mac_usb',
+          label: 'Workstation',
           gatewayUrl: 'http://127.0.0.1:8642',
-          hostname: 'Igors-Mac-mini',
+          hostname: 'Workstation.local',
           addedAt: '2026-07-08T12:00:00Z',
         },
       ],
-      activeProfileId: 'mac_igors_mac_mini',
+      activeProfileId: 'mac_usb',
     });
     expect(state.profiles).toHaveLength(1);
-    expect(state.profiles[0].gatewayUrl).toBe(MAC_MINI_TAILSCALE_GATEWAY_URL);
-    expect(state.profiles[0].localIp).toBe('100.94.135.78');
-    expect(profileDisplayName(state.profiles[0])).toBe('Igors-Mac-mini');
-    expect(sanitizeGatewayProfileState(state).profiles[0].gatewayUrl).toBe(
-      MAC_MINI_TAILSCALE_GATEWAY_URL,
-    );
+    expect(state.profiles[0].gatewayUrl).toBe('http://127.0.0.1:8642');
+    expect(state.profiles[0].localIp).toBe('127.0.0.1');
+    expect(profileDisplayName(state.profiles[0])).toBe('Workstation');
   });
 
   it('prefers Tailscale host over home LAN IP in profile labels', () => {

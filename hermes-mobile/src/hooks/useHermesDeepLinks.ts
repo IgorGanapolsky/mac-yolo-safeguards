@@ -134,7 +134,7 @@ export function useHermesDeepLinks(
 
       if (isDevLeashUnlockDeepLink(url) && activateDeveloperLeashUnlock) {
         await activateDeveloperLeashUnlock();
-        navigationRef.current?.navigate('Leash');
+        // Unlock only — cold start and pairing must stay on Hermes (Chat).
         return;
       }
 

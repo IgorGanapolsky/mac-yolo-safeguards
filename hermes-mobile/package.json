@@ -18,6 +18,8 @@
     "doctor:expo": "node ./scripts/run-expo-doctor.cjs",
     "release:check": "node ./scripts/verify-release-readiness.cjs",
     "release:check:json": "node ./scripts/verify-release-readiness.cjs --json",
+    "privacy:scan": "node ./scripts/scan-public-mobile-artifacts.js --source",
+    "privacy:scan:artifact": "node ./scripts/scan-public-mobile-artifacts.js",
     "eas:usage": "npx eas-cli account:usage",
     "eas:build:guard": "node ./scripts/eas-build-guard.cjs",
     "launch:preflight:android": "npm run release:check && bash ./scripts/release-preflight.sh android",

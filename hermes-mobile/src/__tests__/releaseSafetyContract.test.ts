@@ -91,9 +91,13 @@ describe('Hermes Mobile release docs', () => {
 });
 
 describe('release safety contract', () => {
-  it('EAS uses local appVersionSource so app.json versionCode drives builds and Firebase verify', () => {
+  it('EAS persists production build numbers remotely so CI cannot reuse a Play versionCode', () => {
     const eas = JSON.parse(read('hermes-mobile/eas.json'));
-    expect(eas.cli.appVersionSource).toBe('local');
+    expect(eas.cli.appVersionSource).toBe('remote');
+    expect(eas.build.production.autoIncrement).toBe(true);
+
+    const app = JSON.parse(read('hermes-mobile/app.json'));
+    expect(app.expo.android.versionCode).toBeGreaterThanOrEqual(11);
   });
 
   it('EAS preview and production target arm64-only Android (Firebase ~43MB not ~100MB)', () => {
@@ -110,6 +114,19 @@ describe('release safety contract', () => {
   it('EAS submit targets Play production track (Igor Ganapolsky account)', () => {
     const eas = JSON.parse(read('hermes-mobile/eas.json'));
     expect(eas.submit.production.android.track).toBe('production');
+  });
+
+  it('production builds cannot fail on optional Sentry source-map upload', () => {
+    const eas = JSON.parse(read('hermes-mobile/eas.json'));
+    expect(eas.build.production.env.SENTRY_DISABLE_AUTO_UPLOAD).toBe('true');
+  });
+
+  it('store release passes explicit spend confirmation to both EAS build guards', () => {
+    const workflow = read('.github/workflows/store-release.yml');
+    const mapping =
+      "HERMES_EAS_SPEND_APPROVED: ${{ inputs.confirm_eas_spend == 'yes' && 'YES_SPEND_EAS_CREDITS' || '' }}";
+    expect(workflow.split(mapping)).toHaveLength(3);
+    expect(workflow).toContain('if [ "${CONFIRM_EAS:-no}" != "yes" ]');
   });
 
   it('app.json enables OTA updates with expo-updates plugin and appVersion runtime', () => {
@@ -201,6 +218,19 @@ describe('release safety contract', () => {
     expect(app).toContain('tab-hermes');
     expect(app).toContain('tab-leash');
     expect(app).toContain('tab-settings');
+  });
+
+  it('cold start always lands on Hermes Chat tab (safetyMode does not open Leash)', () => {
+    const leashUx = read('hermes-mobile/src/utils/leashUx.ts');
+    expect(leashUx).toMatch(/resolveInitialTab[\s\S]*return 'Chat'/);
+    expect(leashUx).not.toMatch(/safetyMode[\s\S]*return 'Leash'/);
+    const deepLinks = read('hermes-mobile/src/hooks/useHermesDeepLinks.ts');
+    expect(deepLinks).toContain('Unlock only — cold start and pairing must stay on Hermes (Chat).');
+    const regression = read('hermes-mobile/.maestro/regression-default-hermes-tab.yaml');
+    expect(regression).toContain('tab-hermes');
+    expect(regression).toContain('assertNotVisible');
+    expect(regression).toContain('THUMBGATE_LEASH');
+    expect(regression).not.toMatch(/openLink:\s*"hermes:\/\/leash"/);
   });
 
   it('settings inputs have stable testIDs for Maestro', () => {

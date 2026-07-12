@@ -395,8 +395,10 @@ export default function ApprovalsScreen() {
             </View>
             <View style={styles.switchRow}>
               <View style={styles.switchLabelCol}>
-                <Text style={styles.switchLabel}>Prioritize Leash on launch</Text>
-                <Text style={styles.switchDesc}>Open Leash first when approval-first mode is enabled</Text>
+                <Text style={styles.switchLabel}>Approval-first mode</Text>
+                <Text style={styles.switchDesc}>
+                  Prioritize lock-screen approval alerts. Hermes tab still opens on launch.
+                </Text>
               </View>
               <Switch
                 value={settings.safetyMode}

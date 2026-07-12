@@ -24,6 +24,7 @@ const REQUIRED_FLOWS = [
   'navigation',
   'ship-guard',
   'chat-send-persistence',
+  'regression-default-hermes-tab',
   'regression-glanceable-tab',
   'regression-chat-send-visible',
   'regression-leash-refresh',

@@ -6,6 +6,7 @@ import { resolveChatLinkDisplay } from '../utils/gatewayConnection';
 import type { LeashConnectionState } from '../utils/gatewayEndpoint';
 import { GATEWAY_AUTH_REPAIR_HEADER } from '../services/gatewayClient';
 import { displayableLlmModel } from '../utils/runProgressDisplay';
+import ExpandableThreadTitle from './ExpandableThreadTitle';
 
 type ChatScreenHeaderProps = {
   threadTitle: string;
@@ -39,6 +40,8 @@ type ChatScreenHeaderProps = {
   onOpenTools?: () => void;
   onPressMachine: () => void;
   onPressWorkspace?: () => void;
+  /** Health OK but last message failed — amber header instead of green Connected. */
+  chatStalled?: boolean;
 };
 
 function linkMeta(
@@ -47,6 +50,7 @@ function linkMeta(
   disconnectedLabel = 'Not connected',
   isDemo = false,
   authMismatch = false,
+  chatStalled = false,
 ): { label: string; color: string; connected: boolean } {
   const link = resolveChatLinkDisplay({
     connectionState: state,
@@ -54,7 +58,11 @@ function linkMeta(
     disconnectedLabel,
     isDemo,
     authMismatch,
+    chatStalled,
   });
+  if (link.chatStalled) {
+    return { label: link.label, color: colors.warning, connected: true };
+  }
   if (link.chatReachable) {
     return { label: link.label, color: colors.success, connected: true };
   }
@@ -138,8 +146,16 @@ export default function ChatScreenHeader({
   onOpenTools,
   onPressMachine,
   onPressWorkspace,
+  chatStalled = false,
 }: ChatScreenHeaderProps) {
-  const link = linkMeta(connectionState, macHttpReachable, routeStatusLabel, isDemo, authMismatch);
+  const link = linkMeta(
+    connectionState,
+    macHttpReachable,
+    routeStatusLabel,
+    isDemo,
+    authMismatch,
+    chatStalled,
+  );
   const endpoint = machineEndpoint?.trim() || '';
   const showEndpoint =
     endpoint.length > 0 && (!link.connected || showMachineDetailWhenConnected);
@@ -156,29 +172,18 @@ export default function ChatScreenHeader({
         >
           <Text style={styles.menuIcon}>☰</Text>
         </Pressable>
-        <Pressable
-          onPress={onPressThreadTitle ?? onOpenThreads}
-          style={({ pressed }) => [styles.titlePressable, pressed && styles.pressed]}
-          accessibilityLabel={onPressThreadTitle ? 'Rename thread' : 'Open threads'}
-          accessibilityHint={onPressThreadTitle ? 'Opens rename' : undefined}
-          testID="chat-thread-title"
-        >
+        <View style={styles.titlePressable} testID="chat-thread-title">
           <View style={styles.titleTextRow}>
-            <Text
+            <ExpandableThreadTitle
+              title={threadTitle}
+              collapsedLines={1}
               style={styles.threadTitle}
-              numberOfLines={1}
-              ellipsizeMode="tail"
-              testID="HERMES CHAT"
-              accessibilityLabel="HERMES CHAT"
-            >
-              {threadTitle}
-            </Text>
+              testID="chat-thread-title-expand"
+              textTestID="HERMES CHAT"
+            />
             {onPressThreadTitle ? (
               <Pressable
-                onPress={(e) => {
-                  e?.stopPropagation?.();
-                  onPressThreadTitle();
-                }}
+                onPress={onPressThreadTitle}
                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                 accessibilityRole="button"
                 accessibilityLabel="Rename current thread"
@@ -194,7 +199,7 @@ export default function ChatScreenHeader({
               {threadCreatedLabel}
             </Text>
           ) : null}
-        </Pressable>
+        </View>
         <View style={styles.titleActions}>
           {isDemo ? (
             <View style={styles.demoPill}>

@@ -92,6 +92,7 @@ import {
   CONNECTION_SELF_HEAL_INTERVAL_MS,
   buildSelfHealProbeUrls,
   savedProfileFallbackUrls,
+  resolveApiKeyForGatewayProbe,
   resolveCellularTailscaleFailoverUrl,
 } from '../utils/connectionSelfHeal';
 import { CONNECTION_HEAL_EXHAUSTED_AFTER } from '../utils/connectionErrorPolicy';
@@ -273,7 +274,7 @@ export const GatewayContext = createContext<GatewayContextValue | null>(null);
 
 export function GatewayProvider({ children }: { children: React.ReactNode }) {
   const [settings, setSettings] = useState<GatewaySettings>(DEFAULT_GATEWAY_SETTINGS);
-  const [apiKey, setApiKey] = useState('sk-hermes-api-server-key-2026-06-15');
+  const [apiKey, setApiKey] = useState('');
   const [mobileToken, setMobileToken] = useState('');
   const [thumbgateApiKey, setThumbgateApiKey] = useState('');
   const [runProgress, setRunProgress] = useState<RunProgressState | null>(null);
@@ -520,7 +521,7 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
         const savedMobileToken = await secureCredentials.loadMobileToken();
 
         const active = activeProfile(loadedProfiles);
-        let resolvedKey = savedKey || 'sk-hermes-api-server-key-2026-06-15';
+        let resolvedKey = savedKey || '';
         let resolvedSettings = sanitizeDemoModeForRelease(savedSettings);
         if (!isDemoModeAllowed() && savedSettings.demoMode) {
           await storage.saveGatewaySettings(resolvedSettings);
@@ -630,6 +631,15 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
       setProfileState(upserted);
       await gatewayProfiles.save(upserted);
 
+      const activeIdAfterHeal = profileStateRef.current.activeProfileId;
+      if (activeIdAfterHeal) {
+        const profileKey = await secureCredentials.resolveApiKeyForProfile(activeIdAfterHeal);
+        if (profileKey && profileKey !== apiKeyRef.current) {
+          setApiKey(profileKey);
+          apiKeyRef.current = profileKey;
+        }
+      }
+
       if (healDecision.catalogOnly) {
         return healDecision.returnUrl;
       }
@@ -699,11 +709,21 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
     }
     const currentSettings = settingsRef.current;
     const token = mobileTokenRef.current;
-    const key = apiKeyRef.current;
     const gatewayProbeUrl = effectiveGatewayUrlRef.current || currentSettings.gatewayUrl;
 
     const probeMacGateway = async (url: string) => {
-      const snapshot = await fetchGatewayHealth(url, key);
+      const probeKey = await resolveApiKeyForGatewayProbe({
+        gatewayUrl: url,
+        profiles: profileStateRef.current.profiles,
+        activeProfileId: profileStateRef.current.activeProfileId,
+        fallbackKey: apiKeyRef.current,
+        resolveProfileKey: (profileId) => secureCredentials.resolveApiKeyForProfile(profileId),
+      });
+      if (probeKey !== apiKeyRef.current) {
+        setApiKey(probeKey);
+        apiKeyRef.current = probeKey;
+      }
+      const snapshot = await fetchGatewayHealth(url, probeKey);
       return snapshot;
     };
 
@@ -1916,7 +1936,7 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
         state = upsertDiscoveredProfile(state, item, false);
       }
       // Probe known Tailscale hosts for their /health hostname so raw 100.x CGNAT IPs show the
-      // real machine name (e.g. igors-mac-mini) instead of a nameless "Computer <IP>". Reuses the
+      // real machine name instead of a nameless "Computer <IP>". Reuses the
       // existing per-host probe; unreachable hosts return null and are skipped.
       if (tailnetProbeHostsRef.current.length > 0) {
         try {

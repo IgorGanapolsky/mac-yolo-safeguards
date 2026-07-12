@@ -44,7 +44,7 @@ export function isTailnetRouteLabel(value: string | undefined): boolean {
 
 /**
  * Extract the human device name from a Tailscale MagicDNS host, e.g.
- * `igors-s25-1.tail12aa33.ts.net:8642` -> `igors-s25-1`. Returns undefined for raw
+ * `phone.tailxxxx.ts.net:8642` -> `phone`. Returns undefined for raw
  * CGNAT IPs (100.x, which carry no name) or non-Tailscale values. This is what lets the
  * computer picker show real machine names instead of a generic "Computer" for saved
  * profiles that only have a MagicDNS URL (no separately-stored hostname).

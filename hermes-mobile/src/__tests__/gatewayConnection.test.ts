@@ -105,4 +105,18 @@ describe('gatewayConnection', () => {
       }),
     ).toBe(false);
   });
+
+  it('shows amber stalled label when health is ok but last chat failed', () => {
+    expect(
+      resolveChatLinkDisplay({
+        connectionState: 'connected',
+        macHttpOk: true,
+        chatStalled: true,
+      }),
+    ).toEqual({
+      label: 'Connected — chat stalled',
+      chatReachable: true,
+      chatStalled: true,
+    });
+  });
 });

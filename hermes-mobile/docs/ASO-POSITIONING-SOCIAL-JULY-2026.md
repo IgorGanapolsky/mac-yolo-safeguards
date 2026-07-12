@@ -182,3 +182,22 @@ Vault: `~/Documents/AI-Agent-Sync/Handoffs/2026-07-10-aso-social-strategy.md`
 10. https://www.gummicube.com/blog/targeting-competitor-ios-app-brands-with-keyword-optimization
 11. https://asohack.com/blog/aso-final-thoughts-content-distribution
 12. https://authorityspecialist.com/learn/tutorial/how-to-optimize-app-store-seo
+
+---
+
+## 11. Article fact-check / Method A map (2026-07-11)
+
+Fact-check from ecosystem article (Termux, Hermex, HermesPilot, HMAI, WebUI, Telegram). **Hermes Mobile = Option 2, Method A** — native client for a self-hosted desktop gateway, not phone-local Hermes.
+
+| Pattern | Examples | Hermes Mobile? |
+|---------|----------|----------------|
+| Option 1 — run on phone | Termux | **No** — gateway on your computer |
+| Option 2 Method A — native remote | Hermex, HermesPilot, **Hermes Mobile** | **Yes** — QR/Tailscale + Leash |
+| Option 2 Method B — browser | WebUI / PWA | Alternative, not our app |
+| Option 2 Method C — messaging | Telegram gateway bot | Partial — we replace DM UX |
+| Phone AI (name collision) | Hermes Agent (Hen Works) | **Opposite** — we control desktop |
+| Cloud relay | Hermes-Relay | **Different** — direct pair, no credits |
+
+**Play full_description additions (2026-07-11):** `HOW THIS DIFFERS` (Termux, Hermes Agent, Hermes-Relay, Hermex/HermesPilot) + 5 FAQ bullets. **Do not claim:** Termux on phone, official Nous app, iOS live, free unlimited Leash, Hermes Link compatibility.
+
+**Keywords (full desc / social only):** `native hermes mobile client`, `self-hosted gateway phone`, `hermes without termux`, `direct gateway pair`, `approve ai agents phone`.
