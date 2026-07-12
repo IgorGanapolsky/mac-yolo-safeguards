@@ -34,6 +34,14 @@ function isMacMiniGatewayUrl(gatewayUrl) {
   return host === '100.94.135.78' || /mac-mini|igors-mac-mini/.test(host);
 }
 
+function selectPhysicalAdbSerial(adbDevicesOutput) {
+  const devices = String(adbDevicesOutput || '')
+    .split(/\r?\n/)
+    .map((row) => row.trim().split(/\s+/))
+    .filter((parts) => parts.length >= 2 && parts[1] === 'device');
+  return devices.find(([serial]) => !serial.startsWith('emulator-'))?.[0] || null;
+}
+
 /** Fleet Macs can have different API_SERVER_KEY values — fetch the target machine's key over SSH. */
 function resolveApiKeyForGatewayUrl(gatewayUrl, options = {}) {
   const hermesEnvPath = options.hermesEnvPath ?? DEFAULT_HERMES_ENV;
@@ -66,5 +74,6 @@ module.exports = {
   readLocalApiKey,
   gatewayUrlHost,
   isMacMiniGatewayUrl,
+  selectPhysicalAdbSerial,
   resolveApiKeyForGatewayUrl,
 };

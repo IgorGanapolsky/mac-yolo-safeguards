@@ -58,6 +58,26 @@ else
   bad "MacBook URL keeps local .env key"
 fi
 
+if run_node "
+  const { selectPhysicalAdbSerial } = require('$REPO/tools/hermes-mobile-pair-lib.js');
+  const output = 'List of devices attached\\nemulator-5554\\tdevice product:sdk_gphone\\n';
+  if (selectPhysicalAdbSerial(output) !== null) process.exit(1);
+"; then
+  ok "emulator-only ADB is never selected for private pairing"
+else
+  bad "emulator-only ADB is never selected for private pairing"
+fi
+
+if run_node "
+  const { selectPhysicalAdbSerial } = require('$REPO/tools/hermes-mobile-pair-lib.js');
+  const output = 'List of devices attached\\nemulator-5554\\tdevice\\nphysical-1234\\tdevice usb:1\\n';
+  if (selectPhysicalAdbSerial(output) !== 'physical-1234') process.exit(1);
+"; then
+  ok "physical phone wins when an emulator is also attached"
+else
+  bad "physical phone wins when an emulator is also attached"
+fi
+
 # Pair script wires --mini-tailscale and extraKey (regression guard)
 PAIR_JS="$(cat "$REPO/tools/hermes-mobile-pair.js")"
 if [[ "$PAIR_JS" == *"--mini-tailscale"* ]] && [[ "$PAIR_JS" == *"extraKey"* ]] && [[ "$PAIR_JS" == *"hermes-mobile-pair-lib.js"* ]]; then
