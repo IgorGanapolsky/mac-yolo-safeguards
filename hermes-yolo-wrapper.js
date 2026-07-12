@@ -30,6 +30,9 @@ const HERMES_CONFIG_PATH = process.env.HERMES_CONFIG_PATH || path.join(HOME, '.h
 const HERMES_YOLO_RECEIPT_DIR = process.env.HERMES_YOLO_RECEIPT_DIR || path.join(HOME, '.hermes', 'receipts', 'hermes-yolo');
 const HERMES_YOLO_LATEST_RECEIPT_PATH = process.env.HERMES_YOLO_LATEST_RECEIPT_PATH || path.join(HERMES_YOLO_RECEIPT_DIR, 'latest.json');
 const HERMES_YOLO_HISTORY_RECEIPT_PATH = process.env.HERMES_YOLO_HISTORY_RECEIPT_PATH || path.join(HERMES_YOLO_RECEIPT_DIR, 'history.jsonl');
+// Opaque receipt ids are stable only inside one process. The random HMAC key
+// prevents offline guessing and intentionally blocks cross-run prompt correlation.
+const RECEIPT_HMAC_KEY = crypto.randomBytes(32);
 
 // All thresholds overridable via env vars.
 const HERMES_BIN = process.env.HERMES_BIN || path.join(HOME, '.local/bin/hermes');
@@ -237,7 +240,7 @@ function log(msg) {
 }
 
 function digest(value, length = 20) {
-  return crypto.createHash('sha256').update(String(value || '')).digest('hex').slice(0, length);
+  return crypto.createHmac('sha256', RECEIPT_HMAC_KEY).update(String(value || '')).digest('hex').slice(0, length);
 }
 
 function fileDigest(filePath) {
@@ -778,6 +781,7 @@ module.exports = {
   routeStatus,
   summarizeRouteArgs,
   writeRouteReceipt,
+  digest,
   HERMES_COMMANDS,
   DEFAULT_READY_PROMPT
 };

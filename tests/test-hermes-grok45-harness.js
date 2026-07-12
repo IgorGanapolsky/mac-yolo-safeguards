@@ -15,7 +15,11 @@ const {
   writeReceipt,
   appendHistoryReceipt,
   historySummary,
+  digest,
 } = require('../tools/hermes-grok45-harness');
+
+assert.strictEqual(digest('private task'), digest('private task'));
+assert.notStrictEqual(digest('private task'), 'd340c58e605953a3e88');
 
 const baseDoctor = {
   schema: 'grok-yolo/doctor-v1',
