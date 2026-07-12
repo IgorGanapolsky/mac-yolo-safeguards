@@ -83,7 +83,7 @@
         "backgroundColor": "#4F46E5"
       },
       "package": "com.iganapolsky.hermesmobile",
-      "versionCode": 7,
+      "versionCode": 10,
       "userInterfaceStyle": "dark",
       "allowBackup": false,
       "softwareKeyboardLayoutMode": "resize",
@@ -126,6 +126,9 @@
             ],
             "enableMinifyInReleaseBuilds": true,
             "enableShrinkResourcesInReleaseBuilds": true,
+            "gradleProperties": {
+              "org.gradle.jvmargs": "-Xmx4096m -XX:MaxMetaspaceSize=2048m"
+            },
             "extraProguardRules": "# Play Billing (expo-iap)\n-keep class com.android.billingclient.api.** { *; }\n-dontwarn com.android.billingclient.api.**\n# ML Kit barcode + libbarhopper (expo-camera QR scanner)\n-keep class com.google.mlkit.** { *; }\n-keep class com.google.android.gms.internal.mlkit_vision_** { *; }\n-keep class com.google.android.libraries.barhopper.** { *; }\n-keep class com.google.android.gms.vision.** { *; }\n-dontwarn com.google.mlkit.**\n-dontwarn com.google.android.gms.internal.mlkit_vision_**\n# react-native-reanimated (ships no consumer rules)\n-keep class com.swmansion.reanimated.** { *; }\n-keep class com.swmansion.gesturehandler.** { *; }\n# JNI / reflection native methods safety net\n-keepclasseswithmembernames class * { native <methods>; }"
           }
         }

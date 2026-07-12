@@ -359,6 +359,11 @@ describe('release safety contract', () => {
     expect(workflow).toContain('SENTRY_DISABLE_AUTO_UPLOAD');
   });
 
+  it('EAS production Android disables Sentry upload until EAS secrets are verified (Jul 2026 vc10 Gradle fix)', () => {
+    const eas = JSON.parse(read('hermes-mobile/eas.json'));
+    expect(eas.build.production.env.SENTRY_DISABLE_AUTO_UPLOAD).toBe('true');
+  });
+
   it('iOS App Store production EAS enables store review demo only on iOS', () => {
     const eas = JSON.parse(read('hermes-mobile/eas.json'));
     expect(eas.build.production.ios.env.EXPO_PUBLIC_STORE_REVIEW_DEMO).toBe('1');
