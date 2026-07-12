@@ -2,7 +2,9 @@
 'use strict';
 
 const fs = require('fs');
+const path = require('path');
 const { collect } = require('./hermes-productivity-audit');
+const { defaultOut } = require('./ops-paths');
 
 const usage = `Usage:
   node tools/hermes-decision-loop.js [--send-smoke] [--test-public-webhook] [--allow-live-telegram] [--remote HOST ...] [--date YYYY-MM-DD] [--out-jsonl FILE] [--out-md FILE] [--json]
@@ -60,8 +62,8 @@ function requireArgs(args) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(args.date)) {
     throw new Error('--date must be YYYY-MM-DD');
   }
-  if (!args.outJsonl) args.outJsonl = `hermes-decisions-${args.date}.jsonl`;
-  if (!args.outMd) args.outMd = `hermes-decision-${args.date}.md`;
+  if (!args.outJsonl) args.outJsonl = defaultOut(`hermes-decisions-${args.date}.jsonl`);
+  if (!args.outMd) args.outMd = defaultOut(`hermes-decision-${args.date}.md`);
 }
 
 function worstSeverity(findings) {
@@ -235,6 +237,8 @@ function main() {
   const classification = classify(result);
   const record = buildRecord(args, result, classification);
 
+  fs.mkdirSync(path.dirname(args.outJsonl), { recursive: true });
+  fs.mkdirSync(path.dirname(args.outMd), { recursive: true });
   fs.appendFileSync(args.outJsonl, `${JSON.stringify(record)}\n`);
   fs.writeFileSync(args.outMd, renderMarkdown(record));
 

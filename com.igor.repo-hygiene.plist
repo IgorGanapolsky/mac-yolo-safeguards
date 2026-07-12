@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.igor.repo-hygiene</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/bash</string>
+    <string>{{REPO}}/scripts/repo-hygiene-self-heal.sh</string>
+    <string>--repair</string>
+    <string>--repo</string>
+    <string>{{REPO}}</string>
+  </array>
+  <key>WorkingDirectory</key>
+  <string>{{REPO}}</string>
+  <key>RunAtLoad</key>
+  <true/>
+  <key>StartInterval</key>
+  <integer>900</integer>
+  <key>ProcessType</key>
+  <string>Background</string>
+  <key>LowPriorityIO</key>
+  <true/>
+  <key>StandardOutPath</key>
+  <string>{{HOME}}/Library/Logs/com.igor.repo-hygiene.log</string>
+  <key>StandardErrorPath</key>
+  <string>{{HOME}}/Library/Logs/com.igor.repo-hygiene.error.log</string>
+</dict>
+</plist>

@@ -50,6 +50,7 @@ plists=(
   com.igor.hermes-contribution-opportunities.plist
   com.igor.hermes-mobile-continuous-e2e.plist
   com.igor.hermes-relay-worker.plist
+  com.igor.repo-hygiene.plist
 )
 
 install_one() {

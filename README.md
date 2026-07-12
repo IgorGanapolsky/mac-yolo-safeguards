@@ -52,8 +52,14 @@ Revenue tools write private `*.md` / `*.tsv` artifacts to `business_os/revenue/`
 
 ```sh
 ./scripts/migrate-root-ops-to-business-os.sh   # move any legacy root clutter
-./scripts/clean-private-root-artifacts.sh      # delete strays still in root
+./scripts/clean-private-root-artifacts.sh      # guarded repair + proof receipt
 ```
+
+`com.igor.repo-hygiene` runs that guarded repair every 15 minutes after
+`scripts/install-agent-automations.sh` is installed. It only moves gitignored
+root reports, removes byte-identical duplicates, and refuses to overwrite a
+different same-name archive. The latest local receipt is written to
+`~/.local/state/mac-yolo-safeguards/repo-hygiene-latest.json`.
 
 ## What this does NOT do
 

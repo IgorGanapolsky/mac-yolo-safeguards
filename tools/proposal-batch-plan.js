@@ -53,7 +53,7 @@ function requireArgs(args) {
       args.requestedDate = args.date;
       args.date = dataDate;
     }
-    args.closePlan = `close-target-plan-${args.date}.md`;
+    args.closePlan = resolveDataPath(`close-target-plan-${args.date}.md`);
   }
   if (!fs.existsSync(args.closePlan)) {
     throw new Error(`Close target plan not found: ${args.closePlan}`);
@@ -204,7 +204,7 @@ function runProposal(command, date) {
   if (!prospect) {
     throw new Error(`Proposal command has no --prospect: ${command}`);
   }
-  const out = `proposal-plan-${safeLabel(prospect)}-${date}.md`;
+  const out = defaultOut(`proposal-plan-${safeLabel(prospect)}-${date}.md`);
   const args = replaceOption(parts.slice(1), '--date', date).concat(['--out', out]);
   const result = spawnSync('node', args, { encoding: 'utf8' });
   if (result.status !== 0) {
@@ -429,7 +429,7 @@ function render(args, results) {
     'After the send confirmation commands are run, verify the waiting-payment queue:',
     '',
     '```sh',
-    `node tools/payment-waiting-audit.js --date ${actionDate} --proposal-batch ${args.out} --out payment-waiting-audit-${actionDate}.md`,
+    `node tools/payment-waiting-audit.js --date ${actionDate} --proposal-batch ${args.out} --out ${defaultOut(`payment-waiting-audit-${actionDate}.md`)}`,
     '```',
     '',
     '## Cleared Payment Recording Commands',

@@ -101,9 +101,13 @@ pipeline-status*.tsv
 !docs/pipeline-status.example.tsv
 
 # Local workspace/build artifacts
+.worktrees/
 screenshot_current.png
 hermes-mobile/report.xml
 hermes-mobile/.agent-device/
+hermes-mobile/.agent-phone-pipeline.lock.meta
+hermes-mobile/.agent-phone-pipeline.lockdir/
+hermes-mobile/.claude/memory/feedback/
 .metadata_never_index
 hermes-mobile/docs/proofs/
 

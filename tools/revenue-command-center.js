@@ -86,13 +86,17 @@ function withRepeated(flag, values) {
   return values.flatMap((value) => [flag, value]);
 }
 
+function reportPath(prefix, date) {
+  return defaultOut(`${prefix}-${date}.md`);
+}
+
 function mirrorRequestedReports(requestedDate, dataDate, prefixes) {
   if (requestedDate === dataDate) {
     return;
   }
   for (const prefix of prefixes) {
-    const source = `${prefix}-${dataDate}.md`;
-    const target = `${prefix}-${requestedDate}.md`;
+    const source = resolveDataPath(`${prefix}-${dataDate}.md`);
+    const target = reportPath(prefix, requestedDate);
     if (fs.existsSync(source)) {
       fs.copyFileSync(source, target);
       console.log(`Mirrored requested-date report: ${target}`);
@@ -162,7 +166,7 @@ function main() {
     args.stripeOfferMap,
   ].concat(withRepeated('--pipeline', pipelines), [
     '--out',
-    `payment-readiness-all-${dataDate}.md`,
+    reportPath('payment-readiness-all', dataDate),
   ]));
   run('Revenue Price Sensitivity', 'node', [
     'tools/revenue-price-sensitivity.js',
@@ -172,7 +176,7 @@ function main() {
     '--date',
     requestedDate,
     '--out',
-    `revenue-price-sensitivity-${dataDate}.md`,
+    reportPath('revenue-price-sensitivity', dataDate),
   ]));
   run('Partner Pilot Qualification Plan', 'node', [
     'tools/partner-pilot-qualification-plan.js',
@@ -182,7 +186,7 @@ function main() {
     '--limit',
     String(args.limit),
     '--out',
-    `partner-pilot-qualification-plan-${dataDate}.md`,
+    reportPath('partner-pilot-qualification-plan', dataDate),
   ]));
   run('Partner Pilot Unlock Simulation', 'node', [
     'tools/partner-pilot-unlock-simulation.js',
@@ -191,7 +195,7 @@ function main() {
     '--stripe-offer-map',
     args.stripeOfferMap,
     '--out',
-    `partner-pilot-unlock-simulation-${dataDate}.md`,
+    reportPath('partner-pilot-unlock-simulation', dataDate),
   ]);
   run('Partner Pilot Stripe Unlock Packet', 'node', [
     'tools/partner-pilot-stripe-unlock-packet.js',
@@ -200,13 +204,13 @@ function main() {
     '--stripe-offer-map',
     args.stripeOfferMap,
     '--out',
-    `partner-pilot-stripe-unlock-packet-${dataDate}.md`,
+    reportPath('partner-pilot-stripe-unlock-packet', dataDate),
   ]);
   run('Pipeline Integrity', 'node', [
     'tools/pipeline-integrity.js',
   ].concat(withRepeated('--pipeline', pipelines), withRepeated('--prospects', prospects), [
     '--out',
-    `pipeline-integrity-${dataDate}.md`,
+    reportPath('pipeline-integrity', dataDate),
   ]));
   run('Pipeline Priority', 'node', [
     'tools/pipeline-prioritize.js',
@@ -214,7 +218,7 @@ function main() {
     '--limit',
     String(args.limit),
     '--out',
-    `pipeline-priority-${dataDate}.md`,
+    reportPath('pipeline-priority', dataDate),
   ]));
   run('Send Confirmation Audit', 'node', [
     'tools/send-confirmation-audit.js',
@@ -222,7 +226,7 @@ function main() {
     '--date',
     dataDate,
     '--out',
-    `send-confirmation-audit-${dataDate}.md`,
+    reportPath('send-confirmation-audit', dataDate),
   ]));
   run('Close Target Plan', 'node', [
     'tools/close-target-plan.js',
@@ -234,21 +238,21 @@ function main() {
     '--limit',
     String(args.limit),
     '--out',
-    `close-target-plan-${dataDate}.md`,
+    reportPath('close-target-plan', dataDate),
   ]));
   run('Proposal Batch Plan', 'node', [
     'tools/proposal-batch-plan.js',
     '--date',
     requestedDate,
     '--close-plan',
-    `close-target-plan-${dataDate}.md`,
+    reportPath('close-target-plan', dataDate),
     '--out',
-    `proposal-batch-plan-${dataDate}.md`,
+    reportPath('proposal-batch-plan', dataDate),
   ]);
   mirrorRequestedReport(requestedDate, dataDate, 'proposal-batch-plan');
   const proposalBatchForPaymentAudit = requestedDate === dataDate
-    ? `proposal-batch-plan-${dataDate}.md`
-    : `proposal-batch-plan-${requestedDate}.md`;
+    ? reportPath('proposal-batch-plan', dataDate)
+    : reportPath('proposal-batch-plan', requestedDate);
   run('Payment Waiting Audit', 'node', [
     'tools/payment-waiting-audit.js',
   ].concat(withRepeated('--pipeline', pipelines), [
@@ -257,7 +261,7 @@ function main() {
     '--proposal-batch',
     proposalBatchForPaymentAudit,
     '--out',
-    `payment-waiting-audit-${dataDate}.md`,
+    reportPath('payment-waiting-audit', dataDate),
   ]));
   run('Revenue Unblock Plan', 'node', [
     'tools/revenue-unblock-plan.js',
@@ -267,26 +271,26 @@ function main() {
     '--stripe-offer-map',
     args.stripeOfferMap,
     '--payment-waiting-audit',
-    `payment-waiting-audit-${dataDate}.md`,
+    reportPath('payment-waiting-audit', dataDate),
     '--proposal-batch',
     proposalBatchForPaymentAudit,
     '--out',
-    `revenue-unblock-plan-${dataDate}.md`,
+    reportPath('revenue-unblock-plan', dataDate),
   ]));
   run('Proposal Batch Plan With Backup', 'node', [
     'tools/proposal-batch-plan.js',
     '--date',
     requestedDate,
     '--close-plan',
-    `close-target-plan-${dataDate}.md`,
+    reportPath('close-target-plan', dataDate),
     '--include-backup',
     '--out',
-    `proposal-batch-plan-with-backup-${dataDate}.md`,
+    reportPath('proposal-batch-plan-with-backup', dataDate),
   ]);
   mirrorRequestedReport(requestedDate, dataDate, 'proposal-batch-plan-with-backup');
   const backupProposalBatchForExecution = requestedDate === dataDate
-    ? `proposal-batch-plan-with-backup-${dataDate}.md`
-    : `proposal-batch-plan-with-backup-${requestedDate}.md`;
+    ? reportPath('proposal-batch-plan-with-backup', dataDate)
+    : reportPath('proposal-batch-plan-with-backup', requestedDate);
   run('Payment Request Execution Packet', 'node', [
     'tools/payment-request-execution-packet.js',
     '--date',
@@ -296,16 +300,16 @@ function main() {
     '--backup-proposal-batch',
     backupProposalBatchForExecution,
     '--payment-waiting-audit',
-    `payment-waiting-audit-${dataDate}.md`,
+    reportPath('payment-waiting-audit', dataDate),
     '--out',
-    `payment-request-execution-packet-${dataDate}.md`,
+    reportPath('payment-request-execution-packet', dataDate),
   ]);
   run('Proposal Plan Stale Audit', 'node', [
     'tools/proposal-plan-stale-audit.js',
     '--date',
     dataDate,
     '--out',
-    `proposal-plan-stale-audit-${dataDate}.md`,
+    reportPath('proposal-plan-stale-audit', dataDate),
   ]);
   run('Revenue Action Board', 'node', [
     'tools/revenue-action-board.js',
@@ -315,57 +319,57 @@ function main() {
     '--date',
     requestedDate,
     '--out',
-    `revenue-action-board-${dataDate}.md`,
+    reportPath('revenue-action-board', dataDate),
   ]));
   run('Publication Readiness', 'node', [
     'tools/publication-readiness.js',
     '--out',
-    `publication-readiness-${dataDate}.md`,
+    reportPath('publication-readiness', dataDate),
   ]);
   run('Public Funnel Safety Scan', 'node', [
     'tools/public-funnel-safety-scan.js',
     '--out',
-    `public-funnel-safety-scan-${dataDate}.md`,
+    reportPath('public-funnel-safety-scan', dataDate),
   ]);
   run('GitHub Issue Template Check', 'node', [
     'tools/github-issue-template-check.js',
     '--out',
-    `github-issue-template-check-${dataDate}.md`,
+    reportPath('github-issue-template-check', dataDate),
   ]);
   run('Public Local Link Check', 'node', [
     'tools/public-local-link-check.js',
     '--out',
-    `public-local-link-check-${dataDate}.md`,
+    reportPath('public-local-link-check', dataDate),
   ]);
   run('Public Command Reference Check', 'node', [
     'tools/public-command-reference-check.js',
     '--out',
-    `public-command-reference-check-${dataDate}.md`,
+    reportPath('public-command-reference-check', dataDate),
   ]);
   run('Public Revenue Publish Plan', 'node', [
     'tools/public-revenue-publish-plan.js',
     '--out',
-    `public-revenue-publish-plan-${dataDate}.md`,
+    reportPath('public-revenue-publish-plan', dataDate),
   ]);
   run('Close Follow-Up Batch Plan', 'node', [
     'tools/close-follow-up-batch-plan.js',
     '--date',
     requestedDate,
     '--close-plan',
-    `close-target-plan-${dataDate}.md`,
+    reportPath('close-target-plan', dataDate),
     '--out',
-    `close-follow-up-batch-plan-${dataDate}.md`,
+    reportPath('close-follow-up-batch-plan', dataDate),
   ]);
   run('Close Execution Packet', 'node', [
     'tools/close-execution-packet.js',
     '--date',
     requestedDate,
     '--close-plan',
-    `close-target-plan-${dataDate}.md`,
+    reportPath('close-target-plan', dataDate),
     '--limit',
     '5',
     '--out',
-    `close-execution-packet-${dataDate}.md`,
+    reportPath('close-execution-packet', dataDate),
   ]);
   run('Revenue Diagnosis', 'node', [
     'tools/revenue-diagnosis.js',
@@ -375,14 +379,14 @@ function main() {
     '--date',
     dataDate,
     '--out',
-    `revenue-diagnosis-${dataDate}.md`,
+    reportPath('revenue-diagnosis', dataDate),
   ]));
   run('Revenue Goal Audit', 'node', [
     'tools/revenue-goal-audit.js',
     '--date',
     dataDate,
     '--out',
-    `revenue-goal-audit-${dataDate}.md`,
+    reportPath('revenue-goal-audit', dataDate),
   ]);
   run('Public Conversion Check', 'node', ['tools/public-conversion-check.js']);
   mirrorRequestedReports(requestedDate, dataDate, [

@@ -11,6 +11,7 @@ EXPECTED=(
   com.igor.hermes-contribution-opportunities
   com.igor.hermes-mobile-continuous-e2e
   com.igor.shutdown-simulators
+  com.igor.repo-hygiene
 )
 
 missing=0
