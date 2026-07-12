@@ -2,6 +2,7 @@
 'use strict';
 
 const fs = require('fs');
+const path = require('path');
 const { spawnSync } = require('child_process');
 const { latestDataDate } = require('./revenue-date');
 const { defaultOut, existsDataFile, resolveDataPath } = require('./ops-paths');
@@ -195,7 +196,7 @@ function replaceOption(parts, option, value) {
   return result;
 }
 
-function runProposal(command, date) {
+function runProposal(command, date, outputDir) {
   const parts = shellSplit(command);
   if (parts[0] !== 'node' || parts[1] !== 'tools/proposal-plan.js') {
     throw new Error(`Unexpected proposal command: ${command}`);
@@ -204,8 +205,12 @@ function runProposal(command, date) {
   if (!prospect) {
     throw new Error(`Proposal command has no --prospect: ${command}`);
   }
-  const out = `proposal-plan-${safeLabel(prospect)}-${date}.md`;
-  const args = replaceOption(parts.slice(1), '--date', date).concat(['--out', out]);
+  const out = path.join(outputDir, `proposal-plan-${safeLabel(prospect)}-${date}.md`);
+  const args = replaceOption(
+    replaceOption(parts.slice(1), '--date', date),
+    '--out',
+    out,
+  );
   const result = spawnSync('node', args, { encoding: 'utf8' });
   if (result.status !== 0) {
     throw new Error((result.stderr || result.stdout || `${command} failed`).trim());
@@ -429,7 +434,7 @@ function render(args, results) {
     'After the send confirmation commands are run, verify the waiting-payment queue:',
     '',
     '```sh',
-    `node tools/payment-waiting-audit.js --date ${actionDate} --proposal-batch ${args.out} --out payment-waiting-audit-${actionDate}.md`,
+    `node tools/payment-waiting-audit.js --date ${actionDate} --proposal-batch ${args.out} --out ${path.join(path.dirname(args.out), `payment-waiting-audit-${actionDate}.md`)}`,
     '```',
     '',
     '## Cleared Payment Recording Commands',
@@ -471,8 +476,10 @@ function main() {
   const args = parseArgs(process.argv.slice(2));
   requireArgs(args);
   const actionDate = args.requestedDate || args.date;
+  const outputDir = path.dirname(args.out);
+  fs.mkdirSync(outputDir, { recursive: true });
   const commands = proposalCommands(args.closePlan, args.includeBackup);
-  const results = commands.map((command) => runProposal(command, actionDate));
+  const results = commands.map((command) => runProposal(command, actionDate, outputDir));
   fs.writeFileSync(args.out, `${render(args, results)}\n`);
   console.log(`Proposal batch plan written: ${args.out}`);
   if (args.requestedDate) {
