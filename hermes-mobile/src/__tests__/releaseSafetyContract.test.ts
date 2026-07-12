@@ -91,9 +91,13 @@ describe('Hermes Mobile release docs', () => {
 });
 
 describe('release safety contract', () => {
-  it('EAS uses local appVersionSource so app.json versionCode drives builds and Firebase verify', () => {
+  it('EAS persists production build numbers remotely so CI cannot reuse a Play versionCode', () => {
     const eas = JSON.parse(read('hermes-mobile/eas.json'));
-    expect(eas.cli.appVersionSource).toBe('local');
+    expect(eas.cli.appVersionSource).toBe('remote');
+    expect(eas.build.production.autoIncrement).toBe(true);
+
+    const app = JSON.parse(read('hermes-mobile/app.json'));
+    expect(app.expo.android.versionCode).toBeGreaterThanOrEqual(11);
   });
 
   it('EAS preview and production target arm64-only Android (Firebase ~43MB not ~100MB)', () => {
@@ -110,6 +114,11 @@ describe('release safety contract', () => {
   it('EAS submit targets Play production track (Igor Ganapolsky account)', () => {
     const eas = JSON.parse(read('hermes-mobile/eas.json'));
     expect(eas.submit.production.android.track).toBe('production');
+  });
+
+  it('production builds cannot fail on optional Sentry source-map upload', () => {
+    const eas = JSON.parse(read('hermes-mobile/eas.json'));
+    expect(eas.build.production.env.SENTRY_DISABLE_AUTO_UPLOAD).toBe('true');
   });
 
   it('app.json enables OTA updates with expo-updates plugin and appVersion runtime', () => {
