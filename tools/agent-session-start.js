@@ -174,6 +174,12 @@ if (phoneInstall.queued) {
       `\n=== Hermes Mobile auto-pair: skipped (${phoneInstall.detail || pipelineBusyReason() || 'pipeline busy'}) ===\n`,
     );
   }
+} else if (phoneInstall.reason === 'no-device') {
+  if (!json) {
+    process.stdout.write(
+      '\n=== Hermes Mobile auto-pair: skipped (no physical phone; emulator-only ADB is never paired) ===\n',
+    );
+  }
 } else {
   const lockResult = withPhonePipelineLock(
     'session-start:auto-pair',

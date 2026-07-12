@@ -87,5 +87,12 @@ else
   bad "ordinary session-start auto-pair does not serve on LAN"
 fi
 
+if grep -Fq "phoneInstall.reason === 'no-device'" "$SESSION_START" \
+  && grep -Fq "emulator-only ADB is never paired" "$SESSION_START"; then
+  ok "session-start does not inject owner pairing into an emulator-only ADB environment"
+else
+  bad "session-start does not inject owner pairing into an emulator-only ADB environment"
+fi
+
 printf "\nResults: %s passed, %s failed\n" "$pass" "$fail"
 [[ "$fail" -eq 0 ]]
