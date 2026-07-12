@@ -104,20 +104,52 @@ function peerHostsFromStatusJson(json) {
   return Array.from(hosts);
 }
 
-function fetchTailscalePeerHosts() {
+function fetchTailscaleStatusJson() {
   const tailscaleBin = resolveTailscaleBinary();
   if (!tailscaleBin) {
-    return [];
+    return null;
   }
   const result = spawnSync(tailscaleBin, ['status', '--json'], {
     encoding: 'utf8',
     timeout: 8000,
   });
   if (result.status !== 0 || !result.stdout?.trim()) {
+    return null;
+  }
+  try {
+    return JSON.parse(result.stdout);
+  } catch {
+    return null;
+  }
+}
+
+function fetchTailscaleSelfHosts(json) {
+  if (!json) {
+    return [];
+  }
+  const hosts = [];
+  const selfIps = json.Self?.TailscaleIPs || json.TailscaleIPs || [];
+  for (const ip of selfIps) {
+    if (typeof ip === 'string' && isTailscaleIpv4(ip.split('/')[0])) {
+      hosts.push(ip.split('/')[0]);
+    }
+  }
+  const dns = json.Self?.DNSName || json.Self?.HostName;
+  if (typeof dns === 'string') {
+    const cleaned = dns.replace(/\.$/, '');
+    if (cleaned.endsWith('.ts.net')) {
+      hosts.push(cleaned);
+    }
+  }
+  return hosts;
+}
+
+function fetchTailscalePeerHosts(json) {
+  if (!json) {
     return [];
   }
   try {
-    return peerHostsFromStatusJson(JSON.parse(result.stdout));
+    return peerHostsFromStatusJson(json);
   } catch {
     return [];
   }
@@ -190,8 +222,11 @@ function parseArgs(argv) {
 
 function main() {
   const { json, hosts: cliHosts } = parseArgs(process.argv.slice(2));
-  const peerHosts = cliHosts.length > 0 ? cliHosts : fetchTailscalePeerHosts();
-  const normalized = [...new Set(peerHosts.filter(isTailscaleHost))];
+  const statusJson = cliHosts.length > 0 ? null : fetchTailscaleStatusJson();
+  const peerHosts = cliHosts.length > 0 ? cliHosts : fetchTailscalePeerHosts(statusJson);
+  // Include this Mac's tailnet route so USB pairing seeds the pairing host for the phone.
+  const selfHosts = cliHosts.length > 0 ? [] : fetchTailscaleSelfHosts(statusJson);
+  const normalized = [...new Set([...peerHosts, ...selfHosts].filter(isTailscaleHost))];
   const discoveries = [];
   for (const host of normalized) {
     const hit = probeHealth(host);
