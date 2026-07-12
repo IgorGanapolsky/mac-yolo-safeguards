@@ -149,6 +149,27 @@ describe('gatewayProfilePicker', () => {
     ).toBe(false);
   });
 
+  it('keeps unreachable Tailscale MacBook Pro profile visible in switch picker', () => {
+    const profiles = profilesForSwitchComputerPicker([
+      {
+        id: 'mac_mini_ts',
+        label: 'Igors-Mac-mini',
+        gatewayUrl: 'http://100.94.135.78:8642',
+        hostname: 'Igors-Mac-mini',
+        addedAt: '2026-07-08T12:00:00Z',
+        lastConnectedAt: '2026-07-12T12:00:00Z',
+      },
+      {
+        id: 'mac_book_ts',
+        label: 'Igors-MacBook-Pro',
+        gatewayUrl: 'http://100.87.85.85:8642',
+        hostname: 'Igors-MacBook-Pro',
+        addedAt: '2026-07-08T12:01:00Z',
+      },
+    ], { activeProfileId: 'mac_mini_ts' });
+    expect(profiles.map((p) => p.id)).toEqual(['mac_mini_ts', 'mac_book_ts']);
+  });
+
   it('does not filter loopback profiles even when LAN profiles exist', () => {
     const profiles = profilesForDevicePicker([
       {

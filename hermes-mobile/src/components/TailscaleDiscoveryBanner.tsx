@@ -12,6 +12,8 @@ type TailscaleDiscoveryBannerProps = {
   onAdd?: (discovery: DiscoveredGateway) => void;
   /** When true, renders as the primary action block (Switch computer / onboarding). */
   prominent?: boolean;
+  /** Label chips as Switch to [name] instead of Add [name]. */
+  switchMode?: boolean;
 };
 
 export default function TailscaleDiscoveryBanner({
@@ -20,6 +22,7 @@ export default function TailscaleDiscoveryBanner({
   probing = false,
   onAdd,
   prominent = false,
+  switchMode = false,
 }: TailscaleDiscoveryBannerProps) {
   if (discoveries.length === 0 && !probing) {
     return null;
@@ -41,15 +44,26 @@ export default function TailscaleDiscoveryBanner({
 
   return (
     <GlassCard style={cardStyle} testID="tailscale-discovery-banner">
-      <Text style={styles.title}>Computer found on Tailscale</Text>
+      <Text style={styles.title}>
+        {switchMode ? 'Another computer is available' : 'Computer found on Tailscale'}
+      </Text>
       <Text style={styles.body}>
-        {prominent
-          ? 'Tap below to add your computer — works on cellular or any Wi‑Fi when Tailscale is running on both devices.'
-          : 'Add your computer to switch between machines without a USB cable.'}
+        {switchMode
+          ? 'Your saved computer is unreachable. Switch to one that is online on Tailscale.'
+          : prominent
+            ? 'Tap below to add your computer — works on cellular or any Wi‑Fi when Tailscale is running on both devices.'
+            : 'Add your computer to switch between machines without a USB cable.'}
       </Text>
       <View style={styles.chips}>
         {discoveries.map((discovery) => {
           const label = tailscaleDiscoveryLabel(discovery);
+          const chipLabel = switchMode
+            ? adding
+              ? 'Switching…'
+              : `Switch to ${label}`
+            : adding
+              ? 'Adding…'
+              : `Add ${label}`;
           return (
             <TouchableOpacity
               key={discovery.gatewayUrl}
@@ -58,9 +72,7 @@ export default function TailscaleDiscoveryBanner({
               disabled={adding || !onAdd}
               testID={`tailscale-add-${label.replace(/[^a-zA-Z0-9]+/g, '-').toLowerCase()}`}
             >
-              <Text style={styles.chipText}>
-                {adding ? 'Adding…' : `Add ${label}`}
-              </Text>
+              <Text style={styles.chipText}>{chipLabel}</Text>
             </TouchableOpacity>
           );
         })}

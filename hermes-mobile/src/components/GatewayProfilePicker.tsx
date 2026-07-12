@@ -78,7 +78,9 @@ export default function GatewayProfilePicker({
               : routeHint === 'Needs tunnel'
                 ? 'Needs tunnel (cellular)'
                 : 'Cannot reach this computer'
-          : routeHint ?? 'Select';
+          : routeHint
+            ? `Cannot reach · ${routeHint}`
+            : 'Select';
         const statusColor = isActive
           ? authNeedsRepair
             ? colors.warning

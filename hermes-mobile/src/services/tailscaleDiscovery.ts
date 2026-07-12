@@ -1,7 +1,7 @@
 import type { DiscoveredGateway } from '../types/gatewayProfile';
 import type { GatewayProfile } from '../types/gatewayProfile';
 import { normalizeGatewayUrl } from './gatewayClient';
-import { findProfileForGatewayUrl, profileDisplayName } from './gatewayProfiles';
+import { findProfileForGatewayUrl, isGenericMachineLabel, profileDisplayName } from './gatewayProfiles';
 import { profileMatchesDiscoveredGateway } from '../utils/gatewayProfilePicker';
 import {
   buildTailscaleGatewayUrl,
@@ -9,6 +9,7 @@ import {
   isTailscaleGatewayUrl,
   isTailscaleIpv4,
   magicDnsDeviceName,
+  expandTailnetProbeHostsWithSavedMachines,
   mergeTailnetProbeHosts,
   normalizeTailnetProbeHost,
 } from '../utils/tailscaleHosts';
@@ -40,7 +41,12 @@ export function discoveredGatewayFromHealth(
         ? body.localIp
         : undefined;
   const hostname = typeof body.hostname === 'string' ? body.hostname : undefined;
-  const label = hostname?.replace(/\.local$/i, '').trim();
+  const magicName = magicDnsDeviceName(httpBase);
+  const label =
+    hostname?.replace(/\.local$/i, '').trim() ||
+    magicName ||
+    gatewayUrlHostname(httpBase) ||
+    undefined;
   return {
     gatewayUrl: httpBase,
     hostname,
@@ -93,6 +99,7 @@ export function collectTailnetProbeHosts(
   extraHosts: string[] = [],
 ): string[] {
   const fromProfiles: string[] = [];
+  const machineNames: string[] = [];
   for (const profile of profiles) {
     const host = gatewayUrlHostname(profile.gatewayUrl);
     if (host && isTailscaleGatewayHost(host)) {
@@ -102,8 +109,37 @@ export function collectTailnetProbeHosts(
     if (ip && isTailscaleIpv4(ip)) {
       fromProfiles.push(ip);
     }
+    const hostname = profile.hostname?.trim();
+    if (hostname) {
+      machineNames.push(hostname);
+    }
+    const label = profile.label?.trim();
+    if (label && !isGenericMachineLabel(label)) {
+      machineNames.push(label);
+    }
+    const displayName = profileDisplayName(profile);
+    if (displayName && !isGenericMachineLabel(displayName)) {
+      machineNames.push(displayName);
+    }
   }
-  return mergeTailnetProbeHosts(storedHosts, fromProfiles, extraHosts);
+  const merged = mergeTailnetProbeHosts(storedHosts, fromProfiles, extraHosts);
+  return expandTailnetProbeHostsWithSavedMachines(merged, machineNames);
+}
+
+/** Hostnames to persist after a successful tailnet sweep (IPs + MagicDNS). */
+export function tailnetHostsFromDiscoveries(discovered: DiscoveredGateway[]): string[] {
+  const hosts: string[] = [];
+  for (const item of discovered) {
+    const host = gatewayUrlHostname(item.gatewayUrl);
+    if (host) {
+      hosts.push(host);
+    }
+    const ip = item.localIp?.trim();
+    if (ip && isTailscaleIpv4(ip)) {
+      hosts.push(ip);
+    }
+  }
+  return mergeTailnetProbeHosts(hosts);
 }
 
 /** Probe tailnet hosts and return a Tailscale route for an existing saved Mac profile. */

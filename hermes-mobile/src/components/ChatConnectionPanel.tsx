@@ -27,6 +27,10 @@ import {
   shouldHideConnectionStatusChips,
   shouldShowFreshUserOnboardingSteps,
 } from '../utils/freshUserOnboarding';
+import {
+  alternateTailscaleDiscoveries,
+  shouldOfferSwitchComputer,
+} from '../utils/macUnreachableCopy';
 import { connectionHealSnapshot } from '../utils/connectionErrorPolicy';
 import { tailscaleDiscoveryLabel } from '../services/tailscaleDiscovery';
 import MacScanProgressCard from './MacScanProgressCard';
@@ -57,6 +61,8 @@ type ChatConnectionPanelProps = {
   usbHostMismatch?: UsbHostMismatch | null;
   connectionHealAttempt?: number;
   connectionHealInFlight?: boolean;
+  connectionHealExhausted?: boolean;
+  onSwitchComputer?: () => void;
   onSelectProfile?: (profileId: string) => void;
   onSearchMac: () => void;
   onFixUsbLink?: () => void;
@@ -132,6 +138,8 @@ export default function ChatConnectionPanel({
   usbHostMismatch = null,
   connectionHealAttempt = 0,
   connectionHealInFlight = false,
+  connectionHealExhausted = false,
+  onSwitchComputer,
   onSelectProfile,
   onSearchMac,
   onFixUsbLink,
@@ -201,6 +209,20 @@ export default function ChatConnectionPanel({
     tailscaleDiscoveries.length > 0
       ? tailscaleDiscoveryLabel(tailscaleDiscoveries[0])
       : undefined;
+  const pickerProfiles = profilesForSwitchComputerPicker(profiles, { activeProfileId });
+  const alternateDiscoveries = alternateTailscaleDiscoveries({
+    profiles,
+    activeProfile: profiles.find((profile) => profile.id === activeProfileId) ?? null,
+    discoveries: tailscaleDiscoveries,
+  });
+  const offerSwitchComputer = shouldOfferSwitchComputer({
+    healExhausted: connectionHealExhausted || heal.exhausted,
+    activeProfileReachable: macHttpOk,
+    profiles: pickerProfiles,
+    activeProfileId,
+    tailscaleDiscoveries: alternateDiscoveries,
+  });
+  const primaryActionLabel = freshUserPrimaryActionLabel(showUsbFix, offerSwitchComputer);
   const title = freshUserConnectionTitle({
     searching,
     showUsbFix,
@@ -208,6 +230,10 @@ export default function ChatConnectionPanel({
     cellularBlocksDirect,
     freshUser: profiles.length === 0,
     tailscaleSearching,
+    healExhausted: connectionHealExhausted || heal.exhausted,
+    macLabel,
+    activeProfileReachable: macHttpOk,
+    offerSwitchComputer,
   });
   const statusLine = freshUserConnectionBody({
     searching,
@@ -222,7 +248,9 @@ export default function ChatConnectionPanel({
     usbHostMismatchMessage: usbHostMismatch
       ? formatUsbHostMismatchMessage(usbHostMismatch)
       : undefined,
-  });
+    alternateProfileCount: Math.max(0, pickerProfiles.length - (activeProfileId ? 1 : 0)),
+    tailscaleDiscoveryCount: alternateDiscoveries.length,
+  }  );
   const showScanCard = searching || scanResult;
   const relayWorkersNotInSaved = relayWorkers.filter(
     (worker) =>
@@ -230,8 +258,6 @@ export default function ChatConnectionPanel({
         profileMatchesHostname(profile, relayWorkerDisplayName(worker)),
       ),
   );
-  const pickerProfiles = profilesForSwitchComputerPicker(profiles, { activeProfileId });
-  const primaryActionLabel = freshUserPrimaryActionLabel(showUsbFix);
 
   return (
     <View style={styles.wrap} testID={testID}>
@@ -254,13 +280,14 @@ export default function ChatConnectionPanel({
         />
       ) : null}
 
-      {(tailscaleDiscoveries.length > 0 || tailscaleSearching) ? (
+      {(alternateDiscoveries.length > 0 || tailscaleSearching) ? (
         <TailscaleDiscoveryBanner
-          discoveries={tailscaleDiscoveries}
+          discoveries={alternateDiscoveries}
           adding={tailscaleDiscoveryProbing}
           probing={tailscaleSearching}
           onAdd={onAddTailscaleComputer}
           prominent
+          switchMode={offerSwitchComputer}
         />
       ) : null}
 
@@ -277,10 +304,10 @@ export default function ChatConnectionPanel({
         ) : (
           <LoadingButton
             label={primaryActionLabel}
-            loadingLabel="Finding computers…"
+            loadingLabel={offerSwitchComputer ? 'Opening…' : 'Finding computers…'}
             loading={searching}
-            onPress={onSearchMac}
-            testID="chat-connection-search"
+            onPress={offerSwitchComputer ? () => onSwitchComputer?.() : onSearchMac}
+            testID={offerSwitchComputer ? 'chat-connection-switch-computer' : 'chat-connection-search'}
             style={styles.primaryAction}
           />
         )}

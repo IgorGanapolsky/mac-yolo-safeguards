@@ -6,6 +6,7 @@ import {
   CONNECTION_HEAL_DURATION_MS,
   CONNECTION_HEAL_EXHAUSTED_AFTER,
 } from './connectionErrorPolicy';
+import { savedMacUnreachableTitle, switchComputerHintBody } from './macUnreachableCopy';
 
 export type FreshUserOnboardingStep = {
   step: number;
@@ -81,8 +82,14 @@ export function freshUserOnboardingSteps(input: {
   ];
 }
 
-export function freshUserPrimaryActionLabel(showUsbFix: boolean): string {
-  return showUsbFix ? 'Fix USB connection' : 'Find computers';
+export function freshUserPrimaryActionLabel(showUsbFix: boolean, offerSwitchComputer = false): string {
+  if (showUsbFix) {
+    return 'Fix USB connection';
+  }
+  if (offerSwitchComputer) {
+    return 'Switch computer';
+  }
+  return 'Find computers';
 }
 
 export function freshUserConnectionTitle(input: {
@@ -92,6 +99,10 @@ export function freshUserConnectionTitle(input: {
   cellularBlocksDirect: boolean;
   freshUser: boolean;
   tailscaleSearching?: boolean;
+  healExhausted?: boolean;
+  macLabel?: string;
+  activeProfileReachable?: boolean;
+  offerSwitchComputer?: boolean;
 }): string {
   if (input.usbHostMismatch) {
     return 'Wrong computer plugged in';
@@ -111,6 +122,12 @@ export function freshUserConnectionTitle(input: {
   if (input.freshUser) {
     return 'Connect your computer';
   }
+  if (input.healExhausted && input.activeProfileReachable === false) {
+    return savedMacUnreachableTitle(input.macLabel);
+  }
+  if (input.offerSwitchComputer) {
+    return 'Switch computer';
+  }
   return "Can't reach your computer";
 }
 
@@ -125,6 +142,8 @@ export function freshUserConnectionBody(input: {
   showUsbFix: boolean;
   tailscaleSearching?: boolean;
   usbHostMismatchMessage?: string;
+  alternateProfileCount?: number;
+  tailscaleDiscoveryCount?: number;
 }): string {
   if (input.usbHostMismatchMessage) {
     return input.usbHostMismatchMessage;
@@ -157,6 +176,13 @@ export function freshUserConnectionBody(input: {
   }
   if (input.freshUser) {
     return 'Follow the steps below — no technical setup on your phone.';
+  }
+  if (input.healExhausted) {
+    return switchComputerHintBody({
+      macLabel: input.macLabel,
+      alternateProfileCount: input.alternateProfileCount ?? 0,
+      tailscaleDiscoveryCount: input.tailscaleDiscoveryCount ?? 0,
+    });
   }
   if (input.macLabel) {
     return `${input.macLabel} is saved but not reachable right now. Follow the steps below or pick another computer.`;

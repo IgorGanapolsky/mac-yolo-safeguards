@@ -69,8 +69,48 @@ describe('tailscaleDiscovery', () => {
       ],
       ['macbook.tailnet.ts.net'],
     );
-    expect(hosts.sort()).toEqual(['100.94.135.78', 'macbook.tailnet.ts.net'].sort());
+    expect(hosts).toEqual(
+      expect.arrayContaining(['100.94.135.78', 'macbook.tailnet.ts.net']),
+    );
     expect(mergeTailnetProbeHosts(['100.94.135.78', '100.94.135.78'])).toEqual(['100.94.135.78']);
+  });
+
+  it('synthesizes MagicDNS probe hosts for other saved Macs on the same tailnet', () => {
+    const hosts = collectTailnetProbeHosts(
+      [
+        {
+          id: 'mini',
+          label: 'Igors-Mac-mini',
+          gatewayUrl: 'http://igors-mac-mini.tail12aa33.ts.net:8642',
+          hostname: 'Igors-Mac-mini.local',
+          addedAt: '2026-06-26T00:00:00Z',
+        },
+        {
+          id: 'book_lan',
+          label: 'Igors-MacBook-Pro',
+          gatewayUrl: 'http://192.168.68.71:8642',
+          hostname: 'Igors-MacBook-Pro.local',
+          addedAt: '2026-06-26T00:00:01Z',
+        },
+      ],
+      ['100.94.135.78'],
+    );
+    expect(hosts).toEqual(
+      expect.arrayContaining([
+        'igors-mac-mini.tail12aa33.ts.net',
+        'igors-macbook-pro.tail12aa33.ts.net',
+        'igors-macbook-pro-1.tail12aa33.ts.net',
+      ]),
+    );
+  });
+
+  it('labels /health without hostname using MagicDNS device name', () => {
+    const discovered = discoveredGatewayFromHealth(
+      'http://igors-macbook-pro-1.tail12aa33.ts.net:8642',
+      { status: 'ok' },
+    );
+    expect(discovered?.label).toBe('igors-macbook-pro-1');
+    expect(tailscaleDiscoveryLabel(discovered!)).toBe('igors-macbook-pro-1');
   });
 
   it('filters out computers that are already saved', () => {

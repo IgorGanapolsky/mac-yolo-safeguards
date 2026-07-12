@@ -139,6 +139,7 @@ import {
   discoverTailscaleGateways,
   filterNewTailscaleDiscoveries,
   mergeTailnetProbeHostsFromScan,
+  tailnetHostsFromDiscoveries,
 } from '../services/tailscaleDiscovery';
 import { tailnetProbeStorage } from '../services/tailnetProbeStorage';
 import { isGatewaySmokeTestMessage } from '../utils/gatewaySmokeMessages';
@@ -1525,7 +1526,8 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
       !isLoaded ||
       settingsRef.current.demoMode ||
       connectionHealInFlightRef.current ||
-      isMacGatewayHttpOk(healthRef.current)
+      isMacGatewayHttpOk(healthRef.current) ||
+      connectionHealAttemptRef.current >= CONNECTION_HEAL_EXHAUSTED_AFTER
     ) {
       return;
     }
@@ -1753,8 +1755,14 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
       }
       return;
     }
+    if (connectionHealAttempt >= CONNECTION_HEAL_EXHAUSTED_AFTER) {
+      return;
+    }
     void runConnectionSelfHeal();
     const interval = setInterval(() => {
+      if (connectionHealAttemptRef.current >= CONNECTION_HEAL_EXHAUSTED_AFTER) {
+        return;
+      }
       void runConnectionSelfHeal();
     }, CONNECTION_SELF_HEAL_INTERVAL_MS);
     return () => clearInterval(interval);
@@ -1765,6 +1773,7 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
     health?.checkedAt,
     health?.directGatewayReachable,
     wifiConnected,
+    connectionHealAttempt,
     runConnectionSelfHeal,
   ]);
 
@@ -2042,6 +2051,17 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
         return;
       }
       const discovered = await discoverTailscaleGateways(probeHosts);
+      const hostsToPersist = tailnetHostsFromDiscoveries(discovered);
+      if (hostsToPersist.length > 0) {
+        const mergedHosts = await tailnetProbeStorage.merge(
+          collectTailnetProbeHosts(
+            profileStateRef.current.profiles,
+            [...storedHosts, ...hostsToPersist],
+          ),
+        );
+        tailnetProbeHostsRef.current = mergedHosts;
+        setTailnetProbeHostCount(mergedHosts.length);
+      }
       if (discovered.length > 0) {
         const priorActive = activeProfile(profileStateRef.current);
         const nextState = applyTailscaleDiscoveriesToProfileState(
