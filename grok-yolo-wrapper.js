@@ -151,7 +151,6 @@ function grokDoctor(options = {}) {
       modelAvailable: false,
       authenticated: false,
       authMode: 'none',
-      apiKeyPresent: Boolean(env.XAI_API_KEY),
       billingMode: 'blocked_not_installed',
       pricing: XAI_PRICING,
       blocker: 'grok_binary_missing',
@@ -190,7 +189,6 @@ function grokDoctor(options = {}) {
     defaultModel: catalog.defaultModel,
     authenticated,
     authMode,
-    apiKeyPresent,
     billingMode: authMode === 'grok.com_oauth'
       ? 'grok_plan_or_limited_free_quota'
       : authMode === 'xai_api_key'

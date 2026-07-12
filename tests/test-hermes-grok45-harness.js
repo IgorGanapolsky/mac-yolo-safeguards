@@ -27,7 +27,6 @@ const baseDoctor = {
   defaultModel: 'grok-4.5',
   authenticated: true,
   authMode: 'grok.com_oauth',
-  apiKeyPresent: false,
   billingMode: 'grok_plan_or_limited_free_quota',
   apiBillingActivatedByWrapper: false,
   blocker: null,
@@ -84,7 +83,6 @@ assert(!oauthReceipt.execution.command.includes('verify the harness'));
 const apiDoctor = {
   ...baseDoctor,
   authMode: 'xai_api_key',
-  apiKeyPresent: true,
   billingMode: 'xai_api_pay_as_you_go',
 };
 const blockedApi = buildHarness({

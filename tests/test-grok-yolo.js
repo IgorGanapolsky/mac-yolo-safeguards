@@ -86,7 +86,7 @@ const doctor = grokDoctor({ binary: '/fake/grok', env: {}, probe });
 assert.strictEqual(doctor.ready, true);
 assert.strictEqual(doctor.authMode, 'grok.com_oauth');
 assert.strictEqual(doctor.billingMode, 'grok_plan_or_limited_free_quota');
-assert.strictEqual(doctor.apiKeyPresent, false);
+assert.strictEqual(Object.hasOwn(doctor, 'apiKeyPresent'), false);
 assert.strictEqual(doctor.pricing.perMillionTokens.input, 2);
 assert.strictEqual(doctor.pricing.perMillionTokens.output, 6);
 
