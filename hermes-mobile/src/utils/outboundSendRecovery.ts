@@ -6,6 +6,9 @@ export const OUTBOUND_PENDING_RECOVERY_MS = 5 * 60_000;
 /** Force-release composer send lock if outbound never completes. */
 export const OUTBOUND_SEND_LOCK_TIMEOUT_MS = OUTBOUND_PENDING_RECOVERY_MS;
 
+/** While HTTP stream is open, allow longer — but not multi-hour hangs. */
+export const OUTBOUND_STREAM_LOCK_MULTIPLIER = 2;
+
 export const OUTBOUND_STUCK_FAILURE_REASON = 'Sent — no reply from computer';
 
 export function shouldRecoverOutboundSendLock(
@@ -16,7 +19,7 @@ export function shouldRecoverOutboundSendLock(
   if (nowMs - startedAtMs < OUTBOUND_SEND_LOCK_TIMEOUT_MS) {
     return false;
   }
-  if (options.streamInFlight && nowMs - startedAtMs < OUTBOUND_SEND_LOCK_TIMEOUT_MS * 6) {
+  if (options.streamInFlight && nowMs - startedAtMs < OUTBOUND_SEND_LOCK_TIMEOUT_MS * OUTBOUND_STREAM_LOCK_MULTIPLIER) {
     return false;
   }
   return true;

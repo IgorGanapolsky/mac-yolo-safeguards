@@ -1,6 +1,7 @@
 import { getRunStatus, stopRun } from '../services/hermesGatewayClient';
 import type { RunProgressState } from '../types/chatDisplay';
 import { isSessionInUseError } from './chatErrors';
+import { isActiveChatRun } from './runProgressDisplay';
 import { isTerminalGatewayRunStatus } from './runStaleDetection';
 
 const SESSION_RECOVERY_DELAY_MS = 900;
@@ -72,6 +73,58 @@ export async function reconcileStaleActiveRunProgress(
     return 'clear';
   }
   return 'keep';
+}
+
+/** Clear client busy state when the gateway session froze but the phone still shows sending. */
+export async function reconcileFrozenSessionBusyState(
+  gatewayUrl: string,
+  apiKey: string | null | undefined,
+  progress: RunProgressState | null,
+  isSending: boolean,
+  knownRunIds: readonly string[],
+  sessionLastActiveUnix?: number | null,
+  nowMs = Date.now(),
+): Promise<'clear' | 'keep'> {
+  const frozenMs =
+    sessionLastActiveUnix != null && Number.isFinite(sessionLastActiveUnix)
+      ? Math.max(0, nowMs - sessionLastActiveUnix * 1000)
+      : null;
+  const clientBusy = isSending || Boolean(progress && isActiveChatRun(progress));
+  if (!clientBusy) {
+    return 'keep';
+  }
+
+  if (progress && isActiveChatRun(progress)) {
+    const action = await reconcileStaleActiveRunProgress(
+      gatewayUrl,
+      apiKey,
+      progress,
+      knownRunIds,
+    );
+    if (action === 'clear') {
+      return 'clear';
+    }
+  }
+
+  if (frozenMs == null || frozenMs < 5 * 60_000) {
+    return 'keep';
+  }
+
+  const runId = progress?.runId?.trim();
+  if (runId) {
+    try {
+      const status = await getRunStatus(gatewayUrl, runId, apiKey);
+      if (!status || isTerminalGatewayRunStatus(status.status)) {
+        return 'clear';
+      }
+    } catch {
+      return 'keep';
+    }
+    return 'keep';
+  }
+
+  const live = await filterLiveGatewayRunIds(gatewayUrl, apiKey, knownRunIds);
+  return live.length === 0 ? 'clear' : 'keep';
 }
 
 export async function releaseMacOperatorSlot(
