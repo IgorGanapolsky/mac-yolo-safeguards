@@ -2,6 +2,7 @@ import React, { useMemo } from 'react';
 import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { colors } from '../theme/colors';
 import { haptics } from '../services/haptics';
+import ChatFormattedText from './ChatFormattedText';
 import { formatExpandedMessageContent, prepareMessageForChatDisplay } from '../utils/chatMessageDisplay';
 import InlineMessageApproval from './InlineMessageApproval';
 import {
@@ -117,13 +118,13 @@ function ChatMessageBubble({
             </Text>
           ) : null}
           {resolved.content.trim().length > 0 ? (
-            <Text
+            <ChatFormattedText
+              text={resolved.content}
               style={[styles.bubbleText, isUser ? styles.bubbleUserText : styles.bubbleAssistantText]}
+              variant={isUser ? 'user' : 'assistant'}
               selectable
               testID="chat-message-body"
-            >
-              {resolved.content}
-            </Text>
+            />
           ) : null}
           {canExpand ? (
             <Pressable

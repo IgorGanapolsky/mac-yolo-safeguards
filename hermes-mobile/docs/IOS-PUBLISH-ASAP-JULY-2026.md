@@ -1,13 +1,107 @@
 # iOS publish ASAP — Hermes Mobile (July 2026)
 
-**Audit:** 2026-07-10 ~11:40 ET  
+**Audit:** 2026-07-10 ~16:50 ET (**REJECTION TRIAGE**)  
 **Bundle:** `com.iganapolsky.hermesmobile`  
 **ASC app id:** `6786778037`  
 **Seller:** Igor Ganapolsky / Max Smith KDP LLC  
 
 ---
 
-## Executive summary — why it is NOT live
+## 🚨 REJECTION UPDATE (2026-07-10 ~16:50 ET)
+
+### Current ASC state (post-triage)
+
+| Item | State | Notes |
+|------|--------|-------|
+| **Version 1.0** | `WAITING_FOR_REVIEW` | **Resubmitted** 2026-07-10T20:46:54Z (submission `caea665c-7afa-4ce8-bd70-8840e05d363c`) |
+| **Prior submission** | `COMPLETE` (canceled) | `e8d02adc…` was `UNRESOLVED_ISSUES`; item state `REMOVED` after `canceled: true` |
+| **IAP `thumbgate_leash_monthly`** | `DEVELOPER_ACTION_NEEDED` | **Still blocked** — en-US localization `REJECTED`, not attached to new submission |
+| **Build 12** | `VALID` | Attached; no new binary uploaded this pass |
+| **Public App Store** | `resultCount: 0` | Not live |
+
+### Rejection reason (verbatim)
+
+**ASC API does not expose Resolution Center message text.** Queried: `appStoreVersions`, `reviewSubmissions`, `reviewSubmissionItems` (GET forbidden), `subscriptionLocalizations`, `appStoreReviewDetail` — states only, no reviewer prose.
+
+**Observable API evidence at rejection:**
+
+| Signal | Value |
+|--------|--------|
+| Version 1.0 | `REJECTED` |
+| Review submission `e8d02adc…` | `UNRESOLVED_ISSUES` |
+| Review submission item | `REJECTED` |
+| IAP `thumbgate_leash_monthly` | `DEVELOPER_ACTION_NEEDED` |
+| IAP en-US localization | `REJECTED` |
+
+**Inferred root cause (high confidence):** First auto-renewable subscription was **not coupled to the app submission**. Submission `e8d02adc…` had **1 item** (app version only). Apple returned the IAP with the app rejection — classic pattern per [Apple Developer Forums](https://developer.apple.com/forums/thread/713451): IAP detaches → `DEVELOPER_ACTION_NEEDED`, localization locks `REJECTED`, resubmit requires ASC UI.
+
+**Secondary risks (not confirmed without Resolution Center text):**
+
+1. **Guideline 3.1.2** — `ProUpgradeCard` lacked auto-renewal / Terms / Privacy footer → **fixed in code** (needs build **13** for binary)
+2. **Demo path** — review notes said Settings-only; now include `hermes://setup?demo=1` → **fixed via API** (635 chars)
+
+**To get verbatim text:** App Store Connect → Hermes Mobile → **Distribution** → **App Review** (or email to `iganapolsky@gmail.com`).
+
+### IAP blocker — what `DEVELOPER_ACTION_NEEDED` means
+
+Per [Apple IAP status reference](https://developer.apple.com/help/app-store-connect/reference/in-app-purchases-and-subscriptions/in-app-purchase-statuses):
+
+> The In-App Purchase product changes that you submitted have been rejected. You're required to take action to edit the detail information **or cancel the request to change the detail information** before this In-App Purchase can be reviewed again.
+
+**This pass — API diagnosis:**
+
+| Check | Result |
+|-------|--------|
+| Review screenshot | `COMPLETE` |
+| Territory prices | **175** price rows |
+| `availableInNewTerritories` | `true` |
+| en-US localization | **`REJECTED`** — API returns `409 Cannot edit SubscriptionLocalization when it is in REJECTED state` |
+| Attach IAP via `reviewSubmissionItems` | **Not supported** — `'subscription' is not a relationship` |
+| `subscriptionAppStoreReviewSubmissions` endpoint | **404** (not available on this API version) |
+
+**Fix requires ASC UI (~5 min, Igor):**
+
+1. **Monetization → Subscriptions → Leash Pro → Hermes Pro Monthly**
+2. Dismiss/cancel the **rejected localization change** (yellow banner) so state moves to `READY_TO_SUBMIT`
+3. **Distribution → iOS App → Version 1.0 → In-App Purchases and Subscriptions → +** → select `thumbgate_leash_monthly`
+4. **Submit** subscription with the in-flight app version (first subscription must ship with binary)
+
+Chrome automation **failed** (`AppleEvent timed out`; login tabs `authResult=FAILED`).
+
+### Actions taken (this pass)
+
+| Action | Result |
+|--------|--------|
+| `verify-asc-listing.js --json` | Confirmed `REJECTED` + IAP `DEVELOPER_ACTION_NEEDED` |
+| Deep ASC API audit | Submission item `REJECTED`; loc `REJECTED`; 175 prices; screenshot OK |
+| `patch-asc-review-notes.js` | ✅ Notes now include `hermes://setup?demo=1` (635 chars, safe) |
+| PATCH IAP `reviewNote` | Updated; state unchanged (`DEVELOPER_ACTION_NEEDED`) |
+| `ensure-asc-leash-subscription.js` | Idempotent; IAP still blocked |
+| Cancel submission `e8d02adc…` | `canceled: true` → `CANCELING` → `COMPLETE` |
+| `submit-asc-for-review.js` | ✅ **v1.0 → `WAITING_FOR_REVIEW`** (new submission `caea665c…`) |
+| `ProUpgradeCard.tsx` | Added Guideline 3.1.2 subscription legal footer (code only) |
+| `asc-chrome-attach-iap.js` | ❌ Chrome timeout |
+| New EAS iOS build | **Not started** — build 12 still attached; build 13 needed only if 3.1.2 rejection confirmed |
+
+### Resubmit status
+
+| Layer | Status |
+|-------|--------|
+| App v1.0 | ✅ `WAITING_FOR_REVIEW` (resubmitted ~16:47 ET) |
+| IAP | ❌ `DEVELOPER_ACTION_NEEDED` — **not in review with app** |
+| Monetization on approval | **At risk** — Apple may approve app without IAP |
+
+### Honest ETA (updated)
+
+| Scenario | Earliest public listing |
+|----------|-------------------------|
+| Igor clears IAP in ASC UI **today** + Apple approves app+IAP together | **Jul 13–15** (24–72h re-review) |
+| Apple rejects again for 3.1.2 paywall → build **13** + resubmit | **Jul 16–19** |
+| IAP left `DEVELOPER_ACTION_NEEDED` | App may approve **free-only** or reject again — **do not assume revenue** |
+
+---
+
+## Executive summary — why it is NOT live (prior audit 11:40 ET)
 
 | Layer | Evidence | Verdict |
 |-------|----------|---------|

@@ -1,0 +1,72 @@
+name: PR hygiene
+
+# Autonomous PR janitor so the open-PR list never rots again.
+#   1. auto-merge: any open, non-draft PR that is mergeable + all required checks green
+#      lands on its own (GitHub waits for green; no human click).
+#   2. stale: a PR with NO activity (push/comment/review) for STALE_DAYS gets a warning
+#      label + comment; DELETE_DAYS later with still no activity it is closed and its
+#      branch deleted. ANY activity resets the clock, so live agent work is never touched.
+# Exempt from auto-close: drafts, and PRs labeled keep / pinned / security / blocked.
+
+on:
+  schedule:
+    - cron: '17 */6 * * *'   # every 6h at :17 (off the hour to dodge cron congestion)
+  workflow_dispatch: {}
+  pull_request:
+    types: [opened, reopened, synchronize, ready_for_review]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: pr-hygiene
+  cancel-in-progress: false
+
+jobs:
+  auto-merge:
+    name: Enable auto-merge on green PRs
+    runs-on: ubuntu-latest
+    steps:
+      - name: Enable auto-merge where safe
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          # Non-draft open PRs only. GitHub's auto-merge holds until required checks pass,
+          # so enabling it broadly is safe — a red or conflicted PR simply never merges.
+          gh pr list --repo "$REPO" --state open --json number,isDraft \
+            --jq '.[] | select(.isDraft == false) | .number' | while read -r pr; do
+            if gh pr merge "$pr" --repo "$REPO" --squash --auto --delete-branch 2>/dev/null; then
+              echo "auto-merge enabled: #$pr"
+            else
+              echo "skip #$pr (conflicted/blocked/already-set)"
+            fi
+          done
+
+  stale:
+    name: Mark and close stale PRs
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/stale@5bef64f19d7facfb25b37b414482c7164d639639 # v9
+        with:
+          repo-token: ${{ github.token }}
+          # ---- PRs only; issues untouched ----
+          days-before-issue-stale: -1
+          days-before-issue-close: -1
+          days-before-pr-stale: 4
+          days-before-pr-close: 3
+          stale-pr-label: stale
+          exempt-pr-labels: keep,pinned,security,blocked
+          exempt-draft-pr: true
+          delete-branch: true
+          ascending: true   # oldest first, so the backlog drains predictably
+          operations-per-run: 100
+          stale-pr-message: >
+            This PR has had no activity for 4 days. It will be closed in 3 more days
+            if nothing changes. Push a commit, comment, or add the `keep` label to hold it.
+          close-pr-message: >
+            Closed automatically after 7 days of inactivity by the PR-hygiene bot.
+            The branch is deleted but the commits are preserved in the reflog / any local
+            clone — reopen or re-push to revive. Add the `keep` label next time to exempt.

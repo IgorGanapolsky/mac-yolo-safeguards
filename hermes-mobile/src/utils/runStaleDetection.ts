@@ -1,4 +1,24 @@
 import type { RunProgressState } from '../types/chatDisplay';
+import type { HermesSession } from '../types/chat';
+import { isMegaSession, sessionTotalTokens } from './sessionTokenGuards';
+
+type SessionTokenFields = Pick<
+  HermesSession,
+  'input_tokens' | 'output_tokens' | 'cache_read_tokens'
+>;
+
+function resolveRunStaleAutoFailMs(
+  progress: RunProgressState,
+  session?: SessionTokenFields | null,
+): number {
+  const sessionTokens = session ? sessionTotalTokens(session) : 0;
+  const progressTokens =
+    (progress.inputTokens ?? 0) + (progress.outputTokens ?? 0) + (progress.totalTokens ?? 0);
+  if (isMegaSession(session) || progressTokens >= 500_000 || sessionTokens >= 500_000) {
+    return MEGA_SESSION_RUN_STALE_AUTO_FAIL_MS;
+  }
+  return RUN_STALE_AUTO_FAIL_MS;
+}
 
 /** Show "Taking longer than expected" once a run exceeds this age. */
 export const RUN_STALE_WARN_MS = 15 * 60 * 1000;
@@ -6,8 +26,17 @@ export const RUN_STALE_WARN_MS = 15 * 60 * 1000;
 /** Auto-fail client-side banner when a run exceeds this age (gateway may still be working). */
 export const RUN_STALE_AUTO_FAIL_MS = 20 * 60 * 1000;
 
+/** Shorter auto-fail for very large sessions where gateway work can stall for hours. */
+export const MEGA_SESSION_RUN_STALE_AUTO_FAIL_MS = 10 * 60 * 1000;
+
 /** No detail/phase change for this long → idle stall hint (token-only ticks do not reset). */
 export const RUN_STALE_IDLE_MS = 3 * 60 * 1000;
+
+/** Fail active runs with no meaningful progress for this long (stream may have died). */
+export const RUN_STREAM_IDLE_FAIL_MS = 5 * 60 * 1000;
+
+export const RUN_STREAM_IDLE_FAIL_DETAIL =
+  'No live progress from your computer — tap Stop or start a fresh chat.';
 
 export const RUN_STALE_LONG_HINT =
   'Taking longer than expected — tap Stop if your computer looks stuck.';
@@ -67,12 +96,40 @@ export function stampRunProgressActivity(
   return { ...next, lastProgressAtMs };
 }
 
+export function shouldFailRunForStreamIdle(
+  progress: RunProgressState | null | undefined,
+  nowMs = Date.now(),
+  session?: SessionTokenFields | null,
+): boolean {
+  if (!progress || progress.phase === 'completed' || progress.phase === 'failed') {
+    return false;
+  }
+  const lastProgressAtMs = progress.lastProgressAtMs ?? progress.startedAtMs;
+  const idleMs = Math.max(0, nowMs - lastProgressAtMs);
+  const idleLimit = isMegaSession(session) ? RUN_STREAM_IDLE_FAIL_MS / 2 : RUN_STREAM_IDLE_FAIL_MS;
+  return idleMs >= idleLimit && nowMs - progress.startedAtMs >= 60_000;
+}
+
+export function msUntilStreamIdleFail(
+  progress: RunProgressState,
+  nowMs = Date.now(),
+  session?: SessionTokenFields | null,
+): number {
+  const lastProgressAtMs = progress.lastProgressAtMs ?? progress.startedAtMs;
+  const idleLimit = isMegaSession(session) ? RUN_STREAM_IDLE_FAIL_MS / 2 : RUN_STREAM_IDLE_FAIL_MS;
+  const startedGraceMs = Math.max(0, 60_000 - (nowMs - progress.startedAtMs));
+  const idleRemainingMs = Math.max(0, idleLimit - (nowMs - lastProgressAtMs));
+  return Math.max(startedGraceMs, idleRemainingMs);
+}
+
 export function classifyRunStale(
   progress: RunProgressState,
   nowMs = Date.now(),
+  session?: SessionTokenFields | null,
 ): RunStaleLevel {
   const elapsedMs = Math.max(0, nowMs - progress.startedAtMs);
-  if (elapsedMs >= RUN_STALE_AUTO_FAIL_MS) {
+  const autoFailMs = resolveRunStaleAutoFailMs(progress, session);
+  if (elapsedMs >= autoFailMs) {
     return 'expired';
   }
   if (elapsedMs >= RUN_STALE_WARN_MS) {
@@ -99,8 +156,9 @@ export function runStaleHint(level: RunStaleLevel): string | null {
 export function msUntilRunStaleAutoFail(
   progress: RunProgressState,
   nowMs = Date.now(),
+  session?: SessionTokenFields | null,
 ): number {
-  return Math.max(0, RUN_STALE_AUTO_FAIL_MS - (nowMs - progress.startedAtMs));
+  return Math.max(0, resolveRunStaleAutoFailMs(progress, session) - (nowMs - progress.startedAtMs));
 }
 
 const TERMINAL_GATEWAY_RUN_STATUSES = new Set([

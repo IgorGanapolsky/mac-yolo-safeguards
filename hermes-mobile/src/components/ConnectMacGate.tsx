@@ -16,7 +16,7 @@ import TailscaleDiscoveryBanner from './TailscaleDiscoveryBanner';
 import MacScanProgressCard from './MacScanProgressCard';
 import LoadingButton from './ui/LoadingButton';
 import { tailscaleDiscoveryLabel } from '../services/tailscaleDiscovery';
-import { cleanManualGatewayUrl } from '../utils/gatewayUrlPolicy';
+import { cleanManualGatewayUrl, isLoopbackGatewayUrl } from '../utils/gatewayUrlPolicy';
 import { isTailscaleGatewayUrl } from '../utils/tailscaleHosts';
 import {
   isE2eAutomationBuild,
@@ -99,8 +99,10 @@ export default function ConnectMacGate() {
   };
 
   const hasSavedMac =
-    gatewayProfiles.length > 0 ||
-    Boolean(effectiveGatewayUrl?.trim() || settings.gatewayUrl?.trim());
+    gatewayProfiles.some((profile) => !isLoopbackGatewayUrl(profile.gatewayUrl)) ||
+    [effectiveGatewayUrl, settings.gatewayUrl].some(
+      (url) => Boolean(url?.trim()) && !isLoopbackGatewayUrl(url || ''),
+    );
 
   const showGate =
     bootstrapReady &&
@@ -223,7 +225,7 @@ export default function ConnectMacGate() {
                 <View style={styles.manualInputRow}>
                   <TextInput
                     style={styles.manualInput}
-                    placeholder="e.g. 100.87.85.85 or http://100.87.85.85:8642"
+                    placeholder="e.g. your-device-name or a 100.x address"
                     placeholderTextColor={colors.textMuted}
                     value={manualInput}
                     onChangeText={setManualInput}

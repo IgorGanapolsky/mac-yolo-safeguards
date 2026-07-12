@@ -58,12 +58,74 @@ else
   bad "MacBook URL keeps local .env key"
 fi
 
+if run_node "
+  const { selectPhysicalAdbSerial } = require('$REPO/tools/hermes-mobile-pair-lib.js');
+  const output = 'List of devices attached\\nemulator-5554\\tdevice product:sdk_gphone\\n';
+  if (selectPhysicalAdbSerial(output) !== null) process.exit(1);
+"; then
+  ok "emulator-only ADB is never selected for private pairing"
+else
+  bad "emulator-only ADB is never selected for private pairing"
+fi
+
+if run_node "
+  const { selectPhysicalAdbSerial } = require('$REPO/tools/hermes-mobile-pair-lib.js');
+  const output = 'List of devices attached\\nemulator-5554\\tdevice\\nphysical-1234\\tdevice usb:1\\n';
+  if (selectPhysicalAdbSerial(output) !== 'physical-1234') process.exit(1);
+"; then
+  ok "physical phone wins when an emulator is also attached"
+else
+  bad "physical phone wins when an emulator is also attached"
+fi
+
 # Pair script wires --mini-tailscale and extraKey (regression guard)
 PAIR_JS="$(cat "$REPO/tools/hermes-mobile-pair.js")"
 if [[ "$PAIR_JS" == *"--mini-tailscale"* ]] && [[ "$PAIR_JS" == *"extraKey"* ]] && [[ "$PAIR_JS" == *"hermes-mobile-pair-lib.js"* ]]; then
   ok "pair script exports mini-tailscale + extraKey contract"
 else
   bad "pair script exports mini-tailscale + extraKey contract"
+fi
+
+# Deep link adb intent must single-quote URI so device shell does not split on &name=
+if [[ "$PAIR_JS" == *"device shell splits"* ]] && [[ "$PAIR_JS" == *"single-quoted"* ]] && [[ "$PAIR_JS" == *"am start -a android.intent.action.VIEW -d"* ]]; then
+  ok "pair adb deep link quotes URI for &name= params"
+else
+  bad "pair adb deep link quotes URI for &name= params"
+fi
+
+# Unattended session-start pairing must never expose the credential-bearing LAN server.
+SESSION_START="$REPO/tools/agent-session-start.js"
+if grep -Fq '`node "${pairScript}" --mini-tailscale --no-serve`' "$SESSION_START"; then
+  ok "queued phone install pairs without serving on LAN"
+else
+  bad "queued phone install pairs without serving on LAN"
+fi
+
+if grep -Fq "pair = runNode('tools/hermes-mobile-pair.js', ['--no-serve'], 60_000);" "$SESSION_START"; then
+  ok "ordinary session-start auto-pair does not serve on LAN"
+else
+  bad "ordinary session-start auto-pair does not serve on LAN"
+fi
+
+if grep -Fq "phoneInstall.reason === 'no-device'" "$SESSION_START" \
+  && grep -Fq "emulator-only ADB is never paired" "$SESSION_START"; then
+  ok "session-start does not inject owner pairing into an emulator-only ADB environment"
+else
+  bad "session-start does not inject owner pairing into an emulator-only ADB environment"
+fi
+
+# Default pairing must prefer tailnet IP (5G-safe), not LAN, when --gateway-url is omitted.
+if [[ "$PAIR_JS" == *"localTailscaleIpv4"* ]] && [[ "$PAIR_JS" == *"5G/cellular-safe"* ]]; then
+  ok "pair script prefers tailnet gateway URL for cellular"
+else
+  bad "pair script prefers tailnet gateway URL for cellular"
+fi
+
+DISCOVER_JS="$(cat "$REPO/tools/hermes-discover-tailscale-macs.js")"
+if [[ "$DISCOVER_JS" == *"isPeerOnline"* ]] && [[ "$DISCOVER_JS" == *"Online !== false"* ]]; then
+  ok "discover script skips offline tailnet peers"
+else
+  bad "discover script skips offline tailnet peers"
 fi
 
 printf "\nResults: %s passed, %s failed\n" "$pass" "$fail"

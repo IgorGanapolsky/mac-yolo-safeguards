@@ -23,6 +23,9 @@ type RunProgressBannerProps = {
   /** Live terminal line from Mac — shown below status, not as a second banner. */
   terminalToolName?: string;
   terminalPreview?: string;
+  /** Honest warning when the backing session is extremely large. */
+  megaSessionWarning?: string | null;
+  onStartFreshChat?: () => void;
 };
 
 function formatTokenSummary(progress: RunProgressState): string | null {
@@ -46,6 +49,8 @@ function RunProgressBanner({
   onRetry,
   terminalToolName,
   terminalPreview,
+  megaSessionWarning,
+  onStartFreshChat,
 }: RunProgressBannerProps) {
   const [elapsed, setElapsed] = useState(0);
   const [detailsExpanded, setDetailsExpanded] = useState(true);
@@ -82,7 +87,7 @@ function RunProgressBanner({
     isFailed && isConnectivityMessage(progress.detail ?? '') ? progress.detail?.trim() : null;
   const terminalLine = terminalPreview?.trim() || '';
   const hasCollapsibleDetails = Boolean(
-    showStatsPanel || terminalLine || failedDetail || staleMessage,
+    showStatsPanel || terminalLine || failedDetail || staleMessage || megaSessionWarning,
   );
   const showDetailSections = detailsExpanded && hasCollapsibleDetails;
 
@@ -194,6 +199,23 @@ function RunProgressBanner({
         </Text>
       ) : null}
 
+      {showDetailSections && megaSessionWarning ? (
+        <Text style={styles.megaSessionHint} testID="run-progress-mega-session-hint">
+          {megaSessionWarning}
+        </Text>
+      ) : null}
+
+      {megaSessionWarning && onStartFreshChat ? (
+        <Pressable
+          onPress={onStartFreshChat}
+          style={({ pressed }) => [styles.freshChatChip, pressed && styles.stopChipPressed]}
+          testID="run-progress-start-fresh-chat"
+          accessibilityLabel="Start fresh chat"
+        >
+          <Text style={styles.freshChatChipText}>Start fresh chat</Text>
+        </Pressable>
+      ) : null}
+
       {showDetailSections && showStatsPanel ? (
         <View style={styles.statsPanel} testID="run-progress-stats">
           {modelLabel ? (
@@ -247,7 +269,9 @@ export default memo(RunProgressBanner, (prev, next) => {
     (a.outputTokens ?? -1) === (b.outputTokens ?? -1) &&
     (a.duration ?? -1) === (b.duration ?? -1) &&
     (prev.terminalPreview ?? '') === (next.terminalPreview ?? '') &&
-    (prev.terminalToolName ?? '') === (next.terminalToolName ?? '')
+    (prev.terminalToolName ?? '') === (next.terminalToolName ?? '') &&
+    (prev.megaSessionWarning ?? '') === (next.megaSessionWarning ?? '') &&
+    Boolean(prev.onStartFreshChat) === Boolean(next.onStartFreshChat)
   );
 });
 
@@ -327,6 +351,26 @@ const styles = StyleSheet.create({
     lineHeight: 16,
     fontWeight: '700',
     color: colors.warning,
+  },
+  megaSessionHint: {
+    fontSize: 11,
+    lineHeight: 16,
+    fontWeight: '700',
+    color: colors.error,
+  },
+  freshChatChip: {
+    alignSelf: 'flex-start',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(59, 130, 246, 0.45)',
+    backgroundColor: 'rgba(59, 130, 246, 0.12)',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  freshChatChipText: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: colors.primary,
   },
   timeLabel: {
     fontSize: 11,

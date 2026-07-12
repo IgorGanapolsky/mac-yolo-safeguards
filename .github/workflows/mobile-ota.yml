@@ -51,6 +51,9 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Public mobile source privacy scan
+        run: npm run privacy:scan
+
       - name: Release readiness audit
         env:
           REQUIRE_EAS_PROJECT: '1'
@@ -64,6 +67,14 @@ jobs:
 
       - name: Release safety contract
         run: npm run test:release-safety
+
+      - name: Export and scan OTA JavaScript
+        env:
+          SENTRY_DISABLE_AUTO_UPLOAD: "true"
+        run: |
+          rm -rf "$RUNNER_TEMP/hermes-mobile-public-export"
+          npx expo export --platform android --output-dir "$RUNNER_TEMP/hermes-mobile-public-export"
+          npm run privacy:scan:artifact -- "$RUNNER_TEMP/hermes-mobile-public-export"
 
   publish-production-ota:
     name: Publish production OTA

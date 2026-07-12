@@ -1,9 +1,24 @@
 import type { LeashConnectionState } from './gatewayEndpoint';
 import { GATEWAY_WRONG_KEY_MESSAGE, GATEWAY_AUTH_REPAIR_HEADER } from '../services/gatewayClient';
+import { EMPTY_REPLY_FAILURE_REASON } from './emptyStreamReplyRecovery';
+import { OUTBOUND_STUCK_FAILURE_REASON } from './outboundSendRecovery';
+import { RUN_NO_TOKEN_FAIL_DETAIL } from './runStaleDetection';
 
 export type OutboundDeliveryStatus = 'pending' | 'sent' | 'failed';
 
 const OUTBOUND_FAILURE_REASON_MAX = 40;
+
+export const OUTBOUND_NO_REPLY_MAC_LIVE =
+  "Your computer didn't answer — tap ↑ to send again";
+
+export const OUTBOUND_RUN_STALLED_HINT =
+  'Run stalled on your Mac — tap Stop, then ↑ to resend';
+
+export const OUTBOUND_SESSION_BUSY_HINT =
+  'Mac busy with another chat — tap ↑ to try again';
+
+export const OUTBOUND_UNREACHABLE_HINT =
+  "Couldn't reach your computer — tap Computer above";
 
 export function truncateOutboundFailureReason(reason: string, maxLen = OUTBOUND_FAILURE_REASON_MAX): string {
   const trimmed = reason.trim();
@@ -11,6 +26,69 @@ export function truncateOutboundFailureReason(reason: string, maxLen = OUTBOUND_
     return trimmed;
   }
   return `${trimmed.slice(0, maxLen - 1)}…`;
+}
+
+function isWrongKeyFailureReason(reason: string): boolean {
+  return reason === GATEWAY_WRONG_KEY_MESSAGE || reason.includes(GATEWAY_AUTH_REPAIR_HEADER);
+}
+
+function isSessionBusyFailureReason(reason: string): boolean {
+  const lower = reason.toLowerCase();
+  return (
+    lower.includes('session_in_use') ||
+    lower.includes('still on the previous chat') ||
+    (lower.includes('already in use') && !lower.includes('title'))
+  );
+}
+
+function isRunStalledFailureReason(reason: string): boolean {
+  const lower = reason.toLowerCase();
+  return (
+    reason === OUTBOUND_STUCK_FAILURE_REASON ||
+    reason === RUN_NO_TOKEN_FAIL_DETAIL ||
+    lower.includes('no reply from computer') ||
+    lower.includes('no live progress') ||
+    lower.includes('stalled') ||
+    lower.includes('still working')
+  );
+}
+
+function isEmptyReplyFailureReason(reason: string): boolean {
+  return (
+    reason === EMPTY_REPLY_FAILURE_REASON ||
+    reason.toLowerCase().includes('no reply text arrived')
+  );
+}
+
+/** Map gateway failure reasons to bubble copy with a clear next step. */
+export function resolveOutboundFailureLabel(
+  failureReason: string | undefined,
+  macHttpOk: boolean,
+): string {
+  const reason = failureReason?.trim();
+  if (reason) {
+    if (isWrongKeyFailureReason(reason)) {
+      return '⚠ Wrong key — tap Computer → Re-pair';
+    }
+    if (isSessionBusyFailureReason(reason)) {
+      return `⚠ ${OUTBOUND_SESSION_BUSY_HINT}`;
+    }
+    if (isRunStalledFailureReason(reason)) {
+      return `⚠ ${OUTBOUND_RUN_STALLED_HINT}`;
+    }
+    if (isEmptyReplyFailureReason(reason)) {
+      return `⚠ ${OUTBOUND_NO_REPLY_MAC_LIVE}`;
+    }
+    if (macHttpOk) {
+      return `⚠ ${truncateOutboundFailureReason(reason)}`;
+    }
+    return `⚠ ${truncateOutboundFailureReason(reason)}`;
+  }
+
+  if (macHttpOk) {
+    return `⚠ ${OUTBOUND_NO_REPLY_MAC_LIVE}`;
+  }
+  return `⚠ ${OUTBOUND_UNREACHABLE_HINT}`;
 }
 
 export function isGatewayLiveForDelivery(input: {
@@ -42,21 +120,7 @@ export function outboundDeliveryLabel(
   },
 ): string {
   if (status === 'failed') {
-    const reason = input.failureReason?.trim();
-    if (reason) {
-      if (reason === GATEWAY_WRONG_KEY_MESSAGE || reason.includes(GATEWAY_AUTH_REPAIR_HEADER)) {
-        return '⚠ Wrong key — tap Computer → Re-pair';
-      }
-      return `⚠ ${truncateOutboundFailureReason(reason)}`;
-    }
-    const live = isGatewayLiveForDelivery(input);
-    if (live) {
-      return '⚠ No reply — tap ↑ again';
-    }
-    if (input.macHttpOk) {
-      return '⚠ No reply — tap Computer above or ↑';
-    }
-    return "⚠ Couldn't reach your computer — tap Computer above";
+    return resolveOutboundFailureLabel(input.failureReason, input.macHttpOk);
   }
 
   const live = isGatewayLiveForDelivery(input);

@@ -114,4 +114,27 @@ describe('RecentChatsList', () => {
     fireEvent.press(getByTestId('recent-chat-delete-s1'));
     expect(onDeleteSession).toHaveBeenCalledWith('s1');
   });
+
+  it('expands a long recent thread title without opening the chat', () => {
+    const longTitle =
+      'Choosing the Right Body of Water for Your Next Adventure and Fishing Trip';
+    const longSessions: HermesSession[] = [
+      { id: 's-long', title: longTitle, last_active_at: '2026-06-23T12:00:00Z' },
+    ];
+    const onSelectSession = jest.fn();
+    const { getByTestId } = render(
+      <RecentChatsList
+        sessions={longSessions}
+        sessionLabelFor={(session) => session.title ?? session.id}
+        onSelectSession={onSelectSession}
+      />,
+    );
+
+    const titleText = getByTestId('recent-chat-title-s-long-text');
+    expect(titleText.props.numberOfLines).toBe(2);
+
+    fireEvent.press(getByTestId('recent-chat-title-s-long'));
+    expect(getByTestId('recent-chat-title-s-long-text').props.numberOfLines).toBe(6);
+    expect(onSelectSession).not.toHaveBeenCalled();
+  });
 });

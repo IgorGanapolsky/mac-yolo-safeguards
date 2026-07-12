@@ -31,7 +31,7 @@ jobs:
       - name: Shell syntax
         run: |
           set -eu
-          sh -n install.sh sim-runaway-guard.sh yolo-health tests/test-secondary-browser-reclaim.sh
+          sh -n install.sh sim-runaway-guard.sh yolo-health tests/test-secondary-browser-reclaim.sh tests/test-adb-reverse-device-filter.sh
           bash -n scripts/hermes-gateway-watchdog.sh tests/test-hermes-gateway-watchdog.sh tests/test-hermes-gateway-watchdog-e2e.sh scripts/hermes-enable-remote-login.sh scripts/hermes-fleet-ssh-trust.sh tests/test-hermes-mobile-pair.sh
 
       - name: Hermes gateway watchdog unit tests
@@ -91,6 +91,7 @@ jobs:
       - name: Guard E2E
         run: |
           set -eu
+          tests/test-adb-reverse-device-filter.sh
           tests/test-secondary-browser-reclaim.sh
 
       - name: Public secret smoke scan
@@ -145,6 +146,9 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Public mobile source privacy scan
+        run: npm run privacy:scan
+
       - name: Release readiness audit
         env:
           REQUIRE_EAS_PROJECT: "1"
@@ -160,6 +164,14 @@ jobs:
 
       - name: Unit tests with coverage
         run: npm run test:ci
+
+      - name: Export and scan public Android JavaScript
+        env:
+          SENTRY_DISABLE_AUTO_UPLOAD: "true"
+        run: |
+          rm -rf "$RUNNER_TEMP/hermes-mobile-public-export"
+          npx expo export --platform android --output-dir "$RUNNER_TEMP/hermes-mobile-public-export"
+          npm run privacy:scan:artifact -- "$RUNNER_TEMP/hermes-mobile-public-export"
 
       - name: E2E flow validation (Maestro tier-0)
         run: npm run e2e:validate

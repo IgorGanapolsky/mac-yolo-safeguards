@@ -1,7 +1,6 @@
 import React from 'react';
 import {
   Modal,
-  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -9,6 +8,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import ChatFormattedText from './ChatFormattedText';
 import { colors } from '../theme/colors';
 
 type ChatMessageDetailModalProps = {
@@ -55,9 +55,7 @@ export default function ChatMessageDetailModal({
             contentContainerStyle={styles.bodyScrollContent}
             keyboardShouldPersistTaps="handled"
           >
-            <Text style={styles.body} selectable>
-              {body}
-            </Text>
+            <ChatFormattedText text={body} variant="detail" style={styles.body} selectable />
           </ScrollView>
         </SafeAreaView>
       </View>
@@ -117,6 +115,5 @@ const styles = StyleSheet.create({
     fontSize: 15,
     lineHeight: 22,
     color: colors.text,
-    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
   },
 });

@@ -93,17 +93,30 @@ notify() {
 }
 
 # --- Auto-configure adb reverse port forwarding for Hermes Mobile ---
-if command -v adb >/dev/null 2>&1; then
-  adb devices 2>/dev/null | grep -v "List" | grep "device" | awk '{print $1}' | while read -r serial; do
+ADB_BIN=${YOLO_ADB_BIN:-adb}
+if command -v "$ADB_BIN" >/dev/null 2>&1; then
+  "$ADB_BIN" devices 2>/dev/null | /usr/bin/awk 'NR > 1 && $2 == "device" {print $1}' | while read -r serial; do
     if [ -n "$serial" ]; then
-      if ! adb -s "$serial" reverse --list 2>/dev/null | grep -q "tcp:8642"; then
-        if adb -s "$serial" reverse tcp:8642 tcp:8642 >/dev/null 2>&1; then
+      case "$serial" in
+        emulator-*)
+          for port in 8642 8765; do
+            if "$ADB_BIN" -s "$serial" reverse --list 2>/dev/null | /usr/bin/grep -q "tcp:$port"; then
+              if "$ADB_BIN" -s "$serial" reverse --remove "tcp:$port" >/dev/null 2>&1; then
+                echo "$(date) ADB_REVERSE_CLEANUP: removed tcp:$port from emulator $serial" >> "$LOG"
+              fi
+            fi
+          done
+          continue
+          ;;
+      esac
+      if ! "$ADB_BIN" -s "$serial" reverse --list 2>/dev/null | /usr/bin/grep -q "tcp:8642"; then
+        if "$ADB_BIN" -s "$serial" reverse tcp:8642 tcp:8642 >/dev/null 2>&1; then
           echo "$(date) AUTO-PORT-FORWARD: reversed tcp:8642 tcp:8642 for device $serial" >> "$LOG"
           notify "yolo-guard: USB forwarding active" "Automatically forwarded port 8642 via adb reverse to your mobile device ($serial)."
         fi
       fi
-      if ! adb -s "$serial" reverse --list 2>/dev/null | grep -q "tcp:8765"; then
-        if adb -s "$serial" reverse tcp:8765 tcp:8765 >/dev/null 2>&1; then
+      if ! "$ADB_BIN" -s "$serial" reverse --list 2>/dev/null | /usr/bin/grep -q "tcp:8765"; then
+        if "$ADB_BIN" -s "$serial" reverse tcp:8765 tcp:8765 >/dev/null 2>&1; then
           echo "$(date) AUTO-PORT-FORWARD: reversed tcp:8765 tcp:8765 for device $serial" >> "$LOG"
         fi
       fi

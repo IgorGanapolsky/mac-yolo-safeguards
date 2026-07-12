@@ -1,14 +1,18 @@
 import {
+  MEGA_SESSION_RUN_STALE_AUTO_FAIL_MS,
   RUN_STALE_AUTO_FAIL_MS,
   RUN_STALE_IDLE_MS,
   RUN_STALE_WARN_MS,
+  RUN_STREAM_IDLE_FAIL_MS,
   classifyRunStale,
   isMeaningfulRunProgressChange,
   isTerminalGatewayRunStatus,
   msUntilNoTokenFail,
   msUntilRunStaleAutoFail,
+  msUntilStreamIdleFail,
   runStaleHint,
   shouldFailRunAwaitingFirstToken,
+  shouldFailRunForStreamIdle,
   stampRunProgressActivity,
 } from '../utils/runStaleDetection';
 import type { RunProgressState } from '../types/chatDisplay';
@@ -75,5 +79,27 @@ describe('runStaleDetection', () => {
     expect(isTerminalGatewayRunStatus('completed')).toBe(true);
     expect(isTerminalGatewayRunStatus('running')).toBe(false);
     expect(isTerminalGatewayRunStatus('stopping')).toBe(true);
+  });
+
+  it('uses shorter auto-fail for mega sessions', () => {
+    const session = { input_tokens: 4_900_000, output_tokens: 20_000 };
+    expect(classifyRunStale(baseProgress(), MEGA_SESSION_RUN_STALE_AUTO_FAIL_MS + 1, session)).toBe(
+      'expired',
+    );
+    expect(msUntilRunStaleAutoFail(baseProgress({ startedAtMs: 1_000 }), 60_000, session)).toBe(
+      MEGA_SESSION_RUN_STALE_AUTO_FAIL_MS - 59_000,
+    );
+    expect(msUntilRunStaleAutoFail(baseProgress({ startedAtMs: 1_000 }), 60_000)).toBe(
+      RUN_STALE_AUTO_FAIL_MS - 59_000,
+    );
+  });
+
+  it('fails when stream progress goes idle', () => {
+    const progress = baseProgress({
+      startedAtMs: 0,
+      lastProgressAtMs: 0,
+    });
+    expect(shouldFailRunForStreamIdle(progress, RUN_STREAM_IDLE_FAIL_MS + 61_000)).toBe(true);
+    expect(msUntilStreamIdleFail(progress, 30_000)).toBeGreaterThan(0);
   });
 });

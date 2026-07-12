@@ -18,7 +18,10 @@ const {
   readEnvKey,
   readLocalApiKey,
   resolveApiKeyForGatewayUrl,
+  selectPhysicalAdbSerial,
 } = require('./hermes-mobile-pair-lib.js');
+const { withPhonePipelineLock, pipelineBusyReason } = require('./agent-phone-pipeline-lock.js');
+const { localTailscaleIpv4 } = require('./hermes-discover-tailscale-macs.js');
 
 const REPO = path.resolve(__dirname, '..');
 const HERMES_ENV = path.join(os.homedir(), '.hermes', '.env');
@@ -153,10 +156,16 @@ function resolveMiniTailscaleDiscovery() {
   try {
     const payload = JSON.parse(result.stdout);
     const discoveries = Array.isArray(payload.discoveries) ? payload.discoveries : [];
+    const isPhoneDiscovery = (item) =>
+      /s25|iphone|ipad|android/i.test(
+        `${item.hostname || ''} ${item.label || ''} ${item.host || ''}`,
+      );
     const mini =
-      discoveries.find((item) => /mac-mini/i.test(item.hostname || item.label || '')) ||
-      discoveries.find((item) => item.host === '100.94.135.78') ||
-      discoveries[0];
+      discoveries.find(
+        (item) => !isPhoneDiscovery(item) && /mac-mini/i.test(item.hostname || item.label || ''),
+      ) ||
+      discoveries.find((item) => !isPhoneDiscovery(item) && item.host === '100.94.135.78') ||
+      discoveries.find((item) => !isPhoneDiscovery(item));
     return mini || null;
   } catch {
     return null;
@@ -193,8 +202,7 @@ function discoverTailnetProbeHosts() {
     const fromDiscoveries = discoveries
       .map((item) => item.host || item.gatewayUrl?.replace(/^https?:\/\//i, '').split(':')[0])
       .filter(Boolean);
-    // Seed all tailnet peers (not only Hermes-responding hosts) so the phone can
-    // discover Mac mini later when :8642 comes online or the user is off-LAN.
+    // Only online tailnet peers (discover script skips Online===false) plus live Hermes hosts.
     return [...new Set([...probedHosts, ...fromDiscoveries])];
   } catch {
     return [];
@@ -204,16 +212,7 @@ function discoverTailnetProbeHosts() {
 function adbDevice() {
   const result = spawnSync('adb', ['devices'], { encoding: 'utf8' });
   if (result.status !== 0) return null;
-  const lines = result.stdout
-    .split(/\r?\n/)
-    .slice(1)
-    .map((row) => row.trim())
-    .filter((row) => row.endsWith('device'));
-  const physical = lines.find((row) => !row.startsWith('emulator-'));
-  if (physical) {
-    return physical.split(/\s+/)[0];
-  }
-  return lines[0] ? lines[0].split(/\s+/)[0] : null;
+  return selectPhysicalAdbSerial(result.stdout);
 }
 
 function setupAdbReverse(serial) {
@@ -225,9 +224,10 @@ function setupAdbReverse(serial) {
 }
 
 function openDeepLinkOnDevice(serial, link) {
-  const args = serial
-    ? ['-s', serial, 'shell', 'am', 'start', '-a', 'android.intent.action.VIEW', '-d', link]
-    : ['shell', 'am', 'start', '-a', 'android.intent.action.VIEW', '-d', link];
+  // Android device shell splits on '&' unless the URI is single-quoted (breaks &name=… params).
+  const quoted = `'${String(link).replace(/'/g, `'\\''`)}'`;
+  const shellCmd = `am start -a android.intent.action.VIEW -d ${quoted}`;
+  const args = serial ? ['-s', serial, 'shell', shellCmd] : ['shell', shellCmd];
   const result = spawnSync('adb', args, {
     encoding: 'utf8',
   });
@@ -405,6 +405,21 @@ function main() {
     runServerOnly();
     return;
   }
+
+  const lockResult = withPhonePipelineLock(
+    `hermes-mobile-pair:${[...args].join(',') || 'default'}`,
+    () => runPairMain(args),
+    { waitMs: Number(process.env.HERMES_PAIR_LOCK_WAIT_MS || 180_000), skipIfBusy: false },
+  );
+  if (!lockResult.ran) {
+    console.error(
+      `[hermes-mobile-pair] skipped — ${lockResult.reason || pipelineBusyReason() || 'pipeline busy'}`,
+    );
+    process.exit(75);
+  }
+}
+
+function runPairMain(args) {
   const explicitGatewayUrl = parseGatewayUrlArg(args);
   let gatewayUrl;
   let health;
@@ -420,8 +435,14 @@ function main() {
     health = fetchHealthAt(gatewayUrl);
   } else {
     health = fetchHealth();
-    const lanIpFromHealth = resolveLanIp(health);
-    gatewayUrl = `http://${lanIpFromHealth}:8642`;
+    const tailnetIp = localTailscaleIpv4();
+    if (tailnetIp) {
+      gatewayUrl = `http://${tailnetIp}:8642`;
+      console.log('  Gateway: tailnet (5G/cellular-safe)', gatewayUrl);
+    } else {
+      const lanIpFromHealth = resolveLanIp(health);
+      gatewayUrl = `http://${lanIpFromHealth}:8642`;
+    }
   }
   const lanIp = detectLocalLanIp() || resolveLanIp(health);
   const apiKeyBefore = readLocalApiKey();
@@ -489,7 +510,7 @@ function main() {
   }
 
   if (usbPairing && !explicitGatewayUrl && !args.has('--mini-tailscale')) {
-    console.log('  USB pairing: adb reverse active — saved gateway URL uses LAN for Wi‑Fi-only use');
+    console.log('  USB pairing: adb reverse active — saved gateway URL uses tailnet for 5G/cellular');
   }
   if (args.has('--mini-tailscale') || explicitGatewayUrl) {
     console.log('  Pairing target gateway (explicit):', gatewayUrl);
@@ -536,7 +557,7 @@ function main() {
     console.log(ok ? `  adb: opened on ${serial}` : '  adb: intent failed — scan QR on pair page');
     try {
       openDeepLinkOnDevice(serial, 'hermes://dev/leash-unlock');
-      console.log('  adb: developer Leash unlock intent sent');
+      console.log('  adb: developer Leash unlock intent sent (does not change tab)');
     } catch {
       // App may still be cold-starting after install.
     }

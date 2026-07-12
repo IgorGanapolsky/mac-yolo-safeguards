@@ -8,6 +8,7 @@ import {
 } from '../constants/appIdentity';
 import { gatewayProfiles } from './gatewayProfiles';
 import { isLoopbackGatewayUrl, resolveDeviceGatewayUrl } from '../utils/gatewayUrlPolicy';
+import { migrateNotificationPreferences } from '../utils/notificationPreferences';
 import { normalizeMessageText } from '../utils/chatMessageMerge';
 
 const KEYS = {
@@ -112,9 +113,11 @@ export const storage = {
         typeof parsed.thumbgateCaptureOnUp === 'boolean'
           ? parsed.thumbgateCaptureOnUp
           : DEFAULT_GATEWAY_SETTINGS.thumbgateCaptureOnUp;
+      const notificationPrefs = migrateNotificationPreferences(parsed);
       const merged = {
         ...DEFAULT_GATEWAY_SETTINGS,
         ...parsed,
+        ...notificationPrefs,
         connectionMode,
         thumbgateCaptureOnUp,
         ...(cloudUrl ? { cloudUrl } : {}),
