@@ -117,6 +117,9 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Public mobile source privacy scan
+        run: npm run privacy:scan
+
       # Hermes Mobile Play submit: GOOGLE_SERVICE_ACCOUNT_JSON from sync-hermes-secrets.sh
       # (hermes-mobile-publisher@… — not Firebase, not other-app Play keys). See PLAY_RELEASE.md.
       - name: Prepare Google Play service account key
@@ -203,6 +206,16 @@ jobs:
           console.log(`Android production AAB verified: ${build.artifacts.buildUrl}`);
           NODE
 
+      - name: Download and scan Android production AAB
+        env:
+          BUILD_ID: ${{ steps.build.outputs.build_id || steps.adopt_build.outputs.build_id }}
+        run: |
+          set -euo pipefail
+          BUILD_URL="$(node -e 'const b=require("/tmp/eas-android-production-build-view.json"); process.stdout.write(b.artifacts?.buildUrl || "")')"
+          test -n "$BUILD_URL"
+          curl --fail --location --silent --show-error "$BUILD_URL" --output "$RUNNER_TEMP/hermes-production.aab"
+          npm run privacy:scan:artifact -- "$RUNNER_TEMP/hermes-production.aab"
+
       - name: Submit Android build to Google Play
         if: inputs.submit == 'true'
         env:
@@ -255,6 +268,9 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
+      - name: Public mobile source privacy scan
+        run: npm run privacy:scan
 
       - name: Prepare App Store Connect API key
         if: inputs.submit == 'true'
@@ -319,6 +335,14 @@ jobs:
           if (build.distribution !== 'STORE') throw new Error(`Expected STORE distribution, got ${build.distribution}`);
           console.log(`iOS production build verified: ${build.artifacts?.buildUrl || build.id}`);
           NODE
+
+      - name: Download and scan iOS production artifact
+        run: |
+          set -euo pipefail
+          BUILD_URL="$(node -e 'const b=require("/tmp/eas-ios-production-build-view.json"); process.stdout.write(b.artifacts?.buildUrl || "")')"
+          test -n "$BUILD_URL"
+          curl --fail --location --silent --show-error "$BUILD_URL" --output "$RUNNER_TEMP/hermes-production.ipa"
+          npm run privacy:scan:artifact -- "$RUNNER_TEMP/hermes-production.ipa"
 
       - name: Submit iOS build to App Store Connect/TestFlight
         if: inputs.submit == 'true'

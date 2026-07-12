@@ -20,10 +20,6 @@ import { isTailnetRouteLabel, isTailscaleGatewayUrl, isTailscaleIpv4, magicDnsDe
 
 const STORAGE_KEY = 'hermes-mobile:gateway_profiles';
 
-/** Igor fleet Mac mini — Tailscale CGNAT (no USB path on this machine). */
-export const MAC_MINI_TAILSCALE_GATEWAY_URL = 'http://100.94.135.78:8642';
-const MAC_MINI_TAILSCALE_IP = '100.94.135.78';
-
 function normalizeGatewayUrlBase(url: string): string {
   return normalizeGatewayUrl(url.trim()).httpBase;
 }
@@ -99,47 +95,6 @@ export function isInvalidGatewayProfile(profile: GatewayProfile): boolean {
   return !isValidGatewayUrl(profile.gatewayUrl);
 }
 
-function isMacMiniMachineProfile(profile: GatewayProfile): boolean {
-  const machineKey = profileMachineKey(profile);
-  if (machineKey?.includes('mac-mini')) {
-    return true;
-  }
-  const haystack = [profile.hostname, profile.label, profileDisplayName(profile)]
-    .filter(Boolean)
-    .join(' ')
-    .toLowerCase();
-  return haystack.includes('mac-mini');
-}
-
-/** Saved loopback mini rows came from adb reverse — rewrite to Tailscale on load/pair. */
-export function migrateLoopbackMacMiniToTailscale(
-  state: GatewayProfileState,
-): GatewayProfileState {
-  let changed = false;
-  const profiles = state.profiles.map((profile) => {
-    if (!isLoopbackGatewayUrl(profile.gatewayUrl) || !isMacMiniMachineProfile(profile)) {
-      return profile;
-    }
-    changed = true;
-    const hostname = profile.hostname?.trim() || 'Igors-Mac-mini';
-    const gatewayUrl = MAC_MINI_TAILSCALE_GATEWAY_URL;
-    return {
-      ...profile,
-      id: profileIdFromGatewayUrl(gatewayUrl, hostname),
-      gatewayUrl,
-      hostname,
-      localIp: MAC_MINI_TAILSCALE_IP,
-      label: profile.label?.trim() && !isGenericMachineLabel(profile.label)
-        ? profile.label
-        : 'Igors-Mac-mini',
-    };
-  });
-  if (!changed) {
-    return state;
-  }
-  return dedupeGatewayProfiles({ ...state, profiles });
-}
-
 export function sanitizeGatewayProfileState(state: GatewayProfileState): GatewayProfileState {
   const profiles = state.profiles
     .filter((p) => !isInvalidGatewayProfile(p))
@@ -148,9 +103,7 @@ export function sanitizeGatewayProfileState(state: GatewayProfileState): Gateway
   if (activeProfileId && !profiles.some((p) => p.id === activeProfileId)) {
     activeProfileId = profiles[0]?.id ?? null;
   }
-  return migrateLoopbackMacMiniToTailscale(
-    dedupeGatewayProfiles({ profiles, activeProfileId }),
-  );
+  return dedupeGatewayProfiles({ profiles, activeProfileId });
 }
 
 function isGenericProfileLabel(label: string | undefined): boolean {
@@ -256,8 +209,8 @@ export function profileDisplayName(profile: GatewayProfile): string {
   if (hostname && hostname !== ip) {
     return hostname;
   }
-  // Derive a real device name from a Tailscale MagicDNS host (igors-s25-1.tailXXXX.ts.net ->
-  // igors-s25-1) so name-less or stale-generic-labelled Tailscale profiles show a real name
+  // Derive a real device name from a Tailscale MagicDNS host (phone.tailXXXX.ts.net ->
+  // phone) so name-less or stale-generic-labelled Tailscale profiles show a real name
   // instead of "Computer". Must run before the stale-label fallback below.
   const magicName = magicDnsDeviceName(profile.hostname) ?? magicDnsDeviceName(profile.gatewayUrl);
   if (magicName) {
@@ -504,7 +457,7 @@ function profileDedupeKey(profile: GatewayProfile): string {
   if (isLoopbackGatewayUrl(profile.gatewayUrl)) {
     return machineKey ? `host:${machineKey}` : 'loopback:usb';
   }
-  // The same physical Mac gets a new LAN IP from DHCP (Igors-MacBook-Pro at .54 then .66), which
+  // The same physical Mac can get a new LAN IP from DHCP, which
   // used to split it into duplicate rows. De-dupe by resolved machine identity (hostname), not IP.
   if (machineKey) {
     return `host:${machineKey}`;
