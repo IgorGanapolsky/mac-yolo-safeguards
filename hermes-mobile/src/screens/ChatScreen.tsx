@@ -136,9 +136,12 @@ import {
   isTerminalGatewayRunStatus,
   msUntilNoTokenFail,
   msUntilRunStaleAutoFail,
+  msUntilStreamIdleFail,
   RUN_NO_TOKEN_FAIL_DETAIL,
+  RUN_STREAM_IDLE_FAIL_DETAIL,
   RUN_STALE_TIMEOUT_DETAIL,
   shouldFailRunAwaitingFirstToken,
+  shouldFailRunForStreamIdle,
 } from '../utils/runStaleDetection';
 import { isChatAtTop, isChatNearBottom } from '../utils/chatScrollSync';
 import {
@@ -188,10 +191,20 @@ import type { GatewayEventMessage } from '../types/gateway';
 import { applyStreamEvent, attachRunMetadata, mergeRunUsageFromPayload, mergeSessionUsageIntoRunProgress, runProgressForDisplayEqual } from '../utils/chatStreamEvents';
 import {
   WAITING_FOR_PRIOR_CHAT_DETAIL,
+  reconcileFrozenSessionBusyState,
   reconcileStaleActiveRunProgress,
   releaseMacOperatorSlot,
   retryOnSessionInUse,
 } from '../utils/chatSessionRecovery';
+import {
+  classifyMegaSession,
+  isMegaSession,
+  megaSessionBannerCopy,
+  megaSessionSendBlockedCopy,
+  megaSessionSendWarnMessage,
+  megaSessionSendWarnTitle,
+  sessionTotalTokens,
+} from '../utils/sessionTokenGuards';
 import { resolveChatProject } from '../utils/chatContext';
 import { resolveComputerSessionStorageKeys } from '../utils/computerSessionStorage';
 import {
@@ -2400,13 +2413,48 @@ export default function ChatScreen() {
       if (!isLoadingMessagesRef.current && !isPullRefreshingRef.current) {
         refreshSessionMessagesRef.current?.({ background: true });
       }
+      void (async () => {
+        const progress = runProgressRef.current;
+        const lastActiveRaw = activeSession.last_active;
+        const lastActiveUnix =
+          typeof lastActiveRaw === 'number'
+            ? lastActiveRaw
+            : typeof lastActiveRaw === 'string' && lastActiveRaw.trim()
+              ? Number(lastActiveRaw)
+              : null;
+        const knownRunIds = [
+          progress?.runId,
+          sendProgressSnapshotRef.current?.runId,
+        ].filter((id): id is string => Boolean(id?.trim()));
+        const action = await reconcileFrozenSessionBusyState(
+          gatewayUrl,
+          apiKey,
+          progress,
+          isSendingRef.current,
+          knownRunIds,
+          Number.isFinite(lastActiveUnix) ? lastActiveUnix : null,
+        );
+        if (action !== 'clear') {
+          return;
+        }
+        isSendingRef.current = false;
+        setIsSending(false);
+        setRunProgress(null);
+        failPendingOutboundBubbles(OUTBOUND_STUCK_FAILURE_REASON);
+        void refreshSessionMessagesRef.current?.({ background: true, force: true });
+      })();
     }, [
+      apiKey,
       currentSession?.id,
+      currentSession?.last_active,
+      failPendingOutboundBubbles,
+      gatewayUrl,
       isDemo,
       macChatLive,
       macHttpOk,
       connectionState,
       connectEvents,
+      setRunProgress,
     ]),
   );
 
@@ -2672,6 +2720,101 @@ export default function ChatScreen() {
     // "session already in use" when the operator slot is still bound to the prior thread).
     setCurrentSession(null);
   };
+
+  const handleStartFreshChat = useCallback(async () => {
+    haptics.selection();
+    isSendingRef.current = false;
+    setIsSending(false);
+    setRunProgress(null);
+    failPendingOutboundBubbles('Started fresh chat');
+    setPinnedOutboundText(null);
+    setPinnedOutboundSentAt(null);
+    setPinnedOutboundStatus('pending');
+    setErrorMessage(null);
+    setMessages([]);
+    messagesRef.current = [];
+    transcriptDigestRef.current = '';
+    setToolStatus(null);
+    setRecentChatsDismissed(true);
+
+    const sourceSession = currentSessionRef.current;
+    if (isDemo || !sourceSession || isTelegramInboxSession(sourceSession)) {
+      await handleNewChat();
+      return;
+    }
+
+    try {
+      const forked = await forkSession(gatewayUrl, sourceSession.id, apiKey);
+      const forkId = forked.session_id?.trim();
+      if (!forkId) {
+        throw new Error('Could not fork chat on your computer');
+      }
+      const baseTitle = sourceSession.title?.trim() || 'Chat';
+      const freshSession = ensureSessionCreatedAt({
+        id: forkId,
+        title: `${baseTitle} (fresh)`,
+        model: sourceSession.model,
+        input_tokens: 0,
+        output_tokens: 0,
+        cache_read_tokens: 0,
+        last_active_at: new Date().toISOString(),
+      });
+      setSessions((prev) => [freshSession, ...prev.filter((session) => session.id !== forkId)]);
+      setCurrentSession(freshSession);
+      if (activeProject) {
+        const next = bindSessionToProject(projectState, activeProject.id, forkId, freshSession.title ?? baseTitle);
+        await persistProjectState(next);
+      }
+      void refreshSessionMessagesRef.current?.({ background: false, force: true });
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error ? error.message : 'Could not start a fresh chat on your computer',
+      );
+      await handleNewChat();
+    }
+  }, [
+    activeProject,
+    apiKey,
+    failPendingOutboundBubbles,
+    gatewayUrl,
+    handleNewChat,
+    isDemo,
+    persistProjectState,
+    projectState,
+    setRunProgress,
+  ]);
+
+  const confirmMegaSessionSend = useCallback(async (): Promise<boolean> => {
+    const session = currentSessionRef.current;
+    const level = classifyMegaSession(session);
+    if (level === 'normal') {
+      return true;
+    }
+    const total = sessionTotalTokens(session);
+    if (level === 'block') {
+      await new Promise<void>((resolve) => {
+        Alert.alert('Chat too large', megaSessionSendBlockedCopy(total), [
+          { text: 'Start fresh chat', onPress: () => void handleStartFreshChat() },
+          { text: 'Cancel', style: 'cancel', onPress: () => resolve() },
+        ]);
+      });
+      return false;
+    }
+    return new Promise<boolean>((resolve) => {
+      Alert.alert(megaSessionSendWarnTitle(), megaSessionSendWarnMessage(total), [
+        { text: 'Start fresh chat', onPress: () => void handleStartFreshChat().then(() => resolve(false)) },
+        { text: 'Send anyway', style: 'destructive', onPress: () => resolve(true) },
+        { text: 'Cancel', style: 'cancel', onPress: () => resolve(false) },
+      ]);
+    });
+  }, [handleStartFreshChat]);
+
+  const megaSessionWarning = useMemo(() => {
+    if (!isMegaSession(currentSession)) {
+      return null;
+    }
+    return megaSessionBannerCopy(sessionTotalTokens(currentSession));
+  }, [currentSession]);
 
   const executeClearAllChats = useCallback(async () => {
     haptics.warning();
@@ -3385,6 +3528,17 @@ export default function ChatScreen() {
     const displayText = outboundExtras?.displayText?.trim() ?? typed;
     const gatewayMessage = outboundExtras?.gatewayContent ?? typed;
     if (!displayText) return false;
+
+    if (!isProgrammatic && !isDemo) {
+      const session = currentSessionRef.current;
+      const megaLevel = classifyMegaSession(session);
+      if (megaLevel !== 'normal') {
+        const allowed = await confirmMegaSessionSend();
+        if (!allowed) {
+          return false;
+        }
+      }
+    }
 
     if (isSendingRef.current) {
       const trimmed = userText.trim();
@@ -4481,11 +4635,24 @@ export default function ChatScreen() {
     await handleMacRetry();
   }, [handleMacRetry]);
 
+  const collectRecoveryRunIds = useCallback((): string[] => {
+    const ids = [
+      runProgress?.runId,
+      runProgressRef.current?.runId,
+      sendProgressSnapshotRef.current?.runId,
+      progressBanner?.runId,
+    ];
+    return [...new Set(ids.filter((id): id is string => Boolean(id?.trim())))];
+  }, [progressBanner?.runId, runProgress?.runId]);
+
   const handleStopRun = useCallback(async () => {
-    const runId = runProgress?.runId ?? progressBanner?.runId;
-    if (!runId || isDemo) {
-      isSendingRef.current = false;
-      setIsSending(false);
+    const runIds = collectRecoveryRunIds();
+    const runId = runIds[0];
+    isSendingRef.current = false;
+    setIsSending(false);
+    activeChatStreamRef.current = false;
+    setIsChatStreamActive(false);
+    if (isDemo) {
       failPendingOutboundBubbles('Stopped');
       setRunProgress((prev) =>
         prev ? { ...prev, phase: 'failed', detail: 'Stopped' } : null,
@@ -4494,14 +4661,22 @@ export default function ChatScreen() {
       return;
     }
     try {
-      await stopRun(gatewayUrl, runId, apiKey);
+      if (runId) {
+        await stopRun(gatewayUrl, runId, apiKey);
+      } else {
+        await releaseMacOperatorSlot(gatewayUrl, apiKey, runIds);
+      }
+      failPendingOutboundBubbles('Stopped on your computer');
       setRunProgress((prev) =>
         prev ? { ...prev, phase: 'failed', detail: 'Stopped on your computer' } : null,
       );
-      isSendingRef.current = false;
-      setIsSending(false);
       haptics.warning();
     } catch (error) {
+      await releaseMacOperatorSlot(gatewayUrl, apiKey, runIds).catch(() => {});
+      failPendingOutboundBubbles('Stopped');
+      setRunProgress((prev) =>
+        prev ? { ...prev, phase: 'failed', detail: 'Stopped on your computer' } : null,
+      );
       setErrorMessage(
         error instanceof Error ? error.message : 'Could not stop the run on your computer',
       );
@@ -4509,11 +4684,10 @@ export default function ChatScreen() {
     }
   }, [
     apiKey,
+    collectRecoveryRunIds,
     failPendingOutboundBubbles,
     gatewayUrl,
     isDemo,
-    progressBanner?.runId,
-    runProgress?.runId,
     setRunProgress,
   ]);
 
@@ -4672,17 +4846,19 @@ export default function ChatScreen() {
 
   useEffect(() => {
     const progress = runProgressRef.current;
+    const session = currentSessionRef.current;
     if (isDemo || !progress || !isActiveChatRun(progress)) {
       return;
     }
-    if (classifyRunStale(progress) !== 'expired') {
-      const waitMs = msUntilRunStaleAutoFail(progress);
+    if (classifyRunStale(progress, Date.now(), session) !== 'expired') {
+      const waitMs = msUntilRunStaleAutoFail(progress, Date.now(), session);
       const timer = setTimeout(() => {
         const current = runProgressRef.current;
+        const activeSession = currentSessionRef.current;
         if (!current || !isActiveChatRun(current)) {
           return;
         }
-        if (classifyRunStale(current) !== 'expired') {
+        if (classifyRunStale(current, Date.now(), activeSession) !== 'expired') {
           return;
         }
         isSendingRef.current = false;
@@ -4719,6 +4895,65 @@ export default function ChatScreen() {
     runProgress?.phase,
     runProgress?.lastProgressAtMs,
     runProgress?.detail,
+    currentSession?.input_tokens,
+    currentSession?.output_tokens,
+    currentSession?.cache_read_tokens,
+    setRunProgress,
+  ]);
+
+  useEffect(() => {
+    const progress = runProgressRef.current;
+    const session = currentSessionRef.current;
+    if (isDemo || !progress || !isActiveChatRun(progress)) {
+      return;
+    }
+    if (shouldFailRunForStreamIdle(progress, Date.now(), session)) {
+      isSendingRef.current = false;
+      setIsSending(false);
+      setRunProgress((prev) =>
+        prev && isActiveChatRun(prev)
+          ? {
+              ...prev,
+              phase: 'failed',
+              detail: RUN_STREAM_IDLE_FAIL_DETAIL,
+              duration: Math.max(0, (Date.now() - prev.startedAtMs) / 1000),
+            }
+          : prev,
+      );
+      haptics.warning();
+      return;
+    }
+    const waitMs = msUntilStreamIdleFail(progress, Date.now(), session);
+    const timer = setTimeout(() => {
+      const current = runProgressRef.current;
+      const activeSession = currentSessionRef.current;
+      if (!current || !shouldFailRunForStreamIdle(current, Date.now(), activeSession)) {
+        return;
+      }
+      isSendingRef.current = false;
+      setIsSending(false);
+      setRunProgress((prev) =>
+        prev && isActiveChatRun(prev)
+          ? {
+              ...prev,
+              phase: 'failed',
+              detail: RUN_STREAM_IDLE_FAIL_DETAIL,
+              duration: Math.max(0, (Date.now() - prev.startedAtMs) / 1000),
+            }
+          : prev,
+      );
+      haptics.warning();
+    }, waitMs);
+    return () => clearTimeout(timer);
+  }, [
+    isDemo,
+    runProgress?.startedAtMs,
+    runProgress?.phase,
+    runProgress?.lastProgressAtMs,
+    runProgress?.detail,
+    currentSession?.input_tokens,
+    currentSession?.output_tokens,
+    currentSession?.cache_read_tokens,
     setRunProgress,
   ]);
 
@@ -5136,12 +5371,25 @@ export default function ChatScreen() {
             progress={progressBanner}
             fallbackModel={progressBannerFallbackModel}
             showTechnicalStats={settings.includeToolActivity}
-            onStop={isRunActive && (runProgress?.runId || progressBanner.runId) ? handleStopRun : undefined}
+            megaSessionWarning={megaSessionWarning}
+            onStartFreshChat={megaSessionWarning ? () => void handleStartFreshChat() : undefined}
+            onStop={isRunActive || isSending ? () => void handleStopRun() : undefined}
             onDismiss={clearFailedOutboundState}
             onRetry={connectivityRunFailure ? () => void handleRetryConnectivity() : undefined}
             terminalToolName={operatorTerminalLine?.toolName}
             terminalPreview={operatorTerminalLine?.text}
           />
+        ) : megaSessionWarning ? (
+          <View style={styles.megaSessionBanner} testID="mega-session-banner">
+            <Text style={styles.megaSessionBannerText}>{megaSessionWarning}</Text>
+            <Pressable
+              onPress={() => void handleStartFreshChat()}
+              style={({ pressed }) => [styles.megaSessionBannerAction, pressed && styles.megaSessionBannerActionPressed]}
+              testID="mega-session-start-fresh-chat"
+            >
+              <Text style={styles.megaSessionBannerActionText}>Start fresh chat</Text>
+            </Pressable>
+          </View>
         ) : null}
 
         {toolStatus && !showComposerProgressBanner ? (
@@ -5935,6 +6183,40 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: colors.accent,
     fontWeight: '600',
+  },
+  megaSessionBanner: {
+    marginHorizontal: 16,
+    marginBottom: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(239, 68, 68, 0.35)',
+    backgroundColor: 'rgba(239, 68, 68, 0.08)',
+    gap: 8,
+  },
+  megaSessionBannerText: {
+    fontSize: 12,
+    lineHeight: 17,
+    fontWeight: '700',
+    color: colors.error,
+  },
+  megaSessionBannerAction: {
+    alignSelf: 'flex-start',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(59, 130, 246, 0.45)',
+    backgroundColor: 'rgba(59, 130, 246, 0.12)',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  megaSessionBannerActionPressed: {
+    opacity: 0.85,
+  },
+  megaSessionBannerActionText: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: colors.primary,
   },
   composerDock: {
     borderTopWidth: 1,

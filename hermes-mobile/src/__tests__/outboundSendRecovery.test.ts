@@ -69,5 +69,19 @@ describe('outboundSendRecovery', () => {
     expect(
       shouldRecoverOutboundSendLock(startedAt, startedAt + 1_000, { streamInFlight: false }),
     ).toBe(false);
+    expect(
+      shouldRecoverOutboundSendLock(
+        startedAt,
+        startedAt + OUTBOUND_SEND_LOCK_TIMEOUT_MS * 2 + 1,
+        { streamInFlight: true },
+      ),
+    ).toBe(true);
+    expect(
+      shouldRecoverOutboundSendLock(
+        startedAt,
+        startedAt + OUTBOUND_SEND_LOCK_TIMEOUT_MS + 1,
+        { streamInFlight: true },
+      ),
+    ).toBe(false);
   });
 });

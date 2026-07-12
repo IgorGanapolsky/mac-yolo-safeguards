@@ -2,6 +2,7 @@ import {
   WAITING_FOR_PRIOR_CHAT_DETAIL,
   filterLiveGatewayRunIds,
   isWaitingForPriorChatDetail,
+  reconcileFrozenSessionBusyState,
   reconcileStaleActiveRunProgress,
   releaseMacOperatorSlot,
   retryOnSessionInUse,
@@ -92,6 +93,27 @@ describe('reconcileStaleActiveRunProgress', () => {
       ['r1'],
     );
     expect(action).toBe('keep');
+  });
+});
+
+describe('reconcileFrozenSessionBusyState', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('clears frozen busy state when session last_active is stale and gateway has no live runs', async () => {
+    getRunStatus.mockResolvedValue(null);
+    const nowMs = 1_000_000_000_000;
+    const action = await reconcileFrozenSessionBusyState(
+      'http://mac:8642',
+      'key',
+      { phase: 'working', startedAtMs: nowMs - 600_000, detail: 'working' },
+      true,
+      [],
+      (nowMs - 600_000) / 1000,
+      nowMs,
+    );
+    expect(action).toBe('clear');
   });
 });
 
