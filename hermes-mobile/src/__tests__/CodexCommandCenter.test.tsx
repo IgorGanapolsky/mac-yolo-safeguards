@@ -94,6 +94,21 @@ describe('CodexCommandCenter', () => {
     expect(getByTestId('command-center-mac-detail').props.children).toBe('Reconnecting…');
   });
 
+  it('shows machine-specific unreachable copy after heal is exhausted', () => {
+    const { getByTestId } = render(
+      <CodexCommandCenter
+        connectionState="disconnected"
+        healExhausted
+        machineName="Igors-Mac-mini"
+        pendingApprovalCount={0}
+        onOpenApprovals={jest.fn()}
+      />,
+    );
+
+    expect(getByTestId('command-center-link-state').props.children).toBe('Not connected');
+    expect(getByTestId('command-center-mac-detail').props.children).toBe('Igors-Mac-mini unreachable');
+  });
+
   it('shows checking status with custom machine name when connecting', () => {
     const { getByTestId } = render(
       <CodexCommandCenter

@@ -201,7 +201,7 @@ describe('ChatConnectionPanel', () => {
         onSearchMac={jest.fn()}
       />,
     );
-    expect(getByText("Can't reach your computer")).toBeTruthy();
+    expect(getByText("MacBook Pro isn't reachable right now")).toBeTruthy();
   });
 
   it('shows wrong Mac on USB when health hostname differs from selected profile', () => {
@@ -311,6 +311,40 @@ describe('ChatConnectionPanel', () => {
     expect(onAdd).toHaveBeenCalledWith(
       expect.objectContaining({ gatewayUrl: 'http://100.94.135.78:8642' }),
     );
+  });
+
+  it('offers Switch computer after heal exhausted with another saved Mac', () => {
+    const onSwitchComputer = jest.fn();
+    const { getByTestId, getByText } = render(
+      <ChatConnectionPanel
+        connectionState="disconnected"
+        wifiConnected={false}
+        profiles={[
+          {
+            id: 'mini',
+            label: 'Igors-Mac-mini',
+            gatewayUrl: 'http://100.94.135.78:8642',
+            addedAt: '2026-06-28T00:00:00Z',
+          },
+          {
+            id: 'pro',
+            label: 'Igors-MacBook-Pro',
+            gatewayUrl: 'http://100.118.0.126:8642',
+            addedAt: '2026-06-28T00:00:00Z',
+          },
+        ]}
+        activeProfileId="mini"
+        activeProfileReachable={false}
+        connectionHealAttempt={6}
+        connectionHealExhausted
+        macLabel="Igors-Mac-mini"
+        onSearchMac={jest.fn()}
+        onSwitchComputer={onSwitchComputer}
+      />,
+    );
+    expect(getByText("Igors-Mac-mini isn't reachable right now")).toBeTruthy();
+    fireEvent.press(getByTestId('chat-connection-switch-computer'));
+    expect(onSwitchComputer).toHaveBeenCalled();
   });
 
   it('hides status pills during silent heal for returning users', () => {

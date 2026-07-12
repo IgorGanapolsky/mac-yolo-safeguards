@@ -102,3 +102,58 @@ export function mergeTailnetProbeHosts(...lists: string[][]): string[] {
   }
   return Array.from(merged);
 }
+
+/** e.g. `igors-mac-mini.tail12aa33.ts.net` → `tail12aa33.ts.net` */
+export function inferTailnetDnsSuffix(hosts: string[]): string | undefined {
+  for (const raw of hosts) {
+    const host = normalizeTailnetProbeHost(raw);
+    if (!host?.includes('.ts.net')) {
+      continue;
+    }
+    const parts = host.split('.');
+    const tailIdx = parts.findIndex((part) => part.startsWith('tail'));
+    if (tailIdx > 0) {
+      return parts.slice(tailIdx).join('.');
+    }
+  }
+  return undefined;
+}
+
+/** Bonjour / display name → MagicDNS slug (`Igors-MacBook-Pro` → `igors-macbook-pro`). */
+export function slugifyMachineNameForMagicDns(name: string): string | undefined {
+  const trimmed = name.trim().replace(/\.local$/i, '');
+  if (!trimmed) {
+    return undefined;
+  }
+  const slug = trimmed
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+  return slug || undefined;
+}
+
+/**
+ * When we know one tailnet host (e.g. Mac mini MagicDNS), synthesize MagicDNS candidates for
+ * other saved machine names (MacBook Pro) — including Tailscale's `-1` collision suffix.
+ */
+export function expandTailnetProbeHostsWithSavedMachines(
+  hosts: string[],
+  machineNames: string[],
+): string[] {
+  const suffix = inferTailnetDnsSuffix(hosts);
+  if (!suffix) {
+    return mergeTailnetProbeHosts(hosts);
+  }
+  const expanded = [...hosts];
+  for (const name of machineNames) {
+    const slug = slugifyMachineNameForMagicDns(name);
+    if (!slug) {
+      continue;
+    }
+    expanded.push(`${slug}.${suffix}`);
+    if (!slug.endsWith('-1')) {
+      expanded.push(`${slug}-1.${suffix}`);
+    }
+  }
+  return mergeTailnetProbeHosts(expanded);
+}

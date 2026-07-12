@@ -1,5 +1,6 @@
 import { GATEWAY_WRONG_KEY_MESSAGE, gatewayAuthRepairBanner } from '../services/gatewayClient';
 import { isPrivateLanGatewayUrl } from './gatewayEndpoint';
+import { isTailscaleGatewayUrl } from './tailscaleHosts';
 
 const CONNECTIVITY_MARKERS = [
   'failed to fetch',
@@ -173,6 +174,9 @@ export function friendlyMacUnreachableMessage(gatewayUrl?: string): string {
   const url = gatewayUrl?.trim();
   if (url && isPrivateLanGatewayUrl(url)) {
     return "Your phone can't reach that local computer link. Join the same Wi‑Fi, add a tunnel URL in Settings, or use relay for approvals only.";
+  }
+  if (url && isTailscaleGatewayUrl(url)) {
+    return "Your saved computer isn't reachable on Tailscale right now. Turn it on, open Tailscale, or switch to another computer above.";
   }
   return 'Hermes relay is not connected yet. Pair relay in Settings, or use a direct computer link as fallback.';
 }
