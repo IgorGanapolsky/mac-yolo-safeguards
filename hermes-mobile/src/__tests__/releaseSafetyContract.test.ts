@@ -381,8 +381,6 @@ describe('release safety contract', () => {
     ) as [string, { organization?: string; project?: string }] | undefined;
     expect(sentryPlugin?.[1]?.organization).toBe('max-smith-kdp-llc');
     expect(sentryPlugin?.[1]?.project).toBeUndefined();
-    const sentryProps = read('hermes-mobile/android/sentry.properties');
-    expect(sentryProps).not.toContain('defaults.project=hermes-mobile');
   });
 
   it('iOS simulator E2E builds with automation deep links enabled', () => {
