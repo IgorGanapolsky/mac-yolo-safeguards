@@ -48,6 +48,15 @@ Every claim needs proof in the same turn:
 - "Fixed" → reproduce-then-pass evidence, not "should work"
 - "Merged" → commit SHA + CI status link
 
+## Always ship finished work (commit → push → merge)
+
+**User directive (2026-07-12, emphatic):** never leave verified work uncommitted — "you must always commit and push, and merge PRs."
+
+1. When a change is tested and verified, **commit it the same session**: own branch off `origin/main`, in an **isolated worktree** (never `git checkout -b` in a shared working tree — it hijacks whatever branch a live agent has checked out there).
+2. Stage **only your own files** — other agents' dirty WIP must never ride along.
+3. Push, open a PR, watch CI, and **merge when green** (`--auto` on strict-protection repos); report the merge with commit SHA + CI status.
+4. Uncommitted work on this multi-agent repo evaporates — another agent's checkout/revert can silently destroy it within hours. Untracked finished work is indistinguishable from no work.
+
 ## No manual handoffs to the user
 
 **User directive:** Never tell the user to run commands, tap UI, import configs, or "do X on your phone/Mac" themselves.
