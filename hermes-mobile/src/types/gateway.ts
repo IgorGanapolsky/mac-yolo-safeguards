@@ -90,7 +90,7 @@ export interface GatewaySettings {
   demoMode: boolean;
   /** Glanceable stack UI + audio-first feedback (AI glasses parity on phone). */
   glanceMode: boolean;
-  /** Open Leash on launch and prioritize approval alerts (ThumbGate ops persona). */
+  /** Prioritize lock-screen approval alerts (ThumbGate ops persona). Does not change launch tab. */
   safetyMode: boolean;
   /** ThumbGate: capture thumbs-down verdicts to agent memory (default on). */
   thumbgateCaptureOnDown: boolean;

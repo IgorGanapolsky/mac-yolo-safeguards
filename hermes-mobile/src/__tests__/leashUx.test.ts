@@ -10,9 +10,9 @@ describe('leashUx', () => {
     expect(resolveInitialTab(DEFAULT_GATEWAY_SETTINGS)).toBe('Chat');
   });
 
-  it('opens ThumbGate Leash when approval-first mode is on and Pro is active', () => {
+  it('ALWAYS opens on Chat, even when approval-first mode is on and Pro is active', () => {
     const pro = { ...DEFAULT_GATEWAY_SETTINGS, thumbgateProActive: true };
-    expect(resolveInitialTab({ ...pro, safetyMode: true })).toBe('Leash');
+    expect(resolveInitialTab({ ...pro, safetyMode: true })).toBe('Chat');
   });
 
   it('does NOT land on Leash when only glance mode is on, even with Leash unlocked', () => {
@@ -21,10 +21,10 @@ describe('leashUx', () => {
     expect(resolveInitialTab({ ...pro, glanceMode: true, safetyMode: false })).toBe('Chat');
   });
 
-  it('ignores glance mode when deciding the landing tab (safety mode is the only lever)', () => {
+  it('ignores glance mode AND safety mode when deciding the landing tab — always Chat', () => {
     const pro = { ...DEFAULT_GATEWAY_SETTINGS, thumbgateProActive: true, safetyMode: true };
-    expect(resolveInitialTab({ ...pro, glanceMode: false })).toBe('Leash');
-    expect(resolveInitialTab({ ...pro, glanceMode: true })).toBe('Leash');
+    expect(resolveInitialTab({ ...pro, glanceMode: false })).toBe('Chat');
+    expect(resolveInitialTab({ ...pro, glanceMode: true })).toBe('Chat');
   });
 
   it('stays on Chat when both approval-first and glance mode are off', () => {
@@ -44,9 +44,11 @@ describe('leashUx', () => {
     expect(text).toContain('approvals.mode');
   });
 
-  it('explains approval-first empty state', () => {
+  it('explains approval-first empty state without claiming Leash opens first', () => {
     const text = buildLeashEmptyExplanation({ ...DEFAULT_GATEWAY_SETTINGS, safetyMode: true });
     expect(text).toContain('Approval-first mode is on');
+    expect(text).toContain('Hermes still opens on launch');
+    expect(text).not.toContain('Leash opens first');
   });
 
   it('does not claim Leash opens first when only glance mode is on', () => {

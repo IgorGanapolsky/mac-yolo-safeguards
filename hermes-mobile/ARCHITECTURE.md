@@ -27,4 +27,4 @@ Canonical constants: [`src/constants/appIdentity.ts`](src/constants/appIdentity.
 | **Ops** | Cron jobs, skills, health |
 | **Settings** | Gateway tunnel, **Safety mode**, Mac pairing |
 
-**Default launch tab:** Chat. Turn on **Safety mode** or **Glance mode** in Settings to open Leash first (ThumbGate / glasses persona).
+**Default launch tab:** Hermes (Chat) on every cold start. Leash opens only when you tap Leash, tap an approval notification, or follow an explicit `hermes://leash` deep link.
