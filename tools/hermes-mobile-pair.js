@@ -18,6 +18,7 @@ const {
   readEnvKey,
   readLocalApiKey,
   resolveApiKeyForGatewayUrl,
+  selectPhysicalAdbSerial,
 } = require('./hermes-mobile-pair-lib.js');
 const { withPhonePipelineLock, pipelineBusyReason } = require('./agent-phone-pipeline-lock.js');
 const { localTailscaleIpv4 } = require('./hermes-discover-tailscale-macs.js');
@@ -211,16 +212,7 @@ function discoverTailnetProbeHosts() {
 function adbDevice() {
   const result = spawnSync('adb', ['devices'], { encoding: 'utf8' });
   if (result.status !== 0) return null;
-  const lines = result.stdout
-    .split(/\r?\n/)
-    .slice(1)
-    .map((row) => row.trim())
-    .filter((row) => row.endsWith('device'));
-  const physical = lines.find((row) => !row.startsWith('emulator-'));
-  if (physical) {
-    return physical.split(/\s+/)[0];
-  }
-  return lines[0] ? lines[0].split(/\s+/)[0] : null;
+  return selectPhysicalAdbSerial(result.stdout);
 }
 
 function setupAdbReverse(serial) {
