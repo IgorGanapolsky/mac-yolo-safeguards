@@ -18,7 +18,8 @@ describe('macPairingUx', () => {
 
   it('documents QR pairing in plain language', () => {
     const bodies = MAC_QR_PAIRING_STEPS.map((s) => s.body).join(' ');
-    expect(bodies).toContain('Connect phone');
+    expect(bodies).toContain('Find computers');
+    expect(bodies).not.toContain('Connect phone');
     expect(bodies.toLowerCase()).not.toContain('bash');
   });
 
