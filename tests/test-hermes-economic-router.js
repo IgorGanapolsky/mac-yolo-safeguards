@@ -111,6 +111,44 @@ assert(
   noImplicitGrok.rejectedRoutes.some((route) => route.id === 'grok45_verifier_candidate' && route.reasons.some((reason) => reason.includes('explicit Grok request'))),
 );
 
+const parallelNoApproval = decision(parseArgs([
+  '--task', 'use Parallel Search for the latest official agent retrieval architecture release',
+  '--risk', 'medium',
+  '--max-cost-usd', '0.01',
+  '--latency-ms', '10000',
+]));
+assert.strictEqual(parallelNoApproval.signals.asksForParallel, true);
+assert.strictEqual(parallelNoApproval.signals.needsFreshWeb, true);
+assert.notStrictEqual(parallelNoApproval.selectedRoute.id, 'parallel_search_candidate');
+assert(
+  parallelNoApproval.rejectedRoutes.some((route) => route.id === 'parallel_search_candidate' && route.reasons.some((reason) => reason.includes('paid route'))),
+);
+
+const parallel = decision(parseArgs([
+  '--task', 'use Parallel Search for the latest official agent retrieval architecture release with dense excerpts',
+  '--risk', 'medium',
+  '--max-cost-usd', '0.01',
+  '--latency-ms', '10000',
+  '--paid-ok',
+]));
+assert.strictEqual(parallel.selectedRoute.id, 'parallel_search_candidate');
+assert.strictEqual(parallel.selectedRoute.provider, 'parallel-search');
+assert.strictEqual(parallel.selectedRoute.model, 'search-v1');
+assert.strictEqual(parallel.selectedRoute.candidateOnly, true);
+assert.strictEqual(parallel.selectedRoute.apiPricing.baseRequestUsd, 0.005);
+assert.strictEqual(parallel.estimatedCostUsd, 0.005);
+assert.strictEqual(parallel.requiresApproval, true);
+assert.strictEqual(parallel.signals.mobile, false);
+assert.strictEqual(parallel.microAgentRecipe.id, 'parallel_retrieval_workflow');
+assert.strictEqual(parallel.microAgentRecipe.pattern, 'workflow');
+assert(parallel.microAgentRecipe.roles.some((role) => role.id === 'retriever'));
+assert(parallel.microAgentRecipe.retrievalPolicy.trace.includes('ranked-results'));
+assert(parallel.policy.retrievalRule.includes('offline relevance'));
+assert(parallel.policy.memoryRule.includes('inspectable wiki'));
+const parallelPlan = buildExecutionPlan(parallel);
+assert.strictEqual(parallelPlan.status, 'blocked');
+assert(parallelPlan.steps.some((step) => step.id === 'approval-gate'));
+
 const exactContract = decision(parseArgs([
   '--task', 'solve hidden-test hard reasoning with exact answer strict format and quorum synthesis',
   '--risk', 'high',
