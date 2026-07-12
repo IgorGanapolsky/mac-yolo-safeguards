@@ -32,7 +32,7 @@ const HERMES_YOLO_LATEST_RECEIPT_PATH = process.env.HERMES_YOLO_LATEST_RECEIPT_P
 const HERMES_YOLO_HISTORY_RECEIPT_PATH = process.env.HERMES_YOLO_HISTORY_RECEIPT_PATH || path.join(HERMES_YOLO_RECEIPT_DIR, 'history.jsonl');
 // All thresholds overridable via env vars.
 const HERMES_BIN = process.env.HERMES_BIN || path.join(HOME, '.local/bin/hermes');
-const DEFAULT_TOOLSETS = process.env.HERMES_YOLO_TOOLSETS || 'terminal,file,web,code_execution,memory,clarify';
+const DEFAULT_TOOLSETS = process.env.HERMES_YOLO_TOOLSETS || 'terminal,file,web,code_execution,memory,clarify,computer_use,vision';
 
 function parseEnvFile(filePath = HERMES_ENV_PATH) {
   if (!filePath || !fs.existsSync(filePath)) return {};
@@ -225,11 +225,13 @@ const wrapperPromptMode = (
   process.stdout.isTTY &&
   process.env.HERMES_YOLO_INTERACTIVE !== '1'
 );
-const wrapperPromptText = wrapperPromptMode ? readPromptLineFromTty() : null;
-const effectivePromptText = wrapperPromptText || promptText;
-const childPromptArgs = buildChildPromptArgs(args, effectivePromptText, {
-  forceOneshot: wrapperPromptMode,
-});
+// Bare `hermes-yolo` on a TTY -> launch NATIVE interactive `hermes chat` (multi-line paste +
+// multi-turn) instead of reading a single line and one-shotting, which dropped pasted URLs to
+// the shell (zsh: no such file: https://...). Args/subcommands still route as before.
+const effectivePromptText = wrapperPromptMode ? 'interactive chat' : promptText;
+const childPromptArgs = wrapperPromptMode
+  ? ['chat']
+  : buildChildPromptArgs(args, effectivePromptText, {});
 
 function log(msg) {
   try { fs.appendFileSync(LOG_PATH, `${new Date().toISOString()} ${msg}\n`); } catch (e) {}
@@ -600,7 +602,7 @@ const env = Object.assign({}, ROUTE_ENV, {
   HERMES_ACCEPT_HOOKS: '1'
 });
 
-const childStdio = wrapperPromptMode ? ['ignore', 'inherit', 'inherit'] : 'inherit';
+const childStdio = 'inherit';  // interactive chat needs stdin (keyboard), not just stdout/stderr
 const child = spawn(HERMES_BIN, [...EXTRA_ARGS, ...childPromptArgs], { stdio: childStdio, env });
 log(`SPAWNED childPid=${child.pid}`);
 
@@ -678,7 +680,8 @@ function getAggregateCpu(pids) {
 }
 
 // Hard timeout
-const timeoutHandle = setTimeout(
+// No hard timeout in interactive chat — a human session isn't a stuck task and must not be killed.
+const timeoutHandle = wrapperPromptMode ? null : setTimeout(
   () => killChild(`hard timeout (${TIMEOUT_MS}ms)`),
   TIMEOUT_MS
 );
@@ -705,7 +708,7 @@ const watchdog = CPU_WATCHDOG_ENABLED ? setInterval(() => {
 }, CPU_SAMPLE_INTERVAL_MS) : null;
 
 child.on('close', (code, signal) => {
-  clearTimeout(timeoutHandle);
+  if (timeoutHandle) clearTimeout(timeoutHandle);
   if (watchdog) clearInterval(watchdog);
   releaseLock();
   log(`EXIT code=${code} signal=${signal} killed=${killed} reason=${killReason || ''}`);
