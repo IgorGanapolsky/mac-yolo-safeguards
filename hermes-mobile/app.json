@@ -148,8 +148,7 @@
       [
         "@sentry/react-native",
         {
-          "organization": "max-smith-kdp-llc",
-          "project": "hermes-mobile"
+          "organization": "max-smith-kdp-llc"
         }
       ]
     ]

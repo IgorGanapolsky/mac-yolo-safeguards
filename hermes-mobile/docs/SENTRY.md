@@ -28,7 +28,9 @@ Hermes Mobile reports to **max-smith-kdp-llc**, not **subway-w3**. The subway-w3
 | `SENTRY_ORG` | Build only | `max-smith-kdp-llc` |
 | `SENTRY_PROJECT` | Build only | Project **slug** (not numeric id) for upload |
 
-`SENTRY_PROJECT` slug is still unset in tracked env — runtime capture works without it; readable JS stack traces need the slug + token on EAS/local release builds.
+**Do not use `hermes-mobile` as `SENTRY_PROJECT`** — that slug does not exist in org `max-smith-kdp-llc` (Gradle `_SentryUpload` HTTP 400: one or more projects are invalid; blocked Android production vc10, 2026-07-11). Runtime events use DSN project id `4509329571315712`; upload needs the dashboard **Project Slug**, still unset in tracked env.
+
+Store production builds (iOS + Android) set `SENTRY_DISABLE_AUTO_UPLOAD=true` until the real slug is set in EAS + `eas.json`.
 
 ### Find the project slug
 
@@ -46,8 +48,8 @@ Automated lookup via Sentry API returned **403** with the local auth token (insu
 | Context | Vars | Why |
 |---|---|---|
 | GitHub Actions (Gradle prebuild/assemble) | `SENTRY_DISABLE_AUTO_UPLOAD=true` | No `SENTRY_PROJECT` slug in CI secrets — skip symbol upload instead of failing the build |
-| EAS production profile | `SENTRY_ORG=max-smith-kdp-llc` in `eas.json` | Org slug for `@sentry/react-native` Gradle hook on cloud builds |
-| EAS production secrets | `SENTRY_AUTH_TOKEN`, `SENTRY_PROJECT` | Source maps once slug is known |
+| EAS production profile | `SENTRY_ORG=max-smith-kdp-llc`; `SENTRY_DISABLE_AUTO_UPLOAD=true` on iOS + Android | Skips Gradle/Xcode upload until slug is verified |
+| EAS production secrets | `SENTRY_AUTH_TOKEN`; `SENTRY_PROJECT` (real slug, **not** `hermes-mobile`) | Source maps once slug is known |
 
 ## Verify installed APK org
 

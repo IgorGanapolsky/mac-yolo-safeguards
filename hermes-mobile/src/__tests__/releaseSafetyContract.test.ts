@@ -370,6 +370,21 @@ describe('release safety contract', () => {
     expect(safeNotes).not.toMatch(/ts\.net/);
   });
 
+  it('store production EAS disables Sentry upload until project slug is verified', () => {
+    const eas = JSON.parse(read('hermes-mobile/eas.json'));
+    const app = JSON.parse(read('hermes-mobile/app.json'));
+    expect(eas.build.production.ios.env.SENTRY_DISABLE_AUTO_UPLOAD).toBe('true');
+    expect(eas.build.production.android.env.SENTRY_DISABLE_AUTO_UPLOAD).toBe('true');
+    expect(eas.build.production.env.SENTRY_PROJECT).toBeUndefined();
+    const sentryPlugin = app.expo.plugins.find(
+      (p: unknown) => Array.isArray(p) && p[0] === '@sentry/react-native',
+    ) as [string, { organization?: string; project?: string }] | undefined;
+    expect(sentryPlugin?.[1]?.organization).toBe('max-smith-kdp-llc');
+    expect(sentryPlugin?.[1]?.project).toBeUndefined();
+    const sentryProps = read('hermes-mobile/android/sentry.properties');
+    expect(sentryProps).not.toContain('defaults.project=hermes-mobile');
+  });
+
   it('iOS simulator E2E builds with automation deep links enabled', () => {
     const script = read('hermes-mobile/scripts/run-simulator-e2e.sh');
     const appConfig = read('hermes-mobile/app.config.js');
