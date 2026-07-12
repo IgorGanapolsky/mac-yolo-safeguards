@@ -94,5 +94,19 @@ else
   bad "session-start does not inject owner pairing into an emulator-only ADB environment"
 fi
 
+# Default pairing must prefer tailnet IP (5G-safe), not LAN, when --gateway-url is omitted.
+if [[ "$PAIR_JS" == *"localTailscaleIpv4"* ]] && [[ "$PAIR_JS" == *"5G/cellular-safe"* ]]; then
+  ok "pair script prefers tailnet gateway URL for cellular"
+else
+  bad "pair script prefers tailnet gateway URL for cellular"
+fi
+
+DISCOVER_JS="$(cat "$REPO/tools/hermes-discover-tailscale-macs.js")"
+if [[ "$DISCOVER_JS" == *"isPeerOnline"* ]] && [[ "$DISCOVER_JS" == *"Online !== false"* ]]; then
+  ok "discover script skips offline tailnet peers"
+else
+  bad "discover script skips offline tailnet peers"
+fi
+
 printf "\nResults: %s passed, %s failed\n" "$pass" "$fail"
 [[ "$fail" -eq 0 ]]
