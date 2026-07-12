@@ -100,4 +100,3 @@ try {
 } finally {
   fs.rmSync(repo, { recursive: true, force: true });
 }
-
