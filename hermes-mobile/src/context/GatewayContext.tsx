@@ -274,7 +274,7 @@ export const GatewayContext = createContext<GatewayContextValue | null>(null);
 
 export function GatewayProvider({ children }: { children: React.ReactNode }) {
   const [settings, setSettings] = useState<GatewaySettings>(DEFAULT_GATEWAY_SETTINGS);
-  const [apiKey, setApiKey] = useState('sk-hermes-api-server-key-2026-06-15');
+  const [apiKey, setApiKey] = useState('');
   const [mobileToken, setMobileToken] = useState('');
   const [thumbgateApiKey, setThumbgateApiKey] = useState('');
   const [runProgress, setRunProgress] = useState<RunProgressState | null>(null);
@@ -521,7 +521,7 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
         const savedMobileToken = await secureCredentials.loadMobileToken();
 
         const active = activeProfile(loadedProfiles);
-        let resolvedKey = savedKey || 'sk-hermes-api-server-key-2026-06-15';
+        let resolvedKey = savedKey || '';
         let resolvedSettings = sanitizeDemoModeForRelease(savedSettings);
         if (!isDemoModeAllowed() && savedSettings.demoMode) {
           await storage.saveGatewaySettings(resolvedSettings);
@@ -1936,7 +1936,7 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
         state = upsertDiscoveredProfile(state, item, false);
       }
       // Probe known Tailscale hosts for their /health hostname so raw 100.x CGNAT IPs show the
-      // real machine name (e.g. igors-mac-mini) instead of a nameless "Computer <IP>". Reuses the
+      // real machine name instead of a nameless "Computer <IP>". Reuses the
       // existing per-host probe; unreachable hosts return null and are skipped.
       if (tailnetProbeHostsRef.current.length > 0) {
         try {
