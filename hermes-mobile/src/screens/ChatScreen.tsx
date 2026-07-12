@@ -909,6 +909,7 @@ export default function ChatScreen() {
   );
   const userSendFailed = pinnedOutboundStatus === 'failed';
   const hasRetryableFailedSend = Boolean(lastFailedOutboundText?.trim());
+  const chatStalled = hasRetryableFailedSend && macHttpOk && !connectivityRunFailure;
   const hideMacTileForSilentHeal = shouldHideMacTileForSilentHeal({
     silentHealInFlight: connectionHealInFlight,
     macRetryBusy,
@@ -3136,6 +3137,10 @@ export default function ChatScreen() {
 
     if (action.kind === 'retry_resend') {
       haptics.selection();
+      setErrorMessage(null);
+      if (runProgressRef.current?.phase === 'failed') {
+        setRunProgress(null);
+      }
       const accepted = await sendUserText(action.text, true);
       if (accepted) {
         haptics.light();
@@ -5138,9 +5143,10 @@ export default function ChatScreen() {
           routeStatusLabel={routeStatusLabel}
           showMachineDetailWhenConnected={machineHeaderDisplay.showDetailWhenConnected}
           connectionState={connectionState}
-          macHttpReachable={effectiveMacHttpOk}
+          macHttpReachable={effectiveMacHttpOk || chatStalled}
           authMismatch={health?.authMismatch === true}
           isDemo={isDemo}
+          chatStalled={chatStalled}
           workspaceName={activeProject?.name}
           workspaceHandoff={activeProject?.handoffSummary}
           canSwitchWorkspace={!showMacConnectionHelp}
@@ -5158,13 +5164,14 @@ export default function ChatScreen() {
         />
         <CodexCommandCenter
           connectionState={connectionState}
-          macHttpReachable={effectiveMacHttpOk}
+          macHttpReachable={effectiveMacHttpOk || chatStalled}
           macRetryBusy={macRetryBusy}
           silentHealInFlight={hideMacTileForSilentHeal}
           pendingApprovalCount={composerApprovals.length}
           runProgress={progressBanner}
           isSending={isSending}
           machineName={machineShortLabel}
+          chatStalled={chatStalled}
           onOpenApprovals={() => {
             haptics.selection();
             navigation.navigate('Leash' as never);

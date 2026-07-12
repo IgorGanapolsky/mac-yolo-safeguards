@@ -1,9 +1,14 @@
 import {
   isGatewayLiveForDelivery,
   outboundDeliveryLabel,
-  truncateOutboundFailureReason,
+  OUTBOUND_NO_REPLY_MAC_LIVE,
+  OUTBOUND_RUN_STALLED_HINT,
+  OUTBOUND_SESSION_BUSY_HINT,
+  OUTBOUND_UNREACHABLE_HINT,
+  resolveOutboundFailureLabel,
 } from '../utils/outboundDeliveryStatus';
 import { GATEWAY_WRONG_KEY_MESSAGE } from '../services/gatewayClient';
+import { OUTBOUND_STUCK_FAILURE_REASON } from '../utils/outboundSendRecovery';
 
 describe('outboundDeliveryStatus', () => {
   it('shows waiting instead of sent when Mac is unreachable', () => {
@@ -24,16 +29,22 @@ describe('outboundDeliveryStatus', () => {
     ).toBe('○ Waiting for computer…');
   });
 
-  it('shows no-reply hint when send failed but Mac health is ok', () => {
+  it('shows resend hint when send failed but Mac health is ok', () => {
     expect(
       outboundDeliveryLabel('failed', { connectionState: 'connected', macHttpOk: true }),
-    ).toBe('⚠ No reply — tap ↑ again');
+    ).toBe(`⚠ ${OUTBOUND_NO_REPLY_MAC_LIVE}`);
+  });
+
+  it('shows resend hint when health is ok but socket is disconnected', () => {
+    expect(
+      outboundDeliveryLabel('failed', { connectionState: 'disconnected', macHttpOk: true }),
+    ).toBe(`⚠ ${OUTBOUND_NO_REPLY_MAC_LIVE}`);
   });
 
   it('does not treat relay connected as live when Mac HTTP auth failed', () => {
     expect(
       outboundDeliveryLabel('failed', { connectionState: 'connected', macHttpOk: false }),
-    ).toBe("⚠ Couldn't reach your computer — tap Computer above");
+    ).toBe(`⚠ ${OUTBOUND_UNREACHABLE_HINT}`);
   });
 
   it('shows wrong-key repair hint when failure reason is auth mismatch', () => {
@@ -49,13 +60,22 @@ describe('outboundDeliveryStatus', () => {
   it('shows reachability hint when send failed and Mac health is down', () => {
     expect(
       outboundDeliveryLabel('failed', { connectionState: 'connecting', macHttpOk: false }),
-    ).toBe("⚠ Couldn't reach your computer — tap Computer above");
+    ).toBe(`⚠ ${OUTBOUND_UNREACHABLE_HINT}`);
   });
 
-  it('shows reconnect hint when health is stale but link is not live', () => {
+  it('shows session-busy hint when Mac operator slot is in use', () => {
     expect(
-      outboundDeliveryLabel('failed', { connectionState: 'disconnected', macHttpOk: true }),
-    ).toBe('⚠ No reply — tap Computer above or ↑');
+      resolveOutboundFailureLabel(
+        'Your computer is still on the previous chat. Wait a moment, pick another thread, or try again.',
+        true,
+      ),
+    ).toBe(`⚠ ${OUTBOUND_SESSION_BUSY_HINT}`);
+  });
+
+  it('shows stalled-run hint for stuck outbound recovery', () => {
+    expect(resolveOutboundFailureLabel(OUTBOUND_STUCK_FAILURE_REASON, true)).toBe(
+      `⚠ ${OUTBOUND_RUN_STALLED_HINT}`,
+    );
   });
 
   it('shows wrong-key guidance on bubble when auth failed', () => {
