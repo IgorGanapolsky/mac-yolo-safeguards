@@ -40,6 +40,14 @@ on:
         description: "Reuse finished production build UUID (submit-only — skips eas build --wait)"
         required: false
         type: string
+      audit_play_track:
+        description: "Read Google Play production version/status only (no build, submit, or edit commit)"
+        required: true
+        default: "false"
+        type: choice
+        options:
+          - "false"
+          - "true"
 
 concurrency:
   group: store-release-${{ github.ref_name }}-${{ inputs.platform }}
@@ -95,7 +103,7 @@ jobs:
     needs: [internal-proof-gate]
     if: |
       always() &&
-      github.ref_name == 'ops/play-production-audit' &&
+      inputs.audit_play_track == 'true' &&
       inputs.platform == 'android' &&
       (needs.internal-proof-gate.result == 'success' || needs.internal-proof-gate.result == 'skipped')
     runs-on: ubuntu-latest
@@ -185,7 +193,7 @@ jobs:
     needs: [internal-proof-gate]
     if: |
       always() &&
-      github.ref_name != 'ops/play-production-audit' &&
+      inputs.audit_play_track != 'true' &&
       (needs.internal-proof-gate.result == 'success' || needs.internal-proof-gate.result == 'skipped') &&
       (inputs.platform == 'android' || inputs.platform == 'both')
     runs-on: ubuntu-latest
