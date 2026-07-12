@@ -42,6 +42,10 @@ check(
   'eas.json must use remote appVersionSource so production build numbers persist across CI runs',
 );
 check(easConfig.build?.production?.autoIncrement === true, 'eas.json production profile must auto-increment build numbers');
+check(
+  easConfig.build?.production?.env?.SENTRY_DISABLE_AUTO_UPLOAD === 'true',
+  'eas.json production profile must disable optional Sentry upload until the project is independently verified',
+);
 check(easConfig.build?.production?.android?.buildType === 'app-bundle', 'eas.json production android buildType must be app-bundle');
 
 check(typeof packageConfig.scripts?.typecheck === 'string', 'package.json must define typecheck script');

@@ -116,6 +116,11 @@ describe('release safety contract', () => {
     expect(eas.submit.production.android.track).toBe('production');
   });
 
+  it('production builds cannot fail on optional Sentry source-map upload', () => {
+    const eas = JSON.parse(read('hermes-mobile/eas.json'));
+    expect(eas.build.production.env.SENTRY_DISABLE_AUTO_UPLOAD).toBe('true');
+  });
+
   it('app.json enables OTA updates with expo-updates plugin and appVersion runtime', () => {
     const app = JSON.parse(read('hermes-mobile/app.json'));
     expect(app.expo.android.package).toBe('com.iganapolsky.hermesmobile');
