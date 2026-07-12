@@ -13,7 +13,13 @@ const {
   safeCommandSummary,
   sanitizeGrokOutput,
   writeReceipt,
+  appendHistoryReceipt,
+  historySummary,
+  digest,
 } = require('../tools/hermes-grok45-harness');
+
+assert.notStrictEqual(digest('private task'), digest('private task'));
+assert.notStrictEqual(digest('private task'), 'd340c58e605953a3e88');
 
 const baseDoctor = {
   schema: 'grok-yolo/doctor-v1',
@@ -144,6 +150,16 @@ writeReceipt(oauthReceipt, out);
 const stored = JSON.parse(fs.readFileSync(out, 'utf8'));
 assert.strictEqual(stored.schema, 'hermes-grok45-harness/v1');
 assert.strictEqual(fs.statSync(out).mode & 0o777, 0o600);
+const historyPath = path.join(temp, 'history.jsonl');
+appendHistoryReceipt(oauthReceipt, historyPath);
+const trace = JSON.parse(fs.readFileSync(historyPath, 'utf8').trim());
+assert.strictEqual(trace.schema, 'hermes-grok45-harness/trace-v1');
+assert.strictEqual(trace.taskDigest, oauthReceipt.taskDigest);
+assert.strictEqual(trace.overallStatus, 'pass');
+assert.strictEqual(fs.statSync(historyPath).mode & 0o777, 0o600);
+assert(!Object.prototype.hasOwnProperty.call(trace, 'task'));
+assert(!Object.prototype.hasOwnProperty.call(trace.execution, 'stdout'));
+assert(!JSON.stringify(historySummary(oauthReceipt)).includes('verify the harness'));
 fs.rmSync(temp, { recursive: true, force: true });
 
 console.log('Hermes Grok 4.5 harness tests: PASS');
