@@ -18,7 +18,7 @@ const {
   writeReceipt,
 } = require('../tools/hermes-parallel-search');
 
-assert.strictEqual(digest('private query'), digest('private query'));
+assert.notStrictEqual(digest('private query'), digest('private query'));
 assert.notStrictEqual(digest('private query'), '9ff6685fa712411cea49');
 
 (async () => {

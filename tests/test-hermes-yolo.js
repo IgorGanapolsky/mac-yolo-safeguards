@@ -56,7 +56,7 @@ const summarizedPrompt = summarizeRouteArgs(['fix', 'private', 'bug']);
 assert.strictEqual(summarizedPrompt.kind, 'prompt');
 assert.strictEqual(summarizedPrompt.taskDigest.length, 20);
 assert(!JSON.stringify(summarizedPrompt).includes('private'));
-assert.strictEqual(digest('private prompt'), digest('private prompt'));
+assert.notStrictEqual(digest('private prompt'), digest('private prompt'));
 assert.notStrictEqual(digest('private prompt'), '6fe06b970bb77bb96bee');
 
 const routeReceipt = buildRouteReceipt({

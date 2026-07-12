@@ -19,10 +19,6 @@ const DEFAULT_REPO = path.resolve(__dirname, '..');
 const DEFAULT_OUT = path.join(os.homedir(), '.hermes', 'receipts', 'grok45', 'latest.json');
 const DEFAULT_HISTORY = path.join(os.homedir(), '.hermes', 'receipts', 'grok45', 'history.jsonl');
 const MAX_CAPTURE_CHARS = 50000;
-// Opaque receipt ids are stable only inside one process. The random HMAC key
-// prevents offline guessing and intentionally blocks cross-run prompt correlation.
-const RECEIPT_HMAC_KEY = crypto.randomBytes(32);
-
 function usage() {
   return `Usage:
   hermes-grok45 --task "verify this change" [--repo PATH] [--execute]
@@ -77,8 +73,10 @@ function parseBoundedInt(value, flag, min, max) {
   return parsed;
 }
 
-function digest(value, length = 20) {
-  return crypto.createHmac('sha256', RECEIPT_HMAC_KEY).update(String(value || '')).digest('hex').slice(0, length);
+function digest(_value, length = 20) {
+  // Legacy receipt fields retain the *Digest name, but the value is an opaque
+  // random id with no mathematical or stored in-memory relation to task text.
+  return crypto.randomBytes(Math.ceil(length / 2)).toString('hex').slice(0, length);
 }
 
 function safeCapture(value, maxChars = MAX_CAPTURE_CHARS) {

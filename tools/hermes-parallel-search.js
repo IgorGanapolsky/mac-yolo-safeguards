@@ -9,9 +9,6 @@ const path = require('path');
 const ENDPOINT = 'https://api.parallel.ai/v1/search';
 const DEFAULT_OUT = path.join(os.homedir(), '.hermes', 'receipts', 'parallel-search', 'latest.json');
 const DEFAULT_HISTORY = path.join(os.homedir(), '.hermes', 'receipts', 'parallel-search', 'history.jsonl');
-// Opaque receipt ids are stable only inside one process. The random HMAC key
-// prevents offline guessing and intentionally blocks cross-run query correlation.
-const RECEIPT_HMAC_KEY = crypto.randomBytes(32);
 const PRICING = Object.freeze({
   currency: 'USD',
   baseRequestUsd: 0.005,
@@ -103,8 +100,10 @@ function normalizeDomain(value) {
   return clean;
 }
 
-function digest(value, length = 20) {
-  return crypto.createHmac('sha256', RECEIPT_HMAC_KEY).update(String(value || '')).digest('hex').slice(0, length);
+function digest(_value, length = 20) {
+  // Legacy receipt fields retain the *Digest name, but the value is an opaque
+  // random id with no mathematical or stored in-memory relation to query text.
+  return crypto.randomBytes(Math.ceil(length / 2)).toString('hex').slice(0, length);
 }
 
 function estimatedCostUsd(maxResults) {
