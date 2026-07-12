@@ -1,7 +1,7 @@
 'use strict';
 
 const assert = require('assert');
-const { execSync } = require('child_process');
+const { execFileSync, execSync } = require('child_process');
 const path = require('path');
 const fs = require('fs');
 
@@ -12,6 +12,7 @@ console.log('=== Running hermes-yolo-wrapper tests ===\n');
 // 1. Load the wrapper module (thanks to our module.exports check)
 const {
   buildChildPromptArgs,
+  buildGrokBackendArgs,
   chooseLocalModel,
   chooseZaiProvider,
   configuredProviderIds,
@@ -21,9 +22,22 @@ const {
   hasZaiKey,
   mergedHermesEnv,
   parseEnvFile,
+  shouldUseGrokBackend,
   HERMES_COMMANDS,
   DEFAULT_READY_PROMPT,
 } = require(WRAPPER_PATH);
+
+console.log('Testing Grok 4.5 default backend routing...');
+assert.strictEqual(shouldUseGrokBackend([], {}), true);
+assert.strictEqual(shouldUseGrokBackend(['fix', 'the', 'bug'], {}), true);
+assert.strictEqual(shouldUseGrokBackend(['doctor'], {}), false);
+assert.strictEqual(shouldUseGrokBackend(['--version'], {}), false);
+assert.strictEqual(shouldUseGrokBackend(['fix'], { HERMES_YOLO_BACKEND: 'hermes' }), false);
+assert.throws(() => shouldUseGrokBackend([], { HERMES_YOLO_BACKEND: 'unknown' }), /Unsupported/);
+assert.deepStrictEqual(buildGrokBackendArgs([], { isTty: true }), []);
+assert.deepStrictEqual(buildGrokBackendArgs([], { isTty: false }), ['-p', DEFAULT_READY_PROMPT, '--output-format', 'plain']);
+assert.deepStrictEqual(buildGrokBackendArgs(['fix', 'the', 'bug']), ['-p', 'fix the bug', '--output-format', 'plain']);
+assert.deepStrictEqual(buildGrokBackendArgs(['-z', 'return', 'marker']), ['-p', 'return marker', '--output-format', 'plain']);
 
 console.log('Testing buildChildPromptArgs...');
 
@@ -211,6 +225,26 @@ try {
   assert.deepStrictEqual(configuredProviderIds(tmpConfigPath), ['zai-coding-nothink', 'openrouter-glm52']);
 } finally {
   fs.unlinkSync(tmpConfigPath);
+}
+
+const fakeGrokYoloPath = path.join(require('os').tmpdir(), `fake-grok-yolo-${process.pid}`);
+fs.writeFileSync(fakeGrokYoloPath, [
+  '#!/usr/bin/env bash',
+  'printf "GROK-BACKEND:%s\\n" "$*"',
+  '',
+].join('\n'), { mode: 0o755 });
+try {
+  const grokBackendOutput = execFileSync(process.execPath, [WRAPPER_PATH, 'fix', 'the', 'bug'], {
+    encoding: 'utf8',
+    env: {
+      ...process.env,
+      GROK_YOLO_BIN: fakeGrokYoloPath,
+      HERMES_BIN: '/definitely-not-used/hermes',
+    },
+  });
+  assert(grokBackendOutput.includes('GROK-BACKEND:-p fix the bug --output-format plain'));
+} finally {
+  fs.unlinkSync(fakeGrokYoloPath);
 }
 
 // 2. Test live wrapper execution (using --version as a fast safe check)
