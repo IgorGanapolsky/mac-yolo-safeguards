@@ -9,6 +9,7 @@ import {
   RECENTS_PREVIEW_MAX_CHARS,
   sessionLastActiveValue,
 } from '../utils/sessionDisplay';
+import ExpandableThreadTitle from './ExpandableThreadTitle';
 import {
   sortSessionsForAgentRail,
   threadActivityForSession,
@@ -147,13 +148,12 @@ export default function RecentChatsList({
               >
                 <View style={styles.rowMain}>
                   <View style={styles.titleRow}>
-                    <Text
+                    <ExpandableThreadTitle
+                      title={sessionLabelFor(session)}
+                      collapsedLines={2}
                       style={[styles.title, active && styles.titleActive]}
-                      numberOfLines={2}
-                      ellipsizeMode="tail"
-                    >
-                      {sessionLabelFor(session)}
-                    </Text>
+                      testID={`recent-chat-title-${session.id}`}
+                    />
                     {badge ? <Text style={styles.badge}>{badge}</Text> : null}
                   </View>
                   {preview ? (

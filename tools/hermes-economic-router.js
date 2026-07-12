@@ -83,6 +83,29 @@ const ROUTES = [
     proofGates: ['provider-key-present', 'endpoint-smoke-pass', 'receipt-written'],
   },
   {
+    id: 'grok45_verifier_candidate',
+    label: 'Grok 4.5 independent Hermes verifier',
+    agent: 'independent-verifier',
+    provider: 'grok-build-cli',
+    model: 'grok-4.5',
+    costUsd: 0,
+    latencyMs: 30000,
+    reliability: 0.81,
+    riskCeiling: 'critical',
+    strengths: ['grok', 'grok-4.5', 'coding', 'agentic', 'independent-verifier', 'architecture', 'cross-file', 'long-horizon'],
+    command: 'hermes-grok45 --task <task> --execute --json',
+    billingMode: 'grok.com-oauth-quota',
+    apiPricing: {
+      inputPerMillionUsd: 2,
+      cachedInputPerMillionUsd: 0.5,
+      outputPerMillionUsd: 6,
+      effectiveDate: '2026-07-08',
+    },
+    proofGates: ['grok-cli-minimum-version', 'grok-4.5-listed', 'grok-auth-mode-recorded', 'independent-verifier-receipt', 'focused-test-pass'],
+    candidateOnly: true,
+    explicitSignal: 'asksForGrok',
+  },
+  {
     id: 'fugu_escalation',
     label: 'Sakana Fugu Ultra escalation',
     agent: 'multi-agent-escalation',
@@ -196,6 +219,18 @@ const OPENROUTER_JUNE_MODELS = [
   { slug: 'nvidia/nemotron-3-super-120b-a12b:free', inputPerM: 0, outputPerM: 0, context: '1M', use: 'free Nemotron reasoning candidate before heavier Ultra promotion' },
 ];
 
+const GROK45_PRICE_PROOF = Object.freeze({
+  slug: 'grok-4.5',
+  provider: 'xai',
+  inputPerM: 2,
+  cachedInputPerM: 0.5,
+  outputPerM: 6,
+  context: '500K',
+  use: 'coding, agentic tasks, knowledge work, and independent verification',
+  oauthBoundary: 'Grok Build is temporarily available to try free; direct xAI API usage is token-billed.',
+  source: 'https://docs.x.ai/developers/grok-4-5',
+});
+
 function openRouterModelsApiQuery(signals = {}) {
   const params = new URLSearchParams();
   params.set('output_modalities', 'text');
@@ -220,6 +255,18 @@ function openRouterModelsApiQuery(signals = {}) {
     query: Object.fromEntries(params.entries()),
     url: `https://openrouter.ai/api/v1/models?${params.toString()}`,
   };
+}
+
+function providerModelCatalogQuery(signals = {}) {
+  if (signals.asksForGrok) {
+    return {
+      endpoint: 'https://api.x.ai/v1/models',
+      query: { model: 'grok-4.5' },
+      authRequired: true,
+      pricingSource: GROK45_PRICE_PROOF.source,
+    };
+  }
+  return openRouterModelsApiQuery(signals);
 }
 
 function openRouterToolPayload(type, parameters = {}) {
@@ -296,6 +343,7 @@ function taskSignals(task) {
     asksForGlm: /\bglm\b|glm[- ]?5\.?2|z\.?ai|zai/.test(text),
     asksForFugu: /\bfugu\b|sakana/.test(text),
     asksForNemotron: /\bnemotron\b|\bnvidia\b|\bnim\b/.test(text),
+    asksForGrok: /\bgrok\b|grok[- ]?4\.5|\bxai\b|\bx\.ai\b/.test(text),
     asksForOpenRouterFusion: /\bfusion\b|grounded answer|web search|panel answers|hard question/.test(text),
     asksForAdvisor: /\badvisor\b|gets stuck|stuck escalation|consult a stronger|cheap executor/.test(text),
     asksForSubagent: /\bsubagent\b|grunt work|routine subtasks|self-contained subtasks|smaller worker|delegate/.test(text),
@@ -311,8 +359,11 @@ function taskSignals(task) {
   };
 }
 
-function routeAllowed(route, args) {
+function routeAllowed(route, args, signals = {}) {
   const reasons = [];
+  if (route.explicitSignal && !signals[route.explicitSignal]) {
+    reasons.push(`${route.id} requires an explicit Grok request`);
+  }
   if (route.costUsd > 0 && !args.paidOk) reasons.push('paid route requires --paid-ok');
   if (route.costUsd > args.maxCostUsd) reasons.push(`estimated cost ${route.costUsd} exceeds cap ${args.maxCostUsd}`);
   if (route.latencyMs > args.latencyMs) reasons.push(`estimated latency ${route.latencyMs}ms exceeds cap ${args.latencyMs}ms`);
@@ -343,6 +394,12 @@ function scoreRoute(route, args, signals) {
     if (signals.asksForNemotron) score += 92;
     if (signals.highVarianceReasoning || signals.architecture) score += 18;
     if (route.candidateOnly) score -= 10;
+  }
+  if (route.id === 'grok45_verifier_candidate') {
+    if (signals.asksForGrok) score += 95;
+    if (signals.userDoubt || signals.architecture || signals.highVarianceReasoning) score += 18;
+    if (!signals.asksForGrok) score -= 30;
+    if (route.candidateOnly) score -= 8;
   }
   if (route.id === 'openrouter_fusion') {
     if (signals.asksForOpenRouterFusion) score += 75;
@@ -415,6 +472,8 @@ function compactRoute(route, role = route.agent) {
     model: route.model,
     estimatedCostUsd: route.costUsd,
     estimatedLatencyMs: route.latencyMs,
+    billingMode: route.billingMode || '',
+    apiPricing: route.apiPricing || null,
     proofGates: route.proofGates,
   };
 }
@@ -432,9 +491,10 @@ function firstAllowed(evaluated, ids) {
 }
 
 function catalogCandidates(signals) {
-  if (!(signals.needsModelPrice || signals.asksForAdvisor || signals.asksForSubagent || signals.asksForOpenRouterFusion || signals.asksForNemotron)) {
+  if (!(signals.needsModelPrice || signals.asksForAdvisor || signals.asksForSubagent || signals.asksForOpenRouterFusion || signals.asksForNemotron || signals.asksForGrok)) {
     return [];
   }
+  if (signals.asksForGrok) return [GROK45_PRICE_PROOF];
   if (signals.asksForNemotron) {
     return OPENROUTER_JUNE_MODELS.filter((model) => /nemotron|glm|qwen|sonnet/.test(model.slug));
   }
@@ -510,6 +570,7 @@ function buildMicroAgentRecipe(selected, args, signals, evaluated) {
   const coderCandidate = allowedRoute(evaluated, 'local_coder_candidate');
   const fugu = allowedRoute(evaluated, 'fugu_escalation');
   const nemotron = allowedRoute(evaluated, 'nemotron3_ultra_escalation');
+  const grok45 = allowedRoute(evaluated, 'grok45_verifier_candidate');
   const openrouterFusion = allowedRoute(evaluated, 'openrouter_fusion');
   const openrouterAdvisor = allowedRoute(evaluated, 'openrouter_advisor');
   const openrouterSubagent = allowedRoute(evaluated, 'openrouter_subagent');
@@ -576,6 +637,29 @@ function buildMicroAgentRecipe(selected, args, signals, evaluated) {
         ...base.failurePolicy,
         approvalMissing: 'return blocked receipt only',
       },
+    };
+  }
+
+  if (signals.asksForGrok && grok45) {
+    return {
+      ...base,
+      id: 'grok45_independent_verification',
+      pattern: 'fusion',
+      reason: 'Use Grok 4.5 as an independent reviewer beside the local Hermes executor, then resolve disagreement from command evidence.',
+      hardCaps: {
+        ...base.hardCaps,
+        maxConcurrent: 2,
+        maxSteps: 3,
+      },
+      panel: [
+        compactRoute(localFast, 'local-implementer-baseline'),
+        compactRoute(grok45, 'independent-grok45-verifier'),
+      ],
+      judge: compactRoute(localFast, 'evidence-judge'),
+      finalizer: compactRoute(localFast, 'contract-finalizer'),
+      disagreementPolicy: 'Prefer focused test/runtime evidence; surface unresolved contradictions instead of averaging them away.',
+      modelPriceProof: [GROK45_PRICE_PROOF],
+      adoptionGates: ['grok-doctor-pass', 'independent-verifier-receipt', 'focused-test-pass', 'billing-mode-recorded', 'do-not-change-default-route'],
     };
   }
 
@@ -807,7 +891,7 @@ function decision(args) {
   };
   const signals = taskSignals(normalizedArgs.task);
   const evaluated = ROUTES.map((route) => {
-    const allowed = routeAllowed(route, normalizedArgs);
+    const allowed = routeAllowed(route, normalizedArgs, signals);
     return {
       route,
       allowed: allowed.allowed,
@@ -837,7 +921,7 @@ function decision(args) {
       ? 'task mentions external money/payment/wallet/send/publish surface'
       : selected.requiresApproval ? 'route requires explicit approval' : '',
     signals,
-    modelCatalogQuery: signals.needsModelPrice ? openRouterModelsApiQuery(signals) : null,
+    modelCatalogQuery: signals.needsModelPrice ? providerModelCatalogQuery(signals) : null,
     modelCatalogCandidates: catalogCandidates(signals),
     microAgentRecipe: buildMicroAgentRecipe(selected, normalizedArgs, signals, evaluated),
     pipeline: buildPipeline(selected, normalizedArgs, signals),
@@ -855,6 +939,7 @@ function decision(args) {
       ornithRule: 'Treat gpt-oss, Qwen3.6, and other new coding models as measured candidates until benchmark receipts promote them.',
       paymentRule: 'Never execute wallet, stablecoin, Stripe, send, post, or publish actions from this router; emit an approval gate only.',
       modelPriceRule: 'Use OpenRouter Models API/MCP-style price and benchmark evidence before committing paid routes.',
+      grokRule: 'Use Grok 4.5 only as an explicit candidate verifier until doctor, auth, billing, focused-test, and comparison receipts justify promotion.',
     },
   };
   return receipt;
@@ -870,6 +955,8 @@ function publicRoute(route) {
     model: route.model,
     command: route.command || '',
     commandEnv: route.commandEnv || {},
+    billingMode: route.billingMode || '',
+    apiPricing: route.apiPricing || null,
     proofGates: route.proofGates,
     candidateOnly: Boolean(route.candidateOnly),
   };
@@ -1096,6 +1183,7 @@ module.exports = {
   buildExecutionPlan,
   decision,
   parseArgs,
+  providerModelCatalogQuery,
   receiptId,
   render,
   routeAllowed,

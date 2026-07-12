@@ -1,6 +1,7 @@
 import type { GatewayProfile } from '../types/gatewayProfile';
 import {
   buildSelfHealProbeUrls,
+  resolveApiKeyForGatewayProbe,
   resolveCellularTailscaleFailoverUrl,
   savedProfileFallbackUrls,
 } from '../utils/connectionSelfHeal';
@@ -120,5 +121,33 @@ describe('connectionSelfHeal', () => {
     });
     expect(urls).not.toContain('http://192.168.68.71:8642');
     expect(urls).not.toContain('http://100.94.135.78:8642');
+  });
+});
+
+describe('resolveApiKeyForGatewayProbe', () => {
+  it('uses the matched profile key when failover probes another saved Mac URL', async () => {
+    const profileKeys: Record<string, string> = {
+      mini: 'sk-mini-key',
+      book: 'sk-mbp-key',
+    };
+    const key = await resolveApiKeyForGatewayProbe({
+      gatewayUrl: 'http://100.94.135.78:8642',
+      profiles: twoMacProfiles,
+      activeProfileId: 'mini',
+      fallbackKey: 'sk-mini-key',
+      resolveProfileKey: async (profileId) => profileKeys[profileId] ?? null,
+    });
+    expect(key).toBe('sk-mbp-key');
+  });
+
+  it('keeps the active profile key for same-machine alternate routes', async () => {
+    const key = await resolveApiKeyForGatewayProbe({
+      gatewayUrl: 'http://100.94.135.78:8642',
+      profiles,
+      activeProfileId: 'lan',
+      fallbackKey: 'sk-stale-global',
+      resolveProfileKey: async (profileId) => (profileId === 'lan' ? 'sk-lan-key' : null),
+    });
+    expect(key).toBe('sk-lan-key');
   });
 });

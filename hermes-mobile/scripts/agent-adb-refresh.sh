@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Refresh adb before session-start device checks, pairing, or "phone not connected" diagnosis.
 # Maestro E2E already restarts adb via maestro-env.sh — this covers non-Maestro paths.
+# Phone pair/install is serialized by tools/agent-phone-pipeline-lock.js (see PREVENT-RECURRENCE #9).
 set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=maestro-env.sh

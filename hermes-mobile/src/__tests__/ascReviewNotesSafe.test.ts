@@ -5,7 +5,7 @@ describe('ASC safe review notes template', () => {
     expect(ASC_SAFE_REVIEW_NOTES).toContain('Demo mode');
     expect(ASC_SAFE_REVIEW_NOTES).toContain('macOS, Linux, or Windows');
     expect(ASC_SAFE_REVIEW_NOTES).toContain('scanning a QR code');
-    expect(ASC_SAFE_REVIEW_NOTES).not.toMatch(/hermes:\/\/setup\?demo=1/i);
+    expect(ASC_SAFE_REVIEW_NOTES).toContain('hermes://setup?demo=1');
     expect(ASC_SAFE_REVIEW_NOTES).not.toMatch(/ts\.net/i);
     expect(ASC_SAFE_REVIEW_NOTES).not.toMatch(/100\.\d+\.\d+\.\d+/);
     expect(ASC_SAFE_REVIEW_NOTES).not.toMatch(/sk-hermes/i);

@@ -8,6 +8,7 @@ appId: com.iganapolsky.hermesmobile
 - runFlow: leash-connection.yaml
 - runFlow: chat.yaml
 - runFlow: chat-send-persistence.yaml
+- runFlow: regression-default-hermes-tab.yaml
 - runFlow: regression-glanceable-tab.yaml
 - runFlow: regression-chat-send-visible.yaml
 - runFlow: regression-leash-refresh.yaml

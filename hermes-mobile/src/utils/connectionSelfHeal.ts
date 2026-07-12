@@ -1,6 +1,10 @@
 import type { GatewayProfile } from '../types/gatewayProfile';
 import type { DiscoveredGateway } from '../types/gatewayProfile';
-import { profilesForActiveMachine, profilesShareMachine } from '../services/gatewayProfiles';
+import {
+  findProfileForGatewayUrl,
+  profilesForActiveMachine,
+  profilesShareMachine,
+} from '../services/gatewayProfiles';
 import { profileMatchesDiscoveredGateway } from './gatewayProfilePicker';
 import { isPrivateLanGatewayUrl } from './gatewayEndpoint';
 import {
@@ -191,4 +195,29 @@ export function resolveCellularTailscaleFailoverUrl(input: {
     }
   }
   return null;
+}
+
+/** Pick the per-profile API key that matches a gateway URL before heal/failover probes. */
+export async function resolveApiKeyForGatewayProbe(input: {
+  gatewayUrl: string;
+  profiles: GatewayProfile[];
+  activeProfileId: string | null | undefined;
+  fallbackKey: string;
+  resolveProfileKey: (profileId: string) => Promise<string | null>;
+}): Promise<string> {
+  const matched = findProfileForGatewayUrl(input.profiles, input.gatewayUrl);
+  if (matched) {
+    const matchedKey = await input.resolveProfileKey(matched.id);
+    if (matchedKey) {
+      return matchedKey;
+    }
+  }
+  const activeId = input.activeProfileId?.trim();
+  if (activeId) {
+    const activeKey = await input.resolveProfileKey(activeId);
+    if (activeKey) {
+      return activeKey;
+    }
+  }
+  return input.fallbackKey;
 }

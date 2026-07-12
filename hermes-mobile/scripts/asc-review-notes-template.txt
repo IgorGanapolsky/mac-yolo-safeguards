@@ -1,8 +1,9 @@
 This build includes a built-in demo mode for review — no account, gateway, or setup needed.
-1. Open the app.
-2. Go to Settings → turn ON "Demo mode."
-3. Return to Chat: you'll see a simulated AI coding-agent session with live token telemetry.
-4. Open Approvals to see the approve/deny cards for risky commands.
+1. Install the build, then open hermes://setup?demo=1 in Safari (or tap from Notes).
+2. Return to Hermes Mobile — demo chat, approval prompts, and Leash UI preview are enabled.
+3. In Chat, send a message and tap Approve or Deny on any prompt.
+4. Open Leash to preview the subscription gate rules UI.
+Alternatively: Settings → turn ON "Demo mode."
 In normal use, a user connects the app to their OWN computer (macOS, Linux, or Windows) by
 scanning a QR code from their Hermes gateway. The demo simulates that, so no external server
 is involved.

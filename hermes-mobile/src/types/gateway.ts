@@ -79,11 +79,18 @@ export interface GatewaySettings {
   gatewayUrl: string;
   usePortal: boolean;
   redactPii: boolean;
+  /** Master flag — true when any per-purpose notification toggle is on (derived on save). */
   notificationsEnabled: boolean;
+  /** Time-sensitive approval requests (Approve / Deny on lock screen). */
+  notificationApprovals: boolean;
+  /** Ongoing runs the user started while Hermes is in the background. */
+  notificationLiveRunStatus: boolean;
+  /** Task finish summaries (success or failure). */
+  notificationCompletion: boolean;
   demoMode: boolean;
   /** Glanceable stack UI + audio-first feedback (AI glasses parity on phone). */
   glanceMode: boolean;
-  /** Open Leash on launch and prioritize approval alerts (ThumbGate ops persona). */
+  /** Prioritize lock-screen approval alerts (ThumbGate ops persona). Does not change launch tab. */
   safetyMode: boolean;
   /** ThumbGate: capture thumbs-down verdicts to agent memory (default on). */
   thumbgateCaptureOnDown: boolean;
@@ -118,6 +125,9 @@ export const DEFAULT_GATEWAY_SETTINGS: GatewaySettings = {
   usePortal: false,
   redactPii: true,
   notificationsEnabled: true,
+  notificationApprovals: true,
+  notificationLiveRunStatus: true,
+  notificationCompletion: true,
   demoMode: false,
   glanceMode: false,
   safetyMode: false,

@@ -9,6 +9,8 @@ export type ChatLinkDisplay = {
   label: string;
   /** Chat HTTP to :8642 works (or demo). */
   chatReachable: boolean;
+  /** Health OK but last outbound chat failed — show amber, not green. */
+  chatStalled?: boolean;
 };
 
 /** Stale health can read green while send/stream just failed — don't show Connected. */
@@ -32,12 +34,16 @@ export function resolveChatLinkDisplay(input: {
   disconnectedLabel?: string;
   isDemo?: boolean;
   authMismatch?: boolean;
+  chatStalled?: boolean;
 }): ChatLinkDisplay {
   if (input.authMismatch) {
     return { label: GATEWAY_AUTH_REPAIR_HEADER, chatReachable: false };
   }
   if (input.isDemo || input.connectionState === 'demo') {
     return { label: 'Demo', chatReachable: true };
+  }
+  if (input.macHttpOk && input.chatStalled) {
+    return { label: 'Connected — chat stalled', chatReachable: true, chatStalled: true };
   }
   if (input.macHttpOk) {
     return { label: 'Connected', chatReachable: true };

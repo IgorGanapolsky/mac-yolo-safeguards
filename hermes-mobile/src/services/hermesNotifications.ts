@@ -12,6 +12,7 @@ import {
   resolveHermesNotificationPresentation,
   shouldScheduleApprovalNotification,
   shouldScheduleApprovalsSummaryNotification,
+  shouldScheduleRunCompletedNotification,
   shouldScheduleRunProgressNotification,
 } from '../utils/smartNotificationPolicy';
 
@@ -249,13 +250,13 @@ export async function initHermesNotifications(): Promise<void> {
       bypassDnd: true,
     });
     await Notifications.setNotificationChannelAsync(CHANNEL_RUNS, {
-      name: 'Live activity',
+      name: 'Live run status',
       description: 'Ongoing status while Hermes works on your computer',
       importance: Notifications.AndroidImportance.LOW,
       lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
     });
     await Notifications.setNotificationChannelAsync(CHANNEL_RESULTS, {
-      name: 'Results',
+      name: 'Completion / failure',
       description: 'When a background task finishes on your computer',
       importance: Notifications.AndroidImportance.DEFAULT,
       lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
@@ -333,7 +334,7 @@ export async function syncHermesNotificationBadge(count: number): Promise<void> 
 
 export async function scheduleApprovalNotification(
   pending: PendingApproval,
-  options?: { badgeCount?: number; force?: boolean },
+  options?: { badgeCount?: number; force?: boolean; categoryEnabled?: boolean },
 ): Promise<void> {
   const Notifications = await loadNotifications();
   if (!Notifications) {
@@ -341,7 +342,10 @@ export async function scheduleApprovalNotification(
   }
 
   const appState = AppState.currentState;
-  if (!options?.force && !shouldScheduleApprovalNotification(pending, appState)) {
+  if (
+    !options?.force &&
+    !shouldScheduleApprovalNotification(pending, appState, options?.categoryEnabled ?? true)
+  ) {
     return;
   }
 
@@ -392,7 +396,7 @@ export async function scheduleApprovalNotification(
 
 export async function scheduleApprovalsSummaryNotification(
   pending: PendingApproval[],
-  options?: { badgeCount?: number },
+  options?: { badgeCount?: number; categoryEnabled?: boolean },
 ): Promise<void> {
   if (pending.length < 2) {
     await dismissApprovalsSummaryNotification();
@@ -404,7 +408,7 @@ export async function scheduleApprovalsSummaryNotification(
     return;
   }
 
-  if (!shouldScheduleApprovalsSummaryNotification(AppState.currentState)) {
+  if (!shouldScheduleApprovalsSummaryNotification(AppState.currentState, options?.categoryEnabled ?? true)) {
     return;
   }
 
@@ -479,7 +483,7 @@ export async function dismissApprovalsSummaryNotification(): Promise<void> {
 /** Dismiss stale approval notifications and refresh batch summary. */
 export async function syncSmartApprovalNotifications(
   pending: PendingApproval[],
-  options?: { badgeCount?: number },
+  options?: { badgeCount?: number; categoryEnabled?: boolean },
 ): Promise<void> {
   const activeIds = new Set(pending.map((item) => item.actionId));
   for (const id of [...notifiedApprovalIds]) {
@@ -490,7 +494,10 @@ export async function syncSmartApprovalNotifications(
 
   const badge = options?.badgeCount ?? pending.length;
   if (pending.length >= 2) {
-    await scheduleApprovalsSummaryNotification(pending, { badgeCount: badge });
+    await scheduleApprovalsSummaryNotification(pending, {
+      badgeCount: badge,
+      categoryEnabled: options?.categoryEnabled,
+    });
   } else {
     await dismissApprovalsSummaryNotification();
   }
@@ -503,9 +510,9 @@ export function resetApprovalNotificationState(): void {
 /** Throttled live-activity style notification for background run progress. */
 export async function scheduleRunProgressNotification(
   progress: RunProgressState,
-  options?: { runId?: string; sessionId?: string; force?: boolean },
+  options?: { runId?: string; sessionId?: string; force?: boolean; categoryEnabled?: boolean },
 ): Promise<void> {
-  if (!shouldScheduleRunProgressNotification()) {
+  if (!shouldScheduleRunProgressNotification(AppState.currentState, options?.categoryEnabled ?? true)) {
     return;
   }
 
@@ -560,9 +567,9 @@ export async function scheduleRunProgressNotification(
 
 export async function scheduleRunCompletedNotification(
   detail: string,
-  options?: { success?: boolean; runId?: string; sessionId?: string },
+  options?: { success?: boolean; runId?: string; sessionId?: string; categoryEnabled?: boolean },
 ): Promise<void> {
-  if (!shouldScheduleRunProgressNotification()) {
+  if (!shouldScheduleRunCompletedNotification(AppState.currentState, options?.categoryEnabled ?? true)) {
     return;
   }
 
@@ -628,8 +635,9 @@ export const RUN_STALL_NOTIFICATION_ID = 'hermes-run-stall';
 export async function scheduleRunStallNotification(
   runId?: string,
   sessionId?: string,
+  options?: { categoryEnabled?: boolean },
 ): Promise<void> {
-  if (!shouldScheduleRunProgressNotification()) {
+  if (!shouldScheduleRunProgressNotification(AppState.currentState, options?.categoryEnabled ?? true)) {
     await cancelRunStallNotification();
     return;
   }

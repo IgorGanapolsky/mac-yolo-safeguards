@@ -141,6 +141,7 @@ function Probe() {
       <Text testID="last-error">{gateway.lastEventError ?? ''}</Text>
       <Text testID="mobile-token">{gateway.mobileToken}</Text>
       <Text testID="connection-mode">{gateway.settings.connectionMode}</Text>
+      <Text testID="gateway-api-key">{gateway.apiKey}</Text>
       <Text testID="profiles-ids">{gateway.gatewayProfiles.map(p => p.id).join(',')}</Text>
       <Text testID="relay-worker-count">{gateway.relayWorkers.length}</Text>
       <Text testID="active-relay-worker-id">{gateway.activeRelayWorkerId ?? ''}</Text>
@@ -282,6 +283,20 @@ describe('GatewayProvider', () => {
     });
     expect(MockWebSocket.instances.length).toBeGreaterThan(0);
     expect(MockWebSocket.instances[MockWebSocket.instances.length - 1].url).toContain('/v1/events');
+  });
+
+  it('starts without a gateway credential when none was paired or saved', async () => {
+    (secureCredentials.loadApiKey as jest.Mock).mockResolvedValue(null);
+
+    const { getByTestId } = render(
+      <GatewayProvider>
+        <Probe />
+      </GatewayProvider>,
+    );
+
+    await waitFor(() => {
+      expect(getByTestId('gateway-api-key').props.children).toBe('');
+    });
   });
 
   it('shows connected (not Reconnecting) when HTTP /health is OK even if the events socket never opens', async () => {
@@ -626,6 +641,9 @@ describe('GatewayProvider', () => {
       usePortal: false,
       redactPii: true,
       notificationsEnabled: true,
+      notificationApprovals: true,
+      notificationLiveRunStatus: true,
+      notificationCompletion: true,
       demoMode: false,
       glanceMode: false,
       thumbgateCaptureOnDown: true,
@@ -668,6 +686,7 @@ describe('GatewayProvider', () => {
       expect(approvalNotifications.scheduleRunStallNotification).toHaveBeenCalledWith(
         'run_watchdog_1',
         undefined,
+        { categoryEnabled: true },
       );
     });
 
@@ -702,6 +721,9 @@ describe('GatewayProvider', () => {
       usePortal: false,
       redactPii: true,
       notificationsEnabled: true,
+      notificationApprovals: true,
+      notificationLiveRunStatus: true,
+      notificationCompletion: true,
       demoMode: false,
       glanceMode: false,
       thumbgateCaptureOnDown: true,
