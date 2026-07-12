@@ -10,6 +10,7 @@ import {
   CONNECTION_HEAL_DURATION_MS,
   connectionHealSnapshot,
 } from '../utils/connectionErrorPolicy';
+import { MAC_QR_PAIRING_STEPS } from '../utils/macPairingUx';
 
 describe('freshUserOnboarding', () => {
   it('treats empty profiles as fresh user unpaired', () => {
@@ -77,6 +78,12 @@ describe('freshUserOnboarding', () => {
     expect(joined.toLowerCase()).not.toContain('relay');
     expect(joined.toLowerCase()).not.toContain('gateway');
     expect(joined.toLowerCase()).not.toContain('lan');
+  });
+
+  it('QR pairing help never references fictional Connect phone menu', () => {
+    const joined = MAC_QR_PAIRING_STEPS.map((s) => `${s.title} ${s.body}`).join(' ');
+    expect(joined).toContain('Find computers');
+    expect(joined).not.toMatch(/connect phone/i);
   });
 
   it('uses silent heal duration of about 30 seconds', () => {
