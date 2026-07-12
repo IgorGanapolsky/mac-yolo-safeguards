@@ -41,9 +41,13 @@ install_local_files() {
   install -m 0755 "$ROOT/grok-yolo-wrapper.js" "$HOME/.hermes/grok45/grok-yolo-wrapper.js"
   install -m 0755 "$ROOT/hermes-yolo-wrapper.js" "$HOME/.hermes/hermes-yolo-wrapper.js"
   install -m 0755 "$ROOT/tools/hermes-grok45-harness.js" "$HOME/.hermes/grok45/tools/hermes-grok45-harness.js"
+  install -m 0755 "$ROOT/tools/hermes-harness-eval.js" "$HOME/.hermes/grok45/tools/hermes-harness-eval.js"
+  install -m 0755 "$ROOT/tools/hermes-parallel-search.js" "$HOME/.hermes/grok45/tools/hermes-parallel-search.js"
   ln -sfn "$HOME/.hermes/grok45/grok-yolo-wrapper.js" "$HOME/.local/bin/grok-yolo"
   ln -sfn "$HOME/.hermes/hermes-yolo-wrapper.js" "$HOME/.local/bin/hermes-yolo"
   ln -sfn "$HOME/.hermes/grok45/tools/hermes-grok45-harness.js" "$HOME/.local/bin/hermes-grok45"
+  ln -sfn "$HOME/.hermes/grok45/tools/hermes-harness-eval.js" "$HOME/.local/bin/hermes-harness-eval"
+  ln -sfn "$HOME/.hermes/grok45/tools/hermes-parallel-search.js" "$HOME/.local/bin/hermes-parallel-search"
 }
 
 update_local_grok() {
@@ -62,7 +66,9 @@ install_remote_files() {
   rsync -a "$ROOT/grok-yolo-wrapper.js" "$host:~/.hermes/grok45/grok-yolo-wrapper.js"
   rsync -a "$ROOT/hermes-yolo-wrapper.js" "$host:~/.hermes/hermes-yolo-wrapper.js"
   rsync -a "$ROOT/tools/hermes-grok45-harness.js" "$host:~/.hermes/grok45/tools/hermes-grok45-harness.js"
-  ssh -o BatchMode=yes -o ConnectTimeout=8 "$host" 'chmod 0755 "$HOME/.hermes/grok45/grok-yolo-wrapper.js" "$HOME/.hermes/hermes-yolo-wrapper.js" "$HOME/.hermes/grok45/tools/hermes-grok45-harness.js"; ln -sfn "$HOME/.hermes/grok45/grok-yolo-wrapper.js" "$HOME/.local/bin/grok-yolo"; ln -sfn "$HOME/.hermes/hermes-yolo-wrapper.js" "$HOME/.local/bin/hermes-yolo"; ln -sfn "$HOME/.hermes/grok45/tools/hermes-grok45-harness.js" "$HOME/.local/bin/hermes-grok45"'
+  rsync -a "$ROOT/tools/hermes-harness-eval.js" "$host:~/.hermes/grok45/tools/hermes-harness-eval.js"
+  rsync -a "$ROOT/tools/hermes-parallel-search.js" "$host:~/.hermes/grok45/tools/hermes-parallel-search.js"
+  ssh -o BatchMode=yes -o ConnectTimeout=8 "$host" 'chmod 0755 "$HOME/.hermes/grok45/grok-yolo-wrapper.js" "$HOME/.hermes/hermes-yolo-wrapper.js" "$HOME/.hermes/grok45/tools/hermes-grok45-harness.js" "$HOME/.hermes/grok45/tools/hermes-harness-eval.js" "$HOME/.hermes/grok45/tools/hermes-parallel-search.js"; ln -sfn "$HOME/.hermes/grok45/grok-yolo-wrapper.js" "$HOME/.local/bin/grok-yolo"; ln -sfn "$HOME/.hermes/hermes-yolo-wrapper.js" "$HOME/.local/bin/hermes-yolo"; ln -sfn "$HOME/.hermes/grok45/tools/hermes-grok45-harness.js" "$HOME/.local/bin/hermes-grok45"; ln -sfn "$HOME/.hermes/grok45/tools/hermes-harness-eval.js" "$HOME/.local/bin/hermes-harness-eval"; ln -sfn "$HOME/.hermes/grok45/tools/hermes-parallel-search.js" "$HOME/.local/bin/hermes-parallel-search"'
 }
 
 update_remote_grok() {

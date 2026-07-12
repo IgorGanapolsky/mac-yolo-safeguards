@@ -22,12 +22,18 @@ grok-yolo -p "inspect this repo and identify the highest-risk bug"
 # Same Grok 4.5 executor through the familiar Hermes command
 hermes-yolo "fix the bug, run the focused tests, and report evidence"
 
+# Zero-token proof of the installed route, model, auth/billing mode, and wrapper hash
+hermes-yolo --route-status
+
 # Independent verifier receipt for Hermes orchestration
 hermes-grok45 \
   --task "review the current diff independently and verify the acceptance check" \
   --execute \
   --json \
   --write
+
+# Mine prompt-free receipts and refresh the inspectable harness wiki
+hermes-harness-eval --write --json
 ```
 
 The legacy Hermes provider path remains available only as an explicit override:
@@ -39,8 +45,9 @@ HERMES_YOLO_BACKEND=hermes hermes-yolo "run with the configured Hermes provider"
 ## Two-Mac install
 
 The installer deploys the standalone command, verifier harness, and corrected
-`hermes-yolo` wrapper locally and to the `hermes-mini` SSH host without touching
-either machine's working repository:
+`hermes-yolo` wrapper, receipt evaluator, and guarded Parallel Search client
+locally and to the `hermes-mini` SSH host without touching either machine's
+working repository:
 
 ```sh
 bash scripts/install-grok-yolo.sh --update
@@ -84,21 +91,90 @@ explicitly asks for Grok. It pairs the local Hermes executor with an independent
 Grok reviewer, surfaces disagreement, and keeps the router's default route
 unchanged until comparison receipts justify promotion.
 
-Receipts written by `--write` live at:
+Every `hermes-yolo` route writes a prompt-free receipt. The receipt records the
+selected backend/model, explicit routing reason, exit status, duration, wrapper
+hash, and whether any Qwen route was explicitly requested. It stores only a
+digest of the task, never the prompt. The verifier writes a compact history
+trace when `--write` is enabled:
 
 ```text
+~/.hermes/receipts/hermes-yolo/latest.json
+~/.hermes/receipts/hermes-yolo/history.jsonl
 ~/.hermes/receipts/grok45/latest.json
+~/.hermes/receipts/grok45/history.jsonl
 ```
+
+`hermes-harness-eval --write` deterministically mines those histories into
+pass/failure rates, latency percentiles, failure clusters, silent-fallback
+counts, and unexplained-Qwen counts. It writes:
+
+```text
+~/.hermes/receipts/hermes-yolo/eval-latest.json
+~/.hermes/receipts/hermes-yolo/HERMES-HARNESS-WIKI.md
+```
+
+This is the high-ROI improvement loop: use traces to find the largest observed
+failure cluster, turn that cluster into a regression test, and change routing
+only when the offline evaluation improves. It follows the trace-driven agent
+improvement approach described by [LangChain](https://www.langchain.com/blog/traces-start-agent-improvement-loop),
+while the generated Markdown artifact supplies inspectable wiki-style memory
+without storing raw chats; compare [LangChain wiki memory](https://www.langchain.com/blog/wiki-memory).
+
+## Optional Parallel retrieval
+
+`hermes-parallel-search` isolates fresh-web retrieval from model generation. Its
+default mode is a zero-call dry run:
+
+```sh
+hermes-parallel-search \
+  --objective "Find current official guidance for agent retrieval evaluation" \
+  --query "official agent retrieval evaluation traces" \
+  --max-results 10 \
+  --write \
+  --json
+```
+
+A provider call occurs only when all three gates are present:
+
+```sh
+PARALLEL_API_KEY="<key from environment or Keychain>" \
+hermes-parallel-search \
+  --objective "Find current official guidance for agent retrieval evaluation" \
+  --execute \
+  --paid-ok \
+  --max-cost-usd 0.005 \
+  --write \
+  --json
+```
+
+The wrapper uses Parallel's documented `POST /v1/search` contract, records query
+digests rather than raw query text, marks every excerpt as untrusted external
+content, and never executes retrieved instructions. The pricing estimate assumes
+no free credits: ten results cost $0.005 under the current documented pricing;
+additional results add $0.001 each. Sources: [Parallel Search quickstart](https://docs.parallel.ai/search/search-quickstart),
+[pricing](https://docs.parallel.ai/getting-started/pricing), and
+[source policy](https://docs.parallel.ai/resources/source-policy).
+
+Hard include/exclude-domain filters and `after_date` are available, but the
+default is to steer toward official sources in the objective because overly
+strict filters can reduce retrieval quality. The economic router treats this as
+a paid candidate only; it does not make an automatic provider call or promote it
+to the default. This keeps retrieval failures observable instead of disguising
+them as generation failures, the separation emphasized in [Retrieval for AI Agent Architecture](https://thenewstack.io/retrieval-ai-agent-architecture/).
 
 ## Verification
 
 ```sh
 node tests/test-grok-yolo.js
 node tests/test-hermes-grok45-harness.js
+node tests/test-hermes-harness-eval.js
+node tests/test-hermes-parallel-search.js
 node tests/test-hermes-yolo.js
 node tests/test-hermes-economic-router.js
 grok-yolo --doctor --json
+hermes-yolo --route-status
 hermes-grok45 --task "Return exactly GROK45-HERMES-SMOKE" --execute --json
+hermes-harness-eval --write --json
 ```
 
 A successful install is not the same as an authenticated runtime smoke. Report
