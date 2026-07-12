@@ -108,7 +108,7 @@ function maybeQueuePhoneInstall() {
   const cmd = [
     'export SENTRY_DISABLE_AUTO_UPLOAD=true HERMES_AGENT_LABEL=session-start',
     `cd "${HERMES_MOBILE_DIR}" && bash scripts/install-phone-release.sh`,
-    `node "${pairScript}" --mini-tailscale`,
+    `node "${pairScript}" --mini-tailscale --no-serve`,
   ].join(' && ');
 
   const lockResult = withPhonePipelineLock(
@@ -178,7 +178,7 @@ if (phoneInstall.queued) {
   const lockResult = withPhonePipelineLock(
     'session-start:auto-pair',
     () => {
-      pair = runNode('tools/hermes-mobile-pair.js', [], 60_000);
+      pair = runNode('tools/hermes-mobile-pair.js', ['--no-serve'], 60_000);
     },
     { waitMs: 30_000, skipIfBusy: true },
   );

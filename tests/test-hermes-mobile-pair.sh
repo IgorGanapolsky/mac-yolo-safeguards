@@ -73,5 +73,19 @@ else
   bad "pair adb deep link quotes URI for &name= params"
 fi
 
+# Unattended session-start pairing must never expose the credential-bearing LAN server.
+SESSION_START="$REPO/tools/agent-session-start.js"
+if grep -Fq '`node "${pairScript}" --mini-tailscale --no-serve`' "$SESSION_START"; then
+  ok "queued phone install pairs without serving on LAN"
+else
+  bad "queued phone install pairs without serving on LAN"
+fi
+
+if grep -Fq "pair = runNode('tools/hermes-mobile-pair.js', ['--no-serve'], 60_000);" "$SESSION_START"; then
+  ok "ordinary session-start auto-pair does not serve on LAN"
+else
+  bad "ordinary session-start auto-pair does not serve on LAN"
+fi
+
 printf "\nResults: %s passed, %s failed\n" "$pass" "$fail"
 [[ "$fail" -eq 0 ]]
