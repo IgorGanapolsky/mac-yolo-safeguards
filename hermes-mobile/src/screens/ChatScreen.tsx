@@ -294,6 +294,13 @@ import {
   EMPTY_REPLY_FAILURE_REASON,
   shouldAwaitGatewayReplyAfterSend,
 } from '../utils/emptyStreamReplyRecovery';
+import {
+  resolveDeferredReplyFailureReason,
+  shouldFailAwaitingToolResultReply,
+  shouldTreatCompletedRunAsToolResultTerminal,
+  TOOL_RESULT_TERMINAL_FAILURE_REASON,
+  transcriptEndsOnToolResultAfterLastUser,
+} from '../utils/toolResultTerminalRecovery';
 import { extractTerminalActivityFromMessage, isTerminalToolName } from '../utils/terminalActivity';
 import type { ChatMessageContent, ComposerAttachment } from '../types/chatAttachment';
 import {
@@ -610,6 +617,7 @@ export default function ChatScreen() {
   /** When a force/manual select is requested while a refresh is in flight, replay with force. */
   const refreshQueuedForceRef = useRef(false);
   const deferredTelegramPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const deferredReplyPollStartedAtRef = useRef(0);
   /** Keep HTTP transcript polling alive until gateway reply text lands (relay WS ≠ chat transport). */
   const awaitingGatewayReplyRef = useRef(false);
   const [awaitingGatewayReply, setAwaitingGatewayReply] = useState(false);
@@ -2170,15 +2178,17 @@ export default function ChatScreen() {
       awaitingGatewayReplyRef.current = true;
       setAwaitingGatewayReply(true);
       const startedAt = Date.now();
+      deferredReplyPollStartedAtRef.current = startedAt;
       deferredTelegramPollRef.current = setInterval(() => {
         if (Date.now() - startedAt > DEFERRED_REPLY_POLL_MAX_MS) {
           clearDeferredTelegramPoll();
           awaitingGatewayReplyRef.current = false;
           setAwaitingGatewayReply(false);
           setToolStatus(null);
+          const failureDetail = resolveDeferredReplyFailureReason(messagesRef.current);
           setRunProgress((prev) =>
             prev && prev.phase !== 'completed'
-              ? { ...prev, phase: 'failed', detail: EMPTY_REPLY_FAILURE_REASON }
+              ? { ...prev, phase: 'failed', detail: failureDetail }
               : prev,
           );
           options?.onTimeout?.();
@@ -2187,6 +2197,18 @@ export default function ChatScreen() {
         void refreshSessionMessages({ background: true, force: true }).then(() => {
           const reply = findNewAssistantReply(messagesRef.current, priorAssistants);
           if (!reply) {
+            if (shouldFailAwaitingToolResultReply(messagesRef.current, startedAt)) {
+              clearDeferredTelegramPoll();
+              awaitingGatewayReplyRef.current = false;
+              setAwaitingGatewayReply(false);
+              setToolStatus(null);
+              setRunProgress((prev) =>
+                prev && prev.phase !== 'completed'
+                  ? { ...prev, phase: 'failed', detail: TOOL_RESULT_TERMINAL_FAILURE_REASON }
+                  : prev,
+              );
+              options?.onTimeout?.();
+            }
             return;
           }
           clearDeferredTelegramPoll();
@@ -2216,6 +2238,35 @@ export default function ChatScreen() {
       clearDeferredTelegramPoll();
     };
   }, [clearDeferredTelegramPoll]);
+
+  useEffect(() => {
+    if (isDemo || !awaitingGatewayReply) {
+      return;
+    }
+    if (
+      !shouldFailAwaitingToolResultReply(
+        messages,
+        deferredReplyPollStartedAtRef.current || Date.now(),
+      )
+    ) {
+      return;
+    }
+    clearDeferredTelegramPoll();
+    setToolStatus(null);
+    setRunProgress((prev) =>
+      prev && prev.phase !== 'completed' && prev.phase !== 'failed'
+        ? { ...prev, phase: 'failed', detail: TOOL_RESULT_TERMINAL_FAILURE_REASON }
+        : prev,
+    );
+    const lastUser = messagesRef.current
+      .slice()
+      .reverse()
+      .find((message) => message.role?.toLowerCase() === 'user');
+    if (lastUser?.content?.trim()) {
+      lastFailedSendTextRef.current = lastUser.content.trim();
+    }
+    haptics.warning();
+  }, [awaitingGatewayReply, clearDeferredTelegramPoll, isDemo, messages, setRunProgress]);
 
   useEffect(() => {
     setChatStreamProgressActive(isSending || isChatStreamActive);
@@ -4465,20 +4516,25 @@ export default function ChatScreen() {
       if (!deferredTelegramPollRef.current) {
         const completedStartedAt = sendStartedAtRef.current;
         if (sendSucceeded) {
-          setRunProgress((prev) => ({
-            ...(prev ?? {
-              startedAtMs: completedStartedAt,
-              sessionId: targetSessionId,
-            }),
-            phase: 'completed',
-            detail: 'Reply ready on your computer',
-            duration: Math.max(0, (Date.now() - completedStartedAt) / 1000),
-          }));
-          setTimeout(() => {
-            setRunProgress((prev) =>
-              prev?.phase === 'completed' && prev.startedAtMs === completedStartedAt ? null : prev,
-            );
-          }, RUN_COMPLETED_BANNER_DISMISS_MS);
+          const suppressReplyReady =
+            awaitingGatewayReplyRef.current ||
+            transcriptEndsOnToolResultAfterLastUser(messagesRef.current);
+          if (!suppressReplyReady) {
+            setRunProgress((prev) => ({
+              ...(prev ?? {
+                startedAtMs: completedStartedAt,
+                sessionId: targetSessionId,
+              }),
+              phase: 'completed',
+              detail: 'Reply ready on your computer',
+              duration: Math.max(0, (Date.now() - completedStartedAt) / 1000),
+            }));
+            setTimeout(() => {
+              setRunProgress((prev) =>
+                prev?.phase === 'completed' && prev.startedAtMs === completedStartedAt ? null : prev,
+              );
+            }, RUN_COMPLETED_BANNER_DISMISS_MS);
+          }
         } else if (sendFailureDetail) {
           const failureDetail = sendFailureDetail;
           setRunProgress((prev) => ({
@@ -5072,12 +5128,32 @@ export default function ChatScreen() {
         if (!isTerminalGatewayRunStatus(gatewayStatus)) {
           return;
         }
+        await refreshSessionMessagesRef.current?.({ background: true, force: true });
+        if (cancelled) {
+          return;
+        }
         isSendingRef.current = false;
         setIsSending(false);
         const reconciledStartedAt = runProgressRef.current?.startedAtMs;
+        const toolResultTerminal =
+          gatewayStatus === 'completed' &&
+          shouldTreatCompletedRunAsToolResultTerminal(messagesRef.current);
+        if (toolResultTerminal) {
+          clearDeferredTelegramPoll();
+          awaitingGatewayReplyRef.current = false;
+          setAwaitingGatewayReply(false);
+        }
         setRunProgress((prev) => {
           if (!prev || !isActiveChatRun(prev)) {
             return prev;
+          }
+          if (toolResultTerminal) {
+            return {
+              ...prev,
+              phase: 'failed',
+              detail: TOOL_RESULT_TERMINAL_FAILURE_REASON,
+              duration: Math.max(0, (Date.now() - prev.startedAtMs) / 1000),
+            };
           }
           if (gatewayStatus === 'completed') {
             return {
@@ -5089,7 +5165,7 @@ export default function ChatScreen() {
           }
           return null;
         });
-        if (gatewayStatus === 'completed') {
+        if (gatewayStatus === 'completed' && !toolResultTerminal) {
           // Mirror the send-success path: auto-dismiss the completed banner. Without
           // this the reconcile path leaves "Reply ready on your computer" pinned
           // until the user taps Dismiss, and keeps re-posting the run notification.
@@ -5102,7 +5178,6 @@ export default function ChatScreen() {
           }, RUN_COMPLETED_BANNER_DISMISS_MS);
         }
         clearSessionBusyError();
-        void refreshSessionMessagesRef.current?.({ background: true, force: true });
       } catch {
         // transient gateway errors — keep showing banner
       }
