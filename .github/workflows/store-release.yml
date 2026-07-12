@@ -157,6 +157,7 @@ jobs:
         if: inputs.eas_build_id == ''
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+          HERMES_EAS_SPEND_APPROVED: ${{ inputs.confirm_eas_spend == 'yes' && 'YES_SPEND_EAS_CREDITS' || '' }}
         run: |
           set -euo pipefail
           if [ -z "${EXPO_TOKEN:-}" ]; then
@@ -192,6 +193,7 @@ jobs:
       - name: Verify Android production AAB read-back
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+          HERMES_EAS_SPEND_APPROVED: ${{ inputs.confirm_eas_spend == 'yes' && 'YES_SPEND_EAS_CREDITS' || '' }}
           BUILD_ID: ${{ steps.build.outputs.build_id || steps.adopt_build.outputs.build_id }}
         run: |
           set -euo pipefail

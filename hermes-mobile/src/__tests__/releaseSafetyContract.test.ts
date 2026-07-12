@@ -121,6 +121,14 @@ describe('release safety contract', () => {
     expect(eas.build.production.env.SENTRY_DISABLE_AUTO_UPLOAD).toBe('true');
   });
 
+  it('store release passes explicit spend confirmation to both EAS build guards', () => {
+    const workflow = read('.github/workflows/store-release.yml');
+    const mapping =
+      "HERMES_EAS_SPEND_APPROVED: ${{ inputs.confirm_eas_spend == 'yes' && 'YES_SPEND_EAS_CREDITS' || '' }}";
+    expect(workflow.split(mapping)).toHaveLength(3);
+    expect(workflow).toContain('if [ "${CONFIRM_EAS:-no}" != "yes" ]');
+  });
+
   it('app.json enables OTA updates with expo-updates plugin and appVersion runtime', () => {
     const app = JSON.parse(read('hermes-mobile/app.json'));
     expect(app.expo.android.package).toBe('com.iganapolsky.hermesmobile');
