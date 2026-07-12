@@ -17,6 +17,7 @@ const {
 
 const DEFAULT_REPO = path.resolve(__dirname, '..');
 const DEFAULT_OUT = path.join(os.homedir(), '.hermes', 'receipts', 'grok45', 'latest.json');
+const DEFAULT_HISTORY = path.join(os.homedir(), '.hermes', 'receipts', 'grok45', 'history.jsonl');
 const MAX_CAPTURE_CHARS = 50000;
 
 function usage() {
@@ -234,6 +235,42 @@ function writeReceipt(receipt, target = DEFAULT_OUT) {
   return target;
 }
 
+function historySummary(receipt) {
+  return {
+    schema: 'hermes-grok45-harness/trace-v1',
+    generatedAt: receipt.generatedAt,
+    host: receipt.host,
+    repoDigest: digest(receipt.repo),
+    taskDigest: receipt.taskDigest,
+    role: receipt.role,
+    model: receipt.model,
+    readiness: receipt.readiness,
+    billing: {
+      authMode: receipt.billing.authMode,
+      mode: receipt.billing.mode,
+      directApi: receipt.billing.directApi,
+      paidApprovalPresent: receipt.billing.paidApprovalPresent,
+    },
+    execution: {
+      attempted: receipt.execution.attempted,
+      status: receipt.execution.status,
+      exitCode: receipt.execution.exitCode,
+      durationMs: receipt.execution.durationMs,
+      stdoutDigest: receipt.execution.stdoutDigest || null,
+      stderrDigest: receipt.execution.stderrDigest || null,
+      error: receipt.execution.error || null,
+    },
+    overallStatus: receipt.overallStatus,
+  };
+}
+
+function appendHistoryReceipt(receipt, target = DEFAULT_HISTORY) {
+  fs.mkdirSync(path.dirname(target), { recursive: true, mode: 0o700 });
+  fs.appendFileSync(target, `${JSON.stringify(historySummary(receipt))}\n`, { mode: 0o600 });
+  fs.chmodSync(target, 0o600);
+  return target;
+}
+
 function render(receipt) {
   const lines = [
     '# Hermes Grok 4.5 Harness',
@@ -265,6 +302,7 @@ function main(argv = process.argv.slice(2)) {
     const receipt = buildHarness(options);
     if (options.write) {
       receipt.receiptPath = writeReceipt(receipt, options.out);
+      receipt.historyPath = appendHistoryReceipt(receipt);
     }
     console.log(options.json ? JSON.stringify(receipt, null, 2) : render(receipt));
     if (receipt.overallStatus === 'blocked' || receipt.overallStatus === 'fail' || receipt.overallStatus === 'timeout') {
@@ -278,6 +316,7 @@ function main(argv = process.argv.slice(2)) {
 
 module.exports = {
   DEFAULT_OUT,
+  DEFAULT_HISTORY,
   MAX_CAPTURE_CHARS,
   billingReceipt,
   buildHarness,
@@ -290,6 +329,8 @@ module.exports = {
   safeCommandSummary,
   sanitizeGrokOutput,
   writeReceipt,
+  appendHistoryReceipt,
+  historySummary,
 };
 
 if (require.main === module) main();

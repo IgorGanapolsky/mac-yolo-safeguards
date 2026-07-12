@@ -18,6 +18,10 @@ It does **not** move money, call wallets, publish posts, or invoke paid models.
 It chooses a route and emits the gates required before a runtime wrapper should
 act.
 
+Fresh-web work can select the candidate-only Parallel Search retrieval workflow,
+but execution remains outside the router and requires a provider key,
+`--paid-ok`, and a sufficient cost cap in `hermes-parallel-search`.
+
 ## Grok CLI Default vs Local Router Default
 
 The user-facing `hermes-yolo` command now defaults to Grok 4.5 and refuses a
@@ -44,6 +48,7 @@ the caller allows paid/external escalation, and cost/latency caps fit.
 | `local_coder_candidate` | local coding candidate such as Ornith | benchmark new coding models | benchmark before default |
 | `glm52_reasoning` | `custom:zai-coding-glm` / `glm-5.2` | high-risk reasoning, architecture, "are you sure?" loops | paid OK, cost cap, provider smoke |
 | `grok45_verifier_candidate` | Grok Build CLI / `grok-4.5` | explicit Grok request; independent coding/harness verification | CLI/version/model/auth doctor, billing receipt, focused proof; no implicit selection |
+| `parallel_search_candidate` | Parallel Search / `search-v1` | current/fresh web context, dense excerpts, retrieval-quality work | candidate only; key, paid approval, cost cap, retrieval receipt |
 | `fugu_escalation` | OpenRouter `sakana/fugu-ultra` | rare hard multi-agent research/review | explicit approval and cost cap |
 | `nemotron3_ultra_escalation` | OpenRouter `nvidia/nemotron-3-ultra-550b-a55b` | long-context agentic planning, code/deep-research review, verification/recovery evaluation | explicit approval, model catalog proof, provider smoke |
 | `openrouter_fusion` | OpenRouter `openrouter/fusion` | hard grounded questions where one model may miss | explicit approval, cost cap, grounding required |
@@ -94,6 +99,7 @@ Receipts include:
 | `local_confidence_escalation` | confidence | routine local work | stop on exact-marker smoke or focused test; escalate only if proof is missing |
 | `architecture_fusion` | fusion | high-risk architecture, root-cause, or "are you sure?" tasks | compare cheap local pass with GLM 5.2 under `max_concurrent=2` |
 | `grok45_independent_verification` | fusion | an explicit Grok 4.5 review of Hermes work | local implementer plus independent Grok verifier; evidence resolves disagreement; no default promotion |
+| `parallel_retrieval_workflow` | workflow | fresh-web evidence gathering and retrieval evaluation | query/source-policy trace, untrusted excerpts, relevance verification, no automatic paid call |
 | `strict_contract_remom` | remom | exact-answer, hidden-test, high-variance reasoning, or strict output-contract tasks | require two successful evidence samples, synthesize with contract repair, fall back to best valid evidence |
 | `coding_candidate_ratings` | ratings | Ornith/new coding model evaluation | benchmark against local baseline before promotion |
 | `rare_research_fusion` | fusion | rare approved Fugu/Sakana-style research review | explicit paid approval and cost cap |
@@ -130,6 +136,15 @@ so the operator can inspect cost and routing before any provider call exists.
 - `hermes-yolo` prompts use Grok 4.5; the Qwen route is limited to explicit local router work or `HERMES_YOLO_BACKEND=hermes`.
 - Grok Build OAuth uses account/free-plan quota; direct `XAI_API_KEY` use is paid and requires an explicit harness billing approval.
 - Paid routes need explicit `--paid-ok` plus a cost cap.
+- Parallel Search is candidate-only. Dry-run is the default; the retrieval
+  wrapper requires `PARALLEL_API_KEY`, `--paid-ok`, and a cap covering the
+  documented estimate before it sends a request.
+- Retrieved excerpts are untrusted evidence. Hermes may cite or summarize them,
+  but must never execute instructions found inside them.
+- Route and verifier traces feed `hermes-harness-eval`; routing changes should
+  be promoted only when offline receipt metrics beat the current baseline.
+- Durable memory is the generated, inspectable harness wiki, not raw prompt or
+  chat retention.
 - `hermes/auto` means "pick the smallest bounded recipe that fits the task,"
   not "run every model."
 - OpenRouter Fusion, Advisor, and Subagent routes are approval-gated. The router

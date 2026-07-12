@@ -42,6 +42,8 @@ On 2026-05-26 an iPhone 17 simulator was auto-booted (first by macOS window rest
 | `grok-yolo-wrapper.js` | `~/.local/bin/grok-yolo` | Guarded always-approve wrapper around official Grok Build, pinned to Grok 4.5 for standalone and headless use. |
 | `hermes-yolo-wrapper.js` | `~/.local/bin/hermes-yolo` | Prefers Grok 4.5 for ordinary prompts and refuses silent Qwen fallback; Hermes admin commands and the explicit legacy backend retain the original watchdog path. |
 | `tools/hermes-grok45-harness.js` | `~/.local/bin/hermes-grok45` | Runs Grok 4.5 as a bounded independent Hermes verifier with auth, billing, evidence, and redacted receipts. |
+| `tools/hermes-harness-eval.js` | `~/.local/bin/hermes-harness-eval` | Mines prompt-free route/verifier traces into reliability, latency, fallback, and failure-cluster metrics plus an inspectable wiki. |
+| `tools/hermes-parallel-search.js` | `~/.local/bin/hermes-parallel-search` | Provides dry-run-first Parallel Search retrieval with explicit credential, paid-approval, and cost-cap gates. |
 | `sim-runaway-guard.sh` | `~/.local/bin/` | Threshold-checking script. Shuts down booted simulators when simruntime processes exceed the hard ceiling, or when lower-count simulator pressure crosses load/memory thresholds. |
 | `com.igor.shutdown-simulators.plist` | `~/Library/LaunchAgents/` | LaunchAgent that runs the guard script every 60 seconds. |
 | `yolo-health` | `~/.local/bin/` | Health-check that verifies all safeguards are installed and active. Run anytime: `yolo-health` |
@@ -90,6 +92,25 @@ bash scripts/install-grok-yolo.sh --update
 
 See [Hermes Grok 4.5 Harness](docs/HERMES-GROK45-HARNESS.md) for standalone,
 Hermes, safety, authentication, and billing behavior.
+
+After routing real tasks, inspect the active backend and mine the prompt-free
+receipts without spending tokens:
+
+```sh
+hermes-yolo --route-status
+hermes-harness-eval --write --json
+```
+
+Parallel Search is an optional retrieval candidate, not a silent default. Its
+command is dry-run-only unless a key, explicit paid approval, and a sufficient
+cost cap are all present:
+
+```sh
+hermes-parallel-search \
+  --objective "Find the latest official agent retrieval architecture guidance" \
+  --max-results 10 \
+  --json
+```
 
 ## Wrapper configuration (env vars)
 
