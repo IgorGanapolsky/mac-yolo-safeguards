@@ -295,7 +295,7 @@ export default function ChatConnectionPanel({
           <View style={styles.manualInputRow}>
             <TextInput
               style={styles.manualInput}
-              placeholder="e.g. 100.87.85.85 or http://100.87.85.85:8642"
+              placeholder="e.g. your-device-name or a 100.x address"
               placeholderTextColor={colors.textMuted}
               value={manualInput}
               onChangeText={setManualInput}

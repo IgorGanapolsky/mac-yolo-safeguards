@@ -1,6 +1,32 @@
 # App Store Connect — iOS blockers (Hermes Mobile 1.0)
 
-**Updated:** 2026-07-10 ~11:45 ET (IAP now in review; prior IAP-attach blocker largely resolved)
+**Updated:** 2026-07-11 ~16:05 ET (IAP `DEVELOPER_ACTION_NEEDED` **fixed via API**; PR **#125** merged)
+
+## Jul 11 — IAP regression fixed (API)
+
+**Before** (`verify-asc-listing.js --json`, ~10:36 ET): IAP `DEVELOPER_ACTION_NEEDED`, en-US localization `REJECTED`, `readyToSubmit: false`.
+
+**Fix** (`node scripts/fix-asc-iap-developer-action-needed.js --json`, ~15:45 ET):
+
+1. POST fresh `subscriptionLocalizations` en-US (`PREPARE_FOR_SUBMISSION`) — Apple retires the locked `REJECTED` row.
+2. POST `/v1/subscriptionSubmissions` for `thumbgate_leash_monthly`.
+
+**After:**
+
+| Item | State |
+|------|--------|
+| Version **1.0** | `WAITING_FOR_REVIEW` |
+| IAP `thumbgate_leash_monthly` | **`WAITING_FOR_REVIEW`** |
+| `leashSubscription.readyToSubmit` | **`true`** |
+| Public App Store | `itunes lookup` → **0** (not live until approved) |
+
+**Remaining:**
+
+- **Binary 12** may still lack Guideline **3.1.2** paywall footer in the **review binary** — PR **#125** merged (`e308cf6`); trigger EAS iOS build **15** only if Apple rejects on 3.1.2 (not triggered in this worker pass).
+- **Agreements / tax / banking** — ASC API cannot read; Igor 2-min UI check.
+- **Release after approval** — `AFTER_APPROVAL` requires manual **Release this version**.
+
+---
 
 ## Review notes (fixed)
 
@@ -77,5 +103,6 @@ Do these in [App Store Connect](https://appstoreconnect.apple.com) (sign in as a
 cd hermes-mobile
 node scripts/verify-asc-listing.js
 node scripts/ensure-asc-leash-subscription.js
+node scripts/fix-asc-iap-developer-action-needed.js --json
 node scripts/submit-asc-for-review.js   # no-op if already WAITING_FOR_REVIEW
 ```

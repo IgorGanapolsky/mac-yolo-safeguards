@@ -16,6 +16,7 @@ type CodexCommandCenterProps = {
   onOpenApprovals: () => void;
   onMacRetry?: () => void;
   machineName?: string;
+  chatStalled?: boolean;
 };
 
 function connectionCopy(
@@ -23,12 +24,16 @@ function connectionCopy(
   macHttpReachable = false,
   macRetryBusy = false,
   machineName = 'Computer',
+  chatStalled = false,
 ): { label: string; detail: string; color: string } {
   if (macRetryBusy) {
     return { label: machineName, detail: 'Reconnecting…', color: colors.warning };
   }
   if (state === 'demo') {
     return { label: 'Demo', detail: 'Preview', color: colors.accent };
+  }
+  if (macHttpReachable && chatStalled) {
+    return { label: 'Connected', detail: 'Chat stalled — tap ↑ to resend', color: colors.warning };
   }
   if (macHttpReachable) {
     return { label: 'Connected', detail: 'Ready', color: colors.success };
@@ -88,8 +93,15 @@ export default function CodexCommandCenter({
   onOpenApprovals,
   onMacRetry,
   machineName = 'Computer',
+  chatStalled = false,
 }: CodexCommandCenterProps) {
-  const link = connectionCopy(connectionState, macHttpReachable, macRetryBusy, machineName);
+  const link = connectionCopy(
+    connectionState,
+    macHttpReachable,
+    macRetryBusy,
+    machineName,
+    chatStalled,
+  );
   const showMacTile =
     shouldShowMacTile(connectionState, macHttpReachable) && !silentHealInFlight;
   const showRunTile = shouldShowRunTile(runProgress, isSending);

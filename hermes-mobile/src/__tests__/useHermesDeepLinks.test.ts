@@ -209,6 +209,26 @@ describe('useHermesDeepLinks', () => {
     expect(props.attribution_window).toBe('day7');
   });
 
+  it('unlocks Leash via hermes://dev/leash-unlock without changing tabs', async () => {
+    const activateDeveloperLeashUnlock = jest.fn().mockResolvedValue(undefined);
+    renderHook(() =>
+      useHermesDeepLinks(
+        navigationRef as never,
+        runAgentTool,
+        refreshHealth,
+        undefined,
+        undefined,
+        activateDeveloperLeashUnlock,
+      ),
+    );
+    const handler = (Linking.addEventListener as jest.Mock).mock.calls[0][1];
+    await act(async () => {
+      await handler({ url: 'hermes://dev/leash-unlock' });
+    });
+    expect(activateDeveloperLeashUnlock).toHaveBeenCalledTimes(1);
+    expect(navigationRef.current.navigate).not.toHaveBeenCalled();
+  });
+
   it('opens Leash and injects smoke preview from hermes://leash?preview=smoke', async () => {
     const injectSmokeApproval = jest.fn();
     renderHook(() =>

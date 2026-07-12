@@ -40,6 +40,14 @@ on:
         description: "Reuse finished production build UUID (submit-only — skips eas build --wait)"
         required: false
         type: string
+      audit_play_track:
+        description: "Read Google Play production version/status only (no build, submit, or edit commit)"
+        required: true
+        default: "false"
+        type: choice
+        options:
+          - "false"
+          - "true"
 
 concurrency:
   group: store-release-${{ github.ref_name }}-${{ inputs.platform }}
@@ -90,11 +98,102 @@ jobs:
               ;;
           esac
 
+  android-production-track-audit:
+    name: Android Production Track Audit
+    needs: [internal-proof-gate]
+    if: |
+      always() &&
+      inputs.audit_play_track == 'true' &&
+      inputs.platform == 'android' &&
+      (needs.internal-proof-gate.result == 'success' || needs.internal-proof-gate.result == 'skipped')
+    runs-on: ubuntu-latest
+    environment: production-android
+    steps:
+      - name: Read production release state from Google Play
+        env:
+          GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
+          PLAY_PACKAGE: com.iganapolsky.hermesmobile
+        run: |
+          node <<'NODE'
+          const crypto = require('crypto');
+
+          const credentials = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_JSON || '{}');
+          if (!credentials.client_email || !credentials.private_key) {
+            throw new Error('Missing Google Play service account credentials');
+          }
+
+          const encode = (value) => Buffer.from(JSON.stringify(value)).toString('base64url');
+          const now = Math.floor(Date.now() / 1000);
+          const unsigned = [
+            encode({ alg: 'RS256', typ: 'JWT' }),
+            encode({
+              iss: credentials.client_email,
+              scope: 'https://www.googleapis.com/auth/androidpublisher',
+              aud: credentials.token_uri || 'https://oauth2.googleapis.com/token',
+              iat: now,
+              exp: now + 3600,
+            }),
+          ].join('.');
+          const signature = crypto.sign('RSA-SHA256', Buffer.from(unsigned), credentials.private_key)
+            .toString('base64url');
+          const assertion = `${unsigned}.${signature}`;
+
+          async function json(response, label) {
+            const body = await response.json().catch(() => ({}));
+            if (!response.ok) {
+              throw new Error(`${label} failed with HTTP ${response.status}: ${body.error?.message || 'unknown error'}`);
+            }
+            return body;
+          }
+
+          async function main() {
+            const tokenResponse = await fetch(credentials.token_uri || 'https://oauth2.googleapis.com/token', {
+              method: 'POST',
+              headers: { 'content-type': 'application/x-www-form-urlencoded' },
+              body: new URLSearchParams({
+                grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer',
+                assertion,
+              }),
+            });
+            const token = await json(tokenResponse, 'OAuth token exchange');
+            const base = `https://androidpublisher.googleapis.com/androidpublisher/v3/applications/${process.env.PLAY_PACKAGE}`;
+            const headers = {
+              authorization: `Bearer ${token.access_token}`,
+              'content-type': 'application/json',
+            };
+            const edit = await json(await fetch(`${base}/edits`, {
+              method: 'POST',
+              headers,
+              body: '{}',
+            }), 'Create read-only edit');
+            const tracks = await json(await fetch(`${base}/edits/${edit.id}/tracks`, { headers }), 'List tracks');
+            const production = (tracks.tracks || []).find((track) => track.track === 'production');
+            const releases = (production?.releases || []).map((release) => ({
+              name: release.name || null,
+              status: release.status || null,
+              versionCodes: release.versionCodes || [],
+              userFraction: release.userFraction ?? null,
+            }));
+            console.log(`PLAY_TRACK_AUDIT=${JSON.stringify({
+              packageName: process.env.PLAY_PACKAGE,
+              track: 'production',
+              releases,
+              editCommitted: false,
+            })}`);
+          }
+
+          main().catch((error) => {
+            console.error(error.message);
+            process.exit(1);
+          });
+          NODE
+
   android-production:
     name: Android Production AAB
     needs: [internal-proof-gate]
     if: |
       always() &&
+      inputs.audit_play_track != 'true' &&
       (needs.internal-proof-gate.result == 'success' || needs.internal-proof-gate.result == 'skipped') &&
       (inputs.platform == 'android' || inputs.platform == 'both')
     runs-on: ubuntu-latest
@@ -116,6 +215,9 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
+      - name: Public mobile source privacy scan
+        run: npm run privacy:scan
 
       # Hermes Mobile Play submit: GOOGLE_SERVICE_ACCOUNT_JSON from sync-hermes-secrets.sh
       # (hermes-mobile-publisher@… — not Firebase, not other-app Play keys). See PLAY_RELEASE.md.
@@ -154,6 +256,7 @@ jobs:
         if: inputs.eas_build_id == ''
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+          HERMES_EAS_SPEND_APPROVED: ${{ inputs.confirm_eas_spend == 'yes' && 'YES_SPEND_EAS_CREDITS' || '' }}
         run: |
           set -euo pipefail
           if [ -z "${EXPO_TOKEN:-}" ]; then
@@ -189,6 +292,7 @@ jobs:
       - name: Verify Android production AAB read-back
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+          HERMES_EAS_SPEND_APPROVED: ${{ inputs.confirm_eas_spend == 'yes' && 'YES_SPEND_EAS_CREDITS' || '' }}
           BUILD_ID: ${{ steps.build.outputs.build_id || steps.adopt_build.outputs.build_id }}
         run: |
           set -euo pipefail
@@ -202,6 +306,16 @@ jobs:
           if (!build.artifacts?.buildUrl?.endsWith('.aab')) throw new Error(`Expected AAB artifact, got ${build.artifacts?.buildUrl || 'missing'}`);
           console.log(`Android production AAB verified: ${build.artifacts.buildUrl}`);
           NODE
+
+      - name: Download and scan Android production AAB
+        env:
+          BUILD_ID: ${{ steps.build.outputs.build_id || steps.adopt_build.outputs.build_id }}
+        run: |
+          set -euo pipefail
+          BUILD_URL="$(node -e 'const b=require("/tmp/eas-android-production-build-view.json"); process.stdout.write(b.artifacts?.buildUrl || "")')"
+          test -n "$BUILD_URL"
+          curl --fail --location --silent --show-error "$BUILD_URL" --output "$RUNNER_TEMP/hermes-production.aab"
+          npm run privacy:scan:artifact -- "$RUNNER_TEMP/hermes-production.aab"
 
       - name: Submit Android build to Google Play
         if: inputs.submit == 'true'
@@ -255,6 +369,9 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
+      - name: Public mobile source privacy scan
+        run: npm run privacy:scan
 
       - name: Prepare App Store Connect API key
         if: inputs.submit == 'true'
@@ -319,6 +436,14 @@ jobs:
           if (build.distribution !== 'STORE') throw new Error(`Expected STORE distribution, got ${build.distribution}`);
           console.log(`iOS production build verified: ${build.artifacts?.buildUrl || build.id}`);
           NODE
+
+      - name: Download and scan iOS production artifact
+        run: |
+          set -euo pipefail
+          BUILD_URL="$(node -e 'const b=require("/tmp/eas-ios-production-build-view.json"); process.stdout.write(b.artifacts?.buildUrl || "")')"
+          test -n "$BUILD_URL"
+          curl --fail --location --silent --show-error "$BUILD_URL" --output "$RUNNER_TEMP/hermes-production.ipa"
+          npm run privacy:scan:artifact -- "$RUNNER_TEMP/hermes-production.ipa"
 
       - name: Submit iOS build to App Store Connect/TestFlight
         if: inputs.submit == 'true'

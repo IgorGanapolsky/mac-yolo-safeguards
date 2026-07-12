@@ -10,7 +10,7 @@
  * Runs LaunchAgent health check then CEO operating brief (DS / ML / RAG stack).
  */
 
-const { spawnSync, spawn } = require('child_process');
+const { spawnSync } = require('child_process');
 const path = require('path');
 
 const fs = require('fs');
@@ -23,6 +23,11 @@ const HERMES_MOBILE_DIR = path.join(REPO, 'hermes-mobile');
 const PHONE_INSTALL_MARKER = path.join(HERMES_MOBILE_DIR, '.install-phone-release.last');
 const PHONE_DEVICE_ID = 'R3CY90QPM7E';
 const { formatHuman, snapshotPlan } = require('./plan-coordination-snapshot');
+const {
+  phoneInstallLaunchJobRunning,
+  pipelineBusyReason,
+  withPhonePipelineLock,
+} = require('./agent-phone-pipeline-lock');
 const E2E_STALE_MS = 30 * 60 * 1000;
 const args = process.argv.slice(2);
 const json = args.includes('--json');
@@ -85,39 +90,53 @@ function maybeQueuePhoneInstall() {
     return { queued: false, reason: 'current', sha: targetSha };
   }
 
+  const busy = pipelineBusyReason();
+  if (busy || phoneInstallLaunchJobRunning()) {
+    return {
+      queued: false,
+      reason: 'pipeline-busy',
+      sha: targetSha,
+      lastSha: lastSha || null,
+      detail: busy || 'phone-install launchctl job already running',
+    };
+  }
+
   const logPath = path.join(HERMES_MOBILE_DIR, 'docs/proofs/phone-install-once.log');
   fs.mkdirSync(path.dirname(logPath), { recursive: true });
   const label = `com.igor.hermes-phone-install-once.${process.getuid?.() ?? '0'}`;
+  const pairScript = path.join(REPO, 'tools/hermes-mobile-pair.js');
   const cmd = [
     'export SENTRY_DISABLE_AUTO_UPLOAD=true HERMES_AGENT_LABEL=session-start',
     `cd "${HERMES_MOBILE_DIR}" && bash scripts/install-phone-release.sh`,
-    `node "${path.join(REPO, 'tools/hermes-mobile-pair.js')}" --mini-tailscale`,
+    `node "${pairScript}" --mini-tailscale --no-serve`,
   ].join(' && ');
 
-  const submit = spawnSync(
-    'launchctl',
-    ['submit', '-l', label, '-o', logPath, '-e', logPath, '--', '/bin/bash', '-lc', cmd],
-    { encoding: 'utf8', timeout: 10_000 },
+  const lockResult = withPhonePipelineLock(
+    'session-start:queue-phone-install',
+    () => {
+      const submit = spawnSync(
+        'launchctl',
+        ['submit', '-l', label, '-o', logPath, '-e', logPath, '--', '/bin/bash', '-lc', cmd],
+        { encoding: 'utf8', timeout: 10_000 },
+      );
+      if (submit.status !== 0) {
+        throw new Error(submit.stderr?.trim() || submit.stdout?.trim() || 'launchctl submit failed');
+      }
+    },
+    { waitMs: 15_000, skipIfBusy: true },
   );
 
-  if (submit.status === 0) {
-    return { queued: true, sha: targetSha, lastSha: lastSha || null, logPath };
+  if (!lockResult.ran) {
+    return {
+      queued: false,
+      reason: 'pipeline-busy',
+      sha: targetSha,
+      lastSha: lastSha || null,
+      detail: lockResult.reason || 'phone pipeline busy',
+    };
   }
 
-  const child = spawn('/bin/bash', ['-lc', cmd], {
-    cwd: REPO,
-    detached: true,
-    stdio: 'ignore',
-    env: { ...process.env, SENTRY_DISABLE_AUTO_UPLOAD: 'true', HERMES_AGENT_LABEL: 'session-start' },
-  });
-  child.unref();
-  return {
-    queued: Boolean(child.pid),
-    sha: targetSha,
-    lastSha: lastSha || null,
-    fallback: true,
-    pid: child.pid || null,
-  };
+  return { queued: true, sha: targetSha, lastSha: lastSha || null, logPath };
 }
 
 const planSnapshot = snapshotPlan();
@@ -138,7 +157,43 @@ if (!json) {
 
 runBash('hermes-mobile/scripts/agent-adb-refresh.sh', 15_000);
 
-const pair = runNode('tools/hermes-mobile-pair.js', [], 60_000);
+const phoneInstall = maybeQueuePhoneInstall();
+const phonePipelineBusy =
+  phoneInstall.reason === 'pipeline-busy' ||
+  Boolean(pipelineBusyReason()) ||
+  phoneInstallLaunchJobRunning();
+
+let pair = { status: 0, stdout: '', stderr: '' };
+if (phoneInstall.queued) {
+  if (!json) {
+    process.stdout.write('\n=== Hermes Mobile auto-pair: deferred (install+pair job queued) ===\n');
+  }
+} else if (phonePipelineBusy) {
+  if (!json) {
+    process.stdout.write(
+      `\n=== Hermes Mobile auto-pair: skipped (${phoneInstall.detail || pipelineBusyReason() || 'pipeline busy'}) ===\n`,
+    );
+  }
+} else if (phoneInstall.reason === 'no-device') {
+  if (!json) {
+    process.stdout.write(
+      '\n=== Hermes Mobile auto-pair: skipped (no physical phone; emulator-only ADB is never paired) ===\n',
+    );
+  }
+} else {
+  const lockResult = withPhonePipelineLock(
+    'session-start:auto-pair',
+    () => {
+      pair = runNode('tools/hermes-mobile-pair.js', ['--no-serve'], 60_000);
+    },
+    { waitMs: 30_000, skipIfBusy: true },
+  );
+  if (!lockResult.ran && !json) {
+    process.stdout.write(
+      `\n=== Hermes Mobile auto-pair: skipped (${lockResult.reason || 'pipeline busy'}) ===\n`,
+    );
+  }
+}
 if (!json && pair.stdout) {
   const pairLines = pair.stdout
     .split('\n')
@@ -148,8 +203,6 @@ if (!json && pair.stdout) {
     pairLines.forEach((line) => process.stdout.write(`${line}\n`));
   }
 }
-
-const phoneInstall = maybeQueuePhoneInstall();
 if (!json && phoneInstall.queued) {
   process.stdout.write('\n=== Hermes Mobile phone install (stale marker) ===\n');
   process.stdout.write(
@@ -163,6 +216,10 @@ if (!json && phoneInstall.queued) {
 } else if (!json && phoneInstall.reason === 'current') {
   process.stdout.write(
     `\n=== Hermes Mobile phone install: ${PHONE_DEVICE_ID} already at ${phoneInstall.sha.slice(0, 12)} ===\n`,
+  );
+} else if (!json && phoneInstall.reason === 'pipeline-busy') {
+  process.stdout.write(
+    `\n=== Hermes Mobile phone install: skipped — ${phoneInstall.detail || 'pipeline busy'} ===\n`,
   );
 }
 

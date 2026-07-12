@@ -25,3 +25,6 @@ docs/proofs
 # Higgsfield / ImageMagick scratch (canonical outputs live under fastlane/metadata)
 docs/store-assets/higgsfield/_*.js
 docs/store-assets/higgsfield/_*.png
+
+# Human-presence device lease (transient, self-expiring) — never commit
+.phone-human-hold

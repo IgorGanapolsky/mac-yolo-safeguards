@@ -2,7 +2,12 @@
 'use strict';
 
 const fs = require('fs');
+const path = require('path');
 const { collect } = require('./hermes-productivity-audit');
+
+const DEFAULT_OUT_DIR = process.env.MAC_YOLO_HERMES_DECISION_DIR
+  ? path.resolve(process.env.MAC_YOLO_HERMES_DECISION_DIR)
+  : path.join(__dirname, '..', 'artifacts', 'hermes-decision-loop');
 
 const usage = `Usage:
   node tools/hermes-decision-loop.js [--send-smoke] [--test-public-webhook] [--allow-live-telegram] [--remote HOST ...] [--date YYYY-MM-DD] [--out-jsonl FILE] [--out-md FILE] [--json]
@@ -60,8 +65,11 @@ function requireArgs(args) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(args.date)) {
     throw new Error('--date must be YYYY-MM-DD');
   }
-  if (!args.outJsonl) args.outJsonl = `hermes-decisions-${args.date}.jsonl`;
-  if (!args.outMd) args.outMd = `hermes-decision-${args.date}.md`;
+  if (!args.outJsonl || !args.outMd) {
+    fs.mkdirSync(DEFAULT_OUT_DIR, { recursive: true });
+  }
+  if (!args.outJsonl) args.outJsonl = path.join(DEFAULT_OUT_DIR, `hermes-decisions-${args.date}.jsonl`);
+  if (!args.outMd) args.outMd = path.join(DEFAULT_OUT_DIR, `hermes-decision-${args.date}.md`);
 }
 
 function worstSeverity(findings) {

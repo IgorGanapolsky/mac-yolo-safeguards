@@ -4,32 +4,40 @@ import { hasDiffContent } from './diffDisplay';
 
 export type SmartNotificationAppState = 'active' | 'background' | 'inactive' | string;
 
-/** Notify when app is not in foreground, or always for high-risk approvals. */
+function isBackgrounded(appState: SmartNotificationAppState): boolean {
+  return appState === 'background';
+}
+
+/** Notify when app is not in foreground and approval alerts are enabled. */
 export function shouldScheduleApprovalNotification(
   pending: PendingApproval,
   appState: SmartNotificationAppState = AppState.currentState,
+  categoryEnabled = true,
 ): boolean {
-  return appState === 'background';
+  return categoryEnabled && isBackgrounded(appState);
 }
 
 export function shouldScheduleRunCompletedNotification(
   appState: SmartNotificationAppState = AppState.currentState,
+  categoryEnabled = true,
 ): boolean {
-  return appState === 'background';
+  return categoryEnabled && isBackgrounded(appState);
 }
 
 /** Live run progress + stall watchdog notifications — background only. */
 export function shouldScheduleRunProgressNotification(
   appState: SmartNotificationAppState = AppState.currentState,
+  categoryEnabled = true,
 ): boolean {
-  return appState === 'background';
+  return categoryEnabled && isBackgrounded(appState);
 }
 
 /** Batch approval summary — background only (same bar as single approvals). */
 export function shouldScheduleApprovalsSummaryNotification(
   appState: SmartNotificationAppState = AppState.currentState,
+  categoryEnabled = true,
 ): boolean {
-  return appState === 'background';
+  return categoryEnabled && isBackgrounded(appState);
 }
 
 /** Whether heads-up banners / sounds may interrupt the user (never while foregrounded). */

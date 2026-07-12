@@ -242,6 +242,67 @@ function releaseLock() {
   } catch (e) {}
 }
 
+function findGrokYoloBinary(env = process.env) {
+  const candidates = [
+    env.GROK_YOLO_BIN,
+    path.join(HOME, '.local', 'bin', 'grok-yolo'),
+    path.join(__dirname, 'grok-yolo-wrapper.js'),
+  ].filter(Boolean);
+  for (const candidate of candidates) {
+    try {
+      if (fs.statSync(candidate).isFile()) return candidate;
+    } catch (e) {}
+  }
+  return null;
+}
+
+function shouldUseGrokBackend(rawArgs, env = process.env) {
+  const backend = String(env.HERMES_YOLO_BACKEND || 'grok').trim().toLowerCase();
+  if (!['grok', 'auto', 'hermes'].includes(backend)) {
+    throw new Error(`Unsupported HERMES_YOLO_BACKEND=${backend}; expected grok, auto, or hermes`);
+  }
+  if (backend === 'hermes') return false;
+  if (rawArgs.length > 0 && ['--version', '-V', '--help', '-h'].includes(rawArgs[0])) return false;
+  if (rawArgs.length > 0 && ['--provider', '--model', '--toolsets'].includes(rawArgs[0])) return false;
+  if (rawArgs.length > 0 && HERMES_COMMANDS.has(rawArgs[0])) return false;
+  return true;
+}
+
+function buildGrokBackendArgs(rawArgs, options = {}) {
+  const isTty = options.isTty !== undefined ? options.isTty : Boolean(process.stdin.isTTY && process.stdout.isTTY);
+  if (rawArgs.length === 0) {
+    return isTty ? [] : ['-p', DEFAULT_READY_PROMPT, '--output-format', 'plain'];
+  }
+  if (rawArgs[0] === '-z' || rawArgs[0] === '--single') {
+    const prompt = rawArgs.slice(1).join(' ').trim() || DEFAULT_READY_PROMPT;
+    return ['-p', prompt, '--output-format', 'plain'];
+  }
+  if (!rawArgs[0].startsWith('-')) {
+    return ['-p', rawArgs.join(' '), '--output-format', 'plain'];
+  }
+  return rawArgs;
+}
+
+function runGrokBackend(rawArgs, env = process.env) {
+  const grokYoloBin = findGrokYoloBinary(env);
+  if (!grokYoloBin) {
+    console.error('[hermes-yolo] Grok 4.5 backend is required but grok-yolo is not installed.');
+    console.error('[hermes-yolo] Refusing to silently fall back to Qwen.');
+    process.exit(127);
+  }
+  const grokArgs = buildGrokBackendArgs(rawArgs);
+  console.error('[hermes-yolo] backend=grok-4.5 (set HERMES_YOLO_BACKEND=hermes for the legacy Hermes provider route)');
+  const result = require('child_process').spawnSync(grokYoloBin, grokArgs, {
+    stdio: 'inherit',
+    env,
+  });
+  if (result.error) {
+    console.error(`[hermes-yolo] Grok 4.5 backend failed to start: ${result.error.message}`);
+    process.exit(127);
+  }
+  process.exit(result.status === null ? 1 : result.status);
+}
+
 function updateStatus(updater) {
   try {
     if (!fs.existsSync(STATUS_PATH)) return;
@@ -252,6 +313,9 @@ function updateStatus(updater) {
 }
 
 if (require.main === module) {
+if (shouldUseGrokBackend(args, process.env)) {
+  runGrokBackend(args, process.env);
+}
 // --- Singleton lock: refuse second instance, clear stale locks ---
 if (fs.existsSync(LOCK_PATH)) {
   const lockPid = parseInt(fs.readFileSync(LOCK_PATH, 'utf8').trim(), 10);
@@ -514,6 +578,9 @@ module.exports = {
   hasZaiKey,
   mergedHermesEnv,
   parseEnvFile,
+  buildGrokBackendArgs,
+  findGrokYoloBinary,
+  shouldUseGrokBackend,
   HERMES_COMMANDS,
   DEFAULT_READY_PROMPT
 };

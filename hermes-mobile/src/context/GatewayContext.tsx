@@ -92,6 +92,7 @@ import {
   CONNECTION_SELF_HEAL_INTERVAL_MS,
   buildSelfHealProbeUrls,
   savedProfileFallbackUrls,
+  resolveApiKeyForGatewayProbe,
   resolveCellularTailscaleFailoverUrl,
 } from '../utils/connectionSelfHeal';
 import { CONNECTION_HEAL_EXHAUSTED_AFTER } from '../utils/connectionErrorPolicy';
@@ -152,6 +153,7 @@ import { resolveApprovalChoice } from '../services/approvalResolver';
 import { requestStoreReviewIfThresholdReached } from '../services/storeReview';
 import { fromPendingApproval } from '../utils/approvalNormalize';
 import { shouldScheduleApprovalNotification } from '../utils/smartNotificationPolicy';
+import { withDerivedNotificationsEnabled } from '../utils/notificationPreferences';
 import {
   dismissApprovalNotifications,
   dismissApprovalNotification,
@@ -272,7 +274,7 @@ export const GatewayContext = createContext<GatewayContextValue | null>(null);
 
 export function GatewayProvider({ children }: { children: React.ReactNode }) {
   const [settings, setSettings] = useState<GatewaySettings>(DEFAULT_GATEWAY_SETTINGS);
-  const [apiKey, setApiKey] = useState('sk-hermes-api-server-key-2026-06-15');
+  const [apiKey, setApiKey] = useState('');
   const [mobileToken, setMobileToken] = useState('');
   const [thumbgateApiKey, setThumbgateApiKey] = useState('');
   const [runProgress, setRunProgress] = useState<RunProgressState | null>(null);
@@ -367,15 +369,16 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
   }, [runProgress]);
 
   useEffect(() => {
-    if (!settings.notificationsEnabled || Platform.OS === 'web') {
+    if (!settings.notificationApprovals || Platform.OS === 'web') {
       syncHermesNotificationBadge(0).catch(() => {});
       return;
     }
     syncHermesNotificationBadge(pendingApprovals.length).catch(() => {});
     syncSmartApprovalNotifications(pendingApprovals, {
       badgeCount: pendingApprovals.length,
+      categoryEnabled: settings.notificationApprovals,
     }).catch(() => {});
-  }, [pendingApprovals, settings.notificationsEnabled]);
+  }, [pendingApprovals, settings.notificationApprovals]);
 
   useEffect(() => {
     if (!settings.notificationsEnabled || Platform.OS === 'web') {
@@ -518,7 +521,7 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
         const savedMobileToken = await secureCredentials.loadMobileToken();
 
         const active = activeProfile(loadedProfiles);
-        let resolvedKey = savedKey || 'sk-hermes-api-server-key-2026-06-15';
+        let resolvedKey = savedKey || '';
         let resolvedSettings = sanitizeDemoModeForRelease(savedSettings);
         if (!isDemoModeAllowed() && savedSettings.demoMode) {
           await storage.saveGatewaySettings(resolvedSettings);
@@ -628,6 +631,15 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
       setProfileState(upserted);
       await gatewayProfiles.save(upserted);
 
+      const activeIdAfterHeal = profileStateRef.current.activeProfileId;
+      if (activeIdAfterHeal) {
+        const profileKey = await secureCredentials.resolveApiKeyForProfile(activeIdAfterHeal);
+        if (profileKey && profileKey !== apiKeyRef.current) {
+          setApiKey(profileKey);
+          apiKeyRef.current = profileKey;
+        }
+      }
+
       if (healDecision.catalogOnly) {
         return healDecision.returnUrl;
       }
@@ -697,11 +709,21 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
     }
     const currentSettings = settingsRef.current;
     const token = mobileTokenRef.current;
-    const key = apiKeyRef.current;
     const gatewayProbeUrl = effectiveGatewayUrlRef.current || currentSettings.gatewayUrl;
 
     const probeMacGateway = async (url: string) => {
-      const snapshot = await fetchGatewayHealth(url, key);
+      const probeKey = await resolveApiKeyForGatewayProbe({
+        gatewayUrl: url,
+        profiles: profileStateRef.current.profiles,
+        activeProfileId: profileStateRef.current.activeProfileId,
+        fallbackKey: apiKeyRef.current,
+        resolveProfileKey: (profileId) => secureCredentials.resolveApiKeyForProfile(profileId),
+      });
+      if (probeKey !== apiKeyRef.current) {
+        setApiKey(probeKey);
+        apiKeyRef.current = probeKey;
+      }
+      const snapshot = await fetchGatewayHealth(url, probeKey);
       return snapshot;
     };
 
@@ -1094,12 +1116,19 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
       );
       if (isNew) {
         haptics.warning();
-        if (settingsRef.current.notificationsEnabled) {
+        if (settingsRef.current.notificationApprovals) {
           emitSignOfLife(`Approval needed: ${pending.reason.slice(0, 80)}`, { haptic: false });
           const appState = AppState.currentState;
-          if (shouldScheduleApprovalNotification(pending, appState)) {
+          if (
+            shouldScheduleApprovalNotification(
+              pending,
+              appState,
+              settingsRef.current.notificationApprovals,
+            )
+          ) {
             scheduleApprovalNotification(pending, {
               badgeCount: pendingApprovalsRef.current.length + 1,
+              categoryEnabled: settingsRef.current.notificationApprovals,
             }).catch(() => {});
           }
         }
@@ -1139,13 +1168,14 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
         (typeof payload.message === 'string' ? payload.message : '') ||
         (failed ? 'Run ended with an error' : 'Task finished');
       if (
-        settingsRef.current.notificationsEnabled &&
+        settingsRef.current.notificationCompletion &&
         AppState.currentState !== 'active'
       ) {
         scheduleRunCompletedNotification(detail, {
           success: !failed,
           runId: progress?.runId,
           sessionId: progress?.sessionId,
+          categoryEnabled: settingsRef.current.notificationCompletion,
         }).catch(() => {});
       }
       if (!chatStreamProgressActiveRef.current) {
@@ -1186,7 +1216,7 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
     if (Platform.OS === 'web') {
       return;
     }
-    if (!settings.notificationsEnabled) {
+    if (!settings.notificationLiveRunStatus) {
       clearRunProgressNotification().catch(() => {});
       cancelRunStallNotification().catch(() => {});
       return;
@@ -1200,16 +1230,19 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
       scheduleRunProgressNotification(runProgress, {
         runId: runProgress.runId,
         sessionId: runProgress.sessionId,
+        categoryEnabled: settings.notificationLiveRunStatus,
       }).catch(() => {});
-      scheduleRunStallNotification(runProgress.runId, runProgress.sessionId).catch(() => {});
+      scheduleRunStallNotification(runProgress.runId, runProgress.sessionId, {
+        categoryEnabled: settings.notificationLiveRunStatus,
+      }).catch(() => {});
     } else {
       clearRunProgressNotification().catch(() => {});
       cancelRunStallNotification().catch(() => {});
     }
-  }, [runProgress, settings.notificationsEnabled]);
+  }, [runProgress, settings.notificationLiveRunStatus]);
 
   useEffect(() => {
-    if (!settings.notificationsEnabled || Platform.OS === 'web') {
+    if (!settings.notificationLiveRunStatus || Platform.OS === 'web') {
       return;
     }
 
@@ -1221,8 +1254,11 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
             force: true,
             runId: progress.runId,
             sessionId: progress.sessionId,
+            categoryEnabled: settings.notificationLiveRunStatus,
           }).catch(() => {});
-          scheduleRunStallNotification(progress.runId, progress.sessionId).catch(() => {});
+          scheduleRunStallNotification(progress.runId, progress.sessionId, {
+            categoryEnabled: settings.notificationLiveRunStatus,
+          }).catch(() => {});
         }
       } else if (nextAppState === 'active') {
         clearRunProgressNotification().catch(() => {});
@@ -1234,7 +1270,7 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
     return () => {
       sub.remove();
     };
-  }, [settings.notificationsEnabled]);
+  }, [settings.notificationLiveRunStatus]);
 
   const autoDiscoverGateway = useCallback(async (): Promise<string> => {
     const currentUrl = settingsRef.current.gatewayUrl;
@@ -1721,7 +1757,9 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
 
   const saveSettings = useCallback(
     async (nextSettings: GatewaySettings, nextApiKey: string, nextThumbgateApiKey?: string) => {
-      const persistedSettings = sanitizeDemoModeForRelease(nextSettings);
+      const persistedSettings = sanitizeDemoModeForRelease(
+        withDerivedNotificationsEnabled(nextSettings),
+      );
       await storage.saveGatewaySettings(persistedSettings);
       await secureCredentials.saveApiKey(nextApiKey);
       if (nextThumbgateApiKey !== undefined) {
@@ -1898,7 +1936,7 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
         state = upsertDiscoveredProfile(state, item, false);
       }
       // Probe known Tailscale hosts for their /health hostname so raw 100.x CGNAT IPs show the
-      // real machine name (e.g. igors-mac-mini) instead of a nameless "Computer <IP>". Reuses the
+      // real machine name instead of a nameless "Computer <IP>". Reuses the
       // existing per-host probe; unreachable hosts return null and are skipped.
       if (tailnetProbeHostsRef.current.length > 0) {
         try {

@@ -113,9 +113,8 @@ const TAB_SCREENS: Record<HermesTabName, () => React.ReactNode> = {
 function HermesTabNavigator() {
   const { settings } = useGateway();
 
-  // Chat is ALWAYS in this list — glance mode only reorders (Leash first) and
-  // resolveInitialTab focuses Leash. Never drop the Chat tab, or the operator is
-  // stranded on Leash/Settings with no way back to chat.
+  // Chat is ALWAYS in this list — resolveInitialTab always lands on Hermes (Chat).
+  // Never drop the Chat tab, or the operator is stranded on Leash/Settings.
   const tabOrder = resolveTabOrder(settings);
 
   return (
