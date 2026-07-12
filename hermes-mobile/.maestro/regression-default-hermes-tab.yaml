@@ -1,0 +1,21 @@
+# Regression: plain cold start must land on Hermes (Chat), not Leash.
+# No demo bootstrap, no hermes://leash — mirrors a real user tapping the app icon.
+appId: com.iganapolsky.hermesmobile
+---
+- stopApp
+- launchApp
+- extendedWaitUntil:
+    notVisible:
+      id: "hermes-bootstrap"
+    timeout: 90000
+- runFlow: dismiss-print-interruption.yaml
+- extendedWaitUntil:
+    visible:
+      id: "tab-hermes"
+    timeout: 30000
+- extendedWaitUntil:
+    visible:
+      id: "chat-screen-header"
+    timeout: 60000
+- assertNotVisible:
+    id: "THUMBGATE_LEASH"

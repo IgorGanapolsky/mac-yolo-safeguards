@@ -553,7 +553,7 @@ function runPairMain(args) {
     console.log(ok ? `  adb: opened on ${serial}` : '  adb: intent failed — scan QR on pair page');
     try {
       openDeepLinkOnDevice(serial, 'hermes://dev/leash-unlock');
-      console.log('  adb: developer Leash unlock intent sent');
+      console.log('  adb: developer Leash unlock intent sent (does not change tab)');
     } catch {
       // App may still be cold-starting after install.
     }

@@ -203,6 +203,19 @@ describe('release safety contract', () => {
     expect(app).toContain('tab-settings');
   });
 
+  it('cold start always lands on Hermes Chat tab (safetyMode does not open Leash)', () => {
+    const leashUx = read('hermes-mobile/src/utils/leashUx.ts');
+    expect(leashUx).toMatch(/resolveInitialTab[\s\S]*return 'Chat'/);
+    expect(leashUx).not.toMatch(/safetyMode[\s\S]*return 'Leash'/);
+    const deepLinks = read('hermes-mobile/src/hooks/useHermesDeepLinks.ts');
+    expect(deepLinks).toContain('Unlock only — cold start and pairing must stay on Hermes (Chat).');
+    const regression = read('hermes-mobile/.maestro/regression-default-hermes-tab.yaml');
+    expect(regression).toContain('tab-hermes');
+    expect(regression).toContain('assertNotVisible');
+    expect(regression).toContain('THUMBGATE_LEASH');
+    expect(regression).not.toMatch(/openLink:\s*"hermes:\/\/leash"/);
+  });
+
   it('settings inputs have stable testIDs for Maestro', () => {
     const settings = read('hermes-mobile/src/screens/SettingsScreen.tsx');
     expect(settings).toContain('testID="gateway-api-key-input"');
