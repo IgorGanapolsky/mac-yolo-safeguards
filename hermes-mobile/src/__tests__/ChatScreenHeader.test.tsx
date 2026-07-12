@@ -106,6 +106,26 @@ describe('ChatScreenHeader', () => {
     expect(getByTestId('chat-context-link').props.children).toContain('Connected');
   });
 
+  it('shows amber stalled copy when chat failed but Mac health is ok', () => {
+    const { getByTestId } = render(
+      <ChatScreenHeader
+        threadTitle="Print money make money faster"
+        machineLabel="Igors-Mac-mini"
+        machineEndpoint="100.94.135.78:8642"
+        connectionState="connected"
+        macHttpReachable
+        chatStalled
+        onOpenThreads={jest.fn()}
+        onPressMachine={jest.fn()}
+      />,
+    );
+
+    expect(getByTestId('chat-context-link').props.children).toContain('Connected — chat stalled');
+    expect(getByTestId('chat-context-link').props.style).toEqual(
+      expect.arrayContaining([expect.objectContaining({ color: expect.any(String) })]),
+    );
+  });
+
   it('shows connected when HTTP reachable but socket still connecting', () => {
     const { getByTestId } = render(
       <ChatScreenHeader
