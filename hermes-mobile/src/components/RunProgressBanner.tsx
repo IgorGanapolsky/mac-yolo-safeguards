@@ -26,6 +26,9 @@ type RunProgressBannerProps = {
   /** Honest warning when the backing session is extremely large. */
   megaSessionWarning?: string | null;
   onStartFreshChat?: () => void;
+  /** Manual Retry exhausted — offer Switch computer. */
+  retryEscalated?: boolean;
+  onSwitchComputer?: () => void;
 };
 
 function formatTokenSummary(progress: RunProgressState): string | null {
@@ -51,6 +54,8 @@ function RunProgressBanner({
   terminalPreview,
   megaSessionWarning,
   onStartFreshChat,
+  retryEscalated = false,
+  onSwitchComputer,
 }: RunProgressBannerProps) {
   const [elapsed, setElapsed] = useState(0);
   const [detailsExpanded, setDetailsExpanded] = useState(true);
@@ -165,7 +170,7 @@ function RunProgressBanner({
             </Text>
           </Pressable>
         ) : null}
-        {!isActive && onRetry ? (
+        {!isActive && onRetry && !retryEscalated ? (
           <Pressable
             onPress={onRetry}
             style={({ pressed }) => [styles.retryChip, pressed && styles.stopChipPressed]}
@@ -205,14 +210,27 @@ function RunProgressBanner({
         </Text>
       ) : null}
 
-      {megaSessionWarning && onStartFreshChat ? (
+      {(megaSessionWarning || retryEscalated) && onStartFreshChat ? (
         <Pressable
           onPress={onStartFreshChat}
           style={({ pressed }) => [styles.freshChatChip, pressed && styles.stopChipPressed]}
-          testID="run-progress-start-fresh-chat"
-          accessibilityLabel="Start fresh chat"
+          testID={retryEscalated ? 'run-progress-new-chat' : 'run-progress-start-fresh-chat'}
+          accessibilityLabel={retryEscalated ? 'New chat' : 'Start fresh chat'}
         >
-          <Text style={styles.freshChatChipText}>Start fresh chat</Text>
+          <Text style={styles.freshChatChipText}>
+            {retryEscalated ? 'New chat' : 'Start fresh chat'}
+          </Text>
+        </Pressable>
+      ) : null}
+
+      {retryEscalated && onSwitchComputer ? (
+        <Pressable
+          onPress={onSwitchComputer}
+          style={({ pressed }) => [styles.freshChatChip, pressed && styles.stopChipPressed]}
+          testID="run-progress-switch-computer"
+          accessibilityLabel="Switch computer"
+        >
+          <Text style={styles.freshChatChipText}>Switch computer</Text>
         </Pressable>
       ) : null}
 
@@ -271,7 +289,9 @@ export default memo(RunProgressBanner, (prev, next) => {
     (prev.terminalPreview ?? '') === (next.terminalPreview ?? '') &&
     (prev.terminalToolName ?? '') === (next.terminalToolName ?? '') &&
     (prev.megaSessionWarning ?? '') === (next.megaSessionWarning ?? '') &&
-    Boolean(prev.onStartFreshChat) === Boolean(next.onStartFreshChat)
+    Boolean(prev.onStartFreshChat) === Boolean(next.onStartFreshChat) &&
+    Boolean(prev.retryEscalated) === Boolean(next.retryEscalated) &&
+    Boolean(prev.onSwitchComputer) === Boolean(next.onSwitchComputer)
   );
 });
 

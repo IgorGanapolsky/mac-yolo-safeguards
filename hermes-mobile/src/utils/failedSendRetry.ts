@@ -25,6 +25,21 @@ export function findLastFailedOutboundText(messages: readonly HermesMessage[]): 
   return null;
 }
 
+/** Most recent user turn text — fallback when fail refs were cleared mid-retry. */
+export function findLastUserMessageText(messages: readonly HermesMessage[]): string | null {
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    const message = messages[index];
+    if (message.role?.toLowerCase() !== 'user') {
+      continue;
+    }
+    const text = message.content?.trim();
+    if (text) {
+      return text;
+    }
+  }
+  return null;
+}
+
 export function resolveComposerSendAction(input: {
   composerText: string;
   lastFailedText?: string | null;

@@ -175,6 +175,11 @@ import {
   type ChatTimelineEntry,
 } from '../utils/chatOutboundDisplay';
 import {
+  macRetryExhaustedMessage,
+  planMacManualRetry,
+  resolveMacRetryPromptText,
+} from '../utils/macRetryRecovery';
+import {
   hasAssistantReplyInMessages,
   hasUserMessageInTranscript,
   shouldShowRecentChatsPanel,
@@ -255,6 +260,7 @@ import TailscaleDiscoveryBanner from '../components/TailscaleDiscoveryBanner';
 import { USB_LOOPBACK_GATEWAY_URL } from '../utils/gatewayLoopbackFallback';
 import {
   isMacGatewayHttpOk,
+  isGatewayHealthOk,
   isGatewayHealthPending,
   resolveEffectiveMacHttpOk,
 } from '../utils/gatewayConnection';
@@ -273,6 +279,7 @@ import {
 } from '../utils/outboundSendRecovery';
 import {
   findLastFailedOutboundText,
+  findLastUserMessageText,
   resolveComposerSendAction,
   shouldHideMacTileForSilentHeal,
   shouldShowFailedSendRetry,
@@ -531,6 +538,9 @@ export default function ChatScreen() {
   const [toolStatus, setToolStatus] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [macRetryBusy, setMacRetryBusy] = useState(false);
+  const [macManualRetryAttempt, setMacManualRetryAttempt] = useState(0);
+  const [macRetryEscalated, setMacRetryEscalated] = useState(false);
+  const macRetryAttemptRef = useRef(0);
   const [pendingRunApproval, setPendingRunApproval] = useState<ChatRunApproval | null>(null);
   const [approvalBusy, setApprovalBusy] = useState(false);
   const [undoSecondsLeft, setUndoSecondsLeft] = useState(0);
@@ -2711,10 +2721,35 @@ export default function ChatScreen() {
     }
     haptics.selection();
     setMacRetryBusy(true);
+    // Capture prompt BEFORE clearing UI — empty lastFailedSendTextRef was a reconnect noop.
+    const retryText = resolveMacRetryPromptText({
+      lastFailedSendText: lastFailedSendTextRef.current,
+      pinnedOutboundText,
+      lastFailedOutboundText,
+      lastUserMessageText: findLastUserMessageText(messagesRef.current),
+    });
+    if (retryText) {
+      lastFailedSendTextRef.current = retryText;
+    }
+    macRetryAttemptRef.current += 1;
+    const attemptCount = macRetryAttemptRef.current;
+    setMacManualRetryAttempt(attemptCount);
+
+    // Stop a stuck Mac run so resend is not blocked by an orphaned operator slot.
+    const runIds = [
+      runProgress?.runId,
+      runProgressRef.current?.runId,
+      sendProgressSnapshotRef.current?.runId,
+    ].filter((id): id is string => Boolean(id?.trim()));
+    if (runIds.length > 0) {
+      await releaseMacOperatorSlot(gatewayUrl, apiKey, runIds).catch(() => {});
+    }
+    isSendingRef.current = false;
+    setIsSending(false);
+    activeChatStreamRef.current = false;
+    setIsChatStreamActive(false);
+
     setRunProgress(null);
-    setPinnedOutboundText(null);
-    setPinnedOutboundSentAt(null);
-    setPinnedOutboundStatus('pending');
     setErrorMessage((prev) => (prev && isConnectivityMessage(prev) ? null : prev));
 
     const activeProfileId = activeGatewayProfile?.id ?? null;
@@ -2738,8 +2773,8 @@ export default function ChatScreen() {
           const setup = await resolvePairServerSetupParams(pairHost);
           const freshKey = setup?.apiKey?.trim();
           if (freshKey) {
-            const gatewayUrl = setup?.gatewayUrl?.trim() || effectiveGatewayUrl;
-            nextSettings = { ...nextSettings, gatewayUrl };
+            const gatewayUrlNext = setup?.gatewayUrl?.trim() || effectiveGatewayUrl;
+            nextSettings = { ...nextSettings, gatewayUrl: gatewayUrlNext };
             await saveSettings(nextSettings, freshKey);
           }
         }
@@ -2754,22 +2789,59 @@ export default function ChatScreen() {
       const profileKey = await secureCredentials.resolveApiKeyForProfile(activeProfileId);
       const probeUrl = effectiveGatewayUrl || settings.gatewayUrl;
       const postRetryHealth = await fetchGatewayHealth(probeUrl, profileKey);
-      if (postRetryHealth.authMismatch) {
+      const plan = planMacManualRetry({
+        attemptCount,
+        retryText,
+        postRetryReachable: isMacGatewayHttpOk(postRetryHealth),
+        authMismatch: Boolean(postRetryHealth.authMismatch),
+      });
+
+      if (plan.kind === 'escalate_switch_computer') {
+        setMacRetryEscalated(true);
         setMacPickerVisible(true);
-        setErrorMessage(gatewayAuthRepairBanner(machineShortLabel));
+        setErrorMessage(
+          postRetryHealth.authMismatch
+            ? gatewayAuthRepairBanner(machineShortLabel)
+            : macRetryExhaustedMessage(machineShortLabel),
+        );
         haptics.warning();
         return;
       }
 
-      const retryText = lastFailedSendTextRef.current?.trim();
-      if (retryText) {
-        await sendUserTextRef.current(retryText, true);
+      setMacRetryEscalated(false);
+
+      if (plan.kind === 'reconnect_resend') {
+        lastFailedSendTextRef.current = plan.text;
+        setPinnedOutboundText(plan.text);
+        setPinnedOutboundSentAt(new Date().toISOString());
+        setPinnedOutboundStatus('pending');
+        await sendUserTextRef.current(plan.text, true);
+        macRetryAttemptRef.current = 0;
+        setMacManualRetryAttempt(0);
+        return;
       }
+
+      // reconnect_only — heal succeeded but no prompt to resend
+      macRetryAttemptRef.current = 0;
+      setMacManualRetryAttempt(0);
     } catch (err) {
       console.warn('[handleMacRetry] failed:', err);
-      setErrorMessage(
-        `Still can't reach ${machineShortLabel}. Check USB cable or same Wi‑Fi, then tap to retry again.`,
-      );
+      if (
+        planMacManualRetry({
+          attemptCount,
+          retryText,
+          postRetryReachable: false,
+          authMismatch: false,
+        }).kind === 'escalate_switch_computer'
+      ) {
+        setMacRetryEscalated(true);
+        setMacPickerVisible(true);
+        setErrorMessage(macRetryExhaustedMessage(machineShortLabel));
+      } else {
+        setErrorMessage(
+          `Still can't reach ${machineShortLabel}. Check USB cable or same Wi‑Fi, then tap to retry again.`,
+        );
+      }
       haptics.warning();
     } finally {
       setMacRetryBusy(false);
@@ -2779,10 +2851,10 @@ export default function ChatScreen() {
     isDemo,
     settings,
     apiKey,
+    gatewayUrl,
     health?.authMismatch,
     effectiveGatewayUrl,
     saveSettings,
-    gatewayProfiles,
     activeGatewayProfile?.id,
     selectGatewayProfile,
     scanForGatewayProfiles,
@@ -2791,6 +2863,9 @@ export default function ChatScreen() {
     refreshHealth,
     connectEvents,
     machineShortLabel,
+    pinnedOutboundText,
+    lastFailedOutboundText,
+    runProgress?.runId,
   ]);
 
   const handleManualSync = useCallback(async () => {
@@ -4942,6 +5017,7 @@ export default function ChatScreen() {
     setPinnedOutboundText(null);
     setPinnedOutboundSentAt(null);
     setPinnedOutboundStatus('pending');
+    setMacRetryEscalated(false);
     setErrorMessage((prev) => (prev && isConnectivityMessage(prev) ? null : prev));
   }, []);
 
@@ -5288,6 +5364,15 @@ export default function ChatScreen() {
       isSendingRef.current = false;
       setIsSending(false);
       clearDeferredTelegramPoll();
+      const captureText = resolveMacRetryPromptText({
+        lastFailedSendText: lastFailedSendTextRef.current,
+        pinnedOutboundText,
+        lastFailedOutboundText: findLastFailedOutboundText(messagesRef.current),
+        lastUserMessageText: findLastUserMessageText(messagesRef.current),
+      });
+      if (captureText) {
+        lastFailedSendTextRef.current = captureText;
+      }
       setRunProgress((prev) =>
         prev && isActiveChatRun(prev)
           ? {
@@ -5310,6 +5395,15 @@ export default function ChatScreen() {
       isSendingRef.current = false;
       setIsSending(false);
       clearDeferredTelegramPoll();
+      const captureText = resolveMacRetryPromptText({
+        lastFailedSendText: lastFailedSendTextRef.current,
+        pinnedOutboundText,
+        lastFailedOutboundText: findLastFailedOutboundText(messagesRef.current),
+        lastUserMessageText: findLastUserMessageText(messagesRef.current),
+      });
+      if (captureText) {
+        lastFailedSendTextRef.current = captureText;
+      }
       setRunProgress((prev) =>
         prev && isActiveChatRun(prev)
           ? {
@@ -5326,6 +5420,7 @@ export default function ChatScreen() {
   }, [
     clearDeferredTelegramPoll,
     isDemo,
+    pinnedOutboundText,
     runProgress?.outputTokens,
     runProgress?.phase,
     runProgress?.startedAtMs,
@@ -5698,7 +5793,19 @@ export default function ChatScreen() {
             fallbackModel={progressBannerFallbackModel}
             showTechnicalStats={settings.includeToolActivity}
             megaSessionWarning={megaSessionWarning}
-            onStartFreshChat={megaSessionWarning ? () => void handleStartFreshChat() : undefined}
+            retryEscalated={macRetryEscalated}
+            onSwitchComputer={
+              macRetryEscalated
+                ? () => {
+                    setMacPickerVisible(true);
+                  }
+                : undefined
+            }
+            onStartFreshChat={
+              megaSessionWarning || macRetryEscalated
+                ? () => void handleStartFreshChat()
+                : undefined
+            }
             onStop={isRunActive || isSending ? () => void handleStopRun() : undefined}
             onDismiss={clearFailedOutboundState}
             onRetry={connectivityRunFailure ? () => void handleRetryConnectivity() : undefined}

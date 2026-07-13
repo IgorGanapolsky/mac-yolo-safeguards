@@ -228,16 +228,31 @@ describe('RunProgressBanner', () => {
     expect(getByTestId('run-progress-stats')).toBeTruthy();
   });
 
-  it('does not show collapse toggle when there are no detail rows', () => {
-    const { queryByTestId } = render(
+  it('shows Switch computer and New chat when retry is escalated', () => {
+    const onSwitchComputer = jest.fn();
+    const onStartFreshChat = jest.fn();
+    const onRetry = jest.fn();
+    const { getByTestId, queryByTestId } = render(
       <RunProgressBanner
         progress={{
-          phase: 'sending',
-          startedAtMs: Date.now() - 500,
-          detail: 'Delivering your message…',
+          phase: 'failed',
+          startedAtMs: Date.now() - 214_800,
+          detail: 'No reply yet — your computer may be slow or stuck. Tap Stop and try again.',
+          duration: 214.8,
         }}
+        retryEscalated
+        onSwitchComputer={onSwitchComputer}
+        onStartFreshChat={onStartFreshChat}
+        onRetry={onRetry}
+        onDismiss={jest.fn()}
       />,
     );
-    expect(queryByTestId('run-progress-toggle')).toBeNull();
+
+    expect(queryByTestId('run-progress-retry')).toBeNull();
+    fireEvent.press(getByTestId('run-progress-switch-computer'));
+    expect(onSwitchComputer).toHaveBeenCalled();
+    fireEvent.press(getByTestId('run-progress-new-chat'));
+    expect(onStartFreshChat).toHaveBeenCalled();
+    expect(onRetry).not.toHaveBeenCalled();
   });
 });
