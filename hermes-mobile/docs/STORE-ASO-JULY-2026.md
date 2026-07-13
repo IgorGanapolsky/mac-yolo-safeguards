@@ -4,7 +4,7 @@ Research date: **2026-07-06**. Scope: Play/App Store listing optimization — sc
 
 Product: **Hermes Mobile** + **Leash Pro** ($19/mo). Package: `com.iganapolsky.hermesmobile`. Audience: prosumer AI agent operators (Cursor, Claude Code, OpenClaw, Hermes gateway).
 
-Related: [BETA-LAUNCH-CAMPAIGN-RESEARCH.md](./BETA-LAUNCH-CAMPAIGN-RESEARCH.md), [ICON-DESIGN-JULY-2026.md](./ICON-DESIGN-JULY-2026.md), [EMERGENCY-PUBLISH-2026-07-06.md](./EMERGENCY-PUBLISH-2026-07-06.md).
+Related: [ICON-DESIGN-JULY-2026.md](./ICON-DESIGN-JULY-2026.md), [EMERGENCY-PUBLISH-2026-07-06.md](./EMERGENCY-PUBLISH-2026-07-06.md).
 
 ---
 
@@ -70,7 +70,7 @@ Sources: [Apple App Previews](https://developer.apple.com/app-store/app-previews
 | **5** | Chat output with 👍 thumb on assistant bubble | Chat + completed reply | **ThumbGate memory on replies** | ThumbGate, feedback | Differentiator vs SSH clients |
 | **6** | Connection panel: cellular + tunnel copy | Disconnect Wi‑Fi fixture | **Works on cellular + tunnel** | cellular, remote, tunnel | Honest connectivity (vs competitors) |
 
-**Order rationale:** Outcome → safety → paid tier → setup → memory → connectivity. Matches [BETA-LAUNCH-CAMPAIGN-RESEARCH.md](./BETA-LAUNCH-CAMPAIGN-RESEARCH.md) value props (wallet guard, machine guard, thumb from couch).
+**Order rationale:** Outcome → safety → paid tier → setup → memory → connectivity. It preserves the campaign value props used throughout this report: wallet guard, machine guard, and thumb from couch.
 
 **Current captures vs storyboard:**
 
@@ -137,7 +137,7 @@ bash scripts/generate-feature-graphic.sh   # see §8
 5. **Upload:** ASC → Media Manager → App Preview (iPhone 6.7").
 6. **Play:** Upload same file to unlisted YouTube → paste URL in Play Console → Video.
 
-**Loom alternative (beta landing):** 60–90s version for [thumbgate.ai/leash-beta](https://thumbgate.ai/leash-beta) embed per [BETA-LAUNCH-CAMPAIGN-RESEARCH.md](./BETA-LAUNCH-CAMPAIGN-RESEARCH.md) — extend shot list with Mac watchdog log B-roll from `docs/beta-page/index.html` mock.
+**Loom alternative (beta landing):** 60–90s version for [thumbgate.ai/leash-beta](https://thumbgate.ai/leash-beta) — extend the shot list with Mac watchdog log B-roll from the `docs/beta-page/index.html` mock.
 
 ---
 
@@ -228,7 +228,7 @@ Test one variable at a time in Play **Store Listing Experiments** / Apple **PPO*
 
 **iOS subtitle (30):** `Stop runaway AI agents`
 
-**Hypothesis:** Problem-aware search ("runaway", "token burn"); aligns with [launch-hn.md](../../business_os/sales_assets/launch-hn.md).
+**Hypothesis:** Problem-aware search ("runaway", "token burn"); aligns with the private ops asset `business_os/sales_assets/launch-hn.md`.
 
 **Full description opening:**
 
