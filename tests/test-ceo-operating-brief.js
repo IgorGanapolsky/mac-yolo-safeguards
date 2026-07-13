@@ -128,4 +128,3 @@ test('continuous receipt parsing distinguishes fresh proof from stale proof', ()
   assert.strictEqual(stale.recent, false);
   fs.rmSync(repo, { recursive: true, force: true });
 });
-
