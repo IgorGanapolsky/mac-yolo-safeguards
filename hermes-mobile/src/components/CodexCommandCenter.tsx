@@ -4,12 +4,14 @@ import { colors } from '../theme/colors';
 import type { RunProgressState } from '../types/chatDisplay';
 import type { LeashConnectionState } from '../utils/gatewayEndpoint';
 import { displayableLlmModel, humanizeRunProgressDetail } from '../utils/runProgressDisplay';
+import { savedMacUnreachableStatus } from '../utils/macUnreachableCopy';
 
 type CodexCommandCenterProps = {
   connectionState: LeashConnectionState;
   macHttpReachable?: boolean;
   macRetryBusy?: boolean;
   silentHealInFlight?: boolean;
+  healExhausted?: boolean;
   pendingApprovalCount: number;
   runProgress?: RunProgressState | null;
   isSending?: boolean;
@@ -25,6 +27,7 @@ function connectionCopy(
   macRetryBusy = false,
   machineName = 'Computer',
   chatStalled = false,
+  healExhausted = false,
 ): { label: string; detail: string; color: string } {
   if (macRetryBusy) {
     return { label: machineName, detail: 'Reconnecting…', color: colors.warning };
@@ -37,6 +40,13 @@ function connectionCopy(
   }
   if (macHttpReachable) {
     return { label: 'Connected', detail: 'Ready', color: colors.success };
+  }
+  if (healExhausted) {
+    return {
+      label: 'Not connected',
+      detail: savedMacUnreachableStatus(machineName),
+      color: colors.error,
+    };
   }
   if (state === 'connected') {
     return { label: 'Relay only', detail: 'Chat needs direct link', color: colors.warning };
@@ -87,6 +97,7 @@ export default function CodexCommandCenter({
   macHttpReachable = false,
   macRetryBusy = false,
   silentHealInFlight = false,
+  healExhausted = false,
   pendingApprovalCount,
   runProgress,
   isSending = false,
@@ -101,6 +112,7 @@ export default function CodexCommandCenter({
     macRetryBusy,
     machineName,
     chatStalled,
+    healExhausted,
   );
   const showMacTile =
     shouldShowMacTile(connectionState, macHttpReachable) && !silentHealInFlight;
