@@ -12,6 +12,7 @@ const {
   safeCapture,
   safeCommandSummary,
   sanitizeGrokOutput,
+  storageReceipt,
   writeReceipt,
   appendHistoryReceipt,
   historySummary,
@@ -25,7 +26,7 @@ const baseDoctor = {
   schema: 'grok-yolo/doctor-v1',
   ready: true,
   binary: '/fake/grok',
-  version: '0.2.93',
+  version: '0.2.99',
   versionReady: true,
   model: 'grok-4.5',
   modelAvailable: true,
@@ -40,6 +41,7 @@ const baseDoctor = {
 
 const args = parseArgs([
   '--task', 'verify the harness',
+  '--case-id', 'routing-heldout-01',
   '--repo', '/tmp/project',
   '--execute',
   '--max-turns', '7',
@@ -47,11 +49,13 @@ const args = parseArgs([
   '--json',
 ]);
 assert.strictEqual(args.task, 'verify the harness');
+assert.strictEqual(args.caseId, 'routing-heldout-01');
 assert.strictEqual(args.execute, true);
 assert.strictEqual(args.maxTurns, 7);
 assert.strictEqual(args.timeoutMs, 5000);
 assert.throws(() => parseArgs([]), /--task is required/);
 assert.throws(() => parseArgs(['--task', 'x', '--max-turns', '0']), /integer/);
+assert.throws(() => parseArgs(['--task', 'x', '--case-id', '../private']), /case-id/);
 
 let runnerCalls = 0;
 const oauthReceipt = buildHarness({
@@ -60,13 +64,15 @@ const oauthReceipt = buildHarness({
   now: '2026-07-12T00:00:00.000Z',
   host: 'test-mac',
 }, {
-  runner: (binary, childArgs) => {
+  runner: (binary, childArgs, childOptions) => {
     runnerCalls += 1;
     assert.strictEqual(binary, '/fake/grok');
     assert(childArgs.includes('grok-4.5'));
     assert(childArgs.includes('--always-approve'));
     assert(!childArgs.includes('--check'));
     assert(childArgs.includes('--no-subagents'));
+    assert.strictEqual(childArgs[childArgs.indexOf('--sandbox') + 1], 'read-only');
+    assert.strictEqual(childOptions.env.GROK_WRITE_FILE, '0');
     return {
       status: 0,
       signal: null,
@@ -78,6 +84,8 @@ const oauthReceipt = buildHarness({
 assert.strictEqual(runnerCalls, 1);
 assert.strictEqual(oauthReceipt.overallStatus, 'pass');
 assert.strictEqual(oauthReceipt.role, 'independent_verifier');
+assert.strictEqual(oauthReceipt.caseId, 'routing-heldout-01');
+assert.strictEqual(oauthReceipt.profileId, 'grok45-readonly-verifier-v1');
 assert.strictEqual(oauthReceipt.candidateOnly, true);
 assert.strictEqual(oauthReceipt.defaultHermesRouteChanged, false);
 assert.strictEqual(oauthReceipt.billing.directApi, false);
@@ -85,6 +93,10 @@ assert.strictEqual(oauthReceipt.billing.paidApprovalRequired, false);
 assert.strictEqual(oauthReceipt.execution.exitCode, 0);
 assert(oauthReceipt.execution.stdout.includes('GROK45-HERMES-OK'));
 assert(!oauthReceipt.execution.command.includes('verify the harness'));
+assert.strictEqual(oauthReceipt.guardrails.sandbox, 'read-only');
+assert.strictEqual(oauthReceipt.guardrails.writeFileEnabled, false);
+assert(!Object.prototype.hasOwnProperty.call(oauthReceipt, 'task'));
+assert(!JSON.stringify(oauthReceipt).includes('verify the harness'));
 
 const apiDoctor = {
   ...baseDoctor,
@@ -149,17 +161,29 @@ const out = path.join(temp, 'latest.json');
 writeReceipt(oauthReceipt, out);
 const stored = JSON.parse(fs.readFileSync(out, 'utf8'));
 assert.strictEqual(stored.schema, 'hermes-grok45-harness/v1');
+assert.strictEqual(stored.execution.stdoutObserved, true);
+assert.strictEqual(stored.execution.stderrObserved, false);
+assert(!Object.prototype.hasOwnProperty.call(stored.execution, 'stdout'));
+assert(!Object.prototype.hasOwnProperty.call(stored.execution, 'stderr'));
+assert(!JSON.stringify(stored).includes('verify the harness'));
 assert.strictEqual(fs.statSync(out).mode & 0o777, 0o600);
 const historyPath = path.join(temp, 'history.jsonl');
 appendHistoryReceipt(oauthReceipt, historyPath);
 const trace = JSON.parse(fs.readFileSync(historyPath, 'utf8').trim());
 assert.strictEqual(trace.schema, 'hermes-grok45-harness/trace-v1');
 assert.strictEqual(trace.taskDigest, oauthReceipt.taskDigest);
+assert.strictEqual(trace.caseId, 'routing-heldout-01');
+assert.strictEqual(trace.profileId, 'grok45-readonly-verifier-v1');
 assert.strictEqual(trace.overallStatus, 'pass');
 assert.strictEqual(fs.statSync(historyPath).mode & 0o777, 0o600);
 assert(!Object.prototype.hasOwnProperty.call(trace, 'task'));
 assert(!Object.prototype.hasOwnProperty.call(trace.execution, 'stdout'));
 assert(!JSON.stringify(historySummary(oauthReceipt)).includes('verify the harness'));
+const echoingReceipt = {
+  ...oauthReceipt,
+  execution: { ...oauthReceipt.execution, stdout: 'verify the harness', stderr: 'verify the harness' },
+};
+assert(!JSON.stringify(storageReceipt(echoingReceipt)).includes('verify the harness'));
 fs.rmSync(temp, { recursive: true, force: true });
 
 console.log('Hermes Grok 4.5 harness tests: PASS');
