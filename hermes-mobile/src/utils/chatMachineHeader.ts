@@ -93,6 +93,21 @@ export function resolveMachineDisplayName(
   health?: GatewayHealthSnapshot | null,
   profiles?: GatewayProfile[],
 ): string {
+  const loopbackUsb = isLoopbackGatewayUrl(gatewayUrl);
+  const fromHealth = healthHostname(health);
+  const liveUsbHost =
+    loopbackUsb &&
+    fromHealth &&
+    health?.directGatewayReachable !== false &&
+    (health?.level === 'green' || health?.level === 'amber');
+
+  // USB adb reverse reaches whichever Mac is plugged in — live hostname wins over stale profile.
+  if (liveUsbHost) {
+    if (!activeProfile || !profileMatchesHostname(activeProfile, fromHealth)) {
+      return fromHealth;
+    }
+  }
+
   if (activeProfile) {
     const fromProfile = profileDisplayName(activeProfile);
     if (!isUnresolvedMachineName(fromProfile)) {
@@ -108,7 +123,6 @@ export function resolveMachineDisplayName(
     ? profileDisplayName(activeProfile)
     : formatGatewayMachineParts(gatewayUrl, health).machineName;
 
-  const fromHealth = healthHostname(health);
   if (fromHealth && isUnresolvedMachineName(name)) {
     name = fromHealth;
   }
