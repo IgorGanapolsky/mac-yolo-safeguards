@@ -2,6 +2,7 @@ import type { ApprovalChoice, HermesApprovalRequest } from '../types/approval';
 import type { GatewaySettings } from '../types/gateway';
 import { submitRunApproval } from './hermesGatewayClient';
 import { buildGateActionMessage } from './gatewayClient';
+import { recordLeashDecision, type LeashDecisionSource } from './leashDecisionHistory';
 import { consumeFreeLeashApproval, getFreeLeashWeeklyStateSync } from '../utils/freeLeashAllowance';
 import { hasThumbgateLeashPro, isProEntitledFromSnapshot } from '../utils/thumbgateLeash';
 
@@ -14,6 +15,8 @@ export type ApprovalResolveContext = {
   sendChatText?: (text: string) => Promise<void>;
   /** When set, free-tier weekly allowance is enforced and consumed on routed approvals. */
   leashSettings?: GatewaySettings | null;
+  /** Which surface the user tapped Approve/Deny on — recorded to local Leash history. */
+  decisionSource?: LeashDecisionSource;
 };
 
 export const CHAT_APPROVAL_UNDO_TEXT =
@@ -48,6 +51,21 @@ function assertFreeLeashAllowance(settings: GatewaySettings | null | undefined):
   }
 }
 
+async function recordDecisionHistory(
+  request: HermesApprovalRequest,
+  choice: ApprovalChoice,
+  ctx: ApprovalResolveContext,
+): Promise<void> {
+  await recordLeashDecision({
+    actionId: request.id,
+    decision: choice === 'deny' ? 'denied' : 'approved',
+    title: request.title || request.reason || request.approveText || '',
+    command: request.command,
+    toolName: request.toolName,
+    source: ctx.decisionSource ?? 'leash',
+  });
+}
+
 async function recordFreeLeashConsumption(
   settings: GatewaySettings | null | undefined,
   choice: ApprovalChoice,
@@ -79,12 +97,14 @@ export async function resolveApprovalChoice(
         );
         ctx.sendGateAction(JSON.stringify(message));
         await recordFreeLeashConsumption(ctx.leashSettings, choice);
+        await recordDecisionHistory(request, choice, ctx);
         return;
       }
       if (!ctx.sendChatText) {
         throw new Error('Chat text sender required for text nudge deny');
       }
       await ctx.sendChatText(CHAT_APPROVAL_DENY_TEXT);
+      await recordDecisionHistory(request, choice, ctx);
       return;
     }
     if (ctx.sendGateAction && request.sessionKey) {
@@ -97,6 +117,7 @@ export async function resolveApprovalChoice(
       );
       ctx.sendGateAction(JSON.stringify(message));
       await recordFreeLeashConsumption(ctx.leashSettings, choice);
+      await recordDecisionHistory(request, choice, ctx);
       return;
     }
     if (!ctx.sendChatText || !request.approveText) {
@@ -104,12 +125,14 @@ export async function resolveApprovalChoice(
     }
     await ctx.sendChatText(request.approveText);
     await recordFreeLeashConsumption(ctx.leashSettings, choice);
+    await recordDecisionHistory(request, choice, ctx);
     return;
   }
 
   if (request.runId) {
     await submitRunApproval(ctx.gatewayUrl, request.runId, choice, ctx.apiKey);
     await recordFreeLeashConsumption(ctx.leashSettings, choice);
+    await recordDecisionHistory(request, choice, ctx);
     return;
   }
 
@@ -121,4 +144,5 @@ export async function resolveApprovalChoice(
   const message = buildGateActionMessage(request.id, decision, undefined, choice, request.source);
   ctx.sendGateAction(JSON.stringify(message));
   await recordFreeLeashConsumption(ctx.leashSettings, choice);
+  await recordDecisionHistory(request, choice, ctx);
 }
