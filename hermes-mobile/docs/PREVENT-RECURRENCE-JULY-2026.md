@@ -145,6 +145,28 @@ Shipped hardening: PR #151 (initial unblock), #186 (stall CTA + WARN 350k), T-18
 
 ---
 
+## Desktop gateway token burn (2026-07-13, session `api_1783962481`)
+
+**Incident:** 833k input tokens burned on the mini before the session was deleted. Root cause: dead CDP browser tool (`browser.cdp_url=ws://localhost:9222` but the `com.hermes.chrome-cdp` LaunchAgent was disabled 2026-06-29; 9222 held by plain Chrome, `/json/version` 404) failed ~30 consecutive calls while ~26k tokens of pinned context were re-sent on every call (nemotron, 40k window), two asyncio turns ran concurrently on the same session, and no session-level token ceiling existed.
+
+**Guardrails now live on both Macs (`~/.hermes/config.yaml`, backups `.bak-20260713-token-burn-guardrails`):**
+
+| Guardrail | Setting | Machine |
+|-----------|---------|---------|
+| Same-tool failure circuit breaker | `tool_loop_guardrails.hard_stop_enabled: true`, `hard_stop_after.same_tool_failure: 5`, `exact_failure: 4` | both |
+| Dead browser toolset off | `agent.disabled_toolsets: [browser]` | mini only (MBP `cdp_url` empty, engine auto) |
+| Serialize api_server turns | `gateway.api_server.max_concurrent_runs: 1` (mini) / `2` (MBP) | both |
+| Session input-token ceiling | `HERMES_MAX_SESSION_INPUT_TOKENS` env, default **500k** (0 disables) — local patch in `~/.hermes/hermes-agent/agent/conversation_loop.py`, commits mini `fa43a03c0` / MBP `af21538c90`, fork branches `mini/mbp-local-guardrails-20260713` | both |
+
+**Operator rules:**
+
+1. Never re-enable the `browser` toolset on a machine without proving `curl http://localhost:9222/json/version` returns 200 first.
+2. The 500k desktop ceiling aligns with the mobile WARN gate (350k) and sits under the mobile BLOCK (800k) — keep that ordering if any threshold moves.
+3. `~/.hermes/hermes-agent` is a **git fork checkout** (IgorGanapolsky/hermes-agent), not pip site-packages — patch + commit there, and remember `hermes update` may stash local changes (`updates.non_interactive_local_changes: stash`).
+4. Upstream gaps to request from NousResearch/hermes-agent: config key for a session token/cost ceiling, per-session turn serialization in api_server (`max_concurrent_runs` is global only), and a circuit breaker that disables the failing tool for the session instead of only halting the turn.
+
+---
+
 ## Related docs
 
 - [MULTI-AGENT-VAULT-COORDINATION-JULY-2026.md](./MULTI-AGENT-VAULT-COORDINATION-JULY-2026.md)
