@@ -1654,10 +1654,15 @@ describe('ChatScreen', () => {
         'test-api-key',
       );
       expect(storage.addDismissedSessionIds).toHaveBeenCalledWith(
-        'http://localhost:8642',
+        expect.arrayContaining(['mac_demo', 'http://localhost:8642']),
         ['cron_abc123'],
+        'http://localhost:8642',
       );
-      expect(storage.setHideCronSessions).toHaveBeenCalledWith('http://localhost:8642', true);
+      expect(storage.setHideCronSessions).toHaveBeenCalledWith(
+        expect.arrayContaining(['mac_demo', 'http://localhost:8642']),
+        true,
+        'http://localhost:8642',
+      );
       expect(storage.clearDismissedSessionIds).not.toHaveBeenCalled();
     });
 
@@ -1746,8 +1751,9 @@ describe('ChatScreen', () => {
 
     await waitFor(() => {
       expect(storage.addDismissedSessionIds).toHaveBeenCalledWith(
-        'http://localhost:8642',
+        expect.arrayContaining(['mac_demo', 'http://localhost:8642']),
         ['cron_job', 'sess_print', 'sess_june15'],
+        'http://localhost:8642',
       );
       expect(queryByTestId('threads-modal-clear-all')).toBeNull();
     });
@@ -1839,6 +1845,84 @@ describe('ChatScreen', () => {
     fireEvent.press(getByTestId('open-sessions-modal'));
 
     await waitFor(() => {
+      expect(queryByTestId('recent-chat-delete-sess_stale')).toBeNull();
+    });
+
+    alertSpy.mockRestore();
+  });
+
+  it('clear all keeps threads hidden after gateway URL drift (USB to Tailscale)', async () => {
+    const alertSpy = jest.spyOn(Alert, 'alert');
+    const { listSessions, listMessages } = jest.requireMock('../services/hermesChatClient') as {
+      listSessions: jest.Mock;
+      listMessages: jest.Mock;
+    };
+    const { clearAllSessions } = jest.requireMock('../services/hermesGatewayClient') as {
+      clearAllSessions: jest.Mock;
+    };
+    const { storage } = jest.requireMock('../services/storage') as {
+      storage: {
+        addDismissedSessionIds: jest.Mock;
+        loadDismissedSessionIds: jest.Mock;
+      };
+    };
+
+    const macSessions = [
+      {
+        id: 'sess_stale',
+        title: 'Session 20260623 131050',
+        last_active_at: '2026-06-23T13:10:50Z',
+      },
+    ];
+
+    listSessions.mockResolvedValue(macSessions);
+    listMessages.mockResolvedValue([]);
+    clearAllSessions.mockResolvedValue(undefined);
+    storage.loadDismissedSessionIds.mockResolvedValue([]);
+    storage.addDismissedSessionIds.mockClear();
+
+    Object.assign(mockGatewayState, {
+      connectionState: 'connected',
+      effectiveGatewayUrl: 'http://100.94.135.78:8642',
+      activeGatewayProfile: {
+        id: 'mac_100_94_135_78',
+        label: 'Igors-Mac-mini',
+        hostname: 'Igors-Mac-mini',
+        gatewayUrl: 'http://100.94.135.78:8642',
+        addedAt: '2026-06-28T00:00:01Z',
+      },
+      health: {
+        ok: true,
+        level: 'green',
+        hostname: 'Igors-Mac-mini',
+        localIp: '100.94.135.78',
+        checkedAt: '2026-06-26T00:00:00Z',
+      },
+      settings: {
+        demoMode: false,
+        connectionMode: 'gateway',
+        gatewayUrl: 'http://100.94.135.78:8642',
+        cloudUrl: 'https://hermesmobile-cloud.fly.dev',
+        approvalPolicy: 'balanced',
+      },
+    });
+
+    const { getByTestId, findByTestId, queryByTestId } = await renderChatScreen();
+
+    await waitFor(() => {
+      expect(queryByTestId('recent-chat-delete-sess_stale')).toBeTruthy();
+    });
+
+    fireEvent.press(getByTestId('open-sessions-modal'));
+    fireEvent.press(await findByTestId('threads-modal-clear-all'));
+    await confirmAlertButton('Clear all');
+
+    await waitFor(() => {
+      expect(storage.addDismissedSessionIds).toHaveBeenCalledWith(
+        expect.arrayContaining(['host:igors-mac-mini']),
+        ['sess_stale'],
+        'http://100.94.135.78:8642',
+      );
       expect(queryByTestId('recent-chat-delete-sess_stale')).toBeNull();
     });
 
