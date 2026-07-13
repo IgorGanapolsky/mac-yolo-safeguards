@@ -169,13 +169,16 @@ Source: [Hasan's reported local run](https://x.com/hasantoxr/status/207613576229
 
 ## Optional Parallel retrieval
 
-`hermes-parallel-search` isolates fresh-web retrieval from model generation. Its
-default mode is a zero-call dry run:
+`hermes-parallel-search` isolates fresh-web retrieval from model generation.
+`hermes-search-turbo` is an equivalent standalone alias. Both explicitly select
+Parallel Turbo for fast grounding while retaining a zero-call dry run as the
+execution default:
 
 ```sh
-hermes-parallel-search \
+hermes-search-turbo \
   --objective "Find current official guidance for agent retrieval evaluation" \
   --query "official agent retrieval evaluation traces" \
+  --query "agent retrieval benchmark guidance" \
   --max-results 10 \
   --write \
   --json
@@ -184,30 +187,49 @@ hermes-parallel-search \
 A provider call occurs only when all three gates are present:
 
 ```sh
-PARALLEL_API_KEY="<key from environment or Keychain>" \
-hermes-parallel-search \
+hermes-search-turbo \
   --objective "Find current official guidance for agent retrieval evaluation" \
+  --query "official agent retrieval evaluation traces" \
+  --query "agent retrieval benchmark guidance" \
   --execute \
   --paid-ok \
-  --max-cost-usd 0.005 \
+  --max-cost-usd 0.001 \
   --write \
   --json
 ```
 
-The wrapper uses Parallel's documented `POST /v1/search` contract, records query
-digests rather than raw query text, marks every excerpt as untrusted external
-content, and never executes retrieved instructions. The pricing estimate assumes
-no free credits: ten results cost $0.005 under the current documented pricing;
-additional results add $0.001 each. Sources: [Parallel Search quickstart](https://docs.parallel.ai/search/search-quickstart),
+The wrapper checks `PARALLEL_API_KEY` first and then the existing
+`com.igor.hermes.parallel-api` macOS Keychain item; credentials never enter a
+receipt. It uses Parallel's documented `POST /v1/search` contract with explicit
+`mode: turbo`, `client_model: grok-4.5`, nested result/excerpt bounds, and optional
+session reuse. It records opaque query ids rather than raw query text, marks
+every excerpt as untrusted external content, and never executes retrieved
+instructions. Private receipts classify actual latency against a 1-second
+operator target and preserve provider usage. The provider session id is kept
+only in the mode-0600 latest receipt for follow-up retrieval; the prompt-free
+history records only whether a session was returned.
+
+The pricing estimate assumes no free credits: Turbo costs $0.001 for the default
+ten results; explicit `--mode basic` or `--mode advanced` costs $0.005. Additional
+results cost $0.001 each, though this wrapper caps a request at ten. Sources:
+[Parallel Search API](https://docs.parallel.ai/api-reference/search/search),
 [pricing](https://docs.parallel.ai/getting-started/pricing), and
 [source policy](https://docs.parallel.ai/resources/source-policy).
 
+Default context caps are 6,000 characters total and 1,600 characters per result
+so web grounding cannot silently dominate Grok's context. Override them with
+`--max-chars-total` and `--max-chars-per-result`. Pass a provider-returned id to
+`--session-id` when a larger research task needs follow-up retrieval; receipts
+record whether reuse was requested without copying that id into history.
+
 Hard include/exclude-domain filters and `after_date` are available, but the
 default is to steer toward official sources in the objective because overly
-strict filters can reduce retrieval quality. The economic router treats this as
-a paid candidate only; it does not make an automatic provider call or promote it
-to the default. This keeps retrieval failures observable instead of disguising
-them as generation failures, the separation emphasized in [Retrieval for AI Agent Architecture](https://thenewstack.io/retrieval-ai-agent-architecture/).
+strict filters can reduce retrieval quality. The economic router uses Turbo as
+the default mode inside the explicitly approved fresh-web workflow, verifies
+sources, then hands the bounded evidence to the Grok 4.5 finalizer. Basic and
+advanced remain explicit quality escalations. This keeps retrieval failures
+observable instead of disguising them as generation failures, the separation
+emphasized in [Retrieval for AI Agent Architecture](https://thenewstack.io/retrieval-ai-agent-architecture/).
 
 ## Verification
 
