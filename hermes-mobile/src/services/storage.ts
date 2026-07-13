@@ -338,21 +338,25 @@ export const storage = {
     computerKeys: string | string[] | null | undefined,
     sessionId: string | null | undefined,
   ): Promise<void> {
-    const id = sessionId?.trim();
-    if (!id) {
-      return;
-    }
     const keys = (Array.isArray(computerKeys) ? computerKeys : [computerKeys])
       .map((key) => normalizeComputerSessionKey(key))
       .filter(Boolean);
     if (keys.length === 0) {
       return;
     }
+    const id = sessionId?.trim();
     try {
       const map = await loadLastSessionByComputerMap();
       const next = { ...map };
-      for (const key of keys) {
-        next[key] = id;
+      if (!id) {
+        // New chat / escape mega: forget last thread so cold start cannot re-trap.
+        for (const key of keys) {
+          delete next[key];
+        }
+      } else {
+        for (const key of keys) {
+          next[key] = id;
+        }
       }
       await AsyncStorage.setItem(KEYS.LAST_SESSION_BY_COMPUTER, JSON.stringify(next));
     } catch (error) {

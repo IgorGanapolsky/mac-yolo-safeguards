@@ -506,6 +506,8 @@ export default function ChatScreen() {
   /** True while Start fresh chat is forking/stopping — show spinner so tap isn't silent. */
   const [isStartingFreshChat, setIsStartingFreshChat] = useState(false);
   const isStartingFreshChatRef = useRef(false);
+  /** Session ids we already auto-escaped from mega BLOCK (composer dead). */
+  const megaBlockAutoEscapeRef = useRef<Set<string>>(new Set());
   /** HTTP chat stream in flight — keep WS from clearing runProgress before first token. */
   const [isChatStreamActive, setIsChatStreamActive] = useState(false);
   const [sessionModalVisible, setSessionModalVisible] = useState(false);
@@ -2893,6 +2895,8 @@ export default function ChatScreen() {
     // Live: compose first — create the Mac session when the user sends (avoids gateway
     // "session already in use" when the operator slot is still bound to the prior thread).
     setCurrentSession(null);
+    // Forget last thread so listSessions / cold start cannot re-open a mega BLOCK session.
+    void storage.saveLastSessionForComputer(activeComputerSessionKeys, null);
   };
 
   const handleStartFreshChat = useCallback(async () => {
@@ -2933,6 +2937,8 @@ export default function ChatScreen() {
         } else if (stopIds.length > 0) {
           void releaseMacOperatorSlot(gatewayUrl, apiKey, stopIds).catch(() => {});
         }
+        // Drop remembered mega id so the next listSessions cannot re-trap.
+        void storage.saveLastSessionForComputer(activeComputerSessionKeys, null);
       }
 
       const sourceSession = currentSessionRef.current;
@@ -2975,6 +2981,7 @@ export default function ChatScreen() {
       setIsStartingFreshChat(false);
     }
   }, [
+    activeComputerSessionKeys,
     activeProject,
     apiKey,
     failPendingOutboundBubbles,
@@ -3023,6 +3030,31 @@ export default function ChatScreen() {
   }, [currentSession, messages]);
 
   const megaSessionSendHardBlocked = isMegaSessionSendBlocked(currentSession);
+
+  // Hard-blocked mega sessions (≥800k) make the composer useless. Auto-escape once per
+  // session id so cold restore / late token hydration cannot trap the user forever.
+  useEffect(() => {
+    if (isDemo || !megaSessionSendHardBlocked || !currentSession?.id) {
+      return;
+    }
+    if (isStartingFreshChatRef.current) {
+      return;
+    }
+    const id = currentSession.id;
+    if (megaBlockAutoEscapeRef.current.has(id)) {
+      return;
+    }
+    megaBlockAutoEscapeRef.current.add(id);
+    void handleStartFreshChat();
+  }, [
+    currentSession?.id,
+    currentSession?.input_tokens,
+    currentSession?.output_tokens,
+    currentSession?.cache_read_tokens,
+    isDemo,
+    megaSessionSendHardBlocked,
+    handleStartFreshChat,
+  ]);
 
   useEffect(() => {
     if (isDemo || isSending || runProgress) {

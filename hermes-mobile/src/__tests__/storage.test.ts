@@ -190,6 +190,9 @@ describe('storage', () => {
     expect(await storage.loadLastSessionForComputer('host:igors-mac-mini')).toBe('sess_shared');
     expect(await storage.loadLastSessionForComputer('mac_100_94_135_78')).toBe('sess_shared');
     expect(await storage.loadLastSessionForComputer(['mac_192_168_68_56'])).toBe('sess_shared');
+
+    await storage.saveLastSessionForComputer('mac_100_94_135_78', null);
+    expect(await storage.loadLastSessionForComputer('mac_100_94_135_78')).toBeNull();
   });
 
   it('persists approvals count and increments correctly', async () => {
