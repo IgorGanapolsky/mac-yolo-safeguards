@@ -23,9 +23,11 @@ let notificationsModule: NotificationModule | null = null;
 
 const CATEGORY_APPROVAL = 'hermes_approval';
 const CATEGORY_RUN = 'hermes_run';
-const CHANNEL_APPROVALS = 'hermes-approvals';
-const CHANNEL_RUNS = 'hermes-runs';
-const CHANNEL_RESULTS = 'hermes-results';
+// Android channel importance is immutable after first creation. Versioned IDs
+// move existing installs off legacy HIGH/DEFAULT channels immediately.
+const CHANNEL_APPROVALS = 'hermes-approvals-quiet-v2';
+const CHANNEL_RUNS = 'hermes-runs-quiet-v2';
+const CHANNEL_RESULTS = 'hermes-results-quiet-v2';
 const RUN_STATUS_NOTIFICATION_ID = 'hermes-run-status';
 const RUN_COMPLETED_NOTIFICATION_ID = 'hermes-run-completed';
 
@@ -36,8 +38,16 @@ const THREAD_RUNS = 'hermes.thread.runs';
 const NOTIFICATION_COLOR = '#6366F1';
 
 let lastRunStatusAt = 0;
+let lastRunStatusFingerprint = '';
 const RUN_STATUS_MIN_INTERVAL_MS = 8_000;
 let foregroundRunCleanupSub: { remove: () => void } | null = null;
+
+/** Inject the mocked native module so Jest can exercise the lazy native path. */
+export function setHermesNotificationsModuleForTests(module: NotificationModule | null): void {
+  notificationsModule = module;
+  lastRunStatusAt = 0;
+  lastRunStatusFingerprint = '';
+}
 
 export type HermesNotificationTab = 'Chat' | 'Leash';
 
@@ -126,9 +136,9 @@ export function resolveHermesNotificationHandlerResult(
   appState: string = AppState.currentState,
 ) {
   const data = notification.request.content.data;
-  const type = typeof data?.type === 'string' ? data.type : '';
-  const playSound = type === 'approval' || type === 'approval_summary';
-  return resolveHermesNotificationPresentation(appState, { playSound });
+  return resolveHermesNotificationPresentation(appState, {
+    playSound: data?.type === 'approval' || data?.type === 'approval_summary',
+  });
 }
 
 /** Cancel sticky run-status + stall notifications (safe when backgrounded). */
@@ -241,24 +251,22 @@ export async function initHermesNotifications(): Promise<void> {
 
   if (Platform.OS === 'android') {
     await Notifications.setNotificationChannelAsync(CHANNEL_APPROVALS, {
-      name: 'Approvals',
-      description: 'Urgent Hermes approvals with Approve and Deny actions',
-      importance: Notifications.AndroidImportance.HIGH,
-      vibrationPattern: [0, 220, 120, 220],
+      name: 'Approvals (quiet)',
+      description: 'Approve or deny from the notification list without popups',
+      importance: Notifications.AndroidImportance.LOW,
       lightColor: NOTIFICATION_COLOR,
       lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
-      bypassDnd: true,
     });
     await Notifications.setNotificationChannelAsync(CHANNEL_RUNS, {
-      name: 'Live run status',
-      description: 'Ongoing status while Hermes works on your computer',
+      name: 'Live run status (quiet)',
+      description: 'Ongoing status in the notification list without popups',
       importance: Notifications.AndroidImportance.LOW,
       lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
     });
     await Notifications.setNotificationChannelAsync(CHANNEL_RESULTS, {
-      name: 'Completion / failure',
-      description: 'When a background task finishes on your computer',
-      importance: Notifications.AndroidImportance.DEFAULT,
+      name: 'Completion / failure (quiet)',
+      description: 'Background task results in the notification list without popups',
+      importance: Notifications.AndroidImportance.LOW,
       lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
     });
   }
@@ -311,7 +319,7 @@ export async function requestHermesNotificationPermission(): Promise<boolean> {
     ios: {
       allowAlert: true,
       allowBadge: true,
-      allowSound: true,
+      allowSound: false,
     },
   });
   return requested.granted ?? false;
@@ -370,15 +378,14 @@ export async function scheduleApprovalNotification(
       subtitle: approvalNotificationSubtitle(pending),
       body: buildApprovalNotificationBody(pending),
       categoryIdentifier: CATEGORY_APPROVAL,
-      sound: 'default',
       badge,
       threadIdentifier: THREAD_APPROVALS,
-      ...(Platform.OS === 'ios' ? { interruptionLevel: 'timeSensitive' as const } : {}),
+      ...(Platform.OS === 'ios' ? { interruptionLevel: 'passive' as const } : {}),
       ...(Platform.OS === 'android'
         ? {
             channelId: CHANNEL_APPROVALS,
             color: NOTIFICATION_COLOR,
-            priority: Notifications.AndroidNotificationPriority.HIGH,
+            priority: Notifications.AndroidNotificationPriority.LOW,
           }
         : {}),
       data: {
@@ -428,15 +435,14 @@ export async function scheduleApprovalsSummaryNotification(
       subtitle: approvalNotificationSubtitle(latest),
       body: approvalsSummaryBody(pending),
       categoryIdentifier: CATEGORY_APPROVAL,
-      sound: 'default',
       badge,
       threadIdentifier: THREAD_APPROVALS,
-      ...(Platform.OS === 'ios' ? { interruptionLevel: 'timeSensitive' as const } : {}),
+      ...(Platform.OS === 'ios' ? { interruptionLevel: 'passive' as const } : {}),
       ...(Platform.OS === 'android'
         ? {
             channelId: CHANNEL_APPROVALS,
             color: NOTIFICATION_COLOR,
-            priority: Notifications.AndroidNotificationPriority.HIGH,
+            priority: Notifications.AndroidNotificationPriority.LOW,
           }
         : {}),
       data: {
@@ -527,10 +533,18 @@ export async function scheduleRunProgressNotification(
   }
 
   const now = Date.now();
+  const runId = options?.runId ?? progress.runId;
+  const sessionId = options?.sessionId ?? progress.sessionId;
+  const runIdentity = runId || sessionId || 'unknown-run';
+  const fingerprint = `${runIdentity}:${progress.phase}`;
+  if (fingerprint === lastRunStatusFingerprint) {
+    return;
+  }
   if (!options?.force && now - lastRunStatusAt < RUN_STATUS_MIN_INTERVAL_MS) {
     return;
   }
   lastRunStatusAt = now;
+  lastRunStatusFingerprint = fingerprint;
 
   const body = formatRunProgressLabel(progress)
     .replace(/^⌛\s*Working\s*—\s*/i, '')
@@ -556,8 +570,8 @@ export async function scheduleRunProgressNotification(
         : {}),
       data: {
         type: 'run_progress',
-        runId: options?.runId ?? progress.runId,
-        sessionId: options?.sessionId ?? progress.sessionId,
+        runId,
+        sessionId,
         phase: progress.phase,
       },
     } as NotificationContentInput,
@@ -596,13 +610,12 @@ export async function scheduleRunCompletedNotification(
       body: trimmed || (success ? 'Background task completed.' : 'The run ended with an error.'),
       categoryIdentifier: CATEGORY_RUN,
       threadIdentifier: THREAD_RUNS,
-      sound: success ? 'default' : undefined,
-      ...(Platform.OS === 'ios' ? { interruptionLevel: 'active' as const } : {}),
+      ...(Platform.OS === 'ios' ? { interruptionLevel: 'passive' as const } : {}),
       ...(Platform.OS === 'android'
         ? {
             channelId: CHANNEL_RESULTS,
             color: NOTIFICATION_COLOR,
-            priority: Notifications.AndroidNotificationPriority.DEFAULT,
+            priority: Notifications.AndroidNotificationPriority.LOW,
           }
         : {}),
       data: {
@@ -628,6 +641,7 @@ export async function clearRunProgressNotification(): Promise<void> {
     /* ignore */
   }
   lastRunStatusAt = 0;
+  lastRunStatusFingerprint = '';
 }
 
 export const RUN_STALL_NOTIFICATION_ID = 'hermes-run-stall';
@@ -661,13 +675,12 @@ export async function scheduleRunStallNotification(
       body: 'No updates from your computer for 45 seconds. Open chat or stop the run.',
       categoryIdentifier: CATEGORY_RUN,
       threadIdentifier: THREAD_RUNS,
-      sound: 'default',
-      ...(Platform.OS === 'ios' ? { interruptionLevel: 'timeSensitive' as const } : {}),
+      ...(Platform.OS === 'ios' ? { interruptionLevel: 'passive' as const } : {}),
       ...(Platform.OS === 'android'
         ? {
             channelId: CHANNEL_RESULTS,
             color: NOTIFICATION_COLOR,
-            priority: Notifications.AndroidNotificationPriority.HIGH,
+            priority: Notifications.AndroidNotificationPriority.LOW,
           }
         : {}),
       data: {
