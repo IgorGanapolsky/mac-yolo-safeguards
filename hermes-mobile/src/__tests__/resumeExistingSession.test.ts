@@ -69,4 +69,16 @@ describe('findResumableSessionByPromptTitle', () => {
       unixSession,
     );
   });
+
+  it('never resumes a hard-blocked mega session even when the title matches', () => {
+    const mega: HermesSession = {
+      id: 'mega',
+      title: 'make money today',
+      last_active_at: '2026-07-13T20:00:00.000Z',
+      input_tokens: 1_500_000,
+      output_tokens: 50_000,
+      cache_read_tokens: 10_000,
+    };
+    expect(findResumableSessionByPromptTitle([mega], 'make money today')).toBeNull();
+  });
 });
