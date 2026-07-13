@@ -103,7 +103,7 @@ export function mergeTailnetProbeHosts(...lists: string[][]): string[] {
   return Array.from(merged);
 }
 
-/** e.g. `igors-mac-mini.tail12aa33.ts.net` → `tail12aa33.ts.net` */
+/** e.g. `my-mac.tail12aa33.ts.net` → `tail12aa33.ts.net` */
 export function inferTailnetDnsSuffix(hosts: string[]): string | undefined {
   for (const raw of hosts) {
     const host = normalizeTailnetProbeHost(raw);
@@ -119,7 +119,7 @@ export function inferTailnetDnsSuffix(hosts: string[]): string | undefined {
   return undefined;
 }
 
-/** Bonjour / display name → MagicDNS slug (`Igors-MacBook-Pro` → `igors-macbook-pro`). */
+/** Bonjour / display name → MagicDNS slug (`My-MacBook-Pro` → `my-macbook-pro`). */
 export function slugifyMachineNameForMagicDns(name: string): string | undefined {
   const trimmed = name.trim().replace(/\.local$/i, '');
   if (!trimmed) {
