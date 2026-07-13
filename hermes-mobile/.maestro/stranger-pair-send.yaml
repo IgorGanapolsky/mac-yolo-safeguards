@@ -1,0 +1,39 @@
+# Stranger pair + send — no adb, no developerLeashUnlock, release APK mindset
+# Extends connect-mac-gate: user sees gate, taps Find computers, then manual flow
+# This flow does NOT require a real Mac; it proves the UI path exists without dev backdoor
+appId: com.iganapolsky.hermesmobile
+---
+- launchApp:
+    clearState: true
+- extendedWaitUntil:
+    notVisible:
+      id: "hermes-bootstrap"
+    timeout: 90000
+- runFlow: dismiss-print-interruption.yaml
+# Gate must be visible on cold start
+- assertVisible:
+    id: "connect-mac-gate"
+- assertVisible:
+    id: "connect-mac-onboarding-card"
+- assertVisible:
+    id: "connect-search-wifi"
+# Tap Find computers — should show scan progress or no-op if no Mac
+- tapOn:
+    id: "connect-search-wifi"
+- extendedWaitUntil:
+    visible:
+      id: "connect-mac-scan-progress"
+    timeout: 15000
+# After scan (or quickly), manual input must still be accessible for Tailscale/IP
+- assertVisible:
+    id: "connect-manual-input"
+- assertVisible:
+    id: "connect-manual-submit"
+# Stranger should see plain-language copy, not gateway/LAN jargon
+- assertVisible: "Connect your computer"
+- assertNotVisible: "Pair relay"
+# No dev unlock dependency - ensure Leash unlock button not required for this flow
+- assertNotVisible:
+    id: "unlock-thumbgate-leash"
+# The send path requires a paired Mac, so we stop after proving the pair UI is reachable
+# This documents the gap: real send still needs Mac relay/QR, but UI is reachable without adb

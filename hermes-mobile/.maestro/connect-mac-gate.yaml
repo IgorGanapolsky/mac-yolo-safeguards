@@ -1,0 +1,35 @@
+# Stranger cold start without demo deep link — must show ConnectMacGate + onboarding
+# G-03 AC: fresh install, no saved Mac, no developerLeashUnlock, no adb reverse
+# Must NOT use hermes://setup?demo=1 (that's demo bootstrap which hides the gate)
+appId: com.iganapolsky.hermesmobile
+---
+- launchApp:
+    clearState: true
+- extendedWaitUntil:
+    notVisible:
+      id: "hermes-bootstrap"
+    timeout: 90000
+- runFlow: dismiss-print-interruption.yaml
+# First launch, no saved Mac -> ConnectMacGate + numbered steps + Find computers
+- assertVisible:
+    id: "connect-mac-gate"
+- assertVisible:
+    id: "connect-mac-onboarding-card"
+- assertVisible:
+    id: "fresh-user-onboarding-heading"
+- assertVisible:
+    id: "fresh-user-step-1"
+- assertVisible:
+    id: "fresh-user-step-3"
+# Primary CTA per connection state — single CTA Find computers
+- assertVisible:
+    id: "connect-search-wifi"
+# Must NOT see jargon in first-run primary UI
+- assertNotVisible: "Pair relay"
+- assertNotVisible: "gateway"
+# Manual entry should exist for Tailscale/IP path
+- assertVisible:
+    id: "connect-manual-input"
+# Tailscale discovery banner may be absent on cold start without tailnet, but gate must be visible
+- assertVisible: "Connect your computer"
+- assertVisible: "Home Wi-Fi"
