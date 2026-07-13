@@ -16,6 +16,89 @@ export function displayableLlmModel(model: string | undefined | null): string | 
   return trimmed;
 }
 
+/** Model families whose display names are all-caps or mixed-case brands. */
+const MODEL_BRAND_CASING: Record<string, string> = {
+  glm: 'GLM',
+  gpt: 'GPT',
+  llama: 'Llama',
+  qwen: 'Qwen',
+  grok: 'Grok',
+  gemini: 'Gemini',
+  gemma: 'Gemma',
+  claude: 'Claude',
+  nemotron: 'Nemotron',
+  deepseek: 'DeepSeek',
+  mistral: 'Mistral',
+  mixtral: 'Mixtral',
+  kimi: 'Kimi',
+  minimax: 'MiniMax',
+  codex: 'Codex',
+  phi: 'Phi',
+};
+
+/** Noise tokens that never help a phone user identify the model. */
+const MODEL_NOISE_TOKENS = new Set([
+  'instruct',
+  'chat',
+  'it',
+  'base',
+  'latest',
+  'preview',
+  'exp',
+  'free',
+  'gguf',
+  '4bit',
+  '8bit',
+  'fp16',
+  'bf16',
+]);
+
+const MAX_SHORT_NAME_TOKENS = 3;
+
+function casedModelToken(token: string): string {
+  // Version-with-family tokens like "qwen3" / "glm4" keep the digits attached.
+  const family = /^([a-z]+)([\d.]*)$/i.exec(token);
+  if (family) {
+    const brand = MODEL_BRAND_CASING[family[1].toLowerCase()];
+    if (brand) {
+      return `${brand}${family[2]}`;
+    }
+  }
+  if (/^\d+(\.\d+)?b$/i.test(token)) {
+    return token.toUpperCase(); // parameter size: 8b → 8B
+  }
+  if (/^[\d.]+$/.test(token) || /^v[\d.]+$/i.test(token)) {
+    return token; // bare versions stay as-is
+  }
+  return token.charAt(0).toUpperCase() + token.slice(1);
+}
+
+/**
+ * Short human name for a routed LLM id, for glanceable phone UI.
+ * "z-ai/glm-5.2" → "GLM 5.2", "grok-4.5" → "Grok 4.5", "qwen3:8b-64k" → "Qwen3 8B".
+ * Returns null for empty values and gateway platform labels (same contract as
+ * displayableLlmModel) so callers can hide the stat when the model is unknown.
+ */
+export function formatLlmModelShortName(model: string | undefined | null): string | null {
+  const id = displayableLlmModel(model);
+  if (!id) {
+    return null;
+  }
+  // Drop provider prefix ("openrouter/z-ai/glm-5.2" → "glm-5.2").
+  const base = id.slice(id.lastIndexOf('/') + 1);
+  const tokens = base
+    .split(/[-_:\s]+/)
+    .map((token) => token.trim())
+    .filter(Boolean)
+    .filter((token) => !MODEL_NOISE_TOKENS.has(token.toLowerCase()))
+    // Context-window tags like "64k" / "128k" are gateway config, not identity.
+    .filter((token) => !/^\d+k$/i.test(token));
+  if (tokens.length === 0) {
+    return id;
+  }
+  return tokens.slice(0, MAX_SHORT_NAME_TOKENS).map(casedModelToken).join(' ');
+}
+
 /** Banner headline while a run is active — emphasizes live streaming vs generic "working". */
 export function runProgressBannerTitle(progress: RunProgressState): string {
   const { phase, detail } = progress;
