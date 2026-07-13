@@ -164,6 +164,8 @@ Status values: `pending` | `in_progress` | `blocked` | `done`. Claim a row by se
 
 ## 2. File Ownership Map (append-only lock table — claim before touching)
 
+- T-251 claimed files → **grok-tools-toggles** verifying device + PR (2026-07-13T22:15:52Z)
+
 - `hermes-mobile/src/components/GatewayOpsSection.tsx`, `hermes-mobile/src/utils/opsToolsets.ts`, `hermes-mobile/src/__tests__/GatewayOpsSection.test.tsx`, `hermes-mobile/src/__tests__/opsToolsets.test.ts`, `hermes-mobile/docs/INTEGRATIONS-MOBILE-MVP.md`, `hermes-mobile/docs/PREVENT-RECURRENCE-JULY-2026.md`, `plan.md` → **grok-tools-toggles** (T-251 Tools phone toggles + Browser) (2026-07-13T22:04:29Z)
 
 - `hermes-mobile/src/services/productAnalytics.ts`, `hermes-mobile/src/__tests__/productAnalytics.test.ts`, `hermes-mobile/src/services/crashReporting.ts`, `hermes-mobile/src/__tests__/crashReporting.test.ts`, `hermes-mobile/src/context/GatewayContext.tsx` (analytics dogfood flag wiring only), `plan.md` → **cursor-posthog-prod** (T-223 PostHog prod-only filter) (2026-07-13T20:58:00Z)

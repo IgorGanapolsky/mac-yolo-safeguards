@@ -154,16 +154,18 @@ Shipped hardening: PR #151 (initial unblock), #186 (stall CTA + WARN 350k), T-18
 | Guardrail | Setting | Machine |
 |-----------|---------|---------|
 | Same-tool failure circuit breaker | `tool_loop_guardrails.hard_stop_enabled: true`, `hard_stop_after.same_tool_failure: 5`, `exact_failure: 4` | both |
-| Dead browser toolset off | `agent.disabled_toolsets: [browser]` | mini only (MBP `cdp_url` empty, engine auto) |
+| Dead browser toolset off | `agent.disabled_toolsets: [browser]` | mini only — **lifted 2026-07-13** after CDP `/json/version` returned 200 (Chrome/150); `computer_use` remains disabled. `config.yaml` had `uchg` immutable flag blocking saves — clear with `chflags nouchg` before toolset writes. |
 | Serialize api_server turns | `gateway.api_server.max_concurrent_runs: 1` (mini) / `2` (MBP) | both |
 | Session input-token ceiling | `HERMES_MAX_SESSION_INPUT_TOKENS` env, default **500k** (0 disables) — local patch in `~/.hermes/hermes-agent/agent/conversation_loop.py`, commits mini `fa43a03c0` / MBP `af21538c90`, fork branches `mini/mbp-local-guardrails-20260713` | both |
+| Phone toolset toggles | `features.toolsets_write` + `PUT /v1/toolsets/{name}` on api_server (local patch 2026-07-13) | both — without this, mobile shows view-only / "Update Hermes" and switches are dead |
 
 **Operator rules:**
 
 1. Never re-enable the `browser` toolset on a machine without proving `curl http://localhost:9222/json/version` returns 200 first.
-2. The 500k desktop ceiling aligns with the mobile WARN gate (350k) and sits under the mobile BLOCK (800k) — keep that ordering if any threshold moves.
-3. `~/.hermes/hermes-agent` is a **git fork checkout** (IgorGanapolsky/hermes-agent), not pip site-packages — patch + commit there, and remember `hermes update` may stash local changes (`updates.non_interactive_local_changes: stash`).
-4. Upstream gaps to request from NousResearch/hermes-agent: config key for a session token/cost ceiling, per-session turn serialization in api_server (`max_concurrent_runs` is global only), and a circuit breaker that disables the failing tool for the session instead of only halting the turn.
+2. If phone toggles fail with `PermissionError` saving `config.yaml`, check `ls -lO ~/.hermes/config.yaml` for `uchg` and run `chflags nouchg ~/.hermes/config.yaml`.
+3. The 500k desktop ceiling aligns with the mobile WARN gate (350k) and sits under the mobile BLOCK (800k) — keep that ordering if any threshold moves.
+4. `~/.hermes/hermes-agent` is a **git fork checkout** (IgorGanapolsky/hermes-agent), not pip site-packages — patch + commit there, and remember `hermes update` may stash local changes (`updates.non_interactive_local_changes: stash`). Do **not** scp MBP `api_server.py` onto mini when revisions diverge (`gateway.readiness` import broke mini 2026-07-13).
+5. Upstream gaps to request from NousResearch/hermes-agent: config key for a session token/cost ceiling, per-session turn serialization in api_server (`max_concurrent_runs` is global only), and a circuit breaker that disables the failing tool for the session instead of only halting the turn. Also upstream `PUT /v1/toolsets/{name}` + `toolsets_write` capability for mobile.
 
 ---
 

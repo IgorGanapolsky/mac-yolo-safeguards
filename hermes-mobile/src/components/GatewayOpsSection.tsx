@@ -35,7 +35,9 @@ import {
   markToolsetsEnabled,
   toolsetAddKeyCtaLabel,
   toolsetNeedsApiKey,
+  toolsetPolicyHint,
   toolsetStatusLine,
+  toolsetsWriteHint,
 } from '../utils/opsToolsets';
 import ConnectionHealthHub from './ConnectionHealthHub';
 import AgentDashboardStrip from './AgentDashboardStrip';
@@ -356,7 +358,7 @@ export default function GatewayOpsSection() {
       <Text style={styles.sectionHint}>
         Ready tools (no missing keys) turn on automatically for Chat. Tools that need a key show
         Add key beside the switch.
-        {toolsetsWritable ? '' : ' Update Hermes on your Mac to enable toggles from the phone.'}
+        {toolsetsWriteHint(toolsetsWritable)}
       </Text>
       <GlassCard>
         {toolsets.length === 0 ? (
@@ -367,6 +369,8 @@ export default function GatewayOpsSection() {
             const label = formatToolsetLabel(ts.label, ts.name);
             const busy = togglingToolset === ts.name;
             const needsKey = toolsetNeedsApiKey(ts);
+            const policyHint = toolsetPolicyHint(ts);
+            const switchDisabled = busy || (!toolsetsWritable && !isDemo);
             return (
               <View key={ts.name} style={styles.toolsetRow}>
                 <View style={styles.toolsetHeader}>
@@ -379,6 +383,15 @@ export default function GatewayOpsSection() {
                     <View style={styles.toolsetText}>
                       <Text style={styles.rowTitle}>{label}</Text>
                       <Text style={styles.rowDesc}>{toolsetStatusLine(ts)}</Text>
+                      {policyHint ? (
+                        <Text
+                          style={styles.policyHint}
+                          testID={`toolset-policy-${ts.name}`}
+                          numberOfLines={expanded ? undefined : 3}
+                        >
+                          {policyHint}
+                        </Text>
+                      ) : null}
                       {ts.description ? (
                         <Text style={styles.rowDesc} numberOfLines={expanded ? undefined : 2}>
                           {ts.description}
@@ -403,10 +416,11 @@ export default function GatewayOpsSection() {
                   <Switch
                     value={ts.enabled ?? false}
                     onValueChange={(value) => handleToolsetToggle(ts, value)}
-                    disabled={busy || (!toolsetsWritable && !isDemo)}
+                    disabled={switchDisabled}
                     trackColor={{ false: '#374151', true: colors.primary }}
                     thumbColor={ts.enabled ? '#ffffff' : '#9CA3AF'}
                     testID={`toolset-switch-${ts.name}`}
+                    accessibilityState={{ disabled: switchDisabled, checked: ts.enabled ?? false }}
                   />
                 </View>
                 {expanded && ts.tools && ts.tools.length > 0 ? (
@@ -585,6 +599,7 @@ const styles = StyleSheet.create({
   toolName: { fontSize: 11, color: colors.secondary, marginBottom: 2 },
   rowTitle: { fontSize: 14, fontWeight: '600', color: colors.text },
   rowDesc: { fontSize: 12, color: colors.textMuted, marginTop: 2 },
+  policyHint: { fontSize: 12, color: colors.warning, marginTop: 4, lineHeight: 16 },
   jobRow: {
     marginBottom: 14,
     gap: 8,

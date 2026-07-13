@@ -196,20 +196,30 @@ describe('GatewayOpsSection', () => {
     });
   });
 
-  it('shows delete for long cron job names (actions not clipped off-screen)', async () => {
-    gatewayClient.listJobs.mockResolvedValue([
+  it('shows policy hint for Mac-disabled browser without claiming Update Hermes', async () => {
+    gatewayClient.getCapabilities.mockResolvedValue({
+      features: { toolsets_write: true },
+      default_model: 'qwen3:8b-64k',
+    });
+    gatewayClient.listToolsets.mockResolvedValue([
       {
-        id: 'cron-long-name',
-        name: 'Operate as the daily skool_top1percent revenue workflow operator',
-        schedule: '0 9 * * *',
-        paused: false,
+        name: 'browser',
+        label: 'Browser Automation',
+        enabled: false,
+        configured: true,
+        disabled_by_policy: true,
+        disabled_reason: 'Chrome CDP is down on this computer.',
+        tools: ['browser_navigate'],
       },
     ]);
 
-    const { getByTestId } = render(<GatewayOpsSection />);
+    const { getByTestId, queryByText } = render(<GatewayOpsSection />);
 
     await waitFor(() => {
-      expect(getByTestId('job-delete-cron-long-name')).toBeTruthy();
+      expect(getByTestId('toolset-policy-browser')).toBeTruthy();
+      expect(getByTestId('toolset-switch-browser').props.disabled).toBe(false);
     });
+    expect(queryByText(/Update Hermes on your Mac/i)).toBeNull();
+    expect(getByTestId('toolset-policy-browser').props.children).toContain('Chrome CDP');
   });
 });

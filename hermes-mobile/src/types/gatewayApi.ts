@@ -28,6 +28,10 @@ export interface HermesToolset {
   enabled?: boolean;
   configured?: boolean;
   tools?: string[];
+  /** Present when agent.disabled_toolsets still blocks this toolset on the Mac. */
+  disabled_by_policy?: boolean;
+  /** Human-readable reason when disabled_by_policy is true. */
+  disabled_reason?: string;
 }
 
 export interface HermesToolsetEnvVar {
