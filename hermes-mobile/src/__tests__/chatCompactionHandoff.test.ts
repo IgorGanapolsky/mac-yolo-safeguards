@@ -1,6 +1,9 @@
 import {
   COMPACTION_END_MARKER,
+  compactionStallBannerCopy,
   isContextCompactionHandoff,
+  isSummarizationStub,
+  lastTurnIsCompactionStall,
   splitCompactionHandoff,
   stripCompactionHandoffsFromMessages,
 } from '../utils/chatCompactionHandoff';
@@ -17,11 +20,19 @@ describe('chatCompactionHandoff', () => {
     expect(isContextCompactionHandoff('Be honest, it is wishful thinking.')).toBe(false);
   });
 
+  it('detects short summarization stubs as non-replies', () => {
+    expect(isSummarizationStub('... Earlier conversation summarized to save context.')).toBe(true);
+    expect(isSummarizationStub('Earlier conversation summarized to save context.')).toBe(true);
+    expect(isSummarizationStub(`${COMPACTION_PREFIX}\n## Historical Task Snapshot\nold`)).toBe(true);
+    expect(isSummarizationStub('Here is a monetization plan for today.')).toBe(false);
+  });
+
   it('splits merged compaction blocks and keeps the tail reply', () => {
     const merged = `${COMPACTION_PREFIX}\n## Historical Task Snapshot\nold work\n\n${COMPACTION_END_MARKER}\nHere is the real assistant answer.`;
     const split = splitCompactionHandoff(merged);
     expect(split?.remainder).toBe('Here is the real assistant answer.');
     expect(split?.summary).toContain('Historical Task Snapshot');
+    expect(isSummarizationStub(merged)).toBe(false);
   });
 
   it('hides standalone compaction rows from the transcript', () => {
@@ -34,6 +45,14 @@ describe('chatCompactionHandoff', () => {
     expect(visible.map((m) => m.content)).toEqual(['What happened?', 'Real reply after compaction.']);
   });
 
+  it('hides short summarization stubs from the transcript', () => {
+    const visible = stripCompactionHandoffsFromMessages([
+      { role: 'user', content: 'Make money today' },
+      { role: 'assistant', content: '... Earlier conversation summarized to save context.' },
+    ]);
+    expect(visible.map((m) => m.content)).toEqual(['Make money today']);
+  });
+
   it('prepareMessagesForDisplay hides compaction blobs but keeps real assistant text', () => {
     const merged = `${COMPACTION_PREFIX}\nrolled-up middle\n\n${COMPACTION_END_MARKER}\nVisible assistant reply.`;
     const visible = prepareMessagesForDisplay([
@@ -43,5 +62,22 @@ describe('chatCompactionHandoff', () => {
     expect(visible).toHaveLength(2);
     expect(visible[1].content).toBe('Visible assistant reply.');
     expect(visible.map((m) => m.content).join('\n')).not.toContain('REFERENCE ONLY');
+  });
+
+  it('flags last-turn compaction stall when stub is the only assistant output', () => {
+    expect(
+      lastTurnIsCompactionStall([
+        { role: 'user', content: 'Make money today' },
+        { role: 'assistant', content: '... Earlier conversation summarized to save context.' },
+      ]),
+    ).toBe(true);
+    expect(
+      lastTurnIsCompactionStall([
+        { role: 'user', content: 'Make money today' },
+        { role: 'assistant', content: `${COMPACTION_PREFIX}\nsummary only` },
+        { role: 'assistant', content: 'Ship the affiliate funnel first.' },
+      ]),
+    ).toBe(false);
+    expect(compactionStallBannerCopy(397_152)).toMatch(/397k tokens/i);
   });
 });

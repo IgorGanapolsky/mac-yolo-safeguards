@@ -1,7 +1,10 @@
 import type { HermesSession } from '../types/chat';
 
-/** Warn before sending on very large sessions — context can take hours or fail. */
-export const MEGA_SESSION_TOKEN_WARN = 500_000;
+/**
+ * Warn before sending on large sessions — context compresses and often stalls.
+ * Set below the ~397k dogfood stall so the Start-fresh banner appears before 500k.
+ */
+export const MEGA_SESSION_TOKEN_WARN = 350_000;
 
 /** Block new sends unless the user starts a fresh forked chat. */
 export const MEGA_SESSION_TOKEN_BLOCK = 2_000_000;
