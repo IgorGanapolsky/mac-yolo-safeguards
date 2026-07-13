@@ -2,6 +2,7 @@ import type { ApprovalChoice, HermesApprovalRequest } from '../types/approval';
 import type { GatewaySettings } from '../types/gateway';
 import { submitRunApproval } from './hermesGatewayClient';
 import { buildGateActionMessage } from './gatewayClient';
+import { recordLeashDecision, type LeashDecisionSource } from './leashDecisionHistory';
 import { consumeFreeLeashApproval, getFreeLeashWeeklyStateSync } from '../utils/freeLeashAllowance';
 import { hasThumbgateLeashPro, isProEntitledFromSnapshot } from '../utils/thumbgateLeash';
 
@@ -14,6 +15,8 @@ export type ApprovalResolveContext = {
   sendChatText?: (text: string) => Promise<void>;
   /** When set, free-tier weekly allowance is enforced and consumed on routed approvals. */
   leashSettings?: GatewaySettings | null;
+  /** Which surface the user tapped Approve/Deny on — recorded to local Leash history. */
+  decisionSource?: LeashDecisionSource;
 };
 
 export const CHAT_APPROVAL_UNDO_TEXT =
@@ -46,6 +49,21 @@ function assertFreeLeashAllowance(settings: GatewaySettings | null | undefined):
   if (remaining <= 0) {
     throw new FreeLeashWeeklyLimitError();
   }
+}
+
+async function recordDecisionHistory(
+  request: HermesApprovalRequest,
+  choice: ApprovalChoice,
+  ctx: ApprovalResolveContext,
+): Promise<void> {
+  await recordLeashDecision({
+    actionId: request.id,
+    decision: choice === 'deny' ? 'denied' : 'approved',
+    title: request.title || request.reason || request.approveText || '',
+    command: request.command,
+    toolName: request.toolName,
+    source: ctx.decisionSource ?? 'leash',
+  });
 }
 
 async function recordFreeLeashConsumption(
@@ -89,6 +107,7 @@ export async function resolveApprovalChoice(
 
   if (request.runId) {
     await resolveRunApprovalHttp(request, choice, ctx);
+    await recordDecisionHistory(request, choice, ctx);
     return;
   }
 
@@ -104,6 +123,7 @@ export async function resolveApprovalChoice(
         );
         if (deliverGateAction(ctx, message)) {
           await recordFreeLeashConsumption(ctx.leashSettings, choice);
+          await recordDecisionHistory(request, choice, ctx);
           return;
         }
       }
@@ -112,6 +132,7 @@ export async function resolveApprovalChoice(
       }
       await ctx.sendChatText(CHAT_APPROVAL_DENY_TEXT);
       await recordFreeLeashConsumption(ctx.leashSettings, choice);
+      await recordDecisionHistory(request, choice, ctx);
       return;
     }
     if (request.sessionKey) {
@@ -124,6 +145,7 @@ export async function resolveApprovalChoice(
       );
       if (deliverGateAction(ctx, message)) {
         await recordFreeLeashConsumption(ctx.leashSettings, choice);
+        await recordDecisionHistory(request, choice, ctx);
         return;
       }
     }
@@ -132,6 +154,7 @@ export async function resolveApprovalChoice(
     }
     await ctx.sendChatText(request.approveText);
     await recordFreeLeashConsumption(ctx.leashSettings, choice);
+    await recordDecisionHistory(request, choice, ctx);
     return;
   }
 
@@ -145,4 +168,5 @@ export async function resolveApprovalChoice(
     throw new Error('Computer events socket is not connected — reconnect and try again.');
   }
   await recordFreeLeashConsumption(ctx.leashSettings, choice);
+  await recordDecisionHistory(request, choice, ctx);
 }
