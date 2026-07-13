@@ -69,7 +69,9 @@ function ChatMessageListItem({
 
   const threadDivider = threadLabel !== undefined && originalIndex > 0;
 
-  if (isMessageDisplayEmpty(item.content) && !inlineNudge && !isUser && !item.isCollapsedToolActivity) {
+  // Never render an empty timestamp-only row (user or assistant). Empty user
+  // bubbles previously slipped through and showed "Jul 13 9:10 AM" with no text.
+  if (isMessageDisplayEmpty(item.content) && !inlineNudge && !item.isCollapsedToolActivity) {
     return null;
   }
 

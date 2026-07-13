@@ -192,10 +192,19 @@ export function mergeServerMessagesWithPending(
   const pendingTail: HermesMessage[] = [];
 
   const serverHasFreshAssistantReply = serverHasAssistantReplyAfterLastUser(dedupedServer);
+  const hasUnackedPendingUser = localMessages.some((message) => {
+    if (!isOptimisticUserMessage(message) || message.outboundStatus !== 'pending') {
+      return false;
+    }
+    const body = messageBody(message);
+    return !serverHasLatestUserMessage(dedupedServer, body);
+  });
 
   for (const message of localMessages) {
     if (isLocalAssistantPlaceholder(message)) {
-      if (serverHasFreshAssistantReply) {
+      // An older completed turn on the gateway must not drop the still-running stub for a
+      // newer phone-only pending user send (background remount / stale listMessages race).
+      if (serverHasFreshAssistantReply && !hasUnackedPendingUser) {
         continue;
       }
       if (
