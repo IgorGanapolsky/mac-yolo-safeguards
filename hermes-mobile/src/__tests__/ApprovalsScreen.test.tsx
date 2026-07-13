@@ -1,6 +1,11 @@
 import React from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { act, fireEvent, waitFor } from '@testing-library/react-native';
 import ApprovalsScreen from '../screens/ApprovalsScreen';
+import {
+  loadLeashDecisionHistory,
+  recordLeashDecision,
+} from '../services/leashDecisionHistory';
 import { mockGatewaySettings, mockPendingApproval, mockUseGateway } from '../testUtils/gatewayFixtures';
 import { renderInTabNavigator } from '../testUtils/navigation';
 import {
@@ -26,9 +31,10 @@ jest.mock('../services/haptics', () => ({
 const { useGateway } = jest.requireMock('../context/GatewayContext');
 
 describe('ApprovalsScreen', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     __resetFreeLeashAllowanceForTests();
     useGateway.mockReturnValue(mockUseGateway());
+    await AsyncStorage.clear();
   });
 
   it('renders thumbgate leash header and connection block', () => {
@@ -75,6 +81,64 @@ describe('ApprovalsScreen', () => {
       'once',
       mockPendingApproval,
     );
+  });
+
+  it('shows chat-sourced approvals in the Recent decisions history', async () => {
+    await recordLeashDecision({
+      actionId: 'chat-nudge-1',
+      decision: 'approved',
+      title: 'Proceed with these steps',
+      source: 'chat',
+    });
+
+    const { findByTestId, getByText } = renderInTabNavigator(ApprovalsScreen, 'Leash');
+
+    await findByTestId('leash-decision-history');
+    expect(getByText('Recent decisions')).toBeTruthy();
+    expect(getByText('Proceed with these steps')).toBeTruthy();
+    expect(getByText(/From Chat/)).toBeTruthy();
+    expect(getByText('✓ Approved')).toBeTruthy();
+  });
+
+  it('shows denied Leash decisions in history', async () => {
+    await recordLeashDecision({
+      actionId: 'leash-deny-1',
+      decision: 'denied',
+      title: 'rm -rf /tmp/x',
+      source: 'leash',
+    });
+
+    const { findByTestId, getByText } = renderInTabNavigator(ApprovalsScreen, 'Leash');
+
+    await findByTestId('leash-decision-leash-deny-1');
+    expect(getByText('✕ Denied')).toBeTruthy();
+    expect(getByText(/From Leash/)).toBeTruthy();
+  });
+
+  it('records a decision to history when approving from the Leash card', async () => {
+    const submitApprovalChoice = jest.fn().mockResolvedValue(undefined);
+    useGateway.mockReturnValue(
+      mockUseGateway({
+        pendingApprovals: [mockPendingApproval],
+        submitApprovalChoice,
+      }),
+    );
+
+    const { getByTestId } = renderInTabNavigator(ApprovalsScreen, 'Leash');
+    await act(async () => {
+      fireEvent.press(getByTestId('leash-thumbs-up'));
+    });
+
+    await waitFor(async () => {
+      const history = await loadLeashDecisionHistory();
+      expect(history).toHaveLength(1);
+      expect(history[0]).toMatchObject({
+        actionId: mockPendingApproval.actionId,
+        decision: 'approved',
+        source: 'leash',
+        title: 'Dangerous command execution',
+      });
+    });
   });
 
   it('injects smoke approval for Leash E2E', () => {
