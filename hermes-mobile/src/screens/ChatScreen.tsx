@@ -205,6 +205,11 @@ import {
   megaSessionSendWarnTitle,
   sessionTotalTokens,
 } from '../utils/sessionTokenGuards';
+import {
+  compactionStallBannerCopy,
+  isSummarizationStub,
+  lastTurnIsCompactionStall,
+} from '../utils/chatCompactionHandoff';
 import { resolveChatProject } from '../utils/chatContext';
 import { resolveComputerSessionStorageKeys } from '../utils/computerSessionStorage';
 import {
@@ -2849,11 +2854,15 @@ export default function ChatScreen() {
   }, [handleStartFreshChat]);
 
   const megaSessionWarning = useMemo(() => {
+    const total = sessionTotalTokens(currentSession);
+    if (lastTurnIsCompactionStall(messages)) {
+      return compactionStallBannerCopy(total);
+    }
     if (!isMegaSession(currentSession)) {
       return null;
     }
-    return megaSessionBannerCopy(sessionTotalTokens(currentSession));
-  }, [currentSession]);
+    return megaSessionBannerCopy(total);
+  }, [currentSession, messages]);
 
   const executeClearAllChats = useCallback(async () => {
     haptics.warning();
@@ -4427,10 +4436,21 @@ export default function ChatScreen() {
       markMessageDeliveredToMac();
 
       const telegramDeferred = isTelegramDeferredEmptyStream(activeSess, assistantText);
-      if (!assistantText.trim()) {
-        updateAssistant(
-          telegramDeferred ? TELEGRAM_QUEUED_REPLY_PLACEHOLDER : GENERIC_EMPTY_STREAM_PLACEHOLDER,
-        );
+      const summarizationStub = isSummarizationStub(assistantText);
+      const awaitRealReply =
+        !assistantText.trim() ||
+        summarizationStub ||
+        shouldAwaitGatewayReplyAfterSend({
+          assistantText,
+          streamAccepted,
+          streamFailed: false,
+        });
+      if (awaitRealReply) {
+        if (summarizationStub || !assistantText.trim()) {
+          updateAssistant(
+            telegramDeferred ? TELEGRAM_QUEUED_REPLY_PLACEHOLDER : GENERIC_EMPTY_STREAM_PLACEHOLDER,
+          );
+        }
         if (telegramDeferred) {
           setToolStatus('Queued on active Hermes thread — waiting for reply…');
           setRunProgress((prev) =>
@@ -4445,35 +4465,48 @@ export default function ChatScreen() {
           startDeferredTelegramPoll(assistantId, priorAssistants);
         } else if (
           shouldAwaitGatewayReplyAfterSend({
-            assistantText,
+            assistantText: summarizationStub ? '' : assistantText,
             streamAccepted,
             streamFailed: false,
-          })
+          }) ||
+          summarizationStub
         ) {
-          setToolStatus('Waiting for reply from your computer…');
+          setToolStatus(
+            summarizationStub
+              ? 'Context summarized — waiting for a real reply…'
+              : 'Waiting for reply from your computer…',
+          );
           setRunProgress((prev) =>
             prev
               ? {
                   ...prev,
                   phase: 'working',
-                  detail: 'Your computer is still working — fetching reply…',
+                  detail: summarizationStub
+                    ? 'Context was summarized — still fetching a real reply…'
+                    : 'Your computer is still working — fetching reply…',
                 }
               : {
                   phase: 'working',
                   startedAtMs: sendStartedAtRef.current,
-                  detail: 'Your computer is still working — fetching reply…',
+                  detail: summarizationStub
+                    ? 'Context was summarized — still fetching a real reply…'
+                    : 'Your computer is still working — fetching reply…',
                   sessionId: targetSessionIdForProgress,
                 },
           );
           startDeferredReplyPoll(assistantId, priorAssistants, {
             onTimeout: () => {
               lastFailedSendTextRef.current = userText;
-              setErrorMessage(EMPTY_REPLY_FAILURE_REASON);
+              setErrorMessage(
+                summarizationStub
+                  ? compactionStallBannerCopy(sessionTotalTokens(currentSessionRef.current))
+                  : EMPTY_REPLY_FAILURE_REASON,
+              );
             },
           });
         }
       }
-      if (!telegramDeferred && assistantText.trim()) {
+      if (!telegramDeferred && assistantText.trim() && !summarizationStub && !awaitingGatewayReplyRef.current) {
         setToolStatus(null);
       } else if (!telegramDeferred && !assistantText.trim() && !awaitingGatewayReplyRef.current) {
         setToolStatus(null);

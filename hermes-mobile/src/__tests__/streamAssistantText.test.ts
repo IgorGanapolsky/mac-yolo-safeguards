@@ -55,6 +55,15 @@ describe('streamAssistantText', () => {
     expect(findNewAssistantReply(messages, prior)).toBe('Real answer');
   });
 
+  it('ignores summarization stubs when scanning for new replies', () => {
+    const prior = snapshotAssistantBodies([]);
+    const messages: HermesMessage[] = [
+      { role: 'assistant', content: '... Earlier conversation summarized to save context.' },
+      { role: 'assistant', content: 'Ship the affiliate funnel.' },
+    ];
+    expect(findNewAssistantReply(messages, prior)).toBe('Ship the affiliate funnel.');
+  });
+
   it('recognizes deferred stream placeholders', () => {
     expect(isDeferredStreamPlaceholder(TELEGRAM_QUEUED_REPLY_PLACEHOLDER)).toBe(true);
     expect(isDeferredStreamPlaceholder('hello')).toBe(false);
