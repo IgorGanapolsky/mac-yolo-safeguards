@@ -24,8 +24,16 @@ let notificationsModule: NotificationModule | null = null;
 const CATEGORY_APPROVAL = 'hermes_approval';
 const CATEGORY_RUN = 'hermes_run';
 const CHANNEL_APPROVALS = 'hermes-approvals';
-const CHANNEL_RUNS = 'hermes-runs';
-const CHANNEL_RESULTS = 'hermes-results';
+/** @deprecated Device may retain DEFAULT/HIGH; do not post here — use CHANNEL_STATUS_V2. */
+const CHANNEL_RUNS_LEGACY = 'hermes-runs';
+/** @deprecated Device may retain DEFAULT; do not post here — use CHANNEL_RESULTS_V2. */
+const CHANNEL_RESULTS_LEGACY = 'hermes-results';
+/**
+ * Fresh LOW channel — Android never downgrades existing channel importance, so
+ * `hermes-runs` (historically DEFAULT) can still heads-up on content updates.
+ */
+export const CHANNEL_STATUS_V2 = 'hermes-status-v2';
+export const CHANNEL_RESULTS_V2 = 'hermes-results-v2';
 const RUN_STATUS_NOTIFICATION_ID = 'hermes-run-status';
 const RUN_COMPLETED_NOTIFICATION_ID = 'hermes-run-completed';
 
@@ -36,8 +44,17 @@ const THREAD_RUNS = 'hermes.thread.runs';
 const NOTIFICATION_COLOR = '#6366F1';
 
 let lastRunStatusAt = 0;
-const RUN_STATUS_MIN_INTERVAL_MS = 8_000;
+/** Hard ceiling on shade updates — never heads-up; keep shade quiet too. */
+export const RUN_STATUS_MIN_INTERVAL_MS = 15_000;
+let stallNotificationArmed = false;
 let foregroundRunCleanupSub: { remove: () => void } | null = null;
+
+/** Test/helper: status channels must be LOW (or MIN) — heads-up requires HIGH+. */
+export function androidStatusChannelImportance(
+  AndroidImportance: { LOW: number; MIN?: number; HIGH: number; DEFAULT: number },
+): number {
+  return AndroidImportance.LOW;
+}
 
 export type HermesNotificationTab = 'Chat' | 'Leash';
 
@@ -57,14 +74,16 @@ async function loadNotifications(): Promise<NotificationModule | null> {
     return null;
   }
   // expo-notifications throws synchronously at import time on Android Expo Go
-  // (push notifications were removed from Expo Go in SDK 53). Skip the import
-  // entirely there instead of letting it crash the app on launch.
+  // (push notifications were removed from Expo Go in SDK 53). Gate before load.
   if (Platform.OS === 'android' && isRunningInExpoGo()) {
     return null;
   }
   if (!notificationsModule) {
     try {
-      notificationsModule = await import('expo-notifications');
+      // require() (not dynamic import) so Jest can mock without --experimental-vm-modules.
+      // Safe after the Expo Go gate above.
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      notificationsModule = require('expo-notifications') as NotificationModule;
     } catch {
       return null;
     }
@@ -128,7 +147,10 @@ export function resolveHermesNotificationHandlerResult(
   const data = notification.request.content.data;
   const type = typeof data?.type === 'string' ? data.type : '';
   const playSound = type === 'approval' || type === 'approval_summary';
-  return resolveHermesNotificationPresentation(appState, { playSound });
+  return resolveHermesNotificationPresentation(appState, {
+    playSound,
+    notificationType: type,
+  });
 }
 
 /** Cancel sticky run-status + stall notifications (safe when backgrounded). */
@@ -249,16 +271,34 @@ export async function initHermesNotifications(): Promise<void> {
       lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
       bypassDnd: true,
     });
-    await Notifications.setNotificationChannelAsync(CHANNEL_RUNS, {
-      name: 'Live run status',
-      description: 'Ongoing status while Hermes works on your computer',
+    // New ids — Android refuses to downgrade hermes-runs / hermes-results importance.
+    await Notifications.setNotificationChannelAsync(CHANNEL_STATUS_V2, {
+      name: 'Live run status (quiet)',
+      description: 'Silent status-bar updates while Hermes works — never heads-up',
+      importance: androidStatusChannelImportance(Notifications.AndroidImportance),
+      lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
+      enableVibrate: false,
+      showBadge: false,
+    });
+    await Notifications.setNotificationChannelAsync(CHANNEL_RESULTS_V2, {
+      name: 'Completion / stall (quiet)',
+      description: 'Silent shade notices when a background task finishes or stalls',
+      importance: androidStatusChannelImportance(Notifications.AndroidImportance),
+      lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
+      enableVibrate: false,
+      showBadge: false,
+    });
+    // Keep legacy channel names registered as LOW for any stale posts; cannot lower if already higher.
+    await Notifications.setNotificationChannelAsync(CHANNEL_RUNS_LEGACY, {
+      name: 'Live run status (legacy)',
+      description: 'Deprecated — use quiet status channel',
       importance: Notifications.AndroidImportance.LOW,
       lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
     });
-    await Notifications.setNotificationChannelAsync(CHANNEL_RESULTS, {
-      name: 'Completion / failure',
-      description: 'When a background task finishes on your computer',
-      importance: Notifications.AndroidImportance.DEFAULT,
+    await Notifications.setNotificationChannelAsync(CHANNEL_RESULTS_LEGACY, {
+      name: 'Completion / failure (legacy)',
+      description: 'Deprecated — use quiet results channel',
+      importance: Notifications.AndroidImportance.LOW,
       lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
     });
   }
@@ -527,7 +567,10 @@ export async function scheduleRunProgressNotification(
   }
 
   const now = Date.now();
-  if (!options?.force && now - lastRunStatusAt < RUN_STATUS_MIN_INTERVAL_MS) {
+  // Always rate-limit — `force` must NOT re-heads-up on every stream token.
+  // force only shortens the first background paint (2s floor); never below that.
+  const minInterval = options?.force ? 2_000 : RUN_STATUS_MIN_INTERVAL_MS;
+  if (now - lastRunStatusAt < minInterval) {
     return;
   }
   lastRunStatusAt = now;
@@ -536,18 +579,21 @@ export async function scheduleRunProgressNotification(
     .replace(/^⌛\s*Working\s*—\s*/i, '')
     .slice(0, 180);
 
+  // Same identifier → in-place update. Do not cancel+recreate (retriggers heads-up).
   await Notifications.scheduleNotificationAsync({
     identifier: RUN_STATUS_NOTIFICATION_ID,
     content: {
       title: runProgressNotificationTitle(progress),
-      subtitle: 'Computer gateway · live status',
+      subtitle: 'Computer · live status',
       body,
       categoryIdentifier: CATEGORY_RUN,
       threadIdentifier: THREAD_RUNS,
-      ...(Platform.OS === 'ios' ? { interruptionLevel: 'passive' as const } : {}),
+      ...(Platform.OS === 'ios'
+        ? { interruptionLevel: 'passive' as const, sound: false }
+        : {}),
       ...(Platform.OS === 'android'
         ? {
-            channelId: CHANNEL_RUNS,
+            channelId: CHANNEL_STATUS_V2,
             color: NOTIFICATION_COLOR,
             priority: Notifications.AndroidNotificationPriority.LOW,
             sticky: true,
@@ -592,17 +638,18 @@ export async function scheduleRunCompletedNotification(
     identifier: RUN_COMPLETED_NOTIFICATION_ID,
     content: {
       title: success ? 'Hermes finished' : 'Hermes run stopped',
-      subtitle: success ? 'Computer gateway' : 'Check chat for details',
+      subtitle: success ? 'Computer' : 'Check chat for details',
       body: trimmed || (success ? 'Background task completed.' : 'The run ended with an error.'),
       categoryIdentifier: CATEGORY_RUN,
       threadIdentifier: THREAD_RUNS,
-      sound: success ? 'default' : undefined,
-      ...(Platform.OS === 'ios' ? { interruptionLevel: 'active' as const } : {}),
+      ...(Platform.OS === 'ios'
+        ? { interruptionLevel: 'passive' as const, sound: false }
+        : {}),
       ...(Platform.OS === 'android'
         ? {
-            channelId: CHANNEL_RESULTS,
+            channelId: CHANNEL_RESULTS_V2,
             color: NOTIFICATION_COLOR,
-            priority: Notifications.AndroidNotificationPriority.DEFAULT,
+            priority: Notifications.AndroidNotificationPriority.LOW,
           }
         : {}),
       data: {
@@ -642,32 +689,38 @@ export async function scheduleRunStallNotification(
     return;
   }
 
+  // Do not cancel+reschedule on every stream token — that can re-alert.
+  if (stallNotificationArmed) {
+    return;
+  }
+
   const Notifications = await loadNotifications();
   if (!Notifications) {
     return;
   }
-  await cancelRunStallNotification();
 
   const granted = await requestHermesNotificationPermission();
   if (!granted) {
     return;
   }
 
+  stallNotificationArmed = true;
   await Notifications.scheduleNotificationAsync({
     identifier: RUN_STALL_NOTIFICATION_ID,
     content: {
       title: 'Hermes run might be stalled',
-      subtitle: 'Computer gateway · warning',
+      subtitle: 'Computer · warning',
       body: 'No updates from your computer for 45 seconds. Open chat or stop the run.',
       categoryIdentifier: CATEGORY_RUN,
       threadIdentifier: THREAD_RUNS,
-      sound: 'default',
-      ...(Platform.OS === 'ios' ? { interruptionLevel: 'timeSensitive' as const } : {}),
+      ...(Platform.OS === 'ios'
+        ? { interruptionLevel: 'passive' as const, sound: false }
+        : {}),
       ...(Platform.OS === 'android'
         ? {
-            channelId: CHANNEL_RESULTS,
+            channelId: CHANNEL_RESULTS_V2,
             color: NOTIFICATION_COLOR,
-            priority: Notifications.AndroidNotificationPriority.HIGH,
+            priority: Notifications.AndroidNotificationPriority.LOW,
           }
         : {}),
       data: {
@@ -685,6 +738,7 @@ export async function scheduleRunStallNotification(
 }
 
 export async function cancelRunStallNotification(): Promise<void> {
+  stallNotificationArmed = false;
   const Notifications = await loadNotifications();
   if (!Notifications) {
     return;
