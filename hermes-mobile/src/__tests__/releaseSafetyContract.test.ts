@@ -500,3 +500,78 @@ describe('release safety contract', () => {
     );
   });
 });
+
+describe('Android security audit (Jul 2026)', () => {
+  it('blocks overlay and microphone permissions not needed for real users', () => {
+    const app = JSON.parse(read('hermes-mobile/app.json'));
+    expect(app.expo.android.blockedPermissions).toEqual(
+      expect.arrayContaining([
+        'android.permission.SYSTEM_ALERT_WINDOW',
+        'android.permission.RECORD_AUDIO',
+      ]),
+    );
+    const appJson = read('hermes-mobile/app.json');
+    expect(appJson).not.toContain('uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW"');
+  });
+
+  it('ships Play production as AAB via EAS (not APK-only)', () => {
+    const eas = JSON.parse(read('hermes-mobile/eas.json'));
+    expect(eas.build.production.android.buildType).toBe('app-bundle');
+    expect(eas.build.preview.android.buildType).toBe('apk');
+    const workflow = read('.github/workflows/store-release.yml');
+    expect(workflow).toContain('Build Android production AAB');
+    expect(workflow).toContain('npm run privacy:scan');
+  });
+
+  it('documents Play App Signing and never implies manual APK signing for store', () => {
+    const playRelease = read('hermes-mobile/docs/PLAY_RELEASE.md');
+    expect(playRelease).toMatch(/Play App Signing/i);
+    expect(playRelease).toMatch(/upload key/i);
+    expect(playRelease).toMatch(/What we never do for Play production/i);
+    expect(playRelease).toMatch(/do not manually sign store APKs/i);
+    const eas = JSON.parse(read('hermes-mobile/eas.json'));
+    expect(eas.submit.production.android.serviceAccountKeyPath).toBe(
+      '$EXPO_ANDROID_SERVICE_ACCOUNT_KEY_PATH',
+    );
+  });
+
+  it('enables R8 minify and shrink with rules only for shipped native modules', () => {
+    const app = JSON.parse(read('hermes-mobile/app.json'));
+    const buildProps = app.expo.plugins.find(
+      (p: unknown) => Array.isArray(p) && p[0] === 'expo-build-properties',
+    ) as [string, { android?: Record<string, unknown> }] | undefined;
+    expect(buildProps?.[1]?.android?.enableMinifyInReleaseBuilds).toBe(true);
+    expect(buildProps?.[1]?.android?.enableShrinkResourcesInReleaseBuilds).toBe(true);
+    const rules = String(buildProps?.[1]?.android?.extraProguardRules ?? '');
+    expect(rules).toContain('com.android.billingclient.api');
+    expect(rules).toContain('com.google.mlkit');
+    expect(rules).not.toContain('swmansion.reanimated');
+    expect(rules).not.toContain('swmansion.gesturehandler');
+    const pkg = JSON.parse(read('hermes-mobile/package.json'));
+    expect(pkg.dependencies['react-native-reanimated']).toBeUndefined();
+    expect(pkg.dependencies['react-native-gesture-handler']).toBeUndefined();
+  });
+
+  it('does not declare legacy external storage permissions', () => {
+    const appJson = read('hermes-mobile/app.json');
+    for (const legacy of ['READ_EXTERNAL_STORAGE', 'WRITE_EXTERNAL_STORAGE', 'MANAGE_EXTERNAL_STORAGE']) {
+      expect(appJson).not.toContain(legacy);
+    }
+  });
+
+  it('keeps Expo SDK-pinned react-native (audit react-native@0.84.6 is wrong for SDK 55)', () => {
+    const pkg = JSON.parse(read('hermes-mobile/package.json'));
+    expect(pkg.dependencies['react-native']).toBe('0.83.6');
+    expect(pkg.dependencies.expo).toMatch(/^~55\./);
+    const auditDoc = read('hermes-mobile/docs/ANDROID-SECURITY-AUDIT-JULY-2026.md');
+    expect(auditDoc).toContain('0.84.6');
+    expect(auditDoc).toMatch(/Expo SDK 55/i);
+  });
+
+  it('runs public-source privacy scan in store-release workflow', () => {
+    const workflow = read('.github/workflows/store-release.yml');
+    expect(workflow).toContain('npm run privacy:scan');
+    const pkg = JSON.parse(read('hermes-mobile/package.json'));
+    expect(pkg.scripts['privacy:scan']).toContain('scan-public-mobile-artifacts.js --source');
+  });
+});
