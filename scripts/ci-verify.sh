@@ -45,7 +45,21 @@ node --check tests/test-kimi-model-upgrade-audit.js
 node --check tests/test-mac-text-hotkeys-config.js
 
 echo "=== Shell syntax ==="
-sh -n install.sh sim-runaway-guard.sh yolo-health tests/test-secondary-browser-reclaim.sh tests/test-adb-reverse-device-filter.sh scripts/verify-mac-text-hotkeys-e2e.sh
+git ls-files '*.sh' | while IFS= read -r file; do
+  case "$(head -n 1 "$file")" in
+    *bash*) bash -n "$file" ;;
+    *) sh -n "$file" ;;
+  esac
+done
+sh -n yolo-health
+
+echo "=== Python static checks ==="
+python3 -c 'import ast, pathlib, subprocess; tracked=subprocess.check_output(["git", "ls-files", "*.py"], text=True).splitlines(); files=[path for path in tracked if pathlib.Path(path).is_file()]; [ast.parse(pathlib.Path(path).read_text(), filename=path) for path in files]; print(f"parsed {len(files)} Python files")'
+if command -v ruff >/dev/null 2>&1; then
+  git ls-files '*.py' | while IFS= read -r file; do test ! -f "$file" || printf '%s\n' "$file"; done | xargs ruff check --select F,E722
+else
+  echo "Ruff unavailable locally; CI installs the pinned ruff==0.15.20 gate"
+fi
 
 echo "=== Guard E2E ==="
 node tests/test-hermes-contribution-opportunities.js
@@ -82,10 +96,14 @@ node tools/publication-readiness.js
 
 echo "=== Secret smoke scan ==="
 GITHUB_PAT_PREFIX="gh""p_"
+GITHUB_FINE_PAT_PREFIX="github""_pat_"
+XAI_KEY_PREFIX="xai""-"
+GOOGLE_API_KEY_PREFIX="AI""zaSy"
 STRIPE_LIVE_PREFIX="sk_""live_"
 TELEGRAM_TOKEN_NAME="TELEGRAM_""BOT_TOKEN"
 STRIPE_SECRET_NAME="STRIPE_""SECRET_KEY"
-SECRET_PATTERN="(${GITHUB_PAT_PREFIX}[A-Za-z0-9_]+|${STRIPE_LIVE_PREFIX}[A-Za-z0-9_]+|${TELEGRAM_TOKEN_NAME}=|${STRIPE_SECRET_NAME}=sk_)"
+GOOGLE_SIGNATURE_NAME="X-Goog-""Signature"
+SECRET_PATTERN="(${GITHUB_PAT_PREFIX}[A-Za-z0-9_]+|${GITHUB_FINE_PAT_PREFIX}[A-Za-z0-9_]+|${XAI_KEY_PREFIX}[A-Za-z0-9_-]{20,}|${GOOGLE_API_KEY_PREFIX}[A-Za-z0-9_-]{20,}|${STRIPE_LIVE_PREFIX}[A-Za-z0-9_]+|${TELEGRAM_TOKEN_NAME}=|${STRIPE_SECRET_NAME}=sk_|${GOOGLE_SIGNATURE_NAME}=)"
 ! git grep -nE "$SECRET_PATTERN" \
   -- ':!.github/workflows/ci.yml' ':!.github/workflows/internal-distribution.yml' ':!.github/workflows/store-release.yml'
 
