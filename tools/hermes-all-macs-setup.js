@@ -425,6 +425,33 @@ function statusForMachine(machine) {
   return 'gateway_unreachable';
 }
 
+function fleetBurnGate() {
+  try {
+    const { aggregateFleetTraffic, buildDailyBurn, buildModelReliability, detectAnomalies } = require('./hermes-cortex-fleet');
+    const traffic = aggregateFleetTraffic();
+    if (!traffic.length) return { id: 'fleet_burn_healthy', ok: true, evidence: 'no traffic.jsonl yet — burn gate neutral (Cortex fleet empty)' };
+    const daily = buildDailyBurn(traffic);
+    const modelRel = buildModelReliability(traffic);
+    const anomalies = detectAnomalies(traffic, daily);
+    const today = new Date().toISOString().slice(0, 10);
+    const todayEntry = daily.find(d => d.day === today);
+    const todayTokens = todayEntry ? todayEntry.total_tokens : 0;
+    const critical = anomalies.filter(a => a.severity === 'critical');
+    const ok = critical.length === 0 && todayTokens < 8_000_000;
+    const failingModels = modelRel.filter(m => m.failure_rate > 0.5).map(m => m.model);
+    return {
+      id: 'fleet_burn_healthy',
+      ok,
+      evidence: ok
+        ? `burn ok: ${(todayTokens / 1e6).toFixed(2)}M today, ${anomalies.length} anomalies, ${modelRel.length} models`
+        : `burn issues: ${critical.length} critical anomalies, today ${(todayTokens / 1e6).toFixed(2)}M, failing: ${failingModels.join(',') || 'none'} — see hermes-cortex-fleet report`,
+      cortex: { todayTokens, anomalies: anomalies.slice(0, 2), failingModels },
+    };
+  } catch (e) {
+    return { id: 'fleet_burn_healthy', ok: true, evidence: `cortex fleet probe skipped: ${e.message}` };
+  }
+}
+
 function readinessGates(runtime, machines, providers) {
   const gatewayOnlineCount = machines.filter((machine) => statusForMachine(machine) === 'gateway_online').length;
   const gates = [
@@ -449,6 +476,10 @@ function readinessGates(runtime, machines, providers) {
       evidence: `${gatewayOnlineCount}/${machines.length} machines currently show Hermes gateway online`,
     },
     {
+      id: 'fleet_burn_healthy',
+      ...fleetBurnGate(),
+    },
+    {
       id: 'sakana_fugu_candidate',
       ok: providers.some((provider) => provider.status === 'smoke_ready' || provider.runnableSmoke),
       evidence: providers.map((provider) => `${provider.id}:${provider.status}`).join(', '),
@@ -459,7 +490,9 @@ function readinessGates(runtime, machines, providers) {
       evidence: providers.filter((provider) => provider.id.includes('nemotron')).map((provider) => `${provider.id}:${provider.status}`).join(', '),
     },
   ];
-  return gates;
+  // dedupe if fleetBurnGate returned duplicate id
+  const seen = new Set();
+  return gates.filter(g => { if (seen.has(g.id)) return false; seen.add(g.id); return true; });
 }
 
 function dgmActions(gates, providers) {

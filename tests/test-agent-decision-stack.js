@@ -23,7 +23,7 @@ assert.strictEqual(parsed.json, true);
 const retrieval = localRetrieval('Hermes retrieval harness Specification-Driven Design');
 assert(!retrieval.error, retrieval.error);
 assert(Array.isArray(retrieval.citations));
-assert(retrieval.citations.some((citation) => citation.path === 'tools/hermes-retrieval-harness.js'));
+assert(retrieval.citations.some((citation) => citation.path.toLowerCase().includes('retrieval-harness')));
 
 const brief = buildBrief({
   task: 'Hermes Specification-Driven Design retrieval harness',

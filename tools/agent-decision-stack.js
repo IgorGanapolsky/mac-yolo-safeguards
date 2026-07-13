@@ -36,6 +36,7 @@ function parseArgs(argv) {
     skipThumbgate: false,
     skipGraphify: false,
     skipLocalRetrieval: false,
+    skipCortexFleet: false,
     json: false,
     help: false,
   };
@@ -47,6 +48,7 @@ function parseArgs(argv) {
     else if (arg === '--skip-thumbgate') args.skipThumbgate = true;
     else if (arg === '--skip-graphify') args.skipGraphify = true;
     else if (arg === '--skip-local-retrieval') args.skipLocalRetrieval = true;
+    else if (arg === '--skip-cortex-fleet') args.skipCortexFleet = true;
     else if (arg === '--json') args.json = true;
     else if (arg === '--help' || arg === '-h') args.help = true;
     else throw new Error(`Unknown argument: ${arg}`);
@@ -193,7 +195,7 @@ function localRetrieval(task) {
     const { retrieve } = require(harnessPath);
     const result = retrieve(task, {
       repo: REPO,
-      limit: 5,
+      limit: 10,
       maxFiles: 4000,
       maxBytes: 160000,
     });
@@ -206,6 +208,61 @@ function localRetrieval(task) {
         reasons: match.reasons,
         snippet: match.snippet,
       })),
+    };
+  } catch (error) {
+    return { error: error.message || String(error) };
+  }
+}
+
+function cortexFleetRetrieval(task) {
+  const fleetPath = path.join(REPO, 'tools', 'hermes-cortex-fleet.js');
+  if (!fs.existsSync(fleetPath)) {
+    return { skipped: true, reason: 'hermes-cortex-fleet.js missing' };
+  }
+  try {
+    const {
+      aggregateFleetTraffic,
+      buildDailyBurn,
+      buildModelReliability,
+      buildGatewayHealth,
+      detectAnomalies,
+      naturalLanguageToSql,
+      executeQuery,
+      buildSearchIndex,
+      buildDefaultSearchIndex,
+      hybridSearch,
+      answerFleetQuestion,
+    } = require(fleetPath);
+    const traffic = aggregateFleetTraffic();
+    const dailyBurn = buildDailyBurn(traffic);
+    const modelRel = buildModelReliability(traffic);
+    const gatewayHealth = buildGatewayHealth(traffic);
+    const anomalies = detectAnomalies(traffic, dailyBurn);
+    const searchIndex = buildDefaultSearchIndex(traffic);
+    const analystPlan = naturalLanguageToSql(task);
+    const queryResult = executeQuery(analystPlan, {
+      traffic,
+      dailyBurn,
+      gatewayHealth,
+      modelReliability: modelRel,
+      anomalies,
+    });
+    const searchHits = hybridSearch(task, searchIndex, { limit: 5 });
+    const fleetAnswer = answerFleetQuestion(task, {
+      traffic,
+      dailyBurn,
+      gatewayHealth,
+      modelReliability: modelRel,
+      anomalies,
+      searchIndex,
+    });
+    return {
+      query: task.slice(0, 200),
+      analyst: { plan: analystPlan, result: queryResult.result.slice(0, 3), rowCount: queryResult.rowCount },
+      search: { hits: searchHits.map(h => ({ path: h.path, score: h.score })) },
+      anomalies: anomalies.slice(0, 3),
+      recommendations: fleetAnswer.recommendations.slice(0, 2),
+      cortex_fn: 'CORTEX.AGENTS + CORTEX.SEARCH + CORTEX.ANALYST',
     };
   } catch (error) {
     return { error: error.message || String(error) };
@@ -246,6 +303,9 @@ function buildBrief(args) {
   }
   if (!args.skipLocalRetrieval) {
     brief.rag.localRetrieval = localRetrieval(args.graphifyQuery || task);
+  }
+  if (!args.skipCortexFleet) {
+    brief.rag.cortexFleet = cortexFleetRetrieval(args.graphifyQuery || task);
   }
   brief.telemetry.githubRun = extractGhRunFeatures(args.ghRun);
   brief.recommendation = recommendNextAction(brief);

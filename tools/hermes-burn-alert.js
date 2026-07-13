@@ -72,7 +72,7 @@ function detectTruncated(records, { window = 20, minSample = 8, rate = 0.25 } = 
   return { truncated, sample: glmOk.length, hit };
 }
 
-function decideAlerts({ summary, degraded, truncated = null, state, now, dayStr,
+function decideAlerts({ summary, degraded, truncated = null, forecast = null, cortexAnomalies = [], state, now, dayStr,
                         cap = DAILY_TOKEN_CAP, degradedRealertMs = DEGRADED_REALERT_MS }) {
   const alerts = [];
   const next = { ...state };
@@ -87,6 +87,27 @@ function decideAlerts({ summary, degraded, truncated = null, state, now, dayStr,
     });
     next.burnAlertedDay = dayStr;
   }
+  // Cortex forecast: warn BEFORE hitting cap (Snowflake ML.FORECAST improvement)
+  if (forecast && forecast.projected_over_daily_cap && state.forecastAlertedDay !== dayStr) {
+    alerts.push({
+      title: 'Hermes burn forecast — will exceed cap',
+      priority: 'high',
+      body: `Cortex ML.FORECAST: ${forecast.tokens_so_far} so far, projected ${forecast.projected_eod} by EOD (cap ${(cap / 1e6).toFixed(0)}M, ${forecast.forecast_burn_pct_daily}%). Risk=${forecast.risk}. ${forecast.action}`,
+    });
+    next.forecastAlertedDay = dayStr;
+  }
+  if (forecast && !forecast.projected_over_daily_cap) next.forecastAlertedDay = null;
+  // Cortex anomalies: quota burst early warning
+  const quotaAnomaly = cortexAnomalies.find(a => a.type === 'quota_exhaustion_burst');
+  if (quotaAnomaly && (!state.quotaBurstAlertedAt || now - state.quotaBurstAlertedAt > degradedRealertMs)) {
+    alerts.push({
+      title: 'Hermes quota burst (Cortex Anomaly)',
+      priority: 'high',
+      body: `Cortex anomaly ${quotaAnomaly.type}: ${quotaAnomaly.count} recent quota failures. Fleet will fall back to local qwen3:8b which may confabulate. Check GLM quota/billing.`,
+    });
+    next.quotaBurstAlertedAt = now;
+  }
+  if (!quotaAnomaly) next.quotaBurstAlertedAt = null;
   if (degraded && (!state.degradedAlertedAt || now - state.degradedAlertedAt > degradedRealertMs)) {
     alerts.push({
       title: 'Hermes DEGRADED mode',
@@ -143,7 +164,19 @@ async function main() {
   const summary = summarizeDay(records, dayStr);
   const degraded = detectDegraded(records);
   const truncated = detectTruncated(records);
-  const { alerts, next } = decideAlerts({ summary, degraded, truncated, state: loadState(), now, dayStr });
+  // Cortex Fleet integration (best-effort, no secret leak)
+  let forecast = null;
+  let cortexAnomalies = [];
+  try {
+    const { buildDailyBurn, forecastBurn, detectAnomalies, normalizeTrafficRecord, aggregateFleetTraffic } = require('./hermes-cortex-fleet');
+    const traffic = aggregateFleetTraffic(TRAFFIC, []); // local only; remote aggregation happens via hermes-cortex-fleet CLI with --remote
+    const dailyBurn = buildDailyBurn(traffic.length ? traffic : records.map(r => normalizeTrafficRecord(r)).filter(Boolean));
+    const todayEntry = dailyBurn.find(d => d.day === dayStr) || { day: dayStr, total_tokens: summary.totalTokens, by_model: summary.byModel, by_host: {}, records: 0, success: 0, failure: 0 };
+    const weeklyBurned = dailyBurn.slice(-7).reduce((a, b) => a + b.total_tokens, 0);
+    forecast = forecastBurn({ day: dayStr, total_tokens: todayEntry.total_tokens, weeklyBurned }, { now, dailyCap: DAILY_TOKEN_CAP });
+    cortexAnomalies = detectAnomalies(records.map(r => normalizeTrafficRecord(r)), dailyBurn);
+  } catch {}
+  const { alerts, next } = decideAlerts({ summary, degraded, truncated, forecast, cortexAnomalies, state: loadState(), now, dayStr });
   for (const a of alerts) {
     const ok = await pushNtfy(a);
     console.log(`[burn-alert] ${ok ? 'sent' : 'FAILED'}: ${a.title} — ${a.body}`);
