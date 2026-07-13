@@ -34,22 +34,22 @@ export const MAC_GETTING_STARTED_STEPS: MacPairingStep[] = [
 ];
 
 
-/** Shown when the user opens the QR scanner — Mac must already show a pairing QR. */
+/** Shown when the user opens the QR scanner — Mac must already show a pairing page (not Hermes main UI). */
 export const MAC_QR_PAIRING_STEPS: MacPairingStep[] = [
   {
     step: 1,
-    title: 'On your computer — open pairing',
-    body: 'In Hermes on your computer, open the screen that connects your phone (menu: Connect phone, or the pairing prompt Hermes shows you).',
+    title: 'Try Find computers first',
+    body: 'Go back and tap Find computers — that works without a QR. Use this scanner only if your Mac is already showing a Hermes Mobile pairing page.',
   },
   {
     step: 2,
-    title: 'QR on the computer screen',
-    body: 'Keep the QR code visible on your computer. Do not close that window.',
+    title: 'Pairing page on your Mac',
+    body: 'Your Mac must show the Hermes Mobile pairing page in a web browser on the same home Wi‑Fi. The main Hermes app does not generate this QR by itself.',
   },
   {
     step: 3,
-    title: 'On this phone — scan it',
-    body: 'Point the camera at the QR on your computer screen.',
+    title: 'Scan the QR',
+    body: 'Point this camera at the QR on that pairing page. Keep the browser window open until pairing finishes.',
   },
 ];
 

@@ -60,8 +60,8 @@ export default function PairQrScannerModal({
       <View style={styles.container}>
         <Text style={styles.title}>Scan QR from your computer</Text>
         <Text style={styles.subtitle}>
-          On your computer, open Hermes → Connect phone and keep the QR on screen. Then point this
-          camera at it.
+          Scan the QR on your Mac&apos;s Hermes Mobile pairing page (same home Wi‑Fi). No QR? Go back
+          and tap Find computers.
         </Text>
         <MacPairingHelp variant="qr-pairing" compact testID="pair-qr-scanner-help" />
 
