@@ -140,6 +140,31 @@ If Starter credits are exhausted until the next reset, **new** EAS builds may fa
 
 EAS submit profile: `production` → Play track **`production`** (`hermes-mobile/eas.json`).
 
+### Play App Signing
+
+Hermes Mobile uses **Google Play App Signing** — do not manually sign store APKs.
+
+| Key | Holder | Purpose |
+|-----|--------|---------|
+| **Upload key** | EAS managed credentials (Expo) | Signs the AAB uploaded from `eas build --profile production` |
+| **App signing key** | Google Play Console | Google re-signs for device delivery; key never leaves Play |
+
+**What we do:**
+
+1. `store-release.yml` (or local `eas build --profile production`) produces a signed **AAB**.
+2. `eas submit --profile production` uploads the AAB with the upload key.
+3. Play distributes APKs signed with the app signing key.
+
+**What we never do for Play production:**
+
+- `jarsigner` / `apksigner sign` on a release artifact
+- Commit keystore files or upload-key passwords to the repo
+- Bypass EAS submit with a manually signed APK
+
+Local `npm run android:phone` builds a **debug/release APK for USB dogfood only** — not the Play publication path. Play listing **vc12** shipped via EAS AAB + Play App Signing (T-157 audit).
+
+If the upload key is ever rotated, update credentials in the [Expo project credentials page](https://expo.dev) — Play retains the app signing key.
+
 ```bash
 # New production AAB + submit (costs credits)
 gh workflow run store-release.yml -f platform=android -f submit=true -f confirm_eas_spend=yes
