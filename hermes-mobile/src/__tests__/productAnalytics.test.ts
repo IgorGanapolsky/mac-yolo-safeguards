@@ -8,24 +8,55 @@ jest.mock('expo-constants', () => ({
   },
 }));
 
+jest.mock('expo-updates', () => ({
+  channel: 'production',
+  isEnabled: true,
+}));
+
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   clearMarketingAttribution,
   recordAttributionFromUrl,
 } from '../services/marketingAttribution';
 import {
+  __setShouldReportToPostHogForTesting,
   isProductAnalyticsEnabled,
+  isProductionPostHogBuild,
+  setPostHogDogfoodExclusions,
   setProductAnalyticsOptOut,
+  shouldReportToPostHog,
   trackProductEvent,
 } from '../services/productAnalytics';
 
 describe('productAnalytics', () => {
+  const originalDev = (global as { __DEV__?: boolean }).__DEV__;
+
   beforeEach(async () => {
     await AsyncStorage.clear();
     await clearMarketingAttribution();
     setProductAnalyticsOptOut(false);
+    setPostHogDogfoodExclusions({
+      developerLeashUnlock: false,
+      storeLeashPreview: false,
+    });
+    __setShouldReportToPostHogForTesting(null);
     delete process.env.EXPO_PUBLIC_POSTHOG_API_KEY;
+    delete process.env.EXPO_PUBLIC_POSTHOG_INTERNAL;
+    delete process.env.EAS_BUILD_PROFILE;
+    delete process.env.EXPO_PUBLIC_EAS_PROFILE;
+    delete process.env.EXPO_PUBLIC_UPDATES_CHANNEL;
+    (global as { __DEV__?: boolean }).__DEV__ = false;
+    process.env.EAS_BUILD_PROFILE = 'production';
     global.fetch = jest.fn().mockResolvedValue({ ok: true });
+  });
+
+  afterEach(() => {
+    (global as { __DEV__?: boolean }).__DEV__ = originalDev;
+    __setShouldReportToPostHogForTesting(null);
+    setPostHogDogfoodExclusions({
+      developerLeashUnlock: false,
+      storeLeashPreview: false,
+    });
   });
 
   it('no-ops when PostHog key is missing', async () => {
@@ -34,7 +65,7 @@ describe('productAnalytics', () => {
     expect(global.fetch).not.toHaveBeenCalled();
   });
 
-  it('captures events when key is configured', async () => {
+  it('captures events when key is configured on production builds', async () => {
     process.env.EXPO_PUBLIC_POSTHOG_API_KEY = 'phc_test';
     await trackProductEvent('mac_scan_complete', { found_count: 2 });
     expect(global.fetch).toHaveBeenCalledTimes(1);
@@ -72,5 +103,58 @@ describe('productAnalytics', () => {
     expect(isProductAnalyticsEnabled()).toBe(false);
     await trackProductEvent('ignored');
     expect(global.fetch).not.toHaveBeenCalled();
+  });
+
+  describe('shouldReportToPostHog', () => {
+    beforeEach(() => {
+      process.env.EXPO_PUBLIC_POSTHOG_API_KEY = 'phc_test';
+      process.env.EAS_BUILD_PROFILE = 'production';
+      (global as { __DEV__?: boolean }).__DEV__ = false;
+    });
+
+    it('allows production builds with key', () => {
+      expect(isProductionPostHogBuild()).toBe(true);
+      expect(shouldReportToPostHog()).toBe(true);
+    });
+
+    it('skips __DEV__', () => {
+      (global as { __DEV__?: boolean }).__DEV__ = true;
+      expect(shouldReportToPostHog()).toBe(false);
+      expect(isProductAnalyticsEnabled()).toBe(false);
+    });
+
+    it('skips non-production EAS profile', () => {
+      process.env.EAS_BUILD_PROFILE = 'preview';
+      expect(isProductionPostHogBuild()).toBe(false);
+      expect(shouldReportToPostHog()).toBe(false);
+    });
+
+    it('skips non-production updates channel', () => {
+      delete process.env.EAS_BUILD_PROFILE;
+      process.env.EXPO_PUBLIC_UPDATES_CHANNEL = 'preview';
+      expect(isProductionPostHogBuild()).toBe(false);
+      expect(shouldReportToPostHog()).toBe(false);
+    });
+
+    it('skips developerLeashUnlock dogfood', () => {
+      setPostHogDogfoodExclusions({ developerLeashUnlock: true });
+      expect(shouldReportToPostHog()).toBe(false);
+    });
+
+    it('skips store leash preview', () => {
+      setPostHogDogfoodExclusions({ storeLeashPreview: true });
+      expect(shouldReportToPostHog()).toBe(false);
+    });
+
+    it('skips EXPO_PUBLIC_POSTHOG_INTERNAL dogfood builds', () => {
+      process.env.EXPO_PUBLIC_POSTHOG_INTERNAL = '1';
+      expect(shouldReportToPostHog()).toBe(false);
+    });
+
+    it('does not send events when gated off', async () => {
+      setPostHogDogfoodExclusions({ developerLeashUnlock: true });
+      await trackProductEvent('leash_purchase_result', { status: 'purchased' });
+      expect(global.fetch).not.toHaveBeenCalled();
+    });
   });
 });
