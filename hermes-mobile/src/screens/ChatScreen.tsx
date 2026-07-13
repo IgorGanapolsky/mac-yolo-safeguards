@@ -199,16 +199,20 @@ import {
 import {
   classifyMegaSession,
   isMegaSession,
+  isMegaSessionSendBlocked,
   megaSessionBannerCopy,
+  megaSessionForceFreshSelectCopy,
   megaSessionSendBlockedCopy,
   megaSessionSendWarnMessage,
   megaSessionSendWarnTitle,
   sessionTotalTokens,
+  shouldForceFreshOnSessionSelect,
 } from '../utils/sessionTokenGuards';
 import {
   compactionStallBannerCopy,
   isSummarizationStub,
   lastTurnIsCompactionStall,
+  shouldAutoOfferFreshOnCompactionStall,
 } from '../utils/chatCompactionHandoff';
 import { resolveChatProject } from '../utils/chatContext';
 import { resolveComputerSessionStorageKeys } from '../utils/computerSessionStorage';
@@ -596,6 +600,7 @@ export default function ChatScreen() {
   /** Force one bottom pin after session/computer switch once transcript content lays out. */
   const pinScrollAfterHydrationRef = useRef(false);
   const messagesRef = useRef<HermesMessage[]>([]);
+  const compactionFreshOfferSessionIdRef = useRef<string | null>(null);
   const sessionsLoadGenRef = useRef(0);
   const prevMacChatLiveRef = useRef<boolean | null>(null);
   const sendStartedAtRef = useRef(Date.now());
@@ -2864,6 +2869,31 @@ export default function ChatScreen() {
     return megaSessionBannerCopy(total);
   }, [currentSession, messages]);
 
+  const megaSessionSendHardBlocked = isMegaSessionSendBlocked(currentSession);
+
+  useEffect(() => {
+    if (isDemo || isSending || runProgress) {
+      return;
+    }
+    const sessionId = currentSession?.id ?? null;
+    const isStall = lastTurnIsCompactionStall(messages);
+    if (
+      !shouldAutoOfferFreshOnCompactionStall({
+        isStall,
+        sessionId,
+        alreadyOfferedForSessionId: compactionFreshOfferSessionIdRef.current,
+      })
+    ) {
+      return;
+    }
+    compactionFreshOfferSessionIdRef.current = sessionId;
+    const total = sessionTotalTokens(currentSession);
+    Alert.alert('Chat stalled after summarization', compactionStallBannerCopy(total), [
+      { text: 'Start fresh chat', onPress: () => void handleStartFreshChat() },
+      { text: 'Keep waiting', style: 'cancel' },
+    ]);
+  }, [currentSession, handleStartFreshChat, isDemo, isSending, messages, runProgress]);
+
   const executeClearAllChats = useCallback(async () => {
     haptics.warning();
     setIsClearing(true);
@@ -4829,6 +4859,14 @@ export default function ChatScreen() {
   const handleSelectAgentThread = useCallback(
     async (session: HermesSession) => {
       haptics.light();
+      if (shouldForceFreshOnSessionSelect(session)) {
+        const total = sessionTotalTokens(session);
+        Alert.alert('Chat too large', megaSessionForceFreshSelectCopy(total), [
+          { text: 'Start fresh chat', onPress: () => void handleStartFreshChat() },
+          { text: 'Cancel', style: 'cancel' },
+        ]);
+        return;
+      }
       setRecentChatsDismissed(false);
       setSessionModalVisible(false);
       skipSessionAutoSelectRef.current = false;
@@ -4845,7 +4883,7 @@ export default function ChatScreen() {
         await persistProjectState(next);
       }
     },
-    [activeProject, projectState, persistProjectState],
+    [activeProject, handleStartFreshChat, projectState, persistProjectState],
   );
 
   const recentChatsList = useMemo(() => {
@@ -5572,15 +5610,22 @@ export default function ChatScreen() {
           onFocus={handleInputFocus}
           onBlur={handleInputBlur}
           onSubmit={handleSubmit}
-          placeholder={inputPlaceholder}
-          sendMuted={!composerHasSendableContent(inputValue, composerAttachments)}
+          placeholder={
+            megaSessionSendHardBlocked
+              ? 'Chat too large — start a fresh chat'
+              : inputPlaceholder
+          }
+          sendMuted={
+            megaSessionSendHardBlocked ||
+            !composerHasSendableContent(inputValue, composerAttachments)
+          }
           onSend={handleSend}
           showStop={isRunActive}
           onStop={() => void handleStopRun()}
           focusNonce={composerFocusNonce}
           attachments={composerAttachments}
           onRemoveAttachment={handleRemoveAttachment}
-          onAttachPress={handleAttachPress}
+          onAttachPress={megaSessionSendHardBlocked ? undefined : handleAttachPress}
         />
         </View>
         ) : null}

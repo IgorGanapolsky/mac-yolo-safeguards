@@ -15,6 +15,7 @@ import {
   threadActivityForSession,
   threadActivityLabel,
 } from '../utils/threadActivity';
+import { megaSessionRecentsBadge } from '../utils/sessionTokenGuards';
 
 type RecentChatsListProps = {
   sessions: HermesSession[];
@@ -121,7 +122,9 @@ export default function RecentChatsList({
             runProgress,
             pendingApprovalSessionIds,
           });
-          const badge = threadActivityLabel(activity.state);
+          const activityBadge = threadActivityLabel(activity.state);
+          const megaBadge = megaSessionRecentsBadge(session);
+          const badge = megaBadge ?? activityBadge;
           const active = session.id === currentSessionId;
           const lastActive = formatSessionLastActive(sessionLastActiveValue(session));
           const preview = previewSnippet(session, activity.preview);
@@ -143,7 +146,9 @@ export default function RecentChatsList({
                   pressed && styles.pressed,
                 ]}
                 accessibilityRole="button"
-                accessibilityLabel={`Open chat ${sessionLabelFor(session)}`}
+                accessibilityLabel={`Open chat ${sessionLabelFor(session)}${
+                  megaBadge ? `, ${megaBadge}` : ''
+                }`}
                 testID={`recent-chat-${session.id}`}
               >
                 <View style={styles.rowMain}>
@@ -154,7 +159,18 @@ export default function RecentChatsList({
                       style={[styles.title, active && styles.titleActive]}
                       testID={`recent-chat-title-${session.id}`}
                     />
-                    {badge ? <Text style={styles.badge}>{badge}</Text> : null}
+                    {badge ? (
+                      <Text
+                        style={[styles.badge, megaBadge ? styles.megaBadge : null]}
+                        testID={
+                          megaBadge
+                            ? `recent-chat-mega-badge-${session.id}`
+                            : `recent-chat-badge-${session.id}`
+                        }
+                      >
+                        {badge}
+                      </Text>
+                    ) : null}
                   </View>
                   {preview ? (
                     <Text
@@ -293,6 +309,9 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '900',
     color: colors.warning,
+  },
+  megaBadge: {
+    color: colors.error,
   },
   preview: {
     fontSize: 11,
