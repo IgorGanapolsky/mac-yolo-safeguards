@@ -1,21 +1,17 @@
 import React from 'react';
 import { render } from '@testing-library/react-native';
 import SubmittedPromptStrip from '../components/SubmittedPromptStrip';
-import { formatMessageTimestamp } from '../utils/chatMessageDisplay';
 
 describe('SubmittedPromptStrip', () => {
   const sentAt = '2026-07-09T23:42:00.000Z';
 
-  it('renders submitted text, send timestamp, and pending status', () => {
-    const { getByTestId, getByText } = render(
+  it('does not duplicate the optimistic user bubble while a send is pending', () => {
+    const { queryByTestId, queryByText } = render(
       <SubmittedPromptStrip text="run ls in workspace" sentAt={sentAt} status="pending" />,
     );
-    expect(getByTestId('submitted-prompt-strip')).toBeTruthy();
-    expect(getByText('You sent')).toBeTruthy();
-    expect(getByText('run ls in workspace')).toBeTruthy();
-    expect(getByText(formatMessageTimestamp(sentAt))).toBeTruthy();
-    expect(getByTestId('submitted-prompt-timestamp')).toBeTruthy();
-    expect(getByText('○ Sending')).toBeTruthy();
+    expect(queryByTestId('submitted-prompt-strip')).toBeTruthy();
+    expect(queryByText('You sent')).toBeNull();
+    expect(queryByText('run ls in workspace')).toBeNull();
   });
 
   it('returns null for blank text', () => {
@@ -25,8 +21,8 @@ describe('SubmittedPromptStrip', () => {
     expect(queryByTestId('submitted-prompt-strip')).toBeNull();
   });
 
-  it('shows waiting for Mac when sent but gateway unreachable', () => {
-    const { getByText } = render(
+  it('does not add a second prompt copy when delivery is waiting for the Mac', () => {
+    const { queryByTestId, queryByText } = render(
       <SubmittedPromptStrip
         text="Make money faster"
         sentAt={sentAt}
@@ -35,7 +31,7 @@ describe('SubmittedPromptStrip', () => {
         macHttpOk={false}
       />,
     );
-    expect(getByText('○ Waiting for computer…')).toBeTruthy();
-    expect(getByText(formatMessageTimestamp(sentAt))).toBeTruthy();
+    expect(queryByTestId('submitted-prompt-strip')).toBeTruthy();
+    expect(queryByText('Make money faster')).toBeNull();
   });
 });
