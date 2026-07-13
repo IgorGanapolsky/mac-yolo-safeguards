@@ -2894,8 +2894,17 @@ export default function ChatScreen() {
 
   const handleStartFreshChat = useCallback(async () => {
     haptics.selection();
+    // Kill zombie "Delivering…" / mega-token banner: clear local run state AND best-effort stop Mac run.
+    // (Previously only null'd runProgress while isChatStreamActive + sendProgressSnapshotRef kept the UI alive.)
+    const stopIds = [
+      runProgressRef.current?.runId,
+      sendProgressSnapshotRef.current?.runId,
+    ].filter((id): id is string => Boolean(id?.trim()));
     isSendingRef.current = false;
     setIsSending(false);
+    activeChatStreamRef.current = false;
+    setIsChatStreamActive(false);
+    sendProgressSnapshotRef.current = null;
     setRunProgress(null);
     failPendingOutboundBubbles('Started fresh chat');
     setPinnedOutboundText(null);
@@ -2907,6 +2916,15 @@ export default function ChatScreen() {
     transcriptDigestRef.current = '';
     setToolStatus(null);
     setRecentChatsDismissed(true);
+
+    if (!isDemo) {
+      const runId = stopIds[0];
+      if (runId) {
+        void stopRun(gatewayUrl, runId, apiKey).catch(() => {});
+      } else if (stopIds.length > 0) {
+        void releaseMacOperatorSlot(gatewayUrl, apiKey, stopIds).catch(() => {});
+      }
+    }
 
     const sourceSession = currentSessionRef.current;
     if (isDemo || !sourceSession || isTelegramInboxSession(sourceSession)) {
