@@ -154,6 +154,14 @@ function applyCommands(commands, hermesHome, env = process.env, spawn = spawnSyn
   return results;
 }
 
+function summarizeApplyResults(results, commandText) {
+  if (!results) return null;
+  return results.map((result, index) => ({
+    command: commandText[index],
+    status: result.status === 0 ? 'pass' : 'fail',
+  }));
+}
+
 function normalizeAppliedConfig(hermesHome, options = {}) {
   const isolated = Boolean(options.isolated);
   const configPath = path.join(hermesHome, 'config.yaml');
@@ -252,10 +260,8 @@ function render(plan, results) {
   ];
   if (results) {
     lines.push('', '## Apply', '');
-    for (const result of results) {
-      lines.push(`- ${result.status === 0 ? 'PASS' : 'FAIL'} ${result.command}`);
-      if (result.error) lines.push(`  ${result.error}`);
-      if (result.stderr) lines.push(`  ${result.stderr}`);
+    for (const result of summarizeApplyResults(results, plan.commandText)) {
+      lines.push(`- ${result.status.toUpperCase()} ${result.command}`);
     }
   }
   return `${lines.join('\n')}\n`;
@@ -270,10 +276,11 @@ function main() {
   const plan = buildPlan(args);
   const results = args.apply ? applyCommands(plan.commands, plan.hermesHome) : null;
   const applyFailed = results && results.some((result) => result.status !== 0);
-  const normalization = args.apply && !applyFailed
-    ? normalizeAppliedConfig(plan.hermesHome, { isolated: args.isolated })
-    : null;
-  if (args.json) console.log(JSON.stringify({ ...plan, applyResults: results, normalization }, null, 2));
+  if (args.apply && !applyFailed) {
+    normalizeAppliedConfig(plan.hermesHome, { isolated: args.isolated });
+  }
+  const applyResults = summarizeApplyResults(results, plan.commandText);
+  if (args.json) console.log(JSON.stringify({ ...plan, applyResults }, null, 2));
   else process.stdout.write(render(plan, results));
   if (applyFailed) process.exit(1);
 }
@@ -301,5 +308,6 @@ module.exports = {
   parseArgs,
   providerCommands,
   shellQuote,
+  summarizeApplyResults,
   worstCaseCost,
 };

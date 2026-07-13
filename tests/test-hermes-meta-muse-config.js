@@ -14,6 +14,7 @@ const {
   normalizeAppliedConfig,
   normalizeIsolatedFallbacks,
   parseArgs,
+  summarizeApplyResults,
   worstCaseCost,
 } = require('../tools/hermes-meta-muse-config');
 
@@ -92,6 +93,22 @@ check('apply stops on the first failed Hermes config write', () => {
   const results = applyCommands(buildCommands(args), args.hermesHome, {}, spawn);
   assert.equal(results.length, 2);
   assert.equal(results[1].status, 1);
+});
+
+check('public apply results never serialize subprocess output', () => {
+  const summary = summarizeApplyResults([
+    {
+      command: 'untrusted command field',
+      status: 1,
+      stdout: 'secret stdout material',
+      stderr: 'secret stderr material',
+      error: 'secret error material',
+    },
+  ], ['hermes config set safe.value true']);
+  assert.deepEqual(summary, [{ command: 'hermes config set safe.value true', status: 'fail' }]);
+  const serialized = JSON.stringify(summary);
+  assert(!serialized.includes('secret'));
+  assert(!serialized.includes('untrusted command field'));
 });
 
 check('isolated apply normalizes Hermes quoted containers into typed empty YAML', () => {
