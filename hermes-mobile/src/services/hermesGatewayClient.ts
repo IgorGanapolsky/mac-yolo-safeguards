@@ -5,6 +5,8 @@ import type {
   HermesCronJob,
   HermesSkill,
   HermesToolset,
+  HermesToolsetConfig,
+  HermesToolsetEnvSaveResult,
   ChatStreamEvent,
 } from '../types/gatewayApi';
 import { extractAssistantFromRunCompletedPayload } from '../utils/streamAssistantText';
@@ -128,6 +130,56 @@ export async function setToolsetEnabled(
     },
   );
   return parseJson<{ ok: boolean; name: string; enabled: boolean }>(response);
+}
+
+/** Provider matrix + is_set flags only — never returns secret values. */
+export async function getToolsetConfig(
+  gatewayUrl: string,
+  name: string,
+  apiKey?: string | null,
+): Promise<HermesToolsetConfig> {
+  const response = await fetch(
+    `${base(gatewayUrl)}/v1/toolsets/${encodeURIComponent(name)}/config`,
+    {
+      headers: buildAuthHeaders(apiKey),
+    },
+  );
+  return parseJson<HermesToolsetConfig>(response);
+}
+
+/** Writes allowlisted keys to ~/.hermes/.env on the Mac. */
+export async function saveToolsetEnv(
+  gatewayUrl: string,
+  name: string,
+  env: Record<string, string>,
+  apiKey?: string | null,
+): Promise<HermesToolsetEnvSaveResult> {
+  const response = await fetch(
+    `${base(gatewayUrl)}/v1/toolsets/${encodeURIComponent(name)}/env`,
+    {
+      method: 'PUT',
+      headers: jsonHeaders(apiKey),
+      body: JSON.stringify({ env }),
+    },
+  );
+  return parseJson<HermesToolsetEnvSaveResult>(response);
+}
+
+export async function setToolsetProvider(
+  gatewayUrl: string,
+  name: string,
+  provider: string,
+  apiKey?: string | null,
+): Promise<{ ok: boolean; name: string; provider?: string }> {
+  const response = await fetch(
+    `${base(gatewayUrl)}/v1/toolsets/${encodeURIComponent(name)}/provider`,
+    {
+      method: 'PUT',
+      headers: jsonHeaders(apiKey),
+      body: JSON.stringify({ provider }),
+    },
+  );
+  return parseJson<{ ok: boolean; name: string; provider?: string }>(response);
 }
 
 export async function listJobs(
