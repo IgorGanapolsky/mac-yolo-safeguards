@@ -19,6 +19,11 @@ jest.mock('../services/thumbgateIap', () => ({
 }));
 
 describe('ProUpgradeCard', () => {
+  it('mentions the weekly free Leash allowance on the paywall', () => {
+    const { getByText } = render(<ProUpgradeCard />);
+    expect(getByText(/10 routed approvals per week/i)).toBeTruthy();
+  });
+
   beforeEach(() => {
     jest.clearAllMocks();
   });

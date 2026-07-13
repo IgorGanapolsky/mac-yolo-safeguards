@@ -9,6 +9,7 @@ import {
   View,
 } from 'react-native';
 import {
+  FREE_LEASH_APPROVALS_PER_WEEK,
   THUMBGATE_LEASH_PRODUCT_NAME,
   THUMBGATE_PRO_PRICE_LABEL,
   THUMBGATE_PRO_URL,
@@ -106,7 +107,8 @@ export default function ProUpgradeCard({ onUnlocked, onTesterUnlock }: ProUpgrad
     <View style={styles.wrap} testID="pro-upgrade-card">
       <Text style={styles.title}>ThumbGate Pro</Text>
       <Text style={styles.body}>
-        Hermes Chat is free. {THUMBGATE_LEASH_PRODUCT_NAME} ({THUMBGATE_PRO_PRICE_LABEL}) unlocks
+        Hermes Chat is free. Leash includes {FREE_LEASH_APPROVALS_PER_WEEK} routed approvals per week
+        at no charge. {THUMBGATE_LEASH_PRODUCT_NAME} ({THUMBGATE_PRO_PRICE_LABEL}) unlocks unlimited
         mobile approval cards on this phone — subscription through{' '}
         {Platform.OS === 'ios' ? 'Apple' : 'Google'}, same as any other mobile app.
       </Text>
