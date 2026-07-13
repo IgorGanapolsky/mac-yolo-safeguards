@@ -25,10 +25,6 @@
       "width": 1080,
       "height": 1920
     },
-    "fastlane/screenshots/en-US/01_approve_65.png": {
-      "width": 1242,
-      "height": 2688
-    },
     "fastlane/screenshots/en-US/01_approve_67.png": {
       "width": 1290,
       "height": 2796
@@ -36,10 +32,6 @@
     "fastlane/screenshots/en-US/01_approve_ipad129.png": {
       "width": 2048,
       "height": 2732
-    },
-    "fastlane/screenshots/en-US/02_block_65.png": {
-      "width": 1242,
-      "height": 2688
     },
     "fastlane/screenshots/en-US/02_block_67.png": {
       "width": 1290,
@@ -49,10 +41,6 @@
       "width": 2048,
       "height": 2732
     },
-    "fastlane/screenshots/en-US/03_standing_65.png": {
-      "width": 1242,
-      "height": 2688
-    },
     "fastlane/screenshots/en-US/03_standing_67.png": {
       "width": 1290,
       "height": 2796
@@ -61,29 +49,64 @@
       "width": 2048,
       "height": 2732
     },
-    "fastlane/screenshots/en-US/04_pair_65.png": {
-      "width": 1242,
-      "height": 2688
-    },
     "fastlane/screenshots/en-US/04_pair_67.png": {
       "width": 1290,
       "height": 2796
     },
-    "fastlane/screenshots/en-US/05_thumbgate_65.png": {
-      "width": 1242,
-      "height": 2688
+    "fastlane/screenshots/en-US/04_pair_ipad129.png": {
+      "width": 2048,
+      "height": 2732
     },
     "fastlane/screenshots/en-US/05_thumbgate_67.png": {
       "width": 1290,
       "height": 2796
     },
-    "fastlane/screenshots/en-US/06_works_65.png": {
-      "width": 1242,
-      "height": 2688
+    "fastlane/screenshots/en-US/05_thumbgate_ipad129.png": {
+      "width": 2048,
+      "height": 2732
     },
     "fastlane/screenshots/en-US/06_works_67.png": {
       "width": 1290,
       "height": 2796
+    },
+    "fastlane/screenshots/en-US/06_works_ipad129.png": {
+      "width": 2048,
+      "height": 2732
     }
-  }
+  },
+  "rawSimilarity": {
+    "01_approve_vs_02_block": 19.45,
+    "01_approve_vs_03_standing": 14.54,
+    "01_approve_vs_04_pair": 12.16,
+    "01_approve_vs_05_thumbgate": 17.96,
+    "01_approve_vs_06_works": 22.26,
+    "02_block_vs_03_standing": 25.93,
+    "02_block_vs_04_pair": 20.93,
+    "02_block_vs_05_thumbgate": 40.93,
+    "02_block_vs_06_works": 23.28,
+    "03_standing_vs_04_pair": 12.51,
+    "03_standing_vs_05_thumbgate": 31.62,
+    "03_standing_vs_06_works": 28.03,
+    "04_pair_vs_05_thumbgate": 16.41,
+    "04_pair_vs_06_works": 12.13,
+    "05_thumbgate_vs_06_works": 33.73
+  },
+  "framedSimilarity": {
+    "01_approve_vs_02_block": 43.72,
+    "01_approve_vs_03_standing": 43.93,
+    "01_approve_vs_04_pair": 41.14,
+    "01_approve_vs_05_thumbgate": 46.14,
+    "01_approve_vs_06_works": 49.0,
+    "02_block_vs_03_standing": 46.07,
+    "02_block_vs_04_pair": 43.77,
+    "02_block_vs_05_thumbgate": 51.37,
+    "02_block_vs_06_works": 44.42,
+    "03_standing_vs_04_pair": 41.86,
+    "03_standing_vs_05_thumbgate": 54.52,
+    "03_standing_vs_06_works": 52.31,
+    "04_pair_vs_05_thumbgate": 43.62,
+    "04_pair_vs_06_works": 41.41,
+    "05_thumbgate_vs_06_works": 55.94
+  },
+  "ascNote": "Only _67 + ipad129 emitted to avoid APP_IPHONE_67 double-upload"
 }
