@@ -146,4 +146,71 @@ describe('resolveSessionAfterListLoad', () => {
       }),
     ).toBeNull();
   });
+
+  it('clears current mega BLOCK session so composer is not trapped', () => {
+    const mega: HermesSession = {
+      id: 'mega',
+      title: 'make money today',
+      input_tokens: 1_087_157,
+      output_tokens: 29_629,
+      last_active_at: '2026-07-13T21:30:00Z',
+    };
+    const ok: HermesSession = {
+      id: 'ok',
+      title: 'small chat',
+      input_tokens: 1_200,
+      output_tokens: 40,
+      last_active_at: '2026-07-13T21:31:00Z',
+    };
+    expect(
+      resolveSessionAfterListLoad({
+        sessions: [mega, ok],
+        projectState,
+        currentSessionId: 'mega',
+        selectLatest: true,
+      }),
+    ).toBeNull();
+  });
+
+  it('does not restore a remembered mega BLOCK session', () => {
+    const mega: HermesSession = {
+      id: 'mega',
+      title: 'make money today',
+      input_tokens: 1_100_000,
+      last_active_at: '2026-07-13T21:30:00Z',
+    };
+    const ok: HermesSession = {
+      id: 'ok',
+      title: 'small chat',
+      input_tokens: 500,
+      last_active_at: '2026-07-13T21:31:00Z',
+    };
+    expect(
+      resolveSessionAfterListLoad({
+        sessions: [mega, ok],
+        projectState: { ...projectState, activeProjectId: null, projects: [] },
+        currentSessionId: null,
+        rememberedSessionId: 'mega',
+        selectLatest: true,
+      })?.id,
+    ).toBe('ok');
+  });
+
+  it('opens New chat when every session is mega BLOCK', () => {
+    const mega: HermesSession = {
+      id: 'mega',
+      title: 'make money today',
+      input_tokens: 2_000_000,
+      last_active_at: '2026-07-13T21:30:00Z',
+    };
+    expect(
+      resolveSessionAfterListLoad({
+        sessions: [mega],
+        projectState: { ...projectState, activeProjectId: null, projects: [] },
+        currentSessionId: null,
+        rememberedSessionId: 'mega',
+        selectLatest: true,
+      }),
+    ).toBeUndefined();
+  });
 });
