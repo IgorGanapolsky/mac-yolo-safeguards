@@ -20,6 +20,7 @@ Durable rules live in [AGENTS.md](./AGENTS.md); this file is *live state only*.
 
 | ID  | Task | Status | Owner | Files (claim) | AcceptanceCheck |
 |-----|------|--------|-------|---------------|-----------------|
+| T-225 | Mega Start fresh must open empty session (no fork / no rebind) | done | cursor-mega-fresh | `hermes-mobile/src/services/hermesGatewayClient.ts`, `hermes-mobile/src/screens/ChatScreen.tsx`, `hermes-mobile/src/utils/resumeExistingSession.ts`, tests, `plan.md` | Start fresh on BLOCK clears to empty composer; fork parses session.id; mega excluded from resume-by-title |
 | T-1 | Off-WiFi LAN/relay detection refactor | in_progress | gemini | `hermes-mobile/src/context/GatewayContext.tsx`, `src/utils/gatewayEndpoint.ts`, `src/__tests__/GatewayContext.test.tsx`, `jest.setup.js` | `npm test` (542/542 currently green) |
 | T-2 | Fix `onDismiss` crash on `hermes://setup` deep link | done | antigravity | `hermes-mobile/src/components/ConnectMacGate.tsx`, `hermes-mobile/src/context/GatewayContext.tsx` | deep link applies gatewayUrl without ErrorBoundary crash |
 | T-3 | Make off-WiFi actually work = **Tailscale** (not a relay) | done | antigravity | docs + app onboarding copy | phone reaches Mac via tailnet IP from app |
