@@ -1,6 +1,6 @@
 # Store listing A/B variants
 
-Research: [STORE-ASO-JULY-2026.md](../../../docs/STORE-ASO-JULY-2026.md) §6.
+Research: [STORE-ASO-JULY-2026.md](../../docs/STORE-ASO-JULY-2026.md) §6.
 
 ## Variants
 
