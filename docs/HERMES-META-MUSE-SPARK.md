@@ -67,18 +67,19 @@ per-run dollar or turn cap. It is therefore suitable for interactive and
 agentic coding work where Meta usage can be monitored, while `--raw` is the
 right lane for a strictly bounded question.
 
-Explicit Hermes mode is capped at four
-model turns, a 16,384-token operational context, and 1,024 output tokens per
-turn. The resulting pessimistic ceiling is:
+Explicit Hermes mode defaults to one model turn, a 65,536-token operational
+context (Hermes 0.18.2 rejects smaller windows), and 1,024 output tokens. The
+resulting pessimistic default ceiling is:
 
 ```text
-4 × ((16,384 × $1.25/M input) + (1,024 × $4.25/M output))
-= $0.099328
+1 × ((65,536 × $1.25/M input) + (1,024 × $4.25/M output))
+= $0.086272
 ```
 
 The default Hermes `--max-cost-usd` is `$0.10`; a request whose ceiling exceeds
-the cap does not start. Direct mode calculates a prompt-specific ceiling before
-the call and records actual usage/cost afterward. OpenCode mode rejects
+the cap does not start. Up to four turns can be requested only with an explicit
+higher dollar cap. Direct mode calculates a prompt-specific ceiling before the
+call and records actual usage/cost afterward. OpenCode mode rejects
 `--max-cost-usd` instead of pretending it can enforce a limit that OpenCode does
 not provide.
 
@@ -117,6 +118,12 @@ the narrowed verification work that benefits from stronger reasoning.
 Meta's official authentication header is `Authorization: Bearer $MODEL_API_KEY`.
 The repository and Hermes YAML contain only the reference `env:MODEL_API_KEY`;
 the key itself is never written to a tracked file or `~/.hermes/.env`.
+
+On the Mac mini, the login Keychain can be writable/readable only from the
+logged-in GUI audit session and return macOS status 36 over plain SSH. The
+installer therefore runs its remote doctor in that console session when
+passwordless `sudo launchctl asuser` is available. It does not weaken storage
+to make SSH reads work.
 
 Meta states that new Model API accounts begin with `$20` in free credits. Current
 pricing is `$1.25/M` uncached input tokens, `$0.15/M` cached input tokens, and

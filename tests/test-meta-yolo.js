@@ -13,6 +13,7 @@ const {
   OPENCODE_CONFIG_DIR,
   OPENCODE_MODEL,
   OPENCODE_PROVIDER,
+  OPERATIONAL_CONTEXT_TOKENS,
   buildDryRun,
   buildHermesArgs,
   buildHermesEnv,
@@ -140,6 +141,13 @@ providers:
     assert.equal(childArgs[childArgs.indexOf('--max-turns') + 1], '2');
   });
 
+  await check('Hermes default satisfies its 64K minimum and stays below ten cents', () => {
+    const args = parseArgs(['--hermes', 'review this change']);
+    assert(OPERATIONAL_CONTEXT_TOKENS >= 65_536);
+    assert.equal(args.maxTurns, 1);
+    assert(hermesWorstCaseCost(args.maxTurns) < args.maxCostUsd);
+  });
+
   await check('Hermes child environment removes competing provider keys', () => {
     const env = buildHermesEnv(testCredential(), {
       OPENROUTER_API_KEY: 'other-provider-value',
@@ -155,7 +163,8 @@ providers:
   });
 
   await check('cost calculations use official cached/input/output rates', () => {
-    assert.equal(Number(hermesWorstCaseCost(4).toFixed(6)), 0.099328);
+    assert.equal(Number(hermesWorstCaseCost(1).toFixed(6)), 0.086272);
+    assert.equal(Number(hermesWorstCaseCost(4).toFixed(6)), 0.345088);
     assert(directWorstCaseCost('hello', 1024) < 0.005);
     const actual = calculateActualCost({
       input_tokens: 1000,
@@ -339,9 +348,46 @@ providers:
     assert.equal(fs.statSync(result.paths.latestPath).mode & 0o777, 0o600);
   });
 
+  await check('raw mode records a billed failure receipt when reasoning exhausts output', async () => {
+    const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'meta-yolo-raw-empty-'));
+    const args = parseArgs(['--raw', 'private task', '--max-output-tokens', '32']);
+    await assert.rejects(
+      runRaw(args.prompt, args, {
+        keyState: { key: testCredential(), source: 'test' },
+        directory: temp,
+        fetch: async () => ({
+          ok: true,
+          status: 200,
+          async json() {
+            return {
+              status: 'incomplete',
+              incomplete_details: { reason: 'max_output_tokens' },
+              model: MODEL,
+              output: [{ type: 'reasoning', content: [] }],
+              usage: {
+                input_tokens: 10,
+                output_tokens: 32,
+                total_tokens: 42,
+                output_tokens_details: { reasoning_tokens: 32 },
+              },
+            };
+          },
+        }),
+      }),
+      /no final output text/,
+    );
+    const receipt = JSON.parse(fs.readFileSync(path.join(temp, 'latest.json'), 'utf8'));
+    assert.equal(receipt.ok, false);
+    assert.equal(receipt.error, 'no_final_output_text');
+    assert.equal(receipt.incompleteReason, 'max_output_tokens');
+    assert.equal(receipt.usage.reasoningTokens, 32);
+    assert.equal(receipt.routeVerified, true);
+    assert(!JSON.stringify(receipt).includes('private task'));
+  });
+
   await check('Hermes mode executes only the fail-closed Meta route', () => {
     const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'meta-yolo-hermes-'));
-    const args = parseArgs(['--hermes', 'repair tests', '--max-turns', '2', '--cwd', temp]);
+    const args = parseArgs(['--hermes', 'repair tests', '--max-turns', '1', '--cwd', temp]);
     let call;
     const result = runHermes(args.prompt, args, {
       env: { OPENROUTER_API_KEY: 'other-provider-value', PATH: '/usr/bin' },

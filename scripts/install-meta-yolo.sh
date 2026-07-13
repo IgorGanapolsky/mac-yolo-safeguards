@@ -113,7 +113,16 @@ doctor_local() {
 
 doctor_remote() {
   local host="$1" output status=0
-  output="$(ssh -o BatchMode=yes -o ConnectTimeout=8 "$host" '"$HOME/.local/bin/meta-yolo" --doctor --json')" || status=$?
+  output="$(ssh -o BatchMode=yes -o ConnectTimeout=8 "$host" '
+    if sudo -n true >/dev/null 2>&1; then
+      uid="$(id -u)"; user="$USER"; home="$HOME"
+      gui_output="$(sudo -n launchctl asuser "$uid" sudo -n -u "$user" env HOME="$home" USER="$user" "$home/.local/bin/meta-yolo" --doctor --json 2>/dev/null)" && {
+        printf "%s\n" "$gui_output"
+        exit 0
+      }
+    fi
+    "$HOME/.local/bin/meta-yolo" --doctor --json
+  ')" || status=$?
   echo "$output"
   META_YOLO_DOCTOR_JSON="$output" node -e '
     const report = JSON.parse(process.env.META_YOLO_DOCTOR_JSON || "{}");

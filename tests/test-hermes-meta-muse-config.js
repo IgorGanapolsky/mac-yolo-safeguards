@@ -48,11 +48,11 @@ check('isolated profile pins Meta and empties both fallback formats', () => {
   assert(commands.some((line) => line.endsWith("fallback_providers '[]'")));
   assert(commands.some((line) => line.endsWith("fallback_model '{}'")));
   assert(commands.some((line) => line.includes('compression.enabled false')));
-  assert(commands.some((line) => line.includes('agent.max_turns 4')));
+  assert(commands.some((line) => line.includes('agent.max_turns 1')));
 });
 
 check('default operational budget has a real sub-ten-cent upper bound', () => {
-  assert.equal(Number(worstCaseCost().toFixed(6)), 0.099328);
+  assert.equal(Number(worstCaseCost().toFixed(6)), 0.086272);
   assert(worstCaseCost() < 0.10);
 });
 

@@ -23,9 +23,10 @@ const OPENCODE_XDG_HOME = path.join(META_YOLO_HOME, 'opencode-xdg');
 const ISOLATED_PROFILE = path.join(os.homedir(), '.hermes', 'meta-muse-profile');
 const MAIN_CONFIG = path.join(os.homedir(), '.hermes', 'config.yaml');
 const ISOLATED_CONFIG = path.join(ISOLATED_PROFILE, 'config.yaml');
-const OPERATIONAL_CONTEXT_TOKENS = 16_384;
+const OPERATIONAL_CONTEXT_TOKENS = 65_536;
 const OPERATIONAL_OUTPUT_TOKENS = 1_024;
-const DEFAULT_MAX_TURNS = 4;
+const DEFAULT_MAX_TURNS = 1;
+const MAX_HERMES_TURNS = 4;
 const DEFAULT_MAX_COST_USD = 0.10;
 const DEFAULT_TOOLSETS = 'shell,file';
 const PRICING = Object.freeze({
@@ -164,7 +165,7 @@ function parseArgs(argv) {
     else if (arg === '--store-key-stdin') args.storeKeyStdin = true;
     else if (arg === '--max-turns') {
       args.maxTurnsSpecified = true;
-      args.maxTurns = parseInteger(requireValue(argv, ++index, arg), arg, 1, DEFAULT_MAX_TURNS);
+      args.maxTurns = parseInteger(requireValue(argv, ++index, arg), arg, 1, MAX_HERMES_TURNS);
     } else if (arg === '--max-cost-usd') {
       args.maxCostSpecified = true;
       args.maxCostUsd = parsePositiveNumber(requireValue(argv, ++index, arg), arg, 0.001, 1);
@@ -500,6 +501,7 @@ function doctor(options = {}) {
       operationalContextTokens: OPERATIONAL_CONTEXT_TOKENS,
       operationalOutputTokens: OPERATIONAL_OUTPUT_TOKENS,
       defaultMaxTurns: DEFAULT_MAX_TURNS,
+      maxHermesTurns: MAX_HERMES_TURNS,
       defaultMaxCostUsd: DEFAULT_MAX_COST_USD,
     },
     billing: {
@@ -657,12 +659,46 @@ async function runRaw(prompt, args, options = {}) {
     writeReceipt(receipt, options);
     throw Object.assign(new Error(`Meta Responses API failed: ${detail}`), { exitCode: 1 });
   }
-  const text = extractResponseText(body);
-  if (!text) throw Object.assign(new Error('Meta Responses API returned no final output text'), { exitCode: 1 });
+  const actualCostUsd = calculateActualCost(body.usage || {});
+  const usage = {
+    inputTokens: Number(body.usage?.input_tokens || 0),
+    outputTokens: Number(body.usage?.output_tokens || 0),
+    reasoningTokens: Number(body.usage?.output_tokens_details?.reasoning_tokens || 0),
+    cachedInputTokens: Number(body.usage?.input_tokens_details?.cached_tokens || 0),
+    totalTokens: Number(body.usage?.total_tokens || 0),
+  };
   if (body.model && body.model !== MODEL) {
+    writeReceipt(baseReceipt('raw_responses', startedAt, {
+      ok: false,
+      httpStatus: response.status,
+      selectedModel: body.model,
+      responseStatus: body.status || null,
+      keySource: keyState.source,
+      estimatedMaximumCostUsd: Number(estimatedMaximumCostUsd.toFixed(6)),
+      actualCostUsd: Number(actualCostUsd.toFixed(8)),
+      usage,
+      routeVerified: false,
+      error: 'response_model_mismatch',
+    }), options);
     throw Object.assign(new Error(`Route violation: requested ${MODEL}, received ${body.model}`), { exitCode: 70 });
   }
-  const actualCostUsd = calculateActualCost(body.usage || {});
+  const text = extractResponseText(body);
+  if (!text) {
+    writeReceipt(baseReceipt('raw_responses', startedAt, {
+      ok: false,
+      httpStatus: response.status,
+      selectedModel: body.model || MODEL,
+      responseStatus: body.status || null,
+      incompleteReason: body.incomplete_details?.reason || null,
+      keySource: keyState.source,
+      estimatedMaximumCostUsd: Number(estimatedMaximumCostUsd.toFixed(6)),
+      actualCostUsd: Number(actualCostUsd.toFixed(8)),
+      usage,
+      routeVerified: true,
+      error: 'no_final_output_text',
+    }), options);
+    throw Object.assign(new Error('Meta Responses API returned no final output text'), { exitCode: 1 });
+  }
   const receipt = baseReceipt('raw_responses', startedAt, {
     ok: true,
     httpStatus: response.status,
@@ -671,13 +707,7 @@ async function runRaw(prompt, args, options = {}) {
     keySource: keyState.source,
     estimatedMaximumCostUsd: Number(estimatedMaximumCostUsd.toFixed(6)),
     actualCostUsd: Number(actualCostUsd.toFixed(8)),
-    usage: {
-      inputTokens: Number(body.usage?.input_tokens || 0),
-      outputTokens: Number(body.usage?.output_tokens || 0),
-      reasoningTokens: Number(body.usage?.output_tokens_details?.reasoning_tokens || 0),
-      cachedInputTokens: Number(body.usage?.input_tokens_details?.cached_tokens || 0),
-      totalTokens: Number(body.usage?.total_tokens || 0),
-    },
+    usage,
     routeVerified: true,
   });
   const paths = writeReceipt(receipt, options);
@@ -939,6 +969,7 @@ module.exports = {
   KEYCHAIN_SERVICE,
   KEY_ENV,
   MODEL,
+  MAX_HERMES_TURNS,
   OPENCODE_CONFIG_DIR,
   OPENCODE_MODEL,
   OPENCODE_PROVIDER,

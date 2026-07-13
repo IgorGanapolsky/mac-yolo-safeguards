@@ -15,9 +15,9 @@ const SPEC = Object.freeze({
   apiKeyEnv: 'MODEL_API_KEY',
   transport: 'chat_completions',
   nativeContextLength: 1_000_000,
-  operationalContextLength: 16_384,
+  operationalContextLength: 65_536,
   operationalMaxTokens: 1_024,
-  maxTurns: 4,
+  maxTurns: 1,
   reasoningEffort: 'high',
   pricing: {
     currency: 'USD',
