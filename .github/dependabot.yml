@@ -26,6 +26,15 @@ updates:
         update-types: ["version-update:semver-major"]
       - dependency-name: jest-expo
         update-types: ["version-update:semver-major"]
+      # Jest 30 is not compatible with the Expo SDK 55 jest-expo preset (PR #65).
+      # Keep the runner and its types on the same supported major until the SDK moves.
+      - dependency-name: jest
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@types/jest"
+        update-types: ["version-update:semver-major"]
+      # React's renderer must stay exactly aligned with the SDK-pinned React version.
+      # A patch-only renderer bump installed two renderer copies and broke CI in PR #64.
+      - dependency-name: react-test-renderer
       # v3 requires RN >=0.84 / new arch; app is on SDK 55 (RN 0.83) — PR #60
       - dependency-name: "@react-native-async-storage/async-storage"
         update-types: ["version-update:semver-major"]
