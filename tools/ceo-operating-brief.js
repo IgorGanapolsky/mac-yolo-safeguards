@@ -18,9 +18,12 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const { spawnSync } = require('child_process');
+const { pipelineBusyReason } = require('./agent-phone-pipeline-lock');
 
 const REPO = path.resolve(__dirname, '..');
 const APP_SUPPORT = path.join(os.homedir(), 'Library', 'Application Support', 'mac-yolo-safeguards');
+const CONTINUOUS_E2E_MAX_AGE_MS = 30 * 60 * 1000;
+const MAX_HUMAN_ACTIONS = 3;
 
 function run(cmd, args, options = {}) {
   const result = spawnSync(cmd, args, {
@@ -133,11 +136,50 @@ function pipelineDataScience() {
   };
 }
 
-function recentAcceleratedE2eProof() {
-  const dir = path.join(REPO, 'hermes-mobile', 'docs', 'proofs', 'agent-device');
-  if (!fs.existsSync(dir)) return false;
-  const today = new Date().toISOString().slice(0, 10);
-  return fs.readdirSync(dir).some((name) => name.startsWith(today));
+function continuousE2eReceipt(options = {}) {
+  const repo = options.repo || REPO;
+  const now = options.now == null ? Date.now() : new Date(options.now).getTime();
+  const file = path.join(repo, 'hermes-mobile', 'docs', 'proofs', 'continuous', 'latest.json');
+  if (!fs.existsSync(file)) return { exists: false, recent: false, healthy: false };
+  try {
+    const receipt = JSON.parse(fs.readFileSync(file, 'utf8'));
+    const updatedAtMs = new Date(receipt.updatedAt).getTime();
+    const ageMs = Number.isFinite(updatedAtMs) && Number.isFinite(now) ? Math.max(0, now - updatedAtMs) : null;
+    return {
+      exists: true,
+      updatedAt: receipt.updatedAt || null,
+      unit: receipt.unit || 'missing',
+      e2e: receipt.e2e || 'missing',
+      detail: receipt.detail || '',
+      ageMinutes: ageMs == null ? null : Math.round(ageMs / 60_000),
+      recent: ageMs != null && ageMs <= CONTINUOUS_E2E_MAX_AGE_MS,
+      healthy: receipt.unit === 'pass' && receipt.e2e === 'pass',
+    };
+  } catch (error) {
+    return { exists: true, recent: false, healthy: false, error: error.message };
+  }
+}
+
+function phonePipelineStatus() {
+  const lockReason = pipelineBusyReason();
+  if (lockReason) {
+    return {
+      busy: true,
+      source: 'phone-pipeline-lock',
+      reason: String(lockReason).replace(/\s+/g, ' ').slice(0, 160),
+    };
+  }
+
+  const running = run('pgrep', ['-f', 'run-continuous-e2e\\.sh|maestro\\.cli\\.AppKt test']);
+  const pids = running.ok ? running.stdout.split(/\s+/).filter((pid) => /^\d+$/.test(pid)) : [];
+  if (pids.length > 0) {
+    return {
+      busy: true,
+      source: 'process-scan',
+      reason: `continuous device verification already running (${pids.length} process${pids.length === 1 ? '' : 'es'})`,
+    };
+  }
+  return { busy: false, source: 'live-probe', reason: '' };
 }
 
 function ragBlocksPlan(brief, plannedAction) {
@@ -160,71 +202,129 @@ function ragBlocksPlan(brief, plannedAction) {
 function rankActions(brief) {
   const actions = [];
   const gatewayIp = brief.telemetry.gateway?.localIp;
+  const add = (action) => actions.push({
+    owner: 'agent',
+    kind: 'execution',
+    expectedOutcome: 'verified state change',
+    externalSignal: 'live telemetry',
+    ...action,
+  });
 
   if (!brief.telemetry.gateway.ok) {
-    actions.push({
+    add({
       priority: 1,
       lane: 'infra',
       action: 'Restart Hermes gateway LaunchAgent and verify :8642/health',
+      expectedOutcome: 'gateway health changes from down to verified healthy',
+      externalSignal: 'gateway health probe failed',
       evidence: brief.telemetry.gateway,
     });
   }
 
   if (brief.telemetry.hermesMobileTests?.ok === false) {
-    actions.push({
+    add({
       priority: 1,
       lane: 'product',
       action: 'Fix failing hermes-mobile Jest CI before any ship claim',
+      expectedOutcome: 'the failing test gate changes to pass',
+      externalSignal: 'test process exited non-zero',
       evidence: brief.telemetry.hermesMobileTests,
     });
   }
 
   if (brief.ml?.hermesLoop?.decision === 'NO-GO') {
-    actions.push({
+    add({
       priority: 1,
       lane: 'infra',
       action: `Hermes decision loop NO-GO: ${brief.ml.hermesLoop.summary || 'fix gateway/Telegram before operator work'}`,
+      expectedOutcome: 'Hermes operator decision changes from NO-GO to GO',
+      externalSignal: 'weak-supervision operator gate returned NO-GO',
       evidence: brief.ml.hermesLoop,
     });
   }
 
-  if (brief.telemetry.adb.connected && gatewayIp) {
-    actions.push({
+  const phonePipeline = brief.telemetry.phonePipeline || { busy: false };
+  const e2e = brief.telemetry.continuousE2e || { exists: false, recent: false, healthy: false };
+  if (brief.telemetry.adb.connected && gatewayIp && !phonePipeline.busy && !(e2e.recent && e2e.healthy)) {
+    add({
       priority: 1,
       lane: 'product',
-      action: `Agent: node tools/hermes-mobile-pair.js (adb deep link to ${brief.telemetry.adb.serial})`,
-      evidence: { serial: brief.telemetry.adb.serial, gatewayUrl: `http://${gatewayIp}:8642` },
-    });
-  }
-
-  if (brief.telemetry.adb.connected && !recentAcceleratedE2eProof()) {
-    actions.push({
-      priority: 2,
-      lane: 'product',
-      action: 'npm run launch:preflight:android in hermes-mobile (device connected)',
-      evidence: brief.telemetry.adb,
+      action: 'Run one single-owner Hermes Mobile continuous E2E cycle; do not start a second phone job',
+      expectedOutcome: 'latest.json becomes a fresh unit=pass and e2e=pass receipt',
+      externalSignal: e2e.exists ? `latest receipt is e2e=${e2e.e2e}` : 'continuous E2E receipt is missing',
+      evidence: {
+        serial: brief.telemetry.adb.serial,
+        gatewayUrl: `http://${gatewayIp}:8642`,
+        receipt: e2e,
+      },
     });
   }
 
   if (brief.revenue?.sendNext?.line?.includes('No prospects')) {
-    actions.push({
+    add({
       priority: 2,
       lane: 'revenue',
-      action: 'Revenue blocked: Reddit outreach requires human account (drafts in business_os/active_leads.md)',
+      owner: 'human',
+      kind: 'decision',
+      action: 'Decide whether the prepared outreach lane is approved for an external send; otherwise pause it',
+      expectedOutcome: 'an explicit send approval or a recorded pause decision',
+      externalSignal: 'send-next reports zero prospects in ready state',
       evidence: brief.revenue.sendNext,
     });
   }
 
   if (brief.newsletterTop?.recommendation && !/release-preflight/.test(brief.newsletterTop.recommendation)) {
-    actions.push({
+    add({
       priority: 3,
       lane: 'product',
       action: brief.newsletterTop.recommendation,
+      expectedOutcome: 'a bounded product change with a verifier receipt',
+      externalSignal: 'new ranked React Native newsletter item',
       evidence: { title: brief.newsletterTop.title, score: brief.newsletterTop.roiScore },
     });
   }
 
   return actions.sort((a, b) => a.priority - b.priority).slice(0, 5);
+}
+
+function chiefOfStaffView(brief, actions = rankActions(brief)) {
+  const humanActions = actions.filter((action) => action.owner === 'human').slice(0, MAX_HUMAN_ACTIONS);
+  const agentActions = actions.filter((action) => action.owner !== 'human');
+  const valueExhaustion = [];
+  const whatToIgnore = [];
+  const phonePipeline = brief.telemetry?.phonePipeline;
+
+  if (phonePipeline?.busy) {
+    valueExhaustion.push({
+      lane: 'device-verification',
+      state: 'waiting-on-existing-run',
+      reason: phonePipeline.reason,
+      resumeWhen: 'the current phone-pipeline owner exits and a fresh receipt is available',
+    });
+    whatToIgnore.push('Do not start another pair, install, or E2E process while the phone pipeline is owned.');
+  }
+
+  if (brief.revenue?.sendNext?.line?.includes('No prospects')) {
+    valueExhaustion.push({
+      lane: 'revenue-outreach',
+      state: 'decision-required',
+      reason: brief.revenue.sendNext.line,
+      resumeWhen: 'an external-send decision or a new qualified inbound signal is recorded',
+    });
+    whatToIgnore.push('Do not manufacture more prospect research while the prepared outreach lane awaits a decision.');
+  }
+
+  return {
+    schema: 'hermes-chief-of-staff-view/v1',
+    policy: {
+      optimizeFor: 'verified external outcomes over activity',
+      maxHumanActions: MAX_HUMAN_ACTIONS,
+    },
+    agentActions,
+    humanActions,
+    valueExhaustion,
+    whatToIgnore,
+  };
 }
 
 function buildBrief(options = {}) {
@@ -241,6 +341,8 @@ function buildBrief(options = {}) {
     telemetry: {
       gateway: gatewayHealth(),
       adb: adbDevice(),
+      phonePipeline: phonePipelineStatus(),
+      continuousE2e: continuousE2eReceipt(),
       hermesMobileTests: args.full ? hermesMobileTests() : { skipped: true, reason: 'pass --full to run Jest CI' },
     },
     ml: {},
@@ -260,7 +362,11 @@ function buildBrief(options = {}) {
   brief.revenue.pipelineDs = pipelineDataScience();
 
   brief.nextActions = rankActions(brief);
-  brief.ceoRecommendation = brief.nextActions[0]?.action || brief.rag?.recommendation || 'Run change protocol with verification.';
+  brief.chiefOfStaff = chiefOfStaffView(brief, brief.nextActions);
+  brief.ceoRecommendation = brief.chiefOfStaff.agentActions[0]?.action
+    || brief.chiefOfStaff.humanActions[0]?.action
+    || brief.rag?.recommendation
+    || 'Run change protocol with verification.';
 
   const ragGate = ragBlocksPlan(brief, brief.ceoRecommendation);
   if (ragGate.blocked) {
@@ -297,10 +403,20 @@ function main() {
       console.log(`RAG gate: ${brief.ragGate.reason.slice(0, 120)}...`);
     }
     console.log('');
-    console.log('Next actions:');
-    brief.nextActions.forEach((item, index) => {
+    console.log('Agent actions:');
+    brief.chiefOfStaff.agentActions.forEach((item, index) => {
       console.log(`${index + 1}. [${item.lane}] ${item.action}`);
     });
+    console.log('');
+    console.log(`Human decisions (max ${MAX_HUMAN_ACTIONS}):`);
+    brief.chiefOfStaff.humanActions.forEach((item, index) => {
+      console.log(`${index + 1}. [${item.lane}] ${item.action}`);
+    });
+    if (brief.chiefOfStaff.whatToIgnore.length > 0) {
+      console.log('');
+      console.log('Pause / ignore:');
+      brief.chiefOfStaff.whatToIgnore.forEach((item) => console.log(`- ${item}`));
+    }
     console.log('');
     console.log(`CEO pick: ${brief.ceoRecommendation}`);
   }
@@ -310,4 +426,12 @@ if (require.main === module) {
   main();
 }
 
-module.exports = { buildBrief, rankActions, ragBlocksPlan };
+module.exports = {
+  MAX_HUMAN_ACTIONS,
+  buildBrief,
+  chiefOfStaffView,
+  continuousE2eReceipt,
+  phonePipelineStatus,
+  rankActions,
+  ragBlocksPlan,
+};

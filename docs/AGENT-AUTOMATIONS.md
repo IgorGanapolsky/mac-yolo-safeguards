@@ -12,6 +12,16 @@ node tools/agent-session-start.js --json   # machine-readable brief
 
 Layers: LaunchAgent health → `ceo-operating-brief.js` → gateway/adb/revenue/newsletter ranked actions.
 
+The CEO brief is also the Hermes Chief-of-Staff gate:
+
+- agent execution and consequential human decisions are separate queues;
+- the human decision queue is capped at three items;
+- every action names its expected outcome and live signal;
+- a lane that is waiting for an existing worker, external reply, or approval is reported as value-exhausted instead of generating more activity;
+- an active phone pipeline suppresses new pair/install/E2E recommendations, preventing two agents from driving the same device.
+
+This adapts the useful operating controls from Lee Harrington's [AI Chief of Staff](https://nginx.leebasehome.com/writing/tech/setting-up-an-ai-chief-of-staff/) pattern. It deliberately reuses `plan.md`, ThumbGate lessons, and existing receipts instead of adding parallel `status.md` / `today.md` / `log.md` state.
+
 ## Install all agent LaunchAgents
 
 ```bash
