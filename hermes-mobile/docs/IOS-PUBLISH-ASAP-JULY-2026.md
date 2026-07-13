@@ -1,6 +1,7 @@
 # iOS publish ASAP — Hermes Mobile (July 2026)
 
 **Audit:** 2026-07-10 ~16:50 ET (**REJECTION TRIAGE**)  
+**Live re-verify:** 2026-07-13 ~18:50 ET — still **`WAITING_FOR_REVIEW`**, build **14**, submission `e89f8340…` @ 2026-07-13T20:38:42Z; IAP also `WAITING_FOR_REVIEW`; iTunes **0**. See [ASC-IOS-BLOCKERS-JULY-2026.md](./ASC-IOS-BLOCKERS-JULY-2026.md) Jul 13 section.  
 **Bundle:** `com.iganapolsky.hermesmobile`  
 **ASC app id:** `6786778037`  
 **Seller:** Igor Ganapolsky / Max Smith KDP LLC  
@@ -109,7 +110,7 @@ Chrome automation **failed** (`AppleEvent timed out`; login tabs `authResult=FAI
 | **App Store Connect** | Version **1.0** → `WAITING_FOR_REVIEW` | **In Apple's review queue** |
 | **IAP** | `thumbgate_leash_monthly` → `WAITING_FOR_REVIEW` | **In review with app (updated Jul 10)** |
 | **Binary** | Build **12** (0.3.2), `processingState: VALID`, `expired: false` | **Ready** |
-| **Release setting** | `releaseType: AFTER_APPROVAL` | **Manual release after approval** |
+| **Release setting** | `releaseType: AFTER_APPROVAL` | **Auto-release after approval** (corrected Jul 13; `MANUAL` = click Release) |
 
 **Bottom line:** The app is **submitted and waiting on Apple**. It is not live because Apple has not approved and released it yet — not because metadata is missing or no binary exists.
 
@@ -181,7 +182,7 @@ curl -s 'https://itunes.apple.com/lookup?bundleId=com.iganapolsky.hermesmobile'
 | P2-1 | Screenshot distinctness | Frames 01 vs 05 failed distinctness audit ([STORE-LISTING-STELLAR-JULY-2026.md](./STORE-LISTING-STELLAR-JULY-2026.md)) — unlikely first-rejection cause |
 | P2-2 | App preview quality | 1 preview uploaded; content unverified |
 | P2-3 | Version string mismatch | ASC marketing version **1.0** vs `app.json` **0.3.2** — cosmetic, not a blocker |
-| P2-4 | Post-approval release | `AFTER_APPROVAL` — someone must click **Release** in ASC after approval |
+| P2-4 | Post-approval release | `AFTER_APPROVAL` — **auto** `READY_FOR_SALE` on approval (corrected Jul 13) |
 
 ---
 
@@ -294,7 +295,7 @@ Apple's own page claims 90% reviewed in <24h — indie/first-submission reality 
 
 | Step | Action |
 |------|--------|
-| 1 | ASC → Version 1.0 → **Release this version** (`AFTER_APPROVAL` requires manual release) |
+| 1 | Watch for `READY_FOR_SALE` (`AFTER_APPROVAL` auto-releases; only click Release if stuck in `PENDING_DEVELOPER_RELEASE`) |
 | 2 | Wait 2–24h for iTunes index propagation |
 | 3 | Verify: `curl itunes.apple.com/lookup?bundleId=com.iganapolsky.hermesmobile` → `resultCount: 1` |
 | 4 | Sandbox IAP purchase test on real device |

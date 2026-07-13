@@ -1,6 +1,38 @@
 # App Store Connect — iOS blockers (Hermes Mobile 1.0)
 
-**Updated:** 2026-07-11 ~16:05 ET (IAP `DEVELOPER_ACTION_NEEDED` **fixed via API**; PR **#125** merged)
+**Updated:** 2026-07-13 ~18:50 ET (money Priority #2 — live ASC API re-verify)
+
+## Jul 13 ~18:50 ET — live ASC state (API + iTunes)
+
+**Verdict:** `WAITING_FOR_REVIEW` — **not public**. No `REJECTED` / `UNRESOLVED_ISSUES`. Agent work is complete until Apple moves the queue (or rejects).
+
+| Item | Evidence |
+|------|----------|
+| App | Hermes Mobile (`com.iganapolsky.hermesmobile`, ASC `6786778037`) |
+| Version **1.0** | `WAITING_FOR_REVIEW` |
+| Build | **14** `VALID` (uploaded `2026-07-13T13:31:18-07:00`) |
+| Active review submission | `e89f8340-27cb-414b-bd95-46f851e29ec9` — `WAITING_FOR_REVIEW`, submitted **2026-07-13T20:38:42Z** |
+| IAP `thumbgate_leash_monthly` | `WAITING_FOR_REVIEW`; en-US loc `WAITING_FOR_REVIEW`; review screenshot `COMPLETE`; `leashSubscription.readyToSubmit: true` |
+| Review notes | 635 chars, `hasDemo: true`, `safe: true` (`hermes://setup?demo=1` only) |
+| `releaseType` | `AFTER_APPROVAL` = **auto-release after approval** (goes `READY_FOR_SALE`, skips `PENDING_DEVELOPER_RELEASE`) — prior docs wrongly said manual Release |
+| Public App Store | `itunes lookup` bundleId + id → **`resultCount: 0`** |
+| Expected public URL after approval | https://apps.apple.com/us/app/id6786778037 |
+
+**Commands (this pass):**
+
+```bash
+node scripts/verify-asc-listing.js --json   # v1.0 + IAP WAITING_FOR_REVIEW
+node scripts/submit-asc-for-review.js --json  # alreadySubmitted: true
+curl -sS 'https://itunes.apple.com/lookup?bundleId=com.iganapolsky.hermesmobile&country=us'
+```
+
+**Resolution Center:** ASC API does not expose reviewer prose. Active submission state is `WAITING_FOR_REVIEW` (not `UNRESOLVED_ISSUES`) → no unanswered Resolution Center reply required from API signals. Chrome SPA scrape incomplete this session (concurrent browser use / thin shell DOM).
+
+**Agreements / tax / banking:** Still unverifiable via ASC API (`/v1/agreements` 404). Not a confirmed blocker while submission is accepted into the queue.
+
+**Path to public:** Apple `WAITING_FOR_REVIEW` → `IN_REVIEW` → approve → `READY_FOR_SALE` (auto via `AFTER_APPROVAL`) → iTunes `resultCount ≥ 1` → public URL above. **Do not** pull from review or upload a new binary unless Apple rejects.
+
+---
 
 ## Jul 11 — IAP regression fixed (API)
 
@@ -24,7 +56,7 @@
 
 - **Binary 12** may still lack Guideline **3.1.2** paywall footer in the **review binary** — PR **#125** merged (`e308cf6`); trigger EAS iOS build **15** only if Apple rejects on 3.1.2 (not triggered in this worker pass).
 - **Agreements / tax / banking** — ASC API cannot read; Igor 2-min UI check.
-- **Release after approval** — `AFTER_APPROVAL` requires manual **Release this version**.
+- **Release after approval** — ~~`AFTER_APPROVAL` requires manual Release~~ **corrected Jul 13:** `AFTER_APPROVAL` auto-publishes on approval (`MANUAL` is the click-to-release option).
 
 ---
 
@@ -91,7 +123,7 @@ Do these in [App Store Connect](https://appstoreconnect.apple.com) (sign in as a
 
    Target: `thumbgate_leash_monthly.state` ∈ `READY_TO_SUBMIT`, `WAITING_FOR_REVIEW`, or `APPROVED`; `leashSubscription.readyToSubmit: true`.
 
-6. **After approval** — release version 1.0 (release type is `AFTER_APPROVAL`). Re-check public lookup:
+6. **After approval** — with `releaseType: AFTER_APPROVAL`, Apple should auto-move to `READY_FOR_SALE` (no manual Release). If status is unexpectedly `PENDING_DEVELOPER_RELEASE`, POST `appStoreVersionReleaseRequests`. Re-check public lookup:
 
    ```bash
    curl -sS 'https://itunes.apple.com/lookup?bundleId=com.iganapolsky.hermesmobile'
