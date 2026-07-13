@@ -1,15 +1,17 @@
 # Published — GTM organic (2026-07-13)
 
-## Partner Pilot — catalystwayfare (SENT)
+## Partner Pilot — catalystwayfare (SENT — waiting for reply)
 
 | Field | Value |
 |-------|-------|
-| **Status** | **SENT** 2026-07-13 ~21:14 UTC |
+| **Status** | **SENT** 2026-07-13 ~21:14 UTC · **WAIT** (no reply as of 2026-07-13 ~22:55 UTC; age ~1.7h &lt; 48h) |
 | **To** | `hello@cwai.co` (public business contact on https://www.catalystwayfare.ai/contact) |
 | **From** | `iganapolsky@gmail.com` |
 | **Subject** | Partner Pilot for multi-agent client delivery |
 | **Stripe offer** | https://buy.stripe.com/fZucN5bmI8HkbO98qf3sI3j |
 | **Evidence** | Gmail compose To chip = hello@cwai.co; body included Stripe link; Send clicked; **Message sent** toast; Sent search `to:hello@cwai.co newer_than:1d` showed the thread |
+| **Reply check** | Gmail `from:(cwai.co) newer_than:30d` → **0 messages**; no mailer-daemon bounce for cwai |
+| **Next timed action** | **2026-07-15 17:14 ET / 21:14 UTC** — ONE human follow-up if still silent (LaunchAgent `com.igor.partner-pilot-followup`) |
 
 ### Why this prospect
 
@@ -64,22 +66,35 @@
 
 ---
 
-## Partner Pilot — zecmo / A Squared Games (SENT)
+## Partner Pilot — zecmo / A Squared Games (BOUNCED — dead destination)
 
 | Field | Value |
 |-------|-------|
-| **Status** | **SENT** 2026-07-13 ~21:28 UTC |
-| **To** | `zecmo@asquaredgames.com` (verified in `business_os/leads.csv` + first-touch drafts) |
+| **Status** | **BOUNCED** — domain `asquaredgames.com` NXDOMAIN (not delivered) |
+| **Attempted To** | `zecmo@asquaredgames.com` (was listed in `business_os/leads.csv` as “verified” — **false**) |
 | **From** | `iganapolsky@gmail.com` |
-| **Subject** | Partner Pilot for agent loop waste (33-min non-bug) |
+| **Subject(s)** | `Partner Pilot for agent loop waste (33-min non-bug)` (~21:25–21:28 UTC) + premature follow-up `Re: the 33-minute non-bug agent burn` (~22:47 UTC) |
 | **Stripe offer** | https://buy.stripe.com/fZucN5bmI8HkbO98qf3sI3j |
-| **Evidence** | Gmail compose To = zecmo@asquaredgames.com; body included Stripe link; Send clicked; **Message sent** + Undo toast; Sent/search `to:zecmo@asquaredgames.com newer_than:1d` showed the thread (1–2 of 2) |
+| **Bounce proof** | Gmail Mail Delivery Subsystem: “Your message wasn't delivered to zecmo@asquaredgames.com because the domain asquaredgames.com couldn't be found.” DNS: `asquaredgames.com` does not resolve. |
+| **Reply status** | N/A — never delivered |
+| **Next action** | **Do not re-send** to that address. GitHub `@zecmo` has no public email/blog. Blocked until a real inbox is found (same class as bluefully). |
 
-### Why this prospect
+### Why this prospect (still ICP, channel broken)
 
 - Warm ICP: quantified Claude waste (~33 min / 18k tokens on a non-bug) on anthropics/claude-code#64416.
-- bluefully still blocked (no destination email).
-- catalystwayfare already sent earlier same day.
+- Email channel is invalid; treat as lost destination, not silence.
+
+---
+
+## B2B reply check — 2026-07-13 ~22:55 UTC
+
+| Prospect | Reply? | Hours since send | Action taken |
+|----------|--------|------------------|--------------|
+| catalystwayfare (`hello@cwai.co`) | **No** | ~1.7h | **WAIT**; LaunchAgent + ntfy armed for 48h window |
+| zecmo (`zecmo@asquaredgames.com`) | **No** (bounce) | n/a | Marked **lost** / `find_valid_contact`; no follow-up email |
+| bluefully | n/a | — | Still no destination email — skipped |
+
+No paid UA. No Reddit/HN spam this cycle.
 
 ---
 
