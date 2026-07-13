@@ -112,6 +112,7 @@
     },
     "plugins": [
       "./plugins/withEmbeddedJsBundle.js",
+      "./plugins/withNetworkSecurityConfig.js",
       "expo-updates",
       "./plugins/withHermesAiGlasses.js",
       "./plugins/withHermesAppleIntelligence.js",
@@ -119,7 +120,7 @@
         "expo-build-properties",
         {
           "android": {
-            "usesCleartextTraffic": true,
+            "usesCleartextTraffic": false,
             "softwareKeyboardLayoutMode": "resize",
             "buildArchs": [
               "arm64-v8a"
