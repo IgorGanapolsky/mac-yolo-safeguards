@@ -6,10 +6,10 @@ Session executed via logged-in Google Chrome (AppleScript + page JS). Cap: 1 HN 
 
 | Channel | URL | Notes |
 |---------|-----|--------|
-| **Show HN** | https://news.ycombinator.com/item?id=48898789 | Title: `Show HN: Hermes Mobile - approve AI agent tool calls from your phone` → Play Store. Posted as `IgorGanapolsky`. First-comment form was empty on load (HN lag); story itself is live. |
-| **r/LocalLLaMA** | https://www.reddit.com/r/LocalLLaMA/comments/1uvokth/tool_mobile_approvedeny_for_agents_on_your_own/ | From draft `ready-to-post/02-reddit-localllama.md`; Resources flair required. Account `eazyigz123`. |
-| **X thread** | https://x.com/IgorGanapolsky/status/2076778802970026015 | Hook on OpenAI rm -rf / missing gate (parallel campaign angle). |
-| **X reply (Play)** | https://x.com/IgorGanapolsky/status/2076779162535137671 | Play Store link for `com.iganapolsky.hermesmobile`. |
+| **Show HN** | https://news.ycombinator.com/item?id=48898789 | Posted as `IgorGanapolsky`. **Later marked dead** (`dead: true` via HN API; low-karma kill). Do **not** re-post/vouch-spam — email `hn@ycombinator.com` if needed. See `ready-to-post/PUBLISHED.md`. |
+| **r/LocalLLaMA** | https://www.reddit.com/r/LocalLLaMA/comments/1uvokth/tool_mobile_approvedeny_for_agents_on_your_own/ | Submitted (`eazyigz123`) then **mod-removed** within ~1m (`removed_by_category: moderator`). Likely rule 4 self-promo. |
+| **X thread** | https://x.com/IgorGanapolsky/status/2076778802970026015 | Live — OpenAI rm -rf / missing-gate hook. |
+| **X reply (Play)** | https://x.com/IgorGanapolsky/status/2076779162535137671 | Live — Play Store link for `com.iganapolsky.hermesmobile`. |
 
 Play listing used: https://play.google.com/store/apps/details?id=com.iganapolsky.hermesmobile
 
