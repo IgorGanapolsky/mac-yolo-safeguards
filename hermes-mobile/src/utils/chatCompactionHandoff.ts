@@ -177,3 +177,18 @@ export function compactionStallBannerCopy(totalTokens?: number): string {
   }
   return COMPACTION_STALL_BANNER;
 }
+
+/**
+ * Offer Start fresh once per stalled session — do not wait forever on
+ * "Earlier conversation summarized" with no real reply.
+ */
+export function shouldAutoOfferFreshOnCompactionStall(opts: {
+  isStall: boolean;
+  sessionId: string | null | undefined;
+  alreadyOfferedForSessionId: string | null | undefined;
+}): boolean {
+  if (!opts.isStall || !opts.sessionId) {
+    return false;
+  }
+  return opts.alreadyOfferedForSessionId !== opts.sessionId;
+}

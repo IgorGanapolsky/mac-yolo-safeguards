@@ -2,7 +2,7 @@
 
 **Audience:** Igor's AI fleet (Cursor parent + workers, Claude Code, Codex, Gemini, Antigravity)  
 **Companion:** [MULTI-AGENT-VAULT-COORDINATION-JULY-2026.md](./MULTI-AGENT-VAULT-COORDINATION-JULY-2026.md)  
-**Last updated:** 2026-07-10
+**Last updated:** 2026-07-13
 
 This document maps **nine failures from the 2026-07-10 session** to durable prevention: automated guards, process rituals, and vault coordination. One pass — no duplicate research subagents.
 
@@ -119,6 +119,29 @@ bash hermes-mobile/scripts/agent-pre-asc-edit.sh      # runs verify-asc-listing 
 | `node scripts/verify-asc-listing.js` | ASC status audit; fails on unsafe live notes |
 | `node scripts/patch-asc-review-notes.js` | Apply safe template via API (preferred) |
 | `node tools/hermes-mobile-pair.js --mini-tailscale` | Multi-Mac — never laptop key on mini URL |
+
+---
+
+## Mega-session / compaction thrash (2026-07-13)
+
+**Symptom class:** 1.7M+ token Hermes Mobile chats → compaction stubs ("Earlier conversation summarized to save context"), no real reply, Retry theater, missing prompts.
+
+| Layer | Gate | Location |
+|-------|------|----------|
+| WARN | ≥ 350k tokens — banner + confirm before Send | `sessionTokenGuards.ts` `MEGA_SESSION_TOKEN_WARN` |
+| BLOCK | ≥ 800k tokens — **hard-block Send** (no Send anyway); composer muted; Recents "Too large" forces Start fresh | `MEGA_SESSION_TOKEN_BLOCK` + `ChatScreen` / `RecentChatsList` |
+| Compaction stall | Summarization-only assistant turn → keep polling + auto-offer Start fresh once | `chatCompactionHandoff.ts` + `ChatScreen` |
+| Unit | `shouldAllowMegaSessionSend`, thresholds, recents badge | `sessionTokenGuards.test.ts`, `chatCompactionHandoff.test.ts`, `RecentChatsList.test.tsx` |
+
+**Operator rules (Igor):**
+
+1. Prefer **Start fresh chat** when a thread crosses ~350k or shows a summarization stub — do not keep Retrying.
+2. Never reopen a **Too large** recent expecting a reply; fork first.
+3. Do not raise `MEGA_SESSION_TOKEN_BLOCK` back toward 2M without a proven gateway-side refuse.
+4. Gateway note: Hermes gateway does not yet refuse continue-by-token; mobile hard-block is the product gate. If adding gateway refuse later, mirror the 800k threshold.
+5. After any mega-session UX change: focused Jest on the three files above + kick continuous E2E; do not claim fixed while `latest.json` `e2e=skipped`.
+
+Shipped hardening: PR #151 (initial unblock), #186 (stall CTA + WARN 350k), T-186 (BLOCK 800k + auto-offer + recents force-fresh).
 
 ---
 
