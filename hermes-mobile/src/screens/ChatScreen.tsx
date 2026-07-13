@@ -3253,6 +3253,7 @@ export default function ChatScreen() {
           gatewayUrl,
           apiKey,
           sendGateAction,
+          leashSettings: settings,
           sendChatText: async (text) => {
             await sendUserText(text, true);
           },

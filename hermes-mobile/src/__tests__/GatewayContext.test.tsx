@@ -9,6 +9,12 @@ import {
   fetchQueue,
 } from '../services/mobileRelayClient';
 import { captureThumbgateFeedback } from '../services/thumbgateClient';
+import {
+  __resetFreeLeashAllowanceForTests,
+  consumeFreeLeashApproval,
+  refreshFreeLeashWeeklyState,
+} from '../utils/freeLeashAllowance';
+import { FREE_LEASH_APPROVALS_PER_WEEK } from '../constants/monetization';
 
 jest.mock('../services/storage');
 jest.mock('../services/secureCredentials');
@@ -917,6 +923,11 @@ describe('GatewayProvider', () => {
 
   it('skips chat output feedback capture when Leash is locked', async () => {
     (captureThumbgateFeedback as jest.Mock).mockClear();
+    __resetFreeLeashAllowanceForTests();
+    await refreshFreeLeashWeeklyState();
+    for (let i = 0; i < FREE_LEASH_APPROVALS_PER_WEEK; i += 1) {
+      await consumeFreeLeashApproval();
+    }
     const thumbgateIap = jest.requireMock('../services/thumbgateIap');
     thumbgateIap.syncThumbgateLeashEntitlement.mockResolvedValue(false);
     (storage.loadGatewaySettings as jest.Mock).mockResolvedValue({

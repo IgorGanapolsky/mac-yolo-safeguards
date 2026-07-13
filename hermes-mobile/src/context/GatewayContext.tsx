@@ -2501,6 +2501,7 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
             gatewayUrl: effectiveGatewayUrlRef.current,
             apiKey: apiKeyRef.current,
             sendGateAction,
+            leashSettings: currentSettings,
           });
         } else {
           const relayText =
@@ -2565,6 +2566,7 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
         apiKey: apiKeyRef.current,
         sendGateAction: sendGateAction,
         sendChatText: undefined,
+        leashSettings: currentSettings,
       });
 
       setPendingApprovals((prev) =>
