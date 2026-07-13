@@ -22,6 +22,10 @@ jest.mock('expo-camera', () => {
   };
 });
 
+jest.mock('expo', () => ({
+  isRunningInExpoGo: jest.fn(() => false),
+}));
+
 jest.mock('expo-notifications', () => ({
   setNotificationHandler: jest.fn(),
   setNotificationChannelAsync: jest.fn(() => Promise.resolve()),
@@ -35,17 +39,23 @@ jest.mock('expo-notifications', () => ({
   setBadgeCountAsync: jest.fn(() => Promise.resolve(true)),
   addNotificationResponseReceivedListener: jest.fn(() => ({ remove: jest.fn() })),
   AndroidImportance: {
+    MAX: 5,
     HIGH: 4,
     DEFAULT: 3,
     LOW: 2,
+    MIN: 1,
   },
   AndroidNotificationPriority: {
     HIGH: 1,
     DEFAULT: 0,
     LOW: -1,
+    MIN: -2,
   },
   AndroidNotificationVisibility: {
     PUBLIC: 1,
+  },
+  SchedulableTriggerInputTypes: {
+    TIME_INTERVAL: 'timeInterval',
   },
 }));
 

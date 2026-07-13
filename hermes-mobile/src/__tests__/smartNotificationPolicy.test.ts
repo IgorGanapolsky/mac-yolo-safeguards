@@ -98,6 +98,12 @@ describe('smartNotificationPolicy', () => {
     expect(shouldPresentIntrusiveNotification('inactive')).toBe(true);
   });
 
+  it('never presents intrusive notifications for live status types', () => {
+    expect(shouldPresentIntrusiveNotification('background', 'run_progress')).toBe(false);
+    expect(shouldPresentIntrusiveNotification('background', 'run_stall')).toBe(false);
+    expect(shouldPresentIntrusiveNotification('inactive', 'run_completed')).toBe(false);
+  });
+
   it('resolves handler presentation from app state', () => {
     expect(resolveHermesNotificationPresentation('active')).toEqual({
       shouldShowAlert: false,
@@ -110,6 +116,18 @@ describe('smartNotificationPolicy', () => {
       shouldShowAlert: true,
       shouldShowBanner: true,
       shouldPlaySound: true,
+      shouldSetBadge: true,
+      shouldShowList: true,
+    });
+    expect(
+      resolveHermesNotificationPresentation('background', {
+        playSound: true,
+        notificationType: 'run_progress',
+      }),
+    ).toEqual({
+      shouldShowAlert: false,
+      shouldShowBanner: false,
+      shouldPlaySound: false,
       shouldSetBadge: true,
       shouldShowList: true,
     });
