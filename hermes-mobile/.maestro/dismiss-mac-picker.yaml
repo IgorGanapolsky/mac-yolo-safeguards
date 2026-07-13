@@ -1,0 +1,11 @@
+# Dismiss Choose-your-computer sheet ONLY when mac-picker-modal is open.
+# Bare text "Choose your computer" is the chat header a11y label when closed —
+# matching it and tapping Close aborts ship-guard (Close not found).
+appId: com.iganapolsky.hermesmobile
+---
+- runFlow:
+    when:
+      visible:
+        id: "mac-picker-modal"
+    commands:
+      - tapOn: "Close"

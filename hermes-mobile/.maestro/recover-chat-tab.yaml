@@ -1,9 +1,11 @@
 # Recover demo Chat after Leash/other tabs — deep link first, tab bar fallback, assert chat-input.
 appId: com.iganapolsky.hermesmobile
 ---
-- hideKeyboard
+- runFlow: hide-keyboard-safe.yaml
+- runFlow: dismiss-mac-picker.yaml
 - openLink: "hermes://chat"
 - runFlow: dismiss-print-interruption.yaml
+- runFlow: dismiss-mac-picker.yaml
 - extendedWaitUntil:
     notVisible:
       id: "tab-screen-loading"
@@ -17,7 +19,8 @@ appId: com.iganapolsky.hermesmobile
       notVisible:
         id: "chat-screen-header"
     commands:
-      - hideKeyboard
+      - runFlow: dismiss-mac-picker.yaml
+      - runFlow: hide-keyboard-safe.yaml
       - extendedWaitUntil:
           visible:
             id: "tab-hermes"
@@ -29,15 +32,31 @@ appId: com.iganapolsky.hermesmobile
       notVisible:
         id: "chat-screen-header"
     commands:
-      - hideKeyboard
+      - runFlow: dismiss-mac-picker.yaml
+      - runFlow: hide-keyboard-safe.yaml
       - tapOn: "Hermes"
 - extendedWaitUntil:
     visible:
       id: "chat-screen-header"
     timeout: 90000
-- hideKeyboard
-# Prefer chat-input over chat-composer-dock — release Android often omits the dock
-# parent from the a11y tree even when the composer is on screen (see chat-e2e-bootstrap).
+- runFlow: hide-keyboard-safe.yaml
+# Demo composer can drop after recover deep link on CI emulator — re-arm demo then assert input.
+- runFlow:
+    when:
+      notVisible:
+        id: "chat-input"
+    commands:
+      - openLink: "hermes://setup?demo=1&recover=1"
+      - extendedWaitUntil:
+          notVisible:
+            id: "hermes-bootstrap"
+          timeout: 30000
+      - openLink: "hermes://chat"
+      - runFlow: dismiss-mac-picker.yaml
+      - extendedWaitUntil:
+          visible:
+            id: "chat-screen-header"
+          timeout: 90000
 - extendedWaitUntil:
     visible:
       id: "chat-input"
