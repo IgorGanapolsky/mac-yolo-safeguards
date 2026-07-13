@@ -146,6 +146,7 @@ Durable rules live in [AGENTS.md](./AGENTS.md); this file is *live state only*.
 | T-164 | Settings toolsets: default-ON for no-key tools + inline Add key UX | done | cursor-settings-tools | `hermes-mobile/src/utils/opsToolsets.ts`, `hermes-mobile/src/types/gatewayApi.ts`, `hermes-mobile/src/services/hermesGatewayClient.ts`, `hermes-mobile/src/components/IntegrationsSheet.tsx`, `hermes-mobile/src/components/GatewayOpsSection.tsx`, `hermes-mobile/src/__tests__/opsToolsets.test.ts`, `hermes-mobile/src/__tests__/IntegrationsSheet.test.tsx`, `hermes-mobile/src/__tests__/GatewayOpsSection.test.tsx`, `hermes-mobile/docs/INTEGRATIONS-MOBILE-MVP.md`, `plan.md` | focused Jest opsToolsets+IntegrationsSheet+GatewayOpsSection+client green; Add key sheet + auto-enable shipped |
 | T-163 | Fix Clear all threads reappearing after gateway URL drift | in_progress | cursor | `hermes-mobile/src/screens/ChatScreen.tsx`, `hermes-mobile/src/services/storage.ts`, `hermes-mobile/src/__tests__/ChatScreen.test.tsx`, `hermes-mobile/src/__tests__/storage.test.ts`, `plan.md` | Clear all persists dismissed ids per machine host (not URL host only); survives USB↔Tailscale; focused Jest pass |
 | T-165 | Provider-scoped Grok verifier and baseline/candidate harness-profile gates | done | codex-harness-profiles | `grok-yolo-wrapper.js`, `tools/hermes-grok45-harness.js`, `tools/hermes-harness-eval.js`, `tests/test-grok-yolo.js`, `tests/test-hermes-grok45-harness.js`, `tests/test-hermes-harness-eval.js`, `docs/HERMES-GROK45-HARNESS.md`, `plan.md` | verifier uses xAI read-only sandbox plus disabled write tool; receipts retain no task text; named case/profile traces support repeated baseline/candidate and held-out regression gates; focused tests, syntax, secret scan, and live dry-run proof pass |
+| T-166 | Pin Grok 4.5 high reasoning by default for standalone and Hermes verifier routes | in_progress | codex-grok-high | `grok-yolo-wrapper.js`, `tests/test-grok-yolo.js`, `docs/HERMES-GROK45-HARNESS.md`, `plan.md` | default invocations pass explicit high effort; standalone callers can still explicitly select medium or low; dual-host dry-run and live route proof pass without API-key billing |
 
 Status values: `pending` | `in_progress` | `blocked` | `done`. Claim a row by setting Owner+Status in one edit, then claim its files in §2.
 
@@ -348,6 +349,7 @@ Status values: `pending` | `in_progress` | `blocked` | `done`. Claim a row by se
 - `AGENTS.md`, `plan.md` → shared coordination files (append-only edits, commit first)
 - everything else → (free)
 - T-165 claimed files above → **codex-harness-profiles released** after 47 CI-style Node suites, focused syntax/diff/secret gates, matching three-file runtime hashes on both Macs, two live read-only write-denial probes, mode-0600 prompt-free receipt checks, and installed evaluator proof passed (2026-07-13T15:04:00Z)
+- `grok-yolo-wrapper.js`, `tests/test-grok-yolo.js`, `docs/HERMES-GROK45-HARNESS.md`, `plan.md` → **codex-grok-high** (T-166 explicit Grok 4.5 high-effort default with medium/low caller override) (2026-07-13T15:29:17Z)
 
 ## 3. Decisions Log (append-only, newest at bottom)
 
