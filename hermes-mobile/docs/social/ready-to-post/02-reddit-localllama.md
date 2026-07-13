@@ -2,7 +2,7 @@
 
 **Status:** Ready — Igor posts (agents cannot post to Reddit)  
 **Subreddit:** r/LocalLLaMA  
-**Play:** https://play.google.com/store/apps/details?id=com.iganapolsky.hermesmobile
+**Play:** https://play.google.com/store/apps/details?id=com.iganapolsky.hermesmobile&referrer=utm_source%3Dreddit%26utm_medium%3Dorganic%26utm_campaign%3Dday0-own-machine
 
 ---
 
@@ -27,7 +27,7 @@ Not replacing Ollama or your local stack — it's the phone remote for what's al
 
 Happy to answer setup questions. Gateway repo: https://github.com/IgorGanapolsky/mac-yolo-safeguards
 
-Play: https://play.google.com/store/apps/details?id=com.iganapolsky.hermesmobile
+Play: https://play.google.com/store/apps/details?id=com.iganapolsky.hermesmobile&referrer=utm_source%3Dreddit%26utm_medium%3Dorganic%26utm_campaign%3Dday0-own-machine
 
 ---
 

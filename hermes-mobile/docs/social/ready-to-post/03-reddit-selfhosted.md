@@ -2,7 +2,7 @@
 
 **Status:** Ready — Igor posts  
 **Subreddit:** r/selfhosted  
-**Play:** https://play.google.com/store/apps/details?id=com.iganapolsky.hermesmobile
+**Play:** https://play.google.com/store/apps/details?id=com.iganapolsky.hermesmobile&referrer=utm_source%3Dreddit%26utm_medium%3Dorganic%26utm_campaign%3Dday0-own-machine
 
 ---
 
@@ -23,7 +23,7 @@ If you self-host agents on a Mac (Cursor hooks, Claude Code, custom gateway), yo
 
 Open gateway + freeze-guard tooling: https://github.com/IgorGanapolsky/mac-yolo-safeguards
 
-Play: https://play.google.com/store/apps/details?id=com.iganapolsky.hermesmobile
+Play: https://play.google.com/store/apps/details?id=com.iganapolsky.hermesmobile&referrer=utm_source%3Dreddit%26utm_medium%3Dorganic%26utm_campaign%3Dday0-own-machine
 
 Looking for self-hosters who want a minimal phone control plane — what setup friction should we kill next?
 

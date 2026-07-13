@@ -1,7 +1,7 @@
 # Show HN — Hermes Mobile (approve AI agents from your phone)
 
 **Status:** Ready to post — Igor account on news.ycombinator.com  
-**Play:** https://play.google.com/store/apps/details?id=com.iganapolsky.hermesmobile
+**Play (UTM):** https://play.google.com/store/apps/details?id=com.iganapolsky.hermesmobile&referrer=utm_source%3Dhn%26utm_medium%3Dshow%26utm_campaign%3Dday0-show-hn
 
 ---
 
@@ -25,7 +25,7 @@ Android is live on Play. iOS is in App Store review.
 
 Happy to answer setup questions. Gateway repo: https://github.com/IgorGanapolsky/mac-yolo-safeguards
 
-Play: https://play.google.com/store/apps/details?id=com.iganapolsky.hermesmobile
+Play: https://play.google.com/store/apps/details?id=com.iganapolsky.hermesmobile&referrer=utm_source%3Dhn%26utm_medium%3Dshow%26utm_campaign%3Dday0-show-hn
 
 ---
 
