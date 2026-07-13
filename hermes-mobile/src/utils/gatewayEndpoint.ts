@@ -43,25 +43,10 @@ function parseHostFromGatewayUrl(gatewayUrl: string): { hostname?: string; ip?: 
   }
 }
 
+import { isPrivateLanIpv4 as isPrivateLanIpv4Shared } from './gatewayUrlPolicy';
+
 function isPrivateLanIpv4(ip: string): boolean {
-  if (!IPV4_RE.test(ip)) {
-    return false;
-  }
-  const parts = ip.split('.').map(Number);
-  if (parts.length !== 4 || parts.some((n) => Number.isNaN(n))) {
-    return false;
-  }
-  const [a, b] = parts;
-  if (a === 10) {
-    return true;
-  }
-  if (a === 172 && b >= 16 && b <= 31) {
-    return true;
-  }
-  if (a === 192 && b === 168) {
-    return true;
-  }
-  return false;
+  return isPrivateLanIpv4Shared(ip);
 }
 
 /** True when the gateway URL points at a LAN-only address (unreachable off Wi‑Fi). */

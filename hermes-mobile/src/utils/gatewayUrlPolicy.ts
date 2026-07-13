@@ -2,10 +2,71 @@ import { normalizeGatewayUrl } from '../services/gatewayClient';
 
 const LOOPBACK_HOSTS = new Set(['127.0.0.1', 'localhost', '0.0.0.0']);
 const IPV4_RE = /^\d{1,3}(\.\d{1,3}){3}$/;
+const EMULATOR_HOSTS = new Set(['10.0.2.2', '10.0.2.3', '10.0.0.2']);
 
 export function isLoopbackHost(host: string): boolean {
   const trimmed = host.trim().toLowerCase();
   return LOOPBACK_HOSTS.has(trimmed) || trimmed === 'localhost';
+}
+
+export function isEmulatorHost(host: string): boolean {
+  const trimmed = host.trim().toLowerCase();
+  return EMULATOR_HOSTS.has(trimmed);
+}
+
+export function isPrivateLanIpv4(ip: string): boolean {
+  const trimmed = ip.trim();
+  if (!IPV4_RE.test(trimmed)) return false;
+  const parts = trimmed.split('.').map(Number);
+  if (parts.length !== 4 || parts.some((n) => Number.isNaN(n) || n < 0 || n > 255)) return false;
+  const [a, b] = parts;
+  if (a === 10) return true;
+  if (a === 172 && b >= 16 && b <= 31) return true;
+  if (a === 192 && b === 168) return true;
+  return false;
+}
+
+export function isTailscaleIpv4Local(ip: string): boolean {
+  const trimmed = ip.trim();
+  if (!IPV4_RE.test(trimmed)) return false;
+  const [a, b] = trimmed.split('.').map(Number);
+  return a === 100 && b >= 64 && b <= 127;
+}
+
+export function isAllowedCleartextHost(host: string): boolean {
+  const trimmed = host.trim().toLowerCase();
+  if (!trimmed) return false;
+  if (isLoopbackHost(trimmed)) return true;
+  if (isEmulatorHost(trimmed)) return true;
+  if (trimmed.endsWith('.local')) return true;
+  if (IPV4_RE.test(trimmed)) {
+    if (isPrivateLanIpv4(trimmed)) return true;
+    if (isTailscaleIpv4Local(trimmed)) return true;
+    // loopback already checked, but 127.x is loopback range - treat as allowed
+    if (trimmed.startsWith('127.')) return true;
+  }
+  // MagicDNS *.ts.net is Tailscale - allowed cleartext for 100.x routing
+  if (trimmed.endsWith('.ts.net')) return true;
+  return false;
+}
+
+export function isPublicHttpUrl(gatewayUrl: string | undefined | null): boolean {
+  const raw = gatewayUrl?.trim();
+  if (!raw) return false;
+  // Only http:// is considered public cleartext risk; https:// is allowed for public
+  if (!/^http:\/\//i.test(raw)) return false;
+  try {
+    const normalized = normalizeGatewayUrl(raw);
+    const host = new URL(normalized.httpBase).hostname?.trim().toLowerCase();
+    if (!host || isLoopbackHost(host) || isEmulatorHost(host)) return false;
+    // If host is allowed cleartext (private, tailscale, .local, loopback), not public
+    if (isAllowedCleartextHost(host)) return false;
+    // Anything else is public http -> should be blocked
+    return true;
+  } catch {
+    // If parsing fails, be conservative - treat as not public http for validation elsewhere
+    return false;
+  }
 }
 
 /** Gateway /health may report 127.0.0.1 even when probed over LAN — never show that as the Mac IP. */
@@ -44,10 +105,13 @@ export function gatewayUrlHostname(gatewayUrl: string): string | undefined {
   }
 }
 
-/** Reject URLs with no usable host (e.g. `http://`, `http`, `http://http:8642`). */
+/** Reject URLs with no usable host (e.g. `http://`, `http`, `http://http:8642`). Also reject public http:// (G-02). */
 export function isValidGatewayUrl(gatewayUrl: string | undefined | null): boolean {
   const trimmed = gatewayUrl?.trim();
   if (!trimmed) {
+    return false;
+  }
+  if (isPublicHttpUrl(trimmed)) {
     return false;
   }
   try {
