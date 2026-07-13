@@ -4,6 +4,7 @@ import {
   isContextCompactionHandoff,
   isSummarizationStub,
   lastTurnIsCompactionStall,
+  shouldAutoOfferFreshOnCompactionStall,
   splitCompactionHandoff,
   stripCompactionHandoffsFromMessages,
 } from '../utils/chatCompactionHandoff';
@@ -79,5 +80,29 @@ describe('chatCompactionHandoff', () => {
       ]),
     ).toBe(false);
     expect(compactionStallBannerCopy(397_152)).toMatch(/397k tokens/i);
+  });
+
+  it('auto-offers Start fresh once per stalled session', () => {
+    expect(
+      shouldAutoOfferFreshOnCompactionStall({
+        isStall: true,
+        sessionId: 's1',
+        alreadyOfferedForSessionId: null,
+      }),
+    ).toBe(true);
+    expect(
+      shouldAutoOfferFreshOnCompactionStall({
+        isStall: true,
+        sessionId: 's1',
+        alreadyOfferedForSessionId: 's1',
+      }),
+    ).toBe(false);
+    expect(
+      shouldAutoOfferFreshOnCompactionStall({
+        isStall: false,
+        sessionId: 's1',
+        alreadyOfferedForSessionId: null,
+      }),
+    ).toBe(false);
   });
 });
