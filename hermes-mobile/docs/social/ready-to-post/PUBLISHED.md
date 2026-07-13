@@ -64,8 +64,44 @@
 
 ---
 
+## Partner Pilot — zecmo / A Squared Games (SENT)
+
+| Field | Value |
+|-------|-------|
+| **Status** | **SENT** 2026-07-13 ~21:28 UTC |
+| **To** | `zecmo@asquaredgames.com` (verified in `business_os/leads.csv` + first-touch drafts) |
+| **From** | `iganapolsky@gmail.com` |
+| **Subject** | Partner Pilot for agent loop waste (33-min non-bug) |
+| **Stripe offer** | https://buy.stripe.com/fZucN5bmI8HkbO98qf3sI3j |
+| **Evidence** | Gmail compose To = zecmo@asquaredgames.com; body included Stripe link; Send clicked; **Message sent** + Undo toast; Sent/search `to:zecmo@asquaredgames.com newer_than:1d` showed the thread (1–2 of 2) |
+
+### Why this prospect
+
+- Warm ICP: quantified Claude waste (~33 min / 18k tokens on a non-bug) on anthropics/claude-code#64416.
+- bluefully still blocked (no destination email).
+- catalystwayfare already sent earlier same day.
+
+---
+
+## Reddit r/SideProject — LIVE
+
+| Field | Value |
+|-------|-------|
+| **Status** | **LIVE** (not removed at publish check) |
+| **URL** | https://www.reddit.com/r/SideProject/comments/1uvoxsh/show_hermes_mobile_phone_approvedeny_for_ai/ |
+| **old.reddit** | https://old.reddit.com/r/SideProject/comments/1uvoxsh/show_hermes_mobile_phone_approvedeny_for_ai/ |
+| **Account** | eazyigz123 |
+| **Draft** | `04-reddit-sideproject.md` (campaign-2026-07-13) — Chat free + Leash 10/week honest copy |
+| **Title** | [Show] Hermes Mobile — phone approve/deny for AI coding agents on your own Mac |
+| **Score at check** | 1 point (100% upvoted); `removed=false` |
+| **Note** | Chose SideProject over r/selfhosted after LocalLLaMA mod-removal; SideProject is the intended show lane. |
+
+---
+
 ## Skipped (intentional)
 
 - Paid UA — not spent.
 - HN re-post / vouch spam — unsafe (see above).
 - bluefully email — no To: address.
+- r/LocalLLaMA re-post — do not repost after mod-removal.
+- r/selfhosted this cycle — deferred; SideProject posted instead.

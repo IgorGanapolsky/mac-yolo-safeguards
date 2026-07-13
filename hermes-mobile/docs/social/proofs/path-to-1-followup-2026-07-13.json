@@ -1,0 +1,21 @@
+{
+  "updatedAt": "2026-07-13T21:38:00Z",
+  "partnerPilot": {
+    "prospect": "zecmo",
+    "to": "zecmo@asquaredgames.com",
+    "status": "sent",
+    "stripe": "https://buy.stripe.com/fZucN5bmI8HkbO98qf3sI3j"
+  },
+  "reddit": {
+    "subreddit": "SideProject",
+    "url": "https://www.reddit.com/r/SideProject/comments/1uvoxsh/show_hermes_mobile_phone_approvedeny_for_ai/",
+    "status": "live",
+    "removed": false
+  },
+  "prs": {
+    "246": "automerge waiting CI",
+    "241": "automerge waiting CI",
+    "238": "automerge waiting CI (plan.md conflict resolved)",
+    "237": "automerge waiting CI"
+  }
+}
