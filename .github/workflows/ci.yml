@@ -31,8 +31,21 @@ jobs:
       - name: Shell syntax
         run: |
           set -eu
-          sh -n install.sh sim-runaway-guard.sh yolo-health tests/test-secondary-browser-reclaim.sh tests/test-adb-reverse-device-filter.sh
-          bash -n scripts/hermes-gateway-watchdog.sh tests/test-hermes-gateway-watchdog.sh tests/test-hermes-gateway-watchdog-e2e.sh scripts/hermes-enable-remote-login.sh scripts/hermes-fleet-ssh-trust.sh tests/test-hermes-mobile-pair.sh
+          git ls-files '*.sh' | while IFS= read -r file; do
+            case "$(head -n 1 "$file")" in
+              *bash*) bash -n "$file" ;;
+              *) sh -n "$file" ;;
+            esac
+          done
+          sh -n yolo-health
+
+      - name: Python static checks
+        run: |
+          set -eu
+          python3 -c 'import ast, pathlib, subprocess; tracked=subprocess.check_output(["git", "ls-files", "*.py"], text=True).splitlines(); files=[path for path in tracked if pathlib.Path(path).is_file()]; [ast.parse(pathlib.Path(path).read_text(), filename=path) for path in files]; print(f"parsed {len(files)} Python files")'
+          python3 -m venv "$RUNNER_TEMP/ruff-venv"
+          "$RUNNER_TEMP/ruff-venv/bin/pip" install --disable-pip-version-check --quiet ruff==0.15.20
+          git ls-files '*.py' | while IFS= read -r file; do test ! -f "$file" || printf '%s\n' "$file"; done | xargs "$RUNNER_TEMP/ruff-venv/bin/ruff" check --select F,E722
 
       - name: Hermes gateway watchdog unit tests
         run: |
@@ -97,7 +110,7 @@ jobs:
       - name: Public secret smoke scan
         run: |
           set -eu
-          ! git grep -nE '(ghp_[A-Za-z0-9_]+|sk_live_[A-Za-z0-9_]+|TELEGRAM_BOT_TOKEN=|STRIPE_SECRET_KEY=sk_)' \
+          ! git grep -nE '(ghp_[A-Za-z0-9_]+|github_pat_[A-Za-z0-9_]+|xai-[A-Za-z0-9_-]{20,}|AIzaSy[A-Za-z0-9_-]{20,}|sk_live_[A-Za-z0-9_]+|TELEGRAM_BOT_TOKEN=|STRIPE_SECRET_KEY=sk_|X-Goog-Signature=)' \
             -- ':!.github/workflows/ci.yml' ':!.github/workflows/internal-distribution.yml' ':!.github/workflows/store-release.yml'
 
   revenue-public-checks:
