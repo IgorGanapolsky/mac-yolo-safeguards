@@ -284,6 +284,35 @@ export async function clearAllSessions(
   }
 }
 
+/**
+ * Gateway `/fork` returns `{ object, session: { id } }` (Hermes api_server).
+ * Older clients expected top-level `session_id` — accept both.
+ */
+export function extractForkedSessionId(payload: unknown): string | null {
+  if (!payload || typeof payload !== 'object') {
+    return null;
+  }
+  const body = payload as {
+    session_id?: unknown;
+    sessionId?: unknown;
+    id?: unknown;
+    session?: { id?: unknown; session_id?: unknown } | null;
+  };
+  const candidates = [
+    body.session_id,
+    body.sessionId,
+    body.session?.id,
+    body.session?.session_id,
+    body.id,
+  ];
+  for (const candidate of candidates) {
+    if (typeof candidate === 'string' && candidate.trim()) {
+      return candidate.trim();
+    }
+  }
+  return null;
+}
+
 export async function forkSession(
   gatewayUrl: string,
   sessionId: string,
@@ -293,7 +322,9 @@ export async function forkSession(
     `${base(gatewayUrl)}/api/sessions/${encodeURIComponent(sessionId)}/fork`,
     { method: 'POST', headers: jsonHeaders(apiKey), body: '{}' },
   );
-  return parseJson<{ session_id?: string }>(response);
+  const payload = await parseJson<unknown>(response);
+  const forkedId = extractForkedSessionId(payload);
+  return forkedId ? { session_id: forkedId } : {};
 }
 
 export type HermesRunStatus = {
