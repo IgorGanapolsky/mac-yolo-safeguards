@@ -111,6 +111,12 @@ import {
 import { findResumableSessionByPromptTitle } from '../utils/resumeExistingSession';
 import { formatMessageTimestamp, prepareMessagesForDisplay, resolveMessageTimestamp } from '../utils/chatMessageDisplay';
 import {
+  COMPACTION_STUB_DISPLAY,
+  compactionStallBannerCopy,
+  effectiveAssistantReplyText,
+  isCompactionOnlyAssistantText,
+} from '../utils/chatCompactionHandoff';
+import {
   isMessageBodyEmpty,
   isMessageDisplayEmpty,
   mergeServerMessagesWithPending,
@@ -2232,6 +2238,9 @@ export default function ChatScreen() {
           setAwaitingGatewayReply(false);
           setToolStatus(null);
           setRunProgress(null);
+          setErrorMessage((prev) =>
+            prev && prev.includes('summarized this long chat') ? null : prev,
+          );
           commitMessages((prev) =>
             prev.map((m) => (m.id === assistantId ? { ...m, content: reply } : m)),
           );
@@ -2848,12 +2857,15 @@ export default function ChatScreen() {
     });
   }, [handleStartFreshChat]);
 
-  const megaSessionWarning = useMemo(() => {
+    const megaSessionWarning = useMemo(() => {
+    if (errorMessage && errorMessage.includes('summarized this long chat')) {
+      return compactionStallBannerCopy();
+    }
     if (!isMegaSession(currentSession)) {
       return null;
     }
     return megaSessionBannerCopy(sessionTotalTokens(currentSession));
-  }, [currentSession]);
+  }, [currentSession, errorMessage]);
 
   const executeClearAllChats = useCallback(async () => {
     haptics.warning();
@@ -4426,11 +4438,28 @@ export default function ChatScreen() {
 
       markMessageDeliveredToMac();
 
+      const compactionOnlyReply = isCompactionOnlyAssistantText(assistantText);
+      const effectiveAssistantText = effectiveAssistantReplyText(assistantText);
+      if (compactionOnlyReply || (assistantText.trim() && !effectiveAssistantText)) {
+        // Gateway returned a context-compaction handoff — not a user-facing answer.
+        assistantText = '';
+      } else if (effectiveAssistantText && effectiveAssistantText !== assistantText.trim()) {
+        assistantText = effectiveAssistantText;
+        updateAssistant(assistantText);
+      }
+
       const telegramDeferred = isTelegramDeferredEmptyStream(activeSess, assistantText);
       if (!assistantText.trim()) {
         updateAssistant(
-          telegramDeferred ? TELEGRAM_QUEUED_REPLY_PLACEHOLDER : GENERIC_EMPTY_STREAM_PLACEHOLDER,
+          telegramDeferred
+            ? TELEGRAM_QUEUED_REPLY_PLACEHOLDER
+            : compactionOnlyReply
+              ? COMPACTION_STUB_DISPLAY
+              : GENERIC_EMPTY_STREAM_PLACEHOLDER,
         );
+        if (compactionOnlyReply) {
+          setErrorMessage(compactionStallBannerCopy());
+        }
         if (telegramDeferred) {
           setToolStatus('Queued on active Hermes thread — waiting for reply…');
           setRunProgress((prev) =>
@@ -4445,30 +4474,42 @@ export default function ChatScreen() {
           startDeferredTelegramPoll(assistantId, priorAssistants);
         } else if (
           shouldAwaitGatewayReplyAfterSend({
-            assistantText,
+            assistantText: '',
             streamAccepted,
             streamFailed: false,
           })
         ) {
-          setToolStatus('Waiting for reply from your computer…');
+          setToolStatus(
+            compactionOnlyReply
+              ? 'Summarizing long chat — waiting for a real reply…'
+              : 'Waiting for reply from your computer…',
+          );
           setRunProgress((prev) =>
             prev
               ? {
                   ...prev,
                   phase: 'working',
-                  detail: 'Your computer is still working — fetching reply…',
+                  detail: compactionOnlyReply
+                    ? 'Context summarized — still waiting for your answer…'
+                    : 'Your computer is still working — fetching reply…',
                 }
               : {
                   phase: 'working',
                   startedAtMs: sendStartedAtRef.current,
-                  detail: 'Your computer is still working — fetching reply…',
+                  detail: compactionOnlyReply
+                    ? 'Context summarized — still waiting for your answer…'
+                    : 'Your computer is still working — fetching reply…',
                   sessionId: targetSessionIdForProgress,
                 },
           );
           startDeferredReplyPoll(assistantId, priorAssistants, {
             onTimeout: () => {
               lastFailedSendTextRef.current = userText;
-              setErrorMessage(EMPTY_REPLY_FAILURE_REASON);
+              setErrorMessage(
+                compactionOnlyReply
+                  ? compactionStallBannerCopy()
+                  : EMPTY_REPLY_FAILURE_REASON,
+              );
             },
           });
         }

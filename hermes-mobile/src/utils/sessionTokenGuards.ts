@@ -1,7 +1,7 @@
 import type { HermesSession } from '../types/chat';
 
 /** Warn before sending on very large sessions — context can take hours or fail. */
-export const MEGA_SESSION_TOKEN_WARN = 500_000;
+export const MEGA_SESSION_TOKEN_WARN = 300_000;
 
 /** Block new sends unless the user starts a fresh forked chat. */
 export const MEGA_SESSION_TOKEN_BLOCK = 2_000_000;

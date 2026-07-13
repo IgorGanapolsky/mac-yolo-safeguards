@@ -1,4 +1,8 @@
 import type { HermesMessage } from '../types/chat';
+import {
+  effectiveAssistantReplyText,
+  isCompactionOnlyAssistantText,
+} from './chatCompactionHandoff';
 import { isMessageBodyEmpty } from './chatMessageMerge';
 import { isDeferredStreamPlaceholder } from './streamAssistantText';
 
@@ -17,9 +21,11 @@ export function shouldAwaitGatewayReplyAfterSend(options: {
   if (!options.streamAccepted) {
     return false;
   }
-  if (options.assistantText.trim()) {
+  const effective = effectiveAssistantReplyText(options.assistantText);
+  if (effective.trim()) {
     return false;
   }
+  // Compaction-only stubs are not answers — keep polling for the real reply.
   return true;
 }
 
@@ -40,6 +46,12 @@ export function serverHasAssistantReplyAfterLastUser(serverMessages: HermesMessa
       continue;
     }
     if (isDeferredStreamPlaceholder(message.content)) {
+      continue;
+    }
+    if (isCompactionOnlyAssistantText(message.content) || isCompactionOnlyAssistantText(message.rawContent)) {
+      continue;
+    }
+    if (!effectiveAssistantReplyText(message.content || message.rawContent).trim()) {
       continue;
     }
     return true;

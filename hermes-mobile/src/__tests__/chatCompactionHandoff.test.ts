@@ -1,5 +1,9 @@
 import {
   COMPACTION_END_MARKER,
+  COMPACTION_STUB_DISPLAY,
+  compactionStallBannerCopy,
+  effectiveAssistantReplyText,
+  isCompactionOnlyAssistantText,
   isContextCompactionHandoff,
   splitCompactionHandoff,
   stripCompactionHandoffsFromMessages,
@@ -17,11 +21,25 @@ describe('chatCompactionHandoff', () => {
     expect(isContextCompactionHandoff('Be honest, it is wishful thinking.')).toBe(false);
   });
 
+  it('treats compaction-only and UI stub as non-answers', () => {
+    expect(isCompactionOnlyAssistantText(`${COMPACTION_PREFIX}\n## Historical Task Snapshot\nold`)).toBe(
+      true,
+    );
+    expect(isCompactionOnlyAssistantText(COMPACTION_STUB_DISPLAY)).toBe(true);
+    expect(isCompactionOnlyAssistantText('... Earlier conversation summarized to save context.')).toBe(
+      true,
+    );
+    expect(effectiveAssistantReplyText(`${COMPACTION_PREFIX}\nrolled`)).toBe('');
+    expect(effectiveAssistantReplyText(COMPACTION_STUB_DISPLAY)).toBe('');
+  });
+
   it('splits merged compaction blocks and keeps the tail reply', () => {
     const merged = `${COMPACTION_PREFIX}\n## Historical Task Snapshot\nold work\n\n${COMPACTION_END_MARKER}\nHere is the real assistant answer.`;
     const split = splitCompactionHandoff(merged);
     expect(split?.remainder).toBe('Here is the real assistant answer.');
     expect(split?.summary).toContain('Historical Task Snapshot');
+    expect(effectiveAssistantReplyText(merged)).toBe('Here is the real assistant answer.');
+    expect(isCompactionOnlyAssistantText(merged)).toBe(false);
   });
 
   it('hides standalone compaction rows from the transcript', () => {
@@ -43,5 +61,9 @@ describe('chatCompactionHandoff', () => {
     expect(visible).toHaveLength(2);
     expect(visible[1].content).toBe('Visible assistant reply.');
     expect(visible.map((m) => m.content).join('\n')).not.toContain('REFERENCE ONLY');
+  });
+
+  it('exports actionable stall copy', () => {
+    expect(compactionStallBannerCopy()).toMatch(/Start a fresh chat/i);
   });
 });

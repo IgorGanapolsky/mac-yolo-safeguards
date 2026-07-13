@@ -21,7 +21,8 @@ describe('sessionTokenGuards', () => {
   });
 
   it('classifies warn and block thresholds', () => {
-    expect(classifyMegaSession({ input_tokens: 400_000 })).toBe('normal');
+    expect(classifyMegaSession({ input_tokens: 250_000 })).toBe('normal');
+    expect(classifyMegaSession({ input_tokens: 400_000 })).toBe('warn');
     expect(classifyMegaSession({ input_tokens: MEGA_SESSION_TOKEN_WARN })).toBe('warn');
     expect(classifyMegaSession({ input_tokens: MEGA_SESSION_TOKEN_BLOCK })).toBe('block');
     expect(isMegaSession({ input_tokens: MEGA_SESSION_TOKEN_WARN })).toBe(true);

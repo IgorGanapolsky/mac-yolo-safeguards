@@ -60,6 +60,29 @@ describe('streamAssistantText', () => {
     expect(isDeferredStreamPlaceholder('hello')).toBe(false);
   });
 
+  it('skips compaction-only transcript rows when extracting assistant text', () => {
+    expect(
+      extractAssistantFromTranscriptMessages([
+        {
+          role: 'assistant',
+          content:
+            '[CONTEXT COMPACTION — REFERENCE ONLY] Earlier turns were compacted into the summary below.',
+        },
+        { role: 'assistant', content: 'Real monetization plan.' },
+      ]),
+    ).toBe('Real monetization plan.');
+  });
+
+  it('does not treat compaction stubs as new replies', () => {
+    const prior = snapshotAssistantBodies([]);
+    expect(
+      findNewAssistantReply(
+        [{ role: 'assistant', content: '... Earlier conversation summarized to save context.' }],
+        prior,
+      ),
+    ).toBeNull();
+  });
+
   it('extractAssistantFromTranscriptMessages returns empty for non-arrays', () => {
     expect(extractAssistantFromTranscriptMessages(null)).toBe('');
     expect(extractAssistantFromTranscriptMessages('nope')).toBe('');

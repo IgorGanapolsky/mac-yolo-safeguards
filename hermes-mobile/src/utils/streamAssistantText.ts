@@ -1,4 +1,8 @@
 import type { HermesMessage, HermesSession } from '../types/chat';
+import {
+  effectiveAssistantReplyText,
+  isCompactionOnlyAssistantText,
+} from './chatCompactionHandoff';
 import { isMessageDisplayEmpty, normalizeMessageText } from './chatMessageMerge';
 import { isTelegramSession } from './sessionSelection';
 
@@ -46,9 +50,14 @@ export function extractAssistantFromTranscriptMessages(messages: unknown): strin
       continue;
     }
     const content = msg.content;
-    if (typeof content === 'string' && content.trim()) {
-      parts.push(content.trim());
+    if (typeof content !== 'string' || !content.trim()) {
+      continue;
     }
+    const effective = effectiveAssistantReplyText(content);
+    if (!effective) {
+      continue;
+    }
+    parts.push(effective);
   }
   return parts.join('\n\n').trim();
 }
@@ -72,7 +81,14 @@ export function snapshotAssistantBodies(messages: HermesMessage[]): Set<string> 
     if (isDeferredStreamPlaceholder(message.content)) {
       continue;
     }
-    bodies.add(normalizeMessageText(message.content));
+    if (isCompactionOnlyAssistantText(message.content)) {
+      continue;
+    }
+    const effective = effectiveAssistantReplyText(message.content);
+    if (!effective) {
+      continue;
+    }
+    bodies.add(normalizeMessageText(effective));
   }
   return bodies;
 }
@@ -92,9 +108,16 @@ export function findNewAssistantReply(
     if (isDeferredStreamPlaceholder(message.content)) {
       continue;
     }
-    const body = normalizeMessageText(message.content);
+    if (isCompactionOnlyAssistantText(message.content)) {
+      continue;
+    }
+    const effective = effectiveAssistantReplyText(message.content);
+    if (!effective) {
+      continue;
+    }
+    const body = normalizeMessageText(effective);
     if (!priorBodies.has(body)) {
-      return message.content.trim();
+      return effective;
     }
   }
   return null;
