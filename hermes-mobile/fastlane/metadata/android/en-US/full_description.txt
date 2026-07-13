@@ -9,9 +9,10 @@ FREE
 • Current connection and run status instead of a false green state
 • QR and local network pairing with no Hermes Mobile cloud account
 • Saved computer profiles for Mac, Linux, and Windows gateways
+• Leash: 10 routed tool-call approvals per week from your phone
 
 LEASH PRO ($19.99/mo)
-• Review and approve or deny blocked tool calls from your phone
+• Unlimited mobile approve or deny for blocked tool calls
 • View and edit standing allow or block gate rules synced from your gateway
 • Manage persistent safety policies across sessions
 • Capture ThumbGate feedback for assistant output and command decisions

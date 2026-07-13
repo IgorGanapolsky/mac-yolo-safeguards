@@ -1,8 +1,9 @@
 # Reddit r/LocalLLaMA — own-machine mobile leash (ready to publish)
 
-**Status:** Ready — Igor posts (agents cannot post to Reddit)  
+**Status:** Ready — Igor posts (agents do not spam Reddit)  
 **Subreddit:** r/LocalLLaMA  
-**Play:** https://play.google.com/store/apps/details?id=com.iganapolsky.hermesmobile
+**Play:** https://play.google.com/store/apps/details?id=com.iganapolsky.hermesmobile  
+**Rule:** One post. Do not re-post if already live this week.
 
 ---
 
@@ -31,4 +32,4 @@ Play: https://play.google.com/store/apps/details?id=com.iganapolsky.hermesmobile
 
 ---
 
-**Honesty check:** Free tier is **10 Leash approvals per week**, not unlimited approvals.
+**Honesty check:** Free tier is **10 Leash approvals per week**, not unlimited approvals. Requires Mac + gateway + Tailscale for cellular.

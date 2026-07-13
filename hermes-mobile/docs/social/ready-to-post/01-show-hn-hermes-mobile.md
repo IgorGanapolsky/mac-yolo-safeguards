@@ -1,7 +1,9 @@
 # Show HN — Hermes Mobile (approve AI agents from your phone)
 
-**Status:** Ready to post — Igor account on news.ycombinator.com  
-**Play:** https://play.google.com/store/apps/details?id=com.iganapolsky.hermesmobile
+**Status:** Ready to paste — Igor posts from news.ycombinator.com (agent does not post HN)  
+**Best window:** Tue–Thu ~9am PT  
+**Play:** https://play.google.com/store/apps/details?id=com.iganapolsky.hermesmobile  
+**UTM:** `hermes://chat?utm_source=hn&utm_medium=launch&utm_campaign=runaway-agent-jul2026`
 
 ---
 
@@ -15,11 +17,11 @@ I run local coding agents on a Mac and kept getting burned by runaway tool loops
 
 **Hermes Mobile** is a phone remote for agents already running on **your machine**:
 
-- **Hermes Chat** — free: talk to your gateway from cellular or Wi‑Fi (Tailscale when off-LAN)
+- **Hermes Chat** — free: talk to your gateway from cellular or Wi‑Fi (Tailscale when off home Wi‑Fi)
 - **Leash** — **10 routed approvals/week free**, then **Leash Pro** ($19.99/mo) for unlimited mobile approval cards + standing gate rules
 - QR pair; API keys stay on your computer — not another cloud agent inbox
 
-This is not Termux-on-phone and not OpenAI-only Codex mobile. It's the operator UI for Hermes / Cursor / Claude Code style workflows on hardware you control.
+Honest constraints: needs a Mac (or Linux/Windows) running the open Hermes gateway, and Tailscale (or similar) for off-LAN. Not Termux-on-phone and not OpenAI-only Codex mobile.
 
 Android is live on Play. iOS is in App Store review.
 
@@ -29,6 +31,10 @@ Play: https://play.google.com/store/apps/details?id=com.iganapolsky.hermesmobile
 
 ---
 
-## First comment (optional, post immediately after)
+## First comment (post immediately after)
 
-Demo path for reviewers / curious HNers without a paired Mac: the app supports `hermes://setup?demo=1` for a sandboxed walkthrough. Real use needs your own gateway + Tailscale for off-Wi‑Fi.
+Demo path without a paired Mac: `hermes://setup?demo=1`. Real use needs your own gateway + Tailscale for cellular.
+
+---
+
+**Honesty check:** Chat free. Leash = 10 routed approvals/week free, then $19.99/mo. Do NOT claim unlimited free approvals. Do NOT invent Play install counts (public bucket is still 0+).

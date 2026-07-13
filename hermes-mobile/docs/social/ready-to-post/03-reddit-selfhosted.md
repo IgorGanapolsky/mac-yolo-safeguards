@@ -16,7 +16,7 @@ If you self-host agents on a Mac (Cursor hooks, Claude Code, custom gateway), yo
 
 **Hermes Mobile** is an Android/iOS client for your **own** Hermes gateway:
 
-- Pair with QR / Tailscale — no Igor-specific backdoor in store builds  
+- Pair with QR / Tailscale — no cloud agent inbox  
 - **Chat:** free  
 - **Leash:** approve or deny blocked tool calls from your phone — **10/week free**, **$19.99/mo** for unlimited Leash Pro  
 - ThumbGate memory gates on thumbs up/down (Pro)
@@ -29,4 +29,4 @@ Looking for self-hosters who want a minimal phone control plane — what setup f
 
 ---
 
-**Honesty check:** Requires your Mac + gateway setup. Not plug-and-play cloud.
+**Honesty check:** Requires your Mac + gateway setup. Not plug-and-play cloud. No false “unlimited free approvals.”
