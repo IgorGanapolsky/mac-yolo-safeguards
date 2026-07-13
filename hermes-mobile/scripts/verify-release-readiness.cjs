@@ -48,6 +48,41 @@ check(
 );
 check(easConfig.build?.production?.android?.buildType === 'app-bundle', 'eas.json production android buildType must be app-bundle');
 
+const blockedPermissions = appConfig.android?.blockedPermissions ?? [];
+check(
+  blockedPermissions.includes('android.permission.SYSTEM_ALERT_WINDOW'),
+  'app.json android.blockedPermissions must block SYSTEM_ALERT_WINDOW for release users',
+);
+check(
+  blockedPermissions.includes('android.permission.RECORD_AUDIO'),
+  'app.json android.blockedPermissions must block RECORD_AUDIO (camera QR only, no mic)',
+);
+
+const buildPropsPlugin = (appConfig.plugins ?? []).find(
+  (entry) => Array.isArray(entry) && entry[0] === 'expo-build-properties',
+);
+const androidBuildProps = buildPropsPlugin?.[1]?.android ?? {};
+check(
+  androidBuildProps.enableMinifyInReleaseBuilds === true,
+  'app.json expo-build-properties must enable R8 minify in release builds',
+);
+check(
+  androidBuildProps.enableShrinkResourcesInReleaseBuilds === true,
+  'app.json expo-build-properties must enable resource shrinking in release builds',
+);
+
+const appJsonText = fs.readFileSync(path.join(repoRoot, 'app.json'), 'utf8');
+for (const legacyPermission of [
+  'READ_EXTERNAL_STORAGE',
+  'WRITE_EXTERNAL_STORAGE',
+  'MANAGE_EXTERNAL_STORAGE',
+]) {
+  check(
+    !appJsonText.includes(legacyPermission),
+    `app.json must not declare legacy scoped-storage permission ${legacyPermission}`,
+  );
+}
+
 check(typeof packageConfig.scripts?.typecheck === 'string', 'package.json must define typecheck script');
 check(typeof packageConfig.scripts?.test === 'string', 'package.json must define test script');
 check(typeof packageConfig.scripts?.['test:ci'] === 'string', 'package.json must define test:ci script');
