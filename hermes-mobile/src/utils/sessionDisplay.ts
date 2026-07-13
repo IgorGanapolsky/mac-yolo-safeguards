@@ -1,6 +1,6 @@
 import type { HermesSession } from '../types/chat';
 import { isTelegramInboxSession } from '../services/telegramInbox';
-import { isSmokeProbeSession } from './sessionSelection';
+import { isAutomationProbeSession, isSmokeProbeSession } from './sessionSelection';
 
 /** Hermes gateway returns Unix seconds (float); JS Date expects ms. */
 export function parseGatewayTimestamp(value: unknown): Date | null {
@@ -336,6 +336,8 @@ export function isAutomatedCronSession(session: HermesSession, title?: string | 
 export type ThreadListFilterOptions = {
   dismissedSessionIds: readonly string[];
   hideCronSessions: boolean;
+  /** Post-clear: hide API_SERVER/CLI harness probes that reappear with fresh ids. */
+  hideAutomationSessions?: boolean;
 };
 
 /** Hide locally dismissed threads and optional cron jobs from thread picker / recents. */
@@ -351,16 +353,22 @@ export function filterDismissedThreadSessions(
     if (options.hideCronSessions && isAutomatedCronSession(session)) {
       return false;
     }
+    if (options.hideAutomationSessions && isAutomationProbeSession(session)) {
+      return false;
+    }
     return true;
   });
 }
 
-/** Operator recents rail — hide inbox aggregate + automated cron (still in full threads list). */
+/** Operator recents rail — hide inbox aggregate + automated cron/probes (still in full threads list). */
 export function isRecentsRailSession(session: HermesSession): boolean {
   if (isTelegramInboxSession(session)) {
     return false;
   }
   if (isAutomatedCronSession(session)) {
+    return false;
+  }
+  if (isAutomationProbeSession(session)) {
     return false;
   }
   return true;
