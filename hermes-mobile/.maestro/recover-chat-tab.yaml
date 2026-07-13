@@ -14,6 +14,8 @@ appId: com.iganapolsky.hermesmobile
     notVisible:
       id: "connect-mac-gate"
     timeout: 30000
+# If picker re-opened during heal, dismiss again before looking for tabs.
+- runFlow: dismiss-mac-picker.yaml
 - runFlow:
     when:
       notVisible:
@@ -21,26 +23,33 @@ appId: com.iganapolsky.hermesmobile
     commands:
       - runFlow: dismiss-mac-picker.yaml
       - runFlow: hide-keyboard-safe.yaml
+      - runFlow:
+          when:
+            visible:
+              id: "tab-hermes"
+          commands:
+            - tapOn:
+                id: "tab-hermes"
+- runFlow:
+    when:
+      notVisible:
+        id: "chat-screen-header"
+    commands:
+      - runFlow: dismiss-mac-picker.yaml
+      - openLink: "hermes://setup?demo=1&recover=1"
       - extendedWaitUntil:
-          visible:
-            id: "tab-hermes"
+          notVisible:
+            id: "hermes-bootstrap"
           timeout: 30000
-      - tapOn:
-          id: "tab-hermes"
-- runFlow:
-    when:
-      notVisible:
-        id: "chat-screen-header"
-    commands:
+      - openLink: "hermes://chat"
       - runFlow: dismiss-mac-picker.yaml
-      - runFlow: hide-keyboard-safe.yaml
-      - tapOn: "Hermes"
 - extendedWaitUntil:
     visible:
       id: "chat-screen-header"
     timeout: 90000
 - runFlow: hide-keyboard-safe.yaml
-# Demo composer can drop after recover deep link on CI emulator — re-arm demo then assert input.
+- runFlow: dismiss-mac-picker.yaml
+# Demo composer can drop after recover — re-arm demo then assert input.
 - runFlow:
     when:
       notVisible:
