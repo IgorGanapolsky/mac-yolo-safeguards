@@ -7,7 +7,7 @@ const path = require('path');
 const { spawn, spawnSync } = require('child_process');
 
 const MODEL = 'grok-4.5';
-const MIN_GROK_VERSION = '0.2.93';
+const MIN_GROK_VERSION = '0.2.99';
 const XAI_PRICING = Object.freeze({
   currency: 'USD',
   perMillionTokens: {
@@ -42,6 +42,13 @@ const HERMES_RULES = [
   'Keep implementation and verification independent: report evidence, contradictions, blockers, and a verdict.',
   'Never claim completion from self-attestation; require command or runtime evidence.',
 ].join(' ');
+
+const HERMES_VERIFIER_PROFILE = Object.freeze({
+  id: 'grok45-readonly-verifier-v1',
+  model: MODEL,
+  sandbox: 'read-only',
+  writeFileEnabled: false,
+});
 
 const SECRET_PATTERNS = [
   /\bghp_[A-Za-z0-9_]{20,}\b/g,
@@ -234,6 +241,7 @@ function buildHermesArgs(task, options = {}) {
     '--model', MODEL,
     '--always-approve',
     ...denyArgs(options.denyRules),
+    '--sandbox', HERMES_VERIFIER_PROFILE.sandbox,
     '--no-subagents',
     '--no-memory',
     '--max-turns', String(maxTurns),
@@ -242,6 +250,13 @@ function buildHermesArgs(task, options = {}) {
     '-p', String(task),
     '--output-format', outputFormat,
   ];
+}
+
+function buildHermesEnv(env = process.env) {
+  return {
+    ...env,
+    GROK_WRITE_FILE: HERMES_VERIFIER_PROFILE.writeFileEnabled ? '1' : '0',
+  };
 }
 
 function parseWrapperArgs(argv = process.argv.slice(2)) {
@@ -299,8 +314,8 @@ function renderDoctor(doctor) {
   return lines.join('\n');
 }
 
-function spawnGrok(binary, args) {
-  const child = spawn(binary, args, { stdio: 'inherit', env: process.env });
+function spawnGrok(binary, args, env = process.env) {
+  const child = spawn(binary, args, { stdio: 'inherit', env });
   child.on('error', (error) => {
     console.error(`grok-yolo: ${redact(error.message)}`);
     process.exitCode = 127;
@@ -333,12 +348,18 @@ function main(argv = process.argv.slice(2)) {
         })
       : buildStandaloneArgs(options.passthrough);
     if (options.dryRun) {
-      const payload = { binary: doctor.binary, args: childArgs, model: MODEL, guardedYolo: true };
+      const payload = {
+        binary: doctor.binary,
+        args: childArgs,
+        model: MODEL,
+        guardedYolo: true,
+        hermesProfile: options.hermes ? HERMES_VERIFIER_PROFILE : null,
+      };
       console.log(options.json ? JSON.stringify(payload, null, 2) : `${payload.binary} ${payload.args.map(JSON.stringify).join(' ')}`);
       return;
     }
     if (!doctor.ready) throw new Error(`Grok 4.5 is not ready: ${doctor.blocker || 'doctor_failed'}`);
-    spawnGrok(doctor.binary, childArgs);
+    spawnGrok(doctor.binary, childArgs, options.hermes ? buildHermesEnv() : process.env);
   } catch (error) {
     console.error(`grok-yolo: ${redact(error.message)}`);
     process.exitCode = 1;
@@ -348,11 +369,13 @@ function main(argv = process.argv.slice(2)) {
 module.exports = {
   DEFAULT_DENY_RULES,
   HERMES_RULES,
+  HERMES_VERIFIER_PROFILE,
   MIN_GROK_VERSION,
   MODEL,
   XAI_PRICING,
   assertNoModelOverride,
   buildHermesArgs,
+  buildHermesEnv,
   buildStandaloneArgs,
   findGrokBinary,
   grokDoctor,
