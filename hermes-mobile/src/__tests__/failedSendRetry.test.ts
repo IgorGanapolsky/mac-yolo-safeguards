@@ -1,5 +1,6 @@
 import {
   findLastFailedOutboundText,
+  findLastUserMessageText,
   resolveComposerSendAction,
   shouldHideMacTileForSilentHeal,
   shouldShowFailedSendRetry,
@@ -146,5 +147,17 @@ describe('shouldHideMacTileForSilentHeal', () => {
         hasRetryableFailedSend: false,
       }),
     ).toBe(false);
+  });
+});
+
+describe('findLastUserMessageText', () => {
+  it('returns the latest user bubble even when not marked failed', () => {
+    expect(
+      findLastUserMessageText([
+        { id: '1', role: 'user', content: 'first' },
+        { id: '2', role: 'assistant', content: 'ok' },
+        { id: '3', role: 'user', content: ' Make money today ' },
+      ]),
+    ).toBe('Make money today');
   });
 });

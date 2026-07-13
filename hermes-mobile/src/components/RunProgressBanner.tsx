@@ -20,6 +20,9 @@ type RunProgressBannerProps = {
   onStop?: () => void;
   onDismiss?: () => void;
   onRetry?: () => void;
+  /** After Retry budget exhausted — prefer Switch computer over infinite Retry. */
+  retryEscalated?: boolean;
+  onSwitchComputer?: () => void;
   /** Live terminal line from Mac — shown below status, not as a second banner. */
   terminalToolName?: string;
   terminalPreview?: string;
@@ -47,6 +50,8 @@ function RunProgressBanner({
   onStop,
   onDismiss,
   onRetry,
+  retryEscalated = false,
+  onSwitchComputer,
   terminalToolName,
   terminalPreview,
   megaSessionWarning,
@@ -165,7 +170,27 @@ function RunProgressBanner({
             </Text>
           </Pressable>
         ) : null}
-        {!isActive && onRetry ? (
+        {!isActive && retryEscalated && onSwitchComputer ? (
+          <Pressable
+            onPress={onSwitchComputer}
+            style={({ pressed }) => [styles.retryChip, pressed && styles.stopChipPressed]}
+            testID="run-progress-switch-computer"
+            accessibilityLabel="Switch computer"
+          >
+            <Text style={styles.retryChipText}>Switch computer</Text>
+          </Pressable>
+        ) : null}
+        {!isActive && retryEscalated && onStartFreshChat ? (
+          <Pressable
+            onPress={onStartFreshChat}
+            style={({ pressed }) => [styles.stopChip, pressed && styles.stopChipPressed]}
+            testID="run-progress-new-chat"
+            accessibilityLabel="Start new chat"
+          >
+            <Text style={styles.stopChipText}>New chat</Text>
+          </Pressable>
+        ) : null}
+        {!isActive && onRetry && !retryEscalated ? (
           <Pressable
             onPress={onRetry}
             style={({ pressed }) => [styles.retryChip, pressed && styles.stopChipPressed]}
@@ -261,6 +286,8 @@ export default memo(RunProgressBanner, (prev, next) => {
     prev.onStop === next.onStop &&
     prev.onDismiss === next.onDismiss &&
     prev.onRetry === next.onRetry &&
+    Boolean(prev.retryEscalated) === Boolean(next.retryEscalated) &&
+    prev.onSwitchComputer === next.onSwitchComputer &&
     a.phase === b.phase &&
     a.startedAtMs === b.startedAtMs &&
     (a.detail ?? '') === (b.detail ?? '') &&

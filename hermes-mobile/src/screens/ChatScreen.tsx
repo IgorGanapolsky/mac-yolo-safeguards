@@ -235,6 +235,7 @@ import TailscaleDiscoveryBanner from '../components/TailscaleDiscoveryBanner';
 import { USB_LOOPBACK_GATEWAY_URL } from '../utils/gatewayLoopbackFallback';
 import {
   isMacGatewayHttpOk,
+  isGatewayHealthOk,
   isGatewayHealthPending,
   resolveEffectiveMacHttpOk,
 } from '../utils/gatewayConnection';
@@ -253,10 +254,16 @@ import {
 } from '../utils/outboundSendRecovery';
 import {
   findLastFailedOutboundText,
+  findLastUserMessageText,
   resolveComposerSendAction,
   shouldHideMacTileForSilentHeal,
   shouldShowFailedSendRetry,
 } from '../utils/failedSendRetry';
+import {
+  macRetryExhaustedMessage,
+  planMacManualRetry,
+  resolveMacRetryPromptText,
+} from '../utils/macRetryRecovery';
 import {
   listAllPendingTextApprovals,
   listInlineTextApprovals,
@@ -511,6 +518,8 @@ export default function ChatScreen() {
   const [toolStatus, setToolStatus] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [macRetryBusy, setMacRetryBusy] = useState(false);
+  const [macRetryEscalated, setMacRetryEscalated] = useState(false);
+  const macRetryAttemptRef = useRef(0);
   const [pendingRunApproval, setPendingRunApproval] = useState<ChatRunApproval | null>(null);
   const [approvalBusy, setApprovalBusy] = useState(false);
   const [undoSecondsLeft, setUndoSecondsLeft] = useState(0);
@@ -2583,10 +2592,16 @@ export default function ChatScreen() {
     }
     haptics.selection();
     setMacRetryBusy(true);
+    // Capture prompt BEFORE clearing UI — empty lastFailedSendTextRef was a reconnect noop.
+    const retryText = resolveMacRetryPromptText({
+      lastFailedSendText: lastFailedSendTextRef.current,
+      pinnedOutboundText,
+      lastFailedOutboundText,
+      lastUserMessageText: findLastUserMessageText(messagesRef.current),
+    });
+    macRetryAttemptRef.current += 1;
+    const attemptCount = macRetryAttemptRef.current;
     setRunProgress(null);
-    setPinnedOutboundText(null);
-    setPinnedOutboundSentAt(null);
-    setPinnedOutboundStatus('pending');
     setErrorMessage((prev) => (prev && isConnectivityMessage(prev) ? null : prev));
 
     const activeProfileId = activeGatewayProfile?.id ?? null;
@@ -2617,6 +2632,7 @@ export default function ChatScreen() {
         }
       }
 
+      // Full heal + reconnect path (scan → autoConnect → bootstrap → health → events).
       await scanForGatewayProfiles();
       await autoConnectGateway();
       await retryGatewayBootstrap();
@@ -2626,22 +2642,54 @@ export default function ChatScreen() {
       const profileKey = await secureCredentials.resolveApiKeyForProfile(activeProfileId);
       const probeUrl = effectiveGatewayUrl || settings.gatewayUrl;
       const postRetryHealth = await fetchGatewayHealth(probeUrl, profileKey);
-      if (postRetryHealth.authMismatch) {
+      const plan = planMacManualRetry({
+        attemptCount,
+        retryText,
+        postRetryReachable: isGatewayHealthOk(postRetryHealth) && !postRetryHealth.authMismatch,
+        authMismatch: Boolean(postRetryHealth.authMismatch),
+      });
+
+      if (plan.kind === 'escalate_switch_computer') {
+        setMacRetryEscalated(true);
         setMacPickerVisible(true);
-        setErrorMessage(gatewayAuthRepairBanner(machineShortLabel));
+        setErrorMessage(
+          postRetryHealth.authMismatch
+            ? gatewayAuthRepairBanner(machineShortLabel)
+            : macRetryExhaustedMessage(machineShortLabel),
+        );
         haptics.warning();
         return;
       }
 
-      const retryText = lastFailedSendTextRef.current?.trim();
-      if (retryText) {
-        await sendUserTextRef.current(retryText, true);
+      setMacRetryEscalated(false);
+      if (plan.kind === 'reconnect_resend') {
+        lastFailedSendTextRef.current = plan.text;
+        setPinnedOutboundText(plan.text);
+        setPinnedOutboundStatus('pending');
+        await sendUserTextRef.current(plan.text, true);
+        macRetryAttemptRef.current = 0;
+        return;
       }
+
+      macRetryAttemptRef.current = 0;
     } catch (err) {
       console.warn('[handleMacRetry] failed:', err);
-      setErrorMessage(
-        `Still can't reach ${machineShortLabel}. Check USB cable or same Wi‑Fi, then tap to retry again.`,
-      );
+      if (
+        planMacManualRetry({
+          attemptCount,
+          retryText,
+          postRetryReachable: false,
+          authMismatch: false,
+        }).kind === 'escalate_switch_computer'
+      ) {
+        setMacRetryEscalated(true);
+        setMacPickerVisible(true);
+        setErrorMessage(macRetryExhaustedMessage(machineShortLabel));
+      } else {
+        setErrorMessage(
+          `Still can't reach ${machineShortLabel}. Check USB cable or same Wi‑Fi, then tap to retry again.`,
+        );
+      }
       haptics.warning();
     } finally {
       setMacRetryBusy(false);
@@ -2663,6 +2711,8 @@ export default function ChatScreen() {
     refreshHealth,
     connectEvents,
     machineShortLabel,
+    pinnedOutboundText,
+    lastFailedOutboundText,
   ]);
 
   const handleManualSync = useCallback(async () => {
@@ -5456,10 +5506,27 @@ export default function ChatScreen() {
             fallbackModel={progressBannerFallbackModel}
             showTechnicalStats={settings.includeToolActivity}
             megaSessionWarning={megaSessionWarning}
-            onStartFreshChat={megaSessionWarning ? () => void handleStartFreshChat() : undefined}
+            onStartFreshChat={
+              megaSessionWarning || (macRetryEscalated && connectivityRunFailure)
+                ? () => void handleStartFreshChat()
+                : undefined
+            }
             onStop={isRunActive || isSending ? () => void handleStopRun() : undefined}
             onDismiss={clearFailedOutboundState}
-            onRetry={connectivityRunFailure ? () => void handleRetryConnectivity() : undefined}
+            onRetry={
+              connectivityRunFailure && !macRetryEscalated
+                ? () => void handleRetryConnectivity()
+                : undefined
+            }
+            retryEscalated={Boolean(macRetryEscalated && connectivityRunFailure)}
+            onSwitchComputer={
+              macRetryEscalated && connectivityRunFailure
+                ? () => {
+                    haptics.selection();
+                    setMacPickerVisible(true);
+                  }
+                : undefined
+            }
             terminalToolName={operatorTerminalLine?.toolName}
             terminalPreview={operatorTerminalLine?.text}
           />

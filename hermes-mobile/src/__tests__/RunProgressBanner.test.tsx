@@ -241,3 +241,28 @@ describe('RunProgressBanner', () => {
     expect(queryByTestId('run-progress-toggle')).toBeNull();
   });
 });
+
+  it('after retry escalation shows Switch computer and New chat instead of Retry', () => {
+    const onSwitch = jest.fn();
+    const onFresh = jest.fn();
+    const onRetry = jest.fn();
+    const { getByTestId, queryByTestId } = render(
+      <RunProgressBanner
+        progress={{
+          phase: 'failed',
+          startedAtMs: Date.now() - 5000,
+          detail: "Can't reach your computer",
+        }}
+        onRetry={onRetry}
+        retryEscalated
+        onSwitchComputer={onSwitch}
+        onStartFreshChat={onFresh}
+      />,
+    );
+    expect(queryByTestId('run-progress-retry')).toBeNull();
+    fireEvent.press(getByTestId('run-progress-switch-computer'));
+    fireEvent.press(getByTestId('run-progress-new-chat'));
+    expect(onSwitch).toHaveBeenCalled();
+    expect(onFresh).toHaveBeenCalled();
+    expect(onRetry).not.toHaveBeenCalled();
+  });
