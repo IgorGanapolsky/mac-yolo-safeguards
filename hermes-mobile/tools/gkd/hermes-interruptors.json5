@@ -1,0 +1,60 @@
+// Hermes Mobile — GKD pilot subscription (interruptor-dismiss ONLY)
+// DO NOT enable during fresh-user Maestro runs.
+// Docs: hermes-mobile/docs/GKD-EVALUATION.md
+{
+  id: 86420013,
+  name: 'Hermes Mobile interruptors (pilot)',
+  version: 1,
+  author: 'hermes-mobile',
+  supportUri: 'https://github.com/IgorGanapolsky/mac-yolo-safeguards/blob/main/hermes-mobile/docs/GKD-EVALUATION.md',
+  categories: [
+    { key: 0, name: 'System interruptors' },
+  ],
+  globalGroups: [
+    {
+      key: 0,
+      name: 'Dismiss print / Cancel sheets',
+      desc: 'Mirrors .maestro/dismiss-print-interruption.yaml — never taps Hermes CTAs',
+      categoryKey: 0,
+      matchTime: 8000,
+      actionMaximum: 2,
+      resetMatch: 'app',
+      rules: [
+        {
+          key: 0,
+          name: 'Print dialog Cancel',
+          matches: '[text="Cancel"][visibleToUser=true]',
+          snapshotUrls: [],
+        },
+        {
+          key: 1,
+          name: 'Print dialog No',
+          matches: '[text="No"][visibleToUser=true]',
+          snapshotUrls: [],
+        },
+        {
+          key: 2,
+          name: 'Do you want to use the following printer?',
+          matches: '[text*="following printer"][visibleToUser=true]',
+          action: 'back',
+          snapshotUrls: [],
+        },
+      ],
+    },
+  ],
+  apps: [
+    {
+      id: 'com.iganapolsky.hermesmobile',
+      name: 'Hermes Mobile',
+      groups: [
+        {
+          key: 10,
+          name: 'Safe system overlays only (no Hermes CTAs)',
+          desc: 'Intentionally empty — do not auto-tap Find computers / reconnect / Clear all',
+          enable: false,
+          rules: [],
+        },
+      ],
+    },
+  ],
+}
