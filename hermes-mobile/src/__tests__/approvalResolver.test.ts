@@ -1,9 +1,11 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { ApprovalChoice, HermesApprovalRequest } from '../types/approval';
 import {
   CHAT_APPROVAL_DENY_TEXT,
   resolveApprovalChoice,
   type ApprovalResolveContext,
 } from '../services/approvalResolver';
+import { loadLeashDecisionHistory } from '../services/leashDecisionHistory';
 import { submitRunApproval } from '../services/hermesGatewayClient';
 
 jest.mock('../services/hermesGatewayClient', () => ({
@@ -43,9 +45,10 @@ function parseGateMessage(mock: jest.Mock) {
 }
 
 describe('resolveApprovalChoice', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     mockSubmitRunApproval.mockClear();
     mockSubmitRunApproval.mockResolvedValue(undefined);
+    await AsyncStorage.clear();
   });
 
   describe('text_nudge routing', () => {
@@ -238,6 +241,83 @@ describe('resolveApprovalChoice', () => {
       ).rejects.toThrow(
         'No resolver available for this approval (missing run id or socket)',
       );
+    });
+  });
+
+  describe('Leash decision history recording', () => {
+    it('records a chat-sourced text_nudge approve so it shows in Leash history', async () => {
+      const sendChatText = jest.fn().mockResolvedValue(undefined);
+      const request = makeRequest({
+        source: 'text_nudge',
+        title: 'Proceed with these steps',
+        approveText: 'Proceed',
+      });
+
+      await resolveApprovalChoice(
+        request,
+        'once',
+        makeCtx({ sendChatText, decisionSource: 'chat' }),
+      );
+
+      const history = await loadLeashDecisionHistory();
+      expect(history).toHaveLength(1);
+      expect(history[0]).toMatchObject({
+        actionId: 'action-123',
+        decision: 'approved',
+        title: 'Proceed with these steps',
+        source: 'chat',
+      });
+    });
+
+    it('records a chat-sourced deny', async () => {
+      const sendChatText = jest.fn().mockResolvedValue(undefined);
+      const request = makeRequest({ source: 'text_nudge' });
+
+      await resolveApprovalChoice(
+        request,
+        'deny',
+        makeCtx({ sendChatText, decisionSource: 'chat' }),
+      );
+
+      const history = await loadLeashDecisionHistory();
+      expect(history).toHaveLength(1);
+      expect(history[0]).toMatchObject({ decision: 'denied', source: 'chat' });
+    });
+
+    it('defaults to leash source for run approvals', async () => {
+      const request = makeRequest({ runId: 'run-777', command: 'rm -rf /tmp/x' });
+
+      await resolveApprovalChoice(request, 'once', makeCtx());
+
+      const history = await loadLeashDecisionHistory();
+      expect(history).toHaveLength(1);
+      expect(history[0]).toMatchObject({
+        decision: 'approved',
+        source: 'leash',
+        command: 'rm -rf /tmp/x',
+      });
+    });
+
+    it('records gate-action socket approvals', async () => {
+      const sendGateAction = jest.fn();
+      const request = makeRequest({ source: 'gateway_guard' });
+
+      await resolveApprovalChoice(request, 'always', makeCtx({ sendGateAction }));
+
+      const history = await loadLeashDecisionHistory();
+      expect(history).toHaveLength(1);
+      expect(history[0].decision).toBe('approved');
+    });
+
+    it('does not record when resolution fails', async () => {
+      mockSubmitRunApproval.mockRejectedValueOnce(new Error('HTTP 500'));
+      const request = makeRequest({ runId: 'run-777' });
+
+      await expect(
+        resolveApprovalChoice(request, 'once', makeCtx()),
+      ).rejects.toThrow('HTTP 500');
+
+      expect(await loadLeashDecisionHistory()).toEqual([]);
     });
   });
 });

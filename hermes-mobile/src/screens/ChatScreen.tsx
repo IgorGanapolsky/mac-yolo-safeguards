@@ -3483,6 +3483,7 @@ export default function ChatScreen() {
           apiKey,
           sendGateAction,
           leashSettings: settings,
+          decisionSource: 'chat',
           sendChatText: async (text) => {
             await sendUserText(text, true);
           },
@@ -3500,6 +3501,7 @@ export default function ChatScreen() {
       gatewayUrl,
       apiKey,
       sendGateAction,
+      decisionSource: 'chat',
       sendChatText: async (text) => {
         await sendUserText(text, true);
       },
