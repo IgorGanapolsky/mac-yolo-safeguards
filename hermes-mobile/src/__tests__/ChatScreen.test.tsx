@@ -1412,6 +1412,57 @@ describe('ChatScreen', () => {
     expect(queryByTestId('chat-empty-recent-chats')).toBeNull();
   });
 
+  it('preserves typed composer text when Start fresh chat opens a new session', async () => {
+    const { listSessions, listMessages } = jest.requireMock('../services/hermesChatClient') as {
+      listSessions: jest.Mock;
+      listMessages: jest.Mock;
+    };
+    listSessions.mockResolvedValue([
+      {
+        id: 'mega-session-1',
+        title: 'make money faster',
+        last_active_at: '2026-07-13T18:04:00Z',
+        input_tokens: 974_489,
+        output_tokens: 0,
+      },
+    ]);
+    listMessages.mockResolvedValue([
+      { role: 'assistant', content: 'Your computer is processing a very large session.' },
+    ]);
+    Object.assign(mockGatewayState, {
+      connectionState: 'connected',
+      health: { ok: true, level: 'green', hostname: 'demo-mac.local' },
+      settings: {
+        demoMode: false,
+        connectionMode: 'gateway',
+        gatewayUrl: 'http://localhost:8642',
+        cloudUrl: 'https://hermesmobile-cloud.fly.dev',
+        approvalPolicy: 'balanced',
+      },
+    });
+
+    const { getByTestId, queryByTestId } = await renderChatScreen();
+
+    await waitFor(() => {
+      expect(getByTestId('mega-session-banner')).toBeTruthy();
+      expect(getByTestId('mega-session-start-fresh-chat')).toBeTruthy();
+    });
+
+    const draft = 'typeable-probe-probe-2-1';
+    fireEvent.changeText(getByTestId('chat-input'), draft);
+    expect(getByTestId('chat-input').props.value).toBe(draft);
+
+    await act(async () => {
+      fireEvent.press(getByTestId('mega-session-start-fresh-chat'));
+      await Promise.resolve();
+    });
+
+    await waitFor(() => {
+      expect(queryByTestId('mega-session-banner')).toBeNull();
+      expect(getByTestId('chat-input').props.value).toBe(draft);
+    });
+  });
+
   it('shows clearing progress and persists empty demo bindings on clear all', async () => {
     jest.useFakeTimers({ advanceTimers: true });
     const alertSpy = jest.spyOn(Alert, 'alert');
