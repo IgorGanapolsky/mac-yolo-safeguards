@@ -49,7 +49,7 @@ function parseArgs(argv = process.argv.slice(2)) {
     const arg = argv[index];
     if (arg === '--objective') args.objective = requireValue(argv, ++index, arg).trim();
     else if (arg === '--query') args.queries.push(requireValue(argv, ++index, arg).trim());
-    else if (arg === '--max-results') args.maxResults = parseInteger(requireValue(argv, ++index, arg), arg, 1, 50);
+    else if (arg === '--max-results') args.maxResults = parseInteger(requireValue(argv, ++index, arg), arg, 1, 10);
     else if (arg === '--include-domain') args.includeDomains.push(normalizeDomain(requireValue(argv, ++index, arg)));
     else if (arg === '--exclude-domain') args.excludeDomains.push(normalizeDomain(requireValue(argv, ++index, arg)));
     else if (arg === '--after-date') args.afterDate = normalizeDate(requireValue(argv, ++index, arg));
@@ -114,7 +114,6 @@ function buildPayload(options) {
   const payload = {
     objective: options.objective,
     search_queries: options.queries.length ? options.queries : [options.objective],
-    max_results: options.maxResults,
   };
   const sourcePolicy = {};
   if (options.includeDomains.length) sourcePolicy.include_domains = options.includeDomains;
@@ -176,7 +175,7 @@ async function buildReceipt(options, dependencies = {}) {
     request: {
       objectiveDigest: digest(payload.objective),
       searchQueryDigests: payload.search_queries.map((query) => digest(query)),
-      maxResults: payload.max_results,
+      maxResults: options.maxResults,
       advancedSettings: payload.advanced_settings || null,
     },
     execution: { attempted: false, status: ready.status, httpStatus: null, durationMs: 0, resultCount: 0, results: [], error: null },

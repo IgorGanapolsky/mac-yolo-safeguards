@@ -25,21 +25,22 @@ assert.notStrictEqual(digest('private query'), '9ff6685fa712411cea49');
   const args = parseArgs([
     '--objective', 'Find current official Grok documentation',
     '--query', 'Grok 4.5 docs',
-    '--max-results', '12',
+    '--max-results', '10',
     '--include-domain', 'https://x.ai/',
     '--after-date', '2026-07-01',
     '--execute', '--paid-ok', '--max-cost-usd', '0.02', '--json',
   ]);
-  assert.strictEqual(args.maxResults, 12);
+  assert.strictEqual(args.maxResults, 10);
   assert.deepStrictEqual(args.includeDomains, ['x.ai']);
   assert.strictEqual(normalizeDomain('https://www.example.com/'), 'example.com');
   assert.throws(() => normalizeDomain('https://example.com/path'), /Invalid/);
   assert.throws(() => parseArgs(['--objective', 'x', '--include-domain', 'a.com', '--exclude-domain', 'b.com']), /not both/);
+  assert.throws(() => parseArgs(['--objective', 'x', '--max-results', '11']), /1 to 10/);
   assert.strictEqual(estimatedCostUsd(10), 0.005);
-  assert.strictEqual(estimatedCostUsd(12), 0.007);
 
   const payload = buildPayload(args);
   assert.strictEqual(payload.objective, 'Find current official Grok documentation');
+  assert.strictEqual(Object.hasOwn(payload, 'max_results'), false);
   assert.strictEqual(payload.advanced_settings.source_policy.include_domains[0], 'x.ai');
   assert.strictEqual(payload.advanced_settings.source_policy.after_date, '2026-07-01');
 
