@@ -161,6 +161,8 @@ Durable rules live in [AGENTS.md](./AGENTS.md); this file is *live state only*.
 | T-223 | Android security/compliance audit (Jul 2026) | in_progress | cursor-android-audit | `hermes-mobile/app.json`, `hermes-mobile/scripts/verify-release-readiness.cjs`, `hermes-mobile/src/__tests__/releaseSafetyContract.test.ts`, `hermes-mobile/docs/PLAY_RELEASE.md`, `hermes-mobile/docs/ANDROID-SECURITY-AUDIT-JULY-2026.md`, `plan.md` | privacy:scan pass; SYSTEM_ALERT_WINDOW blocked; Play AAB+signing documented; R8 on; no legacy storage perms; Expo SDK dep pins documented; release-safety + release:check pass |
 | T-223 | PostHog prod-only filter (exclude Igor dogfood/dev/preview) | done | cursor-posthog-prod | `hermes-mobile/src/services/productAnalytics.ts`, `hermes-mobile/src/__tests__/productAnalytics.test.ts`, `hermes-mobile/src/services/crashReporting.ts`, `hermes-mobile/src/__tests__/crashReporting.test.ts`, `hermes-mobile/src/context/GatewayContext.tsx`, `plan.md` | merged via #236 (`f292bc0e`); `shouldReportToPostHog()` skips __DEV__/non-prod/dogfood flags |
 
+| T-226 | Fleet no-constraints: restore mini CDP + purge SOUL browser lock / refusal menus | done | cursor-no-constraints | `hermes-mobile/docs/PREVENT-RECURRENCE-JULY-2026.md`, `plan.md` (+ fleet `~/.hermes` on mini/MBP, vault Agent-Directives) | CDP `/json/version` 200; browser toolset enabled; SOUL No-constraints; probe Example Domain no menu/restriction copy |
+
 Status values: `pending` | `in_progress` | `blocked` | `done`. Claim a row by setting Owner+Status in one edit, then claim its files in §2.
 
 ## 2. File Ownership Map (append-only lock table — claim before touching)
