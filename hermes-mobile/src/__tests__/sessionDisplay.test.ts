@@ -334,4 +334,56 @@ describe('sessionDisplay', () => {
       }).map((session) => session.id),
     ).toEqual(['sess_a', 'sess_b']);
   });
+
+  it('post-clear suppression hides harness probes recreated with fresh ids', () => {
+    // Clear all dismissed the old probe ids; the harness then recreated the same
+    // probes under brand-new ids. Only the persisted class suppression can catch them.
+    const recreated: HermesSession[] = [
+      {
+        id: 'api-brand-new-run-1',
+        source: 'api_server',
+        preview: 'Reply with exactly: GUARDRAILS OK',
+        last_active_at: '2026-07-13T18:00:00Z',
+      },
+      {
+        id: '20260713_190000_fresh1',
+        source: 'cli',
+        preview: "Run the shell command 'hostname' and report its exact output...",
+        last_active_at: '2026-07-13T19:00:00Z',
+      },
+      {
+        id: 'sess_user_new',
+        source: 'api_server',
+        title: 'Plan tomorrow standup notes',
+        preview: 'Draft the standup notes for tomorrow',
+        last_active_at: '2026-07-13T19:30:00Z',
+      },
+    ];
+
+    expect(
+      filterDismissedThreadSessions(recreated, {
+        dismissedSessionIds: ['api-old-run-id', '20260713_120000_old'],
+        hideCronSessions: true,
+        hideAutomationSessions: true,
+      }).map((session) => session.id),
+    ).toEqual(['sess_user_new']);
+
+    // Without the pref (never cleared), probes are still listed under Debug elsewhere.
+    expect(
+      filterDismissedThreadSessions(recreated, {
+        dismissedSessionIds: [],
+        hideCronSessions: false,
+      }).map((session) => session.id),
+    ).toEqual(['api-brand-new-run-1', '20260713_190000_fresh1', 'sess_user_new']);
+  });
+
+  it('keeps automation probes off the recents rail', () => {
+    expect(
+      isRecentsRailSession({
+        id: 'api-1f52b9d7dfb32d11',
+        source: 'api_server',
+        preview: 'Reply with exactly: GUARDRAILS OK',
+      }),
+    ).toBe(false);
+  });
 });
