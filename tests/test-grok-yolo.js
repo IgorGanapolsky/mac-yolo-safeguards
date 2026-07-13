@@ -9,12 +9,14 @@ const { execFileSync } = require('child_process');
 const WRAPPER = path.resolve(__dirname, '..', 'grok-yolo-wrapper.js');
 const {
   DEFAULT_DENY_RULES,
+  DEFAULT_REASONING_EFFORT,
   HERMES_VERIFIER_PROFILE,
   MODEL,
   buildHermesArgs,
   buildHermesEnv,
   buildStandaloneArgs,
   grokDoctor,
+  hasReasoningEffortOverride,
   parseModelsOutput,
   parseVersion,
   parseWrapperArgs,
@@ -42,17 +44,34 @@ assert.strictEqual(models.defaultModel, MODEL);
 assert.deepStrictEqual(models.models, ['grok-4.5', 'grok-composer-2.5-fast']);
 
 const standalone = buildStandaloneArgs(['--cwd', '/tmp/project']);
-assert.deepStrictEqual(standalone.slice(0, 3), ['--model', MODEL, '--always-approve']);
+assert.deepStrictEqual(standalone.slice(0, 5), [
+  '--model', MODEL,
+  '--reasoning-effort', DEFAULT_REASONING_EFFORT,
+  '--always-approve',
+]);
 for (const deny of DEFAULT_DENY_RULES) assert(standalone.includes(deny));
 assert(standalone.includes('/tmp/project'));
 assert.throws(() => buildStandaloneArgs(['--model', 'something-else']), /pinned/);
+assert.strictEqual(hasReasoningEffortOverride(['--effort', 'medium']), true);
+assert.strictEqual(hasReasoningEffortOverride(['--reasoning-effort=low']), true);
+assert.strictEqual(hasReasoningEffortOverride(['--cwd', '/tmp/project']), false);
+const mediumEffort = buildStandaloneArgs(['--effort', 'medium']);
+assert(!mediumEffort.includes('--reasoning-effort'));
+assert.deepStrictEqual(mediumEffort.slice(-2), ['--effort', 'medium']);
+const lowEffort = buildStandaloneArgs(['--reasoning-effort=low']);
+assert(!lowEffort.includes(DEFAULT_REASONING_EFFORT));
+assert.strictEqual(lowEffort.at(-1), '--reasoning-effort=low');
 
 const hermes = buildHermesArgs('verify the diff', {
   cwd: '/tmp/project',
   maxTurns: 8,
   outputFormat: 'json',
 });
-assert.deepStrictEqual(hermes.slice(0, 3), ['--model', MODEL, '--always-approve']);
+assert.deepStrictEqual(hermes.slice(0, 5), [
+  '--model', MODEL,
+  '--reasoning-effort', DEFAULT_REASONING_EFFORT,
+  '--always-approve',
+]);
 assert(!hermes.includes('--check'));
 assert(hermes.includes('--no-subagents'));
 assert(hermes.includes('--no-memory'));

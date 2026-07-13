@@ -1,9 +1,10 @@
 # Hermes Grok 4.5 Harness
 
-`grok-yolo` pins the official Grok Build CLI to `grok-4.5`, enables its
-always-approve mode, and retains explicit denials for destructive commands and
-common secret-bearing paths. It works as a standalone coding agent and as an
-independent verifier inside the Hermes harness.
+`grok-yolo` pins the official Grok Build CLI to `grok-4.5` with explicit
+`high` reasoning by default, enables its always-approve mode, and retains
+explicit denials for destructive commands and common secret-bearing paths. It
+works as a standalone coding agent and as an independent verifier inside the
+Hermes harness.
 
 `hermes-yolo` now prefers this Grok 4.5 backend for ordinary prompts. It no
 longer silently drops to Qwen when a paid Hermes provider key is absent.
@@ -18,6 +19,10 @@ grok-yolo
 
 # Standalone one-shot
 grok-yolo -p "inspect this repo and identify the highest-risk bug"
+
+# Trade depth for speed when the task does not need the high default
+grok-yolo --effort medium -p "summarize the focused test failure"
+grok-yolo --effort low -p "rename this local variable"
 
 # Same Grok 4.5 executor through the familiar Hermes command
 hermes-yolo "fix the bug, run the focused tests, and report evidence"
@@ -80,6 +85,7 @@ copies authentication files between Macs.
 The verifier runs Grok 4.5 with:
 
 - the named `grok45-readonly-verifier-v1` harness profile;
+- explicit `high` reasoning effort rather than relying on a mutable catalog default;
 - Grok's native `--sandbox read-only` filesystem boundary;
 - `GROK_WRITE_FILE=0`, so the write tool is disabled even in always-approve mode;
 - no subagents and no cross-session memory;

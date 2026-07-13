@@ -7,6 +7,7 @@ const path = require('path');
 const { spawn, spawnSync } = require('child_process');
 
 const MODEL = 'grok-4.5';
+const DEFAULT_REASONING_EFFORT = 'high';
 const MIN_GROK_VERSION = '0.2.99';
 const XAI_PRICING = Object.freeze({
   currency: 'USD',
@@ -217,10 +218,22 @@ function assertNoModelOverride(args) {
   }
 }
 
+function hasReasoningEffortOverride(args) {
+  return args.some((arg) => (
+    arg === '--reasoning-effort'
+    || arg === '--effort'
+    || arg.startsWith('--reasoning-effort=')
+    || arg.startsWith('--effort=')
+  ));
+}
+
 function buildStandaloneArgs(userArgs = [], options = {}) {
   assertNoModelOverride(userArgs);
   return [
     '--model', MODEL,
+    ...(hasReasoningEffortOverride(userArgs)
+      ? []
+      : ['--reasoning-effort', DEFAULT_REASONING_EFFORT]),
     '--always-approve',
     ...denyArgs(options.denyRules),
     ...userArgs,
@@ -239,6 +252,7 @@ function buildHermesArgs(task, options = {}) {
   }
   return [
     '--model', MODEL,
+    '--reasoning-effort', DEFAULT_REASONING_EFFORT,
     '--always-approve',
     ...denyArgs(options.denyRules),
     '--sandbox', HERMES_VERIFIER_PROFILE.sandbox,
@@ -367,6 +381,7 @@ function main(argv = process.argv.slice(2)) {
 }
 
 module.exports = {
+  DEFAULT_REASONING_EFFORT,
   DEFAULT_DENY_RULES,
   HERMES_RULES,
   HERMES_VERIFIER_PROFILE,
@@ -379,6 +394,7 @@ module.exports = {
   buildStandaloneArgs,
   findGrokBinary,
   grokDoctor,
+  hasReasoningEffortOverride,
   parseModelsOutput,
   parseVersion,
   parseWrapperArgs,
