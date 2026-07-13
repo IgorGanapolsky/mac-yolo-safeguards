@@ -1,5 +1,13 @@
 import type { GatewayHealthSnapshot } from '../types/gateway';
 import type { LeashConnectionState } from './gatewayEndpoint';
+
+export type ChatApprovalLinkInput = {
+  isDemo?: boolean;
+  macHttpOk: boolean;
+  connectionState: LeashConnectionState;
+  authMismatch?: boolean;
+  connectivityFailure?: boolean;
+};
 import { isLoopbackGatewayUrl } from './gatewayUrlPolicy';
 import { GATEWAY_AUTH_REPAIR_HEADER } from '../services/gatewayClient';
 
@@ -12,6 +20,25 @@ export type ChatLinkDisplay = {
   /** Health OK but last outbound chat failed — show amber, not green. */
   chatStalled?: boolean;
 };
+
+/** Same truth as chat send + run HTTP approval — not relay WebSocket alone. */
+export function canSubmitChatApproval(input: ChatApprovalLinkInput): boolean {
+  if (input.isDemo || input.connectionState === 'demo') {
+    return true;
+  }
+  if (input.authMismatch) {
+    return false;
+  }
+  if (
+    resolveEffectiveMacHttpOk({
+      macHttpOk: input.macHttpOk,
+      connectivityFailure: input.connectivityFailure,
+    })
+  ) {
+    return true;
+  }
+  return input.connectionState === 'connected';
+}
 
 /** Stale health can read green while send/stream just failed — don't show Connected. */
 export function resolveEffectiveMacHttpOk(input: {

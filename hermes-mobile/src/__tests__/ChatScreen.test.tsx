@@ -40,7 +40,7 @@ const mockGatewayState = {
   autoConnectGateway: jest.fn().mockResolvedValue('http://localhost:8642'),
   pendingApprovals: [],
   submitApprovalChoice: jest.fn(),
-  sendGateAction: jest.fn(),
+  sendGateAction: jest.fn().mockReturnValue(true),
   pendingApprovalEditSeed: null,
   clearApprovalEditSeed: jest.fn(),
   runProgress: null,
@@ -157,8 +157,6 @@ jest.mock('../services/storage', () => ({
     clearDismissedSessionIds: jest.fn().mockResolvedValue(undefined),
     loadHideCronSessions: jest.fn().mockResolvedValue(false),
     setHideCronSessions: jest.fn().mockResolvedValue(undefined),
-    loadHideAutomationSessions: jest.fn().mockResolvedValue(false),
-    setHideAutomationSessions: jest.fn().mockResolvedValue(undefined),
     saveLastSelectedProfileId: jest.fn().mockResolvedValue(undefined),
     loadLastSelectedProfileId: jest.fn().mockResolvedValue(null),
     loadApprovalsCount: jest.fn().mockResolvedValue(0),
@@ -1593,7 +1591,6 @@ describe('ChatScreen', () => {
         addDismissedSessionIds: jest.Mock;
         clearDismissedSessionIds: jest.Mock;
         setHideCronSessions: jest.Mock;
-        setHideAutomationSessions: jest.Mock;
       };
     };
     const { chatProjects } = jest.requireMock('../services/chatProjects') as {
@@ -1614,7 +1611,6 @@ describe('ChatScreen', () => {
     storage.addDismissedSessionIds.mockClear();
     storage.clearDismissedSessionIds.mockClear();
     storage.setHideCronSessions.mockClear();
-    storage.setHideAutomationSessions.mockClear();
     chatProjects.load.mockResolvedValue({
       projects: [
         {
@@ -1664,11 +1660,6 @@ describe('ChatScreen', () => {
         'http://localhost:8642',
       );
       expect(storage.setHideCronSessions).toHaveBeenCalledWith(
-        expect.arrayContaining(['mac_demo', 'http://localhost:8642']),
-        true,
-        'http://localhost:8642',
-      );
-      expect(storage.setHideAutomationSessions).toHaveBeenCalledWith(
         expect.arrayContaining(['mac_demo', 'http://localhost:8642']),
         true,
         'http://localhost:8642',

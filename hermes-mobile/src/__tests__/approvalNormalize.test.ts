@@ -54,6 +54,14 @@ describe('fromPendingApproval', () => {
       expect(req.source).toBe('text_nudge');
     });
 
+    it('prefers gateway_guard when runId is present even with approveText', () => {
+      const req = fromPendingApproval(
+        makePending({ runId: 'run_abc', approveText: 'APPROVE DEPLOY' }),
+      );
+      expect(req.source).toBe('gateway_guard');
+      expect(req.runId).toBe('run_abc');
+    });
+
     it('respects an explicit source over the approveText heuristic', () => {
       const req = fromPendingApproval(
         makePending({ approveText: 'yes proceed', source: 'relay_hook' }),

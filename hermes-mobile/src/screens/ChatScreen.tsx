@@ -121,17 +121,6 @@ import {
   findDeferredPlaceholderAfterLastUser,
 } from '../utils/chatMessageMerge';
 import {
-  PENDING_NEW_SESSION_KEY,
-  clearPendingOutbound,
-  extractPersistableOutboundFromTranscript,
-  loadPendingOutbound,
-  localSnapshotForRemountMerge,
-  migratePendingOutbound,
-  savePendingOutbound,
-  shouldClearPersistedOutbound,
-  type PendingOutboundSnapshot,
-} from '../utils/pendingOutboundStorage';
-import {
   resolveChatOutputFeedbackBusyKey,
   shouldShowChatOutputFeedback,
 } from '../utils/chatOutputFeedback';
@@ -254,6 +243,7 @@ import { detectUsbHostMismatch, profilesForSwitchComputerPicker } from '../utils
 import TailscaleDiscoveryBanner from '../components/TailscaleDiscoveryBanner';
 import { USB_LOOPBACK_GATEWAY_URL } from '../utils/gatewayLoopbackFallback';
 import {
+  canSubmitChatApproval,
   isMacGatewayHttpOk,
   isGatewayHealthPending,
   resolveEffectiveMacHttpOk,
@@ -553,12 +543,10 @@ export default function ChatScreen() {
   const dismissedHydrationGenRef = useRef(0);
   const dismissedSessionIdsRef = useRef<string[]>([]);
   const hideCronSessionsRef = useRef(false);
-  const hideAutomationSessionsRef = useRef(false);
   const [composerFocusNonce, setComposerFocusNonce] = useState(0);
   const [recentChatsDismissed, setRecentChatsDismissed] = useState(false);
   const [dismissedSessionIds, setDismissedSessionIds] = useState<string[]>([]);
   const [hideCronSessions, setHideCronSessions] = useState(false);
-  const [hideAutomationSessions, setHideAutomationSessions] = useState(false);
   const [messageDetail, setMessageDetail] = useState<{ title: string; body: string } | null>(null);
   const [feedbackPrompt, setFeedbackPrompt] = useState<{
     message: HermesMessage;
@@ -620,8 +608,6 @@ export default function ChatScreen() {
   const outboundQueueRef = useRef<string[]>([]);
   /** In-flight mobile sends with optimistic bubbles not yet on gateway transcript. */
   const pendingOutboundSendsRef = useRef(0);
-  /** AsyncStorage remount snapshot — survives JS teardown when Android kills the activity. */
-  const persistedPendingRef = useRef<HermesMessage[]>([]);
   const outboundMessageSeqRef = useRef(0);
   const activeAssistantIdRef = useRef<string | null>(null);
   const activeAssistantTextRef = useRef<string>('');
@@ -853,70 +839,6 @@ export default function ChatScreen() {
     return settings.demoMode || connectionState === 'demo';
   }, [settings.demoMode, connectionState]);
 
-
-  const persistOutboundSnapshot = useCallback(
-    (
-      sessionId: string | null | undefined,
-      messages: HermesMessage[],
-      extras?: {
-        pinnedText?: string | null;
-        pinnedSentAt?: string | null;
-        pinnedStatus?: 'pending' | 'sent' | 'failed';
-      },
-    ) => {
-      const persistable = extractPersistableOutboundFromTranscript(messages);
-      persistedPendingRef.current = persistable;
-      if (persistable.length === 0) {
-        void clearPendingOutbound(sessionId);
-        void clearPendingOutbound(PENDING_NEW_SESSION_KEY);
-        return;
-      }
-      const key = sessionId?.trim() || PENDING_NEW_SESSION_KEY;
-      void savePendingOutbound(key, {
-        messages: persistable,
-        pinnedText: extras?.pinnedText ?? persistable.find((m) => m.role === 'user')?.content ?? null,
-        pinnedSentAt:
-          extras?.pinnedSentAt ??
-          persistable.find((m) => m.role === 'user')?.created_at ??
-          null,
-        pinnedStatus: extras?.pinnedStatus ?? 'pending',
-      });
-    },
-    [],
-  );
-
-  const applyPersistedOutboundSnapshot = useCallback((snapshot: PendingOutboundSnapshot | null) => {
-    if (!snapshot || snapshot.messages.length === 0) {
-      persistedPendingRef.current = [];
-      return;
-    }
-    persistedPendingRef.current = snapshot.messages;
-    if (snapshot.pinnedText?.trim()) {
-      setPinnedOutboundText(snapshot.pinnedText);
-      setPinnedOutboundSentAt(snapshot.pinnedSentAt);
-      setPinnedOutboundStatus(snapshot.pinnedStatus);
-    }
-  }, []);
-
-  const hydratePersistedOutboundForSession = useCallback(
-    async (sessionId: string | null | undefined) => {
-      if (!sessionId?.trim() || isDemo) {
-        persistedPendingRef.current = [];
-        return;
-      }
-      const [forSession, forNew] = await Promise.all([
-        loadPendingOutbound(sessionId),
-        loadPendingOutbound(PENDING_NEW_SESSION_KEY),
-      ]);
-      const snapshot = forSession ?? forNew;
-      applyPersistedOutboundSnapshot(snapshot);
-      if (!forSession && forNew) {
-        await migratePendingOutbound(PENDING_NEW_SESSION_KEY, sessionId);
-      }
-    },
-    [applyPersistedOutboundSnapshot, isDemo],
-  );
-
   useEffect(() => {
     if (isDemo || !gatewayUrl.trim()) {
       setGatewayModel(undefined);
@@ -989,6 +911,16 @@ export default function ChatScreen() {
   );
   const effectiveMacChatLive = isDemo || effectiveMacHttpOk;
   const macLiveSocket = isDemo || connectionState === 'connected';
+  const canSubmitApproval = useMemo(
+    () =>
+      canSubmitChatApproval({
+        isDemo,
+        macHttpOk: effectiveMacHttpOk,
+        connectionState,
+        authMismatch: health?.authMismatch === true,
+      }),
+    [isDemo, effectiveMacHttpOk, connectionState, health?.authMismatch],
+  );
   const connectionHeal = useMemo(
     () => connectionHealSnapshot(connectionHealAttempt, connectionHealInFlight),
     [connectionHealAttempt, connectionHealInFlight],
@@ -1593,13 +1525,11 @@ export default function ChatScreen() {
     return filterDismissedThreadSessions(list, {
       dismissedSessionIds,
       hideCronSessions,
-      hideAutomationSessions,
     });
-  }, [sessions, projectState, activeProject, dismissedSessionIds, hideCronSessions, hideAutomationSessions]);
+  }, [sessions, projectState, activeProject, dismissedSessionIds, hideCronSessions]);
 
   dismissedSessionIdsRef.current = dismissedSessionIds;
   hideCronSessionsRef.current = hideCronSessions;
-  hideAutomationSessionsRef.current = hideAutomationSessions;
 
   const recentsRailSessions = useMemo(
     () => visibleSessions.filter((session) => isRecentsRailSession(session)),
@@ -1989,7 +1919,6 @@ export default function ChatScreen() {
       const filteredSessions = filterDismissedThreadSessions(finalSessions, {
         dismissedSessionIds: dismissedSessionIdsRef.current,
         hideCronSessions: hideCronSessionsRef.current,
-        hideAutomationSessions: hideAutomationSessionsRef.current,
       });
       setSessions(filteredSessions);
 
@@ -2008,7 +1937,6 @@ export default function ChatScreen() {
       const selectableSessions = filterDismissedThreadSessions(finalSessions, {
         dismissedSessionIds: dismissedSessionIdsRef.current,
         hideCronSessions: hideCronSessionsRef.current,
-        hideAutomationSessions: hideAutomationSessionsRef.current,
       });
       const rememberedSessionId = await storage.loadLastSessionForComputer(computerSessionKeys);
 
@@ -2053,7 +1981,6 @@ export default function ChatScreen() {
     if (isDemo) {
       setDismissedSessionIds([]);
       setHideCronSessions(false);
-      setHideAutomationSessions(false);
       return;
     }
     const hydrationGen = ++dismissedHydrationGenRef.current;
@@ -2061,12 +1988,10 @@ export default function ChatScreen() {
     void Promise.all([
       storage.loadDismissedSessionIds(activeComputerSessionKeys, gatewayUrl),
       storage.loadHideCronSessions(activeComputerSessionKeys, gatewayUrl),
-      storage.loadHideAutomationSessions(activeComputerSessionKeys, gatewayUrl),
-    ]).then(([ids, hideCron, hideAutomation]) => {
+    ]).then(([ids, hideCron]) => {
       if (!cancelled && hydrationGen === dismissedHydrationGenRef.current) {
         setDismissedSessionIds(ids);
         setHideCronSessions(hideCron);
-        setHideAutomationSessions(hideAutomation);
       }
     });
     return () => {
@@ -2188,31 +2113,9 @@ export default function ChatScreen() {
       };
 
       const mergeWithLocalPending = (serverMessages: HermesMessage[]) => {
-        const localSnapshot = localSnapshotForRemountMerge(
-          messagesRef.current,
-          persistedPendingRef.current,
-        );
+        const localSnapshot = messagesRef.current;
         if (pendingOutboundSendsRef.current > 0 || hasUnsyncedLocalMessages(localSnapshot)) {
-          const merged = mergeServerMessagesWithPending(serverMessages, localSnapshot);
-          if (
-            persistedPendingRef.current.length > 0 &&
-            shouldClearPersistedOutbound(serverMessages, persistedPendingRef.current)
-          ) {
-            const sid = currentSessionRef.current?.id;
-            void clearPendingOutbound(sid);
-            void clearPendingOutbound(PENDING_NEW_SESSION_KEY);
-            persistedPendingRef.current = [];
-          }
-          return merged;
-        }
-        if (
-          persistedPendingRef.current.length > 0 &&
-          shouldClearPersistedOutbound(serverMessages, persistedPendingRef.current)
-        ) {
-          const sid = currentSessionRef.current?.id;
-          void clearPendingOutbound(sid);
-          void clearPendingOutbound(PENDING_NEW_SESSION_KEY);
-          persistedPendingRef.current = [];
+          return mergeServerMessagesWithPending(serverMessages, localSnapshot);
         }
         return serverMessages;
       };
@@ -2302,7 +2205,7 @@ export default function ChatScreen() {
         finishRefresh();
       }
     },
-    [isDemo, gatewayUrl, apiKey, macChatLive, settings.includeToolActivity, applyChatApiError, persistOutboundSnapshot, hydratePersistedOutboundForSession],
+    [isDemo, gatewayUrl, apiKey, macChatLive, settings.includeToolActivity, applyChatApiError],
   );
 
   refreshSessionMessagesRef.current = refreshSessionMessages;
@@ -2552,34 +2455,11 @@ export default function ChatScreen() {
     pinScrollAfterHydrationRef.current = true;
     userScrolledUpRef.current = false;
     lastDistanceFromBottomRef.current = 0;
-    const sessionId = currentSession?.id;
-    void (async () => {
-      await hydratePersistedOutboundForSession(sessionId);
-      await refreshSessionMessagesRef.current?.({
-        background: false,
-        force: manualSessionSelectRef.current === sessionId,
-      });
-    })();
-  }, [currentSession?.id, isDemo, setRunProgress, hydratePersistedOutboundForSession]);
-
-  useEffect(() => {
-    const activeSession = currentSessionRef.current;
-    if (!activeSession || isDemo || !macChatLive) {
-      return;
-    }
-    const sub = AppState.addEventListener('change', (nextState) => {
-      if (nextState === 'background' || nextState === 'inactive') {
-        persistOutboundSnapshot(currentSessionRef.current?.id, messagesRef.current);
-        return;
-      }
-      if (nextState === 'active') {
-        void hydratePersistedOutboundForSession(currentSessionRef.current?.id).then(() => {
-          refreshSessionMessagesRef.current?.({ background: true, force: true });
-        });
-      }
+    void refreshSessionMessagesRef.current?.({
+      background: false,
+      force: manualSessionSelectRef.current === currentSession?.id,
     });
-    return () => sub.remove();
-  }, [currentSession?.id, isDemo, macChatLive, persistOutboundSnapshot, hydratePersistedOutboundForSession]);
+  }, [currentSession?.id, isDemo, setRunProgress]);
 
   useFocusEffect(
     useCallback(() => {
@@ -2686,6 +2566,19 @@ export default function ChatScreen() {
     }, intervalMs);
     return () => clearInterval(timer);
   }, [currentSession?.id, isDemo, macChatLive, isTelegramView, connectionState, awaitingGatewayReply]);
+
+  useEffect(() => {
+    const activeSession = currentSessionRef.current;
+    if (!activeSession || isDemo || !macChatLive) {
+      return;
+    }
+    const sub = AppState.addEventListener('change', (nextState) => {
+      if (nextState === 'active') {
+        refreshSessionMessagesRef.current?.({ background: true });
+      }
+    });
+    return () => sub.remove();
+  }, [currentSession?.id, isDemo, macChatLive]);
 
   useEffect(() => {
     const activeSession = currentSessionRef.current;
@@ -2844,10 +2737,6 @@ export default function ChatScreen() {
     setSessionModalVisible(false);
     setRecentChatsDismissed(true);
     setErrorMessage(null);
-    const previousSessionId = currentSessionRef.current?.id;
-    void clearPendingOutbound(previousSessionId);
-    void clearPendingOutbound(PENDING_NEW_SESSION_KEY);
-    persistedPendingRef.current = [];
     setMessages([]);
     setPinnedOutboundText(null);
     setPinnedOutboundSentAt(null);
@@ -3023,9 +2912,6 @@ export default function ChatScreen() {
     // Drop transcript immediately so a slow gateway reload cannot flash old messages.
     skipSessionAutoSelectRef.current = true;
     manualSessionSelectRef.current = null;
-    void clearPendingOutbound(currentSessionRef.current?.id);
-    void clearPendingOutbound(PENDING_NEW_SESSION_KEY);
-    persistedPendingRef.current = [];
     setCurrentSession(null);
     setMessages([]);
     messagesRef.current = [];
@@ -3067,9 +2953,6 @@ export default function ChatScreen() {
       if (hideCronAfterClear) {
         hideCronSessionsRef.current = true;
       }
-      // Harness probes (API_SERVER/CLI) get fresh ids every run, so id dismissal cannot
-      // keep them out. After a Clear all, suppress the whole class permanently.
-      hideAutomationSessionsRef.current = true;
 
       let gatewayCleared = false;
       let failed = 0;
@@ -3097,16 +2980,12 @@ export default function ChatScreen() {
         setHideCronSessions(true);
       }
 
-      await storage.setHideAutomationSessions(activeComputerSessionKeys, true, gatewayUrl);
-      setHideAutomationSessions(true);
-
       setDismissedSessionIds(nextDismissed);
 
       const applyClearedFilter = (list: HermesSession[]) =>
         filterDismissedThreadSessions(list, {
           dismissedSessionIds: nextDismissed,
           hideCronSessions: effectiveHideCron,
-          hideAutomationSessions: true,
         });
 
       setSessions((prev) => applyClearedFilter(prev));
@@ -3487,9 +3366,12 @@ export default function ChatScreen() {
     request: HermesApprovalRequest,
     textApproval?: ChatTextApproval,
   ) => {
-    if (request.source === 'gateway_guard' && request.runId) {
+    if (request.runId) {
       const leashMatch = pendingApprovals.find(
-        (p) => p.runId === request.runId || p.actionId === request.runId,
+        (p) =>
+          p.runId === request.runId ||
+          p.actionId === request.runId ||
+          p.actionId === request.id,
       );
       if (leashMatch) {
         await submitApprovalChoice(leashMatch.actionId, choice, leashMatch);
@@ -3559,7 +3441,14 @@ export default function ChatScreen() {
     textApproval?: ChatTextApproval,
   ) => {
     const request = explicitRequest ?? composerApprovalQueue[0];
-    if (!request || approvalBusy || isSending) return;
+    if (!request || approvalBusy) return;
+    if (!canSubmitApproval) {
+      applyChatApiError(
+        new Error('Computer not linked for approvals'),
+        'Connect to your computer before approving.',
+      );
+      return;
+    }
     haptics.light();
     setApprovalBusy(true);
     try {
@@ -3754,15 +3643,7 @@ export default function ChatScreen() {
       outboundStatus: 'pending',
     };
     pendingOutboundSendsRef.current += 1;
-    commitMessages((prev) => {
-      const next = [...prev, userMessage];
-      persistOutboundSnapshot(currentSessionRef.current?.id, next, {
-        pinnedText: trimmed,
-        pinnedSentAt: sentAt,
-        pinnedStatus: 'pending',
-      });
-      return next;
-    });
+    commitMessages((prev) => [...prev, userMessage]);
     setRecentChatsDismissed(true);
     setPinnedOutboundText(trimmed);
     setPinnedOutboundSentAt(sentAt);
@@ -4170,8 +4051,8 @@ export default function ChatScreen() {
         setPinnedOutboundText(null);
         setPinnedOutboundSentAt(null);
       }
-      commitMessages((prev) => {
-        const next = prev.map((message) =>
+      commitMessages((prev) =>
+        prev.map((message) =>
           message.id === committedUserMessageId
             ? {
                 ...message,
@@ -4179,13 +4060,8 @@ export default function ChatScreen() {
                 outboundFailureReason: status === 'failed' ? failureReason : undefined,
               }
             : message,
-        );
-        persistOutboundSnapshot(currentSessionRef.current?.id ?? activeSess?.id, next, {
-          pinnedStatus: status,
-          pinnedText: status === 'failed' ? null : displayText,
-        });
-        return next;
-      });
+        ),
+      );
     };
 
     const markMessageDeliveredToMac = () => {
@@ -4241,17 +4117,6 @@ export default function ChatScreen() {
     }
 
     let targetSessionId = isTelegramInboxSession(activeSess) ? inboxReplySessionId : activeSess!.id;
-    if (targetSessionId && !isDemo) {
-      void migratePendingOutbound(PENDING_NEW_SESSION_KEY, targetSessionId).then((snapshot) => {
-        if (snapshot) {
-          applyPersistedOutboundSnapshot(snapshot);
-          persistOutboundSnapshot(targetSessionId, messagesRef.current, {
-            pinnedStatus: 'pending',
-            pinnedText: displayText,
-          });
-        }
-      });
-    }
     if (isTelegramInboxSession(activeSess) && !targetSessionId) {
       const resolved = resolveTelegramInboxReplySessionId(sessionsRef.current);
       if (resolved) {
@@ -4283,11 +4148,6 @@ export default function ChatScreen() {
         setTelegramReplySessionId('');
         activeSess = mobileSess;
         targetSessionId = mobileSess.id;
-        await migratePendingOutbound(PENDING_NEW_SESSION_KEY, mobileSess.id);
-        persistOutboundSnapshot(mobileSess.id, messagesRef.current, {
-          pinnedStatus: 'pending',
-          pinnedText: displayText,
-        });
         setErrorMessage(null);
       } catch (err) {
         rollbackOutboundBubble();
@@ -4322,38 +4182,30 @@ export default function ChatScreen() {
           if (existing?.id) {
             assistantBubbleAdded = true;
             activeAssistantIdRef.current = existing.id;
-            commitMessages((prev) => {
-              const next = prev.map((m) => (m.id === existing.id ? { ...m, content: body } : m));
-              persistOutboundSnapshot(currentSessionRef.current?.id ?? targetSessionId, next);
-              return next;
-            });
+            commitMessages((prev) =>
+              prev.map((m) => (m.id === existing.id ? { ...m, content: body } : m)),
+            );
             scrollChatToLatestIfPinned(true);
             return;
           }
         }
         if (!assistantBubbleAdded) {
           assistantBubbleAdded = true;
-          commitMessages((prev) => {
-            const next = [
-              ...prev,
-              {
-                id: assistantId,
-                role: 'assistant',
-                content: body,
-                created_at: new Date().toISOString(),
-              },
-            ];
-            persistOutboundSnapshot(currentSessionRef.current?.id ?? targetSessionId, next);
-            return next;
-          });
+          commitMessages((prev) => [
+            ...prev,
+            {
+              id: assistantId,
+              role: 'assistant',
+              content: body,
+              created_at: new Date().toISOString(),
+            },
+          ]);
           scrollChatToLatestIfPinned(true);
           return;
         }
-        commitMessages((prev) => {
-          const next = prev.map((m) => (m.id === assistantId ? { ...m, content: body } : m));
-          persistOutboundSnapshot(currentSessionRef.current?.id ?? targetSessionId, next);
-          return next;
-        });
+        commitMessages((prev) =>
+          prev.map((m) => (m.id === assistantId ? { ...m, content: body } : m)),
+        );
         scrollChatToLatestIfPinned(true);
       };
 
@@ -5726,9 +5578,7 @@ export default function ChatScreen() {
 
         {composerApprovals.length > 0 || undoSecondsLeft > 0 ? (
           <>
-            {composerApprovals.length > 0 &&
-            connectionState !== 'connected' &&
-            connectionState !== 'demo' ? (
+            {composerApprovals.length > 0 && !canSubmitApproval ? (
               <View style={styles.linkWarningRow} testID="chat-approval-link-warning">
                 <Text style={styles.linkWarningText}>
                   Computer not linked — tap the computer row above to connect before approving.
@@ -5737,7 +5587,7 @@ export default function ChatScreen() {
             ) : null}
             <ChatApprovalBar
               approvals={composerApprovals}
-              busy={approvalBusy || isSending}
+              busy={approvalBusy}
               undoSecondsLeft={undoSecondsLeft}
               approvalPolicy={settings.approvalPolicy}
               onChoice={(choice, approval) => handleApprovalChoice(choice, approval)}

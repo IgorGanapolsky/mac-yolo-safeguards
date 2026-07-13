@@ -8,7 +8,9 @@ export function fromPendingApproval(
   policy?: 'strict' | 'balanced' | 'autonomous',
 ): HermesApprovalRequest {
   const runId = pending.runId ?? (pending.actionId.startsWith('run_') ? pending.actionId : undefined);
-  const source = pending.source ?? (pending.approveText ? 'text_nudge' : 'gateway_guard');
+  const source = runId
+    ? 'gateway_guard'
+    : pending.source ?? (pending.approveText ? 'text_nudge' : 'gateway_guard');
   const riskTier = pending.riskTier ?? inferRiskTier(pending.command, pending.reason);
   const base: HermesApprovalRequest = {
     id: pending.actionId,

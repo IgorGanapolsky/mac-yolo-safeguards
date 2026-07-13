@@ -9,8 +9,8 @@ import { hasThumbgateLeashPro, isProEntitledFromSnapshot } from '../utils/thumbg
 export type ApprovalResolveContext = {
   gatewayUrl: string;
   apiKey?: string | null;
-  /** Send GATE.ACTION over an open events WebSocket. */
-  sendGateAction?: (message: string) => void;
+  /** Send GATE.ACTION over an open events WebSocket. Returns true when delivered. */
+  sendGateAction?: (message: string) => boolean;
   /** Chat fallback for text nudges and edit messages. */
   sendChatText?: (text: string) => Promise<void>;
   /** When set, free-tier weekly allowance is enforced and consumed on routed approvals. */
@@ -79,15 +79,41 @@ async function recordFreeLeashConsumption(
   await consumeFreeLeashApproval();
 }
 
+function deliverGateAction(
+  ctx: ApprovalResolveContext,
+  message: ReturnType<typeof buildGateActionMessage>,
+): boolean {
+  return ctx.sendGateAction?.(JSON.stringify(message)) === true;
+}
+
+async function resolveRunApprovalHttp(
+  request: HermesApprovalRequest,
+  choice: ApprovalChoice,
+  ctx: ApprovalResolveContext,
+): Promise<void> {
+  if (!request.runId) {
+    return;
+  }
+  await submitRunApproval(ctx.gatewayUrl, request.runId, choice, ctx.apiKey);
+  await recordFreeLeashConsumption(ctx.leashSettings, choice);
+}
+
 export async function resolveApprovalChoice(
   request: HermesApprovalRequest,
   choice: ApprovalChoice,
   ctx: ApprovalResolveContext,
 ): Promise<void> {
   assertFreeLeashAllowance(ctx.leashSettings);
+
+  if (request.runId) {
+    await resolveRunApprovalHttp(request, choice, ctx);
+    await recordDecisionHistory(request, choice, ctx);
+    return;
+  }
+
   if (request.source === 'text_nudge') {
     if (choice === 'deny') {
-      if (ctx.sendGateAction && request.sessionKey) {
+      if (request.sessionKey) {
         const message = buildGateActionMessage(
           request.id,
           'reject',
@@ -95,19 +121,21 @@ export async function resolveApprovalChoice(
           'deny',
           'text_nudge',
         );
-        ctx.sendGateAction(JSON.stringify(message));
-        await recordFreeLeashConsumption(ctx.leashSettings, choice);
-        await recordDecisionHistory(request, choice, ctx);
-        return;
+        if (deliverGateAction(ctx, message)) {
+          await recordFreeLeashConsumption(ctx.leashSettings, choice);
+          await recordDecisionHistory(request, choice, ctx);
+          return;
+        }
       }
       if (!ctx.sendChatText) {
         throw new Error('Chat text sender required for text nudge deny');
       }
       await ctx.sendChatText(CHAT_APPROVAL_DENY_TEXT);
+      await recordFreeLeashConsumption(ctx.leashSettings, choice);
       await recordDecisionHistory(request, choice, ctx);
       return;
     }
-    if (ctx.sendGateAction && request.sessionKey) {
+    if (request.sessionKey) {
       const message = buildGateActionMessage(
         request.id,
         'approve',
@@ -115,22 +143,16 @@ export async function resolveApprovalChoice(
         'once',
         'text_nudge',
       );
-      ctx.sendGateAction(JSON.stringify(message));
-      await recordFreeLeashConsumption(ctx.leashSettings, choice);
-      await recordDecisionHistory(request, choice, ctx);
-      return;
+      if (deliverGateAction(ctx, message)) {
+        await recordFreeLeashConsumption(ctx.leashSettings, choice);
+        await recordDecisionHistory(request, choice, ctx);
+        return;
+      }
     }
     if (!ctx.sendChatText || !request.approveText) {
       throw new Error('Chat text sender required for text nudge approve');
     }
     await ctx.sendChatText(request.approveText);
-    await recordFreeLeashConsumption(ctx.leashSettings, choice);
-    await recordDecisionHistory(request, choice, ctx);
-    return;
-  }
-
-  if (request.runId) {
-    await submitRunApproval(ctx.gatewayUrl, request.runId, choice, ctx.apiKey);
     await recordFreeLeashConsumption(ctx.leashSettings, choice);
     await recordDecisionHistory(request, choice, ctx);
     return;
@@ -142,7 +164,9 @@ export async function resolveApprovalChoice(
 
   const decision = (choice as string) === 'deny' ? 'reject' : 'approve';
   const message = buildGateActionMessage(request.id, decision, undefined, choice, request.source);
-  ctx.sendGateAction(JSON.stringify(message));
+  if (!deliverGateAction(ctx, message)) {
+    throw new Error('Computer events socket is not connected — reconnect and try again.');
+  }
   await recordFreeLeashConsumption(ctx.leashSettings, choice);
   await recordDecisionHistory(request, choice, ctx);
 }
