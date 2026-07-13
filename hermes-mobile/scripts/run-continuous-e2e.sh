@@ -297,7 +297,16 @@ run_e2e_suite() {
   fi
 
   local flow
+  local first=1
   for flow in "${E2E_FLOWS[@]}"; do
+    # Settle ADB/Maestro between flows — stacking ship-guard → chat-send without
+    # a pause was causing AdbSocket connect failures and empty Maestro logs.
+    if [[ $first -eq 0 ]] && has_usb_adb_device; then
+      echo "Settling ADB 12s between Maestro flows..."
+      sleep 12
+      wait_for_adb 12 >/dev/null || true
+    fi
+    first=0
     if ! run_e2e_flow "$flow"; then
       return 1
     fi
