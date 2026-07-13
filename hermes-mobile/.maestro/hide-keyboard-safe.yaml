@@ -1,22 +1,8 @@
 # Safe keyboard dismiss — never call raw hideKeyboard (fails on custom IME / already-hidden).
-# Maestro error: "Couldn't hide the keyboard" aborts ship-guard and continuous E2E.
-# Strategy: tap a non-interactive chrome surface when present; no-op if none match.
+# NEVER tap chat-screen-header — that opens Choose-your-computer and breaks ship-guard.
+# Prefer non-interactive list/empty chrome or thread title.
 appId: com.iganapolsky.hermesmobile
 ---
-- runFlow:
-    when:
-      visible:
-        id: "chat-screen-header"
-    commands:
-      - tapOn:
-          id: "chat-screen-header"
-- runFlow:
-    when:
-      visible:
-        id: "connect-mac-gate"
-    commands:
-      - tapOn:
-          id: "connect-mac-gate"
 - runFlow:
     when:
       visible:
@@ -24,6 +10,20 @@ appId: com.iganapolsky.hermesmobile
     commands:
       - tapOn:
           id: "chat-empty-state"
+- runFlow:
+    when:
+      visible:
+        id: "chat-message-list"
+    commands:
+      - tapOn:
+          id: "chat-message-list"
+- runFlow:
+    when:
+      visible:
+        id: "chat-thread-title"
+    commands:
+      - tapOn:
+          id: "chat-thread-title"
 - runFlow:
     when:
       visible:

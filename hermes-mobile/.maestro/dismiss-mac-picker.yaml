@@ -1,18 +1,25 @@
 # Dismiss Choose-your-computer sheet ONLY when mac-picker-modal is open.
-# Bare text "Choose your computer" is the chat header a11y label when closed.
-# After Close, wait until modal is gone (sheet can re-open during heal/pair).
+# Prefer backdrop tap, then Close. Do not hard-fail if sheet re-opens mid-heal —
+# callers re-run this flow. Never match bare "Choose your computer" (header a11y).
 appId: com.iganapolsky.hermesmobile
 ---
-- repeat:
-    times: 3
+- runFlow:
+    when:
+      visible:
+        id: "mac-picker-modal"
     commands:
+      - runFlow:
+          when:
+            visible:
+              id: "mac-picker-modal-backdrop"
+          commands:
+            - tapOn:
+                id: "mac-picker-modal-backdrop"
       - runFlow:
           when:
             visible:
               id: "mac-picker-modal"
           commands:
             - tapOn: "Close"
-            - extendedWaitUntil:
-                notVisible:
-                  id: "mac-picker-modal"
-                timeout: 5000
+      - waitForAnimationToEnd:
+          timeout: 800
