@@ -1,8 +1,10 @@
 name: PR hygiene
 
 # Autonomous PR janitor so the open-PR list never rots again.
-#   1. auto-merge: any open, non-draft PR that is mergeable + all required checks green
-#      lands on its own (GitHub waits for green; no human click).
+#   1. auto-merge: any open, non-draft human PR that is mergeable + all required
+#      checks green lands on its own (GitHub waits for green; no human click).
+#      Dependabot is excluded here; dependabot-automerge.yml separately admits only
+#      semver-minor/patch updates, while major upgrades require compatibility review.
 #   2. stale: a PR with NO activity (push/comment/review) for STALE_DAYS gets a warning
 #      label + comment; DELETE_DAYS later with still no activity it is closed and its
 #      branch deleted. ANY activity resets the clock, so live agent work is never touched.
@@ -34,10 +36,10 @@ jobs:
           REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
-          # Non-draft open PRs only. GitHub's auto-merge holds until required checks pass,
-          # so enabling it broadly is safe — a red or conflicted PR simply never merges.
-          gh pr list --repo "$REPO" --state open --json number,isDraft \
-            --jq '.[] | select(.isDraft == false) | .number' | while read -r pr; do
+          # Non-draft human PRs only. Dependabot updates are governed by the
+          # semver-aware workflow, so majors can never inherit broad auto-merge.
+          gh pr list --repo "$REPO" --state open --json number,isDraft,author \
+            --jq '.[] | select(.isDraft == false and .author.login != "app/dependabot" and .author.login != "dependabot[bot]") | .number' | while read -r pr; do
             if gh pr merge "$pr" --repo "$REPO" --squash --auto --delete-branch 2>/dev/null; then
               echo "auto-merge enabled: #$pr"
             else
