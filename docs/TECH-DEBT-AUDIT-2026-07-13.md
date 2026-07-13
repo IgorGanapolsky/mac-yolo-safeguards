@@ -123,7 +123,7 @@ Lines:      71.53% (8,227 / 11,501)
 2. Three modules still have zero line coverage: `src/__perf__/chatMessageDisplay.perf-test.ts`, `src/components/ChatContextStrip.tsx`, and `src/hooks/useGatewaySelector.ts`.
 3. The otherwise-green Jest run emits pre-existing React `act(...)` warnings and a stale `resolveApiKeyForProfile` mock warning in `ChatScreen` coverage. Those files are actively claimed by other agents and were not modified.
 4. Five Kotlin files (378 lines) are wired through the native AI-glasses plugin but could not receive a local compiler gate because no Kotlin compiler is installed. Their wiring and source references were manually verified.
-5. Physical-device E2E remains unverified in the latest continuous receipt because no USB device was attached; unit verification passed.
+5. Physical-device E2E remains unverified in the latest continuous receipt: the USB phone is attached, but the protected LaunchAgent and PR #226's single-instance verification overlapped on the same device, producing an ADB/Maestro transport failure. Unit verification passed. The duplicate LaunchAgent process was stopped without touching the other agent's run; a fresh single-owner receipt is still required.
 6. The Hermes decision loop reports Telegram ingress conflicts despite a healthy local gateway. Runtime health and ingress ownership need a separate operational repair; this audit does not claim that blocker fixed.
 
 ## RAG and ML assessment
