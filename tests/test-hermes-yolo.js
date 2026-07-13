@@ -12,6 +12,7 @@ console.log('=== Running hermes-yolo-wrapper tests ===\n');
 // 1. Load the wrapper module (thanks to our module.exports check)
 const {
   buildChildPromptArgs,
+  buildCocoBackendArgs,
   buildGrokBackendArgs,
   chooseLocalModel,
   chooseZaiProvider,
@@ -22,6 +23,8 @@ const {
   hasZaiKey,
   mergedHermesEnv,
   parseEnvFile,
+  isCocoPrompt,
+  shouldUseCocoBackend,
   shouldUseGrokBackend,
   classifyBackend,
   buildRouteReceipt,
@@ -32,22 +35,38 @@ const {
   DEFAULT_READY_PROMPT,
 } = require(WRAPPER_PATH);
 
-console.log('Testing Grok 4.5 default backend routing...');
+console.log('Testing automatic CoCo/Grok backend routing...');
 assert.strictEqual(shouldUseGrokBackend([], {}), true);
 assert.strictEqual(shouldUseGrokBackend(['fix', 'the', 'bug'], {}), true);
+assert.strictEqual(shouldUseGrokBackend(['Snowflake:', 'show', 'warehouse', 'usage'], {}), false);
+assert.strictEqual(shouldUseCocoBackend(['Snowflake:', 'show', 'warehouse', 'usage'], {}), true);
+assert.strictEqual(shouldUseCocoBackend(['SQL:', 'SELECT', '*', 'FROM', 'events'], {}), true);
+assert.strictEqual(shouldUseCocoBackend(['SELECT', '*', 'FROM', 'events'], {}), true);
+assert.strictEqual(shouldUseCocoBackend(['select', 'the', 'best', 'model'], {}), false);
+assert.strictEqual(isCocoPrompt(['inspect', 'Snowsight', 'usage']), true);
+assert.strictEqual(isCocoPrompt(['fix', 'the', 'bug']), false);
 assert.strictEqual(shouldUseGrokBackend(['doctor'], {}), false);
 assert.strictEqual(shouldUseGrokBackend(['--version'], {}), false);
 assert.strictEqual(shouldUseGrokBackend(['fix'], { HERMES_YOLO_BACKEND: 'hermes' }), false);
+assert.strictEqual(shouldUseGrokBackend(['Snowflake:', 'query'], { HERMES_YOLO_BACKEND: 'grok' }), true);
 assert.throws(() => shouldUseGrokBackend([], { HERMES_YOLO_BACKEND: 'unknown' }), /Unsupported/);
 assert.deepStrictEqual(buildGrokBackendArgs([], { isTty: true }), []);
 assert.deepStrictEqual(buildGrokBackendArgs([], { isTty: false }), ['-p', DEFAULT_READY_PROMPT, '--output-format', 'plain']);
 assert.deepStrictEqual(buildGrokBackendArgs(['fix', 'the', 'bug']), ['-p', 'fix the bug', '--output-format', 'plain']);
 assert.deepStrictEqual(buildGrokBackendArgs(['-z', 'return', 'marker']), ['-p', 'return marker', '--output-format', 'plain']);
+assert.deepStrictEqual(buildCocoBackendArgs(['Snowflake:', 'show', 'usage']), ['Snowflake: show usage']);
+assert.deepStrictEqual(buildCocoBackendArgs(['-z', 'SQL:', 'SELECT', '1']), ['SQL: SELECT 1']);
 assert.deepStrictEqual(classifyBackend(['fix', 'the', 'bug'], {}), {
-  requestedBackend: 'grok', selectedBackend: 'grok-4.5', reason: 'default-prompt-route',
+  requestedBackend: 'auto', selectedBackend: 'grok-4.5', reason: 'default-non-snowflake-route',
 });
 assert.deepStrictEqual(classifyBackend(['doctor'], {}), {
-  requestedBackend: 'grok', selectedBackend: 'hermes-legacy', reason: 'hermes-admin-command',
+  requestedBackend: 'auto', selectedBackend: 'hermes-legacy', reason: 'hermes-admin-command',
+});
+assert.deepStrictEqual(classifyBackend(['Snowflake:', 'show', 'usage'], {}), {
+  requestedBackend: 'auto', selectedBackend: 'snowflake-coco', reason: 'snowflake-sql-prompt',
+});
+assert.deepStrictEqual(classifyBackend(['anything'], { HERMES_YOLO_BACKEND: 'coco' }), {
+  requestedBackend: 'coco', selectedBackend: 'snowflake-coco', reason: 'explicit-coco-backend',
 });
 assert.deepStrictEqual(classifyBackend(['fix'], { HERMES_YOLO_BACKEND: 'hermes' }), {
   requestedBackend: 'hermes', selectedBackend: 'hermes-legacy', reason: 'explicit-hermes-backend',
@@ -61,9 +80,9 @@ assert.notStrictEqual(digest('private prompt'), '6fe06b970bb77bb96bee');
 
 const routeReceipt = buildRouteReceipt({
   rawArgs: ['private', 'prompt'],
-  requestedBackend: 'grok',
+  requestedBackend: 'auto',
   selectedBackend: 'grok-4.5',
-  reason: 'default-prompt-route',
+  reason: 'default-non-snowflake-route',
   model: 'grok-4.5',
   status: 'pass',
   exitCode: 0,
@@ -78,7 +97,7 @@ assert(!JSON.stringify(routeReceipt).includes('private prompt'));
 
 const qwenReceipt = buildRouteReceipt({
   rawArgs: ['doctor'],
-  requestedBackend: 'grok',
+  requestedBackend: 'auto',
   selectedBackend: 'hermes-legacy',
   reason: 'hermes-admin-command',
   model: 'qwen3:8b-64k',
@@ -278,10 +297,16 @@ try {
 }
 
 const fakeGrokYoloPath = path.join(require('os').tmpdir(), `fake-grok-yolo-${process.pid}`);
+const fakeCocoYoloPath = path.join(require('os').tmpdir(), `fake-coco-yolo-${process.pid}`);
 const routeReceiptRoot = fs.mkdtempSync(path.join(require('os').tmpdir(), 'hermes-yolo-route-test-'));
 fs.writeFileSync(fakeGrokYoloPath, [
   '#!/usr/bin/env bash',
   'printf "GROK-BACKEND:%s\\n" "$*"',
+  '',
+].join('\n'), { mode: 0o755 });
+fs.writeFileSync(fakeCocoYoloPath, [
+  '#!/usr/bin/env bash',
+  'printf "COCO-BACKEND:%s\\n" "$*"',
   '',
 ].join('\n'), { mode: 0o755 });
 try {
@@ -303,27 +328,75 @@ try {
   assert.strictEqual(fs.statSync(path.join(routeReceiptRoot, 'latest.json')).mode & 0o777, 0o600);
   assert.strictEqual(fs.readFileSync(path.join(routeReceiptRoot, 'history.jsonl'), 'utf8').trim().split('\n').length, 1);
 
-  const status = routeStatus({ GROK_YOLO_BIN: fakeGrokYoloPath }, {
-    runner: () => ({
-      status: 0,
-      stdout: JSON.stringify({
-        ready: true,
-        version: '0.2.93',
-        model: 'grok-4.5',
-        modelAvailable: true,
-        authenticated: true,
-        authMode: 'grok.com_oauth',
-        billingMode: 'grok_plan_or_limited_free_quota',
-        apiBillingActivatedByWrapper: false,
-        blocker: null,
-      }),
-    }),
+  const cocoBackendOutput = execFileSync(process.execPath, [WRAPPER_PATH, 'Snowflake:', 'show', 'warehouse', 'usage'], {
+    encoding: 'utf8',
+    env: {
+      ...process.env,
+      COCO_YOLO_BIN: fakeCocoYoloPath,
+      GROK_YOLO_BIN: fakeGrokYoloPath,
+      HERMES_BIN: '/definitely-not-used/hermes',
+      HERMES_YOLO_RECEIPT_DIR: routeReceiptRoot,
+    },
+  });
+  assert(cocoBackendOutput.includes('COCO-BACKEND:Snowflake: show warehouse usage'));
+  const storedCocoRoute = JSON.parse(fs.readFileSync(path.join(routeReceiptRoot, 'latest.json'), 'utf8'));
+  assert.strictEqual(storedCocoRoute.route.selectedBackend, 'snowflake-coco');
+  assert.strictEqual(storedCocoRoute.route.provider, 'snowflake-cortex-code');
+  assert.strictEqual(storedCocoRoute.route.silentFallback, false);
+  assert.strictEqual(storedCocoRoute.route.qwenSelected, false);
+  assert(!JSON.stringify(storedCocoRoute).includes('show warehouse usage'));
+  assert.strictEqual(fs.readFileSync(path.join(routeReceiptRoot, 'history.jsonl'), 'utf8').trim().split('\n').length, 2);
+
+  const status = routeStatus({
+    GROK_YOLO_BIN: fakeGrokYoloPath,
+    COCO_YOLO_BIN: fakeCocoYoloPath,
+  }, {
+    runner: (binary) => binary === fakeCocoYoloPath
+      ? {
+        status: 0,
+        stdout: JSON.stringify({
+          ready: true,
+          version: '1.1.27',
+          connection: 'hermes-coco-readonly',
+          effectiveRole: 'ACCOUNTADMIN',
+          principalLeastPrivilege: false,
+          sqlReadOnly: true,
+          mcpEnabledInsideCoco: false,
+          headlessTransport: 'acp',
+          acpCommandAvailable: true,
+          acpReadOnlyMode: 'plan',
+          blocker: null,
+        }),
+      }
+      : {
+        status: 0,
+        stdout: JSON.stringify({
+          ready: true,
+          version: '0.2.99',
+          model: 'grok-4.5',
+          modelAvailable: true,
+          authenticated: true,
+          authMode: 'grok.com_oauth',
+          billingMode: 'grok_plan_or_limited_free_quota',
+          apiBillingActivatedByWrapper: false,
+          blocker: null,
+        }),
+      },
   });
   assert.strictEqual(status.ready, true);
-  assert.strictEqual(status.defaultPromptBackend, 'grok-4.5');
+  assert.strictEqual(status.routingMode, 'automatic');
+  assert.strictEqual(status.snowflakePromptBackend, 'snowflake-coco');
+  assert.strictEqual(status.defaultNonSnowflakeBackend, 'grok-4.5');
+  assert.strictEqual(status.routes.coco.ready, true);
+  assert.strictEqual(status.routes.coco.sqlReadOnly, true);
+  assert.strictEqual(status.routes.coco.principalLeastPrivilege, false);
+  assert.strictEqual(status.routes.coco.headlessTransport, 'acp');
+  assert.strictEqual(status.routes.coco.acpCommandAvailable, true);
+  assert.strictEqual(status.routes.coco.acpReadOnlyMode, 'plan');
   assert.strictEqual(status.silentFallbackAllowed, false);
 } finally {
   fs.unlinkSync(fakeGrokYoloPath);
+  fs.unlinkSync(fakeCocoYoloPath);
   fs.rmSync(routeReceiptRoot, { recursive: true, force: true });
 }
 

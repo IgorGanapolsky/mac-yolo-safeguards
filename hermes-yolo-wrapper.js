@@ -295,7 +295,7 @@ function buildRouteReceipt(options = {}) {
     cwdDigest: digest(options.cwd || process.cwd()),
     request: options.request || summarizeRouteArgs(options.rawArgs || []),
     route: {
-      requestedBackend: options.requestedBackend || 'grok',
+      requestedBackend: options.requestedBackend || 'auto',
       selectedBackend,
       reason: options.reason || 'unknown',
       provider: options.provider || null,
@@ -342,10 +342,42 @@ function findGrokYoloBinary(env = process.env) {
   return null;
 }
 
+function findCocoYoloBinary(env = process.env) {
+  const candidates = [
+    env.COCO_YOLO_BIN,
+    path.join(HOME, '.local', 'bin', 'coco-yolo'),
+    path.join(__dirname, 'coco-yolo-wrapper.js'),
+  ].filter(Boolean);
+  for (const candidate of candidates) {
+    try {
+      if (fs.statSync(candidate).isFile()) return candidate;
+    } catch (e) {}
+  }
+  return null;
+}
+
+function promptTextForRouting(rawArgs = []) {
+  if (rawArgs.length === 0) return '';
+  if (rawArgs[0] === '-z' || rawArgs[0] === '--single') return rawArgs.slice(1).join(' ').trim();
+  if (rawArgs[0].startsWith('-') || HERMES_COMMANDS.has(rawArgs[0])) return '';
+  return rawArgs.join(' ').trim();
+}
+
+function isCocoPrompt(rawArgs = []) {
+  const prompt = promptTextForRouting(rawArgs);
+  if (!prompt) return false;
+  if (/^\s*(?:coco|snowflake|sql)\s*:/i.test(prompt)) return true;
+  if (/\b(?:snowflake|snowsight|cortex\s+(?:analyst|search|agent)|HERMES_XS|HERMES\.PUBLIC)\b/i.test(prompt)) return true;
+  if (/\bSQL\b/i.test(prompt)) return true;
+  const hasSqlVerb = /\b(?:SELECT|SHOW|DESCRIBE|DESC|EXPLAIN|WITH)\b/i.test(prompt);
+  const hasSqlObject = /\b(?:FROM|JOIN|WHERE|GROUP\s+BY|ORDER\s+BY|TABLE|SCHEMA|DATABASE|WAREHOUSE|STAGE|VIEW|CURRENT_(?:ACCOUNT|ROLE|USER|WAREHOUSE)\s*\()\b/i.test(prompt);
+  return hasSqlVerb && hasSqlObject;
+}
+
 function classifyBackend(rawArgs, env = process.env) {
-  const backend = String(env.HERMES_YOLO_BACKEND || 'grok').trim().toLowerCase();
-  if (!['grok', 'auto', 'hermes'].includes(backend)) {
-    throw new Error(`Unsupported HERMES_YOLO_BACKEND=${backend}; expected grok, auto, or hermes`);
+  const backend = String(env.HERMES_YOLO_BACKEND || 'auto').trim().toLowerCase();
+  if (!['grok', 'auto', 'hermes', 'coco', 'snowflake'].includes(backend)) {
+    throw new Error(`Unsupported HERMES_YOLO_BACKEND=${backend}; expected auto, grok, coco, snowflake, or hermes`);
   }
   if (backend === 'hermes') return { requestedBackend: backend, selectedBackend: 'hermes-legacy', reason: 'explicit-hermes-backend' };
   if (rawArgs.length > 0 && ['--version', '-V', '--help', '-h'].includes(rawArgs[0])) {
@@ -357,11 +389,25 @@ function classifyBackend(rawArgs, env = process.env) {
   if (rawArgs.length > 0 && HERMES_COMMANDS.has(rawArgs[0])) {
     return { requestedBackend: backend, selectedBackend: 'hermes-legacy', reason: 'hermes-admin-command' };
   }
-  return { requestedBackend: backend, selectedBackend: 'grok-4.5', reason: 'default-prompt-route' };
+  if (backend === 'coco' || backend === 'snowflake') {
+    return { requestedBackend: backend, selectedBackend: 'snowflake-coco', reason: 'explicit-coco-backend' };
+  }
+  if (backend === 'auto' && isCocoPrompt(rawArgs)) {
+    return { requestedBackend: backend, selectedBackend: 'snowflake-coco', reason: 'snowflake-sql-prompt' };
+  }
+  return {
+    requestedBackend: backend,
+    selectedBackend: 'grok-4.5',
+    reason: backend === 'grok' ? 'explicit-grok-backend' : 'default-non-snowflake-route',
+  };
 }
 
 function shouldUseGrokBackend(rawArgs, env = process.env) {
   return classifyBackend(rawArgs, env).selectedBackend === 'grok-4.5';
+}
+
+function shouldUseCocoBackend(rawArgs, env = process.env) {
+  return classifyBackend(rawArgs, env).selectedBackend === 'snowflake-coco';
 }
 
 function buildGrokBackendArgs(rawArgs, options = {}) {
@@ -379,41 +425,79 @@ function buildGrokBackendArgs(rawArgs, options = {}) {
   return rawArgs;
 }
 
+function buildCocoBackendArgs(rawArgs = []) {
+  if (rawArgs.length === 0) return [];
+  if (rawArgs[0] === '-z' || rawArgs[0] === '--single') {
+    return [rawArgs.slice(1).join(' ').trim() || 'Inspect Snowflake analytics safely.'];
+  }
+  if (!rawArgs[0].startsWith('-')) return [rawArgs.join(' ')];
+  return rawArgs;
+}
+
+function launcherDoctor(binary, runner, env) {
+  if (!binary) return { ready: false, blocker: 'launcher_not_installed' };
+  const result = runner(binary, ['--doctor', '--json'], { encoding: 'utf8', env });
+  if (result.error) return { ready: false, blocker: 'doctor_failed_to_start', error: safeError(result.error.message) };
+  if (result.status !== 0) return { ready: false, blocker: 'doctor_failed', exitCode: result.status };
+  try {
+    return JSON.parse(result.stdout || '{}');
+  } catch (error) {
+    return { ready: false, blocker: 'doctor_invalid_json', error: safeError(error.message) };
+  }
+}
+
 function routeStatus(env = process.env, dependencies = {}) {
   const grokYoloBin = findGrokYoloBinary(env);
+  const cocoYoloBin = findCocoYoloBinary(env);
+  const runner = dependencies.runner || require('child_process').spawnSync;
+  const grokDoctor = launcherDoctor(grokYoloBin, runner, env);
+  const cocoDoctor = launcherDoctor(cocoYoloBin, runner, env);
   const base = {
     schema: 'hermes-yolo/route-status-v1',
     generatedAt: new Date().toISOString(),
-    defaultPromptBackend: 'grok-4.5',
+    routingMode: 'automatic',
+    snowflakePromptBackend: 'snowflake-coco',
+    defaultNonSnowflakeBackend: 'grok-4.5',
     silentFallbackAllowed: false,
     grokLauncher: grokYoloBin ? path.basename(grokYoloBin) : null,
     grokLauncherDigest: grokYoloBin ? fileDigest(grokYoloBin) : null,
+    cocoLauncher: cocoYoloBin ? path.basename(cocoYoloBin) : null,
+    cocoLauncherDigest: cocoYoloBin ? fileDigest(cocoYoloBin) : null,
     legacyProvider: DEFAULT_PROVIDER,
     legacyModel: DEFAULT_MODEL,
     receiptSchema: 'hermes-yolo/route-receipt-v1',
   };
-  if (!grokYoloBin) return { ...base, ready: false, blocker: 'grok_yolo_not_installed' };
-  const runner = dependencies.runner || require('child_process').spawnSync;
-  const result = runner(grokYoloBin, ['--doctor', '--json'], { encoding: 'utf8', env });
-  if (result.error) return { ...base, ready: false, blocker: 'grok_doctor_failed_to_start', error: safeError(result.error.message) };
-  if (result.status !== 0) return { ...base, ready: false, blocker: 'grok_doctor_failed', exitCode: result.status };
-  try {
-    const doctor = JSON.parse(result.stdout || '{}');
-    return {
-      ...base,
-      ready: Boolean(doctor.ready),
-      blocker: doctor.blocker || null,
-      version: doctor.version || null,
-      model: doctor.model || null,
-      modelAvailable: Boolean(doctor.modelAvailable),
-      authenticated: Boolean(doctor.authenticated),
-      authMode: doctor.authMode || 'none',
-      billingMode: doctor.billingMode || 'unknown',
-      apiBillingActivatedByWrapper: Boolean(doctor.apiBillingActivatedByWrapper),
-    };
-  } catch (error) {
-    return { ...base, ready: false, blocker: 'grok_doctor_invalid_json', error: safeError(error.message) };
-  }
+  const grokReady = Boolean(grokDoctor.ready);
+  const cocoReady = Boolean(cocoDoctor.ready);
+  return {
+    ...base,
+    ready: grokReady && cocoReady,
+    blocker: !grokReady ? `grok:${grokDoctor.blocker || 'not_ready'}` : !cocoReady ? `coco:${cocoDoctor.blocker || 'not_ready'}` : null,
+    routes: {
+      grok: {
+        ready: grokReady,
+        blocker: grokDoctor.blocker || null,
+        version: grokDoctor.version || null,
+        model: grokDoctor.model || null,
+        authenticated: Boolean(grokDoctor.authenticated),
+        authMode: grokDoctor.authMode || 'none',
+        billingMode: grokDoctor.billingMode || 'unknown',
+      },
+      coco: {
+        ready: cocoReady,
+        blocker: cocoDoctor.blocker || null,
+        version: cocoDoctor.version || null,
+        connection: cocoDoctor.connection || 'hermes-coco-readonly',
+        effectiveRole: cocoDoctor.effectiveRole || null,
+        principalLeastPrivilege: Boolean(cocoDoctor.principalLeastPrivilege),
+        sqlReadOnly: Boolean(cocoDoctor.sqlReadOnly),
+        mcpEnabledInsideCoco: Boolean(cocoDoctor.mcpEnabledInsideCoco),
+        headlessTransport: cocoDoctor.headlessTransport || null,
+        acpCommandAvailable: Boolean(cocoDoctor.acpCommandAvailable),
+        acpReadOnlyMode: cocoDoctor.acpReadOnlyMode || null,
+      },
+    },
+  };
 }
 
 function runGrokBackend(rawArgs, env = process.env, dependencies = {}) {
@@ -435,7 +519,7 @@ function runGrokBackend(rawArgs, env = process.env, dependencies = {}) {
     process.exit(127);
   }
   const grokArgs = buildGrokBackendArgs(rawArgs);
-  console.error('[hermes-yolo] backend=grok-4.5 (set HERMES_YOLO_BACKEND=hermes for the legacy Hermes provider route)');
+  console.error('[hermes-yolo] backend=grok-4.5 (automatic non-Snowflake route; no silent fallback)');
   const runner = dependencies.runner || require('child_process').spawnSync;
   const result = runner(grokYoloBin, grokArgs, {
     stdio: 'inherit',
@@ -469,6 +553,57 @@ function runGrokBackend(rawArgs, env = process.env, dependencies = {}) {
   process.exit(exitCode);
 }
 
+function runCocoBackend(rawArgs, env = process.env, dependencies = {}) {
+  const started = Date.now();
+  const classification = classifyBackend(rawArgs, env);
+  const cocoYoloBin = findCocoYoloBinary(env);
+  if (!cocoYoloBin) {
+    writeRouteReceipt(buildRouteReceipt({
+      rawArgs,
+      ...classification,
+      provider: 'snowflake-cortex-code',
+      status: 'blocked',
+      exitCode: 127,
+      durationMs: Date.now() - started,
+      error: 'coco-yolo is not installed',
+    }));
+    console.error('[hermes-yolo] Snowflake CoCo backend is required but coco-yolo is not installed.');
+    console.error('[hermes-yolo] Refusing to silently fall back to Grok, Hermes, or Qwen.');
+    process.exit(127);
+  }
+  const cocoArgs = buildCocoBackendArgs(rawArgs);
+  console.error('[hermes-yolo] backend=snowflake-coco sql-read-only=true mcp=false (automatic Snowflake/SQL route; no silent fallback)');
+  const runner = dependencies.runner || require('child_process').spawnSync;
+  const result = runner(cocoYoloBin, cocoArgs, { stdio: 'inherit', env });
+  if (result.error) {
+    writeRouteReceipt(buildRouteReceipt({
+      rawArgs,
+      ...classification,
+      launcher: cocoYoloBin,
+      provider: 'snowflake-cortex-code',
+      status: 'fail',
+      exitCode: 127,
+      durationMs: Date.now() - started,
+      error: result.error.message,
+    }));
+    console.error(`[hermes-yolo] Snowflake CoCo backend failed to start: ${safeError(result.error.message)}`);
+    console.error('[hermes-yolo] Refusing to silently fall back to Grok, Hermes, or Qwen.');
+    process.exit(127);
+  }
+  const exitCode = result.status === null ? 1 : result.status;
+  writeRouteReceipt(buildRouteReceipt({
+    rawArgs,
+    ...classification,
+    launcher: cocoYoloBin,
+    provider: 'snowflake-cortex-code',
+    status: exitCode === 0 ? 'pass' : 'fail',
+    exitCode,
+    signal: result.signal || null,
+    durationMs: Date.now() - started,
+  }));
+  process.exit(exitCode);
+}
+
 function updateStatus(updater) {
   try {
     if (!fs.existsSync(STATUS_PATH)) return;
@@ -486,6 +621,9 @@ if (args.length === 1 && (args[0] === '--route-status' || args[0] === 'route-sta
 }
 const activeClassification = classifyBackend(args, process.env);
 const legacyStartedAt = Date.now();
+if (activeClassification.selectedBackend === 'snowflake-coco') {
+  runCocoBackend(args, process.env);
+}
 if (activeClassification.selectedBackend === 'grok-4.5') {
   runGrokBackend(args, process.env);
 }
@@ -775,7 +913,12 @@ module.exports = {
   mergedHermesEnv,
   parseEnvFile,
   buildGrokBackendArgs,
+  buildCocoBackendArgs,
+  findCocoYoloBinary,
   findGrokYoloBinary,
+  isCocoPrompt,
+  promptTextForRouting,
+  shouldUseCocoBackend,
   shouldUseGrokBackend,
   classifyBackend,
   buildRouteReceipt,

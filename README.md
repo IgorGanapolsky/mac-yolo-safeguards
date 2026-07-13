@@ -40,7 +40,9 @@ On 2026-05-26 an iPhone 17 simulator was auto-booted (first by macOS window rest
 |---|---|---|
 | `agy-yolo-wrapper.js` | `~/workspace/git/igor/antigravity-hub/antigravity-cli/bin/` | Hardened wrapper around `agy --dangerously-skip-permissions`. Adds singleton lock, hard timeout, stuck-loop watchdog, spawn-error handling, and `--sandbox`. |
 | `grok-yolo-wrapper.js` | `~/.local/bin/grok-yolo` | Guarded always-approve wrapper around official Grok Build, pinned to Grok 4.5 for standalone and headless use. |
-| `hermes-yolo-wrapper.js` | `~/.local/bin/hermes-yolo` | Prefers Grok 4.5 for ordinary prompts and refuses silent Qwen fallback; Hermes admin commands and the explicit legacy backend retain the original watchdog path. |
+| `coco-yolo-wrapper.js` | `~/.local/bin/coco-yolo` | Dedicated Snowflake Cortex Code CLI: native TUI when bare, official ACP one-shot for prompts, forced Plan/read-only controls, and no Hermes/model fallback. |
+| `hermes-yolo-wrapper.js` | `~/.local/bin/hermes-yolo` | Automatically routes Snowflake/SQL prompts to CoCo and other ordinary prompts to Grok 4.5; refuses silent Qwen or cross-provider fallback. Hermes admin commands retain the original watchdog path. |
+| `tools/hermes-coco-harness.js` | `~/.local/bin/hermes-coco` | Verifies the automatic Snowflake route, cached authentication, read-only controls, cost boundary, and optional bounded live SQL marker. |
 | `tools/hermes-grok45-harness.js` | `~/.local/bin/hermes-grok45` | Runs Grok 4.5 as a bounded independent Hermes verifier with auth, billing, evidence, and redacted receipts. |
 | `tools/hermes-harness-eval.js` | `~/.local/bin/hermes-harness-eval` | Mines prompt-free route/verifier traces into reliability, latency, fallback, and failure-cluster metrics plus an inspectable wiki. |
 | `tools/hermes-parallel-search.js` | `~/.local/bin/hermes-parallel-search`, `~/.local/bin/hermes-search-turbo` | Provides dry-run-first Parallel Turbo grounding with Keychain auth, explicit paid approval, cost/context caps, and basic/advanced escalation. |
@@ -93,11 +95,25 @@ bash scripts/install-grok-yolo.sh --update
 See [Hermes Grok 4.5 Harness](docs/HERMES-GROK45-HARNESS.md) for standalone,
 Hermes, safety, authentication, and billing behavior.
 
+Install the dedicated Snowflake CoCo command and automatic Hermes analytics
+route on both Macs with:
+
+```sh
+bash scripts/install-coco-yolo.sh
+```
+
+Then `coco-yolo` opens native Cortex Code, while a prompt argument uses the
+official ACP transport in Plan/read-only mode. `hermes-yolo` classifies
+Snowflake and SQL prompts into that same route. See
+[Hermes + Snowflake CoCo](docs/HERMES-COCO-LIVE.md) for the control, cost, and
+least-privilege boundaries.
+
 After routing real tasks, inspect the active backend and mine the prompt-free
 receipts without spending tokens:
 
 ```sh
 hermes-yolo --route-status
+hermes-coco --task "Snowflake: verify the automatic Hermes route" --json
 hermes-harness-eval --write --json
 ```
 
@@ -131,7 +147,9 @@ quality escalation; each costs $0.005 for the default ten results.
 | `AGY_YOLO_LOCK_PATH` | `/tmp/agy-yolo.lock` | Singleton lock path (override for tests). |
 | `AGY_YOLO_LOG_PATH` | `/tmp/agy-yolo.log` | Wrapper log path (override for tests). |
 | `AGY_YOLO_NO_DEFAULT_ARGS` | unset | If set, don't auto-add `--sandbox --dangerously-skip-permissions`. |
-| `HERMES_YOLO_BACKEND` | `grok` | Ordinary prompts use Grok 4.5. Set `hermes` only to opt into the legacy Hermes provider route; there is no silent Qwen fallback. |
+| `HERMES_YOLO_BACKEND` | `auto` | Snowflake/SQL prompts use CoCo; other ordinary prompts use Grok 4.5. Set `coco`, `grok`, or `hermes` for an explicit route; no route silently falls back. |
+| `COCO_YOLO_BIN` | `~/.local/bin/coco-yolo` | Override the dedicated CoCo launcher used by `hermes-yolo` (primarily for tests). |
+| `COCO_YOLO_ACP_TIMEOUT_MS` | `120000` | Maximum duration of one ACP prompt turn before the client cancels/fails closed. |
 | `GROK_YOLO_BIN` | `~/.local/bin/grok-yolo` | Override the Grok 4.5 launcher used by `hermes-yolo`. |
 | `HERMES_YOLO_PROVIDER` | `custom:ollama-local-64k` | Override the provider only when `HERMES_YOLO_BACKEND=hermes`. |
 | `HERMES_YOLO_MODEL` | discovered local model | Override the model only when `HERMES_YOLO_BACKEND=hermes`. |
