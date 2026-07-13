@@ -424,6 +424,30 @@ providers:
     assert.equal(result.receipt.routeProof, 'explicit_provider_model_plus_empty_fallback_chain');
   });
 
+  await check('Hermes failure receipts retain only a safe HTTP status', () => {
+    const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'meta-yolo-hermes-failure-'));
+    const args = parseArgs(['--hermes', 'private repair task', '--max-turns', '1', '--cwd', temp]);
+    const result = runHermes(args.prompt, args, {
+      env: { PATH: '/usr/bin' },
+      keyState: { key: testCredential(), source: 'test' },
+      configState: { isolatedReady: true },
+      hermesBinary: '/tmp/hermes',
+      directory: temp,
+      spawn: () => ({
+        status: 1,
+        stdout: 'HTTP 401 Unauthorized: private model output must not be stored\n',
+        stderr: '',
+        signal: null,
+      }),
+    });
+    assert.equal(result.ok, false);
+    assert.equal(result.receipt.error, 'HTTP 401');
+    const receiptText = fs.readFileSync(result.paths.latestPath, 'utf8');
+    assert(!receiptText.includes('private repair task'));
+    assert(!receiptText.includes('private model output'));
+    assert(!receiptText.includes(testCredential()));
+  });
+
   await check('dry-run is usable without a credential and stores no task text', () => {
     const plan = buildDryRun(parseArgs(['--dry-run', 'private task']));
     assert.equal(plan.promptPresent, true);

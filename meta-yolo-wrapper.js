@@ -104,6 +104,15 @@ function redact(value) {
   return text;
 }
 
+function summarizeProcessFailure(result, stdout, stderr) {
+  if (result.error) return redact(result.error.message);
+  if (result.status === 0) return null;
+  const combined = `${stdout}\n${stderr}`;
+  const httpStatus = combined.match(/\bHTTP(?:\/\d(?:\.\d)?)?\s+(\d{3})\b/i);
+  if (httpStatus) return `HTTP ${httpStatus[1]}`;
+  return `process_exit_${result.status == null ? 'unknown' : result.status}`;
+}
+
 function requireValue(argv, index, flag) {
   if (!argv[index]) throw new Error(`${flag} requires a value`);
   return argv[index];
@@ -837,7 +846,7 @@ function runHermes(prompt, args, options = {}) {
     actualUsageAvailable: false,
     routeVerified: ok,
     routeProof: 'explicit_provider_model_plus_empty_fallback_chain',
-    error: result.error ? redact(result.error.message) : (ok ? null : stderr.slice(0, 1000)),
+    error: ok ? null : summarizeProcessFailure(result, stdout, stderr),
   });
   const paths = writeReceipt(receipt, options);
   return { ok, status: result.status, stdout, stderr, receipt, paths, error: result.error || null };
