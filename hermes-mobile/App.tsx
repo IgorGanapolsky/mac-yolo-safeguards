@@ -40,6 +40,7 @@ import { isDemoModeAllowed } from './src/utils/demoModePolicy';
 import { LEASH_TAB_LABEL } from './src/constants/monetization';
 import { refreshFreeLeashWeeklyState } from './src/utils/freeLeashAllowance';
 import { syncLeashEntitlementSnapshot } from './src/utils/thumbgateLeash';
+import { formatPendingApprovalsBadge } from './src/utils/pendingApprovalsCap';
 import { colors } from './src/theme/colors';
 
 const ChatScreen = React.lazy(() => import('./src/screens/ChatScreen'));
@@ -140,6 +141,8 @@ function HermesTabNavigator() {
 function GlassmorphicTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
   const { pendingApprovals, activateDeveloperLeashUnlock } = useGateway();
   const pendingCount = pendingApprovals.length;
+  // Never paint raw thousands (e.g. 5557) — flood freezes tab paint + confuses operators.
+  const pendingBadgeLabel = formatPendingApprovalsBadge(pendingCount);
   const insets = useSafeAreaInsets();
   const { inset: keyboardInset } = useKeyboardInset();
   const keyboardOpen = keyboardInset > 0;
@@ -232,9 +235,9 @@ function GlassmorphicTabBar({ state, descriptors, navigation }: BottomTabBarProp
             <Text style={[styles.navText, isFocused && styles.navTextActive]}>
               {label}
             </Text>
-            {route.name === 'Leash' && pendingCount > 0 ? (
-              <View style={styles.pendingBadge}>
-                <Text style={styles.pendingBadgeText}>{pendingCount}</Text>
+            {route.name === 'Leash' && pendingBadgeLabel ? (
+              <View style={styles.pendingBadge} testID="leash-pending-badge">
+                <Text style={styles.pendingBadgeText}>{pendingBadgeLabel}</Text>
               </View>
             ) : null}
             {isFocused && <View style={styles.activeDot} />}

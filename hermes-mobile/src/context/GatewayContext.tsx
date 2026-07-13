@@ -146,6 +146,10 @@ import { isGatewaySmokeTestMessage } from '../utils/gatewaySmokeMessages';
 import { isThumbgateLeashUnlocked } from '../utils/thumbgateLeash';
 import { withDeveloperLeashUnlocked } from '../utils/developerLeashUnlock';
 import {
+  capPendingApprovals,
+  prependPendingApproval,
+} from '../utils/pendingApprovalsCap';
+import {
   initializeThumbgateIapListeners,
   syncThumbgateLeashEntitlement,
 } from '../services/thumbgateIap';
@@ -375,9 +379,14 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
       syncHermesNotificationBadge(0).catch(() => {});
       return;
     }
-    syncHermesNotificationBadge(pendingApprovals.length).catch(() => {});
-    syncSmartApprovalNotifications(pendingApprovals, {
-      badgeCount: pendingApprovals.length,
+    const badgeCount = Math.min(pendingApprovals.length, 99);
+    syncHermesNotificationBadge(badgeCount).catch(() => {});
+    // Cap the array passed to notification sync — iterating thousands of actionIds
+    // on every GATE.BLOCKED freezes the JS thread ("infinite alerts").
+    const notifySlice =
+      pendingApprovals.length > 40 ? pendingApprovals.slice(0, 40) : pendingApprovals;
+    syncSmartApprovalNotifications(notifySlice, {
+      badgeCount,
       categoryEnabled: settings.notificationApprovals,
     }).catch(() => {});
   }, [pendingApprovals, settings.notificationApprovals]);
@@ -1010,7 +1019,8 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
           (!pending.command || !isGatewaySmokeTestMessage(pending.command)),
       );
 
-      setPendingApprovals(nonSmokeTests);
+      // Cap relay queue — a stuck cloud queue of thousands freezes Leash + badge spam.
+      setPendingApprovals(capPendingApprovals(nonSmokeTests));
       relayConnectionConfirmedRef.current = true;
       setConnectionState('connected');
       setLastEventError(undefined);
@@ -1152,12 +1162,7 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
         }
       }
 
-      setPendingApprovals((prev) => {
-        if (prev.some((item) => (item.runId ?? item.actionId) === key)) {
-          return prev;
-        }
-        return [pending, ...prev];
-      });
+      setPendingApprovals((prev) => prependPendingApproval(prev, pending));
       return;
     }
 
@@ -1244,6 +1249,10 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
       cancelRunStallNotification().catch(() => {});
       return;
     }
+    // Foreground: do NOT cancel/reschedule on every stream token — Android
+    // NotificationManager rate-limits cancel of hermes-run-status/stall
+    // ("Shedding cancel (dupe)") and that felt like infinite alerts.
+    // Clear only when runProgress becomes null (above) or AppState→active.
     if (AppState.currentState !== 'active') {
       scheduleRunProgressNotification(runProgress, {
         runId: runProgress.runId,
@@ -1253,9 +1262,6 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
       scheduleRunStallNotification(runProgress.runId, runProgress.sessionId, {
         categoryEnabled: settings.notificationLiveRunStatus,
       }).catch(() => {});
-    } else {
-      clearRunProgressNotification().catch(() => {});
-      cancelRunStallNotification().catch(() => {});
     }
   }, [runProgress, settings.notificationLiveRunStatus]);
 
@@ -2390,12 +2396,9 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
     const pending = gateBlockedToPending(event);
     if (pending) {
       haptics.warning();
-      setPendingApprovals((prev) => {
-        if (prev.some((item) => item.actionId === pending.actionId)) {
-          return prev;
-        }
-        return [pending, ...prev];
-      });
+      setPendingApprovals((prev) =>
+        prependPendingApproval(prev, pending, (item) => item.actionId),
+      );
     }
   }, []);
 
@@ -2414,12 +2417,12 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
     }
     let queued = false;
     setPendingApprovals((prev) => {
-      if (prev.some((item) => (item.runId ?? item.actionId) === key)) {
-        return prev;
+      const next = prependPendingApproval(prev, approval);
+      if (next !== prev) {
+        queued = true;
+        haptics.warning();
       }
-      queued = true;
-      haptics.warning();
-      return [approval, ...prev];
+      return next;
     });
     return queued;
   }, []);

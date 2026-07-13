@@ -185,9 +185,13 @@ export default function ApprovalsScreen() {
     [reloadDecisionHistory],
   );
 
-  const glance = !presentation.visualsOn;
-  const stackApproval = glance ? pendingApprovals[0] : undefined;
+  // Always stack when the queue is large — mapping thousands of cards freezes Leash
+  // (blank spinner / ANR). Glance mode stacks always; list mode stacks above threshold.
   const stackedCount = pendingApprovals.length;
+  const forceStack = stackedCount > 8;
+  const glance = !presentation.visualsOn || forceStack;
+  const stackApproval = glance ? pendingApprovals[0] : undefined;
+  const listApprovals = glance ? [] : pendingApprovals.slice(0, 8);
 
   const healthLevel = health?.level ?? 'unknown';
   const connectionDisplay = formatLeashConnectionDisplay({
@@ -381,7 +385,7 @@ export default function ApprovalsScreen() {
             ) : null}
           </>
         ) : (
-          pendingApprovals.map((approval) => (
+          listApprovals.map((approval) => (
             <GateApprovalCard
               key={approval.actionId}
               approval={approval}

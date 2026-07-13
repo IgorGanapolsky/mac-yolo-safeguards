@@ -725,7 +725,7 @@ describe('GatewayProvider', () => {
     });
   });
 
-  it('clears run progress notification while app is in foreground', async () => {
+  it('does not cancel or schedule run progress notifications on every foreground stream token', async () => {
     const approvalNotifications = jest.requireMock('../services/approvalNotifications');
 
     (storage.loadGatewaySettings as jest.Mock).mockResolvedValue({
@@ -776,9 +776,11 @@ describe('GatewayProvider', () => {
     });
 
     await waitFor(() => {
+      // Foreground: neither schedule nor cancel/reschedule on every stream token
+      // (cancel spam was rate-limited by Android as "Shedding cancel (dupe)").
       expect(approvalNotifications.scheduleRunProgressNotification).not.toHaveBeenCalled();
-      expect(approvalNotifications.clearRunProgressNotification).toHaveBeenCalled();
-      expect(approvalNotifications.cancelRunStallNotification).toHaveBeenCalled();
+      expect(approvalNotifications.clearRunProgressNotification).not.toHaveBeenCalled();
+      expect(approvalNotifications.cancelRunStallNotification).not.toHaveBeenCalled();
     });
 
     Object.defineProperty(AppState, 'currentState', {
