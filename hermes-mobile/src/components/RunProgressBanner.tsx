@@ -3,7 +3,7 @@ import { StyleSheet, Text, View, ActivityIndicator, Platform, Pressable } from '
 import { colors } from '../theme/colors';
 import type { RunProgressState } from '../types/chatDisplay';
 import {
-  displayableLlmModel,
+  formatLlmModelShortName,
   humanizeRunProgressDetail,
   runProgressBannerTitle,
   runProgressFailedTitle,
@@ -74,7 +74,7 @@ function RunProgressBanner({
 
   const durationSec = progress.duration != null ? Math.round(progress.duration * 10) / 10 : elapsed;
   const modelLabel =
-    displayableLlmModel(progress.model) ?? displayableLlmModel(fallbackModel);
+    formatLlmModelShortName(progress.model) ?? formatLlmModelShortName(fallbackModel);
   const tokenLabel = formatTokenSummary(progress);
   const showStats = Boolean(modelLabel || tokenLabel);
   const showStatsPanel = showStats;
