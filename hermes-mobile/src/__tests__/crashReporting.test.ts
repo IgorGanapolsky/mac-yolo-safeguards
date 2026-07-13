@@ -9,6 +9,7 @@ import {
   getCrashQueue,
   installGlobalCrashHandler,
 } from '../services/crashReporting';
+import { __setShouldReportToPostHogForTesting } from '../services/productAnalytics';
 
 const QUEUE_KEY = 'hermes-mobile:crash_queue';
 const originalFetch = global.fetch;
@@ -18,12 +19,15 @@ describe('crashReporting', () => {
     await AsyncStorage.clear();
     jest.restoreAllMocks();
     __setPosthogConfigForTesting({ host: 'https://us.i.posthog.com', key: '' });
+    // Allow PostHog capture environment for flush tests (prod-only gate).
+    __setShouldReportToPostHogForTesting(true);
     global.fetch = jest.fn();
   });
 
   afterEach(() => {
     global.fetch = originalFetch;
     __setPosthogConfigForTesting({ host: 'https://us.i.posthog.com', key: '' });
+    __setShouldReportToPostHogForTesting(null);
   });
 
   describe('buildCrashRecord', () => {
@@ -145,6 +149,16 @@ describe('crashReporting', () => {
     it('clears the queue without sending when no PostHog key is configured', async () => {
       // Default: no key configured
       await captureCrash('ui_crash', new Error('no key'));
+      const result = await flushCrashQueue();
+      expect(result).toEqual({ flushed: 0, retained: 0 });
+      expect(await getCrashQueue()).toEqual([]);
+      expect(global.fetch).not.toHaveBeenCalled();
+    });
+
+    it('clears the queue without sending when capture environment is gated off', async () => {
+      __setPosthogConfigForTesting({ key: 'phc_test_key' });
+      __setShouldReportToPostHogForTesting(false);
+      await captureCrash('ui_crash', new Error('dogfood'));
       const result = await flushCrashQueue();
       expect(result).toEqual({ flushed: 0, retained: 0 });
       expect(await getCrashQueue()).toEqual([]);
