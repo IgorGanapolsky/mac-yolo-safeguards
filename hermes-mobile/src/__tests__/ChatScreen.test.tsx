@@ -40,7 +40,7 @@ const mockGatewayState = {
   autoConnectGateway: jest.fn().mockResolvedValue('http://localhost:8642'),
   pendingApprovals: [],
   submitApprovalChoice: jest.fn(),
-  sendGateAction: jest.fn(),
+  sendGateAction: jest.fn().mockReturnValue(true),
   pendingApprovalEditSeed: null,
   clearApprovalEditSeed: jest.fn(),
   runProgress: null,

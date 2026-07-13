@@ -247,7 +247,7 @@ export type GatewayContextValue = {
     choice: ApprovalChoice,
     approval?: PendingApproval,
   ) => Promise<void>;
-  sendGateAction: (rawMessage: string) => void;
+  sendGateAction: (rawMessage: string) => boolean;
   runAgentTool: (name: HermesAgentToolName) => Promise<HermesAgentToolResult>;
   pendingApprovalEditSeed: string | null;
   setApprovalEditSeed: (text: string) => void;
@@ -2487,11 +2487,13 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
     [],
   );
 
-  const sendGateAction = useCallback((rawMessage: string) => {
+  const sendGateAction = useCallback((rawMessage: string): boolean => {
     const socket = socketRef.current;
     if (socket && socket.readyState === WebSocket.OPEN) {
       socket.send(rawMessage);
+      return true;
     }
+    return false;
   }, []);
 
   const submitApprovalChoice = useCallback(

@@ -42,6 +42,14 @@ function parseGateMessage(mock: jest.Mock) {
   return JSON.parse(mock.mock.calls[0][0] as string);
 }
 
+function gateActionThatDelivers(): jest.Mock {
+  return jest.fn().mockReturnValue(true);
+}
+
+function gateActionThatMisses(): jest.Mock {
+  return jest.fn().mockReturnValue(false);
+}
+
 describe('resolveApprovalChoice', () => {
   beforeEach(() => {
     mockSubmitRunApproval.mockClear();
@@ -50,7 +58,7 @@ describe('resolveApprovalChoice', () => {
 
   describe('text_nudge routing', () => {
     it('routes text_nudge DENY over the WebSocket when a socket and sessionKey exist', async () => {
-      const sendGateAction = jest.fn();
+      const sendGateAction = gateActionThatDelivers();
       const sendChatText = jest.fn().mockResolvedValue(undefined);
       const request = makeRequest({
         source: 'text_nudge',
@@ -71,6 +79,18 @@ describe('resolveApprovalChoice', () => {
       expect(mockSubmitRunApproval).not.toHaveBeenCalled();
     });
 
+    it('falls back to chat DENY text when the events socket is closed', async () => {
+      const sendGateAction = gateActionThatMisses();
+      const sendChatText = jest.fn().mockResolvedValue(undefined);
+      const request = makeRequest({ source: 'text_nudge', sessionKey: 'tg:42' });
+
+      await resolveApprovalChoice(request, 'deny', makeCtx({ sendGateAction, sendChatText }));
+
+      expect(sendGateAction).toHaveBeenCalledTimes(1);
+      expect(sendChatText).toHaveBeenCalledTimes(1);
+      expect(sendChatText).toHaveBeenCalledWith(CHAT_APPROVAL_DENY_TEXT);
+    });
+
     it('falls back to chat DENY text when there is no socket', async () => {
       const sendChatText = jest.fn().mockResolvedValue(undefined);
       const request = makeRequest({ source: 'text_nudge', sessionKey: 'tg:42' });
@@ -82,7 +102,7 @@ describe('resolveApprovalChoice', () => {
     });
 
     it('falls back to chat DENY text when a socket exists but no sessionKey', async () => {
-      const sendGateAction = jest.fn();
+      const sendGateAction = gateActionThatDelivers();
       const sendChatText = jest.fn().mockResolvedValue(undefined);
       const request = makeRequest({ source: 'text_nudge' }); // no sessionKey
 
@@ -105,7 +125,7 @@ describe('resolveApprovalChoice', () => {
     });
 
     it('routes text_nudge APPROVE over the WebSocket as approve/once', async () => {
-      const sendGateAction = jest.fn();
+      const sendGateAction = gateActionThatDelivers();
       const request = makeRequest({
         source: 'text_nudge',
         sessionKey: 'tg:42',
@@ -121,7 +141,7 @@ describe('resolveApprovalChoice', () => {
     });
 
     it('coerces any non-deny text_nudge choice to approve/once over the socket', async () => {
-      const sendGateAction = jest.fn();
+      const sendGateAction = gateActionThatDelivers();
       const request = makeRequest({
         source: 'text_nudge',
         sessionKey: 'tg:42',
@@ -201,11 +221,30 @@ describe('resolveApprovalChoice', () => {
         resolveApprovalChoice(request, 'once', makeCtx()),
       ).rejects.toThrow('HTTP 500');
     });
+    it('POSTs run approval for text_nudge when runId is present', async () => {
+      const sendGateAction = gateActionThatDelivers();
+      const request = makeRequest({
+        runId: 'run-888',
+        source: 'text_nudge',
+        sessionKey: 'tg:42',
+        approveText: 'APPROVE DEPLOY',
+      });
+
+      await resolveApprovalChoice(request, 'once', makeCtx({ sendGateAction }));
+
+      expect(mockSubmitRunApproval).toHaveBeenCalledWith(
+        'http://100.87.85.85:8642',
+        'run-888',
+        'once',
+        'secret-key',
+      );
+      expect(sendGateAction).not.toHaveBeenCalled();
+    });
   });
 
   describe('gate-action (WebSocket) routing for guard approvals', () => {
     it('sends an approve GATE.ACTION for a non-deny choice', async () => {
-      const sendGateAction = jest.fn();
+      const sendGateAction = gateActionThatDelivers();
       const request = makeRequest({ source: 'gateway_guard' }); // no runId
 
       await resolveApprovalChoice(request, 'always', makeCtx({ sendGateAction }));
@@ -219,7 +258,7 @@ describe('resolveApprovalChoice', () => {
     });
 
     it('maps a DENY choice to a reject GATE.ACTION', async () => {
-      const sendGateAction = jest.fn();
+      const sendGateAction = gateActionThatDelivers();
       const request = makeRequest({ source: 'relay_hook' });
 
       await resolveApprovalChoice(request, 'deny', makeCtx({ sendGateAction }));
@@ -238,6 +277,15 @@ describe('resolveApprovalChoice', () => {
       ).rejects.toThrow(
         'No resolver available for this approval (missing run id or socket)',
       );
+    });
+
+    it('throws when the events socket is closed', async () => {
+      const sendGateAction = gateActionThatMisses();
+      const request = makeRequest({ source: 'gateway_guard' });
+
+      await expect(
+        resolveApprovalChoice(request, 'once', makeCtx({ sendGateAction })),
+      ).rejects.toThrow('Computer events socket is not connected — reconnect and try again.');
     });
   });
 });

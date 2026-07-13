@@ -243,6 +243,7 @@ import { detectUsbHostMismatch, profilesForSwitchComputerPicker } from '../utils
 import TailscaleDiscoveryBanner from '../components/TailscaleDiscoveryBanner';
 import { USB_LOOPBACK_GATEWAY_URL } from '../utils/gatewayLoopbackFallback';
 import {
+  canSubmitChatApproval,
   isMacGatewayHttpOk,
   isGatewayHealthPending,
   resolveEffectiveMacHttpOk,
@@ -910,6 +911,16 @@ export default function ChatScreen() {
   );
   const effectiveMacChatLive = isDemo || effectiveMacHttpOk;
   const macLiveSocket = isDemo || connectionState === 'connected';
+  const canSubmitApproval = useMemo(
+    () =>
+      canSubmitChatApproval({
+        isDemo,
+        macHttpOk: effectiveMacHttpOk,
+        connectionState,
+        authMismatch: health?.authMismatch === true,
+      }),
+    [isDemo, effectiveMacHttpOk, connectionState, health?.authMismatch],
+  );
   const connectionHeal = useMemo(
     () => connectionHealSnapshot(connectionHealAttempt, connectionHealInFlight),
     [connectionHealAttempt, connectionHealInFlight],
@@ -3355,9 +3366,12 @@ export default function ChatScreen() {
     request: HermesApprovalRequest,
     textApproval?: ChatTextApproval,
   ) => {
-    if (request.source === 'gateway_guard' && request.runId) {
+    if (request.runId) {
       const leashMatch = pendingApprovals.find(
-        (p) => p.runId === request.runId || p.actionId === request.runId,
+        (p) =>
+          p.runId === request.runId ||
+          p.actionId === request.runId ||
+          p.actionId === request.id,
       );
       if (leashMatch) {
         await submitApprovalChoice(leashMatch.actionId, choice, leashMatch);
@@ -3367,9 +3381,6 @@ export default function ChatScreen() {
           apiKey,
           sendGateAction,
           leashSettings: settings,
-          sendChatText: async (text) => {
-            await sendUserText(text, true);
-          },
         });
       }
       setPendingRunApproval(null);
@@ -3425,7 +3436,14 @@ export default function ChatScreen() {
     textApproval?: ChatTextApproval,
   ) => {
     const request = explicitRequest ?? composerApprovalQueue[0];
-    if (!request || approvalBusy || isSending) return;
+    if (!request || approvalBusy) return;
+    if (!canSubmitApproval) {
+      applyChatApiError(
+        new Error('Computer not linked for approvals'),
+        'Connect to your computer before approving.',
+      );
+      return;
+    }
     haptics.light();
     setApprovalBusy(true);
     try {
@@ -5555,9 +5573,7 @@ export default function ChatScreen() {
 
         {composerApprovals.length > 0 || undoSecondsLeft > 0 ? (
           <>
-            {composerApprovals.length > 0 &&
-            connectionState !== 'connected' &&
-            connectionState !== 'demo' ? (
+            {composerApprovals.length > 0 && !canSubmitApproval ? (
               <View style={styles.linkWarningRow} testID="chat-approval-link-warning">
                 <Text style={styles.linkWarningText}>
                   Computer not linked — tap the computer row above to connect before approving.
@@ -5566,7 +5582,7 @@ export default function ChatScreen() {
             ) : null}
             <ChatApprovalBar
               approvals={composerApprovals}
-              busy={approvalBusy || isSending}
+              busy={approvalBusy}
               undoSecondsLeft={undoSecondsLeft}
               approvalPolicy={settings.approvalPolicy}
               onChoice={(choice, approval) => handleApprovalChoice(choice, approval)}

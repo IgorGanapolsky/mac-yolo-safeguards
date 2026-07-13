@@ -68,7 +68,7 @@ export function mockUseGateway(overrides: Record<string, unknown> = {}) {
     enqueueTextApproval: jest.fn(() => true),
     resolveApproval: jest.fn(),
     submitApprovalChoice: jest.fn().mockResolvedValue(undefined),
-    sendGateAction: jest.fn().mockResolvedValue(undefined),
+    sendGateAction: jest.fn().mockReturnValue(true),
     runAgentTool: jest.fn(),
     gatewayProfiles: [
       {

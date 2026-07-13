@@ -5,6 +5,7 @@ import {
   describeBootstrapPhase,
   resolveChatLinkDisplay,
   resolveEffectiveMacHttpOk,
+  canSubmitChatApproval,
 } from '../utils/gatewayConnection';
 import { GATEWAY_AUTH_REPAIR_HEADER } from '../services/gatewayClient';
 
@@ -118,5 +119,33 @@ describe('gatewayConnection', () => {
       chatReachable: true,
       chatStalled: true,
     });
+  });
+
+  it('allows chat approval when mac HTTP is ok even if relay socket is down', () => {
+    expect(
+      canSubmitChatApproval({
+        connectionState: 'disconnected',
+        macHttpOk: true,
+      }),
+    ).toBe(true);
+  });
+
+  it('blocks chat approval when neither mac HTTP nor relay socket is live', () => {
+    expect(
+      canSubmitChatApproval({
+        connectionState: 'disconnected',
+        macHttpOk: false,
+      }),
+    ).toBe(false);
+  });
+
+  it('blocks chat approval on auth mismatch even when relay socket is connected', () => {
+    expect(
+      canSubmitChatApproval({
+        connectionState: 'connected',
+        macHttpOk: false,
+        authMismatch: true,
+      }),
+    ).toBe(false);
   });
 });
