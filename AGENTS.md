@@ -196,3 +196,24 @@ Rules:
 - If graphify-out/wiki/index.md exists, use it for broad navigation instead of raw source browsing.
 - Read graphify-out/GRAPH_REPORT.md only for broad architecture review or when query/path/explain do not surface enough context.
 - After modifying code and only when graphify-out/graph.json already exists, run `.graphify-venv/bin/graphify update .` to keep the graph current (AST-only, no API cost).
+
+## Public GitHub Issues board (2026-07-13)
+
+This repo is **public**. The Issues UI is for **public-safe product intake only**:
+
+| Allowed on Issues | Not allowed |
+|-------------------|-------------|
+| Free incident report template | Internal engineering backlog (G-ids, architecture extracts) |
+| Paid hardening inquiry template | Agent coordination, file locks, WIP |
+| Product bugs with public-safe repro | Secrets, gateway URLs, API keys, PATs, customer names |
+
+**Agent engineering backlog** lives in:
+
+- [`plan.md`](./plan.md) — live multi-agent claims
+- [`hermes-mobile/docs/JULY-2026-STANDARDS-GAP-BACKLOG.md`](./hermes-mobile/docs/JULY-2026-STANDARDS-GAP-BACKLOG.md) — standards gap AC
+
+Do **not** bulk-create internal tech-debt epics as public Issues. Labels (`priority:*`, `handoff:*`) may exist for the few product issues; they do not justify dumping the agent board onto Issues.
+
+## Credentials in chat (standing)
+
+If a GitHub PAT or other secret appears in chat: **refuse to use it**, **do not store it**, and **flag for immediate rotation** in GitHub Settings → Developer settings → Personal access tokens. Prefer `gh` keyring auth already on the machine.
