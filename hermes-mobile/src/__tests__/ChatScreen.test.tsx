@@ -1034,10 +1034,11 @@ describe('ChatScreen', () => {
       fireEvent.press(sendButton);
     });
 
-    expect(queryByTestId('submitted-prompt-strip')).toBeTruthy();
+    // Optimistic bubble is the sole prompt copy — strip must not duplicate it.
+    expect(getAllByTestId('chat-message-user').length).toBeGreaterThanOrEqual(1);
+    expect(queryByTestId('submitted-prompt-strip')).toBeNull();
     expect(queryByTestId('chat-empty-state')).toBeNull();
     expect(queryByTestId('chat-empty-recent-chats')).toBeNull();
-    expect(getAllByTestId('chat-message-user').length).toBeGreaterThanOrEqual(1);
 
     act(() => {
       jest.advanceTimersByTime(1600);
@@ -1085,8 +1086,9 @@ describe('ChatScreen', () => {
       fireEvent.press(sendButton);
     });
 
-    expect(queryByTestId('submitted-prompt-strip')).toBeTruthy();
+    // Bubbles land immediately — strip must stay hidden (no strip+bubble duo).
     expect(getAllByTestId('chat-message-user').length).toBeGreaterThanOrEqual(2);
+    expect(queryByTestId('submitted-prompt-strip')).toBeNull();
     await flushPendingTimers();
   });
 
@@ -1168,9 +1170,8 @@ describe('ChatScreen', () => {
     await waitFor(() => {
       expect(queryByTestId('chat-empty-recent-chats')).toBeNull();
       expect(queryByTestId('chat-empty-state')).toBeNull();
-      expect(
-        queryByTestId('submitted-prompt-strip') ?? getAllByTestId('chat-message-user').length,
-      ).toBeTruthy();
+      expect(getAllByTestId('chat-message-user').length).toBeGreaterThanOrEqual(1);
+      expect(queryByTestId('submitted-prompt-strip')).toBeNull();
     });
   });
 

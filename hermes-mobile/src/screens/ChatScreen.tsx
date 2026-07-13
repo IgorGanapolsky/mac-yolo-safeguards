@@ -160,7 +160,7 @@ import ChatScrollControls from '../components/ChatScrollControls';
 import {
   CHAT_LIST_HEADER_CLEARANCE,
   filterChatTimelineMessages,
-  shouldShowSubmittedPromptStrip,
+  resolveSubmittedPromptStripVisibility,
   type ChatTimelineEntry,
 } from '../utils/chatOutboundDisplay';
 import {
@@ -997,17 +997,17 @@ export default function ChatScreen() {
 
   const hasUserMessage = useMemo(() => hasUserMessageInTranscript(messages), [messages]);
 
-  const showSubmittedPromptStrip = useMemo(() => {
-    const promptText = pinnedOutboundText?.trim();
-    if (!promptText) {
-      return false;
-    }
-    return (
-      isSending ||
-      pinnedOutboundStatus !== 'sent' ||
-      shouldShowSubmittedPromptStrip({ pinnedText: promptText, messages })
-    );
-  }, [pinnedOutboundText, pinnedOutboundStatus, isSending, messages]);
+  // ONLY resolveSubmittedPromptStripVisibility — never OR with isSending / status.
+  // isSending override caused duplicate "You sent" + user bubble (PR #177 incomplete).
+  const showSubmittedPromptStrip = useMemo(
+    () =>
+      resolveSubmittedPromptStripVisibility({
+        pinnedText: pinnedOutboundText,
+        messages,
+        isSending,
+      }),
+    [pinnedOutboundText, messages, isSending],
+  );
 
   const chatTimelineMessages = useMemo(
     () =>
