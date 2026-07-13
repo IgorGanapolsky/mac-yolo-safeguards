@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>Label</key>
+	<string>com.igor.hermes-mobile-marketing-daily</string>
+	<key>ProgramArguments</key>
+	<array>
+		<string>/bin/bash</string>
+		<string>{{REPO}}/hermes-mobile/scripts/hermes-mobile-marketing-daily.sh</string>
+		<string>auto</string>
+	</array>
+	<key>StartCalendarInterval</key>
+	<array>
+		<dict>
+			<key>Hour</key>
+			<integer>9</integer>
+			<key>Minute</key>
+			<integer>0</integer>
+		</dict>
+		<dict>
+			<key>Hour</key>
+			<integer>20</integer>
+			<key>Minute</key>
+			<integer>0</integer>
+		</dict>
+	</array>
+	<key>EnvironmentVariables</key>
+	<dict>
+		<key>PATH</key>
+		<string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
+		<key>HOME</key>
+		<string>{{HOME}}</string>
+	</dict>
+	<key>StandardOutPath</key>
+	<string>{{HOME}}/Library/Logs/hermes-mobile-marketing-daily.log</string>
+	<key>StandardErrorPath</key>
+	<string>{{HOME}}/Library/Logs/hermes-mobile-marketing-daily.log</string>
+</dict>
+</plist>

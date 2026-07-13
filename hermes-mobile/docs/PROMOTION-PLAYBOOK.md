@@ -60,18 +60,30 @@ Do not spend on paid acquisition until all of these are true:
 
 ## 24/7 unpaid acquisition cadence
 
-Paste-ready drafts: [docs/social/ready-to-post/](./social/ready-to-post/)
+**Dated campaign pack (2026-07-13):** [docs/social/campaign-2026-07-13/](./social/campaign-2026-07-13/)  
+**Ongoing paste folder:** [docs/social/ready-to-post/](./social/ready-to-post/)
 
 | Cadence | Action | Owner |
 |---------|--------|-------|
+| **Daily 09:00 local** | LaunchAgent **`com.igor.hermes-mobile-marketing-daily`** morning mode → ntfy *“Hermes Mobile: post Show HN / Reddit draft today”* + draft path | Automation → **Igor publishes** |
+| **Daily 20:00 local** | Same LaunchAgent evening mode → scrape Play public download bucket (+ best-effort Play API) → `docs/proofs/marketing/latest.json` + ntfy | Automation |
 | **2×/day** | Draft generator LaunchAgent `com.igor.hermes-mobile-social-content` → `~/.hermes-social/drafts/` + ntfy | Automation (draft-only; never auto-publishes) |
-| **2×/day (09:05 / 17:05 local)** | Publish nudge LaunchAgent `com.igor.hermes-mobile-promo-nudge` → ntfy with today’s channel + draft path | Automation → **Igor publishes** |
+| **Legacy (optional)** | `com.igor.hermes-mobile-promo-nudge` (09:05/17:05) — superseded by `marketing-daily`; safe to bootout if duplicate ntfy | Host-only |
 | **Mon** | Stage Show HN title+body | Igor |
 | **Tue–Thu ~9am PT** | Post Show HN **or** r/LocalLLaMA (one channel) | Igor |
-| **Fri** | r/selfhosted **or** r/androidapps (one; no same-week duplicates) | Igor |
-| **Sat** | X/Twitter 4-tweet thread | Igor |
-| **Sun** | Agency B2B follow-up (Partner Pilot) — higher $ velocity than Play installs | Igor |
+| **Thu–Fri** | r/SideProject **or** r/selfhosted (one; no same-week duplicates) | Igor |
+| **Sat** | X/Twitter **5-tweet** thread | Igor |
+| **Sun** | Agency B2B follow-up (Partner Pilot) + one Discord helpful reply | Igor |
 | **Ongoing** | Product Hunt stays **draft-only** until iOS searchable or explicit Android-only launch + IAP proof | Gated |
+
+Install / repair marketing LaunchAgent (repo template):
+
+```bash
+bash scripts/install-agent-launchagents.sh
+launchctl list | grep hermes-mobile-marketing-daily
+```
+
+Script: `hermes-mobile/scripts/hermes-mobile-marketing-daily.sh` (`morning` | `evening` | `auto`).
 
 ### Honesty rules for every post
 

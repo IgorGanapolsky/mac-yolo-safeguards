@@ -49,6 +49,7 @@ plists=(
   com.igor.react-native-newsletter-ingest.plist
   com.igor.hermes-contribution-opportunities.plist
   com.igor.hermes-mobile-continuous-e2e.plist
+  com.igor.hermes-mobile-marketing-daily.plist
   com.igor.hermes-relay-worker.plist
 )
 
