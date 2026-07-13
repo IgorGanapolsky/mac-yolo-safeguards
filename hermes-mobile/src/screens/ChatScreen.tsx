@@ -219,6 +219,14 @@ import {
   shouldShowMacRetryBanner,
   shouldShowConnectivityRunBanner,
 } from '../utils/connectionErrorPolicy';
+import {
+  formatSavedMacUnreachableBanner,
+  reconnectingToMacCopy,
+  savedMacUnreachableStatus,
+  shouldShowActiveReconnectingCopy,
+  shouldSuppressEmptyGreetingUnreachable,
+} from '../utils/macUnreachableCopy';
+import { hasValidSavedComputer } from '../utils/freshUserOnboarding';
 import { isLoopbackGatewayUrl } from '../utils/gatewayUrlPolicy';
 import { isInvalidGatewayProfile } from '../services/gatewayProfiles';
 import { isPrivateLanGatewayUrl } from '../utils/gatewayEndpoint';
@@ -1232,19 +1240,40 @@ export default function ChatScreen() {
     ],
   );
 
+  const machineShortLabel = machineHeaderDisplay.machineLabel;
+  const machineEndpoint = machineHeaderDisplay.machineEndpoint;
+
   const routeStatusLabel =
     settings.connectionMode === 'relay' &&
     !isPaired &&
     relayRouteDisplay.routeStatus !== 'Direct link'
       ? relayRouteDisplay.routeStatus
-      : undefined;
+      : !effectiveMacHttpOk && connectionHealExhausted
+        ? savedMacUnreachableStatus(machineShortLabel)
+        : undefined;
 
-  const machineShortLabel = machineHeaderDisplay.machineLabel;
-  const machineEndpoint = machineHeaderDisplay.machineEndpoint;
+  const suppressEmptyGreetingUnreachable = shouldSuppressEmptyGreetingUnreachable({
+    healthProbePending,
+    healInFlight: connectionHealInFlight,
+    healExhausted: connectionHealExhausted,
+    hasSavedComputer: hasValidSavedComputer(gatewayProfiles),
+  });
 
   const macRetryBannerText = useMemo(() => {
-    if (macRetryBusy || connectionHealInFlight) {
-      return `Reconnecting to ${machineShortLabel}…`;
+    if (
+      shouldShowActiveReconnectingCopy({
+        macRetryBusy,
+        healInFlight: connectionHealInFlight,
+        healExhausted: connectionHealExhausted,
+      })
+    ) {
+      return reconnectingToMacCopy(machineShortLabel);
+    }
+    if (connectionHealExhausted && !effectiveMacHttpOk) {
+      return formatSavedMacUnreachableBanner({
+        macLabel: machineHeaderDisplay.machineLabel,
+        machineEndpoint: machineHeaderDisplay.machineEndpoint,
+      });
     }
     return formatMacConnectionRetryBanner({
       connectionState,
@@ -1260,6 +1289,8 @@ export default function ChatScreen() {
   }, [
     macRetryBusy,
     connectionHealInFlight,
+    connectionHealExhausted,
+    effectiveMacHttpOk,
     machineShortLabel,
     connectionState,
     connectingStuck,
@@ -5168,6 +5199,7 @@ export default function ChatScreen() {
           macHttpReachable={effectiveMacHttpOk || chatStalled}
           macRetryBusy={macRetryBusy}
           silentHealInFlight={hideMacTileForSilentHeal}
+          healExhausted={connectionHealExhausted && !effectiveMacHttpOk}
           pendingApprovalCount={composerApprovals.length}
           runProgress={progressBanner}
           isSending={isSending}
@@ -5267,6 +5299,7 @@ export default function ChatScreen() {
                 <ChatEmptyGreeting
                   routeLabel={isDemo ? 'Demo computer' : machineShortLabel}
                   isConnected={effectiveMacChatLive}
+                  connectionPending={suppressEmptyGreetingUnreachable}
                 />
                 {showMacConnectionHelp ? (
                   <Text style={styles.emptyPlaceholderText}>
