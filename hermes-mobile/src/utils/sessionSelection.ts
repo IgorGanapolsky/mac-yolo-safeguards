@@ -1,7 +1,7 @@
 import type { HermesSession } from '../types/chat';
 import type { ChatProjectState } from '../types/chatProject';
 import { buildTelegramInboxSession, TELEGRAM_INBOX_SESSION_ID } from '../services/telegramInbox';
-import { isGatewaySmokeTestMessage } from './gatewaySmokeMessages';
+import { isAutomationProbeText, isGatewaySmokeTestMessage } from './gatewaySmokeMessages';
 import { parseGatewayTimestamp, sessionLastActiveValue } from './sessionDisplay';
 
 export type SessionPickerSection = {
@@ -17,10 +17,10 @@ export function buildSessionPickerSections(sessions: HermesSession[]): SessionPi
       (s) =>
         s.id !== TELEGRAM_INBOX_SESSION_ID &&
         isUserFacingSession(s) &&
-        !isSmokeProbeSession(s),
+        !isAutomationProbeSession(s),
     ),
   );
-  const smoke = sessions.filter(isSmokeProbeSession);
+  const smoke = sessions.filter(isAutomationProbeSession);
 
   const sections: SessionPickerSection[] = [];
   const threadList: HermesSession[] = [];
@@ -43,6 +43,43 @@ export function isSmokeProbeSession(session: HermesSession): boolean {
     return false;
   }
   return isGatewaySmokeTestMessage(haystack);
+}
+
+/** Session created by a non-interactive harness channel (API server or CLI). */
+function isAutomationSourceSession(session: HermesSession): boolean {
+  const source = session.source?.trim().toLowerCase() ?? '';
+  if (source === 'api_server' || source === 'cli') {
+    return true;
+  }
+  return /^api[-_]/i.test(session.id);
+}
+
+/**
+ * Harness/automation probe session (guardrails "Reply with exactly: GUARDRAILS OK",
+ * hostname/sysctl smoke, `api-…` ids). These get fresh ids every harness run, so
+ * id-based dismissal can never keep them hidden — classify by source + content instead.
+ * Genuine user chats keep normal previews and stay visible regardless of source.
+ */
+export function isAutomationProbeSession(session: HermesSession): boolean {
+  if (isSmokeProbeSession(session)) {
+    return true;
+  }
+  if (!isAutomationSourceSession(session) || isMobileChatSession(session)) {
+    return false;
+  }
+  const title = session.title?.trim() ?? '';
+  const preview = session.preview?.trim() ?? '';
+  if (!title && !preview) {
+    return false;
+  }
+  // Every present field must look like a probe — a real prompt in either keeps it visible.
+  if (title && !isAutomationProbeText(title)) {
+    return false;
+  }
+  if (preview && !isAutomationProbeText(preview)) {
+    return false;
+  }
+  return true;
 }
 
 export function isUserFacingSession(session: HermesSession): boolean {

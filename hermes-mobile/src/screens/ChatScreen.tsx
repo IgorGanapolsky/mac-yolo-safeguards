@@ -542,10 +542,12 @@ export default function ChatScreen() {
   const dismissedHydrationGenRef = useRef(0);
   const dismissedSessionIdsRef = useRef<string[]>([]);
   const hideCronSessionsRef = useRef(false);
+  const hideAutomationSessionsRef = useRef(false);
   const [composerFocusNonce, setComposerFocusNonce] = useState(0);
   const [recentChatsDismissed, setRecentChatsDismissed] = useState(false);
   const [dismissedSessionIds, setDismissedSessionIds] = useState<string[]>([]);
   const [hideCronSessions, setHideCronSessions] = useState(false);
+  const [hideAutomationSessions, setHideAutomationSessions] = useState(false);
   const [messageDetail, setMessageDetail] = useState<{ title: string; body: string } | null>(null);
   const [feedbackPrompt, setFeedbackPrompt] = useState<{
     message: HermesMessage;
@@ -1514,11 +1516,13 @@ export default function ChatScreen() {
     return filterDismissedThreadSessions(list, {
       dismissedSessionIds,
       hideCronSessions,
+      hideAutomationSessions,
     });
-  }, [sessions, projectState, activeProject, dismissedSessionIds, hideCronSessions]);
+  }, [sessions, projectState, activeProject, dismissedSessionIds, hideCronSessions, hideAutomationSessions]);
 
   dismissedSessionIdsRef.current = dismissedSessionIds;
   hideCronSessionsRef.current = hideCronSessions;
+  hideAutomationSessionsRef.current = hideAutomationSessions;
 
   const recentsRailSessions = useMemo(
     () => visibleSessions.filter((session) => isRecentsRailSession(session)),
@@ -1908,6 +1912,7 @@ export default function ChatScreen() {
       const filteredSessions = filterDismissedThreadSessions(finalSessions, {
         dismissedSessionIds: dismissedSessionIdsRef.current,
         hideCronSessions: hideCronSessionsRef.current,
+        hideAutomationSessions: hideAutomationSessionsRef.current,
       });
       setSessions(filteredSessions);
 
@@ -1926,6 +1931,7 @@ export default function ChatScreen() {
       const selectableSessions = filterDismissedThreadSessions(finalSessions, {
         dismissedSessionIds: dismissedSessionIdsRef.current,
         hideCronSessions: hideCronSessionsRef.current,
+        hideAutomationSessions: hideAutomationSessionsRef.current,
       });
       const rememberedSessionId = await storage.loadLastSessionForComputer(computerSessionKeys);
 
@@ -1970,6 +1976,7 @@ export default function ChatScreen() {
     if (isDemo) {
       setDismissedSessionIds([]);
       setHideCronSessions(false);
+      setHideAutomationSessions(false);
       return;
     }
     const hydrationGen = ++dismissedHydrationGenRef.current;
@@ -1977,10 +1984,12 @@ export default function ChatScreen() {
     void Promise.all([
       storage.loadDismissedSessionIds(activeComputerSessionKeys, gatewayUrl),
       storage.loadHideCronSessions(activeComputerSessionKeys, gatewayUrl),
-    ]).then(([ids, hideCron]) => {
+      storage.loadHideAutomationSessions(activeComputerSessionKeys, gatewayUrl),
+    ]).then(([ids, hideCron, hideAutomation]) => {
       if (!cancelled && hydrationGen === dismissedHydrationGenRef.current) {
         setDismissedSessionIds(ids);
         setHideCronSessions(hideCron);
+        setHideAutomationSessions(hideAutomation);
       }
     });
     return () => {
@@ -2942,6 +2951,9 @@ export default function ChatScreen() {
       if (hideCronAfterClear) {
         hideCronSessionsRef.current = true;
       }
+      // Harness probes (API_SERVER/CLI) get fresh ids every run, so id dismissal cannot
+      // keep them out. After a Clear all, suppress the whole class permanently.
+      hideAutomationSessionsRef.current = true;
 
       let gatewayCleared = false;
       let failed = 0;
@@ -2969,12 +2981,16 @@ export default function ChatScreen() {
         setHideCronSessions(true);
       }
 
+      await storage.setHideAutomationSessions(activeComputerSessionKeys, true, gatewayUrl);
+      setHideAutomationSessions(true);
+
       setDismissedSessionIds(nextDismissed);
 
       const applyClearedFilter = (list: HermesSession[]) =>
         filterDismissedThreadSessions(list, {
           dismissedSessionIds: nextDismissed,
           hideCronSessions: effectiveHideCron,
+          hideAutomationSessions: true,
         });
 
       setSessions((prev) => applyClearedFilter(prev));
