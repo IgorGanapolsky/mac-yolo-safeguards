@@ -112,6 +112,7 @@
     },
     "plugins": [
       "./plugins/withEmbeddedJsBundle.js",
+      "./plugins/withNetworkSecurityConfig.js",
       "expo-updates",
       "./plugins/withHermesAiGlasses.js",
       "./plugins/withHermesAppleIntelligence.js",
@@ -119,14 +120,14 @@
         "expo-build-properties",
         {
           "android": {
-            "usesCleartextTraffic": true,
+            "usesCleartextTraffic": false,
             "softwareKeyboardLayoutMode": "resize",
             "buildArchs": [
               "arm64-v8a"
             ],
             "enableMinifyInReleaseBuilds": true,
             "enableShrinkResourcesInReleaseBuilds": true,
-            "extraProguardRules": "# Play Billing (expo-iap)\n-keep class com.android.billingclient.api.** { *; }\n-dontwarn com.android.billingclient.api.**\n# ML Kit barcode + libbarhopper (expo-camera QR scanner)\n-keep class com.google.mlkit.** { *; }\n-keep class com.google.android.gms.internal.mlkit_vision_** { *; }\n-keep class com.google.android.libraries.barhopper.** { *; }\n-keep class com.google.android.gms.vision.** { *; }\n-dontwarn com.google.mlkit.**\n-dontwarn com.google.android.gms.internal.mlkit_vision_**\n# react-native-reanimated (ships no consumer rules)\n-keep class com.swmansion.reanimated.** { *; }\n-keep class com.swmansion.gesturehandler.** { *; }\n# JNI / reflection native methods safety net\n-keepclasseswithmembernames class * { native <methods>; }"
+            "extraProguardRules": "# Play Billing (expo-iap)\n-keep class com.android.billingclient.api.** { *; }\n-dontwarn com.android.billingclient.api.**\n# ML Kit barcode + libbarhopper (expo-camera QR scanner)\n-keep class com.google.mlkit.** { *; }\n-keep class com.google.android.gms.internal.mlkit_vision_** { *; }\n-keep class com.google.android.libraries.barhopper.** { *; }\n-keep class com.google.android.gms.vision.** { *; }\n-dontwarn com.google.mlkit.**\n-dontwarn com.google.android.gms.internal.mlkit_vision_**\n# JNI / reflection native methods safety net\n-keepclasseswithmembernames class * { native <methods>; }"
           }
         }
       ],
