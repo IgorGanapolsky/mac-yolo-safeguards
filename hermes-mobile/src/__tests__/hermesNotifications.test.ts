@@ -1,8 +1,15 @@
 import {
   approvalNotificationSubtitle,
+  androidStatusChannelImportance,
+  CHANNEL_RESULTS_V2,
+  CHANNEL_STATUS_V2,
+  clearRunProgressNotification,
+  cancelRunStallNotification,
+  initHermesNotifications,
   parseApprovalNotificationResponse,
   parseHermesNotificationResponse,
   resolveHermesNotificationHandlerResult,
+  RUN_STATUS_MIN_INTERVAL_MS,
   runProgressNotificationTitle,
   scheduleApprovalsSummaryNotification,
   scheduleRunProgressNotification,
@@ -10,7 +17,7 @@ import {
   shouldDismissRunNotificationsForAppState,
 } from '../services/hermesNotifications';
 import * as Notifications from 'expo-notifications';
-import { AppState } from 'react-native';
+import { AppState, Platform } from 'react-native';
 
 describe('hermesNotifications', () => {
   it('parses approve_once notification actions', () => {
@@ -107,6 +114,16 @@ describe('hermesNotifications', () => {
     expect(shouldDismissRunNotificationsForAppState('inactive')).toBe(false);
   });
 
+  it('uses v2 quiet channel ids and LOW importance (never HIGH)', () => {
+    expect(CHANNEL_STATUS_V2).toBe('hermes-status-v2');
+    expect(CHANNEL_RESULTS_V2).toBe('hermes-results-v2');
+    expect(RUN_STATUS_MIN_INTERVAL_MS).toBeGreaterThanOrEqual(10_000);
+    const importance = androidStatusChannelImportance(Notifications.AndroidImportance);
+    expect(importance).toBe(Notifications.AndroidImportance.LOW);
+    expect(importance).toBeLessThan(Notifications.AndroidImportance.DEFAULT);
+    expect(importance).toBeLessThan(Notifications.AndroidImportance.HIGH);
+  });
+
   describe('foreground suppression', () => {
     const originalCurrentState = AppState.currentState;
 
@@ -171,6 +188,77 @@ describe('hermesNotifications', () => {
     });
   });
 
+  describe('quiet status channel posting', () => {
+    const originalCurrentState = AppState.currentState;
+    const originalOS = Platform.OS;
+
+    beforeEach(async () => {
+      Object.defineProperty(AppState, 'currentState', {
+        value: 'background',
+        configurable: true,
+      });
+      Object.defineProperty(Platform, 'OS', { value: 'android', configurable: true });
+      jest.clearAllMocks();
+      jest.useFakeTimers({ now: 1_000_000 });
+      await clearRunProgressNotification();
+      await cancelRunStallNotification();
+      jest.clearAllMocks();
+    });
+
+    afterEach(() => {
+      Object.defineProperty(AppState, 'currentState', {
+        value: originalCurrentState,
+        configurable: true,
+      });
+      Object.defineProperty(Platform, 'OS', { value: originalOS, configurable: true });
+      jest.useRealTimers();
+      jest.clearAllMocks();
+    });
+
+    it('posts run progress on hermes-status-v2 with LOW priority and stable id', async () => {
+      await scheduleRunProgressNotification(
+        { phase: 'streaming', startedAtMs: Date.now(), detail: 'Live streaming' },
+        { runId: 'run-1', sessionId: 'sess-1', force: true },
+      );
+
+      expect(Notifications.scheduleNotificationAsync).toHaveBeenCalledTimes(1);
+      const call = (Notifications.scheduleNotificationAsync as jest.Mock).mock.calls[0][0];
+      expect(call.identifier).toBe('hermes-run-status');
+      expect(call.content.channelId).toBe(CHANNEL_STATUS_V2);
+      expect(call.content.priority).toBe(Notifications.AndroidNotificationPriority.LOW);
+      expect(call.content.data.type).toBe('run_progress');
+    });
+
+    it('rate-limits even when force is set so stream tokens cannot spam', async () => {
+      await scheduleRunProgressNotification(
+        { phase: 'streaming', startedAtMs: Date.now() },
+        { force: true },
+      );
+      await scheduleRunProgressNotification(
+        { phase: 'streaming', startedAtMs: Date.now() },
+        { force: true },
+      );
+      expect(Notifications.scheduleNotificationAsync).toHaveBeenCalledTimes(1);
+
+      jest.setSystemTime(1_000_000 + 2_500);
+      await scheduleRunProgressNotification(
+        { phase: 'streaming', startedAtMs: Date.now() },
+        { force: true },
+      );
+      expect(Notifications.scheduleNotificationAsync).toHaveBeenCalledTimes(2);
+    });
+
+    it('registers quiet v2 channels at LOW importance during init', async () => {
+      await initHermesNotifications();
+      const channelCalls = (Notifications.setNotificationChannelAsync as jest.Mock).mock.calls;
+      const status = channelCalls.find((c) => c[0] === CHANNEL_STATUS_V2);
+      const results = channelCalls.find((c) => c[0] === CHANNEL_RESULTS_V2);
+      expect(status?.[1].importance).toBe(Notifications.AndroidImportance.LOW);
+      expect(results?.[1].importance).toBe(Notifications.AndroidImportance.LOW);
+      expect(status?.[1].importance).toBeLessThan(Notifications.AndroidImportance.HIGH);
+    });
+  });
+
   describe('notification handler foreground policy', () => {
     function handlerPresentation(
       appState: string,
@@ -202,19 +290,24 @@ describe('hermesNotifications', () => {
       }
     });
 
-    it('allows banners in background and inactive', () => {
+    it('never peeks for live status types even in background', () => {
       for (const appState of ['background', 'inactive'] as const) {
-        const result = handlerPresentation(appState, 'run_progress');
-        expect(result.shouldShowBanner).toBe(true);
-        expect(result.shouldShowAlert).toBe(true);
+        for (const type of ['run_progress', 'run_stall', 'run_completed'] as const) {
+          const result = handlerPresentation(appState, type);
+          expect(result.shouldShowBanner).toBe(false);
+          expect(result.shouldShowAlert).toBe(false);
+          expect(result.shouldPlaySound).toBe(false);
+          expect(result.shouldShowList).toBe(true);
+        }
       }
     });
 
-    it('plays approval sounds only when not active', () => {
+    it('allows approval banners only when not active', () => {
       const active = handlerPresentation('active', 'approval');
-      expect(active.shouldPlaySound).toBe(false);
+      expect(active.shouldShowBanner).toBe(false);
 
       const background = handlerPresentation('background', 'approval');
+      expect(background.shouldShowBanner).toBe(true);
       expect(background.shouldPlaySound).toBe(true);
     });
   });
