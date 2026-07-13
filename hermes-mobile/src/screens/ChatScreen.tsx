@@ -2935,54 +2935,19 @@ export default function ChatScreen() {
         }
       }
 
-      const sourceSession = currentSessionRef.current;
-      if (isDemo || !sourceSession || isTelegramInboxSession(sourceSession)) {
-        await handleNewChat();
-        return;
-      }
-
-      try {
-        const forked = await forkSession(gatewayUrl, sourceSession.id, apiKey);
-        const forkId = forked.session_id?.trim();
-        if (!forkId) {
-          throw new Error('Could not fork chat on your computer');
-        }
-        const baseTitle = sourceSession.title?.trim() || 'Chat';
-        const freshSession = ensureSessionCreatedAt({
-          id: forkId,
-          title: `${baseTitle} (fresh)`,
-          model: sourceSession.model,
-          input_tokens: 0,
-          output_tokens: 0,
-          cache_read_tokens: 0,
-          last_active_at: new Date().toISOString(),
-        });
-        setSessions((prev) => [freshSession, ...prev.filter((session) => session.id !== forkId)]);
-        setCurrentSession(freshSession);
-        if (activeProject) {
-          const next = bindSessionToProject(projectState, activeProject.id, forkId, freshSession.title ?? baseTitle);
-          await persistProjectState(next);
-        }
-        void refreshSessionMessagesRef.current?.({ background: false, force: true });
-      } catch (error) {
-        setErrorMessage(
-          error instanceof Error ? error.message : 'Could not start a fresh chat on your computer',
-        );
-        await handleNewChat();
-      }
+      // Always open an empty compose-first chat. Gateway `/fork` copies transcript
+      // (mega sessions → multi-million-token clones + long hangs); "Start fresh" means empty.
+      await handleNewChat();
     } finally {
       isStartingFreshChatRef.current = false;
       setIsStartingFreshChat(false);
     }
   }, [
-    activeProject,
     apiKey,
     failPendingOutboundBubbles,
     gatewayUrl,
     handleNewChat,
     isDemo,
-    persistProjectState,
-    projectState,
     setRunProgress,
   ]);
 
@@ -4087,7 +4052,10 @@ export default function ChatScreen() {
             );
           } catch (err) {
             if (isSessionInUseError(err)) {
-              const forkSource = sessionsRef.current.find((session) => !isTelegramInboxSession(session));
+              const forkSource = sessionsRef.current.find(
+                (session) =>
+                  !isTelegramInboxSession(session) && !isMegaSessionSendBlocked(session),
+              );
               if (forkSource) {
                 try {
                   const forked = await forkSession(gatewayUrl, forkSource.id, apiKey);
@@ -4097,6 +4065,9 @@ export default function ChatScreen() {
                       id: forkId,
                       title: placeholderTitle,
                       last_active_at: new Date().toISOString(),
+                      input_tokens: 0,
+                      output_tokens: 0,
+                      cache_read_tokens: 0,
                     });
                   }
                 } catch {
