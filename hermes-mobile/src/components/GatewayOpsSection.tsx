@@ -29,9 +29,17 @@ import {
 } from '../services/hermesGatewayClient';
 import type { HermesCronJob, HermesSkill, HermesToolset } from '../types/gatewayApi';
 import { formatCronSchedule } from '../utils/sessionDisplay';
-import { formatToolsetLabel, toolsetStatusLine } from '../utils/opsToolsets';
+import {
+  configuredToolsetsToAutoEnable,
+  formatToolsetLabel,
+  markToolsetsEnabled,
+  toolsetAddKeyCtaLabel,
+  toolsetNeedsApiKey,
+  toolsetStatusLine,
+} from '../utils/opsToolsets';
 import ConnectionHealthHub from './ConnectionHealthHub';
 import AgentDashboardStrip from './AgentDashboardStrip';
+import IntegrationsSheet from './IntegrationsSheet';
 import { buildAgentDashboardStats } from '../utils/agentDashboardStats';
 import { formatGatewayModelPickerLabel, primaryGatewayModelLabel } from '../utils/gatewayCapabilitiesDisplay';
 import { isMacGatewayHttpOk } from '../utils/gatewayConnection';
@@ -70,6 +78,7 @@ export default function GatewayOpsSection() {
   const [error, setError] = useState<string | undefined>();
   const [expandedToolsets, setExpandedToolsets] = useState<Set<string>>(new Set());
   const [togglingToolset, setTogglingToolset] = useState<string | null>(null);
+  const [integrationsToolset, setIntegrationsToolset] = useState<HermesToolset | null>(null);
   const togglingToolsetRef = useRef<string | null>(null);
 
   const applyToolsetsFromServer = useCallback((serverList: HermesToolset[]) => {
@@ -122,7 +131,31 @@ export default function GatewayOpsSection() {
       setFeatureFlags(caps.features ?? {});
       setGatewayModel(primaryGatewayModelLabel(caps));
       setSkills(skillList);
-      applyToolsetsFromServer(toolsetList);
+      let resolvedToolsets = toolsetList;
+      const canWriteToolsets = caps.features?.toolsets_write === true;
+      const autoEnableTargets = canWriteToolsets
+        ? configuredToolsetsToAutoEnable(toolsetList)
+        : [];
+      if (autoEnableTargets.length > 0) {
+        const results = await Promise.allSettled(
+          autoEnableTargets.map((toolset) =>
+            setToolsetEnabled(gatewayUrl, toolset.name, true, apiKey),
+          ),
+        );
+        const enabledNames = new Set<string>();
+        results.forEach((result, index) => {
+          if (result.status === 'fulfilled' && result.value.enabled) {
+            enabledNames.add(autoEnableTargets[index].name);
+          }
+        });
+        resolvedToolsets = markToolsetsEnabled(toolsetList, enabledNames);
+        if (enabledNames.size !== autoEnableTargets.length) {
+          setError(
+            'Some ready tools could not be enabled automatically. Tap Refresh to retry.',
+          );
+        }
+      }
+      applyToolsetsFromServer(resolvedToolsets);
       setJobs(jobList);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load gateway ops');
@@ -147,6 +180,11 @@ export default function GatewayOpsSection() {
 
   const handleToolsetToggle = async (toolset: HermesToolset, nextEnabled: boolean) => {
     haptics.selection();
+    if (nextEnabled && toolsetNeedsApiKey(toolset)) {
+      setIntegrationsToolset(toolset);
+      return;
+    }
+
     if (isDemo) {
       setToolsets((prev) =>
         prev.map((ts) => (ts.name === toolset.name ? { ...ts, enabled: nextEnabled } : ts)),
@@ -179,8 +217,8 @@ export default function GatewayOpsSection() {
       const message = err instanceof Error ? err.message : 'Toolset update failed';
       if (message.includes('404') || message.includes('Not Found')) {
         Alert.alert(
-          'Gateway update required',
-          'Your direct Hermes machine needs the latest api_server (PUT /v1/toolsets). Restart Hermes after updating.',
+          'Computer update required',
+          'Your Mac needs the latest Hermes to toggle tools from the phone. Restart Hermes after updating.',
         );
       } else {
         Alert.alert('Could not update toolset', message);
@@ -253,6 +291,8 @@ export default function GatewayOpsSection() {
 
   const enabledFeatures = Object.entries(featureFlags).filter(([, v]) => v === true);
   const toolsetsWritable = featureFlags.toolsets_write === true || isDemo;
+  const integrationsConfigAvailable =
+    featureFlags.integrations_config === true || isDemo;
   const macHttpReachable = isMacGatewayHttpOk(health);
   const dashboardStats = buildAgentDashboardStats({
     toolsets,
@@ -314,8 +354,9 @@ export default function GatewayOpsSection() {
 
       <Text style={styles.sectionTitle}>Toolsets ({toolsets.length})</Text>
       <Text style={styles.sectionHint}>
-        Switches update platform_toolsets on your computer — what mobile Chat can call.
-        {toolsetsWritable ? '' : ' Update gateway to enable toggles from phone.'}
+        Ready tools (no missing keys) turn on automatically for Chat. Tools that need a key show
+        Add key beside the switch.
+        {toolsetsWritable ? '' : ' Update Hermes on your Mac to enable toggles from the phone.'}
       </Text>
       <GlassCard>
         {toolsets.length === 0 ? (
@@ -325,6 +366,7 @@ export default function GatewayOpsSection() {
             const expanded = expandedToolsets.has(ts.name);
             const label = formatToolsetLabel(ts.label, ts.name);
             const busy = togglingToolset === ts.name;
+            const needsKey = toolsetNeedsApiKey(ts);
             return (
               <View key={ts.name} style={styles.toolsetRow}>
                 <View style={styles.toolsetHeader}>
@@ -344,6 +386,19 @@ export default function GatewayOpsSection() {
                       ) : null}
                     </View>
                     <Text style={styles.expandHint}>{expanded ? '▾' : '▸'}</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.addKeyBtn, needsKey ? styles.addKeyBtnNeeded : null]}
+                    onPress={() => {
+                      haptics.selection();
+                      setIntegrationsToolset(ts);
+                    }}
+                    testID={`toolset-add-key-${ts.name}`}
+                    accessibilityLabel={`${toolsetAddKeyCtaLabel(ts)} for ${label}`}
+                  >
+                    <Text style={[styles.addKeyText, needsKey ? styles.addKeyTextNeeded : null]}>
+                      {toolsetAddKeyCtaLabel(ts)}
+                    </Text>
                   </TouchableOpacity>
                   <Switch
                     value={ts.enabled ?? false}
@@ -449,6 +504,18 @@ export default function GatewayOpsSection() {
           <Text key={key} style={styles.featureLine}>✓ {key.replace(/_/g, ' ')}</Text>
         ))}
       </GlassCard>
+
+      <IntegrationsSheet
+        visible={integrationsToolset != null}
+        toolset={integrationsToolset}
+        gatewayUrl={gatewayUrl}
+        apiKey={apiKey}
+        integrationsConfigAvailable={integrationsConfigAvailable}
+        onClose={() => setIntegrationsToolset(null)}
+        onSaved={() => {
+          void loadOps({ refresh: true });
+        }}
+      />
     </View>
   );
 }
@@ -505,6 +572,15 @@ const styles = StyleSheet.create({
   toolsetMain: { flex: 1, flexDirection: 'row', alignItems: 'flex-start', gap: 8 },
   toolsetText: { flex: 1 },
   expandHint: { fontSize: 14, color: colors.textMuted, paddingTop: 2 },
+  addKeyBtn: {
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    borderRadius: 8,
+    backgroundColor: 'rgba(148, 163, 184, 0.12)',
+  },
+  addKeyBtnNeeded: { backgroundColor: 'rgba(99, 102, 241, 0.28)' },
+  addKeyText: { fontSize: 11, fontWeight: '700', color: colors.textMuted },
+  addKeyTextNeeded: { color: colors.secondary },
   toolList: { marginTop: 8, paddingLeft: 4 },
   toolName: { fontSize: 11, color: colors.secondary, marginBottom: 2 },
   rowTitle: { fontSize: 14, fontWeight: '600', color: colors.text },

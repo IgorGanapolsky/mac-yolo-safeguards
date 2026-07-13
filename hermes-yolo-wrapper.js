@@ -27,10 +27,12 @@ const LOCK_PATH = process.env.HERMES_YOLO_LOCK_PATH || `/tmp/hermes-yolo-${cwdHa
 const LOG_PATH = process.env.HERMES_YOLO_LOG_PATH || `/tmp/hermes-yolo-${cwdHash}.log`;
 const HERMES_ENV_PATH = process.env.HERMES_ENV_PATH || path.join(HOME, '.hermes', '.env');
 const HERMES_CONFIG_PATH = process.env.HERMES_CONFIG_PATH || path.join(HOME, '.hermes', 'config.yaml');
-
+const HERMES_YOLO_RECEIPT_DIR = process.env.HERMES_YOLO_RECEIPT_DIR || path.join(HOME, '.hermes', 'receipts', 'hermes-yolo');
+const HERMES_YOLO_LATEST_RECEIPT_PATH = process.env.HERMES_YOLO_LATEST_RECEIPT_PATH || path.join(HERMES_YOLO_RECEIPT_DIR, 'latest.json');
+const HERMES_YOLO_HISTORY_RECEIPT_PATH = process.env.HERMES_YOLO_HISTORY_RECEIPT_PATH || path.join(HERMES_YOLO_RECEIPT_DIR, 'history.jsonl');
 // All thresholds overridable via env vars.
 const HERMES_BIN = process.env.HERMES_BIN || path.join(HOME, '.local/bin/hermes');
-const DEFAULT_TOOLSETS = process.env.HERMES_YOLO_TOOLSETS || 'terminal,file,web,code_execution,memory,clarify';
+const DEFAULT_TOOLSETS = process.env.HERMES_YOLO_TOOLSETS || 'terminal,file,web,code_execution,memory,clarify,computer_use,vision';
 
 function parseEnvFile(filePath = HERMES_ENV_PATH) {
   if (!filePath || !fs.existsSync(filePath)) return {};
@@ -223,14 +225,100 @@ const wrapperPromptMode = (
   process.stdout.isTTY &&
   process.env.HERMES_YOLO_INTERACTIVE !== '1'
 );
-const wrapperPromptText = wrapperPromptMode ? readPromptLineFromTty() : null;
-const effectivePromptText = wrapperPromptText || promptText;
-const childPromptArgs = buildChildPromptArgs(args, effectivePromptText, {
-  forceOneshot: wrapperPromptMode,
-});
+// Bare `hermes-yolo` on a TTY -> launch NATIVE interactive `hermes chat` (multi-line paste +
+// multi-turn) instead of reading a single line and one-shotting, which dropped pasted URLs to
+// the shell (zsh: no such file: https://...). Args/subcommands still route as before.
+const effectivePromptText = wrapperPromptMode ? 'interactive chat' : promptText;
+const childPromptArgs = wrapperPromptMode
+  ? ['chat']
+  : buildChildPromptArgs(args, effectivePromptText, {});
 
 function log(msg) {
   try { fs.appendFileSync(LOG_PATH, `${new Date().toISOString()} ${msg}\n`); } catch (e) {}
+}
+
+function digest(_value, length = 20) {
+  // Legacy receipt fields retain the *Digest name, but the value is an opaque
+  // random id with no mathematical or stored in-memory relation to prompt text.
+  return crypto.randomBytes(Math.ceil(length / 2)).toString('hex').slice(0, length);
+}
+
+function fileDigest(filePath) {
+  try {
+    const target = fs.realpathSync(filePath);
+    return crypto.createHash('sha256').update(fs.readFileSync(target)).digest('hex');
+  } catch (e) {
+    return null;
+  }
+}
+
+function safeError(value) {
+  return String(value || '')
+    .replaceAll(HOME, '~')
+    .replace(/(?:ghp_|xai-|sk-[A-Za-z0-9_-]*|Bearer\s+)[A-Za-z0-9_.-]{12,}/gi, '[REDACTED]')
+    .slice(0, 1000);
+}
+
+function summarizeRouteArgs(rawArgs) {
+  if (!rawArgs.length) return { kind: 'interactive-or-ready-probe', argCount: 0, taskDigest: digest(DEFAULT_READY_PROMPT) };
+  if (rawArgs[0] === '-z' || rawArgs[0] === '--single') {
+    return { kind: 'one-shot', argCount: rawArgs.length, taskDigest: digest(rawArgs.slice(1).join(' ') || DEFAULT_READY_PROMPT) };
+  }
+  if (!rawArgs[0].startsWith('-') && !HERMES_COMMANDS.has(rawArgs[0])) {
+    return { kind: 'prompt', argCount: rawArgs.length, taskDigest: digest(rawArgs.join(' ')) };
+  }
+  return { kind: HERMES_COMMANDS.has(rawArgs[0]) ? 'hermes-admin-command' : 'flag-command', argCount: rawArgs.length, command: rawArgs[0] };
+}
+
+function writeRouteReceipt(receipt, paths = {}) {
+  const latestPath = paths.latestPath || HERMES_YOLO_LATEST_RECEIPT_PATH;
+  const historyPath = paths.historyPath || HERMES_YOLO_HISTORY_RECEIPT_PATH;
+  fs.mkdirSync(path.dirname(latestPath), { recursive: true, mode: 0o700 });
+  fs.mkdirSync(path.dirname(historyPath), { recursive: true, mode: 0o700 });
+  const serialized = `${JSON.stringify(receipt)}\n`;
+  const tempPath = `${latestPath}.${process.pid}.tmp`;
+  fs.writeFileSync(tempPath, serialized, { mode: 0o600 });
+  fs.renameSync(tempPath, latestPath);
+  fs.appendFileSync(historyPath, serialized, { mode: 0o600 });
+  fs.chmodSync(latestPath, 0o600);
+  fs.chmodSync(historyPath, 0o600);
+  return { latestPath, historyPath };
+}
+
+function buildRouteReceipt(options = {}) {
+  const selectedBackend = options.selectedBackend || 'unknown';
+  const model = options.model || null;
+  return {
+    schema: 'hermes-yolo/route-receipt-v1',
+    generatedAt: options.generatedAt || new Date().toISOString(),
+    host: options.host || os.hostname(),
+    cwdDigest: digest(options.cwd || process.cwd()),
+    request: options.request || summarizeRouteArgs(options.rawArgs || []),
+    route: {
+      requestedBackend: options.requestedBackend || 'grok',
+      selectedBackend,
+      reason: options.reason || 'unknown',
+      provider: options.provider || null,
+      model,
+      launcher: options.launcher ? path.basename(options.launcher) : null,
+      launcherDigest: options.launcher ? fileDigest(options.launcher) : null,
+      fallbackAttempted: false,
+      silentFallback: false,
+      qwenSelected: /qwen/i.test(String(model || '')),
+      qwenExplicit: /qwen/i.test(String(model || '')) && (
+        options.requestedBackend === 'hermes' ||
+        options.reason === 'hermes-admin-command' ||
+        options.reason === 'hermes-flag-command'
+      ),
+    },
+    execution: {
+      status: options.status || 'unknown',
+      exitCode: Number.isInteger(options.exitCode) ? options.exitCode : null,
+      signal: options.signal || null,
+      durationMs: Number(options.durationMs || 0),
+      error: options.error ? safeError(options.error) : null,
+    },
+  };
 }
 
 function releaseLock() {
@@ -238,6 +326,147 @@ function releaseLock() {
     const owner = parseInt(fs.readFileSync(LOCK_PATH, 'utf8').trim(), 10);
     if (owner === process.pid) fs.unlinkSync(LOCK_PATH);
   } catch (e) {}
+}
+
+function findGrokYoloBinary(env = process.env) {
+  const candidates = [
+    env.GROK_YOLO_BIN,
+    path.join(HOME, '.local', 'bin', 'grok-yolo'),
+    path.join(__dirname, 'grok-yolo-wrapper.js'),
+  ].filter(Boolean);
+  for (const candidate of candidates) {
+    try {
+      if (fs.statSync(candidate).isFile()) return candidate;
+    } catch (e) {}
+  }
+  return null;
+}
+
+function classifyBackend(rawArgs, env = process.env) {
+  const backend = String(env.HERMES_YOLO_BACKEND || 'grok').trim().toLowerCase();
+  if (!['grok', 'auto', 'hermes'].includes(backend)) {
+    throw new Error(`Unsupported HERMES_YOLO_BACKEND=${backend}; expected grok, auto, or hermes`);
+  }
+  if (backend === 'hermes') return { requestedBackend: backend, selectedBackend: 'hermes-legacy', reason: 'explicit-hermes-backend' };
+  if (rawArgs.length > 0 && ['--version', '-V', '--help', '-h'].includes(rawArgs[0])) {
+    return { requestedBackend: backend, selectedBackend: 'hermes-legacy', reason: 'hermes-flag-command' };
+  }
+  if (rawArgs.length > 0 && ['--provider', '--model', '--toolsets'].includes(rawArgs[0])) {
+    return { requestedBackend: backend, selectedBackend: 'hermes-legacy', reason: 'hermes-flag-command' };
+  }
+  if (rawArgs.length > 0 && HERMES_COMMANDS.has(rawArgs[0])) {
+    return { requestedBackend: backend, selectedBackend: 'hermes-legacy', reason: 'hermes-admin-command' };
+  }
+  return { requestedBackend: backend, selectedBackend: 'grok-4.5', reason: 'default-prompt-route' };
+}
+
+function shouldUseGrokBackend(rawArgs, env = process.env) {
+  return classifyBackend(rawArgs, env).selectedBackend === 'grok-4.5';
+}
+
+function buildGrokBackendArgs(rawArgs, options = {}) {
+  const isTty = options.isTty !== undefined ? options.isTty : Boolean(process.stdin.isTTY && process.stdout.isTTY);
+  if (rawArgs.length === 0) {
+    return isTty ? [] : ['-p', DEFAULT_READY_PROMPT, '--output-format', 'plain'];
+  }
+  if (rawArgs[0] === '-z' || rawArgs[0] === '--single') {
+    const prompt = rawArgs.slice(1).join(' ').trim() || DEFAULT_READY_PROMPT;
+    return ['-p', prompt, '--output-format', 'plain'];
+  }
+  if (!rawArgs[0].startsWith('-')) {
+    return ['-p', rawArgs.join(' '), '--output-format', 'plain'];
+  }
+  return rawArgs;
+}
+
+function routeStatus(env = process.env, dependencies = {}) {
+  const grokYoloBin = findGrokYoloBinary(env);
+  const base = {
+    schema: 'hermes-yolo/route-status-v1',
+    generatedAt: new Date().toISOString(),
+    defaultPromptBackend: 'grok-4.5',
+    silentFallbackAllowed: false,
+    grokLauncher: grokYoloBin ? path.basename(grokYoloBin) : null,
+    grokLauncherDigest: grokYoloBin ? fileDigest(grokYoloBin) : null,
+    legacyProvider: DEFAULT_PROVIDER,
+    legacyModel: DEFAULT_MODEL,
+    receiptSchema: 'hermes-yolo/route-receipt-v1',
+  };
+  if (!grokYoloBin) return { ...base, ready: false, blocker: 'grok_yolo_not_installed' };
+  const runner = dependencies.runner || require('child_process').spawnSync;
+  const result = runner(grokYoloBin, ['--doctor', '--json'], { encoding: 'utf8', env });
+  if (result.error) return { ...base, ready: false, blocker: 'grok_doctor_failed_to_start', error: safeError(result.error.message) };
+  if (result.status !== 0) return { ...base, ready: false, blocker: 'grok_doctor_failed', exitCode: result.status };
+  try {
+    const doctor = JSON.parse(result.stdout || '{}');
+    return {
+      ...base,
+      ready: Boolean(doctor.ready),
+      blocker: doctor.blocker || null,
+      version: doctor.version || null,
+      model: doctor.model || null,
+      modelAvailable: Boolean(doctor.modelAvailable),
+      authenticated: Boolean(doctor.authenticated),
+      authMode: doctor.authMode || 'none',
+      billingMode: doctor.billingMode || 'unknown',
+      apiBillingActivatedByWrapper: Boolean(doctor.apiBillingActivatedByWrapper),
+    };
+  } catch (error) {
+    return { ...base, ready: false, blocker: 'grok_doctor_invalid_json', error: safeError(error.message) };
+  }
+}
+
+function runGrokBackend(rawArgs, env = process.env, dependencies = {}) {
+  const started = Date.now();
+  const classification = classifyBackend(rawArgs, env);
+  const grokYoloBin = findGrokYoloBinary(env);
+  if (!grokYoloBin) {
+    writeRouteReceipt(buildRouteReceipt({
+      rawArgs,
+      ...classification,
+      model: 'grok-4.5',
+      status: 'blocked',
+      exitCode: 127,
+      durationMs: Date.now() - started,
+      error: 'grok-yolo is not installed',
+    }));
+    console.error('[hermes-yolo] Grok 4.5 backend is required but grok-yolo is not installed.');
+    console.error('[hermes-yolo] Refusing to silently fall back to Qwen.');
+    process.exit(127);
+  }
+  const grokArgs = buildGrokBackendArgs(rawArgs);
+  console.error('[hermes-yolo] backend=grok-4.5 (set HERMES_YOLO_BACKEND=hermes for the legacy Hermes provider route)');
+  const runner = dependencies.runner || require('child_process').spawnSync;
+  const result = runner(grokYoloBin, grokArgs, {
+    stdio: 'inherit',
+    env,
+  });
+  if (result.error) {
+    writeRouteReceipt(buildRouteReceipt({
+      rawArgs,
+      ...classification,
+      launcher: grokYoloBin,
+      model: 'grok-4.5',
+      status: 'fail',
+      exitCode: 127,
+      durationMs: Date.now() - started,
+      error: result.error.message,
+    }));
+    console.error(`[hermes-yolo] Grok 4.5 backend failed to start: ${result.error.message}`);
+    process.exit(127);
+  }
+  const exitCode = result.status === null ? 1 : result.status;
+  writeRouteReceipt(buildRouteReceipt({
+    rawArgs,
+    ...classification,
+    launcher: grokYoloBin,
+    model: 'grok-4.5',
+    status: exitCode === 0 ? 'pass' : 'fail',
+    exitCode,
+    signal: result.signal || null,
+    durationMs: Date.now() - started,
+  }));
+  process.exit(exitCode);
 }
 
 function updateStatus(updater) {
@@ -250,6 +479,16 @@ function updateStatus(updater) {
 }
 
 if (require.main === module) {
+if (args.length === 1 && (args[0] === '--route-status' || args[0] === 'route-status')) {
+  const status = routeStatus(process.env);
+  console.log(JSON.stringify(status, null, 2));
+  process.exit(status.ready ? 0 : 2);
+}
+const activeClassification = classifyBackend(args, process.env);
+const legacyStartedAt = Date.now();
+if (activeClassification.selectedBackend === 'grok-4.5') {
+  runGrokBackend(args, process.env);
+}
 // --- Singleton lock: refuse second instance, clear stale locks ---
 if (fs.existsSync(LOCK_PATH)) {
   const lockPid = parseInt(fs.readFileSync(LOCK_PATH, 'utf8').trim(), 10);
@@ -363,12 +602,23 @@ const env = Object.assign({}, ROUTE_ENV, {
   HERMES_ACCEPT_HOOKS: '1'
 });
 
-const childStdio = wrapperPromptMode ? ['ignore', 'inherit', 'inherit'] : 'inherit';
+const childStdio = 'inherit';  // interactive chat needs stdin (keyboard), not just stdout/stderr
 const child = spawn(HERMES_BIN, [...EXTRA_ARGS, ...childPromptArgs], { stdio: childStdio, env });
 log(`SPAWNED childPid=${child.pid}`);
 
 child.on('error', (err) => {
   log(`SPAWN_ERROR ${err.code} ${err.message}`);
+  writeRouteReceipt(buildRouteReceipt({
+    rawArgs: args,
+    ...activeClassification,
+    launcher: HERMES_BIN,
+    provider: DEFAULT_PROVIDER,
+    model: DEFAULT_MODEL,
+    status: 'fail',
+    exitCode: 127,
+    durationMs: Date.now() - legacyStartedAt,
+    error: err.message,
+  }));
   console.error(`\x1b[31m[hermes-yolo]\x1b[0m Failed to spawn ${HERMES_BIN}: ${err.message}`);
   releaseLock();
   process.exit(127);
@@ -430,7 +680,8 @@ function getAggregateCpu(pids) {
 }
 
 // Hard timeout
-const timeoutHandle = setTimeout(
+// No hard timeout in interactive chat — a human session isn't a stuck task and must not be killed.
+const timeoutHandle = wrapperPromptMode ? null : setTimeout(
   () => killChild(`hard timeout (${TIMEOUT_MS}ms)`),
   TIMEOUT_MS
 );
@@ -457,10 +708,22 @@ const watchdog = CPU_WATCHDOG_ENABLED ? setInterval(() => {
 }, CPU_SAMPLE_INTERVAL_MS) : null;
 
 child.on('close', (code, signal) => {
-  clearTimeout(timeoutHandle);
+  if (timeoutHandle) clearTimeout(timeoutHandle);
   if (watchdog) clearInterval(watchdog);
   releaseLock();
   log(`EXIT code=${code} signal=${signal} killed=${killed} reason=${killReason || ''}`);
+  writeRouteReceipt(buildRouteReceipt({
+    rawArgs: args,
+    ...activeClassification,
+    launcher: HERMES_BIN,
+    provider: DEFAULT_PROVIDER,
+    model: DEFAULT_MODEL,
+    status: killed ? 'timeout' : code === 0 ? 'pass' : 'fail',
+    exitCode: killed ? 124 : (code ?? 0),
+    signal: signal || null,
+    durationMs: Date.now() - legacyStartedAt,
+    error: killed ? killReason : null,
+  }));
 
   updateStatus(data => {
     const watcher = data.agents.find(a => a.id === 'antigravity-coder-1');
@@ -511,6 +774,15 @@ module.exports = {
   hasZaiKey,
   mergedHermesEnv,
   parseEnvFile,
+  buildGrokBackendArgs,
+  findGrokYoloBinary,
+  shouldUseGrokBackend,
+  classifyBackend,
+  buildRouteReceipt,
+  routeStatus,
+  summarizeRouteArgs,
+  writeRouteReceipt,
+  digest,
   HERMES_COMMANDS,
   DEFAULT_READY_PROMPT
 };

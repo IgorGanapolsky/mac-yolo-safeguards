@@ -37,6 +37,45 @@ function gatewayDismissKey(gatewayUrl: string): string {
   }
 }
 
+/** Stable dismiss keys — machine hostname first, then legacy gateway host for migration. */
+function resolveDismissStorageKeys(
+  computerKeys: string | string[] | null | undefined,
+  gatewayUrl?: string | null,
+): string[] {
+  const keys: string[] = [];
+  const seen = new Set<string>();
+  const add = (raw: string | null | undefined) => {
+    const normalized = normalizeComputerSessionKey(raw);
+    if (!normalized || seen.has(normalized)) {
+      return;
+    }
+    seen.add(normalized);
+    keys.push(normalized);
+  };
+
+  for (const key of Array.isArray(computerKeys) ? computerKeys : [computerKeys]) {
+    add(key);
+  }
+  if (gatewayUrl?.trim()) {
+    add(gatewayDismissKey(gatewayUrl));
+  }
+  return keys;
+}
+
+function normalizeDismissLookupArgs(
+  computerKeysOrUrl: string | string[] | null | undefined,
+  gatewayUrl?: string | null,
+): string[] {
+  if (gatewayUrl !== undefined && gatewayUrl !== null) {
+    return resolveDismissStorageKeys(computerKeysOrUrl, gatewayUrl);
+  }
+  const single = Array.isArray(computerKeysOrUrl) ? computerKeysOrUrl[0] : computerKeysOrUrl;
+  if (single?.trim().startsWith('http')) {
+    return resolveDismissStorageKeys(undefined, single);
+  }
+  return resolveDismissStorageKeys(computerKeysOrUrl, undefined);
+}
+
 async function loadDismissedSessionMap(): Promise<DismissedSessionMap> {
   try {
     const raw = await AsyncStorage.getItem(KEYS.DISMISSED_SESSION_IDS);
@@ -365,42 +404,71 @@ export const storage = {
     }
   },
 
-  async loadDismissedSessionIds(gatewayUrl: string): Promise<string[]> {
-    const key = gatewayDismissKey(gatewayUrl);
+  async loadDismissedSessionIds(
+    computerKeysOrUrl: string | string[] | null | undefined,
+    gatewayUrl?: string | null,
+  ): Promise<string[]> {
+    const keys = normalizeDismissLookupArgs(computerKeysOrUrl, gatewayUrl);
+    if (keys.length === 0) {
+      return [];
+    }
     const map = await loadDismissedSessionMap();
-    const ids = map[key];
-    return Array.isArray(ids) ? ids.filter(Boolean) : [];
+    const merged = new Set<string>();
+    for (const key of keys) {
+      const ids = map[key];
+      if (!Array.isArray(ids)) {
+        continue;
+      }
+      for (const id of ids) {
+        if (id) {
+          merged.add(id);
+        }
+      }
+    }
+    return Array.from(merged);
   },
 
-  async addDismissedSessionIds(gatewayUrl: string, sessionIds: string[]): Promise<void> {
-    const key = gatewayDismissKey(gatewayUrl);
+  async addDismissedSessionIds(
+    computerKeysOrUrl: string | string[] | null | undefined,
+    sessionIds: string[],
+    gatewayUrl?: string | null,
+  ): Promise<void> {
+    const keys = normalizeDismissLookupArgs(computerKeysOrUrl, gatewayUrl);
     const incoming = sessionIds.map((id) => id.trim()).filter(Boolean);
-    if (incoming.length === 0) {
+    if (keys.length === 0 || incoming.length === 0) {
       return;
     }
     try {
       const map = await loadDismissedSessionMap();
-      const merged = new Set([...(map[key] ?? []), ...incoming]);
-      map[key] = Array.from(merged);
+      for (const key of keys) {
+        const merged = new Set([...(map[key] ?? []), ...incoming]);
+        map[key] = Array.from(merged);
+      }
       await AsyncStorage.setItem(KEYS.DISMISSED_SESSION_IDS, JSON.stringify(map));
     } catch (error) {
       console.error('[hermes-mobile] addDismissedSessionIds failed:', error);
     }
   },
 
-  async removeDismissedSessionIds(gatewayUrl: string, sessionIds: string[]): Promise<void> {
-    const key = gatewayDismissKey(gatewayUrl);
+  async removeDismissedSessionIds(
+    computerKeysOrUrl: string | string[] | null | undefined,
+    sessionIds: string[],
+    gatewayUrl?: string | null,
+  ): Promise<void> {
+    const keys = normalizeDismissLookupArgs(computerKeysOrUrl, gatewayUrl);
     const remove = new Set(sessionIds.map((id) => id.trim()).filter(Boolean));
-    if (remove.size === 0) {
+    if (keys.length === 0 || remove.size === 0) {
       return;
     }
     try {
       const map = await loadDismissedSessionMap();
-      const next = (map[key] ?? []).filter((id) => !remove.has(id));
-      if (next.length === 0) {
-        delete map[key];
-      } else {
-        map[key] = next;
+      for (const key of keys) {
+        const next = (map[key] ?? []).filter((id) => !remove.has(id));
+        if (next.length === 0) {
+          delete map[key];
+        } else {
+          map[key] = next;
+        }
       }
       await AsyncStorage.setItem(KEYS.DISMISSED_SESSION_IDS, JSON.stringify(map));
     } catch (error) {
@@ -408,34 +476,60 @@ export const storage = {
     }
   },
 
-  async clearDismissedSessionIds(gatewayUrl: string): Promise<void> {
-    const key = gatewayDismissKey(gatewayUrl);
+  async clearDismissedSessionIds(
+    computerKeysOrUrl: string | string[] | null | undefined,
+    gatewayUrl?: string | null,
+  ): Promise<void> {
+    const keys = normalizeDismissLookupArgs(computerKeysOrUrl, gatewayUrl);
+    if (keys.length === 0) {
+      return;
+    }
     try {
       const map = await loadDismissedSessionMap();
-      if (!map[key]) {
-        return;
+      let changed = false;
+      for (const key of keys) {
+        if (map[key]) {
+          delete map[key];
+          changed = true;
+        }
       }
-      delete map[key];
-      await AsyncStorage.setItem(KEYS.DISMISSED_SESSION_IDS, JSON.stringify(map));
+      if (changed) {
+        await AsyncStorage.setItem(KEYS.DISMISSED_SESSION_IDS, JSON.stringify(map));
+      }
     } catch (error) {
       console.error('[hermes-mobile] clearDismissedSessionIds failed:', error);
     }
   },
 
-  async loadHideCronSessions(gatewayUrl: string): Promise<boolean> {
-    const key = gatewayDismissKey(gatewayUrl);
+  async loadHideCronSessions(
+    computerKeysOrUrl: string | string[] | null | undefined,
+    gatewayUrl?: string | null,
+  ): Promise<boolean> {
+    const keys = normalizeDismissLookupArgs(computerKeysOrUrl, gatewayUrl);
+    if (keys.length === 0) {
+      return false;
+    }
     const map = await loadHideCronSessionMap();
-    return map[key] === true;
+    return keys.some((key) => map[key] === true);
   },
 
-  async setHideCronSessions(gatewayUrl: string, hidden: boolean): Promise<void> {
-    const key = gatewayDismissKey(gatewayUrl);
+  async setHideCronSessions(
+    computerKeysOrUrl: string | string[] | null | undefined,
+    hidden: boolean,
+    gatewayUrl?: string | null,
+  ): Promise<void> {
+    const keys = normalizeDismissLookupArgs(computerKeysOrUrl, gatewayUrl);
+    if (keys.length === 0) {
+      return;
+    }
     try {
       const map = await loadHideCronSessionMap();
-      if (hidden) {
-        map[key] = true;
-      } else {
-        delete map[key];
+      for (const key of keys) {
+        if (hidden) {
+          map[key] = true;
+        } else {
+          delete map[key];
+        }
       }
       await AsyncStorage.setItem(KEYS.HIDE_CRON_SESSIONS, JSON.stringify(map));
     } catch (error) {

@@ -6,7 +6,7 @@
     "experiments": {
       "reactCompiler": true
     },
-    "version": "0.3.2",
+    "version": "1.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
@@ -73,7 +73,7 @@
           }
         ]
       },
-      "buildNumber": "12"
+      "buildNumber": "13"
     },
     "android": {
       "adaptiveIcon": {
@@ -83,7 +83,7 @@
         "backgroundColor": "#4F46E5"
       },
       "package": "com.iganapolsky.hermesmobile",
-      "versionCode": 7,
+      "versionCode": 11,
       "userInterfaceStyle": "dark",
       "allowBackup": false,
       "softwareKeyboardLayoutMode": "resize",

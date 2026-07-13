@@ -1,7 +1,7 @@
 'use strict';
 
 const assert = require('assert');
-const { execSync } = require('child_process');
+const { execFileSync, execSync } = require('child_process');
 const path = require('path');
 const fs = require('fs');
 
@@ -12,6 +12,7 @@ console.log('=== Running hermes-yolo-wrapper tests ===\n');
 // 1. Load the wrapper module (thanks to our module.exports check)
 const {
   buildChildPromptArgs,
+  buildGrokBackendArgs,
   chooseLocalModel,
   chooseZaiProvider,
   configuredProviderIds,
@@ -21,9 +22,72 @@ const {
   hasZaiKey,
   mergedHermesEnv,
   parseEnvFile,
+  shouldUseGrokBackend,
+  classifyBackend,
+  buildRouteReceipt,
+  routeStatus,
+  summarizeRouteArgs,
+  digest,
   HERMES_COMMANDS,
   DEFAULT_READY_PROMPT,
 } = require(WRAPPER_PATH);
+
+console.log('Testing Grok 4.5 default backend routing...');
+assert.strictEqual(shouldUseGrokBackend([], {}), true);
+assert.strictEqual(shouldUseGrokBackend(['fix', 'the', 'bug'], {}), true);
+assert.strictEqual(shouldUseGrokBackend(['doctor'], {}), false);
+assert.strictEqual(shouldUseGrokBackend(['--version'], {}), false);
+assert.strictEqual(shouldUseGrokBackend(['fix'], { HERMES_YOLO_BACKEND: 'hermes' }), false);
+assert.throws(() => shouldUseGrokBackend([], { HERMES_YOLO_BACKEND: 'unknown' }), /Unsupported/);
+assert.deepStrictEqual(buildGrokBackendArgs([], { isTty: true }), []);
+assert.deepStrictEqual(buildGrokBackendArgs([], { isTty: false }), ['-p', DEFAULT_READY_PROMPT, '--output-format', 'plain']);
+assert.deepStrictEqual(buildGrokBackendArgs(['fix', 'the', 'bug']), ['-p', 'fix the bug', '--output-format', 'plain']);
+assert.deepStrictEqual(buildGrokBackendArgs(['-z', 'return', 'marker']), ['-p', 'return marker', '--output-format', 'plain']);
+assert.deepStrictEqual(classifyBackend(['fix', 'the', 'bug'], {}), {
+  requestedBackend: 'grok', selectedBackend: 'grok-4.5', reason: 'default-prompt-route',
+});
+assert.deepStrictEqual(classifyBackend(['doctor'], {}), {
+  requestedBackend: 'grok', selectedBackend: 'hermes-legacy', reason: 'hermes-admin-command',
+});
+assert.deepStrictEqual(classifyBackend(['fix'], { HERMES_YOLO_BACKEND: 'hermes' }), {
+  requestedBackend: 'hermes', selectedBackend: 'hermes-legacy', reason: 'explicit-hermes-backend',
+});
+const summarizedPrompt = summarizeRouteArgs(['fix', 'private', 'bug']);
+assert.strictEqual(summarizedPrompt.kind, 'prompt');
+assert.strictEqual(summarizedPrompt.taskDigest.length, 20);
+assert(!JSON.stringify(summarizedPrompt).includes('private'));
+assert.notStrictEqual(digest('private prompt'), digest('private prompt'));
+assert.notStrictEqual(digest('private prompt'), '6fe06b970bb77bb96bee');
+
+const routeReceipt = buildRouteReceipt({
+  rawArgs: ['private', 'prompt'],
+  requestedBackend: 'grok',
+  selectedBackend: 'grok-4.5',
+  reason: 'default-prompt-route',
+  model: 'grok-4.5',
+  status: 'pass',
+  exitCode: 0,
+  durationMs: 25,
+  generatedAt: '2026-07-12T00:00:00.000Z',
+  host: 'test-host',
+  cwd: '/private/project',
+});
+assert.strictEqual(routeReceipt.route.silentFallback, false);
+assert.strictEqual(routeReceipt.route.qwenSelected, false);
+assert(!JSON.stringify(routeReceipt).includes('private prompt'));
+
+const qwenReceipt = buildRouteReceipt({
+  rawArgs: ['doctor'],
+  requestedBackend: 'grok',
+  selectedBackend: 'hermes-legacy',
+  reason: 'hermes-admin-command',
+  model: 'qwen3:8b-64k',
+  status: 'pass',
+  exitCode: 0,
+});
+assert.strictEqual(qwenReceipt.route.qwenSelected, true);
+assert.strictEqual(qwenReceipt.route.qwenExplicit, true);
+assert.strictEqual(qwenReceipt.route.silentFallback, false);
 
 console.log('Testing buildChildPromptArgs...');
 
@@ -213,17 +277,72 @@ try {
   fs.unlinkSync(tmpConfigPath);
 }
 
+const fakeGrokYoloPath = path.join(require('os').tmpdir(), `fake-grok-yolo-${process.pid}`);
+const routeReceiptRoot = fs.mkdtempSync(path.join(require('os').tmpdir(), 'hermes-yolo-route-test-'));
+fs.writeFileSync(fakeGrokYoloPath, [
+  '#!/usr/bin/env bash',
+  'printf "GROK-BACKEND:%s\\n" "$*"',
+  '',
+].join('\n'), { mode: 0o755 });
+try {
+  const grokBackendOutput = execFileSync(process.execPath, [WRAPPER_PATH, 'fix', 'the', 'bug'], {
+    encoding: 'utf8',
+    env: {
+      ...process.env,
+      GROK_YOLO_BIN: fakeGrokYoloPath,
+      HERMES_BIN: '/definitely-not-used/hermes',
+      HERMES_YOLO_RECEIPT_DIR: routeReceiptRoot,
+    },
+  });
+  assert(grokBackendOutput.includes('GROK-BACKEND:-p fix the bug --output-format plain'));
+  const storedRoute = JSON.parse(fs.readFileSync(path.join(routeReceiptRoot, 'latest.json'), 'utf8'));
+  assert.strictEqual(storedRoute.route.selectedBackend, 'grok-4.5');
+  assert.strictEqual(storedRoute.route.silentFallback, false);
+  assert.strictEqual(storedRoute.execution.status, 'pass');
+  assert(!JSON.stringify(storedRoute).includes('fix the bug'));
+  assert.strictEqual(fs.statSync(path.join(routeReceiptRoot, 'latest.json')).mode & 0o777, 0o600);
+  assert.strictEqual(fs.readFileSync(path.join(routeReceiptRoot, 'history.jsonl'), 'utf8').trim().split('\n').length, 1);
+
+  const status = routeStatus({ GROK_YOLO_BIN: fakeGrokYoloPath }, {
+    runner: () => ({
+      status: 0,
+      stdout: JSON.stringify({
+        ready: true,
+        version: '0.2.93',
+        model: 'grok-4.5',
+        modelAvailable: true,
+        authenticated: true,
+        authMode: 'grok.com_oauth',
+        billingMode: 'grok_plan_or_limited_free_quota',
+        apiBillingActivatedByWrapper: false,
+        blocker: null,
+      }),
+    }),
+  });
+  assert.strictEqual(status.ready, true);
+  assert.strictEqual(status.defaultPromptBackend, 'grok-4.5');
+  assert.strictEqual(status.silentFallbackAllowed, false);
+} finally {
+  fs.unlinkSync(fakeGrokYoloPath);
+  fs.rmSync(routeReceiptRoot, { recursive: true, force: true });
+}
+
 // 2. Test live wrapper execution (using --version as a fast safe check)
 const binaryPath = path.resolve(__dirname, '../hermes-yolo-wrapper.js');
 // Isolate the singleton lock from any concurrently-running hermes-yolo (e.g. the
 // live session) via the wrapper's HERMES_YOLO_LOCK_PATH escape hatch. The
 // production singleton guard stays intact; the test just must not collide with it.
 const testLockPath = path.join(require('os').tmpdir(), `hermes-yolo-test-${process.pid}.lock`);
+const versionReceiptRoot = fs.mkdtempSync(path.join(require('os').tmpdir(), 'hermes-yolo-version-receipts-'));
 try {
   try { fs.unlinkSync(testLockPath); } catch (e) { /* may not exist */ }
   // HERMES_YOLO_NO_PREFLIGHT bypasses slow Telegram API calls during testing
   const stdout = execSync(`HERMES_YOLO_NO_PREFLIGHT=1 HERMES_YOLO_LOCK_PATH=${testLockPath} node ${binaryPath} --version`, {
-    encoding: 'utf8'
+    encoding: 'utf8',
+    env: {
+      ...process.env,
+      HERMES_YOLO_RECEIPT_DIR: versionReceiptRoot,
+    },
   });
   console.log('  [TEST] Execution output:\n' + stdout.split('\n').map(l => '    ' + l).join('\n'));
   assert.ok(stdout.includes('Hermes Agent'), 'Output must contain the Hermes Agent version information');
@@ -231,6 +350,9 @@ try {
 } catch (e) {
   console.error('  [FAIL] Live execution failed:', e.message);
   process.exit(1);
+} finally {
+  try { fs.unlinkSync(testLockPath); } catch (e) { /* may not exist */ }
+  fs.rmSync(versionReceiptRoot, { recursive: true, force: true });
 }
 
 console.log('\n=== All tests passed successfully! ===');

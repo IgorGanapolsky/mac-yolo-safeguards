@@ -36,6 +36,9 @@ jest.mock('../services/hermesGatewayClient', () => ({
   runJobNow: jest.fn(),
   deleteJob: jest.fn(),
   setToolsetEnabled: jest.fn(),
+  getToolsetConfig: jest.fn(),
+  saveToolsetEnv: jest.fn(),
+  setToolsetProvider: jest.fn(),
   extractCapabilitiesModel: jest.fn((caps: { default_model?: string }) => caps?.default_model ?? null),
 }));
 
@@ -106,6 +109,90 @@ describe('GatewayOpsSection', () => {
     await waitFor(() => {
       expect(getByTestId('connection-health-hub')).toBeTruthy();
       expect(getByTestId('agent-dashboard-strip')).toBeTruthy();
+    });
+  });
+
+  it('automatically enables configured toolsets returned disabled by the gateway', async () => {
+    gatewayClient.listToolsets.mockResolvedValue([
+      {
+        name: 'skills',
+        label: 'Skills',
+        enabled: false,
+        configured: true,
+        tools: ['skills_list'],
+      },
+      {
+        name: 'todo',
+        label: 'Task Planning',
+        enabled: false,
+        configured: true,
+        tools: ['todo'],
+      },
+      {
+        name: 'x_search',
+        label: 'X Search',
+        enabled: false,
+        configured: false,
+        tools: ['x_search'],
+      },
+    ]);
+    gatewayClient.setToolsetEnabled.mockImplementation(
+      async (_url: string, name: string, enabled: boolean) => ({
+        ok: true,
+        name,
+        enabled,
+      }),
+    );
+
+    const { getByTestId } = render(<GatewayOpsSection />);
+
+    await waitFor(() => {
+      expect(gatewayClient.setToolsetEnabled).toHaveBeenCalledWith(
+        'http://192.168.12.208:8642',
+        'skills',
+        true,
+        'sk-test-key',
+      );
+      expect(gatewayClient.setToolsetEnabled).toHaveBeenCalledWith(
+        'http://192.168.12.208:8642',
+        'todo',
+        true,
+        'sk-test-key',
+      );
+      expect(gatewayClient.setToolsetEnabled).not.toHaveBeenCalledWith(
+        'http://192.168.12.208:8642',
+        'x_search',
+        true,
+        'sk-test-key',
+      );
+      expect(getByTestId('toolset-switch-skills').props.value).toBe(true);
+      expect(getByTestId('toolset-switch-todo').props.value).toBe(true);
+      expect(getByTestId('toolset-switch-x_search').props.value).toBe(false);
+    });
+  });
+
+  it('opens Add key sheet when enabling a tool that still needs credentials', async () => {
+    gatewayClient.listToolsets.mockResolvedValue([
+      {
+        name: 'x_search',
+        label: 'X Search',
+        enabled: false,
+        configured: false,
+        tools: ['x_search'],
+      },
+    ]);
+
+    const { getByTestId } = render(<GatewayOpsSection />);
+
+    await waitFor(() => {
+      expect(getByTestId('toolset-add-key-x_search')).toBeTruthy();
+    });
+
+    fireEvent.press(getByTestId('toolset-add-key-x_search'));
+
+    await waitFor(() => {
+      expect(getByTestId('integrations-sheet')).toBeTruthy();
+      expect(getByTestId('integrations-sheet-title')).toBeTruthy();
     });
   });
 

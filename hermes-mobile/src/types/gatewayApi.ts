@@ -30,6 +30,40 @@ export interface HermesToolset {
   tools?: string[];
 }
 
+export interface HermesToolsetEnvVar {
+  key: string;
+  prompt?: string;
+  url?: string;
+  default?: string;
+  /** True when Mac .env already has a value — never includes the secret itself. */
+  is_set?: boolean;
+}
+
+export interface HermesToolsetProvider {
+  name: string;
+  badge?: string;
+  tag?: string;
+  env_vars?: HermesToolsetEnvVar[];
+  post_setup?: string | null;
+  requires_nous_auth?: boolean;
+  is_active?: boolean;
+}
+
+export interface HermesToolsetConfig {
+  name: string;
+  has_category?: boolean;
+  active_provider?: string | null;
+  providers?: HermesToolsetProvider[];
+}
+
+export interface HermesToolsetEnvSaveResult {
+  ok: boolean;
+  name: string;
+  saved?: string[];
+  skipped?: string[];
+  is_set?: Record<string, boolean>;
+}
+
 export interface HermesCronJob {
   id: string;
   name?: string;

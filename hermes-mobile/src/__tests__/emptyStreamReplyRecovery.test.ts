@@ -1,4 +1,5 @@
 import {
+  DEFERRED_REPLY_POLL_MAX_MS,
   DEFERRED_REPLY_POLL_MS,
   EMPTY_REPLY_FAILURE_REASON,
   serverHasAssistantReplyAfterLastUser,
@@ -46,8 +47,24 @@ describe('emptyStreamReplyRecovery', () => {
     expect(serverHasAssistantReplyAfterLastUser(withReply)).toBe(true);
   });
 
-  it('exports stable poll and failure copy', () => {
+  it('does not treat summarization stubs as a finished assistant reply', () => {
+    const stubbed: HermesMessage[] = [
+      { role: 'user', content: 'Make money today' },
+      { role: 'assistant', content: '... Earlier conversation summarized to save context.' },
+    ];
+    expect(serverHasAssistantReplyAfterLastUser(stubbed)).toBe(false);
+    expect(
+      shouldAwaitGatewayReplyAfterSend({
+        assistantText: '... Earlier conversation summarized to save context.',
+        streamAccepted: true,
+        streamFailed: false,
+      }),
+    ).toBe(true);
+  });
+
+  it('bounds empty-reply recovery to one minute', () => {
     expect(DEFERRED_REPLY_POLL_MS).toBe(3000);
+    expect(DEFERRED_REPLY_POLL_MAX_MS).toBe(60_000);
     expect(EMPTY_REPLY_FAILURE_REASON).toMatch(/retry/i);
   });
 });

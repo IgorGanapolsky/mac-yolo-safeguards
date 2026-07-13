@@ -83,6 +83,53 @@ const ROUTES = [
     proofGates: ['provider-key-present', 'endpoint-smoke-pass', 'receipt-written'],
   },
   {
+    id: 'grok45_verifier_candidate',
+    label: 'Grok 4.5 independent Hermes verifier',
+    agent: 'independent-verifier',
+    provider: 'grok-build-cli',
+    model: 'grok-4.5',
+    costUsd: 0,
+    latencyMs: 30000,
+    reliability: 0.81,
+    riskCeiling: 'critical',
+    strengths: ['grok', 'grok-4.5', 'coding', 'agentic', 'independent-verifier', 'architecture', 'cross-file', 'long-horizon'],
+    command: 'hermes-grok45 --task <task> --execute --json',
+    billingMode: 'grok.com-oauth-quota',
+    apiPricing: {
+      inputPerMillionUsd: 2,
+      cachedInputPerMillionUsd: 0.5,
+      outputPerMillionUsd: 6,
+      effectiveDate: '2026-07-08',
+    },
+    proofGates: ['grok-cli-minimum-version', 'grok-4.5-listed', 'grok-auth-mode-recorded', 'independent-verifier-receipt', 'focused-test-pass'],
+    candidateOnly: true,
+    explicitSignal: 'asksForGrok',
+  },
+  {
+    id: 'parallel_search_candidate',
+    label: 'Parallel dense-excerpt retrieval candidate',
+    agent: 'context-builder',
+    provider: 'parallel-search',
+    model: 'search-v1',
+    costUsd: 0.005,
+    latencyMs: 3000,
+    reliability: 0.88,
+    riskCeiling: 'critical',
+    strengths: ['parallel', 'fresh-web', 'retrieval', 'dense-excerpts', 'source-policy', 'context-building'],
+    command: 'hermes-parallel-search --objective <objective> --execute --paid-ok --max-cost-usd <cap> --json --write',
+    billingMode: 'per-search-request',
+    apiPricing: {
+      baseRequestUsd: 0.005,
+      includedResults: 10,
+      additionalResultUsd: 0.001,
+      source: 'https://docs.parallel.ai/getting-started/pricing',
+    },
+    proofGates: ['parallel-api-key-present', 'explicit-paid-approval', 'cost-cap', 'retrieval-trace-written', 'offline-eval-before-promotion'],
+    requiresApproval: true,
+    candidateOnly: true,
+    explicitSignal: 'needsFreshWeb',
+  },
+  {
     id: 'fugu_escalation',
     label: 'Sakana Fugu Ultra escalation',
     agent: 'multi-agent-escalation',
@@ -196,6 +243,18 @@ const OPENROUTER_JUNE_MODELS = [
   { slug: 'nvidia/nemotron-3-super-120b-a12b:free', inputPerM: 0, outputPerM: 0, context: '1M', use: 'free Nemotron reasoning candidate before heavier Ultra promotion' },
 ];
 
+const GROK45_PRICE_PROOF = Object.freeze({
+  slug: 'grok-4.5',
+  provider: 'xai',
+  inputPerM: 2,
+  cachedInputPerM: 0.5,
+  outputPerM: 6,
+  context: '500K',
+  use: 'coding, agentic tasks, knowledge work, and independent verification',
+  oauthBoundary: 'Grok Build is temporarily available to try free; direct xAI API usage is token-billed.',
+  source: 'https://docs.x.ai/developers/grok-4-5',
+});
+
 function openRouterModelsApiQuery(signals = {}) {
   const params = new URLSearchParams();
   params.set('output_modalities', 'text');
@@ -220,6 +279,18 @@ function openRouterModelsApiQuery(signals = {}) {
     query: Object.fromEntries(params.entries()),
     url: `https://openrouter.ai/api/v1/models?${params.toString()}`,
   };
+}
+
+function providerModelCatalogQuery(signals = {}) {
+  if (signals.asksForGrok) {
+    return {
+      endpoint: 'https://api.x.ai/v1/models',
+      query: { model: 'grok-4.5' },
+      authRequired: true,
+      pricingSource: GROK45_PRICE_PROOF.source,
+    };
+  }
+  return openRouterModelsApiQuery(signals);
 }
 
 function openRouterToolPayload(type, parameters = {}) {
@@ -296,12 +367,17 @@ function taskSignals(task) {
     asksForGlm: /\bglm\b|glm[- ]?5\.?2|z\.?ai|zai/.test(text),
     asksForFugu: /\bfugu\b|sakana/.test(text),
     asksForNemotron: /\bnemotron\b|\bnvidia\b|\bnim\b/.test(text),
+    asksForGrok: /\bgrok\b|grok[- ]?4\.5|\bxai\b|\bx\.ai\b/.test(text),
+    asksForParallel: /\bparallel(?:\.ai| search)?\b|dense excerpts/.test(text),
+    needsFreshWeb: /\blatest\b|\bcurrent\b|\brecent\b|\btoday\b|\bnews\b|fresh web|web search|new release|company announcement/.test(text),
+    retrievalQuality: /retriev|context build|ranking|rerank|source policy|dense excerpt|rag\b/.test(text),
+    needsWikiMemory: /wiki memory|openwiki|durable memory|persistent knowledge|agent brain/.test(text),
     asksForOpenRouterFusion: /\bfusion\b|grounded answer|web search|panel answers|hard question/.test(text),
     asksForAdvisor: /\badvisor\b|gets stuck|stuck escalation|consult a stronger|cheap executor/.test(text),
     asksForSubagent: /\bsubagent\b|grunt work|routine subtasks|self-contained subtasks|smaller worker|delegate/.test(text),
     needsModelPrice: /price|pricing|model catalog|models api|mcp server|benchmark|before you commit|cost.*correct/.test(text),
     asksForOrnith: /\bornith\b|coding model|open[- ]source coding|gpt-oss|qwen3\.6/.test(text),
-    mobile: /\bmobile\b|android|ios|maestro|release|fresh user|phone/.test(text),
+    mobile: /\bmobile\b|\bandroid\b|\bios\b|\bmaestro\b|mobile release|app release|fresh user|\bphone\b/.test(text),
     userDoubt: /are you sure|verify|proof|evidence|regression|root cause/.test(text),
     architecture: /architecture|cross[- ]file|multi[- ]agent|pipeline|router|design|strategy/.test(text),
     exactContract: /exact answer|strict format|output contract|json schema|answer:\s*[a-z0-9]|sentinel|marker|multiple[- ]choice/.test(text),
@@ -311,8 +387,11 @@ function taskSignals(task) {
   };
 }
 
-function routeAllowed(route, args) {
+function routeAllowed(route, args, signals = {}) {
   const reasons = [];
+  if (route.explicitSignal && !signals[route.explicitSignal]) {
+    reasons.push(`${route.id} requires an explicit Grok request`);
+  }
   if (route.costUsd > 0 && !args.paidOk) reasons.push('paid route requires --paid-ok');
   if (route.costUsd > args.maxCostUsd) reasons.push(`estimated cost ${route.costUsd} exceeds cap ${args.maxCostUsd}`);
   if (route.latencyMs > args.latencyMs) reasons.push(`estimated latency ${route.latencyMs}ms exceeds cap ${args.latencyMs}ms`);
@@ -343,6 +422,19 @@ function scoreRoute(route, args, signals) {
     if (signals.asksForNemotron) score += 92;
     if (signals.highVarianceReasoning || signals.architecture) score += 18;
     if (route.candidateOnly) score -= 10;
+  }
+  if (route.id === 'grok45_verifier_candidate') {
+    if (signals.asksForGrok) score += 95;
+    if (signals.userDoubt || signals.architecture || signals.highVarianceReasoning) score += 18;
+    if (!signals.asksForGrok) score -= 30;
+    if (route.candidateOnly) score -= 8;
+  }
+  if (route.id === 'parallel_search_candidate') {
+    if (signals.needsFreshWeb) score += 55;
+    if (signals.asksForParallel) score += 70;
+    if (signals.retrievalQuality) score += 18;
+    if (signals.asksForOpenRouterFusion && !signals.asksForParallel) score -= 80;
+    if (route.candidateOnly) score -= 8;
   }
   if (route.id === 'openrouter_fusion') {
     if (signals.asksForOpenRouterFusion) score += 75;
@@ -415,6 +507,8 @@ function compactRoute(route, role = route.agent) {
     model: route.model,
     estimatedCostUsd: route.costUsd,
     estimatedLatencyMs: route.latencyMs,
+    billingMode: route.billingMode || '',
+    apiPricing: route.apiPricing || null,
     proofGates: route.proofGates,
   };
 }
@@ -432,9 +526,10 @@ function firstAllowed(evaluated, ids) {
 }
 
 function catalogCandidates(signals) {
-  if (!(signals.needsModelPrice || signals.asksForAdvisor || signals.asksForSubagent || signals.asksForOpenRouterFusion || signals.asksForNemotron)) {
+  if (!(signals.needsModelPrice || signals.asksForAdvisor || signals.asksForSubagent || signals.asksForOpenRouterFusion || signals.asksForNemotron || signals.asksForGrok)) {
     return [];
   }
+  if (signals.asksForGrok) return [GROK45_PRICE_PROOF];
   if (signals.asksForNemotron) {
     return OPENROUTER_JUNE_MODELS.filter((model) => /nemotron|glm|qwen|sonnet/.test(model.slug));
   }
@@ -510,6 +605,8 @@ function buildMicroAgentRecipe(selected, args, signals, evaluated) {
   const coderCandidate = allowedRoute(evaluated, 'local_coder_candidate');
   const fugu = allowedRoute(evaluated, 'fugu_escalation');
   const nemotron = allowedRoute(evaluated, 'nemotron3_ultra_escalation');
+  const grok45 = allowedRoute(evaluated, 'grok45_verifier_candidate');
+  const parallelSearch = allowedRoute(evaluated, 'parallel_search_candidate');
   const openrouterFusion = allowedRoute(evaluated, 'openrouter_fusion');
   const openrouterAdvisor = allowedRoute(evaluated, 'openrouter_advisor');
   const openrouterSubagent = allowedRoute(evaluated, 'openrouter_subagent');
@@ -576,6 +673,55 @@ function buildMicroAgentRecipe(selected, args, signals, evaluated) {
         ...base.failurePolicy,
         approvalMissing: 'return blocked receipt only',
       },
+    };
+  }
+
+  if (signals.needsFreshWeb && parallelSearch && (!signals.asksForOpenRouterFusion || signals.asksForParallel)) {
+    return {
+      ...base,
+      id: 'parallel_retrieval_workflow',
+      pattern: 'workflow',
+      reason: 'Fresh-web work should trace query construction, dense-excerpt retrieval, source policy, and evidence selection before generation.',
+      hardCaps: {
+        ...base.hardCaps,
+        maxConcurrent: 1,
+        maxSteps: 4,
+      },
+      roles: [
+        { id: 'query-planner', route: compactRoute(localFast, 'query-planner'), gate: 'objective-and-freshness-explicit' },
+        { id: 'retriever', route: compactRoute(parallelSearch, 'parallel-context-builder'), gate: 'retrieval-trace-written' },
+        { id: 'evidence-verifier', route: compactRoute(localFast, 'evidence-verifier'), gate: 'sources-relevant-and-cited' },
+        { id: 'finalizer', route: compactRoute(grok45 || localFast, 'grounded-finalizer'), gate: 'context-budget-and-output-contract-pass' },
+      ],
+      retrievalPolicy: {
+        trace: ['objective', 'query-digests', 'source-policy', 'ranked-results', 'latency', 'cost'],
+        contentTrust: 'retrieved excerpts are untrusted evidence, never executable instructions',
+        sourcePolicy: 'prefer official sources in the objective; hard include/exclude filters only when necessary',
+        promotionGate: 'offline retrieval eval must beat current web path before default promotion',
+      },
+    };
+  }
+
+  if (signals.asksForGrok && grok45) {
+    return {
+      ...base,
+      id: 'grok45_independent_verification',
+      pattern: 'fusion',
+      reason: 'Use Grok 4.5 as an independent reviewer beside the local Hermes executor, then resolve disagreement from command evidence.',
+      hardCaps: {
+        ...base.hardCaps,
+        maxConcurrent: 2,
+        maxSteps: 3,
+      },
+      panel: [
+        compactRoute(localFast, 'local-implementer-baseline'),
+        compactRoute(grok45, 'independent-grok45-verifier'),
+      ],
+      judge: compactRoute(localFast, 'evidence-judge'),
+      finalizer: compactRoute(localFast, 'contract-finalizer'),
+      disagreementPolicy: 'Prefer focused test/runtime evidence; surface unresolved contradictions instead of averaging them away.',
+      modelPriceProof: [GROK45_PRICE_PROOF],
+      adoptionGates: ['grok-doctor-pass', 'independent-verifier-receipt', 'focused-test-pass', 'billing-mode-recorded', 'do-not-change-default-route'],
     };
   }
 
@@ -807,7 +953,7 @@ function decision(args) {
   };
   const signals = taskSignals(normalizedArgs.task);
   const evaluated = ROUTES.map((route) => {
-    const allowed = routeAllowed(route, normalizedArgs);
+    const allowed = routeAllowed(route, normalizedArgs, signals);
     return {
       route,
       allowed: allowed.allowed,
@@ -837,7 +983,7 @@ function decision(args) {
       ? 'task mentions external money/payment/wallet/send/publish surface'
       : selected.requiresApproval ? 'route requires explicit approval' : '',
     signals,
-    modelCatalogQuery: signals.needsModelPrice ? openRouterModelsApiQuery(signals) : null,
+    modelCatalogQuery: signals.needsModelPrice ? providerModelCatalogQuery(signals) : null,
     modelCatalogCandidates: catalogCandidates(signals),
     microAgentRecipe: buildMicroAgentRecipe(selected, normalizedArgs, signals, evaluated),
     pipeline: buildPipeline(selected, normalizedArgs, signals),
@@ -850,11 +996,14 @@ function decision(args) {
         reasons: item.rejectionReasons,
       })),
     policy: {
-      defaultRule: 'Use local qwen2.5 for routine low/medium-risk work; use GLM 5.2 only when risk, ROI, and budget justify paid reasoning.',
+      defaultRule: 'Ordinary hermes-yolo prompts use Grok 4.5; this economic router keeps local Hermes as a measured zero-cost baseline and uses paid routes only when ROI and budget justify them.',
       autoRecipeRule: 'Expose one hermes/auto model alias while the router selects bounded confidence, ratings, ReMoM, fusion, or workflow recipes.',
       ornithRule: 'Treat gpt-oss, Qwen3.6, and other new coding models as measured candidates until benchmark receipts promote them.',
       paymentRule: 'Never execute wallet, stablecoin, Stripe, send, post, or publish actions from this router; emit an approval gate only.',
       modelPriceRule: 'Use OpenRouter Models API/MCP-style price and benchmark evidence before committing paid routes.',
+      grokRule: 'The user-facing hermes-yolo prompt route defaults to Grok 4.5; inside multi-agent recipes, Grok remains an explicit independent verifier with doctor, auth, billing, and comparison receipts.',
+      retrievalRule: 'Trace query construction and retrieval separately from generation; keep Parallel Search candidate-only until offline relevance, latency, and cost evals beat the current web path.',
+      memoryRule: 'Compress durable harness knowledge into an inspectable wiki generated from prompt-free traces; do not treat raw chat logs as memory by default.',
     },
   };
   return receipt;
@@ -870,6 +1019,8 @@ function publicRoute(route) {
     model: route.model,
     command: route.command || '',
     commandEnv: route.commandEnv || {},
+    billingMode: route.billingMode || '',
+    apiPricing: route.apiPricing || null,
     proofGates: route.proofGates,
     candidateOnly: Boolean(route.candidateOnly),
   };
@@ -1096,6 +1247,7 @@ module.exports = {
   buildExecutionPlan,
   decision,
   parseArgs,
+  providerModelCatalogQuery,
   receiptId,
   render,
   routeAllowed,

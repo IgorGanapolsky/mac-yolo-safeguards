@@ -39,14 +39,21 @@ On 2026-05-26 an iPhone 17 simulator was auto-booted (first by macOS window rest
 | File | Installs to | Purpose |
 |---|---|---|
 | `agy-yolo-wrapper.js` | `~/workspace/git/igor/antigravity-hub/antigravity-cli/bin/` | Hardened wrapper around `agy --dangerously-skip-permissions`. Adds singleton lock, hard timeout, stuck-loop watchdog, spawn-error handling, and `--sandbox`. |
-| `hermes-yolo-wrapper.js` | `~/.local/bin/hermes-yolo` | Hardened local-first wrapper for `hermes --yolo` (singleton lock, hard timeout, opt-in CPU watchdog). |
+| `grok-yolo-wrapper.js` | `~/.local/bin/grok-yolo` | Guarded always-approve wrapper around official Grok Build, pinned to Grok 4.5 for standalone and headless use. |
+| `hermes-yolo-wrapper.js` | `~/.local/bin/hermes-yolo` | Prefers Grok 4.5 for ordinary prompts and refuses silent Qwen fallback; Hermes admin commands and the explicit legacy backend retain the original watchdog path. |
+| `tools/hermes-grok45-harness.js` | `~/.local/bin/hermes-grok45` | Runs Grok 4.5 as a bounded independent Hermes verifier with auth, billing, evidence, and redacted receipts. |
+| `tools/hermes-harness-eval.js` | `~/.local/bin/hermes-harness-eval` | Mines prompt-free route/verifier traces into reliability, latency, fallback, and failure-cluster metrics plus an inspectable wiki. |
+| `tools/hermes-parallel-search.js` | `~/.local/bin/hermes-parallel-search` | Provides dry-run-first Parallel Search retrieval with explicit credential, paid-approval, and cost-cap gates. |
 | `sim-runaway-guard.sh` | `~/.local/bin/` | Threshold-checking script. Shuts down booted simulators when simruntime processes exceed the hard ceiling, or when lower-count simulator pressure crosses load/memory thresholds. |
 | `com.igor.shutdown-simulators.plist` | `~/Library/LaunchAgents/` | LaunchAgent that runs the guard script every 60 seconds. |
 | `yolo-health` | `~/.local/bin/` | Health-check that verifies all safeguards are installed and active. Run anytime: `yolo-health` |
 | `tools/local-inference-readiness.js` | repo-local | Verifies Hermes' configured local model fallback and checks for a serious OpenAI-compatible serving endpoint such as vLLM/LocalAI. |
 | `hermes-mobile/` | (companion app) | Expo mobile client for ThumbGate approvals and gateway health — see [`hermes-mobile/README.md`](./hermes-mobile/README.md). |
 
-All install targets above (except `hermes-mobile/`) are **symlinks** pointing back to this repo so edits land in one canonical place.
+The base installer uses symlinks back to this repo. The Grok fleet installer
+stages executable copies under `~/.hermes/grok45/` on each Mac and points the
+`~/.local/bin/` commands at those copies, so the remote machine never depends
+on a dirty or missing repository checkout.
 
 Revenue tools write private `*.md` / `*.tsv` artifacts to `business_os/revenue/` (not the repo root). After a local ops session:
 
@@ -77,6 +84,34 @@ cd ~/workspace/git/igor/mac-yolo-safeguards
 
 `install.sh` creates the symlinks and bootstraps the LaunchAgent. It is idempotent — safe to re-run.
 
+Install or refresh Grok 4.5 on the local Mac and `hermes-mini` with:
+
+```sh
+bash scripts/install-grok-yolo.sh --update
+```
+
+See [Hermes Grok 4.5 Harness](docs/HERMES-GROK45-HARNESS.md) for standalone,
+Hermes, safety, authentication, and billing behavior.
+
+After routing real tasks, inspect the active backend and mine the prompt-free
+receipts without spending tokens:
+
+```sh
+hermes-yolo --route-status
+hermes-harness-eval --write --json
+```
+
+Parallel Search is an optional retrieval candidate, not a silent default. Its
+command is dry-run-only unless a key, explicit paid approval, and a sufficient
+cost cap are all present:
+
+```sh
+hermes-parallel-search \
+  --objective "Find the latest official agent retrieval architecture guidance" \
+  --max-results 10 \
+  --json
+```
+
 ## Wrapper configuration (env vars)
 
 | Var | Default | Effect |
@@ -89,8 +124,10 @@ cd ~/workspace/git/igor/mac-yolo-safeguards
 | `AGY_YOLO_LOCK_PATH` | `/tmp/agy-yolo.lock` | Singleton lock path (override for tests). |
 | `AGY_YOLO_LOG_PATH` | `/tmp/agy-yolo.log` | Wrapper log path (override for tests). |
 | `AGY_YOLO_NO_DEFAULT_ARGS` | unset | If set, don't auto-add `--sandbox --dangerously-skip-permissions`. |
-| `HERMES_YOLO_PROVIDER` | `custom:ollama-local-64k` | Override the Hermes provider. Defaults to local Ollama unless a Z.ai key is present. |
-| `HERMES_YOLO_MODEL` | `qwen2.5:3b-64k` | Override the Hermes model. |
+| `HERMES_YOLO_BACKEND` | `grok` | Ordinary prompts use Grok 4.5. Set `hermes` only to opt into the legacy Hermes provider route; there is no silent Qwen fallback. |
+| `GROK_YOLO_BIN` | `~/.local/bin/grok-yolo` | Override the Grok 4.5 launcher used by `hermes-yolo`. |
+| `HERMES_YOLO_PROVIDER` | `custom:ollama-local-64k` | Override the provider only when `HERMES_YOLO_BACKEND=hermes`. |
+| `HERMES_YOLO_MODEL` | discovered local model | Override the model only when `HERMES_YOLO_BACKEND=hermes`. |
 | `HERMES_YOLO_TOOLSETS` | `terminal,file,web,code_execution,memory,clarify` | Override the slim default toolset. |
 | `HERMES_YOLO_TIMEOUT_MS` | `7200000` (120 min) | Hard kill after N ms. |
 | `HERMES_YOLO_CPU_STUCK_SAMPLES` | `0` | CPU watchdog is disabled by default; set this to a positive sample count to opt in. |

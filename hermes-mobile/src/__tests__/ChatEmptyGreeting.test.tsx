@@ -57,4 +57,10 @@ describe('ChatEmptyGreeting', () => {
       "Can't reach Igors-MacBook-Pro yet — tap header to retry.",
     );
   });
+
+  it('shows heal copy instead of unreachable during silent reconnect', () => {
+    expect(greetingSubtitle('Igors-Mac-mini', false, true)).toBe(
+      'Trying to reach Igors-Mac-mini automatically…',
+    );
+  });
 });

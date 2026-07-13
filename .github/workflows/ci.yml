@@ -31,7 +31,7 @@ jobs:
       - name: Shell syntax
         run: |
           set -eu
-          sh -n install.sh sim-runaway-guard.sh yolo-health tests/test-secondary-browser-reclaim.sh
+          sh -n install.sh sim-runaway-guard.sh yolo-health tests/test-secondary-browser-reclaim.sh tests/test-adb-reverse-device-filter.sh
           bash -n scripts/hermes-gateway-watchdog.sh tests/test-hermes-gateway-watchdog.sh tests/test-hermes-gateway-watchdog-e2e.sh scripts/hermes-enable-remote-login.sh scripts/hermes-fleet-ssh-trust.sh tests/test-hermes-mobile-pair.sh
 
       - name: Hermes gateway watchdog unit tests
@@ -91,6 +91,7 @@ jobs:
       - name: Guard E2E
         run: |
           set -eu
+          tests/test-adb-reverse-device-filter.sh
           tests/test-secondary-browser-reclaim.sh
 
       - name: Public secret smoke scan

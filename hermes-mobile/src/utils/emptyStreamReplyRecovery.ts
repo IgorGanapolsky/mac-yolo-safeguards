@@ -1,10 +1,11 @@
 import type { HermesMessage } from '../types/chat';
+import { isSummarizationStub } from './chatCompactionHandoff';
 import { isMessageBodyEmpty } from './chatMessageMerge';
 import { isDeferredStreamPlaceholder } from './streamAssistantText';
 
 /** Poll gateway transcript after empty stream / dropped SSE until reply lands or timeout. */
 export const DEFERRED_REPLY_POLL_MS = 3_000;
-export const DEFERRED_REPLY_POLL_MAX_MS = 6 * 60_000;
+export const DEFERRED_REPLY_POLL_MAX_MS = 60_000;
 
 export const EMPTY_REPLY_FAILURE_REASON =
   'Your computer finished but no reply text arrived — tap to retry.';
@@ -16,6 +17,10 @@ export function shouldAwaitGatewayReplyAfterSend(options: {
 }): boolean {
   if (!options.streamAccepted) {
     return false;
+  }
+  // Compaction / "Earlier conversation summarized…" stubs are not real replies.
+  if (isSummarizationStub(options.assistantText)) {
+    return true;
   }
   if (options.assistantText.trim()) {
     return false;
@@ -40,6 +45,9 @@ export function serverHasAssistantReplyAfterLastUser(serverMessages: HermesMessa
       continue;
     }
     if (isDeferredStreamPlaceholder(message.content)) {
+      continue;
+    }
+    if (isSummarizationStub(message.content)) {
       continue;
     }
     return true;

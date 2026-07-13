@@ -115,6 +115,20 @@ describe('ChatMessageBubble', () => {
     );
   });
 
+  it('shows resend hint when Mac is reachable but send failed', () => {
+    const { getByTestId } = renderWithDetailModal({
+      content: 'Print money make money faster',
+      isUser: true,
+      timeLabel: 'Jul 12, 2026 2:19 PM',
+      outboundStatus: 'failed',
+      connectionState: 'disconnected',
+      macHttpOk: true,
+    });
+
+    expect(getByTestId('chat-outbound-failed').props.children).toContain('tap ↑');
+    expect(getByTestId('chat-outbound-failed').props.children).not.toContain('Computer above');
+  });
+
   it('renders timestamp on user outbound bubbles', () => {
     const { getByTestId } = renderWithDetailModal({
       content: 'Print money make money faster',

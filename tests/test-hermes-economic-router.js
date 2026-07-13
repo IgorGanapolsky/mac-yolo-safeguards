@@ -65,6 +65,90 @@ assert(
   glmNoBudget.rejectedRoutes.some((route) => route.id === 'glm52_reasoning' && route.reasons.some((reason) => reason.includes('paid route'))),
 );
 
+const grok45 = decision(parseArgs([
+  '--task', 'use Grok 4.5 as an independent verifier for the Hermes harness architecture with proof',
+  '--risk', 'high',
+  '--max-cost-usd', '0',
+  '--latency-ms', '60000',
+]));
+assert.strictEqual(grok45.signals.asksForGrok, true);
+assert.strictEqual(grok45.selectedRoute.id, 'grok45_verifier_candidate');
+assert.strictEqual(grok45.selectedRoute.provider, 'grok-build-cli');
+assert.strictEqual(grok45.selectedRoute.model, 'grok-4.5');
+assert.strictEqual(grok45.selectedRoute.candidateOnly, true);
+assert.strictEqual(grok45.selectedRoute.billingMode, 'grok.com-oauth-quota');
+assert.strictEqual(grok45.selectedRoute.apiPricing.inputPerMillionUsd, 2);
+assert.strictEqual(grok45.selectedRoute.apiPricing.outputPerMillionUsd, 6);
+assert.strictEqual(grok45.estimatedCostUsd, 0);
+assert.strictEqual(grok45.requiresApproval, false);
+assert.strictEqual(grok45.microAgentRecipe.id, 'grok45_independent_verification');
+assert.strictEqual(grok45.microAgentRecipe.pattern, 'fusion');
+assert(grok45.microAgentRecipe.panel.some((route) => route.role === 'independent-grok45-verifier'));
+assert(grok45.microAgentRecipe.adoptionGates.includes('do-not-change-default-route'));
+assert(grok45.microAgentRecipe.modelPriceProof.some((model) => model.slug === 'grok-4.5'));
+const grokPlan = buildExecutionPlan(grok45);
+assert.strictEqual(grokPlan.status, 'planned');
+assert(grokPlan.steps.some((step) => step.id === 'panel'));
+
+const grokPrice = decision(parseArgs([
+  '--task', 'verify Grok 4.5 API pricing before using xAI',
+  '--risk', 'medium',
+  '--max-cost-usd', '0',
+  '--latency-ms', '60000',
+]));
+assert.strictEqual(grokPrice.modelCatalogQuery.endpoint, 'https://api.x.ai/v1/models');
+assert.strictEqual(grokPrice.modelCatalogQuery.query.model, 'grok-4.5');
+assert(grokPrice.modelCatalogCandidates.some((model) => model.slug === 'grok-4.5'));
+
+const noImplicitGrok = decision(parseArgs([
+  '--task', 'review this high-risk architecture with proof',
+  '--risk', 'high',
+  '--max-cost-usd', '0',
+  '--latency-ms', '60000',
+]));
+assert.notStrictEqual(noImplicitGrok.selectedRoute.id, 'grok45_verifier_candidate');
+assert(
+  noImplicitGrok.rejectedRoutes.some((route) => route.id === 'grok45_verifier_candidate' && route.reasons.some((reason) => reason.includes('explicit Grok request'))),
+);
+
+const parallelNoApproval = decision(parseArgs([
+  '--task', 'use Parallel Search for the latest official agent retrieval architecture release',
+  '--risk', 'medium',
+  '--max-cost-usd', '0.01',
+  '--latency-ms', '10000',
+]));
+assert.strictEqual(parallelNoApproval.signals.asksForParallel, true);
+assert.strictEqual(parallelNoApproval.signals.needsFreshWeb, true);
+assert.notStrictEqual(parallelNoApproval.selectedRoute.id, 'parallel_search_candidate');
+assert(
+  parallelNoApproval.rejectedRoutes.some((route) => route.id === 'parallel_search_candidate' && route.reasons.some((reason) => reason.includes('paid route'))),
+);
+
+const parallel = decision(parseArgs([
+  '--task', 'use Parallel Search for the latest official agent retrieval architecture release with dense excerpts',
+  '--risk', 'medium',
+  '--max-cost-usd', '0.01',
+  '--latency-ms', '10000',
+  '--paid-ok',
+]));
+assert.strictEqual(parallel.selectedRoute.id, 'parallel_search_candidate');
+assert.strictEqual(parallel.selectedRoute.provider, 'parallel-search');
+assert.strictEqual(parallel.selectedRoute.model, 'search-v1');
+assert.strictEqual(parallel.selectedRoute.candidateOnly, true);
+assert.strictEqual(parallel.selectedRoute.apiPricing.baseRequestUsd, 0.005);
+assert.strictEqual(parallel.estimatedCostUsd, 0.005);
+assert.strictEqual(parallel.requiresApproval, true);
+assert.strictEqual(parallel.signals.mobile, false);
+assert.strictEqual(parallel.microAgentRecipe.id, 'parallel_retrieval_workflow');
+assert.strictEqual(parallel.microAgentRecipe.pattern, 'workflow');
+assert(parallel.microAgentRecipe.roles.some((role) => role.id === 'retriever'));
+assert(parallel.microAgentRecipe.retrievalPolicy.trace.includes('ranked-results'));
+assert(parallel.policy.retrievalRule.includes('offline relevance'));
+assert(parallel.policy.memoryRule.includes('inspectable wiki'));
+const parallelPlan = buildExecutionPlan(parallel);
+assert.strictEqual(parallelPlan.status, 'blocked');
+assert(parallelPlan.steps.some((step) => step.id === 'approval-gate'));
+
 const exactContract = decision(parseArgs([
   '--task', 'solve hidden-test hard reasoning with exact answer strict format and quorum synthesis',
   '--risk', 'high',

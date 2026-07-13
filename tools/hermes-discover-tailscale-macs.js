@@ -61,6 +61,49 @@ function localTailscaleIpv4() {
   return null;
 }
 
+function isPeerOnline(peer) {
+  return peer.Online !== false && peer.online !== false;
+}
+
+function isMobilePeer(peer) {
+  const peerOs = String(peer.OS || peer.os || '').toLowerCase();
+  const dnsName = String(peer.DNSName || peer.HostName || '').toLowerCase();
+  return peerOs === 'android' || peerOs === 'ios' || /s25|iphone|ipad|pixel|galaxy/.test(dnsName);
+}
+
+function peerHostsFromStatusJson(json) {
+  const peers = json.Peer || json.Peers || {};
+  const hosts = new Set();
+  for (const peer of Object.values(peers)) {
+    if (!isPeerOnline(peer) || isMobilePeer(peer)) {
+      continue;
+    }
+    const ips = [];
+    if (Array.isArray(peer.TailscaleIPs)) ips.push(...peer.TailscaleIPs);
+    if (Array.isArray(peer.Addresses)) ips.push(...peer.Addresses);
+    if (typeof peer.TailscaleIP === 'string') ips.push(peer.TailscaleIP);
+    for (const ip of ips) {
+      if (typeof ip === 'string' && isTailscaleIpv4(ip.split('/')[0])) {
+        hosts.add(ip.split('/')[0]);
+      }
+    }
+    const dns = peer.DNSName || peer.HostName;
+    if (typeof dns === 'string') {
+      const cleaned = dns.replace(/\.$/, '');
+      if (cleaned.endsWith('.ts.net')) {
+        hosts.add(cleaned);
+      }
+    }
+  }
+  const selfIps = json.Self?.TailscaleIPs || json.TailscaleIPs || [];
+  for (const ip of selfIps) {
+    if (typeof ip === 'string' && isTailscaleIpv4(ip.split('/')[0])) {
+      hosts.delete(ip.split('/')[0]);
+    }
+  }
+  return Array.from(hosts);
+}
+
 function fetchTailscalePeerHosts() {
   const tailscaleBin = resolveTailscaleBinary();
   if (!tailscaleBin) {
@@ -74,34 +117,7 @@ function fetchTailscalePeerHosts() {
     return [];
   }
   try {
-    const json = JSON.parse(result.stdout);
-    const peers = json.Peer || json.Peers || {};
-    const hosts = new Set();
-    for (const peer of Object.values(peers)) {
-      const ips = [];
-      if (Array.isArray(peer.TailscaleIPs)) ips.push(...peer.TailscaleIPs);
-      if (Array.isArray(peer.Addresses)) ips.push(...peer.Addresses);
-      if (typeof peer.TailscaleIP === 'string') ips.push(peer.TailscaleIP);
-      for (const ip of ips) {
-        if (typeof ip === 'string' && isTailscaleIpv4(ip.split('/')[0])) {
-          hosts.add(ip.split('/')[0]);
-        }
-      }
-      const dns = peer.DNSName || peer.HostName;
-      if (typeof dns === 'string') {
-        const cleaned = dns.replace(/\.$/, '');
-        if (cleaned.endsWith('.ts.net')) {
-          hosts.add(cleaned);
-        }
-      }
-    }
-    const selfIps = json.Self?.TailscaleIPs || json.TailscaleIPs || [];
-    for (const ip of selfIps) {
-      if (typeof ip === 'string' && isTailscaleIpv4(ip.split('/')[0])) {
-        hosts.delete(ip.split('/')[0]);
-      }
-    }
-    return Array.from(hosts);
+    return peerHostsFromStatusJson(JSON.parse(result.stdout));
   } catch {
     return [];
   }
@@ -124,6 +140,9 @@ function probeHealth(host) {
       return null;
     }
     const hostname = typeof body.hostname === 'string' ? body.hostname : undefined;
+    if (hostname && /android|iphone|ipad/i.test(hostname)) {
+      return null;
+    }
     const localIp =
       typeof body.local_ip === 'string'
         ? body.local_ip
@@ -203,9 +222,19 @@ function main() {
   }
 }
 
-try {
-  main();
-} catch (err) {
-  console.error(`[hermes-discover-tailscale-macs] ${err instanceof Error ? err.message : err}`);
-  process.exit(1);
+module.exports = {
+  isTailscaleIpv4,
+  isPeerOnline,
+  isMobilePeer,
+  peerHostsFromStatusJson,
+  localTailscaleIpv4,
+};
+
+if (require.main === module) {
+  try {
+    main();
+  } catch (err) {
+    console.error(`[hermes-discover-tailscale-macs] ${err instanceof Error ? err.message : err}`);
+    process.exit(1);
+  }
 }

@@ -40,6 +40,8 @@ type ChatScreenHeaderProps = {
   onOpenTools?: () => void;
   onPressMachine: () => void;
   onPressWorkspace?: () => void;
+  /** Health OK but last message failed — amber header instead of green Connected. */
+  chatStalled?: boolean;
 };
 
 function linkMeta(
@@ -48,6 +50,7 @@ function linkMeta(
   disconnectedLabel = 'Not connected',
   isDemo = false,
   authMismatch = false,
+  chatStalled = false,
 ): { label: string; color: string; connected: boolean } {
   const link = resolveChatLinkDisplay({
     connectionState: state,
@@ -55,7 +58,11 @@ function linkMeta(
     disconnectedLabel,
     isDemo,
     authMismatch,
+    chatStalled,
   });
+  if (link.chatStalled) {
+    return { label: link.label, color: colors.warning, connected: true };
+  }
   if (link.chatReachable) {
     return { label: link.label, color: colors.success, connected: true };
   }
@@ -139,8 +146,16 @@ export default function ChatScreenHeader({
   onOpenTools,
   onPressMachine,
   onPressWorkspace,
+  chatStalled = false,
 }: ChatScreenHeaderProps) {
-  const link = linkMeta(connectionState, macHttpReachable, routeStatusLabel, isDemo, authMismatch);
+  const link = linkMeta(
+    connectionState,
+    macHttpReachable,
+    routeStatusLabel,
+    isDemo,
+    authMismatch,
+    chatStalled,
+  );
   const endpoint = machineEndpoint?.trim() || '';
   const showEndpoint =
     endpoint.length > 0 && (!link.connected || showMachineDetailWhenConnected);

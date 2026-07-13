@@ -3,6 +3,12 @@ import { act, fireEvent, waitFor } from '@testing-library/react-native';
 import ApprovalsScreen from '../screens/ApprovalsScreen';
 import { mockGatewaySettings, mockPendingApproval, mockUseGateway } from '../testUtils/gatewayFixtures';
 import { renderInTabNavigator } from '../testUtils/navigation';
+import {
+  __resetFreeLeashAllowanceForTests,
+  consumeFreeLeashApproval,
+  refreshFreeLeashWeeklyState,
+} from '../utils/freeLeashAllowance';
+import { FREE_LEASH_APPROVALS_PER_WEEK } from '../constants/monetization';
 
 jest.mock('../context/GatewayContext', () => ({
   useGateway: jest.fn(),
@@ -21,6 +27,7 @@ const { useGateway } = jest.requireMock('../context/GatewayContext');
 
 describe('ApprovalsScreen', () => {
   beforeEach(() => {
+    __resetFreeLeashAllowanceForTests();
     useGateway.mockReturnValue(mockUseGateway());
   });
 
@@ -30,7 +37,11 @@ describe('ApprovalsScreen', () => {
     expect(getByText('Approve blocked tools from your phone — tap notifications on lock screen')).toBeTruthy();
   });
 
-  it('shows paywall when ThumbGate Leash is not unlocked', () => {
+  it('shows paywall when ThumbGate Leash is not unlocked', async () => {
+    await refreshFreeLeashWeeklyState();
+    for (let i = 0; i < FREE_LEASH_APPROVALS_PER_WEEK; i += 1) {
+      await consumeFreeLeashApproval();
+    }
     useGateway.mockReturnValue(
       mockUseGateway({
         settings: { ...mockGatewaySettings, thumbgateProActive: false },
