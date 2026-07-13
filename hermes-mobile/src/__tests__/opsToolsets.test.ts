@@ -5,7 +5,9 @@ import {
   markToolsetsEnabled,
   toolsetAddKeyCtaLabel,
   toolsetNeedsApiKey,
+  toolsetPolicyHint,
   toolsetStatusLine,
+  toolsetsWriteHint,
 } from '../utils/opsToolsets';
 
 describe('opsToolsets', () => {
@@ -47,12 +49,39 @@ describe('opsToolsets', () => {
     ).toBe('1 tool · add key to enable');
   });
 
+  it('marks policy-disabled toolsets in the status line', () => {
+    expect(
+      toolsetStatusLine({
+        name: 'browser',
+        enabled: false,
+        configured: true,
+        disabled_by_policy: true,
+        tools: ['browser_navigate'],
+      }),
+    ).toBe('1 tool · off on computer');
+    expect(
+      toolsetPolicyHint({
+        name: 'browser',
+        disabled_by_policy: true,
+        disabled_reason: 'Chrome CDP is down on this computer.',
+      }),
+    ).toBe('Chrome CDP is down on this computer.');
+  });
+
   it('auto-enables only configured toolsets that are currently off', () => {
     const toolsets = [
       { name: 'skills', configured: true, enabled: false, tools: ['skills_list'] },
       { name: 'todo', configured: true, enabled: false, tools: ['todo'] },
       { name: 'x_search', configured: false, enabled: false, tools: ['x_search'] },
       { name: 'memory', configured: true, enabled: true, tools: ['memory'] },
+      {
+        name: 'browser',
+        configured: true,
+        enabled: false,
+        disabled_by_policy: true,
+        tools: ['browser_navigate'],
+      },
+      { name: 'computer_use', configured: true, enabled: false, tools: ['computer'] },
     ];
 
     expect(configuredToolsetsToAutoEnable(toolsets).map((toolset) => toolset.name)).toEqual([
@@ -64,6 +93,8 @@ describe('opsToolsets', () => {
       { name: 'todo', configured: true, enabled: true, tools: ['todo'] },
       toolsets[2],
       toolsets[3],
+      toolsets[4],
+      toolsets[5],
     ]);
   });
 
@@ -72,6 +103,12 @@ describe('opsToolsets', () => {
     expect(toolsetNeedsApiKey({ name: 'skills', configured: true })).toBe(false);
     expect(toolsetAddKeyCtaLabel({ name: 'x_search', configured: false })).toBe('Add key');
     expect(toolsetAddKeyCtaLabel({ name: 'skills', configured: true })).toBe('Keys');
+  });
+
+  it('hides update copy when toolsets are writable', () => {
+    expect(toolsetsWriteHint(true)).toBe('');
+    expect(toolsetsWriteHint(false)).toContain('view-only');
+    expect(toolsetsWriteHint(false)).not.toContain('Update Hermes on your Mac');
   });
 
   it('exposes fallback env fields for common key-backed tools', () => {

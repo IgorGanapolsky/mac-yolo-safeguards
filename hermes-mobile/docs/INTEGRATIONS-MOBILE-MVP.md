@@ -185,6 +185,8 @@ curl -sS -H "Authorization: Bearer $KEY" \
 
 **Shipped (2026-07-13):** `IntegrationsSheet` + **Add key** CTA on each toolset row in `GatewayOpsSection`. Configured (no missing keys) toolsets auto-enable when `features.toolsets_write` is true.
 
+**Shipped (2026-07-13, T-251):** Gateway `PUT /v1/toolsets/{name}` + `features.toolsets_write` on Mac mini + MBP api_server. Mobile shows policy hints when `disabled_by_policy` (e.g. dead CDP / `computer_use`), skips auto-enable for those + `computer_use`, and only shows update/view-only copy when `toolsets_write` is absent.
+
 ### UX — Integrations sheet
 
 **Entry:** Tap a toolset row in `GatewayOpsSection` when `enabled && !configured` **or** always show a **Configure** affordance on rows with `has_category` from config API.

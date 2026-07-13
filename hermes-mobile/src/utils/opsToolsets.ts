@@ -1,5 +1,11 @@
 import type { HermesToolset } from '../types/gatewayApi';
 
+/**
+ * Ready toolsets we still refuse to auto-enable from the phone.
+ * computer_use can drive the Mac UI without an explicit operator opt-in.
+ */
+export const TOOLSETS_SKIP_AUTO_ENABLE = new Set(['computer_use']);
+
 /** Known env keys when the Mac has not yet advertised /v1/toolsets/{name}/config. */
 export const FALLBACK_TOOLSET_ENV_KEYS: Record<
   string,
@@ -41,7 +47,9 @@ export function toolsetNeedsApiKey(toolset: HermesToolset): boolean {
 export function toolsetStatusLine(toolset: HermesToolset): string {
   const count = toolset.tools?.length ?? 0;
   const parts = [`${count} tool${count === 1 ? '' : 's'}`];
-  if (toolset.configured) {
+  if (toolset.disabled_by_policy) {
+    parts.push('off on computer');
+  } else if (toolset.configured) {
     parts.push('ready');
   } else if (toolset.enabled) {
     parts.push('needs API key');
@@ -51,9 +59,36 @@ export function toolsetStatusLine(toolset: HermesToolset): string {
   return parts.join(' · ');
 }
 
+export function toolsetPolicyHint(toolset: HermesToolset): string | undefined {
+  const reason = toolset.disabled_reason?.trim();
+  if (reason) {
+    return reason;
+  }
+  if (toolset.disabled_by_policy) {
+    return 'Disabled on this computer for safety. Fix on the computer, then tap the switch.';
+  }
+  return undefined;
+}
+
 /** Configured (= no missing keys) toolsets should start ON for Chat. */
 export function configuredToolsetsToAutoEnable(toolsets: HermesToolset[]): HermesToolset[] {
-  return toolsets.filter((toolset) => toolset.configured === true && toolset.enabled !== true);
+  return toolsets.filter(
+    (toolset) =>
+      toolset.configured === true &&
+      toolset.enabled !== true &&
+      toolset.disabled_by_policy !== true &&
+      !TOOLSETS_SKIP_AUTO_ENABLE.has(toolset.name),
+  );
+}
+
+export function toolsetsWriteHint(writable: boolean): string {
+  if (writable) {
+    return '';
+  }
+  return (
+    ' This computer is view-only for tool switches until Hermes is updated to support' +
+    ' phone toggles. Update Hermes on the computer, then Refresh.'
+  );
 }
 
 export function markToolsetsEnabled(
