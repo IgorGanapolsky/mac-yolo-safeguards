@@ -4,6 +4,7 @@ import {
   isTelegramSession,
   pickDefaultSession,
   sortSessionsForPicker,
+  isAutomationProbeSession,
   isMobileChatSession,
   isSmokeProbeSession,
   buildSessionPickerSections,
@@ -189,6 +190,92 @@ describe('sessionSelection', () => {
       'cli-1',
     ]);
     expect(sections[1]?.title).toBe('Debug');
+  });
+
+  it('classifies API_SERVER/CLI harness probes as automation sessions', () => {
+    // Real shapes from the mini's harness runs (fresh id each run).
+    expect(
+      isAutomationProbeSession({
+        id: 'api-1f52b9d7dfb32d11',
+        source: 'api_server',
+        preview: 'Reply with exactly: GUARDRAILS OK',
+      }),
+    ).toBe(true);
+    expect(
+      isAutomationProbeSession({
+        id: '20260713_140105_14f0ca',
+        source: 'cli',
+        preview: "Run the shell command 'hostname' and report its exact output...",
+      }),
+    ).toBe(true);
+    expect(
+      isAutomationProbeSession({
+        id: '20260713_141114_6732af',
+        source: 'cli',
+        preview: 'Use no tools. Reply with exactly: MUSE-DIRECT',
+      }),
+    ).toBe(true);
+    // api-prefixed id counts as automation source even without a source field.
+    expect(
+      isAutomationProbeSession({
+        id: 'api-77aa88bb',
+        preview: "Run 'sysctl -n hw.ncpu' and report the exact number.",
+      }),
+    ).toBe(true);
+  });
+
+  it('keeps genuine user chats visible regardless of source', () => {
+    expect(
+      isAutomationProbeSession({
+        id: '20260712_092443_319d3d',
+        source: 'cli',
+        title: 'Copy-Paste Failure on Mac Mini',
+        preview: 'my mac mini is completely unusable right now',
+      }),
+    ).toBe(false);
+    expect(
+      isAutomationProbeSession({
+        id: 'api-1234abcd',
+        source: 'api_server',
+        preview: 'Reply with exactly: APPROVE DEPLOY TRIAGE FIT',
+      }),
+    ).toBe(false);
+    expect(
+      isAutomationProbeSession({
+        id: 'sess-1',
+        source: 'api_server',
+        title: 'New mobile session',
+        preview: 'print money make money faster',
+      }),
+    ).toBe(false);
+    // Probe-looking text without an automation source stays visible.
+    expect(
+      isAutomationProbeSession({
+        id: 'tg-9',
+        source: 'telegram',
+        preview: 'Reply with exactly: GUARDRAILS OK',
+      }),
+    ).toBe(false);
+    expect(isAutomationProbeSession({ id: 'api-empty', source: 'api_server' })).toBe(false);
+  });
+
+  it('buries automation probe sessions under Debug in the picker', () => {
+    const guardrails: HermesSession = {
+      id: 'api-1f52b9d7dfb32d11',
+      source: 'api_server',
+      preview: 'Reply with exactly: GUARDRAILS OK',
+      last_active: 1781716000,
+    };
+    const user: HermesSession = {
+      id: 'cli-real',
+      source: 'cli',
+      title: 'Fixing Ollama Context for Hermes Tool Use',
+      last_active: 1781718000,
+    };
+    const sections = buildSessionPickerSections([guardrails, user]);
+    expect(sections.map((s) => s.key)).toEqual(['threads', 'smoke']);
+    expect(sections[0]?.data.map((s) => s.id)).toEqual(['cli-real']);
+    expect(sections[1]?.data.map((s) => s.id)).toEqual(['api-1f52b9d7dfb32d11']);
   });
 
   it('covers sessionSourceLabel helper', () => {

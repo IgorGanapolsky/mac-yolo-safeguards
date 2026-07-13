@@ -18,6 +18,7 @@ const KEYS = {
   DISMISSED_PROMPTS: 'hermes-mobile:dismissed_prompts',
   DISMISSED_SESSION_IDS: 'hermes-mobile:dismissed_session_ids',
   HIDE_CRON_SESSIONS: 'hermes-mobile:hide_cron_sessions',
+  HIDE_AUTOMATION_SESSIONS: 'hermes-mobile:hide_automation_sessions',
   LAST_SELECTED_PROFILE_ID: 'hermes-mobile:last_selected_profile_id',
   LAST_SESSION_BY_COMPUTER: 'hermes-mobile:last_session_by_computer',
   APPROVALS_COUNT: 'hermes-mobile:approvals_count',
@@ -100,6 +101,20 @@ async function loadHideCronSessionMap(): Promise<HideCronSessionMap> {
     return parsed && typeof parsed === 'object' ? parsed : {};
   } catch (error) {
     console.error('[hermes-mobile] loadHideCronSessions failed:', error);
+    return {};
+  }
+}
+
+async function loadHideAutomationSessionMap(): Promise<HideCronSessionMap> {
+  try {
+    const raw = await AsyncStorage.getItem(KEYS.HIDE_AUTOMATION_SESSIONS);
+    if (!raw) {
+      return {};
+    }
+    const parsed = JSON.parse(raw) as HideCronSessionMap;
+    return parsed && typeof parsed === 'object' ? parsed : {};
+  } catch (error) {
+    console.error('[hermes-mobile] loadHideAutomationSessions failed:', error);
     return {};
   }
 }
@@ -534,6 +549,42 @@ export const storage = {
       await AsyncStorage.setItem(KEYS.HIDE_CRON_SESSIONS, JSON.stringify(map));
     } catch (error) {
       console.error('[hermes-mobile] setHideCronSessions failed:', error);
+    }
+  },
+
+  async loadHideAutomationSessions(
+    computerKeysOrUrl: string | string[] | null | undefined,
+    gatewayUrl?: string | null,
+  ): Promise<boolean> {
+    const keys = normalizeDismissLookupArgs(computerKeysOrUrl, gatewayUrl);
+    if (keys.length === 0) {
+      return false;
+    }
+    const map = await loadHideAutomationSessionMap();
+    return keys.some((key) => map[key] === true);
+  },
+
+  async setHideAutomationSessions(
+    computerKeysOrUrl: string | string[] | null | undefined,
+    hidden: boolean,
+    gatewayUrl?: string | null,
+  ): Promise<void> {
+    const keys = normalizeDismissLookupArgs(computerKeysOrUrl, gatewayUrl);
+    if (keys.length === 0) {
+      return;
+    }
+    try {
+      const map = await loadHideAutomationSessionMap();
+      for (const key of keys) {
+        if (hidden) {
+          map[key] = true;
+        } else {
+          delete map[key];
+        }
+      }
+      await AsyncStorage.setItem(KEYS.HIDE_AUTOMATION_SESSIONS, JSON.stringify(map));
+    } catch (error) {
+      console.error('[hermes-mobile] setHideAutomationSessions failed:', error);
     }
   },
 };

@@ -149,6 +149,24 @@ describe('storage', () => {
     expect(await storage.loadHideCronSessions('http://127.0.0.1:8642')).toBe(false);
   });
 
+  it('persists hide-automation preference per machine host across gateway URL drift', async () => {
+    const lanKeys = ['host:igors-mac-mini', 'mac_192_168_68_56', 'http://192.168.68.56:8642'];
+    const tailscaleKeys = ['host:igors-mac-mini', 'mac_100_94_135_78', 'http://100.94.135.78:8642'];
+
+    expect(await storage.loadHideAutomationSessions('http://127.0.0.1:8642')).toBe(false);
+
+    await storage.setHideAutomationSessions(lanKeys, true, 'http://192.168.68.56:8642');
+    expect(
+      await storage.loadHideAutomationSessions(tailscaleKeys, 'http://100.94.135.78:8642'),
+    ).toBe(true);
+    expect(await storage.loadHideAutomationSessions('http://10.0.0.9:8642')).toBe(false);
+
+    await storage.setHideAutomationSessions(lanKeys, false, 'http://192.168.68.56:8642');
+    expect(
+      await storage.loadHideAutomationSessions(tailscaleKeys, 'http://100.94.135.78:8642'),
+    ).toBe(false);
+  });
+
   it('persists last selected chat session per saved computer key', async () => {
     await storage.saveLastSessionForComputer('mac_100_94_135_78', 'sess_mini');
     await storage.saveLastSessionForComputer('MAC_100_94_135_78', 'sess_mini_latest');
