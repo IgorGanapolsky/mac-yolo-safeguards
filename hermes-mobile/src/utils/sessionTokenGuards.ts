@@ -70,8 +70,8 @@ export function isMegaSessionSendBlocked(
 /**
  * Pure send-gate used by ChatScreen + unit tests.
  * - normal → allow
- * - warn → only `send_anyway`
- * - block → never allow (fresh/cancel both refuse send)
+ * - warn → only `send_anyway` (same session)
+ * - block → never allow send on the same session (fresh migrates to a new chat)
  */
 export function shouldAllowMegaSessionSend(
   level: MegaSessionLevel,
@@ -84,6 +84,14 @@ export function shouldAllowMegaSessionSend(
     return false;
   }
   return choice === 'send_anyway';
+}
+
+/**
+ * When the operator presses Send on a hard-blocked mega session, auto-start a
+ * fresh chat and deliver the draft there (no extra confirm that drops the text).
+ */
+export function shouldAutoFreshAndResendOnMegaBlock(level: MegaSessionLevel): boolean {
+  return level === 'block';
 }
 
 /** Recents rail badge for large / blocked threads. */
