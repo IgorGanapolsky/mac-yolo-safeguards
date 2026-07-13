@@ -195,6 +195,25 @@ describe('RunProgressBanner', () => {
     expect(getByText('229s')).toBeTruthy();
   });
 
+  it('shows spinner and Starting label while start-fresh is in flight', () => {
+    const onStartFreshChat = jest.fn();
+    const { getByTestId, getByText, queryByText } = render(
+      <RunProgressBanner
+        progress={{
+          phase: 'working',
+          startedAtMs: Date.now() - 2000,
+          detail: 'Delivering your message…',
+        }}
+        megaSessionWarning="Chat too large — start a fresh chat"
+        onStartFreshChat={onStartFreshChat}
+        isStartingFreshChat
+      />,
+    );
+    expect(getByTestId('run-progress-start-fresh-spinner')).toBeTruthy();
+    expect(getByText('Starting…')).toBeTruthy();
+    expect(queryByText('Start fresh chat')).toBeNull();
+  });
+
   it('shows stale hint and emphasized stop after warn threshold', () => {
     const onStop = jest.fn();
     const { getByTestId, getByText } = render(
