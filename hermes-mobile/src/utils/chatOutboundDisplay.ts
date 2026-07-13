@@ -13,6 +13,9 @@ export type SubmittedPromptStripInput = {
 /**
  * Composer "You sent" strip covers the gap before commitOutboundUserBubble lands
  * in the transcript. Once the optimistic user bubble is visible, hide the strip.
+ *
+ * ChatScreen must use this result ONLY — never `isSending ||` / status overrides.
+ * Those overrides duplicated the prompt (bubble + purple strip) while a run was in flight.
  */
 export function shouldShowSubmittedPromptStrip(input: SubmittedPromptStripInput): boolean {
   const trimmed = input.pinnedText?.trim();
@@ -27,6 +30,17 @@ export function shouldShowSubmittedPromptStrip(input: SubmittedPromptStripInput)
       normalizeMessageText(message.content || '') === norm,
   );
   return !hasOptimisticBubble;
+}
+
+/**
+ * ChatScreen visibility contract. `isSending` is accepted only to prove it must be ignored —
+ * matching bubble ⇒ strip stays hidden even while a send is in flight.
+ */
+export function resolveSubmittedPromptStripVisibility(
+  input: SubmittedPromptStripInput & { isSending?: boolean },
+): boolean {
+  void input.isSending;
+  return shouldShowSubmittedPromptStrip(input);
 }
 
 export type ChatTimelineEntry = {
