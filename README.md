@@ -103,8 +103,8 @@ hermes-harness-eval --write --json
 
 Parallel Search is an optional retrieval candidate, not a silent provider call.
 The command explicitly selects Turbo for quick grounding, but remains dry-run
-unless the existing environment/Keychain credential, paid approval, and a
-sufficient cost cap are all present:
+unless the existing Google-SSO Parallel CLI session (preferred) or API-key
+fallback, paid approval, and a sufficient cost cap are all present:
 
 ```sh
 hermes-search-turbo \

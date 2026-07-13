@@ -198,9 +198,11 @@ hermes-search-turbo \
   --json
 ```
 
-The wrapper checks `PARALLEL_API_KEY` first and then the existing
-`com.igor.hermes.parallel-api` macOS Keychain item; credentials never enter a
-receipt. It uses Parallel's documented `POST /v1/search` contract with explicit
+The wrapper honors an explicitly supplied `PARALLEL_API_KEY`, otherwise prefers
+the existing Google-SSO-authenticated Parallel CLI session, and uses the
+`com.igor.hermes.parallel-api` macOS Keychain item only as a final fallback.
+Credentials never enter a receipt. It uses Parallel's documented `POST
+/v1/search` contract with explicit
 `mode: turbo`, `client_model: grok-4.5`, nested result/excerpt bounds, and optional
 session reuse. It records opaque query ids rather than raw query text, marks
 every excerpt as untrusted external content, and never executes retrieved

@@ -9,6 +9,7 @@ const {
   DEFAULT_MODE,
   ENDPOINT,
   KEYCHAIN_SERVICE,
+  buildParallelCliArgs,
   buildPayload,
   buildReceipt,
   digest,
@@ -19,6 +20,8 @@ const {
   parseArgs,
   readiness,
   resolveApiCredential,
+  resolveParallelCliAuth,
+  resolveProviderAuth,
   sanitizeResponse,
   writeReceipt,
 } = require('../tools/hermes-parallel-search');
@@ -50,7 +53,7 @@ assert.notStrictEqual(digest('private query'), '9ff6685fa712411cea49');
   assert.throws(() => parseArgs(['--objective', 'x', '--include-domain', 'a.com', '--exclude-domain', 'b.com']), /not both/);
   assert.throws(() => parseArgs(['--objective', 'x', '--max-results', '11']), /1 to 10/);
   assert.throws(() => parseArgs(['--objective', 'x', '--query', 'one', '--query', 'two', '--query', 'three', '--query', 'four']), /at most three/);
-  assert.throws(() => parseArgs(['--objective', 'x', '--max-chars-total', '500', '--max-chars-per-result', '501']), /cannot exceed/);
+  assert.throws(() => parseArgs(['--objective', 'x', '--max-chars-total', '1500', '--max-chars-per-result', '1501']), /cannot exceed/);
   assert.strictEqual(estimatedCostUsd(10), 0.001);
   assert.strictEqual(estimatedCostUsd(10, 'basic'), 0.005);
   assert.strictEqual(estimatedCostUsd(10, 'advanced'), 0.005);
@@ -65,11 +68,16 @@ assert.notStrictEqual(digest('private query'), '9ff6685fa712411cea49');
   assert.strictEqual(payload.advanced_settings.excerpt_settings.max_chars_per_result, 1200);
   assert.strictEqual(payload.advanced_settings.source_policy.include_domains[0], 'x.ai');
   assert.strictEqual(payload.advanced_settings.source_policy.after_date, '2026-07-01');
+  const cliArgs = buildParallelCliArgs(args);
+  assert.deepStrictEqual(cliArgs.slice(0, 2), ['search', 'Find current official Grok documentation']);
+  assert(cliArgs.includes('turbo'));
+  assert(cliArgs.includes('--excerpt-max-chars-total'));
+  assert(cliArgs.includes('--include-domains'));
 
   const noApproval = { ...args, paidOk: false };
   assert.strictEqual(readiness(noApproval, { PARALLEL_API_KEY: 'key' }).blocker, 'parallel_search_requires_paid_ok');
   assert.strictEqual(readiness({ ...args, maxCostUsd: 0.0009 }, { PARALLEL_API_KEY: 'key' }).blocker, 'parallel_search_cost_cap_too_low');
-  assert.strictEqual(readiness(args, {}, { keychainLookup: () => '' }).blocker, 'parallel_api_key_required');
+  assert.strictEqual(readiness(args, {}, { parallelAuthCheck: () => false, keychainLookup: () => '' }).blocker, 'parallel_auth_required');
   assert.strictEqual(readiness({ ...args, execute: false }, {}).status, 'dry-run');
   assert.deepStrictEqual(resolveApiCredential({ PARALLEL_API_KEY: 'env-key' }, { keychainLookup: () => 'unused' }), {
     apiKey: 'env-key',
@@ -82,6 +90,22 @@ assert.notStrictEqual(digest('private query'), '9ff6685fa712411cea49');
       return ' keychain-key ';
     },
   }), { apiKey: 'keychain-key', source: 'keychain' });
+  assert.deepStrictEqual(resolveParallelCliAuth({}, { parallelCliBin: '/mock/parallel-cli', parallelAuthCheck: () => ({ authenticated: true }) }), {
+    authenticated: true,
+    cliBin: '/mock/parallel-cli',
+  });
+  assert.deepStrictEqual(resolveProviderAuth({ PARALLEL_API_KEY: 'explicit-key' }, { parallelAuthCheck: () => true }), {
+    type: 'api-key',
+    source: 'environment',
+    apiKey: 'explicit-key',
+    cliBin: null,
+  });
+  assert.deepStrictEqual(resolveProviderAuth({}, { parallelCliBin: '/mock/parallel-cli', parallelAuthCheck: () => true }), {
+    type: 'parallel-cli',
+    source: 'google-sso-oauth',
+    apiKey: '',
+    cliBin: '/mock/parallel-cli',
+  });
 
   const dryRun = await buildReceipt({ ...args, execute: false }, { env: {}, now: '2026-07-12T00:00:00.000Z' });
   assert.strictEqual(dryRun.overallStatus, 'dry-run');
@@ -138,6 +162,7 @@ assert.notStrictEqual(digest('private query'), '9ff6685fa712411cea49');
   let keychainRequest = null;
   const keychainExecuted = await buildReceipt({ ...args, maxCostUsd: 0.001 }, {
     env: { USER: 'igor' },
+    parallelAuthCheck: () => false,
     keychainLookup: () => 'keychain-key',
     fetchImpl: async (_url, request) => {
       keychainRequest = request;
@@ -147,6 +172,29 @@ assert.notStrictEqual(digest('private query'), '9ff6685fa712411cea49');
   assert.strictEqual(keychainRequest.headers['x-api-key'], 'keychain-key');
   assert.strictEqual(keychainExecuted.readiness.authSource, 'keychain');
   assert(!JSON.stringify(keychainExecuted).includes('keychain-key'));
+
+  let oauthCall = null;
+  const oauthExecuted = await buildReceipt({ ...args, maxCostUsd: 0.001 }, {
+    env: { USER: 'igor' },
+    parallelCliBin: '/mock/parallel-cli',
+    parallelAuthCheck: () => ({ authenticated: true }),
+    parallelSearchImpl: async (call) => {
+      oauthCall = call;
+      return {
+        ok: true,
+        status: 200,
+        transport: 'parallel-cli-oauth',
+        body: { results: [], usage: [{ name: 'sku_search', count: 1 }], session_id: 'oauth-session' },
+      };
+    },
+  });
+  assert.strictEqual(oauthExecuted.overallStatus, 'pass');
+  assert.strictEqual(oauthExecuted.readiness.authSource, 'google-sso-oauth');
+  assert.strictEqual(oauthExecuted.readiness.authType, 'parallel-cli');
+  assert.strictEqual(oauthExecuted.execution.transport, 'parallel-cli-oauth');
+  assert.strictEqual(oauthCall.auth.source, 'google-sso-oauth');
+  assert(oauthCall.cliArgs.includes('--mode'));
+  assert(!JSON.stringify(oauthExecuted).includes('/mock/parallel-cli'));
 
   const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'hermes-parallel-test-'));
   const out = path.join(temp, 'latest.json');
