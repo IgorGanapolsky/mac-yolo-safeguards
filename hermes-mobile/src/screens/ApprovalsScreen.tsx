@@ -30,6 +30,11 @@ import { buildLeashEmptyExplanation } from '../utils/leashUx';
 import { isThumbgateLeashUnlocked } from '../utils/thumbgateLeash';
 import { CHAT_APPROVAL_EDIT_PREFIX } from '../services/approvalResolver';
 import { fromPendingApproval } from '../utils/approvalNormalize';
+import {
+  loadLeashDecisionHistory,
+  recordLeashDecision,
+  type LeashDecisionRecord,
+} from '../services/leashDecisionHistory';
 
 type RootTabParamList = {
   Leash: undefined;
@@ -38,6 +43,22 @@ type RootTabParamList = {
 };
 
 const REFRESH_SPINNER_TIMEOUT_MS = 12000;
+
+function formatDecisionTime(iso: string): string {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) {
+    return '';
+  }
+  const now = new Date();
+  const sameDay =
+    date.getFullYear() === now.getFullYear() &&
+    date.getMonth() === now.getMonth() &&
+    date.getDate() === now.getDate();
+  if (sameDay) {
+    return date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+  }
+  return date.toLocaleDateString([], { month: 'short', day: 'numeric' });
+}
 
 export default function ApprovalsScreen() {
   const navigation = useNavigation<BottomTabNavigationProp<RootTabParamList>>();
@@ -71,6 +92,7 @@ export default function ApprovalsScreen() {
   }, [patchSettings]);
 
   const [refreshing, setRefreshing] = React.useState(false);
+  const [decisionHistory, setDecisionHistory] = React.useState<LeashDecisionRecord[]>([]);
   const refreshingRef = React.useRef(false);
   const refreshPromiseRef = React.useRef<Promise<void> | null>(null);
   const connectionStateRef = React.useRef(connectionState);
@@ -131,6 +153,36 @@ export default function ApprovalsScreen() {
       }
       void runRefresh();
     }, [leashUnlocked, runRefresh]),
+  );
+
+  const reloadDecisionHistory = React.useCallback(async () => {
+    setDecisionHistory(await loadLeashDecisionHistory());
+  }, []);
+
+  // Chat inline approvals write to the same store — refresh on every focus so
+  // decisions made in the Chat tab show up here.
+  useFocusEffect(
+    React.useCallback(() => {
+      void reloadDecisionHistory();
+    }, [reloadDecisionHistory]),
+  );
+
+  React.useEffect(() => {
+    void reloadDecisionHistory();
+  }, [reloadDecisionHistory, pendingApprovals.length]);
+
+  const recordScreenDecision = React.useCallback(
+    (approval: typeof pendingApprovals[number], decision: 'approved' | 'denied') => {
+      void recordLeashDecision({
+        actionId: approval.actionId,
+        decision,
+        title: approval.reason || approval.command || approval.toolName || '',
+        command: approval.command,
+        toolName: approval.toolName,
+        source: 'leash',
+      }).then(reloadDecisionHistory);
+    },
+    [reloadDecisionHistory],
   );
 
   const glance = !presentation.visualsOn;
@@ -308,11 +360,18 @@ export default function ApprovalsScreen() {
               approvalPolicy={settings.approvalPolicy}
               thumbgateCaptureOnDown={settings.thumbgateCaptureOnDown}
               thumbgateCaptureOnUp={settings.thumbgateCaptureOnUp}
-              onApprove={() => resolveApproval(stackApproval.actionId, 'approve', stackApproval)}
-              onReject={() => resolveApproval(stackApproval.actionId, 'reject', stackApproval)}
-              onChoice={(choice) =>
-                submitApprovalChoice(stackApproval.actionId, choice, stackApproval)
-              }
+              onApprove={() => {
+                recordScreenDecision(stackApproval, 'approved');
+                resolveApproval(stackApproval.actionId, 'approve', stackApproval);
+              }}
+              onReject={() => {
+                recordScreenDecision(stackApproval, 'denied');
+                resolveApproval(stackApproval.actionId, 'reject', stackApproval);
+              }}
+              onChoice={(choice) => {
+                recordScreenDecision(stackApproval, choice === 'deny' ? 'denied' : 'approved');
+                void submitApprovalChoice(stackApproval.actionId, choice, stackApproval);
+              }}
               onEdit={() => handleApprovalEdit(stackApproval)}
             />
             {stackedCount > 1 ? (
@@ -329,13 +388,58 @@ export default function ApprovalsScreen() {
               approvalPolicy={settings.approvalPolicy}
               thumbgateCaptureOnDown={settings.thumbgateCaptureOnDown}
               thumbgateCaptureOnUp={settings.thumbgateCaptureOnUp}
-              onApprove={() => resolveApproval(approval.actionId, 'approve', approval)}
-              onReject={() => resolveApproval(approval.actionId, 'reject', approval)}
-              onChoice={(choice) => submitApprovalChoice(approval.actionId, choice, approval)}
+              onApprove={() => {
+                recordScreenDecision(approval, 'approved');
+                resolveApproval(approval.actionId, 'approve', approval);
+              }}
+              onReject={() => {
+                recordScreenDecision(approval, 'denied');
+                resolveApproval(approval.actionId, 'reject', approval);
+              }}
+              onChoice={(choice) => {
+                recordScreenDecision(approval, choice === 'deny' ? 'denied' : 'approved');
+                void submitApprovalChoice(approval.actionId, choice, approval);
+              }}
               onEdit={() => handleApprovalEdit(approval)}
             />
           ))
         )}
+
+        {leashUnlocked && decisionHistory.length > 0 ? (
+          <GlassCard style={styles.historyCard} testID="leash-decision-history">
+            <Text style={styles.sectionTitle}>Recent decisions</Text>
+            <Text style={styles.historyHint}>
+              Includes approvals made from Chat bubbles and this Leash tab.
+            </Text>
+            {decisionHistory.slice(0, 10).map((item) => (
+              <View
+                key={`${item.actionId}-${item.decidedAt}`}
+                style={styles.historyRow}
+                testID={`leash-decision-${item.actionId}`}
+              >
+                <Text
+                  style={[
+                    styles.historyDecision,
+                    item.decision === 'approved'
+                      ? styles.historyApproved
+                      : styles.historyDenied,
+                  ]}
+                >
+                  {item.decision === 'approved' ? '✓ Approved' : '✕ Denied'}
+                </Text>
+                <View style={styles.historyBodyCol}>
+                  <Text style={styles.historyTitle} numberOfLines={2}>
+                    {item.title || item.command || item.toolName || 'Agent action'}
+                  </Text>
+                  <Text style={styles.historyMeta}>
+                    {item.source === 'chat' ? 'From Chat' : 'From Leash'} ·{' '}
+                    {formatDecisionTime(item.decidedAt)}
+                  </Text>
+                </View>
+              </View>
+            ))}
+          </GlassCard>
+        ) : null}
 
         {leashUnlocked && recentReclaims.length > 0 && !glance ? (
           <GlassCard style={styles.reclaimCard}>
@@ -578,6 +682,45 @@ const styles = StyleSheet.create({
   },
   reclaimCard: {
     marginHorizontal: 16,
+  },
+  historyCard: {
+    marginHorizontal: 16,
+    marginTop: 12,
+  },
+  historyHint: {
+    fontSize: 11,
+    color: colors.textMuted,
+    marginBottom: 10,
+  },
+  historyRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+    marginBottom: 10,
+  },
+  historyDecision: {
+    fontSize: 12,
+    fontWeight: '800',
+    minWidth: 84,
+  },
+  historyApproved: {
+    color: colors.success,
+  },
+  historyDenied: {
+    color: colors.error,
+  },
+  historyBodyCol: {
+    flex: 1,
+  },
+  historyTitle: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    lineHeight: 17,
+  },
+  historyMeta: {
+    fontSize: 11,
+    color: colors.textMuted,
+    marginTop: 2,
   },
   leashSettingsCard: {
     marginHorizontal: 16,
