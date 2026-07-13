@@ -4,7 +4,7 @@ import { isDeferredStreamPlaceholder } from './streamAssistantText';
 
 /** Poll gateway transcript after empty stream / dropped SSE until reply lands or timeout. */
 export const DEFERRED_REPLY_POLL_MS = 3_000;
-export const DEFERRED_REPLY_POLL_MAX_MS = 6 * 60_000;
+export const DEFERRED_REPLY_POLL_MAX_MS = 60_000;
 
 export const EMPTY_REPLY_FAILURE_REASON =
   'Your computer finished but no reply text arrived — tap to retry.';
