@@ -9,8 +9,10 @@ const { execFileSync } = require('child_process');
 const WRAPPER = path.resolve(__dirname, '..', 'grok-yolo-wrapper.js');
 const {
   DEFAULT_DENY_RULES,
+  HERMES_VERIFIER_PROFILE,
   MODEL,
   buildHermesArgs,
+  buildHermesEnv,
   buildStandaloneArgs,
   grokDoctor,
   parseModelsOutput,
@@ -22,8 +24,8 @@ const {
 
 assert.strictEqual(parseVersion('grok 0.2.94 (abc123)'), '0.2.94');
 assert.strictEqual(parseVersion('unknown'), null);
-assert.strictEqual(versionAtLeast('0.2.94'), true);
-assert.strictEqual(versionAtLeast('0.2.93'), true);
+assert.strictEqual(versionAtLeast('0.2.99'), true);
+assert.strictEqual(versionAtLeast('0.2.98'), false);
 assert.strictEqual(versionAtLeast('0.3.0'), true);
 assert.strictEqual(versionAtLeast('0.2.92'), false);
 
@@ -54,11 +56,20 @@ assert.deepStrictEqual(hermes.slice(0, 3), ['--model', MODEL, '--always-approve'
 assert(!hermes.includes('--check'));
 assert(hermes.includes('--no-subagents'));
 assert(hermes.includes('--no-memory'));
+assert.strictEqual(hermes[hermes.indexOf('--sandbox') + 1], 'read-only');
 assert.strictEqual(hermes[hermes.indexOf('--max-turns') + 1], '8');
 assert.strictEqual(hermes[hermes.indexOf('-p') + 1], 'verify the diff');
 assert.strictEqual(hermes[hermes.indexOf('--output-format') + 1], 'json');
 assert.throws(() => buildHermesArgs('', {}), /non-empty task/);
 assert.throws(() => buildHermesArgs('x', { maxTurns: 0 }), /maxTurns/);
+assert.strictEqual(HERMES_VERIFIER_PROFILE.id, 'grok45-readonly-verifier-v1');
+assert.strictEqual(HERMES_VERIFIER_PROFILE.writeFileEnabled, false);
+const sourceEnv = { KEEP_ME: 'yes', GROK_WRITE_FILE: '1' };
+const hermesEnv = buildHermesEnv(sourceEnv);
+assert.deepStrictEqual(sourceEnv, { KEEP_ME: 'yes', GROK_WRITE_FILE: '1' });
+assert.strictEqual(hermesEnv.KEEP_ME, 'yes');
+assert.strictEqual(hermesEnv.GROK_WRITE_FILE, '0');
+assert(!standalone.includes('--sandbox'));
 
 const parsed = parseWrapperArgs([
   '--hermes',
@@ -75,7 +86,7 @@ assert.strictEqual(parsed.outputFormat, 'streaming-json');
 assert.strictEqual(parseWrapperArgs(['--hermes', 'verify', 'this']).task, 'verify this');
 
 const probe = (binary, args) => {
-  if (args[0] === 'version') return { status: 0, stdout: 'grok 0.2.93 (test)', stderr: '' };
+  if (args[0] === 'version') return { status: 0, stdout: 'grok 0.2.99 (test)', stderr: '' };
   return {
     status: 0,
     stdout: 'You are logged in with grok.com.\nDefault model: grok-4.5\nAvailable models:\n * grok-4.5 (default)\n',
@@ -94,7 +105,7 @@ const apiDoctor = grokDoctor({
   binary: '/fake/grok',
   env: { XAI_API_KEY: 'fake-placeholder' },
   probe: (binary, args) => args[0] === 'version'
-    ? { status: 0, stdout: 'grok 0.2.93', stderr: '' }
+    ? { status: 0, stdout: 'grok 0.2.99', stderr: '' }
     : { status: 0, stdout: 'Default model: grok-4.5\nAvailable models:\n * grok-4.5 (default)\n', stderr: '' },
 });
 assert.strictEqual(apiDoctor.ready, true);
@@ -105,7 +116,7 @@ const oldDoctor = grokDoctor({
   binary: '/fake/grok',
   env: {},
   probe: (binary, args) => args[0] === 'version'
-    ? { status: 0, stdout: 'grok 0.2.92', stderr: '' }
+    ? { status: 0, stdout: 'grok 0.2.98', stderr: '' }
     : probe(binary, args),
 });
 assert.strictEqual(oldDoctor.ready, false);
@@ -120,7 +131,7 @@ const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'grok-yolo-test-'));
 const fakeGrok = path.join(temp, 'grok');
 fs.writeFileSync(fakeGrok, `#!/usr/bin/env bash
 if [[ "$1" == "version" ]]; then
-  echo "grok 0.2.93 (fake)"
+  echo "grok 0.2.99 (fake)"
 elif [[ "$1" == "models" ]]; then
   echo "You are logged in with grok.com."
   echo "Default model: grok-4.5"
@@ -137,6 +148,15 @@ const dryRun = JSON.parse(execFileSync(process.execPath, [WRAPPER, '--dry-run', 
 assert.strictEqual(dryRun.binary, fakeGrok);
 assert.strictEqual(dryRun.model, MODEL);
 assert(dryRun.args.includes('--always-approve'));
+assert.strictEqual(dryRun.hermesProfile, null);
+const hermesDryRun = JSON.parse(execFileSync(process.execPath, [
+  WRAPPER, '--hermes', '--task', 'verify profile', '--dry-run', '--json',
+], {
+  env: { ...process.env, GROK_BIN: fakeGrok },
+  encoding: 'utf8',
+}));
+assert.strictEqual(hermesDryRun.hermesProfile.id, 'grok45-readonly-verifier-v1');
+assert.strictEqual(hermesDryRun.args[hermesDryRun.args.indexOf('--sandbox') + 1], 'read-only');
 fs.rmSync(temp, { recursive: true, force: true });
 
 console.log('Grok YOLO wrapper tests: PASS');
