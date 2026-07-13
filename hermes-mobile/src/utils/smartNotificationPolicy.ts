@@ -40,11 +40,11 @@ export function shouldScheduleApprovalsSummaryNotification(
   return categoryEnabled && isBackgrounded(appState);
 }
 
-/** Whether heads-up banners / sounds may interrupt the user (never while foregrounded). */
+/** Hermes notifications are list-only and must never interrupt another app. */
 export function shouldPresentIntrusiveNotification(
-  appState: SmartNotificationAppState = AppState.currentState,
+  _appState: SmartNotificationAppState = AppState.currentState,
 ): boolean {
-  return appState !== 'active';
+  return false;
 }
 
 export type HermesNotificationPresentation = {
@@ -55,16 +55,15 @@ export type HermesNotificationPresentation = {
   shouldShowList: boolean;
 };
 
-/** expo-notifications handler shape — suppress banners/sound when app is active. */
+/** expo-notifications handler shape — status-bar/list only in every app state. */
 export function resolveHermesNotificationPresentation(
-  appState: SmartNotificationAppState = AppState.currentState,
-  options?: { playSound?: boolean },
+  _appState: SmartNotificationAppState = AppState.currentState,
+  _options?: { playSound?: boolean },
 ): HermesNotificationPresentation {
-  const intrusive = shouldPresentIntrusiveNotification(appState);
   return {
-    shouldShowAlert: intrusive,
-    shouldShowBanner: intrusive,
-    shouldPlaySound: intrusive && (options?.playSound ?? false),
+    shouldShowAlert: false,
+    shouldShowBanner: false,
+    shouldPlaySound: false,
     shouldSetBadge: true,
     shouldShowList: true,
   };

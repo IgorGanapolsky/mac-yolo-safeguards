@@ -1,16 +1,26 @@
+jest.mock('expo', () => ({
+  isRunningInExpoGo: () => false,
+}));
+
 import {
+  clearRunProgressNotification,
+  initHermesNotifications,
   approvalNotificationSubtitle,
   parseApprovalNotificationResponse,
   parseHermesNotificationResponse,
   resolveHermesNotificationHandlerResult,
   runProgressNotificationTitle,
+  resetApprovalNotificationState,
+  scheduleApprovalNotification,
   scheduleApprovalsSummaryNotification,
+  scheduleRunCompletedNotification,
   scheduleRunProgressNotification,
   scheduleRunStallNotification,
+  setHermesNotificationsModuleForTests,
   shouldDismissRunNotificationsForAppState,
 } from '../services/hermesNotifications';
 import * as Notifications from 'expo-notifications';
-import { AppState } from 'react-native';
+import { AppState, Platform } from 'react-native';
 
 describe('hermesNotifications', () => {
   it('parses approve_once notification actions', () => {
@@ -202,20 +212,142 @@ describe('hermesNotifications', () => {
       }
     });
 
-    it('allows banners in background and inactive', () => {
+    it('keeps every Hermes notification status-bar-only in background and inactive', () => {
       for (const appState of ['background', 'inactive'] as const) {
-        const result = handlerPresentation(appState, 'run_progress');
-        expect(result.shouldShowBanner).toBe(true);
-        expect(result.shouldShowAlert).toBe(true);
+        for (const type of [
+          'run_progress',
+          'run_stall',
+          'run_completed',
+          'approval',
+          'approval_summary',
+        ]) {
+          const result = handlerPresentation(appState, type);
+          expect(result.shouldShowBanner).toBe(false);
+          expect(result.shouldShowAlert).toBe(false);
+          expect(result.shouldPlaySound).toBe(false);
+          expect(result.shouldShowList).toBe(true);
+        }
       }
     });
 
-    it('plays approval sounds only when not active', () => {
-      const active = handlerPresentation('active', 'approval');
-      expect(active.shouldPlaySound).toBe(false);
+    it('never plays approval sounds', () => {
+      expect(handlerPresentation('active', 'approval').shouldPlaySound).toBe(false);
+      expect(handlerPresentation('background', 'approval').shouldPlaySound).toBe(false);
+    });
+  });
 
-      const background = handlerPresentation('background', 'approval');
-      expect(background.shouldPlaySound).toBe(true);
+  describe('quiet Android channels and run deduplication', () => {
+    const originalCurrentState = AppState.currentState;
+    const originalPlatform = Platform.OS;
+
+    beforeEach(() => {
+      setHermesNotificationsModuleForTests({
+        ...Notifications,
+        SchedulableTriggerInputTypes: { TIME_INTERVAL: 'timeInterval' },
+      } as unknown as typeof Notifications);
+    });
+
+    afterEach(async () => {
+      Object.defineProperty(AppState, 'currentState', {
+        value: originalCurrentState,
+        configurable: true,
+      });
+      Object.defineProperty(Platform, 'OS', {
+        value: originalPlatform,
+        configurable: true,
+      });
+      await clearRunProgressNotification();
+      resetApprovalNotificationState();
+      setHermesNotificationsModuleForTests(null);
+      jest.clearAllMocks();
+    });
+
+    it('creates only versioned low-importance Android channels', async () => {
+      Object.defineProperty(Platform, 'OS', { value: 'android', configurable: true });
+      Object.defineProperty(AppState, 'currentState', { value: 'background', configurable: true });
+
+      await initHermesNotifications();
+
+      for (const channelId of [
+        'hermes-approvals-quiet-v2',
+        'hermes-runs-quiet-v2',
+        'hermes-results-quiet-v2',
+      ]) {
+        expect(Notifications.setNotificationChannelAsync).toHaveBeenCalledWith(
+          channelId,
+          expect.objectContaining({ importance: Notifications.AndroidImportance.LOW }),
+        );
+      }
+      expect(Notifications.setNotificationChannelAsync).not.toHaveBeenCalledWith(
+        expect.any(String),
+        expect.objectContaining({ importance: Notifications.AndroidImportance.HIGH }),
+      );
+    });
+
+    it('posts only once for repeated updates in the same run phase', async () => {
+      Object.defineProperty(Platform, 'OS', { value: 'android', configurable: true });
+      Object.defineProperty(AppState, 'currentState', { value: 'background', configurable: true });
+      await clearRunProgressNotification();
+      jest.clearAllMocks();
+
+      await scheduleRunProgressNotification(
+        { phase: 'streaming', startedAtMs: 1, runId: 'run-quiet' },
+        { runId: 'run-quiet', force: true },
+      );
+      await scheduleRunProgressNotification(
+        { phase: 'streaming', startedAtMs: 1, runId: 'run-quiet', outputTokens: 200 },
+        { runId: 'run-quiet', force: true },
+      );
+
+      expect(Notifications.scheduleNotificationAsync).toHaveBeenCalledTimes(1);
+      expect(Notifications.scheduleNotificationAsync).toHaveBeenCalledWith(
+        expect.objectContaining({
+          content: expect.objectContaining({
+            channelId: 'hermes-runs-quiet-v2',
+            priority: Notifications.AndroidNotificationPriority.LOW,
+          }),
+        }),
+      );
+
+      await scheduleRunProgressNotification(
+        { phase: 'approval', startedAtMs: 1, runId: 'run-quiet' },
+        { runId: 'run-quiet', force: true },
+      );
+      expect(Notifications.scheduleNotificationAsync).toHaveBeenCalledTimes(2);
+    });
+
+    it('keeps approval, summary, completion, and stall payloads quiet', async () => {
+      Object.defineProperty(Platform, 'OS', { value: 'android', configurable: true });
+      Object.defineProperty(AppState, 'currentState', { value: 'background', configurable: true });
+
+      const approval = {
+        actionId: 'quiet-approval',
+        toolName: 'bash',
+        reason: 'Review command',
+        receivedAt: '2026-07-13T14:00:00.000Z',
+      };
+      await scheduleApprovalNotification(approval, { force: true });
+      await scheduleApprovalsSummaryNotification([
+        approval,
+        { ...approval, actionId: 'quiet-approval-2' },
+      ]);
+      await scheduleRunCompletedNotification('Finished', { runId: 'quiet-run' });
+      await scheduleRunStallNotification('quiet-run', 'quiet-session');
+
+      const scheduled = (Notifications.scheduleNotificationAsync as jest.Mock).mock.calls.map(
+        ([request]) => request.content,
+      );
+      expect(scheduled).toHaveLength(4);
+      for (const content of scheduled) {
+        expect(content.priority).toBe(Notifications.AndroidNotificationPriority.LOW);
+        expect(content.sound).toBeUndefined();
+      }
+      expect(scheduled.map((content) => content.channelId)).toEqual([
+        'hermes-approvals-quiet-v2',
+        'hermes-approvals-quiet-v2',
+        'hermes-results-quiet-v2',
+        'hermes-results-quiet-v2',
+      ]);
     });
   });
 });

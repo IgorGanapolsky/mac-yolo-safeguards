@@ -92,10 +92,10 @@ describe('smartNotificationPolicy', () => {
     expect(shouldScheduleApprovalsSummaryNotification('background', false)).toBe(false);
   });
 
-  it('never presents intrusive notifications while active', () => {
+  it('never presents intrusive notifications in any app state', () => {
     expect(shouldPresentIntrusiveNotification('active')).toBe(false);
-    expect(shouldPresentIntrusiveNotification('background')).toBe(true);
-    expect(shouldPresentIntrusiveNotification('inactive')).toBe(true);
+    expect(shouldPresentIntrusiveNotification('background')).toBe(false);
+    expect(shouldPresentIntrusiveNotification('inactive')).toBe(false);
   });
 
   it('resolves handler presentation from app state', () => {
@@ -107,9 +107,9 @@ describe('smartNotificationPolicy', () => {
       shouldShowList: true,
     });
     expect(resolveHermesNotificationPresentation('background', { playSound: true })).toEqual({
-      shouldShowAlert: true,
-      shouldShowBanner: true,
-      shouldPlaySound: true,
+      shouldShowAlert: false,
+      shouldShowBanner: false,
+      shouldPlaySound: false,
       shouldSetBadge: true,
       shouldShowList: true,
     });
