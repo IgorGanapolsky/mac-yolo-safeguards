@@ -6,7 +6,7 @@
     "experiments": {
       "reactCompiler": true
     },
-    "version": "0.3.2",
+    "version": "1.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
@@ -73,7 +73,7 @@
           }
         ]
       },
-      "buildNumber": "12"
+      "buildNumber": "13"
     },
     "android": {
       "adaptiveIcon": {
