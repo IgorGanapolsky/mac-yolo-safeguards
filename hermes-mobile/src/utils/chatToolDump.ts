@@ -2,6 +2,7 @@ import type { HermesMessage } from '../types/chat';
 
 const TOOL_DUMP_PREFIX_RE = /^\[(tool output|tool data|tool error|tool)\]/i;
 const TOOL_DUMP_ANYWHERE_RE = /\[(tool output|tool data|tool error|tool)\]/i;
+const TOOL_CALL_MARKUP_RE = /<toolcall\b|<tool\s*_?\s*call\b|<function\s*_?\s*call\b/i;
 const TOOL_ACTIVITY_ROLES = new Set(['tool', 'function', 'tool_result']);
 
 const VOLATILE_TOOL_KEYS = new Set([
@@ -101,6 +102,9 @@ export function isToolDumpDisplayContent(content: string | undefined): boolean {
     return false;
   }
   if (TOOL_DUMP_PREFIX_RE.test(text) || TOOL_DUMP_ANYWHERE_RE.test(text)) {
+    return true;
+  }
+  if (TOOL_CALL_MARKUP_RE.test(text)) {
     return true;
   }
   if (text.startsWith('{') || text.startsWith('[')) {

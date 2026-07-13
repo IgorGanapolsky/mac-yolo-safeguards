@@ -30,6 +30,30 @@ const SECURITY_BOILERPLATE_RE =
   /The following content was retrieved from an external source\.[\s\S]*?can issue instructions\.\s*/gi;
 const TOOL_PREFIX_RE = /^\[tool[^\]]*\]\s*/i;
 
+/** Strip gateway-embedded tool invocation markup from assistant prose (never show to users). */
+export function stripToolCallMarkup(text: string): string {
+  if (!/<tool\s*_?\s*call|<toolcall|<function\s*_?\s*call/i.test(text)) {
+    return text;
+  }
+
+  let out = text
+    .replace(/\s*<toolcall\b[^>]*>[\s\S]*?<\/toolcall>\s*/gi, '\n')
+    .replace(/\s*<tool\s*_?\s*call\b[^>]*>[\s\S]*?<\/tool\s*_?\s*call>\s*/gi, '\n')
+    .replace(/\s*<function\s*_?\s*call\b[^>]*>[\s\S]*?<\/function\s*_?\s*call>\s*/gi, '\n');
+
+  if (/<toolcall/i.test(out)) {
+    out = out.replace(/<toolcall[\s\S]*$/i, '');
+  }
+  if (/<tool\s*_?\s*call\b/i.test(out)) {
+    out = out.replace(/<tool\s*_?\s*call\b[^>]*>[\s\S]*$/i, '');
+  }
+  if (/<function\s*_?\s*call\b/i.test(out)) {
+    out = out.replace(/<function\s*_?\s*call\b[^>]*>[\s\S]*$/i, '');
+  }
+
+  return out.replace(/\n{3,}/g, '\n\n').trim();
+}
+
 /** Roles we show in the mobile chat transcript. */
 export function isVisibleChatRole(role: string | undefined): boolean {
   if (!role) return false;
@@ -225,7 +249,7 @@ function formatMessageBody(content: string, mode: 'preview' | 'full'): string {
     if (summary) return summary;
   }
 
-  let text = stripUntrustedToolBlocks(unescapeChatText(content), untrustedCap);
+  let text = stripToolCallMarkup(stripUntrustedToolBlocks(unescapeChatText(content), untrustedCap));
   const trimmed = text.trim();
 
   const json = tryParseJsonObject(trimmed);
@@ -255,7 +279,7 @@ export function formatMessageForDisplay(content: string): string {
 /** Full expandable body — pretty JSON when possible, not the short preview summary. */
 export function formatExpandedMessageContent(raw: string): string {
   const unescaped = unescapeChatText(raw);
-  const stripped = stripUntrustedToolBlocks(unescaped, 12000).trim();
+  const stripped = stripToolCallMarkup(stripUntrustedToolBlocks(unescaped, 12000)).trim();
   const json = tryParseJsonValue(stripped);
   if (json != null) {
     try {
