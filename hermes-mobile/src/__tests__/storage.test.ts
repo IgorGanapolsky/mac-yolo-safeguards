@@ -120,6 +120,24 @@ describe('storage', () => {
     expect(await storage.loadDismissedSessionIds('http://127.0.0.1:8642')).toEqual([]);
   });
 
+  it('persists dismissed session ids per machine host across gateway URL drift', async () => {
+    const lanKeys = ['host:igors-mac-mini', 'mac_192_168_68_56', 'http://192.168.68.56:8642'];
+    const tailscaleKeys = ['host:igors-mac-mini', 'mac_100_94_135_78', 'http://100.94.135.78:8642'];
+
+    await storage.addDismissedSessionIds(lanKeys, ['sess_a', 'sess_b'], 'http://192.168.68.56:8642');
+
+    const fromTailscale = await storage.loadDismissedSessionIds(
+      tailscaleKeys,
+      'http://100.94.135.78:8642',
+    );
+    expect(fromTailscale).toEqual(expect.arrayContaining(['sess_a', 'sess_b']));
+
+    await storage.setHideCronSessions(lanKeys, true, 'http://192.168.68.56:8642');
+    expect(
+      await storage.loadHideCronSessions(tailscaleKeys, 'http://100.94.135.78:8642'),
+    ).toBe(true);
+  });
+
   it('persists hide-cron preference per gateway host', async () => {
     expect(await storage.loadHideCronSessions('http://127.0.0.1:8642')).toBe(false);
 
