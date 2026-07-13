@@ -55,6 +55,7 @@ import {
 import { captureThumbgateFeedback } from '../services/thumbgateClient';
 import { stopRun } from '../services/hermesGatewayClient';
 import {
+  setPostHogDogfoodExclusions,
   setProductAnalyticsOptOut,
   trackProductEvent,
 } from '../services/productAnalytics';
@@ -469,6 +470,10 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
     settingsRef.current = settings;
     apiKeyRef.current = apiKey;
     effectiveGatewayUrlRef.current = effectiveGatewayUrl;
+    setProductAnalyticsOptOut(Boolean(settings.analyticsOptOut));
+    setPostHogDogfoodExclusions({
+      developerLeashUnlock: Boolean(settings.developerLeashUnlock),
+    });
   }, [settings, apiKey, effectiveGatewayUrl]);
 
   useEffect(() => {
@@ -554,6 +559,9 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
         setSettings(resolvedSettings);
         settingsRef.current = resolvedSettings;
         setProductAnalyticsOptOut(Boolean(resolvedSettings.analyticsOptOut));
+        setPostHogDogfoodExclusions({
+          developerLeashUnlock: Boolean(resolvedSettings.developerLeashUnlock),
+        });
         effectiveGatewayUrlRef.current = resolvedSettings.gatewayUrl;
         setEffectiveGatewayUrl(resolvedSettings.gatewayUrl);
         setApiKey(resolvedKey);
@@ -2383,6 +2391,7 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
 
   const activateStoreLeashPreview = useCallback(() => {
     setStoreLeashPreviewActive(true);
+    setPostHogDogfoodExclusions({ storeLeashPreview: true });
   }, []);
 
   const injectSmokeApproval = useCallback(() => {
