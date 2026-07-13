@@ -1,4 +1,5 @@
 import type { HermesMessage, HermesSession } from '../types/chat';
+import { isSummarizationStub } from './chatCompactionHandoff';
 import { isMessageDisplayEmpty, normalizeMessageText } from './chatMessageMerge';
 import { isTelegramSession } from './sessionSelection';
 
@@ -72,6 +73,9 @@ export function snapshotAssistantBodies(messages: HermesMessage[]): Set<string> 
     if (isDeferredStreamPlaceholder(message.content)) {
       continue;
     }
+    if (isSummarizationStub(message.content)) {
+      continue;
+    }
     bodies.add(normalizeMessageText(message.content));
   }
   return bodies;
@@ -90,6 +94,9 @@ export function findNewAssistantReply(
       continue;
     }
     if (isDeferredStreamPlaceholder(message.content)) {
+      continue;
+    }
+    if (isSummarizationStub(message.content)) {
       continue;
     }
     const body = normalizeMessageText(message.content);

@@ -1,4 +1,5 @@
 import type { HermesMessage } from '../types/chat';
+import { isSummarizationStub } from './chatCompactionHandoff';
 import { isMessageBodyEmpty } from './chatMessageMerge';
 import { isDeferredStreamPlaceholder } from './streamAssistantText';
 
@@ -16,6 +17,10 @@ export function shouldAwaitGatewayReplyAfterSend(options: {
 }): boolean {
   if (!options.streamAccepted) {
     return false;
+  }
+  // Compaction / "Earlier conversation summarized…" stubs are not real replies.
+  if (isSummarizationStub(options.assistantText)) {
+    return true;
   }
   if (options.assistantText.trim()) {
     return false;
@@ -40,6 +45,9 @@ export function serverHasAssistantReplyAfterLastUser(serverMessages: HermesMessa
       continue;
     }
     if (isDeferredStreamPlaceholder(message.content)) {
+      continue;
+    }
+    if (isSummarizationStub(message.content)) {
       continue;
     }
     return true;

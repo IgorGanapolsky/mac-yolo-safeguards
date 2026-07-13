@@ -21,10 +21,12 @@ describe('sessionTokenGuards', () => {
   });
 
   it('classifies warn and block thresholds', () => {
-    expect(classifyMegaSession({ input_tokens: 400_000 })).toBe('normal');
+    expect(classifyMegaSession({ input_tokens: 300_000 })).toBe('normal');
+    expect(classifyMegaSession({ input_tokens: 397_152 })).toBe('warn');
     expect(classifyMegaSession({ input_tokens: MEGA_SESSION_TOKEN_WARN })).toBe('warn');
     expect(classifyMegaSession({ input_tokens: MEGA_SESSION_TOKEN_BLOCK })).toBe('block');
     expect(isMegaSession({ input_tokens: MEGA_SESSION_TOKEN_WARN })).toBe(true);
+    expect(MEGA_SESSION_TOKEN_WARN).toBe(350_000);
   });
 
   it('formats large counts for banners', () => {
