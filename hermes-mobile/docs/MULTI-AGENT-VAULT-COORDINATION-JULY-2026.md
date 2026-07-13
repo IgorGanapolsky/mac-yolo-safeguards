@@ -110,7 +110,7 @@ July 2026 research and Igor's vault converge on **filesystem blackboard** coordi
 1. **Write ONLY your `Agent-State/<your-agent>.md`.** Never edit another agent's state file.
 2. **Same agent type, second live instance?** Check `git log -1 -- Agent-State/<file>` and `## Workspace Context`. If another repo/runtime owns it recently → write **`Handoffs/YYYY-MM-DD-<topic>.md`** instead.
 3. **Cross-agent messages** → `Handoffs/` only (not `Agent-State/`).
-4. **Vault commit:** `git add <explicit paths>` — **never `git add -A`** on the vault ([VAULT-HYGIENE.md](file:///Users/igorganapolsky/Documents/AI-Agent-Sync/VAULT-HYGIENE.md)).
+4. **Vault commit:** `git add <explicit paths>` — **never `git add -A`** on the vault (external vault policy: `AI-Agent-Sync/VAULT-HYGIENE.md`).
 5. **Regenerated artifacts** (`Hermes Agent Sync.*`) live in repo `artifacts/agent-sync/` — not vault git.
 
 ---
