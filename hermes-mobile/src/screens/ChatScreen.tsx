@@ -200,12 +200,13 @@ import {
   classifyMegaSession,
   isMegaSession,
   isMegaSessionSendBlocked,
+  MEGA_SESSION_TOKEN_BLOCK,
   megaSessionBannerCopy,
   megaSessionForceFreshSelectCopy,
-  megaSessionSendBlockedCopy,
   megaSessionSendWarnMessage,
   megaSessionSendWarnTitle,
   sessionTotalTokens,
+  shouldAutoFreshAndResendOnMegaBlock,
   shouldForceFreshOnSessionSelect,
 } from '../utils/sessionTokenGuards';
 import {
@@ -2781,8 +2782,17 @@ export default function ChatScreen() {
     setCurrentSession(null);
   };
 
+  /**
+   * Leave the mega/stalled thread and open a clean compose surface.
+   * Always restore any draft the operator already typed — "Start fresh" must
+   * never throw away the message they were about to send.
+   */
   const handleStartFreshChat = useCallback(async () => {
     haptics.selection();
+    // Capture before handleNewChat clears the composer.
+    const draftToRestore = inputValueRef.current;
+    const attachmentsToRestore = [...composerAttachmentsRef.current];
+
     isSendingRef.current = false;
     setIsSending(false);
     setRunProgress(null);
@@ -2797,9 +2807,34 @@ export default function ChatScreen() {
     setToolStatus(null);
     setRecentChatsDismissed(true);
 
+    const restoreComposerDraft = () => {
+      if (draftToRestore.trim() || attachmentsToRestore.length > 0) {
+        inputValueRef.current = draftToRestore;
+        setInputValue(draftToRestore);
+        setComposerAttachments(attachmentsToRestore);
+        setComposerFocusNonce((n) => n + 1);
+      }
+    };
+
     const sourceSession = currentSessionRef.current;
     if (isDemo || !sourceSession || isTelegramInboxSession(sourceSession)) {
+      currentSessionRef.current = null;
       await handleNewChat();
+      restoreComposerDraft();
+      return;
+    }
+
+    // Hard-block size: never fork (would copy hundreds of k tokens). Compose-first empty chat.
+    const totalTokens =
+      (sourceSession.input_tokens ?? 0) +
+      (sourceSession.output_tokens ?? 0) +
+      (sourceSession.cache_read_tokens ?? 0);
+    if (totalTokens >= MEGA_SESSION_TOKEN_BLOCK) {
+      // Sync ref immediately so an in-flight send does not re-target the mega session
+      // before React re-renders (currentSessionRef otherwise lags one frame).
+      currentSessionRef.current = null;
+      await handleNewChat();
+      restoreComposerDraft();
       return;
     }
 
@@ -2820,17 +2855,21 @@ export default function ChatScreen() {
         last_active_at: new Date().toISOString(),
       });
       setSessions((prev) => [freshSession, ...prev.filter((session) => session.id !== forkId)]);
+      currentSessionRef.current = freshSession;
       setCurrentSession(freshSession);
       if (activeProject) {
         const next = bindSessionToProject(projectState, activeProject.id, forkId, freshSession.title ?? baseTitle);
         await persistProjectState(next);
       }
       void refreshSessionMessagesRef.current?.({ background: false, force: true });
+      restoreComposerDraft();
     } catch (error) {
       setErrorMessage(
         error instanceof Error ? error.message : 'Could not start a fresh chat on your computer',
       );
+      currentSessionRef.current = null;
       await handleNewChat();
+      restoreComposerDraft();
     }
   }, [
     activeProject,
@@ -2844,30 +2883,28 @@ export default function ChatScreen() {
     setRunProgress,
   ]);
 
-  const confirmMegaSessionSend = useCallback(async (): Promise<boolean> => {
+  /** normal → allow; warn → dialog; block → auto 'fresh' (send path migrates draft). */
+  const confirmMegaSessionSend = useCallback(async (): Promise<'allow' | 'fresh' | 'cancel'> => {
     const session = currentSessionRef.current;
     const level = classifyMegaSession(session);
     if (level === 'normal') {
-      return true;
+      return 'allow';
+    }
+    if (level === 'block') {
+      // Hard-block: only path is a new chat. Return 'fresh' so Send can start fresh
+      // and deliver the already-typed message without a second tap / draft loss.
+      return 'fresh';
     }
     const total = sessionTotalTokens(session);
-    if (level === 'block') {
-      await new Promise<void>((resolve) => {
-        Alert.alert('Chat too large', megaSessionSendBlockedCopy(total), [
-          { text: 'Start fresh chat', onPress: () => void handleStartFreshChat() },
-          { text: 'Cancel', style: 'cancel', onPress: () => resolve() },
-        ]);
-      });
-      return false;
-    }
-    return new Promise<boolean>((resolve) => {
+    return new Promise<'allow' | 'fresh' | 'cancel'>((resolve) => {
       Alert.alert(megaSessionSendWarnTitle(), megaSessionSendWarnMessage(total), [
-        { text: 'Start fresh chat', onPress: () => void handleStartFreshChat().then(() => resolve(false)) },
-        { text: 'Send anyway', style: 'destructive', onPress: () => resolve(true) },
-        { text: 'Cancel', style: 'cancel', onPress: () => resolve(false) },
+        // start-fresh is executed by the send path so the draft can be re-delivered.
+        { text: 'Start fresh chat', onPress: () => resolve('fresh') },
+        { text: 'Send anyway', style: 'destructive', onPress: () => resolve('allow') },
+        { text: 'Cancel', style: 'cancel', onPress: () => resolve('cancel') },
       ]);
     });
-  }, [handleStartFreshChat]);
+  }, []);
 
   const megaSessionWarning = useMemo(() => {
     const total = sessionTotalTokens(currentSession);
@@ -3675,9 +3712,20 @@ export default function ChatScreen() {
       const session = currentSessionRef.current;
       const megaLevel = classifyMegaSession(session);
       if (megaLevel !== 'normal') {
-        const allowed = await confirmMegaSessionSend();
-        if (!allowed) {
+        const decision =
+          shouldAutoFreshAndResendOnMegaBlock(megaLevel)
+            ? 'fresh'
+            : await confirmMegaSessionSend();
+        if (decision === 'cancel') {
           return false;
+        }
+        if (decision === 'fresh') {
+          // Leave the oversized thread, then continue this same send on a new chat.
+          // sendUserText still holds userText / displayText for the outbound payload.
+          // Do not put the draft back in the composer yet — handleSendMessage restores
+          // it only if this send ultimately fails.
+          await handleStartFreshChat();
+          // Fall through using currentSessionRef (updated synchronously in start-fresh).
         }
       }
     }
@@ -3886,15 +3934,25 @@ export default function ChatScreen() {
       return base;
     });
 
+    // Prefer ref over render-closure session: start-fresh updates the ref synchronously
+    // so an auto-migrated mega-session send does not re-target the blocked thread.
+    const sessionForSend = currentSessionRef.current ?? currentSession;
     // A gateway restart drops in-memory session ids; never carry a known-removed
     // id into a send (even on a "New chat") — clear it so we start fresh.
-    if (currentSession && !isDemo && removedSessionIdsRef.current.has(currentSession.id)) {
+    if (sessionForSend && !isDemo && removedSessionIdsRef.current.has(sessionForSend.id)) {
+      currentSessionRef.current = null;
       setCurrentSession(null);
     }
     let activeSess =
-      currentSession && !isDemo && removedSessionIdsRef.current.has(currentSession.id)
+      sessionForSend && !isDemo && removedSessionIdsRef.current.has(sessionForSend.id)
         ? null
-        : currentSession;
+        : sessionForSend;
+    // Mega hard-block must never send into the oversized session even if ref lagged.
+    if (activeSess && isMegaSessionSendBlocked(activeSess)) {
+      activeSess = null;
+      currentSessionRef.current = null;
+      setCurrentSession(null);
+    }
     const createdNewSession = !activeSess;
     if (!activeSess) {
       if (isDemo) {
