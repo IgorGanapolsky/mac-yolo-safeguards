@@ -95,10 +95,23 @@ function peerHostsFromStatusJson(json) {
       }
     }
   }
-  const selfIps = json.Self?.TailscaleIPs || json.TailscaleIPs || [];
-  for (const ip of selfIps) {
-    if (typeof ip === 'string' && isTailscaleIpv4(ip.split('/')[0])) {
-      hosts.delete(ip.split('/')[0]);
+  // Include Self: the Mac running discovery is itself a Hermes gateway candidate.
+  // Excluding it meant pair links generated on the MacBook Pro only ever seeded
+  // the mini, so the phone picker never showed the MBP (T-222).
+  const self = json.Self || {};
+  if (!isMobilePeer(self)) {
+    const selfIps = self.TailscaleIPs || json.TailscaleIPs || [];
+    for (const ip of selfIps) {
+      if (typeof ip === 'string' && isTailscaleIpv4(ip.split('/')[0])) {
+        hosts.add(ip.split('/')[0]);
+      }
+    }
+    const selfDns = self.DNSName || self.HostName;
+    if (typeof selfDns === 'string') {
+      const cleaned = selfDns.replace(/\.$/, '');
+      if (cleaned.endsWith('.ts.net')) {
+        hosts.add(cleaned);
+      }
     }
   }
   return Array.from(hosts);
