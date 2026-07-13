@@ -80,7 +80,7 @@ check('apply runs every command under the requested HERMES_HOME', () => {
   const results = applyCommands(commands, args.hermesHome, {}, spawn);
   assert.equal(results.length, commands.length);
   assert(calls.every((call) => call.home === path.resolve('/tmp/meta-hermes')));
-  assert(calls.every((call) => call.binary === 'hermes'));
+  assert(calls.every((call) => call.binary === args.hermesBin));
 });
 
 check('apply stops on the first failed Hermes config write', () => {
