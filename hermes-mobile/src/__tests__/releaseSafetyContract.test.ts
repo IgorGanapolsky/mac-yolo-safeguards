@@ -121,6 +121,33 @@ describe('release safety contract', () => {
     expect(eas.build.production.env.SENTRY_DISABLE_AUTO_UPLOAD).toBe('true');
   });
 
+  // Guard against generic Play "compliance checklists" that misread Expo config.
+  // SYSTEM_ALERT_WINDOW is BLOCKED (tools:node=remove), not requested — do not "add rationale".
+  it('production ships AAB, minifies, and blocks overlay/mic permissions (not granted)', () => {
+    const eas = JSON.parse(read('hermes-mobile/eas.json'));
+    expect(eas.build.production.android.buildType).toBe('app-bundle');
+    // Internal dogfood may stay APK; store production must not.
+    expect(eas.build.production.android.buildType).not.toBe('apk');
+
+    const app = JSON.parse(read('hermes-mobile/app.json'));
+    const blocked: string[] = app.expo.android.blockedPermissions ?? [];
+    expect(blocked).toEqual(
+      expect.arrayContaining([
+        'android.permission.SYSTEM_ALERT_WINDOW',
+        'android.permission.RECORD_AUDIO',
+      ]),
+    );
+
+    const buildProps = app.expo.plugins.find(
+      (p: unknown) => Array.isArray(p) && p[0] === 'expo-build-properties',
+    ) as [string, { android?: { enableMinifyInReleaseBuilds?: boolean; enableShrinkResourcesInReleaseBuilds?: boolean } }] | undefined;
+    expect(buildProps?.[1]?.android?.enableMinifyInReleaseBuilds).toBe(true);
+    expect(buildProps?.[1]?.android?.enableShrinkResourcesInReleaseBuilds).toBe(true);
+
+    // Generated android/ is gitignored; Expo blockedPermissions → tools:node=remove at prebuild.
+    // Do not assert the prebuild tree here — app.json is the source of truth.
+  });
+
   it('store release passes explicit spend confirmation to both EAS build guards', () => {
     const workflow = read('.github/workflows/store-release.yml');
     const mapping =
