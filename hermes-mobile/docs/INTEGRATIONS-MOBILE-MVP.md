@@ -1,7 +1,7 @@
 # Integrations — Mobile MVP spec (gateway + mobile)
 
 **Status:** Mobile Phase 1 shipped (2026-07-13) — Integrations sheet + default-ON for configured tools. Gateway `integrations_config` / `/v1/toolsets/{name}/env` still required for live key writes (404 on older Macs → honest fallback copy).  
-**Upstream context:** [Tool enablement investigation](75385ce9-e6ac-49f1-b3bf-b2c48e89d0ac)  
+**Upstream context:** Tool enablement investigation `75385ce9-e6ac-49f1-b3bf-b2c48e89d0ac`
 **Audience:** `hermes-agent` gateway team (`~/.hermes/hermes-agent`, outside this repo) + `hermes-mobile` UI team
 
 ---
