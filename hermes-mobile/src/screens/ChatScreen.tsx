@@ -503,6 +503,9 @@ export default function ChatScreen() {
   const [isLoadingSessions, setIsLoadingSessions] = useState(false);
   const [isLoadingMessages, setIsLoadingMessages] = useState(false);
   const [isSending, setIsSending] = useState(false);
+  /** True while Start fresh chat is forking/stopping — show spinner so tap isn't silent. */
+  const [isStartingFreshChat, setIsStartingFreshChat] = useState(false);
+  const isStartingFreshChatRef = useRef(false);
   /** HTTP chat stream in flight — keep WS from clearing runProgress before first token. */
   const [isChatStreamActive, setIsChatStreamActive] = useState(false);
   const [sessionModalVisible, setSessionModalVisible] = useState(false);
@@ -2893,73 +2896,83 @@ export default function ChatScreen() {
   };
 
   const handleStartFreshChat = useCallback(async () => {
-    haptics.selection();
-    // Kill zombie "Delivering…" / mega-token banner: clear local run state AND best-effort stop Mac run.
-    // (Previously only null'd runProgress while isChatStreamActive + sendProgressSnapshotRef kept the UI alive.)
-    const stopIds = [
-      runProgressRef.current?.runId,
-      sendProgressSnapshotRef.current?.runId,
-    ].filter((id): id is string => Boolean(id?.trim()));
-    isSendingRef.current = false;
-    setIsSending(false);
-    activeChatStreamRef.current = false;
-    setIsChatStreamActive(false);
-    sendProgressSnapshotRef.current = null;
-    setRunProgress(null);
-    failPendingOutboundBubbles('Started fresh chat');
-    setPinnedOutboundText(null);
-    setPinnedOutboundSentAt(null);
-    setPinnedOutboundStatus('pending');
-    setErrorMessage(null);
-    setMessages([]);
-    messagesRef.current = [];
-    transcriptDigestRef.current = '';
-    setToolStatus(null);
-    setRecentChatsDismissed(true);
-
-    if (!isDemo) {
-      const runId = stopIds[0];
-      if (runId) {
-        void stopRun(gatewayUrl, runId, apiKey).catch(() => {});
-      } else if (stopIds.length > 0) {
-        void releaseMacOperatorSlot(gatewayUrl, apiKey, stopIds).catch(() => {});
-      }
-    }
-
-    const sourceSession = currentSessionRef.current;
-    if (isDemo || !sourceSession || isTelegramInboxSession(sourceSession)) {
-      await handleNewChat();
+    if (isStartingFreshChatRef.current) {
       return;
     }
-
+    isStartingFreshChatRef.current = true;
+    setIsStartingFreshChat(true);
+    haptics.selection();
     try {
-      const forked = await forkSession(gatewayUrl, sourceSession.id, apiKey);
-      const forkId = forked.session_id?.trim();
-      if (!forkId) {
-        throw new Error('Could not fork chat on your computer');
+      // Kill zombie "Delivering…" / mega-token banner: clear local run state AND best-effort stop Mac run.
+      // (Previously only null'd runProgress while isChatStreamActive + sendProgressSnapshotRef kept the UI alive.)
+      const stopIds = [
+        runProgressRef.current?.runId,
+        sendProgressSnapshotRef.current?.runId,
+      ].filter((id): id is string => Boolean(id?.trim()));
+      isSendingRef.current = false;
+      setIsSending(false);
+      activeChatStreamRef.current = false;
+      setIsChatStreamActive(false);
+      sendProgressSnapshotRef.current = null;
+      setRunProgress(null);
+      failPendingOutboundBubbles('Started fresh chat');
+      setPinnedOutboundText(null);
+      setPinnedOutboundSentAt(null);
+      setPinnedOutboundStatus('pending');
+      setErrorMessage(null);
+      setMessages([]);
+      messagesRef.current = [];
+      transcriptDigestRef.current = '';
+      setToolStatus(null);
+      setRecentChatsDismissed(true);
+
+      if (!isDemo) {
+        const runId = stopIds[0];
+        if (runId) {
+          void stopRun(gatewayUrl, runId, apiKey).catch(() => {});
+        } else if (stopIds.length > 0) {
+          void releaseMacOperatorSlot(gatewayUrl, apiKey, stopIds).catch(() => {});
+        }
       }
-      const baseTitle = sourceSession.title?.trim() || 'Chat';
-      const freshSession = ensureSessionCreatedAt({
-        id: forkId,
-        title: `${baseTitle} (fresh)`,
-        model: sourceSession.model,
-        input_tokens: 0,
-        output_tokens: 0,
-        cache_read_tokens: 0,
-        last_active_at: new Date().toISOString(),
-      });
-      setSessions((prev) => [freshSession, ...prev.filter((session) => session.id !== forkId)]);
-      setCurrentSession(freshSession);
-      if (activeProject) {
-        const next = bindSessionToProject(projectState, activeProject.id, forkId, freshSession.title ?? baseTitle);
-        await persistProjectState(next);
+
+      const sourceSession = currentSessionRef.current;
+      if (isDemo || !sourceSession || isTelegramInboxSession(sourceSession)) {
+        await handleNewChat();
+        return;
       }
-      void refreshSessionMessagesRef.current?.({ background: false, force: true });
-    } catch (error) {
-      setErrorMessage(
-        error instanceof Error ? error.message : 'Could not start a fresh chat on your computer',
-      );
-      await handleNewChat();
+
+      try {
+        const forked = await forkSession(gatewayUrl, sourceSession.id, apiKey);
+        const forkId = forked.session_id?.trim();
+        if (!forkId) {
+          throw new Error('Could not fork chat on your computer');
+        }
+        const baseTitle = sourceSession.title?.trim() || 'Chat';
+        const freshSession = ensureSessionCreatedAt({
+          id: forkId,
+          title: `${baseTitle} (fresh)`,
+          model: sourceSession.model,
+          input_tokens: 0,
+          output_tokens: 0,
+          cache_read_tokens: 0,
+          last_active_at: new Date().toISOString(),
+        });
+        setSessions((prev) => [freshSession, ...prev.filter((session) => session.id !== forkId)]);
+        setCurrentSession(freshSession);
+        if (activeProject) {
+          const next = bindSessionToProject(projectState, activeProject.id, forkId, freshSession.title ?? baseTitle);
+          await persistProjectState(next);
+        }
+        void refreshSessionMessagesRef.current?.({ background: false, force: true });
+      } catch (error) {
+        setErrorMessage(
+          error instanceof Error ? error.message : 'Could not start a fresh chat on your computer',
+        );
+        await handleNewChat();
+      }
+    } finally {
+      isStartingFreshChatRef.current = false;
+      setIsStartingFreshChat(false);
     }
   }, [
     activeProject,
@@ -5717,21 +5730,39 @@ export default function ChatScreen() {
             showTechnicalStats={settings.includeToolActivity}
             megaSessionWarning={megaSessionWarning}
             onStartFreshChat={megaSessionWarning ? () => void handleStartFreshChat() : undefined}
+            isStartingFreshChat={isStartingFreshChat}
             onStop={isRunActive || isSending ? () => void handleStopRun() : undefined}
             onDismiss={clearFailedOutboundState}
             onRetry={connectivityRunFailure ? () => void handleRetryConnectivity() : undefined}
             terminalToolName={operatorTerminalLine?.toolName}
             terminalPreview={operatorTerminalLine?.text}
           />
-        ) : megaSessionWarning ? (
+        ) : megaSessionWarning || isStartingFreshChat ? (
           <View style={styles.megaSessionBanner} testID="mega-session-banner">
-            <Text style={styles.megaSessionBannerText}>{megaSessionWarning}</Text>
+            <Text style={styles.megaSessionBannerText}>
+              {isStartingFreshChat
+                ? 'Starting a fresh chat on your computer…'
+                : megaSessionWarning}
+            </Text>
             <Pressable
               onPress={() => void handleStartFreshChat()}
-              style={({ pressed }) => [styles.megaSessionBannerAction, pressed && styles.megaSessionBannerActionPressed]}
+              disabled={isStartingFreshChat}
+              accessibilityState={{ busy: isStartingFreshChat, disabled: isStartingFreshChat }}
+              style={({ pressed }) => [
+                styles.megaSessionBannerAction,
+                isStartingFreshChat && styles.megaSessionBannerActionBusy,
+                pressed && !isStartingFreshChat && styles.megaSessionBannerActionPressed,
+              ]}
               testID="mega-session-start-fresh-chat"
             >
-              <Text style={styles.megaSessionBannerActionText}>Start fresh chat</Text>
+              {isStartingFreshChat ? (
+                <View style={styles.megaSessionBannerActionRow} testID="mega-session-start-fresh-spinner">
+                  <ActivityIndicator size="small" color={colors.primary} />
+                  <Text style={styles.megaSessionBannerActionText}>Starting…</Text>
+                </View>
+              ) : (
+                <Text style={styles.megaSessionBannerActionText}>Start fresh chat</Text>
+              )}
             </Pressable>
           </View>
         ) : null}
@@ -6560,6 +6591,14 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(59, 130, 246, 0.12)',
     paddingHorizontal: 10,
     paddingVertical: 6,
+  },
+  megaSessionBannerActionBusy: {
+    opacity: 0.95,
+  },
+  megaSessionBannerActionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   megaSessionBannerActionPressed: {
     opacity: 0.85,
