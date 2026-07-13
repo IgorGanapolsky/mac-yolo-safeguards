@@ -19,6 +19,8 @@ import {
   recordAttributionFromUrl,
 } from '../services/marketingAttribution';
 import {
+  __resetProductAnalyticsForTesting,
+  __setPosthogKeyForTesting,
   __setShouldReportToPostHogForTesting,
   isProductAnalyticsEnabled,
   isProductionPostHogBuild,
@@ -34,14 +36,18 @@ describe('productAnalytics', () => {
   beforeEach(async () => {
     await AsyncStorage.clear();
     await clearMarketingAttribution();
+    __resetProductAnalyticsForTesting();
     setProductAnalyticsOptOut(false);
     setPostHogDogfoodExclusions({
       developerLeashUnlock: false,
       storeLeashPreview: false,
+      demoMode: false,
     });
     __setShouldReportToPostHogForTesting(null);
     delete process.env.EXPO_PUBLIC_POSTHOG_API_KEY;
     delete process.env.EXPO_PUBLIC_POSTHOG_INTERNAL;
+    delete process.env.EXPO_PUBLIC_HERMES_DEV_UNLOCK;
+    delete process.env.EXPO_PUBLIC_E2E_AUTOMATION;
     delete process.env.EAS_BUILD_PROFILE;
     delete process.env.EXPO_PUBLIC_EAS_PROFILE;
     delete process.env.EXPO_PUBLIC_UPDATES_CHANNEL;
@@ -52,11 +58,7 @@ describe('productAnalytics', () => {
 
   afterEach(() => {
     (global as { __DEV__?: boolean }).__DEV__ = originalDev;
-    __setShouldReportToPostHogForTesting(null);
-    setPostHogDogfoodExclusions({
-      developerLeashUnlock: false,
-      storeLeashPreview: false,
-    });
+    __resetProductAnalyticsForTesting();
   });
 
   it('no-ops when PostHog key is missing', async () => {
@@ -66,7 +68,7 @@ describe('productAnalytics', () => {
   });
 
   it('captures events when key is configured on production builds', async () => {
-    process.env.EXPO_PUBLIC_POSTHOG_API_KEY = 'phc_test';
+    __setPosthogKeyForTesting('phc_test');
     await trackProductEvent('mac_scan_complete', { found_count: 2 });
     expect(global.fetch).toHaveBeenCalledTimes(1);
     const [url, init] = (global.fetch as jest.Mock).mock.calls[0];
@@ -75,10 +77,12 @@ describe('productAnalytics', () => {
     const body = JSON.parse(init.body);
     expect(body.event).toBe('mac_scan_complete');
     expect(body.properties.found_count).toBe(2);
+    expect(body.properties.distinct_id).toMatch(/^hm_/);
+    expect(body.properties.distinct_id).not.toContain('@');
   });
 
   it('attaches first and last marketing attribution properties', async () => {
-    process.env.EXPO_PUBLIC_POSTHOG_API_KEY = 'phc_test';
+    __setPosthogKeyForTesting('phc_test');
     await recordAttributionFromUrl(
       'hermes://chat?utm_source=applovin&utm_medium=cpp&utm_campaign=day0-paywall&campaign_id=c-1&creative_id=cr-9',
       Date.parse('2026-07-01T12:00:00Z'),
@@ -98,7 +102,7 @@ describe('productAnalytics', () => {
   });
 
   it('respects opt-out', async () => {
-    process.env.EXPO_PUBLIC_POSTHOG_API_KEY = 'phc_test';
+    __setPosthogKeyForTesting('phc_test');
     setProductAnalyticsOptOut(true);
     expect(isProductAnalyticsEnabled()).toBe(false);
     await trackProductEvent('ignored');
@@ -107,7 +111,7 @@ describe('productAnalytics', () => {
 
   describe('shouldReportToPostHog', () => {
     beforeEach(() => {
-      process.env.EXPO_PUBLIC_POSTHOG_API_KEY = 'phc_test';
+      __setPosthogKeyForTesting('phc_test');
       process.env.EAS_BUILD_PROFILE = 'production';
       (global as { __DEV__?: boolean }).__DEV__ = false;
     });
@@ -146,8 +150,22 @@ describe('productAnalytics', () => {
       expect(shouldReportToPostHog()).toBe(false);
     });
 
+    it('skips demo mode sessions', () => {
+      setPostHogDogfoodExclusions({ demoMode: true });
+      expect(shouldReportToPostHog()).toBe(false);
+    });
+
     it('skips EXPO_PUBLIC_POSTHOG_INTERNAL dogfood builds', () => {
       process.env.EXPO_PUBLIC_POSTHOG_INTERNAL = '1';
+      expect(shouldReportToPostHog()).toBe(false);
+    });
+
+    it('skips E2E and dev unlock env flags', () => {
+      process.env.EXPO_PUBLIC_E2E_AUTOMATION = '1';
+      expect(shouldReportToPostHog()).toBe(false);
+
+      delete process.env.EXPO_PUBLIC_E2E_AUTOMATION;
+      process.env.EXPO_PUBLIC_HERMES_DEV_UNLOCK = '1';
       expect(shouldReportToPostHog()).toBe(false);
     });
 

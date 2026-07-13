@@ -473,6 +473,7 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
     setProductAnalyticsOptOut(Boolean(settings.analyticsOptOut));
     setPostHogDogfoodExclusions({
       developerLeashUnlock: Boolean(settings.developerLeashUnlock),
+      demoMode: Boolean(settings.demoMode),
     });
   }, [settings, apiKey, effectiveGatewayUrl]);
 
@@ -561,6 +562,7 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
         setProductAnalyticsOptOut(Boolean(resolvedSettings.analyticsOptOut));
         setPostHogDogfoodExclusions({
           developerLeashUnlock: Boolean(resolvedSettings.developerLeashUnlock),
+          demoMode: Boolean(resolvedSettings.demoMode),
         });
         effectiveGatewayUrlRef.current = resolvedSettings.gatewayUrl;
         setEffectiveGatewayUrl(resolvedSettings.gatewayUrl);

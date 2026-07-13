@@ -3,20 +3,35 @@ import Constants from 'expo-constants';
 import * as Updates from 'expo-updates';
 import { Platform } from 'react-native';
 import appConfig from '../../app.json';
+import {
+  isDemoModeAllowed,
+  isE2eAutomationBuild,
+  isStoreReviewDemoBuild,
+} from '../utils/demoModePolicy';
 import { getMarketingAttributionProperties } from './marketingAttribution';
 
 /**
- * Production-only PostHog contract:
+ * Production-only PostHog contract — see docs/POSTHOG-PRODUCTION-ONLY.md.
  * Report only from real production store/OTA users.
  * Never count __DEV__, preview/dev/e2e EAS builds, developer leash unlock,
- * store leash preview, or EXPO_PUBLIC_POSTHOG_INTERNAL=1 dogfood builds.
+ * store leash preview, demo mode, or EXPO_PUBLIC_POSTHOG_INTERNAL=1 dogfood builds.
  */
 const POSTHOG_HOST =
   process.env.EXPO_PUBLIC_POSTHOG_HOST?.trim() || 'https://us.i.posthog.com';
 
+const posthogConfig = {
+  key: process.env.EXPO_PUBLIC_POSTHOG_API_KEY?.trim() || '',
+};
+
 function posthogKey(): string {
-  return process.env.EXPO_PUBLIC_POSTHOG_API_KEY?.trim() || '';
+  return posthogConfig.key;
 }
+
+/** @internal Test seam — overrides PostHog key without env inlining. */
+export function __setPosthogKeyForTesting(key: string): void {
+  posthogConfig.key = key;
+}
+
 const DISTINCT_ID_KEY = 'hermes.analytics.distinct_id';
 const APP_VERSION = appConfig.expo.version;
 const BUILD_NUMBER =
@@ -27,10 +42,16 @@ const BUILD_NUMBER =
 let optOut = false;
 let developerLeashUnlockActive = false;
 let storeLeashPreviewActive = false;
+let demoModeActive = false;
 let distinctIdPromise: Promise<string> | null = null;
 
 /** Test seam — null clears override. */
 let reportingOverrideForTesting: boolean | null = null;
+
+function isTruthyEnv(name: string): boolean {
+  const value = process.env[name];
+  return value === '1' || String(value).toLowerCase() === 'true';
+}
 
 async function getDistinctId(): Promise<string> {
   if (!distinctIdPromise) {
@@ -52,12 +73,13 @@ export function setProductAnalyticsOptOut(enabled: boolean): void {
 }
 
 /**
- * Runtime dogfood / review-preview exclusions (Igor pair unlock, store preview deep link).
- * Wired from GatewayContext — does not persist beyond process lifetime for store preview.
+ * Runtime dogfood / review-preview exclusions (Igor pair unlock, store preview, demo).
+ * Wired from GatewayContext — store preview does not persist beyond process lifetime.
  */
 export function setPostHogDogfoodExclusions(flags: {
   developerLeashUnlock?: boolean;
   storeLeashPreview?: boolean;
+  demoMode?: boolean;
 }): void {
   if (flags.developerLeashUnlock !== undefined) {
     developerLeashUnlockActive = flags.developerLeashUnlock;
@@ -65,11 +87,25 @@ export function setPostHogDogfoodExclusions(flags: {
   if (flags.storeLeashPreview !== undefined) {
     storeLeashPreviewActive = flags.storeLeashPreview;
   }
+  if (flags.demoMode !== undefined) {
+    demoModeActive = flags.demoMode;
+  }
 }
 
 /** @internal */
 export function __setShouldReportToPostHogForTesting(value: boolean | null): void {
   reportingOverrideForTesting = value;
+}
+
+/** @internal */
+export function __resetProductAnalyticsForTesting(): void {
+  optOut = false;
+  developerLeashUnlockActive = false;
+  storeLeashPreviewActive = false;
+  demoModeActive = false;
+  distinctIdPromise = null;
+  reportingOverrideForTesting = null;
+  posthogConfig.key = '';
 }
 
 function easBuildProfile(): string {
@@ -93,8 +129,16 @@ function updatesChannelName(): string {
 }
 
 function isInternalDogfoodBuild(): boolean {
-  const flag = process.env.EXPO_PUBLIC_POSTHOG_INTERNAL?.trim().toLowerCase();
-  return flag === '1' || flag === 'true';
+  return isTruthyEnv('EXPO_PUBLIC_POSTHOG_INTERNAL');
+}
+
+function hasNonProductionBuildEnvFlags(): boolean {
+  return (
+    isDemoModeAllowed() ||
+    isE2eAutomationBuild() ||
+    isStoreReviewDemoBuild() ||
+    isTruthyEnv('EXPO_PUBLIC_HERMES_DEV_UNLOCK')
+  );
 }
 
 /** True only for production EAS profile/channel (fail closed when unknown). */
@@ -124,13 +168,16 @@ export function isPostHogCaptureEnvironmentAllowed(): boolean {
   if (__DEV__) {
     return false;
   }
+  if (hasNonProductionBuildEnvFlags()) {
+    return false;
+  }
   if (!isProductionPostHogBuild()) {
     return false;
   }
   if (isInternalDogfoodBuild()) {
     return false;
   }
-  if (developerLeashUnlockActive || storeLeashPreviewActive) {
+  if (developerLeashUnlockActive || storeLeashPreviewActive || demoModeActive) {
     return false;
   }
   return true;
