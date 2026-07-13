@@ -121,6 +121,17 @@ import {
   findDeferredPlaceholderAfterLastUser,
 } from '../utils/chatMessageMerge';
 import {
+  PENDING_NEW_SESSION_KEY,
+  clearPendingOutbound,
+  extractPersistableOutboundFromTranscript,
+  loadPendingOutbound,
+  localSnapshotForRemountMerge,
+  migratePendingOutbound,
+  savePendingOutbound,
+  shouldClearPersistedOutbound,
+  type PendingOutboundSnapshot,
+} from '../utils/pendingOutboundStorage';
+import {
   resolveChatOutputFeedbackBusyKey,
   shouldShowChatOutputFeedback,
 } from '../utils/chatOutputFeedback';
@@ -607,6 +618,8 @@ export default function ChatScreen() {
   const outboundQueueRef = useRef<string[]>([]);
   /** In-flight mobile sends with optimistic bubbles not yet on gateway transcript. */
   const pendingOutboundSendsRef = useRef(0);
+  /** AsyncStorage remount snapshot — survives JS teardown when Android kills the activity. */
+  const persistedPendingRef = useRef<HermesMessage[]>([]);
   const outboundMessageSeqRef = useRef(0);
   const activeAssistantIdRef = useRef<string | null>(null);
   const activeAssistantTextRef = useRef<string>('');
@@ -837,6 +850,70 @@ export default function ChatScreen() {
     }
     return settings.demoMode || connectionState === 'demo';
   }, [settings.demoMode, connectionState]);
+
+
+  const persistOutboundSnapshot = useCallback(
+    (
+      sessionId: string | null | undefined,
+      messages: HermesMessage[],
+      extras?: {
+        pinnedText?: string | null;
+        pinnedSentAt?: string | null;
+        pinnedStatus?: 'pending' | 'sent' | 'failed';
+      },
+    ) => {
+      const persistable = extractPersistableOutboundFromTranscript(messages);
+      persistedPendingRef.current = persistable;
+      if (persistable.length === 0) {
+        void clearPendingOutbound(sessionId);
+        void clearPendingOutbound(PENDING_NEW_SESSION_KEY);
+        return;
+      }
+      const key = sessionId?.trim() || PENDING_NEW_SESSION_KEY;
+      void savePendingOutbound(key, {
+        messages: persistable,
+        pinnedText: extras?.pinnedText ?? persistable.find((m) => m.role === 'user')?.content ?? null,
+        pinnedSentAt:
+          extras?.pinnedSentAt ??
+          persistable.find((m) => m.role === 'user')?.created_at ??
+          null,
+        pinnedStatus: extras?.pinnedStatus ?? 'pending',
+      });
+    },
+    [],
+  );
+
+  const applyPersistedOutboundSnapshot = useCallback((snapshot: PendingOutboundSnapshot | null) => {
+    if (!snapshot || snapshot.messages.length === 0) {
+      persistedPendingRef.current = [];
+      return;
+    }
+    persistedPendingRef.current = snapshot.messages;
+    if (snapshot.pinnedText?.trim()) {
+      setPinnedOutboundText(snapshot.pinnedText);
+      setPinnedOutboundSentAt(snapshot.pinnedSentAt);
+      setPinnedOutboundStatus(snapshot.pinnedStatus);
+    }
+  }, []);
+
+  const hydratePersistedOutboundForSession = useCallback(
+    async (sessionId: string | null | undefined) => {
+      if (!sessionId?.trim() || isDemo) {
+        persistedPendingRef.current = [];
+        return;
+      }
+      const [forSession, forNew] = await Promise.all([
+        loadPendingOutbound(sessionId),
+        loadPendingOutbound(PENDING_NEW_SESSION_KEY),
+      ]);
+      const snapshot = forSession ?? forNew;
+      applyPersistedOutboundSnapshot(snapshot);
+      if (!forSession && forNew) {
+        await migratePendingOutbound(PENDING_NEW_SESSION_KEY, sessionId);
+      }
+    },
+    [applyPersistedOutboundSnapshot, isDemo],
+  );
 
   useEffect(() => {
     if (isDemo || !gatewayUrl.trim()) {
@@ -2102,9 +2179,31 @@ export default function ChatScreen() {
       };
 
       const mergeWithLocalPending = (serverMessages: HermesMessage[]) => {
-        const localSnapshot = messagesRef.current;
+        const localSnapshot = localSnapshotForRemountMerge(
+          messagesRef.current,
+          persistedPendingRef.current,
+        );
         if (pendingOutboundSendsRef.current > 0 || hasUnsyncedLocalMessages(localSnapshot)) {
-          return mergeServerMessagesWithPending(serverMessages, localSnapshot);
+          const merged = mergeServerMessagesWithPending(serverMessages, localSnapshot);
+          if (
+            persistedPendingRef.current.length > 0 &&
+            shouldClearPersistedOutbound(serverMessages, persistedPendingRef.current)
+          ) {
+            const sid = currentSessionRef.current?.id;
+            void clearPendingOutbound(sid);
+            void clearPendingOutbound(PENDING_NEW_SESSION_KEY);
+            persistedPendingRef.current = [];
+          }
+          return merged;
+        }
+        if (
+          persistedPendingRef.current.length > 0 &&
+          shouldClearPersistedOutbound(serverMessages, persistedPendingRef.current)
+        ) {
+          const sid = currentSessionRef.current?.id;
+          void clearPendingOutbound(sid);
+          void clearPendingOutbound(PENDING_NEW_SESSION_KEY);
+          persistedPendingRef.current = [];
         }
         return serverMessages;
       };
@@ -2194,7 +2293,7 @@ export default function ChatScreen() {
         finishRefresh();
       }
     },
-    [isDemo, gatewayUrl, apiKey, macChatLive, settings.includeToolActivity, applyChatApiError],
+    [isDemo, gatewayUrl, apiKey, macChatLive, settings.includeToolActivity, applyChatApiError, persistOutboundSnapshot, hydratePersistedOutboundForSession],
   );
 
   refreshSessionMessagesRef.current = refreshSessionMessages;
@@ -2444,11 +2543,34 @@ export default function ChatScreen() {
     pinScrollAfterHydrationRef.current = true;
     userScrolledUpRef.current = false;
     lastDistanceFromBottomRef.current = 0;
-    void refreshSessionMessagesRef.current?.({
-      background: false,
-      force: manualSessionSelectRef.current === currentSession?.id,
+    const sessionId = currentSession?.id;
+    void (async () => {
+      await hydratePersistedOutboundForSession(sessionId);
+      await refreshSessionMessagesRef.current?.({
+        background: false,
+        force: manualSessionSelectRef.current === sessionId,
+      });
+    })();
+  }, [currentSession?.id, isDemo, setRunProgress, hydratePersistedOutboundForSession]);
+
+  useEffect(() => {
+    const activeSession = currentSessionRef.current;
+    if (!activeSession || isDemo || !macChatLive) {
+      return;
+    }
+    const sub = AppState.addEventListener('change', (nextState) => {
+      if (nextState === 'background' || nextState === 'inactive') {
+        persistOutboundSnapshot(currentSessionRef.current?.id, messagesRef.current);
+        return;
+      }
+      if (nextState === 'active') {
+        void hydratePersistedOutboundForSession(currentSessionRef.current?.id).then(() => {
+          refreshSessionMessagesRef.current?.({ background: true, force: true });
+        });
+      }
     });
-  }, [currentSession?.id, isDemo, setRunProgress]);
+    return () => sub.remove();
+  }, [currentSession?.id, isDemo, macChatLive, persistOutboundSnapshot, hydratePersistedOutboundForSession]);
 
   useFocusEffect(
     useCallback(() => {
@@ -2555,19 +2677,6 @@ export default function ChatScreen() {
     }, intervalMs);
     return () => clearInterval(timer);
   }, [currentSession?.id, isDemo, macChatLive, isTelegramView, connectionState, awaitingGatewayReply]);
-
-  useEffect(() => {
-    const activeSession = currentSessionRef.current;
-    if (!activeSession || isDemo || !macChatLive) {
-      return;
-    }
-    const sub = AppState.addEventListener('change', (nextState) => {
-      if (nextState === 'active') {
-        refreshSessionMessagesRef.current?.({ background: true });
-      }
-    });
-    return () => sub.remove();
-  }, [currentSession?.id, isDemo, macChatLive]);
 
   useEffect(() => {
     const activeSession = currentSessionRef.current;
@@ -2726,6 +2835,10 @@ export default function ChatScreen() {
     setSessionModalVisible(false);
     setRecentChatsDismissed(true);
     setErrorMessage(null);
+    const previousSessionId = currentSessionRef.current?.id;
+    void clearPendingOutbound(previousSessionId);
+    void clearPendingOutbound(PENDING_NEW_SESSION_KEY);
+    persistedPendingRef.current = [];
     setMessages([]);
     setPinnedOutboundText(null);
     setPinnedOutboundSentAt(null);
@@ -2901,6 +3014,9 @@ export default function ChatScreen() {
     // Drop transcript immediately so a slow gateway reload cannot flash old messages.
     skipSessionAutoSelectRef.current = true;
     manualSessionSelectRef.current = null;
+    void clearPendingOutbound(currentSessionRef.current?.id);
+    void clearPendingOutbound(PENDING_NEW_SESSION_KEY);
+    persistedPendingRef.current = [];
     setCurrentSession(null);
     setMessages([]);
     messagesRef.current = [];
@@ -3622,7 +3738,15 @@ export default function ChatScreen() {
       outboundStatus: 'pending',
     };
     pendingOutboundSendsRef.current += 1;
-    commitMessages((prev) => [...prev, userMessage]);
+    commitMessages((prev) => {
+      const next = [...prev, userMessage];
+      persistOutboundSnapshot(currentSessionRef.current?.id, next, {
+        pinnedText: trimmed,
+        pinnedSentAt: sentAt,
+        pinnedStatus: 'pending',
+      });
+      return next;
+    });
     setRecentChatsDismissed(true);
     setPinnedOutboundText(trimmed);
     setPinnedOutboundSentAt(sentAt);
@@ -4030,8 +4154,8 @@ export default function ChatScreen() {
         setPinnedOutboundText(null);
         setPinnedOutboundSentAt(null);
       }
-      commitMessages((prev) =>
-        prev.map((message) =>
+      commitMessages((prev) => {
+        const next = prev.map((message) =>
           message.id === committedUserMessageId
             ? {
                 ...message,
@@ -4039,8 +4163,13 @@ export default function ChatScreen() {
                 outboundFailureReason: status === 'failed' ? failureReason : undefined,
               }
             : message,
-        ),
-      );
+        );
+        persistOutboundSnapshot(currentSessionRef.current?.id ?? activeSess?.id, next, {
+          pinnedStatus: status,
+          pinnedText: status === 'failed' ? null : displayText,
+        });
+        return next;
+      });
     };
 
     const markMessageDeliveredToMac = () => {
@@ -4096,6 +4225,17 @@ export default function ChatScreen() {
     }
 
     let targetSessionId = isTelegramInboxSession(activeSess) ? inboxReplySessionId : activeSess!.id;
+    if (targetSessionId && !isDemo) {
+      void migratePendingOutbound(PENDING_NEW_SESSION_KEY, targetSessionId).then((snapshot) => {
+        if (snapshot) {
+          applyPersistedOutboundSnapshot(snapshot);
+          persistOutboundSnapshot(targetSessionId, messagesRef.current, {
+            pinnedStatus: 'pending',
+            pinnedText: displayText,
+          });
+        }
+      });
+    }
     if (isTelegramInboxSession(activeSess) && !targetSessionId) {
       const resolved = resolveTelegramInboxReplySessionId(sessionsRef.current);
       if (resolved) {
@@ -4127,6 +4267,11 @@ export default function ChatScreen() {
         setTelegramReplySessionId('');
         activeSess = mobileSess;
         targetSessionId = mobileSess.id;
+        await migratePendingOutbound(PENDING_NEW_SESSION_KEY, mobileSess.id);
+        persistOutboundSnapshot(mobileSess.id, messagesRef.current, {
+          pinnedStatus: 'pending',
+          pinnedText: displayText,
+        });
         setErrorMessage(null);
       } catch (err) {
         rollbackOutboundBubble();
@@ -4161,30 +4306,38 @@ export default function ChatScreen() {
           if (existing?.id) {
             assistantBubbleAdded = true;
             activeAssistantIdRef.current = existing.id;
-            commitMessages((prev) =>
-              prev.map((m) => (m.id === existing.id ? { ...m, content: body } : m)),
-            );
+            commitMessages((prev) => {
+              const next = prev.map((m) => (m.id === existing.id ? { ...m, content: body } : m));
+              persistOutboundSnapshot(currentSessionRef.current?.id ?? targetSessionId, next);
+              return next;
+            });
             scrollChatToLatestIfPinned(true);
             return;
           }
         }
         if (!assistantBubbleAdded) {
           assistantBubbleAdded = true;
-          commitMessages((prev) => [
-            ...prev,
-            {
-              id: assistantId,
-              role: 'assistant',
-              content: body,
-              created_at: new Date().toISOString(),
-            },
-          ]);
+          commitMessages((prev) => {
+            const next = [
+              ...prev,
+              {
+                id: assistantId,
+                role: 'assistant',
+                content: body,
+                created_at: new Date().toISOString(),
+              },
+            ];
+            persistOutboundSnapshot(currentSessionRef.current?.id ?? targetSessionId, next);
+            return next;
+          });
           scrollChatToLatestIfPinned(true);
           return;
         }
-        commitMessages((prev) =>
-          prev.map((m) => (m.id === assistantId ? { ...m, content: body } : m)),
-        );
+        commitMessages((prev) => {
+          const next = prev.map((m) => (m.id === assistantId ? { ...m, content: body } : m));
+          persistOutboundSnapshot(currentSessionRef.current?.id ?? targetSessionId, next);
+          return next;
+        });
         scrollChatToLatestIfPinned(true);
       };
 
