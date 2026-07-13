@@ -162,10 +162,13 @@ Durable rules live in [AGENTS.md](./AGENTS.md); this file is *live state only*.
 | T-223 | PostHog prod-only filter (exclude Igor dogfood/dev/preview) | done | cursor-posthog-prod | `hermes-mobile/src/services/productAnalytics.ts`, `hermes-mobile/src/__tests__/productAnalytics.test.ts`, `hermes-mobile/src/services/crashReporting.ts`, `hermes-mobile/src/__tests__/crashReporting.test.ts`, `hermes-mobile/src/context/GatewayContext.tsx`, `plan.md` | merged via #236 (`f292bc0e`); `shouldReportToPostHog()` skips __DEV__/non-prod/dogfood flags |
 
 | T-268 | Preserve composer draft on Start fresh chat (mega-session) | done | grok-fresh-draft | `hermes-mobile/src/utils/freshChatComposerTransfer.ts`, `hermes-mobile/src/__tests__/freshChatComposerTransfer.test.ts`, `hermes-mobile/src/screens/ChatScreen.tsx`, `hermes-mobile/src/__tests__/ChatScreen.test.tsx`, `plan.md` | Start fresh keeps typed composer text; unit + ChatScreen tests pass; phone proof draft survives |
+| T-270 | Mega Send auto-fresh + keep Start fresh draft/attachments/spinner | done | cursor-start-fresh-merge | `hermes-mobile/src/screens/ChatScreen.tsx`, `hermes-mobile/src/utils/sessionTokenGuards.ts`, `hermes-mobile/src/__tests__/sessionTokenGuards.test.ts`, `plan.md` | BLOCK Send auto-starts fresh and continues draft; Start fresh keeps spinner+draft+attachments; no conflict markers; Jest green |
 Status values: `pending` | `in_progress` | `blocked` | `done`. Claim a row by setting Owner+Status in one edit, then claim its files in §2.
 
 ## 2. File Ownership Map (append-only lock table — claim before touching)
 
+- T-270 claimed files → **cursor-start-fresh-merge released** after Jest 157/1316; mega BLOCK Send auto-fresh + Start fresh draft/attachments/spinner merged (2026-07-13T23:55:00Z)
+- `hermes-mobile/src/screens/ChatScreen.tsx`, `hermes-mobile/src/utils/sessionTokenGuards.ts`, `hermes-mobile/src/__tests__/sessionTokenGuards.test.ts`, `plan.md` → **cursor-start-fresh-merge** (T-270 mega Send auto-fresh + Start fresh merge) (2026-07-13T23:50:00Z)
 - `hermes-mobile/src/utils/freshChatComposerTransfer.ts`, `hermes-mobile/src/__tests__/freshChatComposerTransfer.test.ts`, `hermes-mobile/src/screens/ChatScreen.tsx`, `hermes-mobile/src/__tests__/ChatScreen.test.tsx`, `plan.md` → **grok-fresh-draft** (T-268 Start fresh preserves composer draft) (2026-07-13T23:24:50Z)
 
 - T-268 claimed files → **grok-fresh-draft released** after focused+full Jest 157 suites / 1315 tests; Start fresh preserves typed composer draft (2026-07-13 proof) (2026-07-13T23:27:17Z)
