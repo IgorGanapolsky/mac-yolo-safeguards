@@ -158,6 +158,8 @@ Durable rules live in [AGENTS.md](./AGENTS.md); this file is *live state only*.
 | T-222 | MacBook Pro missing from phone picker: include Self in tailnet discovery seeds | in_progress | cursor-mbp-picker | `tools/hermes-discover-tailscale-macs.js`, `tests/test-hermes-discover-tailscale-macs.js`, `plan.md` | discover script includes local Mac (Self IP + MagicDNS) in probedHosts so pair deep links seed BOTH Macs; node test passes; `--json` on MBP lists a self host |
 | T-223 | PostHog prod-only filter (exclude Igor dogfood/dev/preview) | in_progress | cursor-posthog-prod | `hermes-mobile/src/services/productAnalytics.ts`, `hermes-mobile/src/__tests__/productAnalytics.test.ts`, `hermes-mobile/src/services/crashReporting.ts`, `hermes-mobile/src/__tests__/crashReporting.test.ts`, `hermes-mobile/src/context/GatewayContext.tsx`, `plan.md` | `shouldReportToPostHog()` skips __DEV__, non-production EAS channel/profile, developerLeashUnlock, storeLeashPreview, POSTHOG_INTERNAL; focused Jest + typecheck pass; PR auto-merge + OTA |
 
+| T-223 | Evidence-to-Installs Content Engine 2026-07-13 (PUBLISH_APPROVED) | done | cursor-content-engine | `hermes-mobile/docs/social/content-engine-2026-07-13/`, `hermes-mobile/docs/social/content-engine-memory.tsv`, `plan.md` | RESEARCH-RECEIPT + ledger with verified URLs for ≤1 Reddit + 1 HN + 1 X; memory TSV appended; PR |
+
 Status values: `pending` | `in_progress` | `blocked` | `done`. Claim a row by setting Owner+Status in one edit, then claim its files in §2.
 
 ## 2. File Ownership Map (append-only lock table — claim before touching)
