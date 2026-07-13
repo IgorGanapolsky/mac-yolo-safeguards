@@ -471,6 +471,7 @@ export default function ChatScreen() {
     connectionHealAttempt,
     connectionHealInFlight,
     connectionHealExhausted,
+    resetConnectionHealBudget,
   } = useGatewayConnection();
   const [activeAgents, setActiveAgents] = useState<{ name: string; status: string }[]>([]);
   const { relayWorkers, isPaired, activeRelayWorkerId } = useGatewayRelay();
@@ -2755,6 +2756,7 @@ export default function ChatScreen() {
     const activeProfileId = activeGatewayProfile?.id ?? null;
 
     try {
+      resetConnectionHealBudget();
       if (activeProfileId) {
         await selectGatewayProfile(activeProfileId);
       }
@@ -2862,6 +2864,7 @@ export default function ChatScreen() {
     retryGatewayBootstrap,
     refreshHealth,
     connectEvents,
+    resetConnectionHealBudget,
     machineShortLabel,
     pinnedOutboundText,
     lastFailedOutboundText,

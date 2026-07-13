@@ -65,6 +65,7 @@ const mockGatewayState = {
   connectionHealAttempt: 6,
   connectionHealInFlight: false,
   connectionHealExhausted: true,
+  resetConnectionHealBudget: jest.fn(),
   settings: {
     demoMode: true,
     connectionMode: 'gateway',

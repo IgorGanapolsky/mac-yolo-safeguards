@@ -218,6 +218,8 @@ export type GatewayContextValue = {
   connectionHealAttempt: number;
   connectionHealInFlight: boolean;
   connectionHealExhausted: boolean;
+  /** Manual Retry / Tap-to-reconnect — reopen silent heal budget after user action. */
+  resetConnectionHealBudget: () => void;
   saveSettings: (
     settings: GatewaySettings,
     apiKey: string,
@@ -2739,6 +2741,11 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
 
   const connectionHealExhausted = connectionHealAttempt >= CONNECTION_HEAL_EXHAUSTED_AFTER;
 
+  const resetConnectionHealBudget = useCallback(() => {
+    connectionHealAttemptRef.current = 0;
+    setConnectionHealAttempt(0);
+  }, []);
+
   const value = useMemo<GatewayContextValue>(
     () => ({
       settings,
@@ -2782,6 +2789,7 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
       connectionHealAttempt,
       connectionHealInFlight,
       connectionHealExhausted,
+      resetConnectionHealBudget,
       saveSettings,
       patchSettings,
       activateDeveloperLeashUnlock,
@@ -2857,6 +2865,7 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
       connectionHealAttempt,
       connectionHealInFlight,
       connectionHealExhausted,
+      resetConnectionHealBudget,
       saveSettings,
       patchSettings,
       activateDeveloperLeashUnlock,

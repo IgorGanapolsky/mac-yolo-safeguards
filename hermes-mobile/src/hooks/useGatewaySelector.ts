@@ -46,6 +46,7 @@ export function useGatewayConnection() {
   const connectionHealAttempt = useGatewaySelector((ctx) => ctx.connectionHealAttempt);
   const connectionHealInFlight = useGatewaySelector((ctx) => ctx.connectionHealInFlight);
   const connectionHealExhausted = useGatewaySelector((ctx) => ctx.connectionHealExhausted);
+  const resetConnectionHealBudget = useGatewaySelector((ctx) => ctx.resetConnectionHealBudget);
 
   return useMemo(
     () => ({
@@ -79,6 +80,7 @@ export function useGatewayConnection() {
       connectionHealAttempt,
       connectionHealInFlight,
       connectionHealExhausted,
+      resetConnectionHealBudget,
     }),
     [
       settings,
@@ -111,6 +113,7 @@ export function useGatewayConnection() {
       connectionHealAttempt,
       connectionHealInFlight,
       connectionHealExhausted,
+      resetConnectionHealBudget,
     ],
   );
 }
