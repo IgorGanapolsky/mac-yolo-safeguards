@@ -40,10 +40,28 @@ export function shouldScheduleApprovalsSummaryNotification(
   return categoryEnabled && isBackgrounded(appState);
 }
 
-/** Whether heads-up banners / sounds may interrupt the user (never while foregrounded). */
+/** Status / progress / stall — never heads-up; shade/status-bar only. */
+export const SILENT_STATUS_NOTIFICATION_TYPES = new Set([
+  'run_progress',
+  'run_stall',
+  'run_completed',
+]);
+
+export function isSilentStatusNotificationType(type: string | undefined): boolean {
+  return typeof type === 'string' && SILENT_STATUS_NOTIFICATION_TYPES.has(type);
+}
+
+/**
+ * Whether heads-up banners / sounds may interrupt the user.
+ * Never while foregrounded; never for live-status types (even in background).
+ */
 export function shouldPresentIntrusiveNotification(
   appState: SmartNotificationAppState = AppState.currentState,
+  notificationType?: string,
 ): boolean {
+  if (isSilentStatusNotificationType(notificationType)) {
+    return false;
+  }
   return appState !== 'active';
 }
 
@@ -55,12 +73,15 @@ export type HermesNotificationPresentation = {
   shouldShowList: boolean;
 };
 
-/** expo-notifications handler shape — suppress banners/sound when app is active. */
+/**
+ * expo-notifications handler shape.
+ * Live run status never peeks; approvals may banner only when backgrounded.
+ */
 export function resolveHermesNotificationPresentation(
   appState: SmartNotificationAppState = AppState.currentState,
-  options?: { playSound?: boolean },
+  options?: { playSound?: boolean; notificationType?: string },
 ): HermesNotificationPresentation {
-  const intrusive = shouldPresentIntrusiveNotification(appState);
+  const intrusive = shouldPresentIntrusiveNotification(appState, options?.notificationType);
   return {
     shouldShowAlert: intrusive,
     shouldShowBanner: intrusive,
