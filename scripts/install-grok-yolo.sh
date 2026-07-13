@@ -48,6 +48,7 @@ install_local_files() {
   ln -sfn "$HOME/.hermes/grok45/tools/hermes-grok45-harness.js" "$HOME/.local/bin/hermes-grok45"
   ln -sfn "$HOME/.hermes/grok45/tools/hermes-harness-eval.js" "$HOME/.local/bin/hermes-harness-eval"
   ln -sfn "$HOME/.hermes/grok45/tools/hermes-parallel-search.js" "$HOME/.local/bin/hermes-parallel-search"
+  ln -sfn "$HOME/.hermes/grok45/tools/hermes-parallel-search.js" "$HOME/.local/bin/hermes-search-turbo"
 }
 
 update_local_grok() {
@@ -68,7 +69,7 @@ install_remote_files() {
   rsync -a "$ROOT/tools/hermes-grok45-harness.js" "$host:~/.hermes/grok45/tools/hermes-grok45-harness.js"
   rsync -a "$ROOT/tools/hermes-harness-eval.js" "$host:~/.hermes/grok45/tools/hermes-harness-eval.js"
   rsync -a "$ROOT/tools/hermes-parallel-search.js" "$host:~/.hermes/grok45/tools/hermes-parallel-search.js"
-  ssh -o BatchMode=yes -o ConnectTimeout=8 "$host" 'chmod 0755 "$HOME/.hermes/grok45/grok-yolo-wrapper.js" "$HOME/.hermes/hermes-yolo-wrapper.js" "$HOME/.hermes/grok45/tools/hermes-grok45-harness.js" "$HOME/.hermes/grok45/tools/hermes-harness-eval.js" "$HOME/.hermes/grok45/tools/hermes-parallel-search.js"; ln -sfn "$HOME/.hermes/grok45/grok-yolo-wrapper.js" "$HOME/.local/bin/grok-yolo"; ln -sfn "$HOME/.hermes/hermes-yolo-wrapper.js" "$HOME/.local/bin/hermes-yolo"; ln -sfn "$HOME/.hermes/grok45/tools/hermes-grok45-harness.js" "$HOME/.local/bin/hermes-grok45"; ln -sfn "$HOME/.hermes/grok45/tools/hermes-harness-eval.js" "$HOME/.local/bin/hermes-harness-eval"; ln -sfn "$HOME/.hermes/grok45/tools/hermes-parallel-search.js" "$HOME/.local/bin/hermes-parallel-search"'
+  ssh -o BatchMode=yes -o ConnectTimeout=8 "$host" 'chmod 0755 "$HOME/.hermes/grok45/grok-yolo-wrapper.js" "$HOME/.hermes/hermes-yolo-wrapper.js" "$HOME/.hermes/grok45/tools/hermes-grok45-harness.js" "$HOME/.hermes/grok45/tools/hermes-harness-eval.js" "$HOME/.hermes/grok45/tools/hermes-parallel-search.js"; ln -sfn "$HOME/.hermes/grok45/grok-yolo-wrapper.js" "$HOME/.local/bin/grok-yolo"; ln -sfn "$HOME/.hermes/hermes-yolo-wrapper.js" "$HOME/.local/bin/hermes-yolo"; ln -sfn "$HOME/.hermes/grok45/tools/hermes-grok45-harness.js" "$HOME/.local/bin/hermes-grok45"; ln -sfn "$HOME/.hermes/grok45/tools/hermes-harness-eval.js" "$HOME/.local/bin/hermes-harness-eval"; ln -sfn "$HOME/.hermes/grok45/tools/hermes-parallel-search.js" "$HOME/.local/bin/hermes-parallel-search"; ln -sfn "$HOME/.hermes/grok45/tools/hermes-parallel-search.js" "$HOME/.local/bin/hermes-search-turbo"'
 }
 
 update_remote_grok() {

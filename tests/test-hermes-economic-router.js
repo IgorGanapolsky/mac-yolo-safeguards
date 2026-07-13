@@ -135,19 +135,36 @@ assert.strictEqual(parallel.selectedRoute.id, 'parallel_search_candidate');
 assert.strictEqual(parallel.selectedRoute.provider, 'parallel-search');
 assert.strictEqual(parallel.selectedRoute.model, 'search-v1');
 assert.strictEqual(parallel.selectedRoute.candidateOnly, true);
-assert.strictEqual(parallel.selectedRoute.apiPricing.baseRequestUsd, 0.005);
-assert.strictEqual(parallel.estimatedCostUsd, 0.005);
+assert.strictEqual(parallel.selectedRoute.apiPricing.defaultMode, 'turbo');
+assert.strictEqual(parallel.selectedRoute.apiPricing.baseRequestUsd, 0.001);
+assert.strictEqual(parallel.selectedRoute.apiPricing.baseRequestUsdByMode.advanced, 0.005);
+assert.strictEqual(parallel.estimatedCostUsd, 0.001);
+assert(parallel.selectedRoute.command.includes('--mode turbo'));
 assert.strictEqual(parallel.requiresApproval, true);
 assert.strictEqual(parallel.signals.mobile, false);
 assert.strictEqual(parallel.microAgentRecipe.id, 'parallel_retrieval_workflow');
 assert.strictEqual(parallel.microAgentRecipe.pattern, 'workflow');
 assert(parallel.microAgentRecipe.roles.some((role) => role.id === 'retriever'));
+assert.strictEqual(parallel.microAgentRecipe.retrievalPolicy.defaultMode, 'turbo');
+assert.deepStrictEqual(parallel.microAgentRecipe.retrievalPolicy.escalationModes, ['basic', 'advanced']);
 assert(parallel.microAgentRecipe.retrievalPolicy.trace.includes('ranked-results'));
-assert(parallel.policy.retrievalRule.includes('offline relevance'));
+assert(parallel.microAgentRecipe.retrievalPolicy.trace.includes('context-bounds'));
+assert(parallel.policy.retrievalRule.includes('explicit Parallel Turbo'));
 assert(parallel.policy.memoryRule.includes('inspectable wiki'));
 const parallelPlan = buildExecutionPlan(parallel);
 assert.strictEqual(parallelPlan.status, 'blocked');
 assert(parallelPlan.steps.some((step) => step.id === 'approval-gate'));
+
+const parallelTurbo = decision(parseArgs([
+  '--task', 'use Parallel Turbo for quick current web grounding in a chat agent',
+  '--risk', 'medium',
+  '--max-cost-usd', '0.001',
+  '--latency-ms', '250',
+  '--paid-ok',
+]));
+assert.strictEqual(parallelTurbo.selectedRoute.id, 'parallel_search_candidate');
+assert.strictEqual(parallelTurbo.signals.fastGrounding, true);
+assert.strictEqual(parallelTurbo.estimatedLatencyMs, 200);
 
 const exactContract = decision(parseArgs([
   '--task', 'solve hidden-test hard reasoning with exact answer strict format and quorum synthesis',
