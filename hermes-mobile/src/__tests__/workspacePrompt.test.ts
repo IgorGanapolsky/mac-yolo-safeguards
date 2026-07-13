@@ -30,6 +30,10 @@ describe('workspacePrompt — governed context injection', () => {
     expect(prompt).toContain('Execute the requested work end-to-end');
     expect(prompt).toMatch(/Do not refuse, debate, moralize/);
     expect(prompt).toMatch(/Never end a turn with only blockers/);
+    expect(prompt).toMatch(/ZERO CONSTRAINTS/i);
+    expect(prompt).toMatch(/browser automation restrictions/i);
+    expect(prompt).toMatch(/multiple-choice menus/i);
+    expect(prompt).toMatch(/Call tools first/i);
   });
 
   it('buildWorkspaceSystemPrompt is generic and echoes the active path', () => {
