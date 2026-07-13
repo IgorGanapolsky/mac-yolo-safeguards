@@ -17,14 +17,27 @@ type ChatEmptyGreetingProps = {
   /** Only for routes not already shown in the chat header (e.g. unpaired relay). */
   routeLabel?: string;
   isConnected?: boolean;
+  /** Bootstrap / silent heal — avoid flashing unreachable copy on cold start. */
+  connectionPending?: boolean;
   testID?: string;
 };
 
-export function greetingSubtitle(routeLabel?: string, isConnected = false): string {
+export function greetingSubtitle(
+  routeLabel?: string,
+  isConnected = false,
+  connectionPending = false,
+): string {
   const route = routeLabel?.trim();
   const isGeneric = route
     ? /^(mac|computer|your mac|your computer|my mac|mac via usb|computer via usb|mac via network|http|https)$/i.test(route)
     : false;
+
+  if (connectionPending) {
+    if (route && !isGeneric) {
+      return `Trying to reach ${route} automatically…`;
+    }
+    return 'Trying to reach your computer automatically…';
+  }
 
   if (route === 'Hermes account relay') {
     return 'Ask anything — pair Hermes relay for Wi‑Fi, cellular, or USB when you are away from your computer.';
@@ -51,10 +64,11 @@ export function greetingSubtitle(routeLabel?: string, isConnected = false): stri
 export default function ChatEmptyGreeting({
   routeLabel,
   isConnected = false,
+  connectionPending = false,
   testID = 'chat-empty-greeting',
 }: ChatEmptyGreetingProps) {
   const greeting = greetingForTime();
-  const subtitle = greetingSubtitle(routeLabel, isConnected);
+  const subtitle = greetingSubtitle(routeLabel, isConnected, connectionPending);
 
   return (
     <View style={styles.wrap} testID={testID}>

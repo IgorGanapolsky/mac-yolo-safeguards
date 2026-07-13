@@ -129,6 +129,7 @@ import {
   discoverAllGatewaysOnLan,
   discoverGatewayOnPhoneSubnet,
   discoverGatewayViaPairServer,
+  pairServerHostFromGatewayUrl,
   resolvePairServerMachineName,
   resolvePairServerRelayCode,
 } from '../services/gatewayDiscovery';
@@ -138,6 +139,7 @@ import {
   discoverTailscaleGateways,
   filterNewTailscaleDiscoveries,
   mergeTailnetProbeHostsFromScan,
+  tailnetHostsFromDiscoveries,
 } from '../services/tailscaleDiscovery';
 import { tailnetProbeStorage } from '../services/tailnetProbeStorage';
 import { isGatewaySmokeTestMessage } from '../utils/gatewaySmokeMessages';
@@ -724,6 +726,19 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
         apiKeyRef.current = probeKey;
       }
       const snapshot = await fetchGatewayHealth(url, probeKey);
+      if (
+        isLoopbackGatewayUrl(url) &&
+        isGatewayHealthOk(snapshot) &&
+        !snapshot.hostname?.trim()
+      ) {
+        const pairHost = pairServerHostFromGatewayUrl(url);
+        if (pairHost) {
+          const pairName = await resolvePairServerMachineName(pairHost).catch(() => null);
+          if (pairName) {
+            return { ...snapshot, hostname: pairName };
+          }
+        }
+      }
       return snapshot;
     };
 
@@ -934,7 +949,10 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
       }
       const lanIp =
         sanitizedLocalIp || extractLanIpFromGatewayUrl(resolvedUrl) || undefined;
-      if (lanIp) {
+      const pairHost = pairServerHostFromGatewayUrl(resolvedUrl);
+      if (pairHost) {
+        await enrichActiveProfileFromPairServer(pairHost);
+      } else if (lanIp) {
         await enrichActiveProfileFromPairServer(lanIp);
       }
     } catch (error) {
@@ -1508,7 +1526,8 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
       !isLoaded ||
       settingsRef.current.demoMode ||
       connectionHealInFlightRef.current ||
-      isMacGatewayHttpOk(healthRef.current)
+      isMacGatewayHttpOk(healthRef.current) ||
+      connectionHealAttemptRef.current >= CONNECTION_HEAL_EXHAUSTED_AFTER
     ) {
       return;
     }
@@ -1736,8 +1755,14 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
       }
       return;
     }
+    if (connectionHealAttempt >= CONNECTION_HEAL_EXHAUSTED_AFTER) {
+      return;
+    }
     void runConnectionSelfHeal();
     const interval = setInterval(() => {
+      if (connectionHealAttemptRef.current >= CONNECTION_HEAL_EXHAUSTED_AFTER) {
+        return;
+      }
       void runConnectionSelfHeal();
     }, CONNECTION_SELF_HEAL_INTERVAL_MS);
     return () => clearInterval(interval);
@@ -1748,6 +1773,7 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
     health?.checkedAt,
     health?.directGatewayReachable,
     wifiConnected,
+    connectionHealAttempt,
     runConnectionSelfHeal,
   ]);
 
@@ -2025,6 +2051,17 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
         return;
       }
       const discovered = await discoverTailscaleGateways(probeHosts);
+      const hostsToPersist = tailnetHostsFromDiscoveries(discovered);
+      if (hostsToPersist.length > 0) {
+        const mergedHosts = await tailnetProbeStorage.merge(
+          collectTailnetProbeHosts(
+            profileStateRef.current.profiles,
+            [...storedHosts, ...hostsToPersist],
+          ),
+        );
+        tailnetProbeHostsRef.current = mergedHosts;
+        setTailnetProbeHostCount(mergedHosts.length);
+      }
       if (discovered.length > 0) {
         const priorActive = activeProfile(profileStateRef.current);
         const nextState = applyTailscaleDiscoveriesToProfileState(
@@ -2149,7 +2186,7 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
     if (!reachable) {
       setConnectionState('disconnected');
     } else if (isGatewayHealthOk(healthRef.current)) {
-      setConnectionState('disconnected');
+      setConnectionState('connected');
     }
     return reachable;
   }, [

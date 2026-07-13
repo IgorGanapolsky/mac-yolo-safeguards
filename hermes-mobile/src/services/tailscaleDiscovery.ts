@@ -106,6 +106,21 @@ export function collectTailnetProbeHosts(
   return mergeTailnetProbeHosts(storedHosts, fromProfiles, extraHosts);
 }
 
+export function tailnetHostsFromDiscoveries(discovered: DiscoveredGateway[]): string[] {
+  const hosts: string[] = [];
+  for (const item of discovered) {
+    const host = gatewayUrlHostname(item.gatewayUrl);
+    if (host) {
+      hosts.push(host);
+    }
+    const ip = item.localIp?.trim();
+    if (ip && isTailscaleIpv4(ip)) {
+      hosts.push(ip);
+    }
+  }
+  return mergeTailnetProbeHosts(hosts);
+}
+
 /** Probe tailnet hosts and return a Tailscale route for an existing saved Mac profile. */
 export async function discoverTailscaleGatewayForProfile(
   profile: GatewayProfile,

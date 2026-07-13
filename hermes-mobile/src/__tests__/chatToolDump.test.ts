@@ -15,6 +15,11 @@ describe('chatToolDump', () => {
   it('detects formatted tool output anywhere in the body', () => {
     expect(isToolDumpDisplayContent('Running…\n[tool output] status=ok')).toBe(true);
     expect(isToolDumpDisplayContent('{"output":"{\\"status\\":\\"ok\\"}"}')).toBe(true);
+    expect(
+      isToolDumpDisplayContent(
+        '<TOOLCALL>[{"name": "read_file", "arguments": {"path": "x.md"}}]</TOOLCALL>',
+      ),
+    ).toBe(true);
   });
 
   it('hides tool role and dump content from default timeline', () => {
