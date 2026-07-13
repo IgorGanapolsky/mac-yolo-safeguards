@@ -1,6 +1,6 @@
 # Integrations — Mobile MVP spec (gateway + mobile)
 
-**Status:** Spec only (2026-07-11)  
+**Status:** Mobile Phase 1 shipped (2026-07-13) — Integrations sheet + default-ON for configured tools. Gateway `integrations_config` / `/v1/toolsets/{name}/env` still required for live key writes (404 on older Macs → honest fallback copy).  
 **Upstream context:** [Tool enablement investigation](75385ce9-e6ac-49f1-b3bf-b2c48e89d0ac)  
 **Audience:** `hermes-agent` gateway team (`~/.hermes/hermes-agent`, outside this repo) + `hermes-mobile` UI team
 
@@ -183,7 +183,7 @@ curl -sS -H "Authorization: Bearer $KEY" \
 
 **Goal:** Settings → **Integrations** sheet (modal from Toolsets row) so users can configure keys from the phone without `adb` or manual Mac SSH.
 
-**Blocked (2026-07-11):** `GatewayOpsSection.tsx` locked (T-149), `SettingsScreen.tsx` locked (T-142). Ship Phase 0 gateway first; mobile PR follows when locks release.
+**Shipped (2026-07-13):** `IntegrationsSheet` + **Add key** CTA on each toolset row in `GatewayOpsSection`. Configured (no missing keys) toolsets auto-enable when `features.toolsets_write` is true.
 
 ### UX — Integrations sheet
 

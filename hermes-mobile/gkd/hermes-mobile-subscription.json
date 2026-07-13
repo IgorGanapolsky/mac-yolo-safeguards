@@ -1,0 +1,80 @@
+{
+  "id": 8742013,
+  "name": "Hermes Mobile dogfood (pilot)",
+  "version": 1,
+  "author": "hermes-mobile",
+  "supportUri": "https://github.com/IgorGanapolsky/mac-yolo-safeguards/blob/main/hermes-mobile/docs/GKD-TESTING.md",
+  "categories": [
+    { "key": 0, "name": "Hermes recovery taps" }
+  ],
+  "globalGroups": [],
+  "apps": [
+    {
+      "id": "com.iganapolsky.hermesmobile",
+      "name": "Hermes Mobile",
+      "groups": [
+        {
+          "key": 0,
+          "name": "Stop stuck run",
+          "desc": "Tap Stop when a stuck run banner is visible during dogfood.",
+          "enable": true,
+          "rules": [
+            {
+              "key": 0,
+              "fastQuery": true,
+              "matches": "[text=\"Stop stuck run\"][visibleToUser=true]",
+              "snapshotUrls": []
+            },
+            {
+              "key": 1,
+              "fastQuery": true,
+              "matches": "[text=\"Stop run\"][visibleToUser=true]",
+              "snapshotUrls": []
+            }
+          ]
+        },
+        {
+          "key": 1,
+          "name": "Start fresh after summarization stall",
+          "desc": "When the mega-session / compaction stall CTA is visible, start a fresh chat.",
+          "enable": true,
+          "rules": [
+            {
+              "key": 0,
+              "fastQuery": true,
+              "matches": "[text=\"Start fresh chat\"][visibleToUser=true]",
+              "snapshotUrls": []
+            },
+            {
+              "key": 1,
+              "fastQuery": true,
+              "matches": "[text*=\"Earlier conversation summarized\"][visibleToUser=true]",
+              "action": "clickCenter",
+              "snapshotUrls": []
+            }
+          ]
+        },
+        {
+          "key": 2,
+          "name": "Dismiss exhausted heal — Switch computer",
+          "desc": "After silent heal is exhausted, prefer Switch computer over a stuck Still checking banner.",
+          "enable": true,
+          "rules": [
+            {
+              "key": 0,
+              "fastQuery": true,
+              "matches": "[text*=\"Still checking your computer link\"][visibleToUser=true] <<n * <n * >n * [text*=\"Switch computer\"][visibleToUser=true]",
+              "snapshotUrls": []
+            },
+            {
+              "key": 1,
+              "fastQuery": true,
+              "matches": "[text=\"Switch computer\"][visibleToUser=true]",
+              "snapshotUrls": []
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

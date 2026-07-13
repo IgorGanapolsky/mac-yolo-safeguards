@@ -8,9 +8,11 @@ const path = require('path');
 const { spawnSync } = require('child_process');
 const {
   DEFAULT_DENY_RULES,
+  HERMES_VERIFIER_PROFILE,
   MODEL,
   XAI_PRICING,
   buildHermesArgs,
+  buildHermesEnv,
   grokDoctor,
   redact,
 } = require('../grok-yolo-wrapper');
@@ -22,7 +24,8 @@ const MAX_CAPTURE_CHARS = 50000;
 function usage() {
   return `Usage:
   hermes-grok45 --task "verify this change" [--repo PATH] [--execute]
-    [--paid-ok] [--max-turns N] [--timeout-ms N] [--write] [--out PATH] [--json]
+    [--case-id ID] [--paid-ok] [--max-turns N] [--timeout-ms N]
+    [--write] [--out PATH] [--json]
 
 Without --execute this emits a secret-safe readiness and billing receipt only.
 With --execute it runs Grok 4.5 as an independent Hermes verifier. Direct
@@ -32,6 +35,7 @@ XAI_API_KEY billing requires --paid-ok; grok.com OAuth/free-plan quota does not.
 function parseArgs(argv = process.argv.slice(2)) {
   const args = {
     task: '',
+    caseId: null,
     repo: DEFAULT_REPO,
     execute: false,
     paidOk: false,
@@ -45,6 +49,7 @@ function parseArgs(argv = process.argv.slice(2)) {
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
     if (arg === '--task') args.task = requireValue(argv, ++index, arg);
+    else if (arg === '--case-id') args.caseId = normalizeCaseId(requireValue(argv, ++index, arg));
     else if (arg === '--repo' || arg === '--cwd') args.repo = path.resolve(requireValue(argv, ++index, arg));
     else if (arg === '--execute') args.execute = true;
     else if (arg === '--paid-ok') args.paidOk = true;
@@ -58,6 +63,14 @@ function parseArgs(argv = process.argv.slice(2)) {
   }
   if (!args.help && !args.task.trim()) throw new Error('--task is required');
   return args;
+}
+
+function normalizeCaseId(value) {
+  const caseId = String(value || '').trim();
+  if (!/^[A-Za-z0-9][A-Za-z0-9._-]{0,79}$/.test(caseId)) {
+    throw new Error('--case-id must be 1-80 letters, numbers, dots, underscores, or hyphens');
+  }
+  return caseId;
 }
 
 function requireValue(argv, index, flag) {
@@ -154,7 +167,7 @@ function executeVerifier(options, doctor, runner = spawnSync) {
     encoding: 'utf8',
     timeout: options.timeoutMs,
     maxBuffer: 10 * 1024 * 1024,
-    env: process.env,
+    env: buildHermesEnv(process.env),
   });
   const stdout = sanitizeGrokOutput(result.stdout || '');
   const stderr = safeCapture(result.stderr || '');
@@ -190,13 +203,15 @@ function buildHarness(options = {}, dependencies = {}) {
     execution = executeVerifier(options, doctor, dependencies.runner || spawnSync);
   }
   const overallStatus = execution.attempted ? execution.status : readiness.status;
+  const taskRunId = digest(options.task);
   const receipt = {
     schema: 'hermes-grok45-harness/v1',
     generatedAt: options.now || new Date().toISOString(),
     host: options.host || os.hostname(),
     repo: path.resolve(options.repo || DEFAULT_REPO),
-    task: redact(options.task || ''),
-    taskDigest: digest(options.task),
+    caseId: options.caseId ? normalizeCaseId(options.caseId) : null,
+    taskDigest: taskRunId,
+    profileId: HERMES_VERIFIER_PROFILE.id,
     role: 'independent_verifier',
     model: MODEL,
     candidateOnly: true,
@@ -208,6 +223,9 @@ function buildHarness(options = {}, dependencies = {}) {
     billing,
     guardrails: {
       permissionMode: 'always-approve-with-explicit-denials',
+      profileId: HERMES_VERIFIER_PROFILE.id,
+      sandbox: HERMES_VERIFIER_PROFILE.sandbox,
+      writeFileEnabled: HERMES_VERIFIER_PROFILE.writeFileEnabled,
       denyRules: DEFAULT_DENY_RULES,
       noSubagents: true,
       noCrossSessionMemory: true,
@@ -232,8 +250,19 @@ function buildHarness(options = {}, dependencies = {}) {
 
 function writeReceipt(receipt, target = DEFAULT_OUT) {
   fs.mkdirSync(path.dirname(target), { recursive: true, mode: 0o700 });
-  fs.writeFileSync(target, `${JSON.stringify(receipt, null, 2)}\n`, { mode: 0o600 });
+  fs.writeFileSync(target, `${JSON.stringify(storageReceipt(receipt), null, 2)}\n`, { mode: 0o600 });
   return target;
+}
+
+function storageReceipt(receipt) {
+  const stored = JSON.parse(JSON.stringify(receipt));
+  if (stored.execution) {
+    stored.execution.stdoutObserved = Boolean(stored.execution.stdout);
+    stored.execution.stderrObserved = Boolean(stored.execution.stderr);
+    delete stored.execution.stdout;
+    delete stored.execution.stderr;
+  }
+  return stored;
 }
 
 function historySummary(receipt) {
@@ -242,7 +271,9 @@ function historySummary(receipt) {
     generatedAt: receipt.generatedAt,
     host: receipt.host,
     repoDigest: digest(receipt.repo),
+    caseId: receipt.caseId,
     taskDigest: receipt.taskDigest,
+    profileId: receipt.profileId,
     role: receipt.role,
     model: receipt.model,
     readiness: receipt.readiness,
@@ -278,6 +309,8 @@ function render(receipt) {
     '',
     `Host: ${receipt.host}`,
     `Model: ${receipt.model}`,
+    `Profile: ${receipt.profileId}`,
+    `Case: ${receipt.caseId || 'unlabeled'}`,
     `Auth: ${receipt.doctor.authMode}`,
     `Billing: ${receipt.billing.mode}`,
     `Ready: ${receipt.doctor.ready ? 'yes' : 'no'}`,
@@ -329,9 +362,11 @@ module.exports = {
   safeCapture,
   safeCommandSummary,
   sanitizeGrokOutput,
+  storageReceipt,
   writeReceipt,
   appendHistoryReceipt,
   historySummary,
+  normalizeCaseId,
 };
 
 if (require.main === module) main();

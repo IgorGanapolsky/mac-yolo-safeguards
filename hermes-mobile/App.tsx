@@ -38,6 +38,8 @@ import {
 import { useKeyboardInset } from './src/hooks/useKeyboardInset';
 import { isDemoModeAllowed } from './src/utils/demoModePolicy';
 import { LEASH_TAB_LABEL } from './src/constants/monetization';
+import { refreshFreeLeashWeeklyState } from './src/utils/freeLeashAllowance';
+import { syncLeashEntitlementSnapshot } from './src/utils/thumbgateLeash';
 import { colors } from './src/theme/colors';
 
 const ChatScreen = React.lazy(() => import('./src/screens/ChatScreen'));
@@ -349,13 +351,15 @@ function HermesNavigationRoot() {
 }
 
 function HermesAppShell() {
-  const { isLoaded } = useGateway();
+  const { isLoaded, settings } = useGateway();
 
   useEffect(() => {
     if (isLoaded) {
       void SplashScreen.hideAsync();
+      syncLeashEntitlementSnapshot(settings);
+      void refreshFreeLeashWeeklyState();
     }
-  }, [isLoaded]);
+  }, [isLoaded, settings]);
 
   if (!isLoaded) {
     return (
@@ -379,16 +383,14 @@ function HermesAppShell() {
 function App() {
   useEffect(() => {
     void trackAppOpen();
-    // Flush any crashes persisted from a previous (crashed) launch now that the
-    // process is healthy. Non-blocking; failures are retained for next launch.
     void flushCrashQueue();
-    // Safety net: never leave the native splash covering a working UI.
     void SplashScreen.hideAsync();
     const splashFallback = setTimeout(() => {
       void SplashScreen.hideAsync();
     }, 2500);
     return () => clearTimeout(splashFallback);
   }, []);
+
   return (
     <ErrorBoundary>
       <SafeAreaProvider>

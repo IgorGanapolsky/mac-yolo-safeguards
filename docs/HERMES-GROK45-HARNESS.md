@@ -28,6 +28,7 @@ hermes-yolo --route-status
 # Independent verifier receipt for Hermes orchestration
 hermes-grok45 \
   --task "review the current diff independently and verify the acceptance check" \
+  --case-id verifier-tools-01 \
   --execute \
   --json \
   --write
@@ -78,6 +79,9 @@ copies authentication files between Macs.
 
 The verifier runs Grok 4.5 with:
 
+- the named `grok45-readonly-verifier-v1` harness profile;
+- Grok's native `--sandbox read-only` filesystem boundary;
+- `GROK_WRITE_FILE=0`, so the write tool is disabled even in always-approve mode;
 - no subagents and no cross-session memory;
 - a bounded turn count and hard process timeout;
 - an independent-verifier system rule;
@@ -86,6 +90,17 @@ The verifier runs Grok 4.5 with:
 - no merge, push, publish, delete, or credential operations;
 - explicit auth and billing-mode evidence in every receipt.
 
+The sandbox is a filesystem control, not a macOS network firewall: xAI documents
+that child-process network blocking is not enforced on macOS. The explicit deny
+rules, bounded verifier role, and prompt-free audit trace therefore remain
+required. Source: [xAI enterprise controls](https://docs.x.ai/build/enterprise).
+
+This is the local high-ROI subset of the connector controls described by
+[Merge Agent Handler](https://www.merge.dev/merge-agent-handler): least-privilege
+tool scope plus inspectable input/output audit evidence. It does not add Merge's
+paid connector platform because Hermes does not currently need another connector
+control plane.
+
 The economic router exposes `grok45_verifier_candidate` only when a task
 explicitly asks for Grok. It pairs the local Hermes executor with an independent
 Grok reviewer, surfaces disagreement, and keeps the router's default route
@@ -93,9 +108,13 @@ unchanged until comparison receipts justify promotion.
 
 Every `hermes-yolo` route writes a prompt-free receipt. The receipt records the
 selected backend/model, explicit routing reason, exit status, duration, wrapper
-hash, and whether any Qwen route was explicitly requested. It stores only a
-digest of the task, never the prompt. The verifier writes a compact history
-trace when `--write` is enabled:
+hash, and whether any Qwen route was explicitly requested. The Grok verifier no
+longer stores the task in `latest.json`; both latest and history receipts use an
+opaque per-run identifier, and only an operator-supplied safe `--case-id` is
+stable across repeated evaluations. Raw verifier stdout/stderr is returned to
+the invoking terminal but stripped from the persisted latest receipt; the
+receipt records only whether output was observed. The verifier writes a compact
+history trace when `--write` is enabled:
 
 ```text
 ~/.hermes/receipts/hermes-yolo/latest.json
@@ -106,7 +125,9 @@ trace when `--write` is enabled:
 
 `hermes-harness-eval --write` deterministically mines those histories into
 pass/failure rates, latency percentiles, failure clusters, silent-fallback
-counts, and unexplained-Qwen counts. It writes:
+counts, and unexplained-Qwen counts. Failures without provider error text are
+still clustered by source, status, and exit code instead of disappearing from
+the failure-cluster view. It writes:
 
 ```text
 ~/.hermes/receipts/hermes-yolo/eval-latest.json
@@ -119,6 +140,32 @@ only when the offline evaluation improves. It follows the trace-driven agent
 improvement approach described by [LangChain](https://www.langchain.com/blog/traces-start-agent-improvement-loop),
 while the generated Markdown artifact supplies inspectable wiki-style memory
 without storing raw chats; compare [LangChain wiki memory](https://www.langchain.com/blog/wiki-memory).
+
+For a provider-profile change, use the same stable case IDs for the baseline and
+candidate, run each case at least three times, and reserve at least one case as
+held out. The evaluator returns `adopt` only when the candidate improves overall,
+has no per-case regression, and does not regress on the held-out case:
+
+```sh
+hermes-harness-eval \
+  --baseline-profile grok45-readonly-verifier-v1 \
+  --candidate-profile grok45-readonly-verifier-v2 \
+  --holdout-case verifier-heldout-01 \
+  --min-repeats 3 \
+  --write \
+  --json
+```
+
+Start collecting labeled v1 traces before proposing v2. A future profile change
+must change the profile ID in code; unlabeled historical traces are reported as
+`legacy-unprofiled` and cannot satisfy the paired-case promotion gate. This is
+the minimal useful slice of NVIDIA's recommended loop: establish a baseline,
+make one scoped harness change, rerun the full suite repeatedly, and validate on
+held-out cases. Source: [NVIDIA's LangChain Deep Agents harness-profile workflow](https://developer.nvidia.com/blog/create-a-langchain-deep-agents-harness-profile-for-nvidia-nemotron-3-ultra-to-improve-performance/).
+
+The linked GLM-on-25GB demonstration is not a Hermes route: its author reports
+roughly 10-20 seconds per token, which is unsuitable for an interactive harness.
+Source: [Hasan's reported local run](https://x.com/hasantoxr/status/2076135762291261627).
 
 ## Optional Parallel retrieval
 

@@ -205,6 +205,11 @@ import {
   megaSessionSendWarnTitle,
   sessionTotalTokens,
 } from '../utils/sessionTokenGuards';
+import {
+  compactionStallBannerCopy,
+  isSummarizationStub,
+  lastTurnIsCompactionStall,
+} from '../utils/chatCompactionHandoff';
 import { resolveChatProject } from '../utils/chatContext';
 import { resolveComputerSessionStorageKeys } from '../utils/computerSessionStorage';
 import {
@@ -219,6 +224,14 @@ import {
   shouldShowMacRetryBanner,
   shouldShowConnectivityRunBanner,
 } from '../utils/connectionErrorPolicy';
+import {
+  formatSavedMacUnreachableBanner,
+  reconnectingToMacCopy,
+  savedMacUnreachableStatus,
+  shouldShowActiveReconnectingCopy,
+  shouldSuppressEmptyGreetingUnreachable,
+} from '../utils/macUnreachableCopy';
+import { hasValidSavedComputer } from '../utils/freshUserOnboarding';
 import { isLoopbackGatewayUrl } from '../utils/gatewayUrlPolicy';
 import { isInvalidGatewayProfile } from '../services/gatewayProfiles';
 import { isPrivateLanGatewayUrl } from '../utils/gatewayEndpoint';
@@ -1232,19 +1245,40 @@ export default function ChatScreen() {
     ],
   );
 
+  const machineShortLabel = machineHeaderDisplay.machineLabel;
+  const machineEndpoint = machineHeaderDisplay.machineEndpoint;
+
   const routeStatusLabel =
     settings.connectionMode === 'relay' &&
     !isPaired &&
     relayRouteDisplay.routeStatus !== 'Direct link'
       ? relayRouteDisplay.routeStatus
-      : undefined;
+      : !effectiveMacHttpOk && connectionHealExhausted
+        ? savedMacUnreachableStatus(machineShortLabel)
+        : undefined;
 
-  const machineShortLabel = machineHeaderDisplay.machineLabel;
-  const machineEndpoint = machineHeaderDisplay.machineEndpoint;
+  const suppressEmptyGreetingUnreachable = shouldSuppressEmptyGreetingUnreachable({
+    healthProbePending,
+    healInFlight: connectionHealInFlight,
+    healExhausted: connectionHealExhausted,
+    hasSavedComputer: hasValidSavedComputer(gatewayProfiles),
+  });
 
   const macRetryBannerText = useMemo(() => {
-    if (macRetryBusy || connectionHealInFlight) {
-      return `Reconnecting to ${machineShortLabel}…`;
+    if (
+      shouldShowActiveReconnectingCopy({
+        macRetryBusy,
+        healInFlight: connectionHealInFlight,
+        healExhausted: connectionHealExhausted,
+      })
+    ) {
+      return reconnectingToMacCopy(machineShortLabel);
+    }
+    if (connectionHealExhausted && !effectiveMacHttpOk) {
+      return formatSavedMacUnreachableBanner({
+        macLabel: machineHeaderDisplay.machineLabel,
+        machineEndpoint: machineHeaderDisplay.machineEndpoint,
+      });
     }
     return formatMacConnectionRetryBanner({
       connectionState,
@@ -1260,6 +1294,8 @@ export default function ChatScreen() {
   }, [
     macRetryBusy,
     connectionHealInFlight,
+    connectionHealExhausted,
+    effectiveMacHttpOk,
     machineShortLabel,
     connectionState,
     connectingStuck,
@@ -1859,9 +1895,16 @@ export default function ChatScreen() {
       }
       setErrorMessage(null);
       const list = await listSessions(gatewayUrl, apiKey);
+      if (loadGen !== sessionsLoadGenRef.current) {
+        return;
+      }
       const hasTelegram = list.some(isTelegramSession);
       const finalSessions = hasTelegram ? [buildTelegramInboxSession(), ...list] : list;
-      setSessions(finalSessions);
+      const filteredSessions = filterDismissedThreadSessions(finalSessions, {
+        dismissedSessionIds: dismissedSessionIdsRef.current,
+        hideCronSessions: hideCronSessionsRef.current,
+      });
+      setSessions(filteredSessions);
 
       if (currentSessionRef.current && isTelegramInboxSession(currentSessionRef.current)) {
         const replyId = resolveTelegramInboxReplySessionId(list);
@@ -1927,8 +1970,8 @@ export default function ChatScreen() {
     const hydrationGen = ++dismissedHydrationGenRef.current;
     let cancelled = false;
     void Promise.all([
-      storage.loadDismissedSessionIds(gatewayUrl),
-      storage.loadHideCronSessions(gatewayUrl),
+      storage.loadDismissedSessionIds(activeComputerSessionKeys, gatewayUrl),
+      storage.loadHideCronSessions(activeComputerSessionKeys, gatewayUrl),
     ]).then(([ids, hideCron]) => {
       if (!cancelled && hydrationGen === dismissedHydrationGenRef.current) {
         setDismissedSessionIds(ids);
@@ -1938,7 +1981,7 @@ export default function ChatScreen() {
     return () => {
       cancelled = true;
     };
-  }, [gatewayUrl, isDemo]);
+  }, [gatewayUrl, isDemo, activeComputerSessionKeys]);
 
   useEffect(() => {
     if (isProjectsLoaded) {
@@ -2811,11 +2854,15 @@ export default function ChatScreen() {
   }, [handleStartFreshChat]);
 
   const megaSessionWarning = useMemo(() => {
+    const total = sessionTotalTokens(currentSession);
+    if (lastTurnIsCompactionStall(messages)) {
+      return compactionStallBannerCopy(total);
+    }
     if (!isMegaSession(currentSession)) {
       return null;
     }
-    return megaSessionBannerCopy(sessionTotalTokens(currentSession));
-  }, [currentSession]);
+    return megaSessionBannerCopy(total);
+  }, [currentSession, messages]);
 
   const executeClearAllChats = useCallback(async () => {
     haptics.warning();
@@ -2847,16 +2894,30 @@ export default function ChatScreen() {
         return;
       }
 
-      const deletable = sessionsRef.current.filter((session) => !isTelegramInboxSession(session));
+      const deletableSource = await (async () => {
+        try {
+          const freshList = await listSessions(gatewayUrl, apiKey);
+          return freshList.filter((session) => !isTelegramInboxSession(session));
+        } catch {
+          return sessionsRef.current.filter((session) => !isTelegramInboxSession(session));
+        }
+      })();
+      const deletable = deletableSource;
       const attemptedIds = deletable.map((session) => session.id);
       const hideCronAfterClear = deletable.some((session) => isAutomatedCronSession(session));
       const effectiveHideCron = hideCronAfterClear || hideCronSessionsRef.current;
       dismissedHydrationGenRef.current += 1;
       const nextDismissed = [...new Set([...dismissedSessionIdsRef.current, ...attemptedIds])];
+      dismissedSessionIdsRef.current = nextDismissed;
+      if (hideCronAfterClear) {
+        hideCronSessionsRef.current = true;
+      }
 
+      let gatewayCleared = false;
       let failed = 0;
       try {
         await clearAllSessions(gatewayUrl, apiKey);
+        gatewayCleared = true;
       } catch (err) {
         console.warn('[executeClearAllChats] API clear-all failed, falling back to sequential deletes:', err);
         for (const session of deletable) {
@@ -2866,14 +2927,15 @@ export default function ChatScreen() {
             failed += 1;
           }
         }
+        gatewayCleared = failed === 0;
       }
 
       if (attemptedIds.length > 0) {
-        await storage.addDismissedSessionIds(gatewayUrl, attemptedIds);
+        await storage.addDismissedSessionIds(activeComputerSessionKeys, attemptedIds, gatewayUrl);
       }
 
       if (hideCronAfterClear) {
-        await storage.setHideCronSessions(gatewayUrl, true);
+        await storage.setHideCronSessions(activeComputerSessionKeys, true, gatewayUrl);
         setHideCronSessions(true);
       }
 
@@ -2895,7 +2957,24 @@ export default function ChatScreen() {
 
       dismissedHydrationGenRef.current += 1;
       setDismissedSessionIds(nextDismissed);
+      dismissedSessionIdsRef.current = nextDismissed;
       setSessions((prev) => applyClearedFilter(prev));
+
+      if (gatewayCleared) {
+        try {
+          const remainingOnMac = await listSessions(gatewayUrl, apiKey);
+          const deletableRemaining = remainingOnMac.filter(
+            (session) => !isTelegramInboxSession(session),
+          );
+          if (deletableRemaining.length === 0) {
+            await storage.clearDismissedSessionIds(activeComputerSessionKeys, gatewayUrl);
+            setDismissedSessionIds([]);
+            dismissedSessionIdsRef.current = [];
+          }
+        } catch {
+          // Keep dismissed map when we cannot verify Mac state.
+        }
+      }
       if (failed > 0) {
         setErrorMessage(
           `${failed} thread${failed === 1 ? '' : 's'} could not be deleted on your computer. The rest were cleared.`,
@@ -2908,7 +2987,7 @@ export default function ChatScreen() {
       setIsClearing(false);
       setSessionModalVisible(false);
     }
-  }, [apiKey, gatewayUrl, handleNewChat, isDemo, loadSessionsList, projectState, persistProjectState]);
+  }, [activeComputerSessionKeys, apiKey, gatewayUrl, handleNewChat, isDemo, loadSessionsList, projectState, persistProjectState]);
 
   const handleClearAllChats = useCallback(() => {
     Alert.alert(
@@ -2938,11 +3017,15 @@ export default function ChatScreen() {
                 apiDeleted = true;
               } catch (err) {
                 console.warn('[handleDeleteSession] API delete failed:', err);
-                await storage.addDismissedSessionIds(gatewayUrl, [sessionId]);
-                setDismissedSessionIds((prev) => [...new Set([...prev, sessionId])]);
+                await storage.addDismissedSessionIds(activeComputerSessionKeys, [sessionId], gatewayUrl);
+                setDismissedSessionIds((prev) => {
+                  const next = [...new Set([...prev, sessionId])];
+                  dismissedSessionIdsRef.current = next;
+                  return next;
+                });
               }
               if (apiDeleted) {
-                await storage.removeDismissedSessionIds(gatewayUrl, [sessionId]);
+                await storage.removeDismissedSessionIds(activeComputerSessionKeys, [sessionId], gatewayUrl);
               }
             } else {
               deletedDemoSessionIdsRef.current.add(sessionId);
@@ -2965,7 +3048,7 @@ export default function ChatScreen() {
         },
       ]
     );
-  }, [apiKey, gatewayUrl, isDemo, projectState, persistProjectState, currentSession, sessions, loadSessionsList]);
+  }, [activeComputerSessionKeys, apiKey, gatewayUrl, isDemo, projectState, persistProjectState, currentSession, sessions, loadSessionsList]);
 
   const handleRenameSession = useCallback((sessionId: string, currentTitle: string) => {
     setRenameSessionId(sessionId);
@@ -3253,6 +3336,7 @@ export default function ChatScreen() {
           gatewayUrl,
           apiKey,
           sendGateAction,
+          leashSettings: settings,
           sendChatText: async (text) => {
             await sendUserText(text, true);
           },
@@ -4352,10 +4436,21 @@ export default function ChatScreen() {
       markMessageDeliveredToMac();
 
       const telegramDeferred = isTelegramDeferredEmptyStream(activeSess, assistantText);
-      if (!assistantText.trim()) {
-        updateAssistant(
-          telegramDeferred ? TELEGRAM_QUEUED_REPLY_PLACEHOLDER : GENERIC_EMPTY_STREAM_PLACEHOLDER,
-        );
+      const summarizationStub = isSummarizationStub(assistantText);
+      const awaitRealReply =
+        !assistantText.trim() ||
+        summarizationStub ||
+        shouldAwaitGatewayReplyAfterSend({
+          assistantText,
+          streamAccepted,
+          streamFailed: false,
+        });
+      if (awaitRealReply) {
+        if (summarizationStub || !assistantText.trim()) {
+          updateAssistant(
+            telegramDeferred ? TELEGRAM_QUEUED_REPLY_PLACEHOLDER : GENERIC_EMPTY_STREAM_PLACEHOLDER,
+          );
+        }
         if (telegramDeferred) {
           setToolStatus('Queued on active Hermes thread — waiting for reply…');
           setRunProgress((prev) =>
@@ -4370,35 +4465,48 @@ export default function ChatScreen() {
           startDeferredTelegramPoll(assistantId, priorAssistants);
         } else if (
           shouldAwaitGatewayReplyAfterSend({
-            assistantText,
+            assistantText: summarizationStub ? '' : assistantText,
             streamAccepted,
             streamFailed: false,
-          })
+          }) ||
+          summarizationStub
         ) {
-          setToolStatus('Waiting for reply from your computer…');
+          setToolStatus(
+            summarizationStub
+              ? 'Context summarized — waiting for a real reply…'
+              : 'Waiting for reply from your computer…',
+          );
           setRunProgress((prev) =>
             prev
               ? {
                   ...prev,
                   phase: 'working',
-                  detail: 'Your computer is still working — fetching reply…',
+                  detail: summarizationStub
+                    ? 'Context was summarized — still fetching a real reply…'
+                    : 'Your computer is still working — fetching reply…',
                 }
               : {
                   phase: 'working',
                   startedAtMs: sendStartedAtRef.current,
-                  detail: 'Your computer is still working — fetching reply…',
+                  detail: summarizationStub
+                    ? 'Context was summarized — still fetching a real reply…'
+                    : 'Your computer is still working — fetching reply…',
                   sessionId: targetSessionIdForProgress,
                 },
           );
           startDeferredReplyPoll(assistantId, priorAssistants, {
             onTimeout: () => {
               lastFailedSendTextRef.current = userText;
-              setErrorMessage(EMPTY_REPLY_FAILURE_REASON);
+              setErrorMessage(
+                summarizationStub
+                  ? compactionStallBannerCopy(sessionTotalTokens(currentSessionRef.current))
+                  : EMPTY_REPLY_FAILURE_REASON,
+              );
             },
           });
         }
       }
-      if (!telegramDeferred && assistantText.trim()) {
+      if (!telegramDeferred && assistantText.trim() && !summarizationStub && !awaitingGatewayReplyRef.current) {
         setToolStatus(null);
       } else if (!telegramDeferred && !assistantText.trim() && !awaitingGatewayReplyRef.current) {
         setToolStatus(null);
@@ -5167,6 +5275,7 @@ export default function ChatScreen() {
           macHttpReachable={effectiveMacHttpOk || chatStalled}
           macRetryBusy={macRetryBusy}
           silentHealInFlight={hideMacTileForSilentHeal}
+          healExhausted={connectionHealExhausted && !effectiveMacHttpOk}
           pendingApprovalCount={composerApprovals.length}
           runProgress={progressBanner}
           isSending={isSending}
@@ -5266,6 +5375,7 @@ export default function ChatScreen() {
                 <ChatEmptyGreeting
                   routeLabel={isDemo ? 'Demo computer' : machineShortLabel}
                   isConnected={effectiveMacChatLive}
+                  connectionPending={suppressEmptyGreetingUnreachable}
                 />
                 {showMacConnectionHelp ? (
                   <Text style={styles.emptyPlaceholderText}>

@@ -260,3 +260,52 @@ describe('hermesGatewayClient SSE', () => {
     }
   });
 });
+
+describe('toolset config/env client', () => {
+  it('GETs toolset config and PUTs env without echoing secrets', async () => {
+    const { getToolsetConfig, saveToolsetEnv } = require('../services/hermesGatewayClient');
+    const originalFetch = global.fetch;
+    const fetchMock = jest
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          name: 'x_search',
+          providers: [
+            {
+              name: 'xAI API key',
+              env_vars: [{ key: 'XAI_API_KEY', is_set: false }],
+            },
+          ],
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          ok: true,
+          name: 'x_search',
+          saved: ['XAI_API_KEY'],
+          is_set: { XAI_API_KEY: true },
+        }),
+      });
+    global.fetch = fetchMock as typeof fetch;
+
+    try {
+      const config = await getToolsetConfig('http://127.0.0.1:8642', 'x_search', 'sk-test');
+      expect(config.name).toBe('x_search');
+      expect(config.providers?.[0].env_vars?.[0].is_set).toBe(false);
+
+      const saved = await saveToolsetEnv(
+        'http://127.0.0.1:8642',
+        'x_search',
+        { XAI_API_KEY: 'xai-secret' },
+        'sk-test',
+      );
+      expect(saved.saved).toEqual(['XAI_API_KEY']);
+      expect(JSON.stringify(saved)).not.toContain('xai-secret');
+      expect(fetchMock.mock.calls[1][0]).toContain('/v1/toolsets/x_search/env');
+    } finally {
+      global.fetch = originalFetch;
+    }
+  });
+});

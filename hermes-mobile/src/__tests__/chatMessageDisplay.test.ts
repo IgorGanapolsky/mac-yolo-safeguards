@@ -8,6 +8,7 @@ import {
   normalizeChatMessage,
   prepareMessagesForDisplay,
   resolveMessageTimestamp,
+  stripToolCallMarkup,
   stripUntrustedToolBlocks,
   unescapeChatText,
 } from '../utils/chatMessageDisplay';
@@ -305,5 +306,36 @@ ${manyLines}
       { includeHermesStatus: true },
     );
     expect(visible.map((m) => m.content)).toEqual([status, 'Continue']);
+  });
+
+  it('strips TOOLCALL markup from assistant prose', () => {
+    const raw =
+      'Checking pending assets.\n<TOOLCALL>[{"name": "read_file", "arguments": {"limit": 50, "offset": 1, "path": "outreach/pending-assets.md"}}]</TOOLCALL>\nDone.';
+    expect(stripToolCallMarkup(raw)).toBe('Checking pending assets.\nDone.');
+    expect(formatMessageForDisplay(raw)).toBe('Checking pending assets.\nDone.');
+  });
+
+  it('hides assistant messages that are only TOOLCALL markup', () => {
+    const raw =
+      '<TOOLCALL>[{"name": "read_file", "arguments": {"path": "outreach/pending-assets.md"}}]</TOOLCALL>';
+    const visible = prepareMessagesForDisplay([
+      { role: 'user', content: 'check assets' },
+      { role: 'assistant', content: raw },
+      { role: 'assistant', content: 'Found 3 pending assets.' },
+    ]);
+    expect(visible.map((m) => m.content)).toEqual(['check assets', 'Found 3 pending assets.']);
+    expect(visible.map((m) => m.content).join('\n')).not.toContain('TOOLCALL');
+    expect(visible.map((m) => m.content).join('\n')).not.toContain('read_file');
+  });
+
+  it('strips streaming-truncated TOOLCALL blocks', () => {
+    const raw = 'Working…\n<TOOLCALL>[{"name": "web_search"';
+    expect(stripToolCallMarkup(raw)).toBe('Working…');
+  });
+
+  it('strips tool_call and function_call XML variants', () => {
+    const raw =
+      'Before\n<tool_call>{"name":"bash"}</tool_call>\n<function_call>{"name":"grep"}</function_call>\nAfter';
+    expect(formatMessageForDisplay(raw)).toBe('Before\nAfter');
   });
 });

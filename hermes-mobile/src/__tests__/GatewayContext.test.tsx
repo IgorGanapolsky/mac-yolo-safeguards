@@ -9,6 +9,12 @@ import {
   fetchQueue,
 } from '../services/mobileRelayClient';
 import { captureThumbgateFeedback } from '../services/thumbgateClient';
+import {
+  __resetFreeLeashAllowanceForTests,
+  consumeFreeLeashApproval,
+  refreshFreeLeashWeeklyState,
+} from '../utils/freeLeashAllowance';
+import { FREE_LEASH_APPROVALS_PER_WEEK } from '../constants/monetization';
 
 jest.mock('../services/storage');
 jest.mock('../services/secureCredentials');
@@ -72,13 +78,17 @@ jest.mock('../services/hermesGatewayClient', () => ({
 jest.mock('../services/discover', () => ({
   getPackagerHostIp: jest.fn(() => null),
 }));
-jest.mock('../services/gatewayDiscovery', () => ({
-  discoverAllGatewaysOnLan: jest.fn().mockResolvedValue({ gateways: [], tailnetProbeHosts: [] }),
-  discoverGatewayOnPhoneSubnet: jest.fn().mockResolvedValue(null),
-  discoverGatewayViaPairServer: jest.fn().mockResolvedValue(null),
-  resolvePairServerMachineName: jest.fn().mockResolvedValue(null),
-  resolvePairServerRelayCode: jest.fn().mockResolvedValue(null),
-}));
+jest.mock('../services/gatewayDiscovery', () => {
+  const actual = jest.requireActual('../services/gatewayDiscovery');
+  return {
+    discoverAllGatewaysOnLan: jest.fn().mockResolvedValue({ gateways: [], tailnetProbeHosts: [] }),
+    discoverGatewayOnPhoneSubnet: jest.fn().mockResolvedValue(null),
+    discoverGatewayViaPairServer: jest.fn().mockResolvedValue(null),
+    pairServerHostFromGatewayUrl: actual.pairServerHostFromGatewayUrl,
+    resolvePairServerMachineName: jest.fn().mockResolvedValue(null),
+    resolvePairServerRelayCode: jest.fn().mockResolvedValue(null),
+  };
+});
 
 jest.mock('../services/tailnetProbeStorage', () => ({
   tailnetProbeStorage: {
@@ -88,11 +98,15 @@ jest.mock('../services/tailnetProbeStorage', () => ({
     clear: jest.fn().mockResolvedValue(undefined),
   },
 }));
-jest.mock('../services/tailscaleDiscovery', () => ({
-  collectTailnetProbeHosts: jest.fn(() => []),
-  discoverTailscaleGateways: jest.fn().mockResolvedValue([]),
-  filterNewTailscaleDiscoveries: jest.fn((_profiles, discovered) => discovered),
-}));
+jest.mock('../services/tailscaleDiscovery', () => {
+  const actual = jest.requireActual('../services/tailscaleDiscovery');
+  return {
+    collectTailnetProbeHosts: jest.fn(() => []),
+    discoverTailscaleGateways: jest.fn().mockResolvedValue([]),
+    filterNewTailscaleDiscoveries: jest.fn((_profiles, discovered) => discovered),
+    tailnetHostsFromDiscoveries: actual.tailnetHostsFromDiscoveries,
+  };
+});
 jest.mock('../services/signOfLife', () => ({
   emitSignOfLife: jest.fn(),
 }));
@@ -917,6 +931,11 @@ describe('GatewayProvider', () => {
 
   it('skips chat output feedback capture when Leash is locked', async () => {
     (captureThumbgateFeedback as jest.Mock).mockClear();
+    __resetFreeLeashAllowanceForTests();
+    await refreshFreeLeashWeeklyState();
+    for (let i = 0; i < FREE_LEASH_APPROVALS_PER_WEEK; i += 1) {
+      await consumeFreeLeashApproval();
+    }
     const thumbgateIap = jest.requireMock('../services/thumbgateIap');
     thumbgateIap.syncThumbgateLeashEntitlement.mockResolvedValue(false);
     (storage.loadGatewaySettings as jest.Mock).mockResolvedValue({
