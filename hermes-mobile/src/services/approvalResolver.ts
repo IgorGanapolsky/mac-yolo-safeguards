@@ -1,6 +1,9 @@
 import type { ApprovalChoice, HermesApprovalRequest } from '../types/approval';
+import type { GatewaySettings } from '../types/gateway';
 import { submitRunApproval } from './hermesGatewayClient';
 import { buildGateActionMessage } from './gatewayClient';
+import { consumeFreeLeashApproval, getFreeLeashWeeklyStateSync } from '../utils/freeLeashAllowance';
+import { hasThumbgateLeashPro, isProEntitledFromSnapshot } from '../utils/thumbgateLeash';
 
 export type ApprovalResolveContext = {
   gatewayUrl: string;
@@ -9,6 +12,8 @@ export type ApprovalResolveContext = {
   sendGateAction?: (message: string) => void;
   /** Chat fallback for text nudges and edit messages. */
   sendChatText?: (text: string) => Promise<void>;
+  /** When set, free-tier weekly allowance is enforced and consumed on routed approvals. */
+  leashSettings?: GatewaySettings | null;
 };
 
 export const CHAT_APPROVAL_UNDO_TEXT =
@@ -19,11 +24,49 @@ export const CHAT_APPROVAL_DENY_TEXT =
 
 export const CHAT_APPROVAL_EDIT_PREFIX = 'EDIT — revise this plan: ';
 
+export class FreeLeashWeeklyLimitError extends Error {
+  constructor() {
+    super('Free Leash weekly limit reached');
+    this.name = 'FreeLeashWeeklyLimitError';
+  }
+}
+
+function isProForAllowance(settings: GatewaySettings | null | undefined): boolean {
+  if (settings) {
+    return hasThumbgateLeashPro(settings);
+  }
+  return isProEntitledFromSnapshot();
+}
+
+function assertFreeLeashAllowance(settings: GatewaySettings | null | undefined): void {
+  if (isProForAllowance(settings)) {
+    return;
+  }
+  const { remaining } = getFreeLeashWeeklyStateSync();
+  if (remaining <= 0) {
+    throw new FreeLeashWeeklyLimitError();
+  }
+}
+
+async function recordFreeLeashConsumption(
+  settings: GatewaySettings | null | undefined,
+  choice: ApprovalChoice,
+): Promise<void> {
+  if (isProForAllowance(settings)) {
+    return;
+  }
+  if (choice === 'deny') {
+    return;
+  }
+  await consumeFreeLeashApproval();
+}
+
 export async function resolveApprovalChoice(
   request: HermesApprovalRequest,
   choice: ApprovalChoice,
   ctx: ApprovalResolveContext,
 ): Promise<void> {
+  assertFreeLeashAllowance(ctx.leashSettings);
   if (request.source === 'text_nudge') {
     if (choice === 'deny') {
       if (ctx.sendGateAction && request.sessionKey) {
@@ -35,6 +78,7 @@ export async function resolveApprovalChoice(
           'text_nudge',
         );
         ctx.sendGateAction(JSON.stringify(message));
+        await recordFreeLeashConsumption(ctx.leashSettings, choice);
         return;
       }
       if (!ctx.sendChatText) {
@@ -52,17 +96,20 @@ export async function resolveApprovalChoice(
         'text_nudge',
       );
       ctx.sendGateAction(JSON.stringify(message));
+      await recordFreeLeashConsumption(ctx.leashSettings, choice);
       return;
     }
     if (!ctx.sendChatText || !request.approveText) {
       throw new Error('Chat text sender required for text nudge approve');
     }
     await ctx.sendChatText(request.approveText);
+    await recordFreeLeashConsumption(ctx.leashSettings, choice);
     return;
   }
 
   if (request.runId) {
     await submitRunApproval(ctx.gatewayUrl, request.runId, choice, ctx.apiKey);
+    await recordFreeLeashConsumption(ctx.leashSettings, choice);
     return;
   }
 
@@ -73,4 +120,5 @@ export async function resolveApprovalChoice(
   const decision = (choice as string) === 'deny' ? 'reject' : 'approve';
   const message = buildGateActionMessage(request.id, decision, undefined, choice, request.source);
   ctx.sendGateAction(JSON.stringify(message));
+  await recordFreeLeashConsumption(ctx.leashSettings, choice);
 }

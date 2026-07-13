@@ -4,6 +4,9 @@ export const THUMBGATE_PRO_URL =
 
 export const THUMBGATE_PRO_PRICE_LABEL = '$19/mo';
 
+/** Free-tier routed Leash approvals per ISO week (MONETIZATION-GTM-JULY-2026). */
+export const FREE_LEASH_APPROVALS_PER_WEEK = 10;
+
 /** Bottom navigation tab label (short). */
 export const LEASH_TAB_LABEL = 'Leash';
 
