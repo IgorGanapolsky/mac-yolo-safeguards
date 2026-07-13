@@ -2,6 +2,7 @@ import type { HermesMessage } from '../types/chat';
 import {
   CHAT_LIST_HEADER_CLEARANCE,
   filterChatTimelineMessages,
+  resolveSubmittedPromptStripVisibility,
   shouldShowSubmittedPromptStrip,
 } from '../utils/chatOutboundDisplay';
 
@@ -46,6 +47,34 @@ describe('chatOutboundDisplay', () => {
     expect(shouldShowSubmittedPromptStrip({ pinnedText: 'Make money faster', messages: [] })).toBe(
       true,
     );
+  });
+
+  it('regression: never shows strip+bubble together even when isSending would force-show', () => {
+    const pinnedText = 'Make money today';
+    const messages: HermesMessage[] = [
+      {
+        id: 'user-1',
+        role: 'user',
+        content: pinnedText,
+        outboundStatus: 'pending',
+      },
+    ];
+    const hasMatchingBubble = messages.some(
+      (message) => message.role === 'user' && message.content === pinnedText,
+    );
+    expect(hasMatchingBubble).toBe(true);
+
+    // Pre-#184 ChatScreen bug: `isSending || shouldShow...` forced the purple strip.
+    const buggyIsSendingOverride = true || shouldShowSubmittedPromptStrip({ pinnedText, messages });
+    expect(buggyIsSendingOverride).toBe(true);
+
+    const showStrip = resolveSubmittedPromptStripVisibility({
+      pinnedText,
+      messages,
+      isSending: true,
+    });
+    expect(showStrip).toBe(false);
+    expect(showStrip && hasMatchingBubble).toBe(false);
   });
 
   it('ignores blank pinned text', () => {
