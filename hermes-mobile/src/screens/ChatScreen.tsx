@@ -162,6 +162,12 @@ import {
   saveComposerDraft,
 } from '../utils/composerDraftStorage';
 import {
+  captureComposerTextForFreshChat,
+  resolveComposerTextAfterFreshChat,
+  shouldRestoreComposerAfterFreshChat,
+  shouldSkipStoredDraftLoad,
+} from '../utils/freshChatComposerTransfer';
+import {
   chatDistanceFromBottom,
   resolveUserScrolledUp,
   shouldAutoScroll,
@@ -659,6 +665,8 @@ export default function ChatScreen() {
   const sendClearSuppressRef = useRef(false);
   const lastSentComposerTextRef = useRef('');
   const composerDraftSessionRef = useRef<string | null>(null);
+  /** Carries typed composer text across Start fresh so draft-load cannot wipe it. */
+  const pendingFreshComposerTransferRef = useRef<string | null>(null);
   const composerDraftSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const sendUserTextRef = useRef<(text: string, isProgrammatic?: boolean) => Promise<boolean>>(
     async () => false,
@@ -2880,7 +2888,17 @@ export default function ChatScreen() {
     scrollChatToLatestIfPinned(true, isChatStreamingActive());
   }, [messages, isSending, runProgress, isLoadingMessages, scrollChatToLatestIfPinned, isChatStreamingActive]);
 
-  const handleNewChat = async () => {
+  const handleNewChat = async (options?: { preserveComposer?: boolean }) => {
+    const preserveComposer = options?.preserveComposer === true;
+    const preservedText = preserveComposer
+      ? captureComposerTextForFreshChat(inputValueRef.current)
+      : '';
+    if (preserveComposer && shouldRestoreComposerAfterFreshChat(preservedText)) {
+      pendingFreshComposerTransferRef.current = preservedText;
+    } else if (!preserveComposer) {
+      pendingFreshComposerTransferRef.current = null;
+    }
+
     haptics.selection();
     setSessionModalVisible(false);
     setRecentChatsDismissed(true);
@@ -2899,8 +2917,10 @@ export default function ChatScreen() {
     setRunProgress(null);
     skipSessionAutoSelectRef.current = true;
     setComposerFocusNonce((n) => n + 1);
-    inputValueRef.current = '';
-    setInputValue('');
+    if (!preserveComposer) {
+      inputValueRef.current = '';
+      setInputValue('');
+    }
 
     if (isDemo) {
       const sessionTitle = activeProject
@@ -2925,12 +2945,22 @@ export default function ChatScreen() {
         const next = pinSessionLabel(projectState, newSess.id, sessionTitle);
         await persistProjectState(next);
       }
+      if (preserveComposer && shouldRestoreComposerAfterFreshChat(preservedText)) {
+        inputValueRef.current = preservedText;
+        setInputValue(preservedText);
+        setComposerFocusNonce((n) => n + 1);
+      }
       return;
     }
 
     // Live: compose first — create the Mac session when the user sends (avoids gateway
     // "session already in use" when the operator slot is still bound to the prior thread).
     setCurrentSession(null);
+    if (preserveComposer && shouldRestoreComposerAfterFreshChat(preservedText)) {
+      inputValueRef.current = preservedText;
+      setInputValue(preservedText);
+      setComposerFocusNonce((n) => n + 1);
+    }
   };
 
   const handleStartFreshChat = useCallback(async () => {
@@ -2940,6 +2970,7 @@ export default function ChatScreen() {
     isStartingFreshChatRef.current = true;
     setIsStartingFreshChat(true);
     haptics.selection();
+    const preservedText = captureComposerTextForFreshChat(inputValueRef.current);
     try {
       // Kill zombie "Delivering…" / mega-token banner: clear local run state AND best-effort stop Mac run.
       // (Previously only null'd runProgress while isChatStreamActive + sendProgressSnapshotRef kept the UI alive.)
@@ -2975,7 +3006,14 @@ export default function ChatScreen() {
 
       // Always open an empty compose-first chat. Gateway `/fork` copies transcript
       // (mega sessions → multi-million-token clones + long hangs); "Start fresh" means empty.
-      await handleNewChat();
+      // Preserve whatever the user already typed so they do not retype after Start fresh.
+      await handleNewChat({ preserveComposer: true });
+      if (shouldRestoreComposerAfterFreshChat(preservedText)) {
+        pendingFreshComposerTransferRef.current = preservedText;
+        inputValueRef.current = preservedText;
+        setInputValue(preservedText);
+        setComposerFocusNonce((n) => n + 1);
+      }
     } finally {
       isStartingFreshChatRef.current = false;
       setIsStartingFreshChat(false);
@@ -3317,10 +3355,39 @@ export default function ChatScreen() {
       return;
     }
 
+    if (shouldSkipStoredDraftLoad(pendingFreshComposerTransferRef.current)) {
+      const preservedText = pendingFreshComposerTransferRef.current ?? '';
+      pendingFreshComposerTransferRef.current = null;
+      const nextText = resolveComposerTextAfterFreshChat({
+        preservedText,
+        loadedDraftForNewSession: '',
+      });
+      inputValueRef.current = nextText;
+      setInputValue(nextText);
+      if (nextText.length > 0) {
+        void saveComposerDraft(sessionId, nextText);
+      }
+      return;
+    }
+
     let cancelled = false;
     void (async () => {
       const draft = await loadComposerDraft(sessionId);
       if (cancelled || pendingApprovalEditSeed) {
+        return;
+      }
+      if (shouldSkipStoredDraftLoad(pendingFreshComposerTransferRef.current)) {
+        const preservedText = pendingFreshComposerTransferRef.current ?? '';
+        pendingFreshComposerTransferRef.current = null;
+        const nextText = resolveComposerTextAfterFreshChat({
+          preservedText,
+          loadedDraftForNewSession: draft,
+        });
+        inputValueRef.current = nextText;
+        setInputValue(nextText);
+        if (nextText.length > 0) {
+          void saveComposerDraft(sessionId, nextText);
+        }
         return;
       }
       inputValueRef.current = draft;
@@ -5150,7 +5217,9 @@ export default function ChatScreen() {
         onDeleteSession={handleDeleteSession}
         onRenameSession={handleRenameSession}
         onClearAll={handleClearAllChats}
-        onNewChat={handleNewChat}
+        onNewChat={() => {
+          void handleNewChat();
+        }}
         showActionsWhenEmpty={visibleSessions.length > 0}
         maxItems={12}
         variant="expanded"
@@ -6072,7 +6141,9 @@ export default function ChatScreen() {
             <View style={styles.modalActionsRow}>
               <TouchableOpacity
                 style={[styles.newChatBtn, { flex: 1, marginBottom: 0 }]}
-                onPress={handleNewChat}
+                onPress={() => {
+                  void handleNewChat();
+                }}
                 testID="modal-new-chat-button"
               >
                 <Text style={styles.newChatBtnText}>+ New thread</Text>
