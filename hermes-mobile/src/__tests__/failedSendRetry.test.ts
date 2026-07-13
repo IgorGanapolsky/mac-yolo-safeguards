@@ -1,5 +1,6 @@
 import {
   findLastFailedOutboundText,
+  isEmptyReplyFailureMessage,
   resolveComposerSendAction,
   shouldHideMacTileForSilentHeal,
   shouldShowFailedSendRetry,
@@ -95,6 +96,16 @@ describe('shouldShowFailedSendRetry', () => {
         lastFailedText: null,
       }),
     ).toBe(true);
+  });
+
+  it('classifies empty-reply failure messages for the Retry send action', () => {
+    expect(isEmptyReplyFailureMessage(EMPTY_REPLY_FAILURE_REASON)).toBe(true);
+    expect(
+      isEmptyReplyFailureMessage(
+        'Your computer finished but no reply text arrived — tap to retry.',
+      ),
+    ).toBe(true);
+    expect(isEmptyReplyFailureMessage("Can't reach your computer")).toBe(false);
   });
 
   it('shows retry for wrong-key auth failures', () => {

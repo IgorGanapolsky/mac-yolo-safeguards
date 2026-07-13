@@ -275,6 +275,7 @@ import {
   findLastFailedOutboundText,
   resolveComposerSendAction,
   shouldHideMacTileForSilentHeal,
+  isEmptyReplyFailureMessage,
   shouldShowFailedSendRetry,
 } from '../utils/failedSendRetry';
 import {
@@ -4766,6 +4767,20 @@ export default function ChatScreen() {
           startDeferredReplyPoll(assistantId, priorAssistants, {
             onTimeout: () => {
               lastFailedSendTextRef.current = userText;
+              setPinnedOutboundStatus('failed');
+              commitMessages((prev) => {
+                const next = [...prev];
+                for (let index = next.length - 1; index >= 0; index -= 1) {
+                  if (next[index]?.role?.toLowerCase() === 'user') {
+                    next[index] = {
+                      ...next[index]!,
+                      outboundStatus: 'failed',
+                    };
+                    break;
+                  }
+                }
+                return next;
+              });
               setErrorMessage(
                 summarizationStub
                   ? compactionStallBannerCopy(sessionTotalTokens(currentSessionRef.current))
@@ -5094,6 +5109,29 @@ export default function ChatScreen() {
       await sendUserTextRef.current(retryText, true);
     }
   }, [apiKey, gatewayUrl, progressBanner?.runId, runProgress?.runId]);
+
+  /** Empty-reply / "tap to retry" banner — must resend last failed text, not no-op. */
+  const handleRetryFailedSend = useCallback(async () => {
+    haptics.selection();
+    const retryText =
+      lastFailedSendTextRef.current?.trim() ||
+      lastFailedOutboundText?.trim() ||
+      pinnedOutboundText?.trim() ||
+      '';
+    setErrorMessage(null);
+    if (runProgressRef.current?.phase === 'failed') {
+      setRunProgress(null);
+    }
+    if (!retryText) {
+      setErrorMessage('Nothing to retry — type your message again and send.');
+      return;
+    }
+    lastFailedSendTextRef.current = retryText;
+    const accepted = await sendUserTextRef.current(retryText, true);
+    if (accepted) {
+      haptics.light();
+    }
+  }, [lastFailedOutboundText, pinnedOutboundText]);
 
   const handleSelectAgentThread = useCallback(
     async (session: HermesSession) => {
@@ -5745,8 +5783,24 @@ export default function ChatScreen() {
           <ComposerErrorBanner
             message={operationalError}
             onDismiss={() => setErrorMessage(null)}
-            actionLabel={showSessionBusyStop ? 'Stop run on computer & retry' : undefined}
-            onAction={showSessionBusyStop ? () => void handleStopMacAndRetrySend() : undefined}
+            actionLabel={
+              showSessionBusyStop
+                ? 'Stop run on computer & retry'
+                : isEmptyReplyFailureMessage(operationalError) ||
+                    lastFailedSendTextRef.current?.trim() ||
+                    lastFailedOutboundText?.trim()
+                  ? 'Retry send'
+                  : undefined
+            }
+            onAction={
+              showSessionBusyStop
+                ? () => void handleStopMacAndRetrySend()
+                : isEmptyReplyFailureMessage(operationalError) ||
+                    lastFailedSendTextRef.current?.trim() ||
+                    lastFailedOutboundText?.trim()
+                  ? () => void handleRetryFailedSend()
+                  : undefined
+            }
           />
         ) : null}
 
@@ -5770,7 +5824,18 @@ export default function ChatScreen() {
             isStartingFreshChat={isStartingFreshChat}
             onStop={isRunActive || isSending ? () => void handleStopRun() : undefined}
             onDismiss={clearFailedOutboundState}
-            onRetry={connectivityRunFailure ? () => void handleRetryConnectivity() : undefined}
+            onRetry={
+              isEmptyReplyFailureMessage(progressBanner.detail) ||
+              (progressBanner.phase === 'failed' &&
+                Boolean(
+                  lastFailedSendTextRef.current?.trim() || lastFailedOutboundText?.trim(),
+                ) &&
+                !isConnectivityMessage(progressBanner.detail ?? ''))
+                ? () => void handleRetryFailedSend()
+                : connectivityRunFailure
+                  ? () => void handleRetryConnectivity()
+                  : undefined
+            }
             terminalToolName={operatorTerminalLine?.toolName}
             terminalPreview={operatorTerminalLine?.text}
           />
