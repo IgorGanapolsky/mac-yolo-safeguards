@@ -26,6 +26,8 @@ type RunProgressBannerProps = {
   /** Honest warning when the backing session is extremely large. */
   megaSessionWarning?: string | null;
   onStartFreshChat?: () => void;
+  /** True while ChatScreen is forking a fresh session. */
+  startFreshBusy?: boolean;
 };
 
 function formatTokenSummary(progress: RunProgressState): string | null {
@@ -51,6 +53,7 @@ function RunProgressBanner({
   terminalPreview,
   megaSessionWarning,
   onStartFreshChat,
+  startFreshBusy = false,
 }: RunProgressBannerProps) {
   const [elapsed, setElapsed] = useState(0);
   const [detailsExpanded, setDetailsExpanded] = useState(true);
@@ -208,11 +211,25 @@ function RunProgressBanner({
       {megaSessionWarning && onStartFreshChat ? (
         <Pressable
           onPress={onStartFreshChat}
-          style={({ pressed }) => [styles.freshChatChip, pressed && styles.stopChipPressed]}
+          disabled={startFreshBusy}
+          style={({ pressed }) => [
+            styles.freshChatChip,
+            pressed && !startFreshBusy && styles.stopChipPressed,
+            startFreshBusy && styles.freshChatChipBusy,
+          ]}
           testID="run-progress-start-fresh-chat"
           accessibilityLabel="Start fresh chat"
+          accessibilityState={{ disabled: startFreshBusy, busy: startFreshBusy }}
         >
-          <Text style={styles.freshChatChipText}>Start fresh chat</Text>
+          {startFreshBusy ? (
+            <ActivityIndicator
+              testID="run-progress-start-fresh-busy"
+              size="small"
+              color={colors.warning}
+            />
+          ) : (
+            <Text style={styles.freshChatChipText}>Start fresh chat</Text>
+          )}
         </Pressable>
       ) : null}
 
@@ -271,7 +288,8 @@ export default memo(RunProgressBanner, (prev, next) => {
     (prev.terminalPreview ?? '') === (next.terminalPreview ?? '') &&
     (prev.terminalToolName ?? '') === (next.terminalToolName ?? '') &&
     (prev.megaSessionWarning ?? '') === (next.megaSessionWarning ?? '') &&
-    Boolean(prev.onStartFreshChat) === Boolean(next.onStartFreshChat)
+    Boolean(prev.onStartFreshChat) === Boolean(next.onStartFreshChat) &&
+    Boolean(prev.startFreshBusy) === Boolean(next.startFreshBusy)
   );
 });
 
@@ -357,6 +375,9 @@ const styles = StyleSheet.create({
     lineHeight: 16,
     fontWeight: '700',
     color: colors.error,
+  },
+  freshChatChipBusy: {
+    opacity: 0.85,
   },
   freshChatChip: {
     alignSelf: 'flex-start',

@@ -287,4 +287,44 @@ describe('RunProgressBanner', () => {
     );
     expect(queryByTestId('run-progress-toggle')).toBeNull();
   });
+  it('shows busy spinner and disables start fresh while forking', () => {
+    const onStartFresh = jest.fn();
+    const { getByTestId, queryByText } = render(
+      <RunProgressBanner
+        progress={{
+          phase: 'working',
+          startedAtMs: Date.now() - 1000,
+          detail: 'Hermes is thinking…',
+        }}
+        megaSessionWarning="This chat is very large."
+        onStartFreshChat={onStartFresh}
+        startFreshBusy
+      />,
+    );
+
+    expect(getByTestId('run-progress-start-fresh-busy')).toBeTruthy();
+    expect(queryByText('Start fresh chat')).toBeNull();
+    fireEvent.press(getByTestId('run-progress-start-fresh-chat'));
+    expect(onStartFresh).not.toHaveBeenCalled();
+  });
+
+  it('calls onStartFreshChat when not busy', () => {
+    const onStartFresh = jest.fn();
+    const { getByTestId } = render(
+      <RunProgressBanner
+        progress={{
+          phase: 'working',
+          startedAtMs: Date.now() - 1000,
+          detail: 'Hermes is thinking…',
+        }}
+        megaSessionWarning="This chat is very large."
+        onStartFreshChat={onStartFresh}
+        startFreshBusy={false}
+      />,
+    );
+
+    fireEvent.press(getByTestId('run-progress-start-fresh-chat'));
+    expect(onStartFresh).toHaveBeenCalledTimes(1);
+  });
+
 });

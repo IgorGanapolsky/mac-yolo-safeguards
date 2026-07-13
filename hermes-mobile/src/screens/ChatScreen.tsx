@@ -503,6 +503,8 @@ export default function ChatScreen() {
   const [isLoadingSessions, setIsLoadingSessions] = useState(false);
   const [isLoadingMessages, setIsLoadingMessages] = useState(false);
   const [isSending, setIsSending] = useState(false);
+  const [startFreshBusy, setStartFreshBusy] = useState(false);
+  const startFreshBusyRef = useRef(false);
   /** HTTP chat stream in flight — keep WS from clearing runProgress before first token. */
   const [isChatStreamActive, setIsChatStreamActive] = useState(false);
   const [sessionModalVisible, setSessionModalVisible] = useState(false);
@@ -2893,6 +2895,12 @@ export default function ChatScreen() {
   };
 
   const handleStartFreshChat = useCallback(async () => {
+    if (startFreshBusyRef.current) {
+      return;
+    }
+    startFreshBusyRef.current = true;
+    setStartFreshBusy(true);
+    try {
     haptics.selection();
     isSendingRef.current = false;
     setIsSending(false);
@@ -2942,6 +2950,10 @@ export default function ChatScreen() {
         error instanceof Error ? error.message : 'Could not start a fresh chat on your computer',
       );
       await handleNewChat();
+    }
+    } finally {
+      startFreshBusyRef.current = false;
+      setStartFreshBusy(false);
     }
   }, [
     activeProject,
@@ -5698,6 +5710,7 @@ export default function ChatScreen() {
             fallbackModel={progressBannerFallbackModel}
             showTechnicalStats={settings.includeToolActivity}
             megaSessionWarning={megaSessionWarning}
+            startFreshBusy={startFreshBusy}
             onStartFreshChat={megaSessionWarning ? () => void handleStartFreshChat() : undefined}
             onStop={isRunActive || isSending ? () => void handleStopRun() : undefined}
             onDismiss={clearFailedOutboundState}
@@ -5710,10 +5723,24 @@ export default function ChatScreen() {
             <Text style={styles.megaSessionBannerText}>{megaSessionWarning}</Text>
             <Pressable
               onPress={() => void handleStartFreshChat()}
-              style={({ pressed }) => [styles.megaSessionBannerAction, pressed && styles.megaSessionBannerActionPressed]}
+              disabled={startFreshBusy}
+              style={({ pressed }) => [
+                styles.megaSessionBannerAction,
+                pressed && !startFreshBusy && styles.megaSessionBannerActionPressed,
+                startFreshBusy && styles.megaSessionBannerActionBusy,
+              ]}
               testID="mega-session-start-fresh-chat"
+              accessibilityState={{ disabled: startFreshBusy, busy: startFreshBusy }}
             >
-              <Text style={styles.megaSessionBannerActionText}>Start fresh chat</Text>
+              {startFreshBusy ? (
+                <ActivityIndicator
+                  testID="mega-session-start-fresh-busy"
+                  size="small"
+                  color={colors.warning}
+                />
+              ) : (
+                <Text style={styles.megaSessionBannerActionText}>Start fresh chat</Text>
+              )}
             </Pressable>
           </View>
         ) : null}
@@ -6542,6 +6569,9 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(59, 130, 246, 0.12)',
     paddingHorizontal: 10,
     paddingVertical: 6,
+  },
+  megaSessionBannerActionBusy: {
+    opacity: 0.85,
   },
   megaSessionBannerActionPressed: {
     opacity: 0.85,
