@@ -2,9 +2,53 @@ import { Platform } from 'react-native';
 import {
   CHAT_STREAM_FIRST_BYTE_MS,
   extractCapabilitiesModel,
+  extractForkedSessionId,
+  forkSession,
   parseSseChunk,
   streamSessionChat,
 } from '../services/hermesGatewayClient';
+
+describe('extractForkedSessionId', () => {
+  it('reads session.id from the current gateway fork payload', () => {
+    expect(
+      extractForkedSessionId({
+        object: 'hermes.session',
+        session: { id: 'api_1783979315_d5abef4c', title: 'make money today #8' },
+      }),
+    ).toBe('api_1783979315_d5abef4c');
+  });
+
+  it('falls back to top-level session_id for older shapes', () => {
+    expect(extractForkedSessionId({ session_id: 'legacy_fork_1' })).toBe('legacy_fork_1');
+  });
+
+  it('returns null when no id is present', () => {
+    expect(extractForkedSessionId({ object: 'hermes.session', session: {} })).toBeNull();
+    expect(extractForkedSessionId(null)).toBeNull();
+  });
+});
+
+describe('forkSession', () => {
+  const originalFetch = global.fetch;
+
+  afterEach(() => {
+    global.fetch = originalFetch;
+  });
+
+  it('normalizes gateway session.id into session_id', async () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        object: 'hermes.session',
+        session: { id: 'api_forked_abc', title: 'Chat #2' },
+      }),
+    }) as typeof fetch;
+
+    await expect(forkSession('http://127.0.0.1:8642', 'api_source', 'sk-test')).resolves.toEqual({
+      session_id: 'api_forked_abc',
+    });
+  });
+});
 
 describe('extractCapabilitiesModel', () => {
   it('returns the real model from the model field', () => {

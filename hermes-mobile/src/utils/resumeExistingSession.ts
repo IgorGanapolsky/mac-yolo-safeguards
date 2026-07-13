@@ -1,5 +1,6 @@
 import type { HermesSession } from '../types/chat';
 import { titleFromFirstPrompt } from './sessionDisplay';
+import { isMegaSessionSendBlocked } from './sessionTokenGuards';
 
 function normalizeTitle(title: string): string {
   return title
@@ -51,6 +52,10 @@ export function findResumableSessionByPromptTitle(
   }
   const target = normalizeTitle(derived);
   const matches = sessions.filter((session) => {
+    // Never resume a hard-blocked mega thread — that re-traps "New chat" on poison.
+    if (isMegaSessionSendBlocked(session)) {
+      return false;
+    }
     const title = session.title?.trim();
     if (!title) {
       return false;
