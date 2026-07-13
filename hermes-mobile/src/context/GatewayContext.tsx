@@ -56,6 +56,7 @@ import { captureThumbgateFeedback } from '../services/thumbgateClient';
 import { stopRun } from '../services/hermesGatewayClient';
 import {
   setProductAnalyticsOptOut,
+  setProductAnalyticsRuntimeSignals,
   trackProductEvent,
 } from '../services/productAnalytics';
 import {
@@ -175,6 +176,18 @@ import {
 } from '../services/approvalNotifications';
 
 const MOBILE_RELAY_POLL_MS = 2000;
+
+function syncProductAnalyticsFromGateway(
+  gatewaySettings: GatewaySettings,
+  storeLeashPreviewActive: boolean,
+): void {
+  setProductAnalyticsOptOut(Boolean(gatewaySettings.analyticsOptOut));
+  setProductAnalyticsRuntimeSignals({
+    developerLeashUnlock: gatewaySettings.developerLeashUnlock === true,
+    demoMode: gatewaySettings.demoMode === true,
+    storeLeashPreviewActive,
+  });
+}
 
 export type GatewayContextValue = {
   settings: GatewaySettings;
@@ -553,7 +566,6 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
         setTailnetProbeHostCount(tailnetProbeHostsRef.current.length);
         setSettings(resolvedSettings);
         settingsRef.current = resolvedSettings;
-        setProductAnalyticsOptOut(Boolean(resolvedSettings.analyticsOptOut));
         effectiveGatewayUrlRef.current = resolvedSettings.gatewayUrl;
         setEffectiveGatewayUrl(resolvedSettings.gatewayUrl);
         setApiKey(resolvedKey);
@@ -2380,6 +2392,13 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
   }, [pollRelayQueue, settings.cloudUrl]);
 
   const [storeLeashPreviewActive, setStoreLeashPreviewActive] = useState(false);
+
+  useEffect(() => {
+    if (!isLoaded) {
+      return;
+    }
+    syncProductAnalyticsFromGateway(settings, storeLeashPreviewActive);
+  }, [isLoaded, settings, storeLeashPreviewActive]);
 
   const activateStoreLeashPreview = useCallback(() => {
     setStoreLeashPreviewActive(true);

@@ -1,4 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { __resetProductAnalyticsForTesting, __setNonProductionAnalyticsBuildForTesting, __setPosthogKeyForTesting } from '../services/productAnalytics';
 import {
   __setPosthogConfigForTesting,
   buildCrashRecord,
@@ -12,18 +13,28 @@ import {
 
 const QUEUE_KEY = 'hermes-mobile:crash_queue';
 const originalFetch = global.fetch;
+const originalDev = (global as { __DEV__?: boolean }).__DEV__;
 
 describe('crashReporting', () => {
   beforeEach(async () => {
     await AsyncStorage.clear();
     jest.restoreAllMocks();
     __setPosthogConfigForTesting({ host: 'https://us.i.posthog.com', key: '' });
+    __resetProductAnalyticsForTesting();
+    __setNonProductionAnalyticsBuildForTesting(false);
+    process.env.EAS_BUILD_PROFILE = 'production';
+    delete process.env.EXPO_PUBLIC_POSTHOG_INTERNAL;
+    delete process.env.EXPO_PUBLIC_HERMES_DEV_UNLOCK;
+    delete process.env.EXPO_PUBLIC_E2E_AUTOMATION;
+    (global as { __DEV__?: boolean }).__DEV__ = false;
     global.fetch = jest.fn();
   });
 
   afterEach(() => {
     global.fetch = originalFetch;
     __setPosthogConfigForTesting({ host: 'https://us.i.posthog.com', key: '' });
+    __resetProductAnalyticsForTesting();
+    (global as { __DEV__?: boolean }).__DEV__ = originalDev;
   });
 
   describe('buildCrashRecord', () => {
@@ -104,6 +115,7 @@ describe('crashReporting', () => {
 
     it('flushes and clears on success when a PostHog key is configured', async () => {
       __setPosthogConfigForTesting({ key: 'phc_test_key' });
+      __setPosthogKeyForTesting('phc_test_key');
       (global.fetch as jest.Mock).mockResolvedValue({ ok: true });
 
       await captureCrash('ui_crash', new Error('will flush'));
@@ -120,6 +132,7 @@ describe('crashReporting', () => {
 
     it('retains crashes on network failure for the next launch', async () => {
       __setPosthogConfigForTesting({ key: 'phc_test_key' });
+      __setPosthogKeyForTesting('phc_test_key');
       (global.fetch as jest.Mock).mockRejectedValue(new Error('offline'));
 
       await captureCrash('ui_crash', new Error('offline crash'));
@@ -134,6 +147,7 @@ describe('crashReporting', () => {
 
     it('retains crashes on non-2xx response', async () => {
       __setPosthogConfigForTesting({ key: 'phc_test_key' });
+      __setPosthogKeyForTesting('phc_test_key');
       (global.fetch as jest.Mock).mockResolvedValue({ ok: false, status: 500 });
 
       await captureCrash('ui_crash', new Error('server error'));
@@ -145,6 +159,18 @@ describe('crashReporting', () => {
     it('clears the queue without sending when no PostHog key is configured', async () => {
       // Default: no key configured
       await captureCrash('ui_crash', new Error('no key'));
+      const result = await flushCrashQueue();
+      expect(result).toEqual({ flushed: 0, retained: 0 });
+      expect(await getCrashQueue()).toEqual([]);
+      expect(global.fetch).not.toHaveBeenCalled();
+    });
+
+    it('clears the queue without sending on non-production analytics builds', async () => {
+      __setPosthogConfigForTesting({ key: 'phc_test_key' });
+      __setPosthogKeyForTesting('phc_test_key');
+      __setNonProductionAnalyticsBuildForTesting(null);
+      process.env.EXPO_PUBLIC_POSTHOG_INTERNAL = '1';
+      await captureCrash('ui_crash', new Error('igor build'));
       const result = await flushCrashQueue();
       expect(result).toEqual({ flushed: 0, retained: 0 });
       expect(await getCrashQueue()).toEqual([]);

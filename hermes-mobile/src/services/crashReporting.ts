@@ -2,6 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 import appConfig from '../../app.json';
+import { shouldReportToPostHog } from './productAnalytics';
 
 const QUEUE_KEY = 'hermes-mobile:crash_queue';
 const MAX_QUEUE = 25;
@@ -127,8 +128,8 @@ export async function flushCrashQueue(): Promise<{
   if (queue.length === 0) {
     return { flushed: 0, retained: 0 };
   }
-  if (!key) {
-    // No PostHog key configured (dev build). Clear stale crashes so the queue
+  if (!key || !shouldReportToPostHog()) {
+    // No production PostHog destination — clear stale crashes so the queue
     // does not grow unbounded across launches without a destination.
     try {
       await AsyncStorage.removeItem(QUEUE_KEY);
