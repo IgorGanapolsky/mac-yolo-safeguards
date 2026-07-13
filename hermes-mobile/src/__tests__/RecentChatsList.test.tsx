@@ -137,4 +137,31 @@ describe('RecentChatsList', () => {
     expect(getByTestId('recent-chat-title-s-long-text').props.numberOfLines).toBe(6);
     expect(onSelectSession).not.toHaveBeenCalled();
   });
+
+  it('badges mega sessions over WARN and BLOCK thresholds', () => {
+    const megaSessions: HermesSession[] = [
+      {
+        id: 's-warn',
+        title: 'Warn thread',
+        last_active_at: '2026-07-13T12:00:00Z',
+        input_tokens: 400_000,
+      },
+      {
+        id: 's-block',
+        title: 'Block thread',
+        last_active_at: '2026-07-13T11:00:00Z',
+        input_tokens: 1_700_000,
+      },
+    ];
+    const { getByTestId } = render(
+      <RecentChatsList
+        sessions={megaSessions}
+        sessionLabelFor={(session) => session.title ?? session.id}
+        onSelectSession={jest.fn()}
+      />,
+    );
+
+    expect(getByTestId('recent-chat-mega-badge-s-warn').props.children).toBe('Large');
+    expect(getByTestId('recent-chat-mega-badge-s-block').props.children).toBe('Too large');
+  });
 });
