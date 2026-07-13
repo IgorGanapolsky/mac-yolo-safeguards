@@ -92,6 +92,10 @@ Logs: `~/Library/Logs/hermes-mobile-continuous-e2e.log`
 
 See [PERFORMANCE.md](./PERFORMANCE.md) for FlashList, React Compiler, and bundle audit details.
 
+## Optional: GKD (Android accessibility macros)
+
+**Not part of the product E2E gate.** Evaluation + pilot interruptor rules: [GKD-EVALUATION.md](./GKD-EVALUATION.md). Maestro + `latest.json` remain canonical. Install only when dogfooding system-sheet flakiness: `bash scripts/install-gkd-pilot.sh`.
+
 ## Crises this suite blocks
 
 1. **Debug APK to Firebase** → no `assets/index.android.bundle` → unit test + verify script FAIL.
