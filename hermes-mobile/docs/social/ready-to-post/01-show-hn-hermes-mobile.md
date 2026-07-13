@@ -1,6 +1,6 @@
 # Show HN — Hermes Mobile (approve AI agents from your phone)
 
-**Status:** Ready to post — Igor account on news.ycombinator.com  
+**Status:** PUBLISHED 2026-07-13 — https://news.ycombinator.com/item?id=48898789  
 **Play:** https://play.google.com/store/apps/details?id=com.iganapolsky.hermesmobile
 
 ---
