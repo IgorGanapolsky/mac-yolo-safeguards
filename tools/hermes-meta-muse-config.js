@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 'use strict';
 
+const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const { spawnSync } = require('child_process');
@@ -154,6 +155,32 @@ function applyCommands(commands, hermesHome, env = process.env, spawn = spawnSyn
   return results;
 }
 
+function normalizeIsolatedFallbacks(hermesHome) {
+  const configPath = path.join(hermesHome, 'config.yaml');
+  const before = fs.readFileSync(configPath, 'utf8');
+  const after = before
+    .replace(/^(fallback_providers:\s*)['"]\[\]['"]\s*$/m, '$1[]')
+    .replace(/^(fallback_model:\s*)['"]\{\}['"]\s*$/m, '$1{}');
+  const typedEmptyProviders = /^fallback_providers:\s*\[\]\s*$/m.test(after);
+  const typedEmptyLegacy = /^fallback_model:\s*\{\}\s*$/m.test(after);
+  if (!typedEmptyProviders || !typedEmptyLegacy) {
+    throw new Error('Hermes did not serialize an empty fallback chain safely');
+  }
+  if (after !== before) {
+    const mode = fs.statSync(configPath).mode & 0o777;
+    const tempPath = `${configPath}.${process.pid}.tmp`;
+    fs.writeFileSync(tempPath, after, { mode });
+    fs.renameSync(tempPath, configPath);
+    fs.chmodSync(configPath, mode);
+  }
+  return {
+    configPath,
+    changed: after !== before,
+    fallbackProviders: [],
+    fallbackModel: {},
+  };
+}
+
 function worstCaseCost(maxTurns = SPEC.maxTurns) {
   const oneTurn = (
     (SPEC.operationalContextLength * SPEC.pricing.perMillionTokens.input)
@@ -230,9 +257,13 @@ function main() {
   }
   const plan = buildPlan(args);
   const results = args.apply ? applyCommands(plan.commands, plan.hermesHome) : null;
-  if (args.json) console.log(JSON.stringify({ ...plan, applyResults: results }, null, 2));
+  const applyFailed = results && results.some((result) => result.status !== 0);
+  const normalization = args.apply && args.isolated && !applyFailed
+    ? normalizeIsolatedFallbacks(plan.hermesHome)
+    : null;
+  if (args.json) console.log(JSON.stringify({ ...plan, applyResults: results, normalization }, null, 2));
   else process.stdout.write(render(plan, results));
-  if (results && results.some((result) => result.status !== 0)) process.exit(1);
+  if (applyFailed) process.exit(1);
 }
 
 if (require.main === module) {
@@ -253,6 +284,7 @@ module.exports = {
   buildPlan,
   commandToString,
   isolatedCommands,
+  normalizeIsolatedFallbacks,
   parseArgs,
   providerCommands,
   shellQuote,

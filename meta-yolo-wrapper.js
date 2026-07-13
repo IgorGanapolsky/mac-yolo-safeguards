@@ -826,7 +826,7 @@ function buildDryRun(args) {
     selectedModel: args.mode === 'standalone' ? OPENCODE_MODEL : MODEL,
     baseUrl: BASE_URL,
     maxTurns: args.mode === 'hermes' ? args.maxTurns : 1,
-    maxOutputTokens: args.maxOutputTokens,
+    maxOutputTokens: args.mode === 'standalone' ? null : args.maxOutputTokens,
     reasoningEffort: args.reasoningEffort,
     maxCostUsd: args.mode === 'standalone' ? null : args.maxCostUsd,
     estimatedMaximumCostUsd: estimatedMaximumCostUsd == null

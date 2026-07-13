@@ -2,6 +2,8 @@
 'use strict';
 
 const assert = require('assert');
+const fs = require('fs');
+const os = require('os');
 const path = require('path');
 const {
   SPEC,
@@ -9,6 +11,7 @@ const {
   buildCommands,
   buildPlan,
   commandToString,
+  normalizeIsolatedFallbacks,
   parseArgs,
   worstCaseCost,
 } = require('../tools/hermes-meta-muse-config');
@@ -87,6 +90,19 @@ check('apply stops on the first failed Hermes config write', () => {
   const results = applyCommands(buildCommands(args), args.hermesHome, {}, spawn);
   assert.equal(results.length, 2);
   assert.equal(results[1].status, 1);
+});
+
+check('isolated apply normalizes Hermes quoted containers into typed empty YAML', () => {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'meta-hermes-normalize-'));
+  const configPath = path.join(home, 'config.yaml');
+  fs.writeFileSync(configPath, "model:\n  provider: custom:meta-muse-spark\nfallback_providers: '[]'\nfallback_model: '{}'\n");
+  const result = normalizeIsolatedFallbacks(home);
+  const normalized = fs.readFileSync(configPath, 'utf8');
+  assert.equal(result.changed, true);
+  assert(normalized.includes('fallback_providers: []'));
+  assert(normalized.includes('fallback_model: {}'));
+  assert(!normalized.includes("fallback_providers: '[]'"));
+  assert(!normalized.includes("fallback_model: '{}'"));
 });
 
 console.log(`${checks} checks passed.`);
