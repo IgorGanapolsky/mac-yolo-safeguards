@@ -11,6 +11,7 @@ const {
   buildCommands,
   buildPlan,
   commandToString,
+  normalizeAppliedConfig,
   normalizeIsolatedFallbacks,
   parseArgs,
   worstCaseCost,
@@ -34,7 +35,8 @@ check('main config adds Meta without changing the default route', () => {
   const args = parseArgs(['--hermes-home', '/tmp/main-hermes']);
   const commands = buildCommands(args).map(commandToString);
   assert(commands.some((line) => line.includes('providers.meta-muse-spark.base_url')));
-  assert(commands.some((line) => line.includes('env:MODEL_API_KEY')));
+  assert(commands.some((line) => line.includes('key_env MODEL_API_KEY')));
+  assert(!commands.some((line) => line.includes('api_key')));
   assert(commands.some((line) => line.includes('extra_body.reasoning_effort high')));
   assert(!commands.some((line) => line.includes('model.provider')));
   assert(!commands.some((line) => line.includes('fallback_providers')));
@@ -103,6 +105,26 @@ check('isolated apply normalizes Hermes quoted containers into typed empty YAML'
   assert(normalized.includes('fallback_model: {}'));
   assert(!normalized.includes("fallback_providers: '[]'"));
   assert(!normalized.includes("fallback_model: '{}'"));
+});
+
+check('normalization removes only the broken literal API-key reference', () => {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'meta-hermes-key-ref-'));
+  const configPath = path.join(home, 'config.yaml');
+  fs.writeFileSync(configPath, [
+    'providers:',
+    '  meta-muse-spark:',
+    '    key_env: MODEL_API_KEY',
+    '    api_key: env:MODEL_API_KEY',
+    '  another-provider:',
+    '    api_key: unrelated-test-value',
+    '',
+  ].join('\n'));
+  const result = normalizeAppliedConfig(home);
+  const normalized = fs.readFileSync(configPath, 'utf8');
+  assert.equal(result.removedLiteralApiKeyReference, true);
+  assert(!normalized.includes('api_key: env:MODEL_API_KEY'));
+  assert(normalized.includes('key_env: MODEL_API_KEY'));
+  assert(normalized.includes('api_key: unrelated-test-value'));
 });
 
 console.log(`${checks} checks passed.`);

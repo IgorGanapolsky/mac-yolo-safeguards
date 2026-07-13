@@ -84,7 +84,6 @@ function providerCommands(hermesBin = 'hermes') {
     [hermesBin, 'config', 'set', `${prefix}.base_url`, SPEC.baseUrl],
     [hermesBin, 'config', 'set', `${prefix}.transport`, SPEC.transport],
     [hermesBin, 'config', 'set', `${prefix}.key_env`, SPEC.apiKeyEnv],
-    [hermesBin, 'config', 'set', `${prefix}.api_key`, `env:${SPEC.apiKeyEnv}`],
     [hermesBin, 'config', 'set', `${prefix}.default_model`, SPEC.model],
     [hermesBin, 'config', 'set', `${prefix}.model`, SPEC.model],
     [hermesBin, 'config', 'set', `${prefix}.context_length`, String(SPEC.operationalContextLength)],
@@ -155,15 +154,22 @@ function applyCommands(commands, hermesHome, env = process.env, spawn = spawnSyn
   return results;
 }
 
-function normalizeIsolatedFallbacks(hermesHome) {
+function normalizeAppliedConfig(hermesHome, options = {}) {
+  const isolated = Boolean(options.isolated);
   const configPath = path.join(hermesHome, 'config.yaml');
   const before = fs.readFileSync(configPath, 'utf8');
-  const after = before
-    .replace(/^(fallback_providers:\s*)['"]\[\]['"]\s*$/m, '$1[]')
-    .replace(/^(fallback_model:\s*)['"]\{\}['"]\s*$/m, '$1{}');
+  let after = before.replace(
+    /^\s+api_key:\s*['"]?env:MODEL_API_KEY['"]?\s*\n/gm,
+    '',
+  );
+  if (isolated) {
+    after = after
+      .replace(/^(fallback_providers:\s*)['"]\[\]['"]\s*$/m, '$1[]')
+      .replace(/^(fallback_model:\s*)['"]\{\}['"]\s*$/m, '$1{}');
+  }
   const typedEmptyProviders = /^fallback_providers:\s*\[\]\s*$/m.test(after);
   const typedEmptyLegacy = /^fallback_model:\s*\{\}\s*$/m.test(after);
-  if (!typedEmptyProviders || !typedEmptyLegacy) {
+  if (isolated && (!typedEmptyProviders || !typedEmptyLegacy)) {
     throw new Error('Hermes did not serialize an empty fallback chain safely');
   }
   if (after !== before) {
@@ -176,9 +182,15 @@ function normalizeIsolatedFallbacks(hermesHome) {
   return {
     configPath,
     changed: after !== before,
-    fallbackProviders: [],
-    fallbackModel: {},
+    removedLiteralApiKeyReference: /api_key:\s*['"]?env:MODEL_API_KEY/.test(before)
+      && !/api_key:\s*['"]?env:MODEL_API_KEY/.test(after),
+    fallbackProviders: isolated ? [] : 'unchanged',
+    fallbackModel: isolated ? {} : 'unchanged',
   };
+}
+
+function normalizeIsolatedFallbacks(hermesHome) {
+  return normalizeAppliedConfig(hermesHome, { isolated: true });
 }
 
 function worstCaseCost(maxTurns = SPEC.maxTurns) {
@@ -258,8 +270,8 @@ function main() {
   const plan = buildPlan(args);
   const results = args.apply ? applyCommands(plan.commands, plan.hermesHome) : null;
   const applyFailed = results && results.some((result) => result.status !== 0);
-  const normalization = args.apply && args.isolated && !applyFailed
-    ? normalizeIsolatedFallbacks(plan.hermesHome)
+  const normalization = args.apply && !applyFailed
+    ? normalizeAppliedConfig(plan.hermesHome, { isolated: args.isolated })
     : null;
   if (args.json) console.log(JSON.stringify({ ...plan, applyResults: results, normalization }, null, 2));
   else process.stdout.write(render(plan, results));
@@ -284,6 +296,7 @@ module.exports = {
   buildPlan,
   commandToString,
   isolatedCommands,
+  normalizeAppliedConfig,
   normalizeIsolatedFallbacks,
   parseArgs,
   providerCommands,

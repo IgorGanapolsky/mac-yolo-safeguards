@@ -116,8 +116,15 @@ the narrowed verification work that benefits from stronger reasoning.
 ## Authentication and billing
 
 Meta's official authentication header is `Authorization: Bearer $MODEL_API_KEY`.
-The repository and Hermes YAML contain only the reference `env:MODEL_API_KEY`;
-the key itself is never written to a tracked file or `~/.hermes/.env`.
+The repository and Hermes YAML contain only the variable name
+`MODEL_API_KEY`; the key itself is never written to a tracked file or
+`~/.hermes/.env`.
+
+Hermes must receive this through `key_env: MODEL_API_KEY` only. Do not also set
+`api_key: env:MODEL_API_KEY`: Hermes 0.18.2 seeds that text into its credential
+pool and sends the literal header `Bearer env:MODEL_API_KEY`, which Meta
+correctly rejects with 401. The installer removes that obsolete field and its
+stale isolated pool entry.
 
 On the Mac mini, the login Keychain can be writable/readable only from the
 logged-in GUI audit session and return macOS status 36 over plain SSH. The

@@ -66,6 +66,9 @@ install_local() {
   node "$HOME/.hermes/meta-muse/tools/hermes-meta-muse-config.js" \
     --apply --isolated --hermes-home "$HOME/.hermes/meta-muse-profile" \
     --hermes-bin "$hermes_bin" --json >/dev/null
+  HERMES_HOME="$HOME/.hermes/meta-muse-profile" \
+    "$hermes_bin" auth remove custom:meta-muse-spark "Meta Muse Spark 1.1" \
+    >/dev/null 2>&1 || true
 }
 
 install_remote() {
@@ -92,6 +95,7 @@ install_remote() {
     if [ -z "$hermes_bin" ] || [ ! -x "$hermes_bin" ]; then echo "install-meta-yolo: Hermes is missing" >&2; exit 1; fi
     "$node_bin" "$HOME/.hermes/meta-muse/tools/hermes-meta-muse-config.js" --apply --hermes-home "$HOME/.hermes" --hermes-bin "$hermes_bin" --json >/dev/null
     "$node_bin" "$HOME/.hermes/meta-muse/tools/hermes-meta-muse-config.js" --apply --isolated --hermes-home "$HOME/.hermes/meta-muse-profile" --hermes-bin "$hermes_bin" --json >/dev/null
+    HERMES_HOME="$HOME/.hermes/meta-muse-profile" "$hermes_bin" auth remove custom:meta-muse-spark "Meta Muse Spark 1.1" >/dev/null 2>&1 || true
   '
 }
 

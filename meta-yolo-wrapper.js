@@ -388,6 +388,7 @@ function readConfigState(configPath, isolated = false) {
     /MODEL_API_KEY/,
     /reasoning_effort\s*:\s*high/,
   ].every((pattern) => pattern.test(text));
+  const literalApiKeyReferenceAbsent = !/api_key\s*:\s*['"]?env:MODEL_API_KEY/.test(text);
   const fallbackProvidersEmpty = /fallback_providers\s*:\s*\[\s*\]/.test(text);
   const fallbackModelEmpty = /fallback_model\s*:\s*\{\s*\}/.test(text);
   const pinnedProvider = /provider\s*:\s*custom:meta-muse-spark/.test(text);
@@ -398,13 +399,14 @@ function readConfigState(configPath, isolated = false) {
     exists: true,
     providerConfigured,
     isolatedReady: isolated
-      ? providerConfigured && fallbackProvidersEmpty && fallbackModelEmpty && pinnedProvider && pinnedModel && compressionDisabled
+      ? providerConfigured && literalApiKeyReferenceAbsent && fallbackProvidersEmpty && fallbackModelEmpty && pinnedProvider && pinnedModel && compressionDisabled
       : false,
     fallbackProvidersEmpty: isolated ? fallbackProvidersEmpty : null,
     fallbackModelEmpty: isolated ? fallbackModelEmpty : null,
     pinnedProvider: isolated ? pinnedProvider : null,
     pinnedModel: isolated ? pinnedModel : null,
     compressionDisabled: isolated ? compressionDisabled : null,
+    literalApiKeyReferenceAbsent,
   };
 }
 

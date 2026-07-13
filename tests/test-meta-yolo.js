@@ -241,6 +241,19 @@ providers:
     assert.equal(state.isolatedReady, true);
     assert.equal(state.fallbackProvidersEmpty, true);
     assert.equal(state.fallbackModelEmpty, true);
+    assert.equal(state.literalApiKeyReferenceAbsent, true);
+  });
+
+  await check('config validator rejects the literal env reference Hermes would send as a bearer token', () => {
+    const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'meta-yolo-bad-key-ref-'));
+    const config = path.join(temp, 'config.yaml');
+    fs.writeFileSync(config, isolatedConfigText().replace(
+      '    key_env: MODEL_API_KEY',
+      '    key_env: MODEL_API_KEY\n    api_key: env:MODEL_API_KEY',
+    ));
+    const state = readConfigState(config, true);
+    assert.equal(state.literalApiKeyReferenceAbsent, false);
+    assert.equal(state.isolatedReady, false);
   });
 
   await check('doctor separates standalone auth from Hermes route readiness', () => {
