@@ -66,7 +66,7 @@ describe('RunProgressBanner', () => {
     expect(queryByText('hermes-agent')).toBeNull();
   });
 
-  it('shows other model names', () => {
+  it('shows real model names as short human names', () => {
     const { getByText } = render(
       <RunProgressBanner
         progress={{
@@ -79,7 +79,7 @@ describe('RunProgressBanner', () => {
         showTechnicalStats={true}
       />,
     );
-    expect(getByText('gemini-2.5-flash')).toBeTruthy();
+    expect(getByText('Gemini 2.5 Flash')).toBeTruthy();
   });
 
   it('shows token counts during active runs without showTechnicalStats', () => {
@@ -112,7 +112,7 @@ describe('RunProgressBanner', () => {
         }}
       />,
     );
-    expect(getByText('hermes-local-fast')).toBeTruthy();
+    expect(getByText('Hermes Local Fast')).toBeTruthy();
     expect(getByText('In: 66476 | Out: 535')).toBeTruthy();
   });
 
@@ -128,7 +128,54 @@ describe('RunProgressBanner', () => {
         fallbackModel="google/gemini-2.5-flash"
       />,
     );
-    expect(getByText('google/gemini-2.5-flash')).toBeTruthy();
+    expect(getByText('Gemini 2.5 Flash')).toBeTruthy();
+  });
+
+  it('shows routed session model live during a run (grok/glm short names)', () => {
+    const { getByText, rerender } = render(
+      <RunProgressBanner
+        progress={{
+          phase: 'working',
+          startedAtMs: Date.now() - 2000,
+          detail: 'Hermes is working on your computer…',
+          model: 'grok-4.5',
+          inputTokens: 310,
+          outputTokens: 79,
+        }}
+      />,
+    );
+    expect(getByText('Grok 4.5')).toBeTruthy();
+
+    rerender(
+      <RunProgressBanner
+        progress={{
+          phase: 'streaming',
+          startedAtMs: Date.now() - 4000,
+          detail: 'streaming',
+          model: 'z-ai/glm-5.2',
+          inputTokens: 900,
+          outputTokens: 120,
+        }}
+      />,
+    );
+    expect(getByText('GLM 5.2')).toBeTruthy();
+  });
+
+  it('hides the model stat entirely when the model is unknown', () => {
+    const { getByText, queryByTestId, queryByText } = render(
+      <RunProgressBanner
+        progress={{
+          phase: 'working',
+          startedAtMs: Date.now() - 2000,
+          detail: 'Hermes is working on your computer…',
+          inputTokens: 12,
+          outputTokens: 3,
+        }}
+      />,
+    );
+    expect(getByText('In: 12 | Out: 3')).toBeTruthy();
+    expect(queryByTestId('run-progress-stats')).toBeTruthy();
+    expect(queryByText('MODEL')).toBeNull();
   });
 
   it('splits long connectivity failures so timer does not overlap text', () => {
@@ -182,7 +229,7 @@ describe('RunProgressBanner', () => {
     );
     expect(getByTestId('run-progress-toggle')).toBeTruthy();
     expect(getByTestId('run-progress-stats')).toBeTruthy();
-    expect(getByText('google/gemini-2.5-flash')).toBeTruthy();
+    expect(getByText('Gemini 2.5 Flash')).toBeTruthy();
     expect(getByText('In: 120 | Out: 45')).toBeTruthy();
   });
 
@@ -204,7 +251,7 @@ describe('RunProgressBanner', () => {
 
     expect(getByTestId('run-progress-detail').props.children).toBe('Delivering your message…');
     expect(queryByTestId('run-progress-stats')).toBeNull();
-    expect(queryByText('google/gemini-2.5-flash')).toBeNull();
+    expect(queryByText('Gemini 2.5 Flash')).toBeNull();
     expect(queryByText('In: 120 | Out: 45')).toBeNull();
   });
 

@@ -1,5 +1,6 @@
 import {
   displayableLlmModel,
+  formatLlmModelShortName,
   humanizeComposerStatus,
   humanizeRunProgressDetail,
   isActiveChatRun,
@@ -103,6 +104,27 @@ describe('runProgressDisplay', () => {
     expect(displayableLlmModel('')).toBeNull();
     expect(displayableLlmModel('google/gemini-2.5-flash')).toBe('google/gemini-2.5-flash');
     expect(displayableLlmModel('  qwen3:8b-64k  ')).toBe('qwen3:8b-64k');
+  });
+
+  it('formats routed LLM ids as short human names', () => {
+    expect(formatLlmModelShortName('z-ai/glm-5.2')).toBe('GLM 5.2');
+    expect(formatLlmModelShortName('glm-coding')).toBe('GLM Coding');
+    expect(formatLlmModelShortName('grok-4.5')).toBe('Grok 4.5');
+    expect(formatLlmModelShortName('google/gemini-2.5-flash')).toBe('Gemini 2.5 Flash');
+    expect(formatLlmModelShortName('qwen3:8b-64k')).toBe('Qwen3 8B');
+    expect(formatLlmModelShortName('Llama-3.2-3B-Instruct-4bit')).toBe('Llama 3.2 3B');
+    expect(formatLlmModelShortName('openrouter/nvidia/nemotron-super-49b')).toBe(
+      'Nemotron Super 49B',
+    );
+    expect(formatLlmModelShortName('hermes-local-fast')).toBe('Hermes Local Fast');
+  });
+
+  it('short-name formatter keeps the platform-label and empty contracts', () => {
+    expect(formatLlmModelShortName('hermes-agent')).toBeNull();
+    expect(formatLlmModelShortName('gateway')).toBeNull();
+    expect(formatLlmModelShortName('')).toBeNull();
+    expect(formatLlmModelShortName(null)).toBeNull();
+    expect(formatLlmModelShortName(undefined)).toBeNull();
   });
 
   it('shows composer banner once a run id exists', () => {
