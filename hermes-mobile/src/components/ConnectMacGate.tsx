@@ -18,7 +18,11 @@ import LoadingButton from './ui/LoadingButton';
 import { tailscaleDiscoveryLabel } from '../services/tailscaleDiscovery';
 import { cleanManualGatewayUrl, isLoopbackGatewayUrl } from '../utils/gatewayUrlPolicy';
 import { isTailscaleGatewayUrl } from '../utils/tailscaleHosts';
-import { isE2eAutomationBuild } from '../utils/demoModePolicy';
+import {
+  isE2eAutomationBuild,
+  isStoreReviewDemoBuild,
+  isDemoModeAllowed,
+} from '../utils/demoModePolicy';
 import { haptics } from '../services/haptics';
 
 const AUTO_RETRY_MS = 12000;
@@ -46,6 +50,7 @@ export default function ConnectMacGate() {
     addDiscoveredTailscaleComputer,
     probeTailscaleComputers,
     addGatewayProfile,
+    patchSettings,
   } = useGateway();
 
   const [qrVisible, setQrVisible] = useState(false);
@@ -55,6 +60,19 @@ export default function ConnectMacGate() {
   const [manualInput, setManualInput] = useState('');
   const [addingProfile, setAddingProfile] = useState(false);
   const [manualInputError, setManualInputError] = useState<string | null>(null);
+  const [enablingDemo, setEnablingDemo] = useState(false);
+
+  const handleExploreDemo = async () => {
+    setEnablingDemo(true);
+    try {
+      await patchSettings({ demoMode: true });
+      haptics.success();
+    } catch {
+      haptics.warning();
+    } finally {
+      setEnablingDemo(false);
+    }
+  };
 
   const handleManualConnect = async () => {
     Keyboard.dismiss();
@@ -89,6 +107,7 @@ export default function ConnectMacGate() {
   const showGate =
     bootstrapReady &&
     !isE2eAutomationBuild() &&
+    !isStoreReviewDemoBuild() &&
     !settings.demoMode &&
     !isGatewayReachable &&
     settings.connectionMode === 'gateway' &&
@@ -231,6 +250,24 @@ export default function ConnectMacGate() {
                 ) : null}
               </View>
 
+              {isDemoModeAllowed() ? (
+                <View style={styles.demoEntry}>
+                  <Text style={styles.demoEntryTitle}>Just exploring?</Text>
+                  <Text style={styles.demoEntrySubtitle}>
+                    Try Hermes with sample data — no computer required. You can connect a real
+                    computer anytime from Settings.
+                  </Text>
+                  <LoadingButton
+                    label="Explore in demo mode"
+                    loadingLabel="Starting demo…"
+                    loading={enablingDemo}
+                    variant="secondary"
+                    onPress={handleExploreDemo}
+                    testID="connect-explore-demo"
+                  />
+                </View>
+              ) : null}
+
               <Text style={styles.footnote}>
                 Need Hermes on your computer first? Use the setup guide link in Settings after you dismiss
                 this screen.
@@ -350,5 +387,22 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: colors.error,
     marginTop: 2,
+  },
+  demoEntry: {
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: colors.borderLight,
+    gap: 8,
+  },
+  demoEntryTitle: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: colors.text,
+  },
+  demoEntrySubtitle: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    lineHeight: 16,
   },
 });
