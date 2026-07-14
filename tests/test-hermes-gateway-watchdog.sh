@@ -68,8 +68,11 @@ run_wd() {
     MOCK_GATEWAY_PID="$TMP/gwpid" \
     "$@" \
     bash "$WD"
-  # Give backgrounded pin/start (&) a moment to flush their mock output.
-  sleep 0.3
+  # Give backgrounded pin/start (&) a moment to flush their mock output (CI runners can be slow).
+  for _ in $(seq 1 30); do
+    grep -q "STARTED\|PIN\|WARMUP" "$TMP/start" "$TMP/calls" 2>/dev/null && break
+    sleep 0.1
+  done
 }
 
 calls() { grep -c "$1" "$TMP/calls" 2>/dev/null || true; }

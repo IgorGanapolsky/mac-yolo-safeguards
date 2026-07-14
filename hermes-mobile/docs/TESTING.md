@@ -88,6 +88,21 @@ Logs: `~/Library/Logs/hermes-mobile-continuous-e2e.log`
 
 **No phone (android-only LaunchAgent):** `latest.json` records `e2e=fail` (not `skipped`) so agents cannot claim device UX verified without a connected phone. Rozenite/agent-device E2E compatibility flows remain owned by T-25 (`navigation.yaml`, `ship-guard.yaml`).
 
+### What `e2e=pass` does **not** prove (read this before “are you sure?”)
+
+| Proof | Means | Does **not** mean |
+|-------|--------|-------------------|
+| Continuous / CI `e2e=pass` | `ship-guard` (+ local continuous: `chat-send-persistence`) app shell works | Multi-Mac USB identity is honest |
+| Maestro ship-guard | No Metro red screen / legacy shell (often **demo** deep link) | Header never shows `Igors-Mac-mini · USB` when cable is MBP |
+| Unit `chatMachineHeader` INVARIANT tests | Named `X · USB` only when live green/amber `/health` hostname is X | Device APK already has the fix |
+
+**Multi-Mac USB product law (required unit gate):** header may show **`X · USB`** only when loopback `/health` is green|amber **and** hostname matches X. Health null/red → `Computer via USB · USB` (never invent Mini). Verify:
+
+```bash
+cd hermes-mobile
+npm test -- --watchman=false src/__tests__/chatMachineHeader.test.ts
+```
+
 **Cloud:** GitHub Actions workflow `mobile-continuous.yml` runs unit tests every 6 hours + Maestro ship-guard on `macos-latest`.
 
 ## CI

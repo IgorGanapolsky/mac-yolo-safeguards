@@ -14,6 +14,7 @@ Prevention hardening so today's bug class fails closed in CI / install / continu
 | Chat header shows real model, not bare `Hermes (active)` | **Unit yes** | `ChatScreenHeader.test.tsx` (`buildHermesStatusLabel`). Maestro: `regression-chat-header-model.yaml` asserts status row present. |
 | `/health` green but chat API key wrong (multi-Mac fleet) | **Unit yes** | `gatewayClient.test.ts` auth probe + `gatewayConnection.test.ts` wrong-key label; `tests/test-hermes-mobile-pair.sh` mini SSH key; `releaseSafetyNet.test.ts` contract. |
 | **Connected ⊕ Wrong key** simultaneous UI | **SHIP BLOCK** | Fresh install or re-pair showing green **Connected** + red Wrong-key banner is a **state-machine failure**, not a setup hiccup. Never ship. `effectiveAuthMismatch` (health ⊕ banner) forces header/Codex off green; USB must not auto-steal over Tailscale pair. Gates: `gatewayConnection.test.ts`, `ChatScreenHeader.test.tsx`, `gatewayProfiles.test.ts` (no USB auto-pick), `gatewayClient.test.ts`, `releaseSafetyNet.test.ts`, `REAL-USER-READINESS.md`. |
+| False **Mac · USB** header (wrong machine or not cabled) | **SHIP BLOCK** | Loopback URL + stale red/null health must not show a saved Mac name as if live on USB. `resolveMachineDisplayName` only names the cable from green/amber reachable `/health` hostname; otherwise `Computer via USB · USB`. Gates: `chatMachineHeader.test.ts`, `preventRecurrenceContract.test.ts` (`assertUsbHeaderIdentityLaw`). |
 
 ## Wrong-key class (T-120 / T-227, 2026-07-08 → 2026-07-14)
 
