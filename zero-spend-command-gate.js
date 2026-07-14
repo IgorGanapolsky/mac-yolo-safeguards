@@ -27,6 +27,7 @@ const DEFAULT_COMMANDS = [
   'amp',
   'parallel',
   'parallel-cli',
+  'litellm',
   'snow',
 ];
 const PAID_CREDENTIAL_ENV = [
@@ -58,6 +59,10 @@ const SAFE_MODEL_RECIPES = [
   },
 ];
 const LOCAL_MODEL_CANDIDATES = SAFE_MODEL_RECIPES.map((recipe) => recipe.model);
+const QUIESCED_MODEL_LAUNCH_AGENTS = [
+  'com.igor.hermes-litellm',
+  'com.igor.hermes-competence-probe',
+];
 
 function homeDir(env = process.env) {
   return env.HOME || os.homedir();
@@ -341,6 +346,59 @@ function reloadRoutePlist(plist, env = process.env) {
   }
 }
 
+function launchAgentPlist(label, env = process.env) {
+  return path.join(homeDir(env), 'Library', 'LaunchAgents', `${label}.plist`);
+}
+
+function launchAgentLoaded(label, env = process.env) {
+  if (process.platform !== 'darwin') return false;
+  return runQuiet('/bin/launchctl', ['print', `gui/${process.getuid()}/${label}`], env).status === 0;
+}
+
+function launchAgentDisabled(label, env = process.env) {
+  if (process.platform !== 'darwin') return false;
+  const result = runQuiet('/bin/launchctl', ['print-disabled', `gui/${process.getuid()}`], env);
+  if (result.status !== 0) return false;
+  const escaped = label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return new RegExp(`"${escaped}"\\s*=>\\s*true`).test(result.stdout || '');
+}
+
+function quiesceModelLaunchAgents(manifest, env = process.env) {
+  if (process.platform !== 'darwin' || env.HERMES_ZERO_SPEND_SKIP_LAUNCHCTL === '1') return;
+  if (!manifest.previousQuiescedLaunchAgents) {
+    manifest.previousQuiescedLaunchAgents = QUIESCED_MODEL_LAUNCH_AGENTS
+      .map((label) => ({
+        label,
+        plist: launchAgentPlist(label, env),
+        existed: fs.existsSync(launchAgentPlist(label, env)),
+        loaded: launchAgentLoaded(label, env),
+        disabled: launchAgentDisabled(label, env),
+      }))
+      .filter((entry) => entry.existed || entry.loaded);
+    writePrivateFile(locations(env).manifest, `${JSON.stringify(manifest, null, 2)}\n`);
+  }
+  for (const label of QUIESCED_MODEL_LAUNCH_AGENTS) {
+    const plist = launchAgentPlist(label, env);
+    if (!fs.existsSync(plist) && !launchAgentLoaded(label, env)) continue;
+    const disable = runQuiet('/bin/launchctl', ['disable', `gui/${process.getuid()}/${label}`], env);
+    if (disable.status !== 0) throw new Error(`failed to disable zero-spend model daemon ${label}`);
+    if (launchAgentLoaded(label, env)) {
+      const bootout = runQuiet('/bin/launchctl', ['bootout', `gui/${process.getuid()}/${label}`], env);
+      if (bootout.status !== 0) throw new Error(`failed to stop zero-spend model daemon ${label}`);
+    }
+  }
+}
+
+function restoreModelLaunchAgents(manifest, env = process.env) {
+  if (process.platform !== 'darwin' || env.HERMES_ZERO_SPEND_SKIP_LAUNCHCTL === '1') return;
+  for (const entry of manifest.previousQuiescedLaunchAgents || []) {
+    runQuiet('/bin/launchctl', [entry.disabled ? 'disable' : 'enable', `gui/${process.getuid()}/${entry.label}`], env);
+    if (entry.loaded && entry.existed && fs.existsSync(entry.plist) && !launchAgentLoaded(entry.label, env)) {
+      runQuiet('/bin/launchctl', ['bootstrap', `gui/${process.getuid()}`, entry.plist], env);
+    }
+  }
+}
+
 function enforceMacPolicy(model, manifest, env = process.env) {
   if (process.platform !== 'darwin' || env.HERMES_ZERO_SPEND_SKIP_LAUNCHCTL === '1') return;
   const loc = locations(env);
@@ -359,6 +417,7 @@ function enforceMacPolicy(model, manifest, env = process.env) {
     const result = runQuiet('/bin/launchctl', ['setenv', name, value], env);
     if (result.status !== 0) throw new Error(`launchctl setenv failed for ${name}`);
   }
+  quiesceModelLaunchAgents(manifest, env);
 
   const plist = routePlist(loc);
   if (fs.existsSync(plist)) {
@@ -407,6 +466,7 @@ function restoreMacPolicy(manifest, env = process.env) {
     writePrivateFile(guard, text.replace(/^STABLE=.*$/m, manifest.previousGuardStable), 0o700);
     runQuiet('/bin/bash', [guard], env);
   }
+  restoreModelLaunchAgents(manifest, env);
 }
 
 function installPolicyFiles(model, manifest, env = process.env) {
@@ -447,15 +507,16 @@ function install(env = process.env) {
     'previousLaunchctlEnvironment',
     'previousRouteProgramArguments',
     'previousGuardStable',
+    'previousQuiescedLaunchAgents',
   ]) {
     if (Object.hasOwn(previous, key)) manifest[key] = previous[key];
   }
   for (const name of commandNames(env)) {
     manifest.commands[name] = installCommand(name, manifest, env);
   }
+  manifest.localModel = model;
   installPolicyFiles(model, manifest, env);
   enforceMacPolicy(model, manifest, env);
-  manifest.localModel = model;
   writePrivateFile(loc.manifest, `${JSON.stringify(manifest, null, 2)}\n`);
   writePrivateFile(loc.marker, `${JSON.stringify({
     schema: 'hermes-zero-spend/policy-v1',
@@ -494,6 +555,15 @@ function status(env = process.env) {
     installed: resolvesTo(entry.shimPath, loc.installedGate),
     originalAvailable: Boolean(entry.original && fs.existsSync(entry.original)),
   }));
+  const quiescedLaunchAgents = process.platform !== 'darwin' || env.HERMES_ZERO_SPEND_SKIP_LAUNCHCTL === '1'
+    ? []
+    : QUIESCED_MODEL_LAUNCH_AGENTS
+      .filter((label) => fs.existsSync(launchAgentPlist(label, env)) || launchAgentLoaded(label, env))
+      .map((label) => ({
+        label,
+        loaded: launchAgentLoaded(label, env),
+        disabled: launchAgentDisabled(label, env),
+      }));
   return {
     schema: 'hermes-zero-spend/status-v1',
     active: markerActive(env),
@@ -514,6 +584,10 @@ function status(env = process.env) {
       : null,
     localModel: manifest.localModel || null,
     localContextLength: manifest.localModel ? modelContextLength(manifest.localModel) : null,
+    modelDaemonsQuiesced: process.platform !== 'darwin' || env.HERMES_ZERO_SPEND_SKIP_LAUNCHCTL === '1'
+      ? null
+      : quiescedLaunchAgents.every((entry) => !entry.loaded && entry.disabled),
+    quiescedLaunchAgents,
     commandCount: commands.length,
     commands,
   };
@@ -709,6 +783,7 @@ module.exports = {
   LOCAL_MODEL_CANDIDATES,
   LOCAL_PROVIDER,
   PAID_CREDENTIAL_ENV,
+  QUIESCED_MODEL_LAUNCH_AGENTS,
   SAFE_MODEL_RECIPES,
   chooseLocalModel,
   commandNames,
@@ -726,8 +801,10 @@ module.exports = {
   markerActive,
   modelContextLength,
   provisionSafeLocalModel,
+  quiesceModelLaunchAgents,
   replaceableCommandPath,
   restoreMacPolicy,
+  restoreModelLaunchAgents,
   runCommand,
   safeModelFile,
   status,

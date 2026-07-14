@@ -63,6 +63,8 @@ assert.strictEqual(firstStatus.launchctlPolicyActive, null);
 assert.strictEqual(firstStatus.guardReinforcesGate, null);
 assert.strictEqual(firstStatus.localModel, 'qwen3:8b-hermes-20k');
 assert.strictEqual(firstStatus.localContextLength, 20480);
+assert.strictEqual(firstStatus.modelDaemonsQuiesced, null);
+assert.deepStrictEqual(firstStatus.quiescedLaunchAgents, []);
 assert.strictEqual(firstStatus.commandCount, 4);
 assert.ok(firstStatus.commands.every((entry) => entry.installed));
 const globalEnv = fs.readFileSync(path.join(home, '.hermes', '.env'), 'utf8');
@@ -80,6 +82,7 @@ const manifestBeforeReinstall = JSON.parse(fs.readFileSync(manifestPath, 'utf8')
 manifestBeforeReinstall.previousLaunchctlEnvironment = { HERMES_YOLO_PROVIDER: 'original-provider' };
 manifestBeforeReinstall.previousRouteProgramArguments = ['/bin/true'];
 manifestBeforeReinstall.previousGuardStable = 'STABLE="original-wrapper"';
+manifestBeforeReinstall.previousQuiescedLaunchAgents = [{ label: 'original-daemon', loaded: true }];
 fs.writeFileSync(manifestPath, `${JSON.stringify(manifestBeforeReinstall, null, 2)}\n`, { mode: 0o600 });
 const secondInstall = run(process.execPath, [sourceGate, '--install'], env);
 assert.strictEqual(secondInstall.status, 0, secondInstall.stderr);
@@ -99,6 +102,11 @@ assert.strictEqual(
   manifestAfterReinstall.previousGuardStable,
   manifestBeforeReinstall.previousGuardStable,
   'reinstall must retain the original permanence-guard state',
+);
+assert.deepStrictEqual(
+  manifestAfterReinstall.previousQuiescedLaunchAgents,
+  manifestBeforeReinstall.previousQuiescedLaunchAgents,
+  'reinstall must retain the original model-daemon state',
 );
 
 const blocked = run(path.join(bin, 'grok-yolo'), ['hello'], env);

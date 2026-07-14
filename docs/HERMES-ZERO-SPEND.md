@@ -18,6 +18,8 @@ While active:
   overlay, so the mobile gateway, cron jobs, and child agents cannot reload them
   from the normal `.env` file;
 - web and computer-use toolsets are omitted from this local-only route;
+- the LiteLLM router and hourly competence probe are unloaded and disabled,
+  while their prior launchd state is retained for an explicit `--disable`;
 - each decision produces a prompt-free receipt under
   `~/.hermes/receipts/zero-spend/`.
 
@@ -32,6 +34,9 @@ compact 3B fallback) and sets `num_ctx=20480`. This is a local manifest operatio
 it downloads nothing and sends no prompt. The bounded context leaves room for
 the observed 12k-token Hermes sessions without crossing the 10 GiB worker class
 that the 60-second freeze guard reclaims under memory pressure.
+The `litellm` command itself is blocked with the other provider entrypoints so
+an old shell or scheduled job cannot silently reload an oversized or remote
+route.
 
 The installer preserves every existing command behind a private manifest, adds
 the managed-policy pointer to the normal Hermes `.env` without printing or
