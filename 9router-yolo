@@ -1,0 +1,631 @@
+#!/usr/bin/env node
+'use strict';
+
+const crypto = require('crypto');
+const fs = require('fs');
+const http = require('http');
+const os = require('os');
+const path = require('path');
+const { execFileSync, spawn } = require('child_process');
+
+const UPSTREAM_VERSION = '0.5.30';
+const UPSTREAM_INTEGRITY = 'sha512-1JsqzRuawrS6b4Fqw15/vhIWjH179ehGQXuvQiTnvPksXG8jbtS26lVyBOy6VXkRVZC3WRWpyhDVNQy2DOgYlw==';
+const LOOPBACK_HOST = '127.0.0.1';
+const DEFAULT_PORT = 20128;
+const DEFAULT_MODEL = 'ollama-local/qwen2.5:3b';
+const DEFAULT_MAX_OLD_SPACE_MB = 768;
+const SAFE_SETTINGS = Object.freeze({
+  cloudEnabled: false,
+  tunnelEnabled: false,
+  tailscaleEnabled: false,
+  tunnelDashboardAccess: false,
+  outboundProxyEnabled: false,
+  outboundProxyUrl: '',
+  headroomEnabled: false,
+  cavemanEnabled: false,
+  ponytailEnabled: false,
+  pxpipeEnabled: false,
+  pxpipeAutoInstall: false,
+  rtkEnabled: false,
+  enableObservability: true,
+  observabilityMaxRecords: 500,
+});
+
+function assertLoopbackUrl(value, label) {
+  let parsed;
+  try {
+    parsed = new URL(value);
+  } catch {
+    throw new Error(`${label} must be a valid URL`);
+  }
+  if (parsed.protocol !== 'http:') throw new Error(`${label} must use http on loopback`);
+  if (!['127.0.0.1', 'localhost', '::1'].includes(parsed.hostname)) {
+    throw new Error(`${label} must stay on loopback`);
+  }
+  return parsed.toString().replace(/\/$/, '');
+}
+
+function runtimeConfig(env = process.env) {
+  const home = env.HOME || os.homedir();
+  const stateDir = path.resolve(env.NINE_ROUTER_STATE_DIR || path.join(home, '.hermes', '9router'));
+  const prefix = path.resolve(env.NINE_ROUTER_PREFIX || path.join(home, '.local', 'share', '9router', 'npm'));
+  const port = Number(env.NINE_ROUTER_PORT || DEFAULT_PORT);
+  const maxOldSpaceMb = Number(env.NINE_ROUTER_MAX_OLD_SPACE_MB || DEFAULT_MAX_OLD_SPACE_MB);
+  const model = String(env.NINE_ROUTER_MODEL || DEFAULT_MODEL).trim();
+  if (!Number.isInteger(port) || port < 1024 || port > 65535) throw new Error('NINE_ROUTER_PORT must be an integer from 1024 to 65535');
+  if (!Number.isInteger(maxOldSpaceMb) || maxOldSpaceMb < 256 || maxOldSpaceMb > 2048) {
+    throw new Error('NINE_ROUTER_MAX_OLD_SPACE_MB must be an integer from 256 to 2048');
+  }
+  if (!model.startsWith('ollama-local/')) {
+    throw new Error('NINE_ROUTER_MODEL must use the secret-free ollama-local provider');
+  }
+  const ollamaBaseUrl = assertLoopbackUrl(env.NINE_ROUTER_OLLAMA_URL || 'http://127.0.0.1:11434', 'NINE_ROUTER_OLLAMA_URL');
+  const packageRoot = path.join(prefix, 'lib', 'node_modules', '9router');
+  return {
+    home,
+    stateDir,
+    dataDir: path.join(stateDir, 'data'),
+    prefix,
+    packageRoot,
+    packageJson: path.join(packageRoot, 'package.json'),
+    serverPath: path.join(packageRoot, 'app', 'server.js'),
+    apiClientPath: path.join(packageRoot, 'src', 'cli', 'api', 'client.js'),
+    pidFile: path.join(stateDir, '9router.pid'),
+    logFile: path.join(stateDir, '9router.log'),
+    installReceipt: path.join(stateDir, 'install.json'),
+    latestReceipt: path.join(stateDir, 'receipts', 'latest.json'),
+    historyReceipt: path.join(stateDir, 'receipts', 'history.jsonl'),
+    host: LOOPBACK_HOST,
+    port,
+    endpoint: `http://${LOOPBACK_HOST}:${port}`,
+    model,
+    modelName: model.slice('ollama-local/'.length),
+    ollamaBaseUrl,
+    maxOldSpaceMb,
+  };
+}
+
+function ensurePrivateDir(target) {
+  fs.mkdirSync(target, { recursive: true, mode: 0o700 });
+  fs.chmodSync(target, 0o700);
+}
+
+function readJson(target) {
+  try {
+    return JSON.parse(fs.readFileSync(target, 'utf8'));
+  } catch {
+    return null;
+  }
+}
+
+function writeJsonAtomic(target, value, mode = 0o600) {
+  ensurePrivateDir(path.dirname(target));
+  const temporary = `${target}.${process.pid}.tmp`;
+  fs.writeFileSync(temporary, `${JSON.stringify(value, null, 2)}\n`, { mode });
+  fs.renameSync(temporary, target);
+  fs.chmodSync(target, mode);
+}
+
+function writeReceipt(config, receipt) {
+  writeJsonAtomic(config.latestReceipt, receipt, 0o600);
+  ensurePrivateDir(path.dirname(config.historyReceipt));
+  fs.appendFileSync(config.historyReceipt, `${JSON.stringify(receipt)}\n`, { mode: 0o600 });
+  fs.chmodSync(config.historyReceipt, 0o600);
+  return receipt;
+}
+
+function promptDigest(prompt) {
+  return crypto.createHash('sha256').update(String(prompt)).digest('hex').slice(0, 16);
+}
+
+function requestJson(method, urlValue, body = null, options = {}) {
+  const timeoutMs = options.timeoutMs || 10000;
+  const url = new URL(urlValue);
+  if (!['127.0.0.1', 'localhost', '::1'].includes(url.hostname)) {
+    return Promise.reject(new Error('9router-yolo refuses non-loopback HTTP targets'));
+  }
+  const encoded = body == null ? null : Buffer.from(JSON.stringify(body));
+  return new Promise((resolve, reject) => {
+    const request = http.request({
+      method,
+      hostname: url.hostname,
+      port: url.port,
+      path: `${url.pathname}${url.search}`,
+      timeout: timeoutMs,
+      headers: {
+        Accept: 'application/json',
+        ...(encoded ? { 'Content-Type': 'application/json', 'Content-Length': encoded.length } : {}),
+        ...(options.headers || {}),
+      },
+    }, (response) => {
+      const chunks = [];
+      response.on('data', (chunk) => chunks.push(chunk));
+      response.on('end', () => {
+        const text = Buffer.concat(chunks).toString('utf8');
+        let data = {};
+        try {
+          data = text ? JSON.parse(text) : {};
+        } catch {
+          reject(new Error(`9Router returned non-JSON HTTP ${response.statusCode}`));
+          return;
+        }
+        if (response.statusCode < 200 || response.statusCode >= 300) {
+          reject(new Error(`9Router HTTP ${response.statusCode}: ${String(data.error || 'request failed').slice(0, 160)}`));
+          return;
+        }
+        resolve(data);
+      });
+    });
+    request.on('timeout', () => request.destroy(new Error(`9Router request timed out after ${timeoutMs}ms`)));
+    request.on('error', reject);
+    if (encoded) request.write(encoded);
+    request.end();
+  });
+}
+
+function processAlive(pid) {
+  if (!Number.isInteger(pid) || pid <= 1) return false;
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function readPid(config) {
+  try {
+    const pid = Number(fs.readFileSync(config.pidFile, 'utf8').trim());
+    return Number.isInteger(pid) && pid > 1 ? pid : null;
+  } catch {
+    return null;
+  }
+}
+
+function parseListenerOutput(output, port) {
+  const rows = String(output || '').split('\n').filter((line) => /LISTEN/.test(line));
+  const listeners = rows.map((line) => {
+    const fields = line.trim().split(/\s+/);
+    return { pid: Number(fields[1]) || null, address: fields[fields.length - 2] || '' };
+  }).filter((entry) => entry.address.endsWith(`:${port}`));
+  return {
+    listeners,
+    occupied: listeners.length > 0,
+    loopbackOnly: listeners.length > 0 && listeners.every((entry) => (
+      entry.address.includes(`127.0.0.1:${port}`) || entry.address.includes(`[::1]:${port}`)
+    )),
+    pids: [...new Set(listeners.map((entry) => entry.pid).filter(Boolean))],
+  };
+}
+
+function listenerInfo(config, dependencies = {}) {
+  const run = dependencies.execFileSync || execFileSync;
+  try {
+    const output = run('lsof', ['-nP', `-iTCP:${config.port}`, '-sTCP:LISTEN'], { encoding: 'utf8' });
+    return parseListenerOutput(output, config.port);
+  } catch (error) {
+    return parseListenerOutput(error.stdout || '', config.port);
+  }
+}
+
+function packageVersion(config) {
+  const manifest = readJson(config.packageJson);
+  return manifest && typeof manifest.version === 'string' ? manifest.version : null;
+}
+
+function processRssMb(pid, dependencies = {}) {
+  if (!pid) return null;
+  const run = dependencies.execFileSync || execFileSync;
+  try {
+    const value = Number(String(run('ps', ['-p', String(pid), '-o', 'rss='], { encoding: 'utf8' })).trim());
+    return Number.isFinite(value) ? Math.round(value / 1024) : null;
+  } catch {
+    return null;
+  }
+}
+
+function loadApiClient(config) {
+  if (!fs.existsSync(config.apiClientPath)) throw new Error('9Router API client is not installed');
+  process.env.DATA_DIR = config.dataDir;
+  delete require.cache[require.resolve(config.apiClientPath)];
+  const client = require(config.apiClientPath);
+  client.configure({ host: config.host, port: config.port, protocol: 'http:' });
+  return client;
+}
+
+function requireApiSuccess(result, label) {
+  if (!result || result.success !== true) throw new Error(`${label}: ${String(result && result.error || 'failed').slice(0, 160)}`);
+  return result.data || {};
+}
+
+async function configureSafe(config) {
+  const ollama = await requestJson('GET', `${config.ollamaBaseUrl}/api/tags`, null, { timeoutMs: 5000 });
+  const ollamaModels = Array.isArray(ollama.models) ? ollama.models.map((model) => model.name) : [];
+  if (!ollamaModels.includes(config.modelName)) {
+    throw new Error(`local Ollama model is missing: ${config.modelName}`);
+  }
+
+  const api = loadApiClient(config);
+  const providerData = requireApiSuccess(await api.getProviders(), 'list providers');
+  const providers = Array.isArray(providerData.connections) ? providerData.connections : [];
+  const nonLocal = providers.filter((provider) => provider.provider !== 'ollama-local');
+  if (nonLocal.length > 0) {
+    throw new Error('isolated 9Router data contains a non-local provider; refusing credential aggregation');
+  }
+  const locals = providers.filter((provider) => provider.provider === 'ollama-local');
+  if (locals.length > 1) throw new Error('multiple local Ollama providers found; refusing ambiguous routing');
+
+  let local = locals[0];
+  if (!local) {
+    const created = requireApiSuccess(await api.createApiKeyProvider({
+      provider: 'ollama-local',
+      name: 'Hermes Local Ollama',
+      apiKey: '',
+      defaultModel: config.modelName,
+      baseUrl: config.ollamaBaseUrl,
+      providerSpecificData: {
+        baseUrl: config.ollamaBaseUrl,
+        enabledModels: [config.modelName],
+      },
+    }), 'create local provider');
+    local = created.connection;
+  } else {
+    const updated = requireApiSuccess(await api.updateConnection(local.id, {
+      name: 'Hermes Local Ollama',
+      defaultModel: config.modelName,
+      isActive: true,
+      providerSpecificData: {
+        ...(local.providerSpecificData || {}),
+        baseUrl: config.ollamaBaseUrl,
+        enabledModels: [config.modelName],
+        connectionProxyEnabled: false,
+        connectionProxyUrl: '',
+        connectionNoProxy: '',
+      },
+    }), 'update local provider');
+    local = updated.connection;
+  }
+
+  requireApiSuccess(await api.updateSettings(SAFE_SETTINGS), 'apply safe settings');
+  requireApiSuccess(await api.disableTunnel(), 'disable tunnel');
+  const models = requireApiSuccess(await api.getAvailableModels(), 'list models');
+  const modelIds = Array.isArray(models.data) ? models.data.map((model) => model.id) : [];
+  if (!modelIds.includes(config.model)) throw new Error(`9Router did not advertise ${config.model}`);
+  return { providerId: local.id, modelIds, ollamaModels };
+}
+
+async function controlState(config) {
+  try {
+    const api = loadApiClient(config);
+    const providers = requireApiSuccess(await api.getProviders(), 'list providers').connections || [];
+    const settings = requireApiSuccess(await api.getSettings(), 'get settings');
+    const tunnel = requireApiSuccess(await api.getTunnelStatus(), 'get tunnel status');
+    const models = requireApiSuccess(await api.getAvailableModels(), 'list models').data || [];
+    const nonLocalProviderCount = providers.filter((provider) => provider.provider !== 'ollama-local').length;
+    return {
+      ok: true,
+      providerCount: providers.length,
+      localProviderCount: providers.filter((provider) => provider.provider === 'ollama-local').length,
+      nonLocalProviderCount,
+      modelAdvertised: models.some((model) => model.id === config.model),
+      safeSettings: Object.entries(SAFE_SETTINGS).every(([key, value]) => settings[key] === value),
+      rtkEnabled: settings.rtkEnabled === true,
+      tunnelEnabled: tunnel.enabled === true || tunnel.tunnel?.enabled === true,
+      tunnelRunning: tunnel.running === true || tunnel.tunnel?.running === true,
+      tailscaleEnabled: tunnel.tailscale?.enabled === true,
+    };
+  } catch (error) {
+    return { ok: false, error: String(error.message).slice(0, 160) };
+  }
+}
+
+async function doctor(options = {}) {
+  const config = options.config || runtimeConfig(options.env || process.env);
+  const pid = readPid(config);
+  const alive = processAlive(pid);
+  const listener = listenerInfo(config, options.dependencies);
+  let healthOk = false;
+  try {
+    const health = await requestJson('GET', `${config.endpoint}/api/health`, null, { timeoutMs: 2500 });
+    healthOk = health.ok === true;
+  } catch {}
+  const controls = healthOk ? await controlState(config) : { ok: false, error: 'server unavailable' };
+  const installedVersion = packageVersion(config);
+  const install = readJson(config.installReceipt);
+  const blockers = [];
+  if (installedVersion !== UPSTREAM_VERSION) blockers.push('pinned_package_missing_or_wrong_version');
+  if (!install || install.integrity !== UPSTREAM_INTEGRITY || install.version !== UPSTREAM_VERSION) blockers.push('install_integrity_receipt_missing_or_mismatch');
+  if (!pid || !alive) blockers.push('owned_server_not_running');
+  if (!healthOk) blockers.push('health_check_failed');
+  if (!listener.occupied || !listener.loopbackOnly) blockers.push('listener_not_loopback_only');
+  if (pid && listener.pids.length > 0 && !listener.pids.includes(pid)) blockers.push('listener_pid_not_owned');
+  if (!controls.ok) blockers.push('control_plane_unavailable');
+  else {
+    if (controls.nonLocalProviderCount !== 0 || controls.localProviderCount !== 1) blockers.push('provider_isolation_failed');
+    if (!controls.modelAdvertised) blockers.push('local_model_not_advertised');
+    if (!controls.safeSettings) blockers.push('safe_settings_drifted');
+    if (controls.tunnelEnabled || controls.tunnelRunning || controls.tailscaleEnabled) blockers.push('remote_tunnel_enabled');
+  }
+  return {
+    schema: '9router-yolo/doctor-v1',
+    generatedAt: new Date().toISOString(),
+    host: os.hostname(),
+    ready: blockers.length === 0,
+    blockers,
+    upstream: {
+      package: '9router',
+      version: installedVersion,
+      pinnedVersion: UPSTREAM_VERSION,
+      integrityVerified: Boolean(install && install.integrity === UPSTREAM_INTEGRITY),
+      source: 'https://github.com/decolua/9router',
+    },
+    server: {
+      pid,
+      alive,
+      healthOk,
+      endpoint: config.endpoint,
+      loopbackOnly: listener.loopbackOnly,
+      listenerPids: listener.pids,
+      rssMb: processRssMb(pid, options.dependencies),
+      maxOldSpaceMb: config.maxOldSpaceMb,
+    },
+    route: {
+      model: config.model,
+      provider: 'ollama-local',
+      explicitOnly: true,
+      silentFallback: false,
+      defaultHermesRouteChanged: false,
+      credentialMigration: false,
+    },
+    controls,
+  };
+}
+
+async function sleep(milliseconds) {
+  await new Promise((resolve) => setTimeout(resolve, milliseconds));
+}
+
+async function waitForHealth(config, attempts = 60) {
+  for (let index = 0; index < attempts; index += 1) {
+    try {
+      const health = await requestJson('GET', `${config.endpoint}/api/health`, null, { timeoutMs: 1000 });
+      if (health.ok === true) return true;
+    } catch {}
+    await sleep(500);
+  }
+  return false;
+}
+
+async function startRouter(options = {}) {
+  const config = options.config || runtimeConfig(options.env || process.env);
+  ensurePrivateDir(config.stateDir);
+  ensurePrivateDir(config.dataDir);
+  const currentPid = readPid(config);
+  const currentListener = listenerInfo(config, options.dependencies);
+  if (currentPid && processAlive(currentPid) && currentListener.pids.includes(currentPid)) {
+    await configureSafe(config);
+    const currentDoctor = await doctor({ config, dependencies: options.dependencies });
+    if (!currentDoctor.ready) throw new Error(`running 9Router failed doctor: ${currentDoctor.blockers.join(',')}`);
+    return currentDoctor;
+  }
+  if (currentListener.occupied) throw new Error(`port ${config.port} is occupied by an unowned process`);
+  if (!fs.existsSync(config.serverPath) || packageVersion(config) !== UPSTREAM_VERSION) {
+    throw new Error(`pinned 9Router ${UPSTREAM_VERSION} is not installed`);
+  }
+  if (fs.existsSync(config.pidFile)) fs.unlinkSync(config.pidFile);
+  const logFd = fs.openSync(config.logFile, 'a', 0o600);
+  const child = spawn(process.execPath, [`--max-old-space-size=${config.maxOldSpaceMb}`, config.serverPath], {
+    detached: true,
+    stdio: ['ignore', logFd, logFd],
+    env: {
+      ...process.env,
+      DATA_DIR: config.dataDir,
+      PORT: String(config.port),
+      HOSTNAME: config.host,
+      NODE_ENV: 'production',
+      NO_PROXY: '127.0.0.1,localhost,::1',
+      no_proxy: '127.0.0.1,localhost,::1',
+    },
+  });
+  fs.closeSync(logFd);
+  child.unref();
+  fs.writeFileSync(config.pidFile, `${child.pid}\n`, { mode: 0o600 });
+  try {
+    if (!await waitForHealth(config)) throw new Error('9Router failed to become healthy within 30 seconds');
+    const listener = listenerInfo(config, options.dependencies);
+    if (!listener.loopbackOnly || !listener.pids.includes(child.pid)) {
+      throw new Error('9Router did not bind exclusively to the owned loopback listener');
+    }
+    await configureSafe(config);
+    const result = await doctor({ config, dependencies: options.dependencies });
+    if (!result.ready) throw new Error(`9Router failed doctor: ${result.blockers.join(',')}`);
+    writeReceipt(config, {
+      schema: '9router-yolo/receipt-v1',
+      generatedAt: new Date().toISOString(),
+      action: 'start',
+      status: 'pass',
+      host: os.hostname(),
+      model: config.model,
+      endpoint: config.endpoint,
+      loopbackOnly: true,
+      promptStored: false,
+    });
+    return result;
+  } catch (error) {
+    try { process.kill(child.pid, 'SIGTERM'); } catch {}
+    try { fs.unlinkSync(config.pidFile); } catch {}
+    throw error;
+  }
+}
+
+async function stopRouter(options = {}) {
+  const config = options.config || runtimeConfig(options.env || process.env);
+  const pid = readPid(config);
+  if (!pid) return { stopped: false, alreadyStopped: true };
+  const listener = listenerInfo(config, options.dependencies);
+  if (processAlive(pid) && listener.occupied && !listener.pids.includes(pid)) {
+    throw new Error('refusing to stop: PID file does not own the 9Router listener');
+  }
+  if (processAlive(pid)) {
+    process.kill(pid, 'SIGTERM');
+    for (let index = 0; index < 25 && processAlive(pid); index += 1) await sleep(200);
+    if (processAlive(pid)) process.kill(pid, 'SIGKILL');
+  }
+  try { fs.unlinkSync(config.pidFile); } catch {}
+  return { stopped: true, alreadyStopped: false };
+}
+
+async function listModels(options = {}) {
+  const config = options.config || runtimeConfig(options.env || process.env);
+  await startRouter({ config, dependencies: options.dependencies });
+  const models = await requestJson('GET', `${config.endpoint}/v1/models`, null, { timeoutMs: 10000 });
+  return Array.isArray(models.data) ? models.data.map((model) => model.id) : [];
+}
+
+async function chat(prompt, options = {}) {
+  const config = options.config || runtimeConfig(options.env || process.env);
+  const task = String(prompt || '').trim();
+  if (!task) throw new Error('prompt must not be empty');
+  await startRouter({ config, dependencies: options.dependencies });
+  const started = Date.now();
+  const response = await requestJson('POST', `${config.endpoint}/v1/chat/completions`, {
+    model: config.model,
+    messages: [{ role: 'user', content: task }],
+    stream: false,
+    temperature: 0,
+    max_tokens: Number(options.maxTokens || process.env.NINE_ROUTER_MAX_TOKENS || 512),
+  }, { timeoutMs: Number(options.timeoutMs || 180000) });
+  const text = String(response.choices?.[0]?.message?.content || '').trim();
+  if (!text) throw new Error('9Router returned no assistant content; silent reasoning fallback is forbidden');
+  const receipt = writeReceipt(config, {
+    schema: '9router-yolo/receipt-v1',
+    generatedAt: new Date().toISOString(),
+    action: 'chat',
+    status: 'pass',
+    host: os.hostname(),
+    model: config.model,
+    endpoint: config.endpoint,
+    loopbackOnly: true,
+    explicitRoute: true,
+    silentFallback: false,
+    promptStored: false,
+    promptDigest: promptDigest(task),
+    durationMs: Date.now() - started,
+    usage: response.usage || null,
+  });
+  return { text, receipt, rawModel: response.model || null };
+}
+
+function parseCliArgs(argv = process.argv.slice(2)) {
+  const json = argv.includes('--json');
+  const args = argv.filter((arg) => arg !== '--json');
+  if (args.length === 0) return { command: 'help', json, prompt: '' };
+  const first = args[0];
+  if (['--help', '-h', 'help'].includes(first)) return { command: 'help', json, prompt: '' };
+  if (['--version', '-v', 'version'].includes(first)) return { command: 'version', json, prompt: '' };
+  if (['--doctor', 'doctor'].includes(first)) return { command: 'doctor', json, prompt: '' };
+  if (['start', 'stop', 'restart', 'status', 'models', 'smoke'].includes(first)) {
+    if (args.length > 1) throw new Error(`${first} does not accept positional arguments`);
+    return { command: first, json, prompt: '' };
+  }
+  if (first === 'chat') return { command: 'chat', json, prompt: args.slice(1).join(' ') };
+  if (first.startsWith('-')) throw new Error(`unknown option: ${first}`);
+  return { command: 'chat', json, prompt: args.join(' ') };
+}
+
+function usage() {
+  return `Usage:
+  9router-yolo start|stop|restart|status|models [--json]
+  9router-yolo --doctor --json
+  9router-yolo smoke [--json]
+  9router-yolo "prompt"
+
+Safety contract: pinned 9Router ${UPSTREAM_VERSION}, direct loopback-only server,
+isolated data, local Ollama only, no browser, tunnel, MITM, autostart, credential
+migration, or silent default-Hermes replacement.`;
+}
+
+async function main(argv = process.argv.slice(2)) {
+  try {
+    const parsed = parseCliArgs(argv);
+    if (parsed.command === 'help') {
+      console.log(usage());
+      return 0;
+    }
+    if (parsed.command === 'version') {
+      console.log(`9router-yolo upstream=${UPSTREAM_VERSION}`);
+      return 0;
+    }
+    if (parsed.command === 'start') {
+      const result = await startRouter();
+      console.log(parsed.json ? JSON.stringify(result, null, 2) : `9router-yolo: ready on ${result.server.endpoint}`);
+      return 0;
+    }
+    if (parsed.command === 'stop') {
+      const result = await stopRouter();
+      console.log(parsed.json ? JSON.stringify(result, null, 2) : `9router-yolo: ${result.alreadyStopped ? 'already stopped' : 'stopped'}`);
+      return 0;
+    }
+    if (parsed.command === 'restart') {
+      await stopRouter();
+      const result = await startRouter();
+      console.log(parsed.json ? JSON.stringify(result, null, 2) : `9router-yolo: restarted on ${result.server.endpoint}`);
+      return 0;
+    }
+    if (parsed.command === 'doctor' || parsed.command === 'status') {
+      const result = await doctor();
+      console.log(parsed.json ? JSON.stringify(result, null, 2) : `9router-yolo: ${result.ready ? 'ready' : `blocked (${result.blockers.join(', ')})`}`);
+      return result.ready ? 0 : 2;
+    }
+    if (parsed.command === 'models') {
+      const models = await listModels();
+      console.log(parsed.json ? JSON.stringify({ models }, null, 2) : models.join('\n'));
+      return models.length > 0 ? 0 : 2;
+    }
+    if (parsed.command === 'smoke') {
+      const result = await chat('Reply with exactly: NINE_ROUTER_LOCAL_OK', { maxTokens: 32 });
+      const pass = result.text === 'NINE_ROUTER_LOCAL_OK';
+      const output = { pass, marker: pass ? result.text : null, receipt: result.receipt };
+      console.log(parsed.json ? JSON.stringify(output, null, 2) : result.text);
+      return pass ? 0 : 2;
+    }
+    const result = await chat(parsed.prompt);
+    console.log(parsed.json ? JSON.stringify(result, null, 2) : result.text);
+    return 0;
+  } catch (error) {
+    console.error(`9router-yolo: ${String(error.message).slice(0, 400)}`);
+    return 2;
+  }
+}
+
+if (require.main === module) {
+  main().then((code) => { process.exitCode = code; });
+}
+
+module.exports = {
+  DEFAULT_MAX_OLD_SPACE_MB,
+  DEFAULT_MODEL,
+  DEFAULT_PORT,
+  LOOPBACK_HOST,
+  SAFE_SETTINGS,
+  UPSTREAM_INTEGRITY,
+  UPSTREAM_VERSION,
+  assertLoopbackUrl,
+  chat,
+  configureSafe,
+  controlState,
+  doctor,
+  listModels,
+  listenerInfo,
+  main,
+  packageVersion,
+  parseCliArgs,
+  parseListenerOutput,
+  promptDigest,
+  requestJson,
+  runtimeConfig,
+  startRouter,
+  stopRouter,
+  usage,
+  writeReceipt,
+};
