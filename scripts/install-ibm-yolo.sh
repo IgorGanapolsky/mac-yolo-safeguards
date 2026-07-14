@@ -1,11 +1,18 @@
 #!/usr/bin/env bash
 # Install ibm-yolo on this Mac and Mac mini (Tailscale SSH).
+#
+# CRITICAL: never install a thin "exec share/ibm-yolo" wrapper.
+# If bin is a symlink into share (or share is overwritten with the wrapper),
+# the wrapper execs itself until ARG_MAX → "Argument list too long" (exit 126).
+# Always install the FULL CLI body to BOTH ~/.local/bin/ibm-yolo and
+# ~/.local/share/ibm-yolo/ibm-yolo as real files (no symlinks, no self-exec).
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 REMOTE_HOST="${IBM_YOLO_REMOTE_HOST:-hermes-mini}"
 INSTALL_REMOTE=1
 REMOTE_ONLY=0
+CLI_SRC="${ROOT}/ibm-yolo"
 
 usage() {
   echo "Usage: bash scripts/install-ibm-yolo.sh [--remote HOST|--no-remote|--remote-only]"
@@ -36,6 +43,21 @@ while (($#)); do
   esac
 done
 
+if [[ ! -f "$CLI_SRC" ]]; then
+  echo "install-ibm-yolo: missing $CLI_SRC" >&2
+  exit 1
+fi
+
+# Reject installing a wrapper body by mistake
+if head -20 "$CLI_SRC" | grep -qE 'exec .*share/ibm-yolo'; then
+  echo "install-ibm-yolo: refusing to install self-exec wrapper as CLI body" >&2
+  exit 1
+fi
+if ! head -5 "$CLI_SRC" | grep -q 'Enterprise multi-agent'; then
+  echo "install-ibm-yolo: $CLI_SRC does not look like the ibm-yolo CLI" >&2
+  exit 1
+fi
+
 resolve_repo() {
   if [[ -f "$HOME/workspace/git/igor/mac-yolo-safeguards/.worktrees/main-runtime/tools/hermes-hosting-market-signal.js" ]]; then
     echo "$HOME/workspace/git/igor/mac-yolo-safeguards/.worktrees/main-runtime"
@@ -46,37 +68,45 @@ resolve_repo() {
   fi
 }
 
-write_wrapper() {
-  local bin_path="$1"
-  local repo="$2"
-  # Never use a symlink: writing the wrapper through a bin→share symlink
-  # overwrites the real CLI body (that was the "cannot run ibm-yolo" bug).
-  rm -f "$bin_path"
-  cat >"$bin_path" <<EOF
-#!/usr/bin/env bash
-export IBM_YOLO_REPO="\${IBM_YOLO_REPO:-$repo}"
-export REVENUE_DIR="\${REVENUE_DIR:-\$HOME/workspace/git/igor/mac-yolo-safeguards/business_os/revenue}"
-export PATH="\$HOME/.local/bin:/opt/homebrew/bin:/usr/local/bin:\$PATH"
-exec "\$HOME/.local/share/ibm-yolo/ibm-yolo" "\$@"
-EOF
-  chmod 0755 "$bin_path"
+# Install full CLI to bin + share; never write an exec-wrapper.
+install_cli_files() {
+  local src="$1"
+  mkdir -p "$HOME/.local/bin" "$HOME/.local/share/ibm-yolo"
+  # If bobshell hijacked the share path, keep IBM Bob yolo as bob-yolo
+  if [[ -f "$HOME/.local/share/ibm-yolo/ibm-yolo" ]] && head -5 "$HOME/.local/share/ibm-yolo/ibm-yolo" | grep -qE 'Bob Shell|bob --yolo|Bob native'; then
+    cp "$HOME/.local/share/ibm-yolo/ibm-yolo" "$HOME/.local/bin/bob-yolo"
+    chmod 0755 "$HOME/.local/bin/bob-yolo"
+    echo "OK preserved Bob Shell wrapper as bob-yolo"
+  fi
+  # Remove paths first so we never write through a bin→share symlink
+  rm -f "$HOME/.local/bin/ibm-yolo" "$HOME/.local/share/ibm-yolo/ibm-yolo"
+  install -m 0755 "$src" "$HOME/.local/share/ibm-yolo/ibm-yolo"
+  install -m 0755 "$src" "$HOME/.local/bin/ibm-yolo"
+  assert_not_wrapper "$HOME/.local/bin/ibm-yolo"
+  assert_not_wrapper "$HOME/.local/share/ibm-yolo/ibm-yolo"
+}
+
+assert_not_wrapper() {
+  local path="$1"
+  if head -15 "$path" | grep -qE 'exec .*share/ibm-yolo'; then
+    echo "FAIL $path is a self-exec wrapper" >&2
+    exit 1
+  fi
+  local lines
+  lines="$(wc -l < "$path" | tr -d ' ')"
+  if (( lines < 50 )); then
+    echo "FAIL $path too short ($lines lines) — expected full CLI" >&2
+    exit 1
+  fi
 }
 
 install_local() {
   local repo
   repo="$(resolve_repo)"
-  mkdir -p "$HOME/.local/bin" "$HOME/.local/share/ibm-yolo"
-  # If bobshell hijacked the name, keep IBM Bob yolo as bob-yolo
-  if [[ -f "$HOME/.local/share/ibm-yolo/ibm-yolo" ]] && head -3 "$HOME/.local/share/ibm-yolo/ibm-yolo" | grep -qE 'Bob Shell|bob --yolo|Bob native'; then
-    cp "$HOME/.local/share/ibm-yolo/ibm-yolo" "$HOME/.local/bin/bob-yolo"
-    chmod 0755 "$HOME/.local/bin/bob-yolo"
-    echo "OK preserved Bob Shell wrapper as bob-yolo"
-  fi
-  rm -f "$HOME/.local/share/ibm-yolo/ibm-yolo" "$HOME/.local/bin/ibm-yolo"
-  install -m 0755 "$ROOT/ibm-yolo" "$HOME/.local/share/ibm-yolo/ibm-yolo"
-  write_wrapper "$HOME/.local/bin/ibm-yolo" "$repo"
-  echo "OK local $(hostname -s) ibm-yolo -> $HOME/.local/bin/ibm-yolo"
-  echo "   IBM_YOLO_REPO=$repo"
+  install_cli_files "$CLI_SRC"
+  echo "OK local $(hostname -s) ibm-yolo -> $HOME/.local/bin/ibm-yolo (full CLI, no wrapper)"
+  echo "   share mirror -> $HOME/.local/share/ibm-yolo/ibm-yolo"
+  echo "   default repo resolution uses: $repo (script prefers main-runtime when present)"
   env -u IBM_YOLO_REPO "$HOME/.local/bin/ibm-yolo" --doctor || true
 }
 
@@ -110,11 +140,6 @@ install_remote() {
      fi
      echo remote_repo_ready'
 
-  # Copy CLI binary
-  rsync -a "$ROOT/ibm-yolo" "$host:~/.local/share/ibm-yolo/ibm-yolo"
-  ssh -o BatchMode=yes -o ConnectTimeout=8 "$host" 'chmod 0755 "$HOME/.local/share/ibm-yolo/ibm-yolo"'
-
-  # If main not yet containing tools, sync critical files from this ROOT
   local remote_repo
   remote_repo="$(ssh -o BatchMode=yes -o ConnectTimeout=8 "$host" \
     'R=$HOME/workspace/git/igor/mac-yolo-safeguards
@@ -123,28 +148,48 @@ install_remote() {
      else echo $R; fi')"
 
   ssh -o BatchMode=yes -o ConnectTimeout=8 "$host" "mkdir -p '$remote_repo/tools' '$remote_repo/docs'"
+
+  # Tools + docs only (never rsync ibm-yolo into tools/)
   rsync -a \
-    "$ROOT/ibm-yolo" \
     "$ROOT/tools/hermes-hosting-market-signal.js" \
     "$ROOT/tools/smart-ops-controller.js" \
     "$ROOT/tools/revenue-autonomous-loop.js" \
-    "$host:$remote_repo/tools/" 2>/dev/null || {
-      # ibm-yolo is not under tools — copy tools only
-      rsync -a \
-        "$ROOT/tools/hermes-hosting-market-signal.js" \
-        "$ROOT/tools/smart-ops-controller.js" \
-        "$ROOT/tools/revenue-autonomous-loop.js" \
-        "$host:$remote_repo/tools/"
-    }
-  # Ensure market signal + docs exist on remote runtime
-  rsync -a "$ROOT/tools/hermes-hosting-market-signal.js" "$host:$remote_repo/tools/"
-  rsync -a "$ROOT/tools/smart-ops-controller.js" "$host:$remote_repo/tools/" 2>/dev/null || true
-  rsync -a "$ROOT/tools/revenue-autonomous-loop.js" "$host:$remote_repo/tools/" 2>/dev/null || true
+    "$host:$remote_repo/tools/"
   rsync -a "$ROOT/docs/ENTERPRISE-AGENT-SDLC-RELIABILITY.md" \
     "$ROOT/docs/HERMES-HOSTED-RELIABILITY.md" \
     "$host:$remote_repo/docs/" 2>/dev/null || true
-  # Place ibm-yolo script also at remote_repo/ibm-yolo for reference
   rsync -a "$ROOT/ibm-yolo" "$host:$remote_repo/ibm-yolo" 2>/dev/null || true
+
+  # Full CLI to share + bin (no wrapper)
+  rsync -a "$ROOT/ibm-yolo" "$host:/tmp/ibm-yolo-install-body"
+  ssh -o BatchMode=yes -o ConnectTimeout=12 "$host" 'bash -s' <<'REMOTE'
+set -euo pipefail
+src=/tmp/ibm-yolo-install-body
+if head -20 "$src" | grep -qE 'exec .*share/ibm-yolo'; then
+  echo "FAIL remote refused wrapper body" >&2
+  exit 1
+fi
+mkdir -p "$HOME/.local/bin" "$HOME/.local/share/ibm-yolo"
+if [[ -f "$HOME/.local/share/ibm-yolo/ibm-yolo" ]] && head -5 "$HOME/.local/share/ibm-yolo/ibm-yolo" | grep -qE 'Bob Shell|bob --yolo|Bob native'; then
+  cp "$HOME/.local/share/ibm-yolo/ibm-yolo" "$HOME/.local/bin/bob-yolo"
+  chmod 0755 "$HOME/.local/bin/bob-yolo"
+fi
+rm -f "$HOME/.local/bin/ibm-yolo" "$HOME/.local/share/ibm-yolo/ibm-yolo"
+install -m 0755 "$src" "$HOME/.local/share/ibm-yolo/ibm-yolo"
+install -m 0755 "$src" "$HOME/.local/bin/ibm-yolo"
+for p in "$HOME/.local/bin/ibm-yolo" "$HOME/.local/share/ibm-yolo/ibm-yolo"; do
+  if head -15 "$p" | grep -qE 'exec .*share/ibm-yolo'; then
+    echo "FAIL $p is wrapper" >&2
+    exit 1
+  fi
+  lines=$(wc -l < "$p" | tr -d " ")
+  if [ "$lines" -lt 50 ]; then
+    echo "FAIL $p too short ($lines)" >&2
+    exit 1
+  fi
+done
+echo "remote_cli_ok bin_lines=$(wc -l < "$HOME/.local/bin/ibm-yolo" | tr -d " ")"
+REMOTE
 
   # Private revenue map/pipeline so doctor + CTA work on mini
   if [[ -f "$HOME/workspace/git/igor/mac-yolo-safeguards/business_os/revenue/stripe-offer-map-2026-07-07.tsv" ]]; then
@@ -154,18 +199,8 @@ install_remote() {
       "$host:~/workspace/git/igor/mac-yolo-safeguards/business_os/revenue/" 2>/dev/null || true
   fi
 
-  # Wrapper on remote
-  ssh -o BatchMode=yes -o ConnectTimeout=8 "$host" \
-    "printf '%s\n' '#!/usr/bin/env bash' \
-      'export IBM_YOLO_REPO=\"\${IBM_YOLO_REPO:-$remote_repo}\"' \
-      'export REVENUE_DIR=\"\${REVENUE_DIR:-\$HOME/workspace/git/igor/mac-yolo-safeguards/business_os/revenue}\"' \
-      'export PATH=\"\$HOME/.local/bin:/opt/homebrew/bin:/usr/local/bin:\$PATH\"' \
-      'exec \"\$HOME/.local/share/ibm-yolo/ibm-yolo\" \"\$@\"' \
-      > \"\$HOME/.local/bin/ibm-yolo\" && chmod 0755 \"\$HOME/.local/bin/ibm-yolo\""
-
-  echo "OK remote $host IBM_YOLO_REPO=$remote_repo"
+  echo "OK remote $host full CLI (no wrapper) IBM_YOLO_REPO default → $remote_repo"
   ssh -o BatchMode=yes -o ConnectTimeout=12 "$host" '"$HOME/.local/bin/ibm-yolo" --doctor' || true
-  # smoke run no-apply
   ssh -o BatchMode=yes -o ConnectTimeout=60 "$host" '"$HOME/.local/bin/ibm-yolo" --no-apply --json' 2>/dev/null | head -c 400 || true
   echo ""
 }
