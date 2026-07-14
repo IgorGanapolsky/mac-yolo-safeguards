@@ -58,7 +58,7 @@ type ChatConnectionPanelProps = {
   usbHostMismatch?: UsbHostMismatch | null;
   connectionHealAttempt?: number;
   connectionHealInFlight?: boolean;
-  onSelectProfile?: (profileId: string) => void;
+  onSelectProfile?: (profileId: string, profile?: GatewayProfile) => void;
   onSearchMac: () => void;
   onFixUsbLink?: () => void;
   usbFixBusy?: boolean;
@@ -339,16 +339,17 @@ export default function ChatConnectionPanel({
 
       {pickerProfiles.length > 0 ? (
         <View style={styles.savedBlock}>
-          <Text style={styles.savedHeading}>Your saved computers</Text>
+          <Text style={styles.savedHeading}>Your computers</Text>
           <Text style={styles.savedHint}>
-            Tap one to connect when you are on the same home Wi‑Fi.
+            USB cable works only while plugged into that Mac. Tailscale works from cellular or
+            away from home Wi‑Fi.
           </Text>
           <GatewayProfilePicker
             profiles={pickerProfiles}
             activeProfileId={activeProfileId}
             activeReachable={activeProfileReachable}
             activeConnecting={activeProfileConnecting}
-            onSelect={(profileId) => onSelectProfile?.(profileId)}
+            onSelect={(profileId, profile) => onSelectProfile?.(profileId, profile)}
             wifiConnected={wifiConnected}
             showReachabilityHints={pickerProfiles.length > 1}
           />

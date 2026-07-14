@@ -8,6 +8,9 @@ import {
   profilePickerLines,
   profilesForDevicePicker,
   profilesForSwitchComputerPicker,
+  synthesizeLiveUsbProfile,
+  resolveProfileFromPickerRows,
+  profileConnectionRouteDisplayLabel,
   resolveUsbMatchingProfileId,
   shouldOfferUsbLinkRepair,
   hasOnlyLoopbackProfiles,
@@ -460,4 +463,40 @@ describe('gatewayProfilePicker', () => {
       ),
     ).toBe('Tailscale');
   });
+
+
+  it('synthesizes live USB row when reverse is reachable and no matching saved loopback', () => {
+    const profiles = profilesForSwitchComputerPicker(
+      [
+        {
+          id: 'mac_mini_ts',
+          label: 'Igors-Mac-mini',
+          gatewayUrl: 'http://100.94.135.78:8642',
+          hostname: 'Igors-Mac-mini',
+          localIp: '100.94.135.78',
+          addedAt: '2026-06-28T12:01:00Z',
+        },
+      ],
+      {
+        liveUsb: { reachable: true, hostname: 'Igors-MacBook-Pro.local' },
+      },
+    );
+    expect(profiles[0].gatewayUrl).toContain('127.0.0.1');
+    expect(profiles[0].label).toMatch(/MacBook-Pro/i);
+    expect(profilePickerLines(profiles[0]).detail).toMatch(/USB cable/i);
+    expect(profileConnectionRouteDisplayLabel(profiles[0], true)).toBe('USB cable');
+  });
+
+  it('resolveProfileFromPickerRows returns synthesized USB for ensure-select', () => {
+    const usb = synthesizeLiveUsbProfile('Igors-MacBook-Pro.local');
+    const mini = {
+      id: 'mac_mini_ts',
+      label: 'Igors-Mac-mini',
+      gatewayUrl: 'http://100.94.135.78:8642',
+      addedAt: '2026-06-28T12:01:00Z',
+    };
+    expect(resolveProfileFromPickerRows(usb.id, [usb, mini], [mini])).toEqual(usb);
+    expect(resolveProfileFromPickerRows('missing', [usb], [mini])).toBeNull();
+  });
+
 });

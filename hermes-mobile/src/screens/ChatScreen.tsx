@@ -5964,9 +5964,16 @@ export default function ChatScreen() {
               usbHostMismatch={usbHostMismatch}
               connectionHealAttempt={connectionHealAttempt}
               connectionHealInFlight={connectionHealInFlight}
-              onSelectProfile={async (profileId) => {
+              onSelectProfile={async (profileId, profile) => {
                 haptics.light();
-                await selectGatewayProfile(profileId);
+                const row =
+                  profile ?? switchComputerProfiles.find((p) => p.id === profileId);
+                const ok = await selectGatewayProfile(profileId, {
+                  ensureProfile: row,
+                });
+                if (!ok) {
+                  return;
+                }
                 await refreshHealth();
                 connectEvents();
               }}
@@ -6299,8 +6306,9 @@ export default function ChatScreen() {
               testID="mac-picker-scroll"
             >
               <Text style={styles.modalSubtitle}>
-                Pick a saved computer, or tap Find computers to search your home Wi‑Fi and known
-                Tailscale addresses.
+                USB cable is only the Mac this phone is plugged into right now. Tailscale works
+                from cellular. Or tap Find computers to search home Wi‑Fi and known Tailscale
+                addresses.
               </Text>
               <View style={styles.macSetupCard} testID="mac-picker-setup-help">
                 <Text style={styles.macSetupTitle}>Missing your other machine?</Text>
@@ -6332,9 +6340,14 @@ export default function ChatScreen() {
                 scanResult={profileScanResult}
                 wifiConnected={wifiConnected}
                 showReachabilityHints={switchComputerProfiles.length > 1}
-                onSelect={async (profileId) => {
+                onSelect={async (profileId, profile) => {
                   haptics.light();
-                  await selectGatewayProfile(profileId);
+                  const ok = await selectGatewayProfile(profileId, {
+                    ensureProfile: profile,
+                  });
+                  if (!ok) {
+                    return;
+                  }
                   await refreshHealth();
                   connectEvents();
                   setMacPickerVisible(false);
@@ -6343,7 +6356,8 @@ export default function ChatScreen() {
                   lastDistanceFromBottomRef.current = 0;
                   setCurrentSession(null);
                   setMessages([]);
-                  const pickedProfile = gatewayProfiles.find((profile) => profile.id === profileId);
+                  const pickedProfile =
+                    gatewayProfiles.find((p) => p.id === profileId) ?? profile;
                   await loadSessionsList(true, {
                     computerSessionKeys: resolveComputerSessionStorageKeys(
                       pickedProfile,

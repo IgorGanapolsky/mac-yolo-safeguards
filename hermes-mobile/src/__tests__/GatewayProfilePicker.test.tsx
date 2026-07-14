@@ -51,7 +51,10 @@ describe('GatewayProfilePicker', () => {
       />,
     );
     fireEvent.press(getByTestId('select-gateway-profile-mac_192_168_12_50'));
-    expect(onSelect).toHaveBeenCalledWith('mac_192_168_12_50');
+    expect(onSelect).toHaveBeenCalledWith(
+      'mac_192_168_12_50',
+      expect.objectContaining({ id: 'mac_192_168_12_50' }),
+    );
   });
 
   it('shows reachability hints when multiple profiles and off Wi-Fi', () => {

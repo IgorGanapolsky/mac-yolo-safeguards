@@ -32,7 +32,7 @@ const mockGatewayState = {
   relayWorkers: [],
   activeRelayWorkerId: null,
   isPaired: true,
-  selectGatewayProfile: jest.fn().mockResolvedValue(undefined),
+  selectGatewayProfile: jest.fn().mockResolvedValue(true),
   scanForGatewayProfiles: jest.fn().mockResolvedValue([]),
   profileScanning: false,
   profileScanProgress: null,
@@ -400,7 +400,7 @@ describe('ChatScreen', () => {
       activeRelayWorkerId: null,
       isPaired: true,
       refreshHealth: jest.fn().mockResolvedValue(undefined),
-      selectGatewayProfile: jest.fn().mockResolvedValue(undefined),
+      selectGatewayProfile: jest.fn().mockResolvedValue(true),
       scanForGatewayProfiles: jest.fn().mockResolvedValue([]),
       autoConnectGateway: jest.fn().mockResolvedValue('http://localhost:8642'),
       submitChatOutputFeedback: jest.fn().mockResolvedValue(true),
@@ -1244,7 +1244,7 @@ describe('ChatScreen', () => {
 
   it('keeps an explicitly selected Mac primary instead of immediately auto-discovering over it', async () => {
     const autoConnectGateway = jest.fn().mockResolvedValue('http://10.2.29.103:8642');
-    const selectGatewayProfile = jest.fn().mockResolvedValue(undefined);
+    const selectGatewayProfile = jest.fn().mockResolvedValue(true);
     Object.assign(mockGatewayState, {
       connectionState: 'connected',
       autoConnectGateway,
@@ -1281,7 +1281,12 @@ describe('ChatScreen', () => {
     fireEvent.press(getByTestId('select-gateway-profile-macmini'));
 
     await waitFor(() => {
-      expect(selectGatewayProfile).toHaveBeenCalledWith('macmini');
+      expect(selectGatewayProfile).toHaveBeenCalledWith(
+        'macmini',
+        expect.objectContaining({
+          ensureProfile: expect.objectContaining({ id: 'macmini' }),
+        }),
+      );
     });
     expect(autoConnectGateway).not.toHaveBeenCalled();
     expect(mockGatewayState.refreshHealth).toHaveBeenCalled();
