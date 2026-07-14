@@ -1,0 +1,207 @@
+#!/usr/bin/env bash
+# ibm-yolo — Enterprise multi-agent SDLC reliability operator
+#
+# Named for the IBM Bob-class market shift (full-lifecycle agents, cost/governance),
+# NOT an IBM product. Runs the mac-yolo-safeguards enterprise-sdlc cash path:
+# market signal → Stripe-verified CTAs → pipeline seed → optional smart-ops.
+#
+# Usage:
+#   ibm-yolo                  # enterprise-sdlc signal + apply pipeline + summary
+#   ibm-yolo --json           # machine-readable
+#   ibm-yolo --doctor         # health: repo tools, stripe, launchagents
+#   ibm-yolo --no-apply       # drafts only (no pipeline write)
+#   ibm-yolo --smart-ops      # also run smart-ops controller once
+#   ibm-yolo --both           # hermes-hosted + enterprise-sdlc presets
+#   ibm-yolo --help
+
+set -euo pipefail
+
+HOME_DIR="${HOME}"
+DEFAULT_REPO="${IBM_YOLO_REPO:-$HOME_DIR/workspace/git/igor/mac-yolo-safeguards}"
+# Prefer main-runtime worktree when present (LaunchAgent path)
+if [[ -f "${DEFAULT_REPO}/.worktrees/main-runtime/tools/hermes-hosting-market-signal.js" ]]; then
+  REPO="${IBM_YOLO_REPO:-$DEFAULT_REPO/.worktrees/main-runtime}"
+else
+  REPO="$DEFAULT_REPO"
+fi
+export REVENUE_DIR="${REVENUE_DIR:-$HOME_DIR/workspace/git/igor/mac-yolo-safeguards/business_os/revenue}"
+export PATH="${HOME_DIR}/.local/bin:/opt/homebrew/bin:/usr/local/bin:${PATH:-}"
+
+JSON=0
+DOCTOR=0
+APPLY=1
+SMART=0
+BOTH=0
+HELP=0
+
+usage() {
+  cat <<'EOF'
+ibm-yolo — Enterprise multi-agent SDLC reliability (IBM Bob-class market signal)
+
+  ibm-yolo                 Run enterprise-sdlc market signal (apply pipeline)
+  ibm-yolo --json          JSON output
+  ibm-yolo --doctor        Health check only
+  ibm-yolo --no-apply      Do not write pipeline
+  ibm-yolo --smart-ops     Chain smart-ops after signal
+  ibm-yolo --both          hermes-hosted + enterprise-sdlc presets
+  ibm-yolo --help
+
+Env:
+  IBM_YOLO_REPO    repo or main-runtime path (default auto)
+  REVENUE_DIR      private business_os/revenue path
+EOF
+}
+
+while (($#)); do
+  case "$1" in
+    --json) JSON=1; shift ;;
+    --doctor) DOCTOR=1; shift ;;
+    --no-apply) APPLY=0; shift ;;
+    --smart-ops) SMART=1; shift ;;
+    --both) BOTH=1; shift ;;
+    -h|--help) HELP=1; shift ;;
+    *)
+      echo "ibm-yolo: unknown argument: $1" >&2
+      usage >&2
+      exit 2
+      ;;
+  esac
+done
+
+if ((HELP)); then
+  usage
+  exit 0
+fi
+
+if [[ ! -f "$REPO/tools/hermes-hosting-market-signal.js" ]]; then
+  echo "ibm-yolo: market-signal tool missing at $REPO" >&2
+  echo "  expected tools/hermes-hosting-market-signal.js" >&2
+  exit 1
+fi
+
+NODE="$(command -v node || true)"
+if [[ -z "$NODE" ]]; then
+  echo "ibm-yolo: node not found in PATH" >&2
+  exit 1
+fi
+
+doctor() {
+  local ok=1
+  echo "=== ibm-yolo doctor ($(hostname -s 2>/dev/null || hostname)) ==="
+  echo "repo=$REPO"
+  echo "revenue_dir=$REVENUE_DIR"
+  echo "node=$NODE ($($NODE -v 2>/dev/null || echo '?'))"
+  for f in \
+    tools/hermes-hosting-market-signal.js \
+    tools/smart-ops-controller.js \
+    tools/revenue-autonomous-loop.js \
+    docs/ENTERPRISE-AGENT-SDLC-RELIABILITY.md; do
+    if [[ -f "$REPO/$f" ]]; then
+      echo "OK $f"
+    else
+      echo "MISS $f"
+      ok=0
+    fi
+  done
+  if [[ -d "$REVENUE_DIR" ]]; then
+    echo "OK revenue_dir"
+    local map
+    map="$(ls -t "$REVENUE_DIR"/stripe-offer-map-*.tsv 2>/dev/null | head -1 || true)"
+    if [[ -n "$map" ]]; then
+      echo "OK stripe_map=$(basename "$map")"
+      while IFS=$'\t' read -r offer url; do
+        [[ -z "${url:-}" ]] && continue
+        code="$(curl -sS -o /dev/null -w '%{http_code}' -L --max-time 12 "$url" 2>/dev/null || echo fail)"
+        echo "  stripe $code $offer"
+      done < <(awk -F'\t' 'NR>1{print $1"\t"$7}' "$map")
+    else
+      echo "WARN no stripe-offer-map-*.tsv"
+    fi
+  else
+    echo "MISS revenue_dir"
+    ok=0
+  fi
+  local uid
+  uid="$(id -u)"
+  for label in com.igor.smart-ops com.igor.revenue-autonomous-loop; do
+    if launchctl print "gui/${uid}/${label}" >/dev/null 2>&1; then
+      local last
+      last="$(launchctl print "gui/${uid}/${label}" 2>/dev/null | awk -F'= ' '/last exit code/{print $2; exit}')"
+      echo "OK launchd $label last_exit=${last:-?}"
+    else
+      echo "WARN launchd $label not loaded"
+    fi
+  done
+  if command -v ibm-yolo >/dev/null 2>&1; then
+    echo "OK path=$(command -v ibm-yolo)"
+  else
+    echo "WARN ibm-yolo not on PATH"
+  fi
+  if ((ok)); then
+    echo "DOCTOR_OK"
+    return 0
+  fi
+  echo "DOCTOR_FAIL"
+  return 1
+}
+
+if ((DOCTOR)); then
+  doctor
+  exit $?
+fi
+
+cd "$REPO"
+run_preset() {
+  local preset="$1"
+  local args=(tools/hermes-hosting-market-signal.js --preset "$preset")
+  if ((APPLY)); then
+    args+=(--apply-pipeline)
+  fi
+  if ((JSON)); then
+    args+=(--json)
+  fi
+  "$NODE" "${args[@]}"
+}
+
+if ((BOTH)); then
+  if ((JSON)); then
+    # Combine into one JSON object
+    hermes_out="$(run_preset hermes-hosted 2>/dev/null || echo '{}')"
+    ent_out="$(run_preset enterprise-sdlc 2>/dev/null || echo '{}')"
+    "$NODE" -e '
+      const h=JSON.parse(process.argv[1]||"{}");
+      const e=JSON.parse(process.argv[2]||"{}");
+      console.log(JSON.stringify({ok: !!(h.ok&&e.ok), hermes_hosted:h, enterprise_sdlc:e, command:"ibm-yolo --both"}, null, 2));
+    ' "$hermes_out" "$ent_out"
+  else
+    echo "=== hermes-hosted ==="
+    run_preset hermes-hosted || true
+    echo "=== enterprise-sdlc ==="
+    run_preset enterprise-sdlc || true
+  fi
+else
+  run_preset enterprise-sdlc
+fi
+
+if ((SMART)); then
+  if [[ -f "$REPO/tools/smart-ops-controller.js" ]]; then
+    export SMART_OPS_MARKET_SIGNAL=1
+    export REVENUE_AUTO_SEND="${REVENUE_AUTO_SEND:-1}"
+    export REVENUE_NTFY_QUIET_NOOP="${REVENUE_NTFY_QUIET_NOOP:-1}"
+    if ((JSON)); then
+      echo "--- smart-ops ---" >&2
+      "$NODE" tools/smart-ops-controller.js --json || true
+    else
+      echo "=== smart-ops ==="
+      "$NODE" tools/smart-ops-controller.js --json | "$NODE" -e '
+        let s=""; process.stdin.on("data",d=>s+=d); process.stdin.on("end",()=>{
+          try {
+            const j=JSON.parse(s);
+            console.log("smart-ops ok="+j.ok+" durationMs="+j.durationMs);
+            (j.actions||[]).forEach(a=>console.log("  "+a));
+          } catch { console.log(s.slice(0,500)); }
+        });
+      '
+    fi
+  fi
+fi
