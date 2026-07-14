@@ -260,6 +260,7 @@ import { isLoopbackGatewayUrl } from '../utils/gatewayUrlPolicy';
 import { isInvalidGatewayProfile } from '../services/gatewayProfiles';
 import { isPrivateLanGatewayUrl } from '../utils/gatewayEndpoint';
 import { detectUsbHostMismatch, profilesForSwitchComputerPicker } from '../utils/gatewayProfilePicker';
+import type { LiveUsbPickerInput } from '../utils/gatewayProfilePicker';
 import TailscaleDiscoveryBanner from '../components/TailscaleDiscoveryBanner';
 import { USB_LOOPBACK_GATEWAY_URL } from '../utils/gatewayLoopbackFallback';
 import {
@@ -269,6 +270,7 @@ import {
 } from '../utils/gatewayConnection';
 import {
   pairServerHostFromGatewayUrl,
+  probeLiveUsbGateway,
   resolvePairServerSetupParams,
 } from '../services/gatewayDiscovery';
 import { isGatewayLiveForDelivery } from '../utils/outboundDeliveryStatus';
@@ -527,13 +529,7 @@ export default function ChatScreen() {
   const [sessionModalVisible, setSessionModalVisible] = useState(false);
   const [toolsModalVisible, setToolsModalVisible] = useState(false);
   const [macPickerVisible, setMacPickerVisible] = useState(false);
-  const switchComputerProfiles = useMemo(
-    () =>
-      profilesForSwitchComputerPicker(gatewayProfiles, {
-        activeProfileId: activeGatewayProfile?.id ?? null,
-      }),
-    [activeGatewayProfile?.id, gatewayProfiles],
-  );
+  const [liveUsbProbed, setLiveUsbProbed] = useState<LiveUsbPickerInput | null>(null);
   const [isScanningMacs, setIsScanningMacs] = useState(false);
   const [projectModalVisible, setProjectModalVisible] = useState(false);
   const [projectSearchQuery, setProjectSearchQuery] = useState('');
@@ -963,6 +959,32 @@ export default function ChatScreen() {
   }, [apiKey, gatewayUrl, isDemo]);
 
   const macHttpOk = useMemo(() => isMacGatewayHttpOk(health), [health]);
+  const liveUsbFromHealth = useMemo((): LiveUsbPickerInput | null => {
+    if (Platform.OS !== 'android' || isDemo || !isLoopbackGatewayUrl(gatewayUrl)) {
+      return null;
+    }
+    const reachable =
+      macHttpOk ||
+      Boolean(health?.usbTunnelHostname?.trim()) ||
+      health?.directGatewayReachable === true;
+    if (!reachable) {
+      return null;
+    }
+    const hostname = health?.usbTunnelHostname ?? health?.hostname;
+    if (hostname?.trim()) {
+      return { reachable: true, hostname };
+    }
+    return { reachable: true };
+  }, [gatewayUrl, health, isDemo, macHttpOk]);
+  const liveUsbGateway = liveUsbFromHealth ?? liveUsbProbed;
+  const switchComputerProfiles = useMemo(
+    () =>
+      profilesForSwitchComputerPicker(gatewayProfiles, {
+        activeProfileId: activeGatewayProfile?.id ?? null,
+        liveUsb: liveUsbGateway,
+      }),
+    [activeGatewayProfile?.id, gatewayProfiles, liveUsbGateway],
+  );
   const healthProbePending = useMemo(() => isGatewayHealthPending(health), [health]);
   const usbCableLikely = useMemo(
     () => Platform.OS === 'android' && isLoopbackGatewayUrl(gatewayUrl) && macHttpOk,
@@ -1207,6 +1229,35 @@ export default function ChatScreen() {
     }
     void probeTailscaleComputers();
   }, [macPickerVisible, isDemo, probeTailscaleComputers]);
+
+  useEffect(() => {
+    if (Platform.OS !== 'android' || isDemo) {
+      return;
+    }
+    if (!macPickerVisible && !showMacConnectionHelp) {
+      return;
+    }
+    if (liveUsbFromHealth?.hostname?.trim()) {
+      return;
+    }
+    let cancelled = false;
+    void probeLiveUsbGateway().then((discovery) => {
+      if (cancelled) {
+        return;
+      }
+      if (discovery?.hostname?.trim()) {
+        setLiveUsbProbed({
+          reachable: true,
+          hostname: discovery.hostname,
+        });
+        return;
+      }
+      setLiveUsbProbed(discovery ? { reachable: true } : null);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [isDemo, liveUsbFromHealth?.hostname, macPickerVisible, showMacConnectionHelp]);
 
   const handleSearchMacFromChat = useCallback(async () => {
     haptics.selection();

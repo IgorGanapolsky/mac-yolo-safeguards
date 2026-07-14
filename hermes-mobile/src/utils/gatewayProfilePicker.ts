@@ -1,5 +1,6 @@
 import { Platform } from 'react-native';
 import type { GatewayProfile } from '../types/gatewayProfile';
+import { profileIdFromGatewayUrl } from '../services/gatewayProfiles';
 import {
   extractLanIpFromGatewayUrl,
   gatewayUrlHostname,
@@ -7,6 +8,7 @@ import {
   isLoopbackHost,
   resolveDisplayLanIp,
 } from './gatewayUrlPolicy';
+import { USB_LOOPBACK_GATEWAY_URL } from './gatewayLoopbackFallback';
 import { isPrivateLanGatewayUrl } from './gatewayEndpoint';
 import {
   isGenericMachineLabel,
@@ -101,14 +103,34 @@ function hasNamedUsbLoopbackProfile(profiles: GatewayProfile[]): boolean {
 
 export type SwitchComputerPickerOptions = {
   activeProfileId?: string | null;
+  /** Live adb-reverse probe — when reachable, show the plugged-in Mac as a USB row. */
+  liveUsb?: LiveUsbPickerInput | null;
 };
 
-/** Loopback/USB rows are adb-dev only — never show them in Choose your computer. */
-export function shouldShowProfileInUserPicker(profile: GatewayProfile): boolean {
+export type LiveUsbPickerInput = {
+  reachable: boolean;
+  hostname?: string | null;
+};
+
+/** Loopback/USB rows stay hidden unless adb reverse is live (phone probes 127.0.0.1:8642). */
+export function shouldShowProfileInUserPicker(
+  profile: GatewayProfile,
+  options: Partial<Pick<LiveUsbPickerInput, 'reachable' | 'hostname'>> = {},
+): boolean {
   if (isInvalidGatewayProfile(profile)) {
     return false;
   }
-  return !isLoopbackGatewayUrl(profile.gatewayUrl);
+  if (!isLoopbackGatewayUrl(profile.gatewayUrl)) {
+    return true;
+  }
+  if (!options.reachable) {
+    return false;
+  }
+  const liveHost = options.hostname?.trim();
+  if (!liveHost) {
+    return !isGenericUsbLoopbackProfile(profile);
+  }
+  return profileMatchesHostname(profile, liveHost);
 }
 
 function isLikelyMobileTailscaleProfile(profile: GatewayProfile): boolean {
@@ -151,9 +173,14 @@ function switchPickerRowKey(profile: GatewayProfile): string {
   if (isGenericUsbLoopbackProfile(profile)) {
     return 'usb:generic';
   }
+  const route = isLoopbackGatewayUrl(profile.gatewayUrl)
+    ? 'usb'
+    : isTailscaleGatewayUrl(profile.gatewayUrl)
+      ? 'tailscale'
+      : 'lan';
   const name = profileDisplayName(profile).toLowerCase();
   if (!isGenericMachineLabel(name)) {
-    return `name:${name}`;
+    return `${route}:name:${name}`;
   }
   const ip = profile.localIp?.trim() || extractLanIpFromGatewayUrl(profile.gatewayUrl);
   if (ip) {
@@ -176,21 +203,67 @@ function dedupeSwitchPickerRows(profiles: GatewayProfile[]): GatewayProfile[] {
   return rows;
 }
 
-/** Switch-computer list: valid profiles minus phone/self, loopback/USB, and duplicate rows. */
+function synthesizeLiveUsbProfile(hostname: string): GatewayProfile {
+  const cleanHost = hostname.replace(/\.local$/i, '').trim();
+  const now = new Date().toISOString();
+  return {
+    id: profileIdFromGatewayUrl(USB_LOOPBACK_GATEWAY_URL, cleanHost),
+    label: cleanHost,
+    gatewayUrl: USB_LOOPBACK_GATEWAY_URL,
+    hostname: hostname.includes('.local') ? hostname : `${cleanHost}.local`,
+    addedAt: now,
+    lastConnectedAt: now,
+  };
+}
+
+function sortUsbProfilesFirst(profiles: GatewayProfile[]): GatewayProfile[] {
+  return [...profiles].sort((a, b) => {
+    const aUsb = isLoopbackGatewayUrl(a.gatewayUrl);
+    const bUsb = isLoopbackGatewayUrl(b.gatewayUrl);
+    if (aUsb && !bUsb) {
+      return -1;
+    }
+    if (!aUsb && bUsb) {
+      return 1;
+    }
+    return 0;
+  });
+}
+
+/** Switch-computer list: valid profiles minus phone/self, hidden loopback unless live USB, deduped. */
 export function profilesForSwitchComputerPicker(
   profiles: GatewayProfile[],
   options: SwitchComputerPickerOptions = {},
 ): GatewayProfile[] {
+  const liveUsb = options.liveUsb;
+  const liveUsbReachable = liveUsb?.reachable === true;
+  const liveUsbHostname = liveUsb?.hostname ?? null;
   let valid = dedupeSwitchPickerRows(
     profilesForDevicePicker(profiles).filter(
       (profile) =>
-        shouldShowProfileInUserPicker(profile) &&
+        shouldShowProfileInUserPicker(profile, {
+          reachable: liveUsbReachable,
+          hostname: liveUsbHostname,
+        }) &&
         !isLikelyMobileTailscaleProfile(profile) &&
         !isUnnamedInactiveTailscaleIpProfile(profile, options.activeProfileId),
     ),
   );
+  if (liveUsbReachable && liveUsbHostname?.trim()) {
+    const hasMatchingUsb = valid.some(
+      (profile) =>
+        isLoopbackGatewayUrl(profile.gatewayUrl) &&
+        profileMatchesHostname(profile, liveUsbHostname),
+    );
+    if (!hasMatchingUsb) {
+      valid = [synthesizeLiveUsbProfile(liveUsbHostname), ...valid];
+    }
+  }
   if (hasNamedUsbLoopbackProfile(valid)) {
     valid = valid.filter((p) => !isGenericUsbLoopbackProfile(p));
+  }
+  if (liveUsbReachable) {
+    valid = sortUsbProfilesFirst(valid);
   }
   return valid;
 }

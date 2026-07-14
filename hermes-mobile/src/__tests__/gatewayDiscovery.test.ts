@@ -5,6 +5,7 @@ import {
   discoverAllGatewaysOnLan,
   bootstrapTailnetProbeHostsFromPairServers,
   pairServerHostFromGatewayUrl,
+  probeLiveUsbGateway,
   resolvePairServerSetupParams,
 } from '../services/gatewayDiscovery';
 
@@ -223,5 +224,25 @@ describe('gatewayDiscovery', () => {
     });
     expect(tailnetProbeHosts).toEqual(expect.arrayContaining(['100.94.135.78', '100.87.85.85']));
     expect(gateways.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it('probeLiveUsbGateway returns hostname when adb reverse loopback is healthy', async () => {
+    (global.fetch as jest.Mock).mockImplementation((url: string) => {
+      if (url === 'http://127.0.0.1:8642/health') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            status: 'ok',
+            hostname: 'Igors-MacBook-Pro.local',
+            local_ip: '192.168.68.70',
+          }),
+        });
+      }
+      return Promise.resolve({ ok: false });
+    });
+
+    const discovery = await probeLiveUsbGateway();
+    expect(discovery?.gatewayUrl).toBe('http://127.0.0.1:8642');
+    expect(discovery?.hostname).toBe('Igors-MacBook-Pro.local');
   });
 });

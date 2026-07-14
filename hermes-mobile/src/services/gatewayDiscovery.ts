@@ -12,6 +12,7 @@ import { buildTailscaleGatewayUrl, mergeTailnetProbeHosts } from '../utils/tails
 import { normalizeGatewayUrl } from './gatewayClient';
 import type { DiscoveredGateway } from '../types/gatewayProfile';
 import type { LanScanProgress, LanScanStage } from '../types/lanScan';
+import { USB_LOOPBACK_GATEWAY_URL } from '../utils/gatewayLoopbackFallback';
 
 const IPV4_RE = /^\d{1,3}(\.\d{1,3}){3}$/;
 const PROBE_TIMEOUT_MS = 1500;
@@ -460,6 +461,11 @@ export async function discoverGatewayViaPairServer(
 ): Promise<string | null> {
   const phoneIp = await getPhoneLanIp();
   return sweepSubnetForPairServer(phoneIp ?? '', preferLanIp);
+}
+
+/** Probe adb-reverse USB loopback — reachable only when phone is cabled to a Mac with reverse active. */
+export async function probeLiveUsbGateway(): Promise<DiscoveredGateway | null> {
+  return probeGatewayDetailed(USB_LOOPBACK_GATEWAY_URL);
 }
 
 /**
