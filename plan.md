@@ -195,7 +195,11 @@ Durable rules live in [AGENTS.md](./AGENTS.md); this file is *live state only*.
 
 Status values: `pending` | `in_progress` | `blocked` | `done`. Claim a row by setting Owner+Status in one edit, then claim its files in §2.
 
+| T-318 | Prevent Grok/Fable quota exhaustion from disabling hermes-yolo fleet-wide | in_progress | codex-hermes-quota-failover | `hermes-yolo-wrapper.js`, `tests/test-hermes-yolo.js`, `plan.md` | ordinary runs use the quota-independent Hermes provider and never invoke an exhausted Grok launcher; explicit Grok remains available; simulated quota regression, fleet route receipts, and local/Mac-mini runtime proof pass |
+
 ## 2. File Ownership Map (append-only lock table — claim before touching)
+
+- `hermes-yolo-wrapper.js`, `tests/test-hermes-yolo.js`, `plan.md` → **codex-hermes-quota-failover** (T-318 Grok/Fable quota circuit breaker and Hermes fallback) (2026-07-14T16:55:00Z)
 
 - `ali-yolo-wrapper.js`, `tests/test-ali-yolo.js`, `scripts/install-ali-yolo.sh`, `docs/ALI-YOLO.md`, `plan.md` → **codex-ali-yolo** (T-318 official Alibaba Qwen CLI wrapper + dual-Mac install/proof) (2026-07-14T15:05:00Z)
 
