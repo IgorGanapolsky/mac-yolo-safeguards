@@ -30,13 +30,18 @@ Helper pattern (multiline JS must be **base64 + eval**, not raw AppleScript embe
 3. Fill body via `document.execCommand('insertText', …)` and/or clipboard paste (`Cmd+A`, `Cmd+V`) so React enables **Post**.
 4. Click `button.share-actions__primary-action` whose text is **Post** only when `disabled` / `aria-disabled` is false.
 5. Capture toast **"Post successful"** + `a[href*="/feed/update/urn:li:share:"]` URL.
-6. Navigate to that post URL; fill **Add a comment…** (`div.ql-editor`); submit comment with CTA:
+6. Navigate to that post URL; fill **Add a comment…** (`div.ql-editor`); submit with CTA:
    - Play: `https://play.google.com/store/apps/details?id=com.iganapolsky.hermesmobile`
    - GitHub: `https://github.com/IgorGanapolsky/mac-yolo-safeguards/tree/main/hermes-mobile`
    - Soft Leash pricing from **live Play** (e.g. ~$19.99/mo — re-fetch if needed)
    - iOS not public unless iTunes lookup non-zero
-7. Verify live: post text + comment has Play/GitHub.
-8. Proof: screenshot → `hermes-mobile/docs/social/proofs/proof-linkedin-YYYY-MM-DD.png` + URL file; update `ready-to-post/PUBLISHED.md` + content-engine memory TSV.
+   - **Submit button (2026-07-14 proven):** `button.comments-comment-box__submit-button--cr` (text **Comment**).  
+     Do **not** click `social-actions-button comment` (that only expands the composer).
+   - Clipboard paste (`Cmd+A`/`Cmd+V`) if React leaves submit disabled after `execCommand`.
+7. **Hard verify (do not trust “1 comment” alone):**
+   - Fail closed unless page text or `a[href*="play.google.com/store/apps/details?id=com.iganapolsky.hermesmobile"]` is present **and** editor no longer holds the draft.
+   - “Most relevant” can hide comments — if count > 0 but no Play text, re-submit CTA or switch to Most recent, then re-check.
+8. Proof: screenshot → `hermes-mobile/docs/social/proofs/proof-linkedin-YYYY-MM-DD.png` + URL file; update `ready-to-post/PUBLISHED.md` + `docs/social/MEMORY-14D.tsv`.
 9. Commit proof docs when publish is verified (user ship rule).
 
 ## Scripts already in repo
