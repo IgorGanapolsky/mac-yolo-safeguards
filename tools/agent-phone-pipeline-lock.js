@@ -197,7 +197,8 @@ function releaseLock() {
 function withPhonePipelineLock(label, fn, options = {}) {
   const waitMs = options.waitMs ?? DEFAULT_WAIT_MS;
   const skipIfBusy = options.skipIfBusy ?? false;
-  const external = pipelineBusyReason();
+  const externalBusyReason = options.pipelineBusyReasonImpl || pipelineBusyReason;
+  const external = externalBusyReason();
   if (external) {
     if (skipIfBusy) {
       return { ran: false, skipped: true, reason: external };
@@ -225,6 +226,111 @@ function withPhonePipelineLock(label, fn, options = {}) {
   }
 }
 
+function physicalPhoneUserActivity(options = {}) {
+  const run = options.spawnSyncImpl || spawnSync;
+  const adbCommand = options.adbCommand || 'adb';
+  const devices = run(adbCommand, ['devices', '-l'], { encoding: 'utf8' });
+  if (devices.status !== 0) {
+    return { active: false, serial: '', reason: 'adb unavailable' };
+  }
+
+  const serial = String(devices.stdout || '')
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .find(
+      (line) =>
+        line &&
+        !line.startsWith('List of devices') &&
+        !line.startsWith('emulator-') &&
+        /\sdevice(?:\s|$)/.test(line),
+    )
+    ?.split(/\s+/)[0] || '';
+  if (!serial) {
+    return { active: false, serial: '', reason: 'no physical phone' };
+  }
+
+  const power = run(adbCommand, ['-s', serial, 'shell', 'dumpsys', 'power'], {
+    encoding: 'utf8',
+  });
+  const awake = power.status === 0 && /mWakefulness=Awake\b/.test(String(power.stdout || ''));
+  if (!awake) {
+    return { active: false, serial, reason: 'physical phone is not awake' };
+  }
+
+  const window = run(adbCommand, ['-s', serial, 'shell', 'dumpsys', 'window'], {
+    encoding: 'utf8',
+  });
+  const focusText = String(window.stdout || '');
+  const focus = focusText.match(/mCurrentFocus=.*?\s([A-Za-z0-9._]+)\/[A-Za-z0-9.$_]+/)?.[1]
+    || focusText.match(/mFocusedApp=.*?\s([A-Za-z0-9._]+)\/[A-Za-z0-9.$_]+/)?.[1]
+    || '';
+  return {
+    active: true,
+    serial,
+    foregroundPackage: focus,
+    reason: focus
+      ? `physical phone is awake with ${focus} foreground`
+      : 'physical phone is awake',
+  };
+}
+
+function runCommandWithPhonePipelineLock(label, command, args = [], options = {}) {
+  let commandStatus = 70;
+  const run = options.spawnSyncImpl || spawnSync;
+  const result = withPhonePipelineLock(
+    label,
+    () => {
+      const child = run(command, args, {
+        stdio: options.stdio || 'inherit',
+        env: options.env || process.env,
+      });
+      commandStatus = Number.isInteger(child.status) ? child.status : 70;
+    },
+    {
+      waitMs: options.waitMs ?? 0,
+      skipIfBusy: true,
+      pipelineBusyReasonImpl: options.pipelineBusyReasonImpl,
+    },
+  );
+  if (!result.ran) {
+    return { ...result, status: 75 };
+  }
+  return { ran: true, status: commandStatus };
+}
+
+function main(argv) {
+  const [command, ...rest] = argv;
+  if (command === 'phone-user-active') {
+    const activity = physicalPhoneUserActivity();
+    process.stdout.write(`${JSON.stringify(activity)}\n`);
+    process.exitCode = activity.active ? 75 : 0;
+    return;
+  }
+  if (command === 'run') {
+    const separator = rest.indexOf('--');
+    const label = separator > 0 ? rest.slice(0, separator).join(' ') : '';
+    const childCommand = separator >= 0 ? rest[separator + 1] : '';
+    const childArgs = separator >= 0 ? rest.slice(separator + 2) : [];
+    if (!label || !childCommand) {
+      process.stderr.write('Usage: agent-phone-pipeline-lock.js run <label> -- <command> [args...]\n');
+      process.exitCode = 2;
+      return;
+    }
+    const result = runCommandWithPhonePipelineLock(label, childCommand, childArgs);
+    if (!result.ran && result.reason) {
+      process.stderr.write(`phone pipeline busy: ${result.reason}\n`);
+    }
+    process.exitCode = result.status;
+    return;
+  }
+  process.stderr.write('Usage: agent-phone-pipeline-lock.js <phone-user-active|run>\n');
+  process.exitCode = 2;
+}
+
+if (require.main === module) {
+  main(process.argv.slice(2));
+}
+
 module.exports = {
   REPO,
   HERMES_DIR,
@@ -239,6 +345,8 @@ module.exports = {
   phoneInstallLaunchJobRunning,
   pipelineBusyReason,
   withPhonePipelineLock,
+  physicalPhoneUserActivity,
+  runCommandWithPhonePipelineLock,
   reclaimStaleLockDir,
   isAlive,
 };
