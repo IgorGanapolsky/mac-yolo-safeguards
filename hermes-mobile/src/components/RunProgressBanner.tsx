@@ -20,6 +20,9 @@ type RunProgressBannerProps = {
   onStop?: () => void;
   onDismiss?: () => void;
   onRetry?: () => void;
+  /** Poll gateway transcript for reply text (works at bottom of chat; unlike pull-to-refresh). */
+  onRefreshRun?: () => void;
+  refreshRunBusy?: boolean;
   /** Live terminal line from Mac — shown below status, not as a second banner. */
   terminalToolName?: string;
   terminalPreview?: string;
@@ -49,6 +52,8 @@ function RunProgressBanner({
   onStop,
   onDismiss,
   onRetry,
+  onRefreshRun,
+  refreshRunBusy = false,
   terminalToolName,
   terminalPreview,
   megaSessionWarning,
@@ -166,6 +171,26 @@ function RunProgressBanner({
             <Text style={[styles.stopChipText, emphasizeStop && styles.stopChipTextEmphasis]}>
               {emphasizeStop ? 'Stop stuck run' : 'Stop'}
             </Text>
+          </Pressable>
+        ) : null}
+        {onRefreshRun ? (
+          <Pressable
+            onPress={onRefreshRun}
+            disabled={refreshRunBusy}
+            style={({ pressed }) => [
+              styles.refreshChip,
+              refreshRunBusy && styles.stopChipPressed,
+              pressed && !refreshRunBusy && styles.stopChipPressed,
+            ]}
+            testID="run-progress-refresh"
+            accessibilityLabel="Refresh run"
+            accessibilityState={{ busy: refreshRunBusy, disabled: refreshRunBusy }}
+          >
+            {refreshRunBusy ? (
+              <ActivityIndicator size="small" color={colors.primary} />
+            ) : (
+              <Text style={styles.refreshChipText}>Refresh</Text>
+            )}
           </Pressable>
         ) : null}
         {!isActive && onRetry ? (
@@ -439,6 +464,22 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '800',
     color: colors.warning,
+  },
+  refreshChip: {
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(59, 130, 246, 0.45)',
+    backgroundColor: 'rgba(59, 130, 246, 0.12)',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    minWidth: 64,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  refreshChipText: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: colors.primary,
   },
   statsPanel: {
     flexDirection: 'row',

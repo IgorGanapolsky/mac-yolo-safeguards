@@ -17,7 +17,7 @@ export const GENERIC_EMPTY_STREAM_PLACEHOLDER =
 
 /** After poll timeout with no reply text — actionable, not passive. */
 export const EMPTY_STREAM_TIMEOUT_PLACEHOLDER =
-  'Still no reply text. Hermes may be stuck in tools on your Mac — pull to refresh, tap Stop if a run is active, or start a fresh chat.';
+  'Still no reply text. Hermes may be stuck in tools on your Mac — tap Refresh below, Stop if a run is active, or start a fresh chat for faster replies.';
 
 export function isDeferredStreamPlaceholder(content: string | undefined): boolean {
   const body = content?.trim() ?? '';

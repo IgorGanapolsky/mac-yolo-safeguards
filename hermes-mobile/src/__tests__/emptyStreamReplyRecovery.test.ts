@@ -71,7 +71,7 @@ describe('emptyStreamReplyRecovery', () => {
     expect(DEFERRED_REPLY_POLL_MAX_WITH_TOOLS_MS).toBe(180_000);
     expect(deferredReplyPollBudgetMs({ toolsActive: false })).toBe(60_000);
     expect(deferredReplyPollBudgetMs({ toolsActive: true })).toBe(180_000);
-    expect(EMPTY_REPLY_FAILURE_REASON).toMatch(/fresh chat|refresh/i);
+    expect(EMPTY_REPLY_FAILURE_REASON).toMatch(/fresh chat|refresh below/i);
   });
 
   it('surfaces tool activity after the last user turn', () => {

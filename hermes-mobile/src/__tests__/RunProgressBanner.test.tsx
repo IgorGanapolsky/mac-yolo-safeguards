@@ -306,4 +306,21 @@ describe('RunProgressBanner', () => {
     );
     expect(queryByTestId('run-progress-toggle')).toBeNull();
   });
+
+  it('shows Refresh chip wired for empty-reply recovery', () => {
+    const onRefreshRun = jest.fn();
+    const { getByTestId } = render(
+      <RunProgressBanner
+        progress={{
+          phase: 'failed',
+          startedAtMs: Date.now() - 60_000,
+          detail: 'Still no reply text — your Mac may be stuck in tools. Tap Refresh below.',
+        }}
+        onRefreshRun={onRefreshRun}
+      />,
+    );
+
+    fireEvent.press(getByTestId('run-progress-refresh'));
+    expect(onRefreshRun).toHaveBeenCalledTimes(1);
+  });
 });
