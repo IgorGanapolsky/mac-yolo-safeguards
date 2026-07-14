@@ -140,4 +140,20 @@ describe('release safety net (T-114)', () => {
     expect(connection).toContain('GATEWAY_AUTH_REPAIR_HEADER');
     expect(connection).toContain('authMismatch');
   });
+
+  it('SHIP BLOCK: Connected ⊕ Wrong key is impossible in connection state machine', () => {
+    const connection = read('hermes-mobile/src/utils/gatewayConnection.ts');
+    expect(connection).toContain('wrongKeyBannerActive');
+    expect(connection).toContain('isConnectedWrongKeyContradiction');
+    expect(connection).toContain('RELEASE BLOCK');
+    const readiness = read('hermes-mobile/docs/REAL-USER-READINESS.md');
+    expect(readiness).toContain('Connected ⊕ Wrong key');
+    expect(readiness).toContain('SHIP BLOCK');
+    const safetyNet = read('hermes-mobile/docs/RELEASE-SAFETY-NET.md');
+    expect(safetyNet).toContain('Connected ⊕ Wrong key');
+    expect(safetyNet).toContain('SHIP BLOCK');
+    const client = read('hermes-mobile/src/services/gatewayClient.ts');
+    expect(client).toContain('Find computers');
+    expect(client).not.toMatch(/Settings → Your active machines/);
+  });
 });
