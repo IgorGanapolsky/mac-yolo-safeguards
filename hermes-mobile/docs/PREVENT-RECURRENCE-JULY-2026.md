@@ -22,6 +22,7 @@ This document maps session failures to durable prevention: automated guards, pro
 | S8 | False “shipped on phone” | `tools/require-device-verified.js` + `verify-continuous-e2e.sh --strict`; OTA/release proof before claims | `node tools/require-device-verified.js`; `bash hermes-mobile/scripts/verify-continuous-e2e.sh --strict` |
 | S9 | Fresh install **Wrong key** (USB MBP / multi-Mac) | `assertHostKeyConsistency` + strict mini SSH (no laptop-key fallback) + auth probe before deep link; session-start fails closed if pair ≠0; `wrongKeyRecovery` → Find computers CTA | `bash tests/test-hermes-mobile-pair.sh`; `npm test -- wrongKeyRecovery.test.ts` |
 | S10 | Header **Mini · USB** while cable is MBP / reconnecting | PRODUCT LAW in `chatMachineHeader.ts`: named `X · USB` only if live green\|amber `/health` hostname is X; null/red → `Computer via USB`; inverted unit tests (never borrow Mini on reconnect); `assertUsbHeaderIdentityLaw` | `npm test -- --watchman=false src/__tests__/chatMachineHeader.test.ts` — do **not** treat continuous `e2e=pass` (ship-guard) as multi-Mac proof |
+| S11 | Gibberish probe strings in Maestro/adb chat composer | Standing rule: device/E2E chat input is only **`make money today`**; `preventRecurrenceContract.test.ts` bans `typeableProbe*`, `e2e-*-probe*`, `smoke test message` in `.maestro/` chat flows | `npm test -- --watchman=false src/__tests__/preventRecurrenceContract.test.ts` |
 
 Install/heal LaunchAgents: `bash scripts/install-hermes-chrome-cdp.sh` then `bash scripts/install-agent-launchagents.sh`.
 
