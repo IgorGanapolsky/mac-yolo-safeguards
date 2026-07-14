@@ -6,6 +6,8 @@ Revenue target: $300/day after tax.
 
 Primary path: sell high-ticket reliability work first, then attach ThumbGate Pro or Team as the ongoing governance layer.
 
+Voice front door (SpaceXAI): use [HERMES-VOICE-FRONT-DOOR.md](./HERMES-VOICE-FRONT-DOOR.md) and `node tools/hermes-voice-front-door.js` for multi-agent transfer policy, HubSpot↔pipeline stage map, and paste-ready demo agents. Phone is an intake channel only — Stripe and `paid` still require human + revenue ledger.
+
 ## Qualification Score
 
 Score each prospect before offering a paid call.
