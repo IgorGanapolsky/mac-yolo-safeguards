@@ -162,4 +162,26 @@ describe('ChatMessageBubble', () => {
     expect(onThumbsUp).toHaveBeenCalledTimes(1);
     expect(onThumbsDown).toHaveBeenCalledTimes(1);
   });
+
+  it('renders clarification prompt card instead of raw XML dumps', () => {
+    const onSelectOption = jest.fn();
+    const { getByTestId, queryByText } = renderWithDetailModal({
+      content: '',
+      isUser: false,
+      timeLabel: 'Jul 14, 2026 9:20 AM',
+      clarification: {
+        prompt: {
+          question: 'Which path should I take?',
+          options: [{ id: '1', label: 'Manual auth' }],
+          partial: false,
+        },
+        onSelectOption,
+      },
+    });
+
+    expect(getByTestId('clarification-prompt-card')).toBeTruthy();
+    expect(queryByText('<clarification>')).toBeNull();
+    fireEvent.press(getByTestId('clarification-option-1'));
+    expect(onSelectOption).toHaveBeenCalledWith({ id: '1', label: 'Manual auth' });
+  });
 });

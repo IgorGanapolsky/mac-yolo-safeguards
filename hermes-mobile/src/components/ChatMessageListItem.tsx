@@ -14,6 +14,8 @@ import { extractTerminalActivityFromMessage } from '../utils/terminalActivity';
 import { threadLabelAtMessageIndex } from '../utils/mergedThreadLabels';
 import type { HermesMessage } from '../types/chat';
 import type { ChatTextApproval } from '../utils/chatApproval';
+import type { ParsedClarification } from '../utils/chatClarification';
+import type { ClarificationOption } from '../utils/chatClarification';
 import type { ApprovalChoice } from '../types/approval';
 import type { LeashConnectionState } from '../utils/gatewayEndpoint';
 
@@ -32,6 +34,7 @@ export type ChatMessageListItemProps = {
   messages: HermesMessage[];
   timeLabel: string;
   inlineNudge?: ChatTextApproval;
+  clarificationPrompt?: ParsedClarification;
   includeToolActivity: boolean;
   isTelegramInbox: boolean;
   connectionState: LeashConnectionState;
@@ -41,6 +44,7 @@ export type ChatMessageListItemProps = {
   outputFeedback?: OutputFeedbackHandlers;
   onShowDetail: (body: string, isUser: boolean) => void;
   onInlineTextApproval: (textApproval: ChatTextApproval, choice: ApprovalChoice) => void;
+  onClarificationOption?: (option: ClarificationOption) => void;
 };
 
 function ChatMessageListItem({
@@ -50,6 +54,7 @@ function ChatMessageListItem({
   messages,
   timeLabel,
   inlineNudge,
+  clarificationPrompt,
   includeToolActivity,
   isTelegramInbox,
   connectionState,
@@ -59,6 +64,7 @@ function ChatMessageListItem({
   outputFeedback,
   onShowDetail,
   onInlineTextApproval,
+  onClarificationOption,
 }: ChatMessageListItemProps) {
   const isUser = item.role === 'user';
 
@@ -71,7 +77,7 @@ function ChatMessageListItem({
 
   // Never render an empty timestamp-only row (user or assistant). Empty user
   // bubbles previously slipped through and showed "Jul 13 9:10 AM" with no text.
-  if (isMessageDisplayEmpty(item.content) && !inlineNudge && !item.isCollapsedToolActivity) {
+  if (isMessageDisplayEmpty(item.content) && !inlineNudge && !clarificationPrompt && !item.isCollapsedToolActivity) {
     return null;
   }
 
@@ -87,7 +93,7 @@ function ChatMessageListItem({
     );
   }
 
-  if (!includeToolActivity && !isUser && !inlineNudge) {
+  if (!includeToolActivity && !isUser && !inlineNudge && !clarificationPrompt) {
     if (shouldHideToolDumpFromTimeline(item, false)) {
       return null;
     }
@@ -98,7 +104,7 @@ function ChatMessageListItem({
     }
   }
 
-  if (isToolActivityRole(item.role) && !inlineNudge) {
+  if (isToolActivityRole(item.role) && !inlineNudge && !clarificationPrompt) {
     if (!includeToolActivity) {
       return null;
     }
@@ -138,6 +144,14 @@ function ChatMessageListItem({
       }
     : undefined;
 
+  const clarification = clarificationPrompt
+    ? {
+        prompt: clarificationPrompt,
+        busy: approvalBusy || isSending,
+        onSelectOption: (option: ClarificationOption) => onClarificationOption?.(option),
+      }
+    : undefined;
+
   return (
     <ChatMessageBubble
       messageId={item.id}
@@ -155,6 +169,7 @@ function ChatMessageListItem({
       macHttpOk={macHttpOk}
       onShowDetail={(body) => onShowDetail(body, isUser)}
       inlineApproval={inlineApproval}
+      clarification={clarification}
       outputFeedback={outputFeedback}
     />
   );
@@ -171,6 +186,9 @@ export default React.memo(ChatMessageListItem, (prev, next) => {
     return false;
   }
   if (prev.inlineNudge !== next.inlineNudge) {
+    return false;
+  }
+  if (prev.clarificationPrompt !== next.clarificationPrompt) {
     return false;
   }
   if (prev.timeLabel !== next.timeLabel) {
