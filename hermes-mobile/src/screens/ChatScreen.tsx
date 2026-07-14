@@ -316,6 +316,8 @@ import {
   type ChatTextApproval,
   type LeashPhraseHint,
 } from '../utils/chatApproval';
+import { listClarificationPrompts } from '../utils/chatClarification';
+import type { ClarificationOption } from '../utils/chatClarification';
 import {
   fromChatRunApproval,
   fromChatTextApproval,
@@ -1686,6 +1688,11 @@ export default function ChatScreen() {
   const inlineTextApprovals = useMemo(
     () => listInlineTextApprovals(messages, resolvedApprovalKeys, leashPhraseHints),
     [messages, resolvedApprovalKeys, leashPhraseHints],
+  );
+
+  const inlineClarificationPrompts = useMemo(
+    () => listClarificationPrompts(messages),
+    [messages],
   );
 
   const composerApprovalQueue = useMemo((): HermesApprovalRequest[] => {
@@ -4074,6 +4081,11 @@ export default function ChatScreen() {
     [settings.approvalPolicy, handleApprovalChoice],
   );
 
+  const handleClarificationOption = useCallback((option: ClarificationOption) => {
+    haptics.selection();
+    void sendUserTextRef.current(option.label, true);
+  }, []);
+
   const handleShowMessageDetail = useCallback((body: string, isUser: boolean) => {
     setMessageDetail({
       title: isUser ? 'Your message' : 'Message detail',
@@ -4155,6 +4167,7 @@ export default function ChatScreen() {
     ({ item, index }: { item: ChatTimelineEntry; index: number }) => {
       const { message, originalIndex } = item;
       const inlineNudge = inlineTextApprovals.get(originalIndex);
+      const clarificationPrompt = inlineClarificationPrompts.get(originalIndex);
       const isStreamingAssistant =
         isSending &&
         message.role?.toLowerCase() === 'assistant' &&
@@ -4184,6 +4197,7 @@ export default function ChatScreen() {
           messages={messages}
           timeLabel={formatMessageTimestamp(resolveMessageTimestamp(message))}
           inlineNudge={inlineNudge}
+          clarificationPrompt={clarificationPrompt}
           includeToolActivity={settings.includeToolActivity ?? false}
           isTelegramInbox={isTelegramInbox}
           connectionState={connectionState}
@@ -4193,12 +4207,14 @@ export default function ChatScreen() {
           outputFeedback={outputFeedback}
           onShowDetail={handleShowMessageDetail}
           onInlineTextApproval={handleInlineTextApproval}
+          onClarificationOption={handleClarificationOption}
         />
       );
     },
     [
       messages,
       inlineTextApprovals,
+      inlineClarificationPrompts,
       settings.includeToolActivity,
       isTelegramInbox,
       connectionState,
@@ -4213,6 +4229,7 @@ export default function ChatScreen() {
       handleAddFeedbackDetails,
       handleShowMessageDetail,
       handleInlineTextApproval,
+      handleClarificationOption,
     ],
   );
 

@@ -5,6 +5,8 @@ import { haptics } from '../services/haptics';
 import ChatFormattedText from './ChatFormattedText';
 import { formatExpandedMessageContent, prepareMessageForChatDisplay } from '../utils/chatMessageDisplay';
 import InlineMessageApproval from './InlineMessageApproval';
+import ClarificationPromptCard from './ClarificationPromptCard';
+import type { ClarificationOption, ParsedClarification } from '../utils/chatClarification';
 import {
   outboundDeliveryLabel,
   type OutboundDeliveryStatus,
@@ -38,6 +40,11 @@ type ChatMessageBubbleProps = {
   /** When true, show a divider above the thread label (not for the first thread in the list). */
   threadDivider?: boolean;
   inlineApproval?: InlineApprovalHandlers;
+  clarification?: {
+    prompt: ParsedClarification;
+    busy?: boolean;
+    onSelectOption: (option: ClarificationOption) => void;
+  };
   outputFeedback?: OutputFeedbackHandlers;
   /** Screen-level handler — Modal must not live inside inverted FlatList cells. */
   onShowDetail?: (body: string) => void;
@@ -73,6 +80,7 @@ function ChatMessageBubble({
   threadLabel,
   threadDivider = false,
   inlineApproval,
+  clarification,
   outputFeedback,
   onShowDetail,
   outboundStatus,
@@ -146,6 +154,13 @@ function ChatMessageBubble({
               busy={inlineApproval.busy}
               onApprove={inlineApproval.onApprove}
               onDeny={inlineApproval.onDeny}
+            />
+          ) : null}
+          {clarification ? (
+            <ClarificationPromptCard
+              clarification={clarification.prompt}
+              busy={clarification.busy}
+              onSelectOption={clarification.onSelectOption}
             />
           ) : null}
           {!isUser && outputFeedback ? (
