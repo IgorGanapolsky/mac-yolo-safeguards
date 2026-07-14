@@ -85,6 +85,24 @@ describe('RecentChatsList', () => {
     expect(onSelectSession).toHaveBeenCalledWith(sessions[0]);
   });
 
+  it('shows a row spinner and ignores further presses while switching', () => {
+    const onSelectSession = jest.fn();
+    const { getByTestId, queryByTestId } = render(
+      <RecentChatsList
+        sessions={sessions}
+        switchingSessionId="s1"
+        sessionLabelFor={(session) => session.title ?? session.id}
+        onSelectSession={onSelectSession}
+      />,
+    );
+
+    expect(getByTestId('recent-chat-busy-s1')).toBeTruthy();
+    expect(queryByTestId('recent-chat-busy-s2')).toBeNull();
+    fireEvent.press(getByTestId('recent-chat-s1'));
+    fireEvent.press(getByTestId('recent-chat-s2'));
+    expect(onSelectSession).not.toHaveBeenCalled();
+  });
+
   it('calls onRenameSession when rename pencil is pressed', () => {
     const onRenameSession = jest.fn();
     const { getByTestId } = render(
