@@ -496,10 +496,9 @@ const PAIRING_CODE_TTL_MS = 120_000;
 const PAIRING_CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // no 0/O/1/I ambiguity
 
 function generatePairingCode(length = 8) {
-  const bytes = crypto.randomBytes(length);
   let out = '';
   for (let i = 0; i < length; i += 1) {
-    out += PAIRING_CODE_ALPHABET[bytes[i] % PAIRING_CODE_ALPHABET.length];
+    out += PAIRING_CODE_ALPHABET[crypto.randomInt(PAIRING_CODE_ALPHABET.length)];
   }
   return out;
 }
