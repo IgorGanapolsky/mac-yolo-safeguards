@@ -1,0 +1,16 @@
+# Wrong-key repair path: computer picker is reachable for re-pair (release-blocking XOR class).
+appId: com.iganapolsky.hermesmobile
+---
+- runFlow: chat-e2e-bootstrap.yaml
+- extendedWaitUntil:
+    visible:
+      id: "chat-context-link"
+    timeout: 30000
+- tapOn:
+    id: "chat-context-mac-button"
+- extendedWaitUntil:
+    visible:
+      id: "mac-picker-modal"
+    timeout: 30000
+- assertVisible:
+    id: "mac-picker-scroll"

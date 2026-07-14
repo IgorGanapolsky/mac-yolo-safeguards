@@ -91,6 +91,15 @@ describe('release safety net (T-114)', () => {
     expect(validator).toContain("'regression-leash-refresh'");
     expect(validator).toContain("'regression-chat-header-model'");
     expect(validator).toContain("'chat-send-persistence'");
+    expect(validator).toContain("'stranger-cold-start'");
+    expect(validator).toContain("'wrong-key-repair'");
+  });
+
+  it('continuous E2E records fail when android-only and no USB phone', () => {
+    const runner = read('hermes-mobile/scripts/run-continuous-e2e.sh');
+    expect(runner).toMatch(/e2e_status="fail"/);
+    expect(runner).toContain('no USB Android device connected');
+    expect(runner).not.toContain('android-only continuous E2E skipped');
   });
 
   it('unit gates already cover notifications, auto-scroll, model header, and leash spinner', () => {
