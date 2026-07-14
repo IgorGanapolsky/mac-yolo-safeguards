@@ -87,8 +87,13 @@ describe('prevent recurrence contract (July 2026 CI gates)', () => {
 
   it('ChatScreen passes authMismatch and wrongKeyBannerActive into header', () => {
     const chat = read('hermes-mobile/src/screens/ChatScreen.tsx');
-    expect(chat).toContain('authMismatch={health?.authMismatch === true}');
+    // SHIP BLOCK: header must use effectiveAuthMismatch (health OR stale banner), never health-only.
+    expect(chat).toContain(
+      'health?.authMismatch === true || wrongKeyBannerActive',
+    );
+    expect(chat).toContain('authMismatch={effectiveAuthMismatch}');
     expect(chat).toContain('wrongKeyBannerActive');
     expect(chat).toContain('isAuthRepairMessage');
   });
 });
+
