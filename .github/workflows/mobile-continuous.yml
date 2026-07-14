@@ -10,6 +10,9 @@ on:
       - '.github/workflows/mobile-continuous.yml'
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 concurrency:
   group: hermes-mobile-continuous
   cancel-in-progress: false

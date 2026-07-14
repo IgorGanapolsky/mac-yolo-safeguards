@@ -52,6 +52,9 @@ on:
 # PRs could not merge. GitHub-hosted runners are isolated, so there is no shared
 # emulator resource to protect — scope the group to the ref and cancel only this ref's
 # own superseded runs.
+permissions:
+  contents: read
+
 concurrency:
   group: hermes-mobile-maestro-ship-guard-${{ github.ref }}
   cancel-in-progress: true
