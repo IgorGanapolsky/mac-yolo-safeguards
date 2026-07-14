@@ -44,6 +44,20 @@ import { buildAgentDashboardStats } from '../utils/agentDashboardStats';
 import { formatGatewayModelPickerLabel, primaryGatewayModelLabel } from '../utils/gatewayCapabilitiesDisplay';
 import { isMacGatewayHttpOk } from '../utils/gatewayConnection';
 
+type CatalogSection = 'capabilities' | 'skills' | 'toolsets' | 'jobs';
+
+const CATALOG_REQUEST_TIMEOUT_MS = 8_000;
+
+function catalogRequest<T>(request: Promise<T>, section: CatalogSection): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(
+      () => reject(new Error(`${section} request timed out`)),
+      CATALOG_REQUEST_TIMEOUT_MS,
+    );
+    request.then(resolve, reject).finally(() => clearTimeout(timer));
+  });
+}
+
 const DEMO_SKILLS: HermesSkill[] = [
   { name: 'mac-freeze-rescue', description: 'Rescue frozen / sluggish computer (macOS)', category: 'ops' },
   { name: 'verify-answerguard-fix', description: 'Full AnswerGuard verification contract', category: 'qa' },
@@ -76,6 +90,7 @@ export default function GatewayOpsSection() {
   const [initialLoading, setInitialLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | undefined>();
+  const [catalogErrors, setCatalogErrors] = useState<Partial<Record<CatalogSection, boolean>>>({});
   const [expandedToolsets, setExpandedToolsets] = useState<Set<string>>(new Set());
   const [togglingToolset, setTogglingToolset] = useState<string | null>(null);
   const [integrationsToolset, setIntegrationsToolset] = useState<HermesToolset | null>(null);
@@ -121,20 +136,70 @@ export default function GatewayOpsSection() {
       setInitialLoading(true);
     }
     setError(undefined);
+    const markCatalogLoaded = (section: CatalogSection) => {
+      setCatalogErrors((previous) => ({ ...previous, [section]: false }));
+    };
+    const markCatalogFailed = (section: CatalogSection) => {
+      setCatalogErrors((previous) => ({ ...previous, [section]: true }));
+    };
+
     try {
-      const [caps, skillList, toolsetList, jobList] = await Promise.all([
-        getCapabilities(gatewayUrl, apiKey),
-        listSkills(gatewayUrl, apiKey),
-        listToolsets(gatewayUrl, apiKey),
-        listJobs(gatewayUrl, apiKey),
+      const [loadedCapabilities, , loadedToolsets] = await Promise.all([
+        catalogRequest(getCapabilities(gatewayUrl, apiKey), 'capabilities').then(
+          (caps) => {
+            setFeatureFlags(caps.features ?? {});
+            setGatewayModel(primaryGatewayModelLabel(caps));
+            markCatalogLoaded('capabilities');
+            return caps;
+          },
+          () => {
+            markCatalogFailed('capabilities');
+            return null;
+          },
+        ),
+        catalogRequest(listSkills(gatewayUrl, apiKey), 'skills').then(
+          (skillList) => {
+            setSkills(skillList);
+            markCatalogLoaded('skills');
+            return skillList;
+          },
+          () => {
+            markCatalogFailed('skills');
+            return null;
+          },
+        ),
+        catalogRequest(listToolsets(gatewayUrl, apiKey), 'toolsets').then(
+          (toolsetList) => {
+            applyToolsetsFromServer(toolsetList);
+            markCatalogLoaded('toolsets');
+            return toolsetList;
+          },
+          () => {
+            markCatalogFailed('toolsets');
+            return null;
+          },
+        ),
+        catalogRequest(listJobs(gatewayUrl, apiKey), 'jobs').then(
+          (jobList) => {
+            setJobs(jobList);
+            markCatalogLoaded('jobs');
+            return jobList;
+          },
+          () => {
+            markCatalogFailed('jobs');
+            return null;
+          },
+        ),
       ]);
-      setFeatureFlags(caps.features ?? {});
-      setGatewayModel(primaryGatewayModelLabel(caps));
-      setSkills(skillList);
-      let resolvedToolsets = toolsetList;
-      const canWriteToolsets = caps.features?.toolsets_write === true;
+
+      if (!loadedCapabilities || !loadedToolsets) {
+        return;
+      }
+
+      let resolvedToolsets = loadedToolsets;
+      const canWriteToolsets = loadedCapabilities.features?.toolsets_write === true;
       const autoEnableTargets = canWriteToolsets
-        ? configuredToolsetsToAutoEnable(toolsetList)
+        ? configuredToolsetsToAutoEnable(loadedToolsets)
         : [];
       if (autoEnableTargets.length > 0) {
         const results = await Promise.allSettled(
@@ -148,7 +213,7 @@ export default function GatewayOpsSection() {
             enabledNames.add(autoEnableTargets[index].name);
           }
         });
-        resolvedToolsets = markToolsetsEnabled(toolsetList, enabledNames);
+        resolvedToolsets = markToolsetsEnabled(loadedToolsets, enabledNames);
         if (enabledNames.size !== autoEnableTargets.length) {
           setError(
             'Some ready tools could not be enabled automatically. Tap Refresh to retry.',
@@ -156,7 +221,6 @@ export default function GatewayOpsSection() {
         }
       }
       applyToolsetsFromServer(resolvedToolsets);
-      setJobs(jobList);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load gateway ops');
     } finally {
@@ -309,7 +373,7 @@ export default function GatewayOpsSection() {
         default_model: gatewayModel,
         models: [gatewayModel],
       })
-    : 'Model routed on your computer';
+    : null;
 
   const handleRepairConnection = useCallback(async () => {
     await refreshHealth();
@@ -360,7 +424,11 @@ export default function GatewayOpsSection() {
       </Text>
       <GlassCard>
         {toolsets.length === 0 ? (
-          <Text style={styles.meta}>No toolsets from /v1/toolsets</Text>
+          <Text style={styles.meta} testID="toolsets-empty-state">
+            {catalogErrors.toolsets
+              ? 'Tools could not load from your computer. Tap Refresh to retry.'
+              : 'No toolsets are installed on this computer.'}
+          </Text>
         ) : (
           toolsets.map((ts) => {
             const expanded = expandedToolsets.has(ts.name);
@@ -425,7 +493,11 @@ export default function GatewayOpsSection() {
       <Text style={styles.sectionTitle}>Cron jobs ({jobs.length})</Text>
       <GlassCard>
         {jobs.length === 0 ? (
-          <Text style={styles.meta}>No jobs — create via CLI or desktop Cron page</Text>
+          <Text style={styles.meta} testID="jobs-empty-state">
+            {catalogErrors.jobs
+              ? 'Scheduled jobs could not load from your computer. Tap Refresh to retry.'
+              : 'No scheduled jobs yet.'}
+          </Text>
         ) : (
           jobs.map((job) => (
             <View key={job.id} style={styles.jobRow}>
@@ -480,7 +552,11 @@ export default function GatewayOpsSection() {
       <Text style={styles.sectionHint}>Read-only catalog from /v1/skills. Invoke via Chat.</Text>
       <GlassCard>
         {skills.length === 0 ? (
-          <Text style={styles.meta}>No skills returned from /v1/skills</Text>
+          <Text style={styles.meta} testID="skills-empty-state">
+            {catalogErrors.skills
+              ? 'Skills could not load from your computer. Tap Refresh to retry.'
+              : 'No skills are installed on this computer.'}
+          </Text>
         ) : (
           skills.slice(0, 20).map((skill) => (
             <View key={skill.name} style={styles.listRow}>
@@ -496,7 +572,9 @@ export default function GatewayOpsSection() {
       <Text style={styles.sectionTitle}>Gateway features</Text>
       <GlassCard>
         <Text style={styles.meta}>
-          {enabledFeatures.length > 0
+          {catalogErrors.capabilities
+            ? 'Gateway features could not load. Tap Refresh to retry.'
+            : enabledFeatures.length > 0
             ? `${enabledFeatures.length} capabilities active on this gateway`
             : 'Connect your computer above to discover features'}
         </Text>
