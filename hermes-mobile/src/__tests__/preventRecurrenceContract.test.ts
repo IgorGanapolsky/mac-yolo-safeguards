@@ -7,6 +7,12 @@ import {
   resolveEffectiveMacHttpOk,
 } from '../utils/gatewayConnection';
 import { GATEWAY_AUTH_REPAIR_HEADER } from '../services/gatewayClient';
+import {
+  assertUsbHeaderIdentityLaw,
+  resolveChatMachineHeaderDisplay,
+  usbHeaderClaimsNamedHost,
+  USB_UNKNOWN_MACHINE_LABEL,
+} from '../utils/chatMachineHeader';
 
 const root = path.resolve(__dirname, '../../..');
 const read = (relativePath: string) => fs.readFileSync(path.join(root, relativePath), 'utf8');
@@ -153,6 +159,48 @@ describe('prevent recurrence contract (July 2026 CI gates)', () => {
     expect(gate).toContain('deviceVerified');
     expect(gate).toContain('e2e');
     expect(gate).toContain('--allow-ota');
+  });
+
+  it('false Mac·USB header: stale red health + loopback must not claim named host', () => {
+    const display = resolveChatMachineHeaderDisplay({
+      activeProfile: {
+        id: 'mac_usb',
+        label: 'Computer via USB',
+        gatewayUrl: 'http://127.0.0.1:8642',
+        localIp: '127.0.0.1',
+        addedAt: '2026-07-14T00:00:00.000Z',
+      },
+      profiles: [
+        {
+          id: 'mac_mini',
+          label: 'Igors-Mac-mini',
+          gatewayUrl: 'http://100.94.135.78:8642',
+          hostname: 'Igors-Mac-mini.local',
+          addedAt: '2026-06-24T00:00:00.000Z',
+        },
+      ],
+      gatewayUrl: 'http://127.0.0.1:8642',
+      health: {
+        level: 'red',
+        checkedAt: '2026-07-14T00:00:00.000Z',
+        hostname: 'Igors-Mac-mini.local',
+        directGatewayReachable: false,
+      },
+      connectionMode: 'gateway',
+      isPaired: false,
+      workers: [],
+      savedMacCount: 2,
+    });
+    expect(display.machineLabel).not.toBe('Igors-Mac-mini');
+    expect(display.machineLabel).toBe(USB_UNKNOWN_MACHINE_LABEL);
+    expect(usbHeaderClaimsNamedHost(display)).toBe(false);
+    expect(
+      assertUsbHeaderIdentityLaw({
+        display,
+        gatewayUrl: 'http://127.0.0.1:8642',
+        health: display.machineEndpoint ? { level: 'red', checkedAt: '2026-07-14T00:00:00.000Z' } : null,
+      }),
+    ).toBeNull();
   });
 
   it('documents S9 fresh-install wrong-key multi-Mac guard', () => {
