@@ -196,8 +196,11 @@ Durable rules live in [AGENTS.md](./AGENTS.md); this file is *live state only*.
 Status values: `pending` | `in_progress` | `blocked` | `done`. Claim a row by setting Owner+Status in one edit, then claim its files in §2.
 
 | T-319 | Prevent Grok/Fable quota exhaustion from disabling hermes-yolo fleet-wide | done | codex-hermes-quota-failover | `hermes-yolo-wrapper.js`, `tests/test-hermes-yolo.js`, `plan.md` | ordinary runs use the quota-independent Hermes provider and never invoke an exhausted Grok launcher; explicit Grok remains available; simulated quota regression, fleet route receipts, and local/Mac-mini runtime proof pass |
+| T-320 | Enforce zero paid-provider spend across the Hermes CLI fleet | in_progress | codex-zero-spend | `zero-spend-command-gate.js`, `scripts/install-zero-spend-gate.sh`, `tests/test-zero-spend-command-gate.js`, `docs/HERMES-ZERO-SPEND.md`, `install.sh`, `plan.md` | Mode-0600 marker blocks remote/provider CLIs before spawn; `hermes-yolo` is forced to a verified local Ollama route; installs preserve originals and stay idempotent; both Macs show no paid-provider process; Snowflake warehouse remains suspended with auto-resume disabled; focused tests and dual-Mac no-network proofs pass |
 
 ## 2. File Ownership Map (append-only lock table — claim before touching)
+
+- `zero-spend-command-gate.js`, `scripts/install-zero-spend-gate.sh`, `tests/test-zero-spend-command-gate.js`, `docs/HERMES-ZERO-SPEND.md`, `install.sh`, `plan.md` → **codex-zero-spend** (T-320 fail-closed paid-provider command boundary on both Macs) (2026-07-14T17:30:00Z)
 
 - `hermes-yolo-wrapper.js`, `tests/test-hermes-yolo.js`, `plan.md` → **codex-hermes-quota-failover** (T-319 Grok/Fable quota circuit breaker and Hermes fallback; renumbered after T-318 landed independently) (2026-07-14T16:55:00Z)
 - T-319 claimed files → **codex-hermes-quota-failover released** after PR #370 merged at `8b94968a`; CI run 29351652302 passed, 58/58 local Node suites passed, and both Macs selected `hermes-legacy` by default with matching deployed wrapper SHA-256 `4e8f22c3d3ef960d6ff8211580a941d6581d555695b160f9d1bfe9d8b9c4d94e` (2026-07-14T16:58:00Z)
