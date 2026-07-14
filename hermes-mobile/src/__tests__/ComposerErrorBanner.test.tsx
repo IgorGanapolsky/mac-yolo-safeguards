@@ -37,4 +37,19 @@ describe('ComposerErrorBanner', () => {
     fireEvent.press(getByLabelText('Dismiss error'));
     expect(onDismiss).toHaveBeenCalled();
   });
+
+  it('invokes onAction when the banner body is pressed (tap-to-retry)', () => {
+    const onAction = jest.fn();
+    const { getByTestId } = render(
+      <ComposerErrorBanner
+        message="Your computer finished but no reply text arrived — tap to retry."
+        onDismiss={jest.fn()}
+        actionLabel="Retry send"
+        onAction={onAction}
+      />,
+    );
+
+    fireEvent.press(getByTestId('composer-error-banner-action-area'));
+    expect(onAction).toHaveBeenCalledTimes(1);
+  });
 });

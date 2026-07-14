@@ -47,6 +47,23 @@ export function resolveComposerSendAction(input: {
   return { kind: 'retry_resend', text: failed };
 }
 
+/** True when the red composer banner / run detail is an empty-reply failure (not connectivity). */
+export function isEmptyReplyFailureMessage(message: string | null | undefined): boolean {
+  const text = message?.trim() ?? '';
+  if (!text) {
+    return false;
+  }
+  if (text === EMPTY_REPLY_FAILURE_REASON) {
+    return true;
+  }
+  const lower = text.toLowerCase();
+  return (
+    lower.includes('no reply text') ||
+    lower.includes('did not return text') ||
+    lower.includes('still no reply')
+  );
+}
+
 /** Run-progress banner Retry chip — connectivity, empty reply, or stuck outbound. */
 export function shouldShowFailedSendRetry(input: {
   runPhase?: string;
