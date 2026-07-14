@@ -19,6 +19,8 @@ type CodexCommandCenterProps = {
   onMacRetry?: () => void;
   machineName?: string;
   chatStalled?: boolean;
+  /** Auth probe failed — never show green Connected beside wrong-key. */
+  authMismatch?: boolean;
 };
 
 function connectionCopy(
@@ -28,7 +30,11 @@ function connectionCopy(
   machineName = 'Computer',
   chatStalled = false,
   healExhausted = false,
+  authMismatch = false,
 ): { label: string; detail: string; color: string } {
+  if (authMismatch) {
+    return { label: 'Not connected', detail: 'Wrong key — tap to re-pair', color: colors.error };
+  }
   if (macRetryBusy) {
     return { label: machineName, detail: 'Reconnecting…', color: colors.warning };
   }
@@ -105,17 +111,19 @@ export default function CodexCommandCenter({
   onMacRetry,
   machineName = 'Computer',
   chatStalled = false,
+  authMismatch = false,
 }: CodexCommandCenterProps) {
   const link = connectionCopy(
     connectionState,
-    macHttpReachable,
+    macHttpReachable && !authMismatch,
     macRetryBusy,
     machineName,
     chatStalled,
     healExhausted,
+    authMismatch,
   );
   const showMacTile =
-    shouldShowMacTile(connectionState, macHttpReachable) && !silentHealInFlight;
+    shouldShowMacTile(connectionState, macHttpReachable && !authMismatch) && !silentHealInFlight;
   const showRunTile = shouldShowRunTile(runProgress, isSending);
   const showApprovalsTile = pendingApprovalCount > 0;
 

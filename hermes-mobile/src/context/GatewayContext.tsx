@@ -1574,8 +1574,9 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
             continue;
           }
           await persistDiscoveredGatewayUrl(url, true);
-          setHealth({ ...snapshot, directGatewayReachable: true });
-          healthRef.current = { ...snapshot, directGatewayReachable: true };
+          // Never override auth probe — fetchGatewayHealth already sets directGatewayReachable.
+          setHealth(snapshot);
+          healthRef.current = snapshot;
           connectionHealAttemptRef.current = 0;
           setConnectionHealAttempt(0);
           connectEventsRef.current();

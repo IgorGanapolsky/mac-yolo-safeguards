@@ -5,6 +5,7 @@ import {
   describeBootstrapPhase,
   resolveChatLinkDisplay,
   resolveEffectiveMacHttpOk,
+  isConnectedWrongKeyContradiction,
 } from '../utils/gatewayConnection';
 import { GATEWAY_AUTH_REPAIR_HEADER } from '../services/gatewayClient';
 
@@ -89,10 +90,38 @@ describe('gatewayConnection', () => {
     expect(
       resolveChatLinkDisplay({
         connectionState: 'connected',
-        macHttpOk: false,
+        macHttpOk: true,
         authMismatch: true,
       }),
     ).toEqual({ label: GATEWAY_AUTH_REPAIR_HEADER, chatReachable: false });
+  });
+
+  it('RELEASE BLOCK: never green Connected while wrong-key banner is active', () => {
+    const link = resolveChatLinkDisplay({
+      connectionState: 'connected',
+      macHttpOk: true,
+      wrongKeyBannerActive: true,
+    });
+    expect(link.label).toBe(GATEWAY_AUTH_REPAIR_HEADER);
+    expect(link.chatReachable).toBe(false);
+    expect(
+      isConnectedWrongKeyContradiction({
+        linkLabel: link.label,
+        wrongKeyBannerActive: true,
+      }),
+    ).toBe(false);
+    expect(
+      isConnectedWrongKeyContradiction({
+        linkLabel: 'Connected',
+        authMismatch: true,
+      }),
+    ).toBe(true);
+    expect(
+      isConnectedWrongKeyContradiction({
+        linkLabel: 'Connected',
+        wrongKeyBannerActive: true,
+      }),
+    ).toBe(true);
   });
 
   it('treats authMismatch health as not mac HTTP ok', () => {
@@ -101,6 +130,25 @@ describe('gatewayConnection', () => {
         level: 'green',
         checkedAt: '2026-07-08T12:00:00Z',
         directGatewayReachable: true,
+        authMismatch: true,
+      }),
+    ).toBe(false);
+  });
+
+  it('isGatewayHealthOk rejects green level when authMismatch is set', () => {
+    expect(
+      isGatewayHealthOk({
+        level: 'green',
+        checkedAt: '2026-07-13T12:00:00Z',
+        authMismatch: true,
+      }),
+    ).toBe(false);
+  });
+
+  it('effective mac HTTP false when authMismatch even if health was green', () => {
+    expect(
+      resolveEffectiveMacHttpOk({
+        macHttpOk: true,
         authMismatch: true,
       }),
     ).toBe(false);

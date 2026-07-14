@@ -95,9 +95,10 @@ describe('probeGatewayAuth', () => {
     global.fetch = jest.fn();
   });
 
-  it('returns ok when no api key configured', async () => {
+  it('returns not-ok when no api key — never false-green Connected', async () => {
     const result = await probeGatewayAuth('http://127.0.0.1:8642');
-    expect(result.ok).toBe(true);
+    expect(result.ok).toBe(false);
+    expect(result.errorMessage).toBe(GATEWAY_WRONG_KEY_MESSAGE);
     expect(global.fetch).not.toHaveBeenCalled();
   });
 
@@ -152,13 +153,35 @@ describe('fetchGatewayHealth', () => {
     mockHealthThenAuth(401, false);
 
     const health = await fetchGatewayHealth('http://100.94.135.78:8642', 'laptop-key');
-    expect(health.level).toBe('green');
+    // Auth failure forces red — never green Connected with wrong key.
+    expect(health.level).toBe('red');
     expect(health.directGatewayReachable).toBe(false);
     expect(health.authMismatch).toBe(true);
     expect(health.errorMessage).toBe(GATEWAY_WRONG_KEY_MESSAGE);
   });
 
-  it('returns green for hermes-agent /health without gateway_state', async () => {
+  it('returns green for hermes-agent /health when auth probe also passes', async () => {
+    (global.fetch as jest.Mock).mockImplementation((url: string) => {
+      if (url.includes('/api/sessions')) {
+        return Promise.resolve({ ok: true, status: 200 });
+      }
+      return Promise.resolve({
+        ok: true,
+        json: async () => ({
+          status: 'ok',
+          platform: 'hermes-agent',
+          hostname: 'mac',
+          local_ip: '192.168.12.208',
+        }),
+      });
+    });
+
+    const health = await fetchGatewayHealth('http://192.168.12.208:8642', 'sk-ok');
+    expect(health.level).toBe('green');
+    expect(health.localIp).toBe('192.168.12.208');
+  });
+
+  it('without api key, reachability alone cannot stay green', async () => {
     (global.fetch as jest.Mock).mockResolvedValue({
       ok: true,
       json: async () => ({
@@ -170,8 +193,9 @@ describe('fetchGatewayHealth', () => {
     });
 
     const health = await fetchGatewayHealth('http://192.168.12.208:8642');
-    expect(health.level).toBe('green');
-    expect(health.localIp).toBe('192.168.12.208');
+    expect(health.level).toBe('red');
+    expect(health.authMismatch).toBe(true);
+    expect(health.directGatewayReachable).toBe(false);
   });
 
   it('returns red on HTTP error', async () => {

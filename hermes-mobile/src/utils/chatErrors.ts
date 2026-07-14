@@ -41,6 +41,28 @@ export function isConnectivityMessage(message: string): boolean {
   );
 }
 
+/** Wrong-key / re-pair banners — must clear when auth becomes OK (never under green Connected). */
+export function isAuthRepairMessage(message: string): boolean {
+  const normalized = message.toLowerCase();
+  return (
+    normalized.includes(GATEWAY_WRONG_KEY_MESSAGE.toLowerCase()) ||
+    normalized.includes('wrong key') ||
+    normalized.includes('re-pair') ||
+    normalized.includes('needs re-pair')
+  );
+}
+
+/** Clear connectivity OR stale auth-repair banners once chat auth is healthy. */
+export function shouldClearConnectionErrorBanner(
+  message: string | null | undefined,
+  chatAuthLive: boolean,
+): boolean {
+  if (!message || !chatAuthLive) {
+    return false;
+  }
+  return isConnectivityMessage(message) || isAuthRepairMessage(message);
+}
+
 export type HumanChatError = {
   kind: 'connectivity' | 'operational' | 'auth';
   message: string;
