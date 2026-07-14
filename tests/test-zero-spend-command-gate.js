@@ -8,6 +8,7 @@ const path = require('path');
 const { spawnSync } = require('child_process');
 
 const sourceGate = path.resolve(__dirname, '..', 'zero-spend-command-gate.js');
+const gate = require(sourceGate);
 
 function executable(filePath, body) {
   fs.writeFileSync(filePath, body, { mode: 0o700 });
@@ -41,7 +42,7 @@ const env = {
   HERMES_ZERO_SPEND_COMMANDS: 'hermes-yolo,grok-yolo,parallel,parallel-cli',
   HERMES_ZERO_SPEND_REPLACE_PREFIXES: systemBin,
   HERMES_ZERO_SPEND_SKIP_LAUNCHCTL: '1',
-  HERMES_ZERO_SPEND_LOCAL_MODELS: 'qwen3:8b-64k',
+  HERMES_ZERO_SPEND_LOCAL_MODELS: 'qwen3.5:9b-hermes-64k',
   OPENROUTER_API_KEY: 'must-not-reach-child',
   META_MODEL_API_KEY: 'must-not-reach-child',
   PARALLEL_API_KEY: 'must-not-reach-child',
@@ -60,7 +61,10 @@ assert.strictEqual(firstStatus.managedEnvMode, 0o600);
 assert.strictEqual(firstStatus.globalHermesPolicyActive, true);
 assert.strictEqual(firstStatus.launchctlPolicyActive, null);
 assert.strictEqual(firstStatus.guardReinforcesGate, null);
-assert.strictEqual(firstStatus.localModel, 'qwen3:8b-64k');
+assert.strictEqual(firstStatus.localModel, 'qwen3.5:9b-hermes-64k');
+assert.strictEqual(firstStatus.localContextLength, 65536);
+assert.strictEqual(firstStatus.modelDaemonsQuiesced, null);
+assert.deepStrictEqual(firstStatus.quiescedLaunchAgents, []);
 assert.strictEqual(firstStatus.commandCount, 4);
 assert.ok(firstStatus.commands.every((entry) => entry.installed));
 const globalEnv = fs.readFileSync(path.join(home, '.hermes', '.env'), 'utf8');
@@ -68,7 +72,9 @@ assert.match(globalEnv, /OPENROUTER_API_KEY=stored-private-value/);
 assert.match(globalEnv, /HERMES_MANAGED_DIR=.*zero-spend\/managed/);
 const managedConfig = fs.readFileSync(path.join(home, '.hermes', 'zero-spend', 'managed', 'config.yaml'), 'utf8');
 assert.match(managedConfig, /provider: custom:ollama-local-64k/);
-assert.match(managedConfig, /default: "qwen3:8b-64k"/);
+assert.match(managedConfig, /default: "qwen3\.5:9b-hermes-64k"/);
+assert.match(managedConfig, /context_length: 65536/);
+assert.doesNotMatch(managedConfig, /context_length: 20480/);
 assert.doesNotMatch(managedConfig, /openrouter|grok|meta|snowflake|parallel/i);
 
 const manifestPath = path.join(home, '.hermes', 'zero-spend', 'manifest.json');
@@ -76,6 +82,7 @@ const manifestBeforeReinstall = JSON.parse(fs.readFileSync(manifestPath, 'utf8')
 manifestBeforeReinstall.previousLaunchctlEnvironment = { HERMES_YOLO_PROVIDER: 'original-provider' };
 manifestBeforeReinstall.previousRouteProgramArguments = ['/bin/true'];
 manifestBeforeReinstall.previousGuardStable = 'STABLE="original-wrapper"';
+manifestBeforeReinstall.previousQuiescedLaunchAgents = [{ label: 'original-daemon', loaded: true }];
 fs.writeFileSync(manifestPath, `${JSON.stringify(manifestBeforeReinstall, null, 2)}\n`, { mode: 0o600 });
 const secondInstall = run(process.execPath, [sourceGate, '--install'], env);
 assert.strictEqual(secondInstall.status, 0, secondInstall.stderr);
@@ -95,6 +102,11 @@ assert.strictEqual(
   manifestAfterReinstall.previousGuardStable,
   manifestBeforeReinstall.previousGuardStable,
   'reinstall must retain the original permanence-guard state',
+);
+assert.deepStrictEqual(
+  manifestAfterReinstall.previousQuiescedLaunchAgents,
+  manifestBeforeReinstall.previousQuiescedLaunchAgents,
+  'reinstall must retain the original model-daemon state',
 );
 
 const blocked = run(path.join(bin, 'grok-yolo'), ['hello'], env);
@@ -119,7 +131,7 @@ assert.deepStrictEqual(captured, {
   HERMES_MANAGED_DIR: path.join(home, '.hermes', 'zero-spend', 'hermes-home', 'managed-disabled'),
   HERMES_YOLO_BACKEND: 'hermes',
   HERMES_YOLO_PROVIDER: 'custom:ollama-local-64k',
-  HERMES_YOLO_MODEL: 'qwen3:8b-64k',
+  HERMES_YOLO_MODEL: 'qwen3.5:9b-hermes-64k',
   HERMES_YOLO_TOOLSETS: 'terminal,file,code_execution,memory,clarify',
   OPENROUTER_API_KEY: '',
   META_MODEL_API_KEY: '',
@@ -129,7 +141,7 @@ assert.deepStrictEqual(captured, {
 const receipt = JSON.parse(fs.readFileSync(path.join(home, '.hermes', 'receipts', 'zero-spend', 'latest.json'), 'utf8'));
 assert.strictEqual(receipt.command, 'hermes-yolo');
 assert.strictEqual(receipt.outcome, 'local-pass');
-assert.strictEqual(receipt.model, 'qwen3:8b-64k');
+assert.strictEqual(receipt.model, 'qwen3.5:9b-hermes-64k');
 assert.strictEqual(receipt.originalSpawned, true);
 assert.strictEqual(fs.statSync(path.join(home, '.hermes', 'receipts', 'zero-spend', 'latest.json')).mode & 0o777, 0o600);
 
@@ -140,6 +152,34 @@ assert.doesNotMatch(fs.readFileSync(path.join(home, '.hermes', '.env'), 'utf8'),
 const passthrough = run(path.join(bin, 'grok-yolo'), [], env);
 assert.strictEqual(passthrough.status, 0, passthrough.stderr);
 assert.strictEqual(fs.existsSync(grokSentinel), true, 'disabled policy restores original command behavior');
+
+const fakeOllamaState = path.join(root, 'fake-ollama-model-created');
+const capturedModelFile = path.join(root, 'captured-Modelfile');
+const fakeOllama = path.join(root, 'fake-ollama');
+executable(fakeOllama, `#!/bin/sh
+set -eu
+case "$1" in
+  list)
+    printf 'NAME ID SIZE MODIFIED\\n'
+    printf 'qwen3.5:9b base 7GB now\\n'
+    if [ -f "${fakeOllamaState}" ]; then
+      printf 'qwen3.5:9b-hermes-64k derived 7GB now\\n'
+    fi
+    ;;
+  create)
+    cp "$4" "${capturedModelFile}"
+    touch "${fakeOllamaState}"
+    ;;
+  *) exit 2 ;;
+esac
+`);
+const provisionEnv = { ...process.env, HOME: home, OLLAMA_BIN: fakeOllama };
+assert.strictEqual(gate.provisionSafeLocalModel(provisionEnv), 'qwen3.5:9b-hermes-64k');
+assert.match(fs.readFileSync(capturedModelFile, 'utf8'), /^FROM qwen3\.5:9b$/m);
+assert.match(fs.readFileSync(capturedModelFile, 'utf8'), /^PARAMETER num_ctx 65536$/m);
+fs.unlinkSync(capturedModelFile);
+assert.strictEqual(gate.provisionSafeLocalModel(provisionEnv), 'qwen3.5:9b-hermes-64k');
+assert.strictEqual(fs.existsSync(capturedModelFile), false, 'existing safe profile must not be recreated');
 
 fs.rmSync(root, { recursive: true, force: true });
 console.log('zero-spend command gate tests: PASS');
