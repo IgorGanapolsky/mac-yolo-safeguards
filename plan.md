@@ -645,4 +645,4 @@ Status values: `pending` | `in_progress` | `blocked` | `done`. Claim a row by se
 ### 2026-07-14 — Measure Play category discovery without invalidating the live experiment
 - **Finding:** Neutral `en-US` Play search ranks Hermes #7 for `hermes mobile`, #1 for the full coined name, and outside the returned result set for four buyer-category queries. Indexing exists; category relevance and demand signals are the gap.
 - **Decision:** Keep experiment `7582167718598236328` untouched. Stage a truthful category-intent custom-listing arm (`AI Agent Remote: Hermes`) and measure the same query set with `npm run --silent rank:play` before any public mutation.
-- **Proof:** Node parser tests 5/5, live JSON reproduced the baseline, title 23/30, short description 72/80, TypeScript passed, release readiness `ok: true`, and touched-file secret scan clean. No Play listing, experiment, binary, or build was submitted.
+- **Proof:** Jest parser tests 5/5, live JSON reproduced the baseline, title 23/30, short description 72/80, TypeScript passed, release readiness `ok: true`, and touched-file secret scan clean. No Play listing, experiment, binary, or build was submitted.

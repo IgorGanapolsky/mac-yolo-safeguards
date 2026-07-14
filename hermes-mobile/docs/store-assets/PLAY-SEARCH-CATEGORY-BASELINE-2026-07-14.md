@@ -4,6 +4,8 @@ Package: `com.iganapolsky.hermesmobile`
 Market: neutral public Play HTML, `hl=en&gl=US`  
 Command: `npm run --silent rank:play`
 
+Parser tests: `npx jest --runInBand scripts/play-search-rank.test.js`
+
 ## Baseline
 
 | Query | Rank snapshot |
