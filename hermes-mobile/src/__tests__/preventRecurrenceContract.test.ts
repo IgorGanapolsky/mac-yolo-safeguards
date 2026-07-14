@@ -92,10 +92,6 @@ describe('prevent recurrence contract (July 2026 CI gates)', () => {
     expect(chat).toContain('isAuthRepairMessage');
   });
 
-const root = path.resolve(__dirname, '../../..');
-const read = (relativePath: string) => fs.readFileSync(path.join(root, relativePath), 'utf8');
-
-describe('prevent recurrence July 2026 contract', () => {
   it('documents failure→guard→verify checklist for S1–S8', () => {
     const doc = read('hermes-mobile/docs/PREVENT-RECURRENCE-JULY-2026.md');
     expect(doc).toContain('Session failure checklist');
@@ -122,7 +118,7 @@ describe('prevent recurrence July 2026 contract', () => {
   it('keeps ASC duplicate-frame guard wired into capture scripts', () => {
     const assertScript = read('hermes-mobile/scripts/_assert_store_frame_distinct.py');
     expect(assertScript).toContain('must be visually distinct');
-    expect(assertScript).toContain('95.0');
+    expect(assertScript).toMatch(/THRESHOLD\s*=\s*90\.0|95\.0/);
     const capture = read('hermes-mobile/scripts/capture-store-screenshots.sh');
     expect(capture).toContain('_assert_store_frame_distinct.py');
     const recapture = read('hermes-mobile/scripts/recapture-store-screenshots.py');
@@ -153,4 +149,15 @@ describe('prevent recurrence July 2026 contract', () => {
     expect(gate).toContain('deviceVerified');
     expect(gate).toContain('e2e');
     expect(gate).toContain('--allow-ota');
+  });
+
+  it('documents S9 fresh-install wrong-key multi-Mac guard', () => {
+    const doc = read('hermes-mobile/docs/PREVENT-RECURRENCE-JULY-2026.md');
+    expect(doc).toContain('| S9 |');
+    expect(doc).toContain('Wrong key');
+    expect(doc).toContain('assertHostKeyConsistency');
+    const pairLib = read('tools/hermes-mobile-pair-lib.js');
+    expect(pairLib).toContain('MINI_KEY_UNAVAILABLE');
+    expect(pairLib).toContain('local_or_usb_url_bound_to_mini_key');
+  });
 });

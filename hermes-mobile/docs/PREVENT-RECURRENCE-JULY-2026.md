@@ -20,6 +20,7 @@ This document maps session failures to durable prevention: automated guards, pro
 | S6 | Parallel agents thrashing ChatScreen | `plan.md` single owner; no conflicting Start-fresh PRs; vault Handoffs | `node tools/plan-coordination-snapshot.js --json` |
 | S7 | ASC duplicate screenshots | Pipeline `_assert_store_frame_distinct.py` + capture scripts; **never pull App Review to fix shots** | `python3 hermes-mobile/scripts/_assert_store_frame_distinct.py <frames-dir>` (or contract test) |
 | S8 | False “shipped on phone” | `tools/require-device-verified.js` + `verify-continuous-e2e.sh --strict`; OTA/release proof before claims | `node tools/require-device-verified.js`; `bash hermes-mobile/scripts/verify-continuous-e2e.sh --strict` |
+| S9 | Fresh install **Wrong key** (USB MBP / multi-Mac) | `assertHostKeyConsistency` + strict mini SSH (no laptop-key fallback) + auth probe before deep link; session-start fails closed if pair ≠0; `wrongKeyRecovery` → Find computers CTA | `bash tests/test-hermes-mobile-pair.sh`; `npm test -- wrongKeyRecovery.test.ts` |
 
 Install/heal LaunchAgents: `bash scripts/install-hermes-chrome-cdp.sh` then `bash scripts/install-agent-launchagents.sh`.
 
@@ -142,6 +143,8 @@ bash hermes-mobile/scripts/agent-pre-asc-edit.sh      # runs verify-asc-listing 
 | `bash scripts/install-hermes-chrome-cdp.sh` | Install/heal `com.hermes.chrome-cdp` (port 9222) |
 | `bash scripts/hermes-prevention-watchdog.sh` | CDP + SOUL + disabled_toolsets + token ceiling drift check |
 | `node tools/require-device-verified.js` | Before any "shipped on phone" / device UX claim |
+| `bash tests/test-hermes-mobile-pair.sh` | Multi-Mac host→key bind + session-start fail-closed |
+| `node tools/hermes-mobile-pair.js --no-serve` | Fresh install pair (strict mini SSH; refuses laptop key on mini URL) |
 
 ---
 

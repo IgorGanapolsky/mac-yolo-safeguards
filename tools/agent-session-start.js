@@ -184,7 +184,7 @@ if (phoneInstall.queued) {
   const lockResult = withPhonePipelineLock(
     'session-start:auto-pair',
     () => {
-      pair = runNode('tools/hermes-mobile-pair.js', ['--no-serve'], 60_000);
+      pair = runNode('tools/hermes-mobile-pair.js', ['--no-serve'], 90_000);
     },
     { waitMs: 30_000, skipIfBusy: true },
   );
@@ -192,6 +192,17 @@ if (phoneInstall.queued) {
     process.stdout.write(
       `\n=== Hermes Mobile auto-pair: skipped (${lockResult.reason || 'pipeline busy'}) ===\n`,
     );
+  } else if (lockResult.ran && pair.status !== 0) {
+    if (!json) {
+      process.stdout.write('\n=== Hermes Mobile auto-pair: FAILED ===\n');
+      process.stdout.write(
+        `pair exit=${pair.status} — phone present but host/key bind or auth probe failed. ` +
+          `Refuse ready claim. Fix: node tools/hermes-mobile-pair.js --no-serve\n`,
+      );
+      if (pair.stderr) process.stderr.write(pair.stderr);
+    }
+    // Fresh-install contract: do not continue as if paired when adb device is present.
+    process.exitCode = process.exitCode || 2;
   }
 }
 if (!json && pair.stdout) {
