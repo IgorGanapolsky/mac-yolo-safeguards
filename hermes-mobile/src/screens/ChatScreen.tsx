@@ -268,6 +268,7 @@ import {
 } from '../utils/gatewayConnection';
 import {
   pairServerHostFromGatewayUrl,
+  probeLiveUsbGateway,
   resolvePairServerSetupParams,
 } from '../services/gatewayDiscovery';
 import { isGatewayLiveForDelivery } from '../utils/outboundDeliveryStatus';
@@ -525,12 +526,17 @@ export default function ChatScreen() {
   const [sessionModalVisible, setSessionModalVisible] = useState(false);
   const [toolsModalVisible, setToolsModalVisible] = useState(false);
   const [macPickerVisible, setMacPickerVisible] = useState(false);
+  const [liveUsbGateway, setLiveUsbGateway] = useState<{
+    reachable: boolean;
+    hostname?: string | null;
+  } | null>(null);
   const switchComputerProfiles = useMemo(
     () =>
       profilesForSwitchComputerPicker(gatewayProfiles, {
         activeProfileId: activeGatewayProfile?.id ?? null,
+        liveUsb: liveUsbGateway,
       }),
-    [activeGatewayProfile?.id, gatewayProfiles],
+    [activeGatewayProfile?.id, gatewayProfiles, liveUsbGateway],
   );
   const [isScanningMacs, setIsScanningMacs] = useState(false);
   const [projectModalVisible, setProjectModalVisible] = useState(false);
@@ -1204,6 +1210,32 @@ export default function ChatScreen() {
     }
     void probeTailscaleComputers();
   }, [macPickerVisible, isDemo, probeTailscaleComputers]);
+
+  useEffect(() => {
+    if (Platform.OS !== 'android' || isDemo) {
+      return;
+    }
+    if (!macPickerVisible && !showMacConnectionHelp) {
+      return;
+    }
+    let cancelled = false;
+    void probeLiveUsbGateway().then((discovery) => {
+      if (cancelled) {
+        return;
+      }
+      if (discovery?.hostname?.trim()) {
+        setLiveUsbGateway({
+          reachable: true,
+          hostname: discovery.hostname,
+        });
+        return;
+      }
+      setLiveUsbGateway(discovery ? { reachable: true } : null);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [isDemo, macPickerVisible, showMacConnectionHelp]);
 
   const handleSearchMacFromChat = useCallback(async () => {
     haptics.selection();
@@ -5770,6 +5802,7 @@ export default function ChatScreen() {
               onAddTailscaleComputer={(discovery) => {
                 void addDiscoveredTailscaleComputer(discovery);
               }}
+              liveUsb={liveUsbGateway}
               onAddProfile={addGatewayProfile}
             />
           </ScrollView>
