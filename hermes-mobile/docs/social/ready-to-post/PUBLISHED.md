@@ -1,3 +1,27 @@
+# Published — GTM organic
+
+## r/SideProject — Variant C Day 4 (LIVE)
+
+| Field | Value |
+|-------|-------|
+| **Status** | **Posted** 2026-07-14 |
+| **URL** | https://www.reddit.com/r/SideProject/comments/1uvyqhz/hermes_mobile_phone_remote_for_ai_agents_on/ |
+| **Account** | eazyigz123 |
+| **UTM** | `utm_source=reddit&utm_medium=sideproject&utm_campaign=day4-var-c` |
+| **Draft** | `13-var-c-sideproject-day4.md` |
+| **Verified** | Chrome page title + not removed |
+
+---
+
+## r/selfhosted — Variant C Day 4 (NOT CONFIRMED)
+
+| Field | Value |
+|-------|-------|
+| **Status** | Submit clicked on old.reddit; **no comments URL** — likely rule 6 megathread |
+| **Draft** | `12-var-c-selfhosted-day4.md` |
+
+---
+
 # Published — GTM organic (2026-07-13)
 
 ## Partner Pilot — catalystwayfare (SENT)
