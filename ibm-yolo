@@ -51,9 +51,11 @@ export PATH="${HOME_DIR}/.local/bin:/opt/homebrew/bin:/usr/local/bin:${PATH:-}"
 JSON=0
 DOCTOR=0
 APPLY=1
-# Default like other *-yolo tools: DO the work (signal + cash path), not print homework.
-CASH=1
-SIGNAL_ONLY=0
+# Default = market signal only (Stripe + drafts + pipeline seed).
+# That always works without Gmail OAuth. Cash auto-send is opt-in via --cash
+# because unattended Gmail needs Workspace-scoped OAuth (not gcloud ADC).
+CASH=0
+SIGNAL_ONLY=1
 SMART=0
 BOTH=0
 HELP=0
@@ -63,20 +65,22 @@ usage() {
 ibm-yolo — Enterprise multi-agent SDLC reliability operator
 (same install family as grok-yolo / meta-yolo: ~/.hermes/ibm-bob + PATH symlink)
 
-  ibm-yolo                 Market signal + cash path (auto-send attempt) — DEFAULT
-  ibm-yolo --signal-only   Signal/Stripe/drafts only (no revenue loop)
-  ibm-yolo --both          hermes-hosted + enterprise-sdlc signals, then cash
-  ibm-yolo --smart-ops     Also run smart-ops controller
+  ibm-yolo                 Market signal + Stripe check + drafts (DEFAULT)
+  ibm-yolo --cash          Also run revenue auto-send loop (needs Gmail OAuth)
+  ibm-yolo --both          hermes-hosted + enterprise-sdlc signals
+  ibm-yolo --smart-ops     Chain smart-ops controller
   ibm-yolo --no-apply      Do not write pipeline seed rows
   ibm-yolo --doctor        Health check only
-  ibm-yolo --json          Machine-readable (signal + cash)
+  ibm-yolo --json          Machine-readable
   ibm-yolo --help
+
+  Why default is not auto-send: shell Gmail needs scoped token at
+  ~/.hermes/google_token.json. Gmail MCP works for agents separately.
 
 Env:
   IBM_YOLO_HOME    runtime home (default ~/.hermes/ibm-bob)
   IBM_YOLO_REPO    override tools root
   REVENUE_DIR      private business_os/revenue path
-  REVENUE_AUTO_SEND / REVENUE_FOLLOWUP_HOURS  cash-path knobs
 
 Install:
   bash scripts/install-ibm-yolo.sh
@@ -88,9 +92,9 @@ while (($#)); do
     --json) JSON=1; shift ;;
     --doctor) DOCTOR=1; shift ;;
     --no-apply) APPLY=0; shift ;;
-    --signal-only) SIGNAL_ONLY=1; CASH=0; shift ;;
-    --no-cash) CASH=0; shift ;;
-    --cash) CASH=1; shift ;;
+    --signal-only) SIGNAL_ONLY=1; CASH=0; shift ;;  # legacy alias for default
+    --no-cash) CASH=0; SIGNAL_ONLY=1; shift ;;
+    --cash) CASH=1; SIGNAL_ONLY=0; shift ;;
     --smart-ops) SMART=1; shift ;;
     --both) BOTH=1; shift ;;
     -h|--help) HELP=1; shift ;;
@@ -222,17 +226,21 @@ const already = pipe.method === "already_present";
 const cta = drafts.cta || "(no live CTA)";
 const lines = [
   "",
-  ok ? "ibm-yolo: RAN OK  (this is a successful run — not a crash)" : "ibm-yolo: FAILED",
+  ok ? "ibm-yolo: SUCCESS" : "ibm-yolo: FAILED",
   "────────────────────────────────────────",
-  "layer:   market signal",
   "preset:  " + label,
   "signal:  " + (sig.id || "(none)"),
   "stripe:  " + okN + "/" + total + " live buy links",
-  "pipeline:" + (already ? " already seeded (re-run is fine)" : (pipe.method || "n/a")),
+  "pipeline:" + (already ? " already seeded (idempotent re-run)" : (pipe.method || "n/a")),
   "cta:     " + cta,
   "board:   " + (j.boardPath || "(none)"),
   "",
 ];
+if (ok) {
+  lines.push("Done. Stripe links verified; drafts on the board path above.");
+  lines.push("Auto-email is separate: ibm-yolo --cash  (needs Gmail Workspace OAuth)");
+  lines.push("");
+}
 process.stdout.write(lines.join("\n") + "\n");
 process.exit(ok ? 0 : 1);
 ' "$payload" "$label"
@@ -321,10 +329,25 @@ else
 fi
 
 CASH_OUT='{}'
-if ((CASH && !SIGNAL_ONLY && !DOCTOR)); then
-  CASH_OUT="$(run_cash_path)"
-  if ((JSON == 0)); then
-    print_cash_summary "$CASH_OUT" || true
+if ((CASH && !DOCTOR)); then
+  # Preflight: if Gmail unattended is missing, fail fast with one clear line
+  # instead of a wall of cash diagnostics that looks like ibm-yolo itself failed.
+  if ! ~/.hermes/google-venv/bin/python \
+      "$HOME/.hermes/skills/productivity/google-workspace/scripts/google_api.py" \
+      gmail search 'newer_than:7d' --max 1 >/tmp/ibm-yolo-gmail-probe.out 2>&1; then
+    if ((JSON == 0)); then
+      echo "=== CASH PATH skipped ==="
+      echo "Gmail unattended API not ready (need Workspace OAuth at ~/.hermes/google_token.json)."
+      echo "Signal layer above still succeeded. Fix Gmail then: ibm-yolo --cash"
+      echo "Probe: $(head -1 /tmp/ibm-yolo-gmail-probe.out 2>/dev/null | cut -c1-120)"
+      echo ""
+    fi
+    CASH_OUT='{"ok":false,"skipped":true,"gmail":{"ready":false},"sentCount":0,"actions":["cash_skipped_gmail_not_ready"]}'
+  else
+    CASH_OUT="$(run_cash_path)"
+    if ((JSON == 0)); then
+      print_cash_summary "$CASH_OUT" || true
+    fi
   fi
 fi
 
