@@ -97,7 +97,10 @@ import {
   resolveCellularTailscaleFailoverUrl,
 } from '../utils/connectionSelfHeal';
 import { CONNECTION_HEAL_EXHAUSTED_AFTER } from '../utils/connectionErrorPolicy';
-import { profileMatchesDiscoveredGateway } from '../utils/gatewayProfilePicker';
+import {
+  profileMatchesDiscoveredGateway,
+  profileMatchesHostname,
+} from '../utils/gatewayProfilePicker';
 import { isPrivateLanGatewayUrl } from '../utils/gatewayEndpoint';
 import { isTailscaleGatewayUrl } from '../utils/tailscaleHosts';
 import type { SetupDeepLinkParams } from '../utils/setupDeepLink';
@@ -1909,9 +1912,25 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
       await storage.saveLastSelectedProfileId(profileId);
 
       const profileKey = await secureCredentials.resolveApiKeyForProfile(profileId);
+      // Preserve USB loopback when user taps the matching Mac while USB is active
+      // (e.g., USB is connected to Mac Pro, but active profile was Mini — tapping Pro
+      // should keep http://127.0.0.1:8642 instead of switching to Tailscale URL that may be unreachable)
+      const currentEffective = effectiveGatewayUrlRef.current;
+      const healthHostname = healthRef.current?.hostname?.trim();
+      const healthOk = isMacGatewayHttpOk(healthRef.current);
+      let targetGatewayUrl = profile.gatewayUrl;
+      if (
+        isLoopbackGatewayUrl(currentEffective) &&
+        healthOk &&
+        healthHostname &&
+        profileMatchesHostname(profile, healthHostname)
+      ) {
+        // Keep USB route, but logical identity switches to selected profile
+        targetGatewayUrl = currentEffective;
+      }
       const nextSettings: GatewaySettings = {
         ...settingsRef.current,
-        gatewayUrl: profile.gatewayUrl,
+        gatewayUrl: targetGatewayUrl,
         demoMode: false,
       };
       await saveSettings(nextSettings, profileKey || apiKeyRef.current);
