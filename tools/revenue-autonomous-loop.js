@@ -234,8 +234,10 @@ function stageSummary(rows) {
 
 function hoursSince(dateStr) {
   if (!dateStr || !/^\d{4}-\d{2}-\d{2}/.test(dateStr)) return Infinity;
-  const then = new Date(`${dateStr.slice(0, 10)}T12:00:00Z`).getTime();
-  return (Date.now() - then) / (3600 * 1000);
+  // Use start-of-day UTC so "last_touch = today" is not negative before noon UTC
+  // (negative hours were excluding every same-day row from dueFollowUps).
+  const then = new Date(`${dateStr.slice(0, 10)}T00:00:00Z`).getTime();
+  return Math.max(0, (Date.now() - then) / (3600 * 1000));
 }
 
 function dueFollowUps(rows, minHours) {
