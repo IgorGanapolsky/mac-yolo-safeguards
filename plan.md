@@ -166,6 +166,8 @@ Durable rules live in [AGENTS.md](./AGENTS.md); this file is *live state only*.
 | T-268 | Preserve composer draft on Start fresh chat (mega-session) | done | grok-fresh-draft | `hermes-mobile/src/utils/freshChatComposerTransfer.ts`, `hermes-mobile/src/__tests__/freshChatComposerTransfer.test.ts`, `hermes-mobile/src/screens/ChatScreen.tsx`, `hermes-mobile/src/__tests__/ChatScreen.test.tsx`, `plan.md` | Start fresh keeps typed composer text; unit + ChatScreen tests pass; phone proof draft survives |
 | T-252 | Voice front door → pipeline-update apply path (dry-run default) | done | grok-voice-apply | `tools/hermes-voice-front-door.js`, `tests/test-hermes-voice-front-door.js`, `docs/HERMES-VOICE-FRONT-DOOR.md`, `docs/REVENUE-OPERATING-PLAN.md`, `plan.md` | `node tests/test-hermes-voice-front-door.js` passes apply dry-run + optional write; never auto-paid without flag |
 
+| T-253 | Voice apply-pipeline create-if-missing for cold-call buyers | done | grok-voice-seed | `tools/hermes-voice-front-door.js`, `tests/test-hermes-voice-front-door.js`, `docs/HERMES-VOICE-FRONT-DOOR.md`, `docs/REVENUE-OPERATING-PLAN.md`, `plan.md` | 20/20 tests; seeds ready row then advances; --no-create-if-missing refuses |
+
 Status values: `pending` | `in_progress` | `blocked` | `done`. Claim a row by setting Owner+Status in one edit, then claim its files in §2.
 
 ## 2. File Ownership Map (append-only lock table — claim before touching)
@@ -510,6 +512,8 @@ Status values: `pending` | `in_progress` | `blocked` | `done`. Claim a row by se
 - 2026-07-13 `grok-voice-front-door`: **Completed T-251 (SpaceXAI voice front door high-ROI).** Shipped `tools/hermes-voice-front-door.js` with transfer policy (qualify→close→human), published offer ladder gates ($499/$1,500/$3,000), HubSpot↔pipeline stage map, payment-link hard gate (human + approval + booked/proposed only), paste-ready demo pack, and private utterance-free receipts. Docs: `docs/HERMES-VOICE-FRONT-DOOR.md`, `docs/voice-front-door/*`. Cross-link in `docs/SALES-CLOSE-KIT.md`. Verification: `node tests/test-hermes-voice-front-door.js` 15/15.
 
 - 2026-07-14 `grok-voice-apply`: **Completed T-252 (voice→pipeline apply).** `apply-pipeline` event dry-runs exact `pipeline-update.js` command; `--apply` writes stages (score 4–8 → booked, human/pilot → proposed, never paid without `--allow-paid`). Docs: HERMES-VOICE-FRONT-DOOR + REVENUE-OPERATING-PLAN. Tests 18/18.
+
+- 2026-07-14 `grok-voice-seed`: **Completed T-253 (cold-call create-if-missing).** apply-pipeline seeds missing prospect as ready then advances stage; --no-create-if-missing refuses. Tests 20/20.
 
 ## 4. Discovered Tasks (append-only inbox → promote into §1)
 
