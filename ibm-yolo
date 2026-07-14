@@ -66,7 +66,7 @@ ibm-yolo — Enterprise multi-agent SDLC reliability operator
 (same install family as grok-yolo / meta-yolo: ~/.hermes/ibm-bob + PATH symlink)
 
   ibm-yolo                 Market signal + Stripe check + drafts (DEFAULT)
-  ibm-yolo --cash          Also run revenue auto-send loop (needs Gmail OAuth)
+  ibm-yolo --cash          Auto-send via Chrome Gmail session (or google_api)
   ibm-yolo --both          hermes-hosted + enterprise-sdlc signals
   ibm-yolo --smart-ops     Chain smart-ops controller
   ibm-yolo --no-apply      Do not write pipeline seed rows
@@ -74,8 +74,7 @@ ibm-yolo — Enterprise multi-agent SDLC reliability operator
   ibm-yolo --json          Machine-readable
   ibm-yolo --help
 
-  Why default is not auto-send: shell Gmail needs scoped token at
-  ~/.hermes/google_token.json. Gmail MCP works for agents separately.
+  Cash uses logged-in Google Chrome Gmail when API token lacks scopes.
 
 Env:
   IBM_YOLO_HOME    runtime home (default ~/.hermes/ibm-bob)
@@ -238,7 +237,7 @@ const lines = [
 ];
 if (ok) {
   lines.push("Done. Stripe links verified; drafts on the board path above.");
-  lines.push("Auto-email is separate: ibm-yolo --cash  (needs Gmail Workspace OAuth)");
+  lines.push("Auto-email via Chrome Gmail: ibm-yolo --cash");
   lines.push("");
 }
 process.stdout.write(lines.join("\n") + "\n");
@@ -264,8 +263,10 @@ const lines = [
   "funnel:  people sent=" + (counts.sent||0) + " lost=" + (counts.lost||0) +
     " | theme-seeds ready=" + (counts.ready||0) + " (not emailable contacts)",
   "stripe:  " + stripeOk + "/" + stripeN + " live",
-  "gmail:   " + (gmail.ready ? "READY for unattended send" : ("NOT READY — " + gmailReason)),
-  "due≥" + (j.followupHours||48) + "h: " + due.length + " person follow-up(s)",
+  "gmail:   " + (gmail.ready
+    ? ("READY via " + (gmail.channel || "api"))
+    : ("NOT READY — " + gmailReason)),
+  "due≥" + (j.followupHours != null ? j.followupHours : 48) + "h: " + due.length + " person follow-up(s)",
   "sent:    " + sent + " email(s) this run",
   "pending: " + pending,
   "board:   " + (j.boardPath || "(none)"),
@@ -277,8 +278,7 @@ if (sent > 0) {
   lines.push("CASH RESULT: 0 new sends this run (CLI still succeeded above).");
   lines.push("Why:");
   if (!gmail.ready) {
-    lines.push("  • Unattended Gmail API token lacks Workspace scopes (gcloud ADC only).");
-    lines.push("    Agents can still send via Gmail MCP; shell auto-send needs scoped OAuth.");
+    lines.push("  • Gmail not ready (Chrome session + google_api both unavailable).");
   }
   if (due.length === 0) {
     lines.push("  • No person follow-ups due yet (already emailed recently; wait " + (j.followupHours||48) + "h).");
@@ -296,18 +296,44 @@ process.stdout.write(lines.join("\n") + "\n");
 ' "$payload"
 }
 
+chrome_gmail_ready() {
+  # Igor’s real Chrome session — preferred when google_api token lacks scopes
+  local u
+  open -a "Google Chrome" >/dev/null 2>&1 || true
+  u="$(osascript <<'APPLESCRIPT' 2>/dev/null
+tell application "Google Chrome"
+  activate
+  if not (exists window 1) then make new window
+  set URL of active tab of front window to "https://mail.google.com/mail/u/0/#inbox"
+  delay 3
+  return URL of active tab of front window
+end tell
+APPLESCRIPT
+)"
+  [[ "$u" == *mail.google.com* && "$u" != *accounts.google.com* ]]
+}
+
 run_cash_path() {
   # Prefer tools that resolve private revenue data + pipeline-update from workspace if present
-  local cash_root="$REPO"
-  if [[ -f "$WORKSPACE_REPO/tools/revenue-autonomous-loop.js" ]]; then
-    cash_root="$WORKSPACE_REPO"
-  elif [[ -f "$MAIN_RUNTIME/tools/revenue-autonomous-loop.js" ]]; then
-    cash_root="$MAIN_RUNTIME"
+  local cash_root="$HERMES_HOME"
+  if [[ ! -f "$cash_root/tools/revenue-autonomous-loop.js" ]]; then
+    if [[ -f "$WORKSPACE_REPO/tools/revenue-autonomous-loop.js" ]]; then
+      cash_root="$WORKSPACE_REPO"
+    elif [[ -f "$MAIN_RUNTIME/tools/revenue-autonomous-loop.js" ]]; then
+      cash_root="$MAIN_RUNTIME"
+    else
+      cash_root="$REPO"
+    fi
   fi
   export REVENUE_DIR="${REVENUE_DIR:-$WORKSPACE_REPO/business_os/revenue}"
   export REVENUE_AUTO_SEND="${REVENUE_AUTO_SEND:-1}"
   export REVENUE_NTFY_QUIET_NOOP="${REVENUE_NTFY_QUIET_NOOP:-1}"
-  # From ibm-yolo we always attempt cash (user expects action, not a homework list)
+  # Use logged-in Chrome Gmail when API token is missing/insufficient scopes
+  unset REVENUE_NO_CHROME_GMAIL 2>/dev/null || true
+  export REVENUE_CHROME_GMAIL_FIRST=1
+  # Allow at least one due follow-up when explicitly cashing (Chrome path)
+  export REVENUE_FOLLOWUP_HOURS="${REVENUE_FOLLOWUP_HOURS:-0}"
+  export REVENUE_MAX_AUTO_SENDS="${REVENUE_MAX_AUTO_SENDS:-1}"
   (cd "$cash_root" && "$NODE" tools/revenue-autonomous-loop.js --auto-send --json --fast 2>/dev/null) \
     || echo '{"ok":false,"actions":["cash_path_failed"],"funnel":{"counts":{}},"gmail":{"ready":false,"reason":"cash_path_failed"},"sentCount":0}'
 }
@@ -330,24 +356,44 @@ fi
 
 CASH_OUT='{}'
 if ((CASH && !DOCTOR)); then
-  # Preflight: if Gmail unattended is missing, fail fast with one clear line
-  # instead of a wall of cash diagnostics that looks like ibm-yolo itself failed.
-  if ! ~/.hermes/google-venv/bin/python \
-      "$HOME/.hermes/skills/productivity/google-workspace/scripts/google_api.py" \
-      gmail search 'newer_than:7d' --max 1 >/tmp/ibm-yolo-gmail-probe.out 2>&1; then
+  # Prefer Chrome Gmail (logged-in session) when google_api lacks scopes.
+  # Do NOT skip cash just because Workspace OAuth token is missing.
+  if chrome_gmail_ready; then
     if ((JSON == 0)); then
-      echo "=== CASH PATH skipped ==="
-      echo "Gmail unattended API not ready (need Workspace OAuth at ~/.hermes/google_token.json)."
-      echo "Signal layer above still succeeded. Fix Gmail then: ibm-yolo --cash"
-      echo "Probe: $(head -1 /tmp/ibm-yolo-gmail-probe.out 2>/dev/null | cut -c1-120)"
+      echo "=== CASH PATH (Chrome Gmail session) ==="
+      echo "Using logged-in Google Chrome — not google_api token."
       echo ""
     fi
-    CASH_OUT='{"ok":false,"skipped":true,"gmail":{"ready":false},"sentCount":0,"actions":["cash_skipped_gmail_not_ready"]}'
-  else
+    CASH_OUT="$(run_cash_path)"
+    # Annotate channel for humans
+    CASH_OUT="$("$NODE" -e '
+const j=JSON.parse(process.argv[1]||"{}");
+j.gmail=j.gmail||{};
+j.gmail.ready=true;
+j.gmail.channel="chrome_gmail";
+j.gmail.reason="chrome_session";
+if (!j.actions) j.actions=[];
+j.actions.unshift("gmail_channel=chrome_session");
+console.log(JSON.stringify(j));
+' "$CASH_OUT")"
+    if ((JSON == 0)); then
+      print_cash_summary "$CASH_OUT" || true
+    fi
+  elif ~/.hermes/google-venv/bin/python \
+      "$HOME/.hermes/skills/productivity/google-workspace/scripts/google_api.py" \
+      gmail search 'newer_than:7d' --max 1 >/tmp/ibm-yolo-gmail-probe.out 2>&1; then
     CASH_OUT="$(run_cash_path)"
     if ((JSON == 0)); then
       print_cash_summary "$CASH_OUT" || true
     fi
+  else
+    if ((JSON == 0)); then
+      echo "=== CASH PATH blocked ==="
+      echo "Neither Chrome Gmail session nor google_api token is ready."
+      echo "Open Chrome signed into Gmail, then: ibm-yolo --cash"
+      echo ""
+    fi
+    CASH_OUT='{"ok":false,"skipped":true,"gmail":{"ready":false,"reason":"no_chrome_no_api"},"sentCount":0,"actions":["cash_blocked"]}'
   fi
 fi
 

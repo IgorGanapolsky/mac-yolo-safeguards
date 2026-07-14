@@ -234,8 +234,10 @@ function stageSummary(rows) {
 
 function hoursSince(dateStr) {
   if (!dateStr || !/^\d{4}-\d{2}-\d{2}/.test(dateStr)) return Infinity;
-  const then = new Date(`${dateStr.slice(0, 10)}T12:00:00Z`).getTime();
-  return (Date.now() - then) / (3600 * 1000);
+  // Use start-of-day UTC so "last_touch = today" is not negative before noon UTC
+  // (negative hours were excluding every same-day row from dueFollowUps).
+  const then = new Date(`${dateStr.slice(0, 10)}T00:00:00Z`).getTime();
+  return Math.max(0, (Date.now() - then) / (3600 * 1000));
 }
 
 function dueFollowUps(rows, minHours) {
@@ -504,40 +506,46 @@ function tryChromeGmailSend({ to, subject, body }) {
     `&to=${encodeURIComponent(to)}` +
     `&su=${encodeURIComponent(subject.slice(0, 200))}` +
     `&body=${encodeURIComponent(String(body).slice(0, 1800))}`;
+  // Critical: set active tab to the NEW compose tab (front window active tab
+  // often stays on the previous tab → missing value / no_send_btn flakiness).
   const script = `
 set composeURL to ${JSON.stringify(compose)}
 tell application "Google Chrome"
+  activate
   if not (exists window 1) then make new window
-  tell window 1
-    set newTab to make new tab with properties {URL:composeURL}
-  end tell
-  delay 5
+  -- Navigate the active tab (reliable across Chrome versions; avoids
+  -- "Can't set index of tab" when activating a newly created tab).
+  set URL of active tab of window 1 to composeURL
+  delay 7
   set resultText to "nojs"
-  try
-    set resultText to execute active tab of front window javascript "
-      (() => {
-        const sleep = (ms) => new Promise(r => setTimeout(r, ms));
-        const findSend = () => {
-          const nodes = [...document.querySelectorAll('div[role=button], button')];
-          return nodes.find(n => {
-            const t = (n.getAttribute('aria-label')||'') + ' ' + (n.innerText||'');
-            return /\\\\bSend\\\\b/i.test(t) && !/schedule|later/i.test(t);
-          });
-        };
-        const btn = findSend();
-        if (!btn) return 'no_send_btn title=' + document.title;
-        btn.click();
-        return 'clicked_send title=' + document.title;
-      })()
-    "
-  on error errMsg
-    set resultText to "js_err:" & errMsg
-  end try
-  delay 2
+  repeat with attempt from 1 to 5
+    try
+      set resultText to execute active tab of window 1 javascript "
+        (() => {
+          const findSend = () => {
+            const nodes = [...document.querySelectorAll('div[role=button], button')];
+            return nodes.find(n => {
+              const t = (n.getAttribute('aria-label')||'') + ' ' + (n.innerText||'');
+              return /\\\\bSend\\\\b/i.test(t) && !/schedule|later/i.test(t);
+            });
+          };
+          const btn = findSend();
+          if (!btn) return 'no_send_btn title=' + document.title + ' href=' + location.href.slice(0,80);
+          btn.click();
+          return 'clicked_send title=' + document.title;
+        })()
+      "
+    on error errMsg
+      set resultText to "js_err:" & errMsg
+    end try
+    if resultText starts with "clicked_send" then exit repeat
+    delay 2
+  end repeat
+  delay 1
   return resultText
 end tell
 `;
-  const r = spawnSync('osascript', ['-e', script], { encoding: 'utf8', timeout: 45000 });
+  const r = spawnSync('osascript', ['-e', script], { encoding: 'utf8', timeout: 60000 });
   const out = `${r.stdout || ''}${r.stderr || ''}`.trim();
   const ok = r.status === 0 && /clicked_send/i.test(out);
   return {
@@ -550,10 +558,28 @@ end tell
 }
 
 function tryGmailSend(email) {
+  // Chrome-first when API lacks scopes (ibm-yolo --cash sets REVENUE_CHROME_GMAIL_FIRST=1).
+  const chromeFirst = process.env.REVENUE_CHROME_GMAIL_FIRST === '1';
+  const noChrome = process.env.REVENUE_NO_CHROME_GMAIL === '1';
+
+  if (chromeFirst && !noChrome) {
+    const chrome = tryChromeGmailSend(email);
+    if (chrome.ok) return chrome;
+    const api = tryGmailApiSend(email);
+    if (api.ok) return api;
+    return {
+      ok: false,
+      channel: 'none',
+      status: chrome.status || api.status,
+      stdout: chrome.stdout,
+      stderr: `chrome:${chrome.stderr || chrome.stdout}; api:${api.stderr || api.stdout}`,
+    };
+  }
+
   // Prefer API; fall back to Chrome session (no human).
   const api = tryGmailApiSend(email);
   if (api.ok) return api;
-  if (process.env.REVENUE_NO_CHROME_GMAIL === '1') return api;
+  if (noChrome) return api;
   const chrome = tryChromeGmailSend(email);
   if (chrome.ok) return chrome;
   return {
