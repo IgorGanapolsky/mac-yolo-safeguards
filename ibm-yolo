@@ -330,6 +330,7 @@ run_cash_path() {
   export REVENUE_NTFY_QUIET_NOOP="${REVENUE_NTFY_QUIET_NOOP:-1}"
   # Use logged-in Chrome Gmail when API token is missing/insufficient scopes
   unset REVENUE_NO_CHROME_GMAIL 2>/dev/null || true
+  export REVENUE_CHROME_GMAIL_FIRST=1
   # Allow at least one due follow-up when explicitly cashing (Chrome path)
   export REVENUE_FOLLOWUP_HOURS="${REVENUE_FOLLOWUP_HOURS:-0}"
   export REVENUE_MAX_AUTO_SENDS="${REVENUE_MAX_AUTO_SENDS:-1}"
