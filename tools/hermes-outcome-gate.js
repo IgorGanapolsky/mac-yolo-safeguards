@@ -193,8 +193,9 @@ function buildReceipt(args, options = {}) {
 }
 
 function ensurePrivateDirectory(directory) {
+  const alreadyExists = fs.existsSync(directory);
   fs.mkdirSync(directory, { recursive: true, mode: 0o700 });
-  fs.chmodSync(directory, 0o700);
+  if (!alreadyExists) fs.chmodSync(directory, 0o700);
 }
 
 function writeReceipt(receipt, options = {}) {

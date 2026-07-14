@@ -93,6 +93,17 @@ assert.strictEqual(JSON.parse(fs.readFileSync(history, 'utf8').trim()).id, passe
 assert.strictEqual(fs.statSync(out).mode & 0o777, 0o600);
 assert.strictEqual(fs.statSync(history).mode & 0o777, 0o600);
 assert.strictEqual(fs.statSync(path.dirname(out)).mode & 0o777, 0o700);
+
+const existingParent = path.join(temp, 'caller-owned-existing-parent');
+fs.mkdirSync(existingParent, { mode: 0o755 });
+fs.chmodSync(existingParent, 0o755);
+writeReceipt(passed, {
+  out: path.join(existingParent, 'latest.json'),
+  history: path.join(existingParent, 'history.jsonl'),
+});
+assert.strictEqual(fs.statSync(existingParent).mode & 0o777, 0o755);
+assert.strictEqual(fs.statSync(path.join(existingParent, 'latest.json')).mode & 0o777, 0o600);
+assert.strictEqual(fs.statSync(path.join(existingParent, 'history.jsonl')).mode & 0o777, 0o600);
 fs.rmSync(temp, { recursive: true, force: true });
 
 console.log('Hermes outcome gate tests: PASS');
