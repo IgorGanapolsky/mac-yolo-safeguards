@@ -1,0 +1,8 @@
+pipeline_stage	hubspot_stage	next_action	notes
+ready	new	send_first_touch_or_voice_demo	example mapping for SpaceXAI HubSpot MCP
+sent	contacted	wait_for_reply	example mapping for SpaceXAI HubSpot MCP
+replied	qualified	book_triage_call	example mapping for SpaceXAI HubSpot MCP
+booked	meeting scheduled	hold_call	example mapping for SpaceXAI HubSpot MCP
+proposed	proposal sent	send_stripe_invoice_human_only	example mapping for SpaceXAI HubSpot MCP
+paid	closed won	add_to_revenue_ledger	example mapping for SpaceXAI HubSpot MCP
+lost	closed lost	no_action	example mapping for SpaceXAI HubSpot MCP
