@@ -8,7 +8,7 @@ import {
   resolveDisplayLanIp,
 } from '../utils/gatewayUrlPolicy';
 import type { SetupDeepLinkParams } from '../utils/setupDeepLink';
-import { mergeTailnetProbeHosts } from '../utils/tailscaleHosts';
+import { buildTailscaleGatewayUrl, mergeTailnetProbeHosts } from '../utils/tailscaleHosts';
 import { normalizeGatewayUrl } from './gatewayClient';
 import type { DiscoveredGateway } from '../types/gatewayProfile';
 import type { LanScanProgress, LanScanStage } from '../types/lanScan';
@@ -20,6 +20,8 @@ const SUBNET_BATCH_SIZE = 48;
 
 export type DiscoverLanOptions = {
   onProgress?: (progress: LanScanProgress) => void;
+  /** Known Tailscale hosts (100.x / MagicDNS) — sweep :8765/pair.json on each. */
+  tailnetPairServerHosts?: string[];
 };
 
 function reportLanScanProgress(
@@ -248,14 +250,64 @@ function mergeDiscovered(map: Map<string, DiscoveredGateway>, item: DiscoveredGa
   });
 }
 
+function pairServerSweepHosts(
+  phoneIp: string,
+  preferLanIp?: string | null,
+  tailnetPairServerHosts?: string[],
+): string[] {
+  const baseHosts = ['127.0.0.1', 'localhost'];
+  const subnetHosts = phoneIp ? buildHostOrder(phoneIp, preferLanIp) : [];
+  const tailnetHosts = mergeTailnetProbeHosts(tailnetPairServerHosts ?? []);
+  return Array.from(new Set([...baseHosts, ...subnetHosts, ...tailnetHosts]));
+}
+
+async function sweepTailnetGatewayHealth(
+  tailnetProbeHosts: string[],
+): Promise<DiscoveredGateway[]> {
+  const hosts = mergeTailnetProbeHosts(tailnetProbeHosts);
+  if (hosts.length === 0) {
+    return [];
+  }
+  const probes = await Promise.all(
+    hosts.map(async (host) => probeGatewayDetailed(buildTailscaleGatewayUrl(host))),
+  );
+  return probes.filter((item): item is DiscoveredGateway => item != null);
+}
+
+/** USB loopback + optional tailnet :8765 sweep — seeds tailnetProbeHosts on fresh install. */
+export async function bootstrapTailnetProbeHostsFromPairServers(
+  candidateHosts: string[] = [],
+): Promise<{ tailnetProbeHosts: string[]; gateways: DiscoveredGateway[] }> {
+  const hosts = pairServerSweepHosts('', null, candidateHosts);
+  const map = new Map<string, DiscoveredGateway>();
+  let tailnetProbeHosts: string[] = [];
+  for (const host of hosts) {
+    const payload = await fetchPairServerConfig(host);
+    if (!payload) {
+      continue;
+    }
+    if (payload.tailnetProbeHosts?.length) {
+      tailnetProbeHosts = mergeTailnetProbeHosts(
+        tailnetProbeHosts,
+        payload.tailnetProbeHosts,
+      );
+    }
+    mergeDiscovered(map, pairPayloadToDiscovered(payload));
+  }
+  if (tailnetProbeHosts.length > 0) {
+    for (const item of await sweepTailnetGatewayHealth(tailnetProbeHosts)) {
+      mergeDiscovered(map, item);
+    }
+  }
+  return { tailnetProbeHosts, gateways: Array.from(map.values()) };
+}
+
 async function sweepAllPairServers(
   phoneIp: string,
   preferLanIp?: string | null,
   options?: DiscoverLanOptions,
 ): Promise<{ gateways: DiscoveredGateway[]; tailnetProbeHosts: string[] }> {
-  const baseHosts = ['127.0.0.1', 'localhost'];
-  const subnetHosts = phoneIp ? buildHostOrder(phoneIp, preferLanIp) : [];
-  const hosts = [...baseHosts, ...subnetHosts];
+  const hosts = pairServerSweepHosts(phoneIp, preferLanIp, options?.tailnetPairServerHosts);
   const map = new Map<string, DiscoveredGateway>();
   let tailnetProbeHosts: string[] = [];
   if (hosts.length === 0) {
@@ -349,6 +401,12 @@ export async function discoverAllGatewaysOnLan(
   const fromHealth = await sweepAllGateways(phoneIp ?? '', preferLanIp, options, map.size);
   for (const item of fromHealth) {
     mergeDiscovered(map, item);
+  }
+
+  if (fromPair.tailnetProbeHosts.length > 0) {
+    for (const item of await sweepTailnetGatewayHealth(fromPair.tailnetProbeHosts)) {
+      mergeDiscovered(map, item);
+    }
   }
 
   const list = Array.from(map.values());

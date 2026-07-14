@@ -15,6 +15,8 @@ import {
   scheduleRunProgressNotification,
   scheduleRunStallNotification,
   shouldDismissRunNotificationsForAppState,
+  resetApprovalNotificationState,
+  syncHermesNotificationBadge,
 } from '../services/hermesNotifications';
 import * as Notifications from 'expo-notifications';
 import { AppState, Platform } from 'react-native';
@@ -309,6 +311,74 @@ describe('hermesNotifications', () => {
       const background = handlerPresentation('background', 'approval');
       expect(background.shouldShowBanner).toBe(true);
       expect(background.shouldPlaySound).toBe(true);
+    });
+  });
+
+  describe('approvals summary re-fire guard', () => {
+    const originalCurrentState = AppState.currentState;
+    const pair = [
+      {
+        actionId: 'act-1',
+        toolName: 'bash',
+        reason: 'deploy',
+        receivedAt: '',
+      },
+      {
+        actionId: 'act-2',
+        toolName: 'bash',
+        reason: 'rollback',
+        receivedAt: '',
+      },
+    ];
+
+    beforeEach(() => {
+      Object.defineProperty(AppState, 'currentState', {
+        value: 'background',
+        configurable: true,
+      });
+      resetApprovalNotificationState();
+      jest.clearAllMocks();
+      jest.useFakeTimers({ now: 2_000_000 });
+    });
+
+    afterEach(() => {
+      Object.defineProperty(AppState, 'currentState', {
+        value: originalCurrentState,
+        configurable: true,
+      });
+      jest.useRealTimers();
+      resetApprovalNotificationState();
+      jest.clearAllMocks();
+    });
+
+    it('does not re-alert the same pending set on every poll tick', async () => {
+      await scheduleApprovalsSummaryNotification(pair, { badgeCount: 2 });
+      expect(Notifications.scheduleNotificationAsync).toHaveBeenCalledTimes(1);
+      const first = (Notifications.scheduleNotificationAsync as jest.Mock).mock.calls[0][0];
+      expect(first.content.sound).toBe('default');
+      expect(first.content.badge).toBe(2);
+
+      jest.clearAllMocks();
+      await scheduleApprovalsSummaryNotification(pair, { badgeCount: 2 });
+      expect(Notifications.scheduleNotificationAsync).not.toHaveBeenCalled();
+    });
+
+    it('caps OS badge at 99', async () => {
+      await syncHermesNotificationBadge(5557);
+      expect(Notifications.setBadgeCountAsync).toHaveBeenCalledWith(99);
+    });
+
+    it('titles summary as 99+ when count exceeds display cap', async () => {
+      const huge = Array.from({ length: 120 }, (_, i) => ({
+        actionId: `act-${i}`,
+        toolName: 'bash',
+        reason: 'x',
+        receivedAt: '',
+      }));
+      await scheduleApprovalsSummaryNotification(huge, { badgeCount: 5557 });
+      const call = (Notifications.scheduleNotificationAsync as jest.Mock).mock.calls[0][0];
+      expect(call.content.title).toBe('99+ approvals waiting');
+      expect(call.content.badge).toBe(99);
     });
   });
 });

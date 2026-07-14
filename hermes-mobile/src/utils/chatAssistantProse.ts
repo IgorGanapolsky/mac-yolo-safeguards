@@ -19,6 +19,12 @@ export function humanizeAssistantProse(text: string): string {
     return text;
   }
 
+  // OpenCode / agent runtimes sometimes surface bare "Aborted" as the assistant body.
+  const trimmedOnly = text.trim();
+  if (/^aborted\.?$/i.test(trimmedOnly) || /^error:\s*aborted\.?$/i.test(trimmedOnly)) {
+    return 'Stopped before finishing — tap ↑ to try again.';
+  }
+
   let out = text
     .replace(PRE_TURN_SCORE_RE, '')
     .replace(POST_TURN_SCORE_RE, '')
@@ -33,6 +39,10 @@ export function humanizeAssistantProse(text: string): string {
     .replace(/\n{3,}/g, '\n\n')
     .replace(/^\s+/, '')
     .trim();
+
+  if (/^aborted\.?$/i.test(out)) {
+    return 'Stopped before finishing — tap ↑ to try again.';
+  }
 
   return out;
 }

@@ -81,9 +81,13 @@ jest.mock('../services/discover', () => ({
 jest.mock('../services/gatewayDiscovery', () => {
   const actual = jest.requireActual('../services/gatewayDiscovery');
   return {
+    ...actual,
     discoverAllGatewaysOnLan: jest.fn().mockResolvedValue({ gateways: [], tailnetProbeHosts: [] }),
     discoverGatewayOnPhoneSubnet: jest.fn().mockResolvedValue(null),
     discoverGatewayViaPairServer: jest.fn().mockResolvedValue(null),
+    bootstrapTailnetProbeHostsFromPairServers: jest
+      .fn()
+      .mockResolvedValue({ tailnetProbeHosts: [], gateways: [] }),
     pairServerHostFromGatewayUrl: actual.pairServerHostFromGatewayUrl,
     resolvePairServerMachineName: jest.fn().mockResolvedValue(null),
     resolvePairServerRelayCode: jest.fn().mockResolvedValue(null),

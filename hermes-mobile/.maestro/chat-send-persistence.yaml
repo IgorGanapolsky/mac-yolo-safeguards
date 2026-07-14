@@ -32,7 +32,7 @@ appId: com.iganapolsky.hermesmobile
 - inputText: "e2e-chat-send-persist"
 - waitForAnimationToEnd:
     timeout: 2000
-- hideKeyboard
+- runFlow: hide-keyboard-safe.yaml
 - tapOn:
     id: "chat-send-button"
 # Prefer stable testID; scroll first because long sessions virtualize off-screen bubbles.

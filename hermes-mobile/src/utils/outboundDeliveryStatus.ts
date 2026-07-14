@@ -3,6 +3,7 @@ import { GATEWAY_WRONG_KEY_MESSAGE, GATEWAY_AUTH_REPAIR_HEADER } from '../servic
 import { EMPTY_REPLY_FAILURE_REASON } from './emptyStreamReplyRecovery';
 import { OUTBOUND_STUCK_FAILURE_REASON } from './outboundSendRecovery';
 import { RUN_NO_TOKEN_FAIL_DETAIL } from './runStaleDetection';
+import { isRawAbortMessage, USER_RUN_INTERRUPTED_MESSAGE } from './chatErrors';
 
 export type OutboundDeliveryStatus = 'pending' | 'sent' | 'failed';
 
@@ -82,6 +83,9 @@ export function resolveOutboundFailureLabel(
     }
     if (isEmptyReplyFailureReason(reason)) {
       return `⚠ ${OUTBOUND_NO_REPLY_MAC_LIVE}`;
+    }
+    if (isRawAbortMessage(reason)) {
+      return `⚠ ${USER_RUN_INTERRUPTED_MESSAGE}`;
     }
     if (macHttpOk) {
       return `⚠ ${truncateOutboundFailureReason(reason)}`;

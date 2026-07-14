@@ -66,6 +66,14 @@ describe('streamAssistantText', () => {
 
   it('recognizes deferred stream placeholders', () => {
     expect(isDeferredStreamPlaceholder(TELEGRAM_QUEUED_REPLY_PLACEHOLDER)).toBe(true);
+    expect(
+      isDeferredStreamPlaceholder(
+        'Working on your computer… Hermes may be using tools (browser, search, terminal). The reply will show here when ready.',
+      ),
+    ).toBe(true);
+    expect(
+      isDeferredStreamPlaceholder('(Hermes did not return text yet — still running on your computer.)'),
+    ).toBe(true);
     expect(isDeferredStreamPlaceholder('hello')).toBe(false);
   });
 

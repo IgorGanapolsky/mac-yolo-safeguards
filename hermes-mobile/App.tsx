@@ -38,6 +38,7 @@ import {
 import { useKeyboardInset } from './src/hooks/useKeyboardInset';
 import { isDemoModeAllowed } from './src/utils/demoModePolicy';
 import { LEASH_TAB_LABEL } from './src/constants/monetization';
+import { formatPendingApprovalBadge } from './src/utils/pendingApprovalsCap';
 import { refreshFreeLeashWeeklyState } from './src/utils/freeLeashAllowance';
 import { syncLeashEntitlementSnapshot } from './src/utils/thumbgateLeash';
 import { colors } from './src/theme/colors';
@@ -139,7 +140,7 @@ function HermesTabNavigator() {
 // Glassmorphic bottom tab bar
 function GlassmorphicTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
   const { pendingApprovals, activateDeveloperLeashUnlock } = useGateway();
-  const pendingCount = pendingApprovals.length;
+  const pendingBadgeLabel = formatPendingApprovalBadge(pendingApprovals.length);
   const insets = useSafeAreaInsets();
   const { inset: keyboardInset } = useKeyboardInset();
   const keyboardOpen = keyboardInset > 0;
@@ -232,9 +233,9 @@ function GlassmorphicTabBar({ state, descriptors, navigation }: BottomTabBarProp
             <Text style={[styles.navText, isFocused && styles.navTextActive]}>
               {label}
             </Text>
-            {route.name === 'Leash' && pendingCount > 0 ? (
-              <View style={styles.pendingBadge}>
-                <Text style={styles.pendingBadgeText}>{pendingCount}</Text>
+            {route.name === 'Leash' && pendingBadgeLabel ? (
+              <View style={styles.pendingBadge} testID="leash-tab-badge">
+                <Text style={styles.pendingBadgeText}>{pendingBadgeLabel}</Text>
               </View>
             ) : null}
             {isFocused && <View style={styles.activeDot} />}

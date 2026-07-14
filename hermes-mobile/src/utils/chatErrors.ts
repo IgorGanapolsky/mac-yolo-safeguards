@@ -41,6 +41,28 @@ export function isConnectivityMessage(message: string): boolean {
   );
 }
 
+/** Wrong-key / re-pair banners — must clear when auth becomes OK (never under green Connected). */
+export function isAuthRepairMessage(message: string): boolean {
+  const normalized = message.toLowerCase();
+  return (
+    normalized.includes(GATEWAY_WRONG_KEY_MESSAGE.toLowerCase()) ||
+    normalized.includes('wrong key') ||
+    normalized.includes('re-pair') ||
+    normalized.includes('needs re-pair')
+  );
+}
+
+/** Clear connectivity OR stale auth-repair banners once chat auth is healthy. */
+export function shouldClearConnectionErrorBanner(
+  message: string | null | undefined,
+  chatAuthLive: boolean,
+): boolean {
+  if (!message || !chatAuthLive) {
+    return false;
+  }
+  return isConnectivityMessage(message) || isAuthRepairMessage(message);
+}
+
 export type HumanChatError = {
   kind: 'connectivity' | 'operational' | 'auth';
   message: string;
@@ -75,6 +97,48 @@ export function isAuthApiError(error: unknown): boolean {
   return false;
 }
 
+/**
+ * Agent runtimes (OpenCode etc.) emit bare "Aborted" — never show that jargon.
+ * Same for AbortError / MessageAbortedError names that leak into bubbles.
+ */
+export const USER_RUN_INTERRUPTED_MESSAGE =
+  'Stopped before finishing — tap ↑ to try again';
+
+export function isRawAbortMessage(message: string | undefined | null): boolean {
+  if (!message?.trim()) {
+    return false;
+  }
+  const t = message.trim().toLowerCase().replace(/[_-]+/g, ' ').replace(/\s+/g, ' ');
+  // Only jargon-only (or near-only) abort strings — not long prose that happens to say "aborted".
+  if (
+    t === 'aborted' ||
+    t === 'aborted.' ||
+    t === 'abort' ||
+    t === 'aborterror' ||
+    t === 'messageabortederror' ||
+    t === 'the operation was aborted' ||
+    t === 'the operation was aborted.' ||
+    t === 'request aborted' ||
+    t === 'request aborted.' ||
+    t === 'signal is aborted without reason' ||
+    t === 'error: aborted' ||
+    t === 'error: aborted.' ||
+    t === 'the user aborted a request.' ||
+    t === 'the user aborted a request'
+  ) {
+    return true;
+  }
+  // Short error payloads like {"error":"Aborted"}
+  if (t.length <= 48 && /^[\s{":]*error[\s:"]*aborted/.test(t)) {
+    return true;
+  }
+  return false;
+}
+
+export function humanizeIfAbortMessage(message: string): string {
+  return isRawAbortMessage(message) ? USER_RUN_INTERRUPTED_MESSAGE : message;
+}
+
 /** Map gateway/API failures to copy a new user can act on — no "gateway" jargon. */
 export function humanizeChatError(
   error: unknown,
@@ -101,6 +165,14 @@ export function humanizeChatError(
 
   const message = error.message;
   const lower = message.toLowerCase();
+
+  if (
+    error.name === 'AbortError' ||
+    isRawAbortMessage(message) ||
+    isRawAbortMessage(error.name)
+  ) {
+    return { kind: 'operational', message: USER_RUN_INTERRUPTED_MESSAGE };
+  }
 
   if (isTitleInUseError(error)) {
     return {
@@ -155,18 +227,21 @@ export function humanizeChatError(
           if (msg === 'invalid_request_error') {
             return { kind: 'operational', message: 'Something went wrong talking to your computer. Try again.' };
           }
-          return { kind: 'operational', message: msg };
+          return { kind: 'operational', message: humanizeIfAbortMessage(msg) };
         }
       }
       if (parsed.message && typeof parsed.message === 'string') {
-        return { kind: 'operational', message: parsed.message };
+        return { kind: 'operational', message: humanizeIfAbortMessage(parsed.message) };
+      }
+      if (typeof parsed.error === 'string' && isRawAbortMessage(parsed.error)) {
+        return { kind: 'operational', message: USER_RUN_INTERRUPTED_MESSAGE };
       }
     } catch {
       // not JSON
     }
   }
 
-  return { kind: 'operational', message: message || fallback };
+  return { kind: 'operational', message: humanizeIfAbortMessage(message || fallback) };
 }
 
 export function friendlyMacUnreachableMessage(gatewayUrl?: string): string {

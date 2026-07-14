@@ -22,6 +22,8 @@ This document maps **nine failures from the 2026-07-10 session** to durable prev
 | 8 | Ship claims without evidence ("are you sure?") | Skipped `agent-session-start.js --full`, ThumbGate recall, and `latest.json` | Honesty protocol in parent `AGENTS.md`; same-turn evidence (test output, JSON, SHA); `mcp__thumbgate__capture_memory_feedback` after false claims | **Process + RAG** |
 | 9 | Name repair overwritten + app dropped to launcher | Three concurrent `agent-session-start.js` runs each called `hermes-mobile-pair.js` + queued `install-phone-release.sh`; `openDeepLinkOnDevice` passed `&name=` unquoted to Android shell | **`tools/agent-phone-pipeline-lock.js`** mutex in `agent-session-start.js` + `hermes-mobile-pair.js`; defer pair when install job queued; single-quote URI in adb shell; no detached install fallback | **Automated lock** |
 | 10 | Dual continuous E2E thrash + poisoned `latest.json` (2026-07-13) | Multiple agents ran `run-continuous-e2e.sh --once` + bare Maestro on same USB phone; worktree without `node_modules` wrote `unit:fail` / `e2e:skipped` over shared proof; vault handoff skipped | **`flock` cycle lock** on all continuous modes; refuse cycle if jest missing (**do not write** `latest.json`); skip E2E if `maestro.cli.AppKt` already holds device; vault claim USB/Maestro before kick; one continuous owner | **Automated lock + vault** |
+| 11 | Fresh install → **Wrong key / Not connected** (2026-07-14) | Pair deep link embedded unverified or foreign `API_SERVER_KEY` (laptop key on mini, or extra Mac without SSH); USB used tailnet URL without reverse; `/health` green while chat 401 | **`verifyGatewayAuthSync` before deep link** (refuse if not 200); **USB primary → `127.0.0.1:8642`** when reverse auth works; **extras only with SSH key + verified auth**; never fallback laptop key onto mini when `fallbackLocal:false`; **auto-pair after `install-phone-release.sh`**; redact all keys in logs | **Automated pair-lib + install** |
+| 12 | Bare **Aborted** in chat/banner (2026-07-14) | OpenCode/agent runtime error `Aborted` / AbortError leaked as UI copy | `isRawAbortMessage` + `USER_RUN_INTERRUPTED_MESSAGE` in chatErrors, runProgressDisplay, outbound bubbles, assistant prose | **Unit tests** |
 
 ---
 
@@ -170,16 +172,29 @@ Shipped hardening: PR #151 (initial unblock), #186 (stall CTA + WARN 350k), T-18
 | Guardrail | Setting | Machine |
 |-----------|---------|---------|
 | Same-tool failure circuit breaker | `tool_loop_guardrails.hard_stop_enabled: true`, `hard_stop_after.same_tool_failure: 5`, `exact_failure: 4` | both |
-| Dead browser toolset off | `agent.disabled_toolsets: [browser]` | mini only (MBP `cdp_url` empty, engine auto) |
 | Serialize api_server turns | `gateway.api_server.max_concurrent_runs: 1` (mini) / `2` (MBP) | both |
 | Session input-token ceiling | `HERMES_MAX_SESSION_INPUT_TOKENS` env, default **500k** (0 disables) — local patch in `~/.hermes/hermes-agent/agent/conversation_loop.py`, commits mini `fa43a03c0` / MBP `af21538c90`, fork branches `mini/mbp-local-guardrails-20260713` | both |
 
+**REVERSED (2026-07-13 evening — user standing order: no constraints):** temporarily setting `agent.disabled_toolsets: [browser]` after dead CDP was rejected. Browser stays **enabled**. If CDP dies, **heal CDP** — never encode breakage as a permanent tool/SOUL constraint.
+
+| Browser restore (verified 2026-07-13) | Setting / proof |
+|--------------------------------------|-----------------|
+| Chrome CDP LaunchAgent | `com.hermes.chrome-cdp` → `~/.hermes/chrome-cdp-profile`, port `9222`, `--remote-allow-origins=*` |
+| Config | `disabled_toolsets: []`, `browser.cdp_url: ws://127.0.0.1:9222` |
+| Toolsets API | `browser` / `computer_use` / `web` `enabled=true` |
+| SOUL | **No constraints** section; `Browser Session Safety Lock` purged (had `uchg` — clear with `chflags nouchg` before edit) |
+| Vault | `Agent-Directives/NO-CONSTRAINTS-FLEET-POLICY.md`; `BROWSER-SESSION-SAFETY-LOCK.md` retired |
+| Probe | Gateway chat navigated `https://example.com` → title `Example Domain`; no restriction/menu copy |
+
 **Operator rules:**
 
-1. Never re-enable the `browser` toolset on a machine without proving `curl http://localhost:9222/json/version` returns 200 first.
-2. The 500k desktop ceiling aligns with the mobile WARN gate (350k) and sits under the mobile BLOCK (800k) — keep that ordering if any threshold moves.
-3. `~/.hermes/hermes-agent` is a **git fork checkout** (IgorGanapolsky/hermes-agent), not pip site-packages — patch + commit there, and remember `hermes update` may stash local changes (`updates.non_interactive_local_changes: stash`).
-4. Upstream gaps to request from NousResearch/hermes-agent: config key for a session token/cost ceiling, per-session turn serialization in api_server (`max_concurrent_runs` is global only), and a circuit breaker that disables the failing tool for the session instead of only halting the turn.
+1. CDP health: `curl -s http://127.0.0.1:9222/json/version` must return 200. If not, restart `com.hermes.chrome-cdp` (or relaunch Chrome with the hermes profile flags) — **do not** disable the browser toolset or add SOUL lock language.
+2. Never set `uchg` on `~/.hermes/SOUL.md`. Never reinstate `Browser Session Safety Lock`.
+3. Never narrate "browser automation restrictions" or dump numbered workaround menus on the user — fix tools and continue.
+4. The 500k desktop ceiling aligns with the mobile WARN gate (350k) and sits under the mobile BLOCK (800k) — keep that ordering if any threshold moves.
+5. `~/.hermes/hermes-agent` is a **git fork checkout** (IgorGanapolsky/hermes-agent), not pip site-packages — patch + commit there, and remember `hermes update` may stash local changes (`updates.non_interactive_local_changes: stash`).
+6. Upstream gaps to request from NousResearch/hermes-agent: config key for a session token/cost ceiling, per-session turn serialization in api_server (`max_concurrent_runs` is global only), and a circuit breaker that disables the failing tool for the session instead of only halting the turn.
+7. Poisoned mega-sessions may still contain old restriction turns — use **Start fresh chat**; policy alone does not rewrite history.
 
 ---
 

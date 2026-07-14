@@ -50,6 +50,8 @@ plists=(
   com.igor.hermes-contribution-opportunities.plist
   com.igor.hermes-mobile-continuous-e2e.plist
   com.igor.hermes-relay-worker.plist
+  com.igor.revenue-autonomous-loop.plist
+  com.igor.smart-ops.plist
 )
 
 install_one() {
@@ -73,6 +75,7 @@ install_one() {
 }
 
 mkdir -p "${launchagents_dir}"
+mkdir -p "${home}/Library/Logs/mac-yolo"
 for template in "${plists[@]}"; do
   install_one "${template}"
 done
@@ -81,3 +84,4 @@ echo ""
 echo "Installed ${#plists[@]} LaunchAgent templates. Verify with:"
 echo "  bash scripts/verify-agent-automations.sh"
 echo "  node tools/agent-session-start.js"
+echo "  node tools/revenue-autonomous-loop.js --json"
