@@ -31,6 +31,13 @@
         <string>1</string>
         <key>SMART_OPS_REVENUE_FRESH_MIN</key>
         <string>25</string>
+        <!-- Market signals: Hermes-hosted + enterprise SDLC presets; pipeline apply once/day -->
+        <key>SMART_OPS_MARKET_SIGNAL</key>
+        <string>1</string>
+        <key>SMART_OPS_MARKET_PRESETS</key>
+        <string>hermes-hosted,enterprise-sdlc</string>
+        <key>REVENUE_DIR</key>
+        <string>{{HOME}}/workspace/git/igor/mac-yolo-safeguards/business_os/revenue</string>
     </dict>
     <key>ProcessType</key>
     <string>Background</string>
