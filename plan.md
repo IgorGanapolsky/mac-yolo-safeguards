@@ -187,10 +187,13 @@ Durable rules live in [AGENTS.md](./AGENTS.md); this file is *live state only*.
 
 | T-256 | OTA check spinner timeout (withTimeout 30s/60s) | in_progress | cursor-ota-timeout | `hermes-mobile/src/services/appOtaUpdate.ts`, `hermes-mobile/src/__tests__/appOtaUpdate.test.ts`, `hermes-mobile/src/__tests__/ConnectionHealthHub.test.tsx`, `plan.md` | Check for update spinner clears ≤30s; focused Jest pass; production OTA |
 | T-313 | Correct `ibm-yolo` to invoke official IBM Bob Shell on both Macs | done | codex-ibm-bob | `ibm-yolo`, `scripts/install-ibm-yolo.sh`, `tests/test-ibm-yolo.sh`, `docs/AGENT-AUTOMATIONS.md`, `docs/IBM-BOB-YOLO.md`, `plan.md` | Official `bob` is installed on MacBook Pro + Mac mini; `ibm-yolo` injects IBM's `--yolo` flag, preserves arguments/exit status, exposes a no-network doctor, never falls back to another provider, and focused tests plus per-host runtime proof pass without activating a paid plan |
+| T-314 | Isolate install smoke tests from the self-hosted Mac runner's live home | in_progress | codex-ci-home-isolation | `install.sh`, `yolo-health`, `tests/test-install-ci-isolation.js`, `plan.md` | CI runs install into `$RUNNER_TEMP`, never rewrites live `~/.local/bin/hermes-yolo` or bootstraps/boots out the live LaunchAgent; normal interactive install behavior is unchanged; regression test passes |
 
 Status values: `pending` | `in_progress` | `blocked` | `done`. Claim a row by setting Owner+Status in one edit, then claim its files in §2.
 
 ## 2. File Ownership Map (append-only lock table — claim before touching)
+
+- `install.sh`, `yolo-health`, `tests/test-install-ci-isolation.js`, `plan.md` → **codex-ci-home-isolation** (T-314 isolate self-hosted CI smoke installs from live operator state) (2026-07-14T10:10:00Z)
 
 - `9router-yolo`, `hermes-9router`, `scripts/install-9router-yolo.sh`, `tools/hermes-9router-harness.js`, `tests/test-9router-yolo.js`, `tests/test-hermes-9router-harness.js`, `docs/HERMES-9ROUTER-GATEWAY.md`, `plan.md` → **codex-9router** (T-9R-20260714 safe loopback 9Router + explicit Hermes adapter) (2026-07-14T05:57:10Z)
 - T-9R-20260714 claimed files → **codex-9router released** after pinned-integrity install, focused tests, exact standalone/Hermes markers, mode-0600 receipts, loopback-only listener proof, and matching deployment on Pro + mini (2026-07-14T06:30:00Z)
