@@ -15,6 +15,10 @@ concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  actions: read
+  contents: read
+
 jobs:
   # Prefer Mac mini self-hosted when mac-mini-hermes is online; fall back to
   # GitHub-hosted macos-latest so required checks do not stall if the mini reboots.
