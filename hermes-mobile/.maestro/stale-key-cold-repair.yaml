@@ -1,0 +1,32 @@
+# Real auth-state regression: health stays green while a stale bearer is rejected,
+# setup-only repair replaces it, and a cold relaunch must retain the repaired key.
+appId: com.iganapolsky.hermesmobile
+---
+- launchApp:
+    clearState: true
+- openLink: "hermes://setup?url=http%3A%2F%2F127.0.0.1%3A8642&key=e2e-stale-key&name=Hermes-E2E-Mac"
+- extendedWaitUntil:
+    visible: "Wrong key.*"
+    timeout: 30000
+- assertNotVisible: "Connected"
+
+- openLink: "hermes://setup?url=http%3A%2F%2F127.0.0.1%3A8642&key=e2e-good-key&name=Hermes-E2E-Mac"
+- extendedWaitUntil:
+    visible:
+      id: "chat-context-link"
+      text: "Connected"
+    timeout: 30000
+- assertNotVisible: "Wrong key.*"
+
+- stopApp
+- launchApp
+- extendedWaitUntil:
+    visible:
+      id: "chat-context-link"
+      text: "Connected"
+    timeout: 30000
+- assertNotVisible: "Wrong key.*"
+- tapOn:
+    id: "chat-input"
+- inputText: "make money today"
+- assertVisible: "make money today"
