@@ -183,6 +183,8 @@ Durable rules live in [AGENTS.md](./AGENTS.md); this file is *live state only*.
 | T-254 | CI E2E audit minimum gates (preventRecurrence + Maestro tier-0 + e2e=fail) | done | cursor-ci-e2e-gates | `hermes-mobile/src/__tests__/preventRecurrenceContract.test.ts`, `hermes-mobile/src/__tests__/ChatScreen.authMismatch.test.tsx`, `hermes-mobile/src/__tests__/chatErrors.abort.test.ts`, `hermes-mobile/src/__tests__/chatMachineHeader.test.ts`, `hermes-mobile/src/__tests__/releaseSafetyNet.test.ts`, `hermes-mobile/.maestro/stranger-cold-start.yaml`, `hermes-mobile/.maestro/wrong-key-repair.yaml`, `hermes-mobile/scripts/validate-maestro-flows.js`, `hermes-mobile/scripts/run-continuous-e2e.sh`, `hermes-mobile/package.json`, `hermes-mobile/docs/TESTING.md`, `plan.md` | `npm test` + `test:release-safety` + `e2e:validate` green; no phone writes `e2e=fail`; PR automerge |
 | T-269 | Fix duplicate user bubble when gateway ack races optimistic send | done | cursor-dup-bubble | `hermes-mobile/src/utils/chatMessageMerge.ts`, `hermes-mobile/src/__tests__/chatMessageMerge.test.ts`, `plan.md` | PR #325 d245cb55; one user turn → one bubble; merge transfers outbound status; Jest 1382/1383 |
 
+| T-256 | OTA check spinner timeout (withTimeout 30s/60s) | in_progress | cursor-ota-timeout | `hermes-mobile/src/services/appOtaUpdate.ts`, `hermes-mobile/src/__tests__/appOtaUpdate.test.ts`, `hermes-mobile/src/__tests__/ConnectionHealthHub.test.tsx`, `plan.md` | Check for update spinner clears ≤30s; focused Jest pass; production OTA |
+
 Status values: `pending` | `in_progress` | `blocked` | `done`. Claim a row by setting Owner+Status in one edit, then claim its files in §2.
 
 ## 2. File Ownership Map (append-only lock table — claim before touching)
