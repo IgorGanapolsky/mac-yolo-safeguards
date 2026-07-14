@@ -87,8 +87,82 @@ describe('prevent recurrence contract (July 2026 CI gates)', () => {
 
   it('ChatScreen passes authMismatch and wrongKeyBannerActive into header', () => {
     const chat = read('hermes-mobile/src/screens/ChatScreen.tsx');
-    expect(chat).toContain('authMismatch={health?.authMismatch === true}');
+    // SHIP BLOCK: header must use effectiveAuthMismatch (health OR stale banner), never health-only.
+    expect(chat).toContain(
+      'health?.authMismatch === true || wrongKeyBannerActive',
+    );
+    expect(chat).toContain('authMismatch={effectiveAuthMismatch}');
     expect(chat).toContain('wrongKeyBannerActive');
     expect(chat).toContain('isAuthRepairMessage');
   });
+
+  it('documents failure→guard→verify checklist for S1–S8', () => {
+    const doc = read('hermes-mobile/docs/PREVENT-RECURRENCE-JULY-2026.md');
+    expect(doc).toContain('Session failure checklist');
+    for (const id of ['S1', 'S2', 'S3', 'S4', 'S5', 'S6', 'S7', 'S8']) {
+      expect(doc).toContain(`| ${id} |`);
+    }
+    expect(doc).toContain('require-device-verified.js');
+    expect(doc).toContain('hermes-prevention-watchdog.sh');
+    expect(doc).toContain('pendingApprovalsCap');
+    expect(doc).toMatch(/never pull App Review to fix shots/i);
+  });
+
+  it('requires busy spinners for Start fresh in ChatScreen + RunProgressBanner', () => {
+    const chat = read('hermes-mobile/src/screens/ChatScreen.tsx');
+    const banner = read('hermes-mobile/src/components/RunProgressBanner.tsx');
+    expect(chat).toContain('isStartingFreshChat');
+    expect(chat).toContain('ActivityIndicator');
+    expect(chat).toMatch(/accessibilityState=\{\{\s*busy:\s*isStartingFreshChat/);
+    expect(banner).toContain('isStartingFreshChat');
+    expect(banner).toContain('ActivityIndicator');
+    expect(banner).toMatch(/accessibilityState=\{\{\s*busy:\s*isStartingFreshChat/);
+  });
+
+  it('keeps ASC duplicate-frame guard wired into capture scripts', () => {
+    const assertScript = read('hermes-mobile/scripts/_assert_store_frame_distinct.py');
+    expect(assertScript).toContain('must be visually distinct');
+    expect(assertScript).toMatch(/THRESHOLD\s*=\s*90\.0|95\.0/);
+    const capture = read('hermes-mobile/scripts/capture-store-screenshots.sh');
+    expect(capture).toContain('_assert_store_frame_distinct.py');
+    const recapture = read('hermes-mobile/scripts/recapture-store-screenshots.py');
+    expect(recapture).toContain('_assert_store_frame_distinct.py');
+  });
+
+  it('ships leash badge hard-cap util that formats 5557 as 99+', () => {
+    const cap = read('hermes-mobile/src/utils/pendingApprovalsCap.ts');
+    expect(cap).toContain('PENDING_APPROVALS_HARD_CAP');
+    expect(cap).toContain('PENDING_BADGE_DISPLAY_CAP');
+    expect(cap).toContain('dedupeAndCapPendingApprovals');
+    expect(cap).toContain('formatPendingApprovalBadge');
+  });
+
+  it('exposes shouldAutoClearStalledRun for Connected-stall recovery', () => {
+    const stale = read('hermes-mobile/src/utils/runStaleDetection.ts');
+    expect(stale).toContain('shouldAutoClearStalledRun');
+    expect(stale).toContain('recovering automatically');
+  });
+
+  it('exposes transferComposerDraft for mega Start-fresh draft transfer', () => {
+    const draft = read('hermes-mobile/src/utils/composerDraftStorage.ts');
+    expect(draft).toContain('transferComposerDraft');
+  });
+
+  it('ships device-verified gate tool', () => {
+    const gate = read('tools/require-device-verified.js');
+    expect(gate).toContain('deviceVerified');
+    expect(gate).toContain('e2e');
+    expect(gate).toContain('--allow-ota');
+  });
+
+  it('documents S9 fresh-install wrong-key multi-Mac guard', () => {
+    const doc = read('hermes-mobile/docs/PREVENT-RECURRENCE-JULY-2026.md');
+    expect(doc).toContain('| S9 |');
+    expect(doc).toContain('Wrong key');
+    expect(doc).toContain('assertHostKeyConsistency');
+    const pairLib = read('tools/hermes-mobile-pair-lib.js');
+    expect(pairLib).toContain('MINI_KEY_UNAVAILABLE');
+    expect(pairLib).toContain('local_or_usb_url_bound_to_mini_key');
+  });
 });
+

@@ -2,9 +2,27 @@
 
 **Audience:** Igor's AI fleet (Cursor parent + workers, Claude Code, Codex, Gemini, Antigravity)  
 **Companion:** [MULTI-AGENT-VAULT-COORDINATION-JULY-2026.md](./MULTI-AGENT-VAULT-COORDINATION-JULY-2026.md)  
-**Last updated:** 2026-07-13
+**Last updated:** 2026-07-14
 
-This document maps **nine failures from the 2026-07-10 session** to durable prevention: automated guards, process rituals, and vault coordination. One pass — no duplicate research subagents.
+This document maps session failures to durable prevention: automated guards, process rituals, and vault coordination. One pass — no duplicate research subagents. **Do not fight P0 stall ChatScreen fixes** — layer prevention (utils, LaunchAgents, contracts) on top.
+
+---
+
+## Session failure checklist (2026-07-13/14) — failure → guard → verify
+
+| # | Failure mode | Automated guard | Verify command |
+|---|--------------|-----------------|----------------|
+| S1 | Run/chat stalled while Connected (green Tailscale) | Mobile: `shouldAutoClearStalledRun` / stream-idle + no-token fail in `runStaleDetection.ts` (ChatScreen wires via P0 stall). Gateway: `scripts/hermes-prevention-watchdog.sh` reports stuck api runs. | `cd hermes-mobile && npm test -- --watchman=false src/__tests__/runStaleDetection.test.ts` |
+| S2 | Mega-session / 100k–1.6M tokens locking chat | Hard BLOCK ≥800k + WARN ≥350k (`sessionTokenGuards.ts`); draft transfer via `transferComposerDraft`; delete/poisoned → Start fresh | `npm test -- --watchman=false src/__tests__/sessionTokenGuards.test.ts src/__tests__/composerDraftStorage.test.ts` |
+| S3 | “Browser restrictions” / refusal menus | SOUL **No constraints**; `disabled_toolsets` must not include `browser`; CDP LaunchAgent `com.hermes.chrome-cdp` healed — never disable browser | `bash scripts/hermes-prevention-watchdog.sh --check`; `curl -sf http://127.0.0.1:9222/json/version` |
+| S4 | Leash badge 5557 / approval notif storm | `pendingApprovalsCap.ts` hard-cap + 99+ badge + signature dedupe (PR #279 wiring) | `npm test -- --watchman=false src/__tests__/pendingApprovalsCap.test.ts` |
+| S5 | Tap-to-retry / Start fresh no feedback | Busy spinners mandatory (`isStartingFreshChat` → `ActivityIndicator` in ChatScreen + RunProgressBanner) | `npm test -- --watchman=false src/__tests__/preventRecurrenceContract.test.ts` |
+| S6 | Parallel agents thrashing ChatScreen | `plan.md` single owner; no conflicting Start-fresh PRs; vault Handoffs | `node tools/plan-coordination-snapshot.js --json` |
+| S7 | ASC duplicate screenshots | Pipeline `_assert_store_frame_distinct.py` + capture scripts; **never pull App Review to fix shots** | `python3 hermes-mobile/scripts/_assert_store_frame_distinct.py <frames-dir>` (or contract test) |
+| S8 | False “shipped on phone” | `tools/require-device-verified.js` + `verify-continuous-e2e.sh --strict`; OTA/release proof before claims | `node tools/require-device-verified.js`; `bash hermes-mobile/scripts/verify-continuous-e2e.sh --strict` |
+| S9 | Fresh install **Wrong key** (USB MBP / multi-Mac) | `assertHostKeyConsistency` + strict mini SSH (no laptop-key fallback) + auth probe before deep link; session-start fails closed if pair ≠0; `wrongKeyRecovery` → Find computers CTA | `bash tests/test-hermes-mobile-pair.sh`; `npm test -- wrongKeyRecovery.test.ts` |
+
+Install/heal LaunchAgents: `bash scripts/install-hermes-chrome-cdp.sh` then `bash scripts/install-agent-launchagents.sh`.
 
 ---
 
@@ -24,6 +42,7 @@ This document maps **nine failures from the 2026-07-10 session** to durable prev
 | 10 | Dual continuous E2E thrash + poisoned `latest.json` (2026-07-13) | Multiple agents ran `run-continuous-e2e.sh --once` + bare Maestro on same USB phone; worktree without `node_modules` wrote `unit:fail` / `e2e:skipped` over shared proof; vault handoff skipped | **`flock` cycle lock** on all continuous modes; refuse cycle if jest missing (**do not write** `latest.json`); skip E2E if `maestro.cli.AppKt` already holds device; vault claim USB/Maestro before kick; one continuous owner | **Automated lock + vault** |
 | 11 | Fresh install → **Wrong key / Not connected** (2026-07-14) | Pair deep link embedded unverified or foreign `API_SERVER_KEY` (laptop key on mini, or extra Mac without SSH); USB used tailnet URL without reverse; `/health` green while chat 401 | **`verifyGatewayAuthSync` before deep link** (refuse if not 200); **USB primary → `127.0.0.1:8642`** when reverse auth works; **extras only with SSH key + verified auth**; never fallback laptop key onto mini when `fallbackLocal:false`; **auto-pair after `install-phone-release.sh`**; redact all keys in logs | **Automated pair-lib + install** |
 | 12 | Bare **Aborted** in chat/banner (2026-07-14) | OpenCode/agent runtime error `Aborted` / AbortError leaked as UI copy | `isRawAbortMessage` + `USER_RUN_INTERRUPTED_MESSAGE` in chatErrors, runProgressDisplay, outbound bubbles, assistant prose | **Unit tests** |
+| 13 | Wrong-key / Not connected after multi-agent dogfood (2026-07-14) | Locks lived **per worktree** (`hermes-mobile/.install-phone-release.lock`); 6+ agents built/paired the same USB phone; some reclaim paths deleted locks while another pipeline was live | **Global phone pipeline dir** `~/Library/Application Support/mac-yolo-safeguards/phone-pipeline/` for install flock + pair mutex + install marker + human hold; reclaim **only** dead PIDs; never force-delete a live holder | **Automated global lock** |
 
 ---
 
@@ -107,6 +126,7 @@ bash hermes-mobile/scripts/agent-pre-asc-edit.sh      # runs verify-asc-listing 
 | `agent-session-start.js` skips `adb kill-server` | False "no device" at session start | Call `agent-adb-refresh.sh` when pairing queued |
 | `hermes-mobile-pair.js` raw `adb devices` | Pair fails on stale daemon | Retry after `restart_adb_server` once |
 | Concurrent session-start pair+install | Name repair overwritten; cold-start storm drops app to launcher | `agent-phone-pipeline-lock.js` + skip pair when install job queued; quote `&name=` in adb shell |
+| Per-worktree install/pair locks | Concurrent install+pair on one USB → Wrong-key / stale profile | Global dir `phone-pipeline/` (override `HERMES_GLOBAL_PHONE_LOCK_DIR`); `tests/test-global-phone-pipeline-lock.sh` |
 | `e2e=skipped` in `latest.json` not escalated | Ship theater | `verify-continuous-e2e.sh` warn + CEO brief flag when skipped >30m |
 | No pre-commit on ASC note **draft files** in repo | Accidental commit of secrets in draft md | Optional: guard staged `*review*notes*` paths |
 | Sim stale branding | Wrong splash on sim | Document: `xcrun simctl uninstall` + clean prebuild in install runbook |
@@ -119,9 +139,15 @@ bash hermes-mobile/scripts/agent-pre-asc-edit.sh      # runs verify-asc-listing 
 |--------|------|
 | `bash scripts/agent-pre-asc-edit.sh` | Before any ASC review notes / App Review Information edit |
 | `bash scripts/agent-adb-refresh.sh` | Session start, before pair, before "phone not connected" diagnosis |
+| Global phone lock dir | `~/Library/Application Support/mac-yolo-safeguards/phone-pipeline/` — install flock + pair mutex + last-install marker; one pipeline per Mac |
 | `node scripts/verify-asc-listing.js` | ASC status audit; fails on unsafe live notes |
 | `node scripts/patch-asc-review-notes.js` | Apply safe template via API (preferred) |
 | `node tools/hermes-mobile-pair.js --mini-tailscale` | Multi-Mac — never laptop key on mini URL |
+| `bash scripts/install-hermes-chrome-cdp.sh` | Install/heal `com.hermes.chrome-cdp` (port 9222) |
+| `bash scripts/hermes-prevention-watchdog.sh` | CDP + SOUL + disabled_toolsets + token ceiling drift check |
+| `node tools/require-device-verified.js` | Before any "shipped on phone" / device UX claim |
+| `bash tests/test-hermes-mobile-pair.sh` | Multi-Mac host→key bind + session-start fail-closed |
+| `node tools/hermes-mobile-pair.js --no-serve` | Fresh install pair (strict mini SSH; refuses laptop key on mini URL) |
 
 ---
 
@@ -173,7 +199,18 @@ Shipped hardening: PR #151 (initial unblock), #186 (stall CTA + WARN 350k), T-18
 |-----------|---------|---------|
 | Same-tool failure circuit breaker | `tool_loop_guardrails.hard_stop_enabled: true`, `hard_stop_after.same_tool_failure: 5`, `exact_failure: 4` | both |
 | Serialize api_server turns | `gateway.api_server.max_concurrent_runs: 1` (mini) / `2` (MBP) | both |
-| Session input-token ceiling | `HERMES_MAX_SESSION_INPUT_TOKENS` env, default **500k** (0 disables) — local patch in `~/.hermes/hermes-agent/agent/conversation_loop.py`, commits mini `fa43a03c0` / MBP `af21538c90`, fork branches `mini/mbp-local-guardrails-20260713` | both |
+| Session input-token ceiling | `HERMES_MAX_SESSION_INPUT_TOKENS` env, default **500k** (0 disables) — local patch in `~/.hermes/hermes-agent/agent/conversation_loop.py` | both |
+| CDP + SOUL drift | LaunchAgent `com.hermes.chrome-cdp` + `com.igor.hermes-prevention-watchdog` (heal CDP; refuse `disabled_toolsets: [browser]`) | both |
+
+**REVERSED (2026-07-13 evening — user standing order: no constraints):** temporarily setting `agent.disabled_toolsets: [browser]` after dead CDP was rejected. Browser stays **enabled**. If CDP dies, **heal CDP** — never encode breakage as a permanent tool/SOUL constraint.
+
+| Browser restore | Setting / proof |
+|-----------------|-----------------|
+| Chrome CDP LaunchAgent | `com.hermes.chrome-cdp` → `~/.hermes/chrome-cdp-profile`, port `9222`, `--remote-allow-origins=*` |
+| Config | `disabled_toolsets: []`, `browser.cdp_url: ws://127.0.0.1:9222` (or empty + engine auto with healthy CDP) |
+| SOUL | **No constraints** section; never reinstate `Browser Session Safety Lock` / `uchg` |
+| Vault | `Agent-Directives/NO-CONSTRAINTS-FLEET-POLICY.md` |
+| Watchdog | `bash scripts/hermes-prevention-watchdog.sh` every 5m |
 
 **REVERSED (2026-07-13 evening — user standing order: no constraints):** temporarily setting `agent.disabled_toolsets: [browser]` after dead CDP was rejected. Browser stays **enabled**. If CDP dies, **heal CDP** — never encode breakage as a permanent tool/SOUL constraint.
 
@@ -195,6 +232,7 @@ Shipped hardening: PR #151 (initial unblock), #186 (stall CTA + WARN 350k), T-18
 5. `~/.hermes/hermes-agent` is a **git fork checkout** (IgorGanapolsky/hermes-agent), not pip site-packages — patch + commit there, and remember `hermes update` may stash local changes (`updates.non_interactive_local_changes: stash`).
 6. Upstream gaps to request from NousResearch/hermes-agent: config key for a session token/cost ceiling, per-session turn serialization in api_server (`max_concurrent_runs` is global only), and a circuit breaker that disables the failing tool for the session instead of only halting the turn.
 7. Poisoned mega-sessions may still contain old restriction turns — use **Start fresh chat**; policy alone does not rewrite history.
+
 
 ---
 

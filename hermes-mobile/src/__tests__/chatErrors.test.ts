@@ -50,7 +50,7 @@ describe('isAuthApiError', () => {
     ).toBe(true);
   });
 
-  it('humanizes auth errors to numbered re-pair steps and auth kind', () => {
+  it('humanizes auth errors to Find computers re-pair CTA and auth kind', () => {
     const { kind, message } = humanizeChatError(
       new Error(JSON.stringify({ error: { code: 'invalid_api_key' } })),
       'fallback',
@@ -61,6 +61,7 @@ describe('isAuthApiError', () => {
     expect(message).toContain('Find computers');
     expect(message).not.toContain('Settings → Your active machines');
     expect(message).toContain('Tap the computer name above');
+    expect(message.toLowerCase()).not.toContain('settings →');
   });
 });
 

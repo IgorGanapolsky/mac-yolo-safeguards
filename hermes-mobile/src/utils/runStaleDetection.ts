@@ -36,7 +36,28 @@ export const RUN_STALE_IDLE_MS = 3 * 60 * 1000;
 export const RUN_STREAM_IDLE_FAIL_MS = 5 * 60 * 1000;
 
 export const RUN_STREAM_IDLE_FAIL_DETAIL =
-  'No live progress from your computer — tap Stop or start a fresh chat.';
+  'No live progress from your computer — recovering automatically. Start a fresh chat if this keeps happening.';
+
+/**
+ * True when the client should auto-clear a stalled run without waiting for the user
+ * to babysit Stop/resend (Connected + green Tailscale stall class).
+ */
+export function shouldAutoClearStalledRun(
+  progress: RunProgressState | null | undefined,
+  nowMs = Date.now(),
+  session?: SessionTokenFields | null,
+): boolean {
+  if (!progress || progress.phase === 'completed' || progress.phase === 'failed') {
+    return false;
+  }
+  if (shouldFailRunAwaitingFirstToken(progress, nowMs)) {
+    return true;
+  }
+  if (shouldFailRunForStreamIdle(progress, nowMs, session)) {
+    return true;
+  }
+  return classifyRunStale(progress, nowMs, session) === 'expired';
+}
 
 export const RUN_STALE_LONG_HINT =
   'Taking longer than expected — tap Stop if your computer looks stuck.';
@@ -47,10 +68,11 @@ export const RUN_STALE_IDLE_HINT =
 export const RUN_STALE_TIMEOUT_DETAIL =
   'Run timed out — stopped waiting on your computer. Tap Stop on your Mac or start a new message.';
 
-export const RUN_NO_TOKEN_FAIL_MS = 90_000;
+/** Fail sooner so auto-recover can stop+resend instead of lying "still running" for minutes. */
+export const RUN_NO_TOKEN_FAIL_MS = 45_000;
 
 export const RUN_NO_TOKEN_FAIL_DETAIL =
-  'No reply yet — your computer may be slow or stuck. Tap Stop and try again.';
+  'No reply yet — your computer may be slow or stuck. Recovering automatically…';
 
 export type RunStaleLevel = 'normal' | 'long' | 'idle' | 'expired';
 

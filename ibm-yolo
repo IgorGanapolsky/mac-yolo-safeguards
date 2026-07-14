@@ -151,36 +151,98 @@ if ((DOCTOR)); then
 fi
 
 cd "$REPO"
-run_preset() {
+
+# Always capture JSON from the market-signal tool, then either print raw or a clear human summary.
+run_preset_json() {
   local preset="$1"
-  local args=(tools/hermes-hosting-market-signal.js --preset "$preset")
+  local args=(tools/hermes-hosting-market-signal.js --preset "$preset" --json)
   if ((APPLY)); then
     args+=(--apply-pipeline)
-  fi
-  if ((JSON)); then
-    args+=(--json)
   fi
   "$NODE" "${args[@]}"
 }
 
+print_human_summary() {
+  local payload="$1"
+  local label="${2:-enterprise-sdlc}"
+  "$NODE" -e '
+const j = JSON.parse(process.argv[1] || "{}");
+const label = process.argv[2] || "run";
+const ok = !!j.ok;
+const stripe = j.stripe && j.stripe.links ? j.stripe.links : {};
+const okN = Object.values(stripe).filter(s => s && s.ok).length;
+const total = Object.keys(stripe).length;
+const pipe = j.pipeline || {};
+const drafts = j.drafts || {};
+const sig = j.signal || {};
+const lines = [
+  "",
+  ok ? "ibm-yolo: SUCCESS" : "ibm-yolo: FAILED",
+  "────────────────────────────────────────",
+  "preset:     " + label,
+  "signal:     " + (sig.id || "(none)"),
+  "source:     " + (sig.source || ""),
+  "stripe:     " + okN + "/" + total + " live payment links",
+  "pipeline:   " + (pipe.method || (pipe.skipped ? "skipped" : "n/a")) +
+    (pipe.prospect ? " → " + pipe.prospect : ""),
+  "board:      " + (j.boardPath || ""),
+  "positioning:" + (j.positioningDoc || sig.positioningDoc || ""),
+  "",
+  "CTA:",
+  "  " + (drafts.cta || "(no live CTA — check Stripe map)"),
+  "",
+  "What this means:",
+  pipe.method === "already_present"
+    ? "  • Pipeline row already existed (idempotent re-run — not a failure)."
+    : pipe.ok
+      ? "  • Pipeline seeded/updated for this market signal."
+      : "  • Pipeline not written (--no-apply or missing revenue data).",
+  okN > 0
+    ? "  • Live Stripe links ready for outbound."
+    : "  • No live Stripe links — fix map before emailing pay URLs.",
+  "",
+  "Next:",
+  "  ibm-yolo --doctor          # health",
+  "  ibm-yolo --both            # also run Hermes-hosted preset",
+  "  ibm-yolo --smart-ops       # chain smart-ops after signal",
+  "  open the board path above for full X + email drafts",
+  "  ibm-yolo --json            # machine output",
+  "",
+];
+process.stdout.write(lines.join("\n") + "\n");
+if (drafts.xReply) {
+  process.stdout.write("── X draft (first 400 chars) ──\n");
+  process.stdout.write(String(drafts.xReply).slice(0, 400) + (String(drafts.xReply).length > 400 ? "…\n" : "\n"));
+  process.stdout.write("\n");
+}
+process.exit(ok ? 0 : 1);
+' "$payload" "$label"
+}
+
+
+EXIT=0
 if ((BOTH)); then
+  hermes_out="$(run_preset_json hermes-hosted 2>/dev/null || echo '{"ok":false}')"
+  ent_out="$(run_preset_json enterprise-sdlc 2>/dev/null || echo '{"ok":false}')"
   if ((JSON)); then
-    # Combine into one JSON object
-    hermes_out="$(run_preset hermes-hosted 2>/dev/null || echo '{}')"
-    ent_out="$(run_preset enterprise-sdlc 2>/dev/null || echo '{}')"
     "$NODE" -e '
       const h=JSON.parse(process.argv[1]||"{}");
       const e=JSON.parse(process.argv[2]||"{}");
       console.log(JSON.stringify({ok: !!(h.ok&&e.ok), hermes_hosted:h, enterprise_sdlc:e, command:"ibm-yolo --both"}, null, 2));
-    ' "$hermes_out" "$ent_out"
+      process.exit((h.ok&&e.ok)?0:1);
+    ' "$hermes_out" "$ent_out" || EXIT=1
   else
-    echo "=== hermes-hosted ==="
-    run_preset hermes-hosted || true
-    echo "=== enterprise-sdlc ==="
-    run_preset enterprise-sdlc || true
+    print_human_summary "$hermes_out" "hermes-hosted" || EXIT=1
+    print_human_summary "$ent_out" "enterprise-sdlc" || EXIT=1
   fi
 else
-  run_preset enterprise-sdlc
+  out="$(run_preset_json enterprise-sdlc 2>/dev/null || echo '{"ok":false}')"
+  if ((JSON)); then
+    printf '%s\n' "$out"
+    echo "$out" | "$NODE" -e 'let s="";process.stdin.on("data",d=>s+=d);process.stdin.on("end",()=>{try{const j=JSON.parse(s);process.exit(j.ok?0:1)}catch{process.exit(1)}})' || EXIT=1
+  else
+    print_human_summary "$out" "enterprise-sdlc" || EXIT=1
+  fi
 fi
 
 if ((SMART)); then
@@ -188,20 +250,22 @@ if ((SMART)); then
     export SMART_OPS_MARKET_SIGNAL=1
     export REVENUE_AUTO_SEND="${REVENUE_AUTO_SEND:-1}"
     export REVENUE_NTFY_QUIET_NOOP="${REVENUE_NTFY_QUIET_NOOP:-1}"
+    so="$("$NODE" tools/smart-ops-controller.js --json 2>/dev/null || echo '{}')"
     if ((JSON)); then
-      echo "--- smart-ops ---" >&2
-      "$NODE" tools/smart-ops-controller.js --json || true
+      echo "$so"
     else
       echo "=== smart-ops ==="
-      "$NODE" tools/smart-ops-controller.js --json | "$NODE" -e '
+      echo "$so" | "$NODE" -e '
         let s=""; process.stdin.on("data",d=>s+=d); process.stdin.on("end",()=>{
           try {
             const j=JSON.parse(s);
-            console.log("smart-ops ok="+j.ok+" durationMs="+j.durationMs);
-            (j.actions||[]).forEach(a=>console.log("  "+a));
+            console.log("smart-ops: " + (j.ok ? "SUCCESS" : "FAILED") + "  durationMs=" + (j.durationMs||"?"));
+            (j.actions||[]).forEach(a=>console.log("  • " + a));
           } catch { console.log(s.slice(0,500)); }
         });
       '
     fi
   fi
 fi
+
+exit "$EXIT"

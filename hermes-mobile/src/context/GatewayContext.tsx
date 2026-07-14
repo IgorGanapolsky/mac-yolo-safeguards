@@ -121,10 +121,14 @@ import {
   findProfileForGatewayUrl,
   GENERIC_USB_PROFILE_LABEL,
   isDiscoveredUrlAllowedForActiveProfile,
+  profileDisplayName,
+  profileIdFromGatewayUrl,
   resolvePreferredActiveProfileId,
   resolveHealPersistDecision,
+  sanitizeGatewayProfileState,
   shouldProbeGatewayUrlForActiveProfile,
   profilesForActiveMachine,
+  isGenericMachineLabel,
 } from '../services/gatewayProfiles';
 import {
   bootstrapTailnetProbeHostsFromPairServers,
@@ -512,13 +516,22 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
             isLoopbackGatewayUrl(p.gatewayUrl),
           );
           if (!hasLoopback) {
+            const named = loadedProfiles.profiles
+              .map((profile) => ({ profile, name: profileDisplayName(profile) }))
+              .find(({ name }) => !isGenericMachineLabel(name));
+            const displayName = named?.name;
             loadedProfiles.profiles.push({
-              id: 'mac_usb_loopback',
-              label: GENERIC_USB_PROFILE_LABEL,
+              id: displayName
+                ? profileIdFromGatewayUrl(USB_LOOPBACK_GATEWAY_URL, displayName)
+                : 'mac_usb_loopback',
+              label: displayName ?? GENERIC_USB_PROFILE_LABEL,
               gatewayUrl: USB_LOOPBACK_GATEWAY_URL,
+              hostname: displayName ? `${displayName.replace(/\.local$/i, '')}.local` : undefined,
+              localIp: '127.0.0.1',
               addedAt: new Date().toISOString(),
             });
           }
+          loadedProfiles = sanitizeGatewayProfileState(loadedProfiles);
         }
         if (loadedProfiles.profiles.length > 0) {
           const hasValidActive =
@@ -1343,10 +1356,15 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
     const commitDiscoveredUrl = persistDiscoveredGatewayUrl;
 
     const activeForDiscovery = activeProfile(profileStateRef.current);
-    const preferUsbFirst =
-      !activeForDiscovery || isLoopbackGatewayUrl(activeForDiscovery.gatewayUrl);
+    // Prefer USB ONLY when the active profile is already USB loopback.
+    // Preferring USB when there is no active profile (or after a Tailscale deep-link pair)
+    // steals the session to 127.0.0.1: health can be green via adb reverse without a key,
+    // chat then 401 → false-green Connected + Wrong key (user crisis 2026-07-14).
+    const preferUsbFirst = Boolean(
+      activeForDiscovery && isLoopbackGatewayUrl(activeForDiscovery.gatewayUrl),
+    );
 
-    // 1. Prefer USB only when user has no named selection or active profile is USB loopback
+    // 1. Prefer USB only when the user's active computer is already the USB profile
     if (Platform.OS !== 'web' && preferUsbFirst) {
       for (const fallbackUrl of usbLoopbackFallbackUrls(currentUrl || '')) {
         try {
@@ -2383,6 +2401,21 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
           false,
         );
       }
+      if (macName) {
+        const displayName = macName.replace(/\.local$/i, '').trim();
+        const hostname = macName.includes('.local') ? macName : `${displayName}.local`;
+        nextProfileState = upsertDiscoveredProfile(
+          nextProfileState,
+          {
+            gatewayUrl: USB_LOOPBACK_GATEWAY_URL,
+            hostname,
+            label: displayName,
+            localIp: '127.0.0.1',
+          },
+          isLoopbackGatewayUrl(gatewayUrl),
+        );
+      }
+      nextProfileState = sanitizeGatewayProfileState(nextProfileState);
       profileStateRef.current = nextProfileState;
       setProfileState(nextProfileState);
       await gatewayProfiles.save(nextProfileState);
