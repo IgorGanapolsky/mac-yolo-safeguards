@@ -21,6 +21,11 @@ While active:
 - each decision produces a prompt-free receipt under
   `~/.hermes/receipts/zero-spend/`.
 
+The installer also pins the per-user launchd route to the local provider and
+retargets the existing `hermes-yolo` permanence guard to the zero-spend gate.
+The guard therefore repairs bypasses instead of reintroducing the old remote
+wrapper.
+
 The installer preserves every existing command behind a private manifest, adds
 the managed-policy pointer to the normal Hermes `.env` without printing or
 copying its secrets, and is idempotent. Re-running the main repository installer also restores this gate

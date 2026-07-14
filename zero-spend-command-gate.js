@@ -286,6 +286,121 @@ function setEnvAssignment(filePath, key, value) {
   writePrivateFile(filePath, next.length > 0 ? `${next.join('\n')}\n` : '');
 }
 
+function runQuiet(binary, args, env = process.env) {
+  return spawnSync(binary, args, {
+    encoding: 'utf8',
+    timeout: 10000,
+    env,
+    stdio: ['ignore', 'pipe', 'pipe'],
+  });
+}
+
+function shellQuote(value) {
+  return `'${String(value).replace(/'/g, `'"'"'`)}'`;
+}
+
+function launchctlValue(name, env = process.env) {
+  if (process.platform !== 'darwin') return null;
+  const result = runQuiet('/bin/launchctl', ['getenv', name], env);
+  return result.status === 0 ? String(result.stdout || '').trim() : null;
+}
+
+function routePlist(loc) {
+  return path.join(loc.home, 'Library', 'LaunchAgents', 'com.igor.hermes-yolo-route.plist');
+}
+
+function guardScript(loc) {
+  return path.join(loc.home, '.hermes', 'hermes-yolo-guard.sh');
+}
+
+function replaceGuardStable(filePath, stablePath) {
+  if (!fs.existsSync(filePath)) return null;
+  const text = fs.readFileSync(filePath, 'utf8');
+  const previous = text.split(/\r?\n/).find((line) => line.startsWith('STABLE=')) || null;
+  const next = text.replace(/^STABLE=.*$/m, `STABLE=${JSON.stringify(stablePath)}`);
+  if (next === text && !previous) throw new Error('Hermes YOLO guard has no STABLE assignment');
+  writePrivateFile(filePath, next, 0o700);
+  return previous;
+}
+
+function reloadRoutePlist(plist, env = process.env) {
+  if (!fs.existsSync(plist) || process.platform !== 'darwin') return;
+  const domain = `gui/${process.getuid()}/com.igor.hermes-yolo-route`;
+  runQuiet('/bin/launchctl', ['bootout', domain], env);
+  const bootstrap = runQuiet('/bin/launchctl', ['bootstrap', `gui/${process.getuid()}`, plist], env);
+  if (bootstrap.status !== 0) {
+    throw new Error(`failed to reload zero-spend route LaunchAgent (exit ${bootstrap.status})`);
+  }
+}
+
+function enforceMacPolicy(model, manifest, env = process.env) {
+  if (process.platform !== 'darwin' || env.HERMES_ZERO_SPEND_SKIP_LAUNCHCTL === '1') return;
+  const loc = locations(env);
+  if (!manifest.previousLaunchctlEnvironment) {
+    manifest.previousLaunchctlEnvironment = {
+      HERMES_YOLO_PROVIDER: launchctlValue('HERMES_YOLO_PROVIDER', env),
+      HERMES_YOLO_MODEL: launchctlValue('HERMES_YOLO_MODEL', env),
+      HERMES_YOLO_BACKEND: launchctlValue('HERMES_YOLO_BACKEND', env),
+    };
+  }
+  for (const [name, value] of Object.entries({
+    HERMES_YOLO_PROVIDER: LOCAL_PROVIDER,
+    HERMES_YOLO_MODEL: model,
+    HERMES_YOLO_BACKEND: 'hermes',
+  })) {
+    const result = runQuiet('/bin/launchctl', ['setenv', name, value], env);
+    if (result.status !== 0) throw new Error(`launchctl setenv failed for ${name}`);
+  }
+
+  const plist = routePlist(loc);
+  if (fs.existsSync(plist)) {
+    if (!manifest.previousRouteProgramArguments) {
+      const current = runQuiet('/usr/bin/plutil', ['-extract', 'ProgramArguments', 'json', '-o', '-', plist], env);
+      if (current.status === 0) manifest.previousRouteProgramArguments = JSON.parse(current.stdout);
+    }
+    const command = `launchctl setenv HERMES_YOLO_PROVIDER ${shellQuote(LOCAL_PROVIDER)}; ` +
+      `launchctl setenv HERMES_YOLO_MODEL ${shellQuote(model)}; ` +
+      'launchctl setenv HERMES_YOLO_BACKEND hermes';
+    const update = runQuiet('/usr/bin/plutil', [
+      '-replace', 'ProgramArguments', '-json', JSON.stringify(['/bin/sh', '-c', command]), plist,
+    ], env);
+    if (update.status !== 0) throw new Error('failed to update zero-spend route LaunchAgent');
+    reloadRoutePlist(plist, env);
+  }
+
+  const guard = guardScript(loc);
+  if (fs.existsSync(guard)) {
+    const previous = replaceGuardStable(guard, loc.installedGate);
+    if (!manifest.previousGuardStable && previous) manifest.previousGuardStable = previous;
+    const reinforce = runQuiet('/bin/bash', [guard], env);
+    if (reinforce.status !== 0) throw new Error('Hermes YOLO guard failed to reinforce zero-spend gate');
+  }
+}
+
+function restoreMacPolicy(manifest, env = process.env) {
+  if (process.platform !== 'darwin' || env.HERMES_ZERO_SPEND_SKIP_LAUNCHCTL === '1') return;
+  const loc = locations(env);
+  for (const name of ['HERMES_YOLO_PROVIDER', 'HERMES_YOLO_MODEL', 'HERMES_YOLO_BACKEND']) {
+    const previous = manifest.previousLaunchctlEnvironment && manifest.previousLaunchctlEnvironment[name];
+    runQuiet('/bin/launchctl', previous
+      ? ['setenv', name, previous]
+      : ['unsetenv', name], env);
+  }
+  const plist = routePlist(loc);
+  if (fs.existsSync(plist) && Array.isArray(manifest.previousRouteProgramArguments)) {
+    const update = runQuiet('/usr/bin/plutil', [
+      '-replace', 'ProgramArguments', '-json', JSON.stringify(manifest.previousRouteProgramArguments), plist,
+    ], env);
+    if (update.status === 0) reloadRoutePlist(plist, env);
+  }
+  const guard = guardScript(loc);
+  if (fs.existsSync(guard) && manifest.previousGuardStable) {
+    const text = fs.readFileSync(guard, 'utf8');
+    writePrivateFile(guard, text.replace(/^STABLE=.*$/m, manifest.previousGuardStable), 0o700);
+    runQuiet('/bin/bash', [guard], env);
+  }
+}
+
 function installPolicyFiles(model, manifest, env = process.env) {
   const loc = locations(env);
   fs.mkdirSync(loc.localHermesHome, { recursive: true, mode: 0o700 });
@@ -317,13 +432,19 @@ function install(env = process.env) {
     marker: loc.marker,
     commands: previous.commands || {},
   };
-  if (Object.hasOwn(previous, 'previousManagedDir')) {
-    manifest.previousManagedDir = previous.previousManagedDir;
+  for (const key of [
+    'previousManagedDir',
+    'previousLaunchctlEnvironment',
+    'previousRouteProgramArguments',
+    'previousGuardStable',
+  ]) {
+    if (Object.hasOwn(previous, key)) manifest[key] = previous[key];
   }
   for (const name of commandNames(env)) {
     manifest.commands[name] = installCommand(name, manifest, env);
   }
   installPolicyFiles(model, manifest, env);
+  enforceMacPolicy(model, manifest, env);
   manifest.localModel = model;
   writePrivateFile(loc.manifest, `${JSON.stringify(manifest, null, 2)}\n`);
   writePrivateFile(loc.marker, `${JSON.stringify({
@@ -347,12 +468,16 @@ function disable(env = process.env) {
       Object.hasOwn(manifest, 'previousManagedDir') ? manifest.previousManagedDir : null,
     );
   }
+  restoreMacPolicy(manifest, env);
   return status(env);
 }
 
 function status(env = process.env) {
   const loc = locations(env);
   const manifest = readJson(loc.manifest, { commands: {} });
+  const guardText = (() => {
+    try { return fs.readFileSync(guardScript(loc), 'utf8'); } catch { return ''; }
+  })();
   const commands = Object.values(manifest.commands || {}).map((entry) => ({
     name: entry.name,
     policy: entry.policy,
@@ -369,6 +494,14 @@ function status(env = process.env) {
     managedConfigMode: safeMode(path.join(loc.managedDir, 'config.yaml')),
     managedEnvMode: safeMode(path.join(loc.managedDir, '.env')),
     globalHermesPolicyActive: envAssignment(loc.hermesEnv, 'HERMES_MANAGED_DIR') === loc.managedDir,
+    launchctlPolicyActive: process.platform !== 'darwin' || env.HERMES_ZERO_SPEND_SKIP_LAUNCHCTL === '1'
+      ? null
+      : launchctlValue('HERMES_YOLO_PROVIDER', env) === LOCAL_PROVIDER &&
+        launchctlValue('HERMES_YOLO_MODEL', env) === manifest.localModel &&
+        launchctlValue('HERMES_YOLO_BACKEND', env) === 'hermes',
+    guardReinforcesGate: guardText
+      ? guardText.includes(`STABLE=${JSON.stringify(loc.installedGate)}`)
+      : null,
     localModel: manifest.localModel || null,
     commandCount: commands.length,
     commands,
@@ -527,6 +660,7 @@ module.exports = {
   commandNames,
   disable,
   findExecutable,
+  enforceMacPolicy,
   install,
   installPolicyFiles,
   installedLocalModels,
@@ -537,6 +671,7 @@ module.exports = {
   main,
   markerActive,
   replaceableCommandPath,
+  restoreMacPolicy,
   runCommand,
   status,
   writePrivateFile,

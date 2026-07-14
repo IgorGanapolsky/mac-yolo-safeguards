@@ -40,6 +40,7 @@ const env = {
   PATH: `${systemBin}:${bin}:${process.env.PATH}`,
   HERMES_ZERO_SPEND_COMMANDS: 'hermes-yolo,grok-yolo,parallel,parallel-cli',
   HERMES_ZERO_SPEND_REPLACE_PREFIXES: systemBin,
+  HERMES_ZERO_SPEND_SKIP_LAUNCHCTL: '1',
   HERMES_ZERO_SPEND_LOCAL_MODELS: 'qwen3:8b-64k',
   OPENROUTER_API_KEY: 'must-not-reach-child',
   META_MODEL_API_KEY: 'must-not-reach-child',
@@ -57,6 +58,8 @@ assert.strictEqual(firstStatus.localConfigMode, 0o600);
 assert.strictEqual(firstStatus.managedConfigMode, 0o600);
 assert.strictEqual(firstStatus.managedEnvMode, 0o600);
 assert.strictEqual(firstStatus.globalHermesPolicyActive, true);
+assert.strictEqual(firstStatus.launchctlPolicyActive, null);
+assert.strictEqual(firstStatus.guardReinforcesGate, null);
 assert.strictEqual(firstStatus.localModel, 'qwen3:8b-64k');
 assert.strictEqual(firstStatus.commandCount, 4);
 assert.ok(firstStatus.commands.every((entry) => entry.installed));
@@ -68,9 +71,31 @@ assert.match(managedConfig, /provider: custom:ollama-local-64k/);
 assert.match(managedConfig, /default: "qwen3:8b-64k"/);
 assert.doesNotMatch(managedConfig, /openrouter|grok|meta|snowflake|parallel/i);
 
+const manifestPath = path.join(home, '.hermes', 'zero-spend', 'manifest.json');
+const manifestBeforeReinstall = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+manifestBeforeReinstall.previousLaunchctlEnvironment = { HERMES_YOLO_PROVIDER: 'original-provider' };
+manifestBeforeReinstall.previousRouteProgramArguments = ['/bin/true'];
+manifestBeforeReinstall.previousGuardStable = 'STABLE="original-wrapper"';
+fs.writeFileSync(manifestPath, `${JSON.stringify(manifestBeforeReinstall, null, 2)}\n`, { mode: 0o600 });
 const secondInstall = run(process.execPath, [sourceGate, '--install'], env);
 assert.strictEqual(secondInstall.status, 0, secondInstall.stderr);
 assert.strictEqual(JSON.parse(secondInstall.stdout).commandCount, 4, 'install must be idempotent');
+const manifestAfterReinstall = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+assert.deepStrictEqual(
+  manifestAfterReinstall.previousLaunchctlEnvironment,
+  manifestBeforeReinstall.previousLaunchctlEnvironment,
+  'reinstall must retain the original launchctl state',
+);
+assert.deepStrictEqual(
+  manifestAfterReinstall.previousRouteProgramArguments,
+  manifestBeforeReinstall.previousRouteProgramArguments,
+  'reinstall must retain the original route LaunchAgent state',
+);
+assert.strictEqual(
+  manifestAfterReinstall.previousGuardStable,
+  manifestBeforeReinstall.previousGuardStable,
+  'reinstall must retain the original permanence-guard state',
+);
 
 const blocked = run(path.join(bin, 'grok-yolo'), ['hello'], env);
 assert.strictEqual(blocked.status, 73, blocked.stderr);
