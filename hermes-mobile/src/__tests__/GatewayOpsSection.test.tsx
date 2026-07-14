@@ -112,6 +112,23 @@ describe('GatewayOpsSection', () => {
     });
   });
 
+  it('keeps successful skills when the toolsets endpoint fails', async () => {
+    gatewayClient.listSkills.mockResolvedValue([
+      { name: 'mac-freeze-rescue', description: 'Recover a sluggish Mac' },
+    ]);
+    gatewayClient.listToolsets.mockRejectedValue(new Error('Network request failed'));
+
+    const { getByText, getByTestId, queryByText } = render(<GatewayOpsSection />);
+
+    await waitFor(() => {
+      expect(getByText('mac-freeze-rescue')).toBeTruthy();
+      expect(getByTestId('toolsets-empty-state').props.children).toContain(
+        'Tools could not load',
+      );
+    });
+    expect(queryByText('Network request failed')).toBeNull();
+  });
+
   it('automatically enables configured toolsets returned disabled by the gateway', async () => {
     gatewayClient.listToolsets.mockResolvedValue([
       {
