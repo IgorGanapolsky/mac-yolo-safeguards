@@ -506,7 +506,7 @@ describe('gatewayProfiles', () => {
     expect(state.activeProfileId).toBe('mac_igors_macbook_pro');
   });
 
-  it('resolvePreferredActiveProfileId keeps last-used then prefers USB', () => {
+  it('resolvePreferredActiveProfileId keeps last-used; default skips USB; preferUsb opt-in', () => {
     let state = upsertDiscoveredProfile(EMPTY_GATEWAY_PROFILE_STATE, {
       gatewayUrl: 'http://100.94.135.78:8642',
       label: 'Igors-MacBook-Pro',
@@ -520,6 +520,9 @@ describe('gatewayProfiles', () => {
 
     const noActive = { ...state, activeProfileId: null };
     const usbId = state.profiles.find((p) => p.gatewayUrl.includes('127.0.0.1'))?.id;
+    const macbookId = state.profiles.find((p) => p.label === 'Igors-MacBook-Pro')?.id;
+    // Default: never auto-steal to USB over a paired Tailscale/LAN Mac
+    expect(resolvePreferredActiveProfileId(noActive)).toBe(macbookId);
     expect(resolvePreferredActiveProfileId(noActive, { preferUsb: true })).toBe(usbId);
   });
 

@@ -18,11 +18,13 @@ const {
   readEnvKey,
   readLocalApiKey,
   resolveApiKeyForGatewayUrl,
+  resolvePairingBindings,
   selectPhysicalAdbSerial,
   verifyGatewayAuthSync,
   redactDeepLinkSecrets,
   buildVerifiedExtraComputer,
   isLoopbackGatewayUrl,
+  classifyGatewayHost,
 } = require('./hermes-mobile-pair-lib.js');
 const { withPhonePipelineLock, pipelineBusyReason } = require('./agent-phone-pipeline-lock.js');
 const { localTailscaleIpv4 } = require('./hermes-discover-tailscale-macs.js');
@@ -449,15 +451,30 @@ function runPairMain(args) {
     }
   }
   const lanIp = detectLocalLanIp() || resolveLanIp(health);
+  const allowLocalKeyFallback = args.has('--allow-local-key-fallback');
+  const skipAuthProbe = args.has('--skip-auth-probe');
   const apiKeyBefore = readLocalApiKey();
-  let apiKey = resolveApiKeyForGatewayUrl(gatewayUrl);
-  if (apiKey !== apiKeyBefore && apiKey) {
+  let apiKey;
+  try {
+    apiKey = resolveApiKeyForGatewayUrl(gatewayUrl, { allowLocalKeyFallback });
+  } catch (err) {
+    if (err && err.code === 'MINI_KEY_UNAVAILABLE') {
+      console.warn(`  API key: ${err.message}`);
+      apiKey = '';
+    } else {
+      throw err;
+    }
+  }
+  const hostClass = classifyGatewayHost(gatewayUrl);
+  if (apiKey && apiKey !== apiKeyBefore && hostClass === 'mini') {
     console.log('  API key: loaded from target Mac (~/.hermes/.env via SSH)');
-  } else if (apiKey === apiKeyBefore && gatewayUrl.includes('100.94.135.78')) {
+  } else if ((!apiKey || apiKey === apiKeyBefore) && hostClass === 'mini' && !allowLocalKeyFallback) {
     console.warn(
       '  API key: Mac mini SSH lookup failed — will NOT embed laptop key for mini (avoids Wrong key)',
     );
-    apiKey = resolveApiKeyForGatewayUrl(gatewayUrl, { fallbackLocal: false }) || '';
+    apiKey = resolveApiKeyForGatewayUrl(gatewayUrl, { fallbackLocal: false, strictMini: false }) || '';
+  } else if (apiKey === apiKeyBefore && hostClass === 'mini' && allowLocalKeyFallback) {
+    console.warn('  API key: Mac mini SSH lookup failed — using local key (--allow-local-key-fallback)');
   }
   const thumbgateApiKey = readThumbgateApiKey();
   const hostname = health.hostname || os.hostname();
@@ -518,14 +535,18 @@ function runPairMain(args) {
     }
   }
 
-  const primaryAuth = verifyGatewayAuthSync(gatewayUrl, apiKey);
-  if (!primaryAuth.ok) {
-    throw new Error(
-      `Refusing to pair: gateway auth failed for ${gatewayUrl} (${primaryAuth.reason}, http ${primaryAuth.status}). ` +
-        `Fix API_SERVER_KEY on the target Mac or re-run after hermes gateway is up. Never push a wrong key to the phone.`,
-    );
+  if (!skipAuthProbe) {
+    const primaryAuth = verifyGatewayAuthSync(gatewayUrl, apiKey);
+    if (!primaryAuth.ok) {
+      throw new Error(
+        `Refusing to pair: gateway auth failed for ${gatewayUrl} (${primaryAuth.reason}, http ${primaryAuth.status}). ` +
+          `Fix API_SERVER_KEY on the target Mac or re-run after hermes gateway is up. Never push a wrong key to the phone.`,
+      );
+    }
+    console.log('  Auth: verified /api/sessions 200 with embedded key');
+  } else {
+    console.warn('  Auth: skipped (--skip-auth-probe)');
   }
-  console.log('  Auth: verified /api/sessions 200 with embedded key');
 
   const tailnetProbeHosts = discoverTailnetProbeHosts();
   if (tailnetProbeHosts.length > 0) {
@@ -557,12 +578,24 @@ function runPairMain(args) {
     }
   }
 
+  resolvePairingBindings(gatewayUrl, {
+    allowLocalKeyFallback,
+    probe: false,
+    probeExtras: false,
+    extraGatewayUrls: extraComputers.map((c) => c.gatewayUrl),
+  });
+
   if (usbPairing && !explicitGatewayUrl && !args.has('--mini-tailscale')) {
     console.log(
       isLoopbackGatewayUrl(gatewayUrl)
         ? '  USB pairing: loopback primary + reverse (5G: add Tailscale computer later or re-pair --mini-tailscale)'
         : '  USB pairing: adb reverse active',
     );
+    if (classifyGatewayHost(gatewayUrl) === 'mini') {
+      throw new Error(
+        'USB pair on this Mac cannot target Mac mini as primary — refuse to write mini URL with USB reverse.',
+      );
+    }
   }
   if (args.has('--mini-tailscale') || explicitGatewayUrl) {
     console.log('  Pairing target gateway (explicit):', gatewayUrl);

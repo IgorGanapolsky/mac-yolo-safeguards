@@ -11,6 +11,24 @@ export function chatDistanceFromBottom(
 }
 
 /**
+ * Min ms between programmatic bottom-scrolls while assistant tokens stream.
+ * Unthrottled scrollToEnd on every token + contentSizeChange causes jitter.
+ */
+export const STREAM_SCROLL_MIN_INTERVAL_MS = 80;
+
+/** Whether a throttled stream follow-scroll should run now. */
+export function shouldRunThrottledStreamScroll(
+  lastScrollAtMs: number,
+  nowMs: number,
+  minIntervalMs: number = STREAM_SCROLL_MIN_INTERVAL_MS,
+): boolean {
+  if (lastScrollAtMs <= 0) {
+    return true;
+  }
+  return nowMs - lastScrollAtMs >= minIntervalMs;
+}
+
+/**
  * Whether the transcript should follow new content.
  *
  * During streaming, content growth can temporarily push the viewport away from

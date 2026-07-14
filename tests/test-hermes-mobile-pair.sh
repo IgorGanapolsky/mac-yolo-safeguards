@@ -45,6 +45,80 @@ else
   bad "mini Tailscale URL resolves SSH key (not laptop .env)"
 fi
 
+# Strict mini: SSH failure must NOT fall back to laptop key (fresh-install Wrong key class)
+cat > "$BIN/ssh-fail" <<'MOCK'
+#!/usr/bin/env bash
+exit 1
+MOCK
+chmod +x "$BIN/ssh-fail"
+if run_node "
+  const lib = require('$REPO/tools/hermes-mobile-pair-lib.js');
+  try {
+    lib.resolveApiKeyForGatewayUrl('http://100.94.135.78:8642', {
+      hermesEnvPath: '$TMP/home/.hermes/.env',
+      sshCommand: '$BIN/ssh-fail',
+    });
+    process.exit(1);
+  } catch (err) {
+    if (err.code !== 'MINI_KEY_UNAVAILABLE') process.exit(2);
+  }
+"; then
+  ok "mini SSH failure refuses laptop key fallback (strict)"
+else
+  bad "mini SSH failure refuses laptop key fallback (strict)"
+fi
+
+# Explicit dogfood override still allows local fallback
+if run_node "
+  const lib = require('$REPO/tools/hermes-mobile-pair-lib.js');
+  const key = lib.resolveApiKeyForGatewayUrl('http://100.94.135.78:8642', {
+    hermesEnvPath: '$TMP/home/.hermes/.env',
+    sshCommand: '$BIN/ssh-fail',
+    allowLocalKeyFallback: true,
+  });
+  if (key !== 'laptop-key-from-env') process.exit(1);
+"; then
+  ok "allowLocalKeyFallback still works for intentional dogfood"
+else
+  bad "allowLocalKeyFallback still works for intentional dogfood"
+fi
+
+# Host/key consistency: never bind mini key to USB/local URL
+if run_node "
+  const lib = require('$REPO/tools/hermes-mobile-pair-lib.js');
+  const result = lib.assertHostKeyConsistency(
+    [
+      { gatewayUrl: 'http://127.0.0.1:8642', apiKey: 'mini-key-from-ssh' },
+      { gatewayUrl: 'http://100.94.135.78:8642', apiKey: 'mini-key-from-ssh' },
+    ],
+    { localKey: 'laptop-key-from-env', miniKey: 'mini-key-from-ssh' },
+  );
+  if (result.ok) process.exit(1);
+  if (!result.errors.includes('local_or_usb_url_bound_to_mini_key')) process.exit(2);
+"; then
+  ok "consistency rejects USB/local URL bound to mini key"
+else
+  bad "consistency rejects USB/local URL bound to mini key"
+fi
+
+# Host/key consistency: never bind laptop key to mini when fleet keys differ
+if run_node "
+  const lib = require('$REPO/tools/hermes-mobile-pair-lib.js');
+  const result = lib.assertHostKeyConsistency(
+    [
+      { gatewayUrl: 'http://100.87.85.85:8642', apiKey: 'laptop-key-from-env' },
+      { gatewayUrl: 'http://100.94.135.78:8642', apiKey: 'laptop-key-from-env' },
+    ],
+    { localKey: 'laptop-key-from-env', miniKey: 'mini-key-from-ssh' },
+  );
+  if (result.ok) process.exit(1);
+  if (!result.errors.includes('mini_url_bound_to_laptop_key')) process.exit(2);
+"; then
+  ok "consistency rejects mini URL bound to laptop key"
+else
+  bad "consistency rejects mini URL bound to laptop key"
+fi
+
 # MacBook / non-mini URL keeps local .env key
 if run_node "
   const lib = require('$REPO/tools/hermes-mobile-pair-lib.js');
@@ -57,6 +131,20 @@ if run_node "
   ok "MacBook URL keeps local .env key"
 else
   bad "MacBook URL keeps local .env key"
+fi
+
+# Loopback/USB classifies as loopback and uses local key
+if run_node "
+  const lib = require('$REPO/tools/hermes-mobile-pair-lib.js');
+  if (lib.classifyGatewayHost('http://127.0.0.1:8642') !== 'loopback') process.exit(1);
+  const key = lib.resolveApiKeyForGatewayUrl('http://127.0.0.1:8642', {
+    hermesEnvPath: '$TMP/home/.hermes/.env',
+  });
+  if (key !== 'laptop-key-from-env') process.exit(2);
+"; then
+  ok "USB loopback binds local Mac key (not mini)"
+else
+  bad "USB loopback binds local Mac key (not mini)"
 fi
 
 if run_node "
@@ -176,10 +264,18 @@ else
   bad "queued phone install pairs without serving on LAN"
 fi
 
-if grep -Fq "pair = runNode('tools/hermes-mobile-pair.js', ['--no-serve'], 60_000);" "$SESSION_START"; then
+if grep -Fq "pair = runNode('tools/hermes-mobile-pair.js', ['--no-serve'], 90_000);" "$SESSION_START" \
+  || grep -Fq "pair = runNode('tools/hermes-mobile-pair.js', ['--no-serve'], 60_000);" "$SESSION_START"; then
   ok "ordinary session-start auto-pair does not serve on LAN"
 else
   bad "ordinary session-start auto-pair does not serve on LAN"
+fi
+
+if grep -Fq "auto-pair: FAILED" "$SESSION_START" \
+  && grep -Fq "Refuse ready claim" "$SESSION_START"; then
+  ok "session-start fails closed when pair exits non-zero with phone present"
+else
+  bad "session-start fails closed when pair exits non-zero with phone present"
 fi
 
 if grep -Fq "phoneInstall.reason === 'no-device'" "$SESSION_START" \

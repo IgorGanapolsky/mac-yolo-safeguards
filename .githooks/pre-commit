@@ -19,8 +19,9 @@ if ! npm run --silent typecheck; then
 fi
 
 # 2) Run only the tests related to the staged files (fast; full suite + coverage run in CI).
+# --runInBand avoids cross-suite pollution (ChatScreen scroll spies + open handles).
 files=$(echo "$staged" | sed 's#^hermes-mobile/##' | tr '\n' ' ')
-if ! npx jest --bail --findRelatedTests $files --passWithNoTests --watchman=false; then
+if ! npx jest --bail --runInBand --findRelatedTests $files --passWithNoTests --watchman=false; then
   echo "✗ related tests failed — commit blocked (use --no-verify to override)"
   exit 1
 fi

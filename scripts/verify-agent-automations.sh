@@ -13,6 +13,8 @@ EXPECTED=(
   com.igor.shutdown-simulators
   com.igor.revenue-autonomous-loop
   com.igor.smart-ops
+  com.igor.hermes-prevention-watchdog
+  com.hermes.chrome-cdp
 )
 
 missing=0

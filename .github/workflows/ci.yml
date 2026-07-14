@@ -5,6 +5,11 @@ on:
   push:
     branches:
       - main
+  # Required when `main` uses a merge queue: without this trigger the queue never
+  # receives status checks for macOS guard / mobile-checks / funnel jobs and merges stall.
+  # merge_group uses its own ref (not pull_request); keep per-ref concurrency below so
+  # queue runs do not re-trigger the 2026-07-10 cancel storm on PR branches.
+  merge_group:
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}

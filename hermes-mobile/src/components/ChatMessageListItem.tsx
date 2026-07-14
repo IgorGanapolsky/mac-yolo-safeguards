@@ -191,8 +191,17 @@ export default React.memo(ChatMessageListItem, (prev, next) => {
   if (prev.approvalBusy !== next.approvalBusy) {
     return false;
   }
+  // isSending only affects the trailing assistant row (streaming) and inline approvals.
   if (prev.isSending !== next.isSending) {
-    return false;
+    const prevIsTailAssistant =
+      prev.item.role?.toLowerCase() === 'assistant' &&
+      prev.originalIndex === (prev.messages?.length ?? 0) - 1;
+    const nextIsTailAssistant =
+      next.item.role?.toLowerCase() === 'assistant' &&
+      next.originalIndex === (next.messages?.length ?? 0) - 1;
+    if (prevIsTailAssistant || nextIsTailAssistant || prev.inlineNudge || next.inlineNudge) {
+      return false;
+    }
   }
   if (prev.outputFeedback !== next.outputFeedback) {
     return false;
