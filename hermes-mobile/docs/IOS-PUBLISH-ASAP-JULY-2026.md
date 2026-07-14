@@ -7,6 +7,23 @@
 
 ---
 
+---
+
+## Current state (2026-07-14)
+
+| Layer | State | Evidence |
+|-------|--------|----------|
+| **ASC version 1.0** | `READY_FOR_SALE` | `node hermes-mobile/scripts/verify-asc-listing.js --json` → `version10.state` |
+| **Approved build** | **14** | ASC (approved binary; supersedes build 12 in sections below) |
+| **Public iTunes index** | `resultCount: 0` | [ios-live-20260714 proof](./proofs/ios-live-20260714/README.md) — **propagation lag** after READY_FOR_SALE |
+| **Next automation** | Hourly iTunes poll | `bash hermes-mobile/scripts/poll-itunes-ios-live.sh` / LaunchAgent `com.igor.hermes-mobile-itunes-poll` |
+
+**Do not** remove v1.0 from review or pull the app — already live in ASC terms; wait for iTunes index (typically 2–24h).
+
+ASO keyword draft (includes `hermes,mobile`): [ASO-KEYWORD-PATCH-HERMES-MOBILE-20260714.md](./ASO-KEYWORD-PATCH-HERMES-MOBILE-20260714.md).
+
+---
+
 ## 🚨 REJECTION UPDATE (2026-07-10 ~16:50 ET)
 
 ### Current ASC state (post-triage)
@@ -365,4 +382,4 @@ npx eas-cli build:list --platform ios --limit 3 --json
 
 ---
 
-*Next update: when ASC state changes (`IN_REVIEW`, `APPROVED`, `REJECTED`) or iTunes `resultCount` becomes 1.*
+*Next update: when iTunes `resultCount` becomes 1 or ASC state changes (`IN_REVIEW`, `APPROVED`, `REJECTED`) or iTunes `resultCount` becomes 1.*
