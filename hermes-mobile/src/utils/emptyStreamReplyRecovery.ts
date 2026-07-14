@@ -11,7 +11,7 @@ export const DEFERRED_REPLY_POLL_MAX_MS = 60_000;
 export const DEFERRED_REPLY_POLL_MAX_WITH_TOOLS_MS = 180_000;
 
 export const EMPTY_REPLY_FAILURE_REASON =
-  'Still no reply text — pull to refresh, or start a fresh chat if tools are stuck.';
+  'Still no reply text — your Mac may be stuck in tools. Tap Stop if a run is active, or start a fresh chat.';
 
 export function shouldAwaitGatewayReplyAfterSend(options: {
   assistantText: string;
