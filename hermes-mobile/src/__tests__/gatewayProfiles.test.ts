@@ -142,6 +142,33 @@ describe('gatewayProfiles', () => {
     expect(profiles).toHaveLength(1);
   });
 
+  it('hydrates generic USB loopback with sibling Mac hostname on sanitize', () => {
+    const state = sanitizeGatewayProfileState({
+      profiles: [
+        {
+          id: 'mac_usb_loopback',
+          label: 'Computer via USB',
+          gatewayUrl: 'http://127.0.0.1:8642',
+          localIp: '127.0.0.1',
+          addedAt: '2026-07-13T00:00:00.000Z',
+        },
+        {
+          id: 'mac_tail',
+          label: 'Igors-MacBook-Pro',
+          gatewayUrl: 'http://100.87.85.85:8642',
+          hostname: 'Igors-MacBook-Pro.local',
+          addedAt: '2026-07-13T00:00:00.000Z',
+        },
+      ],
+      activeProfileId: 'mac_usb_loopback',
+    });
+    expect(state.profiles).toHaveLength(1);
+    expect(profileDisplayName(state.profiles[0])).toBe('Igors-MacBook-Pro');
+    expect(state.profiles[0].gatewayUrl).toBe('http://100.87.85.85:8642');
+    expect(state.activeProfileId).toBe(state.profiles[0].id);
+    expect(state.profiles.some((p) => p.id === 'mac_usb_loopback')).toBe(false);
+  });
+
   it('migrates legacy single gateway into first profile', () => {
     const state = migrateLegacyGateway(EMPTY_GATEWAY_PROFILE_STATE, 'http://127.0.0.1:8642', '192.168.12.208');
     expect(state.profiles[0]?.gatewayUrl).toBe('http://192.168.12.208:8642');

@@ -185,7 +185,7 @@ describe('resolveChatMachineHeaderDisplay', () => {
     });
     expect(display.machineLabel).toBe('Computer via USB');
     expect(display.machineLabel).not.toMatch(/127\.0\.0\.1/);
-    expect(display.machineEndpoint).toBe('127.0.0.1:8642');
+    expect(display.machineEndpoint).toBe('USB');
   });
 
   it('never uses 127.0.0.1 as machineLabel when profile or health has hostname', () => {
