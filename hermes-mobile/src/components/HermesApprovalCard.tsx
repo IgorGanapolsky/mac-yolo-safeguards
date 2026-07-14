@@ -14,6 +14,7 @@ import { choicesForRequest } from '../types/approval';
 import DiffPreviewBox from './DiffPreviewBox';
 import { hasDiffContent } from '../utils/diffDisplay';
 import { haptics } from '../services/haptics';
+import { markApprovalReviewed, mobileAllowBlockedReason } from '../utils/approvalIntegrity';
 
 export type HermesApprovalVariant = 'chat' | 'leash';
 
@@ -51,6 +52,10 @@ export default function HermesApprovalCard({
   onEdit,
   onUndo,
 }: HermesApprovalCardProps) {
+  const mobileBlockReason =
+    approval.source === 'relay_hook'
+      ? mobileAllowBlockedReason(approval.approvalIntegrity)
+      : null;
   if (undoSecondsLeft > 0 && onUndo) {
     return (
       <View style={styles.undoBar} testID="approval-undo">
@@ -63,7 +68,9 @@ export default function HermesApprovalCard({
   }
 
   const choices = choicesForRequest(approval, approvalPolicy);
-  const primaryChoices = choices.filter((c) => c === 'once' || c === 'deny');
+  const primaryChoices = choices.filter(
+    (choice) => choice === 'deny' || (!glance && choice === 'once'),
+  );
   const tierChoices = choices.filter((c) => c === 'session' || c === 'always');
   const isLeash = variant === 'leash';
   const showThumbs = isLeash && !glance;
@@ -73,6 +80,9 @@ export default function HermesApprovalCard({
     riskTier === 'high' ? 'HIGH RISK' : riskTier === 'medium' ? 'MEDIUM' : 'LOW RISK';
 
   const handleChoice = (choice: ApprovalChoice) => {
+    if (choice === 'once' && approval.source === 'relay_hook' && !glance) {
+      markApprovalReviewed(approval.id, approval.approvalIntegrity);
+    }
     if (choice === 'deny') {
       haptics.warning();
     } else {
@@ -141,6 +151,18 @@ export default function HermesApprovalCard({
 
     {!glance && approval.workspacePath ? (
       <Text style={styles.meta}>Workspace: {approval.workspacePath}</Text>
+    ) : null}
+
+    {!glance && approval.approvalIntegrity?.display.affected_files?.length ? (
+      <Text style={styles.meta}>
+        Files: {approval.approvalIntegrity.display.affected_files.join(', ')}
+      </Text>
+    ) : null}
+
+    {mobileBlockReason ? (
+      <Text style={styles.integrityWarning} testID="approval-integrity-warning">
+        {mobileBlockReason}
+      </Text>
     ) : null}
 
     {!glance && approval.rollbackHint && riskTier !== 'low' ? (
@@ -303,6 +325,11 @@ const styles = StyleSheet.create({
     lineHeight: 16,
     marginBottom: 10,
     fontStyle: 'italic',
+  },
+  integrityWarning: {
+    color: colors.warning,
+    fontSize: 12,
+    lineHeight: 17,
   },
   badge: {
     fontSize: 10,

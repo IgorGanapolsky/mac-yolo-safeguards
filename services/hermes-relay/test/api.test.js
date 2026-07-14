@@ -4,7 +4,13 @@ const { describe, it, before, after } = require('node:test');
 const assert = require('node:assert/strict');
 const http = require('http');
 const { RelayStore } = require('../store');
-const { setStorePurchaseVerifierForTest, startServer, store } = require('../server');
+const {
+  setStorePurchaseVerifierForTest,
+  setThumbgateCaptureForwarderForTest,
+  startServer,
+  store,
+} = require('../server');
+const { createApprovalIntegrity } = require('../approval-integrity');
 
 function request(baseUrl, method, pathname, options = {}) {
   const url = new URL(pathname, baseUrl);
@@ -61,13 +67,128 @@ describe('hermes-relay API', () => {
     Object.keys(store.state.verdicts).forEach((key) => delete store.state.verdicts[key]);
     Object.keys(store.state.entitlements).forEach((key) => delete store.state.entitlements[key]);
     setStorePurchaseVerifierForTest(null);
+    setThumbgateCaptureForwarderForTest(null);
     const started = await startServer(0, '127.0.0.1');
     baseUrl = `http://127.0.0.1:${started.port}`;
+    const register = await request(baseUrl, 'POST', '/v1/worker/register', {
+      body: {
+        hostname: 'Mac-mini.local',
+        project: 'mac-yolo-safeguards',
+        machine_id: 'mac-mini',
+      },
+    });
+    workerToken = register.body.worker_token;
+    const pairStart = await request(baseUrl, 'POST', '/v1/pair/start', {
+      auth: `Worker ${workerToken}`,
+      body: {},
+    });
+    const pairComplete = await request(baseUrl, 'POST', '/v1/pair/complete', {
+      body: { code: pairStart.body.code },
+    });
+    mobileToken = pairComplete.body.mobile_token;
   });
 
   after(async () => {
     setStorePurchaseVerifierForTest(null);
+    setThumbgateCaptureForwarderForTest(null);
     await new Promise((resolve) => require('../server').server.close(resolve));
+  });
+
+  it('binds allow to an unexpired exact approval digest and rejects tampering', async () => {
+    const payload = {
+      actionId: 'evt_integrity_1',
+      toolName: 'Bash',
+      command: 'npm test',
+      workspacePath: '/repo',
+    };
+    const integrity = createApprovalIntegrity(payload);
+    const enqueue = await request(baseUrl, 'POST', '/v1/events', {
+      auth: `Worker ${workerToken}`,
+      body: {
+        id: payload.actionId,
+        event: { tool_name: payload.toolName, tool_input: { command: payload.command } },
+        approval_integrity: integrity,
+      },
+    });
+    assert.equal(enqueue.status, 200);
+
+    const mismatch = await request(baseUrl, 'POST', '/v1/verdicts/evt_integrity_1', {
+      auth: `Mobile ${mobileToken}`,
+      body: { decision: 'allow', approval_digest: '0'.repeat(64) },
+    });
+    assert.equal(mismatch.status, 409);
+    assert.equal(mismatch.body.error, 'approval_digest_mismatch');
+
+    const allowed = await request(baseUrl, 'POST', '/v1/verdicts/evt_integrity_1', {
+      auth: `Mobile ${mobileToken}`,
+      body: { decision: 'allow', approval_digest: integrity.digest },
+    });
+    assert.equal(allowed.status, 200);
+    const workerVerdicts = await request(baseUrl, 'GET', '/v1/worker/verdicts', {
+      auth: `Worker ${workerToken}`,
+    });
+    assert.equal(workerVerdicts.body.verdicts[0].approval_digest, integrity.digest);
+    assert.equal(workerVerdicts.body.verdicts[0].approval_integrity.digest, integrity.digest);
+  });
+
+  it('fails closed for expired, redacted, and truncated mobile approvals', async () => {
+    const cases = [
+      createApprovalIntegrity(
+        { actionId: 'evt_expired', toolName: 'Bash', command: 'npm test' },
+        { now: Date.now() - 10_000, ttlMs: 1 },
+      ),
+      createApprovalIntegrity({
+        actionId: 'evt_redacted',
+        toolName: 'Bash',
+        command: `curl -H "Authorization: ${'Bearer'} ${'a'.repeat(32)}"`,
+      }),
+      createApprovalIntegrity({
+        actionId: 'evt_truncated',
+        toolName: 'Bash',
+        command: 'x'.repeat(5000),
+      }),
+    ];
+    for (const integrity of cases) {
+      const id = integrity.display.action_id;
+      await request(baseUrl, 'POST', '/v1/events', {
+        auth: `Worker ${workerToken}`,
+        body: { id, event: { tool_name: 'Bash' }, approval_integrity: integrity },
+      });
+      const verdict = await request(baseUrl, 'POST', `/v1/verdicts/${id}`, {
+        auth: `Mobile ${mobileToken}`,
+        body: { decision: 'allow', approval_digest: integrity.digest },
+      });
+      assert.equal(verdict.status, 409);
+      const denied = await request(baseUrl, 'POST', `/v1/verdicts/${id}`, {
+        auth: `Mobile ${mobileToken}`,
+        body: { decision: 'block', reason: 'Fail closed' },
+      });
+      assert.equal(denied.status, 200);
+    }
+    await request(baseUrl, 'GET', '/v1/worker/verdicts', {
+      auth: `Worker ${workerToken}`,
+    });
+  });
+
+  it('proxies sanitized ThumbGate capture only for a paired mobile token', async () => {
+    setThumbgateCaptureForwarderForTest(async (body) => ({
+      ok: true,
+      body: {
+        accepted: body.signal === 'up',
+        secret_redacted: !body.context.includes('very-sensitive-value'),
+      },
+    }));
+    const unauthorized = await request(baseUrl, 'POST', '/v1/thumbgate/capture', {
+      body: { signal: 'up', context: 'Approved call' },
+    });
+    assert.equal(unauthorized.status, 401);
+    const captured = await request(baseUrl, 'POST', '/v1/thumbgate/capture', {
+      auth: `Mobile ${mobileToken}`,
+      body: { signal: 'up', context: 'token=very-sensitive-value-12345' },
+    });
+    assert.equal(captured.status, 200);
+    assert.equal(captured.body.accepted, true);
+    assert.equal(captured.body.secret_redacted, true);
   });
 
   it('health responds ok', async () => {
@@ -77,16 +198,6 @@ describe('hermes-relay API', () => {
   });
 
   it('registers worker, pairs phone, enqueues and verdicts event', async () => {
-    const register = await request(baseUrl, 'POST', '/v1/worker/register', {
-      body: {
-        hostname: 'Mac-mini.local',
-        project: 'mac-yolo-safeguards',
-        machine_id: 'mac-mini',
-      },
-    });
-    assert.equal(register.status, 200);
-    workerToken = register.body.worker_token;
-
     const pairStart = await request(baseUrl, 'POST', '/v1/pair/start', {
       auth: `Worker ${workerToken}`,
       body: {},

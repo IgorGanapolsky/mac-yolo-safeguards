@@ -1,6 +1,5 @@
 import { AppState } from 'react-native';
 import type { PendingApproval } from '../types/gateway';
-import { hasDiffContent } from './diffDisplay';
 
 export type SmartNotificationAppState = 'active' | 'background' | 'inactive' | string;
 
@@ -14,7 +13,7 @@ export function shouldScheduleApprovalNotification(
   appState: SmartNotificationAppState = AppState.currentState,
   categoryEnabled = true,
 ): boolean {
-  return categoryEnabled && isBackgrounded(appState);
+  return categoryEnabled && isBackgrounded(appState) && Boolean(pending.approvalIntegrity);
 }
 
 export function shouldScheduleRunCompletedNotification(
@@ -108,27 +107,9 @@ export function approvalNotificationTitle(pending: PendingApproval): string {
 }
 
 export function buildApprovalNotificationBody(pending: PendingApproval): string {
-  const lines: string[] = [];
-  const command = pending.command?.trim();
-  if (command) {
-    lines.push(command.slice(0, 140));
-  }
-  if (hasDiffContent(pending.diff)) {
-    const diffHint = pending.diff!
-      .split('\n')
-      .find(
-        (line) =>
-          (line.startsWith('+') && !line.startsWith('+++')) ||
-          (line.startsWith('-') && !line.startsWith('---')),
-      );
-    if (diffHint) {
-      lines.push(diffHint.trim().slice(0, 100));
-    }
-  }
-  if (lines.length === 0) {
-    lines.push((pending.reason || 'Open Hermes to review').slice(0, 160));
-  }
-  return lines.join('\n').slice(0, 220);
+  return pending.approvalIntegrity?.review_required_on_computer
+    ? 'Sensitive details hidden. Review this exact call on your computer.'
+    : 'Open Hermes to review the exact tool call before deciding.';
 }
 
 export function approvalsSummaryBody(pending: PendingApproval[]): string {

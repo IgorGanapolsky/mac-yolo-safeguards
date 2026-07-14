@@ -26,7 +26,7 @@ appId: com.iganapolsky.hermesmobile
 - tapOn:
     id: "chat-input"
 - eraseText
-- inputText: "e2e-persist-probe-keep-visible"
+- inputText: "make money today"
 - waitForAnimationToEnd:
     timeout: 2000
 - hideKeyboard
