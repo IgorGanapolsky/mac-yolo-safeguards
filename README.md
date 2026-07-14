@@ -15,6 +15,8 @@
 
 **Paid reliability help:** [Book 20-min triage](https://cal.com/igor-g-kvqxfo/30min) | [Partner Pilot](./docs/PARTNER-PILOT.md) | [Public-safe paid inquiry](https://github.com/IgorGanapolsky/mac-yolo-safeguards/issues/new?template=paid-hardening-inquiry.yml)
 
+**Hosted Hermes / always-on agents:** platforms keep agents online; this kit stops **runaway loops and Mac freezes** when real work still burns tokens or load. Positioning: [docs/HERMES-HOSTED-RELIABILITY.md](./docs/HERMES-HOSTED-RELIABILITY.md).
+
 ## For Teams And Partners
 
 If you only need the free Mac guard, install it below.

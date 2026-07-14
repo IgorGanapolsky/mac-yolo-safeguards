@@ -192,6 +192,26 @@ function run(args) {
     }
   }
 
+  // High-ROI market signal: only when forced or daily first run (cheap if receipt fresh)
+  let marketSignal = null;
+  const signalScript = path.join(REPO, 'tools/hermes-hosting-market-signal.js');
+  if (fs.existsSync(signalScript) && (args.force || process.env.SMART_OPS_MARKET_SIGNAL === '1')) {
+    const r = runNode(
+      'tools/hermes-hosting-market-signal.js',
+      ['--demo', '--json'],
+      60000,
+    );
+    try {
+      marketSignal = JSON.parse(r.stdout || '{}');
+      actions.push(
+        `market_signal=ok stripe=${Object.values((marketSignal.stripe && marketSignal.stripe.links) || {}).filter((l) => l.ok).length}`,
+      );
+    } catch {
+      marketSignal = { ok: false, exit: r.status };
+      actions.push('market_signal=parse_fail');
+    }
+  }
+
   const summary = {
     ok: true,
     checkedAt: new Date().toISOString(),
@@ -200,6 +220,7 @@ function run(args) {
     heal,
     revenue,
     replyMonitor,
+    marketSignal,
     actions,
     efficiency: {
       revenueFreshMin: REVENUE_SKIP_IF_FRESH_MIN,
