@@ -84,6 +84,22 @@ Worth a 20-minute triage call?
 node tools/prospect-score.js docs/prospects.example.tsv --status new --min-score 4
 ```
 
+**Voice front door (SpaceXAI demos):** after a call, score + stage without inventing prices:
+
+```sh
+# Dry-run: exact pipeline-update.js command for the private TSV
+node tools/hermes-voice-front-door.js --event apply-pipeline --json \
+  --pipeline pipeline-status-YYYY-MM-DD.tsv \
+  --date YYYY-MM-DD \
+  --signals-json '{"prospect_label":"buyer","agent_stack":"yes","repeated_failure":"yes","business_cost":"yes","budget_owner":"no","segment":"founder","current_agent":"qualify","pipeline_stage":"ready"}'
+
+# Write only when dry-run looks right:
+# ... add --apply
+# Cold-call buyers: default --create-if-missing seeds a ready row then advances stage.
+```
+
+Policy + demo pack: [HERMES-VOICE-FRONT-DOOR.md](./HERMES-VOICE-FRONT-DOOR.md). Phone is intake only — Stripe/ledger still prove revenue.
+
 4. Generate the private send queue after contact paths and drafts exist:
 
 ```sh

@@ -109,9 +109,31 @@ node tools/hermes-voice-front-door.js --event demo-pack --json
 # After-call pipeline fields (operator still runs pipeline-update.js)
 node tools/hermes-voice-front-door.js --event pipeline-from-voice --json --signals-json '{...}'
 
+# After-call apply (dry-run default) — prints exact pipeline-update.js command
+node tools/hermes-voice-front-door.js --event apply-pipeline --json \
+  --pipeline /path/to/private/pipeline-status.tsv \
+  --date 2026-07-14 \
+  --signals-json '{"prospect_label":"acme","current_agent":"qualify","agent_stack":"yes","repeated_failure":"yes","business_cost":"yes","budget_owner":"no","segment":"founder","pipeline_stage":"replied"}'
+
+# Write for real (never auto-paid; Stripe/ledger still required for money)
+# Default seeds a cold-call prospect if missing; use --no-create-if-missing to refuse.
+node tools/hermes-voice-front-door.js --event apply-pipeline --apply --json \
+  --pipeline /path/to/private/pipeline-status.tsv \
+  --date 2026-07-14 \
+  --signals-json '{...}'
+
 # Private prompt-free receipt (~/.hermes/voice-front-door/receipts.jsonl)
 node tools/hermes-voice-front-door.js --event receipt --write --signals-json '{...}' --json
 ```
+
+### Stage suggestions after a call
+
+| Outcome | Suggested pipeline stage |
+|---------|--------------------------|
+| Free route (score ≤ 3) | keep `ready` (no false progress) |
+| Diagnostic/sprint close (score 4–8) | `booked` |
+| Human / partner pilot (score ≥ 9 or compliance) | `proposed` |
+| Paid | **never** from voice without `--allow-paid` + ledger |
 
 Tests:
 
