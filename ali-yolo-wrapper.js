@@ -153,9 +153,11 @@ function doctor(json) {
 
 function validateArgs(args) {
   let hasYolo = false;
+  let hasModel = false;
   for (let index = 0; index < args.length; index += 1) {
     const argument = args[index];
     if (argument === '--yolo') hasYolo = true;
+    if (argument === '--model' || argument === '-m' || argument.startsWith('--model=')) hasModel = true;
     if (argument === '--yolo=false') throw new Error('refusing --yolo=false; use qwen for non-yolo mode');
     if (argument.startsWith('--approval-mode=')) {
       if (argument !== '--approval-mode=yolo') throw new Error(`refusing ${argument}`);
@@ -167,7 +169,7 @@ function validateArgs(args) {
       index += 1;
     }
   }
-  return hasYolo;
+  return { hasYolo, hasModel };
 }
 
 const args = process.argv.slice(2);
@@ -179,9 +181,9 @@ if (args[0] === '--doctor') {
   process.exit(doctor(args[1] === '--json'));
 }
 
-let hasYolo;
+let argumentState;
 try {
-  hasYolo = validateArgs(args);
+  argumentState = validateArgs(args);
 } catch (error) {
   process.stderr.write(`ali-yolo: ${error.message}\n`);
   process.exit(2);
@@ -194,7 +196,10 @@ if (!state.ok) {
   process.exit(1);
 }
 
-const result = spawnSync(state.binary, hasYolo ? args : ['--yolo', ...args], { stdio: 'inherit' });
+const launchArgs = [...args];
+if (!argumentState.hasModel) launchArgs.unshift('--model', state.model);
+if (!argumentState.hasYolo) launchArgs.unshift('--yolo');
+const result = spawnSync(state.binary, launchArgs, { stdio: 'inherit' });
 if (result.error) {
   process.stderr.write(`ali-yolo: ${result.error.message}\n`);
   process.exit(1);

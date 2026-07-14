@@ -22,7 +22,7 @@ commit it or place its value in `settings.json`.
 Supported official routes:
 
 - US (Virginia) Standard API: `https://dashscope-us.aliyuncs.com/compatible-mode/v1` with
-  `DASHSCOPE_API_KEY`
+  `DASHSCOPE_API_KEY`; use the US-scoped `qwen3.7-plus-us` model
 - China Standard API: `https://dashscope.aliyuncs.com/compatible-mode/v1` with
   `DASHSCOPE_API_KEY`
 - International Coding Plan: `https://coding-intl.dashscope.aliyuncs.com/v1`
