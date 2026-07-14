@@ -97,7 +97,10 @@ import {
   resolveCellularTailscaleFailoverUrl,
 } from '../utils/connectionSelfHeal';
 import { CONNECTION_HEAL_EXHAUSTED_AFTER } from '../utils/connectionErrorPolicy';
-import { profileMatchesDiscoveredGateway } from '../utils/gatewayProfilePicker';
+import {
+  profileMatchesDiscoveredGateway,
+  profileMatchesHostname,
+} from '../utils/gatewayProfilePicker';
 import { isPrivateLanGatewayUrl } from '../utils/gatewayEndpoint';
 import { isTailscaleGatewayUrl } from '../utils/tailscaleHosts';
 import type { SetupDeepLinkParams } from '../utils/setupDeepLink';
@@ -1953,15 +1956,29 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
       profileStateRef.current = nextState;
       setProfileState(nextState);
 
+      const currentEffective = effectiveGatewayUrlRef.current;
+      const healthHostname = healthRef.current?.hostname?.trim();
+      const healthOk = isMacGatewayHttpOk(healthRef.current);
+      let targetGatewayUrl = profile.gatewayUrl;
+      if (
+        isLoopbackGatewayUrl(currentEffective) &&
+        healthOk &&
+        healthHostname &&
+        profileMatchesHostname(profile, healthHostname)
+      ) {
+        // Keep USB route, but logical identity switches to selected profile
+        targetGatewayUrl = currentEffective;
+      }
+
       const nextSettings: GatewaySettings = {
         ...settingsRef.current,
-        gatewayUrl: profile.gatewayUrl,
+        gatewayUrl: targetGatewayUrl,
         demoMode: false,
       };
       settingsRef.current = nextSettings;
       setSettings(nextSettings);
-      effectiveGatewayUrlRef.current = profile.gatewayUrl;
-      setEffectiveGatewayUrl(profile.gatewayUrl);
+      effectiveGatewayUrlRef.current = targetGatewayUrl;
+      setEffectiveGatewayUrl(targetGatewayUrl);
       setConnectionState('connecting');
 
       await gatewayProfiles.save(nextState);
