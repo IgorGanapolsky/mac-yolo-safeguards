@@ -167,7 +167,7 @@ Mobile-specific detail: [hermes-mobile/AGENTS.md](./hermes-mobile/AGENTS.md).
 
 ## Skill bias
 
-- Make money / cash / outreach / pipeline stuck → `.claude/skills/execute-revenue-cash-path/SKILL.md` (also `~/.grok/skills/execute-revenue-cash-path/`)
+- Make money / cash / outreach / pipeline stuck → `.claude/skills/execute-revenue-cash-path/SKILL.md` (also `~/.grok/skills/execute-revenue-cash-path/`) then `node tools/revenue-autonomous-loop.js --auto-send --json` (LaunchAgent `com.igor.revenue-autonomous-loop` every 4h)
 - Apollo / founder email / enrich contact → `.claude/skills/apollo-io-sales/SKILL.md`
 - Stripe Payment Links / "logged into Chrome" / login wall vs Playwright → `.claude/skills/drive-logged-in-chrome/SKILL.md` + use-existing-browser-sessions
 
