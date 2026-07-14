@@ -12,7 +12,11 @@ export const OUTBOUND_NO_REPLY_MAC_LIVE =
   "Your computer didn't answer — tap ↑ to send again";
 
 export const OUTBOUND_RUN_STALLED_HINT =
-  'Run stalled on your Mac — tap Stop, then ↑ to resend';
+  'Run stalled on your Mac — recovering automatically…';
+
+/** Shown only after auto-recover exhausted — still one-tap ↑, not Stop babysitting. */
+export const OUTBOUND_RUN_STALLED_MANUAL_HINT =
+  'Run stalled on your Mac — tap ↑ to resend';
 
 export const OUTBOUND_SESSION_BUSY_HINT =
   'Mac busy with another chat — tap ↑ to try again';

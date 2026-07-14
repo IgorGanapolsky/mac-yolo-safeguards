@@ -2,6 +2,7 @@ import type { HermesMessage } from '../types/chat';
 import { coerceMessageId, idHasPrefix } from './messageIds';
 import { dedupeToolDumpMessages } from './chatToolDump';
 import { serverHasAssistantReplyAfterLastUser } from './emptyStreamReplyRecovery';
+import { isOrphanFailedOutboundBubble } from './stalledChatRecovery';
 import { isDeferredStreamPlaceholder } from './streamAssistantText';
 
 /** Normalize text so optimistic phone bubbles match gateway transcript formatting. */
@@ -234,6 +235,10 @@ export function mergeServerMessagesWithPending(
     if (isOptimisticUserMessage(message)) {
       if (message.outboundStatus === 'pending') {
         pendingTail.push(message);
+        continue;
+      }
+      // Failed phone-only bubble while Mac already answered → drop (clears permanent stall badge).
+      if (isOrphanFailedOutboundBubble(message, dedupedServer)) {
         continue;
       }
       const body = messageBody(message);
