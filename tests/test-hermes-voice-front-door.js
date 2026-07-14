@@ -267,9 +267,68 @@ check('apply-pipeline --apply writes booked stage via pipeline-update.js', () =>
   });
   assert.strictEqual(out.ok, true, out.error || out.stderr);
   assert.strictEqual(out.applied, true);
+  assert.strictEqual(out.created_prospect, false);
   const body = fs.readFileSync(pipe, 'utf8');
   assert.match(body, /acme-agency\tbooked\t/);
   assert.match(body, /2026-07-14/);
+  fs.rmSync(dir, { recursive: true, force: true });
+});
+
+check('apply-pipeline creates missing cold-call prospect then advances stage', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'vfd-pipe-new-'));
+  const pipe = path.join(dir, 'pipeline.tsv');
+  // no file yet — cold call
+  const out = applyPipelineFromVoice({
+    rawSignals: {
+      prospect_label: 'cold-caller-co',
+      current_agent: 'qualify',
+      agent_stack: 'yes',
+      repeated_failure: 'yes',
+      business_cost: 'yes',
+      budget_owner: 'no',
+      segment: 'founder',
+      pipeline_stage: 'ready',
+    },
+    pipelinePath: pipe,
+    date: '2026-07-14',
+    apply: true,
+    createIfMissing: true,
+  });
+  assert.strictEqual(out.ok, true, out.error || out.stderr);
+  assert.strictEqual(out.created_prospect, true);
+  assert.strictEqual(out.applied, true);
+  const body = fs.readFileSync(pipe, 'utf8');
+  assert.match(body, /cold-caller-co\tbooked\t/);
+  assert.match(body, /seeded_by_voice_front_door|voice_front_door/);
+  fs.rmSync(dir, { recursive: true, force: true });
+});
+
+check('apply-pipeline --no-create-if-missing fails when prospect absent', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'vfd-pipe-nc-'));
+  const pipe = path.join(dir, 'pipeline.tsv');
+  fs.writeFileSync(
+    pipe,
+    'prospect_label\tstage\troute\tgross_potential_usd\tlast_touch\tnext_action\tnotes\nother\tready\tx\t0\t2026-07-13\ty\tz\n',
+  );
+  const out = applyPipelineFromVoice({
+    rawSignals: {
+      prospect_label: 'ghost-buyer',
+      current_agent: 'qualify',
+      agent_stack: 'yes',
+      repeated_failure: 'yes',
+      business_cost: 'yes',
+      budget_owner: 'no',
+      segment: 'founder',
+      pipeline_stage: 'ready',
+    },
+    pipelinePath: pipe,
+    date: '2026-07-14',
+    apply: true,
+    createIfMissing: false,
+  });
+  assert.strictEqual(out.ok, false);
+  assert.match(out.error || '', /not found|ghost-buyer/i);
+  assert.doesNotMatch(fs.readFileSync(pipe, 'utf8'), /ghost-buyer/);
   fs.rmSync(dir, { recursive: true, force: true });
 });
 
