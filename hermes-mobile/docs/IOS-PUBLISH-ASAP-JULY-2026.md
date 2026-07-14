@@ -4,6 +4,7 @@
 **Bundle:** `com.iganapolsky.hermesmobile`  
 **ASC app id:** `6786778037`  
 **Seller:** Igor Ganapolsky / Max Smith KDP LLC  
+**Status (2026-07-14):** ASC availability fixed (175 countries Processing→Available); iTunes `resultCount=0` — awaiting propagation (up to 24h per Apple).
 
 ---
 
