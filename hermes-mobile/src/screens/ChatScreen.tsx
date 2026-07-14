@@ -121,6 +121,15 @@ import {
   findDeferredPlaceholderAfterLastUser,
 } from '../utils/chatMessageMerge';
 import {
+  STALLED_SEND_AUTO_RECOVER_MS,
+  STALLED_SEND_RECOVERING_HINT,
+  clearResolvedFailedOutboundStatuses,
+  findLastFailedOutboundFailureReason,
+  findLastStalledFailedOutboundText,
+  isStalledOutboundFailureReason,
+  shouldAutoRecoverStalledSend,
+} from '../utils/stalledChatRecovery';
+import {
   PENDING_NEW_SESSION_KEY,
   clearPendingOutbound,
   extractPersistableOutboundFromTranscript,
@@ -672,6 +681,8 @@ export default function ChatScreen() {
     async () => false,
   );
   const lastFailedSendTextRef = useRef<string | null>(null);
+  const stalledRecoveriesUsedRef = useRef(0);
+  const stalledRecoverInFlightRef = useRef(false);
   const activeChatStreamRef = useRef(false);
   /** Session ids the gateway rejected as removed/restarted — never resume or target these again. */
   const removedSessionIdsRef = useRef<Set<string>>(new Set());
@@ -1020,7 +1031,95 @@ export default function ChatScreen() {
   );
   const userSendFailed = pinnedOutboundStatus === 'failed';
   const hasRetryableFailedSend = Boolean(lastFailedOutboundText?.trim());
-  const chatStalled = hasRetryableFailedSend && macHttpOk && !connectivityRunFailure;
+  const chatStalled =
+    hasRetryableFailedSend &&
+    macHttpOk &&
+    !connectivityRunFailure &&
+    !stalledRecoverInFlightRef.current;
+
+  useEffect(() => {
+    stalledRecoveriesUsedRef.current = 0;
+    stalledRecoverInFlightRef.current = false;
+  }, [currentSession?.id]);
+
+  useEffect(() => {
+    const failedText =
+      findLastStalledFailedOutboundText(messages) ??
+      (isStalledOutboundFailureReason(runProgress?.detail)
+        ? lastFailedOutboundText ?? lastFailedSendTextRef.current
+        : null);
+    const failureReason =
+      findLastFailedOutboundFailureReason(messages) ?? runProgress?.detail ?? null;
+    if (
+      !shouldAutoRecoverStalledSend({
+        macHttpOk,
+        isDemo,
+        isSending,
+        recoveriesUsed: stalledRecoveriesUsedRef.current,
+        failedText,
+        failureReason,
+        runDetail: runProgress?.detail,
+      })
+    ) {
+      return;
+    }
+    if (stalledRecoverInFlightRef.current) {
+      return;
+    }
+    const timer = setTimeout(() => {
+      if (stalledRecoverInFlightRef.current || isSendingRef.current) {
+        return;
+      }
+      const retryText =
+        findLastStalledFailedOutboundText(messagesRef.current)?.trim() ||
+        lastFailedSendTextRef.current?.trim() ||
+        failedText?.trim();
+      if (!retryText) {
+        return;
+      }
+      stalledRecoverInFlightRef.current = true;
+      stalledRecoveriesUsedRef.current += 1;
+      lastFailedSendTextRef.current = retryText;
+      setRunProgress((prev) =>
+        prev
+          ? { ...prev, phase: 'sending', detail: STALLED_SEND_RECOVERING_HINT }
+          : {
+              phase: 'sending',
+              startedAtMs: Date.now(),
+              detail: STALLED_SEND_RECOVERING_HINT,
+            },
+      );
+      void (async () => {
+        try {
+          const runIds = [
+            runProgressRef.current?.runId,
+            sendProgressSnapshotRef.current?.runId,
+          ].filter((id): id is string => Boolean(id?.trim()));
+          await releaseMacOperatorSlot(gatewayUrl, apiKey, runIds).catch(() => {});
+          isSendingRef.current = false;
+          setIsSending(false);
+          setErrorMessage(null);
+          setPinnedOutboundText(null);
+          setPinnedOutboundSentAt(null);
+          setPinnedOutboundStatus('pending');
+          await sendUserTextRef.current(retryText, true);
+        } finally {
+          stalledRecoverInFlightRef.current = false;
+        }
+      })();
+    }, STALLED_SEND_AUTO_RECOVER_MS);
+    return () => clearTimeout(timer);
+  }, [
+    apiKey,
+    gatewayUrl,
+    isDemo,
+    isSending,
+    lastFailedOutboundText,
+    macHttpOk,
+    messages,
+    runProgress?.detail,
+    runProgress?.phase,
+  ]);
   const hideMacTileForSilentHeal = shouldHideMacTileForSilentHeal({
     silentHealInFlight: connectionHealInFlight,
     macRetryBusy,
@@ -2192,13 +2291,25 @@ export default function ChatScreen() {
         if (currentSessionRef.current?.id !== requestedSessionId) {
           return;
         }
-        const digest = transcriptDigest(merged);
+        const resolved = clearResolvedFailedOutboundStatuses(merged);
+        const nextMessages = resolved.messages;
+        const digest =
+          transcriptDigest(nextMessages) + (resolved.cleared ? '|outbound-cleared' : '');
         if (digest === transcriptDigestRef.current) {
           return;
         }
         transcriptDigestRef.current = digest;
-        messagesRef.current = merged;
-        setMessages(merged);
+        messagesRef.current = nextMessages;
+        setMessages(nextMessages);
+        if (resolved.cleared) {
+          lastFailedSendTextRef.current = null;
+          setPinnedOutboundStatus('pending');
+          setPinnedOutboundText(null);
+          setPinnedOutboundSentAt(null);
+          setRunProgress((prev) =>
+            prev?.phase === 'failed' && isStalledOutboundFailureReason(prev.detail) ? null : prev,
+          );
+        }
       };
 
       const mergeWithLocalPending = (serverMessages: HermesMessage[]) => {
@@ -5436,6 +5547,7 @@ export default function ChatScreen() {
       isSendingRef.current = false;
       setIsSending(false);
       clearDeferredTelegramPoll();
+      failPendingOutboundBubbles(RUN_NO_TOKEN_FAIL_DETAIL);
       setRunProgress((prev) =>
         prev && isActiveChatRun(prev)
           ? {
@@ -5458,6 +5570,7 @@ export default function ChatScreen() {
       isSendingRef.current = false;
       setIsSending(false);
       clearDeferredTelegramPoll();
+      failPendingOutboundBubbles(RUN_NO_TOKEN_FAIL_DETAIL);
       setRunProgress((prev) =>
         prev && isActiveChatRun(prev)
           ? {
@@ -5473,6 +5586,7 @@ export default function ChatScreen() {
     return () => clearTimeout(timer);
   }, [
     clearDeferredTelegramPoll,
+    failPendingOutboundBubbles,
     isDemo,
     runProgress?.outputTokens,
     runProgress?.phase,
