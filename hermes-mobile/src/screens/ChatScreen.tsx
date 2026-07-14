@@ -289,6 +289,7 @@ import {
   findStuckPendingOutboundIds,
   shouldRecoverOutboundSendLock,
 } from '../utils/outboundSendRecovery';
+import { decideOutboundSendWhileBusy } from '../utils/outboundSendGuard';
 import {
   findLastFailedOutboundText,
   resolveComposerSendAction,
@@ -648,6 +649,10 @@ export default function ChatScreen() {
   const prevMacChatLiveRef = useRef<boolean | null>(null);
   const sendStartedAtRef = useRef(Date.now());
   const outboundQueueRef = useRef<string[]>([]);
+  /** Normalized body of the primary send currently holding the lock. */
+  const outboundInFlightBodyRef = useRef<string | null>(null);
+  /** Last optimistic user bubble body (prevents identical double-tap rows). */
+  const lastCommittedOutboundBodyRef = useRef<string | null>(null);
   /** In-flight mobile sends with optimistic bubbles not yet on gateway transcript. */
   const pendingOutboundSendsRef = useRef(0);
   /** AsyncStorage remount snapshot — survives JS teardown when Android kills the activity. */
@@ -4068,6 +4073,7 @@ export default function ChatScreen() {
       outboundStatus: 'pending',
     };
     pendingOutboundSendsRef.current += 1;
+    lastCommittedOutboundBodyRef.current = trimmed;
     commitMessages((prev) => {
       const next = [...prev, userMessage];
       persistOutboundSnapshot(currentSessionRef.current?.id, next, {
@@ -4104,36 +4110,34 @@ export default function ChatScreen() {
     const gatewayMessage = outboundExtras?.gatewayContent ?? typed;
     if (!displayText) return false;
 
-    if (!isProgrammatic && !isDemo) {
-      const session = currentSessionRef.current;
-      const megaLevel = classifyMegaSession(session);
-      if (megaLevel !== 'normal') {
-        const decision = shouldAutoFreshAndResendOnMegaBlock(megaLevel)
-          ? 'fresh'
-          : await confirmMegaSessionSend();
-        if (decision === 'cancel') {
-          return false;
-        }
-        if (decision === 'fresh') {
-          // Preserve draft+attachments (handleStartFreshChat) then continue this send.
-          await handleStartFreshChat();
-        }
-      }
+    // Sync re-entry guard BEFORE any await — double-tap / keyboard+button races
+    // used to create two identical optimistic user bubbles ("make money faster"×2).
+    const busyDecision = decideOutboundSendWhileBusy({
+      isSending: isSendingRef.current,
+      body: displayText,
+      inFlightBody: outboundInFlightBodyRef.current,
+      lastCommittedBody: lastCommittedOutboundBodyRef.current,
+      queue: outboundQueueRef.current,
+    });
+    if (busyDecision.action === 'ignore') {
+      return true;
     }
-
-    if (isSendingRef.current) {
-      const trimmed = userText.trim();
-      outboundQueueRef.current.push(trimmed);
+    if (busyDecision.action === 'queue') {
+      outboundQueueRef.current.push(busyDecision.body);
       setQueuedOutboundCount(outboundQueueRef.current.length);
-      commitOutboundUserBubble(trimmed);
+      if (busyDecision.commitBubble) {
+        commitOutboundUserBubble(busyDecision.body);
+      }
       if (!isProgrammatic) {
         haptics.light();
       }
       return true;
     }
 
+    // Take the lock synchronously before mega-session dialogs (awaits).
     isSendingRef.current = true;
     setIsSending(true);
+    outboundInFlightBodyRef.current = normalizeMessageText(displayText);
 
     let outboundLockReleased = false;
     const releaseOutboundSendLock = () => {
@@ -4142,9 +4146,28 @@ export default function ChatScreen() {
       }
       outboundLockReleased = true;
       isSendingRef.current = false;
+      outboundInFlightBodyRef.current = null;
       setIsSending(false);
       drainOutboundQueue();
     };
+
+    if (!isProgrammatic && !isDemo) {
+      const session = currentSessionRef.current;
+      const megaLevel = classifyMegaSession(session);
+      if (megaLevel !== 'normal') {
+        const decision = shouldAutoFreshAndResendOnMegaBlock(megaLevel)
+          ? 'fresh'
+          : await confirmMegaSessionSend();
+        if (decision === 'cancel') {
+          releaseOutboundSendLock();
+          return false;
+        }
+        if (decision === 'fresh') {
+          // Preserve draft+attachments (handleStartFreshChat) then continue this send.
+          await handleStartFreshChat();
+        }
+      }
+    }
 
     const collectRecoveryRunIds = (): string[] => {
       const ids = [
@@ -4215,9 +4238,7 @@ export default function ChatScreen() {
           if (approvalUiVisibleForPhrase(phrase)) {
             setErrorMessage('Tap Approve on the card below — typing approval phrases is not required.');
             haptics.warning();
-            isSendingRef.current = false;
-            setIsSending(false);
-            outboundLockReleased = true;
+            releaseOutboundSendLock();
             return false;
           }
         }
@@ -4231,9 +4252,7 @@ export default function ChatScreen() {
           if (approvalUiVisibleForPhrase(phrase)) {
             setErrorMessage('Tap Approve on the card below — typing approval phrases is not required.');
             haptics.warning();
-            isSendingRef.current = false;
-            setIsSending(false);
-            outboundLockReleased = true;
+            releaseOutboundSendLock();
             return false;
           }
         }
@@ -4249,9 +4268,7 @@ export default function ChatScreen() {
       });
       setErrorMessage(blockedMessage);
       haptics.warning();
-      isSendingRef.current = false;
-      setIsSending(false);
-      outboundLockReleased = true;
+      releaseOutboundSendLock();
       return false;
     }
 
