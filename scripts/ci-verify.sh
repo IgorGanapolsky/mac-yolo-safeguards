@@ -86,6 +86,7 @@ node tests/test-openmono-roi-audit.js
 node tests/test-kimi-model-upgrade-audit.js
 tests/test-secondary-browser-reclaim.sh
 tests/test-adb-reverse-device-filter.sh
+tests/test-global-phone-pipeline-lock.sh
 if [ -f "$HOME/Documents/mac-text-hotkeys/init.lua" ]; then
   node tests/test-mac-text-hotkeys-config.js
 else

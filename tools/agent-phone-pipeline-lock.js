@@ -2,24 +2,39 @@
 'use strict';
 
 /**
- * Serialize agent phone pipeline: session-start pair/install queue + hermes-mobile-pair.
- * Complements install-phone-release.sh flock (build+install) — this lock covers pairing
- * and session-start orchestration so three concurrent agents cannot reinstall + re-pair.
+ * Serialize agent phone pipeline: session-start pair/install + hermes-mobile-pair + install-phone-release.
+ *
+ * CRITICAL (2026-07-14): locks MUST be global across all git worktrees. Per-worktree locks under
+ * hermes-mobile/.install-phone-release.lock let multiple agents install/pair the same USB phone
+ * and produce Wrong-key / Not connected / stale profiles.
+ *
+ * Global dir: ~/Library/Application Support/mac-yolo-safeguards/phone-pipeline/
  */
 
 const fs = require('fs');
+const os = require('os');
 const path = require('path');
 const { spawnSync } = require('child_process');
 
 const REPO = path.resolve(__dirname, '..');
 const HERMES_DIR = path.join(REPO, 'hermes-mobile');
-const LOCK_FILE = path.join(HERMES_DIR, '.agent-phone-pipeline.lock');
-const LOCK_META = path.join(HERMES_DIR, '.agent-phone-pipeline.lock.meta');
-const LOCK_DIR = path.join(HERMES_DIR, '.agent-phone-pipeline.lockdir');
-const INSTALL_LOCK = path.join(HERMES_DIR, '.install-phone-release.lock');
-const INSTALL_META = path.join(HERMES_DIR, '.install-phone-release.lock.meta');
+
+/** Single source of truth for all worktrees + main checkout. */
+const GLOBAL_PHONE_DIR =
+  process.env.HERMES_GLOBAL_PHONE_LOCK_DIR ||
+  path.join(os.homedir(), 'Library', 'Application Support', 'mac-yolo-safeguards', 'phone-pipeline');
+
+const LOCK_FILE = path.join(GLOBAL_PHONE_DIR, 'agent-phone-pipeline.lock');
+const LOCK_META = path.join(GLOBAL_PHONE_DIR, 'agent-phone-pipeline.lock.meta');
+const LOCK_DIR = path.join(GLOBAL_PHONE_DIR, 'agent-phone-pipeline.lockdir');
+const INSTALL_LOCK = path.join(GLOBAL_PHONE_DIR, 'install-phone-release.lock');
+const INSTALL_META = path.join(GLOBAL_PHONE_DIR, 'install-phone-release.lock.meta');
 
 const DEFAULT_WAIT_MS = Number(process.env.HERMES_PHONE_PIPELINE_LOCK_WAIT_MS || 120_000);
+
+function ensureGlobalDir() {
+  fs.mkdirSync(GLOBAL_PHONE_DIR, { recursive: true });
+}
 
 function sleep(ms) {
   const deadline = Date.now() + ms;
@@ -55,6 +70,7 @@ function lockMetaSummary() {
 }
 
 function installPipelineBusy() {
+  ensureGlobalDir();
   if (!fs.existsSync(INSTALL_LOCK)) return false;
   const held = spawnSync('bash', ['-c', `exec 9>>"${INSTALL_LOCK}"; flock -n 9`], {
     encoding: 'utf8',
@@ -66,7 +82,7 @@ function installPipelineBusy() {
   } catch {
     /* no meta */
   }
-  return { busy: true, detail: detail || 'install-phone-release.sh holds flock' };
+  return { busy: true, detail: detail || 'install-phone-release holds global flock' };
 }
 
 function phoneInstallLaunchJobRunning() {
@@ -77,6 +93,25 @@ function phoneInstallLaunchJobRunning() {
   return /^\s*state\s*=\s*running/m.test(probe.stdout || '');
 }
 
+/**
+ * Stale reclaim: only remove lockdir if pid file is missing or process is dead.
+ * NEVER delete a lock held by a live PID (even if meta looks foreign).
+ */
+function reclaimStaleLockDir() {
+  if (!fs.existsSync(LOCK_DIR)) return;
+  const pidPath = path.join(LOCK_DIR, 'pid');
+  const pid = readPid(pidPath);
+  if (pid && isAlive(pid)) {
+    return; // live holder — do not touch
+  }
+  // Dead or missing pid: safe to reclaim
+  try {
+    fs.rmSync(LOCK_DIR, { recursive: true, force: true });
+  } catch {
+    /* ignore */
+  }
+}
+
 function pipelineBusyReason() {
   const install = installPipelineBusy();
   if (install && install.busy) {
@@ -85,6 +120,7 @@ function pipelineBusyReason() {
   if (phoneInstallLaunchJobRunning()) {
     return 'com.igor.hermes-phone-install-once launchctl job running';
   }
+  reclaimStaleLockDir();
   if (fs.existsSync(LOCK_DIR)) {
     const pid = readPid(path.join(LOCK_DIR, 'pid'));
     if (isAlive(pid)) {
@@ -96,24 +132,35 @@ function pipelineBusyReason() {
       }
       return meta || `phone pipeline lock pid=${pid}`;
     }
-    fs.rmSync(LOCK_DIR, { recursive: true, force: true });
   }
   return '';
 }
 
 function tryAcquireLock(label) {
-  fs.mkdirSync(HERMES_DIR, { recursive: true });
+  ensureGlobalDir();
+  reclaimStaleLockDir();
   try {
     fs.mkdirSync(LOCK_DIR);
     fs.writeFileSync(path.join(LOCK_DIR, 'pid'), `${process.pid}\n`);
-    fs.writeFileSync(path.join(LOCK_DIR, 'meta'), `${label} pid=${process.pid}\n`);
-    fs.writeFileSync(LOCK_META, `${label} pid=${process.pid}\n`);
+    fs.writeFileSync(
+      path.join(LOCK_DIR, 'meta'),
+      `${label} pid=${process.pid} cwd=${process.cwd()}\n`,
+    );
+    fs.writeFileSync(LOCK_META, `${label} pid=${process.pid} cwd=${process.cwd()}\n`);
     return true;
   } catch (err) {
     if (err && err.code !== 'EEXIST') throw err;
     const pid = readPid(path.join(LOCK_DIR, 'pid'));
-    if (!isAlive(pid)) {
-      fs.rmSync(LOCK_DIR, { recursive: true, force: true });
+    if (pid && isAlive(pid)) {
+      return false;
+    }
+    // Only reclaim if dead — never steal live lock
+    if (!pid || !isAlive(pid)) {
+      try {
+        fs.rmSync(LOCK_DIR, { recursive: true, force: true });
+      } catch {
+        return false;
+      }
       return tryAcquireLock(label);
     }
     return false;
@@ -123,6 +170,7 @@ function tryAcquireLock(label) {
 function releaseLock() {
   try {
     const pid = readPid(path.join(LOCK_DIR, 'pid'));
+    // Only the owning PID may release
     if (pid === process.pid) {
       fs.rmSync(LOCK_DIR, { recursive: true, force: true });
     }
@@ -130,7 +178,10 @@ function releaseLock() {
     /* ignore */
   }
   try {
-    fs.unlinkSync(LOCK_META);
+    const meta = fs.readFileSync(LOCK_META, 'utf8');
+    if (meta.includes(`pid=${process.pid}`)) {
+      fs.unlinkSync(LOCK_META);
+    }
   } catch {
     /* ignore */
   }
@@ -174,12 +225,19 @@ function withPhonePipelineLock(label, fn, options = {}) {
 }
 
 module.exports = {
+  REPO,
   HERMES_DIR,
+  GLOBAL_PHONE_DIR,
   LOCK_FILE,
   LOCK_META,
+  LOCK_DIR,
+  INSTALL_LOCK,
+  INSTALL_META,
   DEFAULT_WAIT_MS,
   installPipelineBusy,
   phoneInstallLaunchJobRunning,
   pipelineBusyReason,
   withPhonePipelineLock,
+  reclaimStaleLockDir,
+  isAlive,
 };
