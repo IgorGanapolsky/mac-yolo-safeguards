@@ -13,16 +13,18 @@ bash scripts/generate-store-screenshots.sh
 
 ## Frame spec (aligned with `fastlane/screenshots/en-US/`)
 
-| # | Deep link | Caption (≤7 words) | Base file stem |
-|---|-----------|-------------------|----------------|
-| 1 | `hermes://chat` | Approve AI agents from phone | `01_approve` |
-| 2 | `hermes://leash` | Block destructive commands remotely | `02_block` |
-| 3 | `hermes://leash` (Pro unlocked) | Standing gate rules synced | `03_standing` |
-| 4 | `hermes://settings` | Pair your Mac in one scan | `04_pair` |
-| 5 | Chat + thumb tap | ThumbGate memory on replies | `05_thumbgate` |
-| 6 | Connection panel (cellular) | Works on cellular + tunnel | `06_works` |
+| # | Deep link / screen | Caption (≤7 words) | Base file stem |
+|---|--------------------|-------------------|----------------|
+| 1 | `hermes://chat` (Connected) | Approve AI agents from phone | `01_approve` |
+| 2 | `hermes://leash/preview/smoke` | Block destructive commands remotely | `02_block` |
+| 3 | Settings → Safeguard / pair | Standing gate rules synced | `03_standing` |
+| 4 | `hermes://settings?pair=qr` | Pair your Mac in one scan | `04_pair` |
+| 5 | Leash → ThumbGate options | ThumbGate memory on replies | `05_thumbgate` |
+| 6 | Settings (top) | Settings for your Mac link | `06_works` |
 
-**Device suffixes:** `_65` (6.5"), `_67` (6.7"), `_ipad129` (12.9" iPad where applicable).
+**ASC upload rule:** emit **only** `_67` (+ `ipad129` for first 3). Do **not** also ship `_65` into `fastlane/screenshots/` — Apple folds both into `APP_IPHONE_67` and the carousel shows exact duplicates (2026-07-13 incident).
+
+**Uniqueness gate:** `python3 scripts/_assert_store_frame_distinct.py fastlane/store-capture/raw` — every pair &lt; 90% similar.
 
 ## Caption band (all frames)
 

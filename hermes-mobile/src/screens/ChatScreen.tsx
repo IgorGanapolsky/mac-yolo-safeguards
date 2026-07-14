@@ -281,6 +281,7 @@ import {
   findLastFailedOutboundText,
   resolveComposerSendAction,
   shouldHideMacTileForSilentHeal,
+  isEmptyReplyFailureMessage,
   shouldShowFailedSendRetry,
 } from '../utils/failedSendRetry';
 import {
@@ -316,6 +317,7 @@ import { resolveSessionAfterListLoad } from '../utils/sessionListSelection';
 import {
   extractAssistantFromRunCompletedPayload,
   findNewAssistantReply,
+  EMPTY_STREAM_TIMEOUT_PLACEHOLDER,
   GENERIC_EMPTY_STREAM_PLACEHOLDER,
   isDeferredStreamPlaceholder,
   isTelegramDeferredEmptyStream,
@@ -323,10 +325,11 @@ import {
   TELEGRAM_QUEUED_REPLY_PLACEHOLDER,
 } from '../utils/streamAssistantText';
 import {
-  DEFERRED_REPLY_POLL_MAX_MS,
+  deferredReplyPollBudgetMs,
   DEFERRED_REPLY_POLL_MS,
   EMPTY_REPLY_FAILURE_REASON,
   shouldAwaitGatewayReplyAfterSend,
+  toolActivityAfterLastUser,
 } from '../utils/emptyStreamReplyRecovery';
 import { extractTerminalActivityFromMessage, isTerminalToolName } from '../utils/terminalActivity';
 import type { ChatMessageContent, ComposerAttachment } from '../types/chatAttachment';
@@ -2337,12 +2340,21 @@ export default function ChatScreen() {
       awaitingGatewayReplyRef.current = true;
       setAwaitingGatewayReply(true);
       const startedAt = Date.now();
+      let sawTools = false;
       deferredTelegramPollRef.current = setInterval(() => {
-        if (Date.now() - startedAt > DEFERRED_REPLY_POLL_MAX_MS) {
+        const budgetMs = deferredReplyPollBudgetMs({ toolsActive: sawTools });
+        if (Date.now() - startedAt > budgetMs) {
           clearDeferredTelegramPoll();
           awaitingGatewayReplyRef.current = false;
           setAwaitingGatewayReply(false);
           setToolStatus(null);
+          commitMessages((prev) =>
+            prev.map((m) =>
+              m.id === assistantId && isDeferredStreamPlaceholder(m.content)
+                ? { ...m, content: EMPTY_STREAM_TIMEOUT_PLACEHOLDER }
+                : m,
+            ),
+          );
           setRunProgress((prev) =>
             prev && prev.phase !== 'completed'
               ? { ...prev, phase: 'failed', detail: EMPTY_REPLY_FAILURE_REASON }
@@ -2352,19 +2364,45 @@ export default function ChatScreen() {
           return;
         }
         void refreshSessionMessages({ background: true, force: true }).then(() => {
-          const reply = findNewAssistantReply(messagesRef.current, priorAssistants);
-          if (!reply) {
+          const msgs = messagesRef.current;
+          const reply = findNewAssistantReply(msgs, priorAssistants);
+          if (reply) {
+            clearDeferredTelegramPoll();
+            awaitingGatewayReplyRef.current = false;
+            setAwaitingGatewayReply(false);
+            setToolStatus(null);
+            setRunProgress(null);
+            commitMessages((prev) =>
+              prev.map((m) => (m.id === assistantId ? { ...m, content: reply } : m)),
+            );
+            haptics.success();
             return;
           }
-          clearDeferredTelegramPoll();
-          awaitingGatewayReplyRef.current = false;
-          setAwaitingGatewayReply(false);
-          setToolStatus(null);
-          setRunProgress(null);
-          commitMessages((prev) =>
-            prev.map((m) => (m.id === assistantId ? { ...m, content: reply } : m)),
-          );
-          haptics.success();
+          const activity = toolActivityAfterLastUser(msgs);
+          if (activity.active) {
+            sawTools = true;
+            setToolStatus(activity.detail);
+            setRunProgress((prev) =>
+              prev
+                ? { ...prev, phase: 'working', detail: activity.detail }
+                : {
+                    phase: 'working',
+                    startedAtMs: startedAt,
+                    detail: activity.detail,
+                  },
+            );
+            // Keep the chat bubble aligned with real tool progress (not "did not return text").
+            commitMessages((prev) =>
+              prev.map((m) =>
+                m.id === assistantId && isDeferredStreamPlaceholder(m.content)
+                  ? {
+                      ...m,
+                      content: `${GENERIC_EMPTY_STREAM_PLACEHOLDER}\n\n${activity.detail}`,
+                    }
+                  : m,
+              ),
+            );
+          }
         });
       }, DEFERRED_REPLY_POLL_MS);
     },
@@ -4759,7 +4797,7 @@ export default function ChatScreen() {
           setToolStatus(
             summarizationStub
               ? 'Context summarized — waiting for a real reply…'
-              : 'Waiting for reply from your computer…',
+              : 'Working on your computer…',
           );
           setRunProgress((prev) =>
             prev
@@ -4768,20 +4806,34 @@ export default function ChatScreen() {
                   phase: 'working',
                   detail: summarizationStub
                     ? 'Context was summarized — still fetching a real reply…'
-                    : 'Your computer is still working — fetching reply…',
+                    : 'Working on your computer (tools may be running)…',
                 }
               : {
                   phase: 'working',
                   startedAtMs: sendStartedAtRef.current,
                   detail: summarizationStub
                     ? 'Context was summarized — still fetching a real reply…'
-                    : 'Your computer is still working — fetching reply…',
+                    : 'Working on your computer (tools may be running)…',
                   sessionId: targetSessionIdForProgress,
                 },
           );
           startDeferredReplyPoll(assistantId, priorAssistants, {
             onTimeout: () => {
               lastFailedSendTextRef.current = userText;
+              setPinnedOutboundStatus('failed');
+              commitMessages((prev) => {
+                const next = [...prev];
+                for (let index = next.length - 1; index >= 0; index -= 1) {
+                  if (next[index]?.role?.toLowerCase() === 'user') {
+                    next[index] = {
+                      ...next[index]!,
+                      outboundStatus: 'failed',
+                    };
+                    break;
+                  }
+                }
+                return next;
+              });
               setErrorMessage(
                 summarizationStub
                   ? compactionStallBannerCopy(sessionTotalTokens(currentSessionRef.current))
@@ -5110,6 +5162,29 @@ export default function ChatScreen() {
       await sendUserTextRef.current(retryText, true);
     }
   }, [apiKey, gatewayUrl, progressBanner?.runId, runProgress?.runId]);
+
+  /** Empty-reply / "tap to retry" banner — must resend last failed text, not no-op. */
+  const handleRetryFailedSend = useCallback(async () => {
+    haptics.selection();
+    const retryText =
+      lastFailedSendTextRef.current?.trim() ||
+      lastFailedOutboundText?.trim() ||
+      pinnedOutboundText?.trim() ||
+      '';
+    setErrorMessage(null);
+    if (runProgressRef.current?.phase === 'failed') {
+      setRunProgress(null);
+    }
+    if (!retryText) {
+      setErrorMessage('Nothing to retry — type your message again and send.');
+      return;
+    }
+    lastFailedSendTextRef.current = retryText;
+    const accepted = await sendUserTextRef.current(retryText, true);
+    if (accepted) {
+      haptics.light();
+    }
+  }, [lastFailedOutboundText, pinnedOutboundText]);
 
   const handleSelectAgentThread = useCallback(
     async (session: HermesSession) => {
@@ -5763,8 +5838,24 @@ export default function ChatScreen() {
           <ComposerErrorBanner
             message={operationalError}
             onDismiss={() => setErrorMessage(null)}
-            actionLabel={showSessionBusyStop ? 'Stop run on computer & retry' : undefined}
-            onAction={showSessionBusyStop ? () => void handleStopMacAndRetrySend() : undefined}
+            actionLabel={
+              showSessionBusyStop
+                ? 'Stop run on computer & retry'
+                : isEmptyReplyFailureMessage(operationalError) ||
+                    lastFailedSendTextRef.current?.trim() ||
+                    lastFailedOutboundText?.trim()
+                  ? 'Retry send'
+                  : undefined
+            }
+            onAction={
+              showSessionBusyStop
+                ? () => void handleStopMacAndRetrySend()
+                : isEmptyReplyFailureMessage(operationalError) ||
+                    lastFailedSendTextRef.current?.trim() ||
+                    lastFailedOutboundText?.trim()
+                  ? () => void handleRetryFailedSend()
+                  : undefined
+            }
           />
         ) : null}
 
@@ -5788,7 +5879,18 @@ export default function ChatScreen() {
             isStartingFreshChat={isStartingFreshChat}
             onStop={isRunActive || isSending ? () => void handleStopRun() : undefined}
             onDismiss={clearFailedOutboundState}
-            onRetry={connectivityRunFailure ? () => void handleRetryConnectivity() : undefined}
+            onRetry={
+              isEmptyReplyFailureMessage(progressBanner.detail) ||
+              (progressBanner.phase === 'failed' &&
+                Boolean(
+                  lastFailedSendTextRef.current?.trim() || lastFailedOutboundText?.trim(),
+                ) &&
+                !isConnectivityMessage(progressBanner.detail ?? ''))
+                ? () => void handleRetryFailedSend()
+                : connectivityRunFailure
+                  ? () => void handleRetryConnectivity()
+                  : undefined
+            }
             terminalToolName={operatorTerminalLine?.toolName}
             terminalPreview={operatorTerminalLine?.text}
           />

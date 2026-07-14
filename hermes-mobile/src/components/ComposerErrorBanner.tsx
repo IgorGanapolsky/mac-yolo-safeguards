@@ -15,18 +15,26 @@ export default function ComposerErrorBanner({
   actionLabel,
   onAction,
 }: ComposerErrorBannerProps) {
+  const canAct = Boolean(actionLabel && onAction);
   return (
     <View style={styles.container} testID="chat-operational-error">
-      <View style={styles.body}>
+      <TouchableOpacity
+        style={styles.body}
+        onPress={canAct ? onAction : undefined}
+        disabled={!canAct}
+        accessibilityRole={canAct ? 'button' : undefined}
+        accessibilityLabel={canAct ? actionLabel : undefined}
+        testID={canAct ? 'composer-error-banner-action-area' : undefined}
+      >
         <Text style={styles.text} testID="composer-error-banner-text">
           {message}
         </Text>
-        {actionLabel && onAction ? (
-          <TouchableOpacity onPress={onAction} testID="chat-stop-mac-run">
+        {canAct ? (
+          <View testID="chat-error-retry-action">
             <Text style={styles.action}>{actionLabel}</Text>
-          </TouchableOpacity>
+          </View>
         ) : null}
-      </View>
+      </TouchableOpacity>
       <TouchableOpacity
         onPress={onDismiss}
         hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
