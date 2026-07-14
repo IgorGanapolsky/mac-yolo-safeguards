@@ -42,6 +42,7 @@ Install/heal LaunchAgents: `bash scripts/install-hermes-chrome-cdp.sh` then `bas
 | 10 | Dual continuous E2E thrash + poisoned `latest.json` (2026-07-13) | Multiple agents ran `run-continuous-e2e.sh --once` + bare Maestro on same USB phone; worktree without `node_modules` wrote `unit:fail` / `e2e:skipped` over shared proof; vault handoff skipped | **`flock` cycle lock** on all continuous modes; refuse cycle if jest missing (**do not write** `latest.json`); skip E2E if `maestro.cli.AppKt` already holds device; vault claim USB/Maestro before kick; one continuous owner | **Automated lock + vault** |
 | 11 | Fresh install → **Wrong key / Not connected** (2026-07-14) | Pair deep link embedded unverified or foreign `API_SERVER_KEY` (laptop key on mini, or extra Mac without SSH); USB used tailnet URL without reverse; `/health` green while chat 401 | **`verifyGatewayAuthSync` before deep link** (refuse if not 200); **USB primary → `127.0.0.1:8642`** when reverse auth works; **extras only with SSH key + verified auth**; never fallback laptop key onto mini when `fallbackLocal:false`; **auto-pair after `install-phone-release.sh`**; redact all keys in logs | **Automated pair-lib + install** |
 | 12 | Bare **Aborted** in chat/banner (2026-07-14) | OpenCode/agent runtime error `Aborted` / AbortError leaked as UI copy | `isRawAbortMessage` + `USER_RUN_INTERRUPTED_MESSAGE` in chatErrors, runProgressDisplay, outbound bubbles, assistant prose | **Unit tests** |
+| 13 | Wrong-key / Not connected after multi-agent dogfood (2026-07-14) | Locks lived **per worktree** (`hermes-mobile/.install-phone-release.lock`); 6+ agents built/paired the same USB phone; some reclaim paths deleted locks while another pipeline was live | **Global phone pipeline dir** `~/Library/Application Support/mac-yolo-safeguards/phone-pipeline/` for install flock + pair mutex + install marker + human hold; reclaim **only** dead PIDs; never force-delete a live holder | **Automated global lock** |
 
 ---
 
@@ -125,6 +126,7 @@ bash hermes-mobile/scripts/agent-pre-asc-edit.sh      # runs verify-asc-listing 
 | `agent-session-start.js` skips `adb kill-server` | False "no device" at session start | Call `agent-adb-refresh.sh` when pairing queued |
 | `hermes-mobile-pair.js` raw `adb devices` | Pair fails on stale daemon | Retry after `restart_adb_server` once |
 | Concurrent session-start pair+install | Name repair overwritten; cold-start storm drops app to launcher | `agent-phone-pipeline-lock.js` + skip pair when install job queued; quote `&name=` in adb shell |
+| Per-worktree install/pair locks | Concurrent install+pair on one USB → Wrong-key / stale profile | Global dir `phone-pipeline/` (override `HERMES_GLOBAL_PHONE_LOCK_DIR`); `tests/test-global-phone-pipeline-lock.sh` |
 | `e2e=skipped` in `latest.json` not escalated | Ship theater | `verify-continuous-e2e.sh` warn + CEO brief flag when skipped >30m |
 | No pre-commit on ASC note **draft files** in repo | Accidental commit of secrets in draft md | Optional: guard staged `*review*notes*` paths |
 | Sim stale branding | Wrong splash on sim | Document: `xcrun simctl uninstall` + clean prebuild in install runbook |
@@ -137,6 +139,7 @@ bash hermes-mobile/scripts/agent-pre-asc-edit.sh      # runs verify-asc-listing 
 |--------|------|
 | `bash scripts/agent-pre-asc-edit.sh` | Before any ASC review notes / App Review Information edit |
 | `bash scripts/agent-adb-refresh.sh` | Session start, before pair, before "phone not connected" diagnosis |
+| Global phone lock dir | `~/Library/Application Support/mac-yolo-safeguards/phone-pipeline/` — install flock + pair mutex + last-install marker; one pipeline per Mac |
 | `node scripts/verify-asc-listing.js` | ASC status audit; fails on unsafe live notes |
 | `node scripts/patch-asc-review-notes.js` | Apply safe template via API (preferred) |
 | `node tools/hermes-mobile-pair.js --mini-tailscale` | Multi-Mac — never laptop key on mini URL |
