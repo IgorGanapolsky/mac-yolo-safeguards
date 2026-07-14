@@ -30,7 +30,54 @@ const LOCK_DIR = path.join(GLOBAL_PHONE_DIR, 'agent-phone-pipeline.lockdir');
 const INSTALL_LOCK = path.join(GLOBAL_PHONE_DIR, 'install-phone-release.lock');
 const INSTALL_META = path.join(GLOBAL_PHONE_DIR, 'install-phone-release.lock.meta');
 
+/**
+ * Human hold (T-330 priority 2 — unified phone lease): a human physically using the phone
+ * must never be fought for control by a background pairing/install/Maestro/screenshot
+ * process. Any lane that funnels through `pipelineBusyReason()` sees the hold; automated
+ * lanes (Maestro/E2E/screenshots/dogfooding) additionally SKIP outright instead of queueing
+ * — see `tools/agent-phone-lease.js`.
+ */
+const HUMAN_HOLD_FILE = path.join(GLOBAL_PHONE_DIR, 'human-hold.json');
+const DEFAULT_HUMAN_HOLD_TTL_MS = Number(process.env.HERMES_PHONE_HUMAN_HOLD_TTL_MS || 30 * 60 * 1000);
+
 const DEFAULT_WAIT_MS = Number(process.env.HERMES_PHONE_PIPELINE_LOCK_WAIT_MS || 120_000);
+
+function setHumanHold(reason, ttlMs = DEFAULT_HUMAN_HOLD_TTL_MS) {
+  ensureGlobalDir();
+  const payload = {
+    reason: reason || 'human is using the phone',
+    heldAt: new Date().toISOString(),
+    expiresAt: Date.now() + ttlMs,
+  };
+  fs.writeFileSync(HUMAN_HOLD_FILE, JSON.stringify(payload, null, 2));
+  return payload;
+}
+
+function clearHumanHold() {
+  try {
+    fs.unlinkSync(HUMAN_HOLD_FILE);
+  } catch {
+    /* not held */
+  }
+}
+
+function getHumanHold() {
+  try {
+    const raw = JSON.parse(fs.readFileSync(HUMAN_HOLD_FILE, 'utf8'));
+    if (!raw || typeof raw.expiresAt !== 'number') return null;
+    if (Date.now() > raw.expiresAt) {
+      clearHumanHold();
+      return null;
+    }
+    return raw;
+  } catch {
+    return null;
+  }
+}
+
+function isHumanHoldActive() {
+  return getHumanHold() !== null;
+}
 
 function ensureGlobalDir() {
   fs.mkdirSync(GLOBAL_PHONE_DIR, { recursive: true });
@@ -114,6 +161,10 @@ function reclaimStaleLockDir() {
 }
 
 function pipelineBusyReason() {
+  const hold = getHumanHold();
+  if (hold) {
+    return `human hold: ${hold.reason}`;
+  }
   const install = installPipelineBusy();
   if (install && install.busy) {
     return install.detail;
@@ -198,21 +249,31 @@ function withPhonePipelineLock(label, fn, options = {}) {
   const waitMs = options.waitMs ?? DEFAULT_WAIT_MS;
   const skipIfBusy = options.skipIfBusy ?? false;
   const externalBusyReason = options.pipelineBusyReasonImpl || pipelineBusyReason;
-  const external = externalBusyReason();
-  if (external) {
-    if (skipIfBusy) {
-      return { ran: false, skipped: true, reason: external };
-    }
-  }
-
   const deadline = Date.now() + waitMs;
-  while (!tryAcquireLock(label)) {
+
+  // T-330 fix: an external busy reason (install flock, scheduled phone-install-once
+  // launchctl job, or a human hold) must gate acquisition even when `skipIfBusy` is
+  // false — previously it was only consulted for messaging inside the mkdir-lock retry
+  // loop, so a caller with `skipIfBusy:false` could acquire the (separate) mkdir lock and
+  // run concurrently with an active install/human-hold lane it should have waited on.
+  for (;;) {
+    const external = externalBusyReason();
+    if (external) {
+      if (skipIfBusy || Date.now() >= deadline) {
+        return { ran: false, skipped: true, reason: external };
+      }
+      sleep(400 + Math.floor(Math.random() * 400));
+      continue;
+    }
+    if (tryAcquireLock(label)) {
+      break;
+    }
     if (skipIfBusy) {
-      const reason = pipelineBusyReason() || lockMetaSummary() || 'phone pipeline busy';
+      const reason = externalBusyReason() || lockMetaSummary() || 'phone pipeline busy';
       return { ran: false, skipped: true, reason };
     }
     if (Date.now() >= deadline) {
-      const reason = pipelineBusyReason() || lockMetaSummary() || 'phone pipeline lock timeout';
+      const reason = externalBusyReason() || lockMetaSummary() || 'phone pipeline lock timeout';
       return { ran: false, skipped: true, reason };
     }
     sleep(400 + Math.floor(Math.random() * 400));
@@ -340,6 +401,8 @@ module.exports = {
   LOCK_DIR,
   INSTALL_LOCK,
   INSTALL_META,
+  HUMAN_HOLD_FILE,
+  DEFAULT_HUMAN_HOLD_TTL_MS,
   DEFAULT_WAIT_MS,
   installPipelineBusy,
   phoneInstallLaunchJobRunning,
@@ -349,4 +412,8 @@ module.exports = {
   runCommandWithPhonePipelineLock,
   reclaimStaleLockDir,
   isAlive,
+  setHumanHold,
+  clearHumanHold,
+  getHumanHold,
+  isHumanHoldActive,
 };

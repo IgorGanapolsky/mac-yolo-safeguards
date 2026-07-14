@@ -22,6 +22,15 @@ export interface SetupDeepLinkParams {
   demoMode?: boolean;
   /** ThumbGate API key from Mac pairing (hermes://setup?thumbgate=…). */
   thumbgateApiKey?: string;
+  /**
+   * Secretless one-time pairing code (T-330 priority 3): when present, `apiKey` and other
+   * credential fields are NOT embedded in this deep link — the app must exchange `code`
+   * against `pairServerUrl` (over the same trusted local connection) to retrieve them, then
+   * store them via Android Keystore-backed secure storage. See pairingCodeExchange.ts.
+   */
+  pairingCode?: string;
+  /** Local pair server base URL (e.g. http://192.168.1.5:8765) to exchange `pairingCode` against. */
+  pairServerUrl?: string;
 }
 
 function parseQueryString(query: string): Record<string, string> {
@@ -149,6 +158,9 @@ export function parseSetupDeepLink(url: string): SetupDeepLinkParams | null {
 
   const query = url.slice(queryStart + 1);
   const params = parseQueryString(query);
+  // Distinct from the existing relay `code`/`relay` param — never collide with relay pairing.
+  const pairingCode = params.pairCode?.trim() || undefined;
+  const pairServerUrl = params.pairServer?.trim() || params.pairserver?.trim() || undefined;
   const gatewayUrl =
     params.url?.trim() || params.gateway?.trim() || params.gatewayUrl?.trim() || '';
   const demoMode =
@@ -165,7 +177,7 @@ export function parseSetupDeepLink(url: string): SetupDeepLinkParams | null {
     };
   }
 
-  if (!gatewayUrl) {
+  if (!gatewayUrl && !(pairingCode && pairServerUrl)) {
     return null;
   }
 
@@ -189,12 +201,14 @@ export function parseSetupDeepLink(url: string): SetupDeepLinkParams | null {
     params.thumbgateApiKey?.trim() ||
     undefined;
   return {
-    gatewayUrl,
+    gatewayUrl: gatewayUrl || undefined,
     apiKey,
     macName,
     relayCode: relayCode ? relayCode.toUpperCase() : undefined,
     tailnetProbeHosts: tailnetProbeHosts.length > 0 ? tailnetProbeHosts : undefined,
     extraComputers: extraComputers.length > 0 ? extraComputers : undefined,
+    pairingCode,
+    pairServerUrl,
     thumbgateApiKey,
   };
 }
