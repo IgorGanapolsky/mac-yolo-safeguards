@@ -63,7 +63,7 @@ if ((INSTALL_REMOTE)); then
      install -m 0755 '$remote_wrapper' \"\$HOME/.local/share/ali-yolo/ali-yolo\"
      ln -sfn \"\$HOME/.local/share/ali-yolo/ali-yolo\" \"\$HOME/.local/bin/ali-yolo\"
      rm -f '$remote_wrapper'
-     status=0
-     \"\$HOME/.local/bin/ali-yolo\" --doctor --json || status=\$?
-     echo \"ALI_YOLO_INSTALLED host=\$(hostname -s) doctor_status=\$status path=\$HOME/.local/bin/ali-yolo\""
+     doctor_status=0
+     \"\$HOME/.local/bin/ali-yolo\" --doctor --json || doctor_status=\$?
+     echo \"ALI_YOLO_INSTALLED host=\$(hostname -s) doctor_status=\$doctor_status path=\$HOME/.local/bin/ali-yolo\""
 fi
