@@ -28,12 +28,14 @@ retargets the existing `hermes-yolo` permanence guard to the zero-spend gate.
 The guard therefore repairs bypasses instead of reintroducing the old remote
 wrapper.
 
-The local route never selects a 32k/64k worker directly. During installation it
-derives `qwen3:8b-hermes-20k` from an already-installed `qwen3:8b` model (or a
-compact 3B fallback) and sets `num_ctx=20480`. This is a local manifest operation:
-it downloads nothing and sends no prompt. The bounded context leaves room for
-the observed 12k-token Hermes sessions without crossing the 10 GiB worker class
-that the 60-second freeze guard reclaims under memory pressure.
+The local route never selects the memory-heavy 8B 32k/64k workers. Hermes Agent
+requires a real context window of at least 64k because its tool schemas and system
+prompt consume a large fixed prefix. During installation the gate therefore
+derives `qwen3.5:9b-hermes-64k` from the installed `qwen3.5:9b`
+base and sets `num_ctx=65536`. This is a local manifest operation: it downloads
+nothing and sends no prompt. The hybrid-attention model keeps the 64k worker below the
+10 GiB process class that the 60-second freeze guard reclaims under memory
+pressure, while retaining enough context for the observed 12k-token sessions.
 The `litellm` command itself is blocked with the other provider entrypoints so
 an old shell or scheduled job cannot silently reload an oversized or remote
 route.

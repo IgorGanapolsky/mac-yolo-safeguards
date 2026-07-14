@@ -48,14 +48,9 @@ const PAID_CREDENTIAL_ENV = [
 ];
 const SAFE_MODEL_RECIPES = [
   {
-    model: 'qwen3:8b-hermes-20k',
-    base: 'qwen3:8b',
-    contextLength: 20480,
-  },
-  {
-    model: 'qwen2.5:3b-hermes-20k',
-    base: 'qwen2.5:3b',
-    contextLength: 20480,
+    model: 'qwen3.5:9b-hermes-64k',
+    base: 'qwen3.5:9b',
+    contextLength: 65536,
   },
 ];
 const LOCAL_MODEL_CANDIDATES = SAFE_MODEL_RECIPES.map((recipe) => recipe.model);
@@ -227,7 +222,7 @@ function yamlQuote(value) {
 }
 
 function modelContextLength(model) {
-  return SAFE_MODEL_RECIPES.find((recipe) => recipe.model === model)?.contextLength || 20480;
+  return SAFE_MODEL_RECIPES.find((recipe) => recipe.model === model)?.contextLength || 65536;
 }
 
 function localConfig(model) {
