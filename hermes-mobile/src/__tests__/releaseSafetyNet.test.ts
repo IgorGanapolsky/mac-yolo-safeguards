@@ -155,9 +155,19 @@ describe('release safety net (T-114)', () => {
     expect(connection).toContain('wrongKeyBannerActive');
     expect(connection).toContain('isConnectedWrongKeyContradiction');
     expect(connection).toContain('RELEASE BLOCK');
+    const chat = read('hermes-mobile/src/screens/ChatScreen.tsx');
+    expect(chat).toContain('effectiveAuthMismatch');
+    expect(chat).toContain('wrongKeyBannerActive');
+    // Banner/health auth failure must force macHttpReachable false (no chatStalled bypass)
+    expect(chat).toMatch(/effectiveAuthMismatch \? false : effectiveMacHttpOk/);
+    const profiles = read('hermes-mobile/src/services/gatewayProfiles.ts');
+    expect(profiles).toContain('Prefer non-loopback');
+    const gatewayCtx = read('hermes-mobile/src/context/GatewayContext.tsx');
+    expect(gatewayCtx).toContain('false-green Connected + Wrong key');
     const readiness = read('hermes-mobile/docs/REAL-USER-READINESS.md');
     expect(readiness).toContain('Connected ⊕ Wrong key');
     expect(readiness).toContain('SHIP BLOCK');
+    expect(readiness).toContain('state-machine failure');
     const safetyNet = read('hermes-mobile/docs/RELEASE-SAFETY-NET.md');
     expect(safetyNet).toContain('Connected ⊕ Wrong key');
     expect(safetyNet).toContain('SHIP BLOCK');

@@ -72,6 +72,24 @@ describe('ChatScreenHeader', () => {
     );
   });
 
+  it('SHIP BLOCK: never green Connected when wrong-key banner is active (even if macHttpReachable)', () => {
+    const { getByTestId } = render(
+      <ChatScreenHeader
+        threadTitle="New chat"
+        machineLabel="Igors-MacBook-Pro"
+        machineEndpoint="127.0.0.1:8642"
+        connectionState="disconnected"
+        macHttpReachable
+        wrongKeyBannerActive
+        onOpenThreads={jest.fn()}
+        onPressMachine={jest.fn()}
+      />,
+    );
+    const label = String(getByTestId('chat-context-link').props.children);
+    expect(label).toBe(GATEWAY_AUTH_REPAIR_HEADER);
+    expect(label).not.toMatch(/^Connected/);
+  });
+
   it('shows auth repair header instead of Connected when auth mismatches', () => {
     const { getByTestId } = render(
       <ChatScreenHeader
