@@ -63,7 +63,7 @@ export default function GatewayProfilePicker({
         const rawRouteHint = showRouteHints
           ? profileConnectionRouteLabel(profile, wifiConnected)
           : null;
-        const routeHint = rawRouteHint === 'USB' ? null : rawRouteHint;
+        const routeHint = rawRouteHint;
         const meta = isActive
           ? authNeedsRepair
             ? routeHint

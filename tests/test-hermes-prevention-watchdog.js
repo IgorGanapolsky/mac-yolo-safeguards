@@ -51,6 +51,7 @@ function testWatchdogScriptExists() {
   assert.ok(body.includes('disabled_toolsets'));
   assert.ok(body.includes('No constraints') || body.includes('NO-CONSTRAINTS'));
   assert.ok(body.includes('com.hermes.chrome-cdp'));
+  assert.ok(!/\brg -[a-z]*q\b/.test(body), 'watchdog must not depend on ripgrep (mini runner PATH)');
   assert.ok(!/disabled_toolsets:\s*\[browser\]/.test(body) || body.includes('never'));
   // Must not instruct disabling browser
   assert.ok(!body.includes('disabled_toolsets: [browser]'));
@@ -70,7 +71,7 @@ function testChromeCdpScripts() {
   console.log('ok chrome-cdp install scripts');
 }
 
-function testWatchdogWithFixtures() {
+function testWatchdogWithFixtures(extraEnv = {}) {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'hermes-prev-wd-'));
   const soul = path.join(tmp, 'SOUL.md');
   const config = path.join(tmp, 'config.yaml');
@@ -86,15 +87,22 @@ function testWatchdogWithFixtures() {
       HERMES_SOUL_PATH: soul,
       HERMES_CONFIG_PATH: config,
       HERMES_MAX_SESSION_INPUT_TOKENS: '500000',
+      ...extraEnv,
     },
   );
   // CDP may be down locally — script can exit 1; JSON must still parse and flag toolsets/soul ok
   assert.ok(res.stdout.trim().length > 0, res.stderr || 'no stdout');
   const parsed = JSON.parse(res.stdout);
-  assert.strictEqual(parsed.soulNoConstraints, true);
+  assert.strictEqual(parsed.soulNoConstraints, true, JSON.stringify(parsed));
   assert.strictEqual(parsed.toolsetsOk, true);
   assert.strictEqual(parsed.tokenCeiling, true);
   console.log('ok watchdog fixture check (soul/toolsets/ceiling)');
+}
+
+function testWatchdogWithoutRipgrepInPath() {
+  // mac-mini-hermes Actions runner PATH omits Homebrew; rg must not be required.
+  testWatchdogWithFixtures({ PATH: '/usr/bin:/bin:/usr/sbin:/sbin' });
+  console.log('ok watchdog fixture check without rg in PATH');
 }
 
 function testDisabledBrowserDetected() {
@@ -122,5 +130,6 @@ testChromeCdpScripts();
 testWatchdogScriptExists();
 testRequireDeviceVerified();
 testWatchdogWithFixtures();
+testWatchdogWithoutRipgrepInPath();
 testDisabledBrowserDetected();
 console.log('All prevention watchdog tests passed');

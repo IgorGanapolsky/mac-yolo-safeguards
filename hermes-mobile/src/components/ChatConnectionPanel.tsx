@@ -16,6 +16,7 @@ import {
   profileMatchesHostname,
   profilesForSwitchComputerPicker,
   shouldOfferUsbLinkRepair,
+  type LiveUsbPickerInput,
   type UsbHostMismatch,
 } from '../utils/gatewayProfilePicker';
 import { relayWorkerDisplayName } from '../utils/relayRouting';
@@ -68,6 +69,7 @@ type ChatConnectionPanelProps = {
   tailnetProbeHostCount?: number;
   onAddTailscaleComputer?: (discovery: DiscoveredGateway) => void;
   onAddProfile?: (label: string, gatewayUrl: string) => Promise<void>;
+  liveUsb?: LiveUsbPickerInput | null;
   testID?: string;
 };
 
@@ -144,6 +146,7 @@ export default function ChatConnectionPanel({
   tailnetProbeHostCount = 0,
   onAddTailscaleComputer,
   onAddProfile,
+  liveUsb = null,
   testID = 'chat-connection-panel',
 }: ChatConnectionPanelProps) {
   const [manualInput, setManualInput] = useState('');
@@ -232,7 +235,10 @@ export default function ChatConnectionPanel({
         profileMatchesHostname(profile, relayWorkerDisplayName(worker)),
       ),
   );
-  const pickerProfiles = profilesForSwitchComputerPicker(profiles, { activeProfileId });
+  const pickerProfiles = profilesForSwitchComputerPicker(profiles, {
+    activeProfileId,
+    liveUsb,
+  });
   const primaryActionLabel = freshUserPrimaryActionLabel(showUsbFix);
 
   return (

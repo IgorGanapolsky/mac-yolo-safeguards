@@ -94,6 +94,9 @@ install_local_files() {
   install -m 0644 "$ROOT/tools/hermes-hosting-market-signal.js" "$dest/tools/hermes-hosting-market-signal.js"
   install -m 0644 "$ROOT/tools/smart-ops-controller.js" "$dest/tools/smart-ops-controller.js"
   install -m 0644 "$ROOT/tools/revenue-autonomous-loop.js" "$dest/tools/revenue-autonomous-loop.js"
+  if [[ -f "$ROOT/tools/pipeline-update.js" ]]; then
+    install -m 0644 "$ROOT/tools/pipeline-update.js" "$dest/tools/pipeline-update.js"
+  fi
   if [[ -f "$ROOT/docs/ENTERPRISE-AGENT-SDLC-RELIABILITY.md" ]]; then
     install -m 0644 "$ROOT/docs/ENTERPRISE-AGENT-SDLC-RELIABILITY.md" "$dest/docs/ENTERPRISE-AGENT-SDLC-RELIABILITY.md"
   fi

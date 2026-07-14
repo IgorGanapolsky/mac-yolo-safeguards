@@ -283,6 +283,13 @@ jest.mock('../services/hermesChatClient', () => ({
   getSession: jest.fn().mockResolvedValue(null),
 }));
 
+jest.mock('../services/gatewayDiscovery', () => ({
+  probeLiveUsbGateway: jest.fn().mockResolvedValue(null),
+  pairServerHostFromGatewayUrl: jest.requireActual('../services/gatewayDiscovery')
+    .pairServerHostFromGatewayUrl,
+  resolvePairServerSetupParams: jest.fn().mockResolvedValue(null),
+}));
+
 
 async function confirmAlertButton(label: string) {
   await act(async () => {
