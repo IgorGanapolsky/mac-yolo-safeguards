@@ -8,6 +8,7 @@ runner_name="${RUNNER_NAME:-mac-mini-hermes}"
 runner_dir="${RUNNER_DIR:-${HOME}/actions-runner}"
 runner_version="${RUNNER_VERSION:-2.327.1}"
 mini_tsip="${HERMES_MINI_TSIP:-100.94.135.78}"
+mini_ssh_user="${HERMES_MINI_SSH_USER:-igorganapolsky}"
 labels="self-hosted,macOS,macos-arm64,mac-mini,hermes-e2e"
 remote=0
 
@@ -18,7 +19,7 @@ Usage: bash scripts/register-github-mac-mini-runner.sh [--remote]
   --remote   SSH to Mac mini at HERMES_MINI_TSIP and install there
 
 Env: GITHUB_REPO, RUNNER_NAME, RUNNER_DIR, GITHUB_RUNNER_REGISTRATION_TOKEN,
-     HERMES_MINI_TSIP, RUNNER_VERSION
+     HERMES_MINI_TSIP, HERMES_MINI_SSH_USER, RUNNER_VERSION
 EOF
 }
 
@@ -126,8 +127,8 @@ if [[ -z "$token" ]]; then
 fi
 
 if [[ "$remote" -eq 1 ]]; then
-  echo "Installing runner on Mac mini (${mini_tsip}) ..."
-  ssh -o BatchMode=yes -o ConnectTimeout=15 "igor@${mini_tsip}" \
+  echo "Installing runner on Mac mini (${mini_ssh_user}@${mini_tsip}) ..."
+  ssh -o BatchMode=yes -o ConnectTimeout=15 "${mini_ssh_user}@${mini_tsip}" \
     "GITHUB_RUNNER_REGISTRATION_TOKEN='${token}' GITHUB_REPO='${repo}' RUNNER_NAME='${runner_name}' RUNNER_DIR='${runner_dir}' RUNNER_VERSION='${runner_version}' bash -c '
 set -euo pipefail
 repo=\"\${GITHUB_REPO}\"

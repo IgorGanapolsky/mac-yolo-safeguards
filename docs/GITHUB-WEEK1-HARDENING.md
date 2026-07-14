@@ -10,7 +10,8 @@ Follow-up to the July 2026 GitLab migration research. Decision: **stay on GitHub
 | `merge_group` on `mobile-e2e.yml` | **Shipped** | PR branch |
 | `merge_group` on `mobile-continuous.yml` | **Shipped** | PR branch |
 | Merge queue on `main` | **Blocked** | See below |
-| Mac mini self-hosted runner | **Script ready** | `scripts/register-github-mac-mini-runner.sh` |
+| Mac mini self-hosted runner | **Online** | `mac-mini-hermes` @ `100.94.135.78`; labels `macos-arm64`, `hermes-e2e`; `gh api …/actions/runners` → `status: online` (2026-07-14T03:58Z) |
+| `macOS guard kit` on Mac mini | **Shipped** | `ci.yml` → `[self-hosted, macos-arm64, hermes-e2e]` when `mac-mini-hermes` online; else `macos-latest` |
 
 ## Merge queue — blocked on personal Free plan
 
@@ -57,11 +58,22 @@ See [GITHUB-MAC-MINI-RUNNER.md](./GITHUB-MAC-MINI-RUNNER.md).
 
 Target host: Mac mini on Tailscale (`100.94.135.78`, 24 GB). Intended labels: `self-hosted`, `macOS`, `macos-arm64`, `mac-mini`, `hermes-e2e`.
 
-Register:
+**Registered 2026-07-14:** runner `mac-mini-hermes` is **online** on `IgorGanapolsky/mac-yolo-safeguards`. LaunchAgent `com.igor.github-actions-runner` (KeepAlive) under `igorganapolsky@100.94.135.78`. Replaced stale `resume-ci-mac` config that pointed at `IgorGanapolsky/Resume`.
+
+**CI routing:** `macos-guard-runner-pick` probes runner status each workflow run. When `mac-mini-hermes` is online, `macOS guard kit` uses `runs-on: [self-hosted, macos-arm64, hermes-e2e]` to reduce GitHub-hosted macOS queue starvation; otherwise it falls back to `macos-latest`. Fork PRs always use GitHub-hosted runners.
+
+Register (or re-register):
 
 ```bash
-# On Mac mini (or via SSH — script supports HERMES_MINI_TSIP)
-bash scripts/register-github-mac-mini-runner.sh
+# On Mac mini (or via SSH — default HERMES_MINI_SSH_USER=igorganapolsky, not igor@)
+bash scripts/register-github-mac-mini-runner.sh --remote
+```
+
+Verify:
+
+```bash
+gh api repos/IgorGanapolsky/mac-yolo-safeguards/actions/runners \
+  --jq '.runners[] | {name, status, labels: [.labels[].name]}'
 ```
 
 ## Week 2+ (optional, not in scope)

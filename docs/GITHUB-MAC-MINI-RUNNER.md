@@ -25,7 +25,7 @@ From repo root on the **Mac mini** (or from MacBook Pro with SSH):
 # Local on mini
 bash scripts/register-github-mac-mini-runner.sh
 
-# Remote from MacBook Pro
+# Remote from MacBook Pro (SSH user defaults to igorganapolsky@, not igor@)
 HERMES_MINI_TSIP=100.94.135.78 bash scripts/register-github-mac-mini-runner.sh --remote
 ```
 
@@ -44,6 +44,7 @@ The script:
 | `RUNNER_NAME` | `mac-mini-hermes` | Runner name in GitHub UI |
 | `RUNNER_DIR` | `$HOME/actions-runner` | Install directory |
 | `HERMES_MINI_TSIP` | `100.94.135.78` | SSH target when using `--remote` |
+| `HERMES_MINI_SSH_USER` | `igorganapolsky` | SSH user on the mini (`--remote`); not `igor` |
 | `GITHUB_RUNNER_REGISTRATION_TOKEN` | *(fetched)* | Skip `gh` fetch if pre-set (expires in ~1 h) |
 
 **Never commit or paste registration tokens.** They are single-use and short-lived.
@@ -89,10 +90,10 @@ After registration, pin jobs that should use the mini:
 ```yaml
 jobs:
   macos-guard:
-    runs-on: [self-hosted, mac-mini, hermes-e2e]
+    runs-on: [self-hosted, macos-arm64, hermes-e2e]
 ```
 
-Start with **non-required** jobs or a duplicate optional job before moving `macOS guard kit` off `macos-latest`.
+**Shipped in `ci.yml`:** a lightweight `macos-guard-runner-pick` job probes `mac-mini-hermes` status and routes `macOS guard kit` to the mini when online; falls back to `macos-latest` if offline. Fork PRs stay on GitHub-hosted runners.
 
 ## Verify
 
