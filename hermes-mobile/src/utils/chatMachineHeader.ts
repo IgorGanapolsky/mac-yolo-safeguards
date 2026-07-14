@@ -179,7 +179,8 @@ export function resolveChatMachineHeaderDisplay(input: {
   if (isTailscaleGatewayUrl(input.gatewayUrl)) {
     ipLine = 'Tailscale';
   }
-  if (loopbackUsb && hasNamedMachine) {
+  // Never show bare 127.0.0.1:8642 in the header — USB is the human route label.
+  if (loopbackUsb) {
     ipLine = 'USB';
   }
   const detailParts: string[] = [];
@@ -219,7 +220,7 @@ export function resolveChatMachineHeaderDisplay(input: {
     machineEndpoint: detailParts.length > 0 ? detailParts.join(' · ') : undefined,
     showDetailWhenConnected:
       savedMacCount > 1 ||
-      (loopbackUsb && hasNamedMachine) ||
+      loopbackUsb ||
       detailParts.some((part) => part.startsWith('relay ·')) ||
       (isTailscaleGatewayUrl(input.gatewayUrl) &&
         hasNamedMachine &&
