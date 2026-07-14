@@ -82,6 +82,21 @@ Phone gateway setup: always `node tools/hermes-mobile-pair.js` when `adb devices
 - Lessons must record: date, concrete artifacts (PIDs, file paths, command lines, before/after metrics), root cause, fix, and any heuristic update.
 - Vague captures ("worked great!") are worse than no capture — they pollute retrieval.
 
+## Parallel research routing (added 2026-07-13)
+
+**Default:** `parallel-cli search` (web-search) for lookups, pricing, API docs, and current events. Fast and cost-effective.
+
+**Deep research** (`parallel-cli research run`) — **only** when the user explicitly asks for exhaustive/comprehensive/deep research, or a decision-grade report (e.g. platform migration, vendor comparison).
+
+**Protocol (every deep-research task):**
+
+1. **Recall first** — `mcp__thumbgate__recall` or `parallel-cli` lessons before launching a new run (avoid duplicate spend).
+2. **Record run_id** — append to `plan.md` Decisions log or task comment immediately after launch.
+3. **Poll and ingest same session** — `parallel-cli research poll <run_id>` → write `docs/RESEARCH-<topic>-YYYY-MM.md` with run_id, verdict, and action checklist. Raw output stays in `parallel-research/`.
+4. **Capture** — `mcp__thumbgate__capture_memory_feedback` if a run completes without ingest (orphan-run lesson).
+
+Orphan deep-research runs block downstream decisions and waste API spend. Never fire-and-forget.
+
 ## Decision stack (DS / ML / Agentic RAG)
 
 **User directive:** Always use Data Science, ML, and Agentic RAG to drive decisions — not intuition, not "should work", not ship theater.
