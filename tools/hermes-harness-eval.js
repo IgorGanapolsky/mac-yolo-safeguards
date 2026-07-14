@@ -9,26 +9,29 @@ const path = require('path');
 const RECEIPT_ROOT = path.join(os.homedir(), '.hermes', 'receipts');
 const DEFAULT_ROUTE_HISTORY = path.join(RECEIPT_ROOT, 'hermes-yolo', 'history.jsonl');
 const DEFAULT_VERIFIER_HISTORY = path.join(RECEIPT_ROOT, 'grok45', 'history.jsonl');
+const DEFAULT_OUTCOME_HISTORY = path.join(RECEIPT_ROOT, 'outcomes', 'history.jsonl');
 const DEFAULT_OUT = path.join(RECEIPT_ROOT, 'hermes-yolo', 'eval-latest.json');
 const DEFAULT_WIKI_OUT = path.join(RECEIPT_ROOT, 'hermes-yolo', 'HERMES-HARNESS-WIKI.md');
 
 function usage() {
   return `Usage:
   hermes-harness-eval [--route-history PATH] [--verifier-history PATH]
+    [--outcome-history PATH]
     [--since-hours N] [--baseline-profile ID --candidate-profile ID]
     [--holdout-case ID ...] [--min-repeats N]
     [--write] [--out PATH] [--wiki-out PATH] [--json]
 
-Mines prompt-free Hermes route and verifier traces into deterministic reliability,
-latency, fallback, failure, and profile-comparison metrics. Profile promotion
-requires paired stable case IDs, repeated runs, and held-out validation. No model
-or provider call is made.`;
+Mines prompt-free Hermes route, verifier, and outcome receipts into deterministic
+reliability, latency, fallback, lifecycle, cost, value, failure, and
+profile-comparison metrics. Profile promotion requires paired stable case IDs,
+repeated runs, and held-out validation. No model or provider call is made.`;
 }
 
 function parseArgs(argv = process.argv.slice(2)) {
   const args = {
     routeHistory: DEFAULT_ROUTE_HISTORY,
     verifierHistory: DEFAULT_VERIFIER_HISTORY,
+    outcomeHistory: DEFAULT_OUTCOME_HISTORY,
     sinceHours: 24 * 30,
     baselineProfile: null,
     candidateProfile: null,
@@ -44,6 +47,7 @@ function parseArgs(argv = process.argv.slice(2)) {
     const arg = argv[index];
     if (arg === '--route-history') args.routeHistory = path.resolve(requireValue(argv, ++index, arg));
     else if (arg === '--verifier-history') args.verifierHistory = path.resolve(requireValue(argv, ++index, arg));
+    else if (arg === '--outcome-history') args.outcomeHistory = path.resolve(requireValue(argv, ++index, arg));
     else if (arg === '--since-hours') args.sinceHours = parsePositiveNumber(requireValue(argv, ++index, arg), arg);
     else if (arg === '--baseline-profile') args.baselineProfile = parseLabel(requireValue(argv, ++index, arg), arg);
     else if (arg === '--candidate-profile') args.candidateProfile = parseLabel(requireValue(argv, ++index, arg), arg);
@@ -153,6 +157,46 @@ function normalizeVerifier(record) {
     silentFallback: false,
     qwenSelected: false,
     qwenExplicit: false,
+  };
+}
+
+function normalizeOutcome(record) {
+  if (record.schema !== 'hermes-outcome-gate/receipt-v1') return null;
+  const execution = record.stages?.execution || {};
+  const verification = record.stages?.independentVerification || {};
+  const delivery = record.stages?.delivery || {};
+  const executionPassed = execution.status === 'pass' && Array.isArray(execution.evidenceIds) && execution.evidenceIds.length > 0;
+  const verificationPassed = verification.status === 'pass' && Array.isArray(verification.evidenceIds) && verification.evidenceIds.length > 0;
+  const deliveryRequired = Boolean(delivery.required);
+  const deliveryPassed = !deliveryRequired
+    || (delivery.status === 'pass' && Array.isArray(delivery.evidenceIds) && delivery.evidenceIds.length > 0);
+  const actualCostUsd = Number(record.metrics?.actualCostUsd || 0);
+  const maxCostUsd = Number(record.metrics?.maxCostUsd || 0);
+  const costWithinCap = Number.isFinite(actualCostUsd) && Number.isFinite(maxCostUsd) && actualCostUsd <= maxCostUsd;
+  const validCompletion = executionPassed && verificationPassed && deliveryPassed && costWithinCap;
+  const reportedCompleted = Boolean(record.completion?.completed || record.overallStatus === 'pass');
+  const failureStage = record.completion?.failureStage
+    || (!executionPassed ? 'execution'
+      : !verificationPassed ? 'independent-verification'
+        : !deliveryPassed ? 'delivery'
+          : !costWithinCap ? 'budget' : null);
+  return {
+    taskId: record.taskId || 'unknown',
+    generatedAt: record.generatedAt,
+    status: record.overallStatus || record.completion?.overallStatus || 'unknown',
+    executed: executionPassed,
+    independentlyVerified: verificationPassed,
+    deliveryRequired,
+    delivered: deliveryRequired && deliveryPassed,
+    completed: reportedCompleted && validCompletion,
+    falseCompletion: reportedCompleted && !validCompletion,
+    draftOnly: Boolean(record.completion?.draftOnly)
+      || (execution.status !== 'pass' && verification.status !== 'pass' && delivery.status !== 'pass'),
+    durationMs: Number(record.metrics?.durationMs || 0),
+    actualCostUsd,
+    maxCostUsd,
+    valueSignals: Array.isArray(record.metrics?.valueSignals) ? record.metrics.valueSignals.map(String) : [],
+    failureStage,
   };
 }
 
@@ -267,10 +311,39 @@ function percentile(values, quantile) {
   return sorted[index];
 }
 
+function buildOutcomeMetrics(records) {
+  const durations = records.map((record) => record.durationMs).filter((value) => Number.isFinite(value) && value >= 0);
+  const valueSignals = records.flatMap((record) => record.valueSignals.map((valueSignal) => ({ valueSignal })));
+  const incomplete = records.filter((record) => !record.completed);
+  return {
+    planned: records.length,
+    executed: records.filter((record) => record.executed).length,
+    independentlyVerified: records.filter((record) => record.independentlyVerified).length,
+    deliveryRequired: records.filter((record) => record.deliveryRequired).length,
+    delivered: records.filter((record) => record.delivered).length,
+    completed: records.filter((record) => record.completed).length,
+    incomplete: incomplete.length,
+    draftOnly: records.filter((record) => record.draftOnly).length,
+    falseCompletionCount: records.filter((record) => record.falseCompletion).length,
+    actualCostUsd: Number(records.reduce((sum, record) => sum + (Number.isFinite(record.actualCostUsd) ? record.actualCostUsd : 0), 0).toFixed(6)),
+    durationMs: {
+      p50: percentile(durations, 0.5),
+      p95: percentile(durations, 0.95),
+      max: durations.length ? Math.max(...durations) : null,
+    },
+    valueSignalCounts: countBy(valueSignals, 'valueSignal'),
+    failureStageClusters: countBy(incomplete.filter((record) => record.failureStage), 'failureStage'),
+  };
+}
+
 function buildReport(options = {}) {
   const nowMs = options.nowMs ?? Date.now();
-  const routeInput = options.routeInput || readJsonl(options.routeHistory || DEFAULT_ROUTE_HISTORY);
-  const verifierInput = options.verifierInput || readJsonl(options.verifierHistory || DEFAULT_VERIFIER_HISTORY);
+  const hasInjectedInput = ['routeInput', 'verifierInput', 'outcomeInput']
+    .some((name) => Object.prototype.hasOwnProperty.call(options, name));
+  const emptyInput = () => ({ records: [], invalidLines: 0 });
+  const routeInput = options.routeInput || (hasInjectedInput ? emptyInput() : readJsonl(options.routeHistory || DEFAULT_ROUTE_HISTORY));
+  const verifierInput = options.verifierInput || (hasInjectedInput ? emptyInput() : readJsonl(options.verifierHistory || DEFAULT_VERIFIER_HISTORY));
+  const outcomeInput = options.outcomeInput || (hasInjectedInput ? emptyInput() : readJsonl(options.outcomeHistory || DEFAULT_OUTCOME_HISTORY));
   const cutoffMs = nowMs - Number(options.sinceHours || 24 * 30) * 60 * 60 * 1000;
   const records = [
     ...routeInput.records.map(normalizeRoute),
@@ -279,6 +352,11 @@ function buildReport(options = {}) {
     const timestamp = Date.parse(record.generatedAt || '');
     return Number.isFinite(timestamp) && timestamp >= cutoffMs && timestamp <= nowMs + 60 * 1000;
   });
+  const outcomeRecords = outcomeInput.records.map(normalizeOutcome).filter(Boolean).filter((record) => {
+    const timestamp = Date.parse(record.generatedAt || '');
+    return Number.isFinite(timestamp) && timestamp >= cutoffMs && timestamp <= nowMs + 60 * 1000;
+  });
+  const outcomeMetrics = buildOutcomeMetrics(outcomeRecords);
   const passCount = records.filter((record) => record.status === 'pass').length;
   const failCount = records.filter((record) => ['fail', 'blocked', 'timeout'].includes(record.status)).length;
   const silentFallbackCount = records.filter((record) => record.silentFallback).length;
@@ -288,17 +366,25 @@ function buildReport(options = {}) {
   const failureClusters = countBy(records.filter((record) => record.blocker), 'blocker');
   const profileComparison = compareProfiles(records, options);
   const enoughSamples = records.length >= 3;
+  const invalidLines = routeInput.invalidLines + verifierInput.invalidLines + outcomeInput.invalidLines;
   const gates = {
-    receiptsPresent: records.length > 0,
+    receiptsPresent: records.length > 0 || outcomeRecords.length > 0,
     enoughSamples,
     noSilentFallback: silentFallbackCount === 0,
     qwenOnlyWhenExplicit: unexplainedQwenCount === 0,
     noFailedRuns: failCount === 0,
-    parseClean: (routeInput.invalidLines + verifierInput.invalidLines) === 0,
+    parseClean: invalidLines === 0,
+    outcomeReceiptsPresent: outcomeRecords.length > 0,
+    noFalseOutcomeCompletion: outcomeMetrics.falseCompletionCount === 0,
+    outcomeFunnelClear: outcomeRecords.length === 0 || outcomeMetrics.incomplete === 0,
     profilePromotionReady: ['not-requested', 'adopt'].includes(profileComparison.status),
   };
-  const criticalPass = gates.receiptsPresent && gates.noSilentFallback && gates.qwenOnlyWhenExplicit && gates.parseClean;
-  let overallStatus = !gates.receiptsPresent ? 'insufficient-data' : criticalPass && gates.noFailedRuns ? 'pass' : criticalPass ? 'warn' : 'fail';
+  const criticalPass = gates.receiptsPresent && gates.noSilentFallback && gates.qwenOnlyWhenExplicit
+    && gates.parseClean && gates.noFalseOutcomeCompletion;
+  let overallStatus = !gates.receiptsPresent
+    ? 'insufficient-data'
+    : criticalPass && gates.noFailedRuns && gates.outcomeFunnelClear ? 'pass'
+      : criticalPass ? 'warn' : 'fail';
   if (profileComparison.status === 'reject') overallStatus = 'fail';
   else if (profileComparison.status === 'insufficient-data') overallStatus = 'insufficient-data';
   const score = !gates.receiptsPresent ? 0 : Math.max(0, Math.round(
@@ -306,7 +392,9 @@ function buildReport(options = {}) {
     - silentFallbackCount * 50
     - unexplainedQwenCount * 40
     - failCount * 10
-    - (routeInput.invalidLines + verifierInput.invalidLines) * 10
+    - invalidLines * 10
+    - outcomeMetrics.falseCompletionCount * 50
+    - outcomeMetrics.incomplete * 5
     - (enoughSamples ? 0 : 5)
   ));
   return {
@@ -316,6 +404,7 @@ function buildReport(options = {}) {
     inputDigests: {
       routeHistory: digest(JSON.stringify(routeInput.records)),
       verifierHistory: digest(JSON.stringify(verifierInput.records)),
+      outcomeHistory: digest(JSON.stringify(outcomeInput.records)),
     },
     metrics: {
       totalRuns: records.length,
@@ -337,7 +426,8 @@ function buildReport(options = {}) {
         p95: percentile(durations, 0.95),
         max: durations.length ? Math.max(...durations) : null,
       },
-      invalidLines: routeInput.invalidLines + verifierInput.invalidLines,
+      outcomes: outcomeMetrics,
+      invalidLines,
     },
     gates,
     profileComparison,
@@ -349,7 +439,9 @@ function buildReport(options = {}) {
         ? 'Reject the candidate profile; inspect per-case deltas and fix every regression before rerunning the full suite.'
         : profileComparison.status === 'adopt'
           ? 'Candidate profile cleared repeated paired and held-out gates; preserve this receipt as the promotion proof.'
-          : !gates.receiptsPresent
+          : outcomeMetrics.incomplete > 0
+            ? 'Resume the earliest incomplete outcome stage; do not count plans or drafts as completed work.'
+            : !gates.receiptsPresent
       ? 'Run hermes-yolo and hermes-grok45 with receipts enabled before tuning the harness.'
       : silentFallbackCount > 0 || unexplainedQwenCount > 0
         ? 'Block release and inspect route receipts for backend drift.'
@@ -365,6 +457,8 @@ function renderWiki(report) {
   const backendLines = Object.entries(report.metrics.backendCounts).map(([name, count]) => `- ${name}: ${count}`);
   const failureLines = Object.entries(report.metrics.failureClusters).map(([name, count]) => `- ${name}: ${count}`);
   const comparison = report.profileComparison;
+  const outcomeFailureLines = Object.entries(report.metrics.outcomes.failureStageClusters).map(([name, count]) => `- ${name}: ${count}`);
+  const valueSignalLines = Object.entries(report.metrics.outcomes.valueSignalCounts).map(([name, count]) => `- ${name}: ${count}`);
   const comparisonLines = comparison.status === 'not-requested'
     ? ['- Not requested.']
     : [
@@ -405,6 +499,24 @@ ${backendLines.length ? backendLines.join('\n') : '- No trace data yet.'}
 
 ${failureLines.length ? failureLines.join('\n') : '- None.'}
 
+## Outcome funnel
+
+- Planned receipts: ${report.metrics.outcomes.planned}
+- Executed with evidence: ${report.metrics.outcomes.executed}
+- Independently verified with evidence: ${report.metrics.outcomes.independentlyVerified}
+- Delivery required/delivered: ${report.metrics.outcomes.deliveryRequired}/${report.metrics.outcomes.delivered}
+- Completed/incomplete: ${report.metrics.outcomes.completed}/${report.metrics.outcomes.incomplete}
+- Draft-only: ${report.metrics.outcomes.draftOnly}
+- False completion claims: ${report.metrics.outcomes.falseCompletionCount}
+- Actual cost: $${report.metrics.outcomes.actualCostUsd}
+- Duration p50/p95: ${report.metrics.outcomes.durationMs.p50 ?? 'n/a'}/${report.metrics.outcomes.durationMs.p95 ?? 'n/a'} ms
+
+Outcome failure stages:
+${outcomeFailureLines.length ? outcomeFailureLines.join('\n') : '- None.'}
+
+Value signals:
+${valueSignalLines.length ? valueSignalLines.join('\n') : '- None.'}
+
 ## Harness profile comparison
 
 ${comparisonLines.join('\n')}
@@ -435,6 +547,7 @@ function render(report) {
     `Pass rate: ${report.metrics.passRate ?? 'n/a'}`,
     `Silent fallbacks: ${report.metrics.silentFallbackCount}`,
     `Unexplained Qwen runs: ${report.metrics.unexplainedQwenCount}`,
+    `Outcomes completed/incomplete: ${report.metrics.outcomes.completed}/${report.metrics.outcomes.incomplete}`,
     `Profile comparison: ${report.profileComparison.status}`,
     `Next: ${report.nextAction}`,
     '',
@@ -460,13 +573,16 @@ function main(argv = process.argv.slice(2)) {
 
 module.exports = {
   DEFAULT_OUT,
+  DEFAULT_OUTCOME_HISTORY,
   DEFAULT_ROUTE_HISTORY,
   DEFAULT_VERIFIER_HISTORY,
   DEFAULT_WIKI_OUT,
   buildReport,
+  buildOutcomeMetrics,
   compareProfiles,
   countBy,
   normalizeRoute,
+  normalizeOutcome,
   normalizeVerifier,
   parseArgs,
   percentile,

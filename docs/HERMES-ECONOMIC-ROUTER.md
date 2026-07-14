@@ -18,6 +18,11 @@ It does **not** move money, call wallets, publish posts, or invoke paid models.
 It chooses a route and emits the gates required before a runtime wrapper should
 act.
 
+Every route receipt now includes a `hermes-outcome-contract/v1` contract. A
+plan or draft is not completion: execution and independent verification need
+opaque evidence IDs, authorized external delivery needs its own evidence, and
+actual duration/cost/value must be recorded through `hermes-outcome-gate`.
+
 Fresh-web work can select the candidate-only Parallel Turbo retrieval workflow.
 The router budgets it at $0.001 and 200ms advertised p50, but execution remains
 outside the router and requires Google SSO via Parallel CLI (preferred) or an
@@ -93,6 +98,8 @@ Receipts include:
 - pipeline stages
 - approval requirements
 - proof gates
+- `outcomeContract` with required lifecycle stages, delivery requirements,
+  evidence classes, actual accounting fields, and the final gate command
 
 ## Micro-Agent Recipes
 
@@ -132,6 +139,10 @@ node tools/hermes-economic-router.js \
 The plan remains `blocked` when an approval-gated route is selected, but it
 still includes the post-approval steps, OpenRouter payload, and Models API query
 so the operator can inspect cost and routing before any provider call exists.
+All execution plans end with independent outcome verification and a final
+`hermes-outcome-gate` receipt. Delivery evidence is added only for tasks that
+actually request an external side effect; "do not send/publish/deploy" remains
+non-delivery work.
 
 ## Policy
 
@@ -160,6 +171,8 @@ so the operator can inspect cost and routing before any provider call exists.
   show catalog confirmation, capped smoke, cost, and quality evidence.
 - Wallet, stablecoin, Stripe, send, post, publish, and external-action tasks
   only emit an approval gate. The router never executes them.
+- Outcome receipts never contain task text, prompts, URLs, or raw tool output;
+  they store safe opaque IDs and numeric duration/cost/value metrics only.
 - Ornith and other new coding models are candidates until benchmark receipts
   prove they beat the current local route.
 - Mobile release claims stay separate from CLI/model routing; they route to
