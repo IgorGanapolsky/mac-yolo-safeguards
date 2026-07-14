@@ -8,6 +8,7 @@ const { spawnSync } = require('child_process');
 const PINNED_VERSION = '0.19.10';
 const ALIBABA_HOSTS = new Set([
   'dashscope.aliyuncs.com',
+  'dashscope-us.aliyuncs.com',
   'coding.dashscope.aliyuncs.com',
   'coding-intl.dashscope.aliyuncs.com',
 ]);

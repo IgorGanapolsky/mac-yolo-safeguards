@@ -21,7 +21,9 @@ commit it or place its value in `settings.json`.
 
 Supported official routes:
 
-- Standard API: `https://dashscope.aliyuncs.com/compatible-mode/v1` with
+- US (Virginia) Standard API: `https://dashscope-us.aliyuncs.com/compatible-mode/v1` with
+  `DASHSCOPE_API_KEY`
+- China Standard API: `https://dashscope.aliyuncs.com/compatible-mode/v1` with
   `DASHSCOPE_API_KEY`
 - International Coding Plan: `https://coding-intl.dashscope.aliyuncs.com/v1`
   with `BAILIAN_CODING_PLAN_API_KEY`

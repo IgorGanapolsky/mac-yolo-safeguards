@@ -23,16 +23,16 @@ exit "${'${QWEN_EXIT:-0}'}"
 fs.chmodSync(qwen, 0o755);
 
 const settings = {
-  modelProviders: { openai: { protocol: 'openai', models: [{ id: 'qwen3-coder-plus', baseUrl: 'https://coding-intl.dashscope.aliyuncs.com/v1', envKey: 'BAILIAN_CODING_PLAN_API_KEY' }] } },
+  modelProviders: { openai: { protocol: 'openai', models: [{ id: 'qwen3.7-plus', baseUrl: 'https://dashscope-us.aliyuncs.com/compatible-mode/v1', envKey: 'DASHSCOPE_API_KEY' }] } },
   security: { auth: { selectedType: 'openai' } },
-  model: { name: 'qwen3-coder-plus' },
+  model: { name: 'qwen3.7-plus' },
 };
 fs.writeFileSync(path.join(home, '.qwen/settings.json'), JSON.stringify(settings));
 
 function run(args, extra = {}) {
   return spawnSync(process.execPath, [wrapper, ...args], {
     encoding: 'utf8',
-    env: { ...process.env, HOME: home, PATH: bin, CAPTURE: capture, BAILIAN_CODING_PLAN_API_KEY: 'test-only', ...extra },
+    env: { ...process.env, HOME: home, PATH: bin, CAPTURE: capture, DASHSCOPE_API_KEY: 'test-only', ...extra },
   });
 }
 
@@ -59,7 +59,7 @@ assert.equal(result.status, 2);
 result = run(['-p', 'marker'], { QWEN_EXIT: '23' });
 assert.equal(result.status, 23);
 
-result = run(['--doctor', '--json'], { BAILIAN_CODING_PLAN_API_KEY: '' });
+result = run(['--doctor', '--json'], { DASHSCOPE_API_KEY: '' });
 assert.equal(result.status, 1);
 doctor = JSON.parse(result.stdout);
 assert.equal(doctor.credentialPresent, false);
