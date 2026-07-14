@@ -7,6 +7,9 @@
  * - hermes://setup deep link + optional adb intent
  *
  * Usage: node tools/hermes-mobile-pair.js [--no-adb] [--no-serve] [--open]
+ *   [--mini-tailscale] fetches the mini's key/health for programmatic use; if a phone is
+ *     verifiably USB-cabled to THIS Mac when that flag is used, pair.json/adb push are
+ *     skipped so the live USB session is never hijacked (override: --force-mini-usb-primary).
  */
 
 const fs = require('fs');
@@ -669,6 +672,29 @@ function runPairMain(args) {
   if (args.has('--mini-tailscale') || explicitGatewayUrl) {
     console.log('  Pairing target gateway (explicit):', gatewayUrl);
   }
+
+  // P0 2026-07-14: `--mini-tailscale` is documented (AGENTS.md "Multi-Mac API keys") as the
+  // way to SSH-fetch the mini's key/health for programmatic use — it is NOT a request to
+  // repoint a phone that is physically cabled to THIS Mac right now. Without this guard the
+  // flag unconditionally set gatewayUrl to the mini (line ~505) and, unless the caller
+  // remembered `--no-serve`, overwrote pair.json's primary + pushed an adb deep link at the
+  // mini — while /health over the live loopback reverse tunnel still correctly answered as
+  // THIS Mac. Detect the live cable fact (not just trust the flag) and force a read-only
+  // key-fetch mode whenever that happens.
+  const usbHijackGuardTripped =
+    args.has('--mini-tailscale') &&
+    !explicitGatewayUrl &&
+    !args.has('--force-mini-usb-primary') &&
+    usbPairing &&
+    reversed8642 &&
+    verifyGatewayAuthSync('http://127.0.0.1:8642', readLocalApiKey()).ok;
+  if (usbHijackGuardTripped) {
+    console.warn(
+      '  USB guard: phone is USB-cabled to THIS Mac (loopback 127.0.0.1:8642 verified) — ' +
+        'refusing to make mini the USB primary. Only fetching mini key/health; ' +
+        'pair.json and the phone stay on this Mac. Pass --force-mini-usb-primary to override.',
+    );
+  }
   const pageUrl = `http://${lanIp}:${PAIR_PORT}/pair`;
   // Secretless pairing (T-330 priority 3): only when a pair server will actually run to
   // serve the exchange. `--no-serve` unattended/session-start flows keep the legacy
@@ -689,11 +715,14 @@ function runPairMain(args) {
         hostname,
       )
     : buildDeepLink(gatewayUrl, apiKey, hostname, relayCode, tailnetProbeHosts, extraComputers, thumbgateApiKey);
-  const skipPairAssetWrite = args.has('--no-serve') && args.has('--mini-tailscale');
+  const skipPairAssetWrite =
+    usbHijackGuardTripped || (args.has('--no-serve') && args.has('--mini-tailscale'));
   let htmlPath = path.join(OUT_DIR, 'index.html');
   if (skipPairAssetWrite) {
     console.log(
-      '  pair.json: preserved (--no-serve + --mini-tailscale; will not overwrite USB/MBP pair page primary)',
+      usbHijackGuardTripped
+        ? '  pair.json: preserved (USB guard — mini-tailscale key fetch while cabled to this Mac)'
+        : '  pair.json: preserved (--no-serve + --mini-tailscale; will not overwrite USB/MBP pair page primary)',
     );
   } else {
     ({ htmlPath } = writePairAssets({
@@ -727,7 +756,9 @@ function runPairMain(args) {
   if (serial && !args.has('--no-adb')) {
     if (skipPairAssetWrite) {
       console.log(
-        '  adb: skipped (--mini-tailscale --no-serve; phone keeps primary from full USB/MBP pair)',
+        usbHijackGuardTripped
+          ? '  adb: skipped (USB guard — phone keeps its verified USB primary, not mini)'
+          : '  adb: skipped (--mini-tailscale --no-serve; phone keeps primary from full USB/MBP pair)',
       );
     } else {
       // Serialized handshake (T-330 priority 1): one setup intent, wait for an auth ack

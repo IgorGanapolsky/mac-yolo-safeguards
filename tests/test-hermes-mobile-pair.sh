@@ -442,5 +442,21 @@ else
   bad "secretless pairing code documents why raw keys are never in deep-link args"
 fi
 
+# --- P0 2026-07-14: --mini-tailscale must never hijack a phone USB-cabled to THIS Mac ----
+
+if [[ "$PAIR_JS" == *"usbHijackGuardTripped"* ]] \
+  && [[ "$PAIR_JS" == *"--force-mini-usb-primary"* ]] \
+  && [[ "$PAIR_JS" == *"refusing to make mini the USB primary"* ]]; then
+  ok "pair script guards --mini-tailscale against live USB-cabled Mac hijack"
+else
+  bad "pair script guards --mini-tailscale against live USB-cabled Mac hijack"
+fi
+
+if grep -Fq "usbHijackGuardTripped || (args.has('--no-serve') && args.has('--mini-tailscale'))" "$REPO/tools/hermes-mobile-pair.js"; then
+  ok "pair.json write + adb push both gated on the USB hijack guard, not just --no-serve"
+else
+  bad "pair.json write + adb push both gated on the USB hijack guard, not just --no-serve"
+fi
+
 printf "\nResults: %s passed, %s failed\n" "$pass" "$fail"
 [[ "$fail" -eq 0 ]]
