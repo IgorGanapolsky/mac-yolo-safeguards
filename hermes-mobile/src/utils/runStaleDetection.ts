@@ -47,10 +47,11 @@ export const RUN_STALE_IDLE_HINT =
 export const RUN_STALE_TIMEOUT_DETAIL =
   'Run timed out — stopped waiting on your computer. Tap Stop on your Mac or start a new message.';
 
-export const RUN_NO_TOKEN_FAIL_MS = 90_000;
+/** Agent turns can tool-call for minutes before the first visible token. */
+export const RUN_NO_TOKEN_FAIL_MS = 5 * 60 * 1000;
 
 export const RUN_NO_TOKEN_FAIL_DETAIL =
-  'No reply yet — your computer may be slow or stuck. Tap Stop and try again.';
+  'No reply yet — your computer is still working or slow. Tap Stop only if it looks hung, then resend.';
 
 export type RunStaleLevel = 'normal' | 'long' | 'idle' | 'expired';
 

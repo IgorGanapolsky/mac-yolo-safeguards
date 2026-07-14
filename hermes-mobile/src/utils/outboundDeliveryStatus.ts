@@ -11,8 +11,9 @@ const OUTBOUND_FAILURE_REASON_MAX = 40;
 export const OUTBOUND_NO_REPLY_MAC_LIVE =
   "Your computer didn't answer — tap ↑ to send again";
 
+/** User-facing: avoid the word "stalled" (feels like a product failure on healthy Tailscale links). */
 export const OUTBOUND_RUN_STALLED_HINT =
-  'Run stalled on your Mac — tap Stop, then ↑ to resend';
+  'Still working on your Mac — if stuck, tap Stop then ↑ to resend';
 
 export const OUTBOUND_SESSION_BUSY_HINT =
   'Mac busy with another chat — tap ↑ to try again';

@@ -43,7 +43,8 @@ export function resolveChatLinkDisplay(input: {
     return { label: 'Demo', chatReachable: true };
   }
   if (input.macHttpOk && input.chatStalled) {
-    return { label: 'Connected — chat stalled', chatReachable: true, chatStalled: true };
+    // Mac HTTP is fine — last send needs retry. Do not say "stalled" (2026-07-14).
+    return { label: 'Connected — tap ↑ to resend', chatReachable: true, chatStalled: true };
   }
   if (input.macHttpOk) {
     return { label: 'Connected', chatReachable: true };

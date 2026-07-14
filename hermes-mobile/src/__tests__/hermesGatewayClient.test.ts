@@ -1,12 +1,21 @@
 import { Platform } from 'react-native';
 import {
   CHAT_STREAM_FIRST_BYTE_MS,
+  CHAT_STREAM_IDLE_MS,
   extractCapabilitiesModel,
   extractForkedSessionId,
   forkSession,
   parseSseChunk,
   streamSessionChat,
 } from '../services/hermesGatewayClient';
+
+describe('chat stream idle policy', () => {
+  it('does not abort quiet agent tool runs after only 30s of silence', () => {
+    // Tool/shell turns often emit no SSE for minutes while the Mac is still working.
+    expect(CHAT_STREAM_IDLE_MS).toBeGreaterThanOrEqual(5 * 60 * 1000);
+    expect(CHAT_STREAM_FIRST_BYTE_MS).toBeGreaterThanOrEqual(60_000);
+  });
+});
 
 describe('extractForkedSessionId', () => {
   it('reads session.id from the current gateway fork payload', () => {

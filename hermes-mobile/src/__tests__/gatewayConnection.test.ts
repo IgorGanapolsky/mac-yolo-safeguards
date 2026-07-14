@@ -106,7 +106,7 @@ describe('gatewayConnection', () => {
     ).toBe(false);
   });
 
-  it('shows amber stalled label when health is ok but last chat failed', () => {
+  it('shows resend hint when health is ok but last chat failed (never "stalled")', () => {
     expect(
       resolveChatLinkDisplay({
         connectionState: 'connected',
@@ -114,9 +114,16 @@ describe('gatewayConnection', () => {
         chatStalled: true,
       }),
     ).toEqual({
-      label: 'Connected — chat stalled',
+      label: 'Connected — tap ↑ to resend',
       chatReachable: true,
       chatStalled: true,
     });
+    expect(
+      resolveChatLinkDisplay({
+        connectionState: 'connected',
+        macHttpOk: true,
+        chatStalled: true,
+      }).label.toLowerCase(),
+    ).not.toContain('stalled');
   });
 });

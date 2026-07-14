@@ -25,10 +25,15 @@ export class HermesGatewayApiError extends Error {
 export const CHAT_TURN_TIMEOUT_MS = 300_000;
 
 /** Wait for first SSE byte (cloud models on the Mac can exceed 30s — mini measured ~31.6s). */
-export const CHAT_STREAM_FIRST_BYTE_MS = 60_000;
+export const CHAT_STREAM_FIRST_BYTE_MS = 90_000;
 
-/** No SSE activity — agent or model stalled. */
-export const CHAT_STREAM_IDLE_MS = 30_000;
+/**
+ * Max gap between SSE bytes before the phone aborts the stream.
+ * Agent tool runs (shell, browser, long GLM thinking) often produce **no tokens for minutes**
+ * while still working. A 30s kill marked healthy Mini+Tailscale chats as "stalled" mid-tool —
+ * forbidden UX (2026-07-14). Keep this ≥ RUN_STREAM_IDLE_FAIL_MS (5m).
+ */
+export const CHAT_STREAM_IDLE_MS = 5 * 60 * 1000;
 
 /** Hard cap for one streamed chat turn. */
 export const CHAT_STREAM_MAX_MS = 900_000;
@@ -518,7 +523,7 @@ async function readChatStreamFromReader(
       throw new Error('Chat stream exceeded maximum wait time.');
     }
     if (assistantText && Date.now() - lastActivity > CHAT_STREAM_IDLE_MS) {
-      throw new Error('Chat stream stalled — no updates from your computer.');
+      throw new Error('Chat stream quiet too long — no updates from your computer.');
     }
 
     const readPromise = reader.read();
@@ -528,7 +533,7 @@ async function readChatStreamFromReader(
         reject(
           new Error(
             assistantText
-              ? 'Chat stream stalled — no updates from your computer.'
+              ? 'Chat stream quiet too long — no updates from your computer.'
               : 'Chat stream timed out waiting for your computer. Check that Ollama is running on your computer.',
           ),
         );
@@ -635,7 +640,7 @@ function readChatStreamViaXhr(
         return;
       }
       if (firstByteSeen && now - lastActivity > CHAT_STREAM_IDLE_MS) {
-        fail(new Error('Chat stream stalled — no updates from your computer.'));
+        fail(new Error('Chat stream quiet too long — no updates from your computer.'));
         return;
       }
       if (now - startedAt > CHAT_STREAM_MAX_MS) {

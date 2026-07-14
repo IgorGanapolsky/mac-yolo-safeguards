@@ -106,7 +106,7 @@ describe('ChatScreenHeader', () => {
     expect(getByTestId('chat-context-link').props.children).toContain('Connected');
   });
 
-  it('shows amber stalled copy when chat failed but Mac health is ok', () => {
+  it('shows resend copy when chat failed but Mac health is ok (no "stalled")', () => {
     const { getByTestId } = render(
       <ChatScreenHeader
         threadTitle="Print money make money faster"
@@ -120,7 +120,9 @@ describe('ChatScreenHeader', () => {
       />,
     );
 
-    expect(getByTestId('chat-context-link').props.children).toContain('Connected — chat stalled');
+    const label = String(getByTestId('chat-context-link').props.children);
+    expect(label).toContain('Connected — tap ↑ to resend');
+    expect(label.toLowerCase()).not.toContain('stalled');
     expect(getByTestId('chat-context-link').props.style).toEqual(
       expect.arrayContaining([expect.objectContaining({ color: expect.any(String) })]),
     );
