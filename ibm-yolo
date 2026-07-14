@@ -17,14 +17,35 @@
 set -euo pipefail
 
 HOME_DIR="${HOME}"
-DEFAULT_REPO="${IBM_YOLO_REPO:-$HOME_DIR/workspace/git/igor/mac-yolo-safeguards}"
-# Prefer main-runtime worktree when present (LaunchAgent path)
-if [[ -f "${DEFAULT_REPO}/.worktrees/main-runtime/tools/hermes-hosting-market-signal.js" ]]; then
-  REPO="${IBM_YOLO_REPO:-$DEFAULT_REPO/.worktrees/main-runtime}"
-else
-  REPO="$DEFAULT_REPO"
-fi
-export REVENUE_DIR="${REVENUE_DIR:-$HOME_DIR/workspace/git/igor/mac-yolo-safeguards/business_os/revenue}"
+# Same layout family as grok-yolo / meta-yolo / hermes-yolo:
+#   ~/.hermes/ibm-bob/          runtime home (tools + this CLI)
+#   ~/.local/bin/ibm-yolo       symlink → ~/.hermes/ibm-bob/ibm-yolo
+HERMES_HOME="${IBM_YOLO_HOME:-$HOME_DIR/.hermes/ibm-bob}"
+WORKSPACE_REPO="$HOME_DIR/workspace/git/igor/mac-yolo-safeguards"
+MAIN_RUNTIME="$WORKSPACE_REPO/.worktrees/main-runtime"
+
+resolve_repo() {
+  if [[ -n "${IBM_YOLO_REPO:-}" && -f "${IBM_YOLO_REPO}/tools/hermes-hosting-market-signal.js" ]]; then
+    printf '%s\n' "$IBM_YOLO_REPO"
+    return
+  fi
+  if [[ -f "$HERMES_HOME/tools/hermes-hosting-market-signal.js" ]]; then
+    printf '%s\n' "$HERMES_HOME"
+    return
+  fi
+  if [[ -f "$MAIN_RUNTIME/tools/hermes-hosting-market-signal.js" ]]; then
+    printf '%s\n' "$MAIN_RUNTIME"
+    return
+  fi
+  if [[ -f "$WORKSPACE_REPO/tools/hermes-hosting-market-signal.js" ]]; then
+    printf '%s\n' "$WORKSPACE_REPO"
+    return
+  fi
+  printf '%s\n' "$HERMES_HOME"
+}
+
+REPO="$(resolve_repo)"
+export REVENUE_DIR="${REVENUE_DIR:-$WORKSPACE_REPO/business_os/revenue}"
 export PATH="${HOME_DIR}/.local/bin:/opt/homebrew/bin:/usr/local/bin:${PATH:-}"
 
 JSON=0
@@ -47,8 +68,13 @@ ibm-yolo — Enterprise multi-agent SDLC reliability (IBM Bob-class market signa
   ibm-yolo --help
 
 Env:
-  IBM_YOLO_REPO    repo or main-runtime path (default auto)
+  IBM_YOLO_HOME    runtime home (default ~/.hermes/ibm-bob)
+  IBM_YOLO_REPO    override tools root (default: hermes home, then main-runtime)
   REVENUE_DIR      private business_os/revenue path
+
+Install (same pattern as grok-yolo / meta-yolo):
+  bash scripts/install-ibm-yolo.sh
+  # → ~/.hermes/ibm-bob/* + ~/.local/bin/ibm-yolo symlink
 EOF
 }
 
@@ -87,9 +113,18 @@ fi
 
 doctor() {
   local ok=1
+  local bin_path resolved
+  bin_path="$(command -v ibm-yolo 2>/dev/null || true)"
+  resolved=""
+  if [[ -n "$bin_path" && -L "$bin_path" ]]; then
+    resolved="$(readlink "$bin_path" 2>/dev/null || true)"
+  fi
   echo "=== ibm-yolo doctor ($(hostname -s 2>/dev/null || hostname)) ==="
+  echo "layout=hermes-home (same family as grok-yolo / meta-yolo)"
+  echo "hermes_home=$HERMES_HOME"
   echo "repo=$REPO"
   echo "revenue_dir=$REVENUE_DIR"
+  echo "bin=${bin_path:-missing}${resolved:+ -> $resolved}"
   echo "node=$NODE ($($NODE -v 2>/dev/null || echo '?'))"
   for f in \
     tools/hermes-hosting-market-signal.js \
