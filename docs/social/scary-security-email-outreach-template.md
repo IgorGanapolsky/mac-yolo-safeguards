@@ -25,6 +25,10 @@ Builder of mac-yolo-safeguards (MIT, open source) — the runaway-AI-agent guard
 
 ---
 
+## Proof-stat (optional line for any variant)
+
+> Industry context worth one line in any variant: 81% of teams now have AI agents touching production, but only 14% had security sign-off first — and when an agent wipes a database it looks like a routine API call, with recovery averaging 6+ hours (Eon, via InfoQ, July 2026). Use sparingly and always attributed.
+
 ## Cold email — variant B (general ICP, no known alert)
 
 **Subject:** the security email your cloud provider will send you this month
