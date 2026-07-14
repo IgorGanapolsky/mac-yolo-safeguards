@@ -221,10 +221,10 @@ import {
   isMegaSessionSendBlocked,
   megaSessionBannerCopy,
   megaSessionForceFreshSelectCopy,
-  megaSessionSendBlockedCopy,
   megaSessionSendWarnMessage,
   megaSessionSendWarnTitle,
   sessionTotalTokens,
+  shouldAutoFreshAndResendOnMegaBlock,
   shouldForceFreshOnSessionSelect,
 } from '../utils/sessionTokenGuards';
 import {
@@ -2996,6 +2996,7 @@ export default function ChatScreen() {
 
     // Live: compose first — create the Mac session when the user sends (avoids gateway
     // "session already in use" when the operator slot is still bound to the prior thread).
+    currentSessionRef.current = null;
     setCurrentSession(null);
     if (preserveComposer && shouldRestoreComposerAfterFreshChat(preservedText)) {
       inputValueRef.current = preservedText;
@@ -3068,30 +3069,28 @@ export default function ChatScreen() {
     setRunProgress,
   ]);
 
-  const confirmMegaSessionSend = useCallback(async (): Promise<boolean> => {
+  /**
+   * warn-level only. Hard-block is handled by shouldAutoFreshAndResendOnMegaBlock
+   * (auto fresh + continue send) so the typed draft is never dropped on a hung alert.
+   */
+  const confirmMegaSessionSend = useCallback(async (): Promise<'allow' | 'fresh' | 'cancel'> => {
     const session = currentSessionRef.current;
     const level = classifyMegaSession(session);
     if (level === 'normal') {
-      return true;
+      return 'allow';
+    }
+    if (level === 'block') {
+      return 'fresh';
     }
     const total = sessionTotalTokens(session);
-    if (level === 'block') {
-      await new Promise<void>((resolve) => {
-        Alert.alert('Chat too large', megaSessionSendBlockedCopy(total), [
-          { text: 'Start fresh chat', onPress: () => void handleStartFreshChat() },
-          { text: 'Cancel', style: 'cancel', onPress: () => resolve() },
-        ]);
-      });
-      return false;
-    }
-    return new Promise<boolean>((resolve) => {
+    return new Promise<'allow' | 'fresh' | 'cancel'>((resolve) => {
       Alert.alert(megaSessionSendWarnTitle(), megaSessionSendWarnMessage(total), [
-        { text: 'Start fresh chat', onPress: () => void handleStartFreshChat().then(() => resolve(false)) },
-        { text: 'Send anyway', style: 'destructive', onPress: () => resolve(true) },
-        { text: 'Cancel', style: 'cancel', onPress: () => resolve(false) },
+        { text: 'Start fresh chat', onPress: () => resolve('fresh') },
+        { text: 'Send anyway', style: 'destructive', onPress: () => resolve('allow') },
+        { text: 'Cancel', style: 'cancel', onPress: () => resolve('cancel') },
       ]);
     });
-  }, [handleStartFreshChat]);
+  }, []);
 
   const megaSessionWarning = useMemo(() => {
     const total = sessionTotalTokens(currentSession);
@@ -3938,9 +3937,15 @@ export default function ChatScreen() {
       const session = currentSessionRef.current;
       const megaLevel = classifyMegaSession(session);
       if (megaLevel !== 'normal') {
-        const allowed = await confirmMegaSessionSend();
-        if (!allowed) {
+        const decision = shouldAutoFreshAndResendOnMegaBlock(megaLevel)
+          ? 'fresh'
+          : await confirmMegaSessionSend();
+        if (decision === 'cancel') {
           return false;
+        }
+        if (decision === 'fresh') {
+          // Preserve draft (handleStartFreshChat) then continue this send on empty session.
+          await handleStartFreshChat();
         }
       }
     }
@@ -4149,15 +4154,23 @@ export default function ChatScreen() {
       return base;
     });
 
+    // Prefer ref: start-fresh nulls the ref immediately so we do not re-target mega sessions.
+    const sessionForSend = currentSessionRef.current ?? currentSession;
     // A gateway restart drops in-memory session ids; never carry a known-removed
     // id into a send (even on a "New chat") — clear it so we start fresh.
-    if (currentSession && !isDemo && removedSessionIdsRef.current.has(currentSession.id)) {
+    if (sessionForSend && !isDemo && removedSessionIdsRef.current.has(sessionForSend.id)) {
+      currentSessionRef.current = null;
       setCurrentSession(null);
     }
     let activeSess =
-      currentSession && !isDemo && removedSessionIdsRef.current.has(currentSession.id)
+      sessionForSend && !isDemo && removedSessionIdsRef.current.has(sessionForSend.id)
         ? null
-        : currentSession;
+        : sessionForSend;
+    if (activeSess && isMegaSessionSendBlocked(activeSess)) {
+      activeSess = null;
+      currentSessionRef.current = null;
+      setCurrentSession(null);
+    }
     const createdNewSession = !activeSess;
     if (!activeSess) {
       if (isDemo) {
