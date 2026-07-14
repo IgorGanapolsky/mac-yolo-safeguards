@@ -116,6 +116,7 @@ node tools/hermes-voice-front-door.js --event apply-pipeline --json \
   --signals-json '{"prospect_label":"acme","current_agent":"qualify","agent_stack":"yes","repeated_failure":"yes","business_cost":"yes","budget_owner":"no","segment":"founder","pipeline_stage":"replied"}'
 
 # Write for real (never auto-paid; Stripe/ledger still required for money)
+# Default seeds a cold-call prospect if missing; use --no-create-if-missing to refuse.
 node tools/hermes-voice-front-door.js --event apply-pipeline --apply --json \
   --pipeline /path/to/private/pipeline-status.tsv \
   --date 2026-07-14 \
