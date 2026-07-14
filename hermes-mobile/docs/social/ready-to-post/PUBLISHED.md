@@ -137,3 +137,9 @@ No paid UA. No Reddit/HN spam this cycle.
 | **Proof** | `docs/social/proofs/proof-linkedin-2026-07-14.png`, `docs/social/proofs/linkedin-url.txt` |
 | **Verified live** | Post text contains GhostApproval + HITL hook; comment contains Play package link + GitHub path + $19.99 |
 
+
+### Comment re-verify (2026-07-14 ~00:35 UTC)
+
+- UI earlier showed **1 comment** but Play/GitHub text was **not** in page text under Most relevant (false confidence risk).
+- Re-submitted author CTA comment via Chrome session (no password).
+- Live check after submit: `commentCount=2 comments`, `hasPlayText=true`, `hasGithubText=true`, Play hrefs present, editor empty.
