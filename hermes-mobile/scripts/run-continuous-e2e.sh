@@ -162,7 +162,21 @@ guard_system_pressure() {
     return 0
   fi
 
-  local current_load current_sim_count detail
+  local current_load current_sim_count detail lease_reason
+
+  # Unified global phone device lease (T-330 priority 2): E2E must skip — never queue —
+  # when a human is holding the phone, and must also respect a live pairing/install lane.
+  # phone_lease_busy_reason (agent-phone-lease.js) ignores its own ancestor's mkdir lock
+  # when HERMES_PHONE_PIPELINE_LEASE_HELD=1 (run_once_with_global_phone_lease already
+  # holds it for this whole process tree) while still honoring a human hold mid-cycle.
+  lease_reason="$(phone_lease_busy_reason)"
+  if [[ -n "$lease_reason" ]]; then
+    detail="skipped continuous E2E: phone lease busy (${lease_reason})"
+    echo "$detail"
+    write_status "skipped" "skipped" "$detail"
+    return 1
+  fi
+
   current_load="$(load1)"
   current_sim_count="$(simruntime_process_count)"
 
