@@ -285,6 +285,36 @@ else
   bad "session-start does not inject owner pairing into an emulator-only ADB environment"
 fi
 
+enable_line="$(grep -nF "['enable', domain]" "$SESSION_START" | head -1 | cut -d: -f1 || true)"
+submit_line="$(grep -nF 'const submit = spawnSync(' "$SESSION_START" | head -1 | cut -d: -f1 || true)"
+if grep -Fq 'const domain = `gui/${uid}/${label}`;' "$SESSION_START" \
+  && grep -Fq '`launchctl remove "${label}"`' "$SESSION_START" \
+  && [[ "$enable_line" =~ ^[0-9]+$ ]] \
+  && [[ "$submit_line" =~ ^[0-9]+$ ]] \
+  && (( enable_line < submit_line )); then
+  ok "session-start re-enables and self-removes its true one-shot phone job"
+else
+  bad "session-start re-enables and self-removes its true one-shot phone job"
+fi
+
+cat > "$BIN/launchctl" <<'MOCK'
+#!/usr/bin/env bash
+if [[ "$1" == "print" && "$2" == gui/*/com.igor.hermes-phone-install-once.* ]]; then
+  printf 'state = spawn scheduled\n'
+  exit 0
+fi
+exit 1
+MOCK
+chmod +x "$BIN/launchctl"
+if run_node "
+  const { phoneInstallLaunchJobRunning } = require('$REPO/tools/agent-phone-pipeline-lock.js');
+  if (!phoneInstallLaunchJobRunning()) process.exit(1);
+"; then
+  ok "scheduled phone job blocks a duplicate submit before running"
+else
+  bad "scheduled phone job blocks a duplicate submit before running"
+fi
+
 # Default pairing must prefer tailnet IP (5G-safe), not LAN, when --gateway-url is omitted.
 if [[ "$PAIR_JS" == *"localTailscaleIpv4"* ]] && [[ "$PAIR_JS" == *"5G/cellular-safe"* ]]; then
   ok "pair script prefers tailnet gateway URL for cellular"
