@@ -386,10 +386,11 @@ run_cycle() {
     case $e2e_rc in
       0) e2e_status="pass"; echo "E2E: PASS" ;;
       2)
-        e2e_status="skipped"
         if [[ "${HERMES_E2E_ANDROID_ONLY:-}" == "1" ]] && ! has_usb_adb_device; then
-          detail="android-only continuous E2E skipped: no USB Android device connected"
+          e2e_status="fail"
+          detail="android-only continuous E2E failed: no USB Android device connected"
         else
+          e2e_status="skipped"
           detail="maestro or java unavailable"
         fi
         ;;
