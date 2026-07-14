@@ -1,6 +1,6 @@
 import React from 'react';
 import { Alert, BackHandler, Platform } from 'react-native';
-import { fireEvent, act, waitFor, cleanup } from '@testing-library/react-native';
+import { fireEvent, act, waitFor, cleanup, within } from '@testing-library/react-native';
 import ChatScreen, {
   resolveEffectiveKeyboardInset,
   shouldIgnoreKeyboardHide,
@@ -330,6 +330,12 @@ async function flushPendingTimers() {
   await act(async () => {
     jest.runOnlyPendingTimers();
   });
+}
+
+function countPromptUserBubbles(getAllByTestId: (testId: string) => unknown[], prompt: string): number {
+  return getAllByTestId('chat-message-user').filter((bubble) =>
+    within(bubble as Parameters<typeof within>[0]).queryByText(prompt),
+  ).length;
 }
 
 describe('ChatScreen', () => {
@@ -1059,7 +1065,7 @@ describe('ChatScreen', () => {
     await flushPendingTimers();
   });
 
-  it('keeps send enabled while a demo reply is in flight (queue path)', async () => {
+  it('disables send while a demo reply is in flight', async () => {
     const { getByTestId, getAllByTestId } = await renderChatScreen();
     jest.useFakeTimers();
     const input = getByTestId('chat-input');
@@ -1076,27 +1082,66 @@ describe('ChatScreen', () => {
       fireEvent.changeText(input, 'Second message');
       fireEvent.press(sendButton);
     });
-    expect(getAllByTestId('chat-message-user').length).toBeGreaterThanOrEqual(userCountAfterFirstSend);
+    expect(getAllByTestId('chat-message-user').length).toBe(userCountAfterFirstSend);
+
+    act(() => {
+      jest.advanceTimersByTime(1600);
+    });
     await flushPendingTimers();
   });
 
-  it('accepts the same prompt again after the send-clear suppression window expires', async () => {
+  it('keeps one user bubble when the same prompt re-enters while send is pending', async () => {
+    const { getByTestId, getAllByTestId, queryByTestId } = await renderChatScreen();
+    jest.useFakeTimers();
+    const input = getByTestId('chat-input');
+    const sendButton = getByTestId('chat-send-button');
+    const prompt = 'make money faster';
+
+    await act(async () => {
+      fireEvent.changeText(input, prompt);
+      fireEvent.press(sendButton);
+      await Promise.resolve();
+    });
+
+    await waitFor(() => {
+      expect(countPromptUserBubbles(getAllByTestId, prompt)).toBe(1);
+    });
+    expect(queryByTestId('submitted-prompt-strip')).toBeNull();
+
+    await act(async () => {
+      fireEvent.changeText(input, prompt);
+      fireEvent.press(sendButton);
+      await Promise.resolve();
+    });
+
+    expect(countPromptUserBubbles(getAllByTestId, prompt)).toBe(1);
+    await flushPendingTimers();
+  });
+
+  it('accepts the same prompt again after the prior send completes', async () => {
     const { getByTestId, getAllByTestId, queryByTestId } = await renderChatScreen();
     jest.useFakeTimers();
     const input = getByTestId('chat-input');
     const sendButton = getByTestId('chat-send-button');
     const prompt = 'print money, make money faster. Use Data Science, ML and Agentic RAG.';
 
+    await act(async () => {
+      fireEvent.changeText(input, prompt);
+      fireEvent.press(sendButton);
+      await Promise.resolve();
+    });
     act(() => {
+      jest.advanceTimersByTime(1600);
+    });
+    await act(async () => {
       fireEvent.changeText(input, prompt);
       fireEvent.press(sendButton);
-      jest.advanceTimersByTime(300);
-      fireEvent.changeText(input, prompt);
-      fireEvent.press(sendButton);
+      await Promise.resolve();
     });
 
-    // Bubbles land immediately — strip must stay hidden (no strip+bubble duo).
-    expect(getAllByTestId('chat-message-user').length).toBeGreaterThanOrEqual(2);
+    await waitFor(() => {
+      expect(countPromptUserBubbles(getAllByTestId, prompt)).toBeGreaterThanOrEqual(2);
+    });
     expect(queryByTestId('submitted-prompt-strip')).toBeNull();
     await flushPendingTimers();
   });

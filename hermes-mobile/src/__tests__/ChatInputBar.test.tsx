@@ -118,6 +118,22 @@ describe('ChatInputBar', () => {
     expect(onSend).toHaveBeenCalledWith('typed before keyboard hide');
   });
 
+  it('still invokes onSend when sendDisabled (blocking handled upstream)', () => {
+    const onSend = jest.fn();
+    const { getByTestId } = render(
+      <ChatInputBar
+        {...baseProps}
+        value="make money faster"
+        sendMuted={false}
+        sendDisabled
+        onSend={onSend}
+      />,
+    );
+
+    fireEvent.press(getByTestId('chat-send-button'));
+    expect(onSend).toHaveBeenCalledWith('make money faster');
+  });
+
   it('shows paperclip attach control', () => {
     const onAttachPress = jest.fn();
     const { getByTestId } = render(
