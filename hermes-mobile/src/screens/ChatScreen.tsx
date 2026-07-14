@@ -248,6 +248,7 @@ import { resolveComputerSessionStorageKeys } from '../utils/computerSessionStora
 import {
   formatMacConnectionRetryBanner,
   resolveChatMachineHeaderDisplay,
+  isActiveProfileSwitchInFlight,
 } from '../utils/chatMachineHeader';
 import { resolveRelayRouteDisplay } from '../utils/relayRouting';
 import {
@@ -525,6 +526,9 @@ export default function ChatScreen() {
   const [isLoadingMessages, setIsLoadingMessages] = useState(false);
   /** Session id being opened from Recents/Threads — immediate busy UI until hydrate finishes. */
   const [switchingSessionId, setSwitchingSessionId] = useState<string | null>(null);
+  /** Mac picker row tap — header shows target computer before async connect finishes. */
+  const [profileSwitchBusy, setProfileSwitchBusy] = useState(false);
+  const profileSwitchBusyRef = useRef(false);
   const switchingSessionIdRef = useRef<string | null>(null);
   const [isSending, setIsSending] = useState(false);
   /** True while Start fresh chat is forking/stopping — show spinner so tap isn't silent. */
@@ -1484,6 +1488,13 @@ export default function ChatScreen() {
 
   const machineShortLabel = machineHeaderDisplay.machineLabel;
   const machineEndpoint = machineHeaderDisplay.machineEndpoint;
+  const machineProfileSwitchInFlight =
+    profileSwitchBusy ||
+    isActiveProfileSwitchInFlight(activeGatewayProfile, gatewayUrl);
+  const headerConnectionState =
+    machineProfileSwitchInFlight && connectionState !== 'demo'
+      ? 'connecting'
+      : connectionState;
 
   // SHIP BLOCK: health authMismatch must surface the Wrong-key banner and never leave
   // green Connected with silent auth failure (fresh install dual-state crisis).
@@ -2209,6 +2220,55 @@ export default function ChatScreen() {
       }
     }
   };
+
+  const handleSelectGatewayProfile = useCallback(
+    async (profileId: string, options?: { closePicker?: boolean; reloadSessions?: boolean }) => {
+      if (profileSwitchBusyRef.current) {
+        return;
+      }
+      if (profileId === activeGatewayProfile?.id) {
+        if (options?.closePicker) {
+          setMacPickerVisible(false);
+        }
+        return;
+      }
+      profileSwitchBusyRef.current = true;
+      setProfileSwitchBusy(true);
+      haptics.light();
+      try {
+        await selectGatewayProfile(profileId);
+        await refreshHealth();
+        connectEvents();
+        if (options?.closePicker) {
+          setMacPickerVisible(false);
+          pinScrollAfterHydrationRef.current = true;
+          userScrolledUpRef.current = false;
+          lastDistanceFromBottomRef.current = 0;
+          setCurrentSession(null);
+          setMessages([]);
+        }
+        if (options?.reloadSessions) {
+          const pickedProfile = gatewayProfiles.find((profile) => profile.id === profileId);
+          await loadSessionsList(true, {
+            computerSessionKeys: resolveComputerSessionStorageKeys(
+              pickedProfile,
+              pickedProfile?.gatewayUrl,
+            ),
+          });
+        }
+      } finally {
+        profileSwitchBusyRef.current = false;
+        setProfileSwitchBusy(false);
+      }
+    },
+    [
+      activeGatewayProfile?.id,
+      connectEvents,
+      gatewayProfiles,
+      refreshHealth,
+      selectGatewayProfile,
+    ],
+  );
 
   const openSessionsModal = useCallback(() => {
     haptics.selection();
@@ -5843,7 +5903,7 @@ export default function ChatScreen() {
           machineEndpoint={machineEndpoint}
           routeStatusLabel={routeStatusLabel}
           showMachineDetailWhenConnected={machineHeaderDisplay.showDetailWhenConnected}
-          connectionState={connectionState}
+          connectionState={headerConnectionState}
           macHttpReachable={
             effectiveAuthMismatch ? false : effectiveMacHttpOk || chatStalled
           }
@@ -5925,18 +5985,16 @@ export default function ChatScreen() {
               profiles={gatewayProfiles}
               activeProfileId={activeGatewayProfile?.id ?? null}
               activeProfileReachable={macHttpOk}
-              activeProfileConnecting={connectionState === 'connecting'}
+              activeProfileConnecting={headerConnectionState === 'connecting'}
               usbLoopback={isLoopbackGatewayUrl(gatewayUrl)}
               usbCableLikely={usbCableLikely}
               cellularBlocksDirect={cellularBlocksDirect}
               usbHostMismatch={usbHostMismatch}
               connectionHealAttempt={connectionHealAttempt}
               connectionHealInFlight={connectionHealInFlight}
+              selectionDisabled={profileSwitchBusy}
               onSelectProfile={async (profileId) => {
-                haptics.light();
-                await selectGatewayProfile(profileId);
-                await refreshHealth();
-                connectEvents();
+                await handleSelectGatewayProfile(profileId);
               }}
               onSearchMac={handleSearchMacFromChat}
               onFixUsbLink={() => void handleMacRetry()}
@@ -6293,29 +6351,17 @@ export default function ChatScreen() {
                 activeProfileId={activeGatewayProfile?.id ?? null}
                 activeReachable={macHttpOk}
                 authNeedsRepair={effectiveAuthMismatch}
-                activeConnecting={connectionState === 'connecting'}
+                activeConnecting={headerConnectionState === 'connecting'}
+                selectionDisabled={profileSwitchBusy}
                 scanning={profileScanning || isScanningMacs}
                 scanProgress={profileScanProgress}
                 scanResult={profileScanResult}
                 wifiConnected={wifiConnected}
                 showReachabilityHints={switchComputerProfiles.length > 1}
                 onSelect={async (profileId) => {
-                  haptics.light();
-                  await selectGatewayProfile(profileId);
-                  await refreshHealth();
-                  connectEvents();
-                  setMacPickerVisible(false);
-                  pinScrollAfterHydrationRef.current = true;
-                  userScrolledUpRef.current = false;
-                  lastDistanceFromBottomRef.current = 0;
-                  setCurrentSession(null);
-                  setMessages([]);
-                  const pickedProfile = gatewayProfiles.find((profile) => profile.id === profileId);
-                  await loadSessionsList(true, {
-                    computerSessionKeys: resolveComputerSessionStorageKeys(
-                      pickedProfile,
-                      pickedProfile?.gatewayUrl,
-                    ),
+                  await handleSelectGatewayProfile(profileId, {
+                    closePicker: true,
+                    reloadSessions: true,
                   });
                 }}
                 onRemove={

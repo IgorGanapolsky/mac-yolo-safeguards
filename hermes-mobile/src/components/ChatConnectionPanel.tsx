@@ -57,6 +57,7 @@ type ChatConnectionPanelProps = {
   usbHostMismatch?: UsbHostMismatch | null;
   connectionHealAttempt?: number;
   connectionHealInFlight?: boolean;
+  selectionDisabled?: boolean;
   onSelectProfile?: (profileId: string) => void;
   onSearchMac: () => void;
   onFixUsbLink?: () => void;
@@ -132,6 +133,7 @@ export default function ChatConnectionPanel({
   usbHostMismatch = null,
   connectionHealAttempt = 0,
   connectionHealInFlight = false,
+  selectionDisabled = false,
   onSelectProfile,
   onSearchMac,
   onFixUsbLink,
@@ -342,6 +344,7 @@ export default function ChatConnectionPanel({
             activeProfileId={activeProfileId}
             activeReachable={activeProfileReachable}
             activeConnecting={activeProfileConnecting}
+            selectionDisabled={selectionDisabled}
             onSelect={(profileId) => onSelectProfile?.(profileId)}
             wifiConnected={wifiConnected}
             showReachabilityHints={pickerProfiles.length > 1}

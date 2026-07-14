@@ -23,6 +23,7 @@ type GatewayProfilePickerProps = {
   scanResult?: LanScanResult | null;
   wifiConnected?: boolean;
   showReachabilityHints?: boolean;
+  selectionDisabled?: boolean;
 };
 
 export default function GatewayProfilePicker({
@@ -38,6 +39,7 @@ export default function GatewayProfilePicker({
   scanResult = null,
   wifiConnected = true,
   showReachabilityHints = false,
+  selectionDisabled = false,
 }: GatewayProfilePickerProps) {
   const showScanCard = scanning || scanResult;
   const multiMac = profiles.length > 1;
@@ -93,7 +95,8 @@ export default function GatewayProfilePicker({
             <TouchableOpacity
               style={[styles.selectButton, isActive && styles.selectButtonActive]}
               onPress={() => onSelect(profile.id)}
-              accessibilityState={{ selected: isActive }}
+              disabled={selectionDisabled}
+              accessibilityState={{ selected: isActive, disabled: selectionDisabled }}
               testID={`select-gateway-profile-${profile.id}`}
             >
               <View style={[styles.selectDot, { borderColor: statusColor }]}>

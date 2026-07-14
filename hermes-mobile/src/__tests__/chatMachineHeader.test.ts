@@ -1,6 +1,6 @@
 import type { GatewayProfile } from '../types/gatewayProfile';
 import { profileDisplayName } from '../services/gatewayProfiles';
-import { resolveChatMachineHeaderDisplay, formatMacConnectionRetryBanner } from '../utils/chatMachineHeader';
+import { resolveChatMachineHeaderDisplay, formatMacConnectionRetryBanner, isActiveProfileSwitchInFlight } from '../utils/chatMachineHeader';
 
 describe('resolveChatMachineHeaderDisplay', () => {
   const macBook: GatewayProfile = {
@@ -143,6 +143,46 @@ describe('resolveChatMachineHeaderDisplay', () => {
     });
     expect(display.machineLabel).toBe('Igors-MacBook-Pro');
     expect(display.machineEndpoint).toBe('USB');
+  });
+
+  it('shows selected Mac mini immediately while USB health still reports MacBook Pro', () => {
+    const display = resolveChatMachineHeaderDisplay({
+      activeProfile: {
+        ...macMini,
+        label: 'Igors-Mac-mini',
+      },
+      gatewayUrl: 'http://127.0.0.1:8642',
+      health: {
+        level: 'green',
+        checkedAt: '2026-06-24T00:00:00.000Z',
+        hostname: 'Igors-MacBook-Pro.local',
+        directGatewayReachable: true,
+      },
+      connectionMode: 'gateway',
+      isPaired: false,
+      workers: [],
+      savedMacCount: 2,
+    });
+    expect(display.machineLabel).toBe('Igors-Mac-mini');
+    expect(display.machineLabel).not.toBe('Igors-MacBook-Pro');
+  });
+
+  it('shows target profile name before async connect when route URL already switched', () => {
+    const display = resolveChatMachineHeaderDisplay({
+      activeProfile: macMini,
+      gatewayUrl: macMini.gatewayUrl,
+      health: {
+        level: 'green',
+        checkedAt: '2026-06-24T00:00:00.000Z',
+        hostname: 'Igors-MacBook-Pro.local',
+        directGatewayReachable: true,
+      },
+      connectionMode: 'gateway',
+      isPaired: false,
+      workers: [],
+      savedMacCount: 2,
+    });
+    expect(display.machineLabel).toBe('Mac mini');
   });
 
   it('keeps saved Mac name during transient health hostname from USB heal', () => {
@@ -351,6 +391,35 @@ describe('resolveChatMachineHeaderDisplay', () => {
     expect(display.machineLabel).toBe('Igors-Mac-mini');
     expect(display.machineEndpoint).toBe('Tailscale');
     expect(display.showDetailWhenConnected).toBe(true);
+  });
+});
+
+describe('isActiveProfileSwitchInFlight', () => {
+  const macMini: GatewayProfile = {
+    id: 'mac_mini',
+    label: 'Mac mini',
+    gatewayUrl: 'http://10.2.29.50:8642',
+    hostname: 'Igors-Mac-mini.local',
+    localIp: '10.2.29.50',
+    addedAt: '2026-06-24T00:00:00.000Z',
+  };
+
+  it('detects when active profile URL differs from live gateway route', () => {
+    expect(
+      isActiveProfileSwitchInFlight(
+        {
+          id: 'mac_mini',
+          label: 'Igors-Mac-mini',
+          gatewayUrl: 'http://100.87.85.85:8642',
+          addedAt: '2026-06-24T00:00:00.000Z',
+        },
+        'http://127.0.0.1:8642',
+      ),
+    ).toBe(true);
+  });
+
+  it('is false when profile URL matches gateway route', () => {
+    expect(isActiveProfileSwitchInFlight(macMini, macMini.gatewayUrl)).toBe(false);
   });
 });
 

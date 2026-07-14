@@ -2,7 +2,7 @@ import type { GatewayHealthSnapshot } from '../types/gateway';
 import type { GatewayProfile } from '../types/gatewayProfile';
 import type { ConnectionMode } from '../types/gateway';
 import type { RelayWorker } from '../types/mobileRelay';
-import { GATEWAY_WRONG_KEY_MESSAGE } from '../services/gatewayClient';
+import { GATEWAY_WRONG_KEY_MESSAGE, normalizeGatewayUrl } from '../services/gatewayClient';
 import {
   isGenericMachineLabel,
   profileDisplayName,
@@ -17,6 +17,25 @@ import { isTailnetRouteLabel, isTailscaleGatewayUrl } from './tailscaleHosts';
 
 function healthHostname(health?: GatewayHealthSnapshot | null): string | undefined {
   return health?.hostname?.replace(/\.local$/i, '').trim() || undefined;
+}
+
+function profileGatewayUrlKey(gatewayUrl: string): string {
+  try {
+    return normalizeGatewayUrl(gatewayUrl).httpBase;
+  } catch {
+    return gatewayUrl.trim().replace(/\/+$/, '');
+  }
+}
+
+/** Active profile was chosen but settings/health still reflect the previous route. */
+export function isActiveProfileSwitchInFlight(
+  activeProfile: GatewayProfile | null | undefined,
+  gatewayUrl: string,
+): boolean {
+  if (!activeProfile?.gatewayUrl?.trim() || !gatewayUrl.trim()) {
+    return false;
+  }
+  return profileGatewayUrlKey(activeProfile.gatewayUrl) !== profileGatewayUrlKey(gatewayUrl);
 }
 
 function isUnresolvedMachineName(name: string): boolean {
@@ -95,14 +114,26 @@ export function resolveMachineDisplayName(
 ): string {
   const loopbackUsb = isLoopbackGatewayUrl(gatewayUrl);
   const fromHealth = healthHostname(health);
+  const switchInFlight = isActiveProfileSwitchInFlight(activeProfile, gatewayUrl);
   const liveUsbHost =
     loopbackUsb &&
     fromHealth &&
     health?.directGatewayReachable !== false &&
     (health?.level === 'green' || health?.level === 'amber');
 
+  if (switchInFlight && activeProfile) {
+    const switchingName = profileDisplayName(activeProfile);
+    if (!isUnresolvedMachineName(switchingName)) {
+      return switchingName;
+    }
+    const switchingHost = activeProfile.hostname?.replace(/\.local$/i, '').trim();
+    if (switchingHost && !isUnresolvedMachineName(switchingHost)) {
+      return switchingHost;
+    }
+  }
+
   // USB adb reverse reaches whichever Mac is plugged in — live hostname wins over stale profile.
-  if (liveUsbHost) {
+  if (liveUsbHost && !switchInFlight) {
     if (!activeProfile || !profileMatchesHostname(activeProfile, fromHealth)) {
       return fromHealth;
     }
@@ -123,11 +154,11 @@ export function resolveMachineDisplayName(
     ? profileDisplayName(activeProfile)
     : formatGatewayMachineParts(gatewayUrl, health).machineName;
 
-  if (fromHealth && isUnresolvedMachineName(name)) {
+  if (!switchInFlight && fromHealth && isUnresolvedMachineName(name)) {
     name = fromHealth;
   }
 
-  if (isUnresolvedMachineName(name)) {
+  if (isUnresolvedMachineName(name) && !switchInFlight) {
     const borrowed = borrowMachineNameFromProfiles({ activeProfile, profiles, health });
     if (borrowed) {
       return borrowed;
