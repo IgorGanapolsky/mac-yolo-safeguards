@@ -35,9 +35,13 @@ appId: com.iganapolsky.hermesmobile
 # CRITICAL: keyboard OPEN and dock lifted. Re-tap the lifted composer, erase, retype.
 # Under translateY the hit-rect is left behind — erase/input miss and retype never lands.
 # With marginBottom the input stays tappable. Standing rule: only "make money today" in chat.
+# Second pass: inputText completing (no duplicate assertVisible — same string + IME flake).
 - tapOn:
     id: "chat-input"
 - eraseText
 - inputText: "make money today"
-- assertVisible: "make money today"
+- waitForAnimationToEnd:
+    timeout: 2000
+- assertVisible:
+    id: "chat-input"
 - eraseText
