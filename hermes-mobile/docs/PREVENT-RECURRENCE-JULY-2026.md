@@ -233,6 +233,23 @@ Shipped hardening: PR #151 (initial unblock), #186 (stall CTA + WARN 350k), T-18
 6. Upstream gaps to request from NousResearch/hermes-agent: config key for a session token/cost ceiling, per-session turn serialization in api_server (`max_concurrent_runs` is global only), and a circuit breaker that disables the failing tool for the session instead of only halting the turn.
 7. Poisoned mega-sessions may still contain old restriction turns — use **Start fresh chat**; policy alone does not rewrite history.
 
+## Safety-timeout / gateway inactivity kill (2026-07-14, session `final-green-205443`)
+
+**Symptom:** Phone shows raw `Safety timeout interrupted further progress. Resume with hermes continue` on a 399k-token mega session while Connected to Igors-Mac-mini.
+
+| Layer | Root cause | Fix |
+|-------|------------|-----|
+| Gateway | `agent.gateway_timeout: 900` (15 min **inactivity** kill) on mini + MBP | `scripts/hermes-fleet-no-timeout.sh --fleet` sets `gateway_timeout: 0`, `gateway_timeout_warning: 0`, `HERMES_MAX_SESSION_INPUT_TOKENS=0`, `HERMES_AGENT_TIMEOUT=0` in gateway plist |
+| Agent fork | `conversation_loop.py` session input ceiling default 500k | Env `HERMES_MAX_SESSION_INPUT_TOKENS=0` disables |
+| Phone UX | Raw safety-timeout copy from poisoned mega-session history / model paraphrase | `safetyTimeoutRecovery.ts` + `humanizeAssistantProse` → human copy; auto-`continue` helper |
+| Phone timers | `MEGA_SESSION_RUN_STALE_AUTO_FAIL_MS` was 10 min (shorter than normal 20 min) | Mega sessions now use same 20 min client fail as normal runs; stream idle no longer halved for mega |
+
+**Operator rules:**
+
+1. Run `bash scripts/hermes-fleet-no-timeout.sh --fleet --probe` after any gateway timeout regression.
+2. Never reintroduce `gateway_timeout: 900` without Igor explicit ask — standing order is **no timeouts**.
+3. Mega sessions: **Start fresh chat** still recommended at 350k+; draft transfer preserved (T-268).
+4. Unit tests: `safetyTimeoutRecovery.test.ts`, `chatAssistantProse.test.ts`, `runStaleDetection.test.ts`.
 
 ---
 
