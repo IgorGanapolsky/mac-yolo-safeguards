@@ -1,6 +1,11 @@
 import { storage } from './storage';
 
-export const STORE_REVIEW_THRESHOLD = 3;
+/**
+ * Prompt only after enough successful Leash approvals that the user has real
+ * product value — early prompts (first session) hurt store ratings.
+ * Raised 3 → 5 (2026-07-14) for better review quality vs install vanity.
+ */
+export const STORE_REVIEW_THRESHOLD = 5;
 
 type StoreReviewModule = typeof import('expo-store-review');
 
