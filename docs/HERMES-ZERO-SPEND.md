@@ -18,6 +18,8 @@ While active:
   overlay, so the mobile gateway, cron jobs, and child agents cannot reload them
   from the normal `.env` file;
 - web and computer-use toolsets are omitted from this local-only route;
+- the LiteLLM router and hourly competence probe are unloaded and disabled,
+  while their prior launchd state is retained for an explicit `--disable`;
 - each decision produces a prompt-free receipt under
   `~/.hermes/receipts/zero-spend/`.
 
@@ -25,6 +27,18 @@ The installer also pins the per-user launchd route to the local provider and
 retargets the existing `hermes-yolo` permanence guard to the zero-spend gate.
 The guard therefore repairs bypasses instead of reintroducing the old remote
 wrapper.
+
+The local route never selects the memory-heavy 8B 32k/64k workers. Hermes Agent
+requires a real context window of at least 64k because its tool schemas and system
+prompt consume a large fixed prefix. During installation the gate therefore
+derives `qwen3.5:9b-hermes-64k` from the installed `qwen3.5:9b`
+base and sets `num_ctx=65536`. This is a local manifest operation: it downloads
+nothing and sends no prompt. The hybrid-attention model keeps the 64k worker below the
+10 GiB process class that the 60-second freeze guard reclaims under memory
+pressure, while retaining enough context for the observed 12k-token sessions.
+The `litellm` command itself is blocked with the other provider entrypoints so
+an old shell or scheduled job cannot silently reload an oversized or remote
+route.
 
 The installer preserves every existing command behind a private manifest, adds
 the managed-policy pointer to the normal Hermes `.env` without printing or
