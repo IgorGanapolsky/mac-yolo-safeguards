@@ -1,4 +1,6 @@
 # Dismiss Canon/Android print sheets that steal focus during USB Maestro runs.
+# IMPORTANT: never match bare text "Print" — that hits chat copy (e.g. "print money")
+# and aborts ship-guard mid-flow via back/launchApp. Only match printer-sheet phrases.
 appId: com.iganapolsky.hermesmobile
 ---
 - repeat:
@@ -11,18 +13,18 @@ appId: com.iganapolsky.hermesmobile
             - tapOn: "No"
       - runFlow:
           when:
-            visible: "Cancel"
+            visible: "Select a printer"
           commands:
             - tapOn: "Cancel"
       - runFlow:
           when:
-            visible: "Print"
+            visible: "Do you want to use the following printer?"
           commands:
             - back
       - waitForAnimationToEnd:
           timeout: 400
 - runFlow:
     when:
-      visible: "Print"
+      visible: "Do you want to use the following printer?"
     commands:
       - launchApp
