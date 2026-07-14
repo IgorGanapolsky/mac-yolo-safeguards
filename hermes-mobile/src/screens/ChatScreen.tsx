@@ -3165,6 +3165,10 @@ export default function ChatScreen() {
     }
   };
 
+  /**
+   * Leave mega/stalled thread → empty compose surface.
+   * Busy spinner via isStartingFreshChat; draft+attachments survive handleNewChat clear.
+   */
   const handleStartFreshChat = useCallback(async () => {
     if (isStartingFreshChatRef.current) {
       return;
@@ -3173,6 +3177,7 @@ export default function ChatScreen() {
     setIsStartingFreshChat(true);
     haptics.selection();
     const preservedText = captureComposerTextForFreshChat(inputValueRef.current);
+    const attachmentsToRestore = [...composerAttachmentsRef.current];
     try {
       // Kill zombie "Delivering…" / mega-token banner: clear local run state AND best-effort stop Mac run.
       // (Previously only null'd runProgress while isChatStreamActive + sendProgressSnapshotRef kept the UI alive.)
@@ -3209,12 +3214,16 @@ export default function ChatScreen() {
       // Always open an empty compose-first chat. Gateway `/fork` copies transcript
       // (mega sessions → multi-million-token clones + long hangs); "Start fresh" means empty.
       // Preserve whatever the user already typed so they do not retype after Start fresh.
+      currentSessionRef.current = null;
       await handleNewChat({ preserveComposer: true });
       if (shouldRestoreComposerAfterFreshChat(preservedText)) {
         pendingFreshComposerTransferRef.current = preservedText;
         inputValueRef.current = preservedText;
         setInputValue(preservedText);
         setComposerFocusNonce((n) => n + 1);
+      }
+      if (attachmentsToRestore.length > 0) {
+        setComposerAttachments(attachmentsToRestore);
       }
     } finally {
       isStartingFreshChatRef.current = false;
@@ -3240,11 +3249,13 @@ export default function ChatScreen() {
       return 'allow';
     }
     if (level === 'block') {
+      // Hard-block: only path is a new chat. Auto-fresh so Send can deliver the typed draft.
       return 'fresh';
     }
     const total = sessionTotalTokens(session);
     return new Promise<'allow' | 'fresh' | 'cancel'>((resolve) => {
       Alert.alert(megaSessionSendWarnTitle(), megaSessionSendWarnMessage(total), [
+        // start-fresh is executed by the send path so the draft can be re-delivered.
         { text: 'Start fresh chat', onPress: () => resolve('fresh') },
         { text: 'Send anyway', style: 'destructive', onPress: () => resolve('allow') },
         { text: 'Cancel', style: 'cancel', onPress: () => resolve('cancel') },
@@ -4104,7 +4115,7 @@ export default function ChatScreen() {
           return false;
         }
         if (decision === 'fresh') {
-          // Preserve draft (handleStartFreshChat) then continue this send on empty session.
+          // Preserve draft+attachments (handleStartFreshChat) then continue this send.
           await handleStartFreshChat();
         }
       }

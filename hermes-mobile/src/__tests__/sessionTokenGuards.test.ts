@@ -50,7 +50,7 @@ describe('sessionTokenGuards', () => {
     expect(shouldAllowMegaSessionSend('block', 'cancel')).toBe(false);
   });
 
-  it('auto-migrates draft to a fresh chat on hard-block Send', () => {
+  it('auto-migrates draft to a fresh chat on hard-block Send (no draft loss)', () => {
     expect(shouldAutoFreshAndResendOnMegaBlock('normal')).toBe(false);
     expect(shouldAutoFreshAndResendOnMegaBlock('warn')).toBe(false);
     expect(shouldAutoFreshAndResendOnMegaBlock('block')).toBe(true);
