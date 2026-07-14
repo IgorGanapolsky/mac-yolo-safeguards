@@ -44,6 +44,9 @@ on:
   # branch protection treats a skipped required check as satisfied. So: always trigger
   # the workflow, and skip the expensive emulator job when mobile files are untouched.
   pull_request:
+  # Merge queue dispatches merge_group (not pull_request). Required for the
+  # "Maestro ship-guard (Android emulator)" check when main enforces merge queue.
+  merge_group:
 
 # Per-ref concurrency. A single GLOBAL group was tried to serialise the emulator, but
 # GitHub keeps only ONE pending run per concurrency group: each new run cancelled the
@@ -207,7 +210,7 @@ jobs:
 
       - name: Upload Maestro artifacts on failure
         if: failure()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: maestro-debug-output
           path: ~/.maestro/tests/**

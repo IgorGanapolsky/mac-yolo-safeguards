@@ -37,4 +37,16 @@ if (( missing > 0 )); then
   exit 1
 fi
 
+e2e_bad=0
+if launchctl print "${GUI_DOMAIN}/com.igor.hermes-mobile-continuous-e2e" 2>/dev/null | grep -q '\.worktrees/'; then
+  echo "com.igor.hermes-mobile-continuous-e2e: BAD PATH (points at git worktree — jest/Maestro live in canonical hermes-mobile)"
+  launchctl print "${GUI_DOMAIN}/com.igor.hermes-mobile-continuous-e2e" 2>/dev/null | grep 'run-continuous-e2e.sh' || true
+  e2e_bad=1
+fi
+
+if (( e2e_bad > 0 )); then
+  echo "Repair: bash scripts/install-agent-launchagents.sh"
+  exit 1
+fi
+
 echo "All expected LaunchAgents are loaded."

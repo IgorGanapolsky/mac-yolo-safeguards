@@ -86,6 +86,19 @@ bash scripts/setup-revenue-automations.sh
 
 Idempotent: refreshes `main-runtime` to `origin/main`, installs `com.igor.smart-ops` + `com.igor.revenue-autonomous-loop`, rewrites partner/outreach nudge scripts to call smart-ops (no human homework), runs one proof cycle.
 
+### `ibm-yolo` (Mac Pro + Mac mini)
+
+Enterprise multi-agent SDLC reliability CLI (IBM Bob-class market signal — not an IBM product):
+
+```bash
+bash scripts/install-ibm-yolo.sh              # this Mac + hermes-mini
+bash scripts/install-ibm-yolo.sh --no-remote  # local only
+ibm-yolo --doctor
+ibm-yolo                  # enterprise-sdlc signal + pipeline apply
+ibm-yolo --both --json    # hermes-hosted + enterprise-sdlc
+ibm-yolo --smart-ops      # chain smart-ops after signal
+```
+
 
 ## Manual one-shots (same tools)
 

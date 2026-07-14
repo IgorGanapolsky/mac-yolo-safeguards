@@ -1356,10 +1356,15 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
     const commitDiscoveredUrl = persistDiscoveredGatewayUrl;
 
     const activeForDiscovery = activeProfile(profileStateRef.current);
-    const preferUsbFirst =
-      !activeForDiscovery || isLoopbackGatewayUrl(activeForDiscovery.gatewayUrl);
+    // Prefer USB ONLY when the active profile is already USB loopback.
+    // Preferring USB when there is no active profile (or after a Tailscale deep-link pair)
+    // steals the session to 127.0.0.1: health can be green via adb reverse without a key,
+    // chat then 401 → false-green Connected + Wrong key (user crisis 2026-07-14).
+    const preferUsbFirst = Boolean(
+      activeForDiscovery && isLoopbackGatewayUrl(activeForDiscovery.gatewayUrl),
+    );
 
-    // 1. Prefer USB only when user has no named selection or active profile is USB loopback
+    // 1. Prefer USB only when the user's active computer is already the USB profile
     if (Platform.OS !== 'web' && preferUsbFirst) {
       for (const fallbackUrl of usbLoopbackFallbackUrls(currentUrl || '')) {
         try {

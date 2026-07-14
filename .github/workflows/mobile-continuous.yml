@@ -8,6 +8,8 @@ on:
     paths:
       - 'hermes-mobile/**'
       - '.github/workflows/mobile-continuous.yml'
+  # Week-1 GitHub hardening: run contract jobs on merge-queue validation branches too.
+  merge_group:
   workflow_dispatch:
 
 concurrency:
@@ -109,7 +111,7 @@ jobs:
     # caught before merge — e.g. the otel v2 crash that only surfaces at app launch
     # and which unit tests + a build job cannot detect. Make this a required check
     # in branch protection to block merges on E2E failure.
-    if: github.event_name == 'workflow_dispatch' || github.event_name == 'pull_request'
+    if: github.event_name == 'workflow_dispatch' || github.event_name == 'pull_request' || github.event_name == 'merge_group'
     timeout-minutes: 45
     defaults:
       run:

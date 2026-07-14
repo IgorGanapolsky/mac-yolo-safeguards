@@ -653,7 +653,13 @@ export function activeProfile(state: GatewayProfileState): GatewayProfile | null
   return state.profiles.find((p) => p.id === state.activeProfileId) ?? null;
 }
 
-/** Cold-start priority: last-used active id → USB loopback → most recently connected. */
+/**
+ * Cold-start priority: last-used active id → most recently connected named/LAN/Tailscale
+ * profile → (only if preferUsb) USB loopback.
+ *
+ * Never auto-pick USB loopback over a real paired computer by default — USB health can
+ * go green without a key and produce Connected ⊕ Wrong key (2026-07-14 crisis).
+ */
 export function resolvePreferredActiveProfileId(
   state: GatewayProfileState,
   options?: { preferUsb?: boolean },
@@ -671,7 +677,10 @@ export function resolvePreferredActiveProfileId(
       return usb.id;
     }
   }
-  const sorted = [...profiles].sort((a, b) =>
+  // Prefer non-loopback computers (paired Tailscale/LAN) over synthetic USB loopback.
+  const nonUsb = profiles.filter((p) => !isLoopbackGatewayUrl(p.gatewayUrl));
+  const pool = nonUsb.length > 0 ? nonUsb : profiles;
+  const sorted = [...pool].sort((a, b) =>
     (b.lastConnectedAt ?? b.addedAt).localeCompare(a.lastConnectedAt ?? a.addedAt),
   );
   return sorted[0]?.id ?? profiles[0]?.id ?? null;

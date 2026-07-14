@@ -2,6 +2,7 @@ import type { HermesMessage } from '../types/chat';
 import { coerceMessageId, idHasPrefix } from './messageIds';
 import { dedupeToolDumpMessages } from './chatToolDump';
 import { serverHasAssistantReplyAfterLastUser } from './emptyStreamReplyRecovery';
+import { isOrphanFailedOutboundBubble } from './stalledChatRecovery';
 import { isDeferredStreamPlaceholder } from './streamAssistantText';
 
 /** Normalize text so optimistic phone bubbles match gateway transcript formatting. */
@@ -154,6 +155,56 @@ function serverHasLatestUserMessage(serverMessages: HermesMessage[], body: strin
   return false;
 }
 
+/**
+ * True when the gateway transcript already committed this user turn (trailing user line).
+ * Unlike serverHasLatestUserMessage, ignores older repeated prompts after an assistant reply.
+ */
+function serverEndsWithMatchingUser(serverMessages: HermesMessage[], body: string): boolean {
+  if (!body) {
+    return false;
+  }
+  for (let index = serverMessages.length - 1; index >= 0; index -= 1) {
+    const message = serverMessages[index];
+    const role = message.role?.toLowerCase();
+    if (role === 'assistant') {
+      return false;
+    }
+    if (role === 'user') {
+      return messageBody(message) === body;
+    }
+  }
+  return false;
+}
+
+/** Keep delivery status when dropping an optimistic duplicate over a server-acked user line. */
+function annotateTrailingServerUserWithOutbound(
+  serverMessages: HermesMessage[],
+  optimistic: HermesMessage,
+): HermesMessage[] {
+  const body = messageBody(optimistic);
+  for (let index = serverMessages.length - 1; index >= 0; index -= 1) {
+    const message = serverMessages[index];
+    const role = message.role?.toLowerCase();
+    if (role === 'assistant') {
+      return serverMessages;
+    }
+    if (role === 'user' && messageBody(message) === body) {
+      if (message.outboundStatus) {
+        return serverMessages;
+      }
+      const next = [...serverMessages];
+      next[index] = {
+        ...message,
+        outboundStatus: optimistic.outboundStatus,
+        outboundFailureReason: optimistic.outboundFailureReason,
+      };
+      return next;
+    }
+    return serverMessages;
+  }
+  return serverMessages;
+}
+
 function serverHasAssistantMessage(serverMessages: HermesMessage[], body: string): boolean {
   if (!body) {
     return false;
@@ -183,7 +234,7 @@ export function mergeServerMessagesWithPending(
   serverMessages: HermesMessage[],
   localMessages: HermesMessage[],
 ): HermesMessage[] {
-  const dedupedServer = dedupeDeferredStreamPlaceholders(dedupeChatMessages(serverMessages));
+  let dedupedServer = dedupeDeferredStreamPlaceholders(dedupeChatMessages(serverMessages));
   if (localMessages.length === 0) {
     return dedupedServer;
   }
@@ -197,7 +248,7 @@ export function mergeServerMessagesWithPending(
       return false;
     }
     const body = messageBody(message);
-    return !serverHasLatestUserMessage(dedupedServer, body);
+    return !serverEndsWithMatchingUser(dedupedServer, body);
   });
 
   for (const message of localMessages) {
@@ -232,11 +283,19 @@ export function mergeServerMessagesWithPending(
       continue;
     }
     if (isOptimisticUserMessage(message)) {
+      const body = messageBody(message);
       if (message.outboundStatus === 'pending') {
+        if (serverEndsWithMatchingUser(dedupedServer, body)) {
+          dedupedServer = annotateTrailingServerUserWithOutbound(dedupedServer, message);
+          continue;
+        }
         pendingTail.push(message);
         continue;
       }
-      const body = messageBody(message);
+      // Failed phone-only bubble while Mac already answered → drop (clears permanent stall badge).
+      if (isOrphanFailedOutboundBubble(message, dedupedServer)) {
+        continue;
+      }
       if (
         serverFingerprints.has(messageFingerprint(message)) ||
         serverHasLatestUserMessage(dedupedServer, body)

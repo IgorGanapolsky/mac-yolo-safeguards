@@ -88,7 +88,7 @@ export function shouldAllowMegaSessionSend(
 
 /**
  * Hard-block Send: auto-start a fresh chat and deliver the already-typed draft
- * (no extra alert that drops the prompt).
+ * (no extra alert that drops the prompt). Keeps Start-fresh spinner/attachments.
  */
 export function shouldAutoFreshAndResendOnMegaBlock(level: MegaSessionLevel): boolean {
   return level === 'block';

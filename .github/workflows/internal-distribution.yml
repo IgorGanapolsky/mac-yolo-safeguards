@@ -468,7 +468,7 @@ jobs:
             -f target_url="https://expo.dev/accounts/igorganapolsky/projects/hermes-mobile/builds/${BUILD_ID}"
 
       - name: Upload Android EAS evidence
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         if: always()
         with:
           name: eas-android-internal-evidence
@@ -574,7 +574,7 @@ jobs:
             -f target_url="https://expo.dev/accounts/igorganapolsky/projects/hermes-mobile/builds/${BUILD_ID}"
 
       - name: Upload iOS EAS evidence
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         if: always()
         with:
           name: eas-ios-internal-evidence
