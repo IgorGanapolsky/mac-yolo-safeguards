@@ -1952,15 +1952,22 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
       const nextState = selectProfile(profileStateRef.current, selectedId);
       profileStateRef.current = nextState;
       setProfileState(nextState);
-      await gatewayProfiles.save(nextState);
-      await storage.saveLastSelectedProfileId(selectedId);
 
-      const profileKey = await secureCredentials.resolveApiKeyForProfile(selectedId);
       const nextSettings: GatewaySettings = {
         ...settingsRef.current,
         gatewayUrl: profile.gatewayUrl,
         demoMode: false,
       };
+      settingsRef.current = nextSettings;
+      setSettings(nextSettings);
+      effectiveGatewayUrlRef.current = profile.gatewayUrl;
+      setEffectiveGatewayUrl(profile.gatewayUrl);
+      setConnectionState('connecting');
+
+      await gatewayProfiles.save(nextState);
+      await storage.saveLastSelectedProfileId(selectedId);
+
+      const profileKey = await secureCredentials.resolveApiKeyForProfile(selectedId);
       await saveSettings(nextSettings, profileKey || apiKeyRef.current);
       haptics.success();
       return true;

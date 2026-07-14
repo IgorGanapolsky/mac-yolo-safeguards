@@ -27,6 +27,7 @@ type GatewayProfilePickerProps = {
   scanResult?: LanScanResult | null;
   wifiConnected?: boolean;
   showReachabilityHints?: boolean;
+  selectionDisabled?: boolean;
   /** Live cable probe — drives "plugged in" copy without a second radio per Mac. */
   liveUsb?: LiveUsbPickerInput | null;
 };
@@ -44,6 +45,7 @@ export default function GatewayProfilePicker({
   scanResult = null,
   wifiConnected = true,
   showReachabilityHints = false,
+  selectionDisabled = false,
   liveUsb = null,
 }: GatewayProfilePickerProps) {
   const showScanCard = scanning || scanResult;
@@ -103,7 +105,8 @@ export default function GatewayProfilePicker({
             <TouchableOpacity
               style={[styles.selectButton, isActive && styles.selectButtonActive]}
               onPress={() => onSelect(profile.id, profile)}
-              accessibilityState={{ selected: isActive }}
+              disabled={selectionDisabled}
+              accessibilityState={{ selected: isActive, disabled: selectionDisabled }}
               accessibilityLabel={`${lines.title}, ${meta}`}
               testID={`select-gateway-profile-${profile.id}`}
             >
