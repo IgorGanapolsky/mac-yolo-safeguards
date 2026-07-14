@@ -19,6 +19,10 @@ const {
   readLocalApiKey,
   resolveApiKeyForGatewayUrl,
   selectPhysicalAdbSerial,
+  verifyGatewayAuthSync,
+  redactDeepLinkSecrets,
+  buildVerifiedExtraComputer,
+  isLoopbackGatewayUrl,
 } = require('./hermes-mobile-pair-lib.js');
 const { withPhonePipelineLock, pipelineBusyReason } = require('./agent-phone-pipeline-lock.js');
 const { localTailscaleIpv4 } = require('./hermes-discover-tailscale-macs.js');
@@ -223,15 +227,44 @@ function setupAdbReverse(serial) {
   return result.status === 0;
 }
 
+function resolveAdbBinary() {
+  if (process.env.ADB_PATH && fs.existsSync(process.env.ADB_PATH)) {
+    return process.env.ADB_PATH;
+  }
+  const sdk =
+    process.env.ANDROID_HOME ||
+    process.env.ANDROID_SDK_ROOT ||
+    path.join(os.homedir(), 'Library', 'Android', 'sdk');
+  const candidate = path.join(sdk, 'platform-tools', 'adb');
+  if (fs.existsSync(candidate)) {
+    return candidate;
+  }
+  return 'adb';
+}
+
 function openDeepLinkOnDevice(serial, link) {
   // Android device shell splits on '&' unless the URI is single-quoted (breaks &name=… params).
   const quoted = `'${String(link).replace(/'/g, `'\\''`)}'`;
   const shellCmd = `am start -a android.intent.action.VIEW -d ${quoted}`;
+  const adbBin = resolveAdbBinary();
   const args = serial ? ['-s', serial, 'shell', shellCmd] : ['shell', shellCmd];
-  const result = spawnSync('adb', args, {
+  const result = spawnSync(adbBin, args, {
     encoding: 'utf8',
+    timeout: 20_000,
   });
-  return result.status === 0;
+  const out = `${result.stdout || ''}${result.stderr || ''}`;
+  if (result.status !== 0) {
+    console.warn(`  adb deep-link status=${result.status}: ${out.slice(0, 200)}`);
+    return false;
+  }
+  if (
+    /\bError:|Exception occurred|Unable to resolve Intent/i.test(out) &&
+    !/Starting: Intent/i.test(out)
+  ) {
+    console.warn(`  adb deep-link failed: ${out.slice(0, 200)}`);
+    return false;
+  }
+  return /Starting: Intent|delivered to currently running/i.test(out) || result.status === 0;
 }
 
 function syncVaultProjectsCatalog() {
@@ -446,11 +479,14 @@ function runPairMain(args) {
   }
   const lanIp = detectLocalLanIp() || resolveLanIp(health);
   const apiKeyBefore = readLocalApiKey();
-  const apiKey = resolveApiKeyForGatewayUrl(gatewayUrl);
+  let apiKey = resolveApiKeyForGatewayUrl(gatewayUrl);
   if (apiKey !== apiKeyBefore && apiKey) {
-    console.log('  API key: loaded from Mac mini (~/.hermes/.env via SSH)');
+    console.log('  API key: loaded from target Mac (~/.hermes/.env via SSH)');
   } else if (apiKey === apiKeyBefore && gatewayUrl.includes('100.94.135.78')) {
-    console.warn('  API key: Mac mini SSH lookup failed — using local key (chat may 401)');
+    console.warn(
+      '  API key: Mac mini SSH lookup failed — will NOT embed laptop key for mini (avoids Wrong key)',
+    );
+    apiKey = resolveApiKeyForGatewayUrl(gatewayUrl, { fallbackLocal: false }) || '';
   }
   const thumbgateApiKey = readThumbgateApiKey();
   const hostname = health.hostname || os.hostname();
@@ -468,9 +504,12 @@ function runPairMain(args) {
 
   const serial = adbDevice();
   const usbPairing = serial && !serial.startsWith('emulator-') && !args.has('--no-adb');
+  let reversed8642 = false;
   if (usbPairing) {
-    const reversed8642 = setupAdbReverse(serial);
+    reversed8642 = setupAdbReverse(serial);
+    // Only reverse pair page port when we will serve it — avoids hung adb on dead :8765
     const reversed8765 =
+      !args.has('--no-serve') &&
       spawnSync('adb', ['-s', serial, 'reverse', 'tcp:8765', 'tcp:8765'], {
         encoding: 'utf8',
         timeout: 10_000,
@@ -485,6 +524,38 @@ function runPairMain(args) {
     }
   }
 
+  // USB cable: prefer loopback so the phone never depends on Tailscale for desk pairing.
+  // Real-user 5G path still gets tailnetProbeHosts + optional verified mini extra.
+  if (
+    usbPairing &&
+    reversed8642 &&
+    !explicitGatewayUrl &&
+    !args.has('--mini-tailscale') &&
+    !isLoopbackGatewayUrl(gatewayUrl)
+  ) {
+    const localKey = readLocalApiKey();
+    const loopback = 'http://127.0.0.1:8642';
+    const loopAuth = verifyGatewayAuthSync(loopback, localKey);
+    if (loopAuth.ok) {
+      console.log('  USB pairing: primary URL → http://127.0.0.1:8642 (adb reverse; key verified)');
+      gatewayUrl = loopback;
+      apiKey = localKey;
+    } else {
+      console.warn(
+        `  USB reverse auth failed (${loopAuth.reason}) — keeping ${gatewayUrl}; may show Wrong key`,
+      );
+    }
+  }
+
+  const primaryAuth = verifyGatewayAuthSync(gatewayUrl, apiKey);
+  if (!primaryAuth.ok) {
+    throw new Error(
+      `Refusing to pair: gateway auth failed for ${gatewayUrl} (${primaryAuth.reason}, http ${primaryAuth.status}). ` +
+        `Fix API_SERVER_KEY on the target Mac or re-run after hermes gateway is up. Never push a wrong key to the phone.`,
+    );
+  }
+  console.log('  Auth: verified /api/sessions 200 with embedded key');
+
   const tailnetProbeHosts = discoverTailnetProbeHosts();
   if (tailnetProbeHosts.length > 0) {
     console.log('  Tailnet Hermes hosts:', tailnetProbeHosts.join(', '));
@@ -495,22 +566,32 @@ function runPairMain(args) {
     const mini = resolveMiniTailscaleDiscovery();
     const miniUrl = mini?.gatewayUrl?.trim().replace(/\/$/, '');
     const primaryUrl = gatewayUrl.trim().replace(/\/$/, '');
-    if (miniUrl && miniUrl !== primaryUrl) {
-      extraComputers.push({
+    if (miniUrl && miniUrl !== primaryUrl && !isLoopbackGatewayUrl(miniUrl)) {
+      const verified = buildVerifiedExtraComputer({
         gatewayUrl: miniUrl,
         name: (mini.hostname || mini.label || 'Igors-Mac-mini').replace(/\.local$/i, '').trim(),
-        apiKey: resolveApiKeyForGatewayUrl(miniUrl),
       });
-      console.log(
-        '  Extra saved computer (Tailscale):',
-        extraComputers[0].name,
-        extraComputers[0].gatewayUrl,
-      );
+      if (verified && !verified.skipped) {
+        extraComputers.push(verified);
+        console.log(
+          '  Extra saved computer (verified auth):',
+          verified.name,
+          verified.gatewayUrl,
+        );
+      } else {
+        console.warn(
+          `  Extra Mac mini skipped (${verified?.reason || 'unverified'}) — phone will not get a Wrong-key ghost profile`,
+        );
+      }
     }
   }
 
   if (usbPairing && !explicitGatewayUrl && !args.has('--mini-tailscale')) {
-    console.log('  USB pairing: adb reverse active — saved gateway URL uses tailnet for 5G/cellular');
+    console.log(
+      isLoopbackGatewayUrl(gatewayUrl)
+        ? '  USB pairing: loopback primary + reverse (5G: add Tailscale computer later or re-pair --mini-tailscale)'
+        : '  USB pairing: adb reverse active',
+    );
   }
   if (args.has('--mini-tailscale') || explicitGatewayUrl) {
     console.log('  Pairing target gateway (explicit):', gatewayUrl);
@@ -539,9 +620,9 @@ function runPairMain(args) {
   console.log('  Gateway:', gatewayUrl);
   console.log('  Pair page:', pageUrl);
   console.log('  Local file:', htmlPath);
-  let redactedLink = deepLink.replace(apiKey, apiKey ? `${apiKey.slice(0, 12)}…` : '');
+  const secrets = [apiKey, thumbgateApiKey, ...extraComputers.map((c) => c.apiKey)].filter(Boolean);
+  const redactedLink = redactDeepLinkSecrets(deepLink, secrets);
   if (thumbgateApiKey) {
-    redactedLink = redactedLink.replace(thumbgateApiKey, `${thumbgateApiKey.slice(0, 12)}…`);
     console.log('  ThumbGate key: embedded in deep link');
   }
   console.log('  Deep link:', redactedLink);

@@ -393,3 +393,17 @@ cold_start_and_smoke
 record_install_marker
 
 echo "=== Done: Hermes Mobile installed (release, bundle embedded) ==="
+
+# Fresh install has no saved Mac/key. Auto-pair with auth-verified deep link so the
+# first launch is not "Wrong key / Not connected" (2026-07-14 real-user incident).
+if [[ "${HERMES_SKIP_AUTO_PAIR:-}" != "1" ]] && command -v adb >/dev/null 2>&1; then
+  if adb devices 2>/dev/null | grep -qE '[[:space:]]device$'; then
+    echo "=== Auto-pair (verified API key → phone) ==="
+    PAIR_JS="$(cd "$HERMES_DIR/.." && pwd)/tools/hermes-mobile-pair.js"
+    if [[ -f "$PAIR_JS" ]]; then
+      # Prefer USB loopback pair; fail soft so install still succeeds
+      node "$PAIR_JS" --no-serve 2>&1 || \
+        echo "Warning: auto-pair failed — run: node tools/hermes-mobile-pair.js" >&2
+    fi
+  fi
+fi

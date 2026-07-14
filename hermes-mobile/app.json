@@ -120,7 +120,7 @@
         "expo-build-properties",
         {
           "android": {
-            "usesCleartextTraffic": false,
+            "usesCleartextTraffic": true,
             "softwareKeyboardLayoutMode": "resize",
             "buildArchs": [
               "arm64-v8a"
