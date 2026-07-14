@@ -6,6 +6,7 @@ const os = require('os');
 const path = require('path');
 
 const {
+  buildOutcomeContract,
   buildExecutionPlan,
   decision,
   parseArgs,
@@ -24,6 +25,15 @@ const routine = decision(parseArgs([
   '--max-cost-usd', '0',
   '--latency-ms', '10000',
 ]));
+assert.strictEqual(routine.outcomeContract.schema, 'hermes-outcome-contract/v1');
+assert.strictEqual(routine.outcomeContract.taskId, routine.id);
+assert.strictEqual(routine.outcomeContract.deliveryRequired, false);
+assert.strictEqual(routine.outcomeContract.accounting.maxCostUsd, 0);
+assert(routine.pipeline.some((stage) => stage.id === 'outcome-gate'));
+const routineOutcomePlan = buildExecutionPlan(routine);
+assert(routineOutcomePlan.steps.some((step) => step.id === 'independent-outcome-verification'));
+assert(routineOutcomePlan.steps.some((step) => step.id === 'final-outcome-gate'));
+assert(!routineOutcomePlan.steps.some((step) => step.id === 'delivery-evidence'));
 assert.strictEqual(routine.selectedRoute.id, 'local_fast');
 assert.strictEqual(routine.selectedRoute.model, 'qwen2.5:3b-64k');
 assert.strictEqual(routine.estimatedCostUsd, 0);
@@ -228,6 +238,25 @@ assert(payment.pipeline.some((stage) => stage.id === 'approval-gate'));
 assert.strictEqual(payment.microAgentRecipe.pattern, 'workflow');
 assert.strictEqual(payment.microAgentRecipe.id, 'approval_first_workflow');
 assert(payment.microAgentRecipe.roles.some((role) => role.id === 'approval-boundary'));
+assert.strictEqual(payment.outcomeContract.deliveryRequired, false);
+
+const externalDelivery = decision(parseArgs([
+  '--task', 'publish the verified release to the authorized external channel',
+  '--risk', 'critical',
+  '--max-cost-usd', '0.10',
+  '--latency-ms', '30000',
+  '--paid-ok',
+]));
+assert.strictEqual(externalDelivery.outcomeContract.deliveryRequired, true);
+assert(externalDelivery.outcomeContract.requiredStages.includes('delivery'));
+const externalPlan = buildExecutionPlan(externalDelivery);
+assert(externalPlan.steps.some((step) => step.id === 'delivery-evidence'));
+assert(externalPlan.steps.some((step) => step.id === 'final-outcome-gate'));
+
+const directContract = buildOutcomeContract('hermes-route-safeid', { maxCostUsd: 0.25 }, { externalDelivery: true });
+assert.strictEqual(directContract.taskId, 'hermes-route-safeid');
+assert.strictEqual(directContract.accounting.maxCostUsd, 0.25);
+assert(!JSON.stringify(directContract).includes('private task'));
 
 const fugu = decision(parseArgs([
   '--task', 'use Sakana Fugu for hard multi-agent research review',
@@ -355,6 +384,7 @@ writeReceipt(routine, receiptPath);
 const lines = fs.readFileSync(receiptPath, 'utf8').trim().split('\n');
 assert.strictEqual(lines.length, 1);
 assert.strictEqual(JSON.parse(lines[0]).id, routine.id);
+assert.strictEqual(fs.statSync(receiptPath).mode & 0o777, 0o600);
 fs.rmSync(tmp, { recursive: true, force: true });
 
 console.log('Hermes economic router tests: PASS');
