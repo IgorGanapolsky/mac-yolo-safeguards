@@ -95,15 +95,95 @@ export function isInvalidGatewayProfile(profile: GatewayProfile): boolean {
   return !isValidGatewayUrl(profile.gatewayUrl);
 }
 
+const GENERIC_USB_LOOPBACK_ID = 'mac_usb_loopback';
+
+function isGenericUsbLoopbackProfile(profile: GatewayProfile): boolean {
+  return (
+    profile.id === GENERIC_USB_LOOPBACK_ID ||
+    (isLoopbackGatewayUrl(profile.gatewayUrl) &&
+      isGenericProfileLabel(profile.label) &&
+      !profile.hostname?.trim())
+  );
+}
+
+function namedMachineFromProfiles(
+  profiles: GatewayProfile[],
+): { hostname: string; label: string } | undefined {
+  for (const profile of profiles) {
+    if (isLoopbackGatewayUrl(profile.gatewayUrl)) {
+      continue;
+    }
+    const label = profileDisplayName(profile);
+    if (isGenericMachineLabel(label)) {
+      continue;
+    }
+    const host = bonjourHostname(profile.hostname) ?? label;
+    return {
+      hostname: profile.hostname?.trim() || `${host}.local`,
+      label: host,
+    };
+  }
+  return undefined;
+}
+
+/** Copy human Mac name onto generic adb-reverse loopback rows from saved tailnet/LAN siblings. */
+function hydrateLoopbackProfileNames(profiles: GatewayProfile[]): GatewayProfile[] {
+  const namedSource = namedMachineFromProfiles(profiles);
+  let next = profiles.map((profile) => {
+    if (!isLoopbackGatewayUrl(profile.gatewayUrl) || !isGenericUsbLoopbackProfile(profile)) {
+      return profile;
+    }
+    if (!namedSource) {
+      return profile;
+    }
+    const label = resolveStoredProfileLabel({
+      gatewayUrl: profile.gatewayUrl,
+      hostname: namedSource.hostname,
+      label: namedSource.label,
+      localIp: profile.localIp ?? '127.0.0.1',
+    });
+    return {
+      ...profile,
+      id: profileIdFromGatewayUrl(profile.gatewayUrl, namedSource.label),
+      hostname: namedSource.hostname,
+      label,
+      localIp: '127.0.0.1',
+    };
+  });
+
+  const hasNamedLoopback = next.some(
+    (profile) => isLoopbackGatewayUrl(profile.gatewayUrl) && !isGenericUsbLoopbackProfile(profile),
+  );
+  if (hasNamedLoopback) {
+    next = next.filter((profile) => profile.id !== GENERIC_USB_LOOPBACK_ID);
+  }
+  return next;
+}
+
 export function sanitizeGatewayProfileState(state: GatewayProfileState): GatewayProfileState {
-  const profiles = state.profiles
+  const relabeled = state.profiles
     .filter((p) => !isInvalidGatewayProfile(p))
     .map(relabelStoredProfile);
+  const profiles = hydrateLoopbackProfileNames(relabeled);
   let activeProfileId = state.activeProfileId;
   if (activeProfileId && !profiles.some((p) => p.id === activeProfileId)) {
     activeProfileId = profiles[0]?.id ?? null;
   }
+  if (activeProfileId === GENERIC_USB_LOOPBACK_ID && hasNamedLoopbackProfile(profiles)) {
+    const namedLoopback = profiles.find(
+      (profile) =>
+        isLoopbackGatewayUrl(profile.gatewayUrl) && !isGenericUsbLoopbackProfile(profile),
+    );
+    activeProfileId = namedLoopback?.id ?? activeProfileId;
+  }
   return dedupeGatewayProfiles({ profiles, activeProfileId });
+}
+
+function hasNamedLoopbackProfile(profiles: GatewayProfile[]): boolean {
+  return profiles.some(
+    (profile) =>
+      isLoopbackGatewayUrl(profile.gatewayUrl) && !isGenericUsbLoopbackProfile(profile),
+  );
 }
 
 function isGenericProfileLabel(label: string | undefined): boolean {

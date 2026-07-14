@@ -167,7 +167,9 @@ function Probe() {
         testID="select-profile"
         onPress={() => {
           const macProfile = gateway.gatewayProfiles.find(
-            (profile) => profile.gatewayUrl === 'http://10.2.29.103:8642',
+            (profile) =>
+              profile.gatewayUrl === 'http://10.2.29.103:8642' ||
+              profile.id === 'mac_mac_mini_local',
           );
           if (macProfile) {
             void gateway.selectGatewayProfile(macProfile.id);
@@ -598,7 +600,7 @@ describe('GatewayProvider', () => {
 
     await waitFor(() => {
       expect(getByTestId('connection-mode').props.children).toBe('relay');
-      expect(getByTestId('profiles-ids').props.children).toContain('mac_10_2_29_103');
+      expect(getByTestId('profiles-ids').props.children).toContain('mac_mac_mini_local');
     });
 
     await act(async () => {
@@ -611,7 +613,7 @@ describe('GatewayProvider', () => {
       expect(storage.saveGatewaySettings).toHaveBeenCalledWith(
         expect.objectContaining({
           connectionMode: 'relay',
-          gatewayUrl: 'http://10.2.29.103:8642',
+          gatewayUrl: 'http://127.0.0.1:8642',
         }),
       );
     });
