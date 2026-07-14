@@ -2,18 +2,18 @@
 'use strict';
 
 /**
- * hermes-hosting-market-signal.js — High-ROI capture of "hosted Hermes / always-on agent" market signals.
+ * hermes-hosting-market-signal.js — High-ROI capture of agent-market signals.
  *
- * Turns public demand (e.g. MyClaw-style Hermes hosting posts) into:
- *   - private ops board + JSONL receipt
- *   - outbound draft with live Stripe payment links (curl-verified when map present)
- *   - optional pipeline seed row (create-if-missing via pipeline-update when available)
+ * Presets:
+ *   hermes-hosted  — MyClaw-style always-on Hermes hosting
+ *   enterprise-sdlc — IBM Bob-style multi-agent full-lifecycle platforms
  *
+ * Produces: private board + JSONL, Stripe-verified CTA drafts, optional pipeline seed.
  * Never invents cleared revenue. Never commits buyer PII to git.
  *
  * Usage:
- *   node tools/hermes-hosting-market-signal.js --source URL --json
- *   node tools/hermes-hosting-market-signal.js --source URL --apply-pipeline --json
+ *   node tools/hermes-hosting-market-signal.js --preset hermes-hosted --apply-pipeline --json
+ *   node tools/hermes-hosting-market-signal.js --preset enterprise-sdlc --source URL --apply-pipeline --json
  *   node tools/hermes-hosting-market-signal.js --demo --json
  */
 
@@ -51,21 +51,60 @@ function resolveRevenueDir() {
 
 const REVENUE_DIR = resolveRevenueDir();
 
-const DEFAULT_SIGNAL = {
-  id: 'myclaw-hermes-2026-07-13',
-  source: 'https://x.com/hasantoxr/status/2076695733575766377',
-  author: '@hasantoxr',
-  summary:
-    'MyClaw promotes hosted agents that finish jobs in channels; Hermes live; free trial promo; Claude Code/Codex next.',
-  icp: 'teams running Hermes or always-on agents on real work / client delivery',
-  gap: 'hosting ≠ OS/loop enforcement (token burn, sim runaway, no hard stop)',
-  offer: 'Agent Reliability Diagnostic ($499)',
-  gross_potential_usd: '499',
+const PRESETS = {
+  'hermes-hosted': {
+    id: 'myclaw-hermes-2026-07-13',
+    source: 'https://x.com/hasantoxr/status/2076695733575766377',
+    author: '@hasantoxr',
+    summary:
+      'MyClaw promotes hosted agents that finish jobs in channels; Hermes live; free trial promo; Claude Code/Codex next.',
+    icp: 'teams running Hermes or always-on agents on real work / client delivery',
+    gap: 'hosting ≠ OS/loop enforcement (token burn, sim runaway, no hard stop)',
+    offer: 'Agent Reliability Diagnostic ($499)',
+    gross_potential_usd: '499',
+    prospectPrefix: 'hermes-hosting',
+    nextAction: 'send_hosted_hermes_cta',
+    positioningDoc: 'docs/HERMES-HOSTED-RELIABILITY.md',
+    xHook:
+      'Hosted Hermes finishing jobs in channels is the right shift.\n\nStill true: always-on ≠ hard stop. Runaway tool loops, sim freezes, token burn without outcome — that is an enforcement layer, not more hosting.\n\nWe open-source the Mac freeze guard (mac-yolo-safeguards) and sell scoped diagnostics for teams putting Hermes on real work.',
+    emailHook: [
+      'Saw the wave of "Hermes always online / finishes the job in your channels" (e.g. hosted agent platforms). That is real demand.',
+      '',
+      'Gap we keep hitting: hosting keeps the agent up; it does not stop unfinished-and-still-running failures (token loops, Mac load spikes, silent wrong tool chains).',
+    ].join('\n'),
+    emailSubject: 'Hosted Hermes / always-on agents — reliability diagnostic',
+  },
+  'enterprise-sdlc': {
+    id: 'ibm-bob-infoworld-2026-07-09',
+    source:
+      'https://www.infoworld.com/article/4195291/ibm-bob-expands-beyond-code-generation-to-orchestrate-the-entire-sdlc.html',
+    author: 'InfoWorld / IBM Bob',
+    summary:
+      'IBM Bob multi-agent full-SDLC orchestration, parallel tools, subagents, Bobalytics cost/governance; enterprise line: safe, repeatable, economic delivery — not fastest model.',
+    icp: 'teams adopting multi-agent SDLC platforms (enterprise or agency packaging similar workflows)',
+    gap: 'orchestration + analytics ≠ local loop/OS enforcement when agents thrash machines or burn tokens without finish',
+    offer: 'Partner Pilot ($3,000)',
+    gross_potential_usd: '3000',
+    prospectPrefix: 'enterprise-sdlc',
+    nextAction: 'send_enterprise_sdlc_cta',
+    positioningDoc: 'docs/ENTERPRISE-AGENT-SDLC-RELIABILITY.md',
+    xHook:
+      'Enterprise conversation moved: not "which model is fastest" — "deliver software safely, repeatedly, economically across the lifecycle" (IBM Bob / multi-agent SDLC).\n\nStill true on real fleets: multi-agent + parallel tools expand the unfinished-and-still-running failure class. Cost dashboards help; hard stops and proof on the Mac/agent loop still matter.\n\nOSS freeze guard + paid reliability diagnostics for teams that already pay for agent failures.',
+    emailHook: [
+      'Enterprise agent platforms (e.g. IBM Bob-class multi-agent SDLC orchestration, parallel tools, cost analytics) are selling safe, repeatable, economic delivery — not just faster codegen.',
+      '',
+      'Gap we keep hitting on non-mainframe fleets: orchestration coordinates work; it does not replace OS-level and loop-level enforcement when agents burn tokens, thrash a Mac, or fail silently mid-workflow.',
+    ].join('\n'),
+    emailSubject: 'Multi-agent SDLC platforms — reliability diagnostic / Partner Pilot',
+  },
 };
+
+const DEFAULT_SIGNAL = PRESETS['hermes-hosted'];
 
 function parseArgs(argv) {
   const args = {
     source: null,
+    preset: 'hermes-hosted',
     applyPipeline: false,
     json: false,
     demo: false,
@@ -74,11 +113,15 @@ function parseArgs(argv) {
   for (let i = 0; i < argv.length; i += 1) {
     const a = argv[i];
     if (a === '--source') args.source = argv[++i];
+    else if (a === '--preset') args.preset = argv[++i];
     else if (a === '--apply-pipeline') args.applyPipeline = true;
     else if (a === '--json') args.json = true;
     else if (a === '--demo') args.demo = true;
     else if (a === '--help' || a === '-h') args.help = true;
     else throw new Error(`Unknown argument: ${a}`);
+  }
+  if (args.preset && !PRESETS[args.preset]) {
+    throw new Error(`Unknown preset: ${args.preset} (use: ${Object.keys(PRESETS).join(', ')})`);
   }
   return args;
 }
@@ -158,44 +201,51 @@ async function loadStripeLinks() {
   return out;
 }
 
-function buildOutboundDraft(signal, stripe) {
+function preferredCta(signal, stripe) {
+  const preferPilot = /partner pilot/i.test(signal.offer || '');
   const diag = stripe.links['Agent Reliability Diagnostic'];
   const pilot = stripe.links['Partner Pilot'];
-  const linkLine =
-    diag && diag.ok
-      ? `Diagnostic ($499) when ready: ${diag.url}`
-      : pilot && pilot.ok
-        ? `Partner Pilot when ready: ${pilot.url}`
-        : 'Reply and we will scope — no broken pay link.';
+  const hard = stripe.links['AI Agent Hardening Sprint'];
+  if (preferPilot && pilot && pilot.ok) {
+    return `Partner Pilot ($3,000) when ready: ${pilot.url}`;
+  }
+  if (diag && diag.ok) return `Diagnostic ($499) when ready: ${diag.url}`;
+  if (hard && hard.ok) return `Hardening Sprint ($1,500) when ready: ${hard.url}`;
+  if (pilot && pilot.ok) return `Partner Pilot when ready: ${pilot.url}`;
+  return 'Reply and we will scope — no broken pay link.';
+}
+
+function buildOutboundDraft(signal, stripe) {
+  const linkLine = preferredCta(signal, stripe);
+  const xHook =
+    signal.xHook ||
+    'Agent platforms keep expanding what agents can coordinate.\n\nStill true: orchestration ≠ hard stop when loops do not finish.';
+  const emailHook =
+    signal.emailHook ||
+    'Enterprise and hosted agent platforms are scaling multi-agent work. Gap: enforcement when loops thrash machines or burn tokens.';
 
   const xReply = [
-    `Hosted Hermes finishing jobs in channels is the right shift.`,
-    ``,
-    `Still true: always-on ≠ hard stop. Runaway tool loops, sim freezes, token burn without outcome — that is an enforcement layer, not more hosting.`,
-    ``,
-    `We open-source the Mac freeze guard (mac-yolo-safeguards) and sell scoped diagnostics for teams putting Hermes on real work.`,
-    ``,
+    xHook,
+    '',
     linkLine,
-    `Public intake: https://github.com/IgorGanapolsky/mac-yolo-safeguards/issues/new?template=paid-hardening-inquiry.yml`,
+    'Public intake: https://github.com/IgorGanapolsky/mac-yolo-safeguards/issues/new?template=paid-hardening-inquiry.yml',
   ].join('\n');
 
   const emailBody = [
-    `Subject: Hosted Hermes / always-on agents — reliability diagnostic`,
-    ``,
-    `Hi —`,
-    ``,
-    `Saw the wave of "Hermes always online / finishes the job in your channels" (e.g. hosted agent platforms). That is real demand.`,
-    ``,
-    `Gap we keep hitting: hosting keeps the agent up; it does not stop unfinished-and-still-running failures (token loops, Mac load spikes, silent wrong tool chains).`,
-    ``,
-    `We ship the OSS Mac safeguards kit and a paid Agent Reliability Diagnostic for one failure pattern.`,
-    ``,
+    `Subject: ${signal.emailSubject || 'Agent reliability diagnostic'}`,
+    '',
+    'Hi —',
+    '',
+    emailHook,
+    '',
+    'We ship the OSS Mac safeguards kit and paid diagnostics / Partner Pilot for one repeated failure pattern.',
+    '',
     linkLine,
-    ``,
-    `If not relevant, reply "not now".`,
-    ``,
-    `— Igor`,
-    `https://github.com/IgorGanapolsky/mac-yolo-safeguards`,
+    '',
+    'If not relevant, reply "not now".',
+    '',
+    '— Igor',
+    'https://github.com/IgorGanapolsky/mac-yolo-safeguards',
   ].join('\n');
 
   return { xReply, emailBody, cta: linkLine };
@@ -204,15 +254,16 @@ function buildOutboundDraft(signal, stripe) {
 function writeBoard(signal, stripe, drafts, checkedAt) {
   ensureDir(REVENUE_DIR);
   const day = today();
-  const boardPath = path.join(REVENUE_DIR, `hermes-hosting-signal-${day}.md`);
+  const boardPath = path.join(REVENUE_DIR, `agent-market-signal-${day}.md`);
   const lines = [
-    `# Hermes hosting market signal — ${day}`,
+    `# Agent market signal — ${day}`,
     '',
     `Generated: ${checkedAt}`,
     '',
     '## Signal',
     '',
     `- **id:** ${signal.id}`,
+    `- **preset:** ${signal.preset || ''}`,
     `- **source:** ${signal.source}`,
     `- **author:** ${signal.author || ''}`,
     `- **summary:** ${signal.summary}`,
@@ -227,7 +278,13 @@ function writeBoard(signal, stripe, drafts, checkedAt) {
   }
   lines.push('', '## Outbound draft (X / reply)', '', '```', drafts.xReply, '```', '');
   lines.push('## Email draft', '', '```', drafts.emailBody, '```', '');
-  lines.push('## Positioning', '', 'See docs/HERMES-HOSTED-RELIABILITY.md', '');
+  lines.push(
+    '',
+    '## Positioning',
+    '',
+    `See ${signal.positioningDoc || 'docs/HERMES-HOSTED-RELIABILITY.md'}`,
+    '',
+  );
   fs.writeFileSync(boardPath, `${lines.join('\n')}\n`, { mode: 0o600 });
   return boardPath;
 }
@@ -255,7 +312,8 @@ function applyPipelineSeed(signal) {
   const slug = String(signal.id || 'signal')
     .replace(/[^a-zA-Z0-9_-]+/g, '-')
     .slice(0, 40);
-  const prospect = `hermes-hosting-${slug}`.slice(0, 48);
+  const prefix = signal.prospectPrefix || 'agent-signal';
+  const prospect = `${prefix}-${slug}`.slice(0, 48);
   const { headers, rows } = parseTsv(pipelinePath);
   const existing = rows.find((r) => r.prospect_label === prospect);
   if (existing) {
@@ -275,7 +333,7 @@ function applyPipelineSeed(signal) {
       route: signal.offer || 'Agent Reliability Diagnostic ($499)',
       gross_potential_usd: signal.gross_potential_usd || '499',
       last_touch: today(),
-      next_action: 'send_hosted_hermes_cta',
+      next_action: signal.nextAction || 'send_market_signal_cta',
       notes: `market-signal ${signal.source} | ${signal.gap || ''}`.slice(0, 350),
     };
     const line = headers.map((h) => (row[h] != null ? String(row[h]) : '')).join('\t');
@@ -301,7 +359,7 @@ function applyPipelineSeed(signal) {
         '--date',
         today(),
         '--next-action',
-        'send_hosted_hermes_cta',
+        signal.nextAction || 'send_market_signal_cta',
         '--note',
         `market-signal ${signal.source} | offer=${signal.offer || 'diagnostic'} gap=${(signal.gap || '').slice(0, 120)}`,
       ],
@@ -314,7 +372,7 @@ function applyPipelineSeed(signal) {
       after.rows[idx].route = signal.offer || 'Agent Reliability Diagnostic ($499)';
       after.rows[idx].gross_potential_usd = signal.gross_potential_usd || '499';
       after.rows[idx].stage = 'ready';
-      after.rows[idx].next_action = 'send_hosted_hermes_cta';
+      after.rows[idx].next_action = signal.nextAction || 'send_market_signal_cta';
       const body = [
         after.headers.join('\t'),
         ...after.rows.map((r) => after.headers.map((h) => r[h] != null ? r[h] : '').join('\t')),
@@ -334,14 +392,23 @@ function applyPipelineSeed(signal) {
 }
 
 function buildSignal(args) {
-  if (args.demo || !args.source) {
-    return { ...DEFAULT_SIGNAL };
+  const base = { ...(PRESETS[args.preset] || DEFAULT_SIGNAL), preset: args.preset || 'hermes-hosted' };
+  if (args.demo && !args.source) {
+    return base;
   }
-  // Stable id from status id when present
+  if (!args.source) {
+    return base;
+  }
+  // Stable id from status id or article slug when present
   const m = String(args.source).match(/status\/(\d+)/);
-  const id = m ? `x-${m[1]}` : `src-${String(args.source).slice(-24).replace(/\W+/g, '')}`;
+  const art = String(args.source).match(/article\/(\d+)/);
+  const id = m
+    ? `x-${m[1]}`
+    : art
+      ? `article-${art[1]}`
+      : `src-${String(args.source).slice(-24).replace(/\W+/g, '')}`;
   return {
-    ...DEFAULT_SIGNAL,
+    ...base,
     id,
     source: args.source,
   };
@@ -376,7 +443,7 @@ async function run(args) {
     boardPath,
     receiptPath,
     pipeline,
-    positioningDoc: 'docs/HERMES-HOSTED-RELIABILITY.md',
+    positioningDoc: signal.positioningDoc || 'docs/HERMES-HOSTED-RELIABILITY.md',
   };
 }
 
@@ -384,7 +451,7 @@ async function main() {
   const args = parseArgs(process.argv.slice(2));
   if (args.help) {
     process.stdout.write(
-      'Usage: node tools/hermes-hosting-market-signal.js [--source URL] [--apply-pipeline] [--demo] [--json]\n',
+      'Usage: node tools/hermes-hosting-market-signal.js [--preset hermes-hosted|enterprise-sdlc] [--source URL] [--apply-pipeline] [--demo] [--json]\n',
     );
     process.exit(0);
   }
@@ -417,6 +484,8 @@ module.exports = {
   applyPipelineSeed,
   run,
   DEFAULT_SIGNAL,
+  PRESETS,
+  preferredCta,
 };
 
 if (require.main === module) {
