@@ -68,12 +68,12 @@ describe('GatewayProfilePicker', () => {
       />,
     );
     expect(getByTestId('gateway-profile-item-mac_192_168_12_208')).toHaveTextContent(
-      /Needs tunnel \(cellular\)/,
+      /Needs home Wi‑Fi or Tailscale/,
     );
     expect(getByTestId('gateway-profile-item-mac_192_168_12_50')).toHaveTextContent(
-      /Needs tunnel/,
+      /Needs home Wi‑Fi or Tailscale/,
     );
-    expect(getByTestId('gateway-profile-item-mac_usb')).toHaveTextContent(/USB/);
+    expect(getByTestId('gateway-profile-item-mac_usb')).toHaveTextContent(/cable|Cable|This cable/i);
   });
 
   it('shows amber needs re-pair for active profile when auth fails', () => {

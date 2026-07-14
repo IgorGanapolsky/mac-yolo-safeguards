@@ -6306,9 +6306,8 @@ export default function ChatScreen() {
               testID="mac-picker-scroll"
             >
               <Text style={styles.modalSubtitle}>
-                USB cable is only the Mac this phone is plugged into right now. Tailscale works
-                from cellular. Or tap Find computers to search home Wi‑Fi and known Tailscale
-                addresses.
+                Pick the computer you want to use. If this phone is plugged into a Mac, that one
+                is preferred automatically. Tap Find computers if yours is missing.
               </Text>
               <View style={styles.macSetupCard} testID="mac-picker-setup-help">
                 <Text style={styles.macSetupTitle}>Missing your other machine?</Text>
@@ -6340,6 +6339,7 @@ export default function ChatScreen() {
                 scanResult={profileScanResult}
                 wifiConnected={wifiConnected}
                 showReachabilityHints={switchComputerProfiles.length > 1}
+                liveUsb={liveUsbGateway}
                 onSelect={async (profileId, profile) => {
                   haptics.light();
                   const ok = await selectGatewayProfile(profileId, {
