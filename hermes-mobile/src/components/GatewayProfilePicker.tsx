@@ -4,8 +4,10 @@ import type { GatewayProfile } from '../types/gatewayProfile';
 import type { LanScanProgress, LanScanResult } from '../types/lanScan';
 import MacScanProgressCard from './MacScanProgressCard';
 import {
+  isCablePluggedInForProfile,
   profileConnectionRouteDisplayLabel,
   profilePickerLines,
+  type LiveUsbPickerInput,
 } from '../utils/gatewayProfilePicker';
 import { isLoopbackGatewayUrl } from '../utils/gatewayUrlPolicy';
 import { colors } from '../theme/colors';
@@ -25,6 +27,8 @@ type GatewayProfilePickerProps = {
   scanResult?: LanScanResult | null;
   wifiConnected?: boolean;
   showReachabilityHints?: boolean;
+  /** Live cable probe — drives "plugged in" copy without a second radio per Mac. */
+  liveUsb?: LiveUsbPickerInput | null;
 };
 
 export default function GatewayProfilePicker({
@@ -40,6 +44,7 @@ export default function GatewayProfilePicker({
   scanResult = null,
   wifiConnected = true,
   showReachabilityHints = false,
+  liveUsb = null,
 }: GatewayProfilePickerProps) {
   const showScanCard = scanning || scanResult;
   const multiMac = profiles.length > 1;
@@ -59,9 +64,10 @@ export default function GatewayProfilePicker({
         <View style={styles.list} testID="gateway-profile-list">
       {profiles.map((profile) => {
         const isActive = profile.id === activeProfileId;
-        const lines = profilePickerLines(profile);
+        const cablePluggedIn = isCablePluggedInForProfile(profile, liveUsb);
+        const lines = profilePickerLines(profile, { cablePluggedIn });
         const routeHint = showRouteHints
-          ? profileConnectionRouteDisplayLabel(profile, wifiConnected)
+          ? profileConnectionRouteDisplayLabel(profile, wifiConnected, { cablePluggedIn })
           : null;
         const isUsb = isLoopbackGatewayUrl(profile.gatewayUrl);
         const meta = isActive
@@ -77,14 +83,12 @@ export default function GatewayProfilePicker({
               ? routeHint
                 ? `Connecting · ${routeHint}…`
                 : 'Connecting…'
-              : routeHint === 'Needs tunnel'
-                ? 'Needs tunnel (cellular)'
+              : routeHint === 'Needs home Wi‑Fi or Tailscale'
+                ? 'Needs home Wi‑Fi or Tailscale'
                 : 'Cannot reach this computer'
           : routeHint
-            ? isUsb
-              ? `${routeHint} · tap to switch`
-              : `${routeHint} · tap to switch`
-            : 'Tap to switch';
+            ? `${routeHint} · tap to use`
+            : 'Tap to use';
         const statusColor = isActive
           ? authNeedsRepair
             ? colors.warning

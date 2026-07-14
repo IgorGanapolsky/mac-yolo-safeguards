@@ -58,7 +58,7 @@ describe('gatewayProfilePicker', () => {
     expect(profilePickerLines(profiles[0]).detail).toBe('100.94.135.78:8642');
   });
 
-  it('shows live USB MacBook at top alongside Tailscale when adb reverse is active', () => {
+  it('collapses live USB + Tailscale into one MacBook row (cable preferred)', () => {
     const profiles = profilesForSwitchComputerPicker(
       [
         {
@@ -85,13 +85,17 @@ describe('gatewayProfilePicker', () => {
         },
       },
     );
-    expect(profiles.map((p) => p.id)).toEqual(['mac_igors_macbook_pro', 'mac_book_ts', 'mac_mini_ts']);
+    // One row per computer — never USB + Tailscale twins for the same MacBook.
+    expect(profiles.map((p) => p.label)).toEqual(['Igors-MacBook-Pro', 'Igors-Mac-mini']);
+    expect(profiles).toHaveLength(2);
     expect(profileConnectionRouteLabel(profiles[0], true)).toBe('USB');
-    expect(profilePickerLines(profiles[0]).title).toBe('Igors-MacBook-Pro');
+    expect(profilePickerLines(profiles[0], { cablePluggedIn: true }).title).toBe(
+      'Igors-MacBook-Pro',
+    );
     expect(profileConnectionRouteLabel(profiles[1], true)).toBe('Tailscale');
   });
 
-  it('shows saved USB loopback profile when live and matches plugged-in Mac', () => {
+  it('uses one saved USB loopback row when cable matches (no Tailscale twin row)', () => {
     const profiles = profilesForSwitchComputerPicker(
       [
         {
@@ -100,6 +104,13 @@ describe('gatewayProfilePicker', () => {
           gatewayUrl: 'http://127.0.0.1:8642',
           hostname: 'Igors-MacBook-Pro',
           addedAt: '2026-06-28T12:00:00Z',
+        },
+        {
+          id: 'mac_book_ts',
+          label: 'Igors-MacBook-Pro',
+          gatewayUrl: 'http://igors-macbook-pro.tail12aa33.ts.net:8642',
+          hostname: 'Igors-MacBook-Pro',
+          addedAt: '2026-06-28T12:00:30Z',
         },
         {
           id: 'mac_mini_ts',
@@ -116,7 +127,8 @@ describe('gatewayProfilePicker', () => {
         },
       },
     );
-    expect(profiles.map((p) => p.id)).toEqual(['mac_book_usb', 'mac_mini_ts']);
+    expect(profiles).toHaveLength(2);
+    expect(profiles.map((p) => p.label)).toEqual(['Igors-MacBook-Pro', 'Igors-Mac-mini']);
     expect(profileConnectionRouteLabel(profiles[0], true)).toBe('USB');
   });
 
@@ -483,8 +495,10 @@ describe('gatewayProfilePicker', () => {
     );
     expect(profiles[0].gatewayUrl).toContain('127.0.0.1');
     expect(profiles[0].label).toMatch(/MacBook-Pro/i);
-    expect(profilePickerLines(profiles[0]).detail).toMatch(/USB cable/i);
-    expect(profileConnectionRouteDisplayLabel(profiles[0], true)).toBe('USB cable');
+    expect(profilePickerLines(profiles[0], { cablePluggedIn: true }).detail).toMatch(/cable/i);
+    expect(profileConnectionRouteDisplayLabel(profiles[0], true, { cablePluggedIn: true })).toBe(
+      'Plugged in with this cable',
+    );
   });
 
   it('resolveProfileFromPickerRows returns synthesized USB for ensure-select', () => {

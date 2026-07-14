@@ -341,8 +341,8 @@ export default function ChatConnectionPanel({
         <View style={styles.savedBlock}>
           <Text style={styles.savedHeading}>Your computers</Text>
           <Text style={styles.savedHint}>
-            USB cable works only while plugged into that Mac. Tailscale works from cellular or
-            away from home Wi‑Fi.
+            Tap the computer to use. Plugged-in Macs are chosen automatically when the cable is
+            connected.
           </Text>
           <GatewayProfilePicker
             profiles={pickerProfiles}
@@ -352,6 +352,7 @@ export default function ChatConnectionPanel({
             onSelect={(profileId, profile) => onSelectProfile?.(profileId, profile)}
             wifiConnected={wifiConnected}
             showReachabilityHints={pickerProfiles.length > 1}
+            liveUsb={liveUsb}
           />
         </View>
       ) : null}
