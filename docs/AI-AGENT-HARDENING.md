@@ -10,6 +10,7 @@ The free `mac-yolo-safeguards` kit protects a single Mac from a narrow class of 
 ## Who this is for
 
 - Founders using Claude Code, Cursor, Codex, Antigravity, or similar agents daily.
+- Teams putting **Hermes (or other always-on / hosted agents)** on real work — channel delivery is not the same as **loop enforcement** (see [Hosted Hermes reliability gap](./HERMES-HOSTED-RELIABILITY.md)).
 - AI automation agencies shipping agentic workflows for clients.
 - Dev teams that have already seen runaway local processes, repeated hallucinated fixes, token loops, or unsafe YOLO-mode behavior.
 - Consultants who need a repeatable reliability layer before deploying AI-agent workflows for customers.
