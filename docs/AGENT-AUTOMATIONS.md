@@ -54,6 +54,14 @@ REVENUE_AUTO_SEND=0 node tools/revenue-autonomous-loop.js --json   # diagnose on
 
 **Honesty:** this loop never marks `paid` without Stripe charge proof (`record-cleared-payment.js`).
 
+### Zero-manual policy (2026-07-14)
+
+- **No human homework** in LaunchAgents (no ntfy that says “open Gmail and send”).
+- Gmail path: live API probe → if token dead, **Chrome Gmail compose** using logged-in session.
+- Partner Pilot follow-up agent calls `scripts/partner-pilot-followup-auto.sh` → same loop.
+- Reddit-only / no-email prospects are auto-closed as `lost` (channel exhausted), not left as agent homework.
+
+
 ## Manual one-shots (same tools)
 
 | Task | Command |
