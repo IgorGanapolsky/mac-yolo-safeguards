@@ -8,6 +8,7 @@ const { spawnSync } = require('child_process');
 const PINNED_VERSION = '0.19.10';
 const ALIBABA_HOSTS = new Set([
   'dashscope.aliyuncs.com',
+  'dashscope-intl.aliyuncs.com',
   'dashscope-us.aliyuncs.com',
   'coding.dashscope.aliyuncs.com',
   'coding-intl.dashscope.aliyuncs.com',
@@ -87,7 +88,8 @@ function endpointHost(baseUrl) {
 function inspectAuth(settings) {
   const selectedType = settings?.security?.auth?.selectedType || null;
   const model = process.env.OPENAI_MODEL || process.env.QWEN_MODEL || settings?.model?.name || null;
-  const models = settings?.modelProviders?.openai?.models || [];
+  const openaiProvider = settings?.modelProviders?.openai;
+  const models = Array.isArray(openaiProvider) ? openaiProvider : (openaiProvider?.models || []);
   const selectedModel = models.find((entry) => entry && entry.id === model) || null;
   const baseUrl = process.env.OPENAI_BASE_URL || selectedModel?.baseUrl || null;
   const envKey = selectedModel?.envKey || (
@@ -152,9 +154,11 @@ function doctor(json) {
 
 function validateArgs(args) {
   let hasYolo = false;
+  let hasModel = false;
   for (let index = 0; index < args.length; index += 1) {
     const argument = args[index];
     if (argument === '--yolo') hasYolo = true;
+    if (argument === '--model' || argument === '-m' || argument.startsWith('--model=')) hasModel = true;
     if (argument === '--yolo=false') throw new Error('refusing --yolo=false; use qwen for non-yolo mode');
     if (argument.startsWith('--approval-mode=')) {
       if (argument !== '--approval-mode=yolo') throw new Error(`refusing ${argument}`);
@@ -166,7 +170,7 @@ function validateArgs(args) {
       index += 1;
     }
   }
-  return hasYolo;
+  return { hasYolo, hasModel };
 }
 
 const args = process.argv.slice(2);
@@ -178,9 +182,9 @@ if (args[0] === '--doctor') {
   process.exit(doctor(args[1] === '--json'));
 }
 
-let hasYolo;
+let argumentState;
 try {
-  hasYolo = validateArgs(args);
+  argumentState = validateArgs(args);
 } catch (error) {
   process.stderr.write(`ali-yolo: ${error.message}\n`);
   process.exit(2);
@@ -193,7 +197,10 @@ if (!state.ok) {
   process.exit(1);
 }
 
-const result = spawnSync(state.binary, hasYolo ? args : ['--yolo', ...args], { stdio: 'inherit' });
+const launchArgs = [...args];
+if (!argumentState.hasModel) launchArgs.unshift('--model', state.model);
+if (!argumentState.hasYolo) launchArgs.unshift('--yolo');
+const result = spawnSync(state.binary, launchArgs, { stdio: 'inherit' });
 if (result.error) {
   process.stderr.write(`ali-yolo: ${result.error.message}\n`);
   process.exit(1);

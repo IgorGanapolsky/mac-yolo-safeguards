@@ -23,9 +23,9 @@ exit "${'${QWEN_EXIT:-0}'}"
 fs.chmodSync(qwen, 0o755);
 
 const settings = {
-  modelProviders: { openai: { protocol: 'openai', models: [{ id: 'qwen3.7-plus', baseUrl: 'https://dashscope-us.aliyuncs.com/compatible-mode/v1', envKey: 'DASHSCOPE_API_KEY' }] } },
+  modelProviders: { openai: { protocol: 'openai', models: [{ id: 'qwen3-coder-plus', baseUrl: 'https://dashscope-intl.aliyuncs.com/compatible-mode/v1', envKey: 'DASHSCOPE_API_KEY' }] } },
   security: { auth: { selectedType: 'openai' } },
-  model: { name: 'qwen3.7-plus' },
+  model: { name: 'qwen3-coder-plus' },
 };
 fs.writeFileSync(path.join(home, '.qwen/settings.json'), JSON.stringify(settings));
 
@@ -47,11 +47,15 @@ assert(!result.stdout.includes('test-only'));
 
 result = run(['-p', 'marker']);
 assert.equal(result.status, 0, result.stderr);
-assert.deepEqual(JSON.parse(fs.readFileSync(capture)), ['--yolo', '-p', 'marker']);
+assert.deepEqual(JSON.parse(fs.readFileSync(capture)), ['--yolo', '--model', 'qwen3-coder-plus', '-p', 'marker']);
 
 result = run(['--yolo', '-p', 'marker']);
 assert.equal(result.status, 0, result.stderr);
-assert.deepEqual(JSON.parse(fs.readFileSync(capture)), ['--yolo', '-p', 'marker']);
+assert.deepEqual(JSON.parse(fs.readFileSync(capture)), ['--model', 'qwen3-coder-plus', '--yolo', '-p', 'marker']);
+
+result = run(['--model', 'qwen3.7-plus-us', '-p', 'marker']);
+assert.equal(result.status, 0, result.stderr);
+assert.deepEqual(JSON.parse(fs.readFileSync(capture)), ['--yolo', '--model', 'qwen3.7-plus-us', '-p', 'marker']);
 
 result = run(['--approval-mode', 'default']);
 assert.equal(result.status, 2);
@@ -64,10 +68,16 @@ assert.equal(result.status, 1);
 doctor = JSON.parse(result.stdout);
 assert.equal(doctor.credentialPresent, false);
 
-settings.modelProviders.openai.models[0].baseUrl = 'https://api.openai.com/v1';
+settings.modelProviders.openai = settings.modelProviders.openai.models;
+fs.writeFileSync(path.join(home, '.qwen/settings.json'), JSON.stringify(settings));
+result = run(['--doctor', '--json']);
+assert.equal(result.status, 0);
+assert.equal(JSON.parse(result.stdout).endpointHost, 'dashscope-intl.aliyuncs.com');
+
+settings.modelProviders.openai[0].baseUrl = 'https://api.openai.com/v1';
 fs.writeFileSync(path.join(home, '.qwen/settings.json'), JSON.stringify(settings));
 result = run(['--doctor', '--json']);
 assert.equal(result.status, 1);
 assert(JSON.parse(result.stdout).errors.includes('Alibaba ModelStudio route is not configured'));
 
-console.log('ALI_YOLO_TESTS_PASS cases=7 fallback=false');
+console.log('ALI_YOLO_TESTS_PASS cases=9 fallback=false');
