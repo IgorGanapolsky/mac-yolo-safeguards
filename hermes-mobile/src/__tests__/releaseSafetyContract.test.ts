@@ -548,3 +548,31 @@ describe('Android security audit (Jul 2026)', () => {
     expect(pkg.scripts['privacy:scan']).toContain('scan-public-mobile-artifacts.js --source');
   });
 });
+
+/**
+ * 2026-07-14: Mini+Tailscale green but phone killed agent tool runs after 30s SSE silence
+ * ("Connected — chat stalled" / "Run stalled on your Mac"). Never reintroduce a sub-5m stream idle kill.
+ */
+describe('chat stream idle policy (no false stall on agent tools)', () => {
+  it('pins CHAT_STREAM_IDLE_MS floor at 5 minutes in source', () => {
+    const client = read('hermes-mobile/src/services/hermesGatewayClient.ts');
+    expect(client).toMatch(/CHAT_STREAM_IDLE_MS\s*=\s*5\s*\*\s*60\s*\*\s*1000/);
+    expect(client).not.toMatch(/CHAT_STREAM_IDLE_MS\s*=\s*30_000/);
+    expect(client).toMatch(/CHAT_STREAM_FIRST_BYTE_MS\s*=\s*90_000/);
+  });
+
+  it('pins first-token fail to ≥5 minutes (not 90s)', () => {
+    const stale = read('hermes-mobile/src/utils/runStaleDetection.ts');
+    expect(stale).toMatch(/RUN_NO_TOKEN_FAIL_MS\s*=\s*5\s*\*\s*60\s*\*\s*1000/);
+    expect(stale).not.toMatch(/RUN_NO_TOKEN_FAIL_MS\s*=\s*90_000/);
+  });
+
+  it('never shows Connected — chat stalled when Mac HTTP is ok', () => {
+    const gateway = read('hermes-mobile/src/utils/gatewayConnection.ts');
+    expect(gateway).not.toContain('Connected — chat stalled');
+    expect(gateway).toContain('Connected — tap ↑ to resend');
+    const outbound = read('hermes-mobile/src/utils/outboundDeliveryStatus.ts');
+    expect(outbound).not.toContain('Run stalled on your Mac');
+    expect(outbound.toLowerCase()).not.toMatch(/run stalled on your mac/);
+  });
+});

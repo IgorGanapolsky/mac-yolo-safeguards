@@ -50,7 +50,10 @@ function isRunStalledFailureReason(reason: string): boolean {
     lower.includes('no reply from computer') ||
     lower.includes('no live progress') ||
     lower.includes('stalled') ||
-    lower.includes('still working')
+    lower.includes('still working') ||
+    // 2026-07-14 stream idle wording (avoid "stalled" in thrown errors)
+    lower.includes('quiet too long') ||
+    lower.includes('no updates from your computer')
   );
 }
 

@@ -78,6 +78,15 @@ describe('outboundDeliveryStatus', () => {
     );
   });
 
+  it('maps quiet-stream errors to still-working resend hint (not "Run stalled")', () => {
+    const label = resolveOutboundFailureLabel(
+      'Chat stream quiet too long — no updates from your computer.',
+      true,
+    );
+    expect(label).toBe(`⚠ ${OUTBOUND_RUN_STALLED_HINT}`);
+    expect(label.toLowerCase()).not.toContain('run stalled on your mac');
+  });
+
   it('shows wrong-key guidance on bubble when auth failed', () => {
     expect(
       outboundDeliveryLabel('failed', {

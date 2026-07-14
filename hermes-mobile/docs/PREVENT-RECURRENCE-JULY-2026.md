@@ -2,7 +2,7 @@
 
 **Audience:** Igor's AI fleet (Cursor parent + workers, Claude Code, Codex, Gemini, Antigravity)  
 **Companion:** [MULTI-AGENT-VAULT-COORDINATION-JULY-2026.md](./MULTI-AGENT-VAULT-COORDINATION-JULY-2026.md)  
-**Last updated:** 2026-07-13
+**Last updated:** 2026-07-14
 
 This document maps **nine failures from the 2026-07-10 session** to durable prevention: automated guards, process rituals, and vault coordination. One pass — no duplicate research subagents.
 
@@ -21,6 +21,7 @@ This document maps **nine failures from the 2026-07-10 session** to durable prev
 | 7 | Continuous E2E skipped (`simruntime 159 > 80`) — no green proof | `run-continuous-e2e.sh` correctly skipped under load; agents still claimed "fixed" | Read `docs/proofs/continuous/latest.json`; if `e2e=skipped`, run `sim-runaway-guard.sh` or wait; **`HERMES_E2E_FORCE=1`** only after load drop; never ship on skipped proof | Process + honesty |
 | 8 | Ship claims without evidence ("are you sure?") | Skipped `agent-session-start.js --full`, ThumbGate recall, and `latest.json` | Honesty protocol in parent `AGENTS.md`; same-turn evidence (test output, JSON, SHA); `mcp__thumbgate__capture_memory_feedback` after false claims | **Process + RAG** |
 | 9 | Name repair overwritten + app dropped to launcher | Three concurrent `agent-session-start.js` runs each called `hermes-mobile-pair.js` + queued `install-phone-release.sh`; `openDeepLinkOnDevice` passed `&name=` unquoted to Android shell | **`tools/agent-phone-pipeline-lock.js`** mutex in `agent-session-start.js` + `hermes-mobile-pair.js`; defer pair when install job queued; single-quote URI in adb shell; no detached install fallback | **Automated lock** |
+| 10 | **Connected — chat stalled** / **Run stalled on your Mac** while Mini+Tailscale green (2026-07-14) | `CHAT_STREAM_IDLE_MS = 30s` aborted SSE during quiet agent tool runs; copy blamed “your Mac” | **`CHAT_STREAM_IDLE_MS ≥ 5m`**, `RUN_NO_TOKEN_FAIL_MS ≥ 5m`, ban “Connected — chat stalled” copy; unit + **`releaseSafetyContract`** pins; never ship on unit alone — need phone release after merge | **Automated unit + release-safety contract** |
 | 10 | Dual continuous E2E thrash + poisoned `latest.json` (2026-07-13) | Multiple agents ran `run-continuous-e2e.sh --once` + bare Maestro on same USB phone; worktree without `node_modules` wrote `unit:fail` / `e2e:skipped` over shared proof; vault handoff skipped | **`flock` cycle lock** on all continuous modes; refuse cycle if jest missing (**do not write** `latest.json`); skip E2E if `maestro.cli.AppKt` already holds device; vault claim USB/Maestro before kick; one continuous owner | **Automated lock + vault** |
 
 ---
@@ -108,6 +109,8 @@ bash hermes-mobile/scripts/agent-pre-asc-edit.sh      # runs verify-asc-listing 
 | `e2e=skipped` in `latest.json` not escalated | Ship theater | `verify-continuous-e2e.sh` warn + CEO brief flag when skipped >30m |
 | No pre-commit on ASC note **draft files** in repo | Accidental commit of secrets in draft md | Optional: guard staged `*review*notes*` paths |
 | Sim stale branding | Wrong splash on sim | Document: `xcrun simctl uninstall` + clean prebuild in install runbook |
+| Sub-5m chat stream idle kill | False “stalled” mid-tool on healthy Mac | Closed: `releaseSafetyContract` + `hermesGatewayClient` idle floor tests (2026-07-14) |
+| Gateway tool keepalives | Quiet tools still look dead past 5m | Open: emit `run.progress` heartbeats every ~15s while tools run |
 
 ---
 
