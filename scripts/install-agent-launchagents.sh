@@ -52,7 +52,13 @@ plists=(
   com.igor.hermes-relay-worker.plist
   com.igor.revenue-autonomous-loop.plist
   com.igor.smart-ops.plist
+  com.igor.hermes-prevention-watchdog.plist
 )
+
+# CDP browser health (separate label namespace) — heal, never disable browser toolset
+if [[ -x "${repo_root}/scripts/install-hermes-chrome-cdp.sh" ]]; then
+  bash "${repo_root}/scripts/install-hermes-chrome-cdp.sh" || echo "WARN: chrome-cdp install incomplete" >&2
+fi
 
 install_one() {
   local template="$1"
