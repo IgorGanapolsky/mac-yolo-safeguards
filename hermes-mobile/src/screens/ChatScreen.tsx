@@ -508,6 +508,8 @@ export default function ChatScreen() {
   
   const [isLoadingSessions, setIsLoadingSessions] = useState(false);
   const [isLoadingMessages, setIsLoadingMessages] = useState(false);
+  /** Session id being opened from Threads/Recents — row-level spinner until transcript lands. */
+  const [openingSessionId, setOpeningSessionId] = useState<string | null>(null);
   const [isSending, setIsSending] = useState(false);
   /** True while Start fresh chat is forking/stopping — show spinner so tap isn't silent. */
   const [isStartingFreshChat, setIsStartingFreshChat] = useState(false);
@@ -2161,6 +2163,10 @@ export default function ChatScreen() {
           refreshQueuedRef.current = true;
           if (options?.force || options?.manual) {
             refreshQueuedForceRef.current = true;
+            // Thread picks queue behind a poll — still show spinner so the UI does not look dead for 10s.
+            if (!options?.background) {
+              setIsLoadingMessages(true);
+            }
           }
         }
         return;
@@ -2171,6 +2177,7 @@ export default function ChatScreen() {
       const finishRefresh = () => {
         setIsLoadingMessages(false);
         setIsPullRefreshing(false);
+        setOpeningSessionId(null);
         refreshInFlightRef.current = false;
         if (!refreshQueuedRef.current) {
           return;
@@ -2267,7 +2274,9 @@ export default function ChatScreen() {
       try {
         if (options?.manual) {
           setIsPullRefreshing(true);
-        } else if (!options?.background && messagesRef.current.length === 0) {
+        } else if (!options?.background) {
+          // Always show transcript loading for foreground opens (thread list / recents).
+          // Previously only when messagesRef was empty — race with stale ref left the UI blank ~10s.
           setIsLoadingMessages(true);
         }
         setErrorMessage(null);
@@ -5107,6 +5116,9 @@ export default function ChatScreen() {
         ]);
         return;
       }
+      // Immediate feedback — transcript fetch can take several seconds over Tailscale.
+      setOpeningSessionId(session.id);
+      setIsLoadingMessages(true);
       setRecentChatsDismissed(false);
       setSessionModalVisible(false);
       skipSessionAutoSelectRef.current = false;
@@ -5635,9 +5647,12 @@ export default function ChatScreen() {
         ) : null}
 
         {!showMacConnectionHelp && (isLoadingMessages && messages.length === 0 ? (
-          <View style={styles.loadingContainer}>
+          <View style={styles.loadingContainer} testID="thread-open-loading">
             <ActivityIndicator size="large" color={colors.primary} />
-            <Text style={styles.loadingText}>Fetching session history...</Text>
+            <Text style={styles.loadingText}>Opening thread…</Text>
+            <Text style={styles.loadingSubtext} testID="thread-open-loading-detail">
+              Loading messages from your computer
+            </Text>
           </View>
         ) : (
           <View style={styles.chatListSection} testID="chat-list-section">
@@ -6089,6 +6104,8 @@ export default function ChatScreen() {
                         onPress={() => {
                           void handleSelectAgentThread(item);
                         }}
+                        disabled={openingSessionId === item.id}
+                        accessibilityState={{ busy: openingSessionId === item.id }}
                       >
                         <View style={styles.sessionItemTitleRow}>
                           <ExpandableThreadTitle
@@ -6097,7 +6114,14 @@ export default function ChatScreen() {
                             style={[styles.sessionItemTitle, isActive && styles.sessionItemTitleActive]}
                             testID={`threads-modal-title-${item.id}`}
                           />
-                          {sourceLabel ? (
+                          {openingSessionId === item.id ? (
+                            <ActivityIndicator
+                              size="small"
+                              color={colors.primary}
+                              testID={`threads-modal-opening-${item.id}`}
+                              style={styles.sessionOpeningSpinner}
+                            />
+                          ) : sourceLabel ? (
                             <Text style={styles.sessionSourcePill}>{sourceLabel}</Text>
                           ) : null}
                         </View>
@@ -6445,6 +6469,12 @@ const styles = StyleSheet.create({
   loadingText: {
     color: colors.textMuted,
     fontSize: 13,
+    fontWeight: '600',
+  },
+  loadingSubtext: {
+    color: colors.textMuted,
+    fontSize: 12,
+    opacity: 0.85,
   },
   messageList: {
     paddingHorizontal: 16,
@@ -6897,6 +6927,9 @@ const styles = StyleSheet.create({
     borderRadius: 6,
     paddingHorizontal: 6,
     paddingVertical: 2,
+  },
+  sessionOpeningSpinner: {
+    marginTop: 2,
   },
   sessionSectionHeader: {
     fontSize: 11,

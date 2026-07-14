@@ -1990,6 +1990,97 @@ describe('ChatScreen', () => {
     alertSpy.mockRestore();
   });
 
+  it('shows Opening thread spinner immediately while transcript loads', async () => {
+    const { listSessions, listMessages } = jest.requireMock('../services/hermesChatClient') as {
+      listSessions: jest.Mock;
+      listMessages: jest.Mock;
+    };
+    const { chatProjects } = jest.requireMock('../services/chatProjects') as {
+      chatProjects: { load: jest.Mock; save: jest.Mock };
+    };
+
+    let resolveMessages: (value: unknown) => void = () => {};
+    const messagesGate = new Promise((resolve) => {
+      resolveMessages = resolve;
+    });
+
+    listSessions.mockResolvedValue([
+      {
+        id: 'sess_slow',
+        title: 'Slow thread open',
+        last_active_at: '2026-07-13T12:00:00Z',
+      },
+    ]);
+    listMessages.mockImplementation(async () => {
+      await messagesGate;
+      return [
+        { role: 'user', content: 'hello slow', id: 'm-u' },
+        { role: 'assistant', content: 'loaded after wait', id: 'm-a' },
+      ];
+    });
+    chatProjects.load.mockResolvedValue({
+      projects: [
+        {
+          id: 'demo-hermes-mobile',
+          name: 'hermes-mobile',
+          workspacePath: '~/workspace/git/igor/mac-yolo-safeguards/hermes-mobile',
+          sessionIds: ['sess_slow'],
+          activeSessionId: null,
+        },
+      ],
+      sessionProjectMap: { sess_slow: 'demo-hermes-mobile' },
+      sessionLabels: {},
+      activeProjectId: 'demo-hermes-mobile',
+    });
+
+    Object.assign(mockGatewayState, {
+      connectionState: 'connected',
+      effectiveGatewayUrl: 'http://localhost:8642',
+      health: {
+        ok: true,
+        level: 'green',
+        hostname: 'Igors-MacBook-Pro.local',
+        localIp: '10.0.0.1',
+        directGatewayReachable: true,
+        checkedAt: '2026-07-13T19:00:00Z',
+      },
+      settings: {
+        demoMode: false,
+        connectionMode: 'gateway',
+        gatewayUrl: 'http://localhost:8642',
+        cloudUrl: 'https://hermesmobile-cloud.fly.dev',
+        approvalPolicy: 'balanced',
+      },
+      activeGatewayProfile: {
+        id: 'mac_igor',
+        label: 'Igors-MacBook-Pro',
+        gatewayUrl: 'http://localhost:8642',
+        localIp: '10.0.0.1',
+        addedAt: '2026-06-18T00:00:00Z',
+      },
+    });
+
+    const { getByTestId, queryByTestId, findByText } = await renderChatScreen();
+
+    await waitFor(() => {
+      expect(getByTestId('recent-chat-sess_slow')).toBeTruthy();
+    });
+
+    fireEvent.press(getByTestId('recent-chat-sess_slow'));
+
+    await waitFor(() => {
+      expect(getByTestId('thread-open-loading')).toBeTruthy();
+    });
+    expect(getByTestId('thread-open-loading-detail')).toBeTruthy();
+
+    resolveMessages(undefined);
+
+    expect(await findByText('loaded after wait')).toBeTruthy();
+    await waitFor(() => {
+      expect(queryByTestId('thread-open-loading')).toBeNull();
+    });
+  });
+
   it('switches session and loads messages when a recent chat row is tapped', async () => {
     const { listSessions, listMessages } = jest.requireMock('../services/hermesChatClient') as {
       listSessions: jest.Mock;
