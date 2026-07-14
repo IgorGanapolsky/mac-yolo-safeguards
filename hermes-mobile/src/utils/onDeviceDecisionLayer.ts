@@ -67,54 +67,6 @@ export function rankReachabilityRoutes(
     .sort((left, right) => right.score - left.score);
 }
 
-export type OfflineIntent = 'approve' | 'reject' | 'chat';
-
-export type OfflineIntentInput = {
-  text: string;
-  hasPendingApproval: boolean;
-};
-
-export type OfflineIntentPrediction = {
-  intent: OfflineIntent;
-  confidence: number;
-  canExecuteLocally: boolean;
-  next: 'resolve_pending' | 'show_no_pending_approval' | 'queue_chat';
-};
-
-const APPROVE_INTENT = /^(?:approve|approved|allow|go ahead|yes[, ]+proceed|proceed)(?:\s+(?:it|this|once|now))?[.!]?$/i;
-const REJECT_INTENT = /^(?:reject|deny|decline|do not proceed|don't proceed|stop)(?:\s+(?:it|this|once|now))?[.!]?$/i;
-
-function classifyOfflineIntent(input: OfflineIntentInput): OfflineIntentPrediction {
-  const text = input.text.trim().replace(/\s+/g, ' ');
-  const intent: OfflineIntent = APPROVE_INTENT.test(text)
-    ? 'approve'
-    : REJECT_INTENT.test(text)
-      ? 'reject'
-      : 'chat';
-
-  if (intent === 'chat') {
-    return {
-      intent,
-      confidence: text ? 0.9 : 0.55,
-      canExecuteLocally: false,
-      next: 'queue_chat',
-    };
-  }
-
-  return {
-    intent,
-    confidence: 0.99,
-    canExecuteLocally: input.hasPendingApproval,
-    next: input.hasPendingApproval ? 'resolve_pending' : 'show_no_pending_approval',
-  };
-}
-
-export const offlineIntentModel: OnDeviceModel<OfflineIntentInput, OfflineIntentPrediction> = {
-  id: 'hermes_offline_intent_rules',
-  version: 1,
-  predict: classifyOfflineIntent,
-};
-
 export type ConnectionCopy = {
   title: string;
   detail: string;
