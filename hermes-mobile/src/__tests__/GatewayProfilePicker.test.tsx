@@ -76,6 +76,35 @@ describe('GatewayProfilePicker', () => {
     expect(getByTestId('gateway-profile-item-mac_usb')).toHaveTextContent(/cable|Cable|This cable/i);
   });
 
+  it('passes synthesized live USB profile on tap when cable is plugged in', () => {
+    const liveUsb = {
+      id: 'mac_127_0_0_1_igors_macbook_pro',
+      label: 'Igors-MacBook-Pro',
+      gatewayUrl: 'http://127.0.0.1:8642',
+      hostname: 'Igors-MacBook-Pro.local',
+      localIp: '127.0.0.1',
+      addedAt: '2026-07-14T05:00:00.000Z',
+    };
+    const onSelect = jest.fn();
+    const { getByTestId } = render(
+      <GatewayProfilePicker
+        profiles={[liveUsb, profiles[1]]}
+        activeProfileId="mac_192_168_12_50"
+        onSelect={onSelect}
+        liveUsb={{ reachable: true, hostname: 'Igors-MacBook-Pro.local' }}
+        showReachabilityHints
+      />,
+    );
+    fireEvent.press(getByTestId(`select-gateway-profile-${liveUsb.id}`));
+    expect(onSelect).toHaveBeenCalledWith(
+      liveUsb.id,
+      expect.objectContaining({
+        gatewayUrl: 'http://127.0.0.1:8642',
+        label: 'Igors-MacBook-Pro',
+      }),
+    );
+  });
+
   it('shows amber needs re-pair for active profile when auth fails', () => {
     const { getByTestId } = render(
       <GatewayProfilePicker
