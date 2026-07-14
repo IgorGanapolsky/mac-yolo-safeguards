@@ -124,6 +124,13 @@ import {
   findDeferredPlaceholderAfterLastUser,
 } from '../utils/chatMessageMerge';
 import {
+  dedupeAdjacentOptimisticUserBubbles,
+  findPendingOptimisticUserBubble,
+  isOutboundTurnStillPending,
+  shouldIgnoreDuplicateOutboundSend,
+  shouldSkipQueueOutboundBubbleCommit,
+} from '../utils/outboundSendDedupe';
+import {
   STALLED_SEND_AUTO_RECOVER_MS,
   STALLED_SEND_RECOVERING_HINT,
   clearResolvedFailedOutboundStatuses,
@@ -666,6 +673,9 @@ export default function ChatScreen() {
   /** AsyncStorage remount snapshot — survives JS teardown when Android kills the activity. */
   const persistedPendingRef = useRef<HermesMessage[]>([]);
   const outboundMessageSeqRef = useRef(0);
+  const lastCommittedOutboundBodyRef = useRef<string | null>(null);
+  const activeOutboundSendBodyRef = useRef<string | null>(null);
+  const pendingOutboundClaimRef = useRef<string | null>(null);
   const activeAssistantIdRef = useRef<string | null>(null);
   const activeAssistantTextRef = useRef<string>('');
   const isLoadingMessagesRef = useRef(false);
@@ -771,6 +781,8 @@ export default function ChatScreen() {
   const [pinnedOutboundStatus, setPinnedOutboundStatus] = useState<'pending' | 'sent' | 'failed'>(
     'pending',
   );
+  const pinnedOutboundTextRef = useRef<string | null>(null);
+  const pinnedOutboundStatusRef = useRef<'pending' | 'sent' | 'failed'>('pending');
   const [connectingStuck, setConnectingStuck] = useState(false);
   const connectingSinceRef = useRef<number | null>(null);
 
@@ -781,10 +793,18 @@ export default function ChatScreen() {
   currentSessionRef.current = currentSession;
   telegramReplySessionIdRef.current = telegramReplySessionId;
   runProgressRef.current = runProgress;
+  pinnedOutboundTextRef.current = pinnedOutboundText;
+  pinnedOutboundStatusRef.current = pinnedOutboundStatus;
+
+  const isOutboundTurnPendingForText = (normalizedIncoming: string): boolean =>
+    pinnedOutboundStatusRef.current === 'pending' &&
+    Boolean(pinnedOutboundTextRef.current?.trim()) &&
+    normalizeMessageText(pinnedOutboundTextRef.current ?? '') === normalizedIncoming.trim();
 
   const commitMessages = useCallback((updater: React.SetStateAction<HermesMessage[]>) => {
     setMessages((prev) => {
-      const next = typeof updater === 'function' ? updater(prev) : updater;
+      const rawNext = typeof updater === 'function' ? updater(prev) : updater;
+      const next = dedupeAdjacentOptimisticUserBubbles(rawNext);
       messagesRef.current = next;
       return next;
     });
@@ -3785,6 +3805,41 @@ export default function ChatScreen() {
     haptics.selection();
   }, []);
 
+  const outboundSendStillPending =
+    pinnedOutboundStatus === 'pending' && Boolean(pinnedOutboundText?.trim());
+
+  const shouldBlockDuplicateOutboundSend = useCallback(
+    (rawText: string, attachments: ComposerAttachment[] = composerAttachmentsRef.current) => {
+      const display = formatAttachmentBubbleText(rawText.trim(), attachments);
+      const normalized = normalizeMessageText(display);
+      if (!normalized) {
+        return false;
+      }
+      return shouldIgnoreDuplicateOutboundSend({
+        isSending: isSendingRef.current,
+        normalizedIncoming: normalized,
+        normalizedLastCommitted: lastCommittedOutboundBodyRef.current,
+        normalizedActiveSend: activeOutboundSendBodyRef.current,
+        normalizedPendingClaim: pendingOutboundClaimRef.current,
+        outboundStillPending: isOutboundTurnPendingForText(normalized),
+      });
+    },
+    [],
+  );
+
+  const shouldBlockComposerSend = useCallback(
+    (rawText: string, attachments: ComposerAttachment[] = composerAttachmentsRef.current) => {
+      if (isSendingRef.current || queuedOutboundCount > 0) {
+        return true;
+      }
+      if (pinnedOutboundStatusRef.current === 'pending' && pinnedOutboundTextRef.current?.trim()) {
+        return true;
+      }
+      return shouldBlockDuplicateOutboundSend(rawText, attachments);
+    },
+    [queuedOutboundCount, shouldBlockDuplicateOutboundSend],
+  );
+
   const handleSendMessage = async (composerLatest?: string) => {
     const attachments = [...composerAttachmentsRef.current];
     const composerText = composerLatest ?? inputValueRef.current;
@@ -3819,8 +3874,12 @@ export default function ChatScreen() {
     }
 
     const userText = action.kind === 'send' ? action.text : composerText.trim();
+    if (shouldBlockComposerSend(userText, attachments)) {
+      return;
+    }
 
     const displayText = formatAttachmentBubbleText(userText, attachments);
+    pendingOutboundClaimRef.current = normalizeMessageText(displayText);
     lastSentComposerTextRef.current = displayText;
     sendClearSuppressRef.current = true;
     inputValueRef.current = '';
@@ -3837,6 +3896,7 @@ export default function ChatScreen() {
         ? { content: userText.trim() as ChatMessageContent }
         : await prepareChatMessageContent(userText, attachments);
     if (prepared.error) {
+      pendingOutboundClaimRef.current = null;
       setErrorMessage(prepared.error);
       haptics.warning();
       sendClearSuppressRef.current = false;
@@ -3853,6 +3913,7 @@ export default function ChatScreen() {
       attachments,
     });
     if (!accepted) {
+      pendingOutboundClaimRef.current = null;
       sendClearSuppressRef.current = false;
       lastSentComposerTextRef.current = '';
       inputValueRef.current = userText;
@@ -3866,18 +3927,26 @@ export default function ChatScreen() {
   const handleSendMessageRef = useRef(handleSendMessage);
   handleSendMessageRef.current = handleSendMessage;
 
-  const handleSubmit = useCallback((latestText?: string) => {
-    const text = (latestText ?? inputValueRef.current).trim();
-    if (text || composerHasSendableContent(text, composerAttachmentsRef.current)) {
+  const handleSend = useCallback(
+    (latestText?: string) => {
+      const composerText = latestText ?? inputValueRef.current;
+      if (!composerHasSendableContent(composerText, composerAttachmentsRef.current)) {
+        return;
+      }
+      if (shouldBlockComposerSend(composerText)) {
+        return;
+      }
       void handleSendMessageRef.current(latestText);
-      return;
-    }
-    void handleSendMessageRef.current(latestText);
-  }, []);
+    },
+    [shouldBlockDuplicateOutboundSend],
+  );
 
-  const handleSend = useCallback((latestText?: string) => {
-    void handleSendMessageRef.current(latestText);
-  }, []);
+  const handleSubmit = useCallback(
+    (latestText?: string) => {
+      handleSend(latestText);
+    },
+    [handleSend],
+  );
 
   const drainOutboundQueue = () => {
     const next = outboundQueueRef.current.shift();
@@ -4165,6 +4234,7 @@ export default function ChatScreen() {
 
   const commitOutboundUserBubble = (text: string): string => {
     const trimmed = text.trim();
+    lastCommittedOutboundBodyRef.current = normalizeMessageText(trimmed);
     outboundMessageSeqRef.current += 1;
     const sentAt = new Date().toISOString();
     const userMessage: HermesMessage = {
@@ -4185,6 +4255,8 @@ export default function ChatScreen() {
       return next;
     });
     setRecentChatsDismissed(true);
+    pinnedOutboundTextRef.current = trimmed;
+    pinnedOutboundStatusRef.current = 'pending';
     setPinnedOutboundText(trimmed);
     setPinnedOutboundSentAt(sentAt);
     setPinnedOutboundStatus('pending');
@@ -4211,6 +4283,19 @@ export default function ChatScreen() {
     const gatewayMessage = outboundExtras?.gatewayContent ?? typed;
     if (!displayText) return false;
 
+    const normalizedDisplay = normalizeMessageText(displayText);
+    if (
+      shouldIgnoreDuplicateOutboundSend({
+        isSending: isSendingRef.current,
+        normalizedIncoming: normalizedDisplay,
+        normalizedLastCommitted: lastCommittedOutboundBodyRef.current,
+        normalizedActiveSend: activeOutboundSendBodyRef.current,
+        outboundStillPending: isOutboundTurnPendingForText(normalizedDisplay),
+      })
+    ) {
+      return true;
+    }
+
     if (!isProgrammatic && !isDemo) {
       const session = currentSessionRef.current;
       const megaLevel = classifyMegaSession(session);
@@ -4230,9 +4315,24 @@ export default function ChatScreen() {
 
     if (isSendingRef.current) {
       const trimmed = userText.trim();
+      const normalizedQueued = normalizeMessageText(trimmed);
+      if (
+        outboundQueueRef.current.some(
+          (queued) => normalizeMessageText(queued) === normalizedQueued,
+        )
+      ) {
+        return true;
+      }
       outboundQueueRef.current.push(trimmed);
       setQueuedOutboundCount(outboundQueueRef.current.length);
-      commitOutboundUserBubble(trimmed);
+      if (
+        !shouldSkipQueueOutboundBubbleCommit({
+          normalizedQueued,
+          normalizedLastCommitted: lastCommittedOutboundBodyRef.current,
+        })
+      ) {
+        commitOutboundUserBubble(trimmed);
+      }
       if (!isProgrammatic) {
         haptics.light();
       }
@@ -4241,6 +4341,8 @@ export default function ChatScreen() {
 
     isSendingRef.current = true;
     setIsSending(true);
+    activeOutboundSendBodyRef.current = normalizedDisplay;
+    pendingOutboundClaimRef.current = null;
 
     let outboundLockReleased = false;
     const releaseOutboundSendLock = () => {
@@ -4250,6 +4352,7 @@ export default function ChatScreen() {
       outboundLockReleased = true;
       isSendingRef.current = false;
       setIsSending(false);
+      activeOutboundSendBodyRef.current = null;
       drainOutboundQueue();
     };
 
@@ -4403,7 +4506,9 @@ export default function ChatScreen() {
       committedUserMessageId = null;
     };
 
-    committedUserMessageId = commitOutboundUserBubble(displayText);
+    committedUserMessageId =
+      findPendingOptimisticUserBubble(messagesRef.current, displayText)?.id ??
+      commitOutboundUserBubble(displayText);
     outboundUserBubbleCommitted = true;
 
     sendStartedAtRef.current = Date.now();
@@ -4605,6 +4710,10 @@ export default function ChatScreen() {
     const markOutboundBubbleStatus = (status: 'sent' | 'failed', failureReason?: string) => {
       if (!committedUserMessageId) {
         return;
+      }
+      pinnedOutboundStatusRef.current = status;
+      if (status === 'failed') {
+        pinnedOutboundTextRef.current = null;
       }
       setPinnedOutboundStatus(status);
       if (status === 'failed') {
@@ -6368,6 +6477,11 @@ export default function ChatScreen() {
           sendMuted={
             megaSessionSendHardBlocked ||
             !composerHasSendableContent(inputValue, composerAttachments)
+          }
+          sendDisabled={
+            isSending ||
+            queuedOutboundCount > 0 ||
+            outboundSendStillPending
           }
           onSend={handleSend}
           showStop={isRunActive}
