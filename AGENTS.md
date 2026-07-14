@@ -113,6 +113,7 @@ OpenMono `/ship-claim` is the local verifier gate; ThumbGate is the cross-sessio
 
 - **Never write secrets to tracked files.** No PATs, no API keys, no passwords. If a credential lands in chat, flag it for rotation and refuse to use it.
 - **Authenticate via the existing keychain / env** (`gh auth status`, env vars). Don't accept pasted-in credentials.
+- **Never re-ask Igor for social/browser passwords or “which account?”** (user directive 2026-07-14). Use the already-signed-in **Google Chrome** session. Default Google SSO: `iganapolsky@gmail.com`. LinkedIn: profile **Igor Ganapolsky** via Chrome — skills `use-existing-browser-sessions` + `publish-linkedin-via-chrome`. Skills store emails + procedure only — **never** passwords.
 - **Hard-to-reverse actions require explicit consent.** Deleting files, force-pushing, merging PRs, killing processes the user didn't name — confirm first.
 - **`business_os/` is gitignored internal ops data.** Do not modify without explicit per-file consent.
 
