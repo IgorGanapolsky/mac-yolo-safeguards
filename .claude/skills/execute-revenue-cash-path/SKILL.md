@@ -19,6 +19,9 @@ description: >
 ```bash
 cd /Users/igorganapolsky/workspace/git/igor/mac-yolo-safeguards
 
+# 0) Prefer autonomous loop (LaunchAgent every 4h + session-start)
+node tools/revenue-autonomous-loop.js --auto-send --json
+
 # 1) Funnel truth (private data only — never *.example.tsv)
 node tools/pipeline-data-science.js
 node tools/payment-readiness.js
