@@ -89,6 +89,29 @@ describe('setupDeepLink', () => {
     ]);
   });
 
+  it('parses a secretless pairCode + pairServer deep link without requiring a gateway url', () => {
+    const parsed = parseSetupDeepLink(
+      'hermes://setup?pairCode=AB23CD45&pairServer=http://192.168.1.5:8765&name=Mac-Mini',
+    );
+    expect(parsed).toEqual({
+      gatewayUrl: undefined,
+      macName: 'Mac-Mini',
+      pairingCode: 'AB23CD45',
+      pairServerUrl: 'http://192.168.1.5:8765',
+    });
+    // Never embeds a raw key alongside the secretless code.
+    expect(parsed?.apiKey).toBeUndefined();
+  });
+
+  it('never confuses the secretless pairCode with the existing relay code/relay params', () => {
+    const parsed = parseSetupDeepLink(
+      'hermes://setup?url=http://192.168.1.5:8642&key=sk-legacy&relay=moon-dust&pairCode=ZZ99YY88&pairServer=http://192.168.1.5:8765',
+    );
+    expect(parsed?.relayCode).toBe('MOON-DUST');
+    expect(parsed?.pairingCode).toBe('ZZ99YY88');
+    expect(parsed?.apiKey).toBe('sk-legacy');
+  });
+
   it('returns null for non-setup links', () => {
     expect(parseSetupDeepLink('hermes://leash/approve')).toBeNull();
   });
