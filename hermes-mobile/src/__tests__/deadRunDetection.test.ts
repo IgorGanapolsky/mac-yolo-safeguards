@@ -23,21 +23,23 @@ describe('deadRunDetection', () => {
       shouldSurfaceDeadRunEnded({
         clientBusy: true,
         transcriptUnchangedMs: DEAD_RUN_TRANSCRIPT_STALE_MS,
-        activeAgentCount: 0,
         gatewayHasLiveRun: false,
       }),
     ).toBe(true);
   });
 
-  it('does not surface while agents are still active', () => {
+  it('surfaces even while unrelated Obsidian agents are active elsewhere on the gateway', () => {
+    // Regression: activeAgentCount used to come from the global
+    // /v1/obsidian/agents list (every agent on the Mac, not this run), so any
+    // unrelated scheduled job/automation running elsewhere permanently blocked
+    // dead-run detection for this session — Send stayed grayed forever.
     expect(
       shouldSurfaceDeadRunEnded({
         clientBusy: true,
         transcriptUnchangedMs: DEAD_RUN_TRANSCRIPT_STALE_MS + 1,
-        activeAgentCount: 1,
         gatewayHasLiveRun: false,
       }),
-    ).toBe(false);
+    ).toBe(true);
   });
 
   it('does not surface while gateway still reports a live run', () => {
@@ -45,7 +47,6 @@ describe('deadRunDetection', () => {
       shouldSurfaceDeadRunEnded({
         clientBusy: true,
         transcriptUnchangedMs: DEAD_RUN_TRANSCRIPT_STALE_MS + 1,
-        activeAgentCount: 0,
         gatewayHasLiveRun: true,
       }),
     ).toBe(false);
@@ -56,7 +57,6 @@ describe('deadRunDetection', () => {
       shouldSurfaceDeadRunEnded({
         clientBusy: true,
         transcriptUnchangedMs: DEAD_RUN_TRANSCRIPT_STALE_MS - 1,
-        activeAgentCount: 0,
         gatewayHasLiveRun: false,
       }),
     ).toBe(false);
@@ -67,7 +67,6 @@ describe('deadRunDetection', () => {
       shouldSurfaceDeadRunEnded({
         clientBusy: false,
         transcriptUnchangedMs: DEAD_RUN_TRANSCRIPT_STALE_MS + 60_000,
-        activeAgentCount: 0,
         gatewayHasLiveRun: false,
       }),
     ).toBe(false);

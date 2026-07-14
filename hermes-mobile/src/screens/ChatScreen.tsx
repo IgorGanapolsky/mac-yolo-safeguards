@@ -705,7 +705,6 @@ export default function ChatScreen() {
   const sendProgressSnapshotRef = useRef<RunProgressState | null>(null);
   const transcriptDigestRef = useRef('');
   const lastTranscriptChangeAtMsRef = useRef(Date.now());
-  const activeAgentsRef = useRef<{ name: string; status: string }[]>([]);
   const deadRunSurfacedRef = useRef(false);
   const maybeSurfaceDeadRunEndedRef = useRef<(() => void) | null>(null);
   /** Ignore spurious onChangeText after Send clears the field (Android IME blur). */
@@ -2090,10 +2089,6 @@ export default function ChatScreen() {
   }, [isDemo, gatewayUrl, apiKey, macHttpOk]);
 
   useEffect(() => {
-    activeAgentsRef.current = activeAgents;
-  }, [activeAgents]);
-
-  useEffect(() => {
     if (!macHttpOk || isDemo) {
       setActiveAgents([]);
       return;
@@ -2695,7 +2690,6 @@ export default function ChatScreen() {
     }
 
     const unchangedMs = transcriptUnchangedMs(lastTranscriptChangeAtMsRef.current, Date.now());
-    const activeAgentCount = activeAgentsRef.current.length;
     const knownRunIds = [
       runProgressRef.current?.runId,
       sendProgressSnapshotRef.current?.runId,
@@ -2720,7 +2714,6 @@ export default function ChatScreen() {
       !shouldSurfaceDeadRunEnded({
         clientBusy: true,
         transcriptUnchangedMs: unchangedMs,
-        activeAgentCount,
         gatewayHasLiveRun,
       })
     ) {
@@ -3951,17 +3944,17 @@ export default function ChatScreen() {
     [],
   );
 
+  /**
+   * Only block genuine re-sends of the in-flight/pending text (dedupe). A distinct
+   * new message while busy must fall through to sendUserText's queue path — a
+   * blanket isSending block here silently drops it (P0 2026-07-14: "Scheduled job"
+   * thread showed a typed message with a tappable send arrow that did nothing
+   * while the Mac kept "Working on your computer" for 45+ minutes).
+   */
   const shouldBlockComposerSend = useCallback(
-    (rawText: string, attachments: ComposerAttachment[] = composerAttachmentsRef.current) => {
-      if (isSendingRef.current || queuedOutboundCount > 0) {
-        return true;
-      }
-      if (pinnedOutboundStatusRef.current === 'pending' && pinnedOutboundTextRef.current?.trim()) {
-        return true;
-      }
-      return shouldBlockDuplicateOutboundSend(rawText, attachments);
-    },
-    [queuedOutboundCount, shouldBlockDuplicateOutboundSend],
+    (rawText: string, attachments: ComposerAttachment[] = composerAttachmentsRef.current) =>
+      shouldBlockDuplicateOutboundSend(rawText, attachments),
+    [shouldBlockDuplicateOutboundSend],
   );
 
   const handleSendMessage = async (composerLatest?: string) => {
