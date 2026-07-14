@@ -138,6 +138,11 @@ OpenMono `/ship-claim` is the local verifier gate; ThumbGate is the cross-sessio
 - **Security alerts never sit.** A daily cloud sentinel (`mac-yolo repo sentinel`, claude.ai/code/routines) triages alerts + PR health at 8am ET and reports via ntfy. If an alert can't be fixed (transitive, parent pins vulnerable range), dismiss ONLY with file:line evidence that the vulnerable path is unreachable (≤280-char comment). Precedent: alert #2, 2026-07-07.
 - **One automation owner per job.** Before adding a watcher/daemon for repo automation, check this section + open PRs for an existing owner — duplicate automations have already collided (a watcher-created `security/dependabot-autofix-*` branch raced the sentinel on 2026-07-07).
 - **Don't close/rebase/fix another agent's PR.** Report blockers (conflicts, failing checks) instead. Exception: dependabot[bot] PRs are ownerless — any agent may fix or close them with a reason.
+- **Merge only when required checks are green** (main is `strict: true`): `Public funnel checks`, `Socket Security: Project Report`, `Hermes Mobile typecheck and tests`, `Maestro ship-guard (Android emulator)`, `macOS guard kit`. Prefer `gh pr merge --auto --squash` over force-merging.
+- **Chat-pasted GitHub PATs are leaks.** Never store or use them; use keyring `gh` only (`gh auth status`). Flag rotation in the same turn.
+- **Squash merges do not make branch tips ancestors of main.** Delete leftover remote branches via merged-PR heads (`gh pr list --state merged`), not `git merge-base --is-ancestor`.
+- **Do not bulk-delete multi-agent worktrees** (~100+ under `/private/tmp/codex-*`, `.worktrees/`). Only prune branches of *merged* PRs and clearly agent-owned disposable trees you created.
+- **CI queue storm:** when macOS/Maestro jobs pile up, cancel in-progress/queued runs on already **MERGED/CLOSED** PR heads to free runners — never cancel another agent's open-PR CI.
 
 ## Protected components (verify after each change)
 
