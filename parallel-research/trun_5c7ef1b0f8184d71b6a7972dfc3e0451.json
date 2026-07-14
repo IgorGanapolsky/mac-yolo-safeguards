@@ -1,0 +1,983 @@
+{
+  "run_id": "trun_5c7ef1b0f8184d71b6a7972dfc3e0451",
+  "interaction_id": "trun_5c7ef1b0f8184d71b6a7972dfc3e0451",
+  "result_url": "https://platform.parallel.ai/play/deep-research/trun_5c7ef1b0f8184d71b6a7972dfc3e0451",
+  "status": "completed",
+  "output": {
+    "basis": [
+      {
+        "field": "answer",
+        "reasoning": "Assessment reasoning:\n- The field_answer is a self-contained, 1800-2500 word decision-grade report. It provides an executive recommendation, state of platforms, migration cost risks, a three-option comparison, a weighted scorecard, a two-week reversible pilot plan, exit criteria, and a final synthesis. This aligns with the field_description of delivering a decision-grade CTO report comparing GitHub vs GitLab for an Expo/React Native mobile monorepo and detailing options, costs, and plan.\n- However, the excerpts provided touch on some relative elements (e.g., GA/availability of GitLab Duo Agent Platform, macOS runners status, EAS Workflows integration with GitHub Actions, Copilot agent capabilities, and GitHub Actions/macOS runner specifics) but do not comprehensively verify all specific factual claims, framing, and numerical details in the field_answer. Several key assertions (e.g., precise GA dates, pricing, exact feature parity as of July 2026, hosted vs self-managed nuances, and some cross-platform integration specifics) are not directly supported by the excerpts list.\n- Given the request to cite every unstable claim and the excerpts not covering every data point, a fully defensible verdict would require cross-checking each assertion against primary sources. As written, the field_answer leverages plausible, up-to-date references but cannot be guaranteed to be fully supported by the provided excerpts alone.\n- Therefore: completeness = true (the answer is complete and addresses the requested deliverables), but supported = false (not every claim is directly supported by the supplied excerpts). If stricter support is required, the field_answer should include explicit citations inline or in a references section mapping to the provided excerpts.)",
+        "citations": [
+          {
+            "url": "https://pinklime.io/blog/github-copilot-agent-mode-2026",
+            "excerpts": [
+              "GitHub Copilot Agent Mode 2026: Everything You Need to Know\nGitHub Copilot's agent mode can now autonomously edit files, run tests, and fix errors. Here's how it works, what it costs, and how it compares to Cursor and Claude Code."
+            ],
+            "title": "GitHub Copilot Agent Mode 2026: Everything You Need to Know"
+          },
+          {
+            "url": "https://baeseokjae.github.io/posts/github-copilot-agent-mode-2026",
+            "excerpts": [
+              "GitHub Copilot Agent Mode Guide 2026: Multi-File Edits and ...\nGitHub Copilot Agent Mode is now generally available in 2026, transforming Copilot from an autocomplete tool into a fully autonomous coding partner that can edit multiple files, run terminal commands, fix its own errors, and even open pull requests while you sleep."
+            ],
+            "title": "GitHub Copilot Agent Mode Guide 2026: Multi-File Edits and ..."
+          },
+          {
+            "url": "https://baeseokjae.github.io/posts/github-copilot-coding-agent-guide-2026",
+            "excerpts": [
+              "GitHub Copilot Coding Agent Guide 2026: Autonomous Background ...\nComplete guide to GitHub Copilot's autonomous coding agent: how it works, pricing, use cases, and when to use it vs interactive agents like Claude Code."
+            ],
+            "title": "GitHub Copilot Coding Agent Guide 2026: Autonomous Background ..."
+          },
+          {
+            "url": "https://clarodigi.com/blog/github-copilot-agentic-coding-guide-dev-team-2026",
+            "excerpts": [
+              "GitHub Copilot is now a full coding agent: 2026 guide\nGitHub Copilot CLI reached general availability in March 2026. Here's how to transform your development workflow with autonomous AI coding agents."
+            ],
+            "title": "GitHub Copilot is now a full coding agent: 2026 guide"
+          },
+          {
+            "url": "https://www.javacodegeeks.com/2026/02/github-copilot-workspace-the-agentic-era.html",
+            "excerpts": [
+              "GitHub Copilot Workspace & The Agentic Era\nFeb 24, 2026 \u2014 GitHub Copilot Workspace evolved into the fully agentic Copilot Coding Agent \u2014 GA since September 2025. This article covers what changed."
+            ],
+            "title": "GitHub Copilot Workspace & The Agentic Era"
+          },
+          {
+            "url": "https://github.blog/news-insights/product-news/introducing-the-new-apple-silicon-powered-m1-macos-larger-runner-for-github-actions",
+            "excerpts": [
+              "Apple silicon powered M1 macOS larger runners\nOct 2, 2023 \u2014 Speed up your GitHub Actions jobs on macOS with all new, faster Apple silicon powered M1 macOS larger runner for arm64."
+            ],
+            "title": "Apple silicon powered M1 macOS larger runners"
+          },
+          {
+            "url": "https://github.blog/changelog/2026-02-05-github-actions-early-february-2026-updates",
+            "excerpts": [
+              "GitHub Actions: Early February 2026 updates - GitHub Changelog\nWe've released the GitHub Actions macOS 26 Intel runner image in public preview for larger runners, providing the latest macOS and Xcode tooling"
+            ],
+            "title": "GitHub Actions: Early February 2026 updates - GitHub Changelog"
+          },
+          {
+            "url": "https://github.com/actions/runner-images/issues/8439",
+            "excerpts": [
+              "[macOS] Apple Silicon (M1) powered macOS runners are ...\nOct 2, 2023 \u2014 To try the new Apple silicon macOS larger runner, update the runs-on: key in your GitHub Actions YAML workflow YAML file to target macos-latest-"
+            ],
+            "title": "[macOS] Apple Silicon (M1) powered macOS runners are ..."
+          },
+          {
+            "url": "https://github.blog/news-insights/product-news/github-actions-introducing-faster-github-hosted-x64-macos-runners",
+            "excerpts": [
+              "GitHub Actions: Introducing faster GitHub-hosted x64 macOS runners\nThe new GitHub-hosted macOS runners are based on the most current x64 Apple hardware and reduce the time it takes to run your jobs."
+            ],
+            "title": "GitHub Actions: Introducing faster GitHub-hosted x64 macOS runners"
+          },
+          {
+            "url": "https://www.pantsbuild.org/dev/docs/contributions/releases/github-actions-macos-arm64-runners",
+            "excerpts": [
+              "GitHub Actions macOS runners - Pantsbuild\nGitHub Actions does not yet have hosted runners for MacOS ARM64. So we must run our own self-hosted runner. This document describes how to set one up."
+            ],
+            "title": "GitHub Actions macOS runners - Pantsbuild"
+          },
+          {
+            "url": "https://gitlab.contractors/en-gb/blog/2026/01/14/introduction-to-gitlab-duo-agent-platform",
+            "excerpts": [
+              "GitLab Duo Agent Platform: A New Era for Custom AI in ...\nExplore the GitLab Duo Agent Platform, enabling teams to integrate custom AI agents into their DevSecOps workflows. Discover how GitLab is transforming software development with secure, intelligent automation."
+            ],
+            "title": "GitLab Duo Agent Platform: A New Era for Custom AI in ..."
+          },
+          {
+            "url": "https://docs.gitlab.com/user/duo_agent_platform/flows/foundational_flows/software_development",
+            "excerpts": [
+              "Software Development Flow\nThe Software Development Flow helps you create AI-generated solutions for work across the software development lifecycle. Formerly known as GitLab Duo Workflow,"
+            ],
+            "title": "Software Development Flow"
+          },
+          {
+            "url": "https://docs.gitlab.com/development/duo_agent_platform",
+            "excerpts": [
+              "Development of GitLab Duo Agent Platform\nYou should set up GitLab Duo Agent Platform with the GitLab Development Kit (GDK) to run local versions of GitLab and the GitLab Duo Agent Platform Service."
+            ],
+            "title": "Development of GitLab Duo Agent Platform"
+          },
+          {
+            "url": "https://gitlab-org.gitlab.io/gitlab-development-kit/howto/ai/duo_agent_platform",
+            "excerpts": [
+              "Duo Agent Platform \u2013GitLab Development Kit\nIf GitLab Duo Code Review foundational flow is not working as expected or GitLab Duo Code Review (classic) is used in your GDK, you might be using the GitLab Duo Enterprise add-on instead of the GitLab Duo Core or GitLab Duo Pro add-on."
+            ],
+            "title": "Duo Agent Platform \u2013GitLab Development Kit"
+          },
+          {
+            "url": "https://docs.gitlab.com/user/duo_agent_platform/flows",
+            "excerpts": [
+              "Flows | GitLab Docs\nFoundational flows are pre-built, production-ready workflows created by GitLab for common development tasks. Custom flows are workflows you create to automate your team\u2019s specific processes."
+            ],
+            "title": "Flows | GitLab Docs"
+          },
+          {
+            "url": "https://docs.gitlab.co.jp/ee/ci/runners/saas/macos_saas_runner.html",
+            "excerpts": [
+              "SaaS runners on macOS (Beta) - GitLab\nUse these runners to build, test, and deploy apps for the Apple ecosystem (macOS, iOS, tvOS). You can take advantage of all the capabilities of the GitLab single DevOps platform and not have to manage or operate a build environment."
+            ],
+            "title": "SaaS runners on macOS (Beta) - GitLab"
+          },
+          {
+            "url": "https://gitlabx.twprotech.com/help/ci/runners/saas/macos_saas_runner.md",
+            "excerpts": [
+              "Macos saas runner \u00b7 Saas \u00b7 Runners \u00b7 Ci \u00b7 Help \u00b7 GitLab\nUse these runners to build, test, and deploy apps for the Apple ecosystem (macOS, iOS, watchOS, tvOS). You can take advantage of all the capabilities of the GitLab single DevOps platform and not have to manage or operate a build environment."
+            ],
+            "title": "Macos saas runner \u00b7 Saas \u00b7 Runners \u00b7 Ci \u00b7 Help \u00b7 GitLab"
+          },
+          {
+            "url": "http://expo.dev/blog/how-to-integrate-eas-workflows-with-github-actions",
+            "excerpts": [
+              "EAS Workflows enhances GitHub Actions by handling the hardest mobile tasks so React Native teams can build faster and maintain a cleaner CI"
+            ],
+            "title": "How to integrate EAS Workflows with GitHub Actions for ..."
+          },
+          {
+            "url": "https://docs.gitlab.com/ci/runners/hosted_runners/macos",
+            "excerpts": [
+              "Hosted runners on macOS | GitLab Docs\nYou can use these runners to build, test, and deploy apps for the Apple ecosystem (macOS, iOS, watchOS, tvOS). Our Mobile DevOps section provides features, documentation, and guidance on building and deploying mobile applications for iOS."
+            ],
+            "title": "Hosted runners on macOS | GitLab Docs"
+          },
+          {
+            "url": "https://docs.gitlab.com/runner/install",
+            "excerpts": [
+              "Install GitLab Runner\nDownload, install, and configure GitLab Runner as a user-mode service on Apple Silicon and Intel x86-64 systems. Windows. Install GitLab Runner on Windows"
+            ],
+            "title": "Install GitLab Runner"
+          },
+          {
+            "url": "http://spendbase.co/blog/saas-management/gitlab-pricing",
+            "excerpts": [
+              "Jan 5, 2026 \u2014 Ultimate \u2013 $99 per user per month, billed as $1,188 per user per year\nJan 5, 2026 \u2014 GitLab Duo Basic AI now ships with Premium and Ultimate, but the full AI bundle is a separate add-on at about $19 per user per month."
+            ],
+            "title": "GitLab Pricing Guide: Tiers, Hidden Costs, Alternatives"
+          },
+          {
+            "url": "https://www.trustradius.com/products/gitlab/pricing",
+            "excerpts": [
+              "GitLab Pricing 2026 - TrustRadius\nPlans ; GitLab Premium. $29. per month / per user ; GitLab Ultimate. Contact Sales ; GitLab Premium (self-managed). $29. per month / per user ; GitLab Ultimate ("
+            ],
+            "title": "GitLab Pricing 2026 - TrustRadius"
+          },
+          {
+            "url": "https://www.capterra.com/p/159806/GitLab/pricing",
+            "excerpts": [
+              "GitLab Pricing: A Comprehensive Guide\nJun 10, 2025 \u2014 It supports up to 5 users , and 400 compute minutes per month. The Premium plan costs $29 per user , per month (billed annually) and supports"
+            ],
+            "title": "GitLab Pricing: A Comprehensive Guide"
+          },
+          {
+            "url": "https://costbench.com/software/developer-tools/gitlab",
+            "excerpts": [
+              "GitLab Pricing 2026: Free, $29/user/month Premium, Ultimate\nGitLab pricing in 2026: Free (up to 5 users), Premium at $29/user/month billed annually, and Ultimate at custom pricing. Premium now bundles GitLab Duo AI capabilities such as code suggestions and chat, while Ultimate adds advanced security, compliance, and portfolio management."
+            ],
+            "title": "GitLab Pricing 2026: Free, $29/user/month Premium, Ultimate"
+          },
+          {
+            "url": "https://www.spendflo.com/blog/gitlab-pricing-guide",
+            "excerpts": [
+              "GitLab pricing plans in 2025 (+ cost saving tips) - Spendflo\nGitLab Premium, $29 per user/month (billed annually), Everything from Free, plus: Code Ownership, Protected Branches, Merge Requests Approval,"
+            ],
+            "title": "GitLab pricing plans in 2025 (+ cost saving tips) - Spendflo"
+          },
+          {
+            "url": "http://docs.github.com/en/billing/concepts/product-billing/github-copilot-licenses",
+            "excerpts": [
+              "Copilot Business: $19 USD per user per month (billed monthly). Enterprises, Choose Copilot Business or Copilot Enterprise, or mix them across organizations."
+            ],
+            "title": "GitHub Copilot licenses"
+          },
+          {
+            "url": "http://atonementlicensing.com/blog/github-enterprise-pricing-2026",
+            "excerpts": [
+              "GitHub Enterprise 2026 prices: $21 per user, Advanced Security $49, Copilot Enterprise $39."
+            ],
+            "title": "GitHub Enterprise Pricing 2026: Cloud, Server & Add-ons"
+          },
+          {
+            "url": "http://eesel.ai/blog/github-pricing",
+            "excerpts": [
+              "GitHub still runs on three plans: Free ($0), Team ($4/user/month), and Enterprise (from $21/user/month) .\nJun 24, 2026 \u2014 GitHub still runs on three plans: Free ($0), Team ($4/user/month), and Enterprise (from $21/user/month) ."
+            ],
+            "title": "GitHub pricing 2026: All enterprise plans compared"
+          },
+          {
+            "url": "http://vendr.com/marketplace/github",
+            "excerpts": [
+              "Copilot Individual: $10 per user per month or $100 per user per year; Copilot Business: $19 per user per month (requires GitHub Team or Enterprise); Copilot **Benchmarking context:** [Explore GitHub Enterprise Cloud benchmarks](https://agent.vendr.com/) to understand typical discount ranges, usage patterns, and total cost of ownership across different deployment sizes. How much does GitHub Enterprise Server cost? GitHub Enterprise Server is a self-hosted deployment option for organizations with strict data residency, air-gapped environments, or on-premises infrastructure requirements. **Pricing Structure:** List pricing is **$21 per user per year** for the software license, with separate costs for infrastructure, maintenance, and support. Minimum seat commitments typically start at 25\u201350 users. GitHub Advanced Security is available as an add-on. **Observed Outcomes:** Based on Vendr transaction data, Enterprise Server pricing involves both software licensing and infrastructure costs (compute, storage, networking, backup). Buyers commonly negotiate volume discounts and multi-year pricing, with total costs varying widely based on deployment architecture and internal IT overhead. **Benchmarking context:** [See GitHub Enterprise Server pricing with Vendr](https://agent.vendr.com/) for both license costs and observed infrastructure spend for self-hosted deployments. How much does GitHub Copilot cost? GitHub Copilot is an AI-powered code completion tool available as an add-on across GitHub tiers. **Pricing Structure:** **Copilot Individual:** $10 per user per month or $100 per user per year **Copilot Business:** $19 per user per month (requires GitHub Team or Enterprise) **Copilot Enterprise:** $39 per user per month (requires GitHub Enterprise Cloud, includes chat, pull request summaries, and custom models) **Observed Outcomes:** In Vendr's dataset, Copilot adoption varies widely by team. Some organizations deploy it to all developers, while others pilot with 10\u201330% of seats. Volume discounts are uncommon at list pricing, but buyers bundling Copilot with Enterprise Cloud renewals often achieve 10\u201320% combined savings. **Benchmarking context:** [Compare GitHub Copilot pricing](https://agent.vendr.com/) to see adoption patterns, per-seat costs, and bundling strategies across different organization sizes. What actually drives GitHub costs? GitHub's total cost is determined by a combination of **per-seat licensing"
+            ],
+            "title": "GitHub Software Pricing & Plans 2026: See Your Cost - Vendr"
+          },
+          {
+            "url": "https://azure.microsoft.com/en-us/pricing/details/githubenterprise",
+            "excerpts": [
+              "GitHub Enterprise - Pricing\nDiscover GitHub Enterprise pricing options tailored to your organization. Flexible GitHub Enterprise plans: pay-as-you-go, no upfront costs. Explore today!"
+            ],
+            "title": "GitHub Enterprise - Pricing"
+          },
+          {
+            "url": "https://costbench.com/software/developer-copilots-enterprise/gitlab-duo",
+            "excerpts": [
+              "Cosmo AI (GitLab Duo) Pricing 2026: Free-$29/user/month\nCosmo AI (GitLab Duo) costs Free to $29 per user/month as of June 2026, with 4 plans available including a free tier. Plans: Free (free), and Premium at $29/user/month. Enterprise pricing is available on request. Pricing depends on your chosen tier, contract length, and negotiated discounts."
+            ],
+            "title": "Cosmo AI (GitLab Duo) Pricing 2026: Free-$29/user/month"
+          },
+          {
+            "url": "https://www.infoq.com/news/2026/01/gitlab-18-8-duo-agent-platform",
+            "excerpts": [
+              "GitLab 18.8 Marks General Availability of the Duo Agent Platform\nWith this release, the GitLab Duo Agent Platform, enabling organizations to orchestrate AI agents, reaches general availability. GitLab says"
+            ],
+            "title": "GitLab 18.8 Marks General Availability of the Duo Agent Platform"
+          },
+          {
+            "url": "https://about.gitlab.com/blog/gitlab-duo-agent-platform-public-beta",
+            "excerpts": [
+              "GitLab Duo Agent Platform goes public beta\n17 jul 2025 \u00b7 GitLab Duo is becoming an agent orchestration platform, where you can create, customize, and deploy AI agents that work alongside you and"
+            ],
+            "title": "GitLab Duo Agent Platform goes public beta"
+          },
+          {
+            "url": "https://www.trustradius.com/products/gitlab-duo/pricing",
+            "excerpts": [
+              "GitLab Duo Pricing 2026\nGitLab Duo is available for GitLab Premium and Ultimate customers. GitLab Duo Pro is available for $19 per month / per user. Contact sales for pricing on GitLab"
+            ],
+            "title": "GitLab Duo Pricing 2026"
+          },
+          {
+            "url": "https://www.youtube.com/watch?v=-MMs46jHSfA",
+            "excerpts": [
+              "GitLab Duo Agent Platform Public Beta Announcement - YouTube\nIntroducing the DevSecOps orchestration platform designed to unlock asynchronous collaboration between developers and AI agents."
+            ],
+            "title": "GitLab Duo Agent Platform Public Beta Announcement - YouTube"
+          },
+          {
+            "url": "https://gitlab.ue-one.com/help/ci/pipelines/merge_trains.md",
+            "excerpts": [
+              "Merge trains \u00b7 Pipelines \u00b7 Ci \u00b7 Help \u00b7 GitLab\nIn GitLab 13.5 and earlier, merge trains are automatically enabled when merged results pipelines are enabled. To use merged results pipelines but not merge trains, enable the disable_merge_trains feature flag."
+            ],
+            "title": "Merge trains \u00b7 Pipelines \u00b7 Ci \u00b7 Help \u00b7 GitLab"
+          },
+          {
+            "url": "https://about.gitlab.com/blog/all-aboard-merge-trains",
+            "excerpts": [
+              "How starting merge trains improve efficiency for DevOps\nNo more queuing and waiting for pipeline results! Read how merge trains will speed up your deployments while making sure master stays green."
+            ],
+            "title": "How starting merge trains improve efficiency for DevOps"
+          },
+          {
+            "url": "https://gitlab-docs-d6a9bb.gitlab.io/ee/ci/pipelines/merge_trains.html",
+            "excerpts": [
+              "Merge trains - GitLab\nA merge train starts when there are no merge requests waiting to merge and you select Merge or Set to auto-merge. GitLab starts a merge train pipeline that verifies that the changes can merge into the default branch."
+            ],
+            "title": "Merge trains - GitLab"
+          },
+          {
+            "url": "https://www.gaojinsoft.com/gitlab/help/ci/pipelines/merge_trains.md",
+            "excerpts": [
+              "Merge trains \u00b7 Pipelines \u00b7 Ci \u00b7 Help \u00b7 GitLab\nTo use pipelines for merged results without using merge trains, you can enable a feature flag that blocks the merge trains feature. GitLab administrators with access to the GitLab Rails console can enable the feature flag to disable merge trains:"
+            ],
+            "title": "Merge trains \u00b7 Pipelines \u00b7 Ci \u00b7 Help \u00b7 GitLab"
+          },
+          {
+            "url": "https://alexandreokita.medium.com/gitlab-merge-train-easy-and-efficient-merge-request-queueing-aeb954bcdd98",
+            "excerpts": [
+              "GitLab Merge Train: Easy and Efficient Merge Request ...\nIn settings, go to Merge requests and then check the Enable merge trains and pipelines for merged results option. Tip: You will need to specify"
+            ],
+            "title": "GitLab Merge Train: Easy and Efficient Merge Request ..."
+          },
+          {
+            "url": "https://www.webhani.com/blog/github-copilot-coding-agent-2026-04",
+            "excerpts": [
+              "GitHub Copilot Coding Agent: Turning Issues into Pull ...\nGitHub Copilot has undergone a significant shift in early 2026 \u2014 from a code completion tool to an autonomous coding agent. The headline feature: assign a GitHub Issue to Copilot, and it writes the code, runs tests, self-corrects errors, and opens a PR for review."
+            ],
+            "title": "GitHub Copilot Coding Agent: Turning Issues into Pull ..."
+          },
+          {
+            "url": "https://codex.danielvaughan.com/2026/03/28/codex-github-copilot-coding-agent-issue-assignment",
+            "excerpts": [
+              "Codex as a GitHub Copilot Coding Agent: Assigning Issues and ...\nAs of early 2026, Codex \u2014 alongside Claude \u2014 is available as a first-class coding agent inside GitHub Copilot\u2019s Agent HQ platform, meaning you can assign a GitHub issue to Codex exactly as you\u2019d assign it to a team member. 1 The agent runs in the background, opens a draft PR, and iterates on review feedback without any local environment"
+            ],
+            "title": "Codex as a GitHub Copilot Coding Agent: Assigning Issues and ..."
+          },
+          {
+            "url": "https://2236.io/en/news/github-copilot-coding-agent-ga-february-2026",
+            "excerpts": [
+              "GitHub Copilot Coding Agent Now Generally Available on All ...\nGitHub has made its Copilot coding agent generally available across all paid plans \u2014 Pro, Pro+, Business, and Enterprise. The feature, which lets developers assign GitHub issues directly to Copilot for autonomous implementation, is now production-ready after months in preview."
+            ],
+            "title": "GitHub Copilot Coding Agent Now Generally Available on All ..."
+          },
+          {
+            "url": "https://github.blog/ai-and-ml/github-copilot/assigning-and-completing-issues-with-coding-agent-in-github-copilot",
+            "excerpts": [
+              "Assigning and completing issues with coding agent in GitHub ...\nThis new coding agent, which is our first asynchronous software engineering agent, is built on GitHub Actions and works like a teammate. You assign it an issue, let it do the work, and then review its outputs before changing or accepting them."
+            ],
+            "title": "Assigning and completing issues with coding agent in GitHub ..."
+          },
+          {
+            "url": "https://github.github.com/gh-aw/reference/copilot-cloud-agent",
+            "excerpts": [
+              "Copilot Cloud Agent | GitHub Agentic Workflows\nProgrammatically assigns the GitHub Copilot coding agent to existing issues or pull requests through workflow automation. This automates the standard GitHub workflow for assigning issues to Copilot. Use assign-to-agent when you need to programmatically assign Copilot to existing issues or PRs."
+            ],
+            "title": "Copilot Cloud Agent | GitHub Agentic Workflows"
+          },
+          {
+            "url": "http://mcpservers.com/",
+            "excerpts": [
+              "MCP Server allows AI tools like GitHub Copilot in VS Code and Visual Studio, Claude Desktop, and others to seamlessly access live GitHub context"
+            ],
+            "title": "MCP Servers - Model Context Protocol | The #1 MCP Server List"
+          },
+          {
+            "url": "https://mcpservers.org/servers/vipink1203/mcp-github-enterprise",
+            "excerpts": [
+              "MCP GitHub Enterprise\nA Model Context Protocol ( MCP ) server that lets AI agents (Claude, ChatGPT, etc.) query your GitHub Enterprise license data. Securely fetch license summaries,"
+            ],
+            "title": "MCP GitHub Enterprise"
+          },
+          {
+            "url": "https://github.com/Iterable/mcp-server/blob/main/README.md",
+            "excerpts": [
+              "README.md - Iterable/mcp-server\n14 hours ago \u2014 Model Context Protocol (MCP) is an open standard that lets AI assistants securely connect to external tools and APIs. This server acts as a bridge between your"
+            ],
+            "title": "README.md - Iterable/mcp-server"
+          },
+          {
+            "url": "https://github.com/resources/articles/what-is-mcp-model-context-protocol",
+            "excerpts": [
+              "What is Model Context Protocol (MCP)?\nApr 16, 2026 \u2014 MCP is optimized for debugging, iteration, and observability. Developers can inspect logs, simulate tool calls, validate schemas, and trace"
+            ],
+            "title": "What is Model Context Protocol (MCP)?"
+          },
+          {
+            "url": "https://github.com/modelcontextprotocol",
+            "excerpts": [
+              "Model Context Protocol\nThe Model Context Protocol ( MCP ) is an open protocol that enables seamless integration between LLM applications and external data sources and tools."
+            ],
+            "title": "Model Context Protocol"
+          },
+          {
+            "url": "https://about.gitlab.com/blog/set-up-infrastructure-for-cloud-development-environments",
+            "excerpts": [
+              "Cloud infrastructure for on-demand development in GitLab\nIn this tutorial, you'll learn how to ready your infrastructure for on-demand, cloud-based development environments."
+            ],
+            "title": "Cloud infrastructure for on-demand development in GitLab"
+          },
+          {
+            "url": "https://laszlo.substack.com/p/github-codespaces-vs-gitpod-workspaces",
+            "excerpts": [
+              "GitHub Codespaces vs Gitpod Workspaces - by Laszlo Sragner\nThis is a quick post to get you off the ground by comparing GitHub Codespaces and GitLab /GitPod Workspaces ."
+            ],
+            "title": "GitHub Codespaces vs Gitpod Workspaces - by Laszlo Sragner"
+          },
+          {
+            "url": "http://docs.gitlab.com/development/remote_development",
+            "excerpts": [
+              "Remote Development Workspaces provide cloud-based development environments that integrate with GitLab projects\nRemote Development Workspaces provide cloud-based development environments that integrate with GitLab projects."
+            ],
+            "title": "Remote Development Workspaces"
+          },
+          {
+            "url": "https://docs.gitlab.com/user/workspace",
+            "excerpts": [
+              "Workspaces | GitLab Docs\nA workspace is a virtual sandbox environment for your code in GitLab. You can use workspaces to create and manage isolated development environments for your"
+            ],
+            "title": "Workspaces | GitLab Docs"
+          },
+          {
+            "url": "http://docs.gitlab.com/user/project/remote_development",
+            "excerpts": [
+              "You can use workspaces to create a fully featured development environment directly from GitLab"
+            ],
+            "title": "Remote development"
+          },
+          {
+            "url": "https://purplehuetechnosoft.com/2026/06/22/github-projects-2026-ai-agents-hierarchy-views",
+            "excerpts": [
+              "GitHub Projects 2026: How AI Agents, Copilot, and Agentic ...\nFigure 2: GitHub\u2019s evolution in 2026 isn\u2019t about adding more features; it\u2019s about turning project management, automation, and AI collaboration into a single integrated workflow."
+            ],
+            "title": "GitHub Projects 2026: How AI Agents, Copilot, and Agentic ..."
+          },
+          {
+            "url": "https://mcpmarket.com/server/github-project-manager-2",
+            "excerpts": [
+              "GitHub Project Manager: Automate GitHub Projects V2 PM\nStreamline GitHub Projects V2 management with GitHub Project Manager. Automate setup, daily operations, and sprint analytics. Migrate from Jira/Linear, integrate AI agents for enhanced productivity."
+            ],
+            "title": "GitHub Project Manager: Automate GitHub Projects V2 PM"
+          },
+          {
+            "url": "https://www.ideaplan.io/guides/how-to-build-a-roadmap-in-github",
+            "excerpts": [
+              "GitHub Roadmap: Build a Product Roadmap in Projects\nMar 13, 2026 \u2014 The native Roadmap view shows Issues on a timeline. Set the date field to your start/end date custom fields. Group by Theme or Quarter. This is"
+            ],
+            "title": "GitHub Roadmap: Build a Product Roadmap in Projects"
+          },
+          {
+            "url": "http://docs.github.com/issues/planning-and-tracking-with-projects/learning-about-projects/about-projects",
+            "excerpts": [
+              "You can view your project as a high-density table layout, as a kanban board, or a timeline-style roadmap. These customized views help you manage your team"
+            ],
+            "title": "About Projects - GitHub Docs"
+          },
+          {
+            "url": "https://github.com/orgs/community/discussions/153532",
+            "excerpts": [
+              "Does GitHub's Projects V2 API have any \"ProjectV2View\"- ...\nMy goal is to use the GraphQL API for creating new views (tables, boards, roadmaps etc), as well as grouping by custom fields. Does this exist or is it in the"
+            ],
+            "title": "Does GitHub's Projects V2 API have any \"ProjectV2View\"- ..."
+          },
+          {
+            "url": "https://sentry.io/integrations/gitlab",
+            "excerpts": [
+              "GitLab + Sentry Integration\nSentry's GitLab integration unlocks enhanced release tracking with files changed and author details, informative deploy emails, and suggested assignees for new errors."
+            ],
+            "title": "GitLab + Sentry Integration"
+          },
+          {
+            "url": "http://posthog.com/docs/data-warehouse/sources/github",
+            "excerpts": [
+              "In PostHog, go to the [Sources tab](https://app.posthog.com/data-management/sources) of the data pipeline section.\nThe GitHub connector syncs your repository data \u2013 issues, pull requests, commits, and more \u2013 into PostHog, so you can analyze engineering activity alongside your product data.\nThen enter the **Repository** you want to sync in the format `owner/repo` (e.g. `posthog/posthog` ).\nYou can authenticate using OAuth (recommended), which connects your GitHub account automatically, or with a personal access token."
+            ],
+            "title": "Linking GitHub as a source - Docs - PostHog"
+          },
+          {
+            "url": "http://posthog.com/docs/error-tracking/integrations",
+            "excerpts": [
+              "PostHog integrates with GitHub, GitLab, Linear, and Jira to enhance error tracking with source code context, commit information, and external issue"
+            ],
+            "title": "Set up integrations - Docs - PostHog"
+          },
+          {
+            "url": "https://github.com/twllm/lt_posthog",
+            "excerpts": [
+              "GitHub - twllm/lt_posthog: PostHog provides open-source web ...\n\ud83e\udd94 PostHog provides open-source web & product analytics, session recording, feature flagging and A/B testing that you can self-host. Get started - free. - twllm/lt_posthog"
+            ],
+            "title": "GitHub - twllm/lt_posthog: PostHog provides open-source web ..."
+          },
+          {
+            "url": "http://sentry.io/integrations/github",
+            "excerpts": [
+              "Automatically track releases in Sentry and link commits to a release. If something breaks after the deploy, Sentry will tell you which commit caused the error."
+            ],
+            "title": "GitHub + Sentry Integration"
+          },
+          {
+            "url": "https://docs.swmansion.com/setup-ci/docs/workflows/eas",
+            "excerpts": [
+              "EAS Preview | npx setup-ci - Software Mansion\nThis workflow is meant to integrate your app with expo.dev. It uses Expo continuous-deploy-fingerprint action to publish EAS Updates and trigger EAS Builds."
+            ],
+            "title": "EAS Preview | npx setup-ci - Software Mansion"
+          },
+          {
+            "url": "http://docs.expo.dev/eas/workflows/introduction",
+            "excerpts": [
+              "Apr 9, 2026 \u2014 EAS Workflows is a CI/CD service for automating builds, updates, submissions, and tests for React Native and Expo apps.\nEAS Workflows is a CI/CD service for automating builds, updates, submissions, and tests for React Native and Expo apps."
+            ],
+            "title": "Introduction to EAS Workflows"
+          },
+          {
+            "url": "https://procedure.tech/blogs/mastering-expo-eas-submit-ota-updates-and-workflow-automation",
+            "excerpts": [
+              "Mastering Expo EAS: Submit, OTA Updates, and Workflow ...\nOct 7, 2025 \u2014 This guide dives into Expo's EAS Submit, OTA Updates, and advanced eas .json workflows to help you streamline your mobile CI/CD pipeline. Learn"
+            ],
+            "title": "Mastering Expo EAS: Submit, OTA Updates, and Workflow ..."
+          },
+          {
+            "url": "https://docs.expo.dev/build/building-on-ci",
+            "excerpts": [
+              "Trigger builds from CI\nApr 28, 2026 \u2014 This document outlines how to trigger builds on EAS for your app from a CI environment such as GitHub Actions, Travis CI, and more."
+            ],
+            "title": "Trigger builds from CI"
+          },
+          {
+            "url": "https://docs.gitlab.com/user/project/import/github",
+            "excerpts": [
+              "Migrate from GitHub\nTo import projects from GitHub, you must enable the GitHub import source. If that import source is not enabled, ask your GitLab administrator to enable it."
+            ],
+            "title": "Migrate from GitHub"
+          },
+          {
+            "url": "https://developer.mozilla.org/en-US/blog/migrating-from-github-to-gitlab-seamlessly-a-step-by-step-guide",
+            "excerpts": [
+              "Migrating from GitHub to GitLab seamlessly: A step-by-step ...\nOct 5, 2023 \u2014 Importing data from GitHub into GitLab \u00b7 Create a project in GitLab by using the Project Creation Interface. \u00b7 Select the \"Import project\" box."
+            ],
+            "title": "Migrating from GitHub to GitLab seamlessly: A step-by-step ..."
+          },
+          {
+            "url": "https://docs.gitlab.com/user/import/third_party_systems/repo_by_url",
+            "excerpts": [
+              "Migrate through a Git URL\nIn the upper-right corner, select Create new ( ) and New project/repository. \u00b7 Select Import project. \u00b7 Select Repository by URL. \u00b7 Enter a Git repository URL."
+            ],
+            "title": "Migrate through a Git URL"
+          },
+          {
+            "url": "https://github.com/cli/cli/discussions/9269",
+            "excerpts": [
+              "migrate or import repository from GitLab to ...\nThe official self-service GitHub Enterprise Importer does not support GitLab specifically. The only other tooling involves going through your account team"
+            ],
+            "title": "migrate or import repository from GitLab to ..."
+          },
+          {
+            "url": "https://stackoverflow.com/questions/20359936/import-an-existing-git-project-into-gitlab",
+            "excerpts": [
+              "Import an existing git project into GitLab?\nI have an account of a Gitlab installation where I created the repository \"ffki-startseite\" Now I want to clone the repository git://freifunk.in-kiel.de/ffki-st"
+            ],
+            "title": "Import an existing git project into GitLab?"
+          },
+          {
+            "url": "https://kkurko.hashnode.dev/keep-your-dependencies-up-to-date-with-dependabot-on-gitlab",
+            "excerpts": [
+              "How to use Dependabot with GitLab - Untitled Publication\nFeb 12, 2023 \u2014 Dependabot helps you keep your dependencies up to date. Every day, it checks your dependency files for outdated requirements and opens individual PRs for any"
+            ],
+            "title": "How to use Dependabot with GitLab - Untitled Publication"
+          },
+          {
+            "url": "https://gitlab.com/dependabot-gitlab/dependabot",
+            "excerpts": [
+              "dependabot\nApr 7, 2020 \u2014 dependabot-gitlab is an application that orchestrates dependabot-core library to create dependency update merge requests for GitLab projects."
+            ],
+            "title": "dependabot"
+          },
+          {
+            "url": "https://paperless.blog/dependabot-on-gitlab",
+            "excerpts": [
+              "Dependabot on GitLab - Paperless\n14 d\u00e9c. 2021 \u2014 GitHub has made it as easy as six lines of YAML to get started with Dependabot, and I wanted to get as close to that as possible."
+            ],
+            "title": "Dependabot on GitLab - Paperless"
+          },
+          {
+            "url": "https://jdriven.com/blog/2021/03/Running-Dependabot-on-GitLab",
+            "excerpts": [
+              "Running Dependabot on GitLab\nMar 20, 2021 \u2014 In this blogpost I'll walk you through how you can quickly roll out Dependabot on an existing GitLab installation, so you can start updating your dependencies"
+            ],
+            "title": "Running Dependabot on GitLab"
+          },
+          {
+            "url": "https://teachmeidea.com/dependency-vulnerability-scanning-snyk-dependabot",
+            "excerpts": [
+              "Dependency Vulnerability Scanning Made Simple for Teams ...\nSnyk and GitHub Dependabot are the two most widely adopted tools for this job. Both scan your dependency tree, alert you to known vulnerabilities, and create pull requests with fixes. However, they differ in depth, configuration options, and how they fit into your development workflow."
+            ],
+            "title": "Dependency Vulnerability Scanning Made Simple for Teams ..."
+          },
+          {
+            "url": "https://docs.expo.dev/eas/workflows/introduction/",
+            "excerpts": [],
+            "title": "modificationDate: June 22, 2026 title: Introduction to EAS Workflows description: EAS Workflows is a CI/CD service for automating builds, updates, submissions, and tests for React Native and Expo apps."
+          },
+          {
+            "url": "https://docs.sentry.io/integrations/source-code-mgmt/gitlab",
+            "excerpts": [
+              "GitLab\nThe GitLab integration connects your repositories to Sentry to bring commit tracking, suspect commits, stack trace linking, and issue management into the"
+            ],
+            "title": "GitLab"
+          },
+          {
+            "url": "https://gitlab-docs-d6a9bb.gitlab.io/ee/operations/sentry_error_tracking.html",
+            "excerpts": [
+              "Sentry error tracking - GitLab\nGitLab enables administrators to connect Sentry to GitLab, so users can view a list of Sentry errors in GitLab. GitLab integrates with both the cloud-hosted Sentry and Sentry deployed in your on-premise instance."
+            ],
+            "title": "Sentry error tracking - GitLab"
+          },
+          {
+            "url": "https://docs.gitlab.com/operations/sentry_error_tracking",
+            "excerpts": [
+              "Sentry error tracking | GitLab Docs\nGitLab enables administrators to connect Sentry to GitLab, so users can view a list of Sentry errors in GitLab. GitLab integrates with both the cloud-hosted Sentry and Sentry deployed in your on-premise instance."
+            ],
+            "title": "Sentry error tracking | GitLab Docs"
+          },
+          {
+            "url": "https://www.aitolskorner.com/tools/github-pages",
+            "excerpts": [
+              "GitHub Pages Review 2026: Features, Pricing & Alternatives ...\nComplete GitHub Pages review: Features, pricing, pros & cons, use cases, and alternatives. Expert analysis updated for 2026."
+            ],
+            "title": "GitHub Pages Review 2026: Features, Pricing & Alternatives ..."
+          },
+          {
+            "url": "https://docs.github.com/en/pages/getting-started-with-github-pages/github-pages-limits",
+            "excerpts": [
+              "GitHub Pages limits\nIn order to provide consistent quality of service for all GitHub Pages sites, rate limits may apply. These rate limits are not intended to interfere with legitimate uses of GitHub Pages."
+            ],
+            "title": "GitHub Pages limits"
+          },
+          {
+            "url": "https://vpsranking.com/serverless/github-pages",
+            "excerpts": [
+              "GitHub Pages \u2014 Pricing, Features & Setup Guide 2026\nComplete guide to GitHub Pages: free hosting, Jekyll support, custom domains, GitHub Actions. Compare with other serverless hosting."
+            ],
+            "title": "GitHub Pages \u2014 Pricing, Features & Setup Guide 2026"
+          },
+          {
+            "url": "https://docs.bswen.com/blog/2026-03-26-github-pages-limitations-when-not-to-use",
+            "excerpts": [
+              "GitHub Pages Limitations: When Is It NOT the Right Choice?\nThis post shows GitHub Pages limitations: no server-side processing, no databases, 100GB bandwidth limit. Know when NOT to use it."
+            ],
+            "title": "GitHub Pages Limitations: When Is It NOT the Right Choice?"
+          },
+          {
+            "url": "https://www.aeanet.org/how-many-github-pages-can-i-have",
+            "excerpts": [
+              "How Many GitHub Pages Can I Have? - AEANET\nYou can have unlimited GitHub Pages sites per GitHub account for user and organization pages, but only one per repository. This guide provides everything you need to know about GitHub Pages limits and optimization."
+            ],
+            "title": "How Many GitHub Pages Can I Have? - AEANET"
+          },
+          {
+            "url": "http://docs.github.com/en/billing/reference/actions-runner-pricing",
+            "excerpts": [
+              "Larger runners are only billed at the per-minute rate for the amount of time workflows are executed on them\nPer-minute rate (USD) Linux 1-core (x64) $0.002\nmacOS 3-core or 4-core (M1 or Intel), actions_macos, $0.062"
+            ],
+            "title": "Actions runner pricing"
+          },
+          {
+            "url": "https://cicdpipelinecost.com/github-actions-pricing",
+            "excerpts": [
+              "GitHub Actions Pricing 2026: $0.008/min, ARM, macOS x10 ...\nGitHub introduced a $0.002 per minute platform fee on self-hosted runner minutes in March 2026. This is a fee paid to GitHub for the orchestration layer on top of the infrastructure cost of running your own runners."
+            ],
+            "title": "GitHub Actions Pricing 2026: $0.008/min, ARM, macOS x10 ..."
+          },
+          {
+            "url": "https://docs.github.com/en/billing/concepts/product-billing/github-actions",
+            "excerpts": [
+              "GitHub Actions billing\nEach type of runner hosted by GitHub has a cost per-minute that is determined by the operating system and processing power. For example, jobs that run on Windows and macOS runners hosted by GitHub cost more to run than jobs on Linux runners."
+            ],
+            "title": "GitHub Actions billing"
+          },
+          {
+            "url": "http://github.blog/changelog/2025-12-16-coming-soon-simpler-pricing-and-a-better-experience-for-github-actions",
+            "excerpts": [
+              "On March 1, 2026, GitHub will introduce a new $0.002 per minute GitHub Actions cloud platform charge that will apply to self-hosted runner usage\nDec 16, 2025 \u2014 On March 1, 2026, GitHub will introduce a new $0.002 per minute GitHub Actions cloud platform charge that will apply to self-hosted runner usage"
+            ],
+            "title": "Update to GitHub Actions pricing - GitHub Changelog"
+          },
+          {
+            "url": "http://docs.github.com/billing/managing-billing-for-github-actions/about-billing-for-github-actions",
+            "excerpts": [
+              "2,000 Windows minutes at $0.010 USD per minute = $20 USD\nFor GitHub-hosted runners, storage is billed based on hourly usage of artifacts and caches throughout the month. Minutes are calculated based on the total\nGitHub Actions usage is free for self-hosted runners and for public repositories that use standard GitHub-hosted runners.\nGitHub Actions usage is free for self-hosted runners and for public repositories. Baseline minute actions_windows $0.010 Windows 2-core (arm64) $0.010 macOS 3-\nBaseline minute costs Each type of runner hosted by GitHub has a cost per-minute that is determined by the operating system and processing power. For example, jobs that run on Windows and macOS runners hosted by GitHub cost more to run than jobs on Linux runners. | Operating system | Billing SKU | Per-minute rate (USD) | | Linux 1-core (x64) | `actions_linux_slim` | $0.002 | | Linux 2-core (x64) | `actions_linux` | $0.006 | | Linux 2-core (arm64) | `actions_linux_arm` | $0.005 | | Windows 2-core (x64) | `actions_windows` | $0.010 | | Windows 2-core (arm64) | `actions_windows_arm` | $0.010 | | macOS 3-core or 4-core (M1 or Intel) | `actions_macos` | $0.062 | For full details of minute costs for different types of runners, see [Actions runner pricing](/en/billing/reference/actions-runner-pricing). Storage pricing Usage beyond your included allowances is billed at the following rates: | Storage type | Price per GB/month | | Shared storage (artifacts and GitHub Packages) | $0.25 USD | | Actions cache | $0.07 USD | | Custom image storage | $0.07 USD | Example minutes cost calculation for GitHub-hosted runners For example, if your organization uses GitHub Team, using 5,000 minutes beyond the included quota on GitHub-hosted runners would have a total actions minutes cost of $38 USD currently, if you used baseline Linux and Windows runners. 5,000 (3,000 Linux and 2,000 Windows) minutes = $38 USD ($18 USD + $20 USD). 3,000 Linux minutes at $0.006 USD per minute = $18 USD. 2,000 Windows minutes at $0.010 USD per minute = $20 USD.\nGitHub Actions billing How use of GitHub Actions is measured GitHub Actions usage is **free** for **self-hosted runners** and for **public repositories** that use standard GitHub-hosted runners. See [Choosing the runner for a job](/en/actions/writing-workflows/choosing-where-your-workflow-runs/choosing-the-runner-for-a-job#standard-github-hosted-runners-for-public-repositories). For **private repositories**, each GitHub account receives a quota of free minutes, artifact storage, and cache storage for use with GitHub-hosted runners, depending on the account's plan."
+            ],
+            "title": "GitHub Actions billing"
+          },
+          {
+            "url": "https://devblogs.microsoft.com/xcode/github-copilot-exploring-agent-mode-and-mcp-support-in-public-preview-for-xcode",
+            "excerpts": [
+              "GitHub Copilot: Exploring Agent Mode and MCP Support in ...\nWe\u2019re excited to announce that GitHub Copilot\u2019s Agent Mode and Model Context Protocol (MCP) support are now available in public preview for Xcode! This brings powerful autonomous coding capabilities to macOS developers using Xcode."
+            ],
+            "title": "GitHub Copilot: Exploring Agent Mode and MCP Support in ..."
+          },
+          {
+            "url": "http://docs.github.com/en/copilot/concepts/context/mcp",
+            "excerpts": [
+              "**Copilot CLI**: GitHub Copilot CLI supports both local and remote MCP servers. The GitHub MCP server is built in and available without additional configuration. **GitHub Copilot app**: The GitHub Copilot app supports MCP servers configured in your repository or Copilot CLI and lets you add additional MCP servers in app settings. **Copilot cloud agent and Copilot code review**: GitHub.com supports MCP servers configured at the repository level. The configuration applies to both Copilot cloud agent and Copilot code review. ... About the GitHub MCP server The GitHub MCP server is a Model Context Protocol (MCP) server provided and maintained by GitHub. GitHub MCP server can be used to: Automate and streamline code-related tasks. Connect third-party tools (like Cursor, Windsurf, or future integrations) to leverage GitHub's context and AI capabilities. Enable cloud-based workflows that work from any device, without local setup. Invoke GitHub tools, such as Copilot cloud agent (requires GitHub Copilot subscription) and code scanning (requires GitHub Advanced Security subscription), to assist with code generation and security analysis. To learn how to set up and use the GitHub MCP server, see [Using the GitHub MCP Server in your IDE](/en/copilot/how-tos/context/model-context-protocol/using-the-github-mcp-server). ... Toolset customization"
+            ],
+            "title": "About Model Context Protocol (MCP)"
+          },
+          {
+            "url": "https://marketplace.visualstudio.com/items?itemName=AutomataLabs.copilot-mcp",
+            "excerpts": [
+              "Copilot MCP + Agent Skills Manager - Visual Studio Marketplace\nExtension for Visual Studio Code - Search, manage, and install Skills and MCP servers for your AI agents."
+            ],
+            "title": "Copilot MCP + Agent Skills Manager - Visual Studio Marketplace"
+          },
+          {
+            "url": "https://github.blog/changelog/2025-05-19-agent-mode-and-mcp-support-for-copilot-in-jetbrains-eclipse-and-xcode-now-in-public-preview",
+            "excerpts": [
+              "Agent mode and MCP support for Copilot in JetBrains, Eclipse ...\nGitHub Copilot agent mode with MCP support for JetBrains, Eclipse, and Xcode is now in public preview! You can enable GitHub Copilot with any GitHub account and try the autonomous coding experience today."
+            ],
+            "title": "Agent mode and MCP support for Copilot in JetBrains, Eclipse ..."
+          },
+          {
+            "url": "https://about.gitlab.com/gitlab-duo-agent-platform",
+            "excerpts": [
+              "GitLab Duo Agent Platform\nFlows guide agents through tasks end to end, using your project's context to ensure every step is aligned, predictable, and grounded in real work. Event-driven"
+            ],
+            "title": "GitLab Duo Agent Platform"
+          },
+          {
+            "url": "https://docs.gitlab.com/api/duo_agent_platform_flows",
+            "excerpts": [
+              "Flows API | GitLab Docs\nUse this API to create and manage flows in the GitLab Duo Agent Platform. Flows are combinations of AI agents that work together to complete developer tasks, such as fixing bugs, writing code, or resolving vulnerabilities."
+            ],
+            "title": "Flows API | GitLab Docs"
+          },
+          {
+            "url": "https://docs.gitlab.com/user/duo_agent_platform",
+            "excerpts": [
+              "GitLab Duo Agent Platform\nExplore AI-powered agents and flows that automate tasks across the software development lifecycle."
+            ],
+            "title": "GitLab Duo Agent Platform"
+          },
+          {
+            "url": "https://about.gitlab.com/blog/understanding-flows-multi-agent-workflows",
+            "excerpts": [
+              "Understanding flows: Multi-agent workflows - GitLab\n27 may 2026 \u00b7 Deep dive into GitLab Duo Agent Platform flows. Learn about foundational flows, create custom user-defined workflows, and learn flow"
+            ],
+            "title": "Understanding flows: Multi-agent workflows - GitLab"
+          },
+          {
+            "url": "http://mergify.com/product/merge-queue",
+            "excerpts": [
+              "May 19, 2026 \u2014 A merge queue tests every pull request against the future state of main before it merges, so two green PRs cannot break main together"
+            ],
+            "title": "Merge Queue for GitHub"
+          },
+          {
+            "url": "http://news.ycombinator.com/item?id=27858013&source=techstories.org",
+            "excerpts": [
+              "MergeQueue (MQ) is a FIFO queue of Pull Requests (PRs) that works as a Github"
+            ],
+            "title": "Automate rebasing and merging for your codebase"
+          },
+          {
+            "url": "https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/configuring-pull-request-merges/managing-a-merge-queue",
+            "excerpts": [
+              "Managing a merge queue\nA merge queue helps increase velocity by automating pull request merges into a busy branch and ensuring the branch is never broken by incompatible changes."
+            ],
+            "title": "Managing a merge queue"
+          },
+          {
+            "url": "https://docs.paradime.io/app-help/guides-new/working-with-git/github-merge-queue",
+            "excerpts": [
+              "GitHub Merge Queue - Paradime Help Docs\nJul 29, 2025 \u2014 GitHub Merge Queue is a feature that helps maintain code quality and prevent integration issues by automatically testing pull requests together"
+            ],
+            "title": "GitHub Merge Queue - Paradime Help Docs"
+          },
+          {
+            "url": "http://github.blog/news-insights/product-news/github-merge-queue-is-generally-available",
+            "excerpts": [
+              "Jul 12, 2023 \u2014 General availability of GitHub's merge queue means good-bye to traffic jams on your team's busiest branches. No more rushing to merge your pull requests.\nMerge queue takes care of making sure your pull"
+            ],
+            "title": "GitHub merge queue is generally available"
+          },
+          {
+            "url": "https://security.toolsinfo.com/tool/gitlab-ultimate",
+            "excerpts": [
+              "GitLab Ultimate: Pricing, Reviews & Features 2026 | Security ...\nIt includes SAST, DAST, dependency scanning, container scanning, and more, all integrated into the GitLab CI/CD pipeline. View and click through use cases, features, comparisons, selection criteria, and more \u2014 find the tools that fit you."
+            ],
+            "title": "GitLab Ultimate: Pricing, Reviews & Features 2026 | Security ..."
+          },
+          {
+            "url": "https://invgate.com/itdb/gitlab-ultimate",
+            "excerpts": [
+              "GitLab Ultimate | Specs, reviews and EoL info - InvGate\nSecurity Features: Comprehensive Scanning: Includes Static Application Security Testing (SAST), Dynamic Application Security Testing (DAST), Dependency Scanning"
+            ],
+            "title": "GitLab Ultimate | Specs, reviews and EoL info - InvGate"
+          },
+          {
+            "url": "https://appsecsanta.com/gitlab-sast",
+            "excerpts": [
+              "GitLab SAST 2026: Built-In AI Security Scanning\nGitLab SAST provides automated security scanning in CI/CD pipelines with AI-powered false positive detection, multi-core scanning, and automatic fix."
+            ],
+            "title": "GitLab SAST 2026: Built-In AI Security Scanning"
+          },
+          {
+            "url": "https://safeguard.sh/resources/blog/gitlab-ultimate-security-buyer-review-2026",
+            "excerpts": [
+              "GitLab Ultimate Security Buyer Review 2026 - safeguard.sh\nGitLab Ultimate Security Buyer Review 2026 GitLab bundles SAST, SCA, container scanning, and DAST into the Ultimate tier. Is the integrated story worth the premium over best-of-breed tools? An honest review."
+            ],
+            "title": "GitLab Ultimate Security Buyer Review 2026 - safeguard.sh"
+          },
+          {
+            "url": "https://aquilax.ai/blog/gitlab-security-scanning-cicd",
+            "excerpts": [
+              "GitLab CI/CD Security Scanning: SAST, DAST, and SCA ...\nGitLab Ultimate (the top tier) includes the full suite: SAST, DAST, dependency scanning, container scanning, IaC scanning, secret detection, and the Security Dashboard that aggregates findings across your group. All of GitLab's scanners work through CI/CD templates \u2014 YAML snippets you include in your .gitlab-ci.yml."
+            ],
+            "title": "GitLab CI/CD Security Scanning: SAST, DAST, and SCA ..."
+          },
+          {
+            "url": "https://about.gitlab.com/blog/tags/features/page/41",
+            "excerpts": [
+              "Features articles, page 41 of 41 - GitLab Blog\n21 hours ago \u2014 The evolution of the GitLab Issue Board. Celebrating one year of flexible, integrated project and release management workflows inside GitLab."
+            ],
+            "title": "Features articles, page 41 of 41 - GitLab Blog"
+          },
+          {
+            "url": "http://docs.gitlab.com/user/project/pages",
+            "excerpts": [
+              "GitLab Pages publishes static websites directly from a repository in GitLab. These websites: Deploy automatically with GitLab CI/CD pipelines."
+            ],
+            "title": "GitLab Pages"
+          },
+          {
+            "url": "https://about.gitlab.com/de-de/compare/gitlab-vs-github",
+            "excerpts": [
+              "GitLab und GitHub im Vergleich\nvor 3 Tagen \u2014 Wie schneiden GitLab und GitHub bei DevOps-lastigen Workflows ab? GitLab wurde als vollst\u00e4ndige DevSecOps-Plattform entwickelt \u2013 CI/CD, Sicherheitsscans"
+            ],
+            "title": "GitLab und GitHub im Vergleich"
+          },
+          {
+            "url": "https://about.gitlab.com/whats-new",
+            "excerpts": [
+              "GitLab: What's New\nGitLab Duo Agent Platform. Agentic AI for the entire software lifecycle Meet GitLab Duo \u00b7 Why GitLab. See the top reasons enterprises choose GitLab Learn more."
+            ],
+            "title": "GitLab: What's New"
+          },
+          {
+            "url": "https://www.gartner.com/reviews/product/gitlab-duo",
+            "excerpts": [
+              "GitLab Duo Reviews & Ratings 2026 | Gartner Peer Insights\nThe software provides capabilities such as code suggestions, automated documentation generation, and support for resolving merge conflicts."
+            ],
+            "title": "GitLab Duo Reviews & Ratings 2026 | Gartner Peer Insights"
+          },
+          {
+            "url": "https://posthog.com/docs/session-replay/integrations",
+            "excerpts": [
+              "Integrations - Docs - PostHog\nSelect which integration to use (Linear, GitHub, GitLab, or Jira) \u00b7 Choose the project or repository \u00b7 Add a title and description \u00b7 Create the issue."
+            ],
+            "title": "Integrations - Docs - PostHog"
+          },
+          {
+            "url": "https://docs.buildbetter.ai/pages/Integrations/analytics/posthog",
+            "excerpts": [
+              "PostHog Integration (Alpha) - BuildBetter\nConnect your BuildBetter workspace with PostHog to gain deeper insights into user behavior, product usage, and analytics. This integration helps you understand"
+            ],
+            "title": "PostHog Integration (Alpha) - BuildBetter"
+          },
+          {
+            "url": "https://improvado.io/data-sources/hubspot-posthog-integration",
+            "excerpts": [
+              "Hubspot PostHog Integration 2025 | Easy Setup Guide - Improvado\nThe Hubspot + PostHog dashboard combines CRM insights with user behavior analytics, providing a comprehensive view of customer journeys and product engagement. Popular Hubspot Integrations \u00b7 How Dashboards Improve The... \u00b7 Frequently Asked Questions"
+            ],
+            "title": "Hubspot PostHog Integration 2025 | Easy Setup Guide - Improvado"
+          },
+          {
+            "url": "https://dev.to/tejasbhovad/integrating-posthog-with-nextjs-1dgh",
+            "excerpts": [
+              "Integrating PostHog with NextJS\nJan 11, 2025 \u2014 This blog encompasses how to add posthog analytics to NextJS 15 app router. Assuming you have setup a NextJS app, you'll need to install the posthog -js package."
+            ],
+            "title": "Integrating PostHog with NextJS"
+          },
+          {
+            "url": "https://docs.gitlab.com/ci/yaml/workflow",
+            "excerpts": [
+              "workflow keyword\nTo make the pipeline switch from branch pipelines to merge request pipelines after a merge request is created, add a workflow: rules section to your .gitlab-ci."
+            ],
+            "title": "workflow keyword"
+          },
+          {
+            "url": "https://docs.gitlab.com/ci/jobs",
+            "excerpts": [
+              "CI/CD Jobs\nCI/CD jobs are the fundamental elements of a GitLab CI/CD pipeline. Jobs are configured in the .gitlab-ci.yml file with a list of commands to execute."
+            ],
+            "title": "CI/CD Jobs"
+          },
+          {
+            "url": "https://docs.gitlab.com/ci/pipelines",
+            "excerpts": [
+              "CI/CD pipelines\nCI/CD pipelines are the fundamental component of GitLab CI/CD. Pipelines are configured in a .gitlab-ci.yml file by using YAML keywords."
+            ],
+            "title": "CI/CD pipelines"
+          },
+          {
+            "url": "https://docs.holistics.io/docs/continuous-integration/gitlab-mr-workflow",
+            "excerpts": [
+              "Set up Merge Request Workflow (for GitLab)\nIn your GitLab project, go to Settings > Access tokens \u00b7 Click Add new token and configure: Token name: Holistics MR Integration \u00b7 Click Create project access"
+            ],
+            "title": "Set up Merge Request Workflow (for GitLab)"
+          },
+          {
+            "url": "http://sentry.io/integrations/gitlab",
+            "excerpts": [],
+            "title": "Gitlab + Sentry Integration | Sentry"
+          },
+          {
+            "url": "https://comparetiers.com/tools/gitlab",
+            "excerpts": [
+              "GitLab Pricing Plans and Tiers Compared (2026) | CompareTiers\nGitLab Premium ($29/user) includes 10,000 CI/CD minutes/month, advanced security scanning, and compliance features. Ultimate ($99/user) adds 40,000 CI/CD minutes/month, AI-powered features, and security orchestration."
+            ],
+            "title": "GitLab Pricing Plans and Tiers Compared (2026) | CompareTiers"
+          },
+          {
+            "url": "https://checkthat.ai/brands/gitlab/pricing",
+            "excerpts": [
+              "GitLab Pricing 2026: Plans, Costs & Overage Fees - GitLab ...\nCompare GitLab pricing across Free, Premium & Ultimate tiers. Detailed breakdown of compute minutes, add-ons, hidden costs & budget planning for 2026."
+            ],
+            "title": "GitLab Pricing 2026: Plans, Costs & Overage Fees - GitLab ..."
+          },
+          {
+            "url": "https://about.gitlab.com/pricing",
+            "excerpts": [
+              "Pricing - GitLab\nThe Ultimate tier allows users to view the results in the GitLab UI on the vulnerability report, dependency list, and inline in their merge requests. With Ultimate, you can also require security approvals for merge requests that affect your security posture."
+            ],
+            "title": "Pricing - GitLab"
+          },
+          {
+            "url": "https://docs.gitlab.com/subscriptions/subscription-add-ons",
+            "excerpts": [
+              "GitLab Duo add-ons\nGitLab Duo Core limits. For Premium and Ultimate customers, GitLab Duo Core includes access to Code Suggestions and, in GitLab 19.0 and later, GitLab Duo"
+            ],
+            "title": "GitLab Duo add-ons"
+          },
+          {
+            "url": "https://docs.gitlab.com/user/gitlab_duo/feature_summary",
+            "excerpts": [
+              "GitLab Duo features\nGitLab Duo features ; Tier: Premium, Ultimate ; Add-on: GitLab Duo Pro or Enterprise ; Offering: GitLab.com, GitLab Self-Managed, GitLab Dedicated."
+            ],
+            "title": "GitLab Duo features"
+          },
+          {
+            "url": "https://github.com/marketplace/actions/gitlab-pipeline-trigger",
+            "excerpts": [
+              "GitLab Pipeline Trigger \u00b7 Actions \u00b7 GitHub Marketplace\nThis GitHub action triggers and waits for a GitLab pipeline to complete. You can for example use this action in your GitHub workflow to trigger a deployment"
+            ],
+            "title": "GitLab Pipeline Trigger \u00b7 Actions \u00b7 GitHub Marketplace"
+          },
+          {
+            "url": "https://medium.com/%40vasu2001/setting-up-eas-ci-cd-pipeline-with-gitlab-a-complete-guide-to-expo-updates-and-builds-0d76e1bb015b",
+            "excerpts": [
+              "Setting up EAS CI/CD Pipeline with GitLab: A Complete Guide to ...\nMar 27, 2025 \u00b7 EAS workflows don't work on GitLab, so we had to create our own CI/CD setup to use EAS build and update with the GitLab pipeline."
+            ],
+            "title": "Setting up EAS CI/CD Pipeline with GitLab: A Complete Guide to ..."
+          },
+          {
+            "url": "https://stackoverflow.com/questions/70865748/gitlab-ci-trigger-pipeline-by-api-with-workflow-rules",
+            "excerpts": [
+              "Gitlab CI Trigger pipeline by API with workflow rules\nI'm having the following workflow rules in my main pipeline: Copy workflow: rules: - if: '$CI_MERGE_REQUEST_IID == null' when: never - if: '$CI_MERGE_REQUEST_TI"
+            ],
+            "title": "Gitlab CI Trigger pipeline by API with workflow rules"
+          },
+          {
+            "url": "http://github.blog/news-insights/product-news/github-copilot-meet-the-new-coding-agent",
+            "excerpts": [
+              "(last verified: 2026-06-11) Beginning June 4, 2025, Copilot coding agent will use one premium request per model request the agent makes.\nMay 19, 2025 \u2014 GitHub Copilot has a new feature: a coding agent that can implement a task or issue, run in the background with GitHub Actions, and more.\nWe are excited to introduce [a new coding agent for GitHub Copilot](https://github.com/features/copilot?utm_source=Blog&utm_medium=GitHub&utm_campaign=buildblogtop) . Embedded directly into GitHub, the agent starts its work when you assign a GitHub issue to Copilot or prompt it in VS Code."
+            ],
+            "title": "GitHub Copilot: Meet the new coding agent"
+          },
+          {
+            "url": "http://docs.github.com/copilot/concepts/agents/cloud-agent/about-cloud-agent",
+            "excerpts": [
+              "Copilot can research a repository, create an implementation plan, and make code changes on a branch. You can review the diff, iterate, and create a pull\nJul 4, 2025 \u2014 Copilot can research a repository, create an implementation plan, and make code changes on a branch. You can review the diff, iterate, and create a pull request"
+            ],
+            "title": "About GitHub Copilot cloud agent"
+          },
+          {
+            "url": "https://github.blog/ai-and-ml/github-copilot/github-copilot-coding-agent-101-getting-started-with-agentic-workflows-on-github",
+            "excerpts": [
+              "GitHub Copilot coding agent 101: Getting started with agentic ...\nDesigned to fit into your development flow on GitHub, Copilot coding agent is built directly into GitHub\u2019s native control layer. It starts working when you assign a GitHub Issue to Copilot, start a task from the agents panel, or initiate a task from Copilot Chat in VS Code."
+            ],
+            "title": "GitHub Copilot coding agent 101: Getting started with agentic ..."
+          },
+          {
+            "url": "http://docs.github.com/en/copilot/get-started/features",
+            "excerpts": [
+              "Copilot cloud agent. An autonomous AI agent that can research a repository, create an implementation plan, and make code changes on a branch. You can review\nAn autonomous AI agent that can research a repository, create an implementation plan, and make code changes on a branch.\nJul 9, 2024 \u2014 A chat interface that lets you ask coding-related questions. GitHub Copilot Chat is available on the GitHub website, in GitHub Mobile, in supported IDEs, and in"
+            ],
+            "title": "GitHub Copilot features"
+          },
+          {
+            "url": "https://tenki.cloud/blog/ai-agent-pr-playbook-github-actions",
+            "excerpts": [
+              "The AI Agent PR Playbook: GitHub Actions, Branch Policies ...\nGitHub's concurrency limits on hosted runners mean 50 queued workflow runs can take an hour to clear. Agent PRs that depend on each other's merge state go stale, triggering cascading rebases."
+            ],
+            "title": "The AI Agent PR Playbook: GitHub Actions, Branch Policies ..."
+          }
+        ],
+        "confidence": "medium"
+      }
+    ],
+    "type": "text",
+    "beta_fields": null,
+    "mcp_tool_calls": null,
+    "content_file": "trun_5c7ef1b0f8184d71b6a7972dfc3e0451.md"
+  }
+}
