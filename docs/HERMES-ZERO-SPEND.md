@@ -9,7 +9,8 @@ While active:
 
 - remote/provider commands such as `grok-yolo`, `meta-yolo`, `coco-yolo`,
   `ali-yolo`, `ibm-yolo`, direct Grok/Cortex/Qwen/Bob/Amp/Gemini entrypoints,
-  and Parallel entrypoints exit `73` before the preserved original can spawn;
+  Parallel entrypoints, and the Snowflake CLI exit `73` before the preserved
+  original can spawn;
 - `hermes-yolo` remains available, but its child environment is forced to
   `custom:ollama-local-64k` with an installed local model and an isolated,
   credential-free `HERMES_HOME`;

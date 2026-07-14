@@ -21,20 +21,25 @@ function run(file, args, env) {
 const root = fs.mkdtempSync(path.join(os.tmpdir(), 'zero-spend-gate-test-'));
 const home = path.join(root, 'home');
 const bin = path.join(home, '.local', 'bin');
+const systemBin = path.join(root, 'system-bin');
 fs.mkdirSync(bin, { recursive: true });
+fs.mkdirSync(systemBin, { recursive: true });
 fs.mkdirSync(path.join(home, '.hermes'), { recursive: true });
 fs.writeFileSync(path.join(home, '.hermes', '.env'), 'OPENROUTER_API_KEY=stored-private-value\n', { mode: 0o600 });
 
 const hermesCapture = path.join(root, 'hermes-env.json');
 const grokSentinel = path.join(root, 'grok-spawned');
+const parallelCliSentinel = path.join(root, 'parallel-cli-spawned');
 executable(path.join(bin, 'hermes-yolo'), `#!/bin/sh\nnode -e 'const fs=require("fs"); const names=["HERMES_ZERO_SPEND","HERMES_HOME","HERMES_ENV_PATH","HERMES_CONFIG_PATH","HERMES_MANAGED_DIR","HERMES_YOLO_BACKEND","HERMES_YOLO_PROVIDER","HERMES_YOLO_MODEL","HERMES_YOLO_TOOLSETS","OPENROUTER_API_KEY","META_MODEL_API_KEY","PARALLEL_API_KEY"]; const out={}; for (const n of names) out[n]=process.env[n] ?? null; fs.writeFileSync(process.argv[1], JSON.stringify(out));' "${hermesCapture}"\n`);
 executable(path.join(bin, 'grok-yolo'), `#!/bin/sh\ntouch "${grokSentinel}"\n`);
+executable(path.join(systemBin, 'parallel-cli'), `#!/bin/sh\ntouch "${parallelCliSentinel}"\n`);
 
 const env = {
   ...process.env,
   HOME: home,
-  PATH: `${bin}:${process.env.PATH}`,
-  HERMES_ZERO_SPEND_COMMANDS: 'hermes-yolo,grok-yolo,parallel',
+  PATH: `${systemBin}:${bin}:${process.env.PATH}`,
+  HERMES_ZERO_SPEND_COMMANDS: 'hermes-yolo,grok-yolo,parallel,parallel-cli',
+  HERMES_ZERO_SPEND_REPLACE_PREFIXES: systemBin,
   HERMES_ZERO_SPEND_LOCAL_MODELS: 'qwen3:8b-64k',
   OPENROUTER_API_KEY: 'must-not-reach-child',
   META_MODEL_API_KEY: 'must-not-reach-child',
@@ -53,7 +58,7 @@ assert.strictEqual(firstStatus.managedConfigMode, 0o600);
 assert.strictEqual(firstStatus.managedEnvMode, 0o600);
 assert.strictEqual(firstStatus.globalHermesPolicyActive, true);
 assert.strictEqual(firstStatus.localModel, 'qwen3:8b-64k');
-assert.strictEqual(firstStatus.commandCount, 3);
+assert.strictEqual(firstStatus.commandCount, 4);
 assert.ok(firstStatus.commands.every((entry) => entry.installed));
 const globalEnv = fs.readFileSync(path.join(home, '.hermes', '.env'), 'utf8');
 assert.match(globalEnv, /OPENROUTER_API_KEY=stored-private-value/);
@@ -65,7 +70,7 @@ assert.doesNotMatch(managedConfig, /openrouter|grok|meta|snowflake|parallel/i);
 
 const secondInstall = run(process.execPath, [sourceGate, '--install'], env);
 assert.strictEqual(secondInstall.status, 0, secondInstall.stderr);
-assert.strictEqual(JSON.parse(secondInstall.stdout).commandCount, 3, 'install must be idempotent');
+assert.strictEqual(JSON.parse(secondInstall.stdout).commandCount, 4, 'install must be idempotent');
 
 const blocked = run(path.join(bin, 'grok-yolo'), ['hello'], env);
 assert.strictEqual(blocked.status, 73, blocked.stderr);
@@ -74,6 +79,9 @@ assert.strictEqual(fs.existsSync(grokSentinel), false, 'blocked provider must ne
 
 const missingParallel = run(path.join(bin, 'parallel'), ['search'], env);
 assert.strictEqual(missingParallel.status, 73, missingParallel.stderr);
+const blockedSystemCommand = run(path.join(systemBin, 'parallel-cli'), ['search'], env);
+assert.strictEqual(blockedSystemCommand.status, 73, blockedSystemCommand.stderr);
+assert.strictEqual(fs.existsSync(parallelCliSentinel), false, 'effective system-path provider must never spawn');
 
 const local = run(path.join(bin, 'hermes-yolo'), ['local prompt'], env);
 assert.strictEqual(local.status, 0, local.stderr);

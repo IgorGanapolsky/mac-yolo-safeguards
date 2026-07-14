@@ -27,6 +27,7 @@ const DEFAULT_COMMANDS = [
   'amp',
   'parallel',
   'parallel-cli',
+  'snow',
 ];
 const PAID_CREDENTIAL_ENV = [
   'ANTHROPIC_API_KEY',
@@ -133,6 +134,19 @@ function underHome(filePath, env = process.env) {
   return relative && !relative.startsWith('..') && !path.isAbsolute(relative);
 }
 
+function replaceableCommandPath(filePath, env = process.env) {
+  const prefixes = [
+    homeDir(env),
+    '/opt/homebrew/bin',
+    '/usr/local/bin',
+    ...String(env.HERMES_ZERO_SPEND_REPLACE_PREFIXES || '').split(path.delimiter).filter(Boolean),
+  ];
+  return prefixes.some((prefix) => {
+    const relative = path.relative(prefix, filePath);
+    return relative && !relative.startsWith('..') && !path.isAbsolute(relative);
+  });
+}
+
 function resolvesTo(filePath, target) {
   try {
     return fs.realpathSync(filePath) === fs.realpathSync(target);
@@ -149,24 +163,29 @@ function backupName(name, originalPath) {
 function installCommand(name, manifest, env = process.env) {
   const loc = locations(env);
   const previous = manifest.commands[name];
-  if (previous && resolvesTo(previous.shimPath, loc.installedGate)) return previous;
+  const effective = findExecutable(name, env);
+  if (
+    previous &&
+    effective === previous.shimPath &&
+    resolvesTo(previous.shimPath, loc.installedGate)
+  ) return previous;
 
-  const discovered = findExecutable(name, env);
+  const discovered = effective;
   const localShim = path.join(loc.home, '.local', 'bin', name);
-  const shimPath = discovered && underHome(discovered, env) ? discovered : localShim;
+  const shimPath = discovered && replaceableCommandPath(discovered, env) ? discovered : localShim;
   fs.mkdirSync(path.dirname(shimPath), { recursive: true, mode: 0o700 });
 
   let original = previous && previous.original ? previous.original : null;
-  if (!original && discovered && !resolvesTo(discovered, loc.installedGate)) {
+  if (discovered && !resolvesTo(discovered, loc.installedGate)) {
     if (discovered !== shimPath) {
-      original = discovered;
+      if (!original) original = discovered;
     } else if (fs.lstatSync(discovered).isSymbolicLink()) {
       original = fs.realpathSync(discovered);
       fs.unlinkSync(discovered);
     } else {
       const backup = path.join(loc.originalsDir, backupName(name, discovered));
-      if (!fs.existsSync(backup)) fs.renameSync(discovered, backup);
-      else fs.unlinkSync(discovered);
+      if (fs.existsSync(backup)) fs.unlinkSync(backup);
+      fs.renameSync(discovered, backup);
       original = backup;
     }
   }
@@ -517,6 +536,7 @@ module.exports = {
   locations,
   main,
   markerActive,
+  replaceableCommandPath,
   runCommand,
   status,
   writePrivateFile,
