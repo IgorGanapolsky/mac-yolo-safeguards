@@ -1,0 +1,13 @@
+{
+  "url": "https://www.linkedin.com/feed/update/urn:li:share:7482673805891469312/",
+  "publishedAt": "2026-07-14T06:00:00Z",
+  "title": "Hermes Mobile stellar overhaul July 11 — 6 distinct screenshots, no dogfood, feature graphic v2, 22s video",
+  "body": "I run AI coding agents on my own computer...",
+  "comment": "Android live on Play: https://play.google.com/store/apps/details?id=com.iganapolsky.hermesmobile&utm_source=linkedin&utm_medium=organic&utm_campaign=stellar-july-14\nSource + gateway setup: https://github.com/IgorGanapolsky/mac-yolo-safeguards/tree/main/hermes-mobile\nFree tier: chat + connection health + QR pair. Leash Pro $19.99/mo for gate rules + ThumbGate memory (10/week free). iOS in review, not public yet (Apple lookup resultCount 0).",
+  "verification": {
+    "hasPlayLink": true,
+    "hasCommentText": true,
+    "postSuccessfulToast": true,
+    "proofMethod": "Chrome via osascript + base64 eval, sharebox preload, execCommand insertText, Post button click, comment submit via button.comments-comment-box__submit-button--cr"
+  }
+}

@@ -64,8 +64,22 @@
 
 ---
 
+## LinkedIn — Stellar July 11 launch (PUBLISHED 2026-07-14)
+
+| Field | Value |
+|-------|-------|
+| **URL** | https://www.linkedin.com/feed/update/urn:li:share:7482673805891469312/ |
+| **Status** | **PUBLISHED** 2026-07-14 via Chrome automation |
+| **Account** | Igor Ganapolsky (iganapolsky@gmail.com) |
+| **Body** | Stellar overhaul: 6 distinct screenshots (was duplicate 01/05), no dogfood "Print money", feature graphic v2 1024x500, 22s video, your Mac not cloud credits, 10/week free then Pro $19.99, iOS not public resultCount 0 |
+| **Comment** | Android live Play link + GitHub source + free tier honesty, contains play.google.com/store/apps/details?id=com.iganapolsky.hermesmobile |
+| **Verification** | hasPlayLink=true, hasCommentText=true, Post successful toast captured, links array contains urn:li:share:7482673805891469312 |
+| **Proof** | `../proofs/proof-linkedin-2026-07-14-stellar-july-11.json` + `linkedin-url-2026-07-14.txt`, verification via Chrome osascript base64 eval sharebox preload |
+| **Honesty** | No fake traction, iOS not claimed public, Play live verified via curl 200 IgorGanapolsky developer, no ranking claims |
+
 ## Skipped (intentional)
 
 - Paid UA — not spent.
 - HN re-post / vouch spam — unsafe (see above).
 - bluefully email — no To: address.
+- Reddit r/selfhosted — blocked (agents cannot post to Reddit per skill).
