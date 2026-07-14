@@ -25,6 +25,8 @@ const {
   buildVerifiedExtraComputer,
   isLoopbackGatewayUrl,
   classifyGatewayHost,
+  setupUsbAdbReverses,
+  assertUsbAdbReverses,
   ANDROID_PACKAGE_NAME,
   waitForForegroundAck,
   createPairingCodeStore,
@@ -278,14 +280,6 @@ function adbDevice() {
   const result = spawnSync('adb', ['devices'], { encoding: 'utf8' });
   if (result.status !== 0) return null;
   return selectPhysicalAdbSerial(result.stdout);
-}
-
-function setupAdbReverse(serial) {
-  const result = spawnSync('adb', ['-s', serial, 'reverse', 'tcp:8642', 'tcp:8642'], {
-    encoding: 'utf8',
-    timeout: 10_000,
-  });
-  return result.status === 0;
 }
 
 function openDeepLinkOnDevice(serial, link) {
@@ -567,21 +561,22 @@ function runPairMain(args) {
   const usbPairing = serial && !serial.startsWith('emulator-') && !args.has('--no-adb');
   let reversed8642 = false;
   if (usbPairing) {
-    reversed8642 = setupAdbReverse(serial);
-    // Only reverse pair page port when we will serve it — avoids hung adb on dead :8765
-    const reversed8765 =
-      !args.has('--no-serve') &&
-      spawnSync('adb', ['-s', serial, 'reverse', 'tcp:8765', 'tcp:8765'], {
-        encoding: 'utf8',
-        timeout: 10_000,
-      }).status === 0;
+    setupUsbAdbReverses(serial);
+    const reverseCheck = assertUsbAdbReverses(serial);
+    reversed8642 = !reverseCheck.missing.includes(8642);
+    const reversed8765 = !reverseCheck.missing.includes(8765);
     console.log(
       reversed8642
         ? `  adb reverse: tcp:8642 → Mac (${serial})`
         : `  adb reverse: tcp:8642 failed on ${serial}`,
     );
     if (reversed8765) {
-      console.log(`  adb reverse: tcp:8765 → Mac (${serial})`);
+      console.log(`  adb reverse: tcp:8765 → Mac (${serial}) (pair.json sweep)`);
+    } else {
+      throw new Error(
+        `adb reverse tcp:8765 missing on ${serial} — phone cannot sweep pair.json for Mac mini discovery. ` +
+          `Replug USB or run: adb -s ${serial} reverse tcp:8765 tcp:8765`,
+      );
     }
   }
 
