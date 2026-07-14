@@ -6,6 +6,7 @@ import {
   CONNECTION_HEAL_DURATION_MS,
   CONNECTION_HEAL_EXHAUSTED_AFTER,
 } from './connectionErrorPolicy';
+import { connectionCopyFromPrediction, reachabilityModel } from './onDeviceDecisionLayer';
 
 export type FreshUserOnboardingStep = {
   step: number;
@@ -159,9 +160,22 @@ export function freshUserConnectionBody(input: {
     return 'Follow the steps below — no technical setup on your phone.';
   }
   if (input.macLabel) {
-    return `${input.macLabel} is saved but not reachable right now. Follow the steps below or pick another computer.`;
+    return connectionCopyFromPrediction(
+      reachabilityModel.predict({
+        id: 'saved-computer',
+        transport: 'unknown',
+        reachable: false,
+      }),
+      input.macLabel,
+    ).detail;
   }
-  return 'Your computer is not reachable on this network. Follow the steps below.';
+  return connectionCopyFromPrediction(
+    reachabilityModel.predict({
+      id: 'saved-computer',
+      transport: 'unknown',
+      reachable: false,
+    }),
+  ).detail;
 }
 
 /** Documented heal attempt budget — keep in sync with CONNECTION_HEAL_EXHAUSTED_AFTER. */

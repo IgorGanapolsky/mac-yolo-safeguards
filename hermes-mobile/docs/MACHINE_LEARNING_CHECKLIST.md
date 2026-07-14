@@ -12,10 +12,18 @@ Companion docs: [APPLE_INTELLIGENCE_CHECKLIST.md](./APPLE_INTELLIGENCE_CHECKLIST
 
 | Use in Hermes | Status |
 |---|---|
+| Rank USB / Tailscale / dead routes locally | **Shipped** — `onDeviceDecisionLayer.ts` |
+| Route exact approve / reject phrases vs chat offline | **Shipped** — fail-closed rule model |
+| Turn connection scores into human recovery copy | **Shipped** — no phone LLM |
 | Run small on-device classifiers for risky-command heuristics | **Future** |
-| Zero-token on-device inference for approval triage | **Future** |
 
 Hermes keeps **GatewayContext** as source of truth; Core AI models would score `PendingApproval` payloads before Siri/glasses act.
+
+The current `OnDeviceModel<Input, Output>` contract is deliberately runtime-neutral. Its versioned
+rule models are instant, offline, deterministic, and add no model binary. A later Core ML or LiteRT
+implementation can replace `predict` only after labeled misroutes prove that rules are insufficient.
+Offline intent classification never executes an approval unless a real pending approval already
+exists on the phone.
 
 ---
 
@@ -147,3 +155,4 @@ open ios/HermesMobile.xcworkspace
 - [Vision](https://developer.apple.com/documentation/vision)
 - [Speech](https://developer.apple.com/documentation/speech)
 - [Core ML](https://developer.apple.com/documentation/coreml)
+- [LiteRT](https://ai.google.dev/edge/litert)

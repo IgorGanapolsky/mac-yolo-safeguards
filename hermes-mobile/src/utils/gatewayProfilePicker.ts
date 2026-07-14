@@ -16,6 +16,7 @@ import {
   profileDisplayName,
 } from '../services/gatewayProfiles';
 import { isTailscaleGatewayUrl, isTailscaleIpv4 } from './tailscaleHosts';
+import { rankReachabilityRoutes, type ReachabilityTransport } from './onDeviceDecisionLayer';
 
 export type ProfilePickerLines = {
   title: string;
@@ -157,35 +158,35 @@ export function preferredProfileForMachine(
     return candidates[0];
   }
   const liveHost = options.liveUsb?.reachable ? options.liveUsb.hostname?.trim() : null;
-  const usb = candidates.find((p) => isLoopbackGatewayUrl(p.gatewayUrl));
-  const tailscale = candidates.find((p) => isTailscaleGatewayUrl(p.gatewayUrl));
-  const lan = candidates.find(
-    (p) => isPrivateLanGatewayUrl(p.gatewayUrl) && !isLoopbackGatewayUrl(p.gatewayUrl),
-  );
-
-  if (liveHost && usb && (!usb.hostname || profileMatchesHostname(usb, liveHost))) {
-    return usb;
-  }
-  if (liveHost && tailscale && profileMatchesHostname(tailscale, liveHost) && usb) {
-    return usb;
-  }
-  // Prefer keeping the active path if it is already this machine (no cable).
-  if (options.activeProfileId) {
-    const active = candidates.find((p) => p.id === options.activeProfileId);
-    if (active && !isLoopbackGatewayUrl(active.gatewayUrl)) {
-      return active;
+  const transportFor = (profile: GatewayProfile): ReachabilityTransport => {
+    if (isLoopbackGatewayUrl(profile.gatewayUrl)) {
+      return 'usb';
     }
-  }
-  if (tailscale) {
-    return tailscale;
-  }
-  if (lan) {
-    return lan;
-  }
-  if (usb) {
-    return usb;
-  }
-  return candidates[0];
+    if (isTailscaleGatewayUrl(profile.gatewayUrl)) {
+      return 'tailscale';
+    }
+    if (isPrivateLanGatewayUrl(profile.gatewayUrl)) {
+      return 'wifi';
+    }
+    return 'unknown';
+  };
+  const ranked = rankReachabilityRoutes(
+    candidates.map((profile) => {
+      const transport = transportFor(profile);
+      const matchingLiveUsb =
+        transport === 'usb' &&
+        Boolean(liveHost) &&
+        (!profile.hostname || profileMatchesHostname(profile, liveHost ?? ''));
+      return {
+        id: profile.id,
+        transport,
+        reachable: transport !== 'usb' || matchingLiveUsb,
+        active: profile.id === options.activeProfileId && transport !== 'usb',
+      };
+    }),
+  );
+  const bestId = ranked.find((prediction) => prediction.score > 0)?.id;
+  return candidates.find((profile) => profile.id === bestId) ?? candidates[0];
 }
 
 /** Collapse USB + Tailscale + LAN twins into one row per computer. */
