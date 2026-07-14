@@ -1,5 +1,11 @@
 import type { RunProgressState } from '../types/chatDisplay';
-import { isConnectivityMessage, shortMacUnreachableTitle } from './chatErrors';
+import {
+  humanizeIfAbortMessage,
+  isConnectivityMessage,
+  isRawAbortMessage,
+  shortMacUnreachableTitle,
+  USER_RUN_INTERRUPTED_MESSAGE,
+} from './chatErrors';
 
 const GATEWAY_PLATFORM_MODEL_LABELS = new Set(['hermes-agent', 'hermes', 'gateway']);
 export const STALE_RUN_SECONDS = 15 * 60;
@@ -157,7 +163,11 @@ export function humanizeRunProgressDetail(detail: string | undefined, phase?: st
     return 'Hermes is working on your computer…';
   }
 
-  return raw.replace(/_/g, ' ');
+  if (isRawAbortMessage(raw)) {
+    return USER_RUN_INTERRUPTED_MESSAGE;
+  }
+
+  return humanizeIfAbortMessage(raw.replace(/_/g, ' '));
 }
 
 /** One-line title for failed run banner — keeps timer/stop from crushing long errors. */
@@ -165,6 +175,9 @@ export function runProgressFailedTitle(detail: string | undefined): string {
   const raw = detail?.trim();
   if (!raw) {
     return 'Something went wrong on your computer';
+  }
+  if (isRawAbortMessage(raw)) {
+    return USER_RUN_INTERRUPTED_MESSAGE;
   }
   if (isConnectivityMessage(raw)) {
     return shortMacUnreachableTitle();
