@@ -1,0 +1,18 @@
+# Stranger cold start: no demo deep link — brand-new user sees ConnectMacGate onboarding.
+appId: com.iganapolsky.hermesmobile
+---
+- stopApp
+- launchApp
+- extendedWaitUntil:
+    notVisible:
+      id: "hermes-bootstrap"
+    timeout: 90000
+- runFlow: dismiss-print-interruption.yaml
+- extendedWaitUntil:
+    visible:
+      id: "connect-mac-gate"
+    timeout: 60000
+- assertVisible:
+    id: "connect-mac-onboarding-card"
+- assertVisible:
+    id: "connect-search-wifi"

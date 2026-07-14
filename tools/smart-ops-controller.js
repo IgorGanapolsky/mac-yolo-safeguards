@@ -192,6 +192,62 @@ function run(args) {
     }
   }
 
+  // High-ROI market signals (Hermes-hosted + enterprise SDLC). Default ON via LaunchAgent env.
+  // Apply pipeline seed at most once/day; hourly runs refresh drafts only.
+  let marketSignal = null;
+  const signalScript = path.join(REPO, 'tools/hermes-hosting-market-signal.js');
+  const marketEnabled =
+    args.force ||
+    process.env.SMART_OPS_MARKET_SIGNAL === '1' ||
+    process.env.SMART_OPS_MARKET_SIGNAL === 'true';
+  if (fs.existsSync(signalScript) && marketEnabled) {
+    const dayStampPath = path.join(REVENUE_DIR, 'market-signal-last-apply-day.txt');
+    const todayUtc = new Date().toISOString().slice(0, 10);
+    let applyToday = args.force;
+    if (!applyToday) {
+      try {
+        applyToday = !fs.existsSync(dayStampPath) || fs.readFileSync(dayStampPath, 'utf8').trim() !== todayUtc;
+      } catch {
+        applyToday = true;
+      }
+    }
+    const presets = (process.env.SMART_OPS_MARKET_PRESETS || 'hermes-hosted,enterprise-sdlc')
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean);
+    const results = [];
+    for (const preset of presets) {
+      const argv = ['--preset', preset, '--json'];
+      if (applyToday) argv.push('--apply-pipeline');
+      const r = runNode('tools/hermes-hosting-market-signal.js', argv, 90000);
+      try {
+        const parsed = JSON.parse(r.stdout || '{}');
+        results.push({
+          preset,
+          ok: parsed.ok,
+          pipeline: parsed.pipeline,
+          stripe_ok: Object.values((parsed.stripe && parsed.stripe.links) || {}).filter((l) => l.ok)
+            .length,
+        });
+        actions.push(
+          `market_signal=${preset}:ok=${parsed.ok} stripe=${Object.values((parsed.stripe && parsed.stripe.links) || {}).filter((l) => l.ok).length} apply=${applyToday}`,
+        );
+      } catch {
+        results.push({ preset, ok: false, exit: r.status });
+        actions.push(`market_signal=${preset}:parse_fail`);
+      }
+    }
+    if (applyToday) {
+      try {
+        ensureDir(REVENUE_DIR);
+        fs.writeFileSync(dayStampPath, `${todayUtc}\n`, { mode: 0o600 });
+      } catch {
+        /* ignore */
+      }
+    }
+    marketSignal = { appliedPipeline: applyToday, results };
+  }
+
   const summary = {
     ok: true,
     checkedAt: new Date().toISOString(),
@@ -200,6 +256,7 @@ function run(args) {
     heal,
     revenue,
     replyMonitor,
+    marketSignal,
     actions,
     efficiency: {
       revenueFreshMin: REVENUE_SKIP_IF_FRESH_MIN,

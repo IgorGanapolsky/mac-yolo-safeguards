@@ -30,6 +30,8 @@ const REQUIRED_FLOWS = [
   'regression-leash-refresh',
   'regression-chat-header-model',
   'regression-composer-typeable',
+  'stranger-cold-start',
+  'wrong-key-repair',
 ];
 
 function bundleIdFromAppJson() {
