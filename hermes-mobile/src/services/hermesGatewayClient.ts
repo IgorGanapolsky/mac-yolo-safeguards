@@ -33,8 +33,28 @@ export const CHAT_STREAM_IDLE_MS = 30_000;
 /** Hard cap for one streamed chat turn. */
 export const CHAT_STREAM_MAX_MS = 900_000;
 
+/** Bulk DELETE /api/sessions — must not hang the Threads "Clearing…" spinner forever. */
+export const CLEAR_ALL_SESSIONS_TIMEOUT_MS = 25_000;
+
+/** Per-session DELETE when bulk clear fails. */
+export const DELETE_SESSION_TIMEOUT_MS = 8_000;
+
 function base(gatewayUrl: string): string {
   return normalizeGatewayUrl(gatewayUrl).httpBase;
+}
+
+async function fetchWithTimeout(
+  url: string,
+  init: RequestInit | undefined,
+  timeoutMs: number,
+): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, { ...init, signal: controller.signal });
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 function jsonHeaders(apiKey?: string | null): Record<string, string> {
@@ -259,11 +279,16 @@ export async function deleteSession(
   gatewayUrl: string,
   sessionId: string,
   apiKey?: string | null,
+  timeoutMs: number = DELETE_SESSION_TIMEOUT_MS,
 ): Promise<void> {
-  const response = await fetch(`${base(gatewayUrl)}/api/sessions/${encodeURIComponent(sessionId)}`, {
-    method: 'DELETE',
-    headers: buildAuthHeaders(apiKey),
-  });
+  const response = await fetchWithTimeout(
+    `${base(gatewayUrl)}/api/sessions/${encodeURIComponent(sessionId)}`,
+    {
+      method: 'DELETE',
+      headers: buildAuthHeaders(apiKey),
+    },
+    timeoutMs,
+  );
   if (!response.ok) {
     const text = await response.text();
     throw new HermesGatewayApiError(response.status, text || `HTTP ${response.status}`);
@@ -273,11 +298,16 @@ export async function deleteSession(
 export async function clearAllSessions(
   gatewayUrl: string,
   apiKey?: string | null,
+  timeoutMs: number = CLEAR_ALL_SESSIONS_TIMEOUT_MS,
 ): Promise<void> {
-  const response = await fetch(`${base(gatewayUrl)}/api/sessions`, {
-    method: 'DELETE',
-    headers: buildAuthHeaders(apiKey),
-  });
+  const response = await fetchWithTimeout(
+    `${base(gatewayUrl)}/api/sessions`,
+    {
+      method: 'DELETE',
+      headers: buildAuthHeaders(apiKey),
+    },
+    timeoutMs,
+  );
   if (!response.ok) {
     const text = await response.text();
     throw new HermesGatewayApiError(response.status, text || `HTTP ${response.status}`);
