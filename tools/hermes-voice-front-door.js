@@ -213,12 +213,24 @@ Options:
   --date YYYY-MM-DD     touch date for apply-pipeline (default: today UTC)
   --apply               actually run pipeline-update.js (default is dry-run)
   --allow-paid          required if suggested stage is paid (voice never auto-pays)
+  --create-if-missing   seed prospect row if absent (default ON for apply-pipeline)
+  --no-create-if-missing  refuse when prospect is not already in the TSV
   --json                machine-readable stdout
   --write               append private receipt under ~/.hermes/voice-front-door/
   --help
 
 Private receipts never store full utterance text (hashed length + trigger ids only).
 apply-pipeline never marks paid without --allow-paid; Stripe still requires ledger.`;
+
+const PIPELINE_TSV_HEADERS = [
+  'prospect_label',
+  'stage',
+  'route',
+  'gross_potential_usd',
+  'last_touch',
+  'next_action',
+  'notes',
+];
 
 function parseArgs(argv) {
   const args = {
@@ -227,6 +239,8 @@ function parseArgs(argv) {
     help: false,
     apply: false,
     allowPaid: false,
+    // undefined = default true for apply-pipeline; false only with --no-create-if-missing
+    createIfMissing: undefined,
   };
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i];
@@ -240,6 +254,8 @@ function parseArgs(argv) {
     else if (arg === '--date') args.date = argv[++i];
     else if (arg === '--apply') args.apply = true;
     else if (arg === '--allow-paid') args.allowPaid = true;
+    else if (arg === '--create-if-missing') args.createIfMissing = true;
+    else if (arg === '--no-create-if-missing') args.createIfMissing = false;
     else if (arg === '--json') args.json = true;
     else if (arg === '--write') args.write = true;
     else if (arg === '--help' || arg === '-h') args.help = true;
@@ -639,9 +655,119 @@ function buildPipelineUpdateFromVoice(rawSignals, hubspotStage, opts) {
   };
 }
 
+function escapeTsvField(value) {
+  return String(value || '').replace(/\r?\n/g, '\\n').replace(/\t/g, ' ');
+}
+
+/**
+ * Ensure private pipeline TSV has the prospect so pipeline-update.js can run.
+ * Creates file + header if missing; appends a ready seed row if prospect absent.
+ * Does not advance stage (pipeline-update does that after).
+ */
+function ensureProspectInPipeline(pipelinePath, update, date, opts) {
+  opts = opts || {};
+  const createIfMissing = opts.createIfMissing !== false;
+  const prospect = update.prospect;
+  const exists = fs.existsSync(pipelinePath);
+
+  if (!exists) {
+    if (!createIfMissing) {
+      return {
+        ok: false,
+        created: false,
+        found: false,
+        error: `pipeline file not found: ${pipelinePath} (pass --create-if-missing or create via pipeline-init.js)`,
+      };
+    }
+    if (opts.dryRun) {
+      return { ok: true, created: true, found: false, dry_run: true, would_create_file: true };
+    }
+    const seed = {
+      prospect_label: prospect,
+      stage: 'ready',
+      route: update.route || 'voice_front_door',
+      gross_potential_usd: String(update.gross_potential_usd != null ? update.gross_potential_usd : 0),
+      last_touch: date,
+      next_action: 'send_first_touch_or_voice_demo',
+      notes: `${date}: seeded_by_voice_front_door`,
+    };
+    const lines = [
+      PIPELINE_TSV_HEADERS.join('\t'),
+      PIPELINE_TSV_HEADERS.map((h) => escapeTsvField(seed[h])).join('\t'),
+    ];
+    fs.mkdirSync(path.dirname(pipelinePath) || '.', { recursive: true });
+    fs.writeFileSync(pipelinePath, `${lines.join('\n')}\n`, { mode: 0o600 });
+    return { ok: true, created: true, found: false, would_create_file: true };
+  }
+
+  const text = fs.readFileSync(pipelinePath, 'utf8');
+  const lines = text.trim() ? text.trim().split(/\r?\n/) : [];
+  if (lines.length === 0) {
+    if (!createIfMissing) {
+      return { ok: false, created: false, found: false, error: 'pipeline file empty' };
+    }
+    if (opts.dryRun) {
+      return { ok: true, created: true, found: false, dry_run: true, would_create_file: true };
+    }
+    const seed = {
+      prospect_label: prospect,
+      stage: 'ready',
+      route: update.route || 'voice_front_door',
+      gross_potential_usd: String(update.gross_potential_usd != null ? update.gross_potential_usd : 0),
+      last_touch: date,
+      next_action: 'send_first_touch_or_voice_demo',
+      notes: `${date}: seeded_by_voice_front_door`,
+    };
+    const outLines = [
+      PIPELINE_TSV_HEADERS.join('\t'),
+      PIPELINE_TSV_HEADERS.map((h) => escapeTsvField(seed[h])).join('\t'),
+    ];
+    fs.writeFileSync(pipelinePath, `${outLines.join('\n')}\n`, { mode: 0o600 });
+    return { ok: true, created: true, found: false, would_create_file: true };
+  }
+
+  const headers = lines[0].split('\t');
+  for (const h of PIPELINE_TSV_HEADERS) {
+    if (!headers.includes(h)) {
+      return { ok: false, created: false, found: false, error: `pipeline missing column ${h}` };
+    }
+  }
+  const labelIdx = headers.indexOf('prospect_label');
+  const found = lines.slice(1).some((line) => line.split('\t')[labelIdx] === prospect);
+  if (found) {
+    return { ok: true, created: false, found: true };
+  }
+  if (!createIfMissing) {
+    return {
+      ok: false,
+      created: false,
+      found: false,
+      error: `Prospect not found in ${pipelinePath}: ${prospect} (use default --create-if-missing)`,
+    };
+  }
+  if (opts.dryRun) {
+    return { ok: true, created: true, found: false, dry_run: true };
+  }
+
+  const seed = {
+    prospect_label: prospect,
+    stage: 'ready',
+    route: update.route || 'voice_front_door',
+    gross_potential_usd: String(update.gross_potential_usd != null ? update.gross_potential_usd : 0),
+    last_touch: date,
+    next_action: 'send_first_touch_or_voice_demo',
+    notes: `${date}: seeded_by_voice_front_door`,
+  };
+  const row = headers.map((h) => escapeTsvField(seed[h] != null ? seed[h] : '')).join('\t');
+  const next = text.endsWith('\n') ? `${text}${row}\n` : `${text}\n${row}\n`;
+  fs.writeFileSync(pipelinePath, next, { mode: 0o600 });
+  return { ok: true, created: true, found: false };
+}
+
 /**
  * Dry-run or apply pipeline-update.js after a voice call.
  * Default: dry-run (prints command + payload). --apply writes via pipeline-update.js.
+ * Cold-call buyers: default create-if-missing seeds a ready row then advances stage.
  */
 function applyPipelineFromVoice(options) {
   const {
@@ -651,6 +777,7 @@ function applyPipelineFromVoice(options) {
     apply,
     allowPaid,
     hubspotStage,
+    createIfMissing,
   } = options;
 
   if (!pipelinePath) {
@@ -674,6 +801,14 @@ function applyPipelineFromVoice(options) {
     };
   }
 
+  const create = createIfMissing !== false;
+  const ensurePreview = ensureProspectInPipeline(
+    pipelinePath,
+    built.pipeline_update,
+    touchDate,
+    { createIfMissing: create, dryRun: true },
+  );
+
   const cmd = buildPipelineUpdateCommand(pipelinePath, built.pipeline_update, touchDate);
   const result = {
     ok: true,
@@ -687,16 +822,45 @@ function applyPipelineFromVoice(options) {
       score: built.decision.score,
       offer: built.decision.offer,
     },
+    create_if_missing: create,
+    prospect_seed: {
+      found: !!ensurePreview.found,
+      would_create: !!ensurePreview.created && !ensurePreview.found,
+      would_create_file: !!ensurePreview.would_create_file,
+    },
     command: cmd.shell,
     command_argv: cmd.argv,
     applied: false,
+    created_prospect: false,
     revenue_note:
       'Pipeline stage is not revenue proof. Cleared Stripe + revenue ledger still required for paid.',
   };
 
+  if (!ensurePreview.ok && !ensurePreview.created) {
+    // only hard-fail when create disabled and missing
+    if (!create) {
+      result.ok = false;
+      result.error = ensurePreview.error;
+      return result;
+    }
+  }
+
   if (!apply) {
     return result;
   }
+
+  const ensured = ensureProspectInPipeline(
+    pipelinePath,
+    built.pipeline_update,
+    touchDate,
+    { createIfMissing: create, dryRun: false },
+  );
+  if (!ensured.ok) {
+    result.ok = false;
+    result.error = ensured.error;
+    return result;
+  }
+  result.created_prospect = !!ensured.created;
 
   // Execute pipeline-update.js as a child (same contract as operators).
   // eslint-disable-next-line global-require
@@ -892,6 +1056,7 @@ function run(argv) {
       apply: args.apply,
       allowPaid: args.allowPaid,
       hubspotStage: args.hubspotStage,
+      createIfMissing: args.createIfMissing,
     });
   } else {
     throw new Error(`Unknown event: ${args.event}`);
@@ -917,6 +1082,11 @@ function run(argv) {
   } else if (event === 'apply-pipeline') {
     lines.push(`dry_run=${result.dry_run} applied=${result.applied} stage=${result.pipeline_update && result.pipeline_update.stage}`);
     lines.push(`prospect=${result.pipeline_update && result.pipeline_update.prospect}`);
+    if (result.prospect_seed) {
+      lines.push(
+        `prospect_seed found=${result.prospect_seed.found} would_create=${result.prospect_seed.would_create} created=${result.created_prospect}`,
+      );
+    }
     lines.push(result.command || '');
     if (result.error) lines.push(`error=${result.error}`);
   } else {
@@ -960,7 +1130,9 @@ module.exports = {
   suggestStageFromDecision,
   buildPipelineUpdateCommand,
   buildPipelineUpdateFromVoice,
+  ensureProspectInPipeline,
   applyPipelineFromVoice,
+  PIPELINE_TSV_HEADERS,
   buildDemoAgentPack,
   buildAgentSystemPrompt,
   writeReceipt,
