@@ -4,6 +4,7 @@ Canonical repo rules: [../AGENTS.md](../AGENTS.md). This file adds **mobile-only
 
 ## Standing orders (no reminders)
 
+0. **Always agent mode — never ask mode** (permanent, 2026-07-14). Implement and verify; do not switch to read-only/ask. See parent [AGENTS.md](../AGENTS.md) § Always agent mode and `~/.grok/AGENTS.md`.
 1. **Session start** — parent repo runs `node tools/agent-session-start.js` (pairing, LaunchAgent health, continuous E2E status). Do not skip when touching this tree.
 2. **After any edit** under `src/`, `app.json`, or `.maestro/` — in the **same turn** before claiming fixed/shipped:
    - `npm test -- --no-coverage --watchman=false`

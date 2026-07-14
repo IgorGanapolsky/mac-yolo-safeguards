@@ -57,6 +57,17 @@ Every claim needs proof in the same turn:
 3. Push, open a PR, watch CI, and **merge when green** (`--auto` on strict-protection repos); report the merge with commit SHA + CI status.
 4. Uncommitted work on this multi-agent repo evaporates — another agent's checkout/revert can silently destroy it within hours. Untracked finished work is indistinguishable from no work.
 
+## Always agent mode — NEVER ask mode (permanent, 2026-07-14)
+
+**User directive (emphatic):** always run in **agent mode**. **Never** use **ask mode** (read-only / refuse-to-edit posture).
+
+1. Default capability: **read-write + execute** — edit, shell, tests, git, adb, Chrome automation.
+2. **Never** end with “switch me to agent mode” or treat ask mode as the normal operating mode.
+3. If the *host product* forced ask mode, say so **once**, then do everything still allowed — do not idle in advice-only mode.
+4. Does **not** override safety: no secrets in tracked files; hard-to-reverse shared actions still need consent per Operational safety.
+
+Mirrored globally: `~/.grok/AGENTS.md`, `.cursor/rules/always-agent-mode.mdc`.
+
 ## No manual handoffs to the user
 
 **User directive:** Never tell the user to run commands, tap UI, import configs, or "do X on your phone/Mac" themselves.
