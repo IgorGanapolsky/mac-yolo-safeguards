@@ -973,11 +973,12 @@ export default function ChatScreen() {
       detectUsbHostMismatch({
         activeProfile: activeGatewayProfile,
         gatewayUrl,
-        healthHostname: health?.hostname,
+        healthHostname: health?.usbTunnelHostname ?? health?.hostname,
         profiles: gatewayProfiles,
         macHttpOk,
+        usbTunnelIdentity: Boolean(health?.usbTunnelHostname?.trim()),
       }),
-    [activeGatewayProfile, gatewayUrl, health?.hostname, gatewayProfiles, macHttpOk],
+    [activeGatewayProfile, gatewayUrl, health?.usbTunnelHostname, health?.hostname, gatewayProfiles, macHttpOk],
   );
   const activeComputerSessionKeys = useMemo(
     () => resolveComputerSessionStorageKeys(activeGatewayProfile, gatewayUrl),
@@ -1310,6 +1311,7 @@ export default function ChatScreen() {
         activeWorkerId: activeRelayWorkerId,
         savedMacCount: gatewayProfiles.length,
         profiles: gatewayProfiles,
+        macHttpOk,
       }),
     [
       activeGatewayProfile,
@@ -1320,6 +1322,7 @@ export default function ChatScreen() {
       relayWorkers,
       activeRelayWorkerId,
       gatewayProfiles,
+      macHttpOk,
     ],
   );
 

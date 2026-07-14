@@ -519,17 +519,10 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
             isLoopbackGatewayUrl(p.gatewayUrl),
           );
           if (!hasLoopback) {
-            const named = loadedProfiles.profiles
-              .map((profile) => ({ profile, name: profileDisplayName(profile) }))
-              .find(({ name }) => !isGenericMachineLabel(name));
-            const displayName = named?.name;
             loadedProfiles.profiles.push({
-              id: displayName
-                ? profileIdFromGatewayUrl(USB_LOOPBACK_GATEWAY_URL, displayName)
-                : 'mac_usb_loopback',
-              label: displayName ?? GENERIC_USB_PROFILE_LABEL,
+              id: 'mac_usb_loopback',
+              label: GENERIC_USB_PROFILE_LABEL,
               gatewayUrl: USB_LOOPBACK_GATEWAY_URL,
-              hostname: displayName ? `${displayName.replace(/\.local$/i, '')}.local` : undefined,
               localIp: '127.0.0.1',
               addedAt: new Date().toISOString(),
             });
@@ -766,16 +759,17 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
         apiKeyRef.current = probeKey;
       }
       const snapshot = await fetchGatewayHealth(url, probeKey);
-      if (
-        isLoopbackGatewayUrl(url) &&
-        isGatewayHealthOk(snapshot) &&
-        !snapshot.hostname?.trim()
-      ) {
+      if (isLoopbackGatewayUrl(url)) {
         const pairHost = pairServerHostFromGatewayUrl(url);
         if (pairHost) {
           const pairName = await resolvePairServerMachineName(pairHost).catch(() => null);
           if (pairName) {
-            return { ...snapshot, hostname: pairName };
+            const withUsbHost: typeof snapshot = {
+              ...snapshot,
+              usbTunnelHostname: pairName,
+              hostname: snapshot.hostname?.trim() ? snapshot.hostname : pairName,
+            };
+            return withUsbHost;
           }
         }
       }
@@ -1916,7 +1910,9 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
       // (e.g., USB is connected to Mac Pro, but active profile was Mini — tapping Pro
       // should keep http://127.0.0.1:8642 instead of switching to Tailscale URL that may be unreachable)
       const currentEffective = effectiveGatewayUrlRef.current;
-      const healthHostname = healthRef.current?.hostname?.trim();
+      const healthHostname =
+        healthRef.current?.usbTunnelHostname?.trim() ||
+        healthRef.current?.hostname?.trim();
       const healthOk = isMacGatewayHttpOk(healthRef.current);
       let targetGatewayUrl = profile.gatewayUrl;
       if (

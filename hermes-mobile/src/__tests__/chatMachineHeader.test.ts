@@ -86,11 +86,13 @@ describe('resolveChatMachineHeaderDisplay', () => {
         checkedAt: '2026-06-24T00:00:00.000Z',
         hostname: 'Igors-Mac-mini.local',
         localIp: '192.168.68.73',
+        directGatewayReachable: true,
       },
       connectionMode: 'gateway',
       isPaired: false,
       workers: [],
       savedMacCount: 1,
+      macHttpOk: true,
     });
     expect(display.machineLabel).toBe('Igors-Mac-mini');
     expect(display.machineEndpoint).toBe('USB');
@@ -111,11 +113,13 @@ describe('resolveChatMachineHeaderDisplay', () => {
         level: 'green',
         checkedAt: '2026-06-24T00:00:00.000Z',
         hostname: 'Igors-Mac-mini.local',
+        directGatewayReachable: true,
       },
       connectionMode: 'gateway',
       isPaired: false,
       workers: [],
       savedMacCount: 1,
+      macHttpOk: true,
     });
     expect(display.machineLabel).toBe('Igors-Mac-mini');
     expect(display.machineEndpoint).toBe('USB');
@@ -134,15 +138,77 @@ describe('resolveChatMachineHeaderDisplay', () => {
         level: 'green',
         checkedAt: '2026-06-24T00:00:00.000Z',
         hostname: 'Igors-MacBook-Pro.local',
+        usbTunnelHostname: 'Igors-MacBook-Pro',
         directGatewayReachable: true,
       },
       connectionMode: 'gateway',
       isPaired: false,
       workers: [],
       savedMacCount: 2,
+      macHttpOk: true,
     });
     expect(display.machineLabel).toBe('Igors-MacBook-Pro');
     expect(display.machineEndpoint).toBe('USB');
+  });
+
+  it('uses pair-server USB hostname when active profile is wrong Mac during reconnect', () => {
+    const display = resolveChatMachineHeaderDisplay({
+      activeProfile: {
+        ...macMini,
+        gatewayUrl: 'http://127.0.0.1:8642',
+        localIp: '127.0.0.1',
+      },
+      gatewayUrl: 'http://127.0.0.1:8642',
+      health: {
+        level: 'red',
+        checkedAt: '2026-06-24T00:00:00.000Z',
+        usbTunnelHostname: 'Igors-MacBook-Pro',
+        authMismatch: true,
+      },
+      connectionMode: 'gateway',
+      isPaired: false,
+      workers: [],
+      savedMacCount: 2,
+      macHttpOk: false,
+    });
+    expect(display.machineLabel).toBe('Igors-MacBook-Pro');
+    expect(display.machineEndpoint).toBe('USB');
+  });
+
+  it('does not claim Mac mini on USB when tunnel identity is unknown', () => {
+    const display = resolveChatMachineHeaderDisplay({
+      activeProfile: {
+        ...macMini,
+        gatewayUrl: 'http://127.0.0.1:8642',
+        localIp: '127.0.0.1',
+      },
+      gatewayUrl: 'http://127.0.0.1:8642',
+      health: {
+        level: 'red',
+        checkedAt: '2026-06-24T00:00:00.000Z',
+      },
+      connectionMode: 'gateway',
+      isPaired: false,
+      workers: [],
+      savedMacCount: 2,
+      macHttpOk: false,
+    });
+    expect(display.machineLabel).toBe('Computer via USB');
+    expect(display.machineEndpoint).toBeUndefined();
+  });
+
+  it('does not show USB route label when loopback URL is saved but reverse is inactive', () => {
+    const display = resolveChatMachineHeaderDisplay({
+      activeProfile: macMini,
+      gatewayUrl: 'http://127.0.0.1:8642',
+      health: null,
+      connectionMode: 'gateway',
+      isPaired: false,
+      workers: [],
+      savedMacCount: 2,
+      macHttpOk: false,
+    });
+    expect(display.machineEndpoint).toBeUndefined();
   });
 
   it('keeps saved Mac name during transient health hostname from USB heal', () => {
@@ -157,11 +223,13 @@ describe('resolveChatMachineHeaderDisplay', () => {
         level: 'red',
         checkedAt: '2026-06-24T00:00:00.000Z',
         hostname: 'Igors-Mac-mini.local',
+        usbTunnelHostname: 'Igors-MacBook-Pro',
       },
       connectionMode: 'gateway',
       isPaired: false,
       workers: [],
       savedMacCount: 2,
+      macHttpOk: true,
     });
     expect(display.machineLabel).toBe('Igors-MacBook-Pro');
     expect(display.machineEndpoint).toBe('USB');
@@ -177,13 +245,19 @@ describe('resolveChatMachineHeaderDisplay', () => {
         addedAt: '2026-06-24T00:00:00.000Z',
       },
       gatewayUrl: 'http://127.0.0.1:8642',
-      health: null,
+      health: {
+        level: 'green',
+        checkedAt: '2026-06-24T00:00:00.000Z',
+        usbTunnelHostname: 'Igors-MacBook-Pro',
+        directGatewayReachable: true,
+      },
       connectionMode: 'gateway',
       isPaired: false,
       workers: [],
       savedMacCount: 1,
+      macHttpOk: true,
     });
-    expect(display.machineLabel).toBe('Computer via USB');
+    expect(display.machineLabel).toBe('Igors-MacBook-Pro');
     expect(display.machineLabel).not.toMatch(/127\.0\.0\.1/);
     expect(display.machineEndpoint).toBe('USB');
   });
@@ -199,11 +273,17 @@ describe('resolveChatMachineHeaderDisplay', () => {
         addedAt: '2026-06-24T00:00:00.000Z',
       },
       gatewayUrl: 'http://127.0.0.1:8642',
-      health: null,
+      health: {
+        level: 'green',
+        checkedAt: '2026-06-24T00:00:00.000Z',
+        usbTunnelHostname: 'Igors-Mac-mini',
+        directGatewayReachable: true,
+      },
       connectionMode: 'gateway',
       isPaired: false,
       workers: [],
       savedMacCount: 1,
+      macHttpOk: true,
     });
     expect(withProfileHost.machineLabel).toBe('Igors-Mac-mini');
     expect(withProfileHost.machineLabel).not.toMatch(/127\.0\.0\.1/);
@@ -221,11 +301,13 @@ describe('resolveChatMachineHeaderDisplay', () => {
         level: 'green',
         checkedAt: '2026-06-24T00:00:00.000Z',
         hostname: 'Igors-MacBook-Pro.local',
+        directGatewayReachable: true,
       },
       connectionMode: 'gateway',
       isPaired: false,
       workers: [],
       savedMacCount: 1,
+      macHttpOk: true,
     });
     expect(withHealthHost.machineLabel).toBe('Igors-MacBook-Pro');
     expect(withHealthHost.machineLabel).not.toMatch(/127\.0\.0\.1/);
@@ -251,11 +333,17 @@ describe('resolveChatMachineHeaderDisplay', () => {
       activeProfile: usbProfile,
       profiles: [namedProfile],
       gatewayUrl: 'http://127.0.0.1:8642',
-      health: null,
+      health: {
+        level: 'green',
+        checkedAt: '2026-06-24T00:00:00.000Z',
+        usbTunnelHostname: 'Igors-Mac-mini',
+        directGatewayReachable: true,
+      },
       connectionMode: 'gateway',
       isPaired: false,
       workers: [],
       savedMacCount: 1,
+      macHttpOk: true,
     });
     expect(display.machineLabel).toBe('Igors-Mac-mini');
     expect(display.machineEndpoint).toBe('USB');
@@ -291,11 +379,13 @@ describe('resolveChatMachineHeaderDisplay', () => {
         level: 'red',
         checkedAt: '2026-06-24T00:00:00.000Z',
         hostname: 'Igors-MacBook-Pro.local',
+        usbTunnelHostname: 'Igors-MacBook-Pro',
       },
       connectionMode: 'gateway',
       isPaired: false,
       workers: [],
       savedMacCount: 2,
+      macHttpOk: false,
     });
     expect(display.machineLabel).toBe('Igors-MacBook-Pro');
     expect(display.machineEndpoint).toBe('USB');
@@ -316,11 +406,13 @@ describe('resolveChatMachineHeaderDisplay', () => {
         level: 'red',
         checkedAt: '2026-06-24T00:00:00.000Z',
         hostname: 'Igors-MacBook-Pro.local',
+        usbTunnelHostname: 'Igors-MacBook-Pro',
       },
       connectionMode: 'relay',
       isPaired: false,
       workers: [],
       savedMacCount: 1,
+      macHttpOk: false,
     });
     expect(display.machineLabel).toBe('Igors-MacBook-Pro');
     expect(display.machineEndpoint).toBe('USB');

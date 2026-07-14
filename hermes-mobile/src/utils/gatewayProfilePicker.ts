@@ -208,9 +208,14 @@ export function detectUsbHostMismatch(input: {
   healthHostname?: string | null;
   profiles: GatewayProfile[];
   macHttpOk?: boolean;
+  /** Pair-server hostname on loopback — authoritative even when chat auth is still failing. */
+  usbTunnelIdentity?: boolean;
 }): UsbHostMismatch | null {
   const healthHost = input.healthHostname?.trim();
-  if (!healthHost || !input.macHttpOk) {
+  if (!healthHost) {
+    return null;
+  }
+  if (!input.macHttpOk && !input.usbTunnelIdentity) {
     return null;
   }
   if (!isLoopbackGatewayUrl(input.gatewayUrl)) {

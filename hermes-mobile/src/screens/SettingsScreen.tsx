@@ -145,11 +145,12 @@ export default function SettingsScreen() {
       detectUsbHostMismatch({
         activeProfile: activeGatewayProfile,
         gatewayUrl: activeGatewayUrl,
-        healthHostname: health?.hostname,
+        healthHostname: health?.usbTunnelHostname ?? health?.hostname,
         profiles: savedMacProfiles,
         macHttpOk,
+        usbTunnelIdentity: Boolean(health?.usbTunnelHostname?.trim()),
       }),
-    [activeGatewayProfile, activeGatewayUrl, health?.hostname, savedMacProfiles, macHttpOk],
+    [activeGatewayProfile, activeGatewayUrl, health?.usbTunnelHostname, health?.hostname, savedMacProfiles, macHttpOk],
   );
 
   const anyNotificationEnabled =

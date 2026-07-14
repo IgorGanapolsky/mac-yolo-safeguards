@@ -55,6 +55,8 @@ export interface GatewayHealthSnapshot {
   errorMessage?: string;
   hostname?: string;
   localIp?: string;
+  /** Authoritative adb-reverse host from :8765/pair.json (whichever Mac owns the USB cable). */
+  usbTunnelHostname?: string;
   /** Direct HTTP to :8642 on the saved gateway URL (distinct from relay cloud health). */
   directGatewayReachable?: boolean;
   /** /health returned ok but authenticated chat probe returned 401/403. */

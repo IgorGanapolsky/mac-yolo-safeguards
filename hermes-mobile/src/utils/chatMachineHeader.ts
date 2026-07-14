@@ -4,6 +4,7 @@ import type { ConnectionMode } from '../types/gateway';
 import type { RelayWorker } from '../types/mobileRelay';
 import { GATEWAY_WRONG_KEY_MESSAGE } from '../services/gatewayClient';
 import {
+  GENERIC_USB_PROFILE_LABEL,
   isGenericMachineLabel,
   profileDisplayName,
   profilesShareMachine,
@@ -17,6 +18,21 @@ import { isTailnetRouteLabel, isTailscaleGatewayUrl } from './tailscaleHosts';
 
 function healthHostname(health?: GatewayHealthSnapshot | null): string | undefined {
   return health?.hostname?.replace(/\.local$/i, '').trim() || undefined;
+}
+
+function usbTunnelHostname(health?: GatewayHealthSnapshot | null): string | undefined {
+  return health?.usbTunnelHostname?.replace(/\.local$/i, '').trim() || undefined;
+}
+
+function isLiveUsbHealthHostname(
+  health: GatewayHealthSnapshot | null | undefined,
+  hostname: string,
+): boolean {
+  return (
+    Boolean(hostname) &&
+    health?.directGatewayReachable !== false &&
+    (health?.level === 'green' || health?.level === 'amber')
+  );
 }
 
 function isUnresolvedMachineName(name: string): boolean {
@@ -94,17 +110,54 @@ export function resolveMachineDisplayName(
   profiles?: GatewayProfile[],
 ): string {
   const loopbackUsb = isLoopbackGatewayUrl(gatewayUrl);
+  const fromPairServer = usbTunnelHostname(health);
   const fromHealth = healthHostname(health);
   const liveUsbHost =
     loopbackUsb &&
     fromHealth &&
-    health?.directGatewayReachable !== false &&
-    (health?.level === 'green' || health?.level === 'amber');
+    isLiveUsbHealthHostname(health, fromHealth);
 
-  // USB adb reverse reaches whichever Mac is plugged in — live hostname wins over stale profile.
+  // Pair-server hostname is authoritative for adb reverse — always wins on USB loopback.
+  if (loopbackUsb && fromPairServer) {
+    if (!activeProfile || !profileMatchesHostname(activeProfile, fromPairServer)) {
+      return fromPairServer;
+    }
+    const activeName = profileDisplayName(activeProfile);
+    if (!isUnresolvedMachineName(activeName)) {
+      return activeName;
+    }
+    return fromPairServer;
+  }
+
+  // USB adb reverse reaches whichever Mac is plugged in — live /health hostname wins over stale profile.
   if (liveUsbHost) {
-    if (!activeProfile || !profileMatchesHostname(activeProfile, fromHealth)) {
-      return fromHealth;
+    if (!activeProfile || !profileMatchesHostname(activeProfile, fromHealth!)) {
+      return fromHealth!;
+    }
+  }
+
+  if (loopbackUsb) {
+    // Stale red /health hostname can lag after switching USB hosts — trust named active profile.
+    if (
+      fromHealth &&
+      health?.level === 'red' &&
+      activeProfile &&
+      !profileMatchesHostname(activeProfile, fromHealth)
+    ) {
+      const activeName = profileDisplayName(activeProfile);
+      if (!isUnresolvedMachineName(activeName)) {
+        return activeName;
+      }
+    }
+    // No tunnel identity at all — never trust a named saved profile on loopback (may be the wrong Mac).
+    if (
+      !fromPairServer &&
+      !liveUsbHost &&
+      !fromHealth &&
+      activeProfile &&
+      !isGenericMachineLabel(profileDisplayName(activeProfile))
+    ) {
+      return GENERIC_USB_PROFILE_LABEL;
     }
   }
 
@@ -154,6 +207,8 @@ export function resolveChatMachineHeaderDisplay(input: {
   activeWorkerId?: string | null;
   savedMacCount?: number;
   profiles?: GatewayProfile[];
+  /** Chat HTTP to :8642 is up — required before claiming USB route in the header. */
+  macHttpOk?: boolean;
 }): ChatMachineHeaderDisplay {
   let machineLabel = resolveMachineDisplayName(
     input.activeProfile,
@@ -174,14 +229,21 @@ export function resolveChatMachineHeaderDisplay(input: {
   }
 
   const loopbackUsb = isLoopbackGatewayUrl(input.gatewayUrl);
+  const usbReverseActive =
+    loopbackUsb &&
+    (input.macHttpOk === true ||
+      Boolean(usbTunnelHostname(input.health)) ||
+      input.health?.directGatewayReachable === true);
   const hasNamedMachine = Boolean(machineLabel && !isGenericMachineLabel(machineLabel));
-  let ipLine = formatGatewayEndpointLine(input.gatewayUrl, input.health)?.trim();
+  let ipLine: string | undefined = formatGatewayEndpointLine(input.gatewayUrl, input.health)?.trim();
   if (isTailscaleGatewayUrl(input.gatewayUrl)) {
     ipLine = 'Tailscale';
   }
-  // Never show bare 127.0.0.1:8642 in the header — USB is the human route label.
-  if (loopbackUsb) {
+  // Never show bare 127.0.0.1:8642 in the header — USB is the human route label when reverse is active.
+  if (usbReverseActive) {
     ipLine = 'USB';
+  } else if (loopbackUsb) {
+    ipLine = undefined;
   }
   const detailParts: string[] = [];
   const savedMacCount = input.savedMacCount ?? 0;
@@ -196,7 +258,7 @@ export function resolveChatMachineHeaderDisplay(input: {
         machineLabel.includes(ipLine.split(':')[0]),
     );
 
-  if (ipLine && (savedMacCount > 1 || loopbackUsb || !labelContainsIp)) {
+  if (ipLine && (savedMacCount > 1 || usbReverseActive || !labelContainsIp)) {
     detailParts.push(ipLine);
   }
 
@@ -220,7 +282,7 @@ export function resolveChatMachineHeaderDisplay(input: {
     machineEndpoint: detailParts.length > 0 ? detailParts.join(' · ') : undefined,
     showDetailWhenConnected:
       savedMacCount > 1 ||
-      loopbackUsb ||
+      usbReverseActive ||
       detailParts.some((part) => part.startsWith('relay ·')) ||
       (isTailscaleGatewayUrl(input.gatewayUrl) &&
         hasNamedMachine &&
