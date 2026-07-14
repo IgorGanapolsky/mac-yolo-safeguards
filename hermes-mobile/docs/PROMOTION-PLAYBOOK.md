@@ -47,3 +47,15 @@ Track these PostHog views before scaling:
 - Day 7 ROAS: purchase results and restore results by `first_attribution_campaign` and `attribution_campaign`.
 - Creative fatigue: purchase start rate by `attribution_creative_id`.
 - Funnel breakage: `leash_purchase_start` without `leash_purchase_result` within the same day.
+
+
+## Organic content engine (DRAFT_ONLY)
+
+Daily revenue-focused social drafts are produced by **[CONTENT-ENGINE-REVENUE-V1.md](./CONTENT-ENGINE-REVENUE-V1.md)**.
+
+- **Mode:** drafts only — never auto-publish; never claim Posted from the engine.
+- **Latest pack:** [social/revenue-engine-2026-07-13/](./social/revenue-engine-2026-07-13/)
+- **Memory:** [social/content-engine-memory.tsv](./social/content-engine-memory.tsv)
+
+Paid AppLovin / UTM measurement above remains separate from organic draft generation.
+

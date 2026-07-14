@@ -3099,48 +3099,15 @@ export default function ChatScreen() {
       })();
       const deletable = deletableSource;
       const attemptedIds = deletable.map((session) => session.id);
-      const hideCronAfterClear = deletable.some((session) => isAutomatedCronSession(session));
-      const effectiveHideCron = hideCronAfterClear || hideCronSessionsRef.current;
+      // Always hide cron after clear-all so Scheduled job noise cannot stick on "Clearing…".
+      const effectiveHideCron = true;
       dismissedHydrationGenRef.current += 1;
       const nextDismissed = [...new Set([...dismissedSessionIdsRef.current, ...attemptedIds])];
       dismissedSessionIdsRef.current = nextDismissed;
-      if (hideCronAfterClear) {
-        hideCronSessionsRef.current = true;
-      }
+      hideCronSessionsRef.current = true;
       // Harness probes (API_SERVER/CLI) get fresh ids every run, so id dismissal cannot
       // keep them out. After a Clear all, suppress the whole class permanently.
       hideAutomationSessionsRef.current = true;
-
-      let gatewayCleared = false;
-      let failed = 0;
-      try {
-        await clearAllSessions(gatewayUrl, apiKey);
-        gatewayCleared = true;
-      } catch (err) {
-        console.warn('[executeClearAllChats] API clear-all failed, falling back to sequential deletes:', err);
-        for (const session of deletable) {
-          try {
-            await deleteSession(gatewayUrl, session.id, apiKey);
-          } catch {
-            failed += 1;
-          }
-        }
-        gatewayCleared = failed === 0;
-      }
-
-      if (attemptedIds.length > 0) {
-        await storage.addDismissedSessionIds(activeComputerSessionKeys, attemptedIds, gatewayUrl);
-      }
-
-      if (hideCronAfterClear) {
-        await storage.setHideCronSessions(activeComputerSessionKeys, true, gatewayUrl);
-        setHideCronSessions(true);
-      }
-
-      await storage.setHideAutomationSessions(activeComputerSessionKeys, true, gatewayUrl);
-      setHideAutomationSessions(true);
-
-      setDismissedSessionIds(nextDismissed);
 
       const applyClearedFilter = (list: HermesSession[]) =>
         filterDismissedThreadSessions(list, {
@@ -3149,17 +3116,52 @@ export default function ChatScreen() {
           hideAutomationSessions: true,
         });
 
+      // Optimistic: clear Threads list immediately so a hung DELETE cannot strand "Clearing…".
+      setDismissedSessionIds(nextDismissed);
+      setHideCronSessions(true);
+      setHideAutomationSessions(true);
       setSessions((prev) => applyClearedFilter(prev));
+
+      if (attemptedIds.length > 0) {
+        await storage.addDismissedSessionIds(activeComputerSessionKeys, attemptedIds, gatewayUrl);
+      }
+      await storage.setHideCronSessions(activeComputerSessionKeys, true, gatewayUrl);
+      await storage.setHideAutomationSessions(activeComputerSessionKeys, true, gatewayUrl);
+
+      let gatewayCleared = false;
+      let failed = 0;
+      try {
+        await clearAllSessions(gatewayUrl, apiKey);
+        gatewayCleared = true;
+      } catch (err) {
+        console.warn('[executeClearAllChats] API clear-all failed, falling back to sequential deletes:', err);
+        // Cap sequential work so dozens of CRON rows cannot hang the spinner for minutes.
+        const sequential = deletable.slice(0, 40);
+        for (const session of sequential) {
+          try {
+            await deleteSession(gatewayUrl, session.id, apiKey);
+          } catch {
+            failed += 1;
+          }
+        }
+        failed += Math.max(0, deletable.length - sequential.length);
+        gatewayCleared = failed === 0;
+      }
 
       const nextState = clearAllSessionBindings(projectState);
       await persistProjectState(nextState);
 
       skipSessionAutoSelectRef.current = true;
-      await loadSessionsList(false, { silent: true, projectState: nextState });
+      try {
+        await loadSessionsList(false, { silent: true, projectState: nextState });
+      } catch (err) {
+        console.warn('[executeClearAllChats] loadSessionsList after clear failed:', err);
+      }
 
       dismissedHydrationGenRef.current += 1;
       setDismissedSessionIds(nextDismissed);
       dismissedSessionIdsRef.current = nextDismissed;
+      setHideCronSessions(true);
       setSessions((prev) => applyClearedFilter(prev));
 
       if (gatewayCleared) {
@@ -3179,7 +3181,7 @@ export default function ChatScreen() {
       }
       if (failed > 0) {
         setErrorMessage(
-          `${failed} thread${failed === 1 ? '' : 's'} could not be deleted on your computer. The rest were cleared.`,
+          `${failed} thread${failed === 1 ? '' : 's'} could not be deleted on your computer. Hidden locally — Start a new thread to continue.`,
         );
       } else {
         setErrorMessage(null);
