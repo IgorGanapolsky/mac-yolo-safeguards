@@ -407,9 +407,15 @@ export default function SettingsScreen() {
     }
   };
 
-  const handleSelectProfile = async (profileId: string) => {
+  const handleSelectProfile = async (
+    profileId: string,
+    profile?: import('../types/gatewayProfile').GatewayProfile,
+  ) => {
     try {
-      await selectGatewayProfile(profileId);
+      const ok = await selectGatewayProfile(profileId, { ensureProfile: profile });
+      if (!ok && !demoMode) {
+        Alert.alert('Switch failed', 'Could not connect to that computer. Try Find computers.');
+      }
     } catch (err) {
       haptics.warning();
       if (!demoMode) {

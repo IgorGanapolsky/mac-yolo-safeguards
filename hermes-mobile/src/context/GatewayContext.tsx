@@ -218,7 +218,10 @@ export type GatewayContextValue = {
   autoConnectGateway: () => Promise<string>;
   retryGatewayBootstrap: () => Promise<boolean>;
   applySetupDeepLink: (params: SetupDeepLinkParams) => Promise<void>;
-  selectGatewayProfile: (profileId: string) => Promise<void>;
+  selectGatewayProfile: (
+    profileId: string,
+    options?: { ensureProfile?: GatewayProfile },
+  ) => Promise<boolean>;
   removeGatewayProfile: (profileId: string) => Promise<void>;
   scanForGatewayProfiles: () => Promise<GatewayProfile[]>;
   tailscaleDiscoveries: DiscoveredGateway[];
@@ -351,9 +354,9 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
   const listenersRef = useRef<Set<(event: GatewayEventMessage) => void>>(new Set());
   const wifiConnectedRef = useRef(true);
   const [wifiConnected, setWifiConnected] = useState(true);
-  const selectGatewayProfileRef = useRef<(profileId: string) => Promise<void>>(
-    async () => {},
-  );
+  const selectGatewayProfileRef = useRef<
+    (profileId: string, options?: { ensureProfile?: GatewayProfile }) => Promise<boolean>
+  >(async () => false);
   const tailnetProbeHostsRef = useRef<string[]>([]);
   const tailscaleProbeInFlightRef = useRef(false);
   const probeTailscaleComputersRef = useRef<() => Promise<void>>(async () => {});
@@ -1895,7 +1898,10 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
   }, [saveSettings]);
 
   const selectGatewayProfile = useCallback(
-    async (profileId: string) => {
+    async (
+      profileId: string,
+      options?: { ensureProfile?: GatewayProfile },
+    ): Promise<boolean> => {
       if (settingsRef.current.demoMode) {
         const nextSettings: GatewaySettings = {
           ...settingsRef.current,
@@ -1903,11 +1909,47 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
         };
         await saveSettings(nextSettings, apiKeyRef.current);
       }
-      const profile = profileStateRef.current.profiles.find((p) => p.id === profileId);
-      if (!profile) {
-        return;
+      let profile = profileStateRef.current.profiles.find((p) => p.id === profileId);
+      // Live USB rows are often synthesized for the picker and not yet saved.
+      // Upsert ensureProfile so the tap is never a silent no-op.
+      if (!profile && options?.ensureProfile) {
+        const ensure = options.ensureProfile;
+        const ensuredState = upsertDiscoveredProfile(
+          profileStateRef.current,
+          {
+            gatewayUrl: ensure.gatewayUrl,
+            hostname: ensure.hostname,
+            label: ensure.label,
+            localIp: ensure.localIp ?? (isLoopbackGatewayUrl(ensure.gatewayUrl) ? '127.0.0.1' : undefined),
+          },
+          false,
+        );
+        profileStateRef.current = ensuredState;
+        setProfileState(ensuredState);
+        // Upsert may merge into an existing loopback row under a different id.
+        profile =
+          ensuredState.profiles.find((p) => p.id === profileId) ??
+          ensuredState.profiles.find((p) => p.id === ensure.id) ??
+          ensuredState.profiles.find(
+            (p) =>
+              isLoopbackGatewayUrl(p.gatewayUrl) &&
+              isLoopbackGatewayUrl(ensure.gatewayUrl) &&
+              (!ensure.hostname ||
+                !p.hostname ||
+                p.hostname.replace(/\.local$/i, '').toLowerCase() ===
+                  ensure.hostname.replace(/\.local$/i, '').toLowerCase()),
+          ) ??
+          ensuredState.profiles.find((p) => isLoopbackGatewayUrl(p.gatewayUrl));
       }
-      const nextState = selectProfile(profileStateRef.current, profileId);
+      if (!profile) {
+        setLastEventError(
+          'Could not switch computers. Tap Find computers, then try again.',
+        );
+        haptics.warning();
+        return false;
+      }
+      const selectedId = profile.id;
+      const nextState = selectProfile(profileStateRef.current, selectedId);
       profileStateRef.current = nextState;
       setProfileState(nextState);
 
@@ -1923,11 +1965,12 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
       setConnectionState('connecting');
 
       await gatewayProfiles.save(nextState);
-      await storage.saveLastSelectedProfileId(profileId);
+      await storage.saveLastSelectedProfileId(selectedId);
 
-      const profileKey = await secureCredentials.resolveApiKeyForProfile(profileId);
+      const profileKey = await secureCredentials.resolveApiKeyForProfile(selectedId);
       await saveSettings(nextSettings, profileKey || apiKeyRef.current);
       haptics.success();
+      return true;
     },
     [saveSettings],
   );

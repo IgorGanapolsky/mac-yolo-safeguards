@@ -75,6 +75,7 @@ import {
 import { fetchGatewayHealth, gatewayAuthRepairBanner } from '../services/gatewayClient';
 import { secureCredentials } from '../services/secureCredentials';
 import type { HermesSession, HermesMessage } from '../types/chat';
+import type { GatewayProfile } from '../types/gatewayProfile';
 import type { ChatProject, ChatProjectState } from '../types/chatProject';
 import { EMPTY_CHAT_PROJECT_STATE } from '../types/chatProject';
 import {
@@ -2256,7 +2257,7 @@ export default function ChatScreen() {
   };
 
   const handleSelectGatewayProfile = useCallback(
-    async (profileId: string, options?: { closePicker?: boolean; reloadSessions?: boolean }) => {
+    async (profileId: string, options?: { closePicker?: boolean; reloadSessions?: boolean; ensureProfile?: GatewayProfile }) => {
       if (profileSwitchBusyRef.current) {
         return;
       }
@@ -2270,7 +2271,10 @@ export default function ChatScreen() {
       setProfileSwitchBusy(true);
       haptics.light();
       try {
-        await selectGatewayProfile(profileId);
+        const ok = await selectGatewayProfile(profileId, { ensureProfile: options?.ensureProfile });
+        if (!ok) {
+          return;
+        }
         await refreshHealth();
         connectEvents();
         if (options?.closePicker) {
@@ -6046,8 +6050,8 @@ export default function ChatScreen() {
               connectionHealAttempt={connectionHealAttempt}
               connectionHealInFlight={connectionHealInFlight}
               selectionDisabled={profileSwitchBusy}
-              onSelectProfile={async (profileId) => {
-                await handleSelectGatewayProfile(profileId);
+              onSelectProfile={async (profileId, profile) => {
+                await handleSelectGatewayProfile(profileId, { ensureProfile: profile });
               }}
               onSearchMac={handleSearchMacFromChat}
               onFixUsbLink={() => void handleMacRetry()}
@@ -6395,8 +6399,8 @@ export default function ChatScreen() {
               testID="mac-picker-scroll"
             >
               <Text style={styles.modalSubtitle}>
-                Pick a saved computer, or tap Find computers to search your home Wi‑Fi and known
-                Tailscale addresses.
+                Pick the computer you want to use. If this phone is plugged into a Mac, that one
+                is preferred automatically. Tap Find computers if yours is missing.
               </Text>
               <View style={styles.macSetupCard} testID="mac-picker-setup-help">
                 <Text style={styles.macSetupTitle}>Missing your other machine?</Text>
@@ -6429,10 +6433,12 @@ export default function ChatScreen() {
                 scanResult={profileScanResult}
                 wifiConnected={wifiConnected}
                 showReachabilityHints={switchComputerProfiles.length > 1}
-                onSelect={async (profileId) => {
+                liveUsb={liveUsbGateway}
+                onSelect={async (profileId, profile) => {
                   await handleSelectGatewayProfile(profileId, {
                     closePicker: true,
                     reloadSessions: true,
+                    ensureProfile: profile,
                   });
                 }}
                 onRemove={

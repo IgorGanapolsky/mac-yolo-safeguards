@@ -64,7 +64,7 @@ describe('ChatConnectionPanel', () => {
       />,
     );
 
-    expect(getByText(/Your saved computers/)).toBeTruthy();
+    expect(getByText(/Your computers/)).toBeTruthy();
     expect(getByTestId('gateway-profile-list')).toBeTruthy();
     expect(getByTestId('select-gateway-profile-p1')).toBeTruthy();
   });
