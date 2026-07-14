@@ -212,5 +212,40 @@ describe('prevent recurrence contract (July 2026 CI gates)', () => {
     expect(pairLib).toContain('MINI_KEY_UNAVAILABLE');
     expect(pairLib).toContain('local_or_usb_url_bound_to_mini_key');
   });
+
+  it('Maestro chat composer inputText uses canonical device message only', () => {
+    const canonical = 'make money today';
+    const bannedProbes = [
+      'typeableProbe',
+      'e2e-chat-send-persist',
+      'e2e-persist-probe',
+      'smoke test message',
+      'leProbeB',
+      'crisis-ping',
+      'draft-transfer',
+      'unique-proof',
+    ];
+    const chatFlows = [
+      'chat.yaml',
+      'chat-send-persistence.yaml',
+      'regression-composer-typeable.yaml',
+      'regression-chat-send-visible.yaml',
+    ];
+    for (const flow of chatFlows) {
+      const yaml = read(`hermes-mobile/.maestro/${flow}`);
+      const inputs = [...yaml.matchAll(/- inputText:\s*"([^"]+)"/g)].map((m) => m[1]);
+      expect(inputs.length).toBeGreaterThan(0);
+      for (const text of inputs) {
+        expect(text).toBe(canonical);
+      }
+      for (const banned of bannedProbes) {
+        expect(yaml).not.toContain(banned);
+      }
+    }
+    const agents = read('hermes-mobile/AGENTS.md');
+    expect(agents).toContain('make money today');
+    const testing = read('hermes-mobile/docs/TESTING.md');
+    expect(testing).toContain('make money today');
+  });
 });
 

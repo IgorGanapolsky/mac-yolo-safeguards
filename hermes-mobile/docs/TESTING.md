@@ -46,6 +46,8 @@
 
 **Release-safe Leash test:** Settings → "Preview Leash card (smoke test)" (`leash-smoke-test`) — works in release builds (not gated on `__DEV__`).
 
+**Device/Maestro chat input (permanent):** Maestro flows, `adb input text`, and agent device automation must type only **`make money today`** into the chat composer — never gibberish probe strings. Guarded by `preventRecurrenceContract.test.ts`. API-key fields (`save_key.yaml`) and session IDs in deep links are exempt.
+
 ## Device E2E (Android phone USB)
 
 ```bash
