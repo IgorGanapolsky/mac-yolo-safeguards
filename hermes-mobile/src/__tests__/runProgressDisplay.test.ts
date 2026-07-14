@@ -19,6 +19,17 @@ describe('runProgressDisplay', () => {
     expect(humanizeRunProgressDetail('running web_search')).toBe('Running web search on your computer…');
   });
 
+  it('never shows bare Aborted in run progress or failed titles', () => {
+    expect(humanizeRunProgressDetail('Aborted')).toBe(
+      "Couldn't finish on your Mac — tap to retry",
+    );
+    expect(humanizeRunProgressDetail('aborted', 'failed')).not.toMatch(/abort/i);
+    expect(runProgressFailedTitle('Aborted')).toBe(
+      "Couldn't finish on your Mac — tap to retry",
+    );
+    expect(runProgressFailedTitle('Aborted')).not.toMatch(/abort/i);
+  });
+
   it('emphasizes live streaming in banner title during token stream', () => {
     expect(
       runProgressBannerTitle({

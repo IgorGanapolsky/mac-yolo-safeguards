@@ -1,6 +1,7 @@
 import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { colors } from '../theme/colors';
+import { sanitizeOperationalBannerCopy } from '../utils/chatErrors';
 
 type ComposerErrorBannerProps = {
   message: string;
@@ -15,6 +16,7 @@ export default function ComposerErrorBanner({
   actionLabel,
   onAction,
 }: ComposerErrorBannerProps) {
+  const displayMessage = sanitizeOperationalBannerCopy(message);
   const canAct = Boolean(actionLabel && onAction);
   return (
     <View style={styles.container} testID="chat-operational-error">
@@ -27,7 +29,7 @@ export default function ComposerErrorBanner({
         testID={canAct ? 'composer-error-banner-action-area' : undefined}
       >
         <Text style={styles.text} testID="composer-error-banner-text">
-          {message}
+          {displayMessage}
         </Text>
         {canAct ? (
           <View testID="chat-error-retry-action">

@@ -1,14 +1,25 @@
 import {
+  ABORTED_RUN_USER_COPY,
   chatSendBlockedMessage,
   friendlyMacUnreachableMessage,
+  humanizeAbortStatusCopy,
   humanizeChatError,
   isAuthApiError,
   isConnectivityMessage,
   isSessionInUseError,
   isSessionRemovedError,
   isTitleInUseError,
+  sanitizeOperationalBannerCopy,
 } from '../utils/chatErrors';
 import { gatewayAuthRepairBanner } from '../services/gatewayClient';
+
+const BANNED_PRIMARY_UI = [/\baborted\b/i, /\bAbortError\b/, /\bECONNRESET\b/i, /\bgateway\b/i];
+
+function assertNoBannedPrimaryCopy(message: string) {
+  for (const banned of BANNED_PRIMARY_UI) {
+    expect(message).not.toMatch(banned);
+  }
+}
 
 describe('isAuthApiError', () => {
   it('detects JSON invalid_api_key from gateway', () => {
@@ -193,5 +204,38 @@ describe('isConnectivityMessage', () => {
       healthProbePending: true,
     });
     expect(message).toBe('Still checking your computer link. Message kept locally.');
+  });
+});
+
+describe('abort / jargon humanization', () => {
+  it('maps bare Aborted and AbortError to Mac retry copy without banned words', () => {
+    expect(humanizeAbortStatusCopy('Aborted')).toBe(ABORTED_RUN_USER_COPY);
+    expect(humanizeAbortStatusCopy('aborted')).toBe(ABORTED_RUN_USER_COPY);
+    expect(humanizeAbortStatusCopy('run_aborted')).toBe(ABORTED_RUN_USER_COPY);
+
+    const bare = humanizeChatError(new Error('Aborted'), 'fallback');
+    expect(bare.message).toBe(ABORTED_RUN_USER_COPY);
+    assertNoBannedPrimaryCopy(bare.message);
+
+    const abortErr = new Error('The operation was aborted.');
+    abortErr.name = 'AbortError';
+    const named = humanizeChatError(abortErr, 'fallback');
+    expect(named.message).toBe(ABORTED_RUN_USER_COPY);
+    assertNoBannedPrimaryCopy(named.message);
+
+    const json = humanizeChatError(
+      new Error(JSON.stringify({ error: { message: 'Aborted' } })),
+      'fallback',
+    );
+    expect(json.message).toBe(ABORTED_RUN_USER_COPY);
+    assertNoBannedPrimaryCopy(json.message);
+  });
+
+  it('sanitizes ECONNRESET and never leaks it into banners', () => {
+    expect(sanitizeOperationalBannerCopy('ECONNRESET')).not.toMatch(/ECONNRESET/i);
+    assertNoBannedPrimaryCopy(sanitizeOperationalBannerCopy('ECONNRESET'));
+    const { kind, message } = humanizeChatError(new Error('read ECONNRESET'), 'fallback');
+    expect(kind).toBe('connectivity');
+    assertNoBannedPrimaryCopy(message);
   });
 });

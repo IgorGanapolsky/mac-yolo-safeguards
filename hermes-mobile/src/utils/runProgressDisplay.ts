@@ -1,5 +1,9 @@
 import type { RunProgressState } from '../types/chatDisplay';
-import { isConnectivityMessage, shortMacUnreachableTitle } from './chatErrors';
+import {
+  humanizeAbortStatusCopy,
+  isConnectivityMessage,
+  shortMacUnreachableTitle,
+} from './chatErrors';
 
 const GATEWAY_PLATFORM_MODEL_LABELS = new Set(['hermes-agent', 'hermes', 'gateway']);
 export const STALE_RUN_SECONDS = 15 * 60;
@@ -136,6 +140,11 @@ export function humanizeRunProgressDetail(detail: string | undefined, phase?: st
   }
   if (raw === 'Task completed') {
     return 'Reply ready';
+  }
+
+  const abortedCopy = humanizeAbortStatusCopy(raw);
+  if (abortedCopy) {
+    return abortedCopy;
   }
 
   const runningTool = /^running\s+(.+)$/i.exec(raw);

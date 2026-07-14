@@ -52,4 +52,15 @@ describe('ComposerErrorBanner', () => {
     fireEvent.press(getByTestId('composer-error-banner-action-area'));
     expect(onAction).toHaveBeenCalledTimes(1);
   });
+
+  it('rewrites bare Aborted to human Mac retry copy', () => {
+    const { getByTestId, queryByText } = render(
+      <ComposerErrorBanner message="Aborted" onDismiss={jest.fn()} />,
+    );
+
+    expect(getByTestId('composer-error-banner-text').props.children).toBe(
+      "Couldn't finish on your Mac — tap to retry",
+    );
+    expect(queryByText('Aborted')).toBeNull();
+  });
 });

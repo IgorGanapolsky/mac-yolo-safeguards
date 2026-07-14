@@ -10,8 +10,54 @@ const CONNECTIVITY_MARKERS = [
   'unable to resolve host',
   'connection refused',
   'econnrefused',
+  'econnreset',
   'socket hang up',
 ];
+
+/** Bare gateway/native abort strings that must never reach primary UI. */
+export const ABORTED_RUN_USER_COPY = "Couldn't finish on your Mac — tap to retry";
+
+const ABORT_COPY_MARKERS = [
+  'aborted',
+  'aborterror',
+  'abort error',
+  'the operation was aborted',
+  'request aborted',
+  'stream aborted',
+  'run aborted',
+];
+
+/**
+ * Map raw abort / cancelled-run jargon to fresh-user copy.
+ * Returns null when the text is not an abort-class status.
+ */
+export function humanizeAbortStatusCopy(raw: string | undefined | null): string | null {
+  const trimmed = raw?.trim();
+  if (!trimmed) {
+    return null;
+  }
+  const lower = trimmed.toLowerCase().replace(/[_-]+/g, ' ');
+  if (ABORT_COPY_MARKERS.some((marker) => lower === marker || lower.includes(marker))) {
+    return ABORTED_RUN_USER_COPY;
+  }
+  if (/^abort(ed)?(\s|$)/i.test(trimmed) || /^abort(ed)?$/i.test(trimmed)) {
+    return ABORTED_RUN_USER_COPY;
+  }
+  return null;
+}
+
+/** Sanitize any operational banner string before it hits ComposerErrorBanner. */
+export function sanitizeOperationalBannerCopy(message: string): string {
+  const aborted = humanizeAbortStatusCopy(message);
+  if (aborted) {
+    return aborted;
+  }
+  const lower = message.toLowerCase();
+  if (lower.includes('econnreset') || lower === 'econnreset') {
+    return "Couldn't reach your Mac — check the connection and try again.";
+  }
+  return message;
+}
 
 /** Errors that mean the phone cannot reach Hermes on the Mac — not user/action bugs. */
 export function isConnectivityError(error: unknown): boolean {
@@ -102,6 +148,10 @@ export function humanizeChatError(
   const message = error.message;
   const lower = message.toLowerCase();
 
+  if (error.name === 'AbortError' || humanizeAbortStatusCopy(message)) {
+    return { kind: 'operational', message: ABORTED_RUN_USER_COPY };
+  }
+
   if (isTitleInUseError(error)) {
     return {
       kind: 'operational',
@@ -155,18 +205,27 @@ export function humanizeChatError(
           if (msg === 'invalid_request_error') {
             return { kind: 'operational', message: 'Something went wrong talking to your computer. Try again.' };
           }
-          return { kind: 'operational', message: msg };
+          return {
+            kind: 'operational',
+            message: sanitizeOperationalBannerCopy(msg),
+          };
         }
       }
       if (parsed.message && typeof parsed.message === 'string') {
-        return { kind: 'operational', message: parsed.message };
+        return {
+          kind: 'operational',
+          message: sanitizeOperationalBannerCopy(parsed.message),
+        };
       }
     } catch {
       // not JSON
     }
   }
 
-  return { kind: 'operational', message: message || fallback };
+  return {
+    kind: 'operational',
+    message: sanitizeOperationalBannerCopy(message || fallback),
+  };
 }
 
 export function friendlyMacUnreachableMessage(gatewayUrl?: string): string {

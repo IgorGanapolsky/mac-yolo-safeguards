@@ -79,6 +79,8 @@ describe('runStaleDetection', () => {
     expect(isTerminalGatewayRunStatus('completed')).toBe(true);
     expect(isTerminalGatewayRunStatus('running')).toBe(false);
     expect(isTerminalGatewayRunStatus('stopping')).toBe(true);
+    expect(isTerminalGatewayRunStatus('aborted')).toBe(true);
+    expect(isTerminalGatewayRunStatus('Abort')).toBe(true);
   });
 
   it('uses shorter auto-fail for mega sessions', () => {

@@ -168,6 +168,8 @@ const TERMINAL_GATEWAY_RUN_STATUSES = new Set([
   'cancelled',
   'canceled',
   'stopping',
+  'aborted',
+  'abort',
 ]);
 
 export function isTerminalGatewayRunStatus(status: string | undefined | null): boolean {
