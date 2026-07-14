@@ -1,3 +1,5 @@
+import { humanizeSafetyTimeoutMessage } from './safetyTimeoutRecovery';
+
 const PRE_TURN_SCORE_RE =
   /^\s*\*{0,2}Pre-turn next-dollar score:\*{0,2}[^\n]*(?:\n|$)/gim;
 const POST_TURN_SCORE_RE =
@@ -44,7 +46,7 @@ export function humanizeAssistantProse(text: string): string {
     return 'Stopped before finishing — tap ↑ to try again.';
   }
 
-  return out;
+  return humanizeSafetyTimeoutMessage(out);
 }
 
 export function looksLikeAssistantProse(text: string): boolean {

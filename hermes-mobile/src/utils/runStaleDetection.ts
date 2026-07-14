@@ -15,6 +15,7 @@ function resolveRunStaleAutoFailMs(
   const progressTokens =
     (progress.inputTokens ?? 0) + (progress.outputTokens ?? 0) + (progress.totalTokens ?? 0);
   if (isMegaSession(session) || progressTokens >= 500_000 || sessionTokens >= 500_000) {
+    // Standing order: mega sessions must not be killed early by phone-side timers.
     return MEGA_SESSION_RUN_STALE_AUTO_FAIL_MS;
   }
   return RUN_STALE_AUTO_FAIL_MS;
@@ -26,8 +27,8 @@ export const RUN_STALE_WARN_MS = 15 * 60 * 1000;
 /** Auto-fail client-side banner when a run exceeds this age (gateway may still be working). */
 export const RUN_STALE_AUTO_FAIL_MS = 20 * 60 * 1000;
 
-/** Shorter auto-fail for very large sessions where gateway work can stall for hours. */
-export const MEGA_SESSION_RUN_STALE_AUTO_FAIL_MS = 10 * 60 * 1000;
+/** Mega sessions may run for hours — never use a shorter client fail than normal runs. */
+export const MEGA_SESSION_RUN_STALE_AUTO_FAIL_MS = RUN_STALE_AUTO_FAIL_MS;
 
 /** No detail/phase change for this long → idle stall hint (token-only ticks do not reset). */
 export const RUN_STALE_IDLE_MS = 3 * 60 * 1000;
@@ -128,7 +129,7 @@ export function shouldFailRunForStreamIdle(
   }
   const lastProgressAtMs = progress.lastProgressAtMs ?? progress.startedAtMs;
   const idleMs = Math.max(0, nowMs - lastProgressAtMs);
-  const idleLimit = isMegaSession(session) ? RUN_STREAM_IDLE_FAIL_MS / 2 : RUN_STREAM_IDLE_FAIL_MS;
+  const idleLimit = RUN_STREAM_IDLE_FAIL_MS;
   return idleMs >= idleLimit && nowMs - progress.startedAtMs >= 60_000;
 }
 
@@ -138,7 +139,7 @@ export function msUntilStreamIdleFail(
   session?: SessionTokenFields | null,
 ): number {
   const lastProgressAtMs = progress.lastProgressAtMs ?? progress.startedAtMs;
-  const idleLimit = isMegaSession(session) ? RUN_STREAM_IDLE_FAIL_MS / 2 : RUN_STREAM_IDLE_FAIL_MS;
+  const idleLimit = RUN_STREAM_IDLE_FAIL_MS;
   const startedGraceMs = Math.max(0, 60_000 - (nowMs - progress.startedAtMs));
   const idleRemainingMs = Math.max(0, idleLimit - (nowMs - lastProgressAtMs));
   return Math.max(startedGraceMs, idleRemainingMs);
