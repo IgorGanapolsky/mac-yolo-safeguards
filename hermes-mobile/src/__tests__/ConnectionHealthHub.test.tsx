@@ -81,4 +81,25 @@ describe('ConnectionHealthHub', () => {
       );
     });
   });
+
+  it('clears update spinner after timed-out check', async () => {
+    (checkForAppUpdate as jest.Mock).mockResolvedValue({
+      status: 'error',
+      message: 'Update check timed out after 30s',
+    });
+    const { getByTestId, queryByText } = render(
+      <ConnectionHealthHub
+        connectionState="connected"
+        onRepairConnection={jest.fn().mockResolvedValue(undefined)}
+      />,
+    );
+
+    fireEvent.press(getByTestId('connection-health-check-update'));
+    await waitFor(() => {
+      expect(getByTestId('connection-health-update-message').props.children).toBe(
+        'Update check timed out after 30s',
+      );
+      expect(queryByText('Check for update')).toBeTruthy();
+    });
+  });
 });

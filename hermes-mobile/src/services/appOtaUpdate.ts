@@ -1,5 +1,33 @@
 import * as Updates from 'expo-updates';
 
+/** Max wait for Expo update manifest probe (Tools → Check for update). */
+export const OTA_CHECK_TIMEOUT_MS = 30_000;
+/** Max wait for OTA bundle download before surfacing error. */
+export const OTA_FETCH_TIMEOUT_MS = 60_000;
+
+async function withTimeout<T>(
+  promise: Promise<T>,
+  ms: number,
+  label: string,
+): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      promise,
+      new Promise<T>((_, reject) => {
+        timer = setTimeout(
+          () => reject(new Error(`${label} timed out after ${Math.round(ms / 1000)}s`)),
+          ms,
+        );
+      }),
+    ]);
+  } finally {
+    if (timer) {
+      clearTimeout(timer);
+    }
+  }
+}
+
 export type OtaUpdateCheckResult =
   | { status: 'disabled'; message: string }
   | { status: 'current'; message: string }
@@ -24,7 +52,11 @@ export async function checkForAppUpdate(): Promise<OtaUpdateCheckResult> {
   }
 
   try {
-    const result = await Updates.checkForUpdateAsync();
+    const result = await withTimeout(
+      Updates.checkForUpdateAsync(),
+      OTA_CHECK_TIMEOUT_MS,
+      'Update check',
+    );
     if (!result.isAvailable) {
       return { status: 'current', message: 'App is up to date.' };
     }
@@ -49,7 +81,11 @@ export async function fetchAndApplyAppUpdate(): Promise<OtaUpdateApplyResult> {
   }
 
   try {
-    const fetchResult = await Updates.fetchUpdateAsync();
+    const fetchResult = await withTimeout(
+      Updates.fetchUpdateAsync(),
+      OTA_FETCH_TIMEOUT_MS,
+      'Update download',
+    );
     if (!fetchResult.isNew) {
       return { status: 'noop', message: 'No new update to apply.' };
     }
