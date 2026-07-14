@@ -30,6 +30,7 @@ bash scripts/verify-agent-automations.sh
 | `com.igor.hermes-mobile-continuous-e2e` | 15m | `hermes-mobile/scripts/run-continuous-e2e.sh --once` | Unit tests + Maestro E2E (Android USB → iOS sim) |
 | `com.igor.shutdown-simulators` | 60s | `sim-runaway-guard.sh` | Mac freeze guard (protected) |
 | `com.igor.revenue-autonomous-loop` | 4h | `tools/revenue-autonomous-loop.js --auto-send --json` | Funnel diagnose, Stripe link health, due follow-ups, Gmail auto-send (cap 5), ntfy |
+| `com.igor.smart-ops` | 1h | `tools/smart-ops-controller.js --json` | Efficient brain: heal missing agents, revenue `--fast` (cache Stripe, quiet noop), GH reply monitor with freshness skips |
 
 Logs: `~/Library/Logs/<label>.log` (CEO brief uses `ceo-operating-brief.log`; revenue loop: `~/Library/Logs/mac-yolo/revenue-autonomous-loop.*.log`).
 
@@ -60,6 +61,21 @@ REVENUE_AUTO_SEND=0 node tools/revenue-autonomous-loop.js --json   # diagnose on
 - Gmail path: live API probe → if token dead, **Chrome Gmail compose** using logged-in session.
 - Partner Pilot follow-up agent calls `scripts/partner-pilot-followup-auto.sh` → same loop.
 - Reddit-only / no-email prospects are auto-closed as `lost` (channel exhausted), not left as agent homework.
+
+### Smart + efficient (2026-07-14)
+
+```bash
+node tools/smart-ops-controller.js --json          # hourly brain
+node tools/revenue-autonomous-loop.js --fast --json  # cache Stripe, skip Apollo/Chrome, quiet noop ntfy
+```
+
+| Efficiency | Behavior |
+|------------|----------|
+| Stripe HTTP | Cached 60m (`stripe-health-cache.json`) in `--fast` |
+| Revenue skip | Smart-ops skips if last receipt &lt; 25m |
+| Reply monitor | Skip if state mtime &lt; 90m |
+| ntfy | Quiet when noop in fast mode (`REVENUE_NTFY_QUIET_NOOP=1`) |
+| Session start | Runs smart-ops (not full heavy revenue path) |
 
 
 ## Manual one-shots (same tools)

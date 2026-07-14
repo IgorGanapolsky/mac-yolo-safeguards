@@ -212,7 +212,45 @@ function localRetrieval(task) {
   }
 }
 
+function readContinuousDeviceVerified() {
+  const script = path.join(REPO, 'hermes-mobile', 'scripts', 'verify-continuous-e2e.sh');
+  if (!fs.existsSync(script)) {
+    return { skipped: true, reason: 'hermes-mobile/scripts/verify-continuous-e2e.sh missing' };
+  }
+  const result = run('bash', [script, '--json'], { timeout: 20_000 });
+  let payload = {};
+  try {
+    payload = JSON.parse(result.stdout || '{}');
+  } catch (error) {
+    return {
+      error: `invalid verify-continuous-e2e json: ${error.message}`,
+      stdout: (result.stdout || '').slice(0, 400),
+      status: result.status,
+    };
+  }
+  const e2e = payload.e2e || 'missing';
+  const deviceVerified = payload.deviceVerified === true && e2e === 'pass';
+  return {
+    e2e,
+    unit: payload.unit || 'missing',
+    updatedAt: payload.updatedAt || '',
+    detail: payload.detail || '',
+    deviceVerified,
+    scriptExit: result.status,
+    heuristic: deviceVerified
+      ? 'device_e2e_green_ship_claims_allowed_with_unit'
+      : 'deviceVerified=false — refuse "device verified" / "works on phone" claims',
+  };
+}
+
 function recommendNextAction(brief) {
+  const continuous = brief.telemetry?.continuousE2e;
+  if (continuous && continuous.deviceVerified === false && !continuous.skipped && !continuous.error) {
+    return (
+      'latest.json e2e is not pass (deviceVerified=false). Fix ship-guard/chat-send continuous ' +
+      'flows before any public "device verified" claim; run npm run e2e:continuous:once.'
+    );
+  }
   const gh = brief.telemetry?.githubRun;
   if (gh?.status === 'in_progress') {
     return `Poll ${gh.url || 'CI run'}; do not claim Firebase ship until conclusion=success.`;
@@ -248,6 +286,7 @@ function buildBrief(args) {
     brief.rag.localRetrieval = localRetrieval(args.graphifyQuery || task);
   }
   brief.telemetry.githubRun = extractGhRunFeatures(args.ghRun);
+  brief.telemetry.continuousE2e = readContinuousDeviceVerified();
   brief.recommendation = recommendNextAction(brief);
   return brief;
 }
@@ -291,6 +330,16 @@ function main() {
     console.log(JSON.stringify(brief.telemetry.githubRun, null, 2));
     console.log('');
   }
+  if (brief.telemetry.continuousE2e && !brief.telemetry.continuousE2e.skipped) {
+    console.log('## Continuous device E2E (G-05)');
+    console.log(
+      `deviceVerified=${brief.telemetry.continuousE2e.deviceVerified} e2e=${brief.telemetry.continuousE2e.e2e} unit=${brief.telemetry.continuousE2e.unit}`,
+    );
+    if (brief.telemetry.continuousE2e.updatedAt) {
+      console.log(`updatedAt=${brief.telemetry.continuousE2e.updatedAt}`);
+    }
+    console.log('');
+  }
   console.log(`## Recommendation\n${brief.recommendation}`);
 }
 
@@ -300,6 +349,7 @@ module.exports = {
   graphifyQuery,
   localRetrieval,
   parseArgs,
+  readContinuousDeviceVerified,
   recommendNextAction,
   thumbgateLessons,
 };
