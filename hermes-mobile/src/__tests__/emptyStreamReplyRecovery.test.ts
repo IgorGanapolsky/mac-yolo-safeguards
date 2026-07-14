@@ -1,9 +1,12 @@
 import {
+  deferredReplyPollBudgetMs,
   DEFERRED_REPLY_POLL_MAX_MS,
+  DEFERRED_REPLY_POLL_MAX_WITH_TOOLS_MS,
   DEFERRED_REPLY_POLL_MS,
   EMPTY_REPLY_FAILURE_REASON,
   serverHasAssistantReplyAfterLastUser,
   shouldAwaitGatewayReplyAfterSend,
+  toolActivityAfterLastUser,
 } from '../utils/emptyStreamReplyRecovery';
 import type { HermesMessage } from '../types/chat';
 import { GENERIC_EMPTY_STREAM_PLACEHOLDER } from '../utils/streamAssistantText';
@@ -62,9 +65,23 @@ describe('emptyStreamReplyRecovery', () => {
     ).toBe(true);
   });
 
-  it('bounds empty-reply recovery to one minute', () => {
+  it('bounds empty-reply recovery and extends when tools are active', () => {
     expect(DEFERRED_REPLY_POLL_MS).toBe(3000);
     expect(DEFERRED_REPLY_POLL_MAX_MS).toBe(60_000);
-    expect(EMPTY_REPLY_FAILURE_REASON).toMatch(/retry/i);
+    expect(DEFERRED_REPLY_POLL_MAX_WITH_TOOLS_MS).toBe(180_000);
+    expect(deferredReplyPollBudgetMs({ toolsActive: false })).toBe(60_000);
+    expect(deferredReplyPollBudgetMs({ toolsActive: true })).toBe(180_000);
+    expect(EMPTY_REPLY_FAILURE_REASON).toMatch(/fresh chat|refresh/i);
+  });
+
+  it('surfaces tool activity after the last user turn', () => {
+    const messages: HermesMessage[] = [
+      { role: 'user', content: 'Make money today' },
+      { role: 'assistant', content: '', tool_calls: [{ id: '1' }] } as HermesMessage,
+      { role: 'tool', content: 'result', tool_name: 'browser_navigate' } as HermesMessage,
+    ];
+    const activity = toolActivityAfterLastUser(messages);
+    expect(activity.active).toBe(true);
+    expect(activity.detail).toMatch(/browser/i);
   });
 });
