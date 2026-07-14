@@ -3,8 +3,8 @@ import {
   discoverGatewayOnPhoneSubnet,
   discoverGatewayViaPairServer,
   discoverAllGatewaysOnLan,
-  bootstrapTailnetProbeHostsFromPairServers,
   pairServerHostFromGatewayUrl,
+  probeLiveUsbGateway,
   resolvePairServerSetupParams,
 } from '../services/gatewayDiscovery';
 
@@ -176,30 +176,9 @@ describe('gatewayDiscovery', () => {
     );
   });
 
-  it('sweeps pair.json on stored tailnet hosts and probes gateway health on fleet', async () => {
-    (NetInfo.fetch as jest.Mock).mockResolvedValue({ details: {} });
+  it('probeLiveUsbGateway returns hostname when adb reverse loopback is healthy', async () => {
     (global.fetch as jest.Mock).mockImplementation((url: string) => {
-      if (url === 'http://100.87.85.85:8765/pair.json') {
-        return Promise.resolve({
-          ok: true,
-          json: async () => ({
-            gatewayUrl: 'http://100.87.85.85:8642',
-            deepLink: 'hermes://setup?url=http%3A%2F%2F100.87.85.85%3A8642',
-            tailnetProbeHosts: ['100.94.135.78', '100.87.85.85'],
-          }),
-        });
-      }
-      if (url === 'http://100.94.135.78:8642/health') {
-        return Promise.resolve({
-          ok: true,
-          json: async () => ({
-            status: 'ok',
-            hostname: 'Igors-Mac-mini.local',
-            local_ip: '192.168.68.73',
-          }),
-        });
-      }
-      if (url === 'http://100.87.85.85:8642/health') {
+      if (url === 'http://127.0.0.1:8642/health') {
         return Promise.resolve({
           ok: true,
           json: async () => ({
@@ -212,16 +191,8 @@ describe('gatewayDiscovery', () => {
       return Promise.resolve({ ok: false });
     });
 
-    const boot = await bootstrapTailnetProbeHostsFromPairServers(['100.87.85.85']);
-    expect(boot.tailnetProbeHosts.sort()).toEqual(['100.87.85.85', '100.94.135.78'].sort());
-    expect(boot.gateways.map((g) => g.hostname)).toEqual(
-      expect.arrayContaining(['Igors-Mac-mini.local', 'Igors-MacBook-Pro.local']),
-    );
-
-    const { gateways, tailnetProbeHosts } = await discoverAllGatewaysOnLan(null, {
-      tailnetPairServerHosts: ['100.87.85.85'],
-    });
-    expect(tailnetProbeHosts).toEqual(expect.arrayContaining(['100.94.135.78', '100.87.85.85']));
-    expect(gateways.length).toBeGreaterThanOrEqual(2);
+    const discovery = await probeLiveUsbGateway();
+    expect(discovery?.gatewayUrl).toBe('http://127.0.0.1:8642');
+    expect(discovery?.hostname).toBe('Igors-MacBook-Pro.local');
   });
 });
