@@ -34,19 +34,19 @@ appId: com.iganapolsky.hermesmobile
 
 # Leash tab (THUMBGATE_LEASH) is covered by e2e-bootstrap / regression-leash-refresh.
 # Device ship-guard ends at SETTINGS — Leash deep-link is flaky after demo re-bootstrap.
-- hideKeyboard
+- runFlow: hide-keyboard-safe.yaml
 - openLink: "hermes://settings"
 - extendedWaitUntil:
     notVisible:
       id: "tab-screen-loading"
     timeout: 90000
-- hideKeyboard
+- runFlow: hide-keyboard-safe.yaml
 - runFlow:
     when:
       notVisible:
         id: "SETTINGS"
     commands:
-      - hideKeyboard
+      - runFlow: hide-keyboard-safe.yaml
       - tapOn:
           id: "tab-settings"
 - extendedWaitUntil:

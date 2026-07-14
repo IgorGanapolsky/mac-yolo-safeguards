@@ -21,7 +21,7 @@ appId: com.iganapolsky.hermesmobile
       notVisible:
         id: "chat-screen-header"
     commands:
-      - hideKeyboard
+      - runFlow: hide-keyboard-safe.yaml
       - tapOn:
           id: "tab-hermes"
 - extendedWaitUntil:
@@ -36,7 +36,7 @@ appId: com.iganapolsky.hermesmobile
     visible:
       id: "chat-input"
     timeout: 90000
-- hideKeyboard
+- runFlow: hide-keyboard-safe.yaml
 - openLink: "hermes://leash"
 # Android release: Maestro openLink may not switch tabs — tap Leash when deep link is a no-op.
 - runFlow:
@@ -44,7 +44,7 @@ appId: com.iganapolsky.hermesmobile
       notVisible:
         id: "THUMBGATE_LEASH"
     commands:
-      - hideKeyboard
+      - runFlow: hide-keyboard-safe.yaml
       - tapOn:
           id: "tab-leash"
 - extendedWaitUntil:
@@ -68,7 +68,7 @@ appId: com.iganapolsky.hermesmobile
       id: "THUMBGATE_LEASH"
     direction: UP
     timeout: 90000
-- hideKeyboard
+- runFlow: hide-keyboard-safe.yaml
 - waitForAnimationToEnd:
     timeout: 2000
 # Leave bootstrap on Leash — ship-guard / navigation flows recover Chat themselves.
