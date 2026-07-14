@@ -201,7 +201,7 @@ export function assertUsbHeaderIdentityLaw(input: {
   // If pair tunnel present, any named claim that equals pair is OK; otherwise require stem match
   if (livePair) {
     if (claimed === liveStem) return null;
-    // Allow if claimed is contained in live or vice versa (e.g. "MacBook-Pro" vs "Igors-MacBook-Pro")
+    // Allow if claimed is contained in live or vice versa (e.g. "Owner-MBP" vs "Example-MacBook-Pro")
     if (liveStem.includes(claimed) || claimed.includes(liveStem)) return null;
     // Still fail if clearly mismatched (Mini claimed but live is MBP)
     // But if pair tunnel exists, we already returned pair hostname above, so this path is for health-only
@@ -253,7 +253,7 @@ export function resolveChatMachineHeaderDisplay(input: {
     (input.macHttpOk === true ||
       Boolean(fromPairForEndpoint) ||
       input.health?.directGatewayReachable === true);
-  let ipLine = formatGatewayEndpointLine(input.gatewayUrl, input.health)?.trim();
+  let ipLine: string | undefined = formatGatewayEndpointLine(input.gatewayUrl, input.health)?.trim();
   if (isTailscaleGatewayUrl(input.gatewayUrl)) {
     ipLine = 'Tailscale';
   }
