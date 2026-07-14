@@ -182,6 +182,7 @@ import {
   chatDistanceFromBottom,
   resolveUserScrolledUp,
   shouldAutoScroll,
+  shouldRunThrottledStreamScroll,
   shouldCancelPendingScroll,
 } from '../utils/chatAutoScroll';
 import ChatScrollControls from '../components/ChatScrollControls';
@@ -636,6 +637,9 @@ export default function ChatScreen() {
   const userDraggingRef = useRef(false);
   const lastDistanceFromBottomRef = useRef(0);
   const scrollCancelGenerationRef = useRef(0);
+  /** Throttle stream bottom-follow so token updates do not fight FlashList MVCP (jitter). */
+  const streamScrollLastAtRef = useRef(0);
+  const streamScrollRafRef = useRef<number | null>(null);
   /** Force one bottom pin after session/computer switch once transcript content lays out. */
   const pinScrollAfterHydrationRef = useRef(false);
   const messagesRef = useRef<HermesMessage[]>([]);
@@ -782,9 +786,13 @@ export default function ChatScreen() {
       }
       flatListRef.current?.scrollToEnd({ animated });
     };
-    requestAnimationFrame(() => {
+    // Single frame is enough; double-rAF on every stream token caused visible jitter.
+    if (streamScrollRafRef.current != null) {
+      cancelAnimationFrame(streamScrollRafRef.current);
+    }
+    streamScrollRafRef.current = requestAnimationFrame(() => {
+      streamScrollRafRef.current = null;
       run();
-      requestAnimationFrame(run);
     });
   }, []);
 
@@ -803,11 +811,26 @@ export default function ChatScreen() {
       }
       const streaming = isChatStreamingActive();
       if (
-        force ||
-        shouldAutoScroll(lastDistanceFromBottomRef.current, streaming, false)
+        !(
+          force ||
+          shouldAutoScroll(lastDistanceFromBottomRef.current, streaming, false)
+        )
       ) {
-        scrollChatToLatest(animated && !streaming);
+        return;
       }
+      // During stream: throttle + never animate. FlashList MVCP also follows bottom;
+      // unthrottled scrollToEnd on every token makes the list stutter and jump.
+      if (streaming) {
+        const now = Date.now();
+        if (!shouldRunThrottledStreamScroll(streamScrollLastAtRef.current, now)) {
+          return;
+        }
+        streamScrollLastAtRef.current = now;
+        scrollChatToLatest(false);
+        return;
+      }
+      streamScrollLastAtRef.current = 0;
+      scrollChatToLatest(animated);
     },
     [isChatStreamingActive, scrollChatToLatest],
   );
@@ -3058,7 +3081,12 @@ export default function ChatScreen() {
     if (userScrolledUpRef.current) {
       return;
     }
-    scrollChatToLatestIfPinned(true, isChatStreamingActive());
+    // While tokens stream, follow via throttled onContentSizeChange only.
+    // A messages-effect scroll races content layout and causes stutter/jump.
+    if (isChatStreamingActive()) {
+      return;
+    }
+    scrollChatToLatestIfPinned(true, false);
   }, [messages, isSending, runProgress, isLoadingMessages, scrollChatToLatestIfPinned, isChatStreamingActive]);
 
   const handleNewChat = async (options?: { preserveComposer?: boolean }) => {
@@ -5970,16 +5998,18 @@ export default function ChatScreen() {
                 nestedScrollEnabled={false}
                 keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'none'}
                 keyboardShouldPersistTaps="handled"
-                drawDistance={400}
+                drawDistance={480}
+                // MVCP follows the bottom while streaming; pair with throttled
+                // onContentSizeChange (not per-token effect scrolls) for smooth follow.
                 maintainVisibleContentPosition={{
                   startRenderingFromBottom: true,
-                  autoscrollToBottomThreshold: 0.2,
+                  autoscrollToBottomThreshold: 0.15,
                 }}
                 onScroll={handleChatScroll}
                 onScrollBeginDrag={handleChatScrollBeginDrag}
                 onScrollEndDrag={handleChatScrollEndDrag}
                 onMomentumScrollEnd={handleChatScrollEndDrag}
-                scrollEventThrottle={16}
+                scrollEventThrottle={32}
                 ListFooterComponent={
                   showRecentChatsPanel ? (
                     <View style={styles.recentChatsInThread}>{recentChatsList}</View>
@@ -5996,11 +6026,20 @@ export default function ChatScreen() {
                     pinScrollAfterHydrationRef.current = false;
                     userScrolledUpRef.current = false;
                     lastDistanceFromBottomRef.current = 0;
+                    streamScrollLastAtRef.current = 0;
                     setChatNearBottom(true);
                     scrollChatToLatest(false);
                     return;
                   }
-                  scrollChatToLatestIfPinned(true, isChatStreamingActive());
+                  // force=false: respect pin + throttle during stream (see scrollChatToLatestIfPinned).
+                  scrollChatToLatestIfPinned(false, false);
+                }}
+                getItemType={(item) => {
+                  const role = item.message.role?.toLowerCase() ?? 'unknown';
+                  if (item.message.isCollapsedToolActivity) {
+                    return 'tool-collapsed';
+                  }
+                  return role;
                 }}
                 renderItem={renderChatMessageItem}
               />
