@@ -158,11 +158,15 @@ export function parseSetupDeepLink(url: string): SetupDeepLinkParams | null {
 
   const query = url.slice(queryStart + 1);
   const params = parseQueryString(query);
-  // Distinct from the existing relay `code`/`relay` param — never collide with relay pairing.
-  const pairingCode = params.pairCode?.trim() || undefined;
   const pairServerUrl = params.pairServer?.trim() || params.pairserver?.trim() || undefined;
   const gatewayUrl =
     params.url?.trim() || params.gateway?.trim() || params.gatewayUrl?.trim() || '';
+  // Distinct from relay `code`/`relay` — secretless pairing uses `pairCode`. Accept legacy
+  // pair-script links that used `code` + `pairServer` without a gateway URL (T-330 regression).
+  const pairingCode =
+    params.pairCode?.trim() ||
+    (pairServerUrl && !gatewayUrl ? params.code?.trim() : undefined) ||
+    undefined;
   const demoMode =
     params.demo === '1' ||
     params.demo === 'true' ||
@@ -191,7 +195,7 @@ export function parseSetupDeepLink(url: string): SetupDeepLinkParams | null {
   const relayCode =
     params.relay?.trim() ||
     params.relayCode?.trim() ||
-    params.code?.trim() ||
+    (pairingCode ? undefined : params.code?.trim()) ||
     undefined;
   const tailnetProbeHosts = parseRepeatedQueryValues(query, 'tailnet');
   const extraComputers = parseExtraComputers(query);

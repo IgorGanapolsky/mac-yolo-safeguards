@@ -47,6 +47,17 @@ import { isMacGatewayHttpOk } from '../utils/gatewayConnection';
 type CatalogSection = 'capabilities' | 'skills' | 'toolsets' | 'jobs';
 
 const CATALOG_REQUEST_TIMEOUT_MS = 8_000;
+const REPAIR_CONNECTION_TIMEOUT_MS = 12_000;
+
+function withTimeout<T>(promise: Promise<T>, label: string, timeoutMs: number): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(
+      () => reject(new Error(`${label} timed out after ${Math.round(timeoutMs / 1000)}s`)),
+      timeoutMs,
+    );
+    promise.then(resolve, reject).finally(() => clearTimeout(timer));
+  });
+}
 
 function catalogRequest<T>(request: Promise<T>, section: CatalogSection): Promise<T> {
   return new Promise<T>((resolve, reject) => {
@@ -76,6 +87,8 @@ export default function GatewayOpsSection() {
     connectionState,
     refreshHealth,
     autoConnectGateway,
+    connectEvents,
+    retryGatewayBootstrap,
     effectiveGatewayUrl,
   } = useGateway();
   const isDemo =
@@ -376,10 +389,18 @@ export default function GatewayOpsSection() {
     : null;
 
   const handleRepairConnection = useCallback(async () => {
-    await refreshHealth();
-    await autoConnectGateway();
-    await loadOps({ refresh: true });
-  }, [autoConnectGateway, loadOps, refreshHealth]);
+    await withTimeout(
+      (async () => {
+        await autoConnectGateway();
+        await refreshHealth();
+        connectEvents();
+        await retryGatewayBootstrap();
+        await loadOps({ refresh: true });
+      })(),
+      'Repair link',
+      REPAIR_CONNECTION_TIMEOUT_MS,
+    );
+  }, [autoConnectGateway, connectEvents, loadOps, refreshHealth, retryGatewayBootstrap]);
 
   return (
     <View testID="gateway-ops-section" accessible={true}>

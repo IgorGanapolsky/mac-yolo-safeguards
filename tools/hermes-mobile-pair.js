@@ -172,7 +172,8 @@ function exchangePairingCode(code) {
 
 function buildSecretlessDeepLink(code, pairServerUrl, hostname) {
   const params = new URLSearchParams();
-  params.set('code', code);
+  // Mobile parser expects `pairCode` (not relay `code`) — see setupDeepLink.ts T-330.
+  params.set('pairCode', code);
   params.set('pairServer', pairServerUrl);
   const displayName = (hostname || '').replace(/\.local$/i, '').trim();
   if (displayName) params.set('name', displayName);
