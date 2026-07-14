@@ -213,6 +213,19 @@ describe('prevent recurrence contract (July 2026 CI gates)', () => {
     expect(pairLib).toContain('local_or_usb_url_bound_to_mini_key');
   });
 
+  it('requires USB pair to always reverse tcp:8765 for pair.json Mac-mini discovery', () => {
+    const pairJs = read('tools/hermes-mobile-pair.js');
+    const pairLib = read('tools/hermes-mobile-pair-lib.js');
+    expect(pairLib).toContain('USB_ADB_REVERSE_PORTS');
+    expect(pairLib).toContain('setupUsbAdbReverses');
+    expect(pairLib).toContain('assertUsbAdbReverses');
+    expect(pairJs).toContain('setupUsbAdbReverses(serial)');
+    expect(pairJs).toContain('assertUsbAdbReverses(serial)');
+    expect(pairJs).toContain('tcp:8765 missing');
+    expect(pairJs).toContain('pair.json sweep');
+    expect(pairJs).not.toContain('Only reverse pair page port when we will serve it');
+  });
+
   it('Maestro chat composer inputText uses canonical device message only', () => {
     const canonical = 'make money today';
     const bannedProbes = [

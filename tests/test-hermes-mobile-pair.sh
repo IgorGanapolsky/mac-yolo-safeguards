@@ -189,6 +189,35 @@ else
   bad "USB pair prefers adb-reverse loopback when auth verifies"
 fi
 
+PAIR_LIB="$(cat "$REPO/tools/hermes-mobile-pair-lib.js")"
+if [[ "$PAIR_LIB" == *"USB_ADB_REVERSE_PORTS"* ]] \
+  && [[ "$PAIR_LIB" == *"setupUsbAdbReverses"* ]] \
+  && [[ "$PAIR_LIB" == *"assertUsbAdbReverses"* ]]; then
+  ok "pair-lib exports USB adb reverse helpers (8642 + 8765)"
+else
+  bad "pair-lib exports USB adb reverse helpers (8642 + 8765)"
+fi
+
+if [[ "$PAIR_JS" == *"setupUsbAdbReverses(serial)"* ]] \
+  && [[ "$PAIR_JS" == *"assertUsbAdbReverses(serial)"* ]] \
+  && [[ "$PAIR_JS" == *"tcp:8765 missing"* ]] \
+  && [[ "$PAIR_JS" == *"pair.json sweep"* ]]; then
+  ok "USB pair always reverses tcp:8765 (--no-serve still needs pair.json tunnel)"
+else
+  bad "USB pair always reverses tcp:8765 (--no-serve still needs pair.json tunnel)"
+fi
+
+if run_node "
+  const lib = require('$REPO/tools/hermes-mobile-pair-lib.js');
+  if (!Array.isArray(lib.USB_ADB_REVERSE_PORTS)) process.exit(1);
+  if (!lib.USB_ADB_REVERSE_PORTS.includes(8642)) process.exit(2);
+  if (!lib.USB_ADB_REVERSE_PORTS.includes(8765)) process.exit(3);
+"; then
+  ok "USB adb reverse port list includes 8642 and 8765"
+else
+  bad "USB adb reverse port list includes 8642 and 8765"
+fi
+
 cat > "$BIN/ssh-fail" <<'MOCK'
 #!/usr/bin/env bash
 exit 1

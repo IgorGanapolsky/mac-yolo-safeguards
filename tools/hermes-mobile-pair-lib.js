@@ -70,6 +70,45 @@ function selectPhysicalAdbSerial(adbDevicesOutput) {
   return devices.find(([serial]) => !serial.startsWith('emulator-'))?.[0] || null;
 }
 
+/** USB Hermes paths: gateway chat + pair.json sweep (Mac mini discovery). */
+const USB_ADB_REVERSE_PORTS = [8642, 8765];
+
+function adbReverseList(serial, options = {}) {
+  const adbBin = options.adbCommand ?? 'adb';
+  const result = spawnSync(adbBin, ['-s', serial, 'reverse', '--list'], {
+    encoding: 'utf8',
+    timeout: 10_000,
+  });
+  return result.status === 0 ? result.stdout : '';
+}
+
+function adbReverseHasPort(serial, port, options = {}) {
+  return adbReverseList(serial, options).includes(`tcp:${port}`);
+}
+
+function setupUsbAdbReverses(serial, options = {}) {
+  const ports = options.ports ?? USB_ADB_REVERSE_PORTS;
+  const adbBin = options.adbCommand ?? 'adb';
+  const failures = [];
+  for (const port of ports) {
+    const result = spawnSync(adbBin, ['-s', serial, 'reverse', `tcp:${port}`, `tcp:${port}`], {
+      encoding: 'utf8',
+      timeout: 10_000,
+    });
+    if (result.status !== 0) {
+      failures.push(port);
+    }
+  }
+  return { ok: failures.length === 0, failures, ports };
+}
+
+function assertUsbAdbReverses(serial, options = {}) {
+  const ports = options.ports ?? USB_ADB_REVERSE_PORTS;
+  const requiredPorts = options.requiredPorts ?? ports;
+  const missing = requiredPorts.filter((port) => !adbReverseHasPort(serial, port, options));
+  return { ok: missing.length === 0, missing, ports: requiredPorts };
+}
+
 function fetchRemoteMiniApiKey(options = {}) {
   const host = String(options.sshHost || 'hermes-mini').trim();
   const remote = spawnSync(
@@ -561,6 +600,11 @@ module.exports = {
   isLoopbackGatewayUrl,
   classifyGatewayHost,
   selectPhysicalAdbSerial,
+  USB_ADB_REVERSE_PORTS,
+  adbReverseList,
+  adbReverseHasPort,
+  setupUsbAdbReverses,
+  assertUsbAdbReverses,
   fetchRemoteMiniApiKey,
   resolveApiKeyForGatewayUrl,
   assertHostKeyConsistency,
