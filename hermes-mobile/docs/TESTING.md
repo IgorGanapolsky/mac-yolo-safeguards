@@ -23,12 +23,17 @@
 | Telegram inbox | `telegramInbox.test.ts` | Merged threads + tool lines |
 | Gateway client | `gatewayClient.test.ts` | URL normalize, event parse, WS URL |
 | Release guards | `apkReleaseGuards.test.ts` | Production APK contract |
+| Prevent recurrence | `preventRecurrenceContract.test.ts` | Connected ⊕ Wrong key XOR, tier-0 Maestro flows, `e2e=fail` without phone |
+| Auth mismatch UI | `ChatScreen.authMismatch.test.tsx` | Green health + `authMismatch` → header not Connected |
+| Abort jargon | `chatErrors.abort.test.ts` | Bare `Aborted` → human retry copy |
 
 ## Maestro E2E flows
 
 | Flow | File | Proves |
 |---|---|---|
 | Ship guard | `ship-guard.yaml` | No Metro red screen / legacy shell |
+| Stranger cold start | `stranger-cold-start.yaml` | No demo deep link → `connect-mac-onboarding-card` + Find computers CTA |
+| Wrong-key repair | `wrong-key-repair.yaml` | Computer picker reachable for re-pair path |
 | Launch | `launch.yaml` | Chat tab loads with input |
 | Navigation | `navigation.yaml` | All four tabs reachable |
 | Leash connection | `leash-connection.yaml` | Connection status block visible |
@@ -80,6 +85,8 @@ Status file: `docs/proofs/continuous/latest.json`
 Logs: `~/Library/Logs/hermes-mobile-continuous-e2e.log`
 
 **Priority:** USB Android phone when connected; otherwise iOS simulator. Metro is auto-started on `:8081` if missing.
+
+**No phone (android-only LaunchAgent):** `latest.json` records `e2e=fail` (not `skipped`) so agents cannot claim device UX verified without a connected phone. Rozenite/agent-device E2E compatibility flows remain owned by T-25 (`navigation.yaml`, `ship-guard.yaml`).
 
 **Cloud:** GitHub Actions workflow `mobile-continuous.yml` runs unit tests every 6 hours + Maestro ship-guard on `macos-latest`.
 

@@ -462,7 +462,8 @@ describe('release safety contract', () => {
     expect(shipGuard).toContain('regression-composer-typeable.yaml');
     expect(runner).toContain('chat-send-persistence.yaml');
     expect(runner).toContain('Android-only continuous E2E requested');
-    expect(runner).toContain('android-only continuous E2E skipped');
+    expect(runner).toContain('android-only continuous E2E failed');
+    expect(runner).toContain('e2e_status="fail"');
     expect(runner).toContain('HERMES_E2E_ANDROID_ONLY');
     expect(runner).toContain('LOAD_WAIT_SEC');
     expect(runner).toContain('queueing up to');
