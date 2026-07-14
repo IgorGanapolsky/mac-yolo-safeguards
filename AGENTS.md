@@ -82,21 +82,6 @@ Phone gateway setup: always `node tools/hermes-mobile-pair.js` when `adb devices
 - Lessons must record: date, concrete artifacts (PIDs, file paths, command lines, before/after metrics), root cause, fix, and any heuristic update.
 - Vague captures ("worked great!") are worse than no capture — they pollute retrieval.
 
-## Parallel research routing (added 2026-07-13)
-
-**Default:** `parallel-cli search` (web-search) for lookups, pricing, API docs, and current events. Fast and cost-effective.
-
-**Deep research** (`parallel-cli research run`) — **only** when the user explicitly asks for exhaustive/comprehensive/deep research, or a decision-grade report (e.g. platform migration, vendor comparison).
-
-**Protocol (every deep-research task):**
-
-1. **Recall first** — `mcp__thumbgate__recall` or `parallel-cli` lessons before launching a new run (avoid duplicate spend).
-2. **Record run_id** — append to `plan.md` Decisions log or task comment immediately after launch.
-3. **Poll and ingest same session** — `parallel-cli research poll <run_id>` → write `docs/RESEARCH-<topic>-YYYY-MM.md` with run_id, verdict, and action checklist. Raw output stays in `parallel-research/`.
-4. **Capture** — `mcp__thumbgate__capture_memory_feedback` if a run completes without ingest (orphan-run lesson).
-
-Orphan deep-research runs block downstream decisions and waste API spend. Never fire-and-forget.
-
 ## Decision stack (DS / ML / Agentic RAG)
 
 **User directive:** Always use Data Science, ML, and Agentic RAG to drive decisions — not intuition, not "should work", not ship theater.
@@ -138,6 +123,11 @@ OpenMono `/ship-claim` is the local verifier gate; ThumbGate is the cross-sessio
 - **Security alerts never sit.** A daily cloud sentinel (`mac-yolo repo sentinel`, claude.ai/code/routines) triages alerts + PR health at 8am ET and reports via ntfy. If an alert can't be fixed (transitive, parent pins vulnerable range), dismiss ONLY with file:line evidence that the vulnerable path is unreachable (≤280-char comment). Precedent: alert #2, 2026-07-07.
 - **One automation owner per job.** Before adding a watcher/daemon for repo automation, check this section + open PRs for an existing owner — duplicate automations have already collided (a watcher-created `security/dependabot-autofix-*` branch raced the sentinel on 2026-07-07).
 - **Don't close/rebase/fix another agent's PR.** Report blockers (conflicts, failing checks) instead. Exception: dependabot[bot] PRs are ownerless — any agent may fix or close them with a reason.
+- **Merge only when required checks are green** (main is `strict: true`): `Public funnel checks`, `Socket Security: Project Report`, `Hermes Mobile typecheck and tests`, `Maestro ship-guard (Android emulator)`, `macOS guard kit`. Prefer `gh pr merge --auto --squash` over force-merging.
+- **Chat-pasted GitHub PATs are leaks.** Never store or use them; use keyring `gh` only (`gh auth status`). Flag rotation in the same turn.
+- **Squash merges do not make branch tips ancestors of main.** Delete leftover remote branches via merged-PR heads (`gh pr list --state merged`), not `git merge-base --is-ancestor`.
+- **Do not bulk-delete multi-agent worktrees** (~100+ under `/private/tmp/codex-*`, `.worktrees/`). Only prune branches of *merged* PRs and clearly agent-owned disposable trees you created.
+- **CI queue storm:** when macOS/Maestro jobs pile up, cancel in-progress/queued runs on already **MERGED/CLOSED** PR heads to free runners — never cancel another agent's open-PR CI.
 
 ## Protected components (verify after each change)
 
