@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.igor.smart-ops</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>{{NODE}}</string>
+        <string>{{REPO}}/tools/smart-ops-controller.js</string>
+        <string>--json</string>
+    </array>
+    <key>WorkingDirectory</key>
+    <string>{{REPO}}</string>
+    <key>RunAtLoad</key>
+    <true/>
+    <!-- Every hour: efficient brain — skip fresh work, heal agents, revenue fast -->
+    <key>StartInterval</key>
+    <integer>3600</integer>
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>{{HOME}}/.local/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+        <key>HOME</key>
+        <string>{{HOME}}</string>
+        <key>REVENUE_AUTO_SEND</key>
+        <string>1</string>
+        <key>REVENUE_AUTO_GH</key>
+        <string>1</string>
+        <key>REVENUE_NTFY_QUIET_NOOP</key>
+        <string>1</string>
+        <key>SMART_OPS_REVENUE_FRESH_MIN</key>
+        <string>25</string>
+    </dict>
+    <key>ProcessType</key>
+    <string>Background</string>
+    <key>Nice</key>
+    <integer>10</integer>
+    <key>ThrottleInterval</key>
+    <integer>60</integer>
+    <key>StandardOutPath</key>
+    <string>{{HOME}}/Library/Logs/mac-yolo/smart-ops.out.log</string>
+    <key>StandardErrorPath</key>
+    <string>{{HOME}}/Library/Logs/mac-yolo/smart-ops.err.log</string>
+</dict>
+</plist>

@@ -78,6 +78,12 @@ describe('outboundDeliveryStatus', () => {
     );
   });
 
+  it('never shows bare Aborted on outbound bubbles', () => {
+    const label = resolveOutboundFailureLabel('Aborted', true);
+    expect(label.toLowerCase()).not.toContain('aborted');
+    expect(label).toMatch(/Stopped before finishing|tap ↑/i);
+  });
+
   it('shows wrong-key guidance on bubble when auth failed', () => {
     expect(
       outboundDeliveryLabel('failed', {

@@ -2098,6 +2098,110 @@ describe('ChatScreen', () => {
     expect(queryByTestId('chat-empty-recent-chats')).toBeNull();
   });
 
+  it('shows session-loading spinner immediately when a recent thread is tapped', async () => {
+    const { listSessions, listMessages } = jest.requireMock('../services/hermesChatClient') as {
+      listSessions: jest.Mock;
+      listMessages: jest.Mock;
+    };
+    const { chatProjects } = jest.requireMock('../services/chatProjects') as {
+      chatProjects: { load: jest.Mock; save: jest.Mock };
+    };
+
+    const macSessions = [
+      {
+        id: 'sess_print',
+        title: 'Print money make money faster',
+        last_active_at: '2026-06-28T12:00:00Z',
+      },
+      {
+        id: 'sess_june15',
+        title: 'Hermes Telegram Reliability YOLO Safeguar',
+        last_active_at: '2026-06-15T12:00:00Z',
+      },
+    ];
+
+    listSessions.mockResolvedValue(macSessions);
+    let resolveJune: ((value: unknown) => void) | undefined;
+    const juneHistory = new Promise((resolve) => {
+      resolveJune = resolve;
+    });
+    listMessages.mockImplementation(async (_url: string, sessionId: string) => {
+      if (sessionId === 'sess_june15') {
+        return juneHistory;
+      }
+      return [];
+    });
+    chatProjects.load.mockResolvedValue({
+      projects: [
+        {
+          id: 'demo-hermes-mobile',
+          name: 'hermes-mobile',
+          workspacePath: '~/workspace/git/igor/mac-yolo-safeguards/hermes-mobile',
+          sessionIds: ['sess_print', 'sess_june15'],
+          activeSessionId: 'sess_print',
+        },
+      ],
+      sessionProjectMap: {
+        sess_print: 'demo-hermes-mobile',
+        sess_june15: 'demo-hermes-mobile',
+      },
+      sessionLabels: {},
+      activeProjectId: 'demo-hermes-mobile',
+    });
+
+    Object.assign(mockGatewayState, {
+      connectionState: 'disconnected',
+      effectiveGatewayUrl: 'http://localhost:8642',
+      health: {
+        ok: true,
+        level: 'green',
+        hostname: 'Igors-MacBook-Pro.local',
+        localIp: '10.154.137.152',
+        directGatewayReachable: true,
+        checkedAt: '2026-06-28T19:00:00Z',
+      },
+      settings: {
+        demoMode: false,
+        connectionMode: 'gateway',
+        gatewayUrl: 'http://localhost:8642',
+        cloudUrl: 'https://hermesmobile-cloud.fly.dev',
+        approvalPolicy: 'balanced',
+      },
+      activeGatewayProfile: {
+        id: 'mac_igor',
+        label: 'Igors-MacBook-Pro',
+        gatewayUrl: 'http://localhost:8642',
+        localIp: '10.154.137.152',
+        addedAt: '2026-06-18T00:00:00Z',
+      },
+    });
+
+    const { findByText, getByTestId, queryByTestId } = await renderChatScreen();
+
+    await waitFor(() => {
+      expect(getByTestId('recent-chat-sess_june15')).toBeTruthy();
+    });
+
+    fireEvent.press(getByTestId('recent-chat-sess_june15'));
+
+    await waitFor(() => {
+      expect(getByTestId('chat-session-loading')).toBeTruthy();
+      expect(queryByTestId('chat-empty-recent-chats')).toBeNull();
+    });
+
+    await act(async () => {
+      resolveJune?.([
+        { role: 'user', content: 'telegram reliability check', id: 'm-june-u' },
+        { role: 'assistant', content: 'gateway is healthy', id: 'm-june-a' },
+      ]);
+    });
+
+    expect(await findByText('telegram reliability check')).toBeTruthy();
+    await waitFor(() => {
+      expect(queryByTestId('chat-session-loading')).toBeNull();
+    });
+  });
+
   it('clear all empties messages and stays on new chat after gateway reload', async () => {
     const alertSpy = jest.spyOn(Alert, 'alert');
     const { listSessions, listMessages } = jest.requireMock('../services/hermesChatClient') as {

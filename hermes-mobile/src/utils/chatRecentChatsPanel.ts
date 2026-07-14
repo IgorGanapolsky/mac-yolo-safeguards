@@ -22,6 +22,10 @@ export function shouldShowRecentChatsPanel(input: RecentChatsPanelInput): boolea
   if (input.recentChatsDismissed) {
     return false;
   }
+  // Thread select clears the transcript then hydrates — hide Recents so the spinner is visible.
+  if (input.isLoadingMessages) {
+    return false;
+  }
   if (input.isSending || input.hasActiveRun || input.pinnedOutboundText?.trim()) {
     return false;
   }

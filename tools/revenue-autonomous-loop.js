@@ -93,6 +93,7 @@ Options:
   --no-chrome      skip Chrome Stripe repair even if links 403
   --no-ntfy        skip phone push
   --no-apollo      skip Apollo enrich
+  --fast           efficient mode: no apollo/chrome; cache Stripe; quiet ntfy if noop
   --once           alias (same as default single run)
   --help
 
@@ -101,6 +102,7 @@ Env:
   REVENUE_FOLLOWUP_HOURS   min age before follow-up (default 48)
   REVENUE_MAX_AUTO_SENDS   cap per run (default 5)
   REVENUE_DIR              override private revenue folder
+  REVENUE_STRIPE_CACHE_MIN  Stripe HTTP cache minutes (default 60)
 `;
 
 function parseArgs(argv) {
@@ -112,6 +114,7 @@ function parseArgs(argv) {
     chrome: true,
     ntfy: true,
     apollo: true,
+    fast: false,
     help: false,
   };
   for (const arg of argv) {
@@ -121,11 +124,42 @@ function parseArgs(argv) {
     else if (arg === '--no-chrome') args.chrome = false;
     else if (arg === '--no-ntfy') args.ntfy = false;
     else if (arg === '--no-apollo') args.apollo = false;
-    else if (arg === '--once') continue;
+    else if (arg === '--fast') {
+      args.fast = true;
+      args.apollo = false;
+      args.chrome = false;
+    } else if (arg === '--once') continue;
     else if (arg === '--help' || arg === '-h') args.help = true;
     else throw new Error(`Unknown argument: ${arg}`);
   }
   return args;
+}
+
+const STRIPE_CACHE_MIN = Number(process.env.REVENUE_STRIPE_CACHE_MIN || 60);
+
+function readStripeCache() {
+  const p = path.join(REVENUE_DIR, 'stripe-health-cache.json');
+  if (!fs.existsSync(p)) return null;
+  try {
+    const c = JSON.parse(fs.readFileSync(p, 'utf8'));
+    const ageMin = (Date.now() - Date.parse(c.checkedAt || 0)) / 60000;
+    if (!Number.isFinite(ageMin) || ageMin > STRIPE_CACHE_MIN) return null;
+    if (!Array.isArray(c.stripe) || !c.stripe.length) return null;
+    return c;
+  } catch {
+    return null;
+  }
+}
+
+function writeStripeCache(stripe) {
+  ensureDir(REVENUE_DIR);
+  const p = path.join(REVENUE_DIR, 'stripe-health-cache.json');
+  fs.writeFileSync(
+    p,
+    `${JSON.stringify({ checkedAt: new Date().toISOString(), stripe }, null, 2)}\n`,
+    { mode: 0o600 },
+  );
+  return p;
 }
 
 function today() {
@@ -644,7 +678,16 @@ async function run(args) {
     offerMap = parseTsv(mapPath);
   }
 
-  let stripe = await verifyStripeMap(offerMap.rows);
+  let stripe;
+  const cached = args.fast || process.env.REVENUE_USE_STRIPE_CACHE === '1' ? readStripeCache() : null;
+  if (cached) {
+    stripe = cached.stripe;
+    actions.push(`stripe_cache_hit age_ok min<=${STRIPE_CACHE_MIN}`);
+  } else {
+    stripe = await verifyStripeMap(offerMap.rows);
+    writeStripeCache(stripe);
+    actions.push('stripe_verified_live');
+  }
   const bad = stripe.filter((s) => !s.ok);
   if (bad.length && args.chrome) {
     actions.push(`stripe_403_count=${bad.length}; attempting Chrome list scrape`);
@@ -654,18 +697,18 @@ async function run(args) {
     } else if (chrome && chrome.error) {
       actions.push(`chrome_error=${chrome.error}`);
     }
-  }
-
-  // Re-verify after any map rewrite would happen — agent/human may fix map offline
-  if (fs.existsSync(mapPath)) {
-    offerMap = parseTsv(mapPath);
-    stripe = await verifyStripeMap(offerMap.rows);
+    // Re-verify only when we may have repaired
+    if (fs.existsSync(mapPath)) {
+      offerMap = parseTsv(mapPath);
+      stripe = await verifyStripeMap(offerMap.rows);
+      writeStripeCache(stripe);
+    }
   }
 
   const contacts = loadContacts();
   saveContacts(contacts);
 
-  // Apollo optional: search domains for due prospects missing contacts
+  // Apollo optional: skip in --fast
   if (args.apollo) {
     const who = spawnSync(APOLLO, ['auth', 'whoami'], { encoding: 'utf8', timeout: 10000 });
     if (who.status === 0) {
@@ -673,10 +716,18 @@ async function run(args) {
     } else {
       actions.push('apollo_auth=fail_skip_enrich');
     }
+  } else {
+    actions.push('apollo=skipped');
   }
 
-  const gmail = googleApiReady();
-  actions.push(`gmail_api=${gmail.ready ? 'ready' : `not_ready:${gmail.reason}`}`);
+  // Skip expensive gmail live probe when nothing due and not auto-sending
+  let gmail = { ready: false, reason: 'skipped_no_due' };
+  if (args.autoSend || dueRows.length > 0) {
+    gmail = googleApiReady();
+    actions.push(`gmail_api=${gmail.ready ? 'ready' : `not_ready:${gmail.reason}`}`);
+  } else {
+    actions.push('gmail_probe=skipped (no due, auto_send off or not needed)');
+  }
 
   let sentCount = 0;
   const pendingSends = [];
@@ -840,22 +891,37 @@ async function run(args) {
   summary.boardPath = writeBoard(summary);
   summary.receiptPath = appendState(summary);
 
+  const badN = stripe.filter((s) => !s.ok).length;
+  const noop =
+    badN === 0 && dueRows.length === 0 && sentCount === 0 && pendingSends.length === 0;
+  summary.noop = noop;
+  summary.fast = Boolean(args.fast);
+
   if (args.ntfy) {
-    const badN = stripe.filter((s) => !s.ok).length;
-    const title =
-      badN > 0
-        ? `Revenue loop: ${badN} Stripe links broken`
-        : `Revenue loop: ${dueRows.length} follow-ups due`;
-    const body = [
-      `Funnel open $${funnel.openGross} total=${funnel.total} sent=${funnel.counts.sent || 0} replied=${funnel.counts.replied || 0} paid=${funnel.counts.paid || 0}`,
-      `Stripe OK ${stripe.filter((s) => s.ok).length}/${stripe.length}`,
-      `Due ≥${FOLLOWUP_HOURS}h: ${dueRows.length}`,
-      `Auto-sent: ${sentCount}; pending MCP: ${pendingSends.length}`,
-      `Board: ${summary.boardPath}`,
-      gmail.ready ? 'Gmail API ready' : `Gmail API not ready (${gmail.reason}) — agent must use Gmail MCP`,
-    ].join('\n');
-    summary.ntfy = ntfyPush(title, body, badN > 0 || dueRows.length > 3 ? 'high' : 'default');
-    actions.push(`ntfy=${summary.ntfy.ok ? 'ok' : 'fail'}`);
+    // Efficient: silence pure no-ops (fast mode or env). Always alert on broken Stripe / sends.
+    if (noop && (args.fast || process.env.REVENUE_NTFY_QUIET_NOOP === '1')) {
+      actions.push('ntfy=skipped_noop');
+      summary.ntfy = { ok: true, skipped: true };
+    } else {
+      const title =
+        badN > 0
+          ? `Revenue loop: ${badN} Stripe links broken`
+          : dueRows.length > 0
+            ? `Revenue loop: ${dueRows.length} follow-ups due`
+            : `Revenue loop: healthy (open $${funnel.openGross})`;
+      const body = [
+        `Funnel open $${funnel.openGross} total=${funnel.total} sent=${funnel.counts.sent || 0} replied=${funnel.counts.replied || 0} paid=${funnel.counts.paid || 0}`,
+        `Stripe OK ${stripe.filter((s) => s.ok).length}/${stripe.length}`,
+        `Due ≥${FOLLOWUP_HOURS}h: ${dueRows.length}`,
+        `Auto-sent: ${sentCount}; pending: ${pendingSends.length}`,
+        `Board: ${summary.boardPath}`,
+        gmail.ready
+          ? 'Gmail API ready'
+          : `Gmail API not ready — Chrome compose fallback enabled (${(gmail.reason || '').slice(0, 60)})`,
+      ].join('\n');
+      summary.ntfy = ntfyPush(title, body, badN > 0 || dueRows.length > 3 ? 'high' : 'default');
+      actions.push(`ntfy=${summary.ntfy.ok ? 'ok' : 'fail'}`);
+    }
   }
 
   return summary;
