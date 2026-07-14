@@ -50,7 +50,7 @@ describe('release safety net (T-114)', () => {
     const flow = read('hermes-mobile/.maestro/chat-send-persistence.yaml');
     expect(flow).toContain('IME');
     expect(flow).toContain('chat-message-user');
-    expect(flow).toContain('e2e-chat-send-persist');
+    expect(flow).toContain('make money today');
     expect(flow).toContain('chat-e2e-bootstrap.yaml');
   });
 
@@ -74,7 +74,7 @@ describe('release safety net (T-114)', () => {
 
     const send = read('hermes-mobile/.maestro/regression-chat-send-visible.yaml');
     expect(send).toContain('chat-message-user');
-    expect(send).toContain('e2e-persist-probe-keep-visible');
+    expect(send).toContain('make money today');
 
     const refresh = read('hermes-mobile/.maestro/regression-leash-refresh.yaml');
     expect(refresh).toContain('leash-refresh-status');
