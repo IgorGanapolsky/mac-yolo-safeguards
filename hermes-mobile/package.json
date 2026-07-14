@@ -20,6 +20,7 @@
     "release:check:json": "node ./scripts/verify-release-readiness.cjs --json",
     "privacy:scan": "node ./scripts/scan-public-mobile-artifacts.js --source",
     "privacy:scan:artifact": "node ./scripts/scan-public-mobile-artifacts.js",
+    "rank:play": "node ./scripts/play-search-rank.js --json",
     "eas:usage": "npx eas-cli account:usage",
     "eas:build:guard": "node ./scripts/eas-build-guard.cjs",
     "launch:preflight:android": "npm run release:check && bash ./scripts/release-preflight.sh android",
