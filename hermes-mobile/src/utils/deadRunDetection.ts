@@ -41,3 +41,16 @@ export function shouldSurfaceDeadRunEnded(input: {
   }
   return true;
 }
+
+/** Mirrors ChatInputBar sendDisabled — must all be false after dead-run unlock. */
+export function isComposerSendDisabled(input: {
+  isSending: boolean;
+  queuedOutboundCount: number;
+  outboundSendStillPending: boolean;
+}): boolean {
+  return (
+    input.isSending ||
+    input.queuedOutboundCount > 0 ||
+    input.outboundSendStillPending
+  );
+}

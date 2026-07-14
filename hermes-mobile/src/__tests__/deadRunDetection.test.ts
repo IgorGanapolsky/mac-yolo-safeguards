@@ -1,6 +1,7 @@
 import {
   DEAD_RUN_ENDED_DETAIL,
   DEAD_RUN_TRANSCRIPT_STALE_MS,
+  isComposerSendDisabled,
   isDeadRunEndedMessage,
   shouldSurfaceDeadRunEnded,
   transcriptUnchangedMs,
@@ -68,6 +69,26 @@ describe('deadRunDetection', () => {
         transcriptUnchangedMs: DEAD_RUN_TRANSCRIPT_STALE_MS + 60_000,
         activeAgentCount: 0,
         gatewayHasLiveRun: false,
+      }),
+    ).toBe(false);
+  });
+
+  it('keeps send disabled while pinned outbound is still pending', () => {
+    expect(
+      isComposerSendDisabled({
+        isSending: false,
+        queuedOutboundCount: 0,
+        outboundSendStillPending: true,
+      }),
+    ).toBe(true);
+  });
+
+  it('re-enables send after dead-run unlock clears outbound locks', () => {
+    expect(
+      isComposerSendDisabled({
+        isSending: false,
+        queuedOutboundCount: 0,
+        outboundSendStillPending: false,
       }),
     ).toBe(false);
   });

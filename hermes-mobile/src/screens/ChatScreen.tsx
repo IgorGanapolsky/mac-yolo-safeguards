@@ -2729,8 +2729,16 @@ export default function ChatScreen() {
 
     deadRunSurfacedRef.current = true;
     clearDeferredTelegramPoll();
+    awaitingGatewayReplyRef.current = false;
+    setAwaitingGatewayReply(false);
     isSendingRef.current = false;
     setIsSending(false);
+    pendingOutboundSendsRef.current = 0;
+    outboundQueueRef.current = [];
+    setQueuedOutboundCount(0);
+    setPinnedOutboundStatus('failed');
+    setPinnedOutboundText(null);
+    setPinnedOutboundSentAt(null);
     setToolStatus(null);
     const startedAtMs = progress?.startedAtMs ?? sendStartedAtRef.current ?? Date.now();
     setRunProgress({
