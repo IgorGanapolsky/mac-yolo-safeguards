@@ -51,6 +51,7 @@ plists=(
   com.igor.hermes-mobile-continuous-e2e.plist
   com.igor.hermes-relay-worker.plist
   com.igor.revenue-autonomous-loop.plist
+  com.igor.smart-ops.plist
 )
 
 install_one() {

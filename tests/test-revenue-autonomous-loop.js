@@ -24,6 +24,14 @@ check('parseArgs defaults', () => {
   const a = parseArgs([]);
   assert.strictEqual(a.chrome, true);
   assert.strictEqual(a.ntfy, true);
+  assert.strictEqual(a.fast, false);
+});
+
+check('parseArgs --fast disables chrome/apollo', () => {
+  const a = parseArgs(['--fast']);
+  assert.strictEqual(a.fast, true);
+  assert.strictEqual(a.chrome, false);
+  assert.strictEqual(a.apollo, false);
 });
 
 check('stageSummary open gross ignores paid/lost', () => {
