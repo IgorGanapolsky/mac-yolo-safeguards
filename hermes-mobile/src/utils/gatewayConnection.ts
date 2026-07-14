@@ -17,7 +17,12 @@ export type ChatLinkDisplay = {
 export function resolveEffectiveMacHttpOk(input: {
   macHttpOk: boolean;
   connectivityFailure?: boolean;
+  /** Composer/send already proved wrong key — never false-green Connected. */
+  authMismatch?: boolean;
 }): boolean {
+  if (input.authMismatch) {
+    return false;
+  }
   if (!input.macHttpOk) {
     return false;
   }
@@ -34,9 +39,12 @@ export function resolveChatLinkDisplay(input: {
   disconnectedLabel?: string;
   isDemo?: boolean;
   authMismatch?: boolean;
+  /** Stale composer wrong-key banner — must never coexist with green Connected. */
+  wrongKeyBannerActive?: boolean;
   chatStalled?: boolean;
 }): ChatLinkDisplay {
-  if (input.authMismatch) {
+  // RELEASE BLOCK: Connected ⊕ wrong-key — never both.
+  if (input.authMismatch || input.wrongKeyBannerActive) {
     return { label: GATEWAY_AUTH_REPAIR_HEADER, chatReachable: false };
   }
   if (input.isDemo || input.connectionState === 'demo') {
@@ -61,7 +69,21 @@ export function resolveChatLinkDisplay(input: {
   };
 }
 
+/** Contract: green Connected and wrong-key UI are mutually exclusive. */
+export function isConnectedWrongKeyContradiction(input: {
+  linkLabel: string;
+  authMismatch?: boolean;
+  wrongKeyBannerActive?: boolean;
+}): boolean {
+  const connected = input.linkLabel === 'Connected' || input.linkLabel.startsWith('Connected —');
+  const wrongKey = Boolean(input.authMismatch || input.wrongKeyBannerActive);
+  return connected && wrongKey;
+}
+
 export function isGatewayHealthOk(health: GatewayHealthSnapshot | null | undefined): boolean {
+  if (health?.authMismatch) {
+    return false;
+  }
   return health?.level === 'green' || health?.level === 'amber';
 }
 

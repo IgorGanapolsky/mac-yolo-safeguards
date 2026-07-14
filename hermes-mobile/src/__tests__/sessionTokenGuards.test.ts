@@ -11,6 +11,7 @@ import {
   MEGA_SESSION_TOKEN_WARN,
   sessionTotalTokens,
   shouldAllowMegaSessionSend,
+  shouldAutoFreshAndResendOnMegaBlock,
   shouldForceFreshOnSessionSelect,
 } from '../utils/sessionTokenGuards';
 
@@ -47,6 +48,12 @@ describe('sessionTokenGuards', () => {
     expect(shouldAllowMegaSessionSend('block', 'send_anyway')).toBe(false);
     expect(shouldAllowMegaSessionSend('block', 'fresh')).toBe(false);
     expect(shouldAllowMegaSessionSend('block', 'cancel')).toBe(false);
+  });
+
+  it('auto-migrates draft to a fresh chat on hard-block Send', () => {
+    expect(shouldAutoFreshAndResendOnMegaBlock('normal')).toBe(false);
+    expect(shouldAutoFreshAndResendOnMegaBlock('warn')).toBe(false);
+    expect(shouldAutoFreshAndResendOnMegaBlock('block')).toBe(true);
   });
 
   it('badges recents and forces fresh reopen on BLOCK sessions', () => {

@@ -82,6 +82,16 @@ describe('shouldShowRecentChatsPanel', () => {
     ).toBe(false);
   });
 
+  it('hides Recents on empty landing while a tapped thread is loading', () => {
+    expect(
+      shouldShowRecentChatsPanel({
+        ...base,
+        showChatEmptyState: true,
+        isLoadingMessages: true,
+      }),
+    ).toBe(false);
+  });
+
   it('shows recents during heal when chat is empty but sessions exist', () => {
     expect(
       shouldShowRecentChatsPanel({

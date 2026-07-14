@@ -54,8 +54,10 @@ import {
   chatSendBlockedMessage,
   humanizeChatError,
   isConnectivityMessage,
+  isAuthRepairMessage,
   isSessionInUseError,
   isSessionRemovedError,
+  shouldClearConnectionErrorBanner,
 } from '../utils/chatErrors';
 import {
   HermesGatewayApiError,
@@ -219,10 +221,10 @@ import {
   isMegaSessionSendBlocked,
   megaSessionBannerCopy,
   megaSessionForceFreshSelectCopy,
-  megaSessionSendBlockedCopy,
   megaSessionSendWarnMessage,
   megaSessionSendWarnTitle,
   sessionTotalTokens,
+  shouldAutoFreshAndResendOnMegaBlock,
   shouldForceFreshOnSessionSelect,
 } from '../utils/sessionTokenGuards';
 import {
@@ -511,6 +513,9 @@ export default function ChatScreen() {
   
   const [isLoadingSessions, setIsLoadingSessions] = useState(false);
   const [isLoadingMessages, setIsLoadingMessages] = useState(false);
+  /** Session id being opened from Recents/Threads — immediate busy UI until hydrate finishes. */
+  const [switchingSessionId, setSwitchingSessionId] = useState<string | null>(null);
+  const switchingSessionIdRef = useRef<string | null>(null);
   const [isSending, setIsSending] = useState(false);
   /** True while Start fresh chat is forking/stopping — show spinner so tap isn't silent. */
   const [isStartingFreshChat, setIsStartingFreshChat] = useState(false);
@@ -654,6 +659,8 @@ export default function ChatScreen() {
   const refreshQueuedRef = useRef(false);
   /** When a force/manual select is requested while a refresh is in flight, replay with force. */
   const refreshQueuedForceRef = useRef(false);
+  /** Bumped to supersede an in-flight background listMessages when the user force-selects a thread. */
+  const refreshGenerationRef = useRef(0);
   const deferredTelegramPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   /** Keep HTTP transcript polling alive until gateway reply text lands (relay WS ≠ chat transport). */
   const awaitingGatewayReplyRef = useRef(false);
@@ -998,8 +1005,9 @@ export default function ChatScreen() {
       resolveEffectiveMacHttpOk({
         macHttpOk,
         connectivityFailure: connectivityRunFailure,
+        authMismatch: health?.authMismatch === true,
       }),
-    [macHttpOk, connectivityRunFailure],
+    [macHttpOk, connectivityRunFailure, health?.authMismatch],
   );
   const effectiveMacChatLive = isDemo || effectiveMacHttpOk;
   const macLiveSocket = isDemo || connectionState === 'connected';
@@ -1262,7 +1270,9 @@ export default function ChatScreen() {
 
   useEffect(() => {
     if (effectiveMacChatLive) {
-      setErrorMessage((prev) => (prev && isConnectivityMessage(prev) ? null : prev));
+      setErrorMessage((prev) =>
+        shouldClearConnectionErrorBanner(prev, true) ? null : prev,
+      );
     }
   }, [effectiveMacChatLive]);
 
@@ -2159,22 +2169,41 @@ export default function ChatScreen() {
       }
 
       if (refreshInFlightRef.current) {
-        // Force/manual selects must not be dropped — empty-state Recents taps race background polls.
-        if (options?.background || options?.manual || options?.force) {
+        // Force/manual selects must not wait on a slow background poll (felt like a dead tap).
+        if (options?.force || options?.manual) {
+          refreshGenerationRef.current += 1;
+          refreshInFlightRef.current = false;
+          refreshQueuedRef.current = false;
+          refreshQueuedForceRef.current = false;
+          setIsLoadingMessages(true);
+          // Fall through and start the user-requested refresh immediately.
+        } else if (options?.background) {
           refreshQueuedRef.current = true;
-          if (options?.force || options?.manual) {
-            refreshQueuedForceRef.current = true;
-          }
+          return;
+        } else {
+          refreshQueuedRef.current = true;
+          return;
         }
-        return;
       }
       refreshInFlightRef.current = true;
+      const refreshGeneration = refreshGenerationRef.current;
       const requestedSessionId = activeSession.id;
 
       const finishRefresh = () => {
+        if (refreshGeneration !== refreshGenerationRef.current) {
+          // Superseded by a newer force-select — do not clear the new load's busy state.
+          return;
+        }
         setIsLoadingMessages(false);
         setIsPullRefreshing(false);
         refreshInFlightRef.current = false;
+        if (
+          switchingSessionIdRef.current &&
+          switchingSessionIdRef.current === requestedSessionId
+        ) {
+          switchingSessionIdRef.current = null;
+          setSwitchingSessionId(null);
+        }
         if (!refreshQueuedRef.current) {
           return;
         }
@@ -2189,6 +2218,9 @@ export default function ChatScreen() {
       };
 
       const applyMergedMessages = (merged: HermesMessage[]) => {
+        if (refreshGeneration !== refreshGenerationRef.current) {
+          return;
+        }
         if (currentSessionRef.current?.id !== requestedSessionId) {
           return;
         }
@@ -2270,7 +2302,7 @@ export default function ChatScreen() {
       try {
         if (options?.manual) {
           setIsPullRefreshing(true);
-        } else if (!options?.background && messagesRef.current.length === 0) {
+        } else if (!options?.background && (messagesRef.current.length === 0 || options?.force)) {
           setIsLoadingMessages(true);
         }
         setErrorMessage(null);
@@ -2287,7 +2319,10 @@ export default function ChatScreen() {
                 includeHermesStatus: true,
               },
             );
-          if (currentSessionRef.current?.id !== requestedSessionId) {
+          if (
+            refreshGeneration !== refreshGenerationRef.current ||
+            currentSessionRef.current?.id !== requestedSessionId
+          ) {
             return;
           }
           applyMergedMessages(mergeWithLocalPending(dedupeChatMessages(tgMessages)));
@@ -2295,7 +2330,10 @@ export default function ChatScreen() {
           setTelegramInboxMeta({ threadCount, messageCap });
         } else {
           const history = await listMessages(gatewayUrl, activeSession.id, apiKey);
-          if (currentSessionRef.current?.id !== requestedSessionId) {
+          if (
+            refreshGeneration !== refreshGenerationRef.current ||
+            currentSessionRef.current?.id !== requestedSessionId
+          ) {
             return;
           }
           const displayMessages = dedupeChatMessages(
@@ -2309,7 +2347,10 @@ export default function ChatScreen() {
           setTelegramInboxMeta({ threadCount: 0, messageCap: 0 });
         }
       } catch (err) {
-        if (currentSessionRef.current?.id === requestedSessionId) {
+        if (
+          refreshGeneration === refreshGenerationRef.current &&
+          currentSessionRef.current?.id === requestedSessionId
+        ) {
           applyChatApiError(err, 'Could not load messages from your computer.', options);
         }
       } finally {
@@ -2955,6 +2996,7 @@ export default function ChatScreen() {
 
     // Live: compose first — create the Mac session when the user sends (avoids gateway
     // "session already in use" when the operator slot is still bound to the prior thread).
+    currentSessionRef.current = null;
     setCurrentSession(null);
     if (preserveComposer && shouldRestoreComposerAfterFreshChat(preservedText)) {
       inputValueRef.current = preservedText;
@@ -3027,30 +3069,28 @@ export default function ChatScreen() {
     setRunProgress,
   ]);
 
-  const confirmMegaSessionSend = useCallback(async (): Promise<boolean> => {
+  /**
+   * warn-level only. Hard-block is handled by shouldAutoFreshAndResendOnMegaBlock
+   * (auto fresh + continue send) so the typed draft is never dropped on a hung alert.
+   */
+  const confirmMegaSessionSend = useCallback(async (): Promise<'allow' | 'fresh' | 'cancel'> => {
     const session = currentSessionRef.current;
     const level = classifyMegaSession(session);
     if (level === 'normal') {
-      return true;
+      return 'allow';
+    }
+    if (level === 'block') {
+      return 'fresh';
     }
     const total = sessionTotalTokens(session);
-    if (level === 'block') {
-      await new Promise<void>((resolve) => {
-        Alert.alert('Chat too large', megaSessionSendBlockedCopy(total), [
-          { text: 'Start fresh chat', onPress: () => void handleStartFreshChat() },
-          { text: 'Cancel', style: 'cancel', onPress: () => resolve() },
-        ]);
-      });
-      return false;
-    }
-    return new Promise<boolean>((resolve) => {
+    return new Promise<'allow' | 'fresh' | 'cancel'>((resolve) => {
       Alert.alert(megaSessionSendWarnTitle(), megaSessionSendWarnMessage(total), [
-        { text: 'Start fresh chat', onPress: () => void handleStartFreshChat().then(() => resolve(false)) },
-        { text: 'Send anyway', style: 'destructive', onPress: () => resolve(true) },
-        { text: 'Cancel', style: 'cancel', onPress: () => resolve(false) },
+        { text: 'Start fresh chat', onPress: () => resolve('fresh') },
+        { text: 'Send anyway', style: 'destructive', onPress: () => resolve('allow') },
+        { text: 'Cancel', style: 'cancel', onPress: () => resolve('cancel') },
       ]);
     });
-  }, [handleStartFreshChat]);
+  }, []);
 
   const megaSessionWarning = useMemo(() => {
     const total = sessionTotalTokens(currentSession);
@@ -3897,9 +3937,15 @@ export default function ChatScreen() {
       const session = currentSessionRef.current;
       const megaLevel = classifyMegaSession(session);
       if (megaLevel !== 'normal') {
-        const allowed = await confirmMegaSessionSend();
-        if (!allowed) {
+        const decision = shouldAutoFreshAndResendOnMegaBlock(megaLevel)
+          ? 'fresh'
+          : await confirmMegaSessionSend();
+        if (decision === 'cancel') {
           return false;
+        }
+        if (decision === 'fresh') {
+          // Preserve draft (handleStartFreshChat) then continue this send on empty session.
+          await handleStartFreshChat();
         }
       }
     }
@@ -4108,15 +4154,23 @@ export default function ChatScreen() {
       return base;
     });
 
+    // Prefer ref: start-fresh nulls the ref immediately so we do not re-target mega sessions.
+    const sessionForSend = currentSessionRef.current ?? currentSession;
     // A gateway restart drops in-memory session ids; never carry a known-removed
     // id into a send (even on a "New chat") — clear it so we start fresh.
-    if (currentSession && !isDemo && removedSessionIdsRef.current.has(currentSession.id)) {
+    if (sessionForSend && !isDemo && removedSessionIdsRef.current.has(sessionForSend.id)) {
+      currentSessionRef.current = null;
       setCurrentSession(null);
     }
     let activeSess =
-      currentSession && !isDemo && removedSessionIdsRef.current.has(currentSession.id)
+      sessionForSend && !isDemo && removedSessionIdsRef.current.has(sessionForSend.id)
         ? null
-        : currentSession;
+        : sessionForSend;
+    if (activeSess && isMegaSessionSendBlocked(activeSess)) {
+      activeSess = null;
+      currentSessionRef.current = null;
+      setCurrentSession(null);
+    }
     const createdNewSession = !activeSess;
     if (!activeSess) {
       if (isDemo) {
@@ -5184,6 +5238,12 @@ export default function ChatScreen() {
         ]);
         return;
       }
+      if (switchingSessionIdRef.current) {
+        return;
+      }
+      switchingSessionIdRef.current = session.id;
+      setSwitchingSessionId(session.id);
+      setIsLoadingMessages(true);
       setRecentChatsDismissed(false);
       setSessionModalVisible(false);
       skipSessionAutoSelectRef.current = false;
@@ -5211,6 +5271,7 @@ export default function ChatScreen() {
       <RecentChatsList
         sessions={recentsRailSessions}
         currentSessionId={currentSession?.id}
+        switchingSessionId={switchingSessionId}
         sessionLabelFor={sessionLabelFor}
         runProgress={progressBanner}
         isSending={isSending}
@@ -5232,6 +5293,7 @@ export default function ChatScreen() {
     showRecentChatsPanel,
     recentsRailSessions,
     currentSession?.id,
+    switchingSessionId,
     sessionLabelFor,
     progressBanner,
     isSending,
@@ -5610,6 +5672,7 @@ export default function ChatScreen() {
           connectionState={connectionState}
           macHttpReachable={effectiveMacHttpOk || chatStalled}
           authMismatch={health?.authMismatch === true}
+          wrongKeyBannerActive={Boolean(errorMessage && isAuthRepairMessage(errorMessage))}
           isDemo={isDemo}
           chatStalled={chatStalled}
           workspaceName={activeProject?.name}
@@ -5638,6 +5701,7 @@ export default function ChatScreen() {
           isSending={isSending}
           machineName={machineShortLabel}
           chatStalled={chatStalled}
+          authMismatch={health?.authMismatch === true}
           onOpenApprovals={() => {
             haptics.selection();
             navigation.navigate('Leash' as never);
@@ -5712,7 +5776,7 @@ export default function ChatScreen() {
         ) : null}
 
         {!showMacConnectionHelp && (isLoadingMessages && messages.length === 0 ? (
-          <View style={styles.loadingContainer}>
+          <View style={styles.loadingContainer} testID="chat-session-loading">
             <ActivityIndicator size="large" color={colors.primary} />
             <Text style={styles.loadingText}>Fetching session history...</Text>
           </View>
@@ -6190,7 +6254,11 @@ export default function ChatScreen() {
                     <View style={styles.sessionItemRowContainer}>
                       <TouchableOpacity
                         style={[styles.sessionItem, isActive && styles.sessionItemActive, { flex: 1 }]}
+                        disabled={Boolean(switchingSessionId)}
                         onPress={() => {
+                          if (switchingSessionIdRef.current) {
+                            return;
+                          }
                           void handleSelectAgentThread(item);
                         }}
                       >
@@ -6203,6 +6271,13 @@ export default function ChatScreen() {
                           />
                           {sourceLabel ? (
                             <Text style={styles.sessionSourcePill}>{sourceLabel}</Text>
+                          ) : null}
+                          {switchingSessionId === item.id ? (
+                            <ActivityIndicator
+                              size="small"
+                              color={colors.primary}
+                              testID={`threads-modal-busy-${item.id}`}
+                            />
                           ) : null}
                         </View>
                         {isTelegramInboxSession(item) ? (

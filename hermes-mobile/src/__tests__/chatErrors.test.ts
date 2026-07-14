@@ -4,11 +4,36 @@ import {
   humanizeChatError,
   isAuthApiError,
   isConnectivityMessage,
+  isRawAbortMessage,
   isSessionInUseError,
   isSessionRemovedError,
   isTitleInUseError,
+  USER_RUN_INTERRUPTED_MESSAGE,
 } from '../utils/chatErrors';
 import { gatewayAuthRepairBanner } from '../services/gatewayClient';
+
+describe('raw abort jargon (never user-facing)', () => {
+  it('detects bare Aborted from agent runtimes', () => {
+    expect(isRawAbortMessage('Aborted')).toBe(true);
+    expect(isRawAbortMessage('aborted')).toBe(true);
+    expect(isRawAbortMessage('AbortError')).toBe(true);
+    expect(isRawAbortMessage('The operation was aborted')).toBe(true);
+    expect(isRawAbortMessage('Something aborted mid-tool with context')).toBe(false);
+  });
+
+  it('humanizes Aborted to a clear next step', () => {
+    const { message } = humanizeChatError(new Error('Aborted'), 'fallback');
+    expect(message).toBe(USER_RUN_INTERRUPTED_MESSAGE);
+    expect(message.toLowerCase()).not.toContain('aborted');
+    const named = new Error('fail');
+    named.name = 'AbortError';
+    named.message = 'The user aborted a request.';
+    // name AbortError alone
+    const ae = new Error('whatever');
+    ae.name = 'AbortError';
+    expect(humanizeChatError(ae, 'fallback').message).toBe(USER_RUN_INTERRUPTED_MESSAGE);
+  });
+});
 
 describe('isAuthApiError', () => {
   it('detects JSON invalid_api_key from gateway', () => {
@@ -33,8 +58,9 @@ describe('isAuthApiError', () => {
     );
     expect(kind).toBe('auth');
     expect(message).toBe(gatewayAuthRepairBanner('Igors-Mac-mini'));
-    expect(message).toContain('Settings → Your active machines');
-    expect(message).toContain('tap Computer → Re-pair');
+    expect(message).toContain('Find computers');
+    expect(message).not.toContain('Settings → Your active machines');
+    expect(message).toContain('Tap the computer name above');
   });
 });
 

@@ -263,6 +263,32 @@ if (e2eNeedsKickstart(latestE2e)) {
   }
 }
 
+// Smart ops: efficient revenue + agent heal (skips fresh work). Zero CEO labor.
+const smartOps = runNode('tools/smart-ops-controller.js', ['--json'], 90_000);
+if (!json) {
+  process.stdout.write('\n=== Smart ops (efficient) ===\n');
+  if (smartOps.status === 0 && smartOps.stdout) {
+    try {
+      const s = JSON.parse(smartOps.stdout);
+      const rev = s.revenue || {};
+      process.stdout.write(
+        [
+          `duration_ms=${s.durationMs} agents=${(s.agents || []).filter((a) => a.loaded).length}/${(s.agents || []).length}`,
+          rev.skipped
+            ? `revenue=skipped_fresh_${(rev.ageMin || 0).toFixed?.(1) || rev.ageMin}m`
+            : `revenue ok=${rev.ok} open=$${rev.funnel?.openGross ?? '?'} due=${rev.due?.length ?? 0} sent=${rev.sentCount || 0} noop=${rev.noop}`,
+          ...(s.actions || []).slice(0, 8),
+          '',
+        ].join('\n'),
+      );
+    } catch {
+      process.stdout.write(smartOps.stdout.slice(0, 800));
+    }
+  } else if (smartOps.stderr) {
+    process.stderr.write(smartOps.stderr.slice(0, 500));
+  }
+}
+
 const briefArgs = ['tools/ceo-operating-brief.js'];
 if (json) briefArgs.push('--json');
 if (full) briefArgs.push('--full');

@@ -13,19 +13,21 @@ Prevention hardening so today's bug class fails closed in CI / install / continu
 | Leash pull-to-refresh spinner clears | **Unit + Maestro** | `ApprovalsScreen.test.tsx` spinner clearing. Maestro: `regression-leash-refresh.yaml`. |
 | Chat header shows real model, not bare `Hermes (active)` | **Unit yes** | `ChatScreenHeader.test.tsx` (`buildHermesStatusLabel`). Maestro: `regression-chat-header-model.yaml` asserts status row present. |
 | `/health` green but chat API key wrong (multi-Mac fleet) | **Unit yes** | `gatewayClient.test.ts` auth probe + `gatewayConnection.test.ts` wrong-key label; `tests/test-hermes-mobile-pair.sh` mini SSH key; `releaseSafetyNet.test.ts` contract. |
+| **Connected ⊕ Wrong key** simultaneous UI | **SHIP BLOCK** | Green **Connected** while Wrong-key banner is visible is release-blocking. `resolveChatLinkDisplay` + `isConnectedWrongKeyContradiction` + auth probe force red / Find computers CTA. Gates: `gatewayConnection.test.ts`, `gatewayClient.test.ts`, `releaseSafetyNet.test.ts`, `REAL-USER-READINESS.md`. |
 
-## Wrong-key class (T-120, 2026-07-08)
+## Wrong-key class (T-120 / T-227, 2026-07-08 → 2026-07-14)
 
-**Failure mode:** Phone saved Mac mini URL (`100.94.135.78:8642`) with MacBook Pro `API_SERVER_KEY`. Unauthenticated `GET /health` returned 200 → UI showed Connected; authenticated `POST /api/sessions/.../chat` returned 401 → "No reply — tap ↑ again".
+**Failure mode:** Phone saved Mac mini URL (`100.94.135.78:8642`) with MacBook Pro `API_SERVER_KEY`. Unauthenticated `GET /health` returned 200 → UI showed Connected; authenticated `POST /api/sessions/.../chat` returned 401 → "No reply — tap ↑ again". Escalation (2026-07-14): green **Connected** + red **Wrong key** at once = **SHIP BLOCK**.
 
 **Prevention:**
 
 | Layer | What it catches | Evidence |
 |-------|-----------------|----------|
 | Pair script | Laptop pairs mini with laptop key | `tests/test-hermes-mobile-pair.sh` — mini URL must SSH-fetch key |
-| Auth probe | Green health + wrong key | `gatewayClient.test.ts` — `authMismatch` when sessions=401 |
-| UI | False Connected | `gatewayConnection.test.ts` — "Wrong key for this computer" |
-| Release contract | Regression in pair/auth wiring | `releaseSafetyNet.test.ts` + this doc |
+| Auth probe | Reachability alone never Connected | `gatewayClient.test.ts` — empty key / 401 → `authMismatch` + `level: red` |
+| UI XOR | False Connected beside Wrong key | `gatewayConnection.test.ts` — `wrongKeyBannerActive` / `isConnectedWrongKeyContradiction` |
+| Release contract | Regression in pair/auth wiring | `releaseSafetyNet.test.ts` + this doc + `REAL-USER-READINESS.md` SHIP BLOCK row |
+| Recovery CTA | Settings homework as primary | Wrong-key banner → **Find computers** (not Settings → …) |
 
 Pair Mac mini over Tailscale: `node tools/hermes-mobile-pair.js --mini-tailscale` (never manual key paste from laptop `.env`).
 
