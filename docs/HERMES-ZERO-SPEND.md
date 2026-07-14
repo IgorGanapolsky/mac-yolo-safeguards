@@ -26,6 +26,13 @@ retargets the existing `hermes-yolo` permanence guard to the zero-spend gate.
 The guard therefore repairs bypasses instead of reintroducing the old remote
 wrapper.
 
+The local route never selects a 32k/64k worker directly. During installation it
+derives `qwen3:8b-hermes-20k` from an already-installed `qwen3:8b` model (or a
+compact 3B fallback) and sets `num_ctx=20480`. This is a local manifest operation:
+it downloads nothing and sends no prompt. The bounded context leaves room for
+the observed 12k-token Hermes sessions without crossing the 10 GiB worker class
+that the 60-second freeze guard reclaims under memory pressure.
+
 The installer preserves every existing command behind a private manifest, adds
 the managed-policy pointer to the normal Hermes `.env` without printing or
 copying its secrets, and is idempotent. Re-running the main repository installer also restores this gate

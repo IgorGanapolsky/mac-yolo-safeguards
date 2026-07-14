@@ -45,16 +45,19 @@ const PAID_CREDENTIAL_ENV = [
   'ZAI_API_KEY',
   'Z_AI_API_KEY',
 ];
-const LOCAL_MODEL_CANDIDATES = [
-  'qwen3:8b-agent-64k',
-  'qwen3:8b-64k',
-  'qwen3.5:9b',
-  'qwen3:8b-agent-32k',
-  'qwen3:8b',
-  'qwen2.5-coder:14b-64k',
-  'qwen2.5:3b-64k',
-  'qwen2.5:3b',
+const SAFE_MODEL_RECIPES = [
+  {
+    model: 'qwen3:8b-hermes-20k',
+    base: 'qwen3:8b',
+    contextLength: 20480,
+  },
+  {
+    model: 'qwen2.5:3b-hermes-20k',
+    base: 'qwen2.5:3b',
+    contextLength: 20480,
+  },
 ];
+const LOCAL_MODEL_CANDIDATES = SAFE_MODEL_RECIPES.map((recipe) => recipe.model);
 
 function homeDir(env = process.env) {
   return env.HOME || os.homedir();
@@ -218,14 +221,19 @@ function yamlQuote(value) {
   return JSON.stringify(String(value));
 }
 
+function modelContextLength(model) {
+  return SAFE_MODEL_RECIPES.find((recipe) => recipe.model === model)?.contextLength || 20480;
+}
+
 function localConfig(model) {
   const quotedModel = yamlQuote(model);
+  const contextLength = modelContextLength(model);
   return [
     'model:',
     '  provider: custom:ollama-local-64k',
     `  default: ${quotedModel}`,
     '  base_url: http://127.0.0.1:11434/v1',
-    '  context_length: 65536',
+    `  context_length: ${contextLength}`,
     'providers:',
     '  ollama-local-64k:',
     '    name: Ollama Local Zero Spend',
@@ -236,10 +244,10 @@ function localConfig(model) {
     `    model: ${quotedModel}`,
     '    transport: chat_completions',
     '    discover_models: true',
-    '    context_length: 65536',
+    `    context_length: ${contextLength}`,
     '    models:',
     `      ${quotedModel}:`,
-    '        context_length: 65536',
+    `        context_length: ${contextLength}`,
     'fallback_providers:',
     '  - provider: custom:ollama-local-64k',
     `    model: ${quotedModel}`,
@@ -418,11 +426,13 @@ function installPolicyFiles(model, manifest, env = process.env) {
 
 function install(env = process.env) {
   const loc = locations(env);
-  const model = chooseLocalModel(env);
-  if (!model) throw new Error('zero-spend install requires a verified local Ollama model');
   fs.mkdirSync(loc.stateDir, { recursive: true, mode: 0o700 });
   fs.mkdirSync(loc.originalsDir, { recursive: true, mode: 0o700 });
   copyGate(__filename, loc.installedGate);
+  const model = provisionSafeLocalModel(env);
+  if (!model) {
+    throw new Error('zero-spend install requires an installed compact Ollama base model');
+  }
 
   const previous = readJson(loc.manifest, {});
   const manifest = {
@@ -503,6 +513,7 @@ function status(env = process.env) {
       ? guardText.includes(`STABLE=${JSON.stringify(loc.installedGate)}`)
       : null,
     localModel: manifest.localModel || null,
+    localContextLength: manifest.localModel ? modelContextLength(manifest.localModel) : null,
     commandCount: commands.length,
     commands,
   };
@@ -553,6 +564,48 @@ function installedLocalModels(env = process.env) {
 function chooseLocalModel(env = process.env) {
   const installed = installedLocalModels(env);
   return LOCAL_MODEL_CANDIDATES.find((model) => installed.includes(model)) || null;
+}
+
+function safeModelFile(recipe) {
+  return [
+    `FROM ${recipe.base}`,
+    `PARAMETER num_ctx ${recipe.contextLength}`,
+    'PARAMETER temperature 0.3',
+    'PARAMETER top_k 20',
+    'PARAMETER top_p 0.9',
+    'PARAMETER repeat_penalty 1',
+    '',
+  ].join('\n');
+}
+
+function provisionSafeLocalModel(env = process.env) {
+  let installed = installedLocalModels(env);
+  const ready = LOCAL_MODEL_CANDIDATES.find((model) => installed.includes(model));
+  if (ready) return ready;
+  if (env.HERMES_ZERO_SPEND_LOCAL_MODELS) return null;
+
+  const ollama = findOllama(env);
+  if (!ollama) return null;
+  for (const recipe of SAFE_MODEL_RECIPES) {
+    if (!installed.includes(recipe.base)) continue;
+    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'hermes-zero-spend-model-'));
+    const modelFile = path.join(tempDir, 'Modelfile');
+    try {
+      writePrivateFile(modelFile, safeModelFile(recipe));
+      const create = spawnSync(ollama, ['create', recipe.model, '--file', modelFile], {
+        encoding: 'utf8',
+        timeout: 120000,
+        env,
+        stdio: ['ignore', 'pipe', 'pipe'],
+      });
+      if (create.status !== 0) continue;
+    } finally {
+      fs.rmSync(tempDir, { recursive: true, force: true });
+    }
+    installed = installedLocalModels(env);
+    if (installed.includes(recipe.model)) return recipe.model;
+  }
+  return null;
 }
 
 function localOnlyEnv(env, model) {
@@ -656,6 +709,7 @@ module.exports = {
   LOCAL_MODEL_CANDIDATES,
   LOCAL_PROVIDER,
   PAID_CREDENTIAL_ENV,
+  SAFE_MODEL_RECIPES,
   chooseLocalModel,
   commandNames,
   disable,
@@ -670,9 +724,12 @@ module.exports = {
   locations,
   main,
   markerActive,
+  modelContextLength,
+  provisionSafeLocalModel,
   replaceableCommandPath,
   restoreMacPolicy,
   runCommand,
+  safeModelFile,
   status,
   writePrivateFile,
 };
