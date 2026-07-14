@@ -610,15 +610,23 @@ function runPairMain(args) {
     thumbgateApiKey,
   );
   const pageUrl = `http://${lanIp}:${PAIR_PORT}/pair`;
-  const { htmlPath } = writePairAssets({
-    gatewayUrl,
-    lanIp,
-    deepLink,
-    pageUrl,
-    hostname,
-    relayCode,
-    tailnetProbeHosts,
-  });
+  const skipPairAssetWrite = args.has('--no-serve') && args.has('--mini-tailscale');
+  let htmlPath = path.join(OUT_DIR, 'index.html');
+  if (skipPairAssetWrite) {
+    console.log(
+      '  pair.json: preserved (--no-serve + --mini-tailscale; will not overwrite USB/MBP pair page primary)',
+    );
+  } else {
+    ({ htmlPath } = writePairAssets({
+      gatewayUrl,
+      lanIp,
+      deepLink,
+      pageUrl,
+      hostname,
+      relayCode,
+      tailnetProbeHosts,
+    }));
+  }
 
   console.log('Hermes Mobile pairing');
   console.log('  Gateway:', gatewayUrl);
@@ -638,6 +646,11 @@ function runPairMain(args) {
   }
 
   if (serial && !args.has('--no-adb')) {
+    if (skipPairAssetWrite) {
+      console.log(
+        '  adb: skipped (--mini-tailscale --no-serve; phone keeps primary from full USB/MBP pair)',
+      );
+    } else {
     const ok = openDeepLinkOnDevice(serial, deepLink);
     console.log(ok ? `  adb: opened on ${serial}` : '  adb: intent failed — scan QR on pair page');
     try {
@@ -645,6 +658,7 @@ function runPairMain(args) {
       console.log('  adb: developer Leash unlock intent sent (does not change tab)');
     } catch {
       // App may still be cold-starting after install.
+    }
     }
   } else if (!serial) {
     console.log('  adb: no device — scan QR on pair page');
