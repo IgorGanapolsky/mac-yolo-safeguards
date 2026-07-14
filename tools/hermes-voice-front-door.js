@@ -199,6 +199,7 @@ Events:
   score          Score call signals like prospect-score (--signals-json)
   demo-pack      Emit paste-ready SpaceXAI multi-agent pack (no secrets)
   receipt        Full decision receipt; optional --write to private JSONL
+  apply-pipeline After-call: dry-run (default) or --apply pipeline-update.js write
 
 Options:
   --signals-json JSON   Call state: agent_stack, repeated_failure, business_cost,
@@ -208,14 +209,39 @@ Options:
   --tool NAME           tool id to gate
   --hubspot-stage TEXT  HubSpot deal stage label
   --pipeline-stage TEXT ready|sent|replied|booked|proposed|paid|lost
+  --pipeline PATH       private pipeline-status.tsv for apply-pipeline
+  --date YYYY-MM-DD     touch date for apply-pipeline (default: today UTC)
+  --apply               actually run pipeline-update.js (default is dry-run)
+  --allow-paid          required if suggested stage is paid (voice never auto-pays)
+  --create-if-missing   seed prospect row if absent (default ON for apply-pipeline)
+  --no-create-if-missing  refuse when prospect is not already in the TSV
   --json                machine-readable stdout
   --write               append private receipt under ~/.hermes/voice-front-door/
   --help
 
-Private receipts never store full utterance text (hashed length + trigger ids only).`;
+Private receipts never store full utterance text (hashed length + trigger ids only).
+apply-pipeline never marks paid without --allow-paid; Stripe still requires ledger.`;
+
+const PIPELINE_TSV_HEADERS = [
+  'prospect_label',
+  'stage',
+  'route',
+  'gross_potential_usd',
+  'last_touch',
+  'next_action',
+  'notes',
+];
 
 function parseArgs(argv) {
-  const args = { json: false, write: false, help: false };
+  const args = {
+    json: false,
+    write: false,
+    help: false,
+    apply: false,
+    allowPaid: false,
+    // undefined = default true for apply-pipeline; false only with --no-create-if-missing
+    createIfMissing: undefined,
+  };
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i];
     if (arg === '--event') args.event = argv[++i];
@@ -224,6 +250,12 @@ function parseArgs(argv) {
     else if (arg === '--tool') args.tool = argv[++i];
     else if (arg === '--hubspot-stage') args.hubspotStage = argv[++i];
     else if (arg === '--pipeline-stage') args.pipelineStage = argv[++i];
+    else if (arg === '--pipeline') args.pipeline = argv[++i];
+    else if (arg === '--date') args.date = argv[++i];
+    else if (arg === '--apply') args.apply = true;
+    else if (arg === '--allow-paid') args.allowPaid = true;
+    else if (arg === '--create-if-missing') args.createIfMissing = true;
+    else if (arg === '--no-create-if-missing') args.createIfMissing = false;
     else if (arg === '--json') args.json = true;
     else if (arg === '--write') args.write = true;
     else if (arg === '--help' || arg === '-h') args.help = true;
@@ -520,29 +552,98 @@ function defaultNextAction(pipelineStage) {
   }
 }
 
-function buildPipelineUpdateFromVoice(rawSignals, hubspotStage) {
-  const decision = decideTransfer(rawSignals);
-  const mapped = hubspotStage
-    ? mapHubspotToPipeline(hubspotStage)
-    : mapPipelineToHubspot(decision.pipeline_stage);
-  if (!mapped.ok) return { ok: false, error: mapped.error, decision };
+/**
+ * Advance pipeline stage from call outcome (never jumps to paid).
+ * Order: ready < sent < replied < booked < proposed < paid; lost is terminal.
+ */
+function suggestStageFromDecision(decision) {
+  const current = decision.pipeline_stage || 'ready';
+  const rank = Object.fromEntries(PIPELINE_STAGES.map((s, i) => [s, i]));
+  let suggested = current;
 
-  const stage = mapped.pipeline_stage;
+  if (decision.offer && decision.offer.id === OFFERS.free.id) {
+    // Free path: keep ready (or current if already further).
+    suggested = current === 'ready' ? 'ready' : current;
+  } else if (decision.next_agent === 'close' && decision.score >= 4 && decision.score <= 8) {
+    // Paid diagnostic/sprint: call booked or at least replied.
+    suggested = 'booked';
+  } else if (decision.next_agent === 'human' || decision.score >= 9) {
+    // Partner pilot / compliance handoff: proposal track, not paid.
+    suggested = 'proposed';
+  } else if (decision.score >= 4) {
+    suggested = 'replied';
+  }
+
+  // Never regress (except lost stays lost).
+  if (current === 'lost') return 'lost';
+  if (rank[suggested] == null) suggested = current;
+  if (rank[current] != null && rank[suggested] < rank[current] && current !== 'lost') {
+    suggested = current;
+  }
+  // Hard rule: voice path never auto-selects paid.
+  if (suggested === 'paid') suggested = 'proposed';
+  return suggested;
+}
+
+function buildPipelineUpdateCommand(pipelinePath, update, date) {
+  const script = path.join(__dirname, 'pipeline-update.js');
+  const argv = [
+    process.execPath,
+    script,
+    '--pipeline',
+    pipelinePath,
+    '--prospect',
+    update.prospect,
+    '--stage',
+    update.stage,
+    '--date',
+    date,
+    '--next-action',
+    update.next_action,
+    '--note',
+    update.note,
+  ];
+  return {
+    argv,
+    shell: argv.map((a) => (/\s/.test(a) ? JSON.stringify(a) : a)).join(' '),
+  };
+}
+
+function buildPipelineUpdateFromVoice(rawSignals, hubspotStage, opts) {
+  opts = opts || {};
+  const decision = decideTransfer(rawSignals);
+  const advance = opts.advanceStage !== false;
+  const currentStage = decision.pipeline_stage;
+  const suggestedStage = advance ? suggestStageFromDecision(decision) : currentStage;
+
+  let mapped;
+  if (hubspotStage) {
+    mapped = mapHubspotToPipeline(hubspotStage);
+    if (!mapped.ok) return { ok: false, error: mapped.error, decision };
+  } else {
+    mapped = mapPipelineToHubspot(suggestedStage);
+  }
+
+  const stage = hubspotStage ? mapped.pipeline_stage : suggestedStage;
+  const nextAction = defaultNextAction(stage);
+  const hubspotStageOut = PIPELINE_TO_HUBSPOT[stage];
+
   return {
     ok: true,
     // Compatible with tools/pipeline-update.js CLI fields (operator runs update).
     pipeline_update: {
       prospect: decision.prospect_label || 'voice-caller',
       stage,
+      previous_stage: currentStage,
       route: decision.offer.label,
       gross_potential_usd: decision.offer.gross_usd,
-      next_action: mapped.pipeline_next_action,
-      note: `voice_front_door agent=${decision.next_agent} score=${decision.score}`,
+      next_action: nextAction,
+      note: `voice_front_door agent=${decision.next_agent} score=${decision.score} offer=${decision.offer.id}`,
     },
     hubspot: {
-      stage: mapped.hubspot_stage || mapped.hubspot_canonical,
+      stage: hubspotStageOut,
       properties: {
-        dealstage: mapped.hubspot_stage || mapped.hubspot_canonical,
+        dealstage: hubspotStageOut,
         amount: decision.offer.gross_usd,
         pipeline: 'default',
         hermes_score: decision.score,
@@ -552,6 +653,231 @@ function buildPipelineUpdateFromVoice(rawSignals, hubspotStage) {
     },
     decision,
   };
+}
+
+function escapeTsvField(value) {
+  return String(value || '').replace(/\r?\n/g, '\\n').replace(/\t/g, ' ');
+}
+
+/**
+ * Ensure private pipeline TSV has the prospect so pipeline-update.js can run.
+ * Creates file + header if missing; appends a ready seed row if prospect absent.
+ * Does not advance stage (pipeline-update does that after).
+ */
+function ensureProspectInPipeline(pipelinePath, update, date, opts) {
+  opts = opts || {};
+  const createIfMissing = opts.createIfMissing !== false;
+  const prospect = update.prospect;
+  const exists = fs.existsSync(pipelinePath);
+
+  if (!exists) {
+    if (!createIfMissing) {
+      return {
+        ok: false,
+        created: false,
+        found: false,
+        error: `pipeline file not found: ${pipelinePath} (pass --create-if-missing or create via pipeline-init.js)`,
+      };
+    }
+    if (opts.dryRun) {
+      return { ok: true, created: true, found: false, dry_run: true, would_create_file: true };
+    }
+    const seed = {
+      prospect_label: prospect,
+      stage: 'ready',
+      route: update.route || 'voice_front_door',
+      gross_potential_usd: String(update.gross_potential_usd != null ? update.gross_potential_usd : 0),
+      last_touch: date,
+      next_action: 'send_first_touch_or_voice_demo',
+      notes: `${date}: seeded_by_voice_front_door`,
+    };
+    const lines = [
+      PIPELINE_TSV_HEADERS.join('\t'),
+      PIPELINE_TSV_HEADERS.map((h) => escapeTsvField(seed[h])).join('\t'),
+    ];
+    fs.mkdirSync(path.dirname(pipelinePath) || '.', { recursive: true });
+    fs.writeFileSync(pipelinePath, `${lines.join('\n')}\n`, { mode: 0o600 });
+    return { ok: true, created: true, found: false, would_create_file: true };
+  }
+
+  const text = fs.readFileSync(pipelinePath, 'utf8');
+  const lines = text.trim() ? text.trim().split(/\r?\n/) : [];
+  if (lines.length === 0) {
+    if (!createIfMissing) {
+      return { ok: false, created: false, found: false, error: 'pipeline file empty' };
+    }
+    if (opts.dryRun) {
+      return { ok: true, created: true, found: false, dry_run: true, would_create_file: true };
+    }
+    const seed = {
+      prospect_label: prospect,
+      stage: 'ready',
+      route: update.route || 'voice_front_door',
+      gross_potential_usd: String(update.gross_potential_usd != null ? update.gross_potential_usd : 0),
+      last_touch: date,
+      next_action: 'send_first_touch_or_voice_demo',
+      notes: `${date}: seeded_by_voice_front_door`,
+    };
+    const outLines = [
+      PIPELINE_TSV_HEADERS.join('\t'),
+      PIPELINE_TSV_HEADERS.map((h) => escapeTsvField(seed[h])).join('\t'),
+    ];
+    fs.writeFileSync(pipelinePath, `${outLines.join('\n')}\n`, { mode: 0o600 });
+    return { ok: true, created: true, found: false, would_create_file: true };
+  }
+
+  const headers = lines[0].split('\t');
+  for (const h of PIPELINE_TSV_HEADERS) {
+    if (!headers.includes(h)) {
+      return { ok: false, created: false, found: false, error: `pipeline missing column ${h}` };
+    }
+  }
+  const labelIdx = headers.indexOf('prospect_label');
+  const found = lines.slice(1).some((line) => line.split('\t')[labelIdx] === prospect);
+  if (found) {
+    return { ok: true, created: false, found: true };
+  }
+  if (!createIfMissing) {
+    return {
+      ok: false,
+      created: false,
+      found: false,
+      error: `Prospect not found in ${pipelinePath}: ${prospect} (use default --create-if-missing)`,
+    };
+  }
+  if (opts.dryRun) {
+    return { ok: true, created: true, found: false, dry_run: true };
+  }
+
+  const seed = {
+    prospect_label: prospect,
+    stage: 'ready',
+    route: update.route || 'voice_front_door',
+    gross_potential_usd: String(update.gross_potential_usd != null ? update.gross_potential_usd : 0),
+    last_touch: date,
+    next_action: 'send_first_touch_or_voice_demo',
+    notes: `${date}: seeded_by_voice_front_door`,
+  };
+  const row = headers.map((h) => escapeTsvField(seed[h] != null ? seed[h] : '')).join('\t');
+  const next = text.endsWith('\n') ? `${text}${row}\n` : `${text}\n${row}\n`;
+  fs.writeFileSync(pipelinePath, next, { mode: 0o600 });
+  return { ok: true, created: true, found: false };
+}
+
+/**
+ * Dry-run or apply pipeline-update.js after a voice call.
+ * Default: dry-run (prints command + payload). --apply writes via pipeline-update.js.
+ * Cold-call buyers: default create-if-missing seeds a ready row then advances stage.
+ */
+function applyPipelineFromVoice(options) {
+  const {
+    rawSignals,
+    pipelinePath,
+    date,
+    apply,
+    allowPaid,
+    hubspotStage,
+    createIfMissing,
+  } = options;
+
+  if (!pipelinePath) {
+    throw new Error('--pipeline is required for apply-pipeline');
+  }
+  const touchDate = date || new Date().toISOString().slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(touchDate)) {
+    throw new Error('--date must be YYYY-MM-DD');
+  }
+
+  const built = buildPipelineUpdateFromVoice(rawSignals, hubspotStage, { advanceStage: true });
+  if (!built.ok) return built;
+
+  if (built.pipeline_update.stage === 'paid' && !allowPaid) {
+    return {
+      ok: false,
+      error: 'refusing stage=paid without --allow-paid (and revenue ledger still required)',
+      pipeline_update: built.pipeline_update,
+      decision: built.decision,
+      dry_run: !apply,
+    };
+  }
+
+  const create = createIfMissing !== false;
+  const ensurePreview = ensureProspectInPipeline(
+    pipelinePath,
+    built.pipeline_update,
+    touchDate,
+    { createIfMissing: create, dryRun: true },
+  );
+
+  const cmd = buildPipelineUpdateCommand(pipelinePath, built.pipeline_update, touchDate);
+  const result = {
+    ok: true,
+    event: 'apply-pipeline',
+    dry_run: !apply,
+    pipeline_path: pipelinePath,
+    pipeline_update: built.pipeline_update,
+    hubspot: built.hubspot,
+    decision: {
+      next_agent: built.decision.next_agent,
+      score: built.decision.score,
+      offer: built.decision.offer,
+    },
+    create_if_missing: create,
+    prospect_seed: {
+      found: !!ensurePreview.found,
+      would_create: !!ensurePreview.created && !ensurePreview.found,
+      would_create_file: !!ensurePreview.would_create_file,
+    },
+    command: cmd.shell,
+    command_argv: cmd.argv,
+    applied: false,
+    created_prospect: false,
+    revenue_note:
+      'Pipeline stage is not revenue proof. Cleared Stripe + revenue ledger still required for paid.',
+  };
+
+  if (!ensurePreview.ok && !ensurePreview.created) {
+    // only hard-fail when create disabled and missing
+    if (!create) {
+      result.ok = false;
+      result.error = ensurePreview.error;
+      return result;
+    }
+  }
+
+  if (!apply) {
+    return result;
+  }
+
+  const ensured = ensureProspectInPipeline(
+    pipelinePath,
+    built.pipeline_update,
+    touchDate,
+    { createIfMissing: create, dryRun: false },
+  );
+  if (!ensured.ok) {
+    result.ok = false;
+    result.error = ensured.error;
+    return result;
+  }
+  result.created_prospect = !!ensured.created;
+
+  // Execute pipeline-update.js as a child (same contract as operators).
+  // eslint-disable-next-line global-require
+  const { spawnSync } = require('child_process');
+  const child = spawnSync(cmd.argv[0], cmd.argv.slice(1), {
+    encoding: 'utf8',
+    cwd: path.join(__dirname, '..'),
+  });
+  result.applied = child.status === 0;
+  result.exit_code = child.status;
+  result.stdout = (child.stdout || '').trim();
+  result.stderr = (child.stderr || '').trim();
+  if (child.status !== 0) {
+    result.ok = false;
+    result.error = result.stderr || `pipeline-update.js exited ${child.status}`;
+  }
+  return result;
 }
 
 function buildDemoAgentPack() {
@@ -719,7 +1045,19 @@ function run(argv) {
   } else if (event === 'pipeline-from-voice') {
     const raw = parseSignalsArg(args);
     if (!raw) throw new Error('--signals-json is required');
-    result = buildPipelineUpdateFromVoice(raw, args.hubspotStage);
+    result = buildPipelineUpdateFromVoice(raw, args.hubspotStage, { advanceStage: true });
+  } else if (event === 'apply-pipeline') {
+    const raw = parseSignalsArg(args);
+    if (!raw) throw new Error('--signals-json is required for apply-pipeline');
+    result = applyPipelineFromVoice({
+      rawSignals: raw,
+      pipelinePath: args.pipeline,
+      date: args.date,
+      apply: args.apply,
+      allowPaid: args.allowPaid,
+      hubspotStage: args.hubspotStage,
+      createIfMissing: args.createIfMissing,
+    });
   } else {
     throw new Error(`Unknown event: ${args.event}`);
   }
@@ -741,6 +1079,16 @@ function run(argv) {
   } else if (event === 'demo-pack') {
     lines.push(`demo pack v=${result.version} agents=${result.agents.length}`);
     lines.push('Paste system prompts from --json into SpaceXAI Voice Agent Builder.');
+  } else if (event === 'apply-pipeline') {
+    lines.push(`dry_run=${result.dry_run} applied=${result.applied} stage=${result.pipeline_update && result.pipeline_update.stage}`);
+    lines.push(`prospect=${result.pipeline_update && result.pipeline_update.prospect}`);
+    if (result.prospect_seed) {
+      lines.push(
+        `prospect_seed found=${result.prospect_seed.found} would_create=${result.prospect_seed.would_create} created=${result.created_prospect}`,
+      );
+    }
+    lines.push(result.command || '');
+    if (result.error) lines.push(`error=${result.error}`);
   } else {
     lines.push(JSON.stringify(result, null, 2));
   }
@@ -779,7 +1127,12 @@ module.exports = {
   mapHubspotToPipeline,
   mapPipelineToHubspot,
   defaultNextAction,
+  suggestStageFromDecision,
+  buildPipelineUpdateCommand,
   buildPipelineUpdateFromVoice,
+  ensureProspectInPipeline,
+  applyPipelineFromVoice,
+  PIPELINE_TSV_HEADERS,
   buildDemoAgentPack,
   buildAgentSystemPrompt,
   writeReceipt,
