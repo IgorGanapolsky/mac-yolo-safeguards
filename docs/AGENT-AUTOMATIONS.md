@@ -29,8 +29,30 @@ bash scripts/verify-agent-automations.sh
 | `com.igor.hermes-contribution-opportunities` | 30m | `tools/hermes-contribution-opportunities.js` | Hermes-agent contribution radar |
 | `com.igor.hermes-mobile-continuous-e2e` | 15m | `hermes-mobile/scripts/run-continuous-e2e.sh --once` | Unit tests + Maestro E2E (Android USB → iOS sim) |
 | `com.igor.shutdown-simulators` | 60s | `sim-runaway-guard.sh` | Mac freeze guard (protected) |
+| `com.igor.revenue-autonomous-loop` | 4h | `tools/revenue-autonomous-loop.js --auto-send --json` | Funnel diagnose, Stripe link health, due follow-ups, Gmail auto-send (cap 5), ntfy |
 
-Logs: `~/Library/Logs/<label>.log` (CEO brief uses `ceo-operating-brief.log`).
+Logs: `~/Library/Logs/<label>.log` (CEO brief uses `ceo-operating-brief.log`; revenue loop: `~/Library/Logs/mac-yolo/revenue-autonomous-loop.*.log`).
+
+### Revenue autonomous loop (cash path)
+
+Runs unattended every 4h and on agent session start:
+
+1. Read private `business_os/revenue/pipeline-status-*.tsv` + stripe offer map
+2. curl-verify every `buy.stripe.com` link (never send 403s)
+3. Queue follow-ups when `stage=sent|proposed` and `last_touch` ≥ 48h
+4. Auto-send via `google_api.py` when token healthy (`REVENUE_AUTO_SEND=1`); else write `pending-sends.json` for Gmail MCP
+5. Private board + JSONL receipts under `business_os/revenue/`
+6. ntfy push summary
+
+Manual:
+
+```bash
+node tools/revenue-autonomous-loop.js --json
+node tools/revenue-autonomous-loop.js --auto-send --json
+REVENUE_AUTO_SEND=0 node tools/revenue-autonomous-loop.js --json   # diagnose only
+```
+
+**Honesty:** this loop never marks `paid` without Stripe charge proof (`record-cleared-payment.js`).
 
 ## Manual one-shots (same tools)
 

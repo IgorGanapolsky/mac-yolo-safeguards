@@ -29,6 +29,7 @@ node --check tools/hermes-self-harness.js
 node --check tools/merge-gateway-readiness.js
 node --check tools/tencentdb-memory-readiness.js
 node --check tools/athena-agent-revenue-gap.js
+node --check tools/revenue-autonomous-loop.js
 node --check tools/cash-discipline-board.js
 node --check tools/graphify-readiness.js
 node --check tools/openmono-roi-audit.js
@@ -75,6 +76,7 @@ node tests/test-hermes-self-harness.js
 node tests/test-merge-gateway-readiness.js
 node tests/test-tencentdb-memory-readiness.js
 node tests/test-athena-agent-revenue-gap.js
+node tests/test-revenue-autonomous-loop.js
 node tests/test-cash-discipline-board.js
 node tests/test-openmono-roi-audit.js
 node tests/test-kimi-model-upgrade-audit.js
