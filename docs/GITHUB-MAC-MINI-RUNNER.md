@@ -93,7 +93,7 @@ jobs:
     runs-on: [self-hosted, macos-arm64, hermes-e2e]
 ```
 
-**Shipped in `ci.yml`:** a lightweight `macos-guard-runner-pick` job probes `mac-mini-hermes` status and routes `macOS guard kit` to the mini when online; falls back to `macos-latest` if offline. Fork PRs stay on GitHub-hosted runners.
+**Shipped in `ci.yml`:** `macOS guard kit` uses `[self-hosted, macos-arm64, hermes-e2e]` by default; fork PRs stay on `macos-latest`. If the mini is offline, temporarily switch the job to `macos-latest`.
 
 ## Verify
 
