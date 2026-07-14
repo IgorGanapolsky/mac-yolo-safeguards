@@ -214,6 +214,7 @@ import FeedbackPromptModal from '../components/FeedbackPromptModal';
 import GatewayOpsSection from '../components/GatewayOpsSection';
 import ChatApprovalBar from '../components/ChatApprovalBar';
 import RunProgressBanner from '../components/RunProgressBanner';
+import EmptyStreamRefreshBanner from '../components/EmptyStreamRefreshBanner';
 import ComposerErrorBanner from '../components/ComposerErrorBanner';
 import type { RunProgressState } from '../types/chatDisplay';
 import type { GatewayEventMessage } from '../types/gateway';
@@ -345,6 +346,7 @@ import {
   shouldAwaitGatewayReplyAfterSend,
   toolActivityAfterLastUser,
 } from '../utils/emptyStreamReplyRecovery';
+import { shouldShowEmptyStreamRefreshCta } from '../utils/emptyStreamRefreshCta';
 import { extractTerminalActivityFromMessage, isTerminalToolName } from '../utils/terminalActivity';
 import type { ChatMessageContent, ComposerAttachment } from '../types/chatAttachment';
 import {
@@ -3366,6 +3368,15 @@ export default function ChatScreen() {
     return megaSessionBannerCopy(total);
   }, [currentSession, messages]);
 
+  const showEmptyStreamRefreshBanner = useMemo(
+    () =>
+      !isDemo &&
+      macChatLive &&
+      shouldShowEmptyStreamRefreshCta(messages) &&
+      !awaitingGatewayReply,
+    [isDemo, macChatLive, messages, awaitingGatewayReply],
+  );
+
   const megaSessionSendHardBlocked = isMegaSessionSendBlocked(currentSession);
 
   useEffect(() => {
@@ -5367,6 +5378,16 @@ export default function ChatScreen() {
     alternateHealRoutes,
   ]);
 
+  const emptyReplyRunRefreshEligible = useMemo(
+    () =>
+      !isDemo &&
+      macChatLive &&
+      (showEmptyStreamRefreshBanner ||
+        (progressBanner?.phase === 'failed' &&
+          isEmptyReplyFailureMessage(progressBanner.detail))),
+    [isDemo, macChatLive, showEmptyStreamRefreshBanner, progressBanner],
+  );
+
   const isRunActive = useMemo(() => {
     if (isSending) {
       return true;
@@ -6210,6 +6231,10 @@ export default function ChatScreen() {
             isStartingFreshChat={isStartingFreshChat}
             onStop={isRunActive || isSending ? () => void handleStopRun() : undefined}
             onDismiss={clearFailedOutboundState}
+            onRefreshRun={
+              emptyReplyRunRefreshEligible ? () => void handleManualSync() : undefined
+            }
+            refreshRunBusy={isPullRefreshing}
             onRetry={
               isEmptyReplyFailureMessage(progressBanner.detail) ||
               (progressBanner.phase === 'failed' &&
@@ -6253,6 +6278,19 @@ export default function ChatScreen() {
               )}
             </Pressable>
           </View>
+        ) : null}
+
+        {showEmptyStreamRefreshBanner && !showComposerProgressBanner ? (
+          <EmptyStreamRefreshBanner
+            busy={isPullRefreshing}
+            onRefresh={() => void handleManualSync()}
+            onStartFreshChat={
+              megaSessionWarning && showComposerProgressBanner
+                ? () => void handleStartFreshChat()
+                : undefined
+            }
+            startingFreshChat={isStartingFreshChat}
+          />
         ) : null}
 
         {toolStatus && !showComposerProgressBanner ? (

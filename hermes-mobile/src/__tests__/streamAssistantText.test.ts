@@ -6,6 +6,7 @@ import {
   isTelegramDeferredEmptyStream,
   snapshotAssistantBodies,
   TELEGRAM_QUEUED_REPLY_PLACEHOLDER,
+  EMPTY_STREAM_TIMEOUT_PLACEHOLDER,
 } from '../utils/streamAssistantText';
 import type { HermesMessage, HermesSession } from '../types/chat';
 
@@ -80,5 +81,11 @@ describe('streamAssistantText', () => {
   it('extractAssistantFromTranscriptMessages returns empty for non-arrays', () => {
     expect(extractAssistantFromTranscriptMessages(null)).toBe('');
     expect(extractAssistantFromTranscriptMessages('nope')).toBe('');
+  });
+
+  it('does not tell users to pull to refresh when the stream times out', () => {
+    expect(EMPTY_STREAM_TIMEOUT_PLACEHOLDER.toLowerCase()).not.toContain('pull to refresh');
+    expect(EMPTY_STREAM_TIMEOUT_PLACEHOLDER.toLowerCase()).toContain('refresh below');
+    expect(isDeferredStreamPlaceholder(EMPTY_STREAM_TIMEOUT_PLACEHOLDER)).toBe(true);
   });
 });
