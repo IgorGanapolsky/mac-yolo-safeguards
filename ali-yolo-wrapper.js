@@ -87,7 +87,8 @@ function endpointHost(baseUrl) {
 function inspectAuth(settings) {
   const selectedType = settings?.security?.auth?.selectedType || null;
   const model = process.env.OPENAI_MODEL || process.env.QWEN_MODEL || settings?.model?.name || null;
-  const models = settings?.modelProviders?.openai?.models || [];
+  const openaiProvider = settings?.modelProviders?.openai;
+  const models = Array.isArray(openaiProvider) ? openaiProvider : (openaiProvider?.models || []);
   const selectedModel = models.find((entry) => entry && entry.id === model) || null;
   const baseUrl = process.env.OPENAI_BASE_URL || selectedModel?.baseUrl || null;
   const envKey = selectedModel?.envKey || (

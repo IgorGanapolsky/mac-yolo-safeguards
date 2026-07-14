@@ -64,10 +64,16 @@ assert.equal(result.status, 1);
 doctor = JSON.parse(result.stdout);
 assert.equal(doctor.credentialPresent, false);
 
-settings.modelProviders.openai.models[0].baseUrl = 'https://api.openai.com/v1';
+settings.modelProviders.openai = settings.modelProviders.openai.models;
+fs.writeFileSync(path.join(home, '.qwen/settings.json'), JSON.stringify(settings));
+result = run(['--doctor', '--json']);
+assert.equal(result.status, 0);
+assert.equal(JSON.parse(result.stdout).endpointHost, 'dashscope-us.aliyuncs.com');
+
+settings.modelProviders.openai[0].baseUrl = 'https://api.openai.com/v1';
 fs.writeFileSync(path.join(home, '.qwen/settings.json'), JSON.stringify(settings));
 result = run(['--doctor', '--json']);
 assert.equal(result.status, 1);
 assert(JSON.parse(result.stdout).errors.includes('Alibaba ModelStudio route is not configured'));
 
-console.log('ALI_YOLO_TESTS_PASS cases=7 fallback=false');
+console.log('ALI_YOLO_TESTS_PASS cases=8 fallback=false');
