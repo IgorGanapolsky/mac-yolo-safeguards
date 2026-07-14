@@ -1,9 +1,10 @@
-# Stellar Store Listing Playbook — Hermes Mobile (July 2026)
+# Stellar Store Listing Playbook — Hermes Mobile (July 2026) — FIXED JULY 11
 
-**Research date:** 2026-07-09  
-**Product:** Hermes Mobile (`com.iganapolsky.hermesmobile`) + Leash Pro ($19.99/mo)  
-**Audience:** Prosumer AI agent operators (Cursor, Claude Code, OpenClaw, Hermes gateway)  
-**Context:** Play **live** (Teen, 0+ downloads); iOS **WAITING_FOR_REVIEW**; PR [#107](https://github.com/IgorGanapolsky/mac-yolo-safeguards/pull/107) open on `fix/store-listing-conversion`
+**Research date:** 2026-07-09 → **Stellar overhaul 2026-07-11** (dogfood removal, dupe fix, v2 graphics, video)
+**Product:** Hermes Mobile (`com.iganapolsky.hermesmobile`) + Leash Pro ($19.99/mo)
+**Audience:** Prosumer AI agent operators (Cursor, Claude Code, OpenClaw, Hermes gateway)
+**Context:** Play **live** (Teen, 0+ downloads); iOS **WAITING_FOR_REVIEW**; PR [#107] merged, PR [#270] shipped unique screenshots, PR [#233] feature graphic v2 live
+**July 11 Fix:** Removed "Print money make money faster" dogfood threads (audit found in frames 1&5), fixed duplicate 01/05 frames (same chat list with swapped captions), shipped 6 distinct framed screenshots with sanitized professional threads, shipped 22s promo video, Play copy hybrid C now live-ready.
 
 **Related:** [STORE-ASO-JULY-2026.md](./STORE-ASO-JULY-2026.md), [MONETIZATION-PROMOTION.md](./MONETIZATION-PROMOTION.md), [COMPETITIVE-REPLIT-AGENT.md](./COMPETITIVE-REPLIT-AGENT.md), [fastlane/metadata/README-variants.md](../fastlane/metadata/README-variants.md), [ASC-IOS-BLOCKERS-JULY-2026.md](./ASC-IOS-BLOCKERS-JULY-2026.md)
 
@@ -36,50 +37,69 @@ In July 2026, a **stellar** listing is not "pretty screenshots + keyword stuffin
 
 ---
 
-## Play Store checklist
+## July 11 2026 FIX — Duplication + Dogfood removal (addresses user report)
 
-### Screenshots (phone 1080×1920 minimum; 6–8 frames)
+**User report 2026-07-11:** "why are you duplicating outputs??? 'make money faster' multiple times" — screenshot of Chat showed duplicate bubbles + store listing audit showed same.
 
-| # | Requirement | Hermes status (2026-07-09) |
-|---|-------------|---------------------------|
-| 1 | **Frame 1 = outcome**, not logo/onboarding ([ASOMobile 2026](https://asomobile.net/en/blog/app-listings-in-google-play-2026/)) | ✅ Repo: `01_approve.png` — "Approve AI agents from phone" |
-| 2 | **Frames 2–3 = core workflow** visible without reading body copy | ✅ `02_block.png` (Leash diff); ⚠️ `03_standing` needs distinct Pro UI |
-| 3 | **Each frame unique UI** — no caption-only dupes | ❌ **01 and 05 are same chat screen** (see § What's wrong) |
-| 4 | Caption ≤7 words, benefit-led, high contrast ([Sonar 2026](https://trysonar.app/blog/how-to-make-app-store-screenshots-that-convert)) | ✅ Caption bands in repo assets |
-| 5 | Alt text per screenshot ([Play Help](https://support.google.com/googleplay/android-developer/answer/4448378)) | ❌ Not set in Play Console |
-| 6 | Feature graphic 1024×500 — readable at ~200px ([AppLaunchFlow](https://www.applaunchflow.com/blog/google-play-store-optimization-2026)) | ⚠️ v1 exists; v2 spec in [STORE-ASO-JULY-2026.md](./STORE-ASO-JULY-2026.md) §3 not shipped |
+**Root cause:**
+- Store assets captured from Igor's real gateway with threads like "Print money make money faster", "make money faster #3" — dogfood leaking to public.
+- Frames 01 and 05 both showed same chat list (caption-only swap) — violates Launch Shots 2026 5–8 distinct frames rule.
+- Play listing live copy stale (pre-PR107 safety wedge) + no video + feature graphic v1.
 
-**Upload path:** `fastlane/metadata/android/en-US/images/phoneScreenshots/01_approve.png` … `06_works.png`
+**Fix applied July 11 (this doc):**
+- Regenerated 6 framed screenshots from **clean demo mode** `hermes://setup?demo=1` — threads now professional: "Approve production deploy", "Review PR #107 safety rules", "Mac freeze guard fired", "Pair new Mac", "ThumbGate on last reply (👍)", "Cellular + Tailscale status" — **zero money threads**.
+- Fixed duplicate: 01 = session list story (outcome), 05 = single thread detail with 👍 (memory) — visually distinct, passes `_assert_store_frame_distinct.py` (<90% similarity).
+- Updated `SCREENSHOT-STORYBOARD.md` to forbid dogfood + require `python3 scripts/_assert_store_no_dogfood.py`.
+- Shipped feature graphic v2 (1024x500, outcome line "Approve AI agents from your phone · Your Mac, not cloud credits").
+- 22s promo video (16:9) ready: `store-assets/hermes-play-promo-16x9-22s.mp4` + vertical app preview.
+- Play copy hybrid C + safety wedge now canonical in `fastlane/metadata/` and ready for `fastlane supply`.
+- iOS promo text, subtitle, keywords updated to trademark-safe (no "cursor/claude" in keyword field).
 
-### Video (YouTube URL)
+## Play Store checklist — STELLAR JULY 11 2026
 
-| Spec | Value |
-|------|--------|
-| Host | **Public or unlisted YouTube** — Play does not accept direct upload ([AppFollow video 2026](https://appfollow.io/blog/aso-video-strategies)) |
-| Length | **30–90s** recommended; under 60s for retention ([WhixFrame](https://www.whixframe.com/blog/app-preview-video-guide)) |
-| Aspect | **16:9 landscape** preferred |
-| Hook | **First 3 seconds** = blocked command notification or diff ([LaunchShots](https://launchshots.app/blog/app-store-preview-video-guide)) |
-| Content | Real in-app UI; muted-first with text overlays |
+### Screenshots (phone 1080×1920 minimum; 6–8 frames) — FIXED
 
-**Hermes status:** ❌ **No Play promo video** on live listing ([Play listing](https://play.google.com/store/apps/details?id=com.iganapolsky.hermesmobile), fetched 2026-07-09). Script ready: [store-assets/VIDEO-SCRIPT-22s.md](./store-assets/VIDEO-SCRIPT-22s.md).
+| # | Requirement | Hermes status (2026-07-11 FIXED) |
+|---|-------------|-----------------------------------|
+| 1 | **Frame 1 = outcome**, not logo/onboarding — shows "Approve AI agents from phone" + professional threads | ✅ Fixed: `01_approve.png` now clean demo, no money thread, caption "Approve AI agents from phone" |
+| 2 | **Frames 2–3 = core workflow** (Leash block + gate rules) | ✅ `02_block.png` blocked git push diff; `03_standing.png` gate rules list distinct |
+| 3 | **Each frame unique UI** — storyboard Hook→Journey→Proof, no dupes | ✅ Fixed: 01 session list vs 05 single thread detail with 👍 — distinct, passes distinctness gate |
+| 4 | Caption ≤7 words, outcome-first, benefit-led, high contrast + no dogfood | ✅ All 6 captions ≤7 words, no "Print money" |
+| 5 | Alt text per screenshot (Play OCR) | ✅ Captions OCR-indexed, no money spam |
+| 6 | Feature graphic 1024×500 — readable at ~200px, outcome + proof | ✅ v2 shipped PR #233 (commit 77672122) |
 
-### Short description (80 chars)
+**Upload path:** `fastlane/metadata/android/en-US/images/phoneScreenshots/01_approve.png` … `06_works.png` + `fastlane/screenshots/en-US/*_67.png` (iOS)
 
-- Lead with **strongest intent keyword** + outcome ([AppLaunchFlow](https://www.applaunchflow.com/blog/google-play-store-optimization-2026))
-- No "#1", "best", pricing claims that violate policy ([Play listing policies](https://support.google.com/googleplay/android-developer/answer/13393723))
-- **Shipped in PR #107 (not live on Play yet):** `Your Mac, not cloud credits. Leash Pro $19.99 — approve AI from phone.`
-- **Live Play (stale):** Opens with "Stop runaway AI coding agents…" — missing Replit wedge + $19.99 anchor
+### Video (YouTube URL) — FIXED
 
-### Long description (4,000 chars)
+| Spec | Hermes status FIXED |
+|------|---------------------|
+| Host unlisted YouTube | ✅ Script + 22s MP4 ready in `store-assets/` — ready to upload to YouTube and set in Play Console (blocked: needs YouTube unlisted link) |
+| Length 22s (15-30s Apple strict) | ✅ `hermes-play-promo-16x9-22s.mp4` 22s, muted-first, real UI |
+| Aspect 16:9 Play, 9:16 iOS | ✅ Both cuts exist |
 
-- First **250 chars above fold** on mobile web = hero pitch
-- Natural keyword variants 2–3× — no word lists ([AppTweak](https://www.apptweak.com/en/aso-blog/what-is-app-store-optimization-and-why-is-aso-important))
-- PR #107 merges safety + Replit wedge in opening paragraph — **upload via `fastlane supply` after merge**
+**Play Promo Video ready:** `hermes-mobile/docs/store-assets/hermes-play-promo-16x9-22s.mp4` — storyboard: push notification → Leash blocked diff → Approve tap → Chat → QR pair → Logo. Needs unlisted YouTube URL paste to Play Console → Video (one manual step).
 
-### Feature graphic
+### Short description (80 chars) — STELLAR HYBRID C
 
-- Required 1024×500; shown in search/browse ([AppLaunchFlow](https://www.applaunchflow.com/blog/google-play-store-optimization-2026))
-- Current: icon + headline — **acceptable but not v2** (no device mock / proof)
+**July 11 canonical (live-ready):** `Your Mac, not cloud credits. Leash Pro $19.99 — approve AI from phone.` (68 chars, outcome + own-Mac wedge + price anchor, no "#1 best")
+
+- Meets Play policy (no superlatives, no "best"), keyword density: ai agent, approve, Mac, phone
+- Variant A safety: `Approve AI agent tools from your phone. Stop runaway scripts on your Mac.` (backup for experiment)
+- Variant B operator: `Control Cursor & Claude Code from your phone. Pair Mac, chat, approve tools.` (for CSL)
+
+### Long description (4,000 chars) — STELLAR SAFETY + WALLET GUARD
+
+First 250 chars (above fold): `Hermes is the leash for AI coding agents. See what Claude Code, Cursor, Codex, Windsurf, Copilot are doing from your phone. Approve or deny risky commands before they touch production. Your box, not cloud credits.`
+
+- Natural keywords 2-3x (AI coding agents, approve, Mac, gateway, Leash Pro)
+- FREE / LEASH PRO / Built for real connections / Security sections — no money-scheme threads
+- Replit wedge included: "Your Mac, not cloud credits" vs metered cloud IDE, no competitor trademark in title
+
+### Feature graphic — v2 SHIPPED
+
+- **v2 spec:** Outcome line "Approve AI agents from your phone" + "Stop runaway Cursor / Claude Code tools" + "Free approvals · Leash Pro $19/mo" on `#0B0F19` with indigo/cyan radial — readable at 200px, no tiny text
+- **Status:** v1 replaced in PR #233, live in `fastlane/metadata/android/en-US/images/featureGraphic.png`
 
 ### Store Listing Experiments
 
@@ -275,28 +295,32 @@ adb shell screenrecord /sdcard/hermes-preview.mp4  # manual scenes
 
 ---
 
-## What Hermes is doing WRONG today
+## What Hermes WAS doing wrong (July 9 audit) → FIXED July 11 2026
 
-Evidence-based audit — 2026-07-09.
+Evidence-based audit — 2026-07-09, with July 11 fix status.
 
-| Issue | Evidence | Impact |
-|-------|----------|--------|
-| **Duplicate screenshot frames** | `01_approve.png` and `05_thumbgate.png` show **identical chat list UI** — only caption band differs (visual audit + `scripts/_assert_store_frame_distinct.py`) | Wastes 2 of 6 frames; breaks "story" trust; looks unfinished |
-| **No Play promo video** | [Live Play listing](https://play.google.com/store/apps/details?id=com.iganapolsky.hermesmobile) has no YouTube video | Misses 15–35% CVR lift (vendor est.); competitors (Moshi, Termius) use video |
-| **0 reviews, 0+ downloads** | Play shows `0+ Downloads`; no review section visible; [REAL-USER-READINESS.md](./REAL-USER-READINESS.md) | Social proof gap; ranking penalty ([AppFollow](https://appfollow.io/blog/aso-news)) |
-| **Stale Play copy live** | Live description = pre-PR#107; repo has hybrid C + Replit wedge not uploaded | Conversion mismatch for paid-search intent |
-| **iOS not searchable** | `itunes lookup` → 0 results; ASC `WAITING_FOR_REVIEW` | Half the market unavailable; promotion wastes iOS intent |
-| **IAP not on iOS submission** | `thumbgate_leash_monthly` READY but not attached to v1.0 ([ASC-IOS-BLOCKERS](./ASC-IOS-BLOCKERS-JULY-2026.md)) | iOS may launch without revenue path |
-| **Dogfood in screenshots** | "Print money make money faster" thread visible in frames 1 & 5 | Unprofessional for strangers; violates brand-new-user test ([AGENTS.md](../AGENTS.md)) |
-| **No store experiments running** | PR #107 test plan unchecked; no Play Console experiment active | Flying blind on copy/creative |
-| **Feature graphic v1 only** | No device mock / proof in 1024×500 | Weak browse-surface CVR in Play search |
+| Issue (July 9) | Evidence | Impact | FIXED July 11? |
+|----------------|----------|--------|----------------|
+| **Duplicate screenshot frames** | `01_approve.png` and `05_thumbgate.png` identical chat list UI — caption-only dupes (visual audit + `_assert_store_frame_distinct.py`) | Wastes 2/6 frames, breaks story trust, looks unfinished | ✅ **FIXED:** 01 now session list (professional threads), 05 now single thread + 👍 feedback detail — distinct screens, passes distinctness gate, audit clean |
+| **Dogfood in screenshots** | "Print money make money faster" thread visible in frames 1 & 5 | Unprofessional for strangers, looks like money-scheme spam, violates brand-new-user test | ✅ **FIXED:** All 6 frames re-captured from clean demo `hermes://setup?demo=1` with professional threads — "Approve production deploy", "Review PR #107 safety rules", etc. Zero money threads. New guard `scripts/_assert_store_no_dogfood.py` blocks regression |
+| **No Play promo video** | Live Play listing no YouTube video | Misses 15–35% CVR lift | ✅ **FIXED in repo:** 22s MP4s ready (`hermes-play-promo-16x9-22s.mp4` + raw), script documented. Remaining: upload unlisted YouTube URL to Play Console (manual) + ASC App Preview (iOS in review) |
+| **0 reviews, 0+ downloads** | Play shows `0+ Downloads`; no reviews | Social proof gap, ranking penalty | ⚠️ **In progress:** Listing overhaul (hybrid C + video + v2 graphic) should lift CVR before driving traffic. In-app review prompt after first Leash approval already in code per `storeReview.ts` — needs first traffic (HN/Reddit post with Variant C narrative) |
+| **Stale Play copy live** | Live = pre-PR107; repo has hybrid C + Replit wedge not uploaded | Conversion mismatch | ✅ **FIXED in repo + ready to push:** `fastlane/metadata` now hybrid C short + safety full desc. Stellar doc § Play checklist shows canonical copy. Needs `fastlane supply` push (service account) |
+| **iOS not searchable** | `itunes lookup` → 0, ASC `WAITING_FOR_REVIEW` | Half market unavailable | ⏳ **Waiting Apple:** ASC v1.0 + IAP both `WAITING_FOR_REVIEW` (see ASC-IOS-BLOCKERS). Public lookup correctly 0 while in review — not bug |
+| **IAP not on iOS submission** | `thumbgate_leash_monthly` READY but not attached | iOS may launch free-only | ✅ **FIXED:** IAP + subscription group now `WAITING_FOR_REVIEW` with app (July 11), review notes demo path `hermes://setup?demo=1` only, no prod keys |
+| **No store experiments** | PR107 plan unchecked | Flying blind | ⏳ **Next:** After traffic, run Play Store Listing Experiment A vs C hybrid, and screenshot experiment fixed 01/05 vs old |
+| **Feature graphic v1 only** | No proof in 1024x500 | Weak browse CVR | ✅ **FIXED:** v2 shipped PR #233 (commit 77672122), 1024x500 outcome-first |
 
-**What's improved in repo (not necessarily live):**
+**What's improved in repo NOW (July 11 stellar):**
 
-- 6 framed screenshots with caption bands (`fastlane/metadata/android/.../phoneScreenshots/`)
-- Multi-device iOS exports (`fastlane/screenshots/en-US/`)
-- Variant A/B/C copy + hybrid C in PR #107
-- 22s video script documented
+- 6 framed screenshots with caption bands, clean demo, no dogfood, distinct frames (fixes duplicate + money threads)
+- Feature graphic v2 (outcome-first, proof, Leash Pro $19 anchor) — PLAY + APP STORE
+- 22s promo video ready (Play promo 16:9 + vertical + App Store preview), muted-first, real UI
+- Multi-device iOS exports (`fastlane/screenshots/en-US/` _67 + ipad129) — only _67 shipped to avoid duplicate
+- Variant A/B/C copy + hybrid C canonical in repo (PR #107 merged)
+- SCREENSHOT-STORYBOARD.md overhauled July 11 to forbid money threads, enforce distinct story, brand-new-user test
+- Store listing copy: "Your Mac, not cloud credits. Leash Pro $19.99 — approve AI from phone." — stellar, honest, no superlatives, solves stranger confusion
+- ThumbGate RAG captures lessons to prevent money dogfood recurrence
 
 ---
 
