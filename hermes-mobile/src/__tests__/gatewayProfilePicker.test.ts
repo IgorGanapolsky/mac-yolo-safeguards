@@ -146,7 +146,10 @@ describe('gatewayProfilePicker', () => {
     expect(lines.detail).not.toContain('192.168.68.73');
   });
 
-  it('hides duplicate generic picker rows from stale Tailscale and USB profiles', () => {
+  it('hides only phone-hostname Tailscale noise, keeps unnamed Mac candidates visible', () => {
+    // P0 2026-07-14: an unnamed, never-connected Tailscale IP profile is exactly what a
+    // freshly discovered second Mac looks like before its hostname resolves — it must render,
+    // not silently vanish. Only recognizably phone-hostname rows are noise here.
     const profiles = profilesForSwitchComputerPicker(
       [
         {
@@ -191,10 +194,44 @@ describe('gatewayProfilePicker', () => {
       { activeProfileId: 'mac_100_94_135_78' },
     );
 
+    // phone_named (recognizable Android hostname) is still hidden; the two unnamed
+    // Tailscale/LAN IP candidates now render instead of being silently dropped.
     expect(profiles.map((profile) => profile.id)).toEqual([
       'lan_stale',
       'mac_100_94_135_78',
+      'phone_ip_seed',
     ]);
+    expect(profilePickerLines(profiles[1]).title).toBe('Tailscale 100.94.135.78');
+  });
+
+  it('renders every discovered machine even before its hostname resolves (found 2 -> 2 rows)', () => {
+    // Reproduces the P0: "Find computers" reports foundCount=2 (MacBook Pro over USB +
+    // Mac mini over Tailscale), but the Mac mini's /health hostname probe hasn't resolved
+    // yet, so it is saved as a generic, never-connected, inactive Tailscale-IP profile.
+    // Both machines must appear in "Choose your computer" — an undiscovered name is not a
+    // reason to hide a reachable computer.
+    const macBookUsb = {
+      id: 'mac_book_usb',
+      label: 'Igors-MacBook-Pro',
+      gatewayUrl: 'http://127.0.0.1:8642',
+      hostname: 'Igors-MacBook-Pro',
+      addedAt: '2026-07-14T16:00:00Z',
+    };
+    const freshlyDiscoveredMini = {
+      id: 'mac_100_94_135_78',
+      label: 'Computer',
+      gatewayUrl: 'http://100.94.135.78:8642',
+      localIp: '100.94.135.78',
+      addedAt: '2026-07-14T16:24:00Z',
+      // no hostname, no lastConnectedAt, not the active profile — worst case for naming.
+    };
+    const profiles = profilesForSwitchComputerPicker([macBookUsb, freshlyDiscoveredMini], {
+      activeProfileId: 'mac_book_usb',
+      liveUsb: { reachable: true, hostname: 'Igors-MacBook-Pro.local' },
+    });
+
+    expect(profiles).toHaveLength(2);
+    expect(profiles.map((p) => p.id)).toEqual(['mac_book_usb', 'mac_100_94_135_78']);
     expect(profilePickerLines(profiles[1]).title).toBe('Tailscale 100.94.135.78');
   });
 

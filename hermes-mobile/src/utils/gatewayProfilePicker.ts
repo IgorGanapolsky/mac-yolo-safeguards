@@ -15,7 +15,7 @@ import {
   isInvalidGatewayProfile,
   profileDisplayName,
 } from '../services/gatewayProfiles';
-import { isTailscaleGatewayUrl, isTailscaleIpv4 } from './tailscaleHosts';
+import { isTailscaleGatewayUrl } from './tailscaleHosts';
 import { rankReachabilityRoutes, type ReachabilityTransport } from './onDeviceDecisionLayer';
 
 export type ProfilePickerLines = {
@@ -310,26 +310,6 @@ function isLikelyMobileTailscaleProfile(profile: GatewayProfile): boolean {
   return /\b(android|iphone|ipad|pixel|galaxy|s2[0-9]|s25)\b/.test(haystack);
 }
 
-function isUnnamedInactiveTailscaleIpProfile(
-  profile: GatewayProfile,
-  activeProfileId?: string | null,
-): boolean {
-  if (profile.id === activeProfileId || !isTailscaleGatewayUrl(profile.gatewayUrl)) {
-    return false;
-  }
-  const ip = profile.localIp?.trim() || extractLanIpFromGatewayUrl(profile.gatewayUrl);
-  if (!ip || !isTailscaleIpv4(ip)) {
-    return false;
-  }
-  if (profile.hostname?.trim()) {
-    return false;
-  }
-  if (profile.lastConnectedAt?.trim()) {
-    return false;
-  }
-  return isGenericMachineLabel(profile.label);
-}
-
 function switchPickerRowKey(profile: GatewayProfile): string {
   if (isGenericUsbLoopbackProfile(profile)) {
     return 'usb:generic';
@@ -420,15 +400,17 @@ export function profilesForSwitchComputerPicker(
   const liveUsb = options.liveUsb;
   const liveUsbReachable = liveUsb?.reachable === true;
   const liveUsbHostname = liveUsb?.hostname ?? null;
+  // Only phone-like hostnames are treated as noise here — a freshly discovered machine
+  // whose name hasn't resolved yet (bare Tailscale IP, generic label, never connected) must
+  // still render. P0 2026-07-14: "found 2 machines" hid the second one because it had no
+  // hostname yet, silently dropping a real, reachable Mac from the switcher.
   let valid = dedupeSwitchPickerRows(
     profilesForDevicePicker(profiles).filter(
       (profile) =>
         shouldShowProfileInUserPicker(profile, {
           reachable: liveUsbReachable,
           hostname: liveUsbHostname,
-        }) &&
-        !isLikelyMobileTailscaleProfile(profile) &&
-        !isUnnamedInactiveTailscaleIpProfile(profile, options.activeProfileId),
+        }) && !isLikelyMobileTailscaleProfile(profile),
     ),
   );
   if (liveUsbReachable && liveUsbHostname?.trim()) {
