@@ -27,13 +27,24 @@ export default function HealthPill({ level, detail }: HealthPillProps) {
     <View style={styles.pill}>
       <View style={[styles.dot, { backgroundColor: DOT_COLORS[level] }]} />
       <Text style={styles.label}>{LABELS[level]}</Text>
-      {detail ? <Text style={styles.detail}>{detail}</Text> : null}
+      {detail ? (
+        <Text
+          style={styles.detail}
+          numberOfLines={1}
+          ellipsizeMode="tail"
+          testID="health-pill-detail"
+        >
+          {detail}
+        </Text>
+      ) : null}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   pill: {
+    flexShrink: 1,
+    minWidth: 0,
     flexDirection: 'row',
     alignItems: 'center',
     alignSelf: 'flex-start',
@@ -56,6 +67,8 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
   },
   detail: {
+    flexShrink: 1,
+    minWidth: 0,
     fontSize: 10,
     color: colors.textMuted,
   },
