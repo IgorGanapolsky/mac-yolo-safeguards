@@ -239,10 +239,10 @@ import {
   isMegaSession,
   isMegaSessionSendBlocked,
   megaSessionBannerCopy,
+  megaSessionDisplayTokens,
   megaSessionForceFreshSelectCopy,
   megaSessionSendWarnMessage,
   megaSessionSendWarnTitle,
-  sessionTotalTokens,
   shouldAutoFreshAndResendOnMegaBlock,
   shouldForceFreshOnSessionSelect,
 } from '../utils/sessionTokenGuards';
@@ -3377,7 +3377,7 @@ export default function ChatScreen() {
       // Hard-block: only path is a new chat. Auto-fresh so Send can deliver the typed draft.
       return 'fresh';
     }
-    const total = sessionTotalTokens(session);
+    const total = megaSessionDisplayTokens(session);
     return new Promise<'allow' | 'fresh' | 'cancel'>((resolve) => {
       Alert.alert(megaSessionSendWarnTitle(), megaSessionSendWarnMessage(total), [
         // start-fresh is executed by the send path so the draft can be re-delivered.
@@ -3389,7 +3389,7 @@ export default function ChatScreen() {
   }, []);
 
   const megaSessionWarning = useMemo(() => {
-    const total = sessionTotalTokens(currentSession);
+    const total = megaSessionDisplayTokens(currentSession);
     if (lastTurnIsCompactionStall(messages)) {
       return compactionStallBannerCopy(total);
     }
@@ -3426,7 +3426,7 @@ export default function ChatScreen() {
       return;
     }
     compactionFreshOfferSessionIdRef.current = sessionId;
-    const total = sessionTotalTokens(currentSession);
+    const total = megaSessionDisplayTokens(currentSession);
     Alert.alert('Chat stalled after summarization', compactionStallBannerCopy(total), [
       { text: 'Start fresh chat', onPress: () => void handleStartFreshChat() },
       { text: 'Keep waiting', style: 'cancel' },
@@ -4629,6 +4629,7 @@ export default function ChatScreen() {
                       input_tokens: 0,
                       output_tokens: 0,
                       cache_read_tokens: 0,
+                      api_call_count: 0,
                     });
                   }
                 } catch {
@@ -5281,7 +5282,7 @@ export default function ChatScreen() {
               });
               setErrorMessage(
                 summarizationStub
-                  ? compactionStallBannerCopy(sessionTotalTokens(currentSessionRef.current))
+                  ? compactionStallBannerCopy(megaSessionDisplayTokens(currentSessionRef.current))
                   : EMPTY_REPLY_FAILURE_REASON,
               );
             },
@@ -5645,7 +5646,7 @@ export default function ChatScreen() {
     async (session: HermesSession) => {
       haptics.light();
       if (shouldForceFreshOnSessionSelect(session)) {
-        const total = sessionTotalTokens(session);
+        const total = megaSessionDisplayTokens(session);
         Alert.alert('Chat too large', megaSessionForceFreshSelectCopy(total), [
           { text: 'Start fresh chat', onPress: () => void handleStartFreshChat() },
           { text: 'Cancel', style: 'cancel' },
@@ -5765,6 +5766,8 @@ export default function ChatScreen() {
                   model: session.model ?? prev.model,
                   input_tokens: session.input_tokens ?? prev.input_tokens,
                   output_tokens: session.output_tokens ?? prev.output_tokens,
+                  cache_read_tokens: session.cache_read_tokens ?? prev.cache_read_tokens,
+                  api_call_count: session.api_call_count ?? prev.api_call_count,
                 }
               : prev,
           );

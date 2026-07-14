@@ -4,7 +4,7 @@ import { isMegaSession, sessionTotalTokens } from './sessionTokenGuards';
 
 type SessionTokenFields = Pick<
   HermesSession,
-  'input_tokens' | 'output_tokens' | 'cache_read_tokens'
+  'input_tokens' | 'output_tokens' | 'cache_read_tokens' | 'api_call_count'
 >;
 
 function resolveRunStaleAutoFailMs(
