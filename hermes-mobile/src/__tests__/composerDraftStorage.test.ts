@@ -4,6 +4,7 @@ import {
   clearComposerDraft,
   loadComposerDraft,
   saveComposerDraft,
+  transferComposerDraft,
 } from '../utils/composerDraftStorage';
 
 describe('composerDraftStorage', () => {
@@ -38,6 +39,20 @@ describe('composerDraftStorage', () => {
     await saveComposerDraft('session-a', 'Remove me');
     await clearComposerDraft('session-a');
     await expect(loadComposerDraft('session-a')).resolves.toBe('');
+  });
+
+  it('transferComposerDraft moves draft to the new session and clears source', async () => {
+    await saveComposerDraft('mega-old', 'Keep this prompt');
+    const moved = await transferComposerDraft('mega-old', 'fresh-new');
+    expect(moved).toBe('Keep this prompt');
+    await expect(loadComposerDraft('fresh-new')).resolves.toBe('Keep this prompt');
+    await expect(loadComposerDraft('mega-old')).resolves.toBe('');
+  });
+
+  it('transferComposerDraft is a no-op when ids match', async () => {
+    await saveComposerDraft('same', 'Stay');
+    await expect(transferComposerDraft('same', 'same')).resolves.toBe('Stay');
+    await expect(loadComposerDraft('same')).resolves.toBe('Stay');
   });
 
   it('ignores blank session ids', async () => {

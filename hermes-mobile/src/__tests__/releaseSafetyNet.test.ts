@@ -133,11 +133,26 @@ describe('release safety net (T-114)', () => {
   it('pair script resolves per-machine API keys for Mac mini Tailscale', () => {
     const pairLib = read('tools/hermes-mobile-pair-lib.js');
     expect(pairLib).toContain('resolveApiKeyForGatewayUrl');
+    expect(pairLib).toContain('assertHostKeyConsistency');
+    expect(pairLib).toContain('MINI_KEY_UNAVAILABLE');
+    expect(pairLib).toContain('strictMini');
     expect(pairLib).toContain('100.94.135.78');
     expect(pairLib).toContain('hermes-mini');
+    expect(pairLib).toContain('probeGatewayAuthSync');
     const pairTest = read('tests/test-hermes-mobile-pair.sh');
     expect(pairTest).toContain('mini-key-from-ssh');
     expect(pairTest).toContain('laptop-key-from-env');
+    expect(pairTest).toContain('local_or_usb_url_bound_to_mini_key');
+    expect(pairTest).toContain('Refuse ready claim');
+  });
+
+  it('wrong-key recovery prefers Find computers over Settings-only dead end', () => {
+    const recovery = read('hermes-mobile/src/utils/wrongKeyRecovery.ts');
+    expect(recovery).toContain('Find computers');
+    expect(recovery).toContain('clearStaleProfileKey');
+    const banner = read('hermes-mobile/src/services/gatewayClient.ts');
+    expect(banner).toContain('Find computers');
+    expect(banner.toLowerCase()).not.toContain('settings → your active machines');
   });
 
   it('fetchGatewayHealth runs authenticated sessions probe before Connected', () => {
