@@ -21,6 +21,17 @@ export function transcriptUnchangedMs(
  * Surface when HTTP polling keeps returning the same transcript, the gateway
  * reports no live operator run, and no Obsidian agents are active.
  */
+/** Mirrors ChatInputBar sendDisabled — must all be false after dead-run unlock. */
+export function isComposerSendDisabled(input: {
+  isSending: boolean;
+  queuedOutboundCount: number;
+  outboundStillPending: boolean;
+}): boolean {
+  return (
+    input.isSending || input.queuedOutboundCount > 0 || input.outboundStillPending
+  );
+}
+
 export function shouldSurfaceDeadRunEnded(input: {
   clientBusy: boolean;
   transcriptUnchangedMs: number;
@@ -40,17 +51,4 @@ export function shouldSurfaceDeadRunEnded(input: {
     return false;
   }
   return true;
-}
-
-/** Mirrors ChatInputBar sendDisabled — must all be false after dead-run unlock. */
-export function isComposerSendDisabled(input: {
-  isSending: boolean;
-  queuedOutboundCount: number;
-  outboundSendStillPending: boolean;
-}): boolean {
-  return (
-    input.isSending ||
-    input.queuedOutboundCount > 0 ||
-    input.outboundSendStillPending
-  );
 }

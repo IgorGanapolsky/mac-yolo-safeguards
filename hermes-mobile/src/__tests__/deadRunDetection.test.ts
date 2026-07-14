@@ -78,7 +78,7 @@ describe('deadRunDetection', () => {
       isComposerSendDisabled({
         isSending: false,
         queuedOutboundCount: 0,
-        outboundSendStillPending: true,
+        outboundStillPending: true,
       }),
     ).toBe(true);
   });
@@ -88,7 +88,7 @@ describe('deadRunDetection', () => {
       isComposerSendDisabled({
         isSending: false,
         queuedOutboundCount: 0,
-        outboundSendStillPending: false,
+        outboundStillPending: false,
       }),
     ).toBe(false);
   });

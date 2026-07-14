@@ -2733,6 +2733,7 @@ export default function ChatScreen() {
     setAwaitingGatewayReply(false);
     isSendingRef.current = false;
     setIsSending(false);
+    activeOutboundSendBodyRef.current = null;
     pendingOutboundSendsRef.current = 0;
     outboundQueueRef.current = [];
     setQueuedOutboundCount(0);
