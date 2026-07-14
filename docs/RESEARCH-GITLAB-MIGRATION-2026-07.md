@@ -1,7 +1,10 @@
 # GitLab Migration Research — Hermes Mobile (July 2026)
 
+> **CTO decision (Igor, 2026-07-13): Option A — stay on GitHub.** No migration; harden GitHub orchestration (PR #313). Optional GitLab mirror pilot only on explicit ask — see [GITLAB-SANDBOX-EXIT-CRITERIA-2026-07.md](./GITLAB-SANDBOX-EXIT-CRITERIA-2026-07.md).
+
 | Field | Value |
 |-------|-------|
+| **CTO decision** | **Option A — Stay on GitHub** (confirmed Igor 2026-07-13) |
 | **Parallel run ID** | `trun_5c7ef1b0f8184d71b6a7972dfc3e0451` |
 | **Platform URL** | https://platform.parallel.ai/play/deep-research/trun_5c7ef1b0f8184d71b6a7972dfc3e0451 |
 | **Decision date** | 2026-07-13 |
@@ -25,7 +28,7 @@ Decisive factors for Hermes:
 
 ### Immediate (Week 1 — aligns with PR #313 `github-week1-hardening`)
 
-- [ ] Merge `merge_group` + Mac mini runner hardening (PR #313).
+- [x] Merge `merge_group` + Mac mini runner hardening (PR #313 — merged `646efc30`).
 - [ ] Standardize `plan.md` + worktree conventions in repo; wire into Copilot Agent Mode / `AGENTS.md`.
 - [ ] Add MCP servers for Sentry, PostHog, and Expo docs to agent context.
 - [ ] Keep Dependabot, Codespaces, GitHub Actions, and EAS Workflows integration as-is.
