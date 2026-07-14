@@ -21,6 +21,7 @@ This document maps **nine failures from the 2026-07-10 session** to durable prev
 | 7 | Continuous E2E skipped (`simruntime 159 > 80`) — no green proof | `run-continuous-e2e.sh` correctly skipped under load; agents still claimed "fixed" | Read `docs/proofs/continuous/latest.json`; if `e2e=skipped`, run `sim-runaway-guard.sh` or wait; **`HERMES_E2E_FORCE=1`** only after load drop; never ship on skipped proof | Process + honesty |
 | 8 | Ship claims without evidence ("are you sure?") | Skipped `agent-session-start.js --full`, ThumbGate recall, and `latest.json` | Honesty protocol in parent `AGENTS.md`; same-turn evidence (test output, JSON, SHA); `mcp__thumbgate__capture_memory_feedback` after false claims | **Process + RAG** |
 | 9 | Name repair overwritten + app dropped to launcher | Three concurrent `agent-session-start.js` runs each called `hermes-mobile-pair.js` + queued `install-phone-release.sh`; `openDeepLinkOnDevice` passed `&name=` unquoted to Android shell | **`tools/agent-phone-pipeline-lock.js`** mutex in `agent-session-start.js` + `hermes-mobile-pair.js`; defer pair when install job queued; single-quote URI in adb shell; no detached install fallback | **Automated lock** |
+| 10 | Dual continuous E2E thrash + poisoned `latest.json` (2026-07-13) | Multiple agents ran `run-continuous-e2e.sh --once` + bare Maestro on same USB phone; worktree without `node_modules` wrote `unit:fail` / `e2e:skipped` over shared proof; vault handoff skipped | **`flock` cycle lock** on all continuous modes; refuse cycle if jest missing (**do not write** `latest.json`); skip E2E if `maestro.cli.AppKt` already holds device; vault claim USB/Maestro before kick; one continuous owner | **Automated lock + vault** |
 
 ---
 
@@ -121,6 +122,21 @@ bash hermes-mobile/scripts/agent-pre-asc-edit.sh      # runs verify-asc-listing 
 | `node tools/hermes-mobile-pair.js --mini-tailscale` | Multi-Mac — never laptop key on mini URL |
 
 ---
+
+
+---
+
+## Dual continuous E2E thrash (2026-07-13)
+
+**Symptom:** Two+ `run-continuous-e2e.sh --once` (or agent Maestro + continuous) on `R3CY90QPM7E` → ADB offline, ship-guard attempt 1/2 fail, `latest.json` flips to `unit:fail` from a worktree without Jest.
+
+**Hard rules:**
+
+1. **One continuous cycle at a time** — `run-continuous-e2e.sh` takes `flock` on `~/Library/Logs/hermes-mobile-continuous-e2e.lock` for `--once`/`--daemon`/`--watch`. Second instance prints "cycle lock busy" and **exits 0 without writing** `latest.json`.
+2. **Never continuous from a worktree without `node_modules`** — missing Jest used to write `unit:fail` and block honest E2E. Script now refuses and does not poison the proof file.
+3. **If `maestro.cli.AppKt` is already running**, continuous skips E2E (unless `HERMES_E2E_FORCE=1`) after a short wait — do not stack drivers on the phone.
+4. **Vault first:** before kicking continuous or USB Maestro, write `Handoffs/` + claim device lane in your Agent-State file. Other agents must not start a second continuous while lock/holder is live.
+5. **Ship claims:** only when main `hermes-mobile/docs/proofs/continuous/latest.json` has `e2e: "pass"` — not a solo Maestro log alone.
 
 ## Mega-session / compaction thrash (2026-07-13)
 
