@@ -229,11 +229,18 @@ import type { GatewayEventMessage } from '../types/gateway';
 import { applyStreamEvent, attachRunMetadata, mergeRunUsageFromPayload, mergeSessionUsageIntoRunProgress, runProgressForDisplayEqual } from '../utils/chatStreamEvents';
 import {
   WAITING_FOR_PRIOR_CHAT_DETAIL,
+  filterLiveGatewayRunIds,
   reconcileFrozenSessionBusyState,
   reconcileStaleActiveRunProgress,
   releaseMacOperatorSlot,
   retryOnSessionInUse,
 } from '../utils/chatSessionRecovery';
+import {
+  DEAD_RUN_ENDED_DETAIL,
+  isDeadRunEndedMessage,
+  shouldSurfaceDeadRunEnded,
+  transcriptUnchangedMs,
+} from '../utils/deadRunDetection';
 import {
   classifyMegaSession,
   isMegaSession,
@@ -697,6 +704,10 @@ export default function ChatScreen() {
   const runProgressRef = useRef<RunProgressState | null>(null);
   const sendProgressSnapshotRef = useRef<RunProgressState | null>(null);
   const transcriptDigestRef = useRef('');
+  const lastTranscriptChangeAtMsRef = useRef(Date.now());
+  const activeAgentsRef = useRef<{ name: string; status: string }[]>([]);
+  const deadRunSurfacedRef = useRef(false);
+  const maybeSurfaceDeadRunEndedRef = useRef<(() => void) | null>(null);
   /** Ignore spurious onChangeText after Send clears the field (Android IME blur). */
   const sendClearSuppressRef = useRef(false);
   const lastSentComposerTextRef = useRef('');
@@ -2079,6 +2090,10 @@ export default function ChatScreen() {
   }, [isDemo, gatewayUrl, apiKey, macHttpOk]);
 
   useEffect(() => {
+    activeAgentsRef.current = activeAgents;
+  }, [activeAgents]);
+
+  useEffect(() => {
     if (!macHttpOk || isDemo) {
       setActiveAgents([]);
       return;
@@ -2511,9 +2526,11 @@ export default function ChatScreen() {
         const digest =
           transcriptDigest(nextMessages) + (resolved.cleared ? '|outbound-cleared' : '');
         if (digest === transcriptDigestRef.current) {
+          void maybeSurfaceDeadRunEndedRef.current?.();
           return;
         }
         transcriptDigestRef.current = digest;
+        lastTranscriptChangeAtMsRef.current = Date.now();
         messagesRef.current = nextMessages;
         setMessages(nextMessages);
         if (resolved.cleared) {
@@ -2664,6 +2681,81 @@ export default function ChatScreen() {
     awaitingGatewayReplyRef.current = false;
     setAwaitingGatewayReply(false);
   }, []);
+
+  const maybeSurfaceDeadRunEnded = useCallback(async () => {
+    if (isDemo || !macChatLive || deadRunSurfacedRef.current) {
+      return;
+    }
+    const clientBusy =
+      isSendingRef.current ||
+      awaitingGatewayReplyRef.current ||
+      isActiveChatRun(runProgressRef.current);
+    if (!clientBusy) {
+      return;
+    }
+
+    const unchangedMs = transcriptUnchangedMs(lastTranscriptChangeAtMsRef.current, Date.now());
+    const activeAgentCount = activeAgentsRef.current.length;
+    const knownRunIds = [
+      runProgressRef.current?.runId,
+      sendProgressSnapshotRef.current?.runId,
+    ].filter((id): id is string => Boolean(id?.trim()));
+
+    let gatewayHasLiveRun = false;
+    const progress = runProgressRef.current;
+    if (progress && isActiveChatRun(progress)) {
+      const action = await reconcileStaleActiveRunProgress(
+        gatewayUrl,
+        apiKey,
+        progress,
+        knownRunIds,
+      );
+      gatewayHasLiveRun = action === 'keep';
+    } else if (knownRunIds.length > 0) {
+      const live = await filterLiveGatewayRunIds(gatewayUrl, apiKey, knownRunIds);
+      gatewayHasLiveRun = live.length > 0;
+    }
+
+    if (
+      !shouldSurfaceDeadRunEnded({
+        clientBusy: true,
+        transcriptUnchangedMs: unchangedMs,
+        activeAgentCount,
+        gatewayHasLiveRun,
+      })
+    ) {
+      return;
+    }
+
+    deadRunSurfacedRef.current = true;
+    clearDeferredTelegramPoll();
+    isSendingRef.current = false;
+    setIsSending(false);
+    setToolStatus(null);
+    const startedAtMs = progress?.startedAtMs ?? sendStartedAtRef.current ?? Date.now();
+    setRunProgress({
+      phase: 'failed',
+      startedAtMs,
+      detail: DEAD_RUN_ENDED_DETAIL,
+      sessionId: currentSessionRef.current?.id ?? progress?.sessionId,
+    });
+  }, [
+    apiKey,
+    clearDeferredTelegramPoll,
+    gatewayUrl,
+    isDemo,
+    macChatLive,
+    setRunProgress,
+  ]);
+
+  useEffect(() => {
+    maybeSurfaceDeadRunEndedRef.current = () => {
+      void maybeSurfaceDeadRunEnded();
+    };
+    return () => {
+      maybeSurfaceDeadRunEndedRef.current = null;
+    };
+  }, [maybeSurfaceDeadRunEnded]);
 
   const startDeferredReplyPoll = useCallback(
     (
@@ -2931,6 +3023,8 @@ export default function ChatScreen() {
     setPinnedOutboundStatus('pending');
     setRunProgress(null);
     transcriptDigestRef.current = '';
+    lastTranscriptChangeAtMsRef.current = Date.now();
+    deadRunSurfacedRef.current = false;
     messagesRef.current = [];
     setMessages([]);
     pinScrollAfterHydrationRef.current = true;
@@ -4533,6 +4627,8 @@ export default function ChatScreen() {
     outboundUserBubbleCommitted = true;
 
     sendStartedAtRef.current = Date.now();
+    deadRunSurfacedRef.current = false;
+    lastTranscriptChangeAtMsRef.current = Date.now();
     const earlyProgressSessionId = isTelegramInboxSession(currentSession)
       ? telegramReplySessionId
       : currentSession?.id;
@@ -5518,7 +5614,8 @@ export default function ChatScreen() {
       macChatLive &&
       (showEmptyStreamRefreshBanner ||
         (progressBanner?.phase === 'failed' &&
-          isEmptyReplyFailureMessage(progressBanner.detail))),
+          (isEmptyReplyFailureMessage(progressBanner.detail) ||
+            isDeadRunEndedMessage(progressBanner.detail)))),
     [isDemo, macChatLive, showEmptyStreamRefreshBanner, progressBanner],
   );
 
@@ -6361,7 +6458,11 @@ export default function ChatScreen() {
             fallbackModel={progressBannerFallbackModel}
             showTechnicalStats={settings.includeToolActivity}
             megaSessionWarning={megaSessionWarning}
-            onStartFreshChat={megaSessionWarning ? () => void handleStartFreshChat() : undefined}
+            onStartFreshChat={
+              megaSessionWarning || isDeadRunEndedMessage(progressBanner.detail)
+                ? () => void handleStartFreshChat()
+                : undefined
+            }
             isStartingFreshChat={isStartingFreshChat}
             onStop={isRunActive || isSending ? () => void handleStopRun() : undefined}
             onDismiss={clearFailedOutboundState}
@@ -6371,6 +6472,7 @@ export default function ChatScreen() {
             refreshRunBusy={isPullRefreshing}
             onRetry={
               isEmptyReplyFailureMessage(progressBanner.detail) ||
+              isDeadRunEndedMessage(progressBanner.detail) ||
               (progressBanner.phase === 'failed' &&
                 Boolean(
                   lastFailedSendTextRef.current?.trim() || lastFailedOutboundText?.trim(),
