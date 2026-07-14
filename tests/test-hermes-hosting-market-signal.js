@@ -61,4 +61,22 @@ check('parseArgs source and apply', () => {
   assert.strictEqual(a.json, true);
 });
 
+check('enterprise-sdlc preset prefers Partner Pilot CTA when ok', () => {
+  const s = buildSignal({ preset: 'enterprise-sdlc', demo: true });
+  assert.match(s.offer, /Partner Pilot/i);
+  const drafts = buildOutboundDraft(s, {
+    links: {
+      'Partner Pilot': { url: 'https://buy.stripe.com/pilot', http: 200, ok: true },
+      'Agent Reliability Diagnostic': { url: 'https://buy.stripe.com/d', http: 200, ok: true },
+    },
+  });
+  assert.match(drafts.cta, /buy\.stripe\.com\/pilot/);
+  assert.match(drafts.xReply, /safely, repeatedly, economically|multi-agent SDLC|IBM Bob/i);
+});
+
+check('parseArgs preset', () => {
+  const a = parseArgs(['--preset', 'enterprise-sdlc']);
+  assert.strictEqual(a.preset, 'enterprise-sdlc');
+});
+
 console.log(`\nPASS ${n}/${n} hermes-hosting-market-signal`);
