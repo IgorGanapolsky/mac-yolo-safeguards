@@ -169,6 +169,7 @@ Durable rules live in [AGENTS.md](./AGENTS.md); this file is *live state only*.
 | T-252 | Voice front door → pipeline-update apply path (dry-run default) | done | grok-voice-apply | `tools/hermes-voice-front-door.js`, `tests/test-hermes-voice-front-door.js`, `docs/HERMES-VOICE-FRONT-DOOR.md`, `docs/REVENUE-OPERATING-PLAN.md`, `plan.md` | `node tests/test-hermes-voice-front-door.js` passes apply dry-run + optional write; never auto-paid without flag |
 
 | T-253 | Voice apply-pipeline create-if-missing for cold-call buyers | done | grok-voice-seed | `tools/hermes-voice-front-door.js`, `tests/test-hermes-voice-front-door.js`, `docs/HERMES-VOICE-FRONT-DOOR.md`, `docs/REVENUE-OPERATING-PLAN.md`, `plan.md` | 20/20 tests; seeds ready row then advances; --no-create-if-missing refuses |
+| T-227 | Fix contradictory Connected + Wrong key state (release-blocking) | in_progress | cursor-b376420e | `hermes-mobile/src/services/gatewayClient.ts`, `hermes-mobile/src/utils/gatewayConnection.ts`, `hermes-mobile/src/utils/chatErrors.ts`, `hermes-mobile/src/components/ChatScreenHeader.tsx`, `hermes-mobile/src/components/CodexCommandCenter.tsx`, `hermes-mobile/src/screens/ChatScreen.tsx` (XOR wiring only; coord T-221), tests, `hermes-mobile/docs/REAL-USER-READINESS.md`, `plan.md` | Connected ⇒ authenticated probe; `resolveChatLinkDisplay` XOR wrong-key; SHIP BLOCK docs; Find computers CTA; device screenshot proves XOR |
 
 Status values: `pending` | `in_progress` | `blocked` | `done`. Claim a row by setting Owner+Status in one edit, then claim its files in §2.
 
@@ -176,6 +177,9 @@ Status values: `pending` | `in_progress` | `blocked` | `done`. Claim a row by se
 
 - T-270 claimed files → **cursor-start-fresh-merge released** after Jest 157/1316; mega BLOCK Send auto-fresh + Start fresh draft/attachments/spinner merged (2026-07-13T23:55:00Z)
 - `hermes-mobile/src/screens/ChatScreen.tsx`, `hermes-mobile/src/utils/sessionTokenGuards.ts`, `hermes-mobile/src/__tests__/sessionTokenGuards.test.ts`, `plan.md` → **cursor-start-fresh-merge** (T-270 mega Send auto-fresh + Start fresh merge) (2026-07-13T23:50:00Z)
+
+- `hermes-mobile/src/services/gatewayClient.ts`, `hermes-mobile/src/utils/gatewayConnection.ts`, `hermes-mobile/src/utils/chatErrors.ts`, `hermes-mobile/src/components/ChatScreenHeader.tsx`, `hermes-mobile/src/components/CodexCommandCenter.tsx`, `hermes-mobile/src/screens/ChatScreen.tsx` (Connected⊕Wrong-key XOR wiring only; coord T-221), `hermes-mobile/src/__tests__/gatewayClient.test.ts`, `hermes-mobile/src/__tests__/gatewayConnection.test.ts`, `hermes-mobile/src/__tests__/chatErrors.test.ts`, `hermes-mobile/src/__tests__/releaseSafetyNet.test.ts`, `hermes-mobile/docs/REAL-USER-READINESS.md`, `plan.md` → **cursor-b376420e** (T-227 Connected requires auth / SHIP BLOCK XOR) (2026-07-14T01:25:00Z)
+
 - `hermes-mobile/fastlane/screenshots/`, `hermes-mobile/fastlane/store-capture/`, `hermes-mobile/fastlane/metadata/android/en-US/images/phoneScreenshots/`, `hermes-mobile/scripts/generate-store-screenshots.py`, `hermes-mobile/scripts/capture-store-screenshots.sh`, `hermes-mobile/scripts/_assert_store_frame_distinct.py`, `hermes-mobile/docs/store-assets/`, `hermes-mobile/docs/ASC-SCREENSHOTS-JULY-2026.md`, `plan.md` → **cursor-asc-ss** (T-ASC-SS unique store screenshots) → **released** after unique 6+6 ASC upload + WAITING_FOR_REVIEW restore + pipeline guards (2026-07-13T23:27:27Z) (2026-07-13T23:01:46Z)
 
 - T-251 claimed files → **grok-voice-front-door released** after tests 15/15 + demo-pack/map/transfer CLI proof (2026-07-13T23:55:00Z)
@@ -521,6 +525,8 @@ Status values: `pending` | `in_progress` | `blocked` | `done`. Claim a row by se
 - 2026-07-14 `grok-voice-apply`: **Completed T-252 (voice→pipeline apply).** `apply-pipeline` event dry-runs exact `pipeline-update.js` command; `--apply` writes stages (score 4–8 → booked, human/pilot → proposed, never paid without `--allow-paid`). Docs: HERMES-VOICE-FRONT-DOOR + REVENUE-OPERATING-PLAN. Tests 18/18.
 
 - 2026-07-14 `grok-voice-seed`: **Completed T-253 (cold-call create-if-missing).** apply-pipeline seeds missing prospect as ready then advances stage; --no-create-if-missing refuses. Tests 20/20.
+
+- 2026-07-14T01:25:00Z `cursor-b376420e`: **T-227 Connected ⊕ Wrong key = SHIP BLOCK.** `probeGatewayAuth` empty-key → not OK; auth fail forces health `level: red` + `authMismatch`; `resolveChatLinkDisplay` / `isConnectedWrongKeyContradiction` make green Connected impossible while wrong-key banner active; repair CTA = Find computers; REAL-USER-READINESS ship-block row; regression + releaseSafetyNet contracts. Device XOR screenshot pending exclusive phone lock.
 
 ## 4. Discovered Tasks (append-only inbox → promote into §1)
 

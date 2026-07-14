@@ -54,8 +54,10 @@ import {
   chatSendBlockedMessage,
   humanizeChatError,
   isConnectivityMessage,
+  isAuthRepairMessage,
   isSessionInUseError,
   isSessionRemovedError,
+  shouldClearConnectionErrorBanner,
 } from '../utils/chatErrors';
 import {
   HermesGatewayApiError,
@@ -998,8 +1000,9 @@ export default function ChatScreen() {
       resolveEffectiveMacHttpOk({
         macHttpOk,
         connectivityFailure: connectivityRunFailure,
+        authMismatch: health?.authMismatch === true,
       }),
-    [macHttpOk, connectivityRunFailure],
+    [macHttpOk, connectivityRunFailure, health?.authMismatch],
   );
   const effectiveMacChatLive = isDemo || effectiveMacHttpOk;
   const macLiveSocket = isDemo || connectionState === 'connected';
@@ -1262,7 +1265,9 @@ export default function ChatScreen() {
 
   useEffect(() => {
     if (effectiveMacChatLive) {
-      setErrorMessage((prev) => (prev && isConnectivityMessage(prev) ? null : prev));
+      setErrorMessage((prev) =>
+        shouldClearConnectionErrorBanner(prev, true) ? null : prev,
+      );
     }
   }, [effectiveMacChatLive]);
 
@@ -5623,6 +5628,7 @@ export default function ChatScreen() {
           connectionState={connectionState}
           macHttpReachable={effectiveMacHttpOk || chatStalled}
           authMismatch={health?.authMismatch === true}
+          wrongKeyBannerActive={Boolean(errorMessage && isAuthRepairMessage(errorMessage))}
           isDemo={isDemo}
           chatStalled={chatStalled}
           workspaceName={activeProject?.name}
@@ -5651,6 +5657,7 @@ export default function ChatScreen() {
           isSending={isSending}
           machineName={machineShortLabel}
           chatStalled={chatStalled}
+          authMismatch={health?.authMismatch === true}
           onOpenApprovals={() => {
             haptics.selection();
             navigation.navigate('Leash' as never);

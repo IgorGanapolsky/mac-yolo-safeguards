@@ -263,6 +263,40 @@ if (e2eNeedsKickstart(latestE2e)) {
   }
 }
 
+// Revenue cash path: diagnose → Stripe verify → due follow-ups → optional auto-send.
+// Does not mark paid without Stripe proof. Safe default: auto-send when Gmail API ready.
+const revenueLoop = runNode(
+  'tools/revenue-autonomous-loop.js',
+  ['--json', '--auto-send', '--no-chrome', '--no-apollo'],
+  120_000,
+);
+if (!json) {
+  process.stdout.write('\n=== Revenue autonomous loop ===\n');
+  if (revenueLoop.status === 0 && revenueLoop.stdout) {
+    try {
+      const rev = JSON.parse(revenueLoop.stdout);
+      process.stdout.write(
+        [
+          `ok=${rev.ok} open_gross=$${rev.funnel?.openGross ?? '?'} due=${rev.due?.length ?? 0}`,
+          `stripe_ok=${(rev.stripe || []).filter((s) => s.ok).length}/${(rev.stripe || []).length}`,
+          `auto_sent=${rev.sentCount || 0} pending_mcp=${rev.pendingMcp || 0}`,
+          `gmail=${rev.gmail?.ready ? 'ready' : rev.gmail?.reason || 'unknown'}`,
+          rev.boardPath ? `board=${rev.boardPath}` : '',
+          '',
+        ]
+          .filter(Boolean)
+          .join('\n'),
+      );
+    } catch {
+      process.stdout.write(revenueLoop.stdout.slice(0, 800));
+    }
+  } else if (revenueLoop.stderr) {
+    process.stderr.write(revenueLoop.stderr.slice(0, 500));
+  } else if (revenueLoop.stdout) {
+    process.stdout.write(revenueLoop.stdout.slice(0, 500));
+  }
+}
+
 const briefArgs = ['tools/ceo-operating-brief.js'];
 if (json) briefArgs.push('--json');
 if (full) briefArgs.push('--full');
