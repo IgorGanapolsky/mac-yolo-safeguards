@@ -360,7 +360,7 @@ function launchAgentDisabled(label, env = process.env) {
   const result = runQuiet('/bin/launchctl', ['print-disabled', `gui/${process.getuid()}`], env);
   if (result.status !== 0) return false;
   const escaped = label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  return new RegExp(`"${escaped}"\\s*=>\\s*true`).test(result.stdout || '');
+  return new RegExp(`"${escaped}"\\s*=>\\s*(?:true|disabled)`).test(result.stdout || '');
 }
 
 function quiesceModelLaunchAgents(manifest, env = process.env) {
@@ -385,6 +385,12 @@ function quiesceModelLaunchAgents(manifest, env = process.env) {
     if (launchAgentLoaded(label, env)) {
       const bootout = runQuiet('/bin/launchctl', ['bootout', `gui/${process.getuid()}/${label}`], env);
       if (bootout.status !== 0) throw new Error(`failed to stop zero-spend model daemon ${label}`);
+      for (let attempt = 0; attempt < 10 && launchAgentLoaded(label, env); attempt += 1) {
+        runQuiet('/bin/sleep', ['0.2'], env);
+      }
+      if (launchAgentLoaded(label, env)) {
+        throw new Error(`zero-spend model daemon remained loaded after bootout: ${label}`);
+      }
     }
   }
 }
