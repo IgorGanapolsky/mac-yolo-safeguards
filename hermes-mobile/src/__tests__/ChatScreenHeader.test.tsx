@@ -38,7 +38,30 @@ describe('ChatScreenHeader', () => {
     expect(getByTestId('chat-header-weak-model-warning').props.children).toMatch(/local worker/i);
   });
 
-  it('warns when session context is already huge', () => {
+  it('does not warn on busy but healthy working context (cumulative ~24k)', () => {
+    const { queryByTestId } = render(
+      <ChatScreenHeader
+        threadTitle="Deploy fix"
+        machineLabel="MacBook Pro"
+        connectionState="connected"
+        macHttpReachable
+        gatewayModel="glm-coding"
+        currentSession={{
+          model: 'glm-coding',
+          input_tokens: 24_282,
+          output_tokens: 173,
+          cache_read_tokens: 0,
+          api_call_count: 12,
+        }}
+        onOpenThreads={jest.fn()}
+        onPressMachine={jest.fn()}
+      />,
+    );
+
+    expect(queryByTestId('chat-header-poisoned-context-warning')).toBeNull();
+  });
+
+  it('warns when estimated working context is huge', () => {
     const { getByTestId } = render(
       <ChatScreenHeader
         threadTitle="Deploy fix"
@@ -46,7 +69,13 @@ describe('ChatScreenHeader', () => {
         connectionState="connected"
         macHttpReachable
         gatewayModel="glm-coding"
-        currentSession={{ model: 'glm-coding', input_tokens: 24_282, output_tokens: 173 }}
+        currentSession={{
+          model: 'glm-coding',
+          input_tokens: 1_200_000,
+          output_tokens: 40_000,
+          cache_read_tokens: 0,
+          api_call_count: 8,
+        }}
         onOpenThreads={jest.fn()}
         onPressMachine={jest.fn()}
       />,

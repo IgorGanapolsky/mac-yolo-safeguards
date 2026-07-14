@@ -6,6 +6,8 @@ export interface HermesSession {
   input_tokens?: number;
   output_tokens?: number;
   cache_read_tokens?: number;
+  /** Lifetime LLM API calls — divides cumulative tokens into per-call context size. */
+  api_call_count?: number;
   tool_call_count?: number;
   /** ISO string from mobile-created sessions */
   last_active_at?: string;

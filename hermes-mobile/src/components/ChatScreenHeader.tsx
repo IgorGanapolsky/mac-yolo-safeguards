@@ -10,6 +10,7 @@ import {
   displayableLlmModel,
 } from '../utils/runProgressDisplay';
 import { weakLocalModelWarning } from '../utils/weakLocalModel';
+import { shouldShowLargeChatHeaderWarning } from '../utils/sessionTokenGuards';
 import ExpandableThreadTitle from './ExpandableThreadTitle';
 
 type ChatScreenHeaderProps = {
@@ -36,6 +37,7 @@ type ChatScreenHeaderProps = {
     input_tokens?: number;
     output_tokens?: number;
     cache_read_tokens?: number;
+    api_call_count?: number;
   } | null;
   /** Gateway default model when the session has not reported one yet. */
   gatewayModel?: string;
@@ -175,8 +177,10 @@ export default function ChatScreenHeader({
     displayableLlmModel(runProgress?.model) ??
     displayableLlmModel(gatewayModel);
   const localModelWarning = weakLocalModelWarning(resolvedModel);
-  const hugeContext =
-    (currentSession?.input_tokens ?? 0) >= 20_000 || (runProgress?.inputTokens ?? 0) >= 20_000;
+  const hugeContext = shouldShowLargeChatHeaderWarning(
+    currentSession,
+    runProgress?.inputTokens,
+  );
   const modelTokenStrip = link.connected
     ? buildConnectedModelTokenLabel({
         sessionModel: currentSession?.model,

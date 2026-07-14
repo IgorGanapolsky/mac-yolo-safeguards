@@ -1,26 +1,37 @@
 import type { HermesSession } from '../types/chat';
 
-/**
- * Warn before sending on large sessions — context compresses and often stalls.
- * 100k catches long dogfood threads early; Igor's 516k stall class never should reach Send anyway.
- */
-export const MEGA_SESSION_TOKEN_WARN = 100_000;
+type SessionTokenFields = Pick<
+  HermesSession,
+  'input_tokens' | 'output_tokens' | 'cache_read_tokens' | 'api_call_count'
+>;
 
 /**
- * Hard-block new sends unless the user starts a fresh forked chat.
- * 500k is below the 516k–1.7M compaction-thrash class that stalls for hours.
+ * Estimated CURRENT context (warn/block) thresholds.
+ *
+ * The gateway auto-compacts at ~30% of the model window (≈60k for a 200k
+ * model), so a healthy session's per-call context stays well under 100k.
+ * A sustained estimate ≥120k means compaction is not keeping up; ≥200k is
+ * at/over the largest fleet window — sends will fail or thrash.
  */
+export const MEGA_CONTEXT_TOKEN_WARN = 120_000;
+export const MEGA_CONTEXT_TOKEN_BLOCK = 200_000;
+
+/**
+ * Legacy CUMULATIVE-traffic thresholds — fallback only when the gateway
+ * doesn't report `api_call_count`. Cumulative input+output+cache_read grows
+ * by ~context-size on every API call, so it measures traffic, not size.
+ * Kept tighter than older 350k/800k so dogfood stall classes still hard-block.
+ */
+export const MEGA_SESSION_TOKEN_WARN = 100_000;
 export const MEGA_SESSION_TOKEN_BLOCK = 500_000;
 
 export type MegaSessionLevel = 'normal' | 'warn' | 'block';
 
 export type MegaSessionSendChoice = 'send_anyway' | 'cancel' | 'fresh';
 
+/** Lifetime token traffic (billing-style counter). NOT the context size. */
 export function sessionTotalTokens(
-  session: Pick<
-    HermesSession,
-    'input_tokens' | 'output_tokens' | 'cache_read_tokens'
-  > | null | undefined,
+  session: SessionTokenFields | null | undefined,
 ): number {
   if (!session) {
     return 0;
@@ -32,12 +43,45 @@ export function sessionTotalTokens(
   );
 }
 
+/**
+ * Estimated current context size: average prompt tokens per API call.
+ * Returns null when the gateway didn't report api_call_count.
+ */
+export function estimatedContextTokens(
+  session: SessionTokenFields | null | undefined,
+): number | null {
+  const calls = session?.api_call_count ?? 0;
+  if (!session || calls <= 0) {
+    return null;
+  }
+  const promptTokens =
+    (session.input_tokens ?? 0) + (session.cache_read_tokens ?? 0);
+  if (promptTokens <= 0) {
+    return null;
+  }
+  return Math.round(promptTokens / calls);
+}
+
+/** Token count shown in banner/alert copy: context estimate, else lifetime total. */
+export function megaSessionDisplayTokens(
+  session: SessionTokenFields | null | undefined,
+): number {
+  return estimatedContextTokens(session) ?? sessionTotalTokens(session);
+}
+
 export function classifyMegaSession(
-  session: Pick<
-    HermesSession,
-    'input_tokens' | 'output_tokens' | 'cache_read_tokens'
-  > | null | undefined,
+  session: SessionTokenFields | null | undefined,
 ): MegaSessionLevel {
+  const context = estimatedContextTokens(session);
+  if (context != null) {
+    if (context >= MEGA_CONTEXT_TOKEN_BLOCK) {
+      return 'block';
+    }
+    if (context >= MEGA_CONTEXT_TOKEN_WARN) {
+      return 'warn';
+    }
+    return 'normal';
+  }
   const total = sessionTotalTokens(session);
   if (total >= MEGA_SESSION_TOKEN_BLOCK) {
     return 'block';
@@ -49,20 +93,14 @@ export function classifyMegaSession(
 }
 
 export function isMegaSession(
-  session: Pick<
-    HermesSession,
-    'input_tokens' | 'output_tokens' | 'cache_read_tokens'
-  > | null | undefined,
+  session: SessionTokenFields | null | undefined,
 ): boolean {
   return classifyMegaSession(session) !== 'normal';
 }
 
 /** True when Send must be refused — only Start fresh chat is allowed. */
 export function isMegaSessionSendBlocked(
-  session: Pick<
-    HermesSession,
-    'input_tokens' | 'output_tokens' | 'cache_read_tokens'
-  > | null | undefined,
+  session: SessionTokenFields | null | undefined,
 ): boolean {
   return classifyMegaSession(session) === 'block';
 }
@@ -96,10 +134,7 @@ export function shouldAutoFreshAndResendOnMegaBlock(level: MegaSessionLevel): bo
 
 /** Recents rail badge for large / blocked threads. */
 export function megaSessionRecentsBadge(
-  session: Pick<
-    HermesSession,
-    'input_tokens' | 'output_tokens' | 'cache_read_tokens'
-  > | null | undefined,
+  session: SessionTokenFields | null | undefined,
 ): string | null {
   const level = classifyMegaSession(session);
   if (level === 'block') {
@@ -116,20 +151,14 @@ export function megaSessionRecentsBadge(
  * BLOCK sessions use shouldForceFreshOnSessionSelect (hard gate).
  */
 export function shouldSuggestFreshOnSessionSelect(
-  session: Pick<
-    HermesSession,
-    'input_tokens' | 'output_tokens' | 'cache_read_tokens'
-  > | null | undefined,
+  session: SessionTokenFields | null | undefined,
 ): boolean {
   return classifyMegaSession(session) === 'warn';
 }
 
 /** Selecting a BLOCK session from Recents should force Start fresh instead of reopen. */
 export function shouldForceFreshOnSessionSelect(
-  session: Pick<
-    HermesSession,
-    'input_tokens' | 'output_tokens' | 'cache_read_tokens'
-  > | null | undefined,
+  session: SessionTokenFields | null | undefined,
 ): boolean {
   return classifyMegaSession(session) === 'block';
 }
@@ -146,13 +175,12 @@ export function formatMegaSessionTokenCount(totalTokens: number): string {
 
 export function megaSessionBannerCopy(totalTokens: number): string {
   const label = formatMegaSessionTokenCount(totalTokens);
-  const level = totalTokens >= MEGA_SESSION_TOKEN_BLOCK ? 'too large' : 'very large';
-  return `Your computer is processing a ${level} session (${label} tokens) — replies may take hours or fail. Tap Start fresh chat (keeps your Mac connection).`;
+  return `This chat's working context is very large (~${label} tokens) — replies may slow down or stall. Start a fresh chat for faster responses.`;
 }
 
 export function megaSessionSendBlockedCopy(totalTokens: number): string {
   const label = formatMegaSessionTokenCount(totalTokens);
-  return `This chat is too large (${label} tokens) to send safely. Start a fresh chat to continue.`;
+  return `This chat's context is too large (~${label} tokens) to send safely. Start a fresh chat to continue.`;
 }
 
 export function megaSessionSendWarnTitle(): string {
@@ -161,13 +189,25 @@ export function megaSessionSendWarnTitle(): string {
 
 export function megaSessionSendWarnMessage(totalTokens: number): string {
   const label = formatMegaSessionTokenCount(totalTokens);
-  if (totalTokens >= MEGA_SESSION_TOKEN_BLOCK) {
-    return `This thread has about ${label} tokens — too large to send safely. Start a fresh chat (your Mac stays connected).`;
+  if (totalTokens >= MEGA_SESSION_TOKEN_BLOCK || totalTokens >= MEGA_CONTEXT_TOKEN_BLOCK) {
+    return `This thread's working context is about ${label} tokens — too large to send safely. Start a fresh chat (your Mac stays connected).`;
   }
-  return `This thread already has about ${label} tokens on your computer. Sending more often stalls for minutes or hours. Start a fresh chat instead?`;
+  return `This thread's working context is about ${label} tokens on your computer. New messages may take a long time or stall. Start a fresh chat instead?`;
 }
 
 export function megaSessionForceFreshSelectCopy(totalTokens: number): string {
   const label = formatMegaSessionTokenCount(totalTokens);
-  return `This chat is too large (${label} tokens) to reopen safely. Start a fresh chat instead.`;
+  return `This chat's context is too large (~${label} tokens) to reopen safely. Start a fresh chat instead.`;
+}
+
+/** Header chrome: only warn when mega-session classification says so (not raw cumulative 20k). */
+export function shouldShowLargeChatHeaderWarning(
+  session: SessionTokenFields | null | undefined,
+  runInputTokens?: number | null,
+): boolean {
+  if (classifyMegaSession(session) !== 'normal') {
+    return true;
+  }
+  // Live run usage without session api_call_count — treat as soft signal only above warn floor.
+  return (runInputTokens ?? 0) >= MEGA_SESSION_TOKEN_WARN;
 }
