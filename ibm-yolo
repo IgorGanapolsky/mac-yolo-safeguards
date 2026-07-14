@@ -175,43 +175,65 @@ const total = Object.keys(stripe).length;
 const pipe = j.pipeline || {};
 const drafts = j.drafts || {};
 const sig = j.signal || {};
+const already = pipe.method === "already_present";
+const cta = drafts.cta || "(no live CTA — check Stripe map)";
+// Status first: do not make "already_present" look like a broken tool.
+const statusLine = ok
+  ? (already
+      ? "ibm-yolo: OK (signal already loaded — this is working, not stuck)"
+      : "ibm-yolo: OK (pipeline updated)")
+  : "ibm-yolo: FAILED";
 const lines = [
   "",
-  ok ? "ibm-yolo: SUCCESS" : "ibm-yolo: FAILED",
+  statusLine,
   "────────────────────────────────────────",
-  "preset:     " + label,
-  "signal:     " + (sig.id || "(none)"),
-  "source:     " + (sig.source || ""),
-  "stripe:     " + okN + "/" + total + " live payment links",
-  "pipeline:   " + (pipe.method || (pipe.skipped ? "skipped" : "n/a")) +
-    (pipe.prospect ? " → " + pipe.prospect : ""),
-  "board:      " + (j.boardPath || ""),
-  "positioning:" + (j.positioningDoc || sig.positioningDoc || ""),
+  "preset:  " + label,
+  "signal:  " + (sig.id || "(none)"),
+  "source:  " + (sig.source || ""),
+  "stripe:  " + okN + "/" + total + " payment links live",
+  "pipeline:" + (already
+    ? " already on board (safe re-run; no duplicate row)"
+    : (pipe.method || (pipe.skipped ? "skipped" : "n/a")) +
+      (pipe.prospect ? " → " + pipe.prospect : "")),
+  "board:   " + (j.boardPath || "(none)"),
   "",
-  "CTA:",
-  "  " + (drafts.cta || "(no live CTA — check Stripe map)"),
-  "",
-  "What this means:",
-  pipe.method === "already_present"
-    ? "  • Pipeline row already existed (idempotent re-run — not a failure)."
-    : pipe.ok
-      ? "  • Pipeline seeded/updated for this market signal."
-      : "  • Pipeline not written (--no-apply or missing revenue data).",
-  okN > 0
-    ? "  • Live Stripe links ready for outbound."
-    : "  • No live Stripe links — fix map before emailing pay URLs.",
-  "",
-  "Next:",
-  "  ibm-yolo --doctor          # health",
-  "  ibm-yolo --both            # also run Hermes-hosted preset",
-  "  ibm-yolo --smart-ops       # chain smart-ops after signal",
-  "  open the board path above for full X + email drafts",
-  "  ibm-yolo --json            # machine output",
+  "Buy link (live):",
+  "  " + cta,
   "",
 ];
+if (ok) {
+  lines.push("What just happened:");
+  lines.push("  ibm-yolo ran successfully. Exit code 0 means the CLI works.");
+  if (already) {
+    lines.push("  This market signal was already in the pipeline from an earlier run.");
+    lines.push("  Re-running is fine — it will not create a second deal row.");
+  } else if (pipe.ok) {
+    lines.push("  New/updated pipeline row written for this signal.");
+  } else {
+    lines.push("  Pipeline not written (--no-apply or missing revenue data).");
+  }
+  lines.push("");
+  lines.push("What ibm-yolo is for:");
+  lines.push("  market signal + Stripe check + drafts + pipeline seed.");
+  lines.push("  It does NOT send email/X by itself — that is the cash step after this.");
+  lines.push("");
+  lines.push("Real next action (not more ibm-yolo flags):");
+  if (okN > 0) {
+    lines.push("  Send the CTA above to a real prospect, or post the X draft on the board.");
+  } else {
+    lines.push("  Fix Stripe map — no live payment links.");
+  }
+  lines.push("  Full X + email drafts: " + (j.boardPath || "board path missing"));
+  lines.push("");
+  lines.push("Optional: ibm-yolo --doctor | --both | --smart-ops | --json");
+  lines.push("");
+} else {
+  lines.push("Something failed. Run: ibm-yolo --doctor");
+  lines.push("");
+}
 process.stdout.write(lines.join("\n") + "\n");
 if (drafts.xReply) {
-  process.stdout.write("── X draft (first 400 chars) ──\n");
+  process.stdout.write("── X draft (preview) ──\n");
   process.stdout.write(String(drafts.xReply).slice(0, 400) + (String(drafts.xReply).length > 400 ? "…\n" : "\n"));
   process.stdout.write("\n");
 }
