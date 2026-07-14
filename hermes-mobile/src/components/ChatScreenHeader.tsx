@@ -18,6 +18,8 @@ type ChatScreenHeaderProps = {
   connectionState: LeashConnectionState;
   macHttpReachable?: boolean;
   authMismatch?: boolean;
+  /** Composer still showing wrong-key banner — header must not say Connected. */
+  wrongKeyBannerActive?: boolean;
   isDemo?: boolean;
   /** Keep IP / relay detail visible when connected (multi-Mac setups). */
   showMachineDetailWhenConnected?: boolean;
@@ -51,6 +53,7 @@ function linkMeta(
   isDemo = false,
   authMismatch = false,
   chatStalled = false,
+  wrongKeyBannerActive = false,
 ): { label: string; color: string; connected: boolean } {
   const link = resolveChatLinkDisplay({
     connectionState: state,
@@ -58,6 +61,7 @@ function linkMeta(
     disconnectedLabel,
     isDemo,
     authMismatch,
+    wrongKeyBannerActive,
     chatStalled,
   });
   if (link.chatStalled) {
@@ -132,6 +136,7 @@ export default function ChatScreenHeader({
   connectionState,
   macHttpReachable = false,
   authMismatch = false,
+  wrongKeyBannerActive = false,
   isDemo = false,
   showMachineDetailWhenConnected = false,
   workspaceName,
@@ -155,6 +160,7 @@ export default function ChatScreenHeader({
     isDemo,
     authMismatch,
     chatStalled,
+    wrongKeyBannerActive,
   );
   const endpoint = machineEndpoint?.trim() || '';
   const showEndpoint =
