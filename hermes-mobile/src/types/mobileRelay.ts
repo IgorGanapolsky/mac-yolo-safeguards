@@ -9,6 +9,26 @@ export interface RelayHookEvent {
   };
 }
 
+export interface ApprovalIntegrity {
+  version: number;
+  algorithm: 'sha256';
+  digest: string;
+  issued_at: string;
+  expires_at: string;
+  truncated: boolean;
+  redacted: boolean;
+  review_required_on_computer: boolean;
+  display: {
+    action_id: string;
+    tool_name: string;
+    destination?: string | null;
+    command?: string | null;
+    arguments?: string | null;
+    affected_files?: string[];
+    diff?: string | null;
+  };
+}
+
 export interface EnqueuedEvent {
   id: string;
   device_id?: string;
@@ -18,6 +38,7 @@ export interface EnqueuedEvent {
   status?: string;
   source?: string;
   reason?: string;
+  approval_integrity?: ApprovalIntegrity;
 }
 
 export interface RelayWorker {

@@ -3,6 +3,7 @@
 const http = require('http');
 const { URL } = require('url');
 const { RelayStore, THUMBGATE_LEASH_PRODUCT_ID } = require('./store');
+const { redactText, validateAllowVerdict } = require('./approval-integrity');
 
 const VERSION = '0.1.0';
 const PORT = Number(process.env.PORT || 8080);
@@ -19,6 +20,7 @@ const PAIR_RL_WINDOW_MS = 60 * 1000;
 const PAIR_RL_MAX = 10;
 const pairCompleteHits = new Map(); // clientIp -> timestamp[]
 let storePurchaseVerifier = defaultStorePurchaseVerifier;
+let thumbgateCaptureForwarder = defaultThumbgateCaptureForwarder;
 
 function clientIp(req) {
   const fly = req.headers['fly-client-ip'];
@@ -120,8 +122,58 @@ async function defaultStorePurchaseVerifier() {
   return { ok: false, status: 503, error: 'store_verifier_not_configured' };
 }
 
+async function defaultThumbgateCaptureForwarder(body) {
+  const apiKey = String(process.env.THUMBGATE_API_KEY || '').trim();
+  if (!apiKey) {
+    return { ok: false, status: 503, error: 'thumbgate_capture_not_configured' };
+  }
+  const base = String(
+    process.env.THUMBGATE_API_URL || 'https://thumbgate-production.up.railway.app',
+  ).replace(/\/+$/, '');
+  const response = await fetch(`${base}/v1/feedback/capture`, {
+    method: 'POST',
+    headers: {
+      Accept: 'application/json',
+      Authorization: `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(body),
+  });
+  const parsed = await response.json().catch(() => ({}));
+  return response.ok
+    ? { ok: true, body: parsed }
+    : { ok: false, status: response.status, error: parsed.detail || parsed.message || 'thumbgate_capture_failed' };
+}
+
+function sanitizeThumbgateCapture(body) {
+  const signal = body?.signal === 'up' ? 'up' : body?.signal === 'down' ? 'down' : '';
+  const clean = (value, limit = 4000) =>
+    typeof value === 'string' ? redactText(value).text.slice(0, limit) : undefined;
+  if (!signal || !clean(body?.context)) {
+    return { ok: false, error: 'invalid_thumbgate_capture' };
+  }
+  const tags = Array.isArray(body.tags)
+    ? body.tags.filter((tag) => typeof tag === 'string').slice(0, 20).map((tag) => clean(tag, 100))
+    : undefined;
+  return {
+    ok: true,
+    body: {
+      signal,
+      context: clean(body.context),
+      whatWentWrong: clean(body.whatWentWrong),
+      whatWorked: clean(body.whatWorked),
+      whatToChange: clean(body.whatToChange),
+      ...(tags ? { tags } : {}),
+    },
+  };
+}
+
 function setStorePurchaseVerifierForTest(verifier) {
   storePurchaseVerifier = verifier || defaultStorePurchaseVerifier;
+}
+
+function setThumbgateCaptureForwarderForTest(forwarder) {
+  thumbgateCaptureForwarder = forwarder || defaultThumbgateCaptureForwarder;
 }
 
 async function handleRequest(req, res) {
@@ -277,12 +329,54 @@ async function handleRequest(req, res) {
     const eventId = decodeURIComponent(pathname.slice('/v1/verdicts/'.length));
     const body = await readJson(req);
     const decision = body.decision === 'block' ? 'block' : 'allow';
-    const verdict = store.submitVerdict(mobileToken, eventId, decision, body.reason);
+    const account = store.findAccountByMobileToken(mobileToken);
+    const event = account ? store.listPendingEvents(account.id).find((item) => item.id === eventId) : null;
+    if (!event) {
+      sendJson(res, 404, { error: 'event_not_found' });
+      return;
+    }
+    if (decision === 'allow') {
+      const validation = validateAllowVerdict(event.approval_integrity, body, Date.now());
+      if (!validation.ok) {
+        sendJson(res, 409, { error: validation.error });
+        return;
+      }
+    }
+    const verdict = store.submitVerdict(
+      mobileToken,
+      eventId,
+      decision,
+      body.reason,
+      body.approval_digest,
+    );
     if (!verdict) {
       sendJson(res, 404, { error: 'event_not_found' });
       return;
     }
     sendJson(res, 200, { ok: true });
+    return;
+  }
+
+
+  if (req.method === 'POST' && pathname === '/v1/thumbgate/capture') {
+    const mobileToken = parseAuth(req, 'Mobile');
+    if (!mobileToken || !store.findAccountByMobileToken(mobileToken)) {
+      sendJson(res, 401, { error: 'unauthorized' });
+      return;
+    }
+    const body = sanitizeThumbgateCapture(await readJson(req));
+    if (!body.ok) {
+      sendJson(res, 400, { error: body.error });
+      return;
+    }
+    const forwarded = await thumbgateCaptureForwarder(body.body);
+    if (!forwarded?.ok) {
+      sendJson(res, Number(forwarded?.status || 502), {
+        error: forwarded?.error || 'thumbgate_capture_failed',
+      });
+      return;
+    }
+    sendJson(res, 200, forwarded.body || { accepted: true });
     return;
   }
 
@@ -362,7 +456,9 @@ module.exports = {
   startServer,
   handleRequest,
   normalizeThumbgateLeashReceipt,
+  sanitizeThumbgateCapture,
   setStorePurchaseVerifierForTest,
+  setThumbgateCaptureForwarderForTest,
   store,
   VERSION,
 };

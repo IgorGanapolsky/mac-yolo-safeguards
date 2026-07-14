@@ -24,7 +24,7 @@ appId: com.iganapolsky.hermesmobile
 - tapOn: "Close"
 - tapOn:
     id: "chat-input"
-- inputText: "smoke test message"
+- inputText: "make money today"
 - tapOn:
     id: "chat-send-button"
 - extendedWaitUntil:

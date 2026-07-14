@@ -7,6 +7,7 @@ import type {
 } from '../types/mobileRelay';
 import type { PendingApproval } from '../types/gateway';
 import { HERMES_MOBILE_CLOUD_URL } from '../constants/appIdentity';
+import { consumeReviewedApprovalDigest } from '../utils/approvalIntegrity';
 
 export { HERMES_MOBILE_CLOUD_URL as DEFAULT_HERMES_MOBILE_CLOUD_URL };
 
@@ -39,7 +40,8 @@ async function parseJson<T>(response: Response): Promise<T> {
 
 export function enqueuedEventToPendingApproval(event: EnqueuedEvent): PendingApproval {
   const hook = event.event ?? {};
-  const command =
+  const integrity = event.approval_integrity;
+  const command = integrity?.display.command ??
     hook.tool_input?.command ??
     (hook.tool_input?.file_path
       ? `${hook.tool_input.file_path}${hook.tool_input.content ? ' (write)' : ''}`
@@ -47,12 +49,16 @@ export function enqueuedEventToPendingApproval(event: EnqueuedEvent): PendingApp
 
   return {
     actionId: event.id,
-    toolName: hook.tool_name ?? 'AgentTool',
+    toolName: integrity?.display.tool_name ?? hook.tool_name ?? 'AgentTool',
     reason:
       event.reason ??
       hook.hook_event_name ??
       'Agent tool call requires your approval before running on your computer.',
     command,
+    workspacePath: integrity?.display.destination ?? undefined,
+    diff: integrity?.display.diff ?? undefined,
+    source: 'relay_hook',
+    approvalIntegrity: integrity,
     receivedAt: new Date(event.enqueued_at ?? Date.now()).toISOString(),
   };
 }
@@ -125,6 +131,7 @@ export async function submitVerdict(
   decision: 'allow' | 'block',
   reason?: string,
 ): Promise<void> {
+  const approvalDigest = decision === 'allow' ? consumeReviewedApprovalDigest(eventId) : undefined;
   const response = await fetch(`${normalizeBaseUrl(cloudUrl)}/v1/verdicts/${eventId}`, {
     method: 'POST',
     headers: {
@@ -132,7 +139,7 @@ export async function submitVerdict(
       'Content-Type': 'application/json',
       Authorization: `Mobile ${mobileToken}`,
     },
-    body: JSON.stringify({ decision, reason }),
+    body: JSON.stringify({ decision, reason, approval_digest: approvalDigest }),
   });
   await parseJson<{ ok: boolean }>(response);
 }

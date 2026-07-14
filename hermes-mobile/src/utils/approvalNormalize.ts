@@ -26,6 +26,7 @@ export function fromPendingApproval(
     receivedAt: pending.receivedAt,
     sessionKey: pending.sessionKey,
     diff: pending.diff,
+    approvalIntegrity: pending.approvalIntegrity,
   };
   return policy ? enrichApprovalRequest(base, policy) : base;
 }

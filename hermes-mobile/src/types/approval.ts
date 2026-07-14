@@ -1,3 +1,5 @@
+import type { ApprovalIntegrity } from './mobileRelay';
+
 /** Canonical Hermes approval model — aligned with gateway `approval_data` + transport metadata. */
 
 export type ApprovalChoice = 'once' | 'session' | 'always' | 'deny';
@@ -30,6 +32,7 @@ export type HermesApprovalRequest = {
   sessionKey?: string;
   /** Unified diff from gate / git — Codex-style review before approve. */
   diff?: string;
+  approvalIntegrity?: ApprovalIntegrity;
 };
 
 export const DEFAULT_APPROVAL_CHOICES: ApprovalChoice[] = ['once', 'session', 'always', 'deny'];
@@ -38,6 +41,16 @@ export function choicesForRequest(
   request: HermesApprovalRequest,
   policy: ApprovalPolicy = 'balanced',
 ): ApprovalChoice[] {
+  if (
+    request.source === 'relay_hook' &&
+    (!request.approvalIntegrity ||
+      request.approvalIntegrity.redacted ||
+      request.approvalIntegrity.truncated ||
+      request.approvalIntegrity.review_required_on_computer ||
+      Date.parse(request.approvalIntegrity.expires_at) <= Date.now())
+  ) {
+    return ['deny'];
+  }
   if (request.source === 'text_nudge') {
     return ['once', 'deny'];
   }

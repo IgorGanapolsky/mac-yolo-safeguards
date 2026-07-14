@@ -18,6 +18,17 @@ const basePending = (overrides: Partial<PendingApproval> = {}): PendingApproval 
   toolName: 'bash',
   reason: 'Run deploy script',
   receivedAt: '2026-06-15T12:00:00.000Z',
+  approvalIntegrity: {
+    version: 1,
+    algorithm: 'sha256',
+    digest: 'a'.repeat(64),
+    issued_at: '2026-06-15T12:00:00.000Z',
+    expires_at: '2099-06-15T12:02:00.000Z',
+    truncated: false,
+    redacted: false,
+    review_required_on_computer: false,
+    display: { action_id: 'act-1', tool_name: 'bash' },
+  },
   ...overrides,
 });
 
@@ -36,17 +47,21 @@ describe('smartNotificationPolicy', () => {
     expect(
       shouldScheduleApprovalNotification(basePending({ riskTier: 'high' }), 'background'),
     ).toBe(true);
+    expect(
+      shouldScheduleApprovalNotification(basePending({ approvalIntegrity: undefined }), 'background'),
+    ).toBe(false);
   });
 
-  it('builds approval body from command and diff preview', () => {
+  it('never leaks command or diff payloads into notification copy', () => {
     const body = buildApprovalNotificationBody(
       basePending({
         command: 'npm run deploy',
         diff: '--- a/file.ts\n+++ b/file.ts\n+const ok = true',
       }),
     );
-    expect(body).toContain('npm run deploy');
-    expect(body).toContain('+const ok = true');
+    expect(body).toBe('Open Hermes to review the exact tool call before deciding.');
+    expect(body).not.toContain('npm run deploy');
+    expect(body).not.toContain('+const ok = true');
   });
 
   it('titles chat-thread approvals distinctly', () => {
@@ -64,7 +79,7 @@ describe('smartNotificationPolicy', () => {
       basePending({ actionId: 'act-2', command: 'rm file' }),
     ]);
     expect(summary).toMatch(/^2 waiting/);
-    expect(summary).toContain('git push');
+    expect(summary).not.toContain('git push');
   });
 
   it('uses stable approval notification identifiers', () => {

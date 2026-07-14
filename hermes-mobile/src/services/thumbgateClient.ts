@@ -1,5 +1,6 @@
-import { THUMBGATE_API_URL } from '../constants/appIdentity';
+import { HERMES_MOBILE_CLOUD_URL, THUMBGATE_API_URL } from '../constants/appIdentity';
 import type { ThumbgateCaptureSignal } from '../utils/leashThumbgate';
+import { secureCredentials } from './secureCredentials';
 
 export class ThumbgateApiError extends Error {
   status: number;
@@ -14,6 +15,23 @@ function normalizeBaseUrl(input: string): string {
   return input.trim().replace(/\/+$/, '');
 }
 
+const SENSITIVE_VALUE = /(?:gh[pousr]_[A-Za-z0-9_]{20,}|sk-[A-Za-z0-9_-]{16,}|Bearer\s+[A-Za-z0-9._~+/=-]{12,}|(?:api[_-]?key|token|password|secret)\s*[:=]\s*[^\s,;]+)/gi;
+
+function sanitizeCaptureBody<T>(value: T): T {
+  if (typeof value === 'string') {
+    return value.replace(SENSITIVE_VALUE, '[REDACTED]') as T;
+  }
+  if (Array.isArray(value)) {
+    return value.map(sanitizeCaptureBody) as T;
+  }
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(
+      Object.entries(value).map(([key, item]) => [key, sanitizeCaptureBody(item)]),
+    ) as T;
+  }
+  return value;
+}
+
 export async function captureThumbgateFeedback(
   apiUrl: string,
   body: {
@@ -26,20 +44,30 @@ export async function captureThumbgateFeedback(
   },
   apiKey?: string | null,
 ): Promise<{ accepted: boolean; feedbackId?: string }> {
-  const base = normalizeBaseUrl(apiUrl || THUMBGATE_API_URL);
+  const configuredBase = normalizeBaseUrl(apiUrl || THUMBGATE_API_URL);
+  const mobileToken = apiKey?.trim() || configuredBase !== normalizeBaseUrl(THUMBGATE_API_URL)
+    ? null
+    : await secureCredentials.loadMobileToken();
+  const useRelayProxy = !apiKey?.trim() && Boolean(mobileToken);
+  const base = useRelayProxy ? normalizeBaseUrl(HERMES_MOBILE_CLOUD_URL) : configuredBase;
   const headers: Record<string, string> = {
     Accept: 'application/json',
     'Content-Type': 'application/json',
   };
   if (apiKey?.trim()) {
     headers.Authorization = `Bearer ${apiKey.trim()}`;
+  } else if (useRelayProxy) {
+    headers.Authorization = `Mobile ${mobileToken}`;
   }
 
-  const response = await fetch(`${base}/v1/feedback/capture`, {
+  const response = await fetch(
+    `${base}${useRelayProxy ? '/v1/thumbgate/capture' : '/v1/feedback/capture'}`,
+    {
     method: 'POST',
     headers,
-    body: JSON.stringify(body),
-  });
+    body: JSON.stringify(sanitizeCaptureBody(body)),
+    },
+  );
 
   const text = await response.text();
   let parsed: Record<string, unknown> = {};

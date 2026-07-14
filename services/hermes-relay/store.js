@@ -373,6 +373,7 @@ class RelayStore {
       event: payload.event || {},
       reason: payload.reason,
       source: payload.source || 'relay_hook',
+      approval_integrity: payload.approval_integrity || null,
       enqueued_at: now,
       status: 'pending',
     };
@@ -381,7 +382,7 @@ class RelayStore {
     return event;
   }
 
-  submitVerdict(mobileToken, eventId, decision, reason) {
+  submitVerdict(mobileToken, eventId, decision, reason, approvalDigest) {
     const account = this.findAccountByMobileToken(mobileToken);
     if (!account) {
       return null;
@@ -398,6 +399,7 @@ class RelayStore {
       account_id: account.id,
       decision,
       reason,
+      approval_digest: approvalDigest || null,
       decided_at: event.decided_at,
       delivered: false,
     };
@@ -420,6 +422,8 @@ class RelayStore {
         event_id: verdict.event_id,
         decision: verdict.decision,
         reason: verdict.reason,
+        approval_digest: verdict.approval_digest,
+        approval_integrity: this.state.events[verdict.event_id]?.approval_integrity || null,
         decided_at: verdict.decided_at,
       });
     }

@@ -1,4 +1,5 @@
 import { HERMES_MOBILE_CLOUD_URL, THUMBGATE_API_URL } from '../constants/appIdentity';
+import type { ApprovalIntegrity } from './mobileRelay';
 
 export type GatewayHealthLevel = 'green' | 'amber' | 'red' | 'unknown';
 
@@ -19,6 +20,7 @@ export interface GateBlockedPayload {
   riskTier?: 'low' | 'medium' | 'high';
   rollbackHint?: string;
   sessionKey?: string;
+  approvalIntegrity?: ApprovalIntegrity;
 }
 
 export interface ReclaimFiredPayload {
@@ -43,6 +45,7 @@ export interface PendingApproval {
   riskTier?: 'low' | 'medium' | 'high';
   rollbackHint?: string;
   sessionKey?: string;
+  approvalIntegrity?: ApprovalIntegrity;
 }
 
 export interface GatewayHealthSnapshot {

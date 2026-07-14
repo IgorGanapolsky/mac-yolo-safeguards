@@ -15,6 +15,10 @@ const http = require('http');
 const os = require('os');
 const path = require('path');
 const { spawnSync } = require('child_process');
+const {
+  createApprovalIntegrity,
+  validateAllowVerdict,
+} = require('../services/hermes-relay/approval-integrity');
 
 const REPO = path.resolve(__dirname, '..');
 const HERMES_DIR = path.join(os.homedir(), '.hermes');
@@ -171,7 +175,7 @@ async function startPairing(env) {
   return pair.code;
 }
 
-function buildGateActionMessage(actionId, decision, choice) {
+function buildGateActionMessage(actionId, decision, choice, approvalDigest) {
   return JSON.stringify({
     event: 'GATE.ACTION',
     timestamp: new Date().toISOString(),
@@ -181,6 +185,7 @@ function buildGateActionMessage(actionId, decision, choice) {
       choice: choice || (decision === 'reject' ? 'deny' : 'once'),
       source: 'relay_hook',
       operatorNote: `Decision ${decision} from Hermes Mobile relay`,
+      approvalDigest: approvalDigest || null,
     },
   });
 }
@@ -199,6 +204,7 @@ function gateBlockedToRelayEvent(raw) {
   if (!payload.actionId || !payload.toolName) {
     return null;
   }
+  const approvalIntegrity = createApprovalIntegrity(payload);
   return {
     id: payload.actionId,
     event: {
@@ -212,6 +218,7 @@ function gateBlockedToRelayEvent(raw) {
     },
     reason: payload.reason,
     source: 'gateway_guard',
+    approval_integrity: approvalIntegrity,
   };
 }
 
@@ -310,9 +317,25 @@ async function pollVerdicts(env, gatewaySocket) {
     },
   });
   for (const verdict of body.verdicts || []) {
+    if (verdict.decision !== 'block') {
+      const validation = validateAllowVerdict(
+        verdict.approval_integrity,
+        { approval_digest: verdict.approval_digest },
+        Date.now(),
+      );
+      if (!validation.ok) {
+        console.warn('relay allow verdict rejected:', verdict.event_id, validation.error);
+        continue;
+      }
+    }
     const decision = verdict.decision === 'block' ? 'reject' : 'approve';
     const choice = verdict.decision === 'block' ? 'deny' : 'once';
-    const message = buildGateActionMessage(verdict.event_id, decision, choice);
+    const message = buildGateActionMessage(
+      verdict.event_id,
+      decision,
+      choice,
+      verdict.approval_digest,
+    );
     if (!gatewaySocket.sendGateAction(message)) {
       console.warn('relay verdict dropped — gateway socket not ready:', verdict.event_id);
     } else {
@@ -386,7 +409,15 @@ async function main() {
   );
 }
 
-main().catch((error) => {
-  console.error(error.message || error);
-  process.exit(1);
-});
+if (require.main === module) {
+  main().catch((error) => {
+    console.error(error.message || error);
+    process.exit(1);
+  });
+}
+
+module.exports = {
+  buildGateActionMessage,
+  gateBlockedToRelayEvent,
+  pollVerdicts,
+};
