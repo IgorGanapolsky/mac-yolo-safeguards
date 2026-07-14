@@ -508,6 +508,9 @@ export default function ChatScreen() {
   
   const [isLoadingSessions, setIsLoadingSessions] = useState(false);
   const [isLoadingMessages, setIsLoadingMessages] = useState(false);
+  /** Session id being opened from Recents/Threads — immediate busy UI until hydrate finishes. */
+  const [switchingSessionId, setSwitchingSessionId] = useState<string | null>(null);
+  const switchingSessionIdRef = useRef<string | null>(null);
   const [isSending, setIsSending] = useState(false);
   /** True while Start fresh chat is forking/stopping — show spinner so tap isn't silent. */
   const [isStartingFreshChat, setIsStartingFreshChat] = useState(false);
@@ -651,6 +654,8 @@ export default function ChatScreen() {
   const refreshQueuedRef = useRef(false);
   /** When a force/manual select is requested while a refresh is in flight, replay with force. */
   const refreshQueuedForceRef = useRef(false);
+  /** Bumped to supersede an in-flight background listMessages when the user force-selects a thread. */
+  const refreshGenerationRef = useRef(0);
   const deferredTelegramPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   /** Keep HTTP transcript polling alive until gateway reply text lands (relay WS ≠ chat transport). */
   const awaitingGatewayReplyRef = useRef(false);
@@ -2156,22 +2161,41 @@ export default function ChatScreen() {
       }
 
       if (refreshInFlightRef.current) {
-        // Force/manual selects must not be dropped — empty-state Recents taps race background polls.
-        if (options?.background || options?.manual || options?.force) {
+        // Force/manual selects must not wait on a slow background poll (felt like a dead tap).
+        if (options?.force || options?.manual) {
+          refreshGenerationRef.current += 1;
+          refreshInFlightRef.current = false;
+          refreshQueuedRef.current = false;
+          refreshQueuedForceRef.current = false;
+          setIsLoadingMessages(true);
+          // Fall through and start the user-requested refresh immediately.
+        } else if (options?.background) {
           refreshQueuedRef.current = true;
-          if (options?.force || options?.manual) {
-            refreshQueuedForceRef.current = true;
-          }
+          return;
+        } else {
+          refreshQueuedRef.current = true;
+          return;
         }
-        return;
       }
       refreshInFlightRef.current = true;
+      const refreshGeneration = refreshGenerationRef.current;
       const requestedSessionId = activeSession.id;
 
       const finishRefresh = () => {
+        if (refreshGeneration !== refreshGenerationRef.current) {
+          // Superseded by a newer force-select — do not clear the new load's busy state.
+          return;
+        }
         setIsLoadingMessages(false);
         setIsPullRefreshing(false);
         refreshInFlightRef.current = false;
+        if (
+          switchingSessionIdRef.current &&
+          switchingSessionIdRef.current === requestedSessionId
+        ) {
+          switchingSessionIdRef.current = null;
+          setSwitchingSessionId(null);
+        }
         if (!refreshQueuedRef.current) {
           return;
         }
@@ -2186,6 +2210,9 @@ export default function ChatScreen() {
       };
 
       const applyMergedMessages = (merged: HermesMessage[]) => {
+        if (refreshGeneration !== refreshGenerationRef.current) {
+          return;
+        }
         if (currentSessionRef.current?.id !== requestedSessionId) {
           return;
         }
@@ -2267,7 +2294,7 @@ export default function ChatScreen() {
       try {
         if (options?.manual) {
           setIsPullRefreshing(true);
-        } else if (!options?.background && messagesRef.current.length === 0) {
+        } else if (!options?.background && (messagesRef.current.length === 0 || options?.force)) {
           setIsLoadingMessages(true);
         }
         setErrorMessage(null);
@@ -2284,7 +2311,10 @@ export default function ChatScreen() {
                 includeHermesStatus: true,
               },
             );
-          if (currentSessionRef.current?.id !== requestedSessionId) {
+          if (
+            refreshGeneration !== refreshGenerationRef.current ||
+            currentSessionRef.current?.id !== requestedSessionId
+          ) {
             return;
           }
           applyMergedMessages(mergeWithLocalPending(dedupeChatMessages(tgMessages)));
@@ -2292,7 +2322,10 @@ export default function ChatScreen() {
           setTelegramInboxMeta({ threadCount, messageCap });
         } else {
           const history = await listMessages(gatewayUrl, activeSession.id, apiKey);
-          if (currentSessionRef.current?.id !== requestedSessionId) {
+          if (
+            refreshGeneration !== refreshGenerationRef.current ||
+            currentSessionRef.current?.id !== requestedSessionId
+          ) {
             return;
           }
           const displayMessages = dedupeChatMessages(
@@ -2306,7 +2339,10 @@ export default function ChatScreen() {
           setTelegramInboxMeta({ threadCount: 0, messageCap: 0 });
         }
       } catch (err) {
-        if (currentSessionRef.current?.id === requestedSessionId) {
+        if (
+          refreshGeneration === refreshGenerationRef.current &&
+          currentSessionRef.current?.id === requestedSessionId
+        ) {
           applyChatApiError(err, 'Could not load messages from your computer.', options);
         }
       } finally {
@@ -5107,6 +5143,12 @@ export default function ChatScreen() {
         ]);
         return;
       }
+      if (switchingSessionIdRef.current) {
+        return;
+      }
+      switchingSessionIdRef.current = session.id;
+      setSwitchingSessionId(session.id);
+      setIsLoadingMessages(true);
       setRecentChatsDismissed(false);
       setSessionModalVisible(false);
       skipSessionAutoSelectRef.current = false;
@@ -5134,6 +5176,7 @@ export default function ChatScreen() {
       <RecentChatsList
         sessions={recentsRailSessions}
         currentSessionId={currentSession?.id}
+        switchingSessionId={switchingSessionId}
         sessionLabelFor={sessionLabelFor}
         runProgress={progressBanner}
         isSending={isSending}
@@ -5155,6 +5198,7 @@ export default function ChatScreen() {
     showRecentChatsPanel,
     recentsRailSessions,
     currentSession?.id,
+    switchingSessionId,
     sessionLabelFor,
     progressBanner,
     isSending,
@@ -5635,7 +5679,7 @@ export default function ChatScreen() {
         ) : null}
 
         {!showMacConnectionHelp && (isLoadingMessages && messages.length === 0 ? (
-          <View style={styles.loadingContainer}>
+          <View style={styles.loadingContainer} testID="chat-session-loading">
             <ActivityIndicator size="large" color={colors.primary} />
             <Text style={styles.loadingText}>Fetching session history...</Text>
           </View>
@@ -6086,7 +6130,11 @@ export default function ChatScreen() {
                     <View style={styles.sessionItemRowContainer}>
                       <TouchableOpacity
                         style={[styles.sessionItem, isActive && styles.sessionItemActive, { flex: 1 }]}
+                        disabled={Boolean(switchingSessionId)}
                         onPress={() => {
+                          if (switchingSessionIdRef.current) {
+                            return;
+                          }
                           void handleSelectAgentThread(item);
                         }}
                       >
@@ -6099,6 +6147,13 @@ export default function ChatScreen() {
                           />
                           {sourceLabel ? (
                             <Text style={styles.sessionSourcePill}>{sourceLabel}</Text>
+                          ) : null}
+                          {switchingSessionId === item.id ? (
+                            <ActivityIndicator
+                              size="small"
+                              color={colors.primary}
+                              testID={`threads-modal-busy-${item.id}`}
+                            />
                           ) : null}
                         </View>
                         {isTelegramInboxSession(item) ? (

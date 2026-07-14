@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 import type { HermesSession } from '../types/chat';
 import type { RunProgressState } from '../types/chatDisplay';
 import { colors } from '../theme/colors';
@@ -20,6 +20,8 @@ import { megaSessionRecentsBadge } from '../utils/sessionTokenGuards';
 type RecentChatsListProps = {
   sessions: HermesSession[];
   currentSessionId?: string | null;
+  /** Session id currently opening — row spinner + ignore further presses. */
+  switchingSessionId?: string | null;
   sessionLabelFor: (session: HermesSession) => string;
   runProgress?: RunProgressState | null;
   isSending?: boolean;
@@ -55,6 +57,7 @@ function previewSnippet(session: HermesSession, activityPreview: string | null):
 export default function RecentChatsList({
   sessions,
   currentSessionId,
+  switchingSessionId = null,
   sessionLabelFor,
   runProgress,
   isSending = false,
@@ -80,6 +83,7 @@ export default function RecentChatsList({
   }
 
   const expanded = variant === 'expanded';
+  const switchBusy = Boolean(switchingSessionId);
 
   return (
     <View style={[styles.wrap, expanded && styles.wrapExpanded]} testID={testID}>
@@ -90,9 +94,15 @@ export default function RecentChatsList({
             {onNewChat ? (
               <Pressable
                 onPress={onNewChat}
-                style={({ pressed }) => [styles.headerActionBtn, pressed && styles.pressed]}
+                disabled={switchBusy}
+                style={({ pressed }) => [
+                  styles.headerActionBtn,
+                  pressed && !switchBusy && styles.pressed,
+                  switchBusy && styles.disabledAction,
+                ]}
                 accessibilityRole="button"
                 accessibilityLabel="Start new chat"
+                accessibilityState={{ disabled: switchBusy }}
                 testID="recent-chats-new-chat"
               >
                 <Text style={styles.headerActionText}>New chat</Text>
@@ -101,9 +111,15 @@ export default function RecentChatsList({
             {onClearAll ? (
               <Pressable
                 onPress={onClearAll}
-                style={({ pressed }) => [styles.headerActionBtn, pressed && styles.pressed]}
+                disabled={switchBusy}
+                style={({ pressed }) => [
+                  styles.headerActionBtn,
+                  pressed && !switchBusy && styles.pressed,
+                  switchBusy && styles.disabledAction,
+                ]}
                 accessibilityRole="button"
                 accessibilityLabel="Clear all chats"
+                accessibilityState={{ disabled: switchBusy }}
                 testID="recent-chats-clear-all"
               >
                 <Text style={styles.headerActionTextDestructive}>Clear all</Text>
@@ -126,6 +142,7 @@ export default function RecentChatsList({
           const megaBadge = megaSessionRecentsBadge(session);
           const badge = megaBadge ?? activityBadge;
           const active = session.id === currentSessionId;
+          const opening = switchingSessionId === session.id;
           const lastActive = formatSessionLastActive(sessionLastActiveValue(session));
           const preview = previewSnippet(session, activity.preview);
 
@@ -136,19 +153,27 @@ export default function RecentChatsList({
                 styles.row,
                 expanded && styles.rowExpanded,
                 active && styles.rowActive,
+                opening && styles.rowOpening,
               ]}
             >
               <Pressable
-                onPress={() => onSelectSession(session)}
+                onPress={() => {
+                  if (switchBusy) {
+                    return;
+                  }
+                  onSelectSession(session);
+                }}
+                disabled={switchBusy}
                 style={({ pressed }) => [
                   styles.rowTap,
                   expanded && styles.rowExpandedTap,
-                  pressed && styles.pressed,
+                  pressed && !switchBusy && styles.pressed,
                 ]}
                 accessibilityRole="button"
+                accessibilityState={{ disabled: switchBusy, busy: opening }}
                 accessibilityLabel={`Open chat ${sessionLabelFor(session)}${
                   megaBadge ? `, ${megaBadge}` : ''
-                }`}
+                }${opening ? ', loading' : ''}`}
                 testID={`recent-chat-${session.id}`}
               >
                 <View style={styles.rowMain}>
@@ -182,13 +207,27 @@ export default function RecentChatsList({
                     </Text>
                   ) : null}
                 </View>
-                {lastActive ? <Text style={styles.time}>{lastActive}</Text> : null}
+                {opening ? (
+                  <ActivityIndicator
+                    size="small"
+                    color={colors.primary}
+                    testID={`recent-chat-busy-${session.id}`}
+                  />
+                ) : lastActive ? (
+                  <Text style={styles.time}>{lastActive}</Text>
+                ) : null}
               </Pressable>
               {onRenameSession && session.id !== '__telegram_inbox__' ? (
                 <Pressable
                   onPress={() => onRenameSession(session.id, sessionLabelFor(session))}
-                  style={({ pressed }) => [styles.renameBtn, pressed && styles.pressed]}
+                  disabled={switchBusy}
+                  style={({ pressed }) => [
+                    styles.renameBtn,
+                    pressed && !switchBusy && styles.pressed,
+                    switchBusy && styles.disabledAction,
+                  ]}
                   accessibilityRole="button"
+                  accessibilityState={{ disabled: switchBusy }}
                   accessibilityLabel={`Rename thread ${sessionLabelFor(session)}`}
                   testID={`recent-chat-rename-${session.id}`}
                 >
@@ -198,8 +237,14 @@ export default function RecentChatsList({
               {onDeleteSession && session.id !== '__telegram_inbox__' ? (
                 <Pressable
                   onPress={() => onDeleteSession(session.id)}
-                  style={({ pressed }) => [styles.deleteBtn, pressed && styles.pressed]}
+                  disabled={switchBusy}
+                  style={({ pressed }) => [
+                    styles.deleteBtn,
+                    pressed && !switchBusy && styles.pressed,
+                    switchBusy && styles.disabledAction,
+                  ]}
                   accessibilityRole="button"
+                  accessibilityState={{ disabled: switchBusy }}
                   accessibilityLabel={`Delete thread ${sessionLabelFor(session)}`}
                   testID={`recent-chat-delete-${session.id}`}
                 >
@@ -285,6 +330,12 @@ const styles = StyleSheet.create({
   },
   rowActive: {
     backgroundColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  rowOpening: {
+    backgroundColor: 'rgba(255, 255, 255, 0.07)',
+  },
+  disabledAction: {
+    opacity: 0.45,
   },
   rowMain: {
     flex: 1,
