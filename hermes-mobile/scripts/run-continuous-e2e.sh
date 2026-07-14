@@ -17,6 +17,9 @@ INTERVAL="${HERMES_E2E_INTERVAL_SEC:-900}"
 WATCH_DEBOUNCE="${HERMES_E2E_WATCH_DEBOUNCE_SEC:-45}"
 LOG_DIR="${HERMES_E2E_LOG_DIR:-$HERMES_DIR/docs/proofs/continuous}"
 PID_FILE="${HOME}/Library/Logs/hermes-mobile-continuous-e2e.pid"
+# Exclusive cycle lock — covers --once as well as --daemon (daemon PID_FILE alone
+# does not stop concurrent agent --once / LaunchAgent thrash on ADB + Maestro).
+CYCLE_LOCK_FILE="${HERMES_E2E_CYCLE_LOCK:-${HOME}/Library/Logs/hermes-mobile-continuous-e2e.lock}"
 LATEST_JSON="${LOG_DIR}/latest.json"
 CPU_COUNT="$(sysctl -n hw.ncpu 2>/dev/null || echo 8)"
 # Scale with core count (8-core Mac → 8, not 6) so normal dev load does not silently skip E2E.
@@ -186,8 +189,50 @@ ensure_metro() {
   return 1
 }
 
+# True when hermes-mobile has a usable local Jest (worktrees without node_modules
+# must not run continuous — they used to write unit:fail and poison latest.json).
+jest_available() {
+  [[ -x "${HERMES_DIR}/node_modules/.bin/jest" ]] \
+    || [[ -f "${HERMES_DIR}/node_modules/jest/bin/jest.js" ]]
+}
+
+# Another Maestro CLI holds the device/simulator — second continuous must not stack.
+maestro_cli_busy() {
+  # Match only the Java maestro.cli process, not bash monitors that mention the string.
+  # Avoid pipefail on empty grep: status 1 = free, 0 = busy.
+  if ps -axo command= 2>/dev/null | grep -E 'java .*maestro\.cli\.AppKt' >/dev/null 2>&1; then
+    return 0
+  fi
+  return 1
+}
+
+acquire_cycle_lock() {
+  mkdir -p "$(dirname "$CYCLE_LOCK_FILE")"
+  # FD 9 held for process lifetime; released on exit.
+  exec 9>"$CYCLE_LOCK_FILE"
+  if ! flock -n 9; then
+    local holder=""
+    if [[ -f "${CYCLE_LOCK_FILE}.pid" ]]; then
+      holder=" (holder pid $(cat "${CYCLE_LOCK_FILE}.pid" 2>/dev/null || echo '?'))"
+    fi
+    echo "Continuous E2E cycle lock busy${holder} — refusing second instance (protects ADB/Maestro)."
+    echo "Lock: ${CYCLE_LOCK_FILE}"
+    # Do not overwrite latest.json — the holder owns the proof file.
+    exit 0
+  fi
+  echo $$ >"${CYCLE_LOCK_FILE}.pid"
+  # shellcheck disable=SC2064
+  trap 'rm -f "${CYCLE_LOCK_FILE}.pid"' EXIT
+}
+
 run_unit_suite() {
   cd "$HERMES_DIR"
+  if ! jest_available; then
+    echo "jest not installed under ${HERMES_DIR} (missing node_modules)." >&2
+    echo "Refusing continuous unit suite so latest.json is not polluted with unit:fail." >&2
+    echo "Fix: run from hermes-mobile with node_modules, or npm ci in this worktree." >&2
+    return 3
+  fi
   npm test -- --no-coverage --watchman=false
   npm run test:release-safety
 }
@@ -252,7 +297,16 @@ run_e2e_suite() {
   fi
 
   local flow
+  local first=1
   for flow in "${E2E_FLOWS[@]}"; do
+    # Settle ADB/Maestro between flows — stacking ship-guard → chat-send without
+    # a pause was causing AdbSocket connect failures and empty Maestro logs.
+    if [[ $first -eq 0 ]] && has_usb_adb_device; then
+      echo "Settling ADB 12s between Maestro flows..."
+      sleep 12
+      wait_for_adb 12 >/dev/null || true
+    fi
+    first=0
     if ! run_e2e_flow "$flow"; then
       return 1
     fi
@@ -271,19 +325,58 @@ run_cycle() {
     return 0
   fi
 
+  # Hard preflight: bare worktree without node_modules must not poison shared latest.json.
+  if ! jest_available; then
+    echo "=== Hermes Mobile continuous cycle $(timestamp) ===" | tee -a "$cycle_log"
+    echo "SKIP: jest missing under ${HERMES_DIR} — not writing latest.json" | tee -a "$cycle_log"
+    return 0
+  fi
+
+  # If another agent already has Maestro mid-flow, wait briefly then skip E2E (keep unit).
+  if maestro_cli_busy && [[ "${HERMES_E2E_FORCE:-}" != "1" ]]; then
+    local wait_i=0
+    echo "Maestro CLI already running — waiting up to 90s for exclusive device access..."
+    while [[ $wait_i -lt 9 ]] && maestro_cli_busy; do
+      sleep 10
+      wait_i=$((wait_i + 1))
+    done
+    if maestro_cli_busy; then
+      echo "Maestro still busy — skipping E2E this cycle (another continuous holds device)"
+      # Still run unit so agents get a fresh unit signal without thrashing ADB.
+    fi
+  fi
+
   {
     echo "=== Hermes Mobile continuous cycle $(timestamp) ==="
     echo "Java: ${JAVA_HOME:-system}"
     echo "Maestro timeout: ${MAESTRO_DRIVER_STARTUP_TIMEOUT}ms"
+    echo "Cycle lock: ${CYCLE_LOCK_FILE} (pid $$)"
 
-    if run_unit_suite; then
+    set +e
+    run_unit_suite
+    local unit_rc=$?
+    set -e
+    if [[ $unit_rc -eq 0 ]]; then
       unit_status="pass"
       echo "UNIT: PASS"
+    elif [[ $unit_rc -eq 3 ]]; then
+      # jest missing — should have been caught above; never write unit:fail
+      echo "UNIT: SKIP (jest missing)"
+      return 0
     else
       detail="unit tests failed"
       echo "UNIT: FAIL"
       write_status "$unit_status" "$e2e_status" "$detail"
       return 1
+    fi
+
+    if maestro_cli_busy && [[ "${HERMES_E2E_FORCE:-}" != "1" ]]; then
+      e2e_status="skipped"
+      detail="skipped: another maestro.cli.AppKt process holds the device"
+      write_status "$unit_status" "$e2e_status" "$detail"
+      echo "E2E: SKIPPED (${detail})"
+      echo "Status written to ${LATEST_JSON}"
+      return 0
     fi
 
     set +e
@@ -357,15 +450,18 @@ watch_loop() {
 
 case "$MODE" in
   --once)
+    acquire_cycle_lock
     run_cycle
     ;;
   --daemon)
+    acquire_cycle_lock
     while true; do
       run_cycle || true
       sleep "$INTERVAL"
     done
     ;;
   --watch)
+    acquire_cycle_lock
     watch_loop
     ;;
   --stop)
