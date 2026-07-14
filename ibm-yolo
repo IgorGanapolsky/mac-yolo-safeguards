@@ -1,440 +1,144 @@
 #!/usr/bin/env bash
-# ibm-yolo — Enterprise multi-agent SDLC reliability operator
-#
-# Named for the IBM Bob-class market shift (full-lifecycle agents, cost/governance),
-# NOT an IBM product. Runs the mac-yolo-safeguards enterprise-sdlc cash path:
-# market signal → Stripe-verified CTAs → pipeline seed → optional smart-ops.
-#
-# Usage:
-#   ibm-yolo                  # enterprise-sdlc signal + apply pipeline + summary
-#   ibm-yolo --json           # machine-readable
-#   ibm-yolo --doctor         # health: repo tools, stripe, launchagents
-#   ibm-yolo --no-apply       # drafts only (no pipeline write)
-#   ibm-yolo --smart-ops      # also run smart-ops controller once
-#   ibm-yolo --both           # hermes-hosted + enterprise-sdlc presets
-#   ibm-yolo --help
-
+# ibm-yolo - run the official IBM Bob Shell with Bob's native --yolo mode.
 set -euo pipefail
 
-HOME_DIR="${HOME}"
-# Same layout family as grok-yolo / meta-yolo / hermes-yolo:
-#   ~/.hermes/ibm-bob/          runtime home (tools + this CLI)
-#   ~/.local/bin/ibm-yolo       symlink → ~/.hermes/ibm-bob/ibm-yolo
-HERMES_HOME="${IBM_YOLO_HOME:-$HOME_DIR/.hermes/ibm-bob}"
-WORKSPACE_REPO="$HOME_DIR/workspace/git/igor/mac-yolo-safeguards"
-MAIN_RUNTIME="$WORKSPACE_REPO/.worktrees/main-runtime"
+resolve_bob() {
+  local candidate=""
 
-resolve_repo() {
-  if [[ -n "${IBM_YOLO_REPO:-}" && -f "${IBM_YOLO_REPO}/tools/hermes-hosting-market-signal.js" ]]; then
-    printf '%s\n' "$IBM_YOLO_REPO"
-    return
-  fi
-  if [[ -f "$HERMES_HOME/tools/hermes-hosting-market-signal.js" ]]; then
-    printf '%s\n' "$HERMES_HOME"
-    return
-  fi
-  if [[ -f "$MAIN_RUNTIME/tools/hermes-hosting-market-signal.js" ]]; then
-    printf '%s\n' "$MAIN_RUNTIME"
-    return
-  fi
-  if [[ -f "$WORKSPACE_REPO/tools/hermes-hosting-market-signal.js" ]]; then
-    printf '%s\n' "$WORKSPACE_REPO"
-    return
-  fi
-  printf '%s\n' "$HERMES_HOME"
-}
-
-REPO="$(resolve_repo)"
-export REVENUE_DIR="${REVENUE_DIR:-$WORKSPACE_REPO/business_os/revenue}"
-export PATH="${HOME_DIR}/.local/bin:/opt/homebrew/bin:/usr/local/bin:${PATH:-}"
-
-JSON=0
-DOCTOR=0
-APPLY=1
-# Default = market signal only (Stripe + drafts + pipeline seed).
-# That always works without Gmail OAuth. Cash auto-send is opt-in via --cash
-# because unattended Gmail needs Workspace-scoped OAuth (not gcloud ADC).
-CASH=0
-SIGNAL_ONLY=1
-SMART=0
-BOTH=0
-HELP=0
-
-usage() {
-  cat <<'EOF'
-ibm-yolo — Enterprise multi-agent SDLC reliability operator
-(same install family as grok-yolo / meta-yolo: ~/.hermes/ibm-bob + PATH symlink)
-
-  ibm-yolo                 Market signal + Stripe check + drafts (DEFAULT)
-  ibm-yolo --cash          Auto-send via Chrome Gmail session (or google_api)
-  ibm-yolo --both          hermes-hosted + enterprise-sdlc signals
-  ibm-yolo --smart-ops     Chain smart-ops controller
-  ibm-yolo --no-apply      Do not write pipeline seed rows
-  ibm-yolo --doctor        Health check only
-  ibm-yolo --json          Machine-readable
-  ibm-yolo --help
-
-  Cash uses logged-in Google Chrome Gmail when API token lacks scopes.
-
-Env:
-  IBM_YOLO_HOME    runtime home (default ~/.hermes/ibm-bob)
-  IBM_YOLO_REPO    override tools root
-  REVENUE_DIR      private business_os/revenue path
-
-Install:
-  bash scripts/install-ibm-yolo.sh
-EOF
-}
-
-while (($#)); do
-  case "$1" in
-    --json) JSON=1; shift ;;
-    --doctor) DOCTOR=1; shift ;;
-    --no-apply) APPLY=0; shift ;;
-    --signal-only) SIGNAL_ONLY=1; CASH=0; shift ;;  # legacy alias for default
-    --no-cash) CASH=0; SIGNAL_ONLY=1; shift ;;
-    --cash) CASH=1; SIGNAL_ONLY=0; shift ;;
-    --smart-ops) SMART=1; shift ;;
-    --both) BOTH=1; shift ;;
-    -h|--help) HELP=1; shift ;;
-    *)
-      echo "ibm-yolo: unknown argument: $1" >&2
-      usage >&2
-      exit 2
-      ;;
-  esac
-done
-
-if ((HELP)); then
-  usage
-  exit 0
-fi
-
-if [[ ! -f "$REPO/tools/hermes-hosting-market-signal.js" ]]; then
-  echo "ibm-yolo: market-signal tool missing at $REPO" >&2
-  echo "  expected tools/hermes-hosting-market-signal.js" >&2
-  exit 1
-fi
-
-NODE="$(command -v node || true)"
-if [[ -z "$NODE" ]]; then
-  echo "ibm-yolo: node not found in PATH" >&2
-  exit 1
-fi
-
-doctor() {
-  local ok=1
-  local bin_path resolved
-  bin_path="$(command -v ibm-yolo 2>/dev/null || true)"
-  resolved=""
-  if [[ -n "$bin_path" && -L "$bin_path" ]]; then
-    resolved="$(readlink "$bin_path" 2>/dev/null || true)"
-  fi
-  echo "=== ibm-yolo doctor ($(hostname -s 2>/dev/null || hostname)) ==="
-  echo "layout=hermes-home (same family as grok-yolo / meta-yolo)"
-  echo "hermes_home=$HERMES_HOME"
-  echo "repo=$REPO"
-  echo "revenue_dir=$REVENUE_DIR"
-  echo "bin=${bin_path:-missing}${resolved:+ -> $resolved}"
-  echo "node=$NODE ($($NODE -v 2>/dev/null || echo '?'))"
-  for f in \
-    tools/hermes-hosting-market-signal.js \
-    tools/smart-ops-controller.js \
-    tools/revenue-autonomous-loop.js \
-    docs/ENTERPRISE-AGENT-SDLC-RELIABILITY.md; do
-    if [[ -f "$REPO/$f" ]]; then
-      echo "OK $f"
-    else
-      echo "MISS $f"
-      ok=0
+  if [[ -n "${IBM_BOB_BIN:-}" ]]; then
+    if [[ -x "$IBM_BOB_BIN" ]]; then
+      printf '%s\n' "$IBM_BOB_BIN"
+      return 0
     fi
-  done
-  if [[ -d "$REVENUE_DIR" ]]; then
-    echo "OK revenue_dir"
-    local map
-    map="$(ls -t "$REVENUE_DIR"/stripe-offer-map-*.tsv 2>/dev/null | head -1 || true)"
-    if [[ -n "$map" ]]; then
-      echo "OK stripe_map=$(basename "$map")"
-      while IFS=$'\t' read -r offer url; do
-        [[ -z "${url:-}" ]] && continue
-        code="$(curl -sS -o /dev/null -w '%{http_code}' -L --max-time 12 "$url" 2>/dev/null || echo fail)"
-        echo "  stripe $code $offer"
-      done < <(awk -F'\t' 'NR>1{print $1"\t"$7}' "$map")
-    else
-      echo "WARN no stripe-offer-map-*.tsv"
-    fi
-  else
-    echo "MISS revenue_dir"
-    ok=0
+    return 1
   fi
-  local uid
-  uid="$(id -u)"
-  for label in com.igor.smart-ops com.igor.revenue-autonomous-loop; do
-    if launchctl print "gui/${uid}/${label}" >/dev/null 2>&1; then
-      local last
-      last="$(launchctl print "gui/${uid}/${label}" 2>/dev/null | awk -F'= ' '/last exit code/{print $2; exit}')"
-      echo "OK launchd $label last_exit=${last:-?}"
-    else
-      echo "WARN launchd $label not loaded"
-    fi
-  done
-  if command -v ibm-yolo >/dev/null 2>&1; then
-    echo "OK path=$(command -v ibm-yolo)"
-  else
-    echo "WARN ibm-yolo not on PATH"
-  fi
-  if ((ok)); then
-    echo "DOCTOR_OK"
+
+  candidate="$(command -v bob 2>/dev/null || true)"
+  if [[ -n "$candidate" && -x "$candidate" ]]; then
+    printf '%s\n' "$candidate"
     return 0
   fi
-  echo "DOCTOR_FAIL"
+
+  for candidate in \
+    "$HOME/.npm-global/bin/bob" \
+    "$HOME/.local/bin/bob" \
+    "/opt/homebrew/bin/bob" \
+    "/usr/local/bin/bob"; do
+    if [[ -x "$candidate" ]]; then
+      printf '%s\n' "$candidate"
+      return 0
+    fi
+  done
+
+  if command -v npm >/dev/null 2>&1; then
+    candidate="$(npm prefix -g 2>/dev/null || true)/bin/bob"
+    if [[ -x "$candidate" ]]; then
+      printf '%s\n' "$candidate"
+      return 0
+    fi
+  fi
+
   return 1
 }
 
-if ((DOCTOR)); then
-  doctor
+emit_missing_binary() {
+  if [[ "${1:-}" == "json" ]]; then
+    printf '%s\n' '{"schema":"ibm-yolo/doctor-v1","ok":false,"provider":"IBM","product":"Bob Shell","fallback":false,"error":"official bob binary not found"}'
+  else
+    echo "ibm-yolo: official IBM Bob Shell binary 'bob' was not found" >&2
+    echo "Install it from https://bob.ibm.com/docs/shell/getting-started/install-and-setup" >&2
+  fi
+}
+
+doctor() {
+  local format="${1:-text}"
+  local bob_bin=""
+  local version=""
+
+  if ! bob_bin="$(resolve_bob)"; then
+    emit_missing_binary "$format"
+    return 127
+  fi
+
+  if ! version="$("$bob_bin" --version 2>/dev/null | head -n 1)" || [[ -z "$version" ]]; then
+    if [[ "$format" == "json" ]]; then
+      printf '%s\n' '{"schema":"ibm-yolo/doctor-v1","ok":false,"provider":"IBM","product":"Bob Shell","fallback":false,"error":"bob --version failed"}'
+    else
+      echo "ibm-yolo: '$bob_bin --version' failed" >&2
+    fi
+    return 1
+  fi
+
+  if [[ "$format" == "json" ]]; then
+    BOB_BIN_VALUE="$bob_bin" BOB_VERSION_VALUE="$version" node -e '
+      process.stdout.write(JSON.stringify({
+        schema: "ibm-yolo/doctor-v1",
+        ok: true,
+        provider: "IBM",
+        product: "Bob Shell",
+        binary: process.env.BOB_BIN_VALUE,
+        version: process.env.BOB_VERSION_VALUE,
+        defaultApprovalMode: "yolo",
+        invocation: [process.env.BOB_BIN_VALUE, "--yolo"],
+        fallback: false,
+        authentication: "not-tested-by-doctor"
+      }) + "\n");
+    '
+  else
+    printf 'IBM_YOLO_OK provider=IBM product=Bob_Shell version=%s binary=%s approval_mode=yolo fallback=false auth=not-tested\n' \
+      "$version" "$bob_bin"
+  fi
+}
+
+if [[ "${1:-}" == "--doctor" ]]; then
+  shift
+  case "${1:-}" in
+    "") doctor text ;;
+    --json) shift; [[ $# -eq 0 ]] || { echo "ibm-yolo: --doctor --json accepts no additional arguments" >&2; exit 2; }; doctor json ;;
+    *) echo "ibm-yolo: --doctor accepts only optional --json" >&2; exit 2 ;;
+  esac
   exit $?
 fi
 
-cd "$REPO"
+if ! BOB_BIN="$(resolve_bob)"; then
+  emit_missing_binary text
+  exit 127
+fi
 
-# Always capture JSON from the market-signal tool, then either print raw or a clear human summary.
-run_preset_json() {
-  local preset="$1"
-  local args=(tools/hermes-hosting-market-signal.js --preset "$preset" --json)
-  if ((APPLY)); then
-    args+=(--apply-pipeline)
-  fi
-  "$NODE" "${args[@]}"
-}
-
-print_human_summary() {
-  local payload="$1"
-  local label="${2:-enterprise-sdlc}"
-  "$NODE" -e '
-const j = JSON.parse(process.argv[1] || "{}");
-const label = process.argv[2] || "run";
-const ok = !!j.ok;
-const stripe = j.stripe && j.stripe.links ? j.stripe.links : {};
-const okN = Object.values(stripe).filter(s => s && s.ok).length;
-const total = Object.keys(stripe).length;
-const pipe = j.pipeline || {};
-const drafts = j.drafts || {};
-const sig = j.signal || {};
-const already = pipe.method === "already_present";
-const cta = drafts.cta || "(no live CTA)";
-const lines = [
-  "",
-  ok ? "ibm-yolo: SUCCESS" : "ibm-yolo: FAILED",
-  "────────────────────────────────────────",
-  "preset:  " + label,
-  "signal:  " + (sig.id || "(none)"),
-  "stripe:  " + okN + "/" + total + " live buy links",
-  "pipeline:" + (already ? " already seeded (idempotent re-run)" : (pipe.method || "n/a")),
-  "cta:     " + cta,
-  "board:   " + (j.boardPath || "(none)"),
-  "",
-];
-if (ok) {
-  lines.push("Done. Stripe links verified; drafts on the board path above.");
-  lines.push("Auto-email via Chrome Gmail: ibm-yolo --cash");
-  lines.push("");
-}
-process.stdout.write(lines.join("\n") + "\n");
-process.exit(ok ? 0 : 1);
-' "$payload" "$label"
-}
-
-print_cash_summary() {
-  local payload="$1"
-  "$NODE" -e '
-const j = JSON.parse(process.argv[1] || "{}");
-const counts = (j.funnel && j.funnel.counts) || {};
-const actions = j.actions || [];
-const due = j.due || [];
-const gmail = j.gmail || {};
-const sent = j.sentCount || 0;
-const pending = j.pendingMcp || (j.pendingSends && j.pendingSends.length) || 0;
-const stripeOk = (j.stripe || []).filter(s => s && s.ok).length;
-const stripeN = (j.stripe || []).length;
-const gmailReason = String(gmail.reason || "unknown").split("\n")[0].slice(0, 100);
-const lines = [
-  "=== CASH PATH (auto-send attempt) ===",
-  "funnel:  people sent=" + (counts.sent||0) + " lost=" + (counts.lost||0) +
-    " | theme-seeds ready=" + (counts.ready||0) + " (not emailable contacts)",
-  "stripe:  " + stripeOk + "/" + stripeN + " live",
-  "gmail:   " + (gmail.ready
-    ? ("READY via " + (gmail.channel || "api"))
-    : ("NOT READY — " + gmailReason)),
-  "due≥" + (j.followupHours != null ? j.followupHours : 48) + "h: " + due.length + " person follow-up(s)",
-  "sent:    " + sent + " email(s) this run",
-  "pending: " + pending,
-  "board:   " + (j.boardPath || "(none)"),
-  "",
-];
-if (sent > 0) {
-  lines.push("CASH RESULT: sent " + sent + " — outbound executed.");
-} else {
-  lines.push("CASH RESULT: 0 new sends this run (CLI still succeeded above).");
-  lines.push("Why:");
-  if (!gmail.ready) {
-    lines.push("  • Gmail not ready (Chrome session + google_api both unavailable).");
-  }
-  if (due.length === 0) {
-    lines.push("  • No person follow-ups due yet (already emailed recently; wait " + (j.followupHours||48) + "h).");
-  }
-  if ((counts.ready||0) > 0) {
-    lines.push("  • ready=" + counts.ready + " rows are market-signal *themes* (ibm-bob-*, hermes-hosting-*),");
-    lines.push("    not people with emails — they will never auto-send by themselves.");
-  }
-}
-lines.push("");
-lines.push("Actions:");
-for (const a of actions.slice(0, 10)) lines.push("  • " + String(a).split("\n")[0].slice(0, 120));
-lines.push("");
-process.stdout.write(lines.join("\n") + "\n");
-' "$payload"
-}
-
-chrome_gmail_ready() {
-  # Igor’s real Chrome session — preferred when google_api token lacks scopes
-  local u
-  open -a "Google Chrome" >/dev/null 2>&1 || true
-  u="$(osascript <<'APPLESCRIPT' 2>/dev/null
-tell application "Google Chrome"
-  activate
-  if not (exists window 1) then make new window
-  set URL of active tab of front window to "https://mail.google.com/mail/u/0/#inbox"
-  delay 3
-  return URL of active tab of front window
-end tell
-APPLESCRIPT
-)"
-  [[ "$u" == *mail.google.com* && "$u" != *accounts.google.com* ]]
-}
-
-run_cash_path() {
-  # Prefer tools that resolve private revenue data + pipeline-update from workspace if present
-  local cash_root="$HERMES_HOME"
-  if [[ ! -f "$cash_root/tools/revenue-autonomous-loop.js" ]]; then
-    if [[ -f "$WORKSPACE_REPO/tools/revenue-autonomous-loop.js" ]]; then
-      cash_root="$WORKSPACE_REPO"
-    elif [[ -f "$MAIN_RUNTIME/tools/revenue-autonomous-loop.js" ]]; then
-      cash_root="$MAIN_RUNTIME"
+has_yolo=0
+previous=""
+for argument in "$@"; do
+  case "$argument" in
+    -y|--yolo|--approval-mode=yolo)
+      has_yolo=1
+      ;;
+    --approval-mode=*)
+      echo "ibm-yolo: refusing approval mode '${argument#*=}'; use the 'bob' command for non-yolo modes" >&2
+      exit 2
+      ;;
+    --yolo=false)
+      echo "ibm-yolo: refusing --yolo=false; use the 'bob' command for non-yolo modes" >&2
+      exit 2
+      ;;
+  esac
+  if [[ "$previous" == "--approval-mode" ]]; then
+    if [[ "$argument" == "yolo" ]]; then
+      has_yolo=1
     else
-      cash_root="$REPO"
+      echo "ibm-yolo: refusing approval mode '$argument'; use the 'bob' command for non-yolo modes" >&2
+      exit 2
     fi
   fi
-  export REVENUE_DIR="${REVENUE_DIR:-$WORKSPACE_REPO/business_os/revenue}"
-  export REVENUE_AUTO_SEND="${REVENUE_AUTO_SEND:-1}"
-  export REVENUE_NTFY_QUIET_NOOP="${REVENUE_NTFY_QUIET_NOOP:-1}"
-  # Use logged-in Chrome Gmail when API token is missing/insufficient scopes
-  unset REVENUE_NO_CHROME_GMAIL 2>/dev/null || true
-  export REVENUE_CHROME_GMAIL_FIRST=1
-  # Allow at least one due follow-up when explicitly cashing (Chrome path)
-  export REVENUE_FOLLOWUP_HOURS="${REVENUE_FOLLOWUP_HOURS:-0}"
-  export REVENUE_MAX_AUTO_SENDS="${REVENUE_MAX_AUTO_SENDS:-1}"
-  (cd "$cash_root" && "$NODE" tools/revenue-autonomous-loop.js --auto-send --json --fast 2>/dev/null) \
-    || echo '{"ok":false,"actions":["cash_path_failed"],"funnel":{"counts":{}},"gmail":{"ready":false,"reason":"cash_path_failed"},"sentCount":0}'
-}
+  previous="$argument"
+done
 
-
-EXIT=0
-if ((BOTH)); then
-  hermes_out="$(run_preset_json hermes-hosted 2>/dev/null || echo '{"ok":false}')"
-  ent_out="$(run_preset_json enterprise-sdlc 2>/dev/null || echo '{"ok":false}')"
-  if ((JSON == 0)); then
-    print_human_summary "$hermes_out" "hermes-hosted" || EXIT=1
-    print_human_summary "$ent_out" "enterprise-sdlc" || EXIT=1
-  fi
-else
-  out="$(run_preset_json enterprise-sdlc 2>/dev/null || echo '{"ok":false}')"
-  if ((JSON == 0)); then
-    print_human_summary "$out" "enterprise-sdlc" || EXIT=1
-  fi
+if [[ "$previous" == "--approval-mode" ]]; then
+  echo "ibm-yolo: --approval-mode requires the value 'yolo'" >&2
+  exit 2
 fi
 
-CASH_OUT='{}'
-if ((CASH && !DOCTOR)); then
-  # Prefer Chrome Gmail (logged-in session) when google_api lacks scopes.
-  # Do NOT skip cash just because Workspace OAuth token is missing.
-  if chrome_gmail_ready; then
-    if ((JSON == 0)); then
-      echo "=== CASH PATH (Chrome Gmail session) ==="
-      echo "Using logged-in Google Chrome — not google_api token."
-      echo ""
-    fi
-    CASH_OUT="$(run_cash_path)"
-    # Annotate channel for humans
-    CASH_OUT="$("$NODE" -e '
-const j=JSON.parse(process.argv[1]||"{}");
-j.gmail=j.gmail||{};
-j.gmail.ready=true;
-j.gmail.channel="chrome_gmail";
-j.gmail.reason="chrome_session";
-if (!j.actions) j.actions=[];
-j.actions.unshift("gmail_channel=chrome_session");
-console.log(JSON.stringify(j));
-' "$CASH_OUT")"
-    if ((JSON == 0)); then
-      print_cash_summary "$CASH_OUT" || true
-    fi
-  elif ~/.hermes/google-venv/bin/python \
-      "$HOME/.hermes/skills/productivity/google-workspace/scripts/google_api.py" \
-      gmail search 'newer_than:7d' --max 1 >/tmp/ibm-yolo-gmail-probe.out 2>&1; then
-    CASH_OUT="$(run_cash_path)"
-    if ((JSON == 0)); then
-      print_cash_summary "$CASH_OUT" || true
-    fi
-  else
-    if ((JSON == 0)); then
-      echo "=== CASH PATH blocked ==="
-      echo "Neither Chrome Gmail session nor google_api token is ready."
-      echo "Open Chrome signed into Gmail, then: ibm-yolo --cash"
-      echo ""
-    fi
-    CASH_OUT='{"ok":false,"skipped":true,"gmail":{"ready":false,"reason":"no_chrome_no_api"},"sentCount":0,"actions":["cash_blocked"]}'
-  fi
+if ((has_yolo)); then
+  exec "$BOB_BIN" "$@"
 fi
 
-if ((SMART)); then
-  if [[ -f "$REPO/tools/smart-ops-controller.js" ]]; then
-    export SMART_OPS_MARKET_SIGNAL=1
-    export REVENUE_AUTO_SEND="${REVENUE_AUTO_SEND:-1}"
-    export REVENUE_NTFY_QUIET_NOOP="${REVENUE_NTFY_QUIET_NOOP:-1}"
-    so="$("$NODE" tools/smart-ops-controller.js --json 2>/dev/null || echo '{}')"
-    if ((JSON == 0)); then
-      echo "=== smart-ops ==="
-      echo "$so" | "$NODE" -e '
-        let s=""; process.stdin.on("data",d=>s+=d); process.stdin.on("end",()=>{
-          try {
-            const j=JSON.parse(s);
-            console.log("smart-ops: " + (j.ok ? "SUCCESS" : "FAILED") + "  durationMs=" + (j.durationMs||"?"));
-            (j.actions||[]).forEach(a=>console.log("  • " + a));
-          } catch { console.log(s.slice(0,500)); }
-        });
-      '
-    fi
-  fi
-fi
-
-if ((JSON)); then
-  if ((BOTH)); then
-    "$NODE" -e '
-      const h=JSON.parse(process.argv[1]||"{}");
-      const e=JSON.parse(process.argv[2]||"{}");
-      const c=JSON.parse(process.argv[3]||"{}");
-      console.log(JSON.stringify({ok: !!(h.ok&&e.ok), hermes_hosted:h, enterprise_sdlc:e, cash:c, command:"ibm-yolo --both"}, null, 2));
-      process.exit((h.ok&&e.ok)?0:1);
-    ' "${hermes_out:-{}}" "${ent_out:-{}}" "$CASH_OUT" || EXIT=1
-  else
-    "$NODE" -e '
-      const s=JSON.parse(process.argv[1]||"{}");
-      const c=JSON.parse(process.argv[2]||"{}");
-      console.log(JSON.stringify({ok: !!s.ok, signal:s, cash:c, command:"ibm-yolo"}, null, 2));
-      process.exit(s.ok?0:1);
-    ' "${out:-{}}" "$CASH_OUT" || EXIT=1
-  fi
-fi
-
-exit "$EXIT"
+exec "$BOB_BIN" --yolo "$@"
