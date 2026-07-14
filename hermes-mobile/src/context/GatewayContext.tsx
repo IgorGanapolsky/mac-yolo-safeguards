@@ -127,6 +127,7 @@ import {
   profilesForActiveMachine,
 } from '../services/gatewayProfiles';
 import {
+  bootstrapTailnetProbeHostsFromPairServers,
   discoverAllGatewaysOnLan,
   discoverGatewayOnPhoneSubnet,
   discoverGatewayViaPairServer,
@@ -1970,10 +1971,14 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
     });
     try {
       const lastLanIp = await storage.loadLastGatewayLanIp();
+      const preScanTailnet = tailnetProbeHostsRef.current.length
+        ? tailnetProbeHostsRef.current
+        : await tailnetProbeStorage.load();
       const { gateways: discovered, tailnetProbeHosts } = await discoverAllGatewaysOnLan(
         lastLanIp,
         {
           onProgress: setProfileScanProgress,
+          tailnetPairServerHosts: preScanTailnet,
         },
       );
       if (tailnetProbeHosts.length > 0) {
@@ -2055,7 +2060,9 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
 
       if (storedHosts.length === 0) {
         const lastLanIp = await storage.loadLastGatewayLanIp();
-        const { tailnetProbeHosts } = await discoverAllGatewaysOnLan(lastLanIp);
+        const { tailnetProbeHosts } = await discoverAllGatewaysOnLan(lastLanIp, {
+          tailnetPairServerHosts: collectTailnetProbeHosts(profileStateRef.current.profiles),
+        });
         if (tailnetProbeHosts.length > 0) {
           storedHosts = await mergeTailnetProbeHostsFromScan(
             tailnetProbeHosts,
@@ -2064,12 +2071,48 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
           );
         }
       }
+      if (storedHosts.length === 0) {
+        const boot = await bootstrapTailnetProbeHostsFromPairServers(
+          collectTailnetProbeHosts(profileStateRef.current.profiles),
+        );
+        if (boot.tailnetProbeHosts.length > 0) {
+          storedHosts = await mergeTailnetProbeHostsFromScan(
+            boot.tailnetProbeHosts,
+            tailnetProbeStorage,
+            tailnetProbeHostsRef,
+          );
+        }
+      } else {
+        const boot = await bootstrapTailnetProbeHostsFromPairServers(storedHosts);
+        if (boot.tailnetProbeHosts.length > storedHosts.length) {
+          storedHosts = await mergeTailnetProbeHostsFromScan(
+            boot.tailnetProbeHosts,
+            tailnetProbeStorage,
+            tailnetProbeHostsRef,
+          );
+        }
+      }
       setTailnetProbeHostCount(storedHosts.length);
 
-      const probeHosts = collectTailnetProbeHosts(
+      let probeHosts = collectTailnetProbeHosts(
         profileStateRef.current.profiles,
         storedHosts,
       );
+      if (probeHosts.length === 0) {
+        const boot = await bootstrapTailnetProbeHostsFromPairServers(storedHosts);
+        if (boot.tailnetProbeHosts.length > 0) {
+          storedHosts = await mergeTailnetProbeHostsFromScan(
+            boot.tailnetProbeHosts,
+            tailnetProbeStorage,
+            tailnetProbeHostsRef,
+          );
+          setTailnetProbeHostCount(storedHosts.length);
+          probeHosts = collectTailnetProbeHosts(
+            profileStateRef.current.profiles,
+            storedHosts,
+          );
+        }
+      }
       if (probeHosts.length === 0) {
         setTailscaleDiscoveries([]);
         return;
