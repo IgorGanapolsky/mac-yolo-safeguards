@@ -76,3 +76,11 @@ fi
 echo ""
 echo "=== Verifying ==="
 HOME="$INSTALL_HOME" "$INSTALL_HOME/.local/bin/yolo-health" || { echo "yolo-health reported failures"; exit 1; }
+
+# Preserve an operator's explicit zero-spend policy after this installer
+# refreshes the Hermes symlink. CI smoke homes never inherit the live marker.
+if [ -f "$INSTALL_HOME/.hermes/NO_PAID_SPEND" ]; then
+  echo ""
+  echo "=== Restoring zero-spend command gate ==="
+  HOME="$INSTALL_HOME" sh "$REPO/scripts/install-zero-spend-gate.sh" --install
+fi
