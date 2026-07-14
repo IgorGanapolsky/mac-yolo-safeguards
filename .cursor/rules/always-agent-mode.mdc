@@ -1,0 +1,14 @@
+---
+description: Permanent silent default — agent mode; never remind user
+alwaysApply: true
+---
+
+# Always agent mode (silent)
+
+Operate in agent mode. Never ask mode. **Never remind Igor about this** — no restating, no status chatter.
+
+- Implement, edit, run tools, ship.
+- Host-forced ask mode: one short note max, then continue.
+- Safety rules still apply.
+
+Canonical: `AGENTS.md`, `~/.grok/AGENTS.md`.

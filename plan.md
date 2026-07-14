@@ -182,6 +182,8 @@ Durable rules live in [AGENTS.md](./AGENTS.md); this file is *live state only*.
 | T-255 | Stuck empty-reply Refresh CTA (no pull-to-refresh at chat bottom) | in_progress | cursor-empty-stream-refresh | `hermes-mobile/src/utils/streamAssistantText.ts`, `hermes-mobile/src/utils/emptyStreamReplyRecovery.ts`, `hermes-mobile/src/utils/emptyStreamRefreshCta.ts`, `hermes-mobile/src/components/EmptyStreamRefreshBanner.tsx`, `hermes-mobile/src/components/RunProgressBanner.tsx`, `hermes-mobile/src/screens/ChatScreen.tsx` (refresh banner wiring only; coord adb92465 duplicate-send), tests, `plan.md` | Refresh chip + banner wired to refreshSessionMessages; copy bans pull-to-refresh; Jest green |
 | T-269 | Fix duplicate user bubble when gateway ack races optimistic send | done | cursor-dup-bubble | `hermes-mobile/src/utils/chatMessageMerge.ts`, `hermes-mobile/src/__tests__/chatMessageMerge.test.ts`, `plan.md` | PR #325 d245cb55; one user turn → one bubble; merge transfers outbound status; Jest 1382/1383 |
 
+| T-256 | OTA check spinner timeout (withTimeout 30s/60s) | in_progress | cursor-ota-timeout | `hermes-mobile/src/services/appOtaUpdate.ts`, `hermes-mobile/src/__tests__/appOtaUpdate.test.ts`, `hermes-mobile/src/__tests__/ConnectionHealthHub.test.tsx`, `plan.md` | Check for update spinner clears ≤30s; focused Jest pass; production OTA |
+
 Status values: `pending` | `in_progress` | `blocked` | `done`. Claim a row by setting Owner+Status in one edit, then claim its files in §2.
 
 ## 2. File Ownership Map
