@@ -4,16 +4,18 @@ import type { GatewayProfile } from '../types/gatewayProfile';
 import type { LanScanProgress, LanScanResult } from '../types/lanScan';
 import MacScanProgressCard from './MacScanProgressCard';
 import {
-  profileConnectionRouteLabel,
+  profileConnectionRouteDisplayLabel,
   profilePickerLines,
 } from '../utils/gatewayProfilePicker';
+import { isLoopbackGatewayUrl } from '../utils/gatewayUrlPolicy';
 import { colors } from '../theme/colors';
 import { GATEWAY_AUTH_REPAIR_SETTINGS_STATUS } from '../services/gatewayClient';
 
 type GatewayProfilePickerProps = {
   profiles: GatewayProfile[];
   activeProfileId: string | null;
-  onSelect: (profileId: string) => void;
+  /** Prefer receiving the full profile so live USB rows (not yet saved) still select. */
+  onSelect: (profileId: string, profile: GatewayProfile) => void;
   onRemove?: (profileId: string) => void;
   activeReachable?: boolean;
   activeConnecting?: boolean;
@@ -58,10 +60,10 @@ export default function GatewayProfilePicker({
       {profiles.map((profile) => {
         const isActive = profile.id === activeProfileId;
         const lines = profilePickerLines(profile);
-        const rawRouteHint = showRouteHints
-          ? profileConnectionRouteLabel(profile, wifiConnected)
+        const routeHint = showRouteHints
+          ? profileConnectionRouteDisplayLabel(profile, wifiConnected)
           : null;
-        const routeHint = rawRouteHint;
+        const isUsb = isLoopbackGatewayUrl(profile.gatewayUrl);
         const meta = isActive
           ? authNeedsRepair
             ? routeHint
@@ -78,7 +80,11 @@ export default function GatewayProfilePicker({
               : routeHint === 'Needs tunnel'
                 ? 'Needs tunnel (cellular)'
                 : 'Cannot reach this computer'
-          : routeHint ?? 'Select';
+          : routeHint
+            ? isUsb
+              ? `${routeHint} · tap to switch`
+              : `${routeHint} · tap to switch`
+            : 'Tap to switch';
         const statusColor = isActive
           ? authNeedsRepair
             ? colors.warning
@@ -92,8 +98,9 @@ export default function GatewayProfilePicker({
           <View key={profile.id} style={styles.row} testID={`gateway-profile-item-${profile.id}`}>
             <TouchableOpacity
               style={[styles.selectButton, isActive && styles.selectButtonActive]}
-              onPress={() => onSelect(profile.id)}
+              onPress={() => onSelect(profile.id, profile)}
               accessibilityState={{ selected: isActive }}
+              accessibilityLabel={`${lines.title}, ${meta}`}
               testID={`select-gateway-profile-${profile.id}`}
             >
               <View style={[styles.selectDot, { borderColor: statusColor }]}>
@@ -126,10 +133,11 @@ export default function GatewayProfilePicker({
                 </Text>
               </View>
             </TouchableOpacity>
-            {onRemove && profiles.length > 1 ? (
+            {onRemove && profiles.length > 1 && !isUsb ? (
               <TouchableOpacity
                 style={styles.removeButton}
                 onPress={() => onRemove(profile.id)}
+                accessibilityLabel={`Remove ${lines.title}`}
                 testID={`remove-gateway-profile-${profile.id}`}
               >
                 <Text style={styles.removeText}>Remove</Text>

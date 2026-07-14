@@ -24,7 +24,8 @@ export type ProfilePickerLines = {
 
 function profilePickerEndpoint(profile: GatewayProfile): string | undefined {
   if (isLoopbackGatewayUrl(profile.gatewayUrl)) {
-    return undefined;
+    // Make USB rows self-explanatory next to a Tailscale twin of the same Mac.
+    return 'USB cable · only while plugged in';
   }
   if (isTailscaleGatewayUrl(profile.gatewayUrl)) {
     const host = gatewayUrlHostname(profile.gatewayUrl);
@@ -51,6 +52,28 @@ export function profilePickerLines(profile: GatewayProfile): ProfilePickerLines 
     return { title, detail: endpoint };
   }
   return { title };
+}
+
+/** Friendly multi-Mac route chip (avoid bare "USB" next to a Tailscale twin). */
+export function profileConnectionRouteDisplayLabel(
+  profile: GatewayProfile,
+  wifiConnected: boolean,
+): string {
+  const route = profileConnectionRouteLabel(profile, wifiConnected);
+  switch (route) {
+    case 'USB':
+      return 'USB cable';
+    case 'Tailscale':
+      return 'Tailscale';
+    case 'Wi-Fi':
+      return 'Home Wi‑Fi';
+    case 'Needs tunnel':
+      return 'Needs tunnel';
+    case 'Tunnel':
+      return 'Tunnel';
+    default:
+      return route;
+  }
 }
 
 function profilePickerDedupeKey(profile: GatewayProfile): string {
@@ -203,7 +226,8 @@ function dedupeSwitchPickerRows(profiles: GatewayProfile[]): GatewayProfile[] {
   return rows;
 }
 
-function synthesizeLiveUsbProfile(hostname: string): GatewayProfile {
+/** Build a selectable USB/loopback profile for the Mac currently on adb reverse. */
+export function synthesizeLiveUsbProfile(hostname: string): GatewayProfile {
   const cleanHost = hostname.replace(/\.local$/i, '').trim();
   const now = new Date().toISOString();
   return {
@@ -211,9 +235,26 @@ function synthesizeLiveUsbProfile(hostname: string): GatewayProfile {
     label: cleanHost,
     gatewayUrl: USB_LOOPBACK_GATEWAY_URL,
     hostname: hostname.includes('.local') ? hostname : `${cleanHost}.local`,
+    localIp: '127.0.0.1',
     addedAt: now,
     lastConnectedAt: now,
   };
+}
+
+/**
+ * Resolve a picker row to a profile that can be selected/saved.
+ * Live USB rows may be synthesized and not yet in storage — callers must ensure them.
+ */
+export function resolveProfileFromPickerRows(
+  profileId: string,
+  pickerRows: GatewayProfile[],
+  savedProfiles: GatewayProfile[],
+): GatewayProfile | null {
+  const fromPicker = pickerRows.find((p) => p.id === profileId);
+  if (fromPicker) {
+    return fromPicker;
+  }
+  return savedProfiles.find((p) => p.id === profileId) ?? null;
 }
 
 function sortUsbProfilesFirst(profiles: GatewayProfile[]): GatewayProfile[] {

@@ -35,7 +35,7 @@ const mockGatewayState = {
   relayWorkers: [],
   activeRelayWorkerId: null,
   isPaired: false,
-  selectGatewayProfile: jest.fn().mockResolvedValue(undefined),
+  selectGatewayProfile: jest.fn().mockResolvedValue(true),
   scanForGatewayProfiles: jest.fn().mockResolvedValue([]),
   profileScanning: false,
   profileScanProgress: null,
