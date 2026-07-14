@@ -98,6 +98,10 @@ import {
 } from '../utils/connectionSelfHeal';
 import { CONNECTION_HEAL_EXHAUSTED_AFTER } from '../utils/connectionErrorPolicy';
 import {
+  evaluatePairDeepLinkApply,
+  shouldRunForegroundUsbHeal,
+} from '../utils/pairDeepLinkApply';
+import {
   profileMatchesDiscoveredGateway,
   profileMatchesHostname,
 } from '../utils/gatewayProfilePicker';
@@ -363,6 +367,7 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
   const tailnetProbeHostsRef = useRef<string[]>([]);
   const tailscaleProbeInFlightRef = useRef(false);
   const probeTailscaleComputersRef = useRef<() => Promise<void>>(async () => {});
+  const runConnectionSelfHealRef = useRef<() => Promise<void>>(async () => {});
   const connectionHealInFlightRef = useRef(false);
   const connectionHealAttemptRef = useRef(0);
   const [connectionHealAttempt, setConnectionHealAttempt] = useState(0);
@@ -2264,6 +2269,10 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
   }, [probeTailscaleComputers]);
 
   useEffect(() => {
+    runConnectionSelfHealRef.current = runConnectionSelfHeal;
+  }, [runConnectionSelfHeal]);
+
+  useEffect(() => {
     if (!isLoaded || settings.demoMode) {
       return;
     }
@@ -2278,9 +2287,18 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
       if (nextAppState !== 'active') {
         return;
       }
-      if (isGatewayHealthOk(healthRef.current)) {
+      if (
+        !shouldRunForegroundUsbHeal({
+          platform: Platform.OS,
+          demoMode: settingsRef.current.demoMode,
+          healthOk: isGatewayHealthOk(healthRef.current),
+        })
+      ) {
         return;
       }
+      connectionHealAttemptRef.current = 0;
+      setConnectionHealAttempt(0);
+      void runConnectionSelfHealRef.current();
       void probeTailscaleComputersRef.current();
     };
     const sub = AppState.addEventListener('change', handleAppStateChange);
@@ -2387,6 +2405,7 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
       }
 
       const relayCode = params.relayCode?.trim().toUpperCase();
+      let relayPairSucceeded = false;
       if (relayCode) {
         try {
           const token = await completePairing(settingsRef.current.cloudUrl, relayCode);
@@ -2395,6 +2414,7 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
           mobileTokenRef.current = token;
           setLastEventError(undefined);
           connectEventsRef.current?.();
+          relayPairSucceeded = true;
         } catch (error) {
           setLastEventError(
             error instanceof Error ? error.message : 'Hermes Relay pairing failed',
@@ -2402,8 +2422,24 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
         }
       }
 
+      const persistDecision = evaluatePairDeepLinkApply({
+        params,
+        relayPairAttempted: Boolean(relayCode),
+        relayPairSucceeded,
+      });
+      if (persistDecision.userError) {
+        setLastEventError(persistDecision.userError);
+      }
+      if (!persistDecision.shouldPersistProfiles && !persistDecision.shouldPersistSettings) {
+        if (relayPairSucceeded) {
+          haptics.success();
+          await refreshHealth();
+        }
+        return;
+      }
+
       if (!params.gatewayUrl?.trim()) {
-        if (relayCode) {
+        if (relayPairSucceeded) {
           haptics.success();
           await refreshHealth();
         }
@@ -2413,10 +2449,6 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
       const gatewayUrl = params.gatewayUrl.trim();
       if (!isValidGatewayUrl(gatewayUrl)) {
         setLastEventError('Pair link had an incomplete computer URL — try pairing again from your computer.');
-        if (relayCode) {
-          haptics.success();
-          await refreshHealth();
-        }
         return;
       }
       const lanIp = extractLanIpFromGatewayUrl(gatewayUrl);
@@ -2483,9 +2515,11 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
         );
       }
       nextProfileState = sanitizeGatewayProfileState(nextProfileState);
-      profileStateRef.current = nextProfileState;
-      setProfileState(nextProfileState);
-      await gatewayProfiles.save(nextProfileState);
+      if (persistDecision.shouldPersistProfiles) {
+        profileStateRef.current = nextProfileState;
+        setProfileState(nextProfileState);
+        await gatewayProfiles.save(nextProfileState);
+      }
 
       if (params.apiKey?.trim() && nextProfileState.activeProfileId) {
         await secureCredentials.saveProfileApiKey(
@@ -2494,10 +2528,15 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
         );
       }
 
+      if (!persistDecision.shouldPersistSettings) {
+        await refreshHealth();
+        return;
+      }
+
       const nextSettings: GatewaySettings = {
         ...settingsRef.current,
         gatewayUrl,
-        connectionMode: 'relay',
+        connectionMode: persistDecision.connectionMode,
         demoMode: false,
       };
       const nextKey = params.apiKey?.trim() || apiKeyRef.current;
