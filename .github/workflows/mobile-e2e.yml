@@ -44,6 +44,9 @@ on:
   # branch protection treats a skipped required check as satisfied. So: always trigger
   # the workflow, and skip the expensive emulator job when mobile files are untouched.
   pull_request:
+  # Merge queue dispatches merge_group (not pull_request). Required for the
+  # "Maestro ship-guard (Android emulator)" check when main enforces merge queue.
+  merge_group:
 
 # Per-ref concurrency. A single GLOBAL group was tried to serialise the emulator, but
 # GitHub keeps only ONE pending run per concurrency group: each new run cancelled the

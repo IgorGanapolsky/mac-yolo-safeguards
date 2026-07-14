@@ -123,6 +123,15 @@ import {
   findDeferredPlaceholderAfterLastUser,
 } from '../utils/chatMessageMerge';
 import {
+  STALLED_SEND_AUTO_RECOVER_MS,
+  STALLED_SEND_RECOVERING_HINT,
+  clearResolvedFailedOutboundStatuses,
+  findLastFailedOutboundFailureReason,
+  findLastStalledFailedOutboundText,
+  isStalledOutboundFailureReason,
+  shouldAutoRecoverStalledSend,
+} from '../utils/stalledChatRecovery';
+import {
   PENDING_NEW_SESSION_KEY,
   clearPendingOutbound,
   extractPersistableOutboundFromTranscript,
@@ -173,6 +182,7 @@ import {
   chatDistanceFromBottom,
   resolveUserScrolledUp,
   shouldAutoScroll,
+  shouldRunThrottledStreamScroll,
   shouldCancelPendingScroll,
 } from '../utils/chatAutoScroll';
 import ChatScrollControls from '../components/ChatScrollControls';
@@ -627,6 +637,9 @@ export default function ChatScreen() {
   const userDraggingRef = useRef(false);
   const lastDistanceFromBottomRef = useRef(0);
   const scrollCancelGenerationRef = useRef(0);
+  /** Throttle stream bottom-follow so token updates do not fight FlashList MVCP (jitter). */
+  const streamScrollLastAtRef = useRef(0);
+  const streamScrollRafRef = useRef<number | null>(null);
   /** Force one bottom pin after session/computer switch once transcript content lays out. */
   const pinScrollAfterHydrationRef = useRef(false);
   const messagesRef = useRef<HermesMessage[]>([]);
@@ -679,6 +692,8 @@ export default function ChatScreen() {
     async () => false,
   );
   const lastFailedSendTextRef = useRef<string | null>(null);
+  const stalledRecoveriesUsedRef = useRef(0);
+  const stalledRecoverInFlightRef = useRef(false);
   const activeChatStreamRef = useRef(false);
   /** Session ids the gateway rejected as removed/restarted — never resume or target these again. */
   const removedSessionIdsRef = useRef<Set<string>>(new Set());
@@ -771,9 +786,13 @@ export default function ChatScreen() {
       }
       flatListRef.current?.scrollToEnd({ animated });
     };
-    requestAnimationFrame(() => {
+    // Single frame is enough; double-rAF on every stream token caused visible jitter.
+    if (streamScrollRafRef.current != null) {
+      cancelAnimationFrame(streamScrollRafRef.current);
+    }
+    streamScrollRafRef.current = requestAnimationFrame(() => {
+      streamScrollRafRef.current = null;
       run();
-      requestAnimationFrame(run);
     });
   }, []);
 
@@ -792,11 +811,26 @@ export default function ChatScreen() {
       }
       const streaming = isChatStreamingActive();
       if (
-        force ||
-        shouldAutoScroll(lastDistanceFromBottomRef.current, streaming, false)
+        !(
+          force ||
+          shouldAutoScroll(lastDistanceFromBottomRef.current, streaming, false)
+        )
       ) {
-        scrollChatToLatest(animated && !streaming);
+        return;
       }
+      // During stream: throttle + never animate. FlashList MVCP also follows bottom;
+      // unthrottled scrollToEnd on every token makes the list stutter and jump.
+      if (streaming) {
+        const now = Date.now();
+        if (!shouldRunThrottledStreamScroll(streamScrollLastAtRef.current, now)) {
+          return;
+        }
+        streamScrollLastAtRef.current = now;
+        scrollChatToLatest(false);
+        return;
+      }
+      streamScrollLastAtRef.current = 0;
+      scrollChatToLatest(animated);
     },
     [isChatStreamingActive, scrollChatToLatest],
   );
@@ -1000,14 +1034,21 @@ export default function ChatScreen() {
       }),
     [runProgress, lastFailedOutboundText],
   );
+  // RELEASE BLOCK: Wrong-key banner is authoritative — never leave header green beside it.
+  const wrongKeyBannerActive = useMemo(
+    () => Boolean(errorMessage && isAuthRepairMessage(errorMessage)),
+    [errorMessage],
+  );
+  const effectiveAuthMismatch =
+    health?.authMismatch === true || wrongKeyBannerActive;
   const effectiveMacHttpOk = useMemo(
     () =>
       resolveEffectiveMacHttpOk({
         macHttpOk,
         connectivityFailure: connectivityRunFailure,
-        authMismatch: health?.authMismatch === true,
+        authMismatch: effectiveAuthMismatch,
       }),
-    [macHttpOk, connectivityRunFailure, health?.authMismatch],
+    [macHttpOk, connectivityRunFailure, effectiveAuthMismatch],
   );
   const effectiveMacChatLive = isDemo || effectiveMacHttpOk;
   const macLiveSocket = isDemo || connectionState === 'connected';
@@ -1028,7 +1069,95 @@ export default function ChatScreen() {
   );
   const userSendFailed = pinnedOutboundStatus === 'failed';
   const hasRetryableFailedSend = Boolean(lastFailedOutboundText?.trim());
-  const chatStalled = hasRetryableFailedSend && macHttpOk && !connectivityRunFailure;
+  const chatStalled =
+    hasRetryableFailedSend &&
+    macHttpOk &&
+    !connectivityRunFailure &&
+    !stalledRecoverInFlightRef.current;
+
+  useEffect(() => {
+    stalledRecoveriesUsedRef.current = 0;
+    stalledRecoverInFlightRef.current = false;
+  }, [currentSession?.id]);
+
+  useEffect(() => {
+    const failedText =
+      findLastStalledFailedOutboundText(messages) ??
+      (isStalledOutboundFailureReason(runProgress?.detail)
+        ? lastFailedOutboundText ?? lastFailedSendTextRef.current
+        : null);
+    const failureReason =
+      findLastFailedOutboundFailureReason(messages) ?? runProgress?.detail ?? null;
+    if (
+      !shouldAutoRecoverStalledSend({
+        macHttpOk,
+        isDemo,
+        isSending,
+        recoveriesUsed: stalledRecoveriesUsedRef.current,
+        failedText,
+        failureReason,
+        runDetail: runProgress?.detail,
+      })
+    ) {
+      return;
+    }
+    if (stalledRecoverInFlightRef.current) {
+      return;
+    }
+    const timer = setTimeout(() => {
+      if (stalledRecoverInFlightRef.current || isSendingRef.current) {
+        return;
+      }
+      const retryText =
+        findLastStalledFailedOutboundText(messagesRef.current)?.trim() ||
+        lastFailedSendTextRef.current?.trim() ||
+        failedText?.trim();
+      if (!retryText) {
+        return;
+      }
+      stalledRecoverInFlightRef.current = true;
+      stalledRecoveriesUsedRef.current += 1;
+      lastFailedSendTextRef.current = retryText;
+      setRunProgress((prev) =>
+        prev
+          ? { ...prev, phase: 'sending', detail: STALLED_SEND_RECOVERING_HINT }
+          : {
+              phase: 'sending',
+              startedAtMs: Date.now(),
+              detail: STALLED_SEND_RECOVERING_HINT,
+            },
+      );
+      void (async () => {
+        try {
+          const runIds = [
+            runProgressRef.current?.runId,
+            sendProgressSnapshotRef.current?.runId,
+          ].filter((id): id is string => Boolean(id?.trim()));
+          await releaseMacOperatorSlot(gatewayUrl, apiKey, runIds).catch(() => {});
+          isSendingRef.current = false;
+          setIsSending(false);
+          setErrorMessage(null);
+          setPinnedOutboundText(null);
+          setPinnedOutboundSentAt(null);
+          setPinnedOutboundStatus('pending');
+          await sendUserTextRef.current(retryText, true);
+        } finally {
+          stalledRecoverInFlightRef.current = false;
+        }
+      })();
+    }, STALLED_SEND_AUTO_RECOVER_MS);
+    return () => clearTimeout(timer);
+  }, [
+    apiKey,
+    gatewayUrl,
+    isDemo,
+    isSending,
+    lastFailedOutboundText,
+    macHttpOk,
+    messages,
+    runProgress?.detail,
+    runProgress?.phase,
+  ]);
   const hideMacTileForSilentHeal = shouldHideMacTileForSilentHeal({
     silentHealInFlight: connectionHealInFlight,
     macRetryBusy,
@@ -1355,6 +1484,20 @@ export default function ChatScreen() {
 
   const machineShortLabel = machineHeaderDisplay.machineLabel;
   const machineEndpoint = machineHeaderDisplay.machineEndpoint;
+
+  // SHIP BLOCK: health authMismatch must surface the Wrong-key banner and never leave
+  // green Connected with silent auth failure (fresh install dual-state crisis).
+  useEffect(() => {
+    if (health?.authMismatch !== true) {
+      return;
+    }
+    setErrorMessage((prev) => {
+      if (prev && isAuthRepairMessage(prev)) {
+        return prev;
+      }
+      return gatewayAuthRepairBanner(machineShortLabel);
+    });
+  }, [health?.authMismatch, machineShortLabel]);
 
   const routeStatusLabel =
     settings.connectionMode === 'relay' &&
@@ -2224,13 +2367,25 @@ export default function ChatScreen() {
         if (currentSessionRef.current?.id !== requestedSessionId) {
           return;
         }
-        const digest = transcriptDigest(merged);
+        const resolved = clearResolvedFailedOutboundStatuses(merged);
+        const nextMessages = resolved.messages;
+        const digest =
+          transcriptDigest(nextMessages) + (resolved.cleared ? '|outbound-cleared' : '');
         if (digest === transcriptDigestRef.current) {
           return;
         }
         transcriptDigestRef.current = digest;
-        messagesRef.current = merged;
-        setMessages(merged);
+        messagesRef.current = nextMessages;
+        setMessages(nextMessages);
+        if (resolved.cleared) {
+          lastFailedSendTextRef.current = null;
+          setPinnedOutboundStatus('pending');
+          setPinnedOutboundText(null);
+          setPinnedOutboundSentAt(null);
+          setRunProgress((prev) =>
+            prev?.phase === 'failed' && isStalledOutboundFailureReason(prev.detail) ? null : prev,
+          );
+        }
       };
 
       const mergeWithLocalPending = (serverMessages: HermesMessage[]) => {
@@ -2926,7 +3081,12 @@ export default function ChatScreen() {
     if (userScrolledUpRef.current) {
       return;
     }
-    scrollChatToLatestIfPinned(true, isChatStreamingActive());
+    // While tokens stream, follow via throttled onContentSizeChange only.
+    // A messages-effect scroll races content layout and causes stutter/jump.
+    if (isChatStreamingActive()) {
+      return;
+    }
+    scrollChatToLatestIfPinned(true, false);
   }, [messages, isSending, runProgress, isLoadingMessages, scrollChatToLatestIfPinned, isChatStreamingActive]);
 
   const handleNewChat = async (options?: { preserveComposer?: boolean }) => {
@@ -5498,6 +5658,7 @@ export default function ChatScreen() {
       isSendingRef.current = false;
       setIsSending(false);
       clearDeferredTelegramPoll();
+      failPendingOutboundBubbles(RUN_NO_TOKEN_FAIL_DETAIL);
       setRunProgress((prev) =>
         prev && isActiveChatRun(prev)
           ? {
@@ -5520,6 +5681,7 @@ export default function ChatScreen() {
       isSendingRef.current = false;
       setIsSending(false);
       clearDeferredTelegramPoll();
+      failPendingOutboundBubbles(RUN_NO_TOKEN_FAIL_DETAIL);
       setRunProgress((prev) =>
         prev && isActiveChatRun(prev)
           ? {
@@ -5535,6 +5697,7 @@ export default function ChatScreen() {
     return () => clearTimeout(timer);
   }, [
     clearDeferredTelegramPoll,
+    failPendingOutboundBubbles,
     isDemo,
     runProgress?.outputTokens,
     runProgress?.phase,
@@ -5670,11 +5833,13 @@ export default function ChatScreen() {
           routeStatusLabel={routeStatusLabel}
           showMachineDetailWhenConnected={machineHeaderDisplay.showDetailWhenConnected}
           connectionState={connectionState}
-          macHttpReachable={effectiveMacHttpOk || chatStalled}
-          authMismatch={health?.authMismatch === true}
-          wrongKeyBannerActive={Boolean(errorMessage && isAuthRepairMessage(errorMessage))}
+          macHttpReachable={
+            effectiveAuthMismatch ? false : effectiveMacHttpOk || chatStalled
+          }
+          authMismatch={effectiveAuthMismatch}
+          wrongKeyBannerActive={wrongKeyBannerActive}
           isDemo={isDemo}
-          chatStalled={chatStalled}
+          chatStalled={effectiveAuthMismatch ? false : chatStalled}
           workspaceName={activeProject?.name}
           workspaceHandoff={activeProject?.handoffSummary}
           canSwitchWorkspace={!showMacConnectionHelp}
@@ -5692,7 +5857,9 @@ export default function ChatScreen() {
         />
         <CodexCommandCenter
           connectionState={connectionState}
-          macHttpReachable={effectiveMacHttpOk || chatStalled}
+          macHttpReachable={
+            effectiveAuthMismatch ? false : effectiveMacHttpOk || chatStalled
+          }
           macRetryBusy={macRetryBusy}
           silentHealInFlight={hideMacTileForSilentHeal}
           healExhausted={connectionHealExhausted && !effectiveMacHttpOk}
@@ -5700,8 +5867,8 @@ export default function ChatScreen() {
           runProgress={progressBanner}
           isSending={isSending}
           machineName={machineShortLabel}
-          chatStalled={chatStalled}
-          authMismatch={health?.authMismatch === true}
+          chatStalled={effectiveAuthMismatch ? false : chatStalled}
+          authMismatch={effectiveAuthMismatch}
           onOpenApprovals={() => {
             haptics.selection();
             navigation.navigate('Leash' as never);
@@ -5831,16 +5998,18 @@ export default function ChatScreen() {
                 nestedScrollEnabled={false}
                 keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'none'}
                 keyboardShouldPersistTaps="handled"
-                drawDistance={400}
+                drawDistance={480}
+                // MVCP follows the bottom while streaming; pair with throttled
+                // onContentSizeChange (not per-token effect scrolls) for smooth follow.
                 maintainVisibleContentPosition={{
                   startRenderingFromBottom: true,
-                  autoscrollToBottomThreshold: 0.2,
+                  autoscrollToBottomThreshold: 0.15,
                 }}
                 onScroll={handleChatScroll}
                 onScrollBeginDrag={handleChatScrollBeginDrag}
                 onScrollEndDrag={handleChatScrollEndDrag}
                 onMomentumScrollEnd={handleChatScrollEndDrag}
-                scrollEventThrottle={16}
+                scrollEventThrottle={32}
                 ListFooterComponent={
                   showRecentChatsPanel ? (
                     <View style={styles.recentChatsInThread}>{recentChatsList}</View>
@@ -5857,11 +6026,20 @@ export default function ChatScreen() {
                     pinScrollAfterHydrationRef.current = false;
                     userScrolledUpRef.current = false;
                     lastDistanceFromBottomRef.current = 0;
+                    streamScrollLastAtRef.current = 0;
                     setChatNearBottom(true);
                     scrollChatToLatest(false);
                     return;
                   }
-                  scrollChatToLatestIfPinned(true, isChatStreamingActive());
+                  // force=false: respect pin + throttle during stream (see scrollChatToLatestIfPinned).
+                  scrollChatToLatestIfPinned(false, false);
+                }}
+                getItemType={(item) => {
+                  const role = item.message.role?.toLowerCase() ?? 'unknown';
+                  if (item.message.isCollapsedToolActivity) {
+                    return 'tool-collapsed';
+                  }
+                  return role;
                 }}
                 renderItem={renderChatMessageItem}
               />
@@ -6103,7 +6281,7 @@ export default function ChatScreen() {
                 profiles={switchComputerProfiles}
                 activeProfileId={activeGatewayProfile?.id ?? null}
                 activeReachable={macHttpOk}
-                authNeedsRepair={health?.authMismatch === true}
+                authNeedsRepair={effectiveAuthMismatch}
                 activeConnecting={connectionState === 'connecting'}
                 scanning={profileScanning || isScanningMacs}
                 scanProgress={profileScanProgress}

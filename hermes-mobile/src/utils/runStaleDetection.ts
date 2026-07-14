@@ -68,10 +68,11 @@ export const RUN_STALE_IDLE_HINT =
 export const RUN_STALE_TIMEOUT_DETAIL =
   'Run timed out — stopped waiting on your computer. Tap Stop on your Mac or start a new message.';
 
-export const RUN_NO_TOKEN_FAIL_MS = 90_000;
+/** Fail sooner so auto-recover can stop+resend instead of lying "still running" for minutes. */
+export const RUN_NO_TOKEN_FAIL_MS = 45_000;
 
 export const RUN_NO_TOKEN_FAIL_DETAIL =
-  'No reply yet — your computer may be slow or stuck. Tap Stop and try again.';
+  'No reply yet — your computer may be slow or stuck. Recovering automatically…';
 
 export type RunStaleLevel = 'normal' | 'long' | 'idle' | 'expired';
 

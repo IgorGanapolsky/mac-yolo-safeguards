@@ -365,6 +365,8 @@ function riskValue(risk) {
 
 function taskSignals(task) {
   const text = String(task || '').toLowerCase();
+  const noExternalAction = /\b(?:do not|don't|without)\s+(?:send|publish|post|deploy|deliver|charge|transfer|ship|submit)\b/.test(text);
+  const externalDelivery = !noExternalAction && /\b(?:send|publish|post|deploy|deliver|charge|transfer|ship|submit)\b|stripe payment|wallet payment/.test(text);
   return {
     asksForGlm: /\bglm\b|glm[- ]?5\.?2|z\.?ai|zai/.test(text),
     asksForFugu: /\bfugu\b|sakana/.test(text),
@@ -385,7 +387,8 @@ function taskSignals(task) {
     architecture: /architecture|cross[- ]file|multi[- ]agent|pipeline|router|design|strategy/.test(text),
     exactContract: /exact answer|strict format|output contract|json schema|answer:\s*[a-z0-9]|sentinel|marker|multiple[- ]choice/.test(text),
     highVarianceReasoning: /hidden[- ]test|livecodebench|gpqa|hle|formal reasoning|hard reasoning|reasoning variance|quorum|synthesis/.test(text),
-    paidOrExternal: /payment|wallet|stablecoin|on[- ]chain|post|send|publish|charge|stripe/.test(text),
+    paidOrExternal: /payment|wallet|stablecoin|on[- ]chain|post|send|publish|charge|stripe/.test(text) || externalDelivery,
+    externalDelivery,
     routine: /smoke|small|quick|lint|unit test|local/.test(text),
   };
 }
@@ -490,6 +493,12 @@ function buildPipeline(selected, args, signals) {
       action: 'Write route receipt with cost, latency, fallback, and proof evidence.',
       gate: 'receipt-emitted',
     },
+    {
+      id: 'outcome-gate',
+      agent: 'outcome-accountant',
+      action: 'Refuse plan/draft-only completion; require execution, independent verification, delivery proof when required, and actual cost/value metrics.',
+      gate: 'hermes-outcome-receipt-pass',
+    },
   ];
   if (signals.paidOrExternal || selected.requiresApproval) {
     stages.splice(1, 0, {
@@ -500,6 +509,34 @@ function buildPipeline(selected, args, signals) {
     });
   }
   return stages;
+}
+
+function buildOutcomeContract(receiptIdValue, args, signals) {
+  const deliveryRequired = Boolean(signals.externalDelivery);
+  return {
+    schema: 'hermes-outcome-contract/v1',
+    taskId: receiptIdValue,
+    requiredStages: [
+      'execution',
+      'independent-verification',
+      ...(deliveryRequired ? ['delivery'] : []),
+    ],
+    deliveryRequired,
+    requiredEvidence: {
+      execution: 'opaque-execution-evidence-id',
+      independentVerification: 'opaque-independent-verification-evidence-id',
+      delivery: deliveryRequired ? 'opaque-delivery-evidence-id' : 'not-required',
+    },
+    accounting: {
+      durationMs: 'actual',
+      actualCostUsd: 'actual',
+      maxCostUsd: Number(args.maxCostUsd || 0),
+      valueSignals: 'opaque-labels-only',
+      failureStage: 'first-incomplete-or-failed-stage',
+    },
+    completionRule: 'Execution and independent verification must pass with evidence; required delivery must pass with evidence; actual cost must remain within cap.',
+    command: `hermes-outcome-gate --task-id ${receiptIdValue}`,
+  };
 }
 
 function compactRoute(route, role = route.agent) {
@@ -970,9 +1007,10 @@ function decision(args) {
 
   const winner = evaluated.find((item) => item.allowed) || evaluated.find((item) => item.route.id === 'local_fast');
   const selected = winner.route;
+  const id = receiptId(normalizedArgs, selected);
   const receipt = {
     schema: 'hermes-economic-router/receipt-v1',
-    id: receiptId(normalizedArgs, selected),
+    id,
     createdAt: new Date().toISOString(),
     task: normalizedArgs.task,
     risk: normalizedArgs.risk,
@@ -993,6 +1031,7 @@ function decision(args) {
     modelCatalogCandidates: catalogCandidates(signals),
     microAgentRecipe: buildMicroAgentRecipe(selected, normalizedArgs, signals, evaluated),
     pipeline: buildPipeline(selected, normalizedArgs, signals),
+    outcomeContract: buildOutcomeContract(id, normalizedArgs, signals),
     rejectedRoutes: evaluated
       .filter((item) => item.route.id !== selected.id)
       .map((item) => ({
@@ -1046,8 +1085,14 @@ function receiptId(args, route) {
 }
 
 function writeReceipt(receipt, target = RECEIPT_PATH) {
-  fs.mkdirSync(path.dirname(target), { recursive: true });
-  fs.appendFileSync(target, `${JSON.stringify(receipt)}\n`);
+  fs.mkdirSync(path.dirname(target), { recursive: true, mode: 0o700 });
+  const descriptor = fs.openSync(target, 'a', 0o600);
+  try {
+    fs.writeSync(descriptor, `${JSON.stringify(receipt)}\n`);
+  } finally {
+    fs.closeSync(descriptor);
+  }
+  fs.chmodSync(target, 0o600);
   return target;
 }
 
@@ -1062,7 +1107,8 @@ function step(id, kind, detail = {}) {
 function assertExecutionCaps(plan) {
   const maxSteps = Number(plan.hardCaps.maxSteps || 0);
   const maxConcurrent = Number(plan.hardCaps.maxConcurrent || 0);
-  const executableSteps = plan.steps.filter((current) => current.kind !== 'approval');
+  const governanceKinds = new Set(['approval', 'outcome-gate', 'delivery-evidence']);
+  const executableSteps = plan.steps.filter((current) => !governanceKinds.has(current.kind));
   if (maxSteps > 0 && executableSteps.length > maxSteps) {
     throw new Error(`execution plan exceeds maxSteps: ${executableSteps.length} > ${maxSteps}`);
   }
@@ -1199,6 +1245,22 @@ function buildExecutionPlan(receipt) {
     throw new Error(`unsupported recipe pattern: ${recipe.pattern}`);
   }
 
+  plan.steps.push(step('independent-outcome-verification', 'outcome-gate', {
+    gate: receipt.outcomeContract.requiredEvidence.independentVerification,
+    action: 'Record an independent verification evidence ID; self-attestation is insufficient.',
+  }));
+  if (receipt.outcomeContract.deliveryRequired) {
+    plan.steps.push(step('delivery-evidence', 'delivery-evidence', {
+      gate: receipt.outcomeContract.requiredEvidence.delivery,
+      action: 'Record evidence that the authorized external delivery actually completed.',
+    }));
+  }
+  plan.steps.push(step('final-outcome-gate', 'outcome-gate', {
+    command: receipt.outcomeContract.command,
+    gate: 'hermes-outcome-receipt-pass',
+    action: receipt.outcomeContract.completionRule,
+  }));
+
   assertExecutionCaps(plan);
   return plan;
 }
@@ -1250,6 +1312,7 @@ module.exports = {
   RECEIPT_PATH,
   ROUTES,
   buildPipeline,
+  buildOutcomeContract,
   buildExecutionPlan,
   decision,
   parseArgs,

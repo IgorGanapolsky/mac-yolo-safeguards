@@ -42,7 +42,7 @@ function connectionCopy(
     return { label: 'Demo', detail: 'Preview', color: colors.accent };
   }
   if (macHttpReachable && chatStalled) {
-    return { label: 'Connected', detail: 'Chat stalled — tap ↑ to resend', color: colors.warning };
+    return { label: 'Connected', detail: 'Chat stalled — recovering…', color: colors.warning };
   }
   if (macHttpReachable) {
     return { label: 'Connected', detail: 'Ready', color: colors.success };

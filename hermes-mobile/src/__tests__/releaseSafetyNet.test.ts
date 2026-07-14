@@ -5,10 +5,11 @@ const root = path.resolve(__dirname, '../../..');
 const read = (relativePath: string) => fs.readFileSync(path.join(root, relativePath), 'utf8');
 
 describe('release safety net (T-114)', () => {
-  it('mobile-e2e workflow runs on pull_request and push with SHA-pinned actions', () => {
+  it('mobile-e2e workflow runs on pull_request, push, and merge_group with SHA-pinned actions', () => {
     const workflow = read('.github/workflows/mobile-e2e.yml');
     expect(workflow).toMatch(/^\s*pull_request:/m);
     expect(workflow).toMatch(/^\s*push:/m);
+    expect(workflow).toMatch(/^\s*merge_group:/m);
     expect(workflow).toContain('actions/setup-java@c1e323688fd81a25caa38c78aa6df2d33d3e20d9');
     expect(workflow).toContain(
       'reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d',
@@ -170,9 +171,19 @@ describe('release safety net (T-114)', () => {
     expect(connection).toContain('wrongKeyBannerActive');
     expect(connection).toContain('isConnectedWrongKeyContradiction');
     expect(connection).toContain('RELEASE BLOCK');
+    const chat = read('hermes-mobile/src/screens/ChatScreen.tsx');
+    expect(chat).toContain('effectiveAuthMismatch');
+    expect(chat).toContain('wrongKeyBannerActive');
+    // Banner/health auth failure must force macHttpReachable false (no chatStalled bypass)
+    expect(chat).toMatch(/effectiveAuthMismatch \? false : effectiveMacHttpOk/);
+    const profiles = read('hermes-mobile/src/services/gatewayProfiles.ts');
+    expect(profiles).toContain('Prefer non-loopback');
+    const gatewayCtx = read('hermes-mobile/src/context/GatewayContext.tsx');
+    expect(gatewayCtx).toContain('false-green Connected + Wrong key');
     const readiness = read('hermes-mobile/docs/REAL-USER-READINESS.md');
     expect(readiness).toContain('Connected ⊕ Wrong key');
     expect(readiness).toContain('SHIP BLOCK');
+    expect(readiness).toContain('state-machine failure');
     const safetyNet = read('hermes-mobile/docs/RELEASE-SAFETY-NET.md');
     expect(safetyNet).toContain('Connected ⊕ Wrong key');
     expect(safetyNet).toContain('SHIP BLOCK');
