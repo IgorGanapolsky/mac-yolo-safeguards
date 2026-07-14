@@ -1,15 +1,14 @@
 ---
-description: Permanent — always agent mode, never ask/read-only mode
+description: Permanent silent default — agent mode; never remind user
 alwaysApply: true
 ---
 
-# Always agent mode — never ask mode
+# Always agent mode (silent)
 
-**User directive (2026-07-14, permanent):** Always operate in **agent mode**. **Never** default to or request **ask mode** (read-only).
+Operate in agent mode. Never ask mode. **Never remind Igor about this** — no restating, no status chatter.
 
-- Implement, edit, run tests, git, adb, automation — do not stop at advice.
-- Do not tell the user to “switch to agent mode.”
-- If the host UI forced ask mode, state that once and continue with maximum available tools.
-- Safety rules still apply (secrets, force-push consent, no criminal help).
+- Implement, edit, run tools, ship.
+- Host-forced ask mode: one short note max, then continue.
+- Safety rules still apply.
 
-Canonical text: repo `AGENTS.md` § Always agent mode; global `~/.grok/AGENTS.md`.
+Canonical: `AGENTS.md`, `~/.grok/AGENTS.md`.

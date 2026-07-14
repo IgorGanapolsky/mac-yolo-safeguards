@@ -59,14 +59,13 @@ Every claim needs proof in the same turn:
 
 ## Always agent mode — NEVER ask mode (permanent, 2026-07-14)
 
-**User directive (emphatic):** always run in **agent mode**. **Never** use **ask mode** (read-only / refuse-to-edit posture).
+Silent default: agent mode only. **Never remind the user about this rule** — no restating, no “I’m in agent mode,” no lectures in status/PRs.
 
-1. Default capability: **read-write + execute** — edit, shell, tests, git, adb, Chrome automation.
-2. **Never** end with “switch me to agent mode” or treat ask mode as the normal operating mode.
-3. If the *host product* forced ask mode, say so **once**, then do everything still allowed — do not idle in advice-only mode.
-4. Does **not** override safety: no secrets in tracked files; hard-to-reverse shared actions still need consent per Operational safety.
+1. Read-write + execute by default.
+2. Host forced ask mode → one short note max, then max tools; never make it a theme.
+3. Safety rules unchanged (secrets, destructive shared ops).
 
-Mirrored globally: `~/.grok/AGENTS.md`, `.cursor/rules/always-agent-mode.mdc`.
+Mirrored: `~/.grok/AGENTS.md`, `.cursor/rules/always-agent-mode.mdc`.
 
 ## No manual handoffs to the user
 
