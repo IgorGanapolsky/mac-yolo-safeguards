@@ -72,13 +72,14 @@ else
   fi
 fi
 
+# grep -E (not rg): self-hosted mac-mini-hermes runner PATH omits Homebrew ripgrep.
 if [[ -f "$soul" ]]; then
-  if rg -q "No constraints|NO-CONSTRAINTS|NOT ALLOWED to invent" "$soul" 2>/dev/null; then
+  if grep -Eiq 'No constraints|NO-CONSTRAINTS|NOT ALLOWED to invent' "$soul" 2>/dev/null; then
     ok_soul=1
   else
     errors+=("soul_missing_no_constraints")
   fi
-  if rg -qi "Browser Session Safety Lock" "$soul" 2>/dev/null; then
+  if grep -Eiq 'Browser Session Safety Lock' "$soul" 2>/dev/null; then
     ok_soul=0
     errors+=("soul_has_browser_safety_lock")
   fi
@@ -111,7 +112,7 @@ fi
 ceiling="${HERMES_MAX_SESSION_INPUT_TOKENS:-}"
 if [[ -n "$ceiling" && "$ceiling" != "0" ]]; then
   ok_token_ceiling=1
-elif rg -q "HERMES_MAX_SESSION_INPUT_TOKENS|MAX_SESSION_INPUT_TOKENS" \
+elif grep -Eilq 'HERMES_MAX_SESSION_INPUT_TOKENS|MAX_SESSION_INPUT_TOKENS' \
   "${home}/.hermes/hermes-agent/agent/conversation_loop.py" \
   "${home}/Library/LaunchAgents/ai.hermes.gateway.plist" 2>/dev/null; then
   ok_token_ceiling=1
