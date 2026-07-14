@@ -159,6 +159,11 @@ import { fromPendingApproval } from '../utils/approvalNormalize';
 import { shouldScheduleApprovalNotification } from '../utils/smartNotificationPolicy';
 import { withDerivedNotificationsEnabled } from '../utils/notificationPreferences';
 import {
+  cappedBadgeCount,
+  dedupeAndCapPendingApprovals,
+  pendingApprovalsSignature,
+} from '../utils/pendingApprovalsCap';
+import {
   dismissApprovalNotifications,
   dismissApprovalNotification,
   syncSmartApprovalNotifications,
@@ -332,6 +337,7 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
     (actionId: string, choice: ApprovalChoice, approval?: PendingApproval) => Promise<void>
   >(null as any);
   const pendingApprovalsRef = useRef<PendingApproval[]>([]);
+  const pendingNotifSignatureRef = useRef<string>('');
   const resolvedTextApprovalIdsRef = useRef<Set<string>>(new Set());
   const runProgressRef = useRef<RunProgressState | null>(null);
   const chatStreamProgressActiveRef = useRef(false);
@@ -374,12 +380,21 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (!settings.notificationApprovals || Platform.OS === 'web') {
+      pendingNotifSignatureRef.current = '';
       syncHermesNotificationBadge(0).catch(() => {});
       return;
     }
-    syncHermesNotificationBadge(pendingApprovals.length).catch(() => {});
+    const signature = pendingApprovalsSignature(pendingApprovals);
+    const badge = cappedBadgeCount(pendingApprovals.length);
+    // Always keep OS badge in sync; skip alert sync when the pending set is unchanged
+    // (relay poll replaces the array every 2s even when contents match).
+    syncHermesNotificationBadge(badge).catch(() => {});
+    if (signature === pendingNotifSignatureRef.current) {
+      return;
+    }
+    pendingNotifSignatureRef.current = signature;
     syncSmartApprovalNotifications(pendingApprovals, {
-      badgeCount: pendingApprovals.length,
+      badgeCount: badge,
       categoryEnabled: settings.notificationApprovals,
     }).catch(() => {});
   }, [pendingApprovals, settings.notificationApprovals]);
@@ -1019,7 +1034,7 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
           (!pending.command || !isGatewaySmokeTestMessage(pending.command)),
       );
 
-      setPendingApprovals(nonSmokeTests);
+      setPendingApprovals(dedupeAndCapPendingApprovals(nonSmokeTests));
       relayConnectionConfirmedRef.current = true;
       setConnectionState('connected');
       setLastEventError(undefined);
@@ -1154,7 +1169,7 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
             )
           ) {
             scheduleApprovalNotification(pending, {
-              badgeCount: pendingApprovalsRef.current.length + 1,
+              badgeCount: cappedBadgeCount(pendingApprovalsRef.current.length + 1),
               categoryEnabled: settingsRef.current.notificationApprovals,
             }).catch(() => {});
           }
@@ -1165,7 +1180,7 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
         if (prev.some((item) => (item.runId ?? item.actionId) === key)) {
           return prev;
         }
-        return [pending, ...prev];
+        return dedupeAndCapPendingApprovals([pending, ...prev]);
       });
       return;
     }
@@ -2447,7 +2462,7 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
         if (prev.some((item) => item.actionId === pending.actionId)) {
           return prev;
         }
-        return [pending, ...prev];
+        return dedupeAndCapPendingApprovals([pending, ...prev]);
       });
     }
   }, []);
@@ -2472,7 +2487,7 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
       }
       queued = true;
       haptics.warning();
-      return [approval, ...prev];
+      return dedupeAndCapPendingApprovals([approval, ...prev]);
     });
     return queued;
   }, []);

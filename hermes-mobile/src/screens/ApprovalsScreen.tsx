@@ -35,6 +35,7 @@ import {
   recordLeashDecision,
   type LeashDecisionRecord,
 } from '../services/leashDecisionHistory';
+import { PENDING_APPROVALS_RENDER_CAP } from '../utils/pendingApprovalsCap';
 
 type RootTabParamList = {
   Leash: undefined;
@@ -185,9 +186,14 @@ export default function ApprovalsScreen() {
     [reloadDecisionHistory],
   );
 
-  const glance = !presentation.visualsOn;
+  // Force stack layout for huge queues so Leash never mounts thousands of cards
+  // (badge flood / WS replay) and spin forever.
+  const glance = !presentation.visualsOn || pendingApprovals.length > PENDING_APPROVALS_RENDER_CAP;
   const stackApproval = glance ? pendingApprovals[0] : undefined;
   const stackedCount = pendingApprovals.length;
+  const visibleApprovals = glance
+    ? []
+    : pendingApprovals.slice(0, PENDING_APPROVALS_RENDER_CAP);
 
   const healthLevel = health?.level ?? 'unknown';
   const connectionDisplay = formatLeashConnectionDisplay({
@@ -375,34 +381,43 @@ export default function ApprovalsScreen() {
               onEdit={() => handleApprovalEdit(stackApproval)}
             />
             {stackedCount > 1 ? (
-              <Text style={styles.stackHint}>
-                {stackedCount - 1} more approval{stackedCount > 2 ? 's' : ''} queued — resolve top item first
+              <Text style={styles.stackHint} testID="leash-stacked-overflow">
+                {stackedCount - 1} more approval{stackedCount - 1 === 1 ? '' : 's'} queued — resolve
+                top item first
               </Text>
             ) : null}
           </>
         ) : (
-          pendingApprovals.map((approval) => (
-            <GateApprovalCard
-              key={approval.actionId}
-              approval={approval}
-              approvalPolicy={settings.approvalPolicy}
-              thumbgateCaptureOnDown={settings.thumbgateCaptureOnDown}
-              thumbgateCaptureOnUp={settings.thumbgateCaptureOnUp}
-              onApprove={() => {
-                recordScreenDecision(approval, 'approved');
-                resolveApproval(approval.actionId, 'approve', approval);
-              }}
-              onReject={() => {
-                recordScreenDecision(approval, 'denied');
-                resolveApproval(approval.actionId, 'reject', approval);
-              }}
-              onChoice={(choice) => {
-                recordScreenDecision(approval, choice === 'deny' ? 'denied' : 'approved');
-                void submitApprovalChoice(approval.actionId, choice, approval);
-              }}
-              onEdit={() => handleApprovalEdit(approval)}
-            />
-          ))
+          <>
+            {visibleApprovals.map((approval) => (
+              <GateApprovalCard
+                key={approval.actionId}
+                approval={approval}
+                approvalPolicy={settings.approvalPolicy}
+                thumbgateCaptureOnDown={settings.thumbgateCaptureOnDown}
+                thumbgateCaptureOnUp={settings.thumbgateCaptureOnUp}
+                onApprove={() => {
+                  recordScreenDecision(approval, 'approved');
+                  resolveApproval(approval.actionId, 'approve', approval);
+                }}
+                onReject={() => {
+                  recordScreenDecision(approval, 'denied');
+                  resolveApproval(approval.actionId, 'reject', approval);
+                }}
+                onChoice={(choice) => {
+                  recordScreenDecision(approval, choice === 'deny' ? 'denied' : 'approved');
+                  void submitApprovalChoice(approval.actionId, choice, approval);
+                }}
+                onEdit={() => handleApprovalEdit(approval)}
+              />
+            ))}
+            {pendingApprovals.length > visibleApprovals.length ? (
+              <Text style={styles.stackHint} testID="leash-list-overflow">
+                Showing {visibleApprovals.length} of {pendingApprovals.length} — turn on Quick-approve
+                layout to clear the queue faster
+              </Text>
+            ) : null}
+          </>
         )}
 
         {leashUnlocked && decisionHistory.length > 0 ? (
