@@ -47,4 +47,12 @@ describe('chatAssistantProse', () => {
       'I apologize again; web_extract failed.\n\nI will try a different approach.',
     );
   });
+
+  it('humanizes safety-timeout refusal copy', () => {
+    expect(
+      humanizeAssistantProse(
+        'Safety timeout interrupted further progress. Resume with `hermes continue` to automate signup.',
+      ),
+    ).toBe('Your computer paused this step — continuing automatically…');
+  });
 });

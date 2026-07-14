@@ -11,7 +11,7 @@ Follow-up to the July 2026 GitLab migration research. Decision: **stay on GitHub
 | `merge_group` on `mobile-continuous.yml` | **Shipped** | PR branch |
 | Merge queue on `main` | **Blocked** | See below |
 | Mac mini self-hosted runner | **Online** | `mac-mini-hermes` @ `100.94.135.78`; labels `macos-arm64`, `hermes-e2e`; `gh api …/actions/runners` → `status: online` (2026-07-14T03:58Z) |
-| `macOS guard kit` on Mac mini | **Shipped** | `ci.yml` → `[self-hosted, macos-arm64, hermes-e2e]` when `mac-mini-hermes` online; else `macos-latest` |
+| `macOS guard kit` on Mac mini | **Shipped** | `ci.yml` → `[self-hosted, macos-arm64, hermes-e2e]` (fork PRs → `macos-latest`) |
 
 ## Merge queue — blocked on personal Free plan
 
@@ -60,7 +60,7 @@ Target host: Mac mini on Tailscale (`100.94.135.78`, 24 GB). Intended labels: `s
 
 **Registered 2026-07-14:** runner `mac-mini-hermes` is **online** on `IgorGanapolsky/mac-yolo-safeguards`. LaunchAgent `com.igor.github-actions-runner` (KeepAlive) under `igorganapolsky@100.94.135.78`. Replaced stale `resume-ci-mac` config that pointed at `IgorGanapolsky/Resume`.
 
-**CI routing:** `macos-guard-runner-pick` probes runner status each workflow run. When `mac-mini-hermes` is online, `macOS guard kit` uses `runs-on: [self-hosted, macos-arm64, hermes-e2e]` to reduce GitHub-hosted macOS queue starvation; otherwise it falls back to `macos-latest`. Fork PRs always use GitHub-hosted runners.
+**CI routing:** `macOS guard kit` defaults to `runs-on: [self-hosted, macos-arm64, hermes-e2e]` to reduce GitHub-hosted macOS queue starvation. Fork PRs use `macos-latest` (self-hosted safety). If the mini reboots, temporarily point the job at `macos-latest` in `ci.yml`.
 
 Register (or re-register):
 

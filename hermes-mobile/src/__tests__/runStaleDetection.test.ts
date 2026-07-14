@@ -82,15 +82,11 @@ describe('runStaleDetection', () => {
     expect(isTerminalGatewayRunStatus('stopping')).toBe(true);
   });
 
-  it('uses shorter auto-fail for mega sessions', () => {
+  it('uses the same auto-fail window for mega sessions (no early phone kill)', () => {
     const session = { input_tokens: 4_900_000, output_tokens: 20_000 };
-    expect(classifyRunStale(baseProgress(), MEGA_SESSION_RUN_STALE_AUTO_FAIL_MS + 1, session)).toBe(
-      'expired',
-    );
+    expect(MEGA_SESSION_RUN_STALE_AUTO_FAIL_MS).toBe(RUN_STALE_AUTO_FAIL_MS);
+    expect(classifyRunStale(baseProgress(), RUN_STALE_AUTO_FAIL_MS + 1, session)).toBe('expired');
     expect(msUntilRunStaleAutoFail(baseProgress({ startedAtMs: 1_000 }), 60_000, session)).toBe(
-      MEGA_SESSION_RUN_STALE_AUTO_FAIL_MS - 59_000,
-    );
-    expect(msUntilRunStaleAutoFail(baseProgress({ startedAtMs: 1_000 }), 60_000)).toBe(
       RUN_STALE_AUTO_FAIL_MS - 59_000,
     );
   });

@@ -15,48 +15,13 @@ concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
-permissions:
-  actions: read
-  contents: read
-
 jobs:
-  # Prefer Mac mini self-hosted when mac-mini-hermes is online; fall back to
-  # GitHub-hosted macos-latest so required checks do not stall if the mini reboots.
-  macos-guard-runner-pick:
-    name: macOS guard runner pick
-    runs-on: ubuntu-latest
-    outputs:
-      use_mini: ${{ steps.pick.outputs.use_mini }}
-    steps:
-      - id: pick
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          set -eu
-          if [ "${{ github.event_name }}" = "pull_request" ] \
-            && [ "${{ github.event.pull_request.head.repo.full_name }}" != "${{ github.repository }}" ]; then
-            echo "use_mini=false" >> "$GITHUB_OUTPUT"
-            echo "Fork PR — macos-latest only (self-hosted safety)"
-            exit 0
-          fi
-          online=0
-          if runners_json="$(gh api "repos/${{ github.repository }}/actions/runners" 2>/dev/null)"; then
-            online="$(printf '%s' "$runners_json" | jq '[.runners[] | select(.name == "mac-mini-hermes" and .status == "online")] | length')"
-          else
-            echo "Runner list unavailable (token scope) — falling back to macos-latest"
-          fi
-          if [ "$online" -ge 1 ]; then
-            echo "use_mini=true" >> "$GITHUB_OUTPUT"
-            echo "mac-mini-hermes online — routing macOS guard kit to self-hosted"
-          else
-            echo "use_mini=false" >> "$GITHUB_OUTPUT"
-            echo "mac-mini-hermes offline — falling back to macos-latest"
-          fi
-
+  # mac-mini-hermes (self-hosted, macos-arm64, hermes-e2e) is the default to cut
+  # GitHub-hosted macOS queue wait. Fork PRs stay on macos-latest (arbitrary code).
+  # If the mini is offline, temporarily switch runs-on below to macos-latest.
   macos-guard:
     name: macOS guard kit
-    needs: macos-guard-runner-pick
-    runs-on: ${{ needs.macos-guard-runner-pick.outputs.use_mini == 'true' && fromJSON('["self-hosted", "macos-arm64", "hermes-e2e"]') || 'macos-latest' }}
+    runs-on: ${{ (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) && 'macos-latest' || fromJSON('["self-hosted", "macos-arm64", "hermes-e2e"]') }}
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
 
