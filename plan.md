@@ -195,7 +195,7 @@ Durable rules live in [AGENTS.md](./AGENTS.md); this file is *live state only*.
 
 Status values: `pending` | `in_progress` | `blocked` | `done`. Claim a row by setting Owner+Status in one edit, then claim its files in §2.
 
-| T-318 | Prevent Grok/Fable quota exhaustion from disabling hermes-yolo fleet-wide | in_progress | codex-hermes-quota-failover | `hermes-yolo-wrapper.js`, `tests/test-hermes-yolo.js`, `plan.md` | automatic mode falls back to the configured Hermes provider when Grok doctor or a live quota call fails; explicit Grok remains fail-closed; simulated quota regression and exact local/Mac-mini markers pass |
+| T-318 | Prevent Grok/Fable quota exhaustion from disabling hermes-yolo fleet-wide | in_progress | codex-hermes-quota-failover | `hermes-yolo-wrapper.js`, `tests/test-hermes-yolo.js`, `plan.md` | ordinary runs use the quota-independent Hermes provider and never invoke an exhausted Grok launcher; explicit Grok remains available; simulated quota regression, fleet route receipts, and local/Mac-mini runtime proof pass |
 
 ## 2. File Ownership Map (append-only lock table — claim before touching)
 
