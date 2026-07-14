@@ -188,10 +188,13 @@ Durable rules live in [AGENTS.md](./AGENTS.md); this file is *live state only*.
 | T-256 | OTA check spinner timeout (withTimeout 30s/60s) | in_progress | cursor-ota-timeout | `hermes-mobile/src/services/appOtaUpdate.ts`, `hermes-mobile/src/__tests__/appOtaUpdate.test.ts`, `hermes-mobile/src/__tests__/ConnectionHealthHub.test.tsx`, `plan.md` | Check for update spinner clears ≤30s; focused Jest pass; production OTA |
 | T-313 | Correct `ibm-yolo` to invoke official IBM Bob Shell on both Macs | done | codex-ibm-bob | `ibm-yolo`, `scripts/install-ibm-yolo.sh`, `tests/test-ibm-yolo.sh`, `docs/AGENT-AUTOMATIONS.md`, `docs/IBM-BOB-YOLO.md`, `plan.md` | Official `bob` is installed on MacBook Pro + Mac mini; `ibm-yolo` injects IBM's `--yolo` flag, preserves arguments/exit status, exposes a no-network doctor, never falls back to another provider, and focused tests plus per-host runtime proof pass without activating a paid plan |
 | T-314 | Isolate install smoke tests from the self-hosted Mac runner's live home | done | codex-ci-home-isolation | `install.sh`, `yolo-health`, `tests/test-install-ci-isolation.js`, `plan.md` | CI runs install into `$RUNNER_TEMP`, never rewrites live `~/.local/bin/hermes-yolo` or bootstraps/boots out the live LaunchAgent; normal interactive install behavior is unchanged; regression test passes |
+| T-315 | Make session-start phone-install submit reusable after its one-shot job is disabled | in_progress | codex-session-start-submit | `tools/agent-session-start.js`, `tests/test-hermes-mobile-pair.sh`, `plan.md` | Reproduce disabled-label failure; enable the exact per-user label before submit; focused contract and live session-start pass without manual cleanup |
 
 Status values: `pending` | `in_progress` | `blocked` | `done`. Claim a row by setting Owner+Status in one edit, then claim its files in §2.
 
 ## 2. File Ownership Map (append-only lock table — claim before touching)
+
+- `tools/agent-session-start.js`, `tests/test-hermes-mobile-pair.sh`, `plan.md` → **codex-session-start-submit** (T-315 reusable one-shot phone-install launchctl submit) (2026-07-14T12:15:00Z)
 
 - `install.sh`, `yolo-health`, `tests/test-install-ci-isolation.js`, `plan.md` → **codex-ci-home-isolation** (T-314 isolate self-hosted CI smoke installs from live operator state) — released after PR #348 merged and the real self-hosted smoke job passed (2026-07-14T12:06:00Z)
 
