@@ -1,3 +1,40 @@
+# Safe keyboard dismiss — never call raw hideKeyboard (fails on custom IME / already-hidden).
+# NEVER tap chat-screen-header — that opens Choose-your-computer and breaks ship-guard.
+# Prefer non-interactive list/empty chrome or thread title.
 appId: com.iganapolsky.hermesmobile
 ---
-- hideKeyboard
+- runFlow:
+    when:
+      visible:
+        id: "chat-empty-state"
+    commands:
+      - tapOn:
+          id: "chat-empty-state"
+- runFlow:
+    when:
+      visible:
+        id: "chat-message-list"
+    commands:
+      - tapOn:
+          id: "chat-message-list"
+- runFlow:
+    when:
+      visible:
+        id: "chat-thread-title"
+    commands:
+      - tapOn:
+          id: "chat-thread-title"
+- runFlow:
+    when:
+      visible:
+        id: "SETTINGS"
+    commands:
+      - tapOn:
+          id: "SETTINGS"
+- runFlow:
+    when:
+      visible:
+        id: "THUMBGATE_LEASH"
+    commands:
+      - tapOn:
+          id: "THUMBGATE_LEASH"

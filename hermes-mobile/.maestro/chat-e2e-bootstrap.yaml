@@ -11,17 +11,19 @@ appId: com.iganapolsky.hermesmobile
     commands:
       - tapOn: "Open"
 - runFlow: dismiss-print-interruption.yaml
+- runFlow: dismiss-mac-picker.yaml
 - extendedWaitUntil:
     notVisible:
       id: "hermes-bootstrap"
     timeout: 90000
 - openLink: "hermes://chat"
+- runFlow: dismiss-mac-picker.yaml
 - runFlow:
     when:
       notVisible:
         id: "chat-screen-header"
     commands:
-      - hideKeyboard
+      - runFlow: hide-keyboard-safe.yaml
       - tapOn:
           id: "tab-hermes"
 - extendedWaitUntil:
@@ -36,6 +38,6 @@ appId: com.iganapolsky.hermesmobile
     visible:
       id: "chat-input"
     timeout: 90000
-- hideKeyboard
+- runFlow: hide-keyboard-safe.yaml
 # Prefer chat-input over chat-composer-dock — CI Maestro often fails dock visibility
 # even when the input (child) is already visible; ship-guard only needs chat-input.
