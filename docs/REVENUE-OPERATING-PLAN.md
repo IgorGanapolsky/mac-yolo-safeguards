@@ -95,6 +95,7 @@ node tools/hermes-voice-front-door.js --event apply-pipeline --json \
 
 # Write only when dry-run looks right:
 # ... add --apply
+# Cold-call buyers: default --create-if-missing seeds a ready row then advances stage.
 ```
 
 Policy + demo pack: [HERMES-VOICE-FRONT-DOOR.md](./HERMES-VOICE-FRONT-DOOR.md). Phone is intake only — Stripe/ledger still prove revenue.
