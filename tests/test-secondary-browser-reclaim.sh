@@ -139,8 +139,12 @@ kill -9 "$OLLAMA_PID" 2>/dev/null
 mkdir -p "$TMP/cursor-codeql" "$TMP/ag-codeql"
 CODEQL1=$(mkbusyfake "java com.semmle.cli2.CodeQL execute language-server")
 CODEQL2=$(mkbusyfake "java com.semmle.cli2.CodeQL execute language-server")
-sleep 1
-run_guard \
+# Let busy fakes accumulate CPU % before ps sampling (GitHub macOS runners are slow).
+sleep 2
+# FREE_T/SWAP_T must be set in the shell scope (see T4); disable memory-pressure side paths.
+FREE_T="0" SWAP_T="999" run_guard \
+  YOLO_CPU_PCT_THRESHOLD="9999" \
+  YOLO_CPU_AUTOKILL_CMD_PATTERNS="semgrep-core" \
   YOLO_CODEQL_CPU_PCT_THRESHOLD="1" \
   YOLO_CODEQL_CPU_TOTAL_THRESHOLD="2" \
   YOLO_CODEQL_MIN_PROCS="2" \
