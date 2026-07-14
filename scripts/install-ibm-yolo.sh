@@ -49,6 +49,9 @@ resolve_repo() {
 write_wrapper() {
   local bin_path="$1"
   local repo="$2"
+  # Never use a symlink: writing the wrapper through a bin→share symlink
+  # overwrites the real CLI body (that was the "cannot run ibm-yolo" bug).
+  rm -f "$bin_path"
   cat >"$bin_path" <<EOF
 #!/usr/bin/env bash
 export IBM_YOLO_REPO="\${IBM_YOLO_REPO:-$repo}"
@@ -63,6 +66,13 @@ install_local() {
   local repo
   repo="$(resolve_repo)"
   mkdir -p "$HOME/.local/bin" "$HOME/.local/share/ibm-yolo"
+  # If bobshell hijacked the name, keep IBM Bob yolo as bob-yolo
+  if [[ -f "$HOME/.local/share/ibm-yolo/ibm-yolo" ]] && head -3 "$HOME/.local/share/ibm-yolo/ibm-yolo" | grep -qE 'Bob Shell|bob --yolo|Bob native'; then
+    cp "$HOME/.local/share/ibm-yolo/ibm-yolo" "$HOME/.local/bin/bob-yolo"
+    chmod 0755 "$HOME/.local/bin/bob-yolo"
+    echo "OK preserved Bob Shell wrapper as bob-yolo"
+  fi
+  rm -f "$HOME/.local/share/ibm-yolo/ibm-yolo" "$HOME/.local/bin/ibm-yolo"
   install -m 0755 "$ROOT/ibm-yolo" "$HOME/.local/share/ibm-yolo/ibm-yolo"
   write_wrapper "$HOME/.local/bin/ibm-yolo" "$repo"
   echo "OK local $(hostname -s) ibm-yolo -> $HOME/.local/bin/ibm-yolo"
