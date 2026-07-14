@@ -1000,14 +1000,21 @@ export default function ChatScreen() {
       }),
     [runProgress, lastFailedOutboundText],
   );
+  // RELEASE BLOCK: Wrong-key banner is authoritative — never leave header green beside it.
+  const wrongKeyBannerActive = useMemo(
+    () => Boolean(errorMessage && isAuthRepairMessage(errorMessage)),
+    [errorMessage],
+  );
+  const effectiveAuthMismatch =
+    health?.authMismatch === true || wrongKeyBannerActive;
   const effectiveMacHttpOk = useMemo(
     () =>
       resolveEffectiveMacHttpOk({
         macHttpOk,
         connectivityFailure: connectivityRunFailure,
-        authMismatch: health?.authMismatch === true,
+        authMismatch: effectiveAuthMismatch,
       }),
-    [macHttpOk, connectivityRunFailure, health?.authMismatch],
+    [macHttpOk, connectivityRunFailure, effectiveAuthMismatch],
   );
   const effectiveMacChatLive = isDemo || effectiveMacHttpOk;
   const macLiveSocket = isDemo || connectionState === 'connected';
@@ -1355,6 +1362,20 @@ export default function ChatScreen() {
 
   const machineShortLabel = machineHeaderDisplay.machineLabel;
   const machineEndpoint = machineHeaderDisplay.machineEndpoint;
+
+  // SHIP BLOCK: health authMismatch must surface the Wrong-key banner and never leave
+  // green Connected with silent auth failure (fresh install dual-state crisis).
+  useEffect(() => {
+    if (health?.authMismatch !== true) {
+      return;
+    }
+    setErrorMessage((prev) => {
+      if (prev && isAuthRepairMessage(prev)) {
+        return prev;
+      }
+      return gatewayAuthRepairBanner(machineShortLabel);
+    });
+  }, [health?.authMismatch, machineShortLabel]);
 
   const routeStatusLabel =
     settings.connectionMode === 'relay' &&
@@ -5670,11 +5691,13 @@ export default function ChatScreen() {
           routeStatusLabel={routeStatusLabel}
           showMachineDetailWhenConnected={machineHeaderDisplay.showDetailWhenConnected}
           connectionState={connectionState}
-          macHttpReachable={effectiveMacHttpOk || chatStalled}
-          authMismatch={health?.authMismatch === true}
-          wrongKeyBannerActive={Boolean(errorMessage && isAuthRepairMessage(errorMessage))}
+          macHttpReachable={
+            effectiveAuthMismatch ? false : effectiveMacHttpOk || chatStalled
+          }
+          authMismatch={effectiveAuthMismatch}
+          wrongKeyBannerActive={wrongKeyBannerActive}
           isDemo={isDemo}
-          chatStalled={chatStalled}
+          chatStalled={effectiveAuthMismatch ? false : chatStalled}
           workspaceName={activeProject?.name}
           workspaceHandoff={activeProject?.handoffSummary}
           canSwitchWorkspace={!showMacConnectionHelp}
@@ -5692,7 +5715,9 @@ export default function ChatScreen() {
         />
         <CodexCommandCenter
           connectionState={connectionState}
-          macHttpReachable={effectiveMacHttpOk || chatStalled}
+          macHttpReachable={
+            effectiveAuthMismatch ? false : effectiveMacHttpOk || chatStalled
+          }
           macRetryBusy={macRetryBusy}
           silentHealInFlight={hideMacTileForSilentHeal}
           healExhausted={connectionHealExhausted && !effectiveMacHttpOk}
@@ -5700,8 +5725,8 @@ export default function ChatScreen() {
           runProgress={progressBanner}
           isSending={isSending}
           machineName={machineShortLabel}
-          chatStalled={chatStalled}
-          authMismatch={health?.authMismatch === true}
+          chatStalled={effectiveAuthMismatch ? false : chatStalled}
+          authMismatch={effectiveAuthMismatch}
           onOpenApprovals={() => {
             haptics.selection();
             navigation.navigate('Leash' as never);
@@ -6103,7 +6128,7 @@ export default function ChatScreen() {
                 profiles={switchComputerProfiles}
                 activeProfileId={activeGatewayProfile?.id ?? null}
                 activeReachable={macHttpOk}
-                authNeedsRepair={health?.authMismatch === true}
+                authNeedsRepair={effectiveAuthMismatch}
                 activeConnecting={connectionState === 'connecting'}
                 scanning={profileScanning || isScanningMacs}
                 scanProgress={profileScanProgress}
