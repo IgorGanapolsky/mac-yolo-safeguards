@@ -20,6 +20,8 @@ const {
   mapPipelineToHubspot,
   buildDemoAgentPack,
   buildPipelineUpdateFromVoice,
+  applyPipelineFromVoice,
+  suggestStageFromDecision,
   normalizeSignals,
   buildAgentSystemPrompt,
   run,
@@ -168,7 +170,7 @@ check('unmapped HubSpot stage fails closed', () => {
   assert.ok(m.error);
 });
 
-check('pipeline-from-voice builds pipeline-update.js compatible payload', () => {
+check('pipeline-from-voice advances score-6 call to booked for pipeline-update', () => {
   const out = buildPipelineUpdateFromVoice(
     {
       prospect_label: 'acme-agency',
@@ -184,9 +186,91 @@ check('pipeline-from-voice builds pipeline-update.js compatible payload', () => 
   );
   assert.strictEqual(out.ok, true);
   assert.strictEqual(out.pipeline_update.prospect, 'acme-agency');
-  assert.strictEqual(out.pipeline_update.stage, 'replied');
+  // close route + score 6 → suggest booked (not paid)
+  assert.strictEqual(out.pipeline_update.stage, 'booked');
   assert.ok(out.pipeline_update.route.includes('$1,500') || out.pipeline_update.gross_potential_usd === 1500);
   assert.strictEqual(out.hubspot.properties.hermes_score, 6);
+});
+
+check('suggestStageFromDecision never returns paid', () => {
+  const d = decideTransfer({
+    current_agent: 'close',
+    agent_stack: 'yes',
+    repeated_failure: 'yes',
+    business_cost: 'yes',
+    budget_owner: 'yes',
+    workflow_context: 'yes',
+    needs_repeatability: 'yes',
+    pipeline_stage: 'proposed',
+  });
+  assert.notStrictEqual(suggestStageFromDecision(d), 'paid');
+});
+
+check('apply-pipeline dry-run does not write TSV', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'vfd-pipe-'));
+  const pipe = path.join(dir, 'pipeline.tsv');
+  fs.writeFileSync(
+    pipe,
+    [
+      'prospect_label\tstage\troute\tgross_potential_usd\tlast_touch\tnext_action\tnotes',
+      'acme-agency\treplied\tTBD\t0\t2026-07-13\tbook_triage_call\tseed',
+    ].join('\n') + '\n',
+  );
+  const before = fs.readFileSync(pipe, 'utf8');
+  const out = applyPipelineFromVoice({
+    rawSignals: {
+      prospect_label: 'acme-agency',
+      current_agent: 'qualify',
+      agent_stack: 'yes',
+      repeated_failure: 'yes',
+      business_cost: 'yes',
+      budget_owner: 'no',
+      segment: 'founder',
+      pipeline_stage: 'replied',
+    },
+    pipelinePath: pipe,
+    date: '2026-07-14',
+    apply: false,
+  });
+  assert.strictEqual(out.ok, true);
+  assert.strictEqual(out.dry_run, true);
+  assert.strictEqual(out.applied, false);
+  assert.match(out.command, /pipeline-update\.js/);
+  assert.strictEqual(fs.readFileSync(pipe, 'utf8'), before);
+  fs.rmSync(dir, { recursive: true, force: true });
+});
+
+check('apply-pipeline --apply writes booked stage via pipeline-update.js', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'vfd-pipe-a-'));
+  const pipe = path.join(dir, 'pipeline.tsv');
+  fs.writeFileSync(
+    pipe,
+    [
+      'prospect_label\tstage\troute\tgross_potential_usd\tlast_touch\tnext_action\tnotes',
+      'acme-agency\treplied\tTBD\t0\t2026-07-13\tbook_triage_call\tseed',
+    ].join('\n') + '\n',
+  );
+  const out = applyPipelineFromVoice({
+    rawSignals: {
+      prospect_label: 'acme-agency',
+      current_agent: 'qualify',
+      agent_stack: 'yes',
+      repeated_failure: 'yes',
+      business_cost: 'yes',
+      budget_owner: 'no',
+      segment: 'founder',
+      pipeline_stage: 'replied',
+    },
+    pipelinePath: pipe,
+    date: '2026-07-14',
+    apply: true,
+  });
+  assert.strictEqual(out.ok, true, out.error || out.stderr);
+  assert.strictEqual(out.applied, true);
+  const body = fs.readFileSync(pipe, 'utf8');
+  assert.match(body, /acme-agency\tbooked\t/);
+  assert.match(body, /2026-07-14/);
+  fs.rmSync(dir, { recursive: true, force: true });
 });
 
 check('demo pack has three agents, ladder, and no secrets', () => {
