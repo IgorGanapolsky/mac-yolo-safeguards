@@ -103,20 +103,54 @@ function maybeQueuePhoneInstall() {
 
   const logPath = path.join(HERMES_MOBILE_DIR, 'docs/proofs/phone-install-once.log');
   fs.mkdirSync(path.dirname(logPath), { recursive: true });
-  const label = `com.igor.hermes-phone-install-once.${process.getuid?.() ?? '0'}`;
+  const uid = process.getuid?.() ?? 0;
+  const label = `com.igor.hermes-phone-install-once.${uid}`;
+  const domain = `gui/${uid}/${label}`;
   const pairScript = path.join(REPO, 'tools/hermes-mobile-pair.js');
   const cmd = [
     'export SENTRY_DISABLE_AUTO_UPLOAD=true HERMES_AGENT_LABEL=session-start',
     `cd "${HERMES_MOBILE_DIR}" && bash scripts/install-phone-release.sh`,
     `node "${pairScript}" --mini-tailscale --no-serve`,
   ].join(' && ');
+  const oneShotCmd = [
+    cmd,
+    'status=$?',
+    // `launchctl submit` infers KeepAlive for submitted jobs. Remove this job
+    // before the shell exits so a successful install/pair cannot restart-loop.
+    `launchctl remove "${label}"`,
+    'exit "$status"',
+  ].join('; ');
 
   const lockResult = withPhonePipelineLock(
     'session-start:queue-phone-install',
     () => {
+      // A completed `launchctl submit` one-shot can leave a persistent disabled
+      // override even though the job is no longer present. Clear that override
+      // before reusing the stable per-user label on the next session start.
+      const enable = spawnSync('launchctl', ['enable', domain], {
+        encoding: 'utf8',
+        timeout: 10_000,
+      });
+      if (enable.status !== 0) {
+        throw new Error(
+          enable.stderr?.trim() || enable.stdout?.trim() || 'launchctl enable failed',
+        );
+      }
       const submit = spawnSync(
         'launchctl',
-        ['submit', '-l', label, '-o', logPath, '-e', logPath, '--', '/bin/bash', '-lc', cmd],
+        [
+          'submit',
+          '-l',
+          label,
+          '-o',
+          logPath,
+          '-e',
+          logPath,
+          '--',
+          '/bin/bash',
+          '-lc',
+          oneShotCmd,
+        ],
         { encoding: 'utf8', timeout: 10_000 },
       );
       if (submit.status !== 0) {

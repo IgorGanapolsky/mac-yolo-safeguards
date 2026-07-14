@@ -89,8 +89,9 @@ function phoneInstallLaunchJobRunning() {
   const uid = typeof process.getuid === 'function' ? process.getuid() : 0;
   const label = `com.igor.hermes-phone-install-once.${uid}`;
   const probe = spawnSync('launchctl', ['print', `gui/${uid}/${label}`], { encoding: 'utf8' });
-  if (probe.status !== 0) return false;
-  return /^\s*state\s*=\s*running/m.test(probe.stdout || '');
+  // Presence is enough to block another submit. launchd can report a newly
+  // submitted job as `spawn scheduled` before it reaches `running`.
+  return probe.status === 0;
 }
 
 /**

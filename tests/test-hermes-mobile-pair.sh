@@ -285,6 +285,19 @@ else
   bad "session-start does not inject owner pairing into an emulator-only ADB environment"
 fi
 
+enable_line="$(grep -nF "['enable', domain]" "$SESSION_START" | head -1 | cut -d: -f1 || true)"
+submit_line="$(grep -nF 'const submit = spawnSync(' "$SESSION_START" | head -1 | cut -d: -f1 || true)"
+if grep -Fq 'const domain = `gui/${uid}/${label}`;' "$SESSION_START" \
+  && grep -Fq '`launchctl remove "${label}"`' "$SESSION_START" \
+  && grep -Fq 'return probe.status === 0;' "$REPO/tools/agent-phone-pipeline-lock.js" \
+  && [[ "$enable_line" =~ ^[0-9]+$ ]] \
+  && [[ "$submit_line" =~ ^[0-9]+$ ]] \
+  && (( enable_line < submit_line )); then
+  ok "session-start re-enables and self-removes its true one-shot phone job"
+else
+  bad "session-start re-enables and self-removes its true one-shot phone job"
+fi
+
 # Default pairing must prefer tailnet IP (5G-safe), not LAN, when --gateway-url is omitted.
 if [[ "$PAIR_JS" == *"localTailscaleIpv4"* ]] && [[ "$PAIR_JS" == *"5G/cellular-safe"* ]]; then
   ok "pair script prefers tailnet gateway URL for cellular"
