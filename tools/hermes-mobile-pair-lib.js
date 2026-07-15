@@ -581,6 +581,96 @@ function pruneExpiredPairingCodes(store) {
   }
 }
 
+/**
+ * Single-writer lock for pair.json (and sibling pair assets).
+ * Prevents concurrent agents from poisoning primary Mac hostname/URL/key seed.
+ *
+ * Uses exclusive `wx` lock file + stale reclaim. Cross-process safe on local disk.
+ */
+const DEFAULT_PAIR_LOCK_PATH = path.join(
+  os.homedir(),
+  'Library',
+  'Application Support',
+  'mac-yolo-safeguards',
+  'hermes-mobile-pair',
+  'pair.json.lock',
+);
+const PAIR_LOCK_STALE_MS = Number(process.env.HERMES_PAIR_JSON_LOCK_STALE_MS || 120_000);
+
+function withPairJsonLock(fn, options = {}) {
+  const lockPath = options.lockPath || DEFAULT_PAIR_LOCK_PATH;
+  const waitMs = Number(options.waitMs ?? 30_000);
+  const staleMs = Number(options.staleMs ?? PAIR_LOCK_STALE_MS);
+  const sleep =
+    typeof options.sleep === 'function'
+      ? options.sleep
+      : (ms) => {
+          const end = Date.now() + ms;
+          while (Date.now() < end) {
+            /* short busy-wait; tests inject fake sleep */
+          }
+        };
+  const now = typeof options.now === 'function' ? options.now : () => Date.now();
+  const owner = options.owner || `pid:${process.pid}`;
+
+  fs.mkdirSync(path.dirname(lockPath), { recursive: true });
+  const deadline = now() + waitMs;
+  while (true) {
+    try {
+      const fd = fs.openSync(lockPath, 'wx');
+      fs.writeFileSync(fd, `${JSON.stringify({ owner, at: new Date(now()).toISOString() })}\n`);
+      fs.closeSync(fd);
+      break;
+    } catch (err) {
+      if (!err || err.code !== 'EEXIST') {
+        throw err;
+      }
+      let stale = false;
+      try {
+        const st = fs.statSync(lockPath);
+        stale = now() - st.mtimeMs > staleMs;
+      } catch {
+        stale = true;
+      }
+      if (stale) {
+        try {
+          fs.unlinkSync(lockPath);
+          continue;
+        } catch {
+          // raced
+        }
+      }
+      if (now() >= deadline) {
+        const e = new Error(`pair.json lock busy: ${lockPath}`);
+        e.code = 'PAIR_JSON_LOCK_BUSY';
+        throw e;
+      }
+      sleep(50);
+    }
+  }
+
+  try {
+    return fn();
+  } finally {
+    try {
+      fs.unlinkSync(lockPath);
+    } catch {
+      // best-effort
+    }
+  }
+}
+
+function writePairJsonAtomic(pairJsonPath, pairJson, options = {}) {
+  return withPairJsonLock(() => {
+    const dir = path.dirname(pairJsonPath);
+    fs.mkdirSync(dir, { recursive: true });
+    const tmp = `${pairJsonPath}.${process.pid}.${Date.now()}.tmp`;
+    fs.writeFileSync(tmp, JSON.stringify(pairJson, null, 2));
+    fs.renameSync(tmp, pairJsonPath);
+    return pairJsonPath;
+  }, options);
+}
+
 module.exports = {
   DEFAULT_HERMES_ENV,
   MAC_MINI_TAILSCALE_IP,
@@ -614,4 +704,8 @@ module.exports = {
   verifyGatewayAuthSync,
   redactDeepLinkSecrets,
   buildVerifiedExtraComputer,
+  DEFAULT_PAIR_LOCK_PATH,
+  PAIR_LOCK_STALE_MS,
+  withPairJsonLock,
+  writePairJsonAtomic,
 };

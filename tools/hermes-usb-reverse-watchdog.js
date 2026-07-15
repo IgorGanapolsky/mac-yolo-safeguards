@@ -29,7 +29,47 @@
  */
 
 const { execFileSync } = require('child_process');
+const fs = require('fs');
+const os = require('os');
+const path = require('path');
 const { USB_ADB_REVERSE_PORTS, assertUsbAdbReverses, setupUsbAdbReverses } = require('./hermes-mobile-pair-lib');
+
+const NTFY = process.env.HERMES_NTFY_URL || 'https://ntfy.sh/yolo-guard-fdh8ktuw1vtxb5sb';
+const NTFY_STATE_PATH =
+  process.env.HERMES_USB_WATCHDOG_NTFY_STATE ||
+  path.join(os.homedir(), '.hermes', 'usb-reverse-watchdog-ntfy.json');
+const NTFY_COOLDOWN_MS = Number(process.env.HERMES_USB_WATCHDOG_NTFY_COOLDOWN_MS || 15 * 60 * 1000);
+
+function notifyUsbFailure(summary) {
+  if (!summary.anyFailed) return { sent: false, reason: 'no_failure' };
+  let state = {};
+  try {
+    state = JSON.parse(fs.readFileSync(NTFY_STATE_PATH, 'utf8'));
+  } catch {
+    state = {};
+  }
+  const now = Date.now();
+  if (state.lastNtfyAt && now - state.lastNtfyAt < NTFY_COOLDOWN_MS) {
+    return { sent: false, reason: 'cooldown' };
+  }
+  const detail = summary.results
+    .filter((r) => r.failed.length > 0)
+    .map((r) => `${r.serial} missing=${r.failed.join(',')}`)
+    .join('; ');
+  try {
+    execFileSync(
+      'curl',
+      ['-sS', '-m', '8', '-H', 'Title: Hermes USB reverse FAILED', '-d', detail || 'adb reverse heal failed', NTFY],
+      { encoding: 'utf8', timeout: 12_000 },
+    );
+    state.lastNtfyAt = now;
+    fs.mkdirSync(path.dirname(NTFY_STATE_PATH), { recursive: true });
+    fs.writeFileSync(NTFY_STATE_PATH, `${JSON.stringify(state)}\n`);
+    return { sent: true };
+  } catch (err) {
+    return { sent: false, error: err instanceof Error ? err.message : String(err) };
+  }
+}
 
 function runAdb(args, options = {}) {
   const adbBin = options.adbCommand ?? 'adb';
@@ -97,6 +137,8 @@ function main() {
   const args = process.argv.slice(2);
   const json = args.includes('--json');
   const summary = runOnce();
+  const ntfy = notifyUsbFailure(summary);
+  summary.ntfy = ntfy;
   if (json) {
     process.stdout.write(`${JSON.stringify(summary)}\n`);
   } else if (summary.devicesChecked === 0) {
@@ -114,6 +156,9 @@ function main() {
         console.error(`hermes-usb-reverse-watchdog: ${r.serial} — FAILED to re-apply port(s) ${r.failed.join(', ')}`);
       }
     }
+    if (ntfy.sent) {
+      console.error('hermes-usb-reverse-watchdog: ntfy alert sent');
+    }
   }
   process.exit(0);
 }
@@ -127,4 +172,5 @@ module.exports = {
   isPhysicalSerial,
   healSerial,
   runOnce,
+  notifyUsbFailure,
 };

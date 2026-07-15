@@ -1624,6 +1624,7 @@ export default function ChatScreen() {
     healInFlight: connectionHealInFlight,
     healExhausted: connectionHealExhausted,
     hasSavedComputer: hasValidSavedComputer(gatewayProfiles),
+    authMismatch: effectiveAuthMismatch,
   });
 
   const hasPriorSuccessfulConnection = hasValidSavedComputer(gatewayProfiles);
