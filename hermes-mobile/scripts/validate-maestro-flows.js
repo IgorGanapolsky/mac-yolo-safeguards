@@ -32,6 +32,9 @@ const REQUIRED_FLOWS = [
   'regression-composer-typeable',
   'stranger-cold-start',
   'wrong-key-repair',
+  'tailscale-profile-disconnected-copy',
+  'picker-two-machines',
+  'pairCode-deep-link',
 ];
 
 function bundleIdFromAppJson() {

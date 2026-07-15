@@ -1,4 +1,5 @@
 import React from 'react';
+import { Alert } from 'react-native';
 import { fireEvent, render, waitFor } from '@testing-library/react-native';
 import ConnectionHealthHub from '../components/ConnectionHealthHub';
 import { checkForAppUpdate } from '../services/appOtaUpdate';
@@ -63,6 +64,35 @@ describe('ConnectionHealthHub', () => {
       },
       { timeout: 10000 },
     );
+  });
+
+  it('clears the repair spinner and never leaves it spinning when Repair link times out (#392/#393)', async () => {
+    const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+    const onRepairConnection = jest
+      .fn()
+      .mockRejectedValue(new Error('Repair link timed out after 12s'));
+    const { getByTestId } = render(
+      <ConnectionHealthHub
+        connectionState="disconnected"
+        onRepairConnection={onRepairConnection}
+      />,
+    );
+
+    fireEvent.press(getByTestId('connection-health-repair'));
+    await waitFor(() => {
+      expect(onRepairConnection).toHaveBeenCalled();
+    });
+    await waitFor(() => {
+      // The button must be tappable again — a stuck ActivityIndicator with disabled=true
+      // is the infinite-spinner class this guards against.
+      const button = getByTestId('connection-health-repair');
+      expect(button.props.accessibilityState?.disabled ?? button.props.disabled).toBe(false);
+    });
+    expect(alertSpy).toHaveBeenCalledWith(
+      'Could not repair link',
+      'Repair link timed out after 12s',
+    );
+    alertSpy.mockRestore();
   });
 
   it('checks for OTA update', async () => {
