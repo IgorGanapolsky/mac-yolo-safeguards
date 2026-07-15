@@ -174,6 +174,37 @@ CDP_ORPHANS=$(/bin/ps -axo pid,ppid,command | /usr/bin/awk '
 printf "  Orphaned CDP Chrome:   %s instance(s) (notify-only; never killed)\n" "$CDP_ORPHANS"
 
 echo ""
+echo "=== Chrome background CPU harden (MakeUseOf-class policies) ==="
+# Fail-closed for policy presence when Chrome is installed; never kills browsers.
+YH_REAL="$0"
+if [ -L "$0" ]; then
+  YH_REAL="$(readlink "$0" 2>/dev/null || true)"
+fi
+YH_DIR="$(CDPATH= cd -- "$(dirname -- "${YH_REAL:-$0}")" 2>/dev/null && pwd)" || YH_DIR=""
+CHROME_HARDEN=""
+for cand in \
+  "${YH_DIR:+$YH_DIR/scripts/chrome-background-cpu-harden.sh}" \
+  "$HOME/workspace/git/igor/mac-yolo-safeguards/scripts/chrome-background-cpu-harden.sh" \
+  "$HOME/.local/bin/chrome-background-cpu-harden.sh"
+do
+  if [ -n "$cand" ] && [ -f "$cand" ]; then CHROME_HARDEN="$cand"; break; fi
+done
+if [ -n "$CHROME_HARDEN" ]; then
+  if bash "$CHROME_HARDEN" --status >/dev/null 2>&1; then
+    printf "  [$OK] Chrome BackgroundMode off + Preload Standard/No (policies present)\n"
+    pass=$((pass + 1))
+  elif [ -d "/Applications/Google Chrome.app" ]; then
+    printf "  [$BAD] Chrome background policies not hardened (run: bash scripts/chrome-background-cpu-harden.sh --install)\n"
+    fail=$((fail + 1))
+  else
+    printf "  [$OK] Chrome harden skipped (no Google Chrome.app)\n"
+    pass=$((pass + 1))
+  fi
+else
+  printf "  [$WARN] chrome-background-cpu-harden.sh not found (repo path)\n"
+fi
+
+echo ""
 echo "=== Recent guard activity (last 5 lines of $GUARD_LOG) ==="
 if [ -s "$GUARD_LOG" ]; then
   tail -5 "$GUARD_LOG" | sed 's/^/  /'

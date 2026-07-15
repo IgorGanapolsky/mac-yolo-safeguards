@@ -55,6 +55,11 @@ git ls-files '*.sh' | while IFS= read -r file; do
   esac
 done
 sh -n yolo-health
+sh -n scripts/chrome-background-cpu-harden.sh
+# Chrome policy harden contract (uses real defaults on macOS runners when Chrome present)
+if [ -f tests/test-chrome-background-cpu-harden.sh ]; then
+  bash tests/test-chrome-background-cpu-harden.sh
+fi
 
 echo "=== Python static checks ==="
 python3 -c 'import ast, pathlib, subprocess; tracked=subprocess.check_output(["git", "ls-files", "*.py"], text=True).splitlines(); files=[path for path in tracked if pathlib.Path(path).is_file()]; [ast.parse(pathlib.Path(path).read_text(), filename=path) for path in files]; print(f"parsed {len(files)} Python files")'

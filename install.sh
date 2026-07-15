@@ -56,6 +56,7 @@ link "$REPO/agy-yolo-wrapper.js"              "$AGY_CLI_DIR/bin/agy-yolo-wrapper
 link "$REPO/hermes-yolo-wrapper.js"           "$INSTALL_HOME/.local/bin/hermes-yolo"
 link "$REPO/sim-runaway-guard.sh"             "$INSTALL_HOME/.local/bin/sim-runaway-guard.sh"
 link "$REPO/yolo-health"                      "$INSTALL_HOME/.local/bin/yolo-health"
+link "$REPO/scripts/chrome-background-cpu-harden.sh" "$INSTALL_HOME/.local/bin/chrome-background-cpu-harden.sh"
 
 # Instead of symlinking the plist, write a copy with {{HOME}} substituted to point to the actual home directory
 PLIST_DEST="$INSTALL_HOME/Library/LaunchAgents/com.igor.shutdown-simulators.plist"
@@ -71,6 +72,19 @@ else
   launchctl bootout gui/$(id -u)/com.igor.shutdown-simulators 2>/dev/null || true
   launchctl bootstrap gui/$(id -u) "$PLIST_DEST"
   echo "  com.igor.shutdown-simulators bootstrapped"
+fi
+
+echo ""
+echo "=== Chrome background CPU harden (MakeUseOf-class) ==="
+if [ "$CI_SMOKE" -eq 1 ]; then
+  echo "  skipped in CI smoke mode (operator Chrome policies untouched)"
+elif [ -f "$REPO/scripts/chrome-background-cpu-harden.sh" ]; then
+  # Never kills browsers; writes Chrome enterprise policies via defaults.
+  bash "$REPO/scripts/chrome-background-cpu-harden.sh" --install || {
+    echo "  warning: chrome-background-cpu-harden reported incomplete policies" >&2
+  }
+else
+  echo "  skipped (script missing)"
 fi
 
 echo ""

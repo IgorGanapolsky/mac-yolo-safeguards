@@ -225,7 +225,17 @@ Guard E2E (browser reclaim + CPU autokill):
 
 ```sh
 tests/test-secondary-browser-reclaim.sh
+tests/test-chrome-background-cpu-harden.sh
 ```
+
+Chrome background CPU harden (MakeUseOf-class — disable post-close background apps + Standard preload only; **never kills primary Chrome**):
+
+```sh
+bash scripts/chrome-background-cpu-harden.sh --install
+bash scripts/chrome-background-cpu-harden.sh --status --json
+```
+
+Details: [docs/CHROME-BACKGROUND-CPU-HARDEN.md](./docs/CHROME-BACKGROUND-CPU-HARDEN.md).
 
 ## CI/CD
 
