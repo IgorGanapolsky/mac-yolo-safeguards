@@ -31,6 +31,59 @@ run_node() {
   HOME="$TMP/home" PATH="$BIN:$PATH" node -e "$1"
 }
 
+# The mini's fleet IP is local when the pairing CLI itself runs on the mini. It must use
+# the local .env key instead of trying to SSH back into itself and discarding that key.
+if run_node "
+  const lib = require('$REPO/tools/hermes-mobile-pair-lib.js');
+  const miniKey = lib.resolveApiKeyForGatewayUrl('http://100.94.135.78:8642', {
+    hermesEnvPath: '$TMP/home/.hermes/.env',
+    sshCommand: '$BIN/ssh-fail',
+    localGatewayHosts: ['100.94.135.78', 'igors-mac-mini.tail12aa33.ts.net'],
+  });
+  if (miniKey !== 'laptop-key-from-env') process.exit(1);
+  if (!lib.isGatewayUrlLocalToMachine('http://100.94.135.78:8642', {
+    localGatewayHosts: ['100.94.135.78'],
+  })) process.exit(2);
+"; then
+  ok "mini self Tailscale URL resolves this Mac's local key without self-SSH"
+else
+  bad "mini self Tailscale URL resolves this Mac's local key without self-SSH"
+fi
+
+if run_node "
+  const fs = require('fs');
+  const path = require('path');
+  const lib = require('$REPO/tools/hermes-mobile-pair-lib.js');
+  const dir = '$TMP/atomic-pair-state';
+  const file = path.join(dir, 'pair.json');
+  lib.atomicWriteFileSync(file, '{\"generation\":1}\n', { mode: 0o600 });
+  lib.atomicWriteFileSync(file, '{\"generation\":2}\n', { mode: 0o600 });
+  if (JSON.parse(fs.readFileSync(file, 'utf8')).generation !== 2) process.exit(1);
+  if ((fs.statSync(file).mode & 0o777) !== 0o600) process.exit(2);
+  if (fs.readdirSync(dir).some((name) => name.endsWith('.tmp'))) process.exit(3);
+"; then
+  ok "pair state replacement is atomic, mode 0600, and leaves no temp files"
+else
+  bad "pair state replacement is atomic, mode 0600, and leaves no temp files"
+fi
+
+if run_node "
+  const fs = require('fs');
+  const path = require('path');
+  const lib = require('$REPO/tools/hermes-mobile-pair-lib.js');
+  const lock = '$TMP/stale-pair.lock';
+  fs.mkdirSync(lock, { recursive: true });
+  const old = new Date(Date.now() - 60000);
+  fs.utimesSync(lock, old, old);
+  const result = lib.withDirectoryLockSync(lock, () => 'recovered', { staleMs: 1000 });
+  if (result !== 'recovered') process.exit(1);
+  if (fs.existsSync(lock)) process.exit(2);
+"; then
+  ok "stale pair-state lock is reclaimed and released"
+else
+  bad "stale pair-state lock is reclaimed and released"
+fi
+
 # Mac mini Tailscale URL must use SSH key, not laptop .env key
 if run_node "
   const lib = require('$REPO/tools/hermes-mobile-pair-lib.js');
@@ -174,6 +227,29 @@ if [[ "$PAIR_JS" == *"--mini-tailscale"* ]] && [[ "$PAIR_JS" == *"extraKey"* ]] 
   ok "pair script exports mini-tailscale + extraKey contract"
 else
   bad "pair script exports mini-tailscale + extraKey contract"
+fi
+
+if [[ "$PAIR_JS" == *"PAIR_STATE_LOCK_PATH"* ]] \
+  && [[ "$PAIR_JS" == *"withDirectoryLockSync"* ]] \
+  && [[ "$PAIR_JS" == *"atomicWriteFileSync(path.join(OUT_DIR, 'pair.json')"* ]]; then
+  ok "pair code exchange and pair.json publication share one cross-process lock"
+else
+  bad "pair code exchange and pair.json publication share one cross-process lock"
+fi
+
+if [[ "$PAIR_JS" == *'com.igor.hermes-mobile-pair-server'* ]] \
+  && [[ "$PAIR_JS" == *"['kickstart', '-k', service]"* ]] \
+  && [[ "$PAIR_JS" == *'handed to KeepAlive LaunchAgent'* ]]; then
+  ok "pair CLI hands port 8765 ownership to the installed KeepAlive service"
+else
+  bad "pair CLI hands port 8765 ownership to the installed KeepAlive service"
+fi
+
+if [[ "$PAIR_JS" == *"const pageHost = /^100"* ]] \
+  && [[ "$PAIR_JS" == *'const pageUrl = `http://${pageHost}:${PAIR_PORT}/pair`'* ]]; then
+  ok "tailnet pairing advertises a cellular-reachable 100.x pair server"
+else
+  bad "tailnet pairing advertises a cellular-reachable 100.x pair server"
 fi
 
 # Never push an unverified / foreign key onto the phone (2026-07-14 Wrong key after fresh install)

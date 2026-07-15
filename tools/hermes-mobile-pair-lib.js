@@ -16,6 +16,78 @@ const MAC_MINI_TAILSCALE_IP = '100.94.135.78';
 /** Android application id — used to confirm the setup intent actually reached the foreground app. */
 const ANDROID_PACKAGE_NAME = 'com.iganapolsky.hermesmobile';
 
+function sleepSync(ms) {
+  const waitBuffer = new Int32Array(new SharedArrayBuffer(4));
+  Atomics.wait(waitBuffer, 0, 0, ms);
+}
+
+/** Write a complete replacement in the destination directory, then rename atomically. */
+function atomicWriteFileSync(filePath, content, options = {}) {
+  const directory = path.dirname(filePath);
+  fs.mkdirSync(directory, { recursive: true });
+  const mode = options.mode ?? 0o600;
+  const tempPath = path.join(
+    directory,
+    `.${path.basename(filePath)}.${process.pid}.${crypto.randomUUID()}.tmp`,
+  );
+  let fd;
+  try {
+    fd = fs.openSync(tempPath, 'wx', mode);
+    fs.writeFileSync(fd, content);
+    fs.fsyncSync(fd);
+    fs.closeSync(fd);
+    fd = undefined;
+    fs.renameSync(tempPath, filePath);
+    fs.chmodSync(filePath, mode);
+  } finally {
+    if (fd !== undefined) fs.closeSync(fd);
+    fs.rmSync(tempPath, { force: true });
+  }
+}
+
+/**
+ * Cross-process synchronous lock using an atomic mkdir. A dead writer cannot wedge pairing
+ * forever: a lock older than staleMs is reclaimed, while healthy contenders wait boundedly.
+ */
+function withDirectoryLockSync(lockPath, callback, options = {}) {
+  const waitMs = options.waitMs ?? 5000;
+  const retryMs = options.retryMs ?? 25;
+  const staleMs = options.staleMs ?? 30_000;
+  const deadline = Date.now() + waitMs;
+  fs.mkdirSync(path.dirname(lockPath), { recursive: true });
+
+  for (;;) {
+    try {
+      fs.mkdirSync(lockPath, { mode: 0o700 });
+      break;
+    } catch (error) {
+      if (error?.code !== 'EEXIST') throw error;
+      try {
+        const ageMs = Date.now() - fs.statSync(lockPath).mtimeMs;
+        if (ageMs > staleMs) {
+          fs.rmSync(lockPath, { recursive: true, force: true });
+          continue;
+        }
+      } catch (statError) {
+        if (statError?.code !== 'ENOENT') throw statError;
+        continue;
+      }
+      if (Date.now() >= deadline) {
+        const timeout = new Error(`Timed out waiting for pairing state lock: ${lockPath}`);
+        timeout.code = 'PAIR_STATE_LOCK_TIMEOUT';
+        throw timeout;
+      }
+      sleepSync(retryMs);
+    }
+  }
+
+  try {
+    return callback();
+  } finally {
+    fs.rmSync(lockPath, { recursive: true, force: true });
+  }
+}
+
 function readEnvKey(filePath, names) {
   if (!fs.existsSync(filePath)) return '';
   const text = fs.readFileSync(filePath, 'utf8');
@@ -47,6 +119,28 @@ function isMacMiniGatewayUrl(gatewayUrl) {
 function isLoopbackGatewayUrl(gatewayUrl) {
   const host = gatewayUrlHost(gatewayUrl);
   return host === '127.0.0.1' || host === 'localhost' || host === '::1' || host === '10.0.2.2';
+}
+
+/**
+ * A fleet address can be "remote" from one Mac and local from another. In particular,
+ * 100.94.135.78 is the mini from the MacBook, but it is the mini's own address when this
+ * CLI runs on the mini. Treat explicit local tailnet addresses and this host's names as
+ * local before applying the fleet-specific mini SSH rule.
+ */
+function isGatewayUrlLocalToMachine(gatewayUrl, options = {}) {
+  const host = gatewayUrlHost(gatewayUrl);
+  if (!host) return false;
+  if (isLoopbackGatewayUrl(gatewayUrl)) return true;
+  const localHosts = new Set(
+    [
+      ...(options.localGatewayHosts || []),
+      os.hostname(),
+      `${os.hostname()}.local`,
+    ]
+      .map((value) => String(value || '').trim().toLowerCase().replace(/\.$/, ''))
+      .filter(Boolean),
+  );
+  return localHosts.has(host.replace(/\.$/, ''));
 }
 
 /**
@@ -252,6 +346,9 @@ function resolveApiKeyForGatewayUrl(gatewayUrl, options = {}) {
     return localKey;
   }
   if (isLoopbackGatewayUrl(gatewayUrl)) {
+    return localKey;
+  }
+  if (isGatewayUrlLocalToMachine(gatewayUrl, options)) {
     return localKey;
   }
   if (!isMacMiniGatewayUrl(gatewayUrl) && !options.forceRemote) {
@@ -585,6 +682,8 @@ module.exports = {
   DEFAULT_HERMES_ENV,
   MAC_MINI_TAILSCALE_IP,
   ANDROID_PACKAGE_NAME,
+  atomicWriteFileSync,
+  withDirectoryLockSync,
   isAppForegroundOutput,
   waitForForegroundAck,
   PAIRING_CODE_TTL_MS,
@@ -598,6 +697,7 @@ module.exports = {
   gatewayUrlHost,
   isMacMiniGatewayUrl,
   isLoopbackGatewayUrl,
+  isGatewayUrlLocalToMachine,
   classifyGatewayHost,
   selectPhysicalAdbSerial,
   USB_ADB_REVERSE_PORTS,

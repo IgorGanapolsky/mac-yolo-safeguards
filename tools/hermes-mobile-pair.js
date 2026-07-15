@@ -27,6 +27,7 @@ const {
   redactDeepLinkSecrets,
   buildVerifiedExtraComputer,
   isLoopbackGatewayUrl,
+  isGatewayUrlLocalToMachine,
   classifyGatewayHost,
   setupUsbAdbReverses,
   assertUsbAdbReverses,
@@ -36,6 +37,8 @@ const {
   putPairingCode,
   takePairingCode,
   pruneExpiredPairingCodes,
+  atomicWriteFileSync,
+  withDirectoryLockSync,
 } = require('./hermes-mobile-pair-lib.js');
 const { pipelineBusyReason } = require('./agent-phone-pipeline-lock.js');
 const { withPhoneLease } = require('./agent-phone-lease.js');
@@ -131,6 +134,7 @@ function resolveLanIp(health) {
 }
 
 const PAIR_CODES_PATH = path.join(OUT_DIR, 'pair-codes.json');
+const PAIR_STATE_LOCK_PATH = path.join(OUT_DIR, '.pair-state.lock');
 
 /**
  * Secretless one-time pairing code (T-330 priority 3): file-backed so the short-lived
@@ -149,28 +153,32 @@ function loadPairCodesFile() {
 
 function savePairCodesFile(map) {
   fs.mkdirSync(OUT_DIR, { recursive: true });
-  fs.writeFileSync(PAIR_CODES_PATH, JSON.stringify(map), { mode: 0o600 });
+  atomicWriteFileSync(PAIR_CODES_PATH, JSON.stringify(map), { mode: 0o600 });
 }
 
 function mintPairingCode(payload) {
-  const map = loadPairCodesFile();
-  const now = Date.now();
-  for (const [code, entry] of Object.entries(map)) {
-    if (!entry || now > entry.expiresAt) delete map[code];
-  }
-  const store = new Map(Object.entries(map));
-  const code = putPairingCode(store, payload);
-  savePairCodesFile(Object.fromEntries(store));
-  return code;
+  return withDirectoryLockSync(PAIR_STATE_LOCK_PATH, () => {
+    const map = loadPairCodesFile();
+    const now = Date.now();
+    for (const [code, entry] of Object.entries(map)) {
+      if (!entry || now > entry.expiresAt) delete map[code];
+    }
+    const store = new Map(Object.entries(map));
+    const code = putPairingCode(store, payload);
+    savePairCodesFile(Object.fromEntries(store));
+    return code;
+  });
 }
 
 /** Single-use, TTL-bound exchange — never returns the same code twice. */
 function exchangePairingCode(code) {
-  const map = loadPairCodesFile();
-  const store = new Map(Object.entries(map));
-  const result = takePairingCode(store, code);
-  savePairCodesFile(Object.fromEntries(store));
-  return result;
+  return withDirectoryLockSync(PAIR_STATE_LOCK_PATH, () => {
+    const map = loadPairCodesFile();
+    const store = new Map(Object.entries(map));
+    const result = takePairingCode(store, code);
+    savePairCodesFile(Object.fromEntries(store));
+    return result;
+  });
 }
 
 function buildSecretlessDeepLink(code, pairServerUrl, hostname) {
@@ -338,8 +346,6 @@ function writePairAssets({ gatewayUrl, lanIp, deepLink, pageUrl, hostname, relay
       ? { tailnetProbeHosts }
       : {}),
   };
-  fs.writeFileSync(path.join(OUT_DIR, 'pair.json'), JSON.stringify(pairJson, null, 2));
-
   const htmlPath = path.join(OUT_DIR, 'index.html');
   const html = `<!DOCTYPE html>
 <html lang="en"><head>
@@ -368,7 +374,12 @@ function writePairAssets({ gatewayUrl, lanIp, deepLink, pageUrl, hostname, relay
     }, 600);
   </script>
 </body></html>`;
-  fs.writeFileSync(htmlPath, html);
+  withDirectoryLockSync(PAIR_STATE_LOCK_PATH, () => {
+    atomicWriteFileSync(path.join(OUT_DIR, 'pair.json'), `${JSON.stringify(pairJson, null, 2)}\n`, {
+      mode: 0o600,
+    });
+    atomicWriteFileSync(htmlPath, html, { mode: 0o600 });
+  });
   return { htmlPath, pairJson };
 }
 
@@ -395,6 +406,18 @@ function ensurePairServerDaemon(lanIp) {
   if (portInUse(PAIR_PORT)) {
     console.log(`  Pair server: already listening on :${PAIR_PORT}`);
     return;
+  }
+  const uid = typeof process.getuid === 'function' ? process.getuid() : null;
+  if (uid !== null) {
+    const service = `gui/${uid}/com.igor.hermes-mobile-pair-server`;
+    const installed = spawnSync('launchctl', ['print', service], { encoding: 'utf8' });
+    if (installed.status === 0) {
+      const kicked = spawnSync('launchctl', ['kickstart', '-k', service], { encoding: 'utf8' });
+      if (kicked.status === 0) {
+        console.log(`  Pair server: handed to KeepAlive LaunchAgent on :${PAIR_PORT}`);
+        return;
+      }
+    }
   }
   const child = spawn(process.execPath, [path.join(__dirname, 'hermes-mobile-pair.js'), '--server-only'], {
     detached: true,
@@ -593,10 +616,15 @@ function runPairMain(args) {
   const lanIp = detectLocalLanIp() || resolveLanIp(health);
   const allowLocalKeyFallback = args.has('--allow-local-key-fallback');
   const skipAuthProbe = args.has('--skip-auth-probe');
+  const localTailnetIp = localTailscaleIpv4();
+  const keyResolutionOptions = {
+    allowLocalKeyFallback,
+    localGatewayHosts: [localTailnetIp, os.hostname(), `${os.hostname()}.local`].filter(Boolean),
+  };
   const apiKeyBefore = readLocalApiKey();
   let apiKey;
   try {
-    apiKey = resolveApiKeyForGatewayUrl(gatewayUrl, { allowLocalKeyFallback });
+    apiKey = resolveApiKeyForGatewayUrl(gatewayUrl, keyResolutionOptions);
   } catch (err) {
     if (err && err.code === 'MINI_KEY_UNAVAILABLE') {
       console.warn(`  API key: ${err.message}`);
@@ -606,7 +634,10 @@ function runPairMain(args) {
     }
   }
   const hostClass = classifyGatewayHost(gatewayUrl);
-  if (apiKey && apiKey !== apiKeyBefore && hostClass === 'mini') {
+  const gatewayTargetsThisMac = isGatewayUrlLocalToMachine(gatewayUrl, keyResolutionOptions);
+  if (gatewayTargetsThisMac) {
+    console.log('  API key: loaded from this Mac (~/.hermes/.env)');
+  } else if (apiKey && apiKey !== apiKeyBefore && hostClass === 'mini') {
     console.log('  API key: loaded from target Mac (~/.hermes/.env via SSH)');
   } else if ((!apiKey || apiKey === apiKeyBefore) && hostClass === 'mini' && !allowLocalKeyFallback) {
     console.warn(
@@ -720,7 +751,7 @@ function runPairMain(args) {
   }
 
   resolvePairingBindings(gatewayUrl, {
-    allowLocalKeyFallback,
+    ...keyResolutionOptions,
     probe: false,
     probeExtras: false,
     extraGatewayUrls: extraComputers.map((c) => c.gatewayUrl),
@@ -764,7 +795,11 @@ function runPairMain(args) {
         'pair.json and the phone stay on this Mac. Pass --force-mini-usb-primary to override.',
     );
   }
-  const pageUrl = `http://${lanIp}:${PAIR_PORT}/pair`;
+  const gatewayHost = new URL(gatewayUrl).hostname;
+  const pageHost = /^100\.(?:6[4-9]|[7-9]\d|1[01]\d|12[0-7])\./.test(gatewayHost)
+    ? gatewayHost
+    : lanIp;
+  const pageUrl = `http://${pageHost}:${PAIR_PORT}/pair`;
   // Secretless pairing (T-330 priority 3): only when a pair server will actually run to
   // serve the exchange. `--no-serve` unattended/session-start flows keep the legacy
   // embedded-key link unchanged (no server exists there to exchange a code against).

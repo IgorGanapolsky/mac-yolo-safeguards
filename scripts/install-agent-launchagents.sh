@@ -50,6 +50,9 @@ plists=(
   com.igor.hermes-contribution-opportunities.plist
   com.igor.hermes-mobile-continuous-e2e.plist
   com.igor.hermes-mobile-itunes-poll.plist
+  com.igor.hermes-gateway-watchdog.plist
+  com.igor.hermes-mobile-pair-server.plist
+  com.igor.hermes-tailscale-health-watchdog.plist
   com.igor.hermes-usb-reverse-watchdog.plist
   com.igor.hermes-relay-worker.plist
   com.igor.revenue-autonomous-loop.plist
