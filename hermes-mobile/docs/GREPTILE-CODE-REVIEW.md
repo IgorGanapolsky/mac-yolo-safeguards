@@ -20,11 +20,16 @@ Docs Greptile is pointed at: `files.json` in those folders (AGENTS.md, REAL-USER
 
 ## Install status (operators)
 
-GitHub App: [github.com/apps/greptile](https://github.com/apps/greptile)
+| Piece | Status (2026-07-15) |
+|-------|---------------------|
+| GitHub App **Greptile Apps** (`github.com/apps/greptile-apps`) | Installed on `@IgorGanapolsky` with **All repositories** (installation `92872628`) — this is the app that can review PRs |
+| GitHub App **Greptile** (`github.com/apps/greptile`) | Also present (installation `146808081`) but **No repositories / No permissions** — leftover from marketplace install; not sufficient alone |
+| Greptile dashboard org | `app.greptile.com/saasgrowthdispatch` — logged in; **subscription ended**; Code Providers shows **0 GitHub Organizations** until provider is re-linked + free/pro plan activated |
+| Sample `@greptileai review` | Commented on PR #443 / #425 — **no Greptile review yet** (dashboard org not linked / plan inactive) |
 
-- Pricing (public FAQ, July 2026): **$30/seat/month**, 50 review credits/seat; free tier for qualified open-source — contact Greptile for OSS eligibility on this public repo.
-- Install cannot be completed via `gh` API alone; it requires a logged-in GitHub **Install** + occasional **sudo/passkey** confirmation.
-- After install: enable `IgorGanapolsky/mac-yolo-safeguards` (or all public repos), wait for indexing, then `@greptileai review` on an open PR.
+- Pricing (public FAQ, July 2026): **$30/seat/month**, 50 review credits/seat; free plan up to 50 credits/month for one author; OSS free tier available on request.
+- Finish wiring (Chrome already authenticated): Code Providers → Add Provider → GitHub → link `IgorGanapolsky` → Activate free plan → Repositories → Enable `mac-yolo-safeguards` → `@greptileai review`.
+- Config in this repo is live on merge regardless; Greptile reads `.greptile/` from the PR source branch once reviews run.
 
 ## Review focus (encoded in rules)
 
