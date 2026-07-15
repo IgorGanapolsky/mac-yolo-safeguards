@@ -276,6 +276,7 @@ import {
   shouldShowConnectivityRunBanner,
 } from '../utils/connectionErrorPolicy';
 import {
+  connectingToMacCopy,
   formatSavedMacUnreachableBanner,
   reconnectingToMacCopy,
   savedMacUnreachableStatus,
@@ -1621,15 +1622,24 @@ export default function ChatScreen() {
     hasSavedComputer: hasValidSavedComputer(gatewayProfiles),
   });
 
+  const hasPriorSuccessfulConnection = hasValidSavedComputer(gatewayProfiles);
+
   const macRetryBannerText = useMemo(() => {
     if (
       shouldShowActiveReconnectingCopy({
         macRetryBusy,
         healInFlight: connectionHealInFlight,
         healExhausted: connectionHealExhausted,
+        hasPriorSuccessfulConnection,
       })
     ) {
       return reconnectingToMacCopy(machineShortLabel);
+    }
+    if (
+      !hasPriorSuccessfulConnection &&
+      (macRetryBusy || (connectionHealInFlight && !connectionHealExhausted))
+    ) {
+      return connectingToMacCopy(machineShortLabel);
     }
     if (connectionHealExhausted && !effectiveMacHttpOk) {
       return formatSavedMacUnreachableBanner({
@@ -1652,6 +1662,7 @@ export default function ChatScreen() {
     macRetryBusy,
     connectionHealInFlight,
     connectionHealExhausted,
+    hasPriorSuccessfulConnection,
     effectiveMacHttpOk,
     machineShortLabel,
     connectionState,
