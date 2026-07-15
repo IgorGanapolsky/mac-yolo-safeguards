@@ -14,21 +14,13 @@ describe('networkSecurityPolicy G-02 cleartext scoping', () => {
   it('Android NSC permits cleartext at base so Tailscale/LAN Find computers works', () => {
     // Regression: loopback-only NSC made RN fetch to http://100.x:8642 fail while
     // adb shell curl succeeded — Find computers stayed empty with Tailscale ON.
+    // android/ is gitignored; the Expo plugin is the tracked source of truth for CI/EAS.
     const pluginPath = path.join(__dirname, '../../plugins/withNetworkSecurityConfig.js');
     const pluginSrc = fs.readFileSync(pluginPath, 'utf8');
     expect(pluginSrc).toMatch(/base-config cleartextTrafficPermitted="true"/);
     expect(pluginSrc).toContain('ts.net');
-    expect(pluginSrc).not.toMatch(
-      /base-config cleartextTrafficPermitted="false"[\s\S]*domain-config[\s\S]*127\.0\.0\.1[\s\S]*<\/network-security-config>/,
-    );
-
-    const xmlPath = path.join(
-      __dirname,
-      '../../android/app/src/main/res/xml/network_security_config.xml',
-    );
-    const xml = fs.readFileSync(xmlPath, 'utf8');
-    expect(xml).toMatch(/base-config cleartextTrafficPermitted="true"/);
-    expect(xml).toContain('ts.net');
+    expect(pluginSrc).toContain('includeSubdomains="true">local');
+    expect(pluginSrc).not.toMatch(/base-config cleartextTrafficPermitted="false"/);
   });
 
   it('detects private LAN IPv4', () => {
