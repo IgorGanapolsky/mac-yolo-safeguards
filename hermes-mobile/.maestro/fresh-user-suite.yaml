@@ -3,6 +3,6 @@
 # Chat send requires a real Mac pair — optional when HERMES_FRESH_USER_PAIR=1 (orchestrator).
 appId: com.iganapolsky.hermesmobile
 ---
-- runFlow: stranger-cold-start.yaml
+- runFlow: fresh-user-cold-start.yaml
 - runFlow: fresh-user-tabs.yaml
 - runFlow: fresh-user-leash-paywall.yaml

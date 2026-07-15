@@ -32,6 +32,7 @@ const REQUIRED_FLOWS = [
   'regression-composer-typeable',
   'stranger-cold-start',
   'fresh-user-suite',
+  'fresh-user-cold-start',
   'fresh-user-tabs',
   'fresh-user-leash-paywall',
   'wrong-key-repair',
