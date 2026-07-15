@@ -17,6 +17,7 @@ Canonical repo rules: [../AGENTS.md](../AGENTS.md). This file adds **mobile-only
 9. **Brand-new user testing (permanent)** — **always treat every test as if it is a brand new user:** fresh install, no saved profiles, no `developerLeashUnlock`, cellular or Wi‑Fi only, release APK. Maestro and manual proofs must reflect that mindset.
 10. **Multi-Mac API keys** — Mac mini and MacBook Pro can have different `API_SERVER_KEY` values. Pair mini via `node tools/hermes-mobile-pair.js --mini-tailscale` (SSH-fetches mini key); never paste the laptop `.env` key when targeting another machine.
 11. **Device/Maestro chat input (permanent)** — When testing via Maestro, `adb input text`, or any device/E2E automation that types into the **chat composer**, use only **`make money today`**. Never type gibberish probe strings (`typeableProbeB`, `e2e-chat-send-persist`, `smoke test message`, etc.). Session titles/IDs in URLs are exempt. Enforced by `preventRecurrenceContract.test.ts`.
+12. **Versioning / OTA / store** — JS fixes ship via **EAS Update** (`production` channel, CI `mobile-ota.yml`). New store binaries only for native changes or marketing `expo.version` bumps. Canonical rules: [docs/VERSIONING-AND-RELEASES.md](./docs/VERSIONING-AND-RELEASES.md). Do not claim “every fix needs the store” or invent semver automation that does not exist.
 
 ## Autonomous infrastructure (already installed on Igor's Mac)
 
