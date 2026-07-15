@@ -53,9 +53,9 @@
     "devtools:rozenite-agent": "rozenite agent",
     "ota:preview": "eas update --channel preview --environment preview --non-interactive",
     "ota:e2e": "eas update --channel e2e-test --environment preview --non-interactive",
-    "ota:production": "node ./scripts/require-stranger-cold-start-proof.cjs && eas update --channel production --environment production --non-interactive",
-    "ota:publish": "node ./scripts/require-stranger-cold-start-proof.cjs && eas update --channel production --environment production --non-interactive",
-    "ota:validate": "REQUIRE_EAS_PROJECT=1 npm run release:check && node ./scripts/require-stranger-cold-start-proof.cjs",
+    "ota:production": "node ./scripts/require-stranger-cold-start-proof.cjs --hard && eas update --channel production --environment production --non-interactive",
+    "ota:publish": "node ./scripts/require-stranger-cold-start-proof.cjs --hard && eas update --channel production --environment production --non-interactive",
+    "ota:validate": "REQUIRE_EAS_PROJECT=1 npm run release:check && node ./scripts/require-stranger-cold-start-proof.cjs --hard",
     "ota:dry-run": "npm run ota:validate",
     "ota:stranger-proof": "node ./scripts/require-stranger-cold-start-proof.cjs",
     "test:perf": "reassure"

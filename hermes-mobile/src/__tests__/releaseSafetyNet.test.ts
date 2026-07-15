@@ -31,8 +31,9 @@ describe('release safety net (T-114)', () => {
     expect(script).toContain('HERMES_OTA_REQUIRE_STRANGER_PROOF');
     expect(script).toContain('STRANGER_COLD_START_ASSEMBLE');
     expect(script).toContain('clearState');
-    expect(pkg).toContain('require-stranger-cold-start-proof.cjs');
-    expect(ota).toContain('require-stranger-cold-start-proof.cjs');
+    expect(pkg).toContain('require-stranger-cold-start-proof.cjs --hard');
+    expect(ota).toContain('require-stranger-cold-start-proof.cjs --hard');
+    expect(ota).toContain("HERMES_OTA_REQUIRE_STRANGER_PROOF: '1'");
   });
 
   it('install-phone-release refuses when unit tests fail and warns on non-pass E2E', () => {
