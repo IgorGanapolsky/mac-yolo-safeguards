@@ -20,10 +20,12 @@ function renderInlineSpans(
   spans: InlineSpan[],
   baseStyle: TextStyle,
   keyPrefix: string,
+  selectable: boolean,
 ): React.ReactNode {
   return spans.map((span, index) => (
     <Text
       key={`${keyPrefix}-${index}`}
+      selectable={selectable}
       style={[
         baseStyle,
         span.bold && styles.bold,
@@ -41,6 +43,7 @@ function renderBlock(
   index: number,
   baseStyle: TextStyle,
   variant: ChatFormattedTextProps['variant'],
+  selectable: boolean,
 ): React.ReactNode {
   switch (block.kind) {
     case 'spacer':
@@ -55,37 +58,39 @@ function renderBlock(
       return (
         <Text
           key={`heading-${index}`}
+          selectable={selectable}
           style={[baseStyle, headingStyle, variant === 'detail' && styles.detailHeading]}
         >
-          {renderInlineSpans(block.spans, baseStyle, `h-${index}`)}
+          {renderInlineSpans(block.spans, baseStyle, `h-${index}`, selectable)}
         </Text>
       );
     }
     case 'bullet':
       return (
         <View key={`bullet-${index}`} style={styles.listRow}>
-          <Text style={[baseStyle, styles.bulletMarker]}>{'\u2022'}</Text>
-          <Text style={[baseStyle, styles.listText]}>
-            {renderInlineSpans(block.spans, baseStyle, `b-${index}`)}
+          <Text selectable={selectable} style={[baseStyle, styles.bulletMarker]}>
+            {'\u2022'}
+          </Text>
+          <Text selectable={selectable} style={[baseStyle, styles.listText]}>
+            {renderInlineSpans(block.spans, baseStyle, `b-${index}`, selectable)}
           </Text>
         </View>
       );
     case 'ordered':
       return (
         <View key={`ordered-${index}`} style={styles.listRow}>
-          <Text style={[baseStyle, styles.bulletMarker]}>{`${block.index}.`}</Text>
-          <Text style={[baseStyle, styles.listText]}>
-            {renderInlineSpans(block.spans, baseStyle, `o-${index}`)}
+          <Text selectable={selectable} style={[baseStyle, styles.bulletMarker]}>
+            {`${block.index}.`}
+          </Text>
+          <Text selectable={selectable} style={[baseStyle, styles.listText]}>
+            {renderInlineSpans(block.spans, baseStyle, `o-${index}`, selectable)}
           </Text>
         </View>
       );
     case 'code':
       return (
         <View key={`code-${index}`} style={styles.codeBlock}>
-          <Text
-            style={[baseStyle, styles.codeBlockText]}
-            selectable
-          >
+          <Text selectable={selectable} style={[baseStyle, styles.codeBlockText]}>
             {block.text}
           </Text>
         </View>
@@ -93,8 +98,8 @@ function renderBlock(
     case 'paragraph':
     default:
       return (
-        <Text key={`p-${index}`} style={[baseStyle, styles.paragraph]}>
-          {renderInlineSpans(block.spans, baseStyle, `p-${index}`)}
+        <Text key={`p-${index}`} selectable={selectable} style={[baseStyle, styles.paragraph]}>
+          {renderInlineSpans(block.spans, baseStyle, `p-${index}`, selectable)}
         </Text>
       );
   }
@@ -125,7 +130,7 @@ export default function ChatFormattedText({
 
   return (
     <View testID={testID} accessibilityLabel={text.slice(0, 120)}>
-      {blocks.map((block, index) => renderBlock(block, index, baseStyle, variant))}
+      {blocks.map((block, index) => renderBlock(block, index, baseStyle, variant, selectable))}
     </View>
   );
 }

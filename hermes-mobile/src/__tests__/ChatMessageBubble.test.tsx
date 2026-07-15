@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Text } from 'react-native';
 import { fireEvent, render } from '@testing-library/react-native';
 import ChatMessageBubble from '../components/ChatMessageBubble';
 import ChatMessageDetailModal from '../components/ChatMessageDetailModal';
@@ -30,17 +31,22 @@ function renderWithDetailModal(props: React.ComponentProps<typeof ChatMessageBub
 
 describe('ChatMessageBubble', () => {
   it('renders message body as selectable text for copy', () => {
-    const { getByTestId } = renderWithDetailModal({
+    const { getByTestId, UNSAFE_getAllByType } = renderWithDetailModal({
       content: 'Here is the finished analysis.',
       isUser: false,
       timeLabel: 'Jun 24, 2026 11:55 AM',
     });
 
     expect(getByTestId('chat-message-body')).toBeTruthy();
+    expect(
+      UNSAFE_getAllByType(Text).some(
+        (node) => node.props.testID === 'chat-message-body' && node.props.selectable === true,
+      ),
+    ).toBe(true);
   });
 
   it('renders markdown headings in assistant bubbles', () => {
-    const { getByText } = renderWithDetailModal({
+    const { getByText, UNSAFE_getAllByType } = renderWithDetailModal({
       content: '## Summary\n\nDone.',
       isUser: false,
       timeLabel: 'Jun 24, 2026 11:55 AM',
@@ -48,10 +54,11 @@ describe('ChatMessageBubble', () => {
 
     expect(getByText('Summary')).toBeTruthy();
     expect(getByText(/Done\./)).toBeTruthy();
+    expect(UNSAFE_getAllByType(Text).some((node) => node.props.selectable === true)).toBe(true);
   });
 
   it('keeps truncated preview selectable without wrapping it in Pressable', () => {
-    const { getByTestId } = renderWithDetailModal({
+    const { getByTestId, UNSAFE_getAllByType } = renderWithDetailModal({
       content: 'Did you mean a specific bro…',
       rawContent: 'Did you mean to target a specific browser profile?',
       truncated: true,
@@ -60,6 +67,7 @@ describe('ChatMessageBubble', () => {
     });
 
     expect(getByTestId('chat-message-body')).toBeTruthy();
+    expect(UNSAFE_getAllByType(Text).some((node) => node.props.selectable === true)).toBe(true);
   });
 
   it('opens a screen-level detail modal when Show more is pressed', () => {
