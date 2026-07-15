@@ -95,7 +95,7 @@ export default function ProUpgradeCard({ onUnlocked, onTesterUnlock }: ProUpgrad
         'Restore purchases',
         result.status === 'not_configured' || result.status === 'error'
           ? result.message
-          : 'No active ThumbGate Leash subscription found.',
+          : 'No active Leash subscription found.',
       );
     } finally {
       setBusy(false);
@@ -104,10 +104,10 @@ export default function ProUpgradeCard({ onUnlocked, onTesterUnlock }: ProUpgrad
 
   return (
     <View style={styles.wrap} testID="pro-upgrade-card">
-      <Text style={styles.title}>ThumbGate Pro</Text>
+      <Text style={styles.title}>Leash Pro</Text>
       <Text style={styles.body}>
         Hermes Chat is free. {THUMBGATE_LEASH_PRODUCT_NAME} ({THUMBGATE_PRO_PRICE_LABEL}) unlocks
-        mobile approval cards on this phone — subscription through{' '}
+        mobile approval cards and cloud memory on this phone — subscription through{' '}
         {Platform.OS === 'ios' ? 'Apple' : 'Google'}, same as any other mobile app.
       </Text>
       <TouchableOpacity
@@ -143,7 +143,7 @@ export default function ProUpgradeCard({ onUnlocked, onTesterUnlock }: ProUpgrad
         </Text>
       </Text>
       <TouchableOpacity onPress={() => void openLearnMore()} testID="upgrade-thumbgate-pro">
-        <Text style={styles.learnMoreLink}>Learn what ThumbGate Pro includes</Text>
+        <Text style={styles.learnMoreLink}>Learn what Leash Pro includes</Text>
       </TouchableOpacity>
       {onTesterUnlock ? (
         <TouchableOpacity

@@ -9,7 +9,7 @@ export function buildLeashEmptyExplanation(settings: GatewaySettings): string {
     return 'Approval-first mode is on — Hermes still opens on launch; cards appear when Hermes Relay or a direct machine blocks a risky tool call.';
   }
   return (
-    'Daily Hermes chat lives on the Chat tab. ThumbGate Leash lights up when Hermes approvals are enabled ' +
+    'Daily Hermes chat lives on the Chat tab. Leash lights up when Hermes approvals are enabled ' +
     '(~/.hermes/config.yaml approvals.mode: manual or smart) and blocks a command. ' +
     'Preview a card from Leash → Preview approval card (smoke test).'
   );

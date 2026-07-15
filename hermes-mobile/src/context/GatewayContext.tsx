@@ -107,6 +107,13 @@ import {
 } from '../utils/gatewayProfilePicker';
 import { isPrivateLanGatewayUrl } from '../utils/gatewayEndpoint';
 import { isTailscaleGatewayUrl } from '../utils/tailscaleHosts';
+import {
+  CLOUD_MEMORY_SAVED_NOTE,
+  formatCloudMemoryCaptureFailure,
+  formatCloudMemorySkipNote,
+  type CloudMemoryCaptureResult,
+} from '../utils/thumbgateConsumerCopy';
+import { hydrateThumbgateApiKeyFromPairing } from '../utils/thumbgateKeyHydration';
 import type { SetupDeepLinkParams } from '../utils/setupDeepLink';
 import { syncExtraProfileApiKeys } from '../utils/gatewayProfileCredentialSync';
 import {
@@ -291,7 +298,7 @@ export type GatewayContextValue = {
     message: HermesMessage,
     signal: ThumbgateCaptureSignal,
     options?: { session?: HermesSession | null; explanation?: string },
-  ) => Promise<boolean>;
+  ) => Promise<CloudMemoryCaptureResult>;
 };
 
 export const GatewayContext = createContext<GatewayContextValue | null>(null);
@@ -2490,6 +2497,10 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
       }
       if (!persistDecision.shouldPersistProfiles && !persistDecision.shouldPersistSettings) {
         if (relayPairSucceeded) {
+          await hydrateThumbgateApiKeyFromPairing(settingsRef.current.gatewayUrl, {
+            thumbgateApiKeyRef,
+            setThumbgateApiKey,
+          });
           haptics.success();
           await refreshHealth();
         }
@@ -2500,6 +2511,10 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
         await upsertExtraComputers();
         void probeTailscaleComputersRef.current();
         if (relayPairSucceeded) {
+          await hydrateThumbgateApiKeyFromPairing(settingsRef.current.gatewayUrl, {
+            thumbgateApiKeyRef,
+            setThumbgateApiKey,
+          });
           haptics.success();
           await refreshHealth();
         }
@@ -2601,7 +2616,14 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
         demoMode: false,
       };
       const nextKey = params.apiKey?.trim() || apiKeyRef.current;
-      await saveSettings(nextSettings, nextKey);
+      const nextThumbgateKey = params.thumbgateApiKey?.trim();
+      await saveSettings(nextSettings, nextKey, nextThumbgateKey);
+      if (!nextThumbgateKey) {
+        await hydrateThumbgateApiKeyFromPairing(gatewayUrl, {
+          thumbgateApiKeyRef,
+          setThumbgateApiKey,
+        });
+      }
       haptics.success();
       await refreshHealth();
       void probeTailscaleComputersRef.current();
@@ -2616,6 +2638,10 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
       setMobileToken(token);
       mobileTokenRef.current = token;
       setLastEventError(undefined);
+      await hydrateThumbgateApiKeyFromPairing(
+        effectiveGatewayUrlRef.current || settingsRef.current.gatewayUrl,
+        { thumbgateApiKeyRef, setThumbgateApiKey },
+      );
       haptics.success();
       await refreshHealth();
       connectEvents();
@@ -2710,16 +2736,21 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
       message: HermesMessage,
       signal: ThumbgateCaptureSignal,
       options: { session?: HermesSession | null; explanation?: string } = {},
-    ): Promise<boolean> => {
+    ): Promise<CloudMemoryCaptureResult> => {
       const currentSettings = settingsRef.current;
       if (!isThumbgateLeashUnlocked(currentSettings)) {
-        return false;
+        return { ok: false, note: formatCloudMemorySkipNote('leash_locked') };
       }
       const shouldCaptureDown = signal === 'down' && currentSettings.thumbgateCaptureOnDown;
       const shouldCaptureUp = signal === 'up' && currentSettings.thumbgateCaptureOnUp;
       if (!shouldCaptureDown && !shouldCaptureUp) {
-        return false;
+        return { ok: false, note: formatCloudMemorySkipNote('capture_disabled') };
       }
+
+      await hydrateThumbgateApiKeyFromPairing(
+        effectiveGatewayUrlRef.current || currentSettings.gatewayUrl,
+        { thumbgateApiKeyRef, setThumbgateApiKey },
+      );
 
       const busyKey =
         message.id?.trim() ||
@@ -2737,13 +2768,14 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
           thumbgateApiKeyRef.current,
         );
         haptics.success();
-        return true;
+        return { ok: true, note: CLOUD_MEMORY_SAVED_NOTE };
       } catch (error) {
-        setLastEventError(
-          error instanceof Error ? error.message : 'ThumbGate capture failed',
-        );
+        const note = formatCloudMemoryCaptureFailure(error, {
+          hasApiKey: Boolean(thumbgateApiKeyRef.current?.trim()),
+        });
+        setLastEventError(note);
         haptics.warning();
-        return false;
+        return { ok: false, note };
       } finally {
         setChatOutputFeedbackBusyId(null);
       }

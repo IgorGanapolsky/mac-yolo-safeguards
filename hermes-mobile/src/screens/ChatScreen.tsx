@@ -481,7 +481,7 @@ export function shouldIgnoreKeyboardHide(
 /** How long the "Reply ready on your computer" banner stays before auto-dismiss. */
 const RUN_COMPLETED_BANNER_DISMISS_MS = 2500;
 
-/** How long the per-message "Saved to ThumbGate" confirmation stays visible. */
+/** How long the per-message cloud-memory confirmation stays visible. */
 const FEEDBACK_NOTE_TTL_MS = 4000;
 
 export default function ChatScreen() {
@@ -4303,10 +4303,10 @@ export default function ChatScreen() {
       const key = resolveChatOutputFeedbackBusyKey(message);
       // Highlight the tapped thumb; user can switch up<->down freely.
       setFeedbackSelections((prev) => ({ ...prev, [key]: signal }));
-      // Always record the vote to ThumbGate. The explanation sheet is now
+      // Always record the vote to cloud memory. The explanation sheet is now
       // opt-in (via the "Add details" link), not auto-opened on every tap.
-      void submitChatOutputFeedbackForMessage(message, signal).then((ok) => {
-        setTransientFeedbackNote(key, ok ? 'Saved to ThumbGate' : 'Not recorded', !ok);
+      void submitChatOutputFeedbackForMessage(message, signal).then((result) => {
+        setTransientFeedbackNote(key, result.note, !result.ok);
       });
     },
     [submitChatOutputFeedbackForMessage, setTransientFeedbackNote],

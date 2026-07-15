@@ -112,7 +112,9 @@ export function mockUseGateway(overrides: Record<string, unknown> = {}) {
     addGatewayListener: jest.fn(),
     removeGatewayListener: jest.fn(),
     chatOutputFeedbackBusyId: null,
-    submitChatOutputFeedback: jest.fn().mockResolvedValue(true),
+    submitChatOutputFeedback: jest
+      .fn()
+      .mockResolvedValue({ ok: true, note: 'Saved to cloud memory' }),
     ...overrides,
   };
 }

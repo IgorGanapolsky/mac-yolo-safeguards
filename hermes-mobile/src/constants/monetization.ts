@@ -10,8 +10,8 @@ export const FREE_LEASH_APPROVALS_PER_WEEK = 10;
 /** Bottom navigation tab label (short). */
 export const LEASH_TAB_LABEL = 'Leash';
 
-/** Product name shown inside the Leash tab and Settings. */
-export const THUMBGATE_LEASH_PRODUCT_NAME = 'ThumbGate Leash';
+/** Product name shown inside the Leash tab and Settings paywall. */
+export const THUMBGATE_LEASH_PRODUCT_NAME = 'Leash Pro';
 
 export const HERMES_HARDENING_SPRINT_URL =
   'https://github.com/IgorGanapolsky/mac-yolo-safeguards/blob/main/docs/AI-AGENT-HARDENING.md?utm_source=hermes-mobile&utm_medium=app';

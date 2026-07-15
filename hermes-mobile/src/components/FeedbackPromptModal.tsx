@@ -73,8 +73,8 @@ export default function FeedbackPromptModal({
             <View style={styles.body}>
               <Text style={styles.subtitle}>
                 {signal === 'up'
-                  ? 'Thanks — we saved your thumbs up. Add context to help ThumbGate learn from this output.'
-                  : 'Thanks — we saved your thumbs down. Add context to help ThumbGate improve future outputs.'}
+                  ? 'Thanks — we saved your thumbs up to cloud memory. Add context to help Hermes learn from this output.'
+                  : 'Thanks — we saved your thumbs down to cloud memory. Add context to improve future outputs.'}
               </Text>
 
               <TextInput

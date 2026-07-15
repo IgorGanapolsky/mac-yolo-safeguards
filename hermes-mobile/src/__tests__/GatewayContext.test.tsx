@@ -114,8 +114,15 @@ jest.mock('../services/tailscaleDiscovery', () => {
 jest.mock('../services/signOfLife', () => ({
   emitSignOfLife: jest.fn(),
 }));
-jest.mock('../services/thumbgateClient', () => ({
-  captureThumbgateFeedback: jest.fn().mockResolvedValue({ accepted: true }),
+jest.mock('../services/thumbgateClient', () => {
+  const actual = jest.requireActual('../services/thumbgateClient');
+  return {
+    ...actual,
+    captureThumbgateFeedback: jest.fn().mockResolvedValue({ accepted: true }),
+  };
+});
+jest.mock('../utils/thumbgateKeyHydration', () => ({
+  hydrateThumbgateApiKeyFromPairing: jest.fn().mockResolvedValue(null),
 }));
 jest.mock('../services/haptics', () => ({
   haptics: {
@@ -1026,16 +1033,20 @@ describe('GatewayProvider', () => {
 
     function FeedbackProbe() {
       const gateway = useGateway();
+      const [note, setNote] = React.useState('');
       return (
         <>
           <Text testID="feedback-loaded">{gateway.isLoaded ? 'yes' : 'no'}</Text>
+          <Text testID="capture-note">{note}</Text>
           <Text
             testID="submit-chat-output-up"
             onPress={() => {
-              void gateway.submitChatOutputFeedback(
-                { id: 'asst-99', role: 'assistant', content: 'Looks good.' },
-                'up',
-              );
+              void gateway
+                .submitChatOutputFeedback(
+                  { id: 'asst-99', role: 'assistant', content: 'Looks good.' },
+                  'up',
+                )
+                .then((result) => setNote(result.note));
             }}
           >
             up
@@ -1059,5 +1070,60 @@ describe('GatewayProvider', () => {
     });
 
     expect(captureThumbgateFeedback).not.toHaveBeenCalled();
+    await waitFor(() => {
+      expect(getByTestId('capture-note').props.children).toMatch(/Leash Pro/i);
+    });
+  });
+
+  it('returns pairing guidance when chat capture fails without a memory sync key', async () => {
+    (captureThumbgateFeedback as jest.Mock).mockRejectedValue(
+      new (jest.requireActual('../services/thumbgateClient') as typeof import('../services/thumbgateClient')).ThumbgateApiError(
+        401,
+        'Unauthorized',
+      ),
+    );
+    (secureCredentials.loadThumbgateApiKey as jest.Mock).mockResolvedValue('');
+
+    function FeedbackProbe() {
+      const gateway = useGateway();
+      const [note, setNote] = React.useState('');
+      return (
+        <>
+          <Text testID="feedback-loaded">{gateway.isLoaded ? 'yes' : 'no'}</Text>
+          <Text testID="capture-note">{note}</Text>
+          <Text
+            testID="submit-chat-output-down"
+            onPress={() => {
+              void gateway
+                .submitChatOutputFeedback(
+                  { id: 'asst-100', role: 'assistant', content: 'Bad output.' },
+                  'down',
+                )
+                .then((result) => setNote(result.note));
+            }}
+          >
+            down
+          </Text>
+        </>
+      );
+    }
+
+    const { getByTestId } = render(
+      <GatewayProvider>
+        <FeedbackProbe />
+      </GatewayProvider>,
+    );
+
+    await waitFor(() => {
+      expect(getByTestId('feedback-loaded').props.children).toBe('yes');
+    });
+
+    await act(async () => {
+      fireEvent.press(getByTestId('submit-chat-output-down'));
+    });
+
+    await waitFor(() => {
+      expect(getByTestId('capture-note').props.children).toMatch(/pair your Mac/i);
+    });
   });
 });

@@ -318,11 +318,11 @@ export default function ApprovalsScreen() {
         ) : null}
         {!leashUnlocked ? (
           <GlassCard style={styles.emptyCard}>
-            <Text style={styles.emptyTitle}>ThumbGate Leash is a Pro feature</Text>
+            <Text style={styles.emptyTitle}>Leash is a Pro feature</Text>
             <Text style={styles.emptyBody}>
               When your coding agent hits a risky command on your computer, the approval card appears
-              here so you can approve or reject from your phone — with ThumbGate memory gates behind
-              every decision.
+              here so you can approve or reject from your phone — with cloud memory behind every
+              decision.
             </Text>
             <ProUpgradeCard
               onUnlocked={unlockThumbgateLeash}
@@ -337,7 +337,7 @@ export default function ApprovalsScreen() {
             <Text style={styles.emptyBody}>
               When your coding agent tries a risky tool (rm, git push --force, etc.) or asks
               “confirm you want to proceed” in chat, the approval card appears here — approve,
-              deny, or thumbs up/down with ThumbGate memory.
+              deny, or thumbs up/down with Leash memory.
             </Text>
             <Text style={styles.hintMuted}>{buildLeashEmptyExplanation(settings)}</Text>
             {settings.connectionMode === 'relay' && !isPaired ? (
@@ -489,7 +489,7 @@ export default function ApprovalsScreen() {
             <View style={styles.switchRow}>
               <View style={styles.switchLabelCol}>
                 <Text style={styles.switchLabel}>Thumbs down → remember block</Text>
-                <Text style={styles.switchDesc}>Capture to ThumbGate when you reject a tool</Text>
+                <Text style={styles.switchDesc}>Save to cloud memory when you reject a tool</Text>
               </View>
               <Switch
                 value={settings.thumbgateCaptureOnDown}
@@ -503,7 +503,7 @@ export default function ApprovalsScreen() {
             <View style={styles.switchRow}>
               <View style={styles.switchLabelCol}>
                 <Text style={styles.switchLabel}>Thumbs up → record approval</Text>
-                <Text style={styles.switchDesc}>Optional positive signal when you allow a tool</Text>
+                <Text style={styles.switchDesc}>Optional positive signal saved to cloud memory</Text>
               </View>
               <Switch
                 value={settings.thumbgateCaptureOnUp}

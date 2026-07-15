@@ -388,7 +388,7 @@ export default function SettingsScreen() {
   const handleTestIntercept = async () => {
     try {
       await requestTestIntercept();
-      Alert.alert('Test sent', 'Check ThumbGate Leash for a fake agent tool approval.');
+      Alert.alert('Test sent', 'Check the Leash tab for a fake agent tool approval.');
     } catch (err) {
       Alert.alert('Test failed', err instanceof Error ? err.message : 'Could not inject test event');
     }
@@ -787,7 +787,7 @@ export default function SettingsScreen() {
             <>
               <Text style={styles.pairedText}>Paired — mobile token stored in secure storage.</Text>
               <TouchableOpacity style={styles.secondaryButton} onPress={handleTestIntercept}>
-                <Text style={styles.secondaryButtonText}>⚡ Send test approval to ThumbGate Leash</Text>
+                <Text style={styles.secondaryButtonText}>⚡ Send test approval to Leash</Text>
               </TouchableOpacity>
               <TouchableOpacity style={styles.unlinkButton} onPress={() => disconnectPair()}>
                 <Text style={styles.unlinkButtonText}>Disconnect pairing</Text>
@@ -795,7 +795,7 @@ export default function SettingsScreen() {
             </>
           ) : null}
           <View style={styles.divider} />
-          <Text style={styles.label}>ThumbGate API URL</Text>
+          <Text style={styles.label}>Cloud memory URL</Text>
           <TextInput
             style={styles.input}
             value={thumbgateApiUrl}
@@ -806,20 +806,20 @@ export default function SettingsScreen() {
             autoCorrect={false}
           />
           <View style={styles.spacer} />
-          <Text style={styles.label}>ThumbGate API key (hosted)</Text>
+          <Text style={styles.label}>Cloud memory sync key</Text>
           <TextInput
             style={styles.input}
             value={inputThumbgateApiKey}
             onChangeText={setInputThumbgateApiKey}
-            placeholder="Bearer token for /v1/feedback/capture"
+            placeholder="Filled automatically when you pair your Mac"
             placeholderTextColor={colors.textMuted}
             secureTextEntry
             autoCapitalize="none"
             autoCorrect={false}
           />
           <Text style={styles.description}>
-            Required for cloud ThumbGate memory capture. Local `npx thumbgate start-api` may work
-            without a key on LAN.
+            Cloud memory syncs your thumbs up/down to our hosted API on Railway — no extra app to
+            install. Pair your Mac to fill this automatically.
           </Text>
         </GlassCard>
 

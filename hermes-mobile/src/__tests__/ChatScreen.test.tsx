@@ -46,7 +46,9 @@ const mockGatewayState = {
   runProgress: null,
   setRunProgress: jest.fn(),
   setChatStreamProgressActive: jest.fn(),
-  submitChatOutputFeedback: jest.fn().mockResolvedValue(true),
+  submitChatOutputFeedback: jest
+    .fn()
+    .mockResolvedValue({ ok: true, note: 'Saved to cloud memory' }),
   chatOutputFeedbackBusyId: null,
   addGatewayListener: jest.fn(),
   removeGatewayListener: jest.fn(),
@@ -409,7 +411,9 @@ describe('ChatScreen', () => {
       selectGatewayProfile: jest.fn().mockResolvedValue(true),
       scanForGatewayProfiles: jest.fn().mockResolvedValue([]),
       autoConnectGateway: jest.fn().mockResolvedValue('http://localhost:8642'),
-      submitChatOutputFeedback: jest.fn().mockResolvedValue(true),
+      submitChatOutputFeedback: jest
+    .fn()
+    .mockResolvedValue({ ok: true, note: 'Saved to cloud memory' }),
       settings: {
         demoMode: true,
         connectionMode: 'gateway',

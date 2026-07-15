@@ -83,10 +83,10 @@ export default function HermesApprovalCard({
 
   const commandPreview = approval.command?.trim().slice(0, 400) ?? '';
   const downHint = thumbgateCaptureOnDown
-    ? 'Block + remember in ThumbGate'
+    ? 'Block + remember in cloud memory'
     : 'Block this command';
   const upHint = thumbgateCaptureOnUp
-    ? 'Allow once + ThumbGate capture'
+    ? 'Allow once + save to cloud memory'
     : 'Allow this command once';
 
   const inner = (
@@ -149,7 +149,7 @@ export default function HermesApprovalCard({
 
     {showThumbs ? (
       <Text style={styles.thumbgateHint}>
-        ThumbGate Leash — thumbs down to block, thumbs up to allow once.
+        Leash — thumbs down to block, thumbs up to allow once.
       </Text>
     ) : null}
 
