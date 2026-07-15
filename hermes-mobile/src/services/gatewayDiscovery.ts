@@ -13,6 +13,7 @@ import { normalizeGatewayUrl } from './gatewayClient';
 import { USB_LOOPBACK_GATEWAY_URL } from '../utils/gatewayLoopbackFallback';
 import type { DiscoveredGateway } from '../types/gatewayProfile';
 import type { LanScanProgress, LanScanStage } from '../types/lanScan';
+import { resolveSetupDeepLinkCredentials } from './pairingCodeExchange';
 
 const IPV4_RE = /^\d{1,3}(\.\d{1,3}){3}$/;
 const PROBE_TIMEOUT_MS = 1500;
@@ -152,7 +153,8 @@ export async function resolvePairServerSetupParams(host: string): Promise<SetupD
   if (!payload?.deepLink?.trim()) {
     return null;
   }
-  return parseSetupDeepLink(payload.deepLink);
+  const setup = parseSetupDeepLink(payload.deepLink);
+  return setup ? resolveSetupDeepLinkCredentials(setup) : null;
 }
 
 function pairPayloadToGatewayUrl(payload: PairServerPayload): string | null {

@@ -58,6 +58,42 @@ describe('gatewayDiscovery', () => {
     expect(setup?.apiKey).toBe('sk-mini-rotated-key');
   });
 
+  it('exchanges a secretless pair code before returning rotated gateway credentials', async () => {
+    (global.fetch as jest.Mock).mockImplementation((url: string) => {
+      if (url === 'http://100.94.135.78:8765/pair.json') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            gatewayUrl: 'http://100.94.135.78:8642',
+            deepLink:
+              'hermes://setup?pairCode=ROTATE01&pairServer=http%3A%2F%2F100.94.135.78%3A8765&name=Igors-Mac-mini',
+          }),
+        });
+      }
+      if (url === 'http://100.94.135.78:8765/pair-exchange?code=ROTATE01') {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => ({
+            gatewayUrl: 'http://100.94.135.78:8642',
+            apiKey: 'sk-mini-fresh-key',
+            macName: 'Igors-Mac-mini',
+          }),
+        });
+      }
+      return Promise.resolve({ ok: false, status: 404 });
+    });
+
+    const setup = await resolvePairServerSetupParams('100.94.135.78');
+
+    expect(setup?.gatewayUrl).toBe('http://100.94.135.78:8642');
+    expect(setup?.apiKey).toBe('sk-mini-fresh-key');
+    expect(setup?.macName).toBe('Igors-Mac-mini');
+    expect(global.fetch).toHaveBeenCalledWith(
+      'http://100.94.135.78:8765/pair-exchange?code=ROTATE01',
+    );
+  });
+
   it('maps loopback gateway URL to pair server on 127.0.0.1', () => {
     expect(pairServerHostFromGatewayUrl('http://127.0.0.1:8642')).toBe('127.0.0.1');
     expect(pairServerHostFromGatewayUrl('http://100.94.135.78:8642')).toBe('100.94.135.78');
