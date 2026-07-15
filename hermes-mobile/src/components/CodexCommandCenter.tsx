@@ -21,6 +21,11 @@ type CodexCommandCenterProps = {
   chatStalled?: boolean;
   /** Auth probe failed — never show green Connected beside wrong-key. */
   authMismatch?: boolean;
+  /**
+   * When the composer already shows RunProgressBanner, hide this duplicate RUN tile
+   * so the chat list does not lose another chunk of vertical space.
+   */
+  suppressRunTile?: boolean;
 };
 
 function connectionCopy(
@@ -79,7 +84,14 @@ function shouldShowMacTile(state: LeashConnectionState, macHttpReachable = false
   return true;
 }
 
-function shouldShowRunTile(runProgress?: RunProgressState | null, isSending = false): boolean {
+function shouldShowRunTile(
+  runProgress?: RunProgressState | null,
+  isSending = false,
+  suppressRunTile = false,
+): boolean {
+  if (suppressRunTile) {
+    return false;
+  }
   if (isSending && (!runProgress || !runProgress.runId)) {
     return false;
   }
@@ -119,6 +131,7 @@ export default function CodexCommandCenter({
   machineName = 'Computer',
   chatStalled = false,
   authMismatch = false,
+  suppressRunTile = false,
 }: CodexCommandCenterProps) {
   const link = connectionCopy(
     connectionState,
@@ -131,7 +144,7 @@ export default function CodexCommandCenter({
   );
   const showMacTile =
     shouldShowMacTile(connectionState, macHttpReachable && !authMismatch) && !silentHealInFlight;
-  const showRunTile = shouldShowRunTile(runProgress, isSending);
+  const showRunTile = shouldShowRunTile(runProgress, isSending, suppressRunTile);
   const showApprovalsTile = pendingApprovalCount > 0;
 
   if (!showMacTile && !showRunTile && !showApprovalsTile) {
