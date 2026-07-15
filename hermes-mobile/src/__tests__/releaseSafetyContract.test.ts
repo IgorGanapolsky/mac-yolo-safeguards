@@ -152,8 +152,11 @@ describe('release safety contract', () => {
     const workflow = read('.github/workflows/store-release.yml');
     const mapping =
       "HERMES_EAS_SPEND_APPROVED: ${{ inputs.confirm_eas_spend == 'yes' && 'YES_SPEND_EAS_CREDITS' || '' }}";
-    expect(workflow.split(mapping)).toHaveLength(3);
+    // Android build + Android submit path + iOS build
+    expect(workflow.split(mapping)).toHaveLength(4);
     expect(workflow).toContain('if [ "${CONFIRM_EAS:-no}" != "yes" ]');
+    expect(workflow).toMatch(/name: Build iOS production artifact[\s\S]*HERMES_EAS_SPEND_APPROVED/);
+    expect(workflow).toMatch(/name: Build Android production AAB[\s\S]*HERMES_EAS_SPEND_APPROVED/);
   });
 
   it('app.json enables OTA updates with expo-updates plugin and appVersion runtime', () => {
@@ -183,16 +186,22 @@ describe('release safety contract', () => {
     expect(eas.build['e2e-test'].channel).toBe('e2e-test');
   });
 
-  it('mobile-ota workflow publishes preview + production channels on main push', () => {
+  it('mobile-ota workflow publishes preview on main; production is fresh-user gated', () => {
     const workflow = read('.github/workflows/mobile-ota.yml');
     expect(workflow).toContain('branches:');
     expect(workflow).toContain('- main');
     expect(workflow).toContain('hermes-mobile/**');
     expect(workflow).toContain('workflow_dispatch');
+    expect(workflow).toContain('publish_production');
     expect(workflow).toContain('runtimeVersion');
     expect(workflow).toContain('eas update');
-    expect(workflow).toContain('for CH in preview production');
-    expect(workflow).toContain('--channel "$CH"');
+    // Crisis 2026-07-15: no auto dual-channel loop — production requires dispatch + e2e=pass.
+    expect(workflow).not.toContain('for CH in preview production');
+    expect(workflow).toContain('--channel preview');
+    expect(workflow).toContain('--channel production');
+    expect(workflow).toContain('publish-production-ota');
+    expect(workflow).toContain("inputs.publish_production == true");
+    expect(workflow).toContain('Fresh-user OTA gate');
     expect(workflow).toContain('secrets.EXPO_TOKEN');
     expect(workflow).toContain('test:release-safety');
   });

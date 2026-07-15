@@ -54,7 +54,12 @@ describe('versioning and OTA contract', () => {
   it('package scripts expose production OTA publish', () => {
     const pkg = readJson('package.json') as { scripts?: Record<string, string> };
     const script = pkg.scripts?.['ota:production'] || pkg.scripts?.['ota:publish'] || '';
-    expect(script).toMatch(/eas update/);
+    // Crisis 2026-07-15: production publish goes through gated wrapper (not raw eas update).
+    expect(script).toMatch(/ota-publish-gated\.sh/);
     expect(script).toMatch(/production/);
+    expect(script).toMatch(/require-stranger-cold-start-proof/);
+    const gated = fs.readFileSync(path.join(ROOT, 'scripts/ota-publish-gated.sh'), 'utf8');
+    expect(gated).toMatch(/eas update/);
+    expect(gated).toMatch(/require-fresh-user-ota-gate/);
   });
 });
