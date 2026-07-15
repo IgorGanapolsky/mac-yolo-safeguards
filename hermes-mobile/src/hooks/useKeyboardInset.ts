@@ -3,6 +3,7 @@ import { Dimensions, Keyboard, Platform, type KeyboardEvent } from 'react-native
 import {
   detectWindowShrunkForKeyboard,
   keyboardOverlapHeight,
+  windowHeightShrink,
 } from '../utils/composerKeyboard';
 
 export type KeyboardInsetState = {
@@ -136,6 +137,27 @@ export function useKeyboardInset(options?: {
         return;
       }
       if (Platform.OS === 'android') {
+        const shrink = windowHeightShrink(baselineWindowHeight.current, currentWindowHeight);
+        const metricsHeight = Keyboard.metrics()?.height ?? 0;
+        const focused =
+          options?.focused === true || options?.suppressHideWhileFocusedRef?.current === true;
+        const reportedFrameHeight = event.endCoordinates?.height ?? 0;
+        // adjustResize: overlap reads 0 while IME is still up — keep shrink/inset until hide.
+        if (focused && reportedFrameHeight > 0 && (shrink >= 56 || metricsHeight > 0)) {
+          if (metricsHeight > 0) {
+            setInset(metricsHeight);
+          }
+          if (shrink >= 56) {
+            setWindowShrunk(
+              detectWindowShrunkForKeyboard(
+                Math.max(metricsHeight, shrink),
+                baselineWindowHeight.current,
+                currentWindowHeight,
+              ),
+            );
+          }
+          return;
+        }
         setInset(0);
         setWindowShrunk(false);
         baselineWindowHeight.current = currentWindowHeight;
