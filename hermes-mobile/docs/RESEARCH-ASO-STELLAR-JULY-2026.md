@@ -99,3 +99,5 @@ parallel-cli research run "…" --previous-interaction-id trun_aec2731adfeb4ec59
 - EAS production iOS build **started**: `88a42703-7741-4f67-bd59-c9db7b736fe1` (pay-as-you-go: included credits exhausted)
 - Next: when VALID, `node scripts/attach-and-submit-asc-1.1.js --build 15`
 
+- **2026-07-15T16:35Z ASC 1.1 submitted:** build **16** attached · state **WAITING_FOR_REVIEW** · submissionId `1d4f30a0-82b5-4d62-aa72-131e94112255`. Live 1.0 still READY_FOR_SALE with risky subtitle until 1.1 ships.
+
