@@ -770,6 +770,18 @@ export function upsertDiscoveredProfile(
     }
     const pIp = p.localIp?.trim() || extractLanIpFromGatewayUrl(p.gatewayUrl);
     if (localIp && pIp === localIp && !isLoopbackHost(localIp) && !isLoopbackHost(pIp)) {
+      // Same LAN IP is not enough when hostnames disagree — poisoned pair.json once stamped
+      // Mac mini's Tailscale URL with the MacBook's LAN IP and silently merged Mac Pro away.
+      const existingKey =
+        normalizeMachineKey(p.hostname) ||
+        (p.label && !isGenericProfileLabel(p.label) ? normalizeMachineKey(p.label) : undefined);
+      if (
+        discoveredMachineKey &&
+        existingKey &&
+        discoveredMachineKey !== existingKey
+      ) {
+        return false;
+      }
       return true;
     }
     if (hostname && p.hostname && hostname.toLowerCase() === p.hostname.toLowerCase() && hostname.toLowerCase() !== 'localhost') {
