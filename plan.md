@@ -7,8 +7,8 @@ Durable rules live in [AGENTS.md](./AGENTS.md); this file is *live state only*.
 ## 0. Meta (read this header first)
 
 - Repo: `mac-yolo-safeguards` (+ `hermes-mobile/` app, `~/.hermes` desktop agent — separate, not this repo)
-- Updated: 2026-07-15 by `cursor-stranger-gate-fix` (T-343 ConnectMacGate relay cold start)
-- Active agents (claim your id here): `claude-code`, `cursor`, `antigravity`, `gemini`, `replit`
+- Updated: 2026-07-15 by `codex-pair-self-key` (T-PAIR-SELF-0715 local Tailscale key resolution)
+- Active agents (claim your id here): `claude-code`, `cursor`, `antigravity`, `gemini`, `replit`, `codex-pair-self-key`
 - Active branch of record: `main`
 - Merge discipline: branch-per-agent → rebase onto `main` → **sequential** merge, gated on `npm test` + Maestro E2E (`hermes-mobile/docs/proofs/continuous/latest.json`).
 - **THE RULES (see AGENTS.md "Multi-agent coordination" for the full Never-list):**
@@ -20,6 +20,8 @@ Durable rules live in [AGENTS.md](./AGENTS.md); this file is *live state only*.
 
 | ID  | Task | Status | Owner | Files (claim) | AcceptanceCheck |
 |-----|------|--------|-------|---------------|-----------------|
+| T-STORE-STELLAR | Push stellar live Play/ASC listings (iOS-live FAQ, screenshots, review@1, docs) | done | grok-store-stellar | `hermes-mobile/fastlane/metadata/`, `hermes-mobile/scripts/push-play-listing.py`, `hermes-mobile/src/services/storeReview.ts`, `hermes-mobile/docs/STORE-LISTING-STELLAR-JULY-2026.md`, `hermes-mobile/docs/REAL-USER-READINESS.md`, `plan.md` | Live Play FAQ says iOS live; screenshots re-uploaded; threshold=1 tests green |
+| T-PAIR-SELF-0715 | Pair server running on a fleet Mac must use that Mac's local key instead of SSHing to itself by Tailscale identity | in_progress | codex-pair-self-key | `tools/hermes-mobile-pair-lib.js`, `tests/test-hermes-mobile-pair.sh`, `plan.md` | Mini local Tailscale URL resolves local `.env` key; MBP still SSH-fetches mini key; strict wrong-key guards and full pair suite pass |
 | T-9R-20260714 | Safe 9Router gateway + explicit Hermes adapter on both Macs | done | codex-9router | `9router-yolo`, `hermes-9router`, `scripts/install-9router-yolo.sh`, `tools/hermes-9router-harness.js`, `tests/test-9router-yolo.js`, `tests/test-hermes-9router-harness.js`, `docs/HERMES-9ROUTER-GATEWAY.md`, `plan.md` | Pin and integrity-check official 9Router; bind loopback only; no browser/tunnel/MITM/autostart; configure secret-free local Ollama route; prove health, model smoke, receipts, and matching deployment on Pro + mini without changing the default Hermes route |
 | T-TS-CLEARTEXT | P0: Android cleartext blocks Tailscale/LAN Find computers (OS NSC loopback-only) | done | cursor-ts-cleartext | `hermes-mobile/plugins/withNetworkSecurityConfig.js`, `hermes-mobile/android/app/src/main/res/xml/network_security_config.xml`, `hermes-mobile/src/__tests__/networkSecurityPolicy.test.ts`, `plan.md` | APK allows http to 100.x/*.ts.net/LAN; Find computers shows mini; unit + device proof |
 | T-PREVENT-WRONGKEY | Fresh-install Wrong-key multi-Mac host→key guards | done | cursor-prevent-0713 | `tools/hermes-mobile-pair-lib.js`, `tools/hermes-mobile-pair.js`, `tools/agent-session-start.js`, `hermes-mobile/src/utils/wrongKeyRecovery.ts`, `hermes-mobile/src/__tests__/wrongKeyRecovery.test.ts`, `hermes-mobile/src/services/gatewayClient.ts`, `tests/test-hermes-mobile-pair.sh`, `hermes-mobile/docs/PREVENT-RECURRENCE-JULY-2026.md`, `plan.md` | strict mini SSH; assertHostKeyConsistency; session-start fail-closed; Find computers CTA; tests green |
@@ -232,7 +234,7 @@ Status values: `pending` | `in_progress` | `blocked` | `done`. Claim a row by se
 - T-344 claimed files above → **released by cursor-chat-jitter** after focused 43/43 + full Jest 182 suites / 1555 passed / 1 skipped; typecheck clean (2026-07-15T17:14:00Z)
 - `scripts/install-agent-device.sh`, `scripts/install-callstack-agent-skills.sh`, `hermes-mobile/scripts/agent-device-connection-proof.sh`, `hermes-mobile/docs/AGENT-DEVICE.md`, `hermes-mobile/AGENTS.md`, `hermes-mobile/docs/TESTING.md`, `.cursor/rules/agent-device.mdc`, `plan.md` → **cursor-agent-device** (T-AD-20260715 Callstack agent-device workflow) (2026-07-15T17:45:00Z)
 - T-AD-20260715 claimed files above → **released by cursor-agent-device** after live phone proof (Tailscale label + Reconnecting + VPN on — do not claim Connected) and docs/scripts landed (2026-07-15T17:50:00Z)
-
+- `tools/hermes-mobile-pair-lib.js`, `tests/test-hermes-mobile-pair.sh`, `plan.md` → **codex-pair-self-key** (T-PAIR-SELF-0715 local Tailscale URL must use the current Mac's key, not self-SSH) (2026-07-15T17:30:00Z)
 - `hermes-mobile/src/components/ConnectMacGate.tsx`, `hermes-mobile/src/__tests__/ConnectMacGate.test.tsx`, `plan.md` → **cursor-stranger-gate-fix** (T-343 stranger CI: gate visible on relay default) (2026-07-15T16:40:00Z)
 - T-343 claimed files above → **released by cursor-stranger-gate-fix** after ConnectMacGate Jest 8/8; PR pending (2026-07-15T16:45:00Z)
 - `.github/workflows/mobile-e2e.yml`, `.github/workflows/mobile-ota.yml`, `hermes-mobile/.maestro/stranger-cold-start.yaml`, `hermes-mobile/scripts/require-stranger-cold-start-proof.cjs`, `hermes-mobile/package.json` (ota:publish wrapper only), `hermes-mobile/src/__tests__/releaseSafetyNet.test.ts`, `hermes-mobile/src/__tests__/releaseSafetyContract.test.ts`, `hermes-mobile/src/__tests__/strangerColdStartGate.test.ts`, `hermes-mobile/docs/RELEASE-SAFETY-NET.md`, `plan.md` → **cursor-stranger-ci-gate** (T-342) (2026-07-15T16:00:00Z)
