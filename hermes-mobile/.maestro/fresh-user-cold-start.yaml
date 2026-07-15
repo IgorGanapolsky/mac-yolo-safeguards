@@ -1,0 +1,45 @@
+# Brand-new user cold start — NO demo deep link.
+# Accepts either:
+#   A) ConnectMacGate onboarding (true first-run, no USB discovery), or
+#   B) Mac picker auto-opened when USB/local Hermes machines are discovered (still "setup" UX).
+appId: com.iganapolsky.hermesmobile
+---
+- stopApp
+- launchApp
+- extendedWaitUntil:
+    notVisible:
+      id: "hermes-bootstrap"
+    timeout: 90000
+- runFlow: dismiss-print-interruption.yaml
+# Prefer onboarding gate when present.
+- runFlow:
+    when:
+      visible:
+        id: "connect-mac-gate"
+    commands:
+      - assertVisible:
+          id: "connect-mac-onboarding-card"
+      - assertVisible:
+          id: "connect-search-wifi"
+# USB-attached phone may open machine picker instead of gate — still valid first-run setup.
+- runFlow:
+    when:
+      visible:
+        id: "mac-picker-modal"
+    commands:
+      - assertVisible:
+          id: "mac-picker-modal"
+      - assertVisible:
+          id: "chat-find-macs-on-wifi"
+      - tapOn:
+          id: "mac-picker-modal-backdrop"
+      - waitForAnimationToEnd:
+          timeout: 2000
+# After picker dismiss, may land on chat or gate — either is fine if app is interactive.
+- runFlow:
+    when:
+      visible:
+        id: "connect-mac-gate"
+    commands:
+      - assertVisible:
+          id: "connect-mac-onboarding-card"
