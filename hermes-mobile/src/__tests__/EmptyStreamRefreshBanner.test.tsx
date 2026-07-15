@@ -3,13 +3,29 @@ import { fireEvent, render, screen } from '@testing-library/react-native';
 import EmptyStreamRefreshBanner from '../components/EmptyStreamRefreshBanner';
 
 describe('EmptyStreamRefreshBanner', () => {
-  it('calls onRefresh when the Refresh chip is tapped', () => {
+  it('shows auto-checking spinner when polling is active', () => {
+    render(
+      <EmptyStreamRefreshBanner
+        autoChecking
+        waitingSinceMs={Date.now() - 45_000}
+        onRefresh={jest.fn()}
+      />,
+    );
+
+    expect(screen.getByTestId('empty-stream-auto-checking')).toBeTruthy();
+    expect(screen.getByTestId('empty-stream-refresh-banner')).toHaveTextContent(/\(45s\)/);
+    expect(screen.getByTestId('empty-stream-elapsed')).toBeTruthy();
+    expect(screen.getByTestId('empty-stream-refresh-banner')).not.toHaveTextContent(/tap refresh/i);
+  });
+
+  it('calls onRefresh when the optional Check now chip is tapped', () => {
     const onRefresh = jest.fn();
     render(<EmptyStreamRefreshBanner onRefresh={onRefresh} />);
 
     fireEvent.press(screen.getByTestId('empty-stream-refresh-button'));
 
     expect(onRefresh).toHaveBeenCalledTimes(1);
+    expect(screen.getByText('Check now')).toBeTruthy();
   });
 
   it('shows a Start fresh chat action when provided', () => {

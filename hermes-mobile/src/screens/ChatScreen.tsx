@@ -362,7 +362,10 @@ import {
   deferredReplyPollBudgetMs,
   DEFERRED_REPLY_POLL_MS,
   EMPTY_REPLY_FAILURE_REASON,
+  EMPTY_STREAM_SELF_HEAL_AFTER_MS,
+  emptyStreamCheckingStatus,
   shouldAwaitGatewayReplyAfterSend,
+  shouldKeepAutoPollingForReply,
   toolActivityAfterLastUser,
 } from '../utils/emptyStreamReplyRecovery';
 import { shouldShowEmptyStreamRefreshCta } from '../utils/emptyStreamRefreshCta';
@@ -2767,35 +2770,17 @@ export default function ChatScreen() {
     (
       assistantId: string,
       priorAssistants: Set<string>,
-      options?: { onTimeout?: () => void },
+      options?: { onTimeout?: () => void; recoveryMode?: boolean },
     ) => {
       clearDeferredTelegramPoll();
       awaitingGatewayReplyRef.current = true;
       setAwaitingGatewayReply(true);
       const startedAt = Date.now();
       let sawTools = false;
+      let softTimeoutSurfaced = options?.recoveryMode === true;
       deferredTelegramPollRef.current = setInterval(() => {
+        const elapsed = Date.now() - startedAt;
         const budgetMs = deferredReplyPollBudgetMs({ toolsActive: sawTools });
-        if (Date.now() - startedAt > budgetMs) {
-          clearDeferredTelegramPoll();
-          awaitingGatewayReplyRef.current = false;
-          setAwaitingGatewayReply(false);
-          setToolStatus(null);
-          commitMessages((prev) =>
-            prev.map((m) =>
-              m.id === assistantId && isDeferredStreamPlaceholder(m.content)
-                ? { ...m, content: EMPTY_STREAM_TIMEOUT_PLACEHOLDER }
-                : m,
-            ),
-          );
-          setRunProgress((prev) =>
-            prev && prev.phase !== 'completed'
-              ? { ...prev, phase: 'failed', detail: EMPTY_REPLY_FAILURE_REASON }
-              : prev,
-          );
-          options?.onTimeout?.();
-          return;
-        }
         void refreshSessionMessages({ background: true, force: true }).then(() => {
           const msgs = messagesRef.current;
           const reply = findNewAssistantReply(msgs, priorAssistants);
@@ -2824,7 +2809,6 @@ export default function ChatScreen() {
                     detail: activity.detail,
                   },
             );
-            // Keep the chat bubble aligned with real tool progress (not "did not return text").
             commitMessages((prev) =>
               prev.map((m) =>
                 m.id === assistantId && isDeferredStreamPlaceholder(m.content)
@@ -2835,6 +2819,37 @@ export default function ChatScreen() {
                   : m,
               ),
             );
+          } else if (elapsed >= EMPTY_STREAM_SELF_HEAL_AFTER_MS) {
+            const checkingDetail = emptyStreamCheckingStatus(elapsed);
+            setToolStatus(checkingDetail);
+            setRunProgress((prev) =>
+              prev && prev.phase !== 'completed' && prev.phase !== 'failed'
+                ? { ...prev, phase: 'working', detail: checkingDetail }
+                : prev?.phase === 'failed'
+                  ? { ...prev, detail: checkingDetail }
+                  : {
+                      phase: 'working',
+                      startedAtMs: startedAt,
+                      detail: checkingDetail,
+                    },
+            );
+          }
+          if (!softTimeoutSurfaced && elapsed > budgetMs) {
+            softTimeoutSurfaced = true;
+            setToolStatus(emptyStreamCheckingStatus(elapsed));
+            commitMessages((prev) =>
+              prev.map((m) =>
+                m.id === assistantId && isDeferredStreamPlaceholder(m.content)
+                  ? { ...m, content: EMPTY_STREAM_TIMEOUT_PLACEHOLDER }
+                  : m,
+              ),
+            );
+            setRunProgress((prev) =>
+              prev && prev.phase !== 'completed'
+                ? { ...prev, phase: 'failed', detail: EMPTY_REPLY_FAILURE_REASON }
+                : prev,
+            );
+            options?.onTimeout?.();
           }
         });
       }, DEFERRED_REPLY_POLL_MS);
@@ -2849,11 +2864,49 @@ export default function ChatScreen() {
     [startDeferredReplyPoll],
   );
 
+  const resumeEmptyStreamRecoveryPoll = useCallback(() => {
+    if (isDemo || !macChatLive || deferredTelegramPollRef.current) {
+      return;
+    }
+    const msgs = messagesRef.current;
+    if (!shouldShowEmptyStreamRefreshCta(msgs)) {
+      return;
+    }
+    let lastUserIndex = -1;
+    for (let index = msgs.length - 1; index >= 0; index -= 1) {
+      if (msgs[index]?.role?.toLowerCase() === 'user') {
+        lastUserIndex = index;
+        break;
+      }
+    }
+    if (lastUserIndex < 0) {
+      return;
+    }
+    let assistantId: string | undefined;
+    for (let index = lastUserIndex + 1; index < msgs.length; index += 1) {
+      const message = msgs[index];
+      if (message?.role?.toLowerCase() !== 'assistant') {
+        continue;
+      }
+      assistantId = message.id;
+      break;
+    }
+    if (!assistantId) {
+      return;
+    }
+    const priorAssistants = snapshotAssistantBodies(msgs.slice(0, lastUserIndex + 1));
+    startDeferredReplyPoll(assistantId, priorAssistants, { recoveryMode: true });
+  }, [isDemo, macChatLive, startDeferredReplyPoll]);
+
   useEffect(() => {
     return () => {
       clearDeferredTelegramPoll();
     };
   }, [clearDeferredTelegramPoll]);
+
+  useEffect(() => {
+    resumeEmptyStreamRecoveryPoll();
+  }, [messages, currentSession?.id, macChatLive, isDemo, resumeEmptyStreamRecoveryPoll]);
 
   useEffect(() => {
     setChatStreamProgressActive(isSending || isChatStreamActive);
@@ -3142,21 +3195,22 @@ export default function ChatScreen() {
     };
   }, [transcriptSyncNonce, currentSession?.id, isDemo, macChatLive]);
 
-  // Background HTTP polling when WebSocket is down, or for gateway-backed threads (every 4–5s).
+  // Background HTTP polling when WebSocket is down, or while waiting for reply text.
   useEffect(() => {
     const activeSession = currentSessionRef.current;
     if (!activeSession || isDemo || !macChatLive) {
       return;
     }
-    // We poll if:
-    // 1. Gateway-backed thread view (4–5s)
-    // 2. WebSocket is down (8s HTTP fallback for all sessions)
+    const hasEmptyStreamTimeout = shouldShowEmptyStreamRefreshCta(messages);
     const shouldPoll =
-      isTelegramView || connectionState !== 'connected' || awaitingGatewayReply;
+      isTelegramView ||
+      connectionState !== 'connected' ||
+      shouldKeepAutoPollingForReply({ awaitingGatewayReply, hasEmptyStreamTimeout });
     if (!shouldPoll) {
       return;
     }
-    const intervalMs = awaitingGatewayReply
+    const intervalMs =
+      awaitingGatewayReply || hasEmptyStreamTimeout
         ? DEFERRED_REPLY_POLL_MS
         : isTelegramView
           ? connectionState === 'connected'
@@ -3169,7 +3223,15 @@ export default function ChatScreen() {
       refreshSessionMessagesRef.current?.({ background: true });
     }, intervalMs);
     return () => clearInterval(timer);
-  }, [currentSession?.id, isDemo, macChatLive, isTelegramView, connectionState, awaitingGatewayReply]);
+  }, [
+    currentSession?.id,
+    isDemo,
+    macChatLive,
+    isTelegramView,
+    connectionState,
+    awaitingGatewayReply,
+    messages,
+  ]);
 
   useEffect(() => {
     const activeSession = currentSessionRef.current;
@@ -3514,12 +3576,8 @@ export default function ChatScreen() {
   }, [currentSession, messages]);
 
   const showEmptyStreamRefreshBanner = useMemo(
-    () =>
-      !isDemo &&
-      macChatLive &&
-      shouldShowEmptyStreamRefreshCta(messages) &&
-      !awaitingGatewayReply,
-    [isDemo, macChatLive, messages, awaitingGatewayReply],
+    () => !isDemo && macChatLive && shouldShowEmptyStreamRefreshCta(messages),
+    [isDemo, macChatLive, messages],
   );
 
   const lastUserPromptSentAtMs = useMemo(() => {
@@ -5387,8 +5445,15 @@ export default function ChatScreen() {
           );
           startDeferredReplyPoll(assistantId, priorAssistants, {
             onTimeout: () => {
+              isSendingRef.current = false;
+              setIsSending(false);
+              activeOutboundSendBodyRef.current = null;
+              pendingOutboundSendsRef.current = 0;
+              setQueuedOutboundCount(0);
               lastFailedSendTextRef.current = userText;
               setPinnedOutboundStatus('failed');
+              setPinnedOutboundText(null);
+              setPinnedOutboundSentAt(null);
               commitMessages((prev) => {
                 const next = [...prev];
                 for (let index = next.length - 1; index >= 0; index -= 1) {
@@ -6541,14 +6606,11 @@ export default function ChatScreen() {
 
         {showEmptyStreamRefreshBanner && !showComposerProgressBanner ? (
           <EmptyStreamRefreshBanner
+            autoChecking={awaitingGatewayReply}
             busy={isPullRefreshing}
             waitingSinceMs={lastUserPromptSentAtMs}
             onRefresh={() => void handleManualSync()}
-            onStartFreshChat={
-              megaSessionWarning && showComposerProgressBanner
-                ? () => void handleStartFreshChat()
-                : undefined
-            }
+            onStartFreshChat={() => void handleStartFreshChat()}
             startingFreshChat={isStartingFreshChat}
           />
         ) : null}

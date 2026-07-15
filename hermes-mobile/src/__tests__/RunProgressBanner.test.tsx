@@ -2,6 +2,7 @@ import React from 'react';
 import { fireEvent } from '@testing-library/react-native';
 import { render } from '@testing-library/react-native';
 import RunProgressBanner from '../components/RunProgressBanner';
+import { EMPTY_REPLY_FAILURE_REASON } from '../utils/emptyStreamReplyRecovery';
 
 describe('RunProgressBanner', () => {
   it('shows delivering copy before a run id exists', () => {
@@ -314,7 +315,7 @@ describe('RunProgressBanner', () => {
         progress={{
           phase: 'failed',
           startedAtMs: Date.now() - 60_000,
-          detail: 'Still no reply text — your Mac may be stuck in tools. Tap Refresh below.',
+          detail: EMPTY_REPLY_FAILURE_REASON,
         }}
         onRefreshRun={onRefreshRun}
       />,
