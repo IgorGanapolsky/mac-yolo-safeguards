@@ -26,7 +26,13 @@ export function shouldShowActiveReconnectingCopy(input: {
   macRetryBusy: boolean;
   healInFlight: boolean;
   healExhausted: boolean;
+  /** Never-connected / fresh install must not say "Reconnecting…". */
+  hasPriorSuccessfulConnection?: boolean;
 }): boolean {
+  // Brand-new users never "reconnect" — reserve that word for returning Macs.
+  if (input.hasPriorSuccessfulConnection === false) {
+    return false;
+  }
   if (input.macRetryBusy) {
     return true;
   }
@@ -34,6 +40,20 @@ export function shouldShowActiveReconnectingCopy(input: {
     return false;
   }
   return input.healInFlight;
+}
+
+/** First-connect copy while looking for a Mac the user has never reached before. */
+export function connectingToMacCopy(macLabel?: string): string {
+  const label = macLabel?.trim() || 'your computer';
+  if (
+    label === 'your computer' ||
+    label === 'Computer' ||
+    label === 'computer' ||
+    label === 'Computer via USB'
+  ) {
+    return 'Looking for your Mac…';
+  }
+  return `Connecting to ${label}…`;
 }
 
 export function reconnectingToMacCopy(macLabel?: string): string {

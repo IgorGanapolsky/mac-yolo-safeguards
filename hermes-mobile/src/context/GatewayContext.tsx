@@ -102,6 +102,7 @@ import {
   shouldRunForegroundUsbHeal,
 } from '../utils/pairDeepLinkApply';
 import {
+  hasNonLoopbackSavedProfile,
   profileMatchesDiscoveredGateway,
   profileMatchesHostname,
 } from '../utils/gatewayProfilePicker';
@@ -524,10 +525,13 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
         let loadedProfiles = await gatewayProfiles.load();
         loadedProfiles = migrateLegacyGateway(loadedProfiles, savedSettings.gatewayUrl, lastLanIp);
         if (Platform.OS !== 'web') {
+          // Fresh install (no real Mac yet): never invent a USB 127.0.0.1 profile —
+          // that forces "Computer via USB · Reconnecting…" before the user ever connected.
+          // Only seed loopback as an alternate route when a Tailscale/LAN Mac is already saved.
           const hasLoopback = loadedProfiles.profiles.some((p) =>
             isLoopbackGatewayUrl(p.gatewayUrl),
           );
-          if (!hasLoopback) {
+          if (!hasLoopback && hasNonLoopbackSavedProfile(loadedProfiles.profiles)) {
             const named = loadedProfiles.profiles
               .map((profile) => ({ profile, name: profileDisplayName(profile) }))
               .find(({ name }) => !isGenericMachineLabel(name));
@@ -587,9 +591,11 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
           );
           const fallbackUrl =
             (active && isValidGatewayUrl(active.gatewayUrl) ? active.gatewayUrl : undefined) ??
-            fallbackProfile?.gatewayUrl ??
-            USB_LOOPBACK_GATEWAY_URL;
-          resolvedSettings = { ...resolvedSettings, gatewayUrl: fallbackUrl };
+            fallbackProfile?.gatewayUrl;
+          // Brand-new install: keep gatewayUrl empty so ConnectMacGate shows — never invent USB.
+          if (fallbackUrl) {
+            resolvedSettings = { ...resolvedSettings, gatewayUrl: fallbackUrl };
+          }
         }
 
         if (!mounted) return;

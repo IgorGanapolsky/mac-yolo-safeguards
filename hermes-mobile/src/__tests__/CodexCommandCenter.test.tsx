@@ -66,7 +66,7 @@ describe('CodexCommandCenter', () => {
     expect(getByTestId('command-center-mac-detail').props.children).toBe('Tap to reconnect');
   });
 
-  it('shows reconnecting state while mac retry is busy', () => {
+  it('shows looking-for-Mac copy while retry is busy on a generic/fresh label', () => {
     const { getByTestId } = render(
       <CodexCommandCenter
         connectionState="disconnected"
@@ -76,7 +76,7 @@ describe('CodexCommandCenter', () => {
       />,
     );
 
-    expect(getByTestId('command-center-mac-detail').props.children).toBe('Reconnecting…');
+    expect(getByTestId('command-center-mac-detail').props.children).toBe('Looking for your Mac…');
   });
 
   it('shows custom machine name when mac retry is busy', () => {
