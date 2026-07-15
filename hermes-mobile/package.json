@@ -1,7 +1,7 @@
 {
   "name": "hermes-mobile",
   "version": "0.1.0",
-  "description": "Hermes mobile companion — ThumbGate approvals, gateway health, YOLO safeguard telemetry",
+  "description": "Hermes mobile companion \u2014 ThumbGate approvals, gateway health, YOLO safeguard telemetry",
   "main": "node_modules/expo/AppEntry.js",
   "scripts": {
     "start": "expo start",
@@ -60,7 +60,10 @@
     "ota:validate": "REQUIRE_EAS_PROJECT=1 npm run release:check && node ./scripts/require-stranger-cold-start-proof.cjs --hard && npm run ota:gate",
     "ota:dry-run": "npm run ota:validate",
     "ota:stranger-proof": "node ./scripts/require-stranger-cold-start-proof.cjs",
-    "test:perf": "reassure"
+    "test:perf": "reassure",
+    "e2e:fresh-user": "bash ./scripts/run-fresh-user-e2e.sh",
+    "e2e:fresh-user:android": "bash ./scripts/run-fresh-user-e2e.sh --android-only",
+    "e2e:fresh-user:ios": "bash ./scripts/run-fresh-user-e2e.sh --ios-only"
   },
   "dependencies": {
     "@react-native-ai/dev-tools": "^0.12.0",

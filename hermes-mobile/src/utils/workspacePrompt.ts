@@ -28,10 +28,12 @@ export function buildWorkspaceSystemPrompt(
 ): string {
   const path = workspacePath.trim();
   const lines = [
-    'Hermes Mobile project context (do not ignore):',
-    `- Active workspace: ${path}`,
-    '- Run terminal and file tools from this directory unless the operator explicitly switches projects.',
-    '- If asked which project is active, answer with this workspace path.',
+    'Hermes Mobile project context (HARD CONSTRAINT — do not ignore):',
+    `- Active workspace / cwd: ${path}`,
+    '- Set TERMINAL_CWD and run terminal, file, code_execution, and search tools from this directory only.',
+    '- Do not cd into, edit, or discuss a different repo (including skool_top1percent) unless the operator explicitly names that other path.',
+    '- Memory, Telegram channel prompts, and prior chats about other projects are OUT OF SCOPE for this session.',
+    '- If asked which project is active, answer with this workspace path — never a remembered "canonical" project.',
     '- Do not ask the operator to paste the project path when this prompt already provides it.',
   ];
   const vaultSlug = options?.vaultSlug?.trim();

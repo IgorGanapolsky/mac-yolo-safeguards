@@ -240,4 +240,25 @@ describe('CodexCommandCenter', () => {
     expect(getByTestId('command-center-approvals')).toBeTruthy();
     expect(getByText('3')).toBeTruthy();
   });
+
+  it('hides the RUN tile when suppressRunTile is set (composer banner owns run chrome)', () => {
+    const { queryByTestId, getByTestId } = render(
+      <CodexCommandCenter
+        connectionState="connected"
+        macHttpReachable
+        pendingApprovalCount={1}
+        suppressRunTile
+        runProgress={{
+          phase: 'streaming',
+          startedAtMs: Date.now() - 3000,
+          detail: 'Hermes is working on your computer…',
+          runId: 'run-1',
+        }}
+        onOpenApprovals={jest.fn()}
+      />,
+    );
+
+    expect(queryByTestId('command-center-run-tile')).toBeNull();
+    expect(getByTestId('command-center-approvals')).toBeTruthy();
+  });
 });

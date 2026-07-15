@@ -27,7 +27,7 @@ import {
   formatListeningOnGatewayLine,
 } from '../utils/gatewayEndpoint';
 import { buildLeashEmptyExplanation } from '../utils/leashUx';
-import { isThumbgateLeashUnlocked } from '../utils/thumbgateLeash';
+import { hasThumbgateLeashPro, isThumbgateLeashUnlocked } from '../utils/thumbgateLeash';
 import { CHAT_APPROVAL_EDIT_PREFIX } from '../services/approvalResolver';
 import { fromPendingApproval } from '../utils/approvalNormalize';
 import {
@@ -568,6 +568,21 @@ export default function ApprovalsScreen() {
               {refreshing ? 'Refreshing connection…' : 'Tap to refresh connection'}
             </Text>
           </TouchableOpacity>
+        ) : null}
+
+        {/* Always show paid upgrade when not Pro (free weekly allowance still unlocks approvals). */}
+        {!hasThumbgateLeashPro(settings) && leashUnlocked ? (
+          <GlassCard style={styles.emptyCard} testID="leash-pro-upsell-card">
+            <Text style={styles.emptyTitle}>Upgrade for unlimited Leash</Text>
+            <Text style={styles.emptyBody}>
+              Free tier includes limited weekly approvals. Subscribe for unlimited mobile approvals
+              and full ThumbGate Pro gates.
+            </Text>
+            <ProUpgradeCard
+              onUnlocked={unlockThumbgateLeash}
+              onTesterUnlock={showTesterUnlock ? unlockThumbgateLeash : undefined}
+            />
+          </GlassCard>
         ) : null}
       </ScrollView>
     </SafeAreaView>
