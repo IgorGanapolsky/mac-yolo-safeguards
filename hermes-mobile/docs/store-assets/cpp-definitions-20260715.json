@@ -1,0 +1,31 @@
+{
+  "created": "2026-07-15",
+  "ascAppId": "6786778037",
+  "note": "App Store Custom Product Pages \u2014 ASC UI (70 CPP cap). Organic keyword-targeted CPPs since Jul 2025. No brand trademarks in subtitle.",
+  "pages": [
+    {
+      "id": "cpp-ai-agent-control",
+      "name": "AI agent control",
+      "subtitle": "Approve AI tools from phone",
+      "keywords": "AI agent,cursor,claude code,developer tools,approve,mac gateway,hermes,openclaw,automation,safety",
+      "promotionalTextHint": "Approve risky agent tools from your phone on YOUR Mac.",
+      "screenshotSet": "en-US APP_IPHONE_67 (reuse 6-frame stellar set)"
+    },
+    {
+      "id": "cpp-mobile-devtool",
+      "name": "Mobile devtool",
+      "subtitle": "Remote AI agent control",
+      "keywords": "remote coding,AI agent,cursor,claude code,approve,terminal,gateway,developer tools,ssh,automation",
+      "promotionalTextHint": "Pair Mac, chat with Hermes gateway, see honest connection state.",
+      "screenshotSet": "en-US APP_IPHONE_67"
+    },
+    {
+      "id": "cpp-own-mac-credits",
+      "name": "Own Mac vs cloud credits",
+      "subtitle": "Own Mac. No cloud credit burn",
+      "keywords": "runaway agent,token burn,cursor,claude code,approve,mac gateway,hermes,developer tools,safety,automation",
+      "promotionalTextHint": "Leash Pro $19.99/mo \u2014 approve tools before they run.",
+      "screenshotSet": "en-US APP_IPHONE_67"
+    }
+  ]
+}

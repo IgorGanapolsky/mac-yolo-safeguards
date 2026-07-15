@@ -6,6 +6,7 @@ import { resolveChatLinkDisplay } from '../utils/gatewayConnection';
 import type { LeashConnectionState } from '../utils/gatewayEndpoint';
 import { GATEWAY_AUTH_REPAIR_HEADER } from '../services/gatewayClient';
 import { displayableLlmModel } from '../utils/runProgressDisplay';
+import { weakLocalModelWarning } from '../utils/weakLocalModel';
 import ExpandableThreadTitle from './ExpandableThreadTitle';
 
 type ChatScreenHeaderProps = {
@@ -166,6 +167,13 @@ export default function ChatScreenHeader({
   const showEndpoint =
     endpoint.length > 0 && (!link.connected || showMachineDetailWhenConnected);
   const showWorkspace = canSwitchWorkspace || Boolean(workspaceName);
+  const resolvedModel =
+    displayableLlmModel(currentSession?.model) ??
+    displayableLlmModel(runProgress?.model) ??
+    displayableLlmModel(gatewayModel);
+  const localModelWarning = weakLocalModelWarning(resolvedModel);
+  const hugeContext =
+    (currentSession?.input_tokens ?? 0) >= 20_000 || (runProgress?.inputTokens ?? 0) >= 20_000;
 
   return (
     <View style={styles.wrap} testID="chat-screen-header">
@@ -289,6 +297,17 @@ export default function ChatScreenHeader({
           </View>
         );
       })()}
+
+      {localModelWarning ? (
+        <Text style={styles.modelWarning} testID="chat-header-weak-model-warning">
+          {localModelWarning}
+        </Text>
+      ) : null}
+      {hugeContext && !localModelWarning ? (
+        <Text style={styles.modelWarning} testID="chat-header-poisoned-context-warning">
+          This chat is large — Start fresh chat so the model cannot keep drifting from old context.
+        </Text>
+      ) : null}
     </View>
   );
 }
@@ -454,5 +473,13 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '600',
     color: colors.textMuted,
+  },
+  modelWarning: {
+    paddingHorizontal: 4,
+    paddingVertical: 4,
+    fontSize: 11,
+    lineHeight: 15,
+    fontWeight: '600',
+    color: colors.warning,
   },
 });

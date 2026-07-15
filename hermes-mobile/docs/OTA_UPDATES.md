@@ -6,11 +6,13 @@ Hermes Mobile ships JS and asset fixes over the air (EAS Update) so Igor's phone
 
 | Channel | Build profile | OTA publish | Audience |
 |---------|---------------|-------------|----------|
-| `production` | `eas.json` → `build.production` | `main` push (CI) or `npm run ota:publish` | Store / Igor phone release APK |
-| `preview` | `build.preview` | `npm run ota:preview` | Internal EAS preview APK |
+| `production` | `eas.json` → `build.production` | **Fresh-user gated** — `npm run ota:publish` / workflow_dispatch only after `e2e=pass` | Store / release APK |
+| `preview` | `build.preview` | `main` push (CI) or `npm run ota:preview` | Internal EAS preview APK |
 | `e2e-test` | `build.e2e-test` | `npm run ota:e2e` | Maestro / automation builds |
 
-**Production channel** receives automatic OTA publishes from `.github/workflows/mobile-ota.yml` on every push to `main` that touches `hermes-mobile/**`.
+**Crisis 2026-07-15:** Production OTA is **not** automatic on every `main` merge. CI publishes **preview** on push; **production** requires `workflow_dispatch` with `publish_production=true` plus a fresh-user / continuous proof artifact (`e2e=pass`). Local: `npm run ota:gate` then `npm run ota:publish`. See [PRODUCTION-CRISIS-2026-07-15.md](./PRODUCTION-CRISIS-2026-07-15.md).
+
+**Previously:** Production channel received automatic OTA from `.github/workflows/mobile-ota.yml` on every push — that shipped live bugs without brand-new-user proof.
 
 ## Runtime version policy: `appVersion`
 
