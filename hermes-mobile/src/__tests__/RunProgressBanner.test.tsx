@@ -324,4 +324,55 @@ describe('RunProgressBanner', () => {
     fireEvent.press(getByTestId('run-progress-refresh'));
     expect(onRefreshRun).toHaveBeenCalledTimes(1);
   });
+
+  it('collapses MODEL/TOKENS details in compact (keyboard) mode by default', () => {
+    const { queryByTestId, getByTestId } = render(
+      <RunProgressBanner
+        compact
+        progress={{
+          phase: 'streaming',
+          startedAtMs: Date.now() - 5000,
+          detail: 'Hermes is working on your computer…',
+          model: 'qwen3.5:9b-hermes',
+          inputTokens: 10,
+          outputTokens: 2,
+        }}
+      />,
+    );
+
+    expect(getByTestId('run-progress-banner')).toBeTruthy();
+    expect(queryByTestId('run-progress-stats')).toBeNull();
+  });
+
+  it('expands details again when leaving compact mode', () => {
+    const { getByTestId, queryByTestId, rerender } = render(
+      <RunProgressBanner
+        compact
+        progress={{
+          phase: 'streaming',
+          startedAtMs: Date.now() - 5000,
+          detail: 'Hermes is working on your computer…',
+          model: 'qwen3.5:9b-hermes',
+          inputTokens: 10,
+          outputTokens: 2,
+        }}
+      />,
+    );
+    expect(queryByTestId('run-progress-stats')).toBeNull();
+
+    rerender(
+      <RunProgressBanner
+        compact={false}
+        progress={{
+          phase: 'streaming',
+          startedAtMs: Date.now() - 5000,
+          detail: 'Hermes is working on your computer…',
+          model: 'qwen3.5:9b-hermes',
+          inputTokens: 10,
+          outputTokens: 2,
+        }}
+      />,
+    );
+    expect(getByTestId('run-progress-stats')).toBeTruthy();
+  });
 });
