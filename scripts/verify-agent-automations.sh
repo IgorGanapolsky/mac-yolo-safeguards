@@ -13,6 +13,7 @@ EXPECTED=(
   com.igor.shutdown-simulators
   com.igor.revenue-autonomous-loop
   com.igor.smart-ops
+  com.igor.agent-vault-sync
 )
 
 missing=0

@@ -54,6 +54,7 @@ plists=(
   com.igor.hermes-relay-worker.plist
   com.igor.revenue-autonomous-loop.plist
   com.igor.smart-ops.plist
+  com.igor.agent-vault-sync.plist
 )
 
 install_one() {
