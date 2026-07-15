@@ -458,5 +458,26 @@ describe('tonight recurrence gates (2026-07-14 P0 class — S16-S23)', () => {
       expect(yaml).toMatch(/^---/m);
     }
   });
+
+  it('S25: production OTA refuses without fresh-user / continuous e2e=pass (crisis 2026-07-15)', () => {
+    const pkg = read('hermes-mobile/package.json');
+    expect(pkg).toContain('ota:gate');
+    expect(pkg).toContain('e2e:fresh-user');
+    expect(pkg).toContain('ota-publish-gated.sh');
+    expect(pkg).toContain('stranger-cold-start.yaml');
+    const gate = read('hermes-mobile/scripts/require-fresh-user-ota-gate.sh');
+    expect(gate).toContain('e2e=pass');
+    expect(gate).toContain('HERMES_OTA_FORCE_UNSAFE');
+    expect(gate).toMatch(/exit 1/);
+    const workflow = read('.github/workflows/mobile-ota.yml');
+    expect(workflow).toContain('require-fresh-user-ota-gate.sh');
+    expect(workflow).toContain('publish_production');
+    expect(workflow).toContain('Publish preview OTA');
+    const pairJs = read('tools/hermes-mobile-pair.js');
+    expect(pairJs).toContain('refreshPairAssetsFromLocalGateway');
+    expect(pairJs).toContain('hostname mismatch');
+    const requireDevice = read('tools/require-device-verified.js');
+    expect(requireDevice).toContain('--allow-ota is disabled after 2026-07-15');
+  });
 });
 

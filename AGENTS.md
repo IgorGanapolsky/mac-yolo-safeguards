@@ -180,6 +180,7 @@ Mobile detail: [hermes-mobile/AGENTS.md](./hermes-mobile/AGENTS.md), [hermes-mob
 | Session start | `node tools/agent-session-start.js` — includes pair + continuous E2E status |
 | Any edit under `hermes-mobile/src`, `app.json`, `.maestro/` | `npm test` then kickstart `com.igor.hermes-mobile-continuous-e2e` or `npm run e2e:continuous:once` |
 | Before "fixed" / "works on device" for chat/UI | Read `latest.json`; `e2e` must be `pass` or report failure honestly |
+| Before production OTA | `npm run ota:gate` — requires continuous `e2e=pass` **or** `npm run e2e:fresh-user` proof. Never publish production OTA on unit-green alone (crisis 2026-07-15) |
 | LaunchAgent missing | `bash scripts/install-agent-automations.sh` — not "run this install script" to the user |
 | Phone USB present | `node tools/hermes-mobile-pair.js` — never "open Settings and paste URL" |
 | Phone install / launch | `npm run android:phone` or `scripts/install-phone-release.sh` only — **never** `expo run:android` on a connected device (Metro-only debug → black screen) |
