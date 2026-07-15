@@ -62,12 +62,11 @@ describe('versioning and OTA contract', () => {
     expect(gated).toMatch(/eas update/);
     expect(gated).toMatch(/require-fresh-user-ota-gate/);
   });
-});
 
-  it('keeps Play train on marketing/runtime 1.0 until NSC binary replaces VC13', () => {
+  it('keeps Play train on marketing/runtime 1.0 while Play NSC train stays on runtime 1.0', () => {
     const app = readJson('app.json') as { expo: { version: string } };
-    // Play public is 1.0/vc13 without Tailscale cleartext; OTA cannot deliver NSC.
-    // Do not bump expo.version to 1.1 while Android store users still need a 1.0 native rebuild.
+    // Play production has 1.0/vc14 NSC; OTA cannot deliver native NSC.
+    // Do not bump expo.version to 1.1 while the Android store train is still runtime 1.0.
     expect(app.expo.version).toBe('1.0');
   });
 
@@ -79,3 +78,4 @@ describe('versioning and OTA contract', () => {
     expect(plugin).toMatch(/base-config cleartextTrafficPermitted="true"/);
     expect(plugin).toMatch(/ts\.net/);
   });
+});
