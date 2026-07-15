@@ -1,0 +1,95 @@
+{
+  "generatedAt": "2026-07-15T17:50:38.495Z",
+  "tool": "@react-native-ai/dev-tools (Callstack AI SDK Profiler)",
+  "blog": "https://www.callstack.com/blog/announcing-ai-sdk-profiler-for-react-native",
+  "npm": "https://www.npmjs.com/package/@react-native-ai/dev-tools",
+  "status": "partial_metro_source_ok",
+  "blockers": [
+    "npm_tarball_missing_dist — panel discovery needs dist/rozenite.json; Metro can still load react-native.ts",
+    "rozenite_manifest_missing_until_plugin_build"
+  ],
+  "package": {
+    "installed": true,
+    "version": "0.12.0",
+    "peerDependencies": {
+      "react": "*",
+      "react-native": "*"
+    },
+    "dependencies": {
+      "@opentelemetry/api": "^1.9.0",
+      "@opentelemetry/core": "^1.30.1",
+      "@opentelemetry/resources": "^1.30.1",
+      "@opentelemetry/sdk-trace-base": "^1.30.1",
+      "@rozenite/plugin-bridge": "^1.2.0"
+    },
+    "hasDistMain": false,
+    "hasSourceEntry": true,
+    "hasRozeniteManifest": false,
+    "packageMain": "./dist/react-native/index.cjs"
+  },
+  "metro": {
+    "hasWithRozenite": true,
+    "gatedByWithRozeniteEnv": true,
+    "keepsSentryExpoConfig": true
+  },
+  "app": {
+    "usesLocalShim": true,
+    "bootstrapBehindDev": true,
+    "hasDevToolsBootstrap": true
+  },
+  "scripts": {
+    "hasRozeniteMetro": true,
+    "hasAiDevTools": true,
+    "hasReassure": true,
+    "hasAgentDevice": true,
+    "scripts": {
+      "devtools:rozenite": "rozenite dev",
+      "devtools:ai-sdk-profiler": "WITH_ROZENITE=true expo start",
+      "perf:ai-sdk-profiler:proof": "node ./scripts/ai-sdk-profiler-proof.cjs",
+      "test:perf": "reassure",
+      "e2e:fast": "agent-device test --maestro .maestro/"
+    }
+  },
+  "reassureCli": {
+    "exitCode": 0,
+    "stdout": "unknown",
+    "stderr": ""
+  },
+  "fit": {
+    "expoSdk": "55",
+    "reactNative": "peer * (compatible)",
+    "hermesUsesVercelAiSdk": false,
+    "profilesChatListJitter": false,
+    "profilesAiSdkOtelSpans": true,
+    "closestPathForChatJitter": [
+      "npm run test:perf (Reassure)",
+      "npm run perf:flashlight",
+      "appPerformance JS lag"
+    ],
+    "agentDeviceParallel": "npm run e2e:fast / e2e:accelerated — Maestro acceleration, not AI span UI"
+  },
+  "invoke": {
+    "metroWithProfiler": "WITH_ROZENITE=true npm start",
+    "openPanel": "React Native DevTools → AI SDK Profiler (requires Rozenite discovery + AI SDK telemetry)",
+    "proof": "npm run perf:ai-sdk-profiler:proof",
+    "chatJitterBaseline": "npm run test:perf"
+  },
+  "docs": {
+    "agent": "docs/AI-SDK-PROFILER.md",
+    "perf": "docs/PERFORMANCE.md"
+  },
+  "relatedArtifacts": {
+    "reassurePerfTests": true,
+    "thisProof": "docs/perf-proofs/ai-sdk-profiler-latest.json"
+  },
+  "reassureChatJitterBaseline": {
+    "note": "AI SDK Profiler does not measure list/keyboard jitter; Reassure remains the chat hot-path baseline.",
+    "command": "npm run test:perf",
+    "artifact": "docs/perf-proofs/reassure-chatMessageDisplay-current.perf",
+    "preview": "{\"metadata\":{\"creationDate\":\"2026-07-15T17:52:08.345Z\",\"branch\":\"feat/ai-sdk-profiler-workflow\",\"commitHash\":\"ff467e5334f2467e4461ff1b57303cfe4875233d\"}}\n{\"name\":\"formatMessageForDisplay — small message\",\"type\":\"function\",\"runs\":10,\"meanDuration\":0.04514344444457189,\"stdevDuration\":0.006352190077129851,\"durations\":[0.05687500000021828,0.04249999999956344,0.04100000000107684,0.04791699999987031,0.04608300000109011,0.03941599999961909,0.03858300000138115,0.05287499999940337,0.04104199999892444],\"warmupDurations\":[1.0914170000014565],\"outlierDurations\":[0.1343750000014552],\"meanCount\":1,\"stdevCount\":0,\"counts\":[1,1,1,1,1,1,1,1,1,1]}\n{\"name\":\"formatMessageForDisplay — large transcript\",\"type\":\"function\",\"runs\":10,\"meanDuration\":1.3049165000002176,\"stdevDuration\":0.5454829082177538,\"durations\":[1.1782920000005106,0.8214159999988624,0.6243750000012369,2.1735829999997804,1.4370829999988928,0.9718750000010914,2.305041000001438,1.1781659999996918,1.048584000000119,1.310750000000553],\"warmupDurations\":[1.1149159999986296],\"outlierDurations\":[],\"meanCount\":1,\"stdevCount\":0,\"counts\":[1,1,1,1,1,1,1,1,1,1]}\n{\"name\":\"unescapeChatText — large transcript\",\"type\":\"function\",\"runs\":10,\"meanDuration\":0.12650860000030661,\"stdevDuration\":0.059766997335585055,\"durations\":[0.16312499999912689,0.07708400000046822,0.06725000000005821,0.24308300000120653,0.06420900000011898,0.12762500000098953,0.14658400000007532,0.1829170000000886,0.1282920000012382,0.06491699999969569],\"warmupDurations\":[0.0747080000"
+  },
+  "metroRuntime": {
+    "withRozeniteTrue": "async Metro config factory resolves; Rozenite logs No plugins found until upstream ships dist/rozenite.json",
+    "withRozeniteUnset": "Sentry Expo config object only"
+  }
+}

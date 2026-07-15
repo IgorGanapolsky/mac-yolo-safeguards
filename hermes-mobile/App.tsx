@@ -40,7 +40,7 @@ installGlobalCrashHandler();
 import { NavigationContainer, type NavigationContainerRef } from '@react-navigation/native';
 import { createBottomTabNavigator, BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { SafeAreaProvider, SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useAiSdkDevTools } from '@react-native-ai/dev-tools/react-native';
+import { useAiSdkDevTools } from './src/devtools/aiSdkProfiler';
 import { GatewayProvider, useGateway } from './src/context/GatewayContext';
 import { resolveInitialTab, resolveTabOrder, type HermesTabName } from './src/utils/leashUx';
 import ErrorBoundary from './src/components/ErrorBoundary';

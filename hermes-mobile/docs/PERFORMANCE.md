@@ -52,6 +52,29 @@ Recommended flows: cold launch → Chat tab → open thread with 50+ messages �
 
 Flashlight captures TTI, CPU, and FPS without Metro attached. Store reports under `docs/proofs/perf/` when benchmarking regressions.
 
+## Callstack AI SDK Profiler (Rozenite)
+
+Package: `@react-native-ai/dev-tools` — OpenTelemetry spans from the **Vercel AI SDK** in Rozenite DevTools. It does **not** replace Reassure / Flashlight for chat list or keyboard jitter.
+
+Agent runbook: [AI-SDK-PROFILER.md](./AI-SDK-PROFILER.md)
+
+```bash
+npm run perf:ai-sdk-profiler:proof   # → docs/perf-proofs/ai-sdk-profiler-latest.json
+npm run test:perf                    # Reassure baseline (keep for jitter)
+WITH_ROZENITE=true npm start         # optional DevTools panel
+npm run e2e:fast                     # agent-device Maestro (parallel track)
+```
+
+Metro enables Rozenite only when `WITH_ROZENITE=true` so default `doctor:expo` / release Metro stay clean.
+
+## Reassure (JS hot-path)
+
+```bash
+npm run test:perf   # src/__perf__/*.perf-test.ts
+```
+
+Use Reassure when changing message formatting, list cell CPU, or other JS hot paths. Do not treat AI SDK Profiler spans as a substitute measurement.
+
 ## Continuous E2E
 
 `scripts/release-preflight.sh` runs `npm run e2e:accelerated` when an adb device is connected (`SKIP_ACCELERATED_E2E=1` to bypass locally).
