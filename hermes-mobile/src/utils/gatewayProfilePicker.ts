@@ -28,18 +28,14 @@ export type LiveUsbPickerInput = {
   hostname?: string | null;
 };
 
-/** Fleet naming: Igor's MacBook Pro is the machine users call "Mac Pro". */
+/** Friendly picker title: MacBook Pro hostnames also show as "Mac Pro". */
 export function isFleetMacProMachine(profile: GatewayProfile): boolean {
   const haystack = [profile.label, profile.hostname, profileDisplayName(profile)]
     .filter(Boolean)
     .join(' ')
     .toLowerCase()
     .replace(/\.local$/gi, '');
-  return (
-    /\bmac\s*pro\b/.test(haystack) ||
-    /\bmacbook-?pro\b/.test(haystack) ||
-    /\bigors-macbook-pro\b/.test(haystack)
-  );
+  return /\bmac\s*pro\b/.test(haystack) || /\bmacbook-?pro\b/.test(haystack);
 }
 
 function profilePickerEndpoint(profile: GatewayProfile): string | undefined {
