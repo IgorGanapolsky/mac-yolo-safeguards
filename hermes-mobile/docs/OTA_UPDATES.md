@@ -22,11 +22,11 @@ Hermes Mobile ships JS and asset fixes over the air (EAS Update) so Igor's phone
 
 **Why `appVersion` (not fingerprint):**
 
-- Hermes Mobile already pins `eas.cli.appVersionSource: local` — `app.json` `version` / `versionCode` drive builds and Firebase verify.
-- OTA bundles only apply to native builds whose embedded runtime version matches the published update (currently `0.3.2` from `expo.version`).
-- Bumping `app.json` `version` (or native `versionCode` / iOS `buildNumber`) requires a **new native build** before OTA resumes for that version line.
+- OTA bundles only apply to native builds whose embedded runtime matches marketing `expo.version` (e.g. `1.0`, `1.1`).
+- EAS production uses `cli.appVersionSource: "remote"` + `autoIncrement` for **native build numbers**. Do not treat stale local `buildNumber` / `versionCode` in `app.json` as source of truth.
+- Bumping `app.json` `version` **splits** the OTA line: ship a new native store binary for that version, then publish OTA for the new runtime.
 
-Fingerprint would auto-split on any native drift but adds CI complexity and can block OTA when Gradle/plugin noise changes without user-visible native changes. `appVersion` matches our explicit release versioning and store submit flow.
+Fingerprint would auto-split on any native drift but adds CI complexity and can block OTA when Gradle/plugin noise changes without user-visible native changes. Full process: [VERSIONING-AND-RELEASES.md](./VERSIONING-AND-RELEASES.md).
 
 ## How the phone receives updates
 
