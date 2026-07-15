@@ -1,4 +1,5 @@
 import React from 'react';
+import { Alert } from 'react-native';
 import { render, fireEvent, waitFor } from '@testing-library/react-native';
 import SettingsScreen from '../screens/SettingsScreen';
 import { mockGatewaySettings, mockUseGateway } from '../testUtils/gatewayFixtures';
@@ -140,6 +141,47 @@ describe('SettingsScreen', () => {
         playfulMotion: false,
       }),
     );
+  });
+
+  it('does not switch to relay mode when pairing fails (P0 2026-07-14 resource_exhausted)', async () => {
+    const saveSettings = jest.fn().mockResolvedValue(undefined);
+    const completePair = jest.fn().mockRejectedValue(new Error('RELAY failed (resource_exhausted)'));
+    const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+    useGateway.mockReturnValue(mockUseGateway({ saveSettings, completePair }));
+
+    const { getByPlaceholderText, getByText } = render(<SettingsScreen />);
+    fireEvent.changeText(getByPlaceholderText('MOON-DUST'), 'MOON-DUST');
+    fireEvent.press(getByText('PAIR WITH COMPUTER'));
+
+    await waitFor(() => {
+      expect(completePair).toHaveBeenCalledWith('MOON-DUST');
+    });
+    await waitFor(() => {
+      expect(alertSpy).toHaveBeenCalledWith('Pairing failed', 'RELAY failed (resource_exhausted)');
+    });
+    // A failed relay pair must never persist connectionMode: 'relay' — that would silently
+    // break an otherwise-healthy USB/Tailscale gateway connection until manually reverted.
+    expect(saveSettings).not.toHaveBeenCalled();
+  });
+
+  it('persists relay mode only after pairing succeeds', async () => {
+    const saveSettings = jest.fn().mockResolvedValue(undefined);
+    const completePair = jest.fn().mockResolvedValue(undefined);
+    useGateway.mockReturnValue(mockUseGateway({ saveSettings, completePair }));
+
+    const { getByPlaceholderText, getByText } = render(<SettingsScreen />);
+    fireEvent.changeText(getByPlaceholderText('MOON-DUST'), 'MOON-DUST');
+    fireEvent.press(getByText('PAIR WITH COMPUTER'));
+
+    await waitFor(() => {
+      expect(completePair).toHaveBeenCalledWith('MOON-DUST');
+    });
+    await waitFor(() => {
+      expect(saveSettings).toHaveBeenCalledWith(
+        expect.objectContaining({ connectionMode: 'relay' }),
+        expect.anything(),
+      );
+    });
   });
 
   it('does not render Pro subscribe UI', () => {

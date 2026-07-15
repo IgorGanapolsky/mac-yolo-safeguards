@@ -342,6 +342,11 @@ export default function SettingsScreen() {
       return;
     }
     try {
+      // Verify the relay pairing succeeds BEFORE persisting connectionMode: 'relay'.
+      // A failed pair (e.g. relay resource_exhausted) must never flip the app into relay
+      // mode with no valid token — that silently breaks working USB/Tailscale gateway
+      // profiles until the user notices and manually switches back (P0 2026-07-14).
+      await completePair(pairCode);
       await saveSettings(
         {
           connectionMode: 'relay',
@@ -373,7 +378,6 @@ export default function SettingsScreen() {
         },
         inputApiKey,
       );
-      await completePair(pairCode);
       setPairCode('');
       Alert.alert('Paired', 'Hermes Mobile is linked to your Hermes Relay for anywhere approvals.');
     } catch (err) {
