@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import {
+  Keyboard,
   Modal,
   Pressable,
   StyleSheet,
@@ -39,11 +40,26 @@ export default function BottomSheetModal({
   const contentLiftStyle =
     keyboardLift > 0 ? { marginBottom: keyboardLift } : undefined;
 
+  useEffect(() => {
+    if (!visible) {
+      return;
+    }
+    // Sheets open over Chat — dismiss any composer IME so CTAs stay tappable.
+    Keyboard.dismiss();
+  }, [visible]);
+
+  const handleBackdropPress = () => {
+    Keyboard.dismiss();
+    if (dismissOnBackdropPress) {
+      onClose();
+    }
+  };
+
   const overlay = (
     <>
       <Pressable
         style={styles.backdrop}
-        onPress={dismissOnBackdropPress ? onClose : undefined}
+        onPress={handleBackdropPress}
         accessibilityRole="button"
         accessibilityLabel="Close"
         testID={testID ? `${testID}-backdrop` : 'bottom-sheet-backdrop'}
@@ -62,7 +78,10 @@ export default function BottomSheetModal({
       visible={visible}
       animationType={animationType}
       transparent
-      onRequestClose={onClose}
+      onRequestClose={() => {
+        Keyboard.dismiss();
+        onClose();
+      }}
       statusBarTranslucent
     >
       {Platform.OS === 'ios' ? (

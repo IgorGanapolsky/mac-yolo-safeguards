@@ -1,4 +1,5 @@
 import React from 'react';
+import { Keyboard } from 'react-native';
 import { fireEvent, render, waitFor } from '@testing-library/react-native';
 import ConnectMacGate from '../components/ConnectMacGate';
 import { DEFAULT_GATEWAY_SETTINGS } from '../types/gateway';
@@ -15,6 +16,10 @@ jest.mock('../services/haptics', () => ({
     warning: jest.fn(),
     light: jest.fn(),
   },
+}));
+
+jest.mock('../hooks/useKeyboardInset', () => ({
+  useKeyboardInset: () => ({ inset: 0, windowShrunk: false }),
 }));
 
 function gateway(overrides = {}) {
@@ -206,5 +211,35 @@ describe('ConnectMacGate', () => {
         /On cellular, use Tailscale — we also search when you are on home Wi‑Fi/,
       ),
     ).toBeTruthy();
+  });
+
+  it('keeps Find computers in a sticky footer and does not autoFocus the IP field', () => {
+    delete process.env.EXPO_PUBLIC_E2E_AUTOMATION;
+    mockUseGateway.mockReturnValue(gateway());
+    const dismissSpy = jest.spyOn(Keyboard, 'dismiss');
+
+    const view = render(<ConnectMacGate />);
+
+    expect(view.getByTestId('connect-mac-gate-sticky-actions')).toBeTruthy();
+    expect(view.getByTestId('connect-search-wifi')).toBeTruthy();
+    const input = view.getByTestId('connect-manual-input');
+    expect(input.props.autoFocus).toBe(false);
+    expect(dismissSpy).toHaveBeenCalled();
+    dismissSpy.mockRestore();
+  });
+
+  it('dismisses the keyboard when Find computers is pressed', async () => {
+    delete process.env.EXPO_PUBLIC_E2E_AUTOMATION;
+    mockUseGateway.mockReturnValue(gateway());
+    const dismissSpy = jest.spyOn(Keyboard, 'dismiss');
+
+    const view = render(<ConnectMacGate />);
+    dismissSpy.mockClear();
+    fireEvent.press(view.getByTestId('connect-search-wifi'));
+
+    await waitFor(() => {
+      expect(dismissSpy).toHaveBeenCalled();
+    });
+    dismissSpy.mockRestore();
   });
 });
