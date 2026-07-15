@@ -16,3 +16,5 @@ appId: com.iganapolsky.hermesmobile
     id: "connect-mac-onboarding-card"
 - assertVisible:
     id: "connect-search-wifi"
+- assertVisible:
+    id: "connect-mac-gate-dismiss"
