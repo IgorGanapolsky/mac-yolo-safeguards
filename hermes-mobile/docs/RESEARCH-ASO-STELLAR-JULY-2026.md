@@ -90,3 +90,12 @@ Mapped to research weeks, ordered by ROI for *our* state.
 ```bash
 parallel-cli research run "…" --previous-interaction-id trun_aec2731adfeb4ec59b01600d3347a04d --processor lite-fast --text --no-wait --json
 ```
+
+## Progress log (2026-07-15T16:18Z)
+
+- Play FAQ re-pushed (wording nudge for CDN): *live on the App Store…*
+- ASC: cannot re-attach build 14 to 1.1 (locked to READY_FOR_SALE 1.0) — **new build required**
+- EAS remote iOS buildNumber set to **15**; app.json marketing version **1.1**
+- EAS production iOS build **started**: `88a42703-7741-4f67-bd59-c9db7b736fe1` (pay-as-you-go: included credits exhausted)
+- Next: when VALID, `node scripts/attach-and-submit-asc-1.1.js --build 15`
+
