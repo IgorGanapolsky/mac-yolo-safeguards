@@ -17,8 +17,23 @@ describe('release safety net (T-114)', () => {
     expect(workflow).not.toMatch(/android-emulator-runner@v2\s*$/m);
     expect(workflow).not.toMatch(/setup-java@v4\s*#/);
     expect(workflow).toContain('ship-guard.yaml');
+    expect(workflow).toContain('stranger-cold-start.yaml');
+    expect(workflow).toContain('Maestro stranger cold-start (Android emulator)');
+    expect(workflow).toContain('STRANGER_COLD_START_ASSEMBLE');
     expect(workflow).toContain('e2e:validate');
     expect(workflow).toContain('test:release-safety');
+  });
+
+  it('pre-OTA scripts refuse structurally invalid stranger cold-start proof', () => {
+    const script = read('hermes-mobile/scripts/require-stranger-cold-start-proof.cjs');
+    const pkg = read('hermes-mobile/package.json');
+    const ota = read('.github/workflows/mobile-ota.yml');
+    expect(script).toContain('HERMES_OTA_REQUIRE_STRANGER_PROOF');
+    expect(script).toContain('STRANGER_COLD_START_ASSEMBLE');
+    expect(script).toContain('clearState');
+    expect(pkg).toContain('require-stranger-cold-start-proof.cjs --hard');
+    expect(ota).toContain('require-stranger-cold-start-proof.cjs --hard');
+    expect(ota).toContain("HERMES_OTA_REQUIRE_STRANGER_PROOF: '1'");
   });
 
   it('install-phone-release refuses when unit tests fail and warns on non-pass E2E', () => {
