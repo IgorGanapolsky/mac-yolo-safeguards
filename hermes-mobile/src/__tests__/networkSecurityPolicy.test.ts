@@ -97,3 +97,18 @@ describe('networkSecurityPolicy G-02 cleartext scoping', () => {
     expect(isValidGatewayUrl(tailscaleHttp)).toBe(true);
   });
 });
+
+describe('withNetworkSecurityConfig G-02 Tailscale OS cleartext', () => {
+  it('permits cleartext in base-config so Tailscale 100.x IP literals work', () => {
+    const fs = require('fs');
+    const path = require('path');
+    const pluginPath = path.join(__dirname, '../../plugins/withNetworkSecurityConfig.js');
+    const src = fs.readFileSync(pluginPath, 'utf8');
+    expect(src).toContain('cleartextTrafficPermitted="true"');
+    expect(src).toContain('ts.net');
+    // Must not ship the loopback-only deny-base config that blocked mini Tailscale.
+    expect(src).not.toMatch(
+      /base-config cleartextTrafficPermitted="false"[\s\S]*Private LAN RFC1918/,
+    );
+  });
+});
