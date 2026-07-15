@@ -6,7 +6,7 @@ const http = require('http');
 const https = require('https');
 const os = require('os');
 const path = require('path');
-const { spawnSync } = require('child_process');
+const { spawnSync, execFileSync } = require('child_process');
 
 const DEFAULT_HERMES_ENV = path.join(os.homedir(), '.hermes', '.env');
 
@@ -605,9 +605,11 @@ function withPairJsonLock(fn, options = {}) {
     typeof options.sleep === 'function'
       ? options.sleep
       : (ms) => {
-          const end = Date.now() + ms;
-          while (Date.now() < end) {
-            /* short busy-wait; tests inject fake sleep */
+          // Greptile P2: yield under lock contention (LaunchAgent must not spin a core).
+          try {
+            execFileSync('sleep', [String(Math.max(ms, 1) / 1000)], { stdio: 'ignore' });
+          } catch {
+            Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, Math.max(ms, 1));
           }
         };
   const now = typeof options.now === 'function' ? options.now : () => Date.now();

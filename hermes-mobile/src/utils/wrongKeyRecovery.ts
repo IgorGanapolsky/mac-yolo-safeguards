@@ -40,10 +40,12 @@ export function planWrongKeyRecovery(input: {
   hasSavedProfile?: boolean;
   status?: number | null;
 }): WrongKeyRecoveryPlan {
+  // Greptile P1 (#449): 403 Forbidden ≠ wrong key. Only 401 / explicit wrong-key
+  // signals clear a stored API key. Bare 403 can be RBAC/rate-limit and must not
+  // wipe a working real-user pairing.
   const mismatch =
     input.authMismatch === true ||
     input.status === 401 ||
-    input.status === 403 ||
     messageLooksLikeWrongKey(input.errorMessage);
   if (!mismatch) {
     return {
