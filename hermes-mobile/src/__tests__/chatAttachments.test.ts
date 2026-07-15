@@ -4,9 +4,41 @@ import {
   composerHasSendableContent,
   formatAttachmentBubbleText,
   MAX_COMPOSER_ATTACHMENTS,
+  pickDocumentAttachments,
+  pickImageAttachments,
   prepareChatMessageContent,
+  scheduleAfterNativeSheetDismiss,
 } from '../utils/chatAttachments';
 import type { ComposerAttachment } from '../types/chatAttachment';
+
+jest.mock('expo-image-picker', () => ({
+  requestMediaLibraryPermissionsAsync: jest.fn(async () => ({ granted: true })),
+  launchImageLibraryAsync: jest.fn(async () => ({
+    canceled: false,
+    assets: [
+      {
+        uri: 'file:///picked.jpg',
+        fileName: 'picked.jpg',
+        mimeType: 'image/jpeg',
+        fileSize: 1200,
+      },
+    ],
+  })),
+}));
+
+jest.mock('expo-document-picker', () => ({
+  getDocumentAsync: jest.fn(async () => ({
+    canceled: false,
+    assets: [
+      {
+        uri: 'file:///notes.txt',
+        name: 'notes.txt',
+        mimeType: 'text/plain',
+        size: 42,
+      },
+    ],
+  })),
+}));
 
 jest.mock('expo-file-system', () => ({
   readAsStringAsync: jest.fn(async (uri: string) => {
@@ -85,5 +117,33 @@ describe('chatAttachments', () => {
 
   it('documents attachment slot cap', () => {
     expect(MAX_COMPOSER_ATTACHMENTS).toBe(5);
+  });
+
+  it('defers native picker launch until UI interactions finish', async () => {
+    const task = jest.fn(async () => 'ok');
+    await expect(scheduleAfterNativeSheetDismiss(task)).resolves.toBe('ok');
+    expect(task).toHaveBeenCalledTimes(1);
+  });
+
+  it('pickImageAttachments returns mapped image attachment after permission grant', async () => {
+    const picked = await pickImageAttachments(3);
+    expect(picked.error).toBeUndefined();
+    expect(picked.attachments).toHaveLength(1);
+    expect(picked.attachments[0]).toMatchObject({
+      name: 'picked.jpg',
+      kind: 'image',
+      mimeType: 'image/jpeg',
+    });
+  });
+
+  it('pickDocumentAttachments returns mapped text attachment', async () => {
+    const picked = await pickDocumentAttachments(3);
+    expect(picked.error).toBeUndefined();
+    expect(picked.attachments).toHaveLength(1);
+    expect(picked.attachments[0]).toMatchObject({
+      name: 'notes.txt',
+      kind: 'text',
+      mimeType: 'text/plain',
+    });
   });
 });

@@ -139,6 +139,12 @@
         }
       ],
       [
+        "expo-image-picker",
+        {
+          "photosPermission": "Attach images from your photo library in chat."
+        }
+      ],
+      [
         "expo-notifications",
         {
           "icon": "./assets/icon.png",

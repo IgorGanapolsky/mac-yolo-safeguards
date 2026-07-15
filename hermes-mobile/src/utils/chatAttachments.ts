@@ -1,6 +1,7 @@
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system';
 import * as ImagePicker from 'expo-image-picker';
+import { InteractionManager } from 'react-native';
 import type {
   ChatContentPart,
   ChatMessageContent,
@@ -211,6 +212,22 @@ function toComposerAttachment(input: {
   };
 }
 
+/** Android silently drops native pickers launched while Alert/Modal is still dismissing. */
+export function scheduleAfterNativeSheetDismiss<T>(task: () => Promise<T>): Promise<T> {
+  return new Promise((resolve, reject) => {
+    InteractionManager.runAfterInteractions(() => {
+      const run = () => {
+        void task().then(resolve).catch(reject);
+      };
+      if (typeof requestAnimationFrame === 'function') {
+        requestAnimationFrame(run);
+      } else {
+        run();
+      }
+    });
+  });
+}
+
 export async function pickImageAttachments(
   remainingSlots: number,
 ): Promise<{ attachments: ComposerAttachment[]; error?: string }> {
@@ -223,11 +240,13 @@ export async function pickImageAttachments(
     return { attachments: [], error: 'Photo library access is required to attach images.' };
   }
 
-  const result = await ImagePicker.launchImageLibraryAsync({
-    mediaTypes: ['images'],
-    allowsMultipleSelection: remainingSlots > 1,
-    quality: 1,
-  });
+  const result = await scheduleAfterNativeSheetDismiss(() =>
+    ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      allowsMultipleSelection: remainingSlots > 1,
+      quality: 1,
+    }),
+  );
 
   if (result.canceled) {
     return { attachments: [] };
@@ -257,11 +276,13 @@ export async function pickDocumentAttachments(
     return { attachments: [], error: `You can attach up to ${MAX_COMPOSER_ATTACHMENTS} files.` };
   }
 
-  const result = await DocumentPicker.getDocumentAsync({
-    multiple: remainingSlots > 1,
-    copyToCacheDirectory: true,
-    type: '*/*',
-  });
+  const result = await scheduleAfterNativeSheetDismiss(() =>
+    DocumentPicker.getDocumentAsync({
+      multiple: remainingSlots > 1,
+      copyToCacheDirectory: true,
+      type: '*/*',
+    }),
+  );
 
   if (result.canceled) {
     return { attachments: [] };

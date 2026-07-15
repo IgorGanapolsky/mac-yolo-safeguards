@@ -217,6 +217,7 @@ import ChatInputBar from '../components/ChatInputBar';
 import VaultProjectPickerChip from '../components/VaultProjectPickerChip';
 import ChatMessageListItem from '../components/ChatMessageListItem';
 import BottomSheetModal from '../components/BottomSheetModal';
+import AttachPickerSheet, { type AttachPickerOption } from '../components/AttachPickerSheet';
 import ChatMessageDetailModal from '../components/ChatMessageDetailModal';
 import FeedbackPromptModal from '../components/FeedbackPromptModal';
 import GatewayOpsSection from '../components/GatewayOpsSection';
@@ -568,6 +569,7 @@ export default function ChatScreen() {
   const [isChatStreamActive, setIsChatStreamActive] = useState(false);
   const [sessionModalVisible, setSessionModalVisible] = useState(false);
   const [toolsModalVisible, setToolsModalVisible] = useState(false);
+  const [attachPickerVisible, setAttachPickerVisible] = useState(false);
   const [macPickerVisible, setMacPickerVisible] = useState(false);
   const [liveUsbProbed, setLiveUsbProbed] = useState<LiveUsbPickerInput | null>(null);
   const [isScanningMacs, setIsScanningMacs] = useState(false);
@@ -1252,6 +1254,7 @@ export default function ChatScreen() {
   const chatBlockingSurfaceOpen =
     sessionModalVisible ||
     toolsModalVisible ||
+    attachPickerVisible ||
     macPickerVisible ||
     projectModalVisible ||
     renameModalVisible ||
@@ -3946,6 +3949,21 @@ export default function ChatScreen() {
     };
   }, [flushComposerDraft]);
 
+  const applyPickedAttachments = useCallback(
+    (picked: { attachments: ComposerAttachment[]; error?: string }) => {
+      if (picked.error) {
+        setErrorMessage(picked.error);
+        haptics.warning();
+        return;
+      }
+      if (picked.attachments.length > 0) {
+        setComposerAttachments((prev) => [...prev, ...picked.attachments]);
+        haptics.light();
+      }
+    },
+    [],
+  );
+
   const handleAttachPress = useCallback(() => {
     const remainingSlots = MAX_COMPOSER_ATTACHMENTS - composerAttachmentsRef.current.length;
     if (remainingSlots <= 0) {
@@ -3953,44 +3971,23 @@ export default function ChatScreen() {
       haptics.warning();
       return;
     }
-    Alert.alert('Attach', undefined, [
-      {
-        text: 'Photo library',
-        onPress: () => {
-          void (async () => {
-            const picked = await pickImageAttachments(remainingSlots);
-            if (picked.error) {
-              setErrorMessage(picked.error);
-              haptics.warning();
-              return;
-            }
-            if (picked.attachments.length > 0) {
-              setComposerAttachments((prev) => [...prev, ...picked.attachments]);
-              haptics.light();
-            }
-          })();
-        },
-      },
-      {
-        text: 'File',
-        onPress: () => {
-          void (async () => {
-            const picked = await pickDocumentAttachments(remainingSlots);
-            if (picked.error) {
-              setErrorMessage(picked.error);
-              haptics.warning();
-              return;
-            }
-            if (picked.attachments.length > 0) {
-              setComposerAttachments((prev) => [...prev, ...picked.attachments]);
-              haptics.light();
-            }
-          })();
-        },
-      },
-      { text: 'Cancel', style: 'cancel' },
-    ]);
+    setAttachPickerVisible(true);
   }, []);
+
+  const handleAttachOption = useCallback(
+    (option: AttachPickerOption) => {
+      const remainingSlots = MAX_COMPOSER_ATTACHMENTS - composerAttachmentsRef.current.length;
+      setAttachPickerVisible(false);
+      void (async () => {
+        const picked =
+          option === 'photos'
+            ? await pickImageAttachments(remainingSlots)
+            : await pickDocumentAttachments(remainingSlots);
+        applyPickedAttachments(picked);
+      })();
+    },
+    [applyPickedAttachments],
+  );
 
   const handleRemoveAttachment = useCallback((attachmentId: string) => {
     setComposerAttachments((prev) => prev.filter((item) => item.id !== attachmentId));
@@ -6830,6 +6827,12 @@ export default function ChatScreen() {
               <GatewayOpsSection />
             </ScrollView>
       </BottomSheetModal>
+
+      <AttachPickerSheet
+        visible={attachPickerVisible}
+        onClose={() => setAttachPickerVisible(false)}
+        onSelect={handleAttachOption}
+      />
 
       <BottomSheetModal
         visible={sessionModalVisible}
