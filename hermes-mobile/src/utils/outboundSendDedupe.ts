@@ -25,9 +25,8 @@ export function shouldIgnoreDuplicateOutboundSend(input: OutboundSendDedupeInput
     if (pendingClaim && incoming === pendingClaim) {
       return true;
     }
-    if (input.outboundStillPending && lastCommitted && incoming === lastCommitted) {
-      return true;
-    }
+    // Pending outbound with send lock released: allow resend — sendUserText reuses the
+    // optimistic bubble instead of duplicating (P0: stuck pending muted Send forever).
     return false;
   }
   if (lastCommitted && incoming === lastCommitted) {
