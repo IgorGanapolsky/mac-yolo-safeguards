@@ -64,6 +64,12 @@ Details: [docs/TESTING.md](./docs/TESTING.md).
 
 **Copy rules:** Say **Your Mac**, **Home Wi‑Fi**, **Find computers** — never "gateway", "LAN", or "Pair relay" in first-run / disconnected primary UI.
 
+## Greptile AI PR review
+
+Version-controlled rules: [../.greptile/](../.greptile/) + [.greptile/](./.greptile/). Agent guide: [docs/GREPTILE-CODE-REVIEW.md](./docs/GREPTILE-CODE-REVIEW.md).
+
+On PRs that touch connect, onboarding, pairing, Tailscale, auth probes, OTA, or multi-Mac keys: **read Greptile findings before claiming fixed/shipped**. Force review with `@greptileai review` once the GitHub App is installed. Do not treat green CI alone as connect/onboarding proof when Greptile flags a fresh-user or wrong-key regression class.
+
 ## Prevent recurrence (July 2026)
 
 Playbook: [docs/PREVENT-RECURRENCE-JULY-2026.md](./docs/PREVENT-RECURRENCE-JULY-2026.md). **Session gates:** vault pull + `plan.md` §2 before parallel work; `bash scripts/agent-adb-refresh.sh` before phone/pair; `bash scripts/agent-pre-asc-edit.sh` before ASC review notes; read `docs/proofs/continuous/latest.json` before device/chat ship claims (`e2e=skipped` is not pass). **Cursor:** single-pass — no duplicate subagents on the same file domain or PR.
