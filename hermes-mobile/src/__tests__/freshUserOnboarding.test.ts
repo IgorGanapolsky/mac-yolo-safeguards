@@ -18,6 +18,39 @@ describe('freshUserOnboarding', () => {
     expect(hasValidSavedComputer([])).toBe(false);
   });
 
+  it('treats synthetic USB loopback-only as never-connected (not a saved Mac)', () => {
+    const loopbackOnly = [
+      {
+        id: 'mac_usb_loopback',
+        label: 'Computer via USB',
+        gatewayUrl: 'http://127.0.0.1:8642',
+        localIp: '127.0.0.1',
+        addedAt: '2026-07-15T00:00:00Z',
+      },
+    ];
+    expect(hasValidSavedComputer(loopbackOnly)).toBe(false);
+    expect(isFreshUserUnpaired(loopbackOnly)).toBe(true);
+    expect(
+      shouldShowFreshUserOnboardingSteps({
+        profiles: loopbackOnly,
+        heal: connectionHealSnapshot(0, true),
+      }),
+    ).toBe(true);
+  });
+
+  it('counts a real LAN/Tailscale profile as a saved computer', () => {
+    expect(
+      hasValidSavedComputer([
+        {
+          id: 'mac',
+          label: 'Igors-Mac-mini',
+          gatewayUrl: 'http://100.94.135.78:8642',
+          addedAt: '2026-07-15T00:00:00Z',
+        },
+      ]),
+    ).toBe(true);
+  });
+
   it('shows numbered steps immediately for fresh users', () => {
     const heal = connectionHealSnapshot(0, true);
     expect(shouldShowFreshUserOnboardingSteps({ profiles: [], heal })).toBe(true);

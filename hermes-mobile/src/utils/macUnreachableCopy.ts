@@ -26,7 +26,12 @@ export function shouldShowActiveReconnectingCopy(input: {
   macRetryBusy: boolean;
   healInFlight: boolean;
   healExhausted: boolean;
+  /** When false (never paired a real Mac), never say "Reconnecting…". */
+  hasSavedComputer?: boolean;
 }): boolean {
+  if (input.hasSavedComputer === false) {
+    return false;
+  }
   if (input.macRetryBusy) {
     return true;
   }

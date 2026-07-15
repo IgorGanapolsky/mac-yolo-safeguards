@@ -2,6 +2,7 @@ import type { ConnectionMode } from '../types/gateway';
 import type { RelayWorker } from '../types/mobileRelay';
 import type { ConnectionHealSnapshot } from './connectionErrorPolicy';
 import { shouldShowPairRelayRouteStatus } from './connectionErrorPolicy';
+import { isLoopbackGatewayUrl } from './gatewayUrlPolicy';
 
 export type RelayRouteDisplay = {
   machineLabel: string;
@@ -71,10 +72,14 @@ export function resolveRelayRouteDisplay(input: {
 
   if (!input.isPaired) {
     const heal = input.heal ?? { attempt: 0, inFlight: false, exhausted: true };
+    const gatewayUrl = input.gatewayUrl ?? '';
+    // Brand-new installs bootstrap a synthetic 127.0.0.1 USB row. Healing that
+    // loopback is not "reconnecting" — never flash Reconnecting for never-connected.
+    const neverConnectedLoopback = isLoopbackGatewayUrl(gatewayUrl);
     const showPairNudge = shouldShowPairRelayRouteStatus({
       isPaired: false,
       wifiConnected: input.wifiConnected ?? true,
-      gatewayUrl: input.gatewayUrl ?? '',
+      gatewayUrl,
       hasAlternateRoutes: input.hasAlternateRoutes ?? false,
       heal,
       macHttpOk: input.macHttpOk ?? false,
@@ -83,7 +88,7 @@ export function resolveRelayRouteDisplay(input: {
       machineLabel: 'Hermes account relay',
       routeStatus: showPairNudge
         ? 'Pair relay in Settings for Wi‑Fi, cellular, or USB'
-        : heal.inFlight
+        : heal.inFlight && !neverConnectedLoopback
           ? 'Reconnecting…'
           : 'Direct link',
     };

@@ -1,6 +1,7 @@
 import type { GatewayProfile } from '../types/gatewayProfile';
 import { isInvalidGatewayProfile } from '../services/gatewayProfiles';
 import { hasOnlyLoopbackProfiles } from './gatewayProfilePicker';
+import { isLoopbackGatewayUrl } from './gatewayUrlPolicy';
 import { isTailscaleGatewayUrl } from './tailscaleHosts';
 import type { ConnectionHealSnapshot } from './connectionErrorPolicy';
 import {
@@ -15,8 +16,17 @@ export type FreshUserOnboardingStep = {
   body: string;
 };
 
+/**
+ * True when the user has paired a real computer (LAN/Tailscale/named host).
+ * Synthetic USB loopback (`127.0.0.1`) alone does NOT count — bootstrap injects
+ * that row on every native install, and treating it as "saved" makes brand-new
+ * users look like returning ones (false "Reconnecting…" UX).
+ */
 export function hasValidSavedComputer(profiles: GatewayProfile[]): boolean {
-  return profiles.some((profile) => !isInvalidGatewayProfile(profile));
+  return profiles.some(
+    (profile) =>
+      !isInvalidGatewayProfile(profile) && !isLoopbackGatewayUrl(profile.gatewayUrl),
+  );
 }
 
 export function isFreshUserUnpaired(profiles: GatewayProfile[]): boolean {

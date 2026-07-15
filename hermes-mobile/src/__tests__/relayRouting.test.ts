@@ -63,6 +63,25 @@ describe('relayRouting', () => {
     expect(display.routeStatus).toBe('Reconnecting…');
   });
 
+  it('never shows Reconnecting for brand-new USB loopback (never connected)', () => {
+    const display = resolveRelayRouteDisplay({
+      connectionMode: 'relay',
+      isPaired: false,
+      connectionState: 'disconnected',
+      workers: [],
+      activeWorkerId: null,
+      fallbackMachineLabel: 'Computer via USB',
+      gatewayUrl: 'http://127.0.0.1:8642',
+      wifiConnected: true,
+      hasAlternateRoutes: false,
+      heal: { attempt: 1, inFlight: true, exhausted: false },
+      macHttpOk: false,
+    });
+
+    expect(display.routeStatus).not.toMatch(/Reconnecting/i);
+    expect(display.routeStatus).toBe('Direct link');
+  });
+
   it('routes paired relay to active worker and hides LAN endpoint details', () => {
     const display = resolveRelayRouteDisplay({
       connectionMode: 'relay',

@@ -31,6 +31,11 @@ describe('agentDashboardStats', () => {
     ).toBe('Computer linked');
   });
 
+  it('uses Connecting not Reconnecting while linking', () => {
+    expect(resolveConnectionHealthLabel('connecting', null, false)).toBe('Connecting…');
+    expect(resolveConnectionHealthLabel('connecting', null, false)).not.toMatch(/Reconnecting/i);
+  });
+
   it('labels auth mismatch', () => {
     expect(
       resolveConnectionHealthLabel('connected', {

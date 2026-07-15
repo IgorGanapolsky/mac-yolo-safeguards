@@ -40,6 +40,28 @@ describe('connectionErrorPolicy', () => {
     ).toBe(true);
   });
 
+  it('treats USB-loopback-only as fresh (show help, not silent-heal Reconnecting)', () => {
+    const loopbackOnly: GatewayProfile[] = [
+      {
+        id: 'mac_usb_loopback',
+        label: 'Computer via USB',
+        gatewayUrl: 'http://127.0.0.1:8642',
+        localIp: '127.0.0.1',
+        addedAt: '2026-07-15T00:00:00Z',
+      },
+    ];
+    expect(
+      shouldShowMacConnectionHelp({
+        isDemo: false,
+        macChatLive: false,
+        healthProbePending: false,
+        healthLevel: 'red',
+        heal: connectionHealSnapshot(0, true),
+        profiles: loopbackOnly,
+      }),
+    ).toBe(true);
+  });
+
   it('suppresses loud UI while silent heal is in progress', () => {
     const healing = connectionHealSnapshot(2, true);
     const savedProfiles = [

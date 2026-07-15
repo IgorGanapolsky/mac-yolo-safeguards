@@ -1627,6 +1627,7 @@ export default function ChatScreen() {
         macRetryBusy,
         healInFlight: connectionHealInFlight,
         healExhausted: connectionHealExhausted,
+        hasSavedComputer: hasValidSavedComputer(gatewayProfiles),
       })
     ) {
       return reconnectingToMacCopy(machineShortLabel);

@@ -32,6 +32,17 @@ describe('macUnreachableCopy', () => {
     ).toBe(true);
   });
 
+  it('never shows Reconnecting copy for never-connected users', () => {
+    expect(
+      shouldShowActiveReconnectingCopy({
+        macRetryBusy: true,
+        healInFlight: true,
+        healExhausted: false,
+        hasSavedComputer: false,
+      }),
+    ).toBe(false);
+  });
+
   it('suppresses empty greeting unreachable during bootstrap and silent heal', () => {
     expect(
       shouldSuppressEmptyGreetingUnreachable({

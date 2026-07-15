@@ -36,7 +36,8 @@ export function resolveConnectionHealthLabel(
     return 'Computer linked';
   }
   if (connectionState === 'connecting') {
-    return 'Reconnecting…';
+    // Prefer "Connecting" — "Reconnecting" implies a prior successful link.
+    return 'Connecting…';
   }
   if (health?.level === 'amber') {
     return 'Degraded link';
