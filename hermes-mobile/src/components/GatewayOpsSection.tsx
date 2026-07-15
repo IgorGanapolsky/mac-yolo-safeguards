@@ -26,6 +26,7 @@ import {
   runJobNow,
   setToolsetEnabled,
   deleteJob,
+  probeToolsetsWriteAccess,
 } from '../services/hermesGatewayClient';
 import type { HermesCronJob, HermesSkill, HermesToolset } from '../types/gatewayApi';
 import { formatCronSchedule } from '../utils/sessionDisplay';
@@ -35,7 +36,11 @@ import {
   markToolsetsEnabled,
   toolsetAddKeyCtaLabel,
   toolsetNeedsApiKey,
+  toolsetShowsKeyButton,
   toolsetStatusLine,
+  toolsetsSectionHint,
+  toolsetsNeedingKeys,
+  capabilitiesAdvertiseToolsetsWrite,
 } from '../utils/opsToolsets';
 import ConnectionHealthHub from './ConnectionHealthHub';
 import AgentDashboardStrip from './AgentDashboardStrip';
@@ -99,6 +104,7 @@ export default function GatewayOpsSection() {
   const [toolsets, setToolsets] = useState<HermesToolset[]>([]);
   const [jobs, setJobs] = useState<HermesCronJob[]>([]);
   const [featureFlags, setFeatureFlags] = useState<Record<string, boolean | string>>({});
+  const [phoneToggleAvailable, setPhoneToggleAvailable] = useState<boolean | null>(null);
   const [gatewayModel, setGatewayModel] = useState<string | null>(null);
   const [initialLoading, setInitialLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -140,6 +146,7 @@ export default function GatewayOpsSection() {
         skills_api: true,
         toolsets_write: true,
       });
+      setPhoneToggleAvailable(true);
       return;
     }
 
@@ -210,7 +217,19 @@ export default function GatewayOpsSection() {
       }
 
       let resolvedToolsets = loadedToolsets;
-      const canWriteToolsets = loadedCapabilities.features?.toolsets_write === true;
+      let canWriteToolsets = capabilitiesAdvertiseToolsetsWrite(
+        loadedCapabilities.features,
+        loadedCapabilities.endpoints,
+      );
+      if (!canWriteToolsets) {
+        const probeTarget =
+          loadedToolsets.find((toolset) => toolset.configured) ?? loadedToolsets[0];
+        if (probeTarget) {
+          canWriteToolsets = await probeToolsetsWriteAccess(gatewayUrl, probeTarget, apiKey);
+        }
+      }
+      setPhoneToggleAvailable(canWriteToolsets);
+
       const autoEnableTargets = canWriteToolsets
         ? configuredToolsetsToAutoEnable(loadedToolsets)
         : [];
@@ -293,9 +312,10 @@ export default function GatewayOpsSection() {
       );
       const message = err instanceof Error ? err.message : 'Toolset update failed';
       if (message.includes('404') || message.includes('Not Found')) {
+        setPhoneToggleAvailable(false);
         Alert.alert(
-          'Computer update required',
-          'Your Mac needs the latest Hermes to toggle tools from the phone. Restart Hermes after updating.',
+          'Enable on your Mac',
+          'This Hermes build on your computer does not accept tool toggles from the phone yet. On your Mac run: hermes tools',
         );
       } else {
         Alert.alert('Could not update toolset', message);
@@ -367,7 +387,9 @@ export default function GatewayOpsSection() {
   };
 
   const enabledFeatures = Object.entries(featureFlags).filter(([, v]) => v === true);
-  const toolsetsWritable = featureFlags.toolsets_write === true || isDemo;
+  const toolsetsWritable = phoneToggleAvailable === true || isDemo;
+  const phoneToggleBlocked = phoneToggleAvailable === false;
+  const keysNeeded = toolsetsNeedingKeys(toolsets);
   const integrationsConfigAvailable =
     featureFlags.integrations_config === true || isDemo;
   const macHttpReachable = isMacGatewayHttpOk(health);
@@ -439,9 +461,10 @@ export default function GatewayOpsSection() {
 
       <Text style={styles.sectionTitle}>Toolsets ({toolsets.length})</Text>
       <Text style={styles.sectionHint}>
-        Ready tools (no missing keys) turn on automatically for Chat. Tools that need a key show
-        Add key beside the switch.
-        {toolsetsWritable ? '' : ' Update Hermes on your Mac to enable toggles from the phone.'}
+        {toolsetsSectionHint({
+          phoneToggleAvailable: toolsetsWritable,
+          keysNeededCount: keysNeeded.length,
+        })}
       </Text>
       <GlassCard>
         {toolsets.length === 0 ? (
@@ -456,6 +479,7 @@ export default function GatewayOpsSection() {
             const label = formatToolsetLabel(ts.label, ts.name);
             const busy = togglingToolset === ts.name;
             const needsKey = toolsetNeedsApiKey(ts);
+            const showKeyButton = toolsetShowsKeyButton(ts);
             return (
               <View key={ts.name} style={styles.toolsetRow}>
                 <View style={styles.toolsetHeader}>
@@ -467,7 +491,9 @@ export default function GatewayOpsSection() {
                   >
                     <View style={styles.toolsetText}>
                       <Text style={styles.rowTitle}>{label}</Text>
-                      <Text style={styles.rowDesc}>{toolsetStatusLine(ts)}</Text>
+                      <Text style={styles.rowDesc}>
+                        {toolsetStatusLine(ts, { phoneToggleBlocked })}
+                      </Text>
                       {ts.description ? (
                         <Text style={styles.rowDesc} numberOfLines={expanded ? undefined : 2}>
                           {ts.description}
@@ -476,23 +502,25 @@ export default function GatewayOpsSection() {
                     </View>
                     <Text style={styles.expandHint}>{expanded ? '▾' : '▸'}</Text>
                   </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[styles.addKeyBtn, needsKey ? styles.addKeyBtnNeeded : null]}
-                    onPress={() => {
-                      haptics.selection();
-                      setIntegrationsToolset(ts);
-                    }}
-                    testID={`toolset-add-key-${ts.name}`}
-                    accessibilityLabel={`${toolsetAddKeyCtaLabel(ts)} for ${label}`}
-                  >
-                    <Text style={[styles.addKeyText, needsKey ? styles.addKeyTextNeeded : null]}>
-                      {toolsetAddKeyCtaLabel(ts)}
-                    </Text>
-                  </TouchableOpacity>
+                  {showKeyButton ? (
+                    <TouchableOpacity
+                      style={[styles.addKeyBtn, needsKey ? styles.addKeyBtnNeeded : null]}
+                      onPress={() => {
+                        haptics.selection();
+                        setIntegrationsToolset(ts);
+                      }}
+                      testID={`toolset-add-key-${ts.name}`}
+                      accessibilityLabel={`${toolsetAddKeyCtaLabel(ts)} for ${label}`}
+                    >
+                      <Text style={[styles.addKeyText, needsKey ? styles.addKeyTextNeeded : null]}>
+                        {toolsetAddKeyCtaLabel(ts)}
+                      </Text>
+                    </TouchableOpacity>
+                  ) : null}
                   <Switch
                     value={ts.enabled ?? false}
                     onValueChange={(value) => handleToolsetToggle(ts, value)}
-                    disabled={busy || (!toolsetsWritable && !isDemo)}
+                    disabled={busy}
                     trackColor={{ false: '#374151', true: colors.primary }}
                     thumbColor={ts.enabled ? '#ffffff' : '#9CA3AF'}
                     testID={`toolset-switch-${ts.name}`}
