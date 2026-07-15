@@ -416,6 +416,21 @@ describe('release safety contract', () => {
     expect(workflow).toContain('SENTRY_DISABLE_AUTO_UPLOAD');
   });
 
+  it('Android emulator CI also runs stranger cold-start without E2E hide-gate', () => {
+    const workflow = read('.github/workflows/mobile-e2e.yml');
+    const flow = read('hermes-mobile/.maestro/stranger-cold-start.yaml');
+    expect(workflow).toContain('Maestro stranger cold-start (Android emulator)');
+    expect(workflow).toContain('STRANGER_COLD_START_ASSEMBLE');
+    expect(workflow).toContain('stranger-cold-start.yaml');
+    const assembleIdx = workflow.indexOf('STRANGER_COLD_START_ASSEMBLE');
+    expect(assembleIdx).toBeGreaterThan(-1);
+    const assembleSlice = workflow.slice(assembleIdx, assembleIdx + 800);
+    expect(assembleSlice).toMatch(/EXPO_PUBLIC_E2E_AUTOMATION:\s*"0"/);
+    expect(flow).toMatch(/clearState:\s*true/);
+    expect(flow).not.toMatch(/openLink:.*demo=1|hermes:\/\/setup\?demo=1/);
+    expect(flow).toContain('connect-mac-gate');
+  });
+
   it('iOS App Store production EAS enables store review demo only on iOS', () => {
     const eas = JSON.parse(read('hermes-mobile/eas.json'));
     expect(eas.build.production.ios.env.EXPO_PUBLIC_STORE_REVIEW_DEMO).toBe('1');

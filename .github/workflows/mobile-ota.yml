@@ -59,6 +59,13 @@ jobs:
           REQUIRE_EAS_PROJECT: '1'
         run: npm run release:check
 
+      # Soft→hard: currently soft (warn). Flip HERMES_OTA_REQUIRE_STRANGER_PROOF=1 after
+      # "Maestro stranger cold-start (Android emulator)" is a required branch check.
+      - name: Fresh-user stranger cold-start proof gate
+        env:
+          HERMES_OTA_REQUIRE_STRANGER_PROOF: ${{ vars.HERMES_OTA_REQUIRE_STRANGER_PROOF || '0' }}
+        run: node ./scripts/require-stranger-cold-start-proof.cjs
+
       - name: Type check
         run: npm run typecheck
 

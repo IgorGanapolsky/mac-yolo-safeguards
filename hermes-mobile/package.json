@@ -12,7 +12,7 @@
     "typecheck": "tsc --noEmit",
     "test": "jest --watchman=false",
     "test:ci": "jest --runInBand --coverage --watchman=false",
-    "test:release-safety": "jest --runInBand --watchman=false src/__tests__/apkReleaseGuards.test.ts src/__tests__/releaseSafetyContract.test.ts src/__tests__/internalDistributionWorkflow.test.ts src/__tests__/releaseSafetyNet.test.ts src/__tests__/preventRecurrenceContract.test.ts src/__tests__/chatErrors.abort.test.ts",
+    "test:release-safety": "jest --runInBand --watchman=false src/__tests__/apkReleaseGuards.test.ts src/__tests__/releaseSafetyContract.test.ts src/__tests__/internalDistributionWorkflow.test.ts src/__tests__/releaseSafetyNet.test.ts src/__tests__/preventRecurrenceContract.test.ts src/__tests__/chatErrors.abort.test.ts src/__tests__/strangerColdStartGate.test.ts",
     "verify:apk": "bash ./scripts/verify-apk-package.sh",
     "e2e:device": "bash ./scripts/run-device-e2e.sh",
     "doctor:expo": "node ./scripts/run-expo-doctor.cjs",
@@ -53,10 +53,11 @@
     "devtools:rozenite-agent": "rozenite agent",
     "ota:preview": "eas update --channel preview --environment preview --non-interactive",
     "ota:e2e": "eas update --channel e2e-test --environment preview --non-interactive",
-    "ota:production": "eas update --channel production --environment production --non-interactive",
-    "ota:publish": "eas update --channel production --environment production --non-interactive",
-    "ota:validate": "REQUIRE_EAS_PROJECT=1 npm run release:check",
+    "ota:production": "node ./scripts/require-stranger-cold-start-proof.cjs && eas update --channel production --environment production --non-interactive",
+    "ota:publish": "node ./scripts/require-stranger-cold-start-proof.cjs && eas update --channel production --environment production --non-interactive",
+    "ota:validate": "REQUIRE_EAS_PROJECT=1 npm run release:check && node ./scripts/require-stranger-cold-start-proof.cjs",
     "ota:dry-run": "npm run ota:validate",
+    "ota:stranger-proof": "node ./scripts/require-stranger-cold-start-proof.cjs",
     "test:perf": "reassure"
   },
   "dependencies": {
