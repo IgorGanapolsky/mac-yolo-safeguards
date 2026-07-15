@@ -6,13 +6,23 @@ Hermes Mobile ships JS and asset fixes over the air (EAS Update) so Igor's phone
 
 | Channel | Build profile | OTA publish | Audience |
 |---------|---------------|-------------|----------|
-| `production` | `eas.json` → `build.production` | **Fresh-user gated** — `npm run ota:publish` / workflow_dispatch only after `e2e=pass` | Store / release APK |
-| `preview` | `build.preview` | `main` push (CI) or `npm run ota:preview` | Internal EAS preview APK |
+| `production` | `eas.json` → `build.production` | `main` push (CI) or `npm run ota:publish` | Store / Igor phone release APK |
+| `preview` | `build.preview` | `npm run ota:preview` | Internal EAS preview APK |
 | `e2e-test` | `build.e2e-test` | `npm run ota:e2e` | Maestro / automation builds |
 
-**Crisis 2026-07-15:** Production OTA is **not** automatic on every `main` merge. CI publishes **preview** on push; **production** requires `workflow_dispatch` with `publish_production=true` plus a fresh-user / continuous proof artifact (`e2e=pass`). Local: `npm run ota:gate` then `npm run ota:publish`. See [PRODUCTION-CRISIS-2026-07-15.md](./PRODUCTION-CRISIS-2026-07-15.md).
+**Production channel** receives automatic OTA publishes from `.github/workflows/mobile-ota.yml` on every push to `main` that touches `hermes-mobile/**`.
 
-**Previously:** Production channel received automatic OTA from `.github/workflows/mobile-ota.yml` on every push — that shipped live bugs without brand-new-user proof.
+## Fresh-user / stranger cold-start gate (hard)
+**`docs/proofs/continuous/latest.json` `e2e=skipped` is not pass and is not a production hard-block when CI stranger Maestro is green on the SHA.**
+
+
+Production OTA **hard-fails** unless stranger cold-start proof is present:
+
+1. Structural contract: `mobile-e2e.yml` stranger job + `.maestro/stranger-cold-start.yaml` (no `demo=1`, `EXPO_PUBLIC_E2E_AUTOMATION=0`).
+2. Runtime proof: proof JSON with `strangerColdStart=pass`, **or** GitHub check `Maestro stranger cold-start (Android emulator)` = success on the publish SHA (CI waits for the parallel emulator job).
+
+Implemented by `scripts/require-stranger-cold-start-proof.cjs` (hard by default). Soft opt-out (`--soft` / `HERMES_OTA_REQUIRE_STRANGER_PROOF=0`) is for local dry-runs only.
+
 
 ## Runtime version policy: `appVersion`
 
