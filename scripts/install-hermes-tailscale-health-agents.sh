@@ -46,7 +46,11 @@ install_one() {
   fi
   launchctl bootstrap "$gui_domain" "$dest"
   launchctl enable "${gui_domain}/${label}" 2>/dev/null || true
-  launchctl kickstart -k "${gui_domain}/${label}" 2>/dev/null || true
+  # The sentinel has RunAtLoad. Do not immediately kill/restart that first repair tick:
+  # launchctl can terminate this installer while the child is still regenerating pair state.
+  if [[ "$label" != com.igor.hermes-tailscale-health-watchdog ]]; then
+    launchctl kickstart -k "${gui_domain}/${label}" 2>/dev/null || true
+  fi
   printf 'OK %s\n' "$label"
 }
 
@@ -55,8 +59,7 @@ for template in "${templates[@]}"; do
   install_one "$template"
 done
 
-# The sentinel regenerates stale LAN-only pair state and then rechecks it.
-launchctl kickstart -k "${gui_domain}/com.igor.hermes-tailscale-health-watchdog" 2>/dev/null || true
+# install_one already kickstarted the sentinel; give its first repair tick time to finish.
 sleep 2
 for template in "${templates[@]}"; do
   label="${template%.plist}"
