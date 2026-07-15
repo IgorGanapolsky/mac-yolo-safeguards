@@ -1,0 +1,791 @@
+{
+  "run_id": "trun_aec2731adfeb4ec59b01600d3347a04d",
+  "interaction_id": "trun_aec2731adfeb4ec59b01600d3347a04d",
+  "result_url": "https://platform.parallel.ai/play/deep-research/trun_aec2731adfeb4ec59b01600d3347a04d",
+  "status": "completed",
+  "output": {
+    "basis": [
+      {
+        "field": "answer",
+        "reasoning": "Assessment notes:\n- The provided field answer is comprehensive, addressing executive verdict, mid-2026 interpretation of ASO signals, Apple PPO/CPPs, Google Play listing experiments, custom store listings, review recency and velocity, time-to-first-review, indexing differences, preview video impact, trademark-safe metadata, ASO for niche/devtool apps, and a prioritized 30-day action checklist.\n- It cites or aligns with multiple excerpts in the provided set (CPP limits, store listing experiments, review times, metadata character limits, etc.).\n- Gaps: missing explicit treatment of CDN lag after metadata updates on Play Store (not mentioned in the answer), and a few granular operational nuances (e.g., explicit handling for 0 reviews in ranking on Play, or explicit guidance for Play Store\u2019s long-description optimization beyond 170-character front-load).\n- Because the user\u2019s field_description and query enumerate additional specifics (e.g., CDN lag, some niche cases), the answer is highly detailed but not fully complete with respect to every listed item. Therefore, completeness is set to false. Confidence in the field answer's relevance remains high given the excerpts align well with the content presented.\n- Excerpts appear to support the key assertions (CPP limits, PPO testing scope, indexing differences, review times, store listing experiments).",
+        "citations": [
+          {
+            "url": "https://appscreenshotstudio.com/blog/app-store-metadata-for-indie-devs-title-subtitle-keywords-2026",
+            "excerpts": [
+              "App Store Title, Subtitle, Keywords: 30/30/100 (2026)\nThe Free Subtitle Optimizer drafts keyword-rich subtitles that stay inside the 30-character budget. For character-accurate counting that matches how App Store Connect counts bytes (especially with special characters), the Free Character Counter is faster than Xcode."
+            ],
+            "title": "App Store Title, Subtitle, Keywords: 30/30/100 (2026)"
+          },
+          {
+            "url": "https://asomobile.net/en/blog/apple-search-ads-and-aso-how-to-combine-paid-and-organic-growth",
+            "excerpts": [
+              "Apple Search Ads and ASO\nApr 6, 2026 \u2014 Use keyword insights for metadata optimization. Keywords with high CR in paid campaigns are candidates for the title, subtitle, or keyword field"
+            ],
+            "title": "Apple Search Ads and ASO"
+          },
+          {
+            "url": "https://developer.apple.com/app-store/product-page",
+            "excerpts": [
+              "Creating Your Product Page - App Store - Apple Developer\nA subtitle can be up to 30 characters long and appears below your app's name throughout the App Store. can be up to 30 seconds long"
+            ],
+            "title": "Creating Your Product Page - App Store - Apple Developer"
+          },
+          {
+            "url": "https://splitmetrics.com/glossary/what-is-an-app-store-subtitle",
+            "excerpts": [
+              "What is App Store Subtitle: Character Limit & Examples - SplitMetrics\nKeep it Short and Sweet: The app store subtitle has a character limit of 30-40 characters, so it's essential to keep your message concise and to the point."
+            ],
+            "title": "What is App Store Subtitle: Character Limit & Examples - SplitMetrics"
+          },
+          {
+            "url": "https://appshots.dev/blog/app-store-metadata-optimization-guide",
+            "excerpts": [
+              "Complete App Store Metadata Optimization Guide 2026: Keywords ...\n270 Characters That Determine Your App's Discoverability App Name: 30 characters Subtitle: 30 characters Keyword Field: 100 characters Promotional Text: 170 characters (doesn't affect search) That's all you get to make your app discoverable in search. Every character matters."
+            ],
+            "title": "Complete App Store Metadata Optimization Guide 2026: Keywords ..."
+          },
+          {
+            "url": "https://animavie.org/store-tests",
+            "excerpts": [
+              "Google Play Store Listing Experiments After 2026 Changes ...\nUnderstand how to test Play Store listings in 2026 with focus on short descriptions, first screenshots and real performance metrics across markets."
+            ],
+            "title": "Google Play Store Listing Experiments After 2026 Changes ..."
+          },
+          {
+            "url": "https://appdrift.co/blog/google-play-store-listing-experiments",
+            "excerpts": [
+              "Google Play Store Listing Experiments: A/B Guide 2026\nGoogle Play Store Listing Experiments give you the ability to run rigorous A/B tests directly in the Google Play Console \u2014 for free. This guide walks you through everything you need to know to set up, run, and analyze experiments that actually move the needle."
+            ],
+            "title": "Google Play Store Listing Experiments: A/B Guide 2026"
+          },
+          {
+            "url": "http://mobileaction.co/blog/google-play-store-listing-experiments",
+            "excerpts": [
+              "Google Play store listing experiments: A/B testing for Android"
+            ],
+            "title": "Google Play store listing experiments: A/B testing for Android MobileAction https://www.mobileaction.co \u203a blog"
+          },
+          {
+            "url": "https://appscreens.com/blog/google-play-store-listing-experiments",
+            "excerpts": [
+              "Google Play Store Listing Experiments in 2026: Android ...\nGoogle Play Store Listing Experiments let you A/B test screenshots, icons, feature graphics, videos, and localized text with real Play Store visitors before applying changes to everyone. Start with one clear hypothesis, one asset type, enough traffic, and a minimum seven-day run."
+            ],
+            "title": "Google Play Store Listing Experiments in 2026: Android ..."
+          },
+          {
+            "url": "https://play.google.com/console/about/store-listing-experiments",
+            "excerpts": [
+              "Store listing experiments | Google Play Console\nOptimize your Google Play store listing to help increase installs and retention. Run A/B tests to find the most effective graphics and localized text. Accelerate your user growth with our"
+            ],
+            "title": "Store listing experiments | Google Play Console"
+          },
+          {
+            "url": "https://www.lowcode.agency/blog/app-store-review-time",
+            "excerpts": [
+              "App Store Review Time for Mobile Apps in 2026 - lowcode.agency\nApple's app store review time averages 24 to 48 hours from submission to decision. First-time apps and major updates sometimes take up to 72 hours. During peak periods like September and December, reviews can extend beyond 3 days. Apple employs a combination of automated scanning and human review."
+            ],
+            "title": "App Store Review Time for Mobile Apps in 2026 - lowcode.agency"
+          },
+          {
+            "url": "https://be-dev.pl/blog/eng/google-play-review-time-2025-how-long-does-it-really-take-to-publish-your-app-on-android",
+            "excerpts": [
+              "Google Play Review Time 2025 \u2013 How Long Does It Really ...\nOct 10, 2025 \u2014 While the google play review time 2025 can vary, most standard app reviews typically take a few hours to several days. Proper preparation and"
+            ],
+            "title": "Google Play Review Time 2025 \u2013 How Long Does It Really ..."
+          },
+          {
+            "url": "https://www.facebook.com/groups/sydneystartups/posts/28131481509799762",
+            "excerpts": [
+              "Apple app store review time lately? - Facebook\nJan 18, 2025 \u00b7 Review times vary, but most report 24 hours to a week, with some experiencing delays due to issues like privacy concerns. ... Ours was under 24hrs"
+            ],
+            "title": "Apple app store review time lately? - Facebook"
+          },
+          {
+            "url": "https://adapty.io/blog/how-to-pass-app-store-review",
+            "excerpts": [
+              "App Store Review Guidelines 2026: Updated Checklist\nMay 2, 2025 \u2014 In order for the app to get reviewed, you need to upload its build, that is, a ready-made application file, to App Store Connect."
+            ],
+            "title": "App Store Review Guidelines 2026: Updated Checklist"
+          },
+          {
+            "url": "https://support.google.com/googleplay/android-developer/thread/337924490/app-review-lead-time?hl=en",
+            "excerpts": [
+              "app review lead time - Google Play Developer Community\nApr 12, 2025 \u2014 Hello, We submitted the app for review three days ago, but it is still under review, and we haven't received any initial response or approval. Is this"
+            ],
+            "title": "app review lead time - Google Play Developer Community"
+          },
+          {
+            "url": "https://www.apptweak.com/en/aso-blog/apple-search-ads-custom-product-pages-best-practices",
+            "excerpts": [
+              "Best practices for custom product pages with Apple Ads - AppTweak\nLearn how you can leverage custom product pages to scale your Apple Ads campaigns and create a seamless user experience."
+            ],
+            "title": "Best practices for custom product pages with Apple Ads - AppTweak"
+          },
+          {
+            "url": "https://appdrift.co/blog/app-store-custom-product-pages-guide",
+            "excerpts": [
+              "App Store Custom Product Pages: A Complete Guide for 2026\nLearn how to create app store custom product pages that boost conversions by up to 33%. Step-by-step setup, keyword tips, and best practices for 2026."
+            ],
+            "title": "App Store Custom Product Pages: A Complete Guide for 2026"
+          },
+          {
+            "url": "https://stormy.ai/blog/custom-product-pages-app-store-keyword-ranking-2026",
+            "excerpts": [
+              "Using Custom Product Pages to Optimize App Store Keyword ...\nLearn how to use Custom Product Pages (CPPs) to dominate app store keyword ranking in 2026. Optimize for visual search, CVR, and semantic intent for organic growth."
+            ],
+            "title": "Using Custom Product Pages to Optimize App Store Keyword ..."
+          },
+          {
+            "url": "https://respectaso.com/blog/custom-product-pages-app-store-guide-2026",
+            "excerpts": [
+              "Custom Product Pages in 2026: 70 Pages, Keywords, Limits ...\nApple doubled the CPP limit to 70 and made pages organically searchable in 2025. Setup, analytics, 8 use cases, CVR benchmarks from 5 sources, and how to generate constraint-compliant CPP metadata with AI \u2014 the complete guide for indie developers."
+            ],
+            "title": "Custom Product Pages in 2026: 70 Pages, Keywords, Limits ..."
+          },
+          {
+            "url": "https://radaso.com/blog/using-custom-product-pages-in-apple-ads-to-drive-results",
+            "excerpts": [
+              "Using Custom Product Pages in Apple Ads to Drive Results\nJul 8, 2025 \u2014 Apple allows a maximum of 70 Custom Product Pages per app in the App Store. Additionally, you can include up to 10 different CPPs within a"
+            ],
+            "title": "Using Custom Product Pages in Apple Ads to Drive Results"
+          },
+          {
+            "url": "https://appdrift.co/blog/google-play-description-optimization",
+            "excerpts": [
+              "Google Play Description Optimization: What Gets Indexed\nIn this guide, we'll break down exactly how Google Play indexes each field, reveal the optimal keyword density formula, provide ready-to-use templates, and show you how AI tools can generate descriptions that rank."
+            ],
+            "title": "Google Play Description Optimization: What Gets Indexed"
+          },
+          {
+            "url": "https://asoworld.com/insight/aso-guide-how-to-write-app-descriptions-for-maximum-installs-visibility",
+            "excerpts": [
+              "ASO Guide: How to Write App Descriptions for Maximum Installs ...\nA well-crafted app description drives downloads and improves visibility. Learn how to optimize keywords, structure content, and highlight features for maximum impact on Google Play and the App Store.."
+            ],
+            "title": "ASO Guide: How to Write App Descriptions for Maximum Installs ..."
+          },
+          {
+            "url": "https://www.thatdevpro.com/insights/framework-aso",
+            "excerpts": [
+              "App Store Optimization (ASO) 2026: Ranking Signals + Audit\nApp Store Optimization reference: 2026 ranking signal weights for Apple and Google Play, keyword field rules, and an audit checklist. Veteran-owned studio."
+            ],
+            "title": "App Store Optimization (ASO) 2026: Ranking Signals + Audit"
+          },
+          {
+            "url": "https://asolytics.pro/blog/post/google-play-app-optimization",
+            "excerpts": [
+              "Google Play Store ASO: Proven Strategies for Android Apps\nFrom this comprehensive guide, you\u2019ll learn all about the modern Google Play ranking algorithm and how to build an effective optimization strategy for sustainable growth."
+            ],
+            "title": "Google Play Store ASO: Proven Strategies for Android Apps"
+          },
+          {
+            "url": "https://liteaso.com/blog/google-play-aso-guide",
+            "excerpts": [
+              "Google Play ASO Guide: Optimize Your Android App in 2026\nLearn how Google Play ASO differs from iOS. Master long description strategy, short description optimization, Google Play Experiments, and retention-first ranking for Android apps."
+            ],
+            "title": "Google Play ASO Guide: Optimize Your Android App in 2026"
+          },
+          {
+            "url": "http://businessofapps.com/marketplace/app-store-optimization/aso-tools",
+            "excerpts": [
+              "4 days ago \u2014 ASO tools are a set of tools that help app developers optimize their mobile apps for better visibility and higher rankings across the app stores."
+            ],
+            "title": "Top App Store Optimization (ASO) Tools (2026)"
+          },
+          {
+            "url": "https://www.apptweak.com/en/aso-blog/aso-strategy",
+            "excerpts": [
+              "ASO strategy in 2026: step-by-step framework for app growth\nLearn how to build an ASO strategy in 2026 that improves app visibility, boosts conversion rate, and drives sustainable organic downloads."
+            ],
+            "title": "ASO strategy in 2026: step-by-step framework for app growth"
+          },
+          {
+            "url": "https://www.businessofapps.com/marketplace/app-marketing/research/app-marketing-plan",
+            "excerpts": [
+              "A successful app marketing strategy is"
+            ],
+            "title": "App Store Optimization (ASO)"
+          },
+          {
+            "url": "https://asotool.app/",
+            "excerpts": [
+              "ASO Toolkit \u2014 App Store Optimization for Indie Developers\nTrack iOS keyword rankings, get AI-powered suggestions, and generate optimized App Store metadata. Free to start, no credit card required."
+            ],
+            "title": "ASO Toolkit \u2014 App Store Optimization for Indie Developers"
+          },
+          {
+            "url": "https://www.businessofapps.com/marketplace/app-store-optimization/research/app-store-optimization-strategies",
+            "excerpts": [
+              "App Store Optimization Strategies (2025) - Business of Apps\nIn this article, we want to cover ASO strategies that are time-proven and will allow you to un-tap the power of the App Store Optimization for your mobile app\u2019s success."
+            ],
+            "title": "App Store Optimization Strategies (2025) - Business of Apps"
+          },
+          {
+            "url": "https://localdominator.co/review-velocity-local-seo",
+            "excerpts": [
+              "Review Velocity: The AI Search & Local SEO Ranking Factor\nLearn what review velocity is in local SEO and why Google, ChatGPT, and Claude prioritize consistent reviews over total count to rank local businesses."
+            ],
+            "title": "Review Velocity: The AI Search & Local SEO Ranking Factor"
+          },
+          {
+            "url": "https://www.zavabuild.com/blog/review-velocity-local-rankings-impact-2026",
+            "excerpts": [
+              "Review Velocity & Local Rankings Impact 2026 | Zava Build\nReview velocity in 2026 is one of the few local ranking factors you can directly influence every week. Steady, genuine new reviews (no long gaps) keep your prominence fresh, reinforce relevance, and drive behavioural signals that lift local pack rankings \u2014 especially in competitive UK markets."
+            ],
+            "title": "Review Velocity & Local Rankings Impact 2026 | Zava Build"
+          },
+          {
+            "url": "https://asoworld.com/insight/app-store-ranking-in-2026-why-retention-and-engagement-now-matter-more-than-keywords",
+            "excerpts": [
+              "App Store Ranking Factors 2026: Complete ASO Guide - ASO World\nBehavioral signal changes \u2014 retention improvements, review velocity increases \u2014 can affect rankings faster, often within 2\u20134 weeks, because the algorithm evaluates these on a rolling basis rather than per-update cycle."
+            ],
+            "title": "App Store Ranking Factors 2026: Complete ASO Guide - ASO World"
+          },
+          {
+            "url": "https://sproutsagesolutions.com/review-velocity-vs-review-count",
+            "excerpts": [
+              "Review Velocity vs Review Count \u2014 2026 Local SEO | Sprout Sage\nReview velocity jumped from rank 93 to rank 11 in the 2026 local ranking factor surveys. The single largest year-over-year weight increase I have ever seen in the local algorithm. A business with 80 reviews and 12 new ones in the last 90 days now routinely outranks a competitor with 400 reviews and zero new in a year."
+            ],
+            "title": "Review Velocity vs Review Count \u2014 2026 Local SEO | Sprout Sage"
+          },
+          {
+            "url": "https://splitmetrics.com/blog/apple-app-store-ranking-factors",
+            "excerpts": [
+              "App Store Ranking Factors: How to Grow Your iOS App (Updated ...\nHigh download velocity indicates a new and exciting app worth recommending; A high number of downloads is proof an app is well-established."
+            ],
+            "title": "App Store Ranking Factors: How to Grow Your iOS App (Updated ..."
+          },
+          {
+            "url": "https://matte.app/blog/app-screenshots-convert",
+            "excerpts": [
+              "App Store Screenshots & Videos That Actually Convert\nData-driven guide to App Store screenshots and preview videos that increase downloads. What makes users tap Download, video vs no video conversion rates"
+            ],
+            "title": "App Store Screenshots & Videos That Actually Convert"
+          },
+          {
+            "url": "https://www.asoshots.com/blog/app-store-screenshots-vs-app-previews",
+            "excerpts": [
+              "App Store Screenshots vs App Previews: Which Drives More ...\nApple supports both static screenshots and video app previews. Here's the data on conversion lift, when each wins, and how to budget your effort."
+            ],
+            "title": "App Store Screenshots vs App Previews: Which Drives More ..."
+          },
+          {
+            "url": "https://appscreenshotstudio.com/blog/app-preview-videos-vs-screenshots-2026-conversion-data",
+            "excerpts": [
+              "App Preview Video vs Screenshots: 2026 Conversion Data\nDo preview videos actually convert better than screenshots in 2026? The honest read of 2026 data: there's no public study showing a universal video-over-screenshot lift."
+            ],
+            "title": "App Preview Video vs Screenshots: 2026 Conversion Data"
+          },
+          {
+            "url": "https://www.appscreenstudio.com/en/blog/app-preview-video-vs-screenshots",
+            "excerpts": [
+              "iOS App Preview Video vs Screenshots: What Drives More ...\niOS App Preview Video vs Screenshots: What Drives More Installs? App Preview videos lift install conversion by 15-30% in our internal tests, but only when paired with strong static screenshots. Here\u2019s how to think about both."
+            ],
+            "title": "iOS App Preview Video vs Screenshots: What Drives More ..."
+          },
+          {
+            "url": "https://screencraftapp.com/blog/app-preview-video-conversion-guide",
+            "excerpts": [
+              "App Preview Video Guide: Boost Conversions 20-40%\nAccording to recent data from SplitMetrics and leading ASO platforms, adding a high-quality app preview video can boost conversion rates by 20\u201340% compared to screenshots alone."
+            ],
+            "title": "App Preview Video Guide: Boost Conversions 20-40%"
+          },
+          {
+            "url": "http://gummicube.com/app-launch",
+            "excerpts": [
+              "Gummicube can help research competitors and keywords, structure metadata, and build out optimized creative assets in time for your launch"
+            ],
+            "title": "App Launch - Gummicube"
+          },
+          {
+            "url": "https://developer.apple.com/app-store/guidelines",
+            "excerpts": [
+              "Guidelines - App Store - Apple Developer\nPrepare your apps and metadata for submission to the App Store. Manage apps, analytics, sales reports, business information, and more. Get marketing guidance and tools to help you promote your app on the App Store. Have a question or request? Get help with guides, articles, or by contacting us."
+            ],
+            "title": "Guidelines - App Store - Apple Developer"
+          },
+          {
+            "url": "https://www.youtube.com/watch?v=FJNwDoR-mVs",
+            "excerpts": [
+              "Trademarks & Safe Keywords (Amazon Merch Tutorial 2020 #05)\nLet me help you start, scale, & automate your e-commerce business http://bit.ly/LearnRyansMethod (Get personalized help, FREE!)"
+            ],
+            "title": "Trademarks & Safe Keywords (Amazon Merch Tutorial 2020 #05)"
+          },
+          {
+            "url": "https://developer.apple.com/app-store/review/guidelines",
+            "excerpts": [
+              "App Review Guidelines\nChoose a unique app name , assign keywords that accurately describe your app , and don't try to pack any of your metadata with trademarked terms, popular app"
+            ],
+            "title": "App Review Guidelines"
+          },
+          {
+            "url": "https://harperjames.co.uk/article/protecting-your-apps-trade-mark",
+            "excerpts": [
+              "Trade mark infringement on the App Store - Harper James\nWhat can developers do if a competitor has created an app that has a confusingly similar name or logo? In this guide, we will discuss what the most common forms of trade mark infringement are on the App Store and what action you can take to enforce your trade mark rights."
+            ],
+            "title": "Trade mark infringement on the App Store - Harper James"
+          },
+          {
+            "url": "https://developer.apple.com/app-store/product-page-optimization",
+            "excerpts": [
+              "Product Page Optimization - App Store - Apple Developer\nUse product page optimization to test different elements of your App Store product page (or pre-order page) \u2014 including app icons, screenshots, and app preview videos \u2014 to understand which results in the most engagement."
+            ],
+            "title": "Product Page Optimization - App Store - Apple Developer"
+          },
+          {
+            "url": "https://www.reddit.com/r/AppStoreOptimization/comments/1qtn1ve/has_anyone_tried_apples_product_page_optimization",
+            "excerpts": [
+              "Has anyone tried Apple's Product Page Optimization (A/B ...\nI recently discovered Apple\u2019s Product Page Optimization feature where you can A/B test things like screenshots, icons, and previews to see which"
+            ],
+            "title": "Has anyone tried Apple's Product Page Optimization (A/B ..."
+          },
+          {
+            "url": "https://developer.apple.com/help/app-store-connect-analytics/acquisition/product-page-optimization",
+            "excerpts": [
+              "Product Page Optimization - Acquisition\nConfidence levels: View statistical confidence for each result so you can make decisions grounded in reliable data. Test results with at least 90% confidence"
+            ],
+            "title": "Product Page Optimization - Acquisition"
+          },
+          {
+            "url": "https://appradar.com/blog/app-ab-testing-with-product-page-optimization-in-apple-app-store",
+            "excerpts": [
+              "A/B testing in App Store: Full guide to Apple's Product Page ...\nNov 10, 2022 \u2014 Product Page Optimization is a tool that will help ASO and app experts understand how different page elements influence conversion rates in App Store."
+            ],
+            "title": "A/B testing in App Store: Full guide to Apple's Product Page ..."
+          },
+          {
+            "url": "https://adapty.io/blog/custom-product-pages-app-store",
+            "excerpts": [
+              "App Store Custom Product Pages: Guide for 2026\nSep 23, 2024 \u2014 Product page optimizations. Purpose, Targeted experiences for specific audiences or campaigns, A/B test default page elements for all users."
+            ],
+            "title": "App Store Custom Product Pages: Guide for 2026"
+          },
+          {
+            "url": "https://www.digitalapplied.com/blog/product-page-optimization-ecommerce-conversion-guide-2026",
+            "excerpts": [
+              "Product Page Optimization: Conversion Guide 2026\nOptimize your eCommerce product pages for higher conversions. Learn UX best practices, A/B testing strategies, and persuasive copy techniques."
+            ],
+            "title": "Product Page Optimization: Conversion Guide 2026"
+          },
+          {
+            "url": "https://mouseflow.com/blog/ecommerce-product-page-optimization",
+            "excerpts": [
+              "eCommerce Product Page Optimization: 4 Quick Wins\nJun 12, 2023 \u2014 eCommerce Product Page Optimization: The 4 Quick Wins \u00b7 1. Optimize Product Titles \u00b7 2. Use High-Quality Product Images \u00b7 3. Provide Detailed but\u00a0"
+            ],
+            "title": "eCommerce Product Page Optimization: 4 Quick Wins"
+          },
+          {
+            "url": "https://appbot.co/blog/product-page-optimization",
+            "excerpts": [
+              "What is Product Page Optimization (PPO) on the App Store?\nOct 1, 2025 \u2014 Learn how Apple's Product Page Optimization lets you A/B test app store screenshots, videos, and icons to improve conversion rates and app"
+            ],
+            "title": "What is Product Page Optimization (PPO) on the App Store?"
+          },
+          {
+            "url": "https://support.bigcommerce.com/s/article/Optimize-Your-Product-Pages-for-Conversion",
+            "excerpts": [
+              "Optimize Your Product Pages for Conversion\nThe Product Insights reports can help you in quickly identifying which products are performing well and which need attention. Identifying products that are\u00a0"
+            ],
+            "title": "Optimize Your Product Pages for Conversion"
+          },
+          {
+            "url": "https://www.abconvert.io/blog/10-product-page-optimization-strategies-for-higher-conversions",
+            "excerpts": [
+              "10 Product page optimization strategies for higher ...\nNov 11, 2025 \u2014 10 Product page optimization strategies for higher conversions \u00b7 1. Add social proof with customer reviews and UGC \u00b7 2. Optimize pricing \u00b7 3."
+            ],
+            "title": "10 Product page optimization strategies for higher ..."
+          },
+          {
+            "url": "https://support.google.com/googleplay/android-developer/answer/13393723?hl=en",
+            "excerpts": [
+              "Best practices for your store listing - Play Console Help\nHigh-quality and policy-compliant store listings help to establish user trust, which benefits the entire Google Play developer community. This article discusses some common issues and"
+            ],
+            "title": "Best practices for your store listing - Play Console Help"
+          },
+          {
+            "url": "https://play.google.com/console/about/storelistings",
+            "excerpts": [
+              "Store listings | Google Play Console\nReference our store listing requirements and best practices as you pull together your listing assets. Accelerate your user growth with our reporting and optimization tools, including"
+            ],
+            "title": "Store listings | Google Play Console"
+          },
+          {
+            "url": "https://www.mobileaction.co/blog/custom-store-listings-on-google-play",
+            "excerpts": [
+              "Custom store listings on Google Play: The complete 2026 guide\nLearn how to master custom store listings on Google Play in 2026 with step-by-step setup, best practices, and new features to boost installs and engagement."
+            ],
+            "title": "Custom store listings on Google Play: The complete 2026 guide"
+          },
+          {
+            "url": "https://play.google.com/console/about/customstorelistings",
+            "excerpts": [
+              "Custom store listings | Google Play Console\nCreate a more seamless user experience from Google Ads campaigns to Google Play with consistent messaging and creative. Direct users from ads to custom store listings by choosing your custom store listing as a landing page in Google ads. Use Store Listing Groups to track multiple listings."
+            ],
+            "title": "Custom store listings | Google Play Console"
+          },
+          {
+            "url": "https://www.youtube.com/watch?v=Q76CKSXvb7A",
+            "excerpts": [
+              "Master Custom Store Listings for Google Play Console ...\nAn overview of how they differ from your Main Store Listing. Targeting by Country/Region: How to show different screenshots and descriptions for users in the USA vs. India or Brazil. Targeting by"
+            ],
+            "title": "Master Custom Store Listings for Google Play Console ..."
+          },
+          {
+            "url": "https://asomobile.net/en/blog/app-listings-in-google-play-2026",
+            "excerpts": [
+              "App Listings in Google Play 2026 | Blog ASOMobile\nJan 27, 2026 \u00b7 The title remains the strongest text-based factor for indexing in Google Play. In 2026, the priority is not keyword density, but precision and"
+            ],
+            "title": "App Listings in Google Play 2026 | Blog ASOMobile"
+          },
+          {
+            "url": "https://asoworld.com/insight/aso-checklist-the-complete-guide-to-google-play-store-keyword-research-in-2025",
+            "excerpts": [
+              "Google Play Keyword Research Checklist for 2026 ASO Success ...\nThe article provides a detailed 2026 checklist for mastering Google Play keyword optimization, offering actionable steps, tools, and strategies to ensure apps rank higher and attract the right users."
+            ],
+            "title": "Google Play Keyword Research Checklist for 2026 ASO Success ..."
+          },
+          {
+            "url": "https://www.apptweak.com/en/aso-blog/play-store-keyword-research",
+            "excerpts": [
+              "Google Play store keyword research guide for 2026 - AppTweak\nMay 9, 2025 \u00b7 Discover how to master Play Store keyword research. Learn best practices and tools to find high-performing keywords to boost app visibility. Key takeaways \u00b7 How to do keyword research... \u00b7 Where to place keywords in"
+            ],
+            "title": "Google Play store keyword research guide for 2026 - AppTweak"
+          },
+          {
+            "url": "https://playaudit.app/blog/google-play-aso-guide",
+            "excerpts": [
+              "Google Play ASO Guide (2026) \u2014 PlayAudit\nGoogle Play indexes text from three fields in your listing, in decreasing order of weight: Title \u2014 Highest ranking weight. This is universally agreed upon by every ASO study and practitioner. Short description \u2014 Evidence suggests it's indexed but carries less weight than the title."
+            ],
+            "title": "Google Play ASO Guide (2026) \u2014 PlayAudit"
+          },
+          {
+            "url": "https://www.mobileaction.co/blog/aso-long-tail-optimization",
+            "excerpts": [
+              "ASO long-tail optimization: Unlock hidden App Store traffic in 2026!\nLong-tail keywords help you reach the users who truly value your app's niche. This means the users you gain are more likely to stick around."
+            ],
+            "title": "ASO long-tail optimization: Unlock hidden App Store traffic in 2026!"
+          },
+          {
+            "url": "https://asomobile.net/en/blog/aso-in-2026-the-complete-guide-to-app-optimization",
+            "excerpts": [
+              "App Store Optimization in 2026: ASO Strategy, Trends, and ...\nExplore modern ASO: optimization techniques, ranking factors, retention impact, and actionable strategies to grow mobile apps organically."
+            ],
+            "title": "App Store Optimization in 2026: ASO Strategy, Trends, and ..."
+          },
+          {
+            "url": "https://asomobile.net/en",
+            "excerpts": [
+              "ASOMobile | Best solution for ASO optimization and mobile app ...\nYes, we provide free aso tools for basic app store optimization, keyword research, search volume and relevance analysis, app keyword tracking, and competitor analysis."
+            ],
+            "title": "ASOMobile | Best solution for ASO optimization and mobile app ..."
+          },
+          {
+            "url": "https://stormy.ai/blog/long-tail-ios-app-store-keywords-guide-2026",
+            "excerpts": [
+              "Competing with Giants: A 2026 Guide to Long-Tail iOS App ...\nWith 65% to 70% of all downloads still originating from organic search queries, the path to success lies in mastering long-tail iOS App Store keywords. This guide explores how to bypass branded dominance by targeting high-intent niche terms that the giants are too big to notice."
+            ],
+            "title": "Competing with Giants: A 2026 Guide to Long-Tail iOS App ..."
+          },
+          {
+            "url": "https://github.com/Stremio/stremio-bugs/issues/2112",
+            "excerpts": [
+              "Metada Catalogs refresh - Apple Ecosystem \u00b7 Issue #2112"
+            ],
+            "title": "Metada Catalogs refresh - Apple Ecosystem \u00b7 Issue #2112 GitHub https://github.com \u203a Stremio \u203a stremio-bugs \u203a issues"
+          },
+          {
+            "url": "https://github.com/Stremio/stremio-bugs/issues/1928",
+            "excerpts": [
+              "Cinemeta rarely refreshes metadata \u00b7 Issue #1928"
+            ],
+            "title": "Cinemeta rarely refreshes metadata \u00b7 Issue #1928 GitHub https://github.com \u203a Stremio \u203a stremio-bugs \u203a issues"
+          },
+          {
+            "url": "https://www.reddit.com/r/MicrosoftFabric/comments/1rum6tm/lh_metadata_refresh_what_was_the_thinking",
+            "excerpts": [
+              "LH metadata refresh - what was the thinking?\nSorry for another weekly question on this topic. The metadata-refresh API for lakehouse/delta has already been discussed ad nauseam. When everyone encounters"
+            ],
+            "title": "LH metadata refresh - what was the thinking?"
+          },
+          {
+            "url": "https://www.gamineai.com/blog/google-play-and-app-store-metadata-policy-changes-q2-2026-store-listing-fixes-before-review-week",
+            "excerpts": [
+              "Metadata policy updates in Q2 2026 can delay store approval fast. Use this practical indie checklist to align your listing before review week."
+            ],
+            "title": "Google Play and App Store Metadata Policy Changes Q2 2026 ..."
+          },
+          {
+            "url": "https://support.google.com/googleplay/answer/15747876?hl=en",
+            "excerpts": [
+              "Open the Google Play app . At the top right, tap your Profile picture. Tap Settings About Update Play Store. You\u2019ll get a message that tells you if the Google Play app is up to date. Tap"
+            ],
+            "title": "Update the Google Play app"
+          },
+          {
+            "url": "https://ads.apple.com/app-store/best-practices/keywords",
+            "excerpts": [
+              "Keywords - Best Practices - Apple Ads\nPut discovery, category, competitor, and brand keywords into individual campaigns or ad groups. Managing these types of keywords separately can help with optimization, reporting, and your ability to scale."
+            ],
+            "title": "Keywords - Best Practices - Apple Ads"
+          },
+          {
+            "url": "https://www.mbadv.agency/apple-ads/apple-ads-targeting-and-keywords",
+            "excerpts": [
+              "Apple Ads Targeting & Keywords: Match Types 2026\nJun 29, 2026 \u00b7 Apple permits bidding on competitor brand keywords. The trademark restriction is on your own app's metadata and creative \u2014 under App Store"
+            ],
+            "title": "Apple Ads Targeting & Keywords: Match Types 2026"
+          },
+          {
+            "url": "https://www.rimonlaw.com/apples-continued-attempts-to-trademark-app-store-may-fall-short",
+            "excerpts": [
+              "Apple's Continued Attempts to Trademark \u201cApp Store\u201d may Fall Short\n8 jul 2011 \u00b7 The case is contingent upon whether \u201capp store\u201d can be deemed a generic term that simply describes any app marketplace, as opposed to one of"
+            ],
+            "title": "Apple's Continued Attempts to Trademark \u201cApp Store\u201d may Fall Short"
+          },
+          {
+            "url": "https://pushmyapp.ai/blog/apple-app-store-keywords-field",
+            "excerpts": [
+              "App Store Keywords: 100-Char Field (2026) | Push My App\nPush My App\u2019s AI metadata generator writes keyword strings that fit the 100-character budget, skip everything your title and subtitle already index, avoid trademark and Apple-term rejections, and regenerate per locale across 14 languages."
+            ],
+            "title": "App Store Keywords: 100-Char Field (2026) | Push My App"
+          },
+          {
+            "url": "https://www.mobileworldlive.com/apple/app-store-trademark-dispute-escalates",
+            "excerpts": [
+              "App store trademark dispute escalates - Mobile World Live\n30 mar 2011 \u00b7 Meanwhile Apple's expert backs its claims that the term is a proper noun and hence should be trademarked, although the words become generic when"
+            ],
+            "title": "App store trademark dispute escalates - Mobile World Live"
+          },
+          {
+            "url": "https://www.ryplix.studio/app-store-subtitle-generator",
+            "excerpts": [
+              "Free App Store Subtitle Generator \u2014 30-Character Ideas | Ryplix\nApple caps subtitles at 30 characters. Enter your app name, two or three benefit keywords, and a category \u2014 get six to eight subtitle ideas with live character counts, ready to paste into App Store Connect."
+            ],
+            "title": "Free App Store Subtitle Generator \u2014 30-Character Ideas | Ryplix"
+          },
+          {
+            "url": "https://www.marteso.com/blog/app-store-subtitle-character-limit",
+            "excerpts": [
+              "App Store Subtitle Character Limit: How to Use All 30 ...\nThe app store subtitle gives you exactly 30 characters. Here's how to use every one of them for keyword indexing without turning your product page into a keyword dump \u2014 with concrete subtitle examples for fitness, to-do, calorie, meditation, and photo apps."
+            ],
+            "title": "App Store Subtitle Character Limit: How to Use All 30 ..."
+          },
+          {
+            "url": "https://splitmetrics.com/blog/app-store-keyword-optimization",
+            "excerpts": [
+              "App Store Keywords Optimization: How do iOS Apps Win in ...\nApr 22, 2026 \u2014 This ASO guide will help you understand how to create an App Store keyword strategy and discover new organic keywords."
+            ],
+            "title": "App Store Keywords Optimization: How do iOS Apps Win in ..."
+          },
+          {
+            "url": "https://www.mobileaction.co/blog/custom-product-pages-meet-organic-search",
+            "excerpts": [
+              "Custom product pages meet organic search - ASO\nAug 1, 2025 \u2014 Custom product pages can be used to target your competitors on the App Store as well. You can add your competitor keywords to keywords field in"
+            ],
+            "title": "Custom product pages meet organic search - ASO"
+          },
+          {
+            "url": "https://phiture.com/asostack/keyword-based-custom-product-pages-cpps-arrive-in-app-store-connect",
+            "excerpts": [
+              "Keyword-Based Custom Product Pages\nAug 4, 2025 \u2014 Targeting different audiences or seasonal offers. With this new keyword-based functionality, CPPs now go beyond creative targeting \u2014 they can"
+            ],
+            "title": "Keyword-Based Custom Product Pages"
+          },
+          {
+            "url": "https://splitmetrics.com/blog/ios15-custom-product-pages-setup-guide",
+            "excerpts": [
+              "Beginner's Guide to Custom Product Pages on the App Store\nNov 4, 2025 \u2014 Custom product pages can be assigned organic keywords in App Store Connect, allowing app store optimization (ASO) specialists to improve their"
+            ],
+            "title": "Beginner's Guide to Custom Product Pages on the App Store"
+          },
+          {
+            "url": "https://www.adjust.com/blog/custom-product-pages-app-store",
+            "excerpts": [
+              "Custom Product Pages: Apple Search Ads & ASO | Adjust\nMeet your audiences with the most relevant and engaging representation of your app possible, boost your Apple Search Ads (now Apple Ads) and App Store Optimization (ASO) performance, and drive up conversion rates."
+            ],
+            "title": "Custom Product Pages: Apple Search Ads & ASO | Adjust"
+          },
+          {
+            "url": "https://support.google.com/webmasters/thread/113797668/indexing-of-product-pages?hl=en",
+            "excerpts": [
+              "Indexing of product pages\nJun 16, 2021 \u2014 Product sites often have a relatively low indexation percentage, simply because have so many similar products, Googel simply donesnt have the pateience (or"
+            ],
+            "title": "Indexing of product pages"
+          },
+          {
+            "url": "https://www.runway.team/appreviewtimes",
+            "excerpts": [
+              "Live App Store and TestFlight review times | Runway\nThese are average review times, beta review times, and build processing times for iOS apps measured over the past two weeks, including time waiting in the queue to be reviewed and time the review actually takes."
+            ],
+            "title": "Live App Store and TestFlight review times | Runway"
+          },
+          {
+            "url": "https://mjtsai.com/blog/2026/03/02/mac-app-store-review-times-increasing",
+            "excerpts": [
+              "Mac App Store Review Times Increasing - Michael Tsai\nMar 2, 2026 \u00b7 On average, 90% of submissions are reviewed in less than 24 hours. 48 hours is a lot different from 24 hours. Plus, Mac submissions are a small"
+            ],
+            "title": "Mac App Store Review Times Increasing - Michael Tsai"
+          },
+          {
+            "url": "https://www.apple.com/legal/intellectual-property/guidelinesfor3rdparties.html",
+            "excerpts": [
+              "Guidelines for Using Apple Trademarks and Copyrights\nUse of Apple trademarks may be prohibited, unless expressly authorized. If you are a licensee of an Apple trademark or logo and have been provided with special"
+            ],
+            "title": "Guidelines for Using Apple Trademarks and Copyrights"
+          },
+          {
+            "url": "https://www.bettermockups.com/blogs/resources/apple-brand-guidelines",
+            "excerpts": [
+              "Apple Brand Guidelines: Rules For Using Logos & ...\nMar 9, 2026 \u2014 The most frequent mistake is placing \"Apple\" or \"iPhone\" into your shop name or branding. Terms like \"iPhone Case Studio\" imply an affiliation"
+            ],
+            "title": "Apple Brand Guidelines: Rules For Using Logos & ..."
+          },
+          {
+            "url": "https://veritasbusinesslaw.com/apple-sued-amazon-over-app-store-trademark-generic-and-descriptive-terms",
+            "excerpts": [
+              "Apple Sued Amazon Over App Store Trademark\nGeneric and descriptive terms cannot be registered as trademarks \u00b7 Apple claimed that \u201capp\u201d referred to \u201cApple app\u201d and not just an \u201capplication\u201d."
+            ],
+            "title": "Apple Sued Amazon Over App Store Trademark"
+          },
+          {
+            "url": "https://www.apple.com/uk/legal/intellectual-property/guidelinesfor3rdparties.html",
+            "excerpts": [
+              "Guidelines for Using Apple Trademarks and Copyrights"
+            ],
+            "title": "Guidelines for Using Apple Trademarks and Copyrights Apple https://www.apple.com \u203a Legal \u203a Intellectual Property"
+          },
+          {
+            "url": "https://www.apple.com/legal/intellectual-property/trademark/appletmlist.html",
+            "excerpts": [
+              "Legal - Trademark List - Apple\nSome of the titles, characters, logos, or other images incorporated by Apple on these services are protected as registered or unregistered trademarks owned by"
+            ],
+            "title": "Legal - Trademark List - Apple"
+          },
+          {
+            "url": "https://asonomica.com/blog/apple-keyword-field",
+            "excerpts": [
+              "Getting every character out of the Apple keyword field\nSeparate keywords with commas and put no space after the comma. Apple's own example is Property,House,Real Estate. The only spaces belong inside a multi-word phrase like Real Estate. Every stray space is a character you don't get back, and over a dozen keywords that adds up to a lost term or two."
+            ],
+            "title": "Getting every character out of the Apple keyword field"
+          },
+          {
+            "url": "https://www.nichemetric.com/blog/app-store-keyword-research-guide",
+            "excerpts": [
+              "App Store Keyword Research: The Complete Guide to ASO in 2026\nMaster App Store keyword research with proven techniques. Learn to find high-volume, low-competition keywords that drive organic downloads and improve your ASO."
+            ],
+            "title": "App Store Keyword Research: The Complete Guide to ASO in 2026"
+          },
+          {
+            "url": "https://www.whixframe.com/blog/aso-guide-2026",
+            "excerpts": [
+              "App Store Optimization (ASO) Complete Guide 2026 \u2014 Rank #1 on ...\nThe definitive ASO guide for 2026. Learn how to write titles, subtitles, keyword fields, and descriptions that rank on the App Store and Google Play. Includes keyword research strategy, conversion rate optimization, and A/B testing tactics used by top-grossing apps."
+            ],
+            "title": "App Store Optimization (ASO) Complete Guide 2026 \u2014 Rank #1 on ..."
+          },
+          {
+            "url": "https://stormy.ai/blog/2025-app-store-optimization-playbook-ios-keywords",
+            "excerpts": [
+              "The 2025 App Store Optimization Playbook: Mastering iOS ...\nMaster iOS app store keywords with our 2025 ASO playbook. Learn the 30-30-100 rule, semantic indexing, and mobile app growth marketing strategies for top rankings. The iOS App Store has evolved from a simple repository into a hyper-competitive marketplace where visibility is the ultimate currency."
+            ],
+            "title": "The 2025 App Store Optimization Playbook: Mastering iOS ..."
+          },
+          {
+            "url": "https://appdrift.co/competitor-analysis",
+            "excerpts": [
+              "App Store Competitor Analysis - Track & Outrank Competitors\nTrack competitor metadata, keywords, ratings, and screenshots with daily automated snapshots. Spot opportunities your rivals miss and outrank them in the app store. Six powerful tools to understand your competitive landscape and find actionable opportunities."
+            ],
+            "title": "App Store Competitor Analysis - Track & Outrank Competitors"
+          },
+          {
+            "url": "https://www.apple.com/legal/intellectual-property/dispute-forms/app-store",
+            "excerpts": [
+              "Legal - App Store Dispute Forms\nIf you believe an App is preventing you from using your trademark as an app name on the App Store, you can submit your claim here. After you provide us with the"
+            ],
+            "title": "Legal - App Store Dispute Forms"
+          },
+          {
+            "url": "https://www.cynoteck.com/blog-post/how-to-publish-app-to-the-app-store",
+            "excerpts": [
+              "How to Publish Your App to the App Store in 2026\nPlatform: iOS, macOS, tvOS, or visionOS. Metadata Fields \u2014 Complete Specifications: App name: 30 character hard limit. No pricing, \u201cfree,\u201d or competitor names."
+            ],
+            "title": "How to Publish Your App to the App Store in 2026"
+          },
+          {
+            "url": "https://www.apple.com/legal/intellectual-property/dispute-forms/app-store/app-name-dispute.html",
+            "excerpts": [
+              "App Name Dispute - Legal\nEnter your contact information below. The name and email address you enter will be supplied to the provider(s) of the disputed content."
+            ],
+            "title": "App Name Dispute - Legal"
+          },
+          {
+            "url": "https://respectaso.com/glossary/app-store-search-algorithm",
+            "excerpts": [
+              "App Store Search Algorithm \u2014 ASO Glossary - RespectASO\nImportant for localization: the App Store indexes metadata separately per country. Your US metadata is indexed for US App Store searches, your German metadata"
+            ],
+            "title": "App Store Search Algorithm \u2014 ASO Glossary - RespectASO"
+          },
+          {
+            "url": "https://developer.apple.com/app-store/search",
+            "excerpts": [
+              "App Store search - Apple Developer\nYour primary category and optional secondary category are indexed by our search algorithm. ... Prepare your apps and metadata for submission to the App Store."
+            ],
+            "title": "App Store search - Apple Developer"
+          },
+          {
+            "url": "https://appdevelopermagazine.com/apple-app-store-algorithm-revealed",
+            "excerpts": [
+              "Apple app store algorithm revealed"
+            ],
+            "title": "Apple app store algorithm revealed App Developer Magazine https://appdevelopermagazine.com \u203a ..."
+          },
+          {
+            "url": "https://www.quora.com/What-is-the-issue-with-Apples-new-App-Store-search-algorithm",
+            "excerpts": [
+              "What is the issue with Apple's new App Store search algorithm?\nFeb 8, 2024 \u00b7 My experience has been Apple Store listed Apps that correlate poorly with my past subscriptions. I have to scroll through Apps I am not interested in. Our app dropped 50 rankings in the App Store. What can be ... - Quora How are search results in the App Store sorted? - Quora More results from www.quora.com"
+            ],
+            "title": "What is the issue with Apple's new App Store search algorithm?"
+          },
+          {
+            "url": "https://appcherish.com/blog/ab-testing-your-app-store-product-page-what-to-test-first",
+            "excerpts": [
+              "A/B Testing Your App Store Product Page: What to Test First\nProduct Page Optimization lets you test your icon, screenshots, and preview video. Here's how to set up a test, what to test first, and how to read the results."
+            ],
+            "title": "A/B Testing Your App Store Product Page: What to Test First"
+          },
+          {
+            "url": "https://sparrowcode.io/en/tutorials/product-page-optimization-alternative-icons",
+            "excerpts": [
+              "How to Add Alternative Icons for Product Page Optimization ...\nWith Product Page Optimization you can create variants of screenshots, promo texts, and icons. Screenshots and text are added to App Store Connect."
+            ],
+            "title": "How to Add Alternative Icons for Product Page Optimization ..."
+          },
+          {
+            "url": "https://aso.dev/metadata/ppo",
+            "excerpts": [
+              "Product Page Optimization (PPO): A/B Testing Guide\nRun A/B tests on your App Store visuals. Test up to 3 treatments (screenshots, videos) against your control to boost conversion rates."
+            ],
+            "title": "Product Page Optimization (PPO): A/B Testing Guide"
+          },
+          {
+            "url": "https://appscreens.com/app-store-ppo-and-cpp-optimization-screenshots",
+            "excerpts": [
+              "Product Page Optimization and Custom Product Page Screenshot ...\nUse Product Page Optimization when you want to improve your default App Store product page with a controlled test across regular store traffic. PPO lets you compare different screenshots, app icons, and app previews, then test up to three treatments against your original/current App Store listing."
+            ],
+            "title": "Product Page Optimization and Custom Product Page Screenshot ..."
+          },
+          {
+            "url": "https://screenshototter.com/blog/app-store-subtitle-examples",
+            "excerpts": [
+              "App Store Subtitle Examples 2026: 20 Great Examples by ...\nThe 30-character limit is strict. This includes spaces. Anything longer will be truncated with an ellipsis. The limit forces brevity: you cannot write a full sentence. You have room for roughly 4 to 6 words, depending on average word length and spacing."
+            ],
+            "title": "App Store Subtitle Examples 2026: 20 Great Examples by ..."
+          }
+        ],
+        "confidence": "low"
+      }
+    ],
+    "type": "text",
+    "beta_fields": null,
+    "mcp_tool_calls": null,
+    "content_file": "hermes-aso-stellar-july-2026.md"
+  }
+}
