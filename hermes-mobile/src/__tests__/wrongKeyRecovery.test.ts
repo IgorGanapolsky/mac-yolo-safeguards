@@ -15,10 +15,27 @@ describe('wrongKeyRecovery', () => {
     expect(plan.reason).toBe('auth_mismatch');
     expect(plan.clearStaleProfileKey).toBe(true);
     expect(plan.clearActiveProfile).toBe(true);
+    expect(plan.stopSilentHeal).toBe(true);
     expect(plan.primaryCta).toBe(WRONG_KEY_PRIMARY_CTA);
     expect(plan.primaryCta).toBe('Find computers');
     expect(plan.banner).toBe(WRONG_KEY_REPAIR_HINT);
     expect(plan.banner.toLowerCase()).not.toContain('settings');
+  });
+
+  it('detects invalid_api_key gateway code in error strings', () => {
+    expect(
+      planWrongKeyRecovery({
+        errorMessage: JSON.stringify({ error: { code: 'invalid_api_key' } }),
+        hasSavedProfile: true,
+      }).reason,
+    ).toBe('auth_mismatch');
+    expect(isWrongKeyFailure('invalid_api_key')).toBe(true);
+    expect(isWrongKeyFailure('Invalid API key')).toBe(true);
+  });
+
+  it('treats HTTP 401/403 as auth mismatch without waiting for banner copy', () => {
+    expect(planWrongKeyRecovery({ status: 401 }).stopSilentHeal).toBe(true);
+    expect(planWrongKeyRecovery({ status: 403 }).clearStaleProfileKey).toBe(true);
   });
 
   it('detects wrong-key copy in error strings', () => {
@@ -32,5 +49,6 @@ describe('wrongKeyRecovery', () => {
     expect(plan.reason).toBe('none');
     expect(plan.clearStaleProfileKey).toBe(false);
     expect(plan.clearActiveProfile).toBe(false);
+    expect(plan.stopSilentHeal).toBe(false);
   });
 });

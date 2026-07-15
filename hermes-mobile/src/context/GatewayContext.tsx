@@ -97,6 +97,7 @@ import {
   resolveCellularTailscaleFailoverUrl,
 } from '../utils/connectionSelfHeal';
 import { CONNECTION_HEAL_EXHAUSTED_AFTER } from '../utils/connectionErrorPolicy';
+import { planWrongKeyRecovery } from '../utils/wrongKeyRecovery';
 import {
   evaluatePairDeepLinkApply,
   shouldRunForegroundUsbHeal,
@@ -1593,6 +1594,33 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
     ) {
       return;
     }
+
+    // 401 / invalid_api_key: stop silent "Trying to reach…" and clear poisoned key.
+    const wrongKeyPlan = planWrongKeyRecovery({
+      authMismatch: healthRef.current?.authMismatch === true,
+      errorMessage: healthRef.current?.errorMessage,
+      hasSavedProfile: profileStateRef.current.profiles.length > 0,
+    });
+    if (wrongKeyPlan.stopSilentHeal) {
+      const activeId = profileStateRef.current.activeProfileId;
+      if (wrongKeyPlan.clearStaleProfileKey && activeId) {
+        try {
+          await secureCredentials.removeProfileApiKey(activeId);
+        } catch {
+          // best-effort
+        }
+      }
+      if (wrongKeyPlan.clearStaleProfileKey) {
+        setApiKey('');
+        apiKeyRef.current = '';
+      }
+      connectionHealAttemptRef.current = CONNECTION_HEAL_EXHAUSTED_AFTER;
+      setConnectionHealAttempt(CONNECTION_HEAL_EXHAUSTED_AFTER);
+      setConnectionHealInFlight(false);
+      connectionHealInFlightRef.current = false;
+      return;
+    }
+
     connectionHealInFlightRef.current = true;
     setConnectionHealInFlight(true);
     try {
@@ -1626,6 +1654,30 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
             apiKeyRef.current = probeKey;
           }
           const snapshot = await fetchGatewayHealth(url, probeKey);
+          if (snapshot.authMismatch) {
+            const plan = planWrongKeyRecovery({
+              authMismatch: true,
+              errorMessage: snapshot.errorMessage,
+              hasSavedProfile: true,
+            });
+            if (plan.clearStaleProfileKey) {
+              const activeId = profileStateRef.current.activeProfileId;
+              if (activeId) {
+                try {
+                  await secureCredentials.removeProfileApiKey(activeId);
+                } catch {
+                  // best-effort
+                }
+              }
+              setApiKey('');
+              apiKeyRef.current = '';
+            }
+            setHealth(snapshot);
+            healthRef.current = snapshot;
+            connectionHealAttemptRef.current = CONNECTION_HEAL_EXHAUSTED_AFTER;
+            setConnectionHealAttempt(CONNECTION_HEAL_EXHAUSTED_AFTER);
+            return;
+          }
           if (!isGatewayHealthOk(snapshot)) {
             continue;
           }
