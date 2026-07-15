@@ -186,22 +186,27 @@ describe('release safety contract', () => {
     expect(eas.build['e2e-test'].channel).toBe('e2e-test');
   });
 
-  it('mobile-ota workflow publishes preview on main; production is fresh-user gated', () => {
+  it('mobile-ota workflow publishes preview on main; production is fresh-user gated + staged', () => {
     const workflow = read('.github/workflows/mobile-ota.yml');
     expect(workflow).toContain('branches:');
     expect(workflow).toContain('- main');
     expect(workflow).toContain('hermes-mobile/**');
     expect(workflow).toContain('workflow_dispatch');
     expect(workflow).toContain('publish_production');
+    expect(workflow).toContain('production_rollout_percentage');
+    expect(workflow).toContain('promote_production_rollout');
     expect(workflow).toContain('runtimeVersion');
     expect(workflow).toContain('eas update');
     // Crisis 2026-07-15: no auto dual-channel loop — production requires dispatch + e2e=pass.
     expect(workflow).not.toContain('for CH in preview production');
+    expect(workflow).not.toContain('for CH in production preview');
     expect(workflow).toContain('--channel preview');
     expect(workflow).toContain('--channel production');
     expect(workflow).toContain('publish-production-ota');
     expect(workflow).toContain("inputs.publish_production == true");
     expect(workflow).toContain('Fresh-user OTA gate');
+    expect(workflow).toContain('--rollout-percentage');
+    expect(workflow).toContain('EXPO_UPDATE_PRIVATE_KEY');
     expect(workflow).toContain('secrets.EXPO_TOKEN');
     expect(workflow).toContain('test:release-safety');
   });

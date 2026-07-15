@@ -22,7 +22,7 @@ This is how we ship. It is **not** “pure semver for every commit.” It is a *
 | Production OTA channel | — | — | Active groups for **`1.0`** |
 | App Store **1.0** | 1.0 | build **14** | users get OTA for **1.0** |
 | App Store **1.1** | 1.1 | build **16** | **WAITING_FOR_REVIEW** until released; then need OTA for runtime **1.1** |
-| Play production | store listing version | versionCode (remote auto) | OTA if binary embeds matching `expo.version` |
+| Play production | **1.0** (public) | versionCode **14** NSC cleartext live (vc13 lacked cleartext) | runtime **1.0** — keep `expo.version` at **1.0**; OTA ≠ native NSC; do not claim all devices on vc14 |
 
 Commands: `npx eas-cli channel:list`, ASC / Play APIs.
 

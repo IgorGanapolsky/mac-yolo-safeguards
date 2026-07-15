@@ -10,7 +10,7 @@ Hermes Mobile ships JS and asset fixes over the air (EAS Update) so Igor's phone
 | `preview` | `build.preview` | `main` push (CI) or `npm run ota:preview` | Internal EAS preview APK |
 | `e2e-test` | `build.e2e-test` | `npm run ota:e2e` | Maestro / automation builds |
 
-**Crisis 2026-07-15:** Production OTA is **not** automatic on every `main` merge. CI publishes **preview** on push; **production** requires `workflow_dispatch` with `publish_production=true` plus a fresh-user / continuous proof artifact (`e2e=pass`). Local: `npm run ota:gate` then `npm run ota:publish`. See [PRODUCTION-CRISIS-2026-07-15.md](./PRODUCTION-CRISIS-2026-07-15.md).
+**Crisis 2026-07-15 (updated):** Production OTA is **not** automatic on every `main` merge. CI publishes **preview** on push; **production** requires `workflow_dispatch` with `publish_production=true` plus a fresh-user / continuous proof artifact (`e2e=pass`), then publishes with **staged `--rollout-percentage`** (default 10%; promote via `promote_production_rollout`). Play **1.0/vc14** NSC is on the production track — still do **not** claim all installs updated. OTA cannot deliver native NSC. Law: [VERSIONING-AND-RELEASES-JULY-2026.md](./VERSIONING-AND-RELEASES-JULY-2026.md). Local: `npm run ota:gate` then `npm run ota:publish`.
 
 **Previously:** Production channel received automatic OTA from `.github/workflows/mobile-ota.yml` on every push — that shipped live bugs without brand-new-user proof.
 
