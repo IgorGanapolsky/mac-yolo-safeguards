@@ -44,6 +44,7 @@ function gateway(overrides = {}) {
     addGatewayProfile: jest.fn(),
     patchSettings: jest.fn().mockResolvedValue(undefined),
     wifiConnected: true,
+    isPaired: false,
     ...overrides,
   };
 }
@@ -58,6 +59,24 @@ describe('ConnectMacGate', () => {
     } else {
       process.env.EXPO_PUBLIC_E2E_AUTOMATION = originalE2e;
     }
+  });
+
+  it('shows the gate for fresh unpaired relay defaults (product cold start)', () => {
+    delete process.env.EXPO_PUBLIC_E2E_AUTOMATION;
+    mockUseGateway.mockReturnValue(
+      gateway({
+        settings: {
+          ...DEFAULT_GATEWAY_SETTINGS,
+          demoMode: false,
+        },
+        isPaired: false,
+        gatewayProfiles: [],
+        effectiveGatewayUrl: '',
+      }),
+    );
+    const view = render(<ConnectMacGate />);
+    expect(view.getByTestId('connect-mac-gate')).toBeTruthy();
+    expect(view.getByTestId('connect-mac-onboarding-card')).toBeTruthy();
   });
 
   it('shows first-run computer setup when no machine is reachable or saved', () => {

@@ -218,6 +218,8 @@ Status values: `pending` | `in_progress` | `blocked` | `done`. Claim a row by se
 
 ## 2. File Ownership Map (append-only lock table — claim before touching)
 
+- `hermes-mobile/src/components/ConnectMacGate.tsx`, `hermes-mobile/src/__tests__/ConnectMacGate.test.tsx`, `hermes-mobile/src/__tests__/strangerColdStartGate.test.ts`, `plan.md` → **cursor-land-gate-prs** (fix #424 stranger cold-start: show ConnectMacGate for fresh unpaired relay default) (2026-07-15T16:33:18Z)
+
 - `.github/workflows/mobile-e2e.yml`, `.github/workflows/mobile-ota.yml`, `hermes-mobile/.maestro/stranger-cold-start.yaml`, `hermes-mobile/scripts/require-stranger-cold-start-proof.cjs`, `hermes-mobile/package.json` (ota:publish wrapper only), `hermes-mobile/src/__tests__/releaseSafetyNet.test.ts`, `hermes-mobile/src/__tests__/releaseSafetyContract.test.ts`, `hermes-mobile/src/__tests__/strangerColdStartGate.test.ts`, `hermes-mobile/docs/RELEASE-SAFETY-NET.md`, `plan.md` → **cursor-stranger-ci-gate** (T-342) (2026-07-15T16:00:00Z)
 - T-342 claimed files above → **released by cursor-stranger-ci-gate** after release-safety green; USB seed was PR #419 (merged) (2026-07-15T16:10:00Z)
 - `hermes-mobile/App.tsx` (tab-bar keyboard collapse policy only), `hermes-mobile/src/utils/tabBarKeyboardPolicy.ts`, `hermes-mobile/src/screens/SettingsScreen.tsx` (Done + Android back escape), `hermes-mobile/src/__tests__/tabBarKeyboardPolicy.test.ts`, `hermes-mobile/src/__tests__/SettingsScreen.test.tsx`, `plan.md` → **cursor-settings-escape** (T-341 P0 Settings trap: keyboard hid tabs with no Done) (2026-07-15T14:15:00Z)
