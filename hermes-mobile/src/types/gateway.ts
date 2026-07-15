@@ -116,6 +116,8 @@ export interface GatewaySettings {
   hermesAvatar?: HermesAvatar;
   /** Lightweight animated presence cues. */
   playfulMotion?: boolean;
+  /** User dismissed first-run ConnectMacGate — show ChatConnectionPanel instead of re-trapping. */
+  connectMacGateDismissed?: boolean;
 }
 
 export const DEFAULT_GATEWAY_SETTINGS: GatewaySettings = {

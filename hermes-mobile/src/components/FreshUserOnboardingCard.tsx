@@ -12,17 +12,19 @@ import type { GatewayProfile } from '../types/gatewayProfile';
 type FreshUserOnboardingCardProps = {
   profiles: GatewayProfile[];
   tailscaleMacLabel?: string;
+  wifiConnected?: boolean;
   testID?: string;
 };
 
 export default function FreshUserOnboardingCard({
   profiles,
   tailscaleMacLabel,
+  wifiConnected = true,
   testID = 'fresh-user-onboarding-card',
 }: FreshUserOnboardingCardProps) {
   const freshUser = isFreshUserUnpaired(profiles);
   const heading = freshUserOnboardingHeading(freshUser);
-  const steps = freshUserOnboardingSteps({ tailscaleMacLabel });
+  const steps = freshUserOnboardingSteps({ tailscaleMacLabel, wifiConnected });
 
   return (
     <View style={styles.wrap} testID={testID}>

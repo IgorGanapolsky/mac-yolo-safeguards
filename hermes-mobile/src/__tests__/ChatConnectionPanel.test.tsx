@@ -230,7 +230,7 @@ describe('ChatConnectionPanel', () => {
   });
 
   it('explains cellular blocks direct home Wi‑Fi URLs', () => {
-    const { getByText } = render(
+    const { getAllByText, getByText } = render(
       <ChatConnectionPanel
         connectionState="disconnected"
         connectionMode="gateway"
@@ -241,7 +241,7 @@ describe('ChatConnectionPanel', () => {
         onSearchMac={jest.fn()}
       />,
     );
-    expect(getByText('Use Tailscale from cellular')).toBeTruthy();
+    expect(getAllByText('Use Tailscale from cellular').length).toBeGreaterThan(0);
     expect(getByText(/Home Wi‑Fi addresses won't work on cellular/)).toBeTruthy();
   });
 
