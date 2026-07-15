@@ -23,6 +23,25 @@ HERMES_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 # shellcheck source=maestro-env.sh
 source "$SCRIPT_DIR/maestro-env.sh"
 
+# Maestro needs a JDK; Homebrew openjdk is often not on PATH for agent shells.
+if [[ -z "${JAVA_HOME:-}" || ! -x "${JAVA_HOME}/bin/java" ]]; then
+  for c in \
+    /opt/homebrew/opt/openjdk@17 \
+    /opt/homebrew/opt/openjdk@21 \
+    /opt/homebrew/opt/zulu@17 \
+    /Library/Java/JavaVirtualMachines/zulu-17.jdk/Contents/Home; do
+    if [[ -x "$c/bin/java" ]]; then
+      export JAVA_HOME="$c"
+      break
+    fi
+  done
+fi
+if [[ -n "${JAVA_HOME:-}" ]]; then
+  export PATH="$JAVA_HOME/bin:$PATH"
+fi
+# XCTest driver on cold iOS sim often exceeds default ~60s under load.
+export MAESTRO_DRIVER_STARTUP_TIMEOUT="${MAESTRO_DRIVER_STARTUP_TIMEOUT:-120000}"
+
 cd "$HERMES_DIR"
 
 PKG="${HERMES_ANDROID_PACKAGE:-com.iganapolsky.hermesmobile}"
@@ -63,21 +82,53 @@ ios_ok=0
 android_status="skipped"
 ios_status="skipped"
 
+pick_android_device() {
+  # Prefer emulator so we install branch debug JS (not production release on USB phone).
+  local d
+  d="$(adb devices 2>/dev/null | awk 'NR>1 && $2=="device" && $1 ~ /^emulator-/ {print $1; exit}')"
+  if [[ -n "$d" ]]; then
+    echo "$d"
+    return 0
+  fi
+  if [[ "${HERMES_FRESH_USER_ALLOW_PHONE:-}" == "1" ]]; then
+    adb devices 2>/dev/null | awk 'NR>1 && $2=="device" {print $1; exit}'
+    return 0
+  fi
+  return 1
+}
+
 run_android() {
   echo "=== Android fresh-user E2E ==="
   local device
-  device="$(adb devices 2>/dev/null | awk 'NR>1 && $2=="device" {print $1; exit}')"
+  device="$(pick_android_device || true)"
   if [[ -z "$device" ]]; then
-    echo "No Android device/emulator — booting AVD if possible..."
+    echo "No Android emulator — booting AVD (phone ignored unless HERMES_FRESH_USER_ALLOW_PHONE=1)..."
     if [[ -x scripts/dev-emulator.sh ]]; then
       bash scripts/dev-emulator.sh --wipe --headless || true
-      sleep 5
-      device="$(adb devices 2>/dev/null | awk 'NR>1 && $2=="device" {print $1; exit}')"
+      sleep 8
+    else
+      # Fallback: boot known Maestro AVD if present
+      local avd="${HERMES_FRESH_USER_AVD:-Maestro_ANDROID_pixel_6_android-33}"
+      if command -v emulator >/dev/null 2>&1 && emulator -list-avds 2>/dev/null | grep -qx "$avd"; then
+        nohup emulator -avd "$avd" -no-snapshot-load -no-audio -no-boot-anim -gpu swiftshader_indirect \
+          >/tmp/hermes-fresh-emulator.log 2>&1 &
+        # Wait up to ~3 min for boot
+        local i=0
+        while [[ $i -lt 36 ]]; do
+          sleep 5
+          device="$(pick_android_device || true)"
+          if [[ -n "$device" ]] && adb -s "$device" shell getprop sys.boot_completed 2>/dev/null | grep -q 1; then
+            break
+          fi
+          i=$((i + 1))
+        done
+      fi
     fi
+    device="$(pick_android_device || true)"
   fi
   if [[ -z "$device" ]]; then
     android_status="skipped_no_device"
-    echo "SKIP Android: no emulator/device"
+    echo "SKIP Android: no emulator (set HERMES_FRESH_USER_ALLOW_PHONE=1 to use USB phone release)"
     return 0
   fi
   echo "Android device: $device"
@@ -111,14 +162,47 @@ run_android() {
     fi
   fi
 
-  # Metro for debug builds
+  # Metro for debug builds — must be this worktree so paywall testIDs match branch source
   if ! curl -s -m 2 "http://localhost:8081/status" 2>/dev/null | grep -q packager; then
-    echo "Starting Metro..."
-    (npx expo start --port 8081 >/tmp/hermes-fresh-metro.log 2>&1 &)
-    sleep 8
+    echo "Starting Metro from $HERMES_DIR..."
+    (cd "$HERMES_DIR" && npx expo start --port 8081 --clear >/tmp/hermes-fresh-metro.log 2>&1 &)
+    local metro_i=0
+    while [[ $metro_i -lt 30 ]]; do
+      if curl -s -m 2 "http://localhost:8081/status" 2>/dev/null | grep -q packager; then
+        break
+      fi
+      sleep 2
+      metro_i=$((metro_i + 1))
+    done
   fi
   adb -s "$device" reverse tcp:8081 tcp:8081 >/dev/null 2>&1 || true
+  adb -s "$device" reverse tcp:8082 tcp:8082 >/dev/null 2>&1 || true
 
+  # Pre-warm the Android JS bundle so Maestro clearState/launch is not stuck on splash
+  echo "Pre-warming Metro Android bundle..."
+  curl -s -m 90 -o /dev/null \
+    "http://localhost:8081/node_modules/expo/AppEntry.bundle?platform=android&dev=true&minify=false&modulesOnly=false&runModule=true" \
+    || true
+
+  # Confirm emulator still online after long bundle warm (AVD can flake offline)
+  if ! adb -s "$device" shell echo ok >/dev/null 2>&1; then
+    echo "Emulator went offline during pre-warm" >&2
+    android_status="fail_device_offline"
+    return 1
+  fi
+
+  # Warm launch once so first Metro connect completes before Maestro clocks start
+  adb -s "$device" shell am force-stop "$PKG" || true
+  adb -s "$device" shell am start -n "$PKG/.MainActivity" >/dev/null 2>&1 || true
+  local warm_i=0
+  while [[ $warm_i -lt 30 ]]; do
+    if adb -s "$device" exec-out uiautomator dump /dev/tty 2>/dev/null | grep -q 'resource-id="tab-hermes"'; then
+      echo "App warm: tab-hermes visible"
+      break
+    fi
+    sleep 2
+    warm_i=$((warm_i + 1))
+  done
   adb -s "$device" shell am force-stop "$PKG" || true
   sleep 1
 
@@ -182,7 +266,8 @@ run_ios() {
     sleep 8
   fi
 
-  if maestro test "$FLOW" 2>&1 | tee "$PROOF_DIR/ios-maestro.log"; then
+  # Prefer --udid (Maestro 2.x); --device is Android-oriented and can miss sims.
+  if maestro --udid "$udid" test "$FLOW" 2>&1 | tee "$PROOF_DIR/ios-maestro.log"; then
     ios_ok=1
     ios_status="pass"
     echo "iOS fresh-user: PASS"
