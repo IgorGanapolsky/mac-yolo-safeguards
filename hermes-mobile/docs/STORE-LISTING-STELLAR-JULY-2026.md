@@ -6,13 +6,14 @@
 |---------|----------|--------|
 | **Play full_description** | API edit `12597091601906899760` committed 2026-07-15T15:53:35Z; FAQ: iPhone live on App Store + Android on Play | ✅ LIVE (API verify: `has_live_ios=True`) |
 | **Play short_description** | Hybrid C: `Your Mac, not cloud credits. Leash Pro $19.99 — approve AI from phone.` | ✅ LIVE |
+| **Play Publishing** | Console: Changes in review (full desc + screenshots + icon + FG + video); Managed publishing off | ⏳ Google review → public CDN |
 | **Play phoneScreenshots** | 6 frames re-uploaded (sha1s verified via images.list); prior 404 empty → now count=6 | ✅ LIVE |
 | **Play featureGraphic + icon** | Re-uploaded with same edit | ✅ LIVE |
 | **iOS App Store** | iTunes search trackId `6786778037`, version `1.0`, `currentVersionReleaseDate=2026-07-14T13:39:22Z`, [public URL](https://apps.apple.com/us/app/hermes-mobile-ai-agent-leash/id6786778037) | ✅ READY_FOR_SALE / searchable |
 | **iOS promotionalText** | ASC PATCH on v1.0 READY_FOR_SALE loc `db32e3f4-345a-4965-b5d0-6855b68797a3` + v1.1 PREPARE | ✅ LIVE (promo editable without review) |
 | **iOS subtitle** | Live appInfo READY_FOR_SALE cannot change subtitle (ASC 409 INVALID_STATE). Updated on v1.1 PREPARE appInfo only — ships with next version | ⏳ blocked until 1.1 release |
 | **In-app review prompt** | `STORE_REVIEW_THRESHOLD=1` after first Leash approval (`GatewayContext` already calls `requestStoreReviewIfThresholdReached`); `hasRequestedReview` anti-spam | ✅ code (needs OTA/release + traffic for ≥1 review) |
-| **Store Listing Experiments / CSL** | androidpublisher v3 has **no** experiments/CSL resources (edits: listings/images/tracks only) | 🚫 API blocker — Console UI only |
+| **Store Listing Experiments / CSL** | Experiment **in progress** `Short desc A vs hybrid C` (Jul 14, 50%); API has no SLE methods. CSL=0 (deferred while listing in review) | ✅ SLE live; CSL deferred |
 | **ASC PPO** | Product Page Optimization requires App Analytics + traffic; no local ASC issuer for full automation beyond Chrome | 🚫 not created (no false claim) |
 
 **Before → After Live score (agent estimate):** Live **7/10 → ~9/10** (dual-platform copy + screenshots + promo + review@1). Remaining: experiments/CSL Console-only, 0 reviews until traffic, subtitle waits for 1.1, YouTube promo URL if still missing.
