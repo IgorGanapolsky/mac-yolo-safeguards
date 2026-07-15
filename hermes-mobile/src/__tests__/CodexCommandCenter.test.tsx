@@ -240,4 +240,24 @@ describe('CodexCommandCenter', () => {
     expect(getByTestId('command-center-approvals')).toBeTruthy();
     expect(getByText('3')).toBeTruthy();
   });
+
+  it('never says Reconnecting for never-connected installs', () => {
+    const { getByTestId } = render(
+      <CodexCommandCenter
+        connectionState="disconnected"
+        macRetryBusy
+        hasEverConnected={false}
+        pendingApprovalCount={0}
+        onOpenApprovals={jest.fn()}
+        onMacRetry={jest.fn()}
+      />,
+    );
+    expect(getByTestId('command-center-mac-detail').props.children).toBe(
+      'Looking for your Mac…',
+    );
+    expect(String(getByTestId('command-center-mac-detail').props.children)).not.toContain(
+      'Reconnecting',
+    );
+  });
+
 });

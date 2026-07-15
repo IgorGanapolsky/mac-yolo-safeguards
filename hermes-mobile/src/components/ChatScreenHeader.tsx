@@ -23,6 +23,11 @@ type ChatScreenHeaderProps = {
   isDemo?: boolean;
   /** Keep IP / relay detail visible when connected (multi-Mac setups). */
   showMachineDetailWhenConnected?: boolean;
+  /**
+   * Fresh-user / Choose-computer flow: freeze status row height and hide dogfood USB /
+   * Pair-relay thrash so the sheet is the sole connection narrative.
+   */
+  quietConnectFlow?: boolean;
   workspaceName?: string;
   workspaceHandoff?: string;
   canSwitchWorkspace?: boolean;
@@ -139,6 +144,7 @@ export default function ChatScreenHeader({
   wrongKeyBannerActive = false,
   isDemo = false,
   showMachineDetailWhenConnected = false,
+  quietConnectFlow = false,
   workspaceName,
   workspaceHandoff,
   canSwitchWorkspace = false,
@@ -162,10 +168,14 @@ export default function ChatScreenHeader({
     chatStalled,
     wrongKeyBannerActive,
   );
-  const endpoint = machineEndpoint?.trim() || '';
+  const endpoint = quietConnectFlow ? '' : machineEndpoint?.trim() || '';
   const showEndpoint =
     endpoint.length > 0 && (!link.connected || showMachineDetailWhenConnected);
   const showWorkspace = canSwitchWorkspace || Boolean(workspaceName);
+  const statusLabel = quietConnectFlow
+    ? routeStatusLabel?.trim() || 'Not connected'
+    : link.label;
+  const statusColor = quietConnectFlow ? colors.error : link.color;
 
   return (
     <View style={styles.wrap} testID="chat-screen-header">
@@ -232,8 +242,8 @@ export default function ChatScreenHeader({
         testID="chat-context-mac-button"
         accessibilityLabel="Choose your computer"
       >
-        <View style={[styles.statusDot, { backgroundColor: link.color }]} />
-        <View style={styles.macTextBlock}>
+        <View style={[styles.statusDot, { backgroundColor: statusColor }]} />
+        <View style={styles.macTextBlock} testID="chat-header-mac-status-block">
           <Text style={styles.macPrimaryLine} numberOfLines={1} ellipsizeMode="tail">
             <Text style={styles.macName} testID="chat-context-mac">
               {machineLabel}
@@ -246,11 +256,11 @@ export default function ChatScreenHeader({
             ) : null}
           </Text>
           <Text
-            style={[styles.macStatusLine, { color: link.color }]}
+            style={[styles.macStatusLine, { color: statusColor }]}
             numberOfLines={2}
             testID="chat-context-link"
           >
-            {link.label}
+            {statusLabel}
           </Text>
         </View>
       </Pressable>
@@ -411,6 +421,8 @@ const styles = StyleSheet.create({
   macTextBlock: {
     flex: 1,
     minWidth: 0,
+    // Reserve two status lines so Pair-relay / heal copy flips do not jump layout.
+    minHeight: 36,
     gap: 2,
   },
   macPrimaryLine: {

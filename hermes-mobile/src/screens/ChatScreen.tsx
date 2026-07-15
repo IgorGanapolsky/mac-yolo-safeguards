@@ -284,6 +284,14 @@ import {
   shouldSuppressEmptyGreetingUnreachable,
 } from '../utils/macUnreachableCopy';
 import { hasValidSavedComputer } from '../utils/freshUserOnboarding';
+import {
+  hasSuccessfulComputerConnection,
+  quietConnectFlowHeaderDisplay,
+  quietConnectFlowStatusLabel,
+  shouldHideCommandCenterDuringConnectFlow,
+  shouldHideConnectionPanelBehindPicker,
+  shouldQuietConnectFlowChrome,
+} from '../utils/connectFlowLayout';
 import { isLoopbackGatewayUrl } from '../utils/gatewayUrlPolicy';
 import { isInvalidGatewayProfile } from '../services/gatewayProfiles';
 import { isPrivateLanGatewayUrl } from '../utils/gatewayEndpoint';
@@ -1523,7 +1531,7 @@ export default function ChatScreen() {
     [projectState],
   );
 
-  const machineHeaderDisplay = useMemo(
+  const machineHeaderDisplayRaw = useMemo(
     () =>
       resolveChatMachineHeaderDisplay({
         activeProfile: activeGatewayProfile,
@@ -1550,6 +1558,23 @@ export default function ChatScreen() {
     ],
   );
 
+  const quietConnectFlow = shouldQuietConnectFlowChrome({
+    macPickerVisible,
+    showMacConnectionHelp,
+    profiles: gatewayProfiles,
+    gatewayUrl,
+    isDemo,
+  });
+  const hasEverConnected = hasSuccessfulComputerConnection(gatewayProfiles);
+  const hideConnectionPanelBehindPicker =
+    shouldHideConnectionPanelBehindPicker(macPickerVisible);
+  const hideCommandCenterDuringConnect =
+    shouldHideCommandCenterDuringConnectFlow(macPickerVisible);
+
+  const machineHeaderDisplay = quietConnectFlow
+    ? quietConnectFlowHeaderDisplay()
+    : machineHeaderDisplayRaw;
+
   const relayRouteDisplay = useMemo(
     () =>
       resolveRelayRouteDisplay({
@@ -1558,8 +1583,8 @@ export default function ChatScreen() {
         connectionState,
         workers: relayWorkers,
         activeWorkerId: activeRelayWorkerId,
-        fallbackMachineLabel: machineHeaderDisplay.machineLabel,
-        fallbackEndpoint: machineHeaderDisplay.machineEndpoint,
+        fallbackMachineLabel: machineHeaderDisplayRaw.machineLabel,
+        fallbackEndpoint: machineHeaderDisplayRaw.machineEndpoint,
         heal: connectionHeal,
         hasAlternateRoutes: alternateHealRoutes,
         wifiConnected,
@@ -1572,8 +1597,8 @@ export default function ChatScreen() {
       connectionState,
       relayWorkers,
       activeRelayWorkerId,
-      machineHeaderDisplay.machineLabel,
-      machineHeaderDisplay.machineEndpoint,
+      machineHeaderDisplayRaw.machineLabel,
+      machineHeaderDisplayRaw.machineEndpoint,
       connectionHeal,
       alternateHealRoutes,
       wifiConnected,
@@ -1606,10 +1631,11 @@ export default function ChatScreen() {
     });
   }, [health?.authMismatch, machineShortLabel]);
 
-  const routeStatusLabel =
-    settings.connectionMode === 'relay' &&
-    !isPaired &&
-    relayRouteDisplay.routeStatus !== 'Direct link'
+  const routeStatusLabel = quietConnectFlow
+    ? quietConnectFlowStatusLabel(macPickerVisible)
+    : settings.connectionMode === 'relay' &&
+        !isPaired &&
+        relayRouteDisplay.routeStatus !== 'Direct link'
       ? relayRouteDisplay.routeStatus
       : !effectiveMacHttpOk && connectionHealExhausted
         ? savedMacUnreachableStatus(machineShortLabel)
@@ -1622,7 +1648,7 @@ export default function ChatScreen() {
     hasSavedComputer: hasValidSavedComputer(gatewayProfiles),
   });
 
-  const hasPriorSuccessfulConnection = hasValidSavedComputer(gatewayProfiles);
+  const hasPriorSuccessfulConnection = hasEverConnected;
 
   const macRetryBannerText = useMemo(() => {
     if (
@@ -1636,7 +1662,7 @@ export default function ChatScreen() {
       return reconnectingToMacCopy(machineShortLabel);
     }
     if (
-      !hasPriorSuccessfulConnection &&
+!hasPriorSuccessfulConnection &&
       (macRetryBusy || (connectionHealInFlight && !connectionHealExhausted))
     ) {
       return connectingToMacCopy(machineShortLabel);
@@ -6305,6 +6331,7 @@ export default function ChatScreen() {
           machineEndpoint={machineEndpoint}
           routeStatusLabel={routeStatusLabel}
           showMachineDetailWhenConnected={machineHeaderDisplay.showDetailWhenConnected}
+          quietConnectFlow={quietConnectFlow}
           connectionState={headerConnectionState}
           macHttpReachable={
             effectiveAuthMismatch ? false : effectiveMacHttpOk || chatStalled
@@ -6328,30 +6355,33 @@ export default function ChatScreen() {
           }}
           onPressWorkspace={handlePickWorkspace}
         />
-        <CodexCommandCenter
-          connectionState={connectionState}
-          macHttpReachable={
-            effectiveAuthMismatch ? false : effectiveMacHttpOk || chatStalled
-          }
-          macRetryBusy={macRetryBusy}
-          silentHealInFlight={hideMacTileForSilentHeal}
-          healExhausted={connectionHealExhausted && !effectiveMacHttpOk}
-          pendingApprovalCount={composerApprovals.length}
-          runProgress={progressBanner}
-          isSending={isSending}
-          machineName={machineShortLabel}
-          chatStalled={effectiveAuthMismatch ? false : chatStalled}
-          authMismatch={effectiveAuthMismatch}
-          onOpenApprovals={() => {
-            haptics.selection();
-            navigation.navigate('Leash' as never);
-          }}
-          onMacRetry={() => void handleMacRetry()}
-        />
+        {!hideCommandCenterDuringConnect ? (
+          <CodexCommandCenter
+            connectionState={connectionState}
+            macHttpReachable={
+              effectiveAuthMismatch ? false : effectiveMacHttpOk || chatStalled
+            }
+            macRetryBusy={macRetryBusy}
+            silentHealInFlight={hideMacTileForSilentHeal}
+            healExhausted={connectionHealExhausted && !effectiveMacHttpOk}
+            pendingApprovalCount={composerApprovals.length}
+            runProgress={progressBanner}
+            isSending={isSending}
+            machineName={machineShortLabel}
+            chatStalled={effectiveAuthMismatch ? false : chatStalled}
+            authMismatch={effectiveAuthMismatch}
+            hasEverConnected={hasEverConnected}
+            onOpenApprovals={() => {
+              haptics.selection();
+              navigation.navigate('Leash' as never);
+            }}
+            onMacRetry={() => void handleMacRetry()}
+          />
+        ) : null}
       </View>
 
       <View style={styles.keyboardContainer}>
-        {showMacConnectionHelp ? (
+        {showMacConnectionHelp && !hideConnectionPanelBehindPicker ? (
           <ScrollView
             style={styles.connectionHelpScroll}
             contentContainerStyle={[

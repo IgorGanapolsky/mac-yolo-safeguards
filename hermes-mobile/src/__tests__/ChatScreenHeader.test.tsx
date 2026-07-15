@@ -54,6 +54,25 @@ describe('ChatScreenHeader', () => {
     expect(getByTestId('chat-context-mac-endpoint').props.children).toBeTruthy();
   });
 
+  it('quiet connect flow hides USB endpoint and uses stable Not connected / Choose label', () => {
+    const { getByTestId, queryByTestId } = render(
+      <ChatScreenHeader
+        threadTitle="New chat"
+        machineLabel="Your computer"
+        machineEndpoint="127.0.0.1:8642"
+        routeStatusLabel="Choose a computer"
+        quietConnectFlow
+        connectionState="disconnected"
+        onOpenThreads={jest.fn()}
+        onPressMachine={jest.fn()}
+      />,
+    );
+    expect(getByTestId('chat-context-mac').props.children).toBe('Your computer');
+    expect(queryByTestId('chat-context-mac-endpoint')).toBeNull();
+    expect(getByTestId('chat-context-link').props.children).toBe('Choose a computer');
+    expect(getByTestId('chat-header-mac-status-block')).toBeTruthy();
+  });
+
   it('uses the route status label for disconnected relay-style routes', () => {
     const { getByTestId } = render(
       <ChatScreenHeader

@@ -21,6 +21,8 @@ type CodexCommandCenterProps = {
   chatStalled?: boolean;
   /** Auth probe failed — never show green Connected beside wrong-key. */
   authMismatch?: boolean;
+  /** False on brand-new installs — never say Reconnecting. */
+  hasEverConnected?: boolean;
 };
 
 function connectionCopy(
@@ -31,6 +33,7 @@ function connectionCopy(
   chatStalled = false,
   healExhausted = false,
   authMismatch = false,
+  hasEverConnected = true,
 ): { label: string; detail: string; color: string } {
   if (authMismatch) {
     return { label: 'Not connected', detail: 'Wrong key — tap to re-pair', color: colors.error };
@@ -41,7 +44,10 @@ function connectionCopy(
       /^(computer|your computer|computer via usb)$/i.test(machineName.trim());
     return {
       label: machineName,
-      detail: generic ? 'Looking for your Mac…' : 'Reconnecting…',
+      detail:
+        !hasEverConnected || generic
+          ? 'Looking for your Mac…'
+          : 'Reconnecting…',
       color: colors.warning,
     };
   }
@@ -65,9 +71,17 @@ function connectionCopy(
     return { label: 'Relay only', detail: 'Chat needs direct link', color: colors.warning };
   }
   if (state === 'connecting') {
-    return { label: 'Connecting', detail: `Checking ${machineName}`, color: colors.warning };
+    return {
+      label: hasEverConnected ? 'Connecting' : 'Looking',
+      detail: hasEverConnected ? `Checking ${machineName}` : 'Looking for your Mac…',
+      color: colors.warning,
+    };
   }
-  return { label: 'Not connected', detail: 'Tap to reconnect', color: colors.error };
+  return {
+    label: 'Not connected',
+    detail: hasEverConnected ? 'Tap to reconnect' : 'Tap to connect',
+    color: colors.error,
+  };
 }
 
 const INACTIVE_RUN_PHASES = new Set(['completed', 'failed', 'idle']);
@@ -119,6 +133,7 @@ export default function CodexCommandCenter({
   machineName = 'Computer',
   chatStalled = false,
   authMismatch = false,
+  hasEverConnected = true,
 }: CodexCommandCenterProps) {
   const link = connectionCopy(
     connectionState,
@@ -128,6 +143,7 @@ export default function CodexCommandCenter({
     chatStalled,
     healExhausted,
     authMismatch,
+    hasEverConnected,
   );
   const showMacTile =
     shouldShowMacTile(connectionState, macHttpReachable && !authMismatch) && !silentHealInFlight;

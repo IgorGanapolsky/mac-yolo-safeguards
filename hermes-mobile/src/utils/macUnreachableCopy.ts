@@ -49,7 +49,8 @@ export function connectingToMacCopy(macLabel?: string): string {
     label === 'your computer' ||
     label === 'Computer' ||
     label === 'computer' ||
-    label === 'Computer via USB'
+    label === 'Computer via USB' ||
+    label === 'Your computer'
   ) {
     return 'Looking for your Mac…';
   }
