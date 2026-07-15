@@ -1,5 +1,5 @@
 import React from 'react';
-import { Text, Platform } from 'react-native';
+import { Keyboard, Text, Platform } from 'react-native';
 import { fireEvent } from '@testing-library/react-native';
 import { render } from '@testing-library/react-native';
 import BottomSheetModal from '../components/BottomSheetModal';
@@ -13,6 +13,17 @@ const mockUseKeyboardInset = useKeyboardInset as jest.MockedFunction<typeof useK
 describe('BottomSheetModal', () => {
   beforeEach(() => {
     mockUseKeyboardInset.mockReturnValue({ inset: 0, windowShrunk: false });
+  });
+
+  it('dismisses the keyboard when the sheet becomes visible', () => {
+    const dismissSpy = jest.spyOn(Keyboard, 'dismiss');
+    render(
+      <BottomSheetModal visible onClose={jest.fn()} testID="sheet">
+        <Text>Body</Text>
+      </BottomSheetModal>,
+    );
+    expect(dismissSpy).toHaveBeenCalled();
+    dismissSpy.mockRestore();
   });
 
   it('closes when backdrop is pressed', () => {

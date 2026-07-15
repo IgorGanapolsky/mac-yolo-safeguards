@@ -1,5 +1,16 @@
 import React, { useState } from 'react';
-import { Keyboard, Linking, Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import {
+  Dimensions,
+  Keyboard,
+  Linking,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from 'react-native';
+import { useKeyboardInset } from '../hooks/useKeyboardInset';
+import { connectionFormKeyboardPadding } from '../utils/connectionFormKeyboard';
 import type { LanScanProgress, LanScanResult } from '../types/lanScan';
 import type { GatewayProfile } from '../types/gatewayProfile';
 import type { ConnectionMode } from '../types/gateway';
@@ -153,9 +164,20 @@ export default function ChatConnectionPanel({
   const [manualInput, setManualInput] = useState('');
   const [addingProfile, setAddingProfile] = useState(false);
   const [manualInputError, setManualInputError] = useState<string | null>(null);
+  const [manualFocused, setManualFocused] = useState(false);
+  const { inset: keyboardInset, windowShrunk } = useKeyboardInset({
+    focused: manualFocused,
+  });
+  const keyboardPad = connectionFormKeyboardPadding({
+    keyboardInset,
+    inputFocused: manualFocused,
+    windowHeight: Dimensions.get('window').height,
+    windowShrunk,
+  });
 
   const handleManualConnect = async () => {
     Keyboard.dismiss();
+    setManualFocused(false);
     const cleaned = cleanManualGatewayUrl(manualInput);
     if (!cleaned) {
       setManualInputError('Please enter an IP address or URL.');
@@ -245,7 +267,10 @@ export default function ChatConnectionPanel({
   const primaryActionLabel = freshUserPrimaryActionLabel(showUsbFix);
 
   return (
-    <View style={styles.wrap} testID={testID}>
+    <View
+      style={[styles.wrap, keyboardPad > 0 ? { paddingBottom: 18 + keyboardPad } : null]}
+      testID={testID}
+    >
       <View style={styles.hero}>
         <View style={[styles.heroOrb, searching ? styles.heroOrbSearching : null]}>
           <View style={[styles.heroOrbInner, searching ? styles.heroOrbInnerSearching : null]} />
@@ -283,7 +308,11 @@ export default function ChatConnectionPanel({
             label={primaryActionLabel}
             loadingLabel="Fixing USB connection…"
             loading={usbFixBusy}
-            onPress={() => onFixUsbLink?.()}
+            onPress={() => {
+              Keyboard.dismiss();
+              setManualFocused(false);
+              onFixUsbLink?.();
+            }}
             testID="chat-connection-fix-usb"
             style={styles.primaryAction}
           />
@@ -292,7 +321,11 @@ export default function ChatConnectionPanel({
             label={primaryActionLabel}
             loadingLabel="Finding computers…"
             loading={searching}
-            onPress={onSearchMac}
+            onPress={() => {
+              Keyboard.dismiss();
+              setManualFocused(false);
+              onSearchMac();
+            }}
             testID="chat-connection-search"
             style={styles.primaryAction}
           />
@@ -314,7 +347,16 @@ export default function ChatConnectionPanel({
               onChangeText={setManualInput}
               autoCapitalize="none"
               autoCorrect={false}
+              autoFocus={false}
+              showSoftInputOnFocus
               keyboardType="url"
+              blurOnSubmit
+              returnKeyType="done"
+              onFocus={() => setManualFocused(true)}
+              onBlur={() => setManualFocused(false)}
+              onSubmitEditing={() => {
+                void handleManualConnect();
+              }}
               testID="chat-manual-input"
             />
             <LoadingButton

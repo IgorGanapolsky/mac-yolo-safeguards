@@ -1,9 +1,11 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   BackHandler,
+  Dimensions,
   Keyboard,
   KeyboardAvoidingView,
   Platform,
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -11,9 +13,11 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useGateway } from '../context/GatewayContext';
 import { useKeyboardInset } from '../hooks/useKeyboardInset';
 import { colors } from '../theme/colors';
+import { connectionFormKeyboardPadding } from '../utils/connectionFormKeyboard';
 import { describeBootstrapPhase } from '../utils/gatewayConnection';
 import PairQrScannerModal from './PairQrScannerModal';
 import FreshUserOnboardingCard from './FreshUserOnboardingCard';
@@ -67,6 +71,8 @@ export default function ConnectMacGate() {
     wifiConnected,
   } = useGateway();
 
+  const insets = useSafeAreaInsets();
+  const scrollRef = useRef<ScrollView>(null);
   const [qrVisible, setQrVisible] = useState(false);
   const [invalidQrHint, setInvalidQrHint] = useState<string | null>(null);
   const [isSearching, setIsSearching] = useState(false);
@@ -75,11 +81,10 @@ export default function ConnectMacGate() {
   const [addingProfile, setAddingProfile] = useState(false);
   const [manualInputError, setManualInputError] = useState<string | null>(null);
   const [enablingDemo, setEnablingDemo] = useState(false);
-  const [manualInputFocused, setManualInputFocused] = useState(false);
-  const scrollRef = useRef<ScrollView>(null);
-  const { inset: keyboardInset } = useKeyboardInset({ focused: manualInputFocused });
+  const [manualFocused, setManualFocused] = useState(false);
 
   const handleDismiss = useCallback(async () => {
+    Keyboard.dismiss();
     try {
       await patchSettings({ connectMacGateDismissed: true });
       haptics.light();
@@ -89,6 +94,7 @@ export default function ConnectMacGate() {
   }, [patchSettings]);
 
   const handleExploreDemo = async () => {
+    Keyboard.dismiss();
     setEnablingDemo(true);
     try {
       await patchSettings({ demoMode: true });
@@ -102,6 +108,7 @@ export default function ConnectMacGate() {
 
   const handleManualConnect = async () => {
     Keyboard.dismiss();
+    setManualFocused(false);
     const cleaned = cleanManualGatewayUrl(manualInput);
     if (!cleaned) {
       setManualInputError('Please enter an IP address or URL.');
@@ -126,6 +133,7 @@ export default function ConnectMacGate() {
 
   const handleSelectProfile = useCallback(
     async (profileId: string, profile: GatewayProfile) => {
+      Keyboard.dismiss();
       await selectGatewayProfile(profileId, { ensureProfile: profile });
       await retryGatewayBootstrap();
     },
@@ -165,6 +173,16 @@ export default function ConnectMacGate() {
         settings.connectionMode === 'gateway' &&
         (!hasSavedMac || pickerProfiles.length > 0)));
 
+  const { inset: keyboardInset, windowShrunk } = useKeyboardInset({
+    focused: showGate,
+  });
+  const keyboardLift = connectionFormKeyboardPadding({
+    keyboardInset,
+    inputFocused: manualFocused,
+    windowHeight: Dimensions.get('window').height,
+    windowShrunk,
+  });
+
   const searching =
     isSearching ||
     gatewayBootstrapPhase === 'booting' ||
@@ -188,33 +206,54 @@ export default function ConnectMacGate() {
     }
   }, [probeTailscaleComputers, retryGatewayBootstrap, scanForGatewayProfiles]);
 
+  const runWifiSearchFromUser = useCallback(() => {
+    Keyboard.dismiss();
+    setManualFocused(false);
+    void runWifiSearch();
+  }, [runWifiSearch]);
+
   useEffect(() => {
     if (!showGate) {
+      setManualFocused(false);
       return;
     }
+    // Kill spurious IME from Chat composer under this absolute overlay.
+    Keyboard.dismiss();
+    setManualFocused(false);
     void probeTailscaleComputers();
   }, [probeTailscaleComputers, showGate]);
 
   useEffect(() => {
-    if (!showGate || searching) {
+    if (!showGate || searching || manualFocused) {
       return;
     }
     const timer = setInterval(() => {
-      runWifiSearch();
+      void runWifiSearch();
     }, AUTO_RETRY_MS);
     return () => clearInterval(timer);
-  }, [showGate, searching, runWifiSearch]);
+  }, [showGate, searching, manualFocused, runWifiSearch]);
 
   useEffect(() => {
     if (!showGate) {
       return;
     }
     const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (manualFocused || (Keyboard.metrics()?.height ?? 0) > 0) {
+        Keyboard.dismiss();
+        setManualFocused(false);
+        return true;
+      }
       void handleDismiss();
       return true;
     });
     return () => subscription.remove();
-  }, [handleDismiss, showGate]);
+  }, [handleDismiss, manualFocused, showGate]);
+
+  const scrollManualIntoView = useCallback(() => {
+    requestAnimationFrame(() => {
+      scrollRef.current?.scrollToEnd({ animated: true });
+    });
+  }, []);
 
   const primaryTailscaleLabel =
     tailscaleDiscoveries.length > 0
@@ -224,171 +263,200 @@ export default function ConnectMacGate() {
   return (
     <>
       {showGate ? (
-        <KeyboardAvoidingView
-          style={styles.overlay}
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          keyboardVerticalOffset={Platform.OS === 'ios' ? 12 : 0}
-          testID="connect-mac-gate"
-        >
-          <ScrollView
-            ref={scrollRef}
-            style={styles.cardScroll}
-            contentContainerStyle={[
-              styles.cardScrollContent,
-              keyboardInset > 0 ? { paddingBottom: 24 + keyboardInset } : null,
-            ]}
-            keyboardShouldPersistTaps="handled"
-            keyboardDismissMode="on-drag"
+        <View style={styles.overlay} testID="connect-mac-gate">
+          <KeyboardAvoidingView
+            style={styles.flex}
+            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+            keyboardVerticalOffset={insets.top}
           >
-            <View style={styles.card}>
-              <View style={styles.headerRow}>
-                <Text style={styles.title}>Connect your computer</Text>
-                <TouchableOpacity
-                  onPress={() => {
-                    void handleDismiss();
-                  }}
-                  accessibilityRole="button"
-                  accessibilityLabel="Not now"
-                  testID="connect-mac-gate-dismiss"
-                >
-                  <Text style={styles.dismissText}>Not now</Text>
-                </TouchableOpacity>
-              </View>
-              <Text style={styles.body}>
-                {onCellular
-                  ? 'Hermes on your phone talks to Hermes on your computer. On cellular, use Tailscale — we also search when you are on home Wi‑Fi.'
-                  : 'Hermes on your phone talks to Hermes on your computer. Follow the steps below — we search your home Wi‑Fi automatically.'}
-              </Text>
+            <ScrollView
+              ref={scrollRef}
+              style={styles.cardScroll}
+              contentContainerStyle={[
+                styles.cardScrollContent,
+                { paddingTop: Math.max(insets.top, 16) + 8, paddingBottom: 16 },
+              ]}
+              keyboardShouldPersistTaps="handled"
+              keyboardDismissMode="on-drag"
+              testID="connect-mac-gate-scroll"
+            >
+              <Pressable
+                onPress={() => {
+                  Keyboard.dismiss();
+                  setManualFocused(false);
+                }}
+                accessible={false}
+              >
+                <View style={styles.card}>
+                  <View style={styles.headerRow}>
+                    <Text style={styles.title}>Connect your computer</Text>
+                    <TouchableOpacity
+                      onPress={() => {
+                        void handleDismiss();
+                      }}
+                      accessibilityRole="button"
+                      accessibilityLabel="Not now"
+                      testID="connect-mac-gate-dismiss"
+                    >
+                      <Text style={styles.dismissText}>Not now</Text>
+                    </TouchableOpacity>
+                  </View>
+                  <Text style={styles.body}>
+                    {onCellular
+                      ? 'Hermes on your phone talks to Hermes on your computer. On cellular, use Tailscale — we also search when you are on home Wi‑Fi.'
+                      : 'Hermes on your phone talks to Hermes on your computer. Follow the steps below — we search your home Wi‑Fi automatically.'}
+                  </Text>
 
-              <FreshUserOnboardingCard
-                profiles={gatewayProfiles}
-                tailscaleMacLabel={primaryTailscaleLabel}
-                wifiConnected={wifiConnected}
-                testID="connect-mac-onboarding-card"
-              />
-
-              {tailscaleDiscoveries.length > 0 ? (
-                <TailscaleDiscoveryBanner
-                  discoveries={tailscaleDiscoveries}
-                  adding={tailscaleDiscoveryProbing}
-                  onAdd={(discovery) => {
-                    void addDiscoveredTailscaleComputer(discovery);
-                  }}
-                  prominent
-                />
-              ) : null}
-
-              <MacScanProgressCard
-                scanning={searching}
-                progress={profileScanProgress}
-                result={profileScanResult}
-                testID="connect-mac-scan-progress"
-              />
-
-              {showMachineRows && pickerProfiles.length > 0 ? (
-                <View style={styles.foundBlock} testID="connect-mac-found-machines">
-                  <Text style={styles.foundHeading}>Tap a computer to connect</Text>
-                  <GatewayProfilePicker
-                    profiles={pickerProfiles}
-                    activeProfileId={activeGatewayProfile?.id ?? null}
-                    onSelect={(profileId, profile) => {
-                      void handleSelectProfile(profileId, profile);
-                    }}
+                  <FreshUserOnboardingCard
+                    profiles={gatewayProfiles}
+                    tailscaleMacLabel={primaryTailscaleLabel}
                     wifiConnected={wifiConnected}
-                    showReachabilityHints={pickerProfiles.length > 1}
+                    testID="connect-mac-onboarding-card"
                   />
+
+                  {tailscaleDiscoveries.length > 0 ? (
+                    <TailscaleDiscoveryBanner
+                      discoveries={tailscaleDiscoveries}
+                      adding={tailscaleDiscoveryProbing}
+                      onAdd={(discovery) => {
+                        void addDiscoveredTailscaleComputer(discovery);
+                      }}
+                      prominent
+                    />
+                  ) : null}
+
+                  <MacScanProgressCard
+                    scanning={searching}
+                    progress={profileScanProgress}
+                    result={profileScanResult}
+                    testID="connect-mac-scan-progress"
+                  />
+
+                  {showMachineRows && pickerProfiles.length > 0 ? (
+                    <View style={styles.foundBlock} testID="connect-mac-found-machines">
+                      <Text style={styles.foundHeading}>Tap a computer to connect</Text>
+                      <GatewayProfilePicker
+                        profiles={pickerProfiles}
+                        activeProfileId={activeGatewayProfile?.id ?? null}
+                        onSelect={(profileId, profile) => {
+                          void handleSelectProfile(profileId, profile);
+                        }}
+                        wifiConnected={wifiConnected}
+                        showReachabilityHints={pickerProfiles.length > 1}
+                      />
+                    </View>
+                  ) : null}
+
+                  {!searching && !profileScanResult ? (
+                    <Text style={styles.statusText}>
+                      {describeBootstrapPhase(gatewayBootstrapPhase)}
+                    </Text>
+                  ) : null}
+
+                  {invalidQrHint ? <Text style={styles.hintError}>{invalidQrHint}</Text> : null}
+
+                  <View style={styles.manualEntry}>
+                    <Text style={styles.manualEntryTitle}>Connect manually (Tailscale or IP)</Text>
+                    <Text style={styles.manualEntrySubtitle}>
+                      Add by entering your computer's Tailscale or local IP address:
+                    </Text>
+                    <View style={styles.manualInputRow}>
+                      <TextInput
+                        style={styles.manualInput}
+                        placeholder="e.g. your-device-name or a 100.x address"
+                        placeholderTextColor={colors.textMuted}
+                        value={manualInput}
+                        onChangeText={setManualInput}
+                        autoCapitalize="none"
+                        autoCorrect={false}
+                        autoFocus={false}
+                        showSoftInputOnFocus
+                        keyboardType="url"
+                        blurOnSubmit
+                        returnKeyType="done"
+                        onFocus={() => {
+                          setManualFocused(true);
+                          scrollManualIntoView();
+                        }}
+                        onBlur={() => setManualFocused(false)}
+                        onSubmitEditing={() => {
+                          void handleManualConnect();
+                        }}
+                        testID="connect-manual-input"
+                      />
+                      <LoadingButton
+                        label="Connect"
+                        loadingLabel="Connecting…"
+                        loading={addingProfile}
+                        onPress={handleManualConnect}
+                        testID="connect-manual-submit"
+                        style={styles.manualButton}
+                      />
+                    </View>
+                    {manualInputError ? (
+                      <Text style={styles.manualError} testID="connect-manual-error">
+                        {manualInputError}
+                      </Text>
+                    ) : null}
+                  </View>
+
+                  {isDemoModeAllowed() ? (
+                    <View style={styles.demoEntry}>
+                      <Text style={styles.demoEntryTitle}>Just exploring?</Text>
+                      <Text style={styles.demoEntrySubtitle}>
+                        Try Hermes with sample data — no computer required. You can connect a real
+                        computer anytime from Settings.
+                      </Text>
+                      <LoadingButton
+                        label="Explore in demo mode"
+                        loadingLabel="Starting demo…"
+                        loading={enablingDemo}
+                        variant="secondary"
+                        onPress={handleExploreDemo}
+                        testID="connect-explore-demo"
+                      />
+                    </View>
+                  ) : null}
+
+                  <Text style={styles.footnote}>
+                    Need Hermes on your computer first? Open the setup guide from Settings — tap Not
+                    now above to use chat first.
+                  </Text>
                 </View>
-              ) : null}
+              </Pressable>
+            </ScrollView>
 
-              {!searching && !profileScanResult ? (
-                <Text style={styles.statusText}>{describeBootstrapPhase(gatewayBootstrapPhase)}</Text>
-              ) : null}
-
-              {invalidQrHint ? <Text style={styles.hintError}>{invalidQrHint}</Text> : null}
-
+            <View
+              style={[
+                styles.stickyActions,
+                {
+                  paddingBottom: Math.max(insets.bottom, 12),
+                  marginBottom: keyboardLift,
+                },
+              ]}
+              testID="connect-mac-gate-sticky-actions"
+            >
               <LoadingButton
                 label="Find computers"
                 loadingLabel="Finding computers…"
                 loading={searching}
-                onPress={() => runWifiSearch()}
+                onPress={runWifiSearchFromUser}
                 testID="connect-search-wifi"
               />
-
               <LoadingButton
                 label="Scan QR from your computer"
                 variant="secondary"
                 onPress={() => {
+                  Keyboard.dismiss();
+                  setManualFocused(false);
                   setInvalidQrHint(null);
                   setQrVisible(true);
                 }}
                 testID="connect-scan-qr"
               />
-
-              <View style={styles.manualEntry}>
-                <Text style={styles.manualEntryTitle}>Connect manually (Tailscale or IP)</Text>
-                <Text style={styles.manualEntrySubtitle}>
-                  Add by entering your computer's Tailscale or local IP address:
-                </Text>
-                <View style={styles.manualInputRow}>
-                  <TextInput
-                    style={styles.manualInput}
-                    placeholder="e.g. your-device-name or a 100.x address"
-                    placeholderTextColor={colors.textMuted}
-                    value={manualInput}
-                    onChangeText={setManualInput}
-                    autoCapitalize="none"
-                    autoCorrect={false}
-                    keyboardType="url"
-                    testID="connect-manual-input"
-                    onFocus={() => {
-                      setManualInputFocused(true);
-                      requestAnimationFrame(() => {
-                        scrollRef.current?.scrollToEnd({ animated: true });
-                      });
-                    }}
-                    onBlur={() => setManualInputFocused(false)}
-                  />
-                  <LoadingButton
-                    label="Connect"
-                    loadingLabel="Connecting…"
-                    loading={addingProfile}
-                    onPress={handleManualConnect}
-                    testID="connect-manual-submit"
-                    style={styles.manualButton}
-                  />
-                </View>
-                {manualInputError ? (
-                  <Text style={styles.manualError} testID="connect-manual-error">
-                    {manualInputError}
-                  </Text>
-                ) : null}
-              </View>
-
-              {isDemoModeAllowed() ? (
-                <View style={styles.demoEntry}>
-                  <Text style={styles.demoEntryTitle}>Just exploring?</Text>
-                  <Text style={styles.demoEntrySubtitle}>
-                    Try Hermes with sample data — no computer required. You can connect a real
-                    computer anytime from Settings.
-                  </Text>
-                  <LoadingButton
-                    label="Explore in demo mode"
-                    loadingLabel="Starting demo…"
-                    loading={enablingDemo}
-                    variant="secondary"
-                    onPress={handleExploreDemo}
-                    testID="connect-explore-demo"
-                  />
-                </View>
-              ) : null}
-
-              <Text style={styles.footnote}>
-                Need Hermes on your computer first? Open the setup guide from Settings — tap Not now
-                above to use chat first.
-              </Text>
             </View>
-          </ScrollView>
-        </KeyboardAvoidingView>
+          </KeyboardAvoidingView>
+        </View>
       ) : null}
 
       <PairQrScannerModal
@@ -402,7 +470,9 @@ export default function ConnectMacGate() {
           await retryGatewayBootstrap();
         }}
         onInvalidScan={() =>
-          setInvalidQrHint('That QR is not a Hermes pairing code. Open Connect phone on your computer.')
+          setInvalidQrHint(
+            'That QR is not a Hermes pairing code. Open Connect phone on your computer.',
+          )
         }
       />
     </>
@@ -415,23 +485,35 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(9, 11, 20, 0.96)',
     zIndex: 100,
   },
+  flex: {
+    flex: 1,
+  },
   cardScroll: {
     flex: 1,
   },
   cardScrollContent: {
     flexGrow: 1,
-    justifyContent: 'center',
-    padding: 24,
+    justifyContent: 'flex-start',
+    paddingHorizontal: 24,
   },
   card: {
     width: '100%',
     maxWidth: 420,
+    alignSelf: 'center',
     backgroundColor: colors.cardBg,
     borderRadius: 20,
     borderWidth: 1,
     borderColor: colors.borderLight,
     padding: 24,
     gap: 12,
+  },
+  stickyActions: {
+    paddingHorizontal: 24,
+    paddingTop: 8,
+    gap: 8,
+    borderTopWidth: 1,
+    borderTopColor: colors.borderLight,
+    backgroundColor: 'rgba(9, 11, 20, 0.98)',
   },
   headerRow: {
     flexDirection: 'row',
