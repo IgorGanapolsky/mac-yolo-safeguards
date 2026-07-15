@@ -395,10 +395,37 @@ jobs:
           EXPO_ASC_API_KEY_ISSUER_ID: ${{ secrets.EXPO_ASC_API_KEY_ISSUER_ID }}
         run: npm run launch:preflight:ios
 
-      - name: Build iOS production artifact
-        id: build
+      - name: Require EAS spend confirmation for new iOS production builds
+        if: inputs.eas_build_id == ''
+        env:
+          CONFIRM_EAS: ${{ inputs.confirm_eas_spend }}
+        run: |
+          set -euo pipefail
+          if [ "${CONFIRM_EAS:-no}" != "yes" ]; then
+            echo "::error::New EAS production builds cost Starter credits (~$1+ each). Set confirm_eas_spend=yes, or pass eas_build_id to submit an existing IPA without a new build." >&2
+            exit 1
+          fi
+
+      - name: Set remote iOS marketing version to 1.1
+        if: inputs.eas_build_id == ''
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: |
+          set -euo pipefail
+          # Live 1.0 keywords/subtitle are locked; ASC 1.1 needs a CFBundleShortVersionString=1.1 binary.
+          npx eas-cli@latest build:version:set \
+            --platform ios \
+            --profile production \
+            --app-version 1.1 \
+            --non-interactive || true
+          npx eas-cli@latest build:version:get --platform ios --profile production --non-interactive --json || true
+
+      - name: Build iOS production artifact
+        id: build
+        if: inputs.eas_build_id == ''
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+          HERMES_EAS_SPEND_APPROVED: ${{ inputs.confirm_eas_spend == 'yes' && 'YES_SPEND_EAS_CREDITS' || '' }}
         run: |
           set -euo pipefail
           if [ -z "${EXPO_TOKEN:-}" ]; then
@@ -411,7 +438,7 @@ jobs:
             --non-interactive \
             --wait \
             --json \
-            --message "Production Hermes Mobile iOS release from ${GITHUB_SHA}" \
+            --message "Production Hermes Mobile iOS 1.1 from ${GITHUB_SHA}" \
             > /tmp/eas-ios-production-build.json
           cat /tmp/eas-ios-production-build.json
           BUILD_ID="$(node -e 'const fs=require("fs"); const raw=fs.readFileSync("/tmp/eas-ios-production-build.json","utf8"); const json=JSON.parse(raw); const build=Array.isArray(json)?json[0]:json; console.log(build.id || "")')"
@@ -421,10 +448,20 @@ jobs:
           fi
           echo "build_id=$BUILD_ID" >> "$GITHUB_OUTPUT"
 
+      - name: Reuse existing EAS iOS production build
+        id: adopt_ios_build
+        if: inputs.eas_build_id != ''
+        run: |
+          set -euo pipefail
+          BUILD_ID="${{ inputs.eas_build_id }}"
+          printf '%s\n' "{\"id\":\"$BUILD_ID\"}" > /tmp/eas-ios-production-build.json
+          echo "Reusing EAS iOS production build $BUILD_ID (no new build credits)"
+          echo "build_id=$BUILD_ID" >> "$GITHUB_OUTPUT"
+
       - name: Verify iOS production build read-back
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
-          BUILD_ID: ${{ steps.build.outputs.build_id }}
+          BUILD_ID: ${{ steps.build.outputs.build_id || steps.adopt_ios_build.outputs.build_id }}
         run: |
           set -euo pipefail
           npx eas-cli@latest build:view "$BUILD_ID" --json > /tmp/eas-ios-production-build-view.json

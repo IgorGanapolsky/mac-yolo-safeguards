@@ -152,8 +152,11 @@ describe('release safety contract', () => {
     const workflow = read('.github/workflows/store-release.yml');
     const mapping =
       "HERMES_EAS_SPEND_APPROVED: ${{ inputs.confirm_eas_spend == 'yes' && 'YES_SPEND_EAS_CREDITS' || '' }}";
-    expect(workflow.split(mapping)).toHaveLength(3);
+    // Android build + Android submit path + iOS build
+    expect(workflow.split(mapping)).toHaveLength(4);
     expect(workflow).toContain('if [ "${CONFIRM_EAS:-no}" != "yes" ]');
+    expect(workflow).toMatch(/name: Build iOS production artifact[\s\S]*HERMES_EAS_SPEND_APPROVED/);
+    expect(workflow).toMatch(/name: Build Android production AAB[\s\S]*HERMES_EAS_SPEND_APPROVED/);
   });
 
   it('app.json enables OTA updates with expo-updates plugin and appVersion runtime', () => {
