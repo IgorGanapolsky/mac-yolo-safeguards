@@ -22,7 +22,7 @@
     "greptile-skip"
   ],
   "ignorePatterns": "*.lock\n**/node_modules/**\n**/__snapshots__/**\n**/.bundle-export/**\n**/fastlane/screenshots/**\n**/docs/proofs/**\ngraphify-out/**\n.worktrees/**",
-  "instructions": "ThumbGate Mobile (Hermes) is a real-users product (not Igor-only dogfood). Prioritize connect/onboarding regressions over style. Read .greptile/rules.md and hermes-mobile/.greptile/rules.md. Flag false-green Connected states, demo=1 review shortcuts treated as production proof, wrong Mac API keys, OTA-vs-native mistakes, and jargon ('gateway'/'LAN'/'Pair relay') in fresh-user UI copy.",
+  "instructions": "Hermes Mobile is a real-users product (not Igor-only dogfood). Prioritize connect/onboarding regressions over style. Read .greptile/rules.md and hermes-mobile/.greptile/rules.md. Flag false-green Connected states, demo=1 review shortcuts treated as production proof, wrong Mac API keys, OTA-vs-native mistakes, and jargon ('gateway'/'LAN'/'Pair relay') in fresh-user UI copy. Greptile org is Hermes Mobile only \u2014 never saasgrowthdispatch.",
   "summarySection": {
     "included": true,
     "collapsible": false,

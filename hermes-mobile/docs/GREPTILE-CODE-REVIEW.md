@@ -1,12 +1,13 @@
-# Greptile AI code review — ThumbGate Mobile (Hermes)
+# Greptile AI code review — Hermes Mobile
 
 [Greptile](https://www.greptile.com/) reviews pull requests with full-repo context. This repo configures it via version-controlled `.greptile/` folders (recommended July 2026 format).
 
-**Product identity:** **ThumbGate Mobile** (Hermes app under `IgorGanapolsky/mac-yolo-safeguards`).
+**Product identity:** **Hermes Mobile** (app under `IgorGanapolsky/mac-yolo-safeguards`).
 
-**Greptile org (canonical):** display name **ThumbGate Mobile** · dashboard slug currently [`hermes-mobile`](https://app.greptile.com/hermes-mobile) (rename display name in Organization Settings if it still says Hermes Mobile).
+**Greptile org (canonical):** display name **Hermes Mobile** · dashboard [`app.greptile.com/hermes-mobile`](https://app.greptile.com/hermes-mobile).
 
-**Forbidden:** any Greptile org named or slug `saasgrowthdispatch` / `Saasgrowthdispatch` / SaaS Growth Dispatch. Do not bookmark, review, or document `app.greptile.com/saasgrowthdispatch/*`. That workspace is **not** this product. If Chrome opens it, switch org to **ThumbGate Mobile** / hermes-mobile immediately.
+**Forbidden:** Greptile org named or slug `saasgrowthdispatch` / `Saasgrowthdispatch` / SaaS Growth Dispatch. Do not bookmark, review, or document `app.greptile.com/saasgrowthdispatch/*`. That workspace is **not** Hermes Mobile. If Chrome opens it, switch org to **Hermes Mobile** immediately.
+
 
 ## Config locations
 
@@ -30,11 +31,11 @@ Docs Greptile is pointed at: `files.json` in those folders (AGENTS.md, REAL-USER
 |-------|---------------------|
 | GitHub App **Greptile Apps** (`github.com/apps/greptile-apps`) | Installed on `@IgorGanapolsky` with **All repositories** (installation `92872628`) — this is the app that can review PRs |
 | GitHub App **Greptile** (`github.com/apps/greptile`) | Also present (installation `146808081`) but **No repositories / No permissions** — leftover from marketplace install; not sufficient alone |
-| Greptile dashboard | **[app.greptile.com/hermes-mobile](https://app.greptile.com/hermes-mobile)** — org **ThumbGate Mobile** (slug `hermes-mobile`) reviewing `IgorGanapolsky/mac-yolo-safeguards`. **Never** use `app.greptile.com/saasgrowthdispatch`. |
+| Greptile dashboard | **[app.greptile.com/hermes-mobile](https://app.greptile.com/hermes-mobile)** — org **Hermes Mobile** reviewing `IgorGanapolsky/mac-yolo-safeguards`. **Never** use `app.greptile.com/saasgrowthdispatch`. |
 | Sample `@greptileai review` | Live reviews appearing on open Hermes Mobile PRs when plan/credits allow; some older PRs may show trial-ended until billing/free plan is confirmed under Organization → Billing |
 
 - Pricing (public FAQ, July 2026): **$30/seat/month**, 50 review credits/seat; free plan up to 50 credits/month for one author; OSS free tier available on request.
-- Operator path: [app.greptile.com/hermes-mobile](https://app.greptile.com/hermes-mobile) (ThumbGate Mobile) → Code Providers → GitHub `IgorGanapolsky` → Repositories → enable `mac-yolo-safeguards` → `@greptileai review`. If the UI says **Saasgrowthdispatch**, you are in the **wrong org** — switch away immediately.
+- Operator path: [app.greptile.com/hermes-mobile](https://app.greptile.com/hermes-mobile) (**Hermes Mobile**) → Code Providers → GitHub `IgorGanapolsky` → Repositories → enable `mac-yolo-safeguards` → `@greptileai review`. If the UI says **Saasgrowthdispatch**, you are in the **wrong org** — switch to Hermes Mobile immediately.
 - Config in this repo is live on merge regardless; Greptile reads `.greptile/` from the PR source branch once reviews run.
 
 ## Review focus (encoded in rules)
