@@ -43,6 +43,20 @@ describe('ApprovalsScreen', () => {
     expect(getByText('Approve blocked tools from your phone — tap notifications on lock screen')).toBeTruthy();
   });
 
+  it('keeps header refresh visible beside long gateway health detail', () => {
+    useGateway.mockReturnValue(
+      mockUseGateway({
+        health: { level: 'green', gatewayState: 'unpaired', directGatewayReachable: true },
+        settings: { ...mockGatewaySettings, connectionMode: 'relay' },
+      }),
+    );
+
+    const { getByTestId, getByText } = renderInTabNavigator(ApprovalsScreen, 'Leash');
+    expect(getByText('Direct link OK · relay not paired')).toBeTruthy();
+    expect(getByTestId('leash-header-pill-row')).toBeTruthy();
+    expect(getByTestId('leash-header-refresh')).toBeTruthy();
+  });
+
   it('shows paywall when ThumbGate Leash is not unlocked', async () => {
     await refreshFreeLeashWeeklyState();
     for (let i = 0; i < FREE_LEASH_APPROVALS_PER_WEEK; i += 1) {

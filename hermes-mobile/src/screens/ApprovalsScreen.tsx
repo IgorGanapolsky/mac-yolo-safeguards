@@ -234,7 +234,7 @@ export default function ApprovalsScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={['top']}>
+    <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
       <View style={styles.header}>
         <View testID="THUMBGATE_LEASH" accessible={true} collapsable={false}>
           <Text style={styles.title}>THUMBGATE LEASH</Text>
@@ -248,8 +248,10 @@ export default function ApprovalsScreen() {
         </Text>
         {leashUnlocked ? (
           <>
-            <View style={styles.pillRow}>
-              <HealthPill level={healthLevel} detail={gatewayHealthDetail} />
+            <View style={styles.pillRow} testID="leash-header-pill-row">
+              <View style={styles.pillSlot}>
+                <HealthPill level={healthLevel} detail={gatewayHealthDetail} />
+              </View>
               <TouchableOpacity
                 style={[styles.headerRefreshBtn, refreshing && styles.headerRefreshBtnDisabled]}
                 onPress={() => void onRefresh()}
@@ -597,11 +599,18 @@ const styles = StyleSheet.create({
   pillRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 12,
+    flexWrap: 'wrap',
+    gap: 8,
     marginBottom: 10,
   },
+  pillSlot: {
+    flexGrow: 1,
+    flexShrink: 1,
+    minWidth: 0,
+  },
   headerRefreshBtn: {
+    flexShrink: 0,
+    alignSelf: 'flex-start',
     borderRadius: 10,
     borderWidth: 1,
     borderColor: colors.borderLight,
