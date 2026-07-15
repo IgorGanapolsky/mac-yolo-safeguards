@@ -53,10 +53,32 @@ export function freshUserOnboardingHeading(freshUser: boolean): string {
 
 export function freshUserOnboardingSteps(input: {
   tailscaleMacLabel?: string;
+  wifiConnected?: boolean;
 }): FreshUserOnboardingStep[] {
+  const onCellular = input.wifiConnected === false;
   const awayBody = input.tailscaleMacLabel
     ? `Tap Add ${input.tailscaleMacLabel} below — works on cellular or any Wi‑Fi when Tailscale is on.`
     : 'Install Tailscale on your phone and computer. An Add [computer name] button appears here when we find it.';
+
+  if (onCellular) {
+    return [
+      {
+        step: 1,
+        title: 'Use Tailscale from cellular',
+        body: awayBody,
+      },
+      {
+        step: 2,
+        title: 'Open Hermes on your computer',
+        body: 'Start Hermes on your computer and leave it running.',
+      },
+      {
+        step: 3,
+        title: 'Find your computer',
+        body: 'Tap Find computers below, or tap a computer in the list when it appears.',
+      },
+    ];
+  }
 
   return [
     {
