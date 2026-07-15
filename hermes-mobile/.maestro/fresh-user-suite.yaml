@@ -1,0 +1,8 @@
+# Full fresh-user E2E suite — brand-new install, NO demo deep link.
+# Covers: cold start onboarding, tab navigation, Leash free tier + paid upgrade UI.
+# Chat send requires a real Mac pair — optional when HERMES_FRESH_USER_PAIR=1 (orchestrator).
+appId: com.iganapolsky.hermesmobile
+---
+- runFlow: stranger-cold-start.yaml
+- runFlow: fresh-user-tabs.yaml
+- runFlow: fresh-user-leash-paywall.yaml
