@@ -30,6 +30,7 @@ Docs Greptile is pointed at: `files.json` in those folders (AGENTS.md, REAL-USER
 | Sample `@greptileai review` | Live reviews appearing on open Hermes Mobile PRs when plan/credits allow; some older PRs may show trial-ended until billing/free plan is confirmed under Organization → Billing |
 
 - Pricing (public FAQ, July 2026): **$30/seat/month**, 50 review credits/seat; free plan up to 50 credits/month for one author; OSS free tier available on request.
+- **Credit conservation (2026-07-15):** Free plan was hitting 48/50. Root `.greptile/config.json` scopes file review to `hermes-mobile/**` via `ignorePatterns`, and sets `triggerOnUpdates: false` (review on PR open / `@greptileai review`, not every push). Do **not** enable dashboard **T-Rex** on free plan (extra credits per review). OSS application submitted at [greptile.com/open-source](https://www.greptile.com/open-source) for `IgorGanapolsky/mac-yolo-safeguards` — pending Greptile approval. Never buy Pro without an explicit ask.
 - Operator path: [app.greptile.com/hermes-mobile](https://app.greptile.com/hermes-mobile) → Code Providers → GitHub `IgorGanapolsky` → Repositories → enable `mac-yolo-safeguards` → `@greptileai review`.
 - Config in this repo is live on merge regardless; Greptile reads `.greptile/` from the PR source branch once reviews run.
 
