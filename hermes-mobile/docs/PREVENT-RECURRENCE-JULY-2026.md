@@ -13,7 +13,7 @@ This document maps session failures to durable prevention: automated guards, pro
 | # | Failure mode | Automated guard | Verify command |
 |---|--------------|-----------------|----------------|
 | S1 | Run/chat stalled while Connected (green Tailscale) | Mobile: `shouldAutoClearStalledRun` / stream-idle + no-token fail in `runStaleDetection.ts` (ChatScreen wires via P0 stall). Gateway: `scripts/hermes-prevention-watchdog.sh` reports stuck api runs. | `cd hermes-mobile && npm test -- --watchman=false src/__tests__/runStaleDetection.test.ts` |
-| S2 | Mega-session / 100k–1.6M tokens locking chat | Hard BLOCK ≥800k + WARN ≥350k (`sessionTokenGuards.ts`); draft transfer via `transferComposerDraft`; delete/poisoned → Start fresh | `npm test -- --watchman=false src/__tests__/sessionTokenGuards.test.ts src/__tests__/composerDraftStorage.test.ts` |
+| S2 | Mega-session / 100k–1.6M tokens locking chat | Hard BLOCK ≥500k + WARN ≥100k (`sessionTokenGuards.ts`); draft transfer via `transferComposerDraft`; delete/poisoned → Start fresh | `npm test -- --watchman=false src/__tests__/sessionTokenGuards.test.ts src/__tests__/composerDraftStorage.test.ts` |
 | S3 | “Browser restrictions” / refusal menus | SOUL **No constraints**; `disabled_toolsets` must not include `browser`; CDP LaunchAgent `com.hermes.chrome-cdp` healed — never disable browser | `bash scripts/hermes-prevention-watchdog.sh --check`; `curl -sf http://127.0.0.1:9222/json/version` |
 | S4 | Leash badge 5557 / approval notif storm | `pendingApprovalsCap.ts` hard-cap + 99+ badge + signature dedupe (PR #279 wiring) | `npm test -- --watchman=false src/__tests__/pendingApprovalsCap.test.ts` |
 | S5 | Tap-to-retry / Start fresh no feedback | Busy spinners mandatory (`isStartingFreshChat` → `ActivityIndicator` in ChatScreen + RunProgressBanner) | `npm test -- --watchman=false src/__tests__/preventRecurrenceContract.test.ts` |
@@ -191,17 +191,17 @@ bash hermes-mobile/scripts/agent-pre-asc-edit.sh      # runs verify-asc-listing 
 
 | Layer | Gate | Location |
 |-------|------|----------|
-| WARN | ≥ 350k tokens — banner + confirm before Send | `sessionTokenGuards.ts` `MEGA_SESSION_TOKEN_WARN` |
-| BLOCK | ≥ 800k tokens — **hard-block Send** (no Send anyway); composer muted; Recents "Too large" forces Start fresh | `MEGA_SESSION_TOKEN_BLOCK` + `ChatScreen` / `RecentChatsList` |
+| WARN | ≥ 100k tokens — banner + confirm before Send; Recents suggest fresh on open | `sessionTokenGuards.ts` `MEGA_SESSION_TOKEN_WARN` |
+| BLOCK | ≥ 500k tokens — **hard-block Send** (no Send anyway); composer muted; Recents "Too large" forces Start fresh | `MEGA_SESSION_TOKEN_BLOCK` + `ChatScreen` / `RecentChatsList` |
 | Compaction stall | Summarization-only assistant turn → keep polling + auto-offer Start fresh once | `chatCompactionHandoff.ts` + `ChatScreen` |
 | Unit | `shouldAllowMegaSessionSend`, thresholds, recents badge | `sessionTokenGuards.test.ts`, `chatCompactionHandoff.test.ts`, `RecentChatsList.test.tsx` |
 
 **Operator rules (Igor):**
 
-1. Prefer **Start fresh chat** when a thread crosses ~350k or shows a summarization stub — do not keep Retrying.
+1. Prefer **Start fresh chat** when a thread crosses ~100k or shows a summarization stub — do not keep Retrying.
 2. Never reopen a **Too large** recent expecting a reply; fork first.
-3. Do not raise `MEGA_SESSION_TOKEN_BLOCK` back toward 2M without a proven gateway-side refuse.
-4. Gateway note: Hermes gateway does not yet refuse continue-by-token; mobile hard-block is the product gate. If adding gateway refuse later, mirror the 800k threshold.
+3. Do not raise `MEGA_SESSION_TOKEN_BLOCK` back toward 800k without a proven gateway-side refuse.
+4. Gateway note: Hermes gateway does not yet refuse continue-by-token; mobile hard-block is the product gate. If adding gateway refuse later, mirror the 500k threshold.
 5. After any mega-session UX change: focused Jest on the three files above + kick continuous E2E; do not claim fixed while `latest.json` `e2e=skipped`.
 
 Shipped hardening: PR #151 (initial unblock), #186 (stall CTA + WARN 350k), T-186 (BLOCK 800k + auto-offer + recents force-fresh).
@@ -247,7 +247,7 @@ Shipped hardening: PR #151 (initial unblock), #186 (stall CTA + WARN 350k), T-18
 1. CDP health: `curl -s http://127.0.0.1:9222/json/version` must return 200. If not, restart `com.hermes.chrome-cdp` (or relaunch Chrome with the hermes profile flags) — **do not** disable the browser toolset or add SOUL lock language.
 2. Never set `uchg` on `~/.hermes/SOUL.md`. Never reinstate `Browser Session Safety Lock`.
 3. Never narrate "browser automation restrictions" or dump numbered workaround menus on the user — fix tools and continue.
-4. The 500k desktop ceiling aligns with the mobile WARN gate (350k) and sits under the mobile BLOCK (800k) — keep that ordering if any threshold moves.
+4. The 500k desktop ceiling aligns with the mobile BLOCK gate (500k) — keep WARN (100k) under BLOCK if any threshold moves.
 5. `~/.hermes/hermes-agent` is a **git fork checkout** (IgorGanapolsky/hermes-agent), not pip site-packages — patch + commit there, and remember `hermes update` may stash local changes (`updates.non_interactive_local_changes: stash`).
 6. Upstream gaps to request from NousResearch/hermes-agent: config key for a session token/cost ceiling, per-session turn serialization in api_server (`max_concurrent_runs` is global only), and a circuit breaker that disables the failing tool for the session instead of only halting the turn.
 7. Poisoned mega-sessions may still contain old restriction turns — use **Start fresh chat**; policy alone does not rewrite history.
@@ -267,7 +267,7 @@ Shipped hardening: PR #151 (initial unblock), #186 (stall CTA + WARN 350k), T-18
 
 1. Run `bash scripts/hermes-fleet-no-timeout.sh --fleet --probe` after any gateway timeout regression.
 2. Never reintroduce `gateway_timeout: 900` without Igor explicit ask — standing order is **no timeouts**.
-3. Mega sessions: **Start fresh chat** still recommended at 350k+; draft transfer preserved (T-268).
+3. Mega sessions: **Start fresh chat** still recommended at 100k+; draft transfer preserved (T-268).
 4. Unit tests: `safetyTimeoutRecovery.test.ts`, `chatAssistantProse.test.ts`, `runStaleDetection.test.ts`.
 
 ---

@@ -159,6 +159,13 @@ describe('prevent recurrence contract (July 2026 CI gates)', () => {
     expect(draft).toContain('transferComposerDraft');
   });
 
+  it('keeps mega-session WARN at 100k and BLOCK at 500k (516k stall class)', () => {
+    const guards = read('hermes-mobile/src/utils/sessionTokenGuards.ts');
+    expect(guards).toContain('MEGA_SESSION_TOKEN_WARN = 100_000');
+    expect(guards).toContain('MEGA_SESSION_TOKEN_BLOCK = 500_000');
+    expect(guards).toContain('shouldSuggestFreshOnSessionSelect');
+  });
+
   it('ships device-verified gate tool', () => {
     const gate = read('tools/require-device-verified.js');
     expect(gate).toContain('deviceVerified');

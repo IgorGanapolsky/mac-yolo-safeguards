@@ -252,6 +252,7 @@ import {
   sessionTotalTokens,
   shouldAutoFreshAndResendOnMegaBlock,
   shouldForceFreshOnSessionSelect,
+  shouldSuggestFreshOnSessionSelect,
 } from '../utils/sessionTokenGuards';
 import {
   compactionStallBannerCopy,
@@ -671,6 +672,7 @@ export default function ChatScreen() {
   const pinScrollAfterHydrationRef = useRef(false);
   const messagesRef = useRef<HermesMessage[]>([]);
   const compactionFreshOfferSessionIdRef = useRef<string | null>(null);
+  const megaSessionSuggestFreshOfferedRef = useRef<string | null>(null);
   const sessionsLoadGenRef = useRef(0);
   const prevMacChatLiveRef = useRef<boolean | null>(null);
   const sendStartedAtRef = useRef(Date.now());
@@ -3556,8 +3558,7 @@ export default function ChatScreen() {
     const total = sessionTotalTokens(session);
     return new Promise<'allow' | 'fresh' | 'cancel'>((resolve) => {
       Alert.alert(megaSessionSendWarnTitle(), megaSessionSendWarnMessage(total), [
-        // start-fresh is executed by the send path so the draft can be re-delivered.
-        { text: 'Start fresh chat', onPress: () => resolve('fresh') },
+        { text: 'Start fresh chat', style: 'default', onPress: () => resolve('fresh') },
         { text: 'Send anyway', style: 'destructive', onPress: () => resolve('allow') },
         { text: 'Cancel', style: 'cancel', onPress: () => resolve('cancel') },
       ]);
@@ -5841,27 +5842,45 @@ export default function ChatScreen() {
         ]);
         return;
       }
-      if (switchingSessionIdRef.current) {
+
+      const openSelectedSession = async () => {
+        if (switchingSessionIdRef.current) {
+          return;
+        }
+        switchingSessionIdRef.current = session.id;
+        setSwitchingSessionId(session.id);
+        setIsLoadingMessages(true);
+        setRecentChatsDismissed(false);
+        setSessionModalVisible(false);
+        skipSessionAutoSelectRef.current = false;
+        manualSessionSelectRef.current = session.id;
+        currentSessionRef.current = session;
+        transcriptDigestRef.current = '';
+        messagesRef.current = [];
+        setMessages([]);
+        setCurrentSession(session);
+        // Load transcript immediately — do not wait on project persist (Recents taps felt dead).
+        void refreshSessionMessagesRef.current?.({ background: false, force: true });
+        if (activeProject) {
+          const next = setActiveSession(projectState, activeProject.id, session.id);
+          await persistProjectState(next);
+        }
+      };
+
+      if (
+        shouldSuggestFreshOnSessionSelect(session) &&
+        megaSessionSuggestFreshOfferedRef.current !== session.id
+      ) {
+        megaSessionSuggestFreshOfferedRef.current = session.id;
+        const total = sessionTotalTokens(session);
+        Alert.alert('Large chat session', megaSessionSendWarnMessage(total), [
+          { text: 'Start fresh chat', onPress: () => void handleStartFreshChat() },
+          { text: 'Open anyway', onPress: () => void openSelectedSession() },
+        ]);
         return;
       }
-      switchingSessionIdRef.current = session.id;
-      setSwitchingSessionId(session.id);
-      setIsLoadingMessages(true);
-      setRecentChatsDismissed(false);
-      setSessionModalVisible(false);
-      skipSessionAutoSelectRef.current = false;
-      manualSessionSelectRef.current = session.id;
-      currentSessionRef.current = session;
-      transcriptDigestRef.current = '';
-      messagesRef.current = [];
-      setMessages([]);
-      setCurrentSession(session);
-      // Load transcript immediately — do not wait on project persist (Recents taps felt dead).
-      void refreshSessionMessagesRef.current?.({ background: false, force: true });
-      if (activeProject) {
-        const next = setActiveSession(projectState, activeProject.id, session.id);
-        await persistProjectState(next);
-      }
+
+      await openSelectedSession();
     },
     [activeProject, handleStartFreshChat, projectState, persistProjectState],
   );
