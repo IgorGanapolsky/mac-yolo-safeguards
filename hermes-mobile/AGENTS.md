@@ -18,6 +18,8 @@ Canonical repo rules: [../AGENTS.md](../AGENTS.md). This file adds **mobile-only
 10. **Multi-Mac API keys** — Mac mini and MacBook Pro can have different `API_SERVER_KEY` values. Pair mini via `node tools/hermes-mobile-pair.js --mini-tailscale` (SSH-fetches mini key); never paste the laptop `.env` key when targeting another machine.
 11. **Device/Maestro chat input (permanent)** — When testing via Maestro, `adb input text`, or any device/E2E automation that types into the **chat composer**, use only **`make money today`**. Never type gibberish probe strings (`typeableProbeB`, `e2e-chat-send-persist`, `smoke test message`, etc.). Session titles/IDs in URLs are exempt. Enforced by `preventRecurrenceContract.test.ts`.
 12. **Versioning / OTA / store** — JS fixes ship via **EAS Update** (`production` channel, CI `mobile-ota.yml`). New store binaries only for native changes or marketing `expo.version` bumps. Canonical rules: [docs/VERSIONING-AND-RELEASES.md](./docs/VERSIONING-AND-RELEASES.md). Do not claim “every fix needs the store” or invent semver automation that does not exist.
+||||||| parent of a80b1142 (fix(mobile): wire OTA gate, pair.json refresh, ConnectMacGate keyboard)
+12. **No production OTA without fresh-user gate (permanent, crisis 2026-07-15)** — Never run `eas update --channel production` / `npm run ota:publish` unless `docs/proofs/continuous/latest.json` has `e2e=pass` **or** `npm run e2e:fresh-user` (`.maestro/stranger-cold-start.yaml`) wrote a pass proof. Gate: `npm run ota:gate` → `scripts/require-fresh-user-ota-gate.sh`. CI must not auto-publish production on every `main` merge. `e2e=skipped` is **not** pass.
 
 ## Autonomous infrastructure (already installed on Igor's Mac)
 
@@ -35,6 +37,7 @@ Install/repair: `bash ../scripts/install-agent-launchagents.sh` (agent runs this
 | Unit | `npm test` / `npm run test:ci` |
 | Contract | `npm run test:release-safety` |
 | E2E (local) | `npm run e2e:continuous:once` |
+| E2E (fresh-user / OTA gate) | `npm run e2e:fresh-user` then `npm run ota:gate` |
 | E2E (device release) | `npm run e2e:device` |
 
 Details: [docs/TESTING.md](./docs/TESTING.md).
