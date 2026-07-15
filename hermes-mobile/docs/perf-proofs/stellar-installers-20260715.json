@@ -1,0 +1,11 @@
+{
+  "createdAt": "2026-07-15T16:00:47Z",
+  "groupId": "7b497b6a-3527-4e64-b185-b3ea7eee8f24",
+  "name": "Stellar Installers",
+  "publicLink": "https://testflight.apple.com/join/AgGzdptW",
+  "publicLinkId": "AgGzdptW",
+  "linkedBuild": "14",
+  "externalBetaReview": "blocked_until_1.1_CLOSED_VERSION",
+  "internalGroup": "Team (Expo) IN_BETA_TESTING build 14",
+  "source": "ASC API POST /v1/betaGroups + relationships/builds"
+}
