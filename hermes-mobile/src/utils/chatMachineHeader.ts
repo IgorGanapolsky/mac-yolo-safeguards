@@ -201,9 +201,11 @@ export function resolveChatMachineHeaderDisplay(input: {
   profiles?: GatewayProfile[];
   isDemo?: boolean;
 }): ChatMachineHeaderDisplay {
+  const gatewayUrl = input.gatewayUrl?.trim() ?? '';
+
   let machineLabel = resolveMachineDisplayName(
     input.activeProfile,
-    input.gatewayUrl,
+    gatewayUrl,
     input.health,
     input.profiles,
     { isDemo: input.isDemo },
@@ -218,12 +220,24 @@ export function resolveChatMachineHeaderDisplay(input: {
         machineLabel = relayWorkerDisplayName(worker);
       }
     }
+  } else if (!gatewayUrl && !input.activeProfile && !input.isDemo) {
+    // Fresh gateway-mode install with no URL — never claim "Computer via USB".
+    machineLabel = 'Your computer';
   }
 
-  const loopbackUsb = isLoopbackGatewayUrl(input.gatewayUrl);
+  // No URL yet: skip USB/IP endpoint details entirely.
+  if (!gatewayUrl && !input.activeProfile && !input.isDemo) {
+    return {
+      machineLabel,
+      machineEndpoint: undefined,
+      showDetailWhenConnected: false,
+    };
+  }
+
+  const loopbackUsb = isLoopbackGatewayUrl(gatewayUrl);
   const hasNamedMachine = Boolean(machineLabel && !isGenericMachineLabel(machineLabel));
-  let ipLine = formatGatewayEndpointLine(input.gatewayUrl, input.health)?.trim();
-  if (isTailscaleGatewayUrl(input.gatewayUrl)) {
+  let ipLine = formatGatewayEndpointLine(gatewayUrl, input.health)?.trim();
+  if (isTailscaleGatewayUrl(gatewayUrl)) {
     ipLine = 'Tailscale';
   }
   // Never show bare 127.0.0.1:8642 in the header — USB is the human route label.
@@ -269,7 +283,7 @@ export function resolveChatMachineHeaderDisplay(input: {
       savedMacCount > 1 ||
       loopbackUsb ||
       detailParts.some((part) => part.startsWith('relay ·')) ||
-      (isTailscaleGatewayUrl(input.gatewayUrl) &&
+      (isTailscaleGatewayUrl(gatewayUrl) &&
         hasNamedMachine &&
         !isTailnetRouteLabel(machineLabel)),
   };

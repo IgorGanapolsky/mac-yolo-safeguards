@@ -44,12 +44,17 @@ jest.mock('../services/hermesGatewayClient', () => ({
   setToolsetEnabled: jest.fn(),
 }));
 
+const mockNavigate = jest.fn();
+
 jest.mock('@react-navigation/native', () => {
   const React = require('react');
   return {
     useFocusEffect: (callback: () => void | (() => void)) => {
       React.useEffect(() => callback(), [callback]);
     },
+    useNavigation: () => ({
+      navigate: mockNavigate,
+    }),
   };
 });
 
@@ -65,6 +70,7 @@ describe('SettingsScreen', () => {
   beforeEach(() => {
     isDemoModeAllowed.mockReturnValue(false);
     useGateway.mockReturnValue(mockUseGateway());
+    mockNavigate.mockClear();
   });
 
   it('renders settings header and gateway inputs', async () => {
@@ -74,6 +80,30 @@ describe('SettingsScreen', () => {
     expect(getByTestId('GATEWAY_OPS')).toBeTruthy();
     expect(getByTestId('gateway-url-input')).toBeTruthy();
     expect(getByTestId('gateway-api-key-input')).toBeTruthy();
+  });
+
+  it('Done returns to Hermes chat (escape hatch when tabs are hard to reach)', () => {
+    const { getByTestId } = render(<SettingsScreen />);
+    fireEvent.press(getByTestId('settings-done'));
+    expect(mockNavigate).toHaveBeenCalledWith('Chat');
+  });
+
+  it('Android hardware back leaves Settings for Chat', () => {
+    const { BackHandler, Platform } = require('react-native');
+    const originalOS = Platform.OS;
+    Platform.OS = 'android';
+    const addSpy = jest.spyOn(BackHandler, 'addEventListener');
+
+    render(<SettingsScreen />);
+    const handler = addSpy.mock.calls.find(([eventName]) => eventName === 'hardwareBackPress')?.[1] as
+      | (() => boolean)
+      | undefined;
+    expect(handler).toBeTruthy();
+    expect(handler?.()).toBe(true);
+    expect(mockNavigate).toHaveBeenCalledWith('Chat');
+
+    addSpy.mockRestore();
+    Platform.OS = originalOS;
   });
 
   it('shows account relay as the default unpaired route in relay mode', () => {

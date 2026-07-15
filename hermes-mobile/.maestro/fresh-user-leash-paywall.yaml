@@ -1,0 +1,75 @@
+# Fresh user paid upgrade path — no Pro, no demo unlock.
+# Asserts Leash Pro upsell + IAP subscribe CTA. Does not complete real purchase
+# (Play/App Store sandbox requires signed-in tester account); asserts UI + tap
+# reaches store connection or product sheet without crashing.
+appId: com.iganapolsky.hermesmobile
+---
+- runFlow:
+    when:
+      visible:
+        id: "connect-mac-gate-dismiss"
+    commands:
+      - tapOn:
+          id: "connect-mac-gate-dismiss"
+- runFlow:
+    when:
+      visible:
+        id: "mac-picker-modal-backdrop"
+    commands:
+      - tapOn:
+          id: "mac-picker-modal-backdrop"
+- runFlow: hide-keyboard-safe.yaml
+- runFlow: dismiss-logbox.yaml
+- tapOn:
+    id: "tab-leash"
+- extendedWaitUntil:
+    notVisible:
+      id: "tab-screen-loading"
+    timeout: 90000
+- extendedWaitUntil:
+    visible:
+      id: "THUMBGATE_LEASH"
+    timeout: 30000
+# Free tier: pro-upgrade-card is near top under leash-pro-upsell-card.
+# Locked (no free remaining): same testIDs on the locked empty card.
+- extendedWaitUntil:
+    visible:
+      id: "leash-pro-upsell-card"
+    timeout: 30000
+- scrollUntilVisible:
+    element:
+      id: "pro-upgrade-card"
+    direction: DOWN
+    timeout: 30000
+    visibilityPercentage: 40
+    centerElement: true
+- assertVisible:
+    id: "pro-upgrade-card"
+- assertVisible:
+    id: "subscribe-thumbgate-leash-iap"
+- assertVisible:
+    id: "restore-thumbgate-leash"
+- assertVisible:
+    id: "subscription-legal-disclosure"
+# Tap subscribe — store may show product sheet, "not available", or connect spinner.
+# Emulator debug: Alert "Store billing is unavailable in this build." with OK.
+- tapOn:
+    id: "subscribe-thumbgate-leash-iap"
+- waitForAnimationToEnd:
+    timeout: 5000
+- runFlow:
+    when:
+      visible: "OK"
+    commands:
+      - tapOn: "OK"
+- waitForAnimationToEnd:
+    timeout: 2000
+# App must not crash after IAP attempt — tabs still mounted (billing may leave shell).
+- extendedWaitUntil:
+    visible:
+      id: "tab-leash"
+    timeout: 15000
+- assertVisible:
+    id: "tab-leash"
+- assertVisible:
+    id: "tab-hermes"

@@ -159,6 +159,13 @@ describe('prevent recurrence contract (July 2026 CI gates)', () => {
     expect(draft).toContain('transferComposerDraft');
   });
 
+  it('keeps mega-session WARN at 100k and BLOCK at 500k (516k stall class)', () => {
+    const guards = read('hermes-mobile/src/utils/sessionTokenGuards.ts');
+    expect(guards).toContain('MEGA_SESSION_TOKEN_WARN = 100_000');
+    expect(guards).toContain('MEGA_SESSION_TOKEN_BLOCK = 500_000');
+    expect(guards).toContain('shouldSuggestFreshOnSessionSelect');
+  });
+
   it('ships device-verified gate tool', () => {
     const gate = read('tools/require-device-verified.js');
     expect(gate).toContain('deviceVerified');
@@ -460,6 +467,33 @@ describe('tonight recurrence gates (2026-07-14 P0 class — S16-S23)', () => {
       expect(yaml).toContain('appId: com.iganapolsky.hermesmobile');
       expect(yaml).toMatch(/^---/m);
     }
+  });
+
+  it('S25: production OTA requires stranger CI proof; e2e=skipped alone is not pass (crisis amend)', () => {
+    const pkg = read('hermes-mobile/package.json');
+    expect(pkg).toContain('ota:gate');
+    expect(pkg).toContain('e2e:fresh-user');
+    expect(pkg).toContain('require-stranger-cold-start-proof.cjs --hard');
+    expect(pkg).toContain('ota-publish-gated.sh');
+    expect(read('hermes-mobile/.maestro/stranger-cold-start.yaml')).toContain('connect-mac-gate');
+    const gate = read('hermes-mobile/scripts/require-fresh-user-ota-gate.sh');
+    expect(gate).toContain('e2e=pass');
+    expect(gate).toContain('e2e=skipped is NOT pass');
+    expect(gate).toContain('require-stranger-cold-start-proof.cjs');
+    expect(gate).toContain('HERMES_OTA_FORCE_UNSAFE');
+    expect(gate).toMatch(/exit 1/);
+    const workflow = read('.github/workflows/mobile-ota.yml');
+    expect(workflow).toContain('require-stranger-cold-start-proof.cjs');
+    expect(workflow).toContain('HERMES_STRANGER_PROOF_WAIT_SEC');
+    expect(workflow).toContain('for CH in preview production');
+    expect(workflow).toMatch(/checks:\s*read/);
+    const stranger = read('hermes-mobile/scripts/require-stranger-cold-start-proof.cjs');
+    expect(stranger).toContain('checkGithubStrangerProof');
+    const pairJs = read('tools/hermes-mobile-pair.js');
+    expect(pairJs).toContain('refreshPairAssetsFromLocalGateway');
+    expect(pairJs).toContain('hostname mismatch');
+    const requireDevice = read('tools/require-device-verified.js');
+    expect(requireDevice).toContain('--allow-ota is disabled after 2026-07-15');
   });
 });
 

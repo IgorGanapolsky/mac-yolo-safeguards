@@ -1,6 +1,7 @@
 import { storage } from './storage';
 
-export const STORE_REVIEW_THRESHOLD = 3;
+/** Stellar bar: prompt after first successful Leash approval (need traffic for ≥1 review). */
+export const STORE_REVIEW_THRESHOLD = 1;
 
 type StoreReviewModule = typeof import('expo-store-review');
 

@@ -1,7 +1,9 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   BackHandler,
   Keyboard,
+  KeyboardAvoidingView,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -10,6 +12,7 @@ import {
   View,
 } from 'react-native';
 import { useGateway } from '../context/GatewayContext';
+import { useKeyboardInset } from '../hooks/useKeyboardInset';
 import { colors } from '../theme/colors';
 import { describeBootstrapPhase } from '../utils/gatewayConnection';
 import PairQrScannerModal from './PairQrScannerModal';
@@ -72,6 +75,9 @@ export default function ConnectMacGate() {
   const [addingProfile, setAddingProfile] = useState(false);
   const [manualInputError, setManualInputError] = useState<string | null>(null);
   const [enablingDemo, setEnablingDemo] = useState(false);
+  const [manualInputFocused, setManualInputFocused] = useState(false);
+  const scrollRef = useRef<ScrollView>(null);
+  const { inset: keyboardInset } = useKeyboardInset({ focused: manualInputFocused });
 
   const handleDismiss = useCallback(async () => {
     try {
@@ -145,15 +151,19 @@ export default function ConnectMacGate() {
     );
   }, [activeGatewayProfile?.id, gatewayProfiles]);
 
+  // Fresh installs default to connectionMode 'relay'. Requiring 'gateway' hid
+  // ConnectMacGate forever for brand-new users (CI stranger cold-start 2026-07-15).
+  const freshUnpaired = !hasSavedMac;
   const showGate =
     bootstrapReady &&
     !isE2eAutomationBuild() &&
     !isStoreReviewDemoBuild() &&
     !settings.demoMode &&
     !settings.connectMacGateDismissed &&
-    !isGatewayReachable &&
-    settings.connectionMode === 'gateway' &&
-    (!hasSavedMac || pickerProfiles.length > 0);
+    (freshUnpaired ||
+      (!isGatewayReachable &&
+        settings.connectionMode === 'gateway' &&
+        (!hasSavedMac || pickerProfiles.length > 0)));
 
   const searching =
     isSearching ||
@@ -214,11 +224,21 @@ export default function ConnectMacGate() {
   return (
     <>
       {showGate ? (
-        <View style={styles.overlay} testID="connect-mac-gate">
+        <KeyboardAvoidingView
+          style={styles.overlay}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? 12 : 0}
+          testID="connect-mac-gate"
+        >
           <ScrollView
+            ref={scrollRef}
             style={styles.cardScroll}
-            contentContainerStyle={styles.cardScrollContent}
+            contentContainerStyle={[
+              styles.cardScrollContent,
+              keyboardInset > 0 ? { paddingBottom: 24 + keyboardInset } : null,
+            ]}
             keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="on-drag"
           >
             <View style={styles.card}>
               <View style={styles.headerRow}>
@@ -320,6 +340,13 @@ export default function ConnectMacGate() {
                     autoCorrect={false}
                     keyboardType="url"
                     testID="connect-manual-input"
+                    onFocus={() => {
+                      setManualInputFocused(true);
+                      requestAnimationFrame(() => {
+                        scrollRef.current?.scrollToEnd({ animated: true });
+                      });
+                    }}
+                    onBlur={() => setManualInputFocused(false)}
                   />
                   <LoadingButton
                     label="Connect"
@@ -361,7 +388,7 @@ export default function ConnectMacGate() {
               </Text>
             </View>
           </ScrollView>
-        </View>
+        </KeyboardAvoidingView>
       ) : null}
 
       <PairQrScannerModal

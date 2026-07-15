@@ -76,6 +76,24 @@ describe('ApprovalsScreen', () => {
     expect(getByText('No pending approvals')).toBeTruthy();
   });
 
+  it('shows Pro upsell when free weekly allowance remains but not Pro', async () => {
+    await refreshFreeLeashWeeklyState();
+    useGateway.mockReturnValue(
+      mockUseGateway({
+        settings: {
+          ...mockGatewaySettings,
+          thumbgateProActive: false,
+          developerLeashUnlock: false,
+        },
+      }),
+    );
+    const { getByTestId, getByText } = renderInTabNavigator(ApprovalsScreen, 'Leash');
+    expect(getByText('No pending approvals')).toBeTruthy();
+    expect(getByTestId('leash-pro-upsell-card')).toBeTruthy();
+    expect(getByTestId('pro-upgrade-card')).toBeTruthy();
+    expect(getByTestId('subscribe-thumbgate-leash-iap')).toBeTruthy();
+  });
+
   it('renders approval card and resolves via thumbs up', () => {
     const submitApprovalChoice = jest.fn();
     useGateway.mockReturnValue(

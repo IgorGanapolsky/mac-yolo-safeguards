@@ -39,12 +39,13 @@ const unit = latest.unit || 'missing';
 let deviceVerified = e2e === 'pass';
 let via = deviceVerified ? 'latest.json e2e=pass' : null;
 
+// Crisis 2026-07-15: an OTA receipt alone must NEVER satisfy deviceVerified.
+// Production OTA without continuous/fresh-user e2e=pass is how live bugs shipped.
 if (!deviceVerified && otaPath) {
-  const ota = readJson(otaPath);
-  if (ota && (ota.status === 'published' || ota.ok === true || ota.updateId)) {
-    deviceVerified = true;
-    via = `ota:${otaPath}`;
-  }
+  console.error(
+    'STRICT: --allow-ota is disabled after 2026-07-15. Require latest.json e2e=pass ' +
+      '(or fresh-user Maestro pass). OTA receipt is not device proof.',
+  );
 }
 
 const result = {
