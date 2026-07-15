@@ -806,6 +806,7 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
           primaryUrl,
           profiles: profileStateRef.current.profiles,
           activeProfileId,
+          wifiConnected: wifiConnectedRef.current,
         })) {
           try {
             const snapshot = await probeMacGatewayOk(fallbackUrl);
@@ -855,6 +856,7 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
         primaryUrl,
         profiles: profileStateRef.current.profiles,
         activeProfileId,
+        wifiConnected: wifiConnectedRef.current,
       })) {
         try {
           const snapshot = await probeMacGatewayOk(fallbackUrl);
@@ -1589,17 +1591,34 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
     try {
       await probeTailscaleComputersRef.current();
       const lastLanIp = await storage.loadLastGatewayLanIp();
-      const probeUrls = buildSelfHealProbeUrls({
-        primaryUrl: effectiveGatewayUrlRef.current || settingsRef.current.gatewayUrl,
-        wifiConnected: wifiConnectedRef.current,
-        lastLanIp,
-        profiles: profileStateRef.current.profiles,
-        tailnetProbeHosts: tailnetProbeHostsRef.current,
-        activeProfileId: profileStateRef.current.activeProfileId,
-      });
-      for (const url of probeUrls.slice(0, 8)) {
+      const primaryUrl =
+        effectiveGatewayUrlRef.current || settingsRef.current.gatewayUrl;
+      const probeUrls = [
+        primaryUrl,
+        ...buildSelfHealProbeUrls({
+          primaryUrl,
+          wifiConnected: wifiConnectedRef.current,
+          lastLanIp,
+          profiles: profileStateRef.current.profiles,
+          tailnetProbeHosts: tailnetProbeHostsRef.current,
+          activeProfileId: profileStateRef.current.activeProfileId,
+        }).filter((url) => url !== primaryUrl),
+      ].slice(0, 8);
+      for (const url of probeUrls) {
         try {
-          const snapshot = await fetchGatewayHealth(url, apiKeyRef.current);
+          const probeKey = await resolveApiKeyForGatewayProbe({
+            gatewayUrl: url,
+            profiles: profileStateRef.current.profiles,
+            activeProfileId: profileStateRef.current.activeProfileId,
+            fallbackKey: apiKeyRef.current,
+            resolveProfileKey: (profileId) =>
+              secureCredentials.resolveApiKeyForProfile(profileId),
+          });
+          if (probeKey !== apiKeyRef.current) {
+            setApiKey(probeKey);
+            apiKeyRef.current = probeKey;
+          }
+          const snapshot = await fetchGatewayHealth(url, probeKey);
           if (!isGatewayHealthOk(snapshot)) {
             continue;
           }
