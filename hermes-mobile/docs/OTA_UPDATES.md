@@ -1,16 +1,18 @@
 # Hermes Mobile — EAS OTA updates
 
-Hermes Mobile ships JS and asset fixes over the air (EAS Update) so Igor's phone and production users receive fixes merged to `main` without reinstalling the APK for every change.
+Hermes Mobile ships JS and asset fixes over the air (EAS Update) so store users and release installs receive fixes merged to `main` without a new store binary for every JS change.
+
+**Canonical versioning + OTA/store decision table:** [VERSIONING-AND-RELEASES-JULY-2026.md](./VERSIONING-AND-RELEASES-JULY-2026.md).
 
 ## Channel strategy
 
 | Channel | Build profile | OTA publish | Audience |
 |---------|---------------|-------------|----------|
-| `production` | `eas.json` → `build.production` | `main` push (CI) or `npm run ota:publish` | Store / Igor phone release APK |
-| `preview` | `build.preview` | `npm run ota:preview` | Internal EAS preview APK |
+| `production` | `eas.json` → `build.production` | `main` push (CI) or `npm run ota:publish` | Store / release APK |
+| `preview` | `build.preview` | CI + `npm run ota:preview` | Internal EAS preview APK |
 | `e2e-test` | `build.e2e-test` | `npm run ota:e2e` | Maestro / automation builds |
 
-**Production channel** receives automatic OTA publishes from `.github/workflows/mobile-ota.yml` on every push to `main` that touches `hermes-mobile/**`.
+**Production + preview channels** receive automatic OTA publishes from `.github/workflows/mobile-ota.yml` on every push to `main` that touches `hermes-mobile/**` (after the stranger cold-start hard gate).
 
 ## Runtime version policy: `appVersion`
 
@@ -22,11 +24,12 @@ Hermes Mobile ships JS and asset fixes over the air (EAS Update) so Igor's phone
 
 **Why `appVersion` (not fingerprint):**
 
-- Hermes Mobile already pins `eas.cli.appVersionSource: local` — `app.json` `version` / `versionCode` drive builds and Firebase verify.
-- OTA bundles only apply to native builds whose embedded runtime version matches the published update (currently `0.3.2` from `expo.version`).
-- Bumping `app.json` `version` (or native `versionCode` / iOS `buildNumber`) requires a **new native build** before OTA resumes for that version line.
+- Marketing `expo.version` (currently `1.0`) is the OTA compatibility key — matches store trains and ASC/Play.
+- Production build numbers use `eas.json` `cli.appVersionSource: remote` + `autoIncrement` (not local). Local `versionCode` / `buildNumber` are floors only.
+- OTA bundles apply only to native builds whose embedded runtime matches the published update (`1.0` today).
+- Bumping `app.json` `version` starts a **new** OTA line and requires a **new native build** before devices on that marketing version receive OTAs.
 
-Fingerprint would auto-split on any native drift but adds CI complexity and can block OTA when Gradle/plugin noise changes without user-visible native changes. `appVersion` matches our explicit release versioning and store submit flow.
+Fingerprint would auto-split on native drift but forces more rebuilds on plugin/Gradle noise. Stay on `appVersion` unless a dedicated PR adopts fingerprint (see versioning contract).
 
 ## How the phone receives updates
 
