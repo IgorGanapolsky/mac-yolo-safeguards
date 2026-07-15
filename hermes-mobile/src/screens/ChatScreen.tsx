@@ -162,6 +162,10 @@ import {
   shouldShowComposerProgressBanner,
 } from '../utils/runProgressDisplay';
 import {
+  shouldHideProjectChipWhileKeyboard,
+  shouldSuppressCommandCenterRunTile,
+} from '../utils/runProgressLayout';
+import {
   classifyRunStale,
   isTerminalGatewayRunStatus,
   msUntilNoTokenFail,
@@ -4472,6 +4476,8 @@ export default function ChatScreen() {
     userScrolledUpRef.current = false;
     lastDistanceFromBottomRef.current = 0;
     setChatNearBottom(true);
+    // Pin again after RUN banner / dock layout shrinks the FlashList viewport.
+    pinScrollAfterHydrationRef.current = true;
     scrollChatToLatest(true);
     return userMessage.id ?? '';
   };
@@ -6342,6 +6348,7 @@ export default function ChatScreen() {
           machineName={machineShortLabel}
           chatStalled={effectiveAuthMismatch ? false : chatStalled}
           authMismatch={effectiveAuthMismatch}
+          suppressRunTile={shouldSuppressCommandCenterRunTile(showComposerProgressBanner)}
           onOpenApprovals={() => {
             haptics.selection();
             navigation.navigate('Leash' as never);
@@ -6575,6 +6582,7 @@ export default function ChatScreen() {
             progress={progressBanner}
             fallbackModel={progressBannerFallbackModel}
             showTechnicalStats={settings.includeToolActivity}
+            compact={keyboardOpen}
             megaSessionWarning={megaSessionWarning}
             onStartFreshChat={
               megaSessionWarning || isDeadRunEndedMessage(progressBanner.detail)
@@ -6696,11 +6704,13 @@ export default function ChatScreen() {
           </Pressable>
         ) : null}
 
-        <VaultProjectPickerChip
-          projectName={activeProject?.name}
-          handoffSummary={activeProject?.handoffSummary}
-          onPress={!showMacConnectionHelp ? openProjectPicker : undefined}
-        />
+        {!shouldHideProjectChipWhileKeyboard(keyboardOpen) ? (
+          <VaultProjectPickerChip
+            projectName={activeProject?.name}
+            handoffSummary={activeProject?.handoffSummary}
+            onPress={!showMacConnectionHelp ? openProjectPicker : undefined}
+          />
+        ) : null}
 
         <ChatInputBar
           value={inputValue}

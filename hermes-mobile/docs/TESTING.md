@@ -33,6 +33,7 @@
 |---|---|---|
 | Ship guard | `ship-guard.yaml` | No Metro red screen / legacy shell |
 | Stranger cold start | `stranger-cold-start.yaml` | No demo deep link → `connect-mac-onboarding-card` + Find computers CTA |
+| **Fresh-user suite** | `fresh-user-suite.yaml` | Full stranger path: cold start + tabs + Leash Pro IAP surface (`npm run e2e:fresh-user`) |
 | Wrong-key repair | `wrong-key-repair.yaml` | Computer picker reachable for re-pair path |
 | Launch | `launch.yaml` | Chat tab loads with input |
 | Navigation | `navigation.yaml` | All four tabs reachable |

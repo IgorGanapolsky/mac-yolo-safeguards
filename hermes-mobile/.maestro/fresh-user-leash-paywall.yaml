@@ -1,0 +1,50 @@
+# Fresh user paid upgrade path — no Pro, no demo unlock.
+# Asserts Leash Pro upsell + IAP subscribe CTA. Does not complete real purchase
+# (Play/App Store sandbox requires signed-in tester account); asserts UI + tap
+# reaches store connection or product sheet without crashing.
+appId: com.iganapolsky.hermesmobile
+---
+- runFlow:
+    when:
+      visible:
+        id: "connect-mac-gate-dismiss"
+    commands:
+      - tapOn:
+          id: "connect-mac-gate-dismiss"
+- tapOn:
+    id: "tab-leash"
+- extendedWaitUntil:
+    notVisible:
+      id: "tab-screen-loading"
+    timeout: 90000
+- extendedWaitUntil:
+    visible:
+      id: "THUMBGATE_LEASH"
+    timeout: 30000
+# Free tier: pro-upgrade-card lives under leash-pro-upsell-card (unlimited upsell).
+# Locked (no free remaining / no pro): pro-upgrade-card under empty state.
+- scrollUntilVisible:
+    element:
+      id: "pro-upgrade-card"
+    direction: DOWN
+    timeout: 60000
+- assertVisible:
+    id: "pro-upgrade-card"
+- assertVisible:
+    id: "subscribe-thumbgate-leash-iap"
+- assertVisible:
+    id: "restore-thumbgate-leash"
+- assertVisible:
+    id: "subscription-legal-disclosure"
+# Tap subscribe — store may show product sheet, "not available", or connect spinner.
+- tapOn:
+    id: "subscribe-thumbgate-leash-iap"
+- waitForAnimationToEnd:
+    timeout: 5000
+# App must not crash; Leash header still present after store interaction attempt.
+- extendedWaitUntil:
+    visible:
+      id: "THUMBGATE_LEASH"
+    timeout: 30000
+- assertVisible:
+    id: "THUMBGATE_LEASH"

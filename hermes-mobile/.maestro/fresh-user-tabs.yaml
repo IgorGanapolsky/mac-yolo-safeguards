@@ -1,0 +1,56 @@
+# Fresh user: tabs reachable WITHOUT demo bootstrap (no hermes://setup?demo=1).
+appId: com.iganapolsky.hermesmobile
+---
+- extendedWaitUntil:
+    notVisible:
+      id: "hermes-bootstrap"
+    timeout: 60000
+# Dismiss ConnectMacGate if still covering tabs (user can continue exploring).
+- runFlow:
+    when:
+      visible:
+        id: "connect-mac-gate-dismiss"
+    commands:
+      - tapOn:
+          id: "connect-mac-gate-dismiss"
+- waitForAnimationToEnd:
+    timeout: 2000
+- tapOn:
+    id: "tab-leash"
+- extendedWaitUntil:
+    notVisible:
+      id: "tab-screen-loading"
+    timeout: 90000
+- extendedWaitUntil:
+    visible:
+      id: "THUMBGATE_LEASH"
+    timeout: 30000
+- tapOn:
+    id: "tab-settings"
+- extendedWaitUntil:
+    notVisible:
+      id: "tab-screen-loading"
+    timeout: 90000
+- assertVisible:
+    id: "SETTINGS"
+- tapOn:
+    id: "tab-hermes"
+- extendedWaitUntil:
+    notVisible:
+      id: "tab-screen-loading"
+    timeout: 90000
+# Chat may show gate or composer depending on dismiss state
+- runFlow:
+    when:
+      visible:
+        id: "chat-input"
+    commands:
+      - assertVisible:
+          id: "chat-input"
+- runFlow:
+    when:
+      visible:
+        id: "connect-mac-gate"
+    commands:
+      - assertVisible:
+          id: "connect-mac-onboarding-card"
