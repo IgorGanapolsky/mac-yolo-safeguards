@@ -1,0 +1,476 @@
+{
+  "run_id": "trun_d3be5e813aa9497099ba89e4785d067b",
+  "interaction_id": "trun_d3be5e813aa9497099ba89e4785d067b",
+  "result_url": "https://platform.parallel.ai/play/deep-research/trun_d3be5e813aa9497099ba89e4785d067b",
+  "status": "completed",
+  "output": {
+    "basis": [
+      {
+        "field": "answer",
+        "reasoning": "Assessment reasoning: The field_description asks for a comprehensive engineering/release decision document including OTA/binary implications, policy constraints as of July 2026, a root-cause tree, an actionable release-acceptance matrix, telemetry, rollout/rollback procedures, and test criteria. The provided field_answer is an extensive, multi-section document that covers many of these aspects: OTA vs binary guidance, mDNS vs Tailscale discovery, network security configurations, policy references, a root-cause tree, a three-release architecture plan, an OTA-vs-binary decision matrix, rollout/telemetry/acceptance criteria, self-healing/watchdog concepts, and identity/deduplication schemas. It also includes a decision section (1\u201315) that aligns with what the field description requires. Given the length and depth, the answer appears to address all major facets expected by the field description, including external-policy considerations and concrete criteria. However, due to the provided excerpts being fragmented and primarily serving as background evidence rather than a direct mapping to every claim, some specific claims in the field_answer may not be explicitly verifiable from the excerpts alone. Thus, while the answer is thorough and matches the intent, its claims are not wholly supported by the excerpts. Therefore, completeness is true, but excerpt support is false.",
+        "citations": [
+          {
+            "url": "https://github.com/expo/eas-cli/issues/1711",
+            "excerpts": [
+              "runtimeVersion policy is ignored and defaulted to sdkVersion #1711\nLater I experimented on another branch and tried to set runtimeVersion to \"1.17\" manually, but in eas update this also defaulted to \"exposdk:47\""
+            ],
+            "title": "runtimeVersion policy is ignored and defaulted to sdkVersion #1711"
+          },
+          {
+            "url": "https://docs.expo.dev/eas-update/runtime-versions",
+            "excerpts": [
+              "Runtime versions and updates - Expo Documentation\nThe \"appVersion\" policy will increment the runtime version whenever the app version is incremented, but if you forget to bump the app version when changing the native runtime, then you'll have a runtime version mismatch."
+            ],
+            "title": "Runtime versions and updates - Expo Documentation"
+          },
+          {
+            "url": "http://docs.expo.dev/eas-update/runtime-versions.md",
+            "excerpts": [
+              "If you want to make incompatible updates extremely unlikely, at the cost of making it necessary to create builds more often, then you can use the `\"fingerprint\"` policy.\nThe `\"appVersion\"` policy will increment the runtime version whenever the app version is incremented, but if you forget to bump the app version when changing the native runtime, then you'll have a runtime version mismatch.\nThis will increment the runtime version whenever anything that may impact the native runtime changes"
+            ],
+            "title": "modificationDate: December 05, 2025 title: Runtime versions and updates description: Learn about different runtime version policies and how they may suit your project."
+          },
+          {
+            "url": "https://www.welcomedeveloper.com/posts/how-i-manage-expo-app-versioning",
+            "excerpts": [
+              "How I Manage Versioning in Expo Apps\nMar 2, 2026 \u2014 \" runtimeVersion\": { \"policy\": \"fingerprint \" }. That means: Fingerprint changes \u2192 runtime changes; Runtime changes \u2192 new native build required"
+            ],
+            "title": "How I Manage Versioning in Expo Apps"
+          },
+          {
+            "url": "https://www.reddit.com/r/reactnative/comments/1m76t86/eas_update_no_compatible_builds_found_runtime",
+            "excerpts": [
+              "EAS Update \"No Compatible Builds Found\"\nExpo EAS Issue: OTA updates failing with \"No compatible builds found for following fingerprint \" I have ` policy : \"appVersion\"` \u2026 as the runtime"
+            ],
+            "title": "EAS Update \"No Compatible Builds Found\""
+          },
+          {
+            "url": "https://checklist.day/registry/react-native-zeroconf",
+            "excerpts": [
+              "React Native Zeroconf Discovery - checklist.day\nreact-native-zeroconf is a comprehensive utility library that enables React Native applications to discover and publish network services using Zeroconf protocols like Bonjour and mDNS. The current stable version is 0.14.0, which was released approximately 3 months ago."
+            ],
+            "title": "React Native Zeroconf Discovery - checklist.day"
+          },
+          {
+            "url": "https://github.com/balthazar/react-native-zeroconf/blob/master/README.md",
+            "excerpts": [
+              "react-native-zeroconf/README.md at master - GitHub\n:satellite: Discover Zeroconf services using react-native - react-native-zeroconf/README.md at master \u00b7 balthazar/react-native-zeroconf"
+            ],
+            "title": "react-native-zeroconf/README.md at master - GitHub"
+          },
+          {
+            "url": "https://github.com/balthazar/react-native-zeroconf",
+            "excerpts": [
+              "balthazar/react-native-zeroconf - GitHub\nService Discovery: Find services advertised on your local network Service Publishing: Advertise your own services Cross-Platform: Works on iOS and Android Dual Android Implementation: Choose between NSD (Android native) or DNSSD (embedded mDNSResponder) Android 15+ Compatible: Includes 16KB page size alignment (Google Play requirement starting November 1, 2025)"
+            ],
+            "title": "balthazar/react-native-zeroconf - GitHub"
+          },
+          {
+            "url": "https://docs.qnap.com/operating-system/qts/4.5.x/en-us/GUID-55D88E3A-B898-41E7-8C32-AE71666C9ED2.html",
+            "excerpts": [
+              "Enabling the Bonjour Discovery Service\nGo to Control Panel > Network & File Services > Service Discovery > Bonjour. Select Enable Bonjour Service. Select the services to be advertised by Bonjour."
+            ],
+            "title": "Enabling the Bonjour Discovery Service"
+          },
+          {
+            "url": "https://github.com/likeSo/expo-bonjour",
+            "excerpts": [
+              "GitHub - likeSo/expo-bonjour: Zero-config mDNS (Bonjour ...\nexpo-bonjour Zero-config mDNS (Bonjour) service discovery for Expo and React Native apps. \u4e00\u4e2a\u201d\u96f6\u914d\u7f6e\u201c\uff08mDNS\uff09\u670d\u52a1\u63d2\u4ef6\uff0c\u8ba9\u4f60\u53ef\u4ee5\u5229\u7528mDNS\u548cBonjour\u670d\u52a1\uff0c\u53d1\u73b0\u5c40\u57df\u7f51\u4e2d\u7684\u8bbe\u5907\u3002"
+            ],
+            "title": "GitHub - likeSo/expo-bonjour: Zero-config mDNS (Bonjour ..."
+          },
+          {
+            "url": "http://developer.android.com/privacy-and-security/security-config",
+            "excerpts": [
+              "From Android 17 (API level 37) and higher, if no configuration has been defined for localhost, an implicit configuration is included. By default, this configuration does the following: Allows cleartext traffic.\nIf your app needs to connect to destinations using cleartext traffic (HTTP), you can opt in to supporting cleartext to those destinations. For example, you might want to allow your app to make insecure connections to `insecure.example.com` . ``` <?xml version=\"1.0\" encoding=\"utf-8\"?> <network-security-config> <domain-config cleartextTrafficPermitted=\"true\"> <domain includeSubdomains=\"true\">insecure.example.com</domain> </domain-config> </network-security-config> ``` If your app needs to opt in to cleartext traffic to any domain, set `cleartextTrafficPermitted=\"true\"` in the `base-config` .\na numerical IP address and `InetAddress.isLoopback()` is `true` (for example, `127.0.0.1` or `[::1]` )\nStarting with Android 9 (API level 28), cleartext support is disabled by default."
+            ],
+            "title": "Network security configuration \u00a0|\u00a0 Security \u00a0|\u00a0 Android Developers"
+          },
+          {
+            "url": "https://lengerrong.blogspot.com/2024/05/how-to-fix-clear-text-not-permitted.html",
+            "excerpts": [
+              "How to Fix \"Clear Text Not Permitted\" Issue in React Native ...\nThis error arises due to security measures introduced in Android 9 (API level 28) and higher, where clear text traffic (HTTP) is not allowed by default. In this post, we'll explore how to fix this issue and ensure your app communicates securely over HTTPS."
+            ],
+            "title": "How to Fix \"Clear Text Not Permitted\" Issue in React Native ..."
+          },
+          {
+            "url": "https://ptkd.com/journal/android-cleartext-traffic-network-security-config",
+            "excerpts": [
+              "Android cleartext traffic and network_security_config.xml\nYou control this with a network_security_config.xml file or the android:usesCleartextTraffic manifest flag, which can permit cleartext globally or per domain, configure trusted certificate authorities, and set up certificate pinning."
+            ],
+            "title": "Android cleartext traffic and network_security_config.xml"
+          },
+          {
+            "url": "https://stackoverflow.com/questions/77556033/neterr-cleartext-not-permitted-from-react-native-webview-in-android",
+            "excerpts": [
+              "NET::ERR_CLEARTEXT_NOT_PERMITTED from react-native-webview in ...\nIs there a way to prevent this from causing an error WITHOUT adding android:usesCleartextTraffic=\u201dtrue\u201d to the AndroidManifest.xml file? I want to avoid this as Google advises against permitting cleartext due to security issues."
+            ],
+            "title": "NET::ERR_CLEARTEXT_NOT_PERMITTED from react-native-webview in ..."
+          },
+          {
+            "url": "https://tailscale.com/docs/install/android",
+            "excerpts": [
+              "Install Tailscale on Android \u00b7 Tailscale Docs\nThe Tailscale client works with Android 8.0 or later on devices such as phones, tablets, and Android TV. If you want to install the Tailscale client on ChromeOS, refer to Install Tailscale on a Chromebook."
+            ],
+            "title": "Install Tailscale on Android \u00b7 Tailscale Docs"
+          },
+          {
+            "url": "https://github.com/hyseason82/tailscale-cgnat-keeper/blob/main/docs/cgnat-explained.md",
+            "excerpts": [
+              "tailscale-cgnat-keeper/docs/cgnat-explained.md at main ...\nCarrier-Grade NAT (CGNAT) is an extra layer of NAT operated by your ISP. Instead of giving you a real public IPv4 address, your ISP assigns you an address from 100.64.0.0/10 (RFC 6598), and shares one real public IP among many subscribers."
+            ],
+            "title": "tailscale-cgnat-keeper/docs/cgnat-explained.md at main ..."
+          },
+          {
+            "url": "https://github.com/tailscale/tailscale/issues/1013",
+            "excerpts": [
+              "Support mDNS for name and service resolution #1013\nMagic DNS doesn't necessarily fill this gap in my use case as mdns also provides service discovery for things like airprint. I've been able to get multicast dns working with \"native\" wireguard by manually enabling multicast on the interface and setting the allowed IP's to 0.0.0.0/0."
+            ],
+            "title": "Support mDNS for name and service resolution #1013"
+          },
+          {
+            "url": "https://tailscale.com/docs/features/magicdns",
+            "excerpts": [
+              "MagicDNS - Tailscale Docs\nOn Windows, stop accepting DNS by holding SHIFT while right-clicking on the Tailscale system tray icon, and deselecting Use Tailscale DNS from the menu. In the future, we will have robust enough DNS configuration and resolution logic that disabling MagicDNS separately will never be necessary."
+            ],
+            "title": "MagicDNS - Tailscale Docs"
+          },
+          {
+            "url": "https://deepwiki.com/tailscale/tailscale/7.1-dns-resolution-and-magicdns",
+            "excerpts": [
+              "DNS Resolution and MagicDNS | tailscale/tailscale | DeepWiki\nThe Tailscale DNS system provides a comprehensive DNS solution with MagicDNS for node resolution, Split DNS for corporate environments, and DoH for privacy. It adapts to various OS capabilities and provides a robust fallback mechanism using the 100.100.100.100 service IP."
+            ],
+            "title": "DNS Resolution and MagicDNS | tailscale/tailscale | DeepWiki"
+          },
+          {
+            "url": "https://blog.starmorph.com/blog/tailscale-complete-developer-reference-guide",
+            "excerpts": [
+              "Tailscale 101: Complete Developer Reference Guide for Mesh ...\nComplete Tailscale reference guide covering WireGuard mesh VPN architecture, CLI commands, MagicDNS, ACLs, Tailscale SSH, Serve & Funnel, Docker integration, subnet routers, exit nodes, and troubleshooting."
+            ],
+            "title": "Tailscale 101: Complete Developer Reference Guide for Mesh ..."
+          },
+          {
+            "url": "https://www.androidmetro.com/2024/01/android-nsdmanager.html",
+            "excerpts": [
+              "Android Nsdmanager\nIt helps Android devices discover and advertise services on a local network using mDNS and DNS-SD. By using NSDManager, developers can create apps that allow users to share resources (like files or games), communicate with nearby devices, or interact with IoT devices."
+            ],
+            "title": "Android Nsdmanager"
+          },
+          {
+            "url": "https://coderanch.com/t/676643/Android-NSD-Manager-finds-fails",
+            "excerpts": [
+              "Android's NSD Manager finds but fails to resolve multiple ...\nFeb 28, 2017 \u2014 I can't discover multiple services using \"_services._dns-sd._udp\" to enumerate service types. This does work using Android's NSD Manager."
+            ],
+            "title": "Android's NSD Manager finds but fails to resolve multiple ..."
+          },
+          {
+            "url": "https://developer.android.com/reference/android/net/nsd/NsdManager",
+            "excerpts": [
+              "NsdManager | API reference | Android Developers\nProvides APIs for discovering and advertising network services on the local network. Network Service Discovery (NSD) allows applications to find other devices on a local network that support the services the application is interested in. For example, a game can find other players on the same local network, or a document viewer can find printers. The implementation is based on DNS Service"
+            ],
+            "title": "NsdManager | API reference | Android Developers"
+          },
+          {
+            "url": "https://android.googlesource.com/platform/frameworks/base/%2B/56a2301/core/java/android/net/nsd/NsdManager.java",
+            "excerpts": [
+              "core/java/android/net/nsd/NsdManager.java\n* <p> A peer application looking for http services can initiate a discovery for \"_http._tcp\". * with a call to {@link #discoverServices}. A service found is"
+            ],
+            "title": "core/java/android/net/nsd/NsdManager.java"
+          },
+          {
+            "url": "https://learn.microsoft.com/en-us/dotnet/api/android.net.nsd.nsdmanager?view=net-android-35.0",
+            "excerpts": [
+              "NsdManager Class (Android.Net.Nsd)\nThe Network Service Discovery Manager class provides the API to discover services on a network. As an example, if device A and device B are connected over a Wi"
+            ],
+            "title": "NsdManager Class (Android.Net.Nsd)"
+          },
+          {
+            "url": "https://www.reactnative.solutions/packages/expo-bonjour",
+            "excerpts": [
+              "expo-bonjour - React Native Package Health Score & Review\nexpo-bonjour health score (32/100), weekly downloads, platform support, and alternatives. Zero-config mDNS (Bonjour) service discovery for Expo and React Native apps."
+            ],
+            "title": "expo-bonjour - React Native Package Health Score & Review"
+          },
+          {
+            "url": "https://deepwiki.com/inthepocket/react-native-service-discovery",
+            "excerpts": [
+              "inthepocket/react-native-service-discovery | DeepWiki\nThe library allows React Native applications to discover and monitor services such as printers, webcams, HTTP servers, and other network devices using industry-standard protocols (DNS-SD, Bonjour, Zeroconf, Avahi). This overview covers the library's architecture, core components, and data flow."
+            ],
+            "title": "inthepocket/react-native-service-discovery | DeepWiki"
+          },
+          {
+            "url": "https://www.npmjs.com/package/%40inthepocket/react-native-service-discovery",
+            "excerpts": [
+              "@inthepocket/react-native-service-discovery - npm\nThis library allows you to discover services on your local network using mDNS (DNS-SD, Bonjour, Zeroconf, Avahi, ...). Devices that support service discovery include printers, webcams, HTTPS servers, and other mobile devices. The library uses NSNetServiceBrowser on iOS and NsdManager on Android."
+            ],
+            "title": "@inthepocket/react-native-service-discovery - npm"
+          },
+          {
+            "url": "https://github.com/inthepocket/react-native-service-discovery",
+            "excerpts": [
+              "GitHub - inthepocket/react-native-service-discovery: mDNS ...\nThis library allows you to discover services on your local network using mDNS (DNS-SD, Bonjour, Zeroconf, Avahi, ...). Devices that support service discovery include printers, webcams, HTTPS servers, and other mobile devices. The library uses NSNetServiceBrowser on iOS and NsdManager on Android."
+            ],
+            "title": "GitHub - inthepocket/react-native-service-discovery: mDNS ..."
+          },
+          {
+            "url": "https://developer.apple.com/app-store/review/guidelines/",
+            "excerpts": [],
+            "title": "App Review Guidelines - Apple Developer"
+          },
+          {
+            "url": "https://developer.android.com/privacy-and-security/security-config",
+            "excerpts": [],
+            "title": "Network security configuration \u00a0|\u00a0 Security \u00a0|\u00a0 Android Developers"
+          },
+          {
+            "url": "https://docs.expo.dev/workflow/configuration/",
+            "excerpts": [],
+            "title": "modificationDate: June 03, 2026 title: Configure with app config description: Learn about what app.json/app.config.js/app.config.ts files are and how you can customize and use them dynamically."
+          },
+          {
+            "url": "https://docs.expo.dev/eas-update/runtime-versions/",
+            "excerpts": [],
+            "title": "modificationDate: July 03, 2026 title: Runtime versions and updates description: Learn about different runtime version policies and how they may suit your project."
+          },
+          {
+            "url": "https://tailscale.com/docs/features/subnet-routers",
+            "excerpts": [
+              "Subnet routers \u00b7 Tailscale Docs\nAfter installing Tailscale, you need to configure the device to function as a subnet router by enabling IP forwarding and advertising the subnet routes you want to make available."
+            ],
+            "title": "Subnet routers \u00b7 Tailscale Docs"
+          },
+          {
+            "url": "https://anangrygoose.github.io/networking/opnsense/opnsensetailscale",
+            "excerpts": [
+              "Tailscale as Subnet Router - Homelab - anangrygoose.github.io\nThis covers how to allow remote access to local network via Tailscale (Subnet Routing) and resolve local domains (Split DNS) via AdGuard Home/Unbound. Fix IP Access (Subnet Routing)"
+            ],
+            "title": "Tailscale as Subnet Router - Homelab - anangrygoose.github.io"
+          },
+          {
+            "url": "https://github.com/tailscale/tailscale/issues/17744",
+            "excerpts": [
+              "Advertise subnet routes on Apple Tv not working in ... - GitHub\nThat is what the subnet router functionality does, gives access to machines within the network that do not/cannot have tailscale installed on them. You can make use of something like 9.9.9.9 or any of the other free, reliable DNS servers out there if you don't want to use your ISPs."
+            ],
+            "title": "Advertise subnet routes on Apple Tv not working in ... - GitHub"
+          },
+          {
+            "url": "https://harryvasanth.com/posts/networking-tailscale-subnet-routing",
+            "excerpts": [
+              "Networking - Tailscale: Advanced Subnet Routing and Site-to ...\nThe Ideal Fix: Deploy High Availability (HA) Subnet Routers. If you run the exact same advertise-routes command on two different servers, Tailscale will automatically pick one as the primary."
+            ],
+            "title": "Networking - Tailscale: Advanced Subnet Routing and Site-to ..."
+          },
+          {
+            "url": "https://askai.glarity.app/search/Understanding--tailscale-set---advertise-routes--for-IP-Routing",
+            "excerpts": [
+              "Understanding `tailscale set --advertise-routes` for IP Routing\n**Advertise Routes**: Use the `tailscale set` command with the `--advertise-routes` flag in a terminal session. You provide a comma-separated list of the IP subnets you want to make accessible through this router."
+            ],
+            "title": "Understanding `tailscale set --advertise-routes` for IP Routing"
+          },
+          {
+            "url": "https://www.appsonair.com/hermes-vs-jsc-react-native-ota-updates-guide",
+            "excerpts": [
+              "Hermes vs JSC for React Native OTA Updates (2026) | AppsOnAir\nHermes bytecode vs. JSC plain-text JavaScript: different engines, different bundle formats, and different failure modes. This guide covers configuration, benchmarks, and every Hermes OTA pitfall we've encountered in production."
+            ],
+            "title": "Hermes vs JSC for React Native OTA Updates (2026) | AppsOnAir"
+          },
+          {
+            "url": "https://www.72technologies.com/blog/eas-update-ota-strategy-channels-rollouts-rollbacks",
+            "excerpts": [
+              "EAS Update OTA Strategy in 2026: Channels & Rollbacks ...\nWire eas update --rollout-percentage into your deploy pipeline, defaulting to 0% on publish. Write the rollback runbook \u2014 three commands, pinned in chat \u2014 before you need it. Decide, in writing, what your team will and won't ship via OTA. Share it with whoever talks to App Review."
+            ],
+            "title": "EAS Update OTA Strategy in 2026: Channels & Rollbacks ..."
+          },
+          {
+            "url": "http://reactnative.dev/blog/2026/02/11/react-native-0.84",
+            "excerpts": [
+              "2026 \u2014 Hermes V1 is now the default JavaScript engine for React Native on both iOS and Android, following\nFeb 11, 2026 \u2014 This release makes Hermes V1 the default JavaScript engine, bringing significant performance improvements to all React Native apps."
+            ],
+            "title": "React Native 0.84 - Hermes V1 by Default"
+          },
+          {
+            "url": "https://reactnative.dev/docs/hermes",
+            "excerpts": [
+              "Using Hermes - React Native\nReact Native comes with a bundled versionof Hermes.We building a version of Hermes for you whenever we release a new version of React Native. This will make sure you're consuming a version of Hermes which is fully compatible with the version of React Native you're using. This change is fully transparent to users of React Native. You can still disab"
+            ],
+            "title": "Using Hermes - React Native"
+          },
+          {
+            "url": "https://www.appsonair.com/blogs/hermes-engine-and-live-updates-what-changes-in-your-codepush-workflow",
+            "excerpts": [
+              "Hermes Engine and Live Updates: What Changes in Your CodePush ...\nUsing Hermes with CodePush? Learn how the Hermes JavaScript engine changes your live update workflow and discover best practices for 2026 OTA updates."
+            ],
+            "title": "Hermes Engine and Live Updates: What Changes in Your CodePush ..."
+          },
+          {
+            "url": "https://android.googlesource.com/platform/frameworks/base/%2B/e7369bd4dfa4fb3fdced5b52160a5d0209132292/core/java/android/net/nsd/NsdManager.java",
+            "excerpts": [
+              "core/java/android/net/nsd/NsdManager.java - platform ...\n* Indicates that the operation failed due to an internal error. * Indicates that the operation failed because it is already active. * requests from the applications have reached. // if the listener is already in the map, reject it. Otherwise, add it and. // return its key."
+            ],
+            "title": "core/java/android/net/nsd/NsdManager.java - platform ..."
+          },
+          {
+            "url": "https://android.googlesource.com/platform/frameworks/base/%2B/af2eefb/core/java/android/net/nsd/NsdManager.java",
+            "excerpts": [
+              "core/java/android/net/nsd/NsdManager.java - platform ...\n* Indicates that the operation failed due to an internal error. * Indicates that the operation failed because it is already active. * requests from the applications have reached. * Register a service to be discovered by other services. * to the framework. The application is notified of a success to initiate."
+            ],
+            "title": "core/java/android/net/nsd/NsdManager.java - platform ..."
+          },
+          {
+            "url": "https://stuff.mit.edu/afs/sipb/project/android/docs/reference/android/net/nsd/NsdManager.html",
+            "excerpts": [
+              "NsdManager - Android SDK | Android Developers\nThe function call immediately returns after sending a request to register service to the framework. The application is notified of a success to initiate discovery through the callback onServiceRegistered(NsdServiceInfo) or a failure through onRegistrationFailed(NsdServiceInfo, int)."
+            ],
+            "title": "NsdManager - Android SDK | Android Developers"
+          },
+          {
+            "url": "https://forum.netgate.com/topic/73977/mdns-flooding-by-bonjour",
+            "excerpts": [
+              "MDNS flooding by Bonjour - Netgate Forum\nBonjour discovery service. When an Iphone or iPad are connecting to the network the blocks are starting, caused by the flooding of mDNS packets."
+            ],
+            "title": "MDNS flooding by Bonjour - Netgate Forum"
+          },
+          {
+            "url": "https://tailscale.com/docs/reference/reserved-ip-addresses",
+            "excerpts": [
+              "Reserved IP addresses \u00b7 Tailscale Docs\nJan 12, 2026 \u2014 Tailscale assigns each device in your tailnet a unique Tailscale IP address from the Carrier-Grade NAT (CGNAT) range defined in RFC 6598."
+            ],
+            "title": "Reserved IP addresses \u00b7 Tailscale Docs"
+          },
+          {
+            "url": "https://tailscale.com/docs/concepts/tailscale-ip-addresses",
+            "excerpts": [
+              "What are these 100.x.y.z addresses? \u00b7 Tailscale Docs\nTailscale uses 100.x.y.z IP addresses from the Carrier-Grade NAT (CGNAT) range to ensure stable, private connections for devices on your"
+            ],
+            "title": "What are these 100.x.y.z addresses? \u00b7 Tailscale Docs"
+          },
+          {
+            "url": "https://tailscale.com/docs/concepts/ip-and-dns-addresses",
+            "excerpts": [
+              "How Tailscale assigns IP addresses\nJan 12, 2026 \u2014 Finding your Tailscale IP address \u00b7 Go to the Machines page of the admin console. \u00b7 Find the row corresponding to the device you are interested in"
+            ],
+            "title": "How Tailscale assigns IP addresses"
+          },
+          {
+            "url": "https://tailscale.com/blog/choose-your-ip",
+            "excerpts": [
+              "Customize Tailscale Node IPs for Better Network ...\nDec 7, 2023 \u2014 Gain full control over IP address allocation in your Tailscale network, enabling efficient management and compatibility with other systems."
+            ],
+            "title": "Customize Tailscale Node IPs for Better Network ..."
+          },
+          {
+            "url": "http://github.com/symfony/symfony/issues/64421",
+            "excerpts": [
+              "The Shared Address Space address range 100.64.0.0/10 is defined in RFC 6598."
+            ],
+            "title": "Add 100.64.0.0/10 adress space to PRIVATE_SUBNET ..."
+          },
+          {
+            "url": "https://docs.expo.dev/eas-update/introduction",
+            "excerpts": [
+              "EAS Update - Expo Documentation\nThis means your updates need to follow the App Store and Play Store guidelines, including the content of the updates and how you use them."
+            ],
+            "title": "EAS Update - Expo Documentation"
+          },
+          {
+            "url": "https://bitrise.io/blog/post/what-app-stores-allow-with-ota-updates-apple-and-google-policy-explained",
+            "excerpts": [
+              "What App Stores allow with OTA updates: Apple and Google ...\nAs Expo's CEO explained at the time, React Native JavaScript \"will only call into a set of native calls that have been audited and reviewed at App Store submission time\"."
+            ],
+            "title": "What App Stores allow with OTA updates: Apple and Google ..."
+          },
+          {
+            "url": "https://medium.com/%40_.sirsha/ota-updates-in-a-production-expo-app-signing-fingerprinting-tagging-and-rolling-out-safely-edee6df07f76",
+            "excerpts": [
+              "OTA Updates in a Production Expo App: Signing, Fingerprinting ...\nThis post documents the production-grade OTA workflow I use around Expo EAS Updates, including: Channel and runtime version strategy; Update"
+            ],
+            "title": "OTA Updates in a Production Expo App: Signing, Fingerprinting ..."
+          },
+          {
+            "url": "https://procedure.tech/blogs/mastering-expo-eas-submit-ota-updates-and-workflow-automation",
+            "excerpts": [
+              "Mastering Expo EAS: Submit, OTA Updates, and Workflow Automation\nOct 7, 2025 \u00b7 In this second part of our Expo EAS automation series, we'll explore how to streamline app store submissions with eas submit , push live fixes"
+            ],
+            "title": "Mastering Expo EAS: Submit, OTA Updates, and Workflow Automation"
+          },
+          {
+            "url": "https://docs.expo.dev/eas/observe/eas-update",
+            "excerpts": [
+              "EAS Update download performance - Expo Documentation\nTrack how long EAS Update OTA bundles take to download on real user devices, with per-update breakdowns in the EAS Observe dashboard."
+            ],
+            "title": "EAS Update download performance - Expo Documentation"
+          },
+          {
+            "url": "https://app.unpkg.com/react-native-zeroconf%400.13.6",
+            "excerpts": [
+              "react-native-zeroconf\nreact-native-zeroconf. Version: latest (0.14.0), 0.14.0, 0.13.8, 0.13.7, 0.13.6, 0.13.5, 0.13.4, 0.13.3, 0.13.2, 0.13.1, 0.13.0, 0.12.5, 0.12.4, 0.12.3"
+            ],
+            "title": "react-native-zeroconf"
+          },
+          {
+            "url": "https://developer.android.com/reference/kotlin/android/net/nsd/NsdManager",
+            "excerpts": [
+              "NsdManager | API reference | Android Developers\nThis can happen when trying to perform resolution, discovery, or callback registration without the android.Manifest.permission#ACCESS_LOCAL_NETWORK permission. This failure is passed with ResolveListener.onResolveFailed, DiscoveryListener.onStartDiscoveryFailed, or ServiceInfoCallback.onServiceInfoCallbackRegistrationFailed."
+            ],
+            "title": "NsdManager | API reference | Android Developers"
+          },
+          {
+            "url": "https://tailscale.com/docs/features/magicdns/",
+            "excerpts": [],
+            "title": "MagicDNS"
+          },
+          {
+            "url": "https://docs.expo.dev/eas-update/eas-cli/",
+            "excerpts": [],
+            "title": "modificationDate: June 16, 2024 title: Manage branches and channels with EAS CLI description: Learn how to link a branch to a channel and publish updates with EAS CLI."
+          },
+          {
+            "url": "https://docs.expo.dev/eas-update/how-it-works/",
+            "excerpts": [],
+            "title": "modificationDate: February 18, 2025 title: How EAS Update works description: A conceptual overview of how EAS Update works."
+          },
+          {
+            "url": "https://support.google.com/googleplay/android-developer/answer/9888077",
+            "excerpts": [],
+            "title": "Deceptive Behavior - Play Console Help"
+          },
+          {
+            "url": "https://developer.android.com/google/play/requirements/target-sdk",
+            "excerpts": [],
+            "title": "Meet Google Play's target API level requirement \u00a0|\u00a0 Other Play guides \u00a0|\u00a0 Android Developers"
+          },
+          {
+            "url": "https://docs.expo.dev/versions/latest/sdk/updates/#automatic-configuration-using-runtime-version-policies",
+            "excerpts": [],
+            "title": "title: Updates description: A library that enables your app to manage remote updates to your application code. sourceCodeUrl: 'https://github.com/expo/expo/tree/sdk-57/packages/expo-updates' packageName: 'expo-updates' iconUrl: '/static/images/packages/expo-updates.png' platforms: ['android', 'ios', 'tvos', 'expo-go']"
+          },
+          {
+            "url": "https://docs.expo.dev/versions/latest/sdk/updates/",
+            "excerpts": [],
+            "title": "title: Updates description: A library that enables your app to manage remote updates to your application code. sourceCodeUrl: 'https://github.com/expo/expo/tree/sdk-57/packages/expo-updates' packageName: 'expo-updates' iconUrl: '/static/images/packages/expo-updates.png' platforms: ['android', 'ios', 'tvos', 'expo-go']"
+          },
+          {
+            "url": "https://tailscale.com/kb/1081/magicdns/",
+            "excerpts": [],
+            "title": "MagicDNS"
+          },
+          {
+            "url": "https://tailscale.com/kb/1019/subnets/",
+            "excerpts": [],
+            "title": "Subnet routers"
+          },
+          {
+            "url": "https://developer.apple.com/help/app-store-connect/manage-your-apps-availability/release-an-app-update/",
+            "excerpts": [],
+            "title": "Page Not Found - Apple Developer"
+          }
+        ],
+        "confidence": "medium"
+      }
+    ],
+    "type": "text",
+    "beta_fields": null,
+    "mcp_tool_calls": null,
+    "content_file": "hermes-discovery-ota-july-2026.md"
+  }
+}
