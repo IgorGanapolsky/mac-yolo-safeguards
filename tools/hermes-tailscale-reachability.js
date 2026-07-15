@@ -47,12 +47,36 @@ function log(line) {
   }
 }
 
-function readLocalApiKey() {
-  const envPath = path.join(os.homedir(), '.hermes', '.env');
+function readEnvFileKey(envPath, name) {
   if (!fs.existsSync(envPath)) return '';
   const text = fs.readFileSync(envPath, 'utf8');
-  const m = text.match(/^API_SERVER_KEY=(.+)$/m);
+  const re = new RegExp('^' + name + '=(.+)$', 'm');
+  const m = text.match(re);
   return m ? m[1].trim().replace(/^["']|["']$/g, '') : '';
+}
+
+function readLocalApiKey() {
+  return (
+    process.env.API_SERVER_KEY ||
+    readEnvFileKey(path.join(os.homedir(), '.hermes', '.env'), 'API_SERVER_KEY')
+  );
+}
+
+/** Prefer per-Mac keys when mini/MBP differ (multi-Mac crisis). */
+function apiKeyForRole(role, fallback) {
+  if (role === 'mini') {
+    return (
+      process.env.HERMES_MINI_API_KEY ||
+      process.env.API_SERVER_KEY_MINI ||
+      readEnvFileKey(path.join(os.homedir(), '.hermes', '.env'), 'API_SERVER_KEY_MINI') ||
+      fallback
+    );
+  }
+  return (
+    process.env.HERMES_MBP_API_KEY ||
+    process.env.API_SERVER_KEY_MBP ||
+    fallback
+  );
 }
 
 function loadState() {
@@ -89,11 +113,23 @@ function httpProbe(url, { headers = {}, timeoutMs = 5000 } = {}) {
 async function probeHost(ip, apiKey) {
   const base = `http://${ip}:${GATEWAY_PORT}`;
   const health = await httpProbe(`${base}/health`);
-  const sessions = apiKey
-    ? await httpProbe(`${base}/api/sessions?limit=1`, {
-        headers: { Authorization: `Bearer ${apiKey}`, Accept: 'application/json' },
-      })
-    : { ok: false, status: 0, error: 'no_api_key' };
+  if (!apiKey) {
+    // Greptile P1: missing key is operator config, not "gateway down". Health-only
+    // reachability avoids permanent anyDown + ntfy spam every cooldown.
+    return {
+      ip,
+      healthOk: health.ok,
+      healthStatus: health.status,
+      sessionsOk: null,
+      sessionsStatus: null,
+      sessionsSkipped: 'no_api_key',
+      reachable: health.ok,
+      authProbeSkipped: true,
+    };
+  }
+  const sessions = await httpProbe(`${base}/api/sessions?limit=1`, {
+    headers: { Authorization: `Bearer ${apiKey}`, Accept: 'application/json' },
+  });
   return {
     ip,
     healthOk: health.ok,
@@ -101,6 +137,7 @@ async function probeHost(ip, apiKey) {
     sessionsOk: sessions.ok,
     sessionsStatus: sessions.status,
     reachable: health.ok && sessions.ok,
+    authProbeSkipped: false,
   };
 }
 
@@ -156,7 +193,7 @@ function autoPair(dryRun) {
   const pairJs = path.join(REPO_ROOT, 'tools', 'hermes-mobile-pair.js');
   const r = spawnSync(process.execPath, [pairJs, '--no-dev-unlock'], {
     encoding: 'utf8',
-    timeout: 180_000,
+    timeout: 120_000,
     cwd: REPO_ROOT,
     env: process.env,
   });
@@ -196,7 +233,8 @@ async function runOnce(options = {}) {
   ];
   const probes = [];
   for (const h of hosts) {
-    probes.push({ role: h.role, ...(await probeHost(h.ip, apiKey)) });
+    const key = options.apiKey ?? apiKeyForRole(h.role, apiKey);
+    probes.push({ role: h.role, ...(await probeHost(h.ip, key)) });
   }
 
   const localProbe = probes.find((p) => p.ip === localIp) || probes.find((p) => p.role === 'mbp');
@@ -230,17 +268,22 @@ async function runOnce(options = {}) {
   }
 
   const anyDown = probes.some((p) => !p.reachable);
+  const missingKey = !apiKey && probes.every((p) => p.authProbeSkipped);
   let ntfy = { sent: false };
-  if (anyDown) {
+  // Greptile P1: never ntfy-spam for missing API_SERVER_KEY config.
+  if (anyDown && !missingKey) {
     const detail = probes
       .map(
         (p) =>
-          `${p.role}@${p.ip} health=${p.healthStatus} sessions=${p.sessionsStatus}`,
+          `${p.role}@${p.ip} health=${p.healthStatus} sessions=${p.sessionsStatus ?? p.sessionsSkipped ?? '?'}`,
       )
       .join('; ');
     ntfy = notifyNtfy('Hermes Tailscale reachability', detail, state);
     actions.push({ type: 'ntfy', ...ntfy });
     log(`down ${detail}`);
+  } else if (missingKey) {
+    actions.push({ type: 'skip_ntfy', reason: 'no_api_key' });
+    log('skip_ntfy no_api_key (health-only probes)');
   } else {
     state.lastAllOkAt = new Date().toISOString();
     log(`ok mbp+mini health+sessions`);
@@ -291,6 +334,7 @@ module.exports = {
   probeHost,
   runOnce,
   readLocalApiKey,
+  apiKeyForRole,
   listPhysicalAdbSerials,
   localTailscaleIpv4,
   MBP_TS,

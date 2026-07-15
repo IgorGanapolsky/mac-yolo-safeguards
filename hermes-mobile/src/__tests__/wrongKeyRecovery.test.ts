@@ -33,9 +33,16 @@ describe('wrongKeyRecovery', () => {
     expect(isWrongKeyFailure('Invalid API key')).toBe(true);
   });
 
-  it('treats HTTP 401/403 as auth mismatch without waiting for banner copy', () => {
+  it('treats HTTP 401 as auth mismatch; bare 403 does not wipe key (Greptile P1)', () => {
     expect(planWrongKeyRecovery({ status: 401 }).stopSilentHeal).toBe(true);
-    expect(planWrongKeyRecovery({ status: 403 }).clearStaleProfileKey).toBe(true);
+    expect(planWrongKeyRecovery({ status: 401 }).clearStaleProfileKey).toBe(true);
+    // 403 alone must not clear a valid key (permission/rate-limit)
+    expect(planWrongKeyRecovery({ status: 403 }).reason).toBe('none');
+    expect(planWrongKeyRecovery({ status: 403 }).clearStaleProfileKey).toBe(false);
+    // Explicit wrong-key copy still wins even if status is 403
+    expect(
+      planWrongKeyRecovery({ status: 403, errorMessage: 'invalid_api_key' }).clearStaleProfileKey,
+    ).toBe(true);
   });
 
   it('detects wrong-key copy in error strings', () => {
