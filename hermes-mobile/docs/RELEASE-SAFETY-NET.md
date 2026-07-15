@@ -38,8 +38,12 @@ Pair Mac mini over Tailscale: `node tools/hermes-mobile-pair.js --mini-tailscale
 |-------|---------|-----------|
 | Tier-0 | Every PR (`CI` / `mobile-checks`) | `npm run e2e:validate` — structural Maestro checks; required flow list includes regression YAMLs |
 | Tier-0 contract | Every PR + mobile-e2e job | `npm run test:release-safety` (includes `releaseSafetyNet.test.ts`) |
-| Tier-1 emulator | `pull_request` + `push` on hermes-mobile paths | `.github/workflows/mobile-e2e.yml` → **ship-guard only** on Android emulator |
+| Tier-1 emulator (paired/demo) | `pull_request` + `push` / `merge_group` | `.github/workflows/mobile-e2e.yml` → **Maestro ship-guard** (`demo=1` + `EXPO_PUBLIC_E2E_AUTOMATION=1`) |
+| Tier-1 emulator (stranger) | same | **Maestro stranger cold-start** — `clearState`, **no** `demo=1`, `EXPO_PUBLIC_E2E_AUTOMATION=0`, assert `connect-mac-gate` + no "Reconnecting" |
+| Pre-OTA | `ota:publish` / `mobile-ota.yml` | `scripts/require-stranger-cold-start-proof.cjs` — structural hard fail; runtime proof soft until `HERMES_OTA_REQUIRE_STRANGER_PROOF=1` |
 | Continuous local | LaunchAgent 15m | `ship-guard` + `chat-send-persistence` (USB Android preferred) |
+
+**SHIP BLOCK (2026-07-15 crisis):** Merging / OTA on ship-guard green alone is **insufficient**. ship-guard hides ConnectMacGate via E2E automation + opens `hermes://setup?demo=1`. Fresh-user proof is the stranger cold-start job.
 
 SHA pins (as of T-114):
 
@@ -69,14 +73,32 @@ SHA pins (as of T-114):
 - Do **not** put typing flows on the PR emulator required path (ship-guard stays typing-free).
 - Unit coverage remains the trustworthy send/scroll/header gates until a paste/clipboard Maestro path is proven.
 
-## Still needs GitHub branch-protection settings (human admin / gh api with admin token)
+## GitHub branch-protection (required checks)
 
-Workflow YAML alone does **not** make the check required. Still needed on `main`:
+Workflow YAML alone does **not** make checks required. `main` must require **both**:
 
-1. Settings → Branches → Branch protection rule for `main`
-2. Require status checks to pass before merging
-3. Add check name exactly: **`Maestro ship-guard (Android emulator)`** (job name from mobile-e2e.yml)
-4. Keep existing CI checks (`Hermes Mobile typecheck and tests`, etc.)
-5. Optionally require conversation resolution / up-to-date branch — outside this task
+1. **`Maestro ship-guard (Android emulator)`** — paired/demo critical path
+2. **`Maestro stranger cold-start (Android emulator)`** — brand-new user / ConnectMacGate (T-342)
 
-Until step 3, PRs run the emulator job but can still merge red.
+Also keep `Hermes Mobile typecheck and tests` (and other existing CI checks).
+
+Admin apply (when `gh` has admin on the repo):
+
+```bash
+# Read current contexts, then PATCH to include both Maestro jobs.
+gh api repos/IgorGanapolsky/mac-yolo-safeguards/branches/main/protection/required_status_checks \
+  --method PATCH \
+  -f strict=true \
+  --input - <<'EOF'
+{"strict":true,"contexts":[
+  "Hermes Mobile typecheck and tests",
+  "Maestro ship-guard (Android emulator)",
+  "Maestro stranger cold-start (Android emulator)"
+]}
+EOF
+```
+
+If the API returns Forbidden, document the gap and apply via GitHub Settings → Branches → `main`.
+Until stranger cold-start is required, PRs can still merge with only ship-guard green — that is the crisis hole.
+
+**Soft→hard OTA:** `require-stranger-cold-start-proof.cjs` always enforces the workflow/flow contract. Runtime proof soft-warns unless `HERMES_OTA_REQUIRE_STRANGER_PROOF=1` (repo variable or env). Flip hard after stranger CI is required and stable.
