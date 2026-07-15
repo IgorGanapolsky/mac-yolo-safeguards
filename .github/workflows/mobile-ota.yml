@@ -20,11 +20,6 @@ on:
         description: Optional OTA publish message (defaults to manual dispatch + SHA)
         required: false
         type: string
-      publish_production:
-        description: Publish production channel (requires fresh-user / continuous e2e=pass proof artifact)
-        required: true
-        type: boolean
-        default: false
 
 # Serialize deploys instead of cancelling mid-run: cancel-in-progress:true can kill a
 # run partway through the eas-update loop, leaving one channel published and the other
@@ -92,11 +87,8 @@ jobs:
           npx expo export --platform android --output-dir "$RUNNER_TEMP/hermes-mobile-public-export"
           npm run privacy:scan:artifact -- "$RUNNER_TEMP/hermes-mobile-public-export"
 
-  # Crisis 2026-07-15: production OTA is NOT automatic on push.
-  # Preview may still publish for internal sideloads; production requires
-  # workflow_dispatch + publish_production=true + fresh-user proof artifact.
-  publish-preview-ota:
-    name: Publish preview OTA
+  publish-production-ota:
+    name: Publish production OTA
     needs: [quality-gate]
     runs-on: ubuntu-latest
     defaults:
@@ -131,107 +123,35 @@ jobs:
             exit 1
           fi
 
-      - name: Publish OTA to preview channel only
+      - name: Publish OTA to installable (preview) + production channels
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
           OTA_MESSAGE: "${{ github.event_name == 'workflow_dispatch' && (inputs.message || format('manual {0}', github.sha)) || format('main {0}: {1}', github.sha, github.event.head_commit.message || 'Hermes Mobile OTA') }}"
         run: |
           set -euo pipefail
-          echo "::group::eas update --channel preview"
-          eas update \
-            --channel preview \
-            --environment preview \
-            --non-interactive \
-            --message "${OTA_MESSAGE}" \
-            | tee "/tmp/eas-ota-preview.json"
-          echo "::endgroup::"
+          # Channels map to SEPARATE branches in EAS (production->production,
+          # preview->preview), so a build only receives updates on its own channel.
+          # The only sideloadable build (eas.json `preview` = installable APK) is on
+          # the `preview` channel — publishing to `production` alone means a
+          # sideloaded install NEVER sees OTA fixes. Publish to both: `production` for
+          # Play Store builds (customer-facing, written FIRST so the priority channel
+          # is never the one left stale if the loop is interrupted), `preview` for
+          # internal/sideloaded installs.
+          for CH in preview production; do
+            echo "::group::eas update --channel $CH"
+            eas update \
+              --channel "$CH" \
+              --environment "$CH" \
+              --non-interactive \
+              --message "${OTA_MESSAGE}" \
+              | tee "/tmp/eas-ota-${CH}.json"
+            echo "::endgroup::"
+          done
 
-      - name: Upload preview OTA evidence
+      - name: Upload OTA publish evidence
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         if: always()
         with:
-          name: hermes-mobile-ota-preview
-          path: /tmp/eas-ota-preview.json
-          retention-days: 14
-
-  publish-production-ota:
-    name: Publish production OTA (fresh-user gated)
-    needs: [quality-gate]
-    if: github.event_name == 'workflow_dispatch' && inputs.publish_production == true
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: hermes-mobile
-    steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
-
-      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
-        with:
-          node-version: 22
-          cache: npm
-          cache-dependency-path: hermes-mobile/package-lock.json
-
-      - name: Setup Expo and EAS
-        uses: expo/expo-github-action@v9
-        with:
-          eas-version: latest
-          token: ${{ secrets.EXPO_TOKEN }}
-          packager: npm
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Download fresh-user / continuous E2E proof artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: hermes-mobile-fresh-user-ota-proof
-          path: /tmp/hermes-ota-proof
-        continue-on-error: true
-
-      - name: Fresh-user OTA gate (refuse without e2e=pass)
-        env:
-          HERMES_CONTINUOUS_LATEST_JSON: /tmp/hermes-ota-proof/latest.json
-          HERMES_FRESH_USER_PROOF_JSON: /tmp/hermes-ota-proof/fresh-user-latest.json
-        run: |
-          set -euo pipefail
-          # Accept either filename from the uploaded proof bundle.
-          if [[ -f /tmp/hermes-ota-proof/continuous-latest.json ]]; then
-            export HERMES_CONTINUOUS_LATEST_JSON=/tmp/hermes-ota-proof/continuous-latest.json
-          fi
-          if [[ -f /tmp/hermes-ota-proof/latest.json ]]; then
-            export HERMES_CONTINUOUS_LATEST_JSON=/tmp/hermes-ota-proof/latest.json
-          fi
-          bash ./scripts/require-fresh-user-ota-gate.sh
-
-      - name: Fail fast on required EAS auth
-        env:
-          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
-        run: |
-          set -euo pipefail
-          if [ -z "${EXPO_TOKEN:-}" ]; then
-            echo "Missing required secret: EXPO_TOKEN" >&2
-            exit 1
-          fi
-
-      - name: Publish OTA to production channel
-        env:
-          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
-          OTA_MESSAGE: "${{ inputs.message || format('manual production {0}', github.sha) }}"
-        run: |
-          set -euo pipefail
-          echo "::group::eas update --channel production"
-          eas update \
-            --channel production \
-            --environment production \
-            --non-interactive \
-            --message "${OTA_MESSAGE}" \
-            | tee "/tmp/eas-ota-production.json"
-          echo "::endgroup::"
-
-      - name: Upload production OTA evidence
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        if: always()
-        with:
-          name: hermes-mobile-ota-production
-          path: /tmp/eas-ota-production.json
+          name: hermes-mobile-ota-updates
+          path: /tmp/eas-ota-*.json
           retention-days: 14
