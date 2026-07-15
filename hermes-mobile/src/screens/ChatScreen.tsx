@@ -418,7 +418,13 @@ export function resolveEffectiveKeyboardInset(
   windowHeight: number,
   /** Test seam: Android Keyboard.metrics().height without mocking Keyboard globally. */
   androidMetricsHeight?: number,
+  /** True when Android adjustResize already shrank the window above the IME. */
+  windowShrunk = false,
 ): number {
+  // OS resize already lifted the flex layout — manual marginBottom would double-lift.
+  if (Platform.OS === 'android' && windowShrunk) {
+    return 0;
+  }
   if (keyboardInset > 0) {
     return keyboardInset;
   }
@@ -434,6 +440,20 @@ export function resolveEffectiveKeyboardInset(
     return 0;
   }
   return focusedAndroidKeyboardFallbackInset(inputFocused, keyboardInset, windowHeight);
+}
+
+/**
+ * adjustResize reports zero keyboard overlap while the IME is still visible. Never clear
+ * keyboardScreenVisible from frame events — rely on keyboardDidHide + handleInputBlur.
+ */
+export function applyKeyboardScreenVisibleFromFrame(
+  overlap: number,
+  currentlyVisible: boolean,
+): boolean {
+  if (overlap > 0) {
+    return true;
+  }
+  return currentlyVisible;
 }
 
 /** Android layout shifts (e.g. run-progress banner) can spuriously emit keyboardDidHide. */
@@ -772,11 +792,9 @@ export default function ChatScreen() {
             event.endCoordinates,
             Dimensions.get('window').height,
           );
-          if (overlap <= 0) {
-            setKeyboardScreenVisible(false);
-          } else {
-            setKeyboardScreenVisible(true);
-          }
+          setKeyboardScreenVisible((current) =>
+            applyKeyboardScreenVisibleFromFrame(overlap, current),
+          );
         }),
       );
     }
@@ -1688,6 +1706,8 @@ export default function ChatScreen() {
     keyboardScreenVisible,
     inputFocused,
     windowDimensions.height,
+    undefined,
+    keyboardWindowShrunk,
   );
   const composerDockSpacing = useMemo(
     () =>
