@@ -450,15 +450,20 @@ function refreshPairAssetsFromLocalGateway() {
       'MOBILE_RELAY_PAIR_CODE',
     ]);
   const tailnetProbeHosts = discoverTailnetProbeHosts();
-  const pageUrl = `http://${lanIp}:${PAIR_PORT}/pair`;
-  const deepLink = buildDeepLink(
-    gatewayUrl,
-    apiKey,
+  const pairServerUrl = `http://${tailnetIp || lanIp}:${PAIR_PORT}`;
+  const pageUrl = `${pairServerUrl}/pair`;
+  const deepLink = buildSecretlessDeepLink(
+    mintPairingCode({
+      gatewayUrl,
+      apiKey,
+      macName: hostname,
+      relayCode,
+      tailnetProbeHosts,
+      extraComputers: [],
+      thumbgateApiKey,
+    }),
+    pairServerUrl,
     hostname,
-    relayCode,
-    tailnetProbeHosts,
-    [],
-    thumbgateApiKey,
   );
   const pairPath = path.join(OUT_DIR, 'pair.json');
   let previous = null;

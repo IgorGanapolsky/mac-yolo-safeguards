@@ -439,6 +439,22 @@ else
   bad "KeepAlive pair server binds without blocking on vault catalog synchronization"
 fi
 
+if run_node "
+  const source = require('fs').readFileSync('$REPO/tools/hermes-mobile-pair.js', 'utf8');
+  const body = source.slice(
+    source.indexOf('function refreshPairAssetsFromLocalGateway()'),
+    source.indexOf('function runServerOnly()'),
+  );
+  if (!body.includes('buildSecretlessDeepLink(')) process.exit(1);
+  if (!body.includes('mintPairingCode({')) process.exit(2);
+  if (!body.includes('pairServerUrl')) process.exit(3);
+  if (body.includes('const deepLink = buildDeepLink(')) process.exit(4);
+"; then
+  ok "KeepAlive refresh preserves secretless pair-code exchange on the tailnet URL"
+else
+  bad "KeepAlive refresh preserves secretless pair-code exchange on the tailnet URL"
+fi
+
 if [[ "$PAIR_JS" == *"hermes-vault-projects-sync.js"* ]] \
   && [[ "$PAIR_JS" == *"timeout: 5_000"* ]] \
   && [[ "$PAIR_JS" == *"timed out after 5s"* ]]; then
