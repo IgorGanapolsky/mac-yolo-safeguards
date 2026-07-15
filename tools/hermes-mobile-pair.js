@@ -404,11 +404,80 @@ function ensurePairServerDaemon(lanIp) {
   console.log(`  Pair server: started daemon on http://${lanIp}:${PAIR_PORT}/pair`);
 }
 
-function runServerOnly() {
-  syncVaultProjectsCatalog();
+/**
+ * Rewrite pair.json from THIS Mac's /health so a stale --mini-tailscale artifact
+ * cannot keep advertising Mac mini hostname + Pro localIp (Find computers found-2/show-1).
+ * Crisis 2026-07-15 P0.
+ */
+function refreshPairAssetsFromLocalGateway() {
   const health = fetchHealth();
   const lanIp = resolveLanIp(health);
+  const hostname = (health.hostname || os.hostname() || 'Mac').replace(/\.local$/i, '');
+  const tailnetIp = localTailscaleIpv4();
+  const gatewayUrl = tailnetIp ? `http://${tailnetIp}:8642` : `http://${lanIp}:8642`;
+  const apiKey = readLocalApiKey();
+  const thumbgateApiKey = readThumbgateApiKey();
+  const relayCode =
+    readEnvKey(HERMES_ENV, [
+      'HERMES_MOBILE_RELAY_CODE',
+      'HERMES_RELAY_PAIR_CODE',
+      'MOBILE_RELAY_PAIR_CODE',
+    ]) ||
+    readEnvKey(RELAY_WORKER_ENV, [
+      'HERMES_MOBILE_RELAY_CODE',
+      'HERMES_RELAY_PAIR_CODE',
+      'MOBILE_RELAY_PAIR_CODE',
+    ]);
+  const tailnetProbeHosts = discoverTailnetProbeHosts();
+  const pageUrl = `http://${lanIp}:${PAIR_PORT}/pair`;
+  const deepLink = buildDeepLink(
+    gatewayUrl,
+    apiKey,
+    hostname,
+    relayCode,
+    tailnetProbeHosts,
+    [],
+    thumbgateApiKey,
+  );
+  const pairPath = path.join(OUT_DIR, 'pair.json');
+  let previous = null;
+  if (fs.existsSync(pairPath)) {
+    try {
+      previous = JSON.parse(fs.readFileSync(pairPath, 'utf8'));
+    } catch {
+      previous = null;
+    }
+  }
+  const prevHost = String(previous?.hostname || '')
+    .replace(/\.local$/i, '')
+    .trim()
+    .toLowerCase();
+  const nextHost = hostname.replace(/\.local$/i, '').trim().toLowerCase();
+  const prevUrl = String(previous?.gatewayUrl || '').trim();
+  if (previous && prevHost && nextHost && prevHost !== nextHost) {
+    console.warn(
+      `  pair.json refresh: hostname mismatch was "${previous.hostname}" (gateway ${prevUrl}); ` +
+        `rewriting to "${hostname}" (${gatewayUrl}) from local /health`,
+    );
+  }
+  writePairAssets({
+    gatewayUrl,
+    lanIp,
+    deepLink,
+    pageUrl,
+    hostname,
+    relayCode,
+    tailnetProbeHosts,
+  });
+  console.log(`  pair.json: ${hostname} → ${gatewayUrl} (localIp ${lanIp})`);
+  return { health, lanIp, hostname, gatewayUrl };
+}
+
+function runServerOnly() {
+  syncVaultProjectsCatalog();
+  const { lanIp } = refreshPairAssetsFromLocalGateway();
   if (portInUse(PAIR_PORT)) {
+    console.log(`  Pair server: already listening on :${PAIR_PORT} (pair.json refreshed on disk)`);
     process.exit(0);
   }
   startPairServer(lanIp);
