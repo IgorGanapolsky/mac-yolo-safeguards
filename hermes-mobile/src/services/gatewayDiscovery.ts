@@ -5,10 +5,16 @@ import {
   extractLanIpFromGatewayUrl,
   gatewayUrlHostname,
   isLoopbackGatewayUrl,
+  isLoopbackHost,
+  isPrivateLanIpv4,
   resolveDisplayLanIp,
 } from '../utils/gatewayUrlPolicy';
 import type { SetupDeepLinkParams } from '../utils/setupDeepLink';
-import { buildTailscaleGatewayUrl, mergeTailnetProbeHosts } from '../utils/tailscaleHosts';
+import {
+  buildTailscaleGatewayUrl,
+  isTailscaleGatewayUrl,
+  mergeTailnetProbeHosts,
+} from '../utils/tailscaleHosts';
 import { normalizeGatewayUrl } from './gatewayClient';
 import { USB_LOOPBACK_GATEWAY_URL } from '../utils/gatewayLoopbackFallback';
 import type { DiscoveredGateway } from '../types/gatewayProfile';
@@ -225,12 +231,82 @@ function pairPayloadToDiscovered(payload: PairServerPayload): DiscoveredGateway 
   if (!gatewayUrl) {
     return null;
   }
+  const httpBase = normalizeGatewayUrl(gatewayUrl).httpBase;
+  // Pair servers sometimes stamp the *serving* Mac's LAN IP onto another machine's
+  // Tailscale pair.json (e.g. mini URL + MacBook LAN IP). That poisoned localIp merges
+  // two computers into one saved profile — drop RFC1918 localIp on Tailscale URLs.
+  let localIp = payload.localIp || extractLanIpFromGatewayUrl(gatewayUrl) || undefined;
+  if (localIp && isPrivateLanIpv4(localIp) && isTailscaleGatewayUrl(httpBase)) {
+    localIp = undefined;
+  }
   return {
-    gatewayUrl: normalizeGatewayUrl(gatewayUrl).httpBase,
+    gatewayUrl: httpBase,
     hostname: payload.hostname,
-    localIp: payload.localIp || extractLanIpFromGatewayUrl(gatewayUrl) || undefined,
+    localIp,
     label: payload.hostname?.replace(/\.local$/i, ''),
   };
+}
+
+/** One computer identity for scan banners — not one URL alias (loopback/LAN/Tailscale). */
+export function discoveredMachineKey(item: DiscoveredGateway): string {
+  const host = (item.hostname || item.label || '')
+    .trim()
+    .toLowerCase()
+    .replace(/\.local$/i, '');
+  if (host && host !== 'localhost') {
+    return `name:${host}`;
+  }
+  const ip = item.localIp?.trim();
+  if (ip && !isLoopbackHost(ip)) {
+    return `ip:${ip}`;
+  }
+  const urlHost = gatewayUrlHostname(item.gatewayUrl)?.toLowerCase() ?? item.gatewayUrl;
+  if (urlHost === '127.0.0.1' || urlHost === 'localhost') {
+    return 'usb:loopback';
+  }
+  return `url:${normalizeGatewayUrl(item.gatewayUrl).httpBase}`;
+}
+
+function discoveryRouteRank(item: DiscoveredGateway): number {
+  if (isTailscaleGatewayUrl(item.gatewayUrl)) {
+    return 3;
+  }
+  if (isLoopbackGatewayUrl(item.gatewayUrl)) {
+    return 1;
+  }
+  return 2;
+}
+
+/** Collapse URL aliases so "Found N machines" matches the picker, not every IP/MagicDNS twin. */
+export function dedupeDiscoveredGatewaysByMachine(
+  gateways: DiscoveredGateway[],
+): DiscoveredGateway[] {
+  const map = new Map<string, DiscoveredGateway>();
+  for (const item of gateways) {
+    if (!item?.gatewayUrl) {
+      continue;
+    }
+    const key = discoveredMachineKey(item);
+    const existing = map.get(key);
+    if (!existing) {
+      map.set(key, item);
+      continue;
+    }
+    const preferNew = discoveryRouteRank(item) > discoveryRouteRank(existing);
+    const winner = preferNew ? item : existing;
+    const loser = preferNew ? existing : item;
+    map.set(key, {
+      gatewayUrl: winner.gatewayUrl,
+      hostname: winner.hostname || loser.hostname,
+      localIp: winner.localIp || loser.localIp,
+      label: winner.label || loser.label,
+    });
+  }
+  return Array.from(map.values());
+}
+
+export function countUniqueDiscoveredMachines(gateways: DiscoveredGateway[]): number {
+  return dedupeDiscoveredGatewaysByMachine(gateways).length;
 }
 
 function mergeDiscovered(map: Map<string, DiscoveredGateway>, item: DiscoveredGateway | null) {
@@ -410,7 +486,7 @@ export async function discoverAllGatewaysOnLan(
     }
   }
 
-  const list = Array.from(map.values());
+  const list = dedupeDiscoveredGatewaysByMachine(Array.from(map.values()));
   reportLanScanProgress(options?.onProgress, 'complete', hosts.length, hosts.length, list.length);
   if (preferLanIp && IPV4_RE.test(preferLanIp.trim())) {
     const preferUrl = buildGatewayUrlFromLanIp(preferLanIp.trim());

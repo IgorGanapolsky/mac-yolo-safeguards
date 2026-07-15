@@ -56,6 +56,26 @@ describe('gatewayProfiles', () => {
     expect(state.activeProfileId).toBe('mac_192_168_12_50');
   });
 
+  it('does not merge Mac Pro into mini when poisoned pair.json shares the MacBook LAN IP', () => {
+    let state = upsertDiscoveredProfile(EMPTY_GATEWAY_PROFILE_STATE, {
+      gatewayUrl: 'http://100.87.85.85:8642',
+      hostname: 'Igors-MacBook-Pro.local',
+      localIp: '192.168.68.69',
+      label: 'Igors-MacBook-Pro',
+    }, true);
+    state = upsertDiscoveredProfile(state, {
+      gatewayUrl: 'http://100.94.135.78:8642',
+      hostname: 'Igors-Mac-mini',
+      localIp: '192.168.68.69',
+      label: 'Igors-Mac-mini',
+    }, false);
+    expect(state.profiles.length).toBe(2);
+    const urls = state.profiles.map((p) => p.gatewayUrl).sort();
+    expect(urls).toEqual(['http://100.87.85.85:8642', 'http://100.94.135.78:8642'].sort());
+    expect(state.profiles.some((p) => /MacBook-Pro/i.test(p.label || p.hostname || ''))).toBe(true);
+    expect(state.profiles.some((p) => /Mac-mini/i.test(p.label || p.hostname || ''))).toBe(true);
+  });
+
   it('removes profiles and reassigns active', () => {
     let state = upsertDiscoveredProfile(EMPTY_GATEWAY_PROFILE_STATE, {
       gatewayUrl: 'http://192.168.12.208:8642',
