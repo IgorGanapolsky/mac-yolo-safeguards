@@ -25,6 +25,19 @@ describe('EmptyStreamRefreshBanner', () => {
     expect(onStartFreshChat).toHaveBeenCalledTimes(1);
   });
 
+  it('shows elapsed timer when waitingSinceMs is provided', () => {
+    jest.useFakeTimers();
+    jest.setSystemTime(Date.parse('2026-07-14T22:01:04.000Z'));
+    render(
+      <EmptyStreamRefreshBanner
+        onRefresh={jest.fn()}
+        waitingSinceMs={Date.parse('2026-07-14T22:00:00.000Z')}
+      />,
+    );
+    expect(screen.getByTestId('empty-stream-elapsed').props.children).toBe('Waiting 1m 04s');
+    jest.useRealTimers();
+  });
+
   it('does not tell users to pull to refresh', () => {
     render(<EmptyStreamRefreshBanner onRefresh={jest.fn()} />);
     expect(screen.getByTestId('empty-stream-refresh-banner')).not.toHaveTextContent(

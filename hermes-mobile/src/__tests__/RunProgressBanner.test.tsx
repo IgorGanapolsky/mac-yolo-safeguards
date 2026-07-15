@@ -192,7 +192,7 @@ describe('RunProgressBanner', () => {
     );
     expect(getByTestId('run-progress-detail').props.children).toBe("Couldn't reach your computer");
     expect(getByTestId('run-progress-failed-detail').props.children).toBe(detail);
-    expect(getByText('229s')).toBeTruthy();
+    expect(getByText('3m 49s')).toBeTruthy();
   });
 
   it('shows spinner and Starting label while start-fresh is in flight', () => {

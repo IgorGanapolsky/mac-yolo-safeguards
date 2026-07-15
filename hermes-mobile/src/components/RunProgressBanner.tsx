@@ -10,6 +10,7 @@ import {
 } from '../utils/runProgressDisplay';
 import { isConnectivityMessage } from '../utils/chatErrors';
 import { classifyRunStale, runStaleHint } from '../utils/runStaleDetection';
+import { formatElapsedDuration } from '../utils/formatElapsedDuration';
 
 type RunProgressBannerProps = {
   progress: RunProgressState;
@@ -81,6 +82,7 @@ function RunProgressBanner({
   const emphasizeStop = isActive && staleLevel !== 'normal' && Boolean(onStop);
 
   const durationSec = progress.duration != null ? Math.round(progress.duration * 10) / 10 : elapsed;
+  const durationLabel = formatElapsedDuration(Math.floor(durationSec));
   const modelLabel =
     formatLlmModelShortName(progress.model) ?? formatLlmModelShortName(fallbackModel);
   const tokenLabel = formatTokenSummary(progress);
@@ -144,7 +146,9 @@ function RunProgressBanner({
           >
             {isCompleted ? 'Reply ready on your computer' : isFailed ? failedTitle : detailLabel}
           </Text>
-          <Text style={styles.timeLabel}>{durationSec}s</Text>
+          <Text style={styles.timeLabel} testID="run-progress-elapsed">
+            {durationLabel}
+          </Text>
         </Pressable>
         {hasCollapsibleDetails ? (
           <Pressable
