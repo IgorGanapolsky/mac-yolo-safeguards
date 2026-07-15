@@ -1,0 +1,253 @@
+{
+  "run_id": "trun_ea8a69880d1941f58ea87e61d285b192",
+  "interaction_id": "trun_ea8a69880d1941f58ea87e61d285b192",
+  "result_url": "https://platform.parallel.ai/play/deep-research/trun_ea8a69880d1941f58ea87e61d285b192",
+  "status": "completed",
+  "output": {
+    "basis": [
+      {
+        "field": "answer",
+        "reasoning": "Assessment reasoning:\n- The field description asks for a comprehensive answer including sections: verdict; Expo Updates; versioning; Hermes contract, under 1200 words, with URL citations. The provided field_answer indeed includes these sections and specific statements about runtimeVersion policies, appVersionSource remote, channel/branch concepts, OTA vs native, rollback, critical updates, and Hermes Mobile contract with CalVer/ SemVer details. It references the Expo docs-style sources and mentions a July 2026 snapshot with a latest release, etc. \n- Completeness: The field_answer addresses all four requested sections and delivers a verdict plus the Expo Updates and Versioning content plus Hermes contract. It also mentions the 1.1 cutover framing as inaccurate. Therefore, it appears complete with respect to the described field. \n- Excerpts support: Provided excerpts contain multiple Expo-related items (runtime versions, app version management, EAS Update, channels, OTA updates, troubleshooting) that align with the content of the field_answer. While not every exact sentence is in the excerpts, the core concepts (remote appVersionSource, fingerprint policy, OTA vs native, channel/branch mechanics, Hermes versioning) are supported by excerpts 2, 8, 12, 14, 15, and 18 among others. Thus, the answer is reasonably supported by the excerpts.\n- Confidence: Moderate to high that the answer is complete and supported by excerpts.",
+        "citations": [
+          {
+            "url": "https://docs.expo.dev/",
+            "excerpts": [
+              "Build one JavaScript/TypeScript project that runs natively on all your users' devices."
+            ],
+            "title": "Expo Documentation"
+          },
+          {
+            "url": "http://docs.expo.dev/build-reference/app-versions",
+            "excerpts": [
+              "With this setup, EAS reads app version values and builds projects as they are\nThe remote version source values are set on the native project when running a build, which is considered the source of truth for these values.\nTo do this, set `cli.appVersionSource` to `local` in your **eas.json**. With this setup, EAS reads app version values and builds projects as they are.\nWhen the `remote` version property is enabled inside **eas.json**, the build version values stored in app config are ignored and not updated when the version is incremented remotely.\nWith `autoIncrement`, you need to commit your changes on every build if you want the version change to persist. This can be difficult to coordinate when building on CI.\nYou can also enable auto incrementing versions locally by setting the `autoIncrement` option on a build profile."
+            ],
+            "title": "App version management"
+          },
+          {
+            "url": "http://docs.expo.dev/eas/json",
+            "excerpts": [
+              "Based on the value of cli.appVersionSource in eas.json, the values will be updated locally in your project or on EAS servers."
+            ],
+            "title": "Configuration with eas.json"
+          },
+          {
+            "url": "http://docs.expo.dev/eas-update/how-it-works",
+            "excerpts": [
+              "we publish to the \"staging\" EAS Update branch, which would make that update apply to all our builds with the \"staging\" channel."
+            ],
+            "title": "How EAS Update works"
+          },
+          {
+            "url": "https://www.npmjs.com/package/expo",
+            "excerpts": [
+              "expo - NPM\nThe Expo SDK. Latest version: 56.0.12, last published: 5 days ago. Start using expo in your project by running `npm i expo`."
+            ],
+            "title": "expo - NPM"
+          },
+          {
+            "url": "http://teardown.dev/",
+            "excerpts": [
+              "Blog [Status](https://status.teardown.dev) Docs [Dashboard](https://dash.teardown.dev) SDK for React Native & Expo Make every user run the version you shipped Teardown gates stale app versions from the dashboard. Block a broken build, require the latest, or nudge a soft update, and the SDK enforces it on the next check. No new native release to change the rule. [Get Started Get Started](https://dash.teardown.dev) Read the docs `$ bun add @teardown/force-updates` Works with Expo and bare RN. Free to start. 9:41 v1.2.0 Update required A new version is available This version is no longer supported. Update to keep using the app. What's new Fixes a checkout crash and a sync bug on cold start."
+            ],
+            "title": "Teardown \u2014 Force updates for React Native & Expo | Teardown"
+          },
+          {
+            "url": "https://docs.expo.dev/build-reference/troubleshooting",
+            "excerpts": [
+              "Troubleshoot build errors and crashes - Expo Documentation\nThis document provides information that may be useful on top of your typical troubleshooting processes and techniques."
+            ],
+            "title": "Troubleshoot build errors and crashes - Expo Documentation"
+          },
+          {
+            "url": "http://expo.dev/changelog/sdk-54",
+            "excerpts": [
+              "Sep 10, 2025 \u2014 Expo Updates & EAS Update. The HTTP headers Update sends, such as channel, can now be overridden at runtime with Updates."
+            ],
+            "title": "Expo SDK 54 - Expo Changelog"
+          },
+          {
+            "url": "https://docs.expo.dev/eas-update/eas-cli",
+            "excerpts": [
+              "Manage branches and channels with EAS CLI\nJun 16, 2024 \u2014 EAS Update works by linking branches to channels. Channels are specified at build time and exist inside a build's native code."
+            ],
+            "title": "Manage branches and channels with EAS CLI"
+          },
+          {
+            "url": "https://github.com/expo/expo/issues/29205",
+            "excerpts": [
+              "[docs] Need to create channel to make update work #29205\nThis may because no \"channel\" is made so far despite \"main branch\" was made. So, by the command. eas channel:create main."
+            ],
+            "title": "[docs] Need to create channel to make update work #29205"
+          },
+          {
+            "url": "https://www.72technologies.com/blog/expo-eas-ota-updates-without-bricking-production",
+            "excerpts": [
+              "Expo EAS OTA Updates: A Safe Production Playbook\nA practical guide to Expo EAS Update channels, rollbacks, native version pinning, and staged rollouts \u2014 without bricking your React Native app."
+            ],
+            "title": "Expo EAS OTA Updates: A Safe Production Playbook"
+          },
+          {
+            "url": "https://www.72technologies.com/blog/eas-update-ota-strategy-channels-rollouts-rollbacks",
+            "excerpts": [
+              "EAS Update OTA Strategy in 2026: Channels & Rollbacks\nJun 9, 2026 \u2014 A practical guide to EAS Update channels, staged rollouts, and safe rollbacks for React Native and Expo apps in 2026 \u2014 without breaking App"
+            ],
+            "title": "EAS Update OTA Strategy in 2026: Channels & Rollbacks"
+          },
+          {
+            "url": "https://docs.expo.dev/eas-update/introduction",
+            "excerpts": [
+              "EAS Update\nJun 3, 2026 \u2014 EAS Update is a native solution that also integrates with EAS Build and provides a unified workflow. CodePush uses a slightly different approach"
+            ],
+            "title": "EAS Update"
+          },
+          {
+            "url": "https://docs.expo.dev/build/updates",
+            "excerpts": [
+              "Using EAS Update\n6 days ago \u2014 This document covers concerns specific to using expo-updates library with EAS Build. For more general information about configuring the library"
+            ],
+            "title": "Using EAS Update"
+          },
+          {
+            "url": "https://docs.expo.dev/eas-update/runtime-versions",
+            "excerpts": [
+              "Runtime versions and updates - Expo Documentation\nIf you want to make incompatible updates you can use the \"fingerprint\" policy. This will increment the runtime version whenever anything that"
+            ],
+            "title": "Runtime versions and updates - Expo Documentation"
+          },
+          {
+            "url": "http://expo.dev/customers/hipcamp",
+            "excerpts": [
+              "OTA updates have become a cornerstone of our mobile development workflow. Ripple effects across the team [Adopting Expo](https://expo.dev/blog/how-expo-streamlined-hipcamps-native-and-over-the-air-update-processes) created ripple effects across the entire organization: Engineers spend less time debugging build issues and waiting for slow builds Product managers see features deployed to production immediately, enabling faster iteration Designers can review features on their own devices asynchronously, without engineering coordination On-call engineers can address production bugs quickly without the stress of emergency app store releases EAS Build cut build times drastically while Expo Updates enabled web-like deployment velocity for mobile apps. Hipcamp made the right choice."
+            ],
+            "title": "Using Expo at Hipcamp"
+          },
+          {
+            "url": "https://www.appbrain.com/appstore/hermes-agent-mobile/ios-6767006319",
+            "excerpts": [
+              "Hermes Agent Mobile for iPhone - Free App Download\nApp Information Hermes Agent Mobile is FREE to download. The APK download size is 12.27 MB. The latest version available is 1.0. The last update was on June 2, 2026."
+            ],
+            "title": "Hermes Agent Mobile for iPhone - Free App Download"
+          },
+          {
+            "url": "https://changelogs.info/hermes-agent/changelog",
+            "excerpts": [
+              "Hermes Agent Changelog \u2014 changelogs.info\nFull changelog for Hermes Agent. Every release, every breaking change, every fix."
+            ],
+            "title": "Hermes Agent Changelog \u2014 changelogs.info"
+          },
+          {
+            "url": "https://apps.apple.com/us/app/hermes-agent-mobile/id6767006319",
+            "excerpts": [
+              "Hermes Agent Mobile - App Store\nHermes Agent Mobile is a native iPhone client for your self-hosted Hermes Web UI developer-agent server. It is designed for people who already run a reachable Hermes Web UI server and want a focused mobile way to keep up with agent work from iPhone."
+            ],
+            "title": "Hermes Agent Mobile - App Store"
+          },
+          {
+            "url": "https://github.com/expo/expo/issues/44356",
+            "excerpts": [
+              "[SDK 54/55] Hermes crashes systematically on physical ...\nMar 29, 2026 \u2014 The crash is caused by ARM64 PAC ( Pointer Authentication Codes) enforcement that iOS 26 has hardened on physical hardware. Simulators are"
+            ],
+            "title": "[SDK 54/55] Hermes crashes systematically on physical ..."
+          },
+          {
+            "url": "https://newreleases.io/project/github/NousResearch/hermes-agent/release/v2026.3.28",
+            "excerpts": [
+              "NousResearch/hermes-agent v2026.3.28 on GitHub - NewReleases.io\nThe hardening release \u2014 Hugging Face provider, /model command overhaul, Telegram Private Chat Topics, native Modal SDK, plugin lifecycle hooks, tool-use enforcement for GPT models, Nix flake, 50+ security and reliability fixes, and a comprehensive supply chain audit."
+            ],
+            "title": "NousResearch/hermes-agent v2026.3.28 on GitHub - NewReleases.io"
+          },
+          {
+            "url": "https://kilo.ai/openclaw/vs-hermes",
+            "excerpts": [],
+            "title": "OpenClaw vs Hermes 2026: 1,300 Reddit Comments Analyzed | Kilo"
+          },
+          {
+            "url": "http://docs.expo.dev/eas-update/introduction",
+            "excerpts": [],
+            "title": "modificationDate: June 03, 2026 title: EAS Update description: EAS Update is a cloud service that serves updates for projects using the expo-updates library."
+          },
+          {
+            "url": "http://github.com/NousResearch/hermes-agent/releases",
+            "excerpts": [
+              "Releases \u00b7 NousResearch/hermes-agent - GitHub Hermes Agent v0.16.0 (v2026.6.5) Release Date: June 5, 2026 Since v0.15.2: 874 commits \u00b7 542 merged PRs \u00b7 1,962 files changed \u00b7 205,216 insertions \u00b7 46,217 deletions \u00b7 399 issues closed (2 P0, 62 P1, 16 security-tagged) \u00b7 170 community contributors (including co-authors) The Surface Release. Hermes meets you wherever you work. A brand-new native desktop app \u2014 built across 100 PRs and\nHermes Agent v0.10.0 (v2026.4.16). Release Date: April 16, 2026\nHermes reached two new channels (iMessage via Photon, and the Raft agent network), the desktop app gained substantial new capability, subagents can now run in the background, image generation learned to edit, and Cursor's Composer model is reachable through an xAI Grok subscription.\nReleases \u00b7 NousResearch/hermes-agent - GitHub Hermes Agent v0.16.0 (v2026.6.5) Release Date: June 5, 2026 Since v0.15.2: 874 commits \u00b7 542 merged PRs \u00b7 1,962 files changed \u00b7 205,216 insertions \u00b7 46,217 deletions \u00b7 399 issues closed (2 P0, 62 P1, 16 security-tagged) \u00b7 170 community contributors (including co-authors) The Surface Release. Hermes meets you wherever you work. A brand-new native desktop app \u2014 built across 100 PRs and Hermes Agent v0.10.0 (v2026.4.16). Release Date: April 16, 2026. The Tool Gateway release Verified on Apr 30, 2026, 11:31 AM. Learn about vigilant mode. Hermes Agent v0.12.0 (v2026.4.30). Release Date: April 30, 2026\nHermes Agent v0.10.0 (v2026.4.16). Release Date: April 16, 2026. The Tool Gateway release\nVerified on Apr 30, 2026, 11:31 AM. Learn about vigilant mode. Hermes Agent v0.12.0 (v2026.4.30). Release Date: April 30, 2026"
+            ],
+            "title": "Releases \u00b7 NousResearch/hermes-agent - GitHub"
+          },
+          {
+            "url": "http://petronellatech.com/blog/hermes-agent-ai-guide-2026",
+            "excerpts": [
+              "Apr 16, 2026 \u2014 The project reached 16 supported messaging platforms in this version, up from 8 at launch. v0.10.0 (April 16, 2026) -- The Tool Gateway Release"
+            ],
+            "title": "Hermes Agent 2026 Release Tracker (Nous Research)"
+          },
+          {
+            "url": "https://theplanettools.ai/blog/hermes-agent-nous-research-number-one-openrouter-beats-openclaw-may-2026",
+            "excerpts": [
+              "Hermes Agent Hits #1 on OpenRouter, Beats OpenClaw\nHermes Agent, the open-source MIT-licensed coding agent built by Nous Research, became the number-one daily application on OpenRouter's global rankings between May 10 and May 13, 2026."
+            ],
+            "title": "Hermes Agent Hits #1 on OpenRouter, Beats OpenClaw"
+          },
+          {
+            "url": "https://chatforest.com/builders-log/hermes-agent-nous-research-openrouter-number-one-self-improving-builder-guide",
+            "excerpts": [
+              "Hermes Agent Is Now #1 on OpenRouter. Here's What Every ...\nOn May 6, 2026, Nous Research announced that Hermes Agent had reached #1 on OpenRouter\u2019s global token rankings \u2014 271 billion tokens processed across all users, surpassing OpenClaw\u2019s 186 billion daily."
+            ],
+            "title": "Hermes Agent Is Now #1 on OpenRouter. Here's What Every ..."
+          },
+          {
+            "url": "http://releasebot.io/updates/nousresearch/hermes-agent",
+            "excerpts": [
+              "Hermes Agent ships v0.17.0 with major reach and usability upgrades, including <strong>iMessage and Raft channels, a stronger desktop app, background subagents, image editing, a revamped dashboard, secure login, better memory tools, and expanded model and automation\nermes Agent v0.15.2 (v2026.5.29.2)\nRelease Date: May 29, 2026"
+            ],
+            "title": "Hermes Agent Updates by Nous Research - July 2026\n    - Releasebot"
+          },
+          {
+            "url": "https://www.hermes-ai.net/changelog",
+            "excerpts": [
+              "Changelog \u2014 Hermes Agent | Nous Research\nFull release history and changelog for Hermes Agent by Nous Research."
+            ],
+            "title": "Changelog \u2014 Hermes Agent | Nous Research"
+          },
+          {
+            "url": "http://github.com/NousResearch/hermes-agent",
+            "excerpts": [
+              "Hermes Agent](https://hermes-agent.nousresearch.com/) | [Hermes Desktop](https://hermes-agent.nousresearch.com/) [Documentation](https://hermes-agent.nousresearch.com/docs/) [Discord](https://discord.gg/NousResearch) [License: MIT](https://github.com/NousResearch/hermes-agent/blob/main/LICENSE) [Built by Nous Research](https://nousresearch.com) \u4e2d\u6587 \u0627\u0631\u062f\u0648 Espa\u00f1ol **The self-improving AI agent built by [Nous Research](https://nousresearch.com) .** It's the only agent with a built-in learning loop \u2014 it creates skills from experience, improves them during use, nudges itself to persist knowledge, searches its own past conversations, and builds a deepening model of who you\n[Hermes Agent](https://hermes-agent.nousresearch.com/) | [Hermes Desktop](https://hermes-agent.nousresearch.com/) [Documentation](https://hermes-agent.nousresearch.com/docs/) [Discord](https://discord.gg/NousResearch) [License: MIT](https://github.com/NousResearch/hermes-agent/blob/main/LICENSE) [Built by Nous Research](https://nousresearch.com) \u4e2d\u6587 \u0627\u0631\u062f\u0648 Espa\u00f1ol **The self-improving AI agent built by [Nous Research](https://nousresearch.com) .** It's the only agent with a built-in learning loop \u2014 it creates skills from experience, improves them during use, nudges itself to persist knowledge, searches its own past conversations, and builds a deepening model of who you are across sessions. Run it on a $5 VPS, a GPU cluster, or serverless infrastructure that costs nearly nothing when idle."
+            ],
+            "title": "GitHub - NousResearch/hermes-agent: The agent that grows with you \u00b7 GitHub"
+          },
+          {
+            "url": "https://github.com/NousResearch/hermes-agent/blob/main/README.md",
+            "excerpts": [
+              "hermes-agent/README.md at main \u00b7 NousResearch ... - GitHub\nThe agent that grows with you. Contribute to NousResearch/hermes-agent development by creating an account on GitHub."
+            ],
+            "title": "hermes-agent/README.md at main \u00b7 NousResearch ... - GitHub"
+          },
+          {
+            "url": "https://github.com/nousresearch/hermes-agent",
+            "excerpts": [
+              "NousResearch/hermes-agent: The agent that grows with you - GitHub\nThe self-improving AI agent built by Nous Research. It's the only agent with a built-in learning loop \u2014 it creates skills from experience, improves them during\u00a0... Nousresearch/hermes-Agent \u00b7 Hermes Agent \u2624 \u00b7 Quick Install"
+            ],
+            "title": "NousResearch/hermes-agent: The agent that grows with you - GitHub"
+          },
+          {
+            "url": "https://hermes-agent.org/",
+            "excerpts": [
+              "Hermes Agent \u2014 Open-Source AI Agent with Persistent Memory\nHermes Agent is an open-source autonomous AI agent built by Nous Research and released in February 2026. It's not a coding copilot tethered to an IDE or a"
+            ],
+            "title": "Hermes Agent \u2014 Open-Source AI Agent with Persistent Memory"
+          },
+          {
+            "url": "https://docs.expo.dev/eas-update/eas-cli/",
+            "excerpts": [],
+            "title": "modificationDate: June 16, 2024 title: Manage branches and channels with EAS CLI description: Learn how to link a branch to a channel and publish updates with EAS CLI."
+          }
+        ],
+        "confidence": "high"
+      }
+    ],
+    "type": "text",
+    "beta_fields": null,
+    "mcp_tool_calls": null,
+    "content_file": "expo-updates-versioning-july-2026.md"
+  }
+}

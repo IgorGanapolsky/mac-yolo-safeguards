@@ -1,3 +1,5 @@
+**Deep research contract:** [VERSIONING-AND-RELEASES-JULY-2026.md](./VERSIONING-AND-RELEASES-JULY-2026.md).
+
 # Hermes Mobile — EAS OTA updates
 
 Hermes Mobile ships JS and asset fixes over the air (EAS Update) so Igor's phone and production users receive fixes merged to `main` without reinstalling the APK for every change.
