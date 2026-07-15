@@ -18,6 +18,7 @@ import type { ParsedClarification } from '../utils/chatClarification';
 import type { ClarificationOption } from '../utils/chatClarification';
 import type { ApprovalChoice } from '../types/approval';
 import type { LeashConnectionState } from '../utils/gatewayEndpoint';
+import type { PromptReplyElapsedState } from '../utils/promptReplyElapsed';
 
 type OutputFeedbackHandlers = {
   busy?: boolean;
@@ -45,6 +46,7 @@ export type ChatMessageListItemProps = {
   onShowDetail: (body: string, isUser: boolean) => void;
   onInlineTextApproval: (textApproval: ChatTextApproval, choice: ApprovalChoice) => void;
   onClarificationOption?: (option: ClarificationOption) => void;
+  promptReplyElapsed?: PromptReplyElapsedState;
 };
 
 function ChatMessageListItem({
@@ -65,6 +67,7 @@ function ChatMessageListItem({
   onShowDetail,
   onInlineTextApproval,
   onClarificationOption,
+  promptReplyElapsed,
 }: ChatMessageListItemProps) {
   const isUser = item.role === 'user';
 
@@ -171,6 +174,7 @@ function ChatMessageListItem({
       inlineApproval={inlineApproval}
       clarification={clarification}
       outputFeedback={outputFeedback}
+      promptReplyElapsed={isUser ? promptReplyElapsed : undefined}
     />
   );
 }
@@ -222,6 +226,9 @@ export default React.memo(ChatMessageListItem, (prev, next) => {
     }
   }
   if (prev.outputFeedback !== next.outputFeedback) {
+    return false;
+  }
+  if (prev.promptReplyElapsed !== next.promptReplyElapsed) {
     return false;
   }
   if (prev.messages !== next.messages && prev.isTelegramInbox) {

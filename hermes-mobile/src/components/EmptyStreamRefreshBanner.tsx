@@ -2,9 +2,11 @@ import React from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 import { colors } from '../theme/colors';
 import { EMPTY_STREAM_REFRESH_BANNER_HINT } from '../utils/emptyStreamRefreshCta';
+import ElapsedSince from './ElapsedSince';
 
 type EmptyStreamRefreshBannerProps = {
   busy?: boolean;
+  waitingSinceMs?: number | null;
   onRefresh: () => void;
   onStartFreshChat?: () => void;
   startingFreshChat?: boolean;
@@ -12,13 +14,24 @@ type EmptyStreamRefreshBannerProps = {
 
 export default function EmptyStreamRefreshBanner({
   busy = false,
+  waitingSinceMs,
   onRefresh,
   onStartFreshChat,
   startingFreshChat = false,
 }: EmptyStreamRefreshBannerProps) {
   return (
     <View style={styles.wrap} testID="empty-stream-refresh-banner">
-      <Text style={styles.text}>{EMPTY_STREAM_REFRESH_BANNER_HINT}</Text>
+      <View style={styles.headerRow}>
+        <Text style={styles.text}>{EMPTY_STREAM_REFRESH_BANNER_HINT}</Text>
+        {waitingSinceMs != null ? (
+          <ElapsedSince
+            sinceMs={waitingSinceMs}
+            prominent
+            prefix="Waiting"
+            testID="empty-stream-elapsed"
+          />
+        ) : null}
+      </View>
       <View style={styles.actions}>
         <Pressable
           onPress={onRefresh}
@@ -82,6 +95,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 10,
     gap: 10,
+  },
+  headerRow: {
+    gap: 6,
   },
   text: {
     fontSize: 12,

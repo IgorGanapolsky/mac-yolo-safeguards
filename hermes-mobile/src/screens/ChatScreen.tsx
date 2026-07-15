@@ -366,6 +366,10 @@ import {
   toolActivityAfterLastUser,
 } from '../utils/emptyStreamReplyRecovery';
 import { shouldShowEmptyStreamRefreshCta } from '../utils/emptyStreamRefreshCta';
+import {
+  resolveLastUserPromptSentAtMs,
+  resolvePromptReplyElapsedState,
+} from '../utils/promptReplyElapsed';
 import { extractTerminalActivityFromMessage, isTerminalToolName } from '../utils/terminalActivity';
 import type { ChatMessageContent, ComposerAttachment } from '../types/chatAttachment';
 import {
@@ -3518,6 +3522,18 @@ export default function ChatScreen() {
     [isDemo, macChatLive, messages, awaitingGatewayReply],
   );
 
+  const lastUserPromptSentAtMs = useMemo(() => {
+    const fromMessages = resolveLastUserPromptSentAtMs(messages);
+    if (fromMessages != null) {
+      return fromMessages;
+    }
+    if (pinnedOutboundSentAt) {
+      const parsed = Date.parse(pinnedOutboundSentAt);
+      return Number.isFinite(parsed) ? parsed : null;
+    }
+    return null;
+  }, [messages, pinnedOutboundSentAt]);
+
   const megaSessionSendHardBlocked = isMegaSessionSendBlocked(currentSession);
 
   useEffect(() => {
@@ -4300,6 +4316,11 @@ export default function ChatScreen() {
           originalIndex={originalIndex}
           messages={messages}
           timeLabel={formatMessageTimestamp(resolveMessageTimestamp(message))}
+          promptReplyElapsed={
+            message.role?.toLowerCase() === 'user'
+              ? resolvePromptReplyElapsedState({ messages, userIndex: originalIndex })
+              : undefined
+          }
           inlineNudge={inlineNudge}
           includeToolActivity={settings.includeToolActivity ?? false}
           isTelegramInbox={isTelegramInbox}
@@ -6521,6 +6542,7 @@ export default function ChatScreen() {
         {showEmptyStreamRefreshBanner && !showComposerProgressBanner ? (
           <EmptyStreamRefreshBanner
             busy={isPullRefreshing}
+            waitingSinceMs={lastUserPromptSentAtMs}
             onRefresh={() => void handleManualSync()}
             onStartFreshChat={
               megaSessionWarning && showComposerProgressBanner
