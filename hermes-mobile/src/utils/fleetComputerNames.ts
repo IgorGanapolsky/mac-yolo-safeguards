@@ -1,6 +1,6 @@
 /**
- * Fleet display names for Igor's known Hermes machines.
- * Tailscale HostName is Igors-MacBook-Pro; product/fleet name is "Mac Pro".
+ * Fleet display aliases for known Hermes machines.
+ * MacBook Pro hostnames get a "(Mac Pro)" fleet label in the picker.
  */
 
 function normalizeStem(name: string): string {
@@ -28,13 +28,13 @@ export function isFleetMacProName(name: string | undefined | null): boolean {
   if (key === 'macpro' || key.startsWith('macpro')) {
     return true;
   }
-  // Igors-MacBook-Pro, igors-macbook-pro-1, MacBook Pro, …
+  // Any *MacBook-Pro* stem (including numbered suffixes) maps to Mac Pro.
   return key.includes('macbookpro');
 }
 
 /**
  * Picker/header label: keep hostname, append fleet alias when known.
- * e.g. Igors-MacBook-Pro → Igors-MacBook-Pro (Mac Pro)
+ * e.g. My-MacBook-Pro → My-MacBook-Pro (Mac Pro)
  */
 export function fleetComputerDisplayName(name: string): string {
   const stem = normalizeStem(name);
