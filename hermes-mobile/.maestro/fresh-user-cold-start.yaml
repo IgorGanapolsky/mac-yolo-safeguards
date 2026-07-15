@@ -1,17 +1,26 @@
 # Brand-new user cold start — NO demo deep link.
-# Accepts either:
-#   A) ConnectMacGate onboarding (true first-run, no USB discovery), or
-#   B) Mac picker auto-opened when USB/local Hermes machines are discovered (still "setup" UX).
+# Accepts any valid first-run shell:
+#   A) ConnectMacGate onboarding
+#   B) Mac picker (USB/local discovery)
+#   C) Chat shell already reachable (emulator auto-discovery / reverse)
 appId: com.iganapolsky.hermesmobile
 ---
 - stopApp
+- clearState
 - launchApp
+# First cold launch after install can spend >60s on native splash while Metro connects.
 - extendedWaitUntil:
     notVisible:
       id: "hermes-bootstrap"
-    timeout: 90000
+    timeout: 120000
 - runFlow: dismiss-print-interruption.yaml
-# Prefer onboarding gate when present.
+- runFlow: dismiss-logbox.yaml
+# Accept either tab testID or chat shell (tab-hermes can lag one frame behind shell).
+- extendedWaitUntil:
+    visible:
+      id: "tab-hermes"
+    timeout: 120000
+# Path A — full gate
 - runFlow:
     when:
       visible:
@@ -21,25 +30,20 @@ appId: com.iganapolsky.hermesmobile
           id: "connect-mac-onboarding-card"
       - assertVisible:
           id: "connect-search-wifi"
-# USB-attached phone may open machine picker instead of gate — still valid first-run setup.
+# Path B — picker
 - runFlow:
     when:
       visible:
         id: "mac-picker-modal"
     commands:
       - assertVisible:
-          id: "mac-picker-modal"
-      - assertVisible:
           id: "chat-find-macs-on-wifi"
       - tapOn:
           id: "mac-picker-modal-backdrop"
       - waitForAnimationToEnd:
           timeout: 2000
-# After picker dismiss, may land on chat or gate — either is fine if app is interactive.
-- runFlow:
-    when:
-      visible:
-        id: "connect-mac-gate"
-    commands:
-      - assertVisible:
-          id: "connect-mac-onboarding-card"
+# Path C — chat already usable (still assert tabs)
+- assertVisible:
+    id: "tab-leash"
+- assertVisible:
+    id: "tab-settings"

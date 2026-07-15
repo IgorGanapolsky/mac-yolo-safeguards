@@ -316,8 +316,26 @@ export default function ApprovalsScreen() {
             </Text>
           </View>
         ) : null}
+        {/*
+          Paid upgrade surface — always first for non-Pro so fresh free users and Maestro
+          find pro-upgrade-card without scrolling past toggles/history.
+          Locked path embeds the card in the empty state below instead (same testIDs).
+        */}
+        {!hasThumbgateLeashPro(settings) && leashUnlocked ? (
+          <GlassCard style={styles.emptyCard} testID="leash-pro-upsell-card">
+            <Text style={styles.emptyTitle}>Upgrade for unlimited Leash</Text>
+            <Text style={styles.emptyBody}>
+              Free tier includes limited weekly approvals. Subscribe for unlimited mobile approvals
+              and full ThumbGate Pro gates.
+            </Text>
+            <ProUpgradeCard
+              onUnlocked={unlockThumbgateLeash}
+              onTesterUnlock={showTesterUnlock ? unlockThumbgateLeash : undefined}
+            />
+          </GlassCard>
+        ) : null}
         {!leashUnlocked ? (
-          <GlassCard style={styles.emptyCard}>
+          <GlassCard style={styles.emptyCard} testID="leash-pro-upsell-card">
             <Text style={styles.emptyTitle}>ThumbGate Leash is a Pro feature</Text>
             <Text style={styles.emptyBody}>
               When your coding agent hits a risky command on your computer, the approval card appears
@@ -570,20 +588,6 @@ export default function ApprovalsScreen() {
           </TouchableOpacity>
         ) : null}
 
-        {/* Always show paid upgrade when not Pro (free weekly allowance still unlocks approvals). */}
-        {!hasThumbgateLeashPro(settings) && leashUnlocked ? (
-          <GlassCard style={styles.emptyCard} testID="leash-pro-upsell-card">
-            <Text style={styles.emptyTitle}>Upgrade for unlimited Leash</Text>
-            <Text style={styles.emptyBody}>
-              Free tier includes limited weekly approvals. Subscribe for unlimited mobile approvals
-              and full ThumbGate Pro gates.
-            </Text>
-            <ProUpgradeCard
-              onUnlocked={unlockThumbgateLeash}
-              onTesterUnlock={showTesterUnlock ? unlockThumbgateLeash : undefined}
-            />
-          </GlassCard>
-        ) : null}
       </ScrollView>
     </SafeAreaView>
   );

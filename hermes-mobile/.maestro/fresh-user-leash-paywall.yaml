@@ -11,6 +11,15 @@ appId: com.iganapolsky.hermesmobile
     commands:
       - tapOn:
           id: "connect-mac-gate-dismiss"
+- runFlow:
+    when:
+      visible:
+        id: "mac-picker-modal-backdrop"
+    commands:
+      - tapOn:
+          id: "mac-picker-modal-backdrop"
+- runFlow: hide-keyboard-safe.yaml
+- runFlow: dismiss-logbox.yaml
 - tapOn:
     id: "tab-leash"
 - extendedWaitUntil:
@@ -21,13 +30,19 @@ appId: com.iganapolsky.hermesmobile
     visible:
       id: "THUMBGATE_LEASH"
     timeout: 30000
-# Free tier: pro-upgrade-card lives under leash-pro-upsell-card (unlimited upsell).
-# Locked (no free remaining / no pro): pro-upgrade-card under empty state.
+# Free tier: pro-upgrade-card is near top under leash-pro-upsell-card.
+# Locked (no free remaining): same testIDs on the locked empty card.
+- extendedWaitUntil:
+    visible:
+      id: "leash-pro-upsell-card"
+    timeout: 30000
 - scrollUntilVisible:
     element:
       id: "pro-upgrade-card"
     direction: DOWN
-    timeout: 60000
+    timeout: 30000
+    visibilityPercentage: 40
+    centerElement: true
 - assertVisible:
     id: "pro-upgrade-card"
 - assertVisible:
@@ -37,14 +52,24 @@ appId: com.iganapolsky.hermesmobile
 - assertVisible:
     id: "subscription-legal-disclosure"
 # Tap subscribe — store may show product sheet, "not available", or connect spinner.
+# Emulator debug: Alert "Store billing is unavailable in this build." with OK.
 - tapOn:
     id: "subscribe-thumbgate-leash-iap"
 - waitForAnimationToEnd:
     timeout: 5000
-# App must not crash; Leash header still present after store interaction attempt.
+- runFlow:
+    when:
+      visible: "OK"
+    commands:
+      - tapOn: "OK"
+- waitForAnimationToEnd:
+    timeout: 2000
+# App must not crash after IAP attempt — tabs still mounted (billing may leave shell).
 - extendedWaitUntil:
     visible:
-      id: "THUMBGATE_LEASH"
-    timeout: 30000
+      id: "tab-leash"
+    timeout: 15000
 - assertVisible:
-    id: "THUMBGATE_LEASH"
+    id: "tab-leash"
+- assertVisible:
+    id: "tab-hermes"

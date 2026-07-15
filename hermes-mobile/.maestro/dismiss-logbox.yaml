@@ -1,0 +1,21 @@
+# Yellow LogBox banner covers the tab bar on debug builds and steals tab taps.
+appId: com.iganapolsky.hermesmobile
+---
+- runFlow:
+    when:
+      visible: "Open debugger to view warnings"
+    commands:
+      - tapOn:
+          text: "Open debugger to view warnings"
+          optional: true
+      - waitForAnimationToEnd:
+          timeout: 500
+- runFlow:
+    when:
+      visible: "Open debugger to view warnings."
+    commands:
+      # Prefer the dismiss control if present; otherwise tap banner edge.
+      - tapOn:
+          point: "92%,92%"
+      - waitForAnimationToEnd:
+          timeout: 800

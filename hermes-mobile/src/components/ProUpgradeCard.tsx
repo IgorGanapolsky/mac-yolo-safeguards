@@ -103,7 +103,7 @@ export default function ProUpgradeCard({ onUnlocked, onTesterUnlock }: ProUpgrad
   };
 
   return (
-    <View style={styles.wrap} testID="pro-upgrade-card">
+    <View style={styles.wrap} testID="pro-upgrade-card" collapsable={false} accessible={true}>
       <Text style={styles.title}>ThumbGate Pro</Text>
       <Text style={styles.body}>
         Hermes Chat is free. {THUMBGATE_LEASH_PRODUCT_NAME} ({THUMBGATE_PRO_PRICE_LABEL}) unlocks
