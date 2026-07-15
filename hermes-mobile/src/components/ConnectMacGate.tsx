@@ -145,15 +145,19 @@ export default function ConnectMacGate() {
     );
   }, [activeGatewayProfile?.id, gatewayProfiles]);
 
+  // Fresh installs default to connectionMode 'relay'. Requiring 'gateway' hid
+  // ConnectMacGate forever for brand-new users (CI stranger cold-start 2026-07-15).
+  const freshUnpaired = !hasSavedMac;
   const showGate =
     bootstrapReady &&
     !isE2eAutomationBuild() &&
     !isStoreReviewDemoBuild() &&
     !settings.demoMode &&
     !settings.connectMacGateDismissed &&
-    !isGatewayReachable &&
-    settings.connectionMode === 'gateway' &&
-    (!hasSavedMac || pickerProfiles.length > 0);
+    (freshUnpaired ||
+      (!isGatewayReachable &&
+        settings.connectionMode === 'gateway' &&
+        (!hasSavedMac || pickerProfiles.length > 0)));
 
   const searching =
     isSearching ||
