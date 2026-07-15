@@ -202,7 +202,9 @@ export default function IntegrationsSheet({
         {label}
       </Text>
       <Text style={styles.subtitle}>
-        Keys are stored on your Mac. The phone only sends them over your paired link.
+        {noKeyProvider && !needsMacBrowser
+          ? 'Choose a free option and tap Save & enable — no API key required.'
+          : 'Keys are stored on your Mac. The phone only sends them over your paired link.'}
       </Text>
 
       {loading ? <ActivityIndicator color={colors.secondary} style={styles.loader} /> : null}

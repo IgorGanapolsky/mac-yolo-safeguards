@@ -13,7 +13,7 @@ This document maps session failures to durable prevention: automated guards, pro
 | # | Failure mode | Automated guard | Verify command |
 |---|--------------|-----------------|----------------|
 | S1 | Run/chat stalled while Connected (green Tailscale) | Mobile: `shouldAutoClearStalledRun` / stream-idle + no-token fail in `runStaleDetection.ts` (ChatScreen wires via P0 stall). Gateway: `scripts/hermes-prevention-watchdog.sh` reports stuck api runs. | `cd hermes-mobile && npm test -- --watchman=false src/__tests__/runStaleDetection.test.ts` |
-| S2 | Mega-session / 100k–1.6M tokens locking chat | Hard BLOCK ≥800k + WARN ≥350k (`sessionTokenGuards.ts`); draft transfer via `transferComposerDraft`; delete/poisoned → Start fresh | `npm test -- --watchman=false src/__tests__/sessionTokenGuards.test.ts src/__tests__/composerDraftStorage.test.ts` |
+| S2 | Mega-session / 100k–1.6M tokens locking chat | Hard BLOCK ≥500k + WARN ≥100k (`sessionTokenGuards.ts`); draft transfer via `transferComposerDraft`; delete/poisoned → Start fresh | `npm test -- --watchman=false src/__tests__/sessionTokenGuards.test.ts src/__tests__/composerDraftStorage.test.ts` |
 | S3 | “Browser restrictions” / refusal menus | SOUL **No constraints**; `disabled_toolsets` must not include `browser`; CDP LaunchAgent `com.hermes.chrome-cdp` healed — never disable browser | `bash scripts/hermes-prevention-watchdog.sh --check`; `curl -sf http://127.0.0.1:9222/json/version` |
 | S4 | Leash badge 5557 / approval notif storm | `pendingApprovalsCap.ts` hard-cap + 99+ badge + signature dedupe (PR #279 wiring) | `npm test -- --watchman=false src/__tests__/pendingApprovalsCap.test.ts` |
 | S5 | Tap-to-retry / Start fresh no feedback | Busy spinners mandatory (`isStartingFreshChat` → `ActivityIndicator` in ChatScreen + RunProgressBanner) | `npm test -- --watchman=false src/__tests__/preventRecurrenceContract.test.ts` |
@@ -22,6 +22,22 @@ This document maps session failures to durable prevention: automated guards, pro
 | S8 | False “shipped on phone” | `tools/require-device-verified.js` + `verify-continuous-e2e.sh --strict`; OTA/release proof before claims | `node tools/require-device-verified.js`; `bash hermes-mobile/scripts/verify-continuous-e2e.sh --strict` |
 | S9 | Fresh install **Wrong key** (USB MBP / multi-Mac) | `assertHostKeyConsistency` + strict mini SSH (no laptop-key fallback) + auth probe before deep link; session-start fails closed if pair ≠0; `wrongKeyRecovery` → Find computers CTA | `bash tests/test-hermes-mobile-pair.sh`; `npm test -- wrongKeyRecovery.test.ts` |
 | S10 | Header **Mini · USB** while cable is MBP / reconnecting | PRODUCT LAW in `chatMachineHeader.ts`: named `X · USB` only if live green\|amber `/health` hostname is X; null/red → `Computer via USB`; inverted unit tests (never borrow Mini on reconnect); `assertUsbHeaderIdentityLaw` | `npm test -- --watchman=false src/__tests__/chatMachineHeader.test.ts` — do **not** treat continuous `e2e=pass` (ship-guard) as multi-Mac proof |
+| S11 | Pairing sent consecutive setup + dev-unlock intents with zero delay — could race a cold-starting app | `waitForForegroundAck` in `hermes-mobile-pair-lib.js`: one setup intent, poll app-foreground ack (bounded), then optional secondary; `--no-dev-unlock` to disable secondary entirely | `bash tests/test-hermes-mobile-pair.sh` |
+| S12 | Pairing/install/Maestro/screenshots/dogfooding each fought for the USB phone — Maestro would even `kill -9` another lane's live session | `tools/agent-phone-lease.js` unified lease over `agent-phone-pipeline-lock.js`; automated lanes (`maestro`/`e2e`/`screenshots`/`dogfooding`) SKIP instantly on a human hold instead of queueing; `maestro-env.sh`'s `prepare_android_maestro_driver` refuses instead of force-killing when the lease is busy; `run-continuous-e2e.sh`'s `guard_system_pressure` skips E2E on lease-busy | `node tests/test-agent-phone-lease.js`; `node tools/agent-phone-lease.js status` |
+| S13 | Deep link embedded the raw gateway API key in `hermes://setup?key=…` — lands in adb logs/shell history/screenshots | Secretless one-time pairing code (`putPairingCode`/`takePairingCode`, single-use + TTL) + `/pair-exchange` on the pair server; app exchanges via `pairingCodeExchange.ts` and persists via Android Keystore-backed `secureCredentials`; legacy embedded-key links still work when no server is running (`--no-serve`) | `bash tests/test-hermes-mobile-pair.sh`; `npm test -- --watchman=false src/__tests__/pairingCodeExchange.test.ts src/__tests__/setupDeepLink.test.ts` |
+| S14 | Connection status collapsed to one boolean — an optional event-socket (WS) drop could red out an otherwise-healthy USB connection | `connectionStateMachine.ts`: ordered stages `usb_missing -> port_closed -> auth_failed -> connected`; the event socket is evaluated only after `connected` and surfaces the non-blocking `event_socket_optional` reason code, never a red state | `npm test -- --watchman=false src/__tests__/connectionStateMachine.test.ts` |
+| S15 | Composer typing could theoretically be wired to run/send state, blocking the user from typing during an active run | `ChatInputBar.tsx`'s `TextInput.editable` is a static `true`, never derived from `sendDisabled`/`isSending`; regression tests lock the invariant so Send/Queue may be disabled but typing never is | `npm test -- --watchman=false src/__tests__/ChatInputBar.test.tsx` |
+| S11 | Gibberish probe strings in Maestro/adb chat composer | Standing rule: device/E2E chat input is only **`make money today`**; `preventRecurrenceContract.test.ts` bans `typeableProbe*`, `e2e-*-probe*`, `smoke test message` in `.maestro/` chat flows | `npm test -- --watchman=false src/__tests__/preventRecurrenceContract.test.ts` |
+| S16 | Secretless pair deep link regressed `pairCode=` back to relay `code=` (#392) | `buildSecretlessDeepLink()` in `tools/hermes-mobile-pair.js` always sets `pairCode`; `parseSetupDeepLink()` prefers it and only falls back to legacy `code=` when no `gatewayUrl` is present | `npm test -- --watchman=false src/__tests__/preventRecurrenceContract.test.ts src/__tests__/setupDeepLink.test.ts` |
+| S17 | `--mini-tailscale` (AGENTS.md standing key-sync command) hijacked `pair.json`/USB primary while cabled to a different Mac (#393) | `usbHijackGuardTripped` gates on the **live cable fact** (verified loopback auth to `127.0.0.1:8642`), not just `--no-serve`; skips `pair.json` write + adb push; escape hatch `--force-mini-usb-primary` | `bash tests/test-hermes-mobile-pair.sh` |
+| S18 | "Choose your computer" picker hid a freshly discovered, unnamed, never-connected Mac even though "Find computers" reported it (#389) | `profilesForSwitchComputerPicker()` only excludes phone-shaped hostnames as noise; every other discovered machine renders under a generic `Tailscale <ip>` label until naming resolves | `npm test -- --watchman=false src/__tests__/gatewayProfilePicker.test.ts src/__tests__/preventRecurrenceContract.test.ts` |
+| S19 | "Repair link" could spin forever if `autoConnectGateway`/`retryGatewayBootstrap` hung (#392/#393) | `REPAIR_CONNECTION_TIMEOUT_MS = 12_000` bounds `handleRepairConnection` via `withTimeout`; `ConnectionHealthHub`'s `finally { setRepairBusy(false) }` clears the spinner on both success and rejection | `npm test -- --watchman=false src/__tests__/ConnectionHealthHub.test.tsx src/__tests__/preventRecurrenceContract.test.ts` |
+| S20 | Dead-run unlock cleared `isSending` but left `pinnedOutboundStatus==='pending'`, permanently graying Send (#384) | Dead-run unlock resets `pinnedOutboundStatus`/`pinnedOutboundText`/`pendingOutboundSendsRef`/`outboundQueueRef`; `shouldSurfaceDeadRunEnded` no longer gates on global `/v1/obsidian/agents` activity | `npm test -- --watchman=false src/__tests__/deadRunDetection.test.ts src/__tests__/preventRecurrenceContract.test.ts` |
+| S21 | `adb reverse` for `tcp:8642`/`tcp:8765` silently dropped mid-session with no OS notification, stranding USB "Reconnecting…" (#388) | `tools/hermes-usb-reverse-watchdog.js` polls every authorized physical USB serial and re-applies any missing reverse using the same `hermes-mobile-pair-lib.js` helpers pairing uses; installed via `com.igor.hermes-usb-reverse-watchdog.plist` | `node tools/hermes-usb-reverse-watchdog.js --json` |
+| S22 | A failed secretless pair exchange or relay-only pair wiped existing saved computers / forced `connectionMode: relay` over a healthy USB gateway (#394) | `evaluatePairDeepLinkApply()` never persists profiles/settings on a failed exchange; existing `gatewayProfiles` are kept and the user sees "your saved computers were kept" | `npm test -- --watchman=false src/__tests__/pairDeepLinkApply.test.ts src/__tests__/preventRecurrenceContract.test.ts` |
+| S23 | Multi-Mac pairing risked binding the mini's URL to the MacBook Pro's `API_SERVER_KEY` (or vice versa) | `extraComputers[].apiKey` flows end-to-end from `buildDeepLink()` → `setupDeepLink.ts` → `syncExtraProfileApiKeys()` → per-profile `secureCredentials.saveProfileApiKey(profile.id, apiKey)`; `hermes-mobile-pair-lib.js`'s `MINI_KEY_UNAVAILABLE` guard refuses to fall back to the laptop key | `npm test -- --watchman=false src/__tests__/gatewayProfileCredentialSync.test.ts src/__tests__/preventRecurrenceContract.test.ts` |
+
+**S24 — Tailscale route must not show "home Wi‑Fi" step 1 (in flight, PR #397):** `freshUserOnboardingSteps()` step 1 hardcoded "Same home Wi‑Fi" regardless of route, which is actively wrong for a user whose only working path is Tailscale. The Tailscale-first onboarding fix (`isOnTailscaleRoute()` + route-aware step 1 copy) is being delivered separately on `fix/tailscale-onboarding-discovery` (PR #397) with its own `freshUserOnboarding.test.ts` / `ChatConnectionPanel.test.tsx` / `setupDeepLink.test.ts` coverage — intentionally not duplicated here to avoid colliding with that in-flight branch. `.maestro/tailscale-profile-disconnected-copy.yaml` locks in the structural onboarding-card contract today and is the flow to extend with the exact step-1 copy assertion once PR #397 merges.
 
 Install/heal LaunchAgents: `bash scripts/install-hermes-chrome-cdp.sh` then `bash scripts/install-agent-launchagents.sh`.
 
@@ -44,6 +60,7 @@ Install/heal LaunchAgents: `bash scripts/install-hermes-chrome-cdp.sh` then `bas
 | 11 | Fresh install → **Wrong key / Not connected** (2026-07-14) | Pair deep link embedded unverified or foreign `API_SERVER_KEY` (laptop key on mini, or extra Mac without SSH); USB used tailnet URL without reverse; `/health` green while chat 401 | **`verifyGatewayAuthSync` before deep link** (refuse if not 200); **USB primary → `127.0.0.1:8642`** when reverse auth works; **extras only with SSH key + verified auth**; never fallback laptop key onto mini when `fallbackLocal:false`; **auto-pair after `install-phone-release.sh`**; redact all keys in logs | **Automated pair-lib + install** |
 | 12 | Bare **Aborted** in chat/banner (2026-07-14) | OpenCode/agent runtime error `Aborted` / AbortError leaked as UI copy | `isRawAbortMessage` + `USER_RUN_INTERRUPTED_MESSAGE` in chatErrors, runProgressDisplay, outbound bubbles, assistant prose | **Unit tests** |
 | 13 | Wrong-key / Not connected after multi-agent dogfood (2026-07-14) | Locks lived **per worktree** (`hermes-mobile/.install-phone-release.lock`); 6+ agents built/paired the same USB phone; some reclaim paths deleted locks while another pipeline was live | **Global phone pipeline dir** `~/Library/Application Support/mac-yolo-safeguards/phone-pipeline/` for install flock + pair mutex + install marker + human hold; reclaim **only** dead PIDs; never force-delete a live holder | **Automated global lock** |
+| 14 | Tonight's P0 cluster (2026-07-14 evening): pairCode/code param mismatch, `--mini-tailscale` USB hijack, picker hid a discovered Mac, Repair link risk of infinite spin, dead-run Send stayed grayed, adb reverse silently dropped mid-session, pair failure risked wiping saved computers | Each bug shipped its own fix + unit tests in isolation (PRs #392/#393/#389/#384/#388/#394) with no single release-blocking gate tying them together, so a future refactor could silently regress any one of them without a dedicated failing test | S16–S23 in the checklist above, consolidated as one `describe('tonight recurrence gates …')` block in `preventRecurrenceContract.test.ts` (release-blocking via `test:release-safety`) plus 3 new Maestro tier-0 flows (`tailscale-profile-disconnected-copy`, `picker-two-machines`, `pairCode-deep-link`) | **Consolidated unit contract + E2E** |
 
 ---
 
@@ -149,6 +166,7 @@ bash hermes-mobile/scripts/agent-pre-asc-edit.sh      # runs verify-asc-listing 
 | `node tools/require-device-verified.js` | Before any "shipped on phone" / device UX claim |
 | `bash tests/test-hermes-mobile-pair.sh` | Multi-Mac host→key bind + session-start fail-closed |
 | `node tools/hermes-mobile-pair.js --no-serve` | Fresh install pair (strict mini SSH; refuses laptop key on mini URL) |
+| `node tools/agent-phone-lease.js status` / `hold --reason TEXT` / `release` | Unified phone lease — check/set/clear a human hold before letting an automated lane (Maestro/E2E/screenshots/dogfooding) touch the USB phone |
 
 ---
 
@@ -173,17 +191,17 @@ bash hermes-mobile/scripts/agent-pre-asc-edit.sh      # runs verify-asc-listing 
 
 | Layer | Gate | Location |
 |-------|------|----------|
-| WARN | ≥ 350k tokens — banner + confirm before Send | `sessionTokenGuards.ts` `MEGA_SESSION_TOKEN_WARN` |
-| BLOCK | ≥ 800k tokens — **hard-block Send** (no Send anyway); composer muted; Recents "Too large" forces Start fresh | `MEGA_SESSION_TOKEN_BLOCK` + `ChatScreen` / `RecentChatsList` |
+| WARN | ≥ 100k tokens — banner + confirm before Send; Recents suggest fresh on open | `sessionTokenGuards.ts` `MEGA_SESSION_TOKEN_WARN` |
+| BLOCK | ≥ 500k tokens — **hard-block Send** (no Send anyway); composer muted; Recents "Too large" forces Start fresh | `MEGA_SESSION_TOKEN_BLOCK` + `ChatScreen` / `RecentChatsList` |
 | Compaction stall | Summarization-only assistant turn → keep polling + auto-offer Start fresh once | `chatCompactionHandoff.ts` + `ChatScreen` |
 | Unit | `shouldAllowMegaSessionSend`, thresholds, recents badge | `sessionTokenGuards.test.ts`, `chatCompactionHandoff.test.ts`, `RecentChatsList.test.tsx` |
 
 **Operator rules (Igor):**
 
-1. Prefer **Start fresh chat** when a thread crosses ~350k or shows a summarization stub — do not keep Retrying.
+1. Prefer **Start fresh chat** when a thread crosses ~100k or shows a summarization stub — do not keep Retrying.
 2. Never reopen a **Too large** recent expecting a reply; fork first.
-3. Do not raise `MEGA_SESSION_TOKEN_BLOCK` back toward 2M without a proven gateway-side refuse.
-4. Gateway note: Hermes gateway does not yet refuse continue-by-token; mobile hard-block is the product gate. If adding gateway refuse later, mirror the 800k threshold.
+3. Do not raise `MEGA_SESSION_TOKEN_BLOCK` back toward 800k without a proven gateway-side refuse.
+4. Gateway note: Hermes gateway does not yet refuse continue-by-token; mobile hard-block is the product gate. If adding gateway refuse later, mirror the 500k threshold.
 5. After any mega-session UX change: focused Jest on the three files above + kick continuous E2E; do not claim fixed while `latest.json` `e2e=skipped`.
 
 Shipped hardening: PR #151 (initial unblock), #186 (stall CTA + WARN 350k), T-186 (BLOCK 800k + auto-offer + recents force-fresh).
@@ -229,7 +247,7 @@ Shipped hardening: PR #151 (initial unblock), #186 (stall CTA + WARN 350k), T-18
 1. CDP health: `curl -s http://127.0.0.1:9222/json/version` must return 200. If not, restart `com.hermes.chrome-cdp` (or relaunch Chrome with the hermes profile flags) — **do not** disable the browser toolset or add SOUL lock language.
 2. Never set `uchg` on `~/.hermes/SOUL.md`. Never reinstate `Browser Session Safety Lock`.
 3. Never narrate "browser automation restrictions" or dump numbered workaround menus on the user — fix tools and continue.
-4. The 500k desktop ceiling aligns with the mobile WARN gate (350k) and sits under the mobile BLOCK (800k) — keep that ordering if any threshold moves.
+4. The 500k desktop ceiling aligns with the mobile BLOCK gate (500k) — keep WARN (100k) under BLOCK if any threshold moves.
 5. `~/.hermes/hermes-agent` is a **git fork checkout** (IgorGanapolsky/hermes-agent), not pip site-packages — patch + commit there, and remember `hermes update` may stash local changes (`updates.non_interactive_local_changes: stash`).
 6. Upstream gaps to request from NousResearch/hermes-agent: config key for a session token/cost ceiling, per-session turn serialization in api_server (`max_concurrent_runs` is global only), and a circuit breaker that disables the failing tool for the session instead of only halting the turn.
 7. Poisoned mega-sessions may still contain old restriction turns — use **Start fresh chat**; policy alone does not rewrite history.
@@ -249,7 +267,7 @@ Shipped hardening: PR #151 (initial unblock), #186 (stall CTA + WARN 350k), T-18
 
 1. Run `bash scripts/hermes-fleet-no-timeout.sh --fleet --probe` after any gateway timeout regression.
 2. Never reintroduce `gateway_timeout: 900` without Igor explicit ask — standing order is **no timeouts**.
-3. Mega sessions: **Start fresh chat** still recommended at 350k+; draft transfer preserved (T-268).
+3. Mega sessions: **Start fresh chat** still recommended at 100k+; draft transfer preserved (T-268).
 4. Unit tests: `safetyTimeoutRecovery.test.ts`, `chatAssistantProse.test.ts`, `runStaleDetection.test.ts`.
 
 ---

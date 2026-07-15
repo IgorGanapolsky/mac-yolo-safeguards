@@ -230,7 +230,7 @@ describe('ChatConnectionPanel', () => {
   });
 
   it('explains cellular blocks direct home Wi‑Fi URLs', () => {
-    const { getByText } = render(
+    const { getAllByText, getByText } = render(
       <ChatConnectionPanel
         connectionState="disconnected"
         connectionMode="gateway"
@@ -241,7 +241,7 @@ describe('ChatConnectionPanel', () => {
         onSearchMac={jest.fn()}
       />,
     );
-    expect(getByText('Use Tailscale from cellular')).toBeTruthy();
+    expect(getAllByText('Use Tailscale from cellular').length).toBeGreaterThan(0);
     expect(getByText(/Home Wi‑Fi addresses won't work on cellular/)).toBeTruthy();
   });
 
@@ -331,6 +331,27 @@ describe('ChatConnectionPanel', () => {
       />,
     );
     expect(queryByTestId('chat-connection-status-pills')).toBeNull();
+  });
+
+  it('shows Tailscale onboarding steps for unreachable saved mini on Tailscale', () => {
+    const { getByText, queryByText } = render(
+      <ChatConnectionPanel
+        connectionState="disconnected"
+        connectionHealAttempt={6}
+        profiles={[
+          {
+            id: 'mini',
+            label: 'Igors-Mac-mini',
+            gatewayUrl: 'http://100.94.135.78:8642',
+            addedAt: '2026-06-28T00:00:00Z',
+          },
+        ]}
+        activeProfileId="mini"
+        onSearchMac={jest.fn()}
+      />,
+    );
+    expect(getByText('Tailscale connected')).toBeTruthy();
+    expect(queryByText('Same home Wi‑Fi')).toBeNull();
   });
 
   it('allows manual connection using a custom IP or URL', async () => {

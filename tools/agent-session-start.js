@@ -343,6 +343,21 @@ if (brief.stdout) process.stdout.write(brief.stdout);
 if (brief.stderr) process.stderr.write(brief.stderr);
 
 if (fs.existsSync(DEFAULT_VAULT)) {
+  const vaultPull = spawnSync('bash', [path.join(REPO, 'scripts/agent-vault-sync.sh'), '--pull-only'], {
+    cwd: REPO,
+    encoding: 'utf8',
+    timeout: 30_000,
+    maxBuffer: 256 * 1024,
+    env: { ...process.env, VAULT_PATH: DEFAULT_VAULT },
+  });
+  if (!json && vaultPull.stdout?.trim()) {
+    process.stdout.write('\n=== AI-Agent-Sync vault pull ===\n');
+    vaultPull.stdout
+      .trim()
+      .split('\n')
+      .forEach((line) => process.stdout.write(`${line}\n`));
+  }
+
   const syncBrief = runNode('tools/agent-sync-brief.js', ['--vault', DEFAULT_VAULT], 60_000);
   if (!json && syncBrief.status === 0 && syncBrief.stdout) {
     const syncLines = syncBrief.stdout

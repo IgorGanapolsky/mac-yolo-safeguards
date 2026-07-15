@@ -27,6 +27,7 @@ const DEFAULT_COMMANDS = [
   'amp',
   'parallel',
   'parallel-cli',
+  'litellm',
   'snow',
 ];
 const PAID_CREDENTIAL_ENV = [
@@ -45,15 +46,17 @@ const PAID_CREDENTIAL_ENV = [
   'ZAI_API_KEY',
   'Z_AI_API_KEY',
 ];
-const LOCAL_MODEL_CANDIDATES = [
-  'qwen3:8b-agent-64k',
-  'qwen3:8b-64k',
-  'qwen3.5:9b',
-  'qwen3:8b-agent-32k',
-  'qwen3:8b',
-  'qwen2.5-coder:14b-64k',
-  'qwen2.5:3b-64k',
-  'qwen2.5:3b',
+const SAFE_MODEL_RECIPES = [
+  {
+    model: 'qwen3.5:9b-hermes-64k',
+    base: 'qwen3.5:9b',
+    contextLength: 65536,
+  },
+];
+const LOCAL_MODEL_CANDIDATES = SAFE_MODEL_RECIPES.map((recipe) => recipe.model);
+const QUIESCED_MODEL_LAUNCH_AGENTS = [
+  'com.igor.hermes-litellm',
+  'com.igor.hermes-competence-probe',
 ];
 
 function homeDir(env = process.env) {
@@ -218,14 +221,19 @@ function yamlQuote(value) {
   return JSON.stringify(String(value));
 }
 
+function modelContextLength(model) {
+  return SAFE_MODEL_RECIPES.find((recipe) => recipe.model === model)?.contextLength || 65536;
+}
+
 function localConfig(model) {
   const quotedModel = yamlQuote(model);
+  const contextLength = modelContextLength(model);
   return [
     'model:',
     '  provider: custom:ollama-local-64k',
     `  default: ${quotedModel}`,
     '  base_url: http://127.0.0.1:11434/v1',
-    '  context_length: 65536',
+    `  context_length: ${contextLength}`,
     'providers:',
     '  ollama-local-64k:',
     '    name: Ollama Local Zero Spend',
@@ -236,10 +244,10 @@ function localConfig(model) {
     `    model: ${quotedModel}`,
     '    transport: chat_completions',
     '    discover_models: true',
-    '    context_length: 65536',
+    `    context_length: ${contextLength}`,
     '    models:',
     `      ${quotedModel}:`,
-    '        context_length: 65536',
+    `        context_length: ${contextLength}`,
     'fallback_providers:',
     '  - provider: custom:ollama-local-64k',
     `    model: ${quotedModel}`,
@@ -333,6 +341,65 @@ function reloadRoutePlist(plist, env = process.env) {
   }
 }
 
+function launchAgentPlist(label, env = process.env) {
+  return path.join(homeDir(env), 'Library', 'LaunchAgents', `${label}.plist`);
+}
+
+function launchAgentLoaded(label, env = process.env) {
+  if (process.platform !== 'darwin') return false;
+  return runQuiet('/bin/launchctl', ['print', `gui/${process.getuid()}/${label}`], env).status === 0;
+}
+
+function launchAgentDisabled(label, env = process.env) {
+  if (process.platform !== 'darwin') return false;
+  const result = runQuiet('/bin/launchctl', ['print-disabled', `gui/${process.getuid()}`], env);
+  if (result.status !== 0) return false;
+  const escaped = label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return new RegExp(`"${escaped}"\\s*=>\\s*(?:true|disabled)`).test(result.stdout || '');
+}
+
+function quiesceModelLaunchAgents(manifest, env = process.env) {
+  if (process.platform !== 'darwin' || env.HERMES_ZERO_SPEND_SKIP_LAUNCHCTL === '1') return;
+  if (!manifest.previousQuiescedLaunchAgents) {
+    manifest.previousQuiescedLaunchAgents = QUIESCED_MODEL_LAUNCH_AGENTS
+      .map((label) => ({
+        label,
+        plist: launchAgentPlist(label, env),
+        existed: fs.existsSync(launchAgentPlist(label, env)),
+        loaded: launchAgentLoaded(label, env),
+        disabled: launchAgentDisabled(label, env),
+      }))
+      .filter((entry) => entry.existed || entry.loaded);
+    writePrivateFile(locations(env).manifest, `${JSON.stringify(manifest, null, 2)}\n`);
+  }
+  for (const label of QUIESCED_MODEL_LAUNCH_AGENTS) {
+    const plist = launchAgentPlist(label, env);
+    if (!fs.existsSync(plist) && !launchAgentLoaded(label, env)) continue;
+    const disable = runQuiet('/bin/launchctl', ['disable', `gui/${process.getuid()}/${label}`], env);
+    if (disable.status !== 0) throw new Error(`failed to disable zero-spend model daemon ${label}`);
+    if (launchAgentLoaded(label, env)) {
+      const bootout = runQuiet('/bin/launchctl', ['bootout', `gui/${process.getuid()}/${label}`], env);
+      if (bootout.status !== 0) throw new Error(`failed to stop zero-spend model daemon ${label}`);
+      for (let attempt = 0; attempt < 10 && launchAgentLoaded(label, env); attempt += 1) {
+        runQuiet('/bin/sleep', ['0.2'], env);
+      }
+      if (launchAgentLoaded(label, env)) {
+        throw new Error(`zero-spend model daemon remained loaded after bootout: ${label}`);
+      }
+    }
+  }
+}
+
+function restoreModelLaunchAgents(manifest, env = process.env) {
+  if (process.platform !== 'darwin' || env.HERMES_ZERO_SPEND_SKIP_LAUNCHCTL === '1') return;
+  for (const entry of manifest.previousQuiescedLaunchAgents || []) {
+    runQuiet('/bin/launchctl', [entry.disabled ? 'disable' : 'enable', `gui/${process.getuid()}/${entry.label}`], env);
+    if (entry.loaded && entry.existed && fs.existsSync(entry.plist) && !launchAgentLoaded(entry.label, env)) {
+      runQuiet('/bin/launchctl', ['bootstrap', `gui/${process.getuid()}`, entry.plist], env);
+    }
+  }
+}
+
 function enforceMacPolicy(model, manifest, env = process.env) {
   if (process.platform !== 'darwin' || env.HERMES_ZERO_SPEND_SKIP_LAUNCHCTL === '1') return;
   const loc = locations(env);
@@ -351,6 +418,7 @@ function enforceMacPolicy(model, manifest, env = process.env) {
     const result = runQuiet('/bin/launchctl', ['setenv', name, value], env);
     if (result.status !== 0) throw new Error(`launchctl setenv failed for ${name}`);
   }
+  quiesceModelLaunchAgents(manifest, env);
 
   const plist = routePlist(loc);
   if (fs.existsSync(plist)) {
@@ -399,6 +467,7 @@ function restoreMacPolicy(manifest, env = process.env) {
     writePrivateFile(guard, text.replace(/^STABLE=.*$/m, manifest.previousGuardStable), 0o700);
     runQuiet('/bin/bash', [guard], env);
   }
+  restoreModelLaunchAgents(manifest, env);
 }
 
 function installPolicyFiles(model, manifest, env = process.env) {
@@ -418,11 +487,13 @@ function installPolicyFiles(model, manifest, env = process.env) {
 
 function install(env = process.env) {
   const loc = locations(env);
-  const model = chooseLocalModel(env);
-  if (!model) throw new Error('zero-spend install requires a verified local Ollama model');
   fs.mkdirSync(loc.stateDir, { recursive: true, mode: 0o700 });
   fs.mkdirSync(loc.originalsDir, { recursive: true, mode: 0o700 });
   copyGate(__filename, loc.installedGate);
+  const model = provisionSafeLocalModel(env);
+  if (!model) {
+    throw new Error('zero-spend install requires an installed compact Ollama base model');
+  }
 
   const previous = readJson(loc.manifest, {});
   const manifest = {
@@ -437,15 +508,16 @@ function install(env = process.env) {
     'previousLaunchctlEnvironment',
     'previousRouteProgramArguments',
     'previousGuardStable',
+    'previousQuiescedLaunchAgents',
   ]) {
     if (Object.hasOwn(previous, key)) manifest[key] = previous[key];
   }
   for (const name of commandNames(env)) {
     manifest.commands[name] = installCommand(name, manifest, env);
   }
+  manifest.localModel = model;
   installPolicyFiles(model, manifest, env);
   enforceMacPolicy(model, manifest, env);
-  manifest.localModel = model;
   writePrivateFile(loc.manifest, `${JSON.stringify(manifest, null, 2)}\n`);
   writePrivateFile(loc.marker, `${JSON.stringify({
     schema: 'hermes-zero-spend/policy-v1',
@@ -484,6 +556,15 @@ function status(env = process.env) {
     installed: resolvesTo(entry.shimPath, loc.installedGate),
     originalAvailable: Boolean(entry.original && fs.existsSync(entry.original)),
   }));
+  const quiescedLaunchAgents = process.platform !== 'darwin' || env.HERMES_ZERO_SPEND_SKIP_LAUNCHCTL === '1'
+    ? []
+    : QUIESCED_MODEL_LAUNCH_AGENTS
+      .filter((label) => fs.existsSync(launchAgentPlist(label, env)) || launchAgentLoaded(label, env))
+      .map((label) => ({
+        label,
+        loaded: launchAgentLoaded(label, env),
+        disabled: launchAgentDisabled(label, env),
+      }));
   return {
     schema: 'hermes-zero-spend/status-v1',
     active: markerActive(env),
@@ -503,6 +584,11 @@ function status(env = process.env) {
       ? guardText.includes(`STABLE=${JSON.stringify(loc.installedGate)}`)
       : null,
     localModel: manifest.localModel || null,
+    localContextLength: manifest.localModel ? modelContextLength(manifest.localModel) : null,
+    modelDaemonsQuiesced: process.platform !== 'darwin' || env.HERMES_ZERO_SPEND_SKIP_LAUNCHCTL === '1'
+      ? null
+      : quiescedLaunchAgents.every((entry) => !entry.loaded && entry.disabled),
+    quiescedLaunchAgents,
     commandCount: commands.length,
     commands,
   };
@@ -553,6 +639,48 @@ function installedLocalModels(env = process.env) {
 function chooseLocalModel(env = process.env) {
   const installed = installedLocalModels(env);
   return LOCAL_MODEL_CANDIDATES.find((model) => installed.includes(model)) || null;
+}
+
+function safeModelFile(recipe) {
+  return [
+    `FROM ${recipe.base}`,
+    `PARAMETER num_ctx ${recipe.contextLength}`,
+    'PARAMETER temperature 0.3',
+    'PARAMETER top_k 20',
+    'PARAMETER top_p 0.9',
+    'PARAMETER repeat_penalty 1',
+    '',
+  ].join('\n');
+}
+
+function provisionSafeLocalModel(env = process.env) {
+  let installed = installedLocalModels(env);
+  const ready = LOCAL_MODEL_CANDIDATES.find((model) => installed.includes(model));
+  if (ready) return ready;
+  if (env.HERMES_ZERO_SPEND_LOCAL_MODELS) return null;
+
+  const ollama = findOllama(env);
+  if (!ollama) return null;
+  for (const recipe of SAFE_MODEL_RECIPES) {
+    if (!installed.includes(recipe.base)) continue;
+    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'hermes-zero-spend-model-'));
+    const modelFile = path.join(tempDir, 'Modelfile');
+    try {
+      writePrivateFile(modelFile, safeModelFile(recipe));
+      const create = spawnSync(ollama, ['create', recipe.model, '--file', modelFile], {
+        encoding: 'utf8',
+        timeout: 120000,
+        env,
+        stdio: ['ignore', 'pipe', 'pipe'],
+      });
+      if (create.status !== 0) continue;
+    } finally {
+      fs.rmSync(tempDir, { recursive: true, force: true });
+    }
+    installed = installedLocalModels(env);
+    if (installed.includes(recipe.model)) return recipe.model;
+  }
+  return null;
 }
 
 function localOnlyEnv(env, model) {
@@ -656,6 +784,8 @@ module.exports = {
   LOCAL_MODEL_CANDIDATES,
   LOCAL_PROVIDER,
   PAID_CREDENTIAL_ENV,
+  QUIESCED_MODEL_LAUNCH_AGENTS,
+  SAFE_MODEL_RECIPES,
   chooseLocalModel,
   commandNames,
   disable,
@@ -670,9 +800,14 @@ module.exports = {
   locations,
   main,
   markerActive,
+  modelContextLength,
+  provisionSafeLocalModel,
+  quiesceModelLaunchAgents,
   replaceableCommandPath,
   restoreMacPolicy,
+  restoreModelLaunchAgents,
   runCommand,
+  safeModelFile,
   status,
   writePrivateFile,
 };

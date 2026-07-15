@@ -12,6 +12,18 @@ Hermes Mobile ships JS and asset fixes over the air (EAS Update) so Igor's phone
 
 **Production channel** receives automatic OTA publishes from `.github/workflows/mobile-ota.yml` on every push to `main` that touches `hermes-mobile/**`.
 
+## Fresh-user / stranger cold-start gate (hard)
+**`docs/proofs/continuous/latest.json` `e2e=skipped` is not pass and is not a production hard-block when CI stranger Maestro is green on the SHA.**
+
+
+Production OTA **hard-fails** unless stranger cold-start proof is present:
+
+1. Structural contract: `mobile-e2e.yml` stranger job + `.maestro/stranger-cold-start.yaml` (no `demo=1`, `EXPO_PUBLIC_E2E_AUTOMATION=0`).
+2. Runtime proof: proof JSON with `strangerColdStart=pass`, **or** GitHub check `Maestro stranger cold-start (Android emulator)` = success on the publish SHA (CI waits for the parallel emulator job).
+
+Implemented by `scripts/require-stranger-cold-start-proof.cjs` (hard by default). Soft opt-out (`--soft` / `HERMES_OTA_REQUIRE_STRANGER_PROOF=0`) is for local dry-runs only.
+
+
 ## Runtime version policy: `appVersion`
 
 `app.json` uses:
@@ -22,11 +34,11 @@ Hermes Mobile ships JS and asset fixes over the air (EAS Update) so Igor's phone
 
 **Why `appVersion` (not fingerprint):**
 
-- Hermes Mobile already pins `eas.cli.appVersionSource: local` — `app.json` `version` / `versionCode` drive builds and Firebase verify.
-- OTA bundles only apply to native builds whose embedded runtime version matches the published update (currently `0.3.2` from `expo.version`).
-- Bumping `app.json` `version` (or native `versionCode` / iOS `buildNumber`) requires a **new native build** before OTA resumes for that version line.
+- OTA bundles only apply to native builds whose embedded runtime matches marketing `expo.version` (e.g. `1.0`, `1.1`).
+- EAS production uses `cli.appVersionSource: "remote"` + `autoIncrement` for **native build numbers**. Do not treat stale local `buildNumber` / `versionCode` in `app.json` as source of truth.
+- Bumping `app.json` `version` **splits** the OTA line: ship a new native store binary for that version, then publish OTA for the new runtime.
 
-Fingerprint would auto-split on any native drift but adds CI complexity and can block OTA when Gradle/plugin noise changes without user-visible native changes. `appVersion` matches our explicit release versioning and store submit flow.
+Fingerprint would auto-split on any native drift but adds CI complexity and can block OTA when Gradle/plugin noise changes without user-visible native changes. Full process: [VERSIONING-AND-RELEASES.md](./VERSIONING-AND-RELEASES.md).
 
 ## How the phone receives updates
 

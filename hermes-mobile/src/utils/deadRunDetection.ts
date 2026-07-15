@@ -17,23 +17,37 @@ export function transcriptUnchangedMs(
   return Math.max(0, nowMs - lastChangeAtMs);
 }
 
+/** Mirrors ChatInputBar sendDisabled — must all be false after dead-run unlock. */
+export function isComposerSendDisabled(input: {
+  isSending: boolean;
+  queuedOutboundCount: number;
+  outboundStillPending: boolean;
+}): boolean {
+  return (
+    input.isSending || input.queuedOutboundCount > 0 || input.outboundStillPending
+  );
+}
+
 /**
- * Surface when HTTP polling keeps returning the same transcript, the gateway
- * reports no live operator run, and no Obsidian agents are active.
+ * Surface when HTTP polling keeps returning the same transcript for this
+ * session's run and the gateway reports no live operator run for it.
+ *
+ * Deliberately does NOT gate on global Obsidian agent activity
+ * (`/v1/obsidian/agents`): that endpoint reports every agent across the
+ * whole vault, unrelated to this specific chat run. Gating on it meant any
+ * unrelated scheduled job/automation running elsewhere on the Mac would
+ * permanently block dead-run detection for an actually-dead session — the
+ * P0 where Send stayed grayed behind "Working on your computer…" forever.
  */
 export function shouldSurfaceDeadRunEnded(input: {
   clientBusy: boolean;
   transcriptUnchangedMs: number;
-  activeAgentCount: number;
   gatewayHasLiveRun: boolean;
 }): boolean {
   if (!input.clientBusy) {
     return false;
   }
   if (input.transcriptUnchangedMs < DEAD_RUN_TRANSCRIPT_STALE_MS) {
-    return false;
-  }
-  if (input.activeAgentCount > 0) {
     return false;
   }
   if (input.gatewayHasLiveRun) {

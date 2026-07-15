@@ -1065,22 +1065,59 @@ describe('ChatScreen', () => {
     await flushPendingTimers();
   });
 
-  it('disables send while a demo reply is in flight', async () => {
+  it('queues a distinct second message instead of dropping it while a demo reply is in flight', async () => {
     const { getByTestId, getAllByTestId } = await renderChatScreen();
     jest.useFakeTimers();
     const input = getByTestId('chat-input');
-    const sendButton = getByTestId('chat-send-button');
 
     act(() => {
       fireEvent.changeText(input, 'First message');
-      fireEvent.press(sendButton);
+      fireEvent.press(getByTestId('chat-send-button'));
     });
     const userCountAfterFirstSend = getAllByTestId('chat-message-user').length;
     expect(userCountAfterFirstSend).toBeGreaterThanOrEqual(1);
 
+    // A DIFFERENT message tapped while still busy must be queued (new bubble),
+    // not silently dropped — P0 regression: send looked tappable but no-opped.
+    // The composer swaps Send for a Stop control while busy + empty, so the
+    // send button must be re-queried once typed text brings Send back.
     act(() => {
       fireEvent.changeText(input, 'Second message');
-      fireEvent.press(sendButton);
+    });
+    act(() => {
+      fireEvent.press(getByTestId('chat-send-button'));
+    });
+    expect(getAllByTestId('chat-message-user').length).toBe(userCountAfterFirstSend + 1);
+
+    act(() => {
+      jest.advanceTimersByTime(1600);
+    });
+    await flushPendingTimers();
+  });
+
+  it('still blocks an exact re-send of the in-flight message while busy', async () => {
+    const { getByTestId, getAllByTestId } = await renderChatScreen();
+    jest.useFakeTimers();
+    const input = getByTestId('chat-input');
+
+    act(() => {
+      fireEvent.changeText(input, 'First message');
+      fireEvent.press(getByTestId('chat-send-button'));
+    });
+    const userCountAfterFirstSend = getAllByTestId('chat-message-user').length;
+    expect(userCountAfterFirstSend).toBeGreaterThanOrEqual(1);
+
+    // Retyping the exact same text right after sending it would otherwise be
+    // swallowed by the Android-IME-echo composer guard (unrelated to send
+    // dedupe) — type something distinct first so the retype is a real change.
+    act(() => {
+      fireEvent.changeText(input, 'placeholder');
+    });
+    act(() => {
+      fireEvent.changeText(input, 'First message');
+    });
+    act(() => {
+      fireEvent.press(getByTestId('chat-send-button'));
     });
     expect(getAllByTestId('chat-message-user').length).toBe(userCountAfterFirstSend);
 

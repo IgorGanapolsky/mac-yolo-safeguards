@@ -3,6 +3,7 @@ import {
   freshUserOnboardingSteps,
   hasValidSavedComputer,
   isFreshUserUnpaired,
+  isOnTailscaleRoute,
   shouldHideConnectionStatusChips,
   shouldShowFreshUserOnboardingSteps,
 } from '../utils/freshUserOnboarding';
@@ -15,6 +16,33 @@ describe('freshUserOnboarding', () => {
   it('treats empty profiles as fresh user unpaired', () => {
     expect(isFreshUserUnpaired([])).toBe(true);
     expect(hasValidSavedComputer([])).toBe(false);
+  });
+
+  it('treats generic USB-only loopback as unpaired (never connected)', () => {
+    const usbOnly = [
+      {
+        id: 'mac_usb_loopback',
+        label: 'Computer via USB',
+        gatewayUrl: 'http://127.0.0.1:8642',
+        localIp: '127.0.0.1',
+        addedAt: '2026-07-15T00:00:00Z',
+      },
+    ];
+    expect(hasValidSavedComputer(usbOnly)).toBe(false);
+    expect(isFreshUserUnpaired(usbOnly)).toBe(true);
+  });
+
+  it('treats a Tailscale/LAN Mac as a prior saved computer', () => {
+    const profiles = [
+      {
+        id: 'mini',
+        label: 'Igors-Mac-mini',
+        gatewayUrl: 'http://100.94.135.78:8642',
+        addedAt: '2026-07-15T00:00:00Z',
+      },
+    ];
+    expect(hasValidSavedComputer(profiles)).toBe(true);
+    expect(isFreshUserUnpaired(profiles)).toBe(false);
   });
 
   it('shows numbered steps immediately for fresh users', () => {
@@ -77,6 +105,51 @@ describe('freshUserOnboarding', () => {
     expect(joined.toLowerCase()).not.toContain('relay');
     expect(joined.toLowerCase()).not.toContain('gateway');
     expect(joined.toLowerCase()).not.toContain('lan');
+  });
+
+  it('hides the home Wi-Fi step on cellular and leads with Tailscale', () => {
+    const steps = freshUserOnboardingSteps({
+      tailscaleMacLabel: 'Igors-Mac-mini',
+      wifiConnected: false,
+    });
+    expect(steps).toHaveLength(3);
+    expect(steps[0].title).toBe('Use Tailscale from cellular');
+    expect(steps.map((step) => step.title).join(' ')).not.toContain('Same home Wi‑Fi');
+    expect(steps[0].body).toContain('Igors-Mac-mini');
+  });
+
+  it('uses Tailscale-first steps when the saved route is Tailscale (not home Wi‑Fi)', () => {
+    const profiles = [
+      {
+        id: 'mini',
+        label: 'Igors-Mac-mini',
+        gatewayUrl: 'http://100.94.135.78:8642',
+        addedAt: '2026-06-28T00:00:00Z',
+      },
+    ];
+    expect(isOnTailscaleRoute(profiles, 'mini')).toBe(true);
+    const steps = freshUserOnboardingSteps({
+      tailscaleMacLabel: 'Igors-Mac-mini',
+      onTailscaleRoute: true,
+    });
+    expect(steps[0]?.title).toBe('Tailscale connected');
+    expect(steps.map((step) => step.title).join(' ')).not.toContain('Same home Wi‑Fi');
+    expect(steps[2]?.body).toContain('Tailscale network');
+  });
+
+  it('searches Tailscale network copy when probing on a Tailscale route', () => {
+    const body = freshUserConnectionBody({
+      searching: true,
+      healInFlight: false,
+      healExhausted: true,
+      freshUser: false,
+      macLabel: 'Igors-Mac-mini',
+      cellularBlocksDirect: false,
+      showUsbFix: false,
+      onTailscaleRoute: true,
+    });
+    expect(body).toContain('Tailscale network');
+    expect(body).not.toContain('home Wi‑Fi');
   });
 
   it('uses silent heal duration of about 30 seconds', () => {

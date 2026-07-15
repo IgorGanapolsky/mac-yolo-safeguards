@@ -3,6 +3,7 @@ import path from 'path';
 import {
   assertNoPullToRefreshCopy,
   EMPTY_STREAM_REFRESH_BANNER_HINT,
+  emptyStreamBannerHint,
   messageIsEmptyStreamTimeout,
   shouldShowEmptyStreamRefreshCta,
   USER_FACING_EMPTY_STREAM_COPY_FILES,
@@ -35,13 +36,16 @@ describe('emptyStreamRefreshCta', () => {
     expect(shouldShowEmptyStreamRefreshCta(messages)).toBe(false);
   });
 
-  it('does not advertise pull-to-refresh in user-facing empty-stream copy files', () => {
+  it('does not advertise pull-to-refresh or mandatory manual refresh in empty-stream copy', () => {
     for (const relativePath of USER_FACING_EMPTY_STREAM_COPY_FILES) {
       const source = fs.readFileSync(path.join(mobileRoot, relativePath), 'utf8');
       assertNoPullToRefreshCopy(source, relativePath);
     }
-    expect(EMPTY_STREAM_TIMEOUT_PLACEHOLDER.toLowerCase()).toContain('refresh below');
-    expect(EMPTY_REPLY_FAILURE_REASON.toLowerCase()).toContain('refresh below');
-    expect(EMPTY_STREAM_REFRESH_BANNER_HINT.toLowerCase()).toContain('tap refresh');
+    expect(EMPTY_STREAM_TIMEOUT_PLACEHOLDER.toLowerCase()).toContain('checking');
+    expect(EMPTY_REPLY_FAILURE_REASON.toLowerCase()).toContain('checking automatically');
+    expect(EMPTY_STREAM_REFRESH_BANNER_HINT.toLowerCase()).toContain('checking automatically');
+    expect(EMPTY_STREAM_REFRESH_BANNER_HINT.toLowerCase()).not.toContain('tap refresh');
+    expect(emptyStreamBannerHint(45_000)).toContain('(45s)');
+    expect(emptyStreamBannerHint(45_000).toLowerCase()).not.toContain('tap refresh');
   });
 });

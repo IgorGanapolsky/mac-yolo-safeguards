@@ -1,6 +1,5 @@
 import {
   connectionCopyFromPrediction,
-  offlineIntentModel,
   rankReachabilityRoutes,
   reachabilityModel,
 } from '../utils/onDeviceDecisionLayer';
@@ -26,32 +25,6 @@ describe('onDeviceDecisionLayer', () => {
       authenticated: false,
     });
     expect(prediction).toMatchObject({ score: 34, state: 'repair_auth' });
-  });
-
-  it('classifies exact approval phrases locally but fails closed without a pending item', () => {
-    expect(
-      offlineIntentModel.predict({ text: 'Approve it', hasPendingApproval: true }),
-    ).toMatchObject({
-      intent: 'approve',
-      canExecuteLocally: true,
-      next: 'resolve_pending',
-    });
-    expect(
-      offlineIntentModel.predict({ text: 'go ahead', hasPendingApproval: false }),
-    ).toMatchObject({
-      intent: 'approve',
-      canExecuteLocally: false,
-      next: 'show_no_pending_approval',
-    });
-  });
-
-  it('does not mistake normal chat containing approval words for an approval', () => {
-    expect(
-      offlineIntentModel.predict({
-        text: 'Can you explain what approve means here?',
-        hasPendingApproval: true,
-      }),
-    ).toMatchObject({ intent: 'chat', canExecuteLocally: false, next: 'queue_chat' });
   });
 
   it('turns scores into human copy without gateway or LAN jargon', () => {

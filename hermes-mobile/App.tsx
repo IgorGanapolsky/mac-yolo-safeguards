@@ -1,10 +1,31 @@
 import React, { Suspense, useCallback, useEffect, useRef } from 'react';
-import { StyleSheet, View, Text, TouchableOpacity, StatusBar, ActivityIndicator, Platform, Alert } from 'react-native';
+import {
+  StyleSheet,
+  View,
+  Text,
+  TouchableOpacity,
+  StatusBar,
+  ActivityIndicator,
+  Platform,
+  Alert,
+  Keyboard,
+  LogBox,
+} from 'react-native';
 import * as SplashScreen from 'expo-splash-screen';
 import TabBarIcon from './src/components/TabBarIcon';
 
 // Hold native splash until React paints — prevents flash of empty black window.
 void SplashScreen.preventAutoHideAsync().catch(() => {});
+
+// Require-cycle LogBox banners sit over the tab bar on Android debug and steal
+// Maestro / user taps. Prefer ignoreLogs for known cycles only — never blanket
+// ignore-all (that hides real startup errors; see AppStartup.test.ts).
+if (__DEV__) {
+  LogBox.ignoreLogs([
+    'Require cycle:',
+    'Require cycles are allowed',
+  ]);
+}
 
 // Initialize Sentry (JS + native crashes, unhandled rejections, performance)
 // as early as possible, before any component renders. No-op when
@@ -41,6 +62,7 @@ import { LEASH_TAB_LABEL } from './src/constants/monetization';
 import { formatPendingApprovalBadge } from './src/utils/pendingApprovalsCap';
 import { refreshFreeLeashWeeklyState } from './src/utils/freeLeashAllowance';
 import { syncLeashEntitlementSnapshot } from './src/utils/thumbgateLeash';
+import { shouldCollapseTabBarForKeyboard } from './src/utils/tabBarKeyboardPolicy';
 import { colors } from './src/theme/colors';
 
 const ChatScreen = React.lazy(() => import('./src/screens/ChatScreen'));
@@ -143,7 +165,15 @@ function GlassmorphicTabBar({ state, descriptors, navigation }: BottomTabBarProp
   const pendingBadgeLabel = formatPendingApprovalBadge(pendingApprovals.length);
   const insets = useSafeAreaInsets();
   const { inset: keyboardInset } = useKeyboardInset();
-  const keyboardOpen = keyboardInset > 0;
+  const focusedRouteName = state.routes[state.index]?.name;
+  // Collapse tab bar only on Chat (composer space). Settings/Leash keep tabs
+  // so keyboard focus never traps the operator without an escape hatch.
+  // Re-check Keyboard.metrics so a sticky inset after hideKeyboard cannot
+  // leave the bar permanently pointerEvents=none (breaks Maestro + users).
+  const keyboardActuallyOpen =
+    keyboardInset > 0 && (Keyboard.metrics()?.height ?? 0) > 0;
+  const collapseForKeyboard =
+    keyboardActuallyOpen && shouldCollapseTabBarForKeyboard(focusedRouteName);
   const leashDevTapCountRef = useRef(0);
   const leashDevTapTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -175,13 +205,13 @@ function GlassmorphicTabBar({ state, descriptors, navigation }: BottomTabBarProp
     <View
       style={[
         styles.navBar,
-        keyboardOpen ? styles.navBarKeyboardHidden : null,
+        collapseForKeyboard ? styles.navBarKeyboardHidden : null,
         {
-          paddingBottom: keyboardOpen ? 0 : Math.max(insets.bottom, 8),
-          opacity: keyboardOpen ? 0 : 1,
+          paddingBottom: collapseForKeyboard ? 0 : Math.max(insets.bottom, 8),
+          opacity: collapseForKeyboard ? 0 : 1,
         },
       ]}
-      pointerEvents={keyboardOpen ? 'none' : 'auto'}
+      pointerEvents={collapseForKeyboard ? 'none' : 'auto'}
     >
       {state.routes.map((route, index) => {
         const { options } = descriptors[route.key];

@@ -38,7 +38,7 @@ describe('workspacePrompt — governed context injection', () => {
 
   it('buildWorkspaceSystemPrompt is generic and echoes the active path', () => {
     const wp = buildWorkspaceSystemPrompt('/srv/project-x');
-    expect(wp).toContain('Active workspace: /srv/project-x');
+    expect(wp).toContain('Active workspace / cwd: /srv/project-x');
     expect(wp).toContain('the operator');
     expect(wp).not.toContain('Igor');
   });

@@ -1,4 +1,5 @@
 import {
+  connectingToMacCopy,
   formatSavedMacUnreachableBanner,
   reconnectingToMacCopy,
   savedMacUnreachableStatus,
@@ -30,6 +31,27 @@ describe('macUnreachableCopy', () => {
         healExhausted: false,
       }),
     ).toBe(true);
+  });
+
+  it('never says Reconnecting for brand-new installs (no prior connection)', () => {
+    expect(
+      shouldShowActiveReconnectingCopy({
+        macRetryBusy: false,
+        healInFlight: true,
+        healExhausted: false,
+        hasPriorSuccessfulConnection: false,
+      }),
+    ).toBe(false);
+    expect(
+      shouldShowActiveReconnectingCopy({
+        macRetryBusy: true,
+        healInFlight: false,
+        healExhausted: false,
+        hasPriorSuccessfulConnection: false,
+      }),
+    ).toBe(false);
+    expect(connectingToMacCopy('Computer via USB')).toBe('Looking for your Mac…');
+    expect(connectingToMacCopy()).toBe('Looking for your Mac…');
   });
 
   it('suppresses empty greeting unreachable during bootstrap and silent heal', () => {

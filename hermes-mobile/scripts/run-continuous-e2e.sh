@@ -21,6 +21,7 @@ PID_FILE="${HOME}/Library/Logs/hermes-mobile-continuous-e2e.pid"
 # does not stop concurrent agent --once / LaunchAgent thrash on ADB + Maestro).
 CYCLE_LOCK_FILE="${HERMES_E2E_CYCLE_LOCK:-${HOME}/Library/Logs/hermes-mobile-continuous-e2e.lock}"
 LATEST_JSON="${LOG_DIR}/latest.json"
+PHONE_PIPELINE_TOOL="${HERMES_PHONE_PIPELINE_TOOL:-$(cd "$HERMES_DIR/.." && pwd)/tools/agent-phone-pipeline-lock.js}"
 CPU_COUNT="$(sysctl -n hw.ncpu 2>/dev/null || echo 8)"
 # Scale with core count (8-core Mac → 8, not 6) so normal dev load does not silently skip E2E.
 if [[ -n "${HERMES_E2E_MAX_LOAD:-}" ]]; then
@@ -90,6 +91,60 @@ write_status() {
 EOF
 }
 
+guard_active_physical_phone() {
+  if [[ "${HERMES_E2E_FORCE:-}" == "1" || "${HERMES_E2E_ALLOW_ACTIVE_PHONE:-}" == "1" ]]; then
+    return 0
+  fi
+  if ! has_usb_adb_device; then
+    return 0
+  fi
+
+  local rc detail
+  set +e
+  node "$PHONE_PIPELINE_TOOL" phone-user-active >/dev/null 2>&1
+  rc=$?
+  set -e
+  if [[ $rc -eq 75 ]]; then
+    detail="skipped continuous E2E: physical phone is awake and actively in use"
+    echo "$detail"
+    write_status "skipped" "skipped" "$detail"
+    return 1
+  fi
+  if [[ $rc -ne 0 ]]; then
+    detail="skipped continuous E2E: could not verify exclusive physical-phone access"
+    echo "$detail"
+    write_status "skipped" "skipped" "$detail"
+    return 1
+  fi
+  return 0
+}
+
+run_once_with_global_phone_lease() {
+  if [[ "${HERMES_PHONE_PIPELINE_LEASE_HELD:-}" == "1" || ! -f "$PHONE_PIPELINE_TOOL" ]]; then
+    return 2
+  fi
+  if ! has_usb_adb_device; then
+    return 2
+  fi
+  if ! guard_active_physical_phone; then
+    return 0
+  fi
+
+  local rc detail
+  set +e
+  HERMES_PHONE_PIPELINE_LEASE_HELD=1 node "$PHONE_PIPELINE_TOOL" run continuous-e2e -- \
+    env HERMES_PHONE_PIPELINE_LEASE_HELD=1 bash "$0" --once
+  rc=$?
+  set -e
+  if [[ $rc -eq 75 ]]; then
+    detail="skipped continuous E2E: global phone pipeline lease is busy"
+    echo "$detail"
+    write_status "skipped" "skipped" "$detail"
+    return 0
+  fi
+  return "$rc"
+}
+
 load1() {
   uptime | sed -E 's/.*load averages?: ([0-9.]+).*/\1/'
 }
@@ -107,7 +162,21 @@ guard_system_pressure() {
     return 0
   fi
 
-  local current_load current_sim_count detail
+  local current_load current_sim_count detail lease_reason
+
+  # Unified global phone device lease (T-330 priority 2): E2E must skip — never queue —
+  # when a human is holding the phone, and must also respect a live pairing/install lane.
+  # phone_lease_busy_reason (agent-phone-lease.js) ignores its own ancestor's mkdir lock
+  # when HERMES_PHONE_PIPELINE_LEASE_HELD=1 (run_once_with_global_phone_lease already
+  # holds it for this whole process tree) while still honoring a human hold mid-cycle.
+  lease_reason="$(phone_lease_busy_reason)"
+  if [[ -n "$lease_reason" ]]; then
+    detail="skipped continuous E2E: phone lease busy (${lease_reason})"
+    echo "$detail"
+    write_status "skipped" "skipped" "$detail"
+    return 1
+  fi
+
   current_load="$(load1)"
   current_sim_count="$(simruntime_process_count)"
 
@@ -451,6 +520,10 @@ watch_loop() {
 
 case "$MODE" in
   --once)
+    if [[ "${HERMES_PHONE_PIPELINE_LEASE_HELD:-}" != "1" ]] && has_usb_adb_device; then
+      run_once_with_global_phone_lease
+      exit $?
+    fi
     acquire_cycle_lock
     run_cycle
     ;;

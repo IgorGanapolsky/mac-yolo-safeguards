@@ -1,33 +1,69 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 import { colors } from '../theme/colors';
-import { EMPTY_STREAM_REFRESH_BANNER_HINT } from '../utils/emptyStreamRefreshCta';
+import { emptyStreamBannerHint } from '../utils/emptyStreamRefreshCta';
+import ElapsedSince from './ElapsedSince';
 
 type EmptyStreamRefreshBannerProps = {
+  autoChecking?: boolean;
   busy?: boolean;
+  waitingSinceMs?: number | null;
   onRefresh: () => void;
   onStartFreshChat?: () => void;
   startingFreshChat?: boolean;
 };
 
 export default function EmptyStreamRefreshBanner({
+  autoChecking = false,
   busy = false,
+  waitingSinceMs,
   onRefresh,
   onStartFreshChat,
   startingFreshChat = false,
 }: EmptyStreamRefreshBannerProps) {
+  const [elapsedMs, setElapsedMs] = useState(0);
+
+  useEffect(() => {
+    if (waitingSinceMs == null) {
+      setElapsedMs(0);
+      return;
+    }
+    const update = () => setElapsedMs(Math.max(0, Date.now() - waitingSinceMs));
+    update();
+    const timer = setInterval(update, 1000);
+    return () => clearInterval(timer);
+  }, [waitingSinceMs]);
+
+  const hint = emptyStreamBannerHint(elapsedMs);
+
   return (
     <View style={styles.wrap} testID="empty-stream-refresh-banner">
-      <Text style={styles.text}>{EMPTY_STREAM_REFRESH_BANNER_HINT}</Text>
+      <View style={styles.statusRow}>
+        {autoChecking ? (
+          <ActivityIndicator size="small" color={colors.warning} testID="empty-stream-auto-checking" />
+        ) : null}
+        <View style={styles.copyColumn}>
+          <Text style={styles.text}>{hint}</Text>
+          {waitingSinceMs != null ? (
+            <ElapsedSince
+              sinceMs={waitingSinceMs}
+              prominent
+              prefix="Waiting"
+              testID="empty-stream-elapsed"
+            />
+          ) : null}
+        </View>
+      </View>
       <View style={styles.actions}>
         <Pressable
           onPress={onRefresh}
           disabled={busy}
           accessibilityRole="button"
-          accessibilityLabel="Refresh run"
+          accessibilityLabel="Check again now"
           accessibilityState={{ busy, disabled: busy }}
           style={({ pressed }) => [
             styles.refreshChip,
+            styles.secondaryChip,
             busy && styles.chipBusy,
             pressed && !busy && styles.chipPressed,
           ]}
@@ -36,10 +72,10 @@ export default function EmptyStreamRefreshBanner({
           {busy ? (
             <View style={styles.chipRow}>
               <ActivityIndicator size="small" color={colors.primary} />
-              <Text style={styles.refreshChipText}>Refreshing…</Text>
+              <Text style={styles.refreshChipText}>Checking…</Text>
             </View>
           ) : (
-            <Text style={styles.refreshChipText}>Refresh</Text>
+            <Text style={styles.refreshChipText}>Check now</Text>
           )}
         </Pressable>
         {onStartFreshChat ? (
@@ -83,6 +119,15 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     gap: 10,
   },
+  statusRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+  },
+  copyColumn: {
+    flex: 1,
+    gap: 4,
+  },
   text: {
     fontSize: 12,
     lineHeight: 17,
@@ -101,6 +146,9 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(59, 130, 246, 0.12)',
     paddingHorizontal: 12,
     paddingVertical: 6,
+  },
+  secondaryChip: {
+    opacity: 0.9,
   },
   freshChip: {
     borderRadius: 8,
