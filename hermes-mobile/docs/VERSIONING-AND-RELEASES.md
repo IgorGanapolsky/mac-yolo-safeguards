@@ -147,4 +147,15 @@ npx eas-cli update:list --branch production --limit 5
 - [ ] `expo.version` matches installed production runtime you care about  
 - [ ] `mobile-ota` green or manual publish ok  
 - [ ] `channel:list` shows new group for that runtime on `production`  
-- [ ] Device relaunched after publish  
+- [ ] Device relaunched after publish
+
+## 10. Post-approval automation
+
+```bash
+# Poll ASC; release if PENDING_DEVELOPER_RELEASE (or report READY_FOR_SALE)
+node scripts/release-asc-version-when-ready.js --version 1.1 --poll-minutes 180
+
+# After 1.1 is live on devices, ensure main has expo.version 1.1 then:
+npm run ota:publish   # creates OTA groups for current appVersion runtime
+```
+
