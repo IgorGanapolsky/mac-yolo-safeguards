@@ -14,6 +14,16 @@ Hermes Mobile ships JS and asset fixes over the air (EAS Update) so Igor's phone
 
 **Previously:** Production channel received automatic OTA from `.github/workflows/mobile-ota.yml` on every push — that shipped live bugs without brand-new-user proof.
 
+## Fresh-user / stranger cold-start gate (hard)
+
+Production OTA **hard-fails** unless stranger cold-start proof is present:
+
+1. Structural contract: `mobile-e2e.yml` stranger job + `.maestro/stranger-cold-start.yaml` (no `demo=1`, `EXPO_PUBLIC_E2E_AUTOMATION=0`).
+2. Runtime proof: proof JSON with `strangerColdStart=pass`, **or** GitHub check `Maestro stranger cold-start (Android emulator)` = success on the publish SHA (CI waits for the parallel emulator job).
+
+Implemented by `scripts/require-stranger-cold-start-proof.cjs` (hard by default). Soft opt-out (`--soft` / `HERMES_OTA_REQUIRE_STRANGER_PROOF=0`) is for local dry-runs only.
+
+
 ## Runtime version policy: `appVersion`
 
 `app.json` uses:

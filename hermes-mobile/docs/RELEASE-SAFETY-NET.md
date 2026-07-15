@@ -40,7 +40,7 @@ Pair Mac mini over Tailscale: `node tools/hermes-mobile-pair.js --mini-tailscale
 | Tier-0 contract | Every PR + mobile-e2e job | `npm run test:release-safety` (includes `releaseSafetyNet.test.ts`) |
 | Tier-1 emulator (paired/demo) | `pull_request` + `push` / `merge_group` | `.github/workflows/mobile-e2e.yml` → **Maestro ship-guard** (`demo=1` + `EXPO_PUBLIC_E2E_AUTOMATION=1`) |
 | Tier-1 emulator (stranger) | same | **Maestro stranger cold-start** — `clearState`, **no** `demo=1`, `EXPO_PUBLIC_E2E_AUTOMATION=0`, assert `connect-mac-gate` + no "Reconnecting" |
-| Pre-OTA | `ota:publish` / `mobile-ota.yml` | `scripts/require-stranger-cold-start-proof.cjs` — structural hard fail; runtime proof soft until `HERMES_OTA_REQUIRE_STRANGER_PROOF=1` |
+| Pre-OTA | `ota:publish` / `mobile-ota.yml` | `scripts/require-stranger-cold-start-proof.cjs` — **hard by default**: structural contract + runtime proof (proof JSON or green GitHub stranger check). Soft only with `--soft` / `HERMES_OTA_REQUIRE_STRANGER_PROOF=0` |
 | Continuous local | LaunchAgent 15m | `ship-guard` + `chat-send-persistence` (USB Android preferred) |
 
 **SHIP BLOCK (2026-07-15 crisis):** Merging / OTA on ship-guard green alone is **insufficient**. ship-guard hides ConnectMacGate via E2E automation + opens `hermes://setup?demo=1`. Fresh-user proof is the stranger cold-start job.
@@ -101,4 +101,4 @@ EOF
 If the API returns Forbidden, document the gap and apply via GitHub Settings → Branches → `main`.
 Until stranger cold-start is required, PRs can still merge with only ship-guard green — that is the crisis hole.
 
-**Soft→hard OTA:** `require-stranger-cold-start-proof.cjs` always enforces the workflow/flow contract. Runtime proof soft-warns unless `HERMES_OTA_REQUIRE_STRANGER_PROOF=1` (repo variable or env). Flip hard after stranger CI is required and stable.
+**Hard OTA (default):** `require-stranger-cold-start-proof.cjs` always enforces the workflow/flow contract **and** requires runtime proof (local `docs/proofs/**/latest.json` with `strangerColdStart=pass`, or GitHub Checks `"Maestro stranger cold-start (Android emulator)"=success` on the publish SHA). `mobile-ota.yml` polls the parallel stranger job up to ~35m. Soft-warn opt-out is `--soft` or `HERMES_OTA_REQUIRE_STRANGER_PROOF=0` for local dry-runs only — never for production publish.
