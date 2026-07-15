@@ -1,6 +1,7 @@
 import type { GatewayProfile } from '../types/gatewayProfile';
 import { isInvalidGatewayProfile } from '../services/gatewayProfiles';
 import { hasOnlyLoopbackProfiles } from './gatewayProfilePicker';
+import { isTailscaleGatewayUrl } from './tailscaleHosts';
 import type { ConnectionHealSnapshot } from './connectionErrorPolicy';
 import {
   CONNECTION_HEAL_DURATION_MS,
@@ -51,10 +52,54 @@ export function freshUserOnboardingHeading(freshUser: boolean): string {
   return freshUser ? 'Connect your computer' : 'Still looking for your computer';
 }
 
+/** True when the active (or only saved) computer uses a Tailscale route — not home Wi‑Fi. */
+export function isOnTailscaleRoute(
+  profiles: GatewayProfile[],
+  activeProfileId?: string | null,
+): boolean {
+  const active = activeProfileId
+    ? profiles.find((profile) => profile.id === activeProfileId)
+    : undefined;
+  if (active && isTailscaleGatewayUrl(active.gatewayUrl)) {
+    return true;
+  }
+  return profiles.some(
+    (profile) =>
+      !isInvalidGatewayProfile(profile) && isTailscaleGatewayUrl(profile.gatewayUrl),
+  );
+}
+
 export function freshUserOnboardingSteps(input: {
   tailscaleMacLabel?: string;
   wifiConnected?: boolean;
+  onTailscaleRoute?: boolean;
 }): FreshUserOnboardingStep[] {
+  if (input.onTailscaleRoute) {
+    const macLabel = input.tailscaleMacLabel ?? 'your computer';
+    return [
+      {
+        step: 1,
+        title: 'Tailscale connected',
+        body: 'Open the Tailscale app on your phone and confirm it shows Connected.',
+      },
+      {
+        step: 2,
+        title: 'Hermes running on your Mac',
+        body: `Start Hermes on ${macLabel} and leave it running.`,
+      },
+      {
+        step: 3,
+        title: 'Find your computer',
+        body: 'Tap Find computers below. We search your Tailscale network for Hermes.',
+      },
+      {
+        step: 4,
+        title: 'Check the address',
+        body: `In Tailscale, ${macLabel} should show a 100.x address. Add it in Settings if Find computers does not work.`,
+      },
+    ];
+  }
+
   const onCellular = input.wifiConnected === false;
   const awayBody = input.tailscaleMacLabel
     ? `Tap Add ${input.tailscaleMacLabel} below — works on cellular or any Wi‑Fi when Tailscale is on.`
@@ -147,13 +192,16 @@ export function freshUserConnectionBody(input: {
   cellularBlocksDirect: boolean;
   showUsbFix: boolean;
   tailscaleSearching?: boolean;
+  onTailscaleRoute?: boolean;
   usbHostMismatchMessage?: string;
 }): string {
   if (input.usbHostMismatchMessage) {
     return input.usbHostMismatchMessage;
   }
   if (input.searching) {
-    return 'Searching your home Wi‑Fi for Hermes on your computer…';
+    return input.onTailscaleRoute
+      ? 'Searching your Tailscale network for Hermes on your computer…'
+      : 'Searching your home Wi‑Fi for Hermes on your computer…';
   }
   if (input.healInFlight && !input.healExhausted && !input.freshUser) {
     const attempt = Math.max(0, input.healAttempt ?? 0);
@@ -185,7 +233,7 @@ export function freshUserConnectionBody(input: {
     return connectionCopyFromPrediction(
       reachabilityModel.predict({
         id: 'saved-computer',
-        transport: 'unknown',
+        transport: input.onTailscaleRoute ? 'tailscale' : 'unknown',
         reachable: false,
       }),
       input.macLabel,

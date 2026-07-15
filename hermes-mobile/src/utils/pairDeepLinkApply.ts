@@ -52,7 +52,18 @@ export function evaluatePairDeepLinkApply(input: PairDeepLinkApplyInput): PairDe
     };
   }
 
+  const hasTailnetOrExtra =
+    (params.tailnetProbeHosts?.length ?? 0) > 0 ||
+    (params.extraComputers?.length ?? 0) > 0;
+
   if (!hasValidUrl) {
+    if (hasTailnetOrExtra) {
+      return {
+        shouldPersistProfiles: (params.extraComputers?.length ?? 0) > 0,
+        shouldPersistSettings: false,
+        connectionMode: 'gateway',
+      };
+    }
     return {
       shouldPersistProfiles: false,
       shouldPersistSettings: false,

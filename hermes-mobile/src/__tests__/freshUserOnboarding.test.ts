@@ -3,6 +3,7 @@ import {
   freshUserOnboardingSteps,
   hasValidSavedComputer,
   isFreshUserUnpaired,
+  isOnTailscaleRoute,
   shouldHideConnectionStatusChips,
   shouldShowFreshUserOnboardingSteps,
 } from '../utils/freshUserOnboarding';
@@ -88,6 +89,40 @@ describe('freshUserOnboarding', () => {
     expect(steps[0].title).toBe('Use Tailscale from cellular');
     expect(steps.map((step) => step.title).join(' ')).not.toContain('Same home Wi‑Fi');
     expect(steps[0].body).toContain('Igors-Mac-mini');
+  });
+
+  it('uses Tailscale-first steps when the saved route is Tailscale (not home Wi‑Fi)', () => {
+    const profiles = [
+      {
+        id: 'mini',
+        label: 'Igors-Mac-mini',
+        gatewayUrl: 'http://100.94.135.78:8642',
+        addedAt: '2026-06-28T00:00:00Z',
+      },
+    ];
+    expect(isOnTailscaleRoute(profiles, 'mini')).toBe(true);
+    const steps = freshUserOnboardingSteps({
+      tailscaleMacLabel: 'Igors-Mac-mini',
+      onTailscaleRoute: true,
+    });
+    expect(steps[0]?.title).toBe('Tailscale connected');
+    expect(steps.map((step) => step.title).join(' ')).not.toContain('Same home Wi‑Fi');
+    expect(steps[2]?.body).toContain('Tailscale network');
+  });
+
+  it('searches Tailscale network copy when probing on a Tailscale route', () => {
+    const body = freshUserConnectionBody({
+      searching: true,
+      healInFlight: false,
+      healExhausted: true,
+      freshUser: false,
+      macLabel: 'Igors-Mac-mini',
+      cellularBlocksDirect: false,
+      showUsbFix: false,
+      onTailscaleRoute: true,
+    });
+    expect(body).toContain('Tailscale network');
+    expect(body).not.toContain('home Wi‑Fi');
   });
 
   it('uses silent heal duration of about 30 seconds', () => {
