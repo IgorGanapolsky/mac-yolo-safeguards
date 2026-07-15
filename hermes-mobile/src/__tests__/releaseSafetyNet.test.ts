@@ -39,6 +39,9 @@ describe('release safety net (T-114)', () => {
     expect(ota).toContain('HERMES_STRANGER_PROOF_WAIT_SEC');
     expect(ota).not.toContain("HERMES_OTA_REQUIRE_STRANGER_PROOF: '1'");
     expect(ota).toMatch(/checks:\s*read/);
+    const e2e = read('.github/workflows/mobile-e2e.yml');
+    // Stranger job validates structure with --soft; it produces the runtime proof.
+    expect(e2e).toContain('require-stranger-cold-start-proof.cjs --soft');
   });
 
   it('install-phone-release refuses when unit tests fail and warns on non-pass E2E', () => {

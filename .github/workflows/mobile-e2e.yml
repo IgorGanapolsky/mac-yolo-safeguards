@@ -244,8 +244,10 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      # Structural contract only — this job *produces* the runtime proof; hard
+      # runtime requirement would chicken-egg before Maestro runs.
       - name: Validate stranger cold-start contract (fail fast)
-        run: node ./scripts/require-stranger-cold-start-proof.cjs
+        run: node ./scripts/require-stranger-cold-start-proof.cjs --soft
 
       - name: Enable KVM (hardware acceleration for the emulator)
         run: |
