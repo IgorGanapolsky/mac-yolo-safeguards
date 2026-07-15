@@ -227,9 +227,12 @@ Status values: `pending` | `in_progress` | `blocked` | `done`. Claim a row by se
 | T-335 | Fix Leash header Refresh button clipped at right edge | done | cursor-leash-refresh-layout | `hermes-mobile/src/screens/ApprovalsScreen.tsx`, `hermes-mobile/src/components/HealthPill.tsx`, `hermes-mobile/src/__tests__/ApprovalsScreen.test.tsx`, `plan.md` | pill row flexShrink/flexWrap + horizontal safe area; Refresh fully visible on narrow phones; ApprovalsScreen Jest pass; PR #395 merged `b75bd594` (status corrected by T-336, found stale after merge) |
 | T-AD-20260715 | Wire Callstack agent-device into agent workflow (install + docs + connection proof) | done | cursor-agent-device | `scripts/install-agent-device.sh`, `scripts/install-callstack-agent-skills.sh`, `hermes-mobile/scripts/agent-device-connection-proof.sh`, `hermes-mobile/docs/AGENT-DEVICE.md`, `hermes-mobile/AGENTS.md`, `hermes-mobile/docs/TESTING.md`, `.cursor/rules/agent-device.mdc`, `plan.md` | CLI 0.19.3 on PATH; doctor pass; docs matrix agent-device vs Maestro vs adb; live phone Tailscale/Chat snapshot proof; PR |
 
+| T-PLAY-NSC-10 | Play production NSC binary: pin expo.version 1.0 + EAS AAB ≥vc14 with Tailscale cleartext | in_progress | cursor-play-nsc-1.0-binary | `hermes-mobile/app.json`, `hermes-mobile/docs/VERSIONING-AND-RELEASES.md`, `hermes-mobile/src/__tests__/versioningAndOtaContract.test.ts`, `plan.md` | Play track shows versionName 1.0 / versionCode ≥14; AAB NSC base cleartext=true; no users-fixed claim until API+public agree |
+
 ## 2. File Ownership Map (append-only lock table — claim before touching)
 
 - `.greptile/`, `hermes-mobile/.greptile/`, `hermes-mobile/docs/GREPTILE-CODE-REVIEW.md`, `AGENTS.md` (Greptile bullet only), `hermes-mobile/AGENTS.md` (Greptile section only), `plan.md` → **cursor-greptile** (T-GREPTILE Greptile AI PR review integration) (2026-07-15T17:40:00Z)
+- `hermes-mobile/app.json` (version pin 1.0 only), `hermes-mobile/docs/VERSIONING-AND-RELEASES.md` (Play live facts), `hermes-mobile/src/__tests__/versioningAndOtaContract.test.ts`, `plan.md` → **cursor-play-nsc-1.0-binary** (T-PLAY-NSC-10) (2026-07-15T18:35:00Z)
 - `hermes-mobile/plugins/withNetworkSecurityConfig.js`, `hermes-mobile/android/app/src/main/res/xml/network_security_config.xml`, `hermes-mobile/src/__tests__/networkSecurityPolicy.test.ts`, `plan.md` → **cursor-ts-cleartext** (T-TS-CLEARTEXT) → **released** after APK install + NSC cleartext=true proof (2026-07-15T16:18Z) (2026-07-15T15:54Z)
 - `scripts/configure-browser-efficiency.sh`, `tests/test-browser-efficiency.sh`, `docs/BROWSER-EFFICIENCY.md`, `plan.md` → **codex-browser-efficiency** (T-345 safe Chromium background-mode policy on both Macs; no process termination, profile reads, or extension edits) (2026-07-15T17:35:00Z)
 - T-345 claimed files above → **released by codex-browser-efficiency** after 8/8 focused checks, local/remote JSON proof, and live Mac mini CDP `:9222`/`:9223` health verification (2026-07-15T17:38:00Z)
@@ -700,6 +703,9 @@ Status values: `pending` | `in_progress` | `blocked` | `done`. Claim a row by se
 
 
 - **2026-07-15T17:14Z — cursor-chat-jitter / T-344:** Chat UI jump on new prompt caused by (1) duplicate RUN chrome (CodexCommandCenter tile + RunProgressBanner), (2) expanded MODEL/TOKENS panel thrashing FlashList height on timer/token ticks while keyboard open, (3) vault project chip competing for composer-dock height. Fix: suppress top RUN tile when composer banner visible; compact/collapse banner details while keyboard open; fixed elapsed/stats widths; debounce token label updates; hide project chip while IME open; re-pin scroll after optimistic send once banner mounts. Jest 182/1555 green. OTA-eligible JS-only (no native modules). Device E2E was `skipped` (phone in use) — no deviceVerified claim.
+
+
+- 2026-07-15T18:35:00Z `cursor-play-nsc-1.0-binary`: **T-PLAY-NSC-10 started.** Play production is already marketing **1.0 / versionCode 13** (Store Release 29436805345 @ `97889edc`), but that AAB's NSC has `base-config cleartextTrafficPermitted=false` — Tailscale Find computers cannot work. PR #422 NSC is on main (`b431a340`) but `expo.version` was prematurely **1.1** (stellar #423). Pinning back to **1.0** so the next Android production AAB embeds runtime **1.0** + cleartext=true; OTA cannot deliver native NSC.
 
 ## 4. Discovered Tasks (append-only inbox → promote into §1)
 
