@@ -181,7 +181,22 @@ export function parseSetupDeepLink(url: string): SetupDeepLinkParams | null {
     };
   }
 
+  const tailnetProbeHosts = parseRepeatedQueryValues(query, 'tailnet');
+  const extraComputers = parseExtraComputers(query);
+  const relayCode =
+    params.relay?.trim() ||
+    params.relayCode?.trim() ||
+    (pairingCode ? undefined : params.code?.trim()) ||
+    undefined;
+
   if (!gatewayUrl && !(pairingCode && pairServerUrl)) {
+    if (tailnetProbeHosts.length > 0 || extraComputers.length > 0 || relayCode) {
+      return {
+        tailnetProbeHosts: tailnetProbeHosts.length > 0 ? tailnetProbeHosts : undefined,
+        extraComputers: extraComputers.length > 0 ? extraComputers : undefined,
+        relayCode: relayCode ? relayCode.toUpperCase() : undefined,
+      };
+    }
     return null;
   }
 
@@ -192,13 +207,6 @@ export function parseSetupDeepLink(url: string): SetupDeepLinkParams | null {
     params.mac?.trim() ||
     params.macName?.trim() ||
     undefined;
-  const relayCode =
-    params.relay?.trim() ||
-    params.relayCode?.trim() ||
-    (pairingCode ? undefined : params.code?.trim()) ||
-    undefined;
-  const tailnetProbeHosts = parseRepeatedQueryValues(query, 'tailnet');
-  const extraComputers = parseExtraComputers(query);
   const thumbgateApiKey =
     params.thumbgate?.trim() ||
     params.thumbgateKey?.trim() ||

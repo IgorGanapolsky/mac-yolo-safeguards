@@ -27,6 +27,7 @@ import {
   freshUserPrimaryActionLabel,
   shouldHideConnectionStatusChips,
   shouldShowFreshUserOnboardingSteps,
+  isOnTailscaleRoute,
 } from '../utils/freshUserOnboarding';
 import { connectionHealSnapshot } from '../utils/connectionErrorPolicy';
 import { tailscaleDiscoveryLabel } from '../services/tailscaleDiscovery';
@@ -202,6 +203,7 @@ export default function ChatConnectionPanel({
   const showOnboardingSteps = shouldShowFreshUserOnboardingSteps({ profiles, heal });
   const hideStatusChips = shouldHideConnectionStatusChips({ profiles, heal });
   const freshUser = profiles.length === 0 || showOnboardingSteps;
+  const onTailscaleRoute = isOnTailscaleRoute(profiles, activeProfileId);
   const primaryTailscaleLabel =
     tailscaleDiscoveries.length > 0
       ? tailscaleDiscoveryLabel(tailscaleDiscoveries[0])
@@ -224,6 +226,7 @@ export default function ChatConnectionPanel({
     cellularBlocksDirect,
     showUsbFix,
     tailscaleSearching,
+    onTailscaleRoute,
     usbHostMismatchMessage: usbHostMismatch
       ? formatUsbHostMismatchMessage(usbHostMismatch)
       : undefined,
@@ -258,6 +261,7 @@ export default function ChatConnectionPanel({
       {showOnboardingSteps ? (
         <FreshUserOnboardingCard
           profiles={profiles}
+          activeProfileId={activeProfileId}
           tailscaleMacLabel={primaryTailscaleLabel}
           wifiConnected={wifiConnected}
         />
