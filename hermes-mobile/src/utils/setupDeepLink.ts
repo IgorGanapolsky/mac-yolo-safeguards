@@ -115,6 +115,36 @@ export function buildRelayDeepLink(relayCode: string, cloudUrl?: string): string
   return `hermes://relay?${params.toString()}`;
 }
 
+/**
+ * True for agent/adb "Start fresh chat" deep links:
+ * - hermes://chat?fresh=1 (also true/yes)
+ * - hermes://new-chat
+ * Same outcome as tapping Start fresh chat in the UI (empty session, keeps Mac connection).
+ */
+export function isStartFreshChatDeepLink(url: string): boolean {
+  const trimmed = url.trim();
+  if (!trimmed.toLowerCase().startsWith('hermes://')) {
+    return false;
+  }
+  if (/^hermes:\/\/new-chat([/?#]|$)/i.test(trimmed)) {
+    return true;
+  }
+  if (!/^hermes:\/\/chat([/?#]|$)/i.test(trimmed)) {
+    return false;
+  }
+  const queryStart = trimmed.indexOf('?');
+  if (queryStart < 0) {
+    return false;
+  }
+  const params = parseQueryString(trimmed.slice(queryStart + 1));
+  const fresh = (params.fresh || params.startFresh || params.new || '').trim().toLowerCase();
+  return fresh === '1' || fresh === 'true' || fresh === 'yes';
+}
+
+export function buildStartFreshChatDeepLink(): string {
+  return 'hermes://chat?fresh=1';
+}
+
 export function parseRelayDeepLink(url: string): Pick<SetupDeepLinkParams, 'relayCode'> | null {
   const lower = url.toLowerCase();
   if (!lower.startsWith('hermes://') || !lower.includes('relay')) {

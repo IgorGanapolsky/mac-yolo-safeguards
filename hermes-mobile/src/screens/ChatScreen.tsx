@@ -191,6 +191,10 @@ import {
   shouldSkipStoredDraftLoad,
 } from '../utils/freshChatComposerTransfer';
 import {
+  consumeStartFreshChatRequest,
+  subscribeStartFreshChatRequest,
+} from '../utils/startFreshChatDeepLink';
+import {
   chatDistanceFromBottom,
   resolveUserScrolledUp,
   shouldAutoScroll,
@@ -3555,6 +3559,20 @@ export default function ChatScreen() {
     isDemo,
     setRunProgress,
   ]);
+
+  const handleStartFreshChatRef = useRef(handleStartFreshChat);
+  handleStartFreshChatRef.current = handleStartFreshChat;
+
+  /** adb / agent deep links: hermes://chat?fresh=1 and hermes://new-chat */
+  useEffect(() => {
+    const runPending = () => {
+      if (consumeStartFreshChatRequest()) {
+        void handleStartFreshChatRef.current();
+      }
+    };
+    runPending();
+    return subscribeStartFreshChatRequest(runPending);
+  }, []);
 
   /**
    * warn-level only. Hard-block is handled by shouldAutoFreshAndResendOnMegaBlock

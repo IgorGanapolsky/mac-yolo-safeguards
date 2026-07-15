@@ -5,6 +5,10 @@ import {
   clearMarketingAttribution,
   getMarketingAttributionProperties,
 } from '../services/marketingAttribution';
+import {
+  consumeStartFreshChatRequest,
+  resetStartFreshChatDeepLinkState,
+} from '../utils/startFreshChatDeepLink';
 import Constants from 'expo-constants';
 
 jest.mock('../services/secureCredentials', () => ({
@@ -32,6 +36,7 @@ describe('useHermesDeepLinks', () => {
   beforeEach(async () => {
     await clearMarketingAttribution();
     resetHandledUrls();
+    resetStartFreshChatDeepLinkState();
     jest.clearAllMocks();
     jest.spyOn(Linking, 'getInitialURL').mockResolvedValue(null);
     jest.spyOn(Linking, 'addEventListener').mockReturnValue({ remove: jest.fn() } as never);
@@ -66,6 +71,37 @@ describe('useHermesDeepLinks', () => {
     expect(navigationRef.current.navigate).toHaveBeenCalledWith('Chat');
     expect(focusChatSession).toHaveBeenCalledWith('sess-42');
     expect(runAgentTool).not.toHaveBeenCalled();
+  });
+
+  it('requests Start fresh chat from hermes://chat?fresh=1', async () => {
+    renderHook(() =>
+      useHermesDeepLinks(
+        navigationRef as never,
+        runAgentTool,
+        refreshHealth,
+        undefined,
+        focusChatSession,
+      ),
+    );
+    const handler = (Linking.addEventListener as jest.Mock).mock.calls[0][1];
+    await act(async () => {
+      await handler({ url: 'hermes://chat?fresh=1' });
+    });
+    expect(navigationRef.current.navigate).toHaveBeenCalledWith('Chat');
+    expect(consumeStartFreshChatRequest()).toBe(true);
+    expect(focusChatSession).not.toHaveBeenCalled();
+  });
+
+  it('requests Start fresh chat from hermes://new-chat', async () => {
+    renderHook(() =>
+      useHermesDeepLinks(navigationRef as never, runAgentTool, refreshHealth),
+    );
+    const handler = (Linking.addEventListener as jest.Mock).mock.calls[0][1];
+    await act(async () => {
+      await handler({ url: 'hermes://new-chat' });
+    });
+    expect(navigationRef.current.navigate).toHaveBeenCalledWith('Chat');
+    expect(consumeStartFreshChatRequest()).toBe(true);
   });
 
   it('applies hermes://setup with a secretless pairCode by exchanging it before applying (T-330)', async () => {

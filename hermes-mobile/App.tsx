@@ -37,7 +37,11 @@ initCrashReporting();
 // flushed to PostHog on the next launch.
 installGlobalCrashHandler();
 
-import { NavigationContainer, type NavigationContainerRef } from '@react-navigation/native';
+import {
+  NavigationContainer,
+  getStateFromPath as getNavStateFromPath,
+  type NavigationContainerRef,
+} from '@react-navigation/native';
 import { createBottomTabNavigator, BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { SafeAreaProvider, SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAiSdkDevTools } from '@react-native-ai/dev-tools/react-native';
@@ -296,6 +300,16 @@ const linking = {
       Chat: 'chat',
       Settings: 'settings',
     },
+  },
+  /** hermes://new-chat → Chat tab (Start fresh handled in useHermesDeepLinks). */
+  getStateFromPath(path: string, options: Parameters<typeof getNavStateFromPath>[1]) {
+    const normalized = path.replace(/^\//, '').split('?')[0]?.toLowerCase() ?? '';
+    if (normalized === 'new-chat') {
+      return {
+        routes: [{ name: 'Chat' as const }],
+      };
+    }
+    return getNavStateFromPath(path, options);
   },
 };
 

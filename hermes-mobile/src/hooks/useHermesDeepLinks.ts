@@ -2,13 +2,19 @@ import { useEffect, useRef } from 'react';
 import { Linking } from 'react-native';
 import type { NavigationContainerRef } from '@react-navigation/native';
 import type { HermesAgentToolName } from '../services/hermesAgentTools';
-import { parseSetupDeepLink, parseRelayDeepLink, type SetupDeepLinkParams } from '../utils/setupDeepLink';
+import {
+  parseSetupDeepLink,
+  parseRelayDeepLink,
+  isStartFreshChatDeepLink,
+  type SetupDeepLinkParams,
+} from '../utils/setupDeepLink';
 import { resolveSetupDeepLinkCredentials } from '../services/pairingCodeExchange';
 import { syncExtraProfileApiKeys } from '../utils/gatewayProfileCredentialSync';
 import { isDevLeashUnlockDeepLink } from '../utils/developerLeashUnlock';
 import { isDemoModeAllowed } from '../utils/demoModePolicy';
 import { recordAttributionFromUrl } from '../services/marketingAttribution';
 import { requestSettingsPairQrOnFocus } from '../utils/storeCaptureDeepLink';
+import { requestStartFreshChat } from '../utils/startFreshChatDeepLink';
 
 type RootTabParamList = {
   Leash: undefined;
@@ -72,7 +78,10 @@ function isLeashSmokePreviewDeepLink(url: string): boolean {
 
 function isChatDeepLink(url: string): boolean {
   const lower = url.toLowerCase();
-  return lower.includes('/chat') || lower.endsWith('chat');
+  if (/^hermes:\/\/new-chat([/?#]|$)/i.test(url)) {
+    return true;
+  }
+  return lower.includes('/chat') || /(?:^|\/)chat(?:[/?#]|$)/i.test(lower) || lower.endsWith('chat');
 }
 
 function isSettingsDeepLink(url: string): boolean {
@@ -176,8 +185,13 @@ export function useHermesDeepLinks(
         return;
       }
 
-      if (isChatDeepLink(url)) {
+      if (isChatDeepLink(url) || isStartFreshChatDeepLink(url)) {
         navigationRef.current?.navigate('Chat');
+        if (isStartFreshChatDeepLink(url)) {
+          // Same as UI "Start fresh chat" — empty session; do not also focus a session id.
+          requestStartFreshChat();
+          return;
+        }
         const sessionId = sessionIdFromUrl(url);
         if (sessionId && focusChatSession) {
           focusChatSession(sessionId);

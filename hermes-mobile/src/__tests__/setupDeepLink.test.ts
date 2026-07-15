@@ -1,4 +1,11 @@
-import { buildRelayDeepLink, buildSetupDeepLink, parseRelayDeepLink, parseSetupDeepLink } from '../utils/setupDeepLink';
+import {
+  buildRelayDeepLink,
+  buildSetupDeepLink,
+  buildStartFreshChatDeepLink,
+  isStartFreshChatDeepLink,
+  parseRelayDeepLink,
+  parseSetupDeepLink,
+} from '../utils/setupDeepLink';
 
 describe('setupDeepLink', () => {
   it('builds and parses setup URLs with relay code', () => {
@@ -142,5 +149,17 @@ describe('setupDeepLink', () => {
 
   it('returns null for non-setup links', () => {
     expect(parseSetupDeepLink('hermes://leash/approve')).toBeNull();
+  });
+
+  it('detects Start fresh chat deep links for adb agents', () => {
+    expect(isStartFreshChatDeepLink('hermes://chat?fresh=1')).toBe(true);
+    expect(isStartFreshChatDeepLink('hermes://chat?fresh=true')).toBe(true);
+    expect(isStartFreshChatDeepLink('hermes://chat?startFresh=yes')).toBe(true);
+    expect(isStartFreshChatDeepLink('hermes://new-chat')).toBe(true);
+    expect(isStartFreshChatDeepLink('hermes://new-chat?utm_source=agent')).toBe(true);
+    expect(isStartFreshChatDeepLink('hermes://chat')).toBe(false);
+    expect(isStartFreshChatDeepLink('hermes://chat?session=sess-1')).toBe(false);
+    expect(isStartFreshChatDeepLink('hermes://setup?demo=1')).toBe(false);
+    expect(buildStartFreshChatDeepLink()).toBe('hermes://chat?fresh=1');
   });
 });
