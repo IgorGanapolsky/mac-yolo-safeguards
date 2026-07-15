@@ -38,17 +38,57 @@ export function toolsetNeedsApiKey(toolset: HermesToolset): boolean {
   return toolset.configured === false;
 }
 
-export function toolsetStatusLine(toolset: HermesToolset): string {
+/** Only unconfigured toolsets need the Add key affordance — ready tools are keyless. */
+export function toolsetShowsKeyButton(toolset: HermesToolset): boolean {
+  return toolsetNeedsApiKey(toolset);
+}
+
+export function capabilitiesAdvertiseToolsetsWrite(
+  features?: Record<string, boolean | string>,
+  endpoints?: Record<string, { method: string; path: string }>,
+): boolean {
+  if (features?.toolsets_write === true) {
+    return true;
+  }
+  const toggle = endpoints?.toolset_toggle;
+  return toggle?.method?.toUpperCase() === 'PUT' && Boolean(toggle.path);
+}
+
+export function toolsetStatusLine(
+  toolset: HermesToolset,
+  options?: { phoneToggleBlocked?: boolean },
+): string {
   const count = toolset.tools?.length ?? 0;
   const parts = [`${count} tool${count === 1 ? '' : 's'}`];
   if (toolset.configured) {
     parts.push('ready');
+    if (options?.phoneToggleBlocked && toolset.enabled !== true) {
+      parts.push('off for phone chat');
+    }
   } else if (toolset.enabled) {
     parts.push('needs API key');
   } else {
     parts.push('add key to enable');
   }
   return parts.join(' · ');
+}
+
+export function toolsetsSectionHint(options: {
+  phoneToggleAvailable: boolean;
+  keysNeededCount: number;
+}): string {
+  if (options.keysNeededCount > 0) {
+    const keyWord = options.keysNeededCount === 1 ? 'tool needs' : 'tools need';
+    const base = `${options.keysNeededCount} ${keyWord} an API key — tap Add key beside the switch.`;
+    if (options.phoneToggleAvailable) {
+      return `Ready tools with no missing keys turn on automatically for Chat. ${base}`;
+    }
+    return `${base} Turn other ready tools on from your Mac with hermes tools until phone toggles are available.`;
+  }
+  if (options.phoneToggleAvailable) {
+    return 'Ready tools (no missing keys) turn on automatically for Chat.';
+  }
+  return 'Your computer is connected. Ready tools with no keys can be turned on from your Mac with hermes tools. Phone toggles arrive with the next Hermes update on your computer.';
 }
 
 /** Configured (= no missing keys) toolsets should start ON for Chat. */
@@ -81,8 +121,15 @@ export function fallbackEnvFieldsForToolset(name: string): Array<{
 }
 
 export function toolsetAddKeyCtaLabel(toolset: HermesToolset): string {
-  if (toolsetNeedsApiKey(toolset)) {
-    return 'Add key';
-  }
-  return 'Keys';
+  return 'Add key';
+}
+
+/** Human labels for toolsets that still need credentials (for summary copy). */
+export function toolsetsNeedingKeys(toolsets: HermesToolset[]): HermesToolset[] {
+  return toolsets.filter((toolset) => toolsetNeedsApiKey(toolset));
+}
+
+/** Known env var names for unconfigured toolsets (mobile fallback catalog). */
+export function requiredEnvKeysForToolset(name: string): string[] {
+  return (FALLBACK_TOOLSET_ENV_KEYS[name] ?? []).map((field) => field.key);
 }

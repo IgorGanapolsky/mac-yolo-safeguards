@@ -54,6 +54,7 @@ plists=(
   com.igor.hermes-relay-worker.plist
   com.igor.revenue-autonomous-loop.plist
   com.igor.smart-ops.plist
+  com.igor.agent-vault-sync.plist
 )
 
 install_one() {
@@ -82,8 +83,12 @@ for template in "${plists[@]}"; do
   install_one "${template}"
 done
 
+if [[ -f "${repo_root}/scripts/install-repo-root-hygiene-agent.sh" ]]; then
+  bash "${repo_root}/scripts/install-repo-root-hygiene-agent.sh" --repo "${repo_root}"
+fi
+
 echo ""
-echo "Installed ${#plists[@]} LaunchAgent templates. Verify with:"
+echo "Installed ${#plists[@]} LaunchAgent templates (+ repo-root-hygiene). Verify with:"
 echo "  bash scripts/verify-agent-automations.sh"
 echo "  node tools/agent-session-start.js"
 echo "  node tools/revenue-autonomous-loop.js --json"
