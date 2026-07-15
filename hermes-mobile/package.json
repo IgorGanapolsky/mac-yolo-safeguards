@@ -63,7 +63,9 @@
     "test:perf": "reassure",
     "e2e:fresh-user": "bash ./scripts/run-fresh-user-e2e.sh",
     "e2e:fresh-user:android": "bash ./scripts/run-fresh-user-e2e.sh --android-only",
-    "e2e:fresh-user:ios": "bash ./scripts/run-fresh-user-e2e.sh --ios-only"
+    "e2e:fresh-user:ios": "bash ./scripts/run-fresh-user-e2e.sh --ios-only",
+    "devtools:ai-sdk-profiler": "WITH_ROZENITE=true expo start",
+    "perf:ai-sdk-profiler:proof": "node ./scripts/ai-sdk-profiler-proof.cjs"
   },
   "dependencies": {
     "@react-native-ai/dev-tools": "^0.12.0",
@@ -95,6 +97,7 @@
   },
   "devDependencies": {
     "@babel/core": "^7.20.0",
+    "@rozenite/metro": "^1.13.0",
     "@testing-library/react-native": "^13.3.3",
     "@types/jest": "^29.5.14",
     "@types/react": "~19.2.10",
