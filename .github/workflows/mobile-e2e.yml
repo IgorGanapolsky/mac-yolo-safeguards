@@ -216,10 +216,8 @@ jobs:
   # debug APK with the flag forced off, clearState, no hermes://setup?demo=1.
   android-stranger-cold-start:
     name: Maestro stranger cold-start (Android emulator)
-    # Serialize after ship-guard: two parallel emulator-runner jobs on the same
-    # ubuntu pool routinely hit "Timeout waiting for emulator to boot" (seen on #426).
-    needs: [changes, android-e2e]
-    if: needs.changes.outputs.mobile == 'true' && needs.android-e2e.result == 'success'
+    needs: changes
+    if: needs.changes.outputs.mobile == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 45
     env:
@@ -244,8 +242,10 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      # Structural contract only — this job *produces* the runtime proof; hard
+      # runtime requirement would chicken-egg before Maestro runs.
       - name: Validate stranger cold-start contract (fail fast)
-        run: node ./scripts/require-stranger-cold-start-proof.cjs
+        run: node ./scripts/require-stranger-cold-start-proof.cjs --soft
 
       - name: Enable KVM (hardware acceleration for the emulator)
         run: |
