@@ -64,6 +64,21 @@ describe('setupDeepLink', () => {
     );
   });
 
+  it('parses tailnet-only setup links without changing the primary gateway URL', () => {
+    const parsed = parseSetupDeepLink(
+      'hermes://setup?tailnet=100.94.135.78&tailnet=100.87.85.85&extraUrl=http%3A%2F%2F100.94.135.78%3A8642&extraName=Igors-Mac-mini',
+    );
+    expect(parsed).toEqual({
+      tailnetProbeHosts: ['100.94.135.78', '100.87.85.85'],
+      extraComputers: [
+        {
+          gatewayUrl: 'http://100.94.135.78:8642',
+          macName: 'Igors-Mac-mini',
+        },
+      ],
+    });
+  });
+
   it('builds and parses extra saved computers from setup URLs', () => {
     const link = buildSetupDeepLink(
       'http://10.154.137.152:8642',

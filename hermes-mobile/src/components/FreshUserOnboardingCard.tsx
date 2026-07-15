@@ -5,24 +5,28 @@ import {
   freshUserOnboardingHeading,
   freshUserOnboardingSteps,
   isFreshUserUnpaired,
+  isOnTailscaleRoute,
   type FreshUserOnboardingStep,
 } from '../utils/freshUserOnboarding';
 import type { GatewayProfile } from '../types/gatewayProfile';
 
 type FreshUserOnboardingCardProps = {
   profiles: GatewayProfile[];
+  activeProfileId?: string | null;
   tailscaleMacLabel?: string;
   testID?: string;
 };
 
 export default function FreshUserOnboardingCard({
   profiles,
+  activeProfileId = null,
   tailscaleMacLabel,
   testID = 'fresh-user-onboarding-card',
 }: FreshUserOnboardingCardProps) {
   const freshUser = isFreshUserUnpaired(profiles);
+  const onTailscaleRoute = isOnTailscaleRoute(profiles, activeProfileId);
   const heading = freshUserOnboardingHeading(freshUser);
-  const steps = freshUserOnboardingSteps({ tailscaleMacLabel });
+  const steps = freshUserOnboardingSteps({ tailscaleMacLabel, onTailscaleRoute });
 
   return (
     <View style={styles.wrap} testID={testID}>

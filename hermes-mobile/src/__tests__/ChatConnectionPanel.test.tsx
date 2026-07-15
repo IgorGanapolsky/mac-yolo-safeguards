@@ -333,6 +333,27 @@ describe('ChatConnectionPanel', () => {
     expect(queryByTestId('chat-connection-status-pills')).toBeNull();
   });
 
+  it('shows Tailscale onboarding steps for unreachable saved mini on Tailscale', () => {
+    const { getByText, queryByText } = render(
+      <ChatConnectionPanel
+        connectionState="disconnected"
+        connectionHealAttempt={6}
+        profiles={[
+          {
+            id: 'mini',
+            label: 'Igors-Mac-mini',
+            gatewayUrl: 'http://100.94.135.78:8642',
+            addedAt: '2026-06-28T00:00:00Z',
+          },
+        ]}
+        activeProfileId="mini"
+        onSearchMac={jest.fn()}
+      />,
+    );
+    expect(getByText('Tailscale connected')).toBeTruthy();
+    expect(queryByText('Same home Wi‑Fi')).toBeNull();
+  });
+
   it('allows manual connection using a custom IP or URL', async () => {
     const onAddProfile = jest.fn().mockResolvedValue(undefined);
     const { getByTestId } = render(

@@ -104,6 +104,7 @@ import {
 import { isPrivateLanGatewayUrl } from '../utils/gatewayEndpoint';
 import { isTailscaleGatewayUrl } from '../utils/tailscaleHosts';
 import type { SetupDeepLinkParams } from '../utils/setupDeepLink';
+import { syncExtraProfileApiKeys } from '../utils/gatewayProfileCredentialSync';
 import {
   type GatewayBootstrapPhase,
   isGatewayHealthOk,
@@ -2402,7 +2403,46 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
         }
       }
 
+      const upsertExtraComputers = async (): Promise<void> => {
+        if (!params.extraComputers?.length) {
+          return;
+        }
+        let nextProfileState = profileStateRef.current;
+        for (const extra of params.extraComputers) {
+          const extraUrl = extra.gatewayUrl?.trim();
+          if (!extraUrl || !isValidGatewayUrl(extraUrl)) {
+            continue;
+          }
+          const extraName = extra.macName?.trim();
+          nextProfileState = upsertDiscoveredProfile(
+            nextProfileState,
+            {
+              gatewayUrl: extraUrl,
+              localIp: extractLanIpFromGatewayUrl(extraUrl) ?? undefined,
+              hostname: extraName,
+              label: extraName,
+            },
+            false,
+          );
+        }
+        if (nextProfileState !== profileStateRef.current) {
+          nextProfileState = sanitizeGatewayProfileState(nextProfileState);
+          profileStateRef.current = nextProfileState;
+          setProfileState(nextProfileState);
+          await gatewayProfiles.save(nextProfileState);
+        }
+        await syncExtraProfileApiKeys(params.extraComputers);
+      };
+
+      if (params.tailnetProbeHosts?.length) {
+        const merged = await tailnetProbeStorage.merge(params.tailnetProbeHosts);
+        tailnetProbeHostsRef.current = merged;
+        setTailnetProbeHostCount(merged.length);
+      }
+
       if (!params.gatewayUrl?.trim()) {
+        await upsertExtraComputers();
+        void probeTailscaleComputersRef.current();
         if (relayCode) {
           haptics.success();
           await refreshHealth();
@@ -2493,6 +2533,7 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
           params.apiKey.trim(),
         );
       }
+      await syncExtraProfileApiKeys(params.extraComputers);
 
       const nextSettings: GatewaySettings = {
         ...settingsRef.current,
@@ -2503,10 +2544,6 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
       const nextKey = params.apiKey?.trim() || apiKeyRef.current;
       await saveSettings(nextSettings, nextKey);
       haptics.success();
-      if (params.tailnetProbeHosts?.length) {
-        const merged = await tailnetProbeStorage.merge(params.tailnetProbeHosts);
-        tailnetProbeHostsRef.current = merged;
-      }
       await refreshHealth();
       void probeTailscaleComputersRef.current();
     },
