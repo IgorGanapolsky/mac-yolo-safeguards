@@ -306,17 +306,15 @@ function openDeepLinkOnDevice(serial, link) {
 }
 
 function syncVaultProjectsCatalog() {
-  try {
-    const { collectCatalog, DEFAULT_OUT } = require('./hermes-vault-projects-sync.js');
-    const catalog = collectCatalog(
-      fs.existsSync(path.join(os.homedir(), 'Documents', 'AI-Agent-Sync'))
-        ? path.join(os.homedir(), 'Documents', 'AI-Agent-Sync')
-        : require('./hermes-vault-projects-sync.js').DEFAULT_VAULT,
-    );
-    fs.mkdirSync(path.dirname(DEFAULT_OUT), { recursive: true });
-    fs.writeFileSync(DEFAULT_OUT, `${JSON.stringify(catalog, null, 2)}\n`);
-  } catch (error) {
-    console.warn(`  vault-projects sync skipped: ${error.message || error}`);
+  const result = spawnSync(process.execPath, [path.join(__dirname, 'hermes-vault-projects-sync.js')], {
+    encoding: 'utf8',
+    timeout: 5_000,
+  });
+  if (result.status !== 0) {
+    const reason = result.error?.code === 'ETIMEDOUT'
+      ? 'timed out after 5s'
+      : String(result.stderr || result.error?.message || 'unknown error').trim();
+    console.warn(`  vault-projects sync skipped: ${reason}`);
   }
 }
 

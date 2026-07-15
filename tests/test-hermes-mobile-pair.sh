@@ -439,6 +439,14 @@ else
   bad "KeepAlive pair server binds without blocking on vault catalog synchronization"
 fi
 
+if [[ "$PAIR_JS" == *"hermes-vault-projects-sync.js"* ]] \
+  && [[ "$PAIR_JS" == *"timeout: 5_000"* ]] \
+  && [[ "$PAIR_JS" == *"timed out after 5s"* ]]; then
+  ok "pair asset publication bounds optional vault synchronization to five seconds"
+else
+  bad "pair asset publication bounds optional vault synchronization to five seconds"
+fi
+
 DISCOVER_JS="$(cat "$REPO/tools/hermes-discover-tailscale-macs.js")"
 if [[ "$DISCOVER_JS" == *"isPeerOnline"* ]] && [[ "$DISCOVER_JS" == *"Online !== false"* ]]; then
   ok "discover script skips offline tailnet peers"
