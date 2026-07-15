@@ -57,6 +57,12 @@ The verifier models:
   until `NVIDIA_API_KEY`, `NVIDIA_NIM_BASE_URL`, region, endpoint, cost, and
   smoke evidence are confirmed
 
+**Live fleet path (LiteLLM `:4010`, both Macs):** see
+[NEMOTRON-FLEET-SETUP.md](./NEMOTRON-FLEET-SETUP.md). Production aliases are
+`nemotron3-free` (OpenRouter free Ultra, auto-fallback) and `nemotron` (NIM Super
+49B, opt-in only). That is separate from the all-macs *candidate matrix* above —
+do not promote either to the Hermes interactive default without adoption gates.
+
 The NVIDIA Nemotron page positions Nemotron 3 Ultra for complex agentic tasks:
 planning, code generation, deep research, tool use, synthesis, verification,
 and recovery with long context. That makes it relevant to Hermes harness

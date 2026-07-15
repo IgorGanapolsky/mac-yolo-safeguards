@@ -17,6 +17,8 @@
 
 **Hosted Hermes / always-on agents:** platforms keep agents online; this kit stops **runaway loops and Mac freezes** when real work still burns tokens or load. Positioning: [docs/HERMES-HOSTED-RELIABILITY.md](./docs/HERMES-HOSTED-RELIABILITY.md).
 
+**Nemotron on both Macs (gated):** LiteLLM `:4010` serves `nemotron3-free` (auto-fallback) + `nemotron` (NIM opt-in). Not the interactive default — see [docs/NEMOTRON-FLEET-SETUP.md](./docs/NEMOTRON-FLEET-SETUP.md).
+
 ## For Teams And Partners
 
 If you only need the free Mac guard, install it below.

@@ -47,6 +47,11 @@ verification, and recovery. It is not the default route. The router can select
 it only when the task explicitly asks for Nemotron/NVIDIA/NIM-style evaluation,
 the caller allows paid/external escalation, and cost/latency caps fit.
 
+**Fleet runtime (2026-07-15):** both Macs serve LiteLLM aliases `nemotron3-free`
+(OpenRouter free Ultra, auto-fallback after `glm-coding`) and `nemotron` (NIM Super
+49B, opt-in only). Operational proof and repair steps:
+[NEMOTRON-FLEET-SETUP.md](./NEMOTRON-FLEET-SETUP.md).
+
 ## Route Classes
 
 | Route | Provider/model | Use when | Gate |
