@@ -1,10 +1,12 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
+  BackHandler,
   Keyboard,
   ScrollView,
   StyleSheet,
   Text,
   TextInput,
+  TouchableOpacity,
   View,
 } from 'react-native';
 import { useGateway } from '../context/GatewayContext';
@@ -14,10 +16,16 @@ import PairQrScannerModal from './PairQrScannerModal';
 import FreshUserOnboardingCard from './FreshUserOnboardingCard';
 import TailscaleDiscoveryBanner from './TailscaleDiscoveryBanner';
 import MacScanProgressCard from './MacScanProgressCard';
+import GatewayProfilePicker from './GatewayProfilePicker';
 import LoadingButton from './ui/LoadingButton';
 import { tailscaleDiscoveryLabel } from '../services/tailscaleDiscovery';
 import { cleanManualGatewayUrl, isLoopbackGatewayUrl } from '../utils/gatewayUrlPolicy';
 import { isTailscaleGatewayUrl } from '../utils/tailscaleHosts';
+import {
+  profilesForDevicePicker,
+  profilesForSwitchComputerPicker,
+} from '../utils/gatewayProfilePicker';
+import type { GatewayProfile } from '../types/gatewayProfile';
 import {
   isE2eAutomationBuild,
   isStoreReviewDemoBuild,
@@ -41,16 +49,19 @@ export default function ConnectMacGate() {
     profileScanProgress,
     profileScanResult,
     gatewayProfiles,
+    activeGatewayProfile,
     effectiveGatewayUrl,
     applySetupDeepLink,
     retryGatewayBootstrap,
     scanForGatewayProfiles,
+    selectGatewayProfile,
     tailscaleDiscoveries,
     tailscaleDiscoveryProbing,
     addDiscoveredTailscaleComputer,
     probeTailscaleComputers,
     addGatewayProfile,
     patchSettings,
+    wifiConnected,
   } = useGateway();
 
   const [qrVisible, setQrVisible] = useState(false);
@@ -61,6 +72,15 @@ export default function ConnectMacGate() {
   const [addingProfile, setAddingProfile] = useState(false);
   const [manualInputError, setManualInputError] = useState<string | null>(null);
   const [enablingDemo, setEnablingDemo] = useState(false);
+
+  const handleDismiss = useCallback(async () => {
+    try {
+      await patchSettings({ connectMacGateDismissed: true });
+      haptics.light();
+    } catch {
+      haptics.warning();
+    }
+  }, [patchSettings]);
 
   const handleExploreDemo = async () => {
     setEnablingDemo(true);
@@ -98,26 +118,53 @@ export default function ConnectMacGate() {
     }
   };
 
+  const handleSelectProfile = useCallback(
+    async (profileId: string, profile: GatewayProfile) => {
+      await selectGatewayProfile(profileId, { ensureProfile: profile });
+      await retryGatewayBootstrap();
+    },
+    [retryGatewayBootstrap, selectGatewayProfile],
+  );
+
   const hasSavedMac =
     gatewayProfiles.some((profile) => !isLoopbackGatewayUrl(profile.gatewayUrl)) ||
     [effectiveGatewayUrl, settings.gatewayUrl].some(
       (url) => Boolean(url?.trim()) && !isLoopbackGatewayUrl(url || ''),
     );
 
+  const pickerProfiles = useMemo(() => {
+    const activeId = activeGatewayProfile?.id ?? null;
+    const switchRows = profilesForSwitchComputerPicker(gatewayProfiles, {
+      activeProfileId: activeId,
+    });
+    if (switchRows.length > 0) {
+      return switchRows;
+    }
+    return profilesForDevicePicker(gatewayProfiles).filter(
+      (profile) => !isLoopbackGatewayUrl(profile.gatewayUrl),
+    );
+  }, [activeGatewayProfile?.id, gatewayProfiles]);
+
   const showGate =
     bootstrapReady &&
     !isE2eAutomationBuild() &&
     !isStoreReviewDemoBuild() &&
     !settings.demoMode &&
+    !settings.connectMacGateDismissed &&
     !isGatewayReachable &&
     settings.connectionMode === 'gateway' &&
-    !hasSavedMac;
+    (!hasSavedMac || pickerProfiles.length > 0);
 
   const searching =
     isSearching ||
     gatewayBootstrapPhase === 'booting' ||
     gatewayBootstrapPhase === 'searching' ||
     profileScanning;
+
+  const showMachineRows =
+    pickerProfiles.length > 0 || (profileScanResult?.foundCount ?? 0) > 0;
+
+  const onCellular = !wifiConnected;
 
   const runWifiSearch = useCallback(async () => {
     setInvalidQrHint(null);
@@ -148,6 +195,17 @@ export default function ConnectMacGate() {
     return () => clearInterval(timer);
   }, [showGate, searching, runWifiSearch]);
 
+  useEffect(() => {
+    if (!showGate) {
+      return;
+    }
+    const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
+      void handleDismiss();
+      return true;
+    });
+    return () => subscription.remove();
+  }, [handleDismiss, showGate]);
+
   const primaryTailscaleLabel =
     tailscaleDiscoveries.length > 0
       ? tailscaleDiscoveryLabel(tailscaleDiscoveries[0])
@@ -163,15 +221,29 @@ export default function ConnectMacGate() {
             keyboardShouldPersistTaps="handled"
           >
             <View style={styles.card}>
-              <Text style={styles.title}>Connect your computer</Text>
+              <View style={styles.headerRow}>
+                <Text style={styles.title}>Connect your computer</Text>
+                <TouchableOpacity
+                  onPress={() => {
+                    void handleDismiss();
+                  }}
+                  accessibilityRole="button"
+                  accessibilityLabel="Not now"
+                  testID="connect-mac-gate-dismiss"
+                >
+                  <Text style={styles.dismissText}>Not now</Text>
+                </TouchableOpacity>
+              </View>
               <Text style={styles.body}>
-                Hermes on your phone talks to Hermes on your computer. Follow the steps below — we
-                search your home Wi‑Fi automatically.
+                {onCellular
+                  ? 'Hermes on your phone talks to Hermes on your computer. On cellular, use Tailscale — we also search when you are on home Wi‑Fi.'
+                  : 'Hermes on your phone talks to Hermes on your computer. Follow the steps below — we search your home Wi‑Fi automatically.'}
               </Text>
 
               <FreshUserOnboardingCard
                 profiles={gatewayProfiles}
                 tailscaleMacLabel={primaryTailscaleLabel}
+                wifiConnected={wifiConnected}
                 testID="connect-mac-onboarding-card"
               />
 
@@ -192,6 +264,21 @@ export default function ConnectMacGate() {
                 result={profileScanResult}
                 testID="connect-mac-scan-progress"
               />
+
+              {showMachineRows && pickerProfiles.length > 0 ? (
+                <View style={styles.foundBlock} testID="connect-mac-found-machines">
+                  <Text style={styles.foundHeading}>Tap a computer to connect</Text>
+                  <GatewayProfilePicker
+                    profiles={pickerProfiles}
+                    activeProfileId={activeGatewayProfile?.id ?? null}
+                    onSelect={(profileId, profile) => {
+                      void handleSelectProfile(profileId, profile);
+                    }}
+                    wifiConnected={wifiConnected}
+                    showReachabilityHints={pickerProfiles.length > 1}
+                  />
+                </View>
+              ) : null}
 
               {!searching && !profileScanResult ? (
                 <Text style={styles.statusText}>{describeBootstrapPhase(gatewayBootstrapPhase)}</Text>
@@ -269,8 +356,8 @@ export default function ConnectMacGate() {
               ) : null}
 
               <Text style={styles.footnote}>
-                Need Hermes on your computer first? Use the setup guide link in Settings after you dismiss
-                this screen.
+                Need Hermes on your computer first? Open the setup guide from Settings — tap Not now
+                above to use chat first.
               </Text>
             </View>
           </ScrollView>
@@ -319,15 +406,36 @@ const styles = StyleSheet.create({
     padding: 24,
     gap: 12,
   },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
   title: {
+    flex: 1,
     fontSize: 22,
     fontWeight: '900',
     color: colors.text,
     letterSpacing: 0.5,
   },
+  dismissText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.accent,
+    paddingTop: 4,
+  },
   body: {
     fontSize: 14,
     lineHeight: 20,
+    color: colors.textSecondary,
+  },
+  foundBlock: {
+    gap: 8,
+  },
+  foundHeading: {
+    fontSize: 13,
+    fontWeight: '800',
     color: colors.textSecondary,
   },
   statusText: {

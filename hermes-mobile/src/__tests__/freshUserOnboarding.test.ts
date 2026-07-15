@@ -79,6 +79,17 @@ describe('freshUserOnboarding', () => {
     expect(joined.toLowerCase()).not.toContain('lan');
   });
 
+  it('hides the home Wi-Fi step on cellular and leads with Tailscale', () => {
+    const steps = freshUserOnboardingSteps({
+      tailscaleMacLabel: 'Igors-Mac-mini',
+      wifiConnected: false,
+    });
+    expect(steps).toHaveLength(3);
+    expect(steps[0].title).toBe('Use Tailscale from cellular');
+    expect(steps.map((step) => step.title).join(' ')).not.toContain('Same home Wi‑Fi');
+    expect(steps[0].body).toContain('Igors-Mac-mini');
+  });
+
   it('uses silent heal duration of about 30 seconds', () => {
     expect(CONNECTION_HEAL_DURATION_MS).toBe(30_000);
   });
