@@ -44,8 +44,8 @@ install_one() {
   if [[ "$label" == com.igor.hermes-mobile-pair-server ]]; then
     stop_legacy_pair_server
   fi
-  launchctl bootstrap "$gui_domain" "$dest"
   launchctl enable "${gui_domain}/${label}" 2>/dev/null || true
+  launchctl bootstrap "$gui_domain" "$dest"
   # The sentinel has RunAtLoad. Do not immediately kill/restart that first repair tick:
   # launchctl can terminate this installer while the child is still regenerating pair state.
   if [[ "$label" != com.igor.hermes-tailscale-health-watchdog ]]; then

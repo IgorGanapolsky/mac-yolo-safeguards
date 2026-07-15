@@ -134,6 +134,14 @@ else
   bad 'focused installer replaces only the legacy pair daemon and scopes model pinning by host'
 fi
 
+enable_line="$(grep -n 'launchctl enable' "$REPO/scripts/install-hermes-tailscale-health-agents.sh" | head -1 | cut -d: -f1)"
+bootstrap_line="$(grep -n 'launchctl bootstrap' "$REPO/scripts/install-hermes-tailscale-health-agents.sh" | head -1 | cut -d: -f1)"
+if [[ -n "$enable_line" && -n "$bootstrap_line" && "$enable_line" -lt "$bootstrap_line" ]]; then
+  ok 'focused installer re-enables previously disabled labels before bootstrap'
+else
+  bad 'focused installer re-enables previously disabled labels before bootstrap'
+fi
+
 if grep -q '<key>HERMES_PIN_MODEL</key><string>{{HERMES_PIN_MODEL}}</string>' \
   "$REPO/com.igor.hermes-gateway-watchdog.plist"; then
   ok 'gateway watchdog plist requires explicit per-host model pin policy'

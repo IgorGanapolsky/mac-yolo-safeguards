@@ -80,8 +80,8 @@ install_one() {
     "${repo_root}/${template}" > "${dest}"
 
   launchctl bootout "${gui_domain}/${label}" 2>/dev/null || true
-  launchctl bootstrap "${gui_domain}" "${dest}"
   launchctl enable "${gui_domain}/${label}" 2>/dev/null || true
+  launchctl bootstrap "${gui_domain}" "${dest}"
   launchctl kickstart -k "${gui_domain}/${label}" 2>/dev/null || true
   echo "OK ${label}"
 }
