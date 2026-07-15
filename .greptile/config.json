@@ -1,17 +1,28 @@
 {
   "strictness": 2,
-  "commentTypes": ["logic", "syntax"],
+  "commentTypes": [
+    "logic",
+    "syntax"
+  ],
   "triggerOnUpdates": true,
   "triggerOnDrafts": false,
   "shouldUpdateDescription": false,
   "statusCheck": true,
   "statusCommentsEnabled": true,
   "fixWithAI": true,
-  "includeBranches": ["main"],
-  "excludeAuthors": ["dependabot[bot]", "*-bot"],
-  "disabledLabels": ["docs-only", "greptile-skip"],
+  "includeBranches": [
+    "main"
+  ],
+  "excludeAuthors": [
+    "dependabot[bot]",
+    "*-bot"
+  ],
+  "disabledLabels": [
+    "docs-only",
+    "greptile-skip"
+  ],
   "ignorePatterns": "*.lock\n**/node_modules/**\n**/__snapshots__/**\n**/.bundle-export/**\n**/fastlane/screenshots/**\n**/docs/proofs/**\ngraphify-out/**\n.worktrees/**",
-  "instructions": "Hermes Mobile is a real-users product (not Igor-only dogfood). Prioritize connect/onboarding regressions over style. Read .greptile/rules.md and hermes-mobile/.greptile/rules.md. Flag false-green Connected states, demo=1 review shortcuts treated as production proof, wrong Mac API keys, OTA-vs-native mistakes, and jargon ('gateway'/'LAN'/'Pair relay') in fresh-user UI copy.",
+  "instructions": "ThumbGate Mobile (Hermes) is a real-users product (not Igor-only dogfood). Prioritize connect/onboarding regressions over style. Read .greptile/rules.md and hermes-mobile/.greptile/rules.md. Flag false-green Connected states, demo=1 review shortcuts treated as production proof, wrong Mac API keys, OTA-vs-native mistakes, and jargon ('gateway'/'LAN'/'Pair relay') in fresh-user UI copy.",
   "summarySection": {
     "included": true,
     "collapsible": false,
@@ -64,7 +75,7 @@
         "tools/hermes-mobile-pair*",
         "hermes-mobile/.maestro/**"
       ],
-      "rule": "Cellular/off-Wi-Fi must prefer Tailscale paths and copy; USB/adb reverse is Igor dogfood only and must not be required for real users. Do not let USB pairing hijack a healthy Wi-Fi/Tailscale primary. Connected UI requires authenticated probe success — /health 200 alone is not Connected."
+      "rule": "Cellular/off-Wi-Fi must prefer Tailscale paths and copy; USB/adb reverse is Igor dogfood only and must not be required for real users. Do not let USB pairing hijack a healthy Wi-Fi/Tailscale primary. Connected UI requires authenticated probe success \u2014 /health 200 alone is not Connected."
     },
     {
       "id": "multi-mac-api-keys",
@@ -75,7 +86,7 @@
         "hermes-mobile/src/services/gatewayClient.ts",
         "hermes-mobile/src/utils/wrongKeyRecovery.ts"
       ],
-      "rule": "Mac mini and MacBook Pro can have different API_SERVER_KEY values. Never paste or assume the laptop .env key for a mini Tailscale URL (or vice versa). Flag host→key mismatches, pair flows that rewrite primary to the wrong Mac while USB-cabled to another, and Connected+Wrong-key XOR violations."
+      "rule": "Mac mini and MacBook Pro can have different API_SERVER_KEY values. Never paste or assume the laptop .env key for a mini Tailscale URL (or vice versa). Flag host\u2192key mismatches, pair flows that rewrite primary to the wrong Mac while USB-cabled to another, and Connected+Wrong-key XOR violations."
     },
     {
       "id": "expo-ota-vs-native",
@@ -88,7 +99,7 @@
         ".github/workflows/mobile-ota.yml",
         "hermes-mobile/package.json"
       ],
-      "rule": "JS/asset fixes ship via EAS OTA on the production channel; native changes (permissions, plugins, version/runtimeVersion bumps, native modules) require a new binary. Do not claim OTA can ship native-only fixes. Do not use expo run:android on a physical phone (Metro-only debug → black screen) — release install paths only."
+      "rule": "JS/asset fixes ship via EAS OTA on the production channel; native changes (permissions, plugins, version/runtimeVersion bumps, native modules) require a new binary. Do not claim OTA can ship native-only fixes. Do not use expo run:android on a physical phone (Metro-only debug \u2192 black screen) \u2014 release install paths only."
     }
   ]
 }
