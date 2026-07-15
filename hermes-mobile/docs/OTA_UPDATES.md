@@ -2,7 +2,10 @@
 
 Hermes Mobile ships JS and asset fixes over the air (EAS Update) so store users and release installs receive fixes merged to `main` without a new store binary for every JS change.
 
-**Canonical versioning + OTA/store decision table:** [VERSIONING-AND-RELEASES-JULY-2026.md](./VERSIONING-AND-RELEASES-JULY-2026.md).
+**Canonical versioning + OTA/store decision table:**
+
+- [VERSIONING-AND-RELEASES-JULY-2026.md](./VERSIONING-AND-RELEASES-JULY-2026.md) — July 2026 research contract (SemVer, 1.1 cutover, Expo Updates citations)
+- [VERSIONING-AND-RELEASES.md](./VERSIONING-AND-RELEASES.md) — short operating checklist
 
 ## Channel strategy
 
