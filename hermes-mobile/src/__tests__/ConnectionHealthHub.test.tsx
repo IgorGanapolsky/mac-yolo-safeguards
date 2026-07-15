@@ -2,7 +2,7 @@ import React from 'react';
 import { Alert } from 'react-native';
 import { fireEvent, render, waitFor } from '@testing-library/react-native';
 import ConnectionHealthHub from '../components/ConnectionHealthHub';
-import { checkForAppUpdate } from '../services/appOtaUpdate';
+import { checkAndApplyAppUpdate } from '../services/appOtaUpdate';
 
 jest.mock('../services/haptics', () => ({
   haptics: {
@@ -14,7 +14,6 @@ jest.mock('../services/haptics', () => ({
 
 jest.mock('../services/appOtaUpdate', () => ({
   isOtaUpdatesEnabled: jest.fn(() => true),
-  checkForAppUpdate: jest.fn(),
   checkAndApplyAppUpdate: jest.fn(),
 }));
 
@@ -26,9 +25,10 @@ jest.mock('expo-constants', () => ({
 describe('ConnectionHealthHub', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    (checkForAppUpdate as jest.Mock).mockResolvedValue({
+    (checkAndApplyAppUpdate as jest.Mock).mockResolvedValue({
       status: 'current',
-      message: 'App is up to date.',
+      message:
+        'No newer update on channel "production" for runtime 1.0. Running aaaaaaaa… (downloaded OTA).',
     });
   });
 
@@ -83,8 +83,6 @@ describe('ConnectionHealthHub', () => {
       expect(onRepairConnection).toHaveBeenCalled();
     });
     await waitFor(() => {
-      // The button must be tappable again — a stuck ActivityIndicator with disabled=true
-      // is the infinite-spinner class this guards against.
       const button = getByTestId('connection-health-repair');
       expect(button.props.accessibilityState?.disabled ?? button.props.disabled).toBe(false);
     });
@@ -95,7 +93,7 @@ describe('ConnectionHealthHub', () => {
     alertSpy.mockRestore();
   });
 
-  it('checks for OTA update', async () => {
+  it('checks for OTA update with honest channel/runtime message', async () => {
     const { getByTestId } = render(
       <ConnectionHealthHub
         connectionState="connected"
@@ -105,15 +103,15 @@ describe('ConnectionHealthHub', () => {
 
     fireEvent.press(getByTestId('connection-health-check-update'));
     await waitFor(() => {
-      expect(checkForAppUpdate).toHaveBeenCalled();
-      expect(getByTestId('connection-health-update-message').props.children).toBe(
-        'App is up to date.',
+      expect(checkAndApplyAppUpdate).toHaveBeenCalled();
+      expect(getByTestId('connection-health-update-message').props.children).toContain(
+        'No newer update',
       );
     });
   });
 
   it('clears update spinner after timed-out check', async () => {
-    (checkForAppUpdate as jest.Mock).mockResolvedValue({
+    (checkAndApplyAppUpdate as jest.Mock).mockResolvedValue({
       status: 'error',
       message: 'Update check timed out after 30s',
     });

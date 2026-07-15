@@ -64,6 +64,18 @@ jest.mock('../utils/demoModePolicy', () => ({
   isDemoModeAllowed: jest.fn(() => false),
 }));
 
+jest.mock('../components/AppUpdatesCard', () => {
+  const React = require('react');
+  const { View, Text } = require('react-native');
+  return function MockAppUpdatesCard() {
+    return (
+      <View testID="app-updates-card">
+        <Text>App updates</Text>
+      </View>
+    );
+  };
+});
+
 const { isDemoModeAllowed } = jest.requireMock('../utils/demoModePolicy');
 
 describe('SettingsScreen', () => {
@@ -104,6 +116,11 @@ describe('SettingsScreen', () => {
 
     addSpy.mockRestore();
     Platform.OS = originalOS;
+  });
+
+  it('shows App updates card near the top of Settings (not buried under Tools)', () => {
+    const { getByTestId } = render(<SettingsScreen />);
+    expect(getByTestId('app-updates-card')).toBeTruthy();
   });
 
   it('shows account relay as the default unpaired route in relay mode', () => {

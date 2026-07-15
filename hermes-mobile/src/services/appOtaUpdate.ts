@@ -1,6 +1,7 @@
 import * as Updates from 'expo-updates';
+import Constants from 'expo-constants';
 
-/** Max wait for Expo update manifest probe (Tools → Check for update). */
+/** Max wait for Expo update manifest probe. */
 export const OTA_CHECK_TIMEOUT_MS = 30_000;
 /** Max wait for OTA bundle download before surfacing error. */
 export const OTA_FETCH_TIMEOUT_MS = 60_000;
@@ -32,6 +33,7 @@ export type OtaUpdateCheckResult =
   | { status: 'disabled'; message: string }
   | { status: 'current'; message: string }
   | { status: 'available'; message: string; manifestId?: string }
+  | { status: 'downloading'; message: string }
   | { status: 'error'; message: string };
 
 export type OtaUpdateApplyResult =
@@ -39,15 +41,67 @@ export type OtaUpdateApplyResult =
   | { status: 'noop'; message: string }
   | { status: 'error'; message: string };
 
+export type InstalledOtaInfo = {
+  enabled: boolean;
+  channel: string;
+  runtimeVersion: string;
+  updateId: string | null;
+  isEmbeddedLaunch: boolean;
+  createdAt: string | null;
+};
+
+function shortId(id: string | null | undefined): string {
+  const value = String(id ?? '').trim();
+  if (!value) {
+    return 'unknown';
+  }
+  return value.length > 12 ? `${value.slice(0, 8)}…` : value;
+}
+
 export function isOtaUpdatesEnabled(): boolean {
   return Updates.isEnabled;
 }
 
+export function getInstalledOtaInfo(): InstalledOtaInfo {
+  const channel = String(Updates.channel ?? '').trim() || 'unknown';
+  const runtimeVersion =
+    String(Updates.runtimeVersion ?? '').trim() ||
+    String(Constants.expoConfig?.version ?? Constants.nativeAppVersion ?? '').trim() ||
+    'unknown';
+  const updateId = Updates.updateId ? String(Updates.updateId) : null;
+  const createdAt =
+    Updates.createdAt instanceof Date
+      ? Updates.createdAt.toISOString()
+      : Updates.createdAt
+        ? String(Updates.createdAt)
+        : null;
+
+  return {
+    enabled: Updates.isEnabled,
+    channel,
+    runtimeVersion,
+    updateId,
+    isEmbeddedLaunch: Boolean(Updates.isEmbeddedLaunch),
+    createdAt,
+  };
+}
+
+function currentBundleMessage(info: InstalledOtaInfo): string {
+  const source = info.isEmbeddedLaunch ? 'embedded native bundle' : 'downloaded OTA';
+  return (
+    `No newer update on channel "${info.channel}" for runtime ${info.runtimeVersion}. ` +
+    `Running ${shortId(info.updateId)} (${source}). ` +
+    `This means Expo found nothing newer to download — not a guarantee you saw every store APK.`
+  );
+}
+
 export async function checkForAppUpdate(): Promise<OtaUpdateCheckResult> {
+  const info = getInstalledOtaInfo();
   if (!Updates.isEnabled) {
     return {
       status: 'disabled',
-      message: 'OTA updates ship with store builds — dev clients skip this check.',
+      message:
+        'OTA is off in this build (dev client / E2E). Store and release APKs check the production channel on launch.',
     };
   }
 
@@ -58,7 +112,7 @@ export async function checkForAppUpdate(): Promise<OtaUpdateCheckResult> {
       'Update check',
     );
     if (!result.isAvailable) {
-      return { status: 'current', message: 'App is up to date.' };
+      return { status: 'current', message: currentBundleMessage(info) };
     }
     const manifestId =
       result.manifest && 'id' in result.manifest
@@ -66,7 +120,7 @@ export async function checkForAppUpdate(): Promise<OtaUpdateCheckResult> {
         : undefined;
     return {
       status: 'available',
-      message: 'Update downloaded — restart to apply.',
+      message: `Update available on "${info.channel}" for runtime ${info.runtimeVersion} — tap again or wait; download starts next.`,
       manifestId: manifestId || undefined,
     };
   } catch (err) {
@@ -77,7 +131,10 @@ export async function checkForAppUpdate(): Promise<OtaUpdateCheckResult> {
 
 export async function fetchAndApplyAppUpdate(): Promise<OtaUpdateApplyResult> {
   if (!Updates.isEnabled) {
-    return { status: 'noop', message: 'OTA disabled in this build.' };
+    return {
+      status: 'noop',
+      message: 'OTA disabled in this build — install a store/release APK to receive updates.',
+    };
   }
 
   try {
@@ -87,10 +144,13 @@ export async function fetchAndApplyAppUpdate(): Promise<OtaUpdateApplyResult> {
       'Update download',
     );
     if (!fetchResult.isNew) {
-      return { status: 'noop', message: 'No new update to apply.' };
+      return {
+        status: 'noop',
+        message: 'Download finished but Expo reported no new bundle to apply.',
+      };
     }
     await Updates.reloadAsync();
-    return { status: 'reloaded', message: 'Restarting with the latest update…' };
+    return { status: 'reloaded', message: 'Restarting now with the downloaded update…' };
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Update apply failed';
     return { status: 'error', message };
@@ -109,5 +169,9 @@ export async function checkAndApplyAppUpdate(): Promise<OtaUpdateCheckResult | O
   if (apply.status === 'reloaded') {
     return { status: 'available', message: apply.message };
   }
-  return check;
+  return {
+    status: 'available',
+    message: apply.message || check.message,
+    manifestId: check.manifestId,
+  };
 }

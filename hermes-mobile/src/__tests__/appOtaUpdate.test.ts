@@ -1,8 +1,18 @@
 jest.mock('expo-updates', () => ({
   isEnabled: true,
+  channel: 'production',
+  runtimeVersion: '1.0',
+  updateId: '11111111-2222-3333-4444-555555555555',
+  isEmbeddedLaunch: false,
+  createdAt: new Date('2026-07-15T12:00:00.000Z'),
   checkForUpdateAsync: jest.fn(),
   fetchUpdateAsync: jest.fn(),
   reloadAsync: jest.fn(),
+}));
+
+jest.mock('expo-constants', () => ({
+  expoConfig: { version: '1.0' },
+  nativeAppVersion: '1.0',
 }));
 
 import * as Updates from 'expo-updates';
@@ -10,6 +20,7 @@ import {
   checkAndApplyAppUpdate,
   checkForAppUpdate,
   fetchAndApplyAppUpdate,
+  getInstalledOtaInfo,
   isOtaUpdatesEnabled,
 } from '../services/appOtaUpdate';
 
@@ -19,21 +30,43 @@ describe('appOtaUpdate', () => {
     (Updates as { isEnabled: boolean }).isEnabled = true;
   });
 
+  it('exposes installed channel/runtime/updateId', () => {
+    expect(getInstalledOtaInfo()).toMatchObject({
+      enabled: true,
+      channel: 'production',
+      runtimeVersion: '1.0',
+      updateId: '11111111-2222-3333-4444-555555555555',
+      isEmbeddedLaunch: false,
+    });
+  });
+
   it('reports disabled when OTA is off', async () => {
     (Updates as { isEnabled: boolean }).isEnabled = false;
     expect(isOtaUpdatesEnabled()).toBe(false);
     await expect(checkForAppUpdate()).resolves.toEqual({
       status: 'disabled',
-      message: expect.stringContaining('dev clients'),
+      message: expect.stringContaining('OTA is off'),
     });
   });
 
-  it('reports current when no update is available', async () => {
+  it('reports current with honest channel/runtime copy when nothing is available', async () => {
     (Updates.checkForUpdateAsync as jest.Mock).mockResolvedValue({ isAvailable: false });
-    await expect(checkForAppUpdate()).resolves.toEqual({
-      status: 'current',
-      message: 'App is up to date.',
+    const result = await checkForAppUpdate();
+    expect(result.status).toBe('current');
+    expect(result.message).toContain('No newer update on channel "production"');
+    expect(result.message).toContain('runtime 1.0');
+    expect(result.message).not.toBe('App is up to date.');
+  });
+
+  it('does not claim downloaded before fetch', async () => {
+    (Updates.checkForUpdateAsync as jest.Mock).mockResolvedValue({
+      isAvailable: true,
+      manifest: { id: 'new-manifest' },
     });
+    const result = await checkForAppUpdate();
+    expect(result.status).toBe('available');
+    expect(result.message).toContain('Update available');
+    expect(result.message).not.toContain('downloaded');
   });
 
   it('fetches and reloads when update is available', async () => {
@@ -49,10 +82,9 @@ describe('appOtaUpdate', () => {
 
   it('checkAndApply returns check result when nothing is available', async () => {
     (Updates.checkForUpdateAsync as jest.Mock).mockResolvedValue({ isAvailable: false });
-    await expect(checkAndApplyAppUpdate()).resolves.toEqual({
-      status: 'current',
-      message: 'App is up to date.',
-    });
+    const result = await checkAndApplyAppUpdate();
+    expect(result.status).toBe('current');
+    expect(result.message).toContain('No newer update');
   });
 
   it('returns error when update check hangs past timeout', async () => {

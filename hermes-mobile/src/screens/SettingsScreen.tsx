@@ -34,6 +34,7 @@ import { resolveRelayRouteDisplay, relayWorkerDisplayName } from '../utils/relay
 import { isMacGatewayHttpOk } from '../utils/gatewayConnection';
 import type { ApprovalPolicy, HermesAvatar, HermesPersona } from '../types/gateway';
 import GatewayOpsSection from '../components/GatewayOpsSection';
+import AppUpdatesCard from '../components/AppUpdatesCard';
 import { secureCredentials } from '../services/secureCredentials';
 import { requestHermesNotificationPermission } from '../services/approvalNotifications';
 import { deriveNotificationsEnabled } from '../utils/notificationPreferences';
@@ -489,6 +490,8 @@ export default function SettingsScreen() {
       </View>
 
       <ScrollView ref={scrollRef} contentContainerStyle={styles.scrollContent}>
+
+        <AppUpdatesCard />
 
         <Text style={styles.sectionTitle}>📊 Privacy</Text>
         <GlassCard>

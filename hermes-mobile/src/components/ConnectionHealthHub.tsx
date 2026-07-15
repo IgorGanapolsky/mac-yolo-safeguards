@@ -13,11 +13,7 @@ import { haptics } from '../services/haptics';
 import type { GatewayHealthSnapshot } from '../types/gateway';
 import type { LeashConnectionState } from '../utils/gatewayEndpoint';
 import { resolveConnectionHealthLabel } from '../utils/agentDashboardStats';
-import {
-  checkAndApplyAppUpdate,
-  checkForAppUpdate,
-  isOtaUpdatesEnabled,
-} from '../services/appOtaUpdate';
+import { checkAndApplyAppUpdate, isOtaUpdatesEnabled } from '../services/appOtaUpdate';
 
 type ConnectionHealthHubProps = {
   connectionState: LeashConnectionState;
@@ -88,21 +84,17 @@ export default function ConnectionHealthHub({
     setUpdateMessage(null);
     try {
       if (!isOtaUpdatesEnabled()) {
-        setUpdateMessage('OTA ships with store builds — you are on the latest native build.');
+        setUpdateMessage(
+          'OTA is off in this build. Prefer Settings → App updates on a release/store APK.',
+        );
         return;
       }
-      const check = await checkForAppUpdate();
-      if (check.status === 'available') {
-        const apply = await checkAndApplyAppUpdate();
-        setUpdateMessage(apply.message);
-        if (apply.status !== 'error') {
-          haptics.success();
-        }
-        return;
-      }
-      setUpdateMessage(check.message);
-      if (check.status === 'current') {
+      const apply = await checkAndApplyAppUpdate();
+      setUpdateMessage(apply.message);
+      if (apply.status === 'current' || apply.status === 'available' || apply.status === 'reloaded') {
         haptics.success();
+      } else if (apply.status === 'error' || apply.status === 'disabled') {
+        haptics.warning();
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Update check failed';
