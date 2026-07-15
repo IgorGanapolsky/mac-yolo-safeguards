@@ -145,16 +145,19 @@ export default function ConnectMacGate() {
     );
   }, [activeGatewayProfile?.id, gatewayProfiles]);
 
-  // Default connectionMode is 'relay'. Brand-new installs must still see this gate —
-  // requiring gateway mode hid onboarding and left Chat flashing Reconnecting + USB.
+  // Fresh installs default to connectionMode 'relay'. Requiring 'gateway' hid
+  // ConnectMacGate forever for brand-new users (CI stranger cold-start 2026-07-15).
+  const freshUnpaired = !hasSavedMac;
   const showGate =
     bootstrapReady &&
     !isE2eAutomationBuild() &&
     !isStoreReviewDemoBuild() &&
     !settings.demoMode &&
     !settings.connectMacGateDismissed &&
-    !isGatewayReachable &&
-    (!hasSavedMac || (settings.connectionMode === 'gateway' && pickerProfiles.length > 0));
+    (freshUnpaired ||
+      (!isGatewayReachable &&
+        settings.connectionMode === 'gateway' &&
+        (!hasSavedMac || pickerProfiles.length > 0)));
 
   const searching =
     isSearching ||
