@@ -21,7 +21,8 @@ describe('store listing metadata contract (stellar live)', () => {
     const full = read(path.join(ANDROID, 'full_description.txt'));
     expect(full.length).toBeLessThanOrEqual(4000);
     expect(full).not.toMatch(/iOS is in App Store review/i);
-    expect(full).toMatch(/live on App Store/i);
+    // Accept "live on App Store" or "live on the App Store" (CDN/FAQ wording variants)
+    expect(full).toMatch(/live on (the )?App Store/i);
   });
 
   it('Play phone screenshots are present and distinct filenames', () => {
