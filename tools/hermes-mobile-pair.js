@@ -497,7 +497,6 @@ function refreshPairAssetsFromLocalGateway() {
 }
 
 function runServerOnly() {
-  syncVaultProjectsCatalog();
   const { lanIp } = refreshPairAssetsFromLocalGateway();
   if (portInUse(PAIR_PORT)) {
     console.log(`  Pair server: already listening on :${PAIR_PORT} (pair.json refreshed on disk)`);

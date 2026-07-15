@@ -428,6 +428,17 @@ else
   bad "pair script prefers tailnet gateway URL for cellular"
 fi
 
+if run_node "
+  const source = require('fs').readFileSync('$REPO/tools/hermes-mobile-pair.js', 'utf8');
+  const body = source.slice(source.indexOf('function runServerOnly()'), source.indexOf('function createPairServer'));
+  if (!body.includes('startPairServer(lanIp)')) process.exit(1);
+  if (body.includes('syncVaultProjectsCatalog')) process.exit(2);
+"; then
+  ok "KeepAlive pair server binds without blocking on vault catalog synchronization"
+else
+  bad "KeepAlive pair server binds without blocking on vault catalog synchronization"
+fi
+
 DISCOVER_JS="$(cat "$REPO/tools/hermes-discover-tailscale-macs.js")"
 if [[ "$DISCOVER_JS" == *"isPeerOnline"* ]] && [[ "$DISCOVER_JS" == *"Online !== false"* ]]; then
   ok "discover script skips offline tailnet peers"
