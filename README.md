@@ -17,6 +17,8 @@
 
 **Hosted Hermes / always-on agents:** platforms keep agents online; this kit stops **runaway loops and Mac freezes** when real work still burns tokens or load. Positioning: [docs/HERMES-HOSTED-RELIABILITY.md](./docs/HERMES-HOSTED-RELIABILITY.md).
 
+**OpenClaw-class local messaging agents:** one-command path that stays on Hermes gates (not a second Telegram daemon): `bash scripts/hermes-local-launch.sh --status` — see [docs/OPENCLAW-VS-HERMES.md](./docs/OPENCLAW-VS-HERMES.md).
+
 ## For Teams And Partners
 
 If you only need the free Mac guard, install it below.

@@ -51,6 +51,17 @@ bash scripts/install-zero-spend-gate.sh --install
 bash scripts/install-zero-spend-gate.sh --status
 ```
 
+**One-command operator path** (OpenClaw-class ergonomics without installing OpenClaw —
+checks Ollama, Hermes-safe 64k profile, zero-spend marker, dual-gateway risk):
+
+```sh
+bash scripts/hermes-local-launch.sh --status
+bash scripts/hermes-local-launch.sh --install
+```
+
+See [OPENCLAW-VS-HERMES.md](./OPENCLAW-VS-HERMES.md) for why dual Telegram gateways
+(OpenClaw + Hermes on one bot) are forbidden.
+
 `--disable` removes only the policy marker; the shims then pass through to the
 preserved originals. It is intentionally an explicit operator action.
 

@@ -5,8 +5,9 @@
  * hermes-hosting-market-signal.js — High-ROI capture of agent-market signals.
  *
  * Presets:
- *   hermes-hosted  — MyClaw-style always-on Hermes hosting
+ *   hermes-hosted   — MyClaw-style always-on Hermes hosting
  *   enterprise-sdlc — IBM Bob-style multi-agent full-lifecycle platforms
+ *   openclaw-local  — OpenClaw + Ollama always-on messaging agents (local/cloud)
  *
  * Produces: private board + JSONL, Stripe-verified CTA drafts, optional pipeline seed.
  * Never invents cleared revenue. Never commits buyer PII to git.
@@ -14,6 +15,7 @@
  * Usage:
  *   node tools/hermes-hosting-market-signal.js --preset hermes-hosted --apply-pipeline --json
  *   node tools/hermes-hosting-market-signal.js --preset enterprise-sdlc --source URL --apply-pipeline --json
+ *   node tools/hermes-hosting-market-signal.js --preset openclaw-local --demo --json
  *   node tools/hermes-hosting-market-signal.js --demo --json
  */
 
@@ -96,6 +98,30 @@ const PRESETS = {
       'Gap we keep hitting on non-mainframe fleets: orchestration coordinates work; it does not replace OS-level and loop-level enforcement when agents burn tokens, thrash a Mac, or fail silently mid-workflow.',
     ].join('\n'),
     emailSubject: 'Multi-agent SDLC platforms — reliability diagnostic / Partner Pilot',
+  },
+  'openclaw-local': {
+    id: 'openclaw-ollama-kdnuggets-2026-07-09',
+    source: 'https://www.kdnuggets.com/running-openclaw-with-ollama',
+    author: 'KDnuggets / OpenClaw + Ollama',
+    summary:
+      'OpenClaw (ex-Clawdbot) + Ollama: one-command always-on personal agent on Telegram/WhatsApp/Slack; Gateway daemon; local or Ollama cloud models; ≥64k context; Docker headless path.',
+    icp:
+      'solo devs and small teams who just launched a local messaging agent (OpenClaw/Ollama or peer) and now hit runaway tools, dual-bot conflicts, or unsupervised shell on a Mac',
+    gap:
+      'always-on messaging + local models ≠ approve-before-execute, zero-spend command gates, or OS freeze enforcement; dual Telegram gateways collide with Hermes',
+    offer: 'Agent Reliability Diagnostic ($499)',
+    gross_potential_usd: '499',
+    prospectPrefix: 'openclaw-local',
+    nextAction: 'send_openclaw_local_cta',
+    positioningDoc: 'docs/OPENCLAW-VS-HERMES.md',
+    xHook:
+      'OpenClaw + Ollama closing the "terminal AI walked away" gap is real demand — always-on Telegram agents with local models.\n\nStill true: messaging Gateway ≠ hard stop. Dual bots fight over Telegram updates; unsupervised tool exec burns tokens and can rm your tree; cloud model paths reintroduce spend.\n\nWe open-source Mac freeze guards + Hermes zero-spend, and sell scoped diagnostics. Phone approve/deny is Hermes Mobile — not another chat daemon.',
+    emailHook: [
+      'Saw the OpenClaw + Ollama wave (one-command personal agent on Telegram/WhatsApp, local or cloud models). That is real demand for always-on channel agents.',
+      '',
+      'Gap we keep hitting: a messaging Gateway keeps the agent reachable; it does not replace approve-before-execute, fail-closed spend gates, or OS-level freeze/runaway enforcement — and co-running a second Gateway on the same Telegram bot is a reliability failure.',
+    ].join('\n'),
+    emailSubject: 'OpenClaw / local messaging agents — reliability diagnostic',
   },
 };
 

@@ -79,4 +79,19 @@ check('parseArgs preset', () => {
   assert.strictEqual(a.preset, 'enterprise-sdlc');
 });
 
+check('openclaw-local preset positions dual-gateway + diagnostic CTA', () => {
+  const s = buildSignal({ preset: 'openclaw-local', demo: true });
+  assert.match(s.icp, /OpenClaw|messaging agent/i);
+  assert.match(s.gap, /approve-before-execute|dual Telegram|zero-spend/i);
+  assert.match(s.positioningDoc, /OPENCLAW-VS-HERMES/);
+  assert.match(s.offer, /Diagnostic/i);
+  const drafts = buildOutboundDraft(s, {
+    links: {
+      'Agent Reliability Diagnostic': { url: 'https://buy.stripe.com/oc499', http: 200, ok: true },
+    },
+  });
+  assert.match(drafts.xReply, /OpenClaw|Telegram|hard stop/i);
+  assert.match(drafts.cta, /buy\.stripe\.com\/oc499/);
+});
+
 console.log(`\nPASS ${n}/${n} hermes-hosting-market-signal`);

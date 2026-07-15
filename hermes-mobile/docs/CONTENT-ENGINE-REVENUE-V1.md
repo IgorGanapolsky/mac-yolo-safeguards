@@ -20,6 +20,22 @@ This engine produces **paste-ready drafts only**. It must **never** auto-publish
 4. Write: `RESEARCH.md`, `DECISION.md`, `FINAL-POST.md`, `CTA-PLACEMENT.md`, `MEMORY-LINE.tsv`; append memory TSV.
 5. Stop. Human publishes later if desired.
 
+## Competitor / why-now angles (keep honest)
+
+| Angle | Use when | Hard truth |
+|-------|----------|------------|
+| **OpenClaw + Ollama** always-on messaging agent | Viral local-agent / Telegram-bot weeks | Same shape as Hermes gateway+chat; our wedge is **approve-before-execute** + multi-agent gates — do **not** claim native OpenClaw integration until reproduced. Never dual-bot on one Telegram token. Positioning: repo `docs/OPENCLAW-VS-HERMES.md`. |
+| Hosted Hermes / MyClaw always-online | Hosting platform launches | Hosting ≠ hard stop / freeze guard (`docs/HERMES-HOSTED-RELIABILITY.md`). |
+| Cursor Mobile / Claude Remote Control | Remote-control news | Vendor-neutral: any agent **behind your Hermes gateway**. |
+
+**Differentiator checklist (must be true before claiming):**
+
+- Phone approve/deny **before** risky tool runs (Leash) — not after-the-fact chat summary
+- BYO gateway + optional $0 local Ollama (zero-spend) on operator Mac
+- Honest connection states (no “Connected” + “Can’t reach” at once)
+- Crash logs only (Sentry) — never “zero telemetry”
+- No ads / no rate-to-unlock
+
 ## Latest run
 
 - [revenue-engine-2026-07-13/](./social/revenue-engine-2026-07-13/) — LinkedIn multi-stack / Claude Remote Control angle — **Drafted, NOT published**
