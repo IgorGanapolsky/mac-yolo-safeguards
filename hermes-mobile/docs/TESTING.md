@@ -9,6 +9,17 @@
 | APK verify (pre-Firebase) | `npm run verify:apk -- path/to.apk` | Missing `index.android.bundle`, wrong package, legacy UI strings |
 | Maestro ship-guard | `npm run e2e:ship-guard` | Red screen "Unable to load script", orange onboarding shell |
 | Full device E2E | `npm run e2e:device` | Build release → verify → install → Maestro (phone required) |
+| agent-device connection proof | `bash scripts/agent-device-connection-proof.sh` | Chat transport label / Tailscale / reconnecting vs Connected (exploratory; not a ship gate) |
+
+## agent-device vs Maestro vs adb
+
+| Tool | Use when |
+|------|----------|
+| **agent-device** | Connection crisis, Tailscale, fresh-user UI inspection; screenshots + a11y snapshots; `npm run e2e:accelerated` |
+| **Maestro** | Deterministic CI / continuous `latest.json` ship gate |
+| **adb** + pair script | Install, pair, port reverse — not primary UI truth |
+
+Canonical: [AGENT-DEVICE.md](./AGENT-DEVICE.md). Install CLI: `bash ../scripts/install-agent-device.sh`.
 
 ## Unit test map (what each suite proves)
 
