@@ -42,6 +42,12 @@ if [[ -z "$java_home" ]]; then
   java_home="/opt/homebrew/opt/openjdk@17/libexec/openjdk.jdk/Contents/Home"
 fi
 
+if [[ "$(hostname -s | tr '[:upper:]' '[:lower:]')" == *mini* ]]; then
+  hermes_pin_model=1
+else
+  hermes_pin_model=0
+fi
+
 plists=(
   com.igor.shutdown-simulators.plist
   com.igor.ceo-operating-brief.plist
@@ -70,7 +76,7 @@ install_one() {
     return 0
   fi
 
-  sed "s#{{REPO}}#${repo_root}#g; s#{{HOME}}#${home}#g; s#{{NODE}}#${node_bin}#g; s#{{JAVA_HOME}}#${java_home}#g" \
+  sed "s#{{REPO}}#${repo_root}#g; s#{{HOME}}#${home}#g; s#{{NODE}}#${node_bin}#g; s#{{JAVA_HOME}}#${java_home}#g; s#{{HERMES_PIN_MODEL}}#${hermes_pin_model}#g" \
     "${repo_root}/${template}" > "${dest}"
 
   launchctl bootout "${gui_domain}/${label}" 2>/dev/null || true

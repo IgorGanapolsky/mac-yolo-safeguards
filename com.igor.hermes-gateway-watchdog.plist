@@ -15,6 +15,7 @@
     <dict>
         <key>HOME</key><string>{{HOME}}</string>
         <key>PATH</key><string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+        <key>HERMES_PIN_MODEL</key><string>{{HERMES_PIN_MODEL}}</string>
     </dict>
     <key>StandardOutPath</key><string>{{HOME}}/Library/Logs/hermes-gateway-watchdog.launchd.log</string>
     <key>StandardErrorPath</key><string>{{HOME}}/Library/Logs/hermes-gateway-watchdog.launchd.log</string>

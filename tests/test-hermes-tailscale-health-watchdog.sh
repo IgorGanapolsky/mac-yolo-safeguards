@@ -124,5 +124,22 @@ else
   bad 'LaunchAgent installer owns all three durability services'
 fi
 
+focused_installer="$(cat "$REPO/scripts/install-hermes-tailscale-health-agents.sh")"
+if [[ "$focused_installer" == *'stop_legacy_pair_server'* ]] \
+  && [[ "$focused_installer" == *'hermes-mobile-pair.js'* ]] \
+  && [[ "$focused_installer" == *'HERMES_PIN_MODEL'* ]] \
+  && [[ "$focused_installer" == *'host_short'* ]]; then
+  ok 'focused installer replaces only the legacy pair daemon and scopes model pinning by host'
+else
+  bad 'focused installer replaces only the legacy pair daemon and scopes model pinning by host'
+fi
+
+if grep -q '<key>HERMES_PIN_MODEL</key><string>{{HERMES_PIN_MODEL}}</string>' \
+  "$REPO/com.igor.hermes-gateway-watchdog.plist"; then
+  ok 'gateway watchdog plist requires explicit per-host model pin policy'
+else
+  bad 'gateway watchdog plist requires explicit per-host model pin policy'
+fi
+
 printf '\n%s passed, %s failed\n' "$pass" "$fail"
 exit "$fail"
