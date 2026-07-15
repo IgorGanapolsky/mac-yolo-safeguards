@@ -25,8 +25,8 @@ describe('gatewayProfilePicker', () => {
       localIp: '10.2.29.103',
       addedAt: '2026-06-24T12:00:00Z',
     });
-    expect(lines.title).toBe('Igors-MacBook-Pro');
-    expect(lines.detail).toBe('10.2.29.103:8642');
+    expect(lines.title).toBe('Mac Pro');
+    expect(lines.detail).toBe('also known as Igors-MacBook-Pro · 10.2.29.103:8642');
   });
 
   it('lists Mac mini from Tailscale without USB MacBook when USB is not live', () => {
@@ -58,7 +58,7 @@ describe('gatewayProfilePicker', () => {
     expect(profilePickerLines(profiles[0]).detail).toBe('100.94.135.78:8642');
   });
 
-  it('collapses live USB + Tailscale into one MacBook row (cable preferred)', () => {
+  it('keeps Mac Pro USB + Tailscale as separate selectable rows when cable is live', () => {
     const profiles = profilesForSwitchComputerPicker(
       [
         {
@@ -85,17 +85,20 @@ describe('gatewayProfilePicker', () => {
         },
       },
     );
-    // One row per computer — never USB + Tailscale twins for the same MacBook.
-    expect(profiles.map((p) => p.label)).toEqual(['Igors-MacBook-Pro', 'Igors-Mac-mini']);
-    expect(profiles).toHaveLength(2);
+    // USB + Tailscale for Mac Pro, plus mini — user can pick Tailscale while cabled.
+    expect(profiles).toHaveLength(3);
     expect(profileConnectionRouteLabel(profiles[0], true)).toBe('USB');
-    expect(profilePickerLines(profiles[0], { cablePluggedIn: true }).title).toBe(
-      'Igors-MacBook-Pro',
-    );
     expect(profileConnectionRouteLabel(profiles[1], true)).toBe('Tailscale');
+    expect(profileConnectionRouteLabel(profiles[2], true)).toBe('Tailscale');
+    expect(profilePickerLines(profiles[0], { cablePluggedIn: true }).title).toBe('Mac Pro');
+    expect(profilePickerLines(profiles[0], { cablePluggedIn: true }).detail).toMatch(
+      /also known as Igors-MacBook-Pro/i,
+    );
+    expect(profilePickerLines(profiles[1]).title).toBe('Mac Pro');
+    expect(profiles[2].label).toBe('Igors-Mac-mini');
   });
 
-  it('uses one saved USB loopback row when cable matches (no Tailscale twin row)', () => {
+  it('keeps saved USB + Tailscale Mac Pro rows (both selectable)', () => {
     const profiles = profilesForSwitchComputerPicker(
       [
         {
@@ -127,9 +130,14 @@ describe('gatewayProfilePicker', () => {
         },
       },
     );
-    expect(profiles).toHaveLength(2);
-    expect(profiles.map((p) => p.label)).toEqual(['Igors-MacBook-Pro', 'Igors-Mac-mini']);
+    expect(profiles).toHaveLength(3);
     expect(profileConnectionRouteLabel(profiles[0], true)).toBe('USB');
+    expect(profileConnectionRouteLabel(profiles[1], true)).toBe('Tailscale');
+    expect(profiles.map((p) => profilePickerLines(p).title)).toEqual([
+      'Mac Pro',
+      'Mac Pro',
+      'Igors-Mac-mini',
+    ]);
   });
 
   it('shows Tailscale endpoint instead of home LAN IP for the same Mac mini profile', () => {
