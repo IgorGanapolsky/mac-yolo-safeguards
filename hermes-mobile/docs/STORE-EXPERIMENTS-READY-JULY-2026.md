@@ -6,6 +6,25 @@
 
 ## Status (2026-07-15)
 
+## LIVE Console proof — 2026-07-15T16:21:22Z
+
+| Item | Evidence |
+|------|----------|
+| **Store listing experiment** | **In progress:** `Short desc A vs hybrid C` · Default store listing · Translated (en-US) · Start **Jul 14, 2026** · 1 variant · 50% of users |
+| **Max experiments** | Console banner: "You've reached the maximum allowed experiments" — cannot create another until active/draft cleared |
+| **Default listing** | Live + **Changes in review** (Jul 15, 2026) — full description, phone screenshots, icon, feature graphic, video |
+| **Publishing overview** | "Your changes are now in review" · Managed publishing **off** · Last published Jul 14, 2026 |
+| **CSL** | 0 custom listings; Create available — deferred while default listing changes in review (avoid conflicting drafts) |
+| **ASC PPO** | Not created — needs traffic + App Analytics; live subtitle locked until v1.1 (ASC 409). Promo text patched on READY_FOR_SALE |
+| **Play API** | androidpublisher v3 has **no** experiments/CSL methods — Console-only |
+
+Console URLs (IgorGanapolsky developer `5120393192891708058`, app `4973118708450369499`):
+- Experiments: `/store-listing-experiments/overview`
+- Listings: `/store-listings`
+- Publishing: `/publishing`
+
+
+
 | Surface | Status | Blocker |
 |---------|--------|---------|
 | Play default listing | **Live** — hybrid C short, iOS-live FAQ, 6 screenshots, trailer | Traffic |
