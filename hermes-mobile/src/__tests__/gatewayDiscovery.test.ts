@@ -165,9 +165,15 @@ describe('gatewayDiscovery', () => {
     expect(countUniqueDiscoveredMachines(aliases)).toBe(2);
     const deduped = dedupeDiscoveredGatewaysByMachine(aliases);
     expect(deduped).toHaveLength(2);
-    expect(deduped.every((g) => g.gatewayUrl.includes('100.') || g.gatewayUrl.includes('.ts.net'))).toBe(
-      true,
-    );
+    const isPreferredDiscoveryUrl = (gatewayUrl: string): boolean => {
+      try {
+        const { hostname } = new URL(gatewayUrl);
+        return hostname.endsWith('.ts.net') || /^100\.\d+\.\d+\.\d+$/.test(hostname);
+      } catch {
+        return false;
+      }
+    };
+    expect(deduped.every((g) => isPreferredDiscoveryUrl(g.gatewayUrl))).toBe(true);
   });
 
   it('ignores poisoned RFC1918 localIp on Tailscale pair.json (mini URL + MacBook LAN IP)', async () => {
