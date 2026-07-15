@@ -1,6 +1,7 @@
 import { storage } from './storage';
 
-export const STORE_REVIEW_THRESHOLD = 3;
+/** First successful Leash approval → review prompt (stellar ≥1 review goal). */
+export const STORE_REVIEW_THRESHOLD = 1;
 
 type StoreReviewModule = typeof import('expo-store-review');
 

@@ -1,12 +1,17 @@
 # Stellar Store Listing Playbook — Hermes Mobile (July 2026) — FIXED JULY 11
 
-**Research date:** 2026-07-09 → **Stellar overhaul 2026-07-11** (dogfood removal, dupe fix, v2 graphics, video)
-**Product:** Hermes Mobile (`com.iganapolsky.hermesmobile`) + Leash Pro ($19.99/mo)
-**Audience:** Prosumer AI agent operators (Cursor, Claude Code, OpenClaw, Hermes gateway)
-**Context:** Play **live** (Teen, 0+ downloads); iOS **WAITING_FOR_REVIEW**; PR [#107] merged, PR [#270] shipped unique screenshots, PR [#233] feature graphic v2 live
-**July 11 Fix:** Removed "Print money make money faster" dogfood threads (audit found in frames 1&5), fixed duplicate 01/05 frames (same chat list with swapped captions), shipped 6 distinct framed screenshots with sanitized professional threads, shipped 22s promo video, Play copy hybrid C now live-ready.
+## Scorecard — 2026-07-15 (stellar remaining)
 
-**Related:** [STORE-ASO-JULY-2026.md](./STORE-ASO-JULY-2026.md), [MONETIZATION-PROMOTION.md](./MONETIZATION-PROMOTION.md), [COMPETITIVE-REPLIT-AGENT.md](./COMPETITIVE-REPLIT-AGENT.md), [fastlane/metadata/README-variants.md](../fastlane/metadata/README-variants.md), [ASC-IOS-BLOCKERS-JULY-2026.md](./ASC-IOS-BLOCKERS-JULY-2026.md)
+| # | Item | Status | Evidence |
+|---|------|--------|----------|
+| 1 | **Submit iOS 1.1 binary (build ≥15, marketing 1.1)** to ASC to replace live 1.0 risky subtitle/keywords | **IN PROGRESS** | ASC version `1.1` = `PREPARE_FOR_SUBMISSION` with safe keywords + whatsNew. Live `1.0` `READY_FOR_SALE` still shows subtitle **"Approve Claude Code, Cursor"** + trademark keywords (locked). Build **14** is marketing **1.0** — cannot attach to 1.1. CI `store-release` iOS blocked once by missing `HERMES_EAS_SPEND_APPROVED` ([run 29430637953](https://github.com/IgorGanapolsky/mac-yolo-safeguards/actions/runs/29430637953)); workflow fixed to pass spend approval + set remote version 1.1. Promo text on 1.0 updated via ASC API. |
+| 2 | **Drive ≥10 installs + first review** (no fake reviews) | **PARTIAL** | Review prompt threshold → **1** first Leash approval (`storeReview.ts`). TestFlight public link created: https://testflight.apple.com/join/AgGzdptW (group `Stellar Installers`; build 14 linked). External beta review **blocked** until 1.1 binary (`CLOSED_VERSION` on 1.0). Internal TF Team (Expo) has build 14. Play Console shows **2** installed audience; ASC customerReviews **0**; iTunes lookup flaky (CDN). Prior HN/Reddit posts remain live. |
+| 3 | **Play Store Listing Experiment** (short desc A vs C + screenshots) | **DONE (running)** | Console shows **In progress**: `Short desc A vs hybrid C` on Default store listing (en-US), started **Jul 14, 2026**, 1 variant @ 50% users. Live control short desc = hybrid C. Screenshot experiment **not started** — Console: “You've reached the maximum allowed experiments” (stop/finish short-desc first). |
+| 4 | **Perf artifact** (Flashlight/Reassure) under `docs/proofs/` | **DONE** | Reassure 3/3 PASS → `docs/proofs/perf/latest.json` + `reassure-current-20260715.perf`. Bundle 3216KB ≤ 8192KB. Flashlight npm package 404 — documented. |
+
+**Live risk (why 1.1 matters):** ASC `READY_FOR_SALE` appInfo subtitle = `Approve Claude Code, Cursor`; keywords include `copilot,windsurf,aider,gemini`. Only a new version binary can replace them.
+
+**Related:** [STORE-ASO-JULY-2026.md](./STORE-ASO-JULY-2026.md), [MONETIZATION-PROMOTION.md](./MONETIZATION-PROMOTION.md), [COMPETITIVE-REPLIT-AGENT.md](./COMPETITIVE-REPLIT-AGENT.md), [fastlane/metadata/README-variants.md](../fastlane/metadata/README-variants.md), [ASC-IOS-BLOCKERS-JULY-2026.md](./ASC-IOS-BLOCKERS-JULY-2026.md), [docs/proofs/perf/README.md](./proofs/perf/README.md)
 
 ---
 
