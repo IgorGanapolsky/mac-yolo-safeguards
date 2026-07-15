@@ -2,6 +2,8 @@
 
 [Greptile](https://www.greptile.com/) reviews pull requests with full-repo context. This repo configures it via version-controlled `.greptile/` folders (recommended July 2026 format).
 
+**Product identity:** Hermes Mobile (app under `IgorGanapolsky/mac-yolo-safeguards`). Greptile workspace display name is **Hermes Mobile**. Do not use legacy org marketing names in docs, dashboards bookmarks, or agent notes.
+
 ## Config locations
 
 | Path | Role |
@@ -24,11 +26,11 @@ Docs Greptile is pointed at: `files.json` in those folders (AGENTS.md, REAL-USER
 |-------|---------------------|
 | GitHub App **Greptile Apps** (`github.com/apps/greptile-apps`) | Installed on `@IgorGanapolsky` with **All repositories** (installation `92872628`) — this is the app that can review PRs |
 | GitHub App **Greptile** (`github.com/apps/greptile`) | Also present (installation `146808081`) but **No repositories / No permissions** — leftover from marketplace install; not sufficient alone |
-| Greptile dashboard org | `app.greptile.com/saasgrowthdispatch` — logged in; **subscription ended**; Code Providers shows **0 GitHub Organizations** until provider is re-linked + free/pro plan activated |
-| Sample `@greptileai review` | Commented on PR #443 / #425 — **no Greptile review yet** (dashboard org not linked / plan inactive) |
+| Greptile dashboard | [app.greptile.com/hermes-mobile](https://app.greptile.com/hermes-mobile) — org **Hermes Mobile** reviewing `IgorGanapolsky/mac-yolo-safeguards`. Never document legacy org URL slugs. |
+| Sample `@greptileai review` | Live reviews appearing on open Hermes Mobile PRs when plan/credits allow; some older PRs may show trial-ended until billing/free plan is confirmed under Organization → Billing |
 
 - Pricing (public FAQ, July 2026): **$30/seat/month**, 50 review credits/seat; free plan up to 50 credits/month for one author; OSS free tier available on request.
-- Finish wiring (Chrome already authenticated): Code Providers → Add Provider → GitHub → link `IgorGanapolsky` → Activate free plan → Repositories → Enable `mac-yolo-safeguards` → `@greptileai review`.
+- Operator path: [app.greptile.com/hermes-mobile](https://app.greptile.com/hermes-mobile) → Code Providers → GitHub `IgorGanapolsky` → Repositories → enable `mac-yolo-safeguards` → `@greptileai review`.
 - Config in this repo is live on merge regardless; Greptile reads `.greptile/` from the PR source branch once reviews run.
 
 ## Review focus (encoded in rules)
