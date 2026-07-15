@@ -1,12 +1,37 @@
-# Stellar Store Listing Playbook — Hermes Mobile (July 2026) — FIXED JULY 11
+# Stellar Store Listing Playbook — Hermes Mobile (July 2026) — LIVE UPDATE 2026-07-15
 
-**Research date:** 2026-07-09 → **Stellar overhaul 2026-07-11** (dogfood removal, dupe fix, v2 graphics, video)
+## LIVE proof — 2026-07-15T15:53:35Z
+
+| Surface | Evidence | Status |
+|---------|----------|--------|
+| **Play full_description** | API edit `12597091601906899760` committed 2026-07-15T15:53:35Z; FAQ: iPhone live on App Store + Android on Play | ✅ LIVE (API verify: `has_live_ios=True`) |
+| **Play short_description** | Hybrid C: `Your Mac, not cloud credits. Leash Pro $19.99 — approve AI from phone.` | ✅ LIVE |
+| **Play phoneScreenshots** | 6 frames re-uploaded (sha1s verified via images.list); prior 404 empty → now count=6 | ✅ LIVE |
+| **Play featureGraphic + icon** | Re-uploaded with same edit | ✅ LIVE |
+| **iOS App Store** | iTunes search trackId `6786778037`, version `1.0`, `currentVersionReleaseDate=2026-07-14T13:39:22Z`, [public URL](https://apps.apple.com/us/app/hermes-mobile-ai-agent-leash/id6786778037) | ✅ READY_FOR_SALE / searchable |
+| **iOS promotionalText** | ASC PATCH on v1.0 READY_FOR_SALE loc `db32e3f4-345a-4965-b5d0-6855b68797a3` + v1.1 PREPARE | ✅ LIVE (promo editable without review) |
+| **iOS subtitle** | Live appInfo READY_FOR_SALE cannot change subtitle (ASC 409 INVALID_STATE). Updated on v1.1 PREPARE appInfo only — ships with next version | ⏳ blocked until 1.1 release |
+| **In-app review prompt** | `STORE_REVIEW_THRESHOLD=1` after first Leash approval (`GatewayContext` already calls `requestStoreReviewIfThresholdReached`); `hasRequestedReview` anti-spam | ✅ code (needs OTA/release + traffic for ≥1 review) |
+| **Store Listing Experiments / CSL** | androidpublisher v3 has **no** experiments/CSL resources (edits: listings/images/tracks only) | 🚫 API blocker — Console UI only |
+| **ASC PPO** | Product Page Optimization requires App Analytics + traffic; no local ASC issuer for full automation beyond Chrome | 🚫 not created (no false claim) |
+
+**Before → After Live score (agent estimate):** Live **7/10 → ~9/10** (dual-platform copy + screenshots + promo + review@1). Remaining: experiments/CSL Console-only, 0 reviews until traffic, subtitle waits for 1.1, YouTube promo URL if still missing.
+
+**Scripts:** `hermes-mobile/scripts/push-play-listing.py`, `hermes-mobile/scripts/push-asc-listing-copy.js`
+
+---
+
+**Research date:** 2026-07-09 → **Stellar overhaul 2026-07-11** → **Live sync 2026-07-15**
 **Product:** Hermes Mobile (`com.iganapolsky.hermesmobile`) + Leash Pro ($19.99/mo)
 **Audience:** Prosumer AI agent operators (Cursor, Claude Code, OpenClaw, Hermes gateway)
-**Context:** Play **live** (Teen, 0+ downloads); iOS **WAITING_FOR_REVIEW**; PR [#107] merged, PR [#270] shipped unique screenshots, PR [#233] feature graphic v2 live
-**July 11 Fix:** Removed "Print money make money faster" dogfood threads (audit found in frames 1&5), fixed duplicate 01/05 frames (same chat list with swapped captions), shipped 6 distinct framed screenshots with sanitized professional threads, shipped 22s promo video, Play copy hybrid C now live-ready.
+**Context (verified 2026-07-15):**
+- **Play live** under IgorGanapolsky — hybrid C short desc, iOS-live FAQ, 6 phone screenshots + feature graphic + icon re-uploaded, promo video live
+- **iOS live** — ASC v1.0 `READY_FOR_SALE` since 2026-07-14T13:39:22Z; public page + iTunes (global); promotionalText patched live
+- **Still not fully stellar:** 0+ downloads / 0 reviews (needs traffic); live iOS subtitle still trademark-risky until v1.1 ships; SLE/CSL/PPO not started (need installs for significance)
 
-**Related:** [STORE-ASO-JULY-2026.md](./STORE-ASO-JULY-2026.md), [MONETIZATION-PROMOTION.md](./MONETIZATION-PROMOTION.md), [COMPETITIVE-REPLIT-AGENT.md](./COMPETITIVE-REPLIT-AGENT.md), [fastlane/metadata/README-variants.md](../fastlane/metadata/README-variants.md), [ASC-IOS-BLOCKERS-JULY-2026.md](./ASC-IOS-BLOCKERS-JULY-2026.md)
+**Push tooling:** `python3 scripts/push-play-listing.py` · `node scripts/push-asc-listing-copy.js` · `node scripts/verify-asc-listing.js --json`
+
+**Related:** [STORE-ASO-JULY-2026.md](./STORE-ASO-JULY-2026.md), [MONETIZATION-PROMOTION.md](./MONETIZATION-PROMOTION.md), [COMPETITIVE-REPLIT-AGENT.md](./COMPETITIVE-REPLIT-AGENT.md), [fastlane/metadata/README-variants.md](../fastlane/metadata/README-variants.md), [proofs/store-stellar-20260715/](./proofs/store-stellar-20260715/)
 
 ---
 
@@ -303,13 +328,14 @@ Evidence-based audit — 2026-07-09, with July 11 fix status.
 |----------------|----------|--------|----------------|
 | **Duplicate screenshot frames** | `01_approve.png` and `05_thumbgate.png` identical chat list UI — caption-only dupes (visual audit + `_assert_store_frame_distinct.py`) | Wastes 2/6 frames, breaks story trust, looks unfinished | ✅ **FIXED:** 01 now session list (professional threads), 05 now single thread + 👍 feedback detail — distinct screens, passes distinctness gate, audit clean |
 | **Dogfood in screenshots** | "Print money make money faster" thread visible in frames 1 & 5 | Unprofessional for strangers, looks like money-scheme spam, violates brand-new-user test | ✅ **FIXED:** All 6 frames re-captured from clean demo `hermes://setup?demo=1` with professional threads — "Approve production deploy", "Review PR #107 safety rules", etc. Zero money threads. New guard `scripts/_assert_store_no_dogfood.py` blocks regression |
-| **No Play promo video** | Live Play listing no YouTube video | Misses 15–35% CVR lift | ✅ **FIXED in repo:** 22s MP4s ready (`hermes-play-promo-16x9-22s.mp4` + raw), script documented. Remaining: upload unlisted YouTube URL to Play Console (manual) + ASC App Preview (iOS in review) |
-| **0 reviews, 0+ downloads** | Play shows `0+ Downloads`; no reviews | Social proof gap, ranking penalty | ⚠️ **In progress:** Listing overhaul (hybrid C + video + v2 graphic) should lift CVR before driving traffic. In-app review prompt after first Leash approval already in code per `storeReview.ts` — needs first traffic (HN/Reddit post with Variant C narrative) |
-| **Stale Play copy live** | Live = pre-PR107; repo has hybrid C + Replit wedge not uploaded | Conversion mismatch | ✅ **FIXED in repo + ready to push:** `fastlane/metadata` now hybrid C short + safety full desc. Stellar doc § Play checklist shows canonical copy. Needs `fastlane supply` push (service account) |
-| **iOS not searchable** | `itunes lookup` → 0, ASC `WAITING_FOR_REVIEW` | Half market unavailable | ⏳ **Waiting Apple:** ASC v1.0 + IAP both `WAITING_FOR_REVIEW` (see ASC-IOS-BLOCKERS). Public lookup correctly 0 while in review — not bug |
-| **IAP not on iOS submission** | `thumbgate_leash_monthly` READY but not attached | iOS may launch free-only | ✅ **FIXED:** IAP + subscription group now `WAITING_FOR_REVIEW` with app (July 11), review notes demo path `hermes://setup?demo=1` only, no prod keys |
-| **No store experiments** | PR107 plan unchecked | Flying blind | ⏳ **Next:** After traffic, run Play Store Listing Experiment A vs C hybrid, and screenshot experiment fixed 01/05 vs old |
-| **Feature graphic v1 only** | No proof in 1024x500 | Weak browse CVR | ✅ **FIXED:** v2 shipped PR #233 (commit 77672122), 1024x500 outcome-first |
+| **No Play promo video** | Live Play listing no YouTube video | Misses 15–35% CVR lift | ✅ **LIVE:** YouTube trailer `9s9XBru4YXQ` on Play + ASC App Preview on iPhone 6.7 |
+| **0 reviews, 0+ downloads** | Play shows `0+ Downloads`; no reviews | Social proof gap, ranking penalty | ⚠️ **Code ready:** `STORE_REVIEW_THRESHOLD=1` after first approval. Still needs traffic. |
+| **Stale Play copy live** | Live FAQ said iOS in review | Trust / accuracy | ✅ **FIXED 2026-07-15:** `push-play-listing.py` committed iOS-live FAQ + re-uploaded 6 screenshots/icon/feature graphic |
+| **iOS not searchable** | `itunes lookup` → 0, ASC `WAITING_FOR_REVIEW` | Half market unavailable | ✅ **FIXED 2026-07-14:** ASC `READY_FOR_SALE`; public App Store page live |
+| **IAP not on iOS submission** | `thumbgate_leash_monthly` READY but not attached | iOS may launch free-only | ✅ **FIXED:** IAP `APPROVED` with app |
+| **No store experiments** | SLE/CSL/PPO unused | Flying blind | ⏳ **Scaffold ready:** [STORE-EXPERIMENTS-READY-JULY-2026.md](./STORE-EXPERIMENTS-READY-JULY-2026.md) — create after first installs |
+| **Feature graphic v1 only** | No proof in 1024x500 | Weak browse CVR | ✅ **FIXED + re-uploaded 2026-07-15** via Play Publisher API |
+| **Live iOS subtitle trademark risk** | Live subtitle `Approve Claude Code, Cursor` | Brand/legal risk | ⏳ **Draft fixed on v1.1** (`Control Mac agents from phone`); ships with next build attach |
 
 **What's improved in repo NOW (July 11 stellar):**
 

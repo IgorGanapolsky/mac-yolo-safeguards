@@ -61,4 +61,4 @@ FAQ
 
 • Do I need a cloud account? No Hermes Mobile account required. Optional Leash Pro subscription for gate rules.
 
-• iPhone? iOS is in App Store review; Android is live on Play.
+• iPhone? Yes — live on App Store as “Hermes Mobile: AI Agent Leash”. Android live on Google Play. Both support Leash Pro $19.99/mo.
