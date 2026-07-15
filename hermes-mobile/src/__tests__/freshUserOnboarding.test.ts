@@ -99,6 +99,16 @@ describe('freshUserOnboarding', () => {
     expect(steps[2]?.body).toContain('Tailscale network');
   });
 
+  it('uses cellular Tailscale steps instead of home Wi‑Fi on cellular', () => {
+    const steps = freshUserOnboardingSteps({
+      tailscaleMacLabel: 'Igors-Mac-mini',
+      cellularBlocksDirect: true,
+    });
+    expect(steps[0]?.title).toBe('Use Tailscale from cellular');
+    expect(steps.map((step) => step.title).join(' ')).not.toContain('Same home Wi‑Fi');
+    expect(steps[2]?.body).toContain('Tailscale network');
+  });
+
   it('searches Tailscale network copy when probing on a Tailscale route', () => {
     const body = freshUserConnectionBody({
       searching: true,

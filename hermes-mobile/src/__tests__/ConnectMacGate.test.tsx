@@ -1,5 +1,5 @@
 import React from 'react';
-import { render } from '@testing-library/react-native';
+import { fireEvent, render } from '@testing-library/react-native';
 import ConnectMacGate from '../components/ConnectMacGate';
 import { DEFAULT_GATEWAY_SETTINGS } from '../types/gateway';
 
@@ -22,6 +22,7 @@ function gateway(overrides = {}) {
       ...DEFAULT_GATEWAY_SETTINGS,
       connectionMode: 'gateway',
       demoMode: false,
+      connectMacGateDismissed: false,
     },
     gatewayBootstrapPhase: 'idle',
     isGatewayReachable: false,
@@ -30,7 +31,9 @@ function gateway(overrides = {}) {
     profileScanProgress: null,
     profileScanResult: null,
     gatewayProfiles: [],
+    activeGatewayProfile: null,
     effectiveGatewayUrl: '',
+    wifiConnected: true,
     applySetupDeepLink: jest.fn(),
     retryGatewayBootstrap: jest.fn(),
     scanForGatewayProfiles: jest.fn(),
@@ -39,6 +42,8 @@ function gateway(overrides = {}) {
     addDiscoveredTailscaleComputer: jest.fn(),
     probeTailscaleComputers: jest.fn(),
     addGatewayProfile: jest.fn(),
+    patchSettings: jest.fn().mockResolvedValue(undefined),
+    selectGatewayProfile: jest.fn().mockResolvedValue(true),
     ...overrides,
   };
 }
@@ -96,6 +101,63 @@ describe('ConnectMacGate', () => {
   it('does not cover Chat during explicit E2E automation bootstrap', () => {
     process.env.EXPO_PUBLIC_E2E_AUTOMATION = '1';
     mockUseGateway.mockReturnValue(gateway());
+
+    const view = render(<ConnectMacGate />);
+
+    expect(view.queryByTestId('connect-mac-gate')).toBeNull();
+  });
+
+  it('shows Not now dismiss and persists connectMacGateDismissed', () => {
+    delete process.env.EXPO_PUBLIC_E2E_AUTOMATION;
+    const patchSettings = jest.fn().mockResolvedValue(undefined);
+    mockUseGateway.mockReturnValue(gateway({ patchSettings }));
+
+    const view = render(<ConnectMacGate />);
+
+    expect(view.getByTestId('connect-mac-gate-dismiss')).toBeTruthy();
+    fireEvent.press(view.getByTestId('connect-mac-gate-dismiss'));
+    expect(patchSettings).toHaveBeenCalledWith({ connectMacGateDismissed: true });
+  });
+
+  it('hides gate when user previously dismissed it', () => {
+    delete process.env.EXPO_PUBLIC_E2E_AUTOMATION;
+    mockUseGateway.mockReturnValue(
+      gateway({
+        settings: {
+          ...DEFAULT_GATEWAY_SETTINGS,
+          connectionMode: 'gateway',
+          demoMode: false,
+          connectMacGateDismissed: true,
+        },
+      }),
+    );
+
+    const view = render(<ConnectMacGate />);
+
+    expect(view.queryByTestId('connect-mac-gate')).toBeNull();
+  });
+
+  it('hides gate once non-loopback computers are discovered', () => {
+    delete process.env.EXPO_PUBLIC_E2E_AUTOMATION;
+    mockUseGateway.mockReturnValue(
+      gateway({
+        gatewayProfiles: [
+          {
+            id: 'mbp',
+            label: 'Igors-MacBook-Pro',
+            gatewayUrl: 'http://192.168.1.10:8642',
+            addedAt: '2026-07-14T00:00:00.000Z',
+          },
+          {
+            id: 'mini',
+            label: 'Igors-Mac-mini',
+            gatewayUrl: 'http://100.94.135.78:8642',
+            addedAt: '2026-07-14T00:00:00.000Z',
+          },
+        ],
+        profileScanResult: { foundCount: 2, completedAtMs: Date.now() },
+      }),
+    );
 
     const view = render(<ConnectMacGate />);
 

@@ -1,10 +1,12 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import {
+  BackHandler,
   Keyboard,
   ScrollView,
   StyleSheet,
   Text,
   TextInput,
+  TouchableOpacity,
   View,
 } from 'react-native';
 import { useGateway } from '../context/GatewayContext';
@@ -14,10 +16,13 @@ import PairQrScannerModal from './PairQrScannerModal';
 import FreshUserOnboardingCard from './FreshUserOnboardingCard';
 import TailscaleDiscoveryBanner from './TailscaleDiscoveryBanner';
 import MacScanProgressCard from './MacScanProgressCard';
+import GatewayProfilePicker from './GatewayProfilePicker';
 import LoadingButton from './ui/LoadingButton';
 import { tailscaleDiscoveryLabel } from '../services/tailscaleDiscovery';
 import { cleanManualGatewayUrl, isLoopbackGatewayUrl } from '../utils/gatewayUrlPolicy';
 import { isTailscaleGatewayUrl } from '../utils/tailscaleHosts';
+import { hasValidSavedComputer } from '../utils/freshUserOnboarding';
+import { profilesForDevicePicker } from '../utils/gatewayProfilePicker';
 import {
   isE2eAutomationBuild,
   isStoreReviewDemoBuild,
@@ -41,7 +46,9 @@ export default function ConnectMacGate() {
     profileScanProgress,
     profileScanResult,
     gatewayProfiles,
+    activeGatewayProfile,
     effectiveGatewayUrl,
+    wifiConnected,
     applySetupDeepLink,
     retryGatewayBootstrap,
     scanForGatewayProfiles,
@@ -51,6 +58,7 @@ export default function ConnectMacGate() {
     probeTailscaleComputers,
     addGatewayProfile,
     patchSettings,
+    selectGatewayProfile,
   } = useGateway();
 
   const [qrVisible, setQrVisible] = useState(false);
@@ -61,6 +69,22 @@ export default function ConnectMacGate() {
   const [addingProfile, setAddingProfile] = useState(false);
   const [manualInputError, setManualInputError] = useState<string | null>(null);
   const [enablingDemo, setEnablingDemo] = useState(false);
+  const [dismissing, setDismissing] = useState(false);
+
+  const dismissGate = useCallback(async () => {
+    if (dismissing) {
+      return;
+    }
+    setDismissing(true);
+    try {
+      await patchSettings({ connectMacGateDismissed: true });
+      haptics.light();
+    } catch {
+      haptics.warning();
+    } finally {
+      setDismissing(false);
+    }
+  }, [dismissing, patchSettings]);
 
   const handleExploreDemo = async () => {
     setEnablingDemo(true);
@@ -99,7 +123,9 @@ export default function ConnectMacGate() {
   };
 
   const hasSavedMac =
-    gatewayProfiles.some((profile) => !isLoopbackGatewayUrl(profile.gatewayUrl)) ||
+    hasValidSavedComputer(
+      gatewayProfiles.filter((profile) => !isLoopbackGatewayUrl(profile.gatewayUrl)),
+    ) ||
     [effectiveGatewayUrl, settings.gatewayUrl].some(
       (url) => Boolean(url?.trim()) && !isLoopbackGatewayUrl(url || ''),
     );
@@ -109,9 +135,16 @@ export default function ConnectMacGate() {
     !isE2eAutomationBuild() &&
     !isStoreReviewDemoBuild() &&
     !settings.demoMode &&
+    !settings.connectMacGateDismissed &&
     !isGatewayReachable &&
     settings.connectionMode === 'gateway' &&
     !hasSavedMac;
+
+  const cellularBlocksDirect = !wifiConnected;
+  const activeProfileId = activeGatewayProfile?.id ?? null;
+  const pickerProfiles = profilesForDevicePicker(gatewayProfiles).filter(
+    (profile) => !isLoopbackGatewayUrl(profile.gatewayUrl),
+  );
 
   const searching =
     isSearching ||
@@ -148,6 +181,17 @@ export default function ConnectMacGate() {
     return () => clearInterval(timer);
   }, [showGate, searching, runWifiSearch]);
 
+  useEffect(() => {
+    if (!showGate) {
+      return;
+    }
+    const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
+      void dismissGate();
+      return true;
+    });
+    return () => subscription.remove();
+  }, [dismissGate, showGate]);
+
   const primaryTailscaleLabel =
     tailscaleDiscoveries.length > 0
       ? tailscaleDiscoveryLabel(tailscaleDiscoveries[0])
@@ -163,15 +207,29 @@ export default function ConnectMacGate() {
             keyboardShouldPersistTaps="handled"
           >
             <View style={styles.card}>
-              <Text style={styles.title}>Connect your computer</Text>
+              <View style={styles.titleRow}>
+                <Text style={styles.title}>Connect your computer</Text>
+                <TouchableOpacity
+                  onPress={() => void dismissGate()}
+                  disabled={dismissing}
+                  accessibilityRole="button"
+                  accessibilityLabel="Not now"
+                  testID="connect-mac-gate-dismiss"
+                >
+                  <Text style={styles.dismissText}>{dismissing ? '…' : 'Not now'}</Text>
+                </TouchableOpacity>
+              </View>
               <Text style={styles.body}>
-                Hermes on your phone talks to Hermes on your computer. Follow the steps below — we
-                search your home Wi‑Fi automatically.
+                Hermes on your phone talks to Hermes on your computer. Follow the steps below
+                {cellularBlocksDirect
+                  ? ' — on cellular, use Tailscale to reach your Mac.'
+                  : ' — we search your home Wi‑Fi automatically.'}
               </Text>
 
               <FreshUserOnboardingCard
                 profiles={gatewayProfiles}
                 tailscaleMacLabel={primaryTailscaleLabel}
+                cellularBlocksDirect={cellularBlocksDirect}
                 testID="connect-mac-onboarding-card"
               />
 
@@ -192,6 +250,23 @@ export default function ConnectMacGate() {
                 result={profileScanResult}
                 testID="connect-mac-scan-progress"
               />
+
+              {pickerProfiles.length > 0 ? (
+                <GatewayProfilePicker
+                  profiles={pickerProfiles}
+                  activeProfileId={activeProfileId}
+                  onSelect={(profileId, profile) => {
+                    void selectGatewayProfile(profileId, { ensureProfile: profile }).then(() =>
+                      retryGatewayBootstrap(),
+                    );
+                  }}
+                  scanning={false}
+                  scanProgress={null}
+                  scanResult={null}
+                  wifiConnected={wifiConnected}
+                  showReachabilityHints={pickerProfiles.length > 1}
+                />
+              ) : null}
 
               {!searching && !profileScanResult ? (
                 <Text style={styles.statusText}>{describeBootstrapPhase(gatewayBootstrapPhase)}</Text>
@@ -320,10 +395,23 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   title: {
+    flex: 1,
     fontSize: 22,
     fontWeight: '900',
     color: colors.text,
     letterSpacing: 0.5,
+  },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  dismissText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.textMuted,
+    paddingTop: 4,
   },
   body: {
     fontSize: 14,

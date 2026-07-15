@@ -14,6 +14,7 @@ type FreshUserOnboardingCardProps = {
   profiles: GatewayProfile[];
   activeProfileId?: string | null;
   tailscaleMacLabel?: string;
+  cellularBlocksDirect?: boolean;
   testID?: string;
 };
 
@@ -21,12 +22,17 @@ export default function FreshUserOnboardingCard({
   profiles,
   activeProfileId = null,
   tailscaleMacLabel,
+  cellularBlocksDirect = false,
   testID = 'fresh-user-onboarding-card',
 }: FreshUserOnboardingCardProps) {
   const freshUser = isFreshUserUnpaired(profiles);
   const onTailscaleRoute = isOnTailscaleRoute(profiles, activeProfileId);
   const heading = freshUserOnboardingHeading(freshUser);
-  const steps = freshUserOnboardingSteps({ tailscaleMacLabel, onTailscaleRoute });
+  const steps = freshUserOnboardingSteps({
+    tailscaleMacLabel,
+    onTailscaleRoute,
+    cellularBlocksDirect,
+  });
 
   return (
     <View style={styles.wrap} testID={testID}>

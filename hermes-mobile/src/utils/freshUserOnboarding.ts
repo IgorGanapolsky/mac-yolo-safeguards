@@ -72,6 +72,8 @@ export function isOnTailscaleRoute(
 export function freshUserOnboardingSteps(input: {
   tailscaleMacLabel?: string;
   onTailscaleRoute?: boolean;
+  /** Phone on cellular — home Wi‑Fi step 1 is misleading. */
+  cellularBlocksDirect?: boolean;
 }): FreshUserOnboardingStep[] {
   if (input.onTailscaleRoute) {
     const macLabel = input.tailscaleMacLabel ?? 'your computer';
@@ -102,6 +104,32 @@ export function freshUserOnboardingSteps(input: {
   const awayBody = input.tailscaleMacLabel
     ? `Tap Add ${input.tailscaleMacLabel} below — works on cellular or any Wi‑Fi when Tailscale is on.`
     : 'Install Tailscale on your phone and computer. An Add [computer name] button appears here when we find it.';
+
+  if (input.cellularBlocksDirect) {
+    const macLabel = input.tailscaleMacLabel ?? 'your computer';
+    return [
+      {
+        step: 1,
+        title: 'Use Tailscale from cellular',
+        body: 'Home Wi‑Fi addresses do not work on cellular. Install Tailscale on your phone and computer.',
+      },
+      {
+        step: 2,
+        title: 'Hermes running on your Mac',
+        body: `Start Hermes on ${macLabel} and leave it running.`,
+      },
+      {
+        step: 3,
+        title: 'Find your computer',
+        body: 'Tap Find computers below. We search your Tailscale network for Hermes.',
+      },
+      {
+        step: 4,
+        title: 'Add your computer',
+        body: awayBody,
+      },
+    ];
+  }
 
   return [
     {
