@@ -1,7 +1,7 @@
 import type { GatewayProfile } from '../types/gatewayProfile';
 import type { ChatMachineHeaderDisplay } from './chatMachineHeader';
 import { hasOnlyLoopbackProfiles } from './gatewayProfilePicker';
-import { isFreshUserUnpaired, hasValidSavedComputer } from './freshUserOnboarding';
+import { hasValidSavedComputer } from './freshUserOnboarding';
 import { isLoopbackGatewayUrl } from './gatewayUrlPolicy';
 
 /** True when any saved profile has a successful connect timestamp. */
@@ -27,12 +27,11 @@ export function shouldQuietConnectFlowChrome(input: {
   if (input.macPickerVisible) {
     return true;
   }
+  // Connection help / first-run panel owns the narrative — hide USB/relay thrash above it.
   if (input.showMacConnectionHelp) {
     return true;
   }
-  if (isFreshUserUnpaired(input.profiles)) {
-    return true;
-  }
+  // Loopback-only USB dogfood with no real Mac yet (emulator / adb reverse seed).
   if (hasOnlyLoopbackProfiles(input.profiles) && isLoopbackGatewayUrl(input.gatewayUrl)) {
     return true;
   }

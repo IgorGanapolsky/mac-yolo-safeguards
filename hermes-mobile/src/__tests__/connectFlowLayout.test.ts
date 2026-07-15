@@ -53,7 +53,7 @@ describe('connectFlowLayout', () => {
     ).toBe(false);
   });
 
-  it('quiets USB dogfood / unpaired fresh-user chrome', () => {
+  it('quiets USB dogfood / connection-help chrome, not unpaired relay chat', () => {
     expect(
       shouldQuietConnectFlowChrome({
         macPickerVisible: false,
@@ -66,10 +66,19 @@ describe('connectFlowLayout', () => {
       shouldQuietConnectFlowChrome({
         macPickerVisible: false,
         showMacConnectionHelp: false,
+        profiles: [loopback],
+        gatewayUrl: loopback.gatewayUrl,
+      }),
+    ).toBe(true);
+    // Unpaired relay with chat available — keep Pair-relay status visible.
+    expect(
+      shouldQuietConnectFlowChrome({
+        macPickerVisible: false,
+        showMacConnectionHelp: false,
         profiles: [],
         gatewayUrl: '',
       }),
-    ).toBe(true);
+    ).toBe(false);
   });
 
   it('does not quiet a healthy returning multi-Mac session without picker', () => {
