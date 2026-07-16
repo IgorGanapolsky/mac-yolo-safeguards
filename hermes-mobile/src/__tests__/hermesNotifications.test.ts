@@ -11,6 +11,7 @@ import {
   resolveHermesNotificationHandlerResult,
   RUN_STATUS_MIN_INTERVAL_MS,
   runProgressNotificationTitle,
+  scheduleRunCompletedNotification,
   scheduleApprovalsSummaryNotification,
   scheduleRunProgressNotification,
   scheduleRunStallNotification,
@@ -108,6 +109,12 @@ describe('hermesNotifications', () => {
         startedAtMs: Date.now(),
       }),
     ).toBe('Hermes is responding');
+    expect(
+      runProgressNotificationTitle({
+        phase: 'completed',
+        startedAtMs: Date.now(),
+      }),
+    ).toBe('Hermes replied');
   });
 
   it('dismisses run notifications when the app is foregrounded', () => {
@@ -229,6 +236,36 @@ describe('hermesNotifications', () => {
       expect(call.content.channelId).toBe(CHANNEL_STATUS_V2);
       expect(call.content.priority).toBe(Notifications.AndroidNotificationPriority.LOW);
       expect(call.content.data.type).toBe('run_progress');
+    });
+
+    it('removes elapsed and computer-centric copy from a completed progress notification', async () => {
+      await scheduleRunProgressNotification(
+        {
+          phase: 'completed',
+          startedAtMs: Date.now() - 180_000,
+          duration: 180,
+          detail: 'Reply ready on your computer',
+        },
+        { runId: 'run-2', sessionId: 'sess-2', force: true },
+      );
+
+      const call = (Notifications.scheduleNotificationAsync as jest.Mock).mock.calls[0][0];
+      expect(call.content.title).toBe('Hermes replied');
+      expect(call.content.body).toBe('Reply received. Open Hermes to read it.');
+      expect(call.content.body).not.toMatch(/3\s*min|computer/i);
+    });
+
+    it('uses an available reply excerpt in the completion notification', async () => {
+      await scheduleRunCompletedNotification('The OTA fix is merged and ready to verify.', {
+        success: true,
+        runId: 'run-3',
+        sessionId: 'sess-3',
+      });
+
+      const call = (Notifications.scheduleNotificationAsync as jest.Mock).mock.calls[0][0];
+      expect(call.content.title).toBe('Hermes replied');
+      expect(call.content.subtitle).toBe('Reply received');
+      expect(call.content.body).toBe('The OTA fix is merged and ready to verify.');
     });
 
     it('rate-limits even when force is set so stream tokens cannot spam', async () => {

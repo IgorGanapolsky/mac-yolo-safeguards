@@ -142,7 +142,36 @@ export function runProgressNotificationTitle(progress: RunProgressState): string
   if (progress.phase === 'streaming') {
     return 'Hermes is responding';
   }
+  if (progress.phase === 'completed') {
+    return 'Hermes replied';
+  }
+  if (progress.phase === 'failed') {
+    return 'Hermes run stopped';
+  }
   return 'Hermes is working';
+}
+
+function terminalNotificationBody(detail: string | undefined, success: boolean): string {
+  const withoutElapsed = (detail ?? '')
+    .trim()
+    .replace(/^\d+(?:\.\d+)?\s*(?:s|sec(?:onds?)?|m|min(?:utes?)?)\s*[—-]\s*/i, '')
+    .slice(0, 180);
+  if (!success) {
+    return withoutElapsed || 'The run ended with an error.';
+  }
+  if (!withoutElapsed || /^reply ready on your computer\.?$/i.test(withoutElapsed)) {
+    return 'Reply received. Open Hermes to read it.';
+  }
+  return withoutElapsed;
+}
+
+export function runProgressNotificationBody(progress: RunProgressState): string {
+  if (progress.phase === 'completed' || progress.phase === 'failed') {
+    return terminalNotificationBody(progress.detail, progress.phase === 'completed');
+  }
+  return formatRunProgressLabel(progress)
+    .replace(/^⌛\s*Working\s*—\s*/i, '')
+    .slice(0, 180);
 }
 
 export function shouldDismissRunNotificationsForAppState(appState: string): boolean {
@@ -617,9 +646,7 @@ export async function scheduleRunProgressNotification(
   }
   lastRunStatusAt = now;
 
-  const body = formatRunProgressLabel(progress)
-    .replace(/^⌛\s*Working\s*—\s*/i, '')
-    .slice(0, 180);
+  const body = runProgressNotificationBody(progress);
 
   // Same identifier → in-place update. Do not cancel+recreate (retriggers heads-up).
   await Notifications.scheduleNotificationAsync({
@@ -673,15 +700,15 @@ export async function scheduleRunCompletedNotification(
 
   await clearRunProgressNotification();
 
-  const trimmed = detail.trim().slice(0, 180);
   const success = options?.success ?? true;
+  const body = terminalNotificationBody(detail, success);
 
   await Notifications.scheduleNotificationAsync({
     identifier: RUN_COMPLETED_NOTIFICATION_ID,
     content: {
-      title: success ? 'Hermes finished' : 'Hermes run stopped',
-      subtitle: success ? 'Computer' : 'Check chat for details',
-      body: trimmed || (success ? 'Background task completed.' : 'The run ended with an error.'),
+      title: success ? 'Hermes replied' : 'Hermes run stopped',
+      subtitle: success ? 'Reply received' : 'Check chat for details',
+      body,
       categoryIdentifier: CATEGORY_RUN,
       threadIdentifier: THREAD_RUNS,
       ...(Platform.OS === 'ios'

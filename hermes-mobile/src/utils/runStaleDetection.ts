@@ -105,7 +105,18 @@ export function isMeaningfulRunProgressChange(
   if (!prev) {
     return true;
   }
-  return prev.phase !== next.phase || (prev.detail ?? '') !== (next.detail ?? '');
+  const outputAdvanced =
+    typeof next.outputTokens === 'number' &&
+    next.outputTokens > (typeof prev.outputTokens === 'number' ? prev.outputTokens : 0);
+  const totalAdvanced =
+    typeof next.totalTokens === 'number' &&
+    next.totalTokens > (typeof prev.totalTokens === 'number' ? prev.totalTokens : 0);
+  return (
+    prev.phase !== next.phase ||
+    (prev.detail ?? '') !== (next.detail ?? '') ||
+    outputAdvanced ||
+    totalAdvanced
+  );
 }
 
 export function stampRunProgressActivity(

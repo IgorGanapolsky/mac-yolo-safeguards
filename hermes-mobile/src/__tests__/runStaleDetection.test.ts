@@ -46,11 +46,28 @@ describe('runStaleDetection', () => {
     expect(classifyRunStale(baseProgress(), RUN_STALE_AUTO_FAIL_MS + 1)).toBe('expired');
   });
 
-  it('does not treat token-only updates as meaningful progress', () => {
-    const prev = baseProgress({ detail: 'running bash', lastProgressAtMs: 50_000 });
-    const next = { ...prev, inputTokens: 100, outputTokens: 20 };
+  it('does not treat unchanged token counters as meaningful progress', () => {
+    const prev = baseProgress({
+      detail: 'running bash',
+      lastProgressAtMs: 50_000,
+      inputTokens: 100,
+      outputTokens: 20,
+    });
+    const next = { ...prev };
     expect(isMeaningfulRunProgressChange(prev, next)).toBe(false);
     expect(stampRunProgressActivity(prev, next, 200_000).lastProgressAtMs).toBe(50_000);
+  });
+
+  it('treats advancing output tokens as meaningful progress', () => {
+    const prev = baseProgress({
+      detail: 'running bash',
+      lastProgressAtMs: 50_000,
+      outputTokens: 20,
+    });
+    const next = { ...prev, outputTokens: 21 };
+
+    expect(isMeaningfulRunProgressChange(prev, next)).toBe(true);
+    expect(stampRunProgressActivity(prev, next, 200_000).lastProgressAtMs).toBe(200_000);
   });
 
   it('stamps lastProgressAtMs on detail change', () => {
