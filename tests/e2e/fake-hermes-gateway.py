@@ -5,9 +5,9 @@ Serves just enough of the real surface for scripts/hermes-gateway-watchdog.sh to
 drive end to end against a real process over real HTTP (no mocks):
 
   GET  /health                -> 200 (liveness the watchdog polls)
-  GET  /api/ps                -> {"models":[...]} — empty until a pin arrives,
-                                 then reports the model resident (so a second
-                                 tick does not redundantly re-pin)
+  GET  /api/ps                -> {"models":[...]} — empty in the default
+                                 on-demand scenario; reports resident if the
+                                 explicit pin endpoint is exercised
   POST /api/generate          -> records "PIN", marks the model resident
   POST /v1/chat/completions   -> records "WARMUP" (the pre-warm turns)
 
