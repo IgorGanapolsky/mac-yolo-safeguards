@@ -807,7 +807,11 @@ function spawnOriginal(entry, args, env = process.env) {
 
 function runCommand(name, args, env = process.env) {
   const entry = manifestEntry(name, env);
-  if (!markerActive(env)) return spawnOriginal(entry, args, env);
+  // `grok-yolo` is an explicit local-only product command, not merely a
+  // temporary fleet-wide zero-spend override. Keep it on loopback Ollama even
+  // when another workflow removes the global marker; otherwise the same shim
+  // silently falls back to the authenticated paid Grok route.
+  if (!markerActive(env) && name !== 'grok-yolo') return spawnOriginal(entry, args, env);
 
   if (!isLocalOnlyCommand(name)) {
     writeReceipt(name, 'blocked', { originalSpawned: false, exitCode: BLOCKED_EXIT }, env);
