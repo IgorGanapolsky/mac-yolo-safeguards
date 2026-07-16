@@ -41,7 +41,10 @@ MOCK
 chmod +x "$TMP/lsof"
 
 # Run the guard with isolated state + FORCED memory pressure (free<200% always
-# true) unless overridden by the caller's extra env.
+# true) unless overridden by the caller's extra env. Keep the defaults inside
+# env rather than shell-scoped prefix assignments: macOS /bin/sh persists an
+# assignment made before a function call when the variable was previously
+# unset, which can contaminate every later test case.
 run_guard() {
   env \
     YOLO_LOG="$TMP/guard.log" \
@@ -61,8 +64,8 @@ run_guard() {
     YOLO_LSOF_BIN="$TMP/lsof" \
     YOLO_E2E_LEASE_FILE="$E2E_LEASE_FILE" \
     YOLO_BYPASS_E2E_LEASE="1" \
-    YOLO_MEM_FREE_PCT_THRESHOLD="${FREE_T:-200}" \
-    YOLO_SWAP_PCT_THRESHOLD="${SWAP_T:-80}" \
+    YOLO_MEM_FREE_PCT_THRESHOLD="200" \
+    YOLO_SWAP_PCT_THRESHOLD="80" \
     "$@" \
     /bin/sh "$GUARD" >/dev/null 2>&1
 }
@@ -80,11 +83,13 @@ grep -q "E2E_LEASE: guard paused for active test pid=$$" "$TMP/lease.log" \
   || bad "T0: active E2E PID lease was not honored"
 echo 999999 > "$E2E_LEASE_FILE"
 : > "$TMP/guard.log"
-FREE_T="0" SWAP_T="999" run_guard \
+run_guard \
   YOLO_BYPASS_E2E_LEASE="0" \
   YOLO_RECLAIM_SECONDARY_BROWSERS="0" \
   YOLO_CPU_PCT_THRESHOLD="9999" \
-  YOLO_CODEQL_CPU_PCT_THRESHOLD="9999"
+  YOLO_CODEQL_CPU_PCT_THRESHOLD="9999" \
+  YOLO_MEM_FREE_PCT_THRESHOLD="0" \
+  YOLO_SWAP_PCT_THRESHOLD="999"
 grep -q "E2E_LEASE:" "$TMP/guard.log" \
   && bad "T0: stale E2E PID lease disabled the guard" \
   || ok "T0: stale E2E PID lease cannot disable the guard"
@@ -119,9 +124,10 @@ kill -9 "$OPT_PID" 2>/dev/null
 
 # --- T4: NO memory pressure => reclaim block never runs ---
 NOP_PID=$(mkfake "$SEC"); sleep 1
-# FREE_T/SWAP_T must be set in the FUNCTION's scope (it expands ${FREE_T:-200}
-# before forwarding "$@"), so prefix the call rather than passing them as args.
-FREE_T="0" SWAP_T="999" run_guard YOLO_SECONDARY_BROWSERS="YoloFakeBrowser"
+run_guard \
+  YOLO_SECONDARY_BROWSERS="YoloFakeBrowser" \
+  YOLO_MEM_FREE_PCT_THRESHOLD="0" \
+  YOLO_SWAP_PCT_THRESHOLD="999"
 sleep 1
 alive "$NOP_PID" && ok  "T4: no pressure => secondary browser untouched" \
                  || bad "T4: killed a browser with NO memory pressure (false fire!)"
@@ -153,7 +159,7 @@ kill -9 "$CPU_PID" 2>/dev/null
 COMET="$TMP/Comet.app/Contents/MacOS/Comet"
 COMET_PID=$(mkfake "$COMET")
 sleep 1
-FREE_T="200" SWAP_T="80" run_guard YOLO_MEM_APP_AGG_MB_THRESHOLD="0" YOLO_MEM_APP_LAST_FILE="$TMP/mem-app-last-comet"
+run_guard YOLO_MEM_APP_AGG_MB_THRESHOLD="0" YOLO_MEM_APP_LAST_FILE="$TMP/mem-app-last-comet"
 grep -q "App:   Comet" "$TMP/mem-app-status.txt" \
   && ok  "T8: aggregate memory report includes Comet" \
   || bad "T8: Comet missing from aggregate memory report"
@@ -178,15 +184,17 @@ CODEQL1=$(mkbusyfake "java com.semmle.cli2.CodeQL execute language-server")
 CODEQL2=$(mkbusyfake "java com.semmle.cli2.CodeQL execute language-server")
 # Let busy fakes accumulate CPU % before ps sampling (GitHub macOS runners are slow).
 sleep 2
-# FREE_T/SWAP_T must be set in the shell scope (see T4); disable memory-pressure side paths.
-FREE_T="0" SWAP_T="999" run_guard \
+# Disable memory-pressure side paths while the CPU-only branch is under test.
+run_guard \
   YOLO_CPU_PCT_THRESHOLD="9999" \
   YOLO_CPU_AUTOKILL_CMD_PATTERNS="semgrep-core" \
   YOLO_CODEQL_CPU_PCT_THRESHOLD="1" \
   YOLO_CODEQL_CPU_TOTAL_THRESHOLD="2" \
   YOLO_CODEQL_MIN_PROCS="2" \
   YOLO_CODEQL_SUSTAINED_FIRES="1" \
-  YOLO_CODEQL_DISABLE_AFTER_FIRES="1"
+  YOLO_CODEQL_DISABLE_AFTER_FIRES="1" \
+  YOLO_MEM_FREE_PCT_THRESHOLD="0" \
+  YOLO_SWAP_PCT_THRESHOLD="999"
 sleep 1
 if alive "$CODEQL1" || alive "$CODEQL2"; then
   bad "T10: aggregate CodeQL workers were NOT reclaimed"
