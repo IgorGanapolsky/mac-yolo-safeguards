@@ -95,6 +95,18 @@ bash scripts/install-grok-yolo.sh --update
 See [Hermes Grok 4.5 Harness](docs/HERMES-GROK45-HARNESS.md) for standalone,
 Hermes, safety, authentication, and billing behavior.
 
+After [Grok Build went open source](https://x.ai/news/grok-build-open-source), install
+the high-ROI fleet integration (local Ollama/LiteLLM model routes + PreToolUse
+safety hooks) on both Macs:
+
+```sh
+bash scripts/install-grok-build-fleet.sh
+grok-build-fleet --doctor --json
+```
+
+Details: [Grok Build open-source fleet](docs/GROK-BUILD-OPEN-SOURCE-FLEET.md).
+Default cloud model is unchanged; use `grok -m ollama-hermes-64k` for local $0 runs.
+
 After routing real tasks, inspect the active backend and mine the prompt-free
 receipts without spending tokens:
 
