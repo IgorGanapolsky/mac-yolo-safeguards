@@ -5,6 +5,7 @@ import type { LanScanProgress, LanScanResult } from '../types/lanScan';
 import MacScanProgressCard from './MacScanProgressCard';
 import {
   isCablePluggedInForProfile,
+  isPickerAlsoOnTailscale,
   profileConnectionRouteDisplayLabel,
   profilePickerLines,
   type LiveUsbPickerInput,
@@ -67,7 +68,10 @@ export default function GatewayProfilePicker({
       {profiles.map((profile) => {
         const isActive = profile.id === activeProfileId;
         const cablePluggedIn = isCablePluggedInForProfile(profile, liveUsb);
-        const lines = profilePickerLines(profile, { cablePluggedIn });
+        const lines = profilePickerLines(profile, {
+          cablePluggedIn,
+          alsoOnTailscale: isPickerAlsoOnTailscale(profile),
+        });
         const routeHint = showRouteHints
           ? profileConnectionRouteDisplayLabel(profile, wifiConnected, { cablePluggedIn })
           : null;

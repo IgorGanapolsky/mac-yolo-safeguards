@@ -22,8 +22,12 @@ export function formatLanScanStageLabel(progress: LanScanProgress): string {
     progress.totalHosts > 0
       ? Math.round((progress.completedHosts / progress.totalHosts) * 100)
       : 0;
+  // foundCount is distinct Hermes HTTP endpoints (loopback/LAN/Tailscale), NOT picker rows.
+  // USB+LAN+TS for one Mac collapse to one computer — do not say "machines" here.
   const foundHint =
-    progress.foundCount > 0 ? ` · ${progress.foundCount} found so far` : '';
+    progress.foundCount > 0
+      ? ` · ${progress.foundCount} Hermes link${progress.foundCount === 1 ? '' : 's'} responding`
+      : '';
   if (progress.stage === 'pair_server') {
     return `Scanning local network for Hermes (${pct}%)${foundHint}`;
   }
@@ -32,14 +36,15 @@ export function formatLanScanStageLabel(progress: LanScanProgress): string {
 
 export function formatLanScanResultLabel(foundCount: number): string {
   if (foundCount === 0) {
-    return 'No local Hermes machines found';
+    return 'No Hermes computers found nearby';
   }
-  return `Found ${foundCount} local Hermes machine${foundCount === 1 ? '' : 's'}`;
+  // list.length after discovery; still may collapse further in the picker to one row per Mac.
+  return `Found ${foundCount} Hermes link${foundCount === 1 ? '' : 's'} (one row per computer below)`;
 }
 
 export function formatLanScanResultDetail(result: LanScanResult): string {
   if (result.foundCount === 0) {
     return 'Use Hermes Relay for anywhere approvals, or start Hermes nearby and scan again for direct control.';
   }
-  return 'Tap a machine below to target it, or search again to refresh the local list.';
+  return 'Each computer is listed once. USB and Tailscale to the same Mac are not shown as two rows.';
 }

@@ -23,6 +23,14 @@ export type ProfilePickerLines = {
   detail?: string;
 };
 
+/** Picker-only: USB row that also has a Tailscale twin for the same Mac (not persisted). */
+const pickerAlsoOnTailscale = new WeakMap<GatewayProfile, boolean>();
+
+export function isPickerAlsoOnTailscale(profile: GatewayProfile): boolean {
+  return pickerAlsoOnTailscale.get(profile) === true;
+}
+
+
 export type LiveUsbPickerInput = {
   reachable: boolean;
   hostname?: string | null;
@@ -52,14 +60,17 @@ function profilePickerEndpoint(profile: GatewayProfile): string | undefined {
 
 export function profilePickerLines(
   profile: GatewayProfile,
-  options: { cablePluggedIn?: boolean } = {},
+  options: { cablePluggedIn?: boolean; alsoOnTailscale?: boolean } = {},
 ): ProfilePickerLines {
   const title = profileDisplayName(profile);
+  const alsoTs = options.alsoOnTailscale === true || isPickerAlsoOnTailscale(profile);
   if (options.cablePluggedIn) {
     return {
       title,
       detail: isLoopbackGatewayUrl(profile.gatewayUrl)
-        ? 'Using this USB cable'
+        ? alsoTs
+          ? 'Using this USB cable · also on Tailscale'
+          : 'Using this USB cable'
         : 'Cable plugged in — works off Wi‑Fi too',
     };
   }
@@ -206,7 +217,14 @@ export function collapseToOneProfilePerMachine(
   }
   const collapsed: GatewayProfile[] = [];
   for (const group of groups.values()) {
-    collapsed.push(preferredProfileForMachine(group, options));
+    const preferred = preferredProfileForMachine(group, options);
+    const hasTailscaleTwin = group.some((p) => isTailscaleGatewayUrl(p.gatewayUrl));
+    // When USB wins for a cabled Mac, still tell the user Tailscale exists for that machine.
+    pickerAlsoOnTailscale.set(
+      preferred,
+      hasTailscaleTwin && isLoopbackGatewayUrl(preferred.gatewayUrl),
+    );
+    collapsed.push(preferred);
   }
   // Plugged-in machine first so "this cable" is obvious.
   return collapsed.sort((a, b) => {

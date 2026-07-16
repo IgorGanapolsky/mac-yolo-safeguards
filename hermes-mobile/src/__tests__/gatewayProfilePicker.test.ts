@@ -550,4 +550,45 @@ describe('gatewayProfilePicker', () => {
     expect(resolveProfileFromPickerRows('missing', [usb], [mini])).toBeNull();
   });
 
+
+  it('annotates USB row when same Mac also has a Tailscale profile', () => {
+    const profiles = profilesForSwitchComputerPicker(
+      [
+        {
+          id: 'mbp_usb',
+          label: 'Igors-MacBook-Pro',
+          gatewayUrl: 'http://127.0.0.1:8642',
+          hostname: 'Igors-MacBook-Pro.local',
+          addedAt: '2026-07-15T12:00:00Z',
+        },
+        {
+          id: 'mbp_ts',
+          label: 'Igors-MacBook-Pro',
+          gatewayUrl: 'http://100.87.85.85:8642',
+          hostname: 'Igors-MacBook-Pro.local',
+          localIp: '100.87.85.85',
+          addedAt: '2026-07-15T12:00:00Z',
+        },
+        {
+          id: 'mini_ts',
+          label: 'Igors-Mac-mini',
+          gatewayUrl: 'http://100.94.135.78:8642',
+          hostname: 'Igors-Mac-mini.local',
+          addedAt: '2026-07-15T12:00:00Z',
+        },
+      ],
+      {
+        liveUsb: { reachable: true, hostname: 'Igors-MacBook-Pro.local' },
+      },
+    );
+    // One row per Mac — USB preferred when cable live
+    expect(profiles).toHaveLength(2);
+    const mbp = profiles.find((p) => /MacBook-Pro/i.test(p.label || p.hostname || ''));
+    expect(mbp).toBeTruthy();
+    expect(mbp!.gatewayUrl).toContain('127.0.0.1');
+    expect(profilePickerLines(mbp!, { cablePluggedIn: true }).detail).toMatch(
+      /also on Tailscale/i,
+    );
+  });
+
 });
