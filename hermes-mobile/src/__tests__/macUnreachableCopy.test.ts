@@ -79,6 +79,15 @@ describe('macUnreachableCopy', () => {
         hasSavedComputer: true,
       }),
     ).toBe(false);
+    expect(
+      shouldSuppressEmptyGreetingUnreachable({
+        healthProbePending: false,
+        healInFlight: true,
+        healExhausted: false,
+        hasSavedComputer: true,
+        authMismatch: true,
+      }),
+    ).toBe(false);
   });
 
   it('formats reconnecting and exhausted banners', () => {

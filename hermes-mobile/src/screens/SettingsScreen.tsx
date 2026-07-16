@@ -27,6 +27,8 @@ import { isDemoModeAllowed } from '../utils/demoModePolicy';
 import GatewayProfilePicker from '../components/GatewayProfilePicker';
 import TailscaleDiscoveryBanner from '../components/TailscaleDiscoveryBanner';
 import { profilesForSwitchComputerPicker, detectUsbHostMismatch } from '../utils/gatewayProfilePicker';
+import { confirmForgetGatewayProfile } from '../utils/confirmForgetGatewayProfile';
+import { profileDisplayName } from '../services/gatewayProfiles';
 import { setProductAnalyticsOptOut } from '../services/productAnalytics';
 import LoadingButton from '../components/ui/LoadingButton';
 import { formatGatewayHostLabel, isPrivateLanGatewayUrl } from '../utils/gatewayEndpoint';
@@ -460,14 +462,13 @@ export default function SettingsScreen() {
   };
 
   const handleRemoveProfile = (profileId: string) => {
-    Alert.alert('Remove computer', 'Remove this saved computer from the list?', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Remove',
-        style: 'destructive',
-        onPress: () => removeGatewayProfile(profileId),
-      },
-    ]);
+    const profile = savedMacProfiles.find((p) => p.id === profileId);
+    const computerName = profile ? profileDisplayName(profile) : 'this computer';
+    confirmForgetGatewayProfile({
+      profileId,
+      computerName,
+      onConfirm: removeGatewayProfile,
+    });
   };
 
   return (
