@@ -1,0 +1,27 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node {{SESSION_HOOK}}",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "run_terminal_command|Bash|read_file|Read",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node {{SAFETY_HOOK}}",
+            "timeout": 5
+          }
+        ]
+      }
+    ]
+  }
+}
