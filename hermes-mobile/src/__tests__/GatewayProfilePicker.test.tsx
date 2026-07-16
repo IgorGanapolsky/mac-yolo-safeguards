@@ -73,7 +73,7 @@ describe('GatewayProfilePicker', () => {
     expect(getByTestId('gateway-profile-item-mac_192_168_12_50')).toHaveTextContent(
       /Needs home Wi‑Fi or Tailscale/,
     );
-    expect(getByTestId('gateway-profile-item-mac_usb')).toHaveTextContent(/cable|Cable|This cable/i);
+    expect(getByTestId('gateway-profile-item-mac_usb')).toHaveTextContent(/USB|cable|Cable/i);
   });
 
   it('passes synthesized live USB profile on tap when cable is plugged in', () => {
