@@ -62,6 +62,12 @@ Measurement:
 - screenshot distinctness: ok
 - Remaining **business** gates (not engineering): Apple 1.1 approve, first review, first $ — documented in executive-metrics
 
+### Attempt 4 — 2026-07-16 24/7 Ralph+GSD ops loop
+- Actions: Shipped `tools/ralph-gsd-loop.js` + LaunchAgent `com.igor.ralph-gsd-loop` (30m interval): GSD scan → Ralph PR babysit → revenue cash path; wired install/verify/smart-ops/ci-verify; private receipts `business_os/revenue/ralph-gsd-cycles.jsonl`
+- Evidence: `tests/test-ralph-gsd-loop.js` 7/7; proof cycle updated 8 PR branches + 1 auto-merge; Stripe links HTTP 200; agent loaded `run interval = 1800 seconds`
+- Learnings: 25+ DIRTY PRs still need human/agent conflict work; funnel stuck ready/sent with Gmail API not always ready (MCP fallback)
+- Next: keep agent kickstarted; drain mergeable PRs; intent follow-ups on sent
+
 ## Completion Criteria
 
 When all checkboxes complete + `npm test -- --no-coverage --watchman=false` passes + `npm run test:release-safety` passes + screenshot distinctness script passes + docs updated for next EAS build.
