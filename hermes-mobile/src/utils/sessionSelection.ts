@@ -10,7 +10,27 @@ export type SessionPickerSection = {
   data: HermesSession[];
 };
 
-export function buildSessionPickerSections(sessions: HermesSession[]): SessionPickerSection[] {
+export type SessionPickerSectionOptions = {
+  /**
+   * When true, automation/smoke probes appear under a "Debug" section.
+   * Default false — production consumers must never see operator harness noise.
+   */
+  showAutomationSessions?: boolean;
+};
+
+/** Operator-only: __DEV__ or developerLeashUnlock may reveal harness probe sessions. */
+export function shouldShowAutomationSessionsInPicker(options: {
+  isDev?: boolean;
+  developerLeashUnlock?: boolean;
+}): boolean {
+  return options.isDev === true || options.developerLeashUnlock === true;
+}
+
+export function buildSessionPickerSections(
+  sessions: HermesSession[],
+  options: SessionPickerSectionOptions = {},
+): SessionPickerSection[] {
+  const showAutomationSessions = options.showAutomationSessions === true;
   const inbox = sessions.find((s) => s.id === TELEGRAM_INBOX_SESSION_ID);
   const threads = sortSessionsByRecency(
     sessions.filter(
@@ -20,7 +40,7 @@ export function buildSessionPickerSections(sessions: HermesSession[]): SessionPi
         !isAutomationProbeSession(s),
     ),
   );
-  const smoke = sessions.filter(isAutomationProbeSession);
+  const smoke = showAutomationSessions ? sessions.filter(isAutomationProbeSession) : [];
 
   const sections: SessionPickerSection[] = [];
   const threadList: HermesSession[] = [];

@@ -8,6 +8,7 @@ import {
   isMobileChatSession,
   isSmokeProbeSession,
   buildSessionPickerSections,
+  shouldShowAutomationSessionsInPicker,
   sessionSourceLabel,
 } from '../utils/sessionSelection';
 
@@ -181,15 +182,31 @@ describe('sessionSelection', () => {
       last_active: 1781716000,
     };
 
-    const sections = buildSessionPickerSections([inbox, tg, cli, smoke]);
-    expect(sections.map((s) => s.key)).toEqual(['threads', 'smoke']);
-    expect(sections[0]?.title).toBe('');
-    expect(sections[0]?.data.map((s) => s.id)).toEqual([
+    // Production default: no Debug section for consumers.
+    const releaseSections = buildSessionPickerSections([inbox, tg, cli, smoke]);
+    expect(releaseSections.map((s) => s.key)).toEqual(['threads']);
+    expect(releaseSections[0]?.title).toBe('');
+    expect(releaseSections[0]?.data.map((s) => s.id)).toEqual([
       '__telegram_inbox__',
       'tg-1',
       'cli-1',
     ]);
-    expect(sections[1]?.title).toBe('Debug');
+
+    const operatorSections = buildSessionPickerSections([inbox, tg, cli, smoke], {
+      showAutomationSessions: true,
+    });
+    expect(operatorSections.map((s) => s.key)).toEqual(['threads', 'smoke']);
+    expect(operatorSections[1]?.title).toBe('Debug');
+  });
+
+  it('gates Debug automation sessions to __DEV__ or developerLeashUnlock', () => {
+    expect(shouldShowAutomationSessionsInPicker({})).toBe(false);
+    expect(shouldShowAutomationSessionsInPicker({ isDev: false })).toBe(false);
+    expect(shouldShowAutomationSessionsInPicker({ isDev: true })).toBe(true);
+    expect(shouldShowAutomationSessionsInPicker({ developerLeashUnlock: true })).toBe(true);
+    expect(
+      shouldShowAutomationSessionsInPicker({ isDev: false, developerLeashUnlock: false }),
+    ).toBe(false);
   });
 
   it('classifies API_SERVER/CLI harness probes as automation sessions', () => {
@@ -259,7 +276,7 @@ describe('sessionSelection', () => {
     expect(isAutomationProbeSession({ id: 'api-empty', source: 'api_server' })).toBe(false);
   });
 
-  it('buries automation probe sessions under Debug in the picker', () => {
+  it('hides automation probes from production picker; Debug only when opted in', () => {
     const guardrails: HermesSession = {
       id: 'api-1f52b9d7dfb32d11',
       source: 'api_server',
@@ -272,10 +289,16 @@ describe('sessionSelection', () => {
       title: 'Fixing Ollama Context for Hermes Tool Use',
       last_active: 1781718000,
     };
-    const sections = buildSessionPickerSections([guardrails, user]);
-    expect(sections.map((s) => s.key)).toEqual(['threads', 'smoke']);
-    expect(sections[0]?.data.map((s) => s.id)).toEqual(['cli-real']);
-    expect(sections[1]?.data.map((s) => s.id)).toEqual(['api-1f52b9d7dfb32d11']);
+    const releaseSections = buildSessionPickerSections([guardrails, user]);
+    expect(releaseSections.map((s) => s.key)).toEqual(['threads']);
+    expect(releaseSections[0]?.data.map((s) => s.id)).toEqual(['cli-real']);
+
+    const operatorSections = buildSessionPickerSections([guardrails, user], {
+      showAutomationSessions: true,
+    });
+    expect(operatorSections.map((s) => s.key)).toEqual(['threads', 'smoke']);
+    expect(operatorSections[0]?.data.map((s) => s.id)).toEqual(['cli-real']);
+    expect(operatorSections[1]?.data.map((s) => s.id)).toEqual(['api-1f52b9d7dfb32d11']);
   });
 
   it('covers sessionSourceLabel helper', () => {

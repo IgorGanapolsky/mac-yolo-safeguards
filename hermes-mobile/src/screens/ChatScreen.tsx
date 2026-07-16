@@ -354,7 +354,13 @@ import {
   fetchTelegramInboxMessages,
   resolveTelegramInboxReplySessionId,
 } from '../services/telegramInbox';
-import { isTelegramSession, pickPrimaryTelegramSession, buildSessionPickerSections, sessionSourceLabel } from '../utils/sessionSelection';
+import {
+  isTelegramSession,
+  pickPrimaryTelegramSession,
+  buildSessionPickerSections,
+  shouldShowAutomationSessionsInPicker,
+  sessionSourceLabel,
+} from '../utils/sessionSelection';
 import { resolveSessionAfterListLoad } from '../utils/sessionListSelection';
 import {
   extractAssistantFromRunCompletedPayload,
@@ -615,12 +621,13 @@ export default function ChatScreen() {
   const dismissedHydrationGenRef = useRef(0);
   const dismissedSessionIdsRef = useRef<string[]>([]);
   const hideCronSessionsRef = useRef(false);
-  const hideAutomationSessionsRef = useRef(false);
+  const hideAutomationSessionsRef = useRef(true);
   const [composerFocusNonce, setComposerFocusNonce] = useState(0);
   const [recentChatsDismissed, setRecentChatsDismissed] = useState(false);
   const [dismissedSessionIds, setDismissedSessionIds] = useState<string[]>([]);
   const [hideCronSessions, setHideCronSessions] = useState(false);
-  const [hideAutomationSessions, setHideAutomationSessions] = useState(false);
+  /** Persisted post-clear pref; production still forces hide unless operator unlock. */
+  const [hideAutomationSessions, setHideAutomationSessions] = useState(true);
   const [messageDetail, setMessageDetail] = useState<{ title: string; body: string } | null>(null);
   const [feedbackPrompt, setFeedbackPrompt] = useState<{
     message: HermesMessage;
@@ -1873,6 +1880,14 @@ export default function ChatScreen() {
     ],
   );
 
+  const showAutomationSessionsInPicker = shouldShowAutomationSessionsInPicker({
+    isDev: __DEV__,
+    developerLeashUnlock: Boolean(settings.developerLeashUnlock),
+  });
+  // Release/consumers always hide harness probes; operators honor the persisted pref.
+  const effectiveHideAutomationSessions =
+    !showAutomationSessionsInPicker || hideAutomationSessions;
+
   const visibleSessions = useMemo(() => {
     let list: HermesSession[];
     if (!activeProject) {
@@ -1884,13 +1899,20 @@ export default function ChatScreen() {
     return filterDismissedThreadSessions(list, {
       dismissedSessionIds,
       hideCronSessions,
-      hideAutomationSessions,
+      hideAutomationSessions: effectiveHideAutomationSessions,
     });
-  }, [sessions, projectState, activeProject, dismissedSessionIds, hideCronSessions, hideAutomationSessions]);
+  }, [
+    sessions,
+    projectState,
+    activeProject,
+    dismissedSessionIds,
+    hideCronSessions,
+    effectiveHideAutomationSessions,
+  ]);
 
   dismissedSessionIdsRef.current = dismissedSessionIds;
   hideCronSessionsRef.current = hideCronSessions;
-  hideAutomationSessionsRef.current = hideAutomationSessions;
+  hideAutomationSessionsRef.current = effectiveHideAutomationSessions;
 
   const recentsRailSessions = useMemo(
     () => visibleSessions.filter((session) => isRecentsRailSession(session)),
@@ -1943,8 +1965,11 @@ export default function ChatScreen() {
   }, [sessions, projectState, activeProject]);
 
   const sessionPickerSections = useMemo(
-    () => buildSessionPickerSections(visibleSessions),
-    [visibleSessions],
+    () =>
+      buildSessionPickerSections(visibleSessions, {
+        showAutomationSessions: showAutomationSessionsInPicker,
+      }),
+    [visibleSessions, showAutomationSessionsInPicker],
   );
 
   const pendingApprovalSessionIds = useMemo(() => {
@@ -2396,7 +2421,7 @@ export default function ChatScreen() {
     if (isDemo) {
       setDismissedSessionIds([]);
       setHideCronSessions(false);
-      setHideAutomationSessions(false);
+      setHideAutomationSessions(true);
       return;
     }
     const hydrationGen = ++dismissedHydrationGenRef.current;

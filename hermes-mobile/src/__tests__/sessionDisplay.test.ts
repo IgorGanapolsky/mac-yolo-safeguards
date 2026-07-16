@@ -368,7 +368,7 @@ describe('sessionDisplay', () => {
       }).map((session) => session.id),
     ).toEqual(['sess_user_new']);
 
-    // Without the pref (never cleared), probes are still listed under Debug elsewhere.
+    // Without the pref, classify still identifies probes; picker hides them unless operator unlock.
     expect(
       filterDismissedThreadSessions(recreated, {
         dismissedSessionIds: [],
