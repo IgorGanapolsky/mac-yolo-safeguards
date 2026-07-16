@@ -42,22 +42,27 @@ export function useKeyboardInset(options?: {
     }
   }, [options?.focused]);
 
+  // Always poll Android keyboard metrics so sticky inset cannot trap UI
+  // (tab bar collapse) after Maestro hideKeyboard / IME dismiss without didHide.
   useEffect(() => {
     if (Platform.OS !== 'android' || options?.focused === false) {
-      return;
-    }
-
-    const focused =
-      options?.focused === true || options?.suppressHideWhileFocusedRef?.current === true;
-    if (!focused) {
       return;
     }
 
     const syncFromMetrics = () => {
       const metricsHeight = Keyboard.metrics()?.height ?? 0;
       if (metricsHeight <= 0) {
-        setInset(0);
+        setInset((prev) => (prev === 0 ? prev : 0));
         setWindowShrunk(false);
+        return;
+      }
+      // Optional focus gate only suppresses *raising* inset from poll when unfocused;
+      // we still clear when metrics report hidden.
+      const focused =
+        options?.focused === true ||
+        options?.focused === undefined ||
+        options?.suppressHideWhileFocusedRef?.current === true;
+      if (!focused) {
         return;
       }
       const currentWindowHeight = Dimensions.get('window').height;

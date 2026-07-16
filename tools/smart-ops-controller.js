@@ -34,6 +34,7 @@ const CRITICAL_AGENTS = [
   'com.igor.revenue-autonomous-loop',
   'com.igor.hermes-mobile-continuous-e2e',
   'com.igor.repo-root-hygiene',
+  'com.igor.agent-vault-sync',
   'com.igor.github-reply-monitor',
 ];
 

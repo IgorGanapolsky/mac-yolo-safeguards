@@ -31,6 +31,7 @@ concurrency:
 
 permissions:
   contents: read
+  checks: read
 
 jobs:
   quality-gate:
@@ -58,6 +59,16 @@ jobs:
         env:
           REQUIRE_EAS_PROJECT: '1'
         run: npm run release:check
+
+      # HARD by default (crisis 2026-07-15): refuse OTA without stranger cold-start
+      # contract + runtime proof (local JSON or green GitHub stranger check).
+      # Polls parallel mobile-e2e stranger job on this SHA — no opt-in env.
+      - name: Fresh-user stranger cold-start proof gate (hard)
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Hard is the script default; wait for parallel Maestro stranger job on main.
+          HERMES_STRANGER_PROOF_WAIT_SEC: '2100'
+        run: node ./scripts/require-stranger-cold-start-proof.cjs
 
       - name: Type check
         run: npm run typecheck

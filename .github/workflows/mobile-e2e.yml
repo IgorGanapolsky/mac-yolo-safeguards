@@ -1,20 +1,15 @@
 name: Mobile E2E (Android emulator)
 
-# Tier-1 E2E: runs the Maestro ship-guard critical-path flow on a real Android emulator.
+# Tier-1 E2E: two parallel Android emulator jobs on hermes-mobile PRs:
+#   1) Maestro ship-guard — demo=1 + EXPO_PUBLIC_E2E_AUTOMATION (hides ConnectMacGate)
+#   2) Maestro stranger cold-start — clearState, NO demo=1, EXPO_PUBLIC_E2E_AUTOMATION=0
+#      so ConnectMacGate is visible (brand-new user proof).
+#
+# Crisis lesson 2026-07-15: ship-guard alone is NOT a fresh-user ship gate. Stranger cold-start
+# must also be a required status check on `main` (see hermes-mobile/docs/RELEASE-SAFETY-NET.md).
+#
 # The fast tier-0 gate (flow validation) already runs on every PR inside CI / mobile-checks.
-#
-# This is a REQUIRED-capable PR gate (T-114): it runs on pull_request (scoped to hermes-mobile
-# changes so unrelated PRs are not blocked/slowed) and on push, plus manual dispatch. Every
-# action is pinned by commit SHA per this repo's security policy — the two previously-floating
-# TODO tags (setup-java@v4, android-emulator-runner@v2) are now pinned below.
-#
-# It intentionally runs ONLY the single ship-guard critical-path flow (no chat text entry) so it
-# stays fast and reliable enough to keep enabled as a required check. ship-guard does not type
-# into the composer, so it is NOT affected by the Android IME composing-region issue that keeps
-# chat-send-persistence red (see hermes-mobile/docs/RELEASE-SAFETY-NET.md).
-#
-# To make this a required status check, a repo admin must add the job's check name
-# "Maestro ship-guard (Android emulator)" to branch protection for `main` (see the docs file).
+# Actions are SHA-pinned. ship-guard stays typing-free (IME harness bug).
 
 # Runs on push to `main` (post-merge guard) and on pull_request — the releaseSafetyNet
 # contract requires BOTH the push: and pull_request: triggers, and this keeps them.
@@ -44,8 +39,8 @@ on:
   # branch protection treats a skipped required check as satisfied. So: always trigger
   # the workflow, and skip the expensive emulator job when mobile files are untouched.
   pull_request:
-  # Merge queue dispatches merge_group (not pull_request). Required for the
-  # "Maestro ship-guard (Android emulator)" check when main enforces merge queue.
+  # Merge queue dispatches merge_group (not pull_request). Required for both
+  # Maestro ship-guard and stranger cold-start checks when main enforces merge queue.
   merge_group:
 
 # Per-ref concurrency. A single GLOBAL group was tried to serialise the emulator, but
@@ -213,5 +208,127 @@ jobs:
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: maestro-debug-output
+          path: ~/.maestro/tests/**
+          if-no-files-found: ignore
+
+  # Brand-new user merge gate (T-342). ConnectMacGate is hidden when
+  # EXPO_PUBLIC_E2E_AUTOMATION is baked into the APK — so this job builds a SEPARATE
+  # debug APK with the flag forced off, clearState, no hermes://setup?demo=1.
+  android-stranger-cold-start:
+    name: Maestro stranger cold-start (Android emulator)
+    needs: changes
+    if: needs.changes.outputs.mobile == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      SENTRY_DISABLE_AUTO_UPLOAD: "true"
+    defaults:
+      run:
+        working-directory: hermes-mobile
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: hermes-mobile/package-lock.json
+
+      - uses: actions/setup-java@c1e323688fd81a25caa38c78aa6df2d33d3e20d9 # v4.8.0
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Install dependencies
+        run: npm ci
+
+      # Structural contract only — this job *produces* the runtime proof; hard
+      # runtime requirement would chicken-egg before Maestro runs.
+      - name: Validate stranger cold-start contract (fail fast)
+        run: node ./scripts/require-stranger-cold-start-proof.cjs --soft
+
+      - name: Enable KVM (hardware acceleration for the emulator)
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Install Maestro
+        run: |
+          curl -fsSL "https://get.maestro.mobile.dev" | bash
+          echo "$HOME/.maestro/bin" >> "$GITHUB_PATH"
+
+      - name: Install Android NDK (retry on corrupt zip)
+        working-directory: ${{ github.workspace }}
+        run: |
+          set -euo pipefail
+          NDK_VERSION="27.0.12077973"
+          SDK_ROOT="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-$HOME/Android/Sdk}}"
+          export ANDROID_HOME="$SDK_ROOT"
+          export ANDROID_SDK_ROOT="$SDK_ROOT"
+          mkdir -p "$SDK_ROOT"
+          if ! command -v sdkmanager >/dev/null 2>&1; then
+            if [ -x "$SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" ]; then
+              export PATH="$SDK_ROOT/cmdline-tools/latest/bin:$PATH"
+            else
+              echo "sdkmanager not found; letting Gradle fetch NDK (no pre-install)."
+              exit 0
+            fi
+          fi
+          install_ok=0
+          for attempt in 1 2 3; do
+            echo "NDK install attempt ${attempt}/3 (ndk;${NDK_VERSION})"
+            rm -rf "${SDK_ROOT}/ndk/${NDK_VERSION}" \
+              "${SDK_ROOT}/.temp" \
+              "${SDK_ROOT}/.downloadIntermediates" 2>/dev/null || true
+            if yes | sdkmanager --install "ndk;${NDK_VERSION}" >/tmp/ndk-install.log 2>&1; then
+              if [ -d "${SDK_ROOT}/ndk/${NDK_VERSION}" ]; then
+                echo "NDK ready at ${SDK_ROOT}/ndk/${NDK_VERSION}"
+                install_ok=1
+                break
+              fi
+            fi
+            echo "attempt ${attempt} failed; tail:"
+            tail -40 /tmp/ndk-install.log || true
+            sleep 5
+          done
+          if [ "$install_ok" != "1" ]; then
+            echo "WARN: pre-install NDK failed; Gradle may still recover"
+            tail -80 /tmp/ndk-install.log || true
+          fi
+          echo "ANDROID_HOME=$ANDROID_HOME" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT" >> "$GITHUB_ENV"
+
+      # STRANGER_COLD_START_ASSEMBLE — must keep EXPO_PUBLIC_E2E_AUTOMATION=0 so ConnectMacGate shows.
+      - name: Prebuild + assemble stranger debug APK (no E2E hide-gate)
+        env:
+          EXPO_PUBLIC_E2E_AUTOMATION: "0"
+          SENTRY_DISABLE_AUTO_UPLOAD: "true"
+          SENTRY_ALLOW_FAILURE: "true"
+        run: |
+          unset EXPO_PUBLIC_HERMES_DEV_UNLOCK || true
+          npx expo prebuild -p android --no-install
+          (cd android && ./gradlew assembleDebug -PreactNativeArchitectures=x86_64 --no-daemon)
+
+      - name: Run Maestro stranger cold-start on emulator
+        uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2.38.0
+        with:
+          api-level: 34
+          arch: x86_64
+          profile: pixel_6
+          working-directory: hermes-mobile
+          disable-animations: true
+          emulator-boot-timeout: 900
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot -camera-back none -camera-front none
+          script: |
+            adb install -r android/app/build/outputs/apk/debug/app-debug.apk
+            export PATH="$HOME/.maestro/bin:$PATH"
+            maestro test .maestro/stranger-cold-start.yaml
+
+      - name: Upload stranger Maestro artifacts on failure
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: maestro-stranger-cold-start-debug
           path: ~/.maestro/tests/**
           if-no-files-found: ignore

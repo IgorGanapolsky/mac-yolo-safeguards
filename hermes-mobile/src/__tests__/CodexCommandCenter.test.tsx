@@ -66,7 +66,7 @@ describe('CodexCommandCenter', () => {
     expect(getByTestId('command-center-mac-detail').props.children).toBe('Tap to reconnect');
   });
 
-  it('shows reconnecting state while mac retry is busy', () => {
+  it('shows looking-for-Mac copy while retry is busy on a generic/fresh label', () => {
     const { getByTestId } = render(
       <CodexCommandCenter
         connectionState="disconnected"
@@ -76,7 +76,7 @@ describe('CodexCommandCenter', () => {
       />,
     );
 
-    expect(getByTestId('command-center-mac-detail').props.children).toBe('Reconnecting…');
+    expect(getByTestId('command-center-mac-detail').props.children).toBe('Looking for your Mac…');
   });
 
   it('shows custom machine name when mac retry is busy', () => {
@@ -239,5 +239,26 @@ describe('CodexCommandCenter', () => {
 
     expect(getByTestId('command-center-approvals')).toBeTruthy();
     expect(getByText('3')).toBeTruthy();
+  });
+
+  it('hides the RUN tile when suppressRunTile is set (composer banner owns run chrome)', () => {
+    const { queryByTestId, getByTestId } = render(
+      <CodexCommandCenter
+        connectionState="connected"
+        macHttpReachable
+        pendingApprovalCount={1}
+        suppressRunTile
+        runProgress={{
+          phase: 'streaming',
+          startedAtMs: Date.now() - 3000,
+          detail: 'Hermes is working on your computer…',
+          runId: 'run-1',
+        }}
+        onOpenApprovals={jest.fn()}
+      />,
+    );
+
+    expect(queryByTestId('command-center-run-tile')).toBeNull();
+    expect(getByTestId('command-center-approvals')).toBeTruthy();
   });
 });

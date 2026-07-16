@@ -36,6 +36,7 @@ jest.mock('../services/hermesGatewayClient', () => ({
   runJobNow: jest.fn(),
   deleteJob: jest.fn(),
   setToolsetEnabled: jest.fn(),
+  probeToolsetsWriteAccess: jest.fn(),
   getToolsetConfig: jest.fn(),
   saveToolsetEnv: jest.fn(),
   setToolsetProvider: jest.fn(),
@@ -80,6 +81,7 @@ describe('GatewayOpsSection', () => {
       name: 'web',
       enabled: false,
     });
+    gatewayClient.probeToolsetsWriteAccess.mockResolvedValue(true);
   });
 
   it('updates toolset switch on first tap (optimistic)', async () => {
@@ -186,6 +188,40 @@ describe('GatewayOpsSection', () => {
       expect(getByTestId('toolset-switch-todo').props.value).toBe(true);
       expect(getByTestId('toolset-switch-x_search').props.value).toBe(false);
     });
+  });
+
+  it('hides Keys button for ready toolsets that need no API key', async () => {
+    gatewayClient.listToolsets.mockResolvedValue([
+      {
+        name: 'web',
+        label: 'Web Search',
+        enabled: false,
+        configured: true,
+        tools: ['web_search'],
+      },
+      {
+        name: 'x_search',
+        label: 'X Search',
+        enabled: false,
+        configured: false,
+        tools: ['x_search'],
+      },
+    ]);
+    gatewayClient.getCapabilities.mockResolvedValue({
+      features: {},
+      default_model: 'qwen3:8b-64k',
+    });
+    gatewayClient.probeToolsetsWriteAccess.mockResolvedValue(false);
+
+    const { getByTestId, queryByTestId } = render(<GatewayOpsSection />);
+
+    await waitFor(() => {
+      expect(getByTestId('toolset-switch-web')).toBeTruthy();
+    });
+
+    expect(queryByTestId('toolset-add-key-web')).toBeNull();
+    expect(getByTestId('toolset-add-key-x_search')).toBeTruthy();
+    expect(getByTestId('toolset-switch-web').props.disabled).not.toBe(true);
   });
 
   it('opens Add key sheet when enabling a tool that still needs credentials', async () => {

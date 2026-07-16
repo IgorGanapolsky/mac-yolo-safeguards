@@ -152,8 +152,11 @@ describe('release safety contract', () => {
     const workflow = read('.github/workflows/store-release.yml');
     const mapping =
       "HERMES_EAS_SPEND_APPROVED: ${{ inputs.confirm_eas_spend == 'yes' && 'YES_SPEND_EAS_CREDITS' || '' }}";
-    expect(workflow.split(mapping)).toHaveLength(3);
+    // Android build + Android submit path + iOS build
+    expect(workflow.split(mapping)).toHaveLength(4);
     expect(workflow).toContain('if [ "${CONFIRM_EAS:-no}" != "yes" ]');
+    expect(workflow).toMatch(/name: Build iOS production artifact[\s\S]*HERMES_EAS_SPEND_APPROVED/);
+    expect(workflow).toMatch(/name: Build Android production AAB[\s\S]*HERMES_EAS_SPEND_APPROVED/);
   });
 
   it('app.json enables OTA updates with expo-updates plugin and appVersion runtime', () => {
@@ -183,7 +186,7 @@ describe('release safety contract', () => {
     expect(eas.build['e2e-test'].channel).toBe('e2e-test');
   });
 
-  it('mobile-ota workflow publishes preview + production channels on main push', () => {
+  it('mobile-ota workflow publishes preview+production on main after stranger CI proof', () => {
     const workflow = read('.github/workflows/mobile-ota.yml');
     expect(workflow).toContain('branches:');
     expect(workflow).toContain('- main');
@@ -191,8 +194,13 @@ describe('release safety contract', () => {
     expect(workflow).toContain('workflow_dispatch');
     expect(workflow).toContain('runtimeVersion');
     expect(workflow).toContain('eas update');
+    // Amended crisis gate: dual-channel publish after stranger CI green (not USB e2e=skipped).
     expect(workflow).toContain('for CH in preview production');
     expect(workflow).toContain('--channel "$CH"');
+    expect(workflow).toContain('require-stranger-cold-start-proof.cjs');
+    expect(workflow).toContain('HERMES_STRANGER_PROOF_WAIT_SEC');
+    expect(workflow).toMatch(/checks:\s*read/);
+    expect(workflow).not.toContain('publish_production');
     expect(workflow).toContain('secrets.EXPO_TOKEN');
     expect(workflow).toContain('test:release-safety');
   });
@@ -414,6 +422,21 @@ describe('release safety contract', () => {
     expect(workflow).toContain('assembleDebug');
     expect(workflow).not.toContain('assembleRelease');
     expect(workflow).toContain('SENTRY_DISABLE_AUTO_UPLOAD');
+  });
+
+  it('Android emulator CI also runs stranger cold-start without E2E hide-gate', () => {
+    const workflow = read('.github/workflows/mobile-e2e.yml');
+    const flow = read('hermes-mobile/.maestro/stranger-cold-start.yaml');
+    expect(workflow).toContain('Maestro stranger cold-start (Android emulator)');
+    expect(workflow).toContain('STRANGER_COLD_START_ASSEMBLE');
+    expect(workflow).toContain('stranger-cold-start.yaml');
+    const assembleIdx = workflow.indexOf('STRANGER_COLD_START_ASSEMBLE');
+    expect(assembleIdx).toBeGreaterThan(-1);
+    const assembleSlice = workflow.slice(assembleIdx, assembleIdx + 800);
+    expect(assembleSlice).toMatch(/EXPO_PUBLIC_E2E_AUTOMATION:\s*"0"/);
+    expect(flow).toMatch(/clearState:\s*true/);
+    expect(flow).not.toMatch(/openLink:.*demo=1|hermes:\/\/setup\?demo=1/);
+    expect(flow).toContain('connect-mac-gate');
   });
 
   it('iOS App Store production EAS enables store review demo only on iOS', () => {

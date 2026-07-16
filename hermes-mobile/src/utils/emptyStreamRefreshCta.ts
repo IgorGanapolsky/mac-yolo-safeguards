@@ -1,9 +1,17 @@
 import type { HermesMessage } from '../types/chat';
 import { EMPTY_STREAM_TIMEOUT_PLACEHOLDER } from './streamAssistantText';
 
-/** Shown above composer when the transcript timed out waiting for reply text. */
+/** Shown above composer while auto-polling for reply text after a soft timeout. */
 export const EMPTY_STREAM_REFRESH_BANNER_HINT =
-  'Still waiting for reply text from your Mac. Tap Refresh to check again, Stop if a run is active, or start a fresh chat.';
+  'Still waiting for reply text from your Mac. Hermes is checking automatically — Stop if a run is active, or start a fresh chat.';
+
+export function emptyStreamBannerHint(elapsedMs: number): string {
+  const elapsedSec = Math.max(1, Math.floor(elapsedMs / 1000));
+  if (elapsedMs < 30_000) {
+    return EMPTY_STREAM_REFRESH_BANNER_HINT;
+  }
+  return `Checking your Mac for a reply… (${elapsedSec}s). Stop if a run is active, or start a fresh chat.`;
+}
 
 export function messageIsEmptyStreamTimeout(content: string | undefined): boolean {
   const body = content?.trim() ?? '';

@@ -22,6 +22,15 @@ export interface SetupDeepLinkParams {
   demoMode?: boolean;
   /** ThumbGate API key from Mac pairing (hermes://setup?thumbgate=…). */
   thumbgateApiKey?: string;
+  /**
+   * Secretless one-time pairing code (T-330 priority 3): when present, `apiKey` and other
+   * credential fields are NOT embedded in this deep link — the app must exchange `code`
+   * against `pairServerUrl` (over the same trusted local connection) to retrieve them, then
+   * store them via Android Keystore-backed secure storage. See pairingCodeExchange.ts.
+   */
+  pairingCode?: string;
+  /** Local pair server base URL (e.g. http://192.168.1.5:8765) to exchange `pairingCode` against. */
+  pairServerUrl?: string;
 }
 
 function parseQueryString(query: string): Record<string, string> {
@@ -149,8 +158,15 @@ export function parseSetupDeepLink(url: string): SetupDeepLinkParams | null {
 
   const query = url.slice(queryStart + 1);
   const params = parseQueryString(query);
+  const pairServerUrl = params.pairServer?.trim() || params.pairserver?.trim() || undefined;
   const gatewayUrl =
     params.url?.trim() || params.gateway?.trim() || params.gatewayUrl?.trim() || '';
+  // Distinct from relay `code`/`relay` — secretless pairing uses `pairCode`. Accept legacy
+  // pair-script links that used `code` + `pairServer` without a gateway URL (T-330 regression).
+  const pairingCode =
+    params.pairCode?.trim() ||
+    (pairServerUrl && !gatewayUrl ? params.code?.trim() : undefined) ||
+    undefined;
   const demoMode =
     params.demo === '1' ||
     params.demo === 'true' ||
@@ -165,7 +181,22 @@ export function parseSetupDeepLink(url: string): SetupDeepLinkParams | null {
     };
   }
 
-  if (!gatewayUrl) {
+  const tailnetProbeHosts = parseRepeatedQueryValues(query, 'tailnet');
+  const extraComputers = parseExtraComputers(query);
+  const relayCode =
+    params.relay?.trim() ||
+    params.relayCode?.trim() ||
+    (pairingCode ? undefined : params.code?.trim()) ||
+    undefined;
+
+  if (!gatewayUrl && !(pairingCode && pairServerUrl)) {
+    if (tailnetProbeHosts.length > 0 || extraComputers.length > 0 || relayCode) {
+      return {
+        tailnetProbeHosts: tailnetProbeHosts.length > 0 ? tailnetProbeHosts : undefined,
+        extraComputers: extraComputers.length > 0 ? extraComputers : undefined,
+        relayCode: relayCode ? relayCode.toUpperCase() : undefined,
+      };
+    }
     return null;
   }
 
@@ -176,25 +207,20 @@ export function parseSetupDeepLink(url: string): SetupDeepLinkParams | null {
     params.mac?.trim() ||
     params.macName?.trim() ||
     undefined;
-  const relayCode =
-    params.relay?.trim() ||
-    params.relayCode?.trim() ||
-    params.code?.trim() ||
-    undefined;
-  const tailnetProbeHosts = parseRepeatedQueryValues(query, 'tailnet');
-  const extraComputers = parseExtraComputers(query);
   const thumbgateApiKey =
     params.thumbgate?.trim() ||
     params.thumbgateKey?.trim() ||
     params.thumbgateApiKey?.trim() ||
     undefined;
   return {
-    gatewayUrl,
+    gatewayUrl: gatewayUrl || undefined,
     apiKey,
     macName,
     relayCode: relayCode ? relayCode.toUpperCase() : undefined,
     tailnetProbeHosts: tailnetProbeHosts.length > 0 ? tailnetProbeHosts : undefined,
     extraComputers: extraComputers.length > 0 ? extraComputers : undefined,
+    pairingCode,
+    pairServerUrl,
     thumbgateApiKey,
   };
 }

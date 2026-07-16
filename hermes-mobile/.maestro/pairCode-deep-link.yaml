@@ -1,0 +1,25 @@
+# Secretless pairCode= deep link contract (Igor P0 2026-07-14, PR #392): the pair script
+# emits `pairCode=`, not the relay `code=` param — a prior mismatch silently no-opped the
+# deep link and left zero saved computers + an empty "Find computers" scan. This flow opens
+# a deep link shaped exactly like the real pair script's output (unreachable pair server on
+# purpose, simulating an expired/invalid code) and proves the app stays stable and never
+# wipes existing state on a failed exchange (#394) — it must not crash or strand the user on
+# a blank screen. See setupDeepLink.test.ts + pairDeepLinkApply.test.ts for the deterministic
+# unit-level parser/persistence contract.
+appId: com.iganapolsky.hermesmobile
+---
+- launchApp:
+    clearState: false
+    stopApp: true
+- extendedWaitUntil:
+    notVisible:
+      id: "hermes-bootstrap"
+    timeout: 90000
+- runFlow: dismiss-print-interruption.yaml
+- openLink: "hermes://setup?pairCode=E2ETESTCODE&pairServer=http://127.0.0.1:19999&name=E2E-Test-Mac"
+- extendedWaitUntil:
+    visible:
+      id: "chat-screen-header"
+    timeout: 30000
+- assertVisible:
+    id: "chat-screen-header"

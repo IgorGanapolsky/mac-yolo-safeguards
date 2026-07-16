@@ -9,6 +9,17 @@
 | APK verify (pre-Firebase) | `npm run verify:apk -- path/to.apk` | Missing `index.android.bundle`, wrong package, legacy UI strings |
 | Maestro ship-guard | `npm run e2e:ship-guard` | Red screen "Unable to load script", orange onboarding shell |
 | Full device E2E | `npm run e2e:device` | Build release → verify → install → Maestro (phone required) |
+| agent-device connection proof | `bash scripts/agent-device-connection-proof.sh` | Chat transport label / Tailscale / reconnecting vs Connected (exploratory; not a ship gate) |
+
+## agent-device vs Maestro vs adb
+
+| Tool | Use when |
+|------|----------|
+| **agent-device** | Connection crisis, Tailscale, fresh-user UI inspection; screenshots + a11y snapshots; `npm run e2e:accelerated` |
+| **Maestro** | Deterministic CI / continuous `latest.json` ship gate |
+| **adb** + pair script | Install, pair, port reverse — not primary UI truth |
+
+Canonical: [AGENT-DEVICE.md](./AGENT-DEVICE.md). Install CLI: `bash ../scripts/install-agent-device.sh`.
 
 ## Unit test map (what each suite proves)
 
@@ -33,6 +44,7 @@
 |---|---|---|
 | Ship guard | `ship-guard.yaml` | No Metro red screen / legacy shell |
 | Stranger cold start | `stranger-cold-start.yaml` | No demo deep link → `connect-mac-onboarding-card` + Find computers CTA |
+| **Fresh-user suite** | `fresh-user-suite.yaml` | Full stranger path: cold start + tabs + Leash Pro IAP surface (`npm run e2e:fresh-user`) |
 | Wrong-key repair | `wrong-key-repair.yaml` | Computer picker reachable for re-pair path |
 | Launch | `launch.yaml` | Chat tab loads with input |
 | Navigation | `navigation.yaml` | All four tabs reachable |
@@ -45,6 +57,8 @@
 | Full suite | `full-suite.yaml` | All flows sequential on one device |
 
 **Release-safe Leash test:** Settings → "Preview Leash card (smoke test)" (`leash-smoke-test`) — works in release builds (not gated on `__DEV__`).
+
+**Device/Maestro chat input (permanent):** Maestro flows, `adb input text`, and agent device automation must type only **`make money today`** into the chat composer — never gibberish probe strings. Guarded by `preventRecurrenceContract.test.ts`. API-key fields (`save_key.yaml`) and session IDs in deep links are exempt.
 
 ## Device E2E (Android phone USB)
 
@@ -87,6 +101,21 @@ Logs: `~/Library/Logs/hermes-mobile-continuous-e2e.log`
 **Priority:** USB Android phone when connected; otherwise iOS simulator. Metro is auto-started on `:8081` if missing.
 
 **No phone (android-only LaunchAgent):** `latest.json` records `e2e=fail` (not `skipped`) so agents cannot claim device UX verified without a connected phone. Rozenite/agent-device E2E compatibility flows remain owned by T-25 (`navigation.yaml`, `ship-guard.yaml`).
+
+### What `e2e=pass` does **not** prove (read this before “are you sure?”)
+
+| Proof | Means | Does **not** mean |
+|-------|--------|-------------------|
+| Continuous / CI `e2e=pass` | `ship-guard` (+ local continuous: `chat-send-persistence`) app shell works | Multi-Mac USB identity is honest |
+| Maestro ship-guard | No Metro red screen / legacy shell (often **demo** deep link) | Header never shows `Igors-Mac-mini · USB` when cable is MBP |
+| Unit `chatMachineHeader` INVARIANT tests | Named `X · USB` only when live green/amber `/health` hostname is X | Device APK already has the fix |
+
+**Multi-Mac USB product law (required unit gate):** header may show **`X · USB`** only when loopback `/health` is green|amber **and** hostname matches X. Health null/red → `Computer via USB · USB` (never invent Mini). Verify:
+
+```bash
+cd hermes-mobile
+npm test -- --watchman=false src/__tests__/chatMachineHeader.test.ts
+```
 
 **Cloud:** GitHub Actions workflow `mobile-continuous.yml` runs unit tests every 6 hours + Maestro ship-guard on `macos-latest`.
 
