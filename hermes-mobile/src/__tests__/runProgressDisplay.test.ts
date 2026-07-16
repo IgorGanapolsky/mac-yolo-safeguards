@@ -4,8 +4,13 @@ import {
   humanizeComposerStatus,
   humanizeRunProgressDetail,
   isActiveChatRun,
+  isLegacyReplyReadyDetail,
   isRunProgressStale,
+  REPLY_READY_ACTION_TITLE,
+  REPLY_READY_BANNER_TITLE,
   runProgressBannerTitle,
+  runProgressCompletedSnippet,
+  runProgressCompletedTitle,
   runProgressElapsedSeconds,
   runProgressFailedTitle,
   shouldShowComposerProgressBanner,
@@ -17,6 +22,38 @@ describe('runProgressDisplay', () => {
     expect(humanizeRunProgressDetail('Sending to your computer…')).toBe('Delivering your message…');
     expect(humanizeRunProgressDetail('running skill_view')).toBe('Reading a skill on your computer…');
     expect(humanizeRunProgressDetail('running web_search')).toBe('Running web search on your computer…');
+  });
+
+  it('maps legacy reply-ready chrome to actionable consumer copy', () => {
+    expect(isLegacyReplyReadyDetail('Reply ready on your computer')).toBe(true);
+    expect(isLegacyReplyReadyDetail('Ready on your computer')).toBe(true);
+    expect(humanizeRunProgressDetail('Reply ready on your computer', 'completed')).toBe(
+      REPLY_READY_ACTION_TITLE,
+    );
+    expect(humanizeRunProgressDetail('Task completed')).toBe(REPLY_READY_ACTION_TITLE);
+    expect(humanizeRunProgressDetail(undefined, 'completed')).toBe(REPLY_READY_ACTION_TITLE);
+    expect(
+      runProgressCompletedTitle({
+        phase: 'completed',
+        startedAtMs: Date.now(),
+        detail: 'Reply ready on your computer',
+      }),
+    ).toBe(REPLY_READY_ACTION_TITLE);
+    expect(
+      runProgressCompletedTitle({
+        phase: 'completed',
+        startedAtMs: Date.now(),
+        detail: REPLY_READY_BANNER_TITLE,
+        replyPreview: 'Here is the revenue plan for today.',
+      }),
+    ).toBe(REPLY_READY_BANNER_TITLE);
+    expect(
+      runProgressCompletedSnippet({
+        phase: 'completed',
+        startedAtMs: Date.now(),
+        replyPreview: 'Here is the revenue plan for today.',
+      }),
+    ).toBe('Here is the revenue plan for today.');
   });
 
   it('never shows bare Aborted in progress or failed titles', () => {

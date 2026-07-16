@@ -6,6 +6,8 @@ import {
   formatLlmModelShortName,
   humanizeRunProgressDetail,
   runProgressBannerTitle,
+  runProgressCompletedSnippet,
+  runProgressCompletedTitle,
   runProgressFailedTitle,
 } from '../utils/runProgressDisplay';
 import { isConnectivityMessage } from '../utils/chatErrors';
@@ -160,6 +162,8 @@ function RunProgressBanner({
   const detailLabel = isActive
     ? runProgressBannerTitle(progress)
     : humanizeRunProgressDetail(progress.detail, progress.phase);
+  const completedTitle = isCompleted ? runProgressCompletedTitle(progress) : detailLabel;
+  const completedSnippet = isCompleted ? runProgressCompletedSnippet(progress) : null;
   const failedTitle = isFailed ? runProgressFailedTitle(progress.detail) : detailLabel;
   const failedDetail =
     isFailed && isConnectivityMessage(progress.detail ?? '') ? progress.detail?.trim() : null;
@@ -171,6 +175,7 @@ function RunProgressBanner({
       staleMessage ||
       megaSessionWarning ||
       investigation.active,
+      completedSnippet,
   );
   const detailsExpanded = resolveRunProgressDetailsExpanded({
     keyboardOpen: compact,
@@ -212,17 +217,29 @@ function RunProgressBanner({
           ) : (
             <Text style={styles.statusIcon}>{isCompleted ? '✅' : '⚠️'}</Text>
           )}
-          <Text
-            style={[
-              styles.text,
-              isCompleted && styles.textCompleted,
-              isFailed && styles.textFailed,
-            ]}
-            numberOfLines={showDetailSections && isFailed && failedDetail ? 1 : 2}
-            testID="run-progress-detail"
-          >
-            {isCompleted ? 'Reply ready on your computer' : isFailed ? failedTitle : detailLabel}
-          </Text>
+          <View style={styles.detailColumn}>
+            <Text
+              style={[
+                styles.text,
+                isCompleted && styles.textCompleted,
+                isFailed && styles.textFailed,
+              ]}
+              numberOfLines={showDetailSections && isFailed && failedDetail ? 1 : 2}
+              testID="run-progress-detail"
+            >
+              {isCompleted ? completedTitle : isFailed ? failedTitle : detailLabel}
+            </Text>
+            {completedSnippet ? (
+              <Text
+                style={styles.replySnippet}
+                numberOfLines={1}
+                ellipsizeMode="tail"
+                testID="run-progress-reply-snippet"
+              >
+                {completedSnippet}
+              </Text>
+            ) : null}
+          </View>
           <Text style={styles.timeLabel} testID="run-progress-elapsed">
             {durationLabel}
           </Text>
@@ -413,6 +430,7 @@ export default memo(RunProgressBanner, (prev, next) => {
     (a.inputTokens ?? -1) === (b.inputTokens ?? -1) &&
     (a.outputTokens ?? -1) === (b.outputTokens ?? -1) &&
     (a.duration ?? -1) === (b.duration ?? -1) &&
+    (a.replyPreview ?? '') === (b.replyPreview ?? '') &&
     (prev.terminalPreview ?? '') === (next.terminalPreview ?? '') &&
     (prev.terminalToolName ?? '') === (next.terminalToolName ?? '') &&
     (prev.megaSessionWarning ?? '') === (next.megaSessionWarning ?? '') &&
@@ -473,8 +491,13 @@ const styles = StyleSheet.create({
   statusIcon: {
     fontSize: 12,
   },
-  text: {
+  detailColumn: {
     flex: 1,
+    flexShrink: 1,
+    minWidth: 0,
+    gap: 2,
+  },
+  text: {
     flexShrink: 1,
     fontSize: 12,
     fontWeight: '700',
@@ -485,6 +508,12 @@ const styles = StyleSheet.create({
   },
   textFailed: {
     color: colors.error,
+  },
+  replySnippet: {
+    fontSize: 11,
+    lineHeight: 14,
+    fontWeight: '600',
+    color: colors.textSecondary,
   },
   failedDetail: {
     fontSize: 11,

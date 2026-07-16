@@ -399,4 +399,39 @@ describe('RunProgressBanner', () => {
     jest.useRealTimers();
   });
 
+  it('shows actionable completed copy instead of ready-on-your-computer', () => {
+    const { getByTestId, queryByText, queryByTestId } = render(
+      <RunProgressBanner
+        progress={{
+          phase: 'completed',
+          startedAtMs: Date.now() - 16_000,
+          detail: 'Reply ready on your computer',
+          duration: 16,
+        }}
+        onDismiss={() => {}}
+      />,
+    );
+    expect(getByTestId('run-progress-detail').props.children).toBe('Hermes finished — tap to read');
+    expect(queryByText(/on your computer/i)).toBeNull();
+    expect(queryByTestId('run-progress-reply-snippet')).toBeNull();
+  });
+
+  it('shows Reply ready title plus reply snippet on completed banner', () => {
+    const { getByTestId } = render(
+      <RunProgressBanner
+        progress={{
+          phase: 'completed',
+          startedAtMs: Date.now() - 8_000,
+          detail: 'Reply ready',
+          replyPreview: 'Here is the revenue plan for today.',
+          duration: 8,
+        }}
+        onDismiss={() => {}}
+      />,
+    );
+    expect(getByTestId('run-progress-detail').props.children).toBe('Reply ready');
+    expect(getByTestId('run-progress-reply-snippet').props.children).toBe(
+      'Here is the revenue plan for today.',
+    );
+  });
 });

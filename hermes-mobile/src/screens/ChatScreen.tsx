@@ -162,6 +162,7 @@ import {
   displayableLlmModel,
   humanizeComposerStatus,
   isActiveChatRun,
+  REPLY_READY_STATUS_DETAIL,
   shouldShowComposerProgressBanner,
 } from '../utils/runProgressDisplay';
 import {
@@ -493,7 +494,7 @@ export function shouldIgnoreKeyboardHide(
   return platformOs === 'android' && inputFocused && metricsHeight > 0;
 }
 
-/** How long the "Reply ready on your computer" banner stays before auto-dismiss. */
+/** How long the "Reply ready" / "Hermes finished — tap to read" banner stays before auto-dismiss. */
 const RUN_COMPLETED_BANNER_DISMISS_MS = 2500;
 
 /** How long the per-message "Saved to ThumbGate" confirmation stays visible. */
@@ -5655,7 +5656,7 @@ export default function ChatScreen() {
               sessionId: targetSessionId,
             }),
             phase: 'completed',
-            detail: 'Reply ready on your computer',
+            detail: REPLY_READY_STATUS_DETAIL,
             replyPreview: replyPreview || undefined,
             duration: Math.max(0, (Date.now() - completedStartedAt) / 1000),
           }));
@@ -6352,7 +6353,7 @@ export default function ChatScreen() {
             return {
               ...prev,
               phase: 'completed',
-              detail: 'Reply ready on your computer',
+              detail: REPLY_READY_STATUS_DETAIL,
               duration: Math.max(0, (Date.now() - prev.startedAtMs) / 1000),
             };
           }
@@ -6360,8 +6361,8 @@ export default function ChatScreen() {
         });
         if (gatewayStatus === 'completed') {
           // Mirror the send-success path: auto-dismiss the completed banner. Without
-          // this the reconcile path leaves "Reply ready on your computer" pinned
-          // until the user taps Dismiss, and keeps re-posting the run notification.
+          // this the reconcile path leaves "Reply ready" pinned until Dismiss and
+          // keeps re-posting the run notification.
           setTimeout(() => {
             setRunProgress((prev) =>
               prev?.phase === 'completed' && prev.startedAtMs === reconciledStartedAt

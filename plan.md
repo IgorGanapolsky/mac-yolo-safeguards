@@ -242,10 +242,18 @@ Status values: `pending` | `in_progress` | `blocked` | `done`. Claim a row by se
 | T-GROK-BUILD-FLEET | High-ROI Grok Build open-source fleet: local Ollama/LiteLLM routes + PreToolUse safety hooks on both Macs | done | grok-build-fleet | `tools/grok-build-fleet.js`, `hooks/grok-build-fleet/`, `scripts/install-grok-build-fleet.sh`, `tests/test-grok-build-fleet.js`, `docs/GROK-BUILD-OPEN-SOURCE-FLEET.md`, `README.md`, `plan.md` | Both Macs doctor ready:true (3/3 local models); `grok models` lists ollama-hermes-64k/fast + litellm-hermes-local; [ui] fork_secondary=ollama-hermes-fast; PreToolUse denies force-push; unit tests ok; live install MBP+mini |
 | T-AGENT-CONF-ROI | Steal Callstack Agent Conf themes into high-ROI agent tooling (control plane, alert TTM, observability gate, incident RAG) | done | cursor-agent-conf-roi | `tools/agent-control-plane.js`, `tools/alert-investigation-loop.js`, `tools/hermes-observability-gate.js`, `tools/agent-incident-capture.js`, `tools/agent-automation-status.js`, `tests/test-agent-control-plane.js`, `tests/test-alert-investigation-loop.js`, `tests/test-hermes-observability-gate.js`, `tests/test-agent-incident-capture.js`, `docs/AGENT-CONF-ROI-MAPPING-JULY-2026.md`, `plan.md` | Focused node tests green; status CLI emits health score; ship mode fails on e2e=skipped; TTM receipts close with ttmMs; Booking migration deferred |
 
+<<<<<<< HEAD
 ## 2. File Ownership Map
 - T-341 disconnect claimed files → **released by cursor-disconnect-preserve** after focused Jest; PR v2 (2026-07-16T14:40:00Z)
 - T-NOTIF-SNIPPET → **released by grok-notif-snippet** after focused Jest green (2026-07-16T15:30:00Z)
  (append-only lock table — claim before touching)
+||||||| parent of 6ea08cd1 (fix(mobile): clear reply-ready banner copy (not "on your computer"))
+## 2. File Ownership Map (append-only lock table — claim before touching)
+=======
+| T-REPLY-READY-COPY | Consumer copy: replace meaningless "Reply ready on your computer" with Reply ready + snippet / Hermes finished — tap to read | done | cursor-reply-ready-copy | `hermes-mobile/src/utils/runProgressDisplay.ts`, `hermes-mobile/src/components/RunProgressBanner.tsx`, `hermes-mobile/src/types/chatDisplay.ts` (replyPreview field; coord 53b411bc), `hermes-mobile/src/screens/ChatScreen.tsx` (REPLY_READY_STATUS_DETAIL only; coord 53b411bc replyPreview), `hermes-mobile/src/__tests__/runProgressDisplay.test.ts`, `hermes-mobile/src/__tests__/RunProgressBanner.test.tsx`, `plan.md` | Banner never says "on your computer" when completed; shows Reply ready + snippet or Hermes finished — tap to read; Jest green; PR merge |
+
+## 2. File Ownership Map (append-only lock table — claim before touching)
+>>>>>>> 6ea08cd1 (fix(mobile): clear reply-ready banner copy (not "on your computer"))
 
 - `tools/grok-build-fleet.js`, `hooks/grok-build-fleet/`, `scripts/install-grok-build-fleet.sh`, `tests/test-grok-build-fleet.js`, `docs/GROK-BUILD-OPEN-SOURCE-FLEET.md`, `README.md` (Grok Build fleet blurb only), `plan.md` → **grok-build-fleet** (T-GROK-BUILD-FLEET open-source local routes + safety hooks on MBP+mini) (2026-07-16T13:40:00Z)
 - T-GROK-BUILD-FLEET claimed files above → **released by grok-build-fleet** after both Macs doctor ready:true, `grok models` shows 3 local routes, hooks deny force-push, unit tests green (2026-07-16T13:45:00Z)
@@ -587,7 +595,15 @@ Status values: `pending` | `in_progress` | `blocked` | `done`. Claim a row by se
 - `hermes-mobile/src/__tests__/preventRecurrenceContract.test.ts`, `hermes-mobile/src/__tests__/ConnectionHealthHub.test.tsx`, `hermes-mobile/.maestro/tailscale-profile-disconnected-copy.yaml`, `hermes-mobile/.maestro/picker-two-machines.yaml`, `hermes-mobile/.maestro/pairCode-deep-link.yaml`, `hermes-mobile/scripts/validate-maestro-flows.js`, `hermes-mobile/docs/PREVENT-RECURRENCE-JULY-2026.md`, `plan.md` → **cursor-recurrence-tests-jul14** (T-337 test-only consolidation of tonight's S16-S24 recurrence class; isolated worktree off `origin/main`, no production source files touched, does not collide with in-flight PR #397 Tailscale-onboarding copy) (2026-07-14T22:50:00Z)
 - T-337 claimed files above → **released by cursor-recurrence-tests-jul14** after `npm test` 176 suites/1492 tests, `npm run typecheck`, `npm run e2e:validate` (32 flows), and `npm run test:release-safety` (6 suites/107 tests) all green (2026-07-14T23:05:00Z)
 
+
+- T-REPLY-READY-COPY claimed files → **released by cursor-reply-ready-copy** after focused Jest 37/37; banner uses Reply ready + snippet or Hermes finished — tap to read (2026-07-16T13:55:00Z)
+
 ## 3. Decisions Log
+
+### 2026-07-16T13:55:00Z — `cursor-reply-ready-copy` — T-REPLY-READY-COPY consumer reply-ready copy
+- **Meaning:** Mac finished the agent turn; phone can show the reply. Old "Reply ready on your computer" read as nonsense.
+- **Fix:** Shared `REPLY_READY_*` constants; banner title `Hermes finished — tap to read` (or `Reply ready` + `replyPreview` snippet); ChatScreen status detail no longer says "on your computer". Coord notification snippet agent 53b411bc for `replyPreview` wiring.
+- **Verify:** focused Jest `runProgressDisplay|RunProgressBanner` 37/37.
 - **2026-07-15T19:50:04Z** `cursor-ota-stranger-ci-unblock`: OTA unblock — accept CI stranger Maestro for production publish; e2e=skipped ≠ pass and not hard-block when stranger green. Restores dual-channel publish.
  (append-only, newest at bottom)
 
