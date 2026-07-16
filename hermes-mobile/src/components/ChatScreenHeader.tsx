@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { colors } from '../theme/colors';
 import type { RunProgressState } from '../types/chatDisplay';
@@ -8,6 +8,14 @@ import { GATEWAY_AUTH_REPAIR_HEADER } from '../services/gatewayClient';
 import { displayableLlmModel } from '../utils/runProgressDisplay';
 import { weakLocalModelWarning } from '../utils/weakLocalModel';
 import ExpandableThreadTitle from './ExpandableThreadTitle';
+
+/**
+ * Default open/closed for the status block under the Mac row.
+ * Warnings and status lines are collapsed by default so chat keeps the screen.
+ */
+export function defaultHeaderDetailsExpanded(hasWarnings: boolean): boolean {
+  return !hasWarnings;
+}
 
 type ChatScreenHeaderProps = {
   threadTitle: string;
@@ -174,6 +182,25 @@ export default function ChatScreenHeader({
   const localModelWarning = weakLocalModelWarning(resolvedModel);
   const hugeContext =
     (currentSession?.input_tokens ?? 0) >= 20_000 || (runProgress?.inputTokens ?? 0) >= 20_000;
+  const hermesAgent = useMemo(
+    () => activeAgents?.find((a) => a.name.toLowerCase() === 'hermes'),
+    [activeAgents],
+  );
+  const hasWarnings = Boolean(localModelWarning || hugeContext);
+  const hasCollapsibleDetails =
+    showWorkspace || Boolean(hermesAgent) || hasWarnings;
+  const [detailsExpanded, setDetailsExpanded] = useState(() =>
+    defaultHeaderDetailsExpanded(hasWarnings),
+  );
+  const collapsedHint = localModelWarning
+    ? 'Weak local model'
+    : hugeContext
+      ? 'Large chat'
+      : hermesAgent
+        ? buildHermesStatusLabel(hermesAgent, currentSession, gatewayModel, runProgress)
+        : showWorkspace
+          ? workspaceName ?? 'Project lane'
+          : null;
 
   return (
     <View style={styles.wrap} testID="chat-screen-header">
@@ -263,7 +290,35 @@ export default function ChatScreenHeader({
         </View>
       </Pressable>
 
-      {showWorkspace ? (
+      {hasCollapsibleDetails ? (
+        <Pressable
+          onPress={() => setDetailsExpanded((open) => !open)}
+          style={({ pressed }) => [styles.detailsToggle, pressed && styles.pressed]}
+          testID="chat-header-details-toggle"
+          accessibilityRole="button"
+          accessibilityState={{ expanded: detailsExpanded }}
+          accessibilityLabel={
+            detailsExpanded ? 'Hide status details' : 'Show status details'
+          }
+        >
+          <Text
+            style={[styles.detailsToggleText, hasWarnings && styles.detailsToggleWarn]}
+            numberOfLines={1}
+            testID="chat-header-details-summary"
+          >
+            {detailsExpanded
+              ? 'Hide status'
+              : collapsedHint
+                ? `Status · ${collapsedHint}`
+                : 'Status'}
+          </Text>
+          <Text style={styles.detailsChevron} testID="chat-header-details-chevron">
+            {detailsExpanded ? '▴' : '▾'}
+          </Text>
+        </Pressable>
+      ) : null}
+
+      {detailsExpanded && showWorkspace ? (
         <Pressable
           onPress={onPressWorkspace}
           disabled={!canSwitchWorkspace || !onPressWorkspace}
@@ -285,25 +340,20 @@ export default function ChatScreenHeader({
         </Pressable>
       ) : null}
 
-      {(() => {
-        const hermesAgent = activeAgents?.find((a) => a.name.toLowerCase() === 'hermes');
-        if (!hermesAgent) return null;
+      {detailsExpanded && hermesAgent ? (
+        <View style={styles.agentsRow} testID="chat-header-active-agents">
+          <Text style={styles.agentsLabel} testID="chat-header-hermes-status">
+            {buildHermesStatusLabel(hermesAgent, currentSession, gatewayModel, runProgress)}
+          </Text>
+        </View>
+      ) : null}
 
-        return (
-          <View style={styles.agentsRow} testID="chat-header-active-agents">
-            <Text style={styles.agentsLabel} testID="chat-header-hermes-status">
-              {buildHermesStatusLabel(hermesAgent, currentSession, gatewayModel, runProgress)}
-            </Text>
-          </View>
-        );
-      })()}
-
-      {localModelWarning ? (
+      {detailsExpanded && localModelWarning ? (
         <Text style={styles.modelWarning} testID="chat-header-weak-model-warning">
           {localModelWarning}
         </Text>
       ) : null}
-      {hugeContext && !localModelWarning ? (
+      {detailsExpanded && hugeContext && !localModelWarning ? (
         <Text style={styles.modelWarning} testID="chat-header-poisoned-context-warning">
           This chat is large — Start fresh chat so the model cannot keep drifting from old context.
         </Text>
@@ -474,6 +524,30 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: colors.textMuted,
   },
+  detailsToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 4,
+    paddingVertical: 4,
+    minHeight: 28,
+  },
+  detailsToggleText: {
+    flex: 1,
+    minWidth: 0,
+    fontSize: 11,
+    fontWeight: '600',
+    color: colors.textMuted,
+  },
+  detailsToggleWarn: {
+    color: colors.warning,
+  },
+  detailsChevron: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.textMuted,
+    lineHeight: 14,
+  },
   modelWarning: {
     paddingHorizontal: 4,
     paddingVertical: 4,
@@ -483,3 +557,4 @@ const styles = StyleSheet.create({
     color: colors.warning,
   },
 });
+

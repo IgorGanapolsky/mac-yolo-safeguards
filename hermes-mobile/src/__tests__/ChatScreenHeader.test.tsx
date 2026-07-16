@@ -1,12 +1,17 @@
 import React from 'react';
 import { fireEvent } from '@testing-library/react-native';
 import { render } from '@testing-library/react-native';
-import ChatScreenHeader, { buildHermesStatusLabel } from '../components/ChatScreenHeader';
+import ChatScreenHeader, {
+  buildHermesStatusLabel,
+  defaultHeaderDetailsExpanded,
+} from '../components/ChatScreenHeader';
 import { GATEWAY_AUTH_REPAIR_HEADER } from '../services/gatewayClient';
 
 describe('ChatScreenHeader', () => {
-  it('warns when a weak local coding model is active', () => {
-    const { getByTestId } = render(
+  it('collapses status details by default when a weak local model is active', () => {
+    expect(defaultHeaderDetailsExpanded(true)).toBe(false);
+
+    const { getByTestId, queryByTestId } = render(
       <ChatScreenHeader
         threadTitle="Deploy fix"
         machineLabel="MacBook Pro"
@@ -18,11 +23,15 @@ describe('ChatScreenHeader', () => {
       />,
     );
 
+    expect(queryByTestId('chat-header-weak-model-warning')).toBeNull();
+    expect(getByTestId('chat-header-details-summary').props.children).toMatch(/Weak local model/i);
+
+    fireEvent.press(getByTestId('chat-header-details-toggle'));
     expect(getByTestId('chat-header-weak-model-warning').props.children).toMatch(/local worker/i);
   });
 
-  it('warns when session context is already huge', () => {
-    const { getByTestId } = render(
+  it('warns when session context is already huge after expanding status', () => {
+    const { getByTestId, queryByTestId } = render(
       <ChatScreenHeader
         threadTitle="Deploy fix"
         machineLabel="MacBook Pro"
@@ -35,6 +44,8 @@ describe('ChatScreenHeader', () => {
       />,
     );
 
+    expect(queryByTestId('chat-header-poisoned-context-warning')).toBeNull();
+    fireEvent.press(getByTestId('chat-header-details-toggle'));
     expect(getByTestId('chat-header-poisoned-context-warning').props.children).toMatch(/Start fresh/i);
   });
 
@@ -345,6 +356,8 @@ describe('ChatScreenHeader', () => {
       />,
     );
 
+    // Weak local model keeps details collapsed by default — expand to read status line.
+    fireEvent.press(getByTestId('chat-header-details-toggle'));
     const label = getByTestId('chat-header-hermes-status').props.children;
     expect(label).toContain('qwen3:8b-64k');
     expect(label).not.toContain('hermes-agent');
@@ -372,11 +385,13 @@ describe('ChatScreenHeader', () => {
       />,
     );
 
+    fireEvent.press(getByTestId('chat-header-details-toggle'));
     expect(getByTestId('chat-header-hermes-status').props.children).toBe(
       'Hermes (active) · qwen3:8b-64k · In: 34,000 | Out: 128',
     );
   });
 });
+
 
 describe('buildHermesStatusLabel', () => {
   const hermes = { name: 'Hermes', status: 'active' };
