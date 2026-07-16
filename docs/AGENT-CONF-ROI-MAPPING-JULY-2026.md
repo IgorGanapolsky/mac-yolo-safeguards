@@ -21,3 +21,20 @@ node tools/alert-investigation-loop.js scan --json
 node tools/hermes-observability-gate.js --mode ship --json
 node tools/agent-incident-capture.js --title "..." --root-cause "..." --fix "..." --json
 ```
+
+## Mobile product layer (follow-up — this PR)
+
+Phone users do not run `node tools/*`. Agent Conf themes must surface **in chat**:
+
+| Theme | Mobile ship |
+|-------|-------------|
+| eBay alert TTM | `hermes-mobile/src/utils/chatStallInvestigation.ts` — after 45s on Delivering/Working, classify cause (weak model / mega / no tokens / unreachable) |
+| Human control | RunProgressBanner shows investigation + **Start fresh** / **Switch Mac** CTA |
+| Grafana honesty | Investigation uses `macHttpOk` (chat path), not vibes-only Connected label |
+| Meta control plane | Switch Mac opens picker (fleet choose); start fresh exits poisoned thread |
+| Booking migration | Still deferred (no Perl theater) |
+
+```bash
+# unit
+cd hermes-mobile && npm test -- --runInBand src/__tests__/chatStallInvestigation.test.ts
+```

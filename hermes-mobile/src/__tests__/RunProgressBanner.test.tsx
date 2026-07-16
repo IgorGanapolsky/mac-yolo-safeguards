@@ -375,4 +375,28 @@ describe('RunProgressBanner', () => {
     );
     expect(getByTestId('run-progress-stats')).toBeTruthy();
   });
+
+  it('shows Agent Conf stall investigation after long delivering on weak model', () => {
+    jest.useFakeTimers();
+    const { getByTestId, queryByTestId } = render(
+      <RunProgressBanner
+        progress={{
+          phase: 'sending',
+          startedAtMs: Date.now() - 60_000,
+          detail: 'Delivering your message…',
+          model: 'qwen3.5:9b-hermes-64k',
+          outputTokens: 0,
+        }}
+        fallbackModel="qwen3.5:9b-hermes-64k"
+        sessionTokens={5000}
+        macHttpOk
+        onSwitchMac={jest.fn()}
+        onStartFreshChat={jest.fn()}
+      />,
+    );
+    expect(getByTestId('run-progress-investigation').props.children).toMatch(/weak local model/i);
+    expect(getByTestId('run-progress-switch-mac')).toBeTruthy();
+    jest.useRealTimers();
+  });
+
 });
