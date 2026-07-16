@@ -600,7 +600,7 @@ describe('GatewayProvider', () => {
 
     await waitFor(() => {
       expect(getByTestId('connection-mode').props.children).toBe('relay');
-      expect(getByTestId('profiles-ids').props.children).toContain('mac_mac_mini_local');
+      expect(getByTestId('profiles-ids').props.children).toContain('mac_10_2_29_103');
     });
 
     await act(async () => {
@@ -613,7 +613,7 @@ describe('GatewayProvider', () => {
       expect(storage.saveGatewaySettings).toHaveBeenCalledWith(
         expect.objectContaining({
           connectionMode: 'relay',
-          gatewayUrl: 'http://127.0.0.1:8642',
+          gatewayUrl: 'http://10.2.29.103:8642',
         }),
       );
     });

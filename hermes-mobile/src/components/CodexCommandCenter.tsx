@@ -21,6 +21,11 @@ type CodexCommandCenterProps = {
   chatStalled?: boolean;
   /** Auth probe failed — never show green Connected beside wrong-key. */
   authMismatch?: boolean;
+  /**
+   * When the composer already shows RunProgressBanner, hide this duplicate RUN tile
+   * so the chat list does not lose another chunk of vertical space.
+   */
+  suppressRunTile?: boolean;
 };
 
 function connectionCopy(
@@ -36,7 +41,14 @@ function connectionCopy(
     return { label: 'Not connected', detail: 'Wrong key — tap to re-pair', color: colors.error };
   }
   if (macRetryBusy) {
-    return { label: machineName, detail: 'Reconnecting…', color: colors.warning };
+    const generic =
+      !machineName ||
+      /^(computer|your computer|computer via usb)$/i.test(machineName.trim());
+    return {
+      label: machineName,
+      detail: generic ? 'Looking for your Mac…' : 'Reconnecting…',
+      color: colors.warning,
+    };
   }
   if (state === 'demo') {
     return { label: 'Demo', detail: 'Preview', color: colors.accent };
@@ -72,7 +84,14 @@ function shouldShowMacTile(state: LeashConnectionState, macHttpReachable = false
   return true;
 }
 
-function shouldShowRunTile(runProgress?: RunProgressState | null, isSending = false): boolean {
+function shouldShowRunTile(
+  runProgress?: RunProgressState | null,
+  isSending = false,
+  suppressRunTile = false,
+): boolean {
+  if (suppressRunTile) {
+    return false;
+  }
   if (isSending && (!runProgress || !runProgress.runId)) {
     return false;
   }
@@ -112,6 +131,7 @@ export default function CodexCommandCenter({
   machineName = 'Computer',
   chatStalled = false,
   authMismatch = false,
+  suppressRunTile = false,
 }: CodexCommandCenterProps) {
   const link = connectionCopy(
     connectionState,
@@ -124,7 +144,7 @@ export default function CodexCommandCenter({
   );
   const showMacTile =
     shouldShowMacTile(connectionState, macHttpReachable && !authMismatch) && !silentHealInFlight;
-  const showRunTile = shouldShowRunTile(runProgress, isSending);
+  const showRunTile = shouldShowRunTile(runProgress, isSending, suppressRunTile);
   const showApprovalsTile = pendingApprovalCount > 0;
 
   if (!showMacTile && !showRunTile && !showApprovalsTile) {

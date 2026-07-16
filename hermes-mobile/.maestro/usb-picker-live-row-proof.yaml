@@ -1,0 +1,32 @@
+appId: com.iganapolsky.hermesmobile
+---
+- launchApp:
+    clearState: false
+    stopApp: true
+- extendedWaitUntil:
+    notVisible:
+      id: "hermes-bootstrap"
+    timeout: 90000
+- runFlow: dismiss-mac-picker.yaml
+- runFlow:
+    when:
+      notVisible:
+        id: "chat-input"
+    commands:
+      - tapOn:
+          id: "tab-hermes"
+- extendedWaitUntil:
+    visible:
+      id: "chat-screen-header"
+    timeout: 45000
+- tapOn:
+    id: "chat-context-mac-button"
+- extendedWaitUntil:
+    visible:
+      id: "mac-picker-modal"
+    timeout: 15000
+- extendedWaitUntil:
+    visible:
+      id: "gateway-profile-list"
+    timeout: 20000
+- takeScreenshot: ../docs/proofs/usb-picker-live-row-20260714/mac-picker-computers-listed

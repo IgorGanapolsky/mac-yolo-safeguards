@@ -3,15 +3,34 @@ import { isSummarizationStub } from './chatCompactionHandoff';
 import { isMessageBodyEmpty } from './chatMessageMerge';
 import { isDeferredStreamPlaceholder } from './streamAssistantText';
 
-/** Poll gateway transcript after empty stream / dropped SSE until reply lands or timeout. */
-export const DEFERRED_REPLY_POLL_MS = 3_000;
-/** Base max wait when no tool activity is seen. */
+/** Poll gateway transcript after empty stream / dropped SSE until reply lands. */
+export const DEFERRED_REPLY_POLL_MS = 4_000;
+/** Base max wait when no tool activity is seen before surfacing slow-reply copy. */
 export const DEFERRED_REPLY_POLL_MAX_MS = 60_000;
 /** Longer wait while the Mac is clearly still using tools after the last user turn. */
 export const DEFERRED_REPLY_POLL_MAX_WITH_TOOLS_MS = 180_000;
+/** After this, status copy switches to "Checking your Mac… (Ns)" while auto-poll continues. */
+export const EMPTY_STREAM_SELF_HEAL_AFTER_MS = 30_000;
 
 export const EMPTY_REPLY_FAILURE_REASON =
-  'Still no reply text — your Mac may be stuck in tools. Tap Refresh below, Stop if a run is active, or start a fresh chat.';
+  'Still no reply text — your Mac may be stuck in tools. Hermes keeps checking automatically; Stop if a run is active, or start a fresh chat.';
+
+/** User-facing status while auto-polling after send with no reply yet. */
+export function emptyStreamCheckingStatus(elapsedMs: number): string {
+  const elapsedSec = Math.max(1, Math.floor(elapsedMs / 1000));
+  if (elapsedMs < EMPTY_STREAM_SELF_HEAL_AFTER_MS) {
+    return 'Working on your computer… Hermes may be using tools. The reply will show here when ready.';
+  }
+  return `Checking your Mac… (${elapsedSec}s)`;
+}
+
+/** Keep HTTP polling alive while a user turn is still waiting for assistant text. */
+export function shouldKeepAutoPollingForReply(input: {
+  awaitingGatewayReply: boolean;
+  hasEmptyStreamTimeout: boolean;
+}): boolean {
+  return input.awaitingGatewayReply || input.hasEmptyStreamTimeout;
+}
 
 export function shouldAwaitGatewayReplyAfterSend(options: {
   assistantText: string;

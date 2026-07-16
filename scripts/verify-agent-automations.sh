@@ -10,9 +10,12 @@ EXPECTED=(
   com.igor.react-native-newsletter-ingest
   com.igor.hermes-contribution-opportunities
   com.igor.hermes-mobile-continuous-e2e
+  com.igor.hermes-usb-reverse-watchdog
   com.igor.shutdown-simulators
   com.igor.revenue-autonomous-loop
   com.igor.smart-ops
+  com.igor.agent-vault-sync
+  com.igor.repo-root-hygiene
 )
 
 missing=0

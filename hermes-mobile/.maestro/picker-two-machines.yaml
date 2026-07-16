@@ -1,0 +1,39 @@
+# Choose your computer picker must render every discovered machine (Igor P0 2026-07-14,
+# PR #389): "Find computers" reported foundCount=2 but the picker modal rendered only one
+# row because a freshly-discovered, not-yet-named Tailscale machine was filtered out as
+# noise. This flow reaches the live picker and captures a device screenshot proving both
+# saved computers render — see gatewayProfilePicker.test.ts
+# "renders every discovered machine even before its hostname resolves (found 2 -> 2 rows)"
+# for the deterministic unit-level regression.
+appId: com.iganapolsky.hermesmobile
+---
+- launchApp:
+    clearState: false
+    stopApp: true
+- extendedWaitUntil:
+    notVisible:
+      id: "hermes-bootstrap"
+    timeout: 90000
+- runFlow: dismiss-mac-picker.yaml
+- runFlow:
+    when:
+      notVisible:
+        id: "chat-input"
+    commands:
+      - tapOn:
+          id: "tab-hermes"
+- extendedWaitUntil:
+    visible:
+      id: "chat-screen-header"
+    timeout: 45000
+- tapOn:
+    id: "chat-context-mac-button"
+- extendedWaitUntil:
+    visible:
+      id: "mac-picker-modal"
+    timeout: 15000
+- extendedWaitUntil:
+    visible:
+      id: "gateway-profile-list"
+    timeout: 20000
+- takeScreenshot: ../docs/proofs/picker-two-machines-20260714/mac-picker-rows

@@ -27,7 +27,7 @@ import {
   formatListeningOnGatewayLine,
 } from '../utils/gatewayEndpoint';
 import { buildLeashEmptyExplanation } from '../utils/leashUx';
-import { isThumbgateLeashUnlocked } from '../utils/thumbgateLeash';
+import { hasThumbgateLeashPro, isThumbgateLeashUnlocked } from '../utils/thumbgateLeash';
 import { CHAT_APPROVAL_EDIT_PREFIX } from '../services/approvalResolver';
 import { fromPendingApproval } from '../utils/approvalNormalize';
 import {
@@ -234,7 +234,7 @@ export default function ApprovalsScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={['top']}>
+    <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
       <View style={styles.header}>
         <View testID="THUMBGATE_LEASH" accessible={true} collapsable={false}>
           <Text style={styles.title}>THUMBGATE LEASH</Text>
@@ -248,8 +248,10 @@ export default function ApprovalsScreen() {
         </Text>
         {leashUnlocked ? (
           <>
-            <View style={styles.pillRow}>
-              <HealthPill level={healthLevel} detail={gatewayHealthDetail} />
+            <View style={styles.pillRow} testID="leash-header-pill-row">
+              <View style={styles.pillSlot}>
+                <HealthPill level={healthLevel} detail={gatewayHealthDetail} />
+              </View>
               <TouchableOpacity
                 style={[styles.headerRefreshBtn, refreshing && styles.headerRefreshBtnDisabled]}
                 onPress={() => void onRefresh()}
@@ -314,8 +316,26 @@ export default function ApprovalsScreen() {
             </Text>
           </View>
         ) : null}
+        {/*
+          Paid upgrade surface — always first for non-Pro so fresh free users and Maestro
+          find pro-upgrade-card without scrolling past toggles/history.
+          Locked path embeds the card in the empty state below instead (same testIDs).
+        */}
+        {!hasThumbgateLeashPro(settings) && leashUnlocked ? (
+          <GlassCard style={styles.emptyCard} testID="leash-pro-upsell-card">
+            <Text style={styles.emptyTitle}>Upgrade for unlimited Leash</Text>
+            <Text style={styles.emptyBody}>
+              Free tier includes limited weekly approvals. Subscribe for unlimited mobile approvals
+              and full ThumbGate Pro gates.
+            </Text>
+            <ProUpgradeCard
+              onUnlocked={unlockThumbgateLeash}
+              onTesterUnlock={showTesterUnlock ? unlockThumbgateLeash : undefined}
+            />
+          </GlassCard>
+        ) : null}
         {!leashUnlocked ? (
-          <GlassCard style={styles.emptyCard}>
+          <GlassCard style={styles.emptyCard} testID="leash-pro-upsell-card">
             <Text style={styles.emptyTitle}>ThumbGate Leash is a Pro feature</Text>
             <Text style={styles.emptyBody}>
               When your coding agent hits a risky command on your computer, the approval card appears
@@ -567,6 +587,7 @@ export default function ApprovalsScreen() {
             </Text>
           </TouchableOpacity>
         ) : null}
+
       </ScrollView>
     </SafeAreaView>
   );
@@ -597,11 +618,18 @@ const styles = StyleSheet.create({
   pillRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 12,
+    flexWrap: 'wrap',
+    gap: 8,
     marginBottom: 10,
   },
+  pillSlot: {
+    flexGrow: 1,
+    flexShrink: 1,
+    minWidth: 0,
+  },
   headerRefreshBtn: {
+    flexShrink: 0,
+    alignSelf: 'flex-start',
     borderRadius: 10,
     borderWidth: 1,
     borderColor: colors.borderLight,

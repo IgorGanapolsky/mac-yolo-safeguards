@@ -22,6 +22,8 @@ export function savedProfileFallbackUrls(input: {
   profiles: GatewayProfile[];
   preferTailscaleFirst?: boolean;
   activeProfileId?: string | null;
+  /** When false (cellular), prefer Tailscale routes before loopback/LAN for the active Mac. */
+  wifiConnected?: boolean;
 }): string[] {
   const primary = input.primaryUrl.trim();
   const seen = new Set<string>([primary]);
@@ -60,7 +62,11 @@ export function savedProfileFallbackUrls(input: {
 
   let ordered: string[];
   if (input.activeProfileId !== undefined) {
-    ordered = [...loopback, ...lan, ...tailscale, ...other];
+    const preferTailscale =
+      input.preferTailscaleFirst ?? input.wifiConnected === false;
+    ordered = preferTailscale
+      ? [...tailscale, ...loopback, ...lan, ...other]
+      : [...loopback, ...lan, ...tailscale, ...other];
   } else {
     const preferTailscale =
       input.preferTailscaleFirst ?? isPrivateLanGatewayUrl(primary);
@@ -101,6 +107,7 @@ export function buildSelfHealProbeUrls(input: {
     primaryUrl: primary,
     profiles: input.profiles,
     activeProfileId: input.activeProfileId ?? null,
+    wifiConnected: input.wifiConnected,
   })) {
     push(url);
   }

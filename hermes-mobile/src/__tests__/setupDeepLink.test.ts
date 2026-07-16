@@ -64,6 +64,21 @@ describe('setupDeepLink', () => {
     );
   });
 
+  it('parses tailnet-only setup links without changing the primary gateway URL', () => {
+    const parsed = parseSetupDeepLink(
+      'hermes://setup?tailnet=100.94.135.78&tailnet=100.87.85.85&extraUrl=http%3A%2F%2F100.94.135.78%3A8642&extraName=Igors-Mac-mini',
+    );
+    expect(parsed).toEqual({
+      tailnetProbeHosts: ['100.94.135.78', '100.87.85.85'],
+      extraComputers: [
+        {
+          gatewayUrl: 'http://100.94.135.78:8642',
+          macName: 'Igors-Mac-mini',
+        },
+      ],
+    });
+  });
+
   it('builds and parses extra saved computers from setup URLs', () => {
     const link = buildSetupDeepLink(
       'http://10.154.137.152:8642',
@@ -87,6 +102,42 @@ describe('setupDeepLink', () => {
         apiKey: 'sk-mini-key',
       },
     ]);
+  });
+
+  it('parses a secretless pairCode + pairServer deep link without requiring a gateway url', () => {
+    const parsed = parseSetupDeepLink(
+      'hermes://setup?pairCode=AB23CD45&pairServer=http://192.168.1.5:8765&name=Mac-Mini',
+    );
+    expect(parsed).toEqual({
+      gatewayUrl: undefined,
+      macName: 'Mac-Mini',
+      pairingCode: 'AB23CD45',
+      pairServerUrl: 'http://192.168.1.5:8765',
+    });
+    // Never embeds a raw key alongside the secretless code.
+    expect(parsed?.apiKey).toBeUndefined();
+  });
+
+  it('parses legacy secretless links that used code= instead of pairCode=', () => {
+    const parsed = parseSetupDeepLink(
+      'hermes://setup?code=AB23CD45&pairServer=http://192.168.1.5:8765&name=Mac-Mini',
+    );
+    expect(parsed).toEqual({
+      gatewayUrl: undefined,
+      macName: 'Mac-Mini',
+      pairingCode: 'AB23CD45',
+      pairServerUrl: 'http://192.168.1.5:8765',
+    });
+    expect(parsed?.relayCode).toBeUndefined();
+  });
+
+  it('never confuses the secretless pairCode with the existing relay code/relay params', () => {
+    const parsed = parseSetupDeepLink(
+      'hermes://setup?url=http://192.168.1.5:8642&key=sk-legacy&relay=moon-dust&pairCode=ZZ99YY88&pairServer=http://192.168.1.5:8765',
+    );
+    expect(parsed?.relayCode).toBe('MOON-DUST');
+    expect(parsed?.pairingCode).toBe('ZZ99YY88');
+    expect(parsed?.apiKey).toBe('sk-legacy');
   });
 
   it('returns null for non-setup links', () => {

@@ -10,9 +10,10 @@ import {
   Alert,
   Platform,
   Keyboard,
+  BackHandler,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { useGateway } from '../context/GatewayContext';
 import GlassCard from '../components/GlassCard';
 import { colors } from '../theme/colors';
@@ -26,6 +27,8 @@ import { isDemoModeAllowed } from '../utils/demoModePolicy';
 import GatewayProfilePicker from '../components/GatewayProfilePicker';
 import TailscaleDiscoveryBanner from '../components/TailscaleDiscoveryBanner';
 import { profilesForSwitchComputerPicker, detectUsbHostMismatch } from '../utils/gatewayProfilePicker';
+import { confirmForgetGatewayProfile } from '../utils/confirmForgetGatewayProfile';
+import { profileDisplayName } from '../services/gatewayProfiles';
 import { setProductAnalyticsOptOut } from '../services/productAnalytics';
 import LoadingButton from '../components/ui/LoadingButton';
 import { formatGatewayHostLabel, isPrivateLanGatewayUrl } from '../utils/gatewayEndpoint';
@@ -40,6 +43,7 @@ import { AVATARS, PERSONAS } from '../utils/hermesPersona';
 import { consumeSettingsPairQrOnFocus } from '../utils/storeCaptureDeepLink';
 
 export default function SettingsScreen() {
+  const navigation = useNavigation();
   const {
     settings,
     apiKey,
@@ -101,12 +105,38 @@ export default function SettingsScreen() {
   const [isScanningMacs, setIsScanningMacs] = useState(false);
   const [qrScannerVisible, setQrScannerVisible] = useState(false);
   const [glassesConnected, setGlassesConnected] = useState(false);
+
+  const leaveSettings = useCallback(() => {
+    Keyboard.dismiss();
+    haptics.light();
+    navigation.navigate('Chat' as never);
+  }, [navigation]);
+
   useFocusEffect(
     useCallback(() => {
       if (consumeSettingsPairQrOnFocus()) {
         setQrScannerVisible(true);
       }
     }, []),
+  );
+
+  // Android system back: dismiss QR first, otherwise leave Settings → Chat.
+  // Never exit the app while the operator is mid-settings with no tab affordance.
+  useFocusEffect(
+    useCallback(() => {
+      if (Platform.OS !== 'android') {
+        return undefined;
+      }
+      const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
+        if (qrScannerVisible) {
+          setQrScannerVisible(false);
+          return true;
+        }
+        leaveSettings();
+        return true;
+      });
+      return () => subscription.remove();
+    }, [leaveSettings, qrScannerVisible]),
   );
 
   const scrollRef = useRef<ScrollView>(null);
@@ -342,6 +372,11 @@ export default function SettingsScreen() {
       return;
     }
     try {
+      // Verify the relay pairing succeeds BEFORE persisting connectionMode: 'relay'.
+      // A failed pair (e.g. relay resource_exhausted) must never flip the app into relay
+      // mode with no valid token — that silently breaks working USB/Tailscale gateway
+      // profiles until the user notices and manually switches back (P0 2026-07-14).
+      await completePair(pairCode);
       await saveSettings(
         {
           connectionMode: 'relay',
@@ -373,7 +408,6 @@ export default function SettingsScreen() {
         },
         inputApiKey,
       );
-      await completePair(pairCode);
       setPairCode('');
       Alert.alert('Paired', 'Hermes Mobile is linked to your Hermes Relay for anywhere approvals.');
     } catch (err) {
@@ -428,20 +462,30 @@ export default function SettingsScreen() {
   };
 
   const handleRemoveProfile = (profileId: string) => {
-    Alert.alert('Remove computer', 'Remove this saved computer from the list?', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Remove',
-        style: 'destructive',
-        onPress: () => removeGatewayProfile(profileId),
-      },
-    ]);
+    const profile = savedMacProfiles.find((p) => p.id === profileId);
+    const computerName = profile ? profileDisplayName(profile) : 'this computer';
+    confirmForgetGatewayProfile({
+      profileId,
+      computerName,
+      onConfirm: removeGatewayProfile,
+    });
   };
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
       <View style={styles.header}>
-        <Text style={styles.title} testID="SETTINGS">SETTINGS</Text>
+        <View style={styles.headerRow}>
+          <Text style={styles.title} testID="SETTINGS">SETTINGS</Text>
+          <TouchableOpacity
+            onPress={leaveSettings}
+            accessibilityRole="button"
+            accessibilityLabel="Done — return to Hermes chat"
+            testID="settings-done"
+            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+          >
+            <Text style={styles.doneText}>Done</Text>
+          </TouchableOpacity>
+        </View>
         <Text style={styles.subtitle}>Pair Hermes Relay, choose active machines, and run local fallback ops</Text>
       </View>
 
@@ -1080,11 +1124,23 @@ const styles = StyleSheet.create({
     paddingTop: 8,
     paddingBottom: 12,
   },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
   title: {
+    flex: 1,
     fontSize: 22,
     fontWeight: '900',
     color: colors.text,
     letterSpacing: 2,
+  },
+  doneText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.accent,
   },
   subtitle: {
     fontSize: 12,

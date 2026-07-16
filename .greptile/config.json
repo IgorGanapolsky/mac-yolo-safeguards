@@ -1,0 +1,105 @@
+{
+  "strictness": 2,
+  "commentTypes": [
+    "logic",
+    "syntax"
+  ],
+  "triggerOnUpdates": false,
+  "triggerOnDrafts": false,
+  "shouldUpdateDescription": false,
+  "statusCheck": true,
+  "statusCommentsEnabled": true,
+  "fixWithAI": true,
+  "includeBranches": [
+    "main"
+  ],
+  "excludeAuthors": [
+    "dependabot[bot]",
+    "*-bot"
+  ],
+  "disabledLabels": [
+    "docs-only",
+    "greptile-skip"
+  ],
+  "ignorePatterns": "*\n!hermes-mobile/\n!hermes-mobile/**\nhermes-mobile/**/*.lock\nhermes-mobile/**/node_modules/**\nhermes-mobile/**/__snapshots__/**\nhermes-mobile/**/.bundle-export/**\nhermes-mobile/**/fastlane/screenshots/**\nhermes-mobile/**/docs/proofs/**\nhermes-mobile/**/.wt-*/**\nhermes-mobile/**/.maestro/tmp-*/**",
+  "instructions": "Hermes Mobile is a real-users product (not Igor-only dogfood). Prioritize connect/onboarding regressions over style. Read .greptile/rules.md and hermes-mobile/.greptile/rules.md. Flag false-green Connected states, demo=1 review shortcuts treated as production proof, wrong Mac API keys, OTA-vs-native mistakes, and jargon ('gateway'/'LAN'/'Pair relay') in fresh-user UI copy.",
+  "summarySection": {
+    "included": true,
+    "collapsible": false,
+    "defaultOpen": true
+  },
+  "issuesTableSection": {
+    "included": true,
+    "collapsible": false,
+    "defaultOpen": true
+  },
+  "confidenceScoreSection": {
+    "included": true,
+    "collapsible": true,
+    "defaultOpen": false
+  },
+  "sequenceDiagramSection": {
+    "included": false,
+    "collapsible": true,
+    "defaultOpen": false
+  },
+  "rules": [
+    {
+      "id": "fresh-user-onboarding",
+      "severity": "high",
+      "scope": [
+        "hermes-mobile/src/components/ConnectMacGate.tsx",
+        "hermes-mobile/src/components/FreshUserOnboardingCard.tsx",
+        "hermes-mobile/src/components/ChatConnectionPanel.tsx",
+        "hermes-mobile/src/utils/freshUserOnboarding.ts",
+        "hermes-mobile/src/**/*Onboarding*"
+      ],
+      "rule": "Fresh-user onboarding must keep one primary CTA, numbered steps, and jargon-free copy (Your Mac / Home Wi-Fi / Find computers). Never introduce 'gateway', 'LAN', or 'Pair relay' in primary first-run or disconnected UI. Silent heal (~30s) must run before showing human recovery steps for returning users with saved profiles."
+    },
+    {
+      "id": "no-demo1-false-green",
+      "severity": "high",
+      "scope": [
+        "hermes-mobile/**",
+        "tools/hermes-mobile-pair*",
+        ".github/workflows/**",
+        "hermes-mobile/.maestro/**"
+      ],
+      "rule": "hermes://setup?demo=1 is ASC/review bootstrap only. Never treat demo=1, developerLeashUnlock, adb reverse, or pre-saved Igor profiles as proof that a stranger cold-start works. Flag tests/flows that hide ConnectMacGate via demo deep link and then claim onboarding/connect is verified."
+    },
+    {
+      "id": "tailscale-usb-connect",
+      "severity": "high",
+      "scope": [
+        "hermes-mobile/src/**/*{gateway,Gateway,connect,Connect,pair,Pair,discovery,Discovery,heal,Heal}*",
+        "tools/hermes-mobile-pair*",
+        "hermes-mobile/.maestro/**"
+      ],
+      "rule": "Cellular/off-Wi-Fi must prefer Tailscale paths and copy; USB/adb reverse is Igor dogfood only and must not be required for real users. Do not let USB pairing hijack a healthy Wi-Fi/Tailscale primary. Connected UI requires authenticated probe success \u2014 /health 200 alone is not Connected."
+    },
+    {
+      "id": "multi-mac-api-keys",
+      "severity": "high",
+      "scope": [
+        "tools/hermes-mobile-pair*",
+        "hermes-mobile/src/**/*{key,Key,auth,Auth,credential,Credential,profile,Profile}*",
+        "hermes-mobile/src/services/gatewayClient.ts",
+        "hermes-mobile/src/utils/wrongKeyRecovery.ts"
+      ],
+      "rule": "Mac mini and MacBook Pro can have different API_SERVER_KEY values. Never paste or assume the laptop .env key for a mini Tailscale URL (or vice versa). Flag host\u2192key mismatches, pair flows that rewrite primary to the wrong Mac while USB-cabled to another, and Connected+Wrong-key XOR violations."
+    },
+    {
+      "id": "expo-ota-vs-native",
+      "severity": "medium",
+      "scope": [
+        "hermes-mobile/app.json",
+        "hermes-mobile/app.config.js",
+        "hermes-mobile/eas.json",
+        "hermes-mobile/docs/OTA_UPDATES.md",
+        ".github/workflows/mobile-ota.yml",
+        "hermes-mobile/package.json"
+      ],
+      "rule": "JS/asset fixes ship via EAS OTA on the production channel; native changes (permissions, plugins, version/runtimeVersion bumps, native modules) require a new binary. Do not claim OTA can ship native-only fixes. Do not use expo run:android on a physical phone (Metro-only debug \u2192 black screen) \u2014 release install paths only."
+    }
+  ]
+}

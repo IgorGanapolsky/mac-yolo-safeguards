@@ -40,7 +40,10 @@ import Constants from 'expo-constants';
 import { colors } from '../theme/colors';
 import { isDemoModeAllowed } from '../utils/demoModePolicy';
 import { haptics } from '../services/haptics';
+import { scheduleRunCompletedNotification } from '../services/hermesNotifications';
 import GatewayProfilePicker from '../components/GatewayProfilePicker';
+import { confirmForgetGatewayProfile } from '../utils/confirmForgetGatewayProfile';
+import { profileDisplayName } from '../services/gatewayProfiles';
 import {
   listSessions,
   createSession,
@@ -162,6 +165,10 @@ import {
   shouldShowComposerProgressBanner,
 } from '../utils/runProgressDisplay';
 import {
+  shouldHideProjectChipWhileKeyboard,
+  shouldSuppressCommandCenterRunTile,
+} from '../utils/runProgressLayout';
+import {
   classifyRunStale,
   isTerminalGatewayRunStatus,
   msUntilNoTokenFail,
@@ -178,8 +185,14 @@ import {
   COMPOSER_DRAFT_SAVE_DEBOUNCE_MS,
   clearComposerDraft,
   loadComposerDraft,
+  restoreComposerDraftAfterRejectedSend,
   saveComposerDraft,
 } from '../utils/composerDraftStorage';
+import {
+  composerTextAfterRejectedSend,
+  shouldPreserveTranscriptOnSessionChange,
+  shouldSuppressConnectionHelpForLocalOutbound,
+} from '../utils/disconnectMessagePreserve';
 import {
   captureComposerTextForFreshChat,
   resolveComposerTextAfterFreshChat,
@@ -229,11 +242,18 @@ import type { GatewayEventMessage } from '../types/gateway';
 import { applyStreamEvent, attachRunMetadata, mergeRunUsageFromPayload, mergeSessionUsageIntoRunProgress, runProgressForDisplayEqual } from '../utils/chatStreamEvents';
 import {
   WAITING_FOR_PRIOR_CHAT_DETAIL,
+  filterLiveGatewayRunIds,
   reconcileFrozenSessionBusyState,
   reconcileStaleActiveRunProgress,
   releaseMacOperatorSlot,
   retryOnSessionInUse,
 } from '../utils/chatSessionRecovery';
+import {
+  DEAD_RUN_ENDED_DETAIL,
+  isDeadRunEndedMessage,
+  shouldSurfaceDeadRunEnded,
+  transcriptUnchangedMs,
+} from '../utils/deadRunDetection';
 import {
   classifyMegaSession,
   isMegaSession,
@@ -245,6 +265,7 @@ import {
   sessionTotalTokens,
   shouldAutoFreshAndResendOnMegaBlock,
   shouldForceFreshOnSessionSelect,
+  shouldSuggestFreshOnSessionSelect,
 } from '../utils/sessionTokenGuards';
 import {
   compactionStallBannerCopy,
@@ -268,6 +289,7 @@ import {
   shouldShowConnectivityRunBanner,
 } from '../utils/connectionErrorPolicy';
 import {
+  connectingToMacCopy,
   formatSavedMacUnreachableBanner,
   reconnectingToMacCopy,
   savedMacUnreachableStatus,
@@ -278,7 +300,11 @@ import { hasValidSavedComputer } from '../utils/freshUserOnboarding';
 import { isLoopbackGatewayUrl } from '../utils/gatewayUrlPolicy';
 import { isInvalidGatewayProfile } from '../services/gatewayProfiles';
 import { isPrivateLanGatewayUrl } from '../utils/gatewayEndpoint';
-import { detectUsbHostMismatch, profilesForSwitchComputerPicker } from '../utils/gatewayProfilePicker';
+import {
+  detectUsbHostMismatch,
+  profilesForSwitchComputerPicker,
+  type LiveUsbPickerInput,
+} from '../utils/gatewayProfilePicker';
 import TailscaleDiscoveryBanner from '../components/TailscaleDiscoveryBanner';
 import { USB_LOOPBACK_GATEWAY_URL } from '../utils/gatewayLoopbackFallback';
 import {
@@ -316,8 +342,6 @@ import {
   type ChatTextApproval,
   type LeashPhraseHint,
 } from '../utils/chatApproval';
-import { listClarificationPrompts } from '../utils/chatClarification';
-import type { ClarificationOption } from '../utils/chatClarification';
 import {
   fromChatRunApproval,
   fromChatTextApproval,
@@ -353,10 +377,17 @@ import {
   deferredReplyPollBudgetMs,
   DEFERRED_REPLY_POLL_MS,
   EMPTY_REPLY_FAILURE_REASON,
+  EMPTY_STREAM_SELF_HEAL_AFTER_MS,
+  emptyStreamCheckingStatus,
   shouldAwaitGatewayReplyAfterSend,
+  shouldKeepAutoPollingForReply,
   toolActivityAfterLastUser,
 } from '../utils/emptyStreamReplyRecovery';
 import { shouldShowEmptyStreamRefreshCta } from '../utils/emptyStreamRefreshCta';
+import {
+  resolveLastUserPromptSentAtMs,
+  resolvePromptReplyElapsedState,
+} from '../utils/promptReplyElapsed';
 import { extractTerminalActivityFromMessage, isTerminalToolName } from '../utils/terminalActivity';
 import type { ChatMessageContent, ComposerAttachment } from '../types/chatAttachment';
 import {
@@ -552,18 +583,7 @@ export default function ChatScreen() {
   const [sessionModalVisible, setSessionModalVisible] = useState(false);
   const [toolsModalVisible, setToolsModalVisible] = useState(false);
   const [macPickerVisible, setMacPickerVisible] = useState(false);
-  const [liveUsbGateway, setLiveUsbGateway] = useState<{
-    reachable: boolean;
-    hostname?: string | null;
-  } | null>(null);
-  const switchComputerProfiles = useMemo(
-    () =>
-      profilesForSwitchComputerPicker(gatewayProfiles, {
-        activeProfileId: activeGatewayProfile?.id ?? null,
-        liveUsb: liveUsbGateway,
-      }),
-    [activeGatewayProfile?.id, gatewayProfiles, liveUsbGateway],
-  );
+  const [liveUsbProbed, setLiveUsbProbed] = useState<LiveUsbPickerInput | null>(null);
   const [isScanningMacs, setIsScanningMacs] = useState(false);
   const [projectModalVisible, setProjectModalVisible] = useState(false);
   const [projectSearchQuery, setProjectSearchQuery] = useState('');
@@ -666,6 +686,7 @@ export default function ChatScreen() {
   const pinScrollAfterHydrationRef = useRef(false);
   const messagesRef = useRef<HermesMessage[]>([]);
   const compactionFreshOfferSessionIdRef = useRef<string | null>(null);
+  const megaSessionSuggestFreshOfferedRef = useRef<string | null>(null);
   const sessionsLoadGenRef = useRef(0);
   const prevMacChatLiveRef = useRef<boolean | null>(null);
   const sendStartedAtRef = useRef(Date.now());
@@ -706,6 +727,9 @@ export default function ChatScreen() {
   const runProgressRef = useRef<RunProgressState | null>(null);
   const sendProgressSnapshotRef = useRef<RunProgressState | null>(null);
   const transcriptDigestRef = useRef('');
+  const lastTranscriptChangeAtMsRef = useRef(Date.now());
+  const deadRunSurfacedRef = useRef(false);
+  const maybeSurfaceDeadRunEndedRef = useRef<(() => void) | null>(null);
   /** Ignore spurious onChangeText after Send clears the field (Android IME blur). */
   const sendClearSuppressRef = useRef(false);
   const lastSentComposerTextRef = useRef('');
@@ -1030,6 +1054,29 @@ export default function ChatScreen() {
   }, [apiKey, gatewayUrl, isDemo]);
 
   const macHttpOk = useMemo(() => isMacGatewayHttpOk(health), [health]);
+  const liveUsbFromHealth = useMemo((): LiveUsbPickerInput | null => {
+    if (Platform.OS !== 'android' || isDemo || !isLoopbackGatewayUrl(gatewayUrl)) {
+      return null;
+    }
+    const reachable = macHttpOk || health?.directGatewayReachable === true;
+    if (!reachable) {
+      return null;
+    }
+    const hostname = health?.hostname;
+    if (hostname?.trim()) {
+      return { reachable: true, hostname };
+    }
+    return { reachable: true };
+  }, [gatewayUrl, health, isDemo, macHttpOk]);
+  const liveUsbGateway = liveUsbFromHealth ?? liveUsbProbed;
+  const switchComputerProfiles = useMemo(
+    () =>
+      profilesForSwitchComputerPicker(gatewayProfiles, {
+        activeProfileId: activeGatewayProfile?.id ?? null,
+        liveUsb: liveUsbGateway,
+      }),
+    [activeGatewayProfile?.id, gatewayProfiles, liveUsbGateway],
+  );
   const healthProbePending = useMemo(() => isGatewayHealthPending(health), [health]);
   const usbCableLikely = useMemo(
     () => Platform.OS === 'android' && isLoopbackGatewayUrl(gatewayUrl) && macHttpOk,
@@ -1199,15 +1246,22 @@ export default function ChatScreen() {
     userSendFailed,
     hasRetryableFailedSend,
   });
-  const showMacConnectionHelp = shouldShowMacConnectionHelp({
-    isDemo,
-    macChatLive: effectiveMacChatLive,
-    healthProbePending,
-    healthLevel: health?.level,
-    heal: connectionHeal,
-    userSendFailed,
-    profiles: gatewayProfiles,
+  const suppressConnectionHelpForLocalOutbound = shouldSuppressConnectionHelpForLocalOutbound({
+    hasRetryableFailedSend,
+    pendingOutboundSends: pendingOutboundSendsRef.current,
+    messages,
   });
+  const showMacConnectionHelp =
+    !suppressConnectionHelpForLocalOutbound &&
+    shouldShowMacConnectionHelp({
+      isDemo,
+      macChatLive: effectiveMacChatLive,
+      healthProbePending,
+      healthLevel: health?.level,
+      heal: connectionHeal,
+      userSendFailed,
+      profiles: gatewayProfiles,
+    });
   const showMacRetryBanner = shouldShowMacRetryBanner({
     isDemo,
     macChatLive: effectiveMacChatLive,
@@ -1376,24 +1430,27 @@ export default function ChatScreen() {
     if (!macPickerVisible && !showMacConnectionHelp) {
       return;
     }
+    if (liveUsbFromHealth?.hostname?.trim()) {
+      return;
+    }
     let cancelled = false;
     void probeLiveUsbGateway().then((discovery) => {
       if (cancelled) {
         return;
       }
       if (discovery?.hostname?.trim()) {
-        setLiveUsbGateway({
+        setLiveUsbProbed({
           reachable: true,
           hostname: discovery.hostname,
         });
         return;
       }
-      setLiveUsbGateway(discovery ? { reachable: true } : null);
+      setLiveUsbProbed(discovery ? { reachable: true } : null);
     });
     return () => {
       cancelled = true;
     };
-  }, [isDemo, macPickerVisible, showMacConnectionHelp]);
+  }, [isDemo, liveUsbFromHealth?.hostname, macPickerVisible, showMacConnectionHelp]);
 
   const handleSearchMacFromChat = useCallback(async () => {
     haptics.selection();
@@ -1498,6 +1555,7 @@ export default function ChatScreen() {
         activeWorkerId: activeRelayWorkerId,
         savedMacCount: gatewayProfiles.length,
         profiles: gatewayProfiles,
+        isDemo,
       }),
     [
       activeGatewayProfile,
@@ -1508,6 +1566,7 @@ export default function ChatScreen() {
       relayWorkers,
       activeRelayWorkerId,
       gatewayProfiles,
+      isDemo,
     ],
   );
 
@@ -1581,7 +1640,10 @@ export default function ChatScreen() {
     healInFlight: connectionHealInFlight,
     healExhausted: connectionHealExhausted,
     hasSavedComputer: hasValidSavedComputer(gatewayProfiles),
+    authMismatch: effectiveAuthMismatch,
   });
+
+  const hasPriorSuccessfulConnection = hasValidSavedComputer(gatewayProfiles);
 
   const macRetryBannerText = useMemo(() => {
     if (
@@ -1589,9 +1651,16 @@ export default function ChatScreen() {
         macRetryBusy,
         healInFlight: connectionHealInFlight,
         healExhausted: connectionHealExhausted,
+        hasPriorSuccessfulConnection,
       })
     ) {
       return reconnectingToMacCopy(machineShortLabel);
+    }
+    if (
+      !hasPriorSuccessfulConnection &&
+      (macRetryBusy || (connectionHealInFlight && !connectionHealExhausted))
+    ) {
+      return connectingToMacCopy(machineShortLabel);
     }
     if (connectionHealExhausted && !effectiveMacHttpOk) {
       return formatSavedMacUnreachableBanner({
@@ -1614,6 +1683,7 @@ export default function ChatScreen() {
     macRetryBusy,
     connectionHealInFlight,
     connectionHealExhausted,
+    hasPriorSuccessfulConnection,
     effectiveMacHttpOk,
     machineShortLabel,
     connectionState,
@@ -1688,11 +1758,6 @@ export default function ChatScreen() {
   const inlineTextApprovals = useMemo(
     () => listInlineTextApprovals(messages, resolvedApprovalKeys, leashPhraseHints),
     [messages, resolvedApprovalKeys, leashPhraseHints],
-  );
-
-  const inlineClarificationPrompts = useMemo(
-    () => listClarificationPrompts(messages),
-    [messages],
   );
 
   const composerApprovalQueue = useMemo((): HermesApprovalRequest[] => {
@@ -2368,7 +2433,10 @@ export default function ChatScreen() {
 
   useEffect(() => {
     if (isProjectsLoaded) {
-      loadSessionsList(true);
+      // Reconnect/heal must not force selectLatest — that can jump threads and wipe
+      // local optimistic/failed bubbles while the transcript refresh is still blocked.
+      const selectLatest = !currentSessionRef.current;
+      loadSessionsList(selectLatest);
     }
   }, [isProjectsLoaded, isDemo, gatewayUrl, apiKey, macChatLive]);
 
@@ -2497,9 +2565,11 @@ export default function ChatScreen() {
         const digest =
           transcriptDigest(nextMessages) + (resolved.cleared ? '|outbound-cleared' : '');
         if (digest === transcriptDigestRef.current) {
+          void maybeSurfaceDeadRunEndedRef.current?.();
           return;
         }
         transcriptDigestRef.current = digest;
+        lastTranscriptChangeAtMsRef.current = Date.now();
         messagesRef.current = nextMessages;
         setMessages(nextMessages);
         if (resolved.cleared) {
@@ -2651,39 +2721,103 @@ export default function ChatScreen() {
     setAwaitingGatewayReply(false);
   }, []);
 
+  const maybeSurfaceDeadRunEnded = useCallback(async () => {
+    if (isDemo || !macChatLive || deadRunSurfacedRef.current) {
+      return;
+    }
+    const clientBusy =
+      isSendingRef.current ||
+      awaitingGatewayReplyRef.current ||
+      isActiveChatRun(runProgressRef.current);
+    if (!clientBusy) {
+      return;
+    }
+
+    const unchangedMs = transcriptUnchangedMs(lastTranscriptChangeAtMsRef.current, Date.now());
+    const knownRunIds = [
+      runProgressRef.current?.runId,
+      sendProgressSnapshotRef.current?.runId,
+    ].filter((id): id is string => Boolean(id?.trim()));
+
+    let gatewayHasLiveRun = false;
+    const progress = runProgressRef.current;
+    if (progress && isActiveChatRun(progress)) {
+      const action = await reconcileStaleActiveRunProgress(
+        gatewayUrl,
+        apiKey,
+        progress,
+        knownRunIds,
+      );
+      gatewayHasLiveRun = action === 'keep';
+    } else if (knownRunIds.length > 0) {
+      const live = await filterLiveGatewayRunIds(gatewayUrl, apiKey, knownRunIds);
+      gatewayHasLiveRun = live.length > 0;
+    }
+
+    if (
+      !shouldSurfaceDeadRunEnded({
+        clientBusy: true,
+        transcriptUnchangedMs: unchangedMs,
+        gatewayHasLiveRun,
+      })
+    ) {
+      return;
+    }
+
+    deadRunSurfacedRef.current = true;
+    clearDeferredTelegramPoll();
+    awaitingGatewayReplyRef.current = false;
+    setAwaitingGatewayReply(false);
+    isSendingRef.current = false;
+    setIsSending(false);
+    activeOutboundSendBodyRef.current = null;
+    pendingOutboundSendsRef.current = 0;
+    outboundQueueRef.current = [];
+    setQueuedOutboundCount(0);
+    setPinnedOutboundStatus('failed');
+    setPinnedOutboundText(null);
+    setPinnedOutboundSentAt(null);
+    setToolStatus(null);
+    const startedAtMs = progress?.startedAtMs ?? sendStartedAtRef.current ?? Date.now();
+    setRunProgress({
+      phase: 'failed',
+      startedAtMs,
+      detail: DEAD_RUN_ENDED_DETAIL,
+      sessionId: currentSessionRef.current?.id ?? progress?.sessionId,
+    });
+  }, [
+    apiKey,
+    clearDeferredTelegramPoll,
+    gatewayUrl,
+    isDemo,
+    macChatLive,
+    setRunProgress,
+  ]);
+
+  useEffect(() => {
+    maybeSurfaceDeadRunEndedRef.current = () => {
+      void maybeSurfaceDeadRunEnded();
+    };
+    return () => {
+      maybeSurfaceDeadRunEndedRef.current = null;
+    };
+  }, [maybeSurfaceDeadRunEnded]);
+
   const startDeferredReplyPoll = useCallback(
     (
       assistantId: string,
       priorAssistants: Set<string>,
-      options?: { onTimeout?: () => void },
+      options?: { onTimeout?: () => void; recoveryMode?: boolean },
     ) => {
       clearDeferredTelegramPoll();
       awaitingGatewayReplyRef.current = true;
       setAwaitingGatewayReply(true);
       const startedAt = Date.now();
       let sawTools = false;
+      let softTimeoutSurfaced = options?.recoveryMode === true;
       deferredTelegramPollRef.current = setInterval(() => {
+        const elapsed = Date.now() - startedAt;
         const budgetMs = deferredReplyPollBudgetMs({ toolsActive: sawTools });
-        if (Date.now() - startedAt > budgetMs) {
-          clearDeferredTelegramPoll();
-          awaitingGatewayReplyRef.current = false;
-          setAwaitingGatewayReply(false);
-          setToolStatus(null);
-          commitMessages((prev) =>
-            prev.map((m) =>
-              m.id === assistantId && isDeferredStreamPlaceholder(m.content)
-                ? { ...m, content: EMPTY_STREAM_TIMEOUT_PLACEHOLDER }
-                : m,
-            ),
-          );
-          setRunProgress((prev) =>
-            prev && prev.phase !== 'completed'
-              ? { ...prev, phase: 'failed', detail: EMPTY_REPLY_FAILURE_REASON }
-              : prev,
-          );
-          options?.onTimeout?.();
-          return;
-        }
         void refreshSessionMessages({ background: true, force: true }).then(() => {
           const msgs = messagesRef.current;
           const reply = findNewAssistantReply(msgs, priorAssistants);
@@ -2712,7 +2846,6 @@ export default function ChatScreen() {
                     detail: activity.detail,
                   },
             );
-            // Keep the chat bubble aligned with real tool progress (not "did not return text").
             commitMessages((prev) =>
               prev.map((m) =>
                 m.id === assistantId && isDeferredStreamPlaceholder(m.content)
@@ -2723,6 +2856,37 @@ export default function ChatScreen() {
                   : m,
               ),
             );
+          } else if (elapsed >= EMPTY_STREAM_SELF_HEAL_AFTER_MS) {
+            const checkingDetail = emptyStreamCheckingStatus(elapsed);
+            setToolStatus(checkingDetail);
+            setRunProgress((prev) =>
+              prev && prev.phase !== 'completed' && prev.phase !== 'failed'
+                ? { ...prev, phase: 'working', detail: checkingDetail }
+                : prev?.phase === 'failed'
+                  ? { ...prev, detail: checkingDetail }
+                  : {
+                      phase: 'working',
+                      startedAtMs: startedAt,
+                      detail: checkingDetail,
+                    },
+            );
+          }
+          if (!softTimeoutSurfaced && elapsed > budgetMs) {
+            softTimeoutSurfaced = true;
+            setToolStatus(emptyStreamCheckingStatus(elapsed));
+            commitMessages((prev) =>
+              prev.map((m) =>
+                m.id === assistantId && isDeferredStreamPlaceholder(m.content)
+                  ? { ...m, content: EMPTY_STREAM_TIMEOUT_PLACEHOLDER }
+                  : m,
+              ),
+            );
+            setRunProgress((prev) =>
+              prev && prev.phase !== 'completed'
+                ? { ...prev, phase: 'failed', detail: EMPTY_REPLY_FAILURE_REASON }
+                : prev,
+            );
+            options?.onTimeout?.();
           }
         });
       }, DEFERRED_REPLY_POLL_MS);
@@ -2737,11 +2901,49 @@ export default function ChatScreen() {
     [startDeferredReplyPoll],
   );
 
+  const resumeEmptyStreamRecoveryPoll = useCallback(() => {
+    if (isDemo || !macChatLive || deferredTelegramPollRef.current) {
+      return;
+    }
+    const msgs = messagesRef.current;
+    if (!shouldShowEmptyStreamRefreshCta(msgs)) {
+      return;
+    }
+    let lastUserIndex = -1;
+    for (let index = msgs.length - 1; index >= 0; index -= 1) {
+      if (msgs[index]?.role?.toLowerCase() === 'user') {
+        lastUserIndex = index;
+        break;
+      }
+    }
+    if (lastUserIndex < 0) {
+      return;
+    }
+    let assistantId: string | undefined;
+    for (let index = lastUserIndex + 1; index < msgs.length; index += 1) {
+      const message = msgs[index];
+      if (message?.role?.toLowerCase() !== 'assistant') {
+        continue;
+      }
+      assistantId = message.id;
+      break;
+    }
+    if (!assistantId) {
+      return;
+    }
+    const priorAssistants = snapshotAssistantBodies(msgs.slice(0, lastUserIndex + 1));
+    startDeferredReplyPoll(assistantId, priorAssistants, { recoveryMode: true });
+  }, [isDemo, macChatLive, startDeferredReplyPoll]);
+
   useEffect(() => {
     return () => {
       clearDeferredTelegramPoll();
     };
   }, [clearDeferredTelegramPoll]);
+
+  useEffect(() => {
+    resumeEmptyStreamRecoveryPoll();
+  }, [messages, currentSession?.id, macChatLive, isDemo, resumeEmptyStreamRecoveryPoll]);
 
   useEffect(() => {
     setChatStreamProgressActive(isSending || isChatStreamActive);
@@ -2906,10 +3108,25 @@ export default function ChatScreen() {
 
   useEffect(() => {
     setUndoSecondsLeft(0);
-    const hasActiveOutbound =
-      pendingOutboundSendsRef.current > 0 || isSendingRef.current;
     const hasActiveRun = isActiveChatRun(runProgressRef.current);
-    if (hasActiveOutbound || hasActiveRun) {
+    const preserveTranscript = shouldPreserveTranscriptOnSessionChange({
+      messages: messagesRef.current,
+      pendingOutboundSends: pendingOutboundSendsRef.current,
+      isSending: isSendingRef.current,
+      hasActiveRun,
+    });
+    if (preserveTranscript) {
+      // False disconnect / sticky-session flicker: keep local bubbles; refresh merges later.
+      const sessionId = currentSession?.id;
+      void (async () => {
+        await hydratePersistedOutboundForSession(sessionId);
+        if (sessionId) {
+          await refreshSessionMessagesRef.current?.({
+            background: true,
+            force: true,
+          });
+        }
+      })();
       return;
     }
     setPinnedOutboundText(null);
@@ -2917,6 +3134,8 @@ export default function ChatScreen() {
     setPinnedOutboundStatus('pending');
     setRunProgress(null);
     transcriptDigestRef.current = '';
+    lastTranscriptChangeAtMsRef.current = Date.now();
+    deadRunSurfacedRef.current = false;
     messagesRef.current = [];
     setMessages([]);
     pinScrollAfterHydrationRef.current = true;
@@ -3028,21 +3247,22 @@ export default function ChatScreen() {
     };
   }, [transcriptSyncNonce, currentSession?.id, isDemo, macChatLive]);
 
-  // Background HTTP polling when WebSocket is down, or for gateway-backed threads (every 4–5s).
+  // Background HTTP polling when WebSocket is down, or while waiting for reply text.
   useEffect(() => {
     const activeSession = currentSessionRef.current;
     if (!activeSession || isDemo || !macChatLive) {
       return;
     }
-    // We poll if:
-    // 1. Gateway-backed thread view (4–5s)
-    // 2. WebSocket is down (8s HTTP fallback for all sessions)
+    const hasEmptyStreamTimeout = shouldShowEmptyStreamRefreshCta(messages);
     const shouldPoll =
-      isTelegramView || connectionState !== 'connected' || awaitingGatewayReply;
+      isTelegramView ||
+      connectionState !== 'connected' ||
+      shouldKeepAutoPollingForReply({ awaitingGatewayReply, hasEmptyStreamTimeout });
     if (!shouldPoll) {
       return;
     }
-    const intervalMs = awaitingGatewayReply
+    const intervalMs =
+      awaitingGatewayReply || hasEmptyStreamTimeout
         ? DEFERRED_REPLY_POLL_MS
         : isTelegramView
           ? connectionState === 'connected'
@@ -3055,7 +3275,15 @@ export default function ChatScreen() {
       refreshSessionMessagesRef.current?.({ background: true });
     }, intervalMs);
     return () => clearInterval(timer);
-  }, [currentSession?.id, isDemo, macChatLive, isTelegramView, connectionState, awaitingGatewayReply]);
+  }, [
+    currentSession?.id,
+    isDemo,
+    macChatLive,
+    isTelegramView,
+    connectionState,
+    awaitingGatewayReply,
+    messages,
+  ]);
 
   useEffect(() => {
     const activeSession = currentSessionRef.current;
@@ -3380,8 +3608,7 @@ export default function ChatScreen() {
     const total = sessionTotalTokens(session);
     return new Promise<'allow' | 'fresh' | 'cancel'>((resolve) => {
       Alert.alert(megaSessionSendWarnTitle(), megaSessionSendWarnMessage(total), [
-        // start-fresh is executed by the send path so the draft can be re-delivered.
-        { text: 'Start fresh chat', onPress: () => resolve('fresh') },
+        { text: 'Start fresh chat', style: 'default', onPress: () => resolve('fresh') },
         { text: 'Send anyway', style: 'destructive', onPress: () => resolve('allow') },
         { text: 'Cancel', style: 'cancel', onPress: () => resolve('cancel') },
       ]);
@@ -3400,13 +3627,21 @@ export default function ChatScreen() {
   }, [currentSession, messages]);
 
   const showEmptyStreamRefreshBanner = useMemo(
-    () =>
-      !isDemo &&
-      macChatLive &&
-      shouldShowEmptyStreamRefreshCta(messages) &&
-      !awaitingGatewayReply,
-    [isDemo, macChatLive, messages, awaitingGatewayReply],
+    () => !isDemo && macChatLive && shouldShowEmptyStreamRefreshCta(messages),
+    [isDemo, macChatLive, messages],
   );
+
+  const lastUserPromptSentAtMs = useMemo(() => {
+    const fromMessages = resolveLastUserPromptSentAtMs(messages);
+    if (fromMessages != null) {
+      return fromMessages;
+    }
+    if (pinnedOutboundSentAt) {
+      const parsed = Date.parse(pinnedOutboundSentAt);
+      return Number.isFinite(parsed) ? parsed : null;
+    }
+    return null;
+  }, [messages, pinnedOutboundSentAt]);
 
   const megaSessionSendHardBlocked = isMegaSessionSendBlocked(currentSession);
 
@@ -3834,17 +4069,17 @@ export default function ChatScreen() {
     [],
   );
 
+  /**
+   * Only block genuine re-sends of the in-flight/pending text (dedupe). A distinct
+   * new message while busy must fall through to sendUserText's queue path — a
+   * blanket isSending block here silently drops it (P0 2026-07-14: "Scheduled job"
+   * thread showed a typed message with a tappable send arrow that did nothing
+   * while the Mac kept "Working on your computer" for 45+ minutes).
+   */
   const shouldBlockComposerSend = useCallback(
-    (rawText: string, attachments: ComposerAttachment[] = composerAttachmentsRef.current) => {
-      if (isSendingRef.current || queuedOutboundCount > 0) {
-        return true;
-      }
-      if (pinnedOutboundStatusRef.current === 'pending' && pinnedOutboundTextRef.current?.trim()) {
-        return true;
-      }
-      return shouldBlockDuplicateOutboundSend(rawText, attachments);
-    },
-    [queuedOutboundCount, shouldBlockDuplicateOutboundSend],
+    (rawText: string, attachments: ComposerAttachment[] = composerAttachmentsRef.current) =>
+      shouldBlockDuplicateOutboundSend(rawText, attachments),
+    [shouldBlockDuplicateOutboundSend],
   );
 
   const handleSendMessage = async (composerLatest?: string) => {
@@ -3908,9 +4143,16 @@ export default function ChatScreen() {
       haptics.warning();
       sendClearSuppressRef.current = false;
       lastSentComposerTextRef.current = '';
-      inputValueRef.current = userText;
-      setInputValue(userText);
+      const restored = composerTextAfterRejectedSend({
+        rejectedText: userText,
+        attachmentsCount: attachments.length,
+      });
+      inputValueRef.current = restored.text;
+      setInputValue(restored.text);
       setComposerAttachments(attachments);
+      if (restored.shouldPersistDraft && sentSessionId && !isDemo) {
+        void restoreComposerDraftAfterRejectedSend(sentSessionId, restored.text);
+      }
       return;
     }
 
@@ -3923,9 +4165,16 @@ export default function ChatScreen() {
       pendingOutboundClaimRef.current = null;
       sendClearSuppressRef.current = false;
       lastSentComposerTextRef.current = '';
-      inputValueRef.current = userText;
-      setInputValue(userText);
+      const restored = composerTextAfterRejectedSend({
+        rejectedText: userText,
+        attachmentsCount: attachments.length,
+      });
+      inputValueRef.current = restored.text;
+      setInputValue(restored.text);
       setComposerAttachments(attachments);
+      if (restored.shouldPersistDraft && sentSessionId && !isDemo) {
+        void restoreComposerDraftAfterRejectedSend(sentSessionId, restored.text);
+      }
     } else {
       haptics.light();
     }
@@ -4081,11 +4330,6 @@ export default function ChatScreen() {
     [settings.approvalPolicy, handleApprovalChoice],
   );
 
-  const handleClarificationOption = useCallback((option: ClarificationOption) => {
-    haptics.selection();
-    void sendUserTextRef.current(option.label, true);
-  }, []);
-
   const handleShowMessageDetail = useCallback((body: string, isUser: boolean) => {
     setMessageDetail({
       title: isUser ? 'Your message' : 'Message detail',
@@ -4167,7 +4411,6 @@ export default function ChatScreen() {
     ({ item, index }: { item: ChatTimelineEntry; index: number }) => {
       const { message, originalIndex } = item;
       const inlineNudge = inlineTextApprovals.get(originalIndex);
-      const clarificationPrompt = inlineClarificationPrompts.get(originalIndex);
       const isStreamingAssistant =
         isSending &&
         message.role?.toLowerCase() === 'assistant' &&
@@ -4196,8 +4439,12 @@ export default function ChatScreen() {
           originalIndex={originalIndex}
           messages={messages}
           timeLabel={formatMessageTimestamp(resolveMessageTimestamp(message))}
+          promptReplyElapsed={
+            message.role?.toLowerCase() === 'user'
+              ? resolvePromptReplyElapsedState({ messages, userIndex: originalIndex })
+              : undefined
+          }
           inlineNudge={inlineNudge}
-          clarificationPrompt={clarificationPrompt}
           includeToolActivity={settings.includeToolActivity ?? false}
           isTelegramInbox={isTelegramInbox}
           connectionState={connectionState}
@@ -4207,14 +4454,12 @@ export default function ChatScreen() {
           outputFeedback={outputFeedback}
           onShowDetail={handleShowMessageDetail}
           onInlineTextApproval={handleInlineTextApproval}
-          onClarificationOption={handleClarificationOption}
         />
       );
     },
     [
       messages,
       inlineTextApprovals,
-      inlineClarificationPrompts,
       settings.includeToolActivity,
       isTelegramInbox,
       connectionState,
@@ -4229,7 +4474,6 @@ export default function ChatScreen() {
       handleAddFeedbackDetails,
       handleShowMessageDetail,
       handleInlineTextApproval,
-      handleClarificationOption,
     ],
   );
 
@@ -4281,6 +4525,8 @@ export default function ChatScreen() {
     userScrolledUpRef.current = false;
     lastDistanceFromBottomRef.current = 0;
     setChatNearBottom(true);
+    // Pin again after RUN banner / dock layout shrinks the FlashList viewport.
+    pinScrollAfterHydrationRef.current = true;
     scrollChatToLatest(true);
     return userMessage.id ?? '';
   };
@@ -4467,21 +4713,6 @@ export default function ChatScreen() {
       }
     }
 
-    if (!isDemo && !macChatLive) {
-      const blockedMessage = chatSendBlockedMessage({
-        connectionMode: settings.connectionMode,
-        connectionState,
-        gatewayUrl,
-        healthProbePending,
-      });
-      setErrorMessage(blockedMessage);
-      haptics.warning();
-      isSendingRef.current = false;
-      setIsSending(false);
-      outboundLockReleased = true;
-      return false;
-    }
-
     if (!isDemo && macChatLive) {
       const staleProgress = runProgressRef.current;
       if (staleProgress && isActiveChatRun(staleProgress)) {
@@ -4528,7 +4759,58 @@ export default function ChatScreen() {
       commitOutboundUserBubble(displayText);
     outboundUserBubbleCommitted = true;
 
+    // False disconnect / offline send: keep the optimistic bubble as failed+retryable.
+    // Never silently drop the typed message (composer already cleared by handleSend).
+    if (!isDemo && !macChatLive) {
+      const blockedMessage = chatSendBlockedMessage({
+        connectionMode: settings.connectionMode,
+        connectionState,
+        gatewayUrl,
+        healthProbePending,
+      });
+      const failedId = committedUserMessageId;
+      commitMessages((prev) => {
+        const next = prev.map((message) =>
+          message.id === failedId
+            ? {
+                ...message,
+                outboundStatus: 'failed' as const,
+                outboundFailureReason: blockedMessage,
+              }
+            : message,
+        );
+        persistOutboundSnapshot(currentSessionRef.current?.id, next, {
+          pinnedText: displayText,
+          pinnedSentAt: new Date().toISOString(),
+          pinnedStatus: 'failed',
+        });
+        return next;
+      });
+      if (pendingOutboundSendsRef.current > 0) {
+        pendingOutboundSendsRef.current -= 1;
+      }
+      lastFailedSendTextRef.current = displayText;
+      setPinnedOutboundStatus('failed');
+      setPinnedOutboundText(null);
+      setPinnedOutboundSentAt(null);
+      setErrorMessage(blockedMessage);
+      setRunProgress({
+        phase: 'failed',
+        startedAtMs: Date.now(),
+        detail: blockedMessage,
+        sessionId: currentSessionRef.current?.id,
+      });
+      haptics.warning();
+      isSendingRef.current = false;
+      setIsSending(false);
+      outboundLockReleased = true;
+      activeOutboundSendBodyRef.current = null;
+      return true;
+    }
+
     sendStartedAtRef.current = Date.now();
+    deadRunSurfacedRef.current = false;
+    lastTranscriptChangeAtMsRef.current = Date.now();
     const earlyProgressSessionId = isTelegramInboxSession(currentSession)
       ? telegramReplySessionId
       : currentSession?.id;
@@ -4884,6 +5166,7 @@ export default function ChatScreen() {
         if (!body) {
           return;
         }
+        activeAssistantTextRef.current = body;
         if (!assistantBubbleAdded && isDeferredStreamPlaceholder(body)) {
           const existing = findDeferredPlaceholderAfterLastUser(messagesRef.current);
           if (existing?.id) {
@@ -5264,8 +5547,15 @@ export default function ChatScreen() {
           );
           startDeferredReplyPoll(assistantId, priorAssistants, {
             onTimeout: () => {
+              isSendingRef.current = false;
+              setIsSending(false);
+              activeOutboundSendBodyRef.current = null;
+              pendingOutboundSendsRef.current = 0;
+              setQueuedOutboundCount(0);
               lastFailedSendTextRef.current = userText;
               setPinnedOutboundStatus('failed');
+              setPinnedOutboundText(null);
+              setPinnedOutboundSentAt(null);
               commitMessages((prev) => {
                 const next = [...prev];
                 for (let index = next.length - 1; index >= 0; index -= 1) {
@@ -5355,6 +5645,10 @@ export default function ChatScreen() {
       if (!deferredTelegramPollRef.current) {
         const completedStartedAt = sendStartedAtRef.current;
         if (sendSucceeded) {
+          const replyPreview = (activeAssistantTextRef.current || '')
+            .replace(/\s+/g, ' ')
+            .trim()
+            .slice(0, 200);
           setRunProgress((prev) => ({
             ...(prev ?? {
               startedAtMs: completedStartedAt,
@@ -5362,8 +5656,20 @@ export default function ChatScreen() {
             }),
             phase: 'completed',
             detail: 'Reply ready on your computer',
+            replyPreview: replyPreview || undefined,
             duration: Math.max(0, (Date.now() - completedStartedAt) / 1000),
           }));
+          if (AppState.currentState !== 'active' && settings.notificationCompletion) {
+            void scheduleRunCompletedNotification(
+              replyPreview || 'Reply ready on your computer',
+              {
+                success: true,
+                sessionId: targetSessionId,
+                replySnippet: replyPreview || undefined,
+                categoryEnabled: settings.notificationCompletion,
+              },
+            );
+          }
           setTimeout(() => {
             setRunProgress((prev) =>
               prev?.phase === 'completed' && prev.startedAtMs === completedStartedAt ? null : prev,
@@ -5514,7 +5820,8 @@ export default function ChatScreen() {
       macChatLive &&
       (showEmptyStreamRefreshBanner ||
         (progressBanner?.phase === 'failed' &&
-          isEmptyReplyFailureMessage(progressBanner.detail))),
+          (isEmptyReplyFailureMessage(progressBanner.detail) ||
+            isDeadRunEndedMessage(progressBanner.detail)))),
     [isDemo, macChatLive, showEmptyStreamRefreshBanner, progressBanner],
   );
 
@@ -5652,27 +5959,45 @@ export default function ChatScreen() {
         ]);
         return;
       }
-      if (switchingSessionIdRef.current) {
+
+      const openSelectedSession = async () => {
+        if (switchingSessionIdRef.current) {
+          return;
+        }
+        switchingSessionIdRef.current = session.id;
+        setSwitchingSessionId(session.id);
+        setIsLoadingMessages(true);
+        setRecentChatsDismissed(false);
+        setSessionModalVisible(false);
+        skipSessionAutoSelectRef.current = false;
+        manualSessionSelectRef.current = session.id;
+        currentSessionRef.current = session;
+        transcriptDigestRef.current = '';
+        messagesRef.current = [];
+        setMessages([]);
+        setCurrentSession(session);
+        // Load transcript immediately — do not wait on project persist (Recents taps felt dead).
+        void refreshSessionMessagesRef.current?.({ background: false, force: true });
+        if (activeProject) {
+          const next = setActiveSession(projectState, activeProject.id, session.id);
+          await persistProjectState(next);
+        }
+      };
+
+      if (
+        shouldSuggestFreshOnSessionSelect(session) &&
+        megaSessionSuggestFreshOfferedRef.current !== session.id
+      ) {
+        megaSessionSuggestFreshOfferedRef.current = session.id;
+        const total = sessionTotalTokens(session);
+        Alert.alert('Large chat session', megaSessionSendWarnMessage(total), [
+          { text: 'Start fresh chat', onPress: () => void handleStartFreshChat() },
+          { text: 'Open anyway', onPress: () => void openSelectedSession() },
+        ]);
         return;
       }
-      switchingSessionIdRef.current = session.id;
-      setSwitchingSessionId(session.id);
-      setIsLoadingMessages(true);
-      setRecentChatsDismissed(false);
-      setSessionModalVisible(false);
-      skipSessionAutoSelectRef.current = false;
-      manualSessionSelectRef.current = session.id;
-      currentSessionRef.current = session;
-      transcriptDigestRef.current = '';
-      messagesRef.current = [];
-      setMessages([]);
-      setCurrentSession(session);
-      // Load transcript immediately — do not wait on project persist (Recents taps felt dead).
-      void refreshSessionMessagesRef.current?.({ background: false, force: true });
-      if (activeProject) {
-        const next = setActiveSession(projectState, activeProject.id, session.id);
-        await persistProjectState(next);
-      }
+
+      await openSelectedSession();
     },
     [activeProject, handleStartFreshChat, projectState, persistProjectState],
   );
@@ -6123,6 +6448,7 @@ export default function ChatScreen() {
           machineName={machineShortLabel}
           chatStalled={effectiveAuthMismatch ? false : chatStalled}
           authMismatch={effectiveAuthMismatch}
+          suppressRunTile={shouldSuppressCommandCenterRunTile(showComposerProgressBanner)}
           onOpenApprovals={() => {
             haptics.selection();
             navigation.navigate('Leash' as never);
@@ -6356,8 +6682,13 @@ export default function ChatScreen() {
             progress={progressBanner}
             fallbackModel={progressBannerFallbackModel}
             showTechnicalStats={settings.includeToolActivity}
+            compact={keyboardOpen}
             megaSessionWarning={megaSessionWarning}
-            onStartFreshChat={megaSessionWarning ? () => void handleStartFreshChat() : undefined}
+            onStartFreshChat={
+              megaSessionWarning || isDeadRunEndedMessage(progressBanner.detail)
+                ? () => void handleStartFreshChat()
+                : undefined
+            }
             isStartingFreshChat={isStartingFreshChat}
             onStop={isRunActive || isSending ? () => void handleStopRun() : undefined}
             onDismiss={clearFailedOutboundState}
@@ -6367,6 +6698,7 @@ export default function ChatScreen() {
             refreshRunBusy={isPullRefreshing}
             onRetry={
               isEmptyReplyFailureMessage(progressBanner.detail) ||
+              isDeadRunEndedMessage(progressBanner.detail) ||
               (progressBanner.phase === 'failed' &&
                 Boolean(
                   lastFailedSendTextRef.current?.trim() || lastFailedOutboundText?.trim(),
@@ -6412,13 +6744,11 @@ export default function ChatScreen() {
 
         {showEmptyStreamRefreshBanner && !showComposerProgressBanner ? (
           <EmptyStreamRefreshBanner
+            autoChecking={awaitingGatewayReply}
             busy={isPullRefreshing}
+            waitingSinceMs={lastUserPromptSentAtMs}
             onRefresh={() => void handleManualSync()}
-            onStartFreshChat={
-              megaSessionWarning && showComposerProgressBanner
-                ? () => void handleStartFreshChat()
-                : undefined
-            }
+            onStartFreshChat={() => void handleStartFreshChat()}
             startingFreshChat={isStartingFreshChat}
           />
         ) : null}
@@ -6474,11 +6804,13 @@ export default function ChatScreen() {
           </Pressable>
         ) : null}
 
-        <VaultProjectPickerChip
-          projectName={activeProject?.name}
-          handoffSummary={activeProject?.handoffSummary}
-          onPress={!showMacConnectionHelp ? openProjectPicker : undefined}
-        />
+        {!shouldHideProjectChipWhileKeyboard(keyboardOpen) ? (
+          <VaultProjectPickerChip
+            projectName={activeProject?.name}
+            handoffSummary={activeProject?.handoffSummary}
+            onPress={!showMacConnectionHelp ? openProjectPicker : undefined}
+          />
+        ) : null}
 
         <ChatInputBar
           value={inputValue}
@@ -6574,8 +6906,17 @@ export default function ChatScreen() {
                 }}
                 onRemove={
                   switchComputerProfiles.length > 1
-                    ? async (profileId) => {
-                        await removeGatewayProfile(profileId);
+                    ? (profileId) => {
+                        const profile =
+                          switchComputerProfiles.find((p) => p.id === profileId) ??
+                          gatewayProfiles.find((p) => p.id === profileId);
+                        confirmForgetGatewayProfile({
+                          profileId,
+                          computerName: profile
+                            ? profileDisplayName(profile)
+                            : 'this computer',
+                          onConfirm: removeGatewayProfile,
+                        });
                       }
                     : undefined
                 }

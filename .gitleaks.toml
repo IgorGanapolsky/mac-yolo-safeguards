@@ -1,0 +1,76 @@
+# gitleaks config for mac-yolo-safeguards.
+# Extends the built-in ruleset and allowlists the fixture patterns that produced
+# false-positive GitGuardian alerts (e.g. the `Bearer abcdefghijklmnopqrstuvwxyz`
+# in approvalIntegrity.test.ts, 2026-07-14). Real credentials in source/config are
+# still blocked at commit time.
+title = "mac-yolo-safeguards secret scan"
+
+[extend]
+useDefault = true
+
+# --- Custom rules for the key formats THIS fleet actually uses (gitleaks defaults
+# miss most of them — verified 2026-07-14 that only 1/6 was caught by default). ---
+
+[[rules]]
+id = "openrouter-key"
+description = "OpenRouter API key"
+regex = '''sk-or-v1-[a-f0-9]{40,}'''
+keywords = ["sk-or-v1-"]
+
+[[rules]]
+id = "tailscale-authkey"
+description = "Tailscale auth/API key"
+regex = '''tskey-(auth|api|client)-[A-Za-z0-9]{4,}[-][A-Za-z0-9]{20,}'''
+keywords = ["tskey-"]
+
+[[rules]]
+id = "anthropic-key"
+description = "Anthropic API key"
+regex = '''sk-ant-(api03|admin01)-[A-Za-z0-9_-]{80,}'''
+keywords = ["sk-ant-"]
+
+[[rules]]
+id = "zai-glm-key"
+description = "z.ai / GLM API key (uuid.secret form)"
+regex = '''[0-9a-f]{32}\.[A-Za-z0-9]{16,}'''
+keywords = [".", "GLM", "z.ai"]
+
+[[rules]]
+id = "github-token-explicit"
+description = "GitHub token (pat/oauth/app/refresh)"
+regex = '''gh[pousr]_[A-Za-z0-9]{36,255}'''
+keywords = ["ghp_", "gho_", "ghu_", "ghs_", "ghr_"]
+
+[[rules]]
+id = "aws-access-key-explicit"
+description = "AWS access key id"
+regex = '''(A3T[A-Z0-9]|AKIA|AGPA|AIDA|AROA|AIPA|ANPA|ANVA|ASIA)[A-Z0-9]{16}'''
+keywords = ["AKIA", "ASIA", "AROA"]
+
+[[rules]]
+id = "generic-assigned-secret"
+description = "High-entropy value assigned to a secret-named variable"
+regex = '''(?i)(api[_-]?key|secret|token|password|passwd|bearer)\s*[:=]\s*['"][A-Za-z0-9_\-\/+]{24,}['"]'''
+keywords = ["key", "secret", "token", "password", "bearer"]
+
+[[allowlists]]
+description = "Known dummy fixtures and template placeholders — not real secrets"
+regexTarget = "line"
+regexes = [
+  '''Bearer abcdefghijklmnopqrstuvwxyz''',
+  '''very-sensitive-value-12345''',
+  '''paired-mobile-token''',
+  '''\$\{[A-Za-z_][A-Za-z0-9_]*\}''',      # ${TS_AUTHKEY}, ${apiKey} style templates
+  '''os\.environ/[A-Z_]+''',                # LiteLLM env refs: os.environ/OPENROUTER_API_KEY
+  '''env:[A-Z_]+''',                        # config env refs: env:GLM_API_KEY
+]
+
+[[allowlists]]
+description = "Test files legitimately contain dummy secrets"
+paths = [
+  '''.*/__tests__/.*''',
+  '''.*\.test\.(ts|tsx|js|jsx)$''',
+  '''.*/tests?/.*''',
+  '''.*_test\.(js|ts|py|go|sh)$''',
+  '''.*\.example(\.[a-z]+)?$''',
+]

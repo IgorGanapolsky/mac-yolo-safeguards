@@ -29,7 +29,7 @@ appId: com.iganapolsky.hermesmobile
 - tapOn:
     id: "chat-input"
 - eraseText
-- inputText: "e2e-chat-send-persist"
+- inputText: "make money today"
 - waitForAnimationToEnd:
     timeout: 2000
 - runFlow: hide-keyboard-safe.yaml
@@ -48,4 +48,4 @@ appId: com.iganapolsky.hermesmobile
     timeout: 15000
 - assertVisible:
     id: "chat-message-user"
-- assertVisible: "e2e-chat-send-persist"
+- assertVisible: "make money today"

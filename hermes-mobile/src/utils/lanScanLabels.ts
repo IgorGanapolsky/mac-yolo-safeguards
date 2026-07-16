@@ -14,6 +14,18 @@ export function lanScanFraction(progress: LanScanProgress): number {
   return phaseFrac * 0.5;
 }
 
+function formatComputersSoFar(foundCount: number): string {
+  if (foundCount <= 0) {
+    return '';
+  }
+  const noun = foundCount === 1 ? 'computer' : 'computers';
+  return ` · ${foundCount} ${noun} so far`;
+}
+
+/**
+ * Progress copy must never imply URL aliases are computers
+ * (e.g. "6 found so far" while the picker shows 2 Macs).
+ */
 export function formatLanScanStageLabel(progress: LanScanProgress): string {
   if (progress.stage === 'complete') {
     return formatLanScanResultLabel(progress.foundCount);
@@ -22,12 +34,18 @@ export function formatLanScanStageLabel(progress: LanScanProgress): string {
     progress.totalHosts > 0
       ? Math.round((progress.completedHosts / progress.totalHosts) * 100)
       : 0;
-  const foundHint =
-    progress.foundCount > 0 ? ` · ${progress.foundCount} found so far` : '';
+  const computersHint = formatComputersSoFar(progress.foundCount);
+  const links = progress.linkCount ?? 0;
   if (progress.stage === 'pair_server') {
-    return `Scanning local network for Hermes (${pct}%)${foundHint}`;
+    if (links > progress.foundCount && progress.foundCount > 0) {
+      return `Scanning local network for Hermes (${pct}%) · checking ${links} links across ${progress.foundCount} computer${progress.foundCount === 1 ? '' : 's'}`;
+    }
+    return `Scanning local network for Hermes (${pct}%)${computersHint}`;
   }
-  return `Checking direct Hermes links (${pct}%)${foundHint}`;
+  if (links > progress.foundCount && progress.foundCount > 0) {
+    return `Checking direct Hermes links (${pct}%) · ${links} links across ${progress.foundCount} computer${progress.foundCount === 1 ? '' : 's'}`;
+  }
+  return `Checking direct Hermes links (${pct}%)${computersHint}`;
 }
 
 export function formatLanScanResultLabel(foundCount: number): string {

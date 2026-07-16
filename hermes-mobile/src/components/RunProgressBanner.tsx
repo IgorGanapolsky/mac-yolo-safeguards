@@ -1,4 +1,4 @@
-import React, { useEffect, useState, memo } from 'react';
+import React, { useEffect, useRef, useState, memo } from 'react';
 import { StyleSheet, Text, View, ActivityIndicator, Platform, Pressable } from 'react-native';
 import { colors } from '../theme/colors';
 import type { RunProgressState } from '../types/chatDisplay';
@@ -10,6 +10,13 @@ import {
 } from '../utils/runProgressDisplay';
 import { isConnectivityMessage } from '../utils/chatErrors';
 import { classifyRunStale, runStaleHint } from '../utils/runStaleDetection';
+import { formatElapsedDuration } from '../utils/formatElapsedDuration';
+import {
+  RUN_PROGRESS_ELAPSED_MIN_WIDTH,
+  RUN_PROGRESS_STATS_MIN_HEIGHT,
+  resolveRunProgressDetailsExpanded,
+  shouldUpdateDebouncedTokenLabel,
+} from '../utils/runProgressLayout';
 
 type RunProgressBannerProps = {
   progress: RunProgressState;
@@ -17,6 +24,11 @@ type RunProgressBannerProps = {
   fallbackModel?: string;
   /** Show model + token counts on completed/failed runs (always on while active). */
   showTechnicalStats?: boolean;
+  /**
+   * Compact mode (keyboard open): collapse MODEL/TOKENS/terminal by default so the
+   * transcript keeps height instead of thrashing on every status tick.
+   */
+  compact?: boolean;
   onStop?: () => void;
   onDismiss?: () => void;
   onRetry?: () => void;
@@ -49,6 +61,7 @@ function RunProgressBanner({
   progress,
   fallbackModel,
   showTechnicalStats = false,
+  compact = false,
   onStop,
   onDismiss,
   onRetry,
@@ -61,7 +74,11 @@ function RunProgressBanner({
   isStartingFreshChat = false,
 }: RunProgressBannerProps) {
   const [elapsed, setElapsed] = useState(0);
-  const [detailsExpanded, setDetailsExpanded] = useState(true);
+  /** null = follow compact/keyboard default; boolean = user toggled. */
+  const [userExpandedOverride, setUserExpandedOverride] = useState<boolean | null>(null);
+  const [displayedTokenLabel, setDisplayedTokenLabel] = useState<string | null>(null);
+  const tokenLabelUpdatedAtRef = useRef(0);
+  const displayedTokenLabelRef = useRef<string | null>(null);
 
   useEffect(() => {
     const update = () => {
@@ -73,6 +90,13 @@ function RunProgressBanner({
     return () => clearInterval(timer);
   }, [progress.startedAtMs]);
 
+  useEffect(() => {
+    // Leaving compact resets override so details expand again without sticky collapse.
+    if (!compact) {
+      setUserExpandedOverride(null);
+    }
+  }, [compact]);
+
   const isCompleted = progress.phase === 'completed';
   const isFailed = progress.phase === 'failed';
   const isActive = !isCompleted && !isFailed;
@@ -81,9 +105,31 @@ function RunProgressBanner({
   const emphasizeStop = isActive && staleLevel !== 'normal' && Boolean(onStop);
 
   const durationSec = progress.duration != null ? Math.round(progress.duration * 10) / 10 : elapsed;
+  const durationLabel = formatElapsedDuration(Math.floor(durationSec));
   const modelLabel =
     formatLlmModelShortName(progress.model) ?? formatLlmModelShortName(fallbackModel);
-  const tokenLabel = formatTokenSummary(progress);
+  const liveTokenLabel = formatTokenSummary(progress);
+
+  useEffect(() => {
+    const next = liveTokenLabel ?? '';
+    const prev = displayedTokenLabelRef.current ?? '';
+    const now = Date.now();
+    if (
+      !shouldUpdateDebouncedTokenLabel({
+        lastUpdateAtMs: tokenLabelUpdatedAtRef.current,
+        nowMs: now,
+        prevLabel: prev,
+        nextLabel: next,
+      })
+    ) {
+      return;
+    }
+    tokenLabelUpdatedAtRef.current = now;
+    displayedTokenLabelRef.current = liveTokenLabel;
+    setDisplayedTokenLabel(liveTokenLabel);
+  }, [liveTokenLabel]);
+
+  const tokenLabel = displayedTokenLabel ?? liveTokenLabel;
   const showStats = Boolean(modelLabel || tokenLabel);
   const showStatsPanel = showStats;
 
@@ -97,11 +143,15 @@ function RunProgressBanner({
   const hasCollapsibleDetails = Boolean(
     showStatsPanel || terminalLine || failedDetail || staleMessage || megaSessionWarning,
   );
+  const detailsExpanded = resolveRunProgressDetailsExpanded({
+    keyboardOpen: compact,
+    userOverride: userExpandedOverride,
+  });
   const showDetailSections = detailsExpanded && hasCollapsibleDetails;
 
   const toggleDetails = () => {
     if (hasCollapsibleDetails) {
-      setDetailsExpanded((prev) => !prev);
+      setUserExpandedOverride(!detailsExpanded);
     }
   };
 
@@ -144,7 +194,9 @@ function RunProgressBanner({
           >
             {isCompleted ? 'Reply ready on your computer' : isFailed ? failedTitle : detailLabel}
           </Text>
-          <Text style={styles.timeLabel}>{durationSec}s</Text>
+          <Text style={styles.timeLabel} testID="run-progress-elapsed">
+            {durationLabel}
+          </Text>
         </Pressable>
         {hasCollapsibleDetails ? (
           <Pressable
@@ -297,6 +349,7 @@ export default memo(RunProgressBanner, (prev, next) => {
   const b = next.progress;
   return (
     prev.showTechnicalStats === next.showTechnicalStats &&
+    Boolean(prev.compact) === Boolean(next.compact) &&
     (prev.fallbackModel ?? '') === (next.fallbackModel ?? '') &&
     prev.onStop === next.onStop &&
     prev.onDismiss === next.onDismiss &&
@@ -424,7 +477,7 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
     fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
     flexShrink: 0,
-    minWidth: 28,
+    minWidth: RUN_PROGRESS_ELAPSED_MIN_WIDTH,
     textAlign: 'right',
   },
   stopChip: {
@@ -488,6 +541,7 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: 'rgba(255, 255, 255, 0.05)',
     gap: 8,
+    minHeight: RUN_PROGRESS_STATS_MIN_HEIGHT,
   },
   statItem: {
     flex: 1,

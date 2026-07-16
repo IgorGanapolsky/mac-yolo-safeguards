@@ -12,6 +12,9 @@ import {
   type OutboundDeliveryStatus,
 } from '../utils/outboundDeliveryStatus';
 import type { LeashConnectionState } from '../utils/gatewayEndpoint';
+import ElapsedSince from './ElapsedSince';
+import { formatElapsedDuration } from '../utils/formatElapsedDuration';
+import type { PromptReplyElapsedState } from '../utils/promptReplyElapsed';
 
 type InlineApprovalHandlers = {
   title?: string;
@@ -54,6 +57,7 @@ type ChatMessageBubbleProps = {
   macHttpOk?: boolean;
   leashUnlocked?: boolean;
   onFeedback?: (signal: 'up' | 'down') => void;
+  promptReplyElapsed?: PromptReplyElapsedState;
 };
 
 function hasMeaningfulExpansion(preview: string, expanded: string): boolean {
@@ -87,6 +91,7 @@ function ChatMessageBubble({
   outboundFailureReason,
   connectionState = 'demo',
   macHttpOk = true,
+  promptReplyElapsed,
 }: ChatMessageBubbleProps) {
   const resolved = useMemo(() => {
     if (rawContent !== undefined && truncated !== undefined) {
@@ -222,6 +227,14 @@ function ChatMessageBubble({
               ) : null}
             </View>
           ) : null}
+          {isUser && promptReplyElapsed?.mode === 'live' ? (
+            <ElapsedSince
+              sinceMs={promptReplyElapsed.sinceMs}
+              prominent
+              prefix="Waiting"
+              testID="chat-prompt-elapsed-live"
+            />
+          ) : null}
           <View
             style={[
               styles.timeRow,
@@ -259,7 +272,11 @@ function ChatMessageBubble({
               ]}
               testID="chat-message-timestamp"
             >
-              {timeLabel}
+              {`${timeLabel}${
+                isUser && promptReplyElapsed?.mode === 'frozen'
+                  ? ` · ${formatElapsedDuration(promptReplyElapsed.durationSec)}`
+                  : ''
+              }`}
             </Text>
           </View>
         </View>

@@ -169,6 +169,7 @@ fi
 
 # Pair script wires --mini-tailscale and extraKey (regression guard)
 PAIR_JS="$(cat "$REPO/tools/hermes-mobile-pair.js")"
+LIB_JS="$(cat "$REPO/tools/hermes-mobile-pair-lib.js")"
 if [[ "$PAIR_JS" == *"--mini-tailscale"* ]] && [[ "$PAIR_JS" == *"extraKey"* ]] && [[ "$PAIR_JS" == *"hermes-mobile-pair-lib.js"* ]]; then
   ok "pair script exports mini-tailscale + extraKey contract"
 else
@@ -186,6 +187,35 @@ if [[ "$PAIR_JS" == *"127.0.0.1:8642"* ]] && [[ "$PAIR_JS" == *"USB pairing: pri
   ok "USB pair prefers adb-reverse loopback when auth verifies"
 else
   bad "USB pair prefers adb-reverse loopback when auth verifies"
+fi
+
+PAIR_LIB="$(cat "$REPO/tools/hermes-mobile-pair-lib.js")"
+if [[ "$PAIR_LIB" == *"USB_ADB_REVERSE_PORTS"* ]] \
+  && [[ "$PAIR_LIB" == *"setupUsbAdbReverses"* ]] \
+  && [[ "$PAIR_LIB" == *"assertUsbAdbReverses"* ]]; then
+  ok "pair-lib exports USB adb reverse helpers (8642 + 8765)"
+else
+  bad "pair-lib exports USB adb reverse helpers (8642 + 8765)"
+fi
+
+if [[ "$PAIR_JS" == *"setupUsbAdbReverses(serial)"* ]] \
+  && [[ "$PAIR_JS" == *"assertUsbAdbReverses(serial)"* ]] \
+  && [[ "$PAIR_JS" == *"tcp:8765 missing"* ]] \
+  && [[ "$PAIR_JS" == *"pair.json sweep"* ]]; then
+  ok "USB pair always reverses tcp:8765 (--no-serve still needs pair.json tunnel)"
+else
+  bad "USB pair always reverses tcp:8765 (--no-serve still needs pair.json tunnel)"
+fi
+
+if run_node "
+  const lib = require('$REPO/tools/hermes-mobile-pair-lib.js');
+  if (!Array.isArray(lib.USB_ADB_REVERSE_PORTS)) process.exit(1);
+  if (!lib.USB_ADB_REVERSE_PORTS.includes(8642)) process.exit(2);
+  if (!lib.USB_ADB_REVERSE_PORTS.includes(8765)) process.exit(3);
+"; then
+  ok "USB adb reverse port list includes 8642 and 8765"
+else
+  bad "USB adb reverse port list includes 8642 and 8765"
 fi
 
 cat > "$BIN/ssh-fail" <<'MOCK'
@@ -327,6 +357,105 @@ if [[ "$DISCOVER_JS" == *"isPeerOnline"* ]] && [[ "$DISCOVER_JS" == *"Online !==
   ok "discover script skips offline tailnet peers"
 else
   bad "discover script skips offline tailnet peers"
+fi
+
+# --- T-330 prevent-recurrence: serialized pairing handshake ------------------------------
+
+# Foreground-ack parser and waiter must be pure/testable (no live adb needed).
+if run_node "
+  const lib = require('$REPO/tools/hermes-mobile-pair-lib.js');
+  if (!lib.isAppForegroundOutput('mCurrentFocus=Window{x com.iganapolsky.hermesmobile/.MainActivity}')) process.exit(1);
+  if (lib.isAppForegroundOutput('mCurrentFocus=Window{x com.android.launcher3/.Launcher}')) process.exit(2);
+  const okAck = lib.waitForForegroundAck('s1', lib.ANDROID_PACKAGE_NAME, {
+    timeoutMs: 1000, pollIntervalMs: 50,
+    execImpl: () => 'mCurrentFocus=Window{x com.iganapolsky.hermesmobile/.MainActivity}',
+    sleepImpl: () => {},
+  });
+  if (!okAck.ok) process.exit(3);
+  const timedOut = lib.waitForForegroundAck('s1', lib.ANDROID_PACKAGE_NAME, {
+    timeoutMs: 150, pollIntervalMs: 50,
+    execImpl: () => 'mCurrentFocus=Window{x com.android.launcher3/.Launcher}',
+    sleepImpl: () => {},
+  });
+  if (timedOut.ok) process.exit(4);
+"; then
+  ok "foreground-ack waiter confirms app resumed and bounds the timeout"
+else
+  bad "foreground-ack waiter confirms app resumed and bounds the timeout"
+fi
+
+# Pair script must NOT fire the setup + dev-unlock intents back-to-back with no ack wait.
+if [[ "$PAIR_JS" == *"waitForForegroundAck"* ]] \
+  && [[ "$PAIR_JS" == *"Serialized handshake"* ]] \
+  && [[ "$PAIR_JS" == *"--no-dev-unlock"* ]]; then
+  ok "pair script serializes setup ack before the optional secondary intent"
+else
+  bad "pair script serializes setup ack before the optional secondary intent"
+fi
+
+# --- T-330 prevent-recurrence: secretless one-time pairing code --------------------------
+
+if run_node "
+  const lib = require('$REPO/tools/hermes-mobile-pair-lib.js');
+  const store = lib.createPairingCodeStore();
+  const code = lib.putPairingCode(store, { gatewayUrl: 'http://127.0.0.1:8642', apiKey: 'super-secret' });
+  if (typeof code !== 'string' || code.length < 6) process.exit(1);
+  const first = lib.takePairingCode(store, code);
+  if (!first.ok || first.payload.apiKey !== 'super-secret') process.exit(2);
+  const second = lib.takePairingCode(store, code);
+  if (second.ok) process.exit(3); // single-use: must fail on replay
+  const missing = lib.takePairingCode(store, 'NOPE0000');
+  if (missing.ok) process.exit(4);
+"; then
+  ok "pairing code is single-use and rejects replay/unknown codes"
+else
+  bad "pairing code is single-use and rejects replay/unknown codes"
+fi
+
+if run_node "
+  const lib = require('$REPO/tools/hermes-mobile-pair-lib.js');
+  const store = lib.createPairingCodeStore();
+  const code = lib.putPairingCode(store, { apiKey: 'x' }, { ttlMs: 1 });
+  const later = Date.now() + 50;
+  while (Date.now() < later) { /* burn past ttl */ }
+  const result = lib.takePairingCode(store, code);
+  if (result.ok || result.reason !== 'expired') process.exit(1);
+"; then
+  ok "pairing code expires after its TTL"
+else
+  bad "pairing code expires after its TTL"
+fi
+
+# Deep link must never embed the raw key when a pair server will actually run.
+if [[ "$PAIR_JS" == *"secretlessPairing"* ]] \
+  && [[ "$PAIR_JS" == *"buildSecretlessDeepLink"* ]] \
+  && [[ "$PAIR_JS" == *"/pair-exchange"* ]] \
+  && [[ "$PAIR_JS" == *"mintPairingCode"* ]]; then
+  ok "pair script mints a secretless code+pairServer deep link when serving"
+else
+  bad "pair script mints a secretless code+pairServer deep link when serving"
+fi
+
+if [[ "$LIB_JS" == *"never as a query-string argument"* ]] || [[ "$LIB_JS" == *"land in adb logs"* ]]; then
+  ok "secretless pairing code documents why raw keys are never in deep-link args"
+else
+  bad "secretless pairing code documents why raw keys are never in deep-link args"
+fi
+
+# --- P0 2026-07-14: --mini-tailscale must never hijack a phone USB-cabled to THIS Mac ----
+
+if [[ "$PAIR_JS" == *"usbHijackGuardTripped"* ]] \
+  && [[ "$PAIR_JS" == *"--force-mini-usb-primary"* ]] \
+  && [[ "$PAIR_JS" == *"refusing to make mini the USB primary"* ]]; then
+  ok "pair script guards --mini-tailscale against live USB-cabled Mac hijack"
+else
+  bad "pair script guards --mini-tailscale against live USB-cabled Mac hijack"
+fi
+
+if grep -Fq "usbHijackGuardTripped || (args.has('--no-serve') && args.has('--mini-tailscale'))" "$REPO/tools/hermes-mobile-pair.js"; then
+  ok "pair.json write + adb push both gated on the USB hijack guard, not just --no-serve"
+else
+  bad "pair.json write + adb push both gated on the USB hijack guard, not just --no-serve"
 fi
 
 printf "\nResults: %s passed, %s failed\n" "$pass" "$fail"

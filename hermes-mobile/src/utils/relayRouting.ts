@@ -79,12 +79,19 @@ export function resolveRelayRouteDisplay(input: {
       heal,
       macHttpOk: input.macHttpOk ?? false,
     });
+    const gatewayUrl = input.gatewayUrl?.trim() ?? '';
+    const neverConnected =
+      !gatewayUrl ||
+      gatewayUrl === 'http://127.0.0.1:8642' ||
+      gatewayUrl === 'http://localhost:8642';
     return {
       machineLabel: 'Hermes account relay',
       routeStatus: showPairNudge
         ? 'Pair relay in Settings for Wi‑Fi, cellular, or USB'
         : heal.inFlight
-          ? 'Reconnecting…'
+          ? neverConnected
+            ? 'Looking for your Mac…'
+            : 'Reconnecting…'
           : 'Direct link',
     };
   }
