@@ -17,6 +17,7 @@ const LAUNCH_AGENTS = [
   'com.igor.shutdown-simulators',
   'com.igor.smart-ops',
   'com.igor.revenue-autonomous-loop',
+  'com.igor.ralph-gsd-loop',
   'com.igor.hermes-mobile-continuous-e2e',
   'com.igor.repo-root-hygiene',
   'com.igor.github-reply-monitor',
