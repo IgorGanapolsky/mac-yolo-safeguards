@@ -211,6 +211,36 @@ function installCommand(name, manifest, env = process.env) {
   };
 }
 
+function installAdditionalGrokShims(entry, env = process.env) {
+  const loc = locations(env);
+  const previous = Array.isArray(entry.additionalShimPaths) ? entry.additionalShimPaths : [];
+  const candidates = [
+    path.join(loc.home, '.grok', 'bin', 'grok'),
+    path.join(loc.home, '.local', 'bin', 'grok'),
+  ];
+  const installed = [];
+  for (const shimPath of candidates) {
+    if (shimPath === entry.shimPath) continue;
+    const prior = previous.find((item) => item.shimPath === shimPath);
+    if (resolvesTo(shimPath, loc.installedGate)) {
+      installed.push(prior || { shimPath, original: entry.original });
+      continue;
+    }
+    let original = null;
+    try {
+      original = fs.realpathSync(shimPath);
+    } catch {
+      continue;
+    }
+    if (!entry.original || original !== fs.realpathSync(entry.original)) continue;
+    if (!fs.lstatSync(shimPath).isSymbolicLink()) continue;
+    fs.unlinkSync(shimPath);
+    fs.symlinkSync(loc.installedGate, shimPath);
+    installed.push({ shimPath, original });
+  }
+  return installed;
+}
+
 function copyGate(source, destination) {
   fs.mkdirSync(path.dirname(destination), { recursive: true, mode: 0o700 });
   if (path.resolve(source) !== path.resolve(destination)) {
@@ -519,6 +549,12 @@ function install(env = process.env) {
   }
   for (const name of commandNames(env)) {
     manifest.commands[name] = installCommand(name, manifest, env);
+    if (name === 'grok') {
+      manifest.commands[name].additionalShimPaths = installAdditionalGrokShims(
+        manifest.commands[name],
+        env,
+      );
+    }
   }
   manifest.localModel = model;
   installPolicyFiles(model, manifest, env);
@@ -558,8 +594,10 @@ function status(env = process.env) {
   const commands = Object.values(manifest.commands || {}).map((entry) => ({
     name: entry.name,
     policy: entry.policy,
-    installed: resolvesTo(entry.shimPath, loc.installedGate),
+    installed: resolvesTo(entry.shimPath, loc.installedGate)
+      && (entry.additionalShimPaths || []).every((item) => resolvesTo(item.shimPath, loc.installedGate)),
     originalAvailable: Boolean(entry.original && fs.existsSync(entry.original)),
+    additionalShimCount: (entry.additionalShimPaths || []).length,
   }));
   const quiescedLaunchAgents = process.platform !== 'darwin' || env.HERMES_ZERO_SPEND_SKIP_LAUNCHCTL === '1'
     ? []
