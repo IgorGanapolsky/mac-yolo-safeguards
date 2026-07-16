@@ -33,7 +33,7 @@ const grokCapture = path.join(root, 'grok-env.json');
 const directGrokSentinel = path.join(root, 'direct-grok-spawned');
 const parallelCliSentinel = path.join(root, 'parallel-cli-spawned');
 executable(path.join(bin, 'hermes-yolo'), `#!/bin/sh\nnode -e 'const fs=require("fs"); const names=["HERMES_ZERO_SPEND","HERMES_HOME","HERMES_ENV_PATH","HERMES_CONFIG_PATH","HERMES_MANAGED_DIR","HERMES_YOLO_BACKEND","HERMES_YOLO_PROVIDER","HERMES_YOLO_MODEL","HERMES_YOLO_TOOLSETS","OPENROUTER_API_KEY","META_MODEL_API_KEY","PARALLEL_API_KEY"]; const out={}; for (const n of names) out[n]=process.env[n] ?? null; fs.writeFileSync(process.argv[1], JSON.stringify(out));' "${hermesCapture}"\n`);
-executable(path.join(bin, 'grok-yolo'), `#!/bin/sh\nnode -e 'const fs=require("fs"); const names=["HERMES_ZERO_SPEND","GROK_YOLO_LOCAL_ONLY","GROK_YOLO_LOCAL_MODEL","GROK_YOLO_LOCAL_HOME","GROK_TELEMETRY_ENABLED","OTEL_LOG_USER_PROMPTS","OTEL_LOG_TOOL_DETAILS","XAI_API_KEY","OPENAI_API_KEY","OPENROUTER_API_KEY"]; const out={args:process.argv.slice(2)}; for (const n of names) out[n]=process.env[n] ?? null; fs.writeFileSync(process.argv[1], JSON.stringify(out));' "${grokCapture}" "$@"\n`);
+executable(path.join(bin, 'grok-yolo'), `#!/bin/sh\nnode -e 'const fs=require("fs"); const names=["HERMES_ZERO_SPEND","GROK_BIN","GROK_YOLO_LOCAL_ONLY","GROK_YOLO_LOCAL_MODEL","GROK_YOLO_LOCAL_HOME","GROK_TELEMETRY_ENABLED","OTEL_LOG_USER_PROMPTS","OTEL_LOG_TOOL_DETAILS","XAI_API_KEY","OPENAI_API_KEY","OPENROUTER_API_KEY"]; const out={args:process.argv.slice(2)}; for (const n of names) out[n]=process.env[n] ?? null; fs.writeFileSync(process.argv[1], JSON.stringify(out));' "${grokCapture}" "$@"\n`);
 executable(path.join(bin, 'grok'), `#!/bin/sh\ntouch "${directGrokSentinel}"\n`);
 executable(path.join(systemBin, 'parallel-cli'), `#!/bin/sh\ntouch "${parallelCliSentinel}"\n`);
 
@@ -121,6 +121,7 @@ const capturedGrok = JSON.parse(fs.readFileSync(grokCapture, 'utf8'));
 assert.deepStrictEqual(capturedGrok.args, ['--dry-run', '--json']);
 assert.strictEqual(capturedGrok.HERMES_ZERO_SPEND, '1');
 assert.strictEqual(capturedGrok.GROK_YOLO_LOCAL_ONLY, '1');
+assert.strictEqual(capturedGrok.GROK_BIN, manifestAfterReinstall.commands.grok.original);
 assert.strictEqual(capturedGrok.GROK_YOLO_LOCAL_MODEL, 'qwen3.5:9b-hermes-64k');
 assert.strictEqual(capturedGrok.GROK_YOLO_LOCAL_HOME, path.join(home, '.hermes', 'zero-spend', 'grok-home'));
 assert.strictEqual(capturedGrok.GROK_TELEMETRY_ENABLED, '0');

@@ -710,6 +710,7 @@ function localOnlyGrokEnv(env, model) {
   const childEnv = { ...env };
   for (const name of PAID_CREDENTIAL_ENV) childEnv[name] = '';
   const loc = locations(env);
+  const directGrok = manifestEntry('grok', env);
   Object.assign(childEnv, {
     HERMES_ZERO_SPEND: '1',
     GROK_YOLO_LOCAL_ONLY: '1',
@@ -719,6 +720,9 @@ function localOnlyGrokEnv(env, model) {
     OTEL_LOG_USER_PROMPTS: '0',
     OTEL_LOG_TOOL_DETAILS: '0',
   });
+  if (directGrok && directGrok.original && fs.existsSync(directGrok.original)) {
+    childEnv.GROK_BIN = directGrok.original;
+  }
   return childEnv;
 }
 
