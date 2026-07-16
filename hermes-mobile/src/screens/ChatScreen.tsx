@@ -202,8 +202,14 @@ import {
   COMPOSER_DRAFT_SAVE_DEBOUNCE_MS,
   clearComposerDraft,
   loadComposerDraft,
+  restoreComposerDraftAfterRejectedSend,
   saveComposerDraft,
 } from '../utils/composerDraftStorage';
+import {
+  composerTextAfterRejectedSend,
+  shouldPreserveTranscriptOnSessionChange,
+  shouldSuppressConnectionHelpForLocalOutbound,
+} from '../utils/disconnectMessagePreserve';
 import {
   captureComposerTextForFreshChat,
   resolveComposerTextAfterFreshChat,
@@ -1262,15 +1268,22 @@ export default function ChatScreen() {
     userSendFailed,
     hasRetryableFailedSend,
   });
-  const showMacConnectionHelp = shouldShowMacConnectionHelp({
-    isDemo,
-    macChatLive: effectiveMacChatLive,
-    healthProbePending,
-    healthLevel: health?.level,
-    heal: connectionHeal,
-    userSendFailed,
-    profiles: gatewayProfiles,
+  const suppressConnectionHelpForLocalOutbound = shouldSuppressConnectionHelpForLocalOutbound({
+    hasRetryableFailedSend,
+    pendingOutboundSends: pendingOutboundSendsRef.current,
+    messages,
   });
+  const showMacConnectionHelp =
+    !suppressConnectionHelpForLocalOutbound &&
+    shouldShowMacConnectionHelp({
+      isDemo,
+      macChatLive: effectiveMacChatLive,
+      healthProbePending,
+      healthLevel: health?.level,
+      heal: connectionHeal,
+      userSendFailed,
+      profiles: gatewayProfiles,
+    });
   const showMacRetryBanner = shouldShowMacRetryBanner({
     isDemo,
     macChatLive: effectiveMacChatLive,
@@ -2499,7 +2512,10 @@ export default function ChatScreen() {
 
   useEffect(() => {
     if (isProjectsLoaded) {
-      loadSessionsList(true);
+      // Reconnect/heal must not force selectLatest — that can jump threads and wipe
+      // local optimistic/failed bubbles while the transcript refresh is still blocked.
+      const selectLatest = !currentSessionRef.current;
+      loadSessionsList(selectLatest);
     }
   }, [isProjectsLoaded, isDemo, gatewayUrl, apiKey, macChatLive]);
 
@@ -3171,10 +3187,25 @@ export default function ChatScreen() {
 
   useEffect(() => {
     setUndoSecondsLeft(0);
-    const hasActiveOutbound =
-      pendingOutboundSendsRef.current > 0 || isSendingRef.current;
     const hasActiveRun = isActiveChatRun(runProgressRef.current);
-    if (hasActiveOutbound || hasActiveRun) {
+    const preserveTranscript = shouldPreserveTranscriptOnSessionChange({
+      messages: messagesRef.current,
+      pendingOutboundSends: pendingOutboundSendsRef.current,
+      isSending: isSendingRef.current,
+      hasActiveRun,
+    });
+    if (preserveTranscript) {
+      // False disconnect / sticky-session flicker: keep local bubbles; refresh merges later.
+      const sessionId = currentSession?.id;
+      void (async () => {
+        await hydratePersistedOutboundForSession(sessionId);
+        if (sessionId) {
+          await refreshSessionMessagesRef.current?.({
+            background: true,
+            force: true,
+          });
+        }
+      })();
       return;
     }
     setPinnedOutboundText(null);
@@ -4194,9 +4225,16 @@ export default function ChatScreen() {
       haptics.warning();
       sendClearSuppressRef.current = false;
       lastSentComposerTextRef.current = '';
-      inputValueRef.current = userText;
-      setInputValue(userText);
+      const restored = composerTextAfterRejectedSend({
+        rejectedText: userText,
+        attachmentsCount: attachments.length,
+      });
+      inputValueRef.current = restored.text;
+      setInputValue(restored.text);
       setComposerAttachments(attachments);
+      if (restored.shouldPersistDraft && sentSessionId && !isDemo) {
+        void restoreComposerDraftAfterRejectedSend(sentSessionId, restored.text);
+      }
       return;
     }
 
@@ -4209,9 +4247,16 @@ export default function ChatScreen() {
       pendingOutboundClaimRef.current = null;
       sendClearSuppressRef.current = false;
       lastSentComposerTextRef.current = '';
-      inputValueRef.current = userText;
-      setInputValue(userText);
+      const restored = composerTextAfterRejectedSend({
+        rejectedText: userText,
+        attachmentsCount: attachments.length,
+      });
+      inputValueRef.current = restored.text;
+      setInputValue(restored.text);
       setComposerAttachments(attachments);
+      if (restored.shouldPersistDraft && sentSessionId && !isDemo) {
+        void restoreComposerDraftAfterRejectedSend(sentSessionId, restored.text);
+      }
     } else {
       haptics.light();
     }
@@ -4750,21 +4795,6 @@ export default function ChatScreen() {
       }
     }
 
-    if (!isDemo && !macChatLive) {
-      const blockedMessage = chatSendBlockedMessage({
-        connectionMode: settings.connectionMode,
-        connectionState,
-        gatewayUrl,
-        healthProbePending,
-      });
-      setErrorMessage(blockedMessage);
-      haptics.warning();
-      isSendingRef.current = false;
-      setIsSending(false);
-      outboundLockReleased = true;
-      return false;
-    }
-
     if (!isDemo && macChatLive) {
       const staleProgress = runProgressRef.current;
       if (staleProgress && isActiveChatRun(staleProgress)) {
@@ -4810,6 +4840,55 @@ export default function ChatScreen() {
       findPendingOptimisticUserBubble(messagesRef.current, displayText)?.id ??
       commitOutboundUserBubble(displayText);
     outboundUserBubbleCommitted = true;
+
+    // False disconnect / offline send: keep the optimistic bubble as failed+retryable.
+    // Never silently drop the typed message (composer already cleared by handleSend).
+    if (!isDemo && !macChatLive) {
+      const blockedMessage = chatSendBlockedMessage({
+        connectionMode: settings.connectionMode,
+        connectionState,
+        gatewayUrl,
+        healthProbePending,
+      });
+      const failedId = committedUserMessageId;
+      commitMessages((prev) => {
+        const next = prev.map((message) =>
+          message.id === failedId
+            ? {
+                ...message,
+                outboundStatus: 'failed' as const,
+                outboundFailureReason: blockedMessage,
+              }
+            : message,
+        );
+        persistOutboundSnapshot(currentSessionRef.current?.id, next, {
+          pinnedText: displayText,
+          pinnedSentAt: new Date().toISOString(),
+          pinnedStatus: 'failed',
+        });
+        return next;
+      });
+      if (pendingOutboundSendsRef.current > 0) {
+        pendingOutboundSendsRef.current -= 1;
+      }
+      lastFailedSendTextRef.current = displayText;
+      setPinnedOutboundStatus('failed');
+      setPinnedOutboundText(null);
+      setPinnedOutboundSentAt(null);
+      setErrorMessage(blockedMessage);
+      setRunProgress({
+        phase: 'failed',
+        startedAtMs: Date.now(),
+        detail: blockedMessage,
+        sessionId: currentSessionRef.current?.id,
+      });
+      haptics.warning();
+      isSendingRef.current = false;
+      setIsSending(false);
+      outboundLockReleased = true;
+      activeOutboundSendBodyRef.current = null;
+      return true;
+    }
 
     sendStartedAtRef.current = Date.now();
     deadRunSurfacedRef.current = false;
