@@ -25,7 +25,7 @@ describe('gatewayProfilePicker', () => {
       localIp: '10.2.29.103',
       addedAt: '2026-06-24T12:00:00Z',
     });
-    expect(lines.title).toBe('Igors-MacBook-Pro');
+    expect(lines.title).toBe('Igors-MacBook-Pro (Mac Pro)');
     expect(lines.detail).toBe('10.2.29.103:8642');
   });
 
@@ -55,10 +55,10 @@ describe('gatewayProfilePicker', () => {
     ]);
     expect(profiles.map((p) => p.id)).toEqual(['mac_mini_ts']);
     expect(profilePickerLines(profiles[0]).title).toBe('Igors-Mac-mini');
-    expect(profilePickerLines(profiles[0]).detail).toBe('100.94.135.78:8642');
+    expect(profilePickerLines(profiles[0]).detail).toBe('Tailscale · 100.94.135.78:8642');
   });
 
-  it('collapses live USB + Tailscale into one MacBook row (cable preferred)', () => {
+  it('keeps live USB + Tailscale Mac Pro as two selectable rows', () => {
     const profiles = profilesForSwitchComputerPicker(
       [
         {
@@ -85,17 +85,25 @@ describe('gatewayProfilePicker', () => {
         },
       },
     );
-    // One row per computer — never USB + Tailscale twins for the same MacBook.
-    expect(profiles.map((p) => p.label)).toEqual(['Igors-MacBook-Pro', 'Igors-Mac-mini']);
-    expect(profiles).toHaveLength(2);
-    expect(profileConnectionRouteLabel(profiles[0], true)).toBe('USB');
-    expect(profilePickerLines(profiles[0], { cablePluggedIn: true }).title).toBe(
-      'Igors-MacBook-Pro',
+    // USB must not hide Tailscale for the same MacBook / Mac Pro.
+    expect(profiles).toHaveLength(3);
+    expect(profiles.map((p) => profileConnectionRouteLabel(p, true))).toEqual([
+      'USB',
+      'Tailscale',
+      'Tailscale',
+    ]);
+    const usbRow = profiles[0];
+    const mbpTs = profiles.find((p) => p.id === 'mac_book_ts');
+    expect(usbRow).toBeTruthy();
+    expect(mbpTs).toBeTruthy();
+    expect(profilePickerLines(usbRow!, { cablePluggedIn: true }).title).toBe(
+      'Igors-MacBook-Pro (Mac Pro)',
     );
-    expect(profileConnectionRouteLabel(profiles[1], true)).toBe('Tailscale');
+    expect(profilePickerLines(mbpTs!).title).toBe('Igors-MacBook-Pro (Mac Pro)');
+    expect(profilePickerLines(mbpTs!).detail).toMatch(/^Tailscale · /);
   });
 
-  it('uses one saved USB loopback row when cable matches (no Tailscale twin row)', () => {
+  it('shows saved USB and Tailscale Mac Pro rows side by side when cabled', () => {
     const profiles = profilesForSwitchComputerPicker(
       [
         {
@@ -127,9 +135,14 @@ describe('gatewayProfilePicker', () => {
         },
       },
     );
-    expect(profiles).toHaveLength(2);
-    expect(profiles.map((p) => p.label)).toEqual(['Igors-MacBook-Pro', 'Igors-Mac-mini']);
+    expect(profiles).toHaveLength(3);
+    expect(profiles.map((p) => p.id).sort()).toEqual([
+      'mac_book_ts',
+      'mac_book_usb',
+      'mac_mini_ts',
+    ]);
     expect(profileConnectionRouteLabel(profiles[0], true)).toBe('USB');
+    expect(profiles.some((p) => p.id === 'mac_book_ts')).toBe(true);
   });
 
   it('shows Tailscale endpoint instead of home LAN IP for the same Mac mini profile', () => {
@@ -142,7 +155,7 @@ describe('gatewayProfilePicker', () => {
       addedAt: '2026-07-08T12:00:00Z',
     });
     expect(lines.title).toBe('Igors-Mac-mini');
-    expect(lines.detail).toBe('100.94.135.78:8642');
+    expect(lines.detail).toBe('Tailscale · 100.94.135.78:8642');
     expect(lines.detail).not.toContain('192.168.68.73');
   });
 
@@ -196,12 +209,14 @@ describe('gatewayProfilePicker', () => {
 
     // phone_named (recognizable Android hostname) is still hidden; the two unnamed
     // Tailscale/LAN IP candidates now render instead of being silently dropped.
-    expect(profiles.map((profile) => profile.id)).toEqual([
+    expect(profiles.map((profile) => profile.id).sort()).toEqual([
       'lan_stale',
       'mac_100_94_135_78',
       'phone_ip_seed',
     ]);
-    expect(profilePickerLines(profiles[1]).title).toBe('Tailscale 100.94.135.78');
+    const miniIp = profiles.find((p) => p.id === 'mac_100_94_135_78')!;
+    expect(profilePickerLines(miniIp).title).toBe('Tailscale 100.94.135.78');
+    expect(profilePickerLines(miniIp).detail).toBe('Tailscale · 100.94.135.78:8642');
   });
 
   it('renders every discovered machine even before its hostname resolves (found 2 -> 2 rows)', () => {
@@ -233,6 +248,7 @@ describe('gatewayProfilePicker', () => {
     expect(profiles).toHaveLength(2);
     expect(profiles.map((p) => p.id)).toEqual(['mac_book_usb', 'mac_100_94_135_78']);
     expect(profilePickerLines(profiles[1]).title).toBe('Tailscale 100.94.135.78');
+    expect(profilePickerLines(profiles[1]).detail).toBe('Tailscale · 100.94.135.78:8642');
   });
 
   it('hides loopback Mac mini from switch picker when only USB route is saved and USB is not live', () => {
