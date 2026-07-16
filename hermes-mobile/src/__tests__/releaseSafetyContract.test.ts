@@ -198,8 +198,8 @@ describe('release safety contract', () => {
     expect(workflow).toContain('for CH in preview production');
     expect(workflow).toContain('--channel "$CH"');
     expect(workflow).toContain('require-stranger-cold-start-proof.cjs');
-    expect(workflow).toContain('HERMES_STRANGER_PROOF_WAIT_SEC');
-    expect(workflow).toMatch(/checks:\s*read/);
+    expect(workflow).toContain("HERMES_OTA_REQUIRE_STRANGER_PROOF: '1'");
+    expect(workflow).toMatch(/permissions:/);
     expect(workflow).not.toContain('publish_production');
     expect(workflow).toContain('secrets.EXPO_TOKEN');
     expect(workflow).toContain('test:release-safety');

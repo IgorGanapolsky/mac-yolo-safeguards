@@ -474,11 +474,11 @@ describe('tonight recurrence gates (2026-07-14 P0 class — S16-S23)', () => {
     expect(gate).toMatch(/exit 1/);
     const workflow = read('.github/workflows/mobile-ota.yml');
     expect(workflow).toContain('require-stranger-cold-start-proof.cjs');
-    expect(workflow).toContain('HERMES_STRANGER_PROOF_WAIT_SEC');
+    expect(workflow).toContain("HERMES_OTA_REQUIRE_STRANGER_PROOF: '1'");
     expect(workflow).toContain('for CH in preview production');
-    expect(workflow).toMatch(/checks:\s*read/);
+    expect(workflow).toMatch(/permissions:/);
     const stranger = read('hermes-mobile/scripts/require-stranger-cold-start-proof.cjs');
-    expect(stranger).toContain('checkGithubStrangerProof');
+    expect(stranger).toContain('proofCandidates');
     const pairJs = read('tools/hermes-mobile-pair.js');
     expect(pairJs).toContain('refreshPairAssetsFromLocalGateway');
     expect(pairJs).toContain('hostname mismatch');

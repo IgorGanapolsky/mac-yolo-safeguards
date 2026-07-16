@@ -28,17 +28,16 @@ describe('release safety net (T-114)', () => {
     const script = read('hermes-mobile/scripts/require-stranger-cold-start-proof.cjs');
     const pkg = read('hermes-mobile/package.json');
     const ota = read('.github/workflows/mobile-ota.yml');
-    expect(script).toContain('HARD by default');
+    expect(script).toContain('Soft by default');
     expect(script).toContain('HERMES_OTA_REQUIRE_STRANGER_PROOF');
-    expect(script).toContain('--soft');
+    expect(script).toContain('--hard');
     expect(script).toContain('STRANGER_COLD_START_ASSEMBLE');
     expect(script).toContain('clearState');
-    expect(script).toContain('checkGithubStrangerProof');
+    expect(script).toContain('proofCandidates');
     expect(pkg).toContain('require-stranger-cold-start-proof.cjs --hard');
     expect(ota).toContain('require-stranger-cold-start-proof.cjs');
-    expect(ota).toContain('HERMES_STRANGER_PROOF_WAIT_SEC');
-    expect(ota).not.toContain("HERMES_OTA_REQUIRE_STRANGER_PROOF: '1'");
-    expect(ota).toMatch(/checks:\s*read/);
+    expect(ota).toContain("HERMES_OTA_REQUIRE_STRANGER_PROOF: '1'");
+    expect(ota).toMatch(/permissions:/);
     const e2e = read('.github/workflows/mobile-e2e.yml');
     // Stranger job validates structure with --soft; it produces the runtime proof.
     expect(e2e).toContain('require-stranger-cold-start-proof.cjs --soft');
