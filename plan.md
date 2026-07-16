@@ -243,10 +243,15 @@ Status values: `pending` | `in_progress` | `blocked` | `done`. Claim a row by se
 | T-GROK-BUILD-FLEET | High-ROI Grok Build open-source fleet: local Ollama/LiteLLM routes + PreToolUse safety hooks on both Macs | done | grok-build-fleet | `tools/grok-build-fleet.js`, `hooks/grok-build-fleet/`, `scripts/install-grok-build-fleet.sh`, `tests/test-grok-build-fleet.js`, `docs/GROK-BUILD-OPEN-SOURCE-FLEET.md`, `README.md`, `plan.md` | Both Macs doctor ready:true (3/3 local models); `grok models` lists ollama-hermes-64k/fast + litellm-hermes-local; [ui] fork_secondary=ollama-hermes-fast; PreToolUse denies force-push; unit tests ok; live install MBP+mini |
 | T-AGENT-CONF-ROI | Steal Callstack Agent Conf themes into high-ROI agent tooling (control plane, alert TTM, observability gate, incident RAG) | done | cursor-agent-conf-roi | `tools/agent-control-plane.js`, `tools/alert-investigation-loop.js`, `tools/hermes-observability-gate.js`, `tools/agent-incident-capture.js`, `tools/agent-automation-status.js`, `tests/test-agent-control-plane.js`, `tests/test-alert-investigation-loop.js`, `tests/test-hermes-observability-gate.js`, `tests/test-agent-incident-capture.js`, `docs/AGENT-CONF-ROI-MAPPING-JULY-2026.md`, `plan.md` | Focused node tests green; status CLI emits health score; ship mode fails on e2e=skipped; TTM receipts close with ttmMs; Booking migration deferred |
 
-## 2. File Ownership Map
+| T-REPLY-READY-COPY | Consumer copy: replace meaningless "Reply ready on your computer" with Reply ready + snippet / Hermes finished — tap to read | done | cursor-reply-ready-copy | `hermes-mobile/src/utils/runProgressDisplay.ts`, `hermes-mobile/src/components/RunProgressBanner.tsx`, `hermes-mobile/src/types/chatDisplay.ts` (replyPreview field; coord #482), `hermes-mobile/src/screens/ChatScreen.tsx` (REPLY_READY_STATUS_DETAIL + suppress-when-visible; keep replyPreview), `hermes-mobile/src/__tests__/runProgressDisplay.test.ts`, `hermes-mobile/src/__tests__/RunProgressBanner.test.tsx`, `plan.md` | Banner never says "on your computer" when completed; shows Reply ready + snippet or Hermes finished — tap to read; Jest green; PR merge |
+
+## 2. File Ownership Map (append-only lock table — claim before touching)
+
 - T-341 disconnect claimed files → **released by cursor-disconnect-preserve** after focused Jest; PR v2 (2026-07-16T14:40:00Z)
 - T-NOTIF-SNIPPET → **released by grok-notif-snippet** after focused Jest green (2026-07-16T15:30:00Z)
- (append-only lock table — claim before touching)
+
+- `hermes-mobile/src/utils/runProgressDisplay.ts`, `hermes-mobile/src/components/RunProgressBanner.tsx`, `hermes-mobile/src/types/chatDisplay.ts` (replyPreview field; coord #482), `hermes-mobile/src/screens/ChatScreen.tsx` (REPLY_READY_STATUS_DETAIL + suppress-when-visible), `hermes-mobile/src/__tests__/runProgressDisplay.test.ts`, `hermes-mobile/src/__tests__/RunProgressBanner.test.tsx`, `plan.md` → **cursor-reply-ready-copy** (T-REPLY-READY-COPY) (2026-07-16T14:05:00Z)
+- T-REPLY-READY-COPY claimed files above → **released by cursor-reply-ready-copy** after rebase onto main keeping replyPreview + suppress-when-visible; post-#492 (2026-07-16T15:05:00Z)
 
 - `tools/grok-build-fleet.js`, `hooks/grok-build-fleet/`, `scripts/install-grok-build-fleet.sh`, `tests/test-grok-build-fleet.js`, `docs/GROK-BUILD-OPEN-SOURCE-FLEET.md`, `README.md` (Grok Build fleet blurb only), `plan.md` → **grok-build-fleet** (T-GROK-BUILD-FLEET open-source local routes + safety hooks on MBP+mini) (2026-07-16T13:40:00Z)
 - T-GROK-BUILD-FLEET claimed files above → **released by grok-build-fleet** after both Macs doctor ready:true, `grok models` shows 3 local routes, hooks deny force-push, unit tests green (2026-07-16T13:45:00Z)
@@ -759,6 +764,7 @@ Status values: `pending` | `in_progress` | `blocked` | `done`. Claim a row by se
 
 - 2026-07-16T13:45:00Z `grok-build-fleet`: **Completed T-GROK-BUILD-FLEET (Grok Build open-source high-ROI fleet).** Shipped `tools/grok-build-fleet.js`, managed hooks under `hooks/grok-build-fleet/`, dual-Mac installer `scripts/install-grok-build-fleet.sh`, tests, and `docs/GROK-BUILD-OPEN-SOURCE-FLEET.md`. Live on Igors-MacBook-Pro + Igors-Mac-mini: doctor ready:true with ollama-hermes-64k, ollama-hermes-fast, litellm-hermes-local; `grok models` lists all three; `[ui] fork_secondary_model=ollama-hermes-fast`; PreToolUse denies `git push --force`; default cloud model unchanged; no secrets in receipts. Source: https://x.ai/news/grok-build-open-source + https://github.com/xai-org/grok-build.
 
+- 2026-07-16T14:10:00Z `cursor-reply-ready-copy`: **Completed T-REPLY-READY-COPY.** Banner copy uses Reply ready / Hermes finished — tap to read; suppresses completed chrome when assistant text is already visible; keeps replyPreview for notifications (#482). Continuous E2E skipped (phone in use) — no device-verified claim.
 ## 4. Discovered Tasks (append-only inbox → promote into §1)
 
 - 2026-06-24 `claude-code`: T-2 (onDismiss crash) and T-4 (Maestro E2E red) block any "off-WiFi works on device" claim. Sequence: T-2 → then T-3/T-5 → then T-4 verify.
