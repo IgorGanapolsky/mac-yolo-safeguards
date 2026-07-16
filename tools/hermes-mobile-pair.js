@@ -28,6 +28,7 @@ const {
   buildVerifiedExtraComputer,
   isLoopbackGatewayUrl,
   classifyGatewayHost,
+  classifyMiniApiKeyResolution,
   setupUsbAdbReverses,
   assertUsbAdbReverses,
   ANDROID_PACKAGE_NAME,
@@ -296,6 +297,43 @@ function openDeepLinkOnDevice(serial, link) {
     encoding: 'utf8',
   });
   return result.status === 0;
+}
+
+/**
+ * Fresh installs block setup ack behind the Android notification runtime dialog.
+ * Tap "Don't allow" so Linking/getInitialURL can finish applying hermes://setup.
+ */
+function dismissAndroidRuntimePermissionDialogs(serial) {
+  const adbBase = serial ? ['-s', serial] : [];
+  spawnSync('adb', [...adbBase, 'shell', 'uiautomator', 'dump', '/sdcard/hermes-pair-ui.xml'], {
+    encoding: 'utf8',
+    timeout: 8_000,
+  });
+  const dump = spawnSync('adb', [...adbBase, 'shell', 'cat', '/sdcard/hermes-pair-ui.xml'], {
+    encoding: 'utf8',
+    timeout: 8_000,
+  });
+  const xml = dump.stdout || '';
+  const re =
+    /text="((?:Don.?t allow|Don't allow|Deny))"[^>]*bounds="\[(\d+),(\d+)\]\[(\d+),(\d+)\]"/gi;
+  let match;
+  let tapped = false;
+  while ((match = re.exec(xml))) {
+    const x1 = Number(match[2]);
+    const y1 = Number(match[3]);
+    const x2 = Number(match[4]);
+    const y2 = Number(match[5]);
+    if (![x1, y1, x2, y2].every((n) => Number.isFinite(n))) continue;
+    const x = Math.floor((x1 + x2) / 2);
+    const y = Math.floor((y1 + y2) / 2);
+    spawnSync('adb', [...adbBase, 'shell', 'input', 'tap', String(x), String(y)], {
+      encoding: 'utf8',
+      timeout: 5_000,
+    });
+    tapped = true;
+    break;
+  }
+  return tapped;
 }
 
 function syncVaultProjectsCatalog() {
@@ -659,26 +697,33 @@ function runPairMain(args) {
   const skipAuthProbe = args.has('--skip-auth-probe');
   const apiKeyBefore = readLocalApiKey();
   let apiKey;
-  try {
-    apiKey = resolveApiKeyForGatewayUrl(gatewayUrl, { allowLocalKeyFallback });
-  } catch (err) {
-    if (err && err.code === 'MINI_KEY_UNAVAILABLE') {
-      console.warn(`  API key: ${err.message}`);
-      apiKey = '';
-    } else {
-      throw err;
-    }
-  }
   const hostClass = classifyGatewayHost(gatewayUrl);
-  if (apiKey && apiKey !== apiKeyBefore && hostClass === 'mini') {
-    console.log('  API key: loaded from target Mac (~/.hermes/.env via SSH)');
-  } else if ((!apiKey || apiKey === apiKeyBefore) && hostClass === 'mini' && !allowLocalKeyFallback) {
-    console.warn(
-      '  API key: Mac mini SSH lookup failed — will NOT embed laptop key for mini (avoids Wrong key)',
-    );
-    apiKey = resolveApiKeyForGatewayUrl(gatewayUrl, { fallbackLocal: false, strictMini: false }) || '';
-  } else if (apiKey === apiKeyBefore && hostClass === 'mini' && allowLocalKeyFallback) {
-    console.warn('  API key: Mac mini SSH lookup failed — using local key (--allow-local-key-fallback)');
+  // P0 2026-07-16: never treat miniSSH_key === laptop_key as failure (cleared embed → Wrong key).
+  if (hostClass === 'mini') {
+    const miniResolved = classifyMiniApiKeyResolution(apiKeyBefore, { allowLocalKeyFallback });
+    apiKey = miniResolved.apiKey;
+    if (miniResolved.source === 'ssh' && miniResolved.syncedWithLocal) {
+      console.log('  API key: loaded from Mac mini via SSH (matches laptop — fleet keys synced)');
+    } else if (miniResolved.source === 'ssh') {
+      console.log('  API key: loaded from target Mac (~/.hermes/.env via SSH)');
+    } else if (miniResolved.source === 'local_fallback') {
+      console.warn('  API key: Mac mini SSH lookup failed — using local key (--allow-local-key-fallback)');
+    } else {
+      console.warn(
+        '  API key: Mac mini SSH lookup failed — will NOT embed laptop key for mini (avoids Wrong key)',
+      );
+    }
+  } else {
+    try {
+      apiKey = resolveApiKeyForGatewayUrl(gatewayUrl, { allowLocalKeyFallback });
+    } catch (err) {
+      if (err && err.code === 'MINI_KEY_UNAVAILABLE') {
+        console.warn(`  API key: ${err.message}`);
+        apiKey = '';
+      } else {
+        throw err;
+      }
+    }
   }
   const thumbgateApiKey = readThumbgateApiKey();
   const hostname = health.hostname || os.hostname();
@@ -697,11 +742,12 @@ function runPairMain(args) {
   const serial = adbDevice();
   const usbPairing = serial && !serial.startsWith('emulator-') && !args.has('--no-adb');
   let reversed8642 = false;
+  let reversed8765 = false;
   if (usbPairing) {
     setupUsbAdbReverses(serial);
     const reverseCheck = assertUsbAdbReverses(serial);
     reversed8642 = !reverseCheck.missing.includes(8642);
-    const reversed8765 = !reverseCheck.missing.includes(8765);
+    reversed8765 = !reverseCheck.missing.includes(8765);
     console.log(
       reversed8642
         ? `  adb reverse: tcp:8642 → Mac (${serial})`
@@ -832,6 +878,15 @@ function runPairMain(args) {
   // Secretless pairing (T-330 priority 3): only when a pair server will actually run to
   // serve the exchange. `--no-serve` unattended/session-start flows keep the legacy
   // embedded-key link unchanged (no server exists there to exchange a code against).
+  // P0 2026-07-16: when USB reverse :8765 is up, deep-link pairServer MUST be loopback —
+  // LAN 10.x is unreachable from cellular/Tailscale-only paths even with reverse tunnels.
+  const pairExchangeBase =
+    usbPairing && reversed8765
+      ? `http://127.0.0.1:${PAIR_PORT}`
+      : `http://${lanIp}:${PAIR_PORT}`;
+  if (pairExchangeBase.includes('127.0.0.1')) {
+    console.log('  Pair exchange: http://127.0.0.1:8765 (adb reverse — works on 5G/VPN)');
+  }
   const secretlessPairing = !args.has('--no-serve') && !args.has('--legacy-key-link');
   const deepLink = secretlessPairing
     ? buildSecretlessDeepLink(
@@ -844,7 +899,7 @@ function runPairMain(args) {
           extraComputers,
           thumbgateApiKey,
         }),
-        pageUrl.replace(/\/pair$/, ''),
+        pairExchangeBase,
         hostname,
       )
     : buildDeepLink(gatewayUrl, apiKey, hostname, relayCode, tailnetProbeHosts, extraComputers, thumbgateApiKey);
@@ -906,8 +961,15 @@ function runPairMain(args) {
       } else if (args.has('--no-dev-unlock')) {
         console.log('  adb: secondary intent skipped (--no-dev-unlock)');
       } else {
+        // Fresh Play install: notification permission sheet eats the setup ack window.
+        if (dismissAndroidRuntimePermissionDialogs(serial)) {
+          console.log('  adb: dismissed runtime permission dialog (notif) so setup can finish');
+        }
         const ackWaitMs = Number(process.env.HERMES_PAIR_ACK_WAIT_MS || 8000);
         const ack = waitForForegroundAck(serial, ANDROID_PACKAGE_NAME, { timeoutMs: ackWaitMs });
+        if (!ack.ok && dismissAndroidRuntimePermissionDialogs(serial)) {
+          console.log('  adb: dismissed runtime permission dialog after ack timeout');
+        }
         console.log(
           ack.ok
             ? `  adb: setup ack confirmed after ${ack.waitedMs}ms (app foreground) — sending secondary intent`

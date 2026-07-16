@@ -83,6 +83,31 @@ else
   bad "allowLocalKeyFallback still works for intentional dogfood"
 fi
 
+# P0 2026-07-16: identical fleet keys (mini SSH === laptop .env) must stay embeddable
+if run_node "
+  const fs = require('fs');
+  const lib = require('$REPO/tools/hermes-mobile-pair-lib.js');
+  fs.writeFileSync('$TMP/home/.hermes/.env', 'API_SERVER_KEY=mini-key-from-ssh\\n');
+  const local = lib.readLocalApiKey('$TMP/home/.hermes/.env');
+  const classified = lib.classifyMiniApiKeyResolution(local, { sshCommand: '$BIN/ssh' });
+  if (!classified.ok || classified.source !== 'ssh' || !classified.syncedWithLocal) process.exit(1);
+  if (classified.apiKey !== 'mini-key-from-ssh') process.exit(2);
+  // Restore distinct laptop key for later tests
+  fs.writeFileSync('$TMP/home/.hermes/.env', 'API_SERVER_KEY=laptop-key-from-env\\n');
+"; then
+  ok "identical mini/laptop keys classify as SSH success (not cleared)"
+else
+  bad "identical mini/laptop keys classify as SSH success (not cleared)"
+fi
+
+# USB reverse secretless pairServer must prefer loopback (source contract)
+if grep -q "127.0.0.1:\${PAIR_PORT}" "$REPO/tools/hermes-mobile-pair.js" \
+  && grep -q 'pairExchangeBase' "$REPO/tools/hermes-mobile-pair.js"; then
+  ok "pair script uses 127.0.0.1 pairExchangeBase when USB reverse :8765 is up"
+else
+  bad "pair script uses 127.0.0.1 pairExchangeBase when USB reverse :8765 is up"
+fi
+
 # Host/key consistency: never bind mini key to USB/local URL
 if run_node "
   const lib = require('$REPO/tools/hermes-mobile-pair-lib.js');
