@@ -1,5 +1,9 @@
 import type { HermesPersona } from '../types/gateway';
 import { buildPersonaSystemPrompt } from './hermesPersona';
+import {
+  buildContinuitySystemPromptSection,
+  type SessionContinuityHandoff,
+} from './sessionContinuityHandoff';
 
 /** Display name from a workspace path (last path segment). */
 export function workspaceDisplayName(workspacePath: string): string {
@@ -21,6 +25,13 @@ const MOBILE_EXECUTION_DIRECTIVE = [
   '- Brief acknowledgment is fine; arguing is not. Operator corrections override prior assumptions — adjust and continue executing.',
 ].join('\n');
 
+export type MobileChatProjectContext = {
+  vaultSlug?: string;
+  handoffSummary?: string;
+  /** Pending Start-fresh continuity handoff from vault / AsyncStorage. */
+  continuityHandoff?: SessionContinuityHandoff | null;
+};
+
 /** System prompt pinned on session create and each chat turn for workspace isolation. */
 export function buildWorkspaceSystemPrompt(
   workspacePath: string,
@@ -35,6 +46,7 @@ export function buildWorkspaceSystemPrompt(
     '- Memory, Telegram channel prompts, and prior chats about other projects are OUT OF SCOPE for this session.',
     '- If asked which project is active, answer with this workspace path — never a remembered "canonical" project.',
     '- Do not ask the operator to paste the project path when this prompt already provides it.',
+    '- A pending Continue-from-handoff section (when present) outranks MEMORY.md project defaults for this turn.',
   ];
   const vaultSlug = options?.vaultSlug?.trim();
   if (vaultSlug) {
@@ -54,12 +66,21 @@ export function buildWorkspaceSystemPrompt(
 export function buildMobileChatSystemPrompt(
   workspacePath?: string,
   persona?: HermesPersona,
-  projectContext?: { vaultSlug?: string; handoffSummary?: string },
+  projectContext?: MobileChatProjectContext,
 ): string {
   const sections = [MOBILE_EXECUTION_DIRECTIVE, buildPersonaSystemPrompt(persona)];
   const path = workspacePath?.trim();
   if (path) {
-    sections.push(buildWorkspaceSystemPrompt(path, projectContext));
+    sections.push(
+      buildWorkspaceSystemPrompt(path, {
+        vaultSlug: projectContext?.vaultSlug,
+        handoffSummary: projectContext?.handoffSummary,
+      }),
+    );
+  }
+  const continuity = projectContext?.continuityHandoff;
+  if (continuity) {
+    sections.push(buildContinuitySystemPromptSection(continuity));
   }
   return sections.join('\n\n');
 }
