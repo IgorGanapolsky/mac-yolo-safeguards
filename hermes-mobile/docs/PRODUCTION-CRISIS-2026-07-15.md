@@ -1,9 +1,11 @@
 # PRODUCTION CRISIS — 2026-07-15
 
-**User:** "how are we publishing a live production app with so many bugs???"  
+**User:** "how are we publishing a live production app with so many bugs???" / "this is a crisis" — connect dies many times daily; agents falsely claim fixed.  
 **Verdict:** Real-user readiness **FAIL**. Production OTA has been shipping without brand-new-user / continuous E2E pass. Macs and USB tunnels are healthy; the app + pair-server layer still lie.
 
 **OTA published this crisis turn:** **NO** (blocked — `latest.json` `e2e=skipped`).
+
+See also: [WHY-TAILSCALE-BREAKS-DAILY.md](./WHY-TAILSCALE-BREAKS-DAILY.md).
 
 ---
 
@@ -20,6 +22,34 @@
 | Keyboard covering connect UI | **LIVE BUG** | ConnectMacGate manual Tailscale/IP field at bottom; keyboard covers CTA (Settings escape #416 landed; connect gate still unprotected) |
 | OTA "Check for update" | Intermittent / mistrusted | Visible in some Tools screenshots; user reports invisible / useless while connection broken |
 | Agents dying on DNS | Operator/infra | Separate from mobile chat transport; do not round green Connected up to "agents work" |
+
+---
+
+## Live Tailscale / USB status (reachability owners session)
+
+| Check | Result |
+|-------|--------|
+| MBP Tailscale `100.87.85.85:8642` health+sessions | **200 / 200** |
+| Mini Tailscale `100.94.135.78:8642` health+sessions | **200 / 200** |
+| Phone USB `127.0.0.1:8642/health` | **200** |
+| Phone sessions without key | **401 invalid_api_key** (gateway auth required even on reverse) |
+| Phone sessions with MBP key | **200** |
+| Phone UI after re-pair | **Connected** — `Igors-MacBook-Pro · Tailscale` (proof: `docs/proofs/crisis-tailscale-20260715/hermes-crisis-repaired.png`) |
+| USB reverse heal sim (`remove 8765` → watchdog) | **healed=true** |
+| Continuous E2E | Do **not** claim OTA — read `docs/proofs/continuous/latest.json` |
+
+## Permanent owners shipped this crisis
+
+| LaunchAgent / artifact | Interval | Job |
+|------------------------|----------|-----|
+| `com.igor.hermes-usb-reverse-watchdog` | 15s | Restore `adb reverse` 8642/8765; **ntfy on failed re-apply** |
+| `com.igor.hermes-tailscale-reachability` | 180s | Curl both 100.x health+sessions; restart local gateway if down; auto-pair on 401 when USB phone present; ntfy on sustained down |
+| `writePairJsonAtomic` / `withPairJsonLock` | on write | Single writer for `pair.json` |
+| `wrongKeyRecovery` + GatewayContext | on heal | 401/`invalid_api_key` → clear key, **stop silent heal**, Find computers |
+
+## Android 1.0 Play / NSC
+
+Repo `network_security_config.xml` already permits cleartext + `ts.net` (G-02 / #422 class). **Native NSC only ships in store binary** — OTA cannot fix Play users. Coordinate store build; do not claim Play cleartext fixed from source alone.
 
 ---
 
@@ -64,6 +94,19 @@
 
 ---
 
+## Remaining SPOFs
+
+1. Phone Tailscale VPN toggled off  
+2. Play APK without NSC cleartext lag  
+3. Mega-session (1.6M tokens) UI blocks composer while Connected is green  
+4. Agents claiming fixed without heal simulation  
+
+## Forbidden language
+
+Do **not** say "fixed" / "permanently fixed" unless: (a) Connected UI proof **and** (b) LaunchAgent installed **and** (c) one simulated failure self-healed in the same turn.
+
+---
+
 ## What we refuse to do
 
 1. **No production OTA** until `docs/proofs/continuous/latest.json` has `e2e=pass` **or** `npm run e2e:fresh-user` (stranger-cold-start) passes on a Play-equivalent install.
@@ -92,6 +135,7 @@
 | OTA fresh-user gate in scripts + CI | In crisis PR |
 | pair.json `--server-only` refresh from THIS Mac `/health` | In crisis PR |
 | ConnectMacGate keyboard inset | In crisis PR |
+| Permanent Tailscale/USB LaunchAgent owners | In PR #449 |
 | PR #419 merge | Await CI; **no OTA** until fresh-user proof |
 | Live rewrite of hijacked pair.json + prove both Macs in Find | Execute after code land |
 

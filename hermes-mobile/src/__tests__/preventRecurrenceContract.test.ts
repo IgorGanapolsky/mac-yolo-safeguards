@@ -349,6 +349,43 @@ describe('tonight recurrence gates (2026-07-14 P0 class — S16-S23)', () => {
     );
   });
 
+  it('S25: cabled Mac Pro/MBP still exposes a selectable Tailscale row (USB must not hide it)', () => {
+    const macBookUsb = {
+      id: 'mac_book_usb',
+      label: 'Igors-MacBook-Pro',
+      gatewayUrl: 'http://127.0.0.1:8642',
+      hostname: 'Igors-MacBook-Pro',
+      addedAt: '2026-07-15T19:00:00Z',
+    };
+    const macBookTs = {
+      id: 'mac_book_ts',
+      label: 'Igors-MacBook-Pro',
+      gatewayUrl: 'http://100.87.85.85:8642',
+      hostname: 'Igors-MacBook-Pro',
+      localIp: '100.87.85.85',
+      addedAt: '2026-07-15T19:00:30Z',
+    };
+    const miniTs = {
+      id: 'mac_mini_ts',
+      label: 'Igors-Mac-mini',
+      gatewayUrl: 'http://100.94.135.78:8642',
+      hostname: 'Igors-Mac-mini',
+      localIp: '100.94.135.78',
+      addedAt: '2026-07-15T19:01:00Z',
+    };
+    const rows = profilesForSwitchComputerPicker([macBookUsb, macBookTs, miniTs], {
+      liveUsb: { reachable: true, hostname: 'Igors-MacBook-Pro.local' },
+    });
+    expect(rows.map((r) => r.id).sort()).toEqual([
+      'mac_book_ts',
+      'mac_book_usb',
+      'mac_mini_ts',
+    ]);
+    const tsMacPro = rows.find((r) => r.id === 'mac_book_ts')!;
+    expect(profilePickerLines(tsMacPro).title).toBe('Igors-MacBook-Pro (Mac Pro)');
+    expect(profilePickerLines(tsMacPro).detail).toBe('Tailscale · 100.87.85.85:8642');
+  });
+
   it('S19: Repair link is bounded to 12s and never leaves an infinite spinner (#392/#393)', () => {
     const opsSection = read('hermes-mobile/src/components/GatewayOpsSection.tsx');
     expect(opsSection).toContain('REPAIR_CONNECTION_TIMEOUT_MS = 12_000');
