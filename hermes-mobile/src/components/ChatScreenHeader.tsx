@@ -5,8 +5,12 @@ import type { RunProgressState } from '../types/chatDisplay';
 import { resolveChatLinkDisplay } from '../utils/gatewayConnection';
 import type { LeashConnectionState } from '../utils/gatewayEndpoint';
 import { GATEWAY_AUTH_REPAIR_HEADER } from '../services/gatewayClient';
-import { displayableLlmModel } from '../utils/runProgressDisplay';
-import { weakLocalModelWarning } from '../utils/weakLocalModel';
+import { resolveDisplayModel } from '../utils/resolveDisplayModel';
+import {
+  shouldWarnWeakLocalOnNewChat,
+  weakLocalModelWarning,
+  weakLocalSwitchMacHint,
+} from '../utils/weakLocalModel';
 import ExpandableThreadTitle from './ExpandableThreadTitle';
 
 type ChatScreenHeaderProps = {
@@ -36,8 +40,12 @@ type ChatScreenHeaderProps = {
   } | null;
   /** Gateway default model when the session has not reported one yet. */
   gatewayModel?: string;
+  /** Sticky real model from a prior turn — preferred over weak capabilities noise. */
+  lastKnownModel?: string;
   /** Live run usage — preferred over session totals while a turn is in flight. */
   runProgress?: RunProgressState | null;
+  /** Message count in the open thread — 0 = new chat (weak SLM Switch Mac). */
+  messageCount?: number;
   onOpenThreads: () => void;
   onPressThreadTitle?: () => void;
   onOpenTools?: () => void;
@@ -74,7 +82,7 @@ function linkMeta(
   if (link.label === GATEWAY_AUTH_REPAIR_HEADER) {
     return { label: link.label, color: colors.error, connected: false };
   }
-  if (link.label === 'Relay only') {
+  if (link.label === 'Reconnecting…' || link.label === 'Connecting' || link.label === 'Relay only') {
     return { label: link.label, color: colors.warning, connected: false };
   }
   if (state === 'connecting') {
@@ -96,11 +104,14 @@ export function buildHermesStatusLabel(
   currentSession?: ChatScreenHeaderProps['currentSession'],
   gatewayModel?: string,
   runProgress?: RunProgressState | null,
+  lastKnownModel?: string,
 ): string {
-  const model =
-    displayableLlmModel(currentSession?.model) ??
-    displayableLlmModel(runProgress?.model) ??
-    displayableLlmModel(gatewayModel);
+  const model = resolveDisplayModel({
+    sessionModel: currentSession?.model,
+    runModel: runProgress?.model,
+    lastKnownModel,
+    gatewayModel,
+  });
   const modelLabel = model ? ` · ${model}` : '';
 
   let tokensLabel = '';
@@ -146,6 +157,7 @@ export default function ChatScreenHeader({
   activeAgents,
   currentSession,
   gatewayModel,
+  lastKnownModel,
   runProgress,
   onOpenThreads,
   onPressThreadTitle,
@@ -153,6 +165,7 @@ export default function ChatScreenHeader({
   onPressMachine,
   onPressWorkspace,
   chatStalled = false,
+  messageCount = 0,
 }: ChatScreenHeaderProps) {
   const link = linkMeta(
     connectionState,
@@ -167,11 +180,18 @@ export default function ChatScreenHeader({
   const showEndpoint =
     endpoint.length > 0 && (!link.connected || showMachineDetailWhenConnected);
   const showWorkspace = canSwitchWorkspace || Boolean(workspaceName);
-  const resolvedModel =
-    displayableLlmModel(currentSession?.model) ??
-    displayableLlmModel(runProgress?.model) ??
-    displayableLlmModel(gatewayModel);
+  const resolvedModel = resolveDisplayModel({
+    sessionModel: currentSession?.model,
+    runModel: runProgress?.model,
+    lastKnownModel,
+    gatewayModel,
+  });
   const localModelWarning = weakLocalModelWarning(resolvedModel);
+  const newChatWeakLocal = shouldWarnWeakLocalOnNewChat({
+    model: resolvedModel,
+    messageCount,
+  });
+  const switchMacHint = newChatWeakLocal ? weakLocalSwitchMacHint(resolvedModel) : null;
   const hugeContext =
     (currentSession?.input_tokens ?? 0) >= 20_000 || (runProgress?.inputTokens ?? 0) >= 20_000;
 
@@ -292,16 +312,36 @@ export default function ChatScreenHeader({
         return (
           <View style={styles.agentsRow} testID="chat-header-active-agents">
             <Text style={styles.agentsLabel} testID="chat-header-hermes-status">
-              {buildHermesStatusLabel(hermesAgent, currentSession, gatewayModel, runProgress)}
+              {buildHermesStatusLabel(
+                hermesAgent,
+                currentSession,
+                gatewayModel,
+                runProgress,
+                lastKnownModel,
+              )}
+
             </Text>
           </View>
         );
       })()}
 
       {localModelWarning ? (
-        <Text style={styles.modelWarning} testID="chat-header-weak-model-warning">
-          {localModelWarning}
-        </Text>
+        <View style={styles.modelWarningBlock} testID="chat-header-weak-model-warning">
+          <Text style={styles.modelWarning}>
+            {switchMacHint ?? localModelWarning}
+          </Text>
+          {newChatWeakLocal ? (
+            <Pressable
+              onPress={onPressMachine}
+              style={({ pressed }) => [styles.switchMacChip, pressed && styles.pressed]}
+              testID="chat-header-switch-mac"
+              accessibilityRole="button"
+              accessibilityLabel="Switch Mac"
+            >
+              <Text style={styles.switchMacChipText}>Switch Mac</Text>
+            </Pressable>
+          ) : null}
+        </View>
       ) : null}
       {hugeContext && !localModelWarning ? (
         <Text style={styles.modelWarning} testID="chat-header-poisoned-context-warning">
@@ -474,12 +514,31 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: colors.textMuted,
   },
-  modelWarning: {
+  modelWarningBlock: {
+    gap: 6,
     paddingHorizontal: 4,
-    paddingVertical: 4,
+    paddingVertical: 2,
+  },
+  modelWarning: {
+    paddingHorizontal: 0,
+    paddingVertical: 2,
     fontSize: 11,
     lineHeight: 15,
     fontWeight: '600',
+    color: colors.warning,
+  },
+  switchMacChip: {
+    alignSelf: 'flex-start',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(245, 158, 11, 0.55)',
+    backgroundColor: 'rgba(245, 158, 11, 0.14)',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  switchMacChipText: {
+    fontSize: 11,
+    fontWeight: '800',
     color: colors.warning,
   },
 });

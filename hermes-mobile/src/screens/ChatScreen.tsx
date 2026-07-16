@@ -187,6 +187,11 @@ import {
   saveComposerDraft,
 } from '../utils/composerDraftStorage';
 import {
+  resolveSessionUsagePollMs,
+  SESSION_USAGE_POLL_MS,
+} from '../utils/sessionUsagePoll';
+import { resolveDisplayModel } from '../utils/resolveDisplayModel';
+import {
   captureComposerTextForFreshChat,
   resolveComposerTextAfterFreshChat,
   shouldRestoreComposerAfterFreshChat,
@@ -3868,7 +3873,19 @@ export default function ChatScreen() {
     }
     sendClearSuppressRef.current = false;
     inputValueRef.current = text;
-    setInputValue(text);
+    // Do NOT setInputValue on every keystroke — ChatInputBar owns local text.
+    // Only re-render ChatScreen when emptiness flips (or both empty text changes).
+    setInputValue((prev) => {
+      const prevEmpty = prev.trim().length === 0;
+      const nextEmpty = text.trim().length === 0;
+      if (!prevEmpty && !nextEmpty) {
+        return prev;
+      }
+      if (prevEmpty !== nextEmpty) {
+        return nextEmpty ? '' : text;
+      }
+      return prev === text ? prev : text;
+    });
     const sessionId = currentSessionRef.current?.id;
     if (!sessionId || isDemo) {
       return;
@@ -5683,17 +5700,25 @@ export default function ChatScreen() {
   }, [currentSession?.model, progressBanner?.model, lastKnownModel]);
 
   const headerGatewayModel = useMemo(
-    () => gatewayModel ?? lastKnownModel,
-    [gatewayModel, lastKnownModel],
+    () =>
+      resolveDisplayModel({
+        sessionModel: currentSession?.model,
+        runModel: progressBanner?.model,
+        lastKnownModel,
+        gatewayModel,
+      }) ?? undefined,
+    [currentSession?.model, progressBanner?.model, lastKnownModel, gatewayModel],
   );
 
   const progressBannerFallbackModel = useMemo(
     () =>
-      displayableLlmModel(currentSession?.model) ??
-      displayableLlmModel(gatewayModel) ??
-      displayableLlmModel(lastKnownModel) ??
-      undefined,
-    [currentSession?.model, gatewayModel, lastKnownModel],
+      resolveDisplayModel({
+        sessionModel: currentSession?.model,
+        runModel: progressBanner?.model,
+        lastKnownModel,
+        gatewayModel,
+      }) ?? undefined,
+    [currentSession?.model, progressBanner?.model, gatewayModel, lastKnownModel],
   );
 
   const showComposerProgressBanner = useMemo(() => {
@@ -6003,7 +6028,7 @@ export default function ChatScreen() {
     };
 
     void pollSessionUsage();
-    const timer = setInterval(pollSessionUsage, 500);
+    const timer = setInterval(pollSessionUsage, resolveSessionUsagePollMs(SESSION_USAGE_POLL_MS));
     return () => {
       cancelled = true;
       clearInterval(timer);
@@ -6328,7 +6353,9 @@ export default function ChatScreen() {
           activeAgents={activeAgents}
           currentSession={currentSession}
           gatewayModel={headerGatewayModel}
+          lastKnownModel={lastKnownModel}
           runProgress={progressBanner}
+          messageCount={messages.length}
           onOpenThreads={openSessionsModal}
           onOpenTools={() => setToolsModalVisible(true)}
           onPressMachine={() => {
@@ -6472,26 +6499,29 @@ export default function ChatScreen() {
                 ref={flatListRef}
                 data={chatTimelineMessages}
                 testID="chat-message-list"
-                keyExtractor={(item, index) =>
-                  item.message.id ?? `${item.message.role}-${item.originalIndex}-${index}`
+                // Stable ids only — never bake streaming length into keys (full remount / jitter).
+                keyExtractor={(item) =>
+                  item.message.id ?? `${item.message.role}-${item.originalIndex}`
                 }
                 style={styles.flatList}
                 contentContainerStyle={styles.messageList}
                 nestedScrollEnabled={false}
                 keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'none'}
                 keyboardShouldPersistTaps="handled"
-                drawDistance={480}
+                drawDistance={900}
                 // MVCP follows the bottom while streaming; pair with throttled
                 // onContentSizeChange (not per-token effect scrolls) for smooth follow.
                 maintainVisibleContentPosition={{
                   startRenderingFromBottom: true,
                   autoscrollToBottomThreshold: 0.15,
                 }}
+                // Keep extraData narrow so token ticks do not remount the whole list.
+                extraData={`${connectionState}:${effectiveMacHttpOk ? 1 : 0}:${isSending ? 1 : 0}:${messages.length}`}
                 onScroll={handleChatScroll}
                 onScrollBeginDrag={handleChatScrollBeginDrag}
                 onScrollEndDrag={handleChatScrollEndDrag}
                 onMomentumScrollEnd={handleChatScrollEndDrag}
-                scrollEventThrottle={32}
+                scrollEventThrottle={16}
                 ListFooterComponent={
                   showRecentChatsPanel ? (
                     <View style={styles.recentChatsInThread}>{recentChatsList}</View>
@@ -6726,10 +6756,7 @@ export default function ChatScreen() {
               ? 'Chat too large — start a fresh chat'
               : inputPlaceholder
           }
-          sendMuted={
-            megaSessionSendHardBlocked ||
-            !composerHasSendableContent(inputValue, composerAttachments)
-          }
+          sendMuted={megaSessionSendHardBlocked}
           sendDisabled={
             isSending ||
             queuedOutboundCount > 0 ||

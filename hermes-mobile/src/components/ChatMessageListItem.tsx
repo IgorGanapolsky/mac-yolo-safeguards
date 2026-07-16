@@ -168,6 +168,7 @@ function ChatMessageListItem({
       threadDivider={threadDivider}
       outboundStatus={isUser ? item.outboundStatus : undefined}
       outboundFailureReason={isUser ? item.outboundFailureReason : undefined}
+      outboundCreatedAt={isUser ? item.created_at ?? item.timestamp ?? null : undefined}
       connectionState={connectionState}
       macHttpOk={macHttpOk}
       onShowDetail={(body) => onShowDetail(body, isUser)}

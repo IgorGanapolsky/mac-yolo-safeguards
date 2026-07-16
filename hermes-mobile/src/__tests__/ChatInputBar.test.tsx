@@ -4,6 +4,8 @@ import { fireEvent, render } from '@testing-library/react-native';
 import ChatInputBar from '../components/ChatInputBar';
 import { colors } from '../theme/colors';
 
+jest.mock('../services/haptics', () => ({ haptics: { tap: jest.fn(), light: jest.fn(), selection: jest.fn(), success: jest.fn(), warning: jest.fn(), heavy: jest.fn() } }));
+
 describe('ChatInputBar', () => {
   const baseProps = {
     value: '',
@@ -28,6 +30,24 @@ describe('ChatInputBar', () => {
 
     fireEvent.press(getByTestId('chat-stop-button'));
     expect(onStop).toHaveBeenCalled();
+    // Send stays mounted (muted) so Stop never replaces the control layout.
+    expect(getByTestId('chat-send-button')).toBeTruthy();
+  });
+
+  it('keeps Stop visible while drafting the next message during a pending run', () => {
+    const onStop = jest.fn();
+    const { getByTestId } = render(
+      <ChatInputBar
+        {...baseProps}
+        value="next prompt"
+        sendMuted={false}
+        showStop={true}
+        onStop={onStop}
+      />,
+    );
+
+    expect(getByTestId('chat-stop-button')).toBeTruthy();
+    expect(getByTestId('chat-send-button')).toBeTruthy();
   });
 
   it('uses light text on dark composer field', () => {
@@ -221,4 +241,46 @@ describe('ChatInputBar', () => {
     fireEvent.press(getByTestId('chat-attach-remove-att-2'));
     expect(onRemoveAttachment).toHaveBeenCalledWith('att-2');
   });
+
+  it('keeps local typing responsive without requiring parent value to catch up each keystroke', () => {
+    const onChangeText = jest.fn();
+    const { getByTestId } = render(
+      <ChatInputBar {...baseProps} onChangeText={onChangeText} value="" />,
+    );
+    const input = getByTestId('chat-input');
+
+    fireEvent.changeText(input, 'H');
+    fireEvent.changeText(input, 'He');
+    fireEvent.changeText(input, 'Hel');
+
+    expect(onChangeText).toHaveBeenLastCalledWith('Hel');
+    // Local owned value is current even though parent still passes value="".
+    expect(getByTestId('chat-input').props.value).toBe('Hel');
+  });
+
+  it('sends local draft text when parent value is still empty', () => {
+    const onSend = jest.fn();
+    const { getByTestId } = render(
+      <ChatInputBar {...baseProps} value="" sendMuted={false} onSend={onSend} />,
+    );
+    fireEvent.changeText(getByTestId('chat-input'), 'make money today');
+    fireEvent.press(getByTestId('chat-send-button'));
+    expect(onSend).toHaveBeenCalledWith('make money today');
+  });
+
+  it('ignores Android IME echo of the just-sent text after clear', () => {
+    const onSend = jest.fn();
+    const { getByTestId } = render(
+      <ChatInputBar {...baseProps} value="" sendMuted={false} onSend={onSend} />,
+    );
+    const input = getByTestId('chat-input');
+    fireEvent.changeText(input, 'Hello Hermes');
+    fireEvent.press(getByTestId('chat-send-button'));
+    expect(getByTestId('chat-input').props.value).toBe('');
+
+    fireEvent.changeText(getByTestId('chat-input'), 'Hello Hermes');
+    expect(getByTestId('chat-input').props.value).toBe('');
+  });
 });
+
+

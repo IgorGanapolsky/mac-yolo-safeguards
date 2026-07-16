@@ -1,6 +1,7 @@
-import React, { memo, useEffect, useRef } from 'react';
-import { Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import React, { memo, useEffect, useRef, useState } from 'react';
+import { Platform, Pressable, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { colors } from '../theme/colors';
+import { haptics } from '../services/haptics';
 import type { ComposerAttachment } from '../types/chatAttachment';
 import { composerHasSendableContent } from '../utils/chatAttachments';
 
@@ -16,19 +17,26 @@ const androidComposerInputStyle = Platform.select({
 });
 
 type ChatInputBarProps = {
+  /**
+   * External composer value from ChatScreen (draft load, clear after send, seeds).
+   * Typing is owned locally so ChatScreen does not re-render on every keystroke.
+   */
   value: string;
   onChangeText: (text: string) => void;
   onFocus: () => void;
   onBlur: () => void;
   onSubmit: (latestText?: string) => void;
   placeholder: string;
-  /** Muted styling when empty — button stays tappable so Android does not swallow the first tap. */
+  /**
+   * Force-muted Send (e.g. mega-session block). Empty composer mute is computed
+   * from local text so parent need not mirror every keystroke.
+   */
   sendMuted: boolean;
   /** Block send taps while outbound is in flight (RNTL ignores TouchableOpacity disabled). */
   sendDisabled?: boolean;
   sendLabel?: string;
   onSend: (latestText?: string) => void;
-  /** Codex-style: square Stop replaces Send while Mac run is active and composer is empty. */
+  /** Codex-style: square Stop while Mac run is pending (always visible; Send stays if composer has text). */
   showStop?: boolean;
   onStop?: () => void;
   stopLabel?: string;
@@ -58,15 +66,34 @@ function ChatInputBar({
 }: ChatInputBarProps) {
   const inputRef = useRef<TextInput>(null);
   const latestTextRef = useRef(value);
-  const stopMode = showStop && !composerHasSendableContent(value, attachments);
-  const canSend = composerHasSendableContent(value, attachments)
-    || composerHasSendableContent(latestTextRef.current, attachments);
+  const lastExternalValueRef = useRef(value);
+  /** Android IME often re-emits the just-sent text after clear — ignore that echo. */
+  const justSentTextRef = useRef<string | null>(null);
+  /** Local owned text — re-renders stay inside this memoized bar, not ChatScreen. */
+  const [localValue, setLocalValue] = useState(value);
 
+  // Parent forced a new value (send clear, draft load, approval seed).
   useEffect(() => {
-    if (value.trim() || !latestTextRef.current.trim()) {
-      latestTextRef.current = value;
+    if (value === lastExternalValueRef.current) {
+      return;
+    }
+    lastExternalValueRef.current = value;
+    latestTextRef.current = value;
+    setLocalValue(value);
+    if (value.trim().length === 0) {
+      // Parent cleared — keep IME-echo guard active until a different edit arrives.
+      justSentTextRef.current = justSentTextRef.current ?? '';
+    } else {
+      justSentTextRef.current = null;
     }
   }, [value]);
+
+  const hasSendable =
+    composerHasSendableContent(localValue, attachments) ||
+    composerHasSendableContent(latestTextRef.current, attachments);
+  /** Stop stays visible for the whole pending run; Send stays mounted (muted when empty). */
+  const showStopButton = Boolean(showStop && onStop);
+  const canSend = hasSendable;
 
   useEffect(() => {
     if (focusNonce <= 0) {
@@ -112,9 +139,22 @@ function ChatInputBar({
         <TextInput
           ref={inputRef}
           style={[styles.input, androidComposerInputStyle]}
-          value={value}
+          value={localValue}
           onChangeText={(text) => {
+            const sent = justSentTextRef.current;
+            // Compare against the just-sent string only — do not read localValue from
+            // the render closure (IME echo often lands before the empty re-render).
+            if (sent != null && text.trim().length > 0 && text.trim() === sent.trim()) {
+              latestTextRef.current = '';
+              setLocalValue('');
+              onChangeText('');
+              return;
+            }
+            if (sent != null && text.trim() !== sent.trim()) {
+              justSentTextRef.current = null;
+            }
             latestTextRef.current = text;
+            setLocalValue(text);
             onChangeText(text);
           }}
           placeholder={placeholder}
@@ -142,6 +182,7 @@ function ChatInputBar({
             const endedText = event.nativeEvent.text;
             if (endedText.trim() || !latestTextRef.current.trim()) {
               latestTextRef.current = endedText;
+              setLocalValue(endedText);
             }
           }}
           onSubmitEditing={(event) => {
@@ -150,7 +191,7 @@ function ChatInputBar({
           }}
           testID="chat-input"
         />
-        {stopMode ? (
+        {showStopButton ? (
           <TouchableOpacity
             style={styles.stopButton}
             onPress={onStop}
@@ -159,20 +200,37 @@ function ChatInputBar({
           >
             <View style={styles.stopSquare} />
           </TouchableOpacity>
-        ) : (
-          <TouchableOpacity
-            style={[styles.sendButton, (sendMuted || !canSend || sendDisabled) && styles.sendButtonMuted]}
-            onPress={() => {
-              const latest = latestTextRef.current;
-              latestTextRef.current = '';
-              onSend(latest);
-            }}
-            testID="chat-send-button"
-            accessibilityLabel="Send"
-          >
-            <Text style={styles.sendIcon}>↑</Text>
-          </TouchableOpacity>
-        )}
+        ) : null}
+        <Pressable
+          style={({ pressed }) => [
+            styles.sendButton,
+            (sendMuted || !canSend || sendDisabled) && styles.sendButtonMuted,
+            pressed && canSend && !sendDisabled && !sendMuted && styles.sendButtonPressed,
+          ]}
+          onPress={() => {
+            if (!canSend && !composerHasSendableContent(latestTextRef.current, attachments)) {
+              return;
+            }
+            haptics.tap();
+            const latest = latestTextRef.current;
+            justSentTextRef.current = latest;
+            latestTextRef.current = '';
+            setLocalValue('');
+            lastExternalValueRef.current = '';
+            onSend(latest);
+            // Allow re-typing the same prompt after the IME echo window.
+            setTimeout(() => {
+              if (justSentTextRef.current === latest) {
+                justSentTextRef.current = null;
+              }
+            }, 900);
+          }}
+          testID="chat-send-button"
+          accessibilityLabel="Send"
+          accessibilityRole="button"
+        >
+          <Text style={styles.sendIcon}>↑</Text>
+        </Pressable>
       </View>
     </View>
   );
@@ -266,6 +324,10 @@ const styles = StyleSheet.create({
   },
   sendButtonMuted: {
     backgroundColor: 'rgba(255, 255, 255, 0.18)',
+  },
+  sendButtonPressed: {
+    transform: [{ scale: 0.92 }],
+    opacity: 0.88,
   },
   sendIcon: {
     fontSize: 18,

@@ -1,5 +1,13 @@
 import React, { useEffect, useRef, useState, memo } from 'react';
-import { StyleSheet, Text, View, ActivityIndicator, Platform, Pressable } from 'react-native';
+import {
+  StyleSheet,
+  Text,
+  View,
+  ActivityIndicator,
+  Platform,
+  Pressable,
+  Animated,
+} from 'react-native';
 import { colors } from '../theme/colors';
 import type { RunProgressState } from '../types/chatDisplay';
 import {
@@ -79,6 +87,7 @@ function RunProgressBanner({
   const [displayedTokenLabel, setDisplayedTokenLabel] = useState<string | null>(null);
   const tokenLabelUpdatedAtRef = useRef(0);
   const displayedTokenLabelRef = useRef<string | null>(null);
+  const workingPulse = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
     const update = () => {
@@ -100,6 +109,38 @@ function RunProgressBanner({
   const isCompleted = progress.phase === 'completed';
   const isFailed = progress.phase === 'failed';
   const isActive = !isCompleted && !isFailed;
+
+  useEffect(() => {
+    if (!isActive) {
+      workingPulse.stopAnimation();
+      workingPulse.setValue(1);
+      return;
+    }
+    // Skip the loop under Jest — infinite Animated timers break fake-timer drains.
+    if (typeof jest !== 'undefined') {
+      workingPulse.setValue(1);
+      return;
+    }
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(workingPulse, {
+          toValue: 0.55,
+          duration: 700,
+          useNativeDriver: true,
+        }),
+        Animated.timing(workingPulse, {
+          toValue: 1,
+          duration: 700,
+          useNativeDriver: true,
+        }),
+      ]),
+    );
+    loop.start();
+    return () => {
+      loop.stop();
+      workingPulse.setValue(1);
+    };
+  }, [isActive, workingPulse]);
   const staleLevel = isActive ? classifyRunStale(progress) : 'normal';
   const staleMessage = runStaleHint(staleLevel);
   const emphasizeStop = isActive && staleLevel !== 'normal' && Boolean(onStop);
@@ -162,7 +203,7 @@ function RunProgressBanner({
       isFailed && styles.bannerFailed,
       !detailsExpanded && styles.bannerCollapsed,
     ]} testID="run-progress-banner">
-      <View style={styles.headerRow}>
+      <View style={styles.headerRow} testID="run-progress-header-row">
         <Pressable
           style={styles.headerToggle}
           onPress={toggleDetails}
@@ -179,7 +220,9 @@ function RunProgressBanner({
           testID="run-progress-header"
         >
           {isActive ? (
-            <ActivityIndicator size="small" color={colors.warning} style={styles.spinner} />
+            <Animated.View style={{ opacity: workingPulse }} testID="run-progress-working-pulse">
+              <ActivityIndicator size="small" color={colors.warning} style={styles.spinner} />
+            </Animated.View>
           ) : (
             <Text style={styles.statusIcon}>{isCompleted ? '✅' : '⚠️'}</Text>
           )}
@@ -396,6 +439,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+    // Reserved height so 1s elapsed ticks / Working pulse never jump layout.
+    minHeight: 28,
   },
   headerToggle: {
     flex: 1,
@@ -403,6 +448,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
     minWidth: 0,
+    minHeight: 28,
   },
   chevronChip: {
     paddingHorizontal: 2,

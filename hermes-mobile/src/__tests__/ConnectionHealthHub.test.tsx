@@ -6,6 +6,7 @@ import { checkForAppUpdate } from '../services/appOtaUpdate';
 
 jest.mock('../services/haptics', () => ({
   haptics: {
+    tap: jest.fn(),
     selection: jest.fn(),
     success: jest.fn(),
     warning: jest.fn(),

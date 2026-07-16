@@ -11,10 +11,10 @@ import { GATEWAY_WRONG_KEY_MESSAGE } from '../services/gatewayClient';
 import { OUTBOUND_STUCK_FAILURE_REASON } from '../utils/outboundSendRecovery';
 
 describe('outboundDeliveryStatus', () => {
-  it('shows waiting instead of sent when Mac is unreachable', () => {
+  it('shows Still connecting… instead of sent when Mac is unreachable', () => {
     expect(
       outboundDeliveryLabel('sent', { connectionState: 'connecting', macHttpOk: false }),
-    ).toBe('○ Waiting for computer…');
+    ).toBe('○ Still connecting…');
   });
 
   it('shows sent when HTTP health is ok even if socket is connecting', () => {
@@ -23,10 +23,10 @@ describe('outboundDeliveryStatus', () => {
     ).toBe('✓ Sent');
   });
 
-  it('shows waiting instead of sent when relay is up but Mac HTTP is down', () => {
+  it('shows Still connecting… when relay is up but Mac HTTP is down', () => {
     expect(
       outboundDeliveryLabel('sent', { connectionState: 'connected', macHttpOk: false }),
-    ).toBe('○ Waiting for computer…');
+    ).toBe('○ Still connecting…');
   });
 
   it('shows resend hint when send failed but Mac health is ok', () => {

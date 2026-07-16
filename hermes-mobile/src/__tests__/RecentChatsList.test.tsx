@@ -3,6 +3,8 @@ import { fireEvent, render } from '@testing-library/react-native';
 import RecentChatsList from '../components/RecentChatsList';
 import type { HermesSession } from '../types/chat';
 
+jest.mock('../services/haptics', () => ({ haptics: { tap: jest.fn(), light: jest.fn(), selection: jest.fn(), success: jest.fn(), warning: jest.fn(), heavy: jest.fn() } }));
+
 const sessions: HermesSession[] = [
   { id: 's1', title: 'First thread', last_active_at: '2026-06-23T12:00:00Z' },
   { id: 's2', title: 'Second thread', last_active_at: '2026-06-22T12:00:00Z' },

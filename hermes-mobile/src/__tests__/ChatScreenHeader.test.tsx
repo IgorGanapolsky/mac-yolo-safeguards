@@ -6,6 +6,7 @@ import { GATEWAY_AUTH_REPAIR_HEADER } from '../services/gatewayClient';
 
 describe('ChatScreenHeader', () => {
   it('warns when a weak local coding model is active', () => {
+    const onPressMachine = jest.fn();
     const { getByTestId } = render(
       <ChatScreenHeader
         threadTitle="Deploy fix"
@@ -13,12 +14,16 @@ describe('ChatScreenHeader', () => {
         connectionState="connected"
         macHttpReachable
         gatewayModel="qwen3.5:9b-hermes-64k"
+        messageCount={0}
         onOpenThreads={jest.fn()}
-        onPressMachine={jest.fn()}
+        onPressMachine={onPressMachine}
       />,
     );
 
-    expect(getByTestId('chat-header-weak-model-warning').props.children).toMatch(/local worker/i);
+    expect(getByTestId('chat-header-weak-model-warning')).toBeTruthy();
+    expect(getByTestId('chat-header-switch-mac')).toBeTruthy();
+    fireEvent.press(getByTestId('chat-header-switch-mac'));
+    expect(onPressMachine).toHaveBeenCalled();
   });
 
   it('warns when session context is already huge', () => {
@@ -38,7 +43,7 @@ describe('ChatScreenHeader', () => {
     expect(getByTestId('chat-header-poisoned-context-warning').props.children).toMatch(/Start fresh/i);
   });
 
-  it('shows relay only when socket is connected but HTTP is not', () => {
+  it('shows Reconnecting… when socket looked connected but HTTP is not', () => {
     const { getByTestId } = render(
       <ChatScreenHeader
         threadTitle="Deploy fix"
@@ -50,7 +55,7 @@ describe('ChatScreenHeader', () => {
       />,
     );
 
-    expect(getByTestId('chat-context-link').props.children).toContain('Relay only');
+    expect(getByTestId('chat-context-link').props.children).toContain('Reconnecting…');
   });
 
   it('shows endpoint while connected when multi-Mac detail is enabled', () => {

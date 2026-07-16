@@ -8,14 +8,19 @@ try {
   expoHaptics = null;
 }
 
+/** Throttle for stream/WS-driven buzzes (success, warning, light). */
 const MIN_REPEAT_MS = 1200;
+/** Intentional UI taps (Send, recents) — snappy, not spammy. */
+const MIN_TAP_MS = 90;
+
 let lastLightAt = 0;
 let lastSelectionAt = 0;
 let lastWarningAt = 0;
 let lastSuccessAt = 0;
+let lastTapAt = 0;
 
-function shouldFire(lastAt: number): boolean {
-  return Date.now() - lastAt >= MIN_REPEAT_MS;
+function shouldFire(lastAt: number, minMs: number = MIN_REPEAT_MS): boolean {
+  return Date.now() - lastAt >= minMs;
 }
 
 function vibrateFallback(pattern: number | number[]): void {
@@ -41,6 +46,18 @@ async function impactLight(): Promise<void> {
   vibrateFallback(Platform.OS === 'android' ? 8 : 1);
 }
 
+async function impactMedium(): Promise<void> {
+  if (expoHaptics) {
+    try {
+      await expoHaptics.impactAsync(expoHaptics.ImpactFeedbackStyle.Medium);
+      return;
+    } catch {
+      // fall through
+    }
+  }
+  vibrateFallback(Platform.OS === 'android' ? 14 : 4);
+}
+
 async function notify(type: 'success' | 'warning'): Promise<void> {
   if (expoHaptics) {
     try {
@@ -59,6 +76,7 @@ async function notify(type: 'success' | 'warning'): Promise<void> {
 
 /**
  * Haptic policy (2026): meaningful events only, throttled — no buzz storms from WS duplicates.
+ * UI taps use a shorter gate so Send/recents feel instant on Android and iOS.
  */
 export const haptics = {
   light(): void {
@@ -67,12 +85,21 @@ export const haptics = {
     impactLight();
   },
 
+  /**
+   * Intentional control taps (Send, open thread, Switch Mac).
+   * Fires on Android + iOS — unlike the old selection() which was iOS-only.
+   */
+  tap(): void {
+    if (!shouldFire(lastTapAt, MIN_TAP_MS)) return;
+    lastTapAt = Date.now();
+    impactMedium();
+  },
+
   selection(): void {
     if (!shouldFire(lastSelectionAt)) return;
     lastSelectionAt = Date.now();
-    if (Platform.OS === 'ios') {
-      impactLight();
-    }
+    // Android previously skipped selection entirely — felt dead.
+    impactLight();
   },
 
   success(): void {
@@ -95,3 +122,12 @@ export const haptics = {
     vibrateFallback(Platform.OS === 'android' ? 35 : 12);
   },
 };
+
+/** Test seam — reset throttle clocks between cases. */
+export function __resetHapticsForTests(): void {
+  lastLightAt = 0;
+  lastSelectionAt = 0;
+  lastWarningAt = 0;
+  lastSuccessAt = 0;
+  lastTapAt = 0;
+}

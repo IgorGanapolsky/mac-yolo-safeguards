@@ -4,8 +4,23 @@ import { EMPTY_REPLY_FAILURE_REASON } from './emptyStreamReplyRecovery';
 import { OUTBOUND_STUCK_FAILURE_REASON } from './outboundSendRecovery';
 import { RUN_NO_TOKEN_FAIL_DETAIL } from './runStaleDetection';
 import { isRawAbortMessage, USER_RUN_INTERRUPTED_MESSAGE } from './chatErrors';
+import {
+  OUTBOUND_SENDING_LABEL,
+  OUTBOUND_STILL_CONNECTING_LABEL,
+  isOutboundAckTimedOut,
+  outboundPendingAckLabel,
+} from './outboundAckFeedback';
 
 export type OutboundDeliveryStatus = 'pending' | 'sent' | 'failed';
+
+export {
+  OUTBOUND_ACK_TIMEOUT_MS,
+  OUTBOUND_SENDING_LABEL,
+  OUTBOUND_STILL_CONNECTING_LABEL,
+  isOutboundAckTimedOut,
+  outboundPendingAckLabel,
+  outboundPendingAgeMs,
+} from './outboundAckFeedback';
 
 const OUTBOUND_FAILURE_REASON_MAX = 40;
 
@@ -125,6 +140,8 @@ export function outboundDeliveryLabel(
     connectionState: LeashConnectionState;
     macHttpOk: boolean;
     failureReason?: string;
+    /** Age of the optimistic bubble — drives 3s "Still connecting…" feedback. */
+    pendingAgeMs?: number;
   },
 ): string {
   if (status === 'failed') {
@@ -132,19 +149,22 @@ export function outboundDeliveryLabel(
   }
 
   const live = isGatewayLiveForDelivery(input);
+  const ageMs = input.pendingAgeMs ?? 0;
 
   if (status === 'sent') {
     if (live) {
       return '✓ Sent';
     }
+    // After Connected lie / health drop: keep the bubble honest, not silent.
+    if (isOutboundAckTimedOut(ageMs) || !input.macHttpOk) {
+      return OUTBOUND_STILL_CONNECTING_LABEL;
+    }
     return '○ Waiting for computer…';
   }
 
-  if (!live) {
-    return '○ Waiting for computer…';
+  // pending — immediate Sending…, then Still connecting… at 3s (never silence).
+  if (!live || input.connectionState === 'connecting' || isOutboundAckTimedOut(ageMs)) {
+    return outboundPendingAckLabel({ ageMs, macHttpOk: input.macHttpOk });
   }
-  if (input.connectionState === 'connecting') {
-    return '○ Sending…';
-  }
-  return '○ Sending';
+  return OUTBOUND_SENDING_LABEL;
 }

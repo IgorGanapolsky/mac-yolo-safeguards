@@ -67,7 +67,7 @@ function connectionCopy(
     };
   }
   if (state === 'connected') {
-    return { label: 'Relay only', detail: 'Chat needs direct link', color: colors.warning };
+    return { label: 'Reconnecting…', detail: 'Chat needs direct link', color: colors.warning };
   }
   if (state === 'connecting') {
     return { label: 'Connecting', detail: `Checking ${machineName}`, color: colors.warning };
