@@ -168,12 +168,13 @@ fs.writeFileSync(locs.configPath, merge(cfg, managed), { mode: 0o600 });
 const cfg2 = fs.readFileSync(locs.configPath, 'utf8');
 assert.strictEqual((cfg2.match(/\[model\.ollama-hermes-64k\]/g) || []).length, 1);
 
-// Secret scan on tool + hooks (word-boundary; avoid matching "disk-destructive")
-const secretScan = spawnSync(
-  'rg',
-  ['-n', '\\bxai-[A-Za-z0-9_-]{16,}\\b|\\bsk-[A-Za-z0-9]{20,}\\b|\\bghp_[A-Za-z0-9]{20,}\\b|\\bgithub_pat_[A-Za-z0-9_]{20,}\\b', TOOL, SAFETY],
-  { encoding: 'utf8' },
-);
-assert.strictEqual(secretScan.status, 1, `no secret-like tokens in fleet sources\n${secretScan.stdout || ''}`);
+// Secret scan on tool + hooks — pure Node so CI runners without ripgrep still pass.
+// Word-boundary style patterns; avoid matching "disk-destructive" as sk-*.
+const secretRe = /\bxai-[A-Za-z0-9_-]{16,}\b|\bsk-[A-Za-z0-9]{20,}\b|\bghp_[A-Za-z0-9]{20,}\b|\bgithub_pat_[A-Za-z0-9_]{20,}\b/;
+for (const file of [TOOL, SAFETY]) {
+  const body = fs.readFileSync(file, 'utf8');
+  const hit = secretRe.exec(body);
+  assert.strictEqual(hit, null, `no secret-like tokens in ${path.basename(file)}: ${hit && hit[0]}`);
+}
 
 console.log('test-grok-build-fleet: ok');
