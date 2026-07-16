@@ -15,10 +15,12 @@ export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
 #   3. Memory-pressure guard triggers on REAL thrash (swap near-max + active
 #      pageouts), not memory_pressure's misleading "free percentage". Under
 #      pressure it auto-reclaims stale orphaned automation Chrome (/tmp CDP
-#      profiles, no user data), unloads runaway Ollama model workers,
-#      AND quits redundant secondary browsers (Chrome Canary/Beta/Dev, Chromium)
-#      to protect RAM headroom for the Hermes agent fleet, then notifies about
-#      remaining AI memory hogs. Hermes gateway processes are never targeted.
+#      profiles, no user data) and quits redundant secondary browsers (Chrome
+#      Canary/Beta/Dev, Chromium) to protect RAM headroom for the Hermes agent
+#      fleet, then notifies about remaining AI memory hogs. Ollama recovery is
+#      delegated to memory-pressure-guardian.sh, which uses the HTTP unload API
+#      and coordinates a gateway warmup cooldown; this guard never kills Ollama
+#      workers. Hermes gateway processes are never targeted.
 #   4. Posts a macOS notification on every fire so the user knows; if
 #      YOLO_WEBHOOK_URL (or ~/.config/yolo-guard/webhook) is set, also pushes
 #      the alert off-box (ntfy-compatible) — a thrashing Mac can't render its
@@ -44,6 +46,11 @@ ESCALATE_WINDOW_SEC=${YOLO_ESCALATE_WINDOW_SEC:-600}
 SUSPECT_APPS=${YOLO_SUSPECT_APPS:-""}
 FIRES_LOG=${YOLO_FIRES_LOG:-/tmp/yolo-fires.log}
 LOG=${YOLO_LOG:-/tmp/shutdown-simulators.log}
+
+# Compatibility capability marker consumed by yolo-health. The old
+# YOLO_RECLAIM_OLLAMA hard-kill branch is intentionally retired; graceful
+# Ollama reclaim now belongs to memory-pressure-guardian.sh.
+YOLO_RECLAIM_OLLAMA_MODE=graceful-http-delegated
 
 now=$(date +%s)
 
