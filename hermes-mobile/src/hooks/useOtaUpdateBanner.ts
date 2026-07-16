@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { Alert } from 'react-native';
 import * as Updates from 'expo-updates';
 
 export type OtaBannerState = 'idle' | 'available' | 'pending' | 'reloading';
@@ -18,6 +19,7 @@ export function useOtaUpdateBanner(): OtaBannerResult {
   const { isUpdateAvailable, isUpdatePending } = Updates.useUpdates();
   const [dismissed, setDismissed] = useState(false);
   const [isReloading, setIsReloading] = useState(false);
+  const alertShownRef = useRef(false);
 
   // Manual fallback check on mount (covers cases where ON_LOAD event missed)
   useEffect(() => {
@@ -38,6 +40,33 @@ export function useOtaUpdateBanner(): OtaBannerResult {
       setIsReloading(false);
     }
   }, [isUpdatePending]);
+
+  useEffect(() => {
+    if (!Updates.isEnabled || dismissed || alertShownRef.current) return;
+    if (!isUpdatePending && !isUpdateAvailable) return;
+
+    alertShownRef.current = true;
+    const isPending = isUpdatePending;
+    const message = isPending
+      ? 'A new version of Hermes is downloaded and ready.'
+      : 'A new version of Hermes is available.';
+
+    Alert.alert('Update available', message, [
+      { text: 'Later', style: 'cancel', onPress: dismiss },
+      {
+        text: isPending ? 'Restart' : 'Download & restart',
+        onPress: () => {
+          void applyNow();
+        },
+      },
+    ]);
+  }, [
+    isUpdateAvailable,
+    isUpdatePending,
+    dismissed,
+    dismiss,
+    applyNow,
+  ]);
 
   if (!Updates.isEnabled || dismissed) {
     return { state: 'idle', message: '', dismiss, applyNow };
