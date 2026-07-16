@@ -259,11 +259,11 @@ import {
   classifyMegaSession,
   isMegaSession,
   isMegaSessionSendBlocked,
+  sessionTotalTokens,
   megaSessionBannerCopy,
   megaSessionForceFreshSelectCopy,
   megaSessionSendWarnMessage,
   megaSessionSendWarnTitle,
-  sessionTotalTokens,
   shouldAutoFreshAndResendOnMegaBlock,
   shouldForceFreshOnSessionSelect,
   shouldSuggestFreshOnSessionSelect,
@@ -6682,11 +6682,10 @@ export default function ChatScreen() {
             showTechnicalStats={settings.includeToolActivity}
             compact={keyboardOpen}
             megaSessionWarning={megaSessionWarning}
-            onStartFreshChat={
-              megaSessionWarning || isDeadRunEndedMessage(progressBanner.detail)
-                ? () => void handleStartFreshChat()
-                : undefined
-            }
+            sessionTokens={sessionTotalTokens(currentSession)}
+            macHttpOk={effectiveMacHttpOk}
+            onSwitchMac={() => setMacPickerVisible(true)}
+            onStartFreshChat={() => void handleStartFreshChat()}
             isStartingFreshChat={isStartingFreshChat}
             onStop={isRunActive || isSending ? () => void handleStopRun() : undefined}
             onDismiss={clearFailedOutboundState}
