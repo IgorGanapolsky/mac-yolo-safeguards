@@ -5647,56 +5647,13 @@ export default function ChatScreen() {
       if (!deferredTelegramPollRef.current) {
         const completedStartedAt = sendStartedAtRef.current;
         if (sendSucceeded) {
-<<<<<<< HEAD
           const replyPreview = (activeAssistantTextRef.current || '')
             .replace(/\s+/g, ' ')
             .trim()
             .slice(0, 200);
-          setRunProgress((prev) => ({
-            ...(prev ?? {
-              startedAtMs: completedStartedAt,
-              sessionId: targetSessionId,
-            }),
-            phase: 'completed',
-            detail: REPLY_READY_STATUS_DETAIL,
-            replyPreview: replyPreview || undefined,
-            duration: Math.max(0, (Date.now() - completedStartedAt) / 1000),
-          }));
-          if (AppState.currentState !== 'active' && settings.notificationCompletion) {
-            void scheduleRunCompletedNotification(
-              replyPreview || 'Reply ready on your computer',
-              {
-                success: true,
-                sessionId: targetSessionId,
-                replySnippet: replyPreview || undefined,
-                categoryEnabled: settings.notificationCompletion,
-              },
-            );
-          }
-          setTimeout(() => {
-            setRunProgress((prev) =>
-              prev?.phase === 'completed' && prev.startedAtMs === completedStartedAt ? null : prev,
-            );
-          }, RUN_COMPLETED_BANNER_DISMISS_MS);
-||||||| parent of 0ede51ea (fix(mobile): kill "Reply ready on your computer" when reply is on screen)
-          setRunProgress((prev) => ({
-            ...(prev ?? {
-              startedAtMs: completedStartedAt,
-              sessionId: targetSessionId,
-            }),
-            phase: 'completed',
-            detail: REPLY_READY_STATUS_DETAIL,
-            duration: Math.max(0, (Date.now() - completedStartedAt) / 1000),
-          }));
-          setTimeout(() => {
-            setRunProgress((prev) =>
-              prev?.phase === 'completed' && prev.startedAtMs === completedStartedAt ? null : prev,
-            );
-          }, RUN_COMPLETED_BANNER_DISMISS_MS);
-=======
           const hasVisibleReply = Boolean(activeAssistantTextRef.current?.trim());
           if (!shouldShowCompletedRunBanner(hasVisibleReply)) {
-            // Reply bubble is already in the thread — do not flash "Reply ready on your computer".
+            // Reply bubble is already in the thread — do not flash reply-ready chrome.
             setRunProgress(null);
           } else {
             setRunProgress((prev) => ({
@@ -5706,15 +5663,26 @@ export default function ChatScreen() {
               }),
               phase: 'completed',
               detail: REPLY_READY_STATUS_DETAIL,
+              replyPreview: replyPreview || undefined,
               duration: Math.max(0, (Date.now() - completedStartedAt) / 1000),
             }));
+            if (AppState.currentState !== 'active' && settings.notificationCompletion) {
+              void scheduleRunCompletedNotification(
+                replyPreview || REPLY_READY_STATUS_DETAIL,
+                {
+                  success: true,
+                  sessionId: targetSessionId,
+                  replySnippet: replyPreview || undefined,
+                  categoryEnabled: settings.notificationCompletion,
+                },
+              );
+            }
             setTimeout(() => {
               setRunProgress((prev) =>
                 prev?.phase === 'completed' && prev.startedAtMs === completedStartedAt ? null : prev,
               );
             }, RUN_COMPLETED_BANNER_DISMISS_MS);
           }
->>>>>>> 0ede51ea (fix(mobile): kill "Reply ready on your computer" when reply is on screen)
         } else if (sendFailureDetail) {
           const failureDetail = sendFailureDetail;
           setRunProgress((prev) => ({
