@@ -118,6 +118,38 @@ describe('mergeServerMessagesWithPending', () => {
     expect(merged[0]?.outboundStatus).toBe('pending');
   });
 
+  it('drops pending optimistic when gateway has the user line plus a deferred Working placeholder', () => {
+    // Stuck-run poll race: listMessages returns user + "Working on your computer…" while the
+    // phone still has outboundStatus pending → used to append a second identical user bubble.
+    const prompt = 'Can you pick up where you left off????';
+    const server: HermesMessage[] = [
+      { id: 'gw-u', role: 'user', content: prompt },
+      { id: 'gw-a', role: 'assistant', content: GENERIC_EMPTY_STREAM_PLACEHOLDER },
+    ];
+    const local: HermesMessage[] = [
+      { id: 'user-1', role: 'user', content: prompt, outboundStatus: 'pending' },
+    ];
+    const merged = mergeServerMessagesWithPending(server, local);
+    expect(merged.filter((m) => m.role === 'user')).toHaveLength(1);
+    expect(merged[0]?.id).toBe('gw-u');
+    expect(merged[0]?.outboundStatus).toBe('pending');
+    expect(merged[1]?.content).toBe(GENERIC_EMPTY_STREAM_PLACEHOLDER);
+  });
+
+  it('drops pending optimistic when gateway has user line plus an empty assistant stub', () => {
+    const prompt = 'make money today';
+    const server: HermesMessage[] = [
+      { id: 'gw-u', role: 'user', content: prompt },
+      { id: 'gw-a', role: 'assistant', content: '' },
+    ];
+    const local: HermesMessage[] = [
+      { id: 'user-1', role: 'user', content: prompt, outboundStatus: 'pending' },
+    ];
+    const merged = mergeServerMessagesWithPending(server, local);
+    expect(merged.filter((m) => m.role === 'user')).toHaveLength(1);
+    expect(merged[0]?.outboundStatus).toBe('pending');
+  });
+
   it('dedupes identical user echoes from gateway', () => {
     const server: HermesMessage[] = [
       { role: 'user', content: 'same question' },
@@ -197,7 +229,9 @@ describe('mergeServerMessagesWithPending', () => {
     const merged = mergeServerMessagesWithPending(server, local);
     const assistants = merged.filter((m) => m.role === 'assistant');
     expect(assistants).toHaveLength(1);
-    expect(assistants[0]?.id).toBe('asst-local');
+    expect(assistants[0]?.id).toBe('gw-asst-1');
+    expect(merged.filter((m) => m.role === 'user')).toHaveLength(1);
+    expect(merged[0]?.outboundStatus).toBe('pending');
   });
 
   it('dedupeDeferredStreamPlaceholders keeps local asst- bubble over server echo', () => {

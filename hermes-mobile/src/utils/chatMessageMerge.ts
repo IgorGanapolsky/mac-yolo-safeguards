@@ -156,8 +156,25 @@ function serverHasLatestUserMessage(serverMessages: HermesMessage[], body: strin
 }
 
 /**
+ * Trailing deferred / empty assistant stubs are not a completed turn — the gateway often
+ * already has the user line + "Working on your computer…" while the phone still holds a
+ * pending optimistic bubble. Treating those stubs as terminal caused duplicate user rows
+ * (server bubble + optimistic "Waiting…") on every poll refresh during a stuck run.
+ */
+function isIgnorableTrailingAssistant(message: HermesMessage): boolean {
+  if (message.role?.toLowerCase() !== 'assistant') {
+    return false;
+  }
+  if (isDeferredStreamPlaceholder(message.content)) {
+    return true;
+  }
+  return isMessageBodyEmpty(message.content, message.rawContent);
+}
+
+/**
  * True when the gateway transcript already committed this user turn (trailing user line).
- * Unlike serverHasLatestUserMessage, ignores older repeated prompts after an assistant reply.
+ * Unlike serverHasLatestUserMessage, ignores older repeated prompts after a real assistant reply.
+ * Skips deferred/empty assistant placeholders that sit after the committed user line.
  */
 function serverEndsWithMatchingUser(serverMessages: HermesMessage[], body: string): boolean {
   if (!body) {
@@ -167,6 +184,9 @@ function serverEndsWithMatchingUser(serverMessages: HermesMessage[], body: strin
     const message = serverMessages[index];
     const role = message.role?.toLowerCase();
     if (role === 'assistant') {
+      if (isIgnorableTrailingAssistant(message)) {
+        continue;
+      }
       return false;
     }
     if (role === 'user') {
@@ -186,6 +206,9 @@ function annotateTrailingServerUserWithOutbound(
     const message = serverMessages[index];
     const role = message.role?.toLowerCase();
     if (role === 'assistant') {
+      if (isIgnorableTrailingAssistant(message)) {
+        continue;
+      }
       return serverMessages;
     }
     if (role === 'user' && messageBody(message) === body) {
@@ -266,9 +289,10 @@ export function mergeServerMessagesWithPending(
       }
       if (
         isDeferredStreamPlaceholder(message.content) &&
-        hasAnyDeferredStreamPlaceholder(dedupedServer) &&
-        !idHasPrefix(message.id, 'asst-')
+        hasAnyDeferredStreamPlaceholder(dedupedServer)
       ) {
+        // Server already shows Working/queued stub — do not re-append a local twin
+        // (fingerprint dedupe would also collapse them once pending user is dropped).
         continue;
       }
       pendingTail.push(message);

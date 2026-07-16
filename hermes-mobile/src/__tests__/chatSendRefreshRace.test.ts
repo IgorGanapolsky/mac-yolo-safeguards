@@ -11,6 +11,31 @@ import {
 import { GENERIC_EMPTY_STREAM_PLACEHOLDER } from '../utils/streamAssistantText';
 
 describe('chat send refresh race', () => {
+  it('does not duplicate user bubble when poll returns user + Working placeholder during stuck run', () => {
+    const prompt = 'Can you pick up where you left off????';
+    const serverLive: HermesMessage[] = [
+      { id: 'gw-u1', role: 'user', content: 'older question' },
+      { id: 'gw-a1', role: 'assistant', content: 'older answer' },
+      { id: 'gw-u2', role: 'user', content: prompt },
+      { id: 'gw-a2', role: 'assistant', content: GENERIC_EMPTY_STREAM_PLACEHOLDER },
+    ];
+    const localPending: HermesMessage[] = [
+      ...serverLive.slice(0, 2),
+      {
+        id: 'user-1700',
+        role: 'user',
+        content: prompt,
+        created_at: '2026-07-16T13:00:00.000Z',
+        outboundStatus: 'pending',
+      },
+    ];
+
+    const merged = mergeServerMessagesWithPending(serverLive, localPending);
+    expect(merged.filter((m) => m.role === 'user' && m.content === prompt)).toHaveLength(1);
+    expect(merged.map((m) => m.id)).toEqual(['gw-u1', 'gw-a1', 'gw-u2', 'gw-a2']);
+    expect(merged[2]?.outboundStatus).toBe('pending');
+  });
+
   it('keeps optimistic user bubble when gateway refresh returns stale transcript', () => {
     const serverStale: HermesMessage[] = [
       { id: 'gw-u1', role: 'user', content: 'older question' },
