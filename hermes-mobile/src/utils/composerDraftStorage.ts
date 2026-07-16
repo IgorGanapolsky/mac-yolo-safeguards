@@ -64,6 +64,20 @@ export async function clearComposerDraft(sessionId: string | null | undefined): 
 }
 
 /**
+ * Re-persist composer text after a rejected send that already cleared the draft.
+ * No-op when text is blank so we do not resurrect empty keys.
+ */
+export async function restoreComposerDraftAfterRejectedSend(
+  sessionId: string | null | undefined,
+  text: string,
+): Promise<void> {
+  if (!text.trim()) {
+    return;
+  }
+  await saveComposerDraft(sessionId, text);
+}
+
+/**
  * Move draft text from one session to another (Start fresh / mega-block transfer).
  * Returns the transferred text (empty if none). Clears the source after copy.
  */

@@ -3,6 +3,7 @@ import {
   COMPOSER_DRAFT_STORAGE_KEY,
   clearComposerDraft,
   loadComposerDraft,
+  restoreComposerDraftAfterRejectedSend,
   saveComposerDraft,
   transferComposerDraft,
 } from '../utils/composerDraftStorage';
@@ -39,6 +40,19 @@ describe('composerDraftStorage', () => {
     await saveComposerDraft('session-a', 'Remove me');
     await clearComposerDraft('session-a');
     await expect(loadComposerDraft('session-a')).resolves.toBe('');
+  });
+
+  it('restoreComposerDraftAfterRejectedSend re-persists cleared typed text', async () => {
+    await saveComposerDraft('session-a', 'make money today');
+    await clearComposerDraft('session-a');
+    await restoreComposerDraftAfterRejectedSend('session-a', 'make money today');
+    await expect(loadComposerDraft('session-a')).resolves.toBe('make money today');
+  });
+
+  it('restoreComposerDraftAfterRejectedSend ignores blank text', async () => {
+    await saveComposerDraft('session-a', 'keep');
+    await restoreComposerDraftAfterRejectedSend('session-a', '   ');
+    await expect(loadComposerDraft('session-a')).resolves.toBe('keep');
   });
 
   it('transferComposerDraft moves draft to the new session and clears source', async () => {
