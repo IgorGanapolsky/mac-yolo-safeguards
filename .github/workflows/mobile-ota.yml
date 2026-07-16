@@ -199,6 +199,10 @@ jobs:
 
       - name: Fresh-user OTA gate (refuse without e2e=pass)
         env:
+          # Same as quality-gate stranger proof: script needs token to read Checks API.
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_SHA: ${{ github.sha }}
           HERMES_CONTINUOUS_LATEST_JSON: /tmp/hermes-ota-proof/latest.json
           HERMES_FRESH_USER_PROOF_JSON: /tmp/hermes-ota-proof/fresh-user-latest.json
         run: |

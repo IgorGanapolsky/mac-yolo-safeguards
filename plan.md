@@ -603,6 +603,8 @@ Status values: `pending` | `in_progress` | `blocked` | `done`. Claim a row by se
 - `tests/test-hermes-gateway-watchdog-e2e.sh`, `tests/e2e/fake-hermes-gateway.py`, `plan.md` → **codex-freeze-prevention** (T-348 discovered CI contract update after run 29508175871 correctly failed the old default-pin expectation; prior T-110 ownership released) (2026-07-16T15:15:00Z)
 - T-348 claimed files above → **released by codex-freeze-prevention** after 69/69 focused assertions, isolated installer smoke, and CI run 29517196162 passed on the current code head; live Mac mini recheck showed 25% memory free, gateway HTTP 200, zero orphan Hermes CDP processes, bounded Ollama expiry, all three guard LaunchAgents at exit 0, and Screen Sharing running (2026-07-16T16:54:45Z)
 
+- `.github/workflows/mobile-ota.yml` (production Fresh-user OTA gate env only: add GITHUB_TOKEN) → **cursor-ota-prod-gate-token** (follow-up a0e7f498: production job could not see green stranger Checks) (2026-07-16T20:37:53Z)
+
 ## 3. Decisions Log
 - **2026-07-15T19:50:04Z** `cursor-ota-stranger-ci-unblock`: OTA unblock — accept CI stranger Maestro for production publish; e2e=skipped ≠ pass and not hard-block when stranger green. Restores dual-channel publish.
  (append-only, newest at bottom)
