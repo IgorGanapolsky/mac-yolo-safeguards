@@ -124,4 +124,20 @@ describe('GatewayProfilePicker', () => {
       /Connected/,
     );
   });
+
+  it('labels destructive action Forget (not Remove) for saved non-USB computers', () => {
+    const onRemove = jest.fn();
+    const { getByTestId, queryByText } = render(
+      <GatewayProfilePicker
+        profiles={profiles}
+        activeProfileId="mac_192_168_12_208"
+        onSelect={jest.fn()}
+        onRemove={onRemove}
+      />,
+    );
+    expect(getByTestId('remove-gateway-profile-mac_192_168_12_50')).toHaveTextContent(/^Forget$/);
+    expect(queryByText('Remove')).toBeNull();
+    fireEvent.press(getByTestId('remove-gateway-profile-mac_192_168_12_50'));
+    expect(onRemove).toHaveBeenCalledWith('mac_192_168_12_50');
+  });
 });
