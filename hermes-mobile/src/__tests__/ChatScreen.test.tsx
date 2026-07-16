@@ -2466,14 +2466,18 @@ describe('ChatScreen', () => {
 
   describe('Obsidian vault project picker', () => {
     it('shows active project chip and opens vault project modal', async () => {
-      const { getByTestId } = await renderChatScreen();
+      const { getByTestId, queryByTestId } = await renderChatScreen();
 
       await act(async () => {
         await Promise.resolve();
         await Promise.resolve();
       });
 
+      // Footer chip is the interactive picker; header project lane is collapsed by default.
       expect(getByTestId('vault-project-picker-chip')).toBeTruthy();
+      expect(queryByTestId('chat-header-project-picker')).toBeNull();
+
+      fireEvent.press(getByTestId('chat-header-details-toggle'));
       expect(getByTestId('chat-header-project-picker')).toBeTruthy();
 
       fireEvent.press(getByTestId('vault-project-picker-chip'));
