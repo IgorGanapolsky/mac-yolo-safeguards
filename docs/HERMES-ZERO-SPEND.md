@@ -1,7 +1,10 @@
 # Hermes zero-spend mode
 
 Hermes zero-spend mode is a host-level, fail-closed command boundary for the
-MacBook Pro and Mac mini. It is active when `~/.hermes/NO_PAID_SPEND` exists.
+MacBook Pro and Mac mini. The fleet-wide provider block is active when
+`~/.hermes/NO_PAID_SPEND` exists. `grok-yolo` is a narrower permanent exception:
+its shim remains local-only through loopback Ollama even when that global marker
+is absent, and fails closed when its verified local model is unavailable.
 The marker, manifest, and receipts are mode `0600`; no API key or prompt text is
 written to them.
 
