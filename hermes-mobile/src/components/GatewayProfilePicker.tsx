@@ -144,10 +144,10 @@ export default function GatewayProfilePicker({
               <TouchableOpacity
                 style={styles.removeButton}
                 onPress={() => onRemove(profile.id)}
-                accessibilityLabel={`Remove ${lines.title}`}
+                accessibilityLabel={`Forget saved computer ${lines.title}`}
                 testID={`remove-gateway-profile-${profile.id}`}
               >
-                <Text style={styles.removeText}>Remove</Text>
+                <Text style={styles.removeText}>Forget</Text>
               </TouchableOpacity>
             ) : null}
           </View>

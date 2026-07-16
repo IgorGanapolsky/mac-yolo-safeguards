@@ -41,6 +41,8 @@ import { colors } from '../theme/colors';
 import { isDemoModeAllowed } from '../utils/demoModePolicy';
 import { haptics } from '../services/haptics';
 import GatewayProfilePicker from '../components/GatewayProfilePicker';
+import { confirmForgetGatewayProfile } from '../utils/confirmForgetGatewayProfile';
+import { profileDisplayName } from '../services/gatewayProfiles';
 import {
   listSessions,
   createSession,
@@ -6806,8 +6808,17 @@ export default function ChatScreen() {
                 }}
                 onRemove={
                   switchComputerProfiles.length > 1
-                    ? async (profileId) => {
-                        await removeGatewayProfile(profileId);
+                    ? (profileId) => {
+                        const profile =
+                          switchComputerProfiles.find((p) => p.id === profileId) ??
+                          gatewayProfiles.find((p) => p.id === profileId);
+                        confirmForgetGatewayProfile({
+                          profileId,
+                          computerName: profile
+                            ? profileDisplayName(profile)
+                            : 'this computer',
+                          onConfirm: removeGatewayProfile,
+                        });
                       }
                     : undefined
                 }
