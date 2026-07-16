@@ -522,7 +522,11 @@ describe('tonight recurrence gates (2026-07-14 P0 class — S16-S23)', () => {
     const workflow = read('.github/workflows/mobile-ota.yml');
     expect(workflow).toContain('require-stranger-cold-start-proof.cjs');
     expect(workflow).toContain('HERMES_STRANGER_PROOF_WAIT_SEC');
-    expect(workflow).toContain('for CH in preview production');
+    // Crisis law: preview-on-push; production only via publish_production + staged rollout.
+    expect(workflow).toContain('publish-preview-ota');
+    expect(workflow).toContain('publish_production');
+    expect(workflow).toContain('--rollout-percentage');
+    expect(workflow).not.toContain('for CH in preview production');
     expect(workflow).toMatch(/checks:\s*read/);
     const stranger = read('hermes-mobile/scripts/require-stranger-cold-start-proof.cjs');
     expect(stranger).toContain('checkGithubStrangerProof');
