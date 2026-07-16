@@ -402,15 +402,25 @@ describe('tonight recurrence gates (2026-07-14 P0 class — S16-S23)', () => {
     expect(
       isComposerSendDisabled({
         isSending: false,
-        queuedOutboundCount: 0,
-        outboundStillPending: false,
+        composerText: 'new follow-up',
+        pinnedOutboundText: null,
+        pinnedOutboundStatus: 'pending',
       }),
     ).toBe(false);
     expect(
       isComposerSendDisabled({
         isSending: false,
-        queuedOutboundCount: 0,
-        outboundStillPending: true,
+        composerText: 'make money today',
+        pinnedOutboundText: 'old prompt',
+        pinnedOutboundStatus: 'pending',
+      }),
+    ).toBe(false);
+    expect(
+      isComposerSendDisabled({
+        isSending: true,
+        composerText: 'make money today',
+        pinnedOutboundText: 'make money today',
+        pinnedOutboundStatus: 'pending',
       }),
     ).toBe(true);
     // Global vault-wide agent activity must never gate this session's dead-run detection —

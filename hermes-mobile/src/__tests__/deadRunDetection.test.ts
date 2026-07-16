@@ -72,22 +72,46 @@ describe('deadRunDetection', () => {
     ).toBe(false);
   });
 
-  it('keeps send disabled while pinned outbound is still pending', () => {
+  it('keeps send disabled only while the same body is in flight', () => {
     expect(
       isComposerSendDisabled({
-        isSending: false,
-        queuedOutboundCount: 0,
-        outboundStillPending: true,
+        isSending: true,
+        composerText: 'make money today',
+        pinnedOutboundText: 'make money today',
+        pinnedOutboundStatus: 'pending',
       }),
     ).toBe(true);
+  });
+
+  it('enables send for a different prompt while another outbound is in flight', () => {
+    expect(
+      isComposerSendDisabled({
+        isSending: true,
+        composerText: 'second prompt',
+        pinnedOutboundText: 'make money today',
+        pinnedOutboundStatus: 'pending',
+      }),
+    ).toBe(false);
   });
 
   it('re-enables send after dead-run unlock clears outbound locks', () => {
     expect(
       isComposerSendDisabled({
         isSending: false,
-        queuedOutboundCount: 0,
-        outboundStillPending: false,
+        composerText: 'make money today',
+        pinnedOutboundText: null,
+        pinnedOutboundStatus: 'pending',
+      }),
+    ).toBe(false);
+  });
+
+  it('does not mute send solely because a prior outbound is still pending', () => {
+    expect(
+      isComposerSendDisabled({
+        isSending: false,
+        composerText: 'new follow-up',
+        pinnedOutboundText: 'old prompt',
+        pinnedOutboundStatus: 'pending',
       }),
     ).toBe(false);
   });
