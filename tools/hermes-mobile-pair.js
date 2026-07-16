@@ -485,10 +485,34 @@ function runServerOnly() {
   startPairServer(lanIp);
 }
 
+function readRequestBody(req, limitBytes = 64_000) {
+  return new Promise((resolve, reject) => {
+    const chunks = [];
+    let size = 0;
+    req.on('data', (chunk) => {
+      size += chunk.length;
+      if (size > limitBytes) {
+        reject(new Error('body_too_large'));
+        req.destroy();
+        return;
+      }
+      chunks.push(chunk);
+    });
+    req.on('end', () => resolve(Buffer.concat(chunks).toString('utf8')));
+    req.on('error', reject);
+  });
+}
+
 function createPairServer(lanIp) {
   const vaultProjectsPath = path.join(OUT_DIR, 'vault-projects.json');
+  const sessionHandoffPath = path.join(OUT_DIR, 'session-handoff.json');
+  const {
+    writeSessionHandoff,
+    readSessionHandoffJson,
+  } = require('./hermes-mobile-session-handoff.js');
   const server = http.createServer((req, res) => {
     const url = req.url?.split('?')[0] ?? '/';
+    const method = (req.method || 'GET').toUpperCase();
     if (url === '/pair.json') {
       const json = fs.readFileSync(path.join(OUT_DIR, 'pair.json'), 'utf8');
       res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -504,6 +528,44 @@ function createPairServer(lanIp) {
       const json = fs.readFileSync(vaultProjectsPath, 'utf8');
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(json);
+      return;
+    }
+    if (url === '/session-handoff.json' && method === 'GET') {
+      const handoff = readSessionHandoffJson({ pairJsonPath: sessionHandoffPath });
+      if (!handoff) {
+        res.writeHead(404, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'no_handoff' }));
+        return;
+      }
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(`${JSON.stringify(handoff)}\n`);
+      return;
+    }
+    if (url === '/session-handoff' && method === 'POST') {
+      void readRequestBody(req)
+        .then((body) => {
+          let parsed;
+          try {
+            parsed = JSON.parse(body || '{}');
+          } catch {
+            res.writeHead(400, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: 'invalid_json' }));
+            return;
+          }
+          try {
+            const result = writeSessionHandoff(parsed);
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ ok: true, vaultRelativePath: result.handoff.vaultRelativePath }));
+          } catch (error) {
+            res.writeHead(500, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: error.message || 'write_failed' }));
+          }
+        })
+        .catch((error) => {
+          const status = error.message === 'body_too_large' ? 413 : 400;
+          res.writeHead(status, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: error.message || 'bad_request' }));
+        });
       return;
     }
     if (url === '/pair-exchange') {
