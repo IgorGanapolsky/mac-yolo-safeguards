@@ -1279,6 +1279,71 @@ describe('ChatScreen', () => {
     expect(input.props.value).toBe('');
   });
 
+  it('keeps optimistic user bubble as failed when send hits a false disconnect', async () => {
+    const { streamSessionChat } = jest.requireMock('../services/hermesGatewayClient') as {
+      streamSessionChat: jest.Mock;
+    };
+    streamSessionChat.mockClear();
+
+    // Composer still mounted during silent heal (not exhausted) while /health is red
+    // so macChatLive is false — Send keeps a failed retryable bubble instead of dropping text.
+    Object.assign(mockGatewayState, {
+      connectionState: 'connected',
+      connectionHealAttempt: 1,
+      connectionHealInFlight: false,
+      connectionHealExhausted: false,
+      effectiveGatewayUrl: 'http://10.154.137.152:8642',
+      health: {
+        ok: false,
+        level: 'red',
+        hostname: 'Igors-MacBook-Pro.local',
+        directGatewayReachable: false,
+        checkedAt: '2026-07-16T12:00:00Z',
+      },
+      settings: {
+        demoMode: false,
+        connectionMode: 'gateway',
+        gatewayUrl: 'http://10.154.137.152:8642',
+        cloudUrl: 'https://hermesmobile-cloud.fly.dev',
+        approvalPolicy: 'balanced',
+      },
+      activeGatewayProfile: {
+        id: 'mac_igor',
+        label: 'Igors-MacBook-Pro',
+        gatewayUrl: 'http://10.154.137.152:8642',
+        localIp: '10.154.137.152',
+        addedAt: '2026-06-18T00:00:00Z',
+      },
+      gatewayProfiles: [
+        {
+          id: 'mac_igor',
+          label: 'Igors-MacBook-Pro',
+          gatewayUrl: 'http://10.154.137.152:8642',
+          localIp: '10.154.137.152',
+          addedAt: '2026-06-18T00:00:00Z',
+        },
+      ],
+    });
+
+    const { getByTestId, getAllByTestId, findByText, queryByTestId } = await renderChatScreen();
+
+    await waitFor(() => {
+      expect(getByTestId('chat-input')).toBeTruthy();
+    });
+    expect(queryByTestId('chat-connection-panel')).toBeNull();
+
+    act(() => {
+      fireEvent.changeText(getByTestId('chat-input'), 'make money today');
+      fireEvent.press(getByTestId('chat-send-button'));
+    });
+
+    expect(await findByText('make money today')).toBeTruthy();
+    expect(getAllByTestId('chat-message-user').length).toBeGreaterThanOrEqual(1);
+    expect(streamSessionChat).not.toHaveBeenCalled();
+    // Composer stays clear — recoverable state is the failed bubble + ↑ retry.
+    expect(getByTestId('chat-input').props.value).toBe('');
+  });
+
   it('opens and closes sessions selector modal', async () => {
     const { getByTestId, getByText, queryByTestId } = await renderChatScreen();
 
