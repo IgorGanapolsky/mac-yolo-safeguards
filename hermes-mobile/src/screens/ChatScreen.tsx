@@ -179,6 +179,8 @@ import {
   displayableLlmModel,
   humanizeComposerStatus,
   isActiveChatRun,
+  REPLY_READY_STATUS_DETAIL,
+  shouldShowCompletedRunBanner,
   shouldShowComposerProgressBanner,
 } from '../utils/runProgressDisplay';
 import {
@@ -510,7 +512,7 @@ export function shouldIgnoreKeyboardHide(
   return platformOs === 'android' && inputFocused && metricsHeight > 0;
 }
 
-/** How long the "Reply ready on your computer" banner stays before auto-dismiss. */
+/** How long the "Reply ready" / "Hermes finished — tap to read" banner stays before auto-dismiss. */
 const RUN_COMPLETED_BANNER_DISMISS_MS = 2500;
 
 /** How long the per-message "Saved to ThumbGate" confirmation stays visible. */
@@ -5737,32 +5739,38 @@ export default function ChatScreen() {
             .replace(/\s+/g, ' ')
             .trim()
             .slice(0, 200);
-          setRunProgress((prev) => ({
-            ...(prev ?? {
-              startedAtMs: completedStartedAt,
-              sessionId: targetSessionId,
-            }),
-            phase: 'completed',
-            detail: 'Reply ready on your computer',
-            replyPreview: replyPreview || undefined,
-            duration: Math.max(0, (Date.now() - completedStartedAt) / 1000),
-          }));
-          if (AppState.currentState !== 'active' && settings.notificationCompletion) {
-            void scheduleRunCompletedNotification(
-              replyPreview || 'Reply ready on your computer',
-              {
-                success: true,
+          const hasVisibleReply = Boolean(activeAssistantTextRef.current?.trim());
+          if (!shouldShowCompletedRunBanner(hasVisibleReply)) {
+            // Reply bubble is already in the thread — do not flash reply-ready chrome.
+            setRunProgress(null);
+          } else {
+            setRunProgress((prev) => ({
+              ...(prev ?? {
+                startedAtMs: completedStartedAt,
                 sessionId: targetSessionId,
-                replySnippet: replyPreview || undefined,
-                categoryEnabled: settings.notificationCompletion,
-              },
-            );
+              }),
+              phase: 'completed',
+              detail: REPLY_READY_STATUS_DETAIL,
+              replyPreview: replyPreview || undefined,
+              duration: Math.max(0, (Date.now() - completedStartedAt) / 1000),
+            }));
+            if (AppState.currentState !== 'active' && settings.notificationCompletion) {
+              void scheduleRunCompletedNotification(
+                replyPreview || REPLY_READY_STATUS_DETAIL,
+                {
+                  success: true,
+                  sessionId: targetSessionId,
+                  replySnippet: replyPreview || undefined,
+                  categoryEnabled: settings.notificationCompletion,
+                },
+              );
+            }
+            setTimeout(() => {
+              setRunProgress((prev) =>
+                prev?.phase === 'completed' && prev.startedAtMs === completedStartedAt ? null : prev,
+              );
+            }, RUN_COMPLETED_BANNER_DISMISS_MS);
           }
-          setTimeout(() => {
-            setRunProgress((prev) =>
-              prev?.phase === 'completed' && prev.startedAtMs === completedStartedAt ? null : prev,
-            );
-          }, RUN_COMPLETED_BANNER_DISMISS_MS);
         } else if (sendFailureDetail) {
           const failureDetail = sendFailureDetail;
           setRunProgress((prev) => ({
@@ -6432,24 +6440,27 @@ export default function ChatScreen() {
         isSendingRef.current = false;
         setIsSending(false);
         const reconciledStartedAt = runProgressRef.current?.startedAtMs;
+        const hasVisibleReply = Boolean(activeAssistantTextRef.current?.trim());
         setRunProgress((prev) => {
           if (!prev || !isActiveChatRun(prev)) {
             return prev;
           }
           if (gatewayStatus === 'completed') {
+            // Reply already in the transcript → no "Reply ready on your computer" chrome.
+            if (!shouldShowCompletedRunBanner(hasVisibleReply)) {
+              return null;
+            }
             return {
               ...prev,
               phase: 'completed',
-              detail: 'Reply ready on your computer',
+              detail: REPLY_READY_STATUS_DETAIL,
               duration: Math.max(0, (Date.now() - prev.startedAtMs) / 1000),
             };
           }
           return null;
         });
-        if (gatewayStatus === 'completed') {
-          // Mirror the send-success path: auto-dismiss the completed banner. Without
-          // this the reconcile path leaves "Reply ready on your computer" pinned
-          // until the user taps Dismiss, and keeps re-posting the run notification.
+        if (gatewayStatus === 'completed' && shouldShowCompletedRunBanner(hasVisibleReply)) {
+          // Only auto-dismiss when we actually showed a completed banner (empty/deferred reply).
           setTimeout(() => {
             setRunProgress((prev) =>
               prev?.phase === 'completed' && prev.startedAtMs === reconciledStartedAt
