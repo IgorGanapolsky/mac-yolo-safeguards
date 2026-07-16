@@ -131,6 +131,40 @@ function fetchRemoteMiniApiKey(options = {}) {
 }
 
 /**
+ * Classify mini API key resolution for pair.js logging / embedding.
+ * P0 2026-07-16: when mini SSH key === laptop .env (fleet synced), that is SUCCESS —
+ * never treat equality as "SSH lookup failed" and clear the embedded key.
+ *
+ * @returns {{ ok: boolean, apiKey: string, source: 'ssh'|'local_fallback'|'unavailable', syncedWithLocal: boolean }}
+ */
+function classifyMiniApiKeyResolution(localKey, options = {}) {
+  const local = String(localKey || '').trim();
+  const remoteKey = String(fetchRemoteMiniApiKey(options) || '').trim();
+  if (remoteKey) {
+    return {
+      ok: true,
+      apiKey: remoteKey,
+      source: 'ssh',
+      syncedWithLocal: Boolean(local) && remoteKey === local,
+    };
+  }
+  if (options.allowLocalKeyFallback === true && local) {
+    return {
+      ok: true,
+      apiKey: local,
+      source: 'local_fallback',
+      syncedWithLocal: false,
+    };
+  }
+  return {
+    ok: false,
+    apiKey: '',
+    source: 'unavailable',
+    syncedWithLocal: false,
+  };
+}
+
+/**
  * Auth probe: /health is unauthenticated (always 200 when up). Chat needs a key.
  * GET /api/sessions?limit=1 with Bearer must be 200 — never pair a key that 401s.
  */
@@ -698,6 +732,7 @@ module.exports = {
   setupUsbAdbReverses,
   assertUsbAdbReverses,
   fetchRemoteMiniApiKey,
+  classifyMiniApiKeyResolution,
   resolveApiKeyForGatewayUrl,
   assertHostKeyConsistency,
   probeGatewayAuthSync,

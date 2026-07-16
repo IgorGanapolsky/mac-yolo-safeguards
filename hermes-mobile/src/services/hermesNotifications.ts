@@ -712,7 +712,7 @@ export async function scheduleRunCompletedNotification(
     identifier: RUN_COMPLETED_NOTIFICATION_ID,
     content: {
       title,
-      subtitle: success ? 'Computer' : 'Check chat for details',
+      subtitle: success ? 'Reply received' : 'Check chat for details',
       body,
       categoryIdentifier: CATEGORY_RUN,
       threadIdentifier: THREAD_RUNS,
