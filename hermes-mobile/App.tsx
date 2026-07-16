@@ -45,6 +45,7 @@ import { GatewayProvider, useGateway } from './src/context/GatewayContext';
 import { resolveInitialTab, resolveTabOrder, type HermesTabName } from './src/utils/leashUx';
 import ErrorBoundary from './src/components/ErrorBoundary';
 import ConnectMacGate from './src/components/ConnectMacGate';
+import OtaUpdateBanner from './src/components/OtaUpdateBanner';
 import { useHermesDeepLinks } from './src/hooks/useHermesDeepLinks';
 import type { SetupDeepLinkParams } from './src/utils/setupDeepLink';
 import { trackAppOpen, trackScreenView } from './src/services/productAnalytics';
@@ -404,6 +405,7 @@ function HermesAppShell() {
   return (
     <>
       <View style={{ flex: 1 }}>
+        <OtaUpdateBanner />
         <HermesNavigationRoot />
       </View>
       <ConnectMacGate />

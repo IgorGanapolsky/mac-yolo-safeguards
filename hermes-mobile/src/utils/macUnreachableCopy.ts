@@ -168,7 +168,12 @@ export function shouldSuppressEmptyGreetingUnreachable(input: {
   healInFlight: boolean;
   healExhausted: boolean;
   hasSavedComputer: boolean;
+  /** 401 / wrong key — never bury under "Trying to reach…". */
+  authMismatch?: boolean;
 }): boolean {
+  if (input.authMismatch) {
+    return false;
+  }
   if (input.healthProbePending) {
     return true;
   }
