@@ -212,6 +212,10 @@ export function createStreamActivityState(): StreamActivityState {
   return { runProgress: null, toolCalls: [] };
 }
 
+/**
+ * Compact run label for logs / legacy callers.
+ * Status/detail first; elapsed is secondary (never the lead token).
+ */
 export function formatRunProgressLabel(progress: RunProgressState, nowMs = Date.now()): string {
   const elapsedSec = Math.max(0, Math.floor((nowMs - progress.startedAtMs) / 1000));
   const elapsedMin = Math.floor(elapsedSec / 60);
@@ -219,7 +223,7 @@ export function formatRunProgressLabel(progress: RunProgressState, nowMs = Date.
   const phasePrefix =
     progress.phase === 'streaming' ? 'Live streaming' : progress.phase === 'sending' ? 'Sending' : 'Working';
   const detail = progress.detail?.trim() || progress.phase;
-  return `⌛ ${phasePrefix} — ${timeLabel} — ${detail}`;
+  return `⌛ ${phasePrefix} — ${detail} · ${timeLabel}`;
 }
 
 function extractCommandFromToolData(data: Record<string, unknown>): string | undefined {

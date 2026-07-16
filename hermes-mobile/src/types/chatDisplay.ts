@@ -27,5 +27,7 @@ export interface RunProgressState {
   streamUsageLive?: boolean;
   /** Last detail/phase change — token-only ticks must not reset idle stall detection. */
   lastProgressAtMs?: number;
+  /** Plain assistant preview for reply-ready notifications (not elapsed-time chrome). */
+  replyPreview?: string;
 }
 

@@ -2,7 +2,8 @@ import { isRunningInExpoGo } from 'expo';
 import { AppState, Platform } from 'react-native';
 import type { RunProgressState } from '../types/chatDisplay';
 import type { PendingApproval } from '../types/gateway';
-import { formatRunProgressLabel } from '../utils/chatStreamEvents';
+import { humanizeRunProgressDetail } from '../utils/runProgressDisplay';
+import { formatNotificationReplySnippet } from '../utils/notificationReplySnippet';
 import {
   approvalNotificationIdentifier,
   approvalNotificationTitle,
@@ -135,7 +136,21 @@ export function approvalNotificationSubtitle(pending: PendingApproval): string {
   return tier ? `${tier} · ${kind}` : kind;
 }
 
+export function isReplyReadyRunProgress(progress: RunProgressState): boolean {
+  if (progress.phase === 'completed') {
+    return true;
+  }
+  const detail = progress.detail?.trim().toLowerCase() ?? '';
+  return detail === 'reply ready' || detail.startsWith('reply ready');
+}
+
 export function runProgressNotificationTitle(progress: RunProgressState): string {
+  if (progress.phase === 'failed') {
+    return 'Hermes run stopped';
+  }
+  if (isReplyReadyRunProgress(progress)) {
+    return 'Reply ready';
+  }
   if (progress.phase === 'approval') {
     return 'Waiting for your approval';
   }
@@ -143,6 +158,76 @@ export function runProgressNotificationTitle(progress: RunProgressState): string
     return 'Hermes is responding';
   }
   return 'Hermes is working';
+}
+
+/**
+ * Notification body for live/completed run shade updates.
+ * Reply-ready → assistant snippet; working → status/tool line (elapsed secondary).
+ */
+export function buildRunProgressNotificationBody(
+  progress: RunProgressState,
+  nowMs = Date.now(),
+): string {
+  if (isReplyReadyRunProgress(progress)) {
+    const snippet = formatNotificationReplySnippet(progress.replyPreview);
+    if (snippet) {
+      return snippet;
+    }
+    const fromDetail = formatNotificationReplySnippet(progress.detail);
+    if (fromDetail) {
+      return fromDetail;
+    }
+    return 'Tap Open chat to read the reply.';
+  }
+
+  if (progress.phase === 'failed') {
+    const failed = humanizeRunProgressDetail(progress.detail, 'failed').trim();
+    return failed || 'The run ended with an error.';
+  }
+
+  const status = humanizeRunProgressDetail(progress.detail, progress.phase).trim()
+    || 'Hermes is working on your computer…';
+  const startedAt = Number.isFinite(progress.startedAtMs) ? progress.startedAtMs : nowMs;
+  const elapsedSec = Math.max(
+    0,
+    Math.floor(
+      typeof progress.duration === 'number' && Number.isFinite(progress.duration)
+        ? progress.duration
+        : (nowMs - startedAt) / 1000,
+    ),
+  );
+  // Elapsed is secondary — only append once a minute has passed.
+  if (elapsedSec < 60) {
+    return status.slice(0, 180);
+  }
+  const minutes = Math.max(1, Math.floor(elapsedSec / 60));
+  return `${status} · ${minutes} min`.slice(0, 180);
+}
+
+export function buildRunCompletedNotificationCopy(options: {
+  detail?: string;
+  replyText?: string;
+  success?: boolean;
+}): { title: string; body: string } {
+  const success = options.success ?? true;
+  if (!success) {
+    const failedBody =
+      formatNotificationReplySnippet(options.detail)
+      || options.detail?.trim()
+      || 'The run ended with an error.';
+    return {
+      title: 'Hermes run stopped',
+      body: failedBody.slice(0, 180),
+    };
+  }
+
+  const snippet =
+    formatNotificationReplySnippet(options.replyText)
+    || formatNotificationReplySnippet(options.detail);
+  return {
+    title: 'Reply ready',
+    body: snippet || 'Tap Open chat to read the reply.',
+  };
 }
 
 export function shouldDismissRunNotificationsForAppState(appState: string): boolean {
@@ -611,22 +696,22 @@ export async function scheduleRunProgressNotification(
   const now = Date.now();
   // Always rate-limit — `force` must NOT re-heads-up on every stream token.
   // force only shortens the first background paint (2s floor); never below that.
-  const minInterval = options?.force ? 2_000 : RUN_STATUS_MIN_INTERVAL_MS;
+  // Reply-ready / failed must update immediately so the shade never sticks on "3 min".
+  const terminalCopy = isReplyReadyRunProgress(progress) || progress.phase === 'failed';
+  const minInterval = terminalCopy ? 0 : options?.force ? 2_000 : RUN_STATUS_MIN_INTERVAL_MS;
   if (now - lastRunStatusAt < minInterval) {
     return;
   }
   lastRunStatusAt = now;
 
-  const body = formatRunProgressLabel(progress)
-    .replace(/^⌛\s*Working\s*—\s*/i, '')
-    .slice(0, 180);
+  const body = buildRunProgressNotificationBody(progress);
 
   // Same identifier → in-place update. Do not cancel+recreate (retriggers heads-up).
   await Notifications.scheduleNotificationAsync({
     identifier: RUN_STATUS_NOTIFICATION_ID,
     content: {
       title: runProgressNotificationTitle(progress),
-      subtitle: 'Computer · live status',
+      subtitle: isReplyReadyRunProgress(progress) ? 'Computer' : 'Computer · live status',
       body,
       categoryIdentifier: CATEGORY_RUN,
       threadIdentifier: THREAD_RUNS,
@@ -655,7 +740,13 @@ export async function scheduleRunProgressNotification(
 
 export async function scheduleRunCompletedNotification(
   detail: string,
-  options?: { success?: boolean; runId?: string; sessionId?: string; categoryEnabled?: boolean },
+  options?: {
+    success?: boolean;
+    runId?: string;
+    sessionId?: string;
+    categoryEnabled?: boolean;
+    replyText?: string;
+  },
 ): Promise<void> {
   if (!shouldScheduleRunCompletedNotification(AppState.currentState, options?.categoryEnabled ?? true)) {
     return;
@@ -673,15 +764,19 @@ export async function scheduleRunCompletedNotification(
 
   await clearRunProgressNotification();
 
-  const trimmed = detail.trim().slice(0, 180);
   const success = options?.success ?? true;
+  const copy = buildRunCompletedNotificationCopy({
+    detail,
+    replyText: options?.replyText,
+    success,
+  });
 
   await Notifications.scheduleNotificationAsync({
     identifier: RUN_COMPLETED_NOTIFICATION_ID,
     content: {
-      title: success ? 'Hermes finished' : 'Hermes run stopped',
+      title: copy.title,
       subtitle: success ? 'Computer' : 'Check chat for details',
-      body: trimmed || (success ? 'Background task completed.' : 'The run ended with an error.'),
+      body: copy.body,
       categoryIdentifier: CATEGORY_RUN,
       threadIdentifier: THREAD_RUNS,
       ...(Platform.OS === 'ios'

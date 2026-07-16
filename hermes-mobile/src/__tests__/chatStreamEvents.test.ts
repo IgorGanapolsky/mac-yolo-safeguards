@@ -213,21 +213,21 @@ describe('mergeSessionUsageIntoRunProgress', () => {
 });
 
 describe('formatRunProgressLabel', () => {
-  it('renders seconds under a minute', () => {
+  it('puts status before elapsed (elapsed is secondary)', () => {
     expect(formatRunProgressLabel(baseProgress({ startedAtMs: 0, detail: 'thinking' }), 5_000)).toBe(
-      '⌛ Working — 5s — thinking',
+      '⌛ Working — thinking · 5s',
     );
   });
 
-  it('renders whole minutes past 60s', () => {
+  it('renders whole minutes past 60s after the detail', () => {
     expect(formatRunProgressLabel(baseProgress({ startedAtMs: 0, detail: 'thinking' }), 125_000)).toBe(
-      '⌛ Working — 2 min — thinking',
+      '⌛ Working — thinking · 2 min',
     );
   });
 
   it('falls back to the phase when detail is blank and never goes negative', () => {
     expect(formatRunProgressLabel(baseProgress({ startedAtMs: 10_000, detail: '   ', phase: 'streaming' }), 0)).toBe(
-      '⌛ Live streaming — 0s — streaming',
+      '⌛ Live streaming — streaming · 0s',
     );
   });
 });

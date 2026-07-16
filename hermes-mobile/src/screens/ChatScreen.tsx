@@ -5083,6 +5083,9 @@ export default function ChatScreen() {
 
       const updateAssistant = (text: string) => {
         const body = text.trim();
+        if (body) {
+          activeAssistantTextRef.current = body;
+        }
         if (!body) {
           return;
         }
@@ -5564,6 +5567,8 @@ export default function ChatScreen() {
       if (!deferredTelegramPollRef.current) {
         const completedStartedAt = sendStartedAtRef.current;
         if (sendSucceeded) {
+          const replyPreview =
+            activeAssistantTextRef.current.trim() || undefined;
           setRunProgress((prev) => ({
             ...(prev ?? {
               startedAtMs: completedStartedAt,
@@ -5571,6 +5576,7 @@ export default function ChatScreen() {
             }),
             phase: 'completed',
             detail: 'Reply ready on your computer',
+            replyPreview: replyPreview || prev?.replyPreview,
             duration: Math.max(0, (Date.now() - completedStartedAt) / 1000),
           }));
           setTimeout(() => {
@@ -6256,6 +6262,8 @@ export default function ChatScreen() {
               ...prev,
               phase: 'completed',
               detail: 'Reply ready on your computer',
+              // Reconcile path may not have streamed text locally; keep any prior preview.
+              replyPreview: prev.replyPreview,
               duration: Math.max(0, (Date.now() - prev.startedAtMs) / 1000),
             };
           }

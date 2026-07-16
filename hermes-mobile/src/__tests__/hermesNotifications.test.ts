@@ -10,8 +10,11 @@ import {
   parseHermesNotificationResponse,
   resolveHermesNotificationHandlerResult,
   RUN_STATUS_MIN_INTERVAL_MS,
+  buildRunCompletedNotificationCopy,
+  buildRunProgressNotificationBody,
   runProgressNotificationTitle,
   scheduleApprovalsSummaryNotification,
+  scheduleRunCompletedNotification,
   scheduleRunProgressNotification,
   scheduleRunStallNotification,
   shouldDismissRunNotificationsForAppState,
@@ -108,6 +111,50 @@ describe('hermesNotifications', () => {
         startedAtMs: Date.now(),
       }),
     ).toBe('Hermes is responding');
+    expect(
+      runProgressNotificationTitle({
+        phase: 'completed',
+        startedAtMs: Date.now(),
+        detail: 'Reply ready on your computer',
+      }),
+    ).toBe('Reply ready');
+  });
+
+  it('builds reply-ready bodies from assistant snippets, not elapsed time', () => {
+    const body = buildRunProgressNotificationBody(
+      {
+        phase: 'completed',
+        startedAtMs: Date.now() - 180_000,
+        detail: 'Reply ready on your computer',
+        replyPreview: '**Ship** the OTA — revenue path is ready.',
+        duration: 180,
+      },
+      Date.now(),
+    );
+    expect(body).toBe('Ship the OTA — revenue path is ready.');
+    expect(body).not.toMatch(/min/i);
+    expect(body).not.toMatch(/Reply ready on your computer/i);
+
+    const working = buildRunProgressNotificationBody(
+      {
+        phase: 'working',
+        startedAtMs: Date.now() - 180_000,
+        detail: 'running web_search',
+      },
+      Date.now(),
+    );
+    expect(working.startsWith('Running web search')).toBe(true);
+    expect(working).toMatch(/· 3 min$/);
+
+    expect(
+      buildRunCompletedNotificationCopy({
+        detail: 'Task finished',
+        replyText: 'Here is the plan:\n\n1. **Call** the buyer',
+      }),
+    ).toEqual({
+      title: 'Reply ready',
+      body: 'Here is the plan: Call the buyer',
+    });
   });
 
   it('dismisses run notifications when the app is foregrounded', () => {
@@ -229,6 +276,34 @@ describe('hermesNotifications', () => {
       expect(call.content.channelId).toBe(CHANNEL_STATUS_V2);
       expect(call.content.priority).toBe(Notifications.AndroidNotificationPriority.LOW);
       expect(call.content.data.type).toBe('run_progress');
+    });
+
+    it('posts reply-ready title + snippet immediately (no elapsed lead)', async () => {
+      await scheduleRunProgressNotification(
+        {
+          phase: 'completed',
+          startedAtMs: Date.now() - 180_000,
+          detail: 'Reply ready on your computer',
+          replyPreview: 'Your Mac finished: call the buyer before noon.',
+          duration: 180,
+        },
+        { force: true },
+      );
+
+      const call = (Notifications.scheduleNotificationAsync as jest.Mock).mock.calls[0][0];
+      expect(call.content.title).toBe('Reply ready');
+      expect(call.content.body).toBe('Your Mac finished: call the buyer before noon.');
+      expect(call.content.body).not.toMatch(/^\d+\s*min/i);
+    });
+
+    it('posts completed notification as Reply ready with snippet body', async () => {
+      await scheduleRunCompletedNotification('Task finished', {
+        success: true,
+        replyText: '**Done.** Invoice sent.',
+      });
+      const call = (Notifications.scheduleNotificationAsync as jest.Mock).mock.calls[0][0];
+      expect(call.content.title).toBe('Reply ready');
+      expect(call.content.body).toBe('Done. Invoice sent.');
     });
 
     it('rate-limits even when force is set so stream tokens cannot spam', async () => {
