@@ -32,9 +32,10 @@ const {
   DEFAULT_READY_PROMPT,
 } = require(WRAPPER_PATH);
 
-console.log('Testing Grok 4.5 default backend routing...');
-assert.strictEqual(shouldUseGrokBackend([], {}), true);
-assert.strictEqual(shouldUseGrokBackend(['fix', 'the', 'bug'], {}), true);
+console.log('Testing quota-independent default backend routing...');
+assert.strictEqual(shouldUseGrokBackend([], {}), false);
+assert.strictEqual(shouldUseGrokBackend(['fix', 'the', 'bug'], {}), false);
+assert.strictEqual(shouldUseGrokBackend(['fix', 'the', 'bug'], { HERMES_YOLO_BACKEND: 'grok' }), true);
 assert.strictEqual(shouldUseGrokBackend(['doctor'], {}), false);
 assert.strictEqual(shouldUseGrokBackend(['--version'], {}), false);
 assert.strictEqual(shouldUseGrokBackend(['fix'], { HERMES_YOLO_BACKEND: 'hermes' }), false);
@@ -44,10 +45,13 @@ assert.deepStrictEqual(buildGrokBackendArgs([], { isTty: false }), ['-p', DEFAUL
 assert.deepStrictEqual(buildGrokBackendArgs(['fix', 'the', 'bug']), ['-p', 'fix the bug', '--output-format', 'plain']);
 assert.deepStrictEqual(buildGrokBackendArgs(['-z', 'return', 'marker']), ['-p', 'return marker', '--output-format', 'plain']);
 assert.deepStrictEqual(classifyBackend(['fix', 'the', 'bug'], {}), {
-  requestedBackend: 'grok', selectedBackend: 'grok-4.5', reason: 'default-prompt-route',
+  requestedBackend: 'auto', selectedBackend: 'hermes-legacy', reason: 'quota-independent-default',
 });
 assert.deepStrictEqual(classifyBackend(['doctor'], {}), {
-  requestedBackend: 'grok', selectedBackend: 'hermes-legacy', reason: 'hermes-admin-command',
+  requestedBackend: 'auto', selectedBackend: 'hermes-legacy', reason: 'hermes-admin-command',
+});
+assert.deepStrictEqual(classifyBackend(['fix'], { HERMES_YOLO_BACKEND: 'grok' }), {
+  requestedBackend: 'grok', selectedBackend: 'grok-4.5', reason: 'explicit-grok-backend',
 });
 assert.deepStrictEqual(classifyBackend(['fix'], { HERMES_YOLO_BACKEND: 'hermes' }), {
   requestedBackend: 'hermes', selectedBackend: 'hermes-legacy', reason: 'explicit-hermes-backend',
@@ -289,6 +293,7 @@ try {
     encoding: 'utf8',
     env: {
       ...process.env,
+      HERMES_YOLO_BACKEND: 'grok',
       GROK_YOLO_BIN: fakeGrokYoloPath,
       HERMES_BIN: '/definitely-not-used/hermes',
       HERMES_YOLO_RECEIPT_DIR: routeReceiptRoot,
@@ -320,11 +325,56 @@ try {
     }),
   });
   assert.strictEqual(status.ready, true);
-  assert.strictEqual(status.defaultPromptBackend, 'grok-4.5');
+  assert.strictEqual(status.defaultPromptBackend, 'hermes-legacy');
+  assert.strictEqual(status.grokReady, true);
   assert.strictEqual(status.silentFallbackAllowed, false);
 } finally {
   fs.unlinkSync(fakeGrokYoloPath);
   fs.rmSync(routeReceiptRoot, { recursive: true, force: true });
+}
+
+const exhaustedGrokPath = path.join(require('os').tmpdir(), `exhausted-grok-yolo-${process.pid}`);
+const fakeHermesPath = path.join(require('os').tmpdir(), `fake-hermes-${process.pid}`);
+const grokInvocationSentinel = path.join(require('os').tmpdir(), `grok-invoked-${process.pid}`);
+const fallbackReceiptRoot = fs.mkdtempSync(path.join(require('os').tmpdir(), 'hermes-yolo-quota-proof-'));
+const fallbackLockPath = path.join(require('os').tmpdir(), `hermes-yolo-quota-proof-${process.pid}.lock`);
+fs.writeFileSync(exhaustedGrokPath, [
+  '#!/usr/bin/env bash',
+  `touch ${JSON.stringify(grokInvocationSentinel)}`,
+  'echo "API error (status 402 Payment Required): usage balance exhausted" >&2',
+  'exit 1',
+  '',
+].join('\n'), { mode: 0o755 });
+fs.writeFileSync(fakeHermesPath, [
+  '#!/usr/bin/env bash',
+  'printf "HERMES-QUOTA-INDEPENDENT-OK\\n"',
+  '',
+].join('\n'), { mode: 0o755 });
+try {
+  const output = execFileSync(process.execPath, [WRAPPER_PATH, 'keep', 'working'], {
+    encoding: 'utf8',
+    env: {
+      ...process.env,
+      HERMES_YOLO_BACKEND: 'auto',
+      GROK_YOLO_BIN: exhaustedGrokPath,
+      HERMES_BIN: fakeHermesPath,
+      HERMES_YOLO_LOCK_PATH: fallbackLockPath,
+      HERMES_YOLO_NO_PREFLIGHT: '1',
+      HERMES_YOLO_RECEIPT_DIR: fallbackReceiptRoot,
+    },
+  });
+  assert(output.includes('HERMES-QUOTA-INDEPENDENT-OK'));
+  assert.strictEqual(fs.existsSync(grokInvocationSentinel), false, 'default route must not touch exhausted Grok');
+  const storedRoute = JSON.parse(fs.readFileSync(path.join(fallbackReceiptRoot, 'latest.json'), 'utf8'));
+  assert.strictEqual(storedRoute.route.requestedBackend, 'auto');
+  assert.strictEqual(storedRoute.route.selectedBackend, 'hermes-legacy');
+  assert.strictEqual(storedRoute.route.reason, 'quota-independent-default');
+  assert.strictEqual(storedRoute.execution.status, 'pass');
+} finally {
+  for (const filePath of [exhaustedGrokPath, fakeHermesPath, grokInvocationSentinel, fallbackLockPath]) {
+    try { fs.unlinkSync(filePath); } catch (e) { /* may not exist */ }
+  }
+  fs.rmSync(fallbackReceiptRoot, { recursive: true, force: true });
 }
 
 // 2. Test live wrapper execution (using --version as a fast safe check)

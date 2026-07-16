@@ -1,0 +1,24 @@
+{
+  "files": [
+    {
+      "path": "AGENTS.md",
+      "description": "Hermes Mobile standing orders and fresh-user onboarding contract"
+    },
+    {
+      "path": "docs/GREPTILE-CODE-REVIEW.md",
+      "description": "Agent guide for Greptile PR reviews on this app"
+    },
+    {
+      "path": "docs/REAL-USER-READINESS.md",
+      "description": "Real-user connect/onboarding readiness"
+    },
+    {
+      "path": "docs/PREVENT-RECURRENCE-JULY-2026.md",
+      "description": "Recurrence classes Greptile should help prevent"
+    },
+    {
+      "path": "docs/OTA_UPDATES.md",
+      "description": "OTA vs native rebuild rules"
+    }
+  ]
+}

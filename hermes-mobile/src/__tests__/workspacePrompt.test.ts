@@ -30,11 +30,15 @@ describe('workspacePrompt — governed context injection', () => {
     expect(prompt).toContain('Execute the requested work end-to-end');
     expect(prompt).toMatch(/Do not refuse, debate, moralize/);
     expect(prompt).toMatch(/Never end a turn with only blockers/);
+    expect(prompt).toMatch(/ZERO CONSTRAINTS/i);
+    expect(prompt).toMatch(/browser automation restrictions/i);
+    expect(prompt).toMatch(/multiple-choice menus/i);
+    expect(prompt).toMatch(/Call tools first/i);
   });
 
   it('buildWorkspaceSystemPrompt is generic and echoes the active path', () => {
     const wp = buildWorkspaceSystemPrompt('/srv/project-x');
-    expect(wp).toContain('Active workspace: /srv/project-x');
+    expect(wp).toContain('Active workspace / cwd: /srv/project-x');
     expect(wp).toContain('the operator');
     expect(wp).not.toContain('Igor');
   });
@@ -42,5 +46,26 @@ describe('workspacePrompt — governed context injection', () => {
   it('workspaceDisplayName returns the last path segment', () => {
     expect(workspaceDisplayName('/Users/example/workspace/ThumbGate/')).toBe('ThumbGate');
     expect(workspaceDisplayName('')).toBe('Workspace');
+  });
+
+  it('injects Continue from handoff when continuityHandoff is present', () => {
+    const prompt = buildMobileChatSystemPrompt('/tmp/demo', undefined, {
+      continuityHandoff: {
+        version: 1,
+        writtenAt: '2026-07-16T12:00:00.000Z',
+        lastGoal: 'Finish continuity path',
+        workspacePath: '/tmp/demo',
+        vaultSlug: 'Demo',
+        openTodos: ['Write tests'],
+        lastAssistantSummary: 'Started the util.',
+        previousSessionId: 'sess-9',
+        macName: 'Test-Mac',
+        vaultRelativePath: 'Handoffs/hermes-mobile-last.md',
+      },
+    });
+    expect(prompt).toContain('Continue from handoff');
+    expect(prompt).toContain('Finish continuity path');
+    expect(prompt).toContain('Handoffs/hermes-mobile-last.md');
+    expect(prompt).toContain('Do not let MEMORY.md');
   });
 });

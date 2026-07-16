@@ -1,8 +1,8 @@
 # Hermes Mobile — Real-user readiness (external beta)
 
-**Last audited:** 2026-07-09  
+**Last audited:** 2026-07-15  
 **Audience:** External testers (not Igor dev backdoor)  
-**Evidence:** `npm run test:ci`, continuous E2E `latest.json`, Play public listing (Teen, Jul 9), Play API subscription `thumbgate_leash_monthly` ACTIVE.
+**Evidence:** Play public listing (Teen, Jul 9+; FAQ iOS-live push Jul 15), ASC v1.0 `READY_FOR_SALE` (2026-07-14), Play API `thumbgate_leash_monthly` ACTIVE, ASC IAP APPROVED, `npm test` / continuous E2E when claimed.
 
 ---
 
@@ -10,15 +10,16 @@
 
 | Area | Status | Notes |
 |------|--------|-------|
-| **Install without USB/adb** | **Partial (Android)** | Play Production **public** since Jul 9, 2026 — Teen rating, 0+ downloads, `com.iganapolsky.hermesmobile` returns HTTP 200. **iOS not public** (ASC still in review / not searchable). Firebase internal-distribution CI may still need green re-run. |
+| **Install without USB/adb** | **Ready (both stores)** | Play Production public since Jul 9, 2026 (`com.iganapolsky.hermesmobile`). **iOS public** since 2026-07-14 (`READY_FOR_SALE`, App Store id `6786778037`). Still **0+ downloads / 0 ratings** — discoverability, not distribution, is the gate. Firebase internal-distribution CI may still need green re-run. |
 | **Onboarding without adb** | **Partial** | Relay pair code + `hermes://relay?code=` deep link + QR scan work in-app. Stranger still needs Hermes Relay running on a Mac and a code/QR from that machine — no fully hosted “sign up” flow. |
 | **ThumbGate for subscribers** | **Partial** | Leash Pro IAP wired (`thumbgate_leash_monthly` via `expo-iap`). Play API confirms subscription **ACTIVE** (base plan `monthly`, $19.99/mo). Chat output thumbs → `POST /v1/feedback/capture` when Leash unlocked. Requires Pro purchase or dev backdoor — **not** free for all users. |
 | **Connection (cellular + tunnel)** | **Partial** | Cellular tunnel wizard shipped in Settings (`settings-cellular-tunnel-banner`). Cloud relay preferred off Wi‑Fi. User must configure tunnel URL on Mac — not one-tap for strangers. |
 | **Honest disconnected UX** | **Ready** | Run progress banner shows connectivity failures; gateway bootstrap gates chat when unreachable. |
+| **Connected ⊕ Wrong key** | **SHIP BLOCK** | Fresh install (or re-pair) showing green **Connected** and **Wrong key** at once is a **release-blocking state-machine failure**, not an acceptable setup hiccup. Never ship. `effectiveAuthMismatch` (health ⊕ banner) forces header/Codex off green; discovery must not auto-steal to USB over a Tailscale pair. Primary recovery CTA: **Find computers**. |
 | **Dev-only UX in production builds** | **Mostly OK** | `EXPO_PUBLIC_HERMES_DEV_UNLOCK` only in dev/preview/e2e EAS profiles, not production. `developerLeashUnlock` deep link remains Igor-only escape hatch — not required if user buys Pro. |
 | **Automated quality** | **Ready (local)** | 594 unit tests pass; continuous E2E pass on device/simulator. GitHub `internal-distribution.yml` failed typecheck on last main merge — fix before relying on CI APK. |
 
-**Verdict:** **Android install path open** (Play public, Teen). **iOS still blocked.** Stranger onboarding (Mac + relay + optional tunnel) not yet validated end-to-end without adb. IARC/ratings questionnaire email is **compliance housekeeping**, not a revenue gate — Play listing and IAP are already live.
+**Verdict:** **Both store install paths open** (Play + App Store). **Traffic + first reviews** and stranger onboarding (Mac + relay + optional tunnel) remain the real-user gates. IARC/ratings questionnaire email is **compliance housekeeping**, not a revenue gate — Play listing and IAP are already live.
 
 ---
 

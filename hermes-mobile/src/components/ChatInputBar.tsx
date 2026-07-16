@@ -24,6 +24,8 @@ type ChatInputBarProps = {
   placeholder: string;
   /** Muted styling when empty — button stays tappable so Android does not swallow the first tap. */
   sendMuted: boolean;
+  /** Block send taps while outbound is in flight (RNTL ignores TouchableOpacity disabled). */
+  sendDisabled?: boolean;
   sendLabel?: string;
   onSend: (latestText?: string) => void;
   /** Codex-style: square Stop replaces Send while Mac run is active and composer is empty. */
@@ -45,6 +47,7 @@ function ChatInputBar({
   onSubmit,
   placeholder,
   sendMuted,
+  sendDisabled = false,
   onSend,
   showStop = false,
   onStop,
@@ -158,7 +161,7 @@ function ChatInputBar({
           </TouchableOpacity>
         ) : (
           <TouchableOpacity
-            style={[styles.sendButton, (sendMuted || !canSend) && styles.sendButtonMuted]}
+            style={[styles.sendButton, (sendMuted || !canSend || sendDisabled) && styles.sendButtonMuted]}
             onPress={() => {
               const latest = latestTextRef.current;
               latestTextRef.current = '';

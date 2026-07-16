@@ -91,7 +91,7 @@ export function mockUseGateway(overrides: Record<string, unknown> = {}) {
     profileScanning: false,
     profileScanProgress: null,
     profileScanResult: null,
-    selectGatewayProfile: jest.fn().mockResolvedValue(undefined),
+    selectGatewayProfile: jest.fn().mockResolvedValue(true),
     removeGatewayProfile: jest.fn().mockResolvedValue(undefined),
     scanForGatewayProfiles: jest.fn().mockResolvedValue([]),
     tailscaleDiscoveries: [],

@@ -5,11 +5,18 @@ import {
   extractLanIpFromGatewayUrl,
   gatewayUrlHostname,
   isLoopbackGatewayUrl,
+  isLoopbackHost,
+  isPrivateLanIpv4,
   resolveDisplayLanIp,
 } from '../utils/gatewayUrlPolicy';
 import type { SetupDeepLinkParams } from '../utils/setupDeepLink';
-import { mergeTailnetProbeHosts } from '../utils/tailscaleHosts';
+import {
+  buildTailscaleGatewayUrl,
+  isTailscaleGatewayUrl,
+  mergeTailnetProbeHosts,
+} from '../utils/tailscaleHosts';
 import { normalizeGatewayUrl } from './gatewayClient';
+import { USB_LOOPBACK_GATEWAY_URL } from '../utils/gatewayLoopbackFallback';
 import type { DiscoveredGateway } from '../types/gatewayProfile';
 import type { LanScanProgress, LanScanStage } from '../types/lanScan';
 
@@ -20,6 +27,8 @@ const SUBNET_BATCH_SIZE = 48;
 
 export type DiscoverLanOptions = {
   onProgress?: (progress: LanScanProgress) => void;
+  /** Known Tailscale hosts (100.x / MagicDNS) — sweep :8765/pair.json on each. */
+  tailnetPairServerHosts?: string[];
 };
 
 function reportLanScanProgress(
@@ -27,9 +36,11 @@ function reportLanScanProgress(
   stage: LanScanStage,
   completedHosts: number,
   totalHosts: number,
-  foundCount: number,
+  gateways: DiscoveredGateway[],
 ) {
-  onProgress?.({ stage, completedHosts, totalHosts, foundCount });
+  const linkCount = gateways.length;
+  const foundCount = countUniqueDiscoveredMachines(gateways);
+  onProgress?.({ stage, completedHosts, totalHosts, foundCount, linkCount });
 }
 
 export type PairServerPayload = {
@@ -222,12 +233,82 @@ function pairPayloadToDiscovered(payload: PairServerPayload): DiscoveredGateway 
   if (!gatewayUrl) {
     return null;
   }
+  const httpBase = normalizeGatewayUrl(gatewayUrl).httpBase;
+  // Pair servers sometimes stamp the *serving* Mac's LAN IP onto another machine's
+  // Tailscale pair.json (e.g. mini URL + MacBook LAN IP). That poisoned localIp merges
+  // two computers into one saved profile — drop RFC1918 localIp on Tailscale URLs.
+  let localIp = payload.localIp || extractLanIpFromGatewayUrl(gatewayUrl) || undefined;
+  if (localIp && isPrivateLanIpv4(localIp) && isTailscaleGatewayUrl(httpBase)) {
+    localIp = undefined;
+  }
   return {
-    gatewayUrl: normalizeGatewayUrl(gatewayUrl).httpBase,
+    gatewayUrl: httpBase,
     hostname: payload.hostname,
-    localIp: payload.localIp || extractLanIpFromGatewayUrl(gatewayUrl) || undefined,
+    localIp,
     label: payload.hostname?.replace(/\.local$/i, ''),
   };
+}
+
+/** One computer identity for scan banners — not one URL alias (loopback/LAN/Tailscale). */
+export function discoveredMachineKey(item: DiscoveredGateway): string {
+  const host = (item.hostname || item.label || '')
+    .trim()
+    .toLowerCase()
+    .replace(/\.local$/i, '');
+  if (host && host !== 'localhost') {
+    return `name:${host}`;
+  }
+  const ip = item.localIp?.trim();
+  if (ip && !isLoopbackHost(ip)) {
+    return `ip:${ip}`;
+  }
+  const urlHost = gatewayUrlHostname(item.gatewayUrl)?.toLowerCase() ?? item.gatewayUrl;
+  if (urlHost === '127.0.0.1' || urlHost === 'localhost') {
+    return 'usb:loopback';
+  }
+  return `url:${normalizeGatewayUrl(item.gatewayUrl).httpBase}`;
+}
+
+function discoveryRouteRank(item: DiscoveredGateway): number {
+  if (isTailscaleGatewayUrl(item.gatewayUrl)) {
+    return 3;
+  }
+  if (isLoopbackGatewayUrl(item.gatewayUrl)) {
+    return 1;
+  }
+  return 2;
+}
+
+/** Collapse URL aliases so "Found N machines" matches the picker, not every IP/MagicDNS twin. */
+export function dedupeDiscoveredGatewaysByMachine(
+  gateways: DiscoveredGateway[],
+): DiscoveredGateway[] {
+  const map = new Map<string, DiscoveredGateway>();
+  for (const item of gateways) {
+    if (!item?.gatewayUrl) {
+      continue;
+    }
+    const key = discoveredMachineKey(item);
+    const existing = map.get(key);
+    if (!existing) {
+      map.set(key, item);
+      continue;
+    }
+    const preferNew = discoveryRouteRank(item) > discoveryRouteRank(existing);
+    const winner = preferNew ? item : existing;
+    const loser = preferNew ? existing : item;
+    map.set(key, {
+      gatewayUrl: winner.gatewayUrl,
+      hostname: winner.hostname || loser.hostname,
+      localIp: winner.localIp || loser.localIp,
+      label: winner.label || loser.label,
+    });
+  }
+  return Array.from(map.values());
+}
+
+export function countUniqueDiscoveredMachines(gateways: DiscoveredGateway[]): number {
+  return dedupeDiscoveredGatewaysByMachine(gateways).length;
 }
 
 function mergeDiscovered(map: Map<string, DiscoveredGateway>, item: DiscoveredGateway | null) {
@@ -248,14 +329,64 @@ function mergeDiscovered(map: Map<string, DiscoveredGateway>, item: DiscoveredGa
   });
 }
 
+function pairServerSweepHosts(
+  phoneIp: string,
+  preferLanIp?: string | null,
+  tailnetPairServerHosts?: string[],
+): string[] {
+  const baseHosts = ['127.0.0.1', 'localhost'];
+  const subnetHosts = phoneIp ? buildHostOrder(phoneIp, preferLanIp) : [];
+  const tailnetHosts = mergeTailnetProbeHosts(tailnetPairServerHosts ?? []);
+  return Array.from(new Set([...baseHosts, ...subnetHosts, ...tailnetHosts]));
+}
+
+async function sweepTailnetGatewayHealth(
+  tailnetProbeHosts: string[],
+): Promise<DiscoveredGateway[]> {
+  const hosts = mergeTailnetProbeHosts(tailnetProbeHosts);
+  if (hosts.length === 0) {
+    return [];
+  }
+  const probes = await Promise.all(
+    hosts.map(async (host) => probeGatewayDetailed(buildTailscaleGatewayUrl(host))),
+  );
+  return probes.filter((item): item is DiscoveredGateway => item != null);
+}
+
+/** USB loopback + optional tailnet :8765 sweep — seeds tailnetProbeHosts on fresh install. */
+export async function bootstrapTailnetProbeHostsFromPairServers(
+  candidateHosts: string[] = [],
+): Promise<{ tailnetProbeHosts: string[]; gateways: DiscoveredGateway[] }> {
+  const hosts = pairServerSweepHosts('', null, candidateHosts);
+  const map = new Map<string, DiscoveredGateway>();
+  let tailnetProbeHosts: string[] = [];
+  for (const host of hosts) {
+    const payload = await fetchPairServerConfig(host);
+    if (!payload) {
+      continue;
+    }
+    if (payload.tailnetProbeHosts?.length) {
+      tailnetProbeHosts = mergeTailnetProbeHosts(
+        tailnetProbeHosts,
+        payload.tailnetProbeHosts,
+      );
+    }
+    mergeDiscovered(map, pairPayloadToDiscovered(payload));
+  }
+  if (tailnetProbeHosts.length > 0) {
+    for (const item of await sweepTailnetGatewayHealth(tailnetProbeHosts)) {
+      mergeDiscovered(map, item);
+    }
+  }
+  return { tailnetProbeHosts, gateways: Array.from(map.values()) };
+}
+
 async function sweepAllPairServers(
   phoneIp: string,
   preferLanIp?: string | null,
   options?: DiscoverLanOptions,
 ): Promise<{ gateways: DiscoveredGateway[]; tailnetProbeHosts: string[] }> {
-  const baseHosts = ['127.0.0.1', 'localhost'];
-  const subnetHosts = phoneIp ? buildHostOrder(phoneIp, preferLanIp) : [];
-  const hosts = [...baseHosts, ...subnetHosts];
+  const hosts = pairServerSweepHosts(phoneIp, preferLanIp, options?.tailnetPairServerHosts);
   const map = new Map<string, DiscoveredGateway>();
   let tailnetProbeHosts: string[] = [];
   if (hosts.length === 0) {
@@ -286,7 +417,7 @@ async function sweepAllPairServers(
       'pair_server',
       Math.min(start + batch.length, hosts.length),
       hosts.length,
-      map.size,
+      Array.from(map.values()),
     );
   }
 
@@ -297,7 +428,7 @@ async function sweepAllGateways(
   phoneIp: string,
   preferLanIp?: string | null,
   options?: DiscoverLanOptions,
-  foundSoFar = 0,
+  priorGateways: DiscoveredGateway[] = [],
 ): Promise<DiscoveredGateway[]> {
   const baseHosts = ['127.0.0.1', 'localhost'];
   const subnetHosts = phoneIp ? buildHostOrder(phoneIp, preferLanIp) : [];
@@ -322,7 +453,7 @@ async function sweepAllGateways(
       'gateway_health',
       Math.min(start + batch.length, hosts.length),
       hosts.length,
-      foundSoFar + map.size,
+      [...priorGateways, ...Array.from(map.values())],
     );
   }
 
@@ -339,20 +470,31 @@ export async function discoverAllGatewaysOnLan(
   const subnetHosts = phoneIp ? buildHostOrder(phoneIp, preferLanIp) : [];
   const hosts = [...baseHosts, ...subnetHosts];
 
-  reportLanScanProgress(options?.onProgress, 'pair_server', 0, hosts.length, 0);
+  reportLanScanProgress(options?.onProgress, 'pair_server', 0, hosts.length, []);
 
   const map = new Map<string, DiscoveredGateway>();
   const fromPair = await sweepAllPairServers(phoneIp ?? '', preferLanIp, options);
   for (const item of fromPair.gateways) {
     mergeDiscovered(map, item);
   }
-  const fromHealth = await sweepAllGateways(phoneIp ?? '', preferLanIp, options, map.size);
+  const fromHealth = await sweepAllGateways(
+    phoneIp ?? '',
+    preferLanIp,
+    options,
+    Array.from(map.values()),
+  );
   for (const item of fromHealth) {
     mergeDiscovered(map, item);
   }
 
-  const list = Array.from(map.values());
-  reportLanScanProgress(options?.onProgress, 'complete', hosts.length, hosts.length, list.length);
+  if (fromPair.tailnetProbeHosts.length > 0) {
+    for (const item of await sweepTailnetGatewayHealth(fromPair.tailnetProbeHosts)) {
+      mergeDiscovered(map, item);
+    }
+  }
+
+  const list = dedupeDiscoveredGatewaysByMachine(Array.from(map.values()));
+  reportLanScanProgress(options?.onProgress, 'complete', hosts.length, hosts.length, list);
   if (preferLanIp && IPV4_RE.test(preferLanIp.trim())) {
     const preferUrl = buildGatewayUrlFromLanIp(preferLanIp.trim());
     const preferKey = normalizeGatewayUrl(preferUrl).httpBase;
@@ -402,6 +544,11 @@ export async function discoverGatewayViaPairServer(
 ): Promise<string | null> {
   const phoneIp = await getPhoneLanIp();
   return sweepSubnetForPairServer(phoneIp ?? '', preferLanIp);
+}
+
+/** Probe adb-reverse USB loopback — reachable only when phone is cabled to a Mac with reverse active. */
+export async function probeLiveUsbGateway(): Promise<DiscoveredGateway | null> {
+  return probeGatewayDetailed(USB_LOOPBACK_GATEWAY_URL);
 }
 
 /**

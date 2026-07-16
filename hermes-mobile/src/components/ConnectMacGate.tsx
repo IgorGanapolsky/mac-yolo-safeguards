@@ -1,23 +1,34 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
+  BackHandler,
   Keyboard,
+  KeyboardAvoidingView,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
   TextInput,
+  TouchableOpacity,
   View,
 } from 'react-native';
 import { useGateway } from '../context/GatewayContext';
+import { useKeyboardInset } from '../hooks/useKeyboardInset';
 import { colors } from '../theme/colors';
 import { describeBootstrapPhase } from '../utils/gatewayConnection';
 import PairQrScannerModal from './PairQrScannerModal';
 import FreshUserOnboardingCard from './FreshUserOnboardingCard';
 import TailscaleDiscoveryBanner from './TailscaleDiscoveryBanner';
 import MacScanProgressCard from './MacScanProgressCard';
+import GatewayProfilePicker from './GatewayProfilePicker';
 import LoadingButton from './ui/LoadingButton';
 import { tailscaleDiscoveryLabel } from '../services/tailscaleDiscovery';
 import { cleanManualGatewayUrl, isLoopbackGatewayUrl } from '../utils/gatewayUrlPolicy';
 import { isTailscaleGatewayUrl } from '../utils/tailscaleHosts';
+import {
+  profilesForDevicePicker,
+  profilesForSwitchComputerPicker,
+} from '../utils/gatewayProfilePicker';
+import type { GatewayProfile } from '../types/gatewayProfile';
 import {
   isE2eAutomationBuild,
   isStoreReviewDemoBuild,
@@ -41,16 +52,19 @@ export default function ConnectMacGate() {
     profileScanProgress,
     profileScanResult,
     gatewayProfiles,
+    activeGatewayProfile,
     effectiveGatewayUrl,
     applySetupDeepLink,
     retryGatewayBootstrap,
     scanForGatewayProfiles,
+    selectGatewayProfile,
     tailscaleDiscoveries,
     tailscaleDiscoveryProbing,
     addDiscoveredTailscaleComputer,
     probeTailscaleComputers,
     addGatewayProfile,
     patchSettings,
+    wifiConnected,
   } = useGateway();
 
   const [qrVisible, setQrVisible] = useState(false);
@@ -61,6 +75,18 @@ export default function ConnectMacGate() {
   const [addingProfile, setAddingProfile] = useState(false);
   const [manualInputError, setManualInputError] = useState<string | null>(null);
   const [enablingDemo, setEnablingDemo] = useState(false);
+  const [manualInputFocused, setManualInputFocused] = useState(false);
+  const scrollRef = useRef<ScrollView>(null);
+  const { inset: keyboardInset } = useKeyboardInset({ focused: manualInputFocused });
+
+  const handleDismiss = useCallback(async () => {
+    try {
+      await patchSettings({ connectMacGateDismissed: true });
+      haptics.light();
+    } catch {
+      haptics.warning();
+    }
+  }, [patchSettings]);
 
   const handleExploreDemo = async () => {
     setEnablingDemo(true);
@@ -98,26 +124,57 @@ export default function ConnectMacGate() {
     }
   };
 
+  const handleSelectProfile = useCallback(
+    async (profileId: string, profile: GatewayProfile) => {
+      await selectGatewayProfile(profileId, { ensureProfile: profile });
+      await retryGatewayBootstrap();
+    },
+    [retryGatewayBootstrap, selectGatewayProfile],
+  );
+
   const hasSavedMac =
     gatewayProfiles.some((profile) => !isLoopbackGatewayUrl(profile.gatewayUrl)) ||
     [effectiveGatewayUrl, settings.gatewayUrl].some(
       (url) => Boolean(url?.trim()) && !isLoopbackGatewayUrl(url || ''),
     );
 
+  const pickerProfiles = useMemo(() => {
+    const activeId = activeGatewayProfile?.id ?? null;
+    const switchRows = profilesForSwitchComputerPicker(gatewayProfiles, {
+      activeProfileId: activeId,
+    });
+    if (switchRows.length > 0) {
+      return switchRows;
+    }
+    return profilesForDevicePicker(gatewayProfiles).filter(
+      (profile) => !isLoopbackGatewayUrl(profile.gatewayUrl),
+    );
+  }, [activeGatewayProfile?.id, gatewayProfiles]);
+
+  // Fresh installs default to connectionMode 'relay'. Requiring 'gateway' hid
+  // ConnectMacGate forever for brand-new users (CI stranger cold-start 2026-07-15).
+  const freshUnpaired = !hasSavedMac;
   const showGate =
     bootstrapReady &&
     !isE2eAutomationBuild() &&
     !isStoreReviewDemoBuild() &&
     !settings.demoMode &&
-    !isGatewayReachable &&
-    settings.connectionMode === 'gateway' &&
-    !hasSavedMac;
+    !settings.connectMacGateDismissed &&
+    (freshUnpaired ||
+      (!isGatewayReachable &&
+        settings.connectionMode === 'gateway' &&
+        (!hasSavedMac || pickerProfiles.length > 0)));
 
   const searching =
     isSearching ||
     gatewayBootstrapPhase === 'booting' ||
     gatewayBootstrapPhase === 'searching' ||
     profileScanning;
+
+  const showMachineRows =
+    pickerProfiles.length > 0 || (profileScanResult?.foundCount ?? 0) > 0;
+
+  const onCellular = !wifiConnected;
 
   const runWifiSearch = useCallback(async () => {
     setInvalidQrHint(null);
@@ -148,6 +205,17 @@ export default function ConnectMacGate() {
     return () => clearInterval(timer);
   }, [showGate, searching, runWifiSearch]);
 
+  useEffect(() => {
+    if (!showGate) {
+      return;
+    }
+    const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
+      void handleDismiss();
+      return true;
+    });
+    return () => subscription.remove();
+  }, [handleDismiss, showGate]);
+
   const primaryTailscaleLabel =
     tailscaleDiscoveries.length > 0
       ? tailscaleDiscoveryLabel(tailscaleDiscoveries[0])
@@ -156,22 +224,46 @@ export default function ConnectMacGate() {
   return (
     <>
       {showGate ? (
-        <View style={styles.overlay} testID="connect-mac-gate">
+        <KeyboardAvoidingView
+          style={styles.overlay}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? 12 : 0}
+          testID="connect-mac-gate"
+        >
           <ScrollView
+            ref={scrollRef}
             style={styles.cardScroll}
-            contentContainerStyle={styles.cardScrollContent}
+            contentContainerStyle={[
+              styles.cardScrollContent,
+              keyboardInset > 0 ? { paddingBottom: 24 + keyboardInset } : null,
+            ]}
             keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="on-drag"
           >
             <View style={styles.card}>
-              <Text style={styles.title}>Connect your computer</Text>
+              <View style={styles.headerRow}>
+                <Text style={styles.title}>Connect your computer</Text>
+                <TouchableOpacity
+                  onPress={() => {
+                    void handleDismiss();
+                  }}
+                  accessibilityRole="button"
+                  accessibilityLabel="Not now"
+                  testID="connect-mac-gate-dismiss"
+                >
+                  <Text style={styles.dismissText}>Not now</Text>
+                </TouchableOpacity>
+              </View>
               <Text style={styles.body}>
-                Hermes on your phone talks to Hermes on your computer. Follow the steps below — we
-                search your home Wi‑Fi automatically.
+                {onCellular
+                  ? 'Hermes on your phone talks to Hermes on your computer. On cellular, use Tailscale — we also search when you are on home Wi‑Fi.'
+                  : 'Hermes on your phone talks to Hermes on your computer. Follow the steps below — we search your home Wi‑Fi automatically.'}
               </Text>
 
               <FreshUserOnboardingCard
                 profiles={gatewayProfiles}
                 tailscaleMacLabel={primaryTailscaleLabel}
+                wifiConnected={wifiConnected}
                 testID="connect-mac-onboarding-card"
               />
 
@@ -192,6 +284,21 @@ export default function ConnectMacGate() {
                 result={profileScanResult}
                 testID="connect-mac-scan-progress"
               />
+
+              {showMachineRows && pickerProfiles.length > 0 ? (
+                <View style={styles.foundBlock} testID="connect-mac-found-machines">
+                  <Text style={styles.foundHeading}>Tap a computer to connect</Text>
+                  <GatewayProfilePicker
+                    profiles={pickerProfiles}
+                    activeProfileId={activeGatewayProfile?.id ?? null}
+                    onSelect={(profileId, profile) => {
+                      void handleSelectProfile(profileId, profile);
+                    }}
+                    wifiConnected={wifiConnected}
+                    showReachabilityHints={pickerProfiles.length > 1}
+                  />
+                </View>
+              ) : null}
 
               {!searching && !profileScanResult ? (
                 <Text style={styles.statusText}>{describeBootstrapPhase(gatewayBootstrapPhase)}</Text>
@@ -233,6 +340,13 @@ export default function ConnectMacGate() {
                     autoCorrect={false}
                     keyboardType="url"
                     testID="connect-manual-input"
+                    onFocus={() => {
+                      setManualInputFocused(true);
+                      requestAnimationFrame(() => {
+                        scrollRef.current?.scrollToEnd({ animated: true });
+                      });
+                    }}
+                    onBlur={() => setManualInputFocused(false)}
                   />
                   <LoadingButton
                     label="Connect"
@@ -269,12 +383,12 @@ export default function ConnectMacGate() {
               ) : null}
 
               <Text style={styles.footnote}>
-                Need Hermes on your computer first? Use the setup guide link in Settings after you dismiss
-                this screen.
+                Need Hermes on your computer first? Open the setup guide from Settings — tap Not now
+                above to use chat first.
               </Text>
             </View>
           </ScrollView>
-        </View>
+        </KeyboardAvoidingView>
       ) : null}
 
       <PairQrScannerModal
@@ -319,15 +433,36 @@ const styles = StyleSheet.create({
     padding: 24,
     gap: 12,
   },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
   title: {
+    flex: 1,
     fontSize: 22,
     fontWeight: '900',
     color: colors.text,
     letterSpacing: 0.5,
   },
+  dismissText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.accent,
+    paddingTop: 4,
+  },
   body: {
     fontSize: 14,
     lineHeight: 20,
+    color: colors.textSecondary,
+  },
+  foundBlock: {
+    gap: 8,
+  },
+  foundHeading: {
+    fontSize: 13,
+    fontWeight: '800',
     color: colors.textSecondary,
   },
   statusText: {

@@ -19,6 +19,13 @@ type CodexCommandCenterProps = {
   onMacRetry?: () => void;
   machineName?: string;
   chatStalled?: boolean;
+  /** Auth probe failed — never show green Connected beside wrong-key. */
+  authMismatch?: boolean;
+  /**
+   * When the composer already shows RunProgressBanner, hide this duplicate RUN tile
+   * so the chat list does not lose another chunk of vertical space.
+   */
+  suppressRunTile?: boolean;
 };
 
 function connectionCopy(
@@ -28,15 +35,26 @@ function connectionCopy(
   machineName = 'Computer',
   chatStalled = false,
   healExhausted = false,
+  authMismatch = false,
 ): { label: string; detail: string; color: string } {
+  if (authMismatch) {
+    return { label: 'Not connected', detail: 'Wrong key — tap to re-pair', color: colors.error };
+  }
   if (macRetryBusy) {
-    return { label: machineName, detail: 'Reconnecting…', color: colors.warning };
+    const generic =
+      !machineName ||
+      /^(computer|your computer|computer via usb)$/i.test(machineName.trim());
+    return {
+      label: machineName,
+      detail: generic ? 'Looking for your Mac…' : 'Reconnecting…',
+      color: colors.warning,
+    };
   }
   if (state === 'demo') {
     return { label: 'Demo', detail: 'Preview', color: colors.accent };
   }
   if (macHttpReachable && chatStalled) {
-    return { label: 'Connected', detail: 'Chat stalled — tap ↑ to resend', color: colors.warning };
+    return { label: 'Connected', detail: 'Chat stalled — recovering…', color: colors.warning };
   }
   if (macHttpReachable) {
     return { label: 'Connected', detail: 'Ready', color: colors.success };
@@ -66,7 +84,14 @@ function shouldShowMacTile(state: LeashConnectionState, macHttpReachable = false
   return true;
 }
 
-function shouldShowRunTile(runProgress?: RunProgressState | null, isSending = false): boolean {
+function shouldShowRunTile(
+  runProgress?: RunProgressState | null,
+  isSending = false,
+  suppressRunTile = false,
+): boolean {
+  if (suppressRunTile) {
+    return false;
+  }
   if (isSending && (!runProgress || !runProgress.runId)) {
     return false;
   }
@@ -105,18 +130,21 @@ export default function CodexCommandCenter({
   onMacRetry,
   machineName = 'Computer',
   chatStalled = false,
+  authMismatch = false,
+  suppressRunTile = false,
 }: CodexCommandCenterProps) {
   const link = connectionCopy(
     connectionState,
-    macHttpReachable,
+    macHttpReachable && !authMismatch,
     macRetryBusy,
     machineName,
     chatStalled,
     healExhausted,
+    authMismatch,
   );
   const showMacTile =
-    shouldShowMacTile(connectionState, macHttpReachable) && !silentHealInFlight;
-  const showRunTile = shouldShowRunTile(runProgress, isSending);
+    shouldShowMacTile(connectionState, macHttpReachable && !authMismatch) && !silentHealInFlight;
+  const showRunTile = shouldShowRunTile(runProgress, isSending, suppressRunTile);
   const showApprovalsTile = pendingApprovalCount > 0;
 
   if (!showMacTile && !showRunTile && !showApprovalsTile) {

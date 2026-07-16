@@ -56,6 +56,26 @@ describe('gatewayProfiles', () => {
     expect(state.activeProfileId).toBe('mac_192_168_12_50');
   });
 
+  it('does not merge Mac Pro into mini when poisoned pair.json shares the MacBook LAN IP', () => {
+    let state = upsertDiscoveredProfile(EMPTY_GATEWAY_PROFILE_STATE, {
+      gatewayUrl: 'http://100.87.85.85:8642',
+      hostname: 'Igors-MacBook-Pro.local',
+      localIp: '192.168.68.69',
+      label: 'Igors-MacBook-Pro',
+    }, true);
+    state = upsertDiscoveredProfile(state, {
+      gatewayUrl: 'http://100.94.135.78:8642',
+      hostname: 'Igors-Mac-mini',
+      localIp: '192.168.68.69',
+      label: 'Igors-Mac-mini',
+    }, false);
+    expect(state.profiles.length).toBe(2);
+    const urls = state.profiles.map((p) => p.gatewayUrl).sort();
+    expect(urls).toEqual(['http://100.87.85.85:8642', 'http://100.94.135.78:8642'].sort());
+    expect(state.profiles.some((p) => /MacBook-Pro/i.test(p.label || p.hostname || ''))).toBe(true);
+    expect(state.profiles.some((p) => /Mac-mini/i.test(p.label || p.hostname || ''))).toBe(true);
+  });
+
   it('removes profiles and reassigns active', () => {
     let state = upsertDiscoveredProfile(EMPTY_GATEWAY_PROFILE_STATE, {
       gatewayUrl: 'http://192.168.12.208:8642',
@@ -140,6 +160,33 @@ describe('gatewayProfiles', () => {
       activeProfileId: null,
     });
     expect(profiles).toHaveLength(1);
+  });
+
+  it('hydrates generic USB loopback with sibling Mac hostname on sanitize', () => {
+    const state = sanitizeGatewayProfileState({
+      profiles: [
+        {
+          id: 'mac_usb_loopback',
+          label: 'Computer via USB',
+          gatewayUrl: 'http://127.0.0.1:8642',
+          localIp: '127.0.0.1',
+          addedAt: '2026-07-13T00:00:00.000Z',
+        },
+        {
+          id: 'mac_tail',
+          label: 'Igors-MacBook-Pro',
+          gatewayUrl: 'http://100.87.85.85:8642',
+          hostname: 'Igors-MacBook-Pro.local',
+          addedAt: '2026-07-13T00:00:00.000Z',
+        },
+      ],
+      activeProfileId: 'mac_usb_loopback',
+    });
+    expect(state.profiles).toHaveLength(1);
+    expect(profileDisplayName(state.profiles[0])).toBe('Igors-MacBook-Pro');
+    expect(state.profiles[0].gatewayUrl).toBe('http://100.87.85.85:8642');
+    expect(state.activeProfileId).toBe(state.profiles[0].id);
+    expect(state.profiles.some((p) => p.id === 'mac_usb_loopback')).toBe(false);
   });
 
   it('migrates legacy single gateway into first profile', () => {
@@ -506,7 +553,7 @@ describe('gatewayProfiles', () => {
     expect(state.activeProfileId).toBe('mac_igors_macbook_pro');
   });
 
-  it('resolvePreferredActiveProfileId keeps last-used then prefers USB', () => {
+  it('resolvePreferredActiveProfileId keeps last-used; default skips USB; preferUsb opt-in', () => {
     let state = upsertDiscoveredProfile(EMPTY_GATEWAY_PROFILE_STATE, {
       gatewayUrl: 'http://100.94.135.78:8642',
       label: 'Igors-MacBook-Pro',
@@ -520,6 +567,9 @@ describe('gatewayProfiles', () => {
 
     const noActive = { ...state, activeProfileId: null };
     const usbId = state.profiles.find((p) => p.gatewayUrl.includes('127.0.0.1'))?.id;
+    const macbookId = state.profiles.find((p) => p.label === 'Igors-MacBook-Pro')?.id;
+    // Default: never auto-steal to USB over a paired Tailscale/LAN Mac
+    expect(resolvePreferredActiveProfileId(noActive)).toBe(macbookId);
     expect(resolvePreferredActiveProfileId(noActive, { preferUsb: true })).toBe(usbId);
   });
 

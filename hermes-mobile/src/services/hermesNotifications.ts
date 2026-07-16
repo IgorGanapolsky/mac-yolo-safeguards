@@ -2,7 +2,11 @@ import { isRunningInExpoGo } from 'expo';
 import { AppState, Platform } from 'react-native';
 import type { RunProgressState } from '../types/chatDisplay';
 import type { PendingApproval } from '../types/gateway';
-import { formatRunProgressLabel } from '../utils/chatStreamEvents';
+import {
+  runCompletedNotificationBody,
+  runProgressNotificationBody,
+  runProgressNotificationTitleFromState,
+} from '../utils/runNotificationCopy';
 import {
   approvalNotificationIdentifier,
   approvalNotificationTitle,
@@ -15,6 +19,10 @@ import {
   shouldScheduleRunCompletedNotification,
   shouldScheduleRunProgressNotification,
 } from '../utils/smartNotificationPolicy';
+import {
+  cappedBadgeCount,
+  pendingApprovalsSignature,
+} from '../utils/pendingApprovalsCap';
 
 type NotificationModule = typeof import('expo-notifications');
 type NotificationContentInput = import('expo-notifications').NotificationContentInput;
@@ -46,6 +54,11 @@ const NOTIFICATION_COLOR = '#6366F1';
 let lastRunStatusAt = 0;
 /** Hard ceiling on shade updates — never heads-up; keep shade quiet too. */
 export const RUN_STATUS_MIN_INTERVAL_MS = 15_000;
+/** Do not re-alert approval summary on every relay poll tick. */
+export const APPROVALS_SUMMARY_MIN_INTERVAL_MS = 60_000;
+let lastApprovalsSummarySignature = '';
+let lastApprovalsSummaryAt = 0;
+let lastApprovalsSummaryCount = 0;
 let stallNotificationArmed = false;
 let foregroundRunCleanupSub: { remove: () => void } | null = null;
 
@@ -127,13 +140,11 @@ export function approvalNotificationSubtitle(pending: PendingApproval): string {
 }
 
 export function runProgressNotificationTitle(progress: RunProgressState): string {
-  if (progress.phase === 'approval') {
-    return 'Waiting for your approval';
-  }
-  if (progress.phase === 'streaming') {
-    return 'Hermes is responding';
-  }
-  return 'Hermes is working';
+  return runProgressNotificationTitleFromState({
+    phase: progress.phase,
+    detail: progress.detail,
+    replySnippet: progress.replyPreview,
+  });
 }
 
 export function shouldDismissRunNotificationsForAppState(appState: string): boolean {
@@ -366,7 +377,7 @@ export async function syncHermesNotificationBadge(count: number): Promise<void> 
     return;
   }
   try {
-    await Notifications.setBadgeCountAsync(Math.max(0, count));
+    await Notifications.setBadgeCountAsync(cappedBadgeCount(count));
   } catch {
     /* badge unsupported on some Android launchers */
   }
@@ -401,7 +412,7 @@ export async function scheduleApprovalNotification(
   notifiedApprovalIds.add(pending.actionId);
 
   const sessionId = pending.sessionKey?.trim() || undefined;
-  const badge = options?.badgeCount ?? 1;
+  const badge = cappedBadgeCount(options?.badgeCount ?? 1);
 
   await Notifications.scheduleNotificationAsync({
     identifier: approvalNotificationIdentifier(pending.actionId),
@@ -436,9 +447,11 @@ export async function scheduleApprovalNotification(
 
 export async function scheduleApprovalsSummaryNotification(
   pending: PendingApproval[],
-  options?: { badgeCount?: number; categoryEnabled?: boolean },
+  options?: { badgeCount?: number; categoryEnabled?: boolean; force?: boolean },
 ): Promise<void> {
   if (pending.length < 2) {
+    lastApprovalsSummarySignature = '';
+    lastApprovalsSummaryCount = 0;
     await dismissApprovalsSummaryNotification();
     return;
   }
@@ -452,6 +465,18 @@ export async function scheduleApprovalsSummaryNotification(
     return;
   }
 
+  const signature = pendingApprovalsSignature(pending);
+  const now = Date.now();
+  const sameSet = signature === lastApprovalsSummarySignature;
+  if (
+    !options?.force &&
+    sameSet &&
+    now - lastApprovalsSummaryAt < APPROVALS_SUMMARY_MIN_INTERVAL_MS
+  ) {
+    // Relay poll / WS reconnect must not re-fire the same summary every tick.
+    return;
+  }
+
   const granted = await requestHermesNotificationPermission();
   if (!granted) {
     return;
@@ -459,24 +484,38 @@ export async function scheduleApprovalsSummaryNotification(
 
   const latest = pending[0];
   const sessionId = latest.sessionKey?.trim() || undefined;
-  const badge = options?.badgeCount ?? pending.length;
+  const badge = cappedBadgeCount(options?.badgeCount ?? pending.length);
+  const countGrew = pending.length > lastApprovalsSummaryCount;
+  const isNewSet = !sameSet;
+  // Only alert when the pending set actually changed or grew — never on poll refresh.
+  const shouldAlert = options?.force || isNewSet || countGrew;
+  const titleCount =
+    pending.length > 99 ? '99+' : String(pending.length);
+
+  lastApprovalsSummarySignature = signature;
+  lastApprovalsSummaryAt = now;
+  lastApprovalsSummaryCount = pending.length;
 
   await Notifications.scheduleNotificationAsync({
     identifier: APPROVALS_SUMMARY_NOTIFICATION_ID,
     content: {
-      title: `${pending.length} approvals waiting`,
+      title: `${titleCount} approvals waiting`,
       subtitle: approvalNotificationSubtitle(latest),
       body: approvalsSummaryBody(pending),
       categoryIdentifier: CATEGORY_APPROVAL,
-      sound: 'default',
+      ...(shouldAlert ? { sound: 'default' as const } : {}),
       badge,
       threadIdentifier: THREAD_APPROVALS,
-      ...(Platform.OS === 'ios' ? { interruptionLevel: 'timeSensitive' as const } : {}),
+      ...(Platform.OS === 'ios' && shouldAlert
+        ? { interruptionLevel: 'timeSensitive' as const }
+        : {}),
       ...(Platform.OS === 'android'
         ? {
             channelId: CHANNEL_APPROVALS,
             color: NOTIFICATION_COLOR,
-            priority: Notifications.AndroidNotificationPriority.HIGH,
+            priority: shouldAlert
+              ? Notifications.AndroidNotificationPriority.HIGH
+              : Notifications.AndroidNotificationPriority.LOW,
           }
         : {}),
       data: {
@@ -532,25 +571,36 @@ export async function syncSmartApprovalNotifications(
     }
   }
 
-  const badge = options?.badgeCount ?? pending.length;
+  const badge = cappedBadgeCount(options?.badgeCount ?? pending.length);
   if (pending.length >= 2) {
     await scheduleApprovalsSummaryNotification(pending, {
       badgeCount: badge,
       categoryEnabled: options?.categoryEnabled,
     });
   } else {
+    lastApprovalsSummarySignature = '';
+    lastApprovalsSummaryCount = 0;
     await dismissApprovalsSummaryNotification();
   }
 }
 
 export function resetApprovalNotificationState(): void {
   notifiedApprovalIds.clear();
+  lastApprovalsSummarySignature = '';
+  lastApprovalsSummaryAt = 0;
+  lastApprovalsSummaryCount = 0;
 }
 
 /** Throttled live-activity style notification for background run progress. */
 export async function scheduleRunProgressNotification(
   progress: RunProgressState,
-  options?: { runId?: string; sessionId?: string; force?: boolean; categoryEnabled?: boolean },
+  options?: {
+    runId?: string;
+    sessionId?: string;
+    force?: boolean;
+    categoryEnabled?: boolean;
+    replySnippet?: string;
+  },
 ): Promise<void> {
   if (!shouldScheduleRunProgressNotification(AppState.currentState, options?.categoryEnabled ?? true)) {
     return;
@@ -575,16 +625,24 @@ export async function scheduleRunProgressNotification(
   }
   lastRunStatusAt = now;
 
-  const body = formatRunProgressLabel(progress)
-    .replace(/^⌛\s*Working\s*—\s*/i, '')
-    .slice(0, 180);
+  const replySnippet = options?.replySnippet ?? progress.replyPreview;
+  const body = runProgressNotificationBody({
+    phase: progress.phase,
+    detail: progress.detail,
+    replySnippet,
+  });
+  const title = runProgressNotificationTitleFromState({
+    phase: progress.phase,
+    detail: progress.detail,
+    replySnippet,
+  });
 
   // Same identifier → in-place update. Do not cancel+recreate (retriggers heads-up).
   await Notifications.scheduleNotificationAsync({
     identifier: RUN_STATUS_NOTIFICATION_ID,
     content: {
-      title: runProgressNotificationTitle(progress),
-      subtitle: 'Computer · live status',
+      title,
+      subtitle: 'Computer',
       body,
       categoryIdentifier: CATEGORY_RUN,
       threadIdentifier: THREAD_RUNS,
@@ -613,7 +671,13 @@ export async function scheduleRunProgressNotification(
 
 export async function scheduleRunCompletedNotification(
   detail: string,
-  options?: { success?: boolean; runId?: string; sessionId?: string; categoryEnabled?: boolean },
+  options?: {
+    success?: boolean;
+    runId?: string;
+    sessionId?: string;
+    categoryEnabled?: boolean;
+    replySnippet?: string;
+  },
 ): Promise<void> {
   if (!shouldScheduleRunCompletedNotification(AppState.currentState, options?.categoryEnabled ?? true)) {
     return;
@@ -631,15 +695,25 @@ export async function scheduleRunCompletedNotification(
 
   await clearRunProgressNotification();
 
-  const trimmed = detail.trim().slice(0, 180);
   const success = options?.success ?? true;
+  const body = runCompletedNotificationBody(detail, {
+    success,
+    replySnippet: options?.replySnippet,
+  });
+  const hasReplyText =
+    Boolean(options?.replySnippet?.trim()) ||
+    (Boolean(detail?.trim()) &&
+      !/reply ready/i.test(detail) &&
+      detail.trim().length > 24 &&
+      success);
+  const title = success ? (hasReplyText ? 'Hermes replied' : 'Hermes finished') : 'Hermes run stopped';
 
   await Notifications.scheduleNotificationAsync({
     identifier: RUN_COMPLETED_NOTIFICATION_ID,
     content: {
-      title: success ? 'Hermes finished' : 'Hermes run stopped',
+      title,
       subtitle: success ? 'Computer' : 'Check chat for details',
-      body: trimmed || (success ? 'Background task completed.' : 'The run ended with an error.'),
+      body,
       categoryIdentifier: CATEGORY_RUN,
       threadIdentifier: THREAD_RUNS,
       ...(Platform.OS === 'ios'

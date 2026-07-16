@@ -1,11 +1,19 @@
 import type { GatewayProfile } from '../types/gatewayProfile';
-import { isInvalidGatewayProfile } from '../services/gatewayProfiles';
-import { hasOnlyLoopbackProfiles } from './gatewayProfilePicker';
+import {
+  isGenericMachineLabel,
+  isInvalidGatewayProfile,
+} from '../services/gatewayProfiles';
+import {
+  hasNonLoopbackSavedProfile,
+  hasOnlyLoopbackProfiles,
+} from './gatewayProfilePicker';
+import { isTailscaleGatewayUrl } from './tailscaleHosts';
 import type { ConnectionHealSnapshot } from './connectionErrorPolicy';
 import {
   CONNECTION_HEAL_DURATION_MS,
   CONNECTION_HEAL_EXHAUSTED_AFTER,
 } from './connectionErrorPolicy';
+import { connectionCopyFromPrediction, reachabilityModel } from './onDeviceDecisionLayer';
 
 export type FreshUserOnboardingStep = {
   step: number;
@@ -13,8 +21,26 @@ export type FreshUserOnboardingStep = {
   body: string;
 };
 
+/**
+ * True when the user has a real saved Mac (Tailscale/LAN), or a named USB row from a
+ * prior live cable. Synthetic generic `mac_usb_loopback` alone does NOT count — that was
+ * the fresh-install "Reconnecting…" bug.
+ */
 export function hasValidSavedComputer(profiles: GatewayProfile[]): boolean {
-  return profiles.some((profile) => !isInvalidGatewayProfile(profile));
+  if (hasNonLoopbackSavedProfile(profiles)) {
+    return true;
+  }
+  // Named USB from a prior live cable identity (hostname set) counts as prior connection.
+  return profiles.some((profile) => {
+    if (isInvalidGatewayProfile(profile)) {
+      return false;
+    }
+    const host = profile.hostname?.replace(/\.local$/i, '').trim();
+    if (!host || isGenericMachineLabel(host)) {
+      return false;
+    }
+    return !/^computer via usb$/i.test(host);
+  });
 }
 
 export function isFreshUserUnpaired(profiles: GatewayProfile[]): boolean {
@@ -50,12 +76,78 @@ export function freshUserOnboardingHeading(freshUser: boolean): string {
   return freshUser ? 'Connect your computer' : 'Still looking for your computer';
 }
 
+/** True when the active (or only saved) computer uses a Tailscale route — not home Wi‑Fi. */
+export function isOnTailscaleRoute(
+  profiles: GatewayProfile[],
+  activeProfileId?: string | null,
+): boolean {
+  const active = activeProfileId
+    ? profiles.find((profile) => profile.id === activeProfileId)
+    : undefined;
+  if (active && isTailscaleGatewayUrl(active.gatewayUrl)) {
+    return true;
+  }
+  return profiles.some(
+    (profile) =>
+      !isInvalidGatewayProfile(profile) && isTailscaleGatewayUrl(profile.gatewayUrl),
+  );
+}
+
 export function freshUserOnboardingSteps(input: {
   tailscaleMacLabel?: string;
+  wifiConnected?: boolean;
+  onTailscaleRoute?: boolean;
 }): FreshUserOnboardingStep[] {
+  if (input.onTailscaleRoute) {
+    const macLabel = input.tailscaleMacLabel ?? 'your computer';
+    return [
+      {
+        step: 1,
+        title: 'Tailscale connected',
+        body: 'Open the Tailscale app on your phone and confirm it shows Connected.',
+      },
+      {
+        step: 2,
+        title: 'Hermes running on your Mac',
+        body: `Start Hermes on ${macLabel} and leave it running.`,
+      },
+      {
+        step: 3,
+        title: 'Find your computer',
+        body: 'Tap Find computers below. We search your Tailscale network for Hermes.',
+      },
+      {
+        step: 4,
+        title: 'Check the address',
+        body: `In Tailscale, ${macLabel} should show a 100.x address. Add it in Settings if Find computers does not work.`,
+      },
+    ];
+  }
+
+  const onCellular = input.wifiConnected === false;
   const awayBody = input.tailscaleMacLabel
     ? `Tap Add ${input.tailscaleMacLabel} below — works on cellular or any Wi‑Fi when Tailscale is on.`
     : 'Install Tailscale on your phone and computer. An Add [computer name] button appears here when we find it.';
+
+  if (onCellular) {
+    return [
+      {
+        step: 1,
+        title: 'Use Tailscale from cellular',
+        body: awayBody,
+      },
+      {
+        step: 2,
+        title: 'Open Hermes on your computer',
+        body: 'Start Hermes on your computer and leave it running.',
+      },
+      {
+        step: 3,
+        title: 'Find your computer',
+        body: 'Tap Find computers below, or tap a computer in the list when it appears.',
+      },
+    ];
+  }
 
   return [
     {
@@ -124,13 +216,16 @@ export function freshUserConnectionBody(input: {
   cellularBlocksDirect: boolean;
   showUsbFix: boolean;
   tailscaleSearching?: boolean;
+  onTailscaleRoute?: boolean;
   usbHostMismatchMessage?: string;
 }): string {
   if (input.usbHostMismatchMessage) {
     return input.usbHostMismatchMessage;
   }
   if (input.searching) {
-    return 'Searching your home Wi‑Fi for Hermes on your computer…';
+    return input.onTailscaleRoute
+      ? 'Searching your Tailscale network for Hermes on your computer…'
+      : 'Searching your home Wi‑Fi for Hermes on your computer…';
   }
   if (input.healInFlight && !input.healExhausted && !input.freshUser) {
     const attempt = Math.max(0, input.healAttempt ?? 0);
@@ -159,9 +254,22 @@ export function freshUserConnectionBody(input: {
     return 'Follow the steps below — no technical setup on your phone.';
   }
   if (input.macLabel) {
-    return `${input.macLabel} is saved but not reachable right now. Follow the steps below or pick another computer.`;
+    return connectionCopyFromPrediction(
+      reachabilityModel.predict({
+        id: 'saved-computer',
+        transport: input.onTailscaleRoute ? 'tailscale' : 'unknown',
+        reachable: false,
+      }),
+      input.macLabel,
+    ).detail;
   }
-  return 'Your computer is not reachable on this network. Follow the steps below.';
+  return connectionCopyFromPrediction(
+    reachabilityModel.predict({
+      id: 'saved-computer',
+      transport: 'unknown',
+      reachable: false,
+    }),
+  ).detail;
 }
 
 /** Documented heal attempt budget — keep in sync with CONNECTION_HEAL_EXHAUSTED_AFTER. */

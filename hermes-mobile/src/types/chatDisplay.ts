@@ -27,5 +27,10 @@ export interface RunProgressState {
   streamUsageLive?: boolean;
   /** Last detail/phase change — token-only ticks must not reset idle stall detection. */
   lastProgressAtMs?: number;
+  /**
+   * Short assistant text for reply-ready banner + lock-screen notifications.
+   * Prefer this over elapsed-time status labels when present.
+   */
+  replyPreview?: string;
 }
 

@@ -1,0 +1,36 @@
+{
+  "files": [
+    {
+      "path": "AGENTS.md",
+      "description": "Repo-wide agent directives: multi-agent locks, honesty protocol, Hermes real-users bar, verification contract, Greptile context"
+    },
+    {
+      "path": "hermes-mobile/AGENTS.md",
+      "description": "Mobile-only standing orders: fresh-user onboarding, E2E proof, pair script, chat composer probe string"
+    },
+    {
+      "path": "hermes-mobile/docs/REAL-USER-READINESS.md",
+      "description": "Real-user readiness bar for connect/onboarding ship claims"
+    },
+    {
+      "path": "hermes-mobile/docs/PREVENT-RECURRENCE-JULY-2026.md",
+      "description": "July 2026 recurrence playbook — wrong-key, USB hijack, demo=1, ASC, ship gates"
+    },
+    {
+      "path": "hermes-mobile/docs/OTA_UPDATES.md",
+      "description": "EAS OTA vs native rebuild contract"
+    },
+    {
+      "path": "hermes-mobile/docs/TAILSCALE-MAC-DISCOVERY.md",
+      "description": "Tailscale Mac discovery for off-Wi-Fi connect"
+    },
+    {
+      "path": "hermes-mobile/docs/PRODUCTION-PHONE-ONLY.md",
+      "description": "Production phone install policy — no Metro on device"
+    },
+    {
+      "path": "hermes-mobile/docs/GREPTILE-CODE-REVIEW.md",
+      "description": "How agents use Greptile reviews on Hermes Mobile PRs"
+    }
+  ]
+}

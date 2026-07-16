@@ -1,0 +1,80 @@
+# Snowflake Security Audit — Hermes fleet (2026-07-14)
+
+**Method:** 106-agent deep-research workflow, all findings 3-0 adversarially verified against primary Snowflake docs fetched live July 2026. Empirical checks run against the live account (pnyoqfm-jp66475).
+
+## TL;DR
+
+The audit's highest-severity finding is verified against primary Snowflake docs: running the Hermes nightly PAT job as ACCOUNTADMIN contradicts two explicit Snowflake recommendations ("use a role other than ACCOUNTADMIN for automated scripts" and "do not use ACCOUNTADMIN to create objects"), and Snowflake's PAT best practice is to restrict each token to a specific low-privilege role — an unrestricted person-user PAT carries all of the user's roles, including ACCOUNTADMIN. The correct remediation is fully documented and scriptable: create a minimal HERMES_INGEST role (stage READ+WRITE, INSERT on target tables, USAGE on db/schema/warehouse — Cortex functions already work for any role via the PUBLIC-granted USE AI FUNCTIONS privilege and SNOWFLAKE.CORTEX_USER database role), mint the PAT with ROLE_RESTRICTION to that role, and rotate popup-free via ALTER USER ... ROTATE PROGRAMMATIC ACCESS TOKEN with a grace window — noting rotation cannot be run from a session authenticated by that same user's PAT, so the rotation job needs key-pair auth or a second admin user. The 15-day expiry is simply the unmodified default (configurable 1–365 days via authentication policy, immutable after generation), and PAT authentication requires the user be subject to a network policy (mandatory for service users; relaxable for person users only via NETWORK_POLICY_EVALUATION). On cost, Cortex functions bill per token (credits per million, rates in the Service Consumption Table, not the docs page), with both input and output tokens billable for SUMMARIZE/COMPLETE and hidden internal prompts inflating billed tokens for SENTIMENT/SUMMARIZE. Claims about warehouse sizing/AUTO_SUSPEND specifics, Snowpipe-vs-PUT+COPY economics, and stage OVERWRITE storage behavior did not survive verification and remain open.
+
+## What was WRONG (verified)
+
+1. **PAT ran as ACCOUNTADMIN** — violates two explicit Snowflake rules: "use a role other than ACCOUNTADMIN for automated scripts" and "do not use ACCOUNTADMIN to create objects." A person-user PAT with no role restriction inherits ALL the user's roles, incl. ACCOUNTADMIN.
+2. **No role restriction on the token** — should be pinned to a low-priv role.
+3. Warehouse config pointed at COMPUTE_WH (300s auto-suspend) when a purpose-built HERMES_XS (60s) already existed.
+
+## What was FINE
+
+- A network policy exists (ALLOW_ALL_IPS) — PATs require one; present. (Tighten to Tailscale/CGNAT ranges later.)
+- Cost is negligible: 0.79 credits / 7 days (~$2); Cortex spend below metering threshold.
+- Token file perms 0600 on both Macs, not in git. No-login rule honored.
+
+## FIXED tonight (verified end-to-end)
+
+Created least-privilege path and proved it does the full ingest job WITHOUT ACCOUNTADMIN and WITHOUT any login:
+- Role `HERMES_INGEST`: stage READ+WRITE, table CRUD, CREATE TABLE/STAGE/VIEW, warehouse USAGE. Cortex works via the PUBLIC-granted CORTEX_USER role (zero extra grants — verified SENTIMENT returned 0.765).
+- Service user `HERMES_SVC` (TYPE=SERVICE, DEFAULT_ROLE=HERMES_INGEST, DEFAULT_WAREHOUSE=HERMES_XS).
+- **Key-pair auth** (RSA 2048, `~/.snowflake/hermes_svc_key.p8` 0600 on both Macs) — connection `hermes-svc`. Chosen over a PAT because it's the recommended service-account auth: private key stays local, no bearer token to leak, no rotation-expiry cliff. Research flagged key-pair as preferred for exactly this.
+- Proven under least privilege: PUT to stage = UPLOADED, INSERT to table = ok, Cortex = 0.765. All three, no ACCOUNTADMIN, no browser.
+
+## REMAINING (one-line cutover — deliberately NOT done blind at midnight)
+
+The live nightly upload still invokes `-c hermes-pat` (ACCOUNTADMIN). It keeps working, so nothing is broken. To cut over: find the job that runs `snow sql ... PUT ... @HERMES.PUBLIC.hermes_stage ... -c hermes-pat` and change `-c hermes-pat` -> `-c hermes-svc`. Then verify one nightly run, then revoke the old ACCOUNTADMIN PAT:
+```sql
+-- after confirming hermes-svc nightly run succeeds:
+ALTER USER IGORGANAPOLSKY REMOVE PROGRAMMATIC ACCESS TOKEN <old_token_name>;
+```
+
+## Verified findings (full)
+
+### [high] FIX FIRST — Running the nightly automated PUT/COPY job under an ACCOUNTADMIN PAT directly violates documented Snowflake best practice: Snowflake explicitly recommends a role other than ACCOUNTADMIN for automated scripts, and states ACCOUNTADMIN should not be used to create objects — so the HERMES database, stage, and derived tables minted under ACCOUNTADMIN should be re-owned by a lower-privilege 
+*Evidence:* Live-fetched primary docs (July 2026) state verbatim: "Snowflake recommends using a role other than ACCOUNTADMIN for automated scripts" and "[ACCOUNTADMIN] should not be used to create objects in your account, unless you absolutely need these objects to have the highest level of secure access." Gateway traffic logs do not meet that exception. Remediation SQL: USE ROLE ACCOUNTADMIN; CREATE ROLE IF NOT EXISTS HERMES_INGEST; GRANT OWNERSHIP ON DATABASE HERMES TO ROLE HERMES_INGEST COPY CURRENT GRANTS; (or keep ownership under SYSADMIN and grant the minimal privileges in the least-privilege findin
+*Sources:* https://docs.snowflake.com/en/user-guide/security-access-control-considerations
+
+### [high] PATs should be minted with a ROLE_RESTRICTION to a specific low-privilege role. This is required for service users (TYPE=SERVICE/LEGACY_SERVICE) but only optional for person users — so Igor's person-user PAT without a role restriction is evaluated against ALL his primary and secondary roles, including ACCOUNTADMIN. Administrators can additionally block ACCOUNTADMIN/SYSADMIN from ever being a PAT r
+*Evidence:* Docs: "Restrict the use of the token to a specific role when generating the token"; "By default, this parameter is required for service users ... and optional for person users"; if ROLE_RESTRICTION is omitted, "privileges are evaluated against your primary and secondary roles." Docs name ACCOUNTADMIN as the canonical role to block via BLOCKED_ROLES_LIST. Recommended: create a dedicated SERVICE user for the fleet — CREATE USER HERMES_SVC TYPE=SERVICE DEFAULT_ROLE=HERMES_INGEST; GRANT ROLE HERMES_INGEST TO USER HERMES_SVC; ALTER USER HERMES_SVC ADD PROGRAMMATIC ACCESS TOKEN hermes_coco ROLE_REST
+*Sources:* https://docs.snowflake.com/en/user-guide/programmatic-access-tokens, https://docs.snowflake.com/en/sql-reference/sql/alter-user-add-programmatic-access-token
+
+### [high] Snowflake requires a network policy for PAT authentication: service users cannot even generate or use a PAT without being subject to a network policy, and person users must be subject to one to authenticate with a PAT unless an authentication policy's NETWORK_POLICY_EVALUATION setting (default ENFORCED_REQUIRED) relaxes it. A MINS_TO_BYPASS_NETWORK_POLICY_REQUIREMENT parameter (1-1440 min) tempora
+*Evidence:* Docs verbatim: "You can only generate or use a token if the user is subject to a network policy" (service users); person users "must be subject to a network policy to authenticate with this token." NETWORK_POLICY_EVALUATION values ENFORCED_REQUIRED (default) / ENFORCED_NOT_REQUIRED / NOT_ENFORCED confirmed current via 2026_02 behavior-change bundle (bcr-2191). "Setting MINS_TO_BYPASS_NETWORK_POLICY_REQUIREMENT does not allow users to bypass the network policy itself." Since the current setup authenticates successfully, either a network policy already exists on the user or an authentication pol
+*Sources:* https://docs.snowflake.com/en/user-guide/programmatic-access-tokens, https://docs.snowflake.com/en/sql-reference/sql/alter-user-add-programmatic-access-token
+
+### [high] The 15-day PAT expiry is simply the unmodified default, not a hard limit: DAYS_TO_EXPIRY defaults to 15 and can be set 1 up to 365 days (max governed by DEFAULT_EXPIRY_IN_DAYS / MAX_EXPIRY_IN_DAYS in an authentication policy). Expiration cannot be changed after generation — only revoke-and-reissue or rotate — and expired tokens are deleted after seven days.
+*Evidence:* Docs: "By default, a programmatic access token expires after 15 days"; DAYS_TO_EXPIRY "Default: 15", range 1 to the maximum expiration time (up to 365 via authentication policy); "After you generate the token, you cannot change the expiration time"; "After seven days, expired programmatic access tokens are deleted." Fix: mint the next token with DAYS_TO_EXPIRY = 90 (or raise the policy max) to cut rotation frequency: ALTER USER HERMES_SVC ADD PROGRAMMATIC ACCESS TOKEN ... DAYS_TO_EXPIRY = 90.
+*Sources:* https://docs.snowflake.com/en/user-guide/programmatic-access-tokens, https://docs.snowflake.com/en/sql-reference/sql/alter-user-add-programmatic-access-token
+
+### [high] PAT rotation is fully scriptable with zero downtime and no login popups: ALTER USER ... ROTATE PROGRAMMATIC ACCESS TOKEN returns a new secret while the old one stays valid for a grace period (EXPIRE_ROTATED_TOKEN_AFTER_HOURS, default 24h, range 0 to hours remaining; 0 = immediate expiry). Critical constraint: rotation CANNOT be executed in a session authenticated with a PAT for that same user — so
+*Evidence:* Docs: rotation "generates a new token secret with an extended expiration time"; EXPIRE_ROTATED_TOKEN_AFTER_HOURS default 24, settable to 0; "You cannot rotate a programmatic access token in a session where you used a programmatic access token for the same user for authentication." AWS Secrets Manager's official Snowflake PAT rotation integration uses exactly this pattern via key-pair auth. Recommended rotation script (run under key-pair auth): ALTER USER HERMES_SVC ROTATE PROGRAMMATIC ACCESS TOKEN hermes_coco EXPIRE_ROTATED_TOKEN_AFTER_HOURS = 24; then atomically overwrite ~/.snowflake/hermes_
+*Sources:* https://docs.snowflake.com/en/sql-reference/sql/alter-user-rotate-programmatic-access-token, https://docs.snowflake.com/en/user-guide/programmatic-access-tokens
+
+### [high] The complete minimal-grant set for a least-privilege HERMES_INGEST role that can PUT to the stage, COPY into TRAFFIC_RAW, and maintain derived tables is fully documented: internal-stage READ (enables COPY INTO <table> reads) + WRITE (enables PUT/REMOVE; READ must be granted before or with WRITE, and READ/WRITE apply only to internal stages), INSERT on target tables (a plain grantable privilege — n
+*Evidence:* Docs: WRITE "enables performing any operations that require writing to a stage (file staging commands and COPY INTO <location>)"; READ enables "file staging commands and COPY INTO <table>"; "to grant the WRITE privilege on an internal stage, the READ privilege must first be granted"; INSERT is listed in the grantable table-privilege grammar. Concrete SQL: CREATE ROLE IF NOT EXISTS HERMES_INGEST; GRANT USAGE ON DATABASE HERMES TO ROLE HERMES_INGEST; GRANT USAGE ON SCHEMA HERMES.PUBLIC TO ROLE HERMES_INGEST; GRANT READ, WRITE ON STAGE HERMES.PUBLIC.HERMES_STAGE TO ROLE HERMES_INGEST; GRANT INSER
+*Sources:* https://docs.snowflake.com/en/user-guide/security-access-control-privileges, https://docs.snowflake.com/en/sql-reference/sql/grant-privilege
+
+### [high] Cortex AI functions do NOT justify ACCOUNTADMIN: calling SUMMARIZE/SENTIMENT/COMPLETE requires only (a) the USE AI FUNCTIONS account-level privilege (or per-function USE AI FUNCTION <name>) and (b) the SNOWFLAKE.CORTEX_USER or SNOWFLAKE.AI_FUNCTIONS_USER database role — and BOTH are granted to PUBLIC by default, so the new minimal ingest role can already call Cortex with zero extra grants. ACCOUNT
+*Evidence:* Docs verbatim: "Your users need both the USE AI FUNCTIONS account-level privilege ... and one of the CORTEX_USER or AI_FUNCTIONS_USER database roles"; "By default, the USE AI FUNCTIONS privilege is granted to the PUBLIC role"; "By default, the CORTEX_USER role is granted to the PUBLIC role"; "You must use the ACCOUNTADMIN role to manage the USE AI FUNCTIONS account-level privilege"; "you can revoke access from the PUBLIC role and grant access to specific roles." The USE AI FUNCTIONS privilege model is current — introduced in a 2026-02-20 release note. Optional tightening SQL: REVOKE DATABASE R
+*Sources:* https://docs.snowflake.com/en/user-guide/snowflake-cortex/aisql-privileges-and-access, https://docs.snowflake.com/en/sql-reference/snowflake-db-roles, https://docs.snowflake.com/en/sql-reference/sql/grant-privilege
+
+### [high] Cortex cost model (verified structure, not numeric rates): COMPLETE/SUMMARIZE/SENTIMENT bill compute per tokens processed at rates listed in credits per million tokens in the Snowflake Service Consumption Table (external PDF — the docs page itself lists no per-model numbers). For generative functions (AI_COMPLETE, SUMMARIZE, etc.) BOTH input and output tokens are billable, and SUMMARIZE/SENTIMENT 
+*Evidence:* Docs verbatim: "Snowflake Cortex AI functions incur compute cost based on the number of tokens processed"; "Refer to the Snowflake Service Consumption Table for each function's cost in credits per million tokens"; "both input and output tokens are billable" for text-generating functions; "AI_CLASSIFY, ... SUMMARIZE, TRANSLATE, ... ENTITY_SENTIMENT, and SENTIMENT add a prompt to the input text ... the billed token count is higher than the number of tokens in the text you provide." Verifiers cross-checked that numeric per-model rates live only in the Consumption Table PDF (e.g., third-party sour
+*Sources:* https://docs.snowflake.com/en/user-guide/snowflake-cortex/aisql-cost, https://www.snowflake.com/legal-files/CreditConsumptionTable.pdf
+
+## Caveats / not covered
+
+All 8 findings rest on primary Snowflake documentation fetched live in July 2026 with unanimous 3-0 adversarial votes, so confidence is high on the auth/security/Cortex-access/billing-structure dimensions. However, significant parts of the original research question were NOT covered by surviving claims: (1) no verified claims on COMPUTE_WH default size, AUTO_SUSPEND tuning, or warehouse cost for tiny nightly loads; (2) no verified claims on nightly PUT+COPY vs Snowpipe/serverless economics, incremental/append-only upload strategies, or the residential-uplink congestion question; (3) no verified claims on stage storage costs of repeated OVERWRITE of the 319MB gz file or time-travel/fail-safe behavior for stages vs tables — recommendations in those areas would be speculative and are omitted. Numeric Cortex per-model credit rates were deliberately not asserted because they live in the external Service Consumption Table PDF and change over time. Time-sensitivity: the PAT feature set is actively evolving (USE AI FUNCTIONS privilege shipped Feb 2026; NETWORK_POLICY_EVALUATION arrived via a 2026_02 behavior-change bundle), so defaults like ENFORCED_REQUIRED may differ on accounts pinned t
+
+## Open (unverified this pass)
+
+- What are the current per-model credit rates (credits per million tokens) in the Service Consumption Table for the exact models Hermes uses via SUMMARIZE/SENTIMENT/COMPLETE, and what does the ~11k-rows/night workload actu
+- Is nightly PUT+COPY still the right ingest shape versus Snowpipe auto-ingest or Snowpipe Streaming for sub-GB daily logs over a congested residential uplink — and can the pipeline switch to append-only gz slices instead 
+- What are COMPUTE_WH's actual size and AUTO_SUSPEND settings on this account, and would an XS warehouse with AUTO_SUSPEND=60 (or serverless tasks) materially cut the nightly-load bill?
+- Is the Hermes user currently subject to a network policy, or is an authentication policy relaxing PAT enforcement (NETWORK_POLICY_EVALUATION) — and what IP ranges should a policy pin given T-Mobile CGNAT and Tailscale on

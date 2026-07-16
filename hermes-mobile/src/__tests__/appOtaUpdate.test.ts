@@ -54,4 +54,34 @@ describe('appOtaUpdate', () => {
       message: 'App is up to date.',
     });
   });
+
+  it('returns error when update check hangs past timeout', async () => {
+    jest.useFakeTimers();
+    (Updates.checkForUpdateAsync as jest.Mock).mockImplementation(
+      () => new Promise(() => {}),
+    );
+
+    const pending = checkForAppUpdate();
+    await jest.advanceTimersByTimeAsync(30_000);
+    await expect(pending).resolves.toEqual({
+      status: 'error',
+      message: 'Update check timed out after 30s',
+    });
+    jest.useRealTimers();
+  });
+
+  it('returns error when update download hangs past timeout', async () => {
+    jest.useFakeTimers();
+    (Updates.fetchUpdateAsync as jest.Mock).mockImplementation(
+      () => new Promise(() => {}),
+    );
+
+    const pending = fetchAndApplyAppUpdate();
+    await jest.advanceTimersByTimeAsync(60_000);
+    await expect(pending).resolves.toEqual({
+      status: 'error',
+      message: 'Update download timed out after 60s',
+    });
+    jest.useRealTimers();
+  });
 });

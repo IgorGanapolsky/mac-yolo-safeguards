@@ -8,6 +8,9 @@ import {
   profilePickerLines,
   profilesForDevicePicker,
   profilesForSwitchComputerPicker,
+  synthesizeLiveUsbProfile,
+  resolveProfileFromPickerRows,
+  profileConnectionRouteDisplayLabel,
   resolveUsbMatchingProfileId,
   shouldOfferUsbLinkRepair,
   hasOnlyLoopbackProfiles,
@@ -22,11 +25,11 @@ describe('gatewayProfilePicker', () => {
       localIp: '10.2.29.103',
       addedAt: '2026-06-24T12:00:00Z',
     });
-    expect(lines.title).toBe('Igors-MacBook-Pro');
+    expect(lines.title).toBe('Igors-MacBook-Pro (Mac Pro)');
     expect(lines.detail).toBe('10.2.29.103:8642');
   });
 
-  it('lists Mac mini from Tailscale without USB MacBook when network routes exist', () => {
+  it('lists Mac mini from Tailscale without USB MacBook when USB is not live', () => {
     const profiles = profilesForSwitchComputerPicker([
       {
         id: 'mac_usb_loopback',
@@ -52,7 +55,94 @@ describe('gatewayProfilePicker', () => {
     ]);
     expect(profiles.map((p) => p.id)).toEqual(['mac_mini_ts']);
     expect(profilePickerLines(profiles[0]).title).toBe('Igors-Mac-mini');
-    expect(profilePickerLines(profiles[0]).detail).toBe('100.94.135.78:8642');
+    expect(profilePickerLines(profiles[0]).detail).toBe('Tailscale · 100.94.135.78:8642');
+  });
+
+  it('keeps live USB + Tailscale Mac Pro as two selectable rows', () => {
+    const profiles = profilesForSwitchComputerPicker(
+      [
+        {
+          id: 'mac_book_ts',
+          label: 'Igors-MacBook-Pro',
+          gatewayUrl: 'http://igors-macbook-pro.tail12aa33.ts.net:8642',
+          hostname: 'Igors-MacBook-Pro',
+          addedAt: '2026-06-28T12:00:00Z',
+        },
+        {
+          id: 'mac_mini_ts',
+          label: 'Igors-Mac-mini',
+          gatewayUrl: 'http://100.94.135.78:8642',
+          hostname: 'Igors-Mac-mini',
+          localIp: '100.94.135.78',
+          addedAt: '2026-06-28T12:01:00Z',
+        },
+      ],
+      {
+        activeProfileId: 'mac_mini_ts',
+        liveUsb: {
+          reachable: true,
+          hostname: 'Igors-MacBook-Pro.local',
+        },
+      },
+    );
+    // USB must not hide Tailscale for the same MacBook / Mac Pro.
+    expect(profiles).toHaveLength(3);
+    expect(profiles.map((p) => profileConnectionRouteLabel(p, true))).toEqual([
+      'USB',
+      'Tailscale',
+      'Tailscale',
+    ]);
+    const usbRow = profiles[0];
+    const mbpTs = profiles.find((p) => p.id === 'mac_book_ts');
+    expect(usbRow).toBeTruthy();
+    expect(mbpTs).toBeTruthy();
+    expect(profilePickerLines(usbRow!, { cablePluggedIn: true }).title).toBe(
+      'Igors-MacBook-Pro (Mac Pro)',
+    );
+    expect(profilePickerLines(mbpTs!).title).toBe('Igors-MacBook-Pro (Mac Pro)');
+    expect(profilePickerLines(mbpTs!).detail).toMatch(/^Tailscale · /);
+  });
+
+  it('shows saved USB and Tailscale Mac Pro rows side by side when cabled', () => {
+    const profiles = profilesForSwitchComputerPicker(
+      [
+        {
+          id: 'mac_book_usb',
+          label: 'Igors-MacBook-Pro',
+          gatewayUrl: 'http://127.0.0.1:8642',
+          hostname: 'Igors-MacBook-Pro',
+          addedAt: '2026-06-28T12:00:00Z',
+        },
+        {
+          id: 'mac_book_ts',
+          label: 'Igors-MacBook-Pro',
+          gatewayUrl: 'http://igors-macbook-pro.tail12aa33.ts.net:8642',
+          hostname: 'Igors-MacBook-Pro',
+          addedAt: '2026-06-28T12:00:30Z',
+        },
+        {
+          id: 'mac_mini_ts',
+          label: 'Igors-Mac-mini',
+          gatewayUrl: 'http://100.94.135.78:8642',
+          hostname: 'Igors-Mac-mini',
+          addedAt: '2026-06-28T12:01:00Z',
+        },
+      ],
+      {
+        liveUsb: {
+          reachable: true,
+          hostname: 'Igors-MacBook-Pro.local',
+        },
+      },
+    );
+    expect(profiles).toHaveLength(3);
+    expect(profiles.map((p) => p.id).sort()).toEqual([
+      'mac_book_ts',
+      'mac_book_usb',
+      'mac_mini_ts',
+    ]);
+    expect(profileConnectionRouteLabel(profiles[0], true)).toBe('USB');
+    expect(profiles.some((p) => p.id === 'mac_book_ts')).toBe(true);
   });
 
   it('shows Tailscale endpoint instead of home LAN IP for the same Mac mini profile', () => {
@@ -65,11 +155,14 @@ describe('gatewayProfilePicker', () => {
       addedAt: '2026-07-08T12:00:00Z',
     });
     expect(lines.title).toBe('Igors-Mac-mini');
-    expect(lines.detail).toBe('100.94.135.78:8642');
+    expect(lines.detail).toBe('Tailscale · 100.94.135.78:8642');
     expect(lines.detail).not.toContain('192.168.68.73');
   });
 
-  it('hides duplicate generic picker rows from stale Tailscale and USB profiles', () => {
+  it('hides only phone-hostname Tailscale noise, keeps unnamed Mac candidates visible', () => {
+    // P0 2026-07-14: an unnamed, never-connected Tailscale IP profile is exactly what a
+    // freshly discovered second Mac looks like before its hostname resolves — it must render,
+    // not silently vanish. Only recognizably phone-hostname rows are noise here.
     const profiles = profilesForSwitchComputerPicker(
       [
         {
@@ -114,14 +207,51 @@ describe('gatewayProfilePicker', () => {
       { activeProfileId: 'mac_100_94_135_78' },
     );
 
-    expect(profiles.map((profile) => profile.id)).toEqual([
+    // phone_named (recognizable Android hostname) is still hidden; the two unnamed
+    // Tailscale/LAN IP candidates now render instead of being silently dropped.
+    expect(profiles.map((profile) => profile.id).sort()).toEqual([
       'lan_stale',
       'mac_100_94_135_78',
+      'phone_ip_seed',
     ]);
-    expect(profilePickerLines(profiles[1]).title).toBe('Tailscale 100.94.135.78');
+    const miniIp = profiles.find((p) => p.id === 'mac_100_94_135_78')!;
+    expect(profilePickerLines(miniIp).title).toBe('Tailscale 100.94.135.78');
+    expect(profilePickerLines(miniIp).detail).toBe('Tailscale · 100.94.135.78:8642');
   });
 
-  it('hides loopback Mac mini from switch picker when only USB route is saved', () => {
+  it('renders every discovered machine even before its hostname resolves (found 2 -> 2 rows)', () => {
+    // Reproduces the P0: "Find computers" reports foundCount=2 (MacBook Pro over USB +
+    // Mac mini over Tailscale), but the Mac mini's /health hostname probe hasn't resolved
+    // yet, so it is saved as a generic, never-connected, inactive Tailscale-IP profile.
+    // Both machines must appear in "Choose your computer" — an undiscovered name is not a
+    // reason to hide a reachable computer.
+    const macBookUsb = {
+      id: 'mac_book_usb',
+      label: 'Igors-MacBook-Pro',
+      gatewayUrl: 'http://127.0.0.1:8642',
+      hostname: 'Igors-MacBook-Pro',
+      addedAt: '2026-07-14T16:00:00Z',
+    };
+    const freshlyDiscoveredMini = {
+      id: 'mac_100_94_135_78',
+      label: 'Computer',
+      gatewayUrl: 'http://100.94.135.78:8642',
+      localIp: '100.94.135.78',
+      addedAt: '2026-07-14T16:24:00Z',
+      // no hostname, no lastConnectedAt, not the active profile — worst case for naming.
+    };
+    const profiles = profilesForSwitchComputerPicker([macBookUsb, freshlyDiscoveredMini], {
+      activeProfileId: 'mac_book_usb',
+      liveUsb: { reachable: true, hostname: 'Igors-MacBook-Pro.local' },
+    });
+
+    expect(profiles).toHaveLength(2);
+    expect(profiles.map((p) => p.id)).toEqual(['mac_book_usb', 'mac_100_94_135_78']);
+    expect(profilePickerLines(profiles[1]).title).toBe('Tailscale 100.94.135.78');
+    expect(profilePickerLines(profiles[1]).detail).toBe('Tailscale · 100.94.135.78:8642');
+  });
+
+  it('hides loopback Mac mini from switch picker when only USB route is saved and USB is not live', () => {
     const profiles = profilesForSwitchComputerPicker([
       {
         id: 'mac_book_lan',
@@ -398,4 +528,42 @@ describe('gatewayProfilePicker', () => {
       ),
     ).toBe('Tailscale');
   });
+
+
+  it('synthesizes live USB row when reverse is reachable and no matching saved loopback', () => {
+    const profiles = profilesForSwitchComputerPicker(
+      [
+        {
+          id: 'mac_mini_ts',
+          label: 'Igors-Mac-mini',
+          gatewayUrl: 'http://100.94.135.78:8642',
+          hostname: 'Igors-Mac-mini',
+          localIp: '100.94.135.78',
+          addedAt: '2026-06-28T12:01:00Z',
+        },
+      ],
+      {
+        liveUsb: { reachable: true, hostname: 'Igors-MacBook-Pro.local' },
+      },
+    );
+    expect(profiles[0].gatewayUrl).toContain('127.0.0.1');
+    expect(profiles[0].label).toMatch(/MacBook-Pro/i);
+    expect(profilePickerLines(profiles[0], { cablePluggedIn: true }).detail).toMatch(/cable/i);
+    expect(profileConnectionRouteDisplayLabel(profiles[0], true, { cablePluggedIn: true })).toBe(
+      'Plugged in with this cable',
+    );
+  });
+
+  it('resolveProfileFromPickerRows returns synthesized USB for ensure-select', () => {
+    const usb = synthesizeLiveUsbProfile('Igors-MacBook-Pro.local');
+    const mini = {
+      id: 'mac_mini_ts',
+      label: 'Igors-Mac-mini',
+      gatewayUrl: 'http://100.94.135.78:8642',
+      addedAt: '2026-06-28T12:01:00Z',
+    };
+    expect(resolveProfileFromPickerRows(usb.id, [usb, mini], [mini])).toEqual(usb);
+    expect(resolveProfileFromPickerRows('missing', [usb], [mini])).toBeNull();
+  });
+
 });

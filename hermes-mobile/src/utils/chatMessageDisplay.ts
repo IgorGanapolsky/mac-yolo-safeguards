@@ -14,6 +14,7 @@ import {
   isToolDumpDisplayContent,
   shouldHideToolDumpFromTimeline,
 } from './chatToolDump';
+import { stripClarificationMarkup, parseClarificationFromContent } from './chatClarification';
 
 export { isToolDumpDisplayContent, shouldHideToolDumpFromTimeline } from './chatToolDump';
 export {
@@ -249,7 +250,9 @@ function formatMessageBody(content: string, mode: 'preview' | 'full'): string {
     if (summary) return summary;
   }
 
-  let text = stripToolCallMarkup(stripUntrustedToolBlocks(unescapeChatText(content), untrustedCap));
+  let text = stripClarificationMarkup(
+    stripToolCallMarkup(stripUntrustedToolBlocks(unescapeChatText(content), untrustedCap)),
+  );
   const trimmed = text.trim();
 
   const json = tryParseJsonObject(trimmed);
@@ -279,7 +282,9 @@ export function formatMessageForDisplay(content: string): string {
 /** Full expandable body — pretty JSON when possible, not the short preview summary. */
 export function formatExpandedMessageContent(raw: string): string {
   const unescaped = unescapeChatText(raw);
-  const stripped = stripToolCallMarkup(stripUntrustedToolBlocks(unescaped, 12000)).trim();
+  const stripped = stripClarificationMarkup(
+    stripToolCallMarkup(stripUntrustedToolBlocks(unescaped, 12000)),
+  ).trim();
   const json = tryParseJsonValue(stripped);
   if (json != null) {
     try {
@@ -388,6 +393,10 @@ function finalizeMessagesForDisplay(messages: HermesMessage[], includeTools: boo
           isGatewaySmokeTestMessage(message.content) ||
           isContextCompactionHandoff(message.gatewayContent ?? message.content)
         ) {
+          const raw = message.gatewayContent ?? message.content;
+          if (typeof raw === 'string' && parseClarificationFromContent(raw)) {
+            return true;
+          }
           return false;
         }
         if (!includeTools) {

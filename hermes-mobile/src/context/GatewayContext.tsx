@@ -97,10 +97,20 @@ import {
   resolveCellularTailscaleFailoverUrl,
 } from '../utils/connectionSelfHeal';
 import { CONNECTION_HEAL_EXHAUSTED_AFTER } from '../utils/connectionErrorPolicy';
-import { profileMatchesDiscoveredGateway } from '../utils/gatewayProfilePicker';
+import { planWrongKeyRecovery } from '../utils/wrongKeyRecovery';
+import {
+  evaluatePairDeepLinkApply,
+  shouldRunForegroundUsbHeal,
+} from '../utils/pairDeepLinkApply';
+import {
+  hasNonLoopbackSavedProfile,
+  profileMatchesDiscoveredGateway,
+  profileMatchesHostname,
+} from '../utils/gatewayProfilePicker';
 import { isPrivateLanGatewayUrl } from '../utils/gatewayEndpoint';
 import { isTailscaleGatewayUrl } from '../utils/tailscaleHosts';
 import type { SetupDeepLinkParams } from '../utils/setupDeepLink';
+import { syncExtraProfileApiKeys } from '../utils/gatewayProfileCredentialSync';
 import {
   type GatewayBootstrapPhase,
   isGatewayHealthOk,
@@ -121,12 +131,17 @@ import {
   findProfileForGatewayUrl,
   GENERIC_USB_PROFILE_LABEL,
   isDiscoveredUrlAllowedForActiveProfile,
+  profileDisplayName,
+  profileIdFromGatewayUrl,
   resolvePreferredActiveProfileId,
   resolveHealPersistDecision,
+  sanitizeGatewayProfileState,
   shouldProbeGatewayUrlForActiveProfile,
   profilesForActiveMachine,
+  isGenericMachineLabel,
 } from '../services/gatewayProfiles';
 import {
+  bootstrapTailnetProbeHostsFromPairServers,
   discoverAllGatewaysOnLan,
   discoverGatewayOnPhoneSubnet,
   discoverGatewayViaPairServer,
@@ -157,6 +172,11 @@ import { requestStoreReviewIfThresholdReached } from '../services/storeReview';
 import { fromPendingApproval } from '../utils/approvalNormalize';
 import { shouldScheduleApprovalNotification } from '../utils/smartNotificationPolicy';
 import { withDerivedNotificationsEnabled } from '../utils/notificationPreferences';
+import {
+  cappedBadgeCount,
+  dedupeAndCapPendingApprovals,
+  pendingApprovalsSignature,
+} from '../utils/pendingApprovalsCap';
 import {
   dismissApprovalNotifications,
   dismissApprovalNotification,
@@ -208,7 +228,10 @@ export type GatewayContextValue = {
   autoConnectGateway: () => Promise<string>;
   retryGatewayBootstrap: () => Promise<boolean>;
   applySetupDeepLink: (params: SetupDeepLinkParams) => Promise<void>;
-  selectGatewayProfile: (profileId: string) => Promise<void>;
+  selectGatewayProfile: (
+    profileId: string,
+    options?: { ensureProfile?: GatewayProfile },
+  ) => Promise<boolean>;
   removeGatewayProfile: (profileId: string) => Promise<void>;
   scanForGatewayProfiles: () => Promise<GatewayProfile[]>;
   tailscaleDiscoveries: DiscoveredGateway[];
@@ -331,6 +354,7 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
     (actionId: string, choice: ApprovalChoice, approval?: PendingApproval) => Promise<void>
   >(null as any);
   const pendingApprovalsRef = useRef<PendingApproval[]>([]);
+  const pendingNotifSignatureRef = useRef<string>('');
   const resolvedTextApprovalIdsRef = useRef<Set<string>>(new Set());
   const runProgressRef = useRef<RunProgressState | null>(null);
   const chatStreamProgressActiveRef = useRef(false);
@@ -340,12 +364,13 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
   const listenersRef = useRef<Set<(event: GatewayEventMessage) => void>>(new Set());
   const wifiConnectedRef = useRef(true);
   const [wifiConnected, setWifiConnected] = useState(true);
-  const selectGatewayProfileRef = useRef<(profileId: string) => Promise<void>>(
-    async () => {},
-  );
+  const selectGatewayProfileRef = useRef<
+    (profileId: string, options?: { ensureProfile?: GatewayProfile }) => Promise<boolean>
+  >(async () => false);
   const tailnetProbeHostsRef = useRef<string[]>([]);
   const tailscaleProbeInFlightRef = useRef(false);
   const probeTailscaleComputersRef = useRef<() => Promise<void>>(async () => {});
+  const runConnectionSelfHealRef = useRef<() => Promise<void>>(async () => {});
   const connectionHealInFlightRef = useRef(false);
   const connectionHealAttemptRef = useRef(0);
   const [connectionHealAttempt, setConnectionHealAttempt] = useState(0);
@@ -373,12 +398,21 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (!settings.notificationApprovals || Platform.OS === 'web') {
+      pendingNotifSignatureRef.current = '';
       syncHermesNotificationBadge(0).catch(() => {});
       return;
     }
-    syncHermesNotificationBadge(pendingApprovals.length).catch(() => {});
+    const signature = pendingApprovalsSignature(pendingApprovals);
+    const badge = cappedBadgeCount(pendingApprovals.length);
+    // Always keep OS badge in sync; skip alert sync when the pending set is unchanged
+    // (relay poll replaces the array every 2s even when contents match).
+    syncHermesNotificationBadge(badge).catch(() => {});
+    if (signature === pendingNotifSignatureRef.current) {
+      return;
+    }
+    pendingNotifSignatureRef.current = signature;
     syncSmartApprovalNotifications(pendingApprovals, {
-      badgeCount: pendingApprovals.length,
+      badgeCount: badge,
       categoryEnabled: settings.notificationApprovals,
     }).catch(() => {});
   }, [pendingApprovals, settings.notificationApprovals]);
@@ -492,17 +526,29 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
         let loadedProfiles = await gatewayProfiles.load();
         loadedProfiles = migrateLegacyGateway(loadedProfiles, savedSettings.gatewayUrl, lastLanIp);
         if (Platform.OS !== 'web') {
+          // Fresh install (no real Mac yet): never invent a USB 127.0.0.1 profile —
+          // that forces "Computer via USB · Reconnecting…" before the user ever connected.
+          // Only seed loopback as an alternate route when a Tailscale/LAN Mac is already saved.
           const hasLoopback = loadedProfiles.profiles.some((p) =>
             isLoopbackGatewayUrl(p.gatewayUrl),
           );
-          if (!hasLoopback) {
+          if (!hasLoopback && hasNonLoopbackSavedProfile(loadedProfiles.profiles)) {
+            const named = loadedProfiles.profiles
+              .map((profile) => ({ profile, name: profileDisplayName(profile) }))
+              .find(({ name }) => !isGenericMachineLabel(name));
+            const displayName = named?.name;
             loadedProfiles.profiles.push({
-              id: 'mac_usb_loopback',
-              label: GENERIC_USB_PROFILE_LABEL,
+              id: displayName
+                ? profileIdFromGatewayUrl(USB_LOOPBACK_GATEWAY_URL, displayName)
+                : 'mac_usb_loopback',
+              label: displayName ?? GENERIC_USB_PROFILE_LABEL,
               gatewayUrl: USB_LOOPBACK_GATEWAY_URL,
+              hostname: displayName ? `${displayName.replace(/\.local$/i, '')}.local` : undefined,
+              localIp: '127.0.0.1',
               addedAt: new Date().toISOString(),
             });
           }
+          loadedProfiles = sanitizeGatewayProfileState(loadedProfiles);
         }
         if (loadedProfiles.profiles.length > 0) {
           const hasValidActive =
@@ -546,9 +592,11 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
           );
           const fallbackUrl =
             (active && isValidGatewayUrl(active.gatewayUrl) ? active.gatewayUrl : undefined) ??
-            fallbackProfile?.gatewayUrl ??
-            USB_LOOPBACK_GATEWAY_URL;
-          resolvedSettings = { ...resolvedSettings, gatewayUrl: fallbackUrl };
+            fallbackProfile?.gatewayUrl;
+          // Brand-new install: keep gatewayUrl empty so ConnectMacGate shows — never invent USB.
+          if (fallbackUrl) {
+            resolvedSettings = { ...resolvedSettings, gatewayUrl: fallbackUrl };
+          }
         }
 
         if (!mounted) return;
@@ -766,6 +814,7 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
           primaryUrl,
           profiles: profileStateRef.current.profiles,
           activeProfileId,
+          wifiConnected: wifiConnectedRef.current,
         })) {
           try {
             const snapshot = await probeMacGatewayOk(fallbackUrl);
@@ -815,6 +864,7 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
         primaryUrl,
         profiles: profileStateRef.current.profiles,
         activeProfileId,
+        wifiConnected: wifiConnectedRef.current,
       })) {
         try {
           const snapshot = await probeMacGatewayOk(fallbackUrl);
@@ -1018,7 +1068,7 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
           (!pending.command || !isGatewaySmokeTestMessage(pending.command)),
       );
 
-      setPendingApprovals(nonSmokeTests);
+      setPendingApprovals(dedupeAndCapPendingApprovals(nonSmokeTests));
       relayConnectionConfirmedRef.current = true;
       setConnectionState('connected');
       setLastEventError(undefined);
@@ -1153,7 +1203,7 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
             )
           ) {
             scheduleApprovalNotification(pending, {
-              badgeCount: pendingApprovalsRef.current.length + 1,
+              badgeCount: cappedBadgeCount(pendingApprovalsRef.current.length + 1),
               categoryEnabled: settingsRef.current.notificationApprovals,
             }).catch(() => {});
           }
@@ -1164,7 +1214,7 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
         if (prev.some((item) => (item.runId ?? item.actionId) === key)) {
           return prev;
         }
-        return [pending, ...prev];
+        return dedupeAndCapPendingApprovals([pending, ...prev]);
       });
       return;
     }
@@ -1327,10 +1377,15 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
     const commitDiscoveredUrl = persistDiscoveredGatewayUrl;
 
     const activeForDiscovery = activeProfile(profileStateRef.current);
-    const preferUsbFirst =
-      !activeForDiscovery || isLoopbackGatewayUrl(activeForDiscovery.gatewayUrl);
+    // Prefer USB ONLY when the active profile is already USB loopback.
+    // Preferring USB when there is no active profile (or after a Tailscale deep-link pair)
+    // steals the session to 127.0.0.1: health can be green via adb reverse without a key,
+    // chat then 401 → false-green Connected + Wrong key (user crisis 2026-07-14).
+    const preferUsbFirst = Boolean(
+      activeForDiscovery && isLoopbackGatewayUrl(activeForDiscovery.gatewayUrl),
+    );
 
-    // 1. Prefer USB only when user has no named selection or active profile is USB loopback
+    // 1. Prefer USB only when the user's active computer is already the USB profile
     if (Platform.OS !== 'web' && preferUsbFirst) {
       for (const fallbackUrl of usbLoopbackFallbackUrls(currentUrl || '')) {
         try {
@@ -1539,28 +1594,97 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
     ) {
       return;
     }
+
+    // 401 / invalid_api_key: stop silent "Trying to reach…" and clear poisoned key.
+    const wrongKeyPlan = planWrongKeyRecovery({
+      authMismatch: healthRef.current?.authMismatch === true,
+      errorMessage: healthRef.current?.errorMessage,
+      hasSavedProfile: profileStateRef.current.profiles.length > 0,
+    });
+    if (wrongKeyPlan.stopSilentHeal) {
+      const activeId = profileStateRef.current.activeProfileId;
+      if (wrongKeyPlan.clearStaleProfileKey && activeId) {
+        try {
+          await secureCredentials.removeProfileApiKey(activeId);
+        } catch {
+          // best-effort
+        }
+      }
+      if (wrongKeyPlan.clearStaleProfileKey) {
+        setApiKey('');
+        apiKeyRef.current = '';
+      }
+      connectionHealAttemptRef.current = CONNECTION_HEAL_EXHAUSTED_AFTER;
+      setConnectionHealAttempt(CONNECTION_HEAL_EXHAUSTED_AFTER);
+      setConnectionHealInFlight(false);
+      connectionHealInFlightRef.current = false;
+      return;
+    }
+
     connectionHealInFlightRef.current = true;
     setConnectionHealInFlight(true);
     try {
       await probeTailscaleComputersRef.current();
       const lastLanIp = await storage.loadLastGatewayLanIp();
-      const probeUrls = buildSelfHealProbeUrls({
-        primaryUrl: effectiveGatewayUrlRef.current || settingsRef.current.gatewayUrl,
-        wifiConnected: wifiConnectedRef.current,
-        lastLanIp,
-        profiles: profileStateRef.current.profiles,
-        tailnetProbeHosts: tailnetProbeHostsRef.current,
-        activeProfileId: profileStateRef.current.activeProfileId,
-      });
-      for (const url of probeUrls.slice(0, 8)) {
+      const primaryUrl =
+        effectiveGatewayUrlRef.current || settingsRef.current.gatewayUrl;
+      const probeUrls = [
+        primaryUrl,
+        ...buildSelfHealProbeUrls({
+          primaryUrl,
+          wifiConnected: wifiConnectedRef.current,
+          lastLanIp,
+          profiles: profileStateRef.current.profiles,
+          tailnetProbeHosts: tailnetProbeHostsRef.current,
+          activeProfileId: profileStateRef.current.activeProfileId,
+        }).filter((url) => url !== primaryUrl),
+      ].slice(0, 8);
+      for (const url of probeUrls) {
         try {
-          const snapshot = await fetchGatewayHealth(url, apiKeyRef.current);
+          const probeKey = await resolveApiKeyForGatewayProbe({
+            gatewayUrl: url,
+            profiles: profileStateRef.current.profiles,
+            activeProfileId: profileStateRef.current.activeProfileId,
+            fallbackKey: apiKeyRef.current,
+            resolveProfileKey: (profileId) =>
+              secureCredentials.resolveApiKeyForProfile(profileId),
+          });
+          if (probeKey !== apiKeyRef.current) {
+            setApiKey(probeKey);
+            apiKeyRef.current = probeKey;
+          }
+          const snapshot = await fetchGatewayHealth(url, probeKey);
+          if (snapshot.authMismatch) {
+            const plan = planWrongKeyRecovery({
+              authMismatch: true,
+              errorMessage: snapshot.errorMessage,
+              hasSavedProfile: true,
+            });
+            if (plan.clearStaleProfileKey) {
+              const activeId = profileStateRef.current.activeProfileId;
+              if (activeId) {
+                try {
+                  await secureCredentials.removeProfileApiKey(activeId);
+                } catch {
+                  // best-effort
+                }
+              }
+              setApiKey('');
+              apiKeyRef.current = '';
+            }
+            setHealth(snapshot);
+            healthRef.current = snapshot;
+            connectionHealAttemptRef.current = CONNECTION_HEAL_EXHAUSTED_AFTER;
+            setConnectionHealAttempt(CONNECTION_HEAL_EXHAUSTED_AFTER);
+            return;
+          }
           if (!isGatewayHealthOk(snapshot)) {
             continue;
           }
           await persistDiscoveredGatewayUrl(url, true);
-          setHealth({ ...snapshot, directGatewayReachable: true });
-          healthRef.current = { ...snapshot, directGatewayReachable: true };
+          // Never override auth probe — fetchGatewayHealth already sets directGatewayReachable.
+          setHealth(snapshot);
+          healthRef.current = snapshot;
           connectionHealAttemptRef.current = 0;
           setConnectionHealAttempt(0);
           connectEventsRef.current();
@@ -1860,7 +1984,10 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
   }, [saveSettings]);
 
   const selectGatewayProfile = useCallback(
-    async (profileId: string) => {
+    async (
+      profileId: string,
+      options?: { ensureProfile?: GatewayProfile },
+    ): Promise<boolean> => {
       if (settingsRef.current.demoMode) {
         const nextSettings: GatewaySettings = {
           ...settingsRef.current,
@@ -1868,24 +1995,82 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
         };
         await saveSettings(nextSettings, apiKeyRef.current);
       }
-      const profile = profileStateRef.current.profiles.find((p) => p.id === profileId);
-      if (!profile) {
-        return;
+      let profile = profileStateRef.current.profiles.find((p) => p.id === profileId);
+      // Live USB rows are often synthesized for the picker and not yet saved.
+      // Upsert ensureProfile so the tap is never a silent no-op.
+      if (!profile && options?.ensureProfile) {
+        const ensure = options.ensureProfile;
+        const ensuredState = upsertDiscoveredProfile(
+          profileStateRef.current,
+          {
+            gatewayUrl: ensure.gatewayUrl,
+            hostname: ensure.hostname,
+            label: ensure.label,
+            localIp: ensure.localIp ?? (isLoopbackGatewayUrl(ensure.gatewayUrl) ? '127.0.0.1' : undefined),
+          },
+          false,
+        );
+        profileStateRef.current = ensuredState;
+        setProfileState(ensuredState);
+        // Upsert may merge into an existing loopback row under a different id.
+        profile =
+          ensuredState.profiles.find((p) => p.id === profileId) ??
+          ensuredState.profiles.find((p) => p.id === ensure.id) ??
+          ensuredState.profiles.find(
+            (p) =>
+              isLoopbackGatewayUrl(p.gatewayUrl) &&
+              isLoopbackGatewayUrl(ensure.gatewayUrl) &&
+              (!ensure.hostname ||
+                !p.hostname ||
+                p.hostname.replace(/\.local$/i, '').toLowerCase() ===
+                  ensure.hostname.replace(/\.local$/i, '').toLowerCase()),
+          ) ??
+          ensuredState.profiles.find((p) => isLoopbackGatewayUrl(p.gatewayUrl));
       }
-      const nextState = selectProfile(profileStateRef.current, profileId);
+      if (!profile) {
+        setLastEventError(
+          'Could not switch computers. Tap Find computers, then try again.',
+        );
+        haptics.warning();
+        return false;
+      }
+      const selectedId = profile.id;
+      const nextState = selectProfile(profileStateRef.current, selectedId);
       profileStateRef.current = nextState;
       setProfileState(nextState);
-      await gatewayProfiles.save(nextState);
-      await storage.saveLastSelectedProfileId(profileId);
 
-      const profileKey = await secureCredentials.resolveApiKeyForProfile(profileId);
+      const currentEffective = effectiveGatewayUrlRef.current;
+      const healthHostname = healthRef.current?.hostname?.trim();
+      const healthOk = isMacGatewayHttpOk(healthRef.current);
+      let targetGatewayUrl = profile.gatewayUrl;
+      if (
+        isLoopbackGatewayUrl(currentEffective) &&
+        healthOk &&
+        healthHostname &&
+        profileMatchesHostname(profile, healthHostname)
+      ) {
+        // Keep USB route, but logical identity switches to selected profile
+        targetGatewayUrl = currentEffective;
+      }
+
       const nextSettings: GatewaySettings = {
         ...settingsRef.current,
-        gatewayUrl: profile.gatewayUrl,
+        gatewayUrl: targetGatewayUrl,
         demoMode: false,
       };
+      settingsRef.current = nextSettings;
+      setSettings(nextSettings);
+      effectiveGatewayUrlRef.current = targetGatewayUrl;
+      setEffectiveGatewayUrl(targetGatewayUrl);
+      setConnectionState('connecting');
+
+      await gatewayProfiles.save(nextState);
+      await storage.saveLastSelectedProfileId(selectedId);
+
+      const profileKey = await secureCredentials.resolveApiKeyForProfile(selectedId);
       await saveSettings(nextSettings, profileKey || apiKeyRef.current);
       haptics.success();
+      return true;
     },
     [saveSettings],
   );
@@ -1954,10 +2139,14 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
     });
     try {
       const lastLanIp = await storage.loadLastGatewayLanIp();
+      const preScanTailnet = tailnetProbeHostsRef.current.length
+        ? tailnetProbeHostsRef.current
+        : await tailnetProbeStorage.load();
       const { gateways: discovered, tailnetProbeHosts } = await discoverAllGatewaysOnLan(
         lastLanIp,
         {
           onProgress: setProfileScanProgress,
+          tailnetPairServerHosts: preScanTailnet,
         },
       );
       if (tailnetProbeHosts.length > 0) {
@@ -2039,7 +2228,9 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
 
       if (storedHosts.length === 0) {
         const lastLanIp = await storage.loadLastGatewayLanIp();
-        const { tailnetProbeHosts } = await discoverAllGatewaysOnLan(lastLanIp);
+        const { tailnetProbeHosts } = await discoverAllGatewaysOnLan(lastLanIp, {
+          tailnetPairServerHosts: collectTailnetProbeHosts(profileStateRef.current.profiles),
+        });
         if (tailnetProbeHosts.length > 0) {
           storedHosts = await mergeTailnetProbeHostsFromScan(
             tailnetProbeHosts,
@@ -2048,12 +2239,48 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
           );
         }
       }
+      if (storedHosts.length === 0) {
+        const boot = await bootstrapTailnetProbeHostsFromPairServers(
+          collectTailnetProbeHosts(profileStateRef.current.profiles),
+        );
+        if (boot.tailnetProbeHosts.length > 0) {
+          storedHosts = await mergeTailnetProbeHostsFromScan(
+            boot.tailnetProbeHosts,
+            tailnetProbeStorage,
+            tailnetProbeHostsRef,
+          );
+        }
+      } else {
+        const boot = await bootstrapTailnetProbeHostsFromPairServers(storedHosts);
+        if (boot.tailnetProbeHosts.length > storedHosts.length) {
+          storedHosts = await mergeTailnetProbeHostsFromScan(
+            boot.tailnetProbeHosts,
+            tailnetProbeStorage,
+            tailnetProbeHostsRef,
+          );
+        }
+      }
       setTailnetProbeHostCount(storedHosts.length);
 
-      const probeHosts = collectTailnetProbeHosts(
+      let probeHosts = collectTailnetProbeHosts(
         profileStateRef.current.profiles,
         storedHosts,
       );
+      if (probeHosts.length === 0) {
+        const boot = await bootstrapTailnetProbeHostsFromPairServers(storedHosts);
+        if (boot.tailnetProbeHosts.length > 0) {
+          storedHosts = await mergeTailnetProbeHostsFromScan(
+            boot.tailnetProbeHosts,
+            tailnetProbeStorage,
+            tailnetProbeHostsRef,
+          );
+          setTailnetProbeHostCount(storedHosts.length);
+          probeHosts = collectTailnetProbeHosts(
+            profileStateRef.current.profiles,
+            storedHosts,
+          );
+        }
+      }
       if (probeHosts.length === 0) {
         setTailscaleDiscoveries([]);
         return;
@@ -2120,6 +2347,10 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
   }, [probeTailscaleComputers]);
 
   useEffect(() => {
+    runConnectionSelfHealRef.current = runConnectionSelfHeal;
+  }, [runConnectionSelfHeal]);
+
+  useEffect(() => {
     if (!isLoaded || settings.demoMode) {
       return;
     }
@@ -2134,9 +2365,18 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
       if (nextAppState !== 'active') {
         return;
       }
-      if (isGatewayHealthOk(healthRef.current)) {
+      if (
+        !shouldRunForegroundUsbHeal({
+          platform: Platform.OS,
+          demoMode: settingsRef.current.demoMode,
+          healthOk: isGatewayHealthOk(healthRef.current),
+        })
+      ) {
         return;
       }
+      connectionHealAttemptRef.current = 0;
+      setConnectionHealAttempt(0);
+      void runConnectionSelfHealRef.current();
       void probeTailscaleComputersRef.current();
     };
     const sub = AppState.addEventListener('change', handleAppStateChange);
@@ -2243,6 +2483,7 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
       }
 
       const relayCode = params.relayCode?.trim().toUpperCase();
+      let relayPairSucceeded = false;
       if (relayCode) {
         try {
           const token = await completePairing(settingsRef.current.cloudUrl, relayCode);
@@ -2251,6 +2492,7 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
           mobileTokenRef.current = token;
           setLastEventError(undefined);
           connectEventsRef.current?.();
+          relayPairSucceeded = true;
         } catch (error) {
           setLastEventError(
             error instanceof Error ? error.message : 'Hermes Relay pairing failed',
@@ -2258,8 +2500,64 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
         }
       }
 
+      const upsertExtraComputers = async (): Promise<void> => {
+        if (!params.extraComputers?.length) {
+          return;
+        }
+        let nextProfileState = profileStateRef.current;
+        for (const extra of params.extraComputers) {
+          const extraUrl = extra.gatewayUrl?.trim();
+          if (!extraUrl || !isValidGatewayUrl(extraUrl)) {
+            continue;
+          }
+          const extraName = extra.macName?.trim();
+          nextProfileState = upsertDiscoveredProfile(
+            nextProfileState,
+            {
+              gatewayUrl: extraUrl,
+              localIp: extractLanIpFromGatewayUrl(extraUrl) ?? undefined,
+              hostname: extraName,
+              label: extraName,
+            },
+            false,
+          );
+        }
+        if (nextProfileState !== profileStateRef.current) {
+          nextProfileState = sanitizeGatewayProfileState(nextProfileState);
+          profileStateRef.current = nextProfileState;
+          setProfileState(nextProfileState);
+          await gatewayProfiles.save(nextProfileState);
+        }
+        await syncExtraProfileApiKeys(params.extraComputers);
+      };
+
+      if (params.tailnetProbeHosts?.length) {
+        const merged = await tailnetProbeStorage.merge(params.tailnetProbeHosts);
+        tailnetProbeHostsRef.current = merged;
+        setTailnetProbeHostCount(merged.length);
+        void probeTailscaleComputersRef.current();
+      }
+
+      const persistDecision = evaluatePairDeepLinkApply({
+        params,
+        relayPairAttempted: Boolean(relayCode),
+        relayPairSucceeded,
+      });
+      if (persistDecision.userError) {
+        setLastEventError(persistDecision.userError);
+      }
+      if (!persistDecision.shouldPersistProfiles && !persistDecision.shouldPersistSettings) {
+        if (relayPairSucceeded) {
+          haptics.success();
+          await refreshHealth();
+        }
+        return;
+      }
+
       if (!params.gatewayUrl?.trim()) {
-        if (relayCode) {
+        await upsertExtraComputers();
+        void probeTailscaleComputersRef.current();
+        if (relayPairSucceeded) {
           haptics.success();
           await refreshHealth();
         }
@@ -2269,10 +2567,6 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
       const gatewayUrl = params.gatewayUrl.trim();
       if (!isValidGatewayUrl(gatewayUrl)) {
         setLastEventError('Pair link had an incomplete computer URL — try pairing again from your computer.');
-        if (relayCode) {
-          haptics.success();
-          await refreshHealth();
-        }
         return;
       }
       const lanIp = extractLanIpFromGatewayUrl(gatewayUrl);
@@ -2324,9 +2618,26 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
           false,
         );
       }
-      profileStateRef.current = nextProfileState;
-      setProfileState(nextProfileState);
-      await gatewayProfiles.save(nextProfileState);
+      if (macName) {
+        const displayName = macName.replace(/\.local$/i, '').trim();
+        const hostname = macName.includes('.local') ? macName : `${displayName}.local`;
+        nextProfileState = upsertDiscoveredProfile(
+          nextProfileState,
+          {
+            gatewayUrl: USB_LOOPBACK_GATEWAY_URL,
+            hostname,
+            label: displayName,
+            localIp: '127.0.0.1',
+          },
+          isLoopbackGatewayUrl(gatewayUrl),
+        );
+      }
+      nextProfileState = sanitizeGatewayProfileState(nextProfileState);
+      if (persistDecision.shouldPersistProfiles) {
+        profileStateRef.current = nextProfileState;
+        setProfileState(nextProfileState);
+        await gatewayProfiles.save(nextProfileState);
+      }
 
       if (params.apiKey?.trim() && nextProfileState.activeProfileId) {
         await secureCredentials.saveProfileApiKey(
@@ -2334,20 +2645,22 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
           params.apiKey.trim(),
         );
       }
+      await syncExtraProfileApiKeys(params.extraComputers);
+
+      if (!persistDecision.shouldPersistSettings) {
+        await refreshHealth();
+        return;
+      }
 
       const nextSettings: GatewaySettings = {
         ...settingsRef.current,
         gatewayUrl,
-        connectionMode: 'relay',
+        connectionMode: persistDecision.connectionMode,
         demoMode: false,
       };
       const nextKey = params.apiKey?.trim() || apiKeyRef.current;
       await saveSettings(nextSettings, nextKey);
       haptics.success();
-      if (params.tailnetProbeHosts?.length) {
-        const merged = await tailnetProbeStorage.merge(params.tailnetProbeHosts);
-        tailnetProbeHostsRef.current = merged;
-      }
       await refreshHealth();
       void probeTailscaleComputersRef.current();
     },
@@ -2403,7 +2716,7 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
         if (prev.some((item) => item.actionId === pending.actionId)) {
           return prev;
         }
-        return [pending, ...prev];
+        return dedupeAndCapPendingApprovals([pending, ...prev]);
       });
     }
   }, []);
@@ -2428,7 +2741,7 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
       }
       queued = true;
       haptics.warning();
-      return [approval, ...prev];
+      return dedupeAndCapPendingApprovals([approval, ...prev]);
     });
     return queued;
   }, []);

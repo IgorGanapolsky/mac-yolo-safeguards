@@ -1,3 +1,5 @@
+import { humanizeSafetyTimeoutMessage } from './safetyTimeoutRecovery';
+
 const PRE_TURN_SCORE_RE =
   /^\s*\*{0,2}Pre-turn next-dollar score:\*{0,2}[^\n]*(?:\n|$)/gim;
 const POST_TURN_SCORE_RE =
@@ -19,6 +21,12 @@ export function humanizeAssistantProse(text: string): string {
     return text;
   }
 
+  // OpenCode / agent runtimes sometimes surface bare "Aborted" as the assistant body.
+  const trimmedOnly = text.trim();
+  if (/^aborted\.?$/i.test(trimmedOnly) || /^error:\s*aborted\.?$/i.test(trimmedOnly)) {
+    return 'Stopped before finishing — tap ↑ to try again.';
+  }
+
   let out = text
     .replace(PRE_TURN_SCORE_RE, '')
     .replace(POST_TURN_SCORE_RE, '')
@@ -34,7 +42,11 @@ export function humanizeAssistantProse(text: string): string {
     .replace(/^\s+/, '')
     .trim();
 
-  return out;
+  if (/^aborted\.?$/i.test(out)) {
+    return 'Stopped before finishing — tap ↑ to try again.';
+  }
+
+  return humanizeSafetyTimeoutMessage(out);
 }
 
 export function looksLikeAssistantProse(text: string): boolean {

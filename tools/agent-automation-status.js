@@ -15,6 +15,12 @@ const AUTOMATIONS_DIR = path.join(REPO, '.cursor', 'automations');
 
 const LAUNCH_AGENTS = [
   'com.igor.shutdown-simulators',
+  'com.igor.smart-ops',
+  'com.igor.revenue-autonomous-loop',
+  'com.igor.ralph-gsd-loop',
+  'com.igor.hermes-mobile-continuous-e2e',
+  'com.igor.repo-root-hygiene',
+  'com.igor.github-reply-monitor',
   'com.igor.ceo-operating-brief',
   'com.igor.react-native-newsletter-ingest',
   'com.igor.hermes-contribution-opportunities',
@@ -67,6 +73,46 @@ function main() {
       console.log(`  .cursor/automations/${file}`);
     }
   }
+
+  console.log('');
+  console.log('Control plane / observability (Agent Conf ROI):');
+  try {
+    const cp = execSync('node tools/agent-control-plane.js status --json', {
+      cwd: REPO,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+      timeout: 20_000,
+    });
+    const status = JSON.parse(cp);
+    console.log(
+      `  health.score=${status.health?.score}/100 e2e=${status.continuousE2e?.e2e} shipClaimOk=${status.continuousE2e?.shipClaimOk}`,
+    );
+  } catch {
+    console.log('  agent-control-plane: unavailable');
+  }
+  try {
+    execSync('node tools/hermes-observability-gate.js --mode status --json', {
+      cwd: REPO,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+      timeout: 10_000,
+    });
+    console.log('  observability-gate(status): pass');
+  } catch (error) {
+    const out = String(error?.stdout || error?.stderr || '');
+    try {
+      const body = JSON.parse(out);
+      console.log(
+        `  observability-gate(status): FAIL ${
+          (body.violations || []).map((v) => v.code).join(',') || 'unknown'
+        }`,
+      );
+    } catch {
+      console.log('  observability-gate(status): FAIL');
+    }
+  }
+  console.log('  alert loop: node tools/alert-investigation-loop.js scan --json');
+  console.log('  incident RAG: node tools/agent-incident-capture.js --help');
 
   if (!runBrief) {
     console.log('');

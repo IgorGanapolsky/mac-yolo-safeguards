@@ -5,7 +5,12 @@ import {
   markToolsetsEnabled,
   toolsetAddKeyCtaLabel,
   toolsetNeedsApiKey,
+  toolsetShowsKeyButton,
   toolsetStatusLine,
+  toolsetsSectionHint,
+  toolsetsNeedingKeys,
+  capabilitiesAdvertiseToolsetsWrite,
+  requiredEnvKeysForToolset,
 } from '../utils/opsToolsets';
 
 describe('opsToolsets', () => {
@@ -67,11 +72,60 @@ describe('opsToolsets', () => {
     ]);
   });
 
+  it('notes off-for-phone when toggles are blocked', () => {
+    expect(
+      toolsetStatusLine(
+        {
+          name: 'web',
+          enabled: false,
+          configured: true,
+          tools: ['web_search'],
+        },
+        { phoneToggleBlocked: true },
+      ),
+    ).toBe('1 tool · ready · off for phone chat');
+  });
+
+  it('hides key button affordance for ready toolsets', () => {
+    expect(toolsetShowsKeyButton({ name: 'web', configured: true })).toBe(false);
+    expect(toolsetShowsKeyButton({ name: 'x_search', configured: false })).toBe(true);
+  });
+
+  it('builds section hint without false auto-enable when phone toggles unavailable', () => {
+    expect(
+      toolsetsSectionHint({ phoneToggleAvailable: false, keysNeededCount: 0 }),
+    ).toContain('hermes tools');
+    expect(
+      toolsetsSectionHint({ phoneToggleAvailable: true, keysNeededCount: 0 }),
+    ).toContain('automatically');
+  });
+
+  it('detects toolsets_write from capabilities features or endpoints', () => {
+    expect(capabilitiesAdvertiseToolsetsWrite({ toolsets_write: true }, {})).toBe(true);
+    expect(
+      capabilitiesAdvertiseToolsetsWrite(
+        {},
+        { toolset_toggle: { method: 'PUT', path: '/v1/toolsets/{name}' } },
+      ),
+    ).toBe(true);
+    expect(capabilitiesAdvertiseToolsetsWrite({}, {})).toBe(false);
+  });
+
+  it('lists toolsets that still need keys', () => {
+    const toolsets = [
+      { name: 'web', configured: true },
+      { name: 'homeassistant', configured: false },
+    ];
+    expect(toolsetsNeedingKeys(toolsets).map((toolset) => toolset.name)).toEqual([
+      'homeassistant',
+    ]);
+    expect(requiredEnvKeysForToolset('homeassistant')).toEqual(['HASS_TOKEN', 'HASS_URL']);
+  });
+
   it('flags unconfigured toolsets as needing a key', () => {
     expect(toolsetNeedsApiKey({ name: 'x_search', configured: false })).toBe(true);
     expect(toolsetNeedsApiKey({ name: 'skills', configured: true })).toBe(false);
     expect(toolsetAddKeyCtaLabel({ name: 'x_search', configured: false })).toBe('Add key');
-    expect(toolsetAddKeyCtaLabel({ name: 'skills', configured: true })).toBe('Keys');
   });
 
   it('exposes fallback env fields for common key-backed tools', () => {

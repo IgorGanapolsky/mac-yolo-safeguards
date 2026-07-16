@@ -15,6 +15,7 @@ const {
 } = require('../tools/hermes-harness-eval');
 
 assert.strictEqual(parseArgs(['--since-hours', '24', '--json']).sinceHours, 24);
+assert.strictEqual(parseArgs(['--outcome-history', './outcomes.jsonl']).outcomeHistory, path.resolve('./outcomes.jsonl'));
 const comparisonArgs = parseArgs([
   '--baseline-profile', 'legacy-v1',
   '--candidate-profile', 'readonly-v2',
@@ -71,7 +72,61 @@ assert.strictEqual(report.metrics.unexplainedQwenCount, 0);
 assert.strictEqual(report.metrics.durationMs.p50, 100);
 assert.strictEqual(report.metrics.durationMs.p95, 300);
 assert.strictEqual(report.gates.enoughSamples, true);
+assert.strictEqual(report.metrics.outcomes.planned, 0);
+assert.strictEqual(report.gates.noFalseOutcomeCompletion, true);
 assert.strictEqual(report.profileComparison.status, 'not-requested');
+
+function outcomeReceipt(taskId, status, offsetMinutes, deliveryRequired = false) {
+  const passed = status === 'pass';
+  return {
+    schema: 'hermes-outcome-gate/receipt-v1',
+    generatedAt: new Date(nowMs - offsetMinutes * 60 * 1000).toISOString(),
+    taskId,
+    stages: {
+      planned: { status: 'pass' },
+      execution: { status: passed ? 'pass' : 'skipped', evidenceIds: passed ? ['execution-proof'] : [] },
+      independentVerification: { status: passed ? 'pass' : 'skipped', evidenceIds: passed ? ['verification-proof'] : [] },
+      delivery: { required: deliveryRequired, status: deliveryRequired && passed ? 'pass' : deliveryRequired ? 'skipped' : 'not-required', evidenceIds: deliveryRequired && passed ? ['delivery-proof'] : [] },
+    },
+    metrics: { durationMs: passed ? 500 : 10, actualCostUsd: passed ? 0.01 : 0, maxCostUsd: 0.02, valueSignals: passed ? ['tests-pass'] : [] },
+    completion: { completed: passed, draftOnly: !passed, overallStatus: status, failureStage: passed ? null : 'execution' },
+    overallStatus: status,
+  };
+}
+
+const outcomeReport = buildReport({
+  nowMs,
+  sinceHours: 24,
+  routeInput: { records: routeRecords, invalidLines: 0 },
+  verifierInput: { records: verifierRecords, invalidLines: 0 },
+  outcomeInput: { records: [outcomeReceipt('complete-one', 'pass', 5, true), outcomeReceipt('draft-one', 'blocked', 4)], invalidLines: 0 },
+});
+assert.strictEqual(outcomeReport.overallStatus, 'warn');
+assert.strictEqual(outcomeReport.metrics.outcomes.planned, 2);
+assert.strictEqual(outcomeReport.metrics.outcomes.executed, 1);
+assert.strictEqual(outcomeReport.metrics.outcomes.independentlyVerified, 1);
+assert.strictEqual(outcomeReport.metrics.outcomes.deliveryRequired, 1);
+assert.strictEqual(outcomeReport.metrics.outcomes.delivered, 1);
+assert.strictEqual(outcomeReport.metrics.outcomes.completed, 1);
+assert.strictEqual(outcomeReport.metrics.outcomes.incomplete, 1);
+assert.strictEqual(outcomeReport.metrics.outcomes.draftOnly, 1);
+assert.strictEqual(outcomeReport.metrics.outcomes.actualCostUsd, 0.01);
+assert.strictEqual(outcomeReport.metrics.outcomes.valueSignalCounts['tests-pass'], 1);
+assert.strictEqual(outcomeReport.metrics.outcomes.failureStageClusters.execution, 1);
+assert.strictEqual(outcomeReport.nextAction, 'Resume the earliest incomplete outcome stage; do not count plans or drafts as completed work.');
+
+const falseCompletion = outcomeReceipt('false-pass', 'pass', 3);
+falseCompletion.stages.execution = { status: 'skipped', evidenceIds: [] };
+const falseCompletionReport = buildReport({
+  nowMs,
+  sinceHours: 24,
+  routeInput: { records: routeRecords, invalidLines: 0 },
+  verifierInput: { records: verifierRecords, invalidLines: 0 },
+  outcomeInput: { records: [falseCompletion], invalidLines: 0 },
+});
+assert.strictEqual(falseCompletionReport.overallStatus, 'fail');
+assert.strictEqual(falseCompletionReport.metrics.outcomes.falseCompletionCount, 1);
+assert.strictEqual(falseCompletionReport.gates.noFalseOutcomeCompletion, false);
 
 function verifierTrace(caseId, profileId, status, offsetMinutes) {
   return {
@@ -170,6 +225,7 @@ const wiki = renderWiki(report);
 assert(wiki.includes('Ordinary `hermes-yolo` prompts route to Grok 4.5'));
 assert(wiki.includes('Silent fallbacks: 0'));
 assert(wiki.includes('Harness profile comparison'));
+assert(wiki.includes('Outcome funnel'));
 assert(!wiki.includes('private prompt'));
 
 const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'hermes-harness-eval-test-'));

@@ -13,19 +13,22 @@ Prevention hardening so today's bug class fails closed in CI / install / continu
 | Leash pull-to-refresh spinner clears | **Unit + Maestro** | `ApprovalsScreen.test.tsx` spinner clearing. Maestro: `regression-leash-refresh.yaml`. |
 | Chat header shows real model, not bare `Hermes (active)` | **Unit yes** | `ChatScreenHeader.test.tsx` (`buildHermesStatusLabel`). Maestro: `regression-chat-header-model.yaml` asserts status row present. |
 | `/health` green but chat API key wrong (multi-Mac fleet) | **Unit yes** | `gatewayClient.test.ts` auth probe + `gatewayConnection.test.ts` wrong-key label; `tests/test-hermes-mobile-pair.sh` mini SSH key; `releaseSafetyNet.test.ts` contract. |
+| **Connected ⊕ Wrong key** simultaneous UI | **SHIP BLOCK** | Fresh install or re-pair showing green **Connected** + red Wrong-key banner is a **state-machine failure**, not a setup hiccup. Never ship. `effectiveAuthMismatch` (health ⊕ banner) forces header/Codex off green; USB must not auto-steal over Tailscale pair. Gates: `gatewayConnection.test.ts`, `ChatScreenHeader.test.tsx`, `gatewayProfiles.test.ts` (no USB auto-pick), `gatewayClient.test.ts`, `releaseSafetyNet.test.ts`, `REAL-USER-READINESS.md`. |
+| False **Mac · USB** header (wrong machine or not cabled) | **SHIP BLOCK** | Loopback URL + stale red/null health must not show a saved Mac name as if live on USB. `resolveMachineDisplayName` only names the cable from green/amber reachable `/health` hostname; otherwise `Computer via USB · USB`. Gates: `chatMachineHeader.test.ts`, `preventRecurrenceContract.test.ts` (`assertUsbHeaderIdentityLaw`). |
 
-## Wrong-key class (T-120, 2026-07-08)
+## Wrong-key class (T-120 / T-227, 2026-07-08 → 2026-07-14)
 
-**Failure mode:** Phone saved Mac mini URL (`100.94.135.78:8642`) with MacBook Pro `API_SERVER_KEY`. Unauthenticated `GET /health` returned 200 → UI showed Connected; authenticated `POST /api/sessions/.../chat` returned 401 → "No reply — tap ↑ again".
+**Failure mode:** Phone saved Mac mini URL (`100.94.135.78:8642`) with MacBook Pro `API_SERVER_KEY`. Unauthenticated `GET /health` returned 200 → UI showed Connected; authenticated `POST /api/sessions/.../chat` returned 401 → "No reply — tap ↑ again". Escalation (2026-07-14): green **Connected** + red **Wrong key** at once = **SHIP BLOCK**.
 
 **Prevention:**
 
 | Layer | What it catches | Evidence |
 |-------|-----------------|----------|
 | Pair script | Laptop pairs mini with laptop key | `tests/test-hermes-mobile-pair.sh` — mini URL must SSH-fetch key |
-| Auth probe | Green health + wrong key | `gatewayClient.test.ts` — `authMismatch` when sessions=401 |
-| UI | False Connected | `gatewayConnection.test.ts` — "Wrong key for this computer" |
-| Release contract | Regression in pair/auth wiring | `releaseSafetyNet.test.ts` + this doc |
+| Auth probe | Reachability alone never Connected | `gatewayClient.test.ts` — empty key / 401 → `authMismatch` + `level: red` |
+| UI XOR | False Connected beside Wrong key | `gatewayConnection.test.ts` — `wrongKeyBannerActive` / `isConnectedWrongKeyContradiction` |
+| Release contract | Regression in pair/auth wiring | `releaseSafetyNet.test.ts` + this doc + `REAL-USER-READINESS.md` SHIP BLOCK row |
+| Recovery CTA | Settings homework as primary | Wrong-key banner → **Find computers** (not Settings → …) |
 
 Pair Mac mini over Tailscale: `node tools/hermes-mobile-pair.js --mini-tailscale` (never manual key paste from laptop `.env`).
 
@@ -35,8 +38,12 @@ Pair Mac mini over Tailscale: `node tools/hermes-mobile-pair.js --mini-tailscale
 |-------|---------|-----------|
 | Tier-0 | Every PR (`CI` / `mobile-checks`) | `npm run e2e:validate` — structural Maestro checks; required flow list includes regression YAMLs |
 | Tier-0 contract | Every PR + mobile-e2e job | `npm run test:release-safety` (includes `releaseSafetyNet.test.ts`) |
-| Tier-1 emulator | `pull_request` + `push` on hermes-mobile paths | `.github/workflows/mobile-e2e.yml` → **ship-guard only** on Android emulator |
+| Tier-1 emulator (paired/demo) | `pull_request` + `push` / `merge_group` | `.github/workflows/mobile-e2e.yml` → **Maestro ship-guard** (`demo=1` + `EXPO_PUBLIC_E2E_AUTOMATION=1`) |
+| Tier-1 emulator (stranger) | same | **Maestro stranger cold-start** — `clearState`, **no** `demo=1`, `EXPO_PUBLIC_E2E_AUTOMATION=0`, assert `connect-mac-gate` + no "Reconnecting" |
+| Pre-OTA | `ota:publish` / `mobile-ota.yml` | `scripts/require-stranger-cold-start-proof.cjs` — **hard by default**: structural contract + runtime proof (proof JSON or green GitHub stranger check). Soft only with `--soft` / `HERMES_OTA_REQUIRE_STRANGER_PROOF=0` |
 | Continuous local | LaunchAgent 15m | `ship-guard` + `chat-send-persistence` (USB Android preferred) |
+
+**SHIP BLOCK (2026-07-15 crisis):** Merging / OTA on ship-guard green alone is **insufficient**. ship-guard hides ConnectMacGate via E2E automation + opens `hermes://setup?demo=1`. Fresh-user proof is the stranger cold-start job.
 
 SHA pins (as of T-114):
 
@@ -66,14 +73,32 @@ SHA pins (as of T-114):
 - Do **not** put typing flows on the PR emulator required path (ship-guard stays typing-free).
 - Unit coverage remains the trustworthy send/scroll/header gates until a paste/clipboard Maestro path is proven.
 
-## Still needs GitHub branch-protection settings (human admin / gh api with admin token)
+## GitHub branch-protection (required checks)
 
-Workflow YAML alone does **not** make the check required. Still needed on `main`:
+Workflow YAML alone does **not** make checks required. `main` must require **both**:
 
-1. Settings → Branches → Branch protection rule for `main`
-2. Require status checks to pass before merging
-3. Add check name exactly: **`Maestro ship-guard (Android emulator)`** (job name from mobile-e2e.yml)
-4. Keep existing CI checks (`Hermes Mobile typecheck and tests`, etc.)
-5. Optionally require conversation resolution / up-to-date branch — outside this task
+1. **`Maestro ship-guard (Android emulator)`** — paired/demo critical path
+2. **`Maestro stranger cold-start (Android emulator)`** — brand-new user / ConnectMacGate (T-342)
 
-Until step 3, PRs run the emulator job but can still merge red.
+Also keep `Hermes Mobile typecheck and tests` (and other existing CI checks).
+
+Admin apply (when `gh` has admin on the repo):
+
+```bash
+# Read current contexts, then PATCH to include both Maestro jobs.
+gh api repos/IgorGanapolsky/mac-yolo-safeguards/branches/main/protection/required_status_checks \
+  --method PATCH \
+  -f strict=true \
+  --input - <<'EOF'
+{"strict":true,"contexts":[
+  "Hermes Mobile typecheck and tests",
+  "Maestro ship-guard (Android emulator)",
+  "Maestro stranger cold-start (Android emulator)"
+]}
+EOF
+```
+
+If the API returns Forbidden, document the gap and apply via GitHub Settings → Branches → `main`.
+Until stranger cold-start is required, PRs can still merge with only ship-guard green — that is the crisis hole.
+
+The stranger Maestro job itself runs the script with `--soft` (structural fail-fast only) so it can produce the runtime proof. **Hard OTA (default):** `require-stranger-cold-start-proof.cjs` always enforces the workflow/flow contract **and** requires runtime proof (local `docs/proofs/**/latest.json` with `strangerColdStart=pass`, or GitHub Checks `"Maestro stranger cold-start (Android emulator)"=success` on the publish SHA). `mobile-ota.yml` polls the parallel stranger job up to ~35m. Soft-warn opt-out is `--soft` or `HERMES_OTA_REQUIRE_STRANGER_PROOF=0` for local dry-runs only — never for production publish.

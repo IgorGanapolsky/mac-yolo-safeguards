@@ -3,12 +3,22 @@ import {
   resolveUserScrolledUp,
   shouldAutoScroll,
   shouldCancelPendingScroll,
+  shouldRunThrottledStreamScroll,
+  STREAM_SCROLL_MIN_INTERVAL_MS,
 } from '../utils/chatAutoScroll';
 
 describe('chatAutoScroll', () => {
   it('computes distance from the visual bottom', () => {
     expect(chatDistanceFromBottom(400, 580, 1000)).toBe(20);
     expect(chatDistanceFromBottom(400, 0, 200)).toBe(0);
+  });
+
+  it('throttles stream follow-scrolls to avoid jitter', () => {
+    expect(shouldRunThrottledStreamScroll(0, 1000)).toBe(true);
+    expect(shouldRunThrottledStreamScroll(1000, 1000 + STREAM_SCROLL_MIN_INTERVAL_MS - 1)).toBe(
+      false,
+    );
+    expect(shouldRunThrottledStreamScroll(1000, 1000 + STREAM_SCROLL_MIN_INTERVAL_MS)).toBe(true);
   });
 
   it('follows streaming output unless the user scrolled up', () => {

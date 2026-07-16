@@ -29,7 +29,7 @@ for a in "$@"; do case "$a" in http://*) url="$a" ;; esac; done
 case "$url" in
   */health)               cat "$MOCK_HEALTH" 2>/dev/null || echo 000 ;;
   */api/ps)               cat "$MOCK_PS" 2>/dev/null || echo '{"models":[]}' ;;
-  */api/generate)         echo "PIN" >> "$MOCK_CALLS" ;;
+  */api/generate)         echo "PIN $*" >> "$MOCK_CALLS" ;;
   */v1/chat/completions)  echo "WARMUP" >> "$MOCK_CALLS" ;;
 esac
 exit 0
@@ -61,6 +61,9 @@ run_wd() {
     HERMES_WATCHDOG_STATE="$TMP/state" \
     HERMES_AGENT_LOG="$TMP/agent.log" \
     HERMES_WARMUP_COUNT="2" \
+    HERMES_MEMORY_PRESSURE_LEVEL="1" \
+    HERMES_NOW_EPOCH="1000" \
+    YOLO_MEMORY_RECOVERY_FILE="$TMP/recovery-until" \
     MOCK_HEALTH="$TMP/health" \
     MOCK_PS="$TMP/ps" \
     MOCK_CALLS="$TMP/calls" \
@@ -68,8 +71,11 @@ run_wd() {
     MOCK_GATEWAY_PID="$TMP/gwpid" \
     "$@" \
     bash "$WD"
-  # Give backgrounded pin/start (&) a moment to flush their mock output.
-  sleep 0.3
+  # The gateway start remains asynchronous; pin/warmup are deliberately synchronous.
+  for _ in $(seq 1 30); do
+    grep -q "STARTED\|PIN\|WARMUP" "$TMP/start" "$TMP/calls" 2>/dev/null && break
+    sleep 0.1
+  done
 }
 
 calls() { grep -c "$1" "$TMP/calls" 2>/dev/null || true; }
@@ -103,26 +109,54 @@ run_wd
 grep -q "STARTED" "$TMP/start" \
   && bad "T3: restarted a healthy gateway" || ok "T3: healthy gateway -> no restart"
 
-# T4: model NOT resident -> pin call fires (keep_alive).
+# T4: default is on-demand, so an absent model is not pinned.
 echo 200 > "$TMP/health"; echo '{"models":[]}' > "$TMP/ps"; echo 4242 > "$TMP/gwpid"; echo 4242 > "$TMP/state"
 run_wd
-[ "$(calls PIN)" -ge 1 ] \
-  && ok "T4: model absent -> pin (keep_alive) request sent" \
-  || bad "T4: model absent but no pin request"
+[ "$(calls PIN)" -eq 0 ] \
+  && ok "T4: default on-demand mode -> absent model is not pinned" \
+  || bad "T4: default mode unexpectedly pinned an absent model"
+
+# T4b: explicit pin opt-in is bounded and synchronous (never keep_alive=-1).
+run_wd HERMES_PIN_MODEL="1" HERMES_PIN_KEEP_ALIVE="2m"
+if [ "$(calls PIN)" -eq 1 ] && grep -q '\"keep_alive\":\"2m\"' "$TMP/calls" \
+  && ! grep -q 'keep_alive.*-1' "$TMP/calls"; then
+  ok "T4b: explicit pin uses bounded keep_alive=2m"
+else
+  bad "T4b: explicit pin was absent, repeated, or unbounded"
+fi
 
 # T5: model resident -> no pin.
 echo 200 > "$TMP/health"; echo '{"models":["qwen3:8b-64k"]}' > "$TMP/ps"; echo 4242 > "$TMP/gwpid"; echo 4242 > "$TMP/state"
-run_wd
+run_wd HERMES_PIN_MODEL="1"
 [ "$(calls PIN)" -eq 0 ] \
   && ok "T5: model resident -> no redundant pin" \
   || bad "T5: pinned an already-resident model"
 
-# T5b: HERMES_PIN_MODEL=0 -> never pin even when the model is absent (cloud-first node).
+# T5b: explicit HERMES_PIN_MODEL=0 remains an effective override.
 echo 200 > "$TMP/health"; echo '{"models":[]}' > "$TMP/ps"; echo 4242 > "$TMP/gwpid"; echo 4242 > "$TMP/state"
 run_wd HERMES_PIN_MODEL="0"
 [ "$(calls PIN)" -eq 0 ] \
   && ok "T5b: pin disabled -> no pin even when model absent" \
   || bad "T5b: pinned despite HERMES_PIN_MODEL=0"
+
+# T5c: kernel pressure suppresses both an explicit pin and a pending warmup.
+echo 200 > "$TMP/health"; echo '{"models":[]}' > "$TMP/ps"; echo 5555 > "$TMP/gwpid"; echo 4242 > "$TMP/state"
+run_wd HERMES_PIN_MODEL="1" HERMES_MEMORY_PRESSURE_LEVEL="2"
+if [ "$(calls PIN)" -eq 0 ] && [ "$(calls WARMUP)" -eq 0 ] && [ "$(cat "$TMP/state")" = "4242" ]; then
+  ok "T5c: kernel pressure blocks pin and pre-warm"
+else
+  bad "T5c: pressure gate allowed pin/warmup or advanced state"
+fi
+
+# T5d: guardian cooldown continues blocking reload after pressure falls.
+echo 1600 > "$TMP/recovery-until"
+run_wd HERMES_PIN_MODEL="1" HERMES_MEMORY_PRESSURE_LEVEL="1" HERMES_NOW_EPOCH="1000"
+if [ "$(calls PIN)" -eq 0 ] && [ "$(calls WARMUP)" -eq 0 ]; then
+  ok "T5d: shared recovery cooldown blocks model reload"
+else
+  bad "T5d: cooldown gate allowed pin/warmup"
+fi
+: > "$TMP/recovery-until"
 
 # T6: pid changed vs state -> pre-warm WARMUP_COUNT times, then records new pid.
 echo 200 > "$TMP/health"; echo '{"models":["qwen3:8b-64k"]}' > "$TMP/ps"; echo 5555 > "$TMP/gwpid"; echo 4242 > "$TMP/state"
@@ -139,6 +173,13 @@ run_wd
 [ "$(calls WARMUP)" -eq 0 ] \
   && ok "T7: already-warmed pid -> no repeat warmup" \
   || bad "T7: re-warmed an already-warm gateway ($(calls WARMUP) calls)"
+
+# T7b: pre-warm is disabled by default when no explicit count is configured.
+echo 200 > "$TMP/health"; echo '{"models":[]}' > "$TMP/ps"; echo 7777 > "$TMP/gwpid"; echo 5555 > "$TMP/state"
+run_wd HERMES_WARMUP_COUNT="0"
+[ "$(calls WARMUP)" -eq 0 ] && [ "$(cat "$TMP/state")" = "5555" ] \
+  && ok "T7b: default-style warmup count 0 leaves the model on demand" \
+  || bad "T7b: disabled warmup still issued calls or changed state"
 
 # T8: no API key in env -> pre-warm is skipped safely (no crash, no warmup).
 : > "$TMP/env"

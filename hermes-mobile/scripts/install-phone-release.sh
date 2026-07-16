@@ -36,14 +36,19 @@ fi
 
 APK_OUT="$HERMES_DIR/android/app/build/outputs/apk/release/app-release.apk"
 PROBLEMS_REPORT="$HERMES_DIR/android/build/reports/problems/problems-report.html"
-# Coordination lock for the phone build+install pipeline. Lives OUTSIDE android/ so the
-# failure-recovery step (`expo prebuild --clean`, which wipes android/) cannot delete the
-# lock mid-build — the exact bug that let two agents' Gradle builds corrupt each other.
-LOCK_FILE="$HERMES_DIR/.install-phone-release.lock"
-LOCK_META="$HERMES_DIR/.install-phone-release.lock.meta"
-LOCK_MKDIR="$HERMES_DIR/.install-phone-release.lockdir"   # portable fallback when flock is absent
+# GLOBAL coordination lock (2026-07-14). Per-worktree locks under hermes-mobile/ let
+# multiple agents install/pair the same USB phone → Wrong-key / Not connected / stale
+# profiles. One dir shared by every checkout + worktree:
+#   ~/Library/Application Support/mac-yolo-safeguards/phone-pipeline/
+# Override: HERMES_GLOBAL_PHONE_LOCK_DIR. Lives outside android/ so expo prebuild --clean
+# cannot delete the lock mid-build.
+GLOBAL_PHONE_DIR="${HERMES_GLOBAL_PHONE_LOCK_DIR:-$HOME/Library/Application Support/mac-yolo-safeguards/phone-pipeline}"
+mkdir -p "$GLOBAL_PHONE_DIR"
+LOCK_FILE="$GLOBAL_PHONE_DIR/install-phone-release.lock"
+LOCK_META="$GLOBAL_PHONE_DIR/install-phone-release.lock.meta"
+LOCK_MKDIR="$GLOBAL_PHONE_DIR/install-phone-release.lockdir"   # portable fallback when flock is absent
 LOCK_WAIT_SECONDS="${HERMES_INSTALL_LOCK_WAIT:-2400}"     # queue up to 40m behind an in-flight build
-LAST_INSTALL_MARKER="$HERMES_DIR/.install-phone-release.last"
+LAST_INSTALL_MARKER="$GLOBAL_PHONE_DIR/install-phone-release.last"
 LOCK_OWNED=0
 
 if ! command -v adb >/dev/null 2>&1; then
@@ -305,17 +310,25 @@ cleanup_lock() {
 # session. Modeled on the Kubernetes Lease (holder + TTL). Honors an explicit hold
 # file AND auto-detects a live on-device session (screen awake + unlocked) — zero-config.
 # Deliberate human-run install: HERMES_PHONE_FORCE=1
-PHONE_HOLD_FILE="$HERMES_DIR/.phone-human-hold"
+# Hold file is GLOBAL so every worktree honors the same human lease.
+PHONE_HOLD_FILE="${HERMES_PHONE_HOLD_FILE:-$GLOBAL_PHONE_DIR/phone-human-hold}"
 PHONE_HOLD_TTL="${HERMES_PHONE_HOLD_TTL:-1800}"   # 30m TTL so a forgotten hold self-expires
+phone_hold_active() {
+  local hold_path="$1"
+  [[ -f "$hold_path" ]] || return 1
+  local now mtime; now="$(date +%s)"; mtime="$(stat -f %m "$hold_path" 2>/dev/null || echo 0)"
+  if (( now - mtime < PHONE_HOLD_TTL )); then
+    PHONE_HOLD_WHO="$(head -1 "$hold_path" 2>/dev/null || echo hold-file) [$hold_path]"
+    return 0
+  fi
+  return 1
+}
 phone_in_human_use() {
   [[ "${HERMES_PHONE_FORCE:-}" == "1" ]] && return 1
-  # (a) explicit hold file, still within TTL (mtime = renewTime)
-  if [[ -f "$PHONE_HOLD_FILE" ]]; then
-    local now mtime; now="$(date +%s)"; mtime="$(stat -f %m "$PHONE_HOLD_FILE" 2>/dev/null || echo 0)"
-    if (( now - mtime < PHONE_HOLD_TTL )); then
-      PHONE_HOLD_WHO="$(head -1 "$PHONE_HOLD_FILE" 2>/dev/null || echo hold-file)"; return 0
-    fi
-  fi
+  # (a) explicit hold files (global first, then legacy per-worktree / ~/.hermes)
+  if phone_hold_active "$PHONE_HOLD_FILE"; then return 0; fi
+  if phone_hold_active "$HERMES_DIR/.phone-human-hold"; then return 0; fi
+  if phone_hold_active "$HOME/.hermes/.phone-human-hold"; then return 0; fi
   # (b) auto-detect: screen awake AND not on the lockscreen == a human is likely using it now
   [[ -z "${DEVICE:-}" ]] && return 1
   local pw=""; pw="$(adb -s "$DEVICE" shell dumpsys power 2>/dev/null || true)"
@@ -393,3 +406,17 @@ cold_start_and_smoke
 record_install_marker
 
 echo "=== Done: Hermes Mobile installed (release, bundle embedded) ==="
+
+# Fresh install has no saved Mac/key. Auto-pair with auth-verified deep link so the
+# first launch is not "Wrong key / Not connected" (2026-07-14 real-user incident).
+if [[ "${HERMES_SKIP_AUTO_PAIR:-}" != "1" ]] && command -v adb >/dev/null 2>&1; then
+  if adb devices 2>/dev/null | grep -qE '[[:space:]]device$'; then
+    echo "=== Auto-pair (verified API key → phone) ==="
+    PAIR_JS="$(cd "$HERMES_DIR/.." && pwd)/tools/hermes-mobile-pair.js"
+    if [[ -f "$PAIR_JS" ]]; then
+      # Prefer USB loopback pair; fail soft so install still succeeds
+      node "$PAIR_JS" --no-serve 2>&1 || \
+        echo "Warning: auto-pair failed — run: node tools/hermes-mobile-pair.js" >&2
+    fi
+  fi
+fi

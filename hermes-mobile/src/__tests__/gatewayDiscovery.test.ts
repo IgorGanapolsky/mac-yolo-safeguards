@@ -1,9 +1,12 @@
 import NetInfo from '@react-native-community/netinfo';
 import {
+  countUniqueDiscoveredMachines,
+  dedupeDiscoveredGatewaysByMachine,
   discoverGatewayOnPhoneSubnet,
   discoverGatewayViaPairServer,
   discoverAllGatewaysOnLan,
   pairServerHostFromGatewayUrl,
+  probeLiveUsbGateway,
   resolvePairServerSetupParams,
 } from '../services/gatewayDiscovery';
 
@@ -120,6 +123,105 @@ describe('gatewayDiscovery', () => {
     expect(list.map((g) => g.localIp)).toEqual(expect.arrayContaining(['192.168.12.208', '192.168.12.50']));
   });
 
+  it('counts URL aliases as one machine so Found N matches the picker (Mac Pro rage)', () => {
+    const aliases = [
+      {
+        gatewayUrl: 'http://127.0.0.1:8642',
+        hostname: 'Igors-MacBook-Pro.local',
+      },
+      {
+        gatewayUrl: 'http://localhost:8642',
+        hostname: 'Igors-MacBook-Pro.local',
+      },
+      {
+        gatewayUrl: 'http://192.168.68.69:8642',
+        hostname: 'Igors-MacBook-Pro.local',
+        localIp: '192.168.68.69',
+      },
+      {
+        gatewayUrl: 'http://100.87.85.85:8642',
+        hostname: 'Igors-MacBook-Pro.local',
+        localIp: '192.168.68.69',
+      },
+      {
+        gatewayUrl: 'http://igors-macbook-pro-1.tail12aa33.ts.net:8642',
+        hostname: 'Igors-MacBook-Pro.local',
+      },
+      {
+        gatewayUrl: 'http://192.168.68.73:8642',
+        hostname: 'Igors-Mac-mini.local',
+        localIp: '192.168.68.73',
+      },
+      {
+        gatewayUrl: 'http://100.94.135.78:8642',
+        hostname: 'Igors-Mac-mini.local',
+        localIp: '192.168.68.73',
+      },
+      {
+        gatewayUrl: 'http://igors-mac-mini.tail12aa33.ts.net:8642',
+        hostname: 'Igors-Mac-mini.local',
+      },
+    ];
+    expect(countUniqueDiscoveredMachines(aliases)).toBe(2);
+    const deduped = dedupeDiscoveredGatewaysByMachine(aliases);
+    expect(deduped).toHaveLength(2);
+    const isPreferredDiscoveryUrl = (gatewayUrl: string): boolean => {
+      try {
+        const { hostname } = new URL(gatewayUrl);
+        return hostname.endsWith('.ts.net') || /^100\.\d+\.\d+\.\d+$/.test(hostname);
+      } catch {
+        return false;
+      }
+    };
+    expect(deduped.every((g) => isPreferredDiscoveryUrl(g.gatewayUrl))).toBe(true);
+  });
+
+  it('ignores poisoned RFC1918 localIp on Tailscale pair.json (mini URL + MacBook LAN IP)', async () => {
+    (global.fetch as jest.Mock).mockImplementation((url: string) => {
+      if (url.includes('127.0.0.1:8765/pair.json') || url.includes('localhost:8765/pair.json')) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            gatewayUrl: 'http://100.94.135.78:8642',
+            deepLink: 'hermes://setup?url=http%3A%2F%2F100.94.135.78%3A8642&name=Igors-Mac-mini',
+            hostname: 'Igors-Mac-mini',
+            localIp: '192.168.68.69',
+            tailnetProbeHosts: ['100.94.135.78', '100.87.85.85'],
+          }),
+        });
+      }
+      if (url.includes('100.94.135.78:8642/health')) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            status: 'ok',
+            hostname: 'Igors-Mac-mini.local',
+            local_ip: '192.168.68.73',
+          }),
+        });
+      }
+      if (url.includes('100.87.85.85:8642/health')) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            status: 'ok',
+            hostname: 'Igors-MacBook-Pro.local',
+            local_ip: '192.168.68.69',
+          }),
+        });
+      }
+      return Promise.resolve({ ok: false });
+    });
+
+    const { gateways } = await discoverAllGatewaysOnLan(null, {
+      tailnetPairServerHosts: ['100.94.135.78', '100.87.85.85'],
+    });
+    expect(countUniqueDiscoveredMachines(gateways)).toBeGreaterThanOrEqual(2);
+    const labels = gateways.map((g) => (g.hostname || g.label || '').replace(/\.local$/i, ''));
+    expect(labels.some((n) => /macbook-pro/i.test(n))).toBe(true);
+    expect(labels.some((n) => /mac-mini/i.test(n))).toBe(true);
+  });
+
   it('collects tailnet probe hosts from pair.json during LAN scan', async () => {
     (global.fetch as jest.Mock).mockImplementation((url: string) => {
       if (url.includes(':8765/pair.json')) {
@@ -173,5 +275,25 @@ describe('gatewayDiscovery', () => {
     expect(tailnetProbeHosts).toEqual(
       expect.arrayContaining(['100.94.135.78', 'igors-mac-mini.tail12aa33.ts.net']),
     );
+  });
+
+  it('probeLiveUsbGateway returns hostname when adb reverse loopback is healthy', async () => {
+    (global.fetch as jest.Mock).mockImplementation((url: string) => {
+      if (url === 'http://127.0.0.1:8642/health') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            status: 'ok',
+            hostname: 'Igors-MacBook-Pro.local',
+            local_ip: '192.168.68.70',
+          }),
+        });
+      }
+      return Promise.resolve({ ok: false });
+    });
+
+    const discovery = await probeLiveUsbGateway();
+    expect(discovery?.gatewayUrl).toBe('http://127.0.0.1:8642');
+    expect(discovery?.hostname).toBe('Igors-MacBook-Pro.local');
   });
 });

@@ -49,7 +49,14 @@ plists=(
   com.igor.react-native-newsletter-ingest.plist
   com.igor.hermes-contribution-opportunities.plist
   com.igor.hermes-mobile-continuous-e2e.plist
+  com.igor.hermes-mobile-itunes-poll.plist
+  com.igor.hermes-usb-reverse-watchdog.plist
+  com.igor.hermes-tailscale-reachability.plist
   com.igor.hermes-relay-worker.plist
+  com.igor.revenue-autonomous-loop.plist
+  com.igor.smart-ops.plist
+  com.igor.ralph-gsd-loop.plist
+  com.igor.agent-vault-sync.plist
 )
 
 install_one() {
@@ -73,11 +80,18 @@ install_one() {
 }
 
 mkdir -p "${launchagents_dir}"
+mkdir -p "${home}/Library/Logs/mac-yolo"
 for template in "${plists[@]}"; do
   install_one "${template}"
 done
 
+if [[ -f "${repo_root}/scripts/install-repo-root-hygiene-agent.sh" ]]; then
+  bash "${repo_root}/scripts/install-repo-root-hygiene-agent.sh" --repo "${repo_root}"
+fi
+
 echo ""
-echo "Installed ${#plists[@]} LaunchAgent templates. Verify with:"
+echo "Installed ${#plists[@]} LaunchAgent templates (+ repo-root-hygiene). Verify with:"
 echo "  bash scripts/verify-agent-automations.sh"
 echo "  node tools/agent-session-start.js"
+echo "  node tools/revenue-autonomous-loop.js --json"
+echo "  node tools/ralph-gsd-loop.js --once --json"

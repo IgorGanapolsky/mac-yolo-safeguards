@@ -1,0 +1,236 @@
+{
+  "run_id": "trun_f2a579aeec4a47d794e39ae991acf229",
+  "interaction_id": "trun_f2a579aeec4a47d794e39ae991acf229",
+  "result_url": "https://platform.parallel.ai/play/deep-research/trun_f2a579aeec4a47d794e39ae991acf229",
+  "status": "completed",
+  "output": {
+    "basis": [
+      {
+        "field": "answer",
+        "reasoning": "Reasoning: The user field answer presents a comprehensive, structured explainer covering executive verdict, the three-number versioning model, channels/rollouts, code signing, CI patterns, OTA vs store binaries, multi-runtime handling after 1.0->1.1, and a detailed action checklist. It aligns with the field description asking for mid-2026 best practices, versioning model, and an action checklist, with citations to Expo docs wherever possible. The excerpts provided contain supporting references that touch on runtimeVersion policies (appVersion vs fingerprint), rollout commands, channel usage, code signing, and CI/workflows, which underpins the completeness and likely support for the claims. Therefore, completeness = true and the field answer appears supported by excerpts = true.",
+        "citations": [
+          {
+            "url": "https://www.welcomedeveloper.com/posts/how-i-manage-expo-app-versioning",
+            "excerpts": [
+              "How I Manage Versioning in Expo Apps - Welcome, Developer\nFor my app, the runtime version is configured as: \"runtimeVersion\": { \"policy\": \"fingerprint\" }. That means: Fingerprint changes \u2192 runtime"
+            ],
+            "title": "How I Manage Versioning in Expo Apps - Welcome, Developer"
+          },
+          {
+            "url": "https://stackoverflow.com/questions/79756619/how-to-set-different-app-versions-per-platform-in-expo-and-handle-eas-update-run",
+            "excerpts": [
+              "How to set different app versions per platform in Expo and handle ...\nSep 5, 2025 \u00b7 For EAS updates, you can set platform specific runtime versions. EAS updates should still work if you use \"policy\": \"appVersion\""
+            ],
+            "title": "How to set different app versions per platform in Expo and handle ..."
+          },
+          {
+            "url": "https://zenn.dev/mackey_55/articles/2c4ac7bb9ec326",
+            "excerpts": [
+              "Expo EAS Update\u306eOTA\u914d\u4fe1\u3067\u30cf\u30de\u3063\u305f\u8a71 \u2014 Fingerprint\u306e\u7f60\nMar 18, 2026 \u2014 SDK 54\u6642\u70b9\u3067\u306f\u3001runtimeVersion\u306e\u8a2d\u5b9a\u306b fingerprint \u30dd\u30ea\u30b7\u30fc\u3092\u76f4\u63a5\u6307\u5b9a\u3059\u308b\u3053\u3068\u3082\u53ef\u80fd\u3067\u3059\u3002 ... runtimeVersion: { policy: 'appVersion' } \u3092\u4f7f\u3063\u3066\u3044"
+            ],
+            "title": "Expo EAS Update\u306eOTA\u914d\u4fe1\u3067\u30cf\u30de\u3063\u305f\u8a71 \u2014 Fingerprint\u306e\u7f60"
+          },
+          {
+            "url": "https://github.com/expo/expo/issues/43908",
+            "excerpts": [
+              "[docs] Need info on why setting a runtimeVersion policy of ... - GitHub\nruntimeVersion: { policy: 'fingerprint', }, causes expo-dev-server to not be able to talk properly to metro. Link to the related documentation"
+            ],
+            "title": "[docs] Need info on why setting a runtimeVersion policy of ... - GitHub"
+          },
+          {
+            "url": "https://docs.expo.dev/eas-update/runtime-versions",
+            "excerpts": [
+              "Runtime versions and updates - Expo Documentation\nDec 5, 2025 \u00b7 The \"appVersion\" policy will increment the runtime version whenever the app version is incremented, but if you forget to bump the app version"
+            ],
+            "title": "Runtime versions and updates - Expo Documentation"
+          },
+          {
+            "url": "https://docs.expo.dev/eas-update/rollouts",
+            "excerpts": [
+              "Rollouts - Expo Documentation\n7 jul 2025 \u00b7 Progressing. To edit the percentage of an update-based rollout: Terminal. Copy. - eas update:edit. You will be guided through the process of"
+            ],
+            "title": "Rollouts - Expo Documentation"
+          },
+          {
+            "url": "https://expo.dev/blog/the-production-playbook-for-ota-updates",
+            "excerpts": [
+              "The production playbook for OTA updates - Expo\nFeb 18, 2026 \u00b7 For example, you can publish an update with an initial rollout percentage: Copy. eas update --rollout-percentage=10. This limits both cost and"
+            ],
+            "title": "The production playbook for OTA updates - Expo"
+          },
+          {
+            "url": "http://docs.expo.dev/eas-update/how-it-works",
+            "excerpts": [
+              "we publish to the \"staging\" EAS Update branch, which would make that update apply to all our builds with the \"staging\" channel."
+            ],
+            "title": "How EAS Update works"
+          },
+          {
+            "url": "https://medium.com/%40shanavascruise/installing-expo-modules-to-support-expo-updates-on-a-bare-react-native-project-20f6d76ca561",
+            "excerpts": [
+              "Installing Expo Modules to Support Expo Updates on a ...\nRepublish the update to production using the following command: eas update:republish --group <group-id> --destination-channel production"
+            ],
+            "title": "Installing Expo Modules to Support Expo Updates on a ..."
+          },
+          {
+            "url": "https://docs.expo.dev/eas-update/preview",
+            "excerpts": [
+              "Preview updates - Expo Documentation\nBefore deploying an update to production, you will often want to test it in a production-like environment. This guide will outline different approaches for previewing updates, and link out to more detailed guides for each approach."
+            ],
+            "title": "Preview updates - Expo Documentation"
+          },
+          {
+            "url": "https://github.com/expo/expo/blob/main/docs/pages/eas-update/runtime-versions.mdx",
+            "excerpts": [
+              "expo/docs/pages/eas-update/runtime-versions.mdx at main ...\nThe \"appVersion\" policy will increment the runtime version whenever the app version is incremented, but if you forget to bump the app version when changing the native runtime, then you'll have a runtime version mismatch."
+            ],
+            "title": "expo/docs/pages/eas-update/runtime-versions.mdx at main ..."
+          },
+          {
+            "url": "https://github.com/expo/expo/blob/main/docs/pages/build-reference/app-versions.mdx",
+            "excerpts": [
+              "expo/docs/pages/build-reference/app-versions.mdx at main ...\nKeeping these values in sync is especially important if you are using EAS Update with the runtime policy set to \"runtimeVersion\": { \"policy\": \"nativeVersion\" }, because mismatched versions may result in the delivery of updates to the wrong version of an application."
+            ],
+            "title": "expo/docs/pages/build-reference/app-versions.mdx at main ..."
+          },
+          {
+            "url": "https://docs.expo.dev/build-reference/app-versions",
+            "excerpts": [
+              "App version management - EAS Build\nMay 18, 2026 \u2014 You can update the version property in app config when production build is submitted to the app stores. This also applies if your project uses"
+            ],
+            "title": "App version management - EAS Build"
+          },
+          {
+            "url": "http://docs.expo.dev/eas/json",
+            "excerpts": [
+              "(boolean) - Controls how EAS CLI bumps your application build version."
+            ],
+            "title": "Configuration with eas.json"
+          },
+          {
+            "url": "https://docs.expo.dev/eas-update/code-signing",
+            "excerpts": [
+              "End-to-end code signing with EAS Update - Expo Documentation\nEnd-to-end code signing with EAS Update \u00b7 Generate a private key and corresponding certificate \u00b7 Configure your project to use code signing."
+            ],
+            "title": "End-to-end code signing with EAS Update - Expo Documentation"
+          },
+          {
+            "url": "https://docs.expo.dev/eas-update/deployment",
+            "excerpts": [
+              "Deploy updates - Expo Documentation\nMay 23, 2026 \u00b7 You can use per-update rollouts to deploy updates gradually to an increasing percentage of users. For example: eas update --rollout-percentage"
+            ],
+            "title": "Deploy updates - Expo Documentation"
+          },
+          {
+            "url": "https://docs.expo.dev/technical-specs/expo-updates-1",
+            "excerpts": [
+              "Expo Updates v1 - Expo Documentation\nExpo Updates supports code signing the manifest and directive bodies. Code signing the manifest also transitively signs the assets since their hashes are present in the manifest and verified by a conformant client."
+            ],
+            "title": "Expo Updates v1 - Expo Documentation"
+          },
+          {
+            "url": "https://docs.expo.dev/eas-update/introduction",
+            "excerpts": [
+              "EAS Update - Expo Documentation\nJun 3, 2026 \u00b7 When to use EAS Update ; Roll out changes to a percentage of users using rollouts ; Publish updates from CI or automated workflows ; Test updates"
+            ],
+            "title": "EAS Update - Expo Documentation"
+          },
+          {
+            "url": "https://docs.expo.dev/eas-update/how-it-works",
+            "excerpts": [],
+            "title": "modificationDate: February 18, 2025 title: How EAS Update works description: A conceptual overview of how EAS Update works."
+          },
+          {
+            "url": "https://ithub.global.ssl.fastly.net/expo/eas-cli/actions/runs/28058568778/usage",
+            "excerpts": [
+              "[build-tools] Fix runtime version mismatch from premature fingerprint ...\nFastest way to build, submit, and update iOS and Android apps - [build-tools] Fix runtime version mismatch from premature fingerprint in eas build:internal"
+            ],
+            "title": "[build-tools] Fix runtime version mismatch from premature fingerprint ..."
+          },
+          {
+            "url": "https://github.com/expo/eas-cli/issues/1266",
+            "excerpts": [
+              "eas update - Error: Unable to determine runtime version for android\nAug 10, 2022 \u00b7 Run eas update:configure in your app before running eas update. This is not a very good error message though."
+            ],
+            "title": "eas update - Error: Unable to determine runtime version for android"
+          },
+          {
+            "url": "https://github.com/expo/eas-cli/pull/1983/files",
+            "excerpts": [
+              "Added --non-interactive and --force support when --id is not ...\nWhy We have recently updated to version 3.17.0 of eas-cli (from 1.2.0). The eas init command previously supported running without prompts to either: create a new project within expo if the project did not exist or if the project did exist in expo, add the associated id to the app.json file as extra.eas.projectId."
+            ],
+            "title": "Added --non-interactive and --force support when --id is not ..."
+          },
+          {
+            "url": "https://stalliontech.io/react-native-ota-updates-guide",
+            "excerpts": [
+              "React Native OTA Updates: Complete Guide (2026)\nLearn how React Native OTA updates work, why they matter, patch vs full bundles, security, policies, CI/CD integration, and best practices. Complete guide."
+            ],
+            "title": "React Native OTA Updates: Complete Guide (2026)"
+          },
+          {
+            "url": "https://stackoverflow.com/questions/78935837/expo-eas-run-1st-build-non-interactively",
+            "excerpts": [
+              "Expo (EAS) Run 1st build non-interactively - Stack Overflow\nI have configured GitLab CI to automate the build + submission for iOS. Which is working fine. But it requires to run the 1st build+submission interactively. Can we eliminate this requirement? Actu"
+            ],
+            "title": "Expo (EAS) Run 1st build non-interactively - Stack Overflow"
+          },
+          {
+            "url": "https://javascript.plainenglish.io/eas-build-fastlane-combo-fully-automated-ota-app-store-google-play-delivery-a2beffa2e083",
+            "excerpts": [
+              "EAS Build + Fastlane: Automate OTA Updates & App Store ...\nA complete guide on integrating EAS Build with Fastlane to automate Over-the-Air (OTA) updates, App Store, and Google Play deployments in React Native. Learn CI/CD setup, workflows, credentials handling, and best practices to ship apps faster with zero manual steps."
+            ],
+            "title": "EAS Build + Fastlane: Automate OTA Updates & App Store ..."
+          },
+          {
+            "url": "https://docs.expo.dev/build/building-on-ci",
+            "excerpts": [
+              "Trigger builds from CI - Expo Documentation\nA successful build from your local machine To trigger EAS builds from a CI environment, your app needs to be set up to use EAS Build in non-interactive mode. Run eas build -p [all|android|ios] from your local terminal for each platform you want to support on CI, so the eas build command can prompt for any additional configuration it needs."
+            ],
+            "title": "Trigger builds from CI - Expo Documentation"
+          },
+          {
+            "url": "https://docs.expo.dev/eas/workflows/syntax",
+            "excerpts": [
+              "Syntax for EAS Workflows - Expo Documentation\nA workflow is a configurable automated process made up of one or more jobs. You must create a YAML file to define your workflow configuration. To get started with workflows, see Get Started with EAS Workflows or see Examples for complete workflow configurations. Workflow files Workflow files use YAML syntax and must have either a .yml or .yaml file extension. If you're new to YAML and want to"
+            ],
+            "title": "Syntax for EAS Workflows - Expo Documentation"
+          },
+          {
+            "url": "https://www.expodeveloper.com/blog/eas-cicd-with-github-actions",
+            "excerpts": [
+              "EAS CI/CD with GitHub Actions\nGo to your GitHub repository settings, navigate to Secrets and Variables > Actions, and create a new secret named EXPO_TOKEN with your token"
+            ],
+            "title": "EAS CI/CD with GitHub Actions"
+          },
+          {
+            "url": "https://expo.nodejs.cn/eas/workflows/syntax",
+            "excerpts": [
+              "EAS \u5de5\u4f5c\u6d41\u7a0b\u7684\u8bed\u6cd5\nWorkflow files use YAML syntax and must have either a .yml or .yaml file extension. If you're new to YAML and want to learn more, see Learn YAML in Y minutes."
+            ],
+            "title": "EAS \u5de5\u4f5c\u6d41\u7a0b\u7684\u8bed\u6cd5"
+          },
+          {
+            "url": "https://docs.expo.dev/eas/workflows/examples/introduction",
+            "excerpts": [
+              "EAS Workflows examples - Expo Documentation\nDeploy to production Learn how to build and submit to the app stores or send an over-the-air update when merging to main."
+            ],
+            "title": "EAS Workflows examples - Expo Documentation"
+          },
+          {
+            "url": "https://www.welcomedeveloper.com/posts/cicd-eas-workflows",
+            "excerpts": [
+              "CI/CD EAS Workflows: From Pull Request to Production\nA complete walkthrough of the EAS Workflows setup I use in production \u2014 six workflow files covering every stage from pull request to store release."
+            ],
+            "title": "CI/CD EAS Workflows: From Pull Request to Production"
+          }
+        ],
+        "confidence": "high"
+      }
+    ],
+    "type": "text",
+    "beta_fields": null,
+    "mcp_tool_calls": null,
+    "content_file": "expo-ota-versioning-july-2026.md"
+  }
+}

@@ -1,0 +1,27 @@
+# Stranger cold start — brand-new user, no demo bootstrap deep link.
+# CI job "Maestro stranger cold-start (Android emulator)" must build WITHOUT
+# EXPO_PUBLIC_E2E_AUTOMATION (ConnectMacGate is hidden when that flag is baked in).
+# ship-guard alone is insufficient: it uses the demo setup deep link + E2E hide-gate.
+appId: com.iganapolsky.hermesmobile
+---
+- stopApp
+- launchApp:
+    clearState: true
+- extendedWaitUntil:
+    notVisible:
+      id: "hermes-bootstrap"
+    timeout: 90000
+- runFlow: dismiss-print-interruption.yaml
+- extendedWaitUntil:
+    visible:
+      id: "connect-mac-gate"
+    timeout: 60000
+- assertVisible:
+    id: "connect-mac-onboarding-card"
+- assertVisible:
+    id: "connect-search-wifi"
+- assertVisible:
+    id: "connect-mac-gate-dismiss"
+# Fresh install must never flash reconnecting copy on first paint.
+- assertNotVisible: "Reconnecting"
+- assertNotVisible: "Reconnecting…"

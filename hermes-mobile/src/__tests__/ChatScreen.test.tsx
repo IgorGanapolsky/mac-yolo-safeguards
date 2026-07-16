@@ -1,6 +1,6 @@
 import React from 'react';
 import { Alert, BackHandler, Platform } from 'react-native';
-import { fireEvent, act, waitFor, cleanup } from '@testing-library/react-native';
+import { fireEvent, act, waitFor, cleanup, within } from '@testing-library/react-native';
 import ChatScreen, {
   resolveEffectiveKeyboardInset,
   shouldIgnoreKeyboardHide,
@@ -32,7 +32,7 @@ const mockGatewayState = {
   relayWorkers: [],
   activeRelayWorkerId: null,
   isPaired: true,
-  selectGatewayProfile: jest.fn().mockResolvedValue(undefined),
+  selectGatewayProfile: jest.fn().mockResolvedValue(true),
   scanForGatewayProfiles: jest.fn().mockResolvedValue([]),
   profileScanning: false,
   profileScanProgress: null,
@@ -283,6 +283,13 @@ jest.mock('../services/hermesChatClient', () => ({
   getSession: jest.fn().mockResolvedValue(null),
 }));
 
+jest.mock('../services/gatewayDiscovery', () => ({
+  probeLiveUsbGateway: jest.fn().mockResolvedValue(null),
+  pairServerHostFromGatewayUrl: jest.requireActual('../services/gatewayDiscovery')
+    .pairServerHostFromGatewayUrl,
+  resolvePairServerSetupParams: jest.fn().mockResolvedValue(null),
+}));
+
 
 async function confirmAlertButton(label: string) {
   await act(async () => {
@@ -323,6 +330,12 @@ async function flushPendingTimers() {
   await act(async () => {
     jest.runOnlyPendingTimers();
   });
+}
+
+function countPromptUserBubbles(getAllByTestId: (testId: string) => unknown[], prompt: string): number {
+  return getAllByTestId('chat-message-user').filter((bubble) =>
+    within(bubble as Parameters<typeof within>[0]).queryByText(prompt),
+  ).length;
 }
 
 describe('ChatScreen', () => {
@@ -393,7 +406,7 @@ describe('ChatScreen', () => {
       activeRelayWorkerId: null,
       isPaired: true,
       refreshHealth: jest.fn().mockResolvedValue(undefined),
-      selectGatewayProfile: jest.fn().mockResolvedValue(undefined),
+      selectGatewayProfile: jest.fn().mockResolvedValue(true),
       scanForGatewayProfiles: jest.fn().mockResolvedValue([]),
       autoConnectGateway: jest.fn().mockResolvedValue('http://localhost:8642'),
       submitChatOutputFeedback: jest.fn().mockResolvedValue(true),
@@ -1052,44 +1065,120 @@ describe('ChatScreen', () => {
     await flushPendingTimers();
   });
 
-  it('keeps send enabled while a demo reply is in flight (queue path)', async () => {
+  it('queues a distinct second message instead of dropping it while a demo reply is in flight', async () => {
     const { getByTestId, getAllByTestId } = await renderChatScreen();
     jest.useFakeTimers();
     const input = getByTestId('chat-input');
-    const sendButton = getByTestId('chat-send-button');
 
     act(() => {
       fireEvent.changeText(input, 'First message');
-      fireEvent.press(sendButton);
+      fireEvent.press(getByTestId('chat-send-button'));
     });
     const userCountAfterFirstSend = getAllByTestId('chat-message-user').length;
     expect(userCountAfterFirstSend).toBeGreaterThanOrEqual(1);
 
+    // A DIFFERENT message tapped while still busy must be queued (new bubble),
+    // not silently dropped — P0 regression: send looked tappable but no-opped.
+    // The composer swaps Send for a Stop control while busy + empty, so the
+    // send button must be re-queried once typed text brings Send back.
     act(() => {
       fireEvent.changeText(input, 'Second message');
-      fireEvent.press(sendButton);
     });
-    expect(getAllByTestId('chat-message-user').length).toBeGreaterThanOrEqual(userCountAfterFirstSend);
+    act(() => {
+      fireEvent.press(getByTestId('chat-send-button'));
+    });
+    expect(getAllByTestId('chat-message-user').length).toBe(userCountAfterFirstSend + 1);
+
+    act(() => {
+      jest.advanceTimersByTime(1600);
+    });
     await flushPendingTimers();
   });
 
-  it('accepts the same prompt again after the send-clear suppression window expires', async () => {
+  it('still blocks an exact re-send of the in-flight message while busy', async () => {
+    const { getByTestId, getAllByTestId } = await renderChatScreen();
+    jest.useFakeTimers();
+    const input = getByTestId('chat-input');
+
+    act(() => {
+      fireEvent.changeText(input, 'First message');
+      fireEvent.press(getByTestId('chat-send-button'));
+    });
+    const userCountAfterFirstSend = getAllByTestId('chat-message-user').length;
+    expect(userCountAfterFirstSend).toBeGreaterThanOrEqual(1);
+
+    // Retyping the exact same text right after sending it would otherwise be
+    // swallowed by the Android-IME-echo composer guard (unrelated to send
+    // dedupe) — type something distinct first so the retype is a real change.
+    act(() => {
+      fireEvent.changeText(input, 'placeholder');
+    });
+    act(() => {
+      fireEvent.changeText(input, 'First message');
+    });
+    act(() => {
+      fireEvent.press(getByTestId('chat-send-button'));
+    });
+    expect(getAllByTestId('chat-message-user').length).toBe(userCountAfterFirstSend);
+
+    act(() => {
+      jest.advanceTimersByTime(1600);
+    });
+    await flushPendingTimers();
+  });
+
+  it('keeps one user bubble when the same prompt re-enters while send is pending', async () => {
+    const { getByTestId, getAllByTestId, queryByTestId } = await renderChatScreen();
+    jest.useFakeTimers();
+    const input = getByTestId('chat-input');
+    const sendButton = getByTestId('chat-send-button');
+    const prompt = 'make money faster';
+
+    await act(async () => {
+      fireEvent.changeText(input, prompt);
+      fireEvent.press(sendButton);
+      await Promise.resolve();
+    });
+
+    await waitFor(() => {
+      expect(countPromptUserBubbles(getAllByTestId, prompt)).toBe(1);
+    });
+    expect(queryByTestId('submitted-prompt-strip')).toBeNull();
+
+    await act(async () => {
+      fireEvent.changeText(input, prompt);
+      fireEvent.press(sendButton);
+      await Promise.resolve();
+    });
+
+    expect(countPromptUserBubbles(getAllByTestId, prompt)).toBe(1);
+    await flushPendingTimers();
+  });
+
+  it('accepts the same prompt again after the prior send completes', async () => {
     const { getByTestId, getAllByTestId, queryByTestId } = await renderChatScreen();
     jest.useFakeTimers();
     const input = getByTestId('chat-input');
     const sendButton = getByTestId('chat-send-button');
     const prompt = 'print money, make money faster. Use Data Science, ML and Agentic RAG.';
 
+    await act(async () => {
+      fireEvent.changeText(input, prompt);
+      fireEvent.press(sendButton);
+      await Promise.resolve();
+    });
     act(() => {
+      jest.advanceTimersByTime(1600);
+    });
+    await act(async () => {
       fireEvent.changeText(input, prompt);
       fireEvent.press(sendButton);
-      jest.advanceTimersByTime(300);
-      fireEvent.changeText(input, prompt);
-      fireEvent.press(sendButton);
+      await Promise.resolve();
     });
 
-    // Bubbles land immediately — strip must stay hidden (no strip+bubble duo).
-    expect(getAllByTestId('chat-message-user').length).toBeGreaterThanOrEqual(2);
+    await waitFor(() => {
+      expect(countPromptUserBubbles(getAllByTestId, prompt)).toBeGreaterThanOrEqual(2);
+    });
     expect(queryByTestId('submitted-prompt-strip')).toBeNull();
     await flushPendingTimers();
   });
@@ -1190,6 +1279,71 @@ describe('ChatScreen', () => {
     expect(input.props.value).toBe('');
   });
 
+  it('keeps optimistic user bubble as failed when send hits a false disconnect', async () => {
+    const { streamSessionChat } = jest.requireMock('../services/hermesGatewayClient') as {
+      streamSessionChat: jest.Mock;
+    };
+    streamSessionChat.mockClear();
+
+    // Composer still mounted during silent heal (not exhausted) while /health is red
+    // so macChatLive is false — Send keeps a failed retryable bubble instead of dropping text.
+    Object.assign(mockGatewayState, {
+      connectionState: 'connected',
+      connectionHealAttempt: 1,
+      connectionHealInFlight: false,
+      connectionHealExhausted: false,
+      effectiveGatewayUrl: 'http://10.154.137.152:8642',
+      health: {
+        ok: false,
+        level: 'red',
+        hostname: 'Igors-MacBook-Pro.local',
+        directGatewayReachable: false,
+        checkedAt: '2026-07-16T12:00:00Z',
+      },
+      settings: {
+        demoMode: false,
+        connectionMode: 'gateway',
+        gatewayUrl: 'http://10.154.137.152:8642',
+        cloudUrl: 'https://hermesmobile-cloud.fly.dev',
+        approvalPolicy: 'balanced',
+      },
+      activeGatewayProfile: {
+        id: 'mac_igor',
+        label: 'Igors-MacBook-Pro',
+        gatewayUrl: 'http://10.154.137.152:8642',
+        localIp: '10.154.137.152',
+        addedAt: '2026-06-18T00:00:00Z',
+      },
+      gatewayProfiles: [
+        {
+          id: 'mac_igor',
+          label: 'Igors-MacBook-Pro',
+          gatewayUrl: 'http://10.154.137.152:8642',
+          localIp: '10.154.137.152',
+          addedAt: '2026-06-18T00:00:00Z',
+        },
+      ],
+    });
+
+    const { getByTestId, getAllByTestId, findByText, queryByTestId } = await renderChatScreen();
+
+    await waitFor(() => {
+      expect(getByTestId('chat-input')).toBeTruthy();
+    });
+    expect(queryByTestId('chat-connection-panel')).toBeNull();
+
+    act(() => {
+      fireEvent.changeText(getByTestId('chat-input'), 'make money today');
+      fireEvent.press(getByTestId('chat-send-button'));
+    });
+
+    expect(await findByText('make money today')).toBeTruthy();
+    expect(getAllByTestId('chat-message-user').length).toBeGreaterThanOrEqual(1);
+    expect(streamSessionChat).not.toHaveBeenCalled();
+    // Composer stays clear — recoverable state is the failed bubble + ↑ retry.
+    expect(getByTestId('chat-input').props.value).toBe('');
+  });
+
   it('opens and closes sessions selector modal', async () => {
     const { getByTestId, getByText, queryByTestId } = await renderChatScreen();
 
@@ -1237,7 +1391,7 @@ describe('ChatScreen', () => {
 
   it('keeps an explicitly selected Mac primary instead of immediately auto-discovering over it', async () => {
     const autoConnectGateway = jest.fn().mockResolvedValue('http://10.2.29.103:8642');
-    const selectGatewayProfile = jest.fn().mockResolvedValue(undefined);
+    const selectGatewayProfile = jest.fn().mockResolvedValue(true);
     Object.assign(mockGatewayState, {
       connectionState: 'connected',
       autoConnectGateway,
@@ -1274,7 +1428,12 @@ describe('ChatScreen', () => {
     fireEvent.press(getByTestId('select-gateway-profile-macmini'));
 
     await waitFor(() => {
-      expect(selectGatewayProfile).toHaveBeenCalledWith('macmini');
+      expect(selectGatewayProfile).toHaveBeenCalledWith(
+        'macmini',
+        expect.objectContaining({
+          ensureProfile: expect.objectContaining({ id: 'macmini' }),
+        }),
+      );
     });
     expect(autoConnectGateway).not.toHaveBeenCalled();
     expect(mockGatewayState.refreshHealth).toHaveBeenCalled();
@@ -2098,6 +2257,110 @@ describe('ChatScreen', () => {
     expect(queryByTestId('chat-empty-recent-chats')).toBeNull();
   });
 
+  it('shows session-loading spinner immediately when a recent thread is tapped', async () => {
+    const { listSessions, listMessages } = jest.requireMock('../services/hermesChatClient') as {
+      listSessions: jest.Mock;
+      listMessages: jest.Mock;
+    };
+    const { chatProjects } = jest.requireMock('../services/chatProjects') as {
+      chatProjects: { load: jest.Mock; save: jest.Mock };
+    };
+
+    const macSessions = [
+      {
+        id: 'sess_print',
+        title: 'Print money make money faster',
+        last_active_at: '2026-06-28T12:00:00Z',
+      },
+      {
+        id: 'sess_june15',
+        title: 'Hermes Telegram Reliability YOLO Safeguar',
+        last_active_at: '2026-06-15T12:00:00Z',
+      },
+    ];
+
+    listSessions.mockResolvedValue(macSessions);
+    let resolveJune: ((value: unknown) => void) | undefined;
+    const juneHistory = new Promise((resolve) => {
+      resolveJune = resolve;
+    });
+    listMessages.mockImplementation(async (_url: string, sessionId: string) => {
+      if (sessionId === 'sess_june15') {
+        return juneHistory;
+      }
+      return [];
+    });
+    chatProjects.load.mockResolvedValue({
+      projects: [
+        {
+          id: 'demo-hermes-mobile',
+          name: 'hermes-mobile',
+          workspacePath: '~/workspace/git/igor/mac-yolo-safeguards/hermes-mobile',
+          sessionIds: ['sess_print', 'sess_june15'],
+          activeSessionId: 'sess_print',
+        },
+      ],
+      sessionProjectMap: {
+        sess_print: 'demo-hermes-mobile',
+        sess_june15: 'demo-hermes-mobile',
+      },
+      sessionLabels: {},
+      activeProjectId: 'demo-hermes-mobile',
+    });
+
+    Object.assign(mockGatewayState, {
+      connectionState: 'disconnected',
+      effectiveGatewayUrl: 'http://localhost:8642',
+      health: {
+        ok: true,
+        level: 'green',
+        hostname: 'Igors-MacBook-Pro.local',
+        localIp: '10.154.137.152',
+        directGatewayReachable: true,
+        checkedAt: '2026-06-28T19:00:00Z',
+      },
+      settings: {
+        demoMode: false,
+        connectionMode: 'gateway',
+        gatewayUrl: 'http://localhost:8642',
+        cloudUrl: 'https://hermesmobile-cloud.fly.dev',
+        approvalPolicy: 'balanced',
+      },
+      activeGatewayProfile: {
+        id: 'mac_igor',
+        label: 'Igors-MacBook-Pro',
+        gatewayUrl: 'http://localhost:8642',
+        localIp: '10.154.137.152',
+        addedAt: '2026-06-18T00:00:00Z',
+      },
+    });
+
+    const { findByText, getByTestId, queryByTestId } = await renderChatScreen();
+
+    await waitFor(() => {
+      expect(getByTestId('recent-chat-sess_june15')).toBeTruthy();
+    });
+
+    fireEvent.press(getByTestId('recent-chat-sess_june15'));
+
+    await waitFor(() => {
+      expect(getByTestId('chat-session-loading')).toBeTruthy();
+      expect(queryByTestId('chat-empty-recent-chats')).toBeNull();
+    });
+
+    await act(async () => {
+      resolveJune?.([
+        { role: 'user', content: 'telegram reliability check', id: 'm-june-u' },
+        { role: 'assistant', content: 'gateway is healthy', id: 'm-june-a' },
+      ]);
+    });
+
+    expect(await findByText('telegram reliability check')).toBeTruthy();
+    await waitFor(() => {
+      expect(queryByTestId('chat-session-loading')).toBeNull();
+    });
+  });
+
   it('clear all empties messages and stays on new chat after gateway reload', async () => {
     const alertSpy = jest.spyOn(Alert, 'alert');
     const { listSessions, listMessages } = jest.requireMock('../services/hermesChatClient') as {
@@ -2203,14 +2466,18 @@ describe('ChatScreen', () => {
 
   describe('Obsidian vault project picker', () => {
     it('shows active project chip and opens vault project modal', async () => {
-      const { getByTestId } = await renderChatScreen();
+      const { getByTestId, queryByTestId } = await renderChatScreen();
 
       await act(async () => {
         await Promise.resolve();
         await Promise.resolve();
       });
 
+      // Footer chip is the interactive picker; header project lane is collapsed by default.
       expect(getByTestId('vault-project-picker-chip')).toBeTruthy();
+      expect(queryByTestId('chat-header-project-picker')).toBeNull();
+
+      fireEvent.press(getByTestId('chat-header-details-toggle'));
       expect(getByTestId('chat-header-project-picker')).toBeTruthy();
 
       fireEvent.press(getByTestId('vault-project-picker-chip'));
