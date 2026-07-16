@@ -1,10 +1,18 @@
 import React from 'react';
-import { fireEvent } from '@testing-library/react-native';
-import { render } from '@testing-library/react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { fireEvent, render, waitFor } from '@testing-library/react-native';
 import ChatScreenHeader, { buildHermesStatusLabel } from '../components/ChatScreenHeader';
 import { GATEWAY_AUTH_REPAIR_HEADER } from '../services/gatewayClient';
+import {
+  CHAT_HEADER_DETAILS_EXPANDED_KEY,
+  loadChatHeaderDetailsExpanded,
+} from '../utils/chatHeaderChromePreference';
 
 describe('ChatScreenHeader', () => {
+  beforeEach(async () => {
+    await AsyncStorage.clear();
+  });
+
   it('warns when a weak local coding model is active', () => {
     const { getByTestId } = render(
       <ChatScreenHeader
@@ -13,6 +21,7 @@ describe('ChatScreenHeader', () => {
         connectionState="connected"
         macHttpReachable
         gatewayModel="qwen3.5:9b-hermes-64k"
+        detailsExpanded
         onOpenThreads={jest.fn()}
         onPressMachine={jest.fn()}
       />,
@@ -30,12 +39,96 @@ describe('ChatScreenHeader', () => {
         macHttpReachable
         gatewayModel="glm-coding"
         currentSession={{ model: 'glm-coding', input_tokens: 24_282, output_tokens: 173 }}
+        detailsExpanded
         onOpenThreads={jest.fn()}
         onPressMachine={jest.fn()}
       />,
     );
 
     expect(getByTestId('chat-header-poisoned-context-warning').props.children).toMatch(/Start fresh/i);
+  });
+
+  it('defaults secondary chrome collapsed and expands via chevron', async () => {
+    const onPressMachine = jest.fn();
+    const { getByTestId, queryByTestId } = render(
+      <ChatScreenHeader
+        threadTitle="Deploy fix"
+        machineLabel="Igors-Mac-mini · Tailscale"
+        connectionState="connected"
+        macHttpReachable
+        gatewayModel="qwen3.5:9b-hermes-64k"
+        activeAgents={[{ name: 'Hermes', status: 'active' }]}
+        canSwitchWorkspace
+        onOpenThreads={jest.fn()}
+        onPressMachine={onPressMachine}
+        onPressWorkspace={jest.fn()}
+      />,
+    );
+
+    expect(queryByTestId('chat-header-weak-model-warning')).toBeNull();
+    expect(queryByTestId('chat-header-hermes-status')).toBeNull();
+    expect(queryByTestId('chat-header-project-picker')).toBeNull();
+    expect(getByTestId('chat-header-details-chevron').props.children).toBe('▾');
+    expect(getByTestId('chat-context-link').props.children).toContain('Connected');
+
+    fireEvent.press(getByTestId('chat-header-details-toggle'));
+
+    expect(getByTestId('chat-header-weak-model-warning').props.children).toMatch(/local worker/i);
+    expect(getByTestId('chat-header-hermes-status')).toBeTruthy();
+    expect(getByTestId('chat-header-project-picker')).toBeTruthy();
+    expect(getByTestId('chat-header-details-chevron').props.children).toBe('▴');
+
+    await waitFor(async () => {
+      await expect(loadChatHeaderDetailsExpanded()).resolves.toBe(true);
+    });
+    expect(await AsyncStorage.getItem(CHAT_HEADER_DETAILS_EXPANDED_KEY)).toBe('1');
+
+    // Mac / Connected label always opens the computer picker (chevron owns expand).
+    fireEvent.press(getByTestId('chat-context-mac-button'));
+    expect(onPressMachine).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps Mac picker on collapsed Connected row; chevron expands details', () => {
+    const onPressMachine = jest.fn();
+    const { getByTestId, queryByTestId } = render(
+      <ChatScreenHeader
+        threadTitle="Deploy fix"
+        machineLabel="Igors-Mac-mini · Tailscale"
+        connectionState="connected"
+        macHttpReachable
+        gatewayModel="qwen3.5:9b-hermes-64k"
+        onOpenThreads={jest.fn()}
+        onPressMachine={onPressMachine}
+      />,
+    );
+
+    expect(queryByTestId('chat-header-weak-model-warning')).toBeNull();
+    fireEvent.press(getByTestId('chat-context-mac-button'));
+    expect(onPressMachine).toHaveBeenCalledTimes(1);
+    expect(queryByTestId('chat-header-weak-model-warning')).toBeNull();
+
+    fireEvent.press(getByTestId('chat-header-details-toggle'));
+    expect(getByTestId('chat-header-weak-model-warning')).toBeTruthy();
+  });
+
+  it('restores persisted expanded preference on mount', async () => {
+    await AsyncStorage.setItem(CHAT_HEADER_DETAILS_EXPANDED_KEY, '1');
+    const { getByTestId } = render(
+      <ChatScreenHeader
+        threadTitle="Deploy fix"
+        machineLabel="MacBook Pro"
+        connectionState="connected"
+        macHttpReachable
+        gatewayModel="qwen3.5:9b-hermes-64k"
+        onOpenThreads={jest.fn()}
+        onPressMachine={jest.fn()}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(getByTestId('chat-header-weak-model-warning')).toBeTruthy();
+    });
+    expect(getByTestId('chat-header-details-chevron').props.children).toBe('▴');
   });
 
   it('shows relay only when socket is connected but HTTP is not', () => {
@@ -217,6 +310,7 @@ describe('ChatScreenHeader', () => {
         connectionState="connected"
         macHttpReachable
         canSwitchWorkspace
+        detailsExpanded
         onOpenThreads={jest.fn()}
         onPressMachine={jest.fn()}
         onPressWorkspace={jest.fn()}
@@ -320,6 +414,7 @@ describe('ChatScreenHeader', () => {
         macHttpReachable
         activeAgents={[{ name: 'Hermes', status: 'active' }]}
         gatewayModel="google/gemini-2.5-flash"
+        detailsExpanded
         onOpenThreads={jest.fn()}
         onPressMachine={jest.fn()}
       />,
@@ -340,6 +435,7 @@ describe('ChatScreenHeader', () => {
         activeAgents={[{ name: 'Hermes', status: 'active' }]}
         currentSession={{ model: 'hermes-agent', input_tokens: 800, output_tokens: 200 }}
         gatewayModel="qwen3:8b-64k"
+        detailsExpanded
         onOpenThreads={jest.fn()}
         onPressMachine={jest.fn()}
       />,
@@ -367,6 +463,7 @@ describe('ChatScreenHeader', () => {
           inputTokens: 34000,
           outputTokens: 128,
         }}
+        detailsExpanded
         onOpenThreads={jest.fn()}
         onPressMachine={jest.fn()}
       />,
