@@ -44,6 +44,23 @@ function messageBody(message: HermesMessage): string {
   return normalizeMessageText(raw);
 }
 
+/**
+ * Some gateway adapters persist the phone prompt followed by an injected context block.
+ * Treat the first blank-line-delimited block as the acknowledged prompt without making
+ * arbitrary prefix matches (which could hide a genuinely different repeated prompt).
+ */
+function serverUserAcknowledgesBody(message: HermesMessage, optimisticBody: string): boolean {
+  const raw = message.rawContent?.trim() || message.content?.trim() || '';
+  if (!raw || !optimisticBody) {
+    return false;
+  }
+  if (normalizeMessageText(raw) === optimisticBody) {
+    return true;
+  }
+  const [firstBlock, ...remainingBlocks] = raw.split(/\r?\n\s*\r?\n/);
+  return remainingBlocks.length > 0 && normalizeMessageText(firstBlock ?? '') === optimisticBody;
+}
+
 function messageFingerprint(message: HermesMessage): string {
   const role = message.role?.toLowerCase() ?? '';
   return `${role}\u0000${messageBody(message)}`;
@@ -150,7 +167,7 @@ function serverHasLatestUserMessage(serverMessages: HermesMessage[], body: strin
     if (message.role?.toLowerCase() !== 'user') {
       continue;
     }
-    return messageBody(message) === body;
+    return serverUserAcknowledgesBody(message, body);
   }
   return false;
 }
@@ -170,7 +187,7 @@ function serverEndsWithMatchingUser(serverMessages: HermesMessage[], body: strin
       return false;
     }
     if (role === 'user') {
-      return messageBody(message) === body;
+      return serverUserAcknowledgesBody(message, body);
     }
   }
   return false;
@@ -188,7 +205,7 @@ function annotateTrailingServerUserWithOutbound(
     if (role === 'assistant') {
       return serverMessages;
     }
-    if (role === 'user' && messageBody(message) === body) {
+    if (role === 'user' && serverUserAcknowledgesBody(message, body)) {
       if (message.outboundStatus) {
         return serverMessages;
       }
