@@ -40,7 +40,10 @@ import Constants from 'expo-constants';
 import { colors } from '../theme/colors';
 import { isDemoModeAllowed } from '../utils/demoModePolicy';
 import { haptics } from '../services/haptics';
+import { scheduleRunCompletedNotification } from '../services/hermesNotifications';
 import GatewayProfilePicker from '../components/GatewayProfilePicker';
+import { confirmForgetGatewayProfile } from '../utils/confirmForgetGatewayProfile';
+import { profileDisplayName } from '../services/gatewayProfiles';
 import {
   listSessions,
   createSession,
@@ -1624,6 +1627,7 @@ export default function ChatScreen() {
     healInFlight: connectionHealInFlight,
     healExhausted: connectionHealExhausted,
     hasSavedComputer: hasValidSavedComputer(gatewayProfiles),
+    authMismatch: effectiveAuthMismatch,
   });
 
   const hasPriorSuccessfulConnection = hasValidSavedComputer(gatewayProfiles);
@@ -5083,6 +5087,7 @@ export default function ChatScreen() {
         if (!body) {
           return;
         }
+        activeAssistantTextRef.current = body;
         if (!assistantBubbleAdded && isDeferredStreamPlaceholder(body)) {
           const existing = findDeferredPlaceholderAfterLastUser(messagesRef.current);
           if (existing?.id) {
@@ -5561,6 +5566,10 @@ export default function ChatScreen() {
       if (!deferredTelegramPollRef.current) {
         const completedStartedAt = sendStartedAtRef.current;
         if (sendSucceeded) {
+          const replyPreview = (activeAssistantTextRef.current || '')
+            .replace(/\s+/g, ' ')
+            .trim()
+            .slice(0, 200);
           setRunProgress((prev) => ({
             ...(prev ?? {
               startedAtMs: completedStartedAt,
@@ -5568,8 +5577,20 @@ export default function ChatScreen() {
             }),
             phase: 'completed',
             detail: 'Reply ready on your computer',
+            replyPreview: replyPreview || undefined,
             duration: Math.max(0, (Date.now() - completedStartedAt) / 1000),
           }));
+          if (AppState.currentState !== 'active' && settings.notificationCompletion) {
+            void scheduleRunCompletedNotification(
+              replyPreview || 'Reply ready on your computer',
+              {
+                success: true,
+                sessionId: targetSessionId,
+                replySnippet: replyPreview || undefined,
+                categoryEnabled: settings.notificationCompletion,
+              },
+            );
+          }
           setTimeout(() => {
             setRunProgress((prev) =>
               prev?.phase === 'completed' && prev.startedAtMs === completedStartedAt ? null : prev,
@@ -6806,8 +6827,17 @@ export default function ChatScreen() {
                 }}
                 onRemove={
                   switchComputerProfiles.length > 1
-                    ? async (profileId) => {
-                        await removeGatewayProfile(profileId);
+                    ? (profileId) => {
+                        const profile =
+                          switchComputerProfiles.find((p) => p.id === profileId) ??
+                          gatewayProfiles.find((p) => p.id === profileId);
+                        confirmForgetGatewayProfile({
+                          profileId,
+                          computerName: profile
+                            ? profileDisplayName(profile)
+                            : 'this computer',
+                          onConfirm: removeGatewayProfile,
+                        });
                       }
                     : undefined
                 }

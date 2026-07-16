@@ -48,11 +48,15 @@ SWAP_CRIT_PCT=90
 OLLAMA_API="http://127.0.0.1:11434"
 DRY_RUN="${1:-}"
 
-# leaf agent workloads we may evict/kill — full-command-line match (v1's fatal
-# flaw was matching the process NAME; agent CLIs are generic node/java/python)
-AGENT_RE='GradleDaemon|org\.gradle|ollama runner|llama-server|claude( |$)|codex|opencode|agy |hermes_cli|node .*(agent|mcp)'
-# never signal these: Electron/Chromium helpers (respawn/wedge), UI apps, transports
-NEVER_RE='Helper|Renderer|\.app/Contents/(Frameworks|MacOS)|WindowServer|screensharing|sshd|Tailscale|Terminal|ghostty|Finder|Dock'
+# leaf agent workloads we may reap under REAL critical pressure — full-command-line
+# match (v1 matched the process NAME; agent CLIs are generic node/java/python).
+# NOTE (2026-07-14 fix): llama-server / ollama runner REMOVED — SIGKILLing the
+# model mid-inference corrupts the run and breaks hermes-yolo. Ollama memory is
+# reclaimed GRACEFULLY by the WARN action (`ollama stop`), never by SIGKILL.
+AGENT_RE='GradleDaemon|org\.gradle|claude( |$)|codex|opencode|agy |hermes_cli|node .*(agent|mcp)'
+# never signal these: Electron/Chromium helpers (respawn/wedge), UI apps, transports,
+# and — critically — the fleet's own inference/gateway processes it depends on.
+NEVER_RE='Helper|Renderer|\.app/Contents/(Frameworks|MacOS)|WindowServer|screensharing|sshd|Tailscale|tailscaled|Terminal|ghostty|Finder|Dock|llama-server|ollama|Ollama|litellm|gateway run|grep -E'
 
 log() { echo "$(date '+%Y-%m-%d %H:%M:%S') $*" >> "$LOG"; }
 notify() {
@@ -90,7 +94,12 @@ swap_pct=0
 [[ -n "$swap_total" ]] && swap_pct=$(awk -v u="$swap_used" -v t="$swap_total" 'BEGIN{print (t>0)? int(u*100/t) : 0}')
 
 crit=0; warn=0
-(( pressure >= 4 || swap_pct >= SWAP_CRIT_PCT )) && crit=1
+# CRITICAL only on the KERNEL's own level-4 signal. 2026-07-14 fix: swap% alone
+# was a false trigger — these 24GB boxes sit at ~95% swap under NORMAL kernel
+# pressure (level 1), so `swap_pct >= 90` reaped processes constantly. Swap is
+# kept only as a corroborating gate: it must accompany kernel WARN, never stand
+# alone. Kernel level 4 = jetsam imminent = the only true "reap now".
+(( pressure >= 4 )) && crit=1
 (( pressure >= 2 )) && warn=1
 
 if (( !warn && !crit )); then
@@ -133,9 +142,10 @@ echo "$now" > "$CRIT_COOLDOWN_FILE"
 # target preference: (1) batch leaves (builds/models — restart on demand, no
 # session state), then (2) HEADLESS agent CLIs (tty=??). A terminal-attached
 # agent CLI is someone's live session — never reap it, notify instead.
-BATCH_RE='GradleDaemon|org\.gradle|ollama runner|llama-server'
+BATCH_RE='GradleDaemon|org\.gradle'
+# exclude our own scan pipeline (ps/grep/awk) so the guard never reaps itself
 candidates=$(ps -axo pid=,rss=,tty=,command= | grep -E "$AGENT_RE" | grep -vE "$NEVER_RE" \
-  | grep -v "memory-pressure-guardian")
+  | grep -vE "memory-pressure-guardian|grep -E|ps -axo")
 target=$(echo "$candidates" | grep -E "$BATCH_RE" | sort -k2 -rn | head -1)
 [[ -z "$target" ]] && target=$(echo "$candidates" | awk '$3=="??"' | sort -k2 -rn | head -1)
 if [[ -z "$target" ]]; then

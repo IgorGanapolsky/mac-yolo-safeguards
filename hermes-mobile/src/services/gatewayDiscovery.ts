@@ -36,9 +36,11 @@ function reportLanScanProgress(
   stage: LanScanStage,
   completedHosts: number,
   totalHosts: number,
-  foundCount: number,
+  gateways: DiscoveredGateway[],
 ) {
-  onProgress?.({ stage, completedHosts, totalHosts, foundCount });
+  const linkCount = gateways.length;
+  const foundCount = countUniqueDiscoveredMachines(gateways);
+  onProgress?.({ stage, completedHosts, totalHosts, foundCount, linkCount });
 }
 
 export type PairServerPayload = {
@@ -415,7 +417,7 @@ async function sweepAllPairServers(
       'pair_server',
       Math.min(start + batch.length, hosts.length),
       hosts.length,
-      map.size,
+      Array.from(map.values()),
     );
   }
 
@@ -426,7 +428,7 @@ async function sweepAllGateways(
   phoneIp: string,
   preferLanIp?: string | null,
   options?: DiscoverLanOptions,
-  foundSoFar = 0,
+  priorGateways: DiscoveredGateway[] = [],
 ): Promise<DiscoveredGateway[]> {
   const baseHosts = ['127.0.0.1', 'localhost'];
   const subnetHosts = phoneIp ? buildHostOrder(phoneIp, preferLanIp) : [];
@@ -451,7 +453,7 @@ async function sweepAllGateways(
       'gateway_health',
       Math.min(start + batch.length, hosts.length),
       hosts.length,
-      foundSoFar + map.size,
+      [...priorGateways, ...Array.from(map.values())],
     );
   }
 
@@ -468,14 +470,19 @@ export async function discoverAllGatewaysOnLan(
   const subnetHosts = phoneIp ? buildHostOrder(phoneIp, preferLanIp) : [];
   const hosts = [...baseHosts, ...subnetHosts];
 
-  reportLanScanProgress(options?.onProgress, 'pair_server', 0, hosts.length, 0);
+  reportLanScanProgress(options?.onProgress, 'pair_server', 0, hosts.length, []);
 
   const map = new Map<string, DiscoveredGateway>();
   const fromPair = await sweepAllPairServers(phoneIp ?? '', preferLanIp, options);
   for (const item of fromPair.gateways) {
     mergeDiscovered(map, item);
   }
-  const fromHealth = await sweepAllGateways(phoneIp ?? '', preferLanIp, options, map.size);
+  const fromHealth = await sweepAllGateways(
+    phoneIp ?? '',
+    preferLanIp,
+    options,
+    Array.from(map.values()),
+  );
   for (const item of fromHealth) {
     mergeDiscovered(map, item);
   }
@@ -487,7 +494,7 @@ export async function discoverAllGatewaysOnLan(
   }
 
   const list = dedupeDiscoveredGatewaysByMachine(Array.from(map.values()));
-  reportLanScanProgress(options?.onProgress, 'complete', hosts.length, hosts.length, list.length);
+  reportLanScanProgress(options?.onProgress, 'complete', hosts.length, hosts.length, list);
   if (preferLanIp && IPV4_RE.test(preferLanIp.trim())) {
     const preferUrl = buildGatewayUrlFromLanIp(preferLanIp.trim());
     const preferKey = normalizeGatewayUrl(preferUrl).httpBase;

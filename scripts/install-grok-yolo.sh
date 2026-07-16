@@ -84,13 +84,13 @@ update_remote_grok() {
 }
 
 doctor_local() {
-  echo "=== Local Grok 4.5 doctor ($(hostname)) ==="
+  echo "=== Local Grok Build doctor ($(hostname)) ==="
   "$HOME/.local/bin/grok-yolo" --doctor --json
 }
 
 doctor_remote() {
   local host="$1"
-  echo "=== Remote Grok 4.5 doctor ($host) ==="
+  echo "=== Remote Grok Build doctor ($host) ==="
   ssh -o BatchMode=yes -o ConnectTimeout=8 "$host" '"$HOME/.local/bin/grok-yolo" --doctor --json'
 }
 
@@ -117,4 +117,4 @@ if ((doctor_status != 0)); then
   exit "$doctor_status"
 fi
 
-echo "install-grok-yolo: local and remote Grok 4.5 harnesses are ready"
+echo "install-grok-yolo: local and remote Grok Build harnesses are ready"

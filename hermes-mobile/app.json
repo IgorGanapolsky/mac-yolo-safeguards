@@ -6,7 +6,7 @@
     "experiments": {
       "reactCompiler": true
     },
-    "version": "1.1",
+    "version": "1.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
@@ -107,7 +107,7 @@
     "updates": {
       "enabled": true,
       "checkAutomatically": "ON_LOAD",
-      "fallbackToCacheTimeout": 0,
+      "fallbackToCacheTimeout": 3000,
       "url": "https://u.expo.dev/4ed13e30-9b97-4ddd-8a12-59106cae90d6"
     },
     "plugins": [

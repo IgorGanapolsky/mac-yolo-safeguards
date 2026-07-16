@@ -36,6 +36,7 @@ const {
   putPairingCode,
   takePairingCode,
   pruneExpiredPairingCodes,
+  writePairJsonAtomic,
 } = require('./hermes-mobile-pair-lib.js');
 const { pipelineBusyReason } = require('./agent-phone-pipeline-lock.js');
 const { withPhoneLease } = require('./agent-phone-lease.js');
@@ -338,7 +339,8 @@ function writePairAssets({ gatewayUrl, lanIp, deepLink, pageUrl, hostname, relay
       ? { tailnetProbeHosts }
       : {}),
   };
-  fs.writeFileSync(path.join(OUT_DIR, 'pair.json'), JSON.stringify(pairJson, null, 2));
+  // Single-writer lock — concurrent agents must not poison primary Mac in pair.json.
+  writePairJsonAtomic(path.join(OUT_DIR, 'pair.json'), pairJson);
 
   const htmlPath = path.join(OUT_DIR, 'index.html');
   const html = `<!DOCTYPE html>
