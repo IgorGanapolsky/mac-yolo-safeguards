@@ -6329,6 +6329,7 @@ export default function ChatScreen() {
           currentSession={currentSession}
           gatewayModel={headerGatewayModel}
           runProgress={progressBanner}
+          messageCount={messages.length}
           onOpenThreads={openSessionsModal}
           onOpenTools={() => setToolsModalVisible(true)}
           onPressMachine={() => {
@@ -6472,8 +6473,9 @@ export default function ChatScreen() {
                 ref={flatListRef}
                 data={chatTimelineMessages}
                 testID="chat-message-list"
-                keyExtractor={(item, index) =>
-                  item.message.id ?? `${item.message.role}-${item.originalIndex}-${index}`
+                // Stable ids only — never bake streaming length into keys (full remount / jitter).
+                keyExtractor={(item) =>
+                  item.message.id ?? `${item.message.role}-${item.originalIndex}`
                 }
                 style={styles.flatList}
                 contentContainerStyle={styles.messageList}
@@ -6487,6 +6489,8 @@ export default function ChatScreen() {
                   startRenderingFromBottom: true,
                   autoscrollToBottomThreshold: 0.15,
                 }}
+                // Keep extraData narrow so token ticks do not remount the whole list.
+                extraData={`${connectionState}:${effectiveMacHttpOk ? 1 : 0}:${isSending ? 1 : 0}:${messages.length}`}
                 onScroll={handleChatScroll}
                 onScrollBeginDrag={handleChatScrollBeginDrag}
                 onScrollEndDrag={handleChatScrollEndDrag}

@@ -170,7 +170,7 @@ describe('ChatMessageBubble', () => {
     });
 
     expect(getByTestId('chat-message-timestamp').props.children).toBe('Jul 9, 2026 7:42 PM');
-    expect(getByTestId('chat-outbound-sent').props.children).toBe('○ Waiting for computer…');
+    expect(getByTestId('chat-outbound-sent').props.children).toBe('○ Still connecting…');
   });
 
   it('renders Leash output feedback controls for assistant messages', () => {

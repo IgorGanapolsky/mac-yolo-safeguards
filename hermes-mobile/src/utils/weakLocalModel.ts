@@ -25,7 +25,24 @@ export function isWeakLocalCodingModel(model: string | undefined | null): boolea
 export function weakLocalModelWarning(model: string | undefined | null): string | null {
   if (!isWeakLocalCodingModel(model)) return null;
   const short = formatLlmModelShortName(model) ?? displayableLlmModel(model) ?? 'Local SLM';
-  return `${short} is a local worker — too weak for product work. Start a fresh chat after the Mac switches to GLM/Claude/GPT.`;
+  return `${short} is a local worker — too weak for product work. Switch Mac or start a fresh chat after GLM/Claude/GPT is active.`;
+}
+
+/** New empty chat on a weak local SLM — refuse soft-start and offer Switch Mac. */
+export function shouldWarnWeakLocalOnNewChat(input: {
+  model: string | undefined | null;
+  messageCount: number;
+}): boolean {
+  if (input.messageCount > 0) {
+    return false;
+  }
+  return isWeakLocalCodingModel(input.model);
+}
+
+export function weakLocalSwitchMacHint(model: string | undefined | null): string | null {
+  if (!isWeakLocalCodingModel(model)) return null;
+  const short = formatLlmModelShortName(model) ?? displayableLlmModel(model) ?? 'Local SLM';
+  return `${short} will freeze product work. Tap Switch Mac for a computer on GLM, or wait until this Mac upgrades.`;
 }
 
 /** Mega / poisoned threads: prefer Start fresh when input context is already huge. */

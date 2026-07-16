@@ -149,7 +149,7 @@ describe('CodexCommandCenter', () => {
       />,
     );
 
-    expect(getByTestId('command-center-link-state').props.children).toBe('Relay only');
+    expect(getByTestId('command-center-link-state').props.children).toBe('Reconnecting…');
     expect(getByTestId('command-center-mac-detail').props.children).toBe('Chat needs direct link');
   });
 

@@ -56,11 +56,10 @@ export function resolveChatLinkDisplay(input: {
   if (input.macHttpOk) {
     return { label: 'Connected', chatReachable: true };
   }
-  if (input.connectionState === 'connected') {
-    return { label: 'Relay only', chatReachable: false };
-  }
-  if (input.connectionState === 'connecting') {
-    return { label: 'Connecting', chatReachable: false };
+  // Health/WS failed after a green Connected — drop to Reconnecting fast.
+  // Do not keep looking alive with "Connected" or a stale "Relay only" pill.
+  if (input.connectionState === 'connected' || input.connectionState === 'connecting') {
+    return { label: 'Reconnecting…', chatReachable: false };
   }
   const fallback = input.disconnectedLabel?.trim();
   return {

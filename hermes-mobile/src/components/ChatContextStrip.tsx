@@ -35,8 +35,8 @@ function connectionMeta(
   if (link.label === GATEWAY_AUTH_REPAIR_HEADER) {
     return { label: link.label, color: colors.error };
   }
-  if (link.label === 'Relay only') {
-    return { label: 'Relay only', color: colors.warning };
+  if (link.label === 'Reconnecting…' || link.label === 'Relay only') {
+    return { label: link.label, color: colors.warning };
   }
   if (state === 'connecting') {
     return { label: 'Connecting…', color: colors.warning };

@@ -28,7 +28,7 @@ type ChatInputBarProps = {
   sendDisabled?: boolean;
   sendLabel?: string;
   onSend: (latestText?: string) => void;
-  /** Codex-style: square Stop replaces Send while Mac run is active and composer is empty. */
+  /** Codex-style: square Stop while Mac run is pending (always visible; Send stays if composer has text). */
   showStop?: boolean;
   onStop?: () => void;
   stopLabel?: string;
@@ -58,9 +58,11 @@ function ChatInputBar({
 }: ChatInputBarProps) {
   const inputRef = useRef<TextInput>(null);
   const latestTextRef = useRef(value);
-  const stopMode = showStop && !composerHasSendableContent(value, attachments);
-  const canSend = composerHasSendableContent(value, attachments)
+  const hasSendable = composerHasSendableContent(value, attachments)
     || composerHasSendableContent(latestTextRef.current, attachments);
+  /** Stop stays visible for the whole pending run; Send stays mounted (muted when empty). */
+  const showStopButton = Boolean(showStop && onStop);
+  const canSend = hasSendable;
 
   useEffect(() => {
     if (value.trim() || !latestTextRef.current.trim()) {
@@ -150,7 +152,7 @@ function ChatInputBar({
           }}
           testID="chat-input"
         />
-        {stopMode ? (
+        {showStopButton ? (
           <TouchableOpacity
             style={styles.stopButton}
             onPress={onStop}
@@ -159,20 +161,19 @@ function ChatInputBar({
           >
             <View style={styles.stopSquare} />
           </TouchableOpacity>
-        ) : (
-          <TouchableOpacity
-            style={[styles.sendButton, (sendMuted || !canSend || sendDisabled) && styles.sendButtonMuted]}
-            onPress={() => {
-              const latest = latestTextRef.current;
-              latestTextRef.current = '';
-              onSend(latest);
-            }}
-            testID="chat-send-button"
-            accessibilityLabel="Send"
-          >
-            <Text style={styles.sendIcon}>↑</Text>
-          </TouchableOpacity>
-        )}
+        ) : null}
+        <TouchableOpacity
+          style={[styles.sendButton, (sendMuted || !canSend || sendDisabled) && styles.sendButtonMuted]}
+          onPress={() => {
+            const latest = latestTextRef.current;
+            latestTextRef.current = '';
+            onSend(latest);
+          }}
+          testID="chat-send-button"
+          accessibilityLabel="Send"
+        >
+          <Text style={styles.sendIcon}>↑</Text>
+        </TouchableOpacity>
       </View>
     </View>
   );

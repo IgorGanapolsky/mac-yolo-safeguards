@@ -1170,9 +1170,10 @@ describe('ChatScreen', () => {
     act(() => {
       jest.advanceTimersByTime(1600);
     });
+    await flushPendingTimers();
     await act(async () => {
       fireEvent.changeText(input, prompt);
-      fireEvent.press(sendButton);
+      fireEvent.press(getByTestId('chat-send-button'));
       await Promise.resolve();
     });
 

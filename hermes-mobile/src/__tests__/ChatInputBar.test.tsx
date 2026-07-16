@@ -28,6 +28,24 @@ describe('ChatInputBar', () => {
 
     fireEvent.press(getByTestId('chat-stop-button'));
     expect(onStop).toHaveBeenCalled();
+    // Send stays mounted (muted) so Stop never replaces the control layout.
+    expect(getByTestId('chat-send-button')).toBeTruthy();
+  });
+
+  it('keeps Stop visible while drafting the next message during a pending run', () => {
+    const onStop = jest.fn();
+    const { getByTestId } = render(
+      <ChatInputBar
+        {...baseProps}
+        value="next prompt"
+        sendMuted={false}
+        showStop={true}
+        onStop={onStop}
+      />,
+    );
+
+    expect(getByTestId('chat-stop-button')).toBeTruthy();
+    expect(getByTestId('chat-send-button')).toBeTruthy();
   });
 
   it('uses light text on dark composer field', () => {

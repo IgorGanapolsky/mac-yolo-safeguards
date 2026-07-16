@@ -45,13 +45,13 @@ describe('gatewayConnection', () => {
     expect(isGatewayHealthOk({ level: 'amber', checkedAt: '' })).toBe(true);
   });
 
-  it('shows relay only when socket is up but chat HTTP is down', () => {
+  it('drops to Reconnecting… when socket looked connected but chat HTTP is down', () => {
     expect(
       resolveChatLinkDisplay({
         connectionState: 'connected',
         macHttpOk: false,
       }),
-    ).toEqual({ label: 'Relay only', chatReachable: false });
+    ).toEqual({ label: 'Reconnecting…', chatReachable: false });
   });
 
   it('mac HTTP ok uses directGatewayReachable when set', () => {

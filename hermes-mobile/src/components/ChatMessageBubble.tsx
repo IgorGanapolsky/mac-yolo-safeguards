@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { colors } from '../theme/colors';
 import { haptics } from '../services/haptics';
@@ -9,6 +9,7 @@ import ClarificationPromptCard from './ClarificationPromptCard';
 import type { ClarificationOption, ParsedClarification } from '../utils/chatClarification';
 import {
   outboundDeliveryLabel,
+  outboundPendingAgeMs,
   type OutboundDeliveryStatus,
 } from '../utils/outboundDeliveryStatus';
 import type { LeashConnectionState } from '../utils/gatewayEndpoint';
@@ -53,6 +54,8 @@ type ChatMessageBubbleProps = {
   onShowDetail?: (body: string) => void;
   outboundStatus?: OutboundDeliveryStatus;
   outboundFailureReason?: string;
+  /** ISO / epoch when the optimistic bubble was created — drives 3s ack copy. */
+  outboundCreatedAt?: string | number | null;
   connectionState?: LeashConnectionState;
   macHttpOk?: boolean;
   leashUnlocked?: boolean;
@@ -89,10 +92,41 @@ function ChatMessageBubble({
   onShowDetail,
   outboundStatus,
   outboundFailureReason,
+  outboundCreatedAt,
   connectionState = 'demo',
   macHttpOk = true,
   promptReplyElapsed,
 }: ChatMessageBubbleProps) {
+  const [ackNowMs, setAckNowMs] = useState(() => Date.now());
+  const needsAckTick =
+    isUser && (outboundStatus === 'pending' || outboundStatus === 'sent') && Boolean(outboundCreatedAt);
+
+  useEffect(() => {
+    if (!needsAckTick) {
+      return;
+    }
+    setAckNowMs(Date.now());
+    const timer = setInterval(() => setAckNowMs(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, [needsAckTick, outboundCreatedAt, outboundStatus]);
+
+  const pendingAgeMs = useMemo(
+    () => (needsAckTick ? outboundPendingAgeMs(outboundCreatedAt, ackNowMs) : 0),
+    [needsAckTick, outboundCreatedAt, ackNowMs],
+  );
+
+  const deliveryLabel = useMemo(() => {
+    if (!outboundStatus) {
+      return null;
+    }
+    return outboundDeliveryLabel(outboundStatus, {
+      connectionState,
+      macHttpOk,
+      failureReason: outboundFailureReason,
+      pendingAgeMs,
+    });
+  }, [outboundStatus, connectionState, macHttpOk, outboundFailureReason, pendingAgeMs]);
+
   const resolved = useMemo(() => {
     if (rawContent !== undefined && truncated !== undefined) {
       return { content, rawContent, truncated };
@@ -241,27 +275,19 @@ function ChatMessageBubble({
               isUser && outboundStatus === 'failed' && styles.timeRowFailed,
             ]}
           >
-            {isUser && outboundStatus ? (
+            {isUser && outboundStatus && deliveryLabel ? (
               <Text
                 style={[
                   styles.deliveryMark,
                   outboundStatus === 'failed' && styles.deliveryFailed,
                   outboundStatus === 'sent' &&
-                    outboundDeliveryLabel(outboundStatus, {
-                      connectionState,
-                      macHttpOk,
-                      failureReason: outboundFailureReason,
-                    }).startsWith('✓') &&
+                    deliveryLabel.startsWith('✓') &&
                     styles.deliverySent,
                 ]}
                 numberOfLines={outboundStatus === 'failed' ? 3 : 1}
                 testID={`chat-outbound-${outboundStatus}`}
               >
-                {outboundDeliveryLabel(outboundStatus, {
-                  connectionState,
-                  macHttpOk,
-                  failureReason: outboundFailureReason,
-                })}
+                {deliveryLabel}
               </Text>
             ) : null}
             <Text
