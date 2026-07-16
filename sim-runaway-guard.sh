@@ -52,6 +52,24 @@ LOG=${YOLO_LOG:-/tmp/shutdown-simulators.log}
 # Ollama reclaim now belongs to memory-pressure-guardian.sh.
 YOLO_RECLAIM_OLLAMA_MODE=graceful-http-delegated
 
+# The process-level E2E runs on the same Mac mini as this live LaunchAgent.
+# Honor its short-lived PID lease so the installed guard cannot kill a fake
+# worker before the checkout-under-test records the assertion. A stale or
+# malformed lease never disables protection.
+E2E_LEASE_FILE=${YOLO_E2E_LEASE_FILE:-/tmp/yolo-guard-e2e.pid}
+if [ "${YOLO_BYPASS_E2E_LEASE:-0}" != "1" ] && [ -f "$E2E_LEASE_FILE" ]; then
+  E2E_LEASE_PID=$(/bin/cat "$E2E_LEASE_FILE" 2>/dev/null || true)
+  case "$E2E_LEASE_PID" in
+    ''|*[!0-9]*) ;;
+    *)
+      if /bin/kill -0 "$E2E_LEASE_PID" 2>/dev/null; then
+        echo "$(date) E2E_LEASE: guard paused for active test pid=$E2E_LEASE_PID" >> "$LOG"
+        exit 0
+      fi
+      ;;
+  esac
+fi
+
 now=$(date +%s)
 
 notify() {

@@ -14,7 +14,9 @@ set -u
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
 GUARD="$REPO/sim-runaway-guard.sh"
 TMP="$(mktemp -d /tmp/yolo-guard-test.XXXXXX)"
-trap 'pkill -9 -f "YoloFake" 2>/dev/null; pkill -9 -f "FakePrimaryChrome" 2>/dev/null; pkill -9 -f "FakeHermesProc" 2>/dev/null; pkill -9 -f "chrome-cdp-profile" 2>/dev/null; pkill -9 -f "semgrep-core" 2>/dev/null; pkill -9 -f "ollama runner" 2>/dev/null; pkill -9 -f "com.semmle.cli2.CodeQL" 2>/dev/null; rm -rf "$TMP"' EXIT INT TERM
+E2E_LEASE_FILE="/tmp/yolo-guard-e2e.pid"
+echo "$$" > "$E2E_LEASE_FILE"
+trap 'pkill -9 -f "YoloFake" 2>/dev/null; pkill -9 -f "FakePrimaryChrome" 2>/dev/null; pkill -9 -f "FakeHermesProc" 2>/dev/null; pkill -9 -f "chrome-cdp-profile" 2>/dev/null; pkill -9 -f "semgrep-core" 2>/dev/null; pkill -9 -f "ollama runner" 2>/dev/null; pkill -9 -f "com.semmle.cli2.CodeQL" 2>/dev/null; [ "$(cat "$E2E_LEASE_FILE" 2>/dev/null)" = "$$" ] && rm -f "$E2E_LEASE_FILE"; rm -rf "$TMP"' EXIT INT TERM
 
 pass=0; fail=0
 G="\033[32m"; R="\033[31m"; Z="\033[0m"
@@ -57,6 +59,8 @@ run_guard() {
     YOLO_MEM_APP_STATUS_FILE="$TMP/mem-app-status.txt" \
     YOLO_WEBHOOK_URL="http://127.0.0.1:9" \
     YOLO_LSOF_BIN="$TMP/lsof" \
+    YOLO_E2E_LEASE_FILE="$E2E_LEASE_FILE" \
+    YOLO_BYPASS_E2E_LEASE="1" \
     YOLO_MEM_FREE_PCT_THRESHOLD="${FREE_T:-200}" \
     YOLO_SWAP_PCT_THRESHOLD="${SWAP_T:-80}" \
     "$@" \
@@ -67,6 +71,24 @@ echo "=== sim-runaway-guard: secondary-browser reclaim E2E ==="
 
 # T6 (cheap, first): script is syntactically valid.
 if /bin/sh -n "$GUARD"; then ok "guard passes 'sh -n' syntax check"; else bad "guard FAILS syntax check"; fi
+
+# T0: the installed guard honors an active test lease, but a stale PID cannot
+# leave protection disabled after a crashed test.
+YOLO_LOG="$TMP/lease.log" YOLO_E2E_LEASE_FILE="$E2E_LEASE_FILE" /bin/sh "$GUARD" >/dev/null 2>&1
+grep -q "E2E_LEASE: guard paused for active test pid=$$" "$TMP/lease.log" \
+  && ok "T0: active E2E PID lease pauses the live guard" \
+  || bad "T0: active E2E PID lease was not honored"
+echo 999999 > "$E2E_LEASE_FILE"
+: > "$TMP/guard.log"
+FREE_T="0" SWAP_T="999" run_guard \
+  YOLO_BYPASS_E2E_LEASE="0" \
+  YOLO_RECLAIM_SECONDARY_BROWSERS="0" \
+  YOLO_CPU_PCT_THRESHOLD="9999" \
+  YOLO_CODEQL_CPU_PCT_THRESHOLD="9999"
+grep -q "E2E_LEASE:" "$TMP/guard.log" \
+  && bad "T0: stale E2E PID lease disabled the guard" \
+  || ok "T0: stale E2E PID lease cannot disable the guard"
+echo "$$" > "$E2E_LEASE_FILE"
 
 # --- T1+T2: under pressure, reclaim the secondary browser, protect the rest ---
 SEC="$TMP/YoloFakeBrowser.app/Contents/MacOS/YoloFakeBrowser"
