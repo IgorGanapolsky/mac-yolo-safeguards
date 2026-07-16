@@ -1,5 +1,6 @@
 import type { HermesSession } from '../types/chat';
 import type { ChatProjectState } from '../types/chatProject';
+import { shouldClearMissingCurrentSession } from './disconnectMessagePreserve';
 import { pickDefaultSession } from './sessionSelection';
 
 export type SessionListSelectionInput = {
@@ -52,6 +53,19 @@ export function resolveSessionAfterListLoad(
     return currentSessionId ? null : undefined;
   }
 
+  // Sticky session missing from an empty/incomplete reconnect list — keep it.
+  // Clearing here wiped the transcript while refresh was a no-op (false disconnect).
+  if (
+    currentSessionId &&
+    !shouldClearMissingCurrentSession({
+      sessionsLength: sessions.length,
+      currentSessionId,
+      skipAutoSelect,
+    })
+  ) {
+    return undefined;
+  }
+
   let nextSession: HermesSession | null = null;
 
   if (rememberedSessionId) {
@@ -73,7 +87,17 @@ export function resolveSessionAfterListLoad(
   }
 
   if (!nextSession) {
-    return currentSessionId ? null : undefined;
+    // Current id missing from a non-empty list → real delete; otherwise keep sticky.
+    if (
+      currentSessionId &&
+      shouldClearMissingCurrentSession({
+        sessionsLength: sessions.length,
+        currentSessionId,
+      })
+    ) {
+      return null;
+    }
+    return undefined;
   }
 
   return nextSession.id === currentSessionId ? undefined : nextSession;
