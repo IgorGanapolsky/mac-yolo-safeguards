@@ -14,7 +14,7 @@
     },
     {
       "path": "hermes-mobile/docs/PREVENT-RECURRENCE-JULY-2026.md",
-      "description": "July 2026 recurrence playbook — wrong-key, USB hijack, demo=1, ASC, ship gates"
+      "description": "July 2026 recurrence playbook \u2014 wrong-key, USB hijack, demo=1, ASC, ship gates"
     },
     {
       "path": "hermes-mobile/docs/OTA_UPDATES.md",
@@ -26,11 +26,19 @@
     },
     {
       "path": "hermes-mobile/docs/PRODUCTION-PHONE-ONLY.md",
-      "description": "Production phone install policy — no Metro on device"
+      "description": "Production phone install policy \u2014 no Metro on device"
     },
     {
       "path": "hermes-mobile/docs/GREPTILE-CODE-REVIEW.md",
       "description": "How agents use Greptile reviews on Hermes Mobile PRs"
+    },
+    {
+      "path": "docs/GREPTILE-OSS-AND-CLI.md",
+      "description": "OSS Maintainer discount status + CLI review path when free PR credits exhausted (no tokens)"
+    },
+    {
+      "path": "docs/HERMES-ZERO-SPEND.md",
+      "description": "Zero-spend gate vs paid CLI spawn policy"
     }
   ]
 }

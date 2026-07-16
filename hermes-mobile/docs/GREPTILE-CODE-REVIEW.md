@@ -30,9 +30,12 @@ Docs Greptile is pointed at: `files.json` in those folders (AGENTS.md, REAL-USER
 | Sample `@greptileai review` | Live reviews appearing on open Hermes Mobile PRs when plan/credits allow; some older PRs may show trial-ended until billing/free plan is confirmed under Organization → Billing |
 
 - Pricing (public FAQ, July 2026): **$30/seat/month**, 50 review credits/seat; free plan up to 50 credits/month for one author; OSS free tier available on request.
-- **Credit conservation (2026-07-15):** Free plan was hitting 48/50. Root `.greptile/config.json` scopes file review to `hermes-mobile/**` via `ignorePatterns`, and sets `triggerOnUpdates: false` (review on PR open / `@greptileai review`, not every push). Do **not** enable dashboard **T-Rex** on free plan (extra credits per review). OSS application submitted at [greptile.com/open-source](https://www.greptile.com/open-source) for `IgorGanapolsky/mac-yolo-safeguards` — pending Greptile approval. Never buy Pro without an explicit ask.
+- **OSS Maintainer discount (2026-07-15 email, redeemed 2026-07-16):** 100% off on org **Hermes Mobile**. **Pro plan active (2026-07-16)** with OSS Maintainer discount — invoice **$0**, review limits removed. Do not re-upgrade; leave T-Rex off unless asked. Details: [GREPTILE-OSS-AND-CLI.md](../../docs/GREPTILE-OSS-AND-CLI.md).
+- **Credit conservation:** Root `.greptile/config.json` sets `triggerOnUpdates: false` and scopes reviews to `hermes-mobile/**` plus agent harness (`tools/`, `scripts/`, `hooks/`, `tests/`, yolo wrappers). Do **not** enable dashboard **T-Rex** on free plan.
+- **When free PR credits are exhausted:** use the **CLI credit pool** (separate meter) via `node tools/greptile-cli-review.js --base main` or `greptile review --branch main --agent`. Receipts under `~/.hermes/receipts/greptile-cli/`.
 - Operator path: [app.greptile.com/hermes-mobile](https://app.greptile.com/hermes-mobile) → Code Providers → GitHub `IgorGanapolsky` → Repositories → enable `mac-yolo-safeguards` → `@greptileai review`.
 - Config in this repo is live on merge regardless; Greptile reads `.greptile/` from the PR source branch once reviews run.
+- **Never** store Greptile redeem tokens in git, plan.md, or receipts.
 
 ## Review focus (encoded in rules)
 

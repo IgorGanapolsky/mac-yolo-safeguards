@@ -234,7 +234,14 @@ Status values: `pending` | `in_progress` | `blocked` | `done`. Claim a row by se
 | T-PLAY-NSC-10 | Play production NSC binary: pin expo.version 1.0 + EAS AAB ≥vc14 with Tailscale cleartext | done | cursor-play-nsc-1.0-binary | `hermes-mobile/app.json`, `hermes-mobile/docs/VERSIONING-AND-RELEASES.md`, `hermes-mobile/src/__tests__/versioningAndOtaContract.test.ts`, `plan.md` | Play track shows versionName 1.0 / versionCode ≥14; AAB NSC base cleartext=true; no users-fixed claim until API+public agree |
 | T-AGENT-CONF-ROI | Steal Callstack Agent Conf themes into high-ROI agent tooling (control plane, alert TTM, observability gate, incident RAG) | done | cursor-agent-conf-roi | `tools/agent-control-plane.js`, `tools/alert-investigation-loop.js`, `tools/hermes-observability-gate.js`, `tools/agent-incident-capture.js`, `tools/agent-automation-status.js`, `tests/test-agent-control-plane.js`, `tests/test-alert-investigation-loop.js`, `tests/test-hermes-observability-gate.js`, `tests/test-agent-incident-capture.js`, `docs/AGENT-CONF-ROI-MAPPING-JULY-2026.md`, `plan.md` | Focused node tests green; status CLI emits health score; ship mode fails on e2e=skipped; TTM receipts close with ttmMs; Booking migration deferred |
 
-## 2. File Ownership Map (append-only lock table — claim before touching)
+| T-GREPTILE-OSS-PRO | Take Greptile OSS Maintainer discount to Pro ($0) + CLI review harness + config scope | done | greptile-oss-cli | `.greptile/`, `tools/greptile-cli-review.js`, `tests/test-greptile-cli-review.js`, `docs/GREPTILE-OSS-AND-CLI.md`, `hermes-mobile/docs/GREPTILE-CODE-REVIEW.md`, `plan.md` | Pro active invoice $0; greptile CLI review exit 0; unit tests ok; no redeem tokens in git |
+
+## 2. File Ownership Map
+
+- `tools/greptile-cli-review.js`, `tests/test-greptile-cli-review.js`, `docs/GREPTILE-OSS-AND-CLI.md`, `.greptile/config.json`, `.greptile/files.json`, `hermes-mobile/docs/GREPTILE-CODE-REVIEW.md` (billing/CLI status only), `plan.md` → **greptile-oss-cli** (T-GREPTILE-OSS-PRO) (2026-07-16T14:05:00Z)
+- T-GREPTILE-OSS-PRO claimed files → **released by greptile-oss-cli** after Pro $0 + CLI review green (2026-07-16T14:10:00Z)
+
+ (append-only lock table — claim before touching)
 
 - `tools/agent-control-plane.js`, `tools/alert-investigation-loop.js`, `tools/hermes-observability-gate.js`, `tools/agent-incident-capture.js`, `tools/agent-automation-status.js`, `tests/test-agent-control-plane.js`, `tests/test-alert-investigation-loop.js`, `tests/test-hermes-observability-gate.js`, `tests/test-agent-incident-capture.js`, `docs/AGENT-CONF-ROI-MAPPING-JULY-2026.md`, `plan.md` → **cursor-agent-conf-roi** (T-AGENT-CONF-ROI Callstack Agent Conf high-ROI tooling) (2026-07-16T13:45:00Z)
 - T-AGENT-CONF-ROI claimed files above → **released by cursor-agent-conf-roi** after focused node suites green + live ship-gate fails on e2e=skipped + TTM receipt demo ttmMs=9000 (2026-07-16T13:50:00Z)

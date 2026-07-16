@@ -21,8 +21,8 @@
     "docs-only",
     "greptile-skip"
   ],
-  "ignorePatterns": "*\n!hermes-mobile/\n!hermes-mobile/**\nhermes-mobile/**/*.lock\nhermes-mobile/**/node_modules/**\nhermes-mobile/**/__snapshots__/**\nhermes-mobile/**/.bundle-export/**\nhermes-mobile/**/fastlane/screenshots/**\nhermes-mobile/**/docs/proofs/**\nhermes-mobile/**/.wt-*/**\nhermes-mobile/**/.maestro/tmp-*/**",
-  "instructions": "Hermes Mobile is a real-users product (not Igor-only dogfood). Prioritize connect/onboarding regressions over style. Read .greptile/rules.md and hermes-mobile/.greptile/rules.md. Flag false-green Connected states, demo=1 review shortcuts treated as production proof, wrong Mac API keys, OTA-vs-native mistakes, and jargon ('gateway'/'LAN'/'Pair relay') in fresh-user UI copy.",
+  "ignorePatterns": "*\n!hermes-mobile/\n!hermes-mobile/**\n!tools/\n!tools/**\n!scripts/\n!scripts/**\n!hooks/\n!hooks/**\n!tests/\n!tests/**\n!zero-spend-command-gate.js\n!grok-yolo-wrapper.js\n!hermes-yolo-wrapper.js\nhermes-mobile/**/*.lock\nhermes-mobile/**/node_modules/**\nhermes-mobile/**/__snapshots__/**\nhermes-mobile/**/.bundle-export/**\nhermes-mobile/**/fastlane/screenshots/**\nhermes-mobile/**/docs/proofs/**\nhermes-mobile/**/.wt-*/**\nhermes-mobile/**/.maestro/tmp-*/**\ntools/**/node_modules/**\n**/*.map\n**/*.png\n**/*.jpg\n**/*.mp4\n",
+  "instructions": "Hermes Mobile is a real-users product (not Igor-only dogfood). Prioritize connect/onboarding regressions over style. Read .greptile/rules.md and hermes-mobile/.greptile/rules.md. Flag false-green Connected states, demo=1 review shortcuts treated as production proof, wrong Mac API keys, OTA-vs-native mistakes, and jargon ('gateway'/'LAN'/'Pair relay') in fresh-user UI copy. Also review tools/, scripts/, hooks/, and yolo wrappers for: secret leakage, force-push/rm-rf gaps, paid-route vs local-route mistakes (grok-yolo is cloud grok-4.5; local Ollama is explicit -m ollama-*), zero-spend bypasses, and multi-Mac SSH/key hazards. Never request or echo Greptile redeem tokens.",
   "summarySection": {
     "included": true,
     "collapsible": false,
@@ -100,6 +100,20 @@
         "hermes-mobile/package.json"
       ],
       "rule": "JS/asset fixes ship via EAS OTA on the production channel; native changes (permissions, plugins, version/runtimeVersion bumps, native modules) require a new binary. Do not claim OTA can ship native-only fixes. Do not use expo run:android on a physical phone (Metro-only debug \u2192 black screen) \u2014 release install paths only."
+    },
+    {
+      "id": "agent-harness-safety",
+      "severity": "high",
+      "scope": [
+        "tools/**",
+        "scripts/**",
+        "hooks/**",
+        "zero-spend-command-gate.js",
+        "grok-yolo-wrapper.js",
+        "hermes-yolo-wrapper.js",
+        "tests/**"
+      ],
+      "rule": "Agent harness code must not write secrets/redeem tokens to tracked files or receipts. grok-yolo remains pinned to cloud grok-4.5 unless explicitly changed with billing docs. Local Ollama routes must stay opt-in. Flag paid-provider spawn without approval gates, force-push/rm -rf without deny rules, and multi-Mac key/host mixups."
     }
   ]
 }
