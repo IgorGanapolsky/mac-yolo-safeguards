@@ -30,7 +30,7 @@ export function confirmForgetGatewayProfile({
   Alert.alert(FORGET_GATEWAY_PROFILE_TITLE, forgetGatewayProfileConfirmMessage(computerName), [
     { text: 'Cancel', style: 'cancel' },
     {
-      text: 'Forget',
+      text: 'Forget this Mac',
       style: 'destructive',
       onPress: () => {
         void onConfirm(profileId);
