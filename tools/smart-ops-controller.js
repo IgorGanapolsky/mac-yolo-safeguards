@@ -32,6 +32,7 @@ const REVENUE_DIR =
 const CRITICAL_AGENTS = [
   'com.igor.shutdown-simulators',
   'com.igor.revenue-autonomous-loop',
+  'com.igor.ralph-gsd-loop',
   'com.igor.hermes-mobile-continuous-e2e',
   'com.igor.repo-root-hygiene',
   'com.igor.agent-vault-sync',
