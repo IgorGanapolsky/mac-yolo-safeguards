@@ -7,7 +7,7 @@ Durable rules live in [AGENTS.md](./AGENTS.md); this file is *live state only*.
 ## 0. Meta (read this header first)
 
 - Repo: `mac-yolo-safeguards` (+ `hermes-mobile/` app, `~/.hermes` desktop agent — separate, not this repo)
-- Updated: 2026-07-16 by `cursor-agent-conf-roi` (T-AGENT-CONF-ROI Callstack Agent Conf tooling)
+- Updated: 2026-07-16 by `grok-alive-perf` (T-ALIVE-PERF composer isolation + poll)
 - Active agents (claim your id here): `claude-code`, `cursor`, `antigravity`, `gemini`, `replit`, `cursor-mac-pro-picker`
 - Active branch of record: `main`
 - Merge discipline: branch-per-agent → rebase onto `main` → **sequential** merge, gated on `npm test` + Maestro E2E (`hermes-mobile/docs/proofs/continuous/latest.json`).
@@ -235,7 +235,9 @@ Status values: `pending` | `in_progress` | `blocked` | `done`. Claim a row by se
 | T-PLAY-NSC-10 | Play production NSC binary: pin expo.version 1.0 + EAS AAB ≥vc14 with Tailscale cleartext | done | cursor-play-nsc-1.0-binary | `hermes-mobile/app.json`, `hermes-mobile/docs/VERSIONING-AND-RELEASES.md`, `hermes-mobile/src/__tests__/versioningAndOtaContract.test.ts`, `plan.md` | Play track shows versionName 1.0 / versionCode ≥14; AAB NSC base cleartext=true; no users-fixed claim until API+public agree |
 | T-AGENT-CONF-ROI | Steal Callstack Agent Conf themes into high-ROI agent tooling (control plane, alert TTM, observability gate, incident RAG) | done | cursor-agent-conf-roi | `tools/agent-control-plane.js`, `tools/alert-investigation-loop.js`, `tools/hermes-observability-gate.js`, `tools/agent-incident-capture.js`, `tools/agent-automation-status.js`, `tests/test-agent-control-plane.js`, `tests/test-alert-investigation-loop.js`, `tests/test-hermes-observability-gate.js`, `tests/test-agent-incident-capture.js`, `docs/AGENT-CONF-ROI-MAPPING-JULY-2026.md`, `plan.md` | Focused node tests green; status CLI emits health score; ship mode fails on e2e=skipped; TTM receipts close with ttmMs; Booking migration deferred |
 
-## 2. File Ownership Map (append-only lock table — claim before touching)
+## 2. File Ownership Map
+- T-ALIVE-PERF claimed files → **released by grok-alive-perf** after focused ChatInputBar/ChatScreen/sessionUsagePoll green + typecheck (2026-07-16T14:20:00Z)
+ (append-only lock table — claim before touching)
 
 - `tools/agent-control-plane.js`, `tools/alert-investigation-loop.js`, `tools/hermes-observability-gate.js`, `tools/agent-incident-capture.js`, `tools/agent-automation-status.js`, `tests/test-agent-control-plane.js`, `tests/test-alert-investigation-loop.js`, `tests/test-hermes-observability-gate.js`, `tests/test-agent-incident-capture.js`, `docs/AGENT-CONF-ROI-MAPPING-JULY-2026.md`, `plan.md` → **cursor-agent-conf-roi** (T-AGENT-CONF-ROI Callstack Agent Conf high-ROI tooling) (2026-07-16T13:45:00Z)
 - T-AGENT-CONF-ROI claimed files above → **released by cursor-agent-conf-roi** after focused node suites green + live ship-gate fails on e2e=skipped + TTM receipt demo ttmMs=9000 (2026-07-16T13:50:00Z)

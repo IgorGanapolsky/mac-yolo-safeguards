@@ -239,4 +239,46 @@ describe('ChatInputBar', () => {
     fireEvent.press(getByTestId('chat-attach-remove-att-2'));
     expect(onRemoveAttachment).toHaveBeenCalledWith('att-2');
   });
+
+  it('keeps local typing responsive without requiring parent value to catch up each keystroke', () => {
+    const onChangeText = jest.fn();
+    const { getByTestId } = render(
+      <ChatInputBar {...baseProps} onChangeText={onChangeText} value="" />,
+    );
+    const input = getByTestId('chat-input');
+
+    fireEvent.changeText(input, 'H');
+    fireEvent.changeText(input, 'He');
+    fireEvent.changeText(input, 'Hel');
+
+    expect(onChangeText).toHaveBeenLastCalledWith('Hel');
+    // Local owned value is current even though parent still passes value="".
+    expect(getByTestId('chat-input').props.value).toBe('Hel');
+  });
+
+  it('sends local draft text when parent value is still empty', () => {
+    const onSend = jest.fn();
+    const { getByTestId } = render(
+      <ChatInputBar {...baseProps} value="" sendMuted={false} onSend={onSend} />,
+    );
+    fireEvent.changeText(getByTestId('chat-input'), 'make money today');
+    fireEvent.press(getByTestId('chat-send-button'));
+    expect(onSend).toHaveBeenCalledWith('make money today');
+  });
+
+  it('ignores Android IME echo of the just-sent text after clear', () => {
+    const onSend = jest.fn();
+    const { getByTestId } = render(
+      <ChatInputBar {...baseProps} value="" sendMuted={false} onSend={onSend} />,
+    );
+    const input = getByTestId('chat-input');
+    fireEvent.changeText(input, 'Hello Hermes');
+    fireEvent.press(getByTestId('chat-send-button'));
+    expect(getByTestId('chat-input').props.value).toBe('');
+
+    fireEvent.changeText(getByTestId('chat-input'), 'Hello Hermes');
+    expect(getByTestId('chat-input').props.value).toBe('');
+  });
 });
+
+
