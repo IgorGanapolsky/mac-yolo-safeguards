@@ -109,6 +109,8 @@ function isGenericUsbLoopbackProfile(profile: GatewayProfile): boolean {
 function namedMachineFromProfiles(
   profiles: GatewayProfile[],
 ): { hostname: string; label: string } | undefined {
+  const candidates: { hostname: string; label: string; machineKey: string }[] = [];
+  const seenKeys = new Set<string>();
   for (const profile of profiles) {
     if (isLoopbackGatewayUrl(profile.gatewayUrl)) {
       continue;
@@ -118,12 +120,23 @@ function namedMachineFromProfiles(
       continue;
     }
     const host = bonjourHostname(profile.hostname) ?? label;
-    return {
+    const machineKey = normalizeMachineKey(profile.hostname) || normalizeMachineKey(host) || host.toLowerCase();
+    if (seenKeys.has(machineKey)) {
+      continue;
+    }
+    seenKeys.add(machineKey);
+    candidates.push({
       hostname: profile.hostname?.trim() || `${host}.local`,
       label: host,
-    };
+      machineKey,
+    });
   }
-  return undefined;
+  // Multi-Mac: if more than 1 distinct machine, do NOT hydrate generic USB with first one's name
+  // — would mislabel USB-to-Pro as Mini. Keep generic so header borrows live health hostname instead.
+  if (candidates.length !== 1) {
+    return undefined;
+  }
+  return candidates[0];
 }
 
 /** Copy human Mac name onto generic adb-reverse loopback rows from saved tailnet/LAN siblings. */
@@ -757,6 +770,18 @@ export function upsertDiscoveredProfile(
     }
     const pIp = p.localIp?.trim() || extractLanIpFromGatewayUrl(p.gatewayUrl);
     if (localIp && pIp === localIp && !isLoopbackHost(localIp) && !isLoopbackHost(pIp)) {
+      // Same LAN IP is not enough when hostnames disagree — poisoned pair.json once stamped
+      // Mac mini's Tailscale URL with the MacBook's LAN IP and silently merged Mac Pro away.
+      const existingKey =
+        normalizeMachineKey(p.hostname) ||
+        (p.label && !isGenericProfileLabel(p.label) ? normalizeMachineKey(p.label) : undefined);
+      if (
+        discoveredMachineKey &&
+        existingKey &&
+        discoveredMachineKey !== existingKey
+      ) {
+        return false;
+      }
       return true;
     }
     if (hostname && p.hostname && hostname.toLowerCase() === p.hostname.toLowerCase() && hostname.toLowerCase() !== 'localhost') {

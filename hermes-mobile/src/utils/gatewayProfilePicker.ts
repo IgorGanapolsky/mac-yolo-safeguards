@@ -15,11 +15,18 @@ import {
   isInvalidGatewayProfile,
   profileDisplayName,
 } from '../services/gatewayProfiles';
-import { isTailscaleGatewayUrl, isTailscaleIpv4 } from './tailscaleHosts';
+import { isTailscaleGatewayUrl } from './tailscaleHosts';
+import { fleetComputerDisplayName } from './fleetComputerNames';
+import { rankReachabilityRoutes, type ReachabilityTransport } from './onDeviceDecisionLayer';
 
 export type ProfilePickerLines = {
   title: string;
   detail?: string;
+};
+
+export type LiveUsbPickerInput = {
+  reachable: boolean;
+  hostname?: string | null;
 };
 
 function profilePickerEndpoint(profile: GatewayProfile): string | undefined {
@@ -44,13 +51,229 @@ function profilePickerEndpoint(profile: GatewayProfile): string | undefined {
   return undefined;
 }
 
-export function profilePickerLines(profile: GatewayProfile): ProfilePickerLines {
-  const title = profileDisplayName(profile);
+export function profilePickerLines(
+  profile: GatewayProfile,
+  options: { cablePluggedIn?: boolean } = {},
+): ProfilePickerLines {
+  const title = fleetComputerDisplayName(profileDisplayName(profile));
+  if (options.cablePluggedIn) {
+    return {
+      title,
+      detail: isLoopbackGatewayUrl(profile.gatewayUrl)
+        ? 'Using this USB cable'
+        : 'Cable plugged in — works off Wi‑Fi too',
+    };
+  }
+  if (isLoopbackGatewayUrl(profile.gatewayUrl)) {
+    return { title, detail: 'This USB cable' };
+  }
   const endpoint = profilePickerEndpoint(profile);
+  if (isTailscaleGatewayUrl(profile.gatewayUrl)) {
+    return {
+      title,
+      detail: endpoint ? `Tailscale · ${endpoint}` : 'Tailscale',
+    };
+  }
   if (endpoint && !title.toLowerCase().includes(endpoint.split(':')[0].toLowerCase())) {
     return { title, detail: endpoint };
   }
   return { title };
+}
+
+/** Friendly multi-Mac status — no transport jargon (users pick a computer, not a path). */
+export function profileConnectionRouteDisplayLabel(
+  profile: GatewayProfile,
+  wifiConnected: boolean,
+  options: { cablePluggedIn?: boolean } = {},
+): string {
+  if (options.cablePluggedIn) {
+    return isLoopbackGatewayUrl(profile.gatewayUrl)
+      ? 'Plugged in with this cable'
+      : 'Plugged in · also works away from home';
+  }
+  const route = profileConnectionRouteLabel(profile, wifiConnected);
+  switch (route) {
+    case 'USB':
+      return 'USB';
+    case 'Tailscale':
+      return 'Tailscale';
+    case 'Wi-Fi':
+      return 'Home Wi‑Fi';
+    case 'Needs tunnel':
+      return 'Needs home Wi‑Fi or Tailscale';
+    case 'Tunnel':
+      return 'Remote link';
+    default:
+      return route;
+  }
+}
+
+/** True when live adb reverse is the same machine as this profile. */
+export function isCablePluggedInForProfile(
+  profile: GatewayProfile,
+  liveUsb?: LiveUsbPickerInput | null,
+): boolean {
+  if (!liveUsb?.reachable) {
+    return false;
+  }
+  if (isLoopbackGatewayUrl(profile.gatewayUrl)) {
+    return true;
+  }
+  const host = liveUsb.hostname?.trim();
+  if (!host) {
+    return false;
+  }
+  return profileMatchesHostname(profile, host);
+}
+
+/** Group key: one computer name, not one transport. */
+export function machinePickerGroupKey(profile: GatewayProfile): string {
+  const name = profileDisplayName(profile).trim().toLowerCase().replace(/\.local$/i, '');
+  if (name && !isGenericMachineLabel(name)) {
+    return `name:${name}`;
+  }
+  const host = (profile.hostname || gatewayUrlHostname(profile.gatewayUrl) || '')
+    .trim()
+    .toLowerCase()
+    .replace(/\.local$/i, '')
+    .replace(/\.tail[a-z0-9]+\.ts\.net$/i, '');
+  if (host && host !== 'localhost' && host !== '127.0.0.1') {
+    return `host:${host}`;
+  }
+  const ip = profile.localIp?.trim() || extractLanIpFromGatewayUrl(profile.gatewayUrl);
+  if (ip && !isLoopbackHost(ip)) {
+    return `ip:${ip}`;
+  }
+  return `id:${profile.id}`;
+}
+
+function profileRouteBucket(profile: GatewayProfile): 'usb' | 'tailscale' | 'wifi' | 'other' {
+  if (isLoopbackGatewayUrl(profile.gatewayUrl)) {
+    return 'usb';
+  }
+  if (isTailscaleGatewayUrl(profile.gatewayUrl)) {
+    return 'tailscale';
+  }
+  if (isPrivateLanGatewayUrl(profile.gatewayUrl)) {
+    return 'wifi';
+  }
+  return 'other';
+}
+
+/**
+ * Pick the best path for a machine: cable when plugged in, else Tailscale, else Wi‑Fi.
+ * Used for auto-heal / default selection — picker still lists USB and Tailscale separately.
+ */
+export function preferredProfileForMachine(
+  candidates: GatewayProfile[],
+  options: {
+    liveUsb?: LiveUsbPickerInput | null;
+    activeProfileId?: string | null;
+  } = {},
+): GatewayProfile {
+  if (candidates.length === 0) {
+    throw new Error('preferredProfileForMachine requires at least one profile');
+  }
+  if (candidates.length === 1) {
+    return candidates[0];
+  }
+  const liveHost = options.liveUsb?.reachable ? options.liveUsb.hostname?.trim() : null;
+  const transportFor = (profile: GatewayProfile): ReachabilityTransport => {
+    if (isLoopbackGatewayUrl(profile.gatewayUrl)) {
+      return 'usb';
+    }
+    if (isTailscaleGatewayUrl(profile.gatewayUrl)) {
+      return 'tailscale';
+    }
+    if (isPrivateLanGatewayUrl(profile.gatewayUrl)) {
+      return 'wifi';
+    }
+    return 'unknown';
+  };
+  const ranked = rankReachabilityRoutes(
+    candidates.map((profile) => {
+      const transport = transportFor(profile);
+      const matchingLiveUsb =
+        transport === 'usb' &&
+        Boolean(liveHost) &&
+        (!profile.hostname || profileMatchesHostname(profile, liveHost ?? ''));
+      return {
+        id: profile.id,
+        transport,
+        reachable: transport !== 'usb' || matchingLiveUsb,
+        active: profile.id === options.activeProfileId && transport !== 'usb',
+      };
+    }),
+  );
+  const bestId = ranked.find((prediction) => prediction.score > 0)?.id;
+  return candidates.find((profile) => profile.id === bestId) ?? candidates[0];
+}
+
+/**
+ * Collapse MagicDNS/IP twins on the *same* route only.
+ * USB and Tailscale for the same Mac stay as separate selectable rows (P0 2026-07-15).
+ */
+export function collapseSameRouteAliases(
+  profiles: GatewayProfile[],
+  options: {
+    liveUsb?: LiveUsbPickerInput | null;
+    activeProfileId?: string | null;
+  } = {},
+): GatewayProfile[] {
+  const groups = new Map<string, GatewayProfile[]>();
+  for (const profile of profiles) {
+    const key = `${machinePickerGroupKey(profile)}|${profileRouteBucket(profile)}`;
+    const list = groups.get(key) ?? [];
+    list.push(profile);
+    groups.set(key, list);
+  }
+  const collapsed: GatewayProfile[] = [];
+  for (const group of groups.values()) {
+    collapsed.push(preferredProfileForMachine(group, options));
+  }
+  return collapsed.sort((a, b) => {
+    const aCable = isCablePluggedInForProfile(a, options.liveUsb) ? 0 : 1;
+    const bCable = isCablePluggedInForProfile(b, options.liveUsb) ? 0 : 1;
+    if (aCable !== bCable) {
+      return aCable - bCable;
+    }
+    const aName = machinePickerGroupKey(a);
+    const bName = machinePickerGroupKey(b);
+    if (aName !== bName) {
+      return aName.localeCompare(bName);
+    }
+    const routeOrder = { usb: 0, tailscale: 1, wifi: 2, other: 3 } as const;
+    return routeOrder[profileRouteBucket(a)] - routeOrder[profileRouteBucket(b)];
+  });
+}
+
+/** @deprecated Prefer collapseSameRouteAliases — kept for callers/tests that still expect one row. */
+export function collapseToOneProfilePerMachine(
+  profiles: GatewayProfile[],
+  options: {
+    liveUsb?: LiveUsbPickerInput | null;
+    activeProfileId?: string | null;
+  } = {},
+): GatewayProfile[] {
+  const groups = new Map<string, GatewayProfile[]>();
+  for (const profile of profiles) {
+    const key = machinePickerGroupKey(profile);
+    const list = groups.get(key) ?? [];
+    list.push(profile);
+    groups.set(key, list);
+  }
+  const collapsed: GatewayProfile[] = [];
+  for (const group of groups.values()) {
+    collapsed.push(preferredProfileForMachine(group, options));
+  }
+  return collapsed.sort((a, b) => {
+    const aCable = isCablePluggedInForProfile(a, options.liveUsb) ? 0 : 1;
+    const bCable = isCablePluggedInForProfile(b, options.liveUsb) ? 0 : 1;
+    if (aCable !== bCable) {
+      return aCable - bCable;
+    }
+    return 0;
+  });
 }
 
 function profilePickerDedupeKey(profile: GatewayProfile): string {
@@ -103,13 +326,8 @@ function hasNamedUsbLoopbackProfile(profiles: GatewayProfile[]): boolean {
 
 export type SwitchComputerPickerOptions = {
   activeProfileId?: string | null;
-  /** Live adb-reverse probe — when reachable, show the plugged-in Mac as a USB row. */
+  /** Live adb-reverse probe — prefers cable path when collapsing one row per Mac. */
   liveUsb?: LiveUsbPickerInput | null;
-};
-
-export type LiveUsbPickerInput = {
-  reachable: boolean;
-  hostname?: string | null;
 };
 
 /** Loopback/USB rows stay hidden unless adb reverse is live (phone probes 127.0.0.1:8642). */
@@ -149,26 +367,6 @@ function isLikelyMobileTailscaleProfile(profile: GatewayProfile): boolean {
   return /\b(android|iphone|ipad|pixel|galaxy|s2[0-9]|s25)\b/.test(haystack);
 }
 
-function isUnnamedInactiveTailscaleIpProfile(
-  profile: GatewayProfile,
-  activeProfileId?: string | null,
-): boolean {
-  if (profile.id === activeProfileId || !isTailscaleGatewayUrl(profile.gatewayUrl)) {
-    return false;
-  }
-  const ip = profile.localIp?.trim() || extractLanIpFromGatewayUrl(profile.gatewayUrl);
-  if (!ip || !isTailscaleIpv4(ip)) {
-    return false;
-  }
-  if (profile.hostname?.trim()) {
-    return false;
-  }
-  if (profile.lastConnectedAt?.trim()) {
-    return false;
-  }
-  return isGenericMachineLabel(profile.label);
-}
-
 function switchPickerRowKey(profile: GatewayProfile): string {
   if (isGenericUsbLoopbackProfile(profile)) {
     return 'usb:generic';
@@ -203,7 +401,8 @@ function dedupeSwitchPickerRows(profiles: GatewayProfile[]): GatewayProfile[] {
   return rows;
 }
 
-function synthesizeLiveUsbProfile(hostname: string): GatewayProfile {
+/** Build a selectable USB/loopback profile for the Mac currently on adb reverse. */
+export function synthesizeLiveUsbProfile(hostname: string): GatewayProfile {
   const cleanHost = hostname.replace(/\.local$/i, '').trim();
   const now = new Date().toISOString();
   return {
@@ -211,9 +410,26 @@ function synthesizeLiveUsbProfile(hostname: string): GatewayProfile {
     label: cleanHost,
     gatewayUrl: USB_LOOPBACK_GATEWAY_URL,
     hostname: hostname.includes('.local') ? hostname : `${cleanHost}.local`,
+    localIp: '127.0.0.1',
     addedAt: now,
     lastConnectedAt: now,
   };
+}
+
+/**
+ * Resolve a picker row to a profile that can be selected/saved.
+ * Live USB rows may be synthesized and not yet in storage — callers must ensure them.
+ */
+export function resolveProfileFromPickerRows(
+  profileId: string,
+  pickerRows: GatewayProfile[],
+  savedProfiles: GatewayProfile[],
+): GatewayProfile | null {
+  const fromPicker = pickerRows.find((p) => p.id === profileId);
+  if (fromPicker) {
+    return fromPicker;
+  }
+  return savedProfiles.find((p) => p.id === profileId) ?? null;
 }
 
 function sortUsbProfilesFirst(profiles: GatewayProfile[]): GatewayProfile[] {
@@ -230,7 +446,10 @@ function sortUsbProfilesFirst(profiles: GatewayProfile[]): GatewayProfile[] {
   });
 }
 
-/** Switch-computer list: valid profiles minus phone/self, hidden loopback unless live USB, deduped. */
+/**
+ * Switch-computer list: USB and Tailscale for the same Mac are both selectable.
+ * Only collapse MagicDNS/IP aliases on the same route (not USB↔Tailscale).
+ */
 export function profilesForSwitchComputerPicker(
   profiles: GatewayProfile[],
   options: SwitchComputerPickerOptions = {},
@@ -238,15 +457,17 @@ export function profilesForSwitchComputerPicker(
   const liveUsb = options.liveUsb;
   const liveUsbReachable = liveUsb?.reachable === true;
   const liveUsbHostname = liveUsb?.hostname ?? null;
+  // Only phone-like hostnames are treated as noise here — a freshly discovered machine
+  // whose name hasn't resolved yet (bare Tailscale IP, generic label, never connected) must
+  // still render. P0 2026-07-14: "found 2 machines" hid the second one because it had no
+  // hostname yet, silently dropping a real, reachable Mac from the switcher.
   let valid = dedupeSwitchPickerRows(
     profilesForDevicePicker(profiles).filter(
       (profile) =>
         shouldShowProfileInUserPicker(profile, {
           reachable: liveUsbReachable,
           hostname: liveUsbHostname,
-        }) &&
-        !isLikelyMobileTailscaleProfile(profile) &&
-        !isUnnamedInactiveTailscaleIpProfile(profile, options.activeProfileId),
+        }) && !isLikelyMobileTailscaleProfile(profile),
     ),
   );
   if (liveUsbReachable && liveUsbHostname?.trim()) {
@@ -262,10 +483,11 @@ export function profilesForSwitchComputerPicker(
   if (hasNamedUsbLoopbackProfile(valid)) {
     valid = valid.filter((p) => !isGenericUsbLoopbackProfile(p));
   }
-  if (liveUsbReachable) {
-    valid = sortUsbProfilesFirst(valid);
-  }
-  return valid;
+  // P0 2026-07-15: cabled Mac Pro/MBP must still expose its Tailscale row for off-cable use.
+  return collapseSameRouteAliases(valid, {
+    liveUsb,
+    activeProfileId: options.activeProfileId,
+  });
 }
 
 export type UsbHostMismatch = {

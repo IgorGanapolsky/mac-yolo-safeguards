@@ -2,36 +2,7 @@
 # Install mac-yolo-safeguards LaunchAgents for autonomous agent jobs (CEO brief, newsletter, etc.)
 set -euo pipefail
 
-script_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-
-# LaunchAgents must target the canonical checkout — never a git worktree path
-# (worktree installs previously pointed E2E at .worktrees/*/hermes-mobile where jest is missing).
-resolve_canonical_repo_root() {
-  local start="$1"
-  local common git_dir
-  common="$(git -C "$start" rev-parse --git-common-dir 2>/dev/null || true)"
-  if [[ -n "$common" ]]; then
-    if [[ "$common" != /* ]]; then
-      common="$(cd "$start/$common" && pwd)"
-    fi
-    dirname "$common"
-    return 0
-  fi
-  if [[ "$start" == *"/.worktrees/"* ]]; then
-    echo "${start%%/.worktrees/*}"
-    return 0
-  fi
-  echo "$start"
-}
-
-repo_root="$(resolve_canonical_repo_root "$script_root")"
-if [[ ! -f "${repo_root}/hermes-mobile/package.json" ]]; then
-  echo "WARN: canonical repo missing hermes-mobile/package.json at ${repo_root}" >&2
-fi
-if [[ "$script_root" != "$repo_root" ]]; then
-  echo "INFO: LaunchAgent install uses canonical repo ${repo_root} (not worktree ${script_root})" >&2
-fi
-
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 home="${HOME}"
 node_bin="$(command -v node)"
 uid="$(id -u)"
@@ -78,9 +49,13 @@ plists=(
   com.igor.react-native-newsletter-ingest.plist
   com.igor.hermes-contribution-opportunities.plist
   com.igor.hermes-mobile-continuous-e2e.plist
+  com.igor.hermes-mobile-itunes-poll.plist
+  com.igor.hermes-usb-reverse-watchdog.plist
+  com.igor.hermes-tailscale-reachability.plist
   com.igor.hermes-relay-worker.plist
   com.igor.revenue-autonomous-loop.plist
   com.igor.smart-ops.plist
+  com.igor.agent-vault-sync.plist
 )
 
 install_one() {
@@ -109,8 +84,12 @@ for template in "${plists[@]}"; do
   install_one "${template}"
 done
 
+if [[ -f "${repo_root}/scripts/install-repo-root-hygiene-agent.sh" ]]; then
+  bash "${repo_root}/scripts/install-repo-root-hygiene-agent.sh" --repo "${repo_root}"
+fi
+
 echo ""
-echo "Installed ${#plists[@]} LaunchAgent templates. Verify with:"
+echo "Installed ${#plists[@]} LaunchAgent templates (+ repo-root-hygiene). Verify with:"
 echo "  bash scripts/verify-agent-automations.sh"
 echo "  node tools/agent-session-start.js"
 echo "  node tools/revenue-autonomous-loop.js --json"

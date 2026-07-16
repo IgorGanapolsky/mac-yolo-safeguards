@@ -6,11 +6,13 @@ Hermes Mobile ships JS and asset fixes over the air (EAS Update) so Igor's phone
 
 | Channel | Build profile | OTA publish | Audience |
 |---------|---------------|-------------|----------|
-| `production` | `eas.json` → `build.production` | `main` push (CI) or `npm run ota:publish` | Store / Igor phone release APK |
-| `preview` | `build.preview` | `npm run ota:preview` | Internal EAS preview APK |
+| `production` | `eas.json` → `build.production` | **Fresh-user gated** — `npm run ota:publish` / workflow_dispatch only after `e2e=pass` | Store / release APK |
+| `preview` | `build.preview` | `main` push (CI) or `npm run ota:preview` | Internal EAS preview APK |
 | `e2e-test` | `build.e2e-test` | `npm run ota:e2e` | Maestro / automation builds |
 
-**Production channel** receives automatic OTA publishes from `.github/workflows/mobile-ota.yml` on every push to `main` that touches `hermes-mobile/**`.
+**Crisis 2026-07-15 (updated):** Production OTA is **not** automatic on every `main` merge. CI publishes **preview** on push; **production** requires `workflow_dispatch` with `publish_production=true` plus a fresh-user / continuous proof artifact (`e2e=pass`), then publishes with **staged `--rollout-percentage`** (default 10%; promote via `promote_production_rollout`). Play **1.0/vc14** NSC is on the production track — still do **not** claim all installs updated. OTA cannot deliver native NSC. Law: [VERSIONING-AND-RELEASES-JULY-2026.md](./VERSIONING-AND-RELEASES-JULY-2026.md). Local: `npm run ota:gate` then `npm run ota:publish`.
+
+**Previously:** Production channel received automatic OTA from `.github/workflows/mobile-ota.yml` on every push — that shipped live bugs without brand-new-user proof.
 
 ## Runtime version policy: `appVersion`
 
@@ -22,18 +24,20 @@ Hermes Mobile ships JS and asset fixes over the air (EAS Update) so Igor's phone
 
 **Why `appVersion` (not fingerprint):**
 
-- Hermes Mobile already pins `eas.cli.appVersionSource: local` — `app.json` `version` / `versionCode` drive builds and Firebase verify.
-- OTA bundles only apply to native builds whose embedded runtime version matches the published update (currently `0.3.2` from `expo.version`).
-- Bumping `app.json` `version` (or native `versionCode` / iOS `buildNumber`) requires a **new native build** before OTA resumes for that version line.
+- OTA bundles only apply to native builds whose embedded runtime matches marketing `expo.version` (e.g. `1.0`, `1.1`).
+- EAS production uses `cli.appVersionSource: "remote"` + `autoIncrement` for **native build numbers**. Do not treat stale local `buildNumber` / `versionCode` in `app.json` as source of truth.
+- Bumping `app.json` `version` **splits** the OTA line: ship a new native store binary for that version, then publish OTA for the new runtime.
+- **Crisis 2026-07-15:** Play production is still marketing/runtime **0.3.2** (versionCode 12). Runtime **1.0** OTAs cannot repair those installs until a Play **1.0** binary is live. iOS public **1.0** can take JS OTA. Law: [VERSIONING-AND-RELEASES-JULY-2026.md](./VERSIONING-AND-RELEASES-JULY-2026.md).
 
-Fingerprint would auto-split on any native drift but adds CI complexity and can block OTA when Gradle/plugin noise changes without user-visible native changes. `appVersion` matches our explicit release versioning and store submit flow.
+Fingerprint would auto-split on any native drift but adds CI complexity and can block OTA when Gradle/plugin noise changes without user-visible native changes. Full process: [VERSIONING-AND-RELEASES.md](./VERSIONING-AND-RELEASES.md).
 
 ## How the phone receives updates
 
-1. **Launch check** — `updates.checkAutomatically: ON_LOAD` (disabled for E2E automation builds).
-2. On cold start, `expo-updates` checks `https://u.expo.dev/4ed13e30-9b97-4ddd-8a12-59106cae90d6` on the `production` channel (via `requestHeaders.expo-channel-name` in `app.config.js`, or EAS build embedding).
-3. If a newer compatible bundle exists, the app downloads it and applies it on the **next** restart (default Expo behavior).
-4. No manual "Check for updates" UI — fixes land after kill + reopen, or background fetch on subsequent launches.
+1. **Silent launch check** — `updates.checkAutomatically: ON_LOAD` (disabled for E2E automation builds). On cold start, `expo-updates` checks `https://u.expo.dev/4ed13e30-9b97-4ddd-8a12-59106cae90d6` on the `production` channel (via `requestHeaders.expo-channel-name` in `app.config.js`, or EAS build embedding). When a compatible bundle is newer, Expo downloads it in the background (no store reinstall).
+2. **In-app banner** — `OtaUpdateBanner` (mounted from `App.tsx`) surfaces when an update is **available** (not yet downloaded) or **pending** (downloaded, restart required). Dismiss hides the banner for the session; **Download & restart** / **Restart** applies immediately.
+3. **Alert prompt** — the same hook fires a one-time `Alert.alert('Update available', …)` per app session when state first becomes available or pending (in addition to the banner).
+4. **Settings manual check** — **Connection health** hub includes **Check for update** for on-demand fetch when ON_LOAD missed an edge case.
+5. **Runtime version gate** — OTAs only apply when `runtimeVersion` matches the installed binary (`policy: appVersion` in `app.json`). The Play production train for Hermes Mobile is **1.0**; a **1.1** APK will **not** receive production OTAs published for runtime **1.0** (install the 1.0 release APK, then JS fixes arrive via OTA).
 
 ## One-time native rebuild required
 
@@ -74,8 +78,10 @@ Requires `EXPO_TOKEN` in the environment (never commit).
 
 - **Workflow:** `.github/workflows/mobile-ota.yml`
 - **Trigger:** push to `main` (paths `hermes-mobile/**`) or manual `workflow_dispatch`
-- **Steps:** unit + release-safety → `eas update --channel production --environment production`
-- **Secret:** `EXPO_TOKEN` (repo secret, already used by store/internal workflows)
+- **Production (law):** not automatic on `main`; gated dispatch + fresh-user `e2e=pass`; staged `--rollout-percentage` (default 10%) when publishing production
+- **Promote:** workflow_dispatch `promote_production_rollout` (e.g. `100`) → `eas update:edit`
+- **Code signing:** optional `EXPO_UPDATE_PRIVATE_KEY` PEM secret → `--private-key-path` ([Expo code signing](https://docs.expo.dev/eas-update/code-signing/)); requires cert embedded in a native binary first
+- **Secret:** `EXPO_TOKEN` (required)
 
 ## Complements release APK path
 

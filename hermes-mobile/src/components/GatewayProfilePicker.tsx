@@ -4,16 +4,20 @@ import type { GatewayProfile } from '../types/gatewayProfile';
 import type { LanScanProgress, LanScanResult } from '../types/lanScan';
 import MacScanProgressCard from './MacScanProgressCard';
 import {
-  profileConnectionRouteLabel,
+  isCablePluggedInForProfile,
+  profileConnectionRouteDisplayLabel,
   profilePickerLines,
+  type LiveUsbPickerInput,
 } from '../utils/gatewayProfilePicker';
+import { isLoopbackGatewayUrl } from '../utils/gatewayUrlPolicy';
 import { colors } from '../theme/colors';
 import { GATEWAY_AUTH_REPAIR_SETTINGS_STATUS } from '../services/gatewayClient';
 
 type GatewayProfilePickerProps = {
   profiles: GatewayProfile[];
   activeProfileId: string | null;
-  onSelect: (profileId: string) => void;
+  /** Prefer receiving the full profile so live USB rows (not yet saved) still select. */
+  onSelect: (profileId: string, profile: GatewayProfile) => void;
   onRemove?: (profileId: string) => void;
   activeReachable?: boolean;
   activeConnecting?: boolean;
@@ -23,6 +27,9 @@ type GatewayProfilePickerProps = {
   scanResult?: LanScanResult | null;
   wifiConnected?: boolean;
   showReachabilityHints?: boolean;
+  selectionDisabled?: boolean;
+  /** Live cable probe — drives "plugged in" copy without a second radio per Mac. */
+  liveUsb?: LiveUsbPickerInput | null;
 };
 
 export default function GatewayProfilePicker({
@@ -38,6 +45,8 @@ export default function GatewayProfilePicker({
   scanResult = null,
   wifiConnected = true,
   showReachabilityHints = false,
+  selectionDisabled = false,
+  liveUsb = null,
 }: GatewayProfilePickerProps) {
   const showScanCard = scanning || scanResult;
   const multiMac = profiles.length > 1;
@@ -57,11 +66,12 @@ export default function GatewayProfilePicker({
         <View style={styles.list} testID="gateway-profile-list">
       {profiles.map((profile) => {
         const isActive = profile.id === activeProfileId;
-        const lines = profilePickerLines(profile);
-        const rawRouteHint = showRouteHints
-          ? profileConnectionRouteLabel(profile, wifiConnected)
+        const cablePluggedIn = isCablePluggedInForProfile(profile, liveUsb);
+        const lines = profilePickerLines(profile, { cablePluggedIn });
+        const routeHint = showRouteHints
+          ? profileConnectionRouteDisplayLabel(profile, wifiConnected, { cablePluggedIn })
           : null;
-        const routeHint = rawRouteHint;
+        const isUsb = isLoopbackGatewayUrl(profile.gatewayUrl);
         const meta = isActive
           ? authNeedsRepair
             ? routeHint
@@ -75,10 +85,12 @@ export default function GatewayProfilePicker({
               ? routeHint
                 ? `Connecting · ${routeHint}…`
                 : 'Connecting…'
-              : routeHint === 'Needs tunnel'
-                ? 'Needs tunnel (cellular)'
+              : routeHint === 'Needs home Wi‑Fi or Tailscale'
+                ? 'Needs home Wi‑Fi or Tailscale'
                 : 'Cannot reach this computer'
-          : routeHint ?? 'Select';
+          : routeHint
+            ? `${routeHint} · tap to use`
+            : 'Tap to use';
         const statusColor = isActive
           ? authNeedsRepair
             ? colors.warning
@@ -92,8 +104,10 @@ export default function GatewayProfilePicker({
           <View key={profile.id} style={styles.row} testID={`gateway-profile-item-${profile.id}`}>
             <TouchableOpacity
               style={[styles.selectButton, isActive && styles.selectButtonActive]}
-              onPress={() => onSelect(profile.id)}
-              accessibilityState={{ selected: isActive }}
+              onPress={() => onSelect(profile.id, profile)}
+              disabled={selectionDisabled}
+              accessibilityState={{ selected: isActive, disabled: selectionDisabled }}
+              accessibilityLabel={`${lines.title}, ${meta}`}
               testID={`select-gateway-profile-${profile.id}`}
             >
               <View style={[styles.selectDot, { borderColor: statusColor }]}>
@@ -126,13 +140,14 @@ export default function GatewayProfilePicker({
                 </Text>
               </View>
             </TouchableOpacity>
-            {onRemove && profiles.length > 1 ? (
+            {onRemove && profiles.length > 1 && !isUsb ? (
               <TouchableOpacity
                 style={styles.removeButton}
                 onPress={() => onRemove(profile.id)}
+                accessibilityLabel={`Forget this Mac: ${lines.title}`}
                 testID={`remove-gateway-profile-${profile.id}`}
               >
-                <Text style={styles.removeText}>Remove</Text>
+                <Text style={styles.removeText}>Forget this Mac</Text>
               </TouchableOpacity>
             ) : null}
           </View>

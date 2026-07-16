@@ -13,6 +13,7 @@ import {
   shouldAllowMegaSessionSend,
   shouldAutoFreshAndResendOnMegaBlock,
   shouldForceFreshOnSessionSelect,
+  shouldSuggestFreshOnSessionSelect,
 } from '../utils/sessionTokenGuards';
 
 describe('sessionTokenGuards', () => {
@@ -27,17 +28,18 @@ describe('sessionTokenGuards', () => {
   });
 
   it('classifies warn and hard-block thresholds for mobile UX', () => {
-    expect(classifyMegaSession({ input_tokens: 300_000 })).toBe('normal');
-    expect(classifyMegaSession({ input_tokens: 397_152 })).toBe('warn');
+    expect(classifyMegaSession({ input_tokens: 50_000 })).toBe('normal');
+    expect(classifyMegaSession({ input_tokens: 99_999 })).toBe('normal');
     expect(classifyMegaSession({ input_tokens: MEGA_SESSION_TOKEN_WARN })).toBe('warn');
-    expect(classifyMegaSession({ input_tokens: 799_999 })).toBe('warn');
+    expect(classifyMegaSession({ input_tokens: 397_152 })).toBe('warn');
+    expect(classifyMegaSession({ input_tokens: 516_000 })).toBe('block');
     expect(classifyMegaSession({ input_tokens: MEGA_SESSION_TOKEN_BLOCK })).toBe('block');
     expect(classifyMegaSession({ input_tokens: 1_700_000 })).toBe('block');
     expect(isMegaSession({ input_tokens: MEGA_SESSION_TOKEN_WARN })).toBe(true);
-    expect(isMegaSessionSendBlocked({ input_tokens: 1_700_000 })).toBe(true);
+    expect(isMegaSessionSendBlocked({ input_tokens: 516_000 })).toBe(true);
     expect(isMegaSessionSendBlocked({ input_tokens: 400_000 })).toBe(false);
-    expect(MEGA_SESSION_TOKEN_WARN).toBe(350_000);
-    expect(MEGA_SESSION_TOKEN_BLOCK).toBe(800_000);
+    expect(MEGA_SESSION_TOKEN_WARN).toBe(100_000);
+    expect(MEGA_SESSION_TOKEN_BLOCK).toBe(500_000);
   });
 
   it('hard-blocks Send at BLOCK and never allows send_anyway', () => {
@@ -57,17 +59,20 @@ describe('sessionTokenGuards', () => {
   });
 
   it('badges recents and forces fresh reopen on BLOCK sessions', () => {
-    expect(megaSessionRecentsBadge({ input_tokens: 100_000 })).toBeNull();
+    expect(megaSessionRecentsBadge({ input_tokens: 50_000 })).toBeNull();
     expect(megaSessionRecentsBadge({ input_tokens: MEGA_SESSION_TOKEN_WARN })).toBe('Large');
     expect(megaSessionRecentsBadge({ input_tokens: MEGA_SESSION_TOKEN_BLOCK })).toBe('Too large');
     expect(shouldForceFreshOnSessionSelect({ input_tokens: 400_000 })).toBe(false);
-    expect(shouldForceFreshOnSessionSelect({ input_tokens: 1_700_000 })).toBe(true);
-    expect(megaSessionForceFreshSelectCopy(1_700_000)).toContain('Start a fresh chat');
+    expect(shouldForceFreshOnSessionSelect({ input_tokens: 516_000 })).toBe(true);
+    expect(shouldSuggestFreshOnSessionSelect({ input_tokens: 150_000 })).toBe(true);
+    expect(shouldSuggestFreshOnSessionSelect({ input_tokens: 516_000 })).toBe(false);
+    expect(megaSessionForceFreshSelectCopy(516_000)).toContain('Start a fresh chat');
   });
 
-  it('formats large counts for banners', () => {
+  it('formats large counts for banners with stronger fresh-chat CTA', () => {
     expect(formatMegaSessionTokenCount(4_927_413)).toBe('4.9M');
-    expect(megaSessionBannerCopy(4_927_413)).toContain('4.9M tokens');
-    expect(megaSessionSendBlockedCopy(4_927_413)).toContain('Start a fresh chat');
+    expect(megaSessionBannerCopy(516_000)).toContain('516k tokens');
+    expect(megaSessionBannerCopy(516_000)).toContain('Start fresh chat');
+    expect(megaSessionSendBlockedCopy(516_000)).toContain('Start a fresh chat');
   });
 });

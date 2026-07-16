@@ -88,16 +88,21 @@ Idempotent: refreshes `main-runtime` to `origin/main`, installs `com.igor.smart-
 
 ### `ibm-yolo` (Mac Pro + Mac mini)
 
-Enterprise multi-agent SDLC reliability CLI (IBM Bob-class market signal — not an IBM product):
+Official IBM Bob Shell with IBM's native auto-approval mode. `ibm-yolo` is a
+thin launcher for `bob --yolo`; it never routes to Hermes, Grok, GLM, Qwen, or
+the revenue pipeline:
 
 ```bash
 bash scripts/install-ibm-yolo.sh              # this Mac + hermes-mini
 bash scripts/install-ibm-yolo.sh --no-remote  # local only
 ibm-yolo --doctor
-ibm-yolo                  # enterprise-sdlc signal + pipeline apply
-ibm-yolo --both --json    # hermes-hosted + enterprise-sdlc
-ibm-yolo --smart-ops      # chain smart-ops after signal
+ibm-yolo                                      # interactive IBM Bob Shell
+ibm-yolo "audit this repository"              # one-shot, auto-approved tools
+ibm-yolo --max-coins 1 "bounded task"
 ```
+
+See [IBM-BOB-YOLO.md](./IBM-BOB-YOLO.md) for authentication, license, spend,
+and verification boundaries.
 
 
 ## Manual one-shots (same tools)

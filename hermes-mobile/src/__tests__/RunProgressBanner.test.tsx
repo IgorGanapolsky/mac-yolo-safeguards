@@ -2,6 +2,7 @@ import React from 'react';
 import { fireEvent } from '@testing-library/react-native';
 import { render } from '@testing-library/react-native';
 import RunProgressBanner from '../components/RunProgressBanner';
+import { EMPTY_REPLY_FAILURE_REASON } from '../utils/emptyStreamReplyRecovery';
 
 describe('RunProgressBanner', () => {
   it('shows delivering copy before a run id exists', () => {
@@ -192,7 +193,7 @@ describe('RunProgressBanner', () => {
     );
     expect(getByTestId('run-progress-detail').props.children).toBe("Couldn't reach your computer");
     expect(getByTestId('run-progress-failed-detail').props.children).toBe(detail);
-    expect(getByText('229s')).toBeTruthy();
+    expect(getByText('3m 49s')).toBeTruthy();
   });
 
   it('shows spinner and Starting label while start-fresh is in flight', () => {
@@ -306,4 +307,96 @@ describe('RunProgressBanner', () => {
     );
     expect(queryByTestId('run-progress-toggle')).toBeNull();
   });
+
+  it('shows Refresh chip wired for empty-reply recovery', () => {
+    const onRefreshRun = jest.fn();
+    const { getByTestId } = render(
+      <RunProgressBanner
+        progress={{
+          phase: 'failed',
+          startedAtMs: Date.now() - 60_000,
+          detail: EMPTY_REPLY_FAILURE_REASON,
+        }}
+        onRefreshRun={onRefreshRun}
+      />,
+    );
+
+    fireEvent.press(getByTestId('run-progress-refresh'));
+    expect(onRefreshRun).toHaveBeenCalledTimes(1);
+  });
+
+  it('collapses MODEL/TOKENS details in compact (keyboard) mode by default', () => {
+    const { queryByTestId, getByTestId } = render(
+      <RunProgressBanner
+        compact
+        progress={{
+          phase: 'streaming',
+          startedAtMs: Date.now() - 5000,
+          detail: 'Hermes is working on your computer…',
+          model: 'qwen3.5:9b-hermes',
+          inputTokens: 10,
+          outputTokens: 2,
+        }}
+      />,
+    );
+
+    expect(getByTestId('run-progress-banner')).toBeTruthy();
+    expect(queryByTestId('run-progress-stats')).toBeNull();
+  });
+
+  it('expands details again when leaving compact mode', () => {
+    const { getByTestId, queryByTestId, rerender } = render(
+      <RunProgressBanner
+        compact
+        progress={{
+          phase: 'streaming',
+          startedAtMs: Date.now() - 5000,
+          detail: 'Hermes is working on your computer…',
+          model: 'qwen3.5:9b-hermes',
+          inputTokens: 10,
+          outputTokens: 2,
+        }}
+      />,
+    );
+    expect(queryByTestId('run-progress-stats')).toBeNull();
+
+    rerender(
+      <RunProgressBanner
+        compact={false}
+        progress={{
+          phase: 'streaming',
+          startedAtMs: Date.now() - 5000,
+          detail: 'Hermes is working on your computer…',
+          model: 'qwen3.5:9b-hermes',
+          inputTokens: 10,
+          outputTokens: 2,
+        }}
+      />,
+    );
+    expect(getByTestId('run-progress-stats')).toBeTruthy();
+  });
+
+  it('shows Agent Conf stall investigation after long delivering on weak model', () => {
+    jest.useFakeTimers();
+    const { getByTestId, queryByTestId } = render(
+      <RunProgressBanner
+        progress={{
+          phase: 'sending',
+          startedAtMs: Date.now() - 60_000,
+          detail: 'Delivering your message…',
+          model: 'qwen3.5:9b-hermes-64k',
+          outputTokens: 0,
+        }}
+        fallbackModel="qwen3.5:9b-hermes-64k"
+        sessionTokens={5000}
+        macHttpOk
+        onSwitchMac={jest.fn()}
+        onStartFreshChat={jest.fn()}
+      />,
+    );
+    expect(getByTestId('run-progress-investigation').props.children).toMatch(/weak local model/i);
+    expect(getByTestId('run-progress-switch-mac')).toBeTruthy();
+    jest.useRealTimers();
+  });
+
 });

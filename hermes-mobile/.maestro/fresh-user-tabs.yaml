@@ -1,0 +1,62 @@
+# Fresh user: tabs without demo bootstrap.
+# IMPORTANT: Chat focuses the composer → keyboard collapses the tab bar
+# (pointerEvents none). Hide keyboard before any tab tap.
+appId: com.iganapolsky.hermesmobile
+---
+- extendedWaitUntil:
+    visible:
+      id: "tab-leash"
+    timeout: 60000
+- runFlow:
+    when:
+      visible:
+        id: "connect-mac-gate-dismiss"
+    commands:
+      - tapOn:
+          id: "connect-mac-gate-dismiss"
+- runFlow:
+    when:
+      visible:
+        id: "mac-picker-modal-backdrop"
+    commands:
+      - tapOn:
+          id: "mac-picker-modal-backdrop"
+- runFlow: hide-keyboard-safe.yaml
+- runFlow: dismiss-logbox.yaml
+- waitForAnimationToEnd:
+    timeout: 1500
+- tapOn:
+    id: "tab-leash"
+- extendedWaitUntil:
+    notVisible:
+      id: "tab-screen-loading"
+    timeout: 90000
+- extendedWaitUntil:
+    visible:
+      id: "THUMBGATE_LEASH"
+    timeout: 60000
+- assertVisible:
+    id: "THUMBGATE_LEASH"
+- runFlow: dismiss-logbox.yaml
+- tapOn:
+    id: "tab-settings"
+- extendedWaitUntil:
+    notVisible:
+      id: "tab-screen-loading"
+    timeout: 90000
+- extendedWaitUntil:
+    visible:
+      id: "SETTINGS"
+    timeout: 30000
+- assertVisible:
+    id: "SETTINGS"
+- tapOn:
+    id: "tab-hermes"
+- extendedWaitUntil:
+    notVisible:
+      id: "tab-screen-loading"
+    timeout: 90000
+- extendedWaitUntil:
+    visible:
+      id: "tab-hermes"
+    timeout: 30000

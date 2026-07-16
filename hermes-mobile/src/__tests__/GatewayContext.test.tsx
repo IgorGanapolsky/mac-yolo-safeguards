@@ -600,7 +600,7 @@ describe('GatewayProvider', () => {
 
     await waitFor(() => {
       expect(getByTestId('connection-mode').props.children).toBe('relay');
-      expect(getByTestId('profiles-ids').props.children).toContain('mac_mac_mini_local');
+      expect(getByTestId('profiles-ids').props.children).toContain('mac_10_2_29_103');
     });
 
     await act(async () => {
@@ -613,10 +613,70 @@ describe('GatewayProvider', () => {
       expect(storage.saveGatewaySettings).toHaveBeenCalledWith(
         expect.objectContaining({
           connectionMode: 'relay',
-          gatewayUrl: 'http://127.0.0.1:8642',
+          gatewayUrl: 'http://10.2.29.103:8642',
         }),
       );
     });
+  });
+
+  it('selectGatewayProfile upserts synthesized live USB row and switches to loopback', async () => {
+    const { synthesizeLiveUsbProfile } = jest.requireActual('../utils/gatewayProfilePicker');
+    const gatewayProfilesMock = jest.requireMock('../services/gatewayProfiles');
+    gatewayProfilesMock.gatewayProfiles.load.mockResolvedValue({
+      profiles: [
+        {
+          id: 'mac_mini_ts',
+          label: 'Igors-Mac-mini',
+          gatewayUrl: 'http://100.94.135.78:8642',
+          hostname: 'Igors-Mac-mini',
+          addedAt: '2026-06-28T12:01:00Z',
+        },
+      ],
+      activeProfileId: 'mac_mini_ts',
+    });
+    (secureCredentials.resolveApiKeyForProfile as jest.Mock).mockResolvedValue('sk-test');
+
+    function UsbSelectProbe() {
+      const gateway = useGateway();
+      const liveUsb = synthesizeLiveUsbProfile('Igors-MacBook-Pro.local');
+      return (
+        <>
+          <Text testID="loaded">{gateway.isLoaded ? 'yes' : 'no'}</Text>
+          <Text testID="active-id">{gateway.activeGatewayProfile?.id ?? ''}</Text>
+          <Text testID="gateway-url">{gateway.settings.gatewayUrl}</Text>
+          <Text
+            testID="select-live-usb"
+            onPress={() => {
+              void gateway.selectGatewayProfile(liveUsb.id, { ensureProfile: liveUsb });
+            }}
+          >
+            select usb
+          </Text>
+        </>
+      );
+    }
+
+    const { getByTestId } = render(
+      <GatewayProvider>
+        <UsbSelectProbe />
+      </GatewayProvider>,
+    );
+
+    await waitFor(() => {
+      expect(getByTestId('loaded').props.children).toBe('yes');
+    });
+
+    await act(async () => {
+      fireEvent.press(getByTestId('select-live-usb'));
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    await waitFor(() => {
+      expect(getByTestId('gateway-url').props.children).toBe('http://127.0.0.1:8642');
+    });
+    expect(gatewayProfilesMock.gatewayProfiles.save).toHaveBeenCalled();
+    expect(storage.saveLastSelectedProfileId).toHaveBeenCalled();
   });
 
   it('handles stop_run action from notifications and calls stopRun API', async () => {

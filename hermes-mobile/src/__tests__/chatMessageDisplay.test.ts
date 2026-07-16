@@ -338,4 +338,16 @@ ${manyLines}
       'Before\n<tool_call>{"name":"bash"}</tool_call>\n<function_call>{"name":"grep"}</function_call>\nAfter';
     expect(formatMessageForDisplay(raw)).toBe('Before\nAfter');
   });
+
+  it('strips clarification XML JSON dumps and keeps readable prose only', () => {
+    const raw =
+      '<clarification>{"question":"Pick one","options":["A","B"]}</clarification>';
+    expect(formatMessageForDisplay(raw)).toBe('');
+    const visible = prepareMessagesForDisplay([
+      { role: 'user', content: 'help' },
+      { role: 'assistant', content: raw },
+    ]);
+    expect(visible.map((m) => m.content)).toEqual(['help', '']);
+    expect(visible.map((m) => m.content).join('\n')).not.toContain('<clarification>');
+  });
 });

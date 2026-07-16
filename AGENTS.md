@@ -143,6 +143,7 @@ OpenMono `/ship-claim` is the local verifier gate; ThumbGate is the cross-sessio
 
 ## Dependency & PR hygiene (added 2026-07-07 after the Dependabot triage)
 
+- **Greptile AI PR review (2026-07-15).** Config lives in [`.greptile/`](./.greptile/) + [`hermes-mobile/.greptile/`](./hermes-mobile/.greptile/) (cascading; `.greptile/` beats legacy `greptile.json`). Agents must read Greptile comments as required context on connect/onboarding/auth/OTA PRs before ship claims — see [hermes-mobile/docs/GREPTILE-CODE-REVIEW.md](./hermes-mobile/docs/GREPTILE-CODE-REVIEW.md). Focus rules: fresh-user onboarding, Tailscale/USB, no `demo=1` false greens, Expo OTA vs native, multi-Mac API keys. Trigger: `@greptileai review` after the [Greptile GitHub App](https://github.com/apps/greptile) is installed on this repo. Skip with label `greptile-skip` / `docs-only`.
 - **Expo SDK pins are law.** `react-native`, `react`, `expo`, `expo-*` versions are set by the Expo SDK (currently 55) and move ONLY via `npx expo install --fix` during a deliberate SDK upgrade. Never merge a standalone bump of these; `.github/dependabot.yml` ignores them — keep those rules.
 - **Dependabot auto-merge policy:** semver-minor/patch with green checks auto-merge (`.github/workflows/dependabot-automerge.yml`). Semver-major requires an agent to (1) check API compatibility of the actual call sites, (2) update any tests that hardcode versions (e.g. `internalDistributionWorkflow.test.ts` asserts workflow action versions), (3) merge manually.
 - **Security alerts never sit.** A daily cloud sentinel (`mac-yolo repo sentinel`, claude.ai/code/routines) triages alerts + PR health at 8am ET and reports via ntfy. If an alert can't be fixed (transitive, parent pins vulnerable range), dismiss ONLY with file:line evidence that the vulnerable path is unreachable (≤280-char comment). Precedent: alert #2, 2026-07-07.
@@ -179,6 +180,7 @@ Mobile detail: [hermes-mobile/AGENTS.md](./hermes-mobile/AGENTS.md), [hermes-mob
 | Session start | `node tools/agent-session-start.js` — includes pair + continuous E2E status |
 | Any edit under `hermes-mobile/src`, `app.json`, `.maestro/` | `npm test` then kickstart `com.igor.hermes-mobile-continuous-e2e` or `npm run e2e:continuous:once` |
 | Before "fixed" / "works on device" for chat/UI | Read `latest.json`; `e2e` must be `pass` or report failure honestly |
+| Before production OTA | `npm run ota:gate` — requires continuous `e2e=pass` **or** `npm run e2e:fresh-user` proof. Never publish production OTA on unit-green alone (crisis 2026-07-15) |
 | LaunchAgent missing | `bash scripts/install-agent-automations.sh` — not "run this install script" to the user |
 | Phone USB present | `node tools/hermes-mobile-pair.js` — never "open Settings and paste URL" |
 | Phone install / launch | `npm run android:phone` or `scripts/install-phone-release.sh` only — **never** `expo run:android` on a connected device (Metro-only debug → black screen) |

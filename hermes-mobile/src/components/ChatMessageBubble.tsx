@@ -5,11 +5,16 @@ import { haptics } from '../services/haptics';
 import ChatFormattedText from './ChatFormattedText';
 import { formatExpandedMessageContent, prepareMessageForChatDisplay } from '../utils/chatMessageDisplay';
 import InlineMessageApproval from './InlineMessageApproval';
+import ClarificationPromptCard from './ClarificationPromptCard';
+import type { ClarificationOption, ParsedClarification } from '../utils/chatClarification';
 import {
   outboundDeliveryLabel,
   type OutboundDeliveryStatus,
 } from '../utils/outboundDeliveryStatus';
 import type { LeashConnectionState } from '../utils/gatewayEndpoint';
+import ElapsedSince from './ElapsedSince';
+import { formatElapsedDuration } from '../utils/formatElapsedDuration';
+import type { PromptReplyElapsedState } from '../utils/promptReplyElapsed';
 
 type InlineApprovalHandlers = {
   title?: string;
@@ -38,6 +43,11 @@ type ChatMessageBubbleProps = {
   /** When true, show a divider above the thread label (not for the first thread in the list). */
   threadDivider?: boolean;
   inlineApproval?: InlineApprovalHandlers;
+  clarification?: {
+    prompt: ParsedClarification;
+    busy?: boolean;
+    onSelectOption: (option: ClarificationOption) => void;
+  };
   outputFeedback?: OutputFeedbackHandlers;
   /** Screen-level handler — Modal must not live inside inverted FlatList cells. */
   onShowDetail?: (body: string) => void;
@@ -47,6 +57,7 @@ type ChatMessageBubbleProps = {
   macHttpOk?: boolean;
   leashUnlocked?: boolean;
   onFeedback?: (signal: 'up' | 'down') => void;
+  promptReplyElapsed?: PromptReplyElapsedState;
 };
 
 function hasMeaningfulExpansion(preview: string, expanded: string): boolean {
@@ -73,12 +84,14 @@ function ChatMessageBubble({
   threadLabel,
   threadDivider = false,
   inlineApproval,
+  clarification,
   outputFeedback,
   onShowDetail,
   outboundStatus,
   outboundFailureReason,
   connectionState = 'demo',
   macHttpOk = true,
+  promptReplyElapsed,
 }: ChatMessageBubbleProps) {
   const resolved = useMemo(() => {
     if (rawContent !== undefined && truncated !== undefined) {
@@ -148,6 +161,13 @@ function ChatMessageBubble({
               onDeny={inlineApproval.onDeny}
             />
           ) : null}
+          {clarification ? (
+            <ClarificationPromptCard
+              clarification={clarification.prompt}
+              busy={clarification.busy}
+              onSelectOption={clarification.onSelectOption}
+            />
+          ) : null}
           {!isUser && outputFeedback ? (
             <View style={styles.feedbackRow} testID="chat-output-feedback">
               <Pressable
@@ -207,6 +227,14 @@ function ChatMessageBubble({
               ) : null}
             </View>
           ) : null}
+          {isUser && promptReplyElapsed?.mode === 'live' ? (
+            <ElapsedSince
+              sinceMs={promptReplyElapsed.sinceMs}
+              prominent
+              prefix="Waiting"
+              testID="chat-prompt-elapsed-live"
+            />
+          ) : null}
           <View
             style={[
               styles.timeRow,
@@ -244,7 +272,11 @@ function ChatMessageBubble({
               ]}
               testID="chat-message-timestamp"
             >
-              {timeLabel}
+              {`${timeLabel}${
+                isUser && promptReplyElapsed?.mode === 'frozen'
+                  ? ` · ${formatElapsedDuration(promptReplyElapsed.durationSec)}`
+                  : ''
+              }`}
             </Text>
           </View>
         </View>

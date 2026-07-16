@@ -1,4 +1,4 @@
-import React, { useEffect, useState, memo } from 'react';
+import React, { useEffect, useRef, useState, memo } from 'react';
 import { StyleSheet, Text, View, ActivityIndicator, Platform, Pressable } from 'react-native';
 import { colors } from '../theme/colors';
 import type { RunProgressState } from '../types/chatDisplay';
@@ -10,6 +10,14 @@ import {
 } from '../utils/runProgressDisplay';
 import { isConnectivityMessage } from '../utils/chatErrors';
 import { classifyRunStale, runStaleHint } from '../utils/runStaleDetection';
+import { formatElapsedDuration } from '../utils/formatElapsedDuration';
+import {
+  RUN_PROGRESS_ELAPSED_MIN_WIDTH,
+  RUN_PROGRESS_STATS_MIN_HEIGHT,
+  resolveRunProgressDetailsExpanded,
+  shouldUpdateDebouncedTokenLabel,
+} from '../utils/runProgressLayout';
+import { investigateChatStall } from '../utils/chatStallInvestigation';
 
 type RunProgressBannerProps = {
   progress: RunProgressState;
@@ -17,15 +25,29 @@ type RunProgressBannerProps = {
   fallbackModel?: string;
   /** Show model + token counts on completed/failed runs (always on while active). */
   showTechnicalStats?: boolean;
+  /**
+   * Compact mode (keyboard open): collapse MODEL/TOKENS/terminal by default so the
+   * transcript keeps height instead of thrashing on every status tick.
+   */
+  compact?: boolean;
   onStop?: () => void;
   onDismiss?: () => void;
   onRetry?: () => void;
+  /** Poll gateway transcript for reply text (works at bottom of chat; unlike pull-to-refresh). */
+  onRefreshRun?: () => void;
+  refreshRunBusy?: boolean;
   /** Live terminal line from Mac — shown below status, not as a second banner. */
   terminalToolName?: string;
   terminalPreview?: string;
   /** Honest warning when the backing session is extremely large. */
   megaSessionWarning?: string | null;
   onStartFreshChat?: () => void;
+  /** Open Mac picker (weak model / wrong machine). */
+  onSwitchMac?: () => void;
+  /** Session token total for stall investigation (mega-session ranking). */
+  sessionTokens?: number | null;
+  /** Chat path healthy (not vibes Connected). */
+  macHttpOk?: boolean;
   /** Show spinner while Start fresh is in flight (fork + stop Mac run). */
   isStartingFreshChat?: boolean;
 };
@@ -46,17 +68,29 @@ function RunProgressBanner({
   progress,
   fallbackModel,
   showTechnicalStats = false,
+  compact = false,
   onStop,
   onDismiss,
   onRetry,
+  onRefreshRun,
+  refreshRunBusy = false,
   terminalToolName,
   terminalPreview,
   megaSessionWarning,
   onStartFreshChat,
+  onSwitchMac,
+  sessionTokens = null,
+  macHttpOk = true,
   isStartingFreshChat = false,
 }: RunProgressBannerProps) {
-  const [elapsed, setElapsed] = useState(0);
-  const [detailsExpanded, setDetailsExpanded] = useState(true);
+  const [elapsed, setElapsed] = useState(() =>
+    Math.max(0, Math.floor((Date.now() - progress.startedAtMs) / 1000)),
+  );
+  /** null = follow compact/keyboard default; boolean = user toggled. */
+  const [userExpandedOverride, setUserExpandedOverride] = useState<boolean | null>(null);
+  const [displayedTokenLabel, setDisplayedTokenLabel] = useState<string | null>(null);
+  const tokenLabelUpdatedAtRef = useRef(0);
+  const displayedTokenLabelRef = useRef<string | null>(null);
 
   useEffect(() => {
     const update = () => {
@@ -68,17 +102,58 @@ function RunProgressBanner({
     return () => clearInterval(timer);
   }, [progress.startedAtMs]);
 
+  useEffect(() => {
+    // Leaving compact resets override so details expand again without sticky collapse.
+    if (!compact) {
+      setUserExpandedOverride(null);
+    }
+  }, [compact]);
+
   const isCompleted = progress.phase === 'completed';
   const isFailed = progress.phase === 'failed';
   const isActive = !isCompleted && !isFailed;
   const staleLevel = isActive ? classifyRunStale(progress) : 'normal';
   const staleMessage = runStaleHint(staleLevel);
-  const emphasizeStop = isActive && staleLevel !== 'normal' && Boolean(onStop);
+  const investigation = investigateChatStall({
+    elapsedMs: elapsed * 1000,
+    phase: progress.phase,
+    detail: progress.detail,
+    model: progress.model ?? fallbackModel,
+    sessionTokens,
+    outputTokens: progress.outputTokens,
+    macHttpOk,
+  });
+  const emphasizeStop =
+    isActive &&
+    Boolean(onStop) &&
+    (staleLevel !== 'normal' || investigation.active);
 
   const durationSec = progress.duration != null ? Math.round(progress.duration * 10) / 10 : elapsed;
+  const durationLabel = formatElapsedDuration(Math.floor(durationSec));
   const modelLabel =
     formatLlmModelShortName(progress.model) ?? formatLlmModelShortName(fallbackModel);
-  const tokenLabel = formatTokenSummary(progress);
+  const liveTokenLabel = formatTokenSummary(progress);
+
+  useEffect(() => {
+    const next = liveTokenLabel ?? '';
+    const prev = displayedTokenLabelRef.current ?? '';
+    const now = Date.now();
+    if (
+      !shouldUpdateDebouncedTokenLabel({
+        lastUpdateAtMs: tokenLabelUpdatedAtRef.current,
+        nowMs: now,
+        prevLabel: prev,
+        nextLabel: next,
+      })
+    ) {
+      return;
+    }
+    tokenLabelUpdatedAtRef.current = now;
+    displayedTokenLabelRef.current = liveTokenLabel;
+    setDisplayedTokenLabel(liveTokenLabel);
+  }, [liveTokenLabel]);
+
+  const tokenLabel = displayedTokenLabel ?? liveTokenLabel;
   const showStats = Boolean(modelLabel || tokenLabel);
   const showStatsPanel = showStats;
 
@@ -90,13 +165,22 @@ function RunProgressBanner({
     isFailed && isConnectivityMessage(progress.detail ?? '') ? progress.detail?.trim() : null;
   const terminalLine = terminalPreview?.trim() || '';
   const hasCollapsibleDetails = Boolean(
-    showStatsPanel || terminalLine || failedDetail || staleMessage || megaSessionWarning,
+    showStatsPanel ||
+      terminalLine ||
+      failedDetail ||
+      staleMessage ||
+      megaSessionWarning ||
+      investigation.active,
   );
+  const detailsExpanded = resolveRunProgressDetailsExpanded({
+    keyboardOpen: compact,
+    userOverride: userExpandedOverride,
+  });
   const showDetailSections = detailsExpanded && hasCollapsibleDetails;
 
   const toggleDetails = () => {
     if (hasCollapsibleDetails) {
-      setDetailsExpanded((prev) => !prev);
+      setUserExpandedOverride(!detailsExpanded);
     }
   };
 
@@ -139,7 +223,9 @@ function RunProgressBanner({
           >
             {isCompleted ? 'Reply ready on your computer' : isFailed ? failedTitle : detailLabel}
           </Text>
-          <Text style={styles.timeLabel}>{durationSec}s</Text>
+          <Text style={styles.timeLabel} testID="run-progress-elapsed">
+            {durationLabel}
+          </Text>
         </Pressable>
         {hasCollapsibleDetails ? (
           <Pressable
@@ -166,6 +252,26 @@ function RunProgressBanner({
             <Text style={[styles.stopChipText, emphasizeStop && styles.stopChipTextEmphasis]}>
               {emphasizeStop ? 'Stop stuck run' : 'Stop'}
             </Text>
+          </Pressable>
+        ) : null}
+        {onRefreshRun ? (
+          <Pressable
+            onPress={onRefreshRun}
+            disabled={refreshRunBusy}
+            style={({ pressed }) => [
+              styles.refreshChip,
+              refreshRunBusy && styles.stopChipPressed,
+              pressed && !refreshRunBusy && styles.stopChipPressed,
+            ]}
+            testID="run-progress-refresh"
+            accessibilityLabel="Refresh run"
+            accessibilityState={{ busy: refreshRunBusy, disabled: refreshRunBusy }}
+          >
+            {refreshRunBusy ? (
+              <ActivityIndicator size="small" color={colors.primary} />
+            ) : (
+              <Text style={styles.refreshChipText}>Refresh</Text>
+            )}
           </Pressable>
         ) : null}
         {!isActive && onRetry ? (
@@ -202,13 +308,36 @@ function RunProgressBanner({
         </Text>
       ) : null}
 
+      {investigation.active ? (
+        <Text style={styles.investigationHint} testID="run-progress-investigation">
+          {investigation.title}
+        </Text>
+      ) : null}
+
       {showDetailSections && megaSessionWarning ? (
         <Text style={styles.megaSessionHint} testID="run-progress-mega-session-hint">
           {megaSessionWarning}
         </Text>
       ) : null}
 
-      {(megaSessionWarning || isStartingFreshChat) && onStartFreshChat ? (
+      {investigation.active &&
+      investigation.action === 'switch_mac' &&
+      onSwitchMac &&
+      !isStartingFreshChat ? (
+        <Pressable
+          onPress={onSwitchMac}
+          style={({ pressed }) => [styles.freshChatChip, pressed && styles.stopChipPressed]}
+          testID="run-progress-switch-mac"
+          accessibilityLabel={investigation.actionLabel}
+        >
+          <Text style={styles.freshChatChipText}>{investigation.actionLabel}</Text>
+        </Pressable>
+      ) : null}
+
+      {(megaSessionWarning ||
+        isStartingFreshChat ||
+        (investigation.active && investigation.action === 'start_fresh')) &&
+      onStartFreshChat ? (
         <Pressable
           onPress={onStartFreshChat}
           disabled={isStartingFreshChat}
@@ -218,7 +347,7 @@ function RunProgressBanner({
             pressed && !isStartingFreshChat && styles.stopChipPressed,
           ]}
           testID="run-progress-start-fresh-chat"
-          accessibilityLabel={isStartingFreshChat ? 'Starting fresh chat' : 'Start fresh chat'}
+          accessibilityLabel={isStartingFreshChat ? 'Starting fresh chat' : investigation.actionLabel || 'Start fresh chat'}
         >
           {isStartingFreshChat ? (
             <View style={styles.freshChatChipRow} testID="run-progress-start-fresh-spinner">
@@ -272,6 +401,7 @@ export default memo(RunProgressBanner, (prev, next) => {
   const b = next.progress;
   return (
     prev.showTechnicalStats === next.showTechnicalStats &&
+    Boolean(prev.compact) === Boolean(next.compact) &&
     (prev.fallbackModel ?? '') === (next.fallbackModel ?? '') &&
     prev.onStop === next.onStop &&
     prev.onDismiss === next.onDismiss &&
@@ -368,6 +498,12 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: colors.warning,
   },
+  investigationHint: {
+    fontSize: 11,
+    lineHeight: 16,
+    fontWeight: '700',
+    color: colors.warning,
+  },
   megaSessionHint: {
     fontSize: 11,
     lineHeight: 16,
@@ -399,7 +535,7 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
     fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
     flexShrink: 0,
-    minWidth: 28,
+    minWidth: RUN_PROGRESS_ELAPSED_MIN_WIDTH,
     textAlign: 'right',
   },
   stopChip: {
@@ -440,6 +576,22 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: colors.warning,
   },
+  refreshChip: {
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(59, 130, 246, 0.45)',
+    backgroundColor: 'rgba(59, 130, 246, 0.12)',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    minWidth: 64,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  refreshChipText: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: colors.primary,
+  },
   statsPanel: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -447,6 +599,7 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: 'rgba(255, 255, 255, 0.05)',
     gap: 8,
+    minHeight: RUN_PROGRESS_STATS_MIN_HEIGHT,
   },
   statItem: {
     flex: 1,

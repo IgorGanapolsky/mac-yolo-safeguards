@@ -4,8 +4,11 @@ import {
   DEFERRED_REPLY_POLL_MAX_WITH_TOOLS_MS,
   DEFERRED_REPLY_POLL_MS,
   EMPTY_REPLY_FAILURE_REASON,
+  EMPTY_STREAM_SELF_HEAL_AFTER_MS,
+  emptyStreamCheckingStatus,
   serverHasAssistantReplyAfterLastUser,
   shouldAwaitGatewayReplyAfterSend,
+  shouldKeepAutoPollingForReply,
   toolActivityAfterLastUser,
 } from '../utils/emptyStreamReplyRecovery';
 import type { HermesMessage } from '../types/chat';
@@ -66,12 +69,42 @@ describe('emptyStreamReplyRecovery', () => {
   });
 
   it('bounds empty-reply recovery and extends when tools are active', () => {
-    expect(DEFERRED_REPLY_POLL_MS).toBe(3000);
+    expect(DEFERRED_REPLY_POLL_MS).toBe(4000);
     expect(DEFERRED_REPLY_POLL_MAX_MS).toBe(60_000);
     expect(DEFERRED_REPLY_POLL_MAX_WITH_TOOLS_MS).toBe(180_000);
+    expect(EMPTY_STREAM_SELF_HEAL_AFTER_MS).toBe(30_000);
     expect(deferredReplyPollBudgetMs({ toolsActive: false })).toBe(60_000);
     expect(deferredReplyPollBudgetMs({ toolsActive: true })).toBe(180_000);
-    expect(EMPTY_REPLY_FAILURE_REASON).toMatch(/fresh chat|refresh/i);
+    expect(EMPTY_REPLY_FAILURE_REASON).toMatch(/fresh chat|checking automatically/i);
+  });
+
+  it('keeps auto-polling while awaiting reply or after empty-stream timeout', () => {
+    expect(
+      shouldKeepAutoPollingForReply({
+        awaitingGatewayReply: true,
+        hasEmptyStreamTimeout: false,
+      }),
+    ).toBe(true);
+    expect(
+      shouldKeepAutoPollingForReply({
+        awaitingGatewayReply: false,
+        hasEmptyStreamTimeout: true,
+      }),
+    ).toBe(true);
+    expect(
+      shouldKeepAutoPollingForReply({
+        awaitingGatewayReply: false,
+        hasEmptyStreamTimeout: false,
+      }),
+    ).toBe(false);
+  });
+
+  it('shows self-heal checking copy after 30s without requiring manual refresh', () => {
+    expect(emptyStreamCheckingStatus(5_000)).toMatch(/working on your computer/i);
+    expect(emptyStreamCheckingStatus(EMPTY_STREAM_SELF_HEAL_AFTER_MS)).toMatch(
+      /checking your mac/i,
+    );
+    expect(emptyStreamCheckingStatus(45_000)).toBe('Checking your Mac… (45s)');
   });
 
   it('surfaces tool activity after the last user turn', () => {

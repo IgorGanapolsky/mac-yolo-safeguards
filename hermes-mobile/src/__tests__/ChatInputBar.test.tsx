@@ -118,6 +118,48 @@ describe('ChatInputBar', () => {
     expect(onSend).toHaveBeenCalledWith('typed before keyboard hide');
   });
 
+  // T-330 priority 5 (prevent-recurrence engineering control): an active agent run may
+  // disable Send or offer Queue, but the composer must NEVER stop the user from typing.
+  // These lock in the invariant so a future change cannot wire `editable` to run state.
+  it('never disables typing while an active run has Send disabled (composer stays editable)', () => {
+    const { getByTestId } = render(
+      <ChatInputBar {...baseProps} sendDisabled showStop={true} onStop={jest.fn()} />,
+    );
+    expect(getByTestId('chat-input').props.editable).toBe(true);
+  });
+
+  it('never disables typing while sendMuted (empty composer during an active run)', () => {
+    const { getByTestId } = render(
+      <ChatInputBar {...baseProps} sendMuted sendDisabled showStop={true} onStop={jest.fn()} />,
+    );
+    expect(getByTestId('chat-input').props.editable).toBe(true);
+  });
+
+  it('still accepts typed input while Send is disabled during an active run', () => {
+    const onChangeText = jest.fn();
+    const { getByTestId } = render(
+      <ChatInputBar {...baseProps} onChangeText={onChangeText} sendDisabled showStop={true} onStop={jest.fn()} />,
+    );
+    fireEvent.changeText(getByTestId('chat-input'), 'typed while a run is active');
+    expect(onChangeText).toHaveBeenCalledWith('typed while a run is active');
+  });
+
+  it('still invokes onSend when sendDisabled (blocking handled upstream)', () => {
+    const onSend = jest.fn();
+    const { getByTestId } = render(
+      <ChatInputBar
+        {...baseProps}
+        value="make money faster"
+        sendMuted={false}
+        sendDisabled
+        onSend={onSend}
+      />,
+    );
+
+    fireEvent.press(getByTestId('chat-send-button'));
+    expect(onSend).toHaveBeenCalledWith('make money faster');
+  });
+
   it('shows paperclip attach control', () => {
     const onAttachPress = jest.fn();
     const { getByTestId } = render(

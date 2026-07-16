@@ -43,14 +43,34 @@ Templates at repo root (`com.igor.*.plist`). Install all:
 bash scripts/install-agent-launchagents.sh
 ```
 
-| Label | Interval | Tool |
-|-------|----------|------|
+Also installs `com.igor.repo-root-hygiene` via `scripts/install-repo-root-hygiene-agent.sh`.
+
+| Label | Interval | Tool / purpose |
+|-------|----------|----------------|
+| `com.igor.agent-vault-sync` | 30m | `scripts/agent-vault-sync.sh` — vault ff-only pull + `agent-sync-brief.js --vault` |
+| `com.igor.repo-root-hygiene` | 5m | `tools/repo-root-hygiene.js --repair` — allowlisted root drift repair |
+| `com.igor.smart-ops` | 1h | `tools/smart-ops-controller.js` — heal missing agents, revenue fast path |
+| `com.igor.hermes-mobile-continuous-e2e` | 15m | `hermes-mobile/scripts/run-continuous-e2e.sh --once` |
+| `com.igor.hermes-usb-reverse-watchdog` | 15s | `tools/hermes-usb-reverse-watchdog.js` — adb reverse self-heal |
+| `com.igor.shutdown-simulators` | 60s | sim runaway guard (protected) |
 | `com.igor.ceo-operating-brief` | 24h | `tools/ceo-operating-brief.js --json` |
+| `com.igor.revenue-autonomous-loop` | 4h | revenue pipeline |
 | `com.igor.react-native-newsletter-ingest` | 7d | `tools/react-native-newsletter-ingest.js --decision-stack` |
 | `com.igor.hermes-contribution-opportunities` | (see plist) | Hermes upstream opportunities |
-| `com.igor.shutdown-simulators` | 60s | sim runaway guard (protected) |
+| `com.igor.github-reply-monitor` | 2h | PR/issue reply scan (when installed) |
 
-Logs: `~/Library/Logs/<label>.log` (ceo + newsletter use unified log paths in plists).
+**Vault-only (outside repo installer):** `com.igor.vault-selfheal` (1h) lives in
+`~/Library/LaunchAgents/` and runs `~/.local/bin/vault-selfheal.sh` — drift
+detect + ntfy alert; uses mirror when TCC blocks `~/Documents`.
+
+**GitHub scheduled hygiene (no Mac required):**
+
+| Workflow | Schedule | Purpose |
+|----------|----------|---------|
+| `.github/workflows/pr-hygiene.yml` | every 6h | auto-merge green PRs; stale PR close |
+| `.github/workflows/mobile-continuous.yml` | every 6h | Hermes Mobile unit + contract in cloud |
+
+Logs: `~/Library/Logs/mac-yolo/` (most agents) or `~/Library/Logs/<label>.log`.
 
 ### Status probe (session start)
 

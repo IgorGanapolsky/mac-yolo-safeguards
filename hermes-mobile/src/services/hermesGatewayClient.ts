@@ -152,6 +152,23 @@ export async function setToolsetEnabled(
   return parseJson<{ ok: boolean; name: string; enabled: boolean }>(response);
 }
 
+/** Idempotent no-op PUT to learn whether this gateway build accepts phone toggles. */
+export async function probeToolsetsWriteAccess(
+  gatewayUrl: string,
+  toolset: Pick<HermesToolset, 'name' | 'enabled'>,
+  apiKey?: string | null,
+): Promise<boolean> {
+  try {
+    await setToolsetEnabled(gatewayUrl, toolset.name, toolset.enabled ?? false, apiKey);
+    return true;
+  } catch (err) {
+    if (err instanceof HermesGatewayApiError && (err.status === 404 || err.status === 501)) {
+      return false;
+    }
+    return true;
+  }
+}
+
 /** Provider matrix + is_set flags only — never returns secret values. */
 export async function getToolsetConfig(
   gatewayUrl: string,

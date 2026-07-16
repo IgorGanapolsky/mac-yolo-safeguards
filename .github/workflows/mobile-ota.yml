@@ -1,10 +1,8 @@
-# Hermes Mobile OTA — publish JS/asset fixes to preview + production channels on main merges.
-# Native changes (new modules, plugins, SDK bump, app version bump) still need EAS build
-# or `npm run android:phone` — OTA cannot replace native binaries.
-#
-# runtimeVersion policy: appVersion (see hermes-mobile/app.json). OTA bundles apply only
-# to native builds whose embedded runtime matches expo.version (e.g. 0.3.2). Bump app.json
-# version → new native build required before OTA resumes for that line.
+# Hermes Mobile OTA — preview may publish on main; production only via workflow_dispatch
+# + publish_production + fresh-user e2e=pass gate (crisis 2026-07-15). No false OTA claims.
+# Native changes still need EAS build / android:phone — OTA cannot replace native binaries.
+# Staged rollout + optional EXPO_UPDATE_PRIVATE_KEY signing apply to gated production publishes.
+# runtimeVersion: appVersion (hermes-mobile/app.json). See VERSIONING-AND-RELEASES-JULY-2026.md.
 name: Hermes Mobile OTA
 
 on:
@@ -20,6 +18,20 @@ on:
         description: Optional OTA publish message (defaults to manual dispatch + SHA)
         required: false
         type: string
+      publish_production:
+        description: Publish production channel (requires fresh-user / continuous e2e=pass proof artifact)
+        required: true
+        type: boolean
+        default: false
+      production_rollout_percentage:
+        description: Staged rollout % for production channel (1-100)
+        required: false
+        type: string
+        default: '10'
+      promote_production_rollout:
+        description: If set, promote an existing production update group to this % (skips publish)
+        required: false
+        type: string
 
 # Serialize deploys instead of cancelling mid-run: cancel-in-progress:true can kill a
 # run partway through the eas-update loop, leaving one channel published and the other
@@ -31,6 +43,7 @@ concurrency:
 
 permissions:
   contents: read
+  checks: read
 
 jobs:
   quality-gate:
@@ -59,6 +72,16 @@ jobs:
           REQUIRE_EAS_PROJECT: '1'
         run: npm run release:check
 
+      # HARD by default (crisis 2026-07-15): refuse OTA without stranger cold-start
+      # contract + runtime proof (local JSON or green GitHub stranger check).
+      # Polls parallel mobile-e2e stranger job on this SHA — no opt-in env.
+      - name: Fresh-user stranger cold-start proof gate (hard)
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Hard is the script default; wait for parallel Maestro stranger job on main.
+          HERMES_STRANGER_PROOF_WAIT_SEC: '2100'
+        run: node ./scripts/require-stranger-cold-start-proof.cjs
+
       - name: Type check
         run: npm run typecheck
 
@@ -76,8 +99,11 @@ jobs:
           npx expo export --platform android --output-dir "$RUNNER_TEMP/hermes-mobile-public-export"
           npm run privacy:scan:artifact -- "$RUNNER_TEMP/hermes-mobile-public-export"
 
-  publish-production-ota:
-    name: Publish production OTA
+  # Crisis 2026-07-15: production OTA is NOT automatic on push.
+  # Preview may still publish for internal sideloads; production requires
+  # workflow_dispatch + publish_production=true + fresh-user proof artifact.
+  publish-preview-ota:
+    name: Publish preview OTA
     needs: [quality-gate]
     runs-on: ubuntu-latest
     defaults:
@@ -112,35 +138,140 @@ jobs:
             exit 1
           fi
 
-      - name: Publish OTA to installable (preview) + production channels
+      - name: Publish OTA to preview channel only
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
           OTA_MESSAGE: "${{ github.event_name == 'workflow_dispatch' && (inputs.message || format('manual {0}', github.sha)) || format('main {0}: {1}', github.sha, github.event.head_commit.message || 'Hermes Mobile OTA') }}"
         run: |
           set -euo pipefail
-          # Channels map to SEPARATE branches in EAS (production->production,
-          # preview->preview), so a build only receives updates on its own channel.
-          # The only sideloadable build (eas.json `preview` = installable APK) is on
-          # the `preview` channel — publishing to `production` alone means a
-          # sideloaded install NEVER sees OTA fixes. Publish to both: `production` for
-          # Play Store builds (customer-facing, written FIRST so the priority channel
-          # is never the one left stale if the loop is interrupted), `preview` for
-          # internal/sideloaded installs.
-          for CH in preview production; do
-            echo "::group::eas update --channel $CH"
-            eas update \
-              --channel "$CH" \
-              --environment "$CH" \
-              --non-interactive \
-              --message "${OTA_MESSAGE}" \
-              | tee "/tmp/eas-ota-${CH}.json"
-            echo "::endgroup::"
-          done
+          echo "::group::eas update --channel preview"
+          eas update \
+            --channel preview \
+            --environment preview \
+            --non-interactive \
+            --message "${OTA_MESSAGE}" \
+            | tee "/tmp/eas-ota-preview.json"
+          echo "::endgroup::"
 
-      - name: Upload OTA publish evidence
+      - name: Upload preview OTA evidence
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         if: always()
         with:
-          name: hermes-mobile-ota-updates
-          path: /tmp/eas-ota-*.json
+          name: hermes-mobile-ota-preview
+          path: /tmp/eas-ota-preview.json
+          retention-days: 14
+
+  publish-production-ota:
+    name: Publish production OTA (fresh-user gated)
+    needs: [quality-gate]
+    if: >
+      github.event_name == 'workflow_dispatch' &&
+      (inputs.publish_production == true || inputs.promote_production_rollout != '')
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: hermes-mobile
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: hermes-mobile/package-lock.json
+
+      - name: Setup Expo and EAS
+        uses: expo/expo-github-action@v9
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+          packager: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Download fresh-user / continuous E2E proof artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: hermes-mobile-fresh-user-ota-proof
+          path: /tmp/hermes-ota-proof
+        continue-on-error: true
+
+      - name: Fresh-user OTA gate (refuse without e2e=pass)
+        env:
+          HERMES_CONTINUOUS_LATEST_JSON: /tmp/hermes-ota-proof/latest.json
+          HERMES_FRESH_USER_PROOF_JSON: /tmp/hermes-ota-proof/fresh-user-latest.json
+        run: |
+          set -euo pipefail
+          # Accept either filename from the uploaded proof bundle.
+          if [[ -f /tmp/hermes-ota-proof/continuous-latest.json ]]; then
+            export HERMES_CONTINUOUS_LATEST_JSON=/tmp/hermes-ota-proof/continuous-latest.json
+          fi
+          if [[ -f /tmp/hermes-ota-proof/latest.json ]]; then
+            export HERMES_CONTINUOUS_LATEST_JSON=/tmp/hermes-ota-proof/latest.json
+          fi
+          bash ./scripts/require-fresh-user-ota-gate.sh
+
+      - name: Fail fast on required EAS auth
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ -z "${EXPO_TOKEN:-}" ]; then
+            echo "Missing required secret: EXPO_TOKEN" >&2
+            exit 1
+          fi
+
+      - name: Promote existing production rollout (optional)
+        if: ${{ inputs.promote_production_rollout != '' }}
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+          PROMOTE_TO: ${{ inputs.promote_production_rollout }}
+        run: |
+          set -euo pipefail
+          GROUP_ID="$(eas update:list --branch production --limit 1 --non-interactive --json \
+            | node -e 'const fs=require("fs"); const j=JSON.parse(fs.readFileSync(0,"utf8")); const g=(Array.isArray(j)?j:j)?.[0]||j?.currentPage?.[0]||j; const id=g?.group||g?.groupId||g?.id; if(!id){process.stderr.write("No production update group to promote\n"); process.exit(1)}; process.stdout.write(String(id));')"
+          echo "Promoting group ${GROUP_ID} → ${PROMOTE_TO}%"
+          eas update:edit "${GROUP_ID}" --rollout-percentage "${PROMOTE_TO}" --non-interactive \
+            | tee /tmp/eas-ota-promote-production.json
+
+      - name: Publish OTA to production channel
+        if: ${{ inputs.promote_production_rollout == '' }}
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+          OTA_MESSAGE: "${{ inputs.message || format('manual production {0}', github.sha) }}"
+          OTA_PRODUCTION_ROLLOUT_PERCENTAGE: "${{ inputs.production_rollout_percentage || '10' }}"
+          EXPO_UPDATE_PRIVATE_KEY: ${{ secrets.EXPO_UPDATE_PRIVATE_KEY }}
+        run: |
+          set -euo pipefail
+          SIGN_ARGS=()
+          if [ -n "${EXPO_UPDATE_PRIVATE_KEY:-}" ]; then
+            printf '%s' "${EXPO_UPDATE_PRIVATE_KEY}" > "$RUNNER_TEMP/expo-update-private-key.pem"
+            chmod 600 "$RUNNER_TEMP/expo-update-private-key.pem"
+            SIGN_ARGS=(--private-key-path "$RUNNER_TEMP/expo-update-private-key.pem")
+            echo "Code signing: enabled via EXPO_UPDATE_PRIVATE_KEY secret"
+          else
+            echo "Code signing: skipped (no EXPO_UPDATE_PRIVATE_KEY secret — see docs)"
+          fi
+          echo "Production staged rollout: ${OTA_PRODUCTION_ROLLOUT_PERCENTAGE}%"
+          echo "::group::eas update --channel production"
+          eas update \
+            --channel production \
+            --environment production \
+            --non-interactive \
+            --message "${OTA_MESSAGE}" \
+            --rollout-percentage "${OTA_PRODUCTION_ROLLOUT_PERCENTAGE}" \
+            "${SIGN_ARGS[@]}" \
+            | tee "/tmp/eas-ota-production.json"
+          echo "::endgroup::"
+          if [ -f "$RUNNER_TEMP/expo-update-private-key.pem" ]; then
+            rm -f "$RUNNER_TEMP/expo-update-private-key.pem"
+          fi
+
+      - name: Upload production OTA evidence
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: always()
+        with:
+          name: hermes-mobile-ota-production
+          path: /tmp/eas-ota-production.json
           retention-days: 14

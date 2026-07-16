@@ -1,16 +1,20 @@
 'use strict';
 
+const crypto = require('crypto');
 const fs = require('fs');
 const http = require('http');
 const https = require('https');
 const os = require('os');
 const path = require('path');
-const { spawnSync } = require('child_process');
+const { spawnSync, execFileSync } = require('child_process');
 
 const DEFAULT_HERMES_ENV = path.join(os.homedir(), '.hermes', '.env');
 
 /** Known Mac mini Tailscale IPv4 (fleet). */
 const MAC_MINI_TAILSCALE_IP = '100.94.135.78';
+
+/** Android application id — used to confirm the setup intent actually reached the foreground app. */
+const ANDROID_PACKAGE_NAME = 'com.iganapolsky.hermesmobile';
 
 function readEnvKey(filePath, names) {
   if (!fs.existsSync(filePath)) return '';
@@ -64,6 +68,45 @@ function selectPhysicalAdbSerial(adbDevicesOutput) {
     .map((row) => row.trim().split(/\s+/))
     .filter((parts) => parts.length >= 2 && parts[1] === 'device');
   return devices.find(([serial]) => !serial.startsWith('emulator-'))?.[0] || null;
+}
+
+/** USB Hermes paths: gateway chat + pair.json sweep (Mac mini discovery). */
+const USB_ADB_REVERSE_PORTS = [8642, 8765];
+
+function adbReverseList(serial, options = {}) {
+  const adbBin = options.adbCommand ?? 'adb';
+  const result = spawnSync(adbBin, ['-s', serial, 'reverse', '--list'], {
+    encoding: 'utf8',
+    timeout: 10_000,
+  });
+  return result.status === 0 ? result.stdout : '';
+}
+
+function adbReverseHasPort(serial, port, options = {}) {
+  return adbReverseList(serial, options).includes(`tcp:${port}`);
+}
+
+function setupUsbAdbReverses(serial, options = {}) {
+  const ports = options.ports ?? USB_ADB_REVERSE_PORTS;
+  const adbBin = options.adbCommand ?? 'adb';
+  const failures = [];
+  for (const port of ports) {
+    const result = spawnSync(adbBin, ['-s', serial, 'reverse', `tcp:${port}`, `tcp:${port}`], {
+      encoding: 'utf8',
+      timeout: 10_000,
+    });
+    if (result.status !== 0) {
+      failures.push(port);
+    }
+  }
+  return { ok: failures.length === 0, failures, ports };
+}
+
+function assertUsbAdbReverses(serial, options = {}) {
+  const ports = options.ports ?? USB_ADB_REVERSE_PORTS;
+  const requiredPorts = options.requiredPorts ?? ports;
+  const missing = requiredPorts.filter((port) => !adbReverseHasPort(serial, port, options));
+  return { ok: missing.length === 0, missing, ports: requiredPorts };
 }
 
 function fetchRemoteMiniApiKey(options = {}) {
@@ -419,9 +462,229 @@ function buildVerifiedExtraComputer(entry, options = {}) {
   };
 }
 
+/**
+ * Serialized pairing handshake (2026-07-14 prevent-recurrence): T-330.
+ *
+ * Root cause of the recurring pairing defect: `hermes-mobile-pair.js` fired the primary
+ * `hermes://setup` intent and the secondary `hermes://dev/leash-unlock` intent back-to-back
+ * with zero delay. On a cold-starting app (fresh install / Metro reload) the second intent
+ * could race the first — the app hadn't finished processing setup before the unlock intent
+ * landed, occasionally dropping the app to the launcher or applying the unlock before the
+ * gateway profile existed. Fix: wait for a foreground ack (the Hermes app is the resumed
+ * activity) before sending any secondary intent, with a bounded timeout so pairing never
+ * hangs indefinitely on a device that can't report focus (e.g. locked screen).
+ */
+
+/** Pure parser — testable without adb. Accepts `dumpsys window windows` (or `activity activities`) output. */
+function isAppForegroundOutput(dumpsysOutput, packageName = ANDROID_PACKAGE_NAME) {
+  const text = String(dumpsysOutput || '');
+  const focusLine = text
+    .split(/\r?\n/)
+    .find((line) => /mCurrentFocus|mFocusedApp|mResumedActivity/.test(line));
+  return typeof focusLine === 'string' && focusLine.includes(packageName);
+}
+
+/**
+ * Poll for the setup intent's foreground ack before sending any secondary intent.
+ * @param {string|null} serial adb serial (null = default/only device)
+ * @param {string} packageName Android application id
+ * @param {{
+ *   execImpl?: (serial: string|null) => string,
+ *   sleepImpl?: (ms: number) => void,
+ *   timeoutMs?: number,
+ *   pollIntervalMs?: number,
+ * }} [options]
+ * @returns {{ ok: boolean, waitedMs: number, attempts: number }}
+ */
+function waitForForegroundAck(serial, packageName = ANDROID_PACKAGE_NAME, options = {}) {
+  const timeoutMs = options.timeoutMs ?? 8000;
+  const pollIntervalMs = options.pollIntervalMs ?? 500;
+  const execImpl =
+    options.execImpl ??
+    ((s) => {
+      const args = s
+        ? ['-s', s, 'shell', 'dumpsys', 'window', 'windows']
+        : ['shell', 'dumpsys', 'window', 'windows'];
+      const result = spawnSync('adb', args, { encoding: 'utf8', timeout: 8000 });
+      return result.status === 0 ? result.stdout || '' : '';
+    });
+  const sleepImpl = options.sleepImpl ?? ((ms) => spawnSync('sleep', [String(Math.max(ms, 0) / 1000)]));
+
+  const start = Date.now();
+  let attempts = 0;
+  while (Date.now() - start < timeoutMs) {
+    attempts += 1;
+    if (isAppForegroundOutput(execImpl(serial), packageName)) {
+      return { ok: true, waitedMs: Date.now() - start, attempts };
+    }
+    if (Date.now() - start >= timeoutMs) break;
+    sleepImpl(Math.min(pollIntervalMs, timeoutMs - (Date.now() - start)));
+  }
+  return { ok: false, waitedMs: Date.now() - start, attempts };
+}
+
+/**
+ * Secretless one-time pairing code (T-330 priority 3): the deep link carries an opaque
+ * single-use `code` instead of the raw gateway API key. The phone exchanges the code for
+ * credentials over the same trusted local connection (LAN pair server or adb-reverse
+ * loopback) and stores them via Android Keystore (`secureCredentials` / SecureStore) —
+ * never as a query-string argument that can land in adb logs, shell history, or a
+ * screenshot of the deep link.
+ */
+const PAIRING_CODE_TTL_MS = 120_000;
+const PAIRING_CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // no 0/O/1/I ambiguity
+
+function generatePairingCode(length = 8) {
+  let out = '';
+  for (let i = 0; i < length; i += 1) {
+    out += PAIRING_CODE_ALPHABET[crypto.randomInt(PAIRING_CODE_ALPHABET.length)];
+  }
+  return out;
+}
+
+/** In-memory single-use code → credential-payload store with TTL expiry. */
+function createPairingCodeStore() {
+  return new Map();
+}
+
+function putPairingCode(store, payload, options = {}) {
+  const code = options.code || generatePairingCode();
+  const ttlMs = options.ttlMs ?? PAIRING_CODE_TTL_MS;
+  store.set(code, { payload, expiresAt: Date.now() + ttlMs, consumed: false });
+  return code;
+}
+
+/** Single-use consume: returns payload once, then the code is dead even if re-requested before expiry. */
+function takePairingCode(store, code) {
+  const entry = store.get(String(code || '').trim());
+  if (!entry) {
+    return { ok: false, reason: 'not_found' };
+  }
+  if (entry.consumed) {
+    return { ok: false, reason: 'already_consumed' };
+  }
+  if (Date.now() > entry.expiresAt) {
+    store.delete(code);
+    return { ok: false, reason: 'expired' };
+  }
+  entry.consumed = true;
+  store.delete(code);
+  return { ok: true, payload: entry.payload };
+}
+
+function pruneExpiredPairingCodes(store) {
+  const now = Date.now();
+  for (const [code, entry] of store.entries()) {
+    if (now > entry.expiresAt || entry.consumed) {
+      store.delete(code);
+    }
+  }
+}
+
+/**
+ * Single-writer lock for pair.json (and sibling pair assets).
+ * Prevents concurrent agents from poisoning primary Mac hostname/URL/key seed.
+ *
+ * Uses exclusive `wx` lock file + stale reclaim. Cross-process safe on local disk.
+ */
+const DEFAULT_PAIR_LOCK_PATH = path.join(
+  os.homedir(),
+  'Library',
+  'Application Support',
+  'mac-yolo-safeguards',
+  'hermes-mobile-pair',
+  'pair.json.lock',
+);
+const PAIR_LOCK_STALE_MS = Number(process.env.HERMES_PAIR_JSON_LOCK_STALE_MS || 120_000);
+
+function withPairJsonLock(fn, options = {}) {
+  const lockPath = options.lockPath || DEFAULT_PAIR_LOCK_PATH;
+  const waitMs = Number(options.waitMs ?? 30_000);
+  const staleMs = Number(options.staleMs ?? PAIR_LOCK_STALE_MS);
+  const sleep =
+    typeof options.sleep === 'function'
+      ? options.sleep
+      : (ms) => {
+          // Greptile P2: yield under lock contention (LaunchAgent must not spin a core).
+          try {
+            execFileSync('sleep', [String(Math.max(ms, 1) / 1000)], { stdio: 'ignore' });
+          } catch {
+            Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, Math.max(ms, 1));
+          }
+        };
+  const now = typeof options.now === 'function' ? options.now : () => Date.now();
+  const owner = options.owner || `pid:${process.pid}`;
+
+  fs.mkdirSync(path.dirname(lockPath), { recursive: true });
+  const deadline = now() + waitMs;
+  while (true) {
+    try {
+      const fd = fs.openSync(lockPath, 'wx');
+      fs.writeFileSync(fd, `${JSON.stringify({ owner, at: new Date(now()).toISOString() })}\n`);
+      fs.closeSync(fd);
+      break;
+    } catch (err) {
+      if (!err || err.code !== 'EEXIST') {
+        throw err;
+      }
+      let stale = false;
+      try {
+        const st = fs.statSync(lockPath);
+        stale = now() - st.mtimeMs > staleMs;
+      } catch {
+        stale = true;
+      }
+      if (stale) {
+        try {
+          fs.unlinkSync(lockPath);
+          continue;
+        } catch {
+          // raced
+        }
+      }
+      if (now() >= deadline) {
+        const e = new Error(`pair.json lock busy: ${lockPath}`);
+        e.code = 'PAIR_JSON_LOCK_BUSY';
+        throw e;
+      }
+      sleep(50);
+    }
+  }
+
+  try {
+    return fn();
+  } finally {
+    try {
+      fs.unlinkSync(lockPath);
+    } catch {
+      // best-effort
+    }
+  }
+}
+
+function writePairJsonAtomic(pairJsonPath, pairJson, options = {}) {
+  return withPairJsonLock(() => {
+    const dir = path.dirname(pairJsonPath);
+    fs.mkdirSync(dir, { recursive: true });
+    const tmp = `${pairJsonPath}.${process.pid}.${Date.now()}.tmp`;
+    fs.writeFileSync(tmp, JSON.stringify(pairJson, null, 2));
+    fs.renameSync(tmp, pairJsonPath);
+    return pairJsonPath;
+  }, options);
+}
+
 module.exports = {
   DEFAULT_HERMES_ENV,
   MAC_MINI_TAILSCALE_IP,
+  ANDROID_PACKAGE_NAME,
+  isAppForegroundOutput,
+  waitForForegroundAck,
+  PAIRING_CODE_TTL_MS,
+  generatePairingCode,
+  createPairingCodeStore,
+  putPairingCode,
+  takePairingCode,
+  pruneExpiredPairingCodes,
   readEnvKey,
   readLocalApiKey,
   gatewayUrlHost,
@@ -429,6 +692,11 @@ module.exports = {
   isLoopbackGatewayUrl,
   classifyGatewayHost,
   selectPhysicalAdbSerial,
+  USB_ADB_REVERSE_PORTS,
+  adbReverseList,
+  adbReverseHasPort,
+  setupUsbAdbReverses,
+  assertUsbAdbReverses,
   fetchRemoteMiniApiKey,
   resolveApiKeyForGatewayUrl,
   assertHostKeyConsistency,
@@ -438,4 +706,8 @@ module.exports = {
   verifyGatewayAuthSync,
   redactDeepLinkSecrets,
   buildVerifiedExtraComputer,
+  DEFAULT_PAIR_LOCK_PATH,
+  PAIR_LOCK_STALE_MS,
+  withPairJsonLock,
+  writePairJsonAtomic,
 };

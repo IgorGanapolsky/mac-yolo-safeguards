@@ -1,0 +1,26 @@
+# Tailscale-route onboarding copy (Igor P0 2026-07-14): a fresh user whose only reachable
+# route is Tailscale must not be told "Step 1: Same home Wi-Fi" — that copy is actively wrong
+# when no home network match exists yet. This flow locks in the structural onboarding
+# contract (numbered steps + Tailscale add-computer path) that ships today; the exact step-1
+# wording swap lands with the in-flight Tailscale-first onboarding fix (see
+# freshUserOnboarding.test.ts / ChatConnectionPanel.test.tsx for the unit-level assertion).
+appId: com.iganapolsky.hermesmobile
+---
+- stopApp
+- launchApp
+- extendedWaitUntil:
+    notVisible:
+      id: "hermes-bootstrap"
+    timeout: 90000
+- runFlow: dismiss-print-interruption.yaml
+- extendedWaitUntil:
+    visible:
+      id: "connect-mac-gate"
+    timeout: 60000
+- assertVisible:
+    id: "connect-mac-onboarding-card"
+- assertVisible:
+    id: "fresh-user-step-1"
+- assertVisible:
+    id: "fresh-user-step-4"
+- takeScreenshot: ../docs/proofs/tailscale-onboarding-copy-20260714/connect-mac-gate-steps

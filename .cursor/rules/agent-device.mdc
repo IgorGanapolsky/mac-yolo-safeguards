@@ -1,0 +1,43 @@
+---
+description: Use Callstack agent-device for Hermes Mobile device automation (connection crisis, Tailscale, fresh-user UI)
+alwaysApply: false
+globs:
+  - hermes-mobile/**/*
+---
+
+# agent-device (Callstack)
+
+Use **agent-device** for app/device automation on Hermes Mobile — not as a generic shell.
+
+Before planning device work:
+
+```bash
+export PATH="$HOME/.npm-global/bin:$PATH"
+agent-device --version
+agent-device help workflow
+```
+
+If missing: `bash scripts/install-agent-device.sh` (pins `0.19.3` to match `hermes-mobile/package.json`). Do **not** run `npx -y agent-device@latest`.
+
+## When to use what
+
+| Tool | Use for |
+|------|---------|
+| **agent-device** | Exploratory QA, connection/Tailscale/fresh-user UI proofs, screenshots + a11y snapshots, RN debugging (`help react-native`) |
+| **Maestro** (`npm run e2e:*`, continuous LaunchAgent) | Deterministic CI / ship-guard / chat-send-persistence; `latest.json` is the ship gate |
+| **adb** / `hermes-mobile-pair.js` | Install, pair, `adb reverse`, package clear — not primary UI inspection |
+
+Full matrix: [hermes-mobile/docs/AGENT-DEVICE.md](../../hermes-mobile/docs/AGENT-DEVICE.md).
+
+## Hermes loop
+
+```bash
+agent-device open com.iganapolsky.hermesmobile --platform android --serial "$SERIAL" --session hermes
+agent-device press 'label="Hermes"' --session hermes --settle
+agent-device snapshot --session hermes
+agent-device close --session hermes
+```
+
+Or: `bash hermes-mobile/scripts/agent-device-connection-proof.sh`
+
+Prefer `open -> snapshot -i -> act -> re-snapshot -> verify -> close`. Keep mutating commands on one session serial. Chat composer automation must type only **`make money today`**.

@@ -22,6 +22,12 @@ A fixed-fee, 5-day safety audit for founders who shipped with **Cursor, Claude C
 
 **Turnaround:** 5 business days. **You provide:** repo / project access + a 15-minute kickoff.
 
+## Got a scary security email?
+
+Snowflake "1 CRITICAL security violation found." Supabase advisory. AWS GuardDuty alert. GitHub secret-scanning warning. **They all look like a breach — and most of them aren't.** (Snowflake's own signup flow creates the very policy its Trust Center later flags as "critical.") But "probably a default" is not an answer when it's your customers' data.
+
+The **Triage Scan** answers the only question that matters, in 48 hours, with evidence attached: **were you actually breached — yes or no?** Full-lifetime login history, admin-access audit, exfiltration-channel check. You also get told which "fixes" would break your production (IP allowlists behind a rotating ISP address are an outage, not a fix).
+
 ## Pricing
 
 | Tier | What | Price |

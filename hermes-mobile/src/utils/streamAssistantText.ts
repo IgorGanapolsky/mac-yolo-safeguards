@@ -15,9 +15,9 @@ export const TELEGRAM_QUEUED_REPLY_PLACEHOLDER =
 export const GENERIC_EMPTY_STREAM_PLACEHOLDER =
   'Working on your computer… Hermes may be using tools (browser, search, terminal). The reply will show here when ready.';
 
-/** After poll timeout with no reply text — actionable, not passive. */
+/** After soft timeout with no reply text — auto-poll continues; Refresh is optional fallback. */
 export const EMPTY_STREAM_TIMEOUT_PLACEHOLDER =
-  'Still no reply text. Hermes may be stuck in tools on your Mac — pull to refresh, tap Stop if a run is active, or start a fresh chat.';
+  'Still no reply text. Hermes keeps checking your Mac automatically — Stop if a run is active, or start a fresh chat for faster replies.';
 
 export function isDeferredStreamPlaceholder(content: string | undefined): boolean {
   const body = content?.trim() ?? '';
