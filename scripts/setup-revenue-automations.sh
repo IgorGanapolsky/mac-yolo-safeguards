@@ -56,6 +56,7 @@ install_plist() {
 
 install_plist com.igor.smart-ops.plist
 install_plist com.igor.revenue-autonomous-loop.plist
+install_plist com.igor.ralph-gsd-loop.plist
 
 # Partner pilot nudge → revenue/smart-ops (zero manual)
 cat >"$HOME_DIR/.local/bin/partner-pilot-followup-nudge.sh" <<'EOF'
@@ -108,7 +109,7 @@ echo "=== smart-ops --force (setup proof) ==="
 node tools/smart-ops-controller.js --json --force | tee "$LOGS/setup-revenue-automations-proof.json" | head -c 2500
 echo ""
 echo "=== launchctl ==="
-for label in com.igor.smart-ops com.igor.revenue-autonomous-loop; do
+for label in com.igor.smart-ops com.igor.revenue-autonomous-loop com.igor.ralph-gsd-loop; do
   if launchctl print "gui/${UID_N}/${label}" >/dev/null 2>&1; then
     echo -n "$label: "
     launchctl print "gui/${UID_N}/${label}" 2>/dev/null | rg 'state =|run interval|last exit|working directory' | tr '\n' ' '

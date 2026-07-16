@@ -33,10 +33,11 @@ Fingerprint would auto-split on any native drift but adds CI complexity and can 
 
 ## How the phone receives updates
 
-1. **Launch check** — `updates.checkAutomatically: ON_LOAD` (disabled for E2E automation builds).
-2. On cold start, `expo-updates` checks `https://u.expo.dev/4ed13e30-9b97-4ddd-8a12-59106cae90d6` on the `production` channel (via `requestHeaders.expo-channel-name` in `app.config.js`, or EAS build embedding).
-3. If a newer compatible bundle exists, the app downloads it and applies it on the **next** restart (default Expo behavior).
-4. No manual "Check for updates" UI — fixes land after kill + reopen, or background fetch on subsequent launches.
+1. **Silent launch check** — `updates.checkAutomatically: ON_LOAD` (disabled for E2E automation builds). On cold start, `expo-updates` checks `https://u.expo.dev/4ed13e30-9b97-4ddd-8a12-59106cae90d6` on the `production` channel (via `requestHeaders.expo-channel-name` in `app.config.js`, or EAS build embedding). When a compatible bundle is newer, Expo downloads it in the background (no store reinstall).
+2. **In-app banner** — `OtaUpdateBanner` (mounted from `App.tsx`) surfaces when an update is **available** (not yet downloaded) or **pending** (downloaded, restart required). Dismiss hides the banner for the session; **Download & restart** / **Restart** applies immediately.
+3. **Alert prompt** — the same hook fires a one-time `Alert.alert('Update available', …)` per app session when state first becomes available or pending (in addition to the banner).
+4. **Settings manual check** — **Connection health** hub includes **Check for update** for on-demand fetch when ON_LOAD missed an edge case.
+5. **Runtime version gate** — OTAs only apply when `runtimeVersion` matches the installed binary (`policy: appVersion` in `app.json`). The Play production train for Hermes Mobile is **1.0**; a **1.1** APK will **not** receive production OTAs published for runtime **1.0** (install the 1.0 release APK, then JS fixes arrive via OTA).
 
 ## One-time native rebuild required
 

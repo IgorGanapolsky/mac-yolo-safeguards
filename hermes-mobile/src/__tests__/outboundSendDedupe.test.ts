@@ -38,7 +38,7 @@ describe('outboundSendDedupe', () => {
     ).toBe(true);
   });
 
-  it('ignores duplicate send while outbound bubble is still pending', () => {
+  it('allows resend while outbound bubble is still pending once send lock is free', () => {
     expect(
       shouldIgnoreDuplicateOutboundSend({
         isSending: false,
@@ -46,7 +46,7 @@ describe('outboundSendDedupe', () => {
         normalizedLastCommitted: 'make money faster',
         outboundStillPending: true,
       }),
-    ).toBe(true);
+    ).toBe(false);
   });
 
   it('allows a different prompt while busy', () => {

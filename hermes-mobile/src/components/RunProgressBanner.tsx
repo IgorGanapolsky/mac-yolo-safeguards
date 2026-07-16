@@ -6,6 +6,8 @@ import {
   formatLlmModelShortName,
   humanizeRunProgressDetail,
   runProgressBannerTitle,
+  runProgressCompletedSnippet,
+  runProgressCompletedTitle,
   runProgressFailedTitle,
 } from '../utils/runProgressDisplay';
 import { isConnectivityMessage } from '../utils/chatErrors';
@@ -17,6 +19,7 @@ import {
   resolveRunProgressDetailsExpanded,
   shouldUpdateDebouncedTokenLabel,
 } from '../utils/runProgressLayout';
+import { investigateChatStall } from '../utils/chatStallInvestigation';
 
 type RunProgressBannerProps = {
   progress: RunProgressState;
@@ -41,6 +44,12 @@ type RunProgressBannerProps = {
   /** Honest warning when the backing session is extremely large. */
   megaSessionWarning?: string | null;
   onStartFreshChat?: () => void;
+  /** Open Mac picker (weak model / wrong machine). */
+  onSwitchMac?: () => void;
+  /** Session token total for stall investigation (mega-session ranking). */
+  sessionTokens?: number | null;
+  /** Chat path healthy (not vibes Connected). */
+  macHttpOk?: boolean;
   /** Show spinner while Start fresh is in flight (fork + stop Mac run). */
   isStartingFreshChat?: boolean;
 };
@@ -71,9 +80,14 @@ function RunProgressBanner({
   terminalPreview,
   megaSessionWarning,
   onStartFreshChat,
+  onSwitchMac,
+  sessionTokens = null,
+  macHttpOk = true,
   isStartingFreshChat = false,
 }: RunProgressBannerProps) {
-  const [elapsed, setElapsed] = useState(0);
+  const [elapsed, setElapsed] = useState(() =>
+    Math.max(0, Math.floor((Date.now() - progress.startedAtMs) / 1000)),
+  );
   /** null = follow compact/keyboard default; boolean = user toggled. */
   const [userExpandedOverride, setUserExpandedOverride] = useState<boolean | null>(null);
   const [displayedTokenLabel, setDisplayedTokenLabel] = useState<string | null>(null);
@@ -102,7 +116,19 @@ function RunProgressBanner({
   const isActive = !isCompleted && !isFailed;
   const staleLevel = isActive ? classifyRunStale(progress) : 'normal';
   const staleMessage = runStaleHint(staleLevel);
-  const emphasizeStop = isActive && staleLevel !== 'normal' && Boolean(onStop);
+  const investigation = investigateChatStall({
+    elapsedMs: elapsed * 1000,
+    phase: progress.phase,
+    detail: progress.detail,
+    model: progress.model ?? fallbackModel,
+    sessionTokens,
+    outputTokens: progress.outputTokens,
+    macHttpOk,
+  });
+  const emphasizeStop =
+    isActive &&
+    Boolean(onStop) &&
+    (staleLevel !== 'normal' || investigation.active);
 
   const durationSec = progress.duration != null ? Math.round(progress.duration * 10) / 10 : elapsed;
   const durationLabel = formatElapsedDuration(Math.floor(durationSec));
@@ -136,12 +162,20 @@ function RunProgressBanner({
   const detailLabel = isActive
     ? runProgressBannerTitle(progress)
     : humanizeRunProgressDetail(progress.detail, progress.phase);
+  const completedTitle = isCompleted ? runProgressCompletedTitle(progress) : detailLabel;
+  const completedSnippet = isCompleted ? runProgressCompletedSnippet(progress) : null;
   const failedTitle = isFailed ? runProgressFailedTitle(progress.detail) : detailLabel;
   const failedDetail =
     isFailed && isConnectivityMessage(progress.detail ?? '') ? progress.detail?.trim() : null;
   const terminalLine = terminalPreview?.trim() || '';
   const hasCollapsibleDetails = Boolean(
-    showStatsPanel || terminalLine || failedDetail || staleMessage || megaSessionWarning,
+    showStatsPanel ||
+      terminalLine ||
+      failedDetail ||
+      staleMessage ||
+      megaSessionWarning ||
+      investigation.active ||
+      completedSnippet,
   );
   const detailsExpanded = resolveRunProgressDetailsExpanded({
     keyboardOpen: compact,
@@ -183,17 +217,29 @@ function RunProgressBanner({
           ) : (
             <Text style={styles.statusIcon}>{isCompleted ? '✅' : '⚠️'}</Text>
           )}
-          <Text
-            style={[
-              styles.text,
-              isCompleted && styles.textCompleted,
-              isFailed && styles.textFailed,
-            ]}
-            numberOfLines={showDetailSections && isFailed && failedDetail ? 1 : 2}
-            testID="run-progress-detail"
-          >
-            {isCompleted ? 'Reply ready on your computer' : isFailed ? failedTitle : detailLabel}
-          </Text>
+          <View style={styles.detailColumn}>
+            <Text
+              style={[
+                styles.text,
+                isCompleted && styles.textCompleted,
+                isFailed && styles.textFailed,
+              ]}
+              numberOfLines={showDetailSections && isFailed && failedDetail ? 1 : 2}
+              testID="run-progress-detail"
+            >
+              {isCompleted ? completedTitle : isFailed ? failedTitle : detailLabel}
+            </Text>
+            {completedSnippet ? (
+              <Text
+                style={styles.replySnippet}
+                numberOfLines={1}
+                ellipsizeMode="tail"
+                testID="run-progress-reply-snippet"
+              >
+                {completedSnippet}
+              </Text>
+            ) : null}
+          </View>
           <Text style={styles.timeLabel} testID="run-progress-elapsed">
             {durationLabel}
           </Text>
@@ -279,13 +325,36 @@ function RunProgressBanner({
         </Text>
       ) : null}
 
+      {investigation.active ? (
+        <Text style={styles.investigationHint} testID="run-progress-investigation">
+          {investigation.title}
+        </Text>
+      ) : null}
+
       {showDetailSections && megaSessionWarning ? (
         <Text style={styles.megaSessionHint} testID="run-progress-mega-session-hint">
           {megaSessionWarning}
         </Text>
       ) : null}
 
-      {(megaSessionWarning || isStartingFreshChat) && onStartFreshChat ? (
+      {investigation.active &&
+      investigation.action === 'switch_mac' &&
+      onSwitchMac &&
+      !isStartingFreshChat ? (
+        <Pressable
+          onPress={onSwitchMac}
+          style={({ pressed }) => [styles.freshChatChip, pressed && styles.stopChipPressed]}
+          testID="run-progress-switch-mac"
+          accessibilityLabel={investigation.actionLabel}
+        >
+          <Text style={styles.freshChatChipText}>{investigation.actionLabel}</Text>
+        </Pressable>
+      ) : null}
+
+      {(megaSessionWarning ||
+        isStartingFreshChat ||
+        (investigation.active && investigation.action === 'start_fresh')) &&
+      onStartFreshChat ? (
         <Pressable
           onPress={onStartFreshChat}
           disabled={isStartingFreshChat}
@@ -295,7 +364,7 @@ function RunProgressBanner({
             pressed && !isStartingFreshChat && styles.stopChipPressed,
           ]}
           testID="run-progress-start-fresh-chat"
-          accessibilityLabel={isStartingFreshChat ? 'Starting fresh chat' : 'Start fresh chat'}
+          accessibilityLabel={isStartingFreshChat ? 'Starting fresh chat' : investigation.actionLabel || 'Start fresh chat'}
         >
           {isStartingFreshChat ? (
             <View style={styles.freshChatChipRow} testID="run-progress-start-fresh-spinner">
@@ -361,6 +430,7 @@ export default memo(RunProgressBanner, (prev, next) => {
     (a.inputTokens ?? -1) === (b.inputTokens ?? -1) &&
     (a.outputTokens ?? -1) === (b.outputTokens ?? -1) &&
     (a.duration ?? -1) === (b.duration ?? -1) &&
+    (a.replyPreview ?? '') === (b.replyPreview ?? '') &&
     (prev.terminalPreview ?? '') === (next.terminalPreview ?? '') &&
     (prev.terminalToolName ?? '') === (next.terminalToolName ?? '') &&
     (prev.megaSessionWarning ?? '') === (next.megaSessionWarning ?? '') &&
@@ -421,8 +491,13 @@ const styles = StyleSheet.create({
   statusIcon: {
     fontSize: 12,
   },
-  text: {
+  detailColumn: {
     flex: 1,
+    flexShrink: 1,
+    minWidth: 0,
+    gap: 2,
+  },
+  text: {
     flexShrink: 1,
     fontSize: 12,
     fontWeight: '700',
@@ -434,6 +509,12 @@ const styles = StyleSheet.create({
   textFailed: {
     color: colors.error,
   },
+  replySnippet: {
+    fontSize: 11,
+    lineHeight: 14,
+    fontWeight: '600',
+    color: colors.textSecondary,
+  },
   failedDetail: {
     fontSize: 11,
     lineHeight: 16,
@@ -441,6 +522,12 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
   },
   staleHint: {
+    fontSize: 11,
+    lineHeight: 16,
+    fontWeight: '700',
+    color: colors.warning,
+  },
+  investigationHint: {
     fontSize: 11,
     lineHeight: 16,
     fontWeight: '700',
