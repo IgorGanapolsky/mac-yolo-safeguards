@@ -38,8 +38,8 @@ describe('confirmForgetGatewayProfile', () => {
       text: string;
       onPress?: () => void;
     }>;
-    expect(buttons.map((b) => b.text)).toEqual(['Cancel', 'Forget']);
-    buttons.find((b) => b.text === 'Forget')?.onPress?.();
+    expect(buttons.map((b) => b.text)).toEqual(['Cancel', 'Forget this Mac']);
+    buttons.find((b) => b.text === 'Forget this Mac')?.onPress?.();
     expect(onConfirm).toHaveBeenCalledWith('mac_mini');
   });
 });
