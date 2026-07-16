@@ -28,7 +28,7 @@ export interface RunProgressState {
   /** Last detail/phase change — token-only ticks must not reset idle stall detection. */
   lastProgressAtMs?: number;
   /**
-   * Short assistant text for lock-screen notifications.
+   * Short assistant text for reply-ready banner + lock-screen notifications.
    * Prefer this over elapsed-time status labels when present.
    */
   replyPreview?: string;
