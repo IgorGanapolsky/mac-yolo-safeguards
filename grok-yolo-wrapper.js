@@ -238,8 +238,25 @@ function ensureLocalConfig(model, env = process.env) {
   return { grokHome, configPath };
 }
 
+function findOllamaBinary(env = process.env) {
+  if (env.OLLAMA_BIN) return env.OLLAMA_BIN;
+  const candidates = [
+    path.join(homeDir(env), '.local', 'bin', 'ollama'),
+    '/opt/homebrew/bin/ollama',
+    '/usr/local/bin/ollama',
+    '/Applications/Ollama.app/Contents/Resources/ollama',
+  ].filter(Boolean);
+  for (const candidate of candidates) {
+    try {
+      if (fs.statSync(candidate).isFile()) return candidate;
+    } catch {}
+  }
+  return null;
+}
+
 function installedOllamaModels(env = process.env, probe = runProbe) {
-  const binary = env.OLLAMA_BIN || '/opt/homebrew/bin/ollama';
+  const binary = findOllamaBinary(env);
+  if (!binary) return [];
   const result = probe(binary, ['list'], env);
   if (result.status !== 0) return [];
   return String(result.stdout || '')
@@ -277,6 +294,7 @@ function localDoctor(options = {}) {
   const version = parseVersion(`${versionProbe.stdout}\n${versionProbe.stderr}`);
   const versionReady = versionAtLeast(version);
   const installedModels = options.installedModels || installedOllamaModels(env, probe);
+  const ollamaBinary = findOllamaBinary(env);
   const modelAvailable = installedModels.includes(underlyingModel);
   const ready = Boolean(binary) && versionReady && modelAvailable;
   let blocker = null;
@@ -295,6 +313,7 @@ function localDoctor(options = {}) {
     underlyingModel,
     modelAvailable,
     availableModels: installedModels,
+    ollamaBinary,
     endpoint: LOCAL_BASE_URL,
     endpointScope: 'loopback',
     authenticated: true,
@@ -592,6 +611,7 @@ module.exports = {
   ensureLocalConfig,
   externalOtelStatus,
   findGrokBinary,
+  findOllamaBinary,
   grokDoctor,
   installedOllamaModels,
   localConfig,

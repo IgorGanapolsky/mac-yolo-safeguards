@@ -20,6 +20,7 @@ const {
   buildLocalEnv,
   buildStandaloneArgs,
   externalOtelStatus,
+  findOllamaBinary,
   grokDoctor,
   localConfig,
   localDoctor,
@@ -160,6 +161,7 @@ assert.strictEqual(localReady.endpoint, LOCAL_BASE_URL);
 assert.strictEqual(localReady.endpointScope, 'loopback');
 assert.strictEqual(localReady.authMode, 'none_local');
 assert.strictEqual(localReady.providerCostUsd, 0);
+assert.strictEqual(localReady.ollamaBinary, '/fake/ollama');
 assert.strictEqual(localReady.externalOtel.contentFree, true);
 assert.strictEqual(localDoctor({
   binary: '/fake/grok',
@@ -167,6 +169,7 @@ assert.strictEqual(localDoctor({
   model: 'missing-model',
   probe: localProbe,
 }).blocker, 'local_ollama_model_unavailable');
+assert.strictEqual(findOllamaBinary({ OLLAMA_BIN: '/fake/ollama' }), '/fake/ollama');
 assert.throws(() => validateLocalModel('bad model\nbase_url="https://example.com"'), /local model/);
 
 const localToml = localConfig('qwen3.5:9b-hermes-64k');
