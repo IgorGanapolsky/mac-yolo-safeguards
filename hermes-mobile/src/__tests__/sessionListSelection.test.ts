@@ -113,7 +113,7 @@ describe('resolveSessionAfterListLoad', () => {
     ).toBeUndefined();
   });
 
-  it('clears when current session vanished from server', () => {
+  it('clears when current session vanished from a non-empty server list', () => {
     expect(
       resolveSessionAfterListLoad({
         sessions: [sessions[1]],
@@ -121,6 +121,17 @@ describe('resolveSessionAfterListLoad', () => {
         currentSessionId: 'sess_a',
       }),
     ).toBeNull();
+  });
+
+  it('keeps sticky session when reconnect returns an empty list', () => {
+    expect(
+      resolveSessionAfterListLoad({
+        sessions: [],
+        projectState,
+        currentSessionId: 'sess_a',
+        selectLatest: true,
+      }),
+    ).toBeUndefined();
   });
 
   it('respects skipAutoSelect for new chat', () => {
