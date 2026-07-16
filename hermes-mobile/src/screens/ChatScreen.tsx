@@ -94,10 +94,27 @@ import {
   setActiveSession,
 } from '../services/chatProjects';
 import { fetchVaultProjectCatalog } from '../services/vaultProjects';
+import {
+  loadContinuityChipDismissed,
+  loadPendingContinuityHandoff,
+  savePendingContinuityHandoff,
+  setContinuityChipDismissed,
+} from '../services/sessionContinuityStorage';
+import {
+  fetchSessionContinuityHandoff,
+  postSessionContinuityHandoff,
+} from '../services/sessionContinuitySync';
 import { filterChatProjects } from '../utils/filterChatProjects';
 import type { VaultProjectCatalog } from '../types/vaultProject';
 import { storage } from '../services/storage';
 import { buildMobileChatSystemPrompt } from '../utils/workspacePrompt';
+import ContinuingFromSessionChip from '../components/ContinuingFromSessionChip';
+import {
+  buildSessionContinuityHandoff,
+  continuityTitleFromHandoff,
+  shouldSkipAutoRetitleForContinuity,
+  type SessionContinuityHandoff,
+} from '../utils/sessionContinuityHandoff';
 import {
   formatSessionCreated,
   formatSessionTitle,
@@ -581,6 +598,11 @@ export default function ChatScreen() {
   /** True while Start fresh chat is forking/stopping — show spinner so tap isn't silent. */
   const [isStartingFreshChat, setIsStartingFreshChat] = useState(false);
   const isStartingFreshChatRef = useRef(false);
+  /** Pending vault/local handoff so a fresh chat can pick up where the last session left off. */
+  const [continuityHandoff, setContinuityHandoff] = useState<SessionContinuityHandoff | null>(null);
+  const [continuityChipDismissed, setContinuityChipDismissedState] = useState(false);
+  const continuityHandoffRef = useRef<SessionContinuityHandoff | null>(null);
+  continuityHandoffRef.current = continuityHandoff;
   /** HTTP chat stream in flight — keep WS from clearing runProgress before first token. */
   const [isChatStreamActive, setIsChatStreamActive] = useState(false);
   const [sessionModalVisible, setSessionModalVisible] = useState(false);
@@ -1881,14 +1903,71 @@ export default function ChatScreen() {
       buildMobileChatSystemPrompt(contextProject?.workspacePath, settings.hermesPersona, {
         vaultSlug: contextProject?.vaultSlug,
         handoffSummary: contextProject?.handoffSummary,
+        continuityHandoff,
       }),
     [
       contextProject?.workspacePath,
       contextProject?.vaultSlug,
       contextProject?.handoffSummary,
+      continuityHandoff,
       settings.hermesPersona,
     ],
   );
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      const [local, dismissed] = await Promise.all([
+        loadPendingContinuityHandoff(),
+        loadContinuityChipDismissed(),
+      ]);
+      if (cancelled) return;
+      if (local) {
+        setContinuityHandoff(local);
+        setContinuityChipDismissedState(dismissed);
+      }
+      if (isDemo || !gatewayUrl) return;
+      const remote = await fetchSessionContinuityHandoff(gatewayUrl);
+      if (cancelled || !remote) return;
+      setContinuityHandoff(remote);
+      void savePendingContinuityHandoff(remote);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [gatewayUrl, isDemo]);
+
+  const persistContinuityFromCurrentThread = useCallback(async () => {
+    const msgs = messagesRef.current;
+    const session = currentSessionRef.current;
+    const handoff = buildSessionContinuityHandoff({
+      messages: msgs,
+      sessionId: session?.id,
+      sessionTitle: session?.title,
+      workspacePath: contextProject?.workspacePath,
+      vaultSlug: contextProject?.vaultSlug,
+      macName: machineHeaderDisplay.machineLabel,
+    });
+    if (!handoff) return null;
+    setContinuityHandoff(handoff);
+    setContinuityChipDismissedState(false);
+    await savePendingContinuityHandoff(handoff);
+    if (!isDemo && gatewayUrl) {
+      void postSessionContinuityHandoff(gatewayUrl, handoff).catch(() => {});
+    }
+    return handoff;
+  }, [
+    contextProject?.vaultSlug,
+    contextProject?.workspacePath,
+    gatewayUrl,
+    isDemo,
+    machineHeaderDisplay.machineLabel,
+  ]);
+
+  const dismissContinuityChip = useCallback(() => {
+    setContinuityChipDismissedState(true);
+    void setContinuityChipDismissed(true);
+  }, []);
 
   const visibleSessions = useMemo(() => {
     let list: HermesSession[];
@@ -3535,6 +3614,8 @@ export default function ChatScreen() {
     const preservedText = captureComposerTextForFreshChat(inputValueRef.current);
     const attachmentsToRestore = [...composerAttachmentsRef.current];
     try {
+      // Capture continuity before wiping transcript so the next chat can continue.
+      await persistContinuityFromCurrentThread();
       // Kill zombie "Delivering…" / mega-token banner: clear local run state AND best-effort stop Mac run.
       // (Previously only null'd runProgress while isChatStreamActive + sendProgressSnapshotRef kept the UI alive.)
       const stopIds = [
@@ -3591,6 +3672,7 @@ export default function ChatScreen() {
     gatewayUrl,
     handleNewChat,
     isDemo,
+    persistContinuityFromCurrentThread,
     setRunProgress,
   ]);
 
@@ -4935,7 +5017,13 @@ export default function ChatScreen() {
     let sessionBindingPersisted = false;
 
     if (activeSess && !isProgrammatic) {
-      const derived = titleFromFirstPrompt(userText);
+      const skipPickUpTitle = shouldSkipAutoRetitleForContinuity(
+        userText,
+        Boolean(continuityHandoffRef.current),
+      );
+      const derived = skipPickUpTitle
+        ? continuityTitleFromHandoff(continuityHandoffRef.current)
+        : titleFromFirstPrompt(userText);
       if (
         derived &&
         (isDemo || shouldAutoTitleSession(activeSess, projectState.sessionLabels))
@@ -6749,6 +6837,11 @@ export default function ChatScreen() {
             </Pressable>
           </View>
         ) : null}
+
+        <ContinuingFromSessionChip
+          visible={Boolean(continuityHandoff) && !continuityChipDismissed}
+          onDismiss={dismissContinuityChip}
+        />
 
         {showEmptyStreamRefreshBanner && !showComposerProgressBanner ? (
           <EmptyStreamRefreshBanner
