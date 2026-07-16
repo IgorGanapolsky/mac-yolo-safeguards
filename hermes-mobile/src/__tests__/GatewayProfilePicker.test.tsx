@@ -125,7 +125,7 @@ describe('GatewayProfilePicker', () => {
     );
   });
 
-  it('labels destructive action Forget (not Remove) for saved non-USB computers', () => {
+  it('labels destructive action Forget this Mac (not Remove) for saved non-USB computers', () => {
     const onRemove = jest.fn();
     const { getByTestId, queryByText } = render(
       <GatewayProfilePicker
@@ -135,7 +135,7 @@ describe('GatewayProfilePicker', () => {
         onRemove={onRemove}
       />,
     );
-    expect(getByTestId('remove-gateway-profile-mac_192_168_12_50')).toHaveTextContent(/^Forget$/);
+    expect(getByTestId('remove-gateway-profile-mac_192_168_12_50')).toHaveTextContent(/^Forget this Mac$/);
     expect(queryByText('Remove')).toBeNull();
     fireEvent.press(getByTestId('remove-gateway-profile-mac_192_168_12_50'));
     expect(onRemove).toHaveBeenCalledWith('mac_192_168_12_50');

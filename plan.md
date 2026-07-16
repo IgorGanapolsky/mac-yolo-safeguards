@@ -233,6 +233,8 @@ Status values: `pending` | `in_progress` | `blocked` | `done`. Claim a row by se
 
 ## 2. File Ownership Map (append-only lock table — claim before touching)
 
+- `hermes-mobile/src/components/GatewayProfilePicker.tsx`, `hermes-mobile/src/utils/confirmForgetGatewayProfile.ts` (label only), `plan.md` → **cursor-forget-mac-recovery** (Forget→Forget this Mac) (2026-07-16T05:10:42Z)
+
 - `hermes-mobile/src/utils/gatewayProfilePicker.ts`, `hermes-mobile/src/utils/fleetComputerNames.ts`, `hermes-mobile/src/__tests__/gatewayProfilePicker.test.ts`, `hermes-mobile/src/__tests__/fleetComputerNames.test.ts`, `hermes-mobile/src/__tests__/preventRecurrenceContract.test.ts`, `plan.md` → **cursor-macpro-ts-picker** (T-MACPRO-TS-PICKER: USB must not hide Mac Pro Tailscale picker row) (2026-07-15T20:00:00Z)
 - T-MACPRO-TS-PICKER claimed files → **released by cursor-macpro-ts-picker** after focused Jest 57/57; USB no longer hides Tailscale Mac Pro row; fleet label Igors-MacBook-Pro (Mac Pro) (2026-07-15T20:10:00Z)
 
