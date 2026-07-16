@@ -269,6 +269,7 @@ import {
 } from '../utils/chatSessionRecovery';
 import {
   DEAD_RUN_ENDED_DETAIL,
+  isComposerSendDisabled,
   isDeadRunEndedMessage,
   shouldSurfaceDeadRunEnded,
   transcriptUnchangedMs,
@@ -4131,9 +4132,6 @@ export default function ChatScreen() {
     haptics.selection();
   }, []);
 
-  const outboundSendStillPending =
-    pinnedOutboundStatus === 'pending' && Boolean(pinnedOutboundText?.trim());
-
   const shouldBlockDuplicateOutboundSend = useCallback(
     (rawText: string, attachments: ComposerAttachment[] = composerAttachmentsRef.current) => {
       const display = formatAttachmentBubbleText(rawText.trim(), attachments);
@@ -6930,11 +6928,12 @@ export default function ChatScreen() {
             megaSessionSendHardBlocked ||
             !composerHasSendableContent(inputValue, composerAttachments)
           }
-          sendDisabled={
-            isSending ||
-            queuedOutboundCount > 0 ||
-            outboundSendStillPending
-          }
+          sendDisabled={isComposerSendDisabled({
+            isSending,
+            composerText: inputValue,
+            pinnedOutboundText,
+            pinnedOutboundStatus,
+          })}
           onSend={handleSend}
           showStop={isRunActive}
           onStop={() => void handleStopRun()}
