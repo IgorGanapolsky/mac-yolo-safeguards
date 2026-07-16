@@ -1,3 +1,5 @@
+import { normalizeMessageText } from './chatMessageMerge';
+
 /** No transcript change for this long while client still looks busy → dead-run hint. */
 export const DEAD_RUN_TRANSCRIPT_STALE_MS = 3 * 60 * 1000;
 
@@ -17,15 +19,34 @@ export function transcriptUnchangedMs(
   return Math.max(0, nowMs - lastChangeAtMs);
 }
 
-/** Mirrors ChatInputBar sendDisabled — must all be false after dead-run unlock. */
+/**
+ * Mirrors ChatInputBar sendDisabled.
+ * Gray only when THIS composer body duplicates the in-flight send (double-tap guard).
+ * A different prompt while busy stays tappable (queue path); pending outbound alone
+ * must not mute Send — that was the P0 gray-arrow block after #384/#400.
+ */
 export function isComposerSendDisabled(input: {
   isSending: boolean;
-  queuedOutboundCount: number;
-  outboundStillPending: boolean;
+  composerText: string;
+  pinnedOutboundText?: string | null;
+  pinnedOutboundStatus?: 'pending' | 'sent' | 'failed';
 }): boolean {
-  return (
-    input.isSending || input.queuedOutboundCount > 0 || input.outboundStillPending
-  );
+  if (!input.isSending) {
+    return false;
+  }
+  const composerNorm = normalizeMessageText(input.composerText);
+  if (!composerNorm) {
+    return false;
+  }
+  const pinnedNorm = normalizeMessageText(input.pinnedOutboundText ?? '');
+  if (
+    input.pinnedOutboundStatus === 'pending' &&
+    pinnedNorm &&
+    composerNorm !== pinnedNorm
+  ) {
+    return false;
+  }
+  return true;
 }
 
 /**
