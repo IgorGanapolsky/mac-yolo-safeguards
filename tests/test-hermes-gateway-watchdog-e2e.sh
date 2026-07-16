@@ -6,8 +6,8 @@
 # matching, real `curl` health/pin/warmup, and a real crash + auto-recovery. It proves
 # the full lifecycle the user depends on for 24/7 reliability:
 #
-#   Phase A  cold boot     : no gateway -> watchdog launches it -> healthy -> pin + pre-warm
-#   Phase B  steady state  : same pid   -> no double-start, no re-pin, no re-warm (idempotent)
+#   Phase A  cold boot     : no gateway -> watchdog launches it -> healthy -> on-demand + pre-warm
+#   Phase B  steady state  : same pid   -> no double-start, no forced pin, no re-warm (idempotent)
 #   Phase C  crash recovery: gateway killed -> watchdog relaunches -> healthy -> re-warm new pid
 #
 # Requires only python3 (present on CI runners); no live Ollama/gateway needed.
@@ -73,7 +73,11 @@ run_wd() {
     HERMES_WATCHDOG_LOG="$TMP/wd.log" \
     HERMES_WATCHDOG_STATE="$TMP/state" \
     HERMES_GATEWAY_MATCH="$TOKEN" \
+    HERMES_PIN_MODEL="0" \
     HERMES_WARMUP_COUNT="2" \
+    HERMES_MEMORY_PRESSURE_LEVEL="1" \
+    HERMES_NOW_EPOCH="1000" \
+    YOLO_MEMORY_RECOVERY_FILE="$TMP/recovery-until" \
     bash "$WD"
 }
 
@@ -114,9 +118,9 @@ if wait_health; then ok "A: watchdog cold-booted the gateway (health 200)"; \
 [ -n "$(gw_pids)" ] && ok "A: a real gateway process is running (pgrep by token)" \
   || bad "A: no gateway process found by pgrep"
 
-run_wd; sleep 0.4                         # next tick: now healthy -> pin + pre-warm
-[ "$(count PIN)" -ge 1 ] && ok "A: model pinned via /api/generate (keep_alive)" \
-  || bad "A: model was never pinned"
+run_wd; sleep 0.4                         # next tick: now healthy -> on-demand + pre-warm
+[ "$(count PIN)" -eq 0 ] && ok "A: default on-demand mode did not force model residency" \
+  || bad "A: default mode unexpectedly pinned a model"
 [ "$(count WARMUP)" -eq 2 ] && ok "A: pre-warmed exactly WARMUP_COUNT (2) turns" \
   || bad "A: expected 2 warmup turns, got $(count WARMUP)"
 boot_pid="$(cat "$TMP/state" 2>/dev/null || echo "")"
@@ -127,8 +131,8 @@ boot_pid="$(cat "$TMP/state" 2>/dev/null || echo "")"
 pin_before="$(count PIN)"; warm_before="$(count WARMUP)"
 run_wd; sleep 0.4
 run_wd; sleep 0.4
-[ "$(count PIN)" -eq "$pin_before" ] && ok "B: resident model not re-pinned" \
-  || bad "B: redundantly re-pinned a resident model"
+[ "$(count PIN)" -eq "$pin_before" ] && ok "B: steady ticks did not force model residency" \
+  || bad "B: steady tick unexpectedly pinned a model"
 [ "$(count WARMUP)" -eq "$warm_before" ] && ok "B: warm gateway not re-warmed (idempotent)" \
   || bad "B: re-warmed an already-warm gateway"
 [ "$(cat "$TMP/state" 2>/dev/null)" = "$boot_pid" ] && ok "B: pid unchanged across steady ticks" \
