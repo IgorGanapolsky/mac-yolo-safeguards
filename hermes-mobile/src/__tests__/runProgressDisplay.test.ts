@@ -13,6 +13,7 @@ import {
   runProgressCompletedTitle,
   runProgressElapsedSeconds,
   runProgressFailedTitle,
+  shouldShowCompletedRunBanner,
   shouldShowComposerProgressBanner,
   staleRunProgressDetail,
 } from '../utils/runProgressDisplay';
@@ -231,5 +232,15 @@ describe('runProgressDisplay', () => {
       }),
     ).toBe(3939);
     expect(staleRunProgressDetail()).toContain('may be stuck');
+  });
+});
+
+
+describe('shouldShowCompletedRunBanner', () => {
+  it('hides the banner when the reply is already on screen', () => {
+    expect(shouldShowCompletedRunBanner(true)).toBe(false);
+  });
+  it('keeps the banner when there is no visible assistant reply yet', () => {
+    expect(shouldShowCompletedRunBanner(false)).toBe(true);
   });
 });

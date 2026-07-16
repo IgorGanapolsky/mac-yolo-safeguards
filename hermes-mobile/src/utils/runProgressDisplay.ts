@@ -16,7 +16,7 @@ export const STALE_RUN_SECONDS = 15 * 60;
  */
 export const REPLY_READY_BANNER_TITLE = 'Reply ready';
 /** Fallback when no reply snippet is available yet. */
-export const REPLY_READY_ACTION_TITLE = 'Hermes finished — tap to read';
+export const REPLY_READY_ACTION_TITLE = 'Done';
 /** Status `detail` for completed runs (not shown as the banner headline when a snippet exists). */
 export const REPLY_READY_STATUS_DETAIL = REPLY_READY_BANNER_TITLE;
 
@@ -51,6 +51,16 @@ export function runProgressCompletedTitle(progress: RunProgressState): string {
     return detail;
   }
   return REPLY_READY_ACTION_TITLE;
+}
+
+
+/**
+ * When the assistant reply is already in the chat transcript, a completed
+ * progress banner is pure noise ("Reply ready on your computer" while the
+ * bubble is on screen). Only keep the banner for empty/deferred replies.
+ */
+export function shouldShowCompletedRunBanner(hasVisibleAssistantReply: boolean): boolean {
+  return !hasVisibleAssistantReply;
 }
 
 /** Plain reply glance line for the dismiss banner (coord with notification snippet helper). */

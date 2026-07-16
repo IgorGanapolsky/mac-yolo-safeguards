@@ -411,7 +411,7 @@ describe('RunProgressBanner', () => {
         onDismiss={() => {}}
       />,
     );
-    expect(getByTestId('run-progress-detail').props.children).toBe('Hermes finished — tap to read');
+    expect(getByTestId('run-progress-detail').props.children).toBe('Done');
     expect(queryByText(/on your computer/i)).toBeNull();
     expect(queryByTestId('run-progress-reply-snippet')).toBeNull();
   });

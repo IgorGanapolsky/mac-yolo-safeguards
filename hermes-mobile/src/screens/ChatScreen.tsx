@@ -163,6 +163,7 @@ import {
   humanizeComposerStatus,
   isActiveChatRun,
   REPLY_READY_STATUS_DETAIL,
+  shouldShowCompletedRunBanner,
   shouldShowComposerProgressBanner,
 } from '../utils/runProgressDisplay';
 import {
@@ -5646,6 +5647,7 @@ export default function ChatScreen() {
       if (!deferredTelegramPollRef.current) {
         const completedStartedAt = sendStartedAtRef.current;
         if (sendSucceeded) {
+<<<<<<< HEAD
           const replyPreview = (activeAssistantTextRef.current || '')
             .replace(/\s+/g, ' ')
             .trim()
@@ -5676,6 +5678,43 @@ export default function ChatScreen() {
               prev?.phase === 'completed' && prev.startedAtMs === completedStartedAt ? null : prev,
             );
           }, RUN_COMPLETED_BANNER_DISMISS_MS);
+||||||| parent of 0ede51ea (fix(mobile): kill "Reply ready on your computer" when reply is on screen)
+          setRunProgress((prev) => ({
+            ...(prev ?? {
+              startedAtMs: completedStartedAt,
+              sessionId: targetSessionId,
+            }),
+            phase: 'completed',
+            detail: REPLY_READY_STATUS_DETAIL,
+            duration: Math.max(0, (Date.now() - completedStartedAt) / 1000),
+          }));
+          setTimeout(() => {
+            setRunProgress((prev) =>
+              prev?.phase === 'completed' && prev.startedAtMs === completedStartedAt ? null : prev,
+            );
+          }, RUN_COMPLETED_BANNER_DISMISS_MS);
+=======
+          const hasVisibleReply = Boolean(activeAssistantTextRef.current?.trim());
+          if (!shouldShowCompletedRunBanner(hasVisibleReply)) {
+            // Reply bubble is already in the thread — do not flash "Reply ready on your computer".
+            setRunProgress(null);
+          } else {
+            setRunProgress((prev) => ({
+              ...(prev ?? {
+                startedAtMs: completedStartedAt,
+                sessionId: targetSessionId,
+              }),
+              phase: 'completed',
+              detail: REPLY_READY_STATUS_DETAIL,
+              duration: Math.max(0, (Date.now() - completedStartedAt) / 1000),
+            }));
+            setTimeout(() => {
+              setRunProgress((prev) =>
+                prev?.phase === 'completed' && prev.startedAtMs === completedStartedAt ? null : prev,
+              );
+            }, RUN_COMPLETED_BANNER_DISMISS_MS);
+          }
+>>>>>>> 0ede51ea (fix(mobile): kill "Reply ready on your computer" when reply is on screen)
         } else if (sendFailureDetail) {
           const failureDetail = sendFailureDetail;
           setRunProgress((prev) => ({
@@ -6345,11 +6384,16 @@ export default function ChatScreen() {
         isSendingRef.current = false;
         setIsSending(false);
         const reconciledStartedAt = runProgressRef.current?.startedAtMs;
+        const hasVisibleReply = Boolean(activeAssistantTextRef.current?.trim());
         setRunProgress((prev) => {
           if (!prev || !isActiveChatRun(prev)) {
             return prev;
           }
           if (gatewayStatus === 'completed') {
+            // Reply already in the transcript → no "Reply ready on your computer" chrome.
+            if (!shouldShowCompletedRunBanner(hasVisibleReply)) {
+              return null;
+            }
             return {
               ...prev,
               phase: 'completed',
@@ -6359,10 +6403,8 @@ export default function ChatScreen() {
           }
           return null;
         });
-        if (gatewayStatus === 'completed') {
-          // Mirror the send-success path: auto-dismiss the completed banner. Without
-          // this the reconcile path leaves "Reply ready" pinned until Dismiss and
-          // keeps re-posting the run notification.
+        if (gatewayStatus === 'completed' && shouldShowCompletedRunBanner(hasVisibleReply)) {
+          // Only auto-dismiss when we actually showed a completed banner (empty/deferred reply).
           setTimeout(() => {
             setRunProgress((prev) =>
               prev?.phase === 'completed' && prev.startedAtMs === reconciledStartedAt
