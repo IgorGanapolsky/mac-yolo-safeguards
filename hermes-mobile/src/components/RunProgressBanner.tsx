@@ -17,6 +17,7 @@ import {
   resolveRunProgressDetailsExpanded,
   shouldUpdateDebouncedTokenLabel,
 } from '../utils/runProgressLayout';
+import { investigateChatStall } from '../utils/chatStallInvestigation';
 
 type RunProgressBannerProps = {
   progress: RunProgressState;
@@ -41,6 +42,12 @@ type RunProgressBannerProps = {
   /** Honest warning when the backing session is extremely large. */
   megaSessionWarning?: string | null;
   onStartFreshChat?: () => void;
+  /** Open Mac picker (weak model / wrong machine). */
+  onSwitchMac?: () => void;
+  /** Session token total for stall investigation (mega-session ranking). */
+  sessionTokens?: number | null;
+  /** Chat path healthy (not vibes Connected). */
+  macHttpOk?: boolean;
   /** Show spinner while Start fresh is in flight (fork + stop Mac run). */
   isStartingFreshChat?: boolean;
 };
@@ -71,9 +78,14 @@ function RunProgressBanner({
   terminalPreview,
   megaSessionWarning,
   onStartFreshChat,
+  onSwitchMac,
+  sessionTokens = null,
+  macHttpOk = true,
   isStartingFreshChat = false,
 }: RunProgressBannerProps) {
-  const [elapsed, setElapsed] = useState(0);
+  const [elapsed, setElapsed] = useState(() =>
+    Math.max(0, Math.floor((Date.now() - progress.startedAtMs) / 1000)),
+  );
   /** null = follow compact/keyboard default; boolean = user toggled. */
   const [userExpandedOverride, setUserExpandedOverride] = useState<boolean | null>(null);
   const [displayedTokenLabel, setDisplayedTokenLabel] = useState<string | null>(null);
@@ -102,7 +114,19 @@ function RunProgressBanner({
   const isActive = !isCompleted && !isFailed;
   const staleLevel = isActive ? classifyRunStale(progress) : 'normal';
   const staleMessage = runStaleHint(staleLevel);
-  const emphasizeStop = isActive && staleLevel !== 'normal' && Boolean(onStop);
+  const investigation = investigateChatStall({
+    elapsedMs: elapsed * 1000,
+    phase: progress.phase,
+    detail: progress.detail,
+    model: progress.model ?? fallbackModel,
+    sessionTokens,
+    outputTokens: progress.outputTokens,
+    macHttpOk,
+  });
+  const emphasizeStop =
+    isActive &&
+    Boolean(onStop) &&
+    (staleLevel !== 'normal' || investigation.active);
 
   const durationSec = progress.duration != null ? Math.round(progress.duration * 10) / 10 : elapsed;
   const durationLabel = formatElapsedDuration(Math.floor(durationSec));
@@ -141,7 +165,12 @@ function RunProgressBanner({
     isFailed && isConnectivityMessage(progress.detail ?? '') ? progress.detail?.trim() : null;
   const terminalLine = terminalPreview?.trim() || '';
   const hasCollapsibleDetails = Boolean(
-    showStatsPanel || terminalLine || failedDetail || staleMessage || megaSessionWarning,
+    showStatsPanel ||
+      terminalLine ||
+      failedDetail ||
+      staleMessage ||
+      megaSessionWarning ||
+      investigation.active,
   );
   const detailsExpanded = resolveRunProgressDetailsExpanded({
     keyboardOpen: compact,
@@ -279,13 +308,36 @@ function RunProgressBanner({
         </Text>
       ) : null}
 
+      {investigation.active ? (
+        <Text style={styles.investigationHint} testID="run-progress-investigation">
+          {investigation.title}
+        </Text>
+      ) : null}
+
       {showDetailSections && megaSessionWarning ? (
         <Text style={styles.megaSessionHint} testID="run-progress-mega-session-hint">
           {megaSessionWarning}
         </Text>
       ) : null}
 
-      {(megaSessionWarning || isStartingFreshChat) && onStartFreshChat ? (
+      {investigation.active &&
+      investigation.action === 'switch_mac' &&
+      onSwitchMac &&
+      !isStartingFreshChat ? (
+        <Pressable
+          onPress={onSwitchMac}
+          style={({ pressed }) => [styles.freshChatChip, pressed && styles.stopChipPressed]}
+          testID="run-progress-switch-mac"
+          accessibilityLabel={investigation.actionLabel}
+        >
+          <Text style={styles.freshChatChipText}>{investigation.actionLabel}</Text>
+        </Pressable>
+      ) : null}
+
+      {(megaSessionWarning ||
+        isStartingFreshChat ||
+        (investigation.active && investigation.action === 'start_fresh')) &&
+      onStartFreshChat ? (
         <Pressable
           onPress={onStartFreshChat}
           disabled={isStartingFreshChat}
@@ -295,7 +347,7 @@ function RunProgressBanner({
             pressed && !isStartingFreshChat && styles.stopChipPressed,
           ]}
           testID="run-progress-start-fresh-chat"
-          accessibilityLabel={isStartingFreshChat ? 'Starting fresh chat' : 'Start fresh chat'}
+          accessibilityLabel={isStartingFreshChat ? 'Starting fresh chat' : investigation.actionLabel || 'Start fresh chat'}
         >
           {isStartingFreshChat ? (
             <View style={styles.freshChatChipRow} testID="run-progress-start-fresh-spinner">
@@ -441,6 +493,12 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
   },
   staleHint: {
+    fontSize: 11,
+    lineHeight: 16,
+    fontWeight: '700',
+    color: colors.warning,
+  },
+  investigationHint: {
     fontSize: 11,
     lineHeight: 16,
     fontWeight: '700',
