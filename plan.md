@@ -7,7 +7,7 @@ Durable rules live in [AGENTS.md](./AGENTS.md); this file is *live state only*.
 ## 0. Meta (read this header first)
 
 - Repo: `mac-yolo-safeguards` (+ `hermes-mobile/` app, `~/.hermes` desktop agent — separate, not this repo)
-- Updated: 2026-07-15 by `cursor-mac-pro-picker` (T-345 Mac Pro Tailscale picker; after #429 ConnectMacGate relay cold start)
+- Updated: 2026-07-16 by `cursor-agent-conf-roi` (T-AGENT-CONF-ROI Callstack Agent Conf tooling)
 - Active agents (claim your id here): `claude-code`, `cursor`, `antigravity`, `gemini`, `replit`, `cursor-mac-pro-picker`
 - Active branch of record: `main`
 - Merge discipline: branch-per-agent → rebase onto `main` → **sequential** merge, gated on `npm test` + Maestro E2E (`hermes-mobile/docs/proofs/continuous/latest.json`).
@@ -232,12 +232,23 @@ Status values: `pending` | `in_progress` | `blocked` | `done`. Claim a row by se
 | T-MACPRO-TS-PICKER | P0: Always show Mac Pro/MBP Tailscale as selectable picker row (USB must not hide it) | done | cursor-macpro-ts-picker | `hermes-mobile/src/utils/gatewayProfilePicker.ts`, `hermes-mobile/src/utils/fleetComputerNames.ts`, `hermes-mobile/src/__tests__/gatewayProfilePicker.test.ts`, `hermes-mobile/src/__tests__/fleetComputerNames.test.ts`, `hermes-mobile/src/__tests__/preventRecurrenceContract.test.ts`, `plan.md` | USB+cabled MBP still shows Tailscale Mac Pro row; fleet label Igors-MacBook-Pro (Mac Pro); focused Jest green; device proof |
 
 | T-PLAY-NSC-10 | Play production NSC binary: pin expo.version 1.0 + EAS AAB ≥vc14 with Tailscale cleartext | done | cursor-play-nsc-1.0-binary | `hermes-mobile/app.json`, `hermes-mobile/docs/VERSIONING-AND-RELEASES.md`, `hermes-mobile/src/__tests__/versioningAndOtaContract.test.ts`, `plan.md` | Play track shows versionName 1.0 / versionCode ≥14; AAB NSC base cleartext=true; no users-fixed claim until API+public agree |
+<<<<<<< HEAD
 | T-GROK-BUILD-FLEET | High-ROI Grok Build open-source fleet: local Ollama/LiteLLM routes + PreToolUse safety hooks on both Macs | done | grok-build-fleet | `tools/grok-build-fleet.js`, `hooks/grok-build-fleet/`, `scripts/install-grok-build-fleet.sh`, `tests/test-grok-build-fleet.js`, `docs/GROK-BUILD-OPEN-SOURCE-FLEET.md`, `README.md`, `plan.md` | Both Macs doctor ready:true (3/3 local models); `grok models` lists ollama-hermes-64k/fast + litellm-hermes-local; [ui] fork_secondary=ollama-hermes-fast; PreToolUse denies force-push; unit tests ok; live install MBP+mini |
+||||||| aa86af06
+=======
+| T-AGENT-CONF-ROI | Steal Callstack Agent Conf themes into high-ROI agent tooling (control plane, alert TTM, observability gate, incident RAG) | done | cursor-agent-conf-roi | `tools/agent-control-plane.js`, `tools/alert-investigation-loop.js`, `tools/hermes-observability-gate.js`, `tools/agent-incident-capture.js`, `tools/agent-automation-status.js`, `tests/test-agent-control-plane.js`, `tests/test-alert-investigation-loop.js`, `tests/test-hermes-observability-gate.js`, `tests/test-agent-incident-capture.js`, `docs/AGENT-CONF-ROI-MAPPING-JULY-2026.md`, `plan.md` | Focused node tests green; status CLI emits health score; ship mode fails on e2e=skipped; TTM receipts close with ttmMs; Booking migration deferred |
+>>>>>>> origin/main
 
 ## 2. File Ownership Map (append-only lock table — claim before touching)
 
+<<<<<<< HEAD
 - `tools/grok-build-fleet.js`, `hooks/grok-build-fleet/`, `scripts/install-grok-build-fleet.sh`, `tests/test-grok-build-fleet.js`, `docs/GROK-BUILD-OPEN-SOURCE-FLEET.md`, `README.md` (Grok Build fleet blurb only), `plan.md` → **grok-build-fleet** (T-GROK-BUILD-FLEET open-source local routes + safety hooks on MBP+mini) (2026-07-16T13:40:00Z)
 - T-GROK-BUILD-FLEET claimed files above → **released by grok-build-fleet** after both Macs doctor ready:true, `grok models` shows 3 local routes, hooks deny force-push, unit tests green (2026-07-16T13:45:00Z)
+||||||| aa86af06
+=======
+- `tools/agent-control-plane.js`, `tools/alert-investigation-loop.js`, `tools/hermes-observability-gate.js`, `tools/agent-incident-capture.js`, `tools/agent-automation-status.js`, `tests/test-agent-control-plane.js`, `tests/test-alert-investigation-loop.js`, `tests/test-hermes-observability-gate.js`, `tests/test-agent-incident-capture.js`, `docs/AGENT-CONF-ROI-MAPPING-JULY-2026.md`, `plan.md` → **cursor-agent-conf-roi** (T-AGENT-CONF-ROI Callstack Agent Conf high-ROI tooling) (2026-07-16T13:45:00Z)
+- T-AGENT-CONF-ROI claimed files above → **released by cursor-agent-conf-roi** after focused node suites green + live ship-gate fails on e2e=skipped + TTM receipt demo ttmMs=9000 (2026-07-16T13:50:00Z)
+>>>>>>> origin/main
 
 - `hermes-mobile/src/components/GatewayProfilePicker.tsx`, `hermes-mobile/src/utils/confirmForgetGatewayProfile.ts` (label only), `plan.md` → **cursor-forget-mac-recovery** (Forget→Forget this Mac) (2026-07-16T05:10:42Z)
 
@@ -843,3 +854,5 @@ Status values: `pending` | `in_progress` | `blocked` | `done`. Claim a row by se
 - 2026-07-15 `cursor-branding-hermes`: **Branding wipe.** Removed legacy Greptile org slug from docs/plan. Canonical product name **Hermes Mobile** (not ThumbGate Mobile). Store/`app.json` already Hermes Mobile. Greptile handle + display name → `hermes-mobile` / Hermes Mobile.
 
 - 2026-07-15T19:45Z `grok-greptile`: **Greptile review #449 applied.** P1s: removed plan.md `|||||||` conflict markers; wrongKeyRecovery no longer clears key on bare HTTP 403; reachability keeper skips ntfy on missing API key (health-only) + per-role mini/MBP key env. P2s: autoPair timeout 120s; pair.json lock sleep yields via `sleep(1)`. Tests: wrongKeyRecovery 5/5, pair-lock 4/4, reachability 3/3. CLI signed in as iganapolsky@gmail.com org Hermes Mobile. Free plan 50/50 credits exhausted — Pro needs payment method for more PR reviews.
+
+- 2026-07-16T13:50:00Z `cursor-agent-conf-roi`: **Completed T-AGENT-CONF-ROI.** Callstack Agent Conf invite PDF (email) themes mapped → shipped tooling: `agent-control-plane` (claim-check + health score), `alert-investigation-loop` (ttmMs receipts), `hermes-observability-gate` (e2e=skipped≠pass + freshness), `agent-incident-capture` (ThumbGate payload). Wired into `agent-automation-status`. Booking.com Perl migration deferred (no debt). Live before: `latest.json` e2e=skipped → ship gate `pass=false` (`e2e_not_pass`). Demo close ttmMs=9000. Focused tests: control-plane / alert-loop / observability / incident-capture all OK.
