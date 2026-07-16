@@ -474,7 +474,10 @@ describe('tonight recurrence gates (2026-07-14 P0 class — S16-S23)', () => {
     expect(gate).toMatch(/exit 1/);
     const workflow = read('.github/workflows/mobile-ota.yml');
     expect(workflow).toContain('require-stranger-cold-start-proof.cjs');
-    expect(workflow).toContain('HERMES_STRANGER_PROOF_WAIT_SEC');
+    // New architecture (crisis 2026-07-15): dedicated stranger-cold-start CI job
+    // produces a proof artifact; gate job downloads and hard-fails without it.
+    expect(workflow).toContain('stranger-cold-start-proof');
+    expect(workflow).toContain('needs: [stranger-cold-start]');
     expect(workflow).toContain('for CH in preview production');
     expect(workflow).toMatch(/checks:\s*read/);
     const stranger = read('hermes-mobile/scripts/require-stranger-cold-start-proof.cjs');

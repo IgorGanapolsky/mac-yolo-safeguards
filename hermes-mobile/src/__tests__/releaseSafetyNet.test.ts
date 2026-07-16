@@ -36,8 +36,10 @@ describe('release safety net (T-114)', () => {
     expect(script).toContain('checkGithubStrangerProof');
     expect(pkg).toContain('require-stranger-cold-start-proof.cjs --hard');
     expect(ota).toContain('require-stranger-cold-start-proof.cjs');
-    expect(ota).toContain('HERMES_STRANGER_PROOF_WAIT_SEC');
-    expect(ota).not.toContain("HERMES_OTA_REQUIRE_STRANGER_PROOF: '1'");
+    // New architecture (crisis 2026-07-15): dedicated stranger-cold-start CI job
+    // produces a proof artifact; gate job downloads and hard-fails without it.
+    expect(ota).toContain('stranger-cold-start-proof');
+    expect(ota).toContain('--hard');
     expect(ota).toMatch(/checks:\s*read/);
     const e2e = read('.github/workflows/mobile-e2e.yml');
     // Stranger job validates structure with --soft; it produces the runtime proof.

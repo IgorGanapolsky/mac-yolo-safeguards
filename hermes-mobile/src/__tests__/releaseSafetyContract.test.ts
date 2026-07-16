@@ -198,7 +198,10 @@ describe('release safety contract', () => {
     expect(workflow).toContain('for CH in preview production');
     expect(workflow).toContain('--channel "$CH"');
     expect(workflow).toContain('require-stranger-cold-start-proof.cjs');
-    expect(workflow).toContain('HERMES_STRANGER_PROOF_WAIT_SEC');
+    // New architecture (crisis 2026-07-15): dedicated stranger-cold-start CI job
+    // produces a proof artifact; gate job downloads and hard-fails without it.
+    expect(workflow).toContain('stranger-cold-start-proof');
+    expect(workflow).toContain('needs: [stranger-cold-start]');
     expect(workflow).toMatch(/checks:\s*read/);
     expect(workflow).not.toContain('publish_production');
     expect(workflow).toContain('secrets.EXPO_TOKEN');

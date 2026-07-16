@@ -34,6 +34,7 @@ permissions:
   checks: read
 
 jobs:
+  # ── Fast gate: unit tests, typecheck, privacy, release safety (runs in parallel) ──
   quality-gate:
     name: Unit + release safety
     runs-on: ubuntu-latest
@@ -60,15 +61,6 @@ jobs:
           REQUIRE_EAS_PROJECT: '1'
         run: npm run release:check
 
-      # HARD by default (crisis 2026-07-15): refuse OTA without stranger cold-start
-      # contract + runtime proof (local JSON or green GitHub stranger check).
-      # Polls parallel mobile-e2e stranger job on this SHA — no opt-in env.
-      - name: Fresh-user stranger cold-start proof gate (hard)
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # Hard is the script default; wait for parallel Maestro stranger job on main.
-          HERMES_STRANGER_PROOF_WAIT_SEC: '2100'
-        run: node ./scripts/require-stranger-cold-start-proof.cjs
 
       - name: Type check
         run: npm run typecheck
@@ -87,9 +79,183 @@ jobs:
           npx expo export --platform android --output-dir "$RUNNER_TEMP/hermes-mobile-public-export"
           npm run privacy:scan:artifact -- "$RUNNER_TEMP/hermes-mobile-public-export"
 
+  # ── Slow gate: stranger cold-start proof (runs in parallel with quality-gate) ──
+  # Crisis 2026-07-15: OTA must not publish without a fresh-user stranger cold-start
+  # proof. mobile-e2e.yml already runs this as a required check, but its result lives
+  # in a separate workflow run — the OTA gate script has no way to consume it. So we
+  # run the stranger cold-start emulator test HERE, write a proof JSON on success, and
+  # upload it as an artifact for the stranger-proof-gate job below.
+  stranger-cold-start:
+    name: Stranger cold-start (Android emulator)
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      SENTRY_DISABLE_AUTO_UPLOAD: "true"
+    defaults:
+      run:
+        working-directory: hermes-mobile
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: hermes-mobile/package-lock.json
+
+      - uses: actions/setup-java@c1e323688fd81a25caa38c78aa6df2d33d3e20d9 # v4.8.0
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Validate stranger cold-start contract (fail fast)
+        run: node ./scripts/require-stranger-cold-start-proof.cjs
+
+      - name: Enable KVM (hardware acceleration for the emulator)
+        run: |
+          echo 'KERNEL=="kvm", GROUP=="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Install Maestro
+        run: |
+          curl -fsSL "https://get.maestro.mobile.dev" | bash
+          echo "$HOME/.maestro/bin" >> "$GITHUB_PATH"
+
+      - name: Install Android NDK (retry on corrupt zip)
+        working-directory: ${{ github.workspace }}
+        run: |
+          set -euo pipefail
+          NDK_VERSION="27.0.12077973"
+          SDK_ROOT="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-$HOME/Android/Sdk}}"
+          export ANDROID_HOME="$SDK_ROOT"
+          export ANDROID_SDK_ROOT="$SDK_ROOT"
+          mkdir -p "$SDK_ROOT"
+          if ! command -v sdkmanager >/dev/null 2>&1; then
+            if [ -x "$SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" ]; then
+              export PATH="$SDK_ROOT/cmdline-tools/latest/bin:$PATH"
+            else
+              echo "sdkmanager not found; letting Gradle fetch NDK (no pre-install)."
+              exit 0
+            fi
+          fi
+          install_ok=0
+          for attempt in 1 2 3; do
+            echo "NDK install attempt ${attempt}/3 (ndk;${NDK_VERSION})"
+            rm -rf "${SDK_ROOT}/ndk/${NDK_VERSION}" \
+              "${SDK_ROOT}/.temp" \
+              "${SDK_ROOT}/.downloadIntermediates" 2>/dev/null || true
+            if yes | sdkmanager --install "ndk;${NDK_VERSION}" >/tmp/ndk-install.log 2>&1; then
+              if [ -d "${SDK_ROOT}/ndk/${NDK_VERSION}" ]; then
+                echo "NDK ready at ${SDK_ROOT}/ndk/${NDK_VERSION}"
+                install_ok=1
+                break
+              fi
+            fi
+            echo "attempt ${attempt} failed; tail:"
+            tail -40 /tmp/ndk-install.log || true
+            sleep 5
+          done
+          if [ "$install_ok" != "1" ]; then
+            echo "WARN: pre-install NDK failed; Gradle may still recover"
+            tail -80 /tmp/ndk-install.log || true
+          fi
+          echo "ANDROID_HOME=$ANDROID_HOME" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT" >> "$GITHUB_ENV"
+
+      # STRANGER_COLD_START_ASSEMBLE — must keep EXPO_PUBLIC_E2E_AUTOMATION=0 so ConnectMacGate shows.
+      - name: Prebuild + assemble stranger debug APK (no E2E hide-gate)
+        env:
+          EXPO_PUBLIC_E2E_AUTOMATION: "0"
+          SENTRY_DISABLE_AUTO_UPLOAD: "true"
+          SENTRY_ALLOW_FAILURE: "true"
+        run: |
+          unset EXPO_PUBLIC_HERMES_DEV_UNLOCK || true
+          npx expo prebuild -p android --no-install
+          (cd android && ./gradlew assembleDebug -PreactNativeArchitectures=x86_64 --no-daemon)
+
+      - name: Run Maestro stranger cold-start on emulator
+        uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2.38.0
+        with:
+          api-level: 34
+          arch: x86_64
+          profile: pixel_6
+          working-directory: hermes-mobile
+          disable-animations: true
+          emulator-boot-timeout: 900
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot -camera-back none -camera-front none
+          script: |
+            adb install -r android/app/build/outputs/apk/debug/app-debug.apk
+            export PATH="$HOME/.maestro/bin:$PATH"
+            maestro test .maestro/stranger-cold-start.yaml
+
+      # Write proof JSON on success — consumed by stranger-proof-gate below.
+      - name: Write stranger cold-start proof artifact
+        if: success()
+        run: |
+          mkdir -p docs/proofs/stranger-cold-start
+          cat > docs/proofs/stranger-cold-start/latest.json << 'PROOF'
+          {
+            "strangerColdStart": { "status": "pass" },
+            "e2e": "pass",
+            "source": "mobile-ota.yml stranger-cold-start job",
+            "commit": "${{ github.sha }}"
+          }
+          PROOF
+
+      - name: Upload stranger proof
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: stranger-cold-start-proof
+          path: hermes-mobile/docs/proofs/stranger-cold-start/latest.json
+          retention-days: 7
+
+      - name: Upload stranger Maestro artifacts on failure
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: maestro-stranger-cold-start-debug-ota
+          path: ~/.maestro/tests/**
+          if-no-files-found: ignore
+
+  # ── Proof gate: hard-fail if stranger proof is missing (after emulator job) ──
+  stranger-proof-gate:
+    name: Stranger cold-start proof gate
+    needs: [stranger-cold-start]
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: hermes-mobile
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: hermes-mobile/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Download stranger cold-start proof
+        uses: actions/download-artifact@6b208ae046dbac8682e683b0c85a273e6868eff1 # v4.1.9
+        with:
+          name: stranger-cold-start-proof
+          path: docs/proofs/stranger-cold-start/
+
+      # HARD fail: refuse OTA without stranger cold-start proof.
+      - name: Fresh-user stranger cold-start proof gate (hard)
+        env:
+          HERMES_OTA_REQUIRE_STRANGER_PROOF: '1'
+        run: node ./scripts/require-stranger-cold-start-proof.cjs --hard
+
   publish-production-ota:
     name: Publish production OTA
-    needs: [quality-gate]
+    needs: [quality-gate, stranger-proof-gate]
     runs-on: ubuntu-latest
     defaults:
       run:
