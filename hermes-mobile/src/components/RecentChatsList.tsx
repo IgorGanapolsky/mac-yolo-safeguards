@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { haptics } from '../services/haptics';
 import type { HermesSession } from '../types/chat';
 import type { RunProgressState } from '../types/chatDisplay';
 import { colors } from '../theme/colors';
@@ -161,6 +162,7 @@ export default function RecentChatsList({
                   if (switchBusy) {
                     return;
                   }
+                  haptics.tap();
                   onSelectSession(session);
                 }}
                 disabled={switchBusy}

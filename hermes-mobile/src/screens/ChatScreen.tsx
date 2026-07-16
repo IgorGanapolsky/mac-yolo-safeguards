@@ -190,6 +190,7 @@ import {
   resolveSessionUsagePollMs,
   SESSION_USAGE_POLL_MS,
 } from '../utils/sessionUsagePoll';
+import { resolveDisplayModel } from '../utils/resolveDisplayModel';
 import {
   captureComposerTextForFreshChat,
   resolveComposerTextAfterFreshChat,
@@ -5699,17 +5700,25 @@ export default function ChatScreen() {
   }, [currentSession?.model, progressBanner?.model, lastKnownModel]);
 
   const headerGatewayModel = useMemo(
-    () => gatewayModel ?? lastKnownModel,
-    [gatewayModel, lastKnownModel],
+    () =>
+      resolveDisplayModel({
+        sessionModel: currentSession?.model,
+        runModel: progressBanner?.model,
+        lastKnownModel,
+        gatewayModel,
+      }) ?? undefined,
+    [currentSession?.model, progressBanner?.model, lastKnownModel, gatewayModel],
   );
 
   const progressBannerFallbackModel = useMemo(
     () =>
-      displayableLlmModel(currentSession?.model) ??
-      displayableLlmModel(gatewayModel) ??
-      displayableLlmModel(lastKnownModel) ??
-      undefined,
-    [currentSession?.model, gatewayModel, lastKnownModel],
+      resolveDisplayModel({
+        sessionModel: currentSession?.model,
+        runModel: progressBanner?.model,
+        lastKnownModel,
+        gatewayModel,
+      }) ?? undefined,
+    [currentSession?.model, progressBanner?.model, gatewayModel, lastKnownModel],
   );
 
   const showComposerProgressBanner = useMemo(() => {
@@ -6344,6 +6353,7 @@ export default function ChatScreen() {
           activeAgents={activeAgents}
           currentSession={currentSession}
           gatewayModel={headerGatewayModel}
+          lastKnownModel={lastKnownModel}
           runProgress={progressBanner}
           messageCount={messages.length}
           onOpenThreads={openSessionsModal}

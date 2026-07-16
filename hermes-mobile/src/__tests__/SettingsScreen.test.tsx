@@ -14,6 +14,7 @@ jest.mock('../context/GatewayContext', () => ({
 
 jest.mock('../services/haptics', () => ({
   haptics: {
+    tap: jest.fn(),
     light: jest.fn(),
     selection: jest.fn(),
     success: jest.fn(),

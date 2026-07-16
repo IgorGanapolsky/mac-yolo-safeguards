@@ -1,6 +1,7 @@
 import React, { memo, useEffect, useRef, useState } from 'react';
-import { Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Platform, Pressable, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { colors } from '../theme/colors';
+import { haptics } from '../services/haptics';
 import type { ComposerAttachment } from '../types/chatAttachment';
 import { composerHasSendableContent } from '../utils/chatAttachments';
 
@@ -200,10 +201,17 @@ function ChatInputBar({
             <View style={styles.stopSquare} />
           </TouchableOpacity>
         ) : null}
-        <TouchableOpacity
-          style={[styles.sendButton, (sendMuted || !canSend || sendDisabled) && styles.sendButtonMuted]}
-          activeOpacity={0.7}
+        <Pressable
+          style={({ pressed }) => [
+            styles.sendButton,
+            (sendMuted || !canSend || sendDisabled) && styles.sendButtonMuted,
+            pressed && canSend && !sendDisabled && !sendMuted && styles.sendButtonPressed,
+          ]}
           onPress={() => {
+            if (!canSend && !composerHasSendableContent(latestTextRef.current, attachments)) {
+              return;
+            }
+            haptics.tap();
             const latest = latestTextRef.current;
             justSentTextRef.current = latest;
             latestTextRef.current = '';
@@ -219,9 +227,10 @@ function ChatInputBar({
           }}
           testID="chat-send-button"
           accessibilityLabel="Send"
+          accessibilityRole="button"
         >
           <Text style={styles.sendIcon}>↑</Text>
-        </TouchableOpacity>
+        </Pressable>
       </View>
     </View>
   );
@@ -315,6 +324,10 @@ const styles = StyleSheet.create({
   },
   sendButtonMuted: {
     backgroundColor: 'rgba(255, 255, 255, 0.18)',
+  },
+  sendButtonPressed: {
+    transform: [{ scale: 0.92 }],
+    opacity: 0.88,
   },
   sendIcon: {
     fontSize: 18,

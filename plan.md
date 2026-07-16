@@ -236,6 +236,10 @@ Status values: `pending` | `in_progress` | `blocked` | `done`. Claim a row by se
 | T-AGENT-CONF-ROI | Steal Callstack Agent Conf themes into high-ROI agent tooling (control plane, alert TTM, observability gate, incident RAG) | done | cursor-agent-conf-roi | `tools/agent-control-plane.js`, `tools/alert-investigation-loop.js`, `tools/hermes-observability-gate.js`, `tools/agent-incident-capture.js`, `tools/agent-automation-status.js`, `tests/test-agent-control-plane.js`, `tests/test-alert-investigation-loop.js`, `tests/test-hermes-observability-gate.js`, `tests/test-agent-incident-capture.js`, `docs/AGENT-CONF-ROI-MAPPING-JULY-2026.md`, `plan.md` | Focused node tests green; status CLI emits health score; ship mode fails on e2e=skipped; TTM receipts close with ttmMs; Booking migration deferred |
 
 ## 2. File Ownership Map
+- T-ALIVE-INTERACT → **released by grok-alive-interact** after focused suites green (2026-07-16T14:45:00Z)
+
+- `hermes-mobile/src/services/haptics.ts`, `hermes-mobile/src/components/ChatInputBar.tsx`, `hermes-mobile/src/components/RecentChatsList.tsx`, `hermes-mobile/src/utils/resolveDisplayModel.ts`, `hermes-mobile/src/components/ChatScreenHeader.tsx`, `hermes-mobile/src/__tests__/resolveDisplayModel.test.ts`, `hermes-mobile/src/__tests__/hapticsPolicy.test.ts`, `plan.md` → **grok-alive-interact** (T-ALIVE-INTERACT) (2026-07-16T14:30:00Z)
+
 - T-ALIVE-PERF claimed files → **released by grok-alive-perf** after focused ChatInputBar/ChatScreen/sessionUsagePoll green + typecheck (2026-07-16T14:20:00Z)
  (append-only lock table — claim before touching)
 

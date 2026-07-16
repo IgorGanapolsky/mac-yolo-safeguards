@@ -4,6 +4,8 @@ import { fireEvent, render } from '@testing-library/react-native';
 import ChatInputBar from '../components/ChatInputBar';
 import { colors } from '../theme/colors';
 
+jest.mock('../services/haptics', () => ({ haptics: { tap: jest.fn(), light: jest.fn(), selection: jest.fn(), success: jest.fn(), warning: jest.fn(), heavy: jest.fn() } }));
+
 describe('ChatInputBar', () => {
   const baseProps = {
     value: '',
