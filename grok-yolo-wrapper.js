@@ -7,6 +7,10 @@ const path = require('path');
 const { spawn, spawnSync } = require('child_process');
 
 const MODEL = 'grok-4.5';
+const LOCAL_MODEL_ALIAS = 'ollama-hermes-zero-spend';
+const LOCAL_BASE_URL = 'http://127.0.0.1:11434/v1';
+const LOCAL_CONTEXT_TOKENS = 65536;
+const LOCAL_MAX_COMPLETION_TOKENS = 8192;
 const MIN_GROK_VERSION = '0.2.99';
 const XAI_PRICING = Object.freeze({
   currency: 'USD',
@@ -43,12 +47,44 @@ const HERMES_RULES = [
   'Never claim completion from self-attestation; require command or runtime evidence.',
 ].join(' ');
 
+const LOCAL_HERMES_RULES = [
+  'Act as the local Grok Build worker in the Hermes zero-provider-spend harness.',
+  'Use only the configured loopback Ollama model and local tools.',
+  'Inspect the current worktree and run focused verification commands.',
+  'Do not merge, push, publish, delete files or branches, rotate credentials, or expose secrets.',
+  'Never claim completion from self-attestation; require command or runtime evidence.',
+].join(' ');
+
 const HERMES_VERIFIER_PROFILE = Object.freeze({
   id: 'grok45-readonly-verifier-v1',
   model: MODEL,
   sandbox: 'read-only',
   writeFileEnabled: false,
 });
+
+const LOCAL_HERMES_PROFILE = Object.freeze({
+  id: 'grok-build-local-readonly-v1',
+  model: LOCAL_MODEL_ALIAS,
+  sandbox: 'read-only',
+  writeFileEnabled: false,
+});
+
+const PAID_CREDENTIAL_ENV = Object.freeze([
+  'ANTHROPIC_API_KEY',
+  'GEMINI_API_KEY',
+  'GOOGLE_API_KEY',
+  'META_MODEL_API_KEY',
+  'NVIDIA_API_KEY',
+  'OPENAI_API_KEY',
+  'OPENROUTER_API_KEY',
+  'PARALLEL_API_KEY',
+  'SNOWFLAKE_PASSWORD',
+  'SNOWFLAKE_PAT',
+  'SNOWFLAKE_TOKEN',
+  'XAI_API_KEY',
+  'ZAI_API_KEY',
+  'Z_AI_API_KEY',
+]);
 
 const SECRET_PATTERNS = [
   /\bghp_[A-Za-z0-9_]{20,}\b/g,
@@ -142,6 +178,135 @@ function runProbe(binary, args, env = process.env) {
   };
 }
 
+function homeDir(env = process.env) {
+  return env.HOME || os.homedir();
+}
+
+function localGrokHome(env = process.env) {
+  return env.GROK_YOLO_LOCAL_HOME || path.join(homeDir(env), '.hermes', 'grok-build-local');
+}
+
+function validateLocalModel(model) {
+  const value = String(model || '').trim();
+  if (!value || !/^[A-Za-z0-9._:/-]+$/.test(value)) {
+    throw new Error('local model must contain only letters, numbers, dot, underscore, colon, slash, or dash');
+  }
+  return value;
+}
+
+function tomlString(value) {
+  return JSON.stringify(String(value));
+}
+
+function localConfig(model) {
+  const verifiedModel = validateLocalModel(model);
+  return [
+    '# Managed by grok-yolo. Local inference only; no provider credential is stored here.',
+    '[models]',
+    `default = ${tomlString(LOCAL_MODEL_ALIAS)}`,
+    '',
+    `[model.${LOCAL_MODEL_ALIAS}]`,
+    `model = ${tomlString(verifiedModel)}`,
+    `base_url = ${tomlString(LOCAL_BASE_URL)}`,
+    'name = "Hermes local Ollama (zero provider spend)"',
+    'api_backend = "chat_completions"',
+    `context_window = ${LOCAL_CONTEXT_TOKENS}`,
+    `max_completion_tokens = ${LOCAL_MAX_COMPLETION_TOKENS}`,
+    'temperature = 0.3',
+    '',
+    '[telemetry]',
+    '# External OTEL remains explicit. Content gates stay off even when an exporter is enabled.',
+    'otel_log_user_prompts = false',
+    'otel_log_tool_details = false',
+    '',
+  ].join('\n');
+}
+
+function writePrivateFile(filePath, content, mode = 0o600) {
+  fs.mkdirSync(path.dirname(filePath), { recursive: true, mode: 0o700 });
+  const temporary = `${filePath}.${process.pid}.tmp`;
+  fs.writeFileSync(temporary, content, { mode });
+  fs.chmodSync(temporary, mode);
+  fs.renameSync(temporary, filePath);
+  fs.chmodSync(filePath, mode);
+}
+
+function ensureLocalConfig(model, env = process.env) {
+  const grokHome = localGrokHome(env);
+  const configPath = path.join(grokHome, 'config.toml');
+  writePrivateFile(configPath, localConfig(model));
+  return { grokHome, configPath };
+}
+
+function installedOllamaModels(env = process.env, probe = runProbe) {
+  const binary = env.OLLAMA_BIN || '/opt/homebrew/bin/ollama';
+  const result = probe(binary, ['list'], env);
+  if (result.status !== 0) return [];
+  return String(result.stdout || '')
+    .split(/\r?\n/)
+    .slice(1)
+    .map((line) => line.trim().split(/\s+/)[0])
+    .filter(Boolean);
+}
+
+function externalOtelStatus(env = process.env) {
+  const enabled = env.GROK_EXTERNAL_OTEL === '1';
+  const metricsExporter = env.OTEL_METRICS_EXPORTER || 'none';
+  const logsExporter = env.OTEL_LOGS_EXPORTER || 'none';
+  return {
+    enabled: enabled && (metricsExporter !== 'none' || logsExporter !== 'none'),
+    metricsExporter,
+    logsExporter,
+    endpointConfigured: Boolean(
+      env.OTEL_EXPORTER_OTLP_ENDPOINT
+      || env.OTEL_EXPORTER_OTLP_METRICS_ENDPOINT
+      || env.OTEL_EXPORTER_OTLP_LOGS_ENDPOINT
+    ),
+    contentFree: true,
+  };
+}
+
+function localDoctor(options = {}) {
+  const env = options.env || process.env;
+  const binary = options.binary || findGrokBinary(env);
+  const probe = options.probe || runProbe;
+  const underlyingModel = validateLocalModel(
+    options.model || env.GROK_YOLO_LOCAL_MODEL || 'qwen3.5:9b-hermes-64k'
+  );
+  const versionProbe = binary ? probe(binary, ['version'], env) : { status: 127, stdout: '', stderr: '' };
+  const version = parseVersion(`${versionProbe.stdout}\n${versionProbe.stderr}`);
+  const versionReady = versionAtLeast(version);
+  const installedModels = options.installedModels || installedOllamaModels(env, probe);
+  const modelAvailable = installedModels.includes(underlyingModel);
+  const ready = Boolean(binary) && versionReady && modelAvailable;
+  let blocker = null;
+  if (!binary) blocker = 'grok_binary_missing';
+  else if (!versionReady) blocker = 'grok_cli_update_required';
+  else if (!modelAvailable) blocker = 'local_ollama_model_unavailable';
+  return {
+    schema: 'grok-yolo/doctor-v2',
+    ready,
+    mode: 'local',
+    binary,
+    version,
+    minimumVersion: MIN_GROK_VERSION,
+    versionReady,
+    model: LOCAL_MODEL_ALIAS,
+    underlyingModel,
+    modelAvailable,
+    availableModels: installedModels,
+    endpoint: LOCAL_BASE_URL,
+    endpointScope: 'loopback',
+    authenticated: true,
+    authMode: 'none_local',
+    billingMode: 'local_provider_cost_zero',
+    providerCostUsd: 0,
+    grokHome: localGrokHome(env),
+    externalOtel: externalOtelStatus(env),
+    blocker,
+  };
+}
+
 function grokDoctor(options = {}) {
   const env = options.env || process.env;
   const binary = options.binary || findGrokBinary(env);
@@ -220,8 +385,9 @@ function assertNoModelOverride(args) {
 function buildStandaloneArgs(userArgs = [], options = {}) {
   assertNoModelOverride(userArgs);
   return [
-    '--model', MODEL,
+    '--model', options.model || MODEL,
     '--always-approve',
+    ...(options.local ? ['--disable-web-search', '--no-subagents'] : []),
     ...denyArgs(options.denyRules),
     ...userArgs,
   ];
@@ -238,8 +404,9 @@ function buildHermesArgs(task, options = {}) {
     throw new Error(`Unsupported output format: ${outputFormat}`);
   }
   return [
-    '--model', MODEL,
+    '--model', options.model || MODEL,
     '--always-approve',
+    ...(options.local ? ['--disable-web-search'] : []),
     ...denyArgs(options.denyRules),
     '--sandbox', HERMES_VERIFIER_PROFILE.sandbox,
     '--no-subagents',
@@ -259,12 +426,29 @@ function buildHermesEnv(env = process.env) {
   };
 }
 
+function buildLocalEnv(model, env = process.env) {
+  const verifiedModel = validateLocalModel(model);
+  const { grokHome } = ensureLocalConfig(verifiedModel, env);
+  const childEnv = { ...env };
+  for (const name of PAID_CREDENTIAL_ENV) childEnv[name] = '';
+  Object.assign(childEnv, {
+    GROK_HOME: grokHome,
+    GROK_YOLO_LOCAL_ONLY: '1',
+    GROK_YOLO_LOCAL_MODEL: verifiedModel,
+    GROK_TELEMETRY_ENABLED: '0',
+    OTEL_LOG_USER_PROMPTS: '0',
+    OTEL_LOG_TOOL_DETAILS: '0',
+  });
+  return childEnv;
+}
+
 function parseWrapperArgs(argv = process.argv.slice(2)) {
   const options = {
     doctor: false,
     dryRun: false,
     hermes: false,
     json: false,
+    local: false,
     cwd: null,
     maxTurns: 20,
     outputFormat: 'json',
@@ -277,6 +461,7 @@ function parseWrapperArgs(argv = process.argv.slice(2)) {
     else if (arg === '--dry-run') options.dryRun = true;
     else if (arg === '--hermes') options.hermes = true;
     else if (arg === '--json') options.json = true;
+    else if (arg === '--local') options.local = true;
     else if (options.hermes && (arg === '--task' || arg === '--prompt' || arg === '-p' || arg === '--single')) {
       options.task = requireValue(argv, ++index, arg);
     } else if (options.hermes && arg === '--cwd') {
@@ -333,33 +518,52 @@ function spawnGrok(binary, args, env = process.env) {
 function main(argv = process.argv.slice(2)) {
   try {
     const options = parseWrapperArgs(argv);
-    const doctor = grokDoctor();
+    const local = options.local || process.env.GROK_YOLO_LOCAL_ONLY === '1';
+    const underlyingModel = process.env.GROK_YOLO_LOCAL_MODEL || 'qwen3.5:9b-hermes-64k';
+    const doctor = local ? localDoctor({ model: underlyingModel }) : grokDoctor();
     if (options.doctor) {
       console.log(options.json ? JSON.stringify(doctor, null, 2) : renderDoctor(doctor));
       process.exitCode = doctor.ready ? 0 : 2;
       return;
     }
     if (!doctor.binary) throw new Error('Grok Build is not installed');
+    const selectedModel = local ? LOCAL_MODEL_ALIAS : MODEL;
+    const profile = local ? LOCAL_HERMES_PROFILE : HERMES_VERIFIER_PROFILE;
     const childArgs = options.hermes
       ? buildHermesArgs(options.task, {
           cwd: options.cwd,
           maxTurns: options.maxTurns,
           outputFormat: options.outputFormat,
+          model: selectedModel,
+          local,
+          rules: local ? LOCAL_HERMES_RULES : HERMES_RULES,
         })
-      : buildStandaloneArgs(options.passthrough);
+      : buildStandaloneArgs(options.passthrough, { model: selectedModel, local });
     if (options.dryRun) {
       const payload = {
         binary: doctor.binary,
         args: childArgs,
-        model: MODEL,
+        mode: local ? 'local' : 'cloud',
+        model: selectedModel,
+        underlyingModel: local ? underlyingModel : null,
+        endpoint: local ? LOCAL_BASE_URL : null,
+        providerCostUsd: local ? 0 : null,
+        externalOtel: externalOtelStatus(),
         guardedYolo: true,
-        hermesProfile: options.hermes ? HERMES_VERIFIER_PROFILE : null,
+        hermesProfile: options.hermes ? profile : null,
       };
       console.log(options.json ? JSON.stringify(payload, null, 2) : `${payload.binary} ${payload.args.map(JSON.stringify).join(' ')}`);
       return;
     }
-    if (!doctor.ready) throw new Error(`Grok 4.5 is not ready: ${doctor.blocker || 'doctor_failed'}`);
-    spawnGrok(doctor.binary, childArgs, options.hermes ? buildHermesEnv() : process.env);
+    if (!doctor.ready) {
+      throw new Error(`${local ? 'local Grok Build' : 'Grok 4.5'} is not ready: ${doctor.blocker || 'doctor_failed'}`);
+    }
+    const childEnv = local
+      ? buildLocalEnv(underlyingModel)
+      : options.hermes
+        ? buildHermesEnv()
+        : process.env;
+    spawnGrok(doctor.binary, childArgs, childEnv);
   } catch (error) {
     console.error(`grok-yolo: ${redact(error.message)}`);
     process.exitCode = 1;
@@ -370,20 +574,35 @@ module.exports = {
   DEFAULT_DENY_RULES,
   HERMES_RULES,
   HERMES_VERIFIER_PROFILE,
+  LOCAL_BASE_URL,
+  LOCAL_CONTEXT_TOKENS,
+  LOCAL_HERMES_PROFILE,
+  LOCAL_HERMES_RULES,
+  LOCAL_MAX_COMPLETION_TOKENS,
+  LOCAL_MODEL_ALIAS,
   MIN_GROK_VERSION,
   MODEL,
+  PAID_CREDENTIAL_ENV,
   XAI_PRICING,
   assertNoModelOverride,
   buildHermesArgs,
   buildHermesEnv,
+  buildLocalEnv,
   buildStandaloneArgs,
+  ensureLocalConfig,
+  externalOtelStatus,
   findGrokBinary,
   grokDoctor,
+  installedOllamaModels,
+  localConfig,
+  localDoctor,
+  localGrokHome,
   parseModelsOutput,
   parseVersion,
   parseWrapperArgs,
   redact,
   renderDoctor,
+  validateLocalModel,
   versionAtLeast,
 };
 

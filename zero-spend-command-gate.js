@@ -171,7 +171,12 @@ function installCommand(name, manifest, env = process.env) {
     previous &&
     effective === previous.shimPath &&
     resolvesTo(previous.shimPath, loc.installedGate)
-  ) return previous;
+  ) {
+    return {
+      ...previous,
+      policy: ['hermes-yolo', 'grok-yolo'].includes(name) ? 'local-only' : 'blocked',
+    };
+  }
 
   const discovered = effective;
   const localShim = path.join(loc.home, '.local', 'bin', name);
@@ -202,7 +207,7 @@ function installCommand(name, manifest, env = process.env) {
     name,
     shimPath,
     original,
-    policy: name === 'hermes-yolo' ? 'local-only' : 'blocked',
+    policy: ['hermes-yolo', 'grok-yolo'].includes(name) ? 'local-only' : 'blocked',
   };
 }
 
@@ -701,6 +706,26 @@ function localOnlyEnv(env, model) {
   return childEnv;
 }
 
+function localOnlyGrokEnv(env, model) {
+  const childEnv = { ...env };
+  for (const name of PAID_CREDENTIAL_ENV) childEnv[name] = '';
+  const loc = locations(env);
+  Object.assign(childEnv, {
+    HERMES_ZERO_SPEND: '1',
+    GROK_YOLO_LOCAL_ONLY: '1',
+    GROK_YOLO_LOCAL_MODEL: model,
+    GROK_YOLO_LOCAL_HOME: path.join(loc.stateDir, 'grok-home'),
+    GROK_TELEMETRY_ENABLED: '0',
+    OTEL_LOG_USER_PROMPTS: '0',
+    OTEL_LOG_TOOL_DETAILS: '0',
+  });
+  return childEnv;
+}
+
+function isLocalOnlyCommand(command) {
+  return command === 'hermes-yolo' || command === 'grok-yolo';
+}
+
 function writeReceipt(command, outcome, details = {}, env = process.env) {
   const loc = locations(env);
   const receipt = {
@@ -708,10 +733,13 @@ function writeReceipt(command, outcome, details = {}, env = process.env) {
     generatedAt: new Date().toISOString(),
     host: os.hostname(),
     command,
-    policy: command === 'hermes-yolo' ? 'local-only' : 'blocked',
+    policy: isLocalOnlyCommand(command) ? 'local-only' : 'blocked',
     outcome,
     originalSpawned: Boolean(details.originalSpawned),
     model: details.model || null,
+    backend: details.backend || null,
+    inferenceScope: details.inferenceScope || null,
+    providerCostUsd: details.providerCostUsd ?? null,
     exitCode: details.exitCode,
   };
   fs.mkdirSync(loc.receiptDir, { recursive: true, mode: 0o700 });
@@ -739,7 +767,7 @@ function runCommand(name, args, env = process.env) {
   const entry = manifestEntry(name, env);
   if (!markerActive(env)) return spawnOriginal(entry, args, env);
 
-  if (name !== 'hermes-yolo') {
+  if (!isLocalOnlyCommand(name)) {
     writeReceipt(name, 'blocked', { originalSpawned: false, exitCode: BLOCKED_EXIT }, env);
     console.error(`[zero-spend] ${name} blocked before provider execution (zero paid spend is active)`);
     return BLOCKED_EXIT;
@@ -748,13 +776,19 @@ function runCommand(name, args, env = process.env) {
   const model = chooseLocalModel(env);
   if (!model) {
     writeReceipt(name, 'blocked', { originalSpawned: false, exitCode: 69 }, env);
-    console.error('[zero-spend] hermes-yolo blocked: no verified local Ollama model is installed');
+    console.error(`[zero-spend] ${name} blocked: no verified local Ollama model is installed`);
     return 69;
   }
-  const exitCode = spawnOriginal(entry, args, localOnlyEnv(env, model));
+  const childEnv = name === 'grok-yolo'
+    ? localOnlyGrokEnv(env, model)
+    : localOnlyEnv(env, model);
+  const exitCode = spawnOriginal(entry, args, childEnv);
   writeReceipt(name, exitCode === 0 ? 'local-pass' : 'local-fail', {
     originalSpawned: true,
     model,
+    backend: name === 'grok-yolo' ? 'grok-build-ollama' : LOCAL_PROVIDER,
+    inferenceScope: 'local',
+    providerCostUsd: 0,
     exitCode,
   }, env);
   return exitCode;
@@ -795,7 +829,9 @@ module.exports = {
   installPolicyFiles,
   installedLocalModels,
   invocationName,
+  isLocalOnlyCommand,
   localOnlyEnv,
+  localOnlyGrokEnv,
   localConfig,
   locations,
   main,

@@ -29,21 +29,25 @@ fs.mkdirSync(path.join(home, '.hermes'), { recursive: true });
 fs.writeFileSync(path.join(home, '.hermes', '.env'), 'OPENROUTER_API_KEY=stored-private-value\n', { mode: 0o600 });
 
 const hermesCapture = path.join(root, 'hermes-env.json');
-const grokSentinel = path.join(root, 'grok-spawned');
+const grokCapture = path.join(root, 'grok-env.json');
+const directGrokSentinel = path.join(root, 'direct-grok-spawned');
 const parallelCliSentinel = path.join(root, 'parallel-cli-spawned');
 executable(path.join(bin, 'hermes-yolo'), `#!/bin/sh\nnode -e 'const fs=require("fs"); const names=["HERMES_ZERO_SPEND","HERMES_HOME","HERMES_ENV_PATH","HERMES_CONFIG_PATH","HERMES_MANAGED_DIR","HERMES_YOLO_BACKEND","HERMES_YOLO_PROVIDER","HERMES_YOLO_MODEL","HERMES_YOLO_TOOLSETS","OPENROUTER_API_KEY","META_MODEL_API_KEY","PARALLEL_API_KEY"]; const out={}; for (const n of names) out[n]=process.env[n] ?? null; fs.writeFileSync(process.argv[1], JSON.stringify(out));' "${hermesCapture}"\n`);
-executable(path.join(bin, 'grok-yolo'), `#!/bin/sh\ntouch "${grokSentinel}"\n`);
+executable(path.join(bin, 'grok-yolo'), `#!/bin/sh\nnode -e 'const fs=require("fs"); const names=["HERMES_ZERO_SPEND","GROK_YOLO_LOCAL_ONLY","GROK_YOLO_LOCAL_MODEL","GROK_YOLO_LOCAL_HOME","GROK_TELEMETRY_ENABLED","OTEL_LOG_USER_PROMPTS","OTEL_LOG_TOOL_DETAILS","XAI_API_KEY","OPENAI_API_KEY","OPENROUTER_API_KEY"]; const out={args:process.argv.slice(2)}; for (const n of names) out[n]=process.env[n] ?? null; fs.writeFileSync(process.argv[1], JSON.stringify(out));' "${grokCapture}" "$@"\n`);
+executable(path.join(bin, 'grok'), `#!/bin/sh\ntouch "${directGrokSentinel}"\n`);
 executable(path.join(systemBin, 'parallel-cli'), `#!/bin/sh\ntouch "${parallelCliSentinel}"\n`);
 
 const env = {
   ...process.env,
   HOME: home,
   PATH: `${systemBin}:${bin}:${process.env.PATH}`,
-  HERMES_ZERO_SPEND_COMMANDS: 'hermes-yolo,grok-yolo,parallel,parallel-cli',
+  HERMES_ZERO_SPEND_COMMANDS: 'hermes-yolo,grok-yolo,grok,parallel,parallel-cli',
   HERMES_ZERO_SPEND_REPLACE_PREFIXES: systemBin,
   HERMES_ZERO_SPEND_SKIP_LAUNCHCTL: '1',
   HERMES_ZERO_SPEND_LOCAL_MODELS: 'qwen3.5:9b-hermes-64k',
   OPENROUTER_API_KEY: 'must-not-reach-child',
+  OPENAI_API_KEY: 'must-not-reach-child',
+  XAI_API_KEY: 'must-not-reach-child',
   META_MODEL_API_KEY: 'must-not-reach-child',
   PARALLEL_API_KEY: 'must-not-reach-child',
 };
@@ -65,8 +69,10 @@ assert.strictEqual(firstStatus.localModel, 'qwen3.5:9b-hermes-64k');
 assert.strictEqual(firstStatus.localContextLength, 65536);
 assert.strictEqual(firstStatus.modelDaemonsQuiesced, null);
 assert.deepStrictEqual(firstStatus.quiescedLaunchAgents, []);
-assert.strictEqual(firstStatus.commandCount, 4);
+assert.strictEqual(firstStatus.commandCount, 5);
 assert.ok(firstStatus.commands.every((entry) => entry.installed));
+assert.strictEqual(firstStatus.commands.find((entry) => entry.name === 'grok-yolo').policy, 'local-only');
+assert.strictEqual(firstStatus.commands.find((entry) => entry.name === 'grok').policy, 'blocked');
 const globalEnv = fs.readFileSync(path.join(home, '.hermes', '.env'), 'utf8');
 assert.match(globalEnv, /OPENROUTER_API_KEY=stored-private-value/);
 assert.match(globalEnv, /HERMES_MANAGED_DIR=.*zero-spend\/managed/);
@@ -86,7 +92,7 @@ manifestBeforeReinstall.previousQuiescedLaunchAgents = [{ label: 'original-daemo
 fs.writeFileSync(manifestPath, `${JSON.stringify(manifestBeforeReinstall, null, 2)}\n`, { mode: 0o600 });
 const secondInstall = run(process.execPath, [sourceGate, '--install'], env);
 assert.strictEqual(secondInstall.status, 0, secondInstall.stderr);
-assert.strictEqual(JSON.parse(secondInstall.stdout).commandCount, 4, 'install must be idempotent');
+assert.strictEqual(JSON.parse(secondInstall.stdout).commandCount, 5, 'install must be idempotent');
 const manifestAfterReinstall = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
 assert.deepStrictEqual(
   manifestAfterReinstall.previousLaunchctlEnvironment,
@@ -109,10 +115,33 @@ assert.deepStrictEqual(
   'reinstall must retain the original model-daemon state',
 );
 
-const blocked = run(path.join(bin, 'grok-yolo'), ['hello'], env);
-assert.strictEqual(blocked.status, 73, blocked.stderr);
-assert.match(blocked.stderr, /blocked before provider execution/);
-assert.strictEqual(fs.existsSync(grokSentinel), false, 'blocked provider must never spawn');
+const localGrok = run(path.join(bin, 'grok-yolo'), ['--dry-run', '--json'], env);
+assert.strictEqual(localGrok.status, 0, localGrok.stderr);
+const capturedGrok = JSON.parse(fs.readFileSync(grokCapture, 'utf8'));
+assert.deepStrictEqual(capturedGrok.args, ['--dry-run', '--json']);
+assert.strictEqual(capturedGrok.HERMES_ZERO_SPEND, '1');
+assert.strictEqual(capturedGrok.GROK_YOLO_LOCAL_ONLY, '1');
+assert.strictEqual(capturedGrok.GROK_YOLO_LOCAL_MODEL, 'qwen3.5:9b-hermes-64k');
+assert.strictEqual(capturedGrok.GROK_YOLO_LOCAL_HOME, path.join(home, '.hermes', 'zero-spend', 'grok-home'));
+assert.strictEqual(capturedGrok.GROK_TELEMETRY_ENABLED, '0');
+assert.strictEqual(capturedGrok.OTEL_LOG_USER_PROMPTS, '0');
+assert.strictEqual(capturedGrok.OTEL_LOG_TOOL_DETAILS, '0');
+assert.strictEqual(capturedGrok.XAI_API_KEY, '');
+assert.strictEqual(capturedGrok.OPENAI_API_KEY, '');
+assert.strictEqual(capturedGrok.OPENROUTER_API_KEY, '');
+const grokReceipt = JSON.parse(fs.readFileSync(path.join(home, '.hermes', 'receipts', 'zero-spend', 'latest.json'), 'utf8'));
+assert.strictEqual(grokReceipt.command, 'grok-yolo');
+assert.strictEqual(grokReceipt.policy, 'local-only');
+assert.strictEqual(grokReceipt.outcome, 'local-pass');
+assert.strictEqual(grokReceipt.backend, 'grok-build-ollama');
+assert.strictEqual(grokReceipt.inferenceScope, 'local');
+assert.strictEqual(grokReceipt.providerCostUsd, 0);
+assert.strictEqual(grokReceipt.originalSpawned, true);
+
+const blockedDirectGrok = run(path.join(bin, 'grok'), ['hello'], env);
+assert.strictEqual(blockedDirectGrok.status, 73, blockedDirectGrok.stderr);
+assert.match(blockedDirectGrok.stderr, /blocked before provider execution/);
+assert.strictEqual(fs.existsSync(directGrokSentinel), false, 'direct cloud-capable Grok command must never spawn');
 
 const missingParallel = run(path.join(bin, 'parallel'), ['search'], env);
 assert.strictEqual(missingParallel.status, 73, missingParallel.stderr);
@@ -149,9 +178,10 @@ const disabled = run(process.execPath, [sourceGate, '--disable'], env);
 assert.strictEqual(disabled.status, 0, disabled.stderr);
 assert.strictEqual(JSON.parse(disabled.stdout).active, false);
 assert.doesNotMatch(fs.readFileSync(path.join(home, '.hermes', '.env'), 'utf8'), /HERMES_MANAGED_DIR=/);
+fs.unlinkSync(grokCapture);
 const passthrough = run(path.join(bin, 'grok-yolo'), [], env);
 assert.strictEqual(passthrough.status, 0, passthrough.stderr);
-assert.strictEqual(fs.existsSync(grokSentinel), true, 'disabled policy restores original command behavior');
+assert.strictEqual(fs.existsSync(grokCapture), true, 'disabled policy restores original command behavior');
 
 const fakeOllamaState = path.join(root, 'fake-ollama-model-created');
 const capturedModelFile = path.join(root, 'captured-Modelfile');
