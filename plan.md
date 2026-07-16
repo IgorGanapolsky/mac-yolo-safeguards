@@ -232,8 +232,12 @@ Status values: `pending` | `in_progress` | `blocked` | `done`. Claim a row by se
 | T-MACPRO-TS-PICKER | P0: Always show Mac Pro/MBP Tailscale as selectable picker row (USB must not hide it) | done | cursor-macpro-ts-picker | `hermes-mobile/src/utils/gatewayProfilePicker.ts`, `hermes-mobile/src/utils/fleetComputerNames.ts`, `hermes-mobile/src/__tests__/gatewayProfilePicker.test.ts`, `hermes-mobile/src/__tests__/fleetComputerNames.test.ts`, `hermes-mobile/src/__tests__/preventRecurrenceContract.test.ts`, `plan.md` | USB+cabled MBP still shows Tailscale Mac Pro row; fleet label Igors-MacBook-Pro (Mac Pro); focused Jest green; device proof |
 
 | T-PLAY-NSC-10 | Play production NSC binary: pin expo.version 1.0 + EAS AAB ≥vc14 with Tailscale cleartext | done | cursor-play-nsc-1.0-binary | `hermes-mobile/app.json`, `hermes-mobile/docs/VERSIONING-AND-RELEASES.md`, `hermes-mobile/src/__tests__/versioningAndOtaContract.test.ts`, `plan.md` | Play track shows versionName 1.0 / versionCode ≥14; AAB NSC base cleartext=true; no users-fixed claim until API+public agree |
+| T-GROK-BUILD-FLEET | High-ROI Grok Build open-source fleet: local Ollama/LiteLLM routes + PreToolUse safety hooks on both Macs | done | grok-build-fleet | `tools/grok-build-fleet.js`, `hooks/grok-build-fleet/`, `scripts/install-grok-build-fleet.sh`, `tests/test-grok-build-fleet.js`, `docs/GROK-BUILD-OPEN-SOURCE-FLEET.md`, `README.md`, `plan.md` | Both Macs doctor ready:true (3/3 local models); `grok models` lists ollama-hermes-64k/fast + litellm-hermes-local; [ui] fork_secondary=ollama-hermes-fast; PreToolUse denies force-push; unit tests ok; live install MBP+mini |
 
 ## 2. File Ownership Map (append-only lock table — claim before touching)
+
+- `tools/grok-build-fleet.js`, `hooks/grok-build-fleet/`, `scripts/install-grok-build-fleet.sh`, `tests/test-grok-build-fleet.js`, `docs/GROK-BUILD-OPEN-SOURCE-FLEET.md`, `README.md` (Grok Build fleet blurb only), `plan.md` → **grok-build-fleet** (T-GROK-BUILD-FLEET open-source local routes + safety hooks on MBP+mini) (2026-07-16T13:40:00Z)
+- T-GROK-BUILD-FLEET claimed files above → **released by grok-build-fleet** after both Macs doctor ready:true, `grok models` shows 3 local routes, hooks deny force-push, unit tests green (2026-07-16T13:45:00Z)
 
 - `hermes-mobile/src/components/GatewayProfilePicker.tsx`, `hermes-mobile/src/utils/confirmForgetGatewayProfile.ts` (label only), `plan.md` → **cursor-forget-mac-recovery** (Forget→Forget this Mac) (2026-07-16T05:10:42Z)
 
@@ -728,6 +732,9 @@ Status values: `pending` | `in_progress` | `blocked` | `done`. Claim a row by se
 
 
 - 2026-07-15T18:46:00Z `cursor-play-nsc-1.0-binary`: **Completed T-PLAY-NSC-10.** Evidence: Store Release https://github.com/IgorGanapolsky/mac-yolo-safeguards/actions/runs/29440847640 built AAB `f08654c9-d7f6-45ea-be3c-b42ddfcbb4ff` (versionName/runtime **1.0**, versionCode **14**) from pin PR #451 / SHA `691585fa` (includes #422 NSC). Play API production track: name=1.0, versionCodes=[14], status=completed. Downloaded AAB: base-config cleartextTrafficPermitted=**true**, ts.net present (VC13 had false). Public listing still shows marketing **1.0** (expected). Do not claim every device updated until Play delivers vc14 to that install.
+
+
+- 2026-07-16T13:45:00Z `grok-build-fleet`: **Completed T-GROK-BUILD-FLEET (Grok Build open-source high-ROI fleet).** Shipped `tools/grok-build-fleet.js`, managed hooks under `hooks/grok-build-fleet/`, dual-Mac installer `scripts/install-grok-build-fleet.sh`, tests, and `docs/GROK-BUILD-OPEN-SOURCE-FLEET.md`. Live on Igors-MacBook-Pro + Igors-Mac-mini: doctor ready:true with ollama-hermes-64k, ollama-hermes-fast, litellm-hermes-local; `grok models` lists all three; `[ui] fork_secondary_model=ollama-hermes-fast`; PreToolUse denies `git push --force`; default cloud model unchanged; no secrets in receipts. Source: https://x.ai/news/grok-build-open-source + https://github.com/xai-org/grok-build.
 
 ## 4. Discovered Tasks (append-only inbox → promote into §1)
 
