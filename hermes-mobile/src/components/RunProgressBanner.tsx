@@ -174,7 +174,7 @@ function RunProgressBanner({
       failedDetail ||
       staleMessage ||
       megaSessionWarning ||
-      investigation.active,
+      investigation.active ||
       completedSnippet,
   );
   const detailsExpanded = resolveRunProgressDetailsExpanded({
