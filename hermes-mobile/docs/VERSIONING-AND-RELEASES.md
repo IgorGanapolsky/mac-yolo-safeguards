@@ -1,6 +1,7 @@
 # Hermes Mobile — versioning, OTA, and store releases
 
 **Status:** canonical process (2026-07-15)  
+**LAW (crisis):** [VERSIONING-AND-RELEASES-JULY-2026.md](./VERSIONING-AND-RELEASES-JULY-2026.md) — binding Play 1.0 binary + OTA order/rollout/signing rules  
 **Related:** [OTA_UPDATES.md](./OTA_UPDATES.md), [PLAY_RELEASE.md](./PLAY_RELEASE.md), EAS `eas.json`, `app.json`
 
 This is how we ship. It is **not** “pure semver for every commit.” It is a **three-layer** model that matches Expo EAS Update + App Store / Play.
@@ -24,7 +25,7 @@ This is how we ship. It is **not** “pure semver for every commit.” It is a *
 | App Store **1.1** | 1.1 | build **16** | **WAITING_FOR_REVIEW** until released; then need OTA for runtime **1.1** |
 | Play production | **1.0** (public) | versionCode **14** NSC cleartext live (vc13 lacked cleartext) | runtime **1.0** — keep `expo.version` at **1.0**; OTA ≠ native NSC; do not claim all devices on vc14 |
 
-Commands: `npx eas-cli channel:list`, ASC / Play APIs.
+Commands: `npx eas-cli channel:list`, ASC / Play APIs. **Do not claim Play users fixed until listing shows 1.0.**
 
 ---
 
@@ -116,7 +117,7 @@ JS/TS/UI/assets only?
 | `preview` | `preview` | Sideload / internal |
 | `e2e-test` | `e2e-test` | Maestro (updates often off) |
 
-CI publishes **production first**, then preview (`mobile-ota.yml`).
+CI may publish **preview** on `main` push. **Production** OTA requires `workflow_dispatch` + `publish_production` + fresh-user `e2e=pass` (`mobile-ota.yml`). Gated production uses staged `--rollout-percentage` (default 10%) and optional `EXPO_UPDATE_PRIVATE_KEY` signing — see July 2026 law doc.
 
 ---
 
