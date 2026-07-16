@@ -186,7 +186,7 @@ describe('release safety contract', () => {
     expect(eas.build['e2e-test'].channel).toBe('e2e-test');
   });
 
-  it('mobile-ota workflow publishes preview+production on main after stranger CI proof', () => {
+  it('mobile-ota workflow: preview on push; production gated + staged rollout', () => {
     const workflow = read('.github/workflows/mobile-ota.yml');
     expect(workflow).toContain('branches:');
     expect(workflow).toContain('- main');
@@ -194,16 +194,20 @@ describe('release safety contract', () => {
     expect(workflow).toContain('workflow_dispatch');
     expect(workflow).toContain('runtimeVersion');
     expect(workflow).toContain('eas update');
-    // Amended crisis gate: dual-channel publish after stranger CI green (not USB e2e=skipped).
-    expect(workflow).toContain('for CH in preview production');
-    expect(workflow).toContain('--channel "$CH"');
+    // Crisis law: preview may publish on push; production needs publish_production + proof.
+    expect(workflow).toContain('publish-preview-ota');
+    expect(workflow).toContain('publish-production-ota');
+    expect(workflow).toContain('publish_production');
+    expect(workflow).toContain('--rollout-percentage');
+    expect(workflow).toContain('production_rollout_percentage');
+    expect(workflow).toContain('promote_production_rollout');
     expect(workflow).toContain('require-stranger-cold-start-proof.cjs');
     expect(workflow).toContain('HERMES_STRANGER_PROOF_WAIT_SEC');
     expect(workflow).toMatch(/checks:\s*read/);
-    expect(workflow).not.toContain('publish_production');
     expect(workflow).toContain('secrets.EXPO_TOKEN');
     expect(workflow).toContain('test:release-safety');
   });
+
 
   it('declares PostHog analytics data in the iOS privacy manifest', () => {
     const app = JSON.parse(read('hermes-mobile/app.json'));
