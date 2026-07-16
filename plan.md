@@ -232,23 +232,15 @@ Status values: `pending` | `in_progress` | `blocked` | `done`. Claim a row by se
 | T-MACPRO-TS-PICKER | P0: Always show Mac Pro/MBP Tailscale as selectable picker row (USB must not hide it) | done | cursor-macpro-ts-picker | `hermes-mobile/src/utils/gatewayProfilePicker.ts`, `hermes-mobile/src/utils/fleetComputerNames.ts`, `hermes-mobile/src/__tests__/gatewayProfilePicker.test.ts`, `hermes-mobile/src/__tests__/fleetComputerNames.test.ts`, `hermes-mobile/src/__tests__/preventRecurrenceContract.test.ts`, `plan.md` | USB+cabled MBP still shows Tailscale Mac Pro row; fleet label Igors-MacBook-Pro (Mac Pro); focused Jest green; device proof |
 
 | T-PLAY-NSC-10 | Play production NSC binary: pin expo.version 1.0 + EAS AAB ≥vc14 with Tailscale cleartext | done | cursor-play-nsc-1.0-binary | `hermes-mobile/app.json`, `hermes-mobile/docs/VERSIONING-AND-RELEASES.md`, `hermes-mobile/src/__tests__/versioningAndOtaContract.test.ts`, `plan.md` | Play track shows versionName 1.0 / versionCode ≥14; AAB NSC base cleartext=true; no users-fixed claim until API+public agree |
-<<<<<<< HEAD
 | T-GROK-BUILD-FLEET | High-ROI Grok Build open-source fleet: local Ollama/LiteLLM routes + PreToolUse safety hooks on both Macs | done | grok-build-fleet | `tools/grok-build-fleet.js`, `hooks/grok-build-fleet/`, `scripts/install-grok-build-fleet.sh`, `tests/test-grok-build-fleet.js`, `docs/GROK-BUILD-OPEN-SOURCE-FLEET.md`, `README.md`, `plan.md` | Both Macs doctor ready:true (3/3 local models); `grok models` lists ollama-hermes-64k/fast + litellm-hermes-local; [ui] fork_secondary=ollama-hermes-fast; PreToolUse denies force-push; unit tests ok; live install MBP+mini |
-||||||| aa86af06
-=======
 | T-AGENT-CONF-ROI | Steal Callstack Agent Conf themes into high-ROI agent tooling (control plane, alert TTM, observability gate, incident RAG) | done | cursor-agent-conf-roi | `tools/agent-control-plane.js`, `tools/alert-investigation-loop.js`, `tools/hermes-observability-gate.js`, `tools/agent-incident-capture.js`, `tools/agent-automation-status.js`, `tests/test-agent-control-plane.js`, `tests/test-alert-investigation-loop.js`, `tests/test-hermes-observability-gate.js`, `tests/test-agent-incident-capture.js`, `docs/AGENT-CONF-ROI-MAPPING-JULY-2026.md`, `plan.md` | Focused node tests green; status CLI emits health score; ship mode fails on e2e=skipped; TTM receipts close with ttmMs; Booking migration deferred |
->>>>>>> origin/main
 
 ## 2. File Ownership Map (append-only lock table — claim before touching)
 
-<<<<<<< HEAD
 - `tools/grok-build-fleet.js`, `hooks/grok-build-fleet/`, `scripts/install-grok-build-fleet.sh`, `tests/test-grok-build-fleet.js`, `docs/GROK-BUILD-OPEN-SOURCE-FLEET.md`, `README.md` (Grok Build fleet blurb only), `plan.md` → **grok-build-fleet** (T-GROK-BUILD-FLEET open-source local routes + safety hooks on MBP+mini) (2026-07-16T13:40:00Z)
 - T-GROK-BUILD-FLEET claimed files above → **released by grok-build-fleet** after both Macs doctor ready:true, `grok models` shows 3 local routes, hooks deny force-push, unit tests green (2026-07-16T13:45:00Z)
-||||||| aa86af06
-=======
 - `tools/agent-control-plane.js`, `tools/alert-investigation-loop.js`, `tools/hermes-observability-gate.js`, `tools/agent-incident-capture.js`, `tools/agent-automation-status.js`, `tests/test-agent-control-plane.js`, `tests/test-alert-investigation-loop.js`, `tests/test-hermes-observability-gate.js`, `tests/test-agent-incident-capture.js`, `docs/AGENT-CONF-ROI-MAPPING-JULY-2026.md`, `plan.md` → **cursor-agent-conf-roi** (T-AGENT-CONF-ROI Callstack Agent Conf high-ROI tooling) (2026-07-16T13:45:00Z)
 - T-AGENT-CONF-ROI claimed files above → **released by cursor-agent-conf-roi** after focused node suites green + live ship-gate fails on e2e=skipped + TTM receipt demo ttmMs=9000 (2026-07-16T13:50:00Z)
->>>>>>> origin/main
 
 - `hermes-mobile/src/components/GatewayProfilePicker.tsx`, `hermes-mobile/src/utils/confirmForgetGatewayProfile.ts` (label only), `plan.md` → **cursor-forget-mac-recovery** (Forget→Forget this Mac) (2026-07-16T05:10:42Z)
 
