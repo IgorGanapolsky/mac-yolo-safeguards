@@ -343,7 +343,7 @@ function findGrokYoloBinary(env = process.env) {
 }
 
 function classifyBackend(rawArgs, env = process.env) {
-  const backend = String(env.HERMES_YOLO_BACKEND || 'grok').trim().toLowerCase();
+  const backend = String(env.HERMES_YOLO_BACKEND || 'auto').trim().toLowerCase();
   if (!['grok', 'auto', 'hermes'].includes(backend)) {
     throw new Error(`Unsupported HERMES_YOLO_BACKEND=${backend}; expected grok, auto, or hermes`);
   }
@@ -357,7 +357,10 @@ function classifyBackend(rawArgs, env = process.env) {
   if (rawArgs.length > 0 && HERMES_COMMANDS.has(rawArgs[0])) {
     return { requestedBackend: backend, selectedBackend: 'hermes-legacy', reason: 'hermes-admin-command' };
   }
-  return { requestedBackend: backend, selectedBackend: 'grok-4.5', reason: 'default-prompt-route' };
+  if (backend === 'grok') {
+    return { requestedBackend: backend, selectedBackend: 'grok-4.5', reason: 'explicit-grok-backend' };
+  }
+  return { requestedBackend: backend, selectedBackend: 'hermes-legacy', reason: 'quota-independent-default' };
 }
 
 function shouldUseGrokBackend(rawArgs, env = process.env) {
@@ -381,10 +384,13 @@ function buildGrokBackendArgs(rawArgs, options = {}) {
 
 function routeStatus(env = process.env, dependencies = {}) {
   const grokYoloBin = findGrokYoloBinary(env);
+  const hermesBin = env.HERMES_BIN || HERMES_BIN;
+  const hermesReady = fs.existsSync(hermesBin);
   const base = {
     schema: 'hermes-yolo/route-status-v1',
     generatedAt: new Date().toISOString(),
-    defaultPromptBackend: 'grok-4.5',
+    routingMode: 'quota-independent-default',
+    defaultPromptBackend: 'hermes-legacy',
     silentFallbackAllowed: false,
     grokLauncher: grokYoloBin ? path.basename(grokYoloBin) : null,
     grokLauncherDigest: grokYoloBin ? fileDigest(grokYoloBin) : null,
@@ -392,17 +398,20 @@ function routeStatus(env = process.env, dependencies = {}) {
     legacyModel: DEFAULT_MODEL,
     receiptSchema: 'hermes-yolo/route-receipt-v1',
   };
-  if (!grokYoloBin) return { ...base, ready: false, blocker: 'grok_yolo_not_installed' };
+  if (!hermesReady) return { ...base, ready: false, blocker: 'hermes_not_installed' };
+  if (!grokYoloBin) return { ...base, ready: true, blocker: null, grokReady: false, grokBlocker: 'grok_yolo_not_installed' };
   const runner = dependencies.runner || require('child_process').spawnSync;
   const result = runner(grokYoloBin, ['--doctor', '--json'], { encoding: 'utf8', env });
-  if (result.error) return { ...base, ready: false, blocker: 'grok_doctor_failed_to_start', error: safeError(result.error.message) };
-  if (result.status !== 0) return { ...base, ready: false, blocker: 'grok_doctor_failed', exitCode: result.status };
+  if (result.error) return { ...base, ready: true, blocker: null, grokReady: false, grokBlocker: 'grok_doctor_failed_to_start', grokError: safeError(result.error.message) };
+  if (result.status !== 0) return { ...base, ready: true, blocker: null, grokReady: false, grokBlocker: 'grok_doctor_failed', grokExitCode: result.status };
   try {
     const doctor = JSON.parse(result.stdout || '{}');
     return {
       ...base,
-      ready: Boolean(doctor.ready),
-      blocker: doctor.blocker || null,
+      ready: true,
+      blocker: null,
+      grokReady: Boolean(doctor.ready),
+      grokBlocker: doctor.blocker || null,
       version: doctor.version || null,
       model: doctor.model || null,
       modelAvailable: Boolean(doctor.modelAvailable),
@@ -412,7 +421,7 @@ function routeStatus(env = process.env, dependencies = {}) {
       apiBillingActivatedByWrapper: Boolean(doctor.apiBillingActivatedByWrapper),
     };
   } catch (error) {
-    return { ...base, ready: false, blocker: 'grok_doctor_invalid_json', error: safeError(error.message) };
+    return { ...base, ready: true, blocker: null, grokReady: false, grokBlocker: 'grok_doctor_invalid_json', grokError: safeError(error.message) };
   }
 }
 

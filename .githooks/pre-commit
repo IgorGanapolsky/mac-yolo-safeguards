@@ -5,6 +5,24 @@
 # Bypass in an emergency with: git commit --no-verify
 set -euo pipefail
 
+repo_root=$(git rev-parse --show-toplevel)
+
+# 0) SECRET SCAN — runs on EVERY commit (any file type), before any early exit.
+# Blocks real credentials from ever being committed. Test fixtures / templates are
+# allowlisted in .gitleaks.toml. Added 2026-07-14 after a GitGuardian alert.
+if command -v gitleaks >/dev/null 2>&1; then
+  if ! gitleaks protect --staged --no-banner --redact \
+        --config "$repo_root/.gitleaks.toml" 2>/tmp/gitleaks-precommit.err; then
+    echo "✗ SECRET DETECTED in staged changes — commit blocked."
+    echo "  Review: $(sed -n '1,20p' /tmp/gitleaks-precommit.err)"
+    echo "  If it is a genuine test fixture, add it to .gitleaks.toml allowlist."
+    echo "  Emergency bypass (only if you are SURE): git commit --no-verify"
+    exit 1
+  fi
+else
+  echo "⚠ gitleaks not installed — secret scan skipped (brew install gitleaks)" >&2
+fi
+
 # Only act when hermes-mobile TS/TSX is staged (skip docs/asset/other commits).
 staged=$(git diff --cached --name-only --diff-filter=ACM | grep -E '^hermes-mobile/.*\.(ts|tsx)$' || true)
 [ -z "$staged" ] && exit 0
@@ -19,8 +37,9 @@ if ! npm run --silent typecheck; then
 fi
 
 # 2) Run only the tests related to the staged files (fast; full suite + coverage run in CI).
+# --runInBand avoids cross-suite pollution (ChatScreen scroll spies + open handles).
 files=$(echo "$staged" | sed 's#^hermes-mobile/##' | tr '\n' ' ')
-if ! npx jest --bail --findRelatedTests $files --passWithNoTests --watchman=false; then
+if ! npx jest --bail --runInBand --findRelatedTests $files --passWithNoTests --watchman=false; then
   echo "✗ related tests failed — commit blocked (use --no-verify to override)"
   exit 1
 fi

@@ -95,15 +95,108 @@ export function isInvalidGatewayProfile(profile: GatewayProfile): boolean {
   return !isValidGatewayUrl(profile.gatewayUrl);
 }
 
+const GENERIC_USB_LOOPBACK_ID = 'mac_usb_loopback';
+
+function isGenericUsbLoopbackProfile(profile: GatewayProfile): boolean {
+  return (
+    profile.id === GENERIC_USB_LOOPBACK_ID ||
+    (isLoopbackGatewayUrl(profile.gatewayUrl) &&
+      isGenericProfileLabel(profile.label) &&
+      !profile.hostname?.trim())
+  );
+}
+
+function namedMachineFromProfiles(
+  profiles: GatewayProfile[],
+): { hostname: string; label: string } | undefined {
+  const candidates: { hostname: string; label: string; machineKey: string }[] = [];
+  const seenKeys = new Set<string>();
+  for (const profile of profiles) {
+    if (isLoopbackGatewayUrl(profile.gatewayUrl)) {
+      continue;
+    }
+    const label = profileDisplayName(profile);
+    if (isGenericMachineLabel(label)) {
+      continue;
+    }
+    const host = bonjourHostname(profile.hostname) ?? label;
+    const machineKey = normalizeMachineKey(profile.hostname) || normalizeMachineKey(host) || host.toLowerCase();
+    if (seenKeys.has(machineKey)) {
+      continue;
+    }
+    seenKeys.add(machineKey);
+    candidates.push({
+      hostname: profile.hostname?.trim() || `${host}.local`,
+      label: host,
+      machineKey,
+    });
+  }
+  // Multi-Mac: if more than 1 distinct machine, do NOT hydrate generic USB with first one's name
+  // — would mislabel USB-to-Pro as Mini. Keep generic so header borrows live health hostname instead.
+  if (candidates.length !== 1) {
+    return undefined;
+  }
+  return candidates[0];
+}
+
+/** Copy human Mac name onto generic adb-reverse loopback rows from saved tailnet/LAN siblings. */
+function hydrateLoopbackProfileNames(profiles: GatewayProfile[]): GatewayProfile[] {
+  const namedSource = namedMachineFromProfiles(profiles);
+  let next = profiles.map((profile) => {
+    if (!isLoopbackGatewayUrl(profile.gatewayUrl) || !isGenericUsbLoopbackProfile(profile)) {
+      return profile;
+    }
+    if (!namedSource) {
+      return profile;
+    }
+    const label = resolveStoredProfileLabel({
+      gatewayUrl: profile.gatewayUrl,
+      hostname: namedSource.hostname,
+      label: namedSource.label,
+      localIp: profile.localIp ?? '127.0.0.1',
+    });
+    return {
+      ...profile,
+      id: profileIdFromGatewayUrl(profile.gatewayUrl, namedSource.label),
+      hostname: namedSource.hostname,
+      label,
+      localIp: '127.0.0.1',
+    };
+  });
+
+  const hasNamedLoopback = next.some(
+    (profile) => isLoopbackGatewayUrl(profile.gatewayUrl) && !isGenericUsbLoopbackProfile(profile),
+  );
+  if (hasNamedLoopback) {
+    next = next.filter((profile) => profile.id !== GENERIC_USB_LOOPBACK_ID);
+  }
+  return next;
+}
+
 export function sanitizeGatewayProfileState(state: GatewayProfileState): GatewayProfileState {
-  const profiles = state.profiles
+  const relabeled = state.profiles
     .filter((p) => !isInvalidGatewayProfile(p))
     .map(relabelStoredProfile);
+  const profiles = hydrateLoopbackProfileNames(relabeled);
   let activeProfileId = state.activeProfileId;
   if (activeProfileId && !profiles.some((p) => p.id === activeProfileId)) {
     activeProfileId = profiles[0]?.id ?? null;
   }
+  if (activeProfileId === GENERIC_USB_LOOPBACK_ID && hasNamedLoopbackProfile(profiles)) {
+    const namedLoopback = profiles.find(
+      (profile) =>
+        isLoopbackGatewayUrl(profile.gatewayUrl) && !isGenericUsbLoopbackProfile(profile),
+    );
+    activeProfileId = namedLoopback?.id ?? activeProfileId;
+  }
   return dedupeGatewayProfiles({ profiles, activeProfileId });
+}
+
+function hasNamedLoopbackProfile(profiles: GatewayProfile[]): boolean {
+  return profiles.some(
+    (profile) =>
+      isLoopbackGatewayUrl(profile.gatewayUrl) && !isGenericUsbLoopbackProfile(profile),
+  );
 }
 
 function isGenericProfileLabel(label: string | undefined): boolean {
@@ -573,7 +666,13 @@ export function activeProfile(state: GatewayProfileState): GatewayProfile | null
   return state.profiles.find((p) => p.id === state.activeProfileId) ?? null;
 }
 
-/** Cold-start priority: last-used active id → USB loopback → most recently connected. */
+/**
+ * Cold-start priority: last-used active id → most recently connected named/LAN/Tailscale
+ * profile → (only if preferUsb) USB loopback.
+ *
+ * Never auto-pick USB loopback over a real paired computer by default — USB health can
+ * go green without a key and produce Connected ⊕ Wrong key (2026-07-14 crisis).
+ */
 export function resolvePreferredActiveProfileId(
   state: GatewayProfileState,
   options?: { preferUsb?: boolean },
@@ -591,7 +690,10 @@ export function resolvePreferredActiveProfileId(
       return usb.id;
     }
   }
-  const sorted = [...profiles].sort((a, b) =>
+  // Prefer non-loopback computers (paired Tailscale/LAN) over synthetic USB loopback.
+  const nonUsb = profiles.filter((p) => !isLoopbackGatewayUrl(p.gatewayUrl));
+  const pool = nonUsb.length > 0 ? nonUsb : profiles;
+  const sorted = [...pool].sort((a, b) =>
     (b.lastConnectedAt ?? b.addedAt).localeCompare(a.lastConnectedAt ?? a.addedAt),
   );
   return sorted[0]?.id ?? profiles[0]?.id ?? null;
@@ -668,6 +770,18 @@ export function upsertDiscoveredProfile(
     }
     const pIp = p.localIp?.trim() || extractLanIpFromGatewayUrl(p.gatewayUrl);
     if (localIp && pIp === localIp && !isLoopbackHost(localIp) && !isLoopbackHost(pIp)) {
+      // Same LAN IP is not enough when hostnames disagree — poisoned pair.json once stamped
+      // Mac mini's Tailscale URL with the MacBook's LAN IP and silently merged Mac Pro away.
+      const existingKey =
+        normalizeMachineKey(p.hostname) ||
+        (p.label && !isGenericProfileLabel(p.label) ? normalizeMachineKey(p.label) : undefined);
+      if (
+        discoveredMachineKey &&
+        existingKey &&
+        discoveredMachineKey !== existingKey
+      ) {
+        return false;
+      }
       return true;
     }
     if (hostname && p.hostname && hostname.toLowerCase() === p.hostname.toLowerCase() && hostname.toLowerCase() !== 'localhost') {

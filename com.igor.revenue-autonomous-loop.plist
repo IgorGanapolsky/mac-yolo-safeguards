@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.igor.revenue-autonomous-loop</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>{{NODE}}</string>
+        <string>{{REPO}}/tools/revenue-autonomous-loop.js</string>
+        <string>--auto-send</string>
+        <string>--json</string>
+    </array>
+    <key>WorkingDirectory</key>
+    <string>{{REPO}}</string>
+    <key>RunAtLoad</key>
+    <true/>
+    <!-- Every 4 hours: diagnose funnel, verify Stripe links, follow up, ntfy -->
+    <key>StartInterval</key>
+    <integer>14400</integer>
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>{{HOME}}/.local/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+        <key>REVENUE_AUTO_SEND</key>
+        <string>1</string>
+        <key>REVENUE_FOLLOWUP_HOURS</key>
+        <string>48</string>
+        <key>REVENUE_MAX_AUTO_SENDS</key>
+        <string>5</string>
+        <!-- Public GitHub issue follow-ups when no email contact exists -->
+        <key>REVENUE_AUTO_GH</key>
+        <string>1</string>
+        <key>REVENUE_NTFY_QUIET_NOOP</key>
+        <string>1</string>
+        <key>REVENUE_DIR</key>
+        <string>{{HOME}}/workspace/git/igor/mac-yolo-safeguards/business_os/revenue</string>
+        <key>HOME</key>
+        <string>{{HOME}}</string>
+    </dict>
+    <key>ProcessType</key>
+    <string>Background</string>
+    <key>Nice</key>
+    <integer>10</integer>
+    <key>ThrottleInterval</key>
+    <integer>60</integer>
+    <key>StandardOutPath</key>
+    <string>{{HOME}}/Library/Logs/mac-yolo/revenue-autonomous-loop.out.log</string>
+    <key>StandardErrorPath</key>
+    <string>{{HOME}}/Library/Logs/mac-yolo/revenue-autonomous-loop.err.log</string>
+</dict>
+</plist>

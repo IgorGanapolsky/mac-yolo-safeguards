@@ -1,0 +1,36 @@
+{
+  "strictness": 2,
+  "commentTypes": ["logic", "syntax"],
+  "instructions": "Cascade from repo-root .greptile/. For hermes-mobile/** diffs, overweight connect/onboarding, Tailscale, auth probes, OTA vs native, and multi-Mac key scoping. Cite hermes-mobile/AGENTS.md fresh-user contract when flagging copy or gate regressions.",
+  "rules": [
+    {
+      "id": "hm-single-cta",
+      "severity": "high",
+      "scope": [
+        "src/components/ConnectMacGate.tsx",
+        "src/components/ChatConnectionPanel.tsx",
+        "src/components/FreshUserOnboardingCard.tsx",
+        "src/components/CodexCommandCenter.tsx"
+      ],
+      "rule": "Connection surfaces must expose exactly one primary CTA at a time. Competing banners (Connected + Can't reach, Find computers + Fix USB + Pair relay) are regressions."
+    },
+    {
+      "id": "hm-auth-connected",
+      "severity": "high",
+      "scope": [
+        "src/services/gatewayClient.ts",
+        "src/utils/gatewayConnection.ts",
+        "src/components/ChatScreenHeader.tsx",
+        "src/components/CodexCommandCenter.tsx",
+        "src/screens/ChatScreen.tsx"
+      ],
+      "rule": "UI must not show Connected when auth probe fails (401/wrong key). /health 200 without authenticated probe is a ship-blocker false green."
+    },
+    {
+      "id": "hm-maestro-composer-string",
+      "severity": "medium",
+      "scope": [".maestro/**", "src/__tests__/preventRecurrenceContract.test.ts"],
+      "rule": "Device/Maestro chat composer automation must type only 'make money today' — never gibberish probe strings."
+    }
+  ]
+}

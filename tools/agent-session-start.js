@@ -103,20 +103,54 @@ function maybeQueuePhoneInstall() {
 
   const logPath = path.join(HERMES_MOBILE_DIR, 'docs/proofs/phone-install-once.log');
   fs.mkdirSync(path.dirname(logPath), { recursive: true });
-  const label = `com.igor.hermes-phone-install-once.${process.getuid?.() ?? '0'}`;
+  const uid = process.getuid?.() ?? 0;
+  const label = `com.igor.hermes-phone-install-once.${uid}`;
+  const domain = `gui/${uid}/${label}`;
   const pairScript = path.join(REPO, 'tools/hermes-mobile-pair.js');
   const cmd = [
     'export SENTRY_DISABLE_AUTO_UPLOAD=true HERMES_AGENT_LABEL=session-start',
     `cd "${HERMES_MOBILE_DIR}" && bash scripts/install-phone-release.sh`,
     `node "${pairScript}" --mini-tailscale --no-serve`,
   ].join(' && ');
+  const oneShotCmd = [
+    cmd,
+    'status=$?',
+    // `launchctl submit` infers KeepAlive for submitted jobs. Remove this job
+    // before the shell exits so a successful install/pair cannot restart-loop.
+    `launchctl remove "${label}"`,
+    'exit "$status"',
+  ].join('; ');
 
   const lockResult = withPhonePipelineLock(
     'session-start:queue-phone-install',
     () => {
+      // A completed `launchctl submit` one-shot can leave a persistent disabled
+      // override even though the job is no longer present. Clear that override
+      // before reusing the stable per-user label on the next session start.
+      const enable = spawnSync('launchctl', ['enable', domain], {
+        encoding: 'utf8',
+        timeout: 10_000,
+      });
+      if (enable.status !== 0) {
+        throw new Error(
+          enable.stderr?.trim() || enable.stdout?.trim() || 'launchctl enable failed',
+        );
+      }
       const submit = spawnSync(
         'launchctl',
-        ['submit', '-l', label, '-o', logPath, '-e', logPath, '--', '/bin/bash', '-lc', cmd],
+        [
+          'submit',
+          '-l',
+          label,
+          '-o',
+          logPath,
+          '-e',
+          logPath,
+          '--',
+          '/bin/bash',
+          '-lc',
+          oneShotCmd,
+        ],
         { encoding: 'utf8', timeout: 10_000 },
       );
       if (submit.status !== 0) {
@@ -184,7 +218,7 @@ if (phoneInstall.queued) {
   const lockResult = withPhonePipelineLock(
     'session-start:auto-pair',
     () => {
-      pair = runNode('tools/hermes-mobile-pair.js', ['--no-serve'], 60_000);
+      pair = runNode('tools/hermes-mobile-pair.js', ['--no-serve'], 90_000);
     },
     { waitMs: 30_000, skipIfBusy: true },
   );
@@ -192,6 +226,17 @@ if (phoneInstall.queued) {
     process.stdout.write(
       `\n=== Hermes Mobile auto-pair: skipped (${lockResult.reason || 'pipeline busy'}) ===\n`,
     );
+  } else if (lockResult.ran && pair.status !== 0) {
+    if (!json) {
+      process.stdout.write('\n=== Hermes Mobile auto-pair: FAILED ===\n');
+      process.stdout.write(
+        `pair exit=${pair.status} — phone present but host/key bind or auth probe failed. ` +
+          `Refuse ready claim. Fix: node tools/hermes-mobile-pair.js --no-serve\n`,
+      );
+      if (pair.stderr) process.stderr.write(pair.stderr);
+    }
+    // Fresh-install contract: do not continue as if paired when adb device is present.
+    process.exitCode = process.exitCode || 2;
   }
 }
 if (!json && pair.stdout) {
@@ -263,6 +308,32 @@ if (e2eNeedsKickstart(latestE2e)) {
   }
 }
 
+// Smart ops: efficient revenue + agent heal (skips fresh work). Zero CEO labor.
+const smartOps = runNode('tools/smart-ops-controller.js', ['--json'], 90_000);
+if (!json) {
+  process.stdout.write('\n=== Smart ops (efficient) ===\n');
+  if (smartOps.status === 0 && smartOps.stdout) {
+    try {
+      const s = JSON.parse(smartOps.stdout);
+      const rev = s.revenue || {};
+      process.stdout.write(
+        [
+          `duration_ms=${s.durationMs} agents=${(s.agents || []).filter((a) => a.loaded).length}/${(s.agents || []).length}`,
+          rev.skipped
+            ? `revenue=skipped_fresh_${(rev.ageMin || 0).toFixed?.(1) || rev.ageMin}m`
+            : `revenue ok=${rev.ok} open=$${rev.funnel?.openGross ?? '?'} due=${rev.due?.length ?? 0} sent=${rev.sentCount || 0} noop=${rev.noop}`,
+          ...(s.actions || []).slice(0, 8),
+          '',
+        ].join('\n'),
+      );
+    } catch {
+      process.stdout.write(smartOps.stdout.slice(0, 800));
+    }
+  } else if (smartOps.stderr) {
+    process.stderr.write(smartOps.stderr.slice(0, 500));
+  }
+}
+
 const briefArgs = ['tools/ceo-operating-brief.js'];
 if (json) briefArgs.push('--json');
 if (full) briefArgs.push('--full');
@@ -272,6 +343,21 @@ if (brief.stdout) process.stdout.write(brief.stdout);
 if (brief.stderr) process.stderr.write(brief.stderr);
 
 if (fs.existsSync(DEFAULT_VAULT)) {
+  const vaultPull = spawnSync('bash', [path.join(REPO, 'scripts/agent-vault-sync.sh'), '--pull-only'], {
+    cwd: REPO,
+    encoding: 'utf8',
+    timeout: 30_000,
+    maxBuffer: 256 * 1024,
+    env: { ...process.env, VAULT_PATH: DEFAULT_VAULT },
+  });
+  if (!json && vaultPull.stdout?.trim()) {
+    process.stdout.write('\n=== AI-Agent-Sync vault pull ===\n');
+    vaultPull.stdout
+      .trim()
+      .split('\n')
+      .forEach((line) => process.stdout.write(`${line}\n`));
+  }
+
   const syncBrief = runNode('tools/agent-sync-brief.js', ['--vault', DEFAULT_VAULT], 60_000);
   if (!json && syncBrief.status === 0 && syncBrief.stdout) {
     const syncLines = syncBrief.stdout

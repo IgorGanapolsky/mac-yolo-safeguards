@@ -63,6 +63,33 @@ describe('relayRouting', () => {
     expect(display.routeStatus).toBe('Reconnecting…');
   });
 
+  it('never says Reconnecting for fresh loopback / empty URL while healing', () => {
+    const empty = resolveRelayRouteDisplay({
+      connectionMode: 'relay',
+      isPaired: false,
+      connectionState: 'disconnected',
+      workers: [],
+      fallbackMachineLabel: 'Computer',
+      gatewayUrl: '',
+      heal: { attempt: 1, inFlight: true, exhausted: false },
+      macHttpOk: false,
+    });
+    expect(empty.routeStatus).toBe('Looking for your Mac…');
+    expect(empty.routeStatus.toLowerCase()).not.toContain('reconnect');
+
+    const usb = resolveRelayRouteDisplay({
+      connectionMode: 'relay',
+      isPaired: false,
+      connectionState: 'disconnected',
+      workers: [],
+      fallbackMachineLabel: 'Computer via USB',
+      gatewayUrl: 'http://127.0.0.1:8642',
+      heal: { attempt: 1, inFlight: true, exhausted: false },
+      macHttpOk: false,
+    });
+    expect(usb.routeStatus).toBe('Looking for your Mac…');
+  });
+
   it('routes paired relay to active worker and hides LAN endpoint details', () => {
     const display = resolveRelayRouteDisplay({
       connectionMode: 'relay',

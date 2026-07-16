@@ -4,10 +4,16 @@ import {
   humanizeComposerStatus,
   humanizeRunProgressDetail,
   isActiveChatRun,
+  isLegacyReplyReadyDetail,
   isRunProgressStale,
+  REPLY_READY_ACTION_TITLE,
+  REPLY_READY_BANNER_TITLE,
   runProgressBannerTitle,
+  runProgressCompletedSnippet,
+  runProgressCompletedTitle,
   runProgressElapsedSeconds,
   runProgressFailedTitle,
+  shouldShowCompletedRunBanner,
   shouldShowComposerProgressBanner,
   staleRunProgressDetail,
 } from '../utils/runProgressDisplay';
@@ -17,6 +23,45 @@ describe('runProgressDisplay', () => {
     expect(humanizeRunProgressDetail('Sending to your computer…')).toBe('Delivering your message…');
     expect(humanizeRunProgressDetail('running skill_view')).toBe('Reading a skill on your computer…');
     expect(humanizeRunProgressDetail('running web_search')).toBe('Running web search on your computer…');
+  });
+
+  it('maps legacy reply-ready chrome to actionable consumer copy', () => {
+    expect(isLegacyReplyReadyDetail('Reply ready on your computer')).toBe(true);
+    expect(isLegacyReplyReadyDetail('Ready on your computer')).toBe(true);
+    expect(humanizeRunProgressDetail('Reply ready on your computer', 'completed')).toBe(
+      REPLY_READY_ACTION_TITLE,
+    );
+    expect(humanizeRunProgressDetail('Task completed')).toBe(REPLY_READY_ACTION_TITLE);
+    expect(humanizeRunProgressDetail(undefined, 'completed')).toBe(REPLY_READY_ACTION_TITLE);
+    expect(
+      runProgressCompletedTitle({
+        phase: 'completed',
+        startedAtMs: Date.now(),
+        detail: 'Reply ready on your computer',
+      }),
+    ).toBe(REPLY_READY_ACTION_TITLE);
+    expect(
+      runProgressCompletedTitle({
+        phase: 'completed',
+        startedAtMs: Date.now(),
+        detail: REPLY_READY_BANNER_TITLE,
+        replyPreview: 'Here is the revenue plan for today.',
+      }),
+    ).toBe(REPLY_READY_BANNER_TITLE);
+    expect(
+      runProgressCompletedSnippet({
+        phase: 'completed',
+        startedAtMs: Date.now(),
+        replyPreview: 'Here is the revenue plan for today.',
+      }),
+    ).toBe('Here is the revenue plan for today.');
+  });
+
+  it('never shows bare Aborted in progress or failed titles', () => {
+    expect(humanizeRunProgressDetail('Aborted', 'failed')).toMatch(/Stopped before finishing/i);
+    expect(humanizeRunProgressDetail('Aborted', 'failed').toLowerCase()).not.toContain('aborted');
+    expect(runProgressFailedTitle('Aborted').toLowerCase()).not.toContain('aborted');
+    expect(runProgressFailedTitle('Aborted')).toMatch(/tap ↑/i);
   });
 
   it('emphasizes live streaming in banner title during token stream', () => {
@@ -187,5 +232,15 @@ describe('runProgressDisplay', () => {
       }),
     ).toBe(3939);
     expect(staleRunProgressDetail()).toContain('may be stuck');
+  });
+});
+
+
+describe('shouldShowCompletedRunBanner', () => {
+  it('hides the banner when the reply is already on screen', () => {
+    expect(shouldShowCompletedRunBanner(true)).toBe(false);
+  });
+  it('keeps the banner when there is no visible assistant reply yet', () => {
+    expect(shouldShowCompletedRunBanner(false)).toBe(true);
   });
 });

@@ -1,5 +1,5 @@
 import React from 'react';
-import { render } from '@testing-library/react-native';
+import { fireEvent, render, waitFor } from '@testing-library/react-native';
 import ConnectMacGate from '../components/ConnectMacGate';
 import { DEFAULT_GATEWAY_SETTINGS } from '../types/gateway';
 
@@ -13,6 +13,7 @@ jest.mock('../services/haptics', () => ({
   haptics: {
     success: jest.fn(),
     warning: jest.fn(),
+    light: jest.fn(),
   },
 }));
 
@@ -30,15 +31,19 @@ function gateway(overrides = {}) {
     profileScanProgress: null,
     profileScanResult: null,
     gatewayProfiles: [],
+    activeGatewayProfile: null,
     effectiveGatewayUrl: '',
     applySetupDeepLink: jest.fn(),
     retryGatewayBootstrap: jest.fn(),
     scanForGatewayProfiles: jest.fn(),
+    selectGatewayProfile: jest.fn().mockResolvedValue(true),
     tailscaleDiscoveries: [],
     tailscaleDiscoveryProbing: false,
     addDiscoveredTailscaleComputer: jest.fn(),
     probeTailscaleComputers: jest.fn(),
     addGatewayProfile: jest.fn(),
+    patchSettings: jest.fn().mockResolvedValue(undefined),
+    wifiConnected: true,
     ...overrides,
   };
 }
@@ -55,6 +60,24 @@ describe('ConnectMacGate', () => {
     }
   });
 
+  it('shows the gate for fresh unpaired relay defaults (product cold start)', () => {
+    delete process.env.EXPO_PUBLIC_E2E_AUTOMATION;
+    mockUseGateway.mockReturnValue(
+      gateway({
+        settings: {
+          ...DEFAULT_GATEWAY_SETTINGS,
+          demoMode: false,
+        },
+        gatewayProfiles: [],
+        effectiveGatewayUrl: '',
+      }),
+    );
+    const view = render(<ConnectMacGate />);
+    expect(DEFAULT_GATEWAY_SETTINGS.connectionMode).toBe('relay');
+    expect(view.getByTestId('connect-mac-gate')).toBeTruthy();
+    expect(view.getByTestId('connect-mac-onboarding-card')).toBeTruthy();
+  });
+
   it('shows first-run computer setup when no machine is reachable or saved', () => {
     delete process.env.EXPO_PUBLIC_E2E_AUTOMATION;
     mockUseGateway.mockReturnValue(gateway());
@@ -63,6 +86,7 @@ describe('ConnectMacGate', () => {
 
     expect(view.getByTestId('connect-mac-gate')).toBeTruthy();
     expect(view.getAllByText('Connect your computer').length).toBeGreaterThan(0);
+    expect(view.getByTestId('connect-mac-gate-dismiss')).toBeTruthy();
   });
 
   it('does not treat the unreachable USB loopback placeholder as a saved computer', () => {
@@ -100,5 +124,87 @@ describe('ConnectMacGate', () => {
     const view = render(<ConnectMacGate />);
 
     expect(view.queryByTestId('connect-mac-gate')).toBeNull();
+  });
+
+  it('persists dismiss so the gate does not immediately re-trap', () => {
+    delete process.env.EXPO_PUBLIC_E2E_AUTOMATION;
+    const patchSettings = jest.fn().mockResolvedValue(undefined);
+    mockUseGateway.mockReturnValue(gateway({ patchSettings }));
+
+    const view = render(<ConnectMacGate />);
+    fireEvent.press(view.getByTestId('connect-mac-gate-dismiss'));
+
+    expect(patchSettings).toHaveBeenCalledWith({ connectMacGateDismissed: true });
+  });
+
+  it('hides the gate after the user has dismissed it', () => {
+    delete process.env.EXPO_PUBLIC_E2E_AUTOMATION;
+    mockUseGateway.mockReturnValue(
+      gateway({
+        settings: {
+          ...DEFAULT_GATEWAY_SETTINGS,
+          connectionMode: 'gateway',
+          demoMode: false,
+          connectMacGateDismissed: true,
+        },
+      }),
+    );
+
+    const view = render(<ConnectMacGate />);
+    expect(view.queryByTestId('connect-mac-gate')).toBeNull();
+  });
+
+  it('renders tappable machine rows when scan finds computers', async () => {
+    delete process.env.EXPO_PUBLIC_E2E_AUTOMATION;
+    const selectGatewayProfile = jest.fn().mockResolvedValue(true);
+    const retryGatewayBootstrap = jest.fn().mockResolvedValue(true);
+    mockUseGateway.mockReturnValue(
+      gateway({
+        profileScanResult: { foundCount: 2, completedAtMs: Date.now() },
+        gatewayProfiles: [
+          {
+            id: 'mac-mini',
+            label: 'Mac mini',
+            gatewayUrl: 'http://192.168.1.50:8642',
+            localIp: '192.168.1.50',
+            addedAt: '2026-07-15T00:00:00.000Z',
+          },
+          {
+            id: 'macbook-pro',
+            label: 'MacBook Pro',
+            gatewayUrl: 'http://100.87.85.85:8642',
+            localIp: '100.87.85.85',
+            addedAt: '2026-07-15T00:00:00.000Z',
+          },
+        ],
+        selectGatewayProfile,
+        retryGatewayBootstrap,
+      }),
+    );
+
+    const view = render(<ConnectMacGate />);
+
+    expect(view.getByTestId('connect-mac-found-machines')).toBeTruthy();
+    expect(view.getByTestId('select-gateway-profile-mac-mini')).toBeTruthy();
+    fireEvent.press(view.getByTestId('select-gateway-profile-mac-mini'));
+    await waitFor(() => {
+      expect(selectGatewayProfile).toHaveBeenCalled();
+      expect(retryGatewayBootstrap).toHaveBeenCalled();
+    });
+  });
+
+  it('uses cellular onboarding copy when not on Wi-Fi', () => {
+    delete process.env.EXPO_PUBLIC_E2E_AUTOMATION;
+    mockUseGateway.mockReturnValue(gateway({ wifiConnected: false }));
+
+    const view = render(<ConnectMacGate />);
+
+    expect(view.getByText('Use Tailscale from cellular')).toBeTruthy();
+    expect(view.queryByText('Same home Wi‑Fi')).toBeNull();
+    expect(
+      view.getByText(
+        /On cellular, use Tailscale — we also search when you are on home Wi‑Fi/,
+      ),
+    ).toBeTruthy();
   });
 });

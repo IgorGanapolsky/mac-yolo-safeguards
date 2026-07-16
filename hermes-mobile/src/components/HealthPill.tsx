@@ -27,7 +27,11 @@ export default function HealthPill({ level, detail }: HealthPillProps) {
     <View style={styles.pill}>
       <View style={[styles.dot, { backgroundColor: DOT_COLORS[level] }]} />
       <Text style={styles.label}>{LABELS[level]}</Text>
-      {detail ? <Text style={styles.detail}>{detail}</Text> : null}
+      {detail ? (
+        <Text style={styles.detail} numberOfLines={1} ellipsizeMode="tail">
+          {detail}
+        </Text>
+      ) : null}
     </View>
   );
 }
@@ -36,7 +40,10 @@ const styles = StyleSheet.create({
   pill: {
     flexDirection: 'row',
     alignItems: 'center',
-    alignSelf: 'flex-start',
+    alignSelf: 'stretch',
+    flexShrink: 1,
+    maxWidth: '100%',
+    flexWrap: 'wrap',
     backgroundColor: colors.cardBg,
     borderRadius: 999,
     borderWidth: 1,
@@ -58,5 +65,6 @@ const styles = StyleSheet.create({
   detail: {
     fontSize: 10,
     color: colors.textMuted,
+    flexShrink: 1,
   },
 });

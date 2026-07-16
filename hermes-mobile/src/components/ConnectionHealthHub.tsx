@@ -130,7 +130,7 @@ export default function ConnectionHealthHub({
 
       {gatewayModelLabel ? (
         <Text style={styles.modelLine} testID="connection-health-model" numberOfLines={2}>
-          Routed model: {gatewayModelLabel}
+          Model: {gatewayModelLabel}
         </Text>
       ) : null}
 

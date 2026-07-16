@@ -51,7 +51,10 @@ describe('GatewayProfilePicker', () => {
       />,
     );
     fireEvent.press(getByTestId('select-gateway-profile-mac_192_168_12_50'));
-    expect(onSelect).toHaveBeenCalledWith('mac_192_168_12_50');
+    expect(onSelect).toHaveBeenCalledWith(
+      'mac_192_168_12_50',
+      expect.objectContaining({ id: 'mac_192_168_12_50' }),
+    );
   });
 
   it('shows reachability hints when multiple profiles and off Wi-Fi', () => {
@@ -65,13 +68,41 @@ describe('GatewayProfilePicker', () => {
       />,
     );
     expect(getByTestId('gateway-profile-item-mac_192_168_12_208')).toHaveTextContent(
-      /Needs tunnel \(cellular\)/,
+      /Needs home Wi‑Fi or Tailscale/,
     );
     expect(getByTestId('gateway-profile-item-mac_192_168_12_50')).toHaveTextContent(
-      /Needs tunnel/,
+      /Needs home Wi‑Fi or Tailscale/,
     );
-    expect(getByTestId('gateway-profile-item-mac_usb')).toHaveTextContent(/Select/);
-    expect(getByTestId('gateway-profile-item-mac_usb')).not.toHaveTextContent(/USB/);
+    expect(getByTestId('gateway-profile-item-mac_usb')).toHaveTextContent(/USB|cable|Cable/i);
+  });
+
+  it('passes synthesized live USB profile on tap when cable is plugged in', () => {
+    const liveUsb = {
+      id: 'mac_127_0_0_1_igors_macbook_pro',
+      label: 'Igors-MacBook-Pro',
+      gatewayUrl: 'http://127.0.0.1:8642',
+      hostname: 'Igors-MacBook-Pro.local',
+      localIp: '127.0.0.1',
+      addedAt: '2026-07-14T05:00:00.000Z',
+    };
+    const onSelect = jest.fn();
+    const { getByTestId } = render(
+      <GatewayProfilePicker
+        profiles={[liveUsb, profiles[1]]}
+        activeProfileId="mac_192_168_12_50"
+        onSelect={onSelect}
+        liveUsb={{ reachable: true, hostname: 'Igors-MacBook-Pro.local' }}
+        showReachabilityHints
+      />,
+    );
+    fireEvent.press(getByTestId(`select-gateway-profile-${liveUsb.id}`));
+    expect(onSelect).toHaveBeenCalledWith(
+      liveUsb.id,
+      expect.objectContaining({
+        gatewayUrl: 'http://127.0.0.1:8642',
+        label: 'Igors-MacBook-Pro',
+      }),
+    );
   });
 
   it('shows amber needs re-pair for active profile when auth fails', () => {
@@ -92,5 +123,21 @@ describe('GatewayProfilePicker', () => {
     expect(getByTestId('gateway-profile-item-mac_192_168_12_208')).not.toHaveTextContent(
       /Connected/,
     );
+  });
+
+  it('labels destructive action Forget this Mac (not Remove) for saved non-USB computers', () => {
+    const onRemove = jest.fn();
+    const { getByTestId, queryByText } = render(
+      <GatewayProfilePicker
+        profiles={profiles}
+        activeProfileId="mac_192_168_12_208"
+        onSelect={jest.fn()}
+        onRemove={onRemove}
+      />,
+    );
+    expect(getByTestId('remove-gateway-profile-mac_192_168_12_50')).toHaveTextContent(/^Forget this Mac$/);
+    expect(queryByText('Remove')).toBeNull();
+    fireEvent.press(getByTestId('remove-gateway-profile-mac_192_168_12_50'));
+    expect(onRemove).toHaveBeenCalledWith('mac_192_168_12_50');
   });
 });

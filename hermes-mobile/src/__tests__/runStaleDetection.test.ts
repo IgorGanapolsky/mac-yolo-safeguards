@@ -11,6 +11,7 @@ import {
   msUntilRunStaleAutoFail,
   msUntilStreamIdleFail,
   runStaleHint,
+  shouldAutoClearStalledRun,
   shouldFailRunAwaitingFirstToken,
   shouldFailRunForStreamIdle,
   stampRunProgressActivity,
@@ -45,11 +46,28 @@ describe('runStaleDetection', () => {
     expect(classifyRunStale(baseProgress(), RUN_STALE_AUTO_FAIL_MS + 1)).toBe('expired');
   });
 
-  it('does not treat token-only updates as meaningful progress', () => {
-    const prev = baseProgress({ detail: 'running bash', lastProgressAtMs: 50_000 });
-    const next = { ...prev, inputTokens: 100, outputTokens: 20 };
+  it('does not treat unchanged token counters as meaningful progress', () => {
+    const prev = baseProgress({
+      detail: 'running bash',
+      lastProgressAtMs: 50_000,
+      inputTokens: 100,
+      outputTokens: 20,
+    });
+    const next = { ...prev };
     expect(isMeaningfulRunProgressChange(prev, next)).toBe(false);
     expect(stampRunProgressActivity(prev, next, 200_000).lastProgressAtMs).toBe(50_000);
+  });
+
+  it('treats advancing output tokens as meaningful progress', () => {
+    const prev = baseProgress({
+      detail: 'running bash',
+      lastProgressAtMs: 50_000,
+      outputTokens: 20,
+    });
+    const next = { ...prev, outputTokens: 21 };
+
+    expect(isMeaningfulRunProgressChange(prev, next)).toBe(true);
+    expect(stampRunProgressActivity(prev, next, 200_000).lastProgressAtMs).toBe(200_000);
   });
 
   it('stamps lastProgressAtMs on detail change', () => {
@@ -63,11 +81,11 @@ describe('runStaleDetection', () => {
     expect(msUntilRunStaleAutoFail(progress, 1_000 + 60_000)).toBe(RUN_STALE_AUTO_FAIL_MS - 60_000);
   });
 
-  it('fails runs with zero output tokens after 90s', () => {
+  it('fails runs with zero output tokens after 45s', () => {
     const progress = baseProgress({ startedAtMs: 1_000, outputTokens: 0 });
-    expect(shouldFailRunAwaitingFirstToken(progress, 1_000 + 89_999)).toBe(false);
-    expect(shouldFailRunAwaitingFirstToken(progress, 1_000 + 90_000)).toBe(true);
-    expect(msUntilNoTokenFail(progress, 1_000 + 30_000)).toBe(60_000);
+    expect(shouldFailRunAwaitingFirstToken(progress, 1_000 + 44_999)).toBe(false);
+    expect(shouldFailRunAwaitingFirstToken(progress, 1_000 + 45_000)).toBe(true);
+    expect(msUntilNoTokenFail(progress, 1_000 + 15_000)).toBe(30_000);
   });
 
   it('does not fail awaiting-first-token once output tokens arrive', () => {
@@ -81,15 +99,11 @@ describe('runStaleDetection', () => {
     expect(isTerminalGatewayRunStatus('stopping')).toBe(true);
   });
 
-  it('uses shorter auto-fail for mega sessions', () => {
+  it('uses the same auto-fail window for mega sessions (no early phone kill)', () => {
     const session = { input_tokens: 4_900_000, output_tokens: 20_000 };
-    expect(classifyRunStale(baseProgress(), MEGA_SESSION_RUN_STALE_AUTO_FAIL_MS + 1, session)).toBe(
-      'expired',
-    );
+    expect(MEGA_SESSION_RUN_STALE_AUTO_FAIL_MS).toBe(RUN_STALE_AUTO_FAIL_MS);
+    expect(classifyRunStale(baseProgress(), RUN_STALE_AUTO_FAIL_MS + 1, session)).toBe('expired');
     expect(msUntilRunStaleAutoFail(baseProgress({ startedAtMs: 1_000 }), 60_000, session)).toBe(
-      MEGA_SESSION_RUN_STALE_AUTO_FAIL_MS - 59_000,
-    );
-    expect(msUntilRunStaleAutoFail(baseProgress({ startedAtMs: 1_000 }), 60_000)).toBe(
       RUN_STALE_AUTO_FAIL_MS - 59_000,
     );
   });
@@ -101,5 +115,22 @@ describe('runStaleDetection', () => {
     });
     expect(shouldFailRunForStreamIdle(progress, RUN_STREAM_IDLE_FAIL_MS + 61_000)).toBe(true);
     expect(msUntilStreamIdleFail(progress, 30_000)).toBeGreaterThan(0);
+  });
+
+  it('auto-clears stalled runs without babysitting Stop (no-token / idle / expired)', () => {
+    expect(shouldAutoClearStalledRun(null)).toBe(false);
+    expect(shouldAutoClearStalledRun(baseProgress({ phase: 'completed' }), 120_000)).toBe(false);
+
+    const awaiting = baseProgress({ startedAtMs: 0, outputTokens: 0 });
+    expect(shouldAutoClearStalledRun(awaiting, 90_000)).toBe(true);
+
+    const idle = baseProgress({
+      startedAtMs: 0,
+      lastProgressAtMs: 0,
+      outputTokens: 5,
+    });
+    expect(shouldAutoClearStalledRun(idle, RUN_STREAM_IDLE_FAIL_MS + 61_000)).toBe(true);
+
+    expect(shouldAutoClearStalledRun(baseProgress(), RUN_STALE_AUTO_FAIL_MS + 1)).toBe(true);
   });
 });

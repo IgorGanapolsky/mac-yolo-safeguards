@@ -5,10 +5,11 @@ const root = path.resolve(__dirname, '../../..');
 const read = (relativePath: string) => fs.readFileSync(path.join(root, relativePath), 'utf8');
 
 describe('release safety net (T-114)', () => {
-  it('mobile-e2e workflow runs on pull_request and push with SHA-pinned actions', () => {
+  it('mobile-e2e workflow runs on pull_request, push, and merge_group with SHA-pinned actions', () => {
     const workflow = read('.github/workflows/mobile-e2e.yml');
     expect(workflow).toMatch(/^\s*pull_request:/m);
     expect(workflow).toMatch(/^\s*push:/m);
+    expect(workflow).toMatch(/^\s*merge_group:/m);
     expect(workflow).toContain('actions/setup-java@c1e323688fd81a25caa38c78aa6df2d33d3e20d9');
     expect(workflow).toContain(
       'reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d',
@@ -16,8 +17,31 @@ describe('release safety net (T-114)', () => {
     expect(workflow).not.toMatch(/android-emulator-runner@v2\s*$/m);
     expect(workflow).not.toMatch(/setup-java@v4\s*#/);
     expect(workflow).toContain('ship-guard.yaml');
+    expect(workflow).toContain('stranger-cold-start.yaml');
+    expect(workflow).toContain('Maestro stranger cold-start (Android emulator)');
+    expect(workflow).toContain('STRANGER_COLD_START_ASSEMBLE');
     expect(workflow).toContain('e2e:validate');
     expect(workflow).toContain('test:release-safety');
+  });
+
+  it('pre-OTA scripts hard-fail without stranger cold-start proof by default', () => {
+    const script = read('hermes-mobile/scripts/require-stranger-cold-start-proof.cjs');
+    const pkg = read('hermes-mobile/package.json');
+    const ota = read('.github/workflows/mobile-ota.yml');
+    expect(script).toContain('HARD by default');
+    expect(script).toContain('HERMES_OTA_REQUIRE_STRANGER_PROOF');
+    expect(script).toContain('--soft');
+    expect(script).toContain('STRANGER_COLD_START_ASSEMBLE');
+    expect(script).toContain('clearState');
+    expect(script).toContain('checkGithubStrangerProof');
+    expect(pkg).toContain('require-stranger-cold-start-proof.cjs --hard');
+    expect(ota).toContain('require-stranger-cold-start-proof.cjs');
+    expect(ota).toContain('HERMES_STRANGER_PROOF_WAIT_SEC');
+    expect(ota).not.toContain("HERMES_OTA_REQUIRE_STRANGER_PROOF: '1'");
+    expect(ota).toMatch(/checks:\s*read/);
+    const e2e = read('.github/workflows/mobile-e2e.yml');
+    // Stranger job validates structure with --soft; it produces the runtime proof.
+    expect(e2e).toContain('require-stranger-cold-start-proof.cjs --soft');
   });
 
   it('install-phone-release refuses when unit tests fail and warns on non-pass E2E', () => {
@@ -49,7 +73,7 @@ describe('release safety net (T-114)', () => {
     const flow = read('hermes-mobile/.maestro/chat-send-persistence.yaml');
     expect(flow).toContain('IME');
     expect(flow).toContain('chat-message-user');
-    expect(flow).toContain('e2e-chat-send-persist');
+    expect(flow).toContain('make money today');
     expect(flow).toContain('chat-e2e-bootstrap.yaml');
   });
 
@@ -73,7 +97,7 @@ describe('release safety net (T-114)', () => {
 
     const send = read('hermes-mobile/.maestro/regression-chat-send-visible.yaml');
     expect(send).toContain('chat-message-user');
-    expect(send).toContain('e2e-persist-probe-keep-visible');
+    expect(send).toContain('make money today');
 
     const refresh = read('hermes-mobile/.maestro/regression-leash-refresh.yaml');
     expect(refresh).toContain('leash-refresh-status');
@@ -91,6 +115,15 @@ describe('release safety net (T-114)', () => {
     expect(validator).toContain("'regression-leash-refresh'");
     expect(validator).toContain("'regression-chat-header-model'");
     expect(validator).toContain("'chat-send-persistence'");
+    expect(validator).toContain("'stranger-cold-start'");
+    expect(validator).toContain("'wrong-key-repair'");
+  });
+
+  it('continuous E2E records fail when android-only and no USB phone', () => {
+    const runner = read('hermes-mobile/scripts/run-continuous-e2e.sh');
+    expect(runner).toMatch(/e2e_status="fail"/);
+    expect(runner).toContain('no USB Android device connected');
+    expect(runner).not.toContain('android-only continuous E2E skipped');
   });
 
   it('unit gates already cover notifications, auto-scroll, model header, and leash spinner', () => {
@@ -124,11 +157,26 @@ describe('release safety net (T-114)', () => {
   it('pair script resolves per-machine API keys for Mac mini Tailscale', () => {
     const pairLib = read('tools/hermes-mobile-pair-lib.js');
     expect(pairLib).toContain('resolveApiKeyForGatewayUrl');
+    expect(pairLib).toContain('assertHostKeyConsistency');
+    expect(pairLib).toContain('MINI_KEY_UNAVAILABLE');
+    expect(pairLib).toContain('strictMini');
     expect(pairLib).toContain('100.94.135.78');
     expect(pairLib).toContain('hermes-mini');
+    expect(pairLib).toContain('probeGatewayAuthSync');
     const pairTest = read('tests/test-hermes-mobile-pair.sh');
     expect(pairTest).toContain('mini-key-from-ssh');
     expect(pairTest).toContain('laptop-key-from-env');
+    expect(pairTest).toContain('local_or_usb_url_bound_to_mini_key');
+    expect(pairTest).toContain('Refuse ready claim');
+  });
+
+  it('wrong-key recovery prefers Find computers over Settings-only dead end', () => {
+    const recovery = read('hermes-mobile/src/utils/wrongKeyRecovery.ts');
+    expect(recovery).toContain('Find computers');
+    expect(recovery).toContain('clearStaleProfileKey');
+    const banner = read('hermes-mobile/src/services/gatewayClient.ts');
+    expect(banner).toContain('Find computers');
+    expect(banner.toLowerCase()).not.toContain('settings → your active machines');
   });
 
   it('fetchGatewayHealth runs authenticated sessions probe before Connected', () => {
@@ -139,5 +187,31 @@ describe('release safety net (T-114)', () => {
     const connection = read('hermes-mobile/src/utils/gatewayConnection.ts');
     expect(connection).toContain('GATEWAY_AUTH_REPAIR_HEADER');
     expect(connection).toContain('authMismatch');
+  });
+
+  it('SHIP BLOCK: Connected ⊕ Wrong key is impossible in connection state machine', () => {
+    const connection = read('hermes-mobile/src/utils/gatewayConnection.ts');
+    expect(connection).toContain('wrongKeyBannerActive');
+    expect(connection).toContain('isConnectedWrongKeyContradiction');
+    expect(connection).toContain('RELEASE BLOCK');
+    const chat = read('hermes-mobile/src/screens/ChatScreen.tsx');
+    expect(chat).toContain('effectiveAuthMismatch');
+    expect(chat).toContain('wrongKeyBannerActive');
+    // Banner/health auth failure must force macHttpReachable false (no chatStalled bypass)
+    expect(chat).toMatch(/effectiveAuthMismatch \? false : effectiveMacHttpOk/);
+    const profiles = read('hermes-mobile/src/services/gatewayProfiles.ts');
+    expect(profiles).toContain('Prefer non-loopback');
+    const gatewayCtx = read('hermes-mobile/src/context/GatewayContext.tsx');
+    expect(gatewayCtx).toContain('false-green Connected + Wrong key');
+    const readiness = read('hermes-mobile/docs/REAL-USER-READINESS.md');
+    expect(readiness).toContain('Connected ⊕ Wrong key');
+    expect(readiness).toContain('SHIP BLOCK');
+    expect(readiness).toContain('state-machine failure');
+    const safetyNet = read('hermes-mobile/docs/RELEASE-SAFETY-NET.md');
+    expect(safetyNet).toContain('Connected ⊕ Wrong key');
+    expect(safetyNet).toContain('SHIP BLOCK');
+    const client = read('hermes-mobile/src/services/gatewayClient.ts');
+    expect(client).toContain('Find computers');
+    expect(client).not.toMatch(/Settings → Your active machines/);
   });
 });

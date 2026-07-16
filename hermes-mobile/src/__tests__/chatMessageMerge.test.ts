@@ -94,6 +94,50 @@ describe('mergeServerMessagesWithPending', () => {
     expect(merged[merged.length - 1]?.id).toBe('user-99');
   });
 
+  it('drops pending optimistic user bubble when gateway transcript already ends with the same line', () => {
+    const prompt = 'make money faster';
+    const server: HermesMessage[] = [{ id: 'gw-u', role: 'user', content: prompt }];
+    const local: HermesMessage[] = [
+      ...server,
+      { id: 'user-1', role: 'user', content: prompt, outboundStatus: 'pending' },
+    ];
+    const merged = mergeServerMessagesWithPending(server, local);
+    expect(merged.filter((m) => m.role === 'user')).toHaveLength(1);
+    expect(merged[0]?.content).toBe(prompt);
+    expect(merged[0]?.id).toBe('gw-u');
+  });
+
+  it('transfers pending outbound status onto server user line when optimistic duplicate is dropped', () => {
+    const prompt = 'make money faster';
+    const server: HermesMessage[] = [{ id: 'gw-u', role: 'user', content: prompt }];
+    const local: HermesMessage[] = [
+      { id: 'user-1', role: 'user', content: prompt, outboundStatus: 'pending' },
+    ];
+    const merged = mergeServerMessagesWithPending(server, local);
+    expect(merged).toHaveLength(1);
+    expect(merged[0]?.outboundStatus).toBe('pending');
+  });
+
+  it('drops an optimistic prompt when the gateway appends a separate context block', () => {
+    const prompt = 'Can you pick up where you left off????';
+    const server: HermesMessage[] = [
+      {
+        id: 'gw-u',
+        role: 'user',
+        content: `${prompt}\n\nHermes mobile app`,
+      },
+    ];
+    const local: HermesMessage[] = [
+      { id: 'user-1', role: 'user', content: prompt, outboundStatus: 'pending' },
+    ];
+
+    const merged = mergeServerMessagesWithPending(server, local);
+
+    expect(merged.filter((message) => message.role === 'user')).toHaveLength(1);
+    expect(merged[0]?.id).toBe('gw-u');
+    expect(merged[0]?.outboundStatus).toBe('pending');
+  });
+
   it('dedupes identical user echoes from gateway', () => {
     const server: HermesMessage[] = [
       { role: 'user', content: 'same question' },

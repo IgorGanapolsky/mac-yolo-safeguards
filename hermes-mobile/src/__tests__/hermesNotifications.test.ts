@@ -11,10 +11,13 @@ import {
   resolveHermesNotificationHandlerResult,
   RUN_STATUS_MIN_INTERVAL_MS,
   runProgressNotificationTitle,
+  scheduleRunCompletedNotification,
   scheduleApprovalsSummaryNotification,
   scheduleRunProgressNotification,
   scheduleRunStallNotification,
   shouldDismissRunNotificationsForAppState,
+  resetApprovalNotificationState,
+  syncHermesNotificationBadge,
 } from '../services/hermesNotifications';
 import * as Notifications from 'expo-notifications';
 import { AppState, Platform } from 'react-native';
@@ -106,6 +109,19 @@ describe('hermesNotifications', () => {
         startedAtMs: Date.now(),
       }),
     ).toBe('Hermes is responding');
+    expect(
+      runProgressNotificationTitle({
+        phase: 'completed',
+        startedAtMs: Date.now(),
+        replyPreview: 'The requested work is ready.',
+      }),
+    ).toBe('Hermes replied');
+    expect(
+      runProgressNotificationTitle({
+        phase: 'completed',
+        startedAtMs: Date.now(),
+      }),
+    ).toBe('Hermes finished');
   });
 
   it('dismisses run notifications when the app is foregrounded', () => {
@@ -229,6 +245,54 @@ describe('hermesNotifications', () => {
       expect(call.content.data.type).toBe('run_progress');
     });
 
+    it('removes elapsed and computer-centric copy from a completed progress notification', async () => {
+      await scheduleRunProgressNotification(
+        {
+          phase: 'completed',
+          startedAtMs: Date.now() - 180_000,
+          duration: 180,
+          detail: 'Reply ready on your computer',
+        },
+        { runId: 'run-2', sessionId: 'sess-2', force: true },
+      );
+
+      const call = (Notifications.scheduleNotificationAsync as jest.Mock).mock.calls[0][0];
+      expect(call.content.title).toBe('Hermes finished');
+      expect(call.content.body).toBe('Reply ready — open chat to read it.');
+      expect(call.content.body).not.toMatch(/3\s*min|computer/i);
+    });
+
+    it('uses an available reply excerpt in the completion notification', async () => {
+      await scheduleRunCompletedNotification('The OTA fix is merged and ready to verify.', {
+        success: true,
+        runId: 'run-3',
+        sessionId: 'sess-3',
+      });
+
+      const call = (Notifications.scheduleNotificationAsync as jest.Mock).mock.calls[0][0];
+      expect(call.content.title).toBe('Hermes replied');
+      expect(call.content.subtitle).toBe('Reply received');
+      expect(call.content.body).toBe('The OTA fix is merged and ready to verify.');
+    });
+
+    it('uses reply snippet as body and never leads with elapsed minutes', async () => {
+      await scheduleRunProgressNotification(
+        {
+          phase: 'completed',
+          startedAtMs: Date.now() - 180_000,
+          detail: 'Reply ready on your computer',
+          replyPreview: 'Here is the revenue status for today.',
+        },
+        { force: true },
+      );
+
+      const call = (Notifications.scheduleNotificationAsync as jest.Mock).mock.calls[0][0];
+      expect(call.content.title).toBe('Hermes replied');
+      expect(call.content.body).toBe('Here is the revenue status for today.');
+      expect(call.content.body).not.toMatch(/^\d+\s*min/);
+      expect(call.content.body).not.toContain('3 min');
+    });
+
     it('rate-limits even when force is set so stream tokens cannot spam', async () => {
       await scheduleRunProgressNotification(
         { phase: 'streaming', startedAtMs: Date.now() },
@@ -309,6 +373,74 @@ describe('hermesNotifications', () => {
       const background = handlerPresentation('background', 'approval');
       expect(background.shouldShowBanner).toBe(true);
       expect(background.shouldPlaySound).toBe(true);
+    });
+  });
+
+  describe('approvals summary re-fire guard', () => {
+    const originalCurrentState = AppState.currentState;
+    const pair = [
+      {
+        actionId: 'act-1',
+        toolName: 'bash',
+        reason: 'deploy',
+        receivedAt: '',
+      },
+      {
+        actionId: 'act-2',
+        toolName: 'bash',
+        reason: 'rollback',
+        receivedAt: '',
+      },
+    ];
+
+    beforeEach(() => {
+      Object.defineProperty(AppState, 'currentState', {
+        value: 'background',
+        configurable: true,
+      });
+      resetApprovalNotificationState();
+      jest.clearAllMocks();
+      jest.useFakeTimers({ now: 2_000_000 });
+    });
+
+    afterEach(() => {
+      Object.defineProperty(AppState, 'currentState', {
+        value: originalCurrentState,
+        configurable: true,
+      });
+      jest.useRealTimers();
+      resetApprovalNotificationState();
+      jest.clearAllMocks();
+    });
+
+    it('does not re-alert the same pending set on every poll tick', async () => {
+      await scheduleApprovalsSummaryNotification(pair, { badgeCount: 2 });
+      expect(Notifications.scheduleNotificationAsync).toHaveBeenCalledTimes(1);
+      const first = (Notifications.scheduleNotificationAsync as jest.Mock).mock.calls[0][0];
+      expect(first.content.sound).toBe('default');
+      expect(first.content.badge).toBe(2);
+
+      jest.clearAllMocks();
+      await scheduleApprovalsSummaryNotification(pair, { badgeCount: 2 });
+      expect(Notifications.scheduleNotificationAsync).not.toHaveBeenCalled();
+    });
+
+    it('caps OS badge at 99', async () => {
+      await syncHermesNotificationBadge(5557);
+      expect(Notifications.setBadgeCountAsync).toHaveBeenCalledWith(99);
+    });
+
+    it('titles summary as 99+ when count exceeds display cap', async () => {
+      const huge = Array.from({ length: 120 }, (_, i) => ({
+        actionId: `act-${i}`,
+        toolName: 'bash',
+        reason: 'x',
+        receivedAt: '',
+      }));
+      await scheduleApprovalsSummaryNotification(huge, { badgeCount: 5557 });
+      const call = (Notifications.scheduleNotificationAsync as jest.Mock).mock.calls[0][0];
+      expect(call.content.title).toBe('99+ approvals waiting');
+      expect(call.content.badge).toBe(99);
     });
   });
 });

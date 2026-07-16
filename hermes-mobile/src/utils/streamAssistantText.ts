@@ -7,15 +7,28 @@ import { isTelegramSession } from './sessionSelection';
 export const TELEGRAM_QUEUED_REPLY_PLACEHOLDER =
   'Message queued on this Hermes thread. Your computer may still be running tools from a prior turn — the reply will appear here when it finishes.';
 
+/**
+ * Shown when the live stream ends without assistant text but the Mac may still be
+ * running tools / reasoning. Kept non-parenthetical and non-accusatory — users
+ * read the old "did not return text yet" line as a product failure.
+ */
 export const GENERIC_EMPTY_STREAM_PLACEHOLDER =
-  '(Hermes did not return text yet — still running on your computer.)';
+  'Working on your computer… Hermes may be using tools (browser, search, terminal). The reply will show here when ready.';
+
+/** After soft timeout with no reply text — auto-poll continues; Refresh is optional fallback. */
+export const EMPTY_STREAM_TIMEOUT_PLACEHOLDER =
+  'Still no reply text. Hermes keeps checking your Mac automatically — Stop if a run is active, or start a fresh chat for faster replies.';
 
 export function isDeferredStreamPlaceholder(content: string | undefined): boolean {
   const body = content?.trim() ?? '';
   return (
     body === TELEGRAM_QUEUED_REPLY_PLACEHOLDER ||
     body === GENERIC_EMPTY_STREAM_PLACEHOLDER ||
-    body.startsWith('(Hermes did not return text yet')
+    body === EMPTY_STREAM_TIMEOUT_PLACEHOLDER ||
+    // Legacy copy (shipped builds + tests)
+    body.startsWith('(Hermes did not return text yet') ||
+    body.startsWith('Working on your computer…') ||
+    body.startsWith('Still no reply text.')
   );
 }
 

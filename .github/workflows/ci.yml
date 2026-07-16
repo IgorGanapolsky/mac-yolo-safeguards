@@ -5,15 +5,23 @@ on:
   push:
     branches:
       - main
+  # Required when `main` uses a merge queue: without this trigger the queue never
+  # receives status checks for macOS guard / mobile-checks / funnel jobs and merges stall.
+  # merge_group uses its own ref (not pull_request); keep per-ref concurrency below so
+  # queue runs do not re-trigger the 2026-07-10 cancel storm on PR branches.
+  merge_group:
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
+  # mac-mini-hermes (self-hosted, macos-arm64, hermes-e2e) is the default to cut
+  # GitHub-hosted macOS queue wait. Fork PRs stay on macos-latest (arbitrary code).
+  # If the mini is offline, temporarily switch runs-on below to macos-latest.
   macos-guard:
     name: macOS guard kit
-    runs-on: macos-latest
+    runs-on: ${{ (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) && 'macos-latest' || fromJSON('["self-hosted", "macos-arm64", "hermes-e2e"]') }}
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
 

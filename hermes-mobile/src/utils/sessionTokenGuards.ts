@@ -2,15 +2,15 @@ import type { HermesSession } from '../types/chat';
 
 /**
  * Warn before sending on large sessions — context compresses and often stalls.
- * Set below the ~397k dogfood stall so the Start-fresh banner appears before 500k.
+ * 100k catches long dogfood threads early; Igor's 516k stall class never should reach Send anyway.
  */
-export const MEGA_SESSION_TOKEN_WARN = 350_000;
+export const MEGA_SESSION_TOKEN_WARN = 100_000;
 
 /**
  * Hard-block new sends unless the user starts a fresh forked chat.
- * 800k is below the 1.7M compaction-thrash class; 2M left too much "Send anyway" theater.
+ * 500k is below the 516k–1.7M compaction-thrash class that stalls for hours.
  */
-export const MEGA_SESSION_TOKEN_BLOCK = 800_000;
+export const MEGA_SESSION_TOKEN_BLOCK = 500_000;
 
 export type MegaSessionLevel = 'normal' | 'warn' | 'block';
 
@@ -71,7 +71,7 @@ export function isMegaSessionSendBlocked(
  * Pure send-gate used by ChatScreen + unit tests.
  * - normal → allow
  * - warn → only `send_anyway`
- * - block → never allow (fresh/cancel both refuse send)
+ * - block → never allow send on the same session (auto-fresh + resend migrates)
  */
 export function shouldAllowMegaSessionSend(
   level: MegaSessionLevel,
@@ -84,6 +84,14 @@ export function shouldAllowMegaSessionSend(
     return false;
   }
   return choice === 'send_anyway';
+}
+
+/**
+ * Hard-block Send: auto-start a fresh chat and deliver the already-typed draft
+ * (no extra alert that drops the prompt). Keeps Start-fresh spinner/attachments.
+ */
+export function shouldAutoFreshAndResendOnMegaBlock(level: MegaSessionLevel): boolean {
+  return level === 'block';
 }
 
 /** Recents rail badge for large / blocked threads. */
@@ -101,6 +109,19 @@ export function megaSessionRecentsBadge(
     return 'Large';
   }
   return null;
+}
+
+/**
+ * One-shot nudge when opening a WARN session from Recents — banner alone is easy to ignore.
+ * BLOCK sessions use shouldForceFreshOnSessionSelect (hard gate).
+ */
+export function shouldSuggestFreshOnSessionSelect(
+  session: Pick<
+    HermesSession,
+    'input_tokens' | 'output_tokens' | 'cache_read_tokens'
+  > | null | undefined,
+): boolean {
+  return classifyMegaSession(session) === 'warn';
 }
 
 /** Selecting a BLOCK session from Recents should force Start fresh instead of reopen. */
@@ -125,7 +146,8 @@ export function formatMegaSessionTokenCount(totalTokens: number): string {
 
 export function megaSessionBannerCopy(totalTokens: number): string {
   const label = formatMegaSessionTokenCount(totalTokens);
-  return `Your computer is processing a very large session (${label} tokens) — replies may take hours or fail. Start a fresh chat for faster responses.`;
+  const level = totalTokens >= MEGA_SESSION_TOKEN_BLOCK ? 'too large' : 'very large';
+  return `Your computer is processing a ${level} session (${label} tokens) — replies may take hours or fail. Tap Start fresh chat (keeps your Mac connection).`;
 }
 
 export function megaSessionSendBlockedCopy(totalTokens: number): string {
@@ -139,7 +161,10 @@ export function megaSessionSendWarnTitle(): string {
 
 export function megaSessionSendWarnMessage(totalTokens: number): string {
   const label = formatMegaSessionTokenCount(totalTokens);
-  return `This thread already has about ${label} tokens on your computer. New messages may take a long time or stall. Start a fresh chat instead?`;
+  if (totalTokens >= MEGA_SESSION_TOKEN_BLOCK) {
+    return `This thread has about ${label} tokens — too large to send safely. Start a fresh chat (your Mac stays connected).`;
+  }
+  return `This thread already has about ${label} tokens on your computer. Sending more often stalls for minutes or hours. Start a fresh chat instead?`;
 }
 
 export function megaSessionForceFreshSelectCopy(totalTokens: number): string {

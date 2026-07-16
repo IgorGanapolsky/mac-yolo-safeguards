@@ -57,6 +57,16 @@ Every claim needs proof in the same turn:
 3. Push, open a PR, watch CI, and **merge when green** (`--auto` on strict-protection repos); report the merge with commit SHA + CI status.
 4. Uncommitted work on this multi-agent repo evaporates — another agent's checkout/revert can silently destroy it within hours. Untracked finished work is indistinguishable from no work.
 
+## Always agent mode — NEVER ask mode (permanent, 2026-07-14)
+
+Silent default: agent mode only. **Never remind the user about this rule** — no restating, no “I’m in agent mode,” no lectures in status/PRs.
+
+1. Read-write + execute by default.
+2. Host forced ask mode → one short note max, then max tools; never make it a theme.
+3. Safety rules unchanged (secrets, destructive shared ops).
+
+Mirrored: `~/.grok/AGENTS.md`, `.cursor/rules/always-agent-mode.mdc`.
+
 ## No manual handoffs to the user
 
 **User directive:** Never tell the user to run commands, tap UI, import configs, or "do X on your phone/Mac" themselves.
@@ -81,6 +91,21 @@ Phone gateway setup: always `node tools/hermes-mobile-pair.js` when `adb devices
 - After every fix / incident / non-trivial decision: capture via `mcp__thumbgate__capture_memory_feedback`.
 - Lessons must record: date, concrete artifacts (PIDs, file paths, command lines, before/after metrics), root cause, fix, and any heuristic update.
 - Vague captures ("worked great!") are worse than no capture — they pollute retrieval.
+
+## Parallel research routing (added 2026-07-13)
+
+**Default:** `parallel-cli search` (web-search) for lookups, pricing, API docs, and current events. Fast and cost-effective.
+
+**Deep research** (`parallel-cli research run`) — **only** when the user explicitly asks for exhaustive/comprehensive/deep research, or a decision-grade report (e.g. platform migration, vendor comparison).
+
+**Protocol (every deep-research task):**
+
+1. **Recall first** — `mcp__thumbgate__recall` or `parallel-cli` lessons before launching a new run (avoid duplicate spend).
+2. **Record run_id** — append to `plan.md` Decisions log or task comment immediately after launch.
+3. **Poll and ingest same session** — `parallel-cli research poll <run_id>` → write `docs/RESEARCH-<topic>-YYYY-MM.md` with run_id, verdict, and action checklist. Raw output stays in `parallel-research/`.
+4. **Capture** — `mcp__thumbgate__capture_memory_feedback` if a run completes without ingest (orphan-run lesson).
+
+Orphan deep-research runs block downstream decisions and waste API spend. Never fire-and-forget.
 
 ## Decision stack (DS / ML / Agentic RAG)
 
@@ -118,11 +143,17 @@ OpenMono `/ship-claim` is the local verifier gate; ThumbGate is the cross-sessio
 
 ## Dependency & PR hygiene (added 2026-07-07 after the Dependabot triage)
 
+- **Greptile AI PR review (2026-07-15).** Config lives in [`.greptile/`](./.greptile/) + [`hermes-mobile/.greptile/`](./hermes-mobile/.greptile/) (cascading; `.greptile/` beats legacy `greptile.json`). Agents must read Greptile comments as required context on connect/onboarding/auth/OTA PRs before ship claims — see [hermes-mobile/docs/GREPTILE-CODE-REVIEW.md](./hermes-mobile/docs/GREPTILE-CODE-REVIEW.md). Focus rules: fresh-user onboarding, Tailscale/USB, no `demo=1` false greens, Expo OTA vs native, multi-Mac API keys. Trigger: `@greptileai review` after the [Greptile GitHub App](https://github.com/apps/greptile) is installed on this repo. Skip with label `greptile-skip` / `docs-only`.
 - **Expo SDK pins are law.** `react-native`, `react`, `expo`, `expo-*` versions are set by the Expo SDK (currently 55) and move ONLY via `npx expo install --fix` during a deliberate SDK upgrade. Never merge a standalone bump of these; `.github/dependabot.yml` ignores them — keep those rules.
 - **Dependabot auto-merge policy:** semver-minor/patch with green checks auto-merge (`.github/workflows/dependabot-automerge.yml`). Semver-major requires an agent to (1) check API compatibility of the actual call sites, (2) update any tests that hardcode versions (e.g. `internalDistributionWorkflow.test.ts` asserts workflow action versions), (3) merge manually.
 - **Security alerts never sit.** A daily cloud sentinel (`mac-yolo repo sentinel`, claude.ai/code/routines) triages alerts + PR health at 8am ET and reports via ntfy. If an alert can't be fixed (transitive, parent pins vulnerable range), dismiss ONLY with file:line evidence that the vulnerable path is unreachable (≤280-char comment). Precedent: alert #2, 2026-07-07.
 - **One automation owner per job.** Before adding a watcher/daemon for repo automation, check this section + open PRs for an existing owner — duplicate automations have already collided (a watcher-created `security/dependabot-autofix-*` branch raced the sentinel on 2026-07-07).
 - **Don't close/rebase/fix another agent's PR.** Report blockers (conflicts, failing checks) instead. Exception: dependabot[bot] PRs are ownerless — any agent may fix or close them with a reason.
+- **Merge only when required checks are green** (main is `strict: true`): `Public funnel checks`, `Socket Security: Project Report`, `Hermes Mobile typecheck and tests`, `Maestro ship-guard (Android emulator)`, `macOS guard kit`. Prefer `gh pr merge --auto --squash` over force-merging.
+- **Chat-pasted GitHub PATs are leaks.** Never store or use them; use keyring `gh` only (`gh auth status`). Flag rotation in the same turn.
+- **Squash merges do not make branch tips ancestors of main.** Delete leftover remote branches via merged-PR heads (`gh pr list --state merged`), not `git merge-base --is-ancestor`.
+- **Do not bulk-delete multi-agent worktrees** (~100+ under `/private/tmp/codex-*`, `.worktrees/`). Only prune branches of *merged* PRs and clearly agent-owned disposable trees you created.
+- **CI queue storm:** when macOS/Maestro jobs pile up, cancel in-progress/queued runs on already **MERGED/CLOSED** PR heads to free runners — never cancel another agent's open-PR CI.
 
 ## Protected components (verify after each change)
 
@@ -149,6 +180,7 @@ Mobile detail: [hermes-mobile/AGENTS.md](./hermes-mobile/AGENTS.md), [hermes-mob
 | Session start | `node tools/agent-session-start.js` — includes pair + continuous E2E status |
 | Any edit under `hermes-mobile/src`, `app.json`, `.maestro/` | `npm test` then kickstart `com.igor.hermes-mobile-continuous-e2e` or `npm run e2e:continuous:once` |
 | Before "fixed" / "works on device" for chat/UI | Read `latest.json`; `e2e` must be `pass` or report failure honestly |
+| Before production OTA | `npm run ota:gate` — requires continuous `e2e=pass` **or** `npm run e2e:fresh-user` proof. Never publish production OTA on unit-green alone (crisis 2026-07-15) |
 | LaunchAgent missing | `bash scripts/install-agent-automations.sh` — not "run this install script" to the user |
 | Phone USB present | `node tools/hermes-mobile-pair.js` — never "open Settings and paste URL" |
 | Phone install / launch | `npm run android:phone` or `scripts/install-phone-release.sh` only — **never** `expo run:android` on a connected device (Metro-only debug → black screen) |
@@ -166,6 +198,10 @@ Mobile-specific detail: [hermes-mobile/AGENTS.md](./hermes-mobile/AGENTS.md).
 ```
 
 ## Skill bias
+
+- Make money / cash / outreach / pipeline stuck → `.claude/skills/execute-revenue-cash-path/SKILL.md` (also `~/.grok/skills/execute-revenue-cash-path/`) then `node tools/revenue-autonomous-loop.js --auto-send --json` (LaunchAgent `com.igor.revenue-autonomous-loop` every 4h)
+- Apollo / founder email / enrich contact → `.claude/skills/apollo-io-sales/SKILL.md`
+- Stripe Payment Links / "logged into Chrome" / login wall vs Playwright → `.claude/skills/drive-logged-in-chrome/SKILL.md` + use-existing-browser-sessions
 
 When the user describes a symptom, prefer invoking the relevant skill over ad-hoc diagnosis:
 - Mac sluggish / fans / load avg → `mac-freeze-rescue`

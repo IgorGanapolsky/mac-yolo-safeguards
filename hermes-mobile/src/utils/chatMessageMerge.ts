@@ -2,6 +2,7 @@ import type { HermesMessage } from '../types/chat';
 import { coerceMessageId, idHasPrefix } from './messageIds';
 import { dedupeToolDumpMessages } from './chatToolDump';
 import { serverHasAssistantReplyAfterLastUser } from './emptyStreamReplyRecovery';
+import { isOrphanFailedOutboundBubble } from './stalledChatRecovery';
 import { isDeferredStreamPlaceholder } from './streamAssistantText';
 
 /** Normalize text so optimistic phone bubbles match gateway transcript formatting. */
@@ -41,6 +42,23 @@ export function isMessageBodyEmpty(
 function messageBody(message: HermesMessage): string {
   const raw = message.rawContent?.trim() || message.content?.trim() || '';
   return normalizeMessageText(raw);
+}
+
+/**
+ * Some gateway adapters persist the phone prompt followed by an injected context block.
+ * Treat the first blank-line-delimited block as the acknowledged prompt without making
+ * arbitrary prefix matches (which could hide a genuinely different repeated prompt).
+ */
+function serverUserAcknowledgesBody(message: HermesMessage, optimisticBody: string): boolean {
+  const raw = message.rawContent?.trim() || message.content?.trim() || '';
+  if (!raw || !optimisticBody) {
+    return false;
+  }
+  if (normalizeMessageText(raw) === optimisticBody) {
+    return true;
+  }
+  const [firstBlock, ...remainingBlocks] = raw.split(/\r?\n\s*\r?\n/);
+  return remainingBlocks.length > 0 && normalizeMessageText(firstBlock ?? '') === optimisticBody;
 }
 
 function messageFingerprint(message: HermesMessage): string {
@@ -149,9 +167,59 @@ function serverHasLatestUserMessage(serverMessages: HermesMessage[], body: strin
     if (message.role?.toLowerCase() !== 'user') {
       continue;
     }
-    return messageBody(message) === body;
+    return serverUserAcknowledgesBody(message, body);
   }
   return false;
+}
+
+/**
+ * True when the gateway transcript already committed this user turn (trailing user line).
+ * Unlike serverHasLatestUserMessage, ignores older repeated prompts after an assistant reply.
+ */
+function serverEndsWithMatchingUser(serverMessages: HermesMessage[], body: string): boolean {
+  if (!body) {
+    return false;
+  }
+  for (let index = serverMessages.length - 1; index >= 0; index -= 1) {
+    const message = serverMessages[index];
+    const role = message.role?.toLowerCase();
+    if (role === 'assistant') {
+      return false;
+    }
+    if (role === 'user') {
+      return serverUserAcknowledgesBody(message, body);
+    }
+  }
+  return false;
+}
+
+/** Keep delivery status when dropping an optimistic duplicate over a server-acked user line. */
+function annotateTrailingServerUserWithOutbound(
+  serverMessages: HermesMessage[],
+  optimistic: HermesMessage,
+): HermesMessage[] {
+  const body = messageBody(optimistic);
+  for (let index = serverMessages.length - 1; index >= 0; index -= 1) {
+    const message = serverMessages[index];
+    const role = message.role?.toLowerCase();
+    if (role === 'assistant') {
+      return serverMessages;
+    }
+    if (role === 'user' && serverUserAcknowledgesBody(message, body)) {
+      if (message.outboundStatus) {
+        return serverMessages;
+      }
+      const next = [...serverMessages];
+      next[index] = {
+        ...message,
+        outboundStatus: optimistic.outboundStatus,
+        outboundFailureReason: optimistic.outboundFailureReason,
+      };
+      return next;
+    }
+    return serverMessages;
+  }
+  return serverMessages;
 }
 
 function serverHasAssistantMessage(serverMessages: HermesMessage[], body: string): boolean {
@@ -183,7 +251,7 @@ export function mergeServerMessagesWithPending(
   serverMessages: HermesMessage[],
   localMessages: HermesMessage[],
 ): HermesMessage[] {
-  const dedupedServer = dedupeDeferredStreamPlaceholders(dedupeChatMessages(serverMessages));
+  let dedupedServer = dedupeDeferredStreamPlaceholders(dedupeChatMessages(serverMessages));
   if (localMessages.length === 0) {
     return dedupedServer;
   }
@@ -197,7 +265,7 @@ export function mergeServerMessagesWithPending(
       return false;
     }
     const body = messageBody(message);
-    return !serverHasLatestUserMessage(dedupedServer, body);
+    return !serverEndsWithMatchingUser(dedupedServer, body);
   });
 
   for (const message of localMessages) {
@@ -232,11 +300,19 @@ export function mergeServerMessagesWithPending(
       continue;
     }
     if (isOptimisticUserMessage(message)) {
+      const body = messageBody(message);
       if (message.outboundStatus === 'pending') {
+        if (serverEndsWithMatchingUser(dedupedServer, body)) {
+          dedupedServer = annotateTrailingServerUserWithOutbound(dedupedServer, message);
+          continue;
+        }
         pendingTail.push(message);
         continue;
       }
-      const body = messageBody(message);
+      // Failed phone-only bubble while Mac already answered → drop (clears permanent stall badge).
+      if (isOrphanFailedOutboundBubble(message, dedupedServer)) {
+        continue;
+      }
       if (
         serverFingerprints.has(messageFingerprint(message)) ||
         serverHasLatestUserMessage(dedupedServer, body)

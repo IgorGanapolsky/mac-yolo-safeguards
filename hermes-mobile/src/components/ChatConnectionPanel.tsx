@@ -16,6 +16,7 @@ import {
   profileMatchesHostname,
   profilesForSwitchComputerPicker,
   shouldOfferUsbLinkRepair,
+  type LiveUsbPickerInput,
   type UsbHostMismatch,
 } from '../utils/gatewayProfilePicker';
 import { relayWorkerDisplayName } from '../utils/relayRouting';
@@ -26,6 +27,7 @@ import {
   freshUserPrimaryActionLabel,
   shouldHideConnectionStatusChips,
   shouldShowFreshUserOnboardingSteps,
+  isOnTailscaleRoute,
 } from '../utils/freshUserOnboarding';
 import { connectionHealSnapshot } from '../utils/connectionErrorPolicy';
 import { tailscaleDiscoveryLabel } from '../services/tailscaleDiscovery';
@@ -57,7 +59,8 @@ type ChatConnectionPanelProps = {
   usbHostMismatch?: UsbHostMismatch | null;
   connectionHealAttempt?: number;
   connectionHealInFlight?: boolean;
-  onSelectProfile?: (profileId: string) => void;
+  selectionDisabled?: boolean;
+  onSelectProfile?: (profileId: string, profile?: GatewayProfile) => void;
   onSearchMac: () => void;
   onFixUsbLink?: () => void;
   usbFixBusy?: boolean;
@@ -67,6 +70,7 @@ type ChatConnectionPanelProps = {
   tailnetProbeHostCount?: number;
   onAddTailscaleComputer?: (discovery: DiscoveredGateway) => void;
   onAddProfile?: (label: string, gatewayUrl: string) => Promise<void>;
+  liveUsb?: LiveUsbPickerInput | null;
   testID?: string;
 };
 
@@ -132,6 +136,7 @@ export default function ChatConnectionPanel({
   usbHostMismatch = null,
   connectionHealAttempt = 0,
   connectionHealInFlight = false,
+  selectionDisabled = false,
   onSelectProfile,
   onSearchMac,
   onFixUsbLink,
@@ -142,6 +147,7 @@ export default function ChatConnectionPanel({
   tailnetProbeHostCount = 0,
   onAddTailscaleComputer,
   onAddProfile,
+  liveUsb = null,
   testID = 'chat-connection-panel',
 }: ChatConnectionPanelProps) {
   const [manualInput, setManualInput] = useState('');
@@ -197,6 +203,7 @@ export default function ChatConnectionPanel({
   const showOnboardingSteps = shouldShowFreshUserOnboardingSteps({ profiles, heal });
   const hideStatusChips = shouldHideConnectionStatusChips({ profiles, heal });
   const freshUser = profiles.length === 0 || showOnboardingSteps;
+  const onTailscaleRoute = isOnTailscaleRoute(profiles, activeProfileId);
   const primaryTailscaleLabel =
     tailscaleDiscoveries.length > 0
       ? tailscaleDiscoveryLabel(tailscaleDiscoveries[0])
@@ -219,6 +226,7 @@ export default function ChatConnectionPanel({
     cellularBlocksDirect,
     showUsbFix,
     tailscaleSearching,
+    onTailscaleRoute,
     usbHostMismatchMessage: usbHostMismatch
       ? formatUsbHostMismatchMessage(usbHostMismatch)
       : undefined,
@@ -230,7 +238,10 @@ export default function ChatConnectionPanel({
         profileMatchesHostname(profile, relayWorkerDisplayName(worker)),
       ),
   );
-  const pickerProfiles = profilesForSwitchComputerPicker(profiles, { activeProfileId });
+  const pickerProfiles = profilesForSwitchComputerPicker(profiles, {
+    activeProfileId,
+    liveUsb,
+  });
   const primaryActionLabel = freshUserPrimaryActionLabel(showUsbFix);
 
   return (
@@ -250,7 +261,9 @@ export default function ChatConnectionPanel({
       {showOnboardingSteps ? (
         <FreshUserOnboardingCard
           profiles={profiles}
+          activeProfileId={activeProfileId}
           tailscaleMacLabel={primaryTailscaleLabel}
+          wifiConnected={wifiConnected}
         />
       ) : null}
 
@@ -333,18 +346,21 @@ export default function ChatConnectionPanel({
 
       {pickerProfiles.length > 0 ? (
         <View style={styles.savedBlock}>
-          <Text style={styles.savedHeading}>Your saved computers</Text>
+          <Text style={styles.savedHeading}>Your computers</Text>
           <Text style={styles.savedHint}>
-            Tap one to connect when you are on the same home Wi‑Fi.
+            Tap the computer to use. Plugged-in Macs are chosen automatically when the cable is
+            connected.
           </Text>
           <GatewayProfilePicker
             profiles={pickerProfiles}
             activeProfileId={activeProfileId}
             activeReachable={activeProfileReachable}
             activeConnecting={activeProfileConnecting}
-            onSelect={(profileId) => onSelectProfile?.(profileId)}
+            selectionDisabled={selectionDisabled}
+            onSelect={(profileId, profile) => onSelectProfile?.(profileId, profile)}
             wifiConnected={wifiConnected}
             showReachabilityHints={pickerProfiles.length > 1}
+            liveUsb={liveUsb}
           />
         </View>
       ) : null}

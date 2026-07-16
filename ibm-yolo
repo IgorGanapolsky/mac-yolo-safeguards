@@ -1,0 +1,144 @@
+#!/usr/bin/env bash
+# ibm-yolo - run the official IBM Bob Shell with Bob's native --yolo mode.
+set -euo pipefail
+
+resolve_bob() {
+  local candidate=""
+
+  if [[ -n "${IBM_BOB_BIN:-}" ]]; then
+    if [[ -x "$IBM_BOB_BIN" ]]; then
+      printf '%s\n' "$IBM_BOB_BIN"
+      return 0
+    fi
+    return 1
+  fi
+
+  candidate="$(command -v bob 2>/dev/null || true)"
+  if [[ -n "$candidate" && -x "$candidate" ]]; then
+    printf '%s\n' "$candidate"
+    return 0
+  fi
+
+  for candidate in \
+    "$HOME/.npm-global/bin/bob" \
+    "$HOME/.local/bin/bob" \
+    "/opt/homebrew/bin/bob" \
+    "/usr/local/bin/bob"; do
+    if [[ -x "$candidate" ]]; then
+      printf '%s\n' "$candidate"
+      return 0
+    fi
+  done
+
+  if command -v npm >/dev/null 2>&1; then
+    candidate="$(npm prefix -g 2>/dev/null || true)/bin/bob"
+    if [[ -x "$candidate" ]]; then
+      printf '%s\n' "$candidate"
+      return 0
+    fi
+  fi
+
+  return 1
+}
+
+emit_missing_binary() {
+  if [[ "${1:-}" == "json" ]]; then
+    printf '%s\n' '{"schema":"ibm-yolo/doctor-v1","ok":false,"provider":"IBM","product":"Bob Shell","fallback":false,"error":"official bob binary not found"}'
+  else
+    echo "ibm-yolo: official IBM Bob Shell binary 'bob' was not found" >&2
+    echo "Install it from https://bob.ibm.com/docs/shell/getting-started/install-and-setup" >&2
+  fi
+}
+
+doctor() {
+  local format="${1:-text}"
+  local bob_bin=""
+  local version=""
+
+  if ! bob_bin="$(resolve_bob)"; then
+    emit_missing_binary "$format"
+    return 127
+  fi
+
+  if ! version="$("$bob_bin" --version 2>/dev/null | head -n 1)" || [[ -z "$version" ]]; then
+    if [[ "$format" == "json" ]]; then
+      printf '%s\n' '{"schema":"ibm-yolo/doctor-v1","ok":false,"provider":"IBM","product":"Bob Shell","fallback":false,"error":"bob --version failed"}'
+    else
+      echo "ibm-yolo: '$bob_bin --version' failed" >&2
+    fi
+    return 1
+  fi
+
+  if [[ "$format" == "json" ]]; then
+    BOB_BIN_VALUE="$bob_bin" BOB_VERSION_VALUE="$version" node -e '
+      process.stdout.write(JSON.stringify({
+        schema: "ibm-yolo/doctor-v1",
+        ok: true,
+        provider: "IBM",
+        product: "Bob Shell",
+        binary: process.env.BOB_BIN_VALUE,
+        version: process.env.BOB_VERSION_VALUE,
+        defaultApprovalMode: "yolo",
+        invocation: [process.env.BOB_BIN_VALUE, "--yolo"],
+        fallback: false,
+        authentication: "not-tested-by-doctor"
+      }) + "\n");
+    '
+  else
+    printf 'IBM_YOLO_OK provider=IBM product=Bob_Shell version=%s binary=%s approval_mode=yolo fallback=false auth=not-tested\n' \
+      "$version" "$bob_bin"
+  fi
+}
+
+if [[ "${1:-}" == "--doctor" ]]; then
+  shift
+  case "${1:-}" in
+    "") doctor text ;;
+    --json) shift; [[ $# -eq 0 ]] || { echo "ibm-yolo: --doctor --json accepts no additional arguments" >&2; exit 2; }; doctor json ;;
+    *) echo "ibm-yolo: --doctor accepts only optional --json" >&2; exit 2 ;;
+  esac
+  exit $?
+fi
+
+if ! BOB_BIN="$(resolve_bob)"; then
+  emit_missing_binary text
+  exit 127
+fi
+
+has_yolo=0
+previous=""
+for argument in "$@"; do
+  case "$argument" in
+    -y|--yolo|--approval-mode=yolo)
+      has_yolo=1
+      ;;
+    --approval-mode=*)
+      echo "ibm-yolo: refusing approval mode '${argument#*=}'; use the 'bob' command for non-yolo modes" >&2
+      exit 2
+      ;;
+    --yolo=false)
+      echo "ibm-yolo: refusing --yolo=false; use the 'bob' command for non-yolo modes" >&2
+      exit 2
+      ;;
+  esac
+  if [[ "$previous" == "--approval-mode" ]]; then
+    if [[ "$argument" == "yolo" ]]; then
+      has_yolo=1
+    else
+      echo "ibm-yolo: refusing approval mode '$argument'; use the 'bob' command for non-yolo modes" >&2
+      exit 2
+    fi
+  fi
+  previous="$argument"
+done
+
+if [[ "$previous" == "--approval-mode" ]]; then
+  echo "ibm-yolo: --approval-mode requires the value 'yolo'" >&2
+  exit 2
+fi
+
+if ((has_yolo)); then
+  exec "$BOB_BIN" "$@"
+fi
+
+exec "$BOB_BIN" --yolo "$@"

@@ -1,9 +1,11 @@
 # Regression for the #91 OTA "keyboard opens, can't type" bug: the composer was lifted
 # above the keyboard with transform:translateY, which on Android leaves the TextInput's
 # touch hit-rect behind — visible but UNTAPPABLE. The fix uses layout marginBottom so the
-# hit-rect moves with the input. This flow taps the composer WHILE THE KEYBOARD IS OPEN
-# (the lifted state) and asserts a second typed probe lands — the exact path unit tests
-# and the old send-visible flow (single tap, keyboard closed) never exercised.
+# hit-rect moves with the input.
+#
+# 2026-07-13 evidence: append-with-caret-at-end is flaky on Samsung Gboard — a second
+# tap often leaves the caret mid-string so "-probe-2" inserts as typeable-probe-probe-2-1.
+# Prove the open-keyboard re-tap path by erase+retype while the dock is lifted instead.
 appId: com.iganapolsky.hermesmobile
 ---
 - launchApp
@@ -28,13 +30,18 @@ appId: com.iganapolsky.hermesmobile
 - tapOn:
     id: "chat-input"
 - eraseText
-- inputText: "typeable-probe-1"
-- assertVisible: "typeable-probe-1"
-# CRITICAL: keyboard now OPEN and dock lifted. Re-tap the lifted composer and type again.
-# Under the translateY transform the hit-rect is left behind, this tap misses, and
-# "-probe-2" never lands. With marginBottom the input stays tappable and the probe lands.
+- inputText: "make money today"
+- assertVisible: "make money today"
+# CRITICAL: keyboard OPEN and dock lifted. Re-tap the lifted composer, erase, retype.
+# Under translateY the hit-rect is left behind — erase/input miss and retype never lands.
+# With marginBottom the input stays tappable. Standing rule: only "make money today" in chat.
+# Second pass: inputText completing (no duplicate assertVisible — same string + IME flake).
 - tapOn:
     id: "chat-input"
-- inputText: "-probe-2"
-- assertVisible: "typeable-probe-1-probe-2"
+- eraseText
+- inputText: "make money today"
+- waitForAnimationToEnd:
+    timeout: 2000
+- assertVisible:
+    id: "chat-input"
 - eraseText

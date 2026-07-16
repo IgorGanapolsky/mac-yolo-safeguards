@@ -7,6 +7,13 @@ import {
 } from '../services/marketingAttribution';
 import Constants from 'expo-constants';
 
+jest.mock('../services/secureCredentials', () => ({
+  secureCredentials: {
+    saveApiKey: jest.fn().mockResolvedValue(undefined),
+    saveThumbgateApiKey: jest.fn().mockResolvedValue(undefined),
+  },
+}));
+
 jest.mock('expo-constants', () => ({
   __esModule: true,
   default: {
@@ -61,8 +68,45 @@ describe('useHermesDeepLinks', () => {
     expect(runAgentTool).not.toHaveBeenCalled();
   });
 
+  it('applies hermes://setup with a secretless pairCode by exchanging it before applying (T-330)', async () => {
+    const applySetupDeepLink = jest.fn().mockResolvedValue(undefined);
+    const fetchMock = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ gatewayUrl: 'http://127.0.0.1:8642', apiKey: 'sk-exchanged' }),
+    });
+    const originalFetch = global.fetch;
+    (global as unknown as { fetch: typeof fetch }).fetch = fetchMock as unknown as typeof fetch;
+    try {
+      renderHook(() =>
+        useHermesDeepLinks(
+          navigationRef as never,
+          runAgentTool,
+          refreshHealth,
+          applySetupDeepLink,
+        ),
+      );
+      const handler = (Linking.addEventListener as jest.Mock).mock.calls[0][1];
+      await act(async () => {
+        await handler({
+          url: 'hermes://setup?pairCode=AB23CD45&pairServer=http://192.168.1.5:8765&name=Mac-Mini',
+        });
+      });
+      expect(fetchMock).toHaveBeenCalledWith('http://192.168.1.5:8765/pair-exchange?code=AB23CD45');
+      expect(applySetupDeepLink).toHaveBeenCalledWith(
+        expect.objectContaining({ gatewayUrl: 'http://127.0.0.1:8642', apiKey: 'sk-exchanged' }),
+      );
+      // Never applies with the raw pairing code sitting in place of a real key.
+      expect(applySetupDeepLink.mock.calls[0][0].apiKey).not.toBe('AB23CD45');
+      expect(navigationRef.current.navigate).toHaveBeenCalledWith('Chat');
+    } finally {
+      (global as unknown as { fetch: typeof fetch }).fetch = originalFetch;
+    }
+  });
+
   it('applies hermes://setup and opens Chat', async () => {
     const applySetupDeepLink = jest.fn().mockResolvedValue(undefined);
+    const fetchSpy = jest.spyOn(global, 'fetch');
     renderHook(() =>
       useHermesDeepLinks(
         navigationRef as never,
@@ -77,6 +121,9 @@ describe('useHermesDeepLinks', () => {
         url: 'hermes://setup?url=http://192.168.12.208:8642&key=sk-test',
       });
     });
+    // Legacy embedded-key deep link never triggers a network exchange.
+    expect(fetchSpy).not.toHaveBeenCalled();
+    fetchSpy.mockRestore();
     expect(applySetupDeepLink).toHaveBeenCalledWith({
       gatewayUrl: 'http://192.168.12.208:8642',
       apiKey: 'sk-test',

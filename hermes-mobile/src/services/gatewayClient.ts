@@ -38,16 +38,14 @@ export function buildAuthHeaders(apiKey?: string | null): Record<string, string>
 }
 
 export const GATEWAY_WRONG_KEY_MESSAGE = 'Wrong key for this computer';
-export const GATEWAY_AUTH_REPAIR_HEADER = 'Wrong key — tap to re-pair';
+export const GATEWAY_AUTH_REPAIR_HEADER = 'Wrong key — tap Find computers';
 export const GATEWAY_AUTH_REPAIR_SETTINGS_STATUS = 'Needs re-pair';
 
-/** Numbered re-pair steps for composer banners — no vague "open Settings". */
+/** Primary CTA is Find computers — never Settings homework as the lead path. */
 export function gatewayAuthRepairBanner(machineLabel?: string | null): string {
   const target = machineLabel?.trim() || 'your computer';
   return (
-    `Wrong key for this computer. Re-pair: ` +
-    `1) Settings → Your active machines → tap ${target}, or ` +
-    `2) Chat → tap Computer → Re-pair.`
+    `Wrong key for ${target}. Tap the computer name above → Find computers to re-pair.`
   );
 }
 
@@ -64,8 +62,12 @@ export async function probeGatewayAuth(
   timeoutMs = 5000,
 ): Promise<GatewayAuthProbeResult> {
   const trimmed = apiKey?.trim();
+  // Missing key while probing chat: not "ok" for Connected — users must pair.
   if (!trimmed) {
-    return { ok: true };
+    return {
+      ok: false,
+      errorMessage: GATEWAY_WRONG_KEY_MESSAGE,
+    };
   }
   const { httpBase } = normalizeGatewayUrl(gatewayUrl);
   const url = `${httpBase}/api/sessions?limit=1`;
@@ -78,9 +80,14 @@ export async function probeGatewayAuth(
         errorMessage: GATEWAY_WRONG_KEY_MESSAGE,
       };
     }
+    // Non-2xx that isn't auth: not chat-ready, but not "wrong key".
+    if (!response.ok) {
+      return { ok: false, status: response.status };
+    }
     return { ok: true, status: response.status };
   } catch {
-    return { ok: true };
+    // Network blip ≠ auth OK and ≠ wrong key — just not Connected.
+    return { ok: false };
   }
 }
 
@@ -148,16 +155,20 @@ export async function fetchGatewayHealth(
     }
     const body = (await response.json()) as Record<string, unknown>;
     const localIpRaw = typeof body.local_ip === 'string' ? body.local_ip : undefined;
-    const level = classifyHealth(body);
+    let level = classifyHealth(body);
     let directGatewayReachable = level === 'green' || level === 'amber';
     let authMismatch = false;
     let authErrorMessage: string | undefined;
-    if (directGatewayReachable && apiKey?.trim()) {
+    // Reachability alone is never enough for Connected — always auth-probe when we
+    // claim chat is live (empty key included → wrong-key / re-pair, not green).
+    if (directGatewayReachable) {
       const auth = await probeGatewayAuth(gatewayUrl, apiKey, timeoutMs);
       if (!auth.ok) {
         directGatewayReachable = false;
         authMismatch = true;
         authErrorMessage = auth.errorMessage;
+        // Force red so isGatewayHealthOk / level consumers cannot false-green.
+        level = 'red';
       }
     }
     return {

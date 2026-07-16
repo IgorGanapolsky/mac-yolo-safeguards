@@ -28,3 +28,6 @@ docs/store-assets/higgsfield/_*.png
 
 # Human-presence device lease (transient, self-expiring) — never commit
 .phone-human-hold
+
+# Local Claude memory — may contain pasted secrets; never commit
+.claude/memory/

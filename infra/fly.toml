@@ -1,0 +1,29 @@
+# Tailscale peer relay — permanent low-latency path between the two CGNAT'd Macs
+# (mini on T-Mobile Home Internet, MacBook on S25 hotspot). Clients try this
+# relay automatically before the far-away DERP fallback. Region ewr = Secaucus NJ.
+app = "hermes-peer-relay"
+primary_region = "ewr"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  RELAY_PORT = "41641"
+  TS_HOSTNAME = "fly-peer-relay-ewr"
+
+# The relay listens for peers on UDP 41641. Expose it on the machine's public IP.
+[[services]]
+  protocol = "udp"
+  internal_port = 41641
+
+  [[services.ports]]
+    port = 41641
+
+# Always-on: a relay is useless if it scales to zero.
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "256mb"
+
+[mounts]
+  source = "ts_state"
+  destination = "/var/lib/tailscale"

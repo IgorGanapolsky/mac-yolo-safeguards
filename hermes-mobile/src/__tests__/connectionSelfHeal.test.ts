@@ -53,6 +53,52 @@ describe('connectionSelfHeal', () => {
     ).toEqual(['http://100.94.135.78:8642']);
   });
 
+  it('prefers Tailscale before USB loopback on cellular when activeProfileId is set', () => {
+    const miniProfiles: GatewayProfile[] = [
+      {
+        id: 'lan',
+        label: 'Mac mini',
+        gatewayUrl: 'http://192.168.68.56:8642',
+        hostname: 'Igors-Mac-mini',
+        localIp: '192.168.68.56',
+        addedAt: '2026-06-28T00:00:00Z',
+      },
+      {
+        id: 'ts',
+        label: 'Mac mini tailnet',
+        gatewayUrl: 'http://100.94.135.78:8642',
+        hostname: 'Igors-Mac-mini',
+        addedAt: '2026-06-28T00:00:01Z',
+      },
+      {
+        id: 'usb',
+        label: 'Mac mini USB',
+        gatewayUrl: 'http://127.0.0.1:8642',
+        hostname: 'Igors-Mac-mini',
+        localIp: '127.0.0.1',
+        addedAt: '2026-06-28T00:00:02Z',
+      },
+    ];
+    const cellular = savedProfileFallbackUrls({
+      primaryUrl: 'http://192.168.68.56:8642',
+      profiles: miniProfiles,
+      activeProfileId: 'lan',
+      wifiConnected: false,
+    });
+    const wifi = savedProfileFallbackUrls({
+      primaryUrl: 'http://192.168.68.56:8642',
+      profiles: miniProfiles,
+      activeProfileId: 'lan',
+      wifiConnected: true,
+    });
+    expect(cellular.indexOf('http://100.94.135.78:8642')).toBeLessThan(
+      cellular.indexOf('http://127.0.0.1:8642'),
+    );
+    expect(wifi.indexOf('http://127.0.0.1:8642')).toBeLessThan(
+      wifi.indexOf('http://100.94.135.78:8642'),
+    );
+  });
+
   it('does not include other saved Mac URLs when activeProfileId is set', () => {
     expect(
       savedProfileFallbackUrls({

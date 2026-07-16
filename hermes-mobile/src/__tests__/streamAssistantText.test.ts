@@ -6,6 +6,7 @@ import {
   isTelegramDeferredEmptyStream,
   snapshotAssistantBodies,
   TELEGRAM_QUEUED_REPLY_PLACEHOLDER,
+  EMPTY_STREAM_TIMEOUT_PLACEHOLDER,
 } from '../utils/streamAssistantText';
 import type { HermesMessage, HermesSession } from '../types/chat';
 
@@ -66,11 +67,25 @@ describe('streamAssistantText', () => {
 
   it('recognizes deferred stream placeholders', () => {
     expect(isDeferredStreamPlaceholder(TELEGRAM_QUEUED_REPLY_PLACEHOLDER)).toBe(true);
+    expect(
+      isDeferredStreamPlaceholder(
+        'Working on your computer… Hermes may be using tools (browser, search, terminal). The reply will show here when ready.',
+      ),
+    ).toBe(true);
+    expect(
+      isDeferredStreamPlaceholder('(Hermes did not return text yet — still running on your computer.)'),
+    ).toBe(true);
     expect(isDeferredStreamPlaceholder('hello')).toBe(false);
   });
 
   it('extractAssistantFromTranscriptMessages returns empty for non-arrays', () => {
     expect(extractAssistantFromTranscriptMessages(null)).toBe('');
     expect(extractAssistantFromTranscriptMessages('nope')).toBe('');
+  });
+
+  it('does not tell users to pull to refresh when the stream times out', () => {
+    expect(EMPTY_STREAM_TIMEOUT_PLACEHOLDER.toLowerCase()).not.toContain('pull to refresh');
+    expect(EMPTY_STREAM_TIMEOUT_PLACEHOLDER.toLowerCase()).toContain('checking');
+    expect(isDeferredStreamPlaceholder(EMPTY_STREAM_TIMEOUT_PLACEHOLDER)).toBe(true);
   });
 });

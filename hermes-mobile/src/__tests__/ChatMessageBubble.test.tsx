@@ -129,6 +129,36 @@ describe('ChatMessageBubble', () => {
     expect(getByTestId('chat-outbound-failed').props.children).not.toContain('Computer above');
   });
 
+  it('shows live waiting elapsed on pending user prompts', () => {
+    const sentAt = '2026-07-14T22:00:00.000Z';
+    jest.useFakeTimers();
+    jest.setSystemTime(Date.parse('2026-07-14T22:00:12.000Z'));
+    const { getByTestId } = renderWithDetailModal({
+      content: 'make money today',
+      isUser: true,
+      timeLabel: 'Jul 14, 2026 10:00 PM',
+      outboundStatus: 'sent',
+      promptReplyElapsed: { mode: 'live', sinceMs: Date.parse(sentAt) },
+    });
+
+    expect(getByTestId('chat-prompt-elapsed-live').props.children).toBe('Waiting 12s');
+    jest.useRealTimers();
+  });
+
+  it('shows frozen reply duration on completed user prompts', () => {
+    const { getByTestId } = renderWithDetailModal({
+      content: 'make money today',
+      isUser: true,
+      timeLabel: 'Jul 14, 2026 10:00 PM',
+      outboundStatus: 'sent',
+      promptReplyElapsed: { mode: 'frozen', durationSec: 45 },
+    });
+
+    expect(getByTestId('chat-message-timestamp').props.children).toBe(
+      'Jul 14, 2026 10:00 PM · 45s',
+    );
+  });
+
   it('renders timestamp on user outbound bubbles', () => {
     const { getByTestId } = renderWithDetailModal({
       content: 'Print money make money faster',
@@ -161,5 +191,27 @@ describe('ChatMessageBubble', () => {
 
     expect(onThumbsUp).toHaveBeenCalledTimes(1);
     expect(onThumbsDown).toHaveBeenCalledTimes(1);
+  });
+
+  it('renders clarification prompt card instead of raw XML dumps', () => {
+    const onSelectOption = jest.fn();
+    const { getByTestId, queryByText } = renderWithDetailModal({
+      content: '',
+      isUser: false,
+      timeLabel: 'Jul 14, 2026 9:20 AM',
+      clarification: {
+        prompt: {
+          question: 'Which path should I take?',
+          options: [{ id: '1', label: 'Manual auth' }],
+          partial: false,
+        },
+        onSelectOption,
+      },
+    });
+
+    expect(getByTestId('clarification-prompt-card')).toBeTruthy();
+    expect(queryByText('<clarification>')).toBeNull();
+    fireEvent.press(getByTestId('clarification-option-1'));
+    expect(onSelectOption).toHaveBeenCalledWith({ id: '1', label: 'Manual auth' });
   });
 });

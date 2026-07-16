@@ -1,4 +1,5 @@
 import React from 'react';
+import { Alert } from 'react-native';
 import { fireEvent, render, waitFor } from '@testing-library/react-native';
 import ConnectionHealthHub from '../components/ConnectionHealthHub';
 import { checkForAppUpdate } from '../services/appOtaUpdate';
@@ -65,6 +66,35 @@ describe('ConnectionHealthHub', () => {
     );
   });
 
+  it('clears the repair spinner and never leaves it spinning when Repair link times out (#392/#393)', async () => {
+    const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+    const onRepairConnection = jest
+      .fn()
+      .mockRejectedValue(new Error('Repair link timed out after 12s'));
+    const { getByTestId } = render(
+      <ConnectionHealthHub
+        connectionState="disconnected"
+        onRepairConnection={onRepairConnection}
+      />,
+    );
+
+    fireEvent.press(getByTestId('connection-health-repair'));
+    await waitFor(() => {
+      expect(onRepairConnection).toHaveBeenCalled();
+    });
+    await waitFor(() => {
+      // The button must be tappable again — a stuck ActivityIndicator with disabled=true
+      // is the infinite-spinner class this guards against.
+      const button = getByTestId('connection-health-repair');
+      expect(button.props.accessibilityState?.disabled ?? button.props.disabled).toBe(false);
+    });
+    expect(alertSpy).toHaveBeenCalledWith(
+      'Could not repair link',
+      'Repair link timed out after 12s',
+    );
+    alertSpy.mockRestore();
+  });
+
   it('checks for OTA update', async () => {
     const { getByTestId } = render(
       <ConnectionHealthHub
@@ -79,6 +109,27 @@ describe('ConnectionHealthHub', () => {
       expect(getByTestId('connection-health-update-message').props.children).toBe(
         'App is up to date.',
       );
+    });
+  });
+
+  it('clears update spinner after timed-out check', async () => {
+    (checkForAppUpdate as jest.Mock).mockResolvedValue({
+      status: 'error',
+      message: 'Update check timed out after 30s',
+    });
+    const { getByTestId, queryByText } = render(
+      <ConnectionHealthHub
+        connectionState="connected"
+        onRepairConnection={jest.fn().mockResolvedValue(undefined)}
+      />,
+    );
+
+    fireEvent.press(getByTestId('connection-health-check-update'));
+    await waitFor(() => {
+      expect(getByTestId('connection-health-update-message').props.children).toBe(
+        'Update check timed out after 30s',
+      );
+      expect(queryByText('Check for update')).toBeTruthy();
     });
   });
 });
