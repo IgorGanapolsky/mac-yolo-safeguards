@@ -1,0 +1,104 @@
+#!/usr/bin/env bash
+# kimi-yolo - run the OFFICIAL Kimi Code CLI (Moonshot) in autonomous --yolo mode,
+# backed by the flat-rate Kimi Code membership (K2.7 Code). Mirrors the repo's other
+# vendor -yolo wrappers (grok-yolo->grok, ibm-yolo->bob): it wraps the vendor's own
+# agent, NOT a re-router.
+#
+#   kimi-yolo "build me X"       autonomous interactive agent (auto-approves actions)
+#   kimi-yolo -p "…"             one-shot non-interactive prompt
+#   kimi-yolo --doctor[/--json]  health (binary, auth/config, model)
+#
+# First run self-configures ~/.kimi-code/config.toml from the Kimi Code key (macOS
+# Keychain account hermes-fleet, else ~/.hermes/.env) so no device-login is needed.
+# Honors the fleet zero-spend gate (exit 73): flat sub still bills the membership.
+set -euo pipefail
+
+KIMI_HOME="${KIMI_CODE_HOME:-$HOME/.kimi-code}"
+CFG="$KIMI_HOME/config.toml"
+MARKER="${HERMES_ZERO_SPEND_MARKER:-$HOME/.hermes/NO_PAID_SPEND}"
+MODEL="${KIMI_YOLO_MODEL:-kimi-for-coding}"
+ENV_FILE="${HERMES_ENV_PATH:-$HOME/.hermes/.env}"
+
+resolve_kimi() {
+  for c in "${KIMI_BIN:-}" "$KIMI_HOME/bin/kimi" "$(command -v kimi 2>/dev/null || true)"; do
+    [ -n "$c" ] && [ -x "$c" ] && { printf '%s\n' "$c"; return 0; }
+  done
+  return 1
+}
+
+load_key() {
+  local k
+  k="$(/usr/bin/security find-generic-password -a hermes-fleet -s KIMI_CODE_API_KEY -w 2>/dev/null || true)"
+  [ -z "$k" ] && k="$(grep '^KIMI_CODE_API_KEY=' "$ENV_FILE" 2>/dev/null | tail -1 | cut -d= -f2- || true)"
+  printf '%s' "$k"
+}
+
+ensure_config() {
+  # Write config.toml only if the model alias isn't already configured.
+  if [ -f "$CFG" ] && /usr/bin/grep -q "\"$MODEL\"" "$CFG" 2>/dev/null; then return 0; fi
+  local key; key="$(load_key)"
+  [ -n "$key" ] || { echo "kimi-yolo: no KIMI_CODE_API_KEY in Keychain or $ENV_FILE" >&2; return 1; }
+  /bin/mkdir -p "$KIMI_HOME"
+  /bin/cat > "$CFG" <<EOF
+default_model = "$MODEL"
+
+[providers.kimicode]
+type = "openai"
+base_url = "https://api.kimi.com/coding/v1"
+api_key = "$key"
+
+[models."$MODEL"]
+provider = "kimicode"
+model = "$MODEL"
+max_context_size = 262144
+max_output_tokens = 16384
+EOF
+  /bin/chmod 600 "$CFG"
+}
+
+doctor() {
+  local format="${1:-text}" bin="" version="" cfg_ok=false have_key=false
+  bin="$(resolve_kimi || true)"
+  [ -n "$bin" ] && version="$("$bin" --version 2>/dev/null | head -n1)"
+  [ -n "$(load_key)" ] && have_key=true
+  [ -n "$bin" ] && ensure_config >/dev/null 2>&1 && "$bin" doctor >/dev/null 2>&1 && cfg_ok=true
+  if [ "$format" = json ]; then
+    B="$bin" V="$version" C=$cfg_ok K=$have_key MO="$MODEL" \
+    ZS="$([ -e "$MARKER" ] && echo true || echo false)" /usr/bin/python3 -c '
+import json,os
+print(json.dumps({"schema":"kimi-yolo/doctor-v1","ok":bool(os.environ["B"]) and os.environ["C"]=="true",
+  "provider":"Kimi Code CLI (official)","binary":os.environ["B"],"version":os.environ["V"],
+  "configOK":os.environ["C"]=="true","haveKey":os.environ["K"]=="true","model":os.environ["MO"],
+  "zeroSpendActive":os.environ["ZS"]=="true","autonomous":True}))'
+  else
+    printf 'KIMI_YOLO_OK=%s bin=%s version=%s config=%s key=%s model=%s zero_spend=%s\n' \
+      "$([ -n "$bin" ] && [ "$cfg_ok" = true ] && echo true || echo false)" \
+      "${bin:-MISSING}" "${version:-?}" "$cfg_ok" "$have_key" "$MODEL" \
+      "$([ -e "$MARKER" ] && echo true || echo false)"
+  fi
+  [ -n "$bin" ] && [ "$cfg_ok" = true ]
+}
+
+if [ "${1:-}" = "--doctor" ]; then
+  shift
+  case "${1:-}" in
+    "") doctor text ;; --json) doctor json ;;
+    *) echo "kimi-yolo: --doctor accepts only optional --json" >&2; exit 2 ;;
+  esac
+  exit $?
+fi
+
+if [ -e "$MARKER" ]; then
+  echo "kimi-yolo: blocked — fleet zero-spend is active ($MARKER)" >&2
+  exit 73
+fi
+
+if ! KBIN="$(resolve_kimi)"; then
+  echo "kimi-yolo: Kimi Code CLI not found. Install: curl -fsSL https://code.kimi.com/kimi-code/install.sh | bash" >&2
+  exit 127
+fi
+ensure_config || exit 78
+
+# -p (non-interactive) auto-approves already and rejects --yolo; otherwise run --yolo.
+for a in "$@"; do case "$a" in -p|--prompt|--prompt=*) exec "$KBIN" "$@";; esac; done
+exec "$KBIN" --yolo "$@"
