@@ -208,6 +208,26 @@ function shortErrorMessage(error) {
   return String(error?.message || error || 'unknown error').split('\n')[0];
 }
 
+function checkCloudHardStop(failures) {
+  // Crisis 2026-07-16: Starter Builds $91/$45 overage until credit reset 2026-07-22.
+  // Block Expo *cloud* eas build unless explicitly overridden for local/emergency.
+  const until = process.env.HERMES_EAS_CLOUD_HARD_STOP_UNTIL || '2026-07-22';
+  const bypass = process.env.HERMES_EAS_ALLOW_CLOUD_BUILD === 'YES_CLOUD_EAS_DESPITE_OVERAGE';
+  const localOnly = (process.env.EAS_BUILD_WORKER_TYPE || '').toLowerCase() === 'local'
+    || process.argv.includes('--local');
+  const today = new Date().toISOString().slice(0, 10);
+  if (!bypass && !localOnly && today <= until) {
+    failures.push(
+      [
+        `EAS cloud builds HARD-STOPPED until ${until} (Starter Builds overage crisis 2026-07-16: $91/$45).`,
+        'Reuse finished build IDs with eas submit, or eas build --local.',
+        'OTA (eas update) is unrelated to Builds credits.',
+        'Override only with HERMES_EAS_ALLOW_CLOUD_BUILD=YES_CLOUD_EAS_DESPITE_OVERAGE after explicit human approval.',
+      ].join(' '),
+    );
+  }
+}
+
 function checkUsage(args, failures) {
   if (args.skipUsage) return;
 
@@ -306,6 +326,7 @@ function main() {
   args.commit = args.commit || process.env.GITHUB_SHA || getCurrentCommit();
 
   const failures = [];
+  checkCloudHardStop(failures);
   checkUsage(args, failures);
   checkDuplicateBuild(args, failures);
 
