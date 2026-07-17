@@ -18,6 +18,18 @@ import { FREE_LEASH_APPROVALS_PER_WEEK } from '../constants/monetization';
 
 jest.mock('../services/storage');
 jest.mock('../services/secureCredentials');
+jest.mock('expo-file-system/legacy', () => ({
+  cacheDirectory: 'file:///cache/',
+  getInfoAsync: jest.fn(async () => ({ exists: true, isDirectory: false })),
+  writeAsStringAsync: jest.fn(async () => undefined),
+}));
+jest.mock('../services/sessionContinuityStorage', () => ({
+  clearPendingContinuityHandoff: jest.fn().mockResolvedValue(undefined),
+  loadPendingContinuityHandoff: jest.fn().mockResolvedValue(null),
+  savePendingContinuityHandoff: jest.fn().mockResolvedValue(undefined),
+  loadContinuityChipDismissed: jest.fn().mockResolvedValue(false),
+  setContinuityChipDismissed: jest.fn().mockResolvedValue(undefined),
+}));
 jest.mock('expo-notifications', () => ({
   addNotificationResponseReceivedListener: jest.fn(() => ({ remove: jest.fn() })),
 }));

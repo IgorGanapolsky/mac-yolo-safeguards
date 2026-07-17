@@ -131,8 +131,34 @@ jest.mock('../services/secureCredentials', () => ({
     loadMobileToken: jest.fn().mockResolvedValue('test-token'),
     saveMobileToken: jest.fn().mockResolvedValue(true),
     clearMobileToken: jest.fn().mockResolvedValue(true),
+    resolveApiKeyForProfile: jest.fn().mockResolvedValue('wrong-laptop-key'),
+    saveProfileApiKey: jest.fn().mockResolvedValue(undefined),
   },
 }));
+
+jest.mock('../utils/repairGatewayLink', () => {
+  const actual = jest.requireActual('../utils/repairGatewayLink');
+  return {
+    ...actual,
+    refreshCredentialsFromPairServer: jest.fn().mockResolvedValue({
+      gatewayUrl: 'http://100.94.135.78:8642',
+      apiKey: 'fresh-mini-key',
+    }),
+  };
+});
+
+jest.mock('../services/gatewayClient', () => {
+  const actual = jest.requireActual('../services/gatewayClient');
+  return {
+    ...actual,
+    fetchGatewayHealth: jest.fn().mockResolvedValue({
+      level: 'green',
+      checkedAt: '2026-07-17T00:00:00Z',
+      directGatewayReachable: true,
+      authMismatch: false,
+    }),
+  };
+});
 
 jest.mock('../services/storage', () => ({
   storage: {
@@ -249,5 +275,19 @@ describe('ChatScreen authMismatch header', () => {
   it('does not treat authMismatch health as mac HTTP reachable in header wiring', async () => {
     const { getByTestId } = await renderAuthMismatchChat();
     expect(getByTestId('chat-context-link').props.children).toBe(GATEWAY_AUTH_REPAIR_HEADER);
+  });
+
+  it('wires Re-pair this Mac on the red composer banner (no dead tap)', async () => {
+    const { fireEvent } = require('@testing-library/react-native');
+    const { getByTestId, queryByTestId } = await renderAuthMismatchChat();
+    await waitFor(() => {
+      expect(getByTestId('composer-error-banner-action-area')).toBeTruthy();
+    });
+    expect(getByTestId('chat-error-retry-action')).toBeTruthy();
+    expect(queryByTestId('mac-connection-retry-banner')).toBeNull();
+    fireEvent.press(getByTestId('composer-error-banner-action-area'));
+    await waitFor(() => {
+      expect(mockGatewayState.selectGatewayProfile).toHaveBeenCalled();
+    });
   });
 });
