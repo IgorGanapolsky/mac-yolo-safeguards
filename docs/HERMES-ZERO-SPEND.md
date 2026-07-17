@@ -20,7 +20,10 @@ While active:
   the verified loopback Ollama model; the profile allowlists only the local
   provider, blanks paid credentials, disables session sharing, plugins, model
   catalog fetches, Exa/web tools, and external-directory access, and stores its
-  config/data/cache under `~/.hermes/zero-spend/opencode-home`;
+  config/data/cache under `~/.hermes/zero-spend/opencode-home`; every installed
+  OpenCode executable on `PATH` plus the standard curl, user-local, Homebrew,
+  and `/usr/local` locations is shimmed so a higher-precedence installation
+  cannot bypass the policy;
 - `hermes-yolo` remains available, but its child environment is forced to
   `custom:ollama-local-64k` with an installed local model and an isolated,
   credential-free `HERMES_HOME`;
@@ -75,9 +78,11 @@ route.
 
 The installer preserves every existing command behind a private manifest, adds
 the managed-policy pointer to the normal Hermes `.env` without printing or
-copying its secrets, and is idempotent. Re-running the main repository installer also restores this gate
-when the marker already exists, preventing an install or CI smoke from silently
-re-enabling a paid route.
+copying its secrets, and is idempotent. For OpenCode, status is healthy only
+when the primary path and every additional discovered executable path resolve
+to the installed gate. Re-running the main repository installer also restores
+this gate when the marker already exists, preventing an install, CLI upgrade,
+or CI smoke from silently re-enabling a paid route.
 
 ```sh
 bash scripts/install-zero-spend-gate.sh --install

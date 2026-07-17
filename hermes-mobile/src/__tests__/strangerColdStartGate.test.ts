@@ -15,10 +15,14 @@ describe('stranger cold-start merge gate (T-342)', () => {
 
   it('ConnectMacGate is hidden only by E2E automation / store-review / demo — not by empty URL', () => {
     const gate = read('hermes-mobile/src/components/ConnectMacGate.tsx');
-    expect(gate).toContain('!isE2eAutomationBuild()');
-    expect(gate).toContain('!isStoreReviewDemoBuild()');
-    expect(gate).toContain('!settings.demoMode');
+    expect(gate).toContain('shouldShowConnectMacGate');
+    expect(gate).toContain('isE2eAutomationBuild()');
+    expect(gate).toContain('isStoreReviewDemoBuild()');
+    expect(gate).toContain('demoMode: settings.demoMode');
     expect(gate).toContain('testID="connect-mac-gate"');
+    const policy = read('hermes-mobile/src/utils/freshUserOnboarding.ts');
+    expect(policy).toContain('export function shouldShowConnectMacGate');
+    expect(policy).toMatch(/if \(!isFreshUserUnpaired\(input\.profiles\)\)/);
   });
 
   it('stranger Maestro flow uses clearState, no demo=1, asserts gate and no Reconnecting', () => {
