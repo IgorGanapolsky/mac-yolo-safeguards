@@ -56,6 +56,9 @@ link "$REPO/agy-yolo-wrapper.js"              "$AGY_CLI_DIR/bin/agy-yolo-wrapper
 link "$REPO/hermes-yolo-wrapper.js"           "$INSTALL_HOME/.local/bin/hermes-yolo"
 link "$REPO/sim-runaway-guard.sh"             "$INSTALL_HOME/.local/bin/sim-runaway-guard.sh"
 link "$REPO/yolo-health"                      "$INSTALL_HOME/.local/bin/yolo-health"
+link "$REPO/opencode-yolo"                     "$INSTALL_HOME/.local/bin/opencode-yolo"
+link "$REPO/kimi-yolo"                         "$INSTALL_HOME/.local/bin/kimi-yolo"
+link "$REPO/tinker-yolo"                       "$INSTALL_HOME/.local/bin/tinker-yolo"
 
 # Instead of symlinking the plist, write a copy with {{HOME}} substituted to point to the actual home directory
 PLIST_DEST="$INSTALL_HOME/Library/LaunchAgents/com.igor.shutdown-simulators.plist"

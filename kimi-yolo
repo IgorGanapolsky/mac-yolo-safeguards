@@ -1,0 +1,77 @@
+#!/usr/bin/env bash
+# kimi-yolo - autonomous coding on Kimi K2.7 Code (flat-rate Kimi Code membership),
+# routed through the Hermes gateway (:4010 model `kimi-code`) so it inherits pruning
+# and the gateway's health guards. Delegates the agent loop to the proven opencode-yolo
+# harness with the model pinned to Kimi. Honors the fleet zero-spend gate.
+#
+#   kimi-yolo --doctor[/--json]   health (pings kimi-code through the gateway)
+#   kimi-yolo run "…"             autonomous coding turn on Kimi K2.7
+#   kimi-yolo -m hermes/glm-coding …   override model (falls back to any gateway model)
+set -euo pipefail
+
+GATEWAY_URL="${KIMI_YOLO_GATEWAY_URL:-http://127.0.0.1:4010/v1}"
+MODEL="${KIMI_YOLO_MODEL:-hermes/kimi-code}"
+MARKER="${HERMES_ZERO_SPEND_MARKER:-$HOME/.hermes/NO_PAID_SPEND}"
+
+resolve_opencode_yolo() {
+  # Explicit override is authoritative: if set, use it or fail (never fall through).
+  if [ -n "${OPENCODE_YOLO_BIN:-}" ]; then
+    [ -x "$OPENCODE_YOLO_BIN" ] && { printf '%s\n' "$OPENCODE_YOLO_BIN"; return 0; }
+    return 1
+  fi
+  for c in "$HOME/.local/bin/opencode-yolo" "$(dirname "$0")/opencode-yolo" \
+           "$(command -v opencode-yolo 2>/dev/null || true)"; do
+    [ -n "$c" ] && [ -x "$c" ] && { printf '%s\n' "$c"; return 0; }
+  done
+  return 1
+}
+
+# Ping the kimi-code route directly (bare model id, no hermes/ prefix at the wire).
+probe_kimi() {
+  curl -fsS -m 20 "$GATEWAY_URL/chat/completions" -H 'Content-Type: application/json' \
+    -d '{"model":"kimi-code","messages":[{"role":"user","content":"Reply with exactly: KIMI-YOLO-OK"}],"max_tokens":900}' 2>/dev/null \
+    | /usr/bin/python3 -c 'import json,sys;print((json.load(sys.stdin)["choices"][0]["message"].get("content") or "").strip())' 2>/dev/null
+}
+
+doctor() {
+  local format="${1:-text}" reply="" ok=false
+  reply="$(probe_kimi || true)"
+  [ "$reply" = "KIMI-YOLO-OK" ] && ok=true
+  if [ "$format" = json ]; then
+    OK=$ok RE="$reply" MO="$MODEL" GW="$GATEWAY_URL" \
+    ZS="$([ -e "$MARKER" ] && echo true || echo false)" /usr/bin/python3 -c '
+import json,os
+print(json.dumps({"schema":"kimi-yolo/doctor-v1","ok":os.environ["OK"]=="true",
+  "provider":"Kimi","model":"kimi-code","routedAs":os.environ["MO"],
+  "gateway":os.environ["GW"],"probeReply":os.environ["RE"],
+  "zeroSpendActive":os.environ["ZS"]=="true","autonomous":True}))'
+  else
+    printf 'KIMI_YOLO_OK=%s model=%s gateway=%s probe=%s zero_spend=%s\n' \
+      "$ok" "kimi-code" "$GATEWAY_URL" "${reply:-none}" "$([ -e "$MARKER" ] && echo true || echo false)"
+  fi
+  [ "$ok" = true ]
+}
+
+if [ "${1:-}" = "--doctor" ]; then
+  shift
+  case "${1:-}" in
+    "") doctor text ;;
+    --json) doctor json ;;
+    *) echo "kimi-yolo: --doctor accepts only optional --json" >&2; exit 2 ;;
+  esac
+  exit $?
+fi
+
+if [ -e "$MARKER" ]; then
+  echo "kimi-yolo: blocked — fleet zero-spend is active ($MARKER)" >&2
+  exit 73
+fi
+
+if ! OCY="$(resolve_opencode_yolo)"; then
+  echo "kimi-yolo: opencode-yolo harness not found (install it first)" >&2
+  exit 127
+fi
+
+# If the caller already pinned a model, respect it; else pin Kimi.
+for a in "$@"; do case "$a" in -m|--model|--model=*) exec "$OCY" "$@";; esac; done
+exec "$OCY" -m "$MODEL" "$@"
