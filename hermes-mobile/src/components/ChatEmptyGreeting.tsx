@@ -32,13 +32,6 @@ export function greetingSubtitle(
     ? /^(mac|computer|your mac|your computer|my mac|mac via usb|computer via usb|mac via network|http|https)$/i.test(route)
     : false;
 
-  if (connectionPending) {
-    if (route && !isGeneric) {
-      return `Trying to reach ${route} automatically…`;
-    }
-    return 'Trying to reach your computer automatically…';
-  }
-
   if (route === 'Hermes account relay') {
     return 'Ask anything — pair Hermes relay for Wi‑Fi, cellular, or USB when you are away from your computer.';
   }
@@ -47,11 +40,20 @@ export function greetingSubtitle(
     return 'Computer URL is incomplete — open Settings to pick or add a computer.';
   }
 
+  // Connected must win over silent-heal "Trying to reach…" — header + empty state
+  // share truth (dual-state crisis: green Connected + heal flag still true).
   if (isConnected) {
     if (route && !isGeneric) {
       return `Ask anything — connected via ${route}.`;
     }
     return 'Ask anything.';
+  }
+
+  if (connectionPending) {
+    if (route && !isGeneric) {
+      return `Trying to reach ${route} automatically…`;
+    }
+    return 'Trying to reach your computer automatically…';
   }
 
   if (route && !isGeneric) {
