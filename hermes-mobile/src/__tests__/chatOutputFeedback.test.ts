@@ -4,6 +4,10 @@ import {
   resolveChatOutputFeedbackBusyKey,
   shouldShowChatOutputFeedback,
 } from '../utils/chatOutputFeedback';
+import {
+  EMPTY_STREAM_TIMEOUT_PLACEHOLDER,
+  GENERIC_EMPTY_STREAM_PLACEHOLDER,
+} from '../utils/streamAssistantText';
 
 const assistantMessage: HermesMessage = {
   id: 'msg-1',
@@ -44,6 +48,30 @@ describe('shouldShowChatOutputFeedback', () => {
     expect(
       shouldShowChatOutputFeedback(
         { role: 'assistant', content: '   ' },
+        { leashUnlocked: true, isStreamingAssistant: false },
+      ),
+    ).toBe(false);
+  });
+
+  it('hides feedback for deferred working/timeout status placeholders', () => {
+    expect(
+      shouldShowChatOutputFeedback(
+        { role: 'assistant', content: GENERIC_EMPTY_STREAM_PLACEHOLDER },
+        { leashUnlocked: true, isStreamingAssistant: false },
+      ),
+    ).toBe(false);
+    expect(
+      shouldShowChatOutputFeedback(
+        {
+          role: 'assistant',
+          content: `${GENERIC_EMPTY_STREAM_PLACEHOLDER}\n\nUsing on your computer: terminal`,
+        },
+        { leashUnlocked: true, isStreamingAssistant: false },
+      ),
+    ).toBe(false);
+    expect(
+      shouldShowChatOutputFeedback(
+        { role: 'assistant', content: EMPTY_STREAM_TIMEOUT_PLACEHOLDER },
         { leashUnlocked: true, isStreamingAssistant: false },
       ),
     ).toBe(false);

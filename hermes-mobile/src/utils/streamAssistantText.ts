@@ -32,6 +32,40 @@ export function isDeferredStreamPlaceholder(content: string | undefined): boolea
   );
 }
 
+/**
+ * In-flight "Working on your computer…" status belongs in RunProgressBanner only.
+ * Soft-timeout / Telegram-queue copy stays visible (actionable, not poll spam).
+ */
+export function isTransientWorkingStatusPlaceholder(content: string | undefined): boolean {
+  const body = content?.trim() ?? '';
+  if (!body) {
+    return false;
+  }
+  if (body === EMPTY_STREAM_TIMEOUT_PLACEHOLDER || body.startsWith('Still no reply text.')) {
+    return false;
+  }
+  if (body === TELEGRAM_QUEUED_REPLY_PLACEHOLDER) {
+    return false;
+  }
+  return (
+    body === GENERIC_EMPTY_STREAM_PLACEHOLDER ||
+    body.startsWith('Working on your computer…') ||
+    body.startsWith('(Hermes did not return text yet')
+  );
+}
+
+/**
+ * Tool-poll activity updates the footer banner — never rewrite the transcript bubble.
+ * Kept as an explicit no-op so call sites cannot reintroduce status spam.
+ */
+export function resolveWorkingPlaceholderAfterToolPoll(
+  currentContent: string | undefined,
+  _activityDetail?: string,
+): string | undefined {
+  void _activityDetail;
+  return currentContent;
+}
+
 export function extractAssistantFromRunCompletedPayload(data: Record<string, unknown>): string {
   const fromMessages = extractAssistantFromTranscriptMessages(data.messages);
   if (fromMessages) {
