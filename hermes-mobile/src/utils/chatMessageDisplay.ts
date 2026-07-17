@@ -15,6 +15,7 @@ import {
   shouldHideToolDumpFromTimeline,
 } from './chatToolDump';
 import { stripClarificationMarkup, parseClarificationFromContent } from './chatClarification';
+import { isTransientWorkingStatusPlaceholder } from './streamAssistantText';
 
 export { isToolDumpDisplayContent, shouldHideToolDumpFromTimeline } from './chatToolDump';
 export {
@@ -340,6 +341,10 @@ export function prepareMessagesForDisplay(
       }
       const raw =
         typeof message.content === 'string' ? message.content : String(message.content ?? '');
+      // Footer RunProgressBanner owns in-flight working copy — keep it out of transcript.
+      if (isTransientWorkingStatusPlaceholder(raw)) {
+        return false;
+      }
       if (includeHermesStatus && isHermesLiveStatusContent(raw)) {
         return true;
       }

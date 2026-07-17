@@ -1,6 +1,12 @@
 import type { GatewayProfile } from '../types/gatewayProfile';
-import { isInvalidGatewayProfile } from '../services/gatewayProfiles';
-import { hasOnlyLoopbackProfiles } from './gatewayProfilePicker';
+import {
+  isGenericMachineLabel,
+  isInvalidGatewayProfile,
+} from '../services/gatewayProfiles';
+import {
+  hasNonLoopbackSavedProfile,
+  hasOnlyLoopbackProfiles,
+} from './gatewayProfilePicker';
 import { isTailscaleGatewayUrl } from './tailscaleHosts';
 import type { ConnectionHealSnapshot } from './connectionErrorPolicy';
 import {
@@ -15,8 +21,26 @@ export type FreshUserOnboardingStep = {
   body: string;
 };
 
+/**
+ * True when the user has a real saved Mac (Tailscale/LAN), or a named USB row from a
+ * prior live cable. Synthetic generic `mac_usb_loopback` alone does NOT count — that was
+ * the fresh-install "Reconnecting…" bug.
+ */
 export function hasValidSavedComputer(profiles: GatewayProfile[]): boolean {
-  return profiles.some((profile) => !isInvalidGatewayProfile(profile));
+  if (hasNonLoopbackSavedProfile(profiles)) {
+    return true;
+  }
+  // Named USB from a prior live cable identity (hostname set) counts as prior connection.
+  return profiles.some((profile) => {
+    if (isInvalidGatewayProfile(profile)) {
+      return false;
+    }
+    const host = profile.hostname?.replace(/\.local$/i, '').trim();
+    if (!host || isGenericMachineLabel(host)) {
+      return false;
+    }
+    return !/^computer via usb$/i.test(host);
+  });
 }
 
 export function isFreshUserUnpaired(profiles: GatewayProfile[]): boolean {

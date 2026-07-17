@@ -40,7 +40,10 @@ import Constants from 'expo-constants';
 import { colors } from '../theme/colors';
 import { isDemoModeAllowed } from '../utils/demoModePolicy';
 import { haptics } from '../services/haptics';
+import { scheduleRunCompletedNotification } from '../services/hermesNotifications';
 import GatewayProfilePicker from '../components/GatewayProfilePicker';
+import { confirmForgetGatewayProfile } from '../utils/confirmForgetGatewayProfile';
+import { profileDisplayName } from '../services/gatewayProfiles';
 import {
   listSessions,
   createSession,
@@ -91,10 +94,27 @@ import {
   setActiveSession,
 } from '../services/chatProjects';
 import { fetchVaultProjectCatalog } from '../services/vaultProjects';
+import {
+  loadContinuityChipDismissed,
+  loadPendingContinuityHandoff,
+  savePendingContinuityHandoff,
+  setContinuityChipDismissed,
+} from '../services/sessionContinuityStorage';
+import {
+  fetchSessionContinuityHandoff,
+  postSessionContinuityHandoff,
+} from '../services/sessionContinuitySync';
 import { filterChatProjects } from '../utils/filterChatProjects';
 import type { VaultProjectCatalog } from '../types/vaultProject';
 import { storage } from '../services/storage';
 import { buildMobileChatSystemPrompt } from '../utils/workspacePrompt';
+import ContinuingFromSessionChip from '../components/ContinuingFromSessionChip';
+import {
+  buildSessionContinuityHandoff,
+  continuityTitleFromHandoff,
+  shouldSkipAutoRetitleForContinuity,
+  type SessionContinuityHandoff,
+} from '../utils/sessionContinuityHandoff';
 import {
   formatSessionCreated,
   formatSessionTitle,
@@ -159,8 +179,14 @@ import {
   displayableLlmModel,
   humanizeComposerStatus,
   isActiveChatRun,
+  REPLY_READY_STATUS_DETAIL,
+  shouldShowCompletedRunBanner,
   shouldShowComposerProgressBanner,
 } from '../utils/runProgressDisplay';
+import {
+  shouldHideProjectChipWhileKeyboard,
+  shouldSuppressCommandCenterRunTile,
+} from '../utils/runProgressLayout';
 import {
   classifyRunStale,
   isTerminalGatewayRunStatus,
@@ -178,8 +204,14 @@ import {
   COMPOSER_DRAFT_SAVE_DEBOUNCE_MS,
   clearComposerDraft,
   loadComposerDraft,
+  restoreComposerDraftAfterRejectedSend,
   saveComposerDraft,
 } from '../utils/composerDraftStorage';
+import {
+  composerTextAfterRejectedSend,
+  shouldPreserveTranscriptOnSessionChange,
+  shouldSuppressConnectionHelpForLocalOutbound,
+} from '../utils/disconnectMessagePreserve';
 import {
   captureComposerTextForFreshChat,
   resolveComposerTextAfterFreshChat,
@@ -237,6 +269,7 @@ import {
 } from '../utils/chatSessionRecovery';
 import {
   DEAD_RUN_ENDED_DETAIL,
+  isComposerSendDisabled,
   isDeadRunEndedMessage,
   shouldSurfaceDeadRunEnded,
   transcriptUnchangedMs,
@@ -245,11 +278,11 @@ import {
   classifyMegaSession,
   isMegaSession,
   isMegaSessionSendBlocked,
+  sessionTotalTokens,
   megaSessionBannerCopy,
   megaSessionForceFreshSelectCopy,
   megaSessionSendWarnMessage,
   megaSessionSendWarnTitle,
-  sessionTotalTokens,
   shouldAutoFreshAndResendOnMegaBlock,
   shouldForceFreshOnSessionSelect,
   shouldSuggestFreshOnSessionSelect,
@@ -276,6 +309,7 @@ import {
   shouldShowConnectivityRunBanner,
 } from '../utils/connectionErrorPolicy';
 import {
+  connectingToMacCopy,
   formatSavedMacUnreachableBanner,
   reconnectingToMacCopy,
   savedMacUnreachableStatus,
@@ -418,13 +452,7 @@ export function resolveEffectiveKeyboardInset(
   windowHeight: number,
   /** Test seam: Android Keyboard.metrics().height without mocking Keyboard globally. */
   androidMetricsHeight?: number,
-  /** True when Android adjustResize already shrank the window above the IME. */
-  windowShrunk = false,
 ): number {
-  // OS resize already lifted the flex layout — manual marginBottom would double-lift.
-  if (Platform.OS === 'android' && windowShrunk) {
-    return 0;
-  }
   if (keyboardInset > 0) {
     return keyboardInset;
   }
@@ -440,20 +468,6 @@ export function resolveEffectiveKeyboardInset(
     return 0;
   }
   return focusedAndroidKeyboardFallbackInset(inputFocused, keyboardInset, windowHeight);
-}
-
-/**
- * adjustResize reports zero keyboard overlap while the IME is still visible. Never clear
- * keyboardScreenVisible from frame events — rely on keyboardDidHide + handleInputBlur.
- */
-export function applyKeyboardScreenVisibleFromFrame(
-  overlap: number,
-  currentlyVisible: boolean,
-): boolean {
-  if (overlap > 0) {
-    return true;
-  }
-  return currentlyVisible;
 }
 
 /** Android layout shifts (e.g. run-progress banner) can spuriously emit keyboardDidHide. */
@@ -499,7 +513,7 @@ export function shouldIgnoreKeyboardHide(
   return platformOs === 'android' && inputFocused && metricsHeight > 0;
 }
 
-/** How long the "Reply ready on your computer" banner stays before auto-dismiss. */
+/** How long the "Reply ready" / "Hermes finished — tap to read" banner stays before auto-dismiss. */
 const RUN_COMPLETED_BANNER_DISMISS_MS = 2500;
 
 /** How long the per-message "Saved to ThumbGate" confirmation stays visible. */
@@ -584,6 +598,11 @@ export default function ChatScreen() {
   /** True while Start fresh chat is forking/stopping — show spinner so tap isn't silent. */
   const [isStartingFreshChat, setIsStartingFreshChat] = useState(false);
   const isStartingFreshChatRef = useRef(false);
+  /** Pending vault/local handoff so a fresh chat can pick up where the last session left off. */
+  const [continuityHandoff, setContinuityHandoff] = useState<SessionContinuityHandoff | null>(null);
+  const [continuityChipDismissed, setContinuityChipDismissedState] = useState(false);
+  const continuityHandoffRef = useRef<SessionContinuityHandoff | null>(null);
+  continuityHandoffRef.current = continuityHandoff;
   /** HTTP chat stream in flight — keep WS from clearing runProgress before first token. */
   const [isChatStreamActive, setIsChatStreamActive] = useState(false);
   const [sessionModalVisible, setSessionModalVisible] = useState(false);
@@ -792,9 +811,11 @@ export default function ChatScreen() {
             event.endCoordinates,
             Dimensions.get('window').height,
           );
-          setKeyboardScreenVisible((current) =>
-            applyKeyboardScreenVisibleFromFrame(overlap, current),
-          );
+          if (overlap <= 0) {
+            setKeyboardScreenVisible(false);
+          } else {
+            setKeyboardScreenVisible(true);
+          }
         }),
       );
     }
@@ -1250,15 +1271,22 @@ export default function ChatScreen() {
     userSendFailed,
     hasRetryableFailedSend,
   });
-  const showMacConnectionHelp = shouldShowMacConnectionHelp({
-    isDemo,
-    macChatLive: effectiveMacChatLive,
-    healthProbePending,
-    healthLevel: health?.level,
-    heal: connectionHeal,
-    userSendFailed,
-    profiles: gatewayProfiles,
+  const suppressConnectionHelpForLocalOutbound = shouldSuppressConnectionHelpForLocalOutbound({
+    hasRetryableFailedSend,
+    pendingOutboundSends: pendingOutboundSendsRef.current,
+    messages,
   });
+  const showMacConnectionHelp =
+    !suppressConnectionHelpForLocalOutbound &&
+    shouldShowMacConnectionHelp({
+      isDemo,
+      macChatLive: effectiveMacChatLive,
+      healthProbePending,
+      healthLevel: health?.level,
+      heal: connectionHeal,
+      userSendFailed,
+      profiles: gatewayProfiles,
+    });
   const showMacRetryBanner = shouldShowMacRetryBanner({
     isDemo,
     macChatLive: effectiveMacChatLive,
@@ -1637,7 +1665,10 @@ export default function ChatScreen() {
     healInFlight: connectionHealInFlight,
     healExhausted: connectionHealExhausted,
     hasSavedComputer: hasValidSavedComputer(gatewayProfiles),
+    authMismatch: effectiveAuthMismatch,
   });
+
+  const hasPriorSuccessfulConnection = hasValidSavedComputer(gatewayProfiles);
 
   const macRetryBannerText = useMemo(() => {
     if (
@@ -1645,9 +1676,16 @@ export default function ChatScreen() {
         macRetryBusy,
         healInFlight: connectionHealInFlight,
         healExhausted: connectionHealExhausted,
+        hasPriorSuccessfulConnection,
       })
     ) {
       return reconnectingToMacCopy(machineShortLabel);
+    }
+    if (
+      !hasPriorSuccessfulConnection &&
+      (macRetryBusy || (connectionHealInFlight && !connectionHealExhausted))
+    ) {
+      return connectingToMacCopy(machineShortLabel);
     }
     if (connectionHealExhausted && !effectiveMacHttpOk) {
       return formatSavedMacUnreachableBanner({
@@ -1670,6 +1708,7 @@ export default function ChatScreen() {
     macRetryBusy,
     connectionHealInFlight,
     connectionHealExhausted,
+    hasPriorSuccessfulConnection,
     effectiveMacHttpOk,
     machineShortLabel,
     connectionState,
@@ -1706,8 +1745,6 @@ export default function ChatScreen() {
     keyboardScreenVisible,
     inputFocused,
     windowDimensions.height,
-    undefined,
-    keyboardWindowShrunk,
   );
   const composerDockSpacing = useMemo(
     () =>
@@ -1866,14 +1903,71 @@ export default function ChatScreen() {
       buildMobileChatSystemPrompt(contextProject?.workspacePath, settings.hermesPersona, {
         vaultSlug: contextProject?.vaultSlug,
         handoffSummary: contextProject?.handoffSummary,
+        continuityHandoff,
       }),
     [
       contextProject?.workspacePath,
       contextProject?.vaultSlug,
       contextProject?.handoffSummary,
+      continuityHandoff,
       settings.hermesPersona,
     ],
   );
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      const [local, dismissed] = await Promise.all([
+        loadPendingContinuityHandoff(),
+        loadContinuityChipDismissed(),
+      ]);
+      if (cancelled) return;
+      if (local) {
+        setContinuityHandoff(local);
+        setContinuityChipDismissedState(dismissed);
+      }
+      if (isDemo || !gatewayUrl) return;
+      const remote = await fetchSessionContinuityHandoff(gatewayUrl);
+      if (cancelled || !remote) return;
+      setContinuityHandoff(remote);
+      void savePendingContinuityHandoff(remote);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [gatewayUrl, isDemo]);
+
+  const persistContinuityFromCurrentThread = useCallback(async () => {
+    const msgs = messagesRef.current;
+    const session = currentSessionRef.current;
+    const handoff = buildSessionContinuityHandoff({
+      messages: msgs,
+      sessionId: session?.id,
+      sessionTitle: session?.title,
+      workspacePath: contextProject?.workspacePath,
+      vaultSlug: contextProject?.vaultSlug,
+      macName: machineHeaderDisplay.machineLabel,
+    });
+    if (!handoff) return null;
+    setContinuityHandoff(handoff);
+    setContinuityChipDismissedState(false);
+    await savePendingContinuityHandoff(handoff);
+    if (!isDemo && gatewayUrl) {
+      void postSessionContinuityHandoff(gatewayUrl, handoff).catch(() => {});
+    }
+    return handoff;
+  }, [
+    contextProject?.vaultSlug,
+    contextProject?.workspacePath,
+    gatewayUrl,
+    isDemo,
+    machineHeaderDisplay.machineLabel,
+  ]);
+
+  const dismissContinuityChip = useCallback(() => {
+    setContinuityChipDismissedState(true);
+    void setContinuityChipDismissed(true);
+  }, []);
 
   const visibleSessions = useMemo(() => {
     let list: HermesSession[];
@@ -2421,7 +2515,10 @@ export default function ChatScreen() {
 
   useEffect(() => {
     if (isProjectsLoaded) {
-      loadSessionsList(true);
+      // Reconnect/heal must not force selectLatest — that can jump threads and wipe
+      // local optimistic/failed bubbles while the transcript refresh is still blocked.
+      const selectLatest = !currentSessionRef.current;
+      loadSessionsList(selectLatest);
     }
   }, [isProjectsLoaded, isDemo, gatewayUrl, apiKey, macChatLive]);
 
@@ -2821,6 +2918,7 @@ export default function ChatScreen() {
           const activity = toolActivityAfterLastUser(msgs);
           if (activity.active) {
             sawTools = true;
+            // Footer banner only — do not rewrite the transcript bubble every poll.
             setToolStatus(activity.detail);
             setRunProgress((prev) =>
               prev
@@ -2830,16 +2928,6 @@ export default function ChatScreen() {
                     startedAtMs: startedAt,
                     detail: activity.detail,
                   },
-            );
-            commitMessages((prev) =>
-              prev.map((m) =>
-                m.id === assistantId && isDeferredStreamPlaceholder(m.content)
-                  ? {
-                      ...m,
-                      content: `${GENERIC_EMPTY_STREAM_PLACEHOLDER}\n\n${activity.detail}`,
-                    }
-                  : m,
-              ),
             );
           } else if (elapsed >= EMPTY_STREAM_SELF_HEAL_AFTER_MS) {
             const checkingDetail = emptyStreamCheckingStatus(elapsed);
@@ -3093,10 +3181,25 @@ export default function ChatScreen() {
 
   useEffect(() => {
     setUndoSecondsLeft(0);
-    const hasActiveOutbound =
-      pendingOutboundSendsRef.current > 0 || isSendingRef.current;
     const hasActiveRun = isActiveChatRun(runProgressRef.current);
-    if (hasActiveOutbound || hasActiveRun) {
+    const preserveTranscript = shouldPreserveTranscriptOnSessionChange({
+      messages: messagesRef.current,
+      pendingOutboundSends: pendingOutboundSendsRef.current,
+      isSending: isSendingRef.current,
+      hasActiveRun,
+    });
+    if (preserveTranscript) {
+      // False disconnect / sticky-session flicker: keep local bubbles; refresh merges later.
+      const sessionId = currentSession?.id;
+      void (async () => {
+        await hydratePersistedOutboundForSession(sessionId);
+        if (sessionId) {
+          await refreshSessionMessagesRef.current?.({
+            background: true,
+            force: true,
+          });
+        }
+      })();
       return;
     }
     setPinnedOutboundText(null);
@@ -3502,6 +3605,8 @@ export default function ChatScreen() {
     const preservedText = captureComposerTextForFreshChat(inputValueRef.current);
     const attachmentsToRestore = [...composerAttachmentsRef.current];
     try {
+      // Capture continuity before wiping transcript so the next chat can continue.
+      await persistContinuityFromCurrentThread();
       // Kill zombie "Delivering…" / mega-token banner: clear local run state AND best-effort stop Mac run.
       // (Previously only null'd runProgress while isChatStreamActive + sendProgressSnapshotRef kept the UI alive.)
       const stopIds = [
@@ -3558,6 +3663,7 @@ export default function ChatScreen() {
     gatewayUrl,
     handleNewChat,
     isDemo,
+    persistContinuityFromCurrentThread,
     setRunProgress,
   ]);
 
@@ -4017,9 +4123,6 @@ export default function ChatScreen() {
     haptics.selection();
   }, []);
 
-  const outboundSendStillPending =
-    pinnedOutboundStatus === 'pending' && Boolean(pinnedOutboundText?.trim());
-
   const shouldBlockDuplicateOutboundSend = useCallback(
     (rawText: string, attachments: ComposerAttachment[] = composerAttachmentsRef.current) => {
       const display = formatAttachmentBubbleText(rawText.trim(), attachments);
@@ -4113,9 +4216,16 @@ export default function ChatScreen() {
       haptics.warning();
       sendClearSuppressRef.current = false;
       lastSentComposerTextRef.current = '';
-      inputValueRef.current = userText;
-      setInputValue(userText);
+      const restored = composerTextAfterRejectedSend({
+        rejectedText: userText,
+        attachmentsCount: attachments.length,
+      });
+      inputValueRef.current = restored.text;
+      setInputValue(restored.text);
       setComposerAttachments(attachments);
+      if (restored.shouldPersistDraft && sentSessionId && !isDemo) {
+        void restoreComposerDraftAfterRejectedSend(sentSessionId, restored.text);
+      }
       return;
     }
 
@@ -4128,9 +4238,16 @@ export default function ChatScreen() {
       pendingOutboundClaimRef.current = null;
       sendClearSuppressRef.current = false;
       lastSentComposerTextRef.current = '';
-      inputValueRef.current = userText;
-      setInputValue(userText);
+      const restored = composerTextAfterRejectedSend({
+        rejectedText: userText,
+        attachmentsCount: attachments.length,
+      });
+      inputValueRef.current = restored.text;
+      setInputValue(restored.text);
       setComposerAttachments(attachments);
+      if (restored.shouldPersistDraft && sentSessionId && !isDemo) {
+        void restoreComposerDraftAfterRejectedSend(sentSessionId, restored.text);
+      }
     } else {
       haptics.light();
     }
@@ -4481,6 +4598,8 @@ export default function ChatScreen() {
     userScrolledUpRef.current = false;
     lastDistanceFromBottomRef.current = 0;
     setChatNearBottom(true);
+    // Pin again after RUN banner / dock layout shrinks the FlashList viewport.
+    pinScrollAfterHydrationRef.current = true;
     scrollChatToLatest(true);
     return userMessage.id ?? '';
   };
@@ -4667,21 +4786,6 @@ export default function ChatScreen() {
       }
     }
 
-    if (!isDemo && !macChatLive) {
-      const blockedMessage = chatSendBlockedMessage({
-        connectionMode: settings.connectionMode,
-        connectionState,
-        gatewayUrl,
-        healthProbePending,
-      });
-      setErrorMessage(blockedMessage);
-      haptics.warning();
-      isSendingRef.current = false;
-      setIsSending(false);
-      outboundLockReleased = true;
-      return false;
-    }
-
     if (!isDemo && macChatLive) {
       const staleProgress = runProgressRef.current;
       if (staleProgress && isActiveChatRun(staleProgress)) {
@@ -4727,6 +4831,55 @@ export default function ChatScreen() {
       findPendingOptimisticUserBubble(messagesRef.current, displayText)?.id ??
       commitOutboundUserBubble(displayText);
     outboundUserBubbleCommitted = true;
+
+    // False disconnect / offline send: keep the optimistic bubble as failed+retryable.
+    // Never silently drop the typed message (composer already cleared by handleSend).
+    if (!isDemo && !macChatLive) {
+      const blockedMessage = chatSendBlockedMessage({
+        connectionMode: settings.connectionMode,
+        connectionState,
+        gatewayUrl,
+        healthProbePending,
+      });
+      const failedId = committedUserMessageId;
+      commitMessages((prev) => {
+        const next = prev.map((message) =>
+          message.id === failedId
+            ? {
+                ...message,
+                outboundStatus: 'failed' as const,
+                outboundFailureReason: blockedMessage,
+              }
+            : message,
+        );
+        persistOutboundSnapshot(currentSessionRef.current?.id, next, {
+          pinnedText: displayText,
+          pinnedSentAt: new Date().toISOString(),
+          pinnedStatus: 'failed',
+        });
+        return next;
+      });
+      if (pendingOutboundSendsRef.current > 0) {
+        pendingOutboundSendsRef.current -= 1;
+      }
+      lastFailedSendTextRef.current = displayText;
+      setPinnedOutboundStatus('failed');
+      setPinnedOutboundText(null);
+      setPinnedOutboundSentAt(null);
+      setErrorMessage(blockedMessage);
+      setRunProgress({
+        phase: 'failed',
+        startedAtMs: Date.now(),
+        detail: blockedMessage,
+        sessionId: currentSessionRef.current?.id,
+      });
+      haptics.warning();
+      isSendingRef.current = false;
+      setIsSending(false);
+      outboundLockReleased = true;
+      activeOutboundSendBodyRef.current = null;
+      return true;
+    }
 
     sendStartedAtRef.current = Date.now();
     deadRunSurfacedRef.current = false;
@@ -4855,7 +5008,13 @@ export default function ChatScreen() {
     let sessionBindingPersisted = false;
 
     if (activeSess && !isProgrammatic) {
-      const derived = titleFromFirstPrompt(userText);
+      const skipPickUpTitle = shouldSkipAutoRetitleForContinuity(
+        userText,
+        Boolean(continuityHandoffRef.current),
+      );
+      const derived = skipPickUpTitle
+        ? continuityTitleFromHandoff(continuityHandoffRef.current)
+        : titleFromFirstPrompt(userText);
       if (
         derived &&
         (isDemo || shouldAutoTitleSession(activeSess, projectState.sessionLabels))
@@ -5086,6 +5245,7 @@ export default function ChatScreen() {
         if (!body) {
           return;
         }
+        activeAssistantTextRef.current = body;
         if (!assistantBubbleAdded && isDeferredStreamPlaceholder(body)) {
           const existing = findDeferredPlaceholderAfterLastUser(messagesRef.current);
           if (existing?.id) {
@@ -5453,14 +5613,14 @@ export default function ChatScreen() {
                   phase: 'working',
                   detail: summarizationStub
                     ? 'Context was summarized — still fetching a real reply…'
-                    : 'Working on your computer (tools may be running)…',
+                    : 'Working on your computer…',
                 }
               : {
                   phase: 'working',
                   startedAtMs: sendStartedAtRef.current,
                   detail: summarizationStub
                     ? 'Context was summarized — still fetching a real reply…'
-                    : 'Working on your computer (tools may be running)…',
+                    : 'Working on your computer…',
                   sessionId: targetSessionIdForProgress,
                 },
           );
@@ -5564,20 +5724,42 @@ export default function ChatScreen() {
       if (!deferredTelegramPollRef.current) {
         const completedStartedAt = sendStartedAtRef.current;
         if (sendSucceeded) {
-          setRunProgress((prev) => ({
-            ...(prev ?? {
-              startedAtMs: completedStartedAt,
-              sessionId: targetSessionId,
-            }),
-            phase: 'completed',
-            detail: 'Reply ready on your computer',
-            duration: Math.max(0, (Date.now() - completedStartedAt) / 1000),
-          }));
-          setTimeout(() => {
-            setRunProgress((prev) =>
-              prev?.phase === 'completed' && prev.startedAtMs === completedStartedAt ? null : prev,
-            );
-          }, RUN_COMPLETED_BANNER_DISMISS_MS);
+          const replyPreview = (activeAssistantTextRef.current || '')
+            .replace(/\s+/g, ' ')
+            .trim()
+            .slice(0, 200);
+          const hasVisibleReply = Boolean(activeAssistantTextRef.current?.trim());
+          if (!shouldShowCompletedRunBanner(hasVisibleReply)) {
+            // Reply bubble is already in the thread — do not flash reply-ready chrome.
+            setRunProgress(null);
+          } else {
+            setRunProgress((prev) => ({
+              ...(prev ?? {
+                startedAtMs: completedStartedAt,
+                sessionId: targetSessionId,
+              }),
+              phase: 'completed',
+              detail: REPLY_READY_STATUS_DETAIL,
+              replyPreview: replyPreview || undefined,
+              duration: Math.max(0, (Date.now() - completedStartedAt) / 1000),
+            }));
+            if (AppState.currentState !== 'active' && settings.notificationCompletion) {
+              void scheduleRunCompletedNotification(
+                replyPreview || REPLY_READY_STATUS_DETAIL,
+                {
+                  success: true,
+                  sessionId: targetSessionId,
+                  replySnippet: replyPreview || undefined,
+                  categoryEnabled: settings.notificationCompletion,
+                },
+              );
+            }
+            setTimeout(() => {
+              setRunProgress((prev) =>
+                prev?.phase === 'completed' && prev.startedAtMs === completedStartedAt ? null : prev,
+              );
+            }, RUN_COMPLETED_BANNER_DISMISS_MS);
+          }
         } else if (sendFailureDetail) {
           const failureDetail = sendFailureDetail;
           setRunProgress((prev) => ({
@@ -6247,24 +6429,27 @@ export default function ChatScreen() {
         isSendingRef.current = false;
         setIsSending(false);
         const reconciledStartedAt = runProgressRef.current?.startedAtMs;
+        const hasVisibleReply = Boolean(activeAssistantTextRef.current?.trim());
         setRunProgress((prev) => {
           if (!prev || !isActiveChatRun(prev)) {
             return prev;
           }
           if (gatewayStatus === 'completed') {
+            // Reply already in the transcript → no "Reply ready on your computer" chrome.
+            if (!shouldShowCompletedRunBanner(hasVisibleReply)) {
+              return null;
+            }
             return {
               ...prev,
               phase: 'completed',
-              detail: 'Reply ready on your computer',
+              detail: REPLY_READY_STATUS_DETAIL,
               duration: Math.max(0, (Date.now() - prev.startedAtMs) / 1000),
             };
           }
           return null;
         });
-        if (gatewayStatus === 'completed') {
-          // Mirror the send-success path: auto-dismiss the completed banner. Without
-          // this the reconcile path leaves "Reply ready on your computer" pinned
-          // until the user taps Dismiss, and keeps re-posting the run notification.
+        if (gatewayStatus === 'completed' && shouldShowCompletedRunBanner(hasVisibleReply)) {
+          // Only auto-dismiss when we actually showed a completed banner (empty/deferred reply).
           setTimeout(() => {
             setRunProgress((prev) =>
               prev?.phase === 'completed' && prev.startedAtMs === reconciledStartedAt
@@ -6351,6 +6536,7 @@ export default function ChatScreen() {
           machineName={machineShortLabel}
           chatStalled={effectiveAuthMismatch ? false : chatStalled}
           authMismatch={effectiveAuthMismatch}
+          suppressRunTile={shouldSuppressCommandCenterRunTile(showComposerProgressBanner)}
           onOpenApprovals={() => {
             haptics.selection();
             navigation.navigate('Leash' as never);
@@ -6584,12 +6770,12 @@ export default function ChatScreen() {
             progress={progressBanner}
             fallbackModel={progressBannerFallbackModel}
             showTechnicalStats={settings.includeToolActivity}
+            compact={keyboardOpen}
             megaSessionWarning={megaSessionWarning}
-            onStartFreshChat={
-              megaSessionWarning || isDeadRunEndedMessage(progressBanner.detail)
-                ? () => void handleStartFreshChat()
-                : undefined
-            }
+            sessionTokens={sessionTotalTokens(currentSession)}
+            macHttpOk={effectiveMacHttpOk}
+            onSwitchMac={() => setMacPickerVisible(true)}
+            onStartFreshChat={() => void handleStartFreshChat()}
             isStartingFreshChat={isStartingFreshChat}
             onStop={isRunActive || isSending ? () => void handleStopRun() : undefined}
             onDismiss={clearFailedOutboundState}
@@ -6642,6 +6828,11 @@ export default function ChatScreen() {
             </Pressable>
           </View>
         ) : null}
+
+        <ContinuingFromSessionChip
+          visible={Boolean(continuityHandoff) && !continuityChipDismissed}
+          onDismiss={dismissContinuityChip}
+        />
 
         {showEmptyStreamRefreshBanner && !showComposerProgressBanner ? (
           <EmptyStreamRefreshBanner
@@ -6705,11 +6896,13 @@ export default function ChatScreen() {
           </Pressable>
         ) : null}
 
-        <VaultProjectPickerChip
-          projectName={activeProject?.name}
-          handoffSummary={activeProject?.handoffSummary}
-          onPress={!showMacConnectionHelp ? openProjectPicker : undefined}
-        />
+        {!shouldHideProjectChipWhileKeyboard(keyboardOpen) ? (
+          <VaultProjectPickerChip
+            projectName={activeProject?.name}
+            handoffSummary={activeProject?.handoffSummary}
+            onPress={!showMacConnectionHelp ? openProjectPicker : undefined}
+          />
+        ) : null}
 
         <ChatInputBar
           value={inputValue}
@@ -6726,11 +6919,12 @@ export default function ChatScreen() {
             megaSessionSendHardBlocked ||
             !composerHasSendableContent(inputValue, composerAttachments)
           }
-          sendDisabled={
-            isSending ||
-            queuedOutboundCount > 0 ||
-            outboundSendStillPending
-          }
+          sendDisabled={isComposerSendDisabled({
+            isSending,
+            composerText: inputValue,
+            pinnedOutboundText,
+            pinnedOutboundStatus,
+          })}
           onSend={handleSend}
           showStop={isRunActive}
           onStop={() => void handleStopRun()}
@@ -6805,8 +6999,17 @@ export default function ChatScreen() {
                 }}
                 onRemove={
                   switchComputerProfiles.length > 1
-                    ? async (profileId) => {
-                        await removeGatewayProfile(profileId);
+                    ? (profileId) => {
+                        const profile =
+                          switchComputerProfiles.find((p) => p.id === profileId) ??
+                          gatewayProfiles.find((p) => p.id === profileId);
+                        confirmForgetGatewayProfile({
+                          profileId,
+                          computerName: profile
+                            ? profileDisplayName(profile)
+                            : 'this computer',
+                          onConfirm: removeGatewayProfile,
+                        });
                       }
                     : undefined
                 }

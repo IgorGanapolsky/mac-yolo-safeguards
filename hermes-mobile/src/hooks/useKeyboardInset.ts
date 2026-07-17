@@ -3,7 +3,6 @@ import { Dimensions, Keyboard, Platform, type KeyboardEvent } from 'react-native
 import {
   detectWindowShrunkForKeyboard,
   keyboardOverlapHeight,
-  windowHeightShrink,
 } from '../utils/composerKeyboard';
 
 export type KeyboardInsetState = {
@@ -43,22 +42,27 @@ export function useKeyboardInset(options?: {
     }
   }, [options?.focused]);
 
+  // Always poll Android keyboard metrics so sticky inset cannot trap UI
+  // (tab bar collapse) after Maestro hideKeyboard / IME dismiss without didHide.
   useEffect(() => {
     if (Platform.OS !== 'android' || options?.focused === false) {
-      return;
-    }
-
-    const focused =
-      options?.focused === true || options?.suppressHideWhileFocusedRef?.current === true;
-    if (!focused) {
       return;
     }
 
     const syncFromMetrics = () => {
       const metricsHeight = Keyboard.metrics()?.height ?? 0;
       if (metricsHeight <= 0) {
-        setInset(0);
+        setInset((prev) => (prev === 0 ? prev : 0));
         setWindowShrunk(false);
+        return;
+      }
+      // Optional focus gate only suppresses *raising* inset from poll when unfocused;
+      // we still clear when metrics report hidden.
+      const focused =
+        options?.focused === true ||
+        options?.focused === undefined ||
+        options?.suppressHideWhileFocusedRef?.current === true;
+      if (!focused) {
         return;
       }
       const currentWindowHeight = Dimensions.get('window').height;
@@ -137,27 +141,6 @@ export function useKeyboardInset(options?: {
         return;
       }
       if (Platform.OS === 'android') {
-        const shrink = windowHeightShrink(baselineWindowHeight.current, currentWindowHeight);
-        const metricsHeight = Keyboard.metrics()?.height ?? 0;
-        const focused =
-          options?.focused === true || options?.suppressHideWhileFocusedRef?.current === true;
-        const reportedFrameHeight = event.endCoordinates?.height ?? 0;
-        // adjustResize: overlap reads 0 while IME is still up — keep shrink/inset until hide.
-        if (focused && reportedFrameHeight > 0 && (shrink >= 56 || metricsHeight > 0)) {
-          if (metricsHeight > 0) {
-            setInset(metricsHeight);
-          }
-          if (shrink >= 56) {
-            setWindowShrunk(
-              detectWindowShrunkForKeyboard(
-                Math.max(metricsHeight, shrink),
-                baselineWindowHeight.current,
-                currentWindowHeight,
-              ),
-            );
-          }
-          return;
-        }
         setInset(0);
         setWindowShrunk(false);
         baselineWindowHeight.current = currentWindowHeight;

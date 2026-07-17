@@ -1,0 +1,36 @@
+appId: com.iganapolsky.hermesmobile
+---
+- launchApp:
+    clearState: false
+    stopApp: true
+- extendedWaitUntil:
+    notVisible:
+      id: "hermes-bootstrap"
+    timeout: 90000
+- runFlow: dismiss-print-interruption.yaml
+- openLink: hermes://chat
+- runFlow: dismiss-print-interruption.yaml
+- extendedWaitUntil:
+    visible:
+      id: "chat-header-tools"
+    timeout: 60000
+- tapOn:
+    id: "chat-header-tools"
+- extendedWaitUntil:
+    visible:
+      id: "connection-health-hub"
+    timeout: 15000
+- scrollUntilVisible:
+    element:
+      id: "connection-health-check-update"
+    direction: DOWN
+    timeout: 45000
+- tapOn:
+    id: "connection-health-check-update"
+- extendedWaitUntil:
+    visible:
+      id: "connection-health-update-message"
+    timeout: 90000
+- copyTextFrom:
+    id: "connection-health-update-message"
+- takeScreenshot: ../docs/proofs/ota-pr375-d4eb3c63-20260714/ota-check-screenshot

@@ -2,8 +2,11 @@ import {
   extractAssistantFromRunCompletedPayload,
   extractAssistantFromTranscriptMessages,
   findNewAssistantReply,
+  GENERIC_EMPTY_STREAM_PLACEHOLDER,
   isDeferredStreamPlaceholder,
   isTelegramDeferredEmptyStream,
+  isTransientWorkingStatusPlaceholder,
+  resolveWorkingPlaceholderAfterToolPoll,
   snapshotAssistantBodies,
   TELEGRAM_QUEUED_REPLY_PLACEHOLDER,
   EMPTY_STREAM_TIMEOUT_PLACEHOLDER,
@@ -69,7 +72,7 @@ describe('streamAssistantText', () => {
     expect(isDeferredStreamPlaceholder(TELEGRAM_QUEUED_REPLY_PLACEHOLDER)).toBe(true);
     expect(
       isDeferredStreamPlaceholder(
-        'Working on your computer… Hermes may be using tools (browser, search, terminal). The reply will show here when ready.',
+        'Working on your computer… The reply will show here when ready.',
       ),
     ).toBe(true);
     expect(
@@ -87,5 +90,31 @@ describe('streamAssistantText', () => {
     expect(EMPTY_STREAM_TIMEOUT_PLACEHOLDER.toLowerCase()).not.toContain('pull to refresh');
     expect(EMPTY_STREAM_TIMEOUT_PLACEHOLDER.toLowerCase()).toContain('checking');
     expect(isDeferredStreamPlaceholder(EMPTY_STREAM_TIMEOUT_PLACEHOLDER)).toBe(true);
+  });
+
+  it('marks in-flight working copy as transient (banner-only) but keeps timeout/telegram visible', () => {
+    expect(isTransientWorkingStatusPlaceholder(GENERIC_EMPTY_STREAM_PLACEHOLDER)).toBe(true);
+    expect(
+      isTransientWorkingStatusPlaceholder(
+        `${GENERIC_EMPTY_STREAM_PLACEHOLDER}\n\nUsing on your computer: browser navigate`,
+      ),
+    ).toBe(true);
+    expect(isTransientWorkingStatusPlaceholder(EMPTY_STREAM_TIMEOUT_PLACEHOLDER)).toBe(false);
+    expect(isTransientWorkingStatusPlaceholder(TELEGRAM_QUEUED_REPLY_PLACEHOLDER)).toBe(false);
+    expect(isTransientWorkingStatusPlaceholder('Here is the plan.')).toBe(false);
+  });
+
+  it('never appends tool-poll activity into the working placeholder bubble', () => {
+    const once = resolveWorkingPlaceholderAfterToolPoll(
+      GENERIC_EMPTY_STREAM_PLACEHOLDER,
+      'Using on your computer: browser navigate',
+    );
+    const again = resolveWorkingPlaceholderAfterToolPoll(
+      once,
+      'Using on your computer: web search',
+    );
+    expect(once).toBe(GENERIC_EMPTY_STREAM_PLACEHOLDER);
+    expect(again).toBe(GENERIC_EMPTY_STREAM_PLACEHOLDER);
+    expect(again).not.toContain('web search');
   });
 });

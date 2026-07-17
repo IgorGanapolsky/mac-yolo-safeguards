@@ -349,6 +349,43 @@ describe('tonight recurrence gates (2026-07-14 P0 class — S16-S23)', () => {
     );
   });
 
+  it('S25: cabled Mac Pro/MBP still exposes a selectable Tailscale row (USB must not hide it)', () => {
+    const macBookUsb = {
+      id: 'mac_book_usb',
+      label: 'Igors-MacBook-Pro',
+      gatewayUrl: 'http://127.0.0.1:8642',
+      hostname: 'Igors-MacBook-Pro',
+      addedAt: '2026-07-15T19:00:00Z',
+    };
+    const macBookTs = {
+      id: 'mac_book_ts',
+      label: 'Igors-MacBook-Pro',
+      gatewayUrl: 'http://100.87.85.85:8642',
+      hostname: 'Igors-MacBook-Pro',
+      localIp: '100.87.85.85',
+      addedAt: '2026-07-15T19:00:30Z',
+    };
+    const miniTs = {
+      id: 'mac_mini_ts',
+      label: 'Igors-Mac-mini',
+      gatewayUrl: 'http://100.94.135.78:8642',
+      hostname: 'Igors-Mac-mini',
+      localIp: '100.94.135.78',
+      addedAt: '2026-07-15T19:01:00Z',
+    };
+    const rows = profilesForSwitchComputerPicker([macBookUsb, macBookTs, miniTs], {
+      liveUsb: { reachable: true, hostname: 'Igors-MacBook-Pro.local' },
+    });
+    expect(rows.map((r) => r.id).sort()).toEqual([
+      'mac_book_ts',
+      'mac_book_usb',
+      'mac_mini_ts',
+    ]);
+    const tsMacPro = rows.find((r) => r.id === 'mac_book_ts')!;
+    expect(profilePickerLines(tsMacPro).title).toBe('Igors-MacBook-Pro (Mac Pro)');
+    expect(profilePickerLines(tsMacPro).detail).toBe('Tailscale · 100.87.85.85:8642');
+  });
+
   it('S19: Repair link is bounded to 12s and never leaves an infinite spinner (#392/#393)', () => {
     const opsSection = read('hermes-mobile/src/components/GatewayOpsSection.tsx');
     expect(opsSection).toContain('REPAIR_CONNECTION_TIMEOUT_MS = 12_000');
@@ -365,15 +402,25 @@ describe('tonight recurrence gates (2026-07-14 P0 class — S16-S23)', () => {
     expect(
       isComposerSendDisabled({
         isSending: false,
-        queuedOutboundCount: 0,
-        outboundStillPending: false,
+        composerText: 'new follow-up',
+        pinnedOutboundText: null,
+        pinnedOutboundStatus: 'pending',
       }),
     ).toBe(false);
     expect(
       isComposerSendDisabled({
         isSending: false,
-        queuedOutboundCount: 0,
-        outboundStillPending: true,
+        composerText: 'make money today',
+        pinnedOutboundText: 'old prompt',
+        pinnedOutboundStatus: 'pending',
+      }),
+    ).toBe(false);
+    expect(
+      isComposerSendDisabled({
+        isSending: true,
+        composerText: 'make money today',
+        pinnedOutboundText: 'make money today',
+        pinnedOutboundStatus: 'pending',
       }),
     ).toBe(true);
     // Global vault-wide agent activity must never gate this session's dead-run detection —
@@ -457,6 +504,37 @@ describe('tonight recurrence gates (2026-07-14 P0 class — S16-S23)', () => {
       expect(yaml).toContain('appId: com.iganapolsky.hermesmobile');
       expect(yaml).toMatch(/^---/m);
     }
+  });
+
+  it('S25: production OTA requires stranger CI proof; e2e=skipped alone is not pass (crisis amend)', () => {
+    const pkg = read('hermes-mobile/package.json');
+    expect(pkg).toContain('ota:gate');
+    expect(pkg).toContain('e2e:fresh-user');
+    expect(pkg).toContain('require-stranger-cold-start-proof.cjs --hard');
+    expect(pkg).toContain('ota-publish-gated.sh');
+    expect(read('hermes-mobile/.maestro/stranger-cold-start.yaml')).toContain('connect-mac-gate');
+    const gate = read('hermes-mobile/scripts/require-fresh-user-ota-gate.sh');
+    expect(gate).toContain('e2e=pass');
+    expect(gate).toContain('e2e=skipped is NOT pass');
+    expect(gate).toContain('require-stranger-cold-start-proof.cjs');
+    expect(gate).toContain('HERMES_OTA_FORCE_UNSAFE');
+    expect(gate).toMatch(/exit 1/);
+    const workflow = read('.github/workflows/mobile-ota.yml');
+    expect(workflow).toContain('require-stranger-cold-start-proof.cjs');
+    expect(workflow).toContain('HERMES_STRANGER_PROOF_WAIT_SEC');
+    // Crisis law: preview-on-push; production only via publish_production + staged rollout.
+    expect(workflow).toContain('publish-preview-ota');
+    expect(workflow).toContain('publish_production');
+    expect(workflow).toContain('--rollout-percentage');
+    expect(workflow).not.toContain('for CH in preview production');
+    expect(workflow).toMatch(/checks:\s*read/);
+    const stranger = read('hermes-mobile/scripts/require-stranger-cold-start-proof.cjs');
+    expect(stranger).toContain('checkGithubStrangerProof');
+    const pairJs = read('tools/hermes-mobile-pair.js');
+    expect(pairJs).toContain('refreshPairAssetsFromLocalGateway');
+    expect(pairJs).toContain('hostname mismatch');
+    const requireDevice = read('tools/require-device-verified.js');
+    expect(requireDevice).toContain('--allow-ota is disabled after 2026-07-15');
   });
 });
 

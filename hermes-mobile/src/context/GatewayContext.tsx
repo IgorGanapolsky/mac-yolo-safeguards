@@ -97,11 +97,13 @@ import {
   resolveCellularTailscaleFailoverUrl,
 } from '../utils/connectionSelfHeal';
 import { CONNECTION_HEAL_EXHAUSTED_AFTER } from '../utils/connectionErrorPolicy';
+import { planWrongKeyRecovery } from '../utils/wrongKeyRecovery';
 import {
   evaluatePairDeepLinkApply,
   shouldRunForegroundUsbHeal,
 } from '../utils/pairDeepLinkApply';
 import {
+  hasNonLoopbackSavedProfile,
   profileMatchesDiscoveredGateway,
   profileMatchesHostname,
 } from '../utils/gatewayProfilePicker';
@@ -146,6 +148,7 @@ import {
   pairServerHostFromGatewayUrl,
   resolvePairServerMachineName,
   resolvePairServerRelayCode,
+  summarizeDiscoveredReach,
 } from '../services/gatewayDiscovery';
 import {
   collectTailnetProbeHosts,
@@ -524,10 +527,13 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
         let loadedProfiles = await gatewayProfiles.load();
         loadedProfiles = migrateLegacyGateway(loadedProfiles, savedSettings.gatewayUrl, lastLanIp);
         if (Platform.OS !== 'web') {
+          // Fresh install (no real Mac yet): never invent a USB 127.0.0.1 profile —
+          // that forces "Computer via USB · Reconnecting…" before the user ever connected.
+          // Only seed loopback as an alternate route when a Tailscale/LAN Mac is already saved.
           const hasLoopback = loadedProfiles.profiles.some((p) =>
             isLoopbackGatewayUrl(p.gatewayUrl),
           );
-          if (!hasLoopback) {
+          if (!hasLoopback && hasNonLoopbackSavedProfile(loadedProfiles.profiles)) {
             const named = loadedProfiles.profiles
               .map((profile) => ({ profile, name: profileDisplayName(profile) }))
               .find(({ name }) => !isGenericMachineLabel(name));
@@ -587,9 +593,11 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
           );
           const fallbackUrl =
             (active && isValidGatewayUrl(active.gatewayUrl) ? active.gatewayUrl : undefined) ??
-            fallbackProfile?.gatewayUrl ??
-            USB_LOOPBACK_GATEWAY_URL;
-          resolvedSettings = { ...resolvedSettings, gatewayUrl: fallbackUrl };
+            fallbackProfile?.gatewayUrl;
+          // Brand-new install: keep gatewayUrl empty so ConnectMacGate shows — never invent USB.
+          if (fallbackUrl) {
+            resolvedSettings = { ...resolvedSettings, gatewayUrl: fallbackUrl };
+          }
         }
 
         if (!mounted) return;
@@ -1587,6 +1595,33 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
     ) {
       return;
     }
+
+    // 401 / invalid_api_key: stop silent "Trying to reach…" and clear poisoned key.
+    const wrongKeyPlan = planWrongKeyRecovery({
+      authMismatch: healthRef.current?.authMismatch === true,
+      errorMessage: healthRef.current?.errorMessage,
+      hasSavedProfile: profileStateRef.current.profiles.length > 0,
+    });
+    if (wrongKeyPlan.stopSilentHeal) {
+      const activeId = profileStateRef.current.activeProfileId;
+      if (wrongKeyPlan.clearStaleProfileKey && activeId) {
+        try {
+          await secureCredentials.removeProfileApiKey(activeId);
+        } catch {
+          // best-effort
+        }
+      }
+      if (wrongKeyPlan.clearStaleProfileKey) {
+        setApiKey('');
+        apiKeyRef.current = '';
+      }
+      connectionHealAttemptRef.current = CONNECTION_HEAL_EXHAUSTED_AFTER;
+      setConnectionHealAttempt(CONNECTION_HEAL_EXHAUSTED_AFTER);
+      setConnectionHealInFlight(false);
+      connectionHealInFlightRef.current = false;
+      return;
+    }
+
     connectionHealInFlightRef.current = true;
     setConnectionHealInFlight(true);
     try {
@@ -1620,6 +1655,30 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
             apiKeyRef.current = probeKey;
           }
           const snapshot = await fetchGatewayHealth(url, probeKey);
+          if (snapshot.authMismatch) {
+            const plan = planWrongKeyRecovery({
+              authMismatch: true,
+              errorMessage: snapshot.errorMessage,
+              hasSavedProfile: true,
+            });
+            if (plan.clearStaleProfileKey) {
+              const activeId = profileStateRef.current.activeProfileId;
+              if (activeId) {
+                try {
+                  await secureCredentials.removeProfileApiKey(activeId);
+                } catch {
+                  // best-effort
+                }
+              }
+              setApiKey('');
+              apiKeyRef.current = '';
+            }
+            setHealth(snapshot);
+            healthRef.current = snapshot;
+            connectionHealAttemptRef.current = CONNECTION_HEAL_EXHAUSTED_AFTER;
+            setConnectionHealAttempt(CONNECTION_HEAL_EXHAUSTED_AFTER);
+            return;
+          }
           if (!isGatewayHealthOk(snapshot)) {
             continue;
           }
@@ -2137,12 +2196,21 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
       if (lanMatch) {
         await persistDiscoveredGatewayUrl(lanMatch.gatewayUrl, false);
       }
+      const reach = summarizeDiscoveredReach(discovered);
       setProfileScanResult({
-        foundCount: discovered.length,
+        foundCount: reach.foundCount,
+        lanCount: reach.lanCount,
+        tailscaleCount: reach.tailscaleCount,
+        usbCount: reach.usbCount,
         completedAtMs: Date.now(),
       });
-      void trackProductEvent('mac_scan_complete', { found_count: discovered.length });
-      if (discovered.length > 0) {
+      void trackProductEvent('mac_scan_complete', {
+        found_count: reach.foundCount,
+        lan_count: reach.lanCount,
+        tailscale_count: reach.tailscaleCount,
+        usb_count: reach.usbCount,
+      });
+      if (reach.foundCount > 0) {
         haptics.success();
       } else {
         haptics.light();

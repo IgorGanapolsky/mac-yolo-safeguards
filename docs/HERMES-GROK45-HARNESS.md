@@ -1,9 +1,10 @@
 # Hermes Grok 4.5 Harness
 
-`grok-yolo` pins the official Grok Build CLI to `grok-4.5`, enables its
+`grok-yolo` wraps the official open-source Grok Build CLI, enables its
 always-approve mode, and retains explicit denials for destructive commands and
-common secret-bearing paths. It works as a standalone coding agent and as an
-independent verifier inside the Hermes harness.
+common secret-bearing paths. In cloud mode it pins `grok-4.5` and works as an
+independent verifier. In local mode it keeps the Grok Build agent loop, tools,
+skills, hooks, and headless runtime while pinning inference to loopback Ollama.
 
 `hermes-yolo` now prefers this Grok 4.5 backend for ordinary prompts. It no
 longer silently drops to Qwen when a paid Hermes provider key is absent.
@@ -18,6 +19,9 @@ grok-yolo
 
 # Standalone one-shot
 grok-yolo -p "inspect this repo and identify the highest-risk bug"
+
+# Explicit local-only Grok Build harness (also automatic under zero-spend mode)
+grok-yolo --local -p "inspect this repo and run the focused tests"
 
 # Same Grok 4.5 executor through the familiar Hermes command
 hermes-yolo "fix the bug, run the focused tests, and report evidence"
@@ -54,9 +58,31 @@ working repository:
 bash scripts/install-grok-yolo.sh --update
 ```
 
-It finishes with a secret-safe doctor on both hosts. A doctor is green only
-when the CLI is current enough, the account is authenticated, and `grok-4.5`
-appears in the live model catalog.
+It finishes with a secret-safe doctor on both hosts. Cloud mode requires a
+current CLI, authenticated account, and `grok-4.5` in the live catalog. Under
+zero-spend mode, the doctor instead requires the current Grok Build binary and
+the verified local Ollama model; it performs no account or provider call.
+
+## Local-first open-source route
+
+When `--local` is present or the fleet zero-spend gate sets
+`GROK_YOLO_LOCAL_ONLY=1`, the wrapper writes a mode-0600 config under an
+isolated `GROK_HOME`. The config contains no credential and defines exactly one
+inference route:
+
+- model alias `ollama-hermes-zero-spend`;
+- underlying verified model `qwen3.5:9b-hermes-64k`;
+- OpenAI-compatible endpoint `http://127.0.0.1:11434/v1`;
+- 65,536-token context and 8,192-token completion cap;
+- web search and subagents disabled;
+- paid-provider credential variables blanked in the child;
+- SpaceXAI product telemetry disabled;
+- OTEL prompt and tool-detail content gates forced off.
+
+The direct `grok` executable remains blocked by zero-spend mode. This matters:
+the open-source harness can run locally, but an unconstrained `grok` command can
+still select a cloud model. Only the guarded wrapper is promoted from
+`blocked` to `local-only`.
 
 ## Billing boundary
 
@@ -66,6 +92,7 @@ There are two distinct authentication and billing paths:
 |---|---|---|
 | Grok Build login (`grok.com_oauth`) | `grok_plan_or_limited_free_quota` | Uses the current account plan or limited free trial/quota. It does not activate API-key billing. Limits and future terms can change. |
 | `XAI_API_KEY` | `xai_api_pay_as_you_go` | Direct API usage is token-billed. The harness refuses execution without `--paid-ok`. |
+| Grok Build + loopback Ollama | `local_provider_cost_zero` | No model-provider charge. Electricity and Mac hardware utilization are not represented as zero. |
 
 As of 2026-07-08, direct `grok-4.5` API pricing is **$2 per million input
 tokens**, **$0.50 per million cached input tokens**, and **$6 per million output
@@ -74,6 +101,24 @@ and [xAI pricing](https://docs.x.ai/developers/pricing).
 
 No setup script creates an API key, buys credits, changes a billing limit, or
 copies authentication files between Macs.
+
+## Grafana/OpenTelemetry
+
+The open-source Grok Build runtime can export content-free metrics and events to
+an operator-owned OTLP collector. The wrapper preserves this double opt-in but
+forces `OTEL_LOG_USER_PROMPTS=0` and `OTEL_LOG_TOOL_DETAILS=0`, even if the
+calling shell requests content. Useful signals include model token usage,
+cache-read tokens, turn outcome/latency, tool decisions, errors, compaction, and
+subagent duration. Grok does not emit a cost metric; Grafana must join token
+usage with a price sheet. The local route's zero-spend receipt separately
+records `providerCostUsd: 0`.
+
+Remote export activates only when both `GROK_EXTERNAL_OTEL=1` and a metrics or
+logs exporter are set. Collector authorization stays in the environment or
+Keychain-backed launcher, never `config.toml`. Until a Grafana OTLP endpoint and
+credential are verified, the route remains local and OTEL reports `enabled:
+false`; this is staged observability, not proof that a dashboard is receiving
+data.
 
 ## Hermes integration contract
 
@@ -237,12 +282,14 @@ emphasized in [Retrieval for AI Agent Architecture](https://thenewstack.io/retri
 
 ```sh
 node tests/test-grok-yolo.js
+node tests/test-zero-spend-command-gate.js
 node tests/test-hermes-grok45-harness.js
 node tests/test-hermes-harness-eval.js
 node tests/test-hermes-parallel-search.js
 node tests/test-hermes-yolo.js
 node tests/test-hermes-economic-router.js
 grok-yolo --doctor --json
+grok-yolo --local --doctor --json
 hermes-yolo --route-status
 hermes-grok45 --task "Return exactly GROK45-HERMES-SMOKE" --execute --json
 hermes-harness-eval --write --json

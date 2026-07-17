@@ -1,0 +1,236 @@
+- generic [active] [ref=f2e1]:
+  - banner [ref=f2e2]:
+    - navigation "Page Header" [ref=f2e3]:
+      - link "Google Play logo" [ref=f2e4] [cursor=pointer]:
+        - /url: /store/games
+        - generic [ref=f2e12]: google_logo Play
+      - navigation "Main" [ref=f2e14]:
+        - tablist [ref=f2e16]:
+          - generic [ref=f2e19]:
+            - tab "Games" [ref=f2e20] [cursor=pointer]
+            - tab "Apps" [selected] [ref=f2e22] [cursor=pointer]
+            - tab "Movies & TV" [ref=f2e24] [cursor=pointer]
+            - tab "Books" [ref=f2e26] [cursor=pointer]
+            - tab "Kids" [ref=f2e28] [cursor=pointer]
+            - tab "Gift Cards" [ref=f2e30] [cursor=pointer]
+      - generic [ref=f2e32]:
+        - button "Search" [ref=f2e34] [cursor=pointer]:
+          - generic [ref=f2e35]: search
+        - button "Help Center" [ref=f2e37] [cursor=pointer]:
+          - generic [ref=f2e38]: help_outline
+        - 'button "Google Account: Igor G. (iganapolsky@gmail.com)" [ref=f2e43] [cursor=pointer]'
+  - generic [ref=f2e49]:
+    - generic [ref=f2e52]:
+      - generic [ref=f2e57]:
+        - generic [ref=f2e60]:
+          - 'heading "Hermes Mobile: AI Agent Leash" [level=1] [ref=f2e62]'
+          - generic [ref=f2e63]:
+            - link "IgorGanapolsky" [ref=f2e65] [cursor=pointer]:
+              - /url: /store/apps/developer?id=IgorGanapolsky
+            - generic [ref=f2e66]: In-app purchases
+        - region "Information badges" [ref=f2e69]:
+          - generic [ref=f2e71]:
+            - generic [ref=f2e72]: 1+
+            - generic [ref=f2e73]: Downloads
+      - generic [ref=f2e74]:
+        - button "Install on more devices" [ref=f2e82]
+        - button "Share" [ref=f2e92]
+      - generic [ref=f2e99]:
+        - generic [ref=f2e100]:
+          - generic [ref=f2e101]: devices
+          - generic [ref=f2e102]: This app is available for some of your devices
+        - generic [ref=f2e103]:
+          - generic [ref=f2e104]: family_home
+          - text: You can share this with your family.
+          - link "Learn more about Family Library" [ref=f2e105] [cursor=pointer]:
+            - /url: https://play.google.com/store/family/create
+    - generic [ref=f2e107]:
+      - generic [ref=f2e108]:
+        - generic [ref=f2e109]:
+          - generic [ref=f2e112]:
+            - list [ref=f2e113]:
+              - listitem [ref=f2e114]:
+                - button "Screenshot image" [ref=f2e116] [cursor=pointer]
+              - listitem [ref=f2e117]:
+                - button "Screenshot image" [ref=f2e119] [cursor=pointer]
+              - listitem [ref=f2e120]:
+                - button "Screenshot image" [ref=f2e122] [cursor=pointer]
+              - listitem [ref=f2e123]:
+                - button "Screenshot image" [ref=f2e125] [cursor=pointer]
+              - listitem [ref=f2e126]:
+                - button "Screenshot image" [ref=f2e128] [cursor=pointer]
+              - listitem [ref=f2e129]:
+                - button "Screenshot image" [ref=f2e131] [cursor=pointer]
+            - button "Scroll Next" [ref=f2e133] [cursor=pointer]:
+              - generic [ref=f2e134]: chevron_right
+          - generic [ref=f2e137]:
+            - generic [ref=f2e139]:
+              - heading "Data safety" [level=2] [ref=f2e141]
+              - generic [ref=f2e142] [cursor=pointer]:
+                - generic [ref=f2e143]: arrow_forward
+                - link "See more information on Data safety" [ref=f2e144]:
+                  - /url: /store/apps/datasafety?id=com.iganapolsky.hermesmobile
+            - generic [ref=f2e145]:
+              - text: Safety starts with understanding how developers collect and share your data. Data privacy and security practices may vary based on your use, region, and age. The developer provided this information and may update it over time.
+              - generic [ref=f2e146]:
+                - generic [ref=f2e149]:
+                  - text: This app may share these data types with third parties
+                  - generic [ref=f2e150]: App activity, App info and performance, and Device or other IDs
+                - generic [ref=f2e153]:
+                  - text: This app may collect these data types
+                  - generic [ref=f2e154]: App activity, App info and performance, and Device or other IDs
+                - generic [ref=f2e155]: Data is encrypted in transit
+                - generic [ref=f2e158]: You can request that data be deleted
+                - generic [ref=f2e163]:
+                  - generic [ref=f2e165]: See details
+                  - link "See more details on data safety" [ref=f2e166] [cursor=pointer]:
+                    - /url: /store/apps/datasafety?id=com.iganapolsky.hermesmobile
+          - generic [ref=f2e168]:
+            - generic [ref=f2e171]:
+              - heading "Rate this app" [level=2] [ref=f2e172]
+              - generic [ref=f2e173]: Tell others what you think.
+            - generic [ref=f2e174]:
+              - button "Phone" [pressed] [ref=f2e178] [cursor=pointer]:
+                - generic [ref=f2e180]:
+                  - generic [ref=f2e181]: phone_android
+                  - generic [ref=f2e183]: Phone
+              - generic [ref=f2e184]:
+                - radiogroup "Rate this item out of five stars" [ref=f2e186]:
+                  - radio "1 star out of five stars" [ref=f2e187]
+                  - radio "2 stars out of five stars" [ref=f2e193]
+                  - radio "3 stars out of five stars" [ref=f2e199]
+                  - radio "4 stars out of five stars" [ref=f2e205]
+                  - radio "5 stars out of five stars" [ref=f2e211]
+                - button "Write a review" [ref=f2e220]
+          - generic [ref=f2e226]:
+            - generic [ref=f2e228]:
+              - heading "About this app" [level=2] [ref=f2e230]
+              - button "See more information on About this app" [ref=f2e232] [cursor=pointer]:
+                - generic [ref=f2e233]: arrow_forward
+            - generic [ref=f2e234]:
+              - generic [ref=f2e235]: "Control an AI coding agent from your phone on your own Mac, Linux, or Windows computer. Chat with the Hermes gateway, see honest run state, and use Leash Pro to approve or deny risky commands before they execute.Hermes Mobile is an independent mobile control plane for a Hermes gateway you operate. It is built for developers whose workflows also involve Cursor, Claude Code, ChatGPT or OpenAI Codex, Gemini CLI, Replit Agent, GitHub Copilot, Windsurf, OpenClaw, and other coding agents.Hermes Mobile does not sign in to or replace those products. It solves a different job: supervising the Hermes agent and tools running through your own gateway from an Android phone.FREE• Live streaming chat with your Hermes gateway• Current connection and run status instead of a false green state• QR and local network pairing with no Hermes Mobile cloud account• Saved computer profiles for Mac, Linux, and Windows gatewaysLEASH PRO ($19.99/mo)• Review and approve or deny blocked tool calls from your phone• View and edit standing allow or block gate rules synced from your gateway• Manage persistent safety policies across sessions• Capture ThumbGate feedback for assistant output and command decisionsFOR AI CODING AGENT OPERATORS• Cursor and Claude Code users: add a separate phone control surface for your Hermes gateway• ChatGPT and Codex users: supervise a user-operated, multi-provider runtime instead of an OpenAI-only session• Gemini CLI, GitHub Copilot, Windsurf, and OpenClaw users: keep the executing computer and connection route visible• Replit Agent users: operate your own machine and gateway instead of moving the runtime into a cloud IDEBUILT FOR REAL CONNECTIONS• Wi-Fi and LAN for local access• Tailscale or a configured tunnel for remote access• Clear reconnecting, stale, and unavailable states• Your API keys remain on the computer that runs the gatewaySECURITY• Camera access is used only to scan pairing QR codes• Optional product analytics can be disabled in Settings• No ads and no IDFA trackingRequires a computer running a compatible Hermes gateway. Remote access requires your own network, Tailscale, tunnel, or relay setup.Hermes Mobile is independent and is not affiliated with Nous Research, Anthropic, OpenAI, Google, Replit, GitHub, Cursor, Windsurf, or OpenClaw.Source and setup: github.com/IgorGanapolsky/mac-yolo-safeguardsPublisher: Igor GanapolskyHOW THIS DIFFERS FROM OTHER \"HERMES\" APPS• Termux (Android CLI): Runs Hermes on your phone. Hermes Mobile does not — your gateway stays on your computer for better battery, persistence, and full tools.• Hermes Agent (Hen Works): AI on your Android phone. Hermes Mobile is the opposite — remote control for desktop agents on Mac, Linux, or Windows.• Hermes-Relay (cloud relay): Routes through a cloud \"agent in pocket.\" Hermes Mobile pairs directly to your gateway via QR, LAN, or Tailscale — no cloud credits.• Hermex / HermesPilot (native clients): Other Method A apps (WebUI URL + password or Hermes Link relay). Hermes Mobile connects to your gateway API with QR pair, Leash Pro approvals, and honest connection state.FAQ• Do I need Termux? No. Hermes runs on your Mac, Linux, or Windows computer; this app is the remote control.• Is this Hermes Agent (the 1,200★ Play app)? No — that runs AI on Android. We control desktop agents.• Hermex or HermesPilot? Those are other native clients (WebUI server vs Hermes Link relay). We pair directly to your gateway plus ThumbGate Leash.• Do I need a cloud account? No Hermes Mobile account required. Optional Leash Pro subscription for gate rules.• iPhone? Yes — live on the App Store as “Hermes Mobile: AI Agent Leash”. Android is live on Google Play. Both support Leash Pro $19.99/mo."
+              - generic [ref=f2e237]:
+                - generic [ref=f2e238]: Updated on
+                - generic [ref=f2e239]: Jul 16, 2026
+              - generic [ref=f2e242]:
+                - generic [ref=f2e244]: Productivity
+                - link "Productivity" [ref=f2e245] [cursor=pointer]:
+                  - /url: /store/apps/category/PRODUCTIVITY
+        - link "Flag as inappropriate" [ref=f2e249] [cursor=pointer]:
+          - /url: https://support.google.com/googleplay/?p=report_content
+          - generic [ref=f2e250]: flag
+          - text: Flag as inappropriate
+      - generic [ref=f2e251]:
+        - generic [ref=f2e252]:
+          - img "Content rating" [ref=f2e253]
+          - generic [ref=f2e254]:
+            - generic [ref=f2e255]: Teen
+            - generic [ref=f2e256]: "Diverse Content: Discretion Advised"
+            - generic [ref=f2e257]: In-App Purchases
+            - link "Learn more about content ratings" [ref=f2e258] [cursor=pointer]:
+              - /url: https://support.google.com/googleplay?p=appgame_ratings
+              - text: Learn more
+        - generic [ref=f2e262]:
+          - heading "App support" [level=2] [ref=f2e264]
+          - button "Expand" [ref=f2e266] [cursor=pointer]:
+            - generic [ref=f2e267]: expand_more
+        - generic [ref=f2e269]:
+          - generic [ref=f2e271]:
+            - heading "More apps to try" [level=2] [ref=f2e273]
+            - generic [ref=f2e275] [cursor=pointer]:
+              - generic [ref=f2e276]: arrow_forward
+              - link "See more information on More apps to try" [ref=f2e277]:
+                - /url: /store/apps/collection/cluster?gsr=SlJqGFJjUGhlTnpIWFA1aURvY3hYUHdKc1E9PZoIMgogChxjb20uaWdhbmFwb2xza3kuaGVybWVzbW9iaWxlEAcQAhoGCAEQABgAIAAwATgAsBIA:S:ANO1ljK01vk
+          - generic [ref=f2e279]:
+            - link "Prime Video Amazon Mobile LLC Rated 4.6 stars out of five stars" [ref=f2e281] [cursor=pointer]:
+              - /url: /store/apps/details?id=com.amazon.avod.thirdpartyclient
+              - generic [ref=f2e284]:
+                - generic [ref=f2e285]: Prime Video
+                - generic [ref=f2e287]: Amazon Mobile LLC
+                - generic "Rated 4.6 stars out of five stars" [ref=f2e290]:
+                  - generic [ref=f2e291]: "4.6"
+                  - generic [ref=f2e292]: star
+            - link "iQIYI - Drama, Anime, Show iQIYI Rated 4.7 stars out of five stars" [ref=f2e295] [cursor=pointer]:
+              - /url: /store/apps/details?id=com.iqiyi.i18n
+              - generic [ref=f2e298]:
+                - generic [ref=f2e299]: iQIYI - Drama, Anime, Show
+                - generic [ref=f2e301]: iQIYI
+                - generic "Rated 4.7 stars out of five stars" [ref=f2e304]:
+                  - generic [ref=f2e305]: "4.7"
+                  - generic [ref=f2e306]: star
+            - link "TikTok Lite - Faster TikTok TikTok Pte. Ltd. Rated 4.3 stars out of five stars" [ref=f2e309] [cursor=pointer]:
+              - /url: /store/apps/details?id=com.tiktok.lite.go
+              - generic [ref=f2e312]:
+                - generic [ref=f2e313]: TikTok Lite - Faster TikTok
+                - generic [ref=f2e315]: TikTok Pte. Ltd.
+                - generic "Rated 4.3 stars out of five stars" [ref=f2e318]:
+                  - generic [ref=f2e319]: "4.3"
+                  - generic [ref=f2e320]: star
+            - link "AliExpress - Shopping App Alibaba Mobile Rated 4.3 stars out of five stars" [ref=f2e323] [cursor=pointer]:
+              - /url: /store/apps/details?id=com.alibaba.aliexpresshd
+              - generic [ref=f2e326]:
+                - generic [ref=f2e327]: AliExpress - Shopping App
+                - generic [ref=f2e329]: Alibaba Mobile
+                - generic "Rated 4.3 stars out of five stars" [ref=f2e332]:
+                  - generic [ref=f2e333]: "4.3"
+                  - generic [ref=f2e334]: star
+            - 'link "Yelp: Food, Delivery & Reviews Yelp, Inc Rated 4.6 stars out of five stars" [ref=f2e337] [cursor=pointer]':
+              - /url: /store/apps/details?id=com.yelp.android
+              - generic [ref=f2e340]:
+                - generic [ref=f2e341]: "Yelp: Food, Delivery & Reviews"
+                - generic [ref=f2e343]: Yelp, Inc
+                - generic "Rated 4.6 stars out of five stars" [ref=f2e346]:
+                  - generic [ref=f2e347]: "4.6"
+                  - generic [ref=f2e348]: star
+            - link "ReelShort - Stream Drama & TV NewLeaf Publishing Rated 4.1 stars out of five stars" [ref=f2e351] [cursor=pointer]:
+              - /url: /store/apps/details?id=com.newleaf.app.android.victor
+              - generic [ref=f2e354]:
+                - generic [ref=f2e355]: ReelShort - Stream Drama & TV
+                - generic [ref=f2e357]: NewLeaf Publishing
+                - generic "Rated 4.1 stars out of five stars" [ref=f2e360]:
+                  - generic [ref=f2e361]: "4.1"
+                  - generic [ref=f2e362]: star
+  - contentinfo [ref=f2e365]:
+    - generic [ref=f2e367]:
+      - generic [ref=f2e369]:
+        - text: Google Play
+        - link [ref=f2e371] [cursor=pointer]:
+          - /url: /store/pass/getstarted
+          - paragraph [ref=f2e372]: Play Pass
+        - link [ref=f2e374] [cursor=pointer]:
+          - /url: /store/points
+          - paragraph [ref=f2e375]: Play Points
+        - link [ref=f2e377] [cursor=pointer]:
+          - /url: https://play.google.com/about/giftcards
+          - paragraph [ref=f2e378]: Gift cards
+        - link [ref=f2e380] [cursor=pointer]:
+          - /url: /redeem
+          - paragraph [ref=f2e381]: Redeem
+        - link [ref=f2e383] [cursor=pointer]:
+          - /url: https://support.google.com/googleplay/answer/134336
+          - paragraph [ref=f2e384]: Refund policy
+      - generic [ref=f2e386]:
+        - text: Kids & family
+        - link [ref=f2e388] [cursor=pointer]:
+          - /url: https://support.google.com/googleplay?p=pff_parentguide
+          - paragraph [ref=f2e389]: Parent Guide
+        - link [ref=f2e391] [cursor=pointer]:
+          - /url: https://support.google.com/googleplay/answer/7007852
+          - paragraph [ref=f2e392]: Family sharing
+    - generic [ref=f2e393]:
+      - link [ref=f2e395] [cursor=pointer]:
+        - /url: https://play.google.com/intl/en_us/about/play-terms.html
+        - paragraph [ref=f2e396]: Terms of Service
+      - link [ref=f2e398] [cursor=pointer]:
+        - /url: https://policies.google.com/privacy
+        - paragraph [ref=f2e399]: Privacy
+      - link [ref=f2e401] [cursor=pointer]:
+        - /url: https://support.google.com/googleplay/?p=about_play
+        - paragraph [ref=f2e402]: About Google Play
+      - link [ref=f2e404] [cursor=pointer]:
+        - /url: http://developer.android.com/index.html
+        - paragraph [ref=f2e405]: Developers
+      - link [ref=f2e407] [cursor=pointer]:
+        - /url: https://store.google.com/?playredirect=true&utm_source=play&utm_medium=google_oo&utm_campaign=GS106288
+        - paragraph [ref=f2e408]: Google Store
+      - generic [ref=f2e409]: United States (English)

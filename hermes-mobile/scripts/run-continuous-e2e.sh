@@ -91,6 +91,33 @@ write_status() {
 EOF
 }
 
+first_android_emulator_id() {
+  adb devices 2>/dev/null | awk 'NR>1 && $2=="device" && $1 ~ /^emulator-/ {print $1; exit}'
+}
+
+has_android_emulator() {
+  local id
+  id="$(first_android_emulator_id)"
+  [[ -n "$id" ]] && adb -s "$id" shell echo ok >/dev/null 2>&1
+}
+
+# Prefer emulator when the USB phone is human-held / awake so LaunchAgent still
+# can write e2e=pass|fail instead of perpetual e2e=skipped.
+enable_emulator_fallback() {
+  local reason="$1"
+  local emu_id
+  emu_id="$(first_android_emulator_id)"
+  if [[ -z "$emu_id" ]] || ! adb -s "$emu_id" shell echo ok >/dev/null 2>&1; then
+    return 1
+  fi
+  export HERMES_E2E_EMULATOR_FALLBACK=1
+  export HERMES_E2E_ANDROID_ONLY=1
+  export HERMES_E2E_ANDROID_UDID="$emu_id"
+  unset HERMES_E2E_IOS_ONLY
+  echo "continuous E2E: ${reason} — using Android emulator ${emu_id}"
+  return 0
+}
+
 guard_active_physical_phone() {
   if [[ "${HERMES_E2E_FORCE:-}" == "1" || "${HERMES_E2E_ALLOW_ACTIVE_PHONE:-}" == "1" ]]; then
     return 0
@@ -105,12 +132,18 @@ guard_active_physical_phone() {
   rc=$?
   set -e
   if [[ $rc -eq 75 ]]; then
+    if enable_emulator_fallback "physical phone is awake and actively in use"; then
+      return 0
+    fi
     detail="skipped continuous E2E: physical phone is awake and actively in use"
     echo "$detail"
     write_status "skipped" "skipped" "$detail"
     return 1
   fi
   if [[ $rc -ne 0 ]]; then
+    if enable_emulator_fallback "could not verify exclusive physical-phone access"; then
+      return 0
+    fi
     detail="skipped continuous E2E: could not verify exclusive physical-phone access"
     echo "$detail"
     write_status "skipped" "skipped" "$detail"
@@ -129,6 +162,10 @@ run_once_with_global_phone_lease() {
   if ! guard_active_physical_phone; then
     return 0
   fi
+  # Awake-phone path may have switched to emulator — do not take the USB lease.
+  if [[ "${HERMES_E2E_EMULATOR_FALLBACK:-}" == "1" ]]; then
+    return 2
+  fi
 
   local rc detail
   set +e
@@ -137,6 +174,9 @@ run_once_with_global_phone_lease() {
   rc=$?
   set -e
   if [[ $rc -eq 75 ]]; then
+    if enable_emulator_fallback "global phone pipeline lease is busy"; then
+      return 2
+    fi
     detail="skipped continuous E2E: global phone pipeline lease is busy"
     echo "$detail"
     write_status "skipped" "skipped" "$detail"
@@ -225,13 +265,17 @@ has_usb_adb_device() {
   if [[ "${HERMES_E2E_IOS_ONLY:-}" == "1" ]]; then
     return 1
   fi
+  # Emulator-fallback mode must ignore the USB phone so Maestro targets the AVD.
+  if [[ "${HERMES_E2E_EMULATOR_FALLBACK:-}" == "1" ]]; then
+    return 1
+  fi
   local id
   id="$(adb devices 2>/dev/null | awk 'NR>1 && $2=="device" && $1 !~ /^emulator-/ {print $1; exit}')"
   [[ -n "$id" ]] && adb -s "$id" shell echo ok >/dev/null 2>&1
 }
 
 has_adb_device() {
-  has_usb_adb_device
+  has_usb_adb_device || has_android_emulator
 }
 
 ensure_metro() {
@@ -343,8 +387,16 @@ run_e2e_suite() {
 
   if has_usb_adb_device; then
     echo "E2E target: Android USB ($(adb devices 2>/dev/null | awk 'NR>1 && $2=="device" && $1 !~ /^emulator-/ {print $1; exit}'))"
+  elif has_android_emulator; then
+    local emu_id
+    emu_id="$(first_android_emulator_id)"
+    echo "E2E target: Android emulator (${emu_id})"
+    export HERMES_E2E_EMULATOR_FALLBACK=1
+    export HERMES_E2E_ANDROID_ONLY=1
+    export HERMES_E2E_ANDROID_UDID="$emu_id"
+    unset HERMES_E2E_IOS_ONLY
   elif [[ "${HERMES_E2E_ANDROID_ONLY:-}" == "1" ]]; then
-    echo "Android-only continuous E2E requested but no USB Android device is connected — skipping E2E"
+    echo "Android-only continuous E2E requested but no USB Android device or emulator is connected — skipping E2E"
     return 2
   elif ! xcrun simctl list devices available 2>/dev/null | grep -qE 'iPhone.*\([0-9A-F-]{36}\)'; then
     echo "No Android USB device and no iOS simulator — skipping E2E"
@@ -359,6 +411,10 @@ run_e2e_suite() {
   if has_usb_adb_device; then
     export HERMES_E2E_ANDROID_ONLY=1
     export HERMES_E2E_ANDROID_UDID="$(adb devices 2>/dev/null | awk 'NR>1 && $2=="device" && $1 !~ /^emulator-/ {print $1; exit}')"
+    unset HERMES_E2E_IOS_ONLY
+  elif [[ "${HERMES_E2E_EMULATOR_FALLBACK:-}" == "1" ]] || has_android_emulator; then
+    export HERMES_E2E_ANDROID_ONLY=1
+    export HERMES_E2E_ANDROID_UDID="${HERMES_E2E_ANDROID_UDID:-$(first_android_emulator_id)}"
     unset HERMES_E2E_IOS_ONLY
   else
     unset HERMES_E2E_ANDROID_ONLY HERMES_E2E_ANDROID_UDID
@@ -455,7 +511,7 @@ run_cycle() {
     case $e2e_rc in
       0) e2e_status="pass"; echo "E2E: PASS" ;;
       2)
-        if [[ "${HERMES_E2E_ANDROID_ONLY:-}" == "1" ]] && ! has_usb_adb_device; then
+        if [[ "${HERMES_E2E_ANDROID_ONLY:-}" == "1" ]] && ! has_usb_adb_device && ! has_android_emulator; then
           e2e_status="fail"
           detail="android-only continuous E2E failed: no USB Android device connected"
         else
@@ -520,9 +576,32 @@ watch_loop() {
 
 case "$MODE" in
   --once)
-    if [[ "${HERMES_PHONE_PIPELINE_LEASE_HELD:-}" != "1" ]] && has_usb_adb_device; then
+    # Skip the USB phone lease when we already know we will use the emulator
+    # (human-held phone, or explicit fallback). Emulator runs must not block on
+    # the phone pipeline lock held by session-start install/pair.
+    if [[ "${HERMES_PHONE_PIPELINE_LEASE_HELD:-}" != "1" && "${HERMES_E2E_EMULATOR_FALLBACK:-}" != "1" ]] && has_usb_adb_device; then
+      # Probe awake-phone before taking the lease; fall through to emulator if needed.
+      if ! guard_active_physical_phone; then
+        exit 0
+      fi
+      if [[ "${HERMES_E2E_EMULATOR_FALLBACK:-}" == "1" ]]; then
+        acquire_cycle_lock
+        run_cycle
+        exit $?
+      fi
+      set +e
       run_once_with_global_phone_lease
-      exit $?
+      lease_rc=$?
+      set -e
+      # 2 = fall through (emulator fallback or lease tool unavailable)
+      if [[ $lease_rc -ne 2 ]]; then
+        exit "$lease_rc"
+      fi
+      if [[ "${HERMES_E2E_EMULATOR_FALLBACK:-}" == "1" ]]; then
+        acquire_cycle_lock
+        run_cycle
+        exit $?
+      fi
     fi
     acquire_cycle_lock
     run_cycle

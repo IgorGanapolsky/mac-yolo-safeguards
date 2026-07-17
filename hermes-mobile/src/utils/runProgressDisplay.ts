@@ -10,6 +10,65 @@ import {
 const GATEWAY_PLATFORM_MODEL_LABELS = new Set(['hermes-agent', 'hermes', 'gateway']);
 export const STALE_RUN_SECONDS = 15 * 60;
 
+/**
+ * Consumer copy when the Mac finished a reply (in-app dismiss banner + status detail).
+ * Avoid "on your computer" — users already know the Mac ran it; they need "open/read".
+ */
+export const REPLY_READY_BANNER_TITLE = 'Reply ready';
+/** Fallback when no reply snippet is available yet. */
+export const REPLY_READY_ACTION_TITLE = 'Done';
+/** Status `detail` for completed runs (not shown as the banner headline when a snippet exists). */
+export const REPLY_READY_STATUS_DETAIL = REPLY_READY_BANNER_TITLE;
+
+const LEGACY_REPLY_READY_DETAILS = new Set([
+  'reply ready on your computer',
+  'ready on your computer',
+  'task completed',
+  'task finished',
+]);
+
+/** True when detail is obsolete "ready on your computer" chrome, not a real status. */
+export function isLegacyReplyReadyDetail(detail: string | undefined | null): boolean {
+  const normalized = detail?.trim().toLowerCase() ?? '';
+  return Boolean(normalized) && LEGACY_REPLY_READY_DETAILS.has(normalized);
+}
+
+/**
+ * In-app completed-run headline.
+ * With a reply snippet → short "Reply ready"; without → actionable "Hermes finished — tap to read".
+ */
+export function runProgressCompletedTitle(progress: RunProgressState): string {
+  const preview = progress.replyPreview?.trim();
+  if (preview) {
+    return REPLY_READY_BANNER_TITLE;
+  }
+  const detail = progress.detail?.trim();
+  if (detail && !isLegacyReplyReadyDetail(detail) && detail.toLowerCase() !== 'reply ready') {
+    // Keep honest failure/empty-reply details that still use phase=completed in edge paths.
+    if (detail.length > 72) {
+      return `${detail.slice(0, 69).trimEnd()}…`;
+    }
+    return detail;
+  }
+  return REPLY_READY_ACTION_TITLE;
+}
+
+
+/**
+ * When the assistant reply is already in the chat transcript, a completed
+ * progress banner is pure noise ("Reply ready on your computer" while the
+ * bubble is on screen). Only keep the banner for empty/deferred replies.
+ */
+export function shouldShowCompletedRunBanner(hasVisibleAssistantReply: boolean): boolean {
+  return !hasVisibleAssistantReply;
+}
+
+/** Plain reply glance line for the dismiss banner (coord with notification snippet helper). */
+export function runProgressCompletedSnippet(progress: RunProgressState): string | null {
+  const preview = progress.replyPreview?.trim();
+  return preview || null;
+}
+
 /** Return a trimmed LLM model id for UI, or null when value is a gateway platform label. */
 export function displayableLlmModel(model: string | undefined | null): string | null {
   const trimmed = model?.trim();
@@ -129,7 +188,7 @@ export function humanizeRunProgressDetail(detail: string | undefined, phase?: st
   const raw = detail?.trim();
   if (!raw) {
     if (phase === 'completed') {
-      return 'Done';
+      return REPLY_READY_ACTION_TITLE;
     }
     if (phase === 'failed') {
       return 'Something went wrong on your computer';
@@ -140,8 +199,8 @@ export function humanizeRunProgressDetail(detail: string | undefined, phase?: st
   if (raw === 'Sending to your computer…') {
     return 'Delivering your message…';
   }
-  if (raw === 'Task completed') {
-    return 'Reply ready';
+  if (isLegacyReplyReadyDetail(raw) || raw === 'Task completed' || raw === REPLY_READY_BANNER_TITLE) {
+    return REPLY_READY_ACTION_TITLE;
   }
 
   const runningTool = /^running\s+(.+)$/i.exec(raw);

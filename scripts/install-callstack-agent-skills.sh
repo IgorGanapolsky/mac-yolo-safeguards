@@ -38,3 +38,9 @@ fi
 
 echo "=== Done: Callstack agent-skills at $VENDOR ==="
 echo "Skills: type / in Agent chat to invoke (e.g. react-native-best-practices)"
+
+# agent-device CLI + skills (separate package: callstack/agent-device)
+if [[ "${SKIP_AGENT_DEVICE:-0}" != "1" ]]; then
+  echo "=== Also installing Callstack agent-device CLI ==="
+  bash "$ROOT/scripts/install-agent-device.sh"
+fi

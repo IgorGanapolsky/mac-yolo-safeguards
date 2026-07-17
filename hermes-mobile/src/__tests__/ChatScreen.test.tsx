@@ -2,7 +2,6 @@ import React from 'react';
 import { Alert, BackHandler, Platform } from 'react-native';
 import { fireEvent, act, waitFor, cleanup, within } from '@testing-library/react-native';
 import ChatScreen, {
-  applyKeyboardScreenVisibleFromFrame,
   resolveEffectiveKeyboardInset,
   shouldIgnoreKeyboardHide,
   shouldClearKeyboardScreenVisible,
@@ -1280,6 +1279,71 @@ describe('ChatScreen', () => {
     expect(input.props.value).toBe('');
   });
 
+  it('keeps optimistic user bubble as failed when send hits a false disconnect', async () => {
+    const { streamSessionChat } = jest.requireMock('../services/hermesGatewayClient') as {
+      streamSessionChat: jest.Mock;
+    };
+    streamSessionChat.mockClear();
+
+    // Composer still mounted during silent heal (not exhausted) while /health is red
+    // so macChatLive is false — Send keeps a failed retryable bubble instead of dropping text.
+    Object.assign(mockGatewayState, {
+      connectionState: 'connected',
+      connectionHealAttempt: 1,
+      connectionHealInFlight: false,
+      connectionHealExhausted: false,
+      effectiveGatewayUrl: 'http://10.154.137.152:8642',
+      health: {
+        ok: false,
+        level: 'red',
+        hostname: 'Igors-MacBook-Pro.local',
+        directGatewayReachable: false,
+        checkedAt: '2026-07-16T12:00:00Z',
+      },
+      settings: {
+        demoMode: false,
+        connectionMode: 'gateway',
+        gatewayUrl: 'http://10.154.137.152:8642',
+        cloudUrl: 'https://hermesmobile-cloud.fly.dev',
+        approvalPolicy: 'balanced',
+      },
+      activeGatewayProfile: {
+        id: 'mac_igor',
+        label: 'Igors-MacBook-Pro',
+        gatewayUrl: 'http://10.154.137.152:8642',
+        localIp: '10.154.137.152',
+        addedAt: '2026-06-18T00:00:00Z',
+      },
+      gatewayProfiles: [
+        {
+          id: 'mac_igor',
+          label: 'Igors-MacBook-Pro',
+          gatewayUrl: 'http://10.154.137.152:8642',
+          localIp: '10.154.137.152',
+          addedAt: '2026-06-18T00:00:00Z',
+        },
+      ],
+    });
+
+    const { getByTestId, getAllByTestId, findByText, queryByTestId } = await renderChatScreen();
+
+    await waitFor(() => {
+      expect(getByTestId('chat-input')).toBeTruthy();
+    });
+    expect(queryByTestId('chat-connection-panel')).toBeNull();
+
+    act(() => {
+      fireEvent.changeText(getByTestId('chat-input'), 'make money today');
+      fireEvent.press(getByTestId('chat-send-button'));
+    });
+
+    expect(await findByText('make money today')).toBeTruthy();
+    expect(getAllByTestId('chat-message-user').length).toBeGreaterThanOrEqual(1);
+    expect(streamSessionChat).not.toHaveBeenCalled();
+    // Composer stays clear — recoverable state is the failed bubble + ↑ retry.
+    expect(getByTestId('chat-input').props.value).toBe('');
+  });
+
   it('opens and closes sessions selector modal', async () => {
     const { getByTestId, getByText, queryByTestId } = await renderChatScreen();
 
@@ -2402,14 +2466,18 @@ describe('ChatScreen', () => {
 
   describe('Obsidian vault project picker', () => {
     it('shows active project chip and opens vault project modal', async () => {
-      const { getByTestId } = await renderChatScreen();
+      const { getByTestId, queryByTestId } = await renderChatScreen();
 
       await act(async () => {
         await Promise.resolve();
         await Promise.resolve();
       });
 
+      // Footer chip is the interactive picker; header project lane is collapsed by default.
       expect(getByTestId('vault-project-picker-chip')).toBeTruthy();
+      expect(queryByTestId('chat-header-project-picker')).toBeNull();
+
+      fireEvent.press(getByTestId('chat-header-details-toggle'));
       expect(getByTestId('chat-header-project-picker')).toBeTruthy();
 
       fireEvent.press(getByTestId('vault-project-picker-chip'));
@@ -2629,12 +2697,6 @@ describe('resolveEffectiveKeyboardInset', () => {
     expect(resolveEffectiveKeyboardInset(310, true, true, 800)).toBe(310);
   });
 
-  it('skips manual lift when Android adjustResize already shrank the window', () => {
-    Platform.OS = 'android';
-    expect(resolveEffectiveKeyboardInset(310, true, true, 800, undefined, true)).toBe(0);
-    expect(resolveEffectiveKeyboardInset(0, true, true, 800, undefined, true)).toBe(0);
-  });
-
   it('returns 0 when the keyboard is not on screen even if the input keeps focus', () => {
     // Regression: Android retains TextInput focus after the keyboard is dismissed
     // (back button + blurOnSubmit={false}). Without gating, the composer dock was lifted
@@ -2662,17 +2724,6 @@ describe('resolveEffectiveKeyboardInset', () => {
   it('still returns 0 after dismiss when metrics, inset, and visibility are all clear', () => {
     Platform.OS = 'android';
     expect(resolveEffectiveKeyboardInset(0, false, true, 800, 0)).toBe(0);
-  });
-});
-
-describe('applyKeyboardScreenVisibleFromFrame', () => {
-  it('marks the keyboard visible when frame overlap is positive', () => {
-    expect(applyKeyboardScreenVisibleFromFrame(320, false)).toBe(true);
-  });
-
-  it('preserves visibility when adjustResize reports zero overlap while IME is still up', () => {
-    expect(applyKeyboardScreenVisibleFromFrame(0, true)).toBe(true);
-    expect(applyKeyboardScreenVisibleFromFrame(0, false)).toBe(false);
   });
 });
 

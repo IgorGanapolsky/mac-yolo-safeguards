@@ -15,10 +15,12 @@ export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
 #   3. Memory-pressure guard triggers on REAL thrash (swap near-max + active
 #      pageouts), not memory_pressure's misleading "free percentage". Under
 #      pressure it auto-reclaims stale orphaned automation Chrome (/tmp CDP
-#      profiles, no user data), unloads runaway Ollama model workers,
-#      AND quits redundant secondary browsers (Chrome Canary/Beta/Dev, Chromium)
-#      to protect RAM headroom for the Hermes agent fleet, then notifies about
-#      remaining AI memory hogs. Hermes gateway processes are never targeted.
+#      profiles, no user data) and quits redundant secondary browsers (Chrome
+#      Canary/Beta/Dev, Chromium) to protect RAM headroom for the Hermes agent
+#      fleet, then notifies about remaining AI memory hogs. Ollama recovery is
+#      delegated to memory-pressure-guardian.sh, which uses the HTTP unload API
+#      and coordinates a gateway warmup cooldown; this guard never kills Ollama
+#      workers. Hermes gateway processes are never targeted.
 #   4. Posts a macOS notification on every fire so the user knows; if
 #      YOLO_WEBHOOK_URL (or ~/.config/yolo-guard/webhook) is set, also pushes
 #      the alert off-box (ntfy-compatible) — a thrashing Mac can't render its
@@ -44,6 +46,29 @@ ESCALATE_WINDOW_SEC=${YOLO_ESCALATE_WINDOW_SEC:-600}
 SUSPECT_APPS=${YOLO_SUSPECT_APPS:-""}
 FIRES_LOG=${YOLO_FIRES_LOG:-/tmp/yolo-fires.log}
 LOG=${YOLO_LOG:-/tmp/shutdown-simulators.log}
+
+# Compatibility capability marker consumed by yolo-health. The old
+# YOLO_RECLAIM_OLLAMA hard-kill branch is intentionally retired; graceful
+# Ollama reclaim now belongs to memory-pressure-guardian.sh.
+YOLO_RECLAIM_OLLAMA_MODE=graceful-http-delegated
+
+# The process-level E2E runs on the same Mac mini as this live LaunchAgent.
+# Honor its short-lived PID lease so the installed guard cannot kill a fake
+# worker before the checkout-under-test records the assertion. A stale or
+# malformed lease never disables protection.
+E2E_LEASE_FILE=${YOLO_E2E_LEASE_FILE:-/tmp/yolo-guard-e2e.pid}
+if [ "${YOLO_BYPASS_E2E_LEASE:-0}" != "1" ] && [ -f "$E2E_LEASE_FILE" ]; then
+  E2E_LEASE_PID=$(/bin/cat "$E2E_LEASE_FILE" 2>/dev/null || true)
+  case "$E2E_LEASE_PID" in
+    ''|*[!0-9]*) ;;
+    *)
+      if /bin/kill -0 "$E2E_LEASE_PID" 2>/dev/null; then
+        echo "$(date) E2E_LEASE: guard paused for active test pid=$E2E_LEASE_PID" >> "$LOG"
+        exit 0
+      fi
+      ;;
+  esac
+fi
 
 now=$(date +%s)
 
@@ -431,34 +456,9 @@ CPU_HOT_EOF
   fi
 
   if [ -n "$MEM_PRESSURE" ]; then
-    # --- Auto-reclaim: runaway local LLM workers (known-safe kill) ---
-    # Ollama's model workers hold model weights and context cache; they
-    # do not hold unsaved user work. The 2026-06-15 Mac mini freeze was a
-    # deepseek-r1 14b worker at 65,536 context using ~68% RAM. Under real memory
-    # pressure, reclaiming that child process is safer than leaving the GUI
-    # swapped out. We deliberately do NOT kill Ollama.app / `ollama serve`, so
-    # later model calls can restart cleanly.
-    if [ "${YOLO_RECLAIM_OLLAMA:-1}" = "1" ]; then
-      OLLAMA_RSS_MB_THRESHOLD=${YOLO_OLLAMA_RSS_MB_THRESHOLD:-10000}
-      OLLAMA_HOG_LINES=$(/bin/ps -axo pid,rss,command -m | /usr/bin/awk -v t="$OLLAMA_RSS_MB_THRESHOLD" '
-        NR>1 {
-          pid = $1
-          rss_mb = $2/1024
-          if (rss_mb >= t && $0 ~ /(llama-server|ollama runner)/) {
-            printf "%s %.0f %s\n", pid, rss_mb, substr($0, index($0,$3))
-          }
-        }')
-      echo "$OLLAMA_HOG_LINES" | while read -r opid orss ocmd; do
-        [ -z "$opid" ] && continue
-        /bin/kill -TERM "$opid" 2>/dev/null || true
-        /bin/sleep 3
-        if /bin/ps -p "$opid" >/dev/null 2>&1; then
-          /bin/kill -KILL "$opid" 2>/dev/null || true
-        fi
-        notify "yolo-guard: reclaimed Ollama worker" "Killed Ollama worker PID $opid (${orss}MB) under memory pressure ($MEM_PRESSURE). Ollama service left running."
-        echo "$(date) OLLAMA_RECLAIM: killed Ollama worker PID $opid ${orss}MB pressure=$MEM_PRESSURE cmd=$ocmd" >> "$LOG"
-      done
-    fi
+    # Ollama is intentionally not signalled here. A hard kill can corrupt an
+    # in-flight Hermes turn; scripts/memory-pressure-guardian.sh owns graceful
+    # HTTP model unload and coordinates reload suppression with the gateway.
 
     # --- Auto-reclaim: orphaned headless Android emulators (known-safe kill) ---
     # Maestro / agent-device E2E runs leave headless qemu Android emulators
@@ -498,33 +498,6 @@ CPU_HOT_EOF
       done
     fi
 
-    # --- Auto-reclaim: booted iOS Simulator under thrash (known-safe kill) ---
-    # The original simulator branches key on load>150 or sim_procs>350 or
-    # booted_sim+load>=40. But a single booted simulator can wedge the box at
-    # moderate load (load~38, 118 simruntime procs) while swap is at 95% —
-    # exactly the 2026-07-16 gap: the guard ran every 60s, detected the thrash,
-    # but only reclaimed Chrome Canary because the sim branch never fired.
-    # Under genuine memory pressure (swap near-max + active pageouts), a booted
-    # simulator is the single biggest reclaimable RAM consumer and is fully
-    # reversible (user re-boots in seconds via Xcode). Shut it down here too.
-    # An active xcodebuild is still respected (build-in-flight check below).
-    if [ "${YOLO_RECLAIM_SIMULATOR_THRASH:-1}" = "1" ]; then
-      BOOTED_UNDER_PRESSURE=$(/usr/bin/xcrun simctl list devices booted 2>/dev/null | /usr/bin/grep -c Booted | /usr/bin/tr -d ' ')
-      [ -z "$BOOTED_UNDER_PRESSURE" ] && BOOTED_UNDER_PRESSURE=0
-      if [ "$BOOTED_UNDER_PRESSURE" -gt 0 ]; then
-        XCODEBUILD_RUNNING=$(/bin/ps -axo command | /usr/bin/grep -E 'xcodebuild|xcrun simctl boot' | /usr/bin/grep -v grep | /usr/bin/wc -l | /usr/bin/tr -d ' ')
-        if [ "$XCODEBUILD_RUNNING" -eq 0 ]; then
-          SIM_RSS_MB=$(/bin/ps -axo rss,command | /usr/bin/grep -iE 'CoreSimulator|simruntime|Simulator\.app' | /usr/bin/grep -v grep | /bin/awk '{s+=$1} END{printf "%d", s/1024}')
-          /usr/bin/xcrun simctl shutdown all 2>/dev/null
-          /bin/killall -9 Simulator 2>/dev/null || true
-          notify "yolo-guard: shut down iOS Simulator under thrash" "Shut down $BOOTED_UNDER_PRESSURE booted simulator(s) (~${SIM_RSS_MB}MB) under memory pressure ($MEM_PRESSURE). Reversible — re-boot from Xcode."
-          echo "$(date) SIM_THRASH_RECLAIM: shut down $BOOTED_UNDER_PRESSURE booted sim(s) ~${SIM_RSS_MB}MB pressure=$MEM_PRESSURE" >> "$LOG"
-        else
-          echo "$(date) SIM_THRASH_RECLAIM: SKIP — xcodebuild/simctl in flight ($XCODEBUILD_RUNNING procs)" >> "$LOG"
-        fi
-      fi
-    fi
-
     # --- Auto-reclaim: stale browser-automation Chrome (known-safe kill) ---
     # Agent sessions (claude-in-chrome / CDP automation) leave orphaned Chrome
     # instances on throwaway /tmp profiles (--user-data-dir=/tmp/chrome_cdp_
@@ -547,6 +520,44 @@ CPU_HOT_EOF
         notify "yolo-guard: reclaimed stale automation Chrome" "Killed orphaned $prof under memory pressure ($MEM_PRESSURE). Throwaway profile — no user data."
         echo "$(date) CDP_RECLAIM: pkill -9 -f $prof pressure=$MEM_PRESSURE" >> "$LOG"
       done
+    fi
+    # --- Auto-reclaim: abandoned persistent Hermes CDP Chrome ---
+    # Hermes uses a durable profile under ~/.hermes rather than a throwaway /tmp
+    # profile. Preserve its data, but reclaim the browser process when all safety
+    # gates agree: real pressure, exact profile+debug-port signature, old main
+    # process reparented to launchd, and no established CDP client. Normal Chrome
+    # never carries this exact user-data-dir and is therefore outside the target.
+    if [ "${YOLO_RECLAIM_HERMES_CDP:-1}" = "1" ]; then
+      HERMES_CDP_PROFILE=${YOLO_HERMES_CDP_PROFILE:-"$HOME/.hermes/chrome-cdp-profile"}
+      HERMES_CDP_PORT=${YOLO_HERMES_CDP_PORT:-9222}
+      HERMES_CDP_MIN_AGE_SEC=${YOLO_HERMES_CDP_MIN_AGE_SEC:-900}
+      HERMES_CDP_REQUIRE_PPID1=${YOLO_HERMES_CDP_REQUIRE_PPID1:-1}
+      LSOF_BIN=${YOLO_LSOF_BIN:-/usr/sbin/lsof}
+      HERMES_CDP_MAIN=$(/bin/ps -axo pid,ppid,etime,command | /usr/bin/awk \
+        -v profile="--user-data-dir=$HERMES_CDP_PROFILE" \
+        -v port="--remote-debugging-port=$HERMES_CDP_PORT" \
+        -v minage="$HERMES_CDP_MIN_AGE_SEC" -v require_ppid1="$HERMES_CDP_REQUIRE_PPID1" '
+        function etsec(e, d,a,p,n) { d=0; if(index(e,"-")>0){split(e,a,"-");d=a[1];e=a[2]}
+          n=split(e,p,":"); if(n==3)return d*86400+p[1]*3600+p[2]*60+p[3];
+          if(n==2)return d*86400+p[1]*60+p[2]; return d*86400+p[1] }
+        index($0, profile) && index($0, port) && /\.app\/Contents\/MacOS\/(Google Chrome|Chromium)/ && !/awk/ {
+          if ((!require_ppid1 || $2 == 1) && etsec($3) >= minage) print $1
+        }' | /usr/bin/head -1)
+      if [ -n "$HERMES_CDP_MAIN" ]; then
+        if "$LSOF_BIN" -nP -iTCP:"$HERMES_CDP_PORT" -sTCP:ESTABLISHED 2>/dev/null | /usr/bin/grep -q .; then
+          echo "$(date) HERMES_CDP_RECLAIM: SKIP pid=$HERMES_CDP_MAIN (active client on port $HERMES_CDP_PORT)" >> "$LOG"
+        else
+          HERMES_CDP_PIDS=$(/bin/ps -axo pid,command | /usr/bin/awk -v profile="--user-data-dir=$HERMES_CDP_PROFILE" \
+            'index($0, profile) && !/awk/ {print $1}')
+          /bin/kill -TERM "$HERMES_CDP_MAIN" 2>/dev/null || true
+          /bin/sleep "${YOLO_HERMES_CDP_TERM_GRACE_SEC:-3}"
+          for cpid in $HERMES_CDP_PIDS; do
+            if /bin/ps -p "$cpid" >/dev/null 2>&1; then /bin/kill -KILL "$cpid" 2>/dev/null || true; fi
+          done
+          notify "yolo-guard: reclaimed abandoned Hermes CDP" "Stopped orphaned Hermes automation Chrome PID $HERMES_CDP_MAIN under memory pressure ($MEM_PRESSURE). Profile data was preserved; normal Chrome was untouched."
+          echo "$(date) HERMES_CDP_RECLAIM: killed pid=$HERMES_CDP_MAIN profile=$HERMES_CDP_PROFILE pressure=$MEM_PRESSURE" >> "$LOG"
+        fi
+      fi
     fi
     # --- Auto-reclaim: redundant SECONDARY browsers (known-safe kill) ---
     # This box runs an autonomous Hermes agent fleet, so nobody is watching the

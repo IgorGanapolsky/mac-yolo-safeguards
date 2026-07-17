@@ -50,7 +50,11 @@ Apple does not A/B full description in PPO — only icon, screenshots, and previ
 # Example: swap Play short description to variant C
 cp fastlane/metadata/android/en-US/variants/short_description_C_wallet_guard.txt \
    fastlane/metadata/android/en-US/short_description.txt
-cd hermes-mobile && bundle exec fastlane supply --skip_upload_apk --skip_upload_aab
+# Preferred (service account, no Gemfile):
+python3 scripts/push-play-listing.py
+# Or: bundle exec fastlane supply --skip_upload_apk --skip_upload_aab
+# ASC editable fields:
+node scripts/push-asc-listing-copy.js
 ```
 
 ## Hybrid C wedge (2026-07-09) — active shipped copy

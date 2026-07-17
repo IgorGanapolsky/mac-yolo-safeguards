@@ -1,0 +1,10 @@
+- main [ref=f2e2]:
+  - link [ref=f2e3] [cursor=pointer]:
+    - /url: //www.google.com
+    - img "Google" [ref=f2e4]
+  - paragraph [ref=f2e5]:
+    - text: "400."
+    - insertion [ref=f2e6]: That’s an error.
+  - paragraph [ref=f2e7]:
+    - text: The server cannot process the request because it is malformed. It should not be retried.
+    - insertion [ref=f2e8]: That’s all we know.

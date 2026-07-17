@@ -5,6 +5,10 @@ import {
   resolveSubmittedPromptStripVisibility,
   shouldShowSubmittedPromptStrip,
 } from '../utils/chatOutboundDisplay';
+import {
+  EMPTY_STREAM_TIMEOUT_PLACEHOLDER,
+  GENERIC_EMPTY_STREAM_PLACEHOLDER,
+} from '../utils/streamAssistantText';
 
 describe('chatOutboundDisplay', () => {
   it('hides composer strip when optimistic user bubble already shows the text', () => {
@@ -97,5 +101,30 @@ describe('chatOutboundDisplay', () => {
       includeToolActivity: false,
     });
     expect(timeline.map((entry) => entry.message.content)).toEqual(['ship fix', 'Done on your Mac.']);
+  });
+
+  it('hides in-flight working-status placeholders so tool polls cannot spam the transcript', () => {
+    const messages: HermesMessage[] = [
+      { id: 'user-1', role: 'user', content: 'Make money today', outboundStatus: 'sent' },
+      { id: 'asst-1', role: 'assistant', content: GENERIC_EMPTY_STREAM_PLACEHOLDER },
+      {
+        id: 'asst-2',
+        role: 'assistant',
+        content: `${GENERIC_EMPTY_STREAM_PLACEHOLDER}\n\nUsing on your computer: browser navigate`,
+      },
+      { id: 'asst-3', role: 'assistant', content: EMPTY_STREAM_TIMEOUT_PLACEHOLDER },
+      { id: 'asst-4', role: 'assistant', content: 'Here is the earnings plan.' },
+    ];
+    const timeline = filterChatTimelineMessages({ messages, includeToolActivity: false });
+    expect(timeline.map((entry) => entry.message.content)).toEqual([
+      'Make money today',
+      EMPTY_STREAM_TIMEOUT_PLACEHOLDER,
+      'Here is the earnings plan.',
+    ]);
+    expect(
+      timeline.filter((entry) =>
+        String(entry.message.content).includes('Hermes may be using tools'),
+      ),
+    ).toHaveLength(0);
   });
 });

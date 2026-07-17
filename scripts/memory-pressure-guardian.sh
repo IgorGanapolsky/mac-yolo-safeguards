@@ -19,13 +19,13 @@
 #   invisible to the app (no render-process-gone fires; it just wedges the UI)
 #   and SIGTERM/SIGKILL is observed as reason:"killed" letting the app respawn
 #   the helper under a new PID (exactly what Cursor did). Act on LEAF workloads
-#   instead: Gradle daemons, ollama runner/llama-server, agent CLIs.
+#   instead: Gradle daemons and headless agent CLIs.
 # - OLLAMA: a per-request keep_alive from any client OVERRIDES server env, so a
 #   model can be silently pinned; trust /api/ps, not the config. Evict actively
-#   at WARN. A model wedged in "Stopping..." is a known bug class (ollama#14364);
-#   maintainer-recommended recovery is killing the runner child process.
+#   at WARN through Ollama's HTTP API. Never kill the runner: doing so corrupts
+#   an in-flight Hermes turn.
 # - ACTION LADDER: WARN(2) -> evict Ollama models (cheap, reversible: reload on
-#   next request). CRITICAL(4, or swap>=90%) -> also SIGTERM->SIGKILL the single
+#   next request). CRITICAL(4) -> also SIGTERM->SIGKILL the single
 #   largest-RSS leaf agent workload. Never Electron helpers, never the IDE/UI.
 #
 # Install (per Mac): copy to ~/.local/bin/, LaunchAgent
@@ -35,62 +35,55 @@
 # num_parallel * num_ctx; docs.ollama.com/faq).
 set -u
 
-LOG="$HOME/Library/Logs/memory-pressure-guardian.log"
+LOG="${MEMORY_GUARD_LOG:-$HOME/Library/Logs/memory-pressure-guardian.log}"
 NTFY_TOPIC="yolo-guard-fdh8ktuw1vtxb5sb"
-STREAK_FILE="/tmp/memory-pressure-guardian.streak"
-WEDGE_FILE="/tmp/memory-pressure-guardian.ollama-wedge"
-WARN_COOLDOWN_FILE="/tmp/memory-pressure-guardian.lastwarn"
-CRIT_COOLDOWN_FILE="/tmp/memory-pressure-guardian.lastcrit"
-WARN_COOLDOWN=600
-CRIT_COOLDOWN=300
-STREAK_REQUIRED=2          # consecutive 60s polls before acting (rides out blips)
-SWAP_CRIT_PCT=90
-OLLAMA_API="http://127.0.0.1:11434"
+STREAK_FILE="${MEMORY_GUARD_STREAK_FILE:-/tmp/memory-pressure-guardian.streak}"
+WARN_COOLDOWN_FILE="${MEMORY_GUARD_WARN_FILE:-/tmp/memory-pressure-guardian.lastwarn}"
+CRIT_COOLDOWN_FILE="${MEMORY_GUARD_CRIT_FILE:-/tmp/memory-pressure-guardian.lastcrit}"
+RECOVERY_FILE="${YOLO_MEMORY_RECOVERY_FILE:-/tmp/yolo-memory-recovery-until}"
+WARN_COOLDOWN="${MEMORY_GUARD_WARN_COOLDOWN:-600}"
+CRIT_COOLDOWN="${MEMORY_GUARD_CRIT_COOLDOWN:-300}"
+RECOVERY_COOLDOWN="${YOLO_MEMORY_RECOVERY_SEC:-600}"
+STREAK_REQUIRED="${MEMORY_GUARD_STREAK_REQUIRED:-2}" # consecutive polls before acting
+OLLAMA_API="${MEMORY_GUARD_OLLAMA_API:-http://127.0.0.1:11434}"
+CURL_BIN="${MEMORY_GUARD_CURL_BIN:-curl}"
+SYSCTL_BIN="${MEMORY_GUARD_SYSCTL_BIN:-sysctl}"
+DATE_BIN="${MEMORY_GUARD_DATE_BIN:-date}"
+SLEEP_BIN="${MEMORY_GUARD_SLEEP_BIN:-sleep}"
 DRY_RUN="${1:-}"
 
-# leaf agent workloads we may evict/kill — full-command-line match (v1's fatal
-# flaw was matching the process NAME; agent CLIs are generic node/java/python)
-AGENT_RE='GradleDaemon|org\.gradle|ollama runner|llama-server|claude( |$)|codex|opencode|agy |hermes_cli|node .*(agent|mcp)'
-# never signal these: Electron/Chromium helpers (respawn/wedge), UI apps, transports
-NEVER_RE='Helper|Renderer|\.app/Contents/(Frameworks|MacOS)|WindowServer|screensharing|sshd|Tailscale|Terminal|ghostty|Finder|Dock'
+# leaf agent workloads we may reap under REAL critical pressure — full-command-line
+# match (v1 matched the process NAME; agent CLIs are generic node/java/python).
+# NOTE (2026-07-14 fix): llama-server / ollama runner REMOVED — SIGKILLing the
+# model mid-inference corrupts the run and breaks hermes-yolo. Ollama memory is
+# reclaimed GRACEFULLY by the WARN action (`ollama stop`), never by SIGKILL.
+AGENT_RE='GradleDaemon|org\.gradle|claude( |$)|codex|opencode|agy |hermes_cli|node .*(agent|mcp)'
+# never signal these: Electron/Chromium helpers (respawn/wedge), UI apps, transports,
+# and — critically — the fleet's own inference/gateway processes it depends on.
+NEVER_RE='Helper|Renderer|\.app/Contents/(Frameworks|MacOS)|WindowServer|screensharing|sshd|Tailscale|tailscaled|Terminal|ghostty|Finder|Dock|llama-server|ollama|Ollama|litellm|gateway run|grep -E'
 
-log() { echo "$(date '+%Y-%m-%d %H:%M:%S') $*" >> "$LOG"; }
+log() { echo "$("$DATE_BIN" '+%Y-%m-%d %H:%M:%S') $*" >> "$LOG"; }
 notify() {
   [[ "$DRY_RUN" == "--dry-run" ]] && { log "DRY-RUN notify: $1"; return; }
-  curl -s -m 10 -H "Title: memory-pressure-guardian ($(hostname -s))" -H "Priority: high" \
+  "$CURL_BIN" -s -m 10 -H "Title: memory-pressure-guardian ($(hostname -s))" -H "Priority: high" \
     -d "$1" "https://ntfy.sh/$NTFY_TOPIC" >/dev/null 2>&1
 }
 
-# --- Ollama "Stopping..." wedge detector (independent of pressure level) ---
-ollama_ps=$(curl -sm 3 "$OLLAMA_API/api/ps" 2>/dev/null)
-if command -v ollama >/dev/null && ollama ps 2>/dev/null | grep -q "Stopping"; then
-  wedge=$(( $(cat "$WEDGE_FILE" 2>/dev/null || echo 0) + 1 ))
-  echo "$wedge" > "$WEDGE_FILE"
-  log "ollama model wedged in Stopping... ($wedge/3)"
-  if (( wedge >= 3 )); then
-    if [[ "$DRY_RUN" == "--dry-run" ]]; then
-      log "DRY-RUN: would kill wedged ollama runner"
-    else
-      pkill -f "ollama runner" 2>/dev/null; pkill -x llama-server 2>/dev/null
-      sleep 3
-      health=$(curl -sm 3 "$OLLAMA_API/api/version" >/dev/null 2>&1 && echo ok || echo down)
-      log "killed wedged ollama runner; server health: $health"
-      notify "Ollama model was wedged in 'Stopping...' — killed the runner process (known ollama bug workaround). Server: $health."
-    fi
-    rm -f "$WEDGE_FILE"
-  fi
-else
-  rm -f "$WEDGE_FILE"
-fi
+ollama_ps=$("$CURL_BIN" -sm 3 "$OLLAMA_API/api/ps" 2>/dev/null)
 
 # --- pressure evaluation ---
-pressure=$(sysctl -n kern.memorystatus_vm_pressure_level 2>/dev/null || echo 1)
-read -r swap_total swap_used <<< "$(sysctl -n vm.swapusage | awk '{gsub("M",""); print $3, $6}')"
+pressure=$("$SYSCTL_BIN" -n kern.memorystatus_vm_pressure_level 2>/dev/null || echo 1)
+read -r swap_total swap_used <<< "$("$SYSCTL_BIN" -n vm.swapusage | awk '{gsub("M",""); print $3, $6}')"
 swap_pct=0
 [[ -n "$swap_total" ]] && swap_pct=$(awk -v u="$swap_used" -v t="$swap_total" 'BEGIN{print (t>0)? int(u*100/t) : 0}')
 
 crit=0; warn=0
-(( pressure >= 4 || swap_pct >= SWAP_CRIT_PCT )) && crit=1
+# CRITICAL only on the KERNEL's own level-4 signal. 2026-07-14 fix: swap% alone
+# was a false trigger — these 24GB boxes sit at ~95% swap under NORMAL kernel
+# pressure (level 1), so `swap_pct >= 90` reaped processes constantly. Swap is
+# kept only as a corroborating gate: it must accompany kernel WARN, never stand
+# alone. Kernel level 4 = jetsam imminent = the only true "reap now".
+(( pressure >= 4 )) && crit=1
 (( pressure >= 2 )) && warn=1
 
 if (( !warn && !crit )); then
@@ -103,23 +96,35 @@ echo "$streak" > "$STREAK_FILE"
 log "pressure=$pressure swap=${swap_pct}% streak=$streak/$STREAK_REQUIRED"
 (( streak < STREAK_REQUIRED )) && exit 0
 
-now=$(date +%s)
+now=$("$DATE_BIN" +%s)
 
 # --- WARN action: evict resident Ollama models (reversible; reload on demand) ---
 last=$(cat "$WARN_COOLDOWN_FILE" 2>/dev/null || echo 0)
 if (( now - last > WARN_COOLDOWN )); then
-  echo "$now" > "$WARN_COOLDOWN_FILE"
   models=$(echo "$ollama_ps" | python3 -c "import sys,json; print(' '.join(m['name'] for m in json.load(sys.stdin).get('models',[])))" 2>/dev/null)
   if [[ -n "${models:-}" ]]; then
     if [[ "$DRY_RUN" == "--dry-run" ]]; then
       log "DRY-RUN: would evict ollama models: $models"
     else
-      for m in $models; do ollama stop "$m" >/dev/null 2>&1; done
-      log "WARN action: evicted ollama models: $models"
-      notify "Memory pressure WARN — evicted Ollama model(s) $models to free RAM. They reload automatically on next use."
+      evicted=""; failed=""
+      for m in $models; do
+        code=$("$CURL_BIN" -s -m 30 -o /dev/null -w "%{http_code}" \
+          -H "Content-Type: application/json" \
+          -d "{\"model\":\"$m\",\"keep_alive\":0}" "$OLLAMA_API/api/generate" 2>/dev/null || echo 000)
+        if [[ "$code" == "200" ]]; then evicted="$evicted $m"; else failed="$failed $m($code)"; fi
+      done
+      if [[ -n "$evicted" ]]; then
+        recovery_until=$((now + RECOVERY_COOLDOWN))
+        echo "$recovery_until" > "$RECOVERY_FILE"
+        echo "$now" > "$WARN_COOLDOWN_FILE"
+        log "WARN action: evicted ollama models:${evicted}; recovery cooldown until $recovery_until"
+        notify "Memory pressure WARN — evicted Ollama model(s)$evicted to free RAM. Reload is paused for ${RECOVERY_COOLDOWN}s."
+      fi
+      [[ -n "$failed" ]] && log "WARN action: Ollama HTTP unload failed:$failed"
     fi
   else
     log "WARN: pressure=$pressure but no ollama models resident"
+    [[ "$DRY_RUN" == "--dry-run" ]] || echo "$now" > "$WARN_COOLDOWN_FILE"
   fi
 fi
 
@@ -133,9 +138,10 @@ echo "$now" > "$CRIT_COOLDOWN_FILE"
 # target preference: (1) batch leaves (builds/models — restart on demand, no
 # session state), then (2) HEADLESS agent CLIs (tty=??). A terminal-attached
 # agent CLI is someone's live session — never reap it, notify instead.
-BATCH_RE='GradleDaemon|org\.gradle|ollama runner|llama-server'
+BATCH_RE='GradleDaemon|org\.gradle'
+# exclude our own scan pipeline (ps/grep/awk) so the guard never reaps itself
 candidates=$(ps -axo pid=,rss=,tty=,command= | grep -E "$AGENT_RE" | grep -vE "$NEVER_RE" \
-  | grep -v "memory-pressure-guardian")
+  | grep -vE "memory-pressure-guardian|grep -E|ps -axo")
 target=$(echo "$candidates" | grep -E "$BATCH_RE" | sort -k2 -rn | head -1)
 [[ -z "$target" ]] && target=$(echo "$candidates" | awk '$3=="??"' | sort -k2 -rn | head -1)
 if [[ -z "$target" ]]; then
@@ -151,7 +157,7 @@ if [[ "$DRY_RUN" == "--dry-run" ]]; then
   log "DRY-RUN: would SIGTERM->SIGKILL pid $tpid (${trss}MB): $tcmd"
 else
   kill -TERM "$tpid" 2>/dev/null
-  sleep 10
+  "$SLEEP_BIN" 10
   kill -0 "$tpid" 2>/dev/null && kill -KILL "$tpid" 2>/dev/null
   log "CRITICAL action: reaped pid $tpid (${trss}MB): $tcmd"
   notify "Memory CRITICAL — reaped the largest agent workload: pid $tpid (${trss}MB) $tcmd. Builds/models restart on demand; no Electron helper or UI app was touched."

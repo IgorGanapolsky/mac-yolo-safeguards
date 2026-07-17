@@ -1,0 +1,38 @@
+{
+  "name": "testing-react-native-apps",
+  "version": "0.1.0",
+  "description": "React Native testing support spanning test authoring, device automation, and QA workflows.",
+  "author": {
+    "name": "Callstack",
+    "email": "hello@callstack.com",
+    "url": "https://www.callstack.com/"
+  },
+  "homepage": "https://github.com/callstackincubator/agent-skills/tree/main/plugins/testing-react-native-apps",
+  "repository": "https://github.com/callstackincubator/agent-skills",
+  "license": "MIT",
+  "keywords": [
+    "react-native",
+    "testing",
+    "qa",
+    "automation"
+  ],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Testing React Native Apps",
+    "shortDescription": "Testing, device automation, and QA support for React Native apps.",
+    "longDescription": "Includes React Native skills from callstack/react-native-testing-library and callstackincubator/agent-device for test writing, device-driven verification, accessibility checks, and exploratory QA.",
+    "developerName": "Callstack",
+    "category": "Coding",
+    "capabilities": [
+      "Read",
+      "Write"
+    ],
+    "logo": "./assets/callstack-plugin-icon.png",
+    "websiteURL": "https://github.com/callstackincubator/agent-skills/tree/main/plugins/testing-react-native-apps",
+    "defaultPrompt": [
+      "Add tests for a newly added navigator public interface.",
+      "Verify accessibility for a core checkout flow and check whether it meets EEA guidelines.",
+      "Verify this PR on a simulator and record the full flow."
+    ]
+  }
+}

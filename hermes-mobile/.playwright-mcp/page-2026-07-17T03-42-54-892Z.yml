@@ -1,0 +1,10 @@
+- generic [ref=f1e9]:
+  - img "Google Play Console logo" [ref=f1e11]
+  - generic [ref=f1e12]:
+    - button [ref=f1e14] [cursor=pointer]:
+      - generic [ref=f1e16]:
+        - text: iganapolsky@gmail.com
+        - img [ref=f1e18]: keyboard_arrow_down
+    - heading "Choose developer account" [level=2] [ref=f1e27]
+    - listbox [ref=f1e28]:
+      - option "IgorGanapolsky" [ref=f1e29] [cursor=pointer]

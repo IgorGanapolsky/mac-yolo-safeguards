@@ -5,7 +5,7 @@ import { isTelegramSession } from './sessionSelection';
 
 /** Shown when gateway returns an empty stream for a Telegram-bound session (message queued). */
 export const TELEGRAM_QUEUED_REPLY_PLACEHOLDER =
-  'Message queued on this Hermes thread. Your computer may still be running tools from a prior turn — the reply will appear here when it finishes.';
+  'Message queued on this Hermes thread. The reply will appear here when it finishes.';
 
 /**
  * Shown when the live stream ends without assistant text but the Mac may still be
@@ -13,7 +13,7 @@ export const TELEGRAM_QUEUED_REPLY_PLACEHOLDER =
  * read the old "did not return text yet" line as a product failure.
  */
 export const GENERIC_EMPTY_STREAM_PLACEHOLDER =
-  'Working on your computer… Hermes may be using tools (browser, search, terminal). The reply will show here when ready.';
+  'Working on your computer… The reply will show here when ready.';
 
 /** After soft timeout with no reply text — auto-poll continues; Refresh is optional fallback. */
 export const EMPTY_STREAM_TIMEOUT_PLACEHOLDER =
@@ -30,6 +30,40 @@ export function isDeferredStreamPlaceholder(content: string | undefined): boolea
     body.startsWith('Working on your computer…') ||
     body.startsWith('Still no reply text.')
   );
+}
+
+/**
+ * In-flight "Working on your computer…" status belongs in RunProgressBanner only.
+ * Soft-timeout / Telegram-queue copy stays visible (actionable, not poll spam).
+ */
+export function isTransientWorkingStatusPlaceholder(content: string | undefined): boolean {
+  const body = content?.trim() ?? '';
+  if (!body) {
+    return false;
+  }
+  if (body === EMPTY_STREAM_TIMEOUT_PLACEHOLDER || body.startsWith('Still no reply text.')) {
+    return false;
+  }
+  if (body === TELEGRAM_QUEUED_REPLY_PLACEHOLDER) {
+    return false;
+  }
+  return (
+    body === GENERIC_EMPTY_STREAM_PLACEHOLDER ||
+    body.startsWith('Working on your computer…') ||
+    body.startsWith('(Hermes did not return text yet')
+  );
+}
+
+/**
+ * Tool-poll activity updates the footer banner — never rewrite the transcript bubble.
+ * Kept as an explicit no-op so call sites cannot reintroduce status spam.
+ */
+export function resolveWorkingPlaceholderAfterToolPoll(
+  currentContent: string | undefined,
+  _activityDetail?: string,
+): string | undefined {
+  void _activityDetail;
+  return currentContent;
 }
 
 export function extractAssistantFromRunCompletedPayload(data: Record<string, unknown>): string {

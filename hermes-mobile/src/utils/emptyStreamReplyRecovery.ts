@@ -19,7 +19,7 @@ export const EMPTY_REPLY_FAILURE_REASON =
 export function emptyStreamCheckingStatus(elapsedMs: number): string {
   const elapsedSec = Math.max(1, Math.floor(elapsedMs / 1000));
   if (elapsedMs < EMPTY_STREAM_SELF_HEAL_AFTER_MS) {
-    return 'Working on your computer… Hermes may be using tools. The reply will show here when ready.';
+    return 'Working on your computer… The reply will show here when ready.';
   }
   return `Checking your Mac… (${elapsedSec}s)`;
 }

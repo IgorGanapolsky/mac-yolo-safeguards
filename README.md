@@ -7,11 +7,11 @@
 [![License: MIT](https://img.shields.io/github/license/IgorGanapolsky/mac-yolo-safeguards?color=yellow)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-macOS-blue)](#)
 [![Arch](https://img.shields.io/badge/arch-Apple%20Silicon%20%2B%20Intel-lightgrey)](#)
-[![Telemetry](https://img.shields.io/badge/telemetry-none-success)](#telemetry-and-privacy)
+[![Telemetry](https://img.shields.io/badge/telemetry-off_by_default-success)](#telemetry-and-privacy)
 
 **The OS-level safeguards layer for AI agent loops.** Runaway-kill, hard timeouts, and resource limits — the enforcement your agent harness is missing — so coding agents (Antigravity `agy`, Claude Code, Cursor, Codex) running in YOLO mode can't burn your tokens or freeze your Mac.
 
-> **TL;DR** — On 2026-05-26 my Mac hit load average **307** because an AI agent kept booting iOS Simulators in a loop. This repo is the four-piece kit that stopped it: a wrapper, a LaunchAgent, a plist, and a 12-point health check. MIT, no telemetry, symlinks-only install. Full incident write-up: [`CASE-STUDY.md`](./docs/CASE-STUDY.md).
+> **TL;DR** — On 2026-05-26 my Mac hit load average **307** because an AI agent kept booting iOS Simulators in a loop. This repo is the four-piece kit that stopped it: a wrapper, a LaunchAgent, a plist, and a 12-point health check. MIT, telemetry off by default, symlinks-only install. Full incident write-up: [`CASE-STUDY.md`](./docs/CASE-STUDY.md).
 
 **Paid reliability help:** [Book 20-min triage](https://cal.com/igor-g-kvqxfo/30min) | [Partner Pilot](./docs/PARTNER-PILOT.md) | [Public-safe paid inquiry](https://github.com/IgorGanapolsky/mac-yolo-safeguards/issues/new?template=paid-hardening-inquiry.yml)
 
@@ -41,7 +41,7 @@ On 2026-05-26 an iPhone 17 simulator was auto-booted (first by macOS window rest
 | File | Installs to | Purpose |
 |---|---|---|
 | `agy-yolo-wrapper.js` | `~/workspace/git/igor/antigravity-hub/antigravity-cli/bin/` | Hardened wrapper around `agy --dangerously-skip-permissions`. Adds singleton lock, hard timeout, stuck-loop watchdog, spawn-error handling, and `--sandbox`. |
-| `grok-yolo-wrapper.js` | `~/.local/bin/grok-yolo` | Guarded always-approve wrapper around official Grok Build, pinned to Grok 4.5 for standalone and headless use. |
+| `grok-yolo-wrapper.js` | `~/.local/bin/grok-yolo` | Guarded always-approve wrapper around official open-source Grok Build. Cloud mode pins Grok 4.5; fleet zero-spend mode pins an isolated loopback Ollama model. |
 | `hermes-yolo-wrapper.js` | `~/.local/bin/hermes-yolo` | Prefers Grok 4.5 for ordinary prompts and refuses silent Qwen fallback; Hermes admin commands and the explicit legacy backend retain the original watchdog path. |
 | `tools/hermes-grok45-harness.js` | `~/.local/bin/hermes-grok45` | Runs Grok 4.5 as a bounded independent Hermes verifier with auth, billing, evidence, and redacted receipts. |
 | `tools/hermes-harness-eval.js` | `~/.local/bin/hermes-harness-eval` | Mines prompt-free route/verifier traces into reliability, latency, fallback, and failure-cluster metrics plus an inspectable wiki. |
@@ -71,7 +71,7 @@ Scope is deliberately narrow. The kit does **not**:
 - **Manage arbitrary Mac memory pressure.** If you have many editors + AI tools open and CleanMyMac yells about RAM, that's expected behavior — not a runaway. The kit detects runaway *iOS Simulator spawning* and only auto-reclaims known-safe memory hogs such as orphaned automation Chrome, redundant secondary browsers, and oversized Ollama `llama-server` workers under real pressure.
 - **Kill, quit, or otherwise touch GUI apps** (Antigravity, Cursor, Xcode, Ghostty, Android Studio, browsers, IDEs). Ever. Hard rule. Foreground apps have unsaved work the user cares about more than they care about the freeze. The escalation path is a critical macOS alert, not a kill signal.
 - **Stop the agent itself from being memory-hungry.** A running `agy` / `claude` / `cursor-agent` process consuming 1–2 GB is normal AI-agent behavior. The guard *notifies* (once per 30 min, debounced) when free memory drops below 15% and an AI process exceeds 1.5 GB RSS, but it only auto-kills known-safe worker/cache processes.
-- **Phone home.** No telemetry. See [`§ Telemetry and privacy`](#telemetry-and-privacy).
+- **Enable telemetry by default.** Grok Build's optional external OTEL export remains double-opt-in and content-free; no prompt or tool details are exported. See [`§ Telemetry and privacy`](#telemetry-and-privacy).
 - **Work on Linux or Windows.** macOS-only. The LaunchAgent, `xcrun simctl`, and `simruntime` process names are all Apple-specific.
 
 If your symptom is "Mac is slow because I have 200 Chrome tabs and 6 IDEs open" — close some. That's not what this kit is for.
@@ -94,6 +94,28 @@ bash scripts/install-grok-yolo.sh --update
 
 See [Hermes Grok 4.5 Harness](docs/HERMES-GROK45-HARNESS.md) for standalone,
 Hermes, safety, authentication, and billing behavior.
+
+After [Grok Build went open source](https://x.ai/news/grok-build-open-source), install
+the high-ROI fleet integration (local Ollama/LiteLLM model routes + PreToolUse
+safety hooks) on both Macs:
+
+```sh
+bash scripts/install-grok-build-fleet.sh
+grok-build-fleet --doctor --json
+```
+
+Details: [Grok Build open-source fleet](docs/GROK-BUILD-OPEN-SOURCE-FLEET.md).
+Default cloud model is unchanged; use `grok -m ollama-hermes-64k` for local $0 runs.
+
+When fleet zero-spend mode is active, the same `grok-yolo` command uses the
+open-source Grok Build harness with `qwen3.5:9b-hermes-64k` through
+`http://127.0.0.1:11434/v1`. Direct `grok` remains blocked because it can select
+a cloud model. Inspect the local route without making a model call:
+
+```sh
+grok-yolo --doctor --json
+grok-yolo --dry-run --json
+```
 
 After routing real tasks, inspect the active backend and mine the prompt-free
 receipts without spending tokens:
@@ -135,6 +157,9 @@ quality escalation; each costs $0.005 for the default ten results.
 | `AGY_YOLO_NO_DEFAULT_ARGS` | unset | If set, don't auto-add `--sandbox --dangerously-skip-permissions`. |
 | `HERMES_YOLO_BACKEND` | `grok` | Ordinary prompts use Grok 4.5. Set `hermes` only to opt into the legacy Hermes provider route; there is no silent Qwen fallback. |
 | `GROK_YOLO_BIN` | `~/.local/bin/grok-yolo` | Override the Grok 4.5 launcher used by `hermes-yolo`. |
+| `GROK_YOLO_LOCAL_ONLY` | set by zero-spend gate | Force the guarded wrapper to an isolated Grok Build + loopback Ollama route. |
+| `GROK_YOLO_LOCAL_MODEL` | verified local 64K model | Underlying Ollama model; the wrapper validates the identifier and never accepts a CLI model override. |
+| `GROK_YOLO_LOCAL_HOME` | `~/.hermes/grok-build-local` | Private Grok home containing only the managed local model config. |
 | `HERMES_YOLO_PROVIDER` | `custom:ollama-local-64k` | Override the provider only when `HERMES_YOLO_BACKEND=hermes`. |
 | `HERMES_YOLO_MODEL` | discovered local model | Override the model only when `HERMES_YOLO_BACKEND=hermes`. |
 | `HERMES_YOLO_TOOLSETS` | `terminal,file,web,code_execution,memory,clarify` | Override the slim default toolset. |
@@ -267,7 +292,7 @@ Load average **307**, 256+ `simruntime` processes, hard-reboot territory. Full t
 
 ## Support & Paid Hardening
 
-This kit is fully open-source (MIT-licensed), free to use, and has **zero telemetry**.
+This kit is fully open-source (MIT-licensed), free to use, and enables **zero telemetry by default**.
 
 If the safeguards saved your Mac from a freeze:
 *   ⭐ **Star the repo** — it is the strongest signal that more system-level AI safety tooling should exist.
@@ -296,11 +321,17 @@ Public GitHub issues must stay public-safe. Do not post secrets, customer names,
 
 ## Telemetry and privacy
 
-This kit ships **zero telemetry**. Specifically:
+The Mac safeguard kit ships **zero telemetry by default**. Specifically:
 
-- No network calls of any kind — the wrapper, guard, and health check only read local process state (`ps`, `uptime`, `xcrun simctl`) and shell out to local binaries. There is no `fetch`, `curl`, `http.request`, or equivalent anywhere in the codebase.
+- The simulator wrapper, guard, and health check make no network calls; they only read local process state (`ps`, `uptime`, `xcrun simctl`) and shell out to local binaries.
 - All logs are written to `/tmp/` (gitignored). Nothing leaves your Mac.
 - No analytics, no error reporting, no usage pings.
+
+The optional Grok Build integration is a separate surface. Its local model
+route uses loopback Ollama. External OpenTelemetry is off by default and
+requires Grok's master switch plus an exporter; the wrapper forces prompt and
+tool-detail content gates off. A configured OTLP collector therefore receives
+content-free usage/error metrics, never silently enabled analytics.
 
 Verify it yourself:
 

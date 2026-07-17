@@ -1,0 +1,25 @@
+{
+    "url": "https://old.reddit.com/r/AI_Agents/comments/1uwdrnp/built_a_phone_remote_for_ai_agents_on_my_own_mac/oxjopsr/?context=3",
+    "title": "Future_AGI comments on Built a phone remote for AI agents on my own Mac \u2014 approve/deny blocked tool calls from my pocket",
+    "capturedAt": "2026-07-15T14:10:45.922Z",
+    "parentCommentId": "t1_oxjopsr",
+    "parentAuthor": "Future_AGI",
+    "parentText": "The approve-from-your-pocket flow is great, and the reason it's safe is architectural: the block lives at the gateway, not in the model, so a denied call never executes even\u00a0when the agent really wants it to. We run guardrails inline at the gateway for the same reason, and the addition worth making is holding the risky calls (writes, anything with a side effect) for approval so the ones that reach your phone are only the ones that can actually cost you something. Keeping keys on the Mac behind Tailscale is exactly right.",
+    "replyCommentId": "t1_oxomx8g",
+    "replyAuthor": "eazyigz123",
+    "replyPermalink": "https://old.reddit.com/r/AI_Agents/comments/1uwdrnp/built_a_phone_remote_for_ai_agents_on_my_own_mac/oxomx8g/",
+    "replyNewReddit": "https://www.reddit.com/r/AI_Agents/comments/1uwdrnp/built_a_phone_remote_for_ai_agents_on_my_own_mac/oxomx8g/",
+    "replyText": "Appreciate this \u2014 you\u2019re naming the part that actually matters.\n\nAgree on the architecture: safety only holds if the deny/block is enforced at the gateway before execution, not as a model \u201cplease don\u2019t.\u201d The phone is just the UI for a decision the Mac already owns. We keep keys on the Mac and reach it over Tailscale / home Wi\u2011Fi for that reason.\n\nYour addition about only escalating side-effectful calls (writes, network, destructive tools) is exactly the fatigue control. If every read hits the pocket, people rubber-stamp; if only costly calls surface, the approve/deny is a real review. We\u2019re tightening that filter so the phone queue is \u201ccan cost you something,\u201d not \u201cFYI noise.\u201d\n\nCurious how you draw the line for inline gateway guardrails vs human-held approvals in your setup \u2014 especially anything that still surprises you on side-effect classification.",
+    "threadBlock": "Future_AGI 1 point 17 hours ago\u00a0\n\nThe approve-from-your-pocket flow is great, and the reason it's safe is architectural: the block lives at the gateway, not in the model, so a denied call never executes even\u00a0when the agent really wants it to. We run guardrails inline at the gateway for the same reason, and the addition worth making is holding the risky calls (writes, anything with a side effect) for approval so the ones that reach your phone are only the ones that can actually cost you something. Keeping keys on the Mac behind Tailscale is exactly right.\n\npermalinkembedsavereportreplied\n\n[\u2013]eazyigz123[S] 1 point a minute ago\u00a0\n\nAppreciate this \u2014 you\u2019re naming the part that actually matters.\n\nAgree on the architecture: safety only holds if the deny/block is enforced at the gateway before execution, not as a model \u201cplease don\u2019t.\u201d The phone is just the UI for a decision the Mac already owns. We keep keys on the Mac and reach it over Tailscale / home Wi\u2011Fi for that reason.\n\nYour addition about only escalating side-effectful calls (writes, network, destructive tools) is exactly the fatigue control. If every read hits the pocket, people rubber-stamp; if only costly calls surface, the approve/deny is a real review. We\u2019re tightening that filter so the phone queue is \u201ccan cost you something,\u201d not \u201cFYI noise.\u201d\n\nCurious how you draw the line for inline gateway guardrails vs human-held approvals in your setup \u2014 especially anything that still surprises you on side-effect classification.\n\npermalinksaveparenteditdisable inbox repliesdeletereply\nabout\nblog\nabout\nadvertising\ncareers\nhelp\nsite rules\nReddit help center\nreddiquette\nmod guidelines\ncontact us\napps & tools\nReddit for iPhone\nReddit for Android\nmobile website\n<3\nreddit premium\n\nUse of this site constitutes acceptance of our User Agreement and Privacy Policy. \u00a9 2026 reddit inc. All rights reserved.\n\nREDDIT and the ALIEN Logo are registered trademarks of reddit inc.\n\n\u03c0\u00a0",
+    "rulesChecked": {
+        "subreddit": "r/AI_Agents",
+        "rulesUrl": "https://old.reddit.com/r/AI_Agents/about/rules/",
+        "beRespectful": true,
+        "noSpam": true,
+        "linksInCommentsNotPosts": "N/A \u00e2\u0080\u0094 no links in reply",
+        "limitSelfPromotion": "complied \u00e2\u0080\u0094 no store links; technical reply only",
+        "noLowEffort": true,
+        "softStoreMention": false,
+        "newPostCreated": false
+    }
+}

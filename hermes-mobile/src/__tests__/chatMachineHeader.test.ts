@@ -19,6 +19,35 @@ describe('resolveChatMachineHeaderDisplay', () => {
     addedAt: '2026-06-24T00:00:00.000Z',
   };
 
+  it('never claims Computer via USB on fresh install with empty gateway URL', () => {
+    const display = resolveChatMachineHeaderDisplay({
+      activeProfile: null,
+      gatewayUrl: '',
+      health: null,
+      connectionMode: 'gateway',
+      isPaired: false,
+      workers: [],
+      savedMacCount: 0,
+    });
+    expect(display.machineLabel).toBe('Your computer');
+    expect(display.machineEndpoint).toBeUndefined();
+    expect(formatChatMachineHeaderLine(display).toLowerCase()).not.toContain('usb');
+    expect(formatChatMachineHeaderLine(display)).not.toContain('127.0.0.1');
+  });
+
+  it('keeps Hermes account relay label when unpaired with empty URL', () => {
+    const display = resolveChatMachineHeaderDisplay({
+      activeProfile: null,
+      gatewayUrl: '',
+      health: null,
+      connectionMode: 'relay',
+      isPaired: false,
+      workers: [],
+      savedMacCount: 0,
+    });
+    expect(display.machineLabel).toBe('Hermes account relay');
+  });
+
   const macMini: GatewayProfile = {
     id: 'mac_mini',
     label: 'Mac mini',

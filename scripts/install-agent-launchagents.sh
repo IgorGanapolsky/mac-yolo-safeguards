@@ -51,9 +51,11 @@ plists=(
   com.igor.hermes-mobile-continuous-e2e.plist
   com.igor.hermes-mobile-itunes-poll.plist
   com.igor.hermes-usb-reverse-watchdog.plist
+  com.igor.hermes-tailscale-reachability.plist
   com.igor.hermes-relay-worker.plist
   com.igor.revenue-autonomous-loop.plist
   com.igor.smart-ops.plist
+  com.igor.ralph-gsd-loop.plist
   com.igor.agent-vault-sync.plist
 )
 
@@ -92,3 +94,4 @@ echo "Installed ${#plists[@]} LaunchAgent templates (+ repo-root-hygiene). Verif
 echo "  bash scripts/verify-agent-automations.sh"
 echo "  node tools/agent-session-start.js"
 echo "  node tools/revenue-autonomous-loop.js --json"
+echo "  node tools/ralph-gsd-loop.js --once --json"

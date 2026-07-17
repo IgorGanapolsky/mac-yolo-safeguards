@@ -37,5 +37,3 @@ Hermes Mobile is independent and is not affiliated with Nous Research, Anthropic
 Source and setup: github.com/IgorGanapolsky/mac-yolo-safeguards
 
 Publisher: Igor Ganapolsky
-
-Both iOS and Android are live — Leash Pro $19.99/mo on App Store and Google Play.

@@ -14,6 +14,7 @@ EXPECTED=(
   com.igor.shutdown-simulators
   com.igor.revenue-autonomous-loop
   com.igor.smart-ops
+  com.igor.ralph-gsd-loop
   com.igor.agent-vault-sync
   com.igor.repo-root-hygiene
 )
