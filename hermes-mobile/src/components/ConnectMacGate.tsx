@@ -34,19 +34,20 @@ import {
   isStoreReviewDemoBuild,
   isDemoModeAllowed,
 } from '../utils/demoModePolicy';
+import { shouldShowConnectMacGate } from '../utils/freshUserOnboarding';
 import { haptics } from '../services/haptics';
 
 const AUTO_RETRY_MS = 12000;
 
 /**
- * First-run gate when no Mac is configured and the gateway is not reachable.
- * Plain-language numbered steps — one primary CTA (Find computers).
+ * First-run full-screen gate when no Mac is configured yet.
+ * Returning users with saved computers never see this — stay on Chat with
+ * ChatConnectionPanel / header status (silent heal ~30s, then inline help).
  */
 export default function ConnectMacGate() {
   const {
     settings,
     gatewayBootstrapPhase,
-    isGatewayReachable,
     bootstrapReady,
     profileScanning,
     profileScanProgress,
@@ -132,12 +133,6 @@ export default function ConnectMacGate() {
     [retryGatewayBootstrap, selectGatewayProfile],
   );
 
-  const hasSavedMac =
-    gatewayProfiles.some((profile) => !isLoopbackGatewayUrl(profile.gatewayUrl)) ||
-    [effectiveGatewayUrl, settings.gatewayUrl].some(
-      (url) => Boolean(url?.trim()) && !isLoopbackGatewayUrl(url || ''),
-    );
-
   const pickerProfiles = useMemo(() => {
     const activeId = activeGatewayProfile?.id ?? null;
     const switchRows = profilesForSwitchComputerPicker(gatewayProfiles, {
@@ -151,19 +146,18 @@ export default function ConnectMacGate() {
     );
   }, [activeGatewayProfile?.id, gatewayProfiles]);
 
-  // Fresh installs default to connectionMode 'relay'. Requiring 'gateway' hid
-  // ConnectMacGate forever for brand-new users (CI stranger cold-start 2026-07-15).
-  const freshUnpaired = !hasSavedMac;
-  const showGate =
-    bootstrapReady &&
-    !isE2eAutomationBuild() &&
-    !isStoreReviewDemoBuild() &&
-    !settings.demoMode &&
-    !settings.connectMacGateDismissed &&
-    (freshUnpaired ||
-      (!isGatewayReachable &&
-        settings.connectionMode === 'gateway' &&
-        (!hasSavedMac || pickerProfiles.length > 0)));
+  // First-run only. Saved Macs / transient Tailscale blips stay on Chat
+  // (ChatConnectionPanel) — never re-mount this overlay on AppState or toggles.
+  const showGate = shouldShowConnectMacGate({
+    bootstrapReady,
+    demoMode: settings.demoMode,
+    connectMacGateDismissed: settings.connectMacGateDismissed,
+    profiles: gatewayProfiles,
+    effectiveGatewayUrl,
+    settingsGatewayUrl: settings.gatewayUrl,
+    e2eAutomation: isE2eAutomationBuild(),
+    storeReviewDemo: isStoreReviewDemoBuild(),
+  });
 
   const searching =
     isSearching ||
