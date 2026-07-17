@@ -56,6 +56,10 @@ link "$REPO/agy-yolo-wrapper.js"              "$AGY_CLI_DIR/bin/agy-yolo-wrapper
 link "$REPO/hermes-yolo-wrapper.js"           "$INSTALL_HOME/.local/bin/hermes-yolo"
 link "$REPO/sim-runaway-guard.sh"             "$INSTALL_HOME/.local/bin/sim-runaway-guard.sh"
 link "$REPO/yolo-health"                      "$INSTALL_HOME/.local/bin/yolo-health"
+link "$REPO/opencode-yolo"                     "$INSTALL_HOME/.local/bin/opencode-yolo"
+link "$REPO/kimi-yolo"                         "$INSTALL_HOME/.local/bin/kimi-yolo"
+link "$REPO/tinker-yolo"                       "$INSTALL_HOME/.local/bin/tinker-yolo"
+link "$REPO/scripts/heal-launchd-paths.sh"     "$INSTALL_HOME/.local/bin/heal-launchd-paths.sh"
 
 # Instead of symlinking the plist, write a copy with {{HOME}} substituted to point to the actual home directory
 PLIST_DEST="$INSTALL_HOME/Library/LaunchAgents/com.igor.shutdown-simulators.plist"
@@ -74,6 +78,12 @@ else
 fi
 
 echo ""
+echo "=== Healing stale LaunchAgent paths (deleted-worktree cruft) ==="
+# Agents that ran this installer from a .worktrees/* checkout left LaunchAgents
+# pointing at now-deleted paths (exit 127 every interval). Repoint them to the
+# canonical checkout and disable ones whose script is gone everywhere.
+MAC_YOLO_REPO="$REPO" HOME="$INSTALL_HOME" bash "$REPO/scripts/heal-launchd-paths.sh" --apply --prune || true
+
 echo "=== Verifying ==="
 HOME="$INSTALL_HOME" "$INSTALL_HOME/.local/bin/yolo-health" || { echo "yolo-health reported failures"; exit 1; }
 
