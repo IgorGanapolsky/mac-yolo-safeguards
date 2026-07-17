@@ -5,6 +5,7 @@ import {
   isFreshUserUnpaired,
   isOnTailscaleRoute,
   shouldHideConnectionStatusChips,
+  shouldShowConnectMacGate,
   shouldShowFreshUserOnboardingSteps,
 } from '../utils/freshUserOnboarding';
 import {
@@ -16,6 +17,42 @@ describe('freshUserOnboarding', () => {
   it('treats empty profiles as fresh user unpaired', () => {
     expect(isFreshUserUnpaired([])).toBe(true);
     expect(hasValidSavedComputer([])).toBe(false);
+  });
+
+  it('shows ConnectMacGate only for true first-run unpaired installs', () => {
+    expect(
+      shouldShowConnectMacGate({
+        bootstrapReady: true,
+        profiles: [],
+        effectiveGatewayUrl: '',
+        settingsGatewayUrl: '',
+      }),
+    ).toBe(true);
+
+    expect(
+      shouldShowConnectMacGate({
+        bootstrapReady: true,
+        profiles: [
+          {
+            id: 'mini',
+            label: 'Igors-Mac-mini',
+            gatewayUrl: 'http://100.94.135.78:8642',
+            addedAt: '2026-07-15T00:00:00Z',
+          },
+        ],
+        effectiveGatewayUrl: 'http://100.94.135.78:8642',
+        settingsGatewayUrl: 'http://100.94.135.78:8642',
+      }),
+    ).toBe(false);
+
+    expect(
+      shouldShowConnectMacGate({
+        bootstrapReady: true,
+        profiles: [],
+        effectiveGatewayUrl: 'http://100.87.85.85:8642',
+        settingsGatewayUrl: '',
+      }),
+    ).toBe(false);
   });
 
   it('treats generic USB-only loopback as unpaired (never connected)', () => {
