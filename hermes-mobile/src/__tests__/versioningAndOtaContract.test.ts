@@ -63,11 +63,15 @@ describe('versioning and OTA contract', () => {
     expect(gated).toMatch(/require-fresh-user-ota-gate/);
   });
 
-  it('keeps Play train on marketing/runtime 1.0 while Play NSC train stays on runtime 1.0', () => {
-    const app = readJson('app.json') as { expo: { version: string } };
-    // Play production has 1.0/vc14 NSC; OTA cannot deliver native NSC.
-    // Do not bump expo.version to 1.1 while the Android store train is still runtime 1.0.
-    expect(app.expo.version).toBe('1.0');
+  it('ships dual-store marketing/runtime 1.2 (native NSC + latest main JS)', () => {
+    const app = readJson('app.json') as {
+      expo: { version: string; android?: { versionCode?: number }; ios?: { buildNumber?: string } };
+    };
+    // Play was 1.0/vc14; App Store public is 1.1; OTA popups not reaching users.
+    // Native cleartext/NSC + consolidated fixes require a new binary on runtime 1.2.
+    expect(app.expo.version).toBe('1.2');
+    expect(app.expo.android?.versionCode ?? 0).toBeGreaterThanOrEqual(14);
+    expect(Number(app.expo.ios?.buildNumber ?? 0)).toBeGreaterThanOrEqual(17);
   });
 
   it('ships Android NSC base cleartext so Tailscale Find computers works', () => {
