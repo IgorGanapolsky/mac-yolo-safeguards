@@ -86,6 +86,18 @@ describe('freshChatComposerTransfer', () => {
     ).toBe('');
   });
 
+  it('keeps compose-first text when a real session attaches before storage flushes', () => {
+    expect(
+      resolveComposerTextAfterDraftLoad({
+        inMemoryText: 'make money today',
+        loadedDraft: '',
+        isSessionChange: true,
+        isComposeFirstSessionAttach: true,
+        textAtFetchStart: 'make money today',
+      }),
+    ).toBe('make money today');
+  });
+
   it('applies non-empty stored draft on session change', () => {
     expect(
       resolveComposerTextAfterDraftLoad({

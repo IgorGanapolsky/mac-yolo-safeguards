@@ -49,6 +49,8 @@ export type DraftLoadResolveInput = {
    * False when the same session re-fired the load effect (seed/demo flicker).
    */
   isSessionChange: boolean;
+  /** True only when a compose-first draft receives its first real session id. */
+  isComposeFirstSessionAttach?: boolean;
   /** Snapshot of in-memory text when the async load started. */
   textAtFetchStart: string;
 };
@@ -65,6 +67,9 @@ export function resolveComposerTextAfterDraftLoad(input: DraftLoadResolveInput):
   const started = typeof input.textAtFetchStart === 'string' ? input.textAtFetchStart : '';
 
   if (live.trim() && live !== started) {
+    return live;
+  }
+  if (input.isComposeFirstSessionAttach && live.trim() && !draft.trim()) {
     return live;
   }
   if (!input.isSessionChange && live.trim() && !draft.trim()) {

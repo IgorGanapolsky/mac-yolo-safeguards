@@ -4046,9 +4046,12 @@ export default function ChatScreen() {
     const draftKey = composerDraftSessionKey(sessionId);
     const previousSessionId = composerDraftSessionRef.current;
     const isSessionChange = previousSessionId !== draftKey;
-    if (previousSessionId && previousSessionId !== draftKey) {
-      void saveComposerDraft(previousSessionId, inputValueRef.current);
-    }
+    const isComposeFirstSessionAttach =
+      Boolean(sessionId) && previousSessionId === COMPOSER_DRAFT_COMPOSE_FIRST_KEY;
+    const previousDraftSave =
+      previousSessionId && previousSessionId !== draftKey
+        ? saveComposerDraft(previousSessionId, inputValueRef.current)
+        : null;
     composerDraftSessionRef.current = draftKey;
 
     if (!draftKey || isDemo || pendingApprovalEditSeed) {
@@ -4073,6 +4076,7 @@ export default function ChatScreen() {
     let cancelled = false;
     const textAtFetchStart = inputValueRef.current;
     void (async () => {
+      await previousDraftSave;
       let draft = await loadComposerDraft(draftKey);
       // Compose-first → real session: carry the sentinel draft when destination is empty.
       if (
@@ -4108,6 +4112,7 @@ export default function ChatScreen() {
         inMemoryText: inputValueRef.current,
         loadedDraft: draft,
         isSessionChange,
+        isComposeFirstSessionAttach,
         textAtFetchStart,
       });
       inputValueRef.current = nextText;
@@ -4265,6 +4270,10 @@ export default function ChatScreen() {
     Keyboard.dismiss();
     const sentSessionId = currentSessionRef.current?.id;
     if (!isDemo) {
+      if (composerDraftSaveTimerRef.current) {
+        clearTimeout(composerDraftSaveTimerRef.current);
+        composerDraftSaveTimerRef.current = null;
+      }
       // Clear both the active session draft and compose-first sentinel so a
       // rejected→restore path cannot resurrect a stale empty-session draft.
       void clearComposerDraft(composerDraftSessionKey(sentSessionId));
