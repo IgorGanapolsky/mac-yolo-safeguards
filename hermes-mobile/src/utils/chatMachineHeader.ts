@@ -323,8 +323,8 @@ export function formatMacConnectionRetryBanner(input: {
 
   if (input.authMismatch) {
     return label === 'your computer'
-      ? `${GATEWAY_WRONG_KEY_MESSAGE} — tap to re-pair`
-      : `${GATEWAY_WRONG_KEY_MESSAGE} (${label}) — tap to re-pair`;
+      ? `${GATEWAY_WRONG_KEY_MESSAGE} — tap to reconnect`
+      : `${GATEWAY_WRONG_KEY_MESSAGE} (${label}) — tap to reconnect`;
   }
 
   if (input.connectionState === 'connecting' && !input.connectingStuck) {

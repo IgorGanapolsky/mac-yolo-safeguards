@@ -149,6 +149,7 @@ import {
   pairServerHostFromGatewayUrl,
   resolvePairServerMachineName,
   resolvePairServerRelayCode,
+  resolvePairServerSetupParams,
   summarizeDiscoveredReach,
 } from '../services/gatewayDiscovery';
 import {
@@ -1613,13 +1614,59 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    // 401 / invalid_api_key: stop silent "Trying to reach…" and clear poisoned key.
+    // 401 / stale credential: try pair-server refresh (host already discovered),
+    // then stop silent "Trying to reach…" and clear poisoned key.
     const wrongKeyPlan = planWrongKeyRecovery({
       authMismatch: healthRef.current?.authMismatch === true,
       errorMessage: healthRef.current?.errorMessage,
       hasSavedProfile: profileStateRef.current.profiles.length > 0,
+      hostReachable: true,
     });
     if (wrongKeyPlan.stopSilentHeal) {
+      if (wrongKeyPlan.attemptPairServerRefresh) {
+        const primaryUrl =
+          effectiveGatewayUrlRef.current || settingsRef.current.gatewayUrl;
+        const pairHost = pairServerHostFromGatewayUrl(primaryUrl);
+        if (pairHost) {
+          try {
+            const setup = await resolvePairServerSetupParams(pairHost);
+            const freshKey = setup?.apiKey?.trim();
+            if (freshKey) {
+              const gatewayUrl = setup?.gatewayUrl?.trim() || primaryUrl;
+              const snapshot = await fetchGatewayHealth(gatewayUrl, freshKey);
+              if (!snapshot.authMismatch && isGatewayHealthOk(snapshot)) {
+                const nextSettings = {
+                  ...settingsRef.current,
+                  gatewayUrl,
+                  connectionMode: 'gateway' as const,
+                };
+                await storage.saveGatewaySettings(nextSettings);
+                await secureCredentials.saveApiKey(freshKey);
+                const activeId = profileStateRef.current.activeProfileId;
+                if (activeId) {
+                  await secureCredentials.saveProfileApiKey(activeId, freshKey);
+                }
+                setSettings(nextSettings);
+                settingsRef.current = nextSettings;
+                setApiKey(freshKey);
+                apiKeyRef.current = freshKey;
+                effectiveGatewayUrlRef.current = gatewayUrl;
+                setEffectiveGatewayUrl(gatewayUrl);
+                setHealth(snapshot);
+                healthRef.current = snapshot;
+                connectionHealAttemptRef.current = 0;
+                setConnectionHealAttempt(0);
+                setConnectionHealInFlight(false);
+                connectionHealInFlightRef.current = false;
+                connectEventsRef.current();
+                return;
+              }
+            }
+          } catch {
+            // fall through to clear stale key + surface Re-pair CTA
+          }
+        }
+      }
       const activeId = profileStateRef.current.activeProfileId;
       if (wrongKeyPlan.clearStaleProfileKey && activeId) {
         try {
@@ -1677,7 +1724,38 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
               authMismatch: true,
               errorMessage: snapshot.errorMessage,
               hasSavedProfile: true,
+              hostReachable: true,
             });
+            if (plan.attemptPairServerRefresh) {
+              const pairHost = pairServerHostFromGatewayUrl(url);
+              if (pairHost) {
+                try {
+                  const setup = await resolvePairServerSetupParams(pairHost);
+                  const freshKey = setup?.apiKey?.trim();
+                  if (freshKey) {
+                    const refreshed = await fetchGatewayHealth(url, freshKey);
+                    if (!refreshed.authMismatch && isGatewayHealthOk(refreshed)) {
+                      await secureCredentials.saveApiKey(freshKey);
+                      const activeId = profileStateRef.current.activeProfileId;
+                      if (activeId) {
+                        await secureCredentials.saveProfileApiKey(activeId, freshKey);
+                      }
+                      setApiKey(freshKey);
+                      apiKeyRef.current = freshKey;
+                      await persistDiscoveredGatewayUrl(url, true);
+                      setHealth(refreshed);
+                      healthRef.current = refreshed;
+                      connectionHealAttemptRef.current = 0;
+                      setConnectionHealAttempt(0);
+                      connectEventsRef.current();
+                      return;
+                    }
+                  }
+                } catch {
+                  // fall through to clear + surface Re-pair
+                }
+              }
+            }
             if (plan.clearStaleProfileKey) {
               const activeId = profileStateRef.current.activeProfileId;
               if (activeId) {
