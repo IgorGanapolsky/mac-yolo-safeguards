@@ -1,7 +1,7 @@
 import type { HermesMessage } from '../types/chat';
 import { humanizeAssistantProse, looksLikeAssistantProse } from './chatAssistantProse';
 import { normalizeMarkdownSpacing } from './chatFormattedBlocks';
-import { isMessageDisplayEmpty } from './chatMessageMerge';
+import { collapseNearDuplicateAssistantTurns, isMessageDisplayEmpty } from './chatMessageMerge';
 import { collapseOutreachVariantBatches, collapseToolActivityMessages } from './chatMessageCollapse';
 import { isGatewaySmokeTestMessage } from './gatewaySmokeMessages';
 import { parseGatewayTimestamp } from './sessionDisplay';
@@ -370,8 +370,9 @@ function finalizeMessagesForDisplay(messages: HermesMessage[], includeTools: boo
   const collapsedTools = includeTools
     ? collapseToolActivityMessages(collapsedOutreach)
     : collapsedOutreach;
+  const collapsedNearDupAssistants = collapseNearDuplicateAssistantTurns(collapsedTools);
   return dedupeToolDumpMessages(
-    collapsedTools
+    collapsedNearDupAssistants
       .map((message) => {
         if (message.isCollapsedToolActivity) {
           return message;
