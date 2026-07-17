@@ -61,10 +61,10 @@ node scripts/push-asc-listing-copy.js
 
 Active `en-US/` short description + iOS subtitle/promo use **Variant C hybrid** (own-Mac + $19.99 vs cloud credits) per [MONETIZATION-PROMOTION.md](../../docs/MONETIZATION-PROMOTION.md). Variant files updated to match for Play/Apple experiments. Full descriptions merge safety + Replit wedge in opening paragraph.
 
-| Field | Hybrid C copy | Limit |
+| Field | Hybrid C copy (2026-07-17 Mac-remote wedge) | Limit |
 |-------|---------------|-------|
-| Play short | `Your Mac, not cloud credits. Leash Pro $19.99 — approve AI from phone.` | 80 |
-| iOS subtitle | `Control Mac agents from phone` | 30 |
-| iOS promo | Control AI on your Mac… $19.99/mo vs credit burn… | 170 |
+| Play short | `Control YOUR Mac Hermes agent — not phone AI. Approve tools. Leash $19.99.` | 80 |
+| iOS subtitle | `Mac remote, not phone chat` | 30 |
+| iOS promo | Not the phone-local Hermes Agent… Tailscale/LAN, multi-machine, Leash… | 170 |
 
 Suggested experiment: **Short description A (safety) vs C hybrid (wallet + price)** — 7 days, metric first-time installers retained.
