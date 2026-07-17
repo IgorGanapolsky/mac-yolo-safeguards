@@ -110,6 +110,7 @@ assert.strictEqual(localOpenCodeConfig.model, 'ollama/qwen3.5:9b-hermes-64k');
 assert.strictEqual(localOpenCodeConfig.small_model, 'ollama/qwen3.5:9b-hermes-64k');
 assert.strictEqual(localOpenCodeConfig.share, 'disabled');
 assert.deepStrictEqual(localOpenCodeConfig.plugin, []);
+assert.deepStrictEqual(localOpenCodeConfig.agent.title, { disable: true });
 assert.deepStrictEqual(localOpenCodeConfig.compaction, { auto: true, prune: true, reserved: 10000 });
 assert.strictEqual(localOpenCodeConfig.permission.websearch, 'deny');
 assert.strictEqual(localOpenCodeConfig.provider.ollama.npm, 'ollama-ai-provider-v2@4.0.1');

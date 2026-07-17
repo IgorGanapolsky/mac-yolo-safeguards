@@ -361,6 +361,11 @@ function localOpenCodeConfig(model) {
     autoupdate: false,
     enabled_providers: ['ollama'],
     plugin: [],
+    agent: {
+      title: {
+        disable: true,
+      },
+    },
     provider: {
       ollama: {
         npm: 'ollama-ai-provider-v2@4.0.1',
