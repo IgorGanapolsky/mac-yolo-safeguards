@@ -13,7 +13,7 @@
 ## One GSD cycle (`tools/ralph-gsd-loop.js`)
 
 1. **Scan** — open PRs, pipeline stage counts, stellar ledger open checkboxes  
-2. **Ralph** — `tools/ralph-pr-loop.sh --once` (update-branch + auto-merge; never force DIRTY)  
+2. **Ralph** — `tools/ralph-pr-loop.sh --once` (budgeted update-branch + auto-merge; never force DIRTY)
 3. **Revenue** — `tools/revenue-autonomous-loop.js --auto-send --fast` (skip if receipt &lt; 20 min)  
 4. **Receipt** — `business_os/revenue/ralph-gsd-cycles.jsonl` + daily board MD + ntfy (quiet on pure noop)
 
@@ -24,6 +24,20 @@ node tools/ralph-gsd-loop.js --once --json --force-revenue
 bash scripts/verify-agent-automations.sh
 launchctl print gui/$(id -u)/com.igor.ralph-gsd-loop | rg 'state =|run interval|last exit|working directory'
 ```
+
+### CI-spend guard
+
+Each Ralph cycle updates at most **2** behind PR branches by default. Every
+`update-branch` is a push that can fan out CI, so remaining behind PRs are
+deferred to later cycles instead of creating a runner storm.
+
+```bash
+RALPH_MAX_BRANCH_UPDATES_PER_CYCLE=1 node tools/ralph-gsd-loop.js --once --no-revenue --no-ntfy
+RALPH_MAX_BRANCH_UPDATES_PER_CYCLE=0 bash tools/ralph-pr-loop.sh --once # read-only PR scan
+```
+
+The value must be a non-negative integer. Auto-merge remains protected by the
+repository's required checks; conflicted PRs are still skipped.
 
 ## Install
 
