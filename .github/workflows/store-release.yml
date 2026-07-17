@@ -239,6 +239,16 @@ jobs:
           REQUIRE_ANDROID_SUBMIT_CREDS: ${{ inputs.submit == 'true' && '1' || '0' }}
         run: npm run launch:preflight:android
 
+      - name: HARD-STOP cloud EAS builds during overage (until 2026-07-22)
+        if: inputs.eas_build_id == ''
+        run: |
+          set -euo pipefail
+          TODAY="$(date -u +%F)"
+          if [[ "$TODAY" < "2026-07-23" && "${HERMES_EAS_ALLOW_CLOUD_BUILD:-}" != "YES_CLOUD_EAS_DESPITE_OVERAGE" ]]; then
+            echo "::error::EAS cloud builds HARD-STOPPED until 2026-07-22 (Starter Builds overage $91/$45). Pass eas_build_id to submit an existing artifact, or build --local. Do not set confirm_eas_spend=yes."
+            exit 1
+          fi
+
       - name: Require EAS spend confirmation for new production builds
         if: inputs.eas_build_id == ''
         env:
@@ -394,6 +404,16 @@ jobs:
           EXPO_ASC_API_KEY_ID: ${{ secrets.EXPO_ASC_API_KEY_ID }}
           EXPO_ASC_API_KEY_ISSUER_ID: ${{ secrets.EXPO_ASC_API_KEY_ISSUER_ID }}
         run: npm run launch:preflight:ios
+
+      - name: HARD-STOP cloud EAS builds during overage (iOS until 2026-07-22)
+        if: inputs.eas_build_id == ''
+        run: |
+          set -euo pipefail
+          TODAY="$(date -u +%F)"
+          if [[ "$TODAY" < "2026-07-23" && "${HERMES_EAS_ALLOW_CLOUD_BUILD:-}" != "YES_CLOUD_EAS_DESPITE_OVERAGE" ]]; then
+            echo "::error::EAS cloud builds HARD-STOPPED until 2026-07-22 (Starter Builds overage $91/$45). Pass eas_build_id to submit an existing artifact, or build --local."
+            exit 1
+          fi
 
       - name: Require EAS spend confirmation for new iOS production builds
         if: inputs.eas_build_id == ''

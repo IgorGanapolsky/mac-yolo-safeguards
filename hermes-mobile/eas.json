@@ -81,6 +81,17 @@
         "ascAppId": "6786778037",
         "appleTeamId": "9GMM26JC5X"
       }
+    },
+    "internal": {
+      "android": {
+        "serviceAccountKeyPath": "$EXPO_ANDROID_SERVICE_ACCOUNT_KEY_PATH",
+        "track": "internal",
+        "releaseStatus": "completed"
+      },
+      "ios": {
+        "ascAppId": "6786778037",
+        "appleTeamId": "9GMM26JC5X"
+      }
     }
   }
 }

@@ -212,6 +212,8 @@ Durable rules live in [AGENTS.md](./AGENTS.md); this file is *live state only*.
 
 Status values: `pending` | `in_progress` | `blocked` | `done`. Claim a row by setting Owner+Status in one edit, then claim its files in §2.
 
+| T-STORE-12-RC | P0 dual-store 1.2 RC + EAS overage hard-stop (no cloud eas build until Jul 22) | in_progress | cursor-store-12-rc | `hermes-mobile/app.json`, `hermes-mobile/eas.json`, `hermes-mobile/scripts/eas-build-guard.cjs`, `hermes-mobile/src/__tests__/versioningAndOtaContract.test.ts`, `.github/workflows/store-release.yml`, `plan.md` | RC from origin/main; reuse EAS builds 5fd28898 (Android 1.2/vc15) + 6a97bf07 (iOS 1.2/18); Internal/TestFlight then prod submit-only; cloud eas build hard-stopped |
+
 | T-319 | Prevent Grok/Fable quota exhaustion from disabling hermes-yolo fleet-wide | done | codex-hermes-quota-failover | `hermes-yolo-wrapper.js`, `tests/test-hermes-yolo.js`, `plan.md` | ordinary runs use the quota-independent Hermes provider and never invoke an exhausted Grok launcher; explicit Grok remains available; simulated quota regression, fleet route receipts, and local/Mac-mini runtime proof pass |
 | T-320 | Enforce zero paid-provider spend across the Hermes CLI fleet | done | codex-zero-spend | `zero-spend-command-gate.js`, `scripts/install-zero-spend-gate.sh`, `tests/test-zero-spend-command-gate.js`, `docs/HERMES-ZERO-SPEND.md`, `install.sh`, `plan.md` | Mode-0600 marker blocks remote/provider CLIs before spawn; `hermes-yolo` is forced to a verified local Ollama route; installs preserve originals and stay idempotent; both Macs show no paid-provider process; Snowflake warehouse remains suspended with auto-resume disabled; focused tests and local/Mac-mini proofs pass |
 | T-321 | Dead-run ended CTA when polling stalls with active_agents=0 | done | cursor-dead-run | `hermes-mobile/src/utils/deadRunDetection.ts`, `hermes-mobile/src/__tests__/deadRunDetection.test.ts`, `hermes-mobile/src/screens/ChatScreen.tsx` (dead-run banner wiring only), `plan.md` | 3m unchanged transcript + no live gateway run + active_agents=0 surfaces "Run ended — tap Start fresh or resend"; focused Jest pass |
@@ -621,6 +623,8 @@ Status values: `pending` | `in_progress` | `blocked` | `done`. Claim a row by se
 - `.github/workflows/mobile-ota.yml` (production Fresh-user OTA gate env only: add GITHUB_TOKEN) → **cursor-ota-prod-gate-token** (follow-up a0e7f498: production job could not see green stranger Checks) (2026-07-16T20:37:53Z)
 
 ## 3. Decisions Log
+- 2026-07-17T01:31:45Z `cursor-store-12-rc`: **EAS overage crisis + 1.2 RC path.** Starter Builds $91/$45 until 2026-07-22. Cancelled store-release 29546654092 after it already finished cloud builds Android `5fd28898` (1.2/vc15) + iOS `6a97bf07` (1.2/build18) from 6246eb2e — **no further cloud eas build**. Hard-stop in eas-build-guard + store-release.yml. Ship via submit-only + device proof; OTA (`eas update`) OK (separate from Builds).
+
 - **2026-07-15T19:50:04Z** `cursor-ota-stranger-ci-unblock`: OTA unblock — accept CI stranger Maestro for production publish; e2e=skipped ≠ pass and not hard-block when stranger green. Restores dual-channel publish.
  (append-only, newest at bottom)
 
