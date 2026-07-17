@@ -38,3 +38,20 @@ export function confirmForgetGatewayProfile({
     },
   ]);
 }
+
+/** Delay so RN Modal unmounts before Alert — Android otherwise swallows the dialog. */
+export const FORGET_CONFIRM_AFTER_MODAL_MS = 50;
+
+/**
+ * Android often swallows Alert.alert while an RN Modal (BottomSheetModal) is still
+ * mounted — the Forget tap looks like a no-op. Dismiss the host first, then confirm.
+ */
+export function confirmForgetGatewayProfileAfterHostDismiss(
+  dismissHost: () => void,
+  options: ConfirmForgetOptions,
+): void {
+  dismissHost();
+  setTimeout(() => {
+    confirmForgetGatewayProfile(options);
+  }, FORGET_CONFIRM_AFTER_MODAL_MS);
+}

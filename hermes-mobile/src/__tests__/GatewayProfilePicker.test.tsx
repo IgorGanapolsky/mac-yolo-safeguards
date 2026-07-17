@@ -135,9 +135,12 @@ describe('GatewayProfilePicker', () => {
         onRemove={onRemove}
       />,
     );
-    expect(getByTestId('remove-gateway-profile-mac_192_168_12_50')).toHaveTextContent(/^Forget this Mac$/);
+    const forget = getByTestId('remove-gateway-profile-mac_192_168_12_50');
+    expect(forget).toHaveTextContent(/^Forget this Mac$/);
     expect(queryByText('Remove')).toBeNull();
-    fireEvent.press(getByTestId('remove-gateway-profile-mac_192_168_12_50'));
+    expect(forget.props.accessibilityRole).toBe('button');
+    expect(forget.props.hitSlop).toEqual({ top: 14, bottom: 14, left: 14, right: 14 });
+    fireEvent.press(forget);
     expect(onRemove).toHaveBeenCalledWith('mac_192_168_12_50');
   });
 });
