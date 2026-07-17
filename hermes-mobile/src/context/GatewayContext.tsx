@@ -1367,20 +1367,9 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
     }
 
     const handleAppStateChange = (nextAppState: string) => {
-      if (nextAppState === 'background' || nextAppState === 'inactive') {
-        const progress = runProgressRef.current;
-        if (progress) {
-          scheduleRunProgressNotification(progress, {
-            force: true,
-            runId: progress.runId,
-            sessionId: progress.sessionId,
-            categoryEnabled: settings.notificationLiveRunStatus,
-          }).catch(() => {});
-          scheduleRunStallNotification(progress.runId, progress.sessionId, {
-            categoryEnabled: settings.notificationLiveRunStatus,
-          }).catch(() => {});
-        }
-      } else if (nextAppState === 'active') {
+      // Never force-post on inactive/background — that peeked a HUD every time the
+      // user left the app. Live updates rely on the runProgress effect above (quiet).
+      if (nextAppState === 'active') {
         clearRunProgressNotification().catch(() => {});
         cancelRunStallNotification().catch(() => {});
       }

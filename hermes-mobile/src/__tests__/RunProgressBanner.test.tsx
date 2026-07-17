@@ -1,10 +1,16 @@
 import React from 'react';
-import { fireEvent } from '@testing-library/react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { act, fireEvent, waitFor } from '@testing-library/react-native';
 import { render } from '@testing-library/react-native';
 import RunProgressBanner from '../components/RunProgressBanner';
 import { EMPTY_REPLY_FAILURE_REASON } from '../utils/emptyStreamReplyRecovery';
+import { RUN_PROGRESS_DETAILS_EXPANDED_KEY } from '../utils/runProgressDetailsPreference';
 
 describe('RunProgressBanner', () => {
+  beforeEach(async () => {
+    await AsyncStorage.clear();
+  });
+
   it('shows delivering copy before a run id exists', () => {
     const { getByTestId } = render(
       <RunProgressBanner
@@ -344,7 +350,7 @@ describe('RunProgressBanner', () => {
     expect(queryByTestId('run-progress-stats')).toBeNull();
   });
 
-  it('expands details again when leaving compact mode', () => {
+  it('expands details again when leaving compact mode without a user preference', () => {
     const { getByTestId, queryByTestId, rerender } = render(
       <RunProgressBanner
         compact
@@ -376,9 +382,177 @@ describe('RunProgressBanner', () => {
     expect(getByTestId('run-progress-stats')).toBeTruthy();
   });
 
+  it('keeps collapsed details after leaving compact once the user collapsed', async () => {
+    const startedAtMs = Date.now() - 5000;
+    const { getByTestId, queryByTestId, rerender } = render(
+      <RunProgressBanner
+        compact={false}
+        progress={{
+          phase: 'streaming',
+          startedAtMs,
+          detail: 'Delivering your message…',
+          model: 'qwen3.5:9b-hermes',
+          inputTokens: 0,
+          outputTokens: 0,
+        }}
+        onStop={() => undefined}
+        terminalToolName="terminal"
+        terminalPreview="lsof -i :9222"
+      />,
+    );
+
+    expect(getByTestId('run-progress-stats')).toBeTruthy();
+    fireEvent.press(getByTestId('run-progress-toggle'));
+    expect(queryByTestId('run-progress-stats')).toBeNull();
+    expect(queryByTestId('operator-terminal-preview')).toBeNull();
+    expect(getByTestId('run-progress-detail').props.children).toBe('Delivering your message…');
+    expect(getByTestId('run-progress-stop')).toBeTruthy();
+    await waitFor(async () => {
+      expect(await AsyncStorage.getItem(RUN_PROGRESS_DETAILS_EXPANDED_KEY)).toBe('0');
+    });
+
+    rerender(
+      <RunProgressBanner
+        compact
+        progress={{
+          phase: 'streaming',
+          startedAtMs,
+          detail: 'Delivering your message…',
+          model: 'qwen3.5:9b-hermes',
+          inputTokens: 0,
+          outputTokens: 0,
+        }}
+        onStop={() => undefined}
+        terminalToolName="terminal"
+        terminalPreview="lsof -i :9222"
+      />,
+    );
+    expect(queryByTestId('run-progress-stats')).toBeNull();
+
+    rerender(
+      <RunProgressBanner
+        compact={false}
+        progress={{
+          phase: 'streaming',
+          startedAtMs,
+          detail: 'Delivering your message…',
+          model: 'qwen3.5:9b-hermes',
+          inputTokens: 12,
+          outputTokens: 3,
+        }}
+        onStop={() => undefined}
+        terminalToolName="terminal"
+        terminalPreview="lsof -i :9222 + 1 command"
+      />,
+    );
+    expect(queryByTestId('run-progress-stats')).toBeNull();
+    expect(queryByTestId('operator-terminal-preview')).toBeNull();
+    expect(getByTestId('run-progress-detail').props.children).toBe('Delivering your message…');
+    expect(getByTestId('run-progress-stop')).toBeTruthy();
+  });
+
+  it('does not re-expand on token or terminal poll updates after collapse', () => {
+    const startedAtMs = Date.now() - 2000;
+    const { getByTestId, queryByTestId, rerender } = render(
+      <RunProgressBanner
+        progress={{
+          phase: 'streaming',
+          startedAtMs,
+          detail: 'Delivering your message…',
+          inputTokens: 0,
+          outputTokens: 0,
+        }}
+        onStop={() => undefined}
+        terminalPreview="echo start"
+      />,
+    );
+
+    fireEvent.press(getByTestId('run-progress-toggle'));
+    expect(queryByTestId('run-progress-stats')).toBeNull();
+
+    rerender(
+      <RunProgressBanner
+        progress={{
+          phase: 'streaming',
+          startedAtMs,
+          detail: 'Delivering your message…',
+          inputTokens: 40,
+          outputTokens: 8,
+        }}
+        onStop={() => undefined}
+        terminalToolName="terminal"
+        terminalPreview="lsof -i :9222 2>/dev/null + 1 command"
+      />,
+    );
+
+    expect(queryByTestId('run-progress-stats')).toBeNull();
+    expect(queryByTestId('operator-terminal-preview')).toBeNull();
+    expect(getByTestId('run-progress-stop')).toBeTruthy();
+  });
+
+  it('restores persisted collapsed preference on mount', async () => {
+    await AsyncStorage.setItem(RUN_PROGRESS_DETAILS_EXPANDED_KEY, '0');
+    const { queryByTestId, getByTestId } = render(
+      <RunProgressBanner
+        progress={{
+          phase: 'streaming',
+          startedAtMs: Date.now() - 3000,
+          detail: 'Delivering your message…',
+          inputTokens: 10,
+          outputTokens: 2,
+        }}
+        onStop={() => undefined}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(queryByTestId('run-progress-stats')).toBeNull();
+    });
+    expect(getByTestId('run-progress-detail').props.children).toBe('Delivering your message…');
+    expect(getByTestId('run-progress-stop')).toBeTruthy();
+  });
+
+  it('never auto-reexpands on a new send after the user collapsed', async () => {
+    const { getByTestId, queryByTestId, rerender } = render(
+      <RunProgressBanner
+        progress={{
+          phase: 'streaming',
+          startedAtMs: Date.now() - 4000,
+          detail: 'Delivering your message…',
+          inputTokens: 1,
+          outputTokens: 0,
+        }}
+        onStop={() => undefined}
+      />,
+    );
+
+    fireEvent.press(getByTestId('run-progress-toggle'));
+    expect(queryByTestId('run-progress-stats')).toBeNull();
+
+    await act(async () => {
+      rerender(
+        <RunProgressBanner
+          progress={{
+            phase: 'sending',
+            startedAtMs: Date.now(),
+            detail: 'Delivering your message…',
+            inputTokens: 0,
+            outputTokens: 0,
+          }}
+          onStop={() => undefined}
+          terminalPreview="new tool line"
+        />,
+      );
+    });
+
+    expect(queryByTestId('run-progress-stats')).toBeNull();
+    expect(queryByTestId('operator-terminal-preview')).toBeNull();
+    expect(getByTestId('run-progress-stop')).toBeTruthy();
+  });
+
   it('shows Agent Conf stall investigation after long delivering on weak model', () => {
     jest.useFakeTimers();
-    const { getByTestId, queryByTestId } = render(
+    const { getByTestId } = render(
       <RunProgressBanner
         progress={{
           phase: 'sending',
@@ -396,6 +570,35 @@ describe('RunProgressBanner', () => {
     );
     expect(getByTestId('run-progress-investigation').props.children).toMatch(/weak local model/i);
     expect(getByTestId('run-progress-switch-mac')).toBeTruthy();
+    jest.useRealTimers();
+  });
+
+  it('hides stall investigation rows while details stay collapsed', () => {
+    jest.useFakeTimers();
+    const { getByTestId, queryByTestId } = render(
+      <RunProgressBanner
+        progress={{
+          phase: 'sending',
+          startedAtMs: Date.now() - 60_000,
+          detail: 'Delivering your message…',
+          model: 'qwen3.5:9b-hermes-64k',
+          outputTokens: 0,
+          inputTokens: 1,
+        }}
+        fallbackModel="qwen3.5:9b-hermes-64k"
+        sessionTokens={5000}
+        macHttpOk
+        onStop={() => undefined}
+        onSwitchMac={jest.fn()}
+        onStartFreshChat={jest.fn()}
+      />,
+    );
+    expect(getByTestId('run-progress-investigation')).toBeTruthy();
+    fireEvent.press(getByTestId('run-progress-toggle'));
+    expect(queryByTestId('run-progress-investigation')).toBeNull();
+    expect(queryByTestId('run-progress-switch-mac')).toBeNull();
+    expect(getByTestId('run-progress-detail').props.children).toBe('Delivering your message…');
+    expect(getByTestId('run-progress-stop')).toBeTruthy();
     jest.useRealTimers();
   });
 

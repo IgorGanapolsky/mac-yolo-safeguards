@@ -92,16 +92,18 @@ describe('smartNotificationPolicy', () => {
     expect(shouldScheduleApprovalsSummaryNotification('background', false)).toBe(false);
   });
 
-  it('never presents intrusive notifications while active', () => {
+  it('never presents intrusive notifications while active or inactive', () => {
     expect(shouldPresentIntrusiveNotification('active')).toBe(false);
+    expect(shouldPresentIntrusiveNotification('inactive')).toBe(false);
     expect(shouldPresentIntrusiveNotification('background')).toBe(true);
-    expect(shouldPresentIntrusiveNotification('inactive')).toBe(true);
   });
 
-  it('never presents intrusive notifications for live status types', () => {
+  it('never heads-up for any run-status type; approvals may when backgrounded', () => {
     expect(shouldPresentIntrusiveNotification('background', 'run_progress')).toBe(false);
     expect(shouldPresentIntrusiveNotification('background', 'run_stall')).toBe(false);
-    expect(shouldPresentIntrusiveNotification('inactive', 'run_completed')).toBe(false);
+    expect(shouldPresentIntrusiveNotification('background', 'run_completed')).toBe(false);
+    expect(shouldPresentIntrusiveNotification('background', 'approval')).toBe(true);
+    expect(shouldPresentIntrusiveNotification('inactive', 'approval')).toBe(false);
   });
 
   it('resolves handler presentation from app state', () => {

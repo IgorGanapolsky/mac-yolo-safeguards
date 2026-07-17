@@ -32,7 +32,8 @@ export function migrateNotificationPreferences(
 
   if (hasGranular) {
     const notificationApprovals = parsed.notificationApprovals ?? true;
-    const notificationLiveRunStatus = parsed.notificationLiveRunStatus ?? true;
+    // Live run HUD is opt-in — missing key must not default to spam-on-background.
+    const notificationLiveRunStatus = parsed.notificationLiveRunStatus ?? false;
     const notificationCompletion = parsed.notificationCompletion ?? true;
     return {
       notificationApprovals,
@@ -49,7 +50,8 @@ export function migrateNotificationPreferences(
   const legacy = parsed.notificationsEnabled ?? true;
   return {
     notificationApprovals: legacy,
-    notificationLiveRunStatus: legacy,
+    // Live run shade is opt-in even when the legacy master switch was on.
+    notificationLiveRunStatus: false,
     notificationCompletion: legacy,
     notificationsEnabled: legacy,
   };

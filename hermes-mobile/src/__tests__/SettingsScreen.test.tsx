@@ -319,16 +319,16 @@ describe('SettingsScreen', () => {
     expect(getByText('Notification preferences')).toBeTruthy();
     expect(
       getByText(
-        'Choose which background alerts Hermes may send. Does not change how Leash looks in the app.',
+        /Heads-up banners are reserved for approvals only/,
       ),
     ).toBeTruthy();
   });
 
   it('renders per-category notification toggles', () => {
     const { getByTestId, getByText } = render(<SettingsScreen />);
-    expect(getByText('Approval alerts')).toBeTruthy();
-    expect(getByText('Live run status')).toBeTruthy();
-    expect(getByText('Completion / failure')).toBeTruthy();
+    expect(getByText('Approval heads-up')).toBeTruthy();
+    expect(getByText('Live run status (quiet)')).toBeTruthy();
+    expect(getByText('Completion / failure (quiet)')).toBeTruthy();
     expect(getByTestId('notification-approvals-switch')).toBeTruthy();
     expect(getByTestId('notification-live-run-switch')).toBeTruthy();
     expect(getByTestId('notification-completion-switch')).toBeTruthy();
@@ -339,8 +339,8 @@ describe('SettingsScreen', () => {
     useGateway.mockReturnValue(mockUseGateway({ saveSettings }));
 
     const { getByTestId } = render(<SettingsScreen />);
+    // Defaults: approvals on, live off, completion on. Disable the two that are on.
     fireEvent(getByTestId('notification-approvals-switch'), 'valueChange', false);
-    fireEvent(getByTestId('notification-live-run-switch'), 'valueChange', true);
     fireEvent(getByTestId('notification-completion-switch'), 'valueChange', false);
     fireEvent.press(getByTestId('save-settings-button'));
 
@@ -350,9 +350,9 @@ describe('SettingsScreen', () => {
     expect(saveSettings.mock.calls[0][0]).toEqual(
       expect.objectContaining({
         notificationApprovals: false,
-        notificationLiveRunStatus: true,
+        notificationLiveRunStatus: false,
         notificationCompletion: false,
-        notificationsEnabled: true,
+        notificationsEnabled: false,
       }),
     );
   });

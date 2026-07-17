@@ -16,6 +16,7 @@ import {
   scheduleRunProgressNotification,
   scheduleRunStallNotification,
   shouldDismissRunNotificationsForAppState,
+  shouldPostStickyRunProgress,
   resetApprovalNotificationState,
   syncHermesNotificationBadge,
 } from '../services/hermesNotifications';
@@ -130,7 +131,7 @@ describe('hermesNotifications', () => {
     expect(shouldDismissRunNotificationsForAppState('inactive')).toBe(false);
   });
 
-  it('uses v2 quiet channel ids and LOW importance (never HIGH)', () => {
+  it('keeps status/results channels LOW and skips identical sticky progress', () => {
     expect(CHANNEL_STATUS_V2).toBe('hermes-status-v2');
     expect(CHANNEL_RESULTS_V2).toBe('hermes-results-v2');
     expect(RUN_STATUS_MIN_INTERVAL_MS).toBeGreaterThanOrEqual(10_000);
@@ -138,6 +139,26 @@ describe('hermesNotifications', () => {
     expect(importance).toBe(Notifications.AndroidImportance.LOW);
     expect(importance).toBeLessThan(Notifications.AndroidImportance.DEFAULT);
     expect(importance).toBeLessThan(Notifications.AndroidImportance.HIGH);
+    expect(
+      shouldPostStickyRunProgress({
+        nowMs: 10_000,
+        lastPostedAtMs: 0,
+        lastSignature: 'a',
+        lastPhase: 'streaming',
+        nextSignature: 'a',
+        nextPhase: 'streaming',
+      }),
+    ).toBe(false);
+    expect(
+      shouldPostStickyRunProgress({
+        nowMs: 10_000,
+        lastPostedAtMs: 9_000,
+        lastSignature: 'a',
+        lastPhase: 'streaming',
+        nextSignature: 'b',
+        nextPhase: 'completed',
+      }),
+    ).toBe(true);
   });
 
   describe('foreground suppression', () => {
@@ -273,6 +294,9 @@ describe('hermesNotifications', () => {
       expect(call.content.title).toBe('Hermes replied');
       expect(call.content.subtitle).toBe('Reply received');
       expect(call.content.body).toBe('The OTA fix is merged and ready to verify.');
+      expect(call.content.channelId).toBe(CHANNEL_RESULTS_V2);
+      expect(call.content.priority).toBe(Notifications.AndroidNotificationPriority.LOW);
+      expect(call.content.sound).toBeUndefined();
     });
 
     it('uses reply snippet as body and never leads with elapsed minutes', async () => {
@@ -293,26 +317,32 @@ describe('hermesNotifications', () => {
       expect(call.content.body).not.toContain('3 min');
     });
 
-    it('rate-limits even when force is set so stream tokens cannot spam', async () => {
+    it('skips identical sticky progress even when force is set (no tool-poll spam)', async () => {
       await scheduleRunProgressNotification(
-        { phase: 'streaming', startedAtMs: Date.now() },
+        { phase: 'streaming', startedAtMs: Date.now(), detail: 'Working' },
         { force: true },
       );
       await scheduleRunProgressNotification(
-        { phase: 'streaming', startedAtMs: Date.now() },
+        { phase: 'streaming', startedAtMs: Date.now(), detail: 'Working' },
         { force: true },
       );
       expect(Notifications.scheduleNotificationAsync).toHaveBeenCalledTimes(1);
 
       jest.setSystemTime(1_000_000 + 2_500);
       await scheduleRunProgressNotification(
-        { phase: 'streaming', startedAtMs: Date.now() },
+        { phase: 'streaming', startedAtMs: Date.now(), detail: 'Working' },
+        { force: true },
+      );
+      expect(Notifications.scheduleNotificationAsync).toHaveBeenCalledTimes(1);
+
+      await scheduleRunProgressNotification(
+        { phase: 'streaming', startedAtMs: Date.now(), detail: 'Still working on tools' },
         { force: true },
       );
       expect(Notifications.scheduleNotificationAsync).toHaveBeenCalledTimes(2);
     });
 
-    it('registers quiet v2 channels at LOW importance during init', async () => {
+    it('registers quiet status + results channels at LOW importance during init', async () => {
       await initHermesNotifications();
       const channelCalls = (Notifications.setNotificationChannelAsync as jest.Mock).mock.calls;
       const status = channelCalls.find((c) => c[0] === CHANNEL_STATUS_V2);
@@ -320,6 +350,7 @@ describe('hermesNotifications', () => {
       expect(status?.[1].importance).toBe(Notifications.AndroidImportance.LOW);
       expect(results?.[1].importance).toBe(Notifications.AndroidImportance.LOW);
       expect(status?.[1].importance).toBeLessThan(Notifications.AndroidImportance.HIGH);
+      expect(channelCalls.some((c) => c[0] === 'hermes-alerts-v2')).toBe(false);
     });
   });
 
@@ -354,7 +385,7 @@ describe('hermesNotifications', () => {
       }
     });
 
-    it('never peeks for live status types even in background', () => {
+    it('never peeks for any run-status type even in background', () => {
       for (const appState of ['background', 'inactive'] as const) {
         for (const type of ['run_progress', 'run_stall', 'run_completed'] as const) {
           const result = handlerPresentation(appState, type);
@@ -366,9 +397,11 @@ describe('hermesNotifications', () => {
       }
     });
 
-    it('allows approval banners only when not active', () => {
+    it('allows approval banners only when backgrounded (not inactive)', () => {
       const active = handlerPresentation('active', 'approval');
       expect(active.shouldShowBanner).toBe(false);
+      const inactive = handlerPresentation('inactive', 'approval');
+      expect(inactive.shouldShowBanner).toBe(false);
 
       const background = handlerPresentation('background', 'approval');
       expect(background.shouldShowBanner).toBe(true);
