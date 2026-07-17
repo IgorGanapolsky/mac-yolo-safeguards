@@ -42,6 +42,7 @@ import { isDemoModeAllowed } from '../utils/demoModePolicy';
 import { haptics } from '../services/haptics';
 import { scheduleRunCompletedNotification } from '../services/hermesNotifications';
 import GatewayProfilePicker from '../components/GatewayProfilePicker';
+import ManualComputerAddressForm from '../components/ManualComputerAddressForm';
 import { confirmForgetGatewayProfile } from '../utils/confirmForgetGatewayProfile';
 import { profileDisplayName } from '../services/gatewayProfiles';
 import {
@@ -6962,10 +6963,17 @@ export default function ChatScreen() {
                 <Text style={styles.macSetupTitle}>Missing your other machine?</Text>
                 <Text style={styles.macSetupText}>
                   Start Hermes on your other machine, keep Tailscale on for both devices, then tap
-                  Find computers. If it still does not appear, add its Tailscale MagicDNS name or
-                  100.x address in Settings.
+                  Find computers. Or add your Mac below with its Tailscale name or 100.x address.
                 </Text>
               </View>
+              <ManualComputerAddressForm
+                pickerMode
+                testIDPrefix="mac-picker-manual"
+                onAddProfile={async (label, gatewayUrl) => {
+                  await addGatewayProfile(label, gatewayUrl);
+                  setMacPickerVisible(false);
+                }}
+              />
               {tailscaleDiscoveries.length > 0 || tailscaleDiscoveryProbing ? (
                 <TailscaleDiscoveryBanner
                   discoveries={tailscaleDiscoveries}
