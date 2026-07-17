@@ -1376,7 +1376,29 @@ describe('ChatScreen', () => {
     expect(getByTestId('mac-picker-setup-help')).toBeTruthy();
     expect(getByText('Missing your other machine?')).toBeTruthy();
     expect(getByText(/Start Hermes on your other machine/)).toBeTruthy();
-    expect(getByText(/Tailscale MagicDNS name or 100.x address in Settings/)).toBeTruthy();
+    expect(getByText(/add your Mac below with its Tailscale name or 100\.x address/)).toBeTruthy();
+    expect(getByTestId('mac-picker-manual-form')).toBeTruthy();
+    expect(getByText('Add by Tailscale address')).toBeTruthy();
+  });
+
+  it('adds a Tailscale address from the Choose computer picker', async () => {
+    const addGatewayProfile = jest.fn().mockResolvedValue(undefined);
+    Object.assign(mockGatewayState, { addGatewayProfile });
+    const { getByTestId, queryByTestId } = await renderChatScreen();
+
+    fireEvent.press(getByTestId('chat-context-mac-button'));
+    fireEvent.changeText(getByTestId('mac-picker-manual-input'), '100.87.85.85');
+    fireEvent.press(getByTestId('mac-picker-manual-submit'));
+
+    await waitFor(() => {
+      expect(addGatewayProfile).toHaveBeenCalledWith(
+        'Tailscale computer',
+        'http://100.87.85.85:8642',
+      );
+    });
+    await waitFor(() => {
+      expect(queryByTestId('mac-picker-scroll')).toBeNull();
+    });
   });
 
   it('dismisses the Mac picker when backdrop is pressed', async () => {
