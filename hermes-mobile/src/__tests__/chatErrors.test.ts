@@ -58,9 +58,9 @@ describe('isAuthApiError', () => {
     );
     expect(kind).toBe('auth');
     expect(message).toBe(gatewayAuthRepairBanner('Igors-Mac-mini'));
-    expect(message).toContain('Find computers');
+    expect(message).toContain('Re-pair this Mac');
+    expect(message).toContain('Outdated connection');
     expect(message).not.toContain('Settings → Your active machines');
-    expect(message).toContain('Tap the computer name above');
     expect(message.toLowerCase()).not.toContain('settings →');
   });
 });
