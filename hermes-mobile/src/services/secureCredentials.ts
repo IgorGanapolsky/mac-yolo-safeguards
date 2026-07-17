@@ -116,4 +116,13 @@ export const secureCredentials = {
       return null;
     }
   },
+
+  async clearAllCredentials(): Promise<void> {
+    await Promise.all([
+      this.clearApiKey(),
+      this.clearMobileToken(),
+      SecureStore.deleteItemAsync(PROFILE_API_KEYS_KEY).catch(() => undefined),
+      SecureStore.deleteItemAsync(THUMBGATE_API_KEY).catch(() => undefined),
+    ]);
+  },
 };
