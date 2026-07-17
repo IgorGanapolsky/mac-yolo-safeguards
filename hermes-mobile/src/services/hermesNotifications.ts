@@ -42,7 +42,10 @@ const CHANNEL_RESULTS_LEGACY = 'hermes-results';
  */
 export const CHANNEL_STATUS_V2 = 'hermes-status-v2';
 export const CHANNEL_RESULTS_V2 = 'hermes-results-v2';
-/** HIGH — reply-ready / stall transitions only (never tool-poll spam). */
+/**
+ * @deprecated Never post here — HIGH channel caused background heads-up spam.
+ * Kept only so devices that already created it are not recreated under a new id.
+ */
 export const CHANNEL_ALERTS_V2 = 'hermes-alerts-v2';
 const RUN_STATUS_NOTIFICATION_ID = 'hermes-run-status';
 const RUN_COMPLETED_NOTIFICATION_ID = 'hermes-run-completed';
@@ -71,13 +74,6 @@ export function androidStatusChannelImportance(
   AndroidImportance: { LOW: number; MIN?: number; HIGH: number; DEFAULT: number },
 ): number {
   return AndroidImportance.LOW;
-}
-
-/** Test/helper: transition alert channel must be HIGH. */
-export function androidAlertChannelImportance(
-  AndroidImportance: { LOW: number; MIN?: number; HIGH: number; DEFAULT: number },
-): number {
-  return AndroidImportance.HIGH;
 }
 
 /** Stable signature for in-place sticky progress — skip identical tool-poll redraws. */
@@ -202,11 +198,7 @@ export function resolveHermesNotificationHandlerResult(
 ) {
   const data = notification.request.content.data;
   const type = typeof data?.type === 'string' ? data.type : '';
-  const playSound =
-    type === 'approval' ||
-    type === 'approval_summary' ||
-    type === 'run_completed' ||
-    type === 'run_stall';
+  const playSound = type === 'approval' || type === 'approval_summary';
   return resolveHermesNotificationPresentation(appState, {
     playSound,
     notificationType: type,
@@ -341,23 +333,15 @@ export async function initHermesNotifications(): Promise<void> {
       showBadge: false,
     });
     await Notifications.setNotificationChannelAsync(CHANNEL_RESULTS_V2, {
-      name: 'Completion / stall (quiet legacy)',
-      description: 'Deprecated quiet shade — transition alerts use hermes-alerts-v2',
+      name: 'Completion / stall (quiet)',
+      description: 'Silent shade notices when a background task finishes or stalls — never heads-up',
       importance: androidStatusChannelImportance(Notifications.AndroidImportance),
       lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
       enableVibrate: false,
       showBadge: false,
     });
-    await Notifications.setNotificationChannelAsync(CHANNEL_ALERTS_V2, {
-      name: 'Reply ready / needs attention',
-      description: 'Heads-up when Hermes finishes, stalls, or needs you — not every tool update',
-      importance: androidAlertChannelImportance(Notifications.AndroidImportance),
-      vibrationPattern: [0, 180, 100, 180],
-      lightColor: NOTIFICATION_COLOR,
-      lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
-      enableVibrate: true,
-      showBadge: true,
-    });
+    // If a prior build created hermes-alerts-v2 at HIGH, keep posting elsewhere (RESULTS_V2).
+    // Android cannot downgrade an existing channel's importance.
     // Keep legacy channel names registered as LOW for any stale posts; cannot lower if already higher.
     await Notifications.setNotificationChannelAsync(CHANNEL_RUNS_LEGACY, {
       name: 'Live run status (legacy)',
@@ -778,7 +762,7 @@ export async function scheduleRunCompletedNotification(
       success);
   const title = success ? (hasReplyText ? 'Hermes replied' : 'Hermes finished') : 'Hermes run stopped';
 
-  // Transition heads-up (Uber-style "arrived") — HIGH channel, once per completion.
+  // Quiet shade only — never heads-up (Settings may disable entirely).
   await Notifications.scheduleNotificationAsync({
     identifier: RUN_COMPLETED_NOTIFICATION_ID,
     content: {
@@ -787,15 +771,14 @@ export async function scheduleRunCompletedNotification(
       body,
       categoryIdentifier: CATEGORY_RUN,
       threadIdentifier: THREAD_RUNS,
-      sound: 'default',
       ...(Platform.OS === 'ios'
-        ? { interruptionLevel: 'timeSensitive' as const }
+        ? { interruptionLevel: 'passive' as const, sound: false }
         : {}),
       ...(Platform.OS === 'android'
         ? {
-            channelId: CHANNEL_ALERTS_V2,
+            channelId: CHANNEL_RESULTS_V2,
             color: NOTIFICATION_COLOR,
-            priority: Notifications.AndroidNotificationPriority.HIGH,
+            priority: Notifications.AndroidNotificationPriority.LOW,
           }
         : {}),
       data: {
@@ -853,7 +836,7 @@ export async function scheduleRunStallNotification(
   }
 
   stallNotificationArmed = true;
-  // Transition heads-up once when the stall timer fires — not on every stream token.
+  // Quiet shade only — arm once; never heads-up on background.
   await Notifications.scheduleNotificationAsync({
     identifier: RUN_STALL_NOTIFICATION_ID,
     content: {
@@ -862,15 +845,14 @@ export async function scheduleRunStallNotification(
       body: 'No updates from your computer for 45 seconds. Open chat or stop the run.',
       categoryIdentifier: CATEGORY_RUN,
       threadIdentifier: THREAD_RUNS,
-      sound: 'default',
       ...(Platform.OS === 'ios'
-        ? { interruptionLevel: 'timeSensitive' as const }
+        ? { interruptionLevel: 'passive' as const, sound: false }
         : {}),
       ...(Platform.OS === 'android'
         ? {
-            channelId: CHANNEL_ALERTS_V2,
+            channelId: CHANNEL_RESULTS_V2,
             color: NOTIFICATION_COLOR,
-            priority: Notifications.AndroidNotificationPriority.HIGH,
+            priority: Notifications.AndroidNotificationPriority.LOW,
           }
         : {}),
       data: {

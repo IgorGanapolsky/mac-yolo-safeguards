@@ -1,8 +1,6 @@
 import {
   approvalNotificationSubtitle,
-  androidAlertChannelImportance,
   androidStatusChannelImportance,
-  CHANNEL_ALERTS_V2,
   CHANNEL_RESULTS_V2,
   CHANNEL_STATUS_V2,
   clearRunProgressNotification,
@@ -133,18 +131,14 @@ describe('hermesNotifications', () => {
     expect(shouldDismissRunNotificationsForAppState('inactive')).toBe(false);
   });
 
-  it('uses quiet status + HIGH alert channel ids for Uber-style transitions', () => {
+  it('keeps status/results channels LOW and skips identical sticky progress', () => {
     expect(CHANNEL_STATUS_V2).toBe('hermes-status-v2');
     expect(CHANNEL_RESULTS_V2).toBe('hermes-results-v2');
-    expect(CHANNEL_ALERTS_V2).toBe('hermes-alerts-v2');
     expect(RUN_STATUS_MIN_INTERVAL_MS).toBeGreaterThanOrEqual(10_000);
     const importance = androidStatusChannelImportance(Notifications.AndroidImportance);
     expect(importance).toBe(Notifications.AndroidImportance.LOW);
     expect(importance).toBeLessThan(Notifications.AndroidImportance.DEFAULT);
     expect(importance).toBeLessThan(Notifications.AndroidImportance.HIGH);
-    expect(androidAlertChannelImportance(Notifications.AndroidImportance)).toBe(
-      Notifications.AndroidImportance.HIGH,
-    );
     expect(
       shouldPostStickyRunProgress({
         nowMs: 10_000,
@@ -300,9 +294,9 @@ describe('hermesNotifications', () => {
       expect(call.content.title).toBe('Hermes replied');
       expect(call.content.subtitle).toBe('Reply received');
       expect(call.content.body).toBe('The OTA fix is merged and ready to verify.');
-      expect(call.content.channelId).toBe(CHANNEL_ALERTS_V2);
-      expect(call.content.priority).toBe(Notifications.AndroidNotificationPriority.HIGH);
-      expect(call.content.sound).toBe('default');
+      expect(call.content.channelId).toBe(CHANNEL_RESULTS_V2);
+      expect(call.content.priority).toBe(Notifications.AndroidNotificationPriority.LOW);
+      expect(call.content.sound).toBeUndefined();
     });
 
     it('uses reply snippet as body and never leads with elapsed minutes', async () => {
@@ -348,16 +342,15 @@ describe('hermesNotifications', () => {
       expect(Notifications.scheduleNotificationAsync).toHaveBeenCalledTimes(2);
     });
 
-    it('registers quiet status + HIGH alert channels during init', async () => {
+    it('registers quiet status + results channels at LOW importance during init', async () => {
       await initHermesNotifications();
       const channelCalls = (Notifications.setNotificationChannelAsync as jest.Mock).mock.calls;
       const status = channelCalls.find((c) => c[0] === CHANNEL_STATUS_V2);
       const results = channelCalls.find((c) => c[0] === CHANNEL_RESULTS_V2);
-      const alerts = channelCalls.find((c) => c[0] === CHANNEL_ALERTS_V2);
       expect(status?.[1].importance).toBe(Notifications.AndroidImportance.LOW);
       expect(results?.[1].importance).toBe(Notifications.AndroidImportance.LOW);
       expect(status?.[1].importance).toBeLessThan(Notifications.AndroidImportance.HIGH);
-      expect(alerts?.[1].importance).toBe(Notifications.AndroidImportance.HIGH);
+      expect(channelCalls.some((c) => c[0] === 'hermes-alerts-v2')).toBe(false);
     });
   });
 
@@ -392,29 +385,23 @@ describe('hermesNotifications', () => {
       }
     });
 
-    it('never peeks for quiet progress updates even in background', () => {
+    it('never peeks for any run-status type even in background', () => {
       for (const appState of ['background', 'inactive'] as const) {
-        const result = handlerPresentation(appState, 'run_progress');
-        expect(result.shouldShowBanner).toBe(false);
-        expect(result.shouldShowAlert).toBe(false);
-        expect(result.shouldPlaySound).toBe(false);
-        expect(result.shouldShowList).toBe(true);
+        for (const type of ['run_progress', 'run_stall', 'run_completed'] as const) {
+          const result = handlerPresentation(appState, type);
+          expect(result.shouldShowBanner).toBe(false);
+          expect(result.shouldShowAlert).toBe(false);
+          expect(result.shouldPlaySound).toBe(false);
+          expect(result.shouldShowList).toBe(true);
+        }
       }
     });
 
-    it('heads-up on reply-ready and stall transitions when backgrounded', () => {
-      for (const type of ['run_completed', 'run_stall'] as const) {
-        const result = handlerPresentation('background', type);
-        expect(result.shouldShowBanner).toBe(true);
-        expect(result.shouldShowAlert).toBe(true);
-        expect(result.shouldPlaySound).toBe(true);
-        expect(result.shouldShowList).toBe(true);
-      }
-    });
-
-    it('allows approval banners only when not active', () => {
+    it('allows approval banners only when backgrounded (not inactive)', () => {
       const active = handlerPresentation('active', 'approval');
       expect(active.shouldShowBanner).toBe(false);
+      const inactive = handlerPresentation('inactive', 'approval');
+      expect(inactive.shouldShowBanner).toBe(false);
 
       const background = handlerPresentation('background', 'approval');
       expect(background.shouldShowBanner).toBe(true);

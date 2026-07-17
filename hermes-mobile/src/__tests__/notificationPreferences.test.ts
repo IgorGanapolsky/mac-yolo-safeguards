@@ -37,7 +37,7 @@ describe('notificationPreferences', () => {
     ).toBe(true);
   });
 
-  it('migrates legacy notificationsEnabled to all three categories', () => {
+  it('migrates legacy notificationsEnabled without enabling live-run HUD spam', () => {
     expect(migrateNotificationPreferences({ notificationsEnabled: false })).toEqual({
       notificationApprovals: false,
       notificationLiveRunStatus: false,
@@ -46,16 +46,16 @@ describe('notificationPreferences', () => {
     });
     expect(migrateNotificationPreferences({ notificationsEnabled: true })).toEqual({
       notificationApprovals: true,
-      notificationLiveRunStatus: true,
+      notificationLiveRunStatus: false,
       notificationCompletion: true,
       notificationsEnabled: true,
     });
   });
 
-  it('defaults missing granular fields to true when any granular key exists', () => {
+  it('defaults missing live-run to off when any granular key exists', () => {
     expect(migrateNotificationPreferences({ notificationApprovals: false })).toEqual({
       notificationApprovals: false,
-      notificationLiveRunStatus: true,
+      notificationLiveRunStatus: false,
       notificationCompletion: true,
       notificationsEnabled: true,
     });
