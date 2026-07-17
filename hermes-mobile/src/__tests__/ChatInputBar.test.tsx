@@ -95,6 +95,24 @@ describe('ChatInputBar', () => {
     expect(onSend).toHaveBeenCalledWith('print money faster');
   });
 
+  it('keeps the draft available after a blocked send so a second tap still has the text', () => {
+    const onSend = jest.fn();
+    const { getByTestId } = render(
+      <ChatInputBar
+        {...baseProps}
+        value="make money today"
+        sendMuted={false}
+        onSend={onSend}
+      />,
+    );
+
+    fireEvent.press(getByTestId('chat-send-button'));
+    fireEvent.press(getByTestId('chat-send-button'));
+
+    expect(onSend).toHaveBeenNthCalledWith(1, 'make money today');
+    expect(onSend).toHaveBeenNthCalledWith(2, 'make money today');
+  });
+
   it('keeps native end-editing text available for send after the keyboard hides', () => {
     const onSend = jest.fn();
     const { getByTestId } = render(<ChatInputBar {...baseProps} onSend={onSend} />);

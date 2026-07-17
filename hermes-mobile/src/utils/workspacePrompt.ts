@@ -2,6 +2,7 @@ import type { HermesPersona } from '../types/gateway';
 import { buildPersonaSystemPrompt } from './hermesPersona';
 import {
   buildContinuitySystemPromptSection,
+  shouldInjectContinuityHandoff,
   type SessionContinuityHandoff,
 } from './sessionContinuityHandoff';
 
@@ -30,6 +31,12 @@ export type MobileChatProjectContext = {
   handoffSummary?: string;
   /** Pending Start-fresh continuity handoff from vault / AsyncStorage. */
   continuityHandoff?: SessionContinuityHandoff | null;
+  /** Current user text — pick-up phrases force handoff inject even mid-thread. */
+  userText?: string | null;
+  /** True when the active thread has no turns yet (compose-first / after Start fresh). */
+  transcriptEmpty?: boolean;
+  /** Explicit force (tests / rare callers). */
+  forceContinuityInject?: boolean;
 };
 
 /** System prompt pinned on session create and each chat turn for workspace isolation. */
@@ -79,7 +86,15 @@ export function buildMobileChatSystemPrompt(
     );
   }
   const continuity = projectContext?.continuityHandoff;
-  if (continuity) {
+  if (
+    continuity &&
+    shouldInjectContinuityHandoff({
+      handoff: continuity,
+      userText: projectContext?.userText,
+      forceExplicit: projectContext?.forceContinuityInject,
+      transcriptEmpty: projectContext?.transcriptEmpty,
+    })
+  ) {
     sections.push(buildContinuitySystemPromptSection(continuity));
   }
   return sections.join('\n\n');

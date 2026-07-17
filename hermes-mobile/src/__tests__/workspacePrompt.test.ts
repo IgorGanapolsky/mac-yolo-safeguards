@@ -48,8 +48,9 @@ describe('workspacePrompt — governed context injection', () => {
     expect(workspaceDisplayName('')).toBe('Workspace');
   });
 
-  it('injects Continue from handoff when continuityHandoff is present', () => {
+  it('injects Continue from handoff on empty transcript when continuityHandoff is present', () => {
     const prompt = buildMobileChatSystemPrompt('/tmp/demo', undefined, {
+      transcriptEmpty: true,
       continuityHandoff: {
         version: 1,
         writtenAt: '2026-07-16T12:00:00.000Z',
@@ -67,5 +68,20 @@ describe('workspacePrompt — governed context injection', () => {
     expect(prompt).toContain('Finish continuity path');
     expect(prompt).toContain('Handoffs/hermes-mobile-last.md');
     expect(prompt).toContain('Do not let MEMORY.md');
+  });
+
+  it('does not inject Continue from handoff into an existing transcript', () => {
+    const prompt = buildMobileChatSystemPrompt('/tmp/demo', undefined, {
+      transcriptEmpty: false,
+      continuityHandoff: {
+        version: 1,
+        writtenAt: '2026-07-16T12:00:00.000Z',
+        lastGoal: 'Finish continuity path',
+        openTodos: [],
+        lastAssistantSummary: 'Started the util.',
+        vaultRelativePath: 'Handoffs/hermes-mobile-last.md',
+      },
+    });
+    expect(prompt).not.toContain('Continue from handoff');
   });
 });
