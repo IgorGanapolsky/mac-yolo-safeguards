@@ -141,6 +141,47 @@ export function buildSelfHealProbeUrls(input: {
   return ordered;
 }
 
+/** Prefer USB probe only when the active route is loopback AND the phone is on Wi‑Fi. */
+export function shouldPreferUsbProbeFirst(input: {
+  activeGatewayUrl?: string | null;
+  wifiConnected: boolean;
+}): boolean {
+  const url = input.activeGatewayUrl?.trim() ?? '';
+  return Boolean(url && isLoopbackGatewayUrl(url) && input.wifiConnected);
+}
+
+/**
+ * On cellular, do not accept a successful loopback /health as the session route when a
+ * Tailscale alternate exists — clears false "USB Connected" from ghost adb reverse.
+ */
+export function shouldDeferLoopbackSuccessOnCellular(input: {
+  primaryUrl: string;
+  wifiConnected: boolean;
+  hasTailscaleAlternate: boolean;
+}): boolean {
+  return (
+    !input.wifiConnected &&
+    isLoopbackGatewayUrl(input.primaryUrl) &&
+    input.hasTailscaleAlternate
+  );
+}
+
+/** Clear USB-primary on cellular when a same-machine Tailscale URL is available. */
+export function shouldClearUsbPrimaryOnCellular(input: {
+  primaryUrl: string;
+  wifiConnected: boolean;
+  failoverUrl: string | null | undefined;
+}): boolean {
+  const failover = input.failoverUrl?.trim();
+  if (!failover || input.wifiConnected) {
+    return false;
+  }
+  if (!isLoopbackGatewayUrl(input.primaryUrl)) {
+    return false;
+  }
+  return isTailscaleGatewayUrl(failover) && failover !== input.primaryUrl.trim();
+}
+
 /** When cellular blocks LAN, pick a reachable Tailscale URL for the active Mac (or any saved tailnet route). */
 export function resolveCellularTailscaleFailoverUrl(input: {
   primaryUrl: string;

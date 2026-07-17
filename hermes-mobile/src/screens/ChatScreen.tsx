@@ -1105,8 +1105,12 @@ export default function ChatScreen() {
   );
   const healthProbePending = useMemo(() => isGatewayHealthPending(health), [health]);
   const usbCableLikely = useMemo(
-    () => Platform.OS === 'android' && isLoopbackGatewayUrl(gatewayUrl) && macHttpOk,
-    [gatewayUrl, macHttpOk],
+    () =>
+      Platform.OS === 'android' &&
+      isLoopbackGatewayUrl(gatewayUrl) &&
+      macHttpOk &&
+      wifiConnected,
+    [gatewayUrl, macHttpOk, wifiConnected],
   );
   const usbHostMismatch = useMemo(
     () =>
@@ -1582,6 +1586,7 @@ export default function ChatScreen() {
         savedMacCount: gatewayProfiles.length,
         profiles: gatewayProfiles,
         isDemo,
+        wifiConnected,
       }),
     [
       activeGatewayProfile,
@@ -1593,6 +1598,7 @@ export default function ChatScreen() {
       activeRelayWorkerId,
       gatewayProfiles,
       isDemo,
+      wifiConnected,
     ],
   );
 

@@ -95,6 +95,9 @@ import {
   savedProfileFallbackUrls,
   resolveApiKeyForGatewayProbe,
   resolveCellularTailscaleFailoverUrl,
+  shouldClearUsbPrimaryOnCellular,
+  shouldDeferLoopbackSuccessOnCellular,
+  shouldPreferUsbProbeFirst,
 } from '../utils/connectionSelfHeal';
 import { CONNECTION_HEAL_EXHAUSTED_AFTER } from '../utils/connectionErrorPolicy';
 import { planWrongKeyRecovery } from '../utils/wrongKeyRecovery';
@@ -810,6 +813,22 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
 
       const skipLan = shouldSkipLanGatewayProbe(primaryUrl, wifiConnectedRef.current);
       const activeProfileId = profileStateRef.current.activeProfileId;
+      const cellularTailscaleAlternates = cellularTailscaleFallbackUrls({
+        primaryUrl,
+        wifiConnected: wifiConnectedRef.current,
+        profileUrls: profilesForActiveMachine(
+          profileStateRef.current.profiles,
+          activeProfileId,
+        ).map((profile) => profile.gatewayUrl),
+        tailnetProbeHosts: tailnetProbeHostsRef.current,
+        activeProfileId,
+        profiles: profileStateRef.current.profiles,
+      });
+      const deferLoopbackOnCellular = shouldDeferLoopbackSuccessOnCellular({
+        primaryUrl,
+        wifiConnected: wifiConnectedRef.current,
+        hasTailscaleAlternate: cellularTailscaleAlternates.length > 0,
+      });
       if (skipLan) {
         for (const fallbackUrl of savedProfileFallbackUrls({
           primaryUrl,
@@ -828,7 +847,8 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
           }
         }
       }
-      if (!skipLan) {
+      // On cellular with a Tailscale alternate, never keep ghost USB loopback as the route.
+      if (!skipLan && !deferLoopbackOnCellular) {
         try {
           const snapshot = await probeMacGatewayOk(primaryUrl);
           return { snapshot, url: primaryUrl };
@@ -1378,13 +1398,15 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
     const commitDiscoveredUrl = persistDiscoveredGatewayUrl;
 
     const activeForDiscovery = activeProfile(profileStateRef.current);
-    // Prefer USB ONLY when the active profile is already USB loopback.
+    // Prefer USB ONLY when the active profile is already USB loopback AND phone is on Wi‑Fi.
+    // Preferring USB on cellular keeps a ghost 127.0.0.1 primary ("USB Connected" off-cable).
     // Preferring USB when there is no active profile (or after a Tailscale deep-link pair)
     // steals the session to 127.0.0.1: health can be green via adb reverse without a key,
     // chat then 401 → false-green Connected + Wrong key (user crisis 2026-07-14).
-    const preferUsbFirst = Boolean(
-      activeForDiscovery && isLoopbackGatewayUrl(activeForDiscovery.gatewayUrl),
-    );
+    const preferUsbFirst = shouldPreferUsbProbeFirst({
+      activeGatewayUrl: activeForDiscovery?.gatewayUrl,
+      wifiConnected: wifiConnectedRef.current,
+    });
 
     // 1. Prefer USB only when the user's active computer is already the USB profile
     if (Platform.OS !== 'web' && preferUsbFirst) {
@@ -2308,7 +2330,6 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
         setTailnetProbeHostCount(mergedHosts.length);
       }
       if (discovered.length > 0) {
-        const priorActive = activeProfile(profileStateRef.current);
         const nextState = applyTailscaleDiscoveriesToProfileState(
           profileStateRef.current,
           discovered,
@@ -2316,22 +2337,31 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
         profileStateRef.current = nextState;
         setProfileState(nextState);
         await gatewayProfiles.save(nextState);
-        const activeAfter = activeProfile(nextState);
-        const priorUrl = settingsRef.current.gatewayUrl.trim();
-        const failoverUrl = resolveCellularTailscaleFailoverUrl({
+      }
+      // USB→Tailscale on cellular must run even when discoveries are empty (Tailscale
+      // already saved) — otherwise ghost 127.0.0.1 stays primary forever.
+      const activeAfter = activeProfile(profileStateRef.current);
+      const priorUrl =
+        effectiveGatewayUrlRef.current.trim() || settingsRef.current.gatewayUrl.trim();
+      const failoverUrl = resolveCellularTailscaleFailoverUrl({
+        primaryUrl: priorUrl,
+        profiles: profileStateRef.current.profiles,
+        activeProfile: activeAfter,
+        discoveries: discovered,
+      });
+      if (
+        failoverUrl &&
+        failoverUrl !== priorUrl &&
+        (shouldClearUsbPrimaryOnCellular({
           primaryUrl: priorUrl,
-          profiles: nextState.profiles,
-          activeProfile: activeAfter,
-          discoveries: discovered,
-        });
-        if (
-          failoverUrl &&
-          failoverUrl !== priorUrl &&
-          (!wifiConnectedRef.current || isPrivateLanGatewayUrl(priorUrl))
-        ) {
-          await persistDiscoveredGatewayUrl(failoverUrl, true);
-          void refreshHealth();
-        }
+          wifiConnected: wifiConnectedRef.current,
+          failoverUrl,
+        }) ||
+          !wifiConnectedRef.current ||
+          isPrivateLanGatewayUrl(priorUrl))
+      ) {
+        await persistDiscoveredGatewayUrl(failoverUrl, true);
+        void refreshHealth();
       }
       const fresh = filterNewTailscaleDiscoveries(profileStateRef.current.profiles, discovered);
       setTailscaleDiscoveries(fresh);
