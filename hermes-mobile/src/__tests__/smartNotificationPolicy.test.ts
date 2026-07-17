@@ -98,10 +98,11 @@ describe('smartNotificationPolicy', () => {
     expect(shouldPresentIntrusiveNotification('inactive')).toBe(true);
   });
 
-  it('never presents intrusive notifications for live status types', () => {
+  it('keeps live progress quiet but heads-up on reply-ready / stall transitions', () => {
     expect(shouldPresentIntrusiveNotification('background', 'run_progress')).toBe(false);
-    expect(shouldPresentIntrusiveNotification('background', 'run_stall')).toBe(false);
-    expect(shouldPresentIntrusiveNotification('inactive', 'run_completed')).toBe(false);
+    expect(shouldPresentIntrusiveNotification('background', 'run_stall')).toBe(true);
+    expect(shouldPresentIntrusiveNotification('inactive', 'run_completed')).toBe(true);
+    expect(shouldPresentIntrusiveNotification('active', 'run_completed')).toBe(false);
   });
 
   it('resolves handler presentation from app state', () => {

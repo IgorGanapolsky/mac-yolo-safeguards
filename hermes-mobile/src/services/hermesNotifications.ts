@@ -42,6 +42,8 @@ const CHANNEL_RESULTS_LEGACY = 'hermes-results';
  */
 export const CHANNEL_STATUS_V2 = 'hermes-status-v2';
 export const CHANNEL_RESULTS_V2 = 'hermes-results-v2';
+/** HIGH — reply-ready / stall transitions only (never tool-poll spam). */
+export const CHANNEL_ALERTS_V2 = 'hermes-alerts-v2';
 const RUN_STATUS_NOTIFICATION_ID = 'hermes-run-status';
 const RUN_COMPLETED_NOTIFICATION_ID = 'hermes-run-completed';
 
@@ -52,6 +54,8 @@ const THREAD_RUNS = 'hermes.thread.runs';
 const NOTIFICATION_COLOR = '#6366F1';
 
 let lastRunStatusAt = 0;
+let lastRunStatusSignature = '';
+let lastRunStatusPhase = '';
 /** Hard ceiling on shade updates — never heads-up; keep shade quiet too. */
 export const RUN_STATUS_MIN_INTERVAL_MS = 15_000;
 /** Do not re-alert approval summary on every relay poll tick. */
@@ -67,6 +71,47 @@ export function androidStatusChannelImportance(
   AndroidImportance: { LOW: number; MIN?: number; HIGH: number; DEFAULT: number },
 ): number {
   return AndroidImportance.LOW;
+}
+
+/** Test/helper: transition alert channel must be HIGH. */
+export function androidAlertChannelImportance(
+  AndroidImportance: { LOW: number; MIN?: number; HIGH: number; DEFAULT: number },
+): number {
+  return AndroidImportance.HIGH;
+}
+
+/** Stable signature for in-place sticky progress — skip identical tool-poll redraws. */
+export function runProgressNotificationSignature(parts: {
+  phase: string;
+  title: string;
+  body: string;
+}): string {
+  return `${parts.phase}\u0001${parts.title}\u0001${parts.body}`;
+}
+
+/**
+ * Whether to rewrite the sticky ongoing notification.
+ * Phase transitions always post; identical content never posts; else rate-limit.
+ */
+export function shouldPostStickyRunProgress(params: {
+  nowMs: number;
+  lastPostedAtMs: number;
+  lastSignature: string;
+  lastPhase: string;
+  nextSignature: string;
+  nextPhase: string;
+  minIntervalMs?: number;
+  force?: boolean;
+}): boolean {
+  if (params.nextSignature === params.lastSignature) {
+    return false;
+  }
+  if (params.nextPhase !== params.lastPhase) {
+    return true;
+  }
+  const minIntervalMs = params.minIntervalMs ?? RUN_STATUS_MIN_INTERVAL_MS;
+  const floor = params.force ? Math.min(2_000, minIntervalMs) : minIntervalMs;
+  return params.nowMs - params.lastPostedAtMs >= floor;
 }
 
 export type HermesNotificationTab = 'Chat' | 'Leash';
@@ -157,7 +202,11 @@ export function resolveHermesNotificationHandlerResult(
 ) {
   const data = notification.request.content.data;
   const type = typeof data?.type === 'string' ? data.type : '';
-  const playSound = type === 'approval' || type === 'approval_summary';
+  const playSound =
+    type === 'approval' ||
+    type === 'approval_summary' ||
+    type === 'run_completed' ||
+    type === 'run_stall';
   return resolveHermesNotificationPresentation(appState, {
     playSound,
     notificationType: type,
@@ -292,12 +341,22 @@ export async function initHermesNotifications(): Promise<void> {
       showBadge: false,
     });
     await Notifications.setNotificationChannelAsync(CHANNEL_RESULTS_V2, {
-      name: 'Completion / stall (quiet)',
-      description: 'Silent shade notices when a background task finishes or stalls',
+      name: 'Completion / stall (quiet legacy)',
+      description: 'Deprecated quiet shade — transition alerts use hermes-alerts-v2',
       importance: androidStatusChannelImportance(Notifications.AndroidImportance),
       lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
       enableVibrate: false,
       showBadge: false,
+    });
+    await Notifications.setNotificationChannelAsync(CHANNEL_ALERTS_V2, {
+      name: 'Reply ready / needs attention',
+      description: 'Heads-up when Hermes finishes, stalls, or needs you — not every tool update',
+      importance: androidAlertChannelImportance(Notifications.AndroidImportance),
+      vibrationPattern: [0, 180, 100, 180],
+      lightColor: NOTIFICATION_COLOR,
+      lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
+      enableVibrate: true,
+      showBadge: true,
     });
     // Keep legacy channel names registered as LOW for any stale posts; cannot lower if already higher.
     await Notifications.setNotificationChannelAsync(CHANNEL_RUNS_LEGACY, {
@@ -616,15 +675,6 @@ export async function scheduleRunProgressNotification(
     return;
   }
 
-  const now = Date.now();
-  // Always rate-limit — `force` must NOT re-heads-up on every stream token.
-  // force only shortens the first background paint (2s floor); never below that.
-  const minInterval = options?.force ? 2_000 : RUN_STATUS_MIN_INTERVAL_MS;
-  if (now - lastRunStatusAt < minInterval) {
-    return;
-  }
-  lastRunStatusAt = now;
-
   const replySnippet = options?.replySnippet ?? progress.replyPreview;
   const body = runProgressNotificationBody({
     phase: progress.phase,
@@ -636,6 +686,26 @@ export async function scheduleRunProgressNotification(
     detail: progress.detail,
     replySnippet,
   });
+  const phase = String(progress.phase ?? '');
+  const signature = runProgressNotificationSignature({ phase, title, body });
+  const now = Date.now();
+  // Same identifier → in-place update. Skip identical tool polls; phase changes always rewrite.
+  if (
+    !shouldPostStickyRunProgress({
+      nowMs: now,
+      lastPostedAtMs: lastRunStatusAt,
+      lastSignature: lastRunStatusSignature,
+      lastPhase: lastRunStatusPhase,
+      nextSignature: signature,
+      nextPhase: phase,
+      force: options?.force,
+    })
+  ) {
+    return;
+  }
+  lastRunStatusAt = now;
+  lastRunStatusSignature = signature;
+  lastRunStatusPhase = phase;
 
   // Same identifier → in-place update. Do not cancel+recreate (retriggers heads-up).
   await Notifications.scheduleNotificationAsync({
@@ -708,6 +778,7 @@ export async function scheduleRunCompletedNotification(
       success);
   const title = success ? (hasReplyText ? 'Hermes replied' : 'Hermes finished') : 'Hermes run stopped';
 
+  // Transition heads-up (Uber-style "arrived") — HIGH channel, once per completion.
   await Notifications.scheduleNotificationAsync({
     identifier: RUN_COMPLETED_NOTIFICATION_ID,
     content: {
@@ -716,14 +787,15 @@ export async function scheduleRunCompletedNotification(
       body,
       categoryIdentifier: CATEGORY_RUN,
       threadIdentifier: THREAD_RUNS,
+      sound: 'default',
       ...(Platform.OS === 'ios'
-        ? { interruptionLevel: 'passive' as const, sound: false }
+        ? { interruptionLevel: 'timeSensitive' as const }
         : {}),
       ...(Platform.OS === 'android'
         ? {
-            channelId: CHANNEL_RESULTS_V2,
+            channelId: CHANNEL_ALERTS_V2,
             color: NOTIFICATION_COLOR,
-            priority: Notifications.AndroidNotificationPriority.LOW,
+            priority: Notifications.AndroidNotificationPriority.HIGH,
           }
         : {}),
       data: {
@@ -749,6 +821,8 @@ export async function clearRunProgressNotification(): Promise<void> {
     /* ignore */
   }
   lastRunStatusAt = 0;
+  lastRunStatusSignature = '';
+  lastRunStatusPhase = '';
 }
 
 export const RUN_STALL_NOTIFICATION_ID = 'hermes-run-stall';
@@ -779,6 +853,7 @@ export async function scheduleRunStallNotification(
   }
 
   stallNotificationArmed = true;
+  // Transition heads-up once when the stall timer fires — not on every stream token.
   await Notifications.scheduleNotificationAsync({
     identifier: RUN_STALL_NOTIFICATION_ID,
     content: {
@@ -787,14 +862,15 @@ export async function scheduleRunStallNotification(
       body: 'No updates from your computer for 45 seconds. Open chat or stop the run.',
       categoryIdentifier: CATEGORY_RUN,
       threadIdentifier: THREAD_RUNS,
+      sound: 'default',
       ...(Platform.OS === 'ios'
-        ? { interruptionLevel: 'passive' as const, sound: false }
+        ? { interruptionLevel: 'timeSensitive' as const }
         : {}),
       ...(Platform.OS === 'android'
         ? {
-            channelId: CHANNEL_RESULTS_V2,
+            channelId: CHANNEL_ALERTS_V2,
             color: NOTIFICATION_COLOR,
-            priority: Notifications.AndroidNotificationPriority.LOW,
+            priority: Notifications.AndroidNotificationPriority.HIGH,
           }
         : {}),
       data: {

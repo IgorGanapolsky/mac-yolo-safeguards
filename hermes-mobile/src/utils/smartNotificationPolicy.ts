@@ -40,20 +40,30 @@ export function shouldScheduleApprovalsSummaryNotification(
   return categoryEnabled && isBackgrounded(appState);
 }
 
-/** Status / progress / stall — never heads-up; shade/status-bar only. */
-export const SILENT_STATUS_NOTIFICATION_TYPES = new Set([
-  'run_progress',
-  'run_stall',
+/**
+ * Quiet ongoing HUD — shade/status-bar only (Uber-style trip progress).
+ * Transition alerts (`run_completed`, `run_stall`, approvals) may heads-up when backgrounded.
+ */
+export const SILENT_STATUS_NOTIFICATION_TYPES = new Set(['run_progress']);
+
+/** One-shot transition alerts — heads-up once when backgrounded, never on every tool poll. */
+export const TRANSITION_HEADS_UP_NOTIFICATION_TYPES = new Set([
   'run_completed',
+  'run_stall',
 ]);
 
 export function isSilentStatusNotificationType(type: string | undefined): boolean {
   return typeof type === 'string' && SILENT_STATUS_NOTIFICATION_TYPES.has(type);
 }
 
+export function isTransitionHeadsUpNotificationType(type: string | undefined): boolean {
+  return typeof type === 'string' && TRANSITION_HEADS_UP_NOTIFICATION_TYPES.has(type);
+}
+
 /**
  * Whether heads-up banners / sounds may interrupt the user.
- * Never while foregrounded; never for live-status types (even in background).
+ * Never while foregrounded; never for quiet live-progress updates (even in background).
+ * Reply-ready / stall / approvals may interrupt only when not active.
  */
 export function shouldPresentIntrusiveNotification(
   appState: SmartNotificationAppState = AppState.currentState,

@@ -339,7 +339,7 @@ function RunProgressBanner({
         </Text>
       ) : null}
 
-      {investigation.active ? (
+      {showDetailSections && investigation.active ? (
         <Text style={styles.investigationHint} testID="run-progress-investigation">
           {investigation.title}
         </Text>
@@ -351,7 +351,8 @@ function RunProgressBanner({
         </Text>
       ) : null}
 
-      {investigation.active &&
+      {showDetailSections &&
+      investigation.active &&
       investigation.action === 'switch_mac' &&
       onSwitchMac &&
       !isStartingFreshChat ? (
@@ -365,7 +366,8 @@ function RunProgressBanner({
         </Pressable>
       ) : null}
 
-      {(megaSessionWarning ||
+      {showDetailSections &&
+      (megaSessionWarning ||
         isStartingFreshChat ||
         (investigation.active && investigation.action === 'start_fresh')) &&
       onStartFreshChat ? (

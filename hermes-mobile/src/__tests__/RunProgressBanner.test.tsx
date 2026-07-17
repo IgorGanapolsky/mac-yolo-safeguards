@@ -552,7 +552,7 @@ describe('RunProgressBanner', () => {
 
   it('shows Agent Conf stall investigation after long delivering on weak model', () => {
     jest.useFakeTimers();
-    const { getByTestId, queryByTestId } = render(
+    const { getByTestId } = render(
       <RunProgressBanner
         progress={{
           phase: 'sending',
@@ -570,6 +570,35 @@ describe('RunProgressBanner', () => {
     );
     expect(getByTestId('run-progress-investigation').props.children).toMatch(/weak local model/i);
     expect(getByTestId('run-progress-switch-mac')).toBeTruthy();
+    jest.useRealTimers();
+  });
+
+  it('hides stall investigation rows while details stay collapsed', () => {
+    jest.useFakeTimers();
+    const { getByTestId, queryByTestId } = render(
+      <RunProgressBanner
+        progress={{
+          phase: 'sending',
+          startedAtMs: Date.now() - 60_000,
+          detail: 'Delivering your message…',
+          model: 'qwen3.5:9b-hermes-64k',
+          outputTokens: 0,
+          inputTokens: 1,
+        }}
+        fallbackModel="qwen3.5:9b-hermes-64k"
+        sessionTokens={5000}
+        macHttpOk
+        onStop={() => undefined}
+        onSwitchMac={jest.fn()}
+        onStartFreshChat={jest.fn()}
+      />,
+    );
+    expect(getByTestId('run-progress-investigation')).toBeTruthy();
+    fireEvent.press(getByTestId('run-progress-toggle'));
+    expect(queryByTestId('run-progress-investigation')).toBeNull();
+    expect(queryByTestId('run-progress-switch-mac')).toBeNull();
+    expect(getByTestId('run-progress-detail').props.children).toBe('Delivering your message…');
+    expect(getByTestId('run-progress-stop')).toBeTruthy();
     jest.useRealTimers();
   });
 
