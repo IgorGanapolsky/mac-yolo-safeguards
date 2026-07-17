@@ -152,7 +152,9 @@ import {
 import {
   dedupeAdjacentOptimisticUserBubbles,
   findPendingOptimisticUserBubble,
+  findReusableOptimisticUserBubble,
   isOutboundTurnStillPending,
+  reactivateOptimisticUserBubble,
   shouldIgnoreDuplicateOutboundSend,
   shouldSkipQueueOutboundBubbleCommit,
 } from '../utils/outboundSendDedupe';
@@ -4935,9 +4937,35 @@ export default function ChatScreen() {
       committedUserMessageId = null;
     };
 
-    committedUserMessageId =
-      findPendingOptimisticUserBubble(messagesRef.current, displayText)?.id ??
-      commitOutboundUserBubble(displayText);
+    const reusableOutbound = findReusableOptimisticUserBubble(
+      messagesRef.current,
+      displayText,
+    );
+    if (reusableOutbound?.id && reusableOutbound.outboundStatus === 'failed') {
+      // Stall / empty-reply recovery: flip the failed bubble back to pending —
+      // never append a second identical user prompt (echo-loop rage class).
+      committedUserMessageId = reusableOutbound.id;
+      lastCommittedOutboundBodyRef.current = normalizeMessageText(displayText);
+      pendingOutboundSendsRef.current += 1;
+      const sentAt = reusableOutbound.created_at ?? new Date().toISOString();
+      commitMessages((prev) => {
+        const next = reactivateOptimisticUserBubble(prev, reusableOutbound.id!);
+        persistOutboundSnapshot(currentSessionRef.current?.id, next, {
+          pinnedText: displayText,
+          pinnedSentAt: sentAt,
+          pinnedStatus: 'pending',
+        });
+        return next;
+      });
+      pinnedOutboundTextRef.current = displayText;
+      pinnedOutboundStatusRef.current = 'pending';
+      setPinnedOutboundText(displayText);
+      setPinnedOutboundSentAt(sentAt);
+      setPinnedOutboundStatus('pending');
+    } else {
+      committedUserMessageId =
+        reusableOutbound?.id ?? commitOutboundUserBubble(displayText);
+    }
     outboundUserBubbleCommitted = true;
 
     // False disconnect / offline send: keep the optimistic bubble as failed+retryable.
@@ -6439,7 +6467,8 @@ export default function ChatScreen() {
     if (isDemo || !progress || !isActiveChatRun(progress)) {
       return;
     }
-    if (shouldFailRunAwaitingFirstToken(progress)) {
+    const noTokenOpts = { streamInFlight: activeChatStreamRef.current };
+    if (shouldFailRunAwaitingFirstToken(progress, Date.now(), noTokenOpts)) {
       isSendingRef.current = false;
       setIsSending(false);
       clearDeferredTelegramPoll();
@@ -6457,10 +6486,11 @@ export default function ChatScreen() {
       haptics.warning();
       return;
     }
-    const waitMs = msUntilNoTokenFail(progress);
+    const waitMs = msUntilNoTokenFail(progress, Date.now(), noTokenOpts);
     const timer = setTimeout(() => {
       const current = runProgressRef.current;
-      if (!current || !shouldFailRunAwaitingFirstToken(current)) {
+      const opts = { streamInFlight: activeChatStreamRef.current };
+      if (!current || !shouldFailRunAwaitingFirstToken(current, Date.now(), opts)) {
         return;
       }
       isSendingRef.current = false;
@@ -6484,6 +6514,8 @@ export default function ChatScreen() {
     clearDeferredTelegramPoll,
     failPendingOutboundBubbles,
     isDemo,
+    isChatStreamActive,
+    runProgress?.lastProgressAtMs,
     runProgress?.outputTokens,
     runProgress?.phase,
     runProgress?.startedAtMs,

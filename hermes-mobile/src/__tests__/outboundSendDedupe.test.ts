@@ -1,7 +1,10 @@
 import {
   dedupeAdjacentOptimisticUserBubbles,
+  findFailedOptimisticUserBubble,
   findPendingOptimisticUserBubble,
+  findReusableOptimisticUserBubble,
   isNoOpDuplicateOutboundSend,
+  reactivateOptimisticUserBubble,
   shouldIgnoreDuplicateOutboundSend,
   shouldSkipQueueOutboundBubbleCommit,
 } from '../utils/outboundSendDedupe';
@@ -94,6 +97,26 @@ describe('outboundSendDedupe', () => {
     expect(findPendingOptimisticUserBubble(messages, 'make money faster')?.id).toBe('user-1');
   });
 
+  it('reuses failed optimistic bubble on stall recovery instead of echoing a second prompt', () => {
+    const prompt = 'make money today';
+    const messages: HermesMessage[] = [
+      {
+        id: 'user-1',
+        role: 'user',
+        content: prompt,
+        outboundStatus: 'failed',
+        outboundFailureReason: 'Still waiting for a reply — recovering automatically…',
+      },
+    ];
+    expect(findFailedOptimisticUserBubble(messages, prompt)?.id).toBe('user-1');
+    expect(findReusableOptimisticUserBubble(messages, prompt)?.id).toBe('user-1');
+    const reactivated = reactivateOptimisticUserBubble(messages, 'user-1');
+    expect(reactivated).toHaveLength(1);
+    expect(reactivated[0]?.outboundStatus).toBe('pending');
+    expect(reactivated[0]?.outboundFailureReason).toBeUndefined();
+    expect(reactivated[0]?.id).toBe('user-1');
+  });
+
   it('dedupes adjacent optimistic user rows with the same body', () => {
     const messages: HermesMessage[] = [
       { id: 'gw-1', role: 'user', content: 'make money faster' },
@@ -103,5 +126,23 @@ describe('outboundSendDedupe', () => {
     const deduped = dedupeAdjacentOptimisticUserBubbles(messages);
     expect(deduped.filter((m) => idHasPrefix(m.id, 'user-'))).toHaveLength(1);
     expect(deduped[deduped.length - 1]?.id).toBe('user-1');
+  });
+
+  it('collapses failed+pending echo pair from stall recovery into one bubble', () => {
+    const prompt = 'make money today';
+    const messages: HermesMessage[] = [
+      {
+        id: 'user-1',
+        role: 'user',
+        content: prompt,
+        outboundStatus: 'failed',
+        outboundFailureReason: 'Run stalled',
+      },
+      { id: 'user-2', role: 'user', content: prompt, outboundStatus: 'pending' },
+    ];
+    const deduped = dedupeAdjacentOptimisticUserBubbles(messages);
+    expect(deduped).toHaveLength(1);
+    expect(deduped[0]?.id).toBe('user-2');
+    expect(deduped[0]?.outboundStatus).toBe('pending');
   });
 });
