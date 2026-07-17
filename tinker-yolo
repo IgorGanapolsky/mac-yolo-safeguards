@@ -1,0 +1,100 @@
+#!/usr/bin/env bash
+# tinker-yolo - autonomous fine-tuning pipeline for the fleet's local model.
+# Distills the strong teachers in our LiteLLM traffic log into a LoRA on Qwen/Qwen3-8B
+# (the upstream of local qwen3:8b) via Thinking Machines' Tinker, then reports a
+# downloadable checkpoint for llama.cpp -> Ollama. Fine-tuning is a paid/metered
+# service, so tinker-yolo is gated: it runs ONLY on explicit intent and never when the
+# fleet zero-spend marker is present.
+#
+#   tinker-yolo --doctor[/--json]   verify Tinker auth + venv + dataset (no spend)
+#   tinker-yolo build               (re)build the distill dataset from traffic (free)
+#   tinker-yolo proof               cheap end-to-end run: train a few steps -> checkpoint
+#   tinker-yolo train               a fuller LoRA run (more data/steps; costs a few $)
+set -euo pipefail
+
+VENV="${TINKER_VENV:-$HOME/.hermes/tinker-venv}"
+PY="$VENV/bin/python"
+EVAL_REPO="${HERMES_EVAL_REPO:-$HOME/workspace/git/igor/hermes-eval}"
+ENV_FILE="${HERMES_ENV_PATH:-$HOME/.hermes/.env}"
+MARKER="${HERMES_ZERO_SPEND_MARKER:-$HOME/.hermes/NO_PAID_SPEND}"
+DATASET="${TINKER_DATASET:-/tmp/tinker-conversations.jsonl}"
+
+# Key: prefer macOS Keychain (secure vault), fall back to .env. Never printed.
+load_key() {
+  local k
+  k="$(/usr/bin/security find-generic-password -a hermes-fleet -s TINKER_API_KEY -w 2>/dev/null || true)"
+  [ -z "$k" ] && k="$(grep '^TINKER_API_KEY=' "$ENV_FILE" 2>/dev/null | tail -1 | cut -d= -f2- || true)"
+  printf '%s' "$k"
+}
+
+doctor() {
+  local format="${1:-text}" venv_ok=false auth_ok=false ds=0 models=0
+  [ -x "$PY" ] && venv_ok=true
+  [ -f "$DATASET" ] && ds="$(/usr/bin/wc -l < "$DATASET" | tr -d ' ')"
+  if [ "$venv_ok" = true ]; then
+    models="$(TINKER_API_KEY="$(load_key)" "$PY" - <<'PY' 2>/dev/null || echo 0
+import tinker
+try:
+    print(len(tinker.ServiceClient().get_server_capabilities().supported_models))
+except Exception:
+    print(0)
+PY
+)"
+    [ "${models:-0}" -gt 0 ] && auth_ok=true
+  fi
+  if [ "$format" = json ]; then
+    VO=$venv_ok AO=$auth_ok DS=$ds MO=$models \
+    ZS="$([ -e "$MARKER" ] && echo true || echo false)" "$PY" -c '
+import json,os
+print(json.dumps({"schema":"tinker-yolo/doctor-v1",
+  "ok":os.environ["AO"]=="true","venv":os.environ["VO"]=="true",
+  "authOK":os.environ["AO"]=="true","models":int(os.environ["MO"]),
+  "datasetRows":int(os.environ["DS"]),"baseModel":"Qwen/Qwen3-8B",
+  "zeroSpendActive":os.environ["ZS"]=="true"}))' 2>/dev/null \
+    || echo '{"schema":"tinker-yolo/doctor-v1","ok":false,"venv":false}'
+  else
+    printf 'TINKER_YOLO ok=%s venv=%s auth=%s models=%s dataset_rows=%s zero_spend=%s\n' \
+      "$auth_ok" "$venv_ok" "$auth_ok" "$models" "$ds" "$([ -e "$MARKER" ] && echo true || echo false)"
+  fi
+  [ "$auth_ok" = true ]
+}
+
+build() {
+  "$PY" "$EVAL_REPO/scripts/build-distill-dataset.py" --accumulate --out /tmp/tinker-dataset.jsonl
+  "$PY" - <<PY
+import json
+n=0; out=open("$DATASET","w")
+for l in open("/tmp/tinker-dataset.jsonl"):
+    r=json.loads(l); m=r.get("messages")
+    if m and len(m)>=2: out.write(json.dumps({"messages":m})+"\n"); n+=1
+out.close(); print(f"tinker-yolo: dataset ready -> $DATASET ({n} conversations)")
+PY
+}
+
+run_train() {  # $1 = N examples, $2 = steps
+  [ -f "$DATASET" ] || build
+  TINKER_API_KEY="$(load_key)" TINKER_PROOF_DATA="$DATASET" \
+  TINKER_PROOF_N="${1:-16}" TINKER_PROOF_STEPS="${2:-3}" \
+    "$PY" "$EVAL_REPO/scripts/tinker_proof_run.py"
+}
+
+case "${1:-}" in
+  --doctor)
+    shift
+    if [ "${1:-}" = "--json" ]; then doctor json; else doctor text; fi
+    exit $? ;;
+  --doctor=json|--json) doctor json; exit $? ;;
+esac
+
+if [ -e "$MARKER" ]; then
+  echo "tinker-yolo: blocked — fleet zero-spend is active ($MARKER); fine-tuning is metered" >&2
+  exit 73
+fi
+[ -x "$PY" ] || { echo "tinker-yolo: venv missing ($PY). Run: python3 -m venv $VENV && $VENV/bin/pip install tinker tinker-cookbook" >&2; exit 127; }
+
+case "${1:-proof}" in
+  build) build ;;
+  proof) run_train 8 2 ;;
+  train) run_train "${2:-64}" "${3:-6}" ;;
+  *) echo "usage: tinker-yolo [--doctor[--json]|build|proof|train [N] [steps]]" >&2; exit 2 ;;
+esac
