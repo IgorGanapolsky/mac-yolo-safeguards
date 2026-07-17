@@ -97,6 +97,19 @@ check(
   appConfig.updates?.checkAutomatically === 'ON_LOAD',
   'app.json updates.checkAutomatically must be ON_LOAD for launch-time OTA checks',
 );
+check(
+  typeof appConfig.version === 'string' && appConfig.version.length > 0,
+  'app.json expo.version must be set (runtimeVersion appVersion policy)',
+);
+check(
+  fs.existsSync(path.join(__dirname, 'sync-expo-runtime-version.js')),
+  'scripts/sync-expo-runtime-version.js must exist to keep android expo_runtime_version in sync',
+);
+const installPhone = fs.readFileSync(path.join(__dirname, 'install-phone-release.sh'), 'utf8');
+check(
+  installPhone.includes('sync-expo-runtime-version.js'),
+  'install-phone-release.sh must sync expo_runtime_version before Gradle',
+);
 
 if (process.env.REQUIRE_EAS_PROJECT === '1') {
   check(!placeholderProjectIds.has(projectId), 'app.json extra.eas.projectId is still a local placeholder');

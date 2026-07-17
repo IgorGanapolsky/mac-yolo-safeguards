@@ -291,12 +291,49 @@ function relabelStoredProfile(profile: GatewayProfile): GatewayProfile {
   return label === profile.label ? profile : { ...profile, label };
 }
 
+/**
+ * Strip transport tokens from a computer name ("Mac mini USB" → "Mac mini").
+ * Transport belongs in the route badge, never in the machine title — especially for
+ * remote Tailscale Macs (mini in another city must never read as "… USB").
+ */
+export function stripTransportSuffixFromComputerName(name: string): string {
+  let next = name.trim();
+  if (!next) {
+    return next;
+  }
+  // Repeat so "Foo via USB · USB" / "Foo USB USB" collapse cleanly.
+  for (let i = 0; i < 3; i += 1) {
+    const stripped = next
+      .replace(/\s*[·•]\s*USB\s*$/i, '')
+      .replace(/\s*\(\s*USB\s*\)\s*$/i, '')
+      .replace(/\s+via\s+USB\s*$/i, '')
+      .replace(/\s+USB\s*$/i, '')
+      .trim();
+    if (stripped === next) {
+      break;
+    }
+    next = stripped;
+  }
+  return next || name.trim();
+}
+
 export function profileDisplayName(profile: GatewayProfile): string {
   const ip = resolveDisplayLanIp(profile.localIp, profile.gatewayUrl);
   const hostname = bonjourHostname(profile.hostname);
-  const label = profile.label?.trim();
+  const rawLabel = profile.label?.trim();
+  const label = rawLabel ? stripTransportSuffixFromComputerName(rawLabel) : undefined;
+  // Saved "Mac mini USB" on a Tailscale/LAN profile must never win over hostname.
+  const labelIsUsbBranded =
+    Boolean(rawLabel) && /usb/i.test(rawLabel!) && !isLoopbackGatewayUrl(profile.gatewayUrl);
 
-  if (label && !isBareIp(label) && label !== ip && !isGenericProfileLabel(label) && !isTailnetRouteLabel(label)) {
+  if (
+    label &&
+    !labelIsUsbBranded &&
+    !isBareIp(label) &&
+    label !== ip &&
+    !isGenericProfileLabel(label) &&
+    !isTailnetRouteLabel(label)
+  ) {
     return label;
   }
   if (hostname && hostname !== ip) {

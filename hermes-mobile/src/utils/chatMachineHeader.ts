@@ -6,12 +6,60 @@ import { GATEWAY_WRONG_KEY_MESSAGE, normalizeGatewayUrl } from '../services/gate
 import {
   isGenericMachineLabel,
   profileDisplayName,
+  stripTransportSuffixFromComputerName,
 } from '../services/gatewayProfiles';
 import type { LeashConnectionState } from './gatewayEndpoint';
-import { formatGatewayEndpointLine, formatGatewayMachineParts } from './gatewayEndpoint';
+import {
+  formatGatewayEndpointLine,
+  formatGatewayMachineParts,
+  isPrivateLanGatewayUrl,
+} from './gatewayEndpoint';
 import { isLoopbackGatewayUrl } from './gatewayUrlPolicy';
 import { relayWorkerDisplayName, selectRelayWorker } from './relayRouting';
 import { isTailnetRouteLabel, isTailscaleGatewayUrl } from './tailscaleHosts';
+
+/**
+ * Header transport chip from the URL that actually succeeded this session.
+ * USB is allowed only for live loopback on Wi‑Fi — never on cellular (ghost adb reverse),
+ * and never for Tailscale/MagicDNS/100.x (remote mini in another city).
+ */
+export function resolveHeaderTransportLabel(input: {
+  gatewayUrl: string;
+  wifiConnected?: boolean;
+  health?: GatewayHealthSnapshot | null;
+}): string | undefined {
+  const gatewayUrl = input.gatewayUrl?.trim() ?? '';
+  if (!gatewayUrl) {
+    return undefined;
+  }
+  // Tailscale wins before any loopback/USB check — remote Macs are never USB.
+  if (isTailscaleGatewayUrl(gatewayUrl)) {
+    return 'Tailscale';
+  }
+  if (isLoopbackGatewayUrl(gatewayUrl)) {
+    // Cellular + 127.0.0.1 is almost always a stale USB primary / wireless-adb ghost.
+    if (input.wifiConnected === false) {
+      return undefined;
+    }
+    return 'USB';
+  }
+  if (isPrivateLanGatewayUrl(gatewayUrl)) {
+    return 'Home Wi‑Fi';
+  }
+  return formatGatewayEndpointLine(gatewayUrl, input.health)?.trim() || undefined;
+}
+
+/** USB header chip is honest only when loopback is the reach URL and phone is on Wi‑Fi. */
+export function isUsbHeaderTransportAllowed(input: {
+  gatewayUrl: string;
+  wifiConnected?: boolean;
+}): boolean {
+  return (
+    isLoopbackGatewayUrl(input.gatewayUrl) &&
+    input.wifiConnected !== false &&
+    resolveHeaderTransportLabel(input) === 'USB'
+  );
+}
 
 /** Generic USB label when loopback is selected but live cable identity is unknown. */
 export const USB_UNKNOWN_MACHINE_LABEL = 'Computer via USB';
@@ -125,7 +173,8 @@ export function resolveMachineDisplayName(
     name = fromHealth;
   }
 
-  return name;
+  // Never bake "USB" into the computer title (e.g. saved "Mac mini USB" + Tailscale).
+  return stripTransportSuffixFromComputerName(name);
 }
 
 export type ChatMachineHeaderDisplay = {
@@ -200,6 +249,8 @@ export function resolveChatMachineHeaderDisplay(input: {
   savedMacCount?: number;
   profiles?: GatewayProfile[];
   isDemo?: boolean;
+  /** When false (cellular), never claim USB — even if gatewayUrl is still loopback. */
+  wifiConnected?: boolean;
 }): ChatMachineHeaderDisplay {
   const gatewayUrl = input.gatewayUrl?.trim() ?? '';
 
@@ -234,16 +285,16 @@ export function resolveChatMachineHeaderDisplay(input: {
     };
   }
 
-  const loopbackUsb = isLoopbackGatewayUrl(gatewayUrl);
+  const usbAllowed = isUsbHeaderTransportAllowed({
+    gatewayUrl,
+    wifiConnected: input.wifiConnected,
+  });
   const hasNamedMachine = Boolean(machineLabel && !isGenericMachineLabel(machineLabel));
-  let ipLine = formatGatewayEndpointLine(gatewayUrl, input.health)?.trim();
-  if (isTailscaleGatewayUrl(gatewayUrl)) {
-    ipLine = 'Tailscale';
-  }
-  // Never show bare 127.0.0.1:8642 in the header — USB is the human route label.
-  if (loopbackUsb) {
-    ipLine = 'USB';
-  }
+  const ipLine = resolveHeaderTransportLabel({
+    gatewayUrl,
+    wifiConnected: input.wifiConnected,
+    health: input.health,
+  });
   const detailParts: string[] = [];
   const savedMacCount = input.savedMacCount ?? 0;
   const profileIp = input.activeProfile?.localIp?.trim();
@@ -254,10 +305,19 @@ export function resolveChatMachineHeaderDisplay(input: {
       ipLine &&
         ipLine !== 'USB' &&
         ipLine !== 'Tailscale' &&
+        ipLine !== 'Home Wi‑Fi' &&
         machineLabel.includes(ipLine.split(':')[0]),
     );
 
-  if (ipLine && (savedMacCount > 1 || loopbackUsb || !labelContainsIp)) {
+  // Show transport when multi-Mac, USB (Wi‑Fi only), Tailscale/Home Wi‑Fi, or IP not in label.
+  if (
+    ipLine &&
+    (savedMacCount > 1 ||
+      usbAllowed ||
+      ipLine === 'Tailscale' ||
+      ipLine === 'Home Wi‑Fi' ||
+      !labelContainsIp)
+  ) {
     detailParts.push(ipLine);
   }
 
@@ -281,11 +341,12 @@ export function resolveChatMachineHeaderDisplay(input: {
     machineEndpoint: detailParts.length > 0 ? detailParts.join(' · ') : undefined,
     showDetailWhenConnected:
       savedMacCount > 1 ||
-      loopbackUsb ||
+      usbAllowed ||
       detailParts.some((part) => part.startsWith('relay ·')) ||
       (isTailscaleGatewayUrl(gatewayUrl) &&
         hasNamedMachine &&
-        !isTailnetRouteLabel(machineLabel)),
+        !isTailnetRouteLabel(machineLabel)) ||
+      detailParts.includes('Home Wi‑Fi'),
   };
 }
 
