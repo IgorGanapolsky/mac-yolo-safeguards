@@ -536,5 +536,15 @@ describe('tonight recurrence gates (2026-07-14 P0 class — S16-S23)', () => {
     const requireDevice = read('tools/require-device-verified.js');
     expect(requireDevice).toContain('--allow-ota is disabled after 2026-07-15');
   });
+
+  it('S26: ConnectMacGate never yanks Chat when a saved Mac exists (resume/heal/toggles)', () => {
+    const policy = read('hermes-mobile/src/utils/freshUserOnboarding.ts');
+    expect(policy).toContain('export function shouldShowConnectMacGate');
+    expect(policy).toMatch(/if \(!isFreshUserUnpaired\(input\.profiles\)\)[\s\S]*return false/);
+    const gate = read('hermes-mobile/src/components/ConnectMacGate.tsx');
+    expect(gate).toContain('shouldShowConnectMacGate');
+    expect(gate).not.toMatch(/!isGatewayReachable\s*&&/);
+    expect(gate).not.toMatch(/pickerProfiles\.length\s*>\s*0\)/);
+  });
 });
 

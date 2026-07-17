@@ -7,6 +7,7 @@ import {
   hasNonLoopbackSavedProfile,
   hasOnlyLoopbackProfiles,
 } from './gatewayProfilePicker';
+import { isLoopbackGatewayUrl } from './gatewayUrlPolicy';
 import { isTailscaleGatewayUrl } from './tailscaleHosts';
 import type { ConnectionHealSnapshot } from './connectionErrorPolicy';
 import {
@@ -45,6 +46,47 @@ export function hasValidSavedComputer(profiles: GatewayProfile[]): boolean {
 
 export function isFreshUserUnpaired(profiles: GatewayProfile[]): boolean {
   return !hasValidSavedComputer(profiles);
+}
+
+function hasNonLoopbackConfiguredUrl(url?: string | null): boolean {
+  const trimmed = url?.trim();
+  return Boolean(trimmed) && !isLoopbackGatewayUrl(trimmed || '');
+}
+
+/**
+ * Full-screen ConnectMacGate is first-run only.
+ * Returning users with a saved Mac (or a real non-loopback URL) stay on Chat and use
+ * ChatConnectionPanel / header status — never yank on AppState resume, heal blips, or toggles.
+ */
+export function shouldShowConnectMacGate(input: {
+  bootstrapReady: boolean;
+  demoMode?: boolean;
+  connectMacGateDismissed?: boolean;
+  profiles: GatewayProfile[];
+  effectiveGatewayUrl?: string | null;
+  settingsGatewayUrl?: string | null;
+  e2eAutomation?: boolean;
+  storeReviewDemo?: boolean;
+}): boolean {
+  if (!input.bootstrapReady) {
+    return false;
+  }
+  if (input.e2eAutomation || input.storeReviewDemo || input.demoMode) {
+    return false;
+  }
+  if (input.connectMacGateDismissed) {
+    return false;
+  }
+  if (!isFreshUserUnpaired(input.profiles)) {
+    return false;
+  }
+  if (
+    hasNonLoopbackConfiguredUrl(input.effectiveGatewayUrl) ||
+    hasNonLoopbackConfiguredUrl(input.settingsGatewayUrl)
+  ) {
+    return false;
+  }
+  return true;
 }
 
 /** Show numbered onboarding when brand-new (no saved Mac) or after silent heal gives up. */
