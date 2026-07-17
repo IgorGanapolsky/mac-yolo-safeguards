@@ -8,6 +8,14 @@ jest.mock('../services/haptics', () => ({
 
 jest.mock('../services/appOtaUpdate', () => ({
   isOtaUpdatesEnabled: jest.fn(() => false),
+  getOtaDiagnostics: jest.fn(() => ({
+    isEnabledFlag: false,
+    channel: null,
+    runtimeVersion: null,
+    updateId: null,
+    isEmbeddedLaunch: true,
+    isEmergencyLaunch: false,
+  })),
   checkForAppUpdate: jest.fn(),
   checkAndApplyAppUpdate: jest.fn(),
 }));

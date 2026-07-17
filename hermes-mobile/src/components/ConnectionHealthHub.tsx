@@ -16,6 +16,7 @@ import { resolveConnectionHealthLabel } from '../utils/agentDashboardStats';
 import {
   checkAndApplyAppUpdate,
   checkForAppUpdate,
+  getOtaDiagnostics,
   isOtaUpdatesEnabled,
 } from '../services/appOtaUpdate';
 
@@ -88,7 +89,10 @@ export default function ConnectionHealthHub({
     setUpdateMessage(null);
     try {
       if (!isOtaUpdatesEnabled()) {
-        setUpdateMessage('OTA ships with store builds — you are on the latest native build.');
+        const d = getOtaDiagnostics();
+        setUpdateMessage(
+          `OTA disabled in this binary (flag=${d.isEnabledFlag ? 'on' : 'off'}, channel=${d.channel || 'none'}, runtime=${d.runtimeVersion || 'none'}). Needs a store/release rebuild.`,
+        );
         return;
       }
       const check = await checkForAppUpdate();

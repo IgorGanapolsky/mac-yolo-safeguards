@@ -176,6 +176,22 @@ describe('release safety contract', () => {
     expect(appConfig).toContain('EXPO_PUBLIC_E2E_AUTOMATION');
     expect(appConfig).toContain('expo-channel-name');
     expect(appConfig).toContain("checkAutomatically: e2eAutomation ? 'NEVER' :");
+    expect(appConfig).toContain('e2eAutomation ? false : baseUpdates.enabled !== false');
+  });
+
+  it('syncs expo_runtime_version before phone release builds (appVersion policy)', () => {
+    const sync = read('hermes-mobile/scripts/sync-expo-runtime-version.js');
+    const install = read('hermes-mobile/scripts/install-phone-release.sh');
+    expect(sync).toContain('expo_runtime_version');
+    expect(sync).toContain('app.json');
+    expect(install).toContain('sync-expo-runtime-version.js');
+  });
+
+  it('isOtaUpdatesEnabled treats channel+runtime as enabled (Play false-negative guard)', () => {
+    const src = read('hermes-mobile/src/services/appOtaUpdate.ts');
+    expect(src).toContain('getOtaDiagnostics');
+    expect(src).toContain('channel.length > 0 && runtimeVersion.length > 0');
+    expect(src).not.toContain('OTA ships with store builds');
   });
 
   it('eas.json defines build channels for OTA (eas update --channel, no top-level update key)', () => {
