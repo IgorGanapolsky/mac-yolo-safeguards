@@ -32,6 +32,15 @@ describe('runProgressLayout', () => {
     ).toBe(false);
   });
 
+  it('keeps an explicit collapse sticky when the keyboard closes', () => {
+    expect(
+      resolveRunProgressDetailsExpanded({ keyboardOpen: true, userOverride: false }),
+    ).toBe(false);
+    expect(
+      resolveRunProgressDetailsExpanded({ keyboardOpen: false, userOverride: false }),
+    ).toBe(false);
+  });
+
   it('debounces token label updates mid-stream', () => {
     expect(
       shouldUpdateDebouncedTokenLabel({

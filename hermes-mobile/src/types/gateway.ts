@@ -128,7 +128,9 @@ export const DEFAULT_GATEWAY_SETTINGS: GatewaySettings = {
   redactPii: true,
   notificationsEnabled: true,
   notificationApprovals: true,
-  notificationLiveRunStatus: true,
+  /** Opt-in quiet shade only — default off so backgrounding never pops a run HUD. */
+  notificationLiveRunStatus: false,
+  /** Quiet shade when a run finishes — never heads-up; disable in Settings. */
   notificationCompletion: true,
   demoMode: false,
   glanceMode: false,

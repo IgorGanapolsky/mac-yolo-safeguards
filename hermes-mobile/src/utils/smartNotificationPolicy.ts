@@ -40,7 +40,11 @@ export function shouldScheduleApprovalsSummaryNotification(
   return categoryEnabled && isBackgrounded(appState);
 }
 
-/** Status / progress / stall — never heads-up; shade/status-bar only. */
+/**
+ * Absolute-minimum heads-up policy:
+ * - All run progress / stall / completion posts are shade-only (never peek).
+ * - Only approval types may heads-up, and only when backgrounded + Settings enabled.
+ */
 export const SILENT_STATUS_NOTIFICATION_TYPES = new Set([
   'run_progress',
   'run_stall',
@@ -53,7 +57,8 @@ export function isSilentStatusNotificationType(type: string | undefined): boolea
 
 /**
  * Whether heads-up banners / sounds may interrupt the user.
- * Never while foregrounded; never for live-status types (even in background).
+ * Never while foregrounded; never for any run-status type (even in background).
+ * Approvals may interrupt only when backgrounded.
  */
 export function shouldPresentIntrusiveNotification(
   appState: SmartNotificationAppState = AppState.currentState,
@@ -62,7 +67,7 @@ export function shouldPresentIntrusiveNotification(
   if (isSilentStatusNotificationType(notificationType)) {
     return false;
   }
-  return appState !== 'active';
+  return appState === 'background';
 }
 
 export type HermesNotificationPresentation = {

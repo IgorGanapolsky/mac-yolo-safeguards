@@ -866,17 +866,17 @@ export default function SettingsScreen() {
         <Text style={styles.sectionTitle}>Notification preferences</Text>
         <GlassCard>
           <Text style={styles.switchDesc}>
-            Choose which background alerts Hermes may send. Does not change how Leash looks in the
-            app.
+            Heads-up banners are reserved for approvals only. Live run and completion stay in the
+            quiet status shade — never pop when you leave the app. Turn each category off anytime.
           </Text>
 
           <View style={styles.divider} />
 
           <View style={styles.switchRow}>
             <View style={styles.switchLabelCol}>
-              <Text style={styles.switchLabel}>Approval alerts</Text>
+              <Text style={styles.switchLabel}>Approval heads-up</Text>
               <Text style={styles.switchDesc}>
-                Time-sensitive approval requests with Approve and Deny on your lock screen.
+                Only high-value lock-screen alerts with Approve and Deny. Off = no pop.
               </Text>
             </View>
             <Switch
@@ -894,9 +894,9 @@ export default function SettingsScreen() {
 
           <View style={styles.switchRow}>
             <View style={styles.switchLabelCol}>
-              <Text style={styles.switchLabel}>Live run status</Text>
+              <Text style={styles.switchLabel}>Live run status (quiet)</Text>
               <Text style={styles.switchDesc}>
-                Ongoing runs you started while Hermes works on your Mac in the background.
+                Optional quiet shade while a run is active. Off by default — does not heads-up.
               </Text>
             </View>
             <Switch
@@ -914,9 +914,9 @@ export default function SettingsScreen() {
 
           <View style={styles.switchRow}>
             <View style={styles.switchLabelCol}>
-              <Text style={styles.switchLabel}>Completion / failure</Text>
+              <Text style={styles.switchLabel}>Completion / failure (quiet)</Text>
               <Text style={styles.switchDesc}>
-                Summaries when a background task finishes or stops with an error.
+                Quiet shade when a background task finishes or fails. Never a heads-up banner.
               </Text>
             </View>
             <Switch
