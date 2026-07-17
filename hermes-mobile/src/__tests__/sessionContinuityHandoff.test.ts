@@ -10,6 +10,8 @@ import {
   isPickUpWhereLeftOffPhrase,
   parseHandoffJson,
   redactSecrets,
+  shouldInjectContinuityHandoff,
+  shouldShowContinuityChip,
   shouldSkipAutoRetitleForContinuity,
   CONTINUITY_VAULT_REL_PATH,
 } from '../utils/sessionContinuityHandoff';
@@ -117,5 +119,50 @@ describe('sessionContinuityHandoff', () => {
 
   it('clipText truncates with ellipsis', () => {
     expect(clipText('abcdefghij', 6)).toBe('abcde…');
+  });
+
+  it('injects handoff only on empty transcript or pick-up phrases', () => {
+    const handoff = buildSessionContinuityHandoff({
+      messages: [
+        { role: 'user', content: 'Ship continuity' },
+        { role: 'assistant', content: 'Done.' },
+      ],
+    })!;
+    expect(
+      shouldInjectContinuityHandoff({ handoff, transcriptEmpty: true }),
+    ).toBe(true);
+    expect(
+      shouldInjectContinuityHandoff({ handoff, transcriptEmpty: false }),
+    ).toBe(false);
+    expect(
+      shouldInjectContinuityHandoff({
+        handoff,
+        transcriptEmpty: false,
+        userText: 'pick up where you left off',
+      }),
+    ).toBe(true);
+  });
+
+  it('hides continuity chip when viewing an existing transcript', () => {
+    const handoff = buildSessionContinuityHandoff({
+      messages: [
+        { role: 'user', content: 'Ship continuity' },
+        { role: 'assistant', content: 'Done.' },
+      ],
+    })!;
+    expect(
+      shouldShowContinuityChip({
+        handoff,
+        chipDismissed: false,
+        transcriptEmpty: true,
+      }),
+    ).toBe(true);
+    expect(
+      shouldShowContinuityChip({
+        handoff,
+        chipDismissed: false,
+        transcriptEmpty: false,
+      }),
+    ).toBe(false);
   });
 });

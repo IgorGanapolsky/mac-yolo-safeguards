@@ -268,13 +268,30 @@ export function buildContinuitySystemPromptSection(handoff: SessionContinuityHan
   ].join('\n');
 }
 
+/**
+ * Inject handoff only on a true fresh compose surface (no prior turns yet) or when
+ * the user explicitly asks to pick up. Never inject into an existing transcript —
+ * that lied ("prior transcript was discarded") while Make-money #N was still open
+ * and made follow-up prompts look discarded / ignored.
+ */
 export function shouldInjectContinuityHandoff(opts: {
   handoff: SessionContinuityHandoff | null | undefined;
   userText?: string | null;
   forceExplicit?: boolean;
+  /** True when the active thread has no user/assistant turns yet (compose-first). */
+  transcriptEmpty?: boolean;
 }): boolean {
   if (!opts.handoff) return false;
   if (opts.forceExplicit || isPickUpWhereLeftOffPhrase(opts.userText)) return true;
-  // Fresh session with pending handoff: inject on first turns automatically.
-  return true;
+  return opts.transcriptEmpty === true;
+}
+
+/** Chip is only meaningful on an empty / compose-first surface — not mid-thread. */
+export function shouldShowContinuityChip(opts: {
+  handoff: SessionContinuityHandoff | null | undefined;
+  chipDismissed: boolean;
+  transcriptEmpty: boolean;
+}): boolean {
+  if (!opts.handoff || opts.chipDismissed) return false;
+  return opts.transcriptEmpty;
 }
