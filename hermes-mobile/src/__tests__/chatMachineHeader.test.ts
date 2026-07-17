@@ -522,7 +522,7 @@ describe('formatMacConnectionRetryBanner', () => {
       machineEndpoint: 'Tailscale',
       authMismatch: true,
     });
-    expect(text).toBe('Wrong key for this computer (Igors-Mac-mini) — tap to re-pair');
+    expect(text).toBe('Outdated connection (Igors-Mac-mini) — tap to reconnect');
     expect(text).not.toContain('tap to retry');
   });
 });

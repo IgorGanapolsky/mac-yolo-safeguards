@@ -52,9 +52,9 @@ describe('outboundDeliveryStatus', () => {
       outboundDeliveryLabel('failed', {
         connectionState: 'connected',
         macHttpOk: false,
-        failureReason: 'Wrong key for this computer',
+        failureReason: 'Outdated connection',
       }),
-    ).toBe('⚠ Wrong key — tap Computer → Re-pair');
+    ).toBe('⚠ Outdated connection — tap Re-pair this Mac');
   });
 
   it('shows reachability hint when send failed and Mac health is down', () => {
@@ -91,7 +91,7 @@ describe('outboundDeliveryStatus', () => {
         macHttpOk: true,
         failureReason: GATEWAY_WRONG_KEY_MESSAGE,
       }),
-    ).toBe('⚠ Wrong key — tap Computer → Re-pair');
+    ).toBe('⚠ Outdated connection — tap Re-pair this Mac');
   });
 
   it('treats demo as live for delivery', () => {

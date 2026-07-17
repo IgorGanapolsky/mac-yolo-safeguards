@@ -34,7 +34,14 @@ export function truncateOutboundFailureReason(reason: string, maxLen = OUTBOUND_
 }
 
 function isWrongKeyFailureReason(reason: string): boolean {
-  return reason === GATEWAY_WRONG_KEY_MESSAGE || reason.includes(GATEWAY_AUTH_REPAIR_HEADER);
+  const lower = reason.toLowerCase();
+  return (
+    reason === GATEWAY_WRONG_KEY_MESSAGE ||
+    reason.includes(GATEWAY_AUTH_REPAIR_HEADER) ||
+    lower.includes('wrong key') ||
+    lower.includes('outdated connection') ||
+    lower.includes('invalid_api_key')
+  );
 }
 
 function isSessionBusyFailureReason(reason: string): boolean {
@@ -73,7 +80,7 @@ export function resolveOutboundFailureLabel(
   const reason = failureReason?.trim();
   if (reason) {
     if (isWrongKeyFailureReason(reason)) {
-      return '⚠ Wrong key — tap Computer → Re-pair';
+      return '⚠ Outdated connection — tap Re-pair this Mac';
     }
     if (isSessionBusyFailureReason(reason)) {
       return `⚠ ${OUTBOUND_SESSION_BUSY_HINT}`;
