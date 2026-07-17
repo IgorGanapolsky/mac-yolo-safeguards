@@ -1,0 +1,501 @@
+{
+  "run_id": "trun_fcde9c3bf38d4cdfa17fc6308c6c5ea1",
+  "interaction_id": "trun_fcde9c3bf38d4cdfa17fc6308c6c5ea1",
+  "result_url": "https://platform.parallel.ai/play/deep-research/trun_fcde9c3bf38d4cdfa17fc6308c6c5ea1",
+  "status": "completed",
+  "output": {
+    "basis": [
+      {
+        "field": "answer",
+        "reasoning": "Assessment notes:\n- The field_answer provides a comprehensive, production-ready plan for real-time progress HUDs in Hermes Mobile, covering platform constraints (iOS Live Activities, Android heads-up/ongoing notifications, foreground service), library choices (expo-notifications, Notifee, react-native-live-activities), three lifecycle states (Delivering, Tool use, Reply ready), module layout, state machine, anti-patterns, ship checklist, and a v1 feature set. This aligns with the implied field_description focused on actionable UX + RN/Expo implementation with citations.\n- Excerpts given include multiple sources related to Live Activities, Android notifications, and Notifee/Expo docs, which support the general approaches described (Live Activities constraints, ongoing notifications, and push/foreground-service patterns). While not every specific implementation detail is directly quoted in excerpts, the overall guidance is consistent with the cited sources.\n- Therefore, completeness should be true since the answer addresses platform constraints, implementation patterns, architecture, and a concrete shipping plan, which matches the user query intent.\n- Supported should be true because the answer content is aligned with and supported by the excerpts about Live Activities, Android notifications/foreground services, and Expo/Notifee docs.\n",
+        "citations": [
+          {
+            "url": "https://mantlr.com/blog/designing-for-ai-agents-ux-patterns-2026",
+            "excerpts": [
+              "Designing for AI Agents: 10 UX Patterns (2026) \u2014 Mantlr\nHere are the 10 UX patterns that actually work for designing agentic experiences in 2026, based on what's shipping in real products right now. AI agents don't just respond anymore \u2014 they plan, decide, and act."
+            ],
+            "title": "Designing for AI Agents: 10 UX Patterns (2026) \u2014 Mantlr"
+          },
+          {
+            "url": "https://github.com/anthropics/claude-code/issues/60320",
+            "excerpts": [
+              "[Feature] Show progress indicator during tool execution ...\nSummary When waiting for tool calls or code responses, Claude Code currently shows only a spinner. It would be great to have a percentage-based progress indicator similar to the one shown during co"
+            ],
+            "title": "[Feature] Show progress indicator during tool execution ..."
+          },
+          {
+            "url": "https://ice-ice-bear.github.io/posts/2026-03-06-claude-code-statusline-2026",
+            "excerpts": [
+              "Claude Code 2026 \u2014 Statusline Update and the Multi ...\nPreviously, when running Claude Code in a terminal, it was hard to quickly see what task was in progress or how much context had been consumed. With Statusline, current task state, the model in use, and context usage are displayed in real time at the bottom of the terminal."
+            ],
+            "title": "Claude Code 2026 \u2014 Statusline Update and the Multi ..."
+          },
+          {
+            "url": "https://medium.com/design-bootcamp/ux-ui-design-and-ai-agents-a9122a370a38",
+            "excerpts": [
+              "UX/UI Design and AI Agents\nOperator is an AI agent that not only consumes information from the web but also actively navigates through it to perform assigned tasks."
+            ],
+            "title": "UX/UI Design and AI Agents"
+          },
+          {
+            "url": "http://aiuxplayground.com/skills/category/ui-design",
+            "excerpts": [
+              "Curated ux design SKILL.md files for Cursor, Claude Code, VS Code, and Codex. Copy, download, and install in your agent. ... Generate multiple radically different interface designs for a module using parallel exploration, then compare. Based on \"Design It Twice\" from A Philosophy of Software Design. ... Premium frontend design taste: anti-AI-slop patterns, semantic design language, typography, spacing, and responsive constraints f"
+            ],
+            "title": "UX Design Agent Skills | AI UX Playground"
+          },
+          {
+            "url": "https://www.pushwoosh.com/blog/ios-live-activities",
+            "excerpts": [
+              "iOS Live Activities: How they work, examples & best practices\nLimited duration: Live Activities are short-lived by design. Apple limits them to up to 8 hours of active visibility, plus up to 4 additional hours if the user doesn\u2019t dismiss them. They\u2019re not meant for all-day or long-term tracking."
+            ],
+            "title": "iOS Live Activities: How they work, examples & best practices"
+          },
+          {
+            "url": "https://onesignal.com/blog/best-practices-for-using-live-activities-in-your-ios-app",
+            "excerpts": [
+              "Best Practices for Using Live Activities in Your iOS App\nMay 1, 2024 \u2014 1. Design Sensibly \u00b7 2. Consider Every Live Activity Presentation \u00b7 3. Design for Both Light and Dark mode."
+            ],
+            "title": "Best Practices for Using Live Activities in Your iOS App"
+          },
+          {
+            "url": "https://secture.com/en/guia-y-buenas-practicas-de-diseno-de-live-activities-para-iphone-caso-practico-con-wikiloc",
+            "excerpts": [
+              "Live Activities iPhone design guidelines and best practices\nLive Activities design best practices \u00b7 Create a design tailored to your information \u00b7 Make the design as compact as possible \u00b7 Allows the height to change"
+            ],
+            "title": "Live Activities iPhone design guidelines and best practices"
+          },
+          {
+            "url": "http://newly.app/articles/ios-live-activities",
+            "excerpts": [
+              "Live Activities are real-time, in-place updates on the iPhone Lock Screen and Dynamic Island"
+            ],
+            "title": "iOS Live Activities: ActivityKit, Dynamic Island & Lock ..."
+          },
+          {
+            "url": "https://medium.com/%40gauravharkhani01/mastering-live-activities-in-ios-the-complete-developers-guide-5357eb35d520",
+            "excerpts": [
+              "Mastering Live Activities in iOS: The Complete Developer\u2019s ...\nThis comprehensive guide will take you from zero to Live Activities expert, with real code examples, production-ready implementations, and insights from building dozens of Live Activity"
+            ],
+            "title": "Mastering Live Activities in iOS: The Complete Developer\u2019s ..."
+          },
+          {
+            "url": "https://medium.com/%40kiyo07/ios-live-activities-in-expo-react-native-with-dynamic-data-041b2fce45ce",
+            "excerpts": [
+              "iOS Live Activities in Expo React Native with Dynamic Data - Medium\nAug 28, 2025 \u00b7 As you can see, this is a cool feature Apple introduced to work with Dynamic Island, but it can't be done directly with React Native Expo."
+            ],
+            "title": "iOS Live Activities in Expo React Native with Dynamic Data - Medium"
+          },
+          {
+            "url": "https://fizl.io/blog/posts/live-activities",
+            "excerpts": [
+              "Implementing Live Activities in React-Native with Expo - Fizl\nFeb 5, 2024 \u00b7 To create Live Activities, there are two necessary elements written in native code: The code defining the interface for the \"Dynamic Island\" and"
+            ],
+            "title": "Implementing Live Activities in React-Native with Expo - Fizl"
+          },
+          {
+            "url": "https://www.callstack.com/events/building-ios-live-activities-with-react",
+            "excerpts": [
+              "Building iOS Live Activities With React: Inside Voltra - Callstack\nLearn how to build iOS Live Activities and Dynamic Island experiences using pure JSX, no Swift or native code required."
+            ],
+            "title": "Building iOS Live Activities With React: Inside Voltra - Callstack"
+          },
+          {
+            "url": "https://www.reddit.com/r/reactnative/comments/1m18dy9/dynamic_island_live_activities_in_a_react_native",
+            "excerpts": [
+              "Dynamic Island & Live Activities in a React Native Expo App! - Reddit\nJul 16, 2025 \u00b7 Upon feedback from users regarding the possible feature of showing notes in dynamic island I started working on it. Expo doesn't allow these"
+            ],
+            "title": "Dynamic Island & Live Activities in a React Native Expo App! - Reddit"
+          },
+          {
+            "url": "https://medium.com/%40ankit.ad.dhawan/first-step-towards-creating-a-dynamic-island-widget-using-react-native-e6877a3fad52",
+            "excerpts": [
+              "Creating Dynamic Island widget using React Native - Medium\nUsing Native Bridge you can have your app communicate with the Swift code written in the iOS app. So let\u2019s start with building your first Dynamic Island Widget using React native."
+            ],
+            "title": "Creating Dynamic Island widget using React Native - Medium"
+          },
+          {
+            "url": "https://docs.expo.dev/versions/latest/sdk/notifications",
+            "excerpts": [
+              "Notifications - Expo Documentation\nLocal notifications (in-app notifications) remain available in Expo Go. ... This limitation is imposed by the Android OS. Note: For some settings to be"
+            ],
+            "title": "Notifications - Expo Documentation"
+          },
+          {
+            "url": "https://medium.com/%40santosh.pk/implementing-modern-push-notifications-in-react-native-android-notifee-72de60ee2712",
+            "excerpts": [
+              "Implementing Modern Push Notifications in React Native ...\nIn this guide, we\u2019ll dive into setting up push notifications in React Native for Android using Notifee, covering how to manage notifications in background, foreground, and killed states."
+            ],
+            "title": "Implementing Modern Push Notifications in React Native ..."
+          },
+          {
+            "url": "https://semaphore.io/blog/notifee",
+            "excerpts": [
+              "Creating Push Notifications Rapidly With Notifee in React ...\n2024/02/08 \u2014 Notifee stands out as a user-friendly React Native library specifically crafted for seamlessly creating push notifications. Throughout this"
+            ],
+            "title": "Creating Push Notifications Rapidly With Notifee in React ..."
+          },
+          {
+            "url": "https://docs.expo.dev/push-notifications/sending-notifications",
+            "excerpts": [
+              "Send notifications with the Expo Push Service\nJun 9, 2026 \u2014 TOO_MANY_REQUESTS : You are exceeding the request limit of 600 notifications per second per project. We recommend implementing rate-limiting in"
+            ],
+            "title": "Send notifications with the Expo Push Service"
+          },
+          {
+            "url": "https://docs.page/invertase/notifee/react-native/reference/TypeAlias.IOSNotificationInterruptionLevel",
+            "excerpts": [
+              "Notifee\nA powerful notification library for React Native. Constants that indicate the importance and delivery timing of a notification."
+            ],
+            "title": "Notifee"
+          },
+          {
+            "url": "http://customers.twilio.com/en-us/uber",
+            "excerpts": [
+              "Uber built a great ridesharing experience with SMS & Voice 58 countries Uber operates in 400+ cities served globally by Uber 1B+ rides given Customers / Uber Uber logo Products [Video API](https://www.twilio.com/en-us/video) [Messaging](https://www.twilio.com/en-us/messaging/apis/programmable-messaging-api) Use case [Alerts and notifications](https://www.twilio.com/en-us/use-cases/alerts-and-notifications) Industry Technology Transportation and logistics On-demand services Company size Enterprise Region Global [Start for free](https://www.twilio.com/try-twilio) [Contact sales](https://www.twilio.com/help/sales) Time to read: [](https://www.facebook.com/sharer/sharer.php?u=https://customers.twilio.com/en-us/uber \"Share via Facebook\") [](https://twitter.com/intent/tweet?url=https://customers.twilio.com/en-us/uber \"Share via X\") [](https://www.linkedin.com/sharing/share-offsite/?url=https://customers.twilio.com/en-us/uber \"Share via LinkedIn\") Challenge Uber needed a way to keep riders up-to-date on the status of their driver request. Solution Using Twilio Messaging, Uber can provide timely ride status updates to both domestic and international customers through real-time text messages. Uber is everyone's private driver. Uber operates a global network of everyday and luxury cars, and offers a mobile experience that allows any customer to request a pickup. Customers are kept up-to-date with text messages as the status of their request changes\u2014when a driver accepts the request, when the driver is less than a minute away, and if the ride has been cancelled for any reason. Never leave a customer in the cold Though Uber's text communication strategy was already in place, riders weren't getting the high quality customer experience Uber wanted to deliver because of problems with its existing hosting providers. Fast delivery of notifications is critical when customer transactions happen in real time. A text message delay of more than a minute can leave a customer standing in the rain waiting for a ride they didn't know was cancelled. Likewise, if a customer's ride has arrived, but the customer doesn't receive the notification, the experience suffers. Uber needed a better way to reliably deliver the level of communication its service demanded. Messaging drives the business ahead Uber turned to Twilio for superior delivery of its business-dependent text messages. Information about the driver\u2014their star rating, phone number, and how far away they are\u2014is sent via Twilio supported text message. \"We built the Uber experience without Twilio initially,\" explained Travis Kalanick, CEO of Uber, \"and the problem was, people were not getting the high quality experience we were promising. The kinds of problems we were seeing with other providers, we just haven't seen with Twilio. I sleep easier, and my engineers sleep easier because we're not dealing with situations where it's taking 15 to 20 minutes for a text to be delivered.\" Thanks to Twilio, customers are now kept current with real-time text messages. \"It's been invaluable to have a reliable service to tell folks what's going on with their ride,\" said Kalanick. waiting for a car Scaling internationally with Twilio With communication running smoothly on Twilio, Uber can now focus on leveraging the technology to keep expanding and moving forward\u2014wherever it wants to take it. For any growing company, being able to scale deliverability internationally is just as important as scaling domestically. Twilio provides Uber with communications that cover all the countries and cities where it operates. \"Our vision of the future is really one of cities, not countries,\" said Kalanick. \"If there's a major city somewhere out there, you can be pretty certain Uber is going to be there. Having one telecommunications provider ultimately will cover all the cities and countries we go to\u2014that's critical for us.\" \"Uber is launching in a lot of international markets, and Twilio has helped us scale internationally as we grow as a company,\" elaborated Curtis Chambers, engineering manager at Uber. \"Twilio works fast"
+            ],
+            "title": "Uber built a great ridesharing experience with SMS & Voice | Twilio"
+          },
+          {
+            "url": "https://exore.pro/cases/ride-hailing-mvp-platform",
+            "excerpts": [
+              "Ride-Hailing MVP Platform - Exore LTD\nEnabling real-time ride tracking, notifications, and in-app payments. Establishing a solid foundation for further product iterations and investments. The"
+            ],
+            "title": "Ride-Hailing MVP Platform - Exore LTD"
+          },
+          {
+            "url": "https://www.uber.com/us/en/blog/real-time-push-platform",
+            "excerpts": [
+              "Uber's Real-Time Push Platform\nDec 17, 2020 \u2014 Over the course of a trip, there are multiple participants that can modify and view the state of an ongoing trip and need real-time updates."
+            ],
+            "title": "Uber's Real-Time Push Platform"
+          },
+          {
+            "url": "https://www.facebook.com/ridegcrta/posts/hey-riders-did-you-know-that-you-can-receive-transit-app-notifications-straight-/1331120392380849",
+            "excerpts": [
+              "Hey riders Did you know that you can receive Transit app ...\nFeb 8, 2026 \u00b7 To receive alerts, simply pin your route and choose whether you want notifications at all times or during commute hours only. Your pinned routes"
+            ],
+            "title": "Hey riders Did you know that you can receive Transit app ..."
+          },
+          {
+            "url": "http://rcps.info/departments/transportation/zum-bus-tracker-app",
+            "excerpts": [
+              "Track your student's ride in real-time; Receive pick up/drop off notifications; View driver and vehicle information for each ride; And receive support if you"
+            ],
+            "title": "Zum Bus Tracker App"
+          },
+          {
+            "url": "https://source.android.com/docs/automotive/hmi/notifications/hun",
+            "excerpts": [
+              "Heads-up notifications\nApr 10, 2026 \u2014 A notification is a message that Android displays outside an app to provide updates, reminders, and other timely information to users."
+            ],
+            "title": "Heads-up notifications"
+          },
+          {
+            "url": "https://medium.com/kayvan-kaseb/some-best-practices-in-using-android-notification-a957f9245278",
+            "excerpts": [
+              "Some Best Practices in Using Android Notification | by Kayvan Kaseb\nDec 5, 2020 \u00b7 This article aims to discuss some advanced features and best practices in using Android notification."
+            ],
+            "title": "Some Best Practices in Using Android Notification | by Kayvan Kaseb"
+          },
+          {
+            "url": "https://medium.com/%40YodgorbekKomilo/designing-the-android-notification-system-a-deep-dive-a161c43bd823",
+            "excerpts": [
+              "\ud83d\udcf2 Designing the Android Notification System \u2014 A Deep Dive\nTesting & Best Practices \u00b7 Create Notification Channels so users can control what matters to them . \u00b7 Use foreground services responsibly."
+            ],
+            "title": "\ud83d\udcf2 Designing the Android Notification System \u2014 A Deep Dive"
+          },
+          {
+            "url": "https://itnext.io/understanding-notifications-in-android-a-developers-guide-fce100810f1c",
+            "excerpts": [
+              "Understanding Notifications in Android: A Developer\u2019s Guide\nFollowing best practices and security considerations ensures notifications effectively serve their purpose, benefiting both the user and your app\u2019s user engagement."
+            ],
+            "title": "Understanding Notifications in Android: A Developer\u2019s Guide"
+          },
+          {
+            "url": "https://stackoverflow.com/questions/tagged/android-notifications?tab=Newest",
+            "excerpts": [
+              "Newest 'android-notifications' Questions - Stack Overflow\nFilter by Employee ID Apply filter Cancel Best practices 1 vote 1 replies 80 views Android: Notification Channels or Custom In-App Preferences for Notification Categories? Environment In my app, I have two main notification groups, and each of them has several sub-categories Problem"
+            ],
+            "title": "Newest 'android-notifications' Questions - Stack Overflow"
+          },
+          {
+            "url": "https://fuselabcreative.com/ui-design-for-ai-agents",
+            "excerpts": [
+              "Agent UX: UI Design for AI Agents in 2026 - fuselabcreative.com\nUI design for AI agents, also called agent UX, is the practice of building interfaces where autonomous software systems take actions on behalf of users, requiring design patterns for transparency, status communication, override controls, and error recovery that traditional UI does not address."
+            ],
+            "title": "Agent UX: UI Design for AI Agents in 2026 - fuselabcreative.com"
+          },
+          {
+            "url": "https://docs.expo.dev/versions/latest/sdk/notifications/",
+            "excerpts": [],
+            "title": "title: Notifications description: A library that provides an API to fetch push notification tokens and to present, schedule, receive and respond to notifications. sourceCodeUrl: 'https://github.com/expo/expo/tree/sdk-57/packages/expo-notifications' packageName: 'expo-notifications' iconUrl: '/static/images/packages/expo-notifications.png' platforms: ['android', 'ios']"
+          },
+          {
+            "url": "https://changyou.medium.com/cursor-agent-skill-usage-example-ui-ux-pro-max-technology-unveiled-and-practical-application-a13f36e70a6d",
+            "excerpts": [
+              "Cursor Agent Skill Usage Example \u2014 UI UX Pro ... - changyou\nUI UX Pro Max is a searchable design knowledge base + agent skill that equips AI coding assistants with professional UI/UX decision-making"
+            ],
+            "title": "Cursor Agent Skill Usage Example \u2014 UI UX Pro ... - changyou"
+          },
+          {
+            "url": "https://ameany.io/cursor-background-agents",
+            "excerpts": [
+              "Cursor Background Agents: Complete Guide (2026) - ameany.io\nThe Cursor interface displays real-time progress indicators for active background agents. You can view detailed logs showing which files are being modified, what decisions the agent is making, and estimated completion times."
+            ],
+            "title": "Cursor Background Agents: Complete Guide (2026) - ameany.io"
+          },
+          {
+            "url": "https://trigger.dev/docs/guides/example-projects/cursor-background-agent",
+            "excerpts": [
+              "Background Cursor agent using the Cursor CLI\nRun Cursor's headless CLI agent in a Trigger.dev task and stream the live output to the frontend using Trigger.dev Realtime Streams."
+            ],
+            "title": "Background Cursor agent using the Cursor CLI"
+          },
+          {
+            "url": "http://cursor.so/",
+            "excerpts": [
+              "Build Landing Page make a landing page based on attached docs explaining what we do Agent Composer 2.5 Cursor CLI Get CLI Cursor Agent ~/cursor/cursor-web Analyze Tab vs Agent Usage Patterns Help me understand how teams split their focus between the tab view and the agents panel across our workspaces. \u2192 Composer 2.5 / for commands \u00b7@ for files Trusted every day by teams that build world-class software Agents turn ideas into code Accelerate development by handing off tasks to Cursor, while you focus on making decisions. Learn about agentic development \u2192 This element contains an interactive demo for sighted users. It's a demonstration of Cursor's IDE showing AI-powered coding assistance features. The interface is displayed over a subtle, solid brand background.\nCursor is your coding agent for building ambitious software. Download for macOS \u2913 Get started \u2192 Request a demo \u2192 This element contains an interactive demo for sighted users showing multiple Cursor interfaces: Cursor Desktop interface, Cursor CLI interface. The interface is displayed over a subtle, solid brand background. Cursor Desktop Get Cursor In Progress 3 Build Landing Page Reading docs Analyze Tab vs Agent Usage Patterns Fetching data Plan Mission Control Generating plan Ready for Review 3 PyTorch MNIST Experiments 10m PyTorch MNIST Experiments Set up Cursor Rules for Dashboard 30m Set up Cursor Rules for Dashboard Bioinformatics Tools 45m +135 -21 \u00b7 Bioinformatics Tools http://localhost:3000 Acme Labs Software creation is changing."
+            ],
+            "title": "Cursor: AI coding agent"
+          },
+          {
+            "url": "https://buildfastwith.ai/cursor-background-agent-guide",
+            "excerpts": [
+              "Cursor Background Agent: Async AI Coding Tasks Explained\nLearn how Cursor Background Agent works, when to use it for async AI coding tasks, how to write effective instructions, and how it compares to alternatives like Copilot Workspace."
+            ],
+            "title": "Cursor Background Agent: Async AI Coding Tasks Explained"
+          },
+          {
+            "url": "https://notifee.app/react-native/docs",
+            "excerpts": [],
+            "title": "Overview | Notifee"
+          },
+          {
+            "url": "https://code.claude.com/docs/en/agent-sdk/streaming-output",
+            "excerpts": [
+              "Stream responses in real-time - Claude Code Docs\nThis example combines text and tool streaming into a cohesive UI. It tracks whether the agent is currently executing a tool (using an in_tool flag) to show status indicators like [Using Read...] while tools run."
+            ],
+            "title": "Stream responses in real-time - Claude Code Docs"
+          },
+          {
+            "url": "https://github.com/guess/claude_code/blob/main/docs/guides/streaming-output.md",
+            "excerpts": [
+              "claude_code/docs/guides/streaming-output.md at main - GitHub\nThis example combines text and tool streaming into a cohesive UI. It tracks whether the agent is currently executing a tool (using an in_tool flag) to show status indicators like [Using Read...] while tools run."
+            ],
+            "title": "claude_code/docs/guides/streaming-output.md at main - GitHub"
+          },
+          {
+            "url": "https://hiroppy.github.io/tmux-agent-sidebar/agents/claude-code",
+            "excerpts": [
+              "Claude Code | tmux-agent-sidebar\nClaude Code is the reference agent for the sidebar \u2014 every feature is wired through a Claude hook. Permission badges: plan, edit, auto, dontAsk, defer, ! Every desktop notification event is available \u2014 stop, notification, task_completed, stop_failure, permission_denied. See Notifications."
+            ],
+            "title": "Claude Code | tmux-agent-sidebar"
+          },
+          {
+            "url": "https://mcpmarket.com/tools/skills/progressive-disclosure-ui-designer",
+            "excerpts": [
+              "Progressive Disclosure UI - Claude Code Skill for UX - MCP Market\nIt guides users through auditing current interfaces, categorizing elements by priority using the 80/20 rule, and establishing a clear hierarchy of disclosure"
+            ],
+            "title": "Progressive Disclosure UI - Claude Code Skill for UX - MCP Market"
+          },
+          {
+            "url": "https://claude.com/resources/tutorials/using-claude-design-for-prototypes-and-ux",
+            "excerpts": [
+              "Using Claude Design for prototypes and UX\nThis guide covers workflows specific to product work \u2013 rapid prototyping, connecting your codebase for production-aware designs, iterating on features with real components, and handing off to engineering through Claude Code."
+            ],
+            "title": "Using Claude Design for prototypes and UX"
+          },
+          {
+            "url": "https://hermes-agent.nousresearch.com/docs/user-guide/messaging",
+            "excerpts": [
+              "Messaging Gateway | Hermes Agent\nOn the next startup, the gateway schedules an auto-resume for each one \u2014 the user gets a short heads-up in the chat (\"Send any message after restart and I'll try to resume where you left off.\") and the session picks up from the last committed turn when they reply."
+            ],
+            "title": "Messaging Gateway | Hermes Agent"
+          },
+          {
+            "url": "https://github.com/NousResearch/hermes-agent/blob/main/website/docs/user-guide/messaging/index.md",
+            "excerpts": [
+              "hermes-agent/website/docs/user-guide/messaging/index.md at ...\nWhen the gateway restarts (or is shut down with in-flight sessions), it can send a one-shot \"the agent is back\" / \"the agent was interrupted\" message to each platform's home channel."
+            ],
+            "title": "hermes-agent/website/docs/user-guide/messaging/index.md at ..."
+          },
+          {
+            "url": "https://zread.ai/NousResearch/hermes-agent/17-messaging-gateway-and-platforms",
+            "excerpts": [
+              "Messaging Gateway and Platforms | NousResearch/hermes-agent ...\nThe Hermes messaging gateway is the multi-platform runtime bridge that connects a single AI agent core to more than twenty distinct messaging platforms \u2014 from Telegram and Discord to WeCom, Feishu, and plugin-defined adapters."
+            ],
+            "title": "Messaging Gateway and Platforms | NousResearch/hermes-agent ..."
+          },
+          {
+            "url": "https://deepwiki.com/NousResearch/hermes-agent/7-messaging-gateway",
+            "excerpts": [
+              "Messaging Gateway | NousResearch/hermes-agent | DeepWiki\nThe messaging gateway is a background service that connects Hermes Agent to multiple messaging platforms simultaneously. It runs as a single process that manages platform adapters, routes messages to per-chat agent instances, and persists conversation history across sessions."
+            ],
+            "title": "Messaging Gateway | NousResearch/hermes-agent | DeepWiki"
+          },
+          {
+            "url": "http://github.com/NousResearch/hermes-agent/blob/main/AGENTS.md",
+            "excerpts": [
+              "\u2014 Hermes is a personal AI agent that runs the same agent core across a CLI, a messaging gateway"
+            ],
+            "title": "hermes-agent/AGENTS.md at main"
+          },
+          {
+            "url": "https://code.visualstudio.com/blogs/2025/02/24/introducing-copilot-agent-mode",
+            "excerpts": [
+              "Introducing GitHub Copilot agent mode (preview)\nTo easily intervene and undo in those situations, every tool invocation is transparently displayed in the UI, terminal tool requires approval, and we support rich undo capabilities - you can use the Undo Last Edit control in the view title bar to revert to the state before the last edit was applied."
+            ],
+            "title": "Introducing GitHub Copilot agent mode (preview)"
+          },
+          {
+            "url": "https://thedailyclaws.com/blog/2026-03-14-bots-devin-ai-progress-report",
+            "excerpts": [
+              "Devin AI Progress Report: The Autonomous Coder One Year Later\nArticle Devin AI Progress Report: The Autonomous Coder One Year Later Updates on Cognition Labs Devin autonomous coding agent, recent improvements, limitations, and real developer experiences"
+            ],
+            "title": "Devin AI Progress Report: The Autonomous Coder One Year Later"
+          },
+          {
+            "url": "https://github.com/github/app",
+            "excerpts": [
+              "GitHub - github/app: The GitHub Copilot app is an agent ...\nIt gives you a single control center for finding the right work to pick up, starting and steering agents, reviewing progress, and landing changes across repositories without constantly switching between terminals, editors, browser tabs, and GitHub pages."
+            ],
+            "title": "GitHub - github/app: The GitHub Copilot app is an agent ..."
+          },
+          {
+            "url": "https://ppaolo.substack.com/p/in-depth-product-analysis-devin-cognition-labs",
+            "excerpts": [
+              "In-Depth Product Analysis of Devin, the Hottest AI Developer\nIn-flow agent updates. Devin introduces a way to share AI agent progress in a minimalist yet effective style: intermediate tasks are"
+            ],
+            "title": "In-Depth Product Analysis of Devin, the Hottest AI Developer"
+          },
+          {
+            "url": "http://devin.ai/",
+            "excerpts": [
+              "Devin is an AI coding agent and software engineer that helps developers build better software faster. Parallel cloud agents for serious engineering teams."
+            ],
+            "title": "Devin | The AI Software Engineer"
+          },
+          {
+            "url": "https://www.npmjs.com/package/react-native-widget-extension",
+            "excerpts": [
+              "react-native-widget-extension - npm\nExpo config plugin to add widgets and live activities to a React Native app. Latest version: 0.2.0, last published: 7 months ago. Start using react-native-widget-extension in your project by running `npm i react-native-widget-extension`."
+            ],
+            "title": "react-native-widget-extension - npm"
+          },
+          {
+            "url": "https://www.npmjs.com/package/react-native?activeTab=versions",
+            "excerpts": [
+              "react-native - npm\nReact Native apps may target iOS 15.1 and Android 7.0 (API 24) or newer. You may use Windows, macOS, or Linux as your development operating system, though building and running iOS apps is limited to macOS."
+            ],
+            "title": "react-native - npm"
+          },
+          {
+            "url": "https://npm.io/package/react-native-widget-extension",
+            "excerpts": [
+              "React-native-widget-extension NPM | npm.io\nreact-native-widget-extension Expo config plugin to add widgets and live activities to a React Native app The widgets still need to be written in Swift (I think there's no way around that). But you can simply add a folder with Swift files to a React Native project and then add the plugin via:"
+            ],
+            "title": "React-native-widget-extension NPM | npm.io"
+          },
+          {
+            "url": "https://expo-ui.thunderdevelops.in/docs/compatibility",
+            "excerpts": [
+              "Compatibility - expo-ui.thunderdevelops.in\nExpo SDK, React Native, and New Architecture (Fabric/TurboModules) compatibility for expo-app-ui components."
+            ],
+            "title": "Compatibility - expo-ui.thunderdevelops.in"
+          },
+          {
+            "url": "https://www.reddit.com/r/expo/comments/1ng54gx/issue_with_react_native_version_mismatch",
+            "excerpts": [
+              "Issue with React Native version mismatch : r/expo - Reddit\nIf you've upgraded to SDK 54, then it's expecting RN v0.81 in your package.json. Not sure about the React version compatibility you mentioned."
+            ],
+            "title": "Issue with React Native version mismatch : r/expo - Reddit"
+          },
+          {
+            "url": "https://notifee.app/react-native/docs/android/foreground-service",
+            "excerpts": [],
+            "title": "Foreground Service | Notifee"
+          },
+          {
+            "url": "https://notifee.app/react-native/docs/android/styles",
+            "excerpts": [],
+            "title": "Styles | Notifee"
+          },
+          {
+            "url": "https://docs.expo.dev/push-notifications/sending-notifications/",
+            "excerpts": [],
+            "title": "modificationDate: June 09, 2026 title: Send notifications with the Expo Push Service description: Learn how to call Expo Push Service API to send push notifications from your server."
+          },
+          {
+            "url": "https://bndkt.com/blog/2023/ios-live-activities",
+            "excerpts": [
+              "iOS Live Activities in React Native - bndkt\nI created an Expo Module called react-native-widget-extension that makes it super easy to add Widgets and Live Activities to iOS apps built with React Native and interact with them from JavaScript land."
+            ],
+            "title": "iOS Live Activities in React Native - bndkt"
+          },
+          {
+            "url": "https://docs.expo.dev/guides/new-architecture",
+            "excerpts": [
+              "React Native's New Architecture - Expo Documentation\nWe've built tooling into Expo Doctor to integrate with React Native Directory to help you validate your dependencies, so you can quickly learn which libraries are unmaintained and which incompatible or untested with the New Architecture."
+            ],
+            "title": "React Native's New Architecture - Expo Documentation"
+          },
+          {
+            "url": "https://github.com/sauravhiremath/react-native-ios-alarmkit/blob/master/docs/LIVE_ACTIVITY_SETUP.md",
+            "excerpts": [
+              "react-native-ios-alarmkit/docs/LIVE_ACTIVITY_SETUP.md at ...\nWhen you schedule an alarm with countdown functionality, iOS displays a Live Activity on: Lock Screen Dynamic Island StandBy mode By default, iOS uses a system-provided countdown UI. To customize this, you need to implement a Widget Extension in Xcode."
+            ],
+            "title": "react-native-ios-alarmkit/docs/LIVE_ACTIVITY_SETUP.md at ..."
+          },
+          {
+            "url": "https://kutay.boo/blog/expo-live-activity",
+            "excerpts": [
+              "IOS Live Activities with Expo & React Native - kutay.boo\nBoth methods will get you a working Live Activity that updates in real time from your React Native code. We\u2019ll build a football scoreboard widget as our example, but the concepts apply to any use case\u2014ride tracking, delivery updates, workout sessions, or whatever your app needs."
+            ],
+            "title": "IOS Live Activities with Expo & React Native - kutay.boo"
+          },
+          {
+            "url": "https://developer.android.com/develop/ui/views/notifications/channels",
+            "excerpts": [],
+            "title": "Create and manage notification channels \u00a0|\u00a0 Jetpack Compose \u00a0|\u00a0 Android Developers"
+          },
+          {
+            "url": "https://developer.android.com/about/versions/14/changes/fgs-types-required",
+            "excerpts": [],
+            "title": "Foreground service types are required \u00a0|\u00a0 Android Developers"
+          },
+          {
+            "url": "https://docs.expo.dev/versions/latest/sdk/notifications/#settings",
+            "excerpts": [],
+            "title": "title: Notifications description: A library that provides an API to fetch push notification tokens and to present, schedule, receive and respond to notifications. sourceCodeUrl: 'https://github.com/expo/expo/tree/sdk-57/packages/expo-notifications' packageName: 'expo-notifications' iconUrl: '/static/images/packages/expo-notifications.png' platforms: ['android', 'ios']"
+          },
+          {
+            "url": "https://github.com/NousResearch/hermes-agent/blob/main/AGENTS.md",
+            "excerpts": [],
+            "title": "hermes-agent/AGENTS.md at main \u00b7 NousResearch/hermes-agent \u00b7 GitHub"
+          },
+          {
+            "url": "https://developer.android.com/develop/ui/views/notifications/build-notification#importance",
+            "excerpts": [],
+            "title": "Create a notification \u00a0|\u00a0 Jetpack Compose \u00a0|\u00a0 Android Developers"
+          },
+          {
+            "url": "https://developer.android.com/develop/ui/views/notifications/build-notification",
+            "excerpts": [],
+            "title": "Create a notification \u00a0|\u00a0 Jetpack Compose \u00a0|\u00a0 Android Developers"
+          },
+          {
+            "url": "https://docs.expo.dev/push-notifications/sending-notifications/#notification-channels",
+            "excerpts": [],
+            "title": "modificationDate: June 09, 2026 title: Send notifications with the Expo Push Service description: Learn how to call Expo Push Service API to send push notifications from your server."
+          }
+        ],
+        "confidence": "high"
+      }
+    ],
+    "type": "text",
+    "beta_fields": null,
+    "mcp_tool_calls": null,
+    "content_file": "hermes-uber-style-progress-hud.md"
+  }
+}
