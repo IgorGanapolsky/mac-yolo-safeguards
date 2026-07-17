@@ -117,6 +117,10 @@ import {
   shouldRunForegroundUsbHeal,
 } from '../utils/pairDeepLinkApply';
 import {
+  partitionSilentDiscoveries,
+  shouldAutoScanOnBootstrap,
+} from '../utils/discoveryPersistPolicy';
+import {
   hasNonLoopbackSavedProfile,
   profileMatchesDiscoveredGateway,
   profileMatchesHostname,
@@ -2474,10 +2478,17 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
         tailnetProbeHostsRef.current = mergedHosts;
         setTailnetProbeHostCount(mergedHosts.length);
       }
-      if (discovered.length > 0) {
+      // Fresh install: never silent-save Tailscale /health hits as gatewayProfiles
+      // (that invents a named Mac + Outdated connection before the user pairs).
+      // Returning users may persist discoveries that match an already-saved Mac.
+      const { toPersist } = partitionSilentDiscoveries(
+        profileStateRef.current.profiles,
+        discovered,
+      );
+      if (toPersist.length > 0) {
         const nextState = applyTailscaleDiscoveriesToProfileState(
           profileStateRef.current,
-          discovered,
+          toPersist,
         );
         profileStateRef.current = nextState;
         setProfileState(nextState);
@@ -2594,7 +2605,13 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
     await refreshHealth();
     await probeTailscaleComputers();
 
-    if (!isGatewayHealthOk(healthRef.current)) {
+    // Brand-new install: do not silent Find-computers + auto-select a Mac.
+    // That path persisted Tailscale/USB discoveries and showed Outdated connection
+    // before the stranger ever paired (Play reinstall with Tailscale on).
+    if (
+      !isGatewayHealthOk(healthRef.current) &&
+      shouldAutoScanOnBootstrap(profileStateRef.current.profiles)
+    ) {
       const profiles = await scanForGatewayProfiles();
       const active = activeProfile(profileStateRef.current);
       if (active) {
