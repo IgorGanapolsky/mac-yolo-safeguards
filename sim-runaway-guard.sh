@@ -81,6 +81,29 @@ notify() {
   # notification launches a blank Script Editor window (the 2026-06-02 bug),
   # so it's only a last-resort fallback when terminal-notifier is absent.
   local TITLE="$1"; local MSG="$2"; local OPEN_FILE="$3"
+  # --- Banner spam control (added 2026-07-17) ---------------------------------
+  # This guard fires every 60s; under sustained memory pressure the routine
+  # "reclaimed …" events banner-spammed the user relentlessly. Routine reclaims
+  # are now LOG-ONLY (the reclaim work still happens). Everything else is
+  # debounced so an identical TITLE banners at most once per
+  # YOLO_NOTIFY_DEBOUNCE_SEC (default 1800s). Full mute: YOLO_NOTIFY_QUIET=1.
+  local _sev=alert
+  case "$TITLE" in
+    *reclaimed*|*"forwarding active"*|*"USB forwarding"*|*"shut down"*|*"killed CodeQL"*) _sev=routine ;;
+  esac
+  if [ "${YOLO_NOTIFY_QUIET:-0}" = 1 ] || [ "$_sev" = routine ]; then
+    echo "$(date) NOTIFY(log-only,$_sev): $TITLE — $MSG" >> "$LOG"
+    return 0
+  fi
+  local _dbs=${YOLO_NOTIFY_DEBOUNCE_SEC:-1800}
+  local _key; _key=$(printf '%s' "$TITLE" | /usr/bin/shasum 2>/dev/null | /usr/bin/cut -c1-12)
+  local _stamp="${TMPDIR:-/tmp}/yolo-notify-${_key}.ts"
+  local _last=0; [ -f "$_stamp" ] && _last=$(/bin/cat "$_stamp" 2>/dev/null || echo 0)
+  if [ $(( $(date +%s) - _last )) -lt "$_dbs" ]; then
+    echo "$(date) NOTIFY(debounced): $TITLE — $MSG" >> "$LOG"
+    return 0
+  fi
+  date +%s > "$_stamp" 2>/dev/null || true
   # Off-box delivery (ntfy-compatible webhook): a thrashing Mac can't render
   # its own notification banners — push the alert to the user's phone instead.
   # Set YOLO_WEBHOOK_URL (or drop the URL in ~/.config/yolo-guard/webhook),
