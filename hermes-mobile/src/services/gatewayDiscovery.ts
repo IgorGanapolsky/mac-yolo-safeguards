@@ -39,8 +39,17 @@ function reportLanScanProgress(
   gateways: DiscoveredGateway[],
 ) {
   const linkCount = gateways.length;
-  const foundCount = countUniqueDiscoveredMachines(gateways);
-  onProgress?.({ stage, completedHosts, totalHosts, foundCount, linkCount });
+  const reach = summarizeDiscoveredReach(gateways);
+  onProgress?.({
+    stage,
+    completedHosts,
+    totalHosts,
+    foundCount: reach.foundCount,
+    linkCount,
+    lanCount: reach.lanCount,
+    tailscaleCount: reach.tailscaleCount,
+    usbCount: reach.usbCount,
+  });
 }
 
 export type PairServerPayload = {
@@ -309,6 +318,64 @@ export function dedupeDiscoveredGatewaysByMachine(
 
 export function countUniqueDiscoveredMachines(gateways: DiscoveredGateway[]): number {
   return dedupeDiscoveredGatewaysByMachine(gateways).length;
+}
+
+/** Winning reach path for a discovered gateway URL — Tailscale is never "local". */
+export type DiscoveredReachKind = 'lan' | 'tailscale' | 'usb' | 'other';
+
+export function classifyDiscoveredReach(item: DiscoveredGateway): DiscoveredReachKind {
+  if (isLoopbackGatewayUrl(item.gatewayUrl)) {
+    return 'usb';
+  }
+  if (isTailscaleGatewayUrl(item.gatewayUrl)) {
+    return 'tailscale';
+  }
+  const host = gatewayUrlHostname(item.gatewayUrl)?.toLowerCase() ?? '';
+  if (host && (isPrivateLanIpv4(host) || host.endsWith('.local'))) {
+    return 'lan';
+  }
+  return 'other';
+}
+
+/**
+ * Count unique computers by reach kind (after alias dedupe).
+ * Prefer winner URL from dedupeDiscoveredGatewaysByMachine — same identity as the picker.
+ */
+export function summarizeDiscoveredReach(gateways: DiscoveredGateway[]): {
+  foundCount: number;
+  lanCount: number;
+  tailscaleCount: number;
+  usbCount: number;
+  otherCount: number;
+} {
+  const unique = dedupeDiscoveredGatewaysByMachine(gateways);
+  let lanCount = 0;
+  let tailscaleCount = 0;
+  let usbCount = 0;
+  let otherCount = 0;
+  for (const item of unique) {
+    switch (classifyDiscoveredReach(item)) {
+      case 'lan':
+        lanCount += 1;
+        break;
+      case 'tailscale':
+        tailscaleCount += 1;
+        break;
+      case 'usb':
+        usbCount += 1;
+        break;
+      default:
+        otherCount += 1;
+        break;
+    }
+  }
+  return {
+    foundCount: unique.length,
+    lanCount,
+    tailscaleCount,
+    usbCount,
+    otherCount,
+  };
 }
 
 function mergeDiscovered(map: Map<string, DiscoveredGateway>, item: DiscoveredGateway | null) {

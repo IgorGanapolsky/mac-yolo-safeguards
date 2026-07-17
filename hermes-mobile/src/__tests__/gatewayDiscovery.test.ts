@@ -1,7 +1,9 @@
 import NetInfo from '@react-native-community/netinfo';
 import {
+  classifyDiscoveredReach,
   countUniqueDiscoveredMachines,
   dedupeDiscoveredGatewaysByMachine,
+  summarizeDiscoveredReach,
   discoverGatewayOnPhoneSubnet,
   discoverGatewayViaPairServer,
   discoverAllGatewaysOnLan,
@@ -174,6 +176,46 @@ describe('gatewayDiscovery', () => {
       }
     };
     expect(deduped.every((g) => isPreferredDiscoveryUrl(g.gatewayUrl))).toBe(true);
+
+    // Off-home / cellular: winners are Tailscale — never count as "local" LAN.
+    const reach = summarizeDiscoveredReach(aliases);
+    expect(reach).toEqual({
+      foundCount: 2,
+      lanCount: 0,
+      tailscaleCount: 2,
+      usbCount: 0,
+      otherCount: 0,
+    });
+    expect(deduped.every((g) => classifyDiscoveredReach(g) === 'tailscale')).toBe(true);
+  });
+
+  it('classifies RFC1918/.local as lan and loopback as usb (Tailscale CGNAT never lan)', () => {
+    expect(
+      classifyDiscoveredReach({
+        gatewayUrl: 'http://192.168.1.10:8642',
+        hostname: 'Home-Mac.local',
+      }),
+    ).toBe('lan');
+    expect(
+      classifyDiscoveredReach({
+        gatewayUrl: 'http://Igors-Mac.local:8642',
+      }),
+    ).toBe('lan');
+    expect(
+      classifyDiscoveredReach({
+        gatewayUrl: 'http://100.87.85.85:8642',
+      }),
+    ).toBe('tailscale');
+    expect(
+      classifyDiscoveredReach({
+        gatewayUrl: 'http://127.0.0.1:8642',
+      }),
+    ).toBe('usb');
+    expect(
+      summarizeDiscoveredReach([
+        { gatewayUrl: 'http://127.0.0.1:8642', hostname: 'Only-USB.local' },
+      ]),
+    ).toMatchObject({ foundCount: 1, usbCount: 1, lanCount: 0, tailscaleCount: 0 });
   });
 
   it('ignores poisoned RFC1918 localIp on Tailscale pair.json (mini URL + MacBook LAN IP)', async () => {

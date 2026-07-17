@@ -73,7 +73,7 @@ export default function MacScanProgressCard({
         testID={`${testID}-result`}
       >
         <Text style={[styles.resultTitle, success ? styles.resultSuccess : styles.resultWarn]}>
-          {formatLanScanResultLabel(result.foundCount)}
+          {formatLanScanResultLabel(result)}
         </Text>
         <Text style={styles.resultDetail}>{formatLanScanResultDetail(result)}</Text>
       </View>
