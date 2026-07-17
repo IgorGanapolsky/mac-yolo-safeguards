@@ -7,6 +7,13 @@ import {
 const HANDOFF_KEY = '@hermes_mobile_session_continuity_handoff_v1';
 const CHIP_DISMISSED_KEY = '@hermes_mobile_session_continuity_chip_dismissed_v1';
 
+function isSameHandoff(
+  existing: SessionContinuityHandoff | null,
+  next: SessionContinuityHandoff,
+): boolean {
+  return existing?.writtenAt === next.writtenAt;
+}
+
 export async function loadPendingContinuityHandoff(): Promise<SessionContinuityHandoff | null> {
   try {
     const raw = await AsyncStorage.getItem(HANDOFF_KEY);
@@ -21,8 +28,11 @@ export async function savePendingContinuityHandoff(
   handoff: SessionContinuityHandoff,
 ): Promise<void> {
   try {
+    const existing = await loadPendingContinuityHandoff();
     await AsyncStorage.setItem(HANDOFF_KEY, JSON.stringify(handoff));
-    await AsyncStorage.removeItem(CHIP_DISMISSED_KEY);
+    if (!isSameHandoff(existing, handoff)) {
+      await AsyncStorage.removeItem(CHIP_DISMISSED_KEY);
+    }
   } catch {
     // Best-effort local continuity — vault sync may still succeed.
   }
