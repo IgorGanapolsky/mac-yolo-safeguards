@@ -12,6 +12,7 @@ const DEFAULT_COMMANDS = [
   'hermes-yolo',
   'grok-yolo',
   'meta-yolo',
+  'opencode',
   'coco-yolo',
   '9router-yolo',
   'ali-yolo',
@@ -35,6 +36,7 @@ const PAID_CREDENTIAL_ENV = [
   'GEMINI_API_KEY',
   'GOOGLE_API_KEY',
   'META_MODEL_API_KEY',
+  'MODEL_API_KEY',
   'NVIDIA_API_KEY',
   'OPENAI_API_KEY',
   'OPENROUTER_API_KEY',
@@ -76,6 +78,7 @@ function locations(env = process.env) {
     receiptDir: env.HERMES_ZERO_SPEND_RECEIPT_DIR || path.join(home, '.hermes', 'receipts', 'zero-spend'),
     hermesEnv: path.join(home, '.hermes', '.env'),
     localHermesHome: path.join(stateDir, 'hermes-home'),
+    localOpenCodeHome: path.join(stateDir, 'opencode-home'),
     managedDir: path.join(stateDir, 'managed'),
   };
 }
@@ -174,7 +177,7 @@ function installCommand(name, manifest, env = process.env) {
   ) {
     return {
       ...previous,
-      policy: ['hermes-yolo', 'grok-yolo'].includes(name) ? 'local-only' : 'blocked',
+      policy: ['hermes-yolo', 'grok-yolo', 'opencode'].includes(name) ? 'local-only' : 'blocked',
     };
   }
 
@@ -207,7 +210,7 @@ function installCommand(name, manifest, env = process.env) {
     name,
     shimPath,
     original,
-    policy: ['hermes-yolo', 'grok-yolo'].includes(name) ? 'local-only' : 'blocked',
+    policy: ['hermes-yolo', 'grok-yolo', 'opencode'].includes(name) ? 'local-only' : 'blocked',
   };
 }
 
@@ -294,6 +297,47 @@ function localConfig(model) {
     '    - computer_use',
     '',
   ].join('\n');
+}
+
+function localOpenCodeConfig(model) {
+  const modelId = `ollama/${model}`;
+  return {
+    $schema: 'https://opencode.ai/config.json',
+    model: modelId,
+    small_model: modelId,
+    share: 'disabled',
+    autoupdate: false,
+    enabled_providers: ['ollama'],
+    plugin: [],
+    provider: {
+      ollama: {
+        npm: '@ai-sdk/openai-compatible',
+        name: 'Ollama Local Zero Spend',
+        options: {
+          baseURL: 'http://127.0.0.1:11434/v1',
+        },
+        models: {
+          [model]: {
+            name: `${model} (local zero spend)`,
+            limit: {
+              context: modelContextLength(model),
+              output: 8192,
+            },
+          },
+        },
+      },
+    },
+    compaction: {
+      auto: true,
+      prune: true,
+      reserved: 10000,
+    },
+    permission: {
+      webfetch: 'deny',
+      websearch: 'deny',
+      external_directory: 'deny',
+    },
+  };
 }
 
 function managedEnv() {
@@ -508,10 +552,13 @@ function restoreMacPolicy(manifest, env = process.env) {
 function installPolicyFiles(model, manifest, env = process.env) {
   const loc = locations(env);
   fs.mkdirSync(loc.localHermesHome, { recursive: true, mode: 0o700 });
+  fs.mkdirSync(loc.localOpenCodeHome, { recursive: true, mode: 0o700 });
   fs.mkdirSync(loc.managedDir, { recursive: true, mode: 0o700 });
   const config = localConfig(model);
+  const openCodeConfig = `${JSON.stringify(localOpenCodeConfig(model), null, 2)}\n`;
   writePrivateFile(path.join(loc.localHermesHome, 'config.yaml'), config);
   writePrivateFile(path.join(loc.localHermesHome, '.env'), '# zero-spend profile: no provider credentials\n');
+  writePrivateFile(path.join(loc.localOpenCodeHome, 'opencode.json'), openCodeConfig);
   writePrivateFile(path.join(loc.managedDir, 'config.yaml'), config);
   writePrivateFile(path.join(loc.managedDir, '.env'), managedEnv());
   if (!Object.hasOwn(manifest, 'previousManagedDir')) {
@@ -615,6 +662,7 @@ function status(env = process.env) {
     manifestMode: safeMode(loc.manifest),
     gateMode: safeMode(loc.installedGate),
     localConfigMode: safeMode(path.join(loc.localHermesHome, 'config.yaml')),
+    localOpenCodeConfigMode: safeMode(path.join(loc.localOpenCodeHome, 'opencode.json')),
     managedConfigMode: safeMode(path.join(loc.managedDir, 'config.yaml')),
     managedEnvMode: safeMode(path.join(loc.managedDir, '.env')),
     globalHermesPolicyActive: envAssignment(loc.hermesEnv, 'HERMES_MANAGED_DIR') === loc.managedDir,
@@ -764,8 +812,31 @@ function localOnlyGrokEnv(env, model) {
   return childEnv;
 }
 
+function localOnlyOpenCodeEnv(env, model) {
+  const childEnv = { ...env };
+  for (const name of PAID_CREDENTIAL_ENV) childEnv[name] = '';
+  const loc = locations(env);
+  const config = localOpenCodeConfig(model);
+  const configPath = path.join(loc.localOpenCodeHome, 'opencode.json');
+  Object.assign(childEnv, {
+    HERMES_ZERO_SPEND: '1',
+    OPENCODE_CONFIG: configPath,
+    OPENCODE_CONFIG_DIR: loc.localOpenCodeHome,
+    OPENCODE_CONFIG_CONTENT: JSON.stringify(config),
+    OPENCODE_AUTO_SHARE: 'false',
+    OPENCODE_DISABLE_AUTOUPDATE: '1',
+    OPENCODE_DISABLE_DEFAULT_PLUGINS: '1',
+    OPENCODE_DISABLE_MODELS_FETCH: '1',
+    OPENCODE_ENABLE_EXA: '0',
+    XDG_CACHE_HOME: path.join(loc.localOpenCodeHome, 'cache'),
+    XDG_DATA_HOME: path.join(loc.localOpenCodeHome, 'data'),
+    XDG_STATE_HOME: path.join(loc.localOpenCodeHome, 'state'),
+  });
+  return childEnv;
+}
+
 function isLocalOnlyCommand(command) {
-  return command === 'hermes-yolo' || command === 'grok-yolo';
+  return command === 'hermes-yolo' || command === 'grok-yolo' || command === 'opencode';
 }
 
 function writeReceipt(command, outcome, details = {}, env = process.env) {
@@ -827,12 +898,18 @@ function runCommand(name, args, env = process.env) {
   }
   const childEnv = name === 'grok-yolo'
     ? localOnlyGrokEnv(env, model)
-    : localOnlyEnv(env, model);
+    : name === 'opencode'
+      ? localOnlyOpenCodeEnv(env, model)
+      : localOnlyEnv(env, model);
   const exitCode = spawnOriginal(entry, args, childEnv);
   writeReceipt(name, exitCode === 0 ? 'local-pass' : 'local-fail', {
     originalSpawned: true,
     model,
-    backend: name === 'grok-yolo' ? 'grok-build-ollama' : LOCAL_PROVIDER,
+    backend: name === 'grok-yolo'
+      ? 'grok-build-ollama'
+      : name === 'opencode'
+        ? 'opencode-ollama'
+        : LOCAL_PROVIDER,
     inferenceScope: 'local',
     providerCostUsd: 0,
     exitCode,
@@ -878,7 +955,9 @@ module.exports = {
   isLocalOnlyCommand,
   localOnlyEnv,
   localOnlyGrokEnv,
+  localOnlyOpenCodeEnv,
   localConfig,
+  localOpenCodeConfig,
   locations,
   main,
   markerActive,

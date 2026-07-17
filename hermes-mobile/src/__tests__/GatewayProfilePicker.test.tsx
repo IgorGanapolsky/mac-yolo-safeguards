@@ -41,6 +41,27 @@ describe('GatewayProfilePicker', () => {
     expect(getByText(/Mac Mini/)).toBeTruthy();
   });
 
+  it('hides MacScanProgressCard when hideScanCard is set (unified picker status)', () => {
+    const { queryByTestId, getByTestId } = render(
+      <GatewayProfilePicker
+        profiles={profiles}
+        activeProfileId="mac_192_168_12_208"
+        onSelect={jest.fn()}
+        scanning
+        scanProgress={{
+          stage: 'gateway_health',
+          completedHosts: 1,
+          totalHosts: 4,
+          foundCount: 0,
+        }}
+        hideScanCard
+      />,
+    );
+    expect(queryByTestId('mac-scan-progress')).toBeNull();
+    expect(getByTestId('gateway-profile-list')).toBeTruthy();
+    expect(getByTestId('gateway-profile-item-mac_192_168_12_208')).toBeTruthy();
+  });
+
   it('calls onSelect when profile tapped', () => {
     const onSelect = jest.fn();
     const { getByTestId } = render(
