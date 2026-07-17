@@ -34,14 +34,15 @@ describe('lanScanLabels', () => {
   });
 
   it('formats stage labels without treating link aliases as computers', () => {
-    expect(
-      formatLanScanStageLabel({
-        stage: 'pair_server',
-        completedHosts: 25,
-        totalHosts: 100,
-        foundCount: 0,
-      }),
-    ).toContain('25%');
+    const pairServerStage = formatLanScanStageLabel({
+      stage: 'pair_server',
+      completedHosts: 25,
+      totalHosts: 100,
+      foundCount: 0,
+    });
+    expect(pairServerStage).toContain('25%');
+    expect(pairServerStage).toContain('Searching for Hermes computers');
+    expect(pairServerStage).not.toMatch(/local/i);
 
     const midScan = formatLanScanStageLabel({
       stage: 'gateway_health',

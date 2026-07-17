@@ -49,9 +49,9 @@ export function formatLanScanStageLabel(progress: LanScanProgress): string {
   const links = progress.linkCount ?? 0;
   if (progress.stage === 'pair_server') {
     if (links > progress.foundCount && progress.foundCount > 0) {
-      return `Scanning local network for Hermes (${pct}%) · checking ${links} links across ${progress.foundCount} ${nounComputer(progress.foundCount)}`;
+      return `Searching for Hermes computers (${pct}%) · checking ${links} links across ${progress.foundCount} ${nounComputer(progress.foundCount)}`;
     }
-    return `Scanning local network for Hermes (${pct}%)${computersHint}`;
+    return `Searching for Hermes computers (${pct}%)${computersHint}`;
   }
   if (links > progress.foundCount && progress.foundCount > 0) {
     return `Checking direct Hermes links (${pct}%) · ${links} links across ${progress.foundCount} ${nounComputer(progress.foundCount)}`;
