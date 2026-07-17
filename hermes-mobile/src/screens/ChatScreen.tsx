@@ -42,6 +42,7 @@ import { isDemoModeAllowed } from '../utils/demoModePolicy';
 import { haptics } from '../services/haptics';
 import { scheduleRunCompletedNotification } from '../services/hermesNotifications';
 import GatewayProfilePicker from '../components/GatewayProfilePicker';
+import ComputerPickerStatusRegion from '../components/ComputerPickerStatusRegion';
 import ManualComputerAddressForm from '../components/ManualComputerAddressForm';
 import { confirmForgetGatewayProfile } from '../utils/confirmForgetGatewayProfile';
 import { profileDisplayName } from '../services/gatewayProfiles';
@@ -326,7 +327,6 @@ import {
   profilesForSwitchComputerPicker,
   type LiveUsbPickerInput,
 } from '../utils/gatewayProfilePicker';
-import TailscaleDiscoveryBanner from '../components/TailscaleDiscoveryBanner';
 import { USB_LOOPBACK_GATEWAY_URL } from '../utils/gatewayLoopbackFallback';
 import {
   isMacGatewayHttpOk,
@@ -6959,13 +6959,17 @@ export default function ChatScreen() {
                 Pick the computer you want to use. If this phone is plugged into a Mac, that one
                 is preferred automatically. Tap Find computers if yours is missing.
               </Text>
-              <View style={styles.macSetupCard} testID="mac-picker-setup-help">
-                <Text style={styles.macSetupTitle}>Missing your other machine?</Text>
-                <Text style={styles.macSetupText}>
-                  Start Hermes on your other machine, keep Tailscale on for both devices, then tap
-                  Find computers. Or add your Mac below with its Tailscale name or 100.x address.
-                </Text>
-              </View>
+              <ComputerPickerStatusRegion
+                scanning={profileScanning || isScanningMacs}
+                scanProgress={profileScanProgress}
+                scanResult={profileScanResult}
+                tailscaleProbing={tailscaleDiscoveryProbing}
+                tailscaleDiscoveries={tailscaleDiscoveries}
+                addingTailscale={tailscaleDiscoveryProbing}
+                onAddTailscale={(discovery) => {
+                  void addDiscoveredTailscaleComputer(discovery);
+                }}
+              />
               <ManualComputerAddressForm
                 pickerMode
                 testIDPrefix="mac-picker-manual"
@@ -6974,17 +6978,6 @@ export default function ChatScreen() {
                   setMacPickerVisible(false);
                 }}
               />
-              {tailscaleDiscoveries.length > 0 || tailscaleDiscoveryProbing ? (
-                <TailscaleDiscoveryBanner
-                  discoveries={tailscaleDiscoveries}
-                  adding={tailscaleDiscoveryProbing}
-                  probing={tailscaleDiscoveryProbing && tailscaleDiscoveries.length === 0}
-                  onAdd={(discovery) => {
-                    void addDiscoveredTailscaleComputer(discovery);
-                  }}
-                  prominent
-                />
-              ) : null}
               <GatewayProfilePicker
                 profiles={switchComputerProfiles}
                 activeProfileId={activeGatewayProfile?.id ?? null}
@@ -6995,6 +6988,7 @@ export default function ChatScreen() {
                 scanning={profileScanning || isScanningMacs}
                 scanProgress={profileScanProgress}
                 scanResult={profileScanResult}
+                hideScanCard
                 wifiConnected={wifiConnected}
                 showReachabilityHints={switchComputerProfiles.length > 1}
                 liveUsb={liveUsbGateway}
@@ -7792,25 +7786,6 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: colors.textMuted,
     marginBottom: 12,
-    lineHeight: 16,
-  },
-  macSetupCard: {
-    backgroundColor: 'rgba(34, 211, 238, 0.08)',
-    borderColor: 'rgba(34, 211, 238, 0.28)',
-    borderWidth: 1,
-    borderRadius: 10,
-    padding: 12,
-    marginBottom: 12,
-  },
-  macSetupTitle: {
-    fontSize: 12,
-    fontWeight: '800',
-    color: colors.accent,
-    marginBottom: 6,
-  },
-  macSetupText: {
-    fontSize: 11,
-    color: colors.textSecondary,
     lineHeight: 16,
   },
   fieldLabel: {
