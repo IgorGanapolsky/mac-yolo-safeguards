@@ -5,6 +5,8 @@ import type { PendingApproval } from '../types/gateway';
 import {
   runCompletedNotificationBody,
   runProgressNotificationBody,
+  runProgressNotificationJourneyKey,
+  runProgressNotificationSubtitleFromState,
   runProgressNotificationTitleFromState,
 } from '../utils/runNotificationCopy';
 import {
@@ -43,15 +45,18 @@ const CHANNEL_RESULTS_LEGACY = 'hermes-results';
 export const CHANNEL_STATUS_V2 = 'hermes-status-v2';
 export const CHANNEL_RESULTS_V2 = 'hermes-results-v2';
 const RUN_STATUS_NOTIFICATION_ID = 'hermes-run-status';
-const RUN_COMPLETED_NOTIFICATION_ID = 'hermes-run-completed';
 
 const notifiedApprovalIds = new Set<string>();
 
 const THREAD_APPROVALS = 'hermes.thread.approvals';
 const THREAD_RUNS = 'hermes.thread.runs';
 const NOTIFICATION_COLOR = '#6366F1';
+// Expo enum value is stable and avoids requiring the runtime enum in Jest.
+const ANDROID_PRIVATE_VISIBILITY = 2 as import('expo-notifications').AndroidNotificationVisibility;
 
 let lastRunStatusAt = 0;
+let lastRunStatusJourneyKey = '';
+let lastRunStatusContentSignature = '';
 /** Hard ceiling on shade updates — never heads-up; keep shade quiet too. */
 export const RUN_STATUS_MIN_INTERVAL_MS = 15_000;
 /** Do not re-alert approval summary on every relay poll tick. */
@@ -166,7 +171,10 @@ export function resolveHermesNotificationHandlerResult(
 
 /** Cancel sticky run-status + stall notifications (safe when backgrounded). */
 export async function dismissActiveRunNotifications(): Promise<void> {
-  await clearRunProgressNotification();
+  // Foregrounding hides the system card but must not erase its semantic
+  // signature. Otherwise the same unchanged run is posted again every time the
+  // user backgrounds the app.
+  await clearRunProgressNotification({ resetDedupe: false });
   await cancelRunStallNotification();
 }
 
@@ -287,7 +295,7 @@ export async function initHermesNotifications(): Promise<void> {
       name: 'Live run status (quiet)',
       description: 'Silent status-bar updates while Hermes works — never heads-up',
       importance: androidStatusChannelImportance(Notifications.AndroidImportance),
-      lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
+      lockscreenVisibility: ANDROID_PRIVATE_VISIBILITY,
       enableVibrate: false,
       showBadge: false,
     });
@@ -295,7 +303,7 @@ export async function initHermesNotifications(): Promise<void> {
       name: 'Completion / stall (quiet)',
       description: 'Silent shade notices when a background task finishes or stalls',
       importance: androidStatusChannelImportance(Notifications.AndroidImportance),
-      lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
+      lockscreenVisibility: ANDROID_PRIVATE_VISIBILITY,
       enableVibrate: false,
       showBadge: false,
     });
@@ -616,15 +624,6 @@ export async function scheduleRunProgressNotification(
     return;
   }
 
-  const now = Date.now();
-  // Always rate-limit — `force` must NOT re-heads-up on every stream token.
-  // force only shortens the first background paint (2s floor); never below that.
-  const minInterval = options?.force ? 2_000 : RUN_STATUS_MIN_INTERVAL_MS;
-  if (now - lastRunStatusAt < minInterval) {
-    return;
-  }
-  lastRunStatusAt = now;
-
   const replySnippet = options?.replySnippet ?? progress.replyPreview;
   const body = runProgressNotificationBody({
     phase: progress.phase,
@@ -636,13 +635,40 @@ export async function scheduleRunProgressNotification(
     detail: progress.detail,
     replySnippet,
   });
+  const subtitle = runProgressNotificationSubtitleFromState({
+    phase: progress.phase,
+    detail: progress.detail,
+  });
+  const runId = options?.runId ?? progress.runId;
+  const sessionId = options?.sessionId ?? progress.sessionId;
+  const journeyKey = runProgressNotificationJourneyKey({
+    phase: progress.phase,
+    runId,
+    sessionId,
+  });
+  const contentSignature = [journeyKey, title, subtitle, body].join('|');
+  if (contentSignature === lastRunStatusContentSignature) {
+    return;
+  }
+
+  const now = Date.now();
+  const changedJourney = journeyKey !== lastRunStatusJourneyKey;
+  // Journey transitions paint immediately. Streaming text/detail churn within
+  // one journey remains rate-limited so token events cannot hammer Android.
+  const minInterval = options?.force ? 2_000 : RUN_STATUS_MIN_INTERVAL_MS;
+  if (!changedJourney && now - lastRunStatusAt < minInterval) {
+    return;
+  }
+  lastRunStatusAt = now;
+  lastRunStatusJourneyKey = journeyKey;
+  lastRunStatusContentSignature = contentSignature;
 
   // Same identifier → in-place update. Do not cancel+recreate (retriggers heads-up).
   await Notifications.scheduleNotificationAsync({
     identifier: RUN_STATUS_NOTIFICATION_ID,
     content: {
       title,
-      subtitle: 'Computer',
+      subtitle,
       body,
       categoryIdentifier: CATEGORY_RUN,
       threadIdentifier: THREAD_RUNS,
@@ -654,14 +680,15 @@ export async function scheduleRunProgressNotification(
             channelId: CHANNEL_STATUS_V2,
             color: NOTIFICATION_COLOR,
             priority: Notifications.AndroidNotificationPriority.LOW,
+            visibility: ANDROID_PRIVATE_VISIBILITY,
             sticky: true,
             autoDismiss: false,
           }
         : {}),
       data: {
         type: 'run_progress',
-        runId: options?.runId ?? progress.runId,
-        sessionId: options?.sessionId ?? progress.sessionId,
+        runId,
+        sessionId,
         phase: progress.phase,
       },
     } as NotificationContentInput,
@@ -693,8 +720,6 @@ export async function scheduleRunCompletedNotification(
     return;
   }
 
-  await clearRunProgressNotification();
-
   const success = options?.success ?? true;
   const body = runCompletedNotificationBody(detail, {
     success,
@@ -709,7 +734,9 @@ export async function scheduleRunCompletedNotification(
   const title = success ? (hasReplyText ? 'Hermes replied' : 'Hermes finished') : 'Hermes run stopped';
 
   await Notifications.scheduleNotificationAsync({
-    identifier: RUN_COMPLETED_NOTIFICATION_ID,
+    // Replace the ongoing card in place. Cancel+recreate causes a visible gap
+    // and can briefly show two Hermes cards on OEM notification surfaces.
+    identifier: RUN_STATUS_NOTIFICATION_ID,
     content: {
       title,
       subtitle: success ? 'Reply received' : 'Check chat for details',
@@ -724,6 +751,9 @@ export async function scheduleRunCompletedNotification(
             channelId: CHANNEL_RESULTS_V2,
             color: NOTIFICATION_COLOR,
             priority: Notifications.AndroidNotificationPriority.LOW,
+            visibility: ANDROID_PRIVATE_VISIBILITY,
+            sticky: false,
+            autoDismiss: true,
           }
         : {}),
       data: {
@@ -735,9 +765,23 @@ export async function scheduleRunCompletedNotification(
     } as NotificationContentInput,
     trigger: null,
   });
+  lastRunStatusAt = Date.now();
+  lastRunStatusJourneyKey = runProgressNotificationJourneyKey({
+    phase: success ? 'completed' : 'failed',
+    runId: options?.runId,
+    sessionId: options?.sessionId,
+  });
+  lastRunStatusContentSignature = [
+    lastRunStatusJourneyKey,
+    title,
+    success ? 'Reply received' : 'Check chat for details',
+    body,
+  ].join('|');
 }
 
-export async function clearRunProgressNotification(): Promise<void> {
+export async function clearRunProgressNotification(
+  options: { resetDedupe?: boolean } = {},
+): Promise<void> {
   const Notifications = await loadNotifications();
   if (!Notifications) {
     return;
@@ -748,7 +792,11 @@ export async function clearRunProgressNotification(): Promise<void> {
   } catch {
     /* ignore */
   }
-  lastRunStatusAt = 0;
+  if (options.resetDedupe ?? true) {
+    lastRunStatusAt = 0;
+    lastRunStatusJourneyKey = '';
+    lastRunStatusContentSignature = '';
+  }
 }
 
 export const RUN_STALL_NOTIFICATION_ID = 'hermes-run-stall';

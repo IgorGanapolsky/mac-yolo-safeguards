@@ -3,6 +3,8 @@ import {
   normalizeReplySnippet,
   runCompletedNotificationBody,
   runProgressNotificationBody,
+  runProgressNotificationJourneyKey,
+  runProgressNotificationSubtitleFromState,
   runProgressNotificationTitleFromState,
   stripElapsedFromStatus,
 } from '../utils/runNotificationCopy';
@@ -62,5 +64,29 @@ describe('runNotificationCopy', () => {
   it('detects reply-ready status phrases', () => {
     expect(isReplyReadyDetail('Reply ready on your computer')).toBe(true);
     expect(isReplyReadyDetail('compiling project')).toBe(false);
+  });
+
+  it('uses compact semantic stages instead of a generic Computer subtitle', () => {
+    expect(runProgressNotificationSubtitleFromState({ phase: 'sending' })).toBe('Sending');
+    expect(runProgressNotificationSubtitleFromState({ phase: 'streaming' })).toBe('Writing reply');
+    expect(
+      runProgressNotificationSubtitleFromState({ phase: 'working', detail: 'Terminal · npm test' }),
+    ).toBe('Using tools');
+    expect(runProgressNotificationSubtitleFromState({ phase: 'completed' })).toBe('Reply received');
+  });
+
+  it('dedupes running and working as the same journey phase', () => {
+    expect(runProgressNotificationJourneyKey({ phase: 'running', runId: 'r1', sessionId: 's1' })).toBe(
+      runProgressNotificationJourneyKey({ phase: 'working', runId: 'r1', sessionId: 's1' }),
+    );
+  });
+
+  it('suppresses repeated generic tool boilerplate', () => {
+    expect(
+      runProgressNotificationBody({
+        phase: 'working',
+        detail: 'Hermes may be using tools (browser, search, terminal).',
+      }),
+    ).toBe('Working on your request…');
   });
 });

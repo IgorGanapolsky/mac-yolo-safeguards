@@ -11,7 +11,7 @@ const ELAPSED_LEAD_RE =
 
 const REPLY_READY_RE = /reply ready/i;
 const STATUS_ONLY_RE =
-  /^(reply ready on your computer|task finished|background task completed\.?|hermes is working.*|working on your computer.*)$/i;
+  /^(reply ready on your computer|task finished|background task completed\.?|hermes is working.*|working on your computer.*|hermes may be using tools.*|delivering your message.*)$/i;
 
 /** Collapse whitespace and strip outer quotes for a lock-screen snippet. */
 export function normalizeReplySnippet(raw: string | null | undefined): string {
@@ -78,10 +78,55 @@ export function runProgressNotificationTitleFromState(input: {
   if (phase === 'failed') {
     return 'Hermes run stopped';
   }
+  if (phase === 'sending') {
+    return 'Sending your message';
+  }
   if (phase === 'streaming' || hasSnippet) {
     return 'Hermes is responding';
   }
   return 'Hermes is working';
+}
+
+/** Compact journey stage shown above the notification body. */
+export function runProgressNotificationSubtitleFromState(input: {
+  phase?: string | null;
+  detail?: string | null;
+}): string {
+  const phase = (input.phase ?? '').toLowerCase();
+  const detail = (input.detail ?? '').toLowerCase();
+  if (phase === 'approval') {
+    return 'Action required';
+  }
+  if (phase === 'completed') {
+    return 'Reply received';
+  }
+  if (phase === 'failed') {
+    return 'Open chat for details';
+  }
+  if (phase === 'sending') {
+    return 'Sending';
+  }
+  if (phase === 'streaming') {
+    return 'Writing reply';
+  }
+  if (/terminal|browser|search|tool|command/.test(detail)) {
+    return 'Using tools';
+  }
+  return 'Working';
+}
+
+/**
+ * Stable journey key. Phase transitions may update immediately, while body
+ * changes within one phase remain rate-limited and identical poll ticks dedupe.
+ */
+export function runProgressNotificationJourneyKey(input: {
+  phase?: string | null;
+  runId?: string | null;
+  sessionId?: string | null;
+}): string {
+  const phase = (input.phase ?? 'working').trim().toLowerCase();
+  const normalizedPhase = phase === 'running' ? 'working' : phase;
+  return [input.runId?.trim() || '-', input.sessionId?.trim() || '-', normalizedPhase].join('|');
 }
 
 /**
@@ -108,7 +153,7 @@ export function runProgressNotificationBody(input: {
 
   const phase = (input.phase ?? '').toLowerCase();
   if (phase === 'streaming') {
-    return 'Writing a reply on your computer…';
+    return 'Writing your reply…';
   }
   if (phase === 'completed') {
     return 'Reply ready — open chat to read it.';
@@ -117,9 +162,12 @@ export function runProgressNotificationBody(input: {
     return 'The run ended with an error. Open chat for details.';
   }
   if (phase === 'approval') {
-    return 'Your computer is waiting for an approval.';
+    return 'Approval required before Hermes can continue.';
   }
-  return 'Working on your computer…';
+  if (phase === 'sending') {
+    return 'Sending to Hermes…';
+  }
+  return 'Working on your request…';
 }
 
 /** Body for one-shot completion notifications (results channel). */

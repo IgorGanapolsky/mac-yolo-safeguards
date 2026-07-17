@@ -5,6 +5,7 @@ import {
   CHANNEL_STATUS_V2,
   clearRunProgressNotification,
   cancelRunStallNotification,
+  dismissActiveRunNotifications,
   initHermesNotifications,
   parseApprovalNotificationResponse,
   parseHermesNotificationResponse,
@@ -242,6 +243,8 @@ describe('hermesNotifications', () => {
       expect(call.identifier).toBe('hermes-run-status');
       expect(call.content.channelId).toBe(CHANNEL_STATUS_V2);
       expect(call.content.priority).toBe(Notifications.AndroidNotificationPriority.LOW);
+      expect(call.content.visibility).toBe(2);
+      expect(call.content.subtitle).toBe('Writing reply');
       expect(call.content.data.type).toBe('run_progress');
     });
 
@@ -270,6 +273,7 @@ describe('hermesNotifications', () => {
       });
 
       const call = (Notifications.scheduleNotificationAsync as jest.Mock).mock.calls[0][0];
+      expect(call.identifier).toBe('hermes-run-status');
       expect(call.content.title).toBe('Hermes replied');
       expect(call.content.subtitle).toBe('Reply received');
       expect(call.content.body).toBe('The OTA fix is merged and ready to verify.');
@@ -293,23 +297,83 @@ describe('hermesNotifications', () => {
       expect(call.content.body).not.toContain('3 min');
     });
 
-    it('rate-limits even when force is set so stream tokens cannot spam', async () => {
+    it('dedupes identical poll ticks and rate-limits content churn within one phase', async () => {
       await scheduleRunProgressNotification(
-        { phase: 'streaming', startedAtMs: Date.now() },
+        { phase: 'streaming', startedAtMs: Date.now(), replyPreview: 'First token' },
         { force: true },
       );
       await scheduleRunProgressNotification(
-        { phase: 'streaming', startedAtMs: Date.now() },
+        { phase: 'streaming', startedAtMs: Date.now(), replyPreview: 'First token' },
         { force: true },
       );
       expect(Notifications.scheduleNotificationAsync).toHaveBeenCalledTimes(1);
 
       jest.setSystemTime(1_000_000 + 2_500);
       await scheduleRunProgressNotification(
-        { phase: 'streaming', startedAtMs: Date.now() },
+        { phase: 'streaming', startedAtMs: Date.now(), replyPreview: 'First token' },
+        { force: true },
+      );
+      expect(Notifications.scheduleNotificationAsync).toHaveBeenCalledTimes(1);
+
+      await scheduleRunProgressNotification(
+        { phase: 'streaming', startedAtMs: Date.now(), replyPreview: 'First useful sentence.' },
         { force: true },
       );
       expect(Notifications.scheduleNotificationAsync).toHaveBeenCalledTimes(2);
+    });
+
+    it('paints a semantic phase transition immediately inside the content throttle window', async () => {
+      await scheduleRunProgressNotification(
+        { phase: 'sending', startedAtMs: Date.now() },
+        { runId: 'run-transition', force: true },
+      );
+      await scheduleRunProgressNotification(
+        { phase: 'working', startedAtMs: Date.now(), detail: 'Terminal · npm test' },
+        { runId: 'run-transition', force: true },
+      );
+
+      expect(Notifications.scheduleNotificationAsync).toHaveBeenCalledTimes(2);
+      const second = (Notifications.scheduleNotificationAsync as jest.Mock).mock.calls[1][0];
+      expect(second.content.subtitle).toBe('Using tools');
+    });
+
+    it('does not repost an unchanged run every time the app is backgrounded', async () => {
+      const progress = {
+        phase: 'working',
+        startedAtMs: Date.now() - 60_000,
+        detail: 'Working on your request',
+        runId: 'run-background',
+      };
+      await scheduleRunProgressNotification(progress, { force: true });
+      expect(Notifications.scheduleNotificationAsync).toHaveBeenCalledTimes(1);
+
+      await dismissActiveRunNotifications();
+      expect(Notifications.dismissNotificationAsync).toHaveBeenCalledWith('hermes-run-status');
+      jest.clearAllMocks();
+
+      await scheduleRunProgressNotification(progress, { force: true });
+      expect(Notifications.scheduleNotificationAsync).not.toHaveBeenCalled();
+    });
+
+    it('replaces the ongoing card in place on completion without dismissing it first', async () => {
+      await scheduleRunProgressNotification(
+        { phase: 'working', startedAtMs: Date.now() },
+        { runId: 'run-complete', force: true },
+      );
+      jest.clearAllMocks();
+
+      await scheduleRunCompletedNotification('The verified result is ready.', {
+        runId: 'run-complete',
+        success: true,
+      });
+
+      expect(Notifications.dismissNotificationAsync).not.toHaveBeenCalled();
+      expect(Notifications.cancelScheduledNotificationAsync).not.toHaveBeenCalled();
+      const call = (Notifications.scheduleNotificationAsync as jest.Mock).mock.calls[0][0];
+      expect(call.identifier).toBe('hermes-run-status');
+      expect(call.content.visibility).toBe(2);
+      expect(call.content.sticky).toBe(false);
+      expect(call.content.autoDismiss).toBe(true);
     });
 
     it('registers quiet v2 channels at LOW importance during init', async () => {
@@ -319,6 +383,8 @@ describe('hermesNotifications', () => {
       const results = channelCalls.find((c) => c[0] === CHANNEL_RESULTS_V2);
       expect(status?.[1].importance).toBe(Notifications.AndroidImportance.LOW);
       expect(results?.[1].importance).toBe(Notifications.AndroidImportance.LOW);
+      expect(status?.[1].lockscreenVisibility).toBe(2);
+      expect(results?.[1].lockscreenVisibility).toBe(2);
       expect(status?.[1].importance).toBeLessThan(Notifications.AndroidImportance.HIGH);
     });
   });
