@@ -10,11 +10,12 @@ function read(p: string): string {
 }
 
 describe('store listing metadata contract (stellar live)', () => {
-  it('Play short description is hybrid C within 80 chars', () => {
+  it('Play short description is Mac-remote wedge within 80 chars', () => {
     const short = read(path.join(ANDROID, 'short_description.txt'));
     expect(short.length).toBeLessThanOrEqual(80);
     expect(short).toMatch(/Mac/i);
     expect(short).toMatch(/19\.99/);
+    expect(short).toMatch(/not phone AI/i);
   });
 
   it('Play full description does not claim iOS is still in review', () => {
@@ -23,6 +24,9 @@ describe('store listing metadata contract (stellar live)', () => {
     expect(full).not.toMatch(/iOS is in App Store review/i);
     // Accept "live on App Store" or "live on the App Store" (CDN/FAQ wording variants)
     expect(full).toMatch(/live on (the )?App Store/i);
+    expect(full).toMatch(/Looking for .Hermes Agent/i);
+    expect(full).toMatch(/Tailscale/i);
+    expect(full).toMatch(/Hen Works/i);
   });
 
   it('Play phone screenshots are present and distinct filenames', () => {
@@ -41,10 +45,14 @@ describe('store listing metadata contract (stellar live)', () => {
   it('iOS subtitle and promo fit limits and avoid review-stale language', () => {
     const subtitle = read(path.join(IOS, 'subtitle.txt'));
     const promo = read(path.join(IOS, 'promotional_text.txt'));
+    const keywords = read(path.join(IOS, 'keywords.txt'));
     expect(subtitle.length).toBeLessThanOrEqual(30);
     expect(promo.length).toBeLessThanOrEqual(170);
+    expect(keywords.length).toBeLessThanOrEqual(100);
     expect(promo).not.toMatch(/in App Store review/i);
     expect(subtitle).not.toMatch(/Claude Code|Cursor/i);
+    expect(subtitle).toMatch(/not phone/i);
+    expect(promo).toMatch(/phone-local Hermes Agent|Not the phone-local/i);
   });
 
   it('review prompt threshold is first approval (stellar bar)', () => {
