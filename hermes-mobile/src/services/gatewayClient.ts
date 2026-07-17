@@ -37,15 +37,16 @@ export function buildAuthHeaders(apiKey?: string | null): Record<string, string>
   return headers;
 }
 
-export const GATEWAY_WRONG_KEY_MESSAGE = 'Wrong key for this computer';
-export const GATEWAY_AUTH_REPAIR_HEADER = 'Wrong key — tap Find computers';
+/** Consumer-facing auth-mismatch label — never say "API key". */
+export const GATEWAY_WRONG_KEY_MESSAGE = 'Outdated connection';
+export const GATEWAY_AUTH_REPAIR_HEADER = 'Outdated connection — tap to reconnect';
 export const GATEWAY_AUTH_REPAIR_SETTINGS_STATUS = 'Needs re-pair';
 
-/** Primary CTA is Find computers — never Settings homework as the lead path. */
+/** Primary CTA is Re-pair this Mac — never Settings paste as the lead path. */
 export function gatewayAuthRepairBanner(machineLabel?: string | null): string {
   const target = machineLabel?.trim() || 'your computer';
   return (
-    `Wrong key for ${target}. Tap the computer name above → Find computers to re-pair.`
+    `Outdated connection for ${target}. Tap Re-pair this Mac to reconnect.`
   );
 }
 

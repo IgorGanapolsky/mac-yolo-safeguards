@@ -81,7 +81,7 @@ export function isForwardProgress(previous: ConnectionStage, next: ConnectionSta
 const REASON_COPY: Record<ConnectionReasonCode, string> = {
   usb_missing: 'No cable detected — plug in USB or connect over Wi‑Fi.',
   port_closed: 'Computer is on the network but the Hermes gateway port is not responding.',
-  auth_failed: 'Wrong key for this computer — re-pair to fix.',
+  auth_failed: 'Outdated connection — tap Re-pair this Mac to reconnect.',
   event_socket_optional: 'Connected. Live updates are reconnecting in the background.',
 };
 
