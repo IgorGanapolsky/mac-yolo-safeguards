@@ -433,7 +433,7 @@ export default function SettingsScreen() {
       if (!demoMode) {
         Alert.alert(
           'Scan failed',
-          err instanceof Error ? err.message : 'Could not search for local Hermes machines.',
+          err instanceof Error ? err.message : 'Could not search for Hermes computers.',
         );
       }
     } finally {
