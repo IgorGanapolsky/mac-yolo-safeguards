@@ -1678,6 +1678,7 @@ export default function ChatScreen() {
     healExhausted: connectionHealExhausted,
     hasSavedComputer: hasValidSavedComputer(gatewayProfiles),
     authMismatch: effectiveAuthMismatch,
+    macReachable: effectiveMacChatLive,
   });
 
   const hasPriorSuccessfulConnection = hasValidSavedComputer(gatewayProfiles);
