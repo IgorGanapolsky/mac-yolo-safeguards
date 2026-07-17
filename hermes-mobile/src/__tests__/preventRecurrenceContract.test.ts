@@ -308,6 +308,17 @@ describe('tonight recurrence gates (2026-07-14 P0 class — S16-S23)', () => {
     expect(pairJs).toMatch(/usbHijackGuardTripped\s*=\s*\n?\s*args\.has\('--mini-tailscale'\)/);
   });
 
+  it('S26: heal/USB must never auto-switch active Mac without an explicit user tap', () => {
+    const profilesSrc = read('hermes-mobile/src/services/gatewayProfiles.ts');
+    const healSrc = read('hermes-mobile/src/utils/connectionSelfHeal.ts');
+    const ctxSrc = read('hermes-mobile/src/context/GatewayContext.tsx');
+    // Anonymous 127.0.0.1 is not a free pass over a Tailscale/LAN selection (mini→Pro rage).
+    expect(profilesSrc).toContain('Never let anonymous 127.0.0.1 steal a Tailscale/LAN selection');
+    expect(healSrc).toContain('shouldProbeGatewayUrlForActiveProfile');
+    expect(ctxSrc).toContain('healPersistAcceptedProbedUrl');
+    expect(ctxSrc).toContain('Catalog-only (e.g. Pro USB while mini is active)');
+  });
+
   it('S18: Choose your computer picker renders every discovered machine, even before hostname resolves (#389)', () => {
     // Reproduces the exact P0 shape: "Find computers" reports foundCount=2, but the second
     // machine has no resolved hostname yet, is not the active profile, and was never

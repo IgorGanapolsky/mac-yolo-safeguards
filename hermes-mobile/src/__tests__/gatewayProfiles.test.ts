@@ -20,6 +20,7 @@ import {
   profilesForActiveMachine,
   shouldProbeGatewayUrlForActiveProfile,
   resolveHealPersistDecision,
+  isDiscoveredUrlAllowedForActiveProfile,
 } from '../services/gatewayProfiles';
 import { EMPTY_GATEWAY_PROFILE_STATE } from '../types/gatewayProfile';
 
@@ -716,6 +717,74 @@ describe('gatewayProfiles', () => {
     expect(decision.catalogOnly).toBe(true);
     expect(decision.returnUrl).toBe('http://100.94.135.78:8642');
     expect(decision.requestedActivation).toBe(false);
+  });
+
+  it('never allows anonymous USB to steal active Mac mini selection', () => {
+    const state = dedupeGatewayProfiles({
+      profiles: [
+        {
+          id: 'mini',
+          label: 'Igors-Mac-mini',
+          hostname: 'Igors-Mac-mini',
+          gatewayUrl: 'http://100.94.135.78:8642',
+          addedAt: '2026-06-28T00:00:00Z',
+        },
+      ],
+      activeProfileId: 'mini',
+    });
+    expect(isDiscoveredUrlAllowedForActiveProfile(state, 'http://127.0.0.1:8642')).toBe(false);
+    const decision = resolveHealPersistDecision(state, 'http://127.0.0.1:8642', true);
+    expect(decision.catalogOnly).toBe(true);
+    expect(decision.returnUrl).toBe('http://100.94.135.78:8642');
+
+    const next = applyHealDiscoveredUrl(
+      state,
+      {
+        gatewayUrl: 'http://127.0.0.1:8642',
+        hostname: 'Igors-MacBook-Pro',
+        label: 'Igors-MacBook-Pro',
+      },
+      true,
+    );
+    const healed = activeProfile(next)!;
+    expect(profileMachineKey(healed)).toBe('igors-mac-mini');
+    expect(healed.gatewayUrl).toBe('http://100.94.135.78:8642');
+    expect(healed.gatewayUrl).not.toContain('127.0.0.1');
+  });
+
+  it('blocks Pro USB profile from rewriting mini Tailscale on heal', () => {
+    const state = dedupeGatewayProfiles({
+      profiles: [
+        {
+          id: 'mini',
+          label: 'Igors-Mac-mini',
+          hostname: 'Igors-Mac-mini',
+          gatewayUrl: 'http://100.94.135.78:8642',
+          addedAt: '2026-06-28T00:00:00Z',
+        },
+        {
+          id: 'book_usb',
+          label: 'Igors-MacBook-Pro',
+          hostname: 'Igors-MacBook-Pro',
+          gatewayUrl: 'http://127.0.0.1:8642',
+          addedAt: '2026-06-28T00:00:01Z',
+        },
+      ],
+      activeProfileId: 'mini',
+    });
+    expect(isDiscoveredUrlAllowedForActiveProfile(state, 'http://127.0.0.1:8642')).toBe(false);
+    const next = applyHealDiscoveredUrl(
+      state,
+      {
+        gatewayUrl: 'http://127.0.0.1:8642',
+        hostname: 'Igors-MacBook-Pro',
+      },
+      true,
+    );
+    const healed = activeProfile(next)!;
+    expect(profileMachineKey(healed)).toBe('igors-mac-mini');
+    expect(healed.gatewayUrl).toContain('100.94.135.78');
+    expect(healed.gatewayUrl).not.toContain('127.0.0.1');
   });
 
   it('shouldProbeGatewayUrlForActiveProfile rejects another Mac LAN IP', () => {
