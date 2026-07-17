@@ -619,8 +619,10 @@ function installPolicyFiles(model, manifest, env = process.env) {
   setEnvAssignment(loc.hermesEnv, 'HERMES_MANAGED_DIR', loc.managedDir);
 }
 
-function install(env = process.env) {
+function install(env = process.env, options = {}) {
   const loc = locations(env);
+  const hadManifest = fs.existsSync(loc.manifest);
+  const wasArmed = markerActive(env);
   fs.mkdirSync(loc.stateDir, { recursive: true, mode: 0o700 });
   fs.mkdirSync(loc.originalsDir, { recursive: true, mode: 0o700 });
   copyGate(__filename, loc.installedGate);
@@ -664,11 +666,18 @@ function install(env = process.env) {
   installPolicyFiles(model, manifest, env);
   enforceMacPolicy(model, manifest, env);
   writePrivateFile(loc.manifest, `${JSON.stringify(manifest, null, 2)}\n`);
-  writePrivateFile(loc.marker, `${JSON.stringify({
-    schema: 'hermes-zero-spend/policy-v1',
-    enabledAt: new Date().toISOString(),
-    policy: 'no-paid-provider-or-metered-token-execution',
-  })}\n`);
+  // Arm only on a TRUE first install, when the box was already armed, or on an
+  // explicit --arm. A REDEPLOY (manifest present, marker absent) must preserve the
+  // operator's --disable: shim refreshes were re-creating the fleet-wide spend
+  // block as a side effect (four re-arms on 2026-07-17 alone), contradicting both
+  // --disable's contract and the marker-off passthrough these shims guarantee.
+  if (Boolean(options.arm) || wasArmed || !hadManifest) {
+    writePrivateFile(loc.marker, `${JSON.stringify({
+      schema: 'hermes-zero-spend/policy-v1',
+      enabledAt: new Date().toISOString(),
+      policy: 'no-paid-provider-or-metered-token-execution',
+    })}\n`);
+  }
   return status(env);
 }
 
@@ -975,8 +984,8 @@ function runCommand(name, args, env = process.env) {
 }
 
 function main(argv = process.argv.slice(2), env = process.env) {
-  if (argv[0] === '--install') {
-    console.log(JSON.stringify(install(env), null, 2));
+  if (argv[0] === '--install' || argv[0] === '--arm') {
+    console.log(JSON.stringify(install(env, { arm: argv.includes('--arm') }), null, 2));
     return 0;
   }
   if (argv[0] === '--disable') {

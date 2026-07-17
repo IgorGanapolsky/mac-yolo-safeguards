@@ -287,6 +287,22 @@ const directGrokAfterDisable = run(path.join(bin, 'grok'), ['hello'], env);
 assert.strictEqual(directGrokAfterDisable.status, 0, directGrokAfterDisable.stderr);
 assert.strictEqual(fs.existsSync(directGrokSentinel), true, 'global marker still controls non-yolo commands');
 
+// --- redeploy vs arm: refreshing shims must never undo an operator --disable ---
+const markerPath = path.join(home, '.hermes', 'NO_PAID_SPEND');
+assert.strictEqual(fs.existsSync(markerPath), false, 'precondition: operator disabled above');
+const redeploy = run(process.execPath, [sourceGate, '--install'], env);
+assert.strictEqual(redeploy.status, 0, redeploy.stderr);
+assert.strictEqual(JSON.parse(redeploy.stdout).active, false, 'redeploy must report disarmed');
+assert.strictEqual(fs.existsSync(markerPath), false, 'redeploy must NOT re-create the marker');
+const armed = run(process.execPath, [sourceGate, '--arm'], env);
+assert.strictEqual(armed.status, 0, armed.stderr);
+assert.strictEqual(JSON.parse(armed.stdout).active, true, '--arm must arm the policy');
+assert.strictEqual(fs.existsSync(markerPath), true, '--arm must create the marker');
+assert.strictEqual(fs.statSync(markerPath).mode & 0o777, 0o600);
+const disarmAgain = run(process.execPath, [sourceGate, '--disable'], env);
+assert.strictEqual(disarmAgain.status, 0, disarmAgain.stderr);
+assert.strictEqual(fs.existsSync(markerPath), false, 'second --disable must clear the --arm marker');
+
 const fakeOllamaState = path.join(root, 'fake-ollama-model-created');
 const capturedModelFile = path.join(root, 'captured-Modelfile');
 const fakeOllama = path.join(root, 'fake-ollama');

@@ -85,12 +85,17 @@ this gate when the marker already exists, preventing an install, CLI upgrade,
 or CI smoke from silently re-enabling a paid route.
 
 ```sh
-bash scripts/install-zero-spend-gate.sh --install
+bash scripts/install-zero-spend-gate.sh --install   # deploy/refresh; arms only on a true first install
+bash scripts/install-zero-spend-gate.sh --arm       # explicitly (re)enable the fleet-wide policy
 bash scripts/install-zero-spend-gate.sh --status
 ```
 
 `--disable` removes only the policy marker; the shims then pass through to the
-preserved originals. It is intentionally an explicit operator action.
+preserved originals. It is intentionally an explicit operator action, and it
+survives redeploys: re-running `--install` refreshes shims and policy files but
+re-creates the marker only when the box is still armed, on a true first install,
+or with an explicit `--arm`. (Before this rule, every shim redeploy silently
+re-armed the fleet-wide block — four times on 2026-07-17 alone.)
 
 Snowflake is a separate billing surface. Zero-spend fleet setup keeps the
 dedicated `HERMES_XS` warehouse suspended with `AUTO_RESUME=FALSE`; `coco-yolo`
