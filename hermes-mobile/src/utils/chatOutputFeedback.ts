@@ -1,5 +1,6 @@
 import type { HermesMessage } from '../types/chat';
 import { isMessageBodyEmpty } from './chatMessageMerge';
+import { isDeferredStreamPlaceholder } from './streamAssistantText';
 
 export function shouldShowChatOutputFeedback(
   message: HermesMessage,
@@ -18,6 +19,10 @@ export function shouldShowChatOutputFeedback(
     return false;
   }
   if (isMessageBodyEmpty(message.content, message.rawContent)) {
+    return false;
+  }
+  // Status placeholders are not real replies — never offer thumbs.
+  if (isDeferredStreamPlaceholder(message.content)) {
     return false;
   }
   return true;

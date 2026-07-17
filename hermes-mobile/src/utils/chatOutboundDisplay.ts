@@ -1,6 +1,7 @@
 import type { HermesMessage } from '../types/chat';
 import { shouldHideToolDumpFromTimeline, dedupeToolDumpMessages } from './chatToolDump';
 import { isMessageDisplayEmpty, normalizeMessageText } from './chatMessageMerge';
+import { isTransientWorkingStatusPlaceholder } from './streamAssistantText';
 
 /** Visual-top clearance for inverted FlatList (maps to paddingBottom). */
 export const CHAT_LIST_HEADER_CLEARANCE = 16;
@@ -53,12 +54,19 @@ export type ChatTimelineFilterInput = {
   includeToolActivity?: boolean;
 };
 
-/** FlashList data — hide tool spam; user bubbles always stay in the transcript. */
+/** FlashList data — hide tool spam + in-flight working status; user bubbles always stay. */
 export function filterChatTimelineMessages(input: ChatTimelineFilterInput): ChatTimelineEntry[] {
   const includeTools = input.includeToolActivity ?? false;
   const timeline: ChatTimelineEntry[] = [];
   input.messages.forEach((message, originalIndex) => {
     if (shouldHideToolDumpFromTimeline(message, includeTools)) {
+      return;
+    }
+    // Progress lives in RunProgressBanner — never stack working-status bubbles in chat.
+    if (
+      message.role?.toLowerCase() === 'assistant' &&
+      isTransientWorkingStatusPlaceholder(message.content)
+    ) {
       return;
     }
     timeline.push({ message, originalIndex });
