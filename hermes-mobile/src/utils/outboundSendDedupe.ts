@@ -39,6 +39,14 @@ export function shouldIgnoreDuplicateOutboundSend(input: OutboundSendDedupeInput
   return false;
 }
 
+/**
+ * Duplicate-ignore is a no-op send. Callers that already cleared the composer must
+ * treat this as rejected (restore draft) — never as accepted success.
+ */
+export function isNoOpDuplicateOutboundSend(input: OutboundSendDedupeInput): boolean {
+  return shouldIgnoreDuplicateOutboundSend(input);
+}
+
 export function isOutboundTurnStillPending(input: {
   pinnedOutboundStatus: 'pending' | 'sent' | 'failed' | null;
   pinnedOutboundText: string | null;

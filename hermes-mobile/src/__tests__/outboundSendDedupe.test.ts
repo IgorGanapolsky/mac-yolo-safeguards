@@ -1,6 +1,7 @@
 import {
   dedupeAdjacentOptimisticUserBubbles,
   findPendingOptimisticUserBubble,
+  isNoOpDuplicateOutboundSend,
   shouldIgnoreDuplicateOutboundSend,
   shouldSkipQueueOutboundBubbleCommit,
 } from '../utils/outboundSendDedupe';
@@ -11,6 +12,14 @@ describe('outboundSendDedupe', () => {
   it('ignores duplicate send while busy when body matches last committed outbound', () => {
     expect(
       shouldIgnoreDuplicateOutboundSend({
+        isSending: true,
+        normalizedIncoming: 'make money faster',
+        normalizedLastCommitted: 'make money faster',
+      }),
+    ).toBe(true);
+    // UI must treat this as rejected (restore draft), not accepted success.
+    expect(
+      isNoOpDuplicateOutboundSend({
         isSending: true,
         normalizedIncoming: 'make money faster',
         normalizedLastCommitted: 'make money faster',
