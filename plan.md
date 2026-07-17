@@ -258,6 +258,8 @@ Status values: `pending` | `in_progress` | `blocked` | `done`. Claim a row by se
 
 ## 2. File Ownership Map (append-only lock table — claim before touching)
 
+- `hermes-mobile/src/utils/computerPickerStatus.ts`, `hermes-mobile/src/components/ComputerPickerStatusRegion.tsx`, `hermes-mobile/src/components/GatewayProfilePicker.tsx` (hideScanCard only), `hermes-mobile/src/screens/ChatScreen.tsx` (mac-picker status region only; preserve #504 ManualComputerAddressForm), `hermes-mobile/src/__tests__/computerPickerStatus.test.ts`, `hermes-mobile/src/__tests__/ComputerPickerStatusRegion.test.tsx`, `hermes-mobile/src/__tests__/ChatScreen.test.tsx` (picker status cases only), `plan.md` → **cursor-picker-status** (T-PICKER-STATUS-STABILIZE) (2026-07-17T13:37:11Z)
+
 - `hermes-mobile/scripts/run-continuous-e2e.sh`, `plan.md` → **cursor-e2e-ota-504** (emulator fallback when phone awake + runtime 1.0 OTA for #504) (2026-07-17T04:49:12Z)
 
 - `hermes-mobile/src/utils/streamAssistantText.ts`, `hermes-mobile/src/utils/chatOutboundDisplay.ts`, `hermes-mobile/src/utils/chatMessageDisplay.ts`, `hermes-mobile/src/utils/chatOutputFeedback.ts`, `hermes-mobile/src/screens/ChatScreen.tsx` (deferred-poll tool-status bubble rewrite only — not version bumps), `hermes-mobile/src/__tests__/streamAssistantText.test.ts`, `hermes-mobile/src/__tests__/chatOutboundDisplay.test.ts`, `hermes-mobile/src/__tests__/chatMessageDisplay.test.ts`, `hermes-mobile/src/__tests__/chatOutputFeedback.test.ts`, `plan.md` → **cursor-tool-status-spam** (T-TOOL-STATUS-SPAM) (2026-07-17T01:25:00Z)
