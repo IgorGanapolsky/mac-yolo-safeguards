@@ -1,6 +1,21 @@
-import { dedupeChatMessages, dedupeDeferredStreamPlaceholders, hasUnsyncedLocalMessages, isMessageBodyEmpty, isMessageDisplayEmpty, mergeServerMessagesWithPending, transcriptDigest } from '../utils/chatMessageMerge';
+import {
+  areNearDuplicateAssistantBodies,
+  collapseNearDuplicateAssistantTurns,
+  dedupeChatMessages,
+  dedupeDeferredStreamPlaceholders,
+  hasUnsyncedLocalMessages,
+  isMessageBodyEmpty,
+  isMessageDisplayEmpty,
+  mergeServerMessagesWithPending,
+  transcriptDigest,
+} from '../utils/chatMessageMerge';
 import type { HermesMessage } from '../types/chat';
 import { GENERIC_EMPTY_STREAM_PLACEHOLDER, TELEGRAM_QUEUED_REPLY_PLACEHOLDER } from '../utils/streamAssistantText';
+
+const REVENUE_ACK_A =
+  "I'll activate your revenue engine immediately. Let me spin up the autonomous loops that actually print money right now.";
+const REVENUE_ACK_B =
+  "I'll activate our revenue engines immediately. Let me check our current monetization channels and spin up our highest-ROI activities.";
 
 describe('mergeServerMessagesWithPending', () => {
   it('treats zero-width-only content as empty', () => {
@@ -229,5 +244,67 @@ describe('mergeServerMessagesWithPending', () => {
     const deduped = dedupeDeferredStreamPlaceholders(messages);
     expect(deduped.filter((m) => m.role === 'assistant')).toHaveLength(1);
     expect(deduped[1]?.id).toBe('asst-9');
+  });
+
+  it('detects screenshot-style paraphrased revenue acks as near-duplicates', () => {
+    expect(areNearDuplicateAssistantBodies(REVENUE_ACK_A, REVENUE_ACK_B)).toBe(true);
+    expect(
+      areNearDuplicateAssistantBodies(
+        'Here is the Stripe payment link for ThumbGate Pro.',
+        'Your Mac mini Tailscale IP is 100.94.135.78.',
+      ),
+    ).toBe(false);
+  });
+
+  it('collapses consecutive near-duplicate assistant bubbles keeping the later one', () => {
+    const messages: HermesMessage[] = [
+      { id: 'u1', role: 'user', content: 'Make money today' },
+      { id: 'a1', role: 'assistant', content: REVENUE_ACK_A, created_at: '2026-07-16T11:45:00Z' },
+      { id: 'a2', role: 'assistant', content: REVENUE_ACK_B, created_at: '2026-07-16T11:46:00Z' },
+    ];
+    const collapsed = collapseNearDuplicateAssistantTurns(messages);
+    expect(collapsed).toHaveLength(2);
+    expect(collapsed[1]?.id).toBe('a2');
+    expect(collapsed[1]?.content).toBe(REVENUE_ACK_B);
+  });
+
+  it('dedupeChatMessages collapses near-duplicate assistant turns not just exact fingerprints', () => {
+    const messages: HermesMessage[] = [
+      { id: 'u1', role: 'user', content: 'Make money today' },
+      { id: 'a1', role: 'assistant', content: REVENUE_ACK_A },
+      { id: 'a2', role: 'assistant', content: REVENUE_ACK_B },
+    ];
+    const deduped = dedupeChatMessages(messages);
+    expect(deduped.filter((m) => m.role === 'assistant')).toHaveLength(1);
+    expect(deduped[1]?.content).toBe(REVENUE_ACK_B);
+  });
+
+  it('drops local streamed assistant once server has a paraphrased reply for the same turn', () => {
+    const server: HermesMessage[] = [
+      { id: 'gw-u', role: 'user', content: 'Make money today' },
+      { id: 'gw-a', role: 'assistant', content: REVENUE_ACK_B },
+    ];
+    const local: HermesMessage[] = [
+      { id: 'gw-u', role: 'user', content: 'Make money today' },
+      { id: 'asst-stream', role: 'assistant', content: REVENUE_ACK_A },
+    ];
+    const merged = mergeServerMessagesWithPending(server, local);
+    const assistants = merged.filter((m) => m.role === 'assistant');
+    expect(assistants).toHaveLength(1);
+    expect(assistants[0]?.id).toBe('gw-a');
+    expect(assistants[0]?.content).toBe(REVENUE_ACK_B);
+  });
+
+  it('keeps distinct consecutive assistant replies that are not near-duplicates', () => {
+    const messages: HermesMessage[] = [
+      { id: 'u1', role: 'user', content: 'status' },
+      { id: 'a1', role: 'assistant', content: 'Gateway is healthy on Tailscale.' },
+      {
+        id: 'a2',
+        role: 'assistant',
+        content: 'Next I will open the Skool project and list unpaid invoices.',
+      },
+    ];
+    expect(collapseNearDuplicateAssistantTurns(messages)).toHaveLength(3);
   });
 });

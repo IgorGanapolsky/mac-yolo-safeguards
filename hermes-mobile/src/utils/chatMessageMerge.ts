@@ -231,6 +231,189 @@ function serverHasAssistantMessage(serverMessages: HermesMessage[], body: string
   );
 }
 
+/** Light plural stem so engine/engines and loop/loops share a token. */
+function stemAssistantToken(token: string): string {
+  if (token.length <= 3) {
+    return token;
+  }
+  if (token.endsWith('ies') && token.length > 4) {
+    return `${token.slice(0, -3)}y`;
+  }
+  if (
+    (token.endsWith('ses') ||
+      token.endsWith('xes') ||
+      token.endsWith('zes') ||
+      token.endsWith('ches') ||
+      token.endsWith('shes')) &&
+    token.length > 4
+  ) {
+    return token.slice(0, -2);
+  }
+  if (token.endsWith('es') && token.length > 4) {
+    // engines → engine (drop trailing s; avoid engines → engin)
+    return token.slice(0, -1);
+  }
+  if (token.endsWith('s') && !token.endsWith('ss')) {
+    return token.slice(0, -1);
+  }
+  return token;
+}
+
+/** Tokenize for near-duplicate detection (light stemming for plurals). */
+export function significantAssistantTokens(text: string): string[] {
+  return normalizeMessageText(stripInvisibleChars(text))
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .split(/\s+/)
+    .map(stemAssistantToken)
+    .filter((token) => token.length > 2);
+}
+
+function tokenJaccard(a: string[], b: string[]): number {
+  if (a.length === 0 || b.length === 0) {
+    return 0;
+  }
+  const setA = new Set(a);
+  const setB = new Set(b);
+  let intersection = 0;
+  for (const token of setA) {
+    if (setB.has(token)) {
+      intersection += 1;
+    }
+  }
+  const union = new Set([...setA, ...setB]).size;
+  return union === 0 ? 0 : intersection / union;
+}
+
+/**
+ * True when two assistant bodies are the same turn paraphrased / streamed growth.
+ * Catches gateway double-completions like "I'll activate your revenue engine…" vs
+ * "I'll activate our revenue engines…" that exact fingerprint dedupe misses.
+ */
+export function areNearDuplicateAssistantBodies(a: string, b: string): boolean {
+  const na = normalizeMessageText(stripInvisibleChars(a.trim()));
+  const nb = normalizeMessageText(stripInvisibleChars(b.trim()));
+  if (!na || !nb) {
+    return false;
+  }
+  if (na === nb) {
+    return true;
+  }
+  if (na.includes(nb) || nb.includes(na)) {
+    return true;
+  }
+
+  const tokensA = significantAssistantTokens(a);
+  const tokensB = significantAssistantTokens(b);
+  if (tokensA.length < 4 || tokensB.length < 4) {
+    return false;
+  }
+
+  const openN = Math.min(8, tokensA.length, tokensB.length);
+  const openA = tokensA.slice(0, openN);
+  const openB = new Set(tokensB.slice(0, openN));
+  const openOverlap = openA.filter((token) => openB.has(token)).length / openN;
+  const maxLen = Math.max(na.length, nb.length);
+  const jaccard = tokenJaccard(tokensA, tokensB);
+
+  // Short ack-style paraphrases share openings even when body Jaccard is low (~0.2).
+  if (openOverlap >= 0.5 && maxLen <= 480) {
+    return true;
+  }
+  if (openOverlap >= 0.5 && jaccard >= 0.3) {
+    return true;
+  }
+  return jaccard >= 0.55 && maxLen <= 800;
+}
+
+function preferAssistantMessage(a: HermesMessage, b: HermesMessage): HermesMessage {
+  const bodyA = (a.content ?? '').trim();
+  const bodyB = (b.content ?? '').trim();
+  const normA = normalizeMessageText(bodyA);
+  const normB = normalizeMessageText(bodyB);
+  if (normB.includes(normA) && normB.length > normA.length) {
+    return b;
+  }
+  if (normA.includes(normB) && normA.length > normB.length) {
+    return a;
+  }
+  // Prefer the later bubble (gateway second completion / fresher stream).
+  return b;
+}
+
+/**
+ * Collapse consecutive near-duplicate assistant bubbles into one (keep newest/longest).
+ * Does not touch user turns or non-adjacent assistants separated by other roles.
+ */
+export function collapseNearDuplicateAssistantTurns(messages: HermesMessage[]): HermesMessage[] {
+  const result: HermesMessage[] = [];
+  let index = 0;
+
+  while (index < messages.length) {
+    const current = messages[index];
+    if (!current || current.role?.toLowerCase() !== 'assistant') {
+      result.push(current);
+      index += 1;
+      continue;
+    }
+
+    const batch: HermesMessage[] = [];
+    while (index < messages.length) {
+      const candidate = messages[index];
+      if (!candidate || candidate.role?.toLowerCase() !== 'assistant') {
+        break;
+      }
+      batch.push(candidate);
+      index += 1;
+    }
+
+    if (batch.length === 1) {
+      result.push(batch[0]!);
+      continue;
+    }
+
+    const kept: HermesMessage[] = [];
+    for (const candidate of batch) {
+      if (isDeferredStreamPlaceholder(candidate.content)) {
+        kept.push(candidate);
+        continue;
+      }
+      const prev = kept[kept.length - 1];
+      if (
+        prev &&
+        prev.role?.toLowerCase() === 'assistant' &&
+        !isDeferredStreamPlaceholder(prev.content) &&
+        areNearDuplicateAssistantBodies(prev.content ?? '', candidate.content ?? '')
+      ) {
+        kept[kept.length - 1] = preferAssistantMessage(prev, candidate);
+        continue;
+      }
+      kept.push(candidate);
+    }
+    result.push(...kept);
+  }
+
+  return result;
+}
+
+function serverHasNearDuplicateAssistant(
+  serverMessages: HermesMessage[],
+  content: string | undefined,
+): boolean {
+  const body = content?.trim() ?? '';
+  if (!body || isDeferredStreamPlaceholder(body)) {
+    return false;
+  }
+  return serverMessages.some((message) => {
+    if (message.role?.toLowerCase() !== 'assistant') {
+      return false;
+    }
+    if (isDeferredStreamPlaceholder(message.content)) {
+      return false;
+    }
+    return areNearDuplicateAssistantBodies(message.content ?? '', body);
+  });
+}
+
 /** Drop adjacent duplicate bubbles (gateway / Telegram occasionally echo twice). */
 export function dedupeChatMessages(messages: HermesMessage[]): HermesMessage[] {
   const seen = new Set<string>();
@@ -243,7 +426,7 @@ export function dedupeChatMessages(messages: HermesMessage[]): HermesMessage[] {
     seen.add(fp);
     deduped.push(message);
   }
-  return deduped;
+  return collapseNearDuplicateAssistantTurns(deduped);
 }
 
 /** Keep in-flight / not-yet-synced bubbles when gateway refresh races mobile send. */
@@ -296,6 +479,22 @@ export function mergeServerMessagesWithPending(
       if (serverHasAssistantMessage(dedupedServer, body)) {
         continue;
       }
+      const localNorm = normalizeMessageText(message.content?.trim() ?? '');
+      const localExtendsServer = dedupedServer.some((serverMessage) => {
+        if (serverMessage.role?.toLowerCase() !== 'assistant') {
+          return false;
+        }
+        const serverNorm = normalizeMessageText(serverMessage.content?.trim() ?? '');
+        return Boolean(serverNorm) && localNorm.includes(serverNorm) && localNorm.length > serverNorm.length + 8;
+      });
+      // Gateway already answered this turn (possibly paraphrased) — drop local stream bubble
+      // unless the phone is still streaming a longer extension of the server text.
+      if (serverHasFreshAssistantReply && !hasUnackedPendingUser && !localExtendsServer) {
+        continue;
+      }
+      if (serverHasNearDuplicateAssistant(dedupedServer, message.content) && !localExtendsServer) {
+        continue;
+      }
       pendingTail.push(message);
       continue;
     }
@@ -326,14 +525,16 @@ export function mergeServerMessagesWithPending(
   }
 
   if (pendingTail.length === 0) {
-    return dedupeDeferredStreamPlaceholders(dedupeToolDumpMessages(dedupedServer));
+    return collapseNearDuplicateAssistantTurns(
+      dedupeDeferredStreamPlaceholders(dedupeToolDumpMessages(dedupedServer)),
+    );
   }
   const merged = dedupeToolDumpMessages([...dedupedServer, ...pendingTail]);
   const hasPendingUser = pendingTail.some(
     (message) => isOptimisticUserMessage(message) && message.outboundStatus === 'pending',
   );
   const normalized = hasPendingUser ? merged : dedupeChatMessages(merged);
-  return dedupeDeferredStreamPlaceholders(normalized);
+  return collapseNearDuplicateAssistantTurns(dedupeDeferredStreamPlaceholders(normalized));
 }
 
 /** Cheap fingerprint to skip FlatList updates when a gateway refresh returns the same transcript. */
