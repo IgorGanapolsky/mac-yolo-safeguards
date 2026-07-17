@@ -1942,15 +1942,19 @@ export default function ChatScreen() {
         loadContinuityChipDismissed(),
       ]);
       if (cancelled) return;
+      // Apply dismiss even when the handoff payload was cleared on Dismiss —
+      // otherwise a remount/refetch races with remote save and resurrects the chip.
+      setContinuityChipDismissedState(dismissed);
       if (local) {
         setContinuityHandoff(local);
-        setContinuityChipDismissedState(dismissed);
       }
       if (isDemo || !gatewayUrl) return;
       const remote = await fetchSessionContinuityHandoff(gatewayUrl);
       if (cancelled || !remote) return;
+      await savePendingContinuityHandoff(remote);
+      if (cancelled) return;
       setContinuityHandoff(remote);
-      void savePendingContinuityHandoff(remote);
+      setContinuityChipDismissedState(await loadContinuityChipDismissed());
     })();
     return () => {
       cancelled = true;
@@ -1988,8 +1992,11 @@ export default function ChatScreen() {
     setContinuityChipDismissedState(true);
     setContinuityHandoff(null);
     continuityHandoffRef.current = null;
-    void setContinuityChipDismissed(true);
-    void clearPendingContinuityHandoff();
+    // Capture dismissed writtenAt while payload still exists, then clear payload only.
+    void (async () => {
+      await setContinuityChipDismissed(true);
+      await clearPendingContinuityHandoff({ preserveDismiss: true });
+    })();
   }, []);
 
   const consumeContinuityHandoffAfterSend = useCallback(() => {
@@ -1999,6 +2006,7 @@ export default function ChatScreen() {
     setContinuityHandoff(null);
     continuityHandoffRef.current = null;
     setContinuityChipDismissedState(true);
+    // Consumed: clear dismiss identity so a later identical remote write can show again.
     void clearPendingContinuityHandoff();
   }, []);
 
