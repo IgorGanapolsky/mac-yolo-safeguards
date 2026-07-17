@@ -473,10 +473,13 @@ describe('release safety contract', () => {
     const flow = read('hermes-mobile/.maestro/chat-send-persistence.yaml');
     const chatBootstrap = read('hermes-mobile/.maestro/chat-e2e-bootstrap.yaml');
     expect(flow).toContain('chat-e2e-bootstrap.yaml');
+    expect(flow).toContain('dismiss-mega-session-warn.yaml');
+    expect(flow).toContain('Very large chat session');
     expect(chatBootstrap).toContain('hermes://setup?demo=1');
     expect(chatBootstrap).toContain('hermes://chat');
     expect(chatBootstrap).toContain('chat-input');
     expect(chatBootstrap).toContain('dismiss-print-interruption.yaml');
+    expect(chatBootstrap).toContain('dismiss-mega-session-warn.yaml');
     expect(chatBootstrap).not.toContain('id: "THUMBGATE_LEASH"');
     expect(chatBootstrap).not.toContain('hermes://dev/leash-unlock');
   });

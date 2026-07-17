@@ -38,6 +38,7 @@ appId: com.iganapolsky.hermesmobile
     visible:
       id: "chat-input"
     timeout: 90000
+- runFlow: dismiss-mega-session-warn.yaml
 - runFlow: hide-keyboard-safe.yaml
 # Prefer chat-input over chat-composer-dock — CI Maestro often fails dock visibility
 # even when the input (child) is already visible; ship-guard only needs chat-input.

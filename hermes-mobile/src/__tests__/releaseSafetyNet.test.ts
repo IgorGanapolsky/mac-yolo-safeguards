@@ -119,10 +119,12 @@ describe('release safety net (T-114)', () => {
     expect(validator).toContain("'wrong-key-repair'");
   });
 
-  it('continuous E2E records fail when android-only and no USB phone', () => {
+  it('continuous E2E records fail when android-only and no USB phone or emulator', () => {
     const runner = read('hermes-mobile/scripts/run-continuous-e2e.sh');
     expect(runner).toMatch(/e2e_status="fail"/);
     expect(runner).toContain('no USB Android device connected');
+    expect(runner).toContain('enable_emulator_fallback');
+    expect(runner).toContain('HERMES_E2E_EMULATOR_FALLBACK');
     expect(runner).not.toContain('android-only continuous E2E skipped');
   });
 
