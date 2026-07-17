@@ -14,6 +14,10 @@ import { isConnectivityMessage } from '../utils/chatErrors';
 import { classifyRunStale, runStaleHint } from '../utils/runStaleDetection';
 import { formatElapsedDuration } from '../utils/formatElapsedDuration';
 import {
+  loadRunProgressDetailsExpanded,
+  saveRunProgressDetailsExpanded,
+} from '../utils/runProgressDetailsPreference';
+import {
   RUN_PROGRESS_ELAPSED_MIN_WIDTH,
   RUN_PROGRESS_STATS_MIN_HEIGHT,
   resolveRunProgressDetailsExpanded,
@@ -88,8 +92,9 @@ function RunProgressBanner({
   const [elapsed, setElapsed] = useState(() =>
     Math.max(0, Math.floor((Date.now() - progress.startedAtMs) / 1000)),
   );
-  /** null = follow compact/keyboard default; boolean = user toggled. */
+  /** null = follow compact/keyboard default; boolean = sticky user preference. */
   const [userExpandedOverride, setUserExpandedOverride] = useState<boolean | null>(null);
+  const userTouchedDetailsRef = useRef(false);
   const [displayedTokenLabel, setDisplayedTokenLabel] = useState<string | null>(null);
   const tokenLabelUpdatedAtRef = useRef(0);
   const displayedTokenLabelRef = useRef<string | null>(null);
@@ -105,11 +110,16 @@ function RunProgressBanner({
   }, [progress.startedAtMs]);
 
   useEffect(() => {
-    // Leaving compact resets override so details expand again without sticky collapse.
-    if (!compact) {
-      setUserExpandedOverride(null);
-    }
-  }, [compact]);
+    let cancelled = false;
+    void loadRunProgressDetailsExpanded().then((expanded) => {
+      if (!cancelled && !userTouchedDetailsRef.current && expanded != null) {
+        setUserExpandedOverride(expanded);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const isCompleted = progress.phase === 'completed';
   const isFailed = progress.phase === 'failed';
@@ -184,9 +194,13 @@ function RunProgressBanner({
   const showDetailSections = detailsExpanded && hasCollapsibleDetails;
 
   const toggleDetails = () => {
-    if (hasCollapsibleDetails) {
-      setUserExpandedOverride(!detailsExpanded);
+    if (!hasCollapsibleDetails) {
+      return;
     }
+    const nextExpanded = !detailsExpanded;
+    userTouchedDetailsRef.current = true;
+    setUserExpandedOverride(nextExpanded);
+    void saveRunProgressDetailsExpanded(nextExpanded);
   };
 
   return (
