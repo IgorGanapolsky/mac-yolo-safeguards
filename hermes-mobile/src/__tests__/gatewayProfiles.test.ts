@@ -9,6 +9,7 @@ import {
   dedupeGatewayProfiles,
   formatProfileLabel,
   profileDisplayName,
+  stripTransportSuffixFromComputerName,
   isInvalidGatewayProfile,
   sanitizeGatewayProfileState,
   gatewayProfiles,
@@ -466,6 +467,20 @@ describe('gatewayProfiles', () => {
       addedAt: '2026-06-18T12:00:00.000Z',
     });
     expect(name).toBe('Igors-Mac-mini');
+  });
+
+  it('never keeps USB in the name for a remote Tailscale mini (another city)', () => {
+    const name = profileDisplayName({
+      id: 'mini_ts',
+      label: 'Mac mini USB',
+      gatewayUrl: 'http://100.94.135.78:8642',
+      hostname: 'Igors-Mac-mini.local',
+      addedAt: '2026-07-17T12:00:00.000Z',
+    });
+    expect(name).toBe('Igors-Mac-mini');
+    expect(name.toLowerCase()).not.toContain('usb');
+    expect(stripTransportSuffixFromComputerName('Mac mini USB')).toBe('Mac mini');
+    expect(stripTransportSuffixFromComputerName('Igors-Mac-mini · USB')).toBe('Igors-Mac-mini');
   });
 
   it('derives the device name from a Tailscale MagicDNS URL instead of a generic Computer label', () => {
