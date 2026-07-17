@@ -633,6 +633,8 @@ Status values: `pending` | `in_progress` | `blocked` | `done`. Claim a row by se
 - `.github/workflows/mobile-ota.yml` (production Fresh-user OTA gate env only: add GITHUB_TOKEN) → **cursor-ota-prod-gate-token** (follow-up a0e7f498: production job could not see green stranger Checks) (2026-07-16T20:37:53Z)
 
 ## 3. Decisions Log
+
+- 2026-07-17T13:41:52Z `cursor-prompt-discard-p0`: **T-PROMPT-DISCARD root cause** — Continuity chip + handoff stayed active on existing "Make money today #N" threads and injected "prior transcript was discarded" every turn; mega auto-fresh cleared composer before Start-fresh transfer; duplicate no-op send returned accepted=true so drafts vanished. Fix: inject/show chip only on empty transcript; consume handoff after successful send / dismiss; restore draft into Start fresh; duplicate ignore returns false (restore); ChatInputBar keeps draft across blocked taps; skip title-resume while handoff pending.
 - 2026-07-17T01:31:45Z `cursor-store-12-rc`: **EAS overage crisis + 1.2 RC path.** Starter Builds $91/$45 until 2026-07-22. Cancelled store-release 29546654092 after it already finished cloud builds Android `5fd28898` (1.2/vc15) + iOS `6a97bf07` (1.2/build18) from 6246eb2e — **no further cloud eas build**. Hard-stop in eas-build-guard + store-release.yml. Ship via submit-only + device proof; OTA (`eas update`) OK (separate from Builds).
 
 - **2026-07-15T19:50:04Z** `cursor-ota-stranger-ci-unblock`: OTA unblock — accept CI stranger Maestro for production publish; e2e=skipped ≠ pass and not hard-block when stranger green. Restores dual-channel publish.
