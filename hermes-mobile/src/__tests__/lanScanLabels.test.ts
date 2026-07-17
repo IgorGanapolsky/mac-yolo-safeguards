@@ -1,4 +1,5 @@
 import {
+  formatLanScanResultDetail,
   formatLanScanResultLabel,
   formatLanScanStageLabel,
   lanScanFraction,
@@ -32,7 +33,7 @@ describe('lanScanLabels', () => {
     ).toBe(1);
   });
 
-  it('formats stage and result labels', () => {
+  it('formats stage labels without treating link aliases as computers', () => {
     expect(
       formatLanScanStageLabel({
         stage: 'pair_server',
@@ -41,11 +42,7 @@ describe('lanScanLabels', () => {
         foundCount: 0,
       }),
     ).toContain('25%');
-    expect(formatLanScanResultLabel(0)).toBe('No local Hermes machines found');
-    expect(formatLanScanResultLabel(2)).toBe('Found 2 local Hermes machines');
-  });
 
-  it('never implies URL alias count as computers found (Mac Pro rage)', () => {
     const midScan = formatLanScanStageLabel({
       stage: 'gateway_health',
       completedHosts: 94,
@@ -66,5 +63,80 @@ describe('lanScanLabels', () => {
     });
     expect(computersOnly).toContain('2 computers so far');
     expect(computersOnly).not.toMatch(/found so far/);
+  });
+
+  it('never calls Tailscale or USB results "local"', () => {
+    expect(formatLanScanResultLabel(0)).toBe('No Hermes computers found');
+    expect(formatLanScanResultLabel(2)).toBe('Found 2 Hermes computers');
+    expect(
+      formatLanScanResultLabel({
+        foundCount: 3,
+        lanCount: 0,
+        tailscaleCount: 3,
+        usbCount: 0,
+      }),
+    ).toBe('Found 3 on Tailscale');
+    expect(
+      formatLanScanResultLabel({
+        foundCount: 1,
+        lanCount: 0,
+        tailscaleCount: 0,
+        usbCount: 1,
+      }),
+    ).toBe('Using USB');
+    expect(
+      formatLanScanResultLabel({
+        foundCount: 2,
+        lanCount: 0,
+        tailscaleCount: 0,
+        usbCount: 2,
+      }),
+    ).toBe('Found 2 over USB');
+    expect(
+      formatLanScanResultLabel({
+        foundCount: 2,
+        lanCount: 2,
+        tailscaleCount: 0,
+        usbCount: 0,
+      }),
+    ).toBe('Found 2 local Hermes computers');
+    expect(
+      formatLanScanResultLabel({
+        foundCount: 2,
+        lanCount: 1,
+        tailscaleCount: 1,
+        usbCount: 0,
+      }),
+    ).toBe('Found 2 Hermes computers');
+  });
+
+  it('details match reach path (off-home Tailscale must not say local list)', () => {
+    expect(
+      formatLanScanResultDetail({
+        foundCount: 3,
+        lanCount: 0,
+        tailscaleCount: 3,
+        usbCount: 0,
+        completedAtMs: 1,
+      }),
+    ).toContain('Tailscale list');
+    expect(
+      formatLanScanResultDetail({
+        foundCount: 3,
+        lanCount: 0,
+        tailscaleCount: 3,
+        usbCount: 0,
+        completedAtMs: 1,
+      }),
+    ).not.toMatch(/local list/i);
+    expect(
+      formatLanScanResultDetail({
+        foundCount: 1,
+        lanCount: 1,
+        tailscaleCount: 0,
+        usbCount: 0,
+        completedAtMs: 1,
+      }),
+    ).toContain('local list');
   });
 });
