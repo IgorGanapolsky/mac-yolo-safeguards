@@ -1,0 +1,34 @@
+# Dismiss mega-session send/select alerts so Maestro can prove composer send.
+# Prefer Start fresh chat (brand-new-user path) over Send anyway.
+appId: com.iganapolsky.hermesmobile
+---
+- runFlow:
+    when:
+      visible: "Very large chat session"
+    commands:
+      - tapOn: "Start fresh chat"
+      - waitForAnimationToEnd:
+          timeout: 2000
+- runFlow:
+    when:
+      visible: "Large chat session"
+    commands:
+      - tapOn: "Start fresh chat"
+      - waitForAnimationToEnd:
+          timeout: 2000
+- runFlow:
+    when:
+      visible: "Chat too large"
+    commands:
+      - tapOn: "Start fresh chat"
+      - waitForAnimationToEnd:
+          timeout: 2000
+- runFlow:
+    when:
+      visible:
+        id: "mega-session-start-fresh-chat"
+    commands:
+      - tapOn:
+          id: "mega-session-start-fresh-chat"
+      - waitForAnimationToEnd:
+          timeout: 2000

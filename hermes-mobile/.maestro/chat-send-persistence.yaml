@@ -33,8 +33,29 @@ appId: com.iganapolsky.hermesmobile
 - waitForAnimationToEnd:
     timeout: 2000
 - runFlow: hide-keyboard-safe.yaml
+# Emulator/phone dogfood often resumes a 100k+ token thread; banner blocks Send.
+- runFlow: dismiss-mega-session-warn.yaml
 - tapOn:
     id: "chat-send-button"
+# Send on a warn-level mega session opens Alert — start fresh then retype/send.
+- runFlow:
+    when:
+      visible: "Very large chat session"
+    commands:
+      - tapOn: "Start fresh chat"
+      - extendedWaitUntil:
+          visible:
+            id: "chat-input"
+          timeout: 30000
+      - tapOn:
+          id: "chat-input"
+      - eraseText
+      - inputText: "make money today"
+      - waitForAnimationToEnd:
+          timeout: 2000
+      - runFlow: hide-keyboard-safe.yaml
+      - tapOn:
+          id: "chat-send-button"
 # Prefer stable testID; scroll first because long sessions virtualize off-screen bubbles.
 - scrollUntilVisible:
     element:
