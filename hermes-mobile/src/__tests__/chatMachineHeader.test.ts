@@ -6,6 +6,8 @@ import {
   formatChatMachineHeaderLine,
   usbHeaderClaimsNamedHost,
   assertUsbHeaderIdentityLaw,
+  resolveHeaderTransportLabel,
+  isUsbHeaderTransportAllowed,
   USB_UNKNOWN_MACHINE_LABEL,
 } from '../utils/chatMachineHeader';
 
@@ -68,11 +70,11 @@ describe('resolveChatMachineHeaderDisplay', () => {
       savedMacCount: 2,
     });
     expect(display.machineLabel).toBe('Igors-MacBook-Pro');
-    expect(display.machineEndpoint).toContain('10.2.29.103:8642');
+    expect(display.machineEndpoint).toBe('Home Wi‑Fi');
     expect(display.showDetailWhenConnected).toBe(true);
   });
 
-  it('shows IP for single Mac when label does not include it', () => {
+  it('shows Home Wi‑Fi for single Mac LAN reach path', () => {
     const display = resolveChatMachineHeaderDisplay({
       activeProfile: { ...macMini, label: 'Igors-Mac-mini' },
       gatewayUrl: macMini.gatewayUrl,
@@ -83,7 +85,7 @@ describe('resolveChatMachineHeaderDisplay', () => {
       savedMacCount: 1,
     });
     expect(display.machineLabel).toBe('Igors-Mac-mini');
-    expect(display.machineEndpoint).toBe('10.2.29.50:8642');
+    expect(display.machineEndpoint).toBe('Home Wi‑Fi');
   });
 
   it('includes relay worker when different from chat Mac', () => {
@@ -522,8 +524,133 @@ describe('formatMacConnectionRetryBanner', () => {
       machineEndpoint: 'Tailscale',
       authMismatch: true,
     });
-    expect(text).toBe('Wrong key for this computer (Igors-Mac-mini) — tap to re-pair');
+    expect(text).toBe('Outdated connection (Igors-Mac-mini) — tap to reconnect');
     expect(text).not.toContain('tap to retry');
+  });
+});
+
+describe('resolveHeaderTransportLabel / USB allow rule', () => {
+  it('labels Tailscale and Home Wi‑Fi from successful reach URL', () => {
+    expect(
+      resolveHeaderTransportLabel({ gatewayUrl: 'http://100.87.85.85:8642' }),
+    ).toBe('Tailscale');
+    expect(
+      resolveHeaderTransportLabel({
+        gatewayUrl: 'http://igors-macbook-pro.tail12aa33.ts.net:8642',
+      }),
+    ).toBe('Tailscale');
+    expect(
+      resolveHeaderTransportLabel({ gatewayUrl: 'http://10.2.29.103:8642' }),
+    ).toBe('Home Wi‑Fi');
+  });
+
+  it('allows USB only for loopback on Wi‑Fi — never on cellular', () => {
+    expect(
+      isUsbHeaderTransportAllowed({
+        gatewayUrl: 'http://127.0.0.1:8642',
+        wifiConnected: true,
+      }),
+    ).toBe(true);
+    expect(
+      resolveHeaderTransportLabel({
+        gatewayUrl: 'http://127.0.0.1:8642',
+        wifiConnected: true,
+      }),
+    ).toBe('USB');
+    expect(
+      isUsbHeaderTransportAllowed({
+        gatewayUrl: 'http://127.0.0.1:8642',
+        wifiConnected: false,
+      }),
+    ).toBe(false);
+    expect(
+      resolveHeaderTransportLabel({
+        gatewayUrl: 'http://127.0.0.1:8642',
+        wifiConnected: false,
+      }),
+    ).toBeUndefined();
+  });
+
+  it('never shows USB Connected on cellular even when loopback profile is still active', () => {
+    const display = resolveChatMachineHeaderDisplay({
+      activeProfile: {
+        id: 'mac_usb',
+        label: 'Igors-MacBook-Pro',
+        gatewayUrl: 'http://127.0.0.1:8642',
+        hostname: 'Igors-MacBook-Pro.local',
+        localIp: '127.0.0.1',
+        addedAt: '2026-07-16T00:00:00.000Z',
+      },
+      gatewayUrl: 'http://127.0.0.1:8642',
+      health: {
+        level: 'green',
+        checkedAt: '2026-07-16T11:05:00.000Z',
+        hostname: 'Igors-MacBook-Pro.local',
+        directGatewayReachable: true,
+      },
+      connectionMode: 'gateway',
+      isPaired: false,
+      workers: [],
+      savedMacCount: 2,
+      wifiConnected: false,
+    });
+    expect(formatChatMachineHeaderLine(display)).toBe('Igors-MacBook-Pro');
+    expect(display.machineEndpoint).toBeUndefined();
+    expect(usbHeaderClaimsNamedHost(display)).toBe(false);
+  });
+
+  it('shows Tailscale when reach URL is Tailscale on cellular', () => {
+    const display = resolveChatMachineHeaderDisplay({
+      activeProfile: {
+        id: 'mac_ts',
+        label: 'Igors-MacBook-Pro',
+        gatewayUrl: 'http://100.87.85.85:8642',
+        hostname: 'Igors-MacBook-Pro.local',
+        addedAt: '2026-07-16T00:00:00.000Z',
+      },
+      gatewayUrl: 'http://100.87.85.85:8642',
+      health: {
+        level: 'green',
+        checkedAt: '2026-07-16T11:05:00.000Z',
+        hostname: 'Igors-MacBook-Pro.local',
+        directGatewayReachable: true,
+      },
+      connectionMode: 'gateway',
+      isPaired: false,
+      workers: [],
+      savedMacCount: 2,
+      wifiConnected: false,
+    });
+    expect(formatChatMachineHeaderLine(display)).toBe('Igors-MacBook-Pro · Tailscale');
+  });
+
+  it('never labels remote Tailscale mini as USB even with stale Mac mini USB profile label', () => {
+    const display = resolveChatMachineHeaderDisplay({
+      activeProfile: {
+        id: 'mini_ts',
+        label: 'Mac mini USB',
+        gatewayUrl: 'http://100.94.135.78:8642',
+        hostname: 'Igors-Mac-mini.local',
+        addedAt: '2026-07-17T00:00:00.000Z',
+      },
+      gatewayUrl: 'http://100.94.135.78:8642',
+      health: {
+        level: 'green',
+        checkedAt: '2026-07-17T14:45:00.000Z',
+        hostname: 'Igors-Mac-mini.local',
+        directGatewayReachable: true,
+      },
+      connectionMode: 'gateway',
+      isPaired: false,
+      workers: [],
+      savedMacCount: 2,
+      wifiConnected: false,
+    });
+    expect(display.machineLabel).toBe('Igors-Mac-mini');
+    expect(display.machineLabel.toLowerCase()).not.toContain('usb');
+    expect(display.machineEndpoint).toBe('Tailscale');
+    expect(formatChatMachineHeaderLine(display)).toBe('Igors-Mac-mini · Tailscale');
+    expect(formatChatMachineHeaderLine(display).toLowerCase()).not.toContain('usb');
   });
 });
 

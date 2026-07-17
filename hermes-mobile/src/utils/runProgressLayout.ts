@@ -22,8 +22,10 @@ export function shouldSuppressCommandCenterRunTile(composerBannerVisible: boolea
 
 /**
  * Default expand/collapse for run details.
- * - Keyboard open → collapse (unless the user explicitly expanded).
- * - Keyboard closed → expand (unless the user explicitly collapsed).
+ * - Explicit user preference (toggle / AsyncStorage) always wins.
+ * - Keyboard open → collapse when no preference yet.
+ * - Keyboard closed → expand when no preference yet.
+ * Never clear a collapse preference on timer/token/tool ticks or keyboard flicker.
  */
 export function resolveRunProgressDetailsExpanded(params: {
   keyboardOpen: boolean;

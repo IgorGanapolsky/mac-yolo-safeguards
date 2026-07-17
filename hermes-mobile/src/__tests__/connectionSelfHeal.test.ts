@@ -4,6 +4,9 @@ import {
   resolveApiKeyForGatewayProbe,
   resolveCellularTailscaleFailoverUrl,
   savedProfileFallbackUrls,
+  shouldClearUsbPrimaryOnCellular,
+  shouldDeferLoopbackSuccessOnCellular,
+  shouldPreferUsbProbeFirst,
 } from '../utils/connectionSelfHeal';
 
 const profiles: GatewayProfile[] = [
@@ -119,7 +122,7 @@ describe('connectionSelfHeal', () => {
     ).toEqual(['http://100.94.135.78:8642']);
   });
 
-  it('builds probe list with active profile first then USB before Tailscale', () => {
+  it('builds probe list with same-machine Tailscale first; skips anonymous USB', () => {
     const urls = buildSelfHealProbeUrls({
       primaryUrl: 'http://192.168.68.56:8642',
       wifiConnected: true,
@@ -136,8 +139,47 @@ describe('connectionSelfHeal', () => {
       activeProfileId: 'lan',
     });
     expect(urls[0]).toBe('http://100.94.135.78:8642');
-    expect(urls).toContain('http://127.0.0.1:8642');
+    // Anonymous USB is whichever Mac is cabled — must not steal mini→Pro.
+    expect(urls).not.toContain('http://127.0.0.1:8642');
     expect(urls).toContain('http://igors-mac-mini.tail12aa33.ts.net:8642');
+  });
+
+  it('includes USB only when the saved loopback row is the active Mac', () => {
+    const urls = buildSelfHealProbeUrls({
+      primaryUrl: 'http://192.168.68.56:8642',
+      wifiConnected: true,
+      profiles: [
+        ...profiles,
+        {
+          id: 'usb',
+          label: 'Igors-Mac-mini',
+          hostname: 'Igors-Mac-mini',
+          gatewayUrl: 'http://127.0.0.1:8642',
+          addedAt: '2026-06-28T00:00:02Z',
+        },
+      ],
+      activeProfileId: 'lan',
+    });
+    expect(urls).toContain('http://127.0.0.1:8642');
+  });
+
+  it('never probes Pro USB while Mac mini is the active computer', () => {
+    const urls = buildSelfHealProbeUrls({
+      primaryUrl: 'http://100.94.135.78:8642',
+      wifiConnected: false,
+      profiles: [
+        ...twoMacProfiles,
+        {
+          id: 'book_usb',
+          label: 'Igors-MacBook-Pro',
+          hostname: 'Igors-MacBook-Pro',
+          gatewayUrl: 'http://127.0.0.1:8642',
+          addedAt: '2026-06-28T00:00:02Z',
+        },
+      ],
+      activeProfileId: 'mini',
+    });
+    expect(urls).not.toContain('http://127.0.0.1:8642');
   });
 
   it('resolves Tailscale failover URL for cellular with LAN primary', () => {
@@ -167,6 +209,96 @@ describe('connectionSelfHeal', () => {
     });
     expect(urls).not.toContain('http://192.168.68.71:8642');
     expect(urls).not.toContain('http://100.94.135.78:8642');
+  });
+});
+
+describe('USB primary on cellular', () => {
+  it('prefers USB probe only on Wi‑Fi with loopback active', () => {
+    expect(
+      shouldPreferUsbProbeFirst({
+        activeGatewayUrl: 'http://127.0.0.1:8642',
+        wifiConnected: true,
+      }),
+    ).toBe(true);
+    expect(
+      shouldPreferUsbProbeFirst({
+        activeGatewayUrl: 'http://127.0.0.1:8642',
+        wifiConnected: false,
+      }),
+    ).toBe(false);
+    expect(
+      shouldPreferUsbProbeFirst({
+        activeGatewayUrl: 'http://100.87.85.85:8642',
+        wifiConnected: true,
+      }),
+    ).toBe(false);
+  });
+
+  it('defers loopback success on cellular when Tailscale alternate exists', () => {
+    expect(
+      shouldDeferLoopbackSuccessOnCellular({
+        primaryUrl: 'http://127.0.0.1:8642',
+        wifiConnected: false,
+        hasTailscaleAlternate: true,
+      }),
+    ).toBe(true);
+    expect(
+      shouldDeferLoopbackSuccessOnCellular({
+        primaryUrl: 'http://127.0.0.1:8642',
+        wifiConnected: false,
+        hasTailscaleAlternate: false,
+      }),
+    ).toBe(false);
+    expect(
+      shouldDeferLoopbackSuccessOnCellular({
+        primaryUrl: 'http://127.0.0.1:8642',
+        wifiConnected: true,
+        hasTailscaleAlternate: true,
+      }),
+    ).toBe(false);
+  });
+
+  it('clears USB-primary on cellular when Tailscale failover URL is available', () => {
+    expect(
+      shouldClearUsbPrimaryOnCellular({
+        primaryUrl: 'http://127.0.0.1:8642',
+        wifiConnected: false,
+        failoverUrl: 'http://100.87.85.85:8642',
+      }),
+    ).toBe(true);
+    expect(
+      shouldClearUsbPrimaryOnCellular({
+        primaryUrl: 'http://127.0.0.1:8642',
+        wifiConnected: true,
+        failoverUrl: 'http://100.87.85.85:8642',
+      }),
+    ).toBe(false);
+  });
+
+  it('resolves Tailscale failover for USB primary without fresh discoveries', () => {
+    const usbActive: GatewayProfile = {
+      id: 'usb',
+      label: 'Igors-MacBook-Pro',
+      gatewayUrl: 'http://127.0.0.1:8642',
+      hostname: 'Igors-MacBook-Pro',
+      localIp: '127.0.0.1',
+      addedAt: '2026-07-16T00:00:00Z',
+    };
+    const tsSibling: GatewayProfile = {
+      id: 'ts',
+      label: 'Igors-MacBook-Pro',
+      gatewayUrl: 'http://100.87.85.85:8642',
+      hostname: 'Igors-MacBook-Pro',
+      addedAt: '2026-07-16T00:00:01Z',
+    };
+    expect(
+      resolveCellularTailscaleFailoverUrl({
+        primaryUrl: 'http://127.0.0.1:8642',
+        profiles: [usbActive, tsSibling],
+        activeProfile: usbActive,
+        discoveries: [],
+      }),
+    ).toBe('http://100.87.85.85:8642');
   });
 });
 

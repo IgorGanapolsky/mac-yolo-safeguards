@@ -28,26 +28,72 @@ async function withTimeout<T>(
   }
 }
 
+export type OtaDiagnostics = {
+  isEnabledFlag: boolean;
+  channel: string;
+  runtimeVersion: string;
+  updateId: string | null;
+  isEmbeddedLaunch: boolean;
+  isEmergencyLaunch: boolean;
+};
+
 export type OtaUpdateCheckResult =
-  | { status: 'disabled'; message: string }
-  | { status: 'current'; message: string }
-  | { status: 'available'; message: string; manifestId?: string }
-  | { status: 'error'; message: string };
+  | { status: 'disabled'; message: string; diagnostics: OtaDiagnostics }
+  | { status: 'current'; message: string; reason?: string; diagnostics: OtaDiagnostics }
+  | { status: 'available'; message: string; manifestId?: string; diagnostics: OtaDiagnostics }
+  | { status: 'error'; message: string; diagnostics: OtaDiagnostics };
 
 export type OtaUpdateApplyResult =
   | { status: 'reloaded'; message: string }
   | { status: 'noop'; message: string }
   | { status: 'error'; message: string };
 
+function trimStr(value: unknown): string {
+  return typeof value === 'string' ? value.trim() : '';
+}
+
+/**
+ * Native EnabledUpdatesController always exposes channel + runtimeVersion.
+ * `Updates.isEnabled` is a one-shot JS const and has falsely reported false on
+ * Play release binaries while expo-updates was actively checking — treat
+ * channel+runtime as an enabled signal so Check for update can run.
+ */
+export function getOtaDiagnostics(): OtaDiagnostics {
+  return {
+    isEnabledFlag: !!Updates.isEnabled,
+    channel: trimStr(Updates.channel),
+    runtimeVersion: trimStr(Updates.runtimeVersion),
+    updateId:
+      typeof Updates.updateId === 'string' && Updates.updateId.length > 0
+        ? Updates.updateId.toLowerCase()
+        : null,
+    isEmbeddedLaunch: !!Updates.isEmbeddedLaunch,
+    isEmergencyLaunch: !!Updates.isEmergencyLaunch,
+  };
+}
+
 export function isOtaUpdatesEnabled(): boolean {
-  return Updates.isEnabled;
+  if (Updates.isEnabled) {
+    return true;
+  }
+  const { channel, runtimeVersion } = getOtaDiagnostics();
+  return channel.length > 0 && runtimeVersion.length > 0;
+}
+
+function formatDiagnosticsSuffix(d: OtaDiagnostics): string {
+  const id = d.updateId ? d.updateId.slice(0, 8) : 'embedded';
+  const launch = d.isEmbeddedLaunch ? 'embedded' : 'ota';
+  return ` [${d.channel || '?'}@${d.runtimeVersion || '?'} ${launch} ${id}]`;
 }
 
 export async function checkForAppUpdate(): Promise<OtaUpdateCheckResult> {
-  if (!Updates.isEnabled) {
+  const diagnostics = getOtaDiagnostics();
+  if (!isOtaUpdatesEnabled()) {
     return {
       status: 'disabled',
-      message: 'OTA updates ship with store builds — dev clients skip this check.',
+      message:
+        'OTA disabled in this binary (no channel/runtime). Needs a store/release rebuild with expo-updates enabled.',
+      diagnostics,
     };
   }
 
@@ -58,7 +104,15 @@ export async function checkForAppUpdate(): Promise<OtaUpdateCheckResult> {
       'Update check',
     );
     if (!result.isAvailable) {
-      return { status: 'current', message: 'App is up to date.' };
+      const reason =
+        'reason' in result && typeof result.reason === 'string' ? result.reason : undefined;
+      const reasonNote = reason ? ` (${reason})` : '';
+      return {
+        status: 'current',
+        message: `App is up to date.${reasonNote}${formatDiagnosticsSuffix(diagnostics)}`,
+        reason,
+        diagnostics,
+      };
     }
     const manifestId =
       result.manifest && 'id' in result.manifest
@@ -66,18 +120,27 @@ export async function checkForAppUpdate(): Promise<OtaUpdateCheckResult> {
         : undefined;
     return {
       status: 'available',
-      message: 'Update downloaded — restart to apply.',
+      message: 'Update available — downloading…',
       manifestId: manifestId || undefined,
+      diagnostics,
     };
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Update check failed';
-    return { status: 'error', message };
+    return {
+      status: 'error',
+      message: `${message}${formatDiagnosticsSuffix(diagnostics)}`,
+      diagnostics,
+    };
   }
 }
 
 export async function fetchAndApplyAppUpdate(): Promise<OtaUpdateApplyResult> {
-  if (!Updates.isEnabled) {
-    return { status: 'noop', message: 'OTA disabled in this build.' };
+  if (!isOtaUpdatesEnabled()) {
+    return {
+      status: 'noop',
+      message:
+        'OTA disabled in this binary (no channel/runtime). Needs a store/release rebuild with expo-updates enabled.',
+    };
   }
 
   try {
@@ -104,10 +167,15 @@ export async function checkAndApplyAppUpdate(): Promise<OtaUpdateCheckResult | O
   }
   const apply = await fetchAndApplyAppUpdate();
   if (apply.status === 'error') {
-    return { status: 'error', message: apply.message };
+    return { status: 'error', message: apply.message, diagnostics: check.diagnostics };
   }
   if (apply.status === 'reloaded') {
-    return { status: 'available', message: apply.message };
+    return {
+      status: 'available',
+      message: apply.message,
+      manifestId: check.manifestId,
+      diagnostics: check.diagnostics,
+    };
   }
   return check;
 }

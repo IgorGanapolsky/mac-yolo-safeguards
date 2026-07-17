@@ -291,12 +291,49 @@ function relabelStoredProfile(profile: GatewayProfile): GatewayProfile {
   return label === profile.label ? profile : { ...profile, label };
 }
 
+/**
+ * Strip transport tokens from a computer name ("Mac mini USB" → "Mac mini").
+ * Transport belongs in the route badge, never in the machine title — especially for
+ * remote Tailscale Macs (mini in another city must never read as "… USB").
+ */
+export function stripTransportSuffixFromComputerName(name: string): string {
+  let next = name.trim();
+  if (!next) {
+    return next;
+  }
+  // Repeat so "Foo via USB · USB" / "Foo USB USB" collapse cleanly.
+  for (let i = 0; i < 3; i += 1) {
+    const stripped = next
+      .replace(/\s*[·•]\s*USB\s*$/i, '')
+      .replace(/\s*\(\s*USB\s*\)\s*$/i, '')
+      .replace(/\s+via\s+USB\s*$/i, '')
+      .replace(/\s+USB\s*$/i, '')
+      .trim();
+    if (stripped === next) {
+      break;
+    }
+    next = stripped;
+  }
+  return next || name.trim();
+}
+
 export function profileDisplayName(profile: GatewayProfile): string {
   const ip = resolveDisplayLanIp(profile.localIp, profile.gatewayUrl);
   const hostname = bonjourHostname(profile.hostname);
-  const label = profile.label?.trim();
+  const rawLabel = profile.label?.trim();
+  const label = rawLabel ? stripTransportSuffixFromComputerName(rawLabel) : undefined;
+  // Saved "Mac mini USB" on a Tailscale/LAN profile must never win over hostname.
+  const labelIsUsbBranded =
+    Boolean(rawLabel) && /usb/i.test(rawLabel!) && !isLoopbackGatewayUrl(profile.gatewayUrl);
 
-  if (label && !isBareIp(label) && label !== ip && !isGenericProfileLabel(label) && !isTailnetRouteLabel(label)) {
+  if (
+    label &&
+    !labelIsUsbBranded &&
+    !isBareIp(label) &&
+    label !== ip &&
+    !isGenericProfileLabel(label) &&
+    !isTailnetRouteLabel(label)
+  ) {
     return label;
   }
   if (hostname && hostname !== ip) {
@@ -452,7 +489,14 @@ export function resolveHealPersistDecision(
   };
 }
 
-/** Heal may connect via this URL without switching away from the user's active profile. */
+/**
+ * Heal may connect via this URL without switching away from the user's active profile.
+ *
+ * Unmatched USB/loopback is NOT a free pass: a cable to MacBook Pro answers on
+ * 127.0.0.1 even when the user selected Mac mini over Tailscale. Only allow
+ * loopback when the active computer is already USB, or a saved loopback row
+ * shares the active machine identity.
+ */
 export function isDiscoveredUrlAllowedForActiveProfile(
   state: GatewayProfileState,
   successfulUrl: string,
@@ -466,12 +510,21 @@ export function isDiscoveredUrlAllowedForActiveProfile(
   }
   const matched = findProfileForGatewayUrl(state.profiles, successfulUrl);
   if (!matched) {
-    return isLoopbackGatewayUrl(successfulUrl);
+    // Never let anonymous 127.0.0.1 steal a Tailscale/LAN selection.
+    if (isLoopbackGatewayUrl(successfulUrl)) {
+      return isLoopbackGatewayUrl(active.gatewayUrl);
+    }
+    return false;
   }
   if (matched.id === active.id) {
     return true;
   }
   return profilesShareMachine(active, matched);
+}
+
+/** True when heal persist accepted the probed URL (not catalog-only rejection). */
+export function healPersistAcceptedProbedUrl(appliedUrl: string, probedUrl: string): boolean {
+  return normalizeGatewayUrlBase(appliedUrl) === normalizeGatewayUrlBase(probedUrl);
 }
 
 /** Update the active profile's gateway URL when heal finds an alternate route to the same Mac. */
@@ -490,12 +543,24 @@ export function updateActiveProfileGatewayUrl(
     if (profile.id !== activeId) {
       return profile;
     }
+    const priorKey = profileMachineKey(profile);
+    const incomingHost = meta?.hostname?.trim();
+    const incomingKey = normalizeMachineKey(incomingHost);
+    // Cable identity must not rename the user's selected Mac (mini → Pro).
+    const hostname =
+      priorKey && incomingKey && priorKey !== incomingKey
+        ? profile.hostname
+        : incomingHost || profile.hostname;
+    const label =
+      priorKey && incomingKey && priorKey !== incomingKey
+        ? profile.label
+        : meta?.label?.trim() || profile.label;
     return {
       ...profile,
       gatewayUrl,
-      hostname: meta?.hostname?.trim() || profile.hostname,
+      hostname,
       localIp: meta?.localIp?.trim() || profile.localIp,
-      label: meta?.label?.trim() || profile.label,
+      label,
       lastConnectedAt: now,
     };
   });
@@ -520,11 +585,22 @@ export function applyHealDiscoveredUrl(
     isDiscoveredUrlAllowedForActiveProfile(next, url) &&
     normalizeGatewayUrlBase(priorActive.gatewayUrl) !== normalizeGatewayUrlBase(url)
   ) {
-    next = updateActiveProfileGatewayUrl(next, url, {
-      hostname: discovered.hostname,
-      localIp: discovered.localIp,
-      label: discovered.label,
-    });
+    const discoveredKey = normalizeMachineKey(discovered.hostname) || normalizeMachineKey(discovered.label);
+    // USB of another Mac must stay catalog-only — never rewrite active route/identity.
+    if (
+      isLoopbackGatewayUrl(url) &&
+      priorMachineKey &&
+      discoveredKey &&
+      discoveredKey !== priorMachineKey
+    ) {
+      // already catalog-upserted above
+    } else {
+      next = updateActiveProfileGatewayUrl(next, url, {
+        hostname: discovered.hostname,
+        localIp: discovered.localIp,
+        label: discovered.label,
+      });
+    }
   }
   if (priorMachineKey) {
     const afterActive = activeProfile(next);

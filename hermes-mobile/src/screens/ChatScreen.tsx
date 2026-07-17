@@ -42,8 +42,9 @@ import { isDemoModeAllowed } from '../utils/demoModePolicy';
 import { haptics } from '../services/haptics';
 import { scheduleRunCompletedNotification } from '../services/hermesNotifications';
 import GatewayProfilePicker from '../components/GatewayProfilePicker';
+import ComputerPickerStatusRegion from '../components/ComputerPickerStatusRegion';
 import ManualComputerAddressForm from '../components/ManualComputerAddressForm';
-import { confirmForgetGatewayProfile } from '../utils/confirmForgetGatewayProfile';
+import { confirmForgetGatewayProfileAfterHostDismiss } from '../utils/confirmForgetGatewayProfile';
 import { profileDisplayName } from '../services/gatewayProfiles';
 import {
   listSessions,
@@ -96,6 +97,7 @@ import {
 } from '../services/chatProjects';
 import { fetchVaultProjectCatalog } from '../services/vaultProjects';
 import {
+  clearPendingContinuityHandoff,
   loadContinuityChipDismissed,
   loadPendingContinuityHandoff,
   savePendingContinuityHandoff,
@@ -113,6 +115,7 @@ import ContinuingFromSessionChip from '../components/ContinuingFromSessionChip';
 import {
   buildSessionContinuityHandoff,
   continuityTitleFromHandoff,
+  shouldShowContinuityChip,
   shouldSkipAutoRetitleForContinuity,
   type SessionContinuityHandoff,
 } from '../utils/sessionContinuityHandoff';
@@ -326,7 +329,6 @@ import {
   profilesForSwitchComputerPicker,
   type LiveUsbPickerInput,
 } from '../utils/gatewayProfilePicker';
-import TailscaleDiscoveryBanner from '../components/TailscaleDiscoveryBanner';
 import { USB_LOOPBACK_GATEWAY_URL } from '../utils/gatewayLoopbackFallback';
 import {
   isMacGatewayHttpOk,
@@ -1105,8 +1107,12 @@ export default function ChatScreen() {
   );
   const healthProbePending = useMemo(() => isGatewayHealthPending(health), [health]);
   const usbCableLikely = useMemo(
-    () => Platform.OS === 'android' && isLoopbackGatewayUrl(gatewayUrl) && macHttpOk,
-    [gatewayUrl, macHttpOk],
+    () =>
+      Platform.OS === 'android' &&
+      isLoopbackGatewayUrl(gatewayUrl) &&
+      macHttpOk &&
+      wifiConnected,
+    [gatewayUrl, macHttpOk, wifiConnected],
   );
   const usbHostMismatch = useMemo(
     () =>
@@ -1582,6 +1588,7 @@ export default function ChatScreen() {
         savedMacCount: gatewayProfiles.length,
         profiles: gatewayProfiles,
         isDemo,
+        wifiConnected,
       }),
     [
       activeGatewayProfile,
@@ -1593,6 +1600,7 @@ export default function ChatScreen() {
       activeRelayWorkerId,
       gatewayProfiles,
       isDemo,
+      wifiConnected,
     ],
   );
 
@@ -1899,18 +1907,21 @@ export default function ChatScreen() {
     return () => clearInterval(timer);
   }, [undoSecondsLeft]);
 
-  const mobileChatSystemPrompt = useMemo(
-    () =>
+  const continuityTranscriptEmpty = messages.length === 0;
+  /** Live prompt for sends — reads refs so Start-fresh handoff is not a stale render closure. */
+  const buildCurrentMobileChatSystemPrompt = useCallback(
+    (userTextForInject?: string) =>
       buildMobileChatSystemPrompt(contextProject?.workspacePath, settings.hermesPersona, {
         vaultSlug: contextProject?.vaultSlug,
         handoffSummary: contextProject?.handoffSummary,
-        continuityHandoff,
+        continuityHandoff: continuityHandoffRef.current,
+        transcriptEmpty: messagesRef.current.length === 0,
+        userText: userTextForInject ?? inputValueRef.current,
       }),
     [
       contextProject?.workspacePath,
       contextProject?.vaultSlug,
       contextProject?.handoffSummary,
-      continuityHandoff,
       settings.hermesPersona,
     ],
   );
@@ -1967,7 +1978,20 @@ export default function ChatScreen() {
 
   const dismissContinuityChip = useCallback(() => {
     setContinuityChipDismissedState(true);
+    setContinuityHandoff(null);
+    continuityHandoffRef.current = null;
     void setContinuityChipDismissed(true);
+    void clearPendingContinuityHandoff();
+  }, []);
+
+  const consumeContinuityHandoffAfterSend = useCallback(() => {
+    if (!continuityHandoffRef.current) {
+      return;
+    }
+    setContinuityHandoff(null);
+    continuityHandoffRef.current = null;
+    setContinuityChipDismissedState(true);
+    void clearPendingContinuityHandoff();
   }, []);
 
   const visibleSessions = useMemo(() => {
@@ -3596,9 +3620,9 @@ export default function ChatScreen() {
    * Leave mega/stalled thread → empty compose surface.
    * Busy spinner via isStartingFreshChat; draft+attachments survive handleNewChat clear.
    */
-  const handleStartFreshChat = useCallback(async () => {
+  const handleStartFreshChat = useCallback(async (): Promise<boolean> => {
     if (isStartingFreshChatRef.current) {
-      return;
+      return false;
     }
     isStartingFreshChatRef.current = true;
     setIsStartingFreshChat(true);
@@ -3654,6 +3678,7 @@ export default function ChatScreen() {
       if (attachmentsToRestore.length > 0) {
         setComposerAttachments(attachmentsToRestore);
       }
+      return true;
     } finally {
       isStartingFreshChatRef.current = false;
       setIsStartingFreshChat(false);
@@ -4630,7 +4655,8 @@ export default function ChatScreen() {
         outboundStillPending: isOutboundTurnPendingForText(normalizedDisplay),
       })
     ) {
-      return true;
+      // No-op: composer may already be cleared by handleSendMessage — restore via false.
+      return false;
     }
 
     if (!isProgrammatic && !isDemo) {
@@ -4644,8 +4670,15 @@ export default function ChatScreen() {
           return false;
         }
         if (decision === 'fresh') {
-          // Preserve draft+attachments (handleStartFreshChat) then continue this send.
-          await handleStartFreshChat();
+          // handleSendMessage already cleared the composer — put the draft back so
+          // Start fresh can transfer it (otherwise continuity chip + empty compose).
+          inputValueRef.current = displayText;
+          setInputValue(displayText);
+          const freshOk = await handleStartFreshChat();
+          if (!freshOk) {
+            // Another Start-fresh in flight — do not send on the mega thread.
+            return false;
+          }
         }
       }
     }
@@ -4658,18 +4691,21 @@ export default function ChatScreen() {
           (queued) => normalizeMessageText(queued) === normalizedQueued,
         )
       ) {
+        // Already queued — keep the existing optimistic bubble; treat as accepted.
         return true;
       }
       outboundQueueRef.current.push(trimmed);
       setQueuedOutboundCount(outboundQueueRef.current.length);
       if (
-        !shouldSkipQueueOutboundBubbleCommit({
+        shouldSkipQueueOutboundBubbleCommit({
           normalizedQueued,
           normalizedLastCommitted: lastCommittedOutboundBodyRef.current,
         })
       ) {
-        commitOutboundUserBubble(trimmed);
+        // Skipping the bubble would look like a discarded prompt after composer clear.
+        return false;
       }
+      commitOutboundUserBubble(trimmed);
       if (!isProgrammatic) {
         haptics.light();
       }
@@ -4910,6 +4946,9 @@ export default function ChatScreen() {
       return base;
     });
 
+    // Rebuild after possible Start-fresh so continuity inject sees empty transcript + handoff.
+    const mobileChatSystemPrompt = buildCurrentMobileChatSystemPrompt(displayText);
+
     // Prefer ref: start-fresh nulls the ref immediately so we do not re-target mega sessions.
     const sessionForSend = currentSessionRef.current ?? currentSession;
     // A gateway restart drops in-memory session ids; never carry a known-removed
@@ -4940,13 +4979,19 @@ export default function ChatScreen() {
         setSessions([activeSess]);
         setCurrentSession(activeSess);
       } else {
-        const resumable = findResumableSessionByPromptTitle(
-          sessionsRef.current.filter(
-            (session) =>
-              !isTelegramInboxSession(session) && !removedSessionIdsRef.current.has(session.id),
-          ),
-          userText,
-        );
+        // After Start fresh / pending continuity, never rebind by title — that can
+        // land back on a near-duplicate "Make money today" thread and look discarded.
+        const skipResumeByTitle = Boolean(continuityHandoffRef.current);
+        const resumable = skipResumeByTitle
+          ? null
+          : findResumableSessionByPromptTitle(
+              sessionsRef.current.filter(
+                (session) =>
+                  !isTelegramInboxSession(session) &&
+                  !removedSessionIdsRef.current.has(session.id),
+              ),
+              userText,
+            );
         if (resumable) {
           activeSess = ensureSessionCreatedAt(resumable);
           setCurrentSession(activeSess);
@@ -5674,6 +5719,10 @@ export default function ChatScreen() {
       }
       haptics.success();
       sendSucceeded = true;
+      // Handoff was for the first turn of a fresh chat — stop re-injecting / chip spam.
+      if (!isProgrammatic) {
+        consumeContinuityHandoffAfterSend();
+      }
       return true;
     } catch (err) {
       const { kind, message } = humanizeChatError(err, 'Message could not send. Try again.', {
@@ -6831,7 +6880,11 @@ export default function ChatScreen() {
         ) : null}
 
         <ContinuingFromSessionChip
-          visible={Boolean(continuityHandoff) && !continuityChipDismissed}
+          visible={shouldShowContinuityChip({
+            handoff: continuityHandoff,
+            chipDismissed: continuityChipDismissed,
+            transcriptEmpty: continuityTranscriptEmpty,
+          })}
           onDismiss={dismissContinuityChip}
         />
 
@@ -6959,13 +7012,17 @@ export default function ChatScreen() {
                 Pick the computer you want to use. If this phone is plugged into a Mac, that one
                 is preferred automatically. Tap Find computers if yours is missing.
               </Text>
-              <View style={styles.macSetupCard} testID="mac-picker-setup-help">
-                <Text style={styles.macSetupTitle}>Missing your other machine?</Text>
-                <Text style={styles.macSetupText}>
-                  Start Hermes on your other machine, keep Tailscale on for both devices, then tap
-                  Find computers. Or add your Mac below with its Tailscale name or 100.x address.
-                </Text>
-              </View>
+              <ComputerPickerStatusRegion
+                scanning={profileScanning || isScanningMacs}
+                scanProgress={profileScanProgress}
+                scanResult={profileScanResult}
+                tailscaleProbing={tailscaleDiscoveryProbing}
+                tailscaleDiscoveries={tailscaleDiscoveries}
+                addingTailscale={tailscaleDiscoveryProbing}
+                onAddTailscale={(discovery) => {
+                  void addDiscoveredTailscaleComputer(discovery);
+                }}
+              />
               <ManualComputerAddressForm
                 pickerMode
                 testIDPrefix="mac-picker-manual"
@@ -6974,17 +7031,6 @@ export default function ChatScreen() {
                   setMacPickerVisible(false);
                 }}
               />
-              {tailscaleDiscoveries.length > 0 || tailscaleDiscoveryProbing ? (
-                <TailscaleDiscoveryBanner
-                  discoveries={tailscaleDiscoveries}
-                  adding={tailscaleDiscoveryProbing}
-                  probing={tailscaleDiscoveryProbing && tailscaleDiscoveries.length === 0}
-                  onAdd={(discovery) => {
-                    void addDiscoveredTailscaleComputer(discovery);
-                  }}
-                  prominent
-                />
-              ) : null}
               <GatewayProfilePicker
                 profiles={switchComputerProfiles}
                 activeProfileId={activeGatewayProfile?.id ?? null}
@@ -6995,6 +7041,7 @@ export default function ChatScreen() {
                 scanning={profileScanning || isScanningMacs}
                 scanProgress={profileScanProgress}
                 scanResult={profileScanResult}
+                hideScanCard
                 wifiConnected={wifiConnected}
                 showReachabilityHints={switchComputerProfiles.length > 1}
                 liveUsb={liveUsbGateway}
@@ -7011,13 +7058,18 @@ export default function ChatScreen() {
                         const profile =
                           switchComputerProfiles.find((p) => p.id === profileId) ??
                           gatewayProfiles.find((p) => p.id === profileId);
-                        confirmForgetGatewayProfile({
-                          profileId,
-                          computerName: profile
-                            ? profileDisplayName(profile)
-                            : 'this computer',
-                          onConfirm: removeGatewayProfile,
-                        });
+                        // Alert inside BottomSheetModal (RN Modal) is swallowed on Android —
+                        // dismiss sheet first so Forget confirm actually appears.
+                        confirmForgetGatewayProfileAfterHostDismiss(
+                          () => setMacPickerVisible(false),
+                          {
+                            profileId,
+                            computerName: profile
+                              ? profileDisplayName(profile)
+                              : 'this computer',
+                            onConfirm: removeGatewayProfile,
+                          },
+                        );
                       }
                     : undefined
                 }
@@ -7792,25 +7844,6 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: colors.textMuted,
     marginBottom: 12,
-    lineHeight: 16,
-  },
-  macSetupCard: {
-    backgroundColor: 'rgba(34, 211, 238, 0.08)',
-    borderColor: 'rgba(34, 211, 238, 0.28)',
-    borderWidth: 1,
-    borderRadius: 10,
-    padding: 12,
-    marginBottom: 12,
-  },
-  macSetupTitle: {
-    fontSize: 12,
-    fontWeight: '800',
-    color: colors.accent,
-    marginBottom: 6,
-  },
-  macSetupText: {
-    fontSize: 11,
-    color: colors.textSecondary,
     lineHeight: 16,
   },
   fieldLabel: {

@@ -163,9 +163,10 @@ function ChatInputBar({
           <TouchableOpacity
             style={[styles.sendButton, (sendMuted || !canSend || sendDisabled) && styles.sendButtonMuted]}
             onPress={() => {
-              const latest = latestTextRef.current;
-              latestTextRef.current = '';
-              onSend(latest);
+              // Do not clear latestTextRef before onSend — blocked/duplicate sends must
+              // keep the draft so a second tap (or restore path) still has the text.
+              // Controlled `value` clears the ref via the value effect after a real send.
+              onSend(latestTextRef.current);
             }}
             testID="chat-send-button"
             accessibilityLabel="Send"

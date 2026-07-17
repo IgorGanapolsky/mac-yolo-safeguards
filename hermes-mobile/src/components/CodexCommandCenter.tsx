@@ -38,7 +38,11 @@ function connectionCopy(
   authMismatch = false,
 ): { label: string; detail: string; color: string } {
   if (authMismatch) {
-    return { label: 'Not connected', detail: 'Wrong key — tap to re-pair', color: colors.error };
+    return {
+      label: 'Not connected',
+      detail: 'Outdated connection — tap to reconnect',
+      color: colors.error,
+    };
   }
   if (macRetryBusy) {
     const generic =

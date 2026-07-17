@@ -70,7 +70,7 @@ describe('connectionStateMachine', () => {
   it('describes each reason code with human copy, never raw codes', () => {
     expect(describeConnectionReason('usb_missing')).toMatch(/cable/i);
     expect(describeConnectionReason('port_closed')).toMatch(/port/i);
-    expect(describeConnectionReason('auth_failed')).toMatch(/key/i);
+    expect(describeConnectionReason('auth_failed')).toMatch(/outdated connection|re-pair/i);
     expect(describeConnectionReason('event_socket_optional')).toMatch(/connected/i);
     expect(describeConnectionReason(null)).toBe('Connected.');
   });
