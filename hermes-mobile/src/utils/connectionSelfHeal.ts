@@ -4,6 +4,7 @@ import {
   findProfileForGatewayUrl,
   profilesForActiveMachine,
   profilesShareMachine,
+  shouldProbeGatewayUrlForActiveProfile,
 } from '../services/gatewayProfiles';
 import { profileMatchesDiscoveredGateway } from './gatewayProfilePicker';
 import { isPrivateLanGatewayUrl } from './gatewayEndpoint';
@@ -124,7 +125,16 @@ export function buildSelfHealProbeUrls(input: {
   }
 
   for (const url of usbLoopbackFallbackUrls(primary)) {
-    push(url);
+    // USB answers whichever Mac is cabled — never probe it when the user picked another computer.
+    if (
+      input.activeProfileId == null ||
+      shouldProbeGatewayUrlForActiveProfile(
+        { profiles: input.profiles, activeProfileId: input.activeProfileId },
+        url,
+      )
+    ) {
+      push(url);
+    }
   }
 
   for (const url of wifiLanFallbackUrls({

@@ -133,6 +133,7 @@ import {
   dedupeGatewayProfiles,
   findProfileForGatewayUrl,
   GENERIC_USB_PROFILE_LABEL,
+  healPersistAcceptedProbedUrl,
   isDiscoveredUrlAllowedForActiveProfile,
   profileDisplayName,
   profileIdFromGatewayUrl,
@@ -829,6 +830,16 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
         wifiConnected: wifiConnectedRef.current,
         hasTailscaleAlternate: cellularTailscaleAlternates.length > 0,
       });
+      const acceptHealUrl = async (fallbackUrl: string, snapshot: Awaited<ReturnType<typeof probeMacGatewayOk>>) => {
+        const applied = await persistDiscoveredGatewayUrl(fallbackUrl, true);
+        if (!healPersistAcceptedProbedUrl(applied, fallbackUrl)) {
+          return null;
+        }
+        connectionHealAttemptRef.current = 0;
+        setConnectionHealAttempt(0);
+        return { snapshot, url: fallbackUrl };
+      };
+
       if (skipLan) {
         for (const fallbackUrl of savedProfileFallbackUrls({
           primaryUrl,
@@ -838,10 +849,10 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
         })) {
           try {
             const snapshot = await probeMacGatewayOk(fallbackUrl);
-            await persistDiscoveredGatewayUrl(fallbackUrl, true);
-            connectionHealAttemptRef.current = 0;
-            setConnectionHealAttempt(0);
-            return { snapshot, url: fallbackUrl };
+            const accepted = await acceptHealUrl(fallbackUrl, snapshot);
+            if (accepted) {
+              return accepted;
+            }
           } catch {
             // try next saved profile / tailnet URL
           }
@@ -873,8 +884,10 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
         if (tailDiscovered?.gatewayUrl) {
           try {
             const snapshot = await probeMacGatewayOk(tailDiscovered.gatewayUrl);
-            await persistDiscoveredGatewayUrl(tailDiscovered.gatewayUrl, true);
-            return { snapshot, url: tailDiscovered.gatewayUrl };
+            const accepted = await acceptHealUrl(tailDiscovered.gatewayUrl, snapshot);
+            if (accepted) {
+              return accepted;
+            }
           } catch {
             // try generic tailnet fallbacks next
           }
@@ -889,20 +902,25 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
       })) {
         try {
           const snapshot = await probeMacGatewayOk(fallbackUrl);
-          await persistDiscoveredGatewayUrl(fallbackUrl, true);
-          connectionHealAttemptRef.current = 0;
-          setConnectionHealAttempt(0);
-          return { snapshot, url: fallbackUrl };
+          const accepted = await acceptHealUrl(fallbackUrl, snapshot);
+          if (accepted) {
+            return accepted;
+          }
         } catch {
           // try next saved profile / tailnet URL
         }
       }
 
       for (const fallbackUrl of usbLoopbackFallbackUrls(primaryUrl)) {
+        if (!shouldProbeGatewayUrlForActiveProfile(profileStateRef.current, fallbackUrl)) {
+          continue;
+        }
         try {
           const snapshot = await probeMacGatewayOk(fallbackUrl);
-          await persistDiscoveredGatewayUrl(fallbackUrl, true);
-          return { snapshot, url: fallbackUrl };
+          const accepted = await acceptHealUrl(fallbackUrl, snapshot);
+          if (accepted) {
+            return accepted;
+          }
         } catch {
           // try next fallback
         }
@@ -930,8 +948,10 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
       })) {
         try {
           const snapshot = await probeMacGatewayOk(fallbackUrl);
-          await persistDiscoveredGatewayUrl(fallbackUrl, true);
-          return { snapshot, url: fallbackUrl };
+          const accepted = await acceptHealUrl(fallbackUrl, snapshot);
+          if (accepted) {
+            return accepted;
+          }
         } catch {
           // try next LAN candidate
         }
@@ -950,8 +970,10 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
       })) {
         try {
           const snapshot = await probeMacGatewayOk(fallbackUrl);
-          await persistDiscoveredGatewayUrl(fallbackUrl, true);
-          return { snapshot, url: fallbackUrl };
+          const accepted = await acceptHealUrl(fallbackUrl, snapshot);
+          if (accepted) {
+            return accepted;
+          }
         } catch {
           // try next tailnet candidate
         }
@@ -1411,8 +1433,14 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
     // 1. Prefer USB only when the user's active computer is already the USB profile
     if (Platform.OS !== 'web' && preferUsbFirst) {
       for (const fallbackUrl of usbLoopbackFallbackUrls(currentUrl || '')) {
+        if (!shouldProbeGatewayUrlForActiveProfile(profileStateRef.current, fallbackUrl)) {
+          continue;
+        }
         try {
-          return await commitDiscoveredUrl(await probe(fallbackUrl), true);
+          const applied = await commitDiscoveredUrl(await probe(fallbackUrl), true);
+          if (healPersistAcceptedProbedUrl(applied, fallbackUrl)) {
+            return applied;
+          }
         } catch (_) {
           // fall through
         }
@@ -1704,7 +1732,11 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
           if (!isGatewayHealthOk(snapshot)) {
             continue;
           }
-          await persistDiscoveredGatewayUrl(url, true);
+          const applied = await persistDiscoveredGatewayUrl(url, true);
+          // Catalog-only (e.g. Pro USB while mini is active) must not flip Connected/health.
+          if (!healPersistAcceptedProbedUrl(applied, url)) {
+            continue;
+          }
           // Never override auth probe — fetchGatewayHealth already sets directGatewayReachable.
           setHealth(snapshot);
           healthRef.current = snapshot;

@@ -122,7 +122,7 @@ describe('connectionSelfHeal', () => {
     ).toEqual(['http://100.94.135.78:8642']);
   });
 
-  it('builds probe list with active profile first then USB before Tailscale', () => {
+  it('builds probe list with same-machine Tailscale first; skips anonymous USB', () => {
     const urls = buildSelfHealProbeUrls({
       primaryUrl: 'http://192.168.68.56:8642',
       wifiConnected: true,
@@ -139,8 +139,47 @@ describe('connectionSelfHeal', () => {
       activeProfileId: 'lan',
     });
     expect(urls[0]).toBe('http://100.94.135.78:8642');
-    expect(urls).toContain('http://127.0.0.1:8642');
+    // Anonymous USB is whichever Mac is cabled — must not steal mini→Pro.
+    expect(urls).not.toContain('http://127.0.0.1:8642');
     expect(urls).toContain('http://igors-mac-mini.tail12aa33.ts.net:8642');
+  });
+
+  it('includes USB only when the saved loopback row is the active Mac', () => {
+    const urls = buildSelfHealProbeUrls({
+      primaryUrl: 'http://192.168.68.56:8642',
+      wifiConnected: true,
+      profiles: [
+        ...profiles,
+        {
+          id: 'usb',
+          label: 'Igors-Mac-mini',
+          hostname: 'Igors-Mac-mini',
+          gatewayUrl: 'http://127.0.0.1:8642',
+          addedAt: '2026-06-28T00:00:02Z',
+        },
+      ],
+      activeProfileId: 'lan',
+    });
+    expect(urls).toContain('http://127.0.0.1:8642');
+  });
+
+  it('never probes Pro USB while Mac mini is the active computer', () => {
+    const urls = buildSelfHealProbeUrls({
+      primaryUrl: 'http://100.94.135.78:8642',
+      wifiConnected: false,
+      profiles: [
+        ...twoMacProfiles,
+        {
+          id: 'book_usb',
+          label: 'Igors-MacBook-Pro',
+          hostname: 'Igors-MacBook-Pro',
+          gatewayUrl: 'http://127.0.0.1:8642',
+          addedAt: '2026-06-28T00:00:02Z',
+        },
+      ],
+      activeProfileId: 'mini',
+    });
+    expect(urls).not.toContain('http://127.0.0.1:8642');
   });
 
   it('resolves Tailscale failover URL for cellular with LAN primary', () => {
