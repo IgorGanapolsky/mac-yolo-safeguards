@@ -1373,12 +1373,45 @@ describe('ChatScreen', () => {
     fireEvent.press(getByTestId('chat-context-mac-button'));
 
     expect(getByTestId('mac-picker-scroll')).toBeTruthy();
-    expect(getByTestId('mac-picker-setup-help')).toBeTruthy();
+    expect(getByTestId('mac-picker-status-region')).toBeTruthy();
     expect(getByText('Missing your other machine?')).toBeTruthy();
     expect(getByText(/Start Hermes on your other machine/)).toBeTruthy();
-    expect(getByText(/add your Mac below with its Tailscale name or 100\.x address/)).toBeTruthy();
     expect(getByTestId('mac-picker-manual-form')).toBeTruthy();
     expect(getByText('Add by Tailscale address')).toBeTruthy();
+    expect(
+      getByText("Enter your Mac's Tailscale name or 100.x address, then Connect."),
+    ).toBeTruthy();
+  });
+
+  it('keeps one computer-picker status region instead of stacking discovery banners', async () => {
+    Object.assign(mockGatewayState, {
+      tailscaleDiscoveryProbing: true,
+      tailscaleDiscoveries: [],
+      profileScanning: true,
+      profileScanProgress: {
+        stage: 'gateway_health',
+        completedHosts: 1,
+        totalHosts: 4,
+        foundCount: 0,
+      },
+      profileScanResult: {
+        foundCount: 2,
+        lanCount: 0,
+        tailscaleCount: 2,
+        usbCount: 0,
+        completedAtMs: Date.now(),
+      },
+    });
+    const { getByTestId, queryByTestId, getAllByTestId } = await renderChatScreen();
+
+    fireEvent.press(getByTestId('chat-context-mac-button'));
+
+    expect(getAllByTestId('mac-picker-status-region')).toHaveLength(1);
+    expect(queryByTestId('mac-picker-setup-help')).toBeNull();
+    expect(queryByTestId('tailscale-discovery-probing')).toBeNull();
+    expect(queryByTestId('mac-scan-progress')).toBeNull();
+    expect(queryByTestId('mac-scan-progress-result')).toBeNull();
+    expect(getByTestId('mac-picker-manual-form')).toBeTruthy();
   });
 
   it('adds a Tailscale address from the Choose computer picker', async () => {

@@ -30,6 +30,11 @@ type GatewayProfilePickerProps = {
   selectionDisabled?: boolean;
   /** Live cable probe — drives "plugged in" copy without a second radio per Mac. */
   liveUsb?: LiveUsbPickerInput | null;
+  /**
+   * When the parent owns a unified status band (Choose computer modal),
+   * do not mount MacScanProgressCard — stacking caused layout thrash.
+   */
+  hideScanCard?: boolean;
 };
 
 export default function GatewayProfilePicker({
@@ -47,8 +52,9 @@ export default function GatewayProfilePicker({
   showReachabilityHints = false,
   selectionDisabled = false,
   liveUsb = null,
+  hideScanCard = false,
 }: GatewayProfilePickerProps) {
-  const showScanCard = scanning || scanResult;
+  const showScanCard = !hideScanCard && Boolean(scanning || scanResult);
   const multiMac = profiles.length > 1;
   const showRouteHints = showReachabilityHints || multiMac;
 
