@@ -38,3 +38,52 @@ export function resolveComposerTextAfterFreshChat(options: {
 export function shouldSkipStoredDraftLoad(pendingTransferText: string | null): boolean {
   return pendingTransferText !== null;
 }
+
+export type DraftLoadResolveInput = {
+  /** Composer text currently on screen (may include typing that raced the async load). */
+  inMemoryText: string;
+  /** Draft loaded from AsyncStorage for the destination session. */
+  loadedDraft: string;
+  /**
+   * True when currentSession.id changed (thread switch / compose→session).
+   * False when the same session re-fired the load effect (seed/demo flicker).
+   */
+  isSessionChange: boolean;
+  /** Snapshot of in-memory text when the async load started. */
+  textAtFetchStart: string;
+};
+
+/**
+ * Never silently discard typed composer text.
+ * - Same-session reload: keep live typing over an empty/stale storage read.
+ * - Session change: apply the destination draft (including empty) so thread switch clears.
+ * - Edits during the fetch always win over storage.
+ */
+export function resolveComposerTextAfterDraftLoad(input: DraftLoadResolveInput): string {
+  const live = typeof input.inMemoryText === 'string' ? input.inMemoryText : '';
+  const draft = typeof input.loadedDraft === 'string' ? input.loadedDraft : '';
+  const started = typeof input.textAtFetchStart === 'string' ? input.textAtFetchStart : '';
+
+  if (live.trim() && live !== started) {
+    return live;
+  }
+  if (!input.isSessionChange && live.trim() && !draft.trim()) {
+    return live;
+  }
+  return draft;
+}
+
+/**
+ * Storage key for compose-first (no Mac session yet). Typing must persist here so
+ * auto-select / reconnect cannot wipe a draft that was never keyed to a session id.
+ */
+export const COMPOSER_DRAFT_COMPOSE_FIRST_KEY = '__compose_first__';
+
+/** Session id used for draft save/load — compose-first uses a stable sentinel. */
+export function composerDraftSessionKey(sessionId: string | null | undefined): string | null {
+  const trimmed = sessionId?.trim();
+  if (trimmed) {
+    return trimmed;
+  }
+  return COMPOSER_DRAFT_COMPOSE_FIRST_KEY;
+}

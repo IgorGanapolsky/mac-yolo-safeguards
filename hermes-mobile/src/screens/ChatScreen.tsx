@@ -217,7 +217,10 @@ import {
   shouldSuppressConnectionHelpForLocalOutbound,
 } from '../utils/disconnectMessagePreserve';
 import {
+  COMPOSER_DRAFT_COMPOSE_FIRST_KEY,
   captureComposerTextForFreshChat,
+  composerDraftSessionKey,
+  resolveComposerTextAfterDraftLoad,
   resolveComposerTextAfterFreshChat,
   shouldRestoreComposerAfterFreshChat,
   shouldSkipStoredDraftLoad,
@@ -3194,9 +3197,11 @@ export default function ChatScreen() {
     if (Platform.OS === 'android') {
       setKeyboardScreenVisible(false);
     }
-    const sessionId = currentSessionRef.current?.id;
-    if (sessionId && !isDemo) {
-      void saveComposerDraft(sessionId, inputValueRef.current);
+    if (!isDemo) {
+      const draftKey = composerDraftSessionKey(currentSessionRef.current?.id);
+      if (draftKey) {
+        void saveComposerDraft(draftKey, inputValueRef.current);
+      }
     }
     if (pendingTranscriptSyncRef.current) {
       pendingTranscriptSyncRef.current = false;
@@ -4003,8 +4008,13 @@ export default function ChatScreen() {
     sendClearSuppressRef.current = false;
     inputValueRef.current = text;
     setInputValue(text);
-    const sessionId = currentSessionRef.current?.id;
-    if (!sessionId || isDemo) {
+    if (isDemo) {
+      return;
+    }
+    // Compose-first (no session yet) must still persist — otherwise reconnect /
+    // auto-select loads an empty session draft and the typed prompt vanishes.
+    const draftKey = composerDraftSessionKey(currentSessionRef.current?.id);
+    if (!draftKey) {
       return;
     }
     if (composerDraftSaveTimerRef.current) {
@@ -4012,7 +4022,7 @@ export default function ChatScreen() {
     }
     composerDraftSaveTimerRef.current = setTimeout(() => {
       composerDraftSaveTimerRef.current = null;
-      void saveComposerDraft(sessionId, text);
+      void saveComposerDraft(draftKey, text);
     }, COMPOSER_DRAFT_SAVE_DEBOUNCE_MS);
   }, [isDemo]);
 
@@ -4021,21 +4031,26 @@ export default function ChatScreen() {
       clearTimeout(composerDraftSaveTimerRef.current);
       composerDraftSaveTimerRef.current = null;
     }
-    const sessionId = currentSessionRef.current?.id;
-    if (sessionId && !isDemo) {
-      void saveComposerDraft(sessionId, inputValueRef.current);
+    if (isDemo) {
+      return;
+    }
+    const draftKey = composerDraftSessionKey(currentSessionRef.current?.id);
+    if (draftKey) {
+      void saveComposerDraft(draftKey, inputValueRef.current);
     }
   }, [isDemo]);
 
   useEffect(() => {
     const sessionId = currentSession?.id ?? null;
+    const draftKey = composerDraftSessionKey(sessionId);
     const previousSessionId = composerDraftSessionRef.current;
-    if (previousSessionId && previousSessionId !== sessionId) {
+    const isSessionChange = previousSessionId !== draftKey;
+    if (previousSessionId && previousSessionId !== draftKey) {
       void saveComposerDraft(previousSessionId, inputValueRef.current);
     }
-    composerDraftSessionRef.current = sessionId;
+    composerDraftSessionRef.current = draftKey;
 
-    if (!sessionId || isDemo || pendingApprovalEditSeed) {
+    if (!draftKey || isDemo || pendingApprovalEditSeed) {
       return;
     }
 
@@ -4049,14 +4064,28 @@ export default function ChatScreen() {
       inputValueRef.current = nextText;
       setInputValue(nextText);
       if (nextText.length > 0) {
-        void saveComposerDraft(sessionId, nextText);
+        void saveComposerDraft(draftKey, nextText);
       }
       return;
     }
 
     let cancelled = false;
+    const textAtFetchStart = inputValueRef.current;
     void (async () => {
-      const draft = await loadComposerDraft(sessionId);
+      let draft = await loadComposerDraft(draftKey);
+      // Compose-first → real session: carry the sentinel draft when destination is empty.
+      if (
+        sessionId &&
+        previousSessionId === COMPOSER_DRAFT_COMPOSE_FIRST_KEY &&
+        !draft.trim()
+      ) {
+        const composeFirstDraft = await loadComposerDraft(COMPOSER_DRAFT_COMPOSE_FIRST_KEY);
+        if (composeFirstDraft.trim()) {
+          draft = composeFirstDraft;
+          await saveComposerDraft(sessionId, composeFirstDraft);
+          await clearComposerDraft(COMPOSER_DRAFT_COMPOSE_FIRST_KEY);
+        }
+      }
       if (cancelled || pendingApprovalEditSeed) {
         return;
       }
@@ -4070,12 +4099,18 @@ export default function ChatScreen() {
         inputValueRef.current = nextText;
         setInputValue(nextText);
         if (nextText.length > 0) {
-          void saveComposerDraft(sessionId, nextText);
+          void saveComposerDraft(draftKey, nextText);
         }
         return;
       }
-      inputValueRef.current = draft;
-      setInputValue(draft);
+      const nextText = resolveComposerTextAfterDraftLoad({
+        inMemoryText: inputValueRef.current,
+        loadedDraft: draft,
+        isSessionChange,
+        textAtFetchStart,
+      });
+      inputValueRef.current = nextText;
+      setInputValue(nextText);
     })();
 
     return () => {
@@ -4228,8 +4263,13 @@ export default function ChatScreen() {
     setComposerAttachments([]);
     Keyboard.dismiss();
     const sentSessionId = currentSessionRef.current?.id;
-    if (sentSessionId && !isDemo) {
-      void clearComposerDraft(sentSessionId);
+    if (!isDemo) {
+      // Clear both the active session draft and compose-first sentinel so a
+      // rejected→restore path cannot resurrect a stale empty-session draft.
+      void clearComposerDraft(composerDraftSessionKey(sentSessionId));
+      if (sentSessionId) {
+        void clearComposerDraft(COMPOSER_DRAFT_COMPOSE_FIRST_KEY);
+      }
     }
 
     const prepared =
