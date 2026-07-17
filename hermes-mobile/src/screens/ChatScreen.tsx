@@ -79,6 +79,8 @@ import {
 } from '../services/hermesGatewayClient';
 import { fetchGatewayHealth, gatewayAuthRepairBanner } from '../services/gatewayClient';
 import { secureCredentials } from '../services/secureCredentials';
+import { WRONG_KEY_PRIMARY_CTA } from '../utils/wrongKeyRecovery';
+import { refreshCredentialsFromPairServer } from '../utils/repairGatewayLink';
 import type { HermesSession, HermesMessage } from '../types/chat';
 import type { GatewayProfile } from '../types/gatewayProfile';
 import type { ChatProject, ChatProjectState } from '../types/chatProject';
@@ -338,11 +340,7 @@ import {
   isGatewayHealthPending,
   resolveEffectiveMacHttpOk,
 } from '../utils/gatewayConnection';
-import {
-  pairServerHostFromGatewayUrl,
-  probeLiveUsbGateway,
-  resolvePairServerSetupParams,
-} from '../services/gatewayDiscovery';
+import { probeLiveUsbGateway } from '../services/gatewayDiscovery';
 import { isGatewayLiveForDelivery } from '../utils/outboundDeliveryStatus';
 import {
   OUTBOUND_PENDING_RECOVERY_MS,
@@ -1297,14 +1295,17 @@ export default function ChatScreen() {
       userSendFailed,
       profiles: gatewayProfiles,
     });
-  const showMacRetryBanner = shouldShowMacRetryBanner({
-    isDemo,
-    macChatLive: effectiveMacChatLive,
-    healthProbePending,
-    runProgressFailed: runProgress?.phase === 'failed',
-    heal: connectionHeal,
-    userSendFailed,
-  });
+  // Auth mismatch already has the red Re-pair banner — don't stack orange "Can't reach".
+  const showMacRetryBanner =
+    !effectiveAuthMismatch &&
+    shouldShowMacRetryBanner({
+      isDemo,
+      macChatLive: effectiveMacChatLive,
+      healthProbePending,
+      runProgressFailed: runProgress?.phase === 'failed',
+      heal: connectionHeal,
+      userSendFailed,
+    });
   const chatBlockingSurfaceOpen =
     sessionModalVisible ||
     toolsModalVisible ||
@@ -1640,6 +1641,9 @@ export default function ChatScreen() {
   );
 
   const machineShortLabel = machineHeaderDisplay.machineLabel;
+  const repairComputerLabel = activeGatewayProfile
+    ? profileDisplayName(activeGatewayProfile)
+    : machineShortLabel;
   const machineEndpoint = machineHeaderDisplay.machineEndpoint;
   const machineProfileSwitchInFlight =
     profileSwitchBusy ||
@@ -1659,9 +1663,9 @@ export default function ChatScreen() {
       if (prev && isAuthRepairMessage(prev)) {
         return prev;
       }
-      return gatewayAuthRepairBanner(machineShortLabel);
+      return gatewayAuthRepairBanner(repairComputerLabel);
     });
-  }, [health?.authMismatch, machineShortLabel]);
+  }, [health?.authMismatch, repairComputerLabel]);
 
   const routeStatusLabel =
     settings.connectionMode === 'relay' &&
@@ -3417,9 +3421,19 @@ export default function ChatScreen() {
     setPinnedOutboundText(null);
     setPinnedOutboundSentAt(null);
     setPinnedOutboundStatus('pending');
-    setErrorMessage((prev) => (prev && isConnectivityMessage(prev) ? null : prev));
+    // Keep auth-repair banner visible while we work — never leave a silent tap.
+    setErrorMessage((prev) => {
+      if (prev && isAuthRepairMessage(prev)) {
+        return prev;
+      }
+      if (prev && isConnectivityMessage(prev)) {
+        return null;
+      }
+      return health?.authMismatch ? gatewayAuthRepairBanner(repairComputerLabel) : prev;
+    });
 
     const activeProfileId = activeGatewayProfile?.id ?? null;
+    const probeBase = effectiveGatewayUrl || settings.gatewayUrl;
 
     try {
       if (activeProfileId) {
@@ -3432,19 +3446,15 @@ export default function ChatScreen() {
         await saveSettings(nextSettings, apiKey);
       }
 
-      if (health?.authMismatch) {
-        const pairHost = pairServerHostFromGatewayUrl(
-          effectiveGatewayUrl || nextSettings.gatewayUrl,
-        );
-        if (pairHost) {
-          const setup = await resolvePairServerSetupParams(pairHost);
-          const freshKey = setup?.apiKey?.trim();
-          if (freshKey) {
-            const gatewayUrl = setup?.gatewayUrl?.trim() || effectiveGatewayUrl;
-            nextSettings = { ...nextSettings, gatewayUrl };
-            await saveSettings(nextSettings, freshKey);
-          }
-        }
+      // Always try pair-server credential refresh on reconnect/re-pair taps.
+      const fresh = await refreshCredentialsFromPairServer({ gatewayUrl: probeBase });
+      if (fresh) {
+        nextSettings = {
+          ...nextSettings,
+          gatewayUrl: fresh.gatewayUrl,
+          connectionMode: 'gateway',
+        };
+        await saveSettings(nextSettings, fresh.apiKey);
       }
 
       await scanForGatewayProfiles();
@@ -3454,23 +3464,35 @@ export default function ChatScreen() {
       connectEvents();
 
       const profileKey = await secureCredentials.resolveApiKeyForProfile(activeProfileId);
-      const probeUrl = effectiveGatewayUrl || settings.gatewayUrl;
+      const probeUrl = nextSettings.gatewayUrl || fresh?.gatewayUrl || probeBase;
       const postRetryHealth = await fetchGatewayHealth(probeUrl, profileKey);
       if (postRetryHealth.authMismatch) {
         setMacPickerVisible(true);
-        setErrorMessage(gatewayAuthRepairBanner(machineShortLabel));
+        setErrorMessage(gatewayAuthRepairBanner(repairComputerLabel));
+        haptics.warning();
+        return;
+      }
+      if (!postRetryHealth.directGatewayReachable && postRetryHealth.level === 'red') {
+        setMacPickerVisible(true);
+        setErrorMessage(
+          `Still can't reach ${repairComputerLabel}. Keep Tailscale on, or tap Find computers.`,
+        );
         haptics.warning();
         return;
       }
 
+      setErrorMessage((prev) => (prev && isAuthRepairMessage(prev) ? null : prev));
       const retryText = lastFailedSendTextRef.current?.trim();
       if (retryText) {
         await sendUserTextRef.current(retryText, true);
       }
     } catch (err) {
       console.warn('[handleMacRetry] failed:', err);
+      setMacPickerVisible(true);
       setErrorMessage(
-        `Still can't reach ${machineShortLabel}. Check USB cable or same Wi‑Fi, then tap to retry again.`,
+        health?.authMismatch
+          ? gatewayAuthRepairBanner(repairComputerLabel)
+          : `Still can't reach ${repairComputerLabel}. Keep Tailscale on, or tap Find computers.`,
       );
       haptics.warning();
     } finally {
@@ -3484,7 +3506,6 @@ export default function ChatScreen() {
     health?.authMismatch,
     effectiveGatewayUrl,
     saveSettings,
-    gatewayProfiles,
     activeGatewayProfile?.id,
     selectGatewayProfile,
     scanForGatewayProfiles,
@@ -3492,7 +3513,7 @@ export default function ChatScreen() {
     retryGatewayBootstrap,
     refreshHealth,
     connectEvents,
-    machineShortLabel,
+    repairComputerLabel,
   ]);
 
   const handleManualSync = useCallback(async () => {
@@ -6618,6 +6639,10 @@ export default function ChatScreen() {
           onOpenTools={() => setToolsModalVisible(true)}
           onPressMachine={() => {
             haptics.selection();
+            if (effectiveAuthMismatch) {
+              void handleMacRetry();
+              return;
+            }
             setMacPickerVisible(true);
           }}
           onPressWorkspace={handlePickWorkspace}
@@ -6633,7 +6658,7 @@ export default function ChatScreen() {
           pendingApprovalCount={composerApprovals.length}
           runProgress={progressBanner}
           isSending={isSending}
-          machineName={machineShortLabel}
+          machineName={repairComputerLabel}
           chatStalled={effectiveAuthMismatch ? false : chatStalled}
           authMismatch={effectiveAuthMismatch}
           suppressRunTile={shouldSuppressCommandCenterRunTile(showComposerProgressBanner)}
@@ -6837,20 +6862,24 @@ export default function ChatScreen() {
             actionLabel={
               showSessionBusyStop
                 ? 'Stop run on computer & retry'
-                : isEmptyReplyFailureMessage(operationalError) ||
-                    lastFailedSendTextRef.current?.trim() ||
-                    lastFailedOutboundText?.trim()
-                  ? 'Retry send'
-                  : undefined
+                : isAuthRepairMessage(operationalError)
+                  ? WRONG_KEY_PRIMARY_CTA
+                  : isEmptyReplyFailureMessage(operationalError) ||
+                      lastFailedSendTextRef.current?.trim() ||
+                      lastFailedOutboundText?.trim()
+                    ? 'Retry send'
+                    : undefined
             }
             onAction={
               showSessionBusyStop
                 ? () => void handleStopMacAndRetrySend()
-                : isEmptyReplyFailureMessage(operationalError) ||
-                    lastFailedSendTextRef.current?.trim() ||
-                    lastFailedOutboundText?.trim()
-                  ? () => void handleRetryFailedSend()
-                  : undefined
+                : isAuthRepairMessage(operationalError)
+                  ? () => void handleMacRetry()
+                  : isEmptyReplyFailureMessage(operationalError) ||
+                      lastFailedSendTextRef.current?.trim() ||
+                      lastFailedOutboundText?.trim()
+                    ? () => void handleRetryFailedSend()
+                    : undefined
             }
           />
         ) : null}

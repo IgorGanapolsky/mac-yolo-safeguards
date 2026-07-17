@@ -78,7 +78,7 @@ describe('ConnectionHealthHub', () => {
     const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
     const onRepairConnection = jest
       .fn()
-      .mockRejectedValue(new Error('Repair link timed out after 12s'));
+      .mockRejectedValue(new Error('Repair link timed out after 30s'));
     const { getByTestId } = render(
       <ConnectionHealthHub
         connectionState="disconnected"
@@ -98,7 +98,7 @@ describe('ConnectionHealthHub', () => {
     });
     expect(alertSpy).toHaveBeenCalledWith(
       'Could not repair link',
-      'Repair link timed out after 12s',
+      'Repair link timed out after 30s',
     );
     alertSpy.mockRestore();
   });

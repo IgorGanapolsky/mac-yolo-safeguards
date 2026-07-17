@@ -6,6 +6,8 @@ import {
   fetchGatewayHealth,
   probeGatewayAuth,
   GATEWAY_WRONG_KEY_MESSAGE,
+  authRepairTargetLabel,
+  gatewayAuthRepairBanner,
   parseGatewayEvent,
   parseReclaimEvent,
 } from '../services/gatewayClient';
@@ -204,6 +206,15 @@ describe('fetchGatewayHealth', () => {
     const health = await fetchGatewayHealth('http://127.0.0.1:8642');
     expect(health.level).toBe('red');
     expect(health.errorMessage).toContain('503');
+  });
+});
+
+describe('gatewayAuthRepairBanner', () => {
+  it('never names Hermes account relay as the re-pair target', () => {
+    expect(authRepairTargetLabel('Hermes account relay')).toBe('your computer');
+    expect(gatewayAuthRepairBanner('Hermes account relay')).toContain('your computer');
+    expect(gatewayAuthRepairBanner('Hermes account relay')).not.toContain('Hermes account relay');
+    expect(gatewayAuthRepairBanner('Igors-Mac-mini')).toContain('Igors-Mac-mini');
   });
 });
 

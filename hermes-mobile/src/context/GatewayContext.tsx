@@ -8,6 +8,11 @@ import React, {
 import { createContext, useContext } from 'use-context-selector';
 import { AppState, Linking, Platform } from 'react-native';
 import NetInfo from '@react-native-community/netinfo';
+import {
+  cacheDirectory as fileSystemCacheDirectory,
+  getInfoAsync as fileSystemGetInfoAsync,
+  writeAsStringAsync as fileSystemWriteAsStringAsync,
+} from 'expo-file-system/legacy';
 import type {
   GatewayEventMessage,
   GatewayHealthSnapshot,
@@ -101,6 +106,12 @@ import {
 } from '../utils/connectionSelfHeal';
 import { CONNECTION_HEAL_EXHAUSTED_AFTER } from '../utils/connectionErrorPolicy';
 import { planWrongKeyRecovery } from '../utils/wrongKeyRecovery';
+import {
+  freshInstallMarkerUri,
+  pairingStateLooksPersisted,
+  shouldWipeRestoredPairingState,
+} from '../utils/freshInstallGuard';
+import { clearPendingContinuityHandoff } from '../services/sessionContinuityStorage';
 import {
   evaluatePairDeepLinkApply,
   shouldRunForegroundUsbHeal,
@@ -527,9 +538,44 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
 
     (async () => {
       try {
-        const savedSettings = await storage.loadGatewaySettings();
+        let savedSettings = await storage.loadGatewaySettings();
         const lastLanIp = await storage.loadLastGatewayLanIp();
         let loadedProfiles = await gatewayProfiles.load();
+        // Android Auto Backup / cloud restore can revive AsyncStorage + SecureStore
+        // after a Play reinstall while cache (our marker) stays empty. Wipe pairing
+        // so a stranger cold-start never inherits stale wrong-key Macs.
+        try {
+          const markerUri = freshInstallMarkerUri(fileSystemCacheDirectory);
+          if (markerUri) {
+            const markerInfo = await fileSystemGetInfoAsync(markerUri);
+            const savedKeyPreview = await secureCredentials.loadApiKey();
+            const savedTokenPreview = await secureCredentials.loadMobileToken();
+            const shouldWipe = shouldWipeRestoredPairingState({
+              markerExists: markerInfo.exists,
+              hasPersistedPairingState: pairingStateLooksPersisted({
+                profileCount: loadedProfiles.profiles.length,
+                hasApiKey: Boolean(savedKeyPreview?.trim()),
+                hasMobileToken: Boolean(savedTokenPreview?.trim()),
+                hasGatewayUrl: Boolean(savedSettings.gatewayUrl?.trim()),
+              }),
+            });
+            if (shouldWipe) {
+              console.warn(
+                '[hermes-mobile] Wiping restored pairing state (cache marker missing)',
+              );
+              await storage.clearAll();
+              await secureCredentials.clearAllCredentials();
+              await clearPendingContinuityHandoff();
+              loadedProfiles = { ...EMPTY_GATEWAY_PROFILE_STATE };
+              savedSettings = { ...DEFAULT_GATEWAY_SETTINGS };
+            }
+            if (!markerInfo.exists) {
+              await fileSystemWriteAsStringAsync(markerUri, String(Date.now()));
+            }
+          }
+        } catch (wipeErr) {
+          console.warn('[hermes-mobile] fresh-install guard failed:', wipeErr);
+        }
         loadedProfiles = migrateLegacyGateway(loadedProfiles, savedSettings.gatewayUrl, lastLanIp);
         if (Platform.OS !== 'web') {
           // Fresh install (no real Mac yet): never invent a USB 127.0.0.1 profile —

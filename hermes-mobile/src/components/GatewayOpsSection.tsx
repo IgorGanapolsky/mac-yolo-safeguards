@@ -48,16 +48,36 @@ import IntegrationsSheet from './IntegrationsSheet';
 import { buildAgentDashboardStats } from '../utils/agentDashboardStats';
 import { formatGatewayModelPickerLabel, primaryGatewayModelLabel } from '../utils/gatewayCapabilitiesDisplay';
 import { isMacGatewayHttpOk } from '../utils/gatewayConnection';
+import {
+  REPAIR_CONNECTION_TIMEOUT_MS,
+  assertRepairSucceeded,
+  refreshCredentialsFromPairServer,
+  repairTimeoutMessage,
+  runRepairGatewayLink,
+} from '../utils/repairGatewayLink';
+import { fetchGatewayHealth } from '../services/gatewayClient';
+import { secureCredentials } from '../services/secureCredentials';
+import { profileDisplayName } from '../services/gatewayProfiles';
 
 type CatalogSection = 'capabilities' | 'skills' | 'toolsets' | 'jobs';
 
 const CATALOG_REQUEST_TIMEOUT_MS = 8_000;
-const REPAIR_CONNECTION_TIMEOUT_MS = 12_000;
 
-function withTimeout<T>(promise: Promise<T>, label: string, timeoutMs: number): Promise<T> {
+function withTimeout<T>(
+  promise: Promise<T>,
+  label: string,
+  timeoutMs: number,
+  timeoutMessage?: string,
+): Promise<T> {
   return new Promise<T>((resolve, reject) => {
     const timer = setTimeout(
-      () => reject(new Error(`${label} timed out after ${Math.round(timeoutMs / 1000)}s`)),
+      () =>
+        reject(
+          new Error(
+            timeoutMessage ??
+              `${label} timed out after ${Math.round(timeoutMs / 1000)}s`,
+          ),
+        ),
       timeoutMs,
     );
     promise.then(resolve, reject).finally(() => clearTimeout(timer));
@@ -95,10 +115,15 @@ export default function GatewayOpsSection() {
     connectEvents,
     retryGatewayBootstrap,
     effectiveGatewayUrl,
+    saveSettings,
+    activeGatewayProfile,
   } = useGateway();
   const isDemo =
     isDemoModeAllowed() && (settings.demoMode || connectionState === 'demo');
   const gatewayUrl = effectiveGatewayUrl || settings.gatewayUrl;
+  const repairMachineLabel = activeGatewayProfile
+    ? profileDisplayName(activeGatewayProfile)
+    : health?.hostname?.replace(/\.local$/i, '') || null;
 
   const [skills, setSkills] = useState<HermesSkill[]>([]);
   const [toolsets, setToolsets] = useState<HermesToolset[]>([]);
@@ -411,18 +436,67 @@ export default function GatewayOpsSection() {
     : null;
 
   const handleRepairConnection = useCallback(async () => {
-    await withTimeout(
-      (async () => {
-        await autoConnectGateway();
-        await refreshHealth();
-        connectEvents();
-        await retryGatewayBootstrap();
-        await loadOps({ refresh: true });
-      })(),
+    const probeUrl = effectiveGatewayUrl || settings.gatewayUrl;
+    const result = await withTimeout(
+      runRepairGatewayLink({
+        gatewayUrl: probeUrl,
+        machineLabel: repairMachineLabel,
+        authMismatch: health?.authMismatch === true,
+        ensureGatewayMode: async () => {
+          if (settings.connectionMode === 'gateway') {
+            return;
+          }
+          await saveSettings({ ...settings, connectionMode: 'gateway' }, apiKey);
+        },
+        refreshCredentials: async () => {
+          const fresh = await refreshCredentialsFromPairServer({ gatewayUrl: probeUrl });
+          if (!fresh) {
+            return null;
+          }
+          await saveSettings(
+            { ...settings, gatewayUrl: fresh.gatewayUrl, connectionMode: 'gateway' },
+            fresh.apiKey,
+          );
+          return fresh;
+        },
+        reconnect: async () => {
+          await autoConnectGateway();
+          await refreshHealth();
+          connectEvents();
+          await retryGatewayBootstrap();
+        },
+        readHealth: async () => {
+          const profileId = activeGatewayProfile?.id ?? null;
+          const key = await secureCredentials.resolveApiKeyForProfile(profileId);
+          const url = effectiveGatewayUrl || settings.gatewayUrl || probeUrl;
+          return fetchGatewayHealth(url, key);
+        },
+      }),
       'Repair link',
       REPAIR_CONNECTION_TIMEOUT_MS,
+      repairTimeoutMessage(REPAIR_CONNECTION_TIMEOUT_MS),
     );
-  }, [autoConnectGateway, connectEvents, loadOps, refreshHealth, retryGatewayBootstrap]);
+    assertRepairSucceeded(result);
+    // Catalog refresh is best-effort after a healed link — never starve credential repair.
+    try {
+      await loadOps({ refresh: true });
+    } catch {
+      // Health already green; Tools can Refresh manually.
+    }
+  }, [
+    activeGatewayProfile?.id,
+    apiKey,
+    autoConnectGateway,
+    connectEvents,
+    effectiveGatewayUrl,
+    health?.authMismatch,
+    loadOps,
+    refreshHealth,
+    repairMachineLabel,
+    retryGatewayBootstrap,
+    saveSettings,
+    settings,
+  ]);
 
   return (
     <View testID="gateway-ops-section" accessible={true}>
