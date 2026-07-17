@@ -1,10 +1,12 @@
 import {
+  PAIR_SERVER_REPAIR_TIMEOUT_MS,
   REPAIR_CONNECTION_TIMEOUT_MS,
   assertRepairSucceeded,
   refreshCredentialsFromPairServer,
   repairAuthFailedMessage,
   repairTimeoutMessage,
   repairUnreachableMessage,
+  resolvePairSetupForRepair,
   runRepairGatewayLink,
 } from '../utils/repairGatewayLink';
 import { WRONG_KEY_PRIMARY_CTA } from '../utils/wrongKeyRecovery';
@@ -12,8 +14,27 @@ import { WRONG_KEY_PRIMARY_CTA } from '../utils/wrongKeyRecovery';
 describe('repairGatewayLink', () => {
   it('uses a Tailscale-friendly timeout above the old 12s cliff', () => {
     expect(REPAIR_CONNECTION_TIMEOUT_MS).toBeGreaterThan(12_000);
+    expect(PAIR_SERVER_REPAIR_TIMEOUT_MS).toBeGreaterThan(1_500);
     expect(repairTimeoutMessage()).toContain(`${Math.round(REPAIR_CONNECTION_TIMEOUT_MS / 1000)}s`);
     expect(repairTimeoutMessage()).toContain(WRONG_KEY_PRIMARY_CTA);
+  });
+
+  it('resolvePairSetupForRepair uses a long pair.json timeout on Tailscale hosts', async () => {
+    const fetchMock = jest.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        deepLink:
+          'hermes://setup?url=http%3A%2F%2F100.94.135.78%3A8642&key=sk-mini-fresh',
+      }),
+    });
+    (global as unknown as { fetch: typeof fetch }).fetch = fetchMock as unknown as typeof fetch;
+
+    const setup = await resolvePairSetupForRepair('100.94.135.78');
+    expect(setup?.apiKey).toBe('sk-mini-fresh');
+    expect(fetchMock).toHaveBeenCalledWith(
+      'http://100.94.135.78:8765/pair.json',
+      expect.objectContaining({ signal: expect.any(AbortSignal) }),
+    );
   });
 
   it('auth failure copy names the Mac and Re-pair CTA — never Hermes account relay', () => {

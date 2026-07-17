@@ -4,15 +4,24 @@ import {
   gatewayAuthRepairBanner,
 } from '../services/gatewayClient';
 import {
+  PAIR_SERVER_PORT,
   pairServerHostFromGatewayUrl,
   resolvePairServerSetupParams,
 } from '../services/gatewayDiscovery';
 import type { GatewayHealthSnapshot } from '../types/gateway';
+import { parseSetupDeepLink } from './setupDeepLink';
 import { isGatewayHealthOk } from './gatewayConnection';
+import { isTailscaleGatewayHost, isTailscaleGatewayUrl } from './tailscaleHosts';
 import { WRONG_KEY_PRIMARY_CTA } from './wrongKeyRecovery';
 
 /** Tailscale + pair-server refresh needs headroom; keep bounded (no infinite spinner). */
 export const REPAIR_CONNECTION_TIMEOUT_MS = 30_000;
+
+/**
+ * LAN discovery keeps a 1.5s pair.json probe for subnet sweep speed.
+ * Repair on Tailscale/cellular needs a longer single-host fetch or refresh always returns null.
+ */
+export const PAIR_SERVER_REPAIR_TIMEOUT_MS = 12_000;
 
 export type RepairGatewayLinkStatus =
   | 'healed'
@@ -49,6 +58,45 @@ export function repairUnreachableMessage(machineLabel?: string | null): string {
 }
 
 /**
+ * Fetch pair.json with a Tailscale-friendly timeout (discovery's 1.5s probe is too short).
+ * Falls back to resolvePairServerSetupParams for non-Tailscale hosts.
+ */
+export async function resolvePairSetupForRepair(
+  host: string,
+  timeoutMs = PAIR_SERVER_REPAIR_TIMEOUT_MS,
+): Promise<{ apiKey?: string | null; gatewayUrl?: string | null } | null> {
+  const trimmed = host.trim();
+  if (!trimmed) {
+    return null;
+  }
+  if (!isTailscaleGatewayHost(trimmed)) {
+    return resolvePairServerSetupParams(trimmed);
+  }
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch(`http://${trimmed}:${PAIR_SERVER_PORT}/pair.json`, {
+      signal: controller.signal,
+    });
+    if (!res.ok) {
+      return null;
+    }
+    const body = (await res.json()) as { deepLink?: string; gatewayUrl?: string };
+    if (body.deepLink?.trim()) {
+      return parseSetupDeepLink(body.deepLink);
+    }
+    if (body.gatewayUrl?.trim()) {
+      return { gatewayUrl: body.gatewayUrl.trim() };
+    }
+    return null;
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/**
  * Fetch a fresh API key from the Mac :8765 pair server and verify chat auth.
  * Returns null when pair server is down / returns stale credentials.
  */
@@ -61,9 +109,10 @@ export async function refreshCredentialsFromPairServer(input: {
   probeHealth?: (
     gatewayUrl: string,
     apiKey: string,
+    timeoutMs?: number,
   ) => Promise<GatewayHealthSnapshot>;
 }): Promise<{ gatewayUrl: string; apiKey: string } | null> {
-  const resolvePairSetup = input.resolvePairSetup ?? resolvePairServerSetupParams;
+  const resolvePairSetup = input.resolvePairSetup ?? resolvePairSetupForRepair;
   const probeHealth = input.probeHealth ?? fetchGatewayHealth;
   const pairHost = pairServerHostFromGatewayUrl(input.gatewayUrl);
   if (!pairHost) {
@@ -75,7 +124,8 @@ export async function refreshCredentialsFromPairServer(input: {
     return null;
   }
   const nextUrl = setup?.gatewayUrl?.trim() || input.gatewayUrl;
-  const health = await probeHealth(nextUrl, freshKey);
+  const healthTimeoutMs = isTailscaleGatewayUrl(nextUrl) ? 12_000 : 5_000;
+  const health = await probeHealth(nextUrl, freshKey, healthTimeoutMs);
   if (health.authMismatch) {
     return null;
   }
@@ -128,13 +178,37 @@ export async function runRepairGatewayLink(
       (() => refreshCredentialsFromPairServer({ gatewayUrl }));
     // Always attempt pair-server refresh on repair — covers wrong-key AND
     // stale empty-key after Auto Backup restore.
-    await refresh();
+    const fresh = await refresh();
     if (timedOut()) {
       return {
         status: 'timed_out',
         gatewayUrl,
         message: repairTimeoutMessage(timeoutMs),
       };
+    }
+
+    // Prefer a bounded reconnect when credentials refreshed. When pair.json
+    // could not refresh (offline Mac / Tailscale down), probe once and fail
+    // honestly — do not burn the full timeout inside reconnect hang.
+    if (!fresh) {
+      const preHealth = await deps.readHealth();
+      if (timedOut()) {
+        return {
+          status: 'timed_out',
+          gatewayUrl,
+          message: repairTimeoutMessage(timeoutMs),
+        };
+      }
+      if (preHealth?.authMismatch || deps.authMismatch) {
+        return {
+          status: 'auth_failed',
+          gatewayUrl,
+          message: repairAuthFailedMessage(label),
+          authMismatch: true,
+        };
+      }
+      // Still try reconnect once — USB loopback / healed network may work
+      // without a fresh pair.json. Cap via outer withTimeout.
     }
 
     await deps.reconnect();
@@ -147,7 +221,7 @@ export async function runRepairGatewayLink(
     }
 
     const health = await deps.readHealth();
-    const url = gatewayUrl;
+    const url = fresh?.gatewayUrl?.trim() || gatewayUrl;
     if (health?.authMismatch || deps.authMismatch) {
       return {
         status: 'auth_failed',

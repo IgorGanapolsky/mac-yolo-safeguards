@@ -401,7 +401,10 @@ describe('tonight recurrence gates (2026-07-14 P0 class — S16-S23)', () => {
     const opsSection = read('hermes-mobile/src/components/GatewayOpsSection.tsx');
     const repairUtil = read('hermes-mobile/src/utils/repairGatewayLink.ts');
     expect(repairUtil).toContain('REPAIR_CONNECTION_TIMEOUT_MS = 30_000');
+    expect(repairUtil).toContain('PAIR_SERVER_REPAIR_TIMEOUT_MS = 12_000');
+    expect(repairUtil).toContain('resolvePairSetupForRepair');
     expect(opsSection).toContain('REPAIR_CONNECTION_TIMEOUT_MS');
+    expect(opsSection).toContain('repairTimeoutMessage');
     expect(opsSection).toMatch(/withTimeout\(\s*\n?[\s\S]*?REPAIR_CONNECTION_TIMEOUT_MS/);
     expect(opsSection).toContain('refreshCredentialsFromPairServer');
     expect(opsSection).toContain('runRepairGatewayLink');

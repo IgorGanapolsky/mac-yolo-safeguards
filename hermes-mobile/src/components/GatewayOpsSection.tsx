@@ -52,6 +52,7 @@ import {
   REPAIR_CONNECTION_TIMEOUT_MS,
   assertRepairSucceeded,
   refreshCredentialsFromPairServer,
+  repairTimeoutMessage,
   runRepairGatewayLink,
 } from '../utils/repairGatewayLink';
 import { fetchGatewayHealth } from '../services/gatewayClient';
@@ -62,10 +63,21 @@ type CatalogSection = 'capabilities' | 'skills' | 'toolsets' | 'jobs';
 
 const CATALOG_REQUEST_TIMEOUT_MS = 8_000;
 
-function withTimeout<T>(promise: Promise<T>, label: string, timeoutMs: number): Promise<T> {
+function withTimeout<T>(
+  promise: Promise<T>,
+  label: string,
+  timeoutMs: number,
+  timeoutMessage?: string,
+): Promise<T> {
   return new Promise<T>((resolve, reject) => {
     const timer = setTimeout(
-      () => reject(new Error(`${label} timed out after ${Math.round(timeoutMs / 1000)}s`)),
+      () =>
+        reject(
+          new Error(
+            timeoutMessage ??
+              `${label} timed out after ${Math.round(timeoutMs / 1000)}s`,
+          ),
+        ),
       timeoutMs,
     );
     promise.then(resolve, reject).finally(() => clearTimeout(timer));
@@ -462,6 +474,7 @@ export default function GatewayOpsSection() {
       }),
       'Repair link',
       REPAIR_CONNECTION_TIMEOUT_MS,
+      repairTimeoutMessage(REPAIR_CONNECTION_TIMEOUT_MS),
     );
     assertRepairSucceeded(result);
     // Catalog refresh is best-effort after a healed link — never starve credential repair.
