@@ -1,1 +1,1 @@
-Control AI coding agents on YOUR Mac from your phone — not a phone chatbot. Approve risky commands before they run. Leash Pro $19.99/mo. Free on App Store + Play.
+Not the phone-local Hermes Agent. Control YOUR Mac Hermes — Tailscale/LAN, multi-machine, Leash approve/deny. Leash Pro $19.99/mo.
