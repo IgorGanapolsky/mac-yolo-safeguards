@@ -1,6 +1,8 @@
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
+import type { HermesAvatar } from '../types/gateway';
 import { colors } from '../theme/colors';
+import HermesAvatarPresence from './HermesAvatarPresence';
 
 export function greetingForTime(date = new Date()): string {
   const hour = date.getHours();
@@ -19,6 +21,10 @@ type ChatEmptyGreetingProps = {
   isConnected?: boolean;
   /** Bootstrap / silent heal — avoid flashing unreachable copy on cold start. */
   connectionPending?: boolean;
+  hermesAvatar?: HermesAvatar;
+  playfulMotion?: boolean;
+  /** Linked, working, or waiting for approval — drives avatar pulse. */
+  presenceActive?: boolean;
   testID?: string;
 };
 
@@ -67,13 +73,24 @@ export default function ChatEmptyGreeting({
   routeLabel,
   isConnected = false,
   connectionPending = false,
+  hermesAvatar = 'orb',
+  playfulMotion = true,
+  presenceActive,
   testID = 'chat-empty-greeting',
 }: ChatEmptyGreetingProps) {
   const greeting = greetingForTime();
   const subtitle = greetingSubtitle(routeLabel, isConnected, connectionPending);
+  const pulseActive = presenceActive ?? isConnected;
 
   return (
     <View style={styles.wrap} testID={testID}>
+      <HermesAvatarPresence
+        avatar={hermesAvatar}
+        playfulMotion={playfulMotion}
+        active={pulseActive}
+        size="lg"
+        testID="chat-empty-avatar"
+      />
       <Text style={styles.greeting} testID="chat-empty-greeting-title">
         {greeting}
       </Text>
