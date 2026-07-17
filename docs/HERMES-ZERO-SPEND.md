@@ -16,6 +16,11 @@ While active:
   `ibm-yolo`, direct Grok/Cortex/Qwen/Bob/Amp/Gemini entrypoints,
   Parallel entrypoints, and the Snowflake CLI exit `73` before the preserved
   original can spawn;
+- bare `opencode` remains usable, but only through an isolated profile pinned to
+  the verified loopback Ollama model; the profile allowlists only the local
+  provider, blanks paid credentials, disables session sharing, plugins, model
+  catalog fetches, Exa/web tools, and external-directory access, and stores its
+  config/data/cache under `~/.hermes/zero-spend/opencode-home`;
 - `hermes-yolo` remains available, but its child environment is forced to
   `custom:ollama-local-64k` with an installed local model and an isolated,
   credential-free `HERMES_HOME`;
@@ -27,6 +32,14 @@ While active:
   while their prior launchd state is retained for an explicit `--disable`;
 - each decision produces a prompt-free receipt under
   `~/.hermes/receipts/zero-spend/`.
+
+The OpenCode profile also enables automatic context compaction with old tool
+output pruning and a 10,000-token reserve. This is the safe high-ROI part of
+prompt pruning: OpenCode removes stale tool payloads while preserving the
+conversation and its dependency structure. It does not rewrite user prompts,
+summarize secrets into tracked files, or install a second pruning service.
+When the fleet marker is disabled, the shim passes through to the preserved
+authenticated OpenCode binary and its normal provider configuration.
 
 The `grok-yolo` exception is narrow. The gate sets
 `GROK_YOLO_LOCAL_ONLY=1`, supplies the already-verified 64K Ollama model, blanks
