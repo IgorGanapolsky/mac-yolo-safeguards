@@ -363,14 +363,17 @@ function localOpenCodeConfig(model) {
     plugin: [],
     provider: {
       ollama: {
-        npm: '@ai-sdk/openai-compatible',
+        npm: 'ollama-ai-provider-v2@4.0.1',
         name: 'Ollama Local Zero Spend',
         options: {
-          baseURL: 'http://127.0.0.1:11434/v1',
+          baseURL: 'http://127.0.0.1:11434/api',
         },
         models: {
           [model]: {
             name: `${model} (local zero spend)`,
+            options: {
+              think: false,
+            },
             limit: {
               context: modelContextLength(model),
               output: 8192,

@@ -112,7 +112,12 @@ assert.strictEqual(localOpenCodeConfig.share, 'disabled');
 assert.deepStrictEqual(localOpenCodeConfig.plugin, []);
 assert.deepStrictEqual(localOpenCodeConfig.compaction, { auto: true, prune: true, reserved: 10000 });
 assert.strictEqual(localOpenCodeConfig.permission.websearch, 'deny');
-assert.strictEqual(localOpenCodeConfig.provider.ollama.options.baseURL, 'http://127.0.0.1:11434/v1');
+assert.strictEqual(localOpenCodeConfig.provider.ollama.npm, 'ollama-ai-provider-v2@4.0.1');
+assert.strictEqual(localOpenCodeConfig.provider.ollama.options.baseURL, 'http://127.0.0.1:11434/api');
+assert.deepStrictEqual(
+  localOpenCodeConfig.provider.ollama.models['qwen3.5:9b-hermes-64k'].options,
+  { think: false },
+);
 
 const manifestPath = path.join(home, '.hermes', 'zero-spend', 'manifest.json');
 const manifestBeforeReinstall = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));

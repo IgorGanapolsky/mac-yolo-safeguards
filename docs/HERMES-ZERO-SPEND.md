@@ -41,6 +41,13 @@ output pruning and a 10,000-token reserve. This is the safe high-ROI part of
 prompt pruning: OpenCode removes stale tool payloads while preserving the
 conversation and its dependency structure. It does not rewrite user prompts,
 summarize secrets into tracked files, or install a second pruning service.
+The OpenCode profile pins `ollama-ai-provider-v2@4.0.1` and uses Ollama's
+loopback-native `/api` transport with `think: false`. This avoids a verified
+fleet failure where Ollama's OpenAI-compatible streaming endpoint accepted
+`reasoning_effort: "none"` but returned zero bytes for at least 120 seconds.
+A loopback-native mock proves OpenCode emits both title and build requests with
+`stream: true` and `think: false`, and renders returned content. Fresh two-host
+model inference remains the required operational proof before deployment.
 When the fleet marker is disabled, the shim passes through to the preserved
 authenticated OpenCode binary and its normal provider configuration.
 
