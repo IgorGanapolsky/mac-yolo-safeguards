@@ -44,7 +44,7 @@ import { scheduleRunCompletedNotification } from '../services/hermesNotification
 import GatewayProfilePicker from '../components/GatewayProfilePicker';
 import ComputerPickerStatusRegion from '../components/ComputerPickerStatusRegion';
 import ManualComputerAddressForm from '../components/ManualComputerAddressForm';
-import { confirmForgetGatewayProfile } from '../utils/confirmForgetGatewayProfile';
+import { confirmForgetGatewayProfileAfterHostDismiss } from '../utils/confirmForgetGatewayProfile';
 import { profileDisplayName } from '../services/gatewayProfiles';
 import {
   listSessions,
@@ -7058,13 +7058,18 @@ export default function ChatScreen() {
                         const profile =
                           switchComputerProfiles.find((p) => p.id === profileId) ??
                           gatewayProfiles.find((p) => p.id === profileId);
-                        confirmForgetGatewayProfile({
-                          profileId,
-                          computerName: profile
-                            ? profileDisplayName(profile)
-                            : 'this computer',
-                          onConfirm: removeGatewayProfile,
-                        });
+                        // Alert inside BottomSheetModal (RN Modal) is swallowed on Android —
+                        // dismiss sheet first so Forget confirm actually appears.
+                        confirmForgetGatewayProfileAfterHostDismiss(
+                          () => setMacPickerVisible(false),
+                          {
+                            profileId,
+                            computerName: profile
+                              ? profileDisplayName(profile)
+                              : 'this computer',
+                            onConfirm: removeGatewayProfile,
+                          },
+                        );
                       }
                     : undefined
                 }

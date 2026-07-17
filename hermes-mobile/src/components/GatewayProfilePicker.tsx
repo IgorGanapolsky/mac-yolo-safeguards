@@ -1,5 +1,5 @@
 import React from 'react';
-import { StyleSheet, View, Text, TouchableOpacity } from 'react-native';
+import { StyleSheet, View, Text, TouchableOpacity, Pressable } from 'react-native';
 import type { GatewayProfile } from '../types/gatewayProfile';
 import type { LanScanProgress, LanScanResult } from '../types/lanScan';
 import MacScanProgressCard from './MacScanProgressCard';
@@ -147,14 +147,19 @@ export default function GatewayProfilePicker({
               </View>
             </TouchableOpacity>
             {onRemove && profiles.length > 1 && !isUsb ? (
-              <TouchableOpacity
-                style={styles.removeButton}
+              <Pressable
+                style={({ pressed }) => [
+                  styles.removeButton,
+                  pressed ? styles.removeButtonPressed : null,
+                ]}
                 onPress={() => onRemove(profile.id)}
+                hitSlop={{ top: 14, bottom: 14, left: 14, right: 14 }}
+                accessibilityRole="button"
                 accessibilityLabel={`Forget this Mac: ${lines.title}`}
                 testID={`remove-gateway-profile-${profile.id}`}
               >
                 <Text style={styles.removeText}>Forget this Mac</Text>
-              </TouchableOpacity>
+              </Pressable>
             ) : null}
           </View>
         );
@@ -243,8 +248,15 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   removeButton: {
-    paddingHorizontal: 8,
-    paddingVertical: 10,
+    minWidth: 72,
+    minHeight: 44,
+    paddingHorizontal: 10,
+    paddingVertical: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  removeButtonPressed: {
+    opacity: 0.7,
   },
   removeText: {
     color: colors.error,

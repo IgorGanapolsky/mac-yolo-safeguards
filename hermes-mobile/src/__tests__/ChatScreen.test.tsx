@@ -1444,6 +1444,67 @@ describe('ChatScreen', () => {
     expect(queryByTestId('mac-picker-scroll')).toBeNull();
   });
 
+  it('Forget this Mac closes picker then confirms before removeGatewayProfile (Alert not swallowed)', async () => {
+    jest.useFakeTimers({ doNotFake: ['nextTick', 'setImmediate'] });
+    const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
+    const removeGatewayProfile = jest.fn().mockResolvedValue(undefined);
+    Object.assign(mockGatewayState, {
+      connectionState: 'connected',
+      removeGatewayProfile,
+      activeGatewayProfile: {
+        id: 'macbook',
+        label: 'Igors-MacBook-Pro',
+        gatewayUrl: 'http://10.2.29.103:8642',
+        localIp: '10.2.29.103',
+        addedAt: '2026-07-02T00:00:00Z',
+      },
+      gatewayProfiles: [
+        {
+          id: 'macmini',
+          label: 'Igors-Mac-mini',
+          gatewayUrl: 'http://100.94.135.78:8642',
+          localIp: '100.94.135.78',
+          addedAt: '2026-07-02T00:00:00Z',
+        },
+        {
+          id: 'macbook',
+          label: 'Igors-MacBook-Pro',
+          gatewayUrl: 'http://10.2.29.103:8642',
+          localIp: '10.2.29.103',
+          addedAt: '2026-07-02T00:00:00Z',
+        },
+      ],
+    });
+
+    const { getByTestId, queryByTestId, queryByText } = await renderChatScreen();
+    fireEvent.press(getByTestId('chat-context-mac-button'));
+    expect(getByTestId('remove-gateway-profile-macmini')).toHaveTextContent(/^Forget this Mac$/);
+    expect(queryByText('Remove')).toBeNull();
+
+    fireEvent.press(getByTestId('remove-gateway-profile-macmini'));
+
+    // Sheet must close before Alert — otherwise Android swallows the dialog.
+    expect(queryByTestId('mac-picker-scroll')).toBeNull();
+    expect(alertSpy).not.toHaveBeenCalled();
+    expect(removeGatewayProfile).not.toHaveBeenCalled();
+
+    await act(async () => {
+      jest.advanceTimersByTime(50);
+    });
+
+    expect(alertSpy).toHaveBeenCalled();
+    const buttons = alertSpy.mock.calls[0]?.[2] as Array<{
+      text: string;
+      onPress?: () => void;
+    }>;
+    expect(buttons.map((b) => b.text)).toEqual(['Cancel', 'Forget this Mac']);
+    await act(async () => {
+      buttons.find((b) => b.text === 'Forget this Mac')?.onPress?.();
+    });
+    expect(removeGatewayProfile).toHaveBeenCalledWith('macmini');
+    jest.useRealTimers();
+  });
+
   it('keeps an explicitly selected Mac primary instead of immediately auto-discovering over it', async () => {
     const autoConnectGateway = jest.fn().mockResolvedValue('http://10.2.29.103:8642');
     const selectGatewayProfile = jest.fn().mockResolvedValue(true);
