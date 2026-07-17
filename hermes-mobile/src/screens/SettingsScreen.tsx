@@ -71,6 +71,7 @@ export default function SettingsScreen() {
     scanForGatewayProfiles,
     wifiConnected,
     tailscaleDiscoveries,
+    tailscaleLiveHits,
     tailscaleDiscoveryProbing,
     probeTailscaleComputers,
     addDiscoveredTailscaleComputer,
@@ -99,6 +100,7 @@ export default function SettingsScreen() {
     settings.hermesAvatar ?? 'orb',
   );
   const [playfulMotion, setPlayfulMotion] = useState(settings.playfulMotion ?? true);
+  const [isFindingOnTailscale, setIsFindingOnTailscale] = useState(false);
   const [inputThumbgateApiKey, setInputThumbgateApiKey] = useState('');
   const [inputApiKey, setInputApiKey] = useState(apiKey);
   const [isSaving, setIsSaving] = useState(false);
@@ -187,8 +189,8 @@ export default function SettingsScreen() {
     [savedMacProfiles],
   );
   const liveTailscaleProfileIds = useMemo(
-    () => profileIdsOnLiveTailscale(switchComputerProfiles, tailscaleDiscoveries),
-    [switchComputerProfiles, tailscaleDiscoveries],
+    () => profileIdsOnLiveTailscale(switchComputerProfiles, tailscaleLiveHits),
+    [switchComputerProfiles, tailscaleLiveHits],
   );
 
   const anyNotificationEnabled =
@@ -452,7 +454,7 @@ export default function SettingsScreen() {
 
   const handleFindOnTailscale = async () => {
     haptics.selection();
-    setIsScanningMacs(true);
+    setIsFindingOnTailscale(true);
     try {
       await probeTailscaleComputers();
       await scanForGatewayProfiles();
@@ -467,7 +469,7 @@ export default function SettingsScreen() {
         );
       }
     } finally {
-      setIsScanningMacs(false);
+      setIsFindingOnTailscale(false);
     }
   };
 
@@ -651,7 +653,7 @@ export default function SettingsScreen() {
         <TailscaleDiscoveryBanner
           discoveries={tailscaleDiscoveries}
           adding={tailscaleDiscoveryProbing}
-          probing={tailscaleDiscoveryProbing || isScanningMacs}
+          probing={tailscaleDiscoveryProbing || isFindingOnTailscale}
           prominent
           onAdd={(discovery) => {
             void addDiscoveredTailscaleComputer(discovery);
@@ -666,7 +668,7 @@ export default function SettingsScreen() {
           <LoadingButton
             label="Find computers on Tailscale"
             loadingLabel="Searching Tailscale…"
-            loading={isScanningMacs || profileScanning || tailscaleDiscoveryProbing}
+            loading={isFindingOnTailscale || profileScanning || tailscaleDiscoveryProbing}
             onPress={handleFindOnTailscale}
             testID="find-macs-on-tailscale"
             style={styles.pairButton}

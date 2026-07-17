@@ -34,6 +34,18 @@ describe('pickerLiveTailscale', () => {
     expect(profileMatchesLiveTailscaleDiscovery(mini, [proDiscovery])).toBe(false);
   });
 
+  it('does not label USB/LAN-only saved rows On Tailscale from a Tailscale hit', () => {
+    const usbPro: GatewayProfile = {
+      id: 'mac_usb_pro',
+      label: 'Igors-MacBook-Pro',
+      gatewayUrl: 'http://127.0.0.1:8642',
+      hostname: 'Igors-MacBook-Pro.local',
+      localIp: '192.168.1.20',
+      addedAt: '2026-07-17T12:00:00.000Z',
+    };
+    expect(profileMatchesLiveTailscaleDiscovery(usbPro, [proDiscovery])).toBe(false);
+  });
+
   it('matches by normalized Tailscale URL base', () => {
     const sameUrl: DiscoveredGateway = {
       gatewayUrl: 'http://igors-macbook-pro.tail12aa33.ts.net:8642/',

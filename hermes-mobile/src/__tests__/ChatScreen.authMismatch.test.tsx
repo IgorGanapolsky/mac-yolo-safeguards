@@ -62,6 +62,7 @@ const mockGatewayState = {
   saveSettings: jest.fn().mockResolvedValue(undefined),
   wifiConnected: true,
   tailscaleDiscoveries: [],
+  tailscaleLiveHits: [],
   tailscaleDiscoveryProbing: false,
   addDiscoveredTailscaleComputer: jest.fn().mockResolvedValue(undefined),
   probeTailscaleComputers: jest.fn().mockResolvedValue(undefined),

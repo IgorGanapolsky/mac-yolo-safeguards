@@ -324,7 +324,7 @@ describe('SettingsScreen', () => {
       }),
     );
 
-    const { getByTestId, getByText } = render(<SettingsScreen />);
+    const { getByTestId, getByText, queryByTestId } = render(<SettingsScreen />);
     expect(getByTestId('find-macs-on-tailscale')).toBeTruthy();
     expect(getByText('Find computers on Tailscale')).toBeTruthy();
     expect(getByTestId('find-macs-on-wifi')).toHaveTextContent(/Search home Wi‑Fi/);
@@ -332,10 +332,16 @@ describe('SettingsScreen', () => {
       getByText('Optional fallback when you are on the same home Wi‑Fi as your Mac.'),
     ).toBeTruthy();
 
+    fireEvent.press(getByTestId('find-macs-on-wifi'));
+    await waitFor(() => {
+      expect(scanForGatewayProfiles).toHaveBeenCalled();
+    });
+    expect(queryByTestId('tailscale-discovery-probing')).toBeNull();
+
     fireEvent.press(getByTestId('find-macs-on-tailscale'));
     await waitFor(() => {
       expect(probeTailscaleComputers).toHaveBeenCalled();
-      expect(scanForGatewayProfiles).toHaveBeenCalled();
+      expect(scanForGatewayProfiles).toHaveBeenCalledTimes(2);
     });
   });
 

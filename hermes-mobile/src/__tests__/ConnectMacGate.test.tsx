@@ -38,6 +38,7 @@ function gateway(overrides = {}) {
     scanForGatewayProfiles: jest.fn(),
     selectGatewayProfile: jest.fn().mockResolvedValue(true),
     tailscaleDiscoveries: [],
+  tailscaleLiveHits: [],
     tailscaleDiscoveryProbing: false,
     addDiscoveredTailscaleComputer: jest.fn(),
     probeTailscaleComputers: jest.fn(),

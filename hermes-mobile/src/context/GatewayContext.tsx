@@ -241,6 +241,8 @@ export type GatewayContextValue = {
   removeGatewayProfile: (profileId: string) => Promise<void>;
   scanForGatewayProfiles: () => Promise<GatewayProfile[]>;
   tailscaleDiscoveries: DiscoveredGateway[];
+  /** Full last Tailscale probe hits (includes already-saved Macs) for picker live labels. */
+  tailscaleLiveHits: DiscoveredGateway[];
   tailscaleDiscoveryProbing: boolean;
   tailnetProbeHostCount: number;
   probeTailscaleComputers: () => Promise<void>;
@@ -329,6 +331,7 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
   const [profileScanProgress, setProfileScanProgress] = useState<LanScanProgress | null>(null);
   const [profileScanResult, setProfileScanResult] = useState<LanScanResult | null>(null);
   const [tailscaleDiscoveries, setTailscaleDiscoveries] = useState<DiscoveredGateway[]>([]);
+  const [tailscaleLiveHits, setTailscaleLiveHits] = useState<DiscoveredGateway[]>([]);
   const [tailscaleDiscoveryProbing, setTailscaleDiscoveryProbing] = useState(false);
   const [tailnetProbeHostCount, setTailnetProbeHostCount] = useState(0);
   const [effectiveGatewayUrl, setEffectiveGatewayUrl] = useState(
@@ -2414,6 +2417,7 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
       }
       if (probeHosts.length === 0) {
         setTailscaleDiscoveries([]);
+        setTailscaleLiveHits([]);
         return;
       }
       const discovered = await discoverTailscaleGateways(probeHosts);
@@ -2462,6 +2466,7 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
         await persistDiscoveredGatewayUrl(failoverUrl, true);
         void refreshHealth();
       }
+      setTailscaleLiveHits(discovered);
       const fresh = filterNewTailscaleDiscoveries(profileStateRef.current.profiles, discovered);
       setTailscaleDiscoveries(fresh);
     } finally {
@@ -3236,6 +3241,7 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
       removeGatewayProfile,
       scanForGatewayProfiles,
       tailscaleDiscoveries,
+      tailscaleLiveHits,
       tailscaleDiscoveryProbing,
       tailnetProbeHostCount,
       probeTailscaleComputers,
@@ -3311,6 +3317,7 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
       removeGatewayProfile,
       scanForGatewayProfiles,
       tailscaleDiscoveries,
+      tailscaleLiveHits,
       tailscaleDiscoveryProbing,
       tailnetProbeHostCount,
       probeTailscaleComputers,

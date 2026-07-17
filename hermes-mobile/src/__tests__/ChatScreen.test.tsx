@@ -59,6 +59,7 @@ const mockGatewayState = {
   saveSettings: jest.fn().mockResolvedValue(undefined),
   wifiConnected: true,
   tailscaleDiscoveries: [],
+  tailscaleLiveHits: [],
   tailscaleDiscoveryProbing: false,
   addDiscoveredTailscaleComputer: jest.fn().mockResolvedValue(undefined),
   probeTailscaleComputers: jest.fn().mockResolvedValue(undefined),
@@ -1387,6 +1388,7 @@ describe('ChatScreen', () => {
     Object.assign(mockGatewayState, {
       tailscaleDiscoveryProbing: true,
       tailscaleDiscoveries: [],
+  tailscaleLiveHits: [],
       profileScanning: true,
       profileScanProgress: {
         stage: 'gateway_health',

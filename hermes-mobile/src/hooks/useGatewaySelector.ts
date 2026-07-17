@@ -37,6 +37,7 @@ export function useGatewayConnection() {
   const wifiConnected = useGatewaySelector((ctx) => ctx.wifiConnected);
   const isPaired = useGatewaySelector((ctx) => ctx.isPaired);
   const tailscaleDiscoveries = useGatewaySelector((ctx) => ctx.tailscaleDiscoveries);
+  const tailscaleLiveHits = useGatewaySelector((ctx) => ctx.tailscaleLiveHits);
   const tailscaleDiscoveryProbing = useGatewaySelector((ctx) => ctx.tailscaleDiscoveryProbing);
   const tailnetProbeHostCount = useGatewaySelector((ctx) => ctx.tailnetProbeHostCount);
   const addDiscoveredTailscaleComputer = useGatewaySelector(
@@ -72,6 +73,7 @@ export function useGatewayConnection() {
       wifiConnected,
       isPaired,
       tailscaleDiscoveries,
+      tailscaleLiveHits,
       tailscaleDiscoveryProbing,
       tailnetProbeHostCount,
       addDiscoveredTailscaleComputer,
@@ -104,6 +106,7 @@ export function useGatewayConnection() {
       wifiConnected,
       isPaired,
       tailscaleDiscoveries,
+      tailscaleLiveHits,
       tailscaleDiscoveryProbing,
       tailnetProbeHostCount,
       addDiscoveredTailscaleComputer,

@@ -547,6 +547,7 @@ export default function ChatScreen() {
     saveSettings,
     wifiConnected,
     tailscaleDiscoveries,
+    tailscaleLiveHits,
     tailscaleDiscoveryProbing,
     tailnetProbeHostCount,
     addDiscoveredTailscaleComputer,
@@ -1107,8 +1108,8 @@ export default function ChatScreen() {
     [activeGatewayProfile?.id, gatewayProfiles, liveUsbGateway],
   );
   const liveTailscaleProfileIds = useMemo(
-    () => profileIdsOnLiveTailscale(switchComputerProfiles, tailscaleDiscoveries),
-    [switchComputerProfiles, tailscaleDiscoveries],
+    () => profileIdsOnLiveTailscale(switchComputerProfiles, tailscaleLiveHits),
+    [switchComputerProfiles, tailscaleLiveHits],
   );
   const healthProbePending = useMemo(() => isGatewayHealthPending(health), [health]);
   const usbCableLikely = useMemo(
