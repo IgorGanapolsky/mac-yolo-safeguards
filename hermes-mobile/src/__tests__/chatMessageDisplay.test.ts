@@ -45,6 +45,28 @@ describe('chatMessageDisplay', () => {
     expect(visible.map((m) => m.content)).toEqual(['Make money today', 'Real reply text.']);
   });
 
+  it('collapses near-duplicate assistant acks from a double gateway completion', () => {
+    const visible = prepareMessagesForDisplay([
+      { id: 'u1', role: 'user', content: 'Make money today' },
+      {
+        id: 'a1',
+        role: 'assistant',
+        content:
+          "I'll activate your revenue engine immediately. Let me spin up the autonomous loops that actually print money right now.",
+      },
+      {
+        id: 'a2',
+        role: 'assistant',
+        content:
+          "I'll activate our revenue engines immediately. Let me check our current monetization channels and spin up our highest-ROI activities.",
+      },
+    ]);
+    expect(visible).toHaveLength(2);
+    expect(visible[0]?.content).toBe('Make money today');
+    expect(visible[1]?.id).toBe('a2');
+    expect(visible[1]?.content).toContain('monetization channels');
+  });
+
   it('defaults to hiding raw tool errors from the user transcript', () => {
     const visible = prepareMessagesForDisplay([
       { role: 'user', content: 'Are you lost?' },
