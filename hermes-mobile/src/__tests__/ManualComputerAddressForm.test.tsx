@@ -29,6 +29,27 @@ describe('ManualComputerAddressForm', () => {
     expect(getByTestId('mac-picker-manual-submit')).toBeTruthy();
   });
 
+  it('aligns Connect button height with the address field', () => {
+    const { getByTestId } = render(
+      <ManualComputerAddressForm
+        onAddProfile={jest.fn()}
+        pickerMode
+        testIDPrefix="mac-picker-manual"
+      />,
+    );
+    const inputStyle = getByTestId('mac-picker-manual-input').props.style;
+    const buttonStyle = getByTestId('mac-picker-manual-submit').props.style;
+    const flatten = (style: unknown) =>
+      (Array.isArray(style) ? style : [style]).reduce(
+        (acc: Record<string, unknown>, part) =>
+          part && typeof part === 'object' ? { ...acc, ...part } : acc,
+        {},
+      );
+    expect(flatten(inputStyle).height).toBe(44);
+    expect(flatten(buttonStyle).height).toBe(44);
+    expect(flatten(buttonStyle).paddingVertical).toBe(0);
+  });
+
   it('shows error for empty input', async () => {
     const { getByTestId, findByText } = render(
       <ManualComputerAddressForm onAddProfile={jest.fn()} />,

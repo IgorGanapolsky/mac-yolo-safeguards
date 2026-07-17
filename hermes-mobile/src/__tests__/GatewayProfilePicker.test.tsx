@@ -146,6 +146,23 @@ describe('GatewayProfilePicker', () => {
     );
   });
 
+  it('labels the list as Saved on this phone and marks live Tailscale rows', () => {
+    const { getByTestId, getByText } = render(
+      <GatewayProfilePicker
+        profiles={profiles}
+        activeProfileId="mac_192_168_12_50"
+        onSelect={jest.fn()}
+        showReachabilityHints
+        liveTailscaleProfileIds={['mac_192_168_12_208']}
+      />,
+    );
+    expect(getByTestId('gateway-profile-list-heading')).toHaveTextContent('Saved on this phone');
+    expect(getByText(/On Tailscale · tap to use/)).toBeTruthy();
+    expect(getByTestId('gateway-profile-item-mac_192_168_12_208')).toHaveTextContent(
+      /On Tailscale/,
+    );
+  });
+
   it('labels destructive action Forget this Mac (not Remove) for saved non-USB computers', () => {
     const onRemove = jest.fn();
     const { getByTestId, queryByText } = render(

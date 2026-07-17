@@ -314,6 +314,31 @@ describe('SettingsScreen', () => {
     expect(getByTestId('tailscale-add-igors-mac-mini')).toBeTruthy();
   });
 
+  it('offers primary Find computers on Tailscale and keeps home Wi‑Fi as secondary', async () => {
+    const probeTailscaleComputers = jest.fn().mockResolvedValue(undefined);
+    const scanForGatewayProfiles = jest.fn().mockResolvedValue([]);
+    useGateway.mockReturnValue(
+      mockUseGateway({
+        probeTailscaleComputers,
+        scanForGatewayProfiles,
+      }),
+    );
+
+    const { getByTestId, getByText } = render(<SettingsScreen />);
+    expect(getByTestId('find-macs-on-tailscale')).toBeTruthy();
+    expect(getByText('Find computers on Tailscale')).toBeTruthy();
+    expect(getByTestId('find-macs-on-wifi')).toHaveTextContent(/Search home Wi‑Fi/);
+    expect(
+      getByText('Optional fallback when you are on the same home Wi‑Fi as your Mac.'),
+    ).toBeTruthy();
+
+    fireEvent.press(getByTestId('find-macs-on-tailscale'));
+    await waitFor(() => {
+      expect(probeTailscaleComputers).toHaveBeenCalled();
+      expect(scanForGatewayProfiles).toHaveBeenCalled();
+    });
+  });
+
   it('clarifies notification preferences do not change Leash layout', () => {
     const { getByText } = render(<SettingsScreen />);
     expect(getByText('Notification preferences')).toBeTruthy();

@@ -108,7 +108,7 @@ const styles = StyleSheet.create({
   manualInputRow: {
     flexDirection: 'row',
     gap: 8,
-    alignItems: 'center',
+    alignItems: 'stretch',
   },
   manualInput: {
     flex: 1,
@@ -118,13 +118,19 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.borderLight,
     paddingHorizontal: 12,
+    paddingVertical: 0,
     color: colors.text,
     fontSize: 13,
   },
   manualButton: {
-    paddingVertical: 10,
     height: 44,
+    minHeight: 44,
+    maxHeight: 44,
     minWidth: 90,
+    paddingVertical: 0,
+    paddingHorizontal: 14,
+    borderRadius: 8,
+    alignSelf: 'center',
   },
   manualError: {
     fontSize: 12,

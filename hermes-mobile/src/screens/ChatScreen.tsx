@@ -329,6 +329,7 @@ import {
   profilesForSwitchComputerPicker,
   type LiveUsbPickerInput,
 } from '../utils/gatewayProfilePicker';
+import { profileIdsOnLiveTailscale } from '../utils/pickerLiveTailscale';
 import { USB_LOOPBACK_GATEWAY_URL } from '../utils/gatewayLoopbackFallback';
 import {
   isMacGatewayHttpOk,
@@ -1104,6 +1105,10 @@ export default function ChatScreen() {
         liveUsb: liveUsbGateway,
       }),
     [activeGatewayProfile?.id, gatewayProfiles, liveUsbGateway],
+  );
+  const liveTailscaleProfileIds = useMemo(
+    () => profileIdsOnLiveTailscale(switchComputerProfiles, tailscaleDiscoveries),
+    [switchComputerProfiles, tailscaleDiscoveries],
   );
   const healthProbePending = useMemo(() => isGatewayHealthPending(health), [health]);
   const usbCableLikely = useMemo(
@@ -7046,6 +7051,7 @@ export default function ChatScreen() {
                 wifiConnected={wifiConnected}
                 showReachabilityHints={switchComputerProfiles.length > 1}
                 liveUsb={liveUsbGateway}
+                liveTailscaleProfileIds={liveTailscaleProfileIds}
                 onSelect={async (profileId, profile) => {
                   await handleSelectGatewayProfile(profileId, {
                     closePicker: true,

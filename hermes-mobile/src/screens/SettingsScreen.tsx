@@ -27,6 +27,7 @@ import { isDemoModeAllowed } from '../utils/demoModePolicy';
 import GatewayProfilePicker from '../components/GatewayProfilePicker';
 import TailscaleDiscoveryBanner from '../components/TailscaleDiscoveryBanner';
 import { profilesForSwitchComputerPicker, detectUsbHostMismatch } from '../utils/gatewayProfilePicker';
+import { profileIdsOnLiveTailscale } from '../utils/pickerLiveTailscale';
 import { confirmForgetGatewayProfile } from '../utils/confirmForgetGatewayProfile';
 import { profileDisplayName } from '../services/gatewayProfiles';
 import { setProductAnalyticsOptOut } from '../services/productAnalytics';
@@ -180,6 +181,14 @@ export default function SettingsScreen() {
         macHttpOk,
       }),
     [activeGatewayProfile, activeGatewayUrl, health?.hostname, savedMacProfiles, macHttpOk],
+  );
+  const switchComputerProfiles = useMemo(
+    () => profilesForSwitchComputerPicker(savedMacProfiles),
+    [savedMacProfiles],
+  );
+  const liveTailscaleProfileIds = useMemo(
+    () => profileIdsOnLiveTailscale(switchComputerProfiles, tailscaleDiscoveries),
+    [switchComputerProfiles, tailscaleDiscoveries],
   );
 
   const anyNotificationEnabled =
@@ -441,6 +450,27 @@ export default function SettingsScreen() {
     }
   };
 
+  const handleFindOnTailscale = async () => {
+    haptics.selection();
+    setIsScanningMacs(true);
+    try {
+      await probeTailscaleComputers();
+      await scanForGatewayProfiles();
+    } catch (err) {
+      haptics.warning();
+      if (!demoMode) {
+        Alert.alert(
+          'Tailscale search failed',
+          err instanceof Error
+            ? err.message
+            : 'Could not find your Mac on Tailscale. Keep Tailscale on, then try again.',
+        );
+      }
+    } finally {
+      setIsScanningMacs(false);
+    }
+  };
+
   const handleSelectProfile = async (
     profileId: string,
     profile?: import('../types/gatewayProfile').GatewayProfile,
@@ -621,6 +651,8 @@ export default function SettingsScreen() {
         <TailscaleDiscoveryBanner
           discoveries={tailscaleDiscoveries}
           adding={tailscaleDiscoveryProbing}
+          probing={tailscaleDiscoveryProbing || isScanningMacs}
+          prominent
           onAdd={(discovery) => {
             void addDiscoveredTailscaleComputer(discovery);
           }}
@@ -628,11 +660,22 @@ export default function SettingsScreen() {
         <GlassCard>
           <Text style={styles.label}>Your active machines</Text>
           <Text style={styles.description}>
-            Relay is the default path for approvals anywhere. Saved machines are direct-link
-            fallbacks for live Chat, tools, and ops until full cloud chat relay is enabled.
+            Find your Mac on Tailscale first — works on cellular or any Wi‑Fi. Home Wi‑Fi search
+            stays available as an optional fallback.
+          </Text>
+          <LoadingButton
+            label="Find computers on Tailscale"
+            loadingLabel="Searching Tailscale…"
+            loading={isScanningMacs || profileScanning || tailscaleDiscoveryProbing}
+            onPress={handleFindOnTailscale}
+            testID="find-macs-on-tailscale"
+            style={styles.pairButton}
+          />
+          <Text style={styles.description}>
+            Keep Tailscale on this phone and your Mac. Hermes must be running on your computer.
           </Text>
           <GatewayProfilePicker
-            profiles={profilesForSwitchComputerPicker(savedMacProfiles)}
+            profiles={switchComputerProfiles}
             activeProfileId={activeGatewayProfile?.id ?? null}
             activeReachable={macHttpOk}
             authNeedsRepair={health?.authMismatch === true}
@@ -644,17 +687,19 @@ export default function SettingsScreen() {
             scanResult={profileScanResult}
             wifiConnected={wifiConnected}
             showReachabilityHints
+            liveTailscaleProfileIds={liveTailscaleProfileIds}
           />
           <LoadingButton
-            label="Search local network"
-            loadingLabel="Searching locally…"
+            label="Search home Wi‑Fi (optional)"
+            loadingLabel="Searching home Wi‑Fi…"
             loading={isScanningMacs || profileScanning}
             onPress={handleFindMacs}
+            variant="secondary"
             testID="find-macs-on-wifi"
             style={styles.pairButton}
           />
           <Text style={styles.description}>
-            Hermes on your computer must be running. Local search is optional fallback, not the main path.
+            Optional fallback when you are on the same home Wi‑Fi as your Mac.
           </Text>
           <MacPairingHelp variant="getting-started" compact testID="settings-mac-pairing-help" />
           <TouchableOpacity
