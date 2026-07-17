@@ -6,6 +6,7 @@ import { GATEWAY_WRONG_KEY_MESSAGE, normalizeGatewayUrl } from '../services/gate
 import {
   isGenericMachineLabel,
   profileDisplayName,
+  stripTransportSuffixFromComputerName,
 } from '../services/gatewayProfiles';
 import type { LeashConnectionState } from './gatewayEndpoint';
 import {
@@ -19,7 +20,8 @@ import { isTailnetRouteLabel, isTailscaleGatewayUrl } from './tailscaleHosts';
 
 /**
  * Header transport chip from the URL that actually succeeded this session.
- * USB is allowed only for live loopback on Wi‑Fi — never on cellular (ghost adb reverse).
+ * USB is allowed only for live loopback on Wi‑Fi — never on cellular (ghost adb reverse),
+ * and never for Tailscale/MagicDNS/100.x (remote mini in another city).
  */
 export function resolveHeaderTransportLabel(input: {
   gatewayUrl: string;
@@ -30,6 +32,7 @@ export function resolveHeaderTransportLabel(input: {
   if (!gatewayUrl) {
     return undefined;
   }
+  // Tailscale wins before any loopback/USB check — remote Macs are never USB.
   if (isTailscaleGatewayUrl(gatewayUrl)) {
     return 'Tailscale';
   }
@@ -170,7 +173,8 @@ export function resolveMachineDisplayName(
     name = fromHealth;
   }
 
-  return name;
+  // Never bake "USB" into the computer title (e.g. saved "Mac mini USB" + Tailscale).
+  return stripTransportSuffixFromComputerName(name);
 }
 
 export type ChatMachineHeaderDisplay = {

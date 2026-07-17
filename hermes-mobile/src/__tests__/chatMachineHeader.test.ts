@@ -623,6 +623,35 @@ describe('resolveHeaderTransportLabel / USB allow rule', () => {
     });
     expect(formatChatMachineHeaderLine(display)).toBe('Igors-MacBook-Pro · Tailscale');
   });
+
+  it('never labels remote Tailscale mini as USB even with stale Mac mini USB profile label', () => {
+    const display = resolveChatMachineHeaderDisplay({
+      activeProfile: {
+        id: 'mini_ts',
+        label: 'Mac mini USB',
+        gatewayUrl: 'http://100.94.135.78:8642',
+        hostname: 'Igors-Mac-mini.local',
+        addedAt: '2026-07-17T00:00:00.000Z',
+      },
+      gatewayUrl: 'http://100.94.135.78:8642',
+      health: {
+        level: 'green',
+        checkedAt: '2026-07-17T14:45:00.000Z',
+        hostname: 'Igors-Mac-mini.local',
+        directGatewayReachable: true,
+      },
+      connectionMode: 'gateway',
+      isPaired: false,
+      workers: [],
+      savedMacCount: 2,
+      wifiConnected: false,
+    });
+    expect(display.machineLabel).toBe('Igors-Mac-mini');
+    expect(display.machineLabel.toLowerCase()).not.toContain('usb');
+    expect(display.machineEndpoint).toBe('Tailscale');
+    expect(formatChatMachineHeaderLine(display)).toBe('Igors-Mac-mini · Tailscale');
+    expect(formatChatMachineHeaderLine(display).toLowerCase()).not.toContain('usb');
+  });
 });
 
 describe('profileDisplayName generic labels', () => {
