@@ -60,6 +60,7 @@ run_guard() {
     YOLO_STATUS_FILE="$TMP/status.txt" \
     YOLO_MEM_APP_LAST_FILE="$TMP/mem-app-last" \
     YOLO_MEM_APP_STATUS_FILE="$TMP/mem-app-status.txt" \
+    YOLO_NOTIFY_DELIVERY="0" \
     YOLO_WEBHOOK_URL="http://127.0.0.1:9" \
     YOLO_LSOF_BIN="$TMP/lsof" \
     YOLO_E2E_LEASE_FILE="$E2E_LEASE_FILE" \
@@ -231,6 +232,9 @@ alive "$CDP_PID" && bad "T11: abandoned persistent Hermes CDP was not reclaimed"
 grep -q "HERMES_CDP_RECLAIM: killed pid=$CDP_PID" "$TMP/guard.log" \
   && ok "T11: exact persistent-profile reclaim logged" \
   || bad "T11: missing HERMES_CDP_RECLAIM log"
+grep -q "NOTIFY_SUPPRESSED: yolo-guard: reclaimed abandoned Hermes CDP" "$TMP/guard.log" \
+  && ok "T11: CI records the notification without delivering a desktop banner" \
+  || bad "T11: CI notification suppression was not recorded"
 
 # --- T12: an established CDP client protects that exact same profile ---
 cat > "$TMP/lsof" <<'MOCK'

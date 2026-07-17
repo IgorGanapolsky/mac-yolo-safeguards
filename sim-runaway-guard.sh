@@ -81,6 +81,21 @@ notify() {
   # notification launches a blank Script Editor window (the 2026-06-02 bug),
   # so it's only a last-resort fallback when terminal-notifier is absent.
   local TITLE="$1"; local MSG="$2"; local OPEN_FILE="$3"
+  # Process-level tests run this real script on self-hosted Macs. They must
+  # exercise and log notification branches without paging the operator's
+  # desktop or webhook. CI defaults delivery off; explicit overrides remain
+  # available, while the ordinary LaunchAgent default stays on.
+  local DELIVER="${YOLO_NOTIFY_DELIVERY:-}"
+  if [ -z "$DELIVER" ]; then
+    case "${CI:-}" in
+      1|true|TRUE) DELIVER=0 ;;
+      *) DELIVER=1 ;;
+    esac
+  fi
+  if [ "$DELIVER" != "1" ]; then
+    echo "$(date) NOTIFY_SUPPRESSED: $TITLE — $MSG" >> "$LOG"
+    return 0
+  fi
   # Off-box delivery (ntfy-compatible webhook): a thrashing Mac can't render
   # its own notification banners — push the alert to the user's phone instead.
   # Set YOLO_WEBHOOK_URL (or drop the URL in ~/.config/yolo-guard/webhook),
