@@ -2918,6 +2918,7 @@ export default function ChatScreen() {
           const activity = toolActivityAfterLastUser(msgs);
           if (activity.active) {
             sawTools = true;
+            // Footer banner only — do not rewrite the transcript bubble every poll.
             setToolStatus(activity.detail);
             setRunProgress((prev) =>
               prev
@@ -2927,16 +2928,6 @@ export default function ChatScreen() {
                     startedAtMs: startedAt,
                     detail: activity.detail,
                   },
-            );
-            commitMessages((prev) =>
-              prev.map((m) =>
-                m.id === assistantId && isDeferredStreamPlaceholder(m.content)
-                  ? {
-                      ...m,
-                      content: `${GENERIC_EMPTY_STREAM_PLACEHOLDER}\n\n${activity.detail}`,
-                    }
-                  : m,
-              ),
             );
           } else if (elapsed >= EMPTY_STREAM_SELF_HEAL_AFTER_MS) {
             const checkingDetail = emptyStreamCheckingStatus(elapsed);

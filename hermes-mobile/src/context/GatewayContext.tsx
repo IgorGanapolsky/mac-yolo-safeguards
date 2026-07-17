@@ -148,6 +148,7 @@ import {
   pairServerHostFromGatewayUrl,
   resolvePairServerMachineName,
   resolvePairServerRelayCode,
+  summarizeDiscoveredReach,
 } from '../services/gatewayDiscovery';
 import {
   collectTailnetProbeHosts,
@@ -2195,12 +2196,21 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
       if (lanMatch) {
         await persistDiscoveredGatewayUrl(lanMatch.gatewayUrl, false);
       }
+      const reach = summarizeDiscoveredReach(discovered);
       setProfileScanResult({
-        foundCount: discovered.length,
+        foundCount: reach.foundCount,
+        lanCount: reach.lanCount,
+        tailscaleCount: reach.tailscaleCount,
+        usbCount: reach.usbCount,
         completedAtMs: Date.now(),
       });
-      void trackProductEvent('mac_scan_complete', { found_count: discovered.length });
-      if (discovered.length > 0) {
+      void trackProductEvent('mac_scan_complete', {
+        found_count: reach.foundCount,
+        lan_count: reach.lanCount,
+        tailscale_count: reach.tailscaleCount,
+        usb_count: reach.usbCount,
+      });
+      if (reach.foundCount > 0) {
         haptics.success();
       } else {
         haptics.light();
