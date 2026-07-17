@@ -179,6 +179,11 @@ ensure_android_native_project() {
 build_release() {
   ensure_android_native_project
 
+  # Keep expo_runtime_version in sync with app.json (appVersion policy). Stale
+  # strings.xml (e.g. 1.0 while version is 1.2) checks the wrong EAS runtime.
+  echo "=== Syncing expo_runtime_version from app.json ==="
+  node "$HERMES_DIR/scripts/sync-expo-runtime-version.js"
+
   echo "=== Building release APK (embedded bundle) for $DEVICE ==="
   if ! run_gradle_release; then
     echo "Warning: Gradle assembleRelease failed — regenerating android/ and retrying once." >&2
