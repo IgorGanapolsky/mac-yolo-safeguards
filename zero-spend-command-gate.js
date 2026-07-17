@@ -166,6 +166,11 @@ function backupName(name, originalPath) {
   return `${name}-${suffix}`;
 }
 
+function additionalBackupName(name, originalPath) {
+  const encoded = Buffer.from(originalPath).toString('hex');
+  return `${name}-${encoded.slice(0, 8)}${encoded.slice(-16)}`;
+}
+
 function installCommand(name, manifest, env = process.env) {
   const loc = locations(env);
   const previous = manifest.commands[name];
@@ -238,6 +243,53 @@ function installAdditionalGrokShims(entry, env = process.env) {
     if (!entry.original || original !== fs.realpathSync(entry.original)) continue;
     if (!fs.lstatSync(shimPath).isSymbolicLink()) continue;
     fs.unlinkSync(shimPath);
+    fs.symlinkSync(loc.installedGate, shimPath);
+    installed.push({ shimPath, original });
+  }
+  return installed;
+}
+
+function installAdditionalOpenCodeShims(entry, env = process.env) {
+  const loc = locations(env);
+  const previous = Array.isArray(entry.additionalShimPaths) ? entry.additionalShimPaths : [];
+  const configured = String(env.HERMES_ZERO_SPEND_OPENCODE_PATHS || '')
+    .split(path.delimiter)
+    .filter(Boolean);
+  const candidates = [...new Set(configured.length ? configured : [
+    ...pathEntries(env).map((directory) => path.join(directory, 'opencode')),
+    path.join(loc.home, '.opencode', 'bin', 'opencode'),
+    path.join(loc.home, '.local', 'bin', 'opencode'),
+    '/opt/homebrew/bin/opencode',
+    '/usr/local/bin/opencode',
+  ])];
+  const installed = [];
+
+  for (const shimPath of candidates) {
+    if (shimPath === entry.shimPath || !replaceableCommandPath(shimPath, env)) continue;
+    const prior = previous.find((item) => item.shimPath === shimPath);
+    if (resolvesTo(shimPath, loc.installedGate)) {
+      installed.push(prior || { shimPath, original: entry.original });
+      continue;
+    }
+
+    let stat;
+    try {
+      fs.accessSync(shimPath, fs.constants.X_OK);
+      stat = fs.lstatSync(shimPath);
+    } catch {
+      continue;
+    }
+
+    let original;
+    if (stat.isSymbolicLink()) {
+      original = fs.realpathSync(shimPath);
+      fs.unlinkSync(shimPath);
+    } else {
+      const backup = path.join(loc.originalsDir, additionalBackupName('opencode-extra', shimPath));
+      if (fs.existsSync(backup)) fs.unlinkSync(backup);
+      fs.renameSync(shimPath, backup);
+      original = backup;
+    }
     fs.symlinkSync(loc.installedGate, shimPath);
     installed.push({ shimPath, original });
   }
@@ -601,6 +653,11 @@ function install(env = process.env) {
         manifest.commands[name],
         env,
       );
+    } else if (name === 'opencode') {
+      manifest.commands[name].additionalShimPaths = installAdditionalOpenCodeShims(
+        manifest.commands[name],
+        env,
+      );
     }
   }
   manifest.localModel = model;
@@ -950,6 +1007,7 @@ module.exports = {
   enforceMacPolicy,
   install,
   installPolicyFiles,
+  installAdditionalOpenCodeShims,
   installedLocalModels,
   invocationName,
   isLocalOnlyCommand,
