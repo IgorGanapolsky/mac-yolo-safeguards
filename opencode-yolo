@@ -1,0 +1,147 @@
+#!/usr/bin/env bash
+# opencode-yolo - run the official OpenCode agent fully autonomous, routed through the
+# Hermes LiteLLM gateway (:4010) so it inherits the fleet's resilient fallback chain
+# (glm-coding -> opencode-go-glm -> nemotron3-free -> opencode-free -> local) and the
+# stale-tool-output pruning. Default model rides that chain; override with -m/--model.
+#
+# Safety:
+#   * Honors the fleet zero-spend gate: if ~/.hermes/NO_PAID_SPEND exists, exit 73
+#     (the gateway is intentionally down in that mode; paid/gateway execution is blocked).
+#   * Wraps the OFFICIAL opencode binary; never bundles or forks it.
+#   * --doctor[/--json] reports health without running the agent.
+set -euo pipefail
+
+GATEWAY_URL="${OPENCODE_YOLO_GATEWAY_URL:-http://127.0.0.1:4010/v1}"
+DEFAULT_MODEL="${OPENCODE_YOLO_MODEL:-hermes/glm-coding}"
+MARKER="${HERMES_ZERO_SPEND_MARKER:-$HOME/.hermes/NO_PAID_SPEND}"
+
+resolve_opencode() {
+  # Never resolve to the zero-spend shim (which points back at this fleet's gate);
+  # prefer the explicit override, then the manifest's recorded original, then Cellar,
+  # then any PATH entry that is not a symlink into ~/.hermes.
+  local candidate=""
+  if [[ -n "${OPENCODE_BIN:-}" ]]; then
+    [[ -x "$OPENCODE_BIN" ]] && { printf '%s\n' "$OPENCODE_BIN"; return 0; }
+    return 1
+  fi
+  local manifest="$HOME/.hermes/zero-spend/manifest.json"
+  if [[ -f "$manifest" ]] && command -v node >/dev/null 2>&1; then
+    candidate="$(node -e '
+      try { const m=require(process.argv[1]); const o=(m.commands||{}).opencode||{};
+        if (o.original && require("fs").existsSync(o.original)) process.stdout.write(o.original);
+      } catch(e){}' "$manifest" 2>/dev/null || true)"
+    [[ -n "$candidate" && -x "$candidate" ]] && { printf '%s\n' "$candidate"; return 0; }
+  fi
+  if command -v brew >/dev/null 2>&1; then
+    candidate="$(brew --prefix opencode 2>/dev/null)/bin/opencode" || true
+    [[ -x "$candidate" ]] && { printf '%s\n' "$candidate"; return 0; }
+  fi
+  for candidate in /opt/homebrew/Cellar/opencode/*/bin/opencode "$HOME/.opencode/bin/opencode.real"; do
+    [[ -x "$candidate" ]] && { printf '%s\n' "$candidate"; return 0; }
+  done
+  # Last resort: PATH entry, but reject a shim that redirects into ~/.hermes.
+  candidate="$(command -v opencode 2>/dev/null || true)"
+  if [[ -n "$candidate" ]]; then
+    local target; target="$(readlink "$candidate" 2>/dev/null || echo "$candidate")"
+    [[ "$target" != *"/.hermes/"* ]] && { printf '%s\n' "$candidate"; return 0; }
+  fi
+  return 1
+}
+
+emit_missing() {
+  if [[ "${1:-}" == json ]]; then
+    printf '%s\n' '{"schema":"opencode-yolo/doctor-v1","ok":false,"error":"official opencode binary not found"}'
+  else
+    echo "opencode-yolo: official 'opencode' binary not found (install: curl -fsSL https://opencode.ai/install | bash)" >&2
+  fi
+}
+
+gateway_up() { curl -fsS -m 4 "${GATEWAY_URL%/v1}/health/liveliness" >/dev/null 2>&1; }
+
+doctor() {
+  local format="${1:-text}" bin="" version="" up="false"
+  if ! bin="$(resolve_opencode)"; then emit_missing "$format"; return 127; fi
+  version="$("$bin" --version 2>/dev/null | head -n1 || true)"
+  gateway_up && up="true"
+  if [[ "$format" == json ]]; then
+    OYB="$bin" OYV="$version" OYG="$GATEWAY_URL" OYM="$DEFAULT_MODEL" OYUP="$up" \
+    OYZ="$([[ -e "$MARKER" ]] && echo true || echo false)" node -e '
+      process.stdout.write(JSON.stringify({
+        schema:"opencode-yolo/doctor-v1", ok:true, provider:"OpenCode",
+        binary:process.env.OYB, version:process.env.OYV,
+        gateway:process.env.OYG, gatewayUp:process.env.OYUP==="true",
+        defaultModel:process.env.OYM, zeroSpendActive:process.env.OYZ==="true",
+        autonomous:true
+      })+"\n");'
+  else
+    printf 'OPENCODE_YOLO_OK binary=%s version=%s gateway=%s up=%s model=%s zero_spend=%s\n' \
+      "$bin" "$version" "$GATEWAY_URL" "$up" "$DEFAULT_MODEL" "$([[ -e "$MARKER" ]] && echo true || echo false)"
+  fi
+}
+
+if [[ "${1:-}" == "--doctor" ]]; then
+  shift
+  case "${1:-}" in
+    "") doctor text ;;
+    --json) shift; [[ $# -eq 0 ]] || { echo "opencode-yolo: --doctor --json takes no more args" >&2; exit 2; }; doctor json ;;
+    *) echo "opencode-yolo: --doctor accepts only optional --json" >&2; exit 2 ;;
+  esac
+  exit $?
+fi
+
+# Respect the fleet zero-spend gate.
+if [[ -e "$MARKER" ]]; then
+  echo "opencode-yolo: blocked — fleet zero-spend is active ($MARKER); the paid gateway is down by policy" >&2
+  exit 73
+fi
+
+if ! OPENCODE_BIN_RESOLVED="$(resolve_opencode)"; then emit_missing text; exit 127; fi
+
+if ! gateway_up; then
+  echo "opencode-yolo: Hermes gateway not reachable at ${GATEWAY_URL%/v1} — start com.igor.hermes-litellm first" >&2
+  exit 69
+fi
+
+# Autonomous config: route through the Hermes gateway, allow edit/bash/web without prompts.
+CONFIG_DIR="${OPENCODE_YOLO_HOME:-$HOME/.hermes/opencode-yolo}"
+mkdir -p "$CONFIG_DIR"
+CONFIG_PATH="$CONFIG_DIR/opencode.json"
+OPENCODE_YOLO_GATEWAY_URL="$GATEWAY_URL" DEFAULT_MODEL="$DEFAULT_MODEL" node -e '
+  const fs=require("fs");
+  const base=process.env.OPENCODE_YOLO_GATEWAY_URL;
+  const model=process.env.DEFAULT_MODEL;
+  const mk=(id,ctx,out)=>({name:id,limit:{context:ctx,output:out}});
+  const cfg={
+    $schema:"https://opencode.ai/config.json",
+    model, small_model:"hermes/glm-turbo",
+    share:"disabled", autoupdate:false,
+    enabled_providers:["hermes"], plugin:[],
+    provider:{ hermes:{
+      npm:"@ai-sdk/openai-compatible",
+      name:"Hermes Fleet Gateway",
+      options:{ baseURL:base, apiKey:"hermes-local-gateway" },
+      models:{
+        "glm-coding":mk("GLM-5.2 (fleet, resilient)",200000,128000),
+        "glm-turbo":mk("GLM-5-Turbo (fleet)",200000,128000),
+        "opencode-go-glm":mk("GLM-5.2 via OpenCode Go",200000,128000),
+        "kimi-code":mk("Kimi K2.7 Code (flat)",262144,16384),
+        "hermes-local":mk("qwen3:8b local",65536,8192)
+      }
+    }},
+    compaction:{ auto:true, prune:true, reserved:10000 },
+    permission:{ edit:"allow", bash:"allow", webfetch:"allow" }
+  };
+  fs.writeFileSync(process.argv[1], JSON.stringify(cfg,null,2));
+' "$CONFIG_PATH"
+
+export OPENCODE_CONFIG="$CONFIG_PATH"
+export OPENCODE_DISABLE_AUTOUPDATE=1
+export OPENCODE_AUTO_SHARE=false
+
+# Default model unless the caller passed -m/--model explicitly.
+has_model=0
+for a in "$@"; do case "$a" in -m|--model|--model=*) has_model=1;; esac; done
+if ((has_model)); then
+  exec "$OPENCODE_BIN_RESOLVED" "$@"
+fi
+exec "$OPENCODE_BIN_RESOLVED" --model "$DEFAULT_MODEL" "$@"
