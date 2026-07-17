@@ -18,6 +18,17 @@ describe('workspacePrompt', () => {
     expect(prompt).toContain('skool_top1percent');
     expect(prompt).toContain('AI-Agent-Sync/Projects/Skool/');
     expect(prompt).toContain('triple-offer');
+    expect(prompt).toContain('HARD CONSTRAINT');
+    expect(prompt).toContain('OUT OF SCOPE');
+  });
+
+  it('forbids cross-repo wander when mac-yolo lane is active', () => {
+    const prompt = buildWorkspaceSystemPrompt(
+      '/Users/igorganapolsky/workspace/git/igor/mac-yolo-safeguards',
+    );
+    expect(prompt).toContain('mac-yolo-safeguards');
+    expect(prompt).toContain('skool_top1percent');
+    expect(prompt).toMatch(/Do not cd into/i);
   });
 
   it('always includes mobile execution mandate even without a project', () => {

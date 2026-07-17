@@ -498,6 +498,33 @@ CPU_HOT_EOF
       done
     fi
 
+    # --- Auto-reclaim: booted iOS Simulator under thrash (known-safe kill) ---
+    # The original simulator branches key on load>150 or sim_procs>350 or
+    # booted_sim+load>=40. But a single booted simulator can wedge the box at
+    # moderate load (load~38, 118 simruntime procs) while swap is at 95% —
+    # exactly the 2026-07-16 gap: the guard ran every 60s, detected the thrash,
+    # but only reclaimed Chrome Canary because the sim branch never fired.
+    # Under genuine memory pressure (swap near-max + active pageouts), a booted
+    # simulator is the single biggest reclaimable RAM consumer and is fully
+    # reversible (user re-boots in seconds via Xcode). Shut it down here too.
+    # An active xcodebuild is still respected (build-in-flight check below).
+    if [ "${YOLO_RECLAIM_SIMULATOR_THRASH:-1}" = "1" ]; then
+      BOOTED_UNDER_PRESSURE=$(/usr/bin/xcrun simctl list devices booted 2>/dev/null | /usr/bin/grep -c Booted | /usr/bin/tr -d ' ')
+      [ -z "$BOOTED_UNDER_PRESSURE" ] && BOOTED_UNDER_PRESSURE=0
+      if [ "$BOOTED_UNDER_PRESSURE" -gt 0 ]; then
+        XCODEBUILD_RUNNING=$(/bin/ps -axo command | /usr/bin/grep -E 'xcodebuild|xcrun simctl boot' | /usr/bin/grep -v grep | /usr/bin/wc -l | /usr/bin/tr -d ' ')
+        if [ "$XCODEBUILD_RUNNING" -eq 0 ]; then
+          SIM_RSS_MB=$(/bin/ps -axo rss,command | /usr/bin/grep -iE 'CoreSimulator|simruntime|Simulator\.app' | /usr/bin/grep -v grep | /bin/awk '{s+=$1} END{printf "%d", s/1024}')
+          /usr/bin/xcrun simctl shutdown all 2>/dev/null
+          /bin/killall -9 Simulator 2>/dev/null || true
+          notify "yolo-guard: shut down iOS Simulator under thrash" "Shut down $BOOTED_UNDER_PRESSURE booted simulator(s) (~${SIM_RSS_MB}MB) under memory pressure ($MEM_PRESSURE). Reversible — re-boot from Xcode."
+          echo "$(date) SIM_THRASH_RECLAIM: shut down $BOOTED_UNDER_PRESSURE booted sim(s) ~${SIM_RSS_MB}MB pressure=$MEM_PRESSURE" >> "$LOG"
+        else
+          echo "$(date) SIM_THRASH_RECLAIM: SKIP — xcodebuild/simctl in flight ($XCODEBUILD_RUNNING procs)" >> "$LOG"
+        fi
+      fi
+    fi
+
     # --- Auto-reclaim: stale browser-automation Chrome (known-safe kill) ---
     # Agent sessions (claude-in-chrome / CDP automation) leave orphaned Chrome
     # instances on throwaway /tmp profiles (--user-data-dir=/tmp/chrome_cdp_

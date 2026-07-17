@@ -5,6 +5,39 @@ import ChatScreenHeader, { buildHermesStatusLabel } from '../components/ChatScre
 import { GATEWAY_AUTH_REPAIR_HEADER } from '../services/gatewayClient';
 
 describe('ChatScreenHeader', () => {
+  it('warns when a weak local coding model is active', () => {
+    const { getByTestId } = render(
+      <ChatScreenHeader
+        threadTitle="Deploy fix"
+        machineLabel="MacBook Pro"
+        connectionState="connected"
+        macHttpReachable
+        gatewayModel="qwen3.5:9b-hermes-64k"
+        onOpenThreads={jest.fn()}
+        onPressMachine={jest.fn()}
+      />,
+    );
+
+    expect(getByTestId('chat-header-weak-model-warning').props.children).toMatch(/local worker/i);
+  });
+
+  it('warns when session context is already huge', () => {
+    const { getByTestId } = render(
+      <ChatScreenHeader
+        threadTitle="Deploy fix"
+        machineLabel="MacBook Pro"
+        connectionState="connected"
+        macHttpReachable
+        gatewayModel="glm-coding"
+        currentSession={{ model: 'glm-coding', input_tokens: 24_282, output_tokens: 173 }}
+        onOpenThreads={jest.fn()}
+        onPressMachine={jest.fn()}
+      />,
+    );
+
+    expect(getByTestId('chat-header-poisoned-context-warning').props.children).toMatch(/Start fresh/i);
+  });
+
   it('shows relay only when socket is connected but HTTP is not', () => {
     const { getByTestId } = render(
       <ChatScreenHeader
