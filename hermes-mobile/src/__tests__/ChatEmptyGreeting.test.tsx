@@ -63,4 +63,20 @@ describe('ChatEmptyGreeting', () => {
       'Trying to reach Igors-Mac-mini automatically…',
     );
   });
+
+  it('never shows Trying to reach when Connected even if heal pending', () => {
+    expect(greetingSubtitle('Igors-Mac-mini', true, true)).toBe(
+      'Ask anything — connected via Igors-Mac-mini.',
+    );
+    const { getByTestId } = render(
+      <ChatEmptyGreeting
+        routeLabel="Igors-Mac-mini"
+        isConnected
+        connectionPending
+      />,
+    );
+    expect(getByTestId('chat-empty-greeting-subtitle').props.children).toBe(
+      'Ask anything — connected via Igors-Mac-mini.',
+    );
+  });
 });

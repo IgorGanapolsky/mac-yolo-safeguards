@@ -170,8 +170,13 @@ export function shouldSuppressEmptyGreetingUnreachable(input: {
   hasSavedComputer: boolean;
   /** 401 / wrong key — never bury under "Trying to reach…". */
   authMismatch?: boolean;
+  /** Already live — never claim "Trying to reach…" while Connected. */
+  macReachable?: boolean;
 }): boolean {
   if (input.authMismatch) {
+    return false;
+  }
+  if (input.macReachable) {
     return false;
   }
   if (input.healthProbePending) {
