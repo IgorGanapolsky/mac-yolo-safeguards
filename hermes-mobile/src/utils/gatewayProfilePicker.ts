@@ -56,23 +56,25 @@ export function profilePickerLines(
   options: { cablePluggedIn?: boolean } = {},
 ): ProfilePickerLines {
   const title = fleetComputerDisplayName(profileDisplayName(profile));
-  if (options.cablePluggedIn) {
+  if (isLoopbackGatewayUrl(profile.gatewayUrl)) {
     return {
       title,
-      detail: isLoopbackGatewayUrl(profile.gatewayUrl)
-        ? 'Using this USB cable'
-        : 'Cable plugged in — works off Wi‑Fi too',
+      detail: options.cablePluggedIn ? 'USB cable — using this direct connection' : 'This USB cable',
     };
-  }
-  if (isLoopbackGatewayUrl(profile.gatewayUrl)) {
-    return { title, detail: 'This USB cable' };
   }
   const endpoint = profilePickerEndpoint(profile);
   if (isTailscaleGatewayUrl(profile.gatewayUrl)) {
     return {
       title,
-      detail: endpoint ? `Tailscale · ${endpoint}` : 'Tailscale',
+      detail: options.cablePluggedIn
+        ? 'Tailscale — same computer, works away from home'
+        : endpoint
+          ? `Tailscale · ${endpoint}`
+          : 'Tailscale',
     };
+  }
+  if (options.cablePluggedIn) {
+    return { title, detail: 'Cable plugged in — works off Wi‑Fi too' };
   }
   if (endpoint && !title.toLowerCase().includes(endpoint.split(':')[0].toLowerCase())) {
     return { title, detail: endpoint };

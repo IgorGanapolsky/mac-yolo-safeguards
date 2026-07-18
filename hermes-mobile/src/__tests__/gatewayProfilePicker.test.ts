@@ -58,7 +58,7 @@ describe('gatewayProfilePicker', () => {
     expect(profilePickerLines(profiles[0]).detail).toBe('Tailscale · 100.94.135.78:8642');
   });
 
-  it('keeps live USB + Tailscale Mac Pro as two selectable rows', () => {
+  it('labels live USB and Tailscale as two routes to the same Mac', () => {
     const profiles = profilesForSwitchComputerPicker(
       [
         {
@@ -85,7 +85,8 @@ describe('gatewayProfilePicker', () => {
         },
       },
     );
-    // USB must not hide Tailscale for the same MacBook / Mac Pro.
+    // USB must not hide Tailscale for the same MacBook / Mac Pro, but the
+    // Tailscale row must not look like a second physical computer.
     expect(profiles).toHaveLength(3);
     expect(profiles.map((p) => profileConnectionRouteLabel(p, true))).toEqual([
       'USB',
@@ -100,7 +101,12 @@ describe('gatewayProfilePicker', () => {
       'Igors-MacBook-Pro (Mac Pro)',
     );
     expect(profilePickerLines(mbpTs!).title).toBe('Igors-MacBook-Pro (Mac Pro)');
-    expect(profilePickerLines(mbpTs!).detail).toMatch(/^Tailscale · /);
+    expect(profilePickerLines(usbRow!, { cablePluggedIn: true }).detail).toBe(
+      'USB cable — using this direct connection',
+    );
+    expect(profilePickerLines(mbpTs!, { cablePluggedIn: true }).detail).toBe(
+      'Tailscale — same computer, works away from home',
+    );
   });
 
   it('shows saved USB and Tailscale Mac Pro rows side by side when cabled', () => {
