@@ -29,10 +29,17 @@ exit 0
 EOF
 chmod +x "$FAKE_ADB"
 
+# Isolate the E2E lease file to this run's temp dir. Without this, a stale or
+# concurrent /tmp/yolo-guard-e2e.pid with a live PID makes sim-runaway-guard.sh
+# exit early (lines 59-71) before it reaches the adb-reverse section (line 120),
+# so the fake adb is never called and adb-calls.log is never written.
+E2E_LEASE_FILE="$TMP/yolo-guard-e2e.pid"
+
 ADB_CALLS="$CALLS" \
 YOLO_ADB_BIN="$FAKE_ADB" \
 YOLO_LOG="$TMP/guard.log" \
 YOLO_FIRES_LOG="$TMP/fires.log" \
+YOLO_E2E_LEASE_FILE="$E2E_LEASE_FILE" \
 YOLO_CPU_STATE_FILE="$TMP/cpu-state" \
 YOLO_CPU_LAST_FILE="$TMP/cpu-last" \
 YOLO_CPU_STATUS_FILE="$TMP/cpu-status.txt" \
