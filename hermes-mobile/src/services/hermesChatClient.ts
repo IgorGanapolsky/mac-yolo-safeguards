@@ -17,6 +17,17 @@ import { isTitleInUseError } from '../utils/chatErrors';
 
 const MAX_SESSION_TITLE_LEN = 56;
 
+/** Durable identity used to distinguish phone chats from API/CLI harness sessions. */
+export function buildMobileSessionId(
+  timestamp = Date.now(),
+  random = Math.random(),
+): string {
+  const suffix = Math.floor(random * 0x100000000)
+    .toString(16)
+    .padStart(8, '0');
+  return `mobile_${timestamp}_${suffix}`;
+}
+
 export class HermesChatApiError extends Error {
   status: number;
 
@@ -141,7 +152,10 @@ export async function createSession(
   title?: string,
   systemPrompt?: string,
 ): Promise<HermesSession> {
-  const body: Record<string, string> = { title: title ?? 'Mobile chat' };
+  const body: Record<string, string> = {
+    id: buildMobileSessionId(),
+    title: title ?? 'Mobile chat',
+  };
   if (systemPrompt?.trim()) {
     body.system_prompt = systemPrompt.trim();
   }
