@@ -27,6 +27,11 @@ fi
 staged=$(git diff --cached --name-only --diff-filter=ACM | grep -E '^hermes-mobile/.*\.(ts|tsx)$' || true)
 [ -z "$staged" ] && exit 0
 
+if ! node "$repo_root/tools/plan-coordination-snapshot.js" check-staged-ownership; then
+  echo "✗ plan.md ownership check failed — claim the staged Hermes Mobile file in plan.md §2 first"
+  exit 1
+fi
+
 echo "▶ pre-commit: hermes-mobile typecheck + targeted tests…"
 cd hermes-mobile
 
