@@ -42,6 +42,7 @@ describe('computerPickerStatus', () => {
       scanResult,
       showScanResult: true,
       tailscaleProbing: true,
+      tailscaleVpnActive: true,
       tailscaleDiscoveries: [discovery],
     });
     expect(status.kind).toBe('searching');
@@ -56,10 +57,26 @@ describe('computerPickerStatus', () => {
       scanResult: null,
       showScanResult: false,
       tailscaleProbing: true,
+      tailscaleVpnActive: true,
       tailscaleDiscoveries: [],
     });
     expect(status.kind).toBe('searching');
     expect(status.title).toBe('On Tailscale — searching for your computer');
+  });
+
+  it('does not infer Tailscale is on from an in-flight probe', () => {
+    const status = resolveComputerPickerStatus({
+      scanning: false,
+      scanProgress: null,
+      scanResult: null,
+      showScanResult: false,
+      tailscaleProbing: true,
+      tailscaleVpnActive: false,
+      tailscaleDiscoveries: [],
+    });
+    expect(status.kind).toBe('help');
+    expect(status.title).toBe('Tailscale is off on this phone');
+    expect(status.title).not.toMatch(/^On Tailscale/);
   });
 
   it('shows Tailscale found chips only when not scanning and discoveries exist', () => {
@@ -69,6 +86,7 @@ describe('computerPickerStatus', () => {
       scanResult: null,
       showScanResult: false,
       tailscaleProbing: true,
+      tailscaleVpnActive: true,
       tailscaleDiscoveries: [discovery],
     });
     expect(status.kind).toBe('tailscale_found');
@@ -83,6 +101,7 @@ describe('computerPickerStatus', () => {
       scanResult,
       showScanResult: true,
       tailscaleProbing: false,
+      tailscaleVpnActive: true,
       tailscaleDiscoveries: [],
     });
     expect(status.kind).toBe('result');
@@ -97,6 +116,7 @@ describe('computerPickerStatus', () => {
       scanResult: null,
       showScanResult: false,
       tailscaleProbing: false,
+      tailscaleVpnActive: true,
       tailscaleDiscoveries: [],
     });
     expect(status.kind).toBe('help');
@@ -110,6 +130,7 @@ describe('computerPickerStatus', () => {
       scanResult: null,
       showScanResult: false,
       tailscaleProbing: true,
+      tailscaleVpnActive: true,
       tailscaleDiscoveries: [],
     });
     const b = resolveComputerPickerStatus({
@@ -118,6 +139,7 @@ describe('computerPickerStatus', () => {
       scanResult,
       showScanResult: true,
       tailscaleProbing: false,
+      tailscaleVpnActive: true,
       tailscaleDiscoveries: [],
     });
     const sigA = computerPickerStatusSignature(a);
@@ -168,6 +190,7 @@ describe('computerPickerStatus', () => {
             scanResult: null,
             showScanResult: false,
             tailscaleProbing: false,
+            tailscaleVpnActive: true,
             tailscaleDiscoveries: [],
           }),
         ),

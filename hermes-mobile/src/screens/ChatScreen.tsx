@@ -550,6 +550,7 @@ export default function ChatScreen() {
     wifiConnected,
     tailscaleDiscoveries,
     tailscaleDiscoveryProbing,
+    tailscaleVpnActive,
     tailnetProbeHostCount,
     addDiscoveredTailscaleComputer,
     probeTailscaleComputers,
@@ -7187,6 +7188,7 @@ export default function ChatScreen() {
                 scanProgress={profileScanProgress}
                 scanResult={profileScanResult}
                 tailscaleProbing={tailscaleDiscoveryProbing}
+                tailscaleVpnActive={tailscaleVpnActive}
                 tailscaleDiscoveries={tailscaleDiscoveries}
                 addingTailscale={tailscaleDiscoveryProbing}
                 onAddTailscale={(discovery) => {
