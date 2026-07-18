@@ -1,5 +1,3 @@
-import type { HermesPersona } from '../types/gateway';
-import { buildPersonaSystemPrompt } from './hermesPersona';
 import {
   buildContinuitySystemPromptSection,
   shouldInjectContinuityHandoff,
@@ -72,10 +70,9 @@ export function buildWorkspaceSystemPrompt(
  */
 export function buildMobileChatSystemPrompt(
   workspacePath?: string,
-  persona?: HermesPersona,
   projectContext?: MobileChatProjectContext,
 ): string {
-  const sections = [MOBILE_EXECUTION_DIRECTIVE, buildPersonaSystemPrompt(persona)];
+  const sections = [MOBILE_EXECUTION_DIRECTIVE];
   const path = workspacePath?.trim();
   if (path) {
     sections.push(
