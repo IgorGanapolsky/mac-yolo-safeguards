@@ -1,19 +1,10 @@
 import React from 'react';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { fireEvent, render, waitFor } from '@testing-library/react-native';
+import { fireEvent, render } from '@testing-library/react-native';
 import ChatScreenHeader, { buildHermesStatusLabel } from '../components/ChatScreenHeader';
 import { GATEWAY_AUTH_REPAIR_HEADER } from '../services/gatewayClient';
-import {
-  CHAT_HEADER_DETAILS_EXPANDED_KEY,
-  loadChatHeaderDetailsExpanded,
-} from '../utils/chatHeaderChromePreference';
 
 describe('ChatScreenHeader', () => {
-  beforeEach(async () => {
-    await AsyncStorage.clear();
-  });
-
-  it('shows model strip while Connected even when details are collapsed', () => {
+  it('shows model strip while Connected with no expand toggle', () => {
     const { getByTestId, queryByTestId } = render(
       <ChatScreenHeader
         threadTitle="Research pain points"
@@ -21,15 +12,14 @@ describe('ChatScreenHeader', () => {
         connectionState="connected"
         macHttpReachable
         currentSession={{ model: 'qwen3.5:9b-hermes', input_tokens: 1200, output_tokens: 40 }}
-        detailsExpanded={false}
         onOpenThreads={jest.fn()}
         onPressMachine={jest.fn()}
       />,
     );
     expect(getByTestId('chat-header-model-strip').props.children).toContain('Qwen3.5 9B Hermes');
     expect(getByTestId('chat-header-model-strip').props.children).toContain('1,240 tokens');
-    // Weak warning stays behind the chevron when collapsed.
-    expect(queryByTestId('chat-header-weak-model-warning')).toBeNull();
+    expect(queryByTestId('chat-header-details-toggle')).toBeNull();
+    expect(queryByTestId('chat-header-details-chevron')).toBeNull();
   });
 
   it('warns when a weak local coding model is active', () => {
@@ -40,7 +30,6 @@ describe('ChatScreenHeader', () => {
         connectionState="connected"
         macHttpReachable
         gatewayModel="qwen3.5:9b-hermes-64k"
-        detailsExpanded
         onOpenThreads={jest.fn()}
         onPressMachine={jest.fn()}
       />,
@@ -58,7 +47,6 @@ describe('ChatScreenHeader', () => {
         macHttpReachable
         gatewayModel="glm-coding"
         currentSession={{ model: 'glm-coding', input_tokens: 24_282, output_tokens: 173 }}
-        detailsExpanded
         onOpenThreads={jest.fn()}
         onPressMachine={jest.fn()}
       />,
@@ -67,12 +55,13 @@ describe('ChatScreenHeader', () => {
     expect(getByTestId('chat-header-poisoned-context-warning').props.children).toMatch(/Start fresh/i);
   });
 
-  it('defaults secondary chrome collapsed and expands via chevron', async () => {
+  it('always shows secondary chrome and transport without a caret toggle', () => {
     const onPressMachine = jest.fn();
     const { getByTestId, queryByTestId } = render(
       <ChatScreenHeader
         threadTitle="Deploy fix"
-        machineLabel="Igors-Mac-mini · Tailscale"
+        machineLabel="Igors-Mac-mini"
+        machineEndpoint="Tailscale"
         connectionState="connected"
         macHttpReachable
         gatewayModel="qwen3.5:9b-hermes-64k"
@@ -84,32 +73,21 @@ describe('ChatScreenHeader', () => {
       />,
     );
 
-    expect(queryByTestId('chat-header-weak-model-warning')).toBeNull();
-    expect(queryByTestId('chat-header-hermes-status')).toBeNull();
-    expect(queryByTestId('chat-header-project-picker')).toBeNull();
-    expect(getByTestId('chat-header-details-chevron').props.children).toBe('▾');
+    expect(queryByTestId('chat-header-details-toggle')).toBeNull();
+    expect(queryByTestId('chat-header-details-chevron')).toBeNull();
     expect(getByTestId('chat-context-link').props.children).toContain('Connected');
-
-    fireEvent.press(getByTestId('chat-header-details-toggle'));
-
+    expect(getByTestId('chat-context-mac-endpoint').props.children).toBe('Tailscale');
     expect(getByTestId('chat-header-weak-model-warning').props.children).toMatch(/local worker/i);
     expect(getByTestId('chat-header-hermes-status')).toBeTruthy();
     expect(getByTestId('chat-header-project-picker')).toBeTruthy();
-    expect(getByTestId('chat-header-details-chevron').props.children).toBe('▴');
 
-    await waitFor(async () => {
-      await expect(loadChatHeaderDetailsExpanded()).resolves.toBe(true);
-    });
-    expect(await AsyncStorage.getItem(CHAT_HEADER_DETAILS_EXPANDED_KEY)).toBe('1');
-
-    // Mac / Connected label always opens the computer picker (chevron owns expand).
     fireEvent.press(getByTestId('chat-context-mac-button'));
     expect(onPressMachine).toHaveBeenCalledTimes(1);
   });
 
-  it('keeps Mac picker on collapsed Connected row; chevron expands details', () => {
+  it('keeps Mac picker on the Connected row', () => {
     const onPressMachine = jest.fn();
-    const { getByTestId, queryByTestId } = render(
+    const { getByTestId } = render(
       <ChatScreenHeader
         threadTitle="Deploy fix"
         machineLabel="Igors-Mac-mini · Tailscale"
@@ -121,17 +99,13 @@ describe('ChatScreenHeader', () => {
       />,
     );
 
-    expect(queryByTestId('chat-header-weak-model-warning')).toBeNull();
     fireEvent.press(getByTestId('chat-context-mac-button'));
     expect(onPressMachine).toHaveBeenCalledTimes(1);
-    expect(queryByTestId('chat-header-weak-model-warning')).toBeNull();
-
-    fireEvent.press(getByTestId('chat-header-details-toggle'));
     expect(getByTestId('chat-header-weak-model-warning')).toBeTruthy();
   });
 
   it.each(['Tailscale', 'USB', 'Home Wi-Fi'])(
-    'keeps the resolved %s transport in the compact Connected header',
+    'keeps the resolved %s transport in the Connected header',
     (transport) => {
       const { getByTestId } = render(
         <ChatScreenHeader
@@ -151,7 +125,7 @@ describe('ChatScreenHeader', () => {
     },
   );
 
-  it('keeps wrong-key state out of compact Connected transport status', () => {
+  it('keeps wrong-key state out of Connected transport status', () => {
     const { getByTestId } = render(
       <ChatScreenHeader
         threadTitle="Deploy fix"
@@ -169,26 +143,6 @@ describe('ChatScreenHeader', () => {
     expect(getByTestId('chat-context-link').props.children).toBe(GATEWAY_AUTH_REPAIR_HEADER);
     expect(getByTestId('chat-context-link').props.children).not.toContain('Connected');
     expect(getByTestId('chat-context-mac-endpoint').props.children).toBe('Tailscale');
-  });
-
-  it('restores persisted expanded preference on mount', async () => {
-    await AsyncStorage.setItem(CHAT_HEADER_DETAILS_EXPANDED_KEY, '1');
-    const { getByTestId } = render(
-      <ChatScreenHeader
-        threadTitle="Deploy fix"
-        machineLabel="MacBook Pro"
-        connectionState="connected"
-        macHttpReachable
-        gatewayModel="qwen3.5:9b-hermes-64k"
-        onOpenThreads={jest.fn()}
-        onPressMachine={jest.fn()}
-      />,
-    );
-
-    await waitFor(() => {
-      expect(getByTestId('chat-header-weak-model-warning')).toBeTruthy();
-    });
-    expect(getByTestId('chat-header-details-chevron').props.children).toBe('▴');
   });
 
   it('shows relay only when socket is connected but HTTP is not', () => {
@@ -221,7 +175,7 @@ describe('ChatScreenHeader', () => {
     );
 
     expect(getByTestId('chat-context-mac').props.children).toBe('Igors-MacBook-Pro');
-    expect(getByTestId('chat-context-mac-endpoint').props.children).toContain('10.2.29.103:8642');
+    expect(getByTestId('chat-context-mac-endpoint').props.children).toBe('10.2.29.103:8642');
     expect(getByTestId('chat-context-link').props.children).toContain('Connected');
   });
 
@@ -370,7 +324,6 @@ describe('ChatScreenHeader', () => {
         connectionState="connected"
         macHttpReachable
         canSwitchWorkspace
-        detailsExpanded
         onOpenThreads={jest.fn()}
         onPressMachine={jest.fn()}
         onPressWorkspace={jest.fn()}
@@ -474,7 +427,6 @@ describe('ChatScreenHeader', () => {
         macHttpReachable
         activeAgents={[{ name: 'Hermes', status: 'active' }]}
         gatewayModel="google/gemini-2.5-flash"
-        detailsExpanded
         onOpenThreads={jest.fn()}
         onPressMachine={jest.fn()}
       />,
@@ -495,7 +447,6 @@ describe('ChatScreenHeader', () => {
         activeAgents={[{ name: 'Hermes', status: 'active' }]}
         currentSession={{ model: 'hermes-agent', input_tokens: 800, output_tokens: 200 }}
         gatewayModel="qwen3:8b-64k"
-        detailsExpanded
         onOpenThreads={jest.fn()}
         onPressMachine={jest.fn()}
       />,
@@ -523,7 +474,6 @@ describe('ChatScreenHeader', () => {
           inputTokens: 34000,
           outputTokens: 128,
         }}
-        detailsExpanded
         onOpenThreads={jest.fn()}
         onPressMachine={jest.fn()}
       />,
@@ -563,7 +513,6 @@ describe('ChatScreenHeader avatar presence', () => {
         machineLabel="Igors-Mac-mini"
         connectionState="connected"
         macHttpReachable
-        detailsExpanded
         onOpenThreads={jest.fn()}
         onPressMachine={jest.fn()}
       />,
