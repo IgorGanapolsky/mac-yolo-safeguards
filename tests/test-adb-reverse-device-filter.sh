@@ -29,10 +29,16 @@ exit 0
 EOF
 chmod +x "$FAKE_ADB"
 
+# Keep this test independent of the global E2E lease. A concurrent runner can
+# hold /tmp/yolo-guard-e2e.pid, which correctly pauses the real guard but would
+# otherwise exit this isolated fake-ADB run before recording any calls.
+E2E_LEASE_FILE="$TMP/yolo-guard-e2e.pid"
+
 ADB_CALLS="$CALLS" \
 YOLO_ADB_BIN="$FAKE_ADB" \
 YOLO_LOG="$TMP/guard.log" \
 YOLO_FIRES_LOG="$TMP/fires.log" \
+YOLO_E2E_LEASE_FILE="$E2E_LEASE_FILE" \
 YOLO_CPU_STATE_FILE="$TMP/cpu-state" \
 YOLO_CPU_LAST_FILE="$TMP/cpu-last" \
 YOLO_CPU_STATUS_FILE="$TMP/cpu-status.txt" \
