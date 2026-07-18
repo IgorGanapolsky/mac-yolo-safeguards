@@ -73,15 +73,88 @@ set +e; "$KIMI" "x" >/dev/null 2>&1; c=$?; set -e
 [ "$c" = 127 ] && ok "kimi-yolo missing-CLI 127" || no "kimi-yolo missing-CLI (got $c)"
 kenv
 
-# --- tinker-yolo (gate + dispatch; real training proven live) ---
-export HERMES_ZERO_SPEND_MARKER="$ROOT/NO_PAID_SPEND"; export TINKER_VENV="$ROOT/venv"
+# --- tinker-yolo (private-data + paid gate; no network/provider call) ---
+export HERMES_ZERO_SPEND_MARKER="$ROOT/NO_PAID_SPEND"
+export TINKER_VENV="$ROOT/venv"
+export TINKER_STATE_DIR="$ROOT/tinker-state"
+export TINKER_DATASET="$ROOT/tinker-state/datasets/conversations.jsonl"
+export TINKER_RECEIPT_DIR="$ROOT/tinker-state/receipts"
+export TINKER_HARNESS="$HERE/../tools/hermes-tinker-harness.js"
+export TINKER_HOST_MEMORY_BYTES=24000000000
+export TINKER_HOST_MACHINE="MacBook Pro"
+export TINKER_HOST_CHIP="Apple M5"
 set +e; "$TINKER" proof >/dev/null 2>&1; c=$?; set -e
 [ "$c" = 127 ] && ok "tinker-yolo missing-venv 127" || no "tinker-yolo missing-venv (got $c)"
-mkdir -p "$ROOT/venv/bin"; printf '#!/bin/sh\nexit 0\n' > "$ROOT/venv/bin/python"; chmod +x "$ROOT/venv/bin/python"
+mkdir -p "$ROOT/venv/bin" "$ROOT/tinker-state/datasets"
+TCAP="$ROOT/tinker-provider-call"
+cat > "$ROOT/venv/bin/python" <<EOF
+#!/bin/sh
+if printf '%s\n' "\$1" | grep -q 'build-distill-dataset.py'; then
+  shift
+  out=''
+  while [ "\$#" -gt 0 ]; do
+    if [ "\$1" = --out ]; then shift; out="\$1"; break; fi
+    shift
+  done
+  mkdir -p "\$(dirname "\$out")"
+  printf '%s\n' '{"messages":[{"role":"user","content":"fixture question"},{"role":"assistant","content":"fixture answer"}]}' > "\$out"
+  exit 0
+fi
+printf 'called=%s approved=%s max=%s\n' "\$*" "\${TINKER_APPROVED_DATA_UPLOAD:-}" "\${TINKER_MAX_COST_USD:-}" > "$TCAP"
+exit 0
+EOF
+chmod +x "$ROOT/venv/bin/python"
 : > "$ROOT/NO_PAID_SPEND"
 set +e; "$TINKER" proof >/dev/null 2>&1; c=$?; set -e
 [ "$c" = 73 ] && ok "tinker-yolo zero-spend 73" || no "tinker-yolo zero-spend (got $c)"
+"$TINKER" build
+python3 - "$TINKER_DATASET" <<'PY' \
+  && ok "tinker-yolo builds private dataset under zero-spend" || no "tinker-yolo private build"
+import os, stat, sys
+p=sys.argv[1]
+assert p.endswith('/tinker-state/datasets/conversations.jsonl')
+assert os.path.isfile(p)
+assert stat.S_IMODE(os.stat(p).st_mode)==0o600
+PY
 rm -f "$ROOT/NO_PAID_SPEND"
+
+set +e; "$TINKER" proof >/dev/null 2>&1; c=$?; set -e
+[ "$c" = 64 ] && ok "tinker-yolo requires explicit paid/upload consent" || no "tinker-yolo consent gate (got $c)"
+
+"$TINKER" recommend --json | python3 -c "import json,sys; d=json.load(sys.stdin); assert d['host']['memoryGB']==24; assert not d['candidate']['localInferenceFeasible']; assert not d['gates']['baselineReplacementAllowed']" \
+  && ok "tinker-yolo recommends remote candidate on 24GB M5" || no "tinker-yolo recommendation"
+
+printf '%s\n' '{"messages":[{"role":"user","content":"safe fixture"},{"role":"assistant","content":"safe answer"}]}' > "$TINKER_DATASET"
+chmod 644 "$TINKER_DATASET"
+set +e; "$TINKER" proof --approve-paid --approve-data-upload --max-cost-usd 1 >/dev/null 2>&1; c=$?; set -e
+{ [ "$c" = 65 ] && [ ! -f "$TCAP" ]; } && ok "tinker-yolo blocks non-private dataset" || no "tinker-yolo dataset permission gate (got $c)"
+
+printf '%s\n' '{"messages":[{"role":"user","content":"token=fixture_secret_value_123456"},{"role":"assistant","content":"no"}]}' > "$TINKER_DATASET"
+chmod 600 "$TINKER_DATASET"
+set +e; "$TINKER" proof --approve-paid --approve-data-upload --max-cost-usd 1 >/dev/null 2>&1; c=$?; set -e
+{ [ "$c" = 65 ] && [ ! -f "$TCAP" ]; } && ok "tinker-yolo blocks secret-like dataset before upload" || no "tinker-yolo dataset secret gate (got $c)"
+
+printf '%s\n' '{"messages":[{"role":"user","content":"write a bounded parser"},{"role":"assistant","content":"here is the tested parser"}]}' > "$TINKER_DATASET"
+chmod 600 "$TINKER_DATASET"
+set +e; "$TINKER" proof --approve-paid --approve-data-upload --max-cost-usd 0.000001 >/dev/null 2>&1; c=$?; set -e
+{ [ "$c" = 78 ] && [ ! -f "$TCAP" ]; } && ok "tinker-yolo estimate blocks over-cap run" || no "tinker-yolo estimate cap (got $c)"
+
+printf 'TINKER_API_KEY=fixture_value\n' > "$ROOT/.env"
+export HERMES_ENV_PATH="$ROOT/.env"
+"$TINKER" proof --approve-paid --approve-data-upload --max-cost-usd 1 >/dev/null 2>&1
+{ grep -q 'approved=1' "$TCAP" && grep -q 'max=1' "$TCAP"; } \
+  && ok "tinker-yolo passes bounded approvals to provider child" || no "tinker-yolo provider env gate"
+python3 - "$TINKER_RECEIPT_DIR/latest.json" <<'PY' \
+  && ok "tinker-yolo writes private metadata-only receipt" || no "tinker-yolo receipt"
+import json, os, stat, sys
+p=sys.argv[1]; d=json.load(open(p))
+assert stat.S_IMODE(os.stat(p).st_mode)==0o600
+assert d['schema']=='tinker-yolo/run-receipt-v1'
+assert d['budget']['actualCostUsd'] is None
+assert d['hermesBaselineChanged'] is False
+assert 'messages' not in json.dumps(d)
+PY
+
 set +e; "$TINKER" bogus >/dev/null 2>&1; c=$?; set -e
 [ "$c" = 2 ] && ok "tinker-yolo usage error 2" || no "tinker-yolo usage error (got $c)"
 
