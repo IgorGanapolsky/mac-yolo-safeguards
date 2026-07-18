@@ -59,8 +59,12 @@ alive(){ kill -0 "$1" 2>/dev/null; }
 # Spawn a process whose argv0 is $1 (a .app-shaped path) but is really `sleep`.
 mkfake() { /bin/bash -c "exec -a \"$1\" sleep 600" >/dev/null 2>&1 & echo $!; }
 mkbusyfake() { /bin/bash -c "exec -a \"$1\" yes >/dev/null" >/dev/null 2>&1 & echo $!; }
+# Keep the profile+port markers visible in `ps` while staying alive as sleep.
+# A real shebang script under a `Google Chrome.app/...` path is killed on these
+# hosts before the checkout guard can reclaim it (and older live LaunchAgents
+# still hard-match port 9222 / com.semmle even when the E2E lease is missing).
 mkcdpfake() {
-  "$1" "$2" "$3" >/dev/null 2>&1 &
+  /bin/bash -c "exec -a \"$1 $2 $3\" sleep 600" >/dev/null 2>&1 &
   echo $!
 }
 
@@ -201,7 +205,10 @@ kill -9 "$COMET_PID" 2>/dev/null
 
 # --- T9: Ollama workers are protected; graceful HTTP unload belongs to the
 #         coordinated memory-pressure guardian. ---
-OLLAMA_PID=$(mkfake "ollama runner $TMP/test")
+# Avoid the literal "ollama runner" argv used by real Ollama children: a stale
+# memory-pressure-guardian LaunchAgent still `pkill -f "ollama runner"` on
+# wedge recovery and would steal this assertion from the checkout-under-test.
+OLLAMA_PID=$(mkfake "ollama-e2e-runner $TMP/test")
 sleep 1
 run_guard
 sleep 1
@@ -214,9 +221,10 @@ kill -9 "$OLLAMA_PID" 2>/dev/null
 
 # --- T10: aggregate CodeQL workers are killed and repeated respawn disables dirs ---
 mkdir -p "$TMP/cursor-codeql" "$TMP/ag-codeql"
-# Do not use the production command signature here: an older concurrent test
-# may still broadly clean up `com.semmle...` fixtures. The guard accepts this
-# isolated test signature through YOLO_CODEQL_CMD_PATTERN below.
+# Do not use the production command signature here: a stale live LaunchAgent
+# hard-matches com.semmle.cli2.CodeQL (and older concurrent tests may still
+# broadly clean those fixtures). The checkout guard accepts this isolated
+# signature through YOLO_CODEQL_CMD_PATTERN below.
 CODEQL1=$(mkbusyfake "guard-codeql-worker --test-run=$TMP")
 CODEQL2=$(mkbusyfake "guard-codeql-worker --test-run=$TMP")
 # Let busy fakes accumulate CPU % before ps sampling (GitHub macOS runners are slow).
@@ -230,7 +238,7 @@ run_guard \
   YOLO_CODEQL_MIN_PROCS="2" \
   YOLO_CODEQL_SUSTAINED_FIRES="1" \
   YOLO_CODEQL_DISABLE_AFTER_FIRES="1" \
-  YOLO_CODEQL_CMD_PATTERN="--test-run=$TMP" \
+  YOLO_CODEQL_CMD_PATTERN="guard-codeql-worker" \
   YOLO_MEM_FREE_PCT_THRESHOLD="0" \
   YOLO_SWAP_PCT_THRESHOLD="999"
 sleep 1
@@ -251,47 +259,51 @@ kill -9 "$CODEQL1" "$CODEQL2" 2>/dev/null
 # pre-d9 test runs; the profile remains unique and is passed explicitly below.
 CDP_PROFILE="$TMP/hermes-cdp-$$_profile"
 CDP_MAIN="$TMP/Google Chrome.app/Contents/MacOS/Google Chrome"
-mkdir -p "$(dirname "$CDP_MAIN")"
-cat > "$CDP_MAIN" <<'MOCK'
-#!/bin/sh
-sleep 600
-MOCK
-chmod +x "$CDP_MAIN"
-CDP_PID=$(mkcdpfake "$CDP_MAIN" "--user-data-dir=$CDP_PROFILE" "--remote-debugging-port=9222")
+# Non-9222 port so a stale live guard (default 9222, no lease) cannot race us.
+CDP_PORT=19333
+CDP_PID=$(mkcdpfake "$CDP_MAIN" "--user-data-dir=$CDP_PROFILE" "--remote-debugging-port=$CDP_PORT")
 sleep 1
-run_guard \
-  YOLO_HERMES_CDP_PROFILE="$CDP_PROFILE" \
-  YOLO_HERMES_CDP_MIN_AGE_SEC="0" \
-  YOLO_HERMES_CDP_REQUIRE_PPID1="0" \
-  YOLO_HERMES_CDP_TERM_GRACE_SEC="0" \
-  YOLO_RECLAIM_SECONDARY_BROWSERS="0"
-sleep 1
-alive "$CDP_PID" && bad "T11: abandoned persistent Hermes CDP was not reclaimed" \
-                 || ok  "T11: abandoned persistent Hermes CDP reclaimed under pressure"
-grep -q "HERMES_CDP_RECLAIM: killed pid=$CDP_PID" "$TMP/guard.log" \
-  && ok "T11: exact persistent-profile reclaim logged" \
-  || bad "T11: missing HERMES_CDP_RECLAIM log"
+alive "$CDP_PID" || { bad "T11: CDP fake died before guard ran"; CDP_PID=""; }
+if [ -n "$CDP_PID" ]; then
+  run_guard \
+    YOLO_HERMES_CDP_PROFILE="$CDP_PROFILE" \
+    YOLO_HERMES_CDP_PORT="$CDP_PORT" \
+    YOLO_HERMES_CDP_MIN_AGE_SEC="0" \
+    YOLO_HERMES_CDP_REQUIRE_PPID1="0" \
+    YOLO_HERMES_CDP_TERM_GRACE_SEC="0" \
+    YOLO_RECLAIM_SECONDARY_BROWSERS="0"
+  sleep 1
+  alive "$CDP_PID" && bad "T11: abandoned persistent Hermes CDP was not reclaimed" \
+                   || ok  "T11: abandoned persistent Hermes CDP reclaimed under pressure"
+  grep -q "HERMES_CDP_RECLAIM: killed pid=$CDP_PID" "$TMP/guard.log" \
+    && ok "T11: exact persistent-profile reclaim logged" \
+    || bad "T11: missing HERMES_CDP_RECLAIM log"
+fi
 
 # --- T12: an established CDP client protects that exact same profile ---
 cat > "$TMP/lsof" <<'MOCK'
 #!/bin/sh
-echo 'Chrome 123 user 10u IPv4 0t0 TCP 127.0.0.1:9222->127.0.0.1:54321 (ESTABLISHED)'
+echo 'Chrome 123 user 10u IPv4 0t0 TCP 127.0.0.1:19333->127.0.0.1:54321 (ESTABLISHED)'
 MOCK
 chmod +x "$TMP/lsof"
-CDP_ACTIVE_PID=$(mkcdpfake "$CDP_MAIN" "--user-data-dir=$CDP_PROFILE" "--remote-debugging-port=9222")
+CDP_ACTIVE_PID=$(mkcdpfake "$CDP_MAIN" "--user-data-dir=$CDP_PROFILE" "--remote-debugging-port=$CDP_PORT")
 sleep 1
-run_guard \
-  YOLO_HERMES_CDP_PROFILE="$CDP_PROFILE" \
-  YOLO_HERMES_CDP_MIN_AGE_SEC="0" \
-  YOLO_HERMES_CDP_REQUIRE_PPID1="0" \
-  YOLO_HERMES_CDP_TERM_GRACE_SEC="0" \
-  YOLO_RECLAIM_SECONDARY_BROWSERS="0"
-sleep 1
-alive "$CDP_ACTIVE_PID" && ok "T12: active CDP client protects persistent profile" \
-                        || bad "T12: active persistent CDP was killed"
-grep -q "HERMES_CDP_RECLAIM: SKIP pid=$CDP_ACTIVE_PID" "$TMP/guard.log" \
-  && ok "T12: active-client skip logged" || bad "T12: missing active-client skip log"
-kill -9 "$CDP_ACTIVE_PID" 2>/dev/null
+alive "$CDP_ACTIVE_PID" || { bad "T12: CDP fake died before guard ran"; CDP_ACTIVE_PID=""; }
+if [ -n "$CDP_ACTIVE_PID" ]; then
+  run_guard \
+    YOLO_HERMES_CDP_PROFILE="$CDP_PROFILE" \
+    YOLO_HERMES_CDP_PORT="$CDP_PORT" \
+    YOLO_HERMES_CDP_MIN_AGE_SEC="0" \
+    YOLO_HERMES_CDP_REQUIRE_PPID1="0" \
+    YOLO_HERMES_CDP_TERM_GRACE_SEC="0" \
+    YOLO_RECLAIM_SECONDARY_BROWSERS="0"
+  sleep 1
+  alive "$CDP_ACTIVE_PID" && ok "T12: active CDP client protects persistent profile" \
+                          || bad "T12: active persistent CDP was killed"
+  grep -q "HERMES_CDP_RECLAIM: SKIP pid=$CDP_ACTIVE_PID" "$TMP/guard.log" \
+    && ok "T12: active-client skip logged" || bad "T12: missing active-client skip log"
+  kill -9 "$CDP_ACTIVE_PID" 2>/dev/null
+fi
 
 echo ""
 echo "=== $pass passed, $fail failed ==="
