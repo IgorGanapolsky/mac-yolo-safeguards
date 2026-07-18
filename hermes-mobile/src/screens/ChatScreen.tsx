@@ -6635,6 +6635,13 @@ export default function ChatScreen() {
           currentSession={currentSession}
           gatewayModel={headerGatewayModel}
           runProgress={progressBanner}
+          hermesAvatar={settings.hermesAvatar ?? 'orb'}
+          playfulMotion={settings.playfulMotion ?? true}
+          presenceActive={
+            effectiveMacChatLive ||
+            Boolean(progressBanner && progressBanner.phase !== 'completed' && progressBanner.phase !== 'failed') ||
+            Boolean(pendingApprovals?.length)
+          }
           onOpenThreads={openSessionsModal}
           onOpenTools={() => setToolsModalVisible(true)}
           onPressMachine={() => {
@@ -6756,6 +6763,13 @@ export default function ChatScreen() {
                   routeLabel={isDemo ? 'Demo computer' : machineShortLabel}
                   isConnected={effectiveMacChatLive}
                   connectionPending={suppressEmptyGreetingUnreachable}
+                  hermesAvatar={settings.hermesAvatar ?? 'orb'}
+                  playfulMotion={settings.playfulMotion ?? true}
+                  presenceActive={
+                    effectiveMacChatLive ||
+                    Boolean(progressBanner && progressBanner.phase !== 'completed' && progressBanner.phase !== 'failed') ||
+                    Boolean(pendingApprovals?.length)
+                  }
                 />
                 {showMacConnectionHelp ? (
                   <Text style={styles.emptyPlaceholderText}>

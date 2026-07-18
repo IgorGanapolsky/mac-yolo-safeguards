@@ -494,3 +494,25 @@ describe('buildHermesStatusLabel', () => {
     );
   });
 });
+
+describe('ChatScreenHeader avatar presence', () => {
+  it('shows the Settings avatar next to the connection row', () => {
+    const { getByTestId } = render(
+      <ChatScreenHeader
+        threadTitle="New chat"
+        machineLabel="Igors-Mac-mini"
+        connectionState="connected"
+        macHttpReachable
+        hermesAvatar="bolt"
+        playfulMotion
+        presenceActive
+        detailsExpanded
+        onOpenThreads={jest.fn()}
+        onPressMachine={jest.fn()}
+      />,
+    );
+
+    expect(getByTestId('chat-header-avatar-emoji').props.children).toBe('⚡');
+    expect(getByTestId('chat-header-avatar-halo')).toBeTruthy();
+  });
+});
