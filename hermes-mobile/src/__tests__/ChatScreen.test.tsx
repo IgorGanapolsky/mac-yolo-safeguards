@@ -1043,14 +1043,20 @@ describe('ChatScreen', () => {
     jest.useFakeTimers();
     const input = getByTestId('chat-input');
     const sendButton = getByTestId('chat-send-button');
+    const userCountBeforeSend = getAllByTestId('chat-message-user').length;
 
     act(() => {
-      fireEvent.changeText(input, 'Hello Hermes');
+      fireEvent.changeText(input, 'make money today');
+      fireEvent(input, 'blur');
       fireEvent.press(sendButton);
     });
 
-    // Optimistic bubble is the sole prompt copy — strip must not duplicate it.
-    expect(getAllByTestId('chat-message-user').length).toBeGreaterThanOrEqual(1);
+    // The demo transcript already contains a user bubble, so a count-only assertion
+    // is a false positive. The newly typed prompt must survive keyboard dismissal and
+    // remain visible after Send (same sequence exercised by Maestro).
+    const userBubblesAfterSend = getAllByTestId('chat-message-user');
+    expect(userBubblesAfterSend).toHaveLength(userCountBeforeSend + 1);
+    expect(within(userBubblesAfterSend[userBubblesAfterSend.length - 1]).getByText('make money today')).toBeTruthy();
     expect(queryByTestId('submitted-prompt-strip')).toBeNull();
     expect(queryByTestId('chat-empty-state')).toBeNull();
     expect(queryByTestId('chat-empty-recent-chats')).toBeNull();
@@ -1061,7 +1067,9 @@ describe('ChatScreen', () => {
 
     expect(getAllByTestId('chat-message-assistant').length).toBeGreaterThanOrEqual(1);
     expect(queryByTestId('chat-empty-state')).toBeNull();
-    expect(getAllByTestId('chat-message-user').length).toBeGreaterThanOrEqual(1);
+    const userBubblesAfterReply = getAllByTestId('chat-message-user');
+    expect(userBubblesAfterReply).toHaveLength(userCountBeforeSend + 1);
+    expect(within(userBubblesAfterReply[userBubblesAfterReply.length - 1]).getByText('make money today')).toBeTruthy();
     await flushPendingTimers();
   });
 
