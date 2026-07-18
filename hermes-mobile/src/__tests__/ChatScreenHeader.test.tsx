@@ -13,6 +13,25 @@ describe('ChatScreenHeader', () => {
     await AsyncStorage.clear();
   });
 
+  it('shows model strip while Connected even when details are collapsed', () => {
+    const { getByTestId, queryByTestId } = render(
+      <ChatScreenHeader
+        threadTitle="Research pain points"
+        machineLabel="Igors-MacBook-Pro"
+        connectionState="connected"
+        macHttpReachable
+        currentSession={{ model: 'qwen3.5:9b-hermes', input_tokens: 1200, output_tokens: 40 }}
+        detailsExpanded={false}
+        onOpenThreads={jest.fn()}
+        onPressMachine={jest.fn()}
+      />,
+    );
+    expect(getByTestId('chat-header-model-strip').props.children).toContain('Qwen3.5 9B Hermes');
+    expect(getByTestId('chat-header-model-strip').props.children).toContain('1,240 tokens');
+    // Weak warning stays behind the chevron when collapsed.
+    expect(queryByTestId('chat-header-weak-model-warning')).toBeNull();
+  });
+
   it('warns when a weak local coding model is active', () => {
     const { getByTestId } = render(
       <ChatScreenHeader

@@ -89,6 +89,21 @@ describe('RunProgressBanner', () => {
     expect(getByText('Gemini 2.5 Flash')).toBeTruthy();
   });
 
+  it('shows em dash when gateway has not emitted token usage', () => {
+    const { getByText } = render(
+      <RunProgressBanner
+        progress={{
+          phase: 'sending',
+          startedAtMs: Date.now() - 5000,
+          detail: 'Delivering your message…',
+          model: 'qwen3.5:9b-hermes',
+        }}
+      />,
+    );
+    expect(getByText('Qwen3.5 9B Hermes')).toBeTruthy();
+    expect(getByText('—')).toBeTruthy();
+  });
+
   it('shows token counts during active runs without showTechnicalStats', () => {
     const { getByText } = render(
       <RunProgressBanner
