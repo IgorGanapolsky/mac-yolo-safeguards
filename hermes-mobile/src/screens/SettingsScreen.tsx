@@ -34,12 +34,11 @@ import LoadingButton from '../components/ui/LoadingButton';
 import { formatGatewayHostLabel, isPrivateLanGatewayUrl } from '../utils/gatewayEndpoint';
 import { resolveRelayRouteDisplay, relayWorkerDisplayName } from '../utils/relayRouting';
 import { isMacGatewayHttpOk } from '../utils/gatewayConnection';
-import type { ApprovalPolicy, HermesAvatar, HermesPersona } from '../types/gateway';
+import type { ApprovalPolicy } from '../types/gateway';
 import GatewayOpsSection from '../components/GatewayOpsSection';
 import { secureCredentials } from '../services/secureCredentials';
 import { requestHermesNotificationPermission } from '../services/approvalNotifications';
 import { deriveNotificationsEnabled } from '../utils/notificationPreferences';
-import { AVATARS, PERSONAS } from '../utils/hermesPersona';
 import { consumeSettingsPairQrOnFocus } from '../utils/storeCaptureDeepLink';
 
 export default function SettingsScreen() {
@@ -91,13 +90,6 @@ export default function SettingsScreen() {
   const [approvalPolicy, setApprovalPolicy] = useState<ApprovalPolicy>(settings.approvalPolicy);
   const [analyticsOptOut, setAnalyticsOptOut] = useState(settings.analyticsOptOut ?? false);
   const [includeToolActivity, setIncludeToolActivity] = useState(settings.includeToolActivity ?? false);
-  const [hermesPersona, setHermesPersona] = useState<HermesPersona>(
-    settings.hermesPersona ?? 'operator',
-  );
-  const [hermesAvatar, setHermesAvatar] = useState<HermesAvatar>(
-    settings.hermesAvatar ?? 'orb',
-  );
-  const [playfulMotion, setPlayfulMotion] = useState(settings.playfulMotion ?? true);
   const [inputThumbgateApiKey, setInputThumbgateApiKey] = useState('');
   const [inputApiKey, setInputApiKey] = useState(apiKey);
   const [isSaving, setIsSaving] = useState(false);
@@ -248,9 +240,6 @@ export default function SettingsScreen() {
     setAnalyticsOptOut(settings.analyticsOptOut ?? false);
     setProductAnalyticsOptOut(settings.analyticsOptOut ?? false);
     setIncludeToolActivity(settings.includeToolActivity ?? false);
-    setHermesPersona(settings.hermesPersona ?? 'operator');
-    setHermesAvatar(settings.hermesAvatar ?? 'orb');
-    setPlayfulMotion(settings.playfulMotion ?? true);
   }, [settings]);
 
   useEffect(() => {
@@ -343,9 +332,6 @@ export default function SettingsScreen() {
           approvalPolicy,
           analyticsOptOut,
           includeToolActivity,
-          hermesPersona,
-          hermesAvatar,
-          playfulMotion,
           thumbgateProActive: settings.thumbgateProActive,
         },
         inputApiKey,
@@ -401,9 +387,6 @@ export default function SettingsScreen() {
           approvalPolicy,
           analyticsOptOut,
           includeToolActivity,
-          hermesPersona,
-          hermesAvatar,
-          playfulMotion,
           thumbgateProActive: settings.thumbgateProActive,
         },
         inputApiKey,
@@ -507,72 +490,6 @@ export default function SettingsScreen() {
                 setProductAnalyticsOptOut(!enabled);
               }}
               testID="analytics-opt-in-switch"
-            />
-          </View>
-        </GlassCard>
-
-        <Text style={styles.sectionTitle}>✨ Hermes personality</Text>
-        <GlassCard>
-          <Text style={styles.label}>Persona</Text>
-          <Text style={styles.description}>
-            Give Hermes a Character-style feel without changing its safety or execution boundaries.
-          </Text>
-          <View style={styles.choiceGrid}>
-            {PERSONAS.map((persona) => {
-              const active = hermesPersona === persona.key;
-              return (
-                <TouchableOpacity
-                  key={persona.key}
-                  style={[styles.personaChip, active && styles.personaChipActive]}
-                  onPress={() => setHermesPersona(persona.key)}
-                  testID={`persona-${persona.key}`}
-                >
-                  <Text style={[styles.personaChipText, active && styles.personaChipTextActive]}>
-                    {persona.label}
-                  </Text>
-                  <Text style={styles.personaChipDesc}>{persona.tagline}</Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-
-          <View style={styles.divider} />
-
-          <Text style={styles.label}>Avatar</Text>
-          <View style={styles.avatarGrid}>
-            {AVATARS.map((avatar) => {
-              const active = hermesAvatar === avatar.key;
-              return (
-                <TouchableOpacity
-                  key={avatar.key}
-                  style={[styles.avatarChip, active && styles.avatarChipActive]}
-                  onPress={() => setHermesAvatar(avatar.key)}
-                  testID={`avatar-${avatar.key}`}
-                >
-                  <Text style={styles.avatarChipIcon}>{avatar.emoji}</Text>
-                  <Text style={[styles.avatarChipText, active && styles.avatarChipTextActive]}>
-                    {avatar.label}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-
-          <View style={styles.divider} />
-
-          <View style={styles.switchRow}>
-            <View style={styles.switchLabelCol}>
-              <Text style={styles.switchLabel}>Animated presence</Text>
-              <Text style={styles.switchDesc}>
-                Pulse the avatar while Hermes is linked, working, or waiting for approval
-              </Text>
-            </View>
-            <Switch
-              value={playfulMotion}
-              onValueChange={setPlayfulMotion}
-              testID="playful-motion-switch"
-              trackColor={{ false: '#1F2937', true: colors.primary }}
-              thumbColor={playfulMotion ? '#ffffff' : '#9CA3AF'}
             />
           </View>
         </GlassCard>
@@ -1229,70 +1146,6 @@ const styles = StyleSheet.create({
     textTransform: 'capitalize',
   },
   policyChipTextActive: {
-    color: colors.text,
-  },
-  choiceGrid: {
-    gap: 8,
-    marginTop: 10,
-  },
-  personaChip: {
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: colors.borderLight,
-    backgroundColor: 'rgba(255, 255, 255, 0.035)',
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-  },
-  personaChipActive: {
-    borderColor: colors.accent,
-    backgroundColor: 'rgba(34, 211, 238, 0.1)',
-  },
-  personaChipText: {
-    fontSize: 13,
-    fontWeight: '900',
-    color: colors.textSecondary,
-  },
-  personaChipTextActive: {
-    color: colors.text,
-  },
-  personaChipDesc: {
-    marginTop: 3,
-    fontSize: 11,
-    lineHeight: 15,
-    fontWeight: '700',
-    color: colors.textMuted,
-  },
-  avatarGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    marginTop: 6,
-  },
-  avatarChip: {
-    minWidth: 72,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: colors.borderLight,
-    backgroundColor: 'rgba(255, 255, 255, 0.035)',
-    paddingHorizontal: 10,
-    paddingVertical: 9,
-    alignItems: 'center',
-  },
-  avatarChipActive: {
-    borderColor: colors.primary,
-    backgroundColor: 'rgba(79, 70, 229, 0.16)',
-  },
-  avatarChipIcon: {
-    fontSize: 18,
-    color: colors.text,
-    marginBottom: 3,
-  },
-  avatarChipText: {
-    fontSize: 10,
-    fontWeight: '900',
-    color: colors.textMuted,
-  },
-  avatarChipTextActive: {
     color: colors.text,
   },
   divider: {

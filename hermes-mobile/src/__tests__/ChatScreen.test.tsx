@@ -2674,12 +2674,10 @@ describe('ChatScreen', () => {
         await Promise.resolve();
       });
 
-      // Footer chip is the interactive picker; header project lane is collapsed by default.
+      // Footer chip is the interactive picker; header project lane stays always visible.
       expect(getByTestId('vault-project-picker-chip')).toBeTruthy();
-      expect(queryByTestId('chat-header-project-picker')).toBeNull();
-
-      fireEvent.press(getByTestId('chat-header-details-toggle'));
       expect(getByTestId('chat-header-project-picker')).toBeTruthy();
+      expect(queryByTestId('chat-header-details-toggle')).toBeNull();
 
       fireEvent.press(getByTestId('vault-project-picker-chip'));
 

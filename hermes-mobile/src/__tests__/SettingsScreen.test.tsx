@@ -156,9 +156,6 @@ describe('SettingsScreen', () => {
     const { getByTestId } = render(<SettingsScreen />);
     fireEvent.changeText(getByTestId('gateway-url-input'), 'http://192.168.12.208:8642');
     fireEvent.changeText(getByTestId('gateway-api-key-input'), 'sk-new-key');
-    fireEvent.press(getByTestId('persona-spark'));
-    fireEvent.press(getByTestId('avatar-guardian'));
-    fireEvent(getByTestId('playful-motion-switch'), 'valueChange', false);
     fireEvent.press(getByTestId('save-settings-button'));
 
     await waitFor(() => {
@@ -166,9 +163,7 @@ describe('SettingsScreen', () => {
     });
     expect(saveSettings.mock.calls[0][0]).toEqual(
       expect.objectContaining({
-        hermesPersona: 'spark',
-        hermesAvatar: 'guardian',
-        playfulMotion: false,
+        gatewayUrl: 'http://192.168.12.208:8642',
       }),
     );
   });

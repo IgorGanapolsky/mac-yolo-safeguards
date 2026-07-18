@@ -49,7 +49,7 @@ describe('workspacePrompt — governed context injection', () => {
   });
 
   it('injects Continue from handoff on empty transcript when continuityHandoff is present', () => {
-    const prompt = buildMobileChatSystemPrompt('/tmp/demo', undefined, {
+    const prompt = buildMobileChatSystemPrompt('/tmp/demo', {
       transcriptEmpty: true,
       continuityHandoff: {
         version: 1,
@@ -71,7 +71,7 @@ describe('workspacePrompt — governed context injection', () => {
   });
 
   it('does not inject Continue from handoff into an existing transcript', () => {
-    const prompt = buildMobileChatSystemPrompt('/tmp/demo', undefined, {
+    const prompt = buildMobileChatSystemPrompt('/tmp/demo', {
       transcriptEmpty: false,
       continuityHandoff: {
         version: 1,
