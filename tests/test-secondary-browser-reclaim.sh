@@ -14,9 +14,15 @@ set -u
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
 GUARD="$REPO/sim-runaway-guard.sh"
 TMP="$(mktemp -d /tmp/yolo-guard-test.XXXXXX)"
-E2E_LEASE_FILE="/tmp/yolo-guard-e2e.pid"
+E2E_LEASE_DIR="/tmp/yolo-guard-e2e"
+mkdir -p "$E2E_LEASE_DIR"
+E2E_LEASE_FILE="$E2E_LEASE_DIR/$$"
 echo "$$" > "$E2E_LEASE_FILE"
-trap 'pkill -9 -f "YoloFake" 2>/dev/null; pkill -9 -f "FakePrimaryChrome" 2>/dev/null; pkill -9 -f "FakeHermesProc" 2>/dev/null; pkill -9 -f "chrome-cdp-profile" 2>/dev/null; pkill -9 -f "semgrep-core" 2>/dev/null; pkill -9 -f "ollama runner" 2>/dev/null; pkill -9 -f "com.semmle.cli2.CodeQL" 2>/dev/null; [ "$(cat "$E2E_LEASE_FILE" 2>/dev/null)" = "$$" ] && rm -f "$E2E_LEASE_FILE"; rm -rf "$TMP"' EXIT INT TERM
+# Every fake process below includes this run's unique temp path. Restrict
+# cleanup to that marker: self-hosted runners execute jobs concurrently, and
+# broad `pkill -f` cleanup from one E2E invocation previously killed another
+# invocation's CDP fake between its reclaim and log assertions.
+trap 'pkill -9 -f "$TMP/" 2>/dev/null; [ "$(cat "$E2E_LEASE_FILE" 2>/dev/null)" = "$$" ] && rm -f "$E2E_LEASE_FILE"; rm -rf "$TMP"' EXIT INT TERM
 
 pass=0; fail=0
 G="\033[32m"; R="\033[31m"; Z="\033[0m"
@@ -85,6 +91,7 @@ echo 999999 > "$E2E_LEASE_FILE"
 : > "$TMP/guard.log"
 run_guard \
   YOLO_BYPASS_E2E_LEASE="0" \
+  YOLO_E2E_LEASE_DIR="$TMP/no-active-leases" \
   YOLO_RECLAIM_SECONDARY_BROWSERS="0" \
   YOLO_CPU_PCT_THRESHOLD="9999" \
   YOLO_CODEQL_CPU_PCT_THRESHOLD="9999" \
@@ -96,12 +103,13 @@ grep -q "E2E_LEASE:" "$TMP/guard.log" \
 echo "$$" > "$E2E_LEASE_FILE"
 
 # --- T1+T2: under pressure, reclaim the secondary browser, protect the rest ---
-SEC="$TMP/YoloFakeBrowser.app/Contents/MacOS/YoloFakeBrowser"
+TEST_BROWSER="YoloFakeBrowser-$$"
+SEC="$TMP/$TEST_BROWSER.app/Contents/MacOS/$TEST_BROWSER"
 PRI="$TMP/FakePrimaryChrome.app/Contents/MacOS/FakePrimaryChrome"
 HRM="$TMP/FakeHermesProc.app/Contents/MacOS/FakeHermesProc"
 SEC_PID=$(mkfake "$SEC"); PRI_PID=$(mkfake "$PRI"); HRM_PID=$(mkfake "$HRM")
 sleep 1
-run_guard YOLO_SECONDARY_BROWSERS="YoloFakeBrowser"
+run_guard YOLO_SECONDARY_BROWSERS="$TEST_BROWSER"
 sleep 1
 alive "$SEC_PID" && bad "T1: secondary browser was NOT reclaimed under pressure" \
                  || ok  "T1: secondary browser reclaimed under memory pressure"
@@ -114,9 +122,9 @@ alive "$HRM_PID" && ok  "T2: Hermes-shaped proc PROTECTED" \
 kill -9 "$PRI_PID" "$HRM_PID" 2>/dev/null
 
 # --- T3: opt-out (YOLO_RECLAIM_SECONDARY_BROWSERS=0) leaves it alone ---
-OPT="$TMP/YoloFakeBrowser.app/Contents/MacOS/YoloFakeBrowser"
+OPT="$TMP/$TEST_BROWSER.app/Contents/MacOS/$TEST_BROWSER"
 OPT_PID=$(mkfake "$OPT"); sleep 1
-run_guard YOLO_RECLAIM_SECONDARY_BROWSERS="0" YOLO_SECONDARY_BROWSERS="YoloFakeBrowser"
+run_guard YOLO_RECLAIM_SECONDARY_BROWSERS="0" YOLO_SECONDARY_BROWSERS="$TEST_BROWSER"
 sleep 1
 alive "$OPT_PID" && ok  "T3: opt-out (=0) leaves secondary browser running" \
                  || bad "T3: opt-out IGNORED — proc killed with reclaim disabled"
@@ -125,7 +133,7 @@ kill -9 "$OPT_PID" 2>/dev/null
 # --- T4: NO memory pressure => reclaim block never runs ---
 NOP_PID=$(mkfake "$SEC"); sleep 1
 run_guard \
-  YOLO_SECONDARY_BROWSERS="YoloFakeBrowser" \
+  YOLO_SECONDARY_BROWSERS="$TEST_BROWSER" \
   YOLO_MEM_FREE_PCT_THRESHOLD="0" \
   YOLO_SWAP_PCT_THRESHOLD="999"
 sleep 1
@@ -146,7 +154,7 @@ printf '%s' "$CANARY" | grep -qF "$CANARY_SIG" \
   || bad "T5: Canary path failed to match its own signature"
 
 # --- T7: CPU runaway autokill for allowlisted background process ---
-CPU_K="semgrep-core"
+CPU_K="$TMP/semgrep-core"
 CPU_PID=$(mkfake "$CPU_K")
 sleep 1
 run_guard YOLO_CPU_PCT_THRESHOLD="0" YOLO_CPU_SUSTAINED_FIRES="1" YOLO_CPU_AUTOKILL_CMD_PATTERNS="semgrep-core"
@@ -167,7 +175,7 @@ kill -9 "$COMET_PID" 2>/dev/null
 
 # --- T9: Ollama workers are protected; graceful HTTP unload belongs to the
 #         coordinated memory-pressure guardian. ---
-OLLAMA_PID=$(mkfake "ollama runner")
+OLLAMA_PID=$(mkfake "ollama runner $TMP/test")
 sleep 1
 run_guard
 sleep 1
@@ -180,8 +188,8 @@ kill -9 "$OLLAMA_PID" 2>/dev/null
 
 # --- T10: aggregate CodeQL workers are killed and repeated respawn disables dirs ---
 mkdir -p "$TMP/cursor-codeql" "$TMP/ag-codeql"
-CODEQL1=$(mkbusyfake "java com.semmle.cli2.CodeQL execute language-server")
-CODEQL2=$(mkbusyfake "java com.semmle.cli2.CodeQL execute language-server")
+CODEQL1=$(mkbusyfake "java com.semmle.cli2.CodeQL execute language-server --test-run=$TMP")
+CODEQL2=$(mkbusyfake "java com.semmle.cli2.CodeQL execute language-server --test-run=$TMP")
 # Let busy fakes accumulate CPU % before ps sampling (GitHub macOS runners are slow).
 sleep 2
 # Disable memory-pressure side paths while the CPU-only branch is under test.
@@ -193,6 +201,7 @@ run_guard \
   YOLO_CODEQL_MIN_PROCS="2" \
   YOLO_CODEQL_SUSTAINED_FIRES="1" \
   YOLO_CODEQL_DISABLE_AFTER_FIRES="1" \
+  YOLO_CODEQL_CMD_PATTERN="--test-run=$TMP" \
   YOLO_MEM_FREE_PCT_THRESHOLD="0" \
   YOLO_SWAP_PCT_THRESHOLD="999"
 sleep 1

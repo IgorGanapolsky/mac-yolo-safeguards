@@ -564,5 +564,20 @@ describe('tonight recurrence gates (2026-07-14 P0 class — S16-S23)', () => {
     expect(gate).not.toMatch(/!isGatewayReachable\s*&&/);
     expect(gate).not.toMatch(/pickerProfiles\.length\s*>\s*0\)/);
   });
+
+  it('S27: fresh install never silent-saves Tailscale Macs; Android allowBackup stays off', () => {
+    const policy = read('hermes-mobile/src/utils/discoveryPersistPolicy.ts');
+    expect(policy).toContain('export function partitionSilentDiscoveries');
+    expect(policy).toContain('export function shouldAutoScanOnBootstrap');
+    expect(policy).toContain('isFreshUserUnpaired');
+    const ctx = read('hermes-mobile/src/context/GatewayContext.tsx');
+    expect(ctx).toContain('partitionSilentDiscoveries');
+    expect(ctx).toContain('shouldAutoScanOnBootstrap');
+    expect(ctx).toMatch(
+      /shouldAutoScanOnBootstrap\(profileStateRef\.current\.profiles\)/,
+    );
+    const app = JSON.parse(read('hermes-mobile/app.json'));
+    expect(app.expo.android.allowBackup).toBe(false);
+  });
 });
 
