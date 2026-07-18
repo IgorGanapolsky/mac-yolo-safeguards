@@ -71,22 +71,22 @@ export function resolveComputerPickerStatus(
     };
   }
 
-  if (input.tailscaleProbing && !input.tailscaleVpnActive) {
-    return {
-      kind: 'help',
-      title: 'Tailscale is off on this phone',
-      detail:
-        'Turn on Tailscale to find computers away from your home Wi‑Fi, or add your computer below.',
-      discoveries: [],
-    };
-  }
-
   if (input.showScanResult && input.scanResult) {
     return {
       kind: 'result',
       title: formatLanScanResultLabel(input.scanResult),
       detail: formatLanScanResultDetail(input.scanResult),
       success: input.scanResult.foundCount > 0,
+      discoveries: [],
+    };
+  }
+
+  if (!input.tailscaleVpnActive && (input.tailscaleProbing || discoveries.length > 0)) {
+    return {
+      kind: 'help',
+      title: 'Tailscale is off on this phone',
+      detail:
+        'Turn on Tailscale to find computers away from your home Wi‑Fi, or add your computer below.',
       discoveries: [],
     };
   }

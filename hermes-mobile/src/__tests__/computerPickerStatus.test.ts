@@ -79,6 +79,40 @@ describe('computerPickerStatus', () => {
     expect(status.title).not.toMatch(/^On Tailscale/);
   });
 
+  it('does not render cached Tailscale discoveries after VPN disconnects', () => {
+    const status = resolveComputerPickerStatus({
+      scanning: false,
+      scanProgress: null,
+      scanResult: null,
+      showScanResult: false,
+      tailscaleProbing: false,
+      tailscaleVpnActive: false,
+      tailscaleDiscoveries: [discovery],
+    });
+    expect(status.kind).toBe('help');
+    expect(status.title).toBe('Tailscale is off on this phone');
+    expect(status.discoveries).toEqual([]);
+  });
+
+  it('keeps a completed Wi-Fi scan visible while an off-VPN probe finishes', () => {
+    const status = resolveComputerPickerStatus({
+      scanning: false,
+      scanProgress: null,
+      scanResult: {
+        ...scanResult,
+        foundCount: 1,
+        lanCount: 1,
+        tailscaleCount: 0,
+      },
+      showScanResult: true,
+      tailscaleProbing: true,
+      tailscaleVpnActive: false,
+      tailscaleDiscoveries: [],
+    });
+    expect(status.kind).toBe('result');
+    expect(status.title).toBe('Found 1 local Hermes computer');
+  });
+
   it('shows Tailscale found chips only when not scanning and discoveries exist', () => {
     const status = resolveComputerPickerStatus({
       scanning: false,
