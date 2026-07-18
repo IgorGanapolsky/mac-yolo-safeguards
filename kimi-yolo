@@ -16,8 +16,8 @@ set -euo pipefail
 KIMI_HOME="${KIMI_CODE_HOME:-$HOME/.kimi-code}"
 CFG="$KIMI_HOME/config.toml"
 MARKER="${HERMES_ZERO_SPEND_MARKER:-$HOME/.hermes/NO_PAID_SPEND}"
-MODEL="${KIMI_YOLO_MODEL:-opencode-go-kimi}"   # default to the separate-quota route;
-# override with KIMI_YOLO_MODEL=k3 for the Moderato flagship once native quota refreshes.
+MODEL="${KIMI_YOLO_MODEL:-k3}"   # K3 flagship, routed via OpenCode Go's separate quota
+# (native Kimi Moderato quota is a shared pool that exhausts; Go quota stays up).
 ENV_FILE="${HERMES_ENV_PATH:-$HOME/.hermes/.env}"
 
 resolve_kimi() {
@@ -60,13 +60,20 @@ type = "openai"
 base_url = "https://opencode.ai/zen/go/v1"
 api_key = "$gokey"
 
+# K3 via OpenCode Go (working quota) — the default. Native-quota variants below.
+[models."k3"]
+provider = "opencodego"
+model = "kimi-k3"
+max_context_size = 262144
+max_output_tokens = 16384
+
 [models."opencode-go-kimi"]
 provider = "opencodego"
 model = "kimi-k2.7-code"
 max_context_size = 262144
 max_output_tokens = 16384
 
-[models."k3"]
+[models."k3-native"]
 provider = "kimicode"
 model = "k3"
 max_context_size = 262144
