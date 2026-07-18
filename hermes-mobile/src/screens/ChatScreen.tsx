@@ -7102,8 +7102,9 @@ export default function ChatScreen() {
               testID="mac-picker-scroll"
             >
               <Text style={styles.modalSubtitle}>
-                Pick the computer you want to use. If this phone is plugged into a Mac, that one
-                is preferred automatically. Tap Find computers if yours is missing.
+                Pick the computer you want to use. USB connection needs Hermes running on the
+                connected computer with USB debugging enabled. Tap Find computers to scan your
+                network, or scan the QR code in Hermes on your computer.
               </Text>
               <ComputerPickerStatusRegion
                 scanning={profileScanning || isScanningMacs}
