@@ -49,11 +49,21 @@ set +e; "$KIMI" "do a thing" >/dev/null 2>&1; c=$?; set -e
 { [ "$c" = 73 ] && [ ! -f "$ARGS" ]; } && ok "kimi-yolo zero-spend 73" || no "kimi-yolo zero-spend (got $c)"
 rm -f "$ROOT/NO_PAID_SPEND"
 
-# 4: interactive form adds --yolo
+# 4: a bare task string routes through -p (the CLI positional is a subcommand, not a
+#    prompt — kimi-yolo "build X" must become `kimi -p "build X"`, NOT `--yolo build X`)
 rm -f "$ARGS"; "$KIMI" "build X" >/dev/null 2>&1 || true
-grep -q -- "--yolo" "$ARGS" && ok "kimi-yolo adds --yolo" || no "kimi-yolo adds --yolo ($(tr '\n' ' ' <"$ARGS" 2>/dev/null))"
+{ grep -q -- "-p" "$ARGS" && grep -q "build X" "$ARGS" && ! grep -q -- "--yolo" "$ARGS"; } \
+  && ok "kimi-yolo bare prompt -> -p" || no "kimi-yolo bare prompt ($(tr '\n' ' ' <"$ARGS" 2>/dev/null))"
 
-# 5: -p passes through WITHOUT --yolo (CLI rejects the combo)
+# 4b: no args -> interactive --yolo TUI
+rm -f "$ARGS"; "$KIMI" >/dev/null 2>&1 || true
+grep -q -- "--yolo" "$ARGS" && ok "kimi-yolo no-args -> --yolo" || no "kimi-yolo no-args ($(tr '\n' ' ' <"$ARGS"))"
+
+# 4c: a subcommand passes through with --yolo, not -p
+rm -f "$ARGS"; "$KIMI" models >/dev/null 2>&1 || true
+{ grep -q "models" "$ARGS" && ! grep -q -- "-p" "$ARGS"; } && ok "kimi-yolo subcommand passthrough" || no "kimi-yolo subcommand ($(tr '\n' ' ' <"$ARGS"))"
+
+# 5: explicit -p passes through WITHOUT --yolo (CLI rejects the combo)
 rm -f "$ARGS"; "$KIMI" -p "hi" >/dev/null 2>&1 || true
 { grep -q -- "-p" "$ARGS" && ! grep -q -- "--yolo" "$ARGS"; } && ok "kimi-yolo -p no --yolo" || no "kimi-yolo -p ($(tr '\n' ' ' <"$ARGS"))"
 

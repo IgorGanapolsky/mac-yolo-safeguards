@@ -67,6 +67,12 @@ if [ -f "$PLIST_DEST" ] || [ -L "$PLIST_DEST" ]; then rm -f "$PLIST_DEST"; fi
 sed "s|{{HOME}}|$INSTALL_HOME|g" "$REPO/com.igor.shutdown-simulators.plist" > "$PLIST_DEST"
 echo "  $PLIST_DEST created with resolved paths"
 
+# Daily launchd job that repairs LaunchAgents pointing at deleted worktree paths.
+HEAL_PLIST_DEST="$INSTALL_HOME/Library/LaunchAgents/com.igor.heal-launchd-paths.plist"
+if [ -f "$HEAL_PLIST_DEST" ] || [ -L "$HEAL_PLIST_DEST" ]; then rm -f "$HEAL_PLIST_DEST"; fi
+sed "s|{{HOME}}|$INSTALL_HOME|g" "$REPO/com.igor.heal-launchd-paths.plist" > "$HEAL_PLIST_DEST"
+echo "  $HEAL_PLIST_DEST created with resolved paths"
+
 echo ""
 echo "=== Bootstrapping LaunchAgent ==="
 if [ "$CI_SMOKE" -eq 1 ]; then

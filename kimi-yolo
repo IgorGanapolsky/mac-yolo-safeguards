@@ -99,6 +99,17 @@ if ! KBIN="$(resolve_kimi)"; then
 fi
 ensure_config || exit 78
 
-# -p (non-interactive) auto-approves already and rejects --yolo; otherwise run --yolo.
+# Arg routing for the Kimi CLI (positional is a SUBCOMMAND, not a prompt):
+#   no args           -> interactive --yolo TUI (auto-approves; type your task)
+#   -p/--prompt given  -> passthrough (already one-shot, auto-approves; rejects --yolo)
+#   a subcommand       -> passthrough with --yolo (provider/acp/server/login/-c/-S/…)
+#   a bare task string -> route through -p so `kimi-yolo "build X"` actually runs it
+if [ $# -eq 0 ]; then exec "$KBIN" --yolo; fi
 for a in "$@"; do case "$a" in -p|--prompt|--prompt=*) exec "$KBIN" "$@";; esac; done
-exec "$KBIN" --yolo "$@"
+case "$1" in
+  -*|provider|acp|server|login|doctor|models|plugin|mcp)
+    exec "$KBIN" --yolo "$@" ;;
+  *)
+    # Treat the whole argument list as a single task prompt (non-interactive, autonomous).
+    exec "$KBIN" -p "$*" ;;
+esac
