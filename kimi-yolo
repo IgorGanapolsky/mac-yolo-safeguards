@@ -16,7 +16,8 @@ set -euo pipefail
 KIMI_HOME="${KIMI_CODE_HOME:-$HOME/.kimi-code}"
 CFG="$KIMI_HOME/config.toml"
 MARKER="${HERMES_ZERO_SPEND_MARKER:-$HOME/.hermes/NO_PAID_SPEND}"
-MODEL="${KIMI_YOLO_MODEL:-kimi-for-coding}"
+MODEL="${KIMI_YOLO_MODEL:-opencode-go-kimi}"   # default to the separate-quota route;
+# override with KIMI_YOLO_MODEL=k3 for the Moderato flagship once native quota refreshes.
 ENV_FILE="${HERMES_ENV_PATH:-$HOME/.hermes/.env}"
 
 resolve_kimi() {
@@ -38,8 +39,15 @@ ensure_config() {
   if [ -f "$CFG" ] && /usr/bin/grep -q "\"$MODEL\"" "$CFG" 2>/dev/null; then return 0; fi
   local key; key="$(load_key)"
   [ -n "$key" ] || { echo "kimi-yolo: no KIMI_CODE_API_KEY in Keychain or $ENV_FILE" >&2; return 1; }
+  # OpenCode Go key (separate quota) — the resilient fallback when native Kimi Moderato
+  # quota is exhausted (both k3 AND kimi-for-coding share one pool; seen blown 2026-07-18).
+  local gokey
+  gokey="$(/usr/bin/security find-generic-password -a hermes-fleet -s OPENCODE_API_KEY -w 2>/dev/null || true)"
+  [ -z "$gokey" ] && gokey="$(grep '^OPENCODE_API_KEY=' "$ENV_FILE" 2>/dev/null | tail -1 | cut -d= -f2- || true)"
   /bin/mkdir -p "$KIMI_HOME"
   /bin/cat > "$CFG" <<EOF
+# default: $MODEL. opencode-go-kimi routes K2.7 Code via OpenCode Go (\$10/mo) on a
+# SEPARATE quota — stays up when native Kimi Moderato quota is exhausted.
 default_model = "$MODEL"
 
 [providers.kimicode]
@@ -47,9 +55,26 @@ type = "openai"
 base_url = "https://api.kimi.com/coding/v1"
 api_key = "$key"
 
-[models."$MODEL"]
+[providers.opencodego]
+type = "openai"
+base_url = "https://opencode.ai/zen/go/v1"
+api_key = "$gokey"
+
+[models."opencode-go-kimi"]
+provider = "opencodego"
+model = "kimi-k2.7-code"
+max_context_size = 262144
+max_output_tokens = 16384
+
+[models."k3"]
 provider = "kimicode"
-model = "$MODEL"
+model = "k3"
+max_context_size = 262144
+max_output_tokens = 16384
+
+[models."kimi-for-coding"]
+provider = "kimicode"
+model = "kimi-for-coding"
 max_context_size = 262144
 max_output_tokens = 16384
 EOF
