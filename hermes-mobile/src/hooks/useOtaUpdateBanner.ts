@@ -15,11 +15,19 @@ export interface OtaBannerResult {
  * Encapsulates OTA update detection + banner state.
  * Returns `idle` in dev builds (Updates.isEnabled === false).
  */
-export function useOtaUpdateBanner(): OtaBannerResult {
+export function useOtaUpdateBanner({
+  isFirstSession = false,
+  isOnboardingResolved = true,
+}: {
+  isFirstSession?: boolean;
+  isOnboardingResolved?: boolean;
+} = {}): OtaBannerResult {
   const { isUpdateAvailable, isUpdatePending } = Updates.useUpdates();
   const [dismissed, setDismissed] = useState(false);
   const [isReloading, setIsReloading] = useState(false);
   const alertShownRef = useRef(false);
+  const firstSessionFetchStartedRef = useRef(false);
+  const firstSessionReloadStartedRef = useRef(false);
 
   // Manual fallback check on mount (covers cases where ON_LOAD event missed)
   useEffect(() => {
@@ -42,7 +50,36 @@ export function useOtaUpdateBanner(): OtaBannerResult {
   }, [isUpdatePending]);
 
   useEffect(() => {
-    if (!Updates.isEnabled || dismissed || alertShownRef.current) return;
+    if (!Updates.isEnabled || !isOnboardingResolved || !isFirstSession) return;
+
+    if (isUpdatePending) {
+      // A bundle that was already pending at launch is safe to apply before a
+      // stranger has to make any onboarding decisions.
+      if (!firstSessionFetchStartedRef.current && !firstSessionReloadStartedRef.current) {
+        firstSessionReloadStartedRef.current = true;
+        void applyNow();
+      }
+      return;
+    }
+
+    if (isUpdateAvailable && !firstSessionFetchStartedRef.current) {
+      // Apply before a stranger sees onboarding. A restart decision here can
+      // leave a fresh user stuck behind a stale connection flow.
+      firstSessionFetchStartedRef.current = true;
+      void applyNow();
+    }
+  }, [applyNow, isFirstSession, isOnboardingResolved, isUpdateAvailable, isUpdatePending]);
+
+  useEffect(() => {
+    if (
+      !Updates.isEnabled ||
+      !isOnboardingResolved ||
+      isFirstSession ||
+      dismissed ||
+      alertShownRef.current
+    ) {
+      return;
+    }
     if (!isUpdatePending && !isUpdateAvailable) return;
 
     alertShownRef.current = true;
@@ -66,9 +103,11 @@ export function useOtaUpdateBanner(): OtaBannerResult {
     dismissed,
     dismiss,
     applyNow,
+    isFirstSession,
+    isOnboardingResolved,
   ]);
 
-  if (!Updates.isEnabled || dismissed) {
+  if (!Updates.isEnabled || !isOnboardingResolved || isFirstSession || dismissed) {
     return { state: 'idle', message: '', dismiss, applyNow };
   }
 

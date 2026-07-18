@@ -6,8 +6,10 @@ import {
   View,
   ActivityIndicator,
 } from 'react-native';
+import { useGateway } from '../context/GatewayContext';
 import { useOtaUpdateBanner } from '../hooks/useOtaUpdateBanner';
 import { colors } from '../theme/colors';
+import { hasValidSavedComputer } from '../utils/freshUserOnboarding';
 
 /**
  * Auto-checks for OTA updates and surfaces a dismissible banner when one is
@@ -16,7 +18,11 @@ import { colors } from '../theme/colors';
  * No-ops in debug builds (Updates.isEnabled === false).
  */
 export default function OtaUpdateBanner() {
-  const { state, message, dismiss, applyNow } = useOtaUpdateBanner();
+  const { bootstrapReady, gatewayProfiles } = useGateway();
+  const { state, message, dismiss, applyNow } = useOtaUpdateBanner({
+    isFirstSession: bootstrapReady && !hasValidSavedComputer(gatewayProfiles),
+    isOnboardingResolved: bootstrapReady,
+  });
 
   if (state === 'idle') return null;
 

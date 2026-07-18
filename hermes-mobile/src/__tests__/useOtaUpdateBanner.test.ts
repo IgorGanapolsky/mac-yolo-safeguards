@@ -9,8 +9,8 @@ jest.mock('expo-updates', () => ({
   __esModule: true,
   isEnabled: false,
   checkForUpdateAsync: jest.fn().mockResolvedValue({ isAvailable: false }),
-  fetchUpdateAsync: jest.fn(),
-  reloadAsync: jest.fn(),
+  fetchUpdateAsync: jest.fn().mockResolvedValue({ isNew: true }),
+  reloadAsync: jest.fn().mockResolvedValue(undefined),
   useUpdates: jest.fn(),
 }));
 
@@ -126,10 +126,52 @@ describe('useOtaUpdateBanner', () => {
       return useOtaUpdateBanner();
     });
 
-    await result.current.applyNow();
+    await act(async () => {
+      await result.current.applyNow();
+    });
 
     expect(Updates.fetchUpdateAsync).not.toHaveBeenCalled();
     expect(Updates.reloadAsync).toHaveBeenCalled();
+  });
+
+  it('silently applies a pending update for a first-session user', async () => {
+    (Updates as any).isEnabled = true;
+    mockUseUpdates.mockReturnValue({
+      ...baseReturn,
+      isUpdatePending: true,
+    });
+
+    const { result, unmount } = renderHook(() => {
+      const { useOtaUpdateBanner } = require('../hooks/useOtaUpdateBanner');
+      return useOtaUpdateBanner({ isFirstSession: true });
+    });
+
+    await act(async () => {});
+
+    expect(result.current.state).toBe('idle');
+    expect(Alert.alert).not.toHaveBeenCalled();
+    expect(Updates.reloadAsync).toHaveBeenCalledTimes(1);
+    unmount();
+  });
+
+  it('silently applies an available update for a first-session user', async () => {
+    (Updates as any).isEnabled = true;
+    mockUseUpdates.mockReturnValue({
+      ...baseReturn,
+      isUpdateAvailable: true,
+    });
+
+    const { result } = renderHook(() => {
+      const { useOtaUpdateBanner } = require('../hooks/useOtaUpdateBanner');
+      return useOtaUpdateBanner({ isFirstSession: true });
+    });
+
+    await act(async () => {});
+
+    expect(result.current.state).toBe('idle');
+    expect(Alert.alert).not.toHaveBeenCalled();
+    expect(Updates.fetchUpdateAsync).toHaveBeenCalledTimes(1);
+    expect(Updates.reloadAsync).toHaveBeenCalledTimes(1);
   });
 
   it('dismiss sets state to idle', () => {
