@@ -1740,6 +1740,91 @@ describe('ChatScreen', () => {
     });
   });
 
+  it('automatically continues a blocked mega-session send in a fresh chat', async () => {
+    const { listSessions, listMessages, createSessionWithUniqueTitle } = jest.requireMock(
+      '../services/hermesChatClient',
+    ) as {
+      listSessions: jest.Mock;
+      listMessages: jest.Mock;
+      createSessionWithUniqueTitle: jest.Mock;
+    };
+    const { streamSessionChat } = jest.requireMock('../services/hermesGatewayClient') as {
+      streamSessionChat: jest.Mock;
+    };
+    listSessions.mockResolvedValue([
+      {
+        id: 'blocked-mega-session',
+        title: 'Oversized thread',
+        last_active_at: '2026-07-13T18:04:00Z',
+        input_tokens: 974_489,
+        output_tokens: 0,
+      },
+    ]);
+    listMessages.mockResolvedValue([]);
+    createSessionWithUniqueTitle.mockResolvedValueOnce({
+      id: 'fresh-session',
+      title: 'make money today',
+      last_active_at: '2026-07-18T16:00:00Z',
+    });
+    streamSessionChat.mockImplementation(
+      (
+        _gatewayUrl: string,
+        _sessionId: string,
+        _text: string,
+        _apiKey: string,
+        onEvent: (event: { event: string; data: Record<string, unknown> }) => void,
+        _systemPrompt: string,
+        onOpen?: () => void,
+      ) => {
+        onOpen?.();
+        onEvent({ event: 'assistant.delta', data: { delta: 'Fresh reply.' } });
+        return Promise.resolve('Fresh reply.');
+      },
+    );
+    Object.assign(mockGatewayState, {
+      connectionState: 'connected',
+      health: { ok: true, level: 'green', hostname: 'demo-mac.local' },
+      settings: {
+        demoMode: false,
+        connectionMode: 'gateway',
+        gatewayUrl: 'http://localhost:8642',
+        cloudUrl: 'https://hermesmobile-cloud.fly.dev',
+        approvalPolicy: 'balanced',
+      },
+    });
+
+    const alertSpy = jest.spyOn(Alert, 'alert');
+    const { getByTestId, queryByTestId } = await renderChatScreen();
+    await waitFor(() => expect(getByTestId('mega-session-banner')).toBeTruthy());
+
+    await act(async () => {
+      fireEvent.changeText(getByTestId('chat-input'), 'make money today');
+      fireEvent.press(getByTestId('chat-send-button'));
+      await Promise.resolve();
+    });
+
+    await waitFor(() => {
+      expect(createSessionWithUniqueTitle).toHaveBeenCalledWith(
+        'http://localhost:8642',
+        'test-api-key',
+        'make money today',
+        expect.any(String),
+      );
+      expect(streamSessionChat).toHaveBeenCalledWith(
+        'http://localhost:8642',
+        'fresh-session',
+        'make money today',
+        'test-api-key',
+        expect.any(Function),
+        expect.any(String),
+        expect.any(Function),
+      );
+    });
+    expect(alertSpy).not.toHaveBeenCalled();
+    expect(queryByTestId('mega-session-banner')).toBeNull();
+    alertSpy.mockRestore();
+  });
+
   it('shows clearing progress and persists empty demo bindings on clear all', async () => {
     jest.useFakeTimers({ advanceTimers: true });
     const alertSpy = jest.spyOn(Alert, 'alert');
