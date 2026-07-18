@@ -7,8 +7,8 @@ Durable rules live in [AGENTS.md](./AGENTS.md); this file is *live state only*.
 ## 0. Meta (read this header first)
 
 - Repo: `mac-yolo-safeguards` (+ `hermes-mobile/` app, `~/.hermes` desktop agent — separate, not this repo)
-- Updated: 2026-07-17 by `cursor-avatar-chat` (T-AVATAR-CHAT wire avatar into Chat)
-- Active agents (claim your id here): `claude-code`, `cursor`, `antigravity`, `gemini`, `replit`, `cursor-mac-pro-picker`
+- Updated: 2026-07-18 by `codex-ralph-chat-persist` (T-CHAT-SEND-PERSIST clean-main E2E failure)
+- Active agents (claim your id here): `claude-code`, `cursor`, `antigravity`, `gemini`, `replit`, `cursor-mac-pro-picker`, `codex-ralph-chat-persist`
 - Active branch of record: `main`
 - Merge discipline: branch-per-agent → rebase onto `main` → **sequential** merge, gated on `npm test` + Maestro E2E (`hermes-mobile/docs/proofs/continuous/latest.json`).
 - **THE RULES (see AGENTS.md "Multi-agent coordination" for the full Never-list):**
@@ -20,6 +20,7 @@ Durable rules live in [AGENTS.md](./AGENTS.md); this file is *live state only*.
 
 | ID  | Task | Status | Owner | Files (claim) | AcceptanceCheck |
 |-----|------|--------|-------|---------------|-----------------|
+| T-CHAT-SEND-PERSIST | P0: clean-main chat send consumes typed prompt without rendering/persisting it | in_progress | codex-ralph-chat-persist | `hermes-mobile/src/screens/ChatScreen.tsx` (send/composer persistence slice only), `hermes-mobile/src/components/ChatInputBar.tsx` (send snapshot only), `hermes-mobile/src/__tests__/ChatScreen.test.tsx` (send regression only), `hermes-mobile/src/__tests__/ChatInputBar.test.tsx` (send snapshot regression only), `hermes-mobile/.maestro/chat-send-persistence.yaml`, `plan.md` | With an existing demo user bubble, type exact `make money today`, dismiss keyboard, tap Send; a new matching bubble remains visible; focused/full Jest, typecheck, release-safety, and clean continuous E2E green; no EAS spend |
 | T-DRAFT-LOAD-WIPE | P0: stop draft-load / compose-first from silently wiping typed composer | done | cursor-draft-wipe | `hermes-mobile/src/utils/freshChatComposerTransfer.ts` (draft-load resolve + compose-first key), `hermes-mobile/src/__tests__/freshChatComposerTransfer.test.ts`, `hermes-mobile/src/screens/ChatScreen.tsx` (composer draft save/load only; coord picker/empty-greeting — no send merge), `plan.md` | Same-session empty storage cannot wipe live typing; compose-first persists under sentinel; Jest green; PR merge; no cloud EAS; coord T-EMPTY-GREETING-CONNECTED / picker ChatScreen slices |
 | T-RALPH-CI-BUDGET | Prevent Ralph/GSD branch-update CI storms with a strict per-cycle budget | done | codex-ralph-ci-budget | `tools/ralph-pr-loop.sh`, `tests/test-ralph-pr-loop.sh`, `docs/RALPH-GSD-24-7.md`, `plan.md` | Default cycle updates at most 2 behind PR branches; configurable non-negative budget; skipped-behind count logged; 4/4 focused + 7/7 orchestrator checks green; live budget=0 scan: 30 PRs, 0 updates; no revenue/ntfy/EAS actions |
 | T-REPAIR-CTA | P0: Re-pair / outdated-connection tap is noop + Tools Repair link timeout + fresh-install stale Macs | done | cursor-repair-cta | `hermes-mobile/src/utils/repairGatewayLink.ts`, `GatewayOpsSection.tsx`, `ChatScreen.tsx` (Re-pair CTA), `freshInstallGuard.ts`, tests, `plan.md` | Re-pair CTA wired; Tools Repair uses pair.json 12s Tailscale budget + 30s heal; honest auth/unreachable; fresh-install wipe; Jest green; PR #528; OTA no EAS |
