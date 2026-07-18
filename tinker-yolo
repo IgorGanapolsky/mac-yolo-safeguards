@@ -86,6 +86,25 @@ case "${1:-}" in
     if [ "${1:-}" = "--json" ]; then doctor json; else doctor text; fi
     exit $? ;;
   --doctor=json|--json) doctor json; exit $? ;;
+  ""|status|--help|-h)
+    # Bare `tinker-yolo` used to silently run the useless 'proof' (a 2-step toy that
+    # produces a throwaway tinker:// URL). Now it shows real status + what to run.
+    # LIGHTWEIGHT ONLY — no tinker/torch import here (that ~2GB import got OOM-killed
+    # on the 24GB box). For a live auth check use `tinker-yolo --doctor`.
+    ds=0; [ -f "$DATASET" ] && ds="$(/usr/bin/wc -l < "$DATASET" | tr -d ' ')"
+    echo "tinker-yolo status: venv=$([ -x "$PY" ] && echo ok || echo MISSING) dataset_rows=$ds zero_spend=$([ -e "$MARKER" ] && echo true || echo false)"
+    have="$(ollama list 2>/dev/null | awk '/qwen3-hermes-tinker/{print $1" ("$3$4")"}' | tr '\n' ' ')"
+    echo "deployed model: ${have:-none yet — run 'tinker-yolo deploy'}"
+    cat >&2 <<'USAGE'
+
+tinker-yolo — fine-tune the fleet's local model on our own traffic. Commands:
+  deploy            THE REAL ONE: train → merge → `ollama create` a RUNNABLE model (~20-40min)
+  train [N] [steps] a fuller LoRA run; saves a checkpoint (no deploy)
+  proof             cheap sanity check (2 steps, throwaway checkpoint — proves the loop)
+  build             (re)build the distill dataset from traffic
+  --doctor[--json]  health only
+USAGE
+    exit 0 ;;
 esac
 
 if [ -e "$MARKER" ]; then
@@ -94,7 +113,7 @@ if [ -e "$MARKER" ]; then
 fi
 [ -x "$PY" ] || { echo "tinker-yolo: venv missing ($PY). Run: python3 -m venv $VENV && $VENV/bin/pip install tinker tinker-cookbook" >&2; exit 127; }
 
-case "${1:-proof}" in
+case "${1:-}" in
   build) build ;;
   proof) run_train 8 2 ;;
   train) run_train "${2:-64}" "${3:-6}" ;;
@@ -102,5 +121,5 @@ case "${1:-proof}" in
     [ -f "$DATASET" ] || build
     TINKER_API_KEY="$(load_key)" TINKER_DEPLOY_DATA="$DATASET" \
       "$PY" "$EVAL_REPO/scripts/tinker_deploy.py" ;;
-  *) echo "usage: tinker-yolo [--doctor[--json]|build|proof|train [N] [steps]|deploy]" >&2; exit 2 ;;
+  *) echo "tinker-yolo: unknown command '${1:-}' — run 'tinker-yolo' for the menu" >&2; exit 2 ;;
 esac

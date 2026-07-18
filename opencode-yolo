@@ -106,7 +106,29 @@ fi
 CONFIG_DIR="${OPENCODE_YOLO_HOME:-$HOME/.hermes/opencode-yolo}"
 mkdir -p "$CONFIG_DIR"
 CONFIG_PATH="$CONFIG_DIR/opencode.json"
-OPENCODE_YOLO_GATEWAY_URL="$GATEWAY_URL" DEFAULT_MODEL="$DEFAULT_MODEL" node -e '
+
+# The gateway's default model (GLM-5.2) is TEXT-only — it cannot accept a PDF/binary
+# document as input, so attaching one fails ("this model has no PDF input"). Poppler's
+# pdftotext IS available, so instruct the agent to EXTRACT text itself instead of
+# attaching. Written as an opencode instruction file loaded into the system prompt.
+INSTR_PATH="$CONFIG_DIR/INSTRUCTIONS.md"
+cat > "$INSTR_PATH" <<'INSTR'
+# Reading documents (PDF, DOCX, etc.)
+
+The active model is text-only and CANNOT ingest a PDF/binary file directly. NEVER try
+to attach a PDF to the model. To read a document, extract its text with a shell tool
+first (you have bash), then reason over the extracted text:
+
+- PDF (text):   `pdftotext -layout "FILE.pdf" -`   (poppler; already installed)
+- PDF (info):   `pdfinfo "FILE.pdf"`
+- DOCX:         `unzip -p "FILE.docx" word/document.xml | sed 's/<[^>]*>//g'`
+- Scanned/image PDF (no text layer): render a page to PNG
+  (`pdftoppm -png -r 150 "FILE.pdf" /tmp/pg`) — only then is it an image task.
+
+If `pdftotext` returns empty, the PDF is scanned; say so and offer the render path.
+INSTR
+
+OPENCODE_YOLO_GATEWAY_URL="$GATEWAY_URL" DEFAULT_MODEL="$DEFAULT_MODEL" INSTR_PATH="$INSTR_PATH" node -e '
   const fs=require("fs");
   const base=process.env.OPENCODE_YOLO_GATEWAY_URL;
   const model=process.env.DEFAULT_MODEL;
@@ -115,6 +137,7 @@ OPENCODE_YOLO_GATEWAY_URL="$GATEWAY_URL" DEFAULT_MODEL="$DEFAULT_MODEL" node -e 
     $schema:"https://opencode.ai/config.json",
     model, small_model:"hermes/glm-turbo",
     share:"disabled", autoupdate:false,
+    instructions:[process.env.INSTR_PATH],
     enabled_providers:["hermes"], plugin:[],
     provider:{ hermes:{
       npm:"@ai-sdk/openai-compatible",
