@@ -6,6 +6,7 @@ import {
   View,
   ActivityIndicator,
 } from 'react-native';
+import { useGateway } from '../context/GatewayContext';
 import { useOtaUpdateBanner } from '../hooks/useOtaUpdateBanner';
 import { colors } from '../theme/colors';
 
@@ -16,7 +17,11 @@ import { colors } from '../theme/colors';
  * No-ops in debug builds (Updates.isEnabled === false).
  */
 export default function OtaUpdateBanner() {
-  const { state, message, dismiss, applyNow } = useOtaUpdateBanner();
+  const { bootstrapReady, gatewayProfiles } = useGateway();
+  const { state, message, dismiss, applyNow } = useOtaUpdateBanner({
+    isFirstSession: bootstrapReady && gatewayProfiles.length === 0,
+    isOnboardingResolved: bootstrapReady,
+  });
 
   if (state === 'idle') return null;
 
