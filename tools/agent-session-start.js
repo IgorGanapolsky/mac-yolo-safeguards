@@ -28,6 +28,10 @@ const {
   pipelineBusyReason,
   withPhonePipelineLock,
 } = require('./agent-phone-pipeline-lock');
+const {
+  CONTINUOUS_E2E_LABEL,
+  maybeKickstartContinuousE2e,
+} = require('./continuous-e2e-kickstart');
 const E2E_STALE_MS = 30 * 60 * 1000;
 const args = process.argv.slice(2);
 const json = args.includes('--json');
@@ -293,15 +297,19 @@ if (!json) {
 const latestE2e = readLatestE2e();
 if (e2eNeedsKickstart(latestE2e)) {
   const uid = spawnSync('id', ['-u'], { encoding: 'utf8' }).stdout?.trim() || '';
-  const kick = spawnSync(
-    'launchctl',
-    ['kickstart', '-k', `gui/${uid}/com.igor.hermes-mobile-continuous-e2e`],
-    { encoding: 'utf8', timeout: 10_000 },
-  );
+  const kick = maybeKickstartContinuousE2e({
+    spawnSync,
+    uid,
+    blockedReason: phonePipelineBusy ? 'phone-pipeline-busy' : '',
+  });
   if (!json) {
     process.stdout.write('\n=== Hermes Mobile continuous E2E kickstart ===\n');
-    if (kick.status === 0) {
-      process.stdout.write('Triggered com.igor.hermes-mobile-continuous-e2e (async cycle).\n');
+    if (kick.triggered) {
+      process.stdout.write(`Triggered ${CONTINUOUS_E2E_LABEL} (async cycle).\n`);
+    } else if (kick.reason === 'launchagent-running' || kick.reason === 'e2e-process-running') {
+      process.stdout.write(`Preserved active continuous E2E cycle (${kick.reason}).\n`);
+    } else if (kick.reason === 'phone-pipeline-busy') {
+      process.stdout.write('Skipped continuous E2E kickstart (phone pipeline busy).\n');
     } else if (kick.stderr) {
       process.stderr.write(kick.stderr);
     }
