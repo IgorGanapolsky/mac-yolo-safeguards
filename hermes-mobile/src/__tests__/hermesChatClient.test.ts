@@ -3,10 +3,44 @@ import {
   normalizeMessageContent,
   updateSessionTitle,
   buildUniqueTitleCandidate,
+  buildMobileSessionId,
+  createSession,
   createSessionWithUniqueTitle,
 } from '../services/hermesChatClient';
 
 describe('hermesChatClient', () => {
+  it('builds a deterministic durable mobile session id', () => {
+    expect(buildMobileSessionId(1784412766000, 0.5)).toBe(
+      'mobile_1784412766000_80000000',
+    );
+  });
+
+  it('identifies every phone-created session in the gateway request', async () => {
+    const fetchMock = jest.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        session: { id: 'mobile_server_echo', title: 'First prompt becomes the title' },
+      }),
+    });
+    const originalFetch = global.fetch;
+    global.fetch = fetchMock as typeof fetch;
+
+    try {
+      await createSession(
+        'http://127.0.0.1:8642',
+        'sk-test',
+        'First prompt becomes the title',
+      );
+      const requestBody = JSON.parse(
+        (fetchMock.mock.calls[0][1] as { body: string }).body,
+      ) as Record<string, string>;
+      expect(requestBody.id).toMatch(/^mobile_\d+_[0-9a-f]{8}$/);
+      expect(requestBody.title).toBe('First prompt becomes the title');
+    } finally {
+      global.fetch = originalFetch;
+    }
+  });
+
   it('normalizes array content parts to text', () => {
     expect(normalizeMessageContent([{ text: 'hello' }, { text: 'world' }])).toBe('hello\nworld');
   });

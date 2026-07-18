@@ -119,6 +119,9 @@ export function partitionSessionsForPicker(sessions: HermesSession[]): {
 
 /** Sessions created from Hermes Mobile (not CLI/Telegram smoke probes). */
 export function isMobileChatSession(session: HermesSession): boolean {
+  if (/^mobile[_-]/i.test(session.id)) {
+    return true;
+  }
   const haystack = `${session.title ?? ''} ${session.source ?? ''}`.toLowerCase();
   return haystack.includes('hermes mobile') || haystack.includes('mobile session');
 }
