@@ -1,11 +1,9 @@
 # Chat send — user bubble must stay visible (guards refresh-race / virtualization regression).
 #
-# ROOT CAUSE NOTE (open harness bug, not solely app bug):
-# On Android, Maestro `inputText` often leaves RN TextInput empty (IME composing region), so
-# Send taps with blank composer and this flow fails even when unit optimistic-send tests pass
-# (see plan.md T-70 Decision Log 2026-07-04). Desired product behavior is still asserted here
-# so CI/device E2E fail closed once IME input is fixed or a clipboard-paste path is adopted.
-# Continuous E2E still runs this flow; PR emulator gate uses ship-guard only (no typing).
+# Search for the exact submitted prompt. A generic `chat-message-user` lookup can match the
+# preloaded demo prompt and scroll away from the newly sent bubble, producing a false failure.
+# Android IME composition can still prevent Maestro `inputText` from reaching React Native;
+# that is a separate fail-closed harness risk and must not weaken this content assertion.
 appId: com.iganapolsky.hermesmobile
 ---
 - launchApp
@@ -56,17 +54,16 @@ appId: com.iganapolsky.hermesmobile
       - runFlow: hide-keyboard-safe.yaml
       - tapOn:
           id: "chat-send-button"
-# Prefer stable testID; scroll first because long sessions virtualize off-screen bubbles.
+# Long sessions can virtualize the new bubble below the preloaded transcript. Search in the
+# direction of newer messages and match the prompt itself, never an arbitrary user bubble.
 - scrollUntilVisible:
     element:
-      id: "chat-message-user"
-    direction: UP
+      text: "make money today"
+    direction: DOWN
     timeout: 20000
     speed: 40
 - extendedWaitUntil:
     visible:
-      id: "chat-message-user"
+      text: "make money today"
     timeout: 15000
-- assertVisible:
-    id: "chat-message-user"
 - assertVisible: "make money today"
