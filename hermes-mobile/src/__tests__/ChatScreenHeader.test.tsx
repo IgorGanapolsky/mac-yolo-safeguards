@@ -130,6 +130,47 @@ describe('ChatScreenHeader', () => {
     expect(getByTestId('chat-header-weak-model-warning')).toBeTruthy();
   });
 
+  it.each(['Tailscale', 'USB', 'Home Wi-Fi'])(
+    'keeps the resolved %s transport in the compact Connected header',
+    (transport) => {
+      const { getByTestId } = render(
+        <ChatScreenHeader
+          threadTitle="Deploy fix"
+          machineLabel="Mac"
+          machineEndpoint={transport}
+          connectionState="connected"
+          macHttpReachable
+          gatewayModel="qwen3.5:9b-hermes-64k"
+          onOpenThreads={jest.fn()}
+          onPressMachine={jest.fn()}
+        />,
+      );
+
+      expect(getByTestId('chat-context-link').props.children).toBe('Connected');
+      expect(getByTestId('chat-context-mac-endpoint').props.children).toBe(transport);
+    },
+  );
+
+  it('keeps wrong-key state out of compact Connected transport status', () => {
+    const { getByTestId } = render(
+      <ChatScreenHeader
+        threadTitle="Deploy fix"
+        machineLabel="Mac"
+        machineEndpoint="Tailscale"
+        connectionState="connected"
+        macHttpReachable
+        authMismatch
+        gatewayModel="qwen3.5:9b-hermes-64k"
+        onOpenThreads={jest.fn()}
+        onPressMachine={jest.fn()}
+      />,
+    );
+
+    expect(getByTestId('chat-context-link').props.children).toBe(GATEWAY_AUTH_REPAIR_HEADER);
+    expect(getByTestId('chat-context-link').props.children).not.toContain('Connected');
+    expect(getByTestId('chat-context-mac-endpoint').props.children).toBe('Tailscale');
+  });
+
   it('restores persisted expanded preference on mount', async () => {
     await AsyncStorage.setItem(CHAT_HEADER_DETAILS_EXPANDED_KEY, '1');
     const { getByTestId } = render(
