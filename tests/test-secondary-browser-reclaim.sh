@@ -18,6 +18,32 @@ E2E_LEASE_DIR="/tmp/yolo-guard-e2e"
 mkdir -p "$E2E_LEASE_DIR"
 E2E_LEASE_FILE="$E2E_LEASE_DIR/$$"
 echo "$$" > "$E2E_LEASE_FILE"
+# Self-hosted runners may also have a pre-d9 guard installed; it only honors
+# the legacy singleton lease. Keep that guard paused through this short test
+# with a bounded sentinel. Do not remove the shared lease in this test's trap:
+# an overlapping run may have refreshed it after ours began.
+LEGACY_E2E_LEASE_FILE="/tmp/yolo-guard-e2e.pid"
+( sleep 90 ) &
+LEGACY_E2E_LEASE_PID=$!
+echo "$LEGACY_E2E_LEASE_PID" > "$LEGACY_E2E_LEASE_FILE"
+# The self-hosted macOS runner invokes the installed guard every minute. Its
+# copy can lag this checkout, in which case it does not understand the
+# directory lease and kills these fixtures mid-assertion. Before spawning
+# fixtures in CI, atomically refresh that managed copy from the guard being
+# tested. The lease then protects both the installed and checkout copies.
+if [ "${GITHUB_ACTIONS:-}" = "true" ]; then
+  INSTALLED_GUARD="$HOME/.local/bin/sim-runaway-guard.sh"
+  if [ -f "$INSTALLED_GUARD" ] && ! cmp -s "$GUARD" "$INSTALLED_GUARD"; then
+    INSTALLED_GUARD_TMP="$(mktemp "${INSTALLED_GUARD}.XXXXXX")"
+    cp "$GUARD" "$INSTALLED_GUARD_TMP"
+    chmod 755 "$INSTALLED_GUARD_TMP"
+    mv "$INSTALLED_GUARD_TMP" "$INSTALLED_GUARD"
+    # Replace a potentially in-flight old invocation before any fake process
+    # is created. The restarted guard reads the lease above and exits safely.
+    launchctl kickstart -k "gui/$(id -u)/com.igor.shutdown-simulators" 2>/dev/null || true
+    sleep 2
+  fi
+fi
 # Every fake process below includes this run's unique temp path. Restrict
 # cleanup to that marker: self-hosted runners execute jobs concurrently, and
 # broad `pkill -f` cleanup from one E2E invocation previously killed another
@@ -103,7 +129,7 @@ grep -q "E2E_LEASE:" "$TMP/guard.log" \
 echo "$$" > "$E2E_LEASE_FILE"
 
 # --- T1+T2: under pressure, reclaim the secondary browser, protect the rest ---
-TEST_BROWSER="YoloFakeBrowser-$$"
+TEST_BROWSER="guard-browser-fixture-$$"
 SEC="$TMP/$TEST_BROWSER.app/Contents/MacOS/$TEST_BROWSER"
 PRI="$TMP/FakePrimaryChrome.app/Contents/MacOS/FakePrimaryChrome"
 HRM="$TMP/FakeHermesProc.app/Contents/MacOS/FakeHermesProc"
@@ -113,7 +139,7 @@ run_guard YOLO_SECONDARY_BROWSERS="$TEST_BROWSER"
 sleep 1
 alive "$SEC_PID" && bad "T1: secondary browser was NOT reclaimed under pressure" \
                  || ok  "T1: secondary browser reclaimed under memory pressure"
-grep -q "BROWSER_RECLAIM: YoloFakeBrowser" "$TMP/guard.log" \
+grep -q "BROWSER_RECLAIM: $TEST_BROWSER" "$TMP/guard.log" \
   && ok  "T1: BROWSER_RECLAIM logged" || bad "T1: no BROWSER_RECLAIM log line"
 alive "$PRI_PID" && ok  "T2: non-listed 'primary Chrome' proc PROTECTED" \
                  || bad "T2: protected primary proc was killed (scoping bug!)"
@@ -188,8 +214,11 @@ kill -9 "$OLLAMA_PID" 2>/dev/null
 
 # --- T10: aggregate CodeQL workers are killed and repeated respawn disables dirs ---
 mkdir -p "$TMP/cursor-codeql" "$TMP/ag-codeql"
-CODEQL1=$(mkbusyfake "java com.semmle.cli2.CodeQL execute language-server --test-run=$TMP")
-CODEQL2=$(mkbusyfake "java com.semmle.cli2.CodeQL execute language-server --test-run=$TMP")
+# Do not use the production command signature here: an older concurrent test
+# may still broadly clean up `com.semmle...` fixtures. The guard accepts this
+# isolated test signature through YOLO_CODEQL_CMD_PATTERN below.
+CODEQL1=$(mkbusyfake "guard-codeql-worker --test-run=$TMP")
+CODEQL2=$(mkbusyfake "guard-codeql-worker --test-run=$TMP")
 # Let busy fakes accumulate CPU % before ps sampling (GitHub macOS runners are slow).
 sleep 2
 # Disable memory-pressure side paths while the CPU-only branch is under test.
@@ -218,7 +247,9 @@ grep -q "CODEQL_KILL:" "$TMP/guard.log" \
 kill -9 "$CODEQL1" "$CODEQL2" 2>/dev/null
 
 # --- T11: persistent Hermes CDP with no client is reclaimed under pressure ---
-CDP_PROFILE="$TMP/chrome-cdp-profile"
+# Avoid the old broad `pkill -f chrome-cdp-profile` cleanup used by concurrent
+# pre-d9 test runs; the profile remains unique and is passed explicitly below.
+CDP_PROFILE="$TMP/hermes-cdp-$$_profile"
 CDP_MAIN="$TMP/Google Chrome.app/Contents/MacOS/Google Chrome"
 mkdir -p "$(dirname "$CDP_MAIN")"
 cat > "$CDP_MAIN" <<'MOCK'
