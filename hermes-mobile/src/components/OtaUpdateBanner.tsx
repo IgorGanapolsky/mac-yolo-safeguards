@@ -9,6 +9,7 @@ import {
 import { useGateway } from '../context/GatewayContext';
 import { useOtaUpdateBanner } from '../hooks/useOtaUpdateBanner';
 import { colors } from '../theme/colors';
+import { hasValidSavedComputer } from '../utils/freshUserOnboarding';
 
 /**
  * Auto-checks for OTA updates and surfaces a dismissible banner when one is
@@ -19,7 +20,7 @@ import { colors } from '../theme/colors';
 export default function OtaUpdateBanner() {
   const { bootstrapReady, gatewayProfiles } = useGateway();
   const { state, message, dismiss, applyNow } = useOtaUpdateBanner({
-    isFirstSession: bootstrapReady && gatewayProfiles.length === 0,
+    isFirstSession: bootstrapReady && !hasValidSavedComputer(gatewayProfiles),
     isOnboardingResolved: bootstrapReady,
   });
 
