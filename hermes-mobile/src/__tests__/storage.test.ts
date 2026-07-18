@@ -192,6 +192,19 @@ describe('storage', () => {
     expect(await storage.loadLastSessionForComputer(['mac_192_168_68_56'])).toBe('sess_shared');
   });
 
+  it('clearLastSessionForComputer drops aliases so relaunch cannot restore deleted mega', async () => {
+    await storage.saveLastSessionForComputer(
+      ['host:igors-macbook-pro', 'http://100.87.85.85:8642'],
+      'api_1784083104_b1c756fb',
+    );
+    await storage.clearLastSessionForComputer([
+      'host:igors-macbook-pro',
+      'http://100.87.85.85:8642',
+    ]);
+    expect(await storage.loadLastSessionForComputer('host:igors-macbook-pro')).toBeNull();
+    expect(await storage.loadLastSessionForComputer('http://100.87.85.85:8642')).toBeNull();
+  });
+
   it('persists approvals count and increments correctly', async () => {
     expect(await storage.loadApprovalsCount()).toBe(0);
 

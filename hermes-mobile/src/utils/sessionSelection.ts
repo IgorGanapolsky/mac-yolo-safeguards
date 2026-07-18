@@ -46,12 +46,24 @@ export function isSmokeProbeSession(session: HermesSession): boolean {
 }
 
 /** Session created by a non-interactive harness channel (API server or CLI). */
-function isAutomationSourceSession(session: HermesSession): boolean {
+export function isAutomationSourceSession(session: HermesSession): boolean {
   const source = session.source?.trim().toLowerCase() ?? '';
   if (source === 'api_server' || source === 'cli') {
     return true;
   }
   return /^api[-_]/i.test(session.id);
+}
+
+/**
+ * Post-Clear-all class filter: hide every non-mobile API_SERVER/CLI session.
+ * Probe-shaped text is not required — fresh ids with real titles still reappear
+ * after Clear all unless the whole automation source class is suppressed.
+ */
+export function isNonMobileAutomationSession(session: HermesSession): boolean {
+  if (isMobileChatSession(session)) {
+    return false;
+  }
+  return isAutomationSourceSession(session);
 }
 
 /**

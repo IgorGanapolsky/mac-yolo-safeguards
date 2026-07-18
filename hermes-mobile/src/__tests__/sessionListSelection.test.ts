@@ -157,4 +157,58 @@ describe('resolveSessionAfterListLoad', () => {
       }),
     ).toBeNull();
   });
+
+  it('never restores a remembered mega-blocked session after relaunch', () => {
+    const mega: HermesSession = {
+      id: 'sess_mega',
+      title: 'I believe we should separate th...',
+      input_tokens: 1_632_047,
+      last_active_at: '2026-07-14T21:38:00Z',
+    };
+    expect(
+      resolveSessionAfterListLoad({
+        sessions: [mega, ...sessions],
+        projectState,
+        currentSessionId: null,
+        rememberedSessionId: 'sess_mega',
+        selectLatest: true,
+      })?.id,
+    ).toBe('sess_a');
+  });
+
+  it('keeps an already-open mega thread so Start fresh banner can render', () => {
+    const mega: HermesSession = {
+      id: 'sess_mega',
+      title: 'I believe we should separate th...',
+      input_tokens: 1_632_047,
+      last_active_at: '2026-07-14T21:38:00Z',
+    };
+    expect(
+      resolveSessionAfterListLoad({
+        sessions: [mega],
+        projectState: { ...projectState, activeProjectId: null, projects: [] },
+        currentSessionId: 'sess_mega',
+        rememberedSessionId: 'sess_mega',
+        selectLatest: true,
+      }),
+    ).toBeUndefined();
+  });
+
+  it('opens empty chat when every candidate is mega-blocked', () => {
+    const mega: HermesSession = {
+      id: 'sess_mega',
+      title: 'too large',
+      input_tokens: 900_000,
+      last_active_at: '2026-07-14T21:38:00Z',
+    };
+    expect(
+      resolveSessionAfterListLoad({
+        sessions: [mega],
+        projectState: { ...projectState, activeProjectId: null, projects: [] },
+        currentSessionId: null,
+        rememberedSessionId: 'sess_mega',
+        selectLatest: true,
+      }),
+    ).toBeNull();
+  });
 });

@@ -45,6 +45,7 @@ import GatewayProfilePicker from '../components/GatewayProfilePicker';
 import ComputerPickerStatusRegion from '../components/ComputerPickerStatusRegion';
 import ManualComputerAddressForm from '../components/ManualComputerAddressForm';
 import { confirmForgetGatewayProfileAfterHostDismiss } from '../utils/confirmForgetGatewayProfile';
+import { confirmClearAllChatsAfterHostDismiss } from '../utils/confirmClearAllChats';
 import { profileDisplayName } from '../services/gatewayProfiles';
 import {
   listSessions,
@@ -3831,7 +3832,8 @@ export default function ChatScreen() {
         deletedDemoSessionIdsRef.current.add('demo-1');
         deletedDemoSessionIdsRef.current.add('demo-2');
         setSessions([]);
-        
+        await storage.clearLastSessionForComputer(activeComputerSessionKeys);
+
         // Wipe local project state bindings
         const nextState = clearAllSessionBindings(projectState);
         await persistProjectState(nextState);
@@ -3878,25 +3880,45 @@ export default function ChatScreen() {
       }
       await storage.setHideCronSessions(activeComputerSessionKeys, true, gatewayUrl);
       await storage.setHideAutomationSessions(activeComputerSessionKeys, true, gatewayUrl);
+      // Forget lastSessionId so relaunch cannot resurrect a deleted mega thread.
+      await storage.clearLastSessionForComputer(activeComputerSessionKeys);
 
-      let gatewayCleared = false;
       let failed = 0;
       try {
         await clearAllSessions(gatewayUrl, apiKey);
-        gatewayCleared = true;
       } catch (err) {
         console.warn('[executeClearAllChats] API clear-all failed, falling back to sequential deletes:', err);
-        // Cap sequential work so dozens of CRON rows cannot hang the spinner for minutes.
-        const sequential = deletable.slice(0, 40);
-        for (const session of sequential) {
+        // Bulk DELETE is 405 on some gateway builds — delete every listed id (no 40-cap).
+        for (const session of deletable) {
           try {
             await deleteSession(gatewayUrl, session.id, apiKey);
           } catch {
             failed += 1;
           }
         }
-        failed += Math.max(0, deletable.length - sequential.length);
-        gatewayCleared = failed === 0;
+      }
+
+      // Sweep any rows that appeared while deletes ran (cron/api_server churn).
+      try {
+        const leftover = (await listSessions(gatewayUrl, apiKey)).filter(
+          (session) => !isTelegramInboxSession(session),
+        );
+        if (leftover.length > 0) {
+          const leftoverIds = leftover.map((session) => session.id);
+          const mergedDismissed = [...new Set([...dismissedSessionIdsRef.current, ...leftoverIds])];
+          dismissedSessionIdsRef.current = mergedDismissed;
+          setDismissedSessionIds(mergedDismissed);
+          await storage.addDismissedSessionIds(activeComputerSessionKeys, leftoverIds, gatewayUrl);
+          for (const session of leftover) {
+            try {
+              await deleteSession(gatewayUrl, session.id, apiKey);
+            } catch {
+              failed += 1;
+            }
+          }
+        }
+      } catch {
+        // Keep local tombstones / class hides when Mac state cannot be re-listed.
       }
 
       const nextState = clearAllSessionBindings(projectState);
@@ -3910,26 +3932,19 @@ export default function ChatScreen() {
       }
 
       dismissedHydrationGenRef.current += 1;
-      setDismissedSessionIds(nextDismissed);
-      dismissedSessionIdsRef.current = nextDismissed;
+      setDismissedSessionIds(dismissedSessionIdsRef.current);
       setHideCronSessions(true);
-      setSessions((prev) => applyClearedFilter(prev));
+      setHideAutomationSessions(true);
+      setSessions((prev) =>
+        filterDismissedThreadSessions(prev, {
+          dismissedSessionIds: dismissedSessionIdsRef.current,
+          hideCronSessions: true,
+          hideAutomationSessions: true,
+        }),
+      );
 
-      if (gatewayCleared) {
-        try {
-          const remainingOnMac = await listSessions(gatewayUrl, apiKey);
-          const deletableRemaining = remainingOnMac.filter(
-            (session) => !isTelegramInboxSession(session),
-          );
-          if (deletableRemaining.length === 0) {
-            await storage.clearDismissedSessionIds(activeComputerSessionKeys, gatewayUrl);
-            setDismissedSessionIds([]);
-            dismissedSessionIdsRef.current = [];
-          }
-        } catch {
-          // Keep dismissed map when we cannot verify Mac state.
-        }
-      }
+      // Never wipe dismissed tombstones after a "successful" clear — CRON/API_SERVER
+      // recreate fresh ids immediately and would undo Clear all on the next relaunch.
       if (failed > 0) {
         setErrorMessage(
           `${failed} thread${failed === 1 ? '' : 's'} could not be deleted on your computer. Hidden locally — Start a new thread to continue.`,
@@ -3945,13 +3960,14 @@ export default function ChatScreen() {
   }, [activeComputerSessionKeys, apiKey, gatewayUrl, handleNewChat, isDemo, loadSessionsList, projectState, persistProjectState]);
 
   const handleClearAllChats = useCallback(() => {
-    Alert.alert(
-      'Clear all chats?',
-      'This deletes every thread on your computer from Hermes. You cannot undo this.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Clear all', style: 'destructive', onPress: () => void executeClearAllChats() },
-      ],
+    // Android swallows Alert while Threads BottomSheetModal is mounted — dismiss first.
+    // Re-open the sheet on confirm so the Clearing… progress UI remains visible.
+    confirmClearAllChatsAfterHostDismiss(
+      () => setSessionModalVisible(false),
+      () => {
+        setSessionModalVisible(true);
+        void executeClearAllChats();
+      },
     );
   }, [executeClearAllChats]);
 
