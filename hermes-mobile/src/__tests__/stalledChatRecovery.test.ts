@@ -1,5 +1,9 @@
 import type { HermesMessage } from '../types/chat';
 import { mergeServerMessagesWithPending } from '../utils/chatMessageMerge';
+import {
+  findReusableOptimisticUserBubble,
+  reactivateOptimisticUserBubble,
+} from '../utils/outboundSendDedupe';
 import { OUTBOUND_STUCK_FAILURE_REASON } from '../utils/outboundSendRecovery';
 import { RUN_NO_TOKEN_FAIL_DETAIL } from '../utils/runStaleDetection';
 import {
@@ -97,5 +101,31 @@ describe('stalledChatRecovery', () => {
         failureReason: RUN_NO_TOKEN_FAIL_DETAIL,
       }),
     ).toBe(false);
+  });
+
+  it('stall recovery reuses the failed bubble — one intent stays one bubble', () => {
+    const prompt = 'make money today';
+    const messages: HermesMessage[] = [
+      {
+        id: 'user-local-stall',
+        role: 'user',
+        content: prompt,
+        outboundStatus: 'failed',
+        outboundFailureReason: RUN_NO_TOKEN_FAIL_DETAIL,
+      },
+    ];
+    expect(shouldAutoRecoverStalledSend({
+      macHttpOk: true,
+      isDemo: false,
+      isSending: false,
+      recoveriesUsed: 0,
+      failedText: findLastStalledFailedOutboundText(messages),
+      failureReason: RUN_NO_TOKEN_FAIL_DETAIL,
+    })).toBe(true);
+    const reusable = findReusableOptimisticUserBubble(messages, prompt);
+    expect(reusable?.id).toBe('user-local-stall');
+    const after = reactivateOptimisticUserBubble(messages, reusable!.id!);
+    expect(after.filter((m) => m.role === 'user' && m.content === prompt)).toHaveLength(1);
+    expect(after[0]?.outboundStatus).toBe('pending');
   });
 });

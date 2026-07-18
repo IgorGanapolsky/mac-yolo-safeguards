@@ -4,11 +4,13 @@ import {
   OUTBOUND_NO_REPLY_MAC_LIVE,
   OUTBOUND_RUN_STALLED_HINT,
   OUTBOUND_SESSION_BUSY_HINT,
+  OUTBOUND_SLOW_REPLY_HINT,
   OUTBOUND_UNREACHABLE_HINT,
   resolveOutboundFailureLabel,
 } from '../utils/outboundDeliveryStatus';
 import { GATEWAY_WRONG_KEY_MESSAGE } from '../services/gatewayClient';
 import { OUTBOUND_STUCK_FAILURE_REASON } from '../utils/outboundSendRecovery';
+import { RUN_NO_TOKEN_FAIL_DETAIL } from '../utils/runStaleDetection';
 
 describe('outboundDeliveryStatus', () => {
   it('shows waiting instead of sent when Mac is unreachable', () => {
@@ -75,6 +77,15 @@ describe('outboundDeliveryStatus', () => {
   it('shows stalled-run hint for stuck outbound recovery', () => {
     expect(resolveOutboundFailureLabel(OUTBOUND_STUCK_FAILURE_REASON, true)).toBe(
       `⚠ ${OUTBOUND_RUN_STALLED_HINT}`,
+    );
+  });
+
+  it('uses slow-reply copy for no-token waits — not scary Run stalled', () => {
+    expect(resolveOutboundFailureLabel(RUN_NO_TOKEN_FAIL_DETAIL, true)).toBe(
+      `⚠ ${OUTBOUND_SLOW_REPLY_HINT}`,
+    );
+    expect(resolveOutboundFailureLabel(RUN_NO_TOKEN_FAIL_DETAIL, true).toLowerCase()).not.toContain(
+      'run stalled',
     );
   });
 

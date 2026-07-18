@@ -1,5 +1,6 @@
 import {
   MEGA_SESSION_RUN_STALE_AUTO_FAIL_MS,
+  RUN_NO_TOKEN_FAIL_MS,
   RUN_STALE_AUTO_FAIL_MS,
   RUN_STALE_IDLE_MS,
   RUN_STALE_WARN_MS,
@@ -81,11 +82,30 @@ describe('runStaleDetection', () => {
     expect(msUntilRunStaleAutoFail(progress, 1_000 + 60_000)).toBe(RUN_STALE_AUTO_FAIL_MS - 60_000);
   });
 
-  it('fails runs with zero output tokens after 45s', () => {
-    const progress = baseProgress({ startedAtMs: 1_000, outputTokens: 0 });
-    expect(shouldFailRunAwaitingFirstToken(progress, 1_000 + 44_999)).toBe(false);
-    expect(shouldFailRunAwaitingFirstToken(progress, 1_000 + 45_000)).toBe(true);
-    expect(msUntilNoTokenFail(progress, 1_000 + 15_000)).toBe(30_000);
+  it('fails runs with zero output tokens only after the no-token window', () => {
+    const progress = baseProgress({ startedAtMs: 1_000, outputTokens: 0, lastProgressAtMs: 1_000 });
+    expect(shouldFailRunAwaitingFirstToken(progress, 1_000 + RUN_NO_TOKEN_FAIL_MS - 1)).toBe(false);
+    expect(shouldFailRunAwaitingFirstToken(progress, 1_000 + RUN_NO_TOKEN_FAIL_MS)).toBe(true);
+    expect(msUntilNoTokenFail(progress, 1_000 + 15_000)).toBe(RUN_NO_TOKEN_FAIL_MS - 15_000);
+  });
+
+  it('does not false-stall while SSE is in flight or tools still tick', () => {
+    const progress = baseProgress({
+      startedAtMs: 0,
+      outputTokens: 0,
+      lastProgressAtMs: 0,
+      detail: 'Agent-sync',
+    });
+    expect(
+      shouldFailRunAwaitingFirstToken(progress, RUN_NO_TOKEN_FAIL_MS + 1, { streamInFlight: true }),
+    ).toBe(false);
+    const toolTicking = baseProgress({
+      startedAtMs: 0,
+      outputTokens: 0,
+      lastProgressAtMs: RUN_NO_TOKEN_FAIL_MS - 10_000,
+      detail: 'reading vault',
+    });
+    expect(shouldFailRunAwaitingFirstToken(toolTicking, RUN_NO_TOKEN_FAIL_MS)).toBe(false);
   });
 
   it('does not fail awaiting-first-token once output tokens arrive', () => {
@@ -121,8 +141,12 @@ describe('runStaleDetection', () => {
     expect(shouldAutoClearStalledRun(null)).toBe(false);
     expect(shouldAutoClearStalledRun(baseProgress({ phase: 'completed' }), 120_000)).toBe(false);
 
-    const awaiting = baseProgress({ startedAtMs: 0, outputTokens: 0 });
-    expect(shouldAutoClearStalledRun(awaiting, 90_000)).toBe(true);
+    const awaiting = baseProgress({
+      startedAtMs: 0,
+      outputTokens: 0,
+      lastProgressAtMs: 0,
+    });
+    expect(shouldAutoClearStalledRun(awaiting, RUN_NO_TOKEN_FAIL_MS + 1)).toBe(true);
 
     const idle = baseProgress({
       startedAtMs: 0,
