@@ -38,9 +38,10 @@ kenv
 "$KIMI" --doctor --json | python3 -c "import json,sys;d=json.load(sys.stdin);assert d['schema']=='kimi-yolo/doctor-v1';assert d['ok'];assert 'Kimi Code CLI' in d['provider'];assert d['binary'].endswith('/kimi');assert d['autonomous'];assert d['configOK']" \
   && ok "kimi-yolo doctor json (official CLI)" || no "kimi-yolo doctor json"
 
-# 2: ensure_config wrote a config.toml with the model + provider
+# 2: ensure_config wrote a config.toml with the Kimi Code provider + a default model
+#    (model-agnostic: default is k3 on Moderato+, was kimi-for-coding).
 CFG="$ROOT/kimi-home/config.toml"
-{ [ -f "$CFG" ] && grep -q 'kimi-for-coding' "$CFG" && grep -q 'api.kimi.com/coding' "$CFG"; } \
+{ [ -f "$CFG" ] && grep -q 'default_model' "$CFG" && grep -q 'api.kimi.com/coding' "$CFG"; } \
   && ok "kimi-yolo self-writes config.toml" || no "kimi-yolo config.toml"
 
 # 3: zero-spend -> 73, kimi never runs
