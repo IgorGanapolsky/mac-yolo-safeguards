@@ -1,0 +1,45 @@
+{
+  "schema": "workflow-observability/config-v1",
+  "workflows": [
+    {
+      "id": "smart-ops",
+      "expectedEveryMinutes": 90,
+      "maxRetries": 0,
+      "requiredOutcomes": ["receipt_written"],
+      "failureWindowMinutes": 180,
+      "failureBurstThreshold": 2
+    },
+    {
+      "id": "revenue-autonomous-loop",
+      "expectedEveryMinutes": 300,
+      "maxRetries": 0,
+      "requiredOutcomes": ["receipt_written"],
+      "failureWindowMinutes": 360,
+      "failureBurstThreshold": 2
+    },
+    {
+      "id": "github-reply-monitor",
+      "expectedEveryMinutes": 180,
+      "maxRetries": 0,
+      "requiredOutcomes": ["monitor_completed"],
+      "failureWindowMinutes": 360,
+      "failureBurstThreshold": 2
+    },
+    {
+      "id": "market-signal/hermes-hosted",
+      "expectedEveryMinutes": 180,
+      "maxRetries": 0,
+      "requiredOutcomes": ["signal_checked"],
+      "failureWindowMinutes": 360,
+      "failureBurstThreshold": 2
+    },
+    {
+      "id": "market-signal/enterprise-sdlc",
+      "expectedEveryMinutes": 180,
+      "maxRetries": 0,
+      "requiredOutcomes": ["signal_checked"],
+      "failureWindowMinutes": 360,
+      "failureBurstThreshold": 2
+    }
+  ]
+}

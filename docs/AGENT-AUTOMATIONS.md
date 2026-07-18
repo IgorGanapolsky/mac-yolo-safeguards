@@ -30,7 +30,7 @@ bash scripts/verify-agent-automations.sh
 | `com.igor.hermes-mobile-continuous-e2e` | 15m | `hermes-mobile/scripts/run-continuous-e2e.sh --once` | Unit tests + Maestro E2E (Android USB → iOS sim) |
 | `com.igor.shutdown-simulators` | 60s | `sim-runaway-guard.sh` | Mac freeze guard (protected) |
 | `com.igor.revenue-autonomous-loop` | 4h | `tools/revenue-autonomous-loop.js --auto-send --json` | Funnel diagnose, Stripe link health, due follow-ups, Gmail auto-send (cap 5), ntfy |
-| `com.igor.smart-ops` | 1h | `tools/smart-ops-controller.js --json` | Efficient brain: heal agents, revenue `--fast`, GH reply monitor, **market signals** (`hermes-hosted` + `enterprise-sdlc`, pipeline apply once/day) |
+| `com.igor.smart-ops` | 1h | `tools/smart-ops-controller.js --json` | Efficient brain: heal agents, revenue `--fast`, GH reply monitor, **market signals** (`hermes-hosted` + `enterprise-sdlc`, pipeline apply once/day), execution-cost/outcome ledger, silent-failure scan, deduplicated local alerts, monthly report |
 
 Logs: `~/Library/Logs/<label>.log` (CEO brief uses `ceo-operating-brief.log`; revenue loop: `~/Library/Logs/mac-yolo/revenue-autonomous-loop.*.log`).
 
@@ -77,6 +77,12 @@ node tools/revenue-autonomous-loop.js --fast --json  # cache Stripe, skip Apollo
 | ntfy | Quiet when noop in fast mode (`REVENUE_NTFY_QUIET_NOOP=1`) |
 | Session start | Runs smart-ops (not full heavy revenue path) |
 | Market signals | `SMART_OPS_MARKET_SIGNAL=1` (default on smart-ops LaunchAgent); presets `hermes-hosted,enterprise-sdlc`; pipeline apply **once/day** |
+| Workflow visibility | Private `workflow-observability/run-v1` JSONL; retry/cadence/cost/outcome guards; current UTC monthly JSON+Markdown report |
+
+Workflow receipts and reports default to
+`~/Library/Application Support/mac-yolo-safeguards/workflow-observability/`. See
+[WORKFLOW-OBSERVABILITY.md](./WORKFLOW-OBSERVABILITY.md) for the adapter contract, truth boundaries,
+idempotency behavior, scan configuration, and client/account reports.
 
 ### Install / reinstall revenue automations
 
