@@ -53,6 +53,11 @@ describe('appIdentity', () => {
     expect(app.expo.android.package).toBe('com.iganapolsky.hermesmobile');
     expect(app.expo.ios.bundleIdentifier).toBe('com.iganapolsky.hermesmobile');
   });
+
+  it('disables Android Auto Backup so uninstall cannot restore gateway profiles', () => {
+    const app = JSON.parse(read('hermes-mobile/app.json'));
+    expect(app.expo.android.allowBackup).toBe(false);
+  });
 });
 
 const legacyBrandingTerms = [

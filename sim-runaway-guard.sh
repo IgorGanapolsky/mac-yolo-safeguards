@@ -54,20 +54,25 @@ YOLO_RECLAIM_OLLAMA_MODE=graceful-http-delegated
 
 # The process-level E2E runs on the same Mac mini as this live LaunchAgent.
 # Honor its short-lived PID lease so the installed guard cannot kill a fake
-# worker before the checkout-under-test records the assertion. A stale or
-# malformed lease never disables protection.
+# worker before the checkout-under-test records the assertion. Concurrent
+# self-hosted jobs receive separate lease files in the lease directory. A stale
+# or malformed lease never disables protection.
 E2E_LEASE_FILE=${YOLO_E2E_LEASE_FILE:-/tmp/yolo-guard-e2e.pid}
-if [ "${YOLO_BYPASS_E2E_LEASE:-0}" != "1" ] && [ -f "$E2E_LEASE_FILE" ]; then
-  E2E_LEASE_PID=$(/bin/cat "$E2E_LEASE_FILE" 2>/dev/null || true)
-  case "$E2E_LEASE_PID" in
-    ''|*[!0-9]*) ;;
-    *)
-      if /bin/kill -0 "$E2E_LEASE_PID" 2>/dev/null; then
-        echo "$(date) E2E_LEASE: guard paused for active test pid=$E2E_LEASE_PID" >> "$LOG"
-        exit 0
-      fi
-      ;;
-  esac
+E2E_LEASE_DIR=${YOLO_E2E_LEASE_DIR:-/tmp/yolo-guard-e2e}
+if [ "${YOLO_BYPASS_E2E_LEASE:-0}" != "1" ]; then
+  for E2E_LEASE in "$E2E_LEASE_FILE" "$E2E_LEASE_DIR"/*; do
+    [ -f "$E2E_LEASE" ] || continue
+    E2E_LEASE_PID=$(/bin/cat "$E2E_LEASE" 2>/dev/null || true)
+    case "$E2E_LEASE_PID" in
+      ''|*[!0-9]*) ;;
+      *)
+        if /bin/kill -0 "$E2E_LEASE_PID" 2>/dev/null; then
+          echo "$(date) E2E_LEASE: guard paused for active test pid=$E2E_LEASE_PID" >> "$LOG"
+          exit 0
+        fi
+        ;;
+    esac
+  done
 fi
 
 now=$(date +%s)
@@ -304,8 +309,9 @@ if [ -z "$REASON" ]; then
   CODEQL_DISABLE_AFTER_FIRES=${YOLO_CODEQL_DISABLE_AFTER_FIRES:-2}
   CODEQL_STATE_FILE=${YOLO_CODEQL_STATE_FILE:-/tmp/yolo-codeql-state}
   CODEQL_EXT_DIRS=${YOLO_CODEQL_EXTENSION_DIRS:-"$HOME/.cursor/extensions/github.vscode-codeql-1.17.7-universal $HOME/.antigravity-ide/extensions/github.vscode-codeql-1.17.7-universal"}
-  CODEQL_HOT_LIST=$(/bin/ps -axo user,pid,pcpu,command -r | /usr/bin/awk -v u="$USER" -v t="$CODEQL_CPU_PCT_THRESHOLD" '
-    NR>1 && $1==u && $0 ~ /com\.semmle\.cli2\.CodeQL/ {
+  CODEQL_CMD_PATTERN=${YOLO_CODEQL_CMD_PATTERN:-com\.semmle\.cli2\.CodeQL}
+  CODEQL_HOT_LIST=$(/bin/ps -axo user,pid,pcpu,command -r | /usr/bin/awk -v u="$USER" -v t="$CODEQL_CPU_PCT_THRESHOLD" -v p="$CODEQL_CMD_PATTERN" '
+    NR>1 && $1==u && $0 ~ p {
       pcpu=$3+0
       if (pcpu>=t) printf "%s %d\n", $2, pcpu
     }')
