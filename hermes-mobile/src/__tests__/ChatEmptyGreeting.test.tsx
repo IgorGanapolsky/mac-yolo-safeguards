@@ -80,19 +80,8 @@ describe('ChatEmptyGreeting', () => {
     );
   });
 
-  it('renders the Settings avatar skin in the empty state', () => {
-    const { getByTestId } = render(
-      <ChatEmptyGreeting hermesAvatar="bolt" isConnected playfulMotion />,
-    );
-    expect(getByTestId('chat-empty-avatar-emoji').props.children).toBe('⚡');
-    expect(getByTestId('chat-empty-avatar-halo')).toBeTruthy();
-  });
-
-  it('keeps avatar visible when disconnected without pulsing', () => {
-    const { getByTestId, queryByTestId } = render(
-      <ChatEmptyGreeting hermesAvatar="navigator" playfulMotion />,
-    );
-    expect(getByTestId('chat-empty-avatar-emoji').props.children).toBe('✦');
-    expect(queryByTestId('chat-empty-avatar-halo')).toBeNull();
+  it('does not expose a character avatar in the empty state', () => {
+    const { queryByTestId } = render(<ChatEmptyGreeting />);
+    expect(queryByTestId('chat-empty-avatar')).toBeNull();
   });
 });
