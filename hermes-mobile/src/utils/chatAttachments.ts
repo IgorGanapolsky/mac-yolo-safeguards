@@ -1,6 +1,7 @@
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system';
 import * as ImagePicker from 'expo-image-picker';
+import { InteractionManager } from 'react-native';
 import type {
   ChatContentPart,
   ChatMessageContent,
@@ -38,6 +39,9 @@ const TEXT_EXTENSIONS = new Set([
   'ini',
   'env',
 ]);
+
+const BASE64_ENCODING =
+  (FileSystem as { EncodingType?: { Base64?: string } }).EncodingType?.Base64 ?? 'base64';
 
 export function composerHasSendableContent(
   text: string,
@@ -146,9 +150,28 @@ export function buildChatMessageContent(
   return parts;
 }
 
+/** Flatten multimodal content for non-stream fallback APIs that only accept a string. */
+export function serializeChatMessageContent(content: ChatMessageContent): string {
+  if (typeof content === 'string') {
+    return content;
+  }
+  return content
+    .map((part) => {
+      if (part.type === 'text') {
+        return part.text;
+      }
+      if (part.type === 'image_url') {
+        return '[Attached image]';
+      }
+      return '';
+    })
+    .filter(Boolean)
+    .join('\n\n');
+}
+
 async function readDataUrl(attachment: ComposerAttachment): Promise<string> {
   const base64 = await FileSystem.readAsStringAsync(attachment.uri, {
-    encoding: 'base64',
+    encoding: BASE64_ENCODING as 'base64',
   });
   return `data:${attachment.mimeType};base64,${base64}`;
 }
@@ -156,6 +179,11 @@ async function readDataUrl(attachment: ComposerAttachment): Promise<string> {
 async function readTextSnippet(attachment: ComposerAttachment): Promise<string> {
   const body = await FileSystem.readAsStringAsync(attachment.uri);
   return `Attached file: ${attachment.name}\n\n${body}`;
+}
+
+function attachmentReadError(attachment: ComposerAttachment, error: unknown): string {
+  const detail = error instanceof Error ? error.message : String(error ?? 'unknown error');
+  return `Could not read ${attachment.name}. ${detail}`.trim();
 }
 
 export async function prepareChatMessageContent(
@@ -166,15 +194,19 @@ export async function prepareChatMessageContent(
   const imageDataUrls: string[] = [];
 
   for (const attachment of attachments) {
-    if (attachment.kind === 'image') {
-      imageDataUrls.push(await readDataUrl(attachment));
-      continue;
+    try {
+      if (attachment.kind === 'image') {
+        imageDataUrls.push(await readDataUrl(attachment));
+        continue;
+      }
+      if (attachment.kind === 'text') {
+        textSnippets.push(await readTextSnippet(attachment));
+        continue;
+      }
+      return { content: '', error: `Unsupported attachment: ${attachment.name}` };
+    } catch (error) {
+      return { content: '', error: attachmentReadError(attachment, error) };
     }
-    if (attachment.kind === 'text') {
-      textSnippets.push(await readTextSnippet(attachment));
-      continue;
-    }
-    return { content: '', error: `Unsupported attachment: ${attachment.name}` };
   }
 
   const content = buildChatMessageContent(text, { textSnippets, imageDataUrls });
@@ -211,29 +243,27 @@ function toComposerAttachment(input: {
   };
 }
 
-export async function pickImageAttachments(
-  remainingSlots: number,
-): Promise<{ attachments: ComposerAttachment[]; error?: string }> {
-  if (remainingSlots <= 0) {
-    return { attachments: [], error: `You can attach up to ${MAX_COMPOSER_ATTACHMENTS} files.` };
-  }
-
-  const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-  if (!permission.granted) {
-    return { attachments: [], error: 'Photo library access is required to attach images.' };
-  }
-
-  const result = await ImagePicker.launchImageLibraryAsync({
-    mediaTypes: ['images'],
-    allowsMultipleSelection: remainingSlots > 1,
-    quality: 1,
+/** Android silently drops native pickers launched while Alert/Modal is still dismissing. */
+export function scheduleAfterNativeSheetDismiss<T>(task: () => Promise<T>): Promise<T> {
+  return new Promise((resolve, reject) => {
+    InteractionManager.runAfterInteractions(() => {
+      const run = () => {
+        void task().then(resolve).catch(reject);
+      };
+      if (typeof requestAnimationFrame === 'function') {
+        requestAnimationFrame(run);
+      } else {
+        run();
+      }
+    });
   });
+}
 
-  if (result.canceled) {
-    return { attachments: [] };
-  }
-
-  const picked = result.assets.slice(0, remainingSlots);
+function mapImageAssets(
+  assets: ImagePicker.ImagePickerAsset[],
+  remainingSlots: number,
+): { attachments: ComposerAttachment[]; error?: string } {
+  const picked = assets.slice(0, remainingSlots);
   const attachments: ComposerAttachment[] = [];
   for (const asset of picked) {
     const mapped = toComposerAttachment({
@@ -250,6 +280,59 @@ export async function pickImageAttachments(
   return { attachments };
 }
 
+export async function pickImageAttachments(
+  remainingSlots: number,
+): Promise<{ attachments: ComposerAttachment[]; error?: string }> {
+  if (remainingSlots <= 0) {
+    return { attachments: [], error: `You can attach up to ${MAX_COMPOSER_ATTACHMENTS} files.` };
+  }
+
+  const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+  if (!permission.granted) {
+    return { attachments: [], error: 'Photo library access is required to attach images.' };
+  }
+
+  const result = await scheduleAfterNativeSheetDismiss(() =>
+    ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      allowsMultipleSelection: remainingSlots > 1,
+      quality: 1,
+    }),
+  );
+
+  if (result.canceled) {
+    return { attachments: [] };
+  }
+
+  return mapImageAssets(result.assets, remainingSlots);
+}
+
+export async function pickCameraAttachment(
+  remainingSlots: number,
+): Promise<{ attachments: ComposerAttachment[]; error?: string }> {
+  if (remainingSlots <= 0) {
+    return { attachments: [], error: `You can attach up to ${MAX_COMPOSER_ATTACHMENTS} files.` };
+  }
+
+  const permission = await ImagePicker.requestCameraPermissionsAsync();
+  if (!permission.granted) {
+    return { attachments: [], error: 'Camera access is required to take a photo.' };
+  }
+
+  const result = await scheduleAfterNativeSheetDismiss(() =>
+    ImagePicker.launchCameraAsync({
+      mediaTypes: ['images'],
+      quality: 1,
+    }),
+  );
+
+  if (result.canceled) {
+    return { attachments: [] };
+  }
+
+  return mapImageAssets(result.assets, 1);
+}
+
 export async function pickDocumentAttachments(
   remainingSlots: number,
 ): Promise<{ attachments: ComposerAttachment[]; error?: string }> {
@@ -257,11 +340,13 @@ export async function pickDocumentAttachments(
     return { attachments: [], error: `You can attach up to ${MAX_COMPOSER_ATTACHMENTS} files.` };
   }
 
-  const result = await DocumentPicker.getDocumentAsync({
-    multiple: remainingSlots > 1,
-    copyToCacheDirectory: true,
-    type: '*/*',
-  });
+  const result = await scheduleAfterNativeSheetDismiss(() =>
+    DocumentPicker.getDocumentAsync({
+      multiple: remainingSlots > 1,
+      copyToCacheDirectory: true,
+      type: '*/*',
+    }),
+  );
 
   if (result.canceled) {
     return { attachments: [] };

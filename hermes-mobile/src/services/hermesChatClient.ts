@@ -228,11 +228,13 @@ export async function listMessages(
 export async function sendChatMessage(
   gatewayUrl: string,
   sessionId: string,
-  message: string,
+  message:
+    | string
+    | Array<{ type: string; text?: string; image_url?: { url: string; detail?: string } }>,
   apiKey?: string | null,
   systemMessage?: string,
 ): Promise<{ assistantText: string; raw: ChatTurnResponse }> {
-  const body: Record<string, string> = { message };
+  const body: Record<string, unknown> = { message };
   if (systemMessage?.trim()) {
     body.system_message = systemMessage.trim();
   }
