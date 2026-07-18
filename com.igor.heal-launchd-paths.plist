@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.igor.heal-launchd-paths</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/bash</string>
+    <string>{{HOME}}/.local/bin/heal-launchd-paths.sh</string>
+    <string>--apply</string>
+    <string>--prune</string>
+  </array>
+  <!-- Point at the install-managed symlink in ~/.local/bin, NEVER a repo/worktree
+       path — the whole point is to survive deleted worktrees. -->
+  <key>RunAtLoad</key>
+  <true/>
+  <key>StartInterval</key>
+  <integer>86400</integer>
+  <key>Nice</key>
+  <integer>10</integer>
+  <key>ProcessType</key>
+  <string>Background</string>
+  <key>StandardOutPath</key>
+  <string>{{HOME}}/Library/Logs/heal-launchd-paths.log</string>
+  <key>StandardErrorPath</key>
+  <string>{{HOME}}/Library/Logs/heal-launchd-paths.log</string>
+</dict>
+</plist>
