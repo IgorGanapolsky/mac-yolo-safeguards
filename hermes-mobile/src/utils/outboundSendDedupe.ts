@@ -91,6 +91,109 @@ export function findPendingOptimisticUserBubble(
   return undefined;
 }
 
+/** Failed optimistic bubble for the same intent — stall recovery must reuse, not echo. */
+export function findFailedOptimisticUserBubble(
+  messages: HermesMessage[],
+  body: string,
+): HermesMessage | undefined {
+  const normalized = normalizeMessageText(body);
+  if (!normalized) {
+    return undefined;
+  }
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    const message = messages[index];
+    if (message.role?.toLowerCase() !== 'user' || !idHasPrefix(message.id, 'user-')) {
+      continue;
+    }
+    if (message.outboundStatus !== 'failed') {
+      continue;
+    }
+    if (normalizeMessageText(message.content || '') === normalized) {
+      return message;
+    }
+  }
+  return undefined;
+}
+
+/**
+ * Sent optimistic bubble still awaiting a reply — Delivering/retry must reuse it,
+ * not append a second identical user prompt (11:14 AM echo class).
+ */
+export function findSentOptimisticUserBubbleAwaitingReply(
+  messages: HermesMessage[],
+  body: string,
+): HermesMessage | undefined {
+  const normalized = normalizeMessageText(body);
+  if (!normalized) {
+    return undefined;
+  }
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    const message = messages[index];
+    if (message.role?.toLowerCase() !== 'user' || !idHasPrefix(message.id, 'user-')) {
+      continue;
+    }
+    if (message.outboundStatus !== 'sent') {
+      continue;
+    }
+    if (normalizeMessageText(message.content || '') !== normalized) {
+      continue;
+    }
+    let hasAssistantAfter = false;
+    for (let after = index + 1; after < messages.length; after += 1) {
+      if (messages[after]?.role?.toLowerCase() === 'assistant') {
+        const assistantBody =
+          messages[after]?.content?.trim() || messages[after]?.rawContent?.trim() || '';
+        if (assistantBody.length > 0) {
+          hasAssistantAfter = true;
+          break;
+        }
+      }
+    }
+    if (!hasAssistantAfter) {
+      return message;
+    }
+  }
+  return undefined;
+}
+
+/** Pending → failed → sent-awaiting-reply — one user intent maps to one bubble across retries. */
+export function findReusableOptimisticUserBubble(
+  messages: HermesMessage[],
+  body: string,
+): HermesMessage | undefined {
+  return (
+    findPendingOptimisticUserBubble(messages, body) ??
+    findFailedOptimisticUserBubble(messages, body) ??
+    findSentOptimisticUserBubbleAwaitingReply(messages, body)
+  );
+}
+
+/** Flip a failed optimistic bubble back to pending for stall/manual retry (no second bubble). */
+export function reactivateOptimisticUserBubble(
+  messages: HermesMessage[],
+  messageId: string,
+): HermesMessage[] {
+  if (!messageId) {
+    return messages;
+  }
+  let changed = false;
+  const next = messages.map((message) => {
+    if (message.id !== messageId) {
+      return message;
+    }
+    if (message.outboundStatus === 'pending' && !message.outboundFailureReason) {
+      return message;
+    }
+    changed = true;
+    return {
+      ...message,
+      outboundStatus: 'pending' as const,
+      outboundFailureReason: undefined,
+    };
+  });
+  return changed ? next : messages;
+}
+
 /** Drop adjacent optimistic user-* rows that repeat the same normalized body. */
 export function dedupeAdjacentOptimisticUserBubbles(messages: HermesMessage[]): HermesMessage[] {
   if (messages.length < 2) {
@@ -108,6 +211,13 @@ export function dedupeAdjacentOptimisticUserBubbles(messages: HermesMessage[]): 
       previousIsOptimisticUser &&
       normalizeMessageText(message.content || '') === normalizeMessageText(previous.content || '')
     ) {
+      // Prefer pending over failed when stall-recovery raced a duplicate commit.
+      if (
+        previous?.outboundStatus === 'failed' &&
+        message.outboundStatus === 'pending'
+      ) {
+        deduped[deduped.length - 1] = message;
+      }
       continue;
     }
     deduped.push(message);

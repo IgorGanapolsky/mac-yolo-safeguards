@@ -69,13 +69,23 @@ export const RUN_STALE_IDLE_HINT =
 export const RUN_STALE_TIMEOUT_DETAIL =
   'Run timed out — stopped waiting on your computer. Tap Stop on your Mac or start a new message.';
 
-/** Fail sooner so auto-recover can stop+resend instead of lying "still running" for minutes. */
-export const RUN_NO_TOKEN_FAIL_MS = 45_000;
+/**
+ * Fail only after this long with neither output tokens nor meaningful progress.
+ * 45s was a false-positive class: tool-heavy Mac work (Agent-sync, vault, bash)
+ * often produces detail/tool ticks without streaming tokens — Connected stayed green
+ * while the phone screamed "Run stalled" and auto-resend echoed the prompt.
+ */
+export const RUN_NO_TOKEN_FAIL_MS = 3 * 60 * 1000;
 
 export const RUN_NO_TOKEN_FAIL_DETAIL =
-  'No reply yet — your computer may be slow or stuck. Recovering automatically…';
+  'Still waiting for a reply — recovering automatically…';
 
 export type RunStaleLevel = 'normal' | 'long' | 'idle' | 'expired';
+
+export type NoTokenFailOptions = {
+  /** Open SSE / chat stream means the Mac is still talking — never false-stall. */
+  streamInFlight?: boolean;
+};
 
 export function isRunAwaitingFirstToken(progress: RunProgressState): boolean {
   if (progress.phase === 'completed' || progress.phase === 'failed') {
@@ -87,15 +97,34 @@ export function isRunAwaitingFirstToken(progress: RunProgressState): boolean {
 export function shouldFailRunAwaitingFirstToken(
   progress: RunProgressState | null | undefined,
   nowMs = Date.now(),
+  options?: NoTokenFailOptions,
 ): boolean {
   if (!progress || !isRunAwaitingFirstToken(progress)) {
+    return false;
+  }
+  if (options?.streamInFlight) {
+    return false;
+  }
+  const lastProgressAtMs = progress.lastProgressAtMs ?? progress.startedAtMs;
+  // Tool/detail ticks reset the clock — Mac is alive, just not streaming tokens yet.
+  if (nowMs - lastProgressAtMs < RUN_NO_TOKEN_FAIL_MS) {
     return false;
   }
   return nowMs - progress.startedAtMs >= RUN_NO_TOKEN_FAIL_MS;
 }
 
-export function msUntilNoTokenFail(progress: RunProgressState, nowMs = Date.now()): number {
-  return Math.max(0, RUN_NO_TOKEN_FAIL_MS - (nowMs - progress.startedAtMs));
+export function msUntilNoTokenFail(
+  progress: RunProgressState,
+  nowMs = Date.now(),
+  options?: NoTokenFailOptions,
+): number {
+  if (options?.streamInFlight) {
+    return RUN_NO_TOKEN_FAIL_MS;
+  }
+  const lastProgressAtMs = progress.lastProgressAtMs ?? progress.startedAtMs;
+  const sinceStart = Math.max(0, RUN_NO_TOKEN_FAIL_MS - (nowMs - progress.startedAtMs));
+  const sinceProgress = Math.max(0, RUN_NO_TOKEN_FAIL_MS - (nowMs - lastProgressAtMs));
+  return Math.max(sinceStart, sinceProgress);
 }
 
 export function isMeaningfulRunProgressChange(
