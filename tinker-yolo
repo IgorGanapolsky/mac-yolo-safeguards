@@ -10,6 +10,8 @@
 #   tinker-yolo build               (re)build the distill dataset from traffic (free)
 #   tinker-yolo proof               cheap end-to-end run: train a few steps -> checkpoint
 #   tinker-yolo train               a fuller LoRA run (more data/steps; costs a few $)
+#   tinker-yolo deploy              REAL: train -> merge -> `ollama create` a RUNNABLE
+#                                   fleet model (~16GB base download + merge; ~15-40min)
 set -euo pipefail
 
 VENV="${TINKER_VENV:-$HOME/.hermes/tinker-venv}"
@@ -96,5 +98,9 @@ case "${1:-proof}" in
   build) build ;;
   proof) run_train 8 2 ;;
   train) run_train "${2:-64}" "${3:-6}" ;;
-  *) echo "usage: tinker-yolo [--doctor[--json]|build|proof|train [N] [steps]]" >&2; exit 2 ;;
+  deploy)
+    [ -f "$DATASET" ] || build
+    TINKER_API_KEY="$(load_key)" TINKER_DEPLOY_DATA="$DATASET" \
+      "$PY" "$EVAL_REPO/scripts/tinker_deploy.py" ;;
+  *) echo "usage: tinker-yolo [--doctor[--json]|build|proof|train [N] [steps]|deploy]" >&2; exit 2 ;;
 esac
