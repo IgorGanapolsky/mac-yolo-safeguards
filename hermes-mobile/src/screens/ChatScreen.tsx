@@ -4668,6 +4668,36 @@ export default function ChatScreen() {
   const commitOutboundUserBubble = (text: string): string => {
     const trimmed = text.trim();
     lastCommittedOutboundBodyRef.current = normalizeMessageText(trimmed);
+    // Delivering / queue / stall-recovery must never clone the same intent.
+    const reusable = findReusableOptimisticUserBubble(messagesRef.current, trimmed);
+    if (reusable?.id) {
+      const sentAt = reusable.created_at ?? new Date().toISOString();
+      if (reusable.outboundStatus === 'failed') {
+        pendingOutboundSendsRef.current += 1;
+        commitMessages((prev) => {
+          const next = reactivateOptimisticUserBubble(prev, reusable.id!);
+          persistOutboundSnapshot(currentSessionRef.current?.id, next, {
+            pinnedText: trimmed,
+            pinnedSentAt: sentAt,
+            pinnedStatus: 'pending',
+          });
+          return next;
+        });
+      }
+      pinnedOutboundTextRef.current = trimmed;
+      pinnedOutboundStatusRef.current = 'pending';
+      setPinnedOutboundText(trimmed);
+      setPinnedOutboundSentAt(sentAt);
+      setPinnedOutboundStatus('pending');
+      setRecentChatsDismissed(true);
+      setToolStatus(null);
+      userScrolledUpRef.current = false;
+      lastDistanceFromBottomRef.current = 0;
+      setChatNearBottom(true);
+      pinScrollAfterHydrationRef.current = true;
+      scrollChatToLatest(true);
+      return reusable.id;
+    }
     outboundMessageSeqRef.current += 1;
     const sentAt = new Date().toISOString();
     const userMessage: HermesMessage = {
@@ -4677,8 +4707,26 @@ export default function ChatScreen() {
       created_at: sentAt,
       outboundStatus: 'pending',
     };
-    pendingOutboundSendsRef.current += 1;
     commitMessages((prev) => {
+      // Race-safe: another commit may have landed the same intent between the
+      // pre-check above and this updater — collapse rather than echo.
+      const already = findReusableOptimisticUserBubble(prev, trimmed);
+      if (already?.id) {
+        const next =
+          already.outboundStatus === 'failed'
+            ? reactivateOptimisticUserBubble(prev, already.id)
+            : prev;
+        if (already.outboundStatus === 'failed') {
+          pendingOutboundSendsRef.current += 1;
+        }
+        persistOutboundSnapshot(currentSessionRef.current?.id, next, {
+          pinnedText: trimmed,
+          pinnedSentAt: already.created_at ?? sentAt,
+          pinnedStatus: 'pending',
+        });
+        return next;
+      }
+      pendingOutboundSendsRef.current += 1;
       const next = [...prev, userMessage];
       persistOutboundSnapshot(currentSessionRef.current?.id, next, {
         pinnedText: trimmed,
@@ -4700,7 +4748,11 @@ export default function ChatScreen() {
     // Pin again after RUN banner / dock layout shrinks the FlashList viewport.
     pinScrollAfterHydrationRef.current = true;
     scrollChatToLatest(true);
-    return userMessage.id ?? '';
+    return (
+      findReusableOptimisticUserBubble(messagesRef.current, trimmed)?.id ??
+      userMessage.id ??
+      ''
+    );
   };
 
   async function sendUserText(

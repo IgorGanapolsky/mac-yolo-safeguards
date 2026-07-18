@@ -3,6 +3,7 @@ import {
   findFailedOptimisticUserBubble,
   findPendingOptimisticUserBubble,
   findReusableOptimisticUserBubble,
+  findSentOptimisticUserBubbleAwaitingReply,
   isNoOpDuplicateOutboundSend,
   reactivateOptimisticUserBubble,
   shouldIgnoreDuplicateOutboundSend,
@@ -144,5 +145,20 @@ describe('outboundSendDedupe', () => {
     expect(deduped).toHaveLength(1);
     expect(deduped[0]?.id).toBe('user-2');
     expect(deduped[0]?.outboundStatus).toBe('pending');
+  });
+
+  it('reuses sent optimistic bubble still awaiting reply — Delivering must not clone', () => {
+    const prompt =
+      'Use this religiously to research pain points and provide solutions and make money today';
+    const messages: HermesMessage[] = [
+      { id: 'user-1', role: 'user', content: prompt, outboundStatus: 'sent' },
+    ];
+    expect(findSentOptimisticUserBubbleAwaitingReply(messages, prompt)?.id).toBe('user-1');
+    expect(findReusableOptimisticUserBubble(messages, prompt)?.id).toBe('user-1');
+    const withReply: HermesMessage[] = [
+      ...messages,
+      { id: 'asst-1', role: 'assistant', content: 'Here is a plan.' },
+    ];
+    expect(findSentOptimisticUserBubbleAwaitingReply(withReply, prompt)).toBeUndefined();
   });
 });

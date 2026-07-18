@@ -115,13 +115,56 @@ export function findFailedOptimisticUserBubble(
   return undefined;
 }
 
-/** Pending first, then failed — one user intent maps to one bubble across retries. */
+/**
+ * Sent optimistic bubble still awaiting a reply — Delivering/retry must reuse it,
+ * not append a second identical user prompt (11:14 AM echo class).
+ */
+export function findSentOptimisticUserBubbleAwaitingReply(
+  messages: HermesMessage[],
+  body: string,
+): HermesMessage | undefined {
+  const normalized = normalizeMessageText(body);
+  if (!normalized) {
+    return undefined;
+  }
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    const message = messages[index];
+    if (message.role?.toLowerCase() !== 'user' || !idHasPrefix(message.id, 'user-')) {
+      continue;
+    }
+    if (message.outboundStatus !== 'sent') {
+      continue;
+    }
+    if (normalizeMessageText(message.content || '') !== normalized) {
+      continue;
+    }
+    let hasAssistantAfter = false;
+    for (let after = index + 1; after < messages.length; after += 1) {
+      if (messages[after]?.role?.toLowerCase() === 'assistant') {
+        const assistantBody =
+          messages[after]?.content?.trim() || messages[after]?.rawContent?.trim() || '';
+        if (assistantBody.length > 0) {
+          hasAssistantAfter = true;
+          break;
+        }
+      }
+    }
+    if (!hasAssistantAfter) {
+      return message;
+    }
+  }
+  return undefined;
+}
+
+/** Pending → failed → sent-awaiting-reply — one user intent maps to one bubble across retries. */
 export function findReusableOptimisticUserBubble(
   messages: HermesMessage[],
   body: string,
 ): HermesMessage | undefined {
   return (
-    findPendingOptimisticUserBubble(messages, body) ?? findFailedOptimisticUserBubble(messages, body)
+    findPendingOptimisticUserBubble(messages, body) ??
+    findFailedOptimisticUserBubble(messages, body) ??
+    findSentOptimisticUserBubbleAwaitingReply(messages, body)
   );
 }
 
