@@ -8,7 +8,7 @@ trap 'rm -rf "$TMP"' EXIT INT TERM
 
 CALLS="$TMP/adb-calls.log"
 FAKE_ADB="$TMP/adb"
-cat > "$FAKE_ADB" <<'EOF'
+cat > "$FAKE_ADB" <<'ADBEOF'
 #!/bin/sh
 if [ "$#" -eq 1 ] && [ "$1" = "devices" ]; then
   cat <<'DEVICES'
@@ -26,12 +26,14 @@ if [ "$#" -eq 4 ] && [ "$1" = "-s" ] && [ "$2" = "emulator-5554" ] \
   printf 'host-17 tcp:8642 tcp:8642\nhost-17 tcp:8765 tcp:8765\n'
 fi
 exit 0
-EOF
+ADBEOF
 chmod +x "$FAKE_ADB"
 
 # Keep this test independent of the global E2E lease. A concurrent runner can
-# hold /tmp/yolo-guard-e2e.pid, which correctly pauses the real guard but would
-# otherwise exit this isolated fake-ADB run before recording any calls.
+# hold /tmp/yolo-guard-e2e.pid (or files under /tmp/yolo-guard-e2e/), which
+# correctly pauses the real guard but would otherwise exit this isolated
+# fake-ADB run before recording any calls.
+mkdir -p "$TMP/e2e-lease-dir"
 E2E_LEASE_FILE="$TMP/yolo-guard-e2e.pid"
 
 ADB_CALLS="$CALLS" \
@@ -39,6 +41,7 @@ YOLO_ADB_BIN="$FAKE_ADB" \
 YOLO_LOG="$TMP/guard.log" \
 YOLO_FIRES_LOG="$TMP/fires.log" \
 YOLO_E2E_LEASE_FILE="$E2E_LEASE_FILE" \
+YOLO_E2E_LEASE_DIR="$TMP/e2e-lease-dir" \
 YOLO_CPU_STATE_FILE="$TMP/cpu-state" \
 YOLO_CPU_LAST_FILE="$TMP/cpu-last" \
 YOLO_CPU_STATUS_FILE="$TMP/cpu-status.txt" \
