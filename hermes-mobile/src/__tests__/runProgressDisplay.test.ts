@@ -1,6 +1,8 @@
 import {
+  buildConnectedModelTokenLabel,
   displayableLlmModel,
   formatLlmModelShortName,
+  formatRunTokenSummary,
   humanizeComposerStatus,
   humanizeRunProgressDetail,
   isActiveChatRun,
@@ -242,5 +244,43 @@ describe('shouldShowCompletedRunBanner', () => {
   });
   it('keeps the banner when there is no visible assistant reply yet', () => {
     expect(shouldShowCompletedRunBanner(false)).toBe(true);
+  });
+});
+
+
+describe('formatRunTokenSummary / buildConnectedModelTokenLabel', () => {
+  it('shows em dash for placeholder zeros without live stream usage', () => {
+    expect(
+      formatRunTokenSummary({ inputTokens: 0, outputTokens: 0 }),
+    ).toBe('—');
+  });
+
+  it('shows live in/out when streamUsageLive is set', () => {
+    expect(
+      formatRunTokenSummary({
+        inputTokens: 120,
+        outputTokens: 30,
+        streamUsageLive: true,
+      }),
+    ).toBe('In: 120 | Out: 30');
+  });
+
+  it('builds always-visible Connected chrome with short model + tokens', () => {
+    expect(
+      buildConnectedModelTokenLabel({
+        sessionModel: 'qwen3.5:9b-hermes',
+        sessionInputTokens: 2400,
+        sessionOutputTokens: 100,
+      }),
+    ).toBe('Qwen3.5 9B Hermes · 2,500 tokens');
+  });
+
+  it('shows em dash for active run without gateway usage yet', () => {
+    expect(
+      buildConnectedModelTokenLabel({
+        runModel: 'z-ai/glm-5.2',
+        runProgress: { phase: 'sending' },
+      }),
+    ).toBe('GLM 5.2 · —');
   });
 });

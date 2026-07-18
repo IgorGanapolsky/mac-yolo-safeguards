@@ -5,7 +5,10 @@ import type { RunProgressState } from '../types/chatDisplay';
 import { resolveChatLinkDisplay } from '../utils/gatewayConnection';
 import type { LeashConnectionState } from '../utils/gatewayEndpoint';
 import { GATEWAY_AUTH_REPAIR_HEADER } from '../services/gatewayClient';
-import { displayableLlmModel } from '../utils/runProgressDisplay';
+import {
+  buildConnectedModelTokenLabel,
+  displayableLlmModel,
+} from '../utils/runProgressDisplay';
 import { weakLocalModelWarning } from '../utils/weakLocalModel';
 import {
   DEFAULT_CHAT_HEADER_DETAILS_EXPANDED,
@@ -144,7 +147,7 @@ export function buildHermesStatusLabel(
 
 /**
  * Conversation-first header — Claude/Codex style: title, subtle Mac line, menu affordances.
- * Secondary chrome (project lane, model/tokens, weak-worker warning) is collapsible.
+ * Model + tokens stay visible while Connected; project lane / weak-worker warning remain collapsible.
  */
 export default function ChatScreenHeader({
   threadTitle,
@@ -235,6 +238,16 @@ export default function ChatScreenHeader({
   const localModelWarning = weakLocalModelWarning(resolvedModel);
   const hugeContext =
     (currentSession?.input_tokens ?? 0) >= 20_000 || (runProgress?.inputTokens ?? 0) >= 20_000;
+  const modelTokenStrip = link.connected
+    ? buildConnectedModelTokenLabel({
+        sessionModel: currentSession?.model,
+        runModel: runProgress?.model,
+        gatewayModel,
+        runProgress,
+        sessionInputTokens: currentSession?.input_tokens,
+        sessionOutputTokens: currentSession?.output_tokens,
+      })
+    : null;
   const hasSecondaryChrome =
     showWorkspace || Boolean(hermesAgent) || Boolean(localModelWarning) || hugeContext;
 
@@ -378,6 +391,12 @@ export default function ChatScreenHeader({
           </Pressable>
         ) : null}
       </View>
+
+      {modelTokenStrip ? (
+        <Text style={styles.modelTokenStrip} numberOfLines={1} testID="chat-header-model-strip">
+          {modelTokenStrip}
+        </Text>
+      ) : null}
 
       {detailsExpanded && showWorkspace ? (
         <Pressable
@@ -613,6 +632,14 @@ const styles = StyleSheet.create({
     lineHeight: 14,
     color: colors.textMuted,
     marginTop: 2,
+  },
+  modelTokenStrip: {
+    paddingHorizontal: 4,
+    paddingVertical: 1,
+    fontSize: 11,
+    lineHeight: 15,
+    fontWeight: '600',
+    color: colors.textMuted,
   },
   agentsRow: {
     paddingHorizontal: 4,
