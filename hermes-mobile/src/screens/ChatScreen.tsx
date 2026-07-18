@@ -424,7 +424,6 @@ import {
   pickCameraAttachment,
   pickDocumentAttachments,
   pickImageAttachments,
-  serializeChatMessageContent,
   prepareChatMessageContent,
 } from '../utils/chatAttachments';
 
@@ -5771,9 +5770,7 @@ export default function ChatScreen() {
               sendChatMessage(
                 gatewayUrl,
                 targetSessionId,
-                typeof gatewayMessage === 'string'
-                  ? gatewayMessage
-                  : serializeChatMessageContent(gatewayMessage),
+                gatewayMessage,
                 apiKey,
                 mobileChatSystemPrompt,
               ),

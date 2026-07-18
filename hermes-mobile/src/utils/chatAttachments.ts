@@ -150,25 +150,6 @@ export function buildChatMessageContent(
   return parts;
 }
 
-/** Flatten multimodal content for non-stream fallback APIs that only accept a string. */
-export function serializeChatMessageContent(content: ChatMessageContent): string {
-  if (typeof content === 'string') {
-    return content;
-  }
-  return content
-    .map((part) => {
-      if (part.type === 'text') {
-        return part.text;
-      }
-      if (part.type === 'image_url') {
-        return '[Attached image]';
-      }
-      return '';
-    })
-    .filter(Boolean)
-    .join('\n\n');
-}
-
 async function readDataUrl(attachment: ComposerAttachment): Promise<string> {
   const base64 = await FileSystem.readAsStringAsync(attachment.uri, {
     encoding: BASE64_ENCODING as 'base64',

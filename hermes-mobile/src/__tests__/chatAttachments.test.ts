@@ -6,7 +6,6 @@ import {
   formatAttachmentBubbleText,
   MAX_COMPOSER_ATTACHMENTS,
   prepareChatMessageContent,
-  serializeChatMessageContent,
 } from '../utils/chatAttachments';
 import type { ComposerAttachment } from '../types/chatAttachment';
 
@@ -105,15 +104,6 @@ describe('chatAttachments', () => {
     expect(prepared.content).toBe('');
     expect(prepared.error).toContain('notes.txt');
     expect(prepared.error).toContain('ENOENT');
-  });
-
-  it('serializes multimodal content for non-stream fallback', () => {
-    expect(
-      serializeChatMessageContent([
-        { type: 'text', text: 'See attached' },
-        { type: 'image_url', image_url: { url: 'data:image/png;base64,abc' } },
-      ]),
-    ).toBe('See attached\n\n[Attached image]');
   });
 
   it('empty attach list with text still prepares a plain string', async () => {

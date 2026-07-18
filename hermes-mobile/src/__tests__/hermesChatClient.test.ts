@@ -4,6 +4,7 @@ import {
   updateSessionTitle,
   buildUniqueTitleCandidate,
   createSessionWithUniqueTitle,
+  sendChatMessage,
 } from '../services/hermesChatClient';
 
 describe('hermesChatClient', () => {
@@ -18,6 +19,28 @@ describe('hermesChatClient', () => {
       }),
     ).toBe('Done.');
     expect(extractAssistantText({ output: 'from output field' })).toBe('from output field');
+  });
+
+  it('sends image content unchanged for the non-stream chat endpoint', async () => {
+    const message = [
+      { type: 'text', text: 'See this image' },
+      { type: 'image_url', image_url: { url: 'data:image/png;base64,aW1hZ2U=' } },
+    ];
+    const fetchMock = jest.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ message: { role: 'assistant', content: 'processed' } }),
+    });
+    const originalFetch = global.fetch;
+    global.fetch = fetchMock as typeof fetch;
+
+    try {
+      await sendChatMessage('http://127.0.0.1:8642', 'sess-1', message, 'sk-test');
+      expect(JSON.parse((fetchMock.mock.calls[0][1] as { body: string }).body)).toEqual({
+        message,
+      });
+    } finally {
+      global.fetch = originalFetch;
+    }
   });
 
   it('patches session title via gateway API', async () => {
