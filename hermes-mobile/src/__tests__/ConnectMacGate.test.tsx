@@ -183,32 +183,94 @@ describe('ConnectMacGate', () => {
     expect(view.queryByTestId('connect-mac-gate')).toBeNull();
   });
 
-  it('renders tappable machine rows during first-run scan before a Mac is saved', async () => {
+  it('hides the gate when dismissal is persisted during an active scan', () => {
     delete process.env.EXPO_PUBLIC_E2E_AUTOMATION;
-    const selectGatewayProfile = jest.fn().mockResolvedValue(true);
-    const retryGatewayBootstrap = jest.fn().mockResolvedValue(true);
     mockUseGateway.mockReturnValue(
       gateway({
-        profileScanResult: { foundCount: 1, completedAtMs: Date.now() },
-        gatewayProfiles: [
-          {
-            id: 'mac_usb_loopback',
-            label: 'Computer via USB',
-            gatewayUrl: 'http://127.0.0.1:8642',
-            addedAt: '2026-07-15T00:00:00.000Z',
-          },
-        ],
-        // Discovery can surface a candidate row via scan result without a saved Mac yet.
-        // Keep gate visible; ChatConnectionPanel owns returning-user picker.
-        selectGatewayProfile,
-        retryGatewayBootstrap,
+        profileScanning: true,
+        settings: {
+          ...gateway().settings,
+          connectMacGateDismissed: true,
+        },
       }),
     );
 
     const view = render(<ConnectMacGate />);
-    expect(view.getByTestId('connect-mac-gate')).toBeTruthy();
-    // Loopback-only does not create switcher rows; first-run CTA remains Find computers.
+
+    expect(view.queryByTestId('connect-mac-gate')).toBeNull();
+  });
+
+  it('does not claim a computer is found when an in-flight reach count has no connectable row', () => {
+    delete process.env.EXPO_PUBLIC_E2E_AUTOMATION;
+    mockUseGateway.mockReturnValue(
+      gateway({
+        profileScanning: true,
+        profileScanProgress: {
+          stage: 'gateway_health',
+          completedHosts: 19,
+          totalHosts: 100,
+          foundCount: 1,
+        },
+      }),
+    );
+
+    const view = render(<ConnectMacGate />);
+
+    expect(view.getByText('Checking direct Hermes links (19%)')).toBeTruthy();
+    expect(view.queryByText(/1 computer so far/)).toBeNull();
     expect(view.queryByTestId('connect-mac-found-machines')).toBeNull();
+  });
+
+  it('renders and selects a connectable computer immediately during a scan', async () => {
+    delete process.env.EXPO_PUBLIC_E2E_AUTOMATION;
+    const selectGatewayProfile = jest.fn().mockResolvedValue(true);
+    const retryGatewayBootstrap = jest.fn().mockResolvedValue(true);
+    const profile = {
+      id: 'mac-mini',
+      label: 'Mac mini',
+      gatewayUrl: 'http://192.168.1.50:8642',
+      localIp: '192.168.1.50',
+      addedAt: '2026-07-15T00:00:00.000Z',
+    };
+    mockUseGateway.mockReturnValue(
+      gateway({
+        profileScanning: true,
+        profileScanProgress: {
+          stage: 'gateway_health',
+          completedHosts: 19,
+          totalHosts: 100,
+          foundCount: 1,
+        },
+      }),
+    );
+    const view = render(<ConnectMacGate />);
+
+    mockUseGateway.mockReturnValue(
+      gateway({
+        profileScanning: true,
+        profileScanProgress: {
+          stage: 'gateway_health',
+          completedHosts: 19,
+          totalHosts: 100,
+          foundCount: 1,
+        },
+        gatewayProfiles: [profile],
+        selectGatewayProfile,
+        retryGatewayBootstrap,
+      }),
+    );
+    view.rerender(<ConnectMacGate />);
+    expect(view.getByTestId('connect-mac-gate')).toBeTruthy();
+    expect(view.getByTestId('connect-mac-found-machines')).toBeTruthy();
+    expect(view.getByText(/1 computer so far/)).toBeTruthy();
+
+    fireEvent.press(view.getByTestId('select-gateway-profile-mac-mini'));
+
+    expect(selectGatewayProfile).toHaveBeenCalledWith('mac-mini', {
+      ensureProfile: profile,
+    });
+    await Promise.resolve();
+    expect(retryGatewayBootstrap).toHaveBeenCalledTimes(1);
   });
 
   it('uses cellular onboarding copy when not on Wi-Fi', () => {

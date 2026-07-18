@@ -13,6 +13,7 @@ type MacScanProgressCardProps = {
   scanning: boolean;
   progress: LanScanProgress | null;
   result: LanScanResult | null;
+  connectableProfileCount?: number;
   testID?: string;
 };
 
@@ -22,6 +23,7 @@ export default function MacScanProgressCard({
   scanning,
   progress,
   result,
+  connectableProfileCount,
   testID = 'mac-scan-progress',
 }: MacScanProgressCardProps) {
   const [showResult, setShowResult] = useState(false);
@@ -38,11 +40,15 @@ export default function MacScanProgressCard({
 
   if (scanning && progress) {
     const fraction = lanScanFraction(progress);
+    const displayProgress =
+      connectableProfileCount === undefined
+        ? progress
+        : { ...progress, foundCount: Math.min(progress.foundCount, connectableProfileCount) };
     return (
       <View style={styles.card} testID={testID}>
         <View style={styles.row}>
           <ActivityIndicator color={colors.accent} size="small" />
-          <Text style={styles.statusText}>{formatLanScanStageLabel(progress)}</Text>
+          <Text style={styles.statusText}>{formatLanScanStageLabel(displayProgress)}</Text>
         </View>
         <View style={styles.track} accessibilityRole="progressbar" accessibilityValue={{ min: 0, max: 100, now: Math.round(fraction * 100) }}>
           <View style={[styles.fill, { width: `${Math.max(4, Math.round(fraction * 100))}%` }]} />
