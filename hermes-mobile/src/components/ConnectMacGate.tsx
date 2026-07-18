@@ -146,9 +146,15 @@ export default function ConnectMacGate() {
     );
   }, [activeGatewayProfile?.id, gatewayProfiles]);
 
+  const searching =
+    isSearching ||
+    gatewayBootstrapPhase === 'booting' ||
+    gatewayBootstrapPhase === 'searching' ||
+    profileScanning;
+
   // First-run only. Saved Macs / transient Tailscale blips stay on Chat
   // (ChatConnectionPanel) — never re-mount this overlay on AppState or toggles.
-  const showGate = shouldShowConnectMacGate({
+  const showFreshGate = shouldShowConnectMacGate({
     bootstrapReady,
     demoMode: settings.demoMode,
     connectMacGateDismissed: settings.connectMacGateDismissed,
@@ -158,15 +164,14 @@ export default function ConnectMacGate() {
     e2eAutomation: isE2eAutomationBuild(),
     storeReviewDemo: isStoreReviewDemoBuild(),
   });
-
-  const searching =
-    isSearching ||
-    gatewayBootstrapPhase === 'booting' ||
-    gatewayBootstrapPhase === 'searching' ||
-    profileScanning;
-
-  const showMachineRows =
-    pickerProfiles.length > 0 || (profileScanResult?.foundCount ?? 0) > 0;
+  const keepFreshGateOpenDuringScanRef = useRef(false);
+  if (showFreshGate) {
+    keepFreshGateOpenDuringScanRef.current = true;
+  } else if (!searching) {
+    keepFreshGateOpenDuringScanRef.current = false;
+  }
+  const showGate =
+    showFreshGate || (searching && keepFreshGateOpenDuringScanRef.current);
 
   const onCellular = !wifiConnected;
 
@@ -276,10 +281,11 @@ export default function ConnectMacGate() {
                 scanning={searching}
                 progress={profileScanProgress}
                 result={profileScanResult}
+                hasConnectableProfile={pickerProfiles.length > 0}
                 testID="connect-mac-scan-progress"
               />
 
-              {showMachineRows && pickerProfiles.length > 0 ? (
+              {pickerProfiles.length > 0 ? (
                 <View style={styles.foundBlock} testID="connect-mac-found-machines">
                   <Text style={styles.foundHeading}>Tap a computer to connect</Text>
                   <GatewayProfilePicker
