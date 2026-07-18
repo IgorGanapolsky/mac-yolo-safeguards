@@ -360,7 +360,7 @@ describe('tonight recurrence gates (2026-07-14 P0 class — S16-S23)', () => {
     );
   });
 
-  it('S25: cabled Mac Pro/MBP still exposes a selectable Tailscale row (USB must not hide it)', () => {
+  it('S25: Mac Pro USB and Tailscale aliases render as one physical-machine row', () => {
     const macBookUsb = {
       id: 'mac_book_usb',
       label: 'Igors-MacBook-Pro',
@@ -387,14 +387,12 @@ describe('tonight recurrence gates (2026-07-14 P0 class — S16-S23)', () => {
     const rows = profilesForSwitchComputerPicker([macBookUsb, macBookTs, miniTs], {
       liveUsb: { reachable: true, hostname: 'Igors-MacBook-Pro.local' },
     });
-    expect(rows.map((r) => r.id).sort()).toEqual([
-      'mac_book_ts',
-      'mac_book_usb',
-      'mac_mini_ts',
-    ]);
-    const tsMacPro = rows.find((r) => r.id === 'mac_book_ts')!;
-    expect(profilePickerLines(tsMacPro).title).toBe('Igors-MacBook-Pro (Mac Pro)');
-    expect(profilePickerLines(tsMacPro).detail).toBe('Tailscale · 100.87.85.85:8642');
+    expect(rows.map((r) => r.id)).toEqual(['mac_book_usb', 'mac_mini_ts']);
+    expect(profilePickerLines(rows[0], { cablePluggedIn: true }).title).toBe(
+      'Igors-MacBook-Pro (Mac Pro)',
+    );
+    expect(profilePickerLines(rows[0], { cablePluggedIn: true }).detail).toMatch(/cable/i);
+    expect(profilePickerLines(rows[1]).title).toBe('Igors-Mac-mini');
   });
 
   it('S19: Repair link is bounded (30s Tailscale headroom) and never leaves an infinite spinner', () => {
@@ -580,4 +578,3 @@ describe('tonight recurrence gates (2026-07-14 P0 class — S16-S23)', () => {
     expect(app.expo.android.allowBackup).toBe(false);
   });
 });
-

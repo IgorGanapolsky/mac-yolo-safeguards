@@ -147,22 +147,9 @@ export function machinePickerGroupKey(profile: GatewayProfile): string {
   return `id:${profile.id}`;
 }
 
-function profileRouteBucket(profile: GatewayProfile): 'usb' | 'tailscale' | 'wifi' | 'other' {
-  if (isLoopbackGatewayUrl(profile.gatewayUrl)) {
-    return 'usb';
-  }
-  if (isTailscaleGatewayUrl(profile.gatewayUrl)) {
-    return 'tailscale';
-  }
-  if (isPrivateLanGatewayUrl(profile.gatewayUrl)) {
-    return 'wifi';
-  }
-  return 'other';
-}
-
 /**
  * Pick the best path for a machine: cable when plugged in, else Tailscale, else Wi‑Fi.
- * Used for auto-heal / default selection — picker still lists USB and Tailscale separately.
+ * Used for auto-heal, default selection, and the single physical-machine picker row.
  */
 export function preferredProfileForMachine(
   candidates: GatewayProfile[],
@@ -209,45 +196,7 @@ export function preferredProfileForMachine(
   return candidates.find((profile) => profile.id === bestId) ?? candidates[0];
 }
 
-/**
- * Collapse MagicDNS/IP twins on the *same* route only.
- * USB and Tailscale for the same Mac stay as separate selectable rows (P0 2026-07-15).
- */
-export function collapseSameRouteAliases(
-  profiles: GatewayProfile[],
-  options: {
-    liveUsb?: LiveUsbPickerInput | null;
-    activeProfileId?: string | null;
-  } = {},
-): GatewayProfile[] {
-  const groups = new Map<string, GatewayProfile[]>();
-  for (const profile of profiles) {
-    const key = `${machinePickerGroupKey(profile)}|${profileRouteBucket(profile)}`;
-    const list = groups.get(key) ?? [];
-    list.push(profile);
-    groups.set(key, list);
-  }
-  const collapsed: GatewayProfile[] = [];
-  for (const group of groups.values()) {
-    collapsed.push(preferredProfileForMachine(group, options));
-  }
-  return collapsed.sort((a, b) => {
-    const aCable = isCablePluggedInForProfile(a, options.liveUsb) ? 0 : 1;
-    const bCable = isCablePluggedInForProfile(b, options.liveUsb) ? 0 : 1;
-    if (aCable !== bCable) {
-      return aCable - bCable;
-    }
-    const aName = machinePickerGroupKey(a);
-    const bName = machinePickerGroupKey(b);
-    if (aName !== bName) {
-      return aName.localeCompare(bName);
-    }
-    const routeOrder = { usb: 0, tailscale: 1, wifi: 2, other: 3 } as const;
-    return routeOrder[profileRouteBucket(a)] - routeOrder[profileRouteBucket(b)];
-  });
-}
-
-/** @deprecated Prefer collapseSameRouteAliases — kept for callers/tests that still expect one row. */
+/** Collapse every saved route for one physical machine into its best currently usable row. */
 export function collapseToOneProfilePerMachine(
   profiles: GatewayProfile[],
   options: {
@@ -447,8 +396,8 @@ function sortUsbProfilesFirst(profiles: GatewayProfile[]): GatewayProfile[] {
 }
 
 /**
- * Switch-computer list: USB and Tailscale for the same Mac are both selectable.
- * Only collapse MagicDNS/IP aliases on the same route (not USB↔Tailscale).
+ * Switch-computer list: one row per physical machine, regardless of saved route aliases.
+ * A verified live cable wins for that machine; otherwise its active/Tailscale route wins.
  */
 export function profilesForSwitchComputerPicker(
   profiles: GatewayProfile[],
@@ -483,8 +432,7 @@ export function profilesForSwitchComputerPicker(
   if (hasNamedUsbLoopbackProfile(valid)) {
     valid = valid.filter((p) => !isGenericUsbLoopbackProfile(p));
   }
-  // P0 2026-07-15: cabled Mac Pro/MBP must still expose its Tailscale row for off-cable use.
-  return collapseSameRouteAliases(valid, {
+  return collapseToOneProfilePerMachine(valid, {
     liveUsb,
     activeProfileId: options.activeProfileId,
   });
