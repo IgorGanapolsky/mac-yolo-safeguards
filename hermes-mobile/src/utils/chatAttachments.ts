@@ -166,13 +166,20 @@ export async function prepareChatMessageContent(
   const imageDataUrls: string[] = [];
 
   for (const attachment of attachments) {
-    if (attachment.kind === 'image') {
-      imageDataUrls.push(await readDataUrl(attachment));
-      continue;
-    }
-    if (attachment.kind === 'text') {
-      textSnippets.push(await readTextSnippet(attachment));
-      continue;
+    try {
+      if (attachment.kind === 'image') {
+        imageDataUrls.push(await readDataUrl(attachment));
+        continue;
+      }
+      if (attachment.kind === 'text') {
+        textSnippets.push(await readTextSnippet(attachment));
+        continue;
+      }
+    } catch {
+      return {
+        content: '',
+        error: `Could not read ${attachment.name}. Reattach it and try again.`,
+      };
     }
     return { content: '', error: `Unsupported attachment: ${attachment.name}` };
   }

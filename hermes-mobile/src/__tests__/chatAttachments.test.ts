@@ -7,6 +7,7 @@ import {
   prepareChatMessageContent,
 } from '../utils/chatAttachments';
 import type { ComposerAttachment } from '../types/chatAttachment';
+import * as FileSystem from 'expo-file-system';
 
 jest.mock('expo-file-system', () => ({
   readAsStringAsync: jest.fn(async (uri: string) => {
@@ -81,6 +82,24 @@ describe('chatAttachments', () => {
         }),
       ]),
     );
+  });
+
+  it('returns a named error instead of rejecting when an attachment cannot be read', async () => {
+    const readAsStringAsync = FileSystem.readAsStringAsync as jest.Mock;
+    readAsStringAsync.mockRejectedValueOnce(new Error('ENOENT'));
+    const attachment: ComposerAttachment = {
+      id: 'missing-1',
+      name: 'missing-notes.txt',
+      mimeType: 'text/plain',
+      uri: 'file:///missing-notes.txt',
+      kind: 'text',
+      sizeBytes: 20,
+    };
+
+    await expect(prepareChatMessageContent('Keep this prompt', [attachment])).resolves.toEqual({
+      content: '',
+      error: 'Could not read missing-notes.txt. Reattach it and try again.',
+    });
   });
 
   it('documents attachment slot cap', () => {
