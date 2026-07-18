@@ -61,16 +61,18 @@ type RunProgressBannerProps = {
 
 function formatTokenSummary(progress: RunProgressState, hasModel: boolean): string | null {
   const summary = formatRunTokenSummary(progress);
-  if (summary) {
+  if (summary && summary !== '—') {
     return summary;
   }
-  // When a model is known but the gateway has not emitted usage yet, show — (not fake zeros).
+  // A missing usage payload is a Mac capability/state, not a number. Explain it plainly.
   if (
     hasModel &&
-    progress.phase !== 'completed' &&
-    progress.phase !== 'failed'
+    (progress.phase === 'completed' || progress.phase === 'failed')
   ) {
-    return '—';
+    return 'Usage unavailable from Mac';
+  }
+  if (hasModel) {
+    return 'Counting after reply…';
   }
   return null;
 }

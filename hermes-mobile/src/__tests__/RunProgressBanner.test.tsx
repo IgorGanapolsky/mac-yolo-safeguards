@@ -89,7 +89,7 @@ describe('RunProgressBanner', () => {
     expect(getByText('Gemini 2.5 Flash')).toBeTruthy();
   });
 
-  it('shows em dash when gateway has not emitted token usage', () => {
+  it('explains when the Mac has not emitted token usage yet', () => {
     const { getByText } = render(
       <RunProgressBanner
         progress={{
@@ -101,7 +101,21 @@ describe('RunProgressBanner', () => {
       />,
     );
     expect(getByText('Qwen3.5 9B Hermes')).toBeTruthy();
-    expect(getByText('—')).toBeTruthy();
+    expect(getByText('Counting after reply…')).toBeTruthy();
+  });
+
+  it('explains unavailable usage after a terminal run', () => {
+    const { getByText } = render(
+      <RunProgressBanner
+        progress={{
+          phase: 'completed',
+          startedAtMs: Date.now() - 5000,
+          detail: 'Done',
+          model: 'qwen3.5:9b-hermes',
+        }}
+      />,
+    );
+    expect(getByText('Usage unavailable from Mac')).toBeTruthy();
   });
 
   it('shows token counts during active runs without showTechnicalStats', () => {
