@@ -332,6 +332,14 @@ export default function ChatScreenHeader({
                 >
                   {link.label}
                 </Text>
+                {endpoint ? (
+                  <>
+                    <Text style={styles.macCompactSep}> · </Text>
+                    <Text style={styles.macEndpoint} testID="chat-context-mac-endpoint">
+                      {endpoint}
+                    </Text>
+                  </>
+                ) : null}
               </Text>
             )}
           </View>
