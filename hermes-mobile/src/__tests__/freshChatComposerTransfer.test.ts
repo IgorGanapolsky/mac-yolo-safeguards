@@ -1,5 +1,8 @@
 import {
+  COMPOSER_DRAFT_COMPOSE_FIRST_KEY,
   captureComposerTextForFreshChat,
+  composerDraftSessionKey,
+  resolveComposerTextAfterDraftLoad,
   resolveComposerTextAfterFreshChat,
   shouldRestoreComposerAfterFreshChat,
   shouldSkipStoredDraftLoad,
@@ -48,5 +51,68 @@ describe('freshChatComposerTransfer', () => {
     expect(shouldSkipStoredDraftLoad('typeable-probe-probe-2-1')).toBe(true);
     expect(shouldSkipStoredDraftLoad('')).toBe(true);
     expect(shouldSkipStoredDraftLoad(null)).toBe(false);
+  });
+
+  it('same-session draft load never replaces typed text with empty storage', () => {
+    expect(
+      resolveComposerTextAfterDraftLoad({
+        inMemoryText: 'make money today',
+        loadedDraft: '',
+        isSessionChange: false,
+        textAtFetchStart: 'make money today',
+      }),
+    ).toBe('make money today');
+  });
+
+  it('keeps edits typed while the draft fetch is in flight', () => {
+    expect(
+      resolveComposerTextAfterDraftLoad({
+        inMemoryText: 'make money today now',
+        loadedDraft: 'stale',
+        isSessionChange: false,
+        textAtFetchStart: 'make money',
+      }),
+    ).toBe('make money today now');
+  });
+
+  it('applies empty destination draft on real session change', () => {
+    expect(
+      resolveComposerTextAfterDraftLoad({
+        inMemoryText: 'from previous thread',
+        loadedDraft: '',
+        isSessionChange: true,
+        textAtFetchStart: 'from previous thread',
+      }),
+    ).toBe('');
+  });
+
+  it('keeps compose-first text when a real session attaches before storage flushes', () => {
+    expect(
+      resolveComposerTextAfterDraftLoad({
+        inMemoryText: 'make money today',
+        loadedDraft: '',
+        isSessionChange: true,
+        isComposeFirstSessionAttach: true,
+        textAtFetchStart: 'make money today',
+      }),
+    ).toBe('make money today');
+  });
+
+  it('applies non-empty stored draft on session change', () => {
+    expect(
+      resolveComposerTextAfterDraftLoad({
+        inMemoryText: 'from previous thread',
+        loadedDraft: 'saved on destination',
+        isSessionChange: true,
+        textAtFetchStart: 'from previous thread',
+      }),
+    ).toBe('saved on destination');
+  });
+
+  it('keys compose-first drafts to a stable sentinel', () => {
+    expect(composerDraftSessionKey(null)).toBe(COMPOSER_DRAFT_COMPOSE_FIRST_KEY);
+    expect(composerDraftSessionKey(undefined)).toBe(COMPOSER_DRAFT_COMPOSE_FIRST_KEY);
+    expect(composerDraftSessionKey('')).toBe(COMPOSER_DRAFT_COMPOSE_FIRST_KEY);
+    expect(composerDraftSessionKey('  sess-1  ')).toBe('sess-1');
   });
 });
