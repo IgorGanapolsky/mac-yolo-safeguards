@@ -15,9 +15,7 @@ import {
   loadChatHeaderDetailsExpanded,
   saveChatHeaderDetailsExpanded,
 } from '../utils/chatHeaderChromePreference';
-import type { HermesAvatar } from '../types/gateway';
 import ExpandableThreadTitle from './ExpandableThreadTitle';
-import HermesAvatarPresence from './HermesAvatarPresence';
 
 type ChatScreenHeaderProps = {
   threadTitle: string;
@@ -48,11 +46,6 @@ type ChatScreenHeaderProps = {
   gatewayModel?: string;
   /** Live run usage — preferred over session totals while a turn is in flight. */
   runProgress?: RunProgressState | null;
-  /** Settings avatar skin — compact presence next to the connection row. */
-  hermesAvatar?: HermesAvatar;
-  playfulMotion?: boolean;
-  /** Linked, working, or waiting for approval — drives avatar pulse. */
-  presenceActive?: boolean;
   onOpenThreads: () => void;
   onPressThreadTitle?: () => void;
   onOpenTools?: () => void;
@@ -168,9 +161,6 @@ export default function ChatScreenHeader({
   currentSession,
   gatewayModel,
   runProgress,
-  hermesAvatar = 'orb',
-  playfulMotion = true,
-  presenceActive,
   onOpenThreads,
   onPressThreadTitle,
   onOpenTools,
@@ -367,14 +357,6 @@ export default function ChatScreenHeader({
             )}
           </View>
         </Pressable>
-        <HermesAvatarPresence
-          avatar={hermesAvatar}
-          playfulMotion={playfulMotion}
-          active={presenceActive ?? link.connected}
-          size="sm"
-          testID="chat-header-avatar"
-          style={styles.headerAvatar}
-        />
         {hasSecondaryChrome ? (
           <Pressable
             onPress={toggleDetails}
@@ -600,10 +582,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     lineHeight: 16,
     fontWeight: '600',
-  },
-  headerAvatar: {
-    marginTop: 2,
-    flexShrink: 0,
   },
   chevronBtn: {
     width: 28,
