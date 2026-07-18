@@ -69,6 +69,21 @@ notify() {
     -d "$1" "https://ntfy.sh/$NTFY_TOPIC" >/dev/null 2>&1
 }
 
+# Same PID lease as sim-runaway-guard.sh: process-level Guard E2E on the
+# self-hosted runner must not race this LaunchAgent's leaf/Ollama actions.
+E2E_LEASE_FILE="${YOLO_E2E_LEASE_FILE:-/tmp/yolo-guard-e2e.pid}"
+E2E_LEASE_DIR="${YOLO_E2E_LEASE_DIR:-/tmp/yolo-guard-e2e}"
+if [[ "${YOLO_BYPASS_E2E_LEASE:-0}" != "1" ]]; then
+  for E2E_LEASE in "$E2E_LEASE_FILE" "$E2E_LEASE_DIR"/*; do
+    [[ -f "$E2E_LEASE" ]] || continue
+    E2E_LEASE_PID="$(cat "$E2E_LEASE" 2>/dev/null || true)"
+    if [[ "$E2E_LEASE_PID" =~ ^[0-9]+$ ]] && kill -0 "$E2E_LEASE_PID" 2>/dev/null; then
+      log "E2E_LEASE: guardian paused for active test pid=$E2E_LEASE_PID"
+      exit 0
+    fi
+  done
+fi
+
 ollama_ps=$("$CURL_BIN" -sm 3 "$OLLAMA_API/api/ps" 2>/dev/null)
 
 # --- pressure evaluation ---
