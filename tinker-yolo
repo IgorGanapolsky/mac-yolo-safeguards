@@ -26,9 +26,10 @@ private_dir() {
 }
 
 # Prefer Keychain. The legacy .env fallback is read-only and never printed.
+# TINKER_SECURITY_BIN exists so hermetic tests can stub the Keychain out.
 load_key() {
   local key
-  key="$(/usr/bin/security find-generic-password -a hermes-fleet -s TINKER_API_KEY -w 2>/dev/null || true)"
+  key="$("${TINKER_SECURITY_BIN:-/usr/bin/security}" find-generic-password -a hermes-fleet -s TINKER_API_KEY -w 2>/dev/null || true)"
   [ -z "$key" ] && key="$(grep '^TINKER_API_KEY=' "$ENV_FILE" 2>/dev/null | tail -1 | cut -d= -f2- || true)"
   printf '%s' "$key"
 }
@@ -280,6 +281,180 @@ run_metered() {
   return "$exit_code"
 }
 
+# Undiscounted 64K Inkling rates (USD per million tokens); override via env when
+# Tinker pricing changes. The launch discount makes real cost lower, never higher.
+ASK_PREFILL_USD_PER_M="${TINKER_ASK_PREFILL_USD_PER_M:-3.74}"
+ASK_SAMPLE_USD_PER_M="${TINKER_ASK_SAMPLE_USD_PER_M:-9.36}"
+
+write_ask_receipt() {
+  local estimate="$1" max_cost="$2" exit_code="$3" max_tokens="$4" effort="$5"
+  private_dir "$RECEIPT_DIR"
+  ESTIMATE="$estimate" MAX_COST="$max_cost" EXIT_CODE="$exit_code" MAX_TOKENS="$max_tokens" \
+    EFFORT="$effort" MODEL="${TINKER_ASK_MODEL:-thinkingmachines/Inkling}" RECEIPT_DIR="$RECEIPT_DIR" \
+    "$SYSTEM_PYTHON" - <<'PY'
+import datetime, json, os, pathlib
+root = pathlib.Path(os.environ["RECEIPT_DIR"])
+payload = {
+    "schema": "tinker-yolo/ask-receipt-v1",
+    "generatedAt": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+    "action": "ask",
+    "model": os.environ["MODEL"],
+    "effort": float(os.environ["EFFORT"]),
+    "maxTokens": int(os.environ["MAX_TOKENS"]),
+    "budget": {
+        "maxCostUsd": float(os.environ["MAX_COST"]),
+        "estimatedCostUsd": float(os.environ["ESTIMATE"]),
+        "estimateOnly": True,
+        "actualCostUsd": None,
+    },
+    "execution": {
+        "exitCode": int(os.environ["EXIT_CODE"]),
+        "status": "pass" if int(os.environ["EXIT_CODE"]) == 0 else "fail",
+    },
+    "hermesBaselineChanged": False,
+}
+latest = root / "latest-ask.json"
+tmp = root / f"latest-ask.{os.getpid()}.tmp"
+tmp.write_text(json.dumps(payload, indent=2) + "\n")
+tmp.chmod(0o600)
+tmp.replace(latest)
+latest.chmod(0o600)
+history = root / "history.jsonl"
+with history.open("a") as handle:
+    handle.write(json.dumps(payload, separators=(",", ":")) + "\n")
+history.chmod(0o600)
+PY
+}
+
+# One-shot Inkling inference through Tinker — the fleet's explicit escalation route.
+# Metered spend but no dataset upload, so it requires --approve-paid and a cost cap
+# (not --approve-data-upload). The prompt is the only data sent to the provider.
+run_ask() {
+  local effort=0.9 max_tokens=1024 tool_demo=0 as_json=0 approve_paid=false max_cost="" prompt=""
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+      --approve-paid) approve_paid=true ;;
+      --max-cost-usd)
+        shift
+        [ "$#" -gt 0 ] || { echo "tinker-yolo: --max-cost-usd requires a value" >&2; return 2; }
+        max_cost="$1" ;;
+      --effort)
+        shift
+        [ "$#" -gt 0 ] || { echo "tinker-yolo: --effort requires a value" >&2; return 2; }
+        effort="$1" ;;
+      --max-tokens)
+        shift
+        [ "$#" -gt 0 ] || { echo "tinker-yolo: --max-tokens requires a value" >&2; return 2; }
+        max_tokens="$1" ;;
+      --tool-demo) tool_demo=1 ;;
+      --json) as_json=1 ;;
+      --*) echo "tinker-yolo: unknown option '$1'" >&2; return 2 ;;
+      *) prompt="${prompt:+$prompt }$1" ;;
+    esac
+    shift
+  done
+  [ -n "$prompt" ] || { echo "tinker-yolo: ask requires a prompt" >&2; return 2; }
+  if [ -e "$MARKER" ]; then
+    echo "tinker-yolo: blocked — fleet zero-spend is active; Inkling inference is metered" >&2
+    return 73
+  fi
+  [ -x "$PY" ] || { echo "tinker-yolo: venv missing ($PY)" >&2; return 127; }
+  if [ "$approve_paid" != true ]; then
+    echo "tinker-yolo: blocked — ask is metered; require --approve-paid and --max-cost-usd" >&2
+    return 64
+  fi
+  positive_cost_cap "$max_cost" || { echo "tinker-yolo: --max-cost-usd must be greater than 0 and at most 100" >&2; return 64; }
+  bounded_integer "$max_tokens" 32768 || { echo "tinker-yolo: --max-tokens must be an integer from 1 to 32768" >&2; return 64; }
+  EFFORT="$effort" "$SYSTEM_PYTHON" -c 'import os,sys; e=float(os.environ["EFFORT"]); sys.exit(0 if 0 < e <= 1 else 1)' 2>/dev/null \
+    || { echo "tinker-yolo: --effort must be a number in (0, 1]" >&2; return 64; }
+
+  local estimate within
+  estimate="$(ASK_PROMPT="$prompt" MAX_TOKENS="$max_tokens" PREFILL="$ASK_PREFILL_USD_PER_M" \
+    SAMPLE="$ASK_SAMPLE_USD_PER_M" "$SYSTEM_PYTHON" - <<'PY'
+import os
+# ~3 bytes/token is a conservative floor; +220 covers chat/tool-spec scaffolding.
+prompt_tokens = len(os.environ["ASK_PROMPT"].encode("utf-8")) // 3 + 220
+cost = (prompt_tokens / 1e6 * float(os.environ["PREFILL"])
+        + int(os.environ["MAX_TOKENS"]) / 1e6 * float(os.environ["SAMPLE"]))
+print(round(cost, 6))
+PY
+)"
+  within="$(ESTIMATE="$estimate" MAX_COST="$max_cost" "$SYSTEM_PYTHON" -c 'import os; print("true" if float(os.environ["ESTIMATE"]) <= float(os.environ["MAX_COST"]) else "false")')"
+  if [ "$within" != true ]; then
+    echo "tinker-yolo: estimated cost $estimate exceeds cap $max_cost; no provider call made" >&2
+    return 78
+  fi
+  local key
+  key="$(load_key)"
+  [ -n "$key" ] || { echo "tinker-yolo: Tinker auth missing; no provider call made" >&2; return 77; }
+
+  set +e
+  TINKER_API_KEY="$key" TINKER_ASK_PROMPT="$prompt" TINKER_ASK_EFFORT="$effort" \
+  TINKER_ASK_MAX_TOKENS="$max_tokens" TINKER_ASK_TOOL_DEMO="$tool_demo" TINKER_ASK_JSON="$as_json" \
+  TINKER_ASK_MODEL="${TINKER_ASK_MODEL:-thinkingmachines/Inkling}" \
+    "$PY" - <<'PY'
+import json, os, sys
+import tinker
+from tinker.types import SamplingParams
+from tinker_cookbook import renderers, tokenizer_utils
+
+model = os.environ["TINKER_ASK_MODEL"]
+effort = float(os.environ["TINKER_ASK_EFFORT"])
+tok = tokenizer_utils.get_tokenizer(model)
+rend = renderers.get_renderer("tml_v0", tok, model_name=model)
+
+msgs = []
+if os.environ["TINKER_ASK_TOOL_DEMO"] == "1":
+    tools = [renderers.ToolSpec(
+        name="get_fleet_status",
+        description="Return live health of one Hermes fleet host (gateway, models, load).",
+        parameters={"type": "object",
+                    "properties": {"host": {"type": "string", "enum": ["pro", "mini"]}},
+                    "required": ["host"]})]
+    msgs += rend.create_conversation_prefix_with_tools(
+        tools, system_prompt="You are the Hermes fleet assistant. Use tools when they apply.")
+msgs.append({"role": "user", "content": os.environ["TINKER_ASK_PROMPT"]})
+
+prompt_mi = rend.build_generation_prompt(msgs, effort=effort)
+client = tinker.ServiceClient().create_sampling_client(base_model=model)
+resp = client.sample(
+    prompt=prompt_mi, num_samples=1,
+    sampling_params=SamplingParams(
+        max_tokens=int(os.environ["TINKER_ASK_MAX_TOKENS"]),
+        temperature=0.7, stop=rend.get_stop_sequences())).result()
+
+seq = resp.sequences[0]
+tokens = list(getattr(seq, "tokens", None) or seq.tokens_np.tolist())
+message, termination = rend.parse_response(tokens)
+
+def jsonable(o):
+    if hasattr(o, "__dict__"): return {k: jsonable(v) for k, v in vars(o).items()}
+    if isinstance(o, dict): return {k: jsonable(v) for k, v in o.items()}
+    if isinstance(o, (list, tuple)): return [jsonable(v) for v in o]
+    return o if isinstance(o, (str, int, float, bool, type(None))) else str(o)
+
+text = renderers.get_text_content(message)
+tool_calls = jsonable(message.get("tool_calls") or [])
+report = {"schema": "tinker-yolo/ask-v1", "model": model, "effort": effort,
+          "promptTokens": prompt_mi.length, "completionTokens": len(tokens),
+          "promptCacheHitTokens": getattr(resp, "prompt_cache_hit_tokens", 0),
+          "stopReason": str(seq.stop_reason), "termination": str(termination),
+          "toolCalls": tool_calls, "text": text}
+if os.environ["TINKER_ASK_JSON"] == "1":
+    print(json.dumps(report))
+else:
+    print(text)
+    if tool_calls:
+        print("\n[tool calls]", json.dumps(tool_calls, indent=2))
+    print(f"\n[usage] prompt={report['promptTokens']} completion={report['completionTokens']} "
+          f"cache_hit={report['promptCacheHitTokens']} stop={report['stopReason']}", file=sys.stderr)
+PY
+  local exit_code=$?
+  set -e
+  write_ask_receipt "$estimate" "$max_cost" "$exit_code" "$max_tokens" "$effort"
+  return "$exit_code"
+}
+
 usage() {
   cat <<'USAGE'
 tinker-yolo — evidence-gated Tinker customization for Hermes
@@ -290,6 +465,11 @@ Read-only / free:
   --doctor [--json]          Tinker auth/catalog + recommendation; no training
   build                      build a private local dataset; no upload
 
+Metered inference (prompt-only upload; both flags mandatory):
+  ask "prompt" --approve-paid --max-cost-usd N
+      [--effort 0..1] [--max-tokens N] [--tool-demo] [--json]
+      one-shot Inkling escalation via Tinker; receipt in latest-ask.json
+
 Metered and data-uploading (all three flags are mandatory):
   proof  --approve-paid --approve-data-upload --max-cost-usd N
   train [examples] [steps] --approve-paid --approve-data-upload --max-cost-usd N
@@ -297,6 +477,7 @@ Metered and data-uploading (all three flags are mandatory):
 
 The cost gate is a conservative estimate, not a provider-side hard billing cap.
 Inkling remains a remote candidate; these training commands retain Qwen/Qwen3-8B.
+`ask` is the explicit per-call Inkling route and never changes the Hermes default.
 USAGE
 }
 
@@ -312,6 +493,9 @@ case "$command" in
     exit 0 ;;
   recommend)
     recommend "$@"
+    exit $? ;;
+  ask)
+    run_ask "$@"
     exit $? ;;
   --doctor|--doctor=json|--json)
     format=text
