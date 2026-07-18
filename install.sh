@@ -60,6 +60,7 @@ link "$REPO/opencode-yolo"                     "$INSTALL_HOME/.local/bin/opencod
 link "$REPO/kimi-yolo"                         "$INSTALL_HOME/.local/bin/kimi-yolo"
 link "$REPO/tinker-yolo"                       "$INSTALL_HOME/.local/bin/tinker-yolo"
 link "$REPO/scripts/heal-launchd-paths.sh"     "$INSTALL_HOME/.local/bin/heal-launchd-paths.sh"
+link "$REPO/scripts/grok-yolo-leak-reaper.sh"  "$INSTALL_HOME/.local/bin/grok-yolo-leak-reaper.sh"
 
 # Instead of symlinking the plist, write a copy with {{HOME}} substituted to point to the actual home directory
 PLIST_DEST="$INSTALL_HOME/Library/LaunchAgents/com.igor.shutdown-simulators.plist"
@@ -72,6 +73,12 @@ HEAL_PLIST_DEST="$INSTALL_HOME/Library/LaunchAgents/com.igor.heal-launchd-paths.
 if [ -f "$HEAL_PLIST_DEST" ] || [ -L "$HEAL_PLIST_DEST" ]; then rm -f "$HEAL_PLIST_DEST"; fi
 sed "s|{{HOME}}|$INSTALL_HOME|g" "$REPO/com.igor.heal-launchd-paths.plist" > "$HEAL_PLIST_DEST"
 echo "  $HEAL_PLIST_DEST created with resolved paths"
+
+# Hourly reaper for stale grok/grok-yolo procs that pin the local Ollama model (memory thrash).
+REAP_PLIST_DEST="$INSTALL_HOME/Library/LaunchAgents/com.igor.grok-yolo-leak-reaper.plist"
+if [ -f "$REAP_PLIST_DEST" ] || [ -L "$REAP_PLIST_DEST" ]; then rm -f "$REAP_PLIST_DEST"; fi
+sed "s|{{HOME}}|$INSTALL_HOME|g" "$REPO/com.igor.grok-yolo-leak-reaper.plist" > "$REAP_PLIST_DEST"
+echo "  $REAP_PLIST_DEST created with resolved paths"
 
 echo ""
 echo "=== Bootstrapping LaunchAgent ==="

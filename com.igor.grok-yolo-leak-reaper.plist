@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.igor.grok-yolo-leak-reaper</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/bash</string>
+    <string>{{HOME}}/.local/bin/grok-yolo-leak-reaper.sh</string>
+    <string>--apply</string>
+  </array>
+  <!-- Hourly: catch a stale grok/grok-yolo (pins ~7GB Ollama) well before it reaches
+       the 15-21h ages that thrashed the 24GB box. Points at the ~/.local/bin symlink. -->
+  <key>RunAtLoad</key>
+  <true/>
+  <key>StartInterval</key>
+  <integer>3600</integer>
+  <key>Nice</key>
+  <integer>10</integer>
+  <key>ProcessType</key>
+  <string>Background</string>
+  <key>StandardOutPath</key>
+  <string>{{HOME}}/Library/Logs/grok-yolo-leak-reaper.log</string>
+  <key>StandardErrorPath</key>
+  <string>{{HOME}}/Library/Logs/grok-yolo-leak-reaper.log</string>
+</dict>
+</plist>
