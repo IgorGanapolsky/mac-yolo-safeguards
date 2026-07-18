@@ -13,7 +13,7 @@ type MacScanProgressCardProps = {
   scanning: boolean;
   progress: LanScanProgress | null;
   result: LanScanResult | null;
-  hasConnectableProfile?: boolean;
+  connectableProfileCount?: number;
   testID?: string;
 };
 
@@ -23,7 +23,7 @@ export default function MacScanProgressCard({
   scanning,
   progress,
   result,
-  hasConnectableProfile = true,
+  connectableProfileCount,
   testID = 'mac-scan-progress',
 }: MacScanProgressCardProps) {
   const [showResult, setShowResult] = useState(false);
@@ -40,9 +40,10 @@ export default function MacScanProgressCard({
 
   if (scanning && progress) {
     const fraction = lanScanFraction(progress);
-    const displayProgress = hasConnectableProfile
-      ? progress
-      : { ...progress, foundCount: 0 };
+    const displayProgress =
+      connectableProfileCount === undefined
+        ? progress
+        : { ...progress, foundCount: Math.min(progress.foundCount, connectableProfileCount) };
     return (
       <View style={styles.card} testID={testID}>
         <View style={styles.row}>

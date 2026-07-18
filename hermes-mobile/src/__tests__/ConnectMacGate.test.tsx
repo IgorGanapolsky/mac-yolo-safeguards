@@ -183,6 +183,23 @@ describe('ConnectMacGate', () => {
     expect(view.queryByTestId('connect-mac-gate')).toBeNull();
   });
 
+  it('hides the gate when dismissal is persisted during an active scan', () => {
+    delete process.env.EXPO_PUBLIC_E2E_AUTOMATION;
+    mockUseGateway.mockReturnValue(
+      gateway({
+        profileScanning: true,
+        settings: {
+          ...gateway().settings,
+          connectMacGateDismissed: true,
+        },
+      }),
+    );
+
+    const view = render(<ConnectMacGate />);
+
+    expect(view.queryByTestId('connect-mac-gate')).toBeNull();
+  });
+
   it('does not claim a computer is found when an in-flight reach count has no connectable row', () => {
     delete process.env.EXPO_PUBLIC_E2E_AUTOMATION;
     mockUseGateway.mockReturnValue(

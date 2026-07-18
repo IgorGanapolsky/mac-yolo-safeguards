@@ -171,7 +171,8 @@ export default function ConnectMacGate() {
     keepFreshGateOpenDuringScanRef.current = false;
   }
   const showGate =
-    showFreshGate || (searching && keepFreshGateOpenDuringScanRef.current);
+    showFreshGate ||
+    (!settings.connectMacGateDismissed && searching && keepFreshGateOpenDuringScanRef.current);
 
   const onCellular = !wifiConnected;
 
@@ -281,7 +282,7 @@ export default function ConnectMacGate() {
                 scanning={searching}
                 progress={profileScanProgress}
                 result={profileScanResult}
-                hasConnectableProfile={pickerProfiles.length > 0}
+                connectableProfileCount={pickerProfiles.length}
                 testID="connect-mac-scan-progress"
               />
 
