@@ -4,6 +4,7 @@ import { colors } from '../theme/colors';
 import type { RunProgressState } from '../types/chatDisplay';
 import {
   formatLlmModelShortName,
+  formatRunTokenSummary,
   humanizeRunProgressDetail,
   runProgressBannerTitle,
   runProgressCompletedSnippet,
@@ -58,14 +59,18 @@ type RunProgressBannerProps = {
   isStartingFreshChat?: boolean;
 };
 
-function formatTokenSummary(progress: RunProgressState): string | null {
-  const input = progress.inputTokens;
-  const output = progress.outputTokens;
-  if (input != null || output != null) {
-    return `In: ${input ?? 0} | Out: ${output ?? 0}`;
+function formatTokenSummary(progress: RunProgressState, hasModel: boolean): string | null {
+  const summary = formatRunTokenSummary(progress);
+  if (summary) {
+    return summary;
   }
-  if (progress.totalTokens != null) {
-    return `${progress.totalTokens} total`;
+  // When a model is known but the gateway has not emitted usage yet, show — (not fake zeros).
+  if (
+    hasModel &&
+    progress.phase !== 'completed' &&
+    progress.phase !== 'failed'
+  ) {
+    return '—';
   }
   return null;
 }
@@ -144,7 +149,7 @@ function RunProgressBanner({
   const durationLabel = formatElapsedDuration(Math.floor(durationSec));
   const modelLabel =
     formatLlmModelShortName(progress.model) ?? formatLlmModelShortName(fallbackModel);
-  const liveTokenLabel = formatTokenSummary(progress);
+  const liveTokenLabel = formatTokenSummary(progress, Boolean(modelLabel));
 
   useEffect(() => {
     const next = liveTokenLabel ?? '';

@@ -62,24 +62,53 @@ function readPayloadModel(data: Record<string, unknown>): string | undefined {
   );
 }
 
-function payloadHasUsageFields(data: Record<string, unknown>): boolean {
-  const usage = {
+function readNestedUsage(data: Record<string, unknown>) {
+  return {
     ...readUsageBlock(data.usage),
     ...readUsageBlock(data.token_usage),
     ...readUsageBlock(data.tokenUsage),
     ...readUsageBlock(data.stats),
   };
-  return (
-    readNumber(data.input_tokens) != null ||
-    readNumber(data.inputTokens) != null ||
-    readNumber(data.output_tokens) != null ||
-    readNumber(data.outputTokens) != null ||
-    readNumber(data.total_tokens) != null ||
-    readNumber(data.totalTokens) != null ||
-    usage.inputTokens != null ||
-    usage.outputTokens != null ||
-    usage.totalTokens != null
+}
+
+function nestedUsagePresent(data: Record<string, unknown>): boolean {
+  const usage = readNestedUsage(data);
+  return usage.inputTokens != null || usage.outputTokens != null || usage.totalTokens != null;
+}
+
+function hasPositiveTokenCount(...values: Array<number | undefined>): boolean {
+  return values.some((value) => value != null && value > 0);
+}
+
+/**
+ * Gateway SSE `usage` objects are live truth (including early zeros).
+ * Top-level `input_tokens: 0` from empty session placeholders is not — those must
+ * not flip streamUsageLive or they lock out later real polls/events.
+ */
+function payloadEstablishesLiveUsage(data: Record<string, unknown>): boolean {
+  if (nestedUsagePresent(data)) {
+    return true;
+  }
+  return hasPositiveTokenCount(
+    readNumber(data.input_tokens) ?? readNumber(data.inputTokens),
+    readNumber(data.output_tokens) ?? readNumber(data.outputTokens),
+    readNumber(data.total_tokens) ?? readNumber(data.totalTokens),
   );
+}
+
+function coalesceTokenCount(
+  payload: number | undefined,
+  prior: number | undefined,
+  options: { acceptZero: boolean },
+): number | undefined {
+  if (payload == null) {
+    return prior;
+  }
+  if (payload > 0 || options.acceptZero || prior != null) {
+    return payload;
+  }
+  // Placeholder zero with no prior live count — keep unknown.
+  return prior;
 }
 
 /** Merge model + token fields from gateway SSE payloads or session records. */
@@ -87,12 +116,11 @@ export function mergeRunUsageFromPayload(
   progress: RunProgressState,
   data: Record<string, unknown>,
 ): RunProgressState {
-  const usage = {
-    ...readUsageBlock(data.usage),
-    ...readUsageBlock(data.token_usage),
-    ...readUsageBlock(data.tokenUsage),
-    ...readUsageBlock(data.stats),
-  };
+  const usage = readNestedUsage(data);
+
+  const nestedLive = nestedUsagePresent(data);
+  const acceptZero =
+    nestedLive || Boolean(progress.streamUsageLive) || progress.inputTokens != null || progress.outputTokens != null;
 
   const payloadInput =
     readNumber(data.input_tokens) ??
@@ -107,13 +135,13 @@ export function mergeRunUsageFromPayload(
     readNumber(data.totalTokens) ??
     usage.totalTokens;
 
-  const inputTokens = payloadInput ?? progress.inputTokens;
-  const outputTokens = payloadOutput ?? progress.outputTokens;
+  const inputTokens = coalesceTokenCount(payloadInput, progress.inputTokens, { acceptZero });
+  const outputTokens = coalesceTokenCount(payloadOutput, progress.outputTokens, { acceptZero });
   const totalTokens =
-    payloadTotal ??
+    coalesceTokenCount(payloadTotal, progress.totalTokens, { acceptZero }) ??
     (inputTokens != null || outputTokens != null
       ? (inputTokens ?? 0) + (outputTokens ?? 0)
-      : progress.totalTokens);
+      : undefined);
 
   const payloadModel = readPayloadModel(data);
   const model =
@@ -122,7 +150,7 @@ export function mergeRunUsageFromPayload(
       : displayableLlmModel(progress.model) ?? undefined;
 
   const duration = readNumber(data.duration) ?? progress.duration;
-  const streamUsageLive = payloadHasUsageFields(data) ? true : progress.streamUsageLive;
+  const streamUsageLive = payloadEstablishesLiveUsage(data) ? true : progress.streamUsageLive;
 
   return {
     ...progress,
@@ -196,11 +224,22 @@ export function mergeSessionUsageIntoRunProgress(
     return mergeRunUsageFromPayload(base, { model: session.model });
   }
 
-  return mergeRunUsageFromPayload(base, {
-    model: session.model,
-    input_tokens: session.input_tokens,
-    output_tokens: session.output_tokens,
-  });
+  const payload: Record<string, unknown> = { model: session.model };
+  const input = session.input_tokens;
+  const output = session.output_tokens;
+  // Empty-session placeholders often ship input_tokens/output_tokens: 0 — ignore those
+  // so Delivering does not show fake zeros or lock streamUsageLive.
+  if ((input ?? 0) > 0 || (output ?? 0) > 0) {
+    if (input != null) {
+      payload.input_tokens = input;
+    }
+    if (output != null) {
+      payload.output_tokens = output;
+    }
+  }
+  const next = mergeRunUsageFromPayload(base, payload);
+  // Session polls never mark streamUsageLive — only SSE usage events do.
+  return { ...next, streamUsageLive: base.streamUsageLive };
 }
 
 export interface StreamActivityState {
