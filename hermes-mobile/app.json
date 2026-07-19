@@ -139,6 +139,13 @@
         }
       ],
       [
+        "expo-image-picker",
+        {
+          "photosPermission": "Hermes needs photo library access so you can attach images to chat.",
+          "cameraPermission": "Hermes needs camera access so you can attach a photo to chat."
+        }
+      ],
+      [
         "expo-notifications",
         {
           "icon": "./assets/icon.png",

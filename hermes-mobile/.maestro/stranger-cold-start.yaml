@@ -11,6 +11,7 @@ appId: com.iganapolsky.hermesmobile
     notVisible:
       id: "hermes-bootstrap"
     timeout: 90000
+- runFlow: dismiss-notification-permission.yaml
 - runFlow: dismiss-print-interruption.yaml
 - extendedWaitUntil:
     visible:

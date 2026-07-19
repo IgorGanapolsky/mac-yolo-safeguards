@@ -28,6 +28,7 @@ export type ResolveComputerPickerStatusInput = {
   scanResult: LanScanResult | null;
   showScanResult: boolean;
   tailscaleProbing: boolean;
+  tailscaleVpnActive: boolean;
   tailscaleDiscoveries: DiscoveredGateway[];
 };
 
@@ -40,7 +41,10 @@ export function resolveComputerPickerStatus(
 ): ComputerPickerStatusSnapshot {
   const discoveries = input.tailscaleDiscoveries;
   const probingOnly =
-    input.tailscaleProbing && discoveries.length === 0 && !input.scanning;
+    input.tailscaleVpnActive &&
+    input.tailscaleProbing &&
+    discoveries.length === 0 &&
+    !input.scanning;
 
   if (input.scanning) {
     const title = input.scanProgress
@@ -50,7 +54,9 @@ export function resolveComputerPickerStatus(
       kind: 'searching',
       title,
       detail:
-        'Looking on Wi‑Fi and Tailscale. Keep Hermes open on your computer.',
+        input.tailscaleVpnActive
+          ? 'Looking on Wi‑Fi and Tailscale. Keep Hermes open on your computer.'
+          : 'Looking on Wi‑Fi. Tailscale is off on this phone.',
       discoveries: [],
     };
   }
@@ -71,6 +77,16 @@ export function resolveComputerPickerStatus(
       title: formatLanScanResultLabel(input.scanResult),
       detail: formatLanScanResultDetail(input.scanResult),
       success: input.scanResult.foundCount > 0,
+      discoveries: [],
+    };
+  }
+
+  if (!input.tailscaleVpnActive && (input.tailscaleProbing || discoveries.length > 0)) {
+    return {
+      kind: 'help',
+      title: 'Tailscale is off on this phone',
+      detail:
+        'Turn on Tailscale to find computers away from your home Wi‑Fi, or add your computer below.',
       discoveries: [],
     };
   }

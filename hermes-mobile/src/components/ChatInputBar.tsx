@@ -1,5 +1,14 @@
 import React, { memo, useEffect, useRef } from 'react';
-import { Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import {
+  Image,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 import { colors } from '../theme/colors';
 import type { ComposerAttachment } from '../types/chatAttachment';
 import { composerHasSendableContent } from '../utils/chatAttachments';
@@ -81,9 +90,32 @@ function ChatInputBar({
   return (
     <View style={styles.shell}>
       {attachments.length > 0 ? (
-        <View style={styles.chipsRow} testID="chat-attachment-chips">
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.chipsScroll}
+          contentContainerStyle={styles.chipsRow}
+          testID="chat-attachment-chips"
+        >
           {attachments.map((attachment) => (
-            <View key={attachment.id} style={styles.chip} testID={`chat-attach-chip-${attachment.id}`}>
+            <View
+              key={attachment.id}
+              style={styles.chip}
+              testID={`chat-attach-chip-${attachment.id}`}
+            >
+              {attachment.kind === 'image' ? (
+                <Image
+                  source={{ uri: attachment.uri }}
+                  style={styles.chipThumb}
+                  accessibilityIgnoresInvertColors
+                />
+              ) : (
+                <View style={styles.chipFileGlyph}>
+                  <Text style={styles.chipFileGlyphText} allowFontScaling={false}>
+                    TXT
+                  </Text>
+                </View>
+              )}
               <Text style={styles.chipText} numberOfLines={1}>
                 {attachment.name}
               </Text>
@@ -92,12 +124,13 @@ function ChatInputBar({
                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                 testID={`chat-attach-remove-${attachment.id}`}
                 accessibilityLabel={`Remove ${attachment.name}`}
+                style={styles.chipRemoveBtn}
               >
                 <Text style={styles.chipRemove}>×</Text>
               </TouchableOpacity>
             </View>
           ))}
-        </View>
+        </ScrollView>
       ) : null}
       <View style={styles.inputBar}>
         <TouchableOpacity
@@ -188,35 +221,72 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     backgroundColor: 'transparent',
   },
+  chipsScroll: {
+    maxHeight: 56,
+    marginBottom: 8,
+  },
   chipsRow: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 6,
+    alignItems: 'center',
+    gap: 8,
     paddingHorizontal: 4,
-    paddingBottom: 8,
+    paddingRight: 12,
   },
   chip: {
     flexDirection: 'row',
     alignItems: 'center',
-    maxWidth: '100%',
-    gap: 4,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 14,
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    maxWidth: 220,
+    gap: 8,
+    paddingLeft: 4,
+    paddingRight: 6,
+    paddingVertical: 4,
+    borderRadius: 16,
+    backgroundColor: 'rgba(255, 255, 255, 0.07)',
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: colors.borderLight,
+  },
+  chipThumb: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  chipFileGlyph: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(34, 211, 238, 0.12)',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(34, 211, 238, 0.28)',
+  },
+  chipFileGlyphText: {
+    color: colors.accent,
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.3,
   },
   chipText: {
     flexShrink: 1,
     color: colors.text,
     fontSize: 13,
+    fontWeight: '600',
+    maxWidth: 140,
+  },
+  chipRemoveBtn: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
   },
   chipRemove: {
-    color: colors.textMuted,
+    color: colors.textSecondary,
     fontSize: 16,
-    lineHeight: 16,
-    fontWeight: '600',
+    lineHeight: 18,
+    fontWeight: '700',
   },
   inputBar: {
     flexDirection: 'row',

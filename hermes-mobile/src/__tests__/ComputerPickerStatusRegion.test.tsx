@@ -35,6 +35,7 @@ describe('ComputerPickerStatusRegion', () => {
         scanProgress={null}
         scanResult={null}
         tailscaleProbing={false}
+        tailscaleVpnActive
         tailscaleDiscoveries={[]}
       />,
     );
@@ -56,6 +57,7 @@ describe('ComputerPickerStatusRegion', () => {
         scanProgress={null}
         scanResult={null}
         tailscaleProbing
+        tailscaleVpnActive
         tailscaleDiscoveries={[]}
       />,
     );
@@ -69,6 +71,7 @@ describe('ComputerPickerStatusRegion', () => {
         scanProgress={null}
         scanResult={scanResult}
         tailscaleProbing={false}
+        tailscaleVpnActive
         tailscaleDiscoveries={[discovery]}
       />,
     );
@@ -90,6 +93,7 @@ describe('ComputerPickerStatusRegion', () => {
         scanProgress={null}
         scanResult={null}
         tailscaleProbing
+        tailscaleVpnActive
         tailscaleDiscoveries={[]}
       />,
     );
@@ -101,6 +105,7 @@ describe('ComputerPickerStatusRegion', () => {
         scanProgress={null}
         scanResult={scanResult}
         tailscaleProbing={false}
+        tailscaleVpnActive
         tailscaleDiscoveries={[]}
       />,
     );
@@ -112,5 +117,21 @@ describe('ComputerPickerStatusRegion', () => {
       jest.advanceTimersByTime(400);
     });
     expect(getByText('Found 2 on Tailscale')).toBeTruthy();
+  });
+
+  it('shows honest off-VPN copy while a tailnet probe is in flight', () => {
+    const { getByText, queryByText } = render(
+      <ComputerPickerStatusRegion
+        scanning={false}
+        scanProgress={null}
+        scanResult={null}
+        tailscaleProbing
+        tailscaleVpnActive={false}
+        tailscaleDiscoveries={[]}
+      />,
+    );
+
+    expect(getByText('Tailscale is off on this phone')).toBeTruthy();
+    expect(queryByText('On Tailscale — searching for your computer')).toBeNull();
   });
 });
