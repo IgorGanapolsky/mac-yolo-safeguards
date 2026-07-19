@@ -190,6 +190,36 @@ describe('gatewayProfilePicker', () => {
     expect(profilePickerLines(profiles[1]).title).toBe('Igors-Mac-mini');
   });
 
+  it('does not let an active home Wi-Fi alias hide the same Mac Tailscale route', () => {
+    const profiles = profilesForSwitchComputerPicker(
+      [
+        {
+          id: 'mac_book_lan',
+          label: 'Igors-MacBook-Pro',
+          gatewayUrl: 'http://192.168.68.54:8642',
+          hostname: 'Igors-MacBook-Pro',
+          localIp: '192.168.68.54',
+          addedAt: '2026-07-18T15:00:00Z',
+        },
+        {
+          id: 'mac_book_ts',
+          label: 'Igors-MacBook-Pro',
+          gatewayUrl: 'http://igors-macbook-pro.tail12aa33.ts.net:8642',
+          hostname: 'Igors-MacBook-Pro',
+          addedAt: '2026-07-18T15:00:30Z',
+        },
+      ],
+      {
+        activeProfileId: 'mac_book_lan',
+        liveUsb: { reachable: false },
+      },
+    );
+
+    expect(profiles).toHaveLength(1);
+    expect(profiles[0].id).toBe('mac_book_ts');
+    expect(profileConnectionRouteLabel(profiles[0], false)).toBe('Tailscale');
+  });
+
   it('shows Tailscale endpoint instead of home LAN IP for the same Mac mini profile', () => {
     const lines = profilePickerLines({
       id: 'mac_mini_ts',

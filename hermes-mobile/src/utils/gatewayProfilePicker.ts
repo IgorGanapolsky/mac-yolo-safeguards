@@ -164,15 +164,16 @@ export function preferredProfileForMachine(
   if (candidates.length === 1) {
     return candidates[0];
   }
-  const activeNonUsb = candidates.find(
+  const activeTailscale = candidates.find(
     (profile) =>
-      profile.id === options.activeProfileId && !isLoopbackGatewayUrl(profile.gatewayUrl),
+      profile.id === options.activeProfileId && isTailscaleGatewayUrl(profile.gatewayUrl),
   );
-  if (activeNonUsb) {
+  if (activeTailscale) {
     // Preserve the selected saved profile's identity. Replacing it with a synthesized USB
     // alias would make the single machine row look unselected and would make Forget target
-    // the wrong row. Cable presence is still rendered via isCablePluggedInForProfile().
-    return activeNonUsb;
+    // the wrong row. Do not preserve an active home-Wi-Fi alias here: away from home it would
+    // hide the same machine's usable Tailscale route. Cable state is rendered separately.
+    return activeTailscale;
   }
   const liveHost = options.liveUsb?.reachable ? options.liveUsb.hostname?.trim() : null;
   const transportFor = (profile: GatewayProfile): ReachabilityTransport => {
