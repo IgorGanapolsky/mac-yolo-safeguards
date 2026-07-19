@@ -61,16 +61,21 @@ type RunProgressBannerProps = {
 
 function formatTokenSummary(progress: RunProgressState, hasModel: boolean): string | null {
   const summary = formatRunTokenSummary(progress);
-  if (summary) {
+  if (summary && summary !== '—') {
     return summary;
   }
-  // When a model is known but the gateway has not emitted usage yet, show — (not fake zeros).
+  if (progress.inputTokens != null || progress.outputTokens != null) {
+    return `In: ${progress.inputTokens ?? 0} | Out: ${progress.outputTokens ?? 0}`;
+  }
+  // A missing usage payload is a Mac capability/state, not a number. Explain it plainly.
   if (
     hasModel &&
-    progress.phase !== 'completed' &&
-    progress.phase !== 'failed'
+    (progress.phase === 'completed' || progress.phase === 'failed')
   ) {
-    return '—';
+    return 'Usage unavailable from Mac';
+  }
+  if (hasModel) {
+    return 'Counting after reply…';
   }
   return null;
 }
@@ -150,11 +155,19 @@ function RunProgressBanner({
   const modelLabel =
     formatLlmModelShortName(progress.model) ?? formatLlmModelShortName(fallbackModel);
   const liveTokenLabel = formatTokenSummary(progress, Boolean(modelLabel));
+  const terminalMissingUsage =
+    (isCompleted || isFailed) && liveTokenLabel === 'Usage unavailable from Mac';
 
   useEffect(() => {
     const next = liveTokenLabel ?? '';
     const prev = displayedTokenLabelRef.current ?? '';
     const now = Date.now();
+    if (terminalMissingUsage) {
+      tokenLabelUpdatedAtRef.current = now;
+      displayedTokenLabelRef.current = liveTokenLabel;
+      setDisplayedTokenLabel(liveTokenLabel);
+      return;
+    }
     if (
       !shouldUpdateDebouncedTokenLabel({
         lastUpdateAtMs: tokenLabelUpdatedAtRef.current,
@@ -168,7 +181,7 @@ function RunProgressBanner({
     tokenLabelUpdatedAtRef.current = now;
     displayedTokenLabelRef.current = liveTokenLabel;
     setDisplayedTokenLabel(liveTokenLabel);
-  }, [liveTokenLabel]);
+  }, [liveTokenLabel, terminalMissingUsage]);
 
   const tokenLabel = displayedTokenLabel ?? liveTokenLabel;
   const showStats = Boolean(modelLabel || tokenLabel);
