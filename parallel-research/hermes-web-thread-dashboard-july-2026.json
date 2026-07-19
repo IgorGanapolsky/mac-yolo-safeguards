@@ -1,0 +1,1344 @@
+{
+  "run_id": "trun_d3be5e813aa94970bd4ce09973506e4b",
+  "interaction_id": "trun_d3be5e813aa94970bd4ce09973506e4b",
+  "result_url": "https://platform.parallel.ai/play/deep-research/trun_d3be5e813aa94970bd4ce09973506e4b",
+  "status": "completed",
+  "output": {
+    "basis": [
+      {
+        "field": "answer",
+        "reasoning": "Reasoning for completeness and excerpt-support:\n- Completeness: The field_answer provides a comprehensive, end-to-end plan with architecture, data models, transport, identity, migration, phased delivery, tests, cost, and platform considerations. It appears to address the breadth of topics in the field description (secure web dashboard, shared cloud plane vs direct gateway, local-first/event-sourced threads, MLS, passkeys, offline/reconnect, E2E, attachments, PWA vs Next.js, RNW considerations, cost, threat model, migration path, phased plan, tests). Therefore, completeness is true since it directly answers the requested planning and design questions.\n- Excerpts support: The excerpts include sources on local-first software, MLS/security best practices, passkeys/WebAuthn, and WebSocket vs SSE trade-offs, which correspond to several core aspects of the field_answer (local-first, MLS, passkeys, transport choices). While no single excerpt fully proves every detail in the field_answer, the excerpts collectively support the key design principles and some specific claims (local-first, MLS, WebAuthn/passkeys, WebSocket vs SSE). Thus, the field_answer is supported by the excerpts (partial-to-full alignment for several major themes).\n- Confidence: Moderate to high for completeness; moderate for exact phrasing alignment, given some specifics (Cloudflare DOs, MLS specifics, cost figures) are not directly cited in the excerpts but the underlying concepts are represented in the sources.\n\nConclusion: completeness = true, supported = true, with rationale that excerpts corroborate major themes though not every granular detail is explicitly sourced in the provided excerpts.",
+        "citations": [
+          {
+            "url": "https://letsbuildsolutions.com/blog/web-engineering/local-first-software-architecture-crdts-sync-engines-and-offline-capable-web-apps",
+            "excerpts": [
+              "Local-First Software Architecture: CRDTs, Sync Engines, and ...\nA deep dive into local-first architecture for web apps, covering CRDTs, sync engine design, conflict resolution without a central authority, storage primitives, and honest tradeoffs versus traditional client-server."
+            ],
+            "title": "Local-First Software Architecture: CRDTs, Sync Engines, and ..."
+          },
+          {
+            "url": "https://www.inkandswitch.com/local-first-software",
+            "excerpts": [
+              "Local-first Software - Ink & Switch\nLocal-first ideals include the ability to work offline and collaborate across multiple devices, while also improving the security, privacy, long-term"
+            ],
+            "title": "Local-first Software - Ink & Switch"
+          },
+          {
+            "url": "https://notes.strangemonad.com/Ink%2Band%2BSwitch%2B-%2BLocal-first%2Bsoftware",
+            "excerpts": [
+              "Ink and Switch - Local-first software - /s (strangemonad's notes)\nLocal first apps store only your data (or the data you've been able to access). You're also in a position to enforce end-to-end encryption where intermediaries can't read the content."
+            ],
+            "title": "Ink and Switch - Local-first software - /s (strangemonad's notes)"
+          },
+          {
+            "url": "https://www.fernandohermida.com/notes/architecture/local-first-software-principles",
+            "excerpts": [
+              "Local-First Software Principles | Fernando Hermida\nLocal-first software, articulated by Ink & Switch, flips the cloud-first default: your data lives on your device. The network enables collaboration and backup \u2014 it doesn\u2019t gatekeep access."
+            ],
+            "title": "Local-First Software Principles | Fernando Hermida"
+          },
+          {
+            "url": "https://www.inkandswitch.com/",
+            "excerpts": [
+              "Ink & Switch\nLocal-first software: You own your data, in spite of the cloud. A new generation of collaborative software that allows users to retain ownership of their data."
+            ],
+            "title": "Ink & Switch"
+          },
+          {
+            "url": "https://www.alexcloudstar.com/blog/server-sent-events-vs-websockets-2026",
+            "excerpts": [
+              "Server-Sent Events vs WebSockets: 2026 Developer Guide\nWhen to use SSE vs WebSockets for real-time apps in 2026. The trade-offs, the operational cost, and the framework support that quietly decides for you."
+            ],
+            "title": "Server-Sent Events vs WebSockets: 2026 Developer Guide"
+          },
+          {
+            "url": "https://souvenirlist.com/blog/server-sent-events-vs-websockets-2026",
+            "excerpts": [
+              "Server-Sent Events vs WebSockets in 2026: When SSE Is the ...\nA practical 2026 comparison of Server-Sent Events vs WebSockets \u2014 protocol differences, scaling trade-offs, and the workloads where SSE wins."
+            ],
+            "title": "Server-Sent Events vs WebSockets in 2026: When SSE Is the ..."
+          },
+          {
+            "url": "https://dev.to/divyanshulohani/implementing-real-time-chat-with-sse-vs-websockets-and-why-i-chose-one-2mn2",
+            "excerpts": [
+              "Implementing Real-Time Chat with SSE vs WebSockets (and Why I ...\nIn this article, we\u2019ll dive deep into what real-time communication really is, explore how SSE and WebSockets work, compare them side by side, and finally, I\u2019ll share why I picked SSE for my project (and why it was some sort of inspired by linkedin)."
+            ],
+            "title": "Implementing Real-Time Chat with SSE vs WebSockets (and Why I ..."
+          },
+          {
+            "url": "https://alldevtoolshub.com/blog/server-sent-events-vs-websockets-vs-long-polling",
+            "excerpts": [
+              "Server-Sent Events vs WebSockets vs Long Polling: A 2026 ...\nWebSockets, Server-Sent Events (SSE), and long polling all push real-time data to the browser \u2014 but each has a sweet spot. This guide compares the three protocols head-to-head on direction, transport, reconnect, scaling, auth, and cost, with concrete decision rules for chat, dashboards, AI streaming, stock tickers, and notifications."
+            ],
+            "title": "Server-Sent Events vs WebSockets vs Long Polling: A 2026 ..."
+          },
+          {
+            "url": "https://www.w3tutorials.net/blog/performance-difference-between-websocket-and-server-sent-events-sse-for-chat-room-for-10-000-users",
+            "excerpts": [
+              "WebSocket vs SSE Performance: 10,000 User Chat Room \u2013 Loop vs ...\nThis blog dives deep into a head-to-head performance comparison of WebSocket and SSE, with a special focus on the \"loop vs streaming\" paradigm. We\u2019ll simulate a 10,000-user chat room, measure key metrics like latency, throughput, and resource usage, and help you decide which technology fits your use case."
+            ],
+            "title": "WebSocket vs SSE Performance: 10,000 User Chat Room \u2013 Loop vs ..."
+          },
+          {
+            "url": "https://better-auth.com/docs/plugins/passkey",
+            "excerpts": [
+              "Passkey\nPasskeys are a secure, passwordless authentication method using cryptographic key pairs, supported by WebAuthn and FIDO2 standards in web browsers."
+            ],
+            "title": "Passkey"
+          },
+          {
+            "url": "https://www.sentinelone.com/cybersecurity-101/identity-security/what-is-a-passkey",
+            "excerpts": [
+              "What Is a Passkey? Modern Authentication Fundamentals\nApr 9, 2026 \u2014 Learn how passkeys use cryptographic authentication to prevent phishing and credential theft. Explore best practices with SentinelOne."
+            ],
+            "title": "What Is a Passkey? Modern Authentication Fundamentals"
+          },
+          {
+            "url": "https://imperialis.tech/en/blog/passkey-authentication-production-ready-patterns-2026",
+            "excerpts": [
+              "Passkey Authentication: Production-Ready Patterns in 2026\nIn 2026, passkeys \u2014 implemented via the WebAuthn API \u2014 have become the de facto standard for new projects, replacing both traditional passwords and SMS-based 2FA for most use cases."
+            ],
+            "title": "Passkey Authentication: Production-Ready Patterns in 2026"
+          },
+          {
+            "url": "https://ieeexplore.ieee.org/document/11253472",
+            "excerpts": [
+              "The Passwordless Authentication with Passkey Technology from an ...\nArticle #: ; Date of Conference: 25-27 June 2025 ; Date Added to IEEE Xplore: 28 November 2025."
+            ],
+            "title": "The Passwordless Authentication with Passkey Technology from an ..."
+          },
+          {
+            "url": "https://github.com/orgs/NillionNetwork/discussions/110",
+            "excerpts": [
+              "Passkey Proof of Concept with the WebAuthn API for a Ed25519 Key ...\nProject that demonstrates a secure authentication system using WebAuthn with Ed25519 key pairs. The system includes both backend and frontend components."
+            ],
+            "title": "Passkey Proof of Concept with the WebAuthn API for a Ed25519 Key ..."
+          },
+          {
+            "url": "https://www.uzairansar.com/hermes-mobile",
+            "excerpts": [
+              "Hermes Agent Mobile | Uzair Ansar\nA native iOS app for running Hermes from your phone. Connect it to your self-hosted WebUI, reopen sessions, stream responses, attach files, and switch models without touching the Mac."
+            ],
+            "title": "Hermes Agent Mobile | Uzair Ansar"
+          },
+          {
+            "url": "http://zenml.io/llmops-database/evolution-of-hermes-v3-building-a-conversational-ai-data-analyst",
+            "excerpts": [
+              "Swiggy transformed their basic text-to-SQL assistant Hermes into a sophisticated conversational AI analyst capable of contextual querying,"
+            ],
+            "title": "Evolution of Hermes V3: Building a Conversational AI Data ..."
+          },
+          {
+            "url": "https://github.com/amirghm/hermes-agent-mobile",
+            "excerpts": [
+              "GitHub - amirghm/hermes-agent-mobile: Hermes AI assistant for ...\nHermes-Agent Mobile \u2624 \ud83e\udd16 Your AI assistant, right in your pocket. Hermes-Agent is a fully featured AI agent framework. This project brings it to Android (Termux) and iOS (iSH), so you get a personal AI that's always with you. No cloud servers, no laptop needed. Just your phone and an API key."
+            ],
+            "title": "GitHub - amirghm/hermes-agent-mobile: Hermes AI assistant for ..."
+          },
+          {
+            "url": "https://github.com/zoro-jiro-san/hermes-agent-architecture",
+            "excerpts": [
+              "zoro-jiro-san/hermes-agent-architecture - GitHub\nHermes is a multi-modal AI agent that operates across CLI, Telegram, Discord, Slack, and other platforms. This repository tracks its architecture evolution, design decisions, and improvement roadmap."
+            ],
+            "title": "zoro-jiro-san/hermes-agent-architecture - GitHub"
+          },
+          {
+            "url": "https://www.linkedin.com/in/hermesfrangoudis",
+            "excerpts": [
+              "Hermes Frangoudis - Helping developers build the future of Voice ...\nHelping developers build the future of Voice-first conversational AI apps. I now get to help developers create cool stuff with RTC, AI, AR/VR, and other"
+            ],
+            "title": "Hermes Frangoudis - Helping developers build the future of Voice ..."
+          },
+          {
+            "url": "https://www.ai-futureschool.com/en/example-programs/end-to-end-encryption-system-for-web-messaging-with-diffie-hellman-key-management-and-ratcheting-in-pure-javascript.php",
+            "excerpts": [
+              "End-to-End Encryption System for Web Messaging with Diffie ...\nComplete implementation of an end-to-end encryption system for a web chat, based on Diffie-Hellman key exchange, Signal Protocol-like ratcheting, and AES-GCM encryption."
+            ],
+            "title": "End-to-End Encryption System for Web Messaging with Diffie ..."
+          },
+          {
+            "url": "https://medium.com/%40shivamraj1109.23/understanding-end-to-end-encryption-build-a-secure-chat-app-with-next-js-websocket-and-web-crypto-ad66679d887c",
+            "excerpts": [
+              "Understanding End-to-End Encryption with a Chat App | Medium\nLearn how End-to-End Encryption works by building a real chat app using Next.js, WebSocket and Web Crypto API."
+            ],
+            "title": "Understanding End-to-End Encryption with a Chat App | Medium"
+          },
+          {
+            "url": "https://support.wire.com/hc/en-us/articles/12434725011485-Messaging-Layer-Security-MLS",
+            "excerpts": [
+              "Messaging Layer Security (MLS) - Wire \u2013 Support\nWire has upgraded the standard messaging protocol from Proteus to the new Wire Messaging Layer Security (MLS). MLS is the first global open standard for end-to"
+            ],
+            "title": "Messaging Layer Security (MLS) - Wire \u2013 Support"
+          },
+          {
+            "url": "https://messaginglayersecurity.rocks/",
+            "excerpts": [
+              "What is Messaging Layer Security (MLS)?\nThere are several implementations, of which some are open source. Messaging Layer Security (MLS) is an IETF working group building a modern, efficient, secure group messaging protocol."
+            ],
+            "title": "What is Messaging Layer Security (MLS)?"
+          },
+          {
+            "url": "https://signal.org/docs/specifications/doubleratchet",
+            "excerpts": [
+              "The Double Ratchet Algorithm\nNov 4, 2025 \u2014 The Double Ratchet algorithm is used by two parties to exchange encrypted messages based on a shared secret key. Paper 2025/078, 2025."
+            ],
+            "title": "The Double Ratchet Algorithm"
+          },
+          {
+            "url": "https://deepclick.com/resources/blog/progressive-web-apps-on-ios",
+            "excerpts": [
+              "PWA on iOS: Install Guide & Limits for Advertisers 2026\nA PWA on iOS installs only through manual Add to Home Screen in Safari \u2014 there is no automatic prompt. The real iOS PWA limitations are: no auto-prompt, Safari-only install, gated web push, storage eviction, and no App Store presence."
+            ],
+            "title": "PWA on iOS: Install Guide & Limits for Advertisers 2026"
+          },
+          {
+            "url": "https://brainhub.eu/library/pwa-on-ios",
+            "excerpts": [
+              "PWA on iOS - Current Status & Limitations for Users [2025]\nAlthough Safari doesn't provide an automatic installation prompt, users can still add PWAs to their home screen. iOS 13 introduced a new Share Sheet design, making this process more intuitive with visual cues from the apple-touch-icon meta tag."
+            ],
+            "title": "PWA on iOS - Current Status & Limitations for Users [2025]"
+          },
+          {
+            "url": "https://www.tigren.com/blog/progressive-web-app-limitations",
+            "excerpts": [
+              "Current Progressive Web App Limitations To iOS Users - Tigren\nIf you open a PWA link from an embedded browser within another app, such as Reddit or Facebook, the \u201cAdd to Home Screen\u201d option may not be available, causing confusion and frustration."
+            ],
+            "title": "Current Progressive Web App Limitations To iOS Users - Tigren"
+          },
+          {
+            "url": "https://vinova.sg/navigating-safari-ios-pwa-limitations",
+            "excerpts": [
+              "Navigating Safari/iOS PWA Limitations and Bugs: Essential ...\nHowever, users must first manually add the PWA to their Home Screen before it can request notification permissions. The PWA also needs a valid web app manifest and an active service worker."
+            ],
+            "title": "Navigating Safari/iOS PWA Limitations and Bugs: Essential ..."
+          },
+          {
+            "url": "https://mediusware.com/blog/progressive-webapp-vs-react-native-app",
+            "excerpts": [
+              "Progressive Web Apps vs React Native: Which One Should You ...\nConfused between PWA and React Native? Learn the real differences in performance, cost, and scalability to choose the right approach for your app."
+            ],
+            "title": "Progressive Web Apps vs React Native: Which One Should You ..."
+          },
+          {
+            "url": "http://ditto.com/blog/how-to-build-robust-offline-first-apps-a-technical-guide-to-conflict-resolution-with-crdts-and-ditto",
+            "excerpts": [
+              "Jun 24, 2025 \u2014 A Technical Guide to Conflict Resolution with CRDTs and Ditto We'll walk through real-world scenarios to show you how developers use Ditto to"
+            ],
+            "title": "How to Build Robust Offline-First Apps: A Technical Guide ..."
+          },
+          {
+            "url": "https://grove.xraph.com/docs/guides/crdt-offline-first",
+            "excerpts": [
+              "CRDT: Offline-First App\nBuild an offline-first Go application with Grove CRDTs \u2014 local operations, queue-and-sync, error handling, and tombstone cleanup."
+            ],
+            "title": "CRDT: Offline-First App"
+          },
+          {
+            "url": "https://techbytes.app/posts/crdts-for-offline-first-apps-practical-guide-2026",
+            "excerpts": [
+              "CRDTs for Offline-First Apps: Practical Guide [2026]\nCRDTs merge concurrent edits without a central lock. Build an offline-first app with Automerge, IndexedDB, and sync in three steps. Read now."
+            ],
+            "title": "CRDTs for Offline-First Apps: Practical Guide [2026]"
+          },
+          {
+            "url": "https://pub.dev/packages/crdt_sync",
+            "excerpts": [
+              "crdt_sync | Dart package - Pub\ncrdt_sync takes care of the network plumbing between your app and backend to build products that are: Offline-first: Apps primarily work with a local store independent of network connectivity. Real-time: When online, the local store immediately and continuously synchronizes with the backend."
+            ],
+            "title": "crdt_sync | Dart package - Pub"
+          },
+          {
+            "url": "http://shopify.dev/docs/api/usage/implementing-idempotency",
+            "excerpts": [
+              "Implementing idempotency Feb 2, 2026 \u2014 This page provides detailed guidance on implementing idempotency on the client-side when calling certain GraphQL Admin API mutations."
+            ],
+            "title": "Implementing idempotency"
+          },
+          {
+            "url": "https://asoworld.com/blog/google-play-policy-updates-july-new-standards-for-app-developers",
+            "excerpts": [
+              "Google Play Policy Updates July: New Standards for App ...\nThe latest policy announcement from Google Play, dated July 17, 2024, introduces a series of updates and changes that app developers must adhere to. Developers have a 30-day window from the announcement date to align their apps with these new standards."
+            ],
+            "title": "Google Play Policy Updates July: New Standards for App ..."
+          },
+          {
+            "url": "https://play.google/developer-content-policy",
+            "excerpts": [
+              "Developer Policy Center - play.google\nBefore submitting an app to Google Play, ensure it complies with these content policies and with local laws. When developers impersonate others or their apps, it misleads users and hurts the developer community. We prohibit apps that mislead users by impersonating someone else."
+            ],
+            "title": "Developer Policy Center - play.google"
+          },
+          {
+            "url": "https://developer.android.com/distribute/play-policies",
+            "excerpts": [
+              "Google Play Policies | Android Developers\nWe're expanding our Age-Restricted Content and Functionality policy to apply to anonymous chat and random chat apps. Android developer verification goes into effect. Apps from participating stores in Brazil, Indonesia, Singapore, and Thailand must be registered by a verified developer to be installed on certified Android devices."
+            ],
+            "title": "Google Play Policies | Android Developers"
+          },
+          {
+            "url": "https://www.xda-developers.com/google-play-store-policy-changes-july-2022",
+            "excerpts": [
+              "Google announces Play Store policy changes to counter ...\nGoogle has announced a ton of Google Play Store policies today that will be enacted over the coming months, ranging from minor to quite significant. Some changes will only really be"
+            ],
+            "title": "Google announces Play Store policy changes to counter ..."
+          },
+          {
+            "url": "https://www.reddit.com/r/android_devs/comments/1uy8z64/google_play_developer_program_policy_update",
+            "excerpts": [
+              "Google Play Developer Program Policy Update - 16-07-2026\nOur Age-Restricted Content and Functionality and Child Safety Standards policies have new requirements and restrictions for anonymous chat and random chat apps."
+            ],
+            "title": "Google Play Developer Program Policy Update - 16-07-2026"
+          },
+          {
+            "url": "https://hermes-agent.nousresearch.com/docs/reference/cli-commands",
+            "excerpts": [
+              "CLI Commands Reference | Hermes Agent\nFor bot-token platforms (Telegram, Discord, Slack, Signal, SMS, WhatsApp-CloudAPI) no running gateway is required \u2014 hermes send talks directly to the platform's REST endpoint. Plugin platforms that need a persistent adapter still require a live gateway."
+            ],
+            "title": "CLI Commands Reference | Hermes Agent"
+          },
+          {
+            "url": "https://docs.openwebui.com/getting-started/quick-start/connect-an-agent/hermes-agent",
+            "excerpts": [
+              "Hermes Agent / Open WebUI\nWhat You'll Need Hermes Agent installed on your machine (quickstart guide) Open WebUI running (via Docker, pip, or desktop app) ~10 minutes to complete this setup"
+            ],
+            "title": "Hermes Agent / Open WebUI"
+          },
+          {
+            "url": "https://devtuts.net/en/ai-agents/hermes-installation.html",
+            "excerpts": [
+              "Hermes Agent Installation & Discord Configuration Tutorial\nRecently we set up Hermes Agent to run as a bot in our Discord server, allowing us to send messages and receive responses directly within Discord channels. This tutorial provides a step-by-step guide to installing Hermes Agent and configuring it for Discord integration."
+            ],
+            "title": "Hermes Agent Installation & Discord Configuration Tutorial"
+          },
+          {
+            "url": "https://lushbinary.com/blog/hermes-agent-telegram-discord-slack-whatsapp-messaging-guide",
+            "excerpts": [
+              "Hermes Agent Messaging Gateway: Telegram, Discord, Slack ...\nWe cover the unified gateway architecture, step-by-step setup for Telegram, Discord, Slack, WhatsApp, Signal, and Email, voice mode in Discord channels, DM pairing security, and production deployment tips."
+            ],
+            "title": "Hermes Agent Messaging Gateway: Telegram, Discord, Slack ..."
+          },
+          {
+            "url": "https://hermes-agent.ai/how-to/use-hermes-web-ui",
+            "excerpts": [
+              "How to Use the Hermes Agent Dashboard & Web UI\nHermes opens the Web UI in your browser when possible and serves the dashboard locally from the active profile. Use hermes dashboard --port 9120 when the default port is occupied. Use hermes dashboard --no-open on a VPS, over SSH, or any environment where you want to open the URL manually."
+            ],
+            "title": "How to Use the Hermes Agent Dashboard & Web UI"
+          },
+          {
+            "url": "https://medium.com/react-native-journal/react-native-for-web-in-2025-one-codebase-all-platforms-b985d8f7db28",
+            "excerpts": [
+              "React Native for Web in 2025: One Codebase, All Platforms\nReact Native for Web lets you use the same React Native components on the web, letting teams share code, design systems and developer experience across iOS, Android, web and even"
+            ],
+            "title": "React Native for Web in 2025: One Codebase, All Platforms"
+          },
+          {
+            "url": "https://nexisltd.com/blog/cross-platform-development-sharing-code-mobile-web-desktop",
+            "excerpts": [
+              "Share 60-80% Code Across Mobile, Web & Desktop Apps\nOne codebase for iOS, Android, web, and desktop. React Native Web, Expo, and Electron setup with monorepo architecture and real production examples. Building separate native applications for iOS, Android, web, and desktop multiplies development cost and maintenance burden."
+            ],
+            "title": "Share 60-80% Code Across Mobile, Web & Desktop Apps"
+          },
+          {
+            "url": "https://expo.dev/solutions/ecom",
+            "excerpts": [
+              "Expo for E-commerce applications\nUse React Native and Expo to build multiple apps from one shared codebase: brand variants, regional versions, or white-labeled products. Support platform-specific styling, logic, and API routing without duplicating infrastructure."
+            ],
+            "title": "Expo for E-commerce applications"
+          },
+          {
+            "url": "https://x.com/expo?lang=en",
+            "excerpts": [
+              "Expo (@expo) / Posts / X\nExpo is everything you need to build apps. about systems, tradeoffs, A place to save almost anything and let AI organize it all for you."
+            ],
+            "title": "Expo (@expo) / Posts / X"
+          },
+          {
+            "url": "https://www.npmjs.com/package/expo",
+            "excerpts": [
+              "expo\n19 hours ago \u2014 Expo is the officially recommended framework for building production React Native apps . It gives you everything you need to design, develop,"
+            ],
+            "title": "expo"
+          },
+          {
+            "url": "http://developers.cloudflare.com/durable-objects/api/state",
+            "excerpts": [
+              "Once called, any incoming messages will be delivered by calling the Durable Object's `webSocketMessage` handler, and `webSocketClose` will be invoked upon disconnect.\n`acceptWebSocket` `acceptWebSocket` is part of the [WebSocket Hibernation API](https://developers.cloudflare.com/durable-objects/best-practices/websockets/#durable-objects-hibernation-websocket-api), which allows a Durable Object to be removed from memory to save costs while keeping its WebSockets connected. `acceptWebSocket` adds a WebSocket to the set of WebSockets attached to the Durable Object. Once called, any incoming messages will be delivered by calling the Durable Object's `webSocketMessage` handler, and `webSocketClose` will be invoked upon disconnect. After calling `acceptWebSocket`, the WebSocket is accepted and its `send` and `close` methods can be used. The [WebSocket Hibernation API](https://developers.cloudflare.com/durable-objects/best-practices/websockets/#durable-objects-hibernation-websocket-api) takes the place of the standard [WebSockets API](https://developers.cloudflare.com/workers/runtime-apis/websockets/). Therefore, `ws.accept` must not have been called separately and `ws.addEventListener` method will not receive events as they will instead be delivered to the Durable Object. The WebSocket Hibernation API permits a maximum of 32,768 WebSocket connections per Durable Object, but the CPU and memory usage of a given workload may further limit the practical number of simultaneous connections. Parameters A required `WebSocket` with name `ws`. An optional `Array<string>` of associated tags. Tags can be used to retrieve WebSockets via [DurableObjectState::getWebSockets](https://developers.cloudflare.com/durable-objects/api/state/#getwebsockets). Each tag is a maximum of 256 characters and there can be at most 10 tags associated with a WebSocket. Return values None.\n`getWebSockets` is part of the [WebSocket Hibernation API](https://developers.cloudflare.com/durable-objects/best-practices/websockets/#durable-objects-hibernation-websocket-api), which allows a Durable Object to be removed from memory to save costs while keeping its WebSockets connected. `getWebSockets` returns an `Array<WebSocket>` which is the set of WebSockets attached to the Durable Object. An optional tag argument can be used to filter the list according to tags supplied when calling [DurableObjectState::acceptWebSocket](https://developers.cloudflare.com/durable-objects/api/state/#acceptwebsocket). `waitUntil` is not necessary Disconnected WebSockets are not returned by this method, but `getWebSockets` may still return WebSockets even after `ws.close` has been called. For example, if the server-side WebSocket sends a close, but does not receive one back (and has not detected a disconnect from the client), then the connection is in the `CLOSING` readyState. The client might send more messages, so the WebSocket is technically not disconnected. With the [web_socket_auto_reply_to_close](https://developers.cloudflare.com/workers/configuration/compatibility-flags/#websocket-auto-reply-to-close) compatibility flag (enabled by default on compatibility dates on or after `2026-04-07`), the runtime automatically completes the close handshake, so WebSockets transition from `CLOSING` to `CLOSED` much faster and are less likely to be observed in the `CLOSING` state.\n`setWebSocketAutoResponse` is part of the [WebSocket Hibernation API](https://developers.cloudflare.com/durable-objects/best-practices/websockets/#durable-objects-hibernation-websocket-api), which allows a Durable Object to be removed from memory to save costs while keeping its WebSockets connected. `setWebSocketAutoResponse` sets an automatic response, auto-response, for the request provided for all WebSockets attached to the Durable Object. If a request is received matching the provided request then the auto-response will be returned without waking WebSockets in hibernation and incurring billable duration charges. `setWebSocketAutoResponse` is a common alternative to setting up a server for static ping/pong messages because this can be handled without waking hibernating WebSockets. Parameters An optional `WebSocketRequestResponsePair(request string, response string)` enabling any WebSocket accepted via [DurableObjectState::acceptWebSocket\nDurable Objects automatically remain active as long as there is ongoing work or pending I/O, so waitUntil is not needed"
+            ],
+            "title": "title: Durable Object State description: API reference for DurableObjectState, which controls concurrency, WebSocket attachment, and storage access. image: https://developers.cloudflare.com/dev-products-preview.png"
+          },
+          {
+            "url": "https://websocket.org/guides/infrastructure/cloudflare",
+            "excerpts": [
+              "Cloudflare WebSockets: CDN, Workers & Durable Objects\nCloudflare provides multiple ways to handle WebSocket connections: through their CDN proxy service, Workers for edge computing, and Durable Objects for stateful WebSocket applications. This guide covers all three approaches with production configurations."
+            ],
+            "title": "Cloudflare WebSockets: CDN, Workers & Durable Objects"
+          },
+          {
+            "url": "https://oneuptime.com/blog/post/2026-01-27-cloudflare-durable-objects/view",
+            "excerpts": [
+              "How to Implement Cloudflare Durable Objects\nJan 27, 2026 \u2014 Durable Objects can accept WebSocket connections , making them ideal for real-time applications. The Hibernation API allows objects to sleep"
+            ],
+            "title": "How to Implement Cloudflare Durable Objects"
+          },
+          {
+            "url": "https://developers.cloudflare.com/workers/runtime-apis/websockets",
+            "excerpts": [
+              "WebSockets \u00b7 Cloudflare Workers docs\nDurable Objects provide a single-point-of-coordination for Cloudflare Workers, and are often used in parallel with WebSockets to persist state over multiple clients and connections. In this case, refer to Durable Objects to get started, and prefer using the Durable Objects' extended WebSockets API."
+            ],
+            "title": "WebSockets \u00b7 Cloudflare Workers docs"
+          },
+          {
+            "url": "https://multiwaresolutions.com/blog/cloudflare-agents-durable-objects-2026",
+            "excerpts": [
+              "Building Stateful AI Agents at the Edge with Cloudflare ...\nServerless AI agents lose state between requests. Cloudflare's Agents SDK, built on Durable Objects, solves this by giving each agent persistent memory, WebSocket support, and co-located compute. Learn how to build long-running, stateful AI agents that scale globally."
+            ],
+            "title": "Building Stateful AI Agents at the Edge with Cloudflare ..."
+          },
+          {
+            "url": "https://mojoauth.com/blog/cross-device-passkey-sync-icloud-google-1password",
+            "excerpts": [
+              "Cross Device Passkey Sync Explained: iCloud Keychain,"
+            ],
+            "title": "Cross Device Passkey Sync Explained: iCloud Keychain, ... MojoAuth https://mojoauth.com \u203a blog \u203a cross-device-passkey-sync..."
+          },
+          {
+            "url": "https://developer.apple.com/forums/tags/passkeys-in-icloud-keychain?sortBy=oldest&sortOrder=DESC",
+            "excerpts": [
+              "Passkeys in iCloud Keychain\nAfter creating a passkey, i try to get the credentials and retrieve the prf output, which works great, but i am getting different prf outputs for the same"
+            ],
+            "title": "Passkeys in iCloud Keychain"
+          },
+          {
+            "url": "https://developer.apple.com/forums/tags/passkeys-in-icloud-keychain",
+            "excerpts": [
+              "Passkeys in iCloud Keychain | Apple Developer Forums\n\"userVerification\" is ignored during Passkey Autofill in non-Safari browsers. When using passkeys stored in iCloud Keychain (Passwords app) via Passkey"
+            ],
+            "title": "Passkeys in iCloud Keychain | Apple Developer Forums"
+          },
+          {
+            "url": "https://developer.apple.com/forums/tags/passkeys-in-icloud-keychain?page=2",
+            "excerpts": [
+              "Passkeys in iCloud Keychain | Apple Developer Forums\nPasskeys in iCloud Keychain. Use public-key-based credentials using the WebAuthn standard that are synced with iCloud Keychain."
+            ],
+            "title": "Passkeys in iCloud Keychain | Apple Developer Forums"
+          },
+          {
+            "url": "https://developer.apple.com/forums/tags/passkeys-in-icloud-keychain?page=3&sortBy=activity&sortOrder=ASC",
+            "excerpts": [
+              "Passkeys in iCloud Keychain\n\"userVerification\" is ignored during Passkey Autofill in non-Safari browsers. When using passkeys stored in iCloud Keychain (Passwords app) via Passkey"
+            ],
+            "title": "Passkeys in iCloud Keychain"
+          },
+          {
+            "url": "https://owasp.org/www-project-threat-model-library",
+            "excerpts": [
+              "OWASP Threat Model Library\nMay 29, 2025 \u2014 Welcome to the first, open-sourced, structured, peer-reviewed threat modeling dataset."
+            ],
+            "title": "OWASP Threat Model Library"
+          },
+          {
+            "url": "https://www.infosecinstitute.com/resources/management-compliance-auditing/top-threat-modeling-frameworks-stride-owasp-top-10-mitre-attck-framework",
+            "excerpts": [
+              "Top threat modeling frameworks: STRIDE, OWASP Top 10, MITRE ...\nSTRIDE is a high-level threat model focused on identifying overall categories of attacks. This contrasts with the other threat models discussed in this article, which focus on specific threats to a system."
+            ],
+            "title": "Top threat modeling frameworks: STRIDE, OWASP Top 10, MITRE ..."
+          },
+          {
+            "url": "https://medium.com/%40syedjawad07/a-complete-guide-to-threat-modeling-with-stride-using-owasp-threat-dragon-59052de39dbe",
+            "excerpts": [
+              "Medium\nA practical walkthrough for analyzing security threats in a three-tier web application. Press enter or click to view image in full size."
+            ],
+            "title": "Medium"
+          },
+          {
+            "url": "https://owasp.org/www-project-security-culture/v10/6-Threat_Modelling",
+            "excerpts": [
+              "Threat Modeling in OWASP Security Culture\nA simplified step-by-step guide of the threat modelling process \u00b7 1. Model the system \u00b7 2. Identify threat agents/vulnerabilities \u00b7 3. Determine risk ratings \u00b7 4."
+            ],
+            "title": "Threat Modeling in OWASP Security Culture"
+          },
+          {
+            "url": "https://owaspsamm.org/model/design/threat-assessment/stream-b",
+            "excerpts": [
+              "Threat Modeling - OWASP SAMM\nThreat modeling is a structured activity for identifying, evaluating, and managing system threats , architectural design flaws, and recommended security"
+            ],
+            "title": "Threat Modeling - OWASP SAMM"
+          },
+          {
+            "url": "https://insights.nomadlab.cc/blog/2026/04/tailscale-vs-cloudflare-tunnel-vs-ngrok-2026",
+            "excerpts": [
+              "Tailscale vs Cloudflare Tunnel vs ngrok in 2026 - Insights\nA developer-focused comparison of Tailscale Funnel, Cloudflare Tunnel, and ngrok in 2026 covering pricing, free tiers, performance, and real use cases."
+            ],
+            "title": "Tailscale vs Cloudflare Tunnel vs ngrok in 2026 - Insights"
+          },
+          {
+            "url": "https://fxtun.dev/blog/ngrok-vs-cloudflare-vs-fxtunnel",
+            "excerpts": [
+              "ngrok vs Cloudflare Tunnel vs fxTunnel \u2014 Comparison 2026\nngrok vs Cloudflare Tunnel vs fxTunnel in 2026: pricing, protocols, open source, custom domains, limits, and traffic inspector compared."
+            ],
+            "title": "ngrok vs Cloudflare Tunnel vs fxTunnel \u2014 Comparison 2026"
+          },
+          {
+            "url": "https://devopsboys.com/blog/cloudflare-tunnel-vs-ngrok-vs-tailscale-2026",
+            "excerpts": [
+              "Cloudflare Tunnel vs ngrok vs Tailscale: Which Secure Tunnel ...\nNeed to expose a local service, connect private networks, or enable zero-trust access? Compare Cloudflare Tunnel, ngrok, and Tailscale to pick the right one."
+            ],
+            "title": "Cloudflare Tunnel vs ngrok vs Tailscale: Which Secure Tunnel ..."
+          },
+          {
+            "url": "https://sourceforge.net/software/compare/Cloudflare-Tunnel-vs-Tailscale-vs-ngrok",
+            "excerpts": [
+              "Cloudflare Tunnel vs. Tailscale vs. ngrok Comparison Chart\nCompare Cloudflare Tunnel vs. Tailscale vs. ngrok using this comparison chart. Compare price, features, and reviews of the software side-by-side to make the best choice for your business."
+            ],
+            "title": "Cloudflare Tunnel vs. Tailscale vs. ngrok Comparison Chart"
+          },
+          {
+            "url": "https://dev.to/mechcloud_academy/cloudflare-tunnel-vs-ngrok-vs-tailscale-choosing-the-right-secure-tunneling-solution-4inm",
+            "excerpts": [
+              "Cloudflare Tunnel vs. ngrok vs. Tailscale: Choosing the Right ...\nCloudflare Tunnel, ngrok, and Tailscale have emerged as popular solutions in this space, each offering unique features and capabilities. This post provides a comprehensive comparison of these three services to help you determine which one best suits your specific needs."
+            ],
+            "title": "Cloudflare Tunnel vs. ngrok vs. Tailscale: Choosing the Right ..."
+          },
+          {
+            "url": "https://lucioduran.com/blog/browser-storage-apis-opfs-indexeddb-sqlite-wasm",
+            "excerpts": [
+              "Browser Storage APIs: OPFS, IndexedDB, and SQLite-over-WASM ...\nAn analysis of modern browser storage APIs \u2014 Origin Private File System, IndexedDB transaction semantics, SQLite compiled to WASM, storage quotas, and offline-first architecture design."
+            ],
+            "title": "Browser Storage APIs: OPFS, IndexedDB, and SQLite-over-WASM ..."
+          },
+          {
+            "url": "https://blog.logrocket.com/offline-first-frontend-apps-2025-indexeddb-sqlite",
+            "excerpts": [
+              "Offline-first frontend apps in 2025: IndexedDB and SQLite in ...\nOne of the most significant changes is running SQLite directly in the browser through WebAssembly. Projects such as sql.js and wa-sqlite have matured to the point where you can run a full SQL database, with millions of rows, entirely on the client."
+            ],
+            "title": "Offline-first frontend apps in 2025: IndexedDB and SQLite in ..."
+          },
+          {
+            "url": "https://recca0120.github.io/en/2026/03/06/browser-storage-comparison",
+            "excerpts": [
+              "Browser Storage Comparison: sql.js vs IndexedDB vs localStorage\nThe official SQLite Wasm build supports writing the database directly to OPFS, which eliminates the need to use IndexedDB as an intermediary for persistence. Browser support is reasonable as of late 2025, but the synchronous I/O path (createSyncAccessHandle) is only available inside a Web Worker, which adds architectural complexity compared to"
+            ],
+            "title": "Browser Storage Comparison: sql.js vs IndexedDB vs localStorage"
+          },
+          {
+            "url": "https://github.com/micrometre/opfs-sqlite",
+            "excerpts": [
+              "GitHub - micrometre/opfs-sqlite: SQLite WASM with Origin ...\nSQLite WASM with Origin Private File System (OPFS) Demo A comprehensive demonstration of SQLite WebAssembly running in the browser with persistent storage backed by the Origin Private File System (OPFS). This project showcases the capabilities described in the Chrome Developer Blog article."
+            ],
+            "title": "GitHub - micrometre/opfs-sqlite: SQLite WASM with Origin ..."
+          },
+          {
+            "url": "https://haroonwaves.com/blog/building-email-client",
+            "excerpts": [
+              "IndexedDB vs SQLite WASM (A Real World Example) | Usman Haroon\nI'll walk you through the journey of replacing IndexedDB with SQLite WASM for a real world application."
+            ],
+            "title": "IndexedDB vs SQLite WASM (A Real World Example) | Usman Haroon"
+          },
+          {
+            "url": "https://medium.com/swlh/web-push-api-and-service-worker-2-20db00a4f96f",
+            "excerpts": [
+              "Web Push API and Service Worker 2 | by Leon Feng"
+            ],
+            "title": "Web Push API and Service Worker 2 | by Leon Feng Medium\u00a0\u00b7\u00a0Leon Feng 1 gosto \u00b7 h\u00e1 6 anos"
+          },
+          {
+            "url": "https://developer.chrome.com/docs/capabilities/periodic-background-sync",
+            "excerpts": [
+              "Richer offline experiences with the Periodic Background Sync API\nPeriodic Background Sync enables web applications to periodically synchronize data in the background, bringing web apps closer to the behavior of a platform-specific app. DevTools Tips is a PWA that uses the Periodic Background Sync API."
+            ],
+            "title": "Richer offline experiences with the Periodic Background Sync API"
+          },
+          {
+            "url": "https://github.com/pirminrehm/service-worker-web-push-example",
+            "excerpts": [
+              "Web Push API Example including Service Worker and ...\nThis is an out of the box working example for Web Push Notifications. It consists of a client with a Service Worker to register for push messages and a simple application server, which is using the web-push lib and VAPID to send the notification."
+            ],
+            "title": "Web Push API Example including Service Worker and ..."
+          },
+          {
+            "url": "https://learn.microsoft.com/en-us/microsoft-edge/progressive-web-apps/how-to/background-syncs",
+            "excerpts": [
+              "Synchronize and update a PWA in the background\nThe Background Sync API is available in Microsoft Edge, but you should make sure that Background Sync API is supported in the other browsers and devices that your app runs in."
+            ],
+            "title": "Synchronize and update a PWA in the background"
+          },
+          {
+            "url": "http://developer.mozilla.org/en-US/docs/Web/Progressive_web_apps/Tutorials/js13kGames/Re-engageable_Notifications_Push",
+            "excerpts": [
+              "Sep 20, 2025 \u2014 We can do more, using push messages and notifications to automatically re-engage and deliver new content whenever it is available"
+            ],
+            "title": "Make PWAs re-engageable using Notifications and Push APIs"
+          },
+          {
+            "url": "https://www.technetexperts.com/guideline-4-2-minimum-functionality",
+            "excerpts": [
+              "App Store Guideline 4.2 Minimum Functionality [Fixed]\nOne of the most common hurdles engineering teams face is the dreaded Apple App Store rejection under Guideline 4.2. This guideline enforces a quality standard ensuring that users downloading an application from the App Store receive a rich, native experience rather than a glorified website bookmark."
+            ],
+            "title": "App Store Guideline 4.2 Minimum Functionality [Fixed]"
+          },
+          {
+            "url": "https://stackoverflow.com/questions/79814952/app-store-app-rejected-guideline-4-2-design-minimum-functionality",
+            "excerpts": [
+              "App Store, app rejected Guideline 4.2 - Design - Minimum ...\nMy app was a web app running in WebView. They sent me a screenshot of my app's left menu, saying it didn't have enough content and rejected it. With Giude 4.2, Then we asked why, but we didn't get an answer. They just copied and pasted the 4.2 clauses and sent it. We didn't understand."
+            ],
+            "title": "App Store, app rejected Guideline 4.2 - Design - Minimum ..."
+          },
+          {
+            "url": "https://appraysal.com/rules/4.2.2_minimum_functionality",
+            "excerpts": [
+              "Minimum Functionality (Web Wrapper) - Guideline 4.2.2 | Appraysal\nApps that are primarily a website wrapped in a native container without significant native functionality will be rejected. Learn how to detect and fix this compliance issue to avoid App Store or Google Play rejection."
+            ],
+            "title": "Minimum Functionality (Web Wrapper) - Guideline 4.2.2 | Appraysal"
+          },
+          {
+            "url": "https://blog.webvify.app/blogs/apple-4-2-minimum-functionality-rejection",
+            "excerpts": [
+              "Apple 4.2 Rejection: Why WebView Apps Get Rejected (And How ...\nGot an Apple Guideline 4.2 Minimum Functionality rejection? Here's exactly what to fix \u2014 proven techniques from 250+ approved WebView apps to pass review on your next submission."
+            ],
+            "title": "Apple 4.2 Rejection: Why WebView Apps Get Rejected (And How ..."
+          },
+          {
+            "url": "https://ptkd.com/journal/guideline-4-0-design-minimum-functionality-ai-wrapper-fix",
+            "excerpts": [
+              "How do I fix a Guideline 4.2 'minimum functionality ...\nGuideline 4.2, minimum functionality, rejects apps that do not go beyond a repackaged website or a thin wrapper around an API. For AI apps this hits a chat box placed over the model API with nothing the web or the model already provides."
+            ],
+            "title": "How do I fix a Guideline 4.2 'minimum functionality ..."
+          },
+          {
+            "url": "https://www.dev-toolbox.tech/tools/encryption-playground/examples/key-derivation-functions",
+            "excerpts": [
+              "Key Derivation Functions (PBKDF2, HKDF) | DevToolbox\nLearn about key derivation functions: PBKDF2 for password-based key derivation and HKDF for deriving multiple keys from a master secret. Includes Web Crypto API examples and parameter guidance."
+            ],
+            "title": "Key Derivation Functions (PBKDF2, HKDF) | DevToolbox"
+          },
+          {
+            "url": "https://mdn.github.io/dom-examples/web-crypto/derive-key/index.html",
+            "excerpts": [
+              "Web Crypto API example - GitHub Pages\nWeb Crypto: deriveKey This page shows how to use the deriveKey () function of the Web Crypto API. It contains three separate examples: one for PBKDF2, one for ECDH, and one for HKDF. Although alll three algorithms are defined in the API as key derivation functions, they have very different use cases and characteristics."
+            ],
+            "title": "Web Crypto API example - GitHub Pages"
+          },
+          {
+            "url": "https://asecuritysite.com/webcrypto/crypt_ecdh_enc2",
+            "excerpts": [
+              "ECDH Encryption/Decryption with Web Cryptography and JavaScript\nThe Web Cryptography integration gives us a range of cryptographic methods we can using, including for ECDH (Elliptic Curve Diffie Hellman). With ECDH, Bob and Alice exchange their public keys and then can derived the same shared secret key. In this case, we will derive a 256-bit AES GCM key, and encrypt the data with it."
+            ],
+            "title": "ECDH Encryption/Decryption with Web Cryptography and JavaScript"
+          },
+          {
+            "url": "https://www.getzenquery.com/tools/javascript-encryption",
+            "excerpts": [
+              "JavaScript Encryption Tool \u2013 Secure Client-Side AES-256-GCM ...\nEncrypt and decrypt text or files directly in your browser with this free JavaScript Encryption Tool. Powered by the native Web Crypto API (SubtleCrypto) and AES-256-GCM \u2014 the gold standard for authenticated encryption \u2014 all cryptographic operations happen locally on your device."
+            ],
+            "title": "JavaScript Encryption Tool \u2013 Secure Client-Side AES-256-GCM ..."
+          },
+          {
+            "url": "http://developer.mozilla.org/en-US/docs/Web/API/SubtleCrypto/encrypt",
+            "excerpts": [
+              "Dec 31, 2025 \u2014 The Web Crypto API supports three different AES modes: CTR (Counter Mode); CBC (Cipher Block Chaining); GCM (Galois/Counter Mode)."
+            ],
+            "title": "SubtleCrypto: encrypt() method - Web APIs | MDN"
+          },
+          {
+            "url": "https://developers.cloudflare.com/durable-objects/platform/pricing",
+            "excerpts": [
+              "Pricing \u00b7 Cloudflare Durable Objects docs"
+            ],
+            "title": "Pricing \u00b7 Cloudflare Durable Objects docs Cloudflare Developer Docs https://developers.cloudflare.com \u203a ..."
+          },
+          {
+            "url": "https://toolradar.com/tools/cloudflare-workers/pricing",
+            "excerpts": [
+              "Cloudflare Workers Pricing 2026: Plans, Hidden Costs ...\nThe free tier handles most personal projects and client prototypes. Upgrade to paid ($5/month) only when you need Cron Triggers, Durable Objects, or more than 100K requests/day."
+            ],
+            "title": "Cloudflare Workers Pricing 2026: Plans, Hidden Costs ..."
+          },
+          {
+            "url": "https://github.com/cloudflare/cloudflare-docs/blob/production/src/content/docs/durable-objects/platform/pricing.mdx",
+            "excerpts": [
+              "cloudflare-docs/src/content/docs/durable-objects/platform ...\nDurable Objects compute and storage billing, including pricing examples and free tier limits. import { Render } from \"~/components\"; Durable Objects can incur two types of billing: compute and storage. On Workers Free plan: If you exceed any one of the free tier limits, further operations of that type will fail with an error."
+            ],
+            "title": "cloudflare-docs/src/content/docs/durable-objects/platform ..."
+          },
+          {
+            "url": "https://developers.cloudflare.com/workers/platform/pricing",
+            "excerpts": [
+              "Pricing \u00b7 Cloudflare Workers docs\nBy default, users have access to the Workers Free plan. The Workers Free plan includes limited usage of Workers, Pages Functions, Workers KV and Hyperdrive. Read more about the Free plan limits."
+            ],
+            "title": "Pricing \u00b7 Cloudflare Workers docs"
+          },
+          {
+            "url": "https://flarecalc.com/calculators/durable-objects",
+            "excerpts": [
+              "Cloudflare Durable Objects Pricing Calculator (2026) | FlareCalc\nCalculate your Cloudflare Durable Objects costs. Estimate requests, duration, WebSocket messages, and SQLite storage to see your monthly bill."
+            ],
+            "title": "Cloudflare Durable Objects Pricing Calculator (2026) | FlareCalc"
+          },
+          {
+            "url": "https://www.magicbell.com/blog/pwa-ios-limitations-safari-support-complete-guide",
+            "excerpts": [
+              "PWA iOS Limitations and Safari Support [2026]\nEvery iOS PWA limitation explained with code workarounds. Push notifications, storage, background sync \u2014 what works on iPhone and Safari in 2026 and what doesn't."
+            ],
+            "title": "PWA iOS Limitations and Safari Support [2026]"
+          },
+          {
+            "url": "https://academy.insiderone.com/docs/web-push-support-for-mobile-safari",
+            "excerpts": [
+              "Web Push Support for Mobile Safari - academy.insiderone.com\nWith the release of iOS 16.4, Apple introduced support for Web Push notifications on iPhones and iPads, enabling mobile websites to reach users via push, similar to desktop browsers. However, unlike Chrome or Firefox, Safari on iOS requires a different approach."
+            ],
+            "title": "Web Push Support for Mobile Safari - academy.insiderone.com"
+          },
+          {
+            "url": "https://webscraft.org/blog/8-kritichnih-pomilok-pri-integratsiyi-pwa-stsenariyi-prichini-ta-rishennya-z-kodom?lang=en",
+            "excerpts": [
+              "8 PWA Integration Mistakes in 2026 \u2014 How to Avoid and Fix\nJun 24, 2026 \u2014 Service Worker caches outdated pages? iOS ... \u2713 PWA on iOS has unique limitations: Safari clears the cache after 7 days of inactivity ."
+            ],
+            "title": "8 PWA Integration Mistakes in 2026 \u2014 How to Avoid and Fix"
+          },
+          {
+            "url": "https://stackoverflow.com/questions/29895387/service-workers-and-ios-safari",
+            "excerpts": [
+              "Service workers and iOS / Safari\nOn Chromium's page about service workers there's noted that   Service Workers are not supported by Chrome on iOS.  I assume that it can be delivered"
+            ],
+            "title": "Service workers and iOS / Safari"
+          },
+          {
+            "url": "https://developers.cloudflare.com/r2/pricing",
+            "excerpts": [
+              "R2 pricing\nMay 28, 2026 \u2014 Free tier ; Storage, 10 GB-month / month ; Class A Operations, 1 million requests / month ; Class B Operations, 10 million requests / month ; Egress"
+            ],
+            "title": "R2 pricing"
+          },
+          {
+            "url": "https://ruanmartinelli.com/posts/cloudflare-r2-pre-signed-urls",
+            "excerpts": [
+              "Uploading Files to Cloudflare R2 with Pre-Signed URLs\nIn this article, you will learn how to upload files to an R2 bucket using pre-signed URLs. We will leverage the fact that R2 provides S3-compatible APIs and use some of its libraries."
+            ],
+            "title": "Uploading Files to Cloudflare R2 with Pre-Signed URLs"
+          },
+          {
+            "url": "https://next3offload.com/blog/cloudflare-r2-pricing-wordpress",
+            "excerpts": [
+              "Cloudflare R2 Pricing for WordPress: Save on Storage & ...\nFeb 18, 2026 \u2014 Cloudflare R2 is a cloud object storage solution that offers S3\u2011compatible APIs, no egress fees, and a free tier, making it an affordable and"
+            ],
+            "title": "Cloudflare R2 Pricing for WordPress: Save on Storage & ..."
+          },
+          {
+            "url": "https://nubbo.app/blog/cloudflare-r2-free-tier",
+            "excerpts": [
+              "Cloudflare R2 free tier in 2026: what you get and when to ...\nApr 3, 2026 \u2014 Everything included in Cloudflare R2 free tier : 10 GB storage , 1M Class A and 10M Class B operations, zero egress . Plus when the free tier stops"
+            ],
+            "title": "Cloudflare R2 free tier in 2026: what you get and when to ..."
+          },
+          {
+            "url": "https://themedev.net/blog/cloudflare-r2-pricing",
+            "excerpts": [
+              "Cloudflare R2 Pricing 2026: Which Plan is Best for You?\nFeb 3, 2025 \u2014 Cloudflare R2 offers a free tier that includes 10 GB of storage, 1 million Class A operations, and 10 million Class B operations per month."
+            ],
+            "title": "Cloudflare R2 Pricing 2026: Which Plan is Best for You?"
+          },
+          {
+            "url": "https://docs.expo.dev/linking/ios-universal-links",
+            "excerpts": [
+              "iOS Universal Links\nJun 3, 2026 \u2014 To configure iOS Universal Links for your app, you need to set up the two-way association to verify your website and native app."
+            ],
+            "title": "iOS Universal Links"
+          },
+          {
+            "url": "https://www.macrumors.com/2014/10/24/how-to-handoff-not-working",
+            "excerpts": [
+              "How to Get 'Handoff' Working in OS X Yosemite and iOS 8"
+            ],
+            "title": "How to Get 'Handoff' Working in OS X Yosemite and iOS 8 MacRumors https://www.macrumors.com \u203a 2014/10/24 \u203a how-to-ha..."
+          },
+          {
+            "url": "http://developer.apple.com/documentation/xcode/configuring-an-associated-domain",
+            "excerpts": [
+              "Configuring an associated domain | Apple Developer Documentation Create a two-way association between your app and your website to enable universal links, Handoff, App Clips, and shared web credentials."
+            ],
+            "title": "Configuring an associated domain | Apple Developer Documentation"
+          },
+          {
+            "url": "https://support.discord.com/hc/en-us/community/posts/4410106472983-iOS-Universal-Links-aka-deep-linking",
+            "excerpts": [
+              "iOS - Universal Links - aka deep linking\nOct 5, 2021 \u2014 Discord on iOS does not follow apple's newer standards for deep linking. We're building an iOS app and we host our community on discord."
+            ],
+            "title": "iOS - Universal Links - aka deep linking"
+          },
+          {
+            "url": "https://www.appsflyer.com/glossary/universal-links",
+            "excerpts": [
+              "What are Universal Links and how to implement them\nUniversal Links are deep links for iOS devices that direct users to specific content within an app or webpage. Users who don't have the app installed are"
+            ],
+            "title": "What are Universal Links and how to implement them"
+          },
+          {
+            "url": "https://hermes-agent.nousresearch.com/docs/developer-guide/gateway-internals",
+            "excerpts": [
+              "Gateway Internals | Hermes Agent\nThe messaging gateway is the long-running process that connects Hermes to 20+ external messaging platforms through a unified architecture. When a message arrives from any platform: Session keys encode the full routing context: For example: agent:main:telegram:private:123456789."
+            ],
+            "title": "Gateway Internals | Hermes Agent"
+          },
+          {
+            "url": "https://www.halmob.com/blog/hermes-workspace-mobile-agent-orchestration",
+            "excerpts": [
+              "Hermes Workspace Mobile: Agent Orchestration Goes Mobile\nOn April 21, 2026, Nous Research shipped Hermes Workspace Mobile, a phone app for their open multi-agent platform. It brings live tool runs, persistent memory, a skills catalog, a terminal, and recursive subagent orchestration to a device that fits in your pocket."
+            ],
+            "title": "Hermes Workspace Mobile: Agent Orchestration Goes Mobile"
+          },
+          {
+            "url": "https://github.com/FrankFilippi/hermes-agent-source-wiki/blob/main/concepts/messaging-gateway-architecture.md",
+            "excerpts": [
+              "hermes-agent-source-wiki/concepts/messaging-gateway ... - GitHub\nA documentation wiki explaining the internal architecture of NousResearch's Hermes Agent framework \u2014 how its tools, memory, skills, multi-agent and gateway systems actually work, mapped to verified source code."
+            ],
+            "title": "hermes-agent-source-wiki/concepts/messaging-gateway ... - GitHub"
+          },
+          {
+            "url": "https://github.com/NousResearch/hermes-agent/blob/main/website/docs/developer-guide/architecture.md",
+            "excerpts": [
+              "hermes-agent/website/docs/developer-guide/architecture.md at ...\nThis page is the top-level map of Hermes Agent internals. Use it to orient yourself in the codebase, then dive into subsystem-specific docs for implementation details."
+            ],
+            "title": "hermes-agent/website/docs/developer-guide/architecture.md at ..."
+          },
+          {
+            "url": "https://akjamie.github.io/post/2026-05-19-gateway-deep-dive",
+            "excerpts": [
+              "Building a Multi-Platform Agentic Gateway: A Deep Dive into ...\nA Staff-Engineer-level study of the Hermes Agent messaging gateway \u2014 from process lifecycle to platform adapters, session management to streaming delivery, and the design patterns that make it production-grade across 15+ messaging platforms."
+            ],
+            "title": "Building a Multi-Platform Agentic Gateway: A Deep Dive into ..."
+          },
+          {
+            "url": "https://en.wikipedia.org/wiki/Messaging_Layer_Security",
+            "excerpts": [
+              "Messaging Layer Security\nMessaging Layer Security (MLS) is a security layer for end-to-end encrypted messages. ... Both Google Messages and Apple Messages began the rollout of MLS E2EE"
+            ],
+            "title": "Messaging Layer Security"
+          },
+          {
+            "url": "https://rolf.esecurity.ch/?page_id=1284",
+            "excerpts": [
+              "Signal and Messaging Layer Security \u2013 Rolf Oppliger\nThis book provides a comprehensive introduction, detailed overview, and discussion of the Signal and Messaging Layer Security (MLS) protocols that enable end-to-end encrypted (E2EE) messaging on the Internet."
+            ],
+            "title": "Signal and Messaging Layer Security \u2013 Rolf Oppliger"
+          },
+          {
+            "url": "https://developer.incode.com/docs/user-guide-e2ee",
+            "excerpts": [
+              "E2EE Integration Guide\nEnd-to-End Encryption (E2EE) adds an extra layer of security to your communications by encrypting the data transmitted between the server and client. The process begins with a key exchange where the client and server share keys for encrypting and decrypting messages."
+            ],
+            "title": "E2EE Integration Guide"
+          },
+          {
+            "url": "https://nips.nostr.com/ee",
+            "excerpts": [
+              "E2EE Messaging using the Messaging Layer Security (MLS ...\nAug 27, 2025 \u2014 Warning unrecommended : superseded by the Marmot Protocol. This NIP standardizes how to use the MLS Protocol with Nostr for efficient and"
+            ],
+            "title": "E2EE Messaging using the Messaging Layer Security (MLS ..."
+          },
+          {
+            "url": "https://wire.com/en/blog/secure-communication-architecture-e2ee-mls-identity",
+            "excerpts": [
+              "Secure Communication Architecture: E2EE, MLS Explained\nMessaging Layer Security (MLS) is an open standard developed within the Internet Engineering Task Force (IETF) to address this challenge. It enables secure, end-to-end encrypted group communication with automated key updates as group membership changes."
+            ],
+            "title": "Secure Communication Architecture: E2EE, MLS Explained"
+          },
+          {
+            "url": "https://www.libhunt.com/compare-automerge-vs-yjs",
+            "excerpts": [
+              "automerge vs yjs - compare differences and reviews? | LibHunt\nWe have used some of these posts to build our list of alternatives and similar projects. The last one was on 2025-08-08. Of course, you don\u2019t have to code this functionality from scratch! You can also look at open-source software like Yjs, text-crdt, Automerge and so many more."
+            ],
+            "title": "automerge vs yjs - compare differences and reviews? | LibHunt"
+          },
+          {
+            "url": "https://loro.dev/docs/performance",
+            "excerpts": [
+              "JS/WASM Benchmarks\nThere is a more exchaustive benchmark at the bottom that only runs benchmarks on Yjs. Automerge can perform the B4 benchmark in about 1 second (see time )"
+            ],
+            "title": "JS/WASM Benchmarks"
+          },
+          {
+            "url": "https://zylos.ai/research/2026-01-29-crdt-real-time-collaboration",
+            "excerpts": [
+              "CRDTs and Real-Time Collaboration: Building Conflict-Free ...\nModern implementations like Yjs and Automerge 2.0 have overcome historical performance challenges, with Automerge achieving 600ms processing time for 260,000 keystrokes (down from 2 seconds per character) and Yjs handling 26K-156K operations per second. The CRDT vs Operational Transformation (OT) debate has evolved: Google Docs uses OT for centralized real-time editing with sub-millisecond"
+            ],
+            "title": "CRDTs and Real-Time Collaboration: Building Conflict-Free ..."
+          },
+          {
+            "url": "https://www.secsync.com/docs/benchmarks",
+            "excerpts": [
+              "Benchmarks \u2013 Nextra\nAug 21, 2024 \u2014 The benchmarks demonstrate the loading performance and sizes of raw CRDT documents (Automerge & Yjs) compared to Secsync snapshot and updates."
+            ],
+            "title": "Benchmarks \u2013 Nextra"
+          },
+          {
+            "url": "https://news.ycombinator.com/item?id=31315717",
+            "excerpts": [
+              "Syncing files between browser and disk using Yjs and the ...\nWe've made great progress already\u2014 JosephG's Diamond-Types algorithm can synchronize perfectly with Yjs, Automerge, and Sync9, just by swapping"
+            ],
+            "title": "Syncing files between browser and disk using Yjs and the ..."
+          },
+          {
+            "url": "http://singlekey-id.com/frequently-asked-questions",
+            "excerpts": [
+              "**Browser:** A modern web browser that supports passkeys (e.g., Chrome, Edge, Safari). **Security key (optional):** FIDO2-compatible USB security key. **Device security:** Screen lock (PIN, password, biometric) must be enabled on your device. **Syncing (optional):** iCloud Keychain (for Apple devices) or Google Password Manager/Android equivalent for cross-device syncing. **Browser settings:** Ensure you are not using incognito or private browsing mode during setup. ### How do I enable a passkey for my SingleKey ID account? **Step 1:** Log in via the SingleKey ID website with the account you wish to enable passkey for. **Step 2:** Click \"My Profile\" in the navigation bar. **Step 3:** In the Security section, select the \"Passkey\" edit icon. **Step 4:** Read through the explanations about passkeys, then click \"Create a Passkey\". **Step 5:** Enter your password and click \"Continue\". **Step 6:** Follow the prompts to finalize creating a new passkey. **Step 7:** After successfully creating the passkey, you will see the details of all available passkeys for your SingleKey ID. ### How do I log in with a passkey? If you've already created a passkey for SingleKey ID on your device, your browser or operating system automatically prompt you to use your passkey. You'll simply be asked to authenticate using your fingerprint, face scan, PIN or pattern. This makes the login process even faster and more seamless. However, depending on your device and browser settings, you might sometimes need to explicitly choose the \"Passkey\" option during login. ### How can I use my passkey on all my devices? **For Apple devices:** Ensure you are signed in to your iCloud account and iCloud Keychain is enabled. Passkeys will automatically sync across your devices. **For Android devices:** Ensure you are signed in to your Google account and that Google Password Manager is enabled and syncing.\nFrequently Asked Questions Signup How do I sign up for SingleKey ID? SingleKey ID only collects your email address or mobile phone number and password during sign up. However, some partner applications require additional information in order to offer their services to you (e.g. your postal address) and ask for this information in an additional step\nIt is a simple and effective way to significantly increase the overall security and to protect your SingleKey ID against misuse. ### How can I activate two-step authentication? To activate two-step authentication, please log in to the SingleKey ID website. Then go to the 'My Profile' section and click 'Two-step authentication' to activate it. ### Where does two-step authentication apply? As soon as you enabled two-step authentication for your SingleKey ID, you will have to provide a security code with each login as well as password reset. ### How can I deactivate two-step authentication? To deactivate two-step authentication, please log in to the SingleKey ID website.\nOperating system:** Windows 10+, macOS Ventura+, ChromeOS 109+, iOS 16+, Android 9+\nThen go to the 'My Profile' section and click 'Two-step authentication' to deactivate it. ### What can I do if I have lost my phone? It is essential to quickly react if you lost your mobile phone to prevent potential unauthorized access to your SingleKey ID and all your personal data linked in SingleKey ID partner company applications. Please contact your mobile provider and ask them to immediately suspend SIM card to protect your SingleKey ID against misuse. We are currently working on secure recovery options and thank you for your patience. Passkeys What is a passkey? A passkey is a simpler and more secure way to log in to websites and apps, replacing traditional passwords. Think of it as a special digital key stored safely on your phone, computer, or security key. Instead of typing a password, you simply use the way you normally unlock your device - like your fingerprint, face scan, PIN or pattern - to access your accounts. Passkeys are unique and linked to the specific website or app, making them highly resistant to phishing and hacking. ### Why should I use a passkey? Passkeys offer several advantages: **Effortless access:** Logging in becomes incredibly simple. Passkeys use the same familiar method you already use to unlock your device - like your fingerprint, face ID, PIN or pattern. No more memorizing or typing passwords. Once set up, enjoy a seamless login experience across all your devices. **Next-gen protection:** Fortify your accounts with passkeys! They're significantly more secure than traditional passwords because they are unique to each website or app. Unlike passwords, they can't be reused, guessed, or stolen. Passkeys offer robust protection against phishing attacks, keeping your accounts safe. **Personal control:** Maintain complete control over your login credentials. Passkeys are stored securely on your own devices, giving you ownership of your data. Unlike password-based systems, your passkey information is never shared with third parties, enhancing your personal privacy and peace of mind. ### How do passkeys work? Passkeys are a new secure login standard created by the FIDO Alliance and the World Wide Web Consortium (W3C). When you create a passkey for an account, your device generates a unique pair of digital keys using cryptography: a _public key_ and a _private key_ . The _public key_ is securely registered with SingleKey ID. The _private key_ is stored safely on your device and never leaves it. When you log in, your device uses the _private key_ to create a digital signature that proves your identity. SingleKey ID then verifies this signature using the stored _public key_ . This process ensures you're authenticated securely and your biometric data, PIN or pattern is never shared with SingleKey ID or anyone else. ### What are the technical requirements to use passkeys? **Operating system:** Windows 10+, macOS Ventura+, ChromeOS 109+, iOS 16+, Android 9+ **Browser:** A modern web browser that supports passkeys (e.g., Chrome, Edge, Safari). **Security key (optional):** FIDO2-compatible USB security key. **Device security:** Screen lock (PIN, password, biometric) must be enabled on your device. **Syncing (optional):** iCloud Keychain (for Apple devices) or Google Password Manager/Android equivalent for cross-device syncing. **Browser settings:** Ensure you are not using incognito or private browsing mode during setup. ### How do I enable a passkey for my SingleKey ID account? **Step 1:** Log in via the SingleKey ID website with the account you wish to enable passkey for. **Step 2:** Click \"My Profile\" in the navigation bar. **Step 3:** In the Security section, select the \"Passkey\" edit icon. **Step 4:** Read through the explanations about passkeys, then click \"Create a Passkey\". **Step 5:** Enter your password and click \"Continue\". **Step 6:** Follow the prompts to finalize creating a new passkey. **Step 7:** After successfully creating the passkey, you will see the details of all available passkeys for your SingleKey ID. ### How do I log in with a passkey? If you've already created a passkey for SingleKey ID on your device, your browser or operating system automatically prompt you to use your passkey. You'll simply be asked to authenticate using your fingerprint, face scan, PIN or pattern. This makes the login process even faster and more seamless. However, depending on your device and browser settings, you might sometimes need to explicitly choose the \"Passkey\" option during login. ### How can I use my passkey on all my devices? **For Apple devices:** Ensure you are signed in to your iCloud account and iCloud Keychain is enabled. Passkeys will automatically sync across your devices. **For Android devices:** Ensure you are signed in to your Google account and that Google Password Manager is enabled and syncing."
+            ],
+            "title": "FAQs - SingleKey ID"
+          },
+          {
+            "url": "https://community.bitwarden.com/t/does-bitwarden-need-to-do-user-verification-anew-for-each-authentication-ceremony/68682",
+            "excerpts": [
+              "Does Bitwarden need to do User Verification anew for each ...\nJun 20, 2024 \u00b7 It is even necessary for Bitwarden to require a new User Verification (UV) each time that a passkey is used for authenticating to a Relying Party (RP) that has"
+            ],
+            "title": "Does Bitwarden need to do User Verification anew for each ..."
+          },
+          {
+            "url": "https://news.ycombinator.com/item?id=33939871",
+            "excerpts": [
+              "On-device WebAuthn and what makes it hard to do well\nDec 11, 2022 \u2014 For this to work you want to be able to generate a key in hardware (so it can't just be copied elsewhere if the machine is compromised),"
+            ],
+            "title": "On-device WebAuthn and what makes it hard to do well"
+          },
+          {
+            "url": "https://www.webauthn.me/passkeys",
+            "excerpts": [
+              "WebAuthn and Passkeys\nSynced passkeys, also known as multi-device passkeys, are not tied to a single device. They can be shared across devices and synchronized to a user's cloud"
+            ],
+            "title": "WebAuthn and Passkeys"
+          },
+          {
+            "url": "https://code2native.com/blog/fix-app-store-rejection-42-webview",
+            "excerpts": [
+              "App Store Rejection 4.2: How to Get Your WebView ...\nJan 27, 2026 \u2014 Your app was rejected for Guideline 4.2 - 'Minimum Functionality.' Here's exactly what Apple means, 7 proven strategies to pass review,"
+            ],
+            "title": "App Store Rejection 4.2: How to Get Your WebView ..."
+          },
+          {
+            "url": "https://adapty.io/blog/app-store-rejection",
+            "excerpts": [
+              "App Store Rejection Reasons and How to Prevent Them\nUncover the most common reasons for app store rejections and learn practical strategies to avoid them and improve your app\u2019s chances of successful acceptance."
+            ],
+            "title": "App Store Rejection Reasons and How to Prevent Them"
+          },
+          {
+            "url": "https://forum.ionicframework.com/t/app-store-rejection-4-2-design-minimum-functionality-my-first-after-2-years-of-ionic/200908",
+            "excerpts": [
+              "App Store Rejection 4.2 - Design: Minimum Functionality\nDec 8, 2020 \u2014 If you cannot - or choose not to - revise your app to be in compliance with the App Store Review Guidelines, you may wish to build an HTML5 web"
+            ],
+            "title": "App Store Rejection 4.2 - Design: Minimum Functionality"
+          },
+          {
+            "url": "https://www.apptester.co/blog/app-store-guidelines",
+            "excerpts": [
+              "Apple App Store Review Guidelines: Developer Reference 2026\nApple App Store Review Guidelines: Developer Reference 2026 The 10 most enforced guidelines, with real rejection examples, exact fixes, and insider tips from developers who went through the review process."
+            ],
+            "title": "Apple App Store Review Guidelines: Developer Reference 2026"
+          },
+          {
+            "url": "https://thenewstack.io/can-opentelemetry-save-observability-in-2026",
+            "excerpts": [
+              "Can OpenTelemetry Save Observability in 2026? - The New Stack\nOpenTelemetry may not ultimately \u201csave\u201d observability, but it should go a long way by improving standardization for instrumentation and interoperability between different tools."
+            ],
+            "title": "Can OpenTelemetry Save Observability in 2026? - The New Stack"
+          },
+          {
+            "url": "https://developers.cloudflare.com/agents/runtime/operations/observability",
+            "excerpts": [
+              "Observability - Agents\nJun 5, 2026 \u2014 Message, tool, and submission events. These events track chat message lifecycle, client-side tool interactions, and Think durable submissions."
+            ],
+            "title": "Observability - Agents"
+          },
+          {
+            "url": "https://www.devx.com/uncategorized/observability-opentelemetry-industry-standard-2026",
+            "excerpts": [
+              "Observability in 2026: How OpenTelemetry Became the Standard\nOpenTelemetry is now the observability standard in 2026. See how the project won, what teams must do to adopt it, and how AI is reshaping telemetry."
+            ],
+            "title": "Observability in 2026: How OpenTelemetry Became the Standard"
+          },
+          {
+            "url": "https://www.elastic.co/blog/2026-observability-trends-generative-ai-opentelemetry",
+            "excerpts": [
+              "Observability trends for 2026 (Part 2): GenAI and OpenTelemetry ...\n4 feb 2026 \u00b7 OpenTelemetry: Becoming the default for observability data. OTel in production nearly doubled year-over-year from 6% to 11%. These are still"
+            ],
+            "title": "Observability trends for 2026 (Part 2): GenAI and OpenTelemetry ..."
+          },
+          {
+            "url": "https://support.hpe.com/hpesc/public/docDisplay?docId=a00aie111dhen_us&docLocale=en_US&page=Observability%2Fotel.html",
+            "excerpts": [
+              "OpenTelemetry (OTel) | HPE AI Essentials Software 1.11.x Air ...\nOpenTelemetry (OTel) is an open-source observability framework that provides a standardized way to collect, process, and export telemetry data such as metrics"
+            ],
+            "title": "OpenTelemetry (OTel) | HPE AI Essentials Software 1.11.x Air ..."
+          },
+          {
+            "url": "https://www.opc.community/blog/hermes-agent-open-source-ai-agent-2026",
+            "excerpts": [
+              "Hermes Agent: The Open-Source Self-Improving AI Agent That's ...\nHermes Agent by Nous Research is the hottest open-source AI agent framework of 2026 \u2014 32K+ GitHub stars, persistent memory, 40+ tools, self-improving skills, and runs on a $5 VPS. Here's everything you need to know."
+            ],
+            "title": "Hermes Agent: The Open-Source Self-Improving AI Agent That's ..."
+          },
+          {
+            "url": "https://hermes-agent.ai/",
+            "excerpts": [
+              "Hermes Agent \u2014 Open-Source AI Agent with Memory, Skills, and Cron\nHermes Agent is the open-source AI agent from Nous Research with persistent memory, reusable skills, cron jobs, tools, GitHub workflows, and multi-platform messaging."
+            ],
+            "title": "Hermes Agent \u2014 Open-Source AI Agent with Memory, Skills, and Cron"
+          },
+          {
+            "url": "https://github.com/ndizazzo/hermes-agent",
+            "excerpts": [
+              "GitHub - ndizazzo/hermes-agent: Forked Hermes Agent with ...\nThe self-improving AI agent built by Nous Research. It's the only agent with a built-in learning loop \u2014 it creates skills from experience, improves them during use, nudges itself to persist knowledge, searches its own past conversations, and builds a deepening model of who you are across sessions."
+            ],
+            "title": "GitHub - ndizazzo/hermes-agent: Forked Hermes Agent with ..."
+          },
+          {
+            "url": "https://hermes-agent.org/",
+            "excerpts": [
+              "Hermes Agent \u2014 Open-Source AI Agent with Persistent Memory\nWhat Is Hermes Agent? Hermes Agent is an open-source autonomous AI agent built by Nous Research and released in February 2026. It's not a coding copilot tethered to an IDE or a chatbot wrapper around a single API. Hermes lives on your server, remembers what it learns, and gets more capable the longer it runs. It supports Linux, macOS, and WSL2 \u2014 with no prerequisites, installing everything"
+            ],
+            "title": "Hermes Agent \u2014 Open-Source AI Agent with Persistent Memory"
+          },
+          {
+            "url": "https://github.com/nousresearch/hermes-agent",
+            "excerpts": [
+              "GitHub - NousResearch/hermes-agent: The agent that grows with ...\nThe self-improving AI agent built by Nous Research. It's the only agent with a built-in learning loop \u2014 it creates skills from experience, improves them during use, nudges itself to persist knowledge, searches its own past conversations, and builds a deepening model of who you are across sessions."
+            ],
+            "title": "GitHub - NousResearch/hermes-agent: The agent that grows with ..."
+          },
+          {
+            "url": "https://github.com/expo/expo/blob/main/docs/pages/build-reference/limitations.mdx",
+            "excerpts": [
+              "expo/docs/pages/build-reference/limitations.mdx at main ...\nEAS Build is designed to work for any React Native project. However, it is good to be aware of certain limitations that we plan to address since they could prevent you from being able to use the service for your applications or might cause an inconvenience."
+            ],
+            "title": "expo/docs/pages/build-reference/limitations.mdx at main ..."
+          },
+          {
+            "url": "https://calmops.com/web/expo-router-deep-dive",
+            "excerpts": [
+              "Expo Router Deep Dive: File-Based Navigation for React Native ...\nMaster Expo Router for React Native in 2026. Learn file-based routing, dynamic routes, layouts, deep linking, and navigation patterns for production apps."
+            ],
+            "title": "Expo Router Deep Dive: File-Based Navigation for React Native ..."
+          },
+          {
+            "url": "https://medium.com/%40_benmoses/react-native-web-for-production-556feccfd0cb",
+            "excerpts": [
+              "React Native Web for Production\nThe initial investigation into React Native Web seemed all positive, writing less code and delivering to more platforms."
+            ],
+            "title": "React Native Web for Production"
+          },
+          {
+            "url": "https://expo.dev/router",
+            "excerpts": [
+              "Expo Router\nSeamlessly integrated with Expo Expo Router library already installed and configured in every new Expo project. You can also install in a few simple steps. Made by Expo, for Expo apps, and beyond."
+            ],
+            "title": "Expo Router"
+          },
+          {
+            "url": "https://uniquedevs.com/en/blog/how-to-master-expo-router-basics-best-practices-examples-and-comparisons",
+            "excerpts": [
+              "Expo Router - a complete guide for React Native and the Web\nMeet Expo Router: a modern, file-based navigation system for Expo applications. Step-by-step guide, comparisons, examples, case studies and more."
+            ],
+            "title": "Expo Router - a complete guide for React Native and the Web"
+          },
+          {
+            "url": "https://apptekz.com/sign-in-with-apple-guidelines-and-requirements",
+            "excerpts": [
+              "Sign in with Apple \u2013 Guidelines and Requirements\nApple\u2019s new guideline requires all new apps that use a third-party or social login service, as shown in the image above, to offer Apple Sign-in as an equivalent service. As mentioned, existing apps have until April 2020 to comply."
+            ],
+            "title": "Sign in with Apple \u2013 Guidelines and Requirements"
+          },
+          {
+            "url": "https://appraysal.com/rules/4.8_sign_in_with_apple",
+            "excerpts": [
+              "Sign in with Apple Required - Guideline 4.8 | Appraysal\nApps that use third-party login services (Google, Facebook, Twitter, etc.) must also offer Sign in with Apple as an equivalent option. Learn how to detect and fix this compliance issue to avoid App Store or Google Play rejection."
+            ],
+            "title": "Sign in with Apple Required - Guideline 4.8 | Appraysal"
+          },
+          {
+            "url": "https://stackoverflow.com/questions/78126978/app-store-upload-rejection-about-guideline-4-8-third-party-logins",
+            "excerpts": [
+              "App Store Upload rejection about guideline 4.8, third party ...\nThey finally admitted that Sign in with Apple is required if you have other third party logins. Your app uses a third-party login service but does not offer Sign in with Apple."
+            ],
+            "title": "App Store Upload rejection about guideline 4.8, third party ..."
+          },
+          {
+            "url": "https://developer.apple.com/forums/thread/131245",
+            "excerpts": [
+              "Is \"Sign In with Apple\" is require\u2026 | Apple Developer Forums\nThe 4.8: Sign in with Apple is not required if:Your app exclusively uses your company\u2019s own account setup and sign-in systems. It's required only if you are at least proposing Facebook Login, Google Sign-In, Sign in with Twitter, Sign In with LinkedIn, Login with Amazon, or WeChat Login."
+            ],
+            "title": "Is \"Sign In with Apple\" is require\u2026 | Apple Developer Forums"
+          },
+          {
+            "url": "https://developer.apple.com/design/human-interface-guidelines/sign-in-with-apple",
+            "excerpts": [
+              "Sign in with Apple | Apple Developer Documentation\nUse the logo file to position the Apple logo in a button; never use the Apple logo as a button. Match the height of the logo file to the height of the button."
+            ],
+            "title": "Sign in with Apple | Apple Developer Documentation"
+          },
+          {
+            "url": "https://cybersecuritynews.com/cloudflare-to-implement-post-quantum-cryptography",
+            "excerpts": [
+              "Cloudflare to Implement Post-Quantum Cryptography to Defend ...\nCloudflare has implemented a module-lattice-based Key-Encapsulation Mechanism (ML-KEM) for post-quantum key exchange in TLS 1.3 connections. Currently, over 35% of human web traffic reaching Cloudflare\u2019s network is protected using a hybrid approach combining conventional elliptic curve cryptography with post-quantum key agreement, shown as"
+            ],
+            "title": "Cloudflare to Implement Post-Quantum Cryptography to Defend ..."
+          },
+          {
+            "url": "https://cyberpress.org/cloudflare-enhances-security",
+            "excerpts": [
+              "Cloudflare Enhances Security with Post-Quantum Cryptography ...\nCloudflare has prioritized migrating TLS 1.3 key exchange to ML-KEM, a lattice-based algorithm selected by NIST for its balance of performance and security. This hybrid implementation (X25519MLKEM768) secures short-lived TLS sessions while mitigating risks from quantum decryption."
+            ],
+            "title": "Cloudflare Enhances Security with Post-Quantum Cryptography ..."
+          },
+          {
+            "url": "https://www.ietf.org/archive/id/draft-ietf-tls-mlkem-04.html",
+            "excerpts": [
+              "ML-KEM Post-Quantum Key Agreement for TLS 1.3\nThis memo defines ML-KEM-512, ML-KEM-768, and ML-KEM-1024 as a standalone NamedGroup s for use in TLS 1.3 to achieve post-quantum key agreement."
+            ],
+            "title": "ML-KEM Post-Quantum Key Agreement for TLS 1.3"
+          },
+          {
+            "url": "https://developers.cloudflare.com/ssl/post-quantum-cryptography",
+            "excerpts": [
+              "Post-quantum cryptography (PQC) \u00b7 Cloudflare SSL/TLS docs\nGet an overview of how Cloudflare is deploying post-quantum cryptography to protect you against harvest now, decrypt later."
+            ],
+            "title": "Post-quantum cryptography (PQC) \u00b7 Cloudflare SSL/TLS docs"
+          },
+          {
+            "url": "https://www.ietf.org/archive/id/draft-ietf-tls-mlkem-05.html",
+            "excerpts": [
+              "ML-KEM Post-Quantum Key Agreement for TLS 1.3\nThis memo defines ML-KEM-512, ML-KEM-768, and ML-KEM-1024 as NamedGroup s and and registers IANA values in the TLS Supported Groups registry for use in TLS 1.3 to achieve post-quantum (PQ) key establishment."
+            ],
+            "title": "ML-KEM Post-Quantum Key Agreement for TLS 1.3"
+          },
+          {
+            "url": "https://webscraft.org/blog/pwa-pushspovischennya-na-ios-u-2026-scho-realno-pratsyuye?lang=en",
+            "excerpts": [
+              "PWA Push Notifications on iOS in 2026: What Really Works\nWeb Push API became available by default in all browsers on iOS \u2014 not just in Safari PWA. Stability improved, but the problem of disappearing subscriptions remained for many developers."
+            ],
+            "title": "PWA Push Notifications on iOS in 2026: What Really Works"
+          },
+          {
+            "url": "https://academy.insiderone.com/docs/faq-about-web-push-support-for-mobile-safari",
+            "excerpts": [
+              "FAQ about Web Push Support for Mobile Safari\nThe Web Push Mobile Safari FAQ covers requirements, opt-in process, permissions, and delivery on iOS for Insider One\u2019s Web Push. What is a Progressive Web App (PWA), and why is it required to enable Web Push notifications on iOS?"
+            ],
+            "title": "FAQ about Web Push Support for Mobile Safari"
+          },
+          {
+            "url": "https://www.braze.com/resources/articles/mobile-web-push-is-now-supported-on-safari",
+            "excerpts": [
+              "Mobile Web Push Is Now Supported on Safari"
+            ],
+            "title": "Mobile Web Push Is Now Supported on Safari Braze https://www.braze.com \u203a Resources \u203a Blog"
+          },
+          {
+            "url": "https://news.ycombinator.com/item?id=43574153",
+            "excerpts": [
+              "iOS Safari only allows push notifications for web apps"
+            ],
+            "title": "iOS Safari only allows push notifications for web apps ... Hacker News https://news.ycombinator.com \u203a item"
+          },
+          {
+            "url": "https://www.pushwoosh.com/blog/ios-push-notifications",
+            "excerpts": [
+              "iOS push notifications: APNs setup, types & best practices\nIn 2026, iOS push notifications are more dynamic and data-driven than ever. With iOS 26, Apple introduced smarter priority notifications powered by Apple Intelligence, enhanced Live Activities with broadcast capabilities, and more refined controls over how and when users see messages."
+            ],
+            "title": "iOS push notifications: APNs setup, types & best practices"
+          },
+          {
+            "url": "https://www.nist.gov/privacy-framework/linddun-privacy-threat-modeling-framework",
+            "excerpts": [
+              "LINDDUN privacy threat modeling framework | NIST\nContributor Notes: The LINDDUN threat modeling framework provides support to systematically elicit and mitigate privacy threats in software architectures. The more light-weight LINDDUN GO toolkit primarily focuses on the identification of privacy threats (ID.RA-P3)."
+            ],
+            "title": "LINDDUN privacy threat modeling framework | NIST"
+          },
+          {
+            "url": "https://cif-seminars.github.io/slides/20200929-kwuyts-linddun-go.pdf",
+            "excerpts": [
+              "LINDDUN privacy threat modeling\nSystematic threat modeling methodology. \u2022 Inspired by STRIDE. \u2022 Support for elicitation and mitigation of privacy threats in software systems. \u2022 Early on in"
+            ],
+            "title": "LINDDUN privacy threat modeling"
+          },
+          {
+            "url": "https://privacydiaries.substack.com/p/privacy-threat-modelling-using-linddun",
+            "excerpts": [
+              "Privacy Threat Modelling using LINDDUN\nOne approach to achieving this is by using LINDDUN privacy threat modelling, a framework designed to identify, address, and mitigate privacy threats early in the system development lifecycle."
+            ],
+            "title": "Privacy Threat Modelling using LINDDUN"
+          },
+          {
+            "url": "https://www.softwaresecured.com/post/stride-threat-modelling",
+            "excerpts": [
+              "STRIDE Threat Model Explained: Framework, Examples & ...\nSTRIDE threat modeling is applied by reviewing system components and mapping potential threats across spoofing, tampering, repudiation, information disclosure,"
+            ],
+            "title": "STRIDE Threat Model Explained: Framework, Examples & ..."
+          },
+          {
+            "url": "https://owasp.org/www-project-application-security-verification-standard",
+            "excerpts": [
+              "OWASP Application Security Verification Standard (ASVS)\nThe OWASP Application Security Verification Standard (ASVS) Project provides a basis for testing web application technical security controls."
+            ],
+            "title": "OWASP Application Security Verification Standard (ASVS)"
+          },
+          {
+            "url": "https://tanayshah.dev/blog/postgres-append-only-chat-events",
+            "excerpts": [
+              "Why I Use a Postgres Append-Only Log for Agent Chat (Not ...\nIt works, and it doubles your storage footprint with two systems of record: Postgres for messages, Redis for resumption. The version I shipped uses one append-only Postgres table for both. Here's the schema, the seq-number contract, and why I'd defend the choice in front of a hiring manager."
+            ],
+            "title": "Why I Use a Postgres Append-Only Log for Agent Chat (Not ..."
+          },
+          {
+            "url": "https://support.google.com/chat/thread/324659923/google-chat-not-syncing-on-the-computer-but-is-up-to-date-on-the-phone?hl=en",
+            "excerpts": [
+              "Google Chat not syncing on the computer but is up to date on the ...\nFeb 12, 2025 \u00b7 Google Chat will synchronize automatically when you're signed into your Google account. If it doesn't look updated, I recommend refreshing your browser. Gemini Chat thread not syncing across devices \u2013 missing part of ... Messages on phone not totally syncing up with web app on any ... More results from support.google.com"
+            ],
+            "title": "Google Chat not syncing on the computer but is up to date on the ..."
+          },
+          {
+            "url": "https://github.com/rcourtman/pulse/issues/1059",
+            "excerpts": [
+              "Ai Chat Sync \u00b7 Issue #1059 \u00b7 rcourtman/Pulse\nJan 7, 2026 \u2014 Syncing across devices would require server-side storage of chat sessions, tied to user authentication. This adds complexity around: Privacy ("
+            ],
+            "title": "Ai Chat Sync \u00b7 Issue #1059 \u00b7 rcourtman/Pulse"
+          },
+          {
+            "url": "https://www.m.io/academy/chat-sync",
+            "excerpts": [
+              "Module 1: Chat Sync | Mio Academy for Google and Microsoft\nLearn how Mio connects Google Chat and Microsoft Teams for messaging, syncing channels, direct messages, and group chats. Chat Sync overview."
+            ],
+            "title": "Module 1: Chat Sync | Mio Academy for Google and Microsoft"
+          },
+          {
+            "url": "https://kth.diva-portal.org/smash/get/diva2%3A1936742/FULLTEXT02.pdf",
+            "excerpts": [
+              "Threading dynamics in chat applications: exploring the effect ...\nOur results indicated that no specific method led to a higher percentage of threaded messages, facilitated easier thread creation, or afected the frequency of message misplacement. However, the drag-and-drop version performed better in relocating misplaced messages within a channel, often through collaborative eforts."
+            ],
+            "title": "Threading dynamics in chat applications: exploring the effect ..."
+          },
+          {
+            "url": "https://github.com/makalin/Secure-Chat",
+            "excerpts": [
+              "GitHub - makalin/Secure-Chat: A modern end-to-end encrypted ...\nA modern end-to-end encrypted chat application built with React and Node.js, featuring real-time messaging, push notifications, and screenshot protection. Configure the following variables in .env: This project is licensed under the MIT License - see the LICENSE.md file for details."
+            ],
+            "title": "GitHub - makalin/Secure-Chat: A modern end-to-end encrypted ..."
+          },
+          {
+            "url": "https://getstream.io/blog/chat-application-architecture",
+            "excerpts": [
+              "Chat Application Architecture, Explained - GetStream.io\n12 May 2026 \u00b7 Chat looks simple until you have real users on real networks. A practical guide to chat application architecture, covering the subsystems"
+            ],
+            "title": "Chat Application Architecture, Explained - GetStream.io"
+          },
+          {
+            "url": "https://markaicode.com/websocket-load-testing-playwright-mcp",
+            "excerpts": [
+              "Load Testing WebSockets: Playwright MCP's Message Burst ...\nLearn how to stress test WebSocket connections with Playwright MCP's Message Burst Injection Toolkit. Practical guide with code examples and performance metrics."
+            ],
+            "title": "Load Testing WebSockets: Playwright MCP's Message Burst ..."
+          },
+          {
+            "url": "https://oneuptime.com/blog/post/2026-01-26-playwright-e2e-testing/view",
+            "excerpts": [
+              "How to Get Started with Playwright for E2E Testing\nJan 26, 2026 \u2014 A beginner's guide to Playwright for end-to-end testing, covering installation, writing tests, selectors, and running tests across browsers."
+            ],
+            "title": "How to Get Started with Playwright for E2E Testing"
+          },
+          {
+            "url": "https://github.com/ovcharski/playwright-e2e",
+            "excerpts": [
+              "Playwright E2E Testing Framework\nDemo automation testing framework created with Playwright. A NodeJS library made for browser automation. It's free, open source and backed up by Microsoft."
+            ],
+            "title": "Playwright E2E Testing Framework"
+          },
+          {
+            "url": "https://apps.apple.com/in/app/manifest-daily-journal/id6463312362",
+            "excerpts": [
+              "Manifest: Daily Journal - App Store - Apple\nNew personalized challenges, meditations, and chats to help you get your manifestations faster. Also, critical bug fixes and app improvements. Version 2.43.0 2"
+            ],
+            "title": "Manifest: Daily Journal - App Store - Apple"
+          },
+          {
+            "url": "https://developer.apple.com/app-store/guidelines",
+            "excerpts": [
+              "Guidelines - App Store - Apple Developer\nGet details on design, app review, and marketing criteria, with best practices, case studies, and more. Make sure your app aligns with the technical, content, and design criteria that we use to review all apps, and learn about common issues that cause apps to get rejected."
+            ],
+            "title": "Guidelines - App Store - Apple Developer"
+          },
+          {
+            "url": "https://developer.apple.com/news",
+            "excerpts": [
+              "Latest News - Apple Developer\n2 days ago \u2014 Updated App Review Guidelines now available. February 6, 2026. The App Review Guidelines have been revised to clarify that apps with random or anonymous chat"
+            ],
+            "title": "Latest News - Apple Developer"
+          },
+          {
+            "url": "https://apps.apple.com/us/app/manifest-daily-journal/id6463312362",
+            "excerpts": [
+              "Manifest: Daily Journal - App Store - Apple\nIf you could contact us at contact@manifestapp.xyz, we would love to chat with you and make things right. MORE"
+            ],
+            "title": "Manifest: Daily Journal - App Store - Apple"
+          },
+          {
+            "url": "https://developer.apple.com/documentation/bundleresources/privacy-manifest-files",
+            "excerpts": [
+              "Privacy manifest files | Apple Developer Documentation\nThe privacy manifest is a property list that records the following information: The types of data collected by your app or third-party SDK. Providing a privacy"
+            ],
+            "title": "Privacy manifest files | Apple Developer Documentation"
+          },
+          {
+            "url": "https://tailscale.com/docs/reference/troubleshooting/network-configuration/overlapping-subnet-route-failover",
+            "excerpts": [
+              "Troubleshoot overlapping subnet route failover\nMar 16, 2026 \u2014 With this configuration, both subnet routers are candidates for the /24 prefix, and Tailscale can fail over between them if one goes offline."
+            ],
+            "title": "Troubleshoot overlapping subnet route failover"
+          },
+          {
+            "url": "https://tailscale.com/docs/how-to/set-up-high-availability",
+            "excerpts": [
+              "Set up high availability\nFailover Failover is available one connector is used at a time by all clients. If it goes offline another connector is used."
+            ],
+            "title": "Set up high availability"
+          },
+          {
+            "url": "https://www.reddit.com/r/Tailscale/comments/1j5n7pk/tailscale_subnet_routers_high_availability_and",
+            "excerpts": [
+              "Tailscale subnet routers high availability and failover question\n\"Failover allows customers to deploy overlapping connectors. In a failover scheme, one connector is used at a time by all clients. If it goes"
+            ],
+            "title": "Tailscale subnet routers high availability and failover question"
+          },
+          {
+            "url": "https://www.reddit.com/r/Tailscale/comments/1d31ovb/failover_subnet_routers_same_subnet",
+            "excerpts": [
+              "Failover subnet routers same subnet. : r/Tailscale\nThe existing active-standby mode works great but being able to spread the load in active-active setup would be amazing!"
+            ],
+            "title": "Failover subnet routers same subnet. : r/Tailscale"
+          },
+          {
+            "url": "https://www.candelatech.com/cookbook/misc/Instructions_to_Set_Up_an_SSH_Tunnel",
+            "excerpts": [
+              "Set up an SSH-tunnel on Windows, Linux, or Mac\nOnce your session is setup, select your session that was just saved from the last cookbook, then on the left-hand panel, select Connection -> SSH -> Tunnels."
+            ],
+            "title": "Set up an SSH-tunnel on Windows, Linux, or Mac"
+          },
+          {
+            "url": "http://developers.cloudflare.com/workers/platform/pricing",
+            "excerpts": [
+              "| **Free** | 100,000 per day | No charge for duration | 10 milliseconds of CPU time per invocation |\n| Keys deleted | 1,000 / day |\n| Keys read | 100,000 / day |\n| Keys written | 1,000 / day |\n| List requests | 1,000 / day |\n| Stored data | 1 GB |\nThe Workers Paid plan includes Workers, Pages Functions, Workers KV, Hyperdrive, and Durable Objects usage for a minimum charge of $5 USD per month for an account."
+            ],
+            "title": "Pricing \u00b7 Cloudflare Workers docs"
+          },
+          {
+            "url": "https://developers.cloudflare.com/workers/platform/limits",
+            "excerpts": [
+              "Limits \u00b7 Cloudflare Workers docs\nAccounts on the Workers Free plan have a daily request limit of 100,000 requests, resetting at midnight UTC. When a Worker exceeds this limit, Cloudflare returns Error 1027."
+            ],
+            "title": "Limits \u00b7 Cloudflare Workers docs"
+          }
+        ],
+        "confidence": "high"
+      }
+    ],
+    "type": "text",
+    "beta_fields": null,
+    "mcp_tool_calls": null,
+    "content_file": "hermes-web-thread-dashboard-july-2026.md"
+  }
+}
