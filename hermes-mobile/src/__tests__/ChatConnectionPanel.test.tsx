@@ -1,6 +1,7 @@
 import React from 'react';
 import { fireEvent, render, waitFor } from '@testing-library/react-native';
 import ChatConnectionPanel, { buildConnectionStatusChips } from '../components/ChatConnectionPanel';
+import * as manualGatewayConnection from '../services/manualGatewayConnection';
 
 describe('buildConnectionStatusChips', () => {
   it('never shows Hermes running and only greens Mac HTTP when reachable', () => {
@@ -356,6 +357,11 @@ describe('ChatConnectionPanel', () => {
 
   it('allows manual connection using a custom IP or URL', async () => {
     const onAddProfile = jest.fn().mockResolvedValue(undefined);
+    const connectSpy = jest
+      .spyOn(manualGatewayConnection, 'connectManualGatewayAddress')
+      .mockImplementationOnce(async ({ fallbackLabel, gatewayUrl, persistProfile }) => {
+        await persistProfile(fallbackLabel, gatewayUrl);
+      });
     const { getByTestId } = render(
       <ChatConnectionPanel
         connectionState="disconnected"
@@ -372,8 +378,14 @@ describe('ChatConnectionPanel', () => {
     fireEvent.press(getByTestId('chat-manual-submit'));
 
     await waitFor(() => {
+      expect(connectSpy).toHaveBeenCalledWith({
+        fallbackLabel: 'Tailscale computer',
+        gatewayUrl: 'http://100.87.85.85:8642',
+        persistProfile: onAddProfile,
+      });
       expect(onAddProfile).toHaveBeenCalledWith('Tailscale computer', 'http://100.87.85.85:8642');
     });
+    connectSpy.mockRestore();
   });
 
   it('displays an error message for invalid manual connection entries', async () => {
