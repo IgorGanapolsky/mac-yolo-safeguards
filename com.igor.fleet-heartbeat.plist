@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>Label</key>
+	<string>com.igor.fleet-heartbeat</string>
+	<key>ProgramArguments</key>
+	<array>
+		<string>/bin/bash</string>
+		<string>/Users/igorganapolsky/workspace/git/igor/mac-yolo-safeguards/scripts/fleet-heartbeat.sh</string>
+	</array>
+	<key>StartInterval</key>
+	<integer>1800</integer>
+	<key>RunAtLoad</key>
+	<true/>
+	<key>StandardOutPath</key>
+	<string>/tmp/fleet-heartbeat.log</string>
+	<key>StandardErrorPath</key>
+	<string>/tmp/fleet-heartbeat.log</string>
+	<key>EnvironmentVariables</key>
+	<dict>
+		<key>PATH</key>
+		<string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
+		<key>FLEET_WATCH_LABELS</key>
+		<string>com.igor.external-pr-watch com.igor.hermes-litellm</string>
+	</dict>
+</dict>
+</plist>
