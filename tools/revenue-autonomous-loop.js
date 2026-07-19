@@ -26,6 +26,7 @@
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
+const crypto = require('crypto');
 const { spawnSync } = require('child_process');
 const https = require('https');
 const http = require('http');
@@ -88,7 +89,9 @@ const usage = `Usage:
 
 Options:
   --json           machine-readable summary
-  --auto-send      attempt Gmail sends (or queue for MCP) for due follow-ups
+  --auto-send      build the unattended-send queue (sending requires the safety gate)
+  --allow-unattended-send
+                  permit sending only with REVENUE_UNATTENDED_SEND_APPROVED=1
   --no-auto-send   force diagnose-only even if REVENUE_AUTO_SEND=1
   --no-chrome      skip Chrome Stripe repair even if links 403
   --no-ntfy        skip phone push
@@ -98,7 +101,9 @@ Options:
   --help
 
 Env:
-  REVENUE_AUTO_SEND=1|0   default auto-send on/off
+  REVENUE_AUTO_SEND=1|0   enable queue generation (not sending by itself)
+  REVENUE_UNATTENDED_SEND_APPROVED=1
+                            paired with --allow-unattended-send to permit sending
   REVENUE_FOLLOWUP_HOURS   min age before follow-up (default 48)
   REVENUE_MAX_AUTO_SENDS   cap per run (default 5)
   REVENUE_DIR              override private revenue folder
@@ -116,6 +121,7 @@ function parseArgs(argv) {
     apollo: true,
     fast: false,
     help: false,
+    allowUnattendedSend: false,
   };
   for (const arg of argv) {
     if (arg === '--json') args.json = true;
@@ -124,6 +130,7 @@ function parseArgs(argv) {
     else if (arg === '--no-chrome') args.chrome = false;
     else if (arg === '--no-ntfy') args.ntfy = false;
     else if (arg === '--no-apollo') args.apollo = false;
+    else if (arg === '--allow-unattended-send') args.allowUnattendedSend = true;
     else if (arg === '--fast') {
       args.fast = true;
       args.apollo = false;
@@ -164,6 +171,92 @@ function writeStripeCache(stripe) {
 
 function today() {
   return new Date().toISOString().slice(0, 10);
+}
+
+function normalizeEmail(email) {
+  return String(email || '').trim().toLowerCase();
+}
+
+function sendLedgerPath() {
+  return path.join(REVENUE_DIR, 'outreach-send-ledger.jsonl');
+}
+
+function sendLedgerKey({ day = today(), to, template }) {
+  const input = `${day}|${normalizeEmail(to)}|${String(template || '').trim().toLowerCase()}`;
+  return crypto.createHash('sha256').update(input).digest('hex');
+}
+
+function readSendLedger(file = sendLedgerPath()) {
+  if (!fs.existsSync(file)) return [];
+  try {
+    return fs
+      .readFileSync(file, 'utf8')
+      .split('\n')
+      .filter(Boolean)
+      .map((line) => JSON.parse(line));
+  } catch {
+    // A corrupt or partially-written ledger must fail closed, not permit a send.
+    return null;
+  }
+}
+
+function appendSendLedger(entry, file = sendLedgerPath()) {
+  ensureDir(path.dirname(file));
+  fs.appendFileSync(file, `${JSON.stringify(entry)}\n`, { mode: 0o600 });
+  try {
+    fs.chmodSync(file, 0o600);
+  } catch {
+    /* ignore */
+  }
+}
+
+function acquireSendReservation({ to, template, prospect }) {
+  const ledger = sendLedgerPath();
+  const lock = `${ledger}.lock`;
+  ensureDir(REVENUE_DIR);
+  let lockFd;
+  try {
+    lockFd = fs.openSync(lock, 'wx', 0o600);
+  } catch {
+    return { ok: false, reason: 'send_ledger_busy' };
+  }
+  try {
+    const records = readSendLedger(ledger);
+    if (!records) return { ok: false, reason: 'send_ledger_unreadable' };
+    const key = sendLedgerKey({ to, template });
+    const latest = [...records].reverse().find((record) => record.key === key);
+    if (latest && ['reserved', 'sent'].includes(latest.status)) {
+      return { ok: false, reason: 'already_reserved_or_sent_today', duplicate: latest };
+    }
+
+    const reservation = {
+      key,
+      ts: new Date().toISOString(),
+      day: today(),
+      to: normalizeEmail(to),
+      template,
+      prospect: prospect || '',
+      status: 'reserved',
+    };
+    appendSendLedger(reservation, ledger);
+    return { ok: true, ledger, reservation };
+  } finally {
+    if (lockFd !== undefined) fs.closeSync(lockFd);
+    try {
+      fs.unlinkSync(lock);
+    } catch {
+      /* ignore */
+    }
+  }
+}
+
+function finalizeSendReservation(reservation, status, details = {}) {
+  appendSendLedger({
+    ...reservation,
+    ts: new Date().toISOString(),
+    status,
+    ...details,
+  });
 }
 
 function ensureDir(d) {
@@ -762,7 +855,28 @@ async function run(args) {
     linkByOffer[s.offer] = s;
   }
 
-  if (args.autoSend) {
+  // Scheduled jobs can never send just because a plist or inherited environment
+  // says "auto". The second, invocation-scoped gate is intentionally absent from
+  // every LaunchAgent, so unattended outreach defaults to a queued, reviewable
+  // operation after an incident.
+  const unattendedSendAllowed =
+    args.autoSend &&
+    args.allowUnattendedSend &&
+    process.env.REVENUE_UNATTENDED_SEND_APPROVED === '1';
+  if (args.autoSend && !unattendedSendAllowed) {
+    actions.push('auto_send=blocked_by_safety_gate');
+    for (const row of dueRows) {
+      const contact = contactForProspect(contacts, row);
+      pendingSends.push({
+        prospect: row.prospect_label,
+        reason: 'blocked_by_safety_gate',
+        to: contact?.email,
+        needs: 'REVENUE_UNATTENDED_SEND_APPROVED=1 and --allow-unattended-send',
+      });
+    }
+  }
+
+  if (unattendedSendAllowed) {
     // Prefer emailable due rows first (GH-only issues sort later)
     const ranked = [...dueRows].sort((a, b) => {
       const ae = contactForProspect(contacts, a) ? 0 : 1;
@@ -827,6 +941,15 @@ async function run(args) {
         continue;
       }
       attempts += 1;
+      if (/hold_for_human_authored_first_touch/i.test(row.notes || '')) {
+        pendingSends.push({
+          prospect: row.prospect_label,
+          reason: 'hold_for_human_authored_first_touch',
+          to: c2.email,
+        });
+        actions.push(`send_blocked:first_touch_hold:${c2.email}`);
+        continue;
+      }
       const offerMeta = offerLinkFromMap(offerMap.rows, row.route);
       const stripeMeta = offerMeta
         ? stripe.find((s) => s.offer === offerMeta.offer) || {
@@ -841,9 +964,27 @@ async function run(args) {
         ok: stripeMeta && stripeMeta.ok,
       });
 
-      // Always attempt send (API live probe OR Chrome Gmail session). Never queue for human labor.
+      const reservation = acquireSendReservation({
+        to: c2.email,
+        template: 'revenue-autonomous-followup-v1',
+        prospect: row.prospect_label,
+      });
+      if (!reservation.ok) {
+        pendingSends.push({
+          ...email,
+          prospect: row.prospect_label,
+          reason: reservation.reason,
+        });
+        actions.push(`send_blocked:${reservation.reason}:${c2.email}`);
+        continue;
+      }
+
       const res = tryGmailSend(email);
       if (res.ok) {
+        finalizeSendReservation(reservation.reservation, 'sent', {
+          channel: res.channel || 'unknown',
+          subject: email.subject,
+        });
         sentCount += 1;
         actions.push(`sent:${c2.email}:${row.prospect_label}:via=${res.channel || 'unknown'}`);
         spawnSync(
@@ -866,6 +1007,9 @@ async function run(args) {
           { encoding: 'utf8', timeout: 15000 },
         );
       } else {
+        finalizeSendReservation(reservation.reservation, 'released', {
+          error: (res.stderr || res.stdout || 'send_failed').slice(0, 200),
+        });
         pendingSends.push({
           ...email,
           prospect: row.prospect_label,
@@ -876,7 +1020,7 @@ async function run(args) {
       }
     }
     actions.push(`auto_send_attempts=${attempts} emailable_due=${ranked.filter((r) => contactForProspect(contacts, r)).length}`);
-  } else {
+  } else if (!args.autoSend) {
     actions.push('auto_send=off (pass --auto-send or REVENUE_AUTO_SEND=1)');
   }
 
@@ -995,6 +1139,9 @@ module.exports = {
   githubUrlFromNotes,
   buildFollowupEmail,
   offerLinkFromMap,
+  sendLedgerKey,
+  readSendLedger,
+  acquireSendReservation,
   run,
 };
 
