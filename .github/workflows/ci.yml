@@ -122,6 +122,26 @@ jobs:
           mkdir -p "$HOME/workspace/git/igor/antigravity-hub/antigravity-cli/bin"
           ./install.sh
 
+      # Self-hosted runners keep live 60s LaunchAgents on $HOME/.local/bin.
+      # CI smoke install.sh deliberately writes to a temp HOME and therefore
+      # never refreshes those live binaries. Without E2E_LEASE support there,
+      # LaunchAgents race Guard E2E fakes (CodeQL / Hermes CDP / Ollama) and
+      # fail assertions that require the checkout-under-test log.
+      - name: Refresh live freeze-prevention guards for E2E lease
+        if: runner.environment == 'self-hosted'
+        run: |
+          set -eu
+          mkdir -p "$HOME/.local/bin" "$HOME/.hermes/safeguards"
+          bash -n ./sim-runaway-guard.sh
+          bash -n ./scripts/memory-pressure-guardian.sh
+          install -m 0755 ./sim-runaway-guard.sh "$HOME/.local/bin/sim-runaway-guard.sh"
+          install -m 0755 ./sim-runaway-guard.sh "$HOME/.hermes/safeguards/sim-runaway-guard.sh"
+          install -m 0755 ./scripts/memory-pressure-guardian.sh "$HOME/.local/bin/memory-pressure-guardian.sh"
+          grep -q 'E2E_LEASE_FILE=' "$HOME/.local/bin/sim-runaway-guard.sh"
+          grep -q 'E2E_LEASE_FILE=' "$HOME/.local/bin/memory-pressure-guardian.sh"
+          printf 'live sim-runaway-guard sha256=%s\n' "$(shasum -a 256 "$HOME/.local/bin/sim-runaway-guard.sh" | awk '{print $1}')"
+          printf 'live memory-pressure-guardian sha256=%s\n' "$(shasum -a 256 "$HOME/.local/bin/memory-pressure-guardian.sh" | awk '{print $1}')"
+
       - name: Guard E2E
         run: |
           set -eu
