@@ -1,6 +1,10 @@
 import type { HermesSession } from '../types/chat';
 import { isTelegramInboxSession } from '../services/telegramInbox';
-import { isAutomationProbeSession, isSmokeProbeSession } from './sessionSelection';
+import {
+  isAutomationProbeSession,
+  isNonMobileAutomationSession,
+  isSmokeProbeSession,
+} from './sessionSelection';
 
 /** Hermes gateway returns Unix seconds (float); JS Date expects ms. */
 export function parseGatewayTimestamp(value: unknown): Date | null {
@@ -353,7 +357,12 @@ export function filterDismissedThreadSessions(
     if (options.hideCronSessions && isAutomatedCronSession(session)) {
       return false;
     }
-    if (options.hideAutomationSessions && isAutomationProbeSession(session)) {
+    // After Clear all, suppress the whole API_SERVER/CLI class — not only
+    // probe-shaped titles. Fresh harness ids with real prompts must stay hidden.
+    if (
+      options.hideAutomationSessions &&
+      (isAutomationProbeSession(session) || isNonMobileAutomationSession(session))
+    ) {
       return false;
     }
     return true;
