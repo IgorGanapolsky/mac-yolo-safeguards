@@ -12,9 +12,14 @@ import {
 import type { SetupDeepLinkParams } from '../utils/setupDeepLink';
 import {
   buildTailscaleGatewayUrl,
+  isTailscaleIpv4,
   isTailscaleGatewayUrl,
   mergeTailnetProbeHosts,
 } from '../utils/tailscaleHosts';
+import {
+  filterPhoneTailscaleSelfHosts,
+  filterPhoneTailscaleSelfPeers,
+} from '../utils/tailscaleSelfPeer';
 import { normalizeGatewayUrl } from './gatewayClient';
 import { USB_LOOPBACK_GATEWAY_URL } from '../utils/gatewayLoopbackFallback';
 import type { DiscoveredGateway } from '../types/gatewayProfile';
@@ -560,7 +565,12 @@ export async function discoverAllGatewaysOnLan(
     }
   }
 
-  const list = dedupeDiscoveredGatewaysByMachine(Array.from(map.values()));
+  const phoneTailscaleIp = phoneIp && isTailscaleIpv4(phoneIp)
+    ? phoneIp
+    : null;
+  const list = dedupeDiscoveredGatewaysByMachine(
+    filterPhoneTailscaleSelfPeers(Array.from(map.values()), phoneTailscaleIp),
+  );
   reportLanScanProgress(options?.onProgress, 'complete', hosts.length, hosts.length, list);
   if (preferLanIp && IPV4_RE.test(preferLanIp.trim())) {
     const preferUrl = buildGatewayUrlFromLanIp(preferLanIp.trim());
@@ -573,7 +583,13 @@ export async function discoverAllGatewaysOnLan(
       return a.label?.localeCompare(b.label ?? '') ?? 0;
     });
   }
-  return { gateways: list, tailnetProbeHosts: fromPair.tailnetProbeHosts };
+  return {
+    gateways: list,
+    tailnetProbeHosts: filterPhoneTailscaleSelfHosts(
+      fromPair.tailnetProbeHosts,
+      phoneTailscaleIp,
+    ),
+  };
 }
 
 async function sweepSubnetForPairServer(
