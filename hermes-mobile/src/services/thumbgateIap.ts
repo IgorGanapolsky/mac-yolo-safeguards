@@ -1,8 +1,10 @@
 import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 
-/** Play / App Store subscription id — must match Play Console + App Store Connect. */
+/** Approved App Store subscription. */
 export const THUMBGATE_LEASH_IAP_PRODUCT_ID = 'thumbgate_leash_monthly';
+/** Active Google Play non-consumable that unlocks all Pro features once. */
+export const HERMES_PRO_LIFETIME_IAP_PRODUCT_ID = 'hermes_pro_lifetime';
 
 export type ThumbgateIapResult =
   | { status: 'purchased' }
@@ -79,9 +81,27 @@ async function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
   }
 }
 
-function isThumbgateLeashPurchase(purchase: Purchase): boolean {
+function isActiveProductPurchase(purchase: Purchase): boolean {
   const productId = purchase.productId ?? purchase.id;
-  return productId === THUMBGATE_LEASH_IAP_PRODUCT_ID;
+  return productId === activeProductId();
+}
+
+function isAndroidLifetimeUnlock(): boolean {
+  return Platform.OS === 'android';
+}
+
+function activeProductId(): string {
+  return isAndroidLifetimeUnlock()
+    ? HERMES_PRO_LIFETIME_IAP_PRODUCT_ID
+    : THUMBGATE_LEASH_IAP_PRODUCT_ID;
+}
+
+async function hasStoreEntitlement(iap: ExpoIapModule): Promise<boolean> {
+  if (isAndroidLifetimeUnlock()) {
+    const purchases = await iap.getAvailablePurchases();
+    return purchases.some(isActiveProductPurchase);
+  }
+  return iap.hasActiveSubscriptions([THUMBGATE_LEASH_IAP_PRODUCT_ID]);
 }
 
 async function ensureStoreConnection(iap: ExpoIapModule): Promise<void> {
@@ -106,7 +126,7 @@ export function initializeThumbgateIapListeners(): void {
     }
 
     iap.purchaseUpdatedListener(async (purchase) => {
-      if (!isThumbgateLeashPurchase(purchase)) {
+      if (!isActiveProductPurchase(purchase)) {
         return;
       }
       try {
@@ -144,7 +164,7 @@ export function initializeThumbgateIapListeners(): void {
   })();
 }
 
-/** Read active subscription from Google Play / App Store. Never blocks app startup. */
+/** Read the active one-time Play or subscription App Store entitlement. Never blocks startup. */
 export async function syncThumbgateLeashEntitlement(): Promise<boolean> {
   if (!isNativeMobileApp() || isExpoGoClient()) {
     return false;
@@ -156,10 +176,7 @@ export async function syncThumbgateLeashEntitlement(): Promise<boolean> {
       return false;
     }
     await ensureStoreConnection(iap);
-    return await withTimeout(
-      iap.hasActiveSubscriptions([THUMBGATE_LEASH_IAP_PRODUCT_ID]),
-      IAP_INIT_TIMEOUT_MS,
-    );
+    return await withTimeout(hasStoreEntitlement(iap), IAP_INIT_TIMEOUT_MS);
   } catch {
     return false;
   }
@@ -179,7 +196,7 @@ export async function purchaseThumbgateLeash(): Promise<ThumbgateIapResult> {
     }
     await ensureStoreConnection(iap);
 
-    const alreadyActive = await iap.hasActiveSubscriptions([THUMBGATE_LEASH_IAP_PRODUCT_ID]);
+    const alreadyActive = await hasStoreEntitlement(iap);
     if (alreadyActive) {
       return { status: 'purchased' };
     }
@@ -189,10 +206,10 @@ export async function purchaseThumbgateLeash(): Promise<ThumbgateIapResult> {
 
       iap
         .requestPurchase({
-          type: 'subs',
+          type: isAndroidLifetimeUnlock() ? 'in-app' : 'subs',
           request: {
             apple: { sku: THUMBGATE_LEASH_IAP_PRODUCT_ID },
-            google: { skus: [THUMBGATE_LEASH_IAP_PRODUCT_ID] },
+            google: { skus: [activeProductId()] },
           },
         })
         .catch((error: unknown) => {
@@ -225,13 +242,13 @@ export async function restoreThumbgateLeashPurchases(): Promise<ThumbgateIapResu
     }
     await ensureStoreConnection(iap);
     await iap.restorePurchases();
-    const active = await iap.hasActiveSubscriptions([THUMBGATE_LEASH_IAP_PRODUCT_ID]);
+    const active = await hasStoreEntitlement(iap);
     if (active) {
       return { status: 'purchased' };
     }
     return {
       status: 'error',
-      message: 'No active ThumbGate Leash subscription found on this store account.',
+      message: 'No Hermes Pro purchase found on this store account.',
     };
   } catch (error) {
     return {
@@ -242,5 +259,5 @@ export async function restoreThumbgateLeashPurchases(): Promise<ThumbgateIapResu
 }
 
 export function thumbgateIapSubscribeLabel(): string {
-  return Platform.OS === 'ios' ? 'Subscribe in App Store' : 'Subscribe in Google Play';
+  return Platform.OS === 'ios' ? 'Subscribe in App Store' : 'Unlock in Google Play';
 }
