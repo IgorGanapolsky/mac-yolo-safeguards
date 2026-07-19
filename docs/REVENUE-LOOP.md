@@ -44,3 +44,31 @@ The weekly revenue loop (cloud routine `revenue-loop-weekly`) reads this file at
   1. Once Igor sends these 3 drafts, search Gmail replies/threads scoped to `footprint-ai.com`, `insforge.dev`, and `cambria-labs.com` to measure real reply/booking metrics.
   2. Work around the GitHub Search API outage — try `WebSearch`/`WebFetch` against github.com's web search UI instead of the REST API, since raw `api.github.com` calls are blocked outside this repo in this environment.
   3. This run landed below the 5–10 prospect target (3) because most HN-sourced candidates were unpaid tool-builders without a verifiable email rather than buyers — next run should widen HN queries to founder-describes-own-incident stories specifically (not "I built a scanner because...") to raise the qualified-prospect yield.
+
+### 2026-07-19 — directive: Phase-0 dashboard-wedge demand test (Igor-approved)
+
+**Decision:** NO dashboard product code is built until a strict buyer-pull gate is met.
+The next revenue-loop runs double as the demand test. Full plan:
+`docs/PHASE0-DASHBOARD-WEDGE-DEMAND-TEST.md`.
+
+- **Lead the Agent Reliability Diagnostic ($499) / Hardening Sprint ($1,500) outreach with
+  this outcome line** (Igor's words — the outcome we already own):
+  > Stop runaway AI-agent loops, unsafe terminal actions, and silent failures before they
+  > burn budget or damage a repository — from your phone.
+  Do NOT pitch a "dashboard subscription." Sell the existing outcome; the dashboard is a
+  possible later product.
+- **Watch two live prospects for the dashboard pull signal** (both sourced from GitHub
+  issues that describe it): `webai — David Stout` (ragentop #24, "kill switch for runaway
+  agent sessions") and `2389 — Harper Reed` (coven-gateway #67, "in-flight requests that
+  cannot be cancelled"). Log any request for continuous monitoring / remote intervention.
+- **Build/kill gate (real payment is the only strong signal):** BUILD only if ALL of —
+  (1) ≥3 qualified buyer conversations, (2) ≥1 PAID $499 diagnostic cleared, (3) ≥2 buyers
+  explicitly request continuous monitoring or remote intervention. One reply or an LOI is
+  too weak and does NOT count. KILL the dashboard idea if two message/segment iterations
+  produce no paid diagnostic.
+- **Not the wedge:** EU AI Act compliance (Digital Omnibus moved Annex III high-risk to
+  Dec 2 2027 / Annex I to Aug 2 2028; coding assistants aren't high-risk under Article 6) —
+  a later enterprise segment only, never the 2026 opener.
+- **Durability note:** position on local models + metered provider APIs, never third-party
+  OAuth into Claude Pro/Max subscription quotas (Apr 4 2026 wrapper ban).
+- Human sends only — the loop never sends outreach itself.
