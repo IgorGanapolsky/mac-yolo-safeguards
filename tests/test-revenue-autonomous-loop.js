@@ -2,6 +2,13 @@
 'use strict';
 
 const assert = require('assert');
+const fs = require('fs');
+const os = require('os');
+const path = require('path');
+
+const testRevenueDir = fs.mkdtempSync(path.join(os.tmpdir(), 'revenue-loop-test-'));
+process.env.REVENUE_DIR = testRevenueDir;
+
 const {
   stageSummary,
   dueFollowUps,
@@ -11,6 +18,8 @@ const {
   parseArgs,
   contactForProspect,
   githubUrlFromNotes,
+  sendLedgerKey,
+  acquireSendReservation,
 } = require('../tools/revenue-autonomous-loop');
 
 let n = 0;
@@ -32,6 +41,48 @@ check('parseArgs --fast disables chrome/apollo', () => {
   assert.strictEqual(a.fast, true);
   assert.strictEqual(a.chrome, false);
   assert.strictEqual(a.apollo, false);
+});
+
+check('unattended-send approval is explicit', () => {
+  const a = parseArgs(['--auto-send', '--allow-unattended-send']);
+  assert.strictEqual(a.autoSend, true);
+  assert.strictEqual(a.allowUnattendedSend, true);
+});
+
+check('send ledger keys dedupe recipient-template pairs per day', () => {
+  const first = sendLedgerKey({
+    day: '2026-07-19',
+    to: 'Founder@Example.com',
+    template: 'revenue-autonomous-followup-v1',
+  });
+  const same = sendLedgerKey({
+    day: '2026-07-19',
+    to: 'founder@example.com',
+    template: 'revenue-autonomous-followup-v1',
+  });
+  const nextDay = sendLedgerKey({
+    day: '2026-07-20',
+    to: 'founder@example.com',
+    template: 'revenue-autonomous-followup-v1',
+  });
+  assert.strictEqual(first, same);
+  assert.notStrictEqual(first, nextDay);
+});
+
+check('send ledger reserves a contact-template only once per day', () => {
+  const first = acquireSendReservation({
+    to: 'founder@example.com',
+    template: 'revenue-autonomous-followup-v1',
+    prospect: 'example',
+  });
+  const duplicate = acquireSendReservation({
+    to: 'FOUNDER@example.com',
+    template: 'revenue-autonomous-followup-v1',
+    prospect: 'example',
+  });
+  assert.strictEqual(first.ok, true);
+  assert.strictEqual(duplicate.ok, false);
+  assert.strictEqual(duplicate.reason, 'already_reserved_or_sent_today');
 });
 
 check('stageSummary open gross ignores paid/lost', () => {
@@ -103,3 +154,4 @@ check('githubUrlFromNotes extracts issue URL', () => {
 });
 
 console.log(`\nPASS ${n}/${n} revenue-autonomous-loop`);
+fs.rmSync(testRevenueDir, { recursive: true, force: true });
