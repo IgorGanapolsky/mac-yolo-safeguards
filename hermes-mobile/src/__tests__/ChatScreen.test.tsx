@@ -1707,6 +1707,24 @@ describe('ChatScreen', () => {
     expect(queryByTestId('chat-empty-recent-chats')).toBeNull();
   });
 
+  it('hides Type a message below while the attach picker sheet is open', async () => {
+    const { getByTestId, queryByTestId, queryByText } = await renderChatScreen();
+
+    fireEvent.press(getByTestId('open-sessions-modal'));
+    fireEvent.press(getByTestId('modal-new-chat-button'));
+
+    expect(getByTestId('chat-empty-state')).toBeTruthy();
+    expect(getByTestId('chat-empty-type-below-hint')).toBeTruthy();
+
+    fireEvent.press(getByTestId('chat-attach-button'));
+
+    await waitFor(() => {
+      expect(getByTestId('attach-picker-sheet')).toBeTruthy();
+    });
+    expect(queryByTestId('chat-empty-type-below-hint')).toBeNull();
+    expect(queryByText('Type a message below.')).toBeNull();
+  });
+
   it('cold start never auto-opens a mega-blocked session (empty composer instead)', async () => {
     const { listSessions, listMessages } = jest.requireMock('../services/hermesChatClient') as {
       listSessions: jest.Mock;

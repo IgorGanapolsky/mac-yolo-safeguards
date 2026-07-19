@@ -6887,15 +6887,15 @@ export default function ChatScreen() {
                   </Text>
                 ) : showRecentChatsPanel ? (
                   <>
-                    {!currentSession ? (
+                    {!currentSession && !attachPickerVisible ? (
                       <Text style={styles.emptyPlaceholderHint} testID="chat-new-chat-hint">
                         Type below for a new chat, or open a recent one.
                       </Text>
                     ) : null}
                     {recentChatsList}
                   </>
-                ) : (
-                  <Text style={styles.emptyPlaceholderText}>
+                ) : attachPickerVisible ? null : (
+                  <Text style={styles.emptyPlaceholderText} testID="chat-empty-type-below-hint">
                     Type a message below.
                   </Text>
                 )}
