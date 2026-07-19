@@ -202,6 +202,7 @@ export const storage = {
         KEYS.DISMISSED_PROMPTS,
         KEYS.DISMISSED_SESSION_IDS,
         KEYS.HIDE_CRON_SESSIONS,
+        KEYS.HIDE_AUTOMATION_SESSIONS,
         KEYS.LAST_SESSION_BY_COMPUTER,
       ]);
       await gatewayProfiles.clear();
@@ -377,6 +378,34 @@ export const storage = {
       }
     }
     return null;
+  },
+
+  /** Clear-all / Start-fresh: do not restore a deleted or mega session after relaunch. */
+  async clearLastSessionForComputer(
+    computerKeys: string | string[] | null | undefined,
+  ): Promise<void> {
+    const keys = (Array.isArray(computerKeys) ? computerKeys : [computerKeys])
+      .map((key) => normalizeComputerSessionKey(key))
+      .filter(Boolean);
+    if (keys.length === 0) {
+      return;
+    }
+    try {
+      const map = await loadLastSessionByComputerMap();
+      const next = { ...map };
+      let changed = false;
+      for (const key of keys) {
+        if (key in next) {
+          delete next[key];
+          changed = true;
+        }
+      }
+      if (changed) {
+        await AsyncStorage.setItem(KEYS.LAST_SESSION_BY_COMPUTER, JSON.stringify(next));
+      }
+    } catch (error) {
+      console.error('[hermes-mobile] clearLastSessionForComputer failed:', error);
+    }
   },
 
   async loadApprovalsCount(): Promise<number> {

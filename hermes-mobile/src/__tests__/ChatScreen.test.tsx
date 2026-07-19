@@ -165,6 +165,7 @@ jest.mock('../services/storage', () => ({
     incrementApprovalsCount: jest.fn().mockResolvedValue(1),
     saveLastSessionForComputer: jest.fn().mockResolvedValue(undefined),
     loadLastSessionForComputer: jest.fn().mockResolvedValue(null),
+    clearLastSessionForComputer: jest.fn().mockResolvedValue(undefined),
   },
 }));
 
@@ -292,8 +293,25 @@ jest.mock('../services/gatewayDiscovery', () => ({
 
 
 async function confirmAlertButton(label: string) {
+  // Clear-all dismisses the Threads modal then shows Alert after a short timeout
+  // (Android otherwise swallows Alert while BottomSheetModal is mounted).
+  await waitFor(() => {
+    const calls = (Alert.alert as jest.Mock).mock.calls;
+    const match = [...calls]
+      .reverse()
+      .find((call) =>
+        (call[2] as Array<{ text?: string }> | undefined)?.some((entry) => entry.text === label),
+      );
+    expect(match).toBeTruthy();
+  });
   await act(async () => {
-    const buttons = (Alert.alert as jest.Mock).mock.calls.at(-1)?.[2] as
+    const calls = (Alert.alert as jest.Mock).mock.calls;
+    const match = [...calls]
+      .reverse()
+      .find((call) =>
+        (call[2] as Array<{ text?: string }> | undefined)?.some((entry) => entry.text === label),
+      );
+    const buttons = match?.[2] as
       | Array<{ text?: string; onPress?: () => void | Promise<void> }>
       | undefined;
     const button = buttons?.find((entry) => entry.text === label);
@@ -1689,10 +1707,13 @@ describe('ChatScreen', () => {
     expect(queryByTestId('chat-empty-recent-chats')).toBeNull();
   });
 
-  it('preserves typed composer text when Start fresh chat opens a new session', async () => {
+  it('cold start never auto-opens a mega-blocked session (empty composer instead)', async () => {
     const { listSessions, listMessages } = jest.requireMock('../services/hermesChatClient') as {
       listSessions: jest.Mock;
       listMessages: jest.Mock;
+    };
+    const { storage } = jest.requireMock('../services/storage') as {
+      storage: { loadLastSessionForComputer: jest.Mock };
     };
     listSessions.mockResolvedValue([
       {
@@ -1706,6 +1727,7 @@ describe('ChatScreen', () => {
     listMessages.mockResolvedValue([
       { role: 'assistant', content: 'Your computer is processing a very large session.' },
     ]);
+    storage.loadLastSessionForComputer.mockResolvedValue('mega-session-1');
     Object.assign(mockGatewayState, {
       connectionState: 'connected',
       health: { ok: true, level: 'green', hostname: 'demo-mac.local' },
@@ -1721,26 +1743,17 @@ describe('ChatScreen', () => {
     const { getByTestId, queryByTestId } = await renderChatScreen();
 
     await waitFor(() => {
-      expect(getByTestId('mega-session-banner')).toBeTruthy();
-      expect(getByTestId('mega-session-start-fresh-chat')).toBeTruthy();
+      expect(getByTestId('chat-empty-state')).toBeTruthy();
     });
-
-    const draft = 'typeable-probe-probe-2-1';
-    fireEvent.changeText(getByTestId('chat-input'), draft);
-    expect(getByTestId('chat-input').props.value).toBe(draft);
-
-    await act(async () => {
-      fireEvent.press(getByTestId('mega-session-start-fresh-chat'));
-      await Promise.resolve();
-    });
-
-    await waitFor(() => {
-      expect(queryByTestId('mega-session-banner')).toBeNull();
-      expect(getByTestId('chat-input').props.value).toBe(draft);
-    });
+    expect(queryByTestId('mega-session-banner')).toBeNull();
+    expect(listMessages).not.toHaveBeenCalledWith(
+      expect.anything(),
+      'mega-session-1',
+      expect.anything(),
+    );
   });
 
-  it('automatically continues a blocked mega-session send in a fresh chat', async () => {
+  it('sends make money today in a fresh chat when Mac still has a mega-blocked thread', async () => {
     const { listSessions, listMessages, createSessionWithUniqueTitle } = jest.requireMock(
       '../services/hermesChatClient',
     ) as {
@@ -1750,6 +1763,9 @@ describe('ChatScreen', () => {
     };
     const { streamSessionChat } = jest.requireMock('../services/hermesGatewayClient') as {
       streamSessionChat: jest.Mock;
+    };
+    const { storage } = jest.requireMock('../services/storage') as {
+      storage: { loadLastSessionForComputer: jest.Mock };
     };
     listSessions.mockResolvedValue([
       {
@@ -1761,6 +1777,7 @@ describe('ChatScreen', () => {
       },
     ]);
     listMessages.mockResolvedValue([]);
+    storage.loadLastSessionForComputer.mockResolvedValue('blocked-mega-session');
     createSessionWithUniqueTitle.mockResolvedValueOnce({
       id: 'fresh-session',
       title: 'make money today',
@@ -1795,7 +1812,7 @@ describe('ChatScreen', () => {
 
     const alertSpy = jest.spyOn(Alert, 'alert');
     const { getByTestId, queryByTestId } = await renderChatScreen();
-    await waitFor(() => expect(getByTestId('mega-session-banner')).toBeTruthy());
+    await waitFor(() => expect(getByTestId('chat-empty-state')).toBeTruthy());
 
     await act(async () => {
       fireEvent.changeText(getByTestId('chat-input'), 'make money today');
@@ -1820,7 +1837,6 @@ describe('ChatScreen', () => {
         expect.any(Function),
       );
     });
-    expect(alertSpy).not.toHaveBeenCalled();
     expect(queryByTestId('mega-session-banner')).toBeNull();
     alertSpy.mockRestore();
   });
@@ -1831,12 +1847,21 @@ describe('ChatScreen', () => {
     const { chatProjects } = jest.requireMock('../services/chatProjects') as {
       chatProjects: { save: jest.Mock };
     };
+    const { storage } = jest.requireMock('../services/storage') as {
+      storage: { clearLastSessionForComputer: jest.Mock };
+    };
     chatProjects.save.mockClear();
+    storage.clearLastSessionForComputer.mockClear();
 
     try {
       const { getByTestId, findByTestId, queryByTestId } = await renderChatScreen();
       fireEvent.press(getByTestId('open-sessions-modal'));
       fireEvent.press(await findByTestId('threads-modal-clear-all'));
+
+      // Modal dismisses first so Android Alert is not swallowed.
+      await act(async () => {
+        jest.advanceTimersByTime(50);
+      });
 
       await act(async () => {
         const buttons = (Alert.alert as jest.Mock).mock.calls.at(-1)?.[2] as
@@ -1854,6 +1879,7 @@ describe('ChatScreen', () => {
       });
 
       await waitFor(() => {
+        expect(storage.clearLastSessionForComputer).toHaveBeenCalled();
         expect(chatProjects.save).toHaveBeenCalledWith(
           expect.objectContaining({
             projects: [
@@ -2674,12 +2700,10 @@ describe('ChatScreen', () => {
         await Promise.resolve();
       });
 
-      // Footer chip is the interactive picker; header project lane is collapsed by default.
+      // Footer chip is the interactive picker; header project lane stays always visible.
       expect(getByTestId('vault-project-picker-chip')).toBeTruthy();
-      expect(queryByTestId('chat-header-project-picker')).toBeNull();
-
-      fireEvent.press(getByTestId('chat-header-details-toggle'));
       expect(getByTestId('chat-header-project-picker')).toBeTruthy();
+      expect(queryByTestId('chat-header-details-toggle')).toBeNull();
 
       fireEvent.press(getByTestId('vault-project-picker-chip'));
 

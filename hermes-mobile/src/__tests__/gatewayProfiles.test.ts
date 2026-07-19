@@ -569,6 +569,31 @@ describe('gatewayProfiles', () => {
     expect(state.activeProfileId).toBe('mac_igors_macbook_pro');
   });
 
+  it('never persists the handset Tailscale self-peer while retaining Mac discoveries', () => {
+    const state = applyTailscaleDiscoveriesToProfileState(
+      EMPTY_GATEWAY_PROFILE_STATE,
+      [
+        {
+          gatewayUrl: 'http://100.70.124.54:8642',
+          hostname: 'Pretend-Mac',
+          localIp: '100.70.124.54',
+        },
+        {
+          gatewayUrl: 'http://100.94.135.78:8642',
+          hostname: 'Igors-Mac-mini',
+          localIp: '100.94.135.78',
+        },
+      ],
+      '100.70.124.54',
+    );
+
+    expect(state.profiles).toHaveLength(1);
+    expect(state.profiles[0]).toMatchObject({
+      gatewayUrl: 'http://100.94.135.78:8642',
+      hostname: 'Igors-Mac-mini',
+    });
+  });
+
   it('resolvePreferredActiveProfileId keeps last-used; default skips USB; preferUsb opt-in', () => {
     let state = upsertDiscoveredProfile(EMPTY_GATEWAY_PROFILE_STATE, {
       gatewayUrl: 'http://100.94.135.78:8642',

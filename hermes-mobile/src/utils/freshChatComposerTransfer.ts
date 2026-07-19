@@ -17,6 +17,13 @@ export function shouldRestoreComposerAfterFreshChat(preservedText: string): bool
   return preservedText.length > 0;
 }
 
+/** True when Start fresh should keep attachment chips (even with empty text). */
+export function shouldRestoreComposerAttachmentsAfterFreshChat(
+  attachmentCount: number,
+): boolean {
+  return attachmentCount > 0;
+}
+
 /**
  * Prefer the in-flight typed draft over an empty stored draft for the new session.
  * Empty preserved text falls through to whatever was loaded for the destination session.

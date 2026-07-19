@@ -8,7 +8,6 @@
     <array>
         <string>{{NODE}}</string>
         <string>{{REPO}}/tools/revenue-autonomous-loop.js</string>
-        <string>--auto-send</string>
         <string>--json</string>
     </array>
     <key>WorkingDirectory</key>
@@ -23,14 +22,14 @@
         <key>PATH</key>
         <string>{{HOME}}/.local/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
         <key>REVENUE_AUTO_SEND</key>
-        <string>1</string>
+        <string>0</string>
         <key>REVENUE_FOLLOWUP_HOURS</key>
         <string>48</string>
         <key>REVENUE_MAX_AUTO_SENDS</key>
-        <string>5</string>
-        <!-- Public GitHub issue follow-ups when no email contact exists -->
+        <string>0</string>
+        <!-- Public GitHub issue follow-ups are never sent by this scheduler. -->
         <key>REVENUE_AUTO_GH</key>
-        <string>1</string>
+        <string>0</string>
         <key>REVENUE_NTFY_QUIET_NOOP</key>
         <string>1</string>
         <key>REVENUE_DIR</key>

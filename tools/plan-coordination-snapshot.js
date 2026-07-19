@@ -12,15 +12,21 @@
 
 const fs = require('fs');
 const path = require('path');
+const { execFileSync } = require('child_process');
 
 const REPO = path.resolve(__dirname, '..');
 const DEFAULT_PLAN = path.join(REPO, 'plan.md');
 
 function parseArgs(argv) {
-  const args = { json: false, planPath: DEFAULT_PLAN };
+  const args = { json: false, planPath: DEFAULT_PLAN, command: 'snapshot', owner: null, stdin: false };
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i];
-    if (arg === '--json') args.json = true;
+    if (arg === 'check-staged-ownership' || arg === 'check-ownership') args.command = arg;
+    else if (arg === '--json') args.json = true;
+    else if (arg === '--owner') {
+      args.owner = argv[i + 1]?.trim() || null;
+      i += 1;
+    } else if (arg === '--stdin') args.stdin = true;
     else if (arg === '--plan') {
       args.planPath = path.resolve(argv[i + 1] || '');
       i += 1;
@@ -68,6 +74,51 @@ function parseFileLocks(text) {
     locks.push(line.replace(/^-\s*/, '').trim());
   }
   return locks;
+}
+
+function parseOwnershipLocks(text) {
+  return text
+    .split('\n')
+    .filter((line) => line.startsWith('- `') && line.includes('→') && !line.includes('(free)') && !/released/i.test(line))
+    .map((line) => ({
+      owner: line.match(/→\s*\*\*([^*]+)\*\*/)?.[1]?.trim() || null,
+      files: [...line.matchAll(/`([^`]+)`/g)].map((match) => match[1].trim()).filter(Boolean),
+    }))
+    .filter((lock) => lock.owner && lock.files.length > 0);
+}
+
+function isClaimedPath(file, claim) {
+  return file === claim || file.startsWith(`${claim.replace(/\/+$/, '')}/`);
+}
+
+function validateOwnership({ planText, files, owner, requireOwner }) {
+  const locks = parseOwnershipLocks(planText);
+  const violations = [];
+  for (const file of files.filter((candidate) => candidate.startsWith('hermes-mobile/'))) {
+    const matches = locks.filter((lock) => lock.files.some((claim) => isClaimedPath(file, claim)));
+    if (matches.length === 0) {
+      violations.push(`${file}: no active plan.md §2 claim`);
+      continue;
+    }
+    if (requireOwner && !owner) {
+      violations.push(`${file}: PLAN_AGENT_ID (or --owner) is required`);
+      continue;
+    }
+    if (requireOwner && !matches.some((lock) => lock.owner === owner)) {
+      violations.push(`${file}: claimed by ${matches.map((lock) => lock.owner).join(', ')}, not ${owner}`);
+    }
+  }
+  return violations;
+}
+
+function stagedFiles() {
+  return execFileSync('git', ['diff', '--cached', '--name-only', '--diff-filter=ACMR'], {
+    cwd: REPO,
+    encoding: 'utf8',
+  })
+    .split('\n')
+    .map((file) => file.trim())
+    .filter(Boolean);
 }
 
 function snapshotPlan(planPath = DEFAULT_PLAN) {
@@ -130,7 +181,27 @@ function formatHuman(snapshot) {
 function main() {
   const args = parseArgs(process.argv.slice(2));
   if (args.help) {
-    console.log('Usage: node tools/plan-coordination-snapshot.js [--json] [--plan path]');
+    console.log('Usage: node tools/plan-coordination-snapshot.js [--json] [--plan path] | check-staged-ownership [--owner id] | check-ownership --stdin [--owner id]');
+    process.exit(0);
+  }
+  if (args.command === 'check-staged-ownership' || args.command === 'check-ownership') {
+    const planText = fs.readFileSync(args.planPath, 'utf8');
+    const files = args.command === 'check-staged-ownership'
+      ? stagedFiles()
+      : (args.stdin ? fs.readFileSync(0, 'utf8').split('\n').map((file) => file.trim()).filter(Boolean) : []);
+    const owner = args.owner || process.env.PLAN_AGENT_ID || process.env.AGENT_ID || null;
+    const violations = validateOwnership({
+      planText,
+      files,
+      owner,
+      requireOwner: args.command === 'check-staged-ownership',
+    });
+    if (violations.length > 0) {
+      console.error('✗ plan.md staged ownership gate failed:');
+      violations.forEach((violation) => console.error(`  - ${violation}`));
+      process.exit(1);
+    }
+    console.log(`✓ plan.md ownership gate passed (${files.filter((file) => file.startsWith('hermes-mobile/')).length} Hermes Mobile file(s))`);
     process.exit(0);
   }
 
@@ -144,7 +215,15 @@ function main() {
   process.exit(snapshot.ok ? 0 : 1);
 }
 
-module.exports = { snapshotPlan, parseActiveTasks, parseFileLocks, parseMeta, formatHuman };
+module.exports = {
+  snapshotPlan,
+  parseActiveTasks,
+  parseFileLocks,
+  parseOwnershipLocks,
+  validateOwnership,
+  parseMeta,
+  formatHuman,
+};
 
 if (require.main === module) {
   main();

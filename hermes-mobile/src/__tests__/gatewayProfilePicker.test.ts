@@ -14,6 +14,7 @@ import {
   resolveUsbMatchingProfileId,
   shouldOfferUsbLinkRepair,
   hasOnlyLoopbackProfiles,
+  isCablePluggedInForProfile,
 } from '../utils/gatewayProfilePicker';
 
 describe('gatewayProfilePicker', () => {
@@ -58,7 +59,7 @@ describe('gatewayProfilePicker', () => {
     expect(profilePickerLines(profiles[0]).detail).toBe('Tailscale · 100.94.135.78:8642');
   });
 
-  it('keeps live USB + Tailscale Mac Pro as two selectable rows', () => {
+  it('collapses live USB + Tailscale Mac Pro into one physical-machine row', () => {
     const profiles = profilesForSwitchComputerPicker(
       [
         {
@@ -85,25 +86,73 @@ describe('gatewayProfilePicker', () => {
         },
       },
     );
-    // USB must not hide Tailscale for the same MacBook / Mac Pro.
-    expect(profiles).toHaveLength(3);
+    expect(profiles).toHaveLength(2);
     expect(profiles.map((p) => profileConnectionRouteLabel(p, true))).toEqual([
       'USB',
-      'Tailscale',
       'Tailscale',
     ]);
     const usbRow = profiles[0];
     const mbpTs = profiles.find((p) => p.id === 'mac_book_ts');
     expect(usbRow).toBeTruthy();
-    expect(mbpTs).toBeTruthy();
+    expect(mbpTs).toBeUndefined();
     expect(profilePickerLines(usbRow!, { cablePluggedIn: true }).title).toBe(
       'Igors-MacBook-Pro (Mac Pro)',
     );
-    expect(profilePickerLines(mbpTs!).title).toBe('Igors-MacBook-Pro (Mac Pro)');
-    expect(profilePickerLines(mbpTs!).detail).toMatch(/^Tailscale · /);
+    expect(profilePickerLines(usbRow!, { cablePluggedIn: true }).detail).toBe(
+      'USB cable connected · Tailscale is the away-from-home option',
+    );
+    expect(profiles[1].id).toBe('mac_mini_ts');
+    expect(profilePickerLines(profiles[1]).title).toBe('Igors-Mac-mini');
   });
 
-  it('shows saved USB and Tailscale Mac Pro rows side by side when cabled', () => {
+  it('keeps the active Tailscale identity selected when its live USB alias is found', () => {
+    const activeProfileId = 'mac_book_ts';
+    const liveUsb = {
+      reachable: true,
+      hostname: 'Igors-MacBook-Pro.local',
+    };
+    const profiles = profilesForSwitchComputerPicker(
+      [
+        {
+          id: 'mac_book_usb',
+          label: 'Igors-MacBook-Pro',
+          gatewayUrl: 'http://127.0.0.1:8642',
+          hostname: 'Igors-MacBook-Pro',
+          addedAt: '2026-07-18T15:00:00Z',
+        },
+        {
+          id: activeProfileId,
+          label: 'Igors-MacBook-Pro',
+          gatewayUrl: 'http://100.87.85.85:8642',
+          hostname: 'Igors-MacBook-Pro',
+          localIp: '100.87.85.85',
+          addedAt: '2026-07-18T15:00:30Z',
+        },
+        {
+          id: 'mac_mini_ts',
+          label: 'Igors-Mac-mini',
+          gatewayUrl: 'http://100.94.135.78:8642',
+          hostname: 'Igors-Mac-mini',
+          localIp: '100.94.135.78',
+          addedAt: '2026-07-18T15:01:00Z',
+        },
+      ],
+      { activeProfileId, liveUsb },
+    );
+
+    expect(profiles).toHaveLength(2);
+    const activeRow = profiles.find((profile) => profile.id === activeProfileId);
+    expect(activeRow).toBeTruthy();
+    expect(profileConnectionRouteLabel(activeRow!, true)).toBe('Tailscale');
+    expect(isCablePluggedInForProfile(activeRow!, liveUsb)).toBe(true);
+    expect(profilePickerLines(activeRow!, { cablePluggedIn: true }).detail).toBe(
+      'Cable connected · Tailscale works away from home',
+    );
+    expect(profiles.map((profile) => profile.id)).not.toContain('mac_book_usb');
+    expect(profiles.map((profile) => profile.id)).toContain('mac_mini_ts');
+  });
+
+  it('uses Tailscale for Mac Pro when USB is not reachable and preserves Mac mini', () => {
     const profiles = profilesForSwitchComputerPicker(
       [
         {
@@ -129,20 +178,51 @@ describe('gatewayProfilePicker', () => {
         },
       ],
       {
+        activeProfileId: 'mac_book_ts',
         liveUsb: {
-          reachable: true,
+          reachable: false,
           hostname: 'Igors-MacBook-Pro.local',
         },
       },
     );
-    expect(profiles).toHaveLength(3);
-    expect(profiles.map((p) => p.id).sort()).toEqual([
-      'mac_book_ts',
-      'mac_book_usb',
-      'mac_mini_ts',
+    expect(profiles).toHaveLength(2);
+    expect(profiles.map((p) => p.id)).toEqual(['mac_book_ts', 'mac_mini_ts']);
+    expect(profiles.map((p) => profileConnectionRouteLabel(p, true))).toEqual([
+      'Tailscale',
+      'Tailscale',
     ]);
-    expect(profileConnectionRouteLabel(profiles[0], true)).toBe('USB');
-    expect(profiles.some((p) => p.id === 'mac_book_ts')).toBe(true);
+    expect(profilePickerLines(profiles[0]).title).toBe('Igors-MacBook-Pro (Mac Pro)');
+    expect(profilePickerLines(profiles[1]).title).toBe('Igors-Mac-mini');
+  });
+
+  it('does not let an active home Wi-Fi alias hide the same Mac Tailscale route', () => {
+    const profiles = profilesForSwitchComputerPicker(
+      [
+        {
+          id: 'mac_book_lan',
+          label: 'Igors-MacBook-Pro',
+          gatewayUrl: 'http://192.168.68.54:8642',
+          hostname: 'Igors-MacBook-Pro',
+          localIp: '192.168.68.54',
+          addedAt: '2026-07-18T15:00:00Z',
+        },
+        {
+          id: 'mac_book_ts',
+          label: 'Igors-MacBook-Pro',
+          gatewayUrl: 'http://igors-macbook-pro.tail12aa33.ts.net:8642',
+          hostname: 'Igors-MacBook-Pro',
+          addedAt: '2026-07-18T15:00:30Z',
+        },
+      ],
+      {
+        activeProfileId: 'mac_book_lan',
+        liveUsb: { reachable: false },
+      },
+    );
+
+    expect(profiles).toHaveLength(1);
+    expect(profiles[0].id).toBe('mac_book_ts');
+    expect(profileConnectionRouteLabel(profiles[0], false)).toBe('Tailscale');
   });
 
   it('shows Tailscale endpoint instead of home LAN IP for the same Mac mini profile', () => {

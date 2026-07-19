@@ -12,9 +12,15 @@ import {
 import type { SetupDeepLinkParams } from '../utils/setupDeepLink';
 import {
   buildTailscaleGatewayUrl,
+  isTailscaleIpv4,
   isTailscaleGatewayUrl,
   mergeTailnetProbeHosts,
 } from '../utils/tailscaleHosts';
+import {
+  filterPhoneTailscaleSelfHosts,
+  filterPhoneTailscaleSelfPeers,
+  getPhoneTailscaleIpv4,
+} from '../utils/tailscaleSelfPeer';
 import { normalizeGatewayUrl } from './gatewayClient';
 import { USB_LOOPBACK_GATEWAY_URL } from '../utils/gatewayLoopbackFallback';
 import type { DiscoveredGateway } from '../types/gatewayProfile';
@@ -440,12 +446,17 @@ export async function bootstrapTailnetProbeHostsFromPairServers(
     }
     mergeDiscovered(map, pairPayloadToDiscovered(payload));
   }
+  const phoneTailscaleIp = await getPhoneTailscaleIpv4();
+  tailnetProbeHosts = filterPhoneTailscaleSelfHosts(tailnetProbeHosts, phoneTailscaleIp);
   if (tailnetProbeHosts.length > 0) {
     for (const item of await sweepTailnetGatewayHealth(tailnetProbeHosts)) {
       mergeDiscovered(map, item);
     }
   }
-  return { tailnetProbeHosts, gateways: Array.from(map.values()) };
+  return {
+    tailnetProbeHosts,
+    gateways: filterPhoneTailscaleSelfPeers(Array.from(map.values()), phoneTailscaleIp),
+  };
 }
 
 async function sweepAllPairServers(
@@ -560,7 +571,12 @@ export async function discoverAllGatewaysOnLan(
     }
   }
 
-  const list = dedupeDiscoveredGatewaysByMachine(Array.from(map.values()));
+  const phoneTailscaleIp = phoneIp && isTailscaleIpv4(phoneIp)
+    ? phoneIp
+    : null;
+  const list = dedupeDiscoveredGatewaysByMachine(
+    filterPhoneTailscaleSelfPeers(Array.from(map.values()), phoneTailscaleIp),
+  );
   reportLanScanProgress(options?.onProgress, 'complete', hosts.length, hosts.length, list);
   if (preferLanIp && IPV4_RE.test(preferLanIp.trim())) {
     const preferUrl = buildGatewayUrlFromLanIp(preferLanIp.trim());
@@ -573,7 +589,13 @@ export async function discoverAllGatewaysOnLan(
       return a.label?.localeCompare(b.label ?? '') ?? 0;
     });
   }
-  return { gateways: list, tailnetProbeHosts: fromPair.tailnetProbeHosts };
+  return {
+    gateways: list,
+    tailnetProbeHosts: filterPhoneTailscaleSelfHosts(
+      fromPair.tailnetProbeHosts,
+      phoneTailscaleIp,
+    ),
+  };
 }
 
 async function sweepSubnetForPairServer(

@@ -45,6 +45,7 @@ import GatewayProfilePicker from '../components/GatewayProfilePicker';
 import ComputerPickerStatusRegion from '../components/ComputerPickerStatusRegion';
 import ManualComputerAddressForm from '../components/ManualComputerAddressForm';
 import { confirmForgetGatewayProfileAfterHostDismiss } from '../utils/confirmForgetGatewayProfile';
+import { confirmClearAllChatsAfterHostDismiss } from '../utils/confirmClearAllChats';
 import { profileDisplayName } from '../services/gatewayProfiles';
 import {
   listSessions,
@@ -260,6 +261,7 @@ import ChatInputBar from '../components/ChatInputBar';
 import VaultProjectPickerChip from '../components/VaultProjectPickerChip';
 import ChatMessageListItem from '../components/ChatMessageListItem';
 import BottomSheetModal from '../components/BottomSheetModal';
+import AttachPickerSheet, { type AttachPickerOption } from '../components/AttachPickerSheet';
 import ChatMessageDetailModal from '../components/ChatMessageDetailModal';
 import FeedbackPromptModal from '../components/FeedbackPromptModal';
 import GatewayOpsSection from '../components/GatewayOpsSection';
@@ -420,6 +422,7 @@ import {
   composerHasSendableContent,
   formatAttachmentBubbleText,
   MAX_COMPOSER_ATTACHMENTS,
+  pickCameraAttachment,
   pickDocumentAttachments,
   pickImageAttachments,
   prepareChatMessageContent,
@@ -550,6 +553,7 @@ export default function ChatScreen() {
     wifiConnected,
     tailscaleDiscoveries,
     tailscaleDiscoveryProbing,
+    tailscaleVpnActive,
     tailnetProbeHostCount,
     addDiscoveredTailscaleComputer,
     probeTailscaleComputers,
@@ -613,6 +617,7 @@ export default function ChatScreen() {
   const [isChatStreamActive, setIsChatStreamActive] = useState(false);
   const [sessionModalVisible, setSessionModalVisible] = useState(false);
   const [toolsModalVisible, setToolsModalVisible] = useState(false);
+  const [attachPickerVisible, setAttachPickerVisible] = useState(false);
   const [macPickerVisible, setMacPickerVisible] = useState(false);
   const [liveUsbProbed, setLiveUsbProbed] = useState<LiveUsbPickerInput | null>(null);
   const [isScanningMacs, setIsScanningMacs] = useState(false);
@@ -1311,6 +1316,7 @@ export default function ChatScreen() {
   const chatBlockingSurfaceOpen =
     sessionModalVisible ||
     toolsModalVisible ||
+    attachPickerVisible ||
     macPickerVisible ||
     projectModalVisible ||
     renameModalVisible ||
@@ -1921,7 +1927,7 @@ export default function ChatScreen() {
   /** Live prompt for sends — reads refs so Start-fresh handoff is not a stale render closure. */
   const buildCurrentMobileChatSystemPrompt = useCallback(
     (userTextForInject?: string) =>
-      buildMobileChatSystemPrompt(contextProject?.workspacePath, settings.hermesPersona, {
+      buildMobileChatSystemPrompt(contextProject?.workspacePath, {
         vaultSlug: contextProject?.vaultSlug,
         handoffSummary: contextProject?.handoffSummary,
         continuityHandoff: continuityHandoffRef.current,
@@ -1932,7 +1938,6 @@ export default function ChatScreen() {
       contextProject?.workspacePath,
       contextProject?.vaultSlug,
       contextProject?.handoffSummary,
-      settings.hermesPersona,
     ],
   );
 
@@ -3831,7 +3836,8 @@ export default function ChatScreen() {
         deletedDemoSessionIdsRef.current.add('demo-1');
         deletedDemoSessionIdsRef.current.add('demo-2');
         setSessions([]);
-        
+        await storage.clearLastSessionForComputer(activeComputerSessionKeys);
+
         // Wipe local project state bindings
         const nextState = clearAllSessionBindings(projectState);
         await persistProjectState(nextState);
@@ -3878,25 +3884,45 @@ export default function ChatScreen() {
       }
       await storage.setHideCronSessions(activeComputerSessionKeys, true, gatewayUrl);
       await storage.setHideAutomationSessions(activeComputerSessionKeys, true, gatewayUrl);
+      // Forget lastSessionId so relaunch cannot resurrect a deleted mega thread.
+      await storage.clearLastSessionForComputer(activeComputerSessionKeys);
 
-      let gatewayCleared = false;
       let failed = 0;
       try {
         await clearAllSessions(gatewayUrl, apiKey);
-        gatewayCleared = true;
       } catch (err) {
         console.warn('[executeClearAllChats] API clear-all failed, falling back to sequential deletes:', err);
-        // Cap sequential work so dozens of CRON rows cannot hang the spinner for minutes.
-        const sequential = deletable.slice(0, 40);
-        for (const session of sequential) {
+        // Bulk DELETE is 405 on some gateway builds — delete every listed id (no 40-cap).
+        for (const session of deletable) {
           try {
             await deleteSession(gatewayUrl, session.id, apiKey);
           } catch {
             failed += 1;
           }
         }
-        failed += Math.max(0, deletable.length - sequential.length);
-        gatewayCleared = failed === 0;
+      }
+
+      // Sweep any rows that appeared while deletes ran (cron/api_server churn).
+      try {
+        const leftover = (await listSessions(gatewayUrl, apiKey)).filter(
+          (session) => !isTelegramInboxSession(session),
+        );
+        if (leftover.length > 0) {
+          const leftoverIds = leftover.map((session) => session.id);
+          const mergedDismissed = [...new Set([...dismissedSessionIdsRef.current, ...leftoverIds])];
+          dismissedSessionIdsRef.current = mergedDismissed;
+          setDismissedSessionIds(mergedDismissed);
+          await storage.addDismissedSessionIds(activeComputerSessionKeys, leftoverIds, gatewayUrl);
+          for (const session of leftover) {
+            try {
+              await deleteSession(gatewayUrl, session.id, apiKey);
+            } catch {
+              failed += 1;
+            }
+          }
+        }
+      } catch {
+        // Keep local tombstones / class hides when Mac state cannot be re-listed.
       }
 
       const nextState = clearAllSessionBindings(projectState);
@@ -3910,26 +3936,19 @@ export default function ChatScreen() {
       }
 
       dismissedHydrationGenRef.current += 1;
-      setDismissedSessionIds(nextDismissed);
-      dismissedSessionIdsRef.current = nextDismissed;
+      setDismissedSessionIds(dismissedSessionIdsRef.current);
       setHideCronSessions(true);
-      setSessions((prev) => applyClearedFilter(prev));
+      setHideAutomationSessions(true);
+      setSessions((prev) =>
+        filterDismissedThreadSessions(prev, {
+          dismissedSessionIds: dismissedSessionIdsRef.current,
+          hideCronSessions: true,
+          hideAutomationSessions: true,
+        }),
+      );
 
-      if (gatewayCleared) {
-        try {
-          const remainingOnMac = await listSessions(gatewayUrl, apiKey);
-          const deletableRemaining = remainingOnMac.filter(
-            (session) => !isTelegramInboxSession(session),
-          );
-          if (deletableRemaining.length === 0) {
-            await storage.clearDismissedSessionIds(activeComputerSessionKeys, gatewayUrl);
-            setDismissedSessionIds([]);
-            dismissedSessionIdsRef.current = [];
-          }
-        } catch {
-          // Keep dismissed map when we cannot verify Mac state.
-        }
-      }
+      // Never wipe dismissed tombstones after a "successful" clear — CRON/API_SERVER
+      // recreate fresh ids immediately and would undo Clear all on the next relaunch.
       if (failed > 0) {
         setErrorMessage(
           `${failed} thread${failed === 1 ? '' : 's'} could not be deleted on your computer. Hidden locally — Start a new thread to continue.`,
@@ -3945,13 +3964,14 @@ export default function ChatScreen() {
   }, [activeComputerSessionKeys, apiKey, gatewayUrl, handleNewChat, isDemo, loadSessionsList, projectState, persistProjectState]);
 
   const handleClearAllChats = useCallback(() => {
-    Alert.alert(
-      'Clear all chats?',
-      'This deletes every thread on your computer from Hermes. You cannot undo this.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Clear all', style: 'destructive', onPress: () => void executeClearAllChats() },
-      ],
+    // Android swallows Alert while Threads BottomSheetModal is mounted — dismiss first.
+    // Re-open the sheet on confirm so the Clearing… progress UI remains visible.
+    confirmClearAllChatsAfterHostDismiss(
+      () => setSessionModalVisible(false),
+      () => {
+        setSessionModalVisible(true);
+        void executeClearAllChats();
+      },
     );
   }, [executeClearAllChats]);
 
@@ -4170,6 +4190,21 @@ export default function ChatScreen() {
     };
   }, [flushComposerDraft]);
 
+  const applyPickedAttachments = useCallback(
+    (picked: { attachments: ComposerAttachment[]; error?: string }) => {
+      if (picked.error) {
+        setErrorMessage(picked.error);
+        haptics.warning();
+        return;
+      }
+      if (picked.attachments.length > 0) {
+        setComposerAttachments((prev) => [...prev, ...picked.attachments]);
+        haptics.light();
+      }
+    },
+    [],
+  );
+
   const handleAttachPress = useCallback(() => {
     const remainingSlots = MAX_COMPOSER_ATTACHMENTS - composerAttachmentsRef.current.length;
     if (remainingSlots <= 0) {
@@ -4177,44 +4212,25 @@ export default function ChatScreen() {
       haptics.warning();
       return;
     }
-    Alert.alert('Attach', undefined, [
-      {
-        text: 'Photo library',
-        onPress: () => {
-          void (async () => {
-            const picked = await pickImageAttachments(remainingSlots);
-            if (picked.error) {
-              setErrorMessage(picked.error);
-              haptics.warning();
-              return;
-            }
-            if (picked.attachments.length > 0) {
-              setComposerAttachments((prev) => [...prev, ...picked.attachments]);
-              haptics.light();
-            }
-          })();
-        },
-      },
-      {
-        text: 'File',
-        onPress: () => {
-          void (async () => {
-            const picked = await pickDocumentAttachments(remainingSlots);
-            if (picked.error) {
-              setErrorMessage(picked.error);
-              haptics.warning();
-              return;
-            }
-            if (picked.attachments.length > 0) {
-              setComposerAttachments((prev) => [...prev, ...picked.attachments]);
-              haptics.light();
-            }
-          })();
-        },
-      },
-      { text: 'Cancel', style: 'cancel' },
-    ]);
+    setAttachPickerVisible(true);
   }, []);
+
+  const handleAttachOption = useCallback(
+    (option: AttachPickerOption) => {
+      const remainingSlots = MAX_COMPOSER_ATTACHMENTS - composerAttachmentsRef.current.length;
+      setAttachPickerVisible(false);
+      void (async () => {
+        const picked =
+          option === 'photos'
+            ? await pickImageAttachments(remainingSlots)
+            : option === 'camera'
+              ? await pickCameraAttachment(remainingSlots)
+              : await pickDocumentAttachments(remainingSlots);
+        applyPickedAttachments(picked);
+      })();
+    },
+    [applyPickedAttachments],
+  );
 
   const handleRemoveAttachment = useCallback((attachmentId: string) => {
     setComposerAttachments((prev) => prev.filter((item) => item.id !== attachmentId));
@@ -4292,6 +4308,27 @@ export default function ChatScreen() {
     }
 
     const displayText = formatAttachmentBubbleText(userText, attachments);
+    const sentSessionId = currentSessionRef.current?.id;
+
+    // Prepare while chips+text still visible — never clear on read/prepare failure.
+    let prepared: { content: ChatMessageContent; error?: string };
+    try {
+      prepared =
+        attachments.length === 0
+          ? { content: userText.trim() as ChatMessageContent }
+          : await prepareChatMessageContent(userText, attachments);
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : 'Could not prepare attachments.';
+      setErrorMessage(detail);
+      haptics.warning();
+      return;
+    }
+    if (prepared.error) {
+      setErrorMessage(prepared.error);
+      haptics.warning();
+      return;
+    }
+
     pendingOutboundClaimRef.current = normalizeMessageText(displayText);
     lastSentComposerTextRef.current = displayText;
     sendClearSuppressRef.current = true;
@@ -4299,7 +4336,6 @@ export default function ChatScreen() {
     setInputValue('');
     setComposerAttachments([]);
     Keyboard.dismiss();
-    const sentSessionId = currentSessionRef.current?.id;
     if (!isDemo) {
       if (composerDraftSaveTimerRef.current) {
         clearTimeout(composerDraftSaveTimerRef.current);
@@ -4311,29 +4347,6 @@ export default function ChatScreen() {
       if (sentSessionId) {
         void clearComposerDraft(COMPOSER_DRAFT_COMPOSE_FIRST_KEY);
       }
-    }
-
-    const prepared =
-      attachments.length === 0
-        ? { content: userText.trim() as ChatMessageContent }
-        : await prepareChatMessageContent(userText, attachments);
-    if (prepared.error) {
-      pendingOutboundClaimRef.current = null;
-      setErrorMessage(prepared.error);
-      haptics.warning();
-      sendClearSuppressRef.current = false;
-      lastSentComposerTextRef.current = '';
-      const restored = composerTextAfterRejectedSend({
-        rejectedText: userText,
-        attachmentsCount: attachments.length,
-      });
-      inputValueRef.current = restored.text;
-      setInputValue(restored.text);
-      setComposerAttachments(attachments);
-      if (restored.shouldPersistDraft && sentSessionId && !isDemo) {
-        void restoreComposerDraftAfterRejectedSend(sentSessionId, restored.text);
-      }
-      return;
     }
 
     const accepted = await sendUserText(userText, false, {
@@ -4352,8 +4365,13 @@ export default function ChatScreen() {
       inputValueRef.current = restored.text;
       setInputValue(restored.text);
       setComposerAttachments(attachments);
-      if (restored.shouldPersistDraft && sentSessionId && !isDemo) {
-        void restoreComposerDraftAfterRejectedSend(sentSessionId, restored.text);
+      setErrorMessage((prev) => prev ?? 'Message was not sent. Your text and attachments are still here.');
+      haptics.warning();
+      if (restored.shouldPersistDraft && !isDemo) {
+        void restoreComposerDraftAfterRejectedSend(
+          composerDraftSessionKey(sentSessionId),
+          restored.text,
+        );
       }
     } else {
       haptics.light();
@@ -4803,20 +4821,34 @@ export default function ChatScreen() {
           return false;
         }
         if (decision === 'fresh') {
-          // handleSendMessage already cleared the composer — put the draft back so
-          // Start fresh can transfer it (otherwise continuity chip + empty compose).
-          inputValueRef.current = displayText;
-          setInputValue(displayText);
+          // handleSendMessage already cleared the composer — restore typed text +
+          // real attachment chips (not the 📎 display string) so Start fresh keeps them.
+          inputValueRef.current = typed;
+          setInputValue(typed);
+          if (attachments.length > 0) {
+            setComposerAttachments(attachments);
+            composerAttachmentsRef.current = attachments;
+          }
           const freshOk = await handleStartFreshChat();
           if (!freshOk) {
             // Another Start-fresh in flight — do not send on the mega thread.
             return false;
           }
+          // Mid-send: clear again so a successful delivery does not leave a ghost draft.
+          inputValueRef.current = '';
+          setInputValue('');
+          setComposerAttachments([]);
+          composerAttachmentsRef.current = [];
         }
       }
     }
 
     if (isSendingRef.current) {
+      if (attachments.length > 0 || Array.isArray(gatewayMessage)) {
+        setErrorMessage('Wait for the current message to finish, then send attachments again.');
+        haptics.warning();
+        return false;
+      }
       const trimmed = userText.trim();
       const normalizedQueued = normalizeMessageText(trimmed);
       if (
@@ -5754,7 +5786,7 @@ export default function ChatScreen() {
               sendChatMessage(
                 gatewayUrl,
                 targetSessionId,
-                userText,
+                gatewayMessage,
                 apiKey,
                 mobileChatSystemPrompt,
               ),
@@ -6727,13 +6759,6 @@ export default function ChatScreen() {
           currentSession={currentSession}
           gatewayModel={headerGatewayModel}
           runProgress={progressBanner}
-          hermesAvatar={settings.hermesAvatar ?? 'orb'}
-          playfulMotion={settings.playfulMotion ?? true}
-          presenceActive={
-            effectiveMacChatLive ||
-            Boolean(progressBanner && progressBanner.phase !== 'completed' && progressBanner.phase !== 'failed') ||
-            Boolean(pendingApprovals?.length)
-          }
           onOpenThreads={openSessionsModal}
           onOpenTools={() => setToolsModalVisible(true)}
           onPressMachine={() => {
@@ -6855,13 +6880,6 @@ export default function ChatScreen() {
                   routeLabel={isDemo ? 'Demo computer' : machineShortLabel}
                   isConnected={effectiveMacChatLive}
                   connectionPending={suppressEmptyGreetingUnreachable}
-                  hermesAvatar={settings.hermesAvatar ?? 'orb'}
-                  playfulMotion={settings.playfulMotion ?? true}
-                  presenceActive={
-                    effectiveMacChatLive ||
-                    Boolean(progressBanner && progressBanner.phase !== 'completed' && progressBanner.phase !== 'failed') ||
-                    Boolean(pendingApprovals?.length)
-                  }
                 />
                 {showMacConnectionHelp ? (
                   <Text style={styles.emptyPlaceholderText}>
@@ -7202,6 +7220,7 @@ export default function ChatScreen() {
                 scanProgress={profileScanProgress}
                 scanResult={profileScanResult}
                 tailscaleProbing={tailscaleDiscoveryProbing}
+                tailscaleVpnActive={tailscaleVpnActive}
                 tailscaleDiscoveries={tailscaleDiscoveries}
                 addingTailscale={tailscaleDiscoveryProbing}
                 onAddTailscale={(discovery) => {
@@ -7278,6 +7297,12 @@ export default function ChatScreen() {
               />
             </ScrollView>
       </BottomSheetModal>
+
+      <AttachPickerSheet
+        visible={attachPickerVisible}
+        onClose={() => setAttachPickerVisible(false)}
+        onSelect={handleAttachOption}
+      />
 
       <BottomSheetModal
         visible={toolsModalVisible}

@@ -4,6 +4,7 @@ import { colors } from '../theme/colors';
 import { cleanManualGatewayUrl } from '../utils/gatewayUrlPolicy';
 import { isTailscaleGatewayUrl } from '../utils/tailscaleHosts';
 import { haptics } from '../services/haptics';
+import { connectManualGatewayAddress } from '../services/manualGatewayConnection';
 import LoadingButton from './ui/LoadingButton';
 
 export type ManualComputerAddressFormProps = {
@@ -34,7 +35,11 @@ export default function ManualComputerAddressForm({
     try {
       const isTailscale = isTailscaleGatewayUrl(cleaned);
       const label = isTailscale ? 'Tailscale computer' : 'Custom computer';
-      await onAddProfile(label, cleaned);
+      await connectManualGatewayAddress({
+        gatewayUrl: cleaned,
+        fallbackLabel: label,
+        persistProfile: onAddProfile,
+      });
       setManualInput('');
       haptics.success();
     } catch (err) {

@@ -17,6 +17,7 @@ import {
   isValidGatewayUrl,
 } from '../utils/gatewayUrlPolicy';
 import { isTailnetRouteLabel, isTailscaleGatewayUrl, isTailscaleIpv4, magicDnsDeviceName } from '../utils/tailscaleHosts';
+import { filterPhoneTailscaleSelfPeers } from '../utils/tailscaleSelfPeer';
 
 const STORAGE_KEY = 'hermes-mobile:gateway_profiles';
 
@@ -802,9 +803,10 @@ export function shouldActivateDiscoveredUrl(
 export function applyTailscaleDiscoveriesToProfileState(
   state: GatewayProfileState,
   discovered: DiscoveredGateway[],
+  phoneTailscaleIp?: string | null,
 ): GatewayProfileState {
   let next = state;
-  for (const item of discovered) {
+  for (const item of filterPhoneTailscaleSelfPeers(discovered, phoneTailscaleIp)) {
     next = upsertDiscoveredProfile(next, item, false);
   }
   return next;

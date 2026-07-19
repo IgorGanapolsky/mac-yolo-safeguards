@@ -89,7 +89,7 @@ describe('RunProgressBanner', () => {
     expect(getByText('Gemini 2.5 Flash')).toBeTruthy();
   });
 
-  it('shows em dash when gateway has not emitted token usage', () => {
+  it('explains when the Mac has not emitted token usage yet', () => {
     const { getByText } = render(
       <RunProgressBanner
         progress={{
@@ -101,7 +101,65 @@ describe('RunProgressBanner', () => {
       />,
     );
     expect(getByText('Qwen3.5 9B Hermes')).toBeTruthy();
-    expect(getByText('—')).toBeTruthy();
+    expect(getByText('Counting after reply…')).toBeTruthy();
+  });
+
+  it('explains unavailable usage after a terminal run', () => {
+    const { getByText } = render(
+      <RunProgressBanner
+        progress={{
+          phase: 'completed',
+          startedAtMs: Date.now() - 5000,
+          detail: 'Done',
+          model: 'qwen3.5:9b-hermes',
+        }}
+      />,
+    );
+    expect(getByText('Usage unavailable from Mac')).toBeTruthy();
+  });
+
+  it('preserves emitted zero token counts', () => {
+    const { getByText } = render(
+      <RunProgressBanner
+        progress={{
+          phase: 'completed',
+          startedAtMs: Date.now() - 5000,
+          detail: 'Done',
+          model: 'qwen3.5:9b-hermes',
+          inputTokens: 0,
+          outputTokens: 0,
+        }}
+      />,
+    );
+    expect(getByText('In: 0 | Out: 0')).toBeTruthy();
+  });
+
+  it('updates terminal missing-usage copy without waiting for token debounce', () => {
+    const startedAtMs = Date.now() - 5000;
+    const { getByText, rerender } = render(
+      <RunProgressBanner
+        progress={{
+          phase: 'streaming',
+          startedAtMs,
+          detail: 'Streaming',
+          model: 'qwen3.5:9b-hermes',
+        }}
+      />,
+    );
+    expect(getByText('Counting after reply…')).toBeTruthy();
+
+    rerender(
+      <RunProgressBanner
+        progress={{
+          phase: 'completed',
+          startedAtMs,
+          detail: 'Done',
+          model: 'qwen3.5:9b-hermes',
+        }}
+      />,
+    );
+
+    expect(getByText('Usage unavailable from Mac')).toBeTruthy();
   });
 
   it('shows token counts during active runs without showTechnicalStats', () => {

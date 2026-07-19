@@ -358,23 +358,36 @@ describe('sessionDisplay', () => {
         preview: 'Draft the standup notes for tomorrow',
         last_active_at: '2026-07-13T19:30:00Z',
       },
+      {
+        id: 'sess_mobile_new',
+        source: 'hermes mobile',
+        title: 'make money today',
+        last_active_at: '2026-07-13T19:45:00Z',
+      },
     ];
 
+    // Post-clear: hide the whole API_SERVER/CLI class (including real titles).
+    // Only mobile-created threads remain visible.
     expect(
       filterDismissedThreadSessions(recreated, {
         dismissedSessionIds: ['api-old-run-id', '20260713_120000_old'],
         hideCronSessions: true,
         hideAutomationSessions: true,
       }).map((session) => session.id),
-    ).toEqual(['sess_user_new']);
+    ).toEqual(['sess_mobile_new']);
 
-    // Without the pref (never cleared), probes are still listed under Debug elsewhere.
+    // Without the pref (never cleared), automation rows still list (Debug / Threads).
     expect(
       filterDismissedThreadSessions(recreated, {
         dismissedSessionIds: [],
         hideCronSessions: false,
       }).map((session) => session.id),
-    ).toEqual(['api-brand-new-run-1', '20260713_190000_fresh1', 'sess_user_new']);
+    ).toEqual([
+      'api-brand-new-run-1',
+      '20260713_190000_fresh1',
+      'sess_user_new',
+      'sess_mobile_new',
+    ]);
   });
 
   it('keeps automation probes off the recents rail', () => {

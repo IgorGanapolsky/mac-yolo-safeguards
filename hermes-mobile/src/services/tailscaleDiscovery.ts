@@ -12,6 +12,10 @@ import {
   mergeTailnetProbeHosts,
   normalizeTailnetProbeHost,
 } from '../utils/tailscaleHosts';
+import {
+  filterPhoneTailscaleSelfPeers,
+  getPhoneTailscaleIpv4,
+} from '../utils/tailscaleSelfPeer';
 import { extractLanIpFromGatewayUrl, gatewayUrlHostname, resolveDisplayLanIp } from '../utils/gatewayUrlPolicy';
 
 const PROBE_TIMEOUT_MS = 2500;
@@ -141,9 +145,15 @@ export async function discoverTailscaleGateways(
   if (hosts.length === 0) {
     return [];
   }
-  const results = await Promise.all(hosts.map((host) => probeTailscaleGatewayHost(host)));
+  const [phoneTailscaleIp, results] = await Promise.all([
+    getPhoneTailscaleIpv4(),
+    Promise.all(hosts.map((host) => probeTailscaleGatewayHost(host))),
+  ]);
   const map = new Map<string, DiscoveredGateway>();
-  for (const item of results) {
+  for (const item of filterPhoneTailscaleSelfPeers(
+    results.filter((item): item is DiscoveredGateway => item != null),
+    phoneTailscaleIp,
+  )) {
     if (!item?.gatewayUrl) {
       continue;
     }
