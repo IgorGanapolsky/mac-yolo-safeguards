@@ -85,6 +85,19 @@ check('send ledger reserves a contact-template only once per day', () => {
   assert.strictEqual(duplicate.reason, 'already_reserved_or_sent_today');
 });
 
+check('released send reservation permits a same-day retry', () => {
+  const to = 'retry@example.com';
+  const template = 'revenue-autonomous-followup-v1';
+  const key = sendLedgerKey({ to, template });
+  const ledger = path.join(testRevenueDir, 'outreach-send-ledger.jsonl');
+  fs.writeFileSync(
+    ledger,
+    `${JSON.stringify({ key, status: 'reserved' })}\n${JSON.stringify({ key, status: 'released' })}\n`,
+  );
+  const retry = acquireSendReservation({ to, template, prospect: 'retry' });
+  assert.strictEqual(retry.ok, true);
+});
+
 check('stageSummary open gross ignores paid/lost', () => {
   const s = stageSummary([
     { stage: 'sent', gross_potential_usd: '100' },

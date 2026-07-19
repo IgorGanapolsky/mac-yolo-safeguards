@@ -224,10 +224,10 @@ function acquireSendReservation({ to, template, prospect }) {
     const records = readSendLedger(ledger);
     if (!records) return { ok: false, reason: 'send_ledger_unreadable' };
     const key = sendLedgerKey({ to, template });
-    const duplicate = records.find(
-      (record) => record.key === key && ['reserved', 'sent'].includes(record.status),
-    );
-    if (duplicate) return { ok: false, reason: 'already_reserved_or_sent_today', duplicate };
+    const latest = [...records].reverse().find((record) => record.key === key);
+    if (latest && ['reserved', 'sent'].includes(latest.status)) {
+      return { ok: false, reason: 'already_reserved_or_sent_today', duplicate: latest };
+    }
 
     const reservation = {
       key,
@@ -865,6 +865,15 @@ async function run(args) {
     process.env.REVENUE_UNATTENDED_SEND_APPROVED === '1';
   if (args.autoSend && !unattendedSendAllowed) {
     actions.push('auto_send=blocked_by_safety_gate');
+    for (const row of dueRows) {
+      const contact = contactForProspect(contacts, row);
+      pendingSends.push({
+        prospect: row.prospect_label,
+        reason: 'blocked_by_safety_gate',
+        to: contact?.email,
+        needs: 'REVENUE_UNATTENDED_SEND_APPROVED=1 and --allow-unattended-send',
+      });
+    }
   }
 
   if (unattendedSendAllowed) {
