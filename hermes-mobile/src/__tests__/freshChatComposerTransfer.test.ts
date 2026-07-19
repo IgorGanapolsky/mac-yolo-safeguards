@@ -5,6 +5,7 @@ import {
   resolveComposerTextAfterDraftLoad,
   resolveComposerTextAfterFreshChat,
   shouldRestoreComposerAfterFreshChat,
+  shouldRestoreComposerAttachmentsAfterFreshChat,
   shouldSkipStoredDraftLoad,
 } from '../utils/freshChatComposerTransfer';
 
@@ -23,6 +24,11 @@ describe('freshChatComposerTransfer', () => {
     expect(shouldRestoreComposerAfterFreshChat('typeable-probe-probe-2-1')).toBe(true);
     expect(shouldRestoreComposerAfterFreshChat(' ')).toBe(true);
     expect(shouldRestoreComposerAfterFreshChat('')).toBe(false);
+  });
+
+  it('restores attachment chips across mega Start fresh even with empty text', () => {
+    expect(shouldRestoreComposerAttachmentsAfterFreshChat(1)).toBe(true);
+    expect(shouldRestoreComposerAttachmentsAfterFreshChat(0)).toBe(false);
   });
 
   it('prefers preserved typed text over empty new-session draft', () => {

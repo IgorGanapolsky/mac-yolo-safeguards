@@ -260,6 +260,7 @@ import ChatInputBar from '../components/ChatInputBar';
 import VaultProjectPickerChip from '../components/VaultProjectPickerChip';
 import ChatMessageListItem from '../components/ChatMessageListItem';
 import BottomSheetModal from '../components/BottomSheetModal';
+import AttachPickerSheet, { type AttachPickerOption } from '../components/AttachPickerSheet';
 import ChatMessageDetailModal from '../components/ChatMessageDetailModal';
 import FeedbackPromptModal from '../components/FeedbackPromptModal';
 import GatewayOpsSection from '../components/GatewayOpsSection';
@@ -420,6 +421,7 @@ import {
   composerHasSendableContent,
   formatAttachmentBubbleText,
   MAX_COMPOSER_ATTACHMENTS,
+  pickCameraAttachment,
   pickDocumentAttachments,
   pickImageAttachments,
   prepareChatMessageContent,
@@ -614,6 +616,7 @@ export default function ChatScreen() {
   const [isChatStreamActive, setIsChatStreamActive] = useState(false);
   const [sessionModalVisible, setSessionModalVisible] = useState(false);
   const [toolsModalVisible, setToolsModalVisible] = useState(false);
+  const [attachPickerVisible, setAttachPickerVisible] = useState(false);
   const [macPickerVisible, setMacPickerVisible] = useState(false);
   const [liveUsbProbed, setLiveUsbProbed] = useState<LiveUsbPickerInput | null>(null);
   const [isScanningMacs, setIsScanningMacs] = useState(false);
@@ -1312,6 +1315,7 @@ export default function ChatScreen() {
   const chatBlockingSurfaceOpen =
     sessionModalVisible ||
     toolsModalVisible ||
+    attachPickerVisible ||
     macPickerVisible ||
     projectModalVisible ||
     renameModalVisible ||
@@ -4170,6 +4174,21 @@ export default function ChatScreen() {
     };
   }, [flushComposerDraft]);
 
+  const applyPickedAttachments = useCallback(
+    (picked: { attachments: ComposerAttachment[]; error?: string }) => {
+      if (picked.error) {
+        setErrorMessage(picked.error);
+        haptics.warning();
+        return;
+      }
+      if (picked.attachments.length > 0) {
+        setComposerAttachments((prev) => [...prev, ...picked.attachments]);
+        haptics.light();
+      }
+    },
+    [],
+  );
+
   const handleAttachPress = useCallback(() => {
     const remainingSlots = MAX_COMPOSER_ATTACHMENTS - composerAttachmentsRef.current.length;
     if (remainingSlots <= 0) {
@@ -4177,44 +4196,25 @@ export default function ChatScreen() {
       haptics.warning();
       return;
     }
-    Alert.alert('Attach', undefined, [
-      {
-        text: 'Photo library',
-        onPress: () => {
-          void (async () => {
-            const picked = await pickImageAttachments(remainingSlots);
-            if (picked.error) {
-              setErrorMessage(picked.error);
-              haptics.warning();
-              return;
-            }
-            if (picked.attachments.length > 0) {
-              setComposerAttachments((prev) => [...prev, ...picked.attachments]);
-              haptics.light();
-            }
-          })();
-        },
-      },
-      {
-        text: 'File',
-        onPress: () => {
-          void (async () => {
-            const picked = await pickDocumentAttachments(remainingSlots);
-            if (picked.error) {
-              setErrorMessage(picked.error);
-              haptics.warning();
-              return;
-            }
-            if (picked.attachments.length > 0) {
-              setComposerAttachments((prev) => [...prev, ...picked.attachments]);
-              haptics.light();
-            }
-          })();
-        },
-      },
-      { text: 'Cancel', style: 'cancel' },
-    ]);
+    setAttachPickerVisible(true);
   }, []);
+
+  const handleAttachOption = useCallback(
+    (option: AttachPickerOption) => {
+      const remainingSlots = MAX_COMPOSER_ATTACHMENTS - composerAttachmentsRef.current.length;
+      setAttachPickerVisible(false);
+      void (async () => {
+        const picked =
+          option === 'photos'
+            ? await pickImageAttachments(remainingSlots)
+            : option === 'camera'
+              ? await pickCameraAttachment(remainingSlots)
+              : await pickDocumentAttachments(remainingSlots);
+        applyPickedAttachments(picked);
+      })();
+    },
+    [applyPickedAttachments],
+  );
 
   const handleRemoveAttachment = useCallback((attachmentId: string) => {
     setComposerAttachments((prev) => prev.filter((item) => item.id !== attachmentId));
@@ -4292,6 +4292,27 @@ export default function ChatScreen() {
     }
 
     const displayText = formatAttachmentBubbleText(userText, attachments);
+    const sentSessionId = currentSessionRef.current?.id;
+
+    // Prepare while chips+text still visible — never clear on read/prepare failure.
+    let prepared: { content: ChatMessageContent; error?: string };
+    try {
+      prepared =
+        attachments.length === 0
+          ? { content: userText.trim() as ChatMessageContent }
+          : await prepareChatMessageContent(userText, attachments);
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : 'Could not prepare attachments.';
+      setErrorMessage(detail);
+      haptics.warning();
+      return;
+    }
+    if (prepared.error) {
+      setErrorMessage(prepared.error);
+      haptics.warning();
+      return;
+    }
+
     pendingOutboundClaimRef.current = normalizeMessageText(displayText);
     lastSentComposerTextRef.current = displayText;
     sendClearSuppressRef.current = true;
@@ -4299,7 +4320,6 @@ export default function ChatScreen() {
     setInputValue('');
     setComposerAttachments([]);
     Keyboard.dismiss();
-    const sentSessionId = currentSessionRef.current?.id;
     if (!isDemo) {
       if (composerDraftSaveTimerRef.current) {
         clearTimeout(composerDraftSaveTimerRef.current);
@@ -4311,29 +4331,6 @@ export default function ChatScreen() {
       if (sentSessionId) {
         void clearComposerDraft(COMPOSER_DRAFT_COMPOSE_FIRST_KEY);
       }
-    }
-
-    const prepared =
-      attachments.length === 0
-        ? { content: userText.trim() as ChatMessageContent }
-        : await prepareChatMessageContent(userText, attachments);
-    if (prepared.error) {
-      pendingOutboundClaimRef.current = null;
-      setErrorMessage(prepared.error);
-      haptics.warning();
-      sendClearSuppressRef.current = false;
-      lastSentComposerTextRef.current = '';
-      const restored = composerTextAfterRejectedSend({
-        rejectedText: userText,
-        attachmentsCount: attachments.length,
-      });
-      inputValueRef.current = restored.text;
-      setInputValue(restored.text);
-      setComposerAttachments(attachments);
-      if (restored.shouldPersistDraft && sentSessionId && !isDemo) {
-        void restoreComposerDraftAfterRejectedSend(sentSessionId, restored.text);
-      }
-      return;
     }
 
     const accepted = await sendUserText(userText, false, {
@@ -4352,8 +4349,13 @@ export default function ChatScreen() {
       inputValueRef.current = restored.text;
       setInputValue(restored.text);
       setComposerAttachments(attachments);
-      if (restored.shouldPersistDraft && sentSessionId && !isDemo) {
-        void restoreComposerDraftAfterRejectedSend(sentSessionId, restored.text);
+      setErrorMessage((prev) => prev ?? 'Message was not sent. Your text and attachments are still here.');
+      haptics.warning();
+      if (restored.shouldPersistDraft && !isDemo) {
+        void restoreComposerDraftAfterRejectedSend(
+          composerDraftSessionKey(sentSessionId),
+          restored.text,
+        );
       }
     } else {
       haptics.light();
@@ -4803,20 +4805,34 @@ export default function ChatScreen() {
           return false;
         }
         if (decision === 'fresh') {
-          // handleSendMessage already cleared the composer — put the draft back so
-          // Start fresh can transfer it (otherwise continuity chip + empty compose).
-          inputValueRef.current = displayText;
-          setInputValue(displayText);
+          // handleSendMessage already cleared the composer — restore typed text +
+          // real attachment chips (not the 📎 display string) so Start fresh keeps them.
+          inputValueRef.current = typed;
+          setInputValue(typed);
+          if (attachments.length > 0) {
+            setComposerAttachments(attachments);
+            composerAttachmentsRef.current = attachments;
+          }
           const freshOk = await handleStartFreshChat();
           if (!freshOk) {
             // Another Start-fresh in flight — do not send on the mega thread.
             return false;
           }
+          // Mid-send: clear again so a successful delivery does not leave a ghost draft.
+          inputValueRef.current = '';
+          setInputValue('');
+          setComposerAttachments([]);
+          composerAttachmentsRef.current = [];
         }
       }
     }
 
     if (isSendingRef.current) {
+      if (attachments.length > 0 || Array.isArray(gatewayMessage)) {
+        setErrorMessage('Wait for the current message to finish, then send attachments again.');
+        haptics.warning();
+        return false;
+      }
       const trimmed = userText.trim();
       const normalizedQueued = normalizeMessageText(trimmed);
       if (
@@ -5754,7 +5770,7 @@ export default function ChatScreen() {
               sendChatMessage(
                 gatewayUrl,
                 targetSessionId,
-                userText,
+                gatewayMessage,
                 apiKey,
                 mobileChatSystemPrompt,
               ),
@@ -7265,6 +7281,12 @@ export default function ChatScreen() {
               />
             </ScrollView>
       </BottomSheetModal>
+
+      <AttachPickerSheet
+        visible={attachPickerVisible}
+        onClose={() => setAttachPickerVisible(false)}
+        onSelect={handleAttachOption}
+      />
 
       <BottomSheetModal
         visible={toolsModalVisible}

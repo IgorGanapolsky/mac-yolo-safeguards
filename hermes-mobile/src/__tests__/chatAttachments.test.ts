@@ -1,3 +1,4 @@
+import * as FileSystem from 'expo-file-system';
 import {
   buildChatMessageContent,
   classifyAttachment,
@@ -85,5 +86,29 @@ describe('chatAttachments', () => {
 
   it('documents attachment slot cap', () => {
     expect(MAX_COMPOSER_ATTACHMENTS).toBe(5);
+  });
+
+  it('returns a loud error when file read fails instead of throwing', async () => {
+    const readAsStringAsync = FileSystem.readAsStringAsync as jest.Mock;
+    readAsStringAsync.mockRejectedValueOnce(new Error('ENOENT'));
+    const prepared = await prepareChatMessageContent('See attached', [
+      {
+        id: 'txt-1',
+        name: 'notes.txt',
+        mimeType: 'text/plain',
+        uri: 'file:///missing.txt',
+        kind: 'text',
+        sizeBytes: 20,
+      },
+    ]);
+    expect(prepared.content).toBe('');
+    expect(prepared.error).toContain('notes.txt');
+    expect(prepared.error).toContain('ENOENT');
+  });
+
+  it('empty attach list with text still prepares a plain string', async () => {
+    const prepared = await prepareChatMessageContent('make money today', []);
+    expect(prepared.error).toBeUndefined();
+    expect(prepared.content).toBe('make money today');
   });
 });
