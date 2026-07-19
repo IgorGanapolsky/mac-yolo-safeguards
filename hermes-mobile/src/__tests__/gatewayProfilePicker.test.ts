@@ -98,6 +98,9 @@ describe('gatewayProfilePicker', () => {
     expect(profilePickerLines(usbRow!, { cablePluggedIn: true }).title).toBe(
       'Igors-MacBook-Pro (Mac Pro)',
     );
+    expect(profilePickerLines(usbRow!, { cablePluggedIn: true }).detail).toBe(
+      'USB cable connected · Tailscale is the away-from-home option',
+    );
     expect(profiles[1].id).toBe('mac_mini_ts');
     expect(profilePickerLines(profiles[1]).title).toBe('Igors-Mac-mini');
   });
@@ -142,7 +145,9 @@ describe('gatewayProfilePicker', () => {
     expect(activeRow).toBeTruthy();
     expect(profileConnectionRouteLabel(activeRow!, true)).toBe('Tailscale');
     expect(isCablePluggedInForProfile(activeRow!, liveUsb)).toBe(true);
-    expect(profilePickerLines(activeRow!, { cablePluggedIn: true }).detail).toMatch(/cable/i);
+    expect(profilePickerLines(activeRow!, { cablePluggedIn: true }).detail).toBe(
+      'Cable connected · Tailscale works away from home',
+    );
     expect(profiles.map((profile) => profile.id)).not.toContain('mac_book_usb');
     expect(profiles.map((profile) => profile.id)).toContain('mac_mini_ts');
   });
