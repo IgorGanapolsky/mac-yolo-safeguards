@@ -14,7 +14,9 @@ describe('store listing metadata contract (stellar live)', () => {
     const short = read(path.join(ANDROID, 'short_description.txt'));
     expect(short.length).toBeLessThanOrEqual(80);
     expect(short).toMatch(/Mac/i);
-    expect(short).toMatch(/19\.99/);
+    expect(short).toMatch(/4\.99/);
+    expect(short).not.toMatch(/19\.99/);
+    expect(short).toMatch(/Pay once/i);
     expect(short).toMatch(/not phone AI/i);
   });
 
@@ -53,6 +55,19 @@ describe('store listing metadata contract (stellar live)', () => {
     expect(subtitle).not.toMatch(/Claude Code|Cursor/i);
     expect(subtitle).toMatch(/not phone/i);
     expect(promo).toMatch(/phone-local Hermes Agent|Not the phone-local/i);
+  });
+
+
+  it('iOS promo and Play copy use paid-upfront pricing', () => {
+    const promo = read(path.join(IOS, 'promotional_text.txt'));
+    const short = read(path.join(ANDROID, 'short_description.txt'));
+    const full = read(path.join(ANDROID, 'full_description.txt'));
+    expect(promo).toMatch(/9\.99/);
+    expect(promo).not.toMatch(/19\.99\/mo/);
+    expect(full).toMatch(/4\.99/);
+    expect(full).not.toMatch(/LEASH PRO \(\$19\.99\/mo\)/i);
+    expect(full).toMatch(/Unlock once|Pay once/i);
+    expect(full).not.toMatch(/19\.99\/mo/);
   });
 
   it('review prompt threshold is first approval (stellar bar)', () => {
