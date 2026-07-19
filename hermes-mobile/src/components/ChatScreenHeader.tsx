@@ -1,20 +1,16 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { colors } from '../theme/colors';
 import type { RunProgressState } from '../types/chatDisplay';
 import { resolveChatLinkDisplay } from '../utils/gatewayConnection';
 import type { LeashConnectionState } from '../utils/gatewayEndpoint';
 import { GATEWAY_AUTH_REPAIR_HEADER } from '../services/gatewayClient';
-import { displayableLlmModel } from '../utils/runProgressDisplay';
-import { weakLocalModelWarning } from '../utils/weakLocalModel';
 import {
-  DEFAULT_CHAT_HEADER_DETAILS_EXPANDED,
-  loadChatHeaderDetailsExpanded,
-  saveChatHeaderDetailsExpanded,
-} from '../utils/chatHeaderChromePreference';
-import type { HermesAvatar } from '../types/gateway';
+  buildConnectedModelTokenLabel,
+  displayableLlmModel,
+} from '../utils/runProgressDisplay';
+import { weakLocalModelWarning } from '../utils/weakLocalModel';
 import ExpandableThreadTitle from './ExpandableThreadTitle';
-import HermesAvatarPresence from './HermesAvatarPresence';
 
 type ChatScreenHeaderProps = {
   threadTitle: string;
@@ -45,11 +41,6 @@ type ChatScreenHeaderProps = {
   gatewayModel?: string;
   /** Live run usage — preferred over session totals while a turn is in flight. */
   runProgress?: RunProgressState | null;
-  /** Settings avatar skin — compact presence next to the connection row. */
-  hermesAvatar?: HermesAvatar;
-  playfulMotion?: boolean;
-  /** Linked, working, or waiting for approval — drives avatar pulse. */
-  presenceActive?: boolean;
   onOpenThreads: () => void;
   onPressThreadTitle?: () => void;
   onOpenTools?: () => void;
@@ -57,11 +48,6 @@ type ChatScreenHeaderProps = {
   onPressWorkspace?: () => void;
   /** Health OK but last message failed — amber header instead of green Connected. */
   chatStalled?: boolean;
-  /**
-   * Controlled expand state for secondary chrome (tests / storybook).
-   * When set, AsyncStorage preference is not read or written.
-   */
-  detailsExpanded?: boolean;
 };
 
 function linkMeta(
@@ -143,8 +129,8 @@ export function buildHermesStatusLabel(
 }
 
 /**
- * Conversation-first header — Claude/Codex style: title, subtle Mac line, menu affordances.
- * Secondary chrome (project lane, model/tokens, weak-worker warning) is collapsible.
+ * Conversation-first header — title, always-visible Mac · status · transport,
+ * model/tokens, and secondary chrome with no expand/collapse toggle.
  */
 export default function ChatScreenHeader({
   threadTitle,
@@ -157,7 +143,6 @@ export default function ChatScreenHeader({
   authMismatch = false,
   wrongKeyBannerActive = false,
   isDemo = false,
-  showMachineDetailWhenConnected = false,
   workspaceName,
   workspaceHandoff,
   canSwitchWorkspace = false,
@@ -165,55 +150,13 @@ export default function ChatScreenHeader({
   currentSession,
   gatewayModel,
   runProgress,
-  hermesAvatar = 'orb',
-  playfulMotion = true,
-  presenceActive,
   onOpenThreads,
   onPressThreadTitle,
   onOpenTools,
   onPressMachine,
   onPressWorkspace,
   chatStalled = false,
-  detailsExpanded: detailsExpandedProp,
 }: ChatScreenHeaderProps) {
-  const controlled = detailsExpandedProp !== undefined;
-  const [detailsExpandedState, setDetailsExpandedState] = useState(
-    detailsExpandedProp ?? DEFAULT_CHAT_HEADER_DETAILS_EXPANDED,
-  );
-  const detailsExpanded = controlled ? detailsExpandedProp : detailsExpandedState;
-  /** Ignore late AsyncStorage hydration after the user toggles expand/collapse. */
-  const userTouchedDetailsRef = useRef(false);
-
-  useEffect(() => {
-    if (controlled) {
-      return;
-    }
-    let cancelled = false;
-    void loadChatHeaderDetailsExpanded().then((expanded) => {
-      if (!cancelled && !userTouchedDetailsRef.current) {
-        setDetailsExpandedState(expanded);
-      }
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [controlled]);
-
-  const setDetailsExpanded = useCallback(
-    (expanded: boolean) => {
-      if (!controlled) {
-        userTouchedDetailsRef.current = true;
-        setDetailsExpandedState(expanded);
-        void saveChatHeaderDetailsExpanded(expanded);
-      }
-    },
-    [controlled],
-  );
-
-  const toggleDetails = useCallback(() => {
-    setDetailsExpanded(!detailsExpanded);
-  }, [detailsExpanded, setDetailsExpanded]);
-
   const link = linkMeta(
     connectionState,
     macHttpReachable,
@@ -224,8 +167,7 @@ export default function ChatScreenHeader({
     wrongKeyBannerActive,
   );
   const endpoint = machineEndpoint?.trim() || '';
-  const showEndpoint =
-    endpoint.length > 0 && (!link.connected || showMachineDetailWhenConnected);
+  const showEndpoint = endpoint.length > 0;
   const showWorkspace = canSwitchWorkspace || Boolean(workspaceName);
   const hermesAgent = activeAgents?.find((a) => a.name.toLowerCase() === 'hermes');
   const resolvedModel =
@@ -235,8 +177,16 @@ export default function ChatScreenHeader({
   const localModelWarning = weakLocalModelWarning(resolvedModel);
   const hugeContext =
     (currentSession?.input_tokens ?? 0) >= 20_000 || (runProgress?.inputTokens ?? 0) >= 20_000;
-  const hasSecondaryChrome =
-    showWorkspace || Boolean(hermesAgent) || Boolean(localModelWarning) || hugeContext;
+  const modelTokenStrip = link.connected
+    ? buildConnectedModelTokenLabel({
+        sessionModel: currentSession?.model,
+        runModel: runProgress?.model,
+        gatewayModel,
+        runProgress,
+        sessionInputTokens: currentSession?.input_tokens,
+        sessionOutputTokens: currentSession?.output_tokens,
+      })
+    : null;
 
   return (
     <View style={styles.wrap} testID="chat-screen-header">
@@ -297,10 +247,7 @@ export default function ChatScreenHeader({
         </View>
       </View>
 
-      <View
-        style={[styles.macRow, !detailsExpanded && hasSecondaryChrome && styles.macRowCollapsed]}
-        testID="chat-header-connection-row"
-      >
+      <View style={styles.macRow} testID="chat-header-connection-row">
         <Pressable
           onPress={onPressMachine}
           style={({ pressed }) => [styles.macRowMain, pressed && styles.pressed]}
@@ -309,69 +256,37 @@ export default function ChatScreenHeader({
         >
           <View style={[styles.statusDot, { backgroundColor: link.color }]} />
           <View style={styles.macTextBlock}>
-            {detailsExpanded || !hasSecondaryChrome ? (
-              <>
-                <Text style={styles.macPrimaryLine} numberOfLines={1} ellipsizeMode="tail">
-                  <Text style={styles.macName} testID="chat-context-mac">
-                    {machineLabel}
-                  </Text>
-                  {showEndpoint ? (
-                    <Text style={styles.macEndpoint} testID="chat-context-mac-endpoint">
-                      {' '}
-                      · {endpoint}
-                    </Text>
-                  ) : null}
-                </Text>
-                <Text
-                  style={[styles.macStatusLine, { color: link.color }]}
-                  numberOfLines={2}
-                  testID="chat-context-link"
-                >
-                  {link.label}
-                </Text>
-              </>
-            ) : (
-              <Text style={styles.macCompactLine} numberOfLines={1} ellipsizeMode="tail">
-                <Text style={styles.macName} testID="chat-context-mac">
-                  {machineLabel}
-                </Text>
-                <Text style={styles.macCompactSep}> · </Text>
-                <Text
-                  style={[styles.macCompactStatus, { color: link.color }]}
-                  testID="chat-context-link"
-                >
-                  {link.label}
-                </Text>
+            <Text style={styles.macCompactLine} numberOfLines={1} ellipsizeMode="tail">
+              <Text style={styles.macName} testID="chat-context-mac">
+                {machineLabel}
               </Text>
-            )}
+              <Text style={styles.macCompactSep}> · </Text>
+              <Text
+                style={[styles.macCompactStatus, { color: link.color }]}
+                testID="chat-context-link"
+              >
+                {link.label}
+              </Text>
+              {showEndpoint ? (
+                <>
+                  <Text style={styles.macCompactSep}> · </Text>
+                  <Text style={styles.macEndpoint} testID="chat-context-mac-endpoint">
+                    {endpoint}
+                  </Text>
+                </>
+              ) : null}
+            </Text>
           </View>
         </Pressable>
-        <HermesAvatarPresence
-          avatar={hermesAvatar}
-          playfulMotion={playfulMotion}
-          active={presenceActive ?? link.connected}
-          size="sm"
-          testID="chat-header-avatar"
-          style={styles.headerAvatar}
-        />
-        {hasSecondaryChrome ? (
-          <Pressable
-            onPress={toggleDetails}
-            style={({ pressed }) => [styles.chevronBtn, pressed && styles.pressed]}
-            testID="chat-header-details-toggle"
-            accessibilityRole="button"
-            accessibilityLabel={detailsExpanded ? 'Hide connection details' : 'Show connection details'}
-            accessibilityState={{ expanded: detailsExpanded }}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-          >
-            <Text style={styles.chevronIcon} testID="chat-header-details-chevron">
-              {detailsExpanded ? '▴' : '▾'}
-            </Text>
-          </Pressable>
-        ) : null}
       </View>
 
-      {detailsExpanded && showWorkspace ? (
+      {modelTokenStrip ? (
+        <Text style={styles.modelTokenStrip} numberOfLines={1} testID="chat-header-model-strip">
+          {modelTokenStrip}
+        </Text>
+      ) : null}
+
+      {showWorkspace ? (
         <Pressable
           onPress={onPressWorkspace}
           disabled={!canSwitchWorkspace || !onPressWorkspace}
@@ -393,7 +308,7 @@ export default function ChatScreenHeader({
         </Pressable>
       ) : null}
 
-      {detailsExpanded && hermesAgent ? (
+      {hermesAgent ? (
         <View style={styles.agentsRow} testID="chat-header-active-agents">
           <Text style={styles.agentsLabel} testID="chat-header-hermes-status">
             {buildHermesStatusLabel(hermesAgent, currentSession, gatewayModel, runProgress)}
@@ -401,12 +316,12 @@ export default function ChatScreenHeader({
         </View>
       ) : null}
 
-      {detailsExpanded && localModelWarning ? (
+      {localModelWarning ? (
         <Text style={styles.modelWarning} testID="chat-header-weak-model-warning">
           {localModelWarning}
         </Text>
       ) : null}
-      {detailsExpanded && hugeContext && !localModelWarning ? (
+      {hugeContext && !localModelWarning ? (
         <Text style={styles.modelWarning} testID="chat-header-poisoned-context-warning">
           This chat is large — Start fresh chat so the model cannot keep drifting from old context.
         </Text>
@@ -519,18 +434,15 @@ const styles = StyleSheet.create({
   },
   macRow: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     gap: 4,
     paddingHorizontal: 4,
     paddingVertical: 2,
   },
-  macRowCollapsed: {
-    alignItems: 'center',
-  },
   macRowMain: {
     flex: 1,
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     gap: 8,
     minWidth: 0,
   },
@@ -538,16 +450,10 @@ const styles = StyleSheet.create({
     width: 7,
     height: 7,
     borderRadius: 4,
-    marginTop: 5,
   },
   macTextBlock: {
     flex: 1,
     minWidth: 0,
-    gap: 2,
-  },
-  macPrimaryLine: {
-    fontSize: 12,
-    lineHeight: 16,
   },
   macCompactLine: {
     fontSize: 12,
@@ -569,28 +475,6 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
     fontVariant: ['tabular-nums'],
   },
-  macStatusLine: {
-    fontSize: 12,
-    lineHeight: 16,
-    fontWeight: '600',
-  },
-  headerAvatar: {
-    marginTop: 2,
-    flexShrink: 0,
-  },
-  chevronBtn: {
-    width: 28,
-    height: 28,
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexShrink: 0,
-  },
-  chevronIcon: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: colors.textMuted,
-    lineHeight: 16,
-  },
   workspaceRow: {
     paddingHorizontal: 4,
     paddingVertical: 2,
@@ -605,6 +489,14 @@ const styles = StyleSheet.create({
     lineHeight: 14,
     color: colors.textMuted,
     marginTop: 2,
+  },
+  modelTokenStrip: {
+    paddingHorizontal: 4,
+    paddingVertical: 1,
+    fontSize: 11,
+    lineHeight: 15,
+    fontWeight: '600',
+    color: colors.textMuted,
   },
   agentsRow: {
     paddingHorizontal: 4,

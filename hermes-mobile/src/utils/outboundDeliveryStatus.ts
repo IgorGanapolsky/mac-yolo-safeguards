@@ -19,6 +19,13 @@ export const OUTBOUND_RUN_STALLED_HINT =
 export const OUTBOUND_RUN_STALLED_MANUAL_HINT =
   'Run stalled on your Mac — tap ↑ to resend';
 
+/**
+ * Slow / no first token yet — Mac may still be healthy (tools, mega context).
+ * Must NOT reuse the scary "Run stalled" copy (false-positive rage class).
+ */
+export const OUTBOUND_SLOW_REPLY_HINT =
+  'Still waiting on your Mac — recovering automatically…';
+
 export const OUTBOUND_SESSION_BUSY_HINT =
   'Mac busy with another chat — tap ↑ to try again';
 
@@ -53,11 +60,22 @@ function isSessionBusyFailureReason(reason: string): boolean {
   );
 }
 
-function isRunStalledFailureReason(reason: string): boolean {
+function isSlowReplyFailureReason(reason: string): boolean {
   const lower = reason.toLowerCase();
   return (
-    reason === OUTBOUND_STUCK_FAILURE_REASON ||
     reason === RUN_NO_TOKEN_FAIL_DETAIL ||
+    lower.includes('still waiting for a reply') ||
+    lower.includes('no reply yet')
+  );
+}
+
+function isRunStalledFailureReason(reason: string): boolean {
+  const lower = reason.toLowerCase();
+  if (isSlowReplyFailureReason(reason)) {
+    return false;
+  }
+  return (
+    reason === OUTBOUND_STUCK_FAILURE_REASON ||
     lower.includes('no reply from computer') ||
     lower.includes('no live progress') ||
     lower.includes('stalled') ||
@@ -84,6 +102,9 @@ export function resolveOutboundFailureLabel(
     }
     if (isSessionBusyFailureReason(reason)) {
       return `⚠ ${OUTBOUND_SESSION_BUSY_HINT}`;
+    }
+    if (isSlowReplyFailureReason(reason)) {
+      return `⚠ ${OUTBOUND_SLOW_REPLY_HINT}`;
     }
     if (isRunStalledFailureReason(reason)) {
       return `⚠ ${OUTBOUND_RUN_STALLED_HINT}`;

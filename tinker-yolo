@@ -1,106 +1,551 @@
 #!/usr/bin/env bash
-# tinker-yolo - autonomous fine-tuning pipeline for the fleet's local model.
-# Distills the strong teachers in our LiteLLM traffic log into a LoRA on Qwen/Qwen3-8B
-# (the upstream of local qwen3:8b) via Thinking Machines' Tinker, then reports a
-# downloadable checkpoint for llama.cpp -> Ollama. Fine-tuning is a paid/metered
-# service, so tinker-yolo is gated: it runs ONLY on explicit intent and never when the
-# fleet zero-spend marker is present.
+# tinker-yolo - evidence-gated Tinker fine-tuning for the Hermes fleet.
 #
-#   tinker-yolo --doctor[/--json]   verify Tinker auth + venv + dataset (no spend)
-#   tinker-yolo build               (re)build the distill dataset from traffic (free)
-#   tinker-yolo proof               cheap end-to-end run: train a few steps -> checkpoint
-#   tinker-yolo train               a fuller LoRA run (more data/steps; costs a few $)
-#   tinker-yolo deploy              REAL: train -> merge -> `ollama create` a RUNNABLE
-#                                   fleet model (~16GB base download + merge; ~15-40min)
+# The production path remains a small local Qwen model. Thinking Machines'
+# Inkling is a remote customization candidate until paired Hermes evaluations
+# adopt it; this wrapper never treats a sparse MoE's active parameters as its
+# storage requirement and never changes the Hermes default route.
 set -euo pipefail
 
+HERE="$(cd "$(dirname "$0")" && pwd)"
 VENV="${TINKER_VENV:-$HOME/.hermes/tinker-venv}"
 PY="$VENV/bin/python"
+SYSTEM_PYTHON="${TINKER_SYSTEM_PYTHON:-/usr/bin/python3}"
 EVAL_REPO="${HERMES_EVAL_REPO:-$HOME/workspace/git/igor/hermes-eval}"
 ENV_FILE="${HERMES_ENV_PATH:-$HOME/.hermes/.env}"
 MARKER="${HERMES_ZERO_SPEND_MARKER:-$HOME/.hermes/NO_PAID_SPEND}"
-DATASET="${TINKER_DATASET:-/tmp/tinker-conversations.jsonl}"
+STATE_DIR="${TINKER_STATE_DIR:-$HOME/.hermes/tinker}"
+DATASET="${TINKER_DATASET:-$STATE_DIR/datasets/conversations.jsonl}"
+RECEIPT_DIR="${TINKER_RECEIPT_DIR:-$STATE_DIR/receipts}"
+HARNESS="${TINKER_HARNESS:-$HERE/tools/hermes-tinker-harness.js}"
+TRAIN_RATE_USD_PER_M="${TINKER_TRAIN_USD_PER_MILLION_TOKENS:-0.40}"
 
-# Key: prefer macOS Keychain (secure vault), fall back to .env. Never printed.
+private_dir() {
+  /bin/mkdir -p "$1"
+  /bin/chmod 700 "$1"
+}
+
+# Prefer Keychain. The legacy .env fallback is read-only and never printed.
+# TINKER_SECURITY_BIN exists so hermetic tests can stub the Keychain out.
 load_key() {
-  local k
-  k="$(/usr/bin/security find-generic-password -a hermes-fleet -s TINKER_API_KEY -w 2>/dev/null || true)"
-  [ -z "$k" ] && k="$(grep '^TINKER_API_KEY=' "$ENV_FILE" 2>/dev/null | tail -1 | cut -d= -f2- || true)"
-  printf '%s' "$k"
+  local key
+  key="$("${TINKER_SECURITY_BIN:-/usr/bin/security}" find-generic-password -a hermes-fleet -s TINKER_API_KEY -w 2>/dev/null || true)"
+  [ -z "$key" ] && key="$(grep '^TINKER_API_KEY=' "$ENV_FILE" 2>/dev/null | tail -1 | cut -d= -f2- || true)"
+  printf '%s' "$key"
+}
+
+dataset_rows() {
+  local rows=0
+  [ -f "$DATASET" ] && rows="$(/usr/bin/wc -l < "$DATASET" | tr -d ' ')"
+  printf '%s' "$rows"
+}
+
+recommend() {
+  [ -f "$HARNESS" ] || { echo "tinker-yolo: missing Hermes Tinker harness ($HARNESS)" >&2; return 127; }
+  node "$HARNESS" "$@"
 }
 
 doctor() {
-  local format="${1:-text}" venv_ok=false auth_ok=false ds=0 models=0
+  local format="${1:-text}" venv_ok=false auth_ok=false models_json='[]' model_count=0
   [ -x "$PY" ] && venv_ok=true
-  [ -f "$DATASET" ] && ds="$(/usr/bin/wc -l < "$DATASET" | tr -d ' ')"
   if [ "$venv_ok" = true ]; then
-    models="$(TINKER_API_KEY="$(load_key)" "$PY" - <<'PY' 2>/dev/null || echo 0
+    models_json="$(TINKER_API_KEY="$(load_key)" "$PY" - <<'PY' 2>/dev/null || printf '[]'
+import json
 import tinker
 try:
-    print(len(tinker.ServiceClient().get_server_capabilities().supported_models))
+    models = [getattr(m, "model_name", str(m)) for m in tinker.ServiceClient().get_server_capabilities().supported_models]
+    print(json.dumps(models))
 except Exception:
-    print(0)
+    print("[]")
 PY
 )"
-    [ "${models:-0}" -gt 0 ] && auth_ok=true
+    model_count="$(MODELS_JSON="$models_json" "$SYSTEM_PYTHON" -c 'import json,os; print(len(json.loads(os.environ["MODELS_JSON"])))' 2>/dev/null || echo 0)"
+    [ "${model_count:-0}" -gt 0 ] && auth_ok=true
   fi
+
   if [ "$format" = json ]; then
-    VO=$venv_ok AO=$auth_ok DS=$ds MO=$models \
-    ZS="$([ -e "$MARKER" ] && echo true || echo false)" "$PY" -c '
-import json,os
-print(json.dumps({"schema":"tinker-yolo/doctor-v1",
-  "ok":os.environ["AO"]=="true","venv":os.environ["VO"]=="true",
-  "authOK":os.environ["AO"]=="true","models":int(os.environ["MO"]),
-  "datasetRows":int(os.environ["DS"]),"baseModel":"Qwen/Qwen3-8B",
-  "zeroSpendActive":os.environ["ZS"]=="true"}))' 2>/dev/null \
-    || echo '{"schema":"tinker-yolo/doctor-v1","ok":false,"venv":false}'
+    local recommendation_json
+    recommendation_json="$(TINKER_AUTH_OK="$auth_ok" TINKER_SUPPORTED_MODELS_JSON="$models_json" recommend --json)"
+    RECOMMENDATION_JSON="$recommendation_json" VENV_OK="$venv_ok" AUTH_OK="$auth_ok" \
+      MODEL_COUNT="$model_count" DATASET_ROWS="$(dataset_rows)" ZERO_SPEND="$([ -e "$MARKER" ] && echo true || echo false)" \
+      "$SYSTEM_PYTHON" - <<'PY'
+import json, os
+report = json.loads(os.environ["RECOMMENDATION_JSON"])
+report.update({
+    "schema": "tinker-yolo/doctor-v2",
+    "ok": os.environ["AUTH_OK"] == "true",
+    "venv": os.environ["VENV_OK"] == "true",
+    "authOK": os.environ["AUTH_OK"] == "true",
+    "models": int(os.environ["MODEL_COUNT"]),
+    "datasetRows": int(os.environ["DATASET_ROWS"]),
+    "baseModel": "Qwen/Qwen3-8B",
+    "zeroSpendActive": os.environ["ZERO_SPEND"] == "true",
+})
+print(json.dumps(report, separators=(",", ":")))
+PY
   else
     printf 'TINKER_YOLO ok=%s venv=%s auth=%s models=%s dataset_rows=%s zero_spend=%s\n' \
-      "$auth_ok" "$venv_ok" "$auth_ok" "$models" "$ds" "$([ -e "$MARKER" ] && echo true || echo false)"
+      "$auth_ok" "$venv_ok" "$auth_ok" "$model_count" "$(dataset_rows)" "$([ -e "$MARKER" ] && echo true || echo false)"
+    TINKER_AUTH_OK="$auth_ok" TINKER_SUPPORTED_MODELS_JSON="$models_json" recommend
   fi
   [ "$auth_ok" = true ]
 }
 
-build() {
-  "$PY" "$EVAL_REPO/scripts/build-distill-dataset.py" --accumulate --out /tmp/tinker-dataset.jsonl
-  "$PY" - <<PY
-import json
-n=0; out=open("$DATASET","w")
-for l in open("/tmp/tinker-dataset.jsonl"):
-    r=json.loads(l); m=r.get("messages")
-    if m and len(m)>=2: out.write(json.dumps({"messages":m})+"\n"); n+=1
-out.close(); print(f"tinker-yolo: dataset ready -> $DATASET ({n} conversations)")
+scan_dataset() {
+  local examples="${1:-0}" steps="${2:-1}"
+  DATASET_PATH="$DATASET" EXAMPLES="$examples" STEPS="$steps" RATE="$TRAIN_RATE_USD_PER_M" \
+    "$SYSTEM_PYTHON" - <<'PY'
+import json, os, pathlib, re, stat, sys
+path = pathlib.Path(os.environ["DATASET_PATH"])
+if not path.exists() or path.is_symlink() or not path.is_file():
+    print(json.dumps({"ok":False,"reason":"missing_or_unsafe_dataset"}))
+    raise SystemExit(65)
+patterns = [
+    re.compile(r"gh[pousr]_[A-Za-z0-9]{20,}"),
+    re.compile(r"sk-(?:proj-)?[A-Za-z0-9_-]{20,}"),
+    re.compile(r"AKIA[0-9A-Z]{16}"),
+    re.compile(r"(?i)(?:api[_-]?key|password|secret|token)\s*[:=]\s*['\"]?[A-Za-z0-9_./+=-]{12,}"),
+]
+rows = 0
+selected_bytes = 0
+sensitive = 0
+limit = int(os.environ["EXAMPLES"])
+with path.open(encoding="utf-8") as handle:
+    for line in handle:
+        if not line.strip():
+            continue
+        try:
+            obj = json.loads(line)
+        except Exception:
+            print(json.dumps({"ok":False,"reason":"invalid_jsonl"}))
+            raise SystemExit(65)
+        messages = obj.get("messages")
+        if not isinstance(messages, list) or len(messages) < 2:
+            continue
+        rows += 1
+        serialized = json.dumps(messages, ensure_ascii=False)
+        if limit <= 0 or rows <= limit:
+            selected_bytes += len(serialized.encode("utf-8"))
+        if any(pattern.search(serialized) for pattern in patterns):
+            sensitive += 1
+mode = stat.S_IMODE(path.stat().st_mode)
+if sensitive:
+    print(json.dumps({"ok":False,"reason":"secret_pattern","rows":rows,"sensitiveRows":sensitive}))
+    raise SystemExit(65)
+if rows < 1:
+    print(json.dumps({"ok":False,"reason":"no_usable_rows","rows":0}))
+    raise SystemExit(65)
+if mode & 0o077:
+    print(json.dumps({"ok":False,"reason":"unsafe_permissions","rows":rows,"mode":f"{mode:04o}"}))
+    raise SystemExit(65)
+# UTF-8 bytes are a deliberately conservative token upper bound for the preflight.
+steps = int(os.environ["STEPS"])
+rate = max(0.40, float(os.environ["RATE"]))
+estimated = selected_bytes * max(1, steps) * rate / 1_000_000 * 1.25
+print(json.dumps({
+    "ok": True,
+    "rows": rows,
+    "bytes": path.stat().st_size,
+    "selectedBytes": selected_bytes,
+    "mode": f"{mode:04o}",
+    "privateMode": mode & 0o077 == 0,
+    "estimatedCostUsd": round(estimated, 6),
+    "estimateOnly": True,
+}, separators=(",", ":")))
 PY
 }
 
-run_train() {  # $1 = N examples, $2 = steps
-  [ -f "$DATASET" ] || build
-  TINKER_API_KEY="$(load_key)" TINKER_PROOF_DATA="$DATASET" \
-  TINKER_PROOF_N="${1:-16}" TINKER_PROOF_STEPS="${2:-3}" \
-    "$PY" "$EVAL_REPO/scripts/tinker_proof_run.py"
+build_dataset() (
+  [ -x "$PY" ] || { echo "tinker-yolo: venv missing ($PY)" >&2; return 127; }
+  private_dir "$STATE_DIR"
+  private_dir "$(dirname "$DATASET")"
+  local scratch
+  scratch="$(/usr/bin/mktemp -d "$STATE_DIR/build.XXXXXX")"
+  /bin/chmod 700 "$scratch"
+  trap '/bin/rm -rf -- "$scratch"' EXIT
+  "$PY" "$EVAL_REPO/scripts/build-distill-dataset.py" --accumulate --out "$scratch/source.jsonl"
+  SOURCE="$scratch/source.jsonl" DEST="$DATASET" "$SYSTEM_PYTHON" - <<'PY'
+import json, os
+source, dest = os.environ["SOURCE"], os.environ["DEST"]
+tmp = dest + ".tmp"
+n = 0
+with open(source, encoding="utf-8") as incoming, open(tmp, "w", encoding="utf-8") as outgoing:
+    for line in incoming:
+        row = json.loads(line)
+        messages = row.get("messages")
+        if messages and len(messages) >= 2:
+            outgoing.write(json.dumps({"messages": messages}, ensure_ascii=False) + "\n")
+            n += 1
+os.chmod(tmp, 0o600)
+os.replace(tmp, dest)
+os.chmod(dest, 0o600)
+print(f"tinker-yolo: private dataset ready ({n} conversations)")
+PY
+  local scan
+  scan="$(scan_dataset 0 1)"
+  SCAN="$scan" "$SYSTEM_PYTHON" -c 'import json,os; d=json.loads(os.environ["SCAN"]); print("tinker-yolo: preflight rows={} bytes={} private={}".format(d["rows"],d["bytes"],str(d["privateMode"]).lower()))'
+)
+
+positive_cost_cap() {
+  MAX_COST="$1" "$SYSTEM_PYTHON" -c 'import os,sys; n=float(os.environ["MAX_COST"]); sys.exit(0 if 0 < n <= 100 else 1)' 2>/dev/null
 }
 
-case "${1:-}" in
-  --doctor)
+bounded_integer() {
+  VALUE="$1" MAXIMUM="$2" "$SYSTEM_PYTHON" -c 'import os,sys; value=int(os.environ["VALUE"]); maximum=int(os.environ["MAXIMUM"]); sys.exit(0 if 1 <= value <= maximum else 1)' 2>/dev/null
+}
+
+write_receipt() {
+  local action="$1" scan="$2" max_cost="$3" exit_code="$4" examples="$5" steps="$6"
+  private_dir "$RECEIPT_DIR"
+  ACTION="$action" SCAN="$scan" MAX_COST="$max_cost" EXIT_CODE="$exit_code" EXAMPLES="$examples" STEPS="$steps" \
+    RECEIPT_DIR="$RECEIPT_DIR" "$SYSTEM_PYTHON" - <<'PY'
+import datetime, json, os, pathlib
+root = pathlib.Path(os.environ["RECEIPT_DIR"])
+scan = json.loads(os.environ["SCAN"])
+payload = {
+    "schema": "tinker-yolo/run-receipt-v1",
+    "generatedAt": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+    "action": os.environ["ACTION"],
+    "baseModel": "Qwen/Qwen3-8B",
+    "inklingRole": "evaluation-only-remote-candidate",
+    "approvals": {"paid": True, "dataUpload": True},
+    "budget": {
+        "maxCostUsd": float(os.environ["MAX_COST"]),
+        "estimatedCostUsd": scan["estimatedCostUsd"],
+        "estimateOnly": True,
+        "actualCostUsd": None,
+    },
+    "dataset": {"rows": scan["rows"], "bytes": scan["bytes"], "privateMode": scan["privateMode"]},
+    "execution": {
+        "examples": int(os.environ["EXAMPLES"]),
+        "steps": int(os.environ["STEPS"]),
+        "exitCode": int(os.environ["EXIT_CODE"]),
+        "status": "pass" if int(os.environ["EXIT_CODE"]) == 0 else "fail",
+    },
+    "hermesBaselineChanged": False,
+}
+latest = root / "latest.json"
+tmp = root / f"latest.{os.getpid()}.tmp"
+tmp.write_text(json.dumps(payload, indent=2) + "\n")
+tmp.chmod(0o600)
+tmp.replace(latest)
+latest.chmod(0o600)
+history = root / "history.jsonl"
+with history.open("a") as handle:
+    handle.write(json.dumps(payload, separators=(",", ":")) + "\n")
+history.chmod(0o600)
+PY
+}
+
+run_metered() {
+  local action="$1" examples="$2" steps="$3" approve_paid="$4" approve_upload="$5" max_cost="$6"
+  if [ -e "$MARKER" ]; then
+    echo "tinker-yolo: blocked — fleet zero-spend is active; Tinker training is metered" >&2
+    return 73
+  fi
+  [ -x "$PY" ] || { echo "tinker-yolo: venv missing ($PY)" >&2; return 127; }
+  if [ "$approve_paid" != true ] || [ "$approve_upload" != true ]; then
+    echo "tinker-yolo: blocked — require --approve-paid and --approve-data-upload" >&2
+    return 64
+  fi
+  positive_cost_cap "$max_cost" || { echo "tinker-yolo: --max-cost-usd must be greater than 0 and at most 100" >&2; return 64; }
+  bounded_integer "$examples" 10000 || { echo "tinker-yolo: examples must be an integer from 1 to 10000" >&2; return 64; }
+  bounded_integer "$steps" 100 || { echo "tinker-yolo: steps must be an integer from 1 to 100" >&2; return 64; }
+  [ -f "$DATASET" ] || build_dataset
+  local scan estimate within
+  scan="$(scan_dataset "$examples" "$steps")" || return $?
+  estimate="$(SCAN="$scan" "$SYSTEM_PYTHON" -c 'import json,os; print(json.loads(os.environ["SCAN"])["estimatedCostUsd"])')"
+  within="$(ESTIMATE="$estimate" MAX_COST="$max_cost" "$SYSTEM_PYTHON" -c 'import os; print("true" if float(os.environ["ESTIMATE"]) <= float(os.environ["MAX_COST"]) else "false")')"
+  if [ "$within" != true ]; then
+    echo "tinker-yolo: estimated cost $estimate exceeds cap $max_cost; no provider call made" >&2
+    return 78
+  fi
+  local key
+  key="$(load_key)"
+  [ -n "$key" ] || { echo "tinker-yolo: Tinker auth missing; no provider call made" >&2; return 77; }
+  echo "tinker-yolo: approved action=$action estimated_cost_usd=$estimate max_cost_usd=$max_cost (estimate, not provider hard cap)"
+
+  set +e
+  if [ "$action" = deploy ]; then
+    TINKER_API_KEY="$key" TINKER_DEPLOY_DATA="$DATASET" TINKER_DEPLOY_N="$examples" \
+      TINKER_DEPLOY_STEPS="$steps" TINKER_MAX_COST_USD="$max_cost" TINKER_APPROVED_DATA_UPLOAD=1 \
+      "$PY" "$EVAL_REPO/scripts/tinker_deploy.py"
+  else
+    TINKER_API_KEY="$key" TINKER_PROOF_DATA="$DATASET" TINKER_PROOF_N="$examples" \
+      TINKER_PROOF_STEPS="$steps" TINKER_MAX_COST_USD="$max_cost" TINKER_APPROVED_DATA_UPLOAD=1 \
+      "$PY" "$EVAL_REPO/scripts/tinker_proof_run.py"
+  fi
+  local exit_code=$?
+  set -e
+  write_receipt "$action" "$scan" "$max_cost" "$exit_code" "$examples" "$steps"
+  return "$exit_code"
+}
+
+# Undiscounted 64K Inkling rates (USD per million tokens); override via env when
+# Tinker pricing changes. The launch discount makes real cost lower, never higher.
+ASK_PREFILL_USD_PER_M="${TINKER_ASK_PREFILL_USD_PER_M:-3.74}"
+ASK_SAMPLE_USD_PER_M="${TINKER_ASK_SAMPLE_USD_PER_M:-9.36}"
+
+write_ask_receipt() {
+  local estimate="$1" max_cost="$2" exit_code="$3" max_tokens="$4" effort="$5"
+  private_dir "$RECEIPT_DIR"
+  ESTIMATE="$estimate" MAX_COST="$max_cost" EXIT_CODE="$exit_code" MAX_TOKENS="$max_tokens" \
+    EFFORT="$effort" MODEL="${TINKER_ASK_MODEL:-thinkingmachines/Inkling}" RECEIPT_DIR="$RECEIPT_DIR" \
+    "$SYSTEM_PYTHON" - <<'PY'
+import datetime, json, os, pathlib
+root = pathlib.Path(os.environ["RECEIPT_DIR"])
+payload = {
+    "schema": "tinker-yolo/ask-receipt-v1",
+    "generatedAt": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+    "action": "ask",
+    "model": os.environ["MODEL"],
+    "effort": float(os.environ["EFFORT"]),
+    "maxTokens": int(os.environ["MAX_TOKENS"]),
+    "budget": {
+        "maxCostUsd": float(os.environ["MAX_COST"]),
+        "estimatedCostUsd": float(os.environ["ESTIMATE"]),
+        "estimateOnly": True,
+        "actualCostUsd": None,
+    },
+    "execution": {
+        "exitCode": int(os.environ["EXIT_CODE"]),
+        "status": "pass" if int(os.environ["EXIT_CODE"]) == 0 else "fail",
+    },
+    "hermesBaselineChanged": False,
+}
+latest = root / "latest-ask.json"
+tmp = root / f"latest-ask.{os.getpid()}.tmp"
+tmp.write_text(json.dumps(payload, indent=2) + "\n")
+tmp.chmod(0o600)
+tmp.replace(latest)
+latest.chmod(0o600)
+history = root / "history.jsonl"
+with history.open("a") as handle:
+    handle.write(json.dumps(payload, separators=(",", ":")) + "\n")
+history.chmod(0o600)
+PY
+}
+
+# One-shot Inkling inference through Tinker — the fleet's explicit escalation route.
+# Metered spend but no dataset upload, so it requires --approve-paid and a cost cap
+# (not --approve-data-upload). The prompt is the only data sent to the provider.
+run_ask() {
+  local effort=0.9 max_tokens=1024 tool_demo=0 as_json=0 approve_paid=false max_cost="" prompt=""
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+      --approve-paid) approve_paid=true ;;
+      --max-cost-usd)
+        shift
+        [ "$#" -gt 0 ] || { echo "tinker-yolo: --max-cost-usd requires a value" >&2; return 2; }
+        max_cost="$1" ;;
+      --effort)
+        shift
+        [ "$#" -gt 0 ] || { echo "tinker-yolo: --effort requires a value" >&2; return 2; }
+        effort="$1" ;;
+      --max-tokens)
+        shift
+        [ "$#" -gt 0 ] || { echo "tinker-yolo: --max-tokens requires a value" >&2; return 2; }
+        max_tokens="$1" ;;
+      --tool-demo) tool_demo=1 ;;
+      --json) as_json=1 ;;
+      --*) echo "tinker-yolo: unknown option '$1'" >&2; return 2 ;;
+      *) prompt="${prompt:+$prompt }$1" ;;
+    esac
     shift
-    if [ "${1:-}" = "--json" ]; then doctor json; else doctor text; fi
+  done
+  [ -n "$prompt" ] || { echo "tinker-yolo: ask requires a prompt" >&2; return 2; }
+  if [ -e "$MARKER" ]; then
+    echo "tinker-yolo: blocked — fleet zero-spend is active; Inkling inference is metered" >&2
+    return 73
+  fi
+  [ -x "$PY" ] || { echo "tinker-yolo: venv missing ($PY)" >&2; return 127; }
+  if [ "$approve_paid" != true ]; then
+    echo "tinker-yolo: blocked — ask is metered; require --approve-paid and --max-cost-usd" >&2
+    return 64
+  fi
+  positive_cost_cap "$max_cost" || { echo "tinker-yolo: --max-cost-usd must be greater than 0 and at most 100" >&2; return 64; }
+  bounded_integer "$max_tokens" 32768 || { echo "tinker-yolo: --max-tokens must be an integer from 1 to 32768" >&2; return 64; }
+  EFFORT="$effort" "$SYSTEM_PYTHON" -c 'import os,sys; e=float(os.environ["EFFORT"]); sys.exit(0 if 0 < e <= 1 else 1)' 2>/dev/null \
+    || { echo "tinker-yolo: --effort must be a number in (0, 1]" >&2; return 64; }
+
+  local estimate within
+  estimate="$(ASK_PROMPT="$prompt" MAX_TOKENS="$max_tokens" PREFILL="$ASK_PREFILL_USD_PER_M" \
+    SAMPLE="$ASK_SAMPLE_USD_PER_M" "$SYSTEM_PYTHON" - <<'PY'
+import os
+# ~3 bytes/token is a conservative floor; +220 covers chat/tool-spec scaffolding.
+prompt_tokens = len(os.environ["ASK_PROMPT"].encode("utf-8")) // 3 + 220
+cost = (prompt_tokens / 1e6 * float(os.environ["PREFILL"])
+        + int(os.environ["MAX_TOKENS"]) / 1e6 * float(os.environ["SAMPLE"]))
+print(round(cost, 6))
+PY
+)"
+  within="$(ESTIMATE="$estimate" MAX_COST="$max_cost" "$SYSTEM_PYTHON" -c 'import os; print("true" if float(os.environ["ESTIMATE"]) <= float(os.environ["MAX_COST"]) else "false")')"
+  if [ "$within" != true ]; then
+    echo "tinker-yolo: estimated cost $estimate exceeds cap $max_cost; no provider call made" >&2
+    return 78
+  fi
+  local key
+  key="$(load_key)"
+  [ -n "$key" ] || { echo "tinker-yolo: Tinker auth missing; no provider call made" >&2; return 77; }
+
+  set +e
+  TINKER_API_KEY="$key" TINKER_ASK_PROMPT="$prompt" TINKER_ASK_EFFORT="$effort" \
+  TINKER_ASK_MAX_TOKENS="$max_tokens" TINKER_ASK_TOOL_DEMO="$tool_demo" TINKER_ASK_JSON="$as_json" \
+  TINKER_ASK_MODEL="${TINKER_ASK_MODEL:-thinkingmachines/Inkling}" \
+    "$PY" - <<'PY'
+import json, os, sys
+import tinker
+from tinker.types import SamplingParams
+from tinker_cookbook import renderers, tokenizer_utils
+
+model = os.environ["TINKER_ASK_MODEL"]
+effort = float(os.environ["TINKER_ASK_EFFORT"])
+tok = tokenizer_utils.get_tokenizer(model)
+rend = renderers.get_renderer("tml_v0", tok, model_name=model)
+
+msgs = []
+if os.environ["TINKER_ASK_TOOL_DEMO"] == "1":
+    tools = [renderers.ToolSpec(
+        name="get_fleet_status",
+        description="Return live health of one Hermes fleet host (gateway, models, load).",
+        parameters={"type": "object",
+                    "properties": {"host": {"type": "string", "enum": ["pro", "mini"]}},
+                    "required": ["host"]})]
+    msgs += rend.create_conversation_prefix_with_tools(
+        tools, system_prompt="You are the Hermes fleet assistant. Use tools when they apply.")
+msgs.append({"role": "user", "content": os.environ["TINKER_ASK_PROMPT"]})
+
+prompt_mi = rend.build_generation_prompt(msgs, effort=effort)
+client = tinker.ServiceClient().create_sampling_client(base_model=model)
+resp = client.sample(
+    prompt=prompt_mi, num_samples=1,
+    sampling_params=SamplingParams(
+        max_tokens=int(os.environ["TINKER_ASK_MAX_TOKENS"]),
+        temperature=0.7, stop=rend.get_stop_sequences())).result()
+
+seq = resp.sequences[0]
+tokens = list(getattr(seq, "tokens", None) or seq.tokens_np.tolist())
+message, termination = rend.parse_response(tokens)
+
+def jsonable(o):
+    if hasattr(o, "__dict__"): return {k: jsonable(v) for k, v in vars(o).items()}
+    if isinstance(o, dict): return {k: jsonable(v) for k, v in o.items()}
+    if isinstance(o, (list, tuple)): return [jsonable(v) for v in o]
+    return o if isinstance(o, (str, int, float, bool, type(None))) else str(o)
+
+text = renderers.get_text_content(message)
+tool_calls = jsonable(message.get("tool_calls") or [])
+report = {"schema": "tinker-yolo/ask-v1", "model": model, "effort": effort,
+          "promptTokens": prompt_mi.length, "completionTokens": len(tokens),
+          "promptCacheHitTokens": getattr(resp, "prompt_cache_hit_tokens", 0),
+          "stopReason": str(seq.stop_reason), "termination": str(termination),
+          "toolCalls": tool_calls, "text": text}
+if os.environ["TINKER_ASK_JSON"] == "1":
+    print(json.dumps(report))
+else:
+    print(text)
+    if tool_calls:
+        print("\n[tool calls]", json.dumps(tool_calls, indent=2))
+    print(f"\n[usage] prompt={report['promptTokens']} completion={report['completionTokens']} "
+          f"cache_hit={report['promptCacheHitTokens']} stop={report['stopReason']}", file=sys.stderr)
+PY
+  local exit_code=$?
+  set -e
+  write_ask_receipt "$estimate" "$max_cost" "$exit_code" "$max_tokens" "$effort"
+  return "$exit_code"
+}
+
+usage() {
+  cat <<'USAGE'
+tinker-yolo — evidence-gated Tinker customization for Hermes
+
+Read-only / free:
+  status                     lightweight local status; no Tinker import
+  recommend [--json]         host-aware Inkling vs local-baseline decision
+  --doctor [--json]          Tinker auth/catalog + recommendation; no training
+  build                      build a private local dataset; no upload
+
+Metered inference (prompt-only upload; both flags mandatory):
+  ask "prompt" --approve-paid --max-cost-usd N
+      [--effort 0..1] [--max-tokens N] [--tool-demo] [--json]
+      one-shot Inkling escalation via Tinker; receipt in latest-ask.json
+
+Metered and data-uploading (all three flags are mandatory):
+  proof  --approve-paid --approve-data-upload --max-cost-usd N
+  train [examples] [steps] --approve-paid --approve-data-upload --max-cost-usd N
+  deploy [examples] [steps] --approve-paid --approve-data-upload --max-cost-usd N
+
+The cost gate is a conservative estimate, not a provider-side hard billing cap.
+Inkling remains a remote candidate; these training commands retain Qwen/Qwen3-8B.
+`ask` is the explicit per-call Inkling route and never changes the Hermes default.
+USAGE
+}
+
+command="${1:-status}"
+[ "$#" -gt 0 ] && shift || true
+
+case "$command" in
+  status|--help|-h)
+    echo "tinker-yolo status: venv=$([ -x "$PY" ] && echo ok || echo MISSING) dataset_rows=$(dataset_rows) zero_spend=$([ -e "$MARKER" ] && echo true || echo false)"
+    have="$(ollama list 2>/dev/null | awk '/qwen3-hermes-tinker/{print $1" ("$3$4")"}' | tr '\n' ' ')"
+    echo "deployed model: ${have:-none}"
+    usage
+    exit 0 ;;
+  recommend)
+    recommend "$@"
     exit $? ;;
-  --doctor=json|--json) doctor json; exit $? ;;
+  ask)
+    run_ask "$@"
+    exit $? ;;
+  --doctor|--doctor=json|--json)
+    format=text
+    if [ "$command" = --doctor ]; then
+      if [ "$#" -eq 1 ] && [ "$1" = --json ]; then
+        format=json
+      elif [ "$#" -ne 0 ]; then
+        echo "tinker-yolo: --doctor accepts only --json" >&2
+        exit 2
+      fi
+    else
+      [ "$#" -eq 0 ] || { echo "tinker-yolo: $command takes no arguments" >&2; exit 2; }
+      format=json
+    fi
+    doctor "$format"
+    exit $? ;;
+  build)
+    [ "$#" -eq 0 ] || { echo "tinker-yolo: build takes no arguments" >&2; exit 2; }
+    build_dataset
+    exit $? ;;
+  proof|train|deploy) ;;
+  *) echo "tinker-yolo: unknown command '$command'" >&2; usage >&2; exit 2 ;;
 esac
 
-if [ -e "$MARKER" ]; then
-  echo "tinker-yolo: blocked — fleet zero-spend is active ($MARKER); fine-tuning is metered" >&2
-  exit 73
-fi
-[ -x "$PY" ] || { echo "tinker-yolo: venv missing ($PY). Run: python3 -m venv $VENV && $VENV/bin/pip install tinker tinker-cookbook" >&2; exit 127; }
+approve_paid=false
+approve_upload=false
+max_cost=""
+positionals=()
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    --approve-paid) approve_paid=true ;;
+    --approve-data-upload) approve_upload=true ;;
+    --max-cost-usd)
+      shift
+      [ "$#" -gt 0 ] || { echo "tinker-yolo: --max-cost-usd requires a value" >&2; exit 2; }
+      max_cost="$1" ;;
+    --*) echo "tinker-yolo: unknown option '$1'" >&2; exit 2 ;;
+    *) positionals+=("$1") ;;
+  esac
+  shift
+done
 
-case "${1:-proof}" in
-  build) build ;;
-  proof) run_train 8 2 ;;
-  train) run_train "${2:-64}" "${3:-6}" ;;
+case "$command" in
+  proof)
+    [ "${#positionals[@]}" -eq 0 ] || { echo "tinker-yolo: proof takes no positional arguments" >&2; exit 2; }
+    run_metered proof 8 2 "$approve_paid" "$approve_upload" "$max_cost" ;;
+  train)
+    [ "${#positionals[@]}" -le 2 ] || { echo "tinker-yolo: train accepts [examples] [steps]" >&2; exit 2; }
+    run_metered train "${positionals[0]:-64}" "${positionals[1]:-6}" "$approve_paid" "$approve_upload" "$max_cost" ;;
   deploy)
-    [ -f "$DATASET" ] || build
-    TINKER_API_KEY="$(load_key)" TINKER_DEPLOY_DATA="$DATASET" \
-      "$PY" "$EVAL_REPO/scripts/tinker_deploy.py" ;;
-  *) echo "usage: tinker-yolo [--doctor[--json]|build|proof|train [N] [steps]|deploy]" >&2; exit 2 ;;
+    [ "${#positionals[@]}" -le 2 ] || { echo "tinker-yolo: deploy accepts [examples] [steps]" >&2; exit 2; }
+    run_metered deploy "${positionals[0]:-64}" "${positionals[1]:-8}" "$approve_paid" "$approve_upload" "$max_cost" ;;
 esac

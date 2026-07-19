@@ -2,6 +2,7 @@ import type { HermesSession } from '../types/chat';
 import type { ChatProjectState } from '../types/chatProject';
 import { shouldClearMissingCurrentSession } from './disconnectMessagePreserve';
 import { pickDefaultSession } from './sessionSelection';
+import { isMegaSessionSendBlocked } from './sessionTokenGuards';
 
 export type SessionListSelectionInput = {
   sessions: HermesSession[];
@@ -15,9 +16,24 @@ export type SessionListSelectionInput = {
   selectLatest?: boolean;
 };
 
+function findNonMegaSession(
+  sessions: HermesSession[],
+  sessionId: string | null | undefined,
+): HermesSession | null {
+  if (!sessionId) {
+    return null;
+  }
+  const match = sessions.find((session) => session.id === sessionId) ?? null;
+  if (!match || isMegaSessionSendBlocked(match)) {
+    return null;
+  }
+  return match;
+}
+
 /**
  * Pick the session to activate after listSessions completes.
  * Returns `undefined` when React state should not change (already on target).
+ * Never auto-restores a hard-blocked mega session after clear/relaunch.
  */
 export function resolveSessionAfterListLoad(
   input: SessionListSelectionInput,
@@ -35,6 +51,10 @@ export function resolveSessionAfterListLoad(
   if (manualSelectSessionId) {
     const manual = sessions.find((session) => session.id === manualSelectSessionId);
     if (manual) {
+      // Recents hard-gate forces Start fresh; do not bind the mega id here either.
+      if (isMegaSessionSendBlocked(manual)) {
+        return currentSessionId ? null : undefined;
+      }
       return manual.id === currentSessionId ? undefined : manual;
     }
     // User tapped a recent thread before listSessions finished — never resurrect project binding.
@@ -44,6 +64,8 @@ export function resolveSessionAfterListLoad(
   if (currentSessionId) {
     const current = sessions.find((session) => session.id === currentSessionId);
     if (current) {
+      // Keep the open thread (banner / Start fresh handle mega UX). Never
+      // *select* a mega id via remembered/project/default paths below.
       return undefined;
     }
   }
@@ -55,6 +77,7 @@ export function resolveSessionAfterListLoad(
 
   // Sticky session missing from an empty/incomplete reconnect list — keep it.
   // Clearing here wiped the transcript while refresh was a no-op (false disconnect).
+  // Exception: never keep a sticky mega-blocked id when it vanished from the list.
   if (
     currentSessionId &&
     !shouldClearMissingCurrentSession({
@@ -68,26 +91,30 @@ export function resolveSessionAfterListLoad(
 
   let nextSession: HermesSession | null = null;
 
-  if (rememberedSessionId) {
-    nextSession = sessions.find((session) => session.id === rememberedSessionId) ?? null;
-  }
+  nextSession = findNonMegaSession(sessions, rememberedSessionId);
 
   if (projectState.activeProjectId) {
     const project = projectState.projects.find((p) => p.id === projectState.activeProjectId);
     const preferredId = project?.activeSessionId ?? project?.sessionIds[0];
-    if (!nextSession && preferredId) {
-      nextSession = sessions.find((session) => session.id === preferredId) ?? null;
+    if (!nextSession) {
+      nextSession = findNonMegaSession(sessions, preferredId);
     }
   }
 
   if (!nextSession && sessions.length > 0) {
     if (selectLatest || !currentSessionId) {
-      nextSession = pickDefaultSession(sessions, projectState) ?? sessions[0];
+      const picked = pickDefaultSession(sessions, projectState) ?? sessions[0];
+      nextSession = picked && !isMegaSessionSendBlocked(picked) ? picked : null;
+      if (!nextSession) {
+        nextSession =
+          sessions.find((session) => !isMegaSessionSendBlocked(session)) ?? null;
+      }
     }
   }
 
   if (!nextSession) {
     // Current id missing from a non-empty list → real delete; otherwise keep sticky.
+    // Also open empty chat when every candidate is mega-blocked.
     if (
       currentSessionId &&
       shouldClearMissingCurrentSession({
@@ -95,6 +122,9 @@ export function resolveSessionAfterListLoad(
         currentSessionId,
       })
     ) {
+      return null;
+    }
+    if (selectLatest || !currentSessionId) {
       return null;
     }
     return undefined;

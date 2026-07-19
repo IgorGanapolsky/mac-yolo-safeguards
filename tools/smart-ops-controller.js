@@ -102,8 +102,8 @@ function runNode(script, args, timeoutMs) {
     env: {
       ...process.env,
       REVENUE_DIR,
-      REVENUE_AUTO_SEND: process.env.REVENUE_AUTO_SEND || '1',
-      REVENUE_AUTO_GH: process.env.REVENUE_AUTO_GH || '1',
+      REVENUE_AUTO_SEND: process.env.REVENUE_AUTO_SEND || '0',
+      REVENUE_AUTO_GH: process.env.REVENUE_AUTO_GH || '0',
       REVENUE_NTFY_QUIET_NOOP: process.env.REVENUE_NTFY_QUIET_NOOP || '1',
       PATH: `${HOME}/.local/bin:/opt/homebrew/bin:/usr/local/bin:${process.env.PATH || ''}`,
     },

@@ -70,8 +70,6 @@ export interface GatewayEventMessage {
 export type ConnectionMode = 'relay' | 'gateway';
 
 export type ApprovalPolicy = 'strict' | 'balanced' | 'autonomous';
-export type HermesPersona = 'operator' | 'coach' | 'spark';
-export type HermesAvatar = 'orb' | 'bolt' | 'navigator' | 'guardian';
 
 export interface GatewaySettings {
   connectionMode: ConnectionMode;
@@ -110,12 +108,6 @@ export interface GatewaySettings {
   routeChatConfirmationsToLeash?: boolean;
   /** Whether to show tool execution messages (role tool/function) in transcripts. */
   includeToolActivity?: boolean;
-  /** Presentation/personality skin for mobile chat. Style only; execution directives still win. */
-  hermesPersona?: HermesPersona;
-  /** Local avatar skin shown in Chat and Settings. */
-  hermesAvatar?: HermesAvatar;
-  /** Lightweight animated presence cues. */
-  playfulMotion?: boolean;
   /** User dismissed first-run ConnectMacGate — show ChatConnectionPanel instead of re-trapping. */
   connectMacGateDismissed?: boolean;
 }
@@ -144,7 +136,4 @@ export const DEFAULT_GATEWAY_SETTINGS: GatewaySettings = {
   developerLeashUnlock: false,
   routeChatConfirmationsToLeash: true,
   includeToolActivity: false,
-  hermesPersona: 'operator',
-  hermesAvatar: 'orb',
-  playfulMotion: true,
 };

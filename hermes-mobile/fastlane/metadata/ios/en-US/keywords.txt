@@ -1,1 +1,1 @@
-coding,approve,devtools,terminal,gateway,operator,safety,local,pair,tailscale,codex,cli,control,qr
+remote,mac,approve,agent,coding,tailscale,operator,safety,pair,gateway,devtools,leash,chat

@@ -5,6 +5,7 @@ import {
   pickDefaultSession,
   sortSessionsForPicker,
   isAutomationProbeSession,
+  isNonMobileAutomationSession,
   isMobileChatSession,
   isSmokeProbeSession,
   buildSessionPickerSections,
@@ -153,10 +154,24 @@ describe('sessionSelection', () => {
   it('covers isMobileChatSession', () => {
     const mobSess1: HermesSession = { id: 'm1', title: 'hermes mobile session' };
     const mobSess2: HermesSession = { id: 'm2', source: 'mobile session' };
+    const durableMobile: HermesSession = {
+      id: 'mobile_1784412766000_80000000',
+      source: 'api_server',
+      title: 'make money today',
+    };
     const normalSess: HermesSession = { id: 'n1', title: 'normal' };
     expect(isMobileChatSession(mobSess1)).toBe(true);
     expect(isMobileChatSession(mobSess2)).toBe(true);
+    expect(isMobileChatSession(durableMobile)).toBe(true);
+    expect(isNonMobileAutomationSession(durableMobile)).toBe(false);
     expect(isMobileChatSession(normalSess)).toBe(false);
+    expect(
+      isNonMobileAutomationSession({
+        id: 'api_1784412766000_harness',
+        source: 'api_server',
+        title: 'Scheduled job',
+      }),
+    ).toBe(true);
   });
 
   it('covers pickDefaultSession empty case', () => {

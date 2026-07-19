@@ -9,8 +9,10 @@ const path = require('path');
 const {
   parseActiveTasks,
   parseFileLocks,
+  parseOwnershipLocks,
   parseMeta,
   snapshotPlan,
+  validateOwnership,
 } = require('../tools/plan-coordination-snapshot');
 
 function test(name, fn) {
@@ -67,6 +69,43 @@ test('parseFileLocks skips released and free rows', () => {
   assert.strictEqual(locks.length, 2);
   assert.match(locks[0], /foo\.ts/);
   assert.match(locks[1], /bar\.ts/);
+});
+
+test('parseOwnershipLocks maps claimed files to the active owner', () => {
+  const locks = parseOwnershipLocks(SAMPLE);
+  assert.deepStrictEqual(locks[0], { owner: 'gemini', files: ['foo.ts'] });
+});
+
+test('validateOwnership blocks unclaimed or foreign Hermes Mobile files', () => {
+  const plan = `${SAMPLE}
+- \`hermes-mobile/src/screens/ChatScreen.tsx\` → **cursor** (T-99)`;
+  assert.deepStrictEqual(
+    validateOwnership({
+      planText: plan,
+      files: ['hermes-mobile/src/screens/ChatScreen.tsx'],
+      owner: 'cursor',
+      requireOwner: true,
+    }),
+    [],
+  );
+  assert.match(
+    validateOwnership({
+      planText: plan,
+      files: ['hermes-mobile/src/screens/ChatScreen.tsx'],
+      owner: 'gemini',
+      requireOwner: true,
+    })[0],
+    /claimed by cursor/,
+  );
+  assert.match(
+    validateOwnership({
+      planText: plan,
+      files: ['hermes-mobile/src/services/newFile.ts'],
+      owner: 'cursor',
+      requireOwner: true,
+    })[0],
+    /no active plan\.md §2 claim/,
+  );
 });
 
 test('snapshotPlan reads real plan.md when present', () => {

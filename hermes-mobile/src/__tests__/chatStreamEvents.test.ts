@@ -115,6 +115,39 @@ describe('mergeRunUsageFromPayload', () => {
     expect(next.outputTokens).toBeUndefined();
     expect(next.totalTokens).toBeUndefined();
   });
+
+  it('does not treat top-level zero placeholders as live usage', () => {
+    const next = mergeRunUsageFromPayload(baseProgress(), {
+      input_tokens: 0,
+      output_tokens: 0,
+      model: 'qwen3.5:9b-hermes',
+    });
+    expect(next.model).toBe('qwen3.5:9b-hermes');
+    expect(next.inputTokens).toBeUndefined();
+    expect(next.outputTokens).toBeUndefined();
+    expect(next.streamUsageLive).toBeUndefined();
+  });
+
+  it('accepts nested usage objects as live even when counts are zero', () => {
+    const next = mergeRunUsageFromPayload(baseProgress(), {
+      usage: { input_tokens: 0, output_tokens: 0 },
+    });
+    expect(next.inputTokens).toBe(0);
+    expect(next.outputTokens).toBe(0);
+    expect(next.streamUsageLive).toBe(true);
+  });
+
+  it('updates live counts after a nested usage event', () => {
+    const seeded = mergeRunUsageFromPayload(baseProgress(), {
+      usage: { input_tokens: 0, output_tokens: 0 },
+    });
+    const next = mergeRunUsageFromPayload(seeded, {
+      usage: { prompt_tokens: 512, completion_tokens: 48 },
+    });
+    expect(next.inputTokens).toBe(512);
+    expect(next.outputTokens).toBe(48);
+    expect(next.streamUsageLive).toBe(true);
+  });
 });
 
 describe('extractRunMetadata / attachRunMetadata', () => {
@@ -184,7 +217,20 @@ describe('mergeSessionUsageIntoRunProgress', () => {
     expect(next.outputTokens).toBe(50);
     expect(next.totalTokens).toBe(150);
     expect(next.model).toBe('qwen3:8b');
-    expect(next.streamUsageLive).toBe(true);
+    // Session polls must not lock streamUsageLive (empty 0/0 placeholders would freeze UI).
+    expect(next.streamUsageLive).toBeUndefined();
+  });
+
+  it('ignores empty-session zero token placeholders', () => {
+    const next = mergeSessionUsageIntoRunProgress(baseProgress(), {
+      model: 'qwen3.5:9b-hermes',
+      input_tokens: 0,
+      output_tokens: 0,
+    });
+    expect(next.model).toBe('qwen3.5:9b-hermes');
+    expect(next.inputTokens).toBeUndefined();
+    expect(next.outputTokens).toBeUndefined();
+    expect(next.streamUsageLive).toBeUndefined();
   });
 
   it('skips session token fields when skipUsageFields is set', () => {

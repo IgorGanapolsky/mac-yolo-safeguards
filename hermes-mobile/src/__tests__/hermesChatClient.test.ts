@@ -3,10 +3,45 @@ import {
   normalizeMessageContent,
   updateSessionTitle,
   buildUniqueTitleCandidate,
+  buildMobileSessionId,
+  createSession,
   createSessionWithUniqueTitle,
+  sendChatMessage,
 } from '../services/hermesChatClient';
 
 describe('hermesChatClient', () => {
+  it('builds a deterministic durable mobile session id', () => {
+    expect(buildMobileSessionId(1784412766000, 0.5)).toBe(
+      'mobile_1784412766000_80000000',
+    );
+  });
+
+  it('identifies every phone-created session in the gateway request', async () => {
+    const fetchMock = jest.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        session: { id: 'mobile_server_echo', title: 'First prompt becomes the title' },
+      }),
+    });
+    const originalFetch = global.fetch;
+    global.fetch = fetchMock as typeof fetch;
+
+    try {
+      await createSession(
+        'http://127.0.0.1:8642',
+        'sk-test',
+        'First prompt becomes the title',
+      );
+      const requestBody = JSON.parse(
+        (fetchMock.mock.calls[0][1] as { body: string }).body,
+      ) as Record<string, string>;
+      expect(requestBody.id).toMatch(/^mobile_\d+_[0-9a-f]{8}$/);
+      expect(requestBody.title).toBe('First prompt becomes the title');
+    } finally {
+      global.fetch = originalFetch;
+    }
+  });
+
   it('normalizes array content parts to text', () => {
     expect(normalizeMessageContent([{ text: 'hello' }, { text: 'world' }])).toBe('hello\nworld');
   });
@@ -18,6 +53,28 @@ describe('hermesChatClient', () => {
       }),
     ).toBe('Done.');
     expect(extractAssistantText({ output: 'from output field' })).toBe('from output field');
+  });
+
+  it('sends image content unchanged for the non-stream chat endpoint', async () => {
+    const message = [
+      { type: 'text', text: 'See this image' },
+      { type: 'image_url', image_url: { url: 'data:image/png;base64,aW1hZ2U=' } },
+    ];
+    const fetchMock = jest.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ message: { role: 'assistant', content: 'processed' } }),
+    });
+    const originalFetch = global.fetch;
+    global.fetch = fetchMock as typeof fetch;
+
+    try {
+      await sendChatMessage('http://127.0.0.1:8642', 'sess-1', message, 'sk-test');
+      expect(JSON.parse((fetchMock.mock.calls[0][1] as { body: string }).body)).toEqual({
+        message,
+      });
+    } finally {
+      global.fetch = originalFetch;
+    }
   });
 
   it('patches session title via gateway API', async () => {

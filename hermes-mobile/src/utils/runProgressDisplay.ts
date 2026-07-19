@@ -138,6 +138,70 @@ function casedModelToken(token: string): string {
   return token.charAt(0).toUpperCase() + token.slice(1);
 }
 
+/** Honest token label for Delivering / Connected chrome. Never invent counts. */
+export function formatRunTokenSummary(
+  progress: Pick<
+    RunProgressState,
+    'inputTokens' | 'outputTokens' | 'totalTokens' | 'streamUsageLive'
+  >,
+): string | null {
+  const input = progress.inputTokens;
+  const output = progress.outputTokens;
+  if (input != null || output != null) {
+    if (!progress.streamUsageLive && (input ?? 0) === 0 && (output ?? 0) === 0) {
+      return '—';
+    }
+    return `In: ${input ?? 0} | Out: ${output ?? 0}`;
+  }
+  if (progress.totalTokens != null) {
+    if (!progress.streamUsageLive && progress.totalTokens === 0) {
+      return '—';
+    }
+    return `${progress.totalTokens} total`;
+  }
+  return null;
+}
+
+/**
+ * Always-visible Connected chrome: short model + live/session tokens.
+ * Returns null when nothing trustworthy is known yet.
+ */
+export function buildConnectedModelTokenLabel(options: {
+  sessionModel?: string | null;
+  runModel?: string | null;
+  gatewayModel?: string | null;
+  runProgress?: Pick<
+    RunProgressState,
+    'phase' | 'inputTokens' | 'outputTokens' | 'totalTokens' | 'streamUsageLive'
+  > | null;
+  sessionInputTokens?: number;
+  sessionOutputTokens?: number;
+}): string | null {
+  const model =
+    formatLlmModelShortName(options.sessionModel) ??
+    formatLlmModelShortName(options.runModel) ??
+    formatLlmModelShortName(options.gatewayModel);
+  const run = options.runProgress;
+  const active =
+    Boolean(run) && run?.phase !== 'completed' && run?.phase !== 'failed';
+  let tokens: string | null = null;
+  if (active && run) {
+    tokens = formatRunTokenSummary(run) ?? '—';
+  } else {
+    const total = (options.sessionInputTokens ?? 0) + (options.sessionOutputTokens ?? 0);
+    if (total > 0) {
+      tokens = `${total.toLocaleString()} tokens`;
+    }
+  }
+  if (!model && !tokens) {
+    return null;
+  }
+  if (model && tokens) {
+    return `${model} · ${tokens}`;
+  }
+  return model ?? tokens;
+}
+
 /**
  * Short human name for a routed LLM id, for glanceable phone UI.
  * "z-ai/glm-5.2" → "GLM 5.2", "grok-4.5" → "Grok 4.5", "qwen3:8b-64k" → "Qwen3 8B".
