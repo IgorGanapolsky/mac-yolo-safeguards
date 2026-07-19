@@ -1,6 +1,7 @@
 import NetInfo from '@react-native-community/netinfo';
 import {
   classifyDiscoveredReach,
+  bootstrapTailnetProbeHostsFromPairServers,
   countUniqueDiscoveredMachines,
   dedupeDiscoveredGatewaysByMachine,
   summarizeDiscoveredReach,
@@ -321,6 +322,38 @@ describe('gatewayDiscovery', () => {
       expect.objectContaining({ gatewayUrl: 'http://100.94.135.78:8642' }),
     ]);
     expect(tailnetProbeHosts).toEqual(['100.94.135.78']);
+  });
+
+  it('never returns the phone Tailscale self-peer from bootstrap probe storage', async () => {
+    (NetInfo.fetch as jest.Mock).mockResolvedValue({
+      details: { ipAddress: '100.70.124.54' },
+    });
+    (global.fetch as jest.Mock).mockImplementation((url: string) => {
+      if (url === 'http://127.0.0.1:8765/pair.json') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            gatewayUrl: 'http://100.70.124.54:8642',
+            tailnetProbeHosts: ['100.70.124.54', '100.94.135.78'],
+          }),
+        });
+      }
+      if (url === 'http://100.94.135.78:8642/health') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ status: 'ok', hostname: 'Igors-Mac-mini' }),
+        });
+      }
+      return Promise.resolve({ ok: false });
+    });
+
+    const boot = await bootstrapTailnetProbeHostsFromPairServers();
+
+    expect(boot.tailnetProbeHosts).toEqual(['100.94.135.78']);
+    expect(boot.gateways).toEqual([
+      expect.objectContaining({ gatewayUrl: 'http://100.94.135.78:8642' }),
+    ]);
+    expect(global.fetch).not.toHaveBeenCalledWith('http://100.70.124.54:8642/health', expect.anything());
   });
 
   it('returns null when phone has no LAN IP and no loopback pair server', async () => {

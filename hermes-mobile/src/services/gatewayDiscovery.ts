@@ -19,6 +19,7 @@ import {
 import {
   filterPhoneTailscaleSelfHosts,
   filterPhoneTailscaleSelfPeers,
+  getPhoneTailscaleIpv4,
 } from '../utils/tailscaleSelfPeer';
 import { normalizeGatewayUrl } from './gatewayClient';
 import { USB_LOOPBACK_GATEWAY_URL } from '../utils/gatewayLoopbackFallback';
@@ -445,12 +446,17 @@ export async function bootstrapTailnetProbeHostsFromPairServers(
     }
     mergeDiscovered(map, pairPayloadToDiscovered(payload));
   }
+  const phoneTailscaleIp = await getPhoneTailscaleIpv4();
+  tailnetProbeHosts = filterPhoneTailscaleSelfHosts(tailnetProbeHosts, phoneTailscaleIp);
   if (tailnetProbeHosts.length > 0) {
     for (const item of await sweepTailnetGatewayHealth(tailnetProbeHosts)) {
       mergeDiscovered(map, item);
     }
   }
-  return { tailnetProbeHosts, gateways: Array.from(map.values()) };
+  return {
+    tailnetProbeHosts,
+    gateways: filterPhoneTailscaleSelfPeers(Array.from(map.values()), phoneTailscaleIp),
+  };
 }
 
 async function sweepAllPairServers(
