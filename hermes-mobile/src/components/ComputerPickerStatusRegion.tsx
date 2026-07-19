@@ -26,6 +26,7 @@ type ComputerPickerStatusRegionProps = {
   scanProgress: LanScanProgress | null;
   scanResult: LanScanResult | null;
   tailscaleProbing: boolean;
+  tailscaleVpnActive: boolean;
   tailscaleDiscoveries: DiscoveredGateway[];
   addingTailscale?: boolean;
   onAddTailscale?: (discovery: DiscoveredGateway) => void;
@@ -37,6 +38,7 @@ export default function ComputerPickerStatusRegion({
   scanProgress,
   scanResult,
   tailscaleProbing,
+  tailscaleVpnActive,
   tailscaleDiscoveries,
   addingTailscale = false,
   onAddTailscale,
@@ -50,6 +52,7 @@ export default function ComputerPickerStatusRegion({
       scanResult,
       showScanResult: Boolean(scanResult) && !scanning,
       tailscaleProbing,
+      tailscaleVpnActive,
       tailscaleDiscoveries,
     }),
   );
@@ -82,6 +85,7 @@ export default function ComputerPickerStatusRegion({
       scanResult,
       showScanResult,
       tailscaleProbing,
+      tailscaleVpnActive,
       tailscaleDiscoveries,
     });
     const nextSignature = computerPickerStatusSignature(next);
@@ -149,6 +153,7 @@ export default function ComputerPickerStatusRegion({
     scanResult,
     showScanResult,
     tailscaleProbing,
+    tailscaleVpnActive,
     tailscaleDiscoveries,
   ]);
 

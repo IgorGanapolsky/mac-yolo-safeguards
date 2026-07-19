@@ -257,6 +257,7 @@ export type GatewayContextValue = {
   scanForGatewayProfiles: () => Promise<GatewayProfile[]>;
   tailscaleDiscoveries: DiscoveredGateway[];
   tailscaleDiscoveryProbing: boolean;
+  tailscaleVpnActive: boolean;
   tailnetProbeHostCount: number;
   probeTailscaleComputers: () => Promise<void>;
   addDiscoveredTailscaleComputer: (discovery: DiscoveredGateway) => Promise<void>;
@@ -345,6 +346,7 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
   const [profileScanResult, setProfileScanResult] = useState<LanScanResult | null>(null);
   const [tailscaleDiscoveries, setTailscaleDiscoveries] = useState<DiscoveredGateway[]>([]);
   const [tailscaleDiscoveryProbing, setTailscaleDiscoveryProbing] = useState(false);
+  const [tailscaleVpnActive, setTailscaleVpnActive] = useState(false);
   const [tailnetProbeHostCount, setTailnetProbeHostCount] = useState(0);
   const [effectiveGatewayUrl, setEffectiveGatewayUrl] = useState(
     DEFAULT_GATEWAY_SETTINGS.gatewayUrl,
@@ -1222,6 +1224,7 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
       const isWifi = state.type === 'wifi' && state.isConnected !== false;
       wifiConnectedRef.current = isWifi;
       setWifiConnected(isWifi);
+      setTailscaleVpnActive(state.type === 'vpn' && state.isConnected !== false);
       refreshHealth();
       void probeTailscaleComputersRef.current();
     });
@@ -1229,6 +1232,7 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
       const isWifi = state.type === 'wifi' && state.isConnected !== false;
       wifiConnectedRef.current = isWifi;
       setWifiConnected(isWifi);
+      setTailscaleVpnActive(state.type === 'vpn' && state.isConnected !== false);
     });
     return () => {
       clearInterval(interval);
@@ -3300,6 +3304,7 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
       scanForGatewayProfiles,
       tailscaleDiscoveries,
       tailscaleDiscoveryProbing,
+      tailscaleVpnActive,
       tailnetProbeHostCount,
       probeTailscaleComputers,
       addDiscoveredTailscaleComputer,
@@ -3375,6 +3380,7 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
       scanForGatewayProfiles,
       tailscaleDiscoveries,
       tailscaleDiscoveryProbing,
+      tailscaleVpnActive,
       tailnetProbeHostCount,
       probeTailscaleComputers,
       addDiscoveredTailscaleComputer,
