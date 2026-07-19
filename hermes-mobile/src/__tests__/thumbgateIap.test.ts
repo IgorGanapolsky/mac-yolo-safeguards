@@ -17,8 +17,16 @@ import {
   HERMES_PRO_LIFETIME_IAP_PRODUCT_ID,
   THUMBGATE_LEASH_IAP_PRODUCT_ID,
 } from '../services/thumbgateIap';
+import { Platform } from 'react-native';
 
 describe('thumbgateIap', () => {
+  const originalOS = Platform.OS;
+
+  afterEach(() => {
+    Platform.OS = originalOS;
+    jest.clearAllMocks();
+  });
+
   it('defines a store product id', () => {
     expect(THUMBGATE_LEASH_IAP_PRODUCT_ID).toBe('thumbgate_leash_monthly');
     expect(HERMES_PRO_LIFETIME_IAP_PRODUCT_ID).toBe('hermes_pro_lifetime');
@@ -31,6 +39,18 @@ describe('thumbgateIap', () => {
   it('sync entitlement uses store API', async () => {
     const entitled = await syncThumbgateLeashEntitlement();
     expect(entitled).toBe(false);
+  });
+
+  it('does not grant Android entitlement from the retired monthly SKU', async () => {
+    Platform.OS = 'android';
+    const iap = require('expo-iap') as {
+      getAvailablePurchases: jest.Mock;
+    };
+    iap.getAvailablePurchases.mockResolvedValue([
+      { productId: THUMBGATE_LEASH_IAP_PRODUCT_ID },
+    ]);
+
+    await expect(syncThumbgateLeashEntitlement()).resolves.toBe(false);
   });
 
   it('restore reports when no subscription is active', async () => {

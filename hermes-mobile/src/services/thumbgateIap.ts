@@ -81,12 +81,9 @@ async function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
   }
 }
 
-function isThumbgateLeashPurchase(purchase: Purchase): boolean {
+function isActiveProductPurchase(purchase: Purchase): boolean {
   const productId = purchase.productId ?? purchase.id;
-  return (
-    productId === THUMBGATE_LEASH_IAP_PRODUCT_ID ||
-    productId === HERMES_PRO_LIFETIME_IAP_PRODUCT_ID
-  );
+  return productId === activeProductId();
 }
 
 function isAndroidLifetimeUnlock(): boolean {
@@ -102,7 +99,7 @@ function activeProductId(): string {
 async function hasStoreEntitlement(iap: ExpoIapModule): Promise<boolean> {
   if (isAndroidLifetimeUnlock()) {
     const purchases = await iap.getAvailablePurchases();
-    return purchases.some(isThumbgateLeashPurchase);
+    return purchases.some(isActiveProductPurchase);
   }
   return iap.hasActiveSubscriptions([THUMBGATE_LEASH_IAP_PRODUCT_ID]);
 }
@@ -129,7 +126,7 @@ export function initializeThumbgateIapListeners(): void {
     }
 
     iap.purchaseUpdatedListener(async (purchase) => {
-      if (!isThumbgateLeashPurchase(purchase)) {
+      if (!isActiveProductPurchase(purchase)) {
         return;
       }
       try {
