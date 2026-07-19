@@ -1,54 +1,47 @@
-Looking for “Hermes Agent” that runs AI on your phone? This is different.
+Looking for "Hermes Agent" that runs AI on your phone? This is different.
 
-Hermes Mobile is the phone remote for a Hermes agent on YOUR Mac, Linux, or Windows — Wi‑Fi/LAN at home, Tailscale when you leave. Chat with your gateway, see honest connection and run state (no fake green), switch saved machines, and use Leash Pro to approve or deny risky tool calls before they execute. Your API keys stay on your computer.
+Hermes Mobile is the phone remote for a Hermes agent on YOUR Mac, Linux, or Windows - Wi-Fi at home, Tailscale when you leave. Chat with your gateway, see honest connection and run state (no fake green), switch saved machines, and approve or deny risky tool calls before they execute. Your API keys stay on your computer.
 
-Independent control plane for a Hermes gateway you operate. Built for developers who also use Cursor, Claude Code, ChatGPT/Codex, Gemini CLI, Replit Agent, GitHub Copilot, Windsurf, OpenClaw, and other coding agents. Hermes Mobile does not sign in to or replace those products — it supervises the Hermes agent on your own gateway from your phone, not a generic cloud chatbot on Android.
-
-FREE
+ONE PRICE. ALL FEATURES.
+• Download free; unlock once for $4.99 (no monthly Leash subscription)
+• All features included after unlock - chat, Leash approve/deny, gate rules
 • Live streaming chat with your Hermes gateway
-• Honest connection and run status instead of a false green state
-• QR and local network pairing with no Hermes Mobile cloud account
-• Saved computer profiles for Mac, Linux, and Windows gateways
+• Approve or deny blocked tool calls from your phone (Leash)
+• Standing allow/block gate rules synced from your gateway
+• ThumbGate feedback on assistant replies and command decisions
+• Saved computer profiles - Mac, Linux, and Windows
+• QR and local discovery pairing - no Hermes Mobile cloud account
 
-LEASH PRO ($19.99/mo)
-• Approve or deny blocked tool calls from your phone
-• View and edit standing allow/block gate rules synced from your gateway
-• Persistent safety policies across sessions
-• ThumbGate feedback for assistant output and command decisions
+BUILT FOR AI CODING AGENT OPERATORS
+• Cursor and Claude Code users: phone control for your Hermes gateway
+• ChatGPT / Codex, Gemini CLI, Copilot, Windsurf, OpenClaw: keep the executing computer visible
+• Replit Agent users: operate your own machine instead of a cloud IDE meter
 
-FOR AI CODING AGENT OPERATORS
-• Cursor / Claude Code: phone control surface for your Hermes gateway
-• ChatGPT / Codex: supervise a user-operated, multi-provider runtime
-• Gemini CLI, Copilot, Windsurf, OpenClaw: keep the executing computer visible
-• Replit Agent users: operate your own machine instead of a cloud IDE
-
-BUILT FOR REAL CONNECTIONS
-• Wi‑Fi and LAN for local access
-• Tailscale or a configured tunnel for remote access
+REAL CONNECTIONS
+• Home Wi-Fi for local access
+• Tailscale or your tunnel for remote access
 • Clear reconnecting, stale, and unavailable states
-• API keys remain on the computer that runs the gateway
+• No false "Connected" when chat cannot reach the gateway
 
 SECURITY
-• Camera only for pairing QR codes
+• Camera is used only to scan pairing QR codes
 • Optional analytics can be disabled in Settings
 • No ads and no IDFA tracking
 
-Requires a computer running a compatible Hermes gateway. Remote access requires your own network, Tailscale, tunnel, or relay setup.
+Requires a computer running a compatible Hermes gateway. Remote access needs your own network, Tailscale, tunnel, or relay.
 
 Hermes Mobile is independent and is not affiliated with Nous Research, Anthropic, OpenAI, Google, Replit, GitHub, Cursor, Windsurf, or OpenClaw.
 
 Source: github.com/IgorGanapolsky/mac-yolo-safeguards
 Publisher: Igor Ganapolsky
 
-HOW THIS DIFFERS FROM OTHER “HERMES” APPS
-
-• Termux: runs Hermes on your phone. Hermes Mobile keeps the gateway on your computer.
-• Hermes Agent (Hen Works — Play #1 for “hermes agent”): AI ON Android. Hermes Mobile is the opposite — remote control for YOUR Mac/Linux/Windows Hermes gateway, with Tailscale, multi-machine profiles, and Leash approvals.
-• Hermes-Relay: cloud “agent in pocket.” Hermes Mobile pairs directly via QR, LAN, or Tailscale — no cloud credits.
-• Hermex / HermesPilot: other native clients. Hermes Mobile uses gateway API + QR pair + Leash Pro + honest connection state.
+HOW THIS DIFFERS FROM OTHER "HERMES" APPS
+• Termux / phone-local Hermes: those run AI on the phone. We control desktop agents on your computer.
+• Hermes Agent (Hen Works): AI on Android. We are remote control for Mac/Linux/Windows.
+• Cloud relays: we pair to YOUR gateway via QR, Wi-Fi, or Tailscale - no cloud credits for the agent runtime.
 
 FAQ
-• Termux needed? No — Hermes runs on your computer; this app is the remote.
-• Is this Hermes Agent (Hen Works)? No — that is phone-local AI. We control desktop agents.
-• Cloud account? No Hermes Mobile account. Optional Leash Pro for gate rules.
-• iPhone? Yes — live on the App Store as “Hermes Mobile: AI Agent Leash”. Android live on Google Play. Both support Leash Pro $19.99/mo.
+• Do I need Termux? No. Hermes runs on your computer; this app is the remote.
+• Is this Hermes Agent on Play? No - that runs AI on the phone. We supervise desktop agents.
+• Subscriptions? No. Unlock once for $4.99 - all features on Android.
+• iPhone? Yes - App Store as Hermes Mobile: AI Agent Leash (pay once $9.99).
