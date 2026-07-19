@@ -14,8 +14,11 @@ import {
   USB_UNKNOWN_MACHINE_LABEL,
 } from '../utils/chatMachineHeader';
 import { parseSetupDeepLink } from '../utils/setupDeepLink';
-import { profilesForSwitchComputerPicker } from '../utils/gatewayProfilePicker';
-import { profilePickerLines } from '../utils/gatewayProfilePicker';
+import {
+  profileConnectionRouteLabel,
+  profilePickerLines,
+  profilesForSwitchComputerPicker,
+} from '../utils/gatewayProfilePicker';
 import { evaluatePairDeepLinkApply } from '../utils/pairDeepLinkApply';
 import { isComposerSendDisabled, shouldSurfaceDeadRunEnded } from '../utils/deadRunDetection';
 
@@ -385,9 +388,11 @@ describe('tonight recurrence gates (2026-07-14 P0 class — S16-S23)', () => {
       addedAt: '2026-07-15T19:01:00Z',
     };
     const rows = profilesForSwitchComputerPicker([macBookUsb, macBookTs, miniTs], {
+      activeProfileId: 'mac_book_ts',
       liveUsb: { reachable: true, hostname: 'Igors-MacBook-Pro.local' },
     });
-    expect(rows.map((r) => r.id)).toEqual(['mac_book_usb', 'mac_mini_ts']);
+    expect(rows.map((r) => r.id)).toEqual(['mac_book_ts', 'mac_mini_ts']);
+    expect(profileConnectionRouteLabel(rows[0], true)).toBe('Tailscale');
     expect(profilePickerLines(rows[0], { cablePluggedIn: true }).title).toBe(
       'Igors-MacBook-Pro (Mac Pro)',
     );

@@ -164,6 +164,16 @@ export function preferredProfileForMachine(
   if (candidates.length === 1) {
     return candidates[0];
   }
+  const activeNonUsb = candidates.find(
+    (profile) =>
+      profile.id === options.activeProfileId && !isLoopbackGatewayUrl(profile.gatewayUrl),
+  );
+  if (activeNonUsb) {
+    // Preserve the selected saved profile's identity. Replacing it with a synthesized USB
+    // alias would make the single machine row look unselected and would make Forget target
+    // the wrong row. Cable presence is still rendered via isCablePluggedInForProfile().
+    return activeNonUsb;
+  }
   const liveHost = options.liveUsb?.reachable ? options.liveUsb.hostname?.trim() : null;
   const transportFor = (profile: GatewayProfile): ReachabilityTransport => {
     if (isLoopbackGatewayUrl(profile.gatewayUrl)) {
@@ -188,7 +198,6 @@ export function preferredProfileForMachine(
         id: profile.id,
         transport,
         reachable: transport !== 'usb' || matchingLiveUsb,
-        active: profile.id === options.activeProfileId && transport !== 'usb',
       };
     }),
   );

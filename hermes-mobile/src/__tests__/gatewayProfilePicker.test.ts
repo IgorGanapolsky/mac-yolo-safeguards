@@ -14,6 +14,7 @@ import {
   resolveUsbMatchingProfileId,
   shouldOfferUsbLinkRepair,
   hasOnlyLoopbackProfiles,
+  isCablePluggedInForProfile,
 } from '../utils/gatewayProfilePicker';
 
 describe('gatewayProfilePicker', () => {
@@ -99,6 +100,51 @@ describe('gatewayProfilePicker', () => {
     );
     expect(profiles[1].id).toBe('mac_mini_ts');
     expect(profilePickerLines(profiles[1]).title).toBe('Igors-Mac-mini');
+  });
+
+  it('keeps the active Tailscale identity selected when its live USB alias is found', () => {
+    const activeProfileId = 'mac_book_ts';
+    const liveUsb = {
+      reachable: true,
+      hostname: 'Igors-MacBook-Pro.local',
+    };
+    const profiles = profilesForSwitchComputerPicker(
+      [
+        {
+          id: 'mac_book_usb',
+          label: 'Igors-MacBook-Pro',
+          gatewayUrl: 'http://127.0.0.1:8642',
+          hostname: 'Igors-MacBook-Pro',
+          addedAt: '2026-07-18T15:00:00Z',
+        },
+        {
+          id: activeProfileId,
+          label: 'Igors-MacBook-Pro',
+          gatewayUrl: 'http://100.87.85.85:8642',
+          hostname: 'Igors-MacBook-Pro',
+          localIp: '100.87.85.85',
+          addedAt: '2026-07-18T15:00:30Z',
+        },
+        {
+          id: 'mac_mini_ts',
+          label: 'Igors-Mac-mini',
+          gatewayUrl: 'http://100.94.135.78:8642',
+          hostname: 'Igors-Mac-mini',
+          localIp: '100.94.135.78',
+          addedAt: '2026-07-18T15:01:00Z',
+        },
+      ],
+      { activeProfileId, liveUsb },
+    );
+
+    expect(profiles).toHaveLength(2);
+    const activeRow = profiles.find((profile) => profile.id === activeProfileId);
+    expect(activeRow).toBeTruthy();
+    expect(profileConnectionRouteLabel(activeRow!, true)).toBe('Tailscale');
+    expect(isCablePluggedInForProfile(activeRow!, liveUsb)).toBe(true);
+    expect(profilePickerLines(activeRow!, { cablePluggedIn: true }).detail).toMatch(/cable/i);
+    expect(profiles.map((profile) => profile.id)).not.toContain('mac_book_usb');
+    expect(profiles.map((profile) => profile.id)).toContain('mac_mini_ts');
   });
 
   it('uses Tailscale for Mac Pro when USB is not reachable and preserves Mac mini', () => {
