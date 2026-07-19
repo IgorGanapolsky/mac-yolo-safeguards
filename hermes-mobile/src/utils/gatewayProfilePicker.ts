@@ -60,8 +60,8 @@ export function profilePickerLines(
     return {
       title,
       detail: isLoopbackGatewayUrl(profile.gatewayUrl)
-        ? 'Using this USB cable'
-        : 'Cable plugged in — works off Wi‑Fi too',
+        ? 'USB cable connected · Tailscale is the away-from-home option'
+        : 'Cable connected · Tailscale works away from home',
     };
   }
   if (isLoopbackGatewayUrl(profile.gatewayUrl)) {
