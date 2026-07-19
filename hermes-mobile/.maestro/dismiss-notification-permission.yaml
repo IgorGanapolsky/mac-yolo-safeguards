@@ -1,0 +1,15 @@
+appId: com.iganapolsky.hermesmobile
+---
+# Android 13+ first-launch notification prompt blocks the fresh-user gate.
+# The stranger flow does not need notifications, so preserve a clean install by
+# declining the optional permission before asserting the onboarding UI.
+- repeat:
+    times: 20
+    commands:
+      - runFlow:
+          when:
+            visible: "Allow Hermes to send you notifications?"
+          commands:
+            - tapOn: "Don.t allow"
+      - waitForAnimationToEnd:
+          timeout: 500
