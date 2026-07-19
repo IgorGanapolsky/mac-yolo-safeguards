@@ -1,4 +1,4 @@
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import {
   buildChatMessageContent,
   classifyAttachment,
@@ -9,7 +9,7 @@ import {
 } from '../utils/chatAttachments';
 import type { ComposerAttachment } from '../types/chatAttachment';
 
-jest.mock('expo-file-system', () => ({
+jest.mock('expo-file-system/legacy', () => ({
   readAsStringAsync: jest.fn(async (uri: string) => {
     if (uri.includes('photo')) {
       return 'aW1hZ2UtYnl0ZXM=';
@@ -111,4 +111,36 @@ describe('chatAttachments', () => {
     expect(prepared.error).toBeUndefined();
     expect(prepared.content).toBe('make money today');
   });
+
+  it('reads attachments via expo-file-system/legacy so send is not blocked by deprecation', async () => {
+    const source = require('fs').readFileSync(
+      require('path').join(__dirname, '../utils/chatAttachments.ts'),
+      'utf8',
+    );
+    expect(source).toContain("from 'expo-file-system/legacy'");
+    expect(source).not.toMatch(/from ['"]expo-file-system['"]\s*;/);
+
+    const prepared = await prepareChatMessageContent('make money today', [
+      {
+        id: 'img-1',
+        name: '19931.jpg',
+        mimeType: 'image/jpeg',
+        uri: 'file:///photo-19931.jpg',
+        kind: 'image',
+        sizeBytes: 100,
+      },
+    ]);
+    expect(prepared.error).toBeUndefined();
+    expect(prepared.content).toEqual(
+      expect.arrayContaining([
+        { type: 'text', text: 'make money today' },
+        expect.objectContaining({
+          type: 'image_url',
+          image_url: { url: 'data:image/jpeg;base64,aW1hZ2UtYnl0ZXM=' },
+        }),
+      ]),
+    );
+    expect(String(prepared.error ?? '')).not.toMatch(/deprecated/i);
+  });
+
 });
