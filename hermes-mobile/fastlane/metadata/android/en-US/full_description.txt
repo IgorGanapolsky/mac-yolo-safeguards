@@ -44,4 +44,4 @@ FAQ
 • Do I need Termux? No. Hermes runs on your computer; this app is the remote.
 • Is this Hermes Agent on Play? No - that runs AI on the phone. We supervise desktop agents.
 • Subscriptions? No. Unlock once for $4.99 - all features on Android.
-• iPhone? Yes - App Store as Hermes Mobile: AI Agent Leash (pay once $9.99).
+• iPhone? Yes - live on the App Store as Hermes Mobile: AI Agent Leash (pay once $9.99).
