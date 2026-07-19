@@ -728,6 +728,8 @@ Status values: `pending` | `in_progress` | `blocked` | `done`. Claim a row by se
 - T-MANUAL-ADDRESS-ATOMIC claimed files above → **codex-manual-address-atomic released** after PR #571 merged at `ccb08d81`; required CI, both Android Maestro flows, and all CodeQL languages passed; no EAS/store build was made (2026-07-19T06:55:55Z)
 
 ## 3. Decisions Log
+
+- 2026-07-19 `codex-web-thread-research`: launched Parallel deep-research run `trun_d3be5e813aa94970bd4ce09973506e4b` (pro-fast) for `T-WEB-THREAD-DASHBOARD-RESEARCH`; raw output target is `parallel-research/hermes-web-thread-dashboard-july-2026.md`, with a cited canonical decision record due in `docs/RESEARCH-WEB-THREAD-DASHBOARD-JULY-2026.md` this session.
 - 2026-07-18T22:10Z `cursor-clear-all-relaunch`: **T-CLEAR-ALL-RELAUNCH.** Root cause: Android swallowed Clear-all Alert inside Threads BottomSheetModal (same class as Forget Mac), so clear never ran; relaunch restored LAST_SESSION_BY_COMPUTER mega; CRON/API_SERVER reappeared because hideAutomation only matched probe-shaped titles and dismissed tombstones were wiped when remaining==0. Fix: confirmClearAllChatsAfterHostDismiss; clearLastSessionForComputer; never wipe tombstones; hide full API_SERVER/CLI class post-clear; never auto-select mega on restore. Device unstuck via New thread + gateway deletes. Jest 1784/1784.
 
 - 2026-07-18T16:55:00Z `cursor-model-token-chrome`: **Completed T-MODEL-TOKEN-CHROME.** Root cause: empty-session `input_tokens:0` flipped `streamUsageLive` and froze Delivering at In:0|Out:0; model lived only behind collapsed header / weak-worker warning. Fix: session zeros ignored; nested SSE usage is live; Connected chrome always shows model·tokens (or —); focused Jest 117/117.
