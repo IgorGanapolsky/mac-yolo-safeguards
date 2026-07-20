@@ -52,5 +52,6 @@ test("authenticated web session searches, continues, live-syncs, reloads, and de
 
   page.once("dialog", (dialog) => dialog.accept());
   await page.getByRole("button", { name: "Delete" }).click();
-  await expect(page.getByText("Revenue research")).toBeHidden();
+  await expect(page.getByRole("button", { name: /Revenue research/ })).toBeHidden();
+  await expect(page.getByRole("heading", { name: "Skool buyers" })).toBeVisible();
 });
