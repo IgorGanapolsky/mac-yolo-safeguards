@@ -16,9 +16,16 @@ jest.mock('@react-native-async-storage/async-storage', () =>
   require('@react-native-async-storage/async-storage/jest/async-storage-mock'),
 );
 
+const mockIsStorePaidDownloadEntitled = jest.fn(() => false);
+
+jest.mock('../utils/playPaidEntitlement', () => ({
+  isStorePaidDownloadEntitled: () => mockIsStorePaidDownloadEntitled(),
+}));
+
 describe('thumbgateLeash', () => {
   beforeEach(() => {
     __resetFreeLeashAllowanceForTests();
+    mockIsStorePaidDownloadEntitled.mockReturnValue(false);
     syncLeashEntitlementSnapshot(DEFAULT_GATEWAY_SETTINGS);
   });
 
@@ -54,5 +61,11 @@ describe('thumbgateLeash', () => {
     expect(
       hasThumbgateLeashPro({ ...DEFAULT_GATEWAY_SETTINGS, thumbgateProActive: true }),
     ).toBe(true);
+  });
+
+  it('unlocks Pro when the Android paid-download store SKU is installed', () => {
+    mockIsStorePaidDownloadEntitled.mockReturnValue(true);
+    expect(hasThumbgateLeashPro(DEFAULT_GATEWAY_SETTINGS)).toBe(true);
+    expect(isThumbgateLeashUnlocked(DEFAULT_GATEWAY_SETTINGS)).toBe(true);
   });
 });
