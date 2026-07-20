@@ -28,9 +28,6 @@ type ChatScreenHeaderProps = {
   isDemo?: boolean;
   /** Keep IP / relay detail visible when connected (multi-Mac setups). */
   showMachineDetailWhenConnected?: boolean;
-  workspaceName?: string;
-  workspaceHandoff?: string;
-  canSwitchWorkspace?: boolean;
   activeAgents?: { name: string; status: string }[];
   currentSession?: {
     model?: string | null;
@@ -47,7 +44,6 @@ type ChatScreenHeaderProps = {
   onPressThreadTitle?: () => void;
   onOpenTools?: () => void;
   onPressMachine: () => void;
-  onPressWorkspace?: () => void;
   /** Health OK but last message failed — amber header instead of green Connected. */
   chatStalled?: boolean;
 };
@@ -145,9 +141,6 @@ export default function ChatScreenHeader({
   authMismatch = false,
   wrongKeyBannerActive = false,
   isDemo = false,
-  workspaceName,
-  workspaceHandoff,
-  canSwitchWorkspace = false,
   activeAgents,
   currentSession,
   gatewayModel,
@@ -156,7 +149,6 @@ export default function ChatScreenHeader({
   onPressThreadTitle,
   onOpenTools,
   onPressMachine,
-  onPressWorkspace,
   chatStalled = false,
 }: ChatScreenHeaderProps) {
   const link = linkMeta(
@@ -170,7 +162,6 @@ export default function ChatScreenHeader({
   );
   const endpoint = machineEndpoint?.trim() || '';
   const showEndpoint = endpoint.length > 0;
-  const showWorkspace = canSwitchWorkspace || Boolean(workspaceName);
   const hermesAgent = activeAgents?.find((a) => a.name.toLowerCase() === 'hermes');
   const resolvedModel =
     displayableLlmModel(currentSession?.model) ??
@@ -290,27 +281,6 @@ export default function ChatScreenHeader({
         </Text>
       ) : null}
 
-      {showWorkspace ? (
-        <Pressable
-          onPress={onPressWorkspace}
-          disabled={!canSwitchWorkspace || !onPressWorkspace}
-          style={({ pressed }) => [
-            styles.workspaceRow,
-            canSwitchWorkspace && pressed && styles.pressed,
-          ]}
-          testID="chat-header-project-picker"
-        >
-          <Text style={styles.workspaceLabel} numberOfLines={1} testID="chat-context-project">
-            {workspaceName ?? 'Project lane (optional)'}
-            {canSwitchWorkspace ? ' ›' : ''}
-          </Text>
-          {workspaceHandoff ? (
-            <Text style={styles.workspaceHandoff} numberOfLines={1} testID="chat-header-handoff">
-              {workspaceHandoff}
-            </Text>
-          ) : null}
-        </Pressable>
-      ) : null}
 
       {hermesAgent ? (
         <View style={styles.agentsRow} testID="chat-header-active-agents">
@@ -478,21 +448,6 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     color: colors.textMuted,
     fontVariant: ['tabular-nums'],
-  },
-  workspaceRow: {
-    paddingHorizontal: 4,
-    paddingVertical: 2,
-  },
-  workspaceLabel: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: colors.textMuted,
-  },
-  workspaceHandoff: {
-    fontSize: 10,
-    lineHeight: 14,
-    color: colors.textMuted,
-    marginTop: 2,
   },
   modelTokenStrip: {
     paddingHorizontal: 4,

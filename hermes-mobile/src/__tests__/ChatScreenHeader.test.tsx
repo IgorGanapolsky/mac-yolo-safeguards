@@ -95,10 +95,8 @@ describe('ChatScreenHeader', () => {
         macHttpReachable
         gatewayModel="qwen3.5:9b-hermes-64k"
         activeAgents={[{ name: 'Hermes', status: 'active' }]}
-        canSwitchWorkspace
         onOpenThreads={jest.fn()}
         onPressMachine={onPressMachine}
-        onPressWorkspace={jest.fn()}
       />,
     );
 
@@ -108,7 +106,7 @@ describe('ChatScreenHeader', () => {
     expect(getByTestId('chat-context-mac-endpoint').props.children).toBe('Tailscale');
     expect(getByTestId('chat-header-weak-model-warning').props.children).toMatch(/local worker/i);
     expect(getByTestId('chat-header-hermes-status')).toBeTruthy();
-    expect(getByTestId('chat-header-project-picker')).toBeTruthy();
+    expect(queryByTestId('chat-header-project-picker')).toBeNull();
 
     fireEvent.press(getByTestId('chat-context-mac-button'));
     expect(onPressMachine).toHaveBeenCalledTimes(1);
@@ -345,22 +343,21 @@ describe('ChatScreenHeader', () => {
     expect(onThreads).toHaveBeenCalled();
   });
 
-  it('shows optional project lane label when workspace picker is enabled without a selection', () => {
-    const { getByTestId } = render(
+  it('never renders a header Project lane control (composer chip owns that)', () => {
+    const { queryByTestId, queryByText } = render(
       <ChatScreenHeader
         threadTitle="New chat"
         machineLabel="Igors-Mac-mini"
         connectionState="connected"
         macHttpReachable
-        canSwitchWorkspace
         onOpenThreads={jest.fn()}
         onPressMachine={jest.fn()}
-        onPressWorkspace={jest.fn()}
       />,
     );
 
-    expect(getByTestId('chat-header-project-picker')).toBeTruthy();
-    expect(getByTestId('chat-context-project').props.children).toContain('Project lane (optional)');
+    expect(queryByTestId('chat-header-project-picker')).toBeNull();
+    expect(queryByTestId('chat-context-project')).toBeNull();
+    expect(queryByText(/Project lane/)).toBeNull();
   });
 
   it('renames from pencil without double-firing title press', () => {
