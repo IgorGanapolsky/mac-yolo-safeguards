@@ -20,6 +20,7 @@ Durable rules live in [AGENTS.md](./AGENTS.md); this file is *live state only*.
 
 | ID  | Task | Status | Owner | Files (claim) | AcceptanceCheck |
 |-----|------|--------|-------|---------------|-----------------|
+| T-ASO-SEARCH-GAP | Prove Play+iOS live; ASO for hermes-ai miss; ship metadata | done | cursor-aso-search | `hermes-mobile/docs/ASO-SEARCH-GAP-20260720.md`, `hermes-mobile/fastlane/metadata/android/en-US/short_description.txt`, `hermes-mobile/fastlane/metadata/android/en-US/full_description.txt`, `hermes-mobile/fastlane/metadata/ios/en-US/keywords.txt`, `hermes-mobile/fastlane/metadata/ios/en-US/promotional_text.txt`, `hermes-mobile/fastlane/metadata/ios/en-US/description.txt`, `plan.md` | Direct URLs live; Play API short/full committed; ASC promo live; contract tests green; paid unpublished |
 | T-CONNECT-GATE-NO-YANK | P0: never flash ConnectMacGate over Chat when saved Macs exist (AppState/toggles) | done | cursor-connect-gate-no-yank | `hermes-mobile/src/utils/freshUserOnboarding.ts` (shouldShowConnectMacGate only), `hermes-mobile/src/components/ConnectMacGate.tsx` (visibility only), `hermes-mobile/src/__tests__/ConnectMacGate.test.tsx`, `hermes-mobile/src/__tests__/freshUserOnboarding.test.ts` (gate visibility cases), `hermes-mobile/src/__tests__/preventRecurrenceContract.test.ts` (S26), `hermes-mobile/src/__tests__/strangerColdStartGate.test.ts`, `plan.md` | Gate only when fresh unpaired; saved profiles stay on Chat + inline panel; Jest green; PR #511; no GatewayContext; no cloud EAS |
 | T-PICKER-STATUS-STABILIZE | P0: Choose computer modal stop layout thrash — single debounced status region | in_progress | cursor-picker-status | `hermes-mobile/src/utils/computerPickerStatus.ts`, `hermes-mobile/src/components/ComputerPickerStatusRegion.tsx`, `hermes-mobile/src/components/GatewayProfilePicker.tsx` (hideScanCard + stable list keys only), `hermes-mobile/src/screens/ChatScreen.tsx` (mac-picker status region only; preserve ManualComputerAddressForm #504), `hermes-mobile/src/__tests__/computerPickerStatus.test.ts`, `hermes-mobile/src/__tests__/ComputerPickerStatusRegion.test.tsx`, `hermes-mobile/src/__tests__/ChatScreen.test.tsx` (picker status cases only), `plan.md` | One fixed-height status region; debounce 400ms; no stacked Missing/Tailscale/Found cards while searching; list keys stable; Jest green; PR merge; no cloud EAS; coord T-351/T-352 — do not touch ManualComputerAddressForm/lanScanLabels/MacScanProgressCard |
 | T-NO-AUTO-MAC | P0: never auto-switch active Mac (USB heal must not steal mini→Pro) | done | cursor-no-auto-mac | `hermes-mobile/src/services/gatewayProfiles.ts` (isDiscoveredUrlAllowed + applyHeal stickiness), `hermes-mobile/src/utils/connectionSelfHeal.ts` (skip foreign USB probes), `hermes-mobile/src/context/GatewayContext.tsx` (heal persist honor catalogOnly / no USB steal), tests, `plan.md` | Mini Tailscale stays active when Pro USB answers; heal reconnects same Mac only; Jest green; PR merge; no cloud EAS |
@@ -218,6 +219,34 @@ Durable rules live in [AGENTS.md](./AGENTS.md); this file is *live state only*.
 
 Status values: `pending` | `in_progress` | `blocked` | `done`. Claim a row by setting Owner+Status in one edit, then claim its files in §2.
 
+## New Skills from Kimi WebBridge Analysis (2026-07-20)
+
+### Implemented High-ROI Features
+
+| Skill | Purpose | Files Created |
+|-------|---------|---------------|
+| `workflow-to-skill` | Convert natural language workflows to reusable MCP skills | `.grok/skills/workflow-to-skill/SKILL.md` |
+| `cross-site-research` | Multi-source research with data correlation | `.grok/skills/cross-site-research/SKILL.md` |
+| `workflow-library` | Reusable browser automation patterns | `.grok/skills/workflow-library/SKILL.md` |
+| `local-agent-command` | Protocol-agnostic command interface (no extension required) | `.grok/skills/local-agent-command/SKILL.md` |
+
+### Key Insights from Kimi WebBridge
+
+**Their approach:** Browser extension + local service using Chrome CDP
+**Our advantage:** MCP servers + CDP without extensions, existing Chrome SSO sessions
+
+**High-ROI items implemented:**
+1. ✅ Workflow-to-sill conversion (automated skill generation)
+2. ✅ Cross-site research automation (multi-source data correlation)
+3. ✅ Workflow library patterns (reusable automation templates)
+4. ✅ Local agent command interface (protocol-agnostic, no extension needed)
+
+**Competitive verdict:** Kimi WebBridge is NOT a threat — our approach is superior:
+- No browser extension installation required
+- Works with any LLM via MCP protocol  
+- Chrome sessions already authenticated via Google SSO
+- Local-first by design (matches ThumbGate philosophy)
+
 | T-STORE-12-RC | P0 dual-store 1.2 RC + EAS overage hard-stop (no cloud eas build until Jul 22) | in_progress | cursor-store-12-rc | `hermes-mobile/app.json`, `hermes-mobile/eas.json`, `hermes-mobile/scripts/eas-build-guard.cjs`, `hermes-mobile/src/__tests__/versioningAndOtaContract.test.ts`, `.github/workflows/store-release.yml`, `plan.md` | RC from origin/main; reuse EAS builds 5fd28898 (Android 1.2/vc15) + 6a97bf07 (iOS 1.2/18); Internal/TestFlight then prod submit-only; cloud eas build hard-stopped |
 
 | T-319 | Prevent Grok/Fable quota exhaustion from disabling hermes-yolo fleet-wide | done | codex-hermes-quota-failover | `hermes-yolo-wrapper.js`, `tests/test-hermes-yolo.js`, `plan.md` | ordinary runs use the quota-independent Hermes provider and never invoke an exhausted Grok launcher; explicit Grok remains available; simulated quota regression, fleet route receipts, and local/Mac-mini runtime proof pass |
@@ -261,8 +290,13 @@ Status values: `pending` | `in_progress` | `blocked` | `done`. Claim a row by se
 | T-HEADER-CHROME | Collapsible chat session chrome (model strip + weak-worker warning + header project lane) | done | cursor-header-collapse | `hermes-mobile/src/components/ChatScreenHeader.tsx`, `hermes-mobile/src/utils/chatHeaderChromePreference.ts`, `hermes-mobile/src/__tests__/ChatScreenHeader.test.tsx`, `hermes-mobile/src/__tests__/chatHeaderChromePreference.test.ts`, `hermes-mobile/src/__tests__/ChatScreen.test.tsx` (header project visibility only), `plan.md` | Default-collapsed Connected row + chevron; expand shows model/tokens/warnings/header project; AsyncStorage persists preference; focused Jest green; PR merge. Coord: additive UI only — does not touch T-145 title expand, T-227 XOR, T-140 footer chip, or Qwen warning copy. |
 | T-REPLY-READY-COPY | Consumer copy: replace meaningless "Reply ready on your computer" with Reply ready + snippet / Hermes finished — tap to read | done | cursor-reply-ready-copy | `hermes-mobile/src/utils/runProgressDisplay.ts`, `hermes-mobile/src/components/RunProgressBanner.tsx`, `hermes-mobile/src/types/chatDisplay.ts` (replyPreview field; coord #482), `hermes-mobile/src/screens/ChatScreen.tsx` (REPLY_READY_STATUS_DETAIL + suppress-when-visible; keep replyPreview), `hermes-mobile/src/__tests__/runProgressDisplay.test.ts`, `hermes-mobile/src/__tests__/RunProgressBanner.test.tsx`, `plan.md` | Banner never says "on your computer" when completed; shows Reply ready + snippet or Hermes finished — tap to read; Jest green; PR merge |
 | T-TOOL-STATUS-SPAM | P0: stop repeating "Working on your computer… tools…" chat bubble + thumbs; progress only in RunProgressBanner | done | cursor-tool-status-spam | `hermes-mobile/src/utils/streamAssistantText.ts`, `hermes-mobile/src/utils/chatOutboundDisplay.ts`, `hermes-mobile/src/utils/chatMessageDisplay.ts`, `hermes-mobile/src/utils/chatOutputFeedback.ts`, `hermes-mobile/src/screens/ChatScreen.tsx` (deferred-poll bubble rewrite only), tests, `plan.md` | Working-status copy not in transcript; no thumbs on placeholders; tool poll updates banner only; no duplicate status bubbles; Jest green; no app.json/version bumps |
+| T-NO-APP-SUB-FOLLOWTHROUGH | Store follow-through: ASC remove-from-sale + production OTA for web-only subs lock (#620) | done | cursor-monetization-lock-followthrough | `plan.md` (log only); OTA evidence; ASC/Play API | OTA group c2da779c…; Play monthly INACTIVE; ASC APPROVED orphan honest |
 
 ## 2. File Ownership Map (append-only lock table — claim before touching)
+
+- `hermes-mobile/docs/ASO-SEARCH-GAP-20260720.md`, `hermes-mobile/fastlane/metadata/android/en-US/short_description.txt`, `hermes-mobile/fastlane/metadata/android/en-US/full_description.txt`, `hermes-mobile/fastlane/metadata/ios/en-US/keywords.txt`, `hermes-mobile/fastlane/metadata/ios/en-US/promotional_text.txt`, `hermes-mobile/fastlane/metadata/ios/en-US/description.txt`, `plan.md` → **cursor-aso-search** (T-ASO-SEARCH-GAP) (2026-07-20T19:05:00Z) — active for PR #629 merge; coord T-SUBTITLE-PAID-ONCE
+
+- `hermes-mobile/src/services/remoteConfig.ts`, `hermes-mobile/src/__tests__/remoteConfig.test.ts`, `hermes-mobile/App.tsx` (launch refreshRemoteConfig only), `plan.md` → **cursor-remote-config** (T-REMOTE-CONFIG-POSTHOG PostHog /flags kill switches; zero new dep / zero app.json change) (2026-07-20T17:30:00Z)
 
 - `hermes-mobile/src/services/appOtaUpdate.ts`, `hermes-mobile/src/components/ConnectionHealthHub.tsx`, `hermes-mobile/src/__tests__/appOtaUpdate.test.ts`, `hermes-mobile/src/__tests__/ConnectionHealthHub.test.tsx`, `hermes-mobile/android/app/src/main/res/values/strings.xml`, `hermes-mobile/src/__tests__/releaseSafetyContract.test.ts`, `hermes-mobile/scripts/verify-release-readiness.cjs`, `hermes-mobile/scripts/sync-expo-runtime-version.js`, `plan.md` → **cursor-ota-isenabled** (T-OTA-ISENABLED false isEnabled + OTA tip; coord T-256 spinner timeout) (2026-07-17T15:12:23Z)
 - T-OTA-ISENABLED claimed files → **released by cursor-ota-isenabled** after PR #519 merge `938b53888ae106916698c0c81b886d482f0029b8` (2026-07-17T16:02:30Z)
@@ -951,4 +985,13 @@ Status values: `pending` | `in_progress` | `blocked` | `done`. Claim a row by se
 
 ## Decisions Log
 
+- 2026-07-20T16:46Z `cursor-deep-research-together`: Completed Parallel ultra-fast run `trun_7f093854186d43f5b31f4531ff9eb9f6` on Together AI Cursor/Decagon/Hedra thesis. Ingest: `docs/RESEARCH-together-cursor-decagon-hedra-2026-07.md` (+.json). Verdict: latency thesis holds for Cursor/Decagon; Hedra is throughput/cost; wedge for stack is harness (leash/browser/privacy) not competing on Together inference.
+
 - 2026-07-17T14:42Z `cursor-prompt-discard`: **T-PROMPT-DISCARD** via PR #509; plan.md conflict resolved onto main.
+- 2026-07-20T16:43Z `cursor-deep-research`: Launched Parallel deep research run_id=`trun_c2d723456cf24ff5a4e911f5fabbe65a` (ultra-fast) on Together AI pitch PDF (Cursor/Decagon/Hedra). Monitor: https://platform.parallel.ai/play/deep-research/trun_c2d723456cf24ff5a4e911f5fabbe65a
+
+- 2026-07-20T17:30Z `cursor-remote-config`: **T-REMOTE-CONFIG-POSTHOG** claimed. Files: `hermes-mobile/src/services/remoteConfig.ts` (new), `hermes-mobile/src/__tests__/remoteConfig.test.ts` (new), `hermes-mobile/App.tsx` (launch refresh only). Server-side feature flags / kill switches via the existing PostHog `/flags?v=2` endpoint — zero new dependency, zero native build, zero app.json change. Reuses existing token/host/distinct_id/production gate. Fail-safe: unknown/offline/non-prod flags default to `false`.
+
+## Decisions Log (append)
+
+- 2026-07-20T18:44:26Z `cursor-monetization-lock-followthrough`: **T-NO-APP-SUBSCRIPTION store follow-through after PR #620 (`170e5768`).** Production OTA published runtime **1.2** update group `c2da779c-953e-443c-8af8-d7ea7e2c7d1d` (Android `019f80d5-775b-7f8d-9477-63b01652579e`, iOS `019f80d5-775b-79ef-9b25-e43b55c3bd45`) message web-only / `IN_APP_SUBSCRIPTION_PURCHASES_ENABLED=false`. Play API confirms `thumbgate_leash_monthly` base plan `monthly` **INACTIVE** (left `.paid` Console to agent ee0e8522). ASC API still `APPROVED` id `6788168309` — PATCH state/availability forbidden (409/403); Chrome Remove-from-Sale was visible then Chrome AppleScript connection dropped before confirmed save — **ASC orphan APPROVED remains** until Chrome remove-from-sale sticks. Hard gate is app+OTA.
