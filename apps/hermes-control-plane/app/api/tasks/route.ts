@@ -1,5 +1,6 @@
 import { requireSession } from "@/lib/auth";
 import { audit } from "@/lib/audit";
+import { hasCloudContinuationAccess, hasLocalControlAccess } from "@/lib/entitlements";
 import { db } from "@/lib/runtime";
 import { jsonError } from "@/lib/security";
 
@@ -38,28 +39,14 @@ export async function POST(request: Request) {
   try { session = await requireSession(); } catch { return jsonError("sign in required", 401); }
   const org = await db().prepare("SELECT plan, trial_ends_at AS trialEndsAt FROM organizations WHERE id = ?")
     .bind(session.organizationId).first<{ plan: string; trialEndsAt: number | null }>();
-  if (!org || org.plan === "suspended" || (org.plan === "trial" && (org.trialEndsAt ?? 0) < Date.now())) {
-    return jsonError("an active subscription is required to start new work", 402);
+  if (!org || !hasLocalControlAccess(org.plan)) {
+    return jsonError("this workspace is suspended", 402);
   }
   const payload = await request.json().catch(() => null) as {
     prompt?: string; threadId?: string; deviceId?: string; idempotencyKey?: string;
   } | null;
   const prompt = payload?.prompt?.trim().slice(0, 24_000);
   if (!prompt) return jsonError("prompt is required");
-
-  let threadId = payload?.threadId;
-  if (threadId) {
-    const owned = await db().prepare("SELECT id FROM threads WHERE id = ? AND organization_id = ?")
-      .bind(threadId, session.organizationId).first();
-    if (!owned) return jsonError("thread not found", 404);
-  } else {
-    threadId = crypto.randomUUID();
-    const title = prompt.replace(/\s+/g, " ").slice(0, 72);
-    const now = Date.now();
-    await db().prepare(
-      "INSERT INTO threads (id, organization_id, title, created_by_user_id, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)"
-    ).bind(threadId, session.organizationId, title, session.userId, now, now).run();
-  }
 
   const device = payload?.deviceId
     ? await db().prepare(
@@ -79,6 +66,24 @@ export async function POST(request: Request) {
   else if (device.failoverMode === "auto") { status = "cloud_pending"; route = "cloud"; }
   else if (device.failoverMode === "manual") { status = "needs_failover"; route = "blocked"; }
   else { status = "offline_blocked"; route = "blocked"; }
+
+  if (route === "cloud" && !hasCloudContinuationAccess(org)) {
+    return jsonError("managed cloud continuation requires an active trial or subscription", 402);
+  }
+
+  let threadId = payload?.threadId;
+  if (threadId) {
+    const owned = await db().prepare("SELECT id FROM threads WHERE id = ? AND organization_id = ?")
+      .bind(threadId, session.organizationId).first();
+    if (!owned) return jsonError("thread not found", 404);
+  } else {
+    threadId = crypto.randomUUID();
+    const title = prompt.replace(/\s+/g, " ").slice(0, 72);
+    const threadCreatedAt = Date.now();
+    await db().prepare(
+      "INSERT INTO threads (id, organization_id, title, created_by_user_id, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)"
+    ).bind(threadId, session.organizationId, title, session.userId, threadCreatedAt, threadCreatedAt).run();
+  }
 
   const now = Date.now();
   const usage = await db().prepare(
