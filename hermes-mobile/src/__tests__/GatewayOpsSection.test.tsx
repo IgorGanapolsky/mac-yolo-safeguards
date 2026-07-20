@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, fireEvent, waitFor } from '@testing-library/react-native';
+import { act, render, fireEvent, waitFor } from '@testing-library/react-native';
 import GatewayOpsSection from '../components/GatewayOpsSection';
 import { mockUseGateway } from '../testUtils/gatewayFixtures';
 
@@ -195,6 +195,51 @@ describe('GatewayOpsSection', () => {
       expect(getByTestId('toolset-switch-skills').props.value).toBe(true);
       expect(getByTestId('toolset-switch-todo').props.value).toBe(true);
       expect(getByTestId('toolset-switch-x_search').props.value).toBe(false);
+    });
+  });
+
+  it('keeps configured toolsets on while automatic enable writes are pending', async () => {
+    gatewayClient.listToolsets.mockResolvedValue([
+      {
+        name: 'web',
+        label: 'Web Search',
+        enabled: false,
+        configured: true,
+        tools: ['web_search'],
+      },
+      {
+        name: 'x_search',
+        label: 'X Search',
+        enabled: false,
+        configured: false,
+        tools: ['x_search'],
+      },
+    ]);
+    let resolveAutoEnable:
+      | ((value: { ok: boolean; name: string; enabled: boolean }) => void)
+      | undefined;
+    gatewayClient.setToolsetEnabled.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolveAutoEnable = resolve;
+        }),
+    );
+
+    const { getByTestId } = render(<GatewayOpsSection />);
+
+    await waitFor(() => {
+      expect(gatewayClient.setToolsetEnabled).toHaveBeenCalledWith(
+        'http://192.168.12.208:8642',
+        'web',
+        true,
+        'sk-test-key',
+      );
+      expect(getByTestId('toolset-switch-web').props.value).toBe(true);
+      expect(getByTestId('toolset-switch-x_search').props.value).toBe(false);
+    });
+
+    await act(async () => {
+      resolveAutoEnable?.({ ok: true, name: 'web', enabled: true });
     });
   });
 
