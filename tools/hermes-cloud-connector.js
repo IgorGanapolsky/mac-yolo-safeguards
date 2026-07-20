@@ -61,6 +61,15 @@ function pairingDashboardUrl(controlPlaneUrl, userCode) {
   return target.toString();
 }
 
+function pairingMatchesControlPlane(config, controlPlaneUrl) {
+  if (!config?.deviceId || !config?.controlPlaneUrl) return false;
+  try {
+    return new URL(config.controlPlaneUrl).origin === new URL(controlPlaneUrl).origin;
+  } catch {
+    return false;
+  }
+}
+
 function openPairingDashboard(controlPlaneUrl, userCode) {
   if (process.platform !== 'darwin' || process.env.HERMES_CONNECTOR_NO_BROWSER === '1') return false;
   try {
@@ -304,5 +313,5 @@ async function main() {
   }
 }
 
-module.exports = { boundContextMessages, canonicalRequest, collectGatewaySessions, contentText, createIdentity, executeLocal, gatewayHeaders, loadConfig, pairingDashboardUrl, parseDotEnvValue, resolveGatewayApiKey, saveConfig, signedHeaders, sha256, syncGatewaySessions, timestampMillis };
+module.exports = { boundContextMessages, canonicalRequest, collectGatewaySessions, contentText, createIdentity, executeLocal, gatewayHeaders, loadConfig, pairingDashboardUrl, pairingMatchesControlPlane, parseDotEnvValue, resolveGatewayApiKey, saveConfig, signedHeaders, sha256, syncGatewaySessions, timestampMillis };
 if (require.main === module) main().catch((error) => { console.error(error); process.exitCode = 1; });
