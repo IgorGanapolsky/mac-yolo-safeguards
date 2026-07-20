@@ -16,6 +16,9 @@ on:
       - "tools/hermes-cloud-connector.js"
       - "tests/test-hermes-cloud-connector.js"
 
+permissions:
+  contents: read
+
 jobs:
   verify:
     runs-on: ubuntu-latest

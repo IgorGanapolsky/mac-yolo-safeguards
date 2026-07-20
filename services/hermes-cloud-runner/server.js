@@ -10,12 +10,18 @@ let lastPollAt = 0;
 let lastTaskAt = 0;
 let lastError = null;
 
+function stripTrailingSlashes(value) {
+  let normalized = String(value);
+  while (normalized.endsWith('/')) normalized = normalized.slice(0, -1);
+  return normalized;
+}
+
 function configFromEnv(env = process.env) {
   const missing = required.filter((name) => !env[name]);
   if (missing.length) throw new Error(`Missing required environment variables: ${missing.join(', ')}`);
   return {
-    controlPlaneUrl: env.HERMES_CONTROL_PLANE_URL.replace(/\/+$/, ''), token: env.HERMES_CLOUD_RUNNER_TOKEN,
-    openaiBaseUrl: env.OPENAI_BASE_URL.replace(/\/+$/, ''), openaiKey: env.OPENAI_API_KEY,
+    controlPlaneUrl: stripTrailingSlashes(env.HERMES_CONTROL_PLANE_URL), token: env.HERMES_CLOUD_RUNNER_TOKEN,
+    openaiBaseUrl: stripTrailingSlashes(env.OPENAI_BASE_URL), openaiKey: env.OPENAI_API_KEY,
     model: env.OPENAI_MODEL, runnerId: env.HERMES_CLOUD_RUNNER_ID || os.hostname(),
   };
 }
@@ -58,7 +64,7 @@ function healthServer(port = Number(process.env.PORT || 8080)) {
   return http.createServer((request, response) => {
     if (request.url !== '/health') { response.writeHead(404).end(); return; }
     response.writeHead(lastError ? 503 : 200, { 'content-type': 'application/json' });
-    response.end(JSON.stringify({ ok: !lastError, lastPollAt, lastTaskAt, error: lastError }));
+    response.end(JSON.stringify({ ok: !lastError, lastPollAt, lastTaskAt, degraded: Boolean(lastError) }));
   }).listen(port, '0.0.0.0');
 }
 
