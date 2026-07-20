@@ -61,13 +61,21 @@ function testWatchdogScriptExists() {
 function testChromeCdpScripts() {
   const chrome = path.join(repoRoot, 'scripts/hermes-chrome-cdp.sh');
   const install = path.join(repoRoot, 'scripts/install-hermes-chrome-cdp.sh');
+  const configure = path.join(repoRoot, 'scripts/configure-browser-control.sh');
   assert.ok(fs.existsSync(chrome));
   assert.ok(fs.existsSync(install));
+  assert.ok(fs.existsSync(configure));
   assert.ok(fs.existsSync(path.join(repoRoot, 'com.hermes.chrome-cdp.plist')));
   assert.ok(fs.existsSync(path.join(repoRoot, 'com.igor.hermes-prevention-watchdog.plist')));
+  assert.ok(fs.existsSync(path.join(repoRoot, 'docs/BROWSER-CONTROL.md')));
   const chromeBody = fs.readFileSync(chrome, 'utf8');
   assert.ok(chromeBody.includes('remote-debugging-port'));
   assert.ok(chromeBody.includes('remote-allow-origins'));
+  assert.ok(chromeBody.includes('remote-debugging-address'));
+  assert.ok(chromeBody.includes('webSocketDebuggerUrl'));
+  assert.ok(chromeBody.includes('reclaim_non_cdp_squat') || chromeBody.includes('CDP squat reclaim'));
+  const watchdogBody = fs.readFileSync(watchdog, 'utf8');
+  assert.ok(watchdogBody.includes('cdp_probe_ipv4') || watchdogBody.includes('cdp_ipv4_down'));
   console.log('ok chrome-cdp install scripts');
 }
 

@@ -89,9 +89,20 @@ if [[ -f "${repo_root}/scripts/install-repo-root-hygiene-agent.sh" ]]; then
   bash "${repo_root}/scripts/install-repo-root-hygiene-agent.sh" --repo "${repo_root}"
 fi
 
+# Browser control (Chrome CDP) + prevention watchdog — separate installers
+# because they use dedicated labels outside the com.igor.* template list.
+if [[ -x "${repo_root}/scripts/install-hermes-chrome-cdp.sh" ]]; then
+  bash "${repo_root}/scripts/install-hermes-chrome-cdp.sh" || \
+    echo "WARN: install-hermes-chrome-cdp.sh did not reach IPv4 CDP yet" >&2
+fi
+if [[ -f "${repo_root}/com.igor.hermes-prevention-watchdog.plist" ]]; then
+  install_one "com.igor.hermes-prevention-watchdog.plist"
+fi
+
 echo ""
-echo "Installed ${#plists[@]} LaunchAgent templates (+ repo-root-hygiene). Verify with:"
+echo "Installed ${#plists[@]} LaunchAgent templates (+ repo-root-hygiene + chrome-cdp). Verify with:"
 echo "  bash scripts/verify-agent-automations.sh"
+echo "  bash scripts/configure-browser-control.sh --status --json"
 echo "  node tools/agent-session-start.js"
 echo "  node tools/revenue-autonomous-loop.js --json"
 echo "  node tools/ralph-gsd-loop.js --once --json"
