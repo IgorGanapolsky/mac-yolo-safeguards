@@ -1,0 +1,1352 @@
+{
+  "run_id": "trun_d3be5e813aa9497081c4bcec4fdffd29",
+  "interaction_id": "trun_d3be5e813aa9497081c4bcec4fdffd29",
+  "result_url": "https://platform.parallel.ai/play/deep-research/trun_d3be5e813aa9497081c4bcec4fdffd29",
+  "status": "completed",
+  "output": {
+    "basis": [
+      {
+        "field": "answer",
+        "reasoning": "Assessment reasoning:\n- Completeness: The field_answer provides a comprehensive, multi-section architecture and 2026-era considerations (SaaS pairing, SSO, Stripe, relay, privacy modes, threat model, MVP plan, 90-day plan, etc.). It covers identity, payments, pairing flows, relay options, privacy modes, data model, API surface, threat model, go-to-market plan, and risk factors. Based on the field description, the answer appears to address the expected breadth (architecture, security, compliance, operations, economics, and go/no-go guidance). I consider completeness to be true.\n- Excerpts support: The provided excerpts include various sources on Clerk pricing, Auth0 vs Clerk, Stripe best practices, Stripe entitlements, and other related pricing/architecture topics. However, the field_answer contains numerous specific claims (e.g., exact RFC 8628 device flow usage, Cloudflare DO + WebSocket hibernation, specific MVP pricing of $12/mo, detailed threat mitigations, and a specific 90-day staged plan) that are not directly verifiable against the given excerpts. Several critical architectural choices (e.g., Cloudflare DO, Durable Objects pricing, specific relay stacks, and exact pricing numbers for Clerk/Stripe beyond those cited) are not explicitly supported by the excerpts list. Therefore, support from excerpts is partial at best.\n- Conclusion: Completeness = true (the answer covers all required areas), Supported = false (not all key claims are directly supported by the excerpts provided).",
+        "citations": [
+          {
+            "url": "https://www.appaca.ai/compare/clerk-vs-auth0",
+            "excerpts": [
+              "Clerk vs Auth0 (2026) - Honest Comparison\nFor Next.js specifically, Clerk has a superior developer experience with native App Router support, server-side auth helpers, and less configuration. Auth0"
+            ],
+            "title": "Clerk vs Auth0 (2026) - Honest Comparison"
+          },
+          {
+            "url": "https://checkthat.ai/brands/clerk/pricing",
+            "excerpts": [
+              "Clerk Pricing 2026: Plans, Costs & Cost Calculator - CheckThat.ai\nThe structure includes a free tier with 10,000 included MAUs, a Pro tier at $25/month (also including 10,000 MAUs) with additional users charged at exactly $0.02 per MAU beyond that threshold, and custom Enterprise pricing for high-volume or compliance-heavy deployments."
+            ],
+            "title": "Clerk Pricing 2026: Plans, Costs & Cost Calculator - CheckThat.ai"
+          },
+          {
+            "url": "https://www.g2.com/compare/auth0-vs-workos",
+            "excerpts": [
+              "Auth0 vs. WorkOS Comparison 2026\nCompare Auth0 vs. WorkOS by features, pricing, usability, and performance. Use G2 user reviews and insights to make the right choice for your business."
+            ],
+            "title": "Auth0 vs. WorkOS Comparison 2026"
+          },
+          {
+            "url": "https://saasprices.net/blog/clerk-free-plan-changes",
+            "excerpts": [
+              "Clerk Pricing Update - 50k Free MAU\nFeb 6, 2026 \u2014 Now with 50,000 free MAU it is a no-brainer. This change brings Clerk's free tier in line with Supabase (which also offers 50k free MAU ). While"
+            ],
+            "title": "Clerk Pricing Update - 50k Free MAU"
+          },
+          {
+            "url": "https://www.comparetier.com/vs/auth0-vs-clerk",
+            "excerpts": [
+              "Auth0 vs Clerk Pricing & Capability Comparison (2026)"
+            ],
+            "title": "Auth0 vs Clerk Pricing & Capability Comparison (2026) comparetier.com https://www.comparetier.com \u203a vs \u203a auth0-vs-clerk"
+          },
+          {
+            "url": "https://workos.com/blog/clerk-pricing",
+            "excerpts": [
+              "Clerk pricing: How it works and compares to WorkOS\nDec 12, 2024 \u2014 Single Sign-On (SSO): $125/connection/month; Directory Sync (SCIM): $125/connection/month; Audit Logs: Start at $5/organization/month with"
+            ],
+            "title": "Clerk pricing: How it works and compares to WorkOS"
+          },
+          {
+            "url": "https://apiscout.dev/guides/workos-vs-auth0-vs-clerk-enterprise-sso-2026",
+            "excerpts": [
+              "WorkOS vs Auth0 vs Clerk Enterprise SSO 2026 - APIScout\nWorkOS charges $125/month per enterprise SSO connection with volume discounts. Auth0 enterprise SAML costs $1,500+/month depending on MAUs."
+            ],
+            "title": "WorkOS vs Auth0 vs Clerk Enterprise SSO 2026 - APIScout"
+          },
+          {
+            "url": "https://workos.com/blog/workos-vs-auth0-vs-clerk",
+            "excerpts": [
+              "WorkOS vs. Auth0 vs. Clerk: Which should you choose?\nPricing: Clerk offers a free tier with limited monthly active users and basic features, but key capabilities like SAML SSO, custom domains, and"
+            ],
+            "title": "WorkOS vs. Auth0 vs. Clerk: Which should you choose?"
+          },
+          {
+            "url": "https://workos.com/blog/workos-vs-auth0-vs-clerk-the-best-auth-platform-for-b2b-saas-in-2026",
+            "excerpts": [
+              "WorkOS vs. Auth0 vs. Clerk: The best auth platform for B2B ...\nPricing reality check \u00b7 WorkOS charges per SSO connection and per SCIM directory sync, which aligns costs with actual enterprise customer count."
+            ],
+            "title": "WorkOS vs. Auth0 vs. Clerk: The best auth platform for B2B ..."
+          },
+          {
+            "url": "http://workos.com/pricing",
+            "excerpts": [
+              "WorkOS offers transparent pricing that scales with your growth. Organization based pricing for SSO, Directory Sync, Audit Logs, and more ... $125 / ea. 16"
+            ],
+            "title": "Pricing"
+          },
+          {
+            "url": "https://retryhero.com/blog/stripe-subscription-billing-best-practices",
+            "excerpts": [
+              "Stripe Subscription Billing Best Practices for SaaS in 2026\n12 Stripe subscription billing best practices every SaaS founder should follow in 2026. Covers pricing models, failed payment recovery, dunning, webhooks, and revenue protection."
+            ],
+            "title": "Stripe Subscription Billing Best Practices for SaaS in 2026"
+          },
+          {
+            "url": "https://www.duskolicanin.com/blog/stripe-subscription-billing-saas-setup-2026",
+            "excerpts": [
+              "Stripe Subscription Billing for SaaS: Full Production Setup ...\nA production-grade Stripe subscription billing setup for SaaS: webhook idempotency, proration edge cases, trial logic, dunning, and annual invoicing patterns from two live products."
+            ],
+            "title": "Stripe Subscription Billing for SaaS: Full Production Setup ..."
+          },
+          {
+            "url": "https://tomodahinata.com/en/blog/stripe-billing-subscriptions-usage-based-customer-portal-guide",
+            "excerpts": [
+              "Stripe Billing implementation guide (2026 edition, official-compliant)\nJun 24, 2026 \u00b7 This article is a Billing (subscription/billing)-dedicated implementation guide, written so that \"in which scene, why, and how to use it\" is"
+            ],
+            "title": "Stripe Billing implementation guide (2026 edition, official-compliant)"
+          },
+          {
+            "url": "https://github.com/QiMana/stripe-developer-docs/blob/main/docs/billing/entitlements.md",
+            "excerpts": [
+              "stripe-developer-docs/docs/billing/entitlements.md at main ...\nGet customers\u2019 active entitlements: When customers subscribe to your products, Stripe Billing entitles the customer to the product\u2019s features. Listen to the Active Entitlement Summary webhook and use the List Active Entitlements API for a given customer to execute your feature provisioning process."
+            ],
+            "title": "stripe-developer-docs/docs/billing/entitlements.md at main ..."
+          },
+          {
+            "url": "https://docs.stripe.com/billing/entitlements?dashboard-or-api=api",
+            "excerpts": [
+              "Entitlements | Stripe Documentation\nGet customers\u2019 active entitlements: When customers subscribe to your products, Stripe Billing entitles the customer to the product\u2019s features. Listen to the Active Entitlement Summary webhook and use the List Active Entitlements API for a given customer to execute your feature provisioning process."
+            ],
+            "title": "Entitlements | Stripe Documentation"
+          },
+          {
+            "url": "http://saasworthy.com/blog/auth0-pricing-plans-guide",
+            "excerpts": [
+              "Explore Auth0 pricing plans for 2026, including Free, Essentials, Professional, and Enterprise tiers. Price: $0/month. Price: $35/month (for up to 500 MAUs)"
+            ],
+            "title": "Auth0 Pricing Guide (2026): Choosing the Best Plans for ..."
+          },
+          {
+            "url": "http://metacto.com/blogs/auth0-pricing-and-integration-costs-a-complete-guide",
+            "excerpts": [
+              "Auth0 offers a free plan and three primary : Essentials, Professional, and Enterprise. Essentials Plan: Starts at $35/month. Professional Plan: Starts at $240/\nJun 30, 2025 \u2014 Auth0 offers a free plan. Essentials Plan: Starts at $35/month. Professional Plan: Starts at $240/month. Enterprise Plan: Custom pricing for\nAuth0 offers a free plan and three primary paid tiers: Essentials, Professional, and Enterprise."
+            ],
+            "title": "Auth0 Pricing and Integration Costs - A Complete Guide"
+          },
+          {
+            "url": "https://www.modern-datatools.com/tools/auth0/pricing",
+            "excerpts": [
+              "Auth0 Pricing: Free Tier to Enterprise Plans (2026)\nAuth0, now part of Okta, uses a monthly active user (MAU) pricing model spread across four tiers. The Free plan supports up to 25,000 MAU with unlimited logins, making it one of the most generous free tiers in the identity and authentication space."
+            ],
+            "title": "Auth0 Pricing: Free Tier to Enterprise Plans (2026)"
+          },
+          {
+            "url": "https://ssojet.com/blog/auth0-pricing-growth-penalty",
+            "excerpts": [
+              "Auth0 Pricing Explained (And Why Startups Call It a Growth ...\nAuth0 offers a Startup Plan that is free for one year and is quite generous, providing B2B Professional features, 100,000 MAUs, and 5 enterprise connections."
+            ],
+            "title": "Auth0 Pricing Explained (And Why Startups Call It a Growth ..."
+          },
+          {
+            "url": "https://costbench.com/software/identity-access-management/auth0",
+            "excerpts": [
+              "Auth0 Pricing 2026: 6 Plans from Free\u2013$240/month\nAuth0 pricing: free for 25K MAUs. B2C Essentials $35/mo, Professional $240/mo. B2B starts at $150/mo. See MAU scaling costs, overages, and plan comparison."
+            ],
+            "title": "Auth0 Pricing 2026: 6 Plans from Free\u2013$240/month"
+          },
+          {
+            "url": "https://developers.apple.com/documentation/signinwithapple",
+            "excerpts": [
+              "Sign in with Apple | Apple Developer Documentation\nSign in with Apple gives your users a fast and safe way to sign in to your apps and websites using their Apple Account. Incorporating Sign in with Apple eliminates the need for additional sign-up steps, allowing users to engage and focus on your app or website."
+            ],
+            "title": "Sign in with Apple | Apple Developer Documentation"
+          },
+          {
+            "url": "https://developer.apple.com/help/account/access/sign-in-to-your-developer-account",
+            "excerpts": [
+              "Sign in to your developer account - Access - Account - Help ...\nSign in to your Apple Account on the Apple Developer website to access basic developer resources. If you\u2019re enrolled in a paid program (the Apple Developer Program or Apple Developer Enterprise Program), sign in with the Apple Account you used to enroll."
+            ],
+            "title": "Sign in to your developer account - Access - Account - Help ..."
+          },
+          {
+            "url": "https://developer.apple.com/",
+            "excerpts": [
+              "Apple Developer\nApple Developer Program Join the Apple Developer Program to reach customers around the world on the App Store for iPhone, iPad, Mac, Apple Watch, Apple TV, and Apple Vision Pro. You\u2019ll also get access to beta software, advanced app capabilities, extensive beta testing tools, and app analytics."
+            ],
+            "title": "Apple Developer"
+          },
+          {
+            "url": "https://developer-mdn.apple.com/",
+            "excerpts": [
+              "Apple Developer\nJoin the Apple Developer Program to reach customers around the world on the App Store for iPhone, iPad, Mac, Apple Watch, Apple TV, and Apple Vision Pro. You\u2019ll also get access to beta software, advanced app capabilities, extensive beta testing tools, and app analytics."
+            ],
+            "title": "Apple Developer"
+          },
+          {
+            "url": "https://developer.apple.com/programs",
+            "excerpts": [
+              "Apple Developer Program - Apple Developer\nSign in using your Apple Account and accept the Apple Developer Agreement to register for free. Enroll as an individual or organization."
+            ],
+            "title": "Apple Developer Program - Apple Developer"
+          },
+          {
+            "url": "https://aisotools.com/pricing/supabase-auth",
+            "excerpts": [
+              "Supabase Auth Pricing 2026: Plans, Costs & Free Options ...\nComplete pricing guide for Supabase Auth \u2014 plans, costs, and free options. Supabase Auth uses a freemium pricing model. Free tier available with optional paid upgrades. Current pricing: Free tier (50K MAU). Pro $25/mo, Team $599/mo, Enterprise custom."
+            ],
+            "title": "Supabase Auth Pricing 2026: Plans, Costs & Free Options ..."
+          },
+          {
+            "url": "https://makerkit.dev/pricing-calculator/supabase",
+            "excerpts": [
+              "Supabase Pricing Calculator (2026)\nAuth alone would cost $20\u201330/month on Clerk or Auth0 at 10K+ MAU . Storage with CDN costs $5\u201315/month on S3 + CloudFront. Edge Functions replace a separate"
+            ],
+            "title": "Supabase Pricing Calculator (2026)"
+          },
+          {
+            "url": "https://apiscout.dev/guides/better-auth-vs-nextauth-vs-clerk-2026",
+            "excerpts": [
+              "Better Auth vs NextAuth vs Clerk (2026) - apiscout.dev\nCompare Better Auth, NextAuth, and Clerk for 2026 web auth \u2014 self-hosting, plugin ecosystem, B2B features, and which fits your stack."
+            ],
+            "title": "Better Auth vs NextAuth vs Clerk (2026) - apiscout.dev"
+          },
+          {
+            "url": "https://supabase.com/docs/guides/auth",
+            "excerpts": [
+              "Auth | Supabase Docs\nFor a detailed breakdown of how these charges are calculated, refer to the following pages : Pricing MAU \u00b7 Pricing Third-Party MAU \u00b7 Pricing SSO MAU \u00b7 Advanced"
+            ],
+            "title": "Auth | Supabase Docs"
+          },
+          {
+            "url": "https://pricingapis.com/auth/supabase-auth",
+            "excerpts": [
+              "Supabase Auth Auth & Identity Pricing | API Price Tracker\nSupabase Auth free for 50,000 MAU. Compare 4 plans with daily-updated pricing."
+            ],
+            "title": "Supabase Auth Auth & Identity Pricing | API Price Tracker"
+          },
+          {
+            "url": "https://appstackbuilder.com/blog/stripe-vs-lemon-squeezy-vs-paddle",
+            "excerpts": [
+              "Stripe vs Lemon Squeezy vs Paddle 2026: Complete Payment ...\nIn-depth comparison of Stripe, Lemon Squeezy, and Paddle for SaaS and digital products. Compare pricing, MoR features, tax handling, and find the best payment solution for your startup."
+            ],
+            "title": "Stripe vs Lemon Squeezy vs Paddle 2026: Complete Payment ..."
+          },
+          {
+            "url": "https://f3fundit.com/stripe-vs-paddle-vs-lemon-squeezy-micro-saas-2026",
+            "excerpts": [
+              "Stripe vs Paddle vs Lemon Squeezy: Best Payment Platform ...\nApr 20, 2026 \u2014 Lemon Squeezy: The Pricing Paddle typically charges 5% + 50\u00a2. No hidden tax fees. /downgrades, and pause functionality. (some AI tools, crypto-"
+            ],
+            "title": "Stripe vs Paddle vs Lemon Squeezy: Best Payment Platform ..."
+          },
+          {
+            "url": "https://blog.vibecoder.me/stripe-vs-lemon-squeezy-vs-paddle",
+            "excerpts": [
+              "Stripe vs Lemon Squeezy vs Paddle for Your SaaS Payments\nThe lowest transaction fees. At 2.9% + $0.30 per transaction, Stripe costs roughly half what Lemon Squeezy and Paddle charge. On a $50/mo SaaS subscription,"
+            ],
+            "title": "Stripe vs Lemon Squeezy vs Paddle for Your SaaS Payments"
+          },
+          {
+            "url": "https://www.globalsolo.global/blog/stripe-vs-paddle-vs-lemon-squeezy-2026",
+            "excerpts": [
+              "Stripe vs Paddle vs Lemon Squeezy vs Gumroad: Fees Compared ...\nPaddle and Lemon Squeezy charge 5% + 50\u00a2 and act as your Merchant of Record, collecting and remitting sales tax in 200+ jurisdictions. Gumroad charges 10% + 50\u00a2 and \u2014 since January 2025 \u2014 is also a Merchant of Record, but built for creators selling one-time digital products rather than SaaS billing."
+            ],
+            "title": "Stripe vs Paddle vs Lemon Squeezy vs Gumroad: Fees Compared ..."
+          },
+          {
+            "url": "http://docs.stripe.com/subscriptions",
+            "excerpts": [
+              "Get started with subscriptions. Sample integration. Build a full, working subscription integration using Stripe Billing and Stripe Checkout and your test data."
+            ],
+            "title": "Subscriptions | Stripe Documentation"
+          },
+          {
+            "url": "https://httpstatus.com/oidc/id-token-validator",
+            "excerpts": [
+              "OIDC ID Token Validator \u2014 signature, iss, aud, exp, nonce, at ...\nOpenID Connect (OIDC) is an identity layer built on OAuth 2.0 for federated authentication. Validate ID tokens against JWKS, inspect claims, test UserInfo endpoint responses, debug authorization flows, verify nonce handling, and compare grant types."
+            ],
+            "title": "OIDC ID Token Validator \u2014 signature, iss, aud, exp, nonce, at ..."
+          },
+          {
+            "url": "https://developers.google.com/identity/protocols/oauth2/web-server",
+            "excerpts": [
+              "Using OAuth 2.0 for Web Server Applications | Authorization ...\nThis document explains how web server applications use Google API Client Libraries or Google OAuth 2.0 endpoints to implement OAuth 2.0 authorization to access Google APIs."
+            ],
+            "title": "Using OAuth 2.0 for Web Server Applications | Authorization ..."
+          },
+          {
+            "url": "http://developers.google.com/identity/sign-in/web/sign-in",
+            "excerpts": [
+              "Google Sign-In manages the OAuth 2.0 flow and token lifecycle, simplifying your integration with Google APIs. * [Home](https://developers.google.com/) [Products](https://developers.google.com/products) [Google Identity](https://developers.google.com/identity) [Web guides](https://developers.google.com/identity/siwg) [Google Sign-In for Web](https://developers.google.com/identity/sign-in/web/deprecation-and-sunset) Send feedback Integrating Google Sign-In into your web app Spark icon Page Summary outlined\\_flag Support for the Google Sign-In library is deprecated and will require an impact assessment for future compatibility with FedCM APIs. Google Sign-In manages the OAuth 2.0 flow and token lifecycle, simplifying integration with Google APIs while allowing users to revoke access."
+            ],
+            "title": "Integrating Google Sign-In into your web app \u00a0|\u00a0 Web guides \u00a0|\u00a0 Google for Developers"
+          },
+          {
+            "url": "http://learn.microsoft.com/en-us/entra/external-id/customers/how-to-custom-oidc-federation-customers",
+            "excerpts": [
+              "**Well-known endpoint** (also known as metadata URI) is the OIDC discovery URI to [obtain the configuration information](https://openid.net/specs/openid-connect-discovery-1_0.html) for your identity provider. The response is a JSON document that includes OAuth 2.0 endpoint locations. At a minimum, the metadata document must contain the following properties: `issuer` , `authorization_endpoint` , `token_endpoint` , `token_endpoint_auth_methods_supported` , `response_types_supported` , `subject_types_supported` , and `jwks_uri` . For more details, see [OpenID Connect Discovery](https://openid.net/specs/openid-connect-discovery-1_0.html) specifications."
+            ],
+            "title": "Add OIDC for customer sign-in - Microsoft Entra External ID | Microsoft Learn"
+          },
+          {
+            "url": "https://stackoverflow.com/questions/36716117/validating-google-sign-in-id-token-in-go",
+            "excerpts": [
+              "Validating Google sign in ID token in Go - Stack Overflow\nI am finding the way to validate ID token for Google sign-in for Android with a Go backend server project. What is the equivalent function for"
+            ],
+            "title": "Validating Google sign in ID token in Go - Stack Overflow"
+          },
+          {
+            "url": "https://developers.cloudflare.com/durable-objects/best-practices/websockets",
+            "excerpts": [
+              "Use WebSockets \u00b7 Cloudflare Durable Objects docs\nMay 20, 2026 \u2014 Workers and Durable Objects can act as WebSocket endpoints acceptWebSocket()` connects the WebSocket to the Durable Object, allowing the"
+            ],
+            "title": "Use WebSockets \u00b7 Cloudflare Durable Objects docs"
+          },
+          {
+            "url": "https://developers.cloudflare.com/durable-objects/examples/websocket-hibernation-server",
+            "excerpts": [
+              "Build a WebSocket server with WebSocket Hibernation\nApr 21, 2026 \u2014 The WebSocket Hibernation API should be preferred for WebSocket server applications built on Durable Objects, since it significantly decreases duration charge."
+            ],
+            "title": "Build a WebSocket server with WebSocket Hibernation"
+          },
+          {
+            "url": "http://developers.cloudflare.com/durable-objects/api/state",
+            "excerpts": [
+              "Once called, any incoming messages will be delivered by calling the Durable Object's `webSocketMessage` handler, and `webSocketClose` will be invoked upon disconnect.\n`acceptWebSocket` `acceptWebSocket` is part of the [WebSocket Hibernation API](https://developers.cloudflare.com/durable-objects/best-practices/websockets/#durable-objects-hibernation-websocket-api), which allows a Durable Object to be removed from memory to save costs while keeping its WebSockets connected. `acceptWebSocket` adds a WebSocket to the set of WebSockets attached to the Durable Object. Once called, any incoming messages will be delivered by calling the Durable Object's `webSocketMessage` handler, and `webSocketClose` will be invoked upon disconnect. After calling `acceptWebSocket`, the WebSocket is accepted and its `send` and `close` methods can be used. The [WebSocket Hibernation API](https://developers.cloudflare.com/durable-objects/best-practices/websockets/#durable-objects-hibernation-websocket-api) takes the place of the standard [WebSockets API](https://developers.cloudflare.com/workers/runtime-apis/websockets/). Therefore, `ws.accept` must not have been called separately and `ws.addEventListener` method will not receive events as they will instead be delivered to the Durable Object. The WebSocket Hibernation API permits a maximum of 32,768 WebSocket connections per Durable Object, but the CPU and memory usage of a given workload may further limit the practical number of simultaneous connections. Parameters A required `WebSocket` with name `ws`. An optional `Array<string>` of associated tags. Tags can be used to retrieve WebSockets via [DurableObjectState::getWebSockets](https://developers.cloudflare.com/durable-objects/api/state/#getwebsockets). Each tag is a maximum of 256 characters and there can be at most 10 tags associated with a WebSocket. Return values None.\n`getWebSockets` is part of the [WebSocket Hibernation API](https://developers.cloudflare.com/durable-objects/best-practices/websockets/#durable-objects-hibernation-websocket-api), which allows a Durable Object to be removed from memory to save costs while keeping its WebSockets connected. `getWebSockets` returns an `Array<WebSocket>` which is the set of WebSockets attached to the Durable Object. An optional tag argument can be used to filter the list according to tags supplied when calling [DurableObjectState::acceptWebSocket](https://developers.cloudflare.com/durable-objects/api/state/#acceptwebsocket). `waitUntil` is not necessary Disconnected WebSockets are not returned by this method, but `getWebSockets` may still return WebSockets even after `ws.close` has been called. For example, if the server-side WebSocket sends a close, but does not receive one back (and has not detected a disconnect from the client), then the connection is in the `CLOSING` readyState. The client might send more messages, so the WebSocket is technically not disconnected. With the [web_socket_auto_reply_to_close](https://developers.cloudflare.com/workers/configuration/compatibility-flags/#websocket-auto-reply-to-close) compatibility flag (enabled by default on compatibility dates on or after `2026-04-07`), the runtime automatically completes the close handshake, so WebSockets transition from `CLOSING` to `CLOSED` much faster and are less likely to be observed in the `CLOSING` state.\n`setWebSocketAutoResponse` is part of the [WebSocket Hibernation API](https://developers.cloudflare.com/durable-objects/best-practices/websockets/#durable-objects-hibernation-websocket-api), which allows a Durable Object to be removed from memory to save costs while keeping its WebSockets connected. `setWebSocketAutoResponse` sets an automatic response, auto-response, for the request provided for all WebSockets attached to the Durable Object. If a request is received matching the provided request then the auto-response will be returned without waking WebSockets in hibernation and incurring billable duration charges. `setWebSocketAutoResponse` is a common alternative to setting up a server for static ping/pong messages because this can be handled without waking hibernating WebSockets. Parameters An optional `WebSocketRequestResponsePair(request string, response string)` enabling any WebSocket accepted via [DurableObjectState::acceptWebSocket\nDurable Objects automatically remain active as long as there is ongoing work or pending I/O, so waitUntil is not needed."
+            ],
+            "title": "title: Durable Object State description: API reference for DurableObjectState, which controls concurrency, WebSocket attachment, and storage access. image: https://developers.cloudflare.com/dev-products-preview.png"
+          },
+          {
+            "url": "https://www.cloudflare.com/products/durable-objects",
+            "excerpts": [
+              "Cloudflare Durable Objects - Stateful Serverless Functions\nDurable Objects are stateful serverless functions: they run for as long as you need them, can compute in the background, and handle multiple requests"
+            ],
+            "title": "Cloudflare Durable Objects - Stateful Serverless Functions"
+          },
+          {
+            "url": "https://developers.cloudflare.com/workers/runtime-apis/websockets",
+            "excerpts": [
+              "WebSockets \u00b7 Cloudflare Workers docs\nDurable Objects provide a single-point-of-coordination for Cloudflare Workers, and are often used in parallel with WebSockets to persist state over multiple clients and connections. In this case, refer to Durable Objects to get started, and prefer using the Durable Objects' extended WebSockets API."
+            ],
+            "title": "WebSockets \u00b7 Cloudflare Workers docs"
+          },
+          {
+            "url": "https://tailscale.com/pricing",
+            "excerpts": [
+              "Tailscale pricing\nPlans that work for engineers, IT, security, and home users. ; Personal \u00b7 $0Free forever ; Standard \u00b7 $8Per user, per month ; Premium \u00b7 $18Per user, per month."
+            ],
+            "title": "Tailscale pricing"
+          },
+          {
+            "url": "https://comparedge.com/tools/tailscale/pricing",
+            "excerpts": [
+              "Tailscale Pricing 2026: Personal & Starter Plans from $6/mo\nWhile the Personal plan is $0/mo, the Starter plan jumps to $6/user/mo and requires annual billing, a significant step up for teams. However, scaling up to the Premium plan at $18/user/mo for SSO/SAML and SCIM integrations represents a steep 3x price jump that exceeds the market average."
+            ],
+            "title": "Tailscale Pricing 2026: Personal & Starter Plans from $6/mo"
+          },
+          {
+            "url": "https://tailscale.com/blog/pricing-v4",
+            "excerpts": [
+              "Tailscale pricing update: clearer plans, more value\nApr 8, 2026 \u2014 Tailscale's new plans include a more generous free Personal plan, stronger business plans with more features, and more predictable pricing."
+            ],
+            "title": "Tailscale pricing update: clearer plans, more value"
+          },
+          {
+            "url": "https://www.g2.com/products/tailscale/pricing",
+            "excerpts": [
+              "Tailscale Pricing 2026\nLearn more about the cost of Tailscale, different pricing plans, starting costs, free trials, and more pricing-related information provided by Tailscale."
+            ],
+            "title": "Tailscale Pricing 2026"
+          },
+          {
+            "url": "https://checkthat.ai/brands/tailscale/pricing",
+            "excerpts": [
+              "Tailscale Pricing 2026: Total Cost & Competitors\nJun 11, 2026 \u2014 Cost of Plans Personal to Premium tiers run from $0/mo (Personal, up to 6 users) to $18/user/mo (Premium); Enterprise is custom pricing"
+            ],
+            "title": "Tailscale Pricing 2026: Total Cost & Competitors"
+          },
+          {
+            "url": "https://www.trustradius.com/products/ably/pricing",
+            "excerpts": [
+              "Ably Pricing 2026 - TrustRadius\nAbly does not currently have any pricing plans listed at this time. A free version and a free trial are available for Ably. Paid plans starting at: $49 Free"
+            ],
+            "title": "Ably Pricing 2026 - TrustRadius"
+          },
+          {
+            "url": "https://www.buildmvpfast.com/tools/api-pricing-estimator/ably",
+            "excerpts": [
+              "Ably Pricing Calculator (2026)\nCalculate your monthly Ably costs across Free, Standard, and Pro plans. Our free Ably pricing calculator helps you estimate message volume,"
+            ],
+            "title": "Ably Pricing Calculator (2026)"
+          },
+          {
+            "url": "https://devtune.ai/verticals/messaging-event-streaming/ably/pricing",
+            "excerpts": [
+              "Ably Pricing Context\nAbly offers two billing models: pay-per-minute (consumption-based) and pay-per-MAU. \u00b7 Consumption rates: messages at $2.50/million (as low as $0.50/M with volume"
+            ],
+            "title": "Ably Pricing Context"
+          },
+          {
+            "url": "https://www.g2.com/products/ably-realtime/pricing",
+            "excerpts": [
+              "Ably Realtime Pricing 2026\nLearn more about the cost of Ably Realtime, different pricing plans, starting costs, free trials, and more pricing-related information provided by Ably Realtime"
+            ],
+            "title": "Ably Realtime Pricing 2026"
+          },
+          {
+            "url": "https://www.capterra.com/p/175474/Ably-Realtime",
+            "excerpts": [
+              "Ably Realtime Software Pricing, Alternatives & More 2026\nJun 3, 2026 \u2014 Pricing ; Free. $0.00 ; Standard. $29.00. Usage Based,Per Month ; Pro. $399.00. Usage Based,."
+            ],
+            "title": "Ably Realtime Software Pricing, Alternatives & More 2026"
+          },
+          {
+            "url": "https://fly.io/docs/about/pricing",
+            "excerpts": [
+              "Fly.io Resource Pricing\nThe price of a running Fly Machine VM is the price of a named CPU/RAM preset, plus about $5 per 30 days per GB of additional RAM."
+            ],
+            "title": "Fly.io Resource Pricing"
+          },
+          {
+            "url": "https://www.findapi.dev/api/fly-io-machines-api",
+            "excerpts": [
+              "Fly.io Machines API Review, Pricing & Docs | FindAPI\nPricing From $0.0000008/second Free allowance available. Pricing detailsFrom $29/mo14-day free trial HTTPS. Pricing detailsFrom $9/user/moFree trial available"
+            ],
+            "title": "Fly.io Machines API Review, Pricing & Docs | FindAPI"
+          },
+          {
+            "url": "https://fly.io/machines",
+            "excerpts": [
+              "Fly Machines\nPay-As-You-Go Pricing. Only pay for what you use. Fly Machines scale from small apps to massive workloads with transparent, per-second billing. View Pricing"
+            ],
+            "title": "Fly Machines"
+          },
+          {
+            "url": "https://www.withorb.com/blog/flyio-pricing",
+            "excerpts": [
+              "Fly.io pricing: Plans and cost breakdown for 2025 - Orb\nMachines are billed per second. A shared 256 MB instance costs approximately $0.0027 per hour, or around $1.94 per month if it runs continuously. Larger"
+            ],
+            "title": "Fly.io pricing: Plans and cost breakdown for 2025 - Orb"
+          },
+          {
+            "url": "https://apis.io/plans/fly-io/fly-io-plans-pricing",
+            "excerpts": [
+              "Fly Io Plans Pricing - APIs.io\nFly.io pay-as-you-go for Machines (per-second), Volumes, IPs, transfer. Fly Io Plans Pricing is the machine-readable pricing-plan profile for fly-io on the"
+            ],
+            "title": "Fly Io Plans Pricing - APIs.io"
+          },
+          {
+            "url": "https://toolradar.com/tools/cloudflare-tunnel/pricing",
+            "excerpts": [
+              "Cloudflare Tunnel Pricing 2026: Plans, Hidden Costs & Cheaper ...\nCloudflare Tunnel is completely free with no usage limits - one of the best values in secure tunneling."
+            ],
+            "title": "Cloudflare Tunnel Pricing 2026: Plans, Hidden Costs & Cheaper ..."
+          },
+          {
+            "url": "https://tool.news/tools/cloudflare-tunnel",
+            "excerpts": [
+              "Cloudflare Tunnel Review 2026: Pricing, Alternatives & Lock ...\nAnswer 4 quick questions \u2014 get an AI-ranked shortlist of tools that match your stack and requirements. Complete Cloudflare Tunnel analysis: pricing, lock-in risk, migration difficulty. Compare with alternatives in CI/CD for Applications."
+            ],
+            "title": "Cloudflare Tunnel Review 2026: Pricing, Alternatives & Lock ..."
+          },
+          {
+            "url": "https://askai.glarity.app/search/What-is-the-pricing-structure-for-Cloudflare-Tunnel",
+            "excerpts": [
+              "What is the pricing structure for Cloudflare Tunnel? - Ask ...\n**Summary:** You can start using Cloudflare Tunnel for free, but for more consistent access and production workloads, the typical cost is $5 per month plus $0.10 per GB of bandwidth. This pricing is very flexible, allowing smaller teams to experiment without large upfront costs while scaling easily for heavier usage. References:"
+            ],
+            "title": "What is the pricing structure for Cloudflare Tunnel? - Ask ..."
+          },
+          {
+            "url": "https://makerstack.co/reviews/cloudflare-tunnel-review",
+            "excerpts": [
+              "Cloudflare Tunnel Review (2026) - MakerStack\nCloudflare Tunnel is the best free tunneling solution available. It requires more initial setup than ngrok but delivers production-grade security, DDoS protection, and Zero Trust integration at no cost."
+            ],
+            "title": "Cloudflare Tunnel Review (2026) - MakerStack"
+          },
+          {
+            "url": "https://www.cloudflare.com/plans",
+            "excerpts": [
+              "Pricing\nLocal and global traffic load balancing, geographic routing, health checks, and failover for continuous availability. Starting at $5/moActivate. Stream. Video"
+            ],
+            "title": "Pricing"
+          },
+          {
+            "url": "https://stackoverflow.com/questions/79336461/trying-to-use-websocket-hibernation-api",
+            "excerpts": [
+              "Trying to use Websocket Hibernation Api\nI have a Cloudflare Worker that uses Durable Objects and WebSocket . However, the costs of WebSocket are high, so I decided to implement the Websocket"
+            ],
+            "title": "Trying to use Websocket Hibernation Api"
+          },
+          {
+            "url": "https://developers.cloudflare.com/durable-objects/api/state",
+            "excerpts": [
+              "Durable Object State\nJun 3, 2026 \u2014 getWebSockets is part of the WebSocket Hibernation API, which allows a Durable Object to be removed from memory to save costs while keeping its"
+            ],
+            "title": "Durable Object State"
+          },
+          {
+            "url": "https://thomasgauvin.com/writing/how-cloudflare-durable-objects-websocket-hibernation-works",
+            "excerpts": [
+              "Debugging WebSocket Hibernation with Cloudflare Durable ...\nWith the WebSocket Hibernation API, the WebSocket client can stay connected to Cloudflare\u2019s network, while the Durable Object gets to be removed from memory, drastically improving the efficiency of such a solution."
+            ],
+            "title": "Debugging WebSocket Hibernation with Cloudflare Durable ..."
+          },
+          {
+            "url": "https://vuink.com/post/svorecynar-d-dpbz/blog/creating-websocket-server-hono-durable-objects",
+            "excerpts": [
+              "Creating a Websocket server in Hono with Durable Objects\nOne of the simplest ways of creating Websocket-powered services, without spinning up an \u201calways-on\u201d server, is using Cloudflare\u2019s Durable Objects. In the land of serverless, we have long gotten used to stateless transactions: you send a request to an endpoint or a function, it processes the request and sends a response."
+            ],
+            "title": "Creating a Websocket server in Hono with Durable Objects"
+          },
+          {
+            "url": "https://hermes-agent.nousresearch.com/docs/user-guide/cli",
+            "excerpts": [
+              "CLI Interface | Hermes Agent\nCLI Interface Hermes Agent's CLI is a full terminal user interface (TUI) \u2014 not a web UI. It features multiline editing, slash-command autocomplete, conversation history, interrupt-and-redirect, and streaming tool output. Built for people who live in the terminal."
+            ],
+            "title": "CLI Interface | Hermes Agent"
+          },
+          {
+            "url": "https://github.com/NousResearch/hermes-agent/blob/main/website/docs/user-guide/cli.md",
+            "excerpts": [
+              "hermes-agent/website/docs/user-guide/cli.md at main ... - GitHub\nHermes Agent's CLI is a full terminal user interface (TUI) \u2014 not a web UI. It features multiline editing, slash-command autocomplete, conversation history, interrupt-and-redirect, and streaming tool output."
+            ],
+            "title": "hermes-agent/website/docs/user-guide/cli.md at main ... - GitHub"
+          },
+          {
+            "url": "https://deepwiki.com/NousResearch/hermes-agent/3-cli",
+            "excerpts": [
+              "CLI | NousResearch/hermes-agent | DeepWiki\nDetailed technical information and usage instructions for each subtopic are provided in dedicated child pages linked below. The primary CLI entry point for Hermes Agent is the hermes executable, which corresponds to the hermes_cli/main.py module."
+            ],
+            "title": "CLI | NousResearch/hermes-agent | DeepWiki"
+          },
+          {
+            "url": "https://github.com/NousResearch/hermes-agent/releases",
+            "excerpts": [
+              "Releases \u00b7 NousResearch/hermes-agent - GitHub\nChoose your default interface \u2014 cli or tui \u2014 You can now set whether hermes chat drops you into the classic CLI or the Ink TUI by default, with a --cli flag to override per-invocation."
+            ],
+            "title": "Releases \u00b7 NousResearch/hermes-agent - GitHub"
+          },
+          {
+            "url": "https://haimaker.ai/blog/hermes-vs-codex",
+            "excerpts": [
+              "Hermes Agent vs Codex CLI: Which Coding Agent to Use (2026)\nHermes Agent (Nous Research) and Codex CLI (OpenAI) compared \u2014 model flexibility, self-improving skills, pricing, and which one fits your workflow."
+            ],
+            "title": "Hermes Agent vs Codex CLI: Which Coding Agent to Use (2026)"
+          },
+          {
+            "url": "https://hermes-agent.nousresearch.com/docs/developer-guide/gateway-internals",
+            "excerpts": [
+              "Gateway Internals | Hermes Agent\nThread-aware platforms (Telegram forum topics, Discord threads, Slack threads) may include thread IDs in the chat_id portion. Never construct session keys manually \u2014 always use build_session_key() from gateway/session.py."
+            ],
+            "title": "Gateway Internals | Hermes Agent"
+          },
+          {
+            "url": "http://hermes-agent.nousresearch.com/",
+            "excerpts": [
+              "Hermes Agent \u2014 the open-source agent that grows with you. Native app for macOS, Windows, and Linux. Telegram, Discord, Slack, WhatsApp, Signal, Email, CLI \u2026"
+            ],
+            "title": "Hermes Agent | Nous Research"
+          },
+          {
+            "url": "https://github.com/nousresearch/hermes-agent",
+            "excerpts": [
+              "GitHub - NousResearch/hermes-agent: The agent that grows with ...\nHermes has two entry points: start the terminal UI with hermes, or run the gateway and talk to it from Telegram, Discord, Slack, WhatsApp, Signal, or Email. Once you're in a conversation, many slash commands are shared across both interfaces."
+            ],
+            "title": "GitHub - NousResearch/hermes-agent: The agent that grows with ..."
+          },
+          {
+            "url": "http://github.com/haonange1314/hermes-agent-20260429",
+            "excerpts": [
+              "Quick start for contributors \u2014 clone and go with `setup-hermes.sh` : ```shell git clone https://github.com/NousResearch/hermes-agent.git cd hermes-agent ./setup-hermes.sh # installs uv, creates venv, installs .[all], symlinks ~/.local/bin/hermes ./hermes # auto-detects the venv, no need to `source` first ``` Manual path (equivalent to the above): ```shell curl -LsSf https://astral.sh/uv/install.sh | sh uv venv venv --python 3.11 source venv/bin/activate uv pip install -e \".[all,dev]\" scripts/run_tests.sh ```\n[Documentation](https://hermes-agent.nousresearch.com/docs/) [Discord](https://discord.gg/NousResearch) [License: MIT](https://github.com/NousResearch/hermes-agent/blob/main/LICENSE) [Built by Nous Research](https://nousresearch.com/) [\u4e2d\u6587](https://github.com/haonange1314/hermes-agent-20260429/blob/main/README.zh-CN.md) **The self-improving AI agent built by [Nous Research](https://nousresearch.com/) .** It's the only agent with a built-in learning loop \u2014 it creates skills from experience, improves them during use, nudges itself to persist knowledge, searches its own past conversations, and builds a deepening model of who you are across sessions. Run it on a $5 VPS, a GPU cluster, or serverless infrastructure that costs nearly nothing when idle. It's not tied to your laptop \u2014 talk to it from Telegram while it works on a cloud VM. Use any model you want \u2014 [Nous Portal](https://portal.nousresearch.com/) , [OpenRouter](https://openrouter.ai/) (200+ models), [NVIDIA NIM](https://build.nvidia.com/) (Nemotron), [Xiaomi MiMo](https://platform.xiaomimimo.com/) , [z.ai/GLM](https://z.ai/) , [Kimi/Moonshot](https://platform.moonshot.ai/) , [MiniMax](https://www.minimax.io/) , [Hugging Face](https://huggingface.co/) , OpenAI, or your own endpoint. Switch with `hermes model` \u2014 no code changes, no lock-in. ... Getting Started ```shell hermes # Interactive CLI \u2014 start a conversation hermes model # Choose your LLM provider and model hermes tools # Configure which tools are enabled hermes config set # Set individual config values hermes gateway # Start the messaging gateway (Telegram, Discord, etc.) hermes setup # Run the full setup wizard (configures everything at once) hermes claw migrate # Migrate from OpenClaw (if coming from OpenClaw) hermes update # Update to the latest version hermes doctor # Diagnose any issues ``` \ud83d\udcd6 **[Full documentation \u2192](https://hermes-agent.nousresearch.com/docs/)** CLI vs Messaging Quick Reference Hermes has two entry points: start the terminal UI with `hermes` , or run the gateway and talk to it from Telegram, Discord, Slack, WhatsApp, Signal, or Email.\n```shell hermes # Interactive CLI \u2014 start a conversation hermes model # Choose your LLM provider and model hermes tools # Configure which tools are enabled hermes config set # Set individual config values hermes gateway # Start the messaging gateway (Telegram, Discord, etc.) hermes setup # Run the full setup wizard (configures everything at once) hermes claw migrate # Migrate from OpenClaw (if coming from OpenClaw) hermes update # Update to the latest version hermes doctor # Diagnose any issues ``` \ud83d\udcd6 **[Full documentation \u2192](https://hermes-agent.nousresearch.com/docs/)** CLI vs Messaging Quick Reference Hermes has two entry points: start the terminal UI with `hermes` , or run the gateway and talk to it from Telegram, Discord, Slack, WhatsApp, Signal, or Email. Once you're in a conversation, many slash commands are shared across both interfaces. | Action | CLI | Messaging platforms | |\nhaonange1314/hermes-agent-20260429 Page: GitHub repository URL: https://github.com/haonange1314/hermes-agent-20260429 Description: The agent that grows with you Stars: 0 Forks: 1 License: MIT license Default branch: main Created: 2026-04-29T07:47:55.000Z Commits: 7,448 Top-level files .github/ .plans/ acp_adapter/ acp_registry/ agent/ assets/ cron/ datagen-config-examples/ docker/ docs/ environments/ gateway/ hermes_cli/ locales/ nix/ optional-skills/ packaging/homebrew/ plans/ plugins/ providers/ scripts/ skills/ tests/ tinker-atropos tools/ tui_gateway/ ui-tui/ web/ website/ .dockerignore .env.example .envrc .gitattributes .gitignore .gitmodules .mailmap AGENTS.md CONTRIBUTING.md Dockerfile LICENSE MANIFEST.in README.md README.zh-CN.md RELEASE_v0.10.0.md RELEASE_v0.11.0.md RELEASE_v0.12.0.md RELEASE_v0.2.0.md RELEASE_v0.3.0.md RELEASE_v0.4.0.md RELEASE_v0.5.0.md RELEASE_v0.6.0.md RELEASE_v0.7.0.md RELEASE_v0.8.0.md RELEASE_v0.9.0.md SECURITY.md batch_runner.py cli-config.yaml.example cli.py constraints-termux.txt docker-compose.yml flake.lock flake.nix hermes hermes-already-has-routines.md hermes_constants.py hermes_logging.py hermes_state.py hermes_time.py mcp_serve.py mini_swe_runner.py model_tools.py package-lock.json package.json pyproject.toml rl_cli.py run_agent.py setup-hermes.sh toolset_distributions.py toolsets.py trajectory_compressor.py utils.py uv.lock README.md [Hermes Agent](https://github.com/haonange1314/hermes-agent-20260429/blob/main/assets/banner.png) Hermes Agent \u2624 [Documentation](https://hermes-agent.nousresearch.com/docs/) [Discord](https://discord.gg/NousResearch) [License: MIT](https://github.com/NousResearch/hermes-agent/blob/main/LICENSE) [Built by Nous Research](https://nousresearch.com/) [\u4e2d\u6587](https://github.com/haonange1314/hermes-agent-20260429/blob/main/README.zh-CN.md) **The self-improving AI agent built by [Nous Research](https://nousresearch.com/) .** It's the only agent with a built-in learning loop \u2014 it creates skills from experience, improves them during use, nudges itself to persist knowledge, searches its own past conversations, and builds a deepening model of who you are across sessions. Run it on a $5 VPS, a GPU cluster, or serverless infrastructure that costs nearly nothing when idle.\n| [Configuration](https://hermes-agent.nousresearch.com/docs/user-guide/configuration) | Config file, providers, models, all options | | [Messaging Gateway](https://hermes-agent.nousresearch.com/docs/user-guide/messaging) | Telegram, Discord, Slack, WhatsApp, Signal, Home Assistant | | [Security](https://hermes-agent.nousresearch.com/docs/user-guide/security) | Command approval, DM pairing, container isolation | | [Tools & Toolsets](https://hermes-agent.nousresearch.com/docs/user-guide/features/tools) | 40+ tools, toolset system, terminal backends | | [Skills System](https://hermes-agent.nousresearch.com/docs/user-guide/features/skills) | Procedural memory, Skills Hub, creating skills | | [Memory](https://hermes-agent.nousresearch.com/docs/user-guide/features/memory) | Persistent memory, user profiles, best practices | | [MCP Integration](https://hermes-agent.nousresearch.com/docs/user-guide/features/mcp) | Connect any MCP server for extended capabilities | | [Cron Scheduling](https://hermes-agent.nousresearch.com/docs/user-guide/features/cron) | Scheduled tasks with platform delivery | | [Context Files](https://hermes-agent.nousresearch.com/docs/user-guide/features/context-files) |"
+            ],
+            "title": "GitHub - haonange1314/hermes-agent-20260429: The agent that grows with you \u00b7 GitHub"
+          },
+          {
+            "url": "https://docs.authlib.org/en/stable/oauth2/specs/rfc8628.html",
+            "excerpts": [
+              "RFC8628: OAuth 2.0 Device Authorization Grant\nRFC8628: OAuth 2.0 Device Authorization Grant \u00b6 This section contains the generic implementation of RFC8628. OAuth 2.0 Device Authorization Grant is usually used when devices have limited input capabilities or lack a suitable browser, such as smart TVs, media consoles, picture frames, printers and etc."
+            ],
+            "title": "RFC8628: OAuth 2.0 Device Authorization Grant"
+          },
+          {
+            "url": "https://www.rfc-editor.org/info/rfc8628",
+            "excerpts": [
+              "RFC 8628: OAuth 2.0 Device Authorization Grant | RFC Editor\nIt enables OAuth clients on such devices (like smart TVs, media consoles, digital picture frames, and printers) to obtain user authorization to access protected resources by using a user agent on a separate device."
+            ],
+            "title": "RFC 8628: OAuth 2.0 Device Authorization Grant | RFC Editor"
+          },
+          {
+            "url": "https://www.iankduncan.com/projects/rfc-browser/8628",
+            "excerpts": [
+              "RFC 8628: OAuth 2.0 Device Authorization Grant - Ian Duncan ...\nIt enables OAuth clients on such devices (like smart TVs, media consoles, digital picture frames, and printers) to obtain user authorization to access protected resources by using a user agent on a separate device."
+            ],
+            "title": "RFC 8628: OAuth 2.0 Device Authorization Grant - Ian Duncan ..."
+          },
+          {
+            "url": "https://docs.lumoauth.dev/oauth/device",
+            "excerpts": [
+              "Device Authorization Grant (RFC 8628) | LumoAuth Documentation\nThe Device Authorization Grant is the OAuth flow for devices that cannot run a browser or have very limited input \u2014 smart TVs, game consoles, CLI tools, printers, and similar."
+            ],
+            "title": "Device Authorization Grant (RFC 8628) | LumoAuth Documentation"
+          },
+          {
+            "url": "https://ashishsrivastav.com/blog/oauth2-device-authorization-grant-iot-cli",
+            "excerpts": [
+              "OAuth2 Device Grant: IoT & CLI Auth (RFC 8628)\nMaster the OAuth2 Device Authorization Grant (RFC 8628) for securing headless IoT devices and CLI tools without exposing credentials."
+            ],
+            "title": "OAuth2 Device Grant: IoT & CLI Auth (RFC 8628)"
+          },
+          {
+            "url": "https://developer.apple.com/documentation/signinwithapplerestapi/fetch-apple%27s-public-key-for-verifying-token-signature",
+            "excerpts": [
+              "Fetch Apple\u2019s public key to verify token signatures\nFrom this set of keys, select the key with the matching key identifier (kid) to verify the signature of any JSON Web Token (JWT) issued by Apple. For more information, see the JSON Web Signature specification."
+            ],
+            "title": "Fetch Apple\u2019s public key to verify token signatures"
+          },
+          {
+            "url": "http://support.apple.com/en-us/105078",
+            "excerpts": [
+              "When you select this option in Sign in with Apple, the Hide My Email addresses created use the address domain @privaterelay.appleid.com\n(last verified: 2026-07-19) When you select this option in Sign in with Apple, the Hide My Email addresses created use the address domain @privaterelay.appleid.com\nWhen you select this option in Sign in with Apple, the Hide My Email addresses created use the address domain @privaterelay.appleid.com."
+            ],
+            "title": null
+          },
+          {
+            "url": "https://is.docs.wso2.com/en/5.10.0/learn/private-key-jwt-client-authentication-for-oidc",
+            "excerpts": [
+              "Private Key JWT Client Authentication for OIDC"
+            ],
+            "title": "Private Key JWT Client Authentication for OIDC WSO2 https://is.docs.wso2.com \u203a learn \u203a private-key-jwt-client-..."
+          },
+          {
+            "url": "https://support.apple.com/en-az/guide/business/axm48c3280c0/web",
+            "excerpts": [
+              "Verify a domain in Apple Business\nMay 28, 2026 \u00b7 Add and verify a domain \u00b7 In Apple Business, sign in with a user whose role has permissions to view, edit, and delete the organization's domains."
+            ],
+            "title": "Verify a domain in Apple Business"
+          },
+          {
+            "url": "https://workos.com/blog/private-key-jwt-vs-client-secret",
+            "excerpts": [
+              "Private Key JWT vs Client Secret: Choosing the right OAuth"
+            ],
+            "title": "Private Key JWT vs Client Secret: Choosing the right OAuth ... WorkOS https://workos.com \u203a blog \u203a private-key-jwt-vs-client-se..."
+          },
+          {
+            "url": "https://stackbe.io/blog/stripe-webhook-best-practices",
+            "excerpts": [
+              "Stripe Webhook Best Practices: Reliability, Security, and ...\nA comprehensive guide to handling Stripe webhooks correctly, covering signature verification, idempotency, retry logic, and common pitfalls that cause payment issues."
+            ],
+            "title": "Stripe Webhook Best Practices: Reliability, Security, and ..."
+          },
+          {
+            "url": "https://www.hookbase.app/blog/stripe-webhook-best-practices",
+            "excerpts": [
+              "10 Stripe Webhook Best Practices for Production | Hookbase\nLearn how to handle Stripe webhooks reliably in production. Best practices for verification, idempotency, error handling, and more."
+            ],
+            "title": "10 Stripe Webhook Best Practices for Production | Hookbase"
+          },
+          {
+            "url": "https://www.stigg.io/blog-posts/best-practices-i-wish-we-knew-when-integrating-stripe-webhooks",
+            "excerpts": [
+              "Best practices I wish we knew when integrating Stripe webhooks\nDec 8, 2022 \u00b7 Anything you build relying on Stripe webhook has to be Idempotence. Don't miss this one! You can't persist the webhook and reprocess them later."
+            ],
+            "title": "Best practices I wish we knew when integrating Stripe webhooks"
+          },
+          {
+            "url": "https://stripe.com/blog/idempotency",
+            "excerpts": [
+              "Designing robust and predictable APIs with idempotency - Stripe\nFeb 22, 2017 \u00b7 Use idempotency and idempotency keys to allow clients to pass a unique value and retry requests as needed. Make sure that failures are handled\u00a0"
+            ],
+            "title": "Designing robust and predictable APIs with idempotency - Stripe"
+          },
+          {
+            "url": "https://hookcap.dev/blog/webhook-best-practices-retry-idempotency-error-handling",
+            "excerpts": [
+              "Webhook Best Practices: Retry Logic, Idempotency, and Error ...\nLearn how to build reliable webhook handlers with proper retry logic, idempotency keys, error handling, and queue-based processing. Practical patterns for production"
+            ],
+            "title": "Webhook Best Practices: Retry Logic, Idempotency, and Error ..."
+          },
+          {
+            "url": "https://docs.memberstack.com/hc/en-us/articles/7782712032539-Stripe-Customer-Portal",
+            "excerpts": [
+              "Stripe Customer Portal\nIn your Stripe dashboard, go to Settings Billing Customer Portal ; Under \"Subscription management\", enable \"Cancel subscriptions\" and/or \"Pause subscriptions\""
+            ],
+            "title": "Stripe Customer Portal"
+          },
+          {
+            "url": "https://docs.stripe.com/customer-management",
+            "excerpts": [
+              "Provide a customer portal to your customers - Stripe\nGive your customers the ability to manage their account by setting up a customer portal. Configure the portal in the Dashboard, or use the API to implement advanced features, such as setting up unique configurations for different customers or for connected accounts."
+            ],
+            "title": "Provide a customer portal to your customers - Stripe"
+          },
+          {
+            "url": "https://docs.softr.io/integrations/stripe-customer-portal",
+            "excerpts": [
+              "Stripe Customer Portal \u2013 Softr Help Docs\nTo access customer portal settings, you need to navigate to Settings => Billing => Customer Portal on your Stripe dashboard. Here you can specify what actions"
+            ],
+            "title": "Stripe Customer Portal \u2013 Softr Help Docs"
+          },
+          {
+            "url": "https://payrequest.io/blog/stripe-customer-portal-limitations-b2b-2026",
+            "excerpts": [
+              "Stripe Customer Portal Limitations: What B2B Businesses Are ...\nThis article examines exactly what Stripe's customer portal does and doesn't do, identifies the ten critical features B2B businesses are missing, and explains how to add them without switching away from Stripe."
+            ],
+            "title": "Stripe Customer Portal Limitations: What B2B Businesses Are ..."
+          },
+          {
+            "url": "https://docs.stripe.com/customer-management/configure-portal",
+            "excerpts": [
+              "Configure the customer portal"
+            ],
+            "title": "Configure the customer portal Stripe Documentation https://docs.stripe.com \u203a configu..."
+          },
+          {
+            "url": "https://dev.to/thekarlesi/stripe-subscription-lifecycle-in-nextjs-the-complete-developer-guide-2026-4l9d",
+            "excerpts": [
+              "Stripe Subscription Lifecycle in Next.js \u2014 The Complete ...\nThis guide walks you through the complete Stripe subscription lifecycle: from checkout session to webhook handling, customer portal integration, and automated churn recovery."
+            ],
+            "title": "Stripe Subscription Lifecycle in Next.js \u2014 The Complete ..."
+          },
+          {
+            "url": "https://wolf-tech.io/blog/stripe-integration-patterns-subscriptions-webhooks-hardening",
+            "excerpts": [
+              "Stripe Integration Patterns: Subscriptions, Webhooks, and the ...\nThis post covers the production patterns that matter: webhook verification and replay safety, idempotency across subscription events, keeping your database in sync with Stripe's state, and a testing strategy that catches billing bugs before your first invoice goes wrong."
+            ],
+            "title": "Stripe Integration Patterns: Subscriptions, Webhooks, and the ..."
+          },
+          {
+            "url": "https://andrewsrigom.github.io/agent-skills/packs/stripe/stripe-subscriptions-lifecycle-and-entitlements",
+            "excerpts": [
+              "Stripe Subscriptions Lifecycle And Entitlements | agent-skills\nDo not assume the success page means the subscription is fully active. Use webhooks to observe lifecycle changes. Keep access-control logic aligned with invoice and subscription reality. Persist entitlement or plan information in a way the app can resolve quickly."
+            ],
+            "title": "Stripe Subscriptions Lifecycle And Entitlements | agent-skills"
+          },
+          {
+            "url": "https://www.flycode.com/blog/stripe-guide-manage-stripe-billing-lifecycle-and-reporting",
+            "excerpts": [
+              "Stripe Guide: manage Stripe billing lifecycle and reporting\nFeb 10, 2025 \u2014 Stripe's configurable automation is limited and doesn't support advanced status configurations, potentially restricting flexibility for complex"
+            ],
+            "title": "Stripe Guide: manage Stripe billing lifecycle and reporting"
+          },
+          {
+            "url": "http://docs.stripe.com/billing/invoices/subscription",
+            "excerpts": [
+              "Subscription invoices - Stripe Documentation Manage subscription invoices including lifecycle stages, draft items, finalization, collection methods, payment behavior, and webhook events for billing."
+            ],
+            "title": "Subscription invoices - Stripe Documentation"
+          },
+          {
+            "url": "https://developers.cloudflare.com/workers/platform/pricing",
+            "excerpts": [
+              "Pricing \u00b7 Cloudflare Workers docs\nApr 23, 2026 \u2014 The Workers Paid plan includes Workers, Pages Functions, Workers KV, Hyperdrive, and Durable Objects usage for a minimum charge of $5 USD per month for an"
+            ],
+            "title": "Pricing \u00b7 Cloudflare Workers docs"
+          },
+          {
+            "url": "https://www.cloudflare.com/plans/developer-platform",
+            "excerpts": [
+              "Workers & Pages Pricing\nExplore pricing and plans across Cloudflare's development platform for serverless applications and JAMstack websites ... Request a demo \u00b7 Contact sales. SOLUTIONS."
+            ],
+            "title": "Workers & Pages Pricing"
+          },
+          {
+            "url": "https://developers.cloudflare.com/durable-objects/platform/pricing",
+            "excerpts": [
+              "Pricing \u00b7 Cloudflare Durable Objects docs\nStorage billing for SQLite-backed Durable Objects will be enabled in January 2026, with a target date of January 7, 2026 (no earlier). Only SQLite storage usage on and after the billing target date will incur charges."
+            ],
+            "title": "Pricing \u00b7 Cloudflare Durable Objects docs"
+          },
+          {
+            "url": "https://news.ycombinator.com/item?id=31492770",
+            "excerpts": [
+              "Cloudflare workers: $0.15 per 1M requests per month ...\nMay 24, 2022 \u2014 A Worker may consume up to 10 ms on the Free plan and up to 50 ms for Bundled Workers on the Paid Plan . The Paid Plan also offers up to a 30"
+            ],
+            "title": "Cloudflare workers: $0.15 per 1M requests per month ..."
+          },
+          {
+            "url": "https://developers.cloudflare.com/pages/functions/pricing",
+            "excerpts": [
+              "Pricing \u00b7 Cloudflare Pages docs\nFree Plan. Requests to your Pages Functions count towards your quota for the Workers Free plan. For example, you could use 50,000 Functions"
+            ],
+            "title": "Pricing \u00b7 Cloudflare Pages docs"
+          },
+          {
+            "url": "https://tailscale.com/docs/features/tailscale-funnel",
+            "excerpts": [
+              "Tailscale Funnel \u00b7 Tailscale Docs\nTo try it, follow the steps below to enable it for your network using Tailscale v1.38.3 or later. Tailscale Funnel is available for all plans. Tailscale Funnel lets you route traffic from the broader internet to a local service running on a device in your Tailscale network (known as a tailnet)."
+            ],
+            "title": "Tailscale Funnel \u00b7 Tailscale Docs"
+          },
+          {
+            "url": "https://github.com/tailscale/tailscale/issues/11849?timeline_page=1",
+            "excerpts": [
+              "Funnel works only within tailnet \u00b7 Issue #11849 \u00b7 tailscale ...\nIn the ACL, we need to edit the nodeAttrs section to add permission for the tag used on containers to use funnel. [\"autogroup:member\"],"
+            ],
+            "title": "Funnel works only within tailnet \u00b7 Issue #11849 \u00b7 tailscale ..."
+          },
+          {
+            "url": "https://github.com/tailscale/tailscale/issues/13109",
+            "excerpts": [
+              "FR: Enable ACL support for funnel. \u00b7 Issue #13109\nAug 12, 2024 \u2014 Providing the ability to set an ACL to limit access to the funneled service limits access. ... Given the power of Tailscale ACLs I hope"
+            ],
+            "title": "FR: Enable ACL support for funnel. \u00b7 Issue #13109"
+          },
+          {
+            "url": "https://tailscale.com/docs/reference/examples/funnel",
+            "excerpts": [
+              "Tailscale Funnel examples\nWith Tailscale Funnel, you can expose local services, folders, or text to the public internet over HTTPS. The status confirms the previous"
+            ],
+            "title": "Tailscale Funnel examples"
+          },
+          {
+            "url": "https://tailscale.com/docs/reference/tailscale-cli/funnel",
+            "excerpts": [
+              "tailscale funnel command\nThe funnel offers an HTTPS server that has a few modes: a reverse proxy, a file server, and a static text server. HTTPS traffic is secured"
+            ],
+            "title": "tailscale funnel command"
+          },
+          {
+            "url": "https://community.cloudflare.com/t/websocket-duration-limits/813611",
+            "excerpts": [
+              "Websocket Duration Limits - Cloudflare Workers - Cloudflare ...\nLimits \u00b7 Cloudflare Workers docs which says that worker runtime can terminate multiple times in a week for maintainance and the workers have 30sec max to terminate the request. My question is how does this impact websocket persistent connections which will stay open for more than 30seconds."
+            ],
+            "title": "Websocket Duration Limits - Cloudflare Workers - Cloudflare ..."
+          },
+          {
+            "url": "https://websocket.org/guides/infrastructure/cloudflare",
+            "excerpts": [
+              "Cloudflare WebSockets: CDN, Workers & Durable Objects\nFree and Pro plans allow WebSocket connections with a 100-second idle timeout. Business and Enterprise plans have higher limits and configurable timeouts."
+            ],
+            "title": "Cloudflare WebSockets: CDN, Workers & Durable Objects"
+          },
+          {
+            "url": "https://github.com/cloudflare/cloudflare-docs/blob/production/src/content/docs/durable-objects/best-practices/websockets.mdx",
+            "excerpts": [
+              "cloudflare-docs/src/content/docs/durable-objects/best ...\nHibernation WebSocket API - Allows the Durable Object to hibernate without disconnecting clients when idle. (recommended) Web Standard WebSocket API - Uses the familiar addEventListener event pattern."
+            ],
+            "title": "cloudflare-docs/src/content/docs/durable-objects/best ..."
+          },
+          {
+            "url": "https://github.com/guerrerocarlos/cloudflare-websockets",
+            "excerpts": [
+              "GitHub - guerrerocarlos/cloudflare-websockets: websocket ...\nThis project demonstrates how to use Cloudflare Workers with Durable Objects to create a WebSocket server that supports hibernation. The Durable Object can be evicted from memory during periods of inactivity, but the WebSocket connection remains open and can be reactivated when a message is received."
+            ],
+            "title": "GitHub - guerrerocarlos/cloudflare-websockets: websocket ..."
+          },
+          {
+            "url": "https://cheatsheetseries.owasp.org/cheatsheets/Server_Side_Request_Forgery_Prevention_Cheat_Sheet.html",
+            "excerpts": [
+              "Server-Side Request Forgery Prevention Cheat Sheet\nIn cloud environments SSRF is often used to access and steal credentials and access tokens from metadata services (e.g. AWS Instance Metadata Service, Azure"
+            ],
+            "title": "Server-Side Request Forgery Prevention Cheat Sheet"
+          },
+          {
+            "url": "https://www.rapid7.com/blog/post/2021/11/23/owasp-top-10-deep-dive-defending-against-server-side-request-forgery",
+            "excerpts": [
+              "OWASP Top 10 Deep Dive: Defending Against Server-Side ...\nNov 23, 2021 \u2014 SSRF allows an attacker to force the server-side application into making arbitrary web requests to an unintended domain."
+            ],
+            "title": "OWASP Top 10 Deep Dive: Defending Against Server-Side ..."
+          },
+          {
+            "url": "https://github.com/OWASP/CheatSheetSeries/blob/master/cheatsheets/Injection_Prevention_Cheat_Sheet.md",
+            "excerpts": [
+              "Injection_Prevention_Cheat_Sheet.md - GitHub\nThe OWASP Cheat Sheet Series was created to provide a concise collection of high value information on specific application security topics. - OWASP/CheatSheetSeries"
+            ],
+            "title": "Injection_Prevention_Cheat_Sheet.md - GitHub"
+          },
+          {
+            "url": "https://medium.com/%40yoshiyuki.watanabe/hands-on-understanding-of-owasp-top-10-server-side-request-forgery-ssrf-ebd091c48fa1",
+            "excerpts": [
+              "Hands-On Understanding of OWASP Top 10: Server-Side ...\nIn this example, we recursively use SSRF to access the internal service through the application itself. Attack 3: Cloud Metadata Endpoint."
+            ],
+            "title": "Hands-On Understanding of OWASP Top 10: Server-Side ..."
+          },
+          {
+            "url": "https://deepwiki.com/OWASP/CheatSheetSeries/4-injection-attack-prevention",
+            "excerpts": [
+              "Injection Attack Prevention | OWASP/CheatSheetSeries | DeepWiki\nInjection Attack Prevention Relevant source files Purpose and Scope This document provides an overview of injection attack vulnerabilities and general defense strategies applicable across multiple injection types. Injection attacks occur when untrusted data is sent to an interpreter as part of a command or query, allowing attackers to execute unintended commands or access unauthorized data"
+            ],
+            "title": "Injection Attack Prevention | OWASP/CheatSheetSeries | DeepWiki"
+          },
+          {
+            "url": "https://cybersecuritynews.com/apple-pq3-post-quantum-imessage",
+            "excerpts": [
+              "Apple Adds PQ3 post-quantum Encryption for iMessage\nApple has released its new PQ3 (post-quantum) cryptographic protocol, claimed to be the first-ever messaging protocol to reach Level 3 security. Apple announced its cryptographic protocol change in 2019 when it shifted from RSA to Elliptic Curve Cryptography (ECC), and several upgrades were made."
+            ],
+            "title": "Apple Adds PQ3 post-quantum Encryption for iMessage"
+          },
+          {
+            "url": "https://www.computerworld.com/article/4177108/apple-opens-its-post-quantum-encryption-vault.html",
+            "excerpts": [
+              "Apple opens its post-Quantum encryption vault"
+            ],
+            "title": "Apple opens its post-Quantum encryption vault Computerworld https://www.computerworld.com \u203a ..."
+          },
+          {
+            "url": "https://thequantuminsider.com/2024/02/21/apple-unveils-post-quantum-secure-messaging-with-imessage",
+            "excerpts": [
+              "Apple Unveils Post-Quantum Secure Messaging With iMessage\nBy integrating post-quantum cryptography into the very fabric of iMessage\u2019s security protocols, the Apple team hopes to not only sets a new standard for secure messaging but also addresses the critical challenge of key compromise."
+            ],
+            "title": "Apple Unveils Post-Quantum Secure Messaging With iMessage"
+          },
+          {
+            "url": "https://cloudsecurityalliance.org/blog/2024/05/17/apple-s-new-imessage-signal-and-post-quantum-cryptography",
+            "excerpts": [
+              "Apple's New iMessage, Signal, and Post-Quantum Cryptography\nApple recently updated their iMessage application with stronger security features, adopting cryptography believed to be secure against attack by quantum computers. They use common end-to-end encryption techniques, but there are aspects unique to their platform."
+            ],
+            "title": "Apple's New iMessage, Signal, and Post-Quantum Cryptography"
+          },
+          {
+            "url": "https://www.encryptionconsulting.com/microsoft-and-apple-advance-post-quantum-cryptography-support-in-upcoming-os-releases",
+            "excerpts": [
+              "Microsoft and Apple Advance Post-Quantum Cryptography Support ...\nAt the forefront of the shift to quantum-safe security, Microsoft and Apple are gearing up to embed post-quantum cryptography (PQC) into their next major operating system updates. These developments mark a significant milestone in preparing everyday digital platforms for the quantum computing era."
+            ],
+            "title": "Microsoft and Apple Advance Post-Quantum Cryptography Support ..."
+          },
+          {
+            "url": "https://hermes-agent.nousresearch.com/docs/getting-started",
+            "excerpts": [],
+            "title": "Page not found \u00b7 GitHub Pages"
+          },
+          {
+            "url": "https://github.com/NousResearch/hermes-agent/blob/main/README.md",
+            "excerpts": [],
+            "title": "hermes-agent/README.md at main \u00b7 NousResearch/hermes-agent \u00b7 GitHub"
+          },
+          {
+            "url": "https://hermes-agent.nousresearch.com/docs/architecture",
+            "excerpts": [],
+            "title": "Page not found \u00b7 GitHub Pages"
+          },
+          {
+            "url": "https://hermes-agent.nousresearch.com/docs/security",
+            "excerpts": [],
+            "title": "Page not found \u00b7 GitHub Pages"
+          },
+          {
+            "url": "https://docs.stripe.com/billing/entitlements",
+            "excerpts": [],
+            "title": "Entitlements | Stripe Documentation"
+          },
+          {
+            "url": "https://fly.io/docs/machines/overview",
+            "excerpts": [],
+            "title": "An introduction to Fly Machines \u00b7 Fly Docs"
+          },
+          {
+            "url": "https://developer.apple.com/documentation/signinwithapple",
+            "excerpts": [],
+            "title": "Sign in with Apple | Apple Developer Documentation"
+          },
+          {
+            "url": "https://ably.com/pricing",
+            "excerpts": [],
+            "title": "Fetched web page"
+          },
+          {
+            "url": "https://datatracker.ietf.org/doc/html/rfc8628",
+            "excerpts": [],
+            "title": "\n            \n                RFC 8628 - OAuth 2.0 Device Authorization Grant\n            \n        "
+          },
+          {
+            "url": "https://www.rfc-editor.org/rfc/rfc8628.html",
+            "excerpts": [],
+            "title": "Fetched web page"
+          },
+          {
+            "url": "https://messaginglayersecurity.rocks/",
+            "excerpts": [],
+            "title": "What is Messaging Layer Security (MLS)? | Messaging Layer Security (MLS)"
+          },
+          {
+            "url": "https://www.rfc-editor.org/rfc/rfc9420.html",
+            "excerpts": [],
+            "title": "RFC 9420: The Messaging Layer Security (MLS) Protocol"
+          },
+          {
+            "url": "https://docs.stripe.com/billing/subscriptions/webhooks",
+            "excerpts": [],
+            "title": "Fetched web page"
+          },
+          {
+            "url": "https://docs.stripe.com/webhooks",
+            "excerpts": [],
+            "title": "Fetched web page"
+          },
+          {
+            "url": "https://docs.stripe.com/webhooks/signature",
+            "excerpts": [],
+            "title": "Fetched web page"
+          },
+          {
+            "url": "https://docs.stripe.com/billing/subscriptions/cancel",
+            "excerpts": [],
+            "title": "Fetched web page"
+          },
+          {
+            "url": "https://docs.stripe.com/billing/subscriptions/payment",
+            "excerpts": [],
+            "title": "Fetched web page"
+          },
+          {
+            "url": "https://docs.stripe.com/tax",
+            "excerpts": [],
+            "title": "Fetched web page"
+          },
+          {
+            "url": "https://hermes-agent.nousresearch.com/docs/user-guide/installation",
+            "excerpts": [],
+            "title": "Page not found \u00b7 GitHub Pages"
+          },
+          {
+            "url": "https://hermes-agent.nousresearch.com/docs/getting-started/installation",
+            "excerpts": [],
+            "title": "Installation | Hermes Agent"
+          },
+          {
+            "url": "https://hermes-agent.nousresearch.com/docs/user-guide/portal",
+            "excerpts": [],
+            "title": "Page not found \u00b7 GitHub Pages"
+          },
+          {
+            "url": "https://developers.google.com/identity/openid-connect/openid-connect",
+            "excerpts": [],
+            "title": "OpenID Connect \u00a0|\u00a0 Sign in with Google \u00a0|\u00a0 Google for Developers"
+          },
+          {
+            "url": "https://developers.google.com/identity/oauth2/web/guides/use-token-model",
+            "excerpts": [],
+            "title": "Use the token model \u00a0|\u00a0 Web guides \u00a0|\u00a0 Google for Developers"
+          },
+          {
+            "url": "https://datatracker.ietf.org/doc/html/rfc7636",
+            "excerpts": [],
+            "title": "\n            \n                RFC 7636 - Proof Key for Code Exchange by OAuth Public Clients\n            \n        "
+          },
+          {
+            "url": "https://www.rfc-editor.org/rfc/rfc7636",
+            "excerpts": [],
+            "title": "RFC 7636: Proof Key for Code Exchange by OAuth Public Clients | RFC Editor"
+          },
+          {
+            "url": "https://docs.stripe.com/payments/checkout",
+            "excerpts": [],
+            "title": "Fetched web page"
+          },
+          {
+            "url": "https://stripe.com/pricing",
+            "excerpts": [],
+            "title": "Pricing & Fees"
+          },
+          {
+            "url": "https://hermes-agent.nousresearch.com/docs/developer-guide/security",
+            "excerpts": [],
+            "title": "Page not found \u00b7 GitHub Pages"
+          },
+          {
+            "url": "https://hermes-agent.nousresearch.com/docs/concepts/architecture",
+            "excerpts": [],
+            "title": "Page not found \u00b7 GitHub Pages"
+          },
+          {
+            "url": "https://hermes-agent.nousresearch.com/docs/concepts/local-first",
+            "excerpts": [],
+            "title": "Page not found \u00b7 GitHub Pages"
+          },
+          {
+            "url": "https://www.better-auth.com/docs/introduction",
+            "excerpts": [],
+            "title": "Introduction | Better Auth"
+          },
+          {
+            "url": "https://www.better-auth.com/",
+            "excerpts": [],
+            "title": "Better Auth"
+          },
+          {
+            "url": "https://supabase.com/pricing",
+            "excerpts": [],
+            "title": "Supabase Pricing"
+          },
+          {
+            "url": "https://tailscale.com/kb/1223/funnel",
+            "excerpts": [],
+            "title": "Tailscale Funnel"
+          },
+          {
+            "url": "https://workos.com/pricing",
+            "excerpts": [],
+            "title": "WorkOS Pricing"
+          },
+          {
+            "url": "https://okta.com/pricing",
+            "excerpts": [],
+            "title": "Plans and Pricing | Okta"
+          },
+          {
+            "url": "https://auth0.com/pricing",
+            "excerpts": [],
+            "title": "Auth0 Pricing"
+          },
+          {
+            "url": "https://hermes-agent.nousresearch.com/docs/concepts/overview",
+            "excerpts": [],
+            "title": "Page not found \u00b7 GitHub Pages"
+          },
+          {
+            "url": "https://dashboard.clerk.com/pricing",
+            "excerpts": [],
+            "title": "Sign in | Clerk.com"
+          },
+          {
+            "url": "https://clerk.com/pricing",
+            "excerpts": [],
+            "title": "Pricing \u2014 Free Up to 50K Users | Plans from $0/mo"
+          },
+          {
+            "url": "https://developers.cloudflare.com/workers/platform/limits",
+            "excerpts": [],
+            "title": "Limits \u00b7 Cloudflare Workers docs"
+          },
+          {
+            "url": "https://hermes-agent.nousresearch.com/docs/developer-guide/architecture",
+            "excerpts": [],
+            "title": "Architecture | Hermes Agent"
+          },
+          {
+            "url": "https://www.better-auth.com/docs/plugins/organization",
+            "excerpts": [],
+            "title": "Organization | Better Auth"
+          },
+          {
+            "url": "https://www.better-auth.com/docs/plugins/sso",
+            "excerpts": [],
+            "title": "Single Sign-On (SSO) | Better Auth"
+          },
+          {
+            "url": "https://docs.stripe.com/billing/subscriptions/overview",
+            "excerpts": [],
+            "title": "Fetched web page"
+          },
+          {
+            "url": "https://docs.stripe.com/billing",
+            "excerpts": [],
+            "title": "Fetched web page"
+          },
+          {
+            "url": "https://developer.apple.com/documentation/accountorganizationaldatasharing/creating-a-client-secret",
+            "excerpts": [],
+            "title": "Creating a client secret | Apple Developer Documentation"
+          },
+          {
+            "url": "https://hermes-agent.nousresearch.com/docs/getting-started/portal",
+            "excerpts": [],
+            "title": "Page not found \u00b7 GitHub Pages"
+          },
+          {
+            "url": "https://hermes-agent.nousresearch.com/docs/concepts/sessions",
+            "excerpts": [],
+            "title": "Page not found \u00b7 GitHub Pages"
+          },
+          {
+            "url": "https://hermes-agent.nousresearch.com/docs/user-guide/sessions",
+            "excerpts": [],
+            "title": "Sessions | Hermes Agent"
+          },
+          {
+            "url": "https://hermes-agent.nousresearch.com/docs/concepts/providers",
+            "excerpts": [],
+            "title": "Page not found \u00b7 GitHub Pages"
+          },
+          {
+            "url": "https://hermes-agent.nousresearch.com/docs/user-guide/providers",
+            "excerpts": [],
+            "title": "Page not found \u00b7 GitHub Pages"
+          },
+          {
+            "url": "https://toolradar.com/tools/cloudflare-tunnel",
+            "excerpts": [
+              "Cloudflare Tunnel Reviews, Pricing & Alternatives (2026)\nCloudflare Tunnel is available on a free tier, which is generous for personal use. For users requiring more extensive usage and additional features, paid plans are available to accommodate those needs."
+            ],
+            "title": "Cloudflare Tunnel Reviews, Pricing & Alternatives (2026)"
+          },
+          {
+            "url": "https://recca0120.github.io/en/2026/04/14/cloudflare-tunnel-2026",
+            "excerpts": [
+              "Cloudflare Tunnel in 2026: Expose localhost Without Opening ...\nDemo environments, webhook receivers, showing your coworker a work-in-progress \u2014 in 2026 Cloudflare Tunnel is almost always the lowest-friction answer. Generous free tier, security handled by Cloudflare, and the same setup carries from dev to production."
+            ],
+            "title": "Cloudflare Tunnel in 2026: Expose localhost Without Opening ..."
+          },
+          {
+            "url": "https://hermes-agent.nousresearch.com/",
+            "excerpts": [
+              "Hermes Agent | Nous Research\nNous Portal . All paid tiers include monthly credits for use in Hermes Agent, access to 300+ cutting-edge models and built-in tool use. View All Our Plans. Nous"
+            ],
+            "title": "Hermes Agent | Nous Research"
+          },
+          {
+            "url": "https://portal.nousresearch.com/manage-subscription",
+            "excerpts": [
+              "Nous Portal\nAll paid tiers include monthly credits for use in Hermes Agent, access to 200+ cutting-edge models and built-in tool use. Already have an account? Nous Research is a leader in the development of human-centric language models and simulators. Manage your account and API keys here."
+            ],
+            "title": "Nous Portal"
+          },
+          {
+            "url": "https://portal.nousresearch.com/info",
+            "excerpts": [
+              "Nous Portal\nHermes Cloud runs your own hosted Hermes Agent on a dedicated cloud instance, ready around the clock with its own workspace and dashboard. Pick a size, deploy in seconds, billed hourly from your Nous credit."
+            ],
+            "title": "Nous Portal"
+          },
+          {
+            "url": "https://hermes-agent.nousresearch.com/docs/user-guide/features/tool-gateway",
+            "excerpts": [
+              "Nous Tool Gateway - Hermes Agent\nOne subscription, every tool. Web search, image generation, TTS, and cloud browsers \u2014 all routed through Nous Portal with no extra API keys."
+            ],
+            "title": "Nous Tool Gateway - Hermes Agent"
+          },
+          {
+            "url": "https://thisumang.substack.com/p/hermes-agent-the-full-setup-guide",
+            "excerpts": [
+              "Hermes Agent: The Full Setup Guide - by Umang Chauhan\nWhat you want Command Start chatting in terminal hermes Pick or change the model hermes model or /model Full setup wizard hermes setup Easy all-in-one provider hermes setup --portal Choose enabled tools hermes tools Set up messaging hermes gateway setup Run gateway 24/7 hermes gateway install then hermes gateway start Approve a paired user"
+            ],
+            "title": "Hermes Agent: The Full Setup Guide - by Umang Chauhan"
+          },
+          {
+            "url": "https://curity.io/resources/learn/validating-an-id-token",
+            "excerpts": [
+              "How to Validate an OpenID Connect ID Token\nThis article shows how to validate an OpenID Connect ID Token. Find out what each part of the token means and when to use JWT tokens."
+            ],
+            "title": "How to Validate an OpenID Connect ID Token"
+          },
+          {
+            "url": "http://developers.google.com/identity/openid-connect/reference",
+            "excerpts": [
+              "Mar 27, 2026 \u2014 This page describes Google's implementation as an OpenID Connect provider and provides the technical reference for Google's OIDC endpoints."
+            ],
+            "title": "Google OpenID Connect API Reference | Authentication"
+          },
+          {
+            "url": "https://openid.net/specs/openid-connect-discovery-1_0.html",
+            "excerpts": [
+              "OpenID Connect Discovery 1.0 incorporating errata set 2\nThis specification defines a mechanism for an OpenID Connect Relying Party to discover the End-User's OpenID Provider and obtain information needed to interact with it, including its OAuth 2.0 endpoint locations."
+            ],
+            "title": "OpenID Connect Discovery 1.0 incorporating errata set 2"
+          },
+          {
+            "url": "https://learn.microsoft.com/en-us/entra/external-id/customers/how-to-custom-oidc-federation-customers",
+            "excerpts": [
+              "Add OpenID Connect as an external identity provider\nJun 11, 2026 \u2014 Well-known endpoint (also known as metadata URI) is the OIDC discovery URI to obtain the configuration information for your identity provider."
+            ],
+            "title": "Add OpenID Connect as an external identity provider"
+          },
+          {
+            "url": "http://docs.stripe.com/api/events",
+            "excerpts": [
+              "For example, if you create a new subscription for a customer, it triggers both a `customer.subscription.created` event and a `charge.succeeded` event."
+            ],
+            "title": "Fetched web page"
+          },
+          {
+            "url": "http://docs.stripe.com/webhooks",
+            "excerpts": [
+              "Stripe attempts to deliver events to your destination for up to three days with an exponential back off in live mode. View when the next retry will occur, if applicable, in your event destination's **Event deliveries** tab.We retry event deliveries created in a sandbox three times over the course of a few hours\ncustomer. subscription. created` `invoice. created` `invoice. paid` `charge. created"
+            ],
+            "title": "Receive Stripe events in your webhook endpoint | Stripe Documentation"
+          },
+          {
+            "url": "https://docs.stripe.com/api/webhook_endpoints/create?lang=create_subscription",
+            "excerpts": [
+              "Create a webhook endpoint | Stripe API Reference\nA webhook endpoint must have a url and a list of enabled _ events. You may optionally specify the Boolean connect parameter."
+            ],
+            "title": "Create a webhook endpoint | Stripe API Reference"
+          },
+          {
+            "url": "https://github.com/cclank/Hermes-Wiki/blob/master/concepts/messaging-gateway-architecture.md",
+            "excerpts": [
+              "messaging-gateway-architecture.md\nGateway \u662fHermes Agent \u7684\u7edf\u4e00\u6d88\u606f\u7f51\u5173\uff0c\u622a\u81f32026-06-09 \u652f\u630124 \u4e2a\u6d88\u606f\u5e73\u53f0\uff08\u542b7 \u4e2a\u63d2\u4ef6\u5e73\u53f0\uff1aIRC / Teams / Google Chat / LINE / SimpleX Chat / ntfy / Photon"
+            ],
+            "title": "messaging-gateway-architecture.md"
+          },
+          {
+            "url": "https://github.com/FrankFilippi/hermes-agent-source-wiki/blob/main/concepts/messaging-gateway-architecture.md",
+            "excerpts": [
+              "hermes-agent-source-wiki/concepts/messaging-gateway ... - GitHub\nA documentation wiki explaining the internal architecture of NousResearch's Hermes Agent framework \u2014 how its tools, memory, skills, multi-agent and gateway systems actually work, mapped to verified source code."
+            ],
+            "title": "hermes-agent-source-wiki/concepts/messaging-gateway ... - GitHub"
+          },
+          {
+            "url": "https://akjamie.github.io/post/2026-05-19-gateway-deep-dive",
+            "excerpts": [
+              "Building a Multi-Platform Agentic Gateway: A Deep Dive into ...\nThis document is a comprehensive deep dive into the Hermes Gateway \u2014 ~75,000+ lines of Python across 50+ modules connecting an AI agent to 15+ messaging platforms (Telegram, Discord, Slack, WhatsApp, Signal, Matrix, and more)."
+            ],
+            "title": "Building a Multi-Platform Agentic Gateway: A Deep Dive into ..."
+          },
+          {
+            "url": "https://zread.ai/NousResearch/hermes-agent/17-messaging-gateway-and-platforms",
+            "excerpts": [
+              "Messaging Gateway and Platforms | NousResearch/hermes-agent ...\nThis page explains the gateway's architecture, how platform adapters work, how sessions and delivery are managed, and how to extend the system with new platforms."
+            ],
+            "title": "Messaging Gateway and Platforms | NousResearch/hermes-agent ..."
+          },
+          {
+            "url": "https://www.reddit.com/r/applehelp/comments/qrr58d/hide_my_email_is_not_forwarding_any_emails",
+            "excerpts": [
+              "Hide My Email is not forwarding any emails. : r/applehelp\nFix: So the fix is just to add a new email that Apple can forward to that isn't a Gmail account (e.g. Protonmail) and set that as your forward"
+            ],
+            "title": "Hide My Email is not forwarding any emails. : r/applehelp"
+          },
+          {
+            "url": "https://www.airship.com/docs/developer/api-integrations/email/apple-private-email-relay",
+            "excerpts": [
+              "Apple Private Email Relay \u00b7 Airship Docs\nIf you use the Sign in with Apple login service in your app, your users can choose to route emails from you through Apple's private email relay service."
+            ],
+            "title": "Apple Private Email Relay \u00b7 Airship Docs"
+          },
+          {
+            "url": "https://discussions.apple.com/thread/255031683",
+            "excerpts": [
+              "Hide My Email not forwarding emails\nJul 30, 2023 \u2014 1.) Go to Settings > [your name] > iCloud > Hide My Email. 2.) Select the affected website or service that no longer forwards emails to you. 3."
+            ],
+            "title": "Hide My Email not forwarding emails"
+          },
+          {
+            "url": "https://discussions.apple.com/thread/254553187",
+            "excerpts": [
+              "Hide My Email does not forward emails to \u2026\nJan 16, 2023 \u2014 The only issue I see is the developer did not whitelist all the domain names they use, then Apple block the forwards. But this issue happens"
+            ],
+            "title": "Hide My Email does not forward emails to \u2026"
+          },
+          {
+            "url": "https://support.google.com/mail/thread/406398686/emails-from-apple%E2%80%99s-%E2%80%9Csign-in-with-apple%E2%80%9D-%E2%80%9Chide-my-email%E2%80%9D-aren%E2%80%99t-being-received-in-my-gmail-inbox?hl=en",
+            "excerpts": [
+              "Emails from Apple's \u201cSign in with Apple\u201d / \u201cHide My Email\u201d ...\nFeb 1, 2026 \u2014 Apple could be blocking those sign in messages from being forwarded, despite forwarding being enabled on the iCloud side. As for the hide my"
+            ],
+            "title": "Emails from Apple's \u201cSign in with Apple\u201d / \u201cHide My Email\u201d ..."
+          },
+          {
+            "url": "https://hermesatlas.com/guide/install",
+            "excerpts": [
+              "How to Install Hermes Agent (2026 Setup Guide)\nInstall Hermes Agent v0.18.0 in 2 minutes \u2014 macOS, Linux, Windows WSL2 \u2014 with the full troubleshooting tree."
+            ],
+            "title": "How to Install Hermes Agent (2026 Setup Guide)"
+          },
+          {
+            "url": "https://www.hostinger.com/tutorials/how-to-set-up-hermes-agent",
+            "excerpts": [
+              "How to set up Hermes Agent (step-by-step guide) - Hostinger\nLearn how to set up Hermes Agent on a VPS with Docker, configure it correctly, and manage your infrastructure efficiently."
+            ],
+            "title": "How to set up Hermes Agent (step-by-step guide) - Hostinger"
+          },
+          {
+            "url": "https://hermes-agent.nousresearch.com/docs/reference/cli-commands",
+            "excerpts": [
+              "CLI Commands Reference | Hermes Agent - nous research\nLaunch the web dashboard for managing config, API keys, and sessions. It can add new providers, run OAuth flows, prompt for API keys, and configure endpoints."
+            ],
+            "title": "CLI Commands Reference | Hermes Agent - nous research"
+          }
+        ],
+        "confidence": "medium"
+      }
+    ],
+    "type": "text",
+    "beta_fields": null,
+    "mcp_tool_calls": null,
+    "content_file": "hermes-public-saas-architecture-2026-07.md"
+  }
+}
