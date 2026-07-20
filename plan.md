@@ -316,6 +316,7 @@ Status values: `pending` | `in_progress` | `blocked` | `done`. Claim a row by se
 
 ## 2. File Ownership Map (append-only lock table — claim before touching)
 
+- `hermes-mobile/app.json` (orientation + android.edgeToEdgeEnabled + plugin registration + png crunch flag only), `hermes-mobile/plugins/withPlayConsoleAndroidHardening.js`, `hermes-mobile/App.tsx` (remove RN StatusBar only), `hermes-mobile/src/__tests__/playConsoleAndroidHardeningContract.test.ts`, `hermes-mobile/docs/PLAY-CONSOLE-ZERO-ACTIONS-20260720.md`, `plan.md` → **cursor-play-zero-actions** (T-PLAY-ZERO-ACTIONS) (2026-07-20T20:06:00Z)
 - T-BROWSER-CONTROL claimed files → **released by cursor-browser-control** after PR #616 merge `46deed19` (CDP heal + webbridge scaffold); follow-on debugger path claimed below (2026-07-20T19:42:14Z)
 - `extensions/hermes-webbridge/`, `scripts/hermes-chrome-debugger-bridge.js`, `scripts/install-hermes-chrome-debugger.sh`, `scripts/install-browser-bridge.sh` (debugger mode only), `com.hermes.chrome-debugger.plist`, `tests/test-hermes-chrome-debugger.js`, `docs/BROWSER-CONTROL.md`, `docs/KIMI-WEBBRIDGE-TEARDOWN.md`, `plan.md` → **cursor-chrome-debugger** (T-CHROME-DEBUGGER) (2026-07-20T19:42:14Z)
 

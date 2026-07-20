@@ -7,7 +7,7 @@
       "reactCompiler": true
     },
     "version": "1.2",
-    "orientation": "portrait",
+    "orientation": "default",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
     "splash": {
@@ -85,6 +85,7 @@
       "package": "com.iganapolsky.hermesmobile",
       "versionCode": 14,
       "userInterfaceStyle": "dark",
+      "edgeToEdgeEnabled": true,
       "allowBackup": false,
       "softwareKeyboardLayoutMode": "resize",
       "blockedPermissions": [
@@ -113,6 +114,7 @@
     "plugins": [
       "./plugins/withEmbeddedJsBundle.js",
       "./plugins/withNetworkSecurityConfig.js",
+      "./plugins/withPlayConsoleAndroidHardening.js",
       "expo-updates",
       "./plugins/withHermesAiGlasses.js",
       "./plugins/withHermesAppleIntelligence.js",
@@ -127,6 +129,7 @@
             ],
             "enableMinifyInReleaseBuilds": true,
             "enableShrinkResourcesInReleaseBuilds": true,
+            "enablePngCrunchInReleaseBuilds": true,
             "extraProguardRules": "# Play Billing (expo-iap)\n-keep class com.android.billingclient.api.** { *; }\n-dontwarn com.android.billingclient.api.**\n# ML Kit barcode + libbarhopper (expo-camera QR scanner)\n-keep class com.google.mlkit.** { *; }\n-keep class com.google.android.gms.internal.mlkit_vision_** { *; }\n-keep class com.google.android.libraries.barhopper.** { *; }\n-keep class com.google.android.gms.vision.** { *; }\n-dontwarn com.google.mlkit.**\n-dontwarn com.google.android.gms.internal.mlkit_vision_**\n# JNI / reflection native methods safety net\n-keepclasseswithmembernames class * { native <methods>; }"
           }
         }
