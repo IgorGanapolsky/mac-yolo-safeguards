@@ -7,7 +7,7 @@ export default function robots(): MetadataRoute.Robots {
       allow: "/",
       disallow: ["/dashboard", "/api/"],
     },
-    sitemap: "https://leash.dev/sitemap.xml",
-    host: "https://leash.dev",
+    sitemap: "https://thumbgate.app/sitemap.xml",
+    host: "https://thumbgate.app",
   };
 }
