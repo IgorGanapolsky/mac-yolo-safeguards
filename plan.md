@@ -1186,3 +1186,5 @@ Status values: `pending` | `in_progress` | `blocked` | `done`. Claim a row by se
 ### 2026-07-20 — PR #629 CI ownership claim
 
 - 2026-07-20T19:05:00Z `cursor-aso-search`: Active §2 claim for ASO search-gap listing files so macOS guard kit ownership gate passes (clean re-cut omitted plan.md).
+
+- 2026-07-20T19:57:59Z `cursor-asc-leash-remove`: **ASC IAP `thumbgate_leash_monthly` (id `6788168309`) now `DEVELOPER_REMOVED_FROM_SALE`.** ASC API proof: `availableInNewTerritories=false`, `availableTerritories=[]`. Artifact: `hermes-mobile/docs/proofs/asc/thumbgate_leash_monthly-removed-latest.json`. API alone cannot remove (Account Holder only / 409); Chrome Remove-from-Sale + confirm completed despite Chrome instability. Play `.paid` Console untouched. OTA `c2da779c` unchanged (web-only hard gate).
