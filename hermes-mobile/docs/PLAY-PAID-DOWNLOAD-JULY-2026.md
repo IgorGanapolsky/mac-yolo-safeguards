@@ -19,10 +19,13 @@
 ## EAS
 
 - Profile: `production-android-paid` (`HERMES_ANDROID_STORE_SKU=paid`)
-- Build (2026-07-20): `aafdd2dc-18ff-4d43-b5ac-75518e6d1e74`
+- Build (2026-07-20): `aafdd2dc-18ff-4d43-b5ac-75518e6d1e74` — **FINISHED**
   - https://expo.dev/accounts/igorganapolsky/projects/hermes-mobile/builds/aafdd2dc-18ff-4d43-b5ac-75518e6d1e74
+  - AAB artifact: https://expo.dev/artifacts/eas/fE8gxenciksKsv_A9gv4gx9rgo6fAp9gFiMj6cQ7TbQ.aab
+  - versionCode **15** (local copy: `/tmp/hermes-paid-aab/hermes-mobile-paid-vc15.aab`, ~28MB)
 - Starter credits at 100%; build proceeded on pay-as-you-go
 - EAS generated a **new Android keystore** for the paid applicationId (expected; different package)
+- Upload blocked until SA has App permissions on `.paid` (Publisher API `edits` still **403**)
 
 ## Live store proof (re-check before ship claims)
 
