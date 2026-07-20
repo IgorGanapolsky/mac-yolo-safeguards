@@ -43,7 +43,7 @@ Source and setup: github.com/IgorGanapolsky/mac-yolo-safeguards
 
 Publisher: Igor Ganapolsky
 
-Looking for Hermes Agent? That is a different app (on-device Android AI).
+Looking for "Hermes Agent"? That is a different app (on-device Android AI).
 
 HOW THIS DIFFERS FROM OTHER "HERMES" APPS
 
