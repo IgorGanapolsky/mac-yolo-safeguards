@@ -88,6 +88,37 @@ export class RelayStore {
     return projectThread(this.listEvents(accountId, threadId));
   }
 
+  listThreads(accountId, { includeDeleted = false } = {}) {
+    validateId(accountId, "account_id");
+    if (typeof includeDeleted !== "boolean") {
+      throw new ProtocolValidationError("includeDeleted must be a boolean");
+    }
+    const prefix = `${accountId}\u0000`;
+    const threads = [];
+    for (const [key, events] of this.#threads.entries()) {
+      if (!key.startsWith(prefix)) continue;
+      const thread = projectThread(events);
+      if (thread.deleted && !includeDeleted) continue;
+      const lastEvent = events.at(-1);
+      const lastMessage = thread.messages.at(-1);
+      threads.push({
+        thread_id: key.slice(prefix.length),
+        title: thread.title,
+        deleted: thread.deleted,
+        last_seq: thread.last_seq,
+        updated_at: lastEvent?.occurred_at ?? null,
+        message_count: thread.messages.length,
+        last_message_preview: lastMessage?.text.slice(0, 160) ?? null,
+      });
+    }
+    return threads
+      .sort((left, right) => {
+        const timeOrder = String(right.updated_at).localeCompare(String(left.updated_at));
+        return timeOrder || left.thread_id.localeCompare(right.thread_id);
+      })
+      .map((thread) => structuredClone(thread));
+  }
+
   exportState() {
     return {
       schema_version: PROTOCOL_SCHEMA_VERSION,

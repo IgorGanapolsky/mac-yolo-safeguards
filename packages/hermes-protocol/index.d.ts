@@ -53,6 +53,16 @@ export interface AppendResult {
   event: ThreadEvent;
 }
 
+export interface ThreadSummary {
+  thread_id: string;
+  title: string | null;
+  deleted: boolean;
+  last_seq: number;
+  updated_at: string | null;
+  message_count: number;
+  last_message_preview: string | null;
+}
+
 export interface CommitContext {
   request: import("node:http").IncomingMessage;
   result: AppendResult;
@@ -63,6 +73,7 @@ export class RelayStore {
   append(input: ThreadMutation): AppendResult;
   listEvents(accountId: string, threadId: string, options?: { afterSeq?: number }): ThreadEvent[];
   getThread(accountId: string, threadId: string): ProjectedThread;
+  listThreads(accountId: string, options?: { includeDeleted?: boolean }): ThreadSummary[];
   exportState(): RelayState;
   static fromState(
     state: unknown,

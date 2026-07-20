@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#090b12">
+    <meta name="description" content="Continue your Hermes threads from any computer.">
+    <link rel="manifest" href="/manifest.webmanifest">
+    <link rel="stylesheet" href="/styles.css">
+    <title>Hermes Threads</title>
+  </head>
+  <body>
+    <main id="app" class="app-shell">
+      <section id="login-view" class="login-view" aria-labelledby="login-title">
+        <div class="brand-mark" aria-hidden="true">H</div>
+        <p class="eyebrow">Hermes</p>
+        <h1 id="login-title">Pick up where you left off.</h1>
+        <p class="lede">Open the same private threads you use on your phone.</p>
+        <form id="login-form" class="login-form">
+          <label for="access-code">Web access code</label>
+          <input id="access-code" name="access-code" type="password" autocomplete="current-password" required>
+          <button type="submit">Continue</button>
+          <p id="login-error" class="error" role="alert" hidden></p>
+        </form>
+      </section>
+
+      <section id="dashboard-view" class="dashboard" hidden>
+        <aside class="sidebar" aria-label="Threads">
+          <header class="sidebar-header">
+            <div>
+              <p class="eyebrow">Hermes</p>
+              <h1>Threads</h1>
+            </div>
+            <button id="refresh-threads" class="icon-button" type="button" aria-label="Refresh threads">↻</button>
+          </header>
+          <label class="thread-search">
+            <span class="sr-only">Search threads</span>
+            <input id="thread-search" type="search" placeholder="Search threads" autocomplete="off">
+          </label>
+          <div id="thread-list" class="thread-list" role="list"></div>
+          <footer>
+            <span id="account-label"></span>
+            <button id="logout-button" class="quiet-button" type="button">Sign out</button>
+          </footer>
+        </aside>
+
+        <section class="conversation" aria-labelledby="thread-title">
+          <header class="conversation-header">
+            <button id="mobile-thread-button" class="icon-button mobile-only" type="button" aria-label="Show threads">☰</button>
+            <div>
+              <p class="eyebrow">Shared with your phone</p>
+              <h2 id="thread-title">Select a thread</h2>
+            </div>
+            <button id="delete-thread" class="danger-button" type="button" hidden>Delete</button>
+          </header>
+          <div id="connection-status" class="status" role="status" aria-live="polite"></div>
+          <div id="messages" class="messages" aria-live="polite">
+            <div class="empty-state">
+              <div class="empty-orb" aria-hidden="true"></div>
+              <h3>Your conversations, on the bigger screen.</h3>
+              <p>Choose a thread to continue exactly where you stopped.</p>
+            </div>
+          </div>
+          <form id="composer" class="composer" hidden>
+            <label class="sr-only" for="message-input">Message Hermes</label>
+            <textarea id="message-input" rows="1" placeholder="Message Hermes" required></textarea>
+            <button id="send-button" type="submit">Send</button>
+          </form>
+        </section>
+      </section>
+    </main>
+    <script type="module" src="/app.js"></script>
+  </body>
+</html>
