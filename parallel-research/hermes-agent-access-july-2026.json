@@ -1,0 +1,36 @@
+{
+  "topic": "Hermes agent access policy",
+  "accessed_at": "2026-07-20",
+  "search_runs": [
+    "search_6fdee4580a064f21b03eeda421f0d939",
+    "search_6b7c29425aae4becab7cc4b631552510"
+  ],
+  "decision": "Keep Tailscale as the private transport and enforce actor identity, account scope, least-privilege thread actions, runtime expiry, and bounded secret-free authorization receipts in the shared Hermes protocol server.",
+  "sources": [
+    {
+      "url": "https://tailscale.com/docs/reference/best-practices/security",
+      "finding": "Use least-privilege access controls, tests, audit logs, and removal of unused clients and keys."
+    },
+    {
+      "url": "https://tailscale.com/docs/features/oauth-clients",
+      "finding": "OAuth access is scoped and access tokens expire, reinforcing scoped and expiring Hermes grants."
+    },
+    {
+      "url": "https://tailscale.com/changelog",
+      "finding": "Checked for July 2026 product changes before finalizing the transport decision."
+    },
+    {
+      "url": "https://opentelemetry.io/docs/specs/semconv/http/http-spans/",
+      "finding": "Use normalized HTTP attributes and avoid sensitive header capture."
+    },
+    {
+      "url": "https://opentelemetry.io/docs/specs/semconv/gen-ai/gen-ai-agent-spans/",
+      "finding": "Keep a vendor-neutral callback because agent semantic conventions are still evolving."
+    }
+  ],
+  "rejected": [
+    "New access proxy or identity vendor for the first policy increment",
+    "Authorization implemented separately in each client",
+    "Bearer tokens, headers, request bodies, or chat content in authorization receipts"
+  ]
+}
