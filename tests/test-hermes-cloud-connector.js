@@ -16,6 +16,7 @@ const {
   gatewayHeaders,
   loadConfig,
   pairingDashboardUrl,
+  pairingMatchesControlPlane,
   parseDotEnvValue,
   resolveGatewayApiKey,
   saveConfig,
@@ -65,6 +66,15 @@ test('pairing link opens the signed-in dashboard with a prefilled short code', (
   assert.equal(target.origin, 'https://thumbgate.app');
   assert.equal(target.pathname, '/dashboard');
   assert.equal(target.searchParams.get('pair'), 'ABCD-EFGH');
+});
+
+test('reuses pairing only for the control-plane origin that issued it', () => {
+  const paired = { deviceId: 'device-1', controlPlaneUrl: 'https://thumbgate.app/' };
+  assert.equal(pairingMatchesControlPlane(paired, 'https://thumbgate.app'), true);
+  assert.equal(pairingMatchesControlPlane(paired, 'https://app.thumbgate.app'), false);
+  assert.equal(pairingMatchesControlPlane({ deviceId: 'legacy-device' }, 'https://thumbgate.app'), false);
+  assert.equal(pairingMatchesControlPlane({ ...paired, controlPlaneUrl: 'https://old-control.example' }, 'https://thumbgate.app'), false);
+  assert.equal(pairingMatchesControlPlane({ ...paired, controlPlaneUrl: 'not-a-url' }, 'https://thumbgate.app'), false);
 });
 
 test('context upload is bounded before it leaves the Mac', () => {
