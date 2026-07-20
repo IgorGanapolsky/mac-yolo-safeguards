@@ -1,11 +1,18 @@
 import { requireSession } from "@/lib/auth";
 import { audit } from "@/lib/audit";
+import { hasCloudContinuationAccess } from "@/lib/entitlements";
 import { db } from "@/lib/runtime";
 import { jsonError } from "@/lib/security";
 
 export async function POST(request: Request) {
   let session;
   try { session = await requireSession(); } catch { return jsonError("sign in required", 401); }
+  const organization = await db().prepare(
+    "SELECT plan, trial_ends_at AS trialEndsAt FROM organizations WHERE id = ?",
+  ).bind(session.organizationId).first<{ plan: string; trialEndsAt: number | null }>();
+  if (!organization || !hasCloudContinuationAccess(organization)) {
+    return jsonError("managed cloud continuation requires an active trial or subscription", 402);
+  }
   const payload = await request.json().catch(() => null) as { taskId?: string } | null;
   if (!payload?.taskId) return jsonError("taskId is required");
   const update = await db().prepare(

@@ -1,4 +1,4 @@
-import { integer, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
+import { integer, primaryKey, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
 
 export const users = sqliteTable("users", {
   id: text("id").primaryKey(),
@@ -138,3 +138,10 @@ export const billingEvents = sqliteTable("billing_events", {
   organizationId: text("organization_id").references(() => organizations.id, { onDelete: "set null" }),
   processedAt: integer("processed_at").notNull(),
 });
+
+export const funnelCounters = sqliteTable("funnel_counters", {
+  day: text("day").notNull(),
+  event: text("event").notNull(),
+  count: integer("count").notNull().default(0),
+  updatedAt: integer("updated_at").notNull(),
+}, (table) => [primaryKey({ columns: [table.day, table.event] })]);

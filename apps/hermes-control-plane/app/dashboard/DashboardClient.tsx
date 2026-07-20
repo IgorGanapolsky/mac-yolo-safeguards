@@ -3,10 +3,10 @@
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 
 type User = { id: string; email: string; name: string; avatarUrl: string | null };
-type Organization = { id: string; plan: string };
+type Organization = { id: string; plan: string; trialEndsAt: number | null; cloudAccess: boolean };
 type Device = { id: string; name: string; fingerprint: string; failoverMode: "disabled" | "manual" | "auto"; lastSeenAt: number | null; online: boolean };
 type Thread = { id: string; title: string; taskCount: number; updatedAt: number; source: string; model: string | null; preview: string | null; messageCount: number; sourceSessionId: string | null; syncedAt: number | null; deviceName: string | null };
-type Task = { id: string; threadId: string; threadTitle: string; prompt: string; status: string; route: string; result: string | null; error: string | null; createdAt: number; deviceName: string | null };
+type Task = { id: string; threadId: string; threadTitle: string; prompt: string; status: string; route: string; result: string | null; error: string | null; createdAt: number; updatedAt: number; completedAt: number | null; deviceName: string | null };
 type ThreadDetails = { snapshot: Array<{ role: string; content: string }>; tasks: Array<{ prompt: string; result: string | null; error: string | null; route: string; status: string; createdAt: number }> };
 
 const terminal = new Set(["completed", "failed"]);
@@ -18,6 +18,13 @@ function age(timestamp: number | null) {
   if (seconds < 60) return `${seconds}s ago`;
   if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
   return `${Math.floor(seconds / 3600)}h ago`;
+}
+
+function latency(milliseconds: number | null) {
+  if (milliseconds === null) return "—";
+  if (milliseconds < 1000) return `${milliseconds}ms`;
+  if (milliseconds < 60_000) return `${(milliseconds / 1000).toFixed(1)}s`;
+  return `${Math.round(milliseconds / 60_000)}m`;
 }
 
 export default function DashboardClient() {
@@ -57,6 +64,16 @@ export default function DashboardClient() {
   }, [load]);
   const activeTasks = useMemo(() => tasks.filter((task) => !terminal.has(task.status)), [tasks]);
   const visibleTasks = selectedThread ? tasks.filter((task) => task.threadId === selectedThread) : tasks;
+  const onlineDevices = devices.filter((device) => device.online);
+  const p95CompletionLatency = useMemo(() => {
+    const durations = tasks
+      .filter((task) => task.status === "completed" && task.completedAt)
+      .map((task) => (task.completedAt as number) - task.createdAt)
+      .sort((left, right) => left - right);
+    if (!durations.length) return null;
+    return durations[Math.max(0, Math.ceil(durations.length * 0.95) - 1)];
+  }, [tasks]);
+  const accountPlan = organization?.cloudAccess ? organization.plan : "free";
 
   async function pair(event: FormEvent) {
     event.preventDefault(); setBusy(true); setNotice(null);
@@ -100,21 +117,22 @@ export default function DashboardClient() {
   return (
     <main className="dashboard-shell">
       <aside className="sidebar">
-        <a href="/dashboard" className="brand"><Mark /><span>Hermes Control</span></a>
+        <a href="/dashboard" className="brand"><Mark /><span>Leash <small>by ThumbGate</small></span></a>
         <div className="workspace-label">WORKSPACE</div>
         <button className={!selectedThread ? "side-item active" : "side-item"} onClick={() => setSelectedThread(null)}><span>⌁</span>All activity<em>{activeTasks.length}</em></button>
         <div className="workspace-label">THREADS</div>
         <div className="thread-list">{threads.map((thread) => <button key={thread.id} title={thread.title} className={selectedThread === thread.id ? "side-item active" : "side-item"} onClick={() => setSelectedThread(thread.id)}><span>{thread.sourceSessionId ? "⌘" : "›_"}</span>{thread.title}<em>{thread.messageCount || thread.taskCount}</em></button>)}</div>
-        <div className="sidebar-bottom"><div className="avatar">{user.name.slice(0, 1).toUpperCase()}</div><div><strong>{user.name}</strong><small>{organization.plan} plan</small></div><form action="/api/auth/logout" method="post"><button title="Sign out">↗</button></form></div>
+        <div className="sidebar-bottom"><div className="avatar">{user.name.slice(0, 1).toUpperCase()}</div><div><strong>{user.name}</strong><small>{accountPlan} plan</small></div><form action="/api/auth/logout" method="post"><button title="Sign out">↗</button></form></div>
       </aside>
 
       <section className="dashboard-main">
-        <header className="dashboard-header"><div><p className="eyebrow">CONTROL PLANE</p><h1>{selectedThread ? threads.find((thread) => thread.id === selectedThread)?.title : "Agent operations"}</h1></div><div className="header-actions"><span className="status-chip online"><i /> Control plane online</span><button className="button button-small button-secondary" onClick={() => void subscribe()} disabled={busy}>Manage plan</button></div></header>
+        <header className="dashboard-header"><div><p className="eyebrow">CONTROL PLANE</p><h1>{selectedThread ? threads.find((thread) => thread.id === selectedThread)?.title : "Agent operations"}</h1></div><div className="header-actions"><span className="status-chip online"><i /> Control plane online</span><button className="button button-small button-secondary" onClick={() => void subscribe()} disabled={busy}>{organization.cloudAccess ? "Manage plan" : "Add cloud failover"}</button></div></header>
         {notice && <div className="notice" role="status"><span>{notice}</span><button onClick={() => setNotice(null)}>×</button></div>}
 
-        <div className="metric-grid">
-          <article><span>Paired machines</span><strong>{devices.length}</strong><small>{devices.filter((device) => device.online).length} online now</small></article>
+        <div className="metric-grid metric-grid-four">
+          <article><span>Paired machines</span><strong>{devices.length}</strong><small>{onlineDevices.length} online now</small></article>
           <article><span>Active tasks</span><strong>{activeTasks.length}</strong><small>{tasks.filter((task) => task.route === "cloud" && !terminal.has(task.status)).length} routed to cloud</small></article>
+          <article><span>P95 completion</span><strong>{latency(p95CompletionLatency)}</strong><small>{p95CompletionLatency === null ? "Waiting for completed runs" : "Measured from real task receipts"}</small></article>
           <article><span>Execution safety</span><strong className="safe-copy">Fenced</strong><small>90-second renewable leases</small></article>
         </div>
 
@@ -133,6 +151,12 @@ export default function DashboardClient() {
           </section>
 
           <aside className="right-rail">
+            <section className="panel connection-panel">
+              <div className="panel-heading"><div><p className="eyebrow">CONNECTION</p><h2>{onlineDevices.length ? "Connector online" : devices.length ? "Connector reconnecting" : "Pair your first machine"}</h2></div><span>{onlineDevices.length ? "LIVE" : devices.length ? "RETRYING" : "STEP 1 OF 3"}</span></div>
+              <div className="connection-summary"><span className={`device-light ${onlineDevices.length ? "is-online" : ""}`} /><div><strong>{onlineDevices.length ? `${onlineDevices.length} machine${onlineDevices.length === 1 ? "" : "s"} reachable` : devices.length ? "KeepAlive is retrying automatically" : "Run the one-command connector installer"}</strong><p>{devices.length ? "Tasks stay local while reachable and follow each machine's offline policy when it disappears." : "The installer creates a device key, starts an always-on service, and prints the pairing code."}</p></div></div>
+              <ol className="dashboard-setup-steps"><li className={devices.length ? "is-done" : "is-current"}><span>1</span>Install connector</li><li className={devices.length ? "is-done" : ""}><span>2</span>Approve short code</li><li className={onlineDevices.length ? "is-done" : devices.length ? "is-current" : ""}><span>3</span>Choose offline policy</li></ol>
+              <p className="privacy-boundary">Bounded Hermes thread context syncs to this control plane. The device private key and local gateway credential stay on the machine.</p>
+            </section>
             <section className="panel"><div className="panel-heading"><div><p className="eyebrow">MACHINES</p><h2>Paired Hermes</h2></div></div>{devices.map((device) => <article key={device.id} className="device-card"><div><span className={`device-light ${device.online ? "is-online" : ""}`} /><div><strong>{device.name}</strong><small>{device.online ? "Online" : `Last seen ${age(device.lastSeenAt)}`}</small></div></div><code>{device.fingerprint}</code><label>Offline policy<select value={device.failoverMode} onChange={(event) => void updateFailover(device.id, event.target.value as Device["failoverMode"])}><option value="manual">Ask before cloud</option><option value="auto">Continue automatically</option><option value="disabled">Pause until online</option></select></label></article>)}<form className="pair-form" onSubmit={pair}><label>Pairing code<input value={pairCode} onChange={(event) => setPairCode(event.target.value.toUpperCase())} placeholder="ABCD-EFGH" maxLength={9} /></label><button className="button button-secondary button-small" disabled={busy}>Approve machine</button></form><p className="helper-copy">The code and fingerprint are shown by the Hermes cloud connector. Your device private key never leaves that machine.</p></section>
           </aside>
         </div>
