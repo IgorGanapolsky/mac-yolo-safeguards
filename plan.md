@@ -20,7 +20,7 @@ Durable rules live in [AGENTS.md](./AGENTS.md); this file is *live state only*.
 
 | ID  | Task | Status | Owner | Files (claim) | AcceptanceCheck |
 |-----|------|--------|-------|---------------|-----------------|
-| T-ADB-APPEAR-PAIR | Persist adb-appear → auto-pair via USB reverse watchdog LaunchAgent (post-#641) | in_progress | cursor-adb-appear-pair | `tools/hermes-usb-reverse-watchdog.js`, `tests/test-hermes-usb-reverse-watchdog.js`, `plan.md` | Device appear runs hermes-mobile-pair; launchctl proves com.igor.hermes-usb-reverse-watchdog loaded; gated prod OTA for 631ab139 |
+| T-ADB-APPEAR-PAIR | Persist adb-appear → auto-pair via USB reverse watchdog LaunchAgent (post-#641) | done | cursor-adb-appear-pair | `tools/hermes-usb-reverse-watchdog.js`, `tests/test-hermes-usb-reverse-watchdog.js`, `plan.md` | Device appear runs hermes-mobile-pair; launchctl proves com.igor.hermes-usb-reverse-watchdog loaded; gated prod OTA for 631ab139 |
 | T-PROJECT-LANE-ONCE | Fix duplicate Project lane (optional) — header+footer both render | done | cursor-project-lane-once | `hermes-mobile/src/screens/ChatScreen.tsx` (header project props only; keep VaultProjectPickerChip), `hermes-mobile/src/__tests__/ChatScreen.test.tsx` (project lane once cases only), `plan.md` | Exactly one Project lane label on Chat; header has no chat-header-project-picker; footer chip remains; focused Jest green; PR merge |
 | T-CHROME-DEBUGGER | Full chrome.debugger path (no Chrome restart) via extension + local CDP bridge | in_progress | cursor-chrome-debugger | `extensions/hermes-webbridge/`, `scripts/hermes-chrome-debugger-bridge.js`, `scripts/install-hermes-chrome-debugger.sh`, `scripts/install-browser-bridge.sh` (debugger mode), `com.hermes.chrome-debugger.plist`, `tests/test-hermes-chrome-debugger.js`, `docs/BROWSER-CONTROL.md`, `docs/KIMI-WEBBRIDGE-TEARDOWN.md`, `plan.md` | Extension attaches via chrome.debugger; bridge serves :9222 without --remote-debugging-port restart; contract tests green; PR merge |
 | T-ASO-SEARCH-GAP | Prove Play+iOS live; ASO for hermes-ai miss; ship metadata | done | cursor-aso-search | `hermes-mobile/docs/ASO-SEARCH-GAP-20260720.md`, `hermes-mobile/fastlane/metadata/android/en-US/short_description.txt`, `hermes-mobile/fastlane/metadata/android/en-US/full_description.txt`, `hermes-mobile/fastlane/metadata/ios/en-US/keywords.txt`, `hermes-mobile/fastlane/metadata/ios/en-US/promotional_text.txt`, `hermes-mobile/fastlane/metadata/ios/en-US/description.txt`, `plan.md` | Direct URLs live; Play API short/full committed; ASC promo live; contract tests green; paid unpublished |
@@ -321,6 +321,8 @@ Status values: `pending` | `in_progress` | `blocked` | `done`. Claim a row by se
 ## 2. File Ownership Map (append-only lock table — claim before touching)
 
 - `tools/hermes-usb-reverse-watchdog.js`, `tests/test-hermes-usb-reverse-watchdog.js`, `plan.md` → **cursor-adb-appear-pair** (T-ADB-APPEAR-PAIR persist adb-appear auto-pair) (2026-07-20T21:46:00Z)
+
+- T-ADB-APPEAR-PAIR claimed files → **released by cursor-adb-appear-pair** after PR #642 merge; LaunchAgent loaded last exit 0; OTA group `1f4cda52-9bfd-4329-848b-03c55c6c1c94` @10% runtime 1.2 (2026-07-20T21:58:00Z)
 
 - `hermes-mobile/src/screens/ChatScreen.tsx` (header project props removal only), `hermes-mobile/src/__tests__/ChatScreen.test.tsx` (project lane once cases only), `plan.md` → **cursor-project-lane-once** (T-PROJECT-LANE-ONCE) (2026-07-20T21:20:00Z)
 - `hermes-mobile/src/screens/ChatScreen.tsx` (header project props), `hermes-mobile/src/__tests__/ChatScreen.test.tsx` (project lane once) → **released by cursor-project-lane-once** after Jest 2/2 (2026-07-20T21:20:00Z)
@@ -828,6 +830,8 @@ Status values: `pending` | `in_progress` | `blocked` | `done`. Claim a row by se
 - `docs/RESEARCH-HERMES-INFERENCE-ROI-JULY-2026.md`, `parallel-research/hermes-inference-roi-july-2026.*`, `apps/hermes-control-plane/**`, `tests/test-hermes-business-e2e.js`, `plan.md` → **released by codex-hermes-cloudflare-20260720** after corrected primary-source report, measured feature implementation, merged CI, and GLM-5.2 production canary proof (2026-07-20T18:20:00Z)
 
 ## 3. Decisions Log
+
+- 2026-07-20 `cursor-adb-appear-pair`: **T-ADB-APPEAR-PAIR done.** Extended `com.igor.hermes-usb-reverse-watchdog` with absent→present auto-pair (`hermes-mobile-pair.js --open`, skip when phone pipeline busy). PR #642 merged. LaunchAgent loaded (`last exit code=0`, StartInterval=15). Gated production OTA for #641/`631ab139` on runtime 1.2: group `1f4cda52-9bfd-4329-848b-03c55c6c1c94` at 10% rollout (tip message includes 9ff22c5f). Phone still absent — no Connected proof this session.
 
 - 2026-07-20T21:20:00Z `cursor-project-lane-once`: **Completed T-PROJECT-LANE-ONCE.** Root cause: ChatScreen wired `workspaceName`/`canSwitchWorkspace`/`onPressWorkspace` into ChatScreenHeader while VaultProjectPickerChip also rendered — two "Project lane (optional)" controls. Fix: stop wiring header project props; keep footer chip. Jest: Obsidian vault project picker 2/2.
 
