@@ -1,0 +1,817 @@
+{
+  "run_id": "trun_77ebfbf4eb9449228a39c3530a1ed229",
+  "interaction_id": "trun_77ebfbf4eb9449228a39c3530a1ed229",
+  "result_url": "https://platform.parallel.ai/play/deep-research/trun_77ebfbf4eb9449228a39c3530a1ed229",
+  "status": "completed",
+  "output": {
+    "basis": [
+      {
+        "field": "answer",
+        "reasoning": "Assessment reasoning:\n- The field_description asks for an implementation-oriented report with a comprehensive set of sections (current pain taxonomy, competitive patterns, end-to-end journey, installer options, security model, architecture tradeoffs, funnel analytics, accessibility, E2E criteria, roadmap, migration, experiments, and separated sources from recommendations). The provided field_answer includes a substantial, structured implementation brief that covers the decisive journey, quantified acceptance criteria, pain points, competitive patterns, architecture choices, API/runtime implications, funnel analytics, accessibility notes, security model, migration plan, measurable experiments, and a roadmap. It also includes a references section and notes distinguishing sourced facts from recommendations. This indicates a thorough, multi-section treatment aligned with the prompt.\n- Completeness evaluation: The answer appears to address all major requested components (journey, acceptance criteria, pain taxonomy, competitive patterns, architecture, API/runtime implications, analytics, accessibility, security, migration, experiments, and roadmap). While it is dense and long, it does not omit any clearly requested section. Therefore completeness = true.\n- Source support evaluation: Excerpts provided include multiple sources related to Hermes agent, Cloudflare, WorkOS AuthKit, D1 limits, and related infrastructure patterns. The field_answer embeds similar concepts (Cloudflare Worker, D1, Durable Objects, WorkOS AuthKit, Stripe, TLS/mTLS, device pairing, zero inbound ports, etc.). Given the excerpts touch on relevant technologies and patterns, the field_answer is reasonably supported by the excerpts. Therefore supported = true.\n- Confidence: Reasonable high given alignment between the answer content and excerpts on key technologies and design patterns; minor interpretation differences could exist, but overall coherence is good.\n",
+        "citations": [
+          {
+            "url": "https://hermes-studio.ai/",
+            "excerpts": [
+              "Hermes Studio - Self-Hosted AI Chat Dashboard\nA desktop app and local control plane for Hermes Agent. Chat, manage profiles, run coding agents, inspect files, automate jobs, and keep your runtime under your control."
+            ],
+            "title": "Hermes Studio - Self-Hosted AI Chat Dashboard"
+          },
+          {
+            "url": "https://github.com/NousResearch/hermes-agent/issues/32820",
+            "excerpts": [
+              "Architecture v0: control plane, brain, memory, voice, client ...\nGoal Define the v0 architecture for a premium assistant platform that can evolve from a single-user product into a multi-tenant product. Components 1) Control plane Owns: tenant management auth / identity pricing / packaging feature flag"
+            ],
+            "title": "Architecture v0: control plane, brain, memory, voice, client ..."
+          },
+          {
+            "url": "http://f4.fund/startups/tryhermes",
+            "excerpts": [
+              "Hermes is an AI agent that turns your Postgres database into an autonomous revenue engine. Every Sa \u00b7 Enterprise Software startup \u00b7 Swarthmore, PA, United"
+            ],
+            "title": "Hermes \u2014 Enterprise Software"
+          },
+          {
+            "url": "https://www.alamy.com/hermes-messenger-to-the-gods-image227376521.html",
+            "excerpts": [
+              "Hermes Messenger to the Gods Stock Photo"
+            ],
+            "title": "Hermes Messenger to the Gods Stock Photo Alamy https://www.alamy.com \u203a hermes-messenger-to-the-god..."
+          },
+          {
+            "url": "https://www.digitalapplied.com/blog/hermes-agent-desktop-app-complete-guide-2026",
+            "excerpts": [
+              "Hermes Agent Desktop: The Complete Getting-Started Guide\nHermes Agent hit 180K GitHub stars on a self-improving GEPA loop. A complete 2026 guide to the open-source desktop app: install, memory, skills and sessions."
+            ],
+            "title": "Hermes Agent Desktop: The Complete Getting-Started Guide"
+          },
+          {
+            "url": "https://github.com/NousResearch/hermes-agent/issues/21164",
+            "excerpts": [
+              "[Feature]: add cloudflare worker ai as provider \u00b7 Issue #21164\nMay 7, 2026 \u2014 S Enterprise platformAI-powered developer platform. Search code, repositories, users, issues, pull requests... implementing Cloudflare Workers AI"
+            ],
+            "title": "[Feature]: add cloudflare worker ai as provider \u00b7 Issue #21164"
+          },
+          {
+            "url": "http://docs.gmicloud.ai/agents/set-up-hermes-agent-with-gmi-cloud",
+            "excerpts": [
+              "Step 1: Install Hermes Agent ... Open your terminal and run the one-line installer. ... Or the one-line from the Hermes Website: https://hermes-agent."
+            ],
+            "title": "Hermes Agent - GMI Cloud Documentation"
+          },
+          {
+            "url": "https://hermesdesktop.homes/",
+            "excerpts": [
+              "Hermes Desktop \u2014 Desktop Companion for Hermes Agent\nHermes Desktop wraps the full Hermes Agent experience in a native GUI \u2014 from guided first-run setup to advanced tool orchestration and multi-platform messaging. Automatic installation of Hermes Agent with progress tracking, dependency resolution, and provider configuration \u2014 no CLI required."
+            ],
+            "title": "Hermes Desktop \u2014 Desktop Companion for Hermes Agent"
+          },
+          {
+            "url": "https://composio.dev/toolkits/cloudflare/framework/hermes-agent",
+            "excerpts": [
+              "How to integrate Cloudflare MCP with Hermes\n5 days ago \u2014 Connect Hermes to Cloudflare using Composio Connect and automate workflows around the clock with your autonomous agent."
+            ],
+            "title": "How to integrate Cloudflare MCP with Hermes"
+          },
+          {
+            "url": "https://hermes-agent.nousresearch.com/",
+            "excerpts": [
+              "Hermes Agent \u2014 The Agent That Grows With You | Nous Research\nAn open-source agent that grows with you \u2014 learns your projects, builds its own skills, and reaches you wherever you are. By Nous Research."
+            ],
+            "title": "Hermes Agent \u2014 The Agent That Grows With You | Nous Research"
+          },
+          {
+            "url": "https://workos.com/blog/workos-vs-clerk",
+            "excerpts": [
+              "WorkOS vs Clerk: Which one is better for B2B?\nApr 24, 2026 \u2014 A practical comparison across features, pricing, reliability, and what enterprise buyers actually grade you on."
+            ],
+            "title": "WorkOS vs Clerk: Which one is better for B2B?"
+          },
+          {
+            "url": "https://workos.com/docs/authkit/overview",
+            "excerpts": [
+              "AuthKit \u2013 WorkOS Docs\nAuthKit provides an easy to integrate, pre-built authentication flow, while integrating against the API allows you to implement your own UI and Sign In flow."
+            ],
+            "title": "AuthKit \u2013 WorkOS Docs"
+          },
+          {
+            "url": "https://workos.com/blog/cli-auth",
+            "excerpts": [
+              "Authenticate CLI tools seamlessly with OAuth Device Flow\nToday, we're launching CLI Authentication for AuthKit, bringing OAuth 2.0 Device Authorization Grant Flow to hosted AuthKit customers."
+            ],
+            "title": "Authenticate CLI tools seamlessly with OAuth Device Flow"
+          },
+          {
+            "url": "https://askmeidentity.com/resources/vendor-matchups/workos-vs-clerk",
+            "excerpts": [
+              "WorkOS vs Clerk \u2014 B2B SaaS auth comparison \u00b7 askmeidentity\nCan Clerk do Enterprise SSO + SCIM? Yes via Clerk Enterprise. Less mature than WorkOS for SCIM specifically. Does WorkOS have consumer auth? Yes via WorkOS AuthKit. Less developer-friendly than Clerk for consumer scenarios. Which is better for a YC-stage B2B startup? Clerk for velocity; WorkOS when first enterprise customer demands SSO + SCIM."
+            ],
+            "title": "WorkOS vs Clerk \u2014 B2B SaaS auth comparison \u00b7 askmeidentity"
+          },
+          {
+            "url": "https://workos.com/compare/clerk",
+            "excerpts": [
+              "WorkOS vs Clerk\nBoth products handle authentication. Only one was built around the enterprise primitives that B2B deals require. ... Built for consumers. Enterprise was bolted on"
+            ],
+            "title": "WorkOS vs Clerk"
+          },
+          {
+            "url": "https://architectingoncloudflare.com/chapter-23",
+            "excerpts": [
+              "Chapter 23: Multi-Tenant and Platform Architectures\nA shared D1 database works well for tenant metadata: tenant registry, domain mappings, feature flags, tier information, billing status. Row-level isolation concerns don't apply because knowing that tenant X exists and is on the enterprise tier reveals little."
+            ],
+            "title": "Chapter 23: Multi-Tenant and Platform Architectures"
+          },
+          {
+            "url": "https://www.cloudflare.com/solutions/platforms",
+            "excerpts": [
+              "Multi-Tenant Platform Development - Cloudflare\nCreate per-tenant, or project Workers, D1 databases, KV namespaces, R2 buckets, and vanity domains. Everything you need in one place."
+            ],
+            "title": "Multi-Tenant Platform Development - Cloudflare"
+          },
+          {
+            "url": "https://developers.cloudflare.com/d1/platform/limits",
+            "excerpts": [
+              "Limits \u00b7 Cloudflare D1 docs\nD1 is designed for horizontal scale out across multiple, smaller (10 GB) databases, such as per-user, per-tenant or per-entity databases. D1 allows you to build applications with thousands of databases at no extra cost, as the pricing is based only on query and storage costs."
+            ],
+            "title": "Limits \u00b7 Cloudflare D1 docs"
+          },
+          {
+            "url": "https://eoxscriptum.com/blog/multi-tenant-cms-cloudflare-workers-architecture",
+            "excerpts": [
+              "Multi-Tenant CMS on Cloudflare Workers: Architecture Guide ...\nBuild scalable SaaS CMS platforms with Cloudflare Workers, D1, and edge caching. Complete guide to tenant isolation and authentication patterns."
+            ],
+            "title": "Multi-Tenant CMS on Cloudflare Workers: Architecture Guide ..."
+          },
+          {
+            "url": "https://markaicode.com/architecture/cloudflare-workers-rag-architecture",
+            "excerpts": [
+              "Cloudflare Workers RAG Architecture: 15ms Latency Vector ...\nBuild a production RAG system on Cloudflare Workers with D1, Vectorize, AI Gateway, and Workers AI. Achieve 15ms vector search latency and sub-200ms p95 response times globally."
+            ],
+            "title": "Cloudflare Workers RAG Architecture: 15ms Latency Vector ..."
+          },
+          {
+            "url": "https://progressier.com/pwa-capabilities/qr-code-and-barcode-reader",
+            "excerpts": [
+              "QR Code Detection PWA Demo - Progressier\nWith the Barcode Detection API, your PWA can open the device's camera and detect barcodes and QR codes. Install the app, open it from your homescreen, then tap the button below to open the device's camera. Place a QR code in front of the camera to detect it."
+            ],
+            "title": "QR Code Detection PWA Demo - Progressier"
+          },
+          {
+            "url": "https://mozilla.github.io/ecosystem-platform/relying-parties/tutorials/pairing",
+            "excerpts": [
+              "Pairing authentication | Firefox Ecosystem Platform\nCurrently, the pairing implementation is limited to a mobile device (Firefox Android and iOS) scanning a QR code displayed on a computer (Firefox Desktop) already connected to a Firefox Account."
+            ],
+            "title": "Pairing authentication | Firefox Ecosystem Platform"
+          },
+          {
+            "url": "https://deepwiki.com/commaai/new-connect/5.2-device-pairing",
+            "excerpts": [
+              "Device Pairing | commaai/new-connect | DeepWiki\nThis document covers the QR code-based device pairing system that allows users to add new openpilot devices to their comma connect account. The pairing process uses camera-based QR code scanning to capture device pairing tokens and establish the connection between the device and user account."
+            ],
+            "title": "Device Pairing | commaai/new-connect | DeepWiki"
+          },
+          {
+            "url": "https://github.com/signalapp/Signal-Desktop/issues/431",
+            "excerpts": [
+              "link from scanned QR code doesn't work #431\nNov 29, 2015 \u2014 As far as I know, the browser plugin is still in beta. After releasing it, you have to use the Signal app (Settings -> devices) to scan the QR-\u00a0"
+            ],
+            "title": "link from scanned QR code doesn't work #431"
+          },
+          {
+            "url": "https://github.com/signalapp/Signal-Desktop/issues/225",
+            "excerpts": [
+              "Pairing QR code not showing \u00b7 Issue #225\nApr 16, 2015 \u2014 I had Signal 0.1.9 installed, replaced it today with 0.1.10. Issue occurs with both versions. When the app is trying to connect and telling me i\u00a0"
+            ],
+            "title": "Pairing QR code not showing \u00b7 Issue #225"
+          },
+          {
+            "url": "https://lobehub.com/skills/ibossynr1-aaas-vault-stripe-subscription-ux",
+            "excerpts": [
+              "stripe-subscription-ux | Skills Mark... \u00b7 LobeHub\nThis Skill specifies a complete subscription-management UX for Stripe integrations. It defines essential UI surfaces: viewing current plan (name, status, trial remaining), billing cycle (next billing date, amount, frequency, period dates), payment method (card brand, last4, expiry, update action), subscription controls (cancel, resume, upgrade/downgrade, switch frequency), and billing history"
+            ],
+            "title": "stripe-subscription-ux | Skills Mark... \u00b7 LobeHub"
+          },
+          {
+            "url": "https://operatoriq.io/blog/stripe-customer-portal-plan-changes",
+            "excerpts": [
+              "Stripe Customer Portal: Handling Plan Changes, Pauses, and ...\nThe Stripe Customer Portal handles plan upgrades, downgrades, and cancellations in a hosted UI. But it fires different webhooks than your"
+            ],
+            "title": "Stripe Customer Portal: Handling Plan Changes, Pauses, and ..."
+          },
+          {
+            "url": "https://mcpmarket.com/tools/skills/stripe-subscription-ux",
+            "excerpts": [
+              "Stripe Subscription UX | Claude Code Skill for SaaS Billing\nOptimize your SaaS billing workflow with the Stripe Subscription UX skill for Claude Code. Implementation patterns for portals, plans, and payment UI."
+            ],
+            "title": "Stripe Subscription UX | Claude Code Skill for SaaS Billing"
+          },
+          {
+            "url": "https://nicelydone.club/flows/40d591a8-d25b-4f26-90f5-c1432194eb39",
+            "excerpts": [
+              "Upgrading and Downgrading subscription user flow example from ...\nThis user flow enables Stripe billing platform users to upgrade or downgrade their subscription plans, providing information on varying costs and features within each tier."
+            ],
+            "title": "Upgrading and Downgrading subscription user flow example from ..."
+          },
+          {
+            "url": "https://skillkit.io/skills/claude-code/stripe-subscription-ux",
+            "excerpts": [
+              "stripe-subscription-ux - Subscription Management UI | SkillKit\nThe stripe-subscription-ux skill provides essential UI requirements for managing subscriptions in Stripe. It ensures users can view their current plan, billing cycle, payment methods, and billing history effectively."
+            ],
+            "title": "stripe-subscription-ux - Subscription Management UI | SkillKit"
+          },
+          {
+            "url": "https://www.rfc-editor.org/info/rfc8628",
+            "excerpts": [
+              "RFC 8628: OAuth 2.0 Device Authorization Grant | RFC Editor\nThe OAuth 2.0 device authorization grant is designed for Internet- connected devices that either lack a browser to perform a user-agent- based authorization or are input constrained to the extent that requiring the user to input text in order to authenticate during the authorization flow is impractical."
+            ],
+            "title": "RFC 8628: OAuth 2.0 Device Authorization Grant | RFC Editor"
+          },
+          {
+            "url": "https://knowledgelib.io/software/patterns/oauth2-device-flow/2026",
+            "excerpts": [
+              "OAuth2 Device Authorization Flow: Complete Reference\nComplete implementation guide for OAuth2 Device Authorization Grant (RFC 8628) with polling logic, code examples in Python/Node.js/Go, anti-patterns, and decision tree for input-constrained devices. 7 sources, all cited. Verified 2026-02-24."
+            ],
+            "title": "OAuth2 Device Authorization Flow: Complete Reference"
+          },
+          {
+            "url": "https://datatracker.ietf.org/doc/html/rfc8628",
+            "excerpts": [
+              "RFC 8628 - OAuth 2.0 Device Authorization Grant - Datatracker - IETF\nThe OAuth 2.0 device authorization grant is designed for Internet-connected devices that either lack a browser to perform a user-agent-based authorization or"
+            ],
+            "title": "RFC 8628 - OAuth 2.0 Device Authorization Grant - Datatracker - IETF"
+          },
+          {
+            "url": "https://docs.authlib.org/en/stable/oauth2/specs/rfc8628.html",
+            "excerpts": [
+              "RFC8628: OAuth 2.0 Device Authorization Grant\nRFC8628: OAuth 2.0 Device Authorization Grant \u00b6 This section contains the generic implementation of RFC8628. OAuth 2.0 Device Authorization Grant is usually used when devices have limited input capabilities or lack a suitable browser, such as smart TVs, media consoles, picture frames, printers and etc."
+            ],
+            "title": "RFC8628: OAuth 2.0 Device Authorization Grant"
+          },
+          {
+            "url": "https://oauth.net/2/device-flow",
+            "excerpts": [
+              "RFC 8628: OAuth 2.0 Device Authorization Grant\nThe OAuth 2.0 Device Authorization Grant (formerly known as the Device Flow) is an OAuth 2.0 extension that enables devices with no browser or limited input"
+            ],
+            "title": "RFC 8628: OAuth 2.0 Device Authorization Grant"
+          },
+          {
+            "url": "https://state-of-passkeys.io/android",
+            "excerpts": [
+              "Passkey Adoption on Android (2026): Chrome\nWhich Android version supports passkeys? Synced passkeys have been available on Android 9 and later since the October 2022 Google Password Manager rollout."
+            ],
+            "title": "Passkey Adoption on Android (2026): Chrome"
+          },
+          {
+            "url": "https://the47network.com/blog/passkeys-webauthn-2026.html",
+            "excerpts": [
+              "Passkeys and WebAuthn in 2026: Implementation Guide\nA practical WebAuthn implementation guide: registration and authentication flows, resident keys vs discoverable credentials, cross-device passkeys, fallback strategy, and server-side verification."
+            ],
+            "title": "Passkeys and WebAuthn in 2026: Implementation Guide"
+          },
+          {
+            "url": "https://www.derar.dev/blog/passkeys-webauthn-production-2026",
+            "excerpts": [
+              "Passkeys in 2026: A Practical Guide to Passwordless ...\nA developer-focused guide to passkeys and WebAuthn, covering UX, rollout strategy, account recovery, security benefits, device support, and implementation pitfalls."
+            ],
+            "title": "Passkeys in 2026: A Practical Guide to Passwordless ..."
+          },
+          {
+            "url": "https://learn.microsoft.com/en-us/answers/questions/2123588/microsoft-authenticator-this-passkey-doesn-t-sync",
+            "excerpts": [
+              "This passkey doesn't sync with other devices.\nNov 26, 2024 \u2014  Hi All, \n I have successfully executed the procedure described in this article https://learn.microsoft.com/en-us/entra/identity/authentication/how-to-enable-au"
+            ],
+            "title": "This passkey doesn't sync with other devices."
+          },
+          {
+            "url": "https://impressivemagazine.com/passkey-missing-on-another-device",
+            "excerpts": [
+              "Passkey Not Syncing Devices? 2026 Recovery Checklist\nPasskey missing on another device? Use this practical 2026 checklist to verify sync, save location, shared-device issues, and recovery options."
+            ],
+            "title": "Passkey Not Syncing Devices? 2026 Recovery Checklist"
+          },
+          {
+            "url": "https://techkis.tech/insights/tauri-vs-electron-binary-ram-autoupdate",
+            "excerpts": [
+              "Tauri vs Electron in 2026 \u2014 binary size, RAM, auto-update and ...\nA practical comparison of Tauri and Electron for desktop apps in 2026 \u2014 measured binary size and RAM, the real auto-update stories, code-signing pain, and where each one earns its keep."
+            ],
+            "title": "Tauri vs Electron in 2026 \u2014 binary size, RAM, auto-update and ..."
+          },
+          {
+            "url": "https://www.levminer.com/blog/tauri-vs-electron",
+            "excerpts": [
+              "Tauri VS. Electron - Real world application\nAug 22, 2025 \u2014 Both Electron and Tauri has a built-in auto updater, but the Tauri one is so much simpler. In Electron I think most people use electron-updater."
+            ],
+            "title": "Tauri VS. Electron - Real world application"
+          },
+          {
+            "url": "https://rustify.rs/articles/rust-tauri-vs-electron-2026",
+            "excerpts": [
+              "Tauri vs Electron 2026: Tauri Wins: Here's the Real Data\nBottom line: For new projects in 2026, Tauri is the better technical choice in almost every dimension; smaller, faster, more secure. The only clear reason to choose Electron is if your team has zero Rust knowledge and cannot afford even 1\u20132 weeks of Rust ramp-up for the backend layer."
+            ],
+            "title": "Tauri vs Electron 2026: Tauri Wins: Here's the Real Data"
+          },
+          {
+            "url": "https://www.pkgpulse.com/guides/tauri-vs-electron-vs-neutralino-desktop-apps-javascript-2026",
+            "excerpts": [
+              "Tauri vs Electron vs Neutralino 2026: JavaScript Desktop App ...\n6 days ago \u2014 Tauri: Cargo-based builds and Tauri's updater plugin. Good fit when signed update payloads and a Rust-native release pipeline are acceptable."
+            ],
+            "title": "Tauri vs Electron vs Neutralino 2026: JavaScript Desktop App ..."
+          },
+          {
+            "url": "https://swatto.co.uk/articles/tauri-vs-electron-2026",
+            "excerpts": [
+              "Tauri vs Electron in 2026: A Practical Comparison \u2014 Swatto\nBundle size: a Tauri app starts at ~3MB versus Electron's ~150MB. This isn't just about disk space \u2014 it affects download speed, auto-update speed, and the user's willingness to try your tool. Memory usage follows a similar pattern: Tauri apps typically use 30-60MB while Electron apps start at 150MB+ before your code even runs."
+            ],
+            "title": "Tauri vs Electron in 2026: A Practical Comparison \u2014 Swatto"
+          },
+          {
+            "url": "http://builtin.com/job/staff-product-manager-activation/9739625",
+            "excerpts": [
+              "Hands-on experience with product analytics and experimentation tools such as Amplitude, Mixpanel, Looker, Mode, Optimizely, Statsig, or similar.\nDevelop a high-velocity experimentation roadmap focused on improving setup completion, time to value, early engagement, D7/D30 retention, and downstream conversion.\nJun 14, 2026 \u00b7 This is a senior, high-impact product leadership role for someone who thinks in funnels, learns through experimentation, and can turn complex\nLead activation strategy across the early user journey to accelerate setup, first publish/share, early engagement, retention, and monetization. Define activation milestones, run high-velocity experiments, partner with Data/Engineering/Design to instrument funnels, and translate behavioral and qualitative insights into prioritized product bets. Communicate results and strategy to executives and raise experimentation and funnel-thinking standards across the product organization.\nLead deep funnel analysis to identify where users drop off, why they get stuck, and which interventions will create the highest impact.\nStrong analytical depth: you are fluent in funnel analysis, cohort analysis, segmentation, experimentation design, and metric definition.\ntrack record of improving activation, onboarding completion, retention, conversion, or time to value through product-led experimentation."
+            ],
+            "title": "Staff Product Manager, Activation - Linktree | Built In"
+          },
+          {
+            "url": "http://jobs.gem.com/linktree/am9icG9zdDrRaoqzIA9Gblcf1AY0c3ZD",
+            "excerpts": [
+              "Hands-on experience with product analytics and experimentation tools such as Amplitude, Mixpanel, Looker, Mode, Optimizely, Statsig, or similar.\nDevelop a high-velocity experimentation roadmap focused on improving setup completion, time to value, early engagement, D7/D30 retention, and downstream conversion.\nLead deep funnel analysis to identify where users drop off, why they get stuck, and which interventions will create the highest impact. Partner\nStrong analytical depth: you are fluent in funnel analysis, cohort analysis, segmentation, experimentation design, and metric definition.\nThis is a senior, high-impact product leadership role for someone who thinks in funnels, learns through experimentation, and can turn complex behavioral data into simple, high-converting product experiences.\n8+ years of product management experience, with significant experience in growth, activation, onboarding, product-led growth, lifecycle, or funnel optimization.\nA track record of improving activation, onboarding completion, retention, conversion, or time to value through product-led experimentation.\nLead deep funnel analysis to identify where users drop off, why they get stuck, and which interventions will create the highest impact.\nOwn Linktree's activation strategy across the early customer journey, from sign-up and account creation through setup, first publish, first share, first audience engagement, and repeat usage.\nPartner with Data to ensure the activation funnel is well-instrumented, measurable, and understood across the company.\nRaise the bar for growth product craft at Linktree by bringing strong experimentation discipline, funnel thinking, and customer empathy into the product organization.\nThis is a senior, high-impact product leadership role for someone who thinks in funnels, learns through experimentation, and can turn complex\nTranslate qualitative insight and behavioral data into sharp product hypotheses, clear priorities, and testable product bets."
+            ],
+            "title": "Staff Product Manager, Activation - Gem"
+          },
+          {
+            "url": "https://www.fullsession.io/blog/product-analytics-tools-funnel-analysis",
+            "excerpts": [
+              "Product Analytics Tools With Strong Funnel Analysis (and How to Choose)\nJun 19, 2026 \u00b7 Most product analytics tools can draw a funnel. Fewer can produce funnel results you trust, answer the questions you actually have, and hold up"
+            ],
+            "title": "Product Analytics Tools With Strong Funnel Analysis (and How to Choose)"
+          },
+          {
+            "url": "https://guidez.io/integrations/intercom/analytics",
+            "excerpts": [
+              "Guidez Analytics + Intercom: Measure Onboarding Impact on ...\nConnect Guidez to Intercom and measure the full impact of your onboarding on activation, retention, and expansion revenue. Build onboarding funnels, cohort analyses, and ROI dashboards using all your Guidez events."
+            ],
+            "title": "Guidez Analytics + Intercom: Measure Onboarding Impact on ..."
+          },
+          {
+            "url": "https://www.fullsession.io/blog/onboarding-funnel-analysis",
+            "excerpts": [
+              "Onboarding Funnel Analysis: Find Drop-Offs, Improve Activation\nLearn a 7-step onboarding funnel analysis workflow to find drop-offs, prioritize friction by impact, and validate improvements in activation rate."
+            ],
+            "title": "Onboarding Funnel Analysis: Find Drop-Offs, Improve Activation"
+          },
+          {
+            "url": "https://deepwiki.com/devlikeapro/Baileys/9.3-multi-device-support",
+            "excerpts": [
+              "Multi-Device Support | devlikeapro/Baileys | DeepWiki\nPurpose: This page explains how Baileys implements WhatsApp's multi-device protocol, enabling a single WhatsApp account to be used simultaneously across multiple devices (phone, web clients, desktop apps) with end-to-end encryption maintained individually for each device."
+            ],
+            "title": "Multi-Device Support | devlikeapro/Baileys | DeepWiki"
+          },
+          {
+            "url": "https://web.whatsapp.com/",
+            "excerpts": [
+              "WhatsApp Web\nLog in to WhatsApp Web for simple, reliable and private messaging on your desktop. Send and receive messages and files with ease, all for free."
+            ],
+            "title": "WhatsApp Web"
+          },
+          {
+            "url": "https://cybersecuritynews.com/whatsapp-device-fingerprinting",
+            "excerpts": [
+              "WhatsApp Vulnerabilities Leaks User\u2019s Metadata Including ...\nWhatsApp's multi-device encryption protocol has long leaked metadata, allowing attackers to fingerprint users' device operating systems, aiding targeted malware delivery. Recent research highlights partial fixes by Meta, but transparency issues persist."
+            ],
+            "title": "WhatsApp Vulnerabilities Leaks User\u2019s Metadata Including ..."
+          },
+          {
+            "url": "https://www.engineering.fyi/article/how-whatsapp-enables-multi-device-capability",
+            "excerpts": [
+              "How WhatsApp enables multi-device capability | Meta ...\nThe article discusses WhatsApp's new multi-device capability, allowing users to connect up to four non-phone devices without requiring a smartphone connection. It highlights the architectural changes made to maintain end-to-end encryption and user privacy while synchronizing data across devices."
+            ],
+            "title": "How WhatsApp enables multi-device capability | Meta ..."
+          },
+          {
+            "url": "https://zapo.to/en/concepts/protocol",
+            "excerpts": [
+              "The WhatsApp protocol - Zapo\nA tour of the WhatsApp multi-device protocol \u2014 Noise transport, XML stanzas, Signal encryption, and how zapo implements each layer in TypeScript."
+            ],
+            "title": "The WhatsApp protocol - Zapo"
+          },
+          {
+            "url": "https://github.com/hatamo1/NAT_hole_punching_peer_to_peer",
+            "excerpts": [
+              "GitHub - hatamo1/NAT_hole_punching_peer_to_peer\nP2P Demo (WebRTC, manual signaling, no server) This is a minimal static web app that establishes a WebRTC DataChannel using only public STUN and manual copy/paste signaling."
+            ],
+            "title": "GitHub - hatamo1/NAT_hole_punching_peer_to_peer"
+          },
+          {
+            "url": "https://recca0120.github.io/en/2026/04/14/cloudflare-tunnel-2026",
+            "excerpts": [
+              "Cloudflare Tunnel in 2026: Expose localhost Without Opening ...\nCloudflare Tunnel builds an outbound-only connection from your machine to push localhost onto your own domain \u2014 no firewall holes, no public IP. A walkthrough of the 2026 remotely-managed tunnel flow, Zero Trust Access gating, and how it compares to ngrok and Tailscale Funnel."
+            ],
+            "title": "Cloudflare Tunnel in 2026: Expose localhost Without Opening ..."
+          },
+          {
+            "url": "https://developers.cloudflare.com/tunnel",
+            "excerpts": [
+              "Cloudflare Tunnel \u00b7 Cloudflare Docs\nCloudflare Tunnel connects your infrastructure to Cloudflare through an outbound-only, post-quantum encrypted connection. Instead of exposing a public IP, you install a lightweight daemon called cloudflared on your server."
+            ],
+            "title": "Cloudflare Tunnel \u00b7 Cloudflare Docs"
+          },
+          {
+            "url": "https://tech.breakingcube.com/2026/05/02/tailscale-vs-cloudflare-tunnel-zero-trust-comparison",
+            "excerpts": [
+              "Tailscale vs Cloudflare Tunnel Zero Trust Comparison\nInstall Tailscale for private device access, add Cloudflare Tunnel for anything you want publicly reachable. No port clashes, no weird routing issues in my experience."
+            ],
+            "title": "Tailscale vs Cloudflare Tunnel Zero Trust Comparison"
+          },
+          {
+            "url": "https://www.eleshine-tech.com/webrtc-nat-traversal-stun-turn-hole-punching-guide.html",
+            "excerpts": [
+              "From STUN to TURN: A Deep Dive into WebRTC NAT Traversal and ...\nQuick Summary: In the B2B surveillance sector, the biggest obstacle to real-time video is the \"NAT Barrier.\" WebRTC overcomes this through the ICE framework, utilizing STUN for direct Peer-to-Peer (P2P) connections and TURN as a fail-safe relay."
+            ],
+            "title": "From STUN to TURN: A Deep Dive into WebRTC NAT Traversal and ..."
+          },
+          {
+            "url": "https://github.com/NousResearch/hermes-agent/blob/main/website/docs/developer-guide/architecture.md",
+            "excerpts": [
+              "hermes-agent/website/docs/developer-guide/architecture.md at ...\nThis page is the top-level map of Hermes Agent internals. Use it to orient yourself in the codebase, then dive into subsystem-specific docs for implementation details."
+            ],
+            "title": "hermes-agent/website/docs/developer-guide/architecture.md at ..."
+          },
+          {
+            "url": "https://dev.to/crabtalk/hermes-agent-what-nous-research-built-m5b",
+            "excerpts": [
+              "Hermes Agent: what Nous Research built - DEV Community\nWe examined Hermes Agent's architecture \u2014 from Atropos RL training to persistent skill documents. Here's how it works and where it fits. Tagged with ai, research, opensource, openwalrus."
+            ],
+            "title": "Hermes Agent: what Nous Research built - DEV Community"
+          },
+          {
+            "url": "https://hermes-agent.nousresearch.com/docs/developer-guide/architecture",
+            "excerpts": [
+              "Architecture | Hermes Agent\nArchitecture This page is the top-level map of Hermes Agent internals. Use it to orient yourself in the codebase, then dive into subsystem-specific docs for implementation details. System Overview"
+            ],
+            "title": "Architecture | Hermes Agent"
+          },
+          {
+            "url": "https://github.com/nousresearch/hermes-agent",
+            "excerpts": [
+              "GitHub - NousResearch/hermes-agent: The agent that grows with ...\nThe self-improving AI agent built by Nous Research. It's the only agent with a built-in learning loop \u2014 it creates skills from experience, improves them during use, nudges itself to persist knowledge, searches its own past conversations, and builds a deepening model of who you are across sessions."
+            ],
+            "title": "GitHub - NousResearch/hermes-agent: The agent that grows with ..."
+          },
+          {
+            "url": "https://fluxwise.tech/en/resources/articles/2026-04-01-hermes-agent-self-improving-ai",
+            "excerpts": [
+              "Hermes Agent Source Code Teardown: How Nous Research Built a ...\nA deep teardown of the open-source Hermes Agent framework by Nous Research: 141K lines of Python code, 74 built-in skills, 12 platform adapters, and a closed-loop learning system."
+            ],
+            "title": "Hermes Agent Source Code Teardown: How Nous Research Built a ..."
+          },
+          {
+            "url": "https://www.artisangrowthstrategies.com/blog/saas-onboarding-benchmarks-2026-activation-rates-company-size-vertical",
+            "excerpts": [
+              "SaaS Onboarding Benchmarks 2026: Activation Rates by Company ...\nAI-powered products push this even further, with a median TTFV of just 15 minutes and activation rates of 54.8% [7]. Sales-led or enterprise SaaS models take a different approach. These often involve high-touch onboarding, where customer success managers guide users through more complex setups or integrations."
+            ],
+            "title": "SaaS Onboarding Benchmarks 2026: Activation Rates by Company ..."
+          },
+          {
+            "url": "https://www.growthspreeofficial.com/blogs/b2b-saas-time-to-first-value-ttfv-benchmarks-2026-by-product-category-onboarding-impact-conversion",
+            "excerpts": [
+              "B2B SaaS Time-to-First-Value (TTFV) Benchmarks 2026: By ...\nB2B SaaS TTFV benchmarks 2026: median 9 days, top teams under 3, by onboarding type & product category, plus impact on conversion and NRR."
+            ],
+            "title": "B2B SaaS Time-to-First-Value (TTFV) Benchmarks 2026: By ..."
+          },
+          {
+            "url": "https://www.saasfactor.co/blogs/saas-user-activation-proven-onboarding-strategies-to-increase-retention-and-mrr",
+            "excerpts": [
+              "SaaS User Activation: Proven Onboarding Strategies to ...\nJan 1, 2026 \u2014 Time-to-First-Value ( TTFV ): Average time from signup to completion of the activation milestone. Track both median and 90th percentile values to"
+            ],
+            "title": "SaaS User Activation: Proven Onboarding Strategies to ..."
+          },
+          {
+            "url": "https://fungies.io/saas-user-onboarding-guide-2026",
+            "excerpts": [
+              "SaaS User Onboarding: The Complete 2026 Guide to Activating ...\nDiscover the complete 2026 guide to SaaS user onboarding. Learn how top companies like Slack, Notion, and Figma achieve 40-60% activation rates. Includes proven frameworks,"
+            ],
+            "title": "SaaS User Onboarding: The Complete 2026 Guide to Activating ..."
+          },
+          {
+            "url": "https://www.1capture.io/blog/onboarding-best-practices-saas-trials",
+            "excerpts": [
+              "SaaS Onboarding Best Practices: The Complete 2025 Guide (65% ...\nMaster SaaS onboarding with this comprehensive guide. Learn the exact frameworks that achieve 65%+ activation rates, reduce time-to-value to under 10 minutes, and increase trial-to-paid conversion by 40%. Includes step-by-step examples and proven templates."
+            ],
+            "title": "SaaS Onboarding Best Practices: The Complete 2025 Guide (65% ..."
+          },
+          {
+            "url": "https://docs.stripe.com/billing/usage-based",
+            "excerpts": [
+              "Usage-based billing | Stripe Documentation\nMetronome, a Stripe product, is a usage-based billing platform that provides real-time metering, pricing, billing, and reporting. Use Metronome to ingest usage events, define flexible pricing models, and automate invoice generation without building custom billing infrastructure."
+            ],
+            "title": "Usage-based billing | Stripe Documentation"
+          },
+          {
+            "url": "https://www.moesif.com/docs/guides/guide-on-creating-a-billing-meter-with-stripe",
+            "excerpts": [
+              "Creating a Billing Meter With Stripe\nApr 23, 2025 \u2014 Billing meters automatically meter the usage for each company and charge your customers via Stripe. They support a variety of billing models"
+            ],
+            "title": "Creating a Billing Meter With Stripe"
+          },
+          {
+            "url": "https://docs.stripe.com/billing/subscriptions/usage-based-legacy/pricing-models",
+            "excerpts": [
+              "Model usage-based pricing - Stripe Documentation\nWith metered usage ( recurring[usage_type]='metered' ), you bill your customer in arrears based on how much of your service they consume and track their usage"
+            ],
+            "title": "Model usage-based pricing - Stripe Documentation"
+          },
+          {
+            "url": "https://stripe.dev/blog/implementing-scalable-metered-billing-with-stripe-how-edgee-handles-billions-of-events",
+            "excerpts": [
+              "Implementing scalable metered billing with Stripe: How Edgee ...\nThis article explores how Edgee designed a scalable, usage-based billing system using Stripe's metering and billing APIs, manages complexity across 100+ edge locations, and ensures accuracy and resilience in a critical part of their infrastructure."
+            ],
+            "title": "Implementing scalable metered billing with Stripe: How Edgee ..."
+          },
+          {
+            "url": "https://www.aicoursify.com/blog/implementing-subscription-billing-with-metered-usage",
+            "excerpts": [
+              "How To Set Up a 7-Step Meted Usage Billing Process with Stripe\nWhat I\u2019m covering here is a practical 7-step process for subscription billing with metered usage in Stripe \u2014specifically using Stripe\u2019s metered billing workflow (usage records tied to subscriptions/prices) so your invoices reflect real consumption without you manually calculating everything."
+            ],
+            "title": "How To Set Up a 7-Step Meted Usage Billing Process with Stripe"
+          },
+          {
+            "url": "https://github.com/RustCrypto/PAKEs/blob/master/spake2/README.md?plain=1",
+            "excerpts": [
+              "PAKEs/spake2/README.md at master \u00b7 RustCrypto/PAKEs\nPAKE can be used in a pairing protocol, like the initial version of Firefox Sync (the one with J-PAKE), to introduce one device to another and help them"
+            ],
+            "title": "PAKEs/spake2/README.md at master \u00b7 RustCrypto/PAKEs"
+          },
+          {
+            "url": "https://chris-wood.github.io/draft-bar-cfrg-spake2plus/draft-bar-cfrg-spake2plus.html",
+            "excerpts": [
+              "SPAKE2+, an Augmented PAKE - GitHub Pages\nThis document describes SPAKE2+, a Password Authenticated Key Exchange (PAKE) protocol run between two parties for deriving a strong shared key with no risk of disclosing the password."
+            ],
+            "title": "SPAKE2+, an Augmented PAKE - GitHub Pages"
+          },
+          {
+            "url": "https://asecuritysite.com/pake/spake",
+            "excerpts": [
+              "SPAKE2 - asecuritysite.com\nFor SPAKE2, we have two roles: A (Alice) and B (Bob). They use two classes (SPAKE2_A and SPAKE2_B), and then pass messages to each other using these. Each time, Bob and Alice will generate a new key. Alice take the shared password and converts it into an integer (w)."
+            ],
+            "title": "SPAKE2 - asecuritysite.com"
+          },
+          {
+            "url": "https://docs.rs/spake2/latest/spake2",
+            "excerpts": [
+              "spake2 - Rust - Docs.rs\nPAKE can be used in a pairing protocol, like the initial version of Firefox Sync (the one with J-PAKE), to introduce one device to another and help them share secrets."
+            ],
+            "title": "spake2 - Rust - Docs.rs"
+          },
+          {
+            "url": "https://t34ch.tech/articles/spake2-key-exchange",
+            "excerpts": [
+              "SPAKE2 in Practice: Key Exchange for Low-Trust Peer Channels\nA PAKE protocol binds a password into the key exchange so that only someone who knows the password can complete the protocol successfully. The critical property is that an eavesdropper or active attacker gains no advantage in guessing the password from observing or tampering with the exchange."
+            ],
+            "title": "SPAKE2 in Practice: Key Exchange for Low-Trust Peer Channels"
+          },
+          {
+            "url": "https://workos.com/blog/oauth-device-authorization-grant",
+            "excerpts": [],
+            "title": "Device Authorization Grant: Solving OAuth for screens without keyboards \u2014 WorkOS"
+          },
+          {
+            "url": "https://en.wikipedia.org/wiki/Signal_Protocol",
+            "excerpts": [
+              "Signal Protocol\nThe Signal Protocol is a non-federated cryptographic protocol that provides end-to-end encryption for voice and instant messaging conversations."
+            ],
+            "title": "Signal Protocol"
+          },
+          {
+            "url": "https://forum.cursor.com/t/store-ai-chat-history-in-project-folders-for-cross-device-project-synchronization/103026",
+            "excerpts": [
+              "Store AI Chat History in Project Folders for Cross-Device Project ...\nChat records cannot sync with project folders across different devices; Loss of AI conversation context when switching between home and office"
+            ],
+            "title": "Store AI Chat History in Project Folders for Cross-Device Project ..."
+          },
+          {
+            "url": "https://community.openai.com/t/sync-chat-history-across-devices-to-keep-context/1278893",
+            "excerpts": [
+              "Sync chat history across devices to keep context - ChatGPT\nJun 5, 2025 \u00b7 I'd like my chat history to be synced across all devices automatically, so I don't have to reintroduce myself or lose past conversations when switching between"
+            ],
+            "title": "Sync chat history across devices to keep context - ChatGPT"
+          },
+          {
+            "url": "https://community.openai.com/t/sync-chat-history-between-devices/776913",
+            "excerpts": [
+              "Sync Chat History Between Devices - OpenAI Developer Community\nMay 24, 2024 \u00b7 I would like to request a chat feature that allows me to sync my chat history across devices. I often use my mobile device to interact with ChatGPT-4 and"
+            ],
+            "title": "Sync Chat History Between Devices - OpenAI Developer Community"
+          },
+          {
+            "url": "https://web.eecs.umich.edu/~yit/signal.html",
+            "excerpts": [
+              "Generic Signal Messaging Protocol - Specification and ...\nSignal protocol is an open source secure messaging protocol that provides end-to-end authenticated encryption with forward security, post-compromise security,"
+            ],
+            "title": "Generic Signal Messaging Protocol - Specification and ..."
+          },
+          {
+            "url": "https://bricxlabs.com/blogs/message-screen-ui-deisgn",
+            "excerpts": [
+              "16 Chat UI Design Patterns That Work in 2026 - bricxlabs.com\nOur analysis reveals 16 chat UX design patterns that drive real results in 2026. These patterns aren't theoretical concepts - they represent battle-tested approaches that help organizations streamline customer service and keep users actively participating."
+            ],
+            "title": "16 Chat UI Design Patterns That Work in 2026 - bricxlabs.com"
+          },
+          {
+            "url": "https://getstream.io/blog/chat-ux",
+            "excerpts": [
+              "Chat UX Best Practices: From Onboarding to Re-Engagement\nLearn how to optimize every stage of the chat user journey, from 30-second onboarding to long-term retention. Includes benchmarks, code examples, and proven UX patterns."
+            ],
+            "title": "Chat UX Best Practices: From Onboarding to Re-Engagement"
+          },
+          {
+            "url": "https://www.setproduct.com/blog/ai-chat-interface-ui-design",
+            "excerpts": [
+              "Designing AI chat interfaces: Anatomy, patterns, pitfalls\nMay 29, 2026 \u2014 A practical guide to AI chat UI: anatomy, message states, streaming pattern, mobile vs desktop layouts, accessibility, and anti-patterns to"
+            ],
+            "title": "Designing AI chat interfaces: Anatomy, patterns, pitfalls"
+          },
+          {
+            "url": "https://agentic-design.ai/patterns/ui-ux-patterns/chat-interface-patterns",
+            "excerpts": [
+              "Chat Interface Patterns (CIP) - Agentic Design\nSpecialized chat interface patterns optimized for agent interactions, including message threading, context management, and rich content display"
+            ],
+            "title": "Chat Interface Patterns (CIP) - Agentic Design"
+          },
+          {
+            "url": "https://codewithcaptain.com/chat-first-interface-design-principles",
+            "excerpts": [
+              "Chat-First Interface Design Principles: Essential for Adaptive UX\nJan 28, 2026 \u2014 Chat-first interface design principles enable digital products to reveal intent and adapt to context, giving users richer, more flexible"
+            ],
+            "title": "Chat-First Interface Design Principles: Essential for Adaptive UX"
+          },
+          {
+            "url": "https://www.duskolicanin.com/blog/stripe-usage-based-billing-metering-saas-2026",
+            "excerpts": [
+              "Building Usage-Based Billing with Stripe Metering in 2026\nProduction-grade usage-based billing with Stripe's Billing Meters API: how meters work, idempotency gotchas, late-arriving events, and when Lago is the smarter choice."
+            ],
+            "title": "Building Usage-Based Billing with Stripe Metering in 2026"
+          },
+          {
+            "url": "https://docs.stripe.com/api/billing/meter",
+            "excerpts": [
+              "Meters | Stripe API Reference\nMeters specify how to aggregate meter events over a billing period. Meter events represent the actions that customers take in your system. Meters attach to prices and form the basis of the bill. Related guide: Usage based billing. Was this section helpful? Yes No."
+            ],
+            "title": "Meters | Stripe API Reference"
+          },
+          {
+            "url": "https://www.temperstack.com/learn/stripe/implement-usage-based-billing",
+            "excerpts": [
+              "How to implement usage based billing on Stripe (April 2026 ...\nUsage-based billing on Stripe requires creating metered products with usage records that track consumption. You'll set up subscription items with metered billing, report usage via API calls, and configure automated invoicing."
+            ],
+            "title": "How to implement usage based billing on Stripe (April 2026 ..."
+          },
+          {
+            "url": "https://starterpick.com/guides/how-to-add-usage-based-billing-stripe-meters-2026",
+            "excerpts": [
+              "Add Usage-Based Billing with Stripe Meters 2026 - starterpick.com\nAdd usage-based billing to your SaaS boilerplate using Stripe Meters in 2026. Track API calls, AI tokens, or storage, and charge customers based on actual."
+            ],
+            "title": "Add Usage-Based Billing with Stripe Meters 2026 - starterpick.com"
+          },
+          {
+            "url": "https://www.speedtesthq.com/compare/dns-over-https-vs-dns-over-tls",
+            "excerpts": [
+              "DNS over HTTPS vs DNS over TLS in 2026: Which Is Better?\nDNS over HTTPS (DoH) and DNS over TLS (DoT) both encrypt DNS queries \u2014 a major upgrade from unencrypted DNS. DoH runs on port 443 (HTTPS) so it blends with regular web traffic and is harder to block. DoT runs on dedicated port 853, making it easier to identify and filter at the network level."
+            ],
+            "title": "DNS over HTTPS vs DNS over TLS in 2026: Which Is Better?"
+          },
+          {
+            "url": "https://alexi.sh/posts/dns-over-https-implementations-2026",
+            "excerpts": [
+              "DNS-over-HTTPS implementations 2026: Cloudflare 1.1.1.1 vs ...\nPrivSec Lab deep-dive into DNS-over-HTTPS implementations in 2026: Cloudflare 1.1.1.1, NextDNS, Quad9, and self-hosted resolvers compared on jurisdiction, protocols, logging, and censorship bypass."
+            ],
+            "title": "DNS-over-HTTPS implementations 2026: Cloudflare 1.1.1.1 vs ..."
+          },
+          {
+            "url": "https://bufferspeed.com/blog/dns-over-https-vs-dns-over-tls",
+            "excerpts": [
+              "DNS-over-HTTPS vs DNS-over-TLS: Which Should You Use in 2026?\nComplete comparison of DoH and DoT encrypted DNS protocols. Learn the technical differences, performance impact, privacy benefits, and which protocol to choose for gaming, browsing, and privacy."
+            ],
+            "title": "DNS-over-HTTPS vs DNS-over-TLS: Which Should You Use in 2026?"
+          },
+          {
+            "url": "https://networkcheckr.com/dns-over-https-vs-dns-over-tls",
+            "excerpts": [
+              "DNS over HTTPS vs DNS over TLS: DoH vs DoT Explained\nDNS over HTTPS vs DNS over TLS: how DoH and DoT encrypt your DNS, which ports and RFCs each uses, and which is better for privacy or network control."
+            ],
+            "title": "DNS over HTTPS vs DNS over TLS: DoH vs DoT Explained"
+          },
+          {
+            "url": "https://dasroot.net/posts/2026/03/dns-privacy-doh-dot-dns-over-quic",
+            "excerpts": [
+              "DNS Privacy: DoH, DoT, and DNS-over-QUIC \u00b7 Technical news ...\nDNS over HTTPS (DoH), DNS over TLS (DoT), and DNS over QUIC (DoQ) each present unique advantages and challenges in deployment, making them suitable for different use cases and environments."
+            ],
+            "title": "DNS Privacy: DoH, DoT, and DNS-over-QUIC \u00b7 Technical news ..."
+          },
+          {
+            "url": "https://insights.nomadlab.cc/blog/2026/04/tailscale-vs-cloudflare-tunnel-vs-ngrok-2026",
+            "excerpts": [
+              "Tailscale vs Cloudflare Tunnel vs ngrok in 2026 - Insights\nFor a lot of developers, that was the push to seriously evaluate Cloudflare Tunnel and Tailscale Funnel as alternatives. I\u2019ve used all three in production and development contexts over the past year. Here\u2019s what I actually think about each one, who they\u2019re best for, and where each falls short."
+            ],
+            "title": "Tailscale vs Cloudflare Tunnel vs ngrok in 2026 - Insights"
+          },
+          {
+            "url": "https://localxpose.io/blog/ngrok-vs-tailscale",
+            "excerpts": [
+              "ngrok vs Tailscale vs LocalXpose - Complete Comparison 2026\nngrok's free tier provides $5 of one-time included usage credit, up to 3 online endpoints, 1GB data transfer, and 20K HTTP/S requests."
+            ],
+            "title": "ngrok vs Tailscale vs LocalXpose - Complete Comparison 2026"
+          },
+          {
+            "url": "https://smarthomeentry.com/en/cloudflare-tunnel-vs-ngrok",
+            "excerpts": [
+              "Cloudflare Tunnel vs ngrok (2026): Tested Comparison + When ...\nCF Tunnel was designed as a production reverse proxy: stable URL on your domain, automatic Let's Encrypt SSL, built-in DDoS protection, no rate limit on HTTP. Free ngrok rotates URLs on every restart - useless for production. Paid ngrok works, but 8 USD/month + your config time > CF Tunnel free."
+            ],
+            "title": "Cloudflare Tunnel vs ngrok (2026): Tested Comparison + When ..."
+          },
+          {
+            "url": "https://dev.to/mechcloud_academy/cloudflare-tunnel-vs-ngrok-vs-tailscale-choosing-the-right-secure-tunneling-solution-4inm",
+            "excerpts": [
+              "Cloudflare Tunnel vs. ngrok vs. Tailscale: Choosing the Right ...\nCloudflare Tunnel offers a generous free tier that includes unlimited bandwidth, use and small projects. ngrok provides a free tier"
+            ],
+            "title": "Cloudflare Tunnel vs. ngrok vs. Tailscale: Choosing the Right ..."
+          },
+          {
+            "url": "https://pinggy.io/blog/best_cloudflare_tunnel_alternatives",
+            "excerpts": [
+              "Top 10 Cloudflare Tunnel Alternatives in 2026 - Pinggy\nTailscale bypasses the need for public-facing IP addresses by creating direct connections between devices, regardless of firewalls or NATs."
+            ],
+            "title": "Top 10 Cloudflare Tunnel Alternatives in 2026 - Pinggy"
+          },
+          {
+            "url": "https://hermes-agent.nousresearch.com/docs/user-guide/desktop",
+            "excerpts": [
+              "Desktop App | Hermes Agent\nFollow the installation instructions for Hermes Desktop. If you already have Hermes installed, simply run. That uses your current config, keys, sessions, and skills. The desktop app is organized as a chat-first window with a left sidebar for navigation."
+            ],
+            "title": "Desktop App | Hermes Agent"
+          },
+          {
+            "url": "https://github.com/NousResearch/hermes-agent/issues/49689",
+            "excerpts": [
+              "[Feature]: Desktop composer \u2014 screenshot capture + annotation ...\nFeature Description Add a Codex-style \"annotate and attach\" affordance to the Hermes Desktop chat composer: capture or attach a screenshot, draw over it (arrows / boxes / freehand highlight / numbered callouts), type an accompanying message, and send the annotated image to the agent as a single vision content block with the markup preserved."
+            ],
+            "title": "[Feature]: Desktop composer \u2014 screenshot capture + annotation ..."
+          },
+          {
+            "url": "https://www.hermes-ai.net/desktop",
+            "excerpts": [
+              "Hermes Agent Desktop - Download for Mac, Windows & Linux ...\nHermes Agent Desktop app information, feature preview, and install links for Mac, Windows, and Linux."
+            ],
+            "title": "Hermes Agent Desktop - Download for Mac, Windows & Linux ..."
+          },
+          {
+            "url": "https://www.thetoolnerd.com/p/step-by-step-guide-how-to-setup-hermes-agent",
+            "excerpts": [
+              "Step-by-Step Guide: How to Set Up Hermes Agent on Desktop\nLearn how to install and set up Hermes Agent on Mac or Windows in under 5 minutes. Complete step-by-step guide with screenshots, API configuration, and Telegram setup."
+            ],
+            "title": "Step-by-Step Guide: How to Set Up Hermes Agent on Desktop"
+          },
+          {
+            "url": "https://developers.cloudflare.com/durable-objects/platform/limits",
+            "excerpts": [
+              "SQLite-backed Durable Objects general limits\n2 days ago \u2014 Each SQLite -backed Durable Object has a storage limit of 10 GB on a Workers Paid plan. Refer to Durable Object limits for more information. Can I increase"
+            ],
+            "title": "SQLite-backed Durable Objects general limits"
+          },
+          {
+            "url": "https://developers.cloudflare.com/durable-objects",
+            "excerpts": [
+              "Overview \u00b7 Cloudflare Durable Objects docs\nApr 21, 2026 \u2014 Durable Objects provide a building block for stateful applications and distributed systems. Use Durable Objects to build applications that need coordination."
+            ],
+            "title": "Overview \u00b7 Cloudflare Durable Objects docs"
+          },
+          {
+            "url": "https://oneuptime.com/blog/post/2026-01-27-cloudflare-durable-objects/view",
+            "excerpts": [
+              "How to Implement Cloudflare Durable Objects\nJan 27, 2026 \u2014 Learn how to implement Cloudflare Durable Objects for stateful serverless applications at the edge, including storage APIs, alarms, WebSocket"
+            ],
+            "title": "How to Implement Cloudflare Durable Objects"
+          },
+          {
+            "url": "https://blog.ashleypeacock.co.uk/p/the-ultimate-guide-to-cloudflares",
+            "excerpts": [
+              "The Ultimate Guide to Cloudflare's Durable Objects\nMay 30, 2025 \u2014 ... storage , the limits are significantly higher for SQLite -backed Durable Objects . You can store up to 10GB per Durable Object , with no limit on the amount of"
+            ],
+            "title": "The Ultimate Guide to Cloudflare's Durable Objects"
+          },
+          {
+            "url": "https://developers.cloudflare.com/durable-objects/reference/faq",
+            "excerpts": [
+              "FAQs \u00b7 Cloudflare Durable Objects docs\nApr 21, 2026 \u2014 An individual Object has a soft limit of 1,000 requests per second . ... Each SQLite -backed Durable Object has a storage limit of 10 GB on a Workers Paid plan."
+            ],
+            "title": "FAQs \u00b7 Cloudflare Durable Objects docs"
+          }
+        ],
+        "confidence": "high"
+      }
+    ],
+    "type": "text",
+    "beta_fields": null,
+    "mcp_tool_calls": null,
+    "content_file": "thumbgate-frictionless-july-2026.md"
+  }
+}
