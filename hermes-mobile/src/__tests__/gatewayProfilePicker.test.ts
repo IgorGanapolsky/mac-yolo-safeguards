@@ -145,11 +145,55 @@ describe('gatewayProfilePicker', () => {
     expect(activeRow).toBeTruthy();
     expect(profileConnectionRouteLabel(activeRow!, true)).toBe('Tailscale');
     expect(isCablePluggedInForProfile(activeRow!, liveUsb)).toBe(true);
-    expect(profilePickerLines(activeRow!, { cablePluggedIn: true }).detail).toBe(
-      'Cable connected · Tailscale works away from home',
+    expect(profilePickerLines(activeRow!, { cablePluggedIn: true }).detail).toMatch(
+      /Tailscale · 100\.87\.85\.85:8642 · USB cable also available/,
+    );
+    expect(profileConnectionRouteDisplayLabel(activeRow!, true, { cablePluggedIn: true })).toBe(
+      'Tailscale',
     );
     expect(profiles.map((profile) => profile.id)).not.toContain('mac_book_usb');
     expect(profiles.map((profile) => profile.id)).toContain('mac_mini_ts');
+  });
+
+  it('keeps active Home Wi-Fi selected when cable is live (header/picker SSoT)', () => {
+    const activeProfileId = 'mac_book_lan';
+    const liveUsb = {
+      reachable: true,
+      hostname: 'Igors-MacBook-Pro.local',
+    };
+    const profiles = profilesForSwitchComputerPicker(
+      [
+        {
+          id: 'mac_book_usb',
+          label: 'Igors-MacBook-Pro',
+          gatewayUrl: 'http://127.0.0.1:8642',
+          hostname: 'Igors-MacBook-Pro',
+          addedAt: '2026-07-20T15:00:00Z',
+        },
+        {
+          id: activeProfileId,
+          label: 'Igors-MacBook-Pro',
+          gatewayUrl: 'http://192.168.68.61:8642',
+          hostname: 'Igors-MacBook-Pro',
+          localIp: '192.168.68.61',
+          addedAt: '2026-07-20T15:00:30Z',
+        },
+      ],
+      { activeProfileId, liveUsb },
+    );
+
+    expect(profiles).toHaveLength(1);
+    expect(profiles[0].id).toBe(activeProfileId);
+    expect(profileConnectionRouteLabel(profiles[0], true)).toBe('Wi-Fi');
+    expect(profileConnectionRouteDisplayLabel(profiles[0], true, { cablePluggedIn: true })).toBe(
+      'Home Wi‑Fi',
+    );
+    expect(profilePickerLines(profiles[0], { cablePluggedIn: true }).detail).toBe(
+      '192.168.68.61:8642 · USB cable also available',
+    );
+    expect(profilePickerLines(profiles[0], { cablePluggedIn: true }).detail).not.toMatch(
+      /USB cable connected/i,
+    );
   });
 
   it('uses Tailscale for Mac Pro when USB is not reachable and preserves Mac mini', () => {
@@ -628,9 +672,9 @@ describe('gatewayProfilePicker', () => {
     );
     expect(profiles[0].gatewayUrl).toContain('127.0.0.1');
     expect(profiles[0].label).toMatch(/MacBook-Pro/i);
-    expect(profilePickerLines(profiles[0], { cablePluggedIn: true }).detail).toMatch(/cable/i);
+    expect(profilePickerLines(profiles[0], { cablePluggedIn: true }).detail).toMatch(/USB cable connected/i);
     expect(profileConnectionRouteDisplayLabel(profiles[0], true, { cablePluggedIn: true })).toBe(
-      'Plugged in with this cable',
+      'USB',
     );
   });
 

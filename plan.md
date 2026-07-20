@@ -834,6 +834,7 @@ Status values: `pending` | `in_progress` | `blocked` | `done`. Claim a row by se
 
 ## 3. Decisions Log
 
+- 2026-07-20T22:15:00Z `cursor-transport-ssot`: **T-TRANSPORT-LABEL-SSOT** — Root cause: picker collapsed to USB when cable live (only Tailscale actives preserved) while header labeled active LAN as Home Wi‑Fi; scan banner said "Using USB" for discovery path. Fix: preserve active non-USB when cable live; discovery copy "Found N over USB"; status region uses resolveHeaderTransportLabel when connected. Focused Jest green. PR #647.
 - 2026-07-20 `cursor-adb-appear-pair`: **T-ADB-APPEAR-PAIR done.** Extended `com.igor.hermes-usb-reverse-watchdog` with absent→present auto-pair (`hermes-mobile-pair.js --open`, skip when phone pipeline busy). PR #642 merged. LaunchAgent loaded (`last exit code=0`, StartInterval=15). Gated production OTA for #641/`631ab139` on runtime 1.2: group `1f4cda52-9bfd-4329-848b-03c55c6c1c94` at 10% rollout (tip message includes 9ff22c5f). Phone still absent — no Connected proof this session.
 
 - 2026-07-20T21:20:00Z `cursor-project-lane-once`: **Completed T-PROJECT-LANE-ONCE.** Root cause: ChatScreen wired `workspaceName`/`canSwitchWorkspace`/`onPressWorkspace` into ChatScreenHeader while VaultProjectPickerChip also rendered — two "Project lane (optional)" controls. Fix: stop wiring header project props; keep footer chip. Jest: Obsidian vault project picker 2/2.
