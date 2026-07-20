@@ -52,4 +52,9 @@ describe('Play Console Android hardening contract', () => {
     expect(pluginSrc).toContain('convertPngTreeToWebp');
     expect(pluginSrc).toContain('mipmap-');
   });
+
+  it('installs cwebp on EAS Linux builders before prebuild', () => {
+    const pkg = JSON.parse(read('package.json'));
+    expect(pkg.scripts['eas-build-pre-install']).toMatch(/webp|cwebp/);
+  });
 });
