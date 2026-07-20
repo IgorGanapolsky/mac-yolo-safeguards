@@ -310,7 +310,7 @@ header h1{font-size:16px;margin:0;font-weight:600}
 .dot{width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:4px}
 .up{background:var(--u)}.down{background:#f85149}
 input{flex:1;min-width:160px;background:var(--bg);border:1px solid var(--bd);color:var(--fg);border-radius:6px;padding:7px 10px;font-size:14px}
-#live{background:var(--card);border-bottom:1px solid var(--bd);padding:8px 16px;font-size:12px;display:none}
+#live{background:var(--card);border-bottom:1px solid var(--bd);padding:8px 16px;font-size:12px;display:none;max-height:22vh;overflow-y:auto}
 #live.show{display:block}
 #live h3{margin:0 0 6px;font-size:12px;color:var(--mut);font-weight:600;text-transform:uppercase;letter-spacing:.5px}
 .agent{display:flex;gap:10px;align-items:center;padding:5px 0;border-top:1px solid var(--bd);flex-wrap:wrap}
