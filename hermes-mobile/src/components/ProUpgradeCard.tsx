@@ -10,10 +10,11 @@ import {
 } from 'react-native';
 import {
   THUMBGATE_LEASH_PRODUCT_NAME,
-  THUMBGATE_PRO_PRICE_LABEL,
   THUMBGATE_PRO_URL,
+  thumbgateProPriceLabel,
 } from '../constants/monetization';
 import {
+  HERMES_PRO_LIFETIME_IAP_PRODUCT_ID,
   THUMBGATE_LEASH_IAP_PRODUCT_ID,
   purchaseThumbgateLeash,
   restoreThumbgateLeashPurchases,
@@ -28,21 +29,30 @@ type ProUpgradeCardProps = {
   onTesterUnlock?: () => void | Promise<void>;
 };
 
+function paywallProductId(): string {
+  return Platform.OS === 'android'
+    ? HERMES_PRO_LIFETIME_IAP_PRODUCT_ID
+    : THUMBGATE_LEASH_IAP_PRODUCT_ID;
+}
+
 export default function ProUpgradeCard({ onUnlocked, onTesterUnlock }: ProUpgradeCardProps) {
   const [busy, setBusy] = useState(false);
+  const isAndroidLifetime = Platform.OS === 'android';
+  const priceLabel = thumbgateProPriceLabel();
+  const productId = paywallProductId();
 
   useEffect(() => {
     void trackProductEvent('leash_paywall_view', {
-      product_id: THUMBGATE_LEASH_IAP_PRODUCT_ID,
+      product_id: productId,
     });
-  }, []);
+  }, [productId]);
 
   const openLearnMore = async () => {
     await trackProductEvent('upgrade_tap_thumbgate_learn_more', { url: THUMBGATE_PRO_URL });
     await Linking.openURL(THUMBGATE_PRO_URL);
   };
 
-  const handleSubscribe = async () => {
+  const handlePurchase = async () => {
     if (busy) {
       return;
     }
@@ -50,11 +60,11 @@ export default function ProUpgradeCard({ onUnlocked, onTesterUnlock }: ProUpgrad
     try {
       await trackProductEvent('upgrade_tap_thumbgate_iap');
       await trackProductEvent('leash_purchase_start', {
-        product_id: THUMBGATE_LEASH_IAP_PRODUCT_ID,
+        product_id: productId,
       });
       const result = await purchaseThumbgateLeash();
       await trackProductEvent('leash_purchase_result', {
-        product_id: THUMBGATE_LEASH_IAP_PRODUCT_ID,
+        product_id: productId,
         status: result.status,
       });
       if (result.status === 'purchased') {
@@ -84,7 +94,7 @@ export default function ProUpgradeCard({ onUnlocked, onTesterUnlock }: ProUpgrad
       await trackProductEvent('upgrade_tap_thumbgate_restore');
       const result = await restoreThumbgateLeashPurchases();
       await trackProductEvent('leash_restore_result', {
-        product_id: THUMBGATE_LEASH_IAP_PRODUCT_ID,
+        product_id: productId,
         status: result.status,
       });
       if (result.status === 'purchased') {
@@ -95,7 +105,9 @@ export default function ProUpgradeCard({ onUnlocked, onTesterUnlock }: ProUpgrad
         'Restore purchases',
         result.status === 'not_configured' || result.status === 'error'
           ? result.message
-          : 'No active ThumbGate Leash subscription found.',
+          : isAndroidLifetime
+            ? 'No Hermes Pro unlock found on this Google Play account.'
+            : 'No ThumbGate Leash purchase found on this Apple ID. Existing subscribers can restore here.',
       );
     } finally {
       setBusy(false);
@@ -106,13 +118,15 @@ export default function ProUpgradeCard({ onUnlocked, onTesterUnlock }: ProUpgrad
     <View style={styles.wrap} testID="pro-upgrade-card" collapsable={false} accessible={true}>
       <Text style={styles.title}>ThumbGate Pro</Text>
       <Text style={styles.body}>
-        Hermes Chat is free. {THUMBGATE_LEASH_PRODUCT_NAME} ({THUMBGATE_PRO_PRICE_LABEL}) unlocks
-        mobile approval cards on this phone — subscription through{' '}
-        {Platform.OS === 'ios' ? 'Apple' : 'Google'}, same as any other mobile app.
+        Hermes Chat is free. {THUMBGATE_LEASH_PRODUCT_NAME} ({priceLabel}) unlocks mobile approval
+        cards on this phone
+        {isAndroidLifetime
+          ? ' — one-time unlock on Google Play.'
+          : '. Existing App Store subscribers keep access; use Restore if you already paid.'}
       </Text>
       <TouchableOpacity
         style={[styles.primaryButton, busy && styles.primaryButtonDisabled]}
-        onPress={() => void handleSubscribe()}
+        onPress={() => void handlePurchase()}
         disabled={busy}
         testID="subscribe-thumbgate-leash-iap"
       >
@@ -128,20 +142,42 @@ export default function ProUpgradeCard({ onUnlocked, onTesterUnlock }: ProUpgrad
       >
         <Text style={styles.secondaryButtonText}>Restore purchases</Text>
       </TouchableOpacity>
-      <Text style={styles.legalText} testID="subscription-legal-disclosure">
-        {THUMBGATE_PRO_PRICE_LABEL}/month, auto-renewing until canceled. Payment charged to your{' '}
-        {Platform.OS === 'ios' ? 'Apple ID' : 'Google Play'} account at confirmation. Subscription
-        renews unless canceled at least 24 hours before the period ends. Manage or cancel in{' '}
-        {Platform.OS === 'ios' ? 'Settings → Apple ID → Subscriptions' : 'Google Play → Subscriptions'}
-        .{' '}
-        <Text style={styles.legalLink} onPress={() => void Linking.openURL('https://www.apple.com/legal/internet-services/itunes/dev/stdeula/')}>
-          Terms of Use
+      {isAndroidLifetime ? (
+        <Text style={styles.legalText} testID="subscription-legal-disclosure">
+          One-time {priceLabel} unlock via Google Play. Payment charged to your Google Play account
+          at confirmation. Restore purchases if you already unlocked on this account.{' '}
+          <Text
+            style={styles.legalLink}
+            onPress={() => void Linking.openURL('https://thumbgate.ai/privacy')}
+          >
+            Privacy Policy
+          </Text>
         </Text>
-        {' · '}
-        <Text style={styles.legalLink} onPress={() => void Linking.openURL('https://thumbgate.ai/privacy')}>
-          Privacy Policy
+      ) : (
+        <Text style={styles.legalText} testID="subscription-legal-disclosure">
+          If App Store billing offers an auto-renewing plan, payment is charged to your Apple ID at
+          confirmation and renews unless canceled at least 24 hours before the period ends. Manage
+          or cancel in Settings → Apple ID → Subscriptions. Existing subscribers: use Restore
+          purchases.{' '}
+          <Text
+            style={styles.legalLink}
+            onPress={() =>
+              void Linking.openURL(
+                'https://www.apple.com/legal/internet-services/itunes/dev/stdeula/',
+              )
+            }
+          >
+            Terms of Use
+          </Text>
+          {' · '}
+          <Text
+            style={styles.legalLink}
+            onPress={() => void Linking.openURL('https://thumbgate.ai/privacy')}
+          >
+            Privacy Policy
+          </Text>
         </Text>
-      </Text>
+      )}
       <TouchableOpacity onPress={() => void openLearnMore()} testID="upgrade-thumbgate-pro">
         <Text style={styles.learnMoreLink}>Learn what ThumbGate Pro includes</Text>
       </TouchableOpacity>
@@ -154,9 +190,7 @@ export default function ProUpgradeCard({ onUnlocked, onTesterUnlock }: ProUpgrad
           }}
           testID="unlock-thumbgate-leash"
         >
-          <Text style={styles.testerButtonText}>
-            Unlock for testing (dev builds only)
-          </Text>
+          <Text style={styles.testerButtonText}>Unlock for testing (dev builds only)</Text>
         </TouchableOpacity>
       ) : null}
     </View>

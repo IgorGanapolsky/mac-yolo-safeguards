@@ -19,7 +19,7 @@ import GlassCard from '../components/GlassCard';
 import HealthPill from '../components/HealthPill';
 import ProUpgradeCard from '../components/ProUpgradeCard';
 import { isDeveloperLeashUnlockAllowed } from '../utils/demoModePolicy';
-import { THUMBGATE_PRO_PRICE_LABEL } from '../constants/monetization';
+import { thumbgateProPriceLabel } from '../constants/monetization';
 import { colors } from '../theme/colors';
 import { useGateway } from '../context/GatewayContext';
 import {
@@ -244,7 +244,7 @@ export default function ApprovalsScreen() {
             ? settings.safetyMode || settings.glanceMode
               ? 'Approve blocked agent tools — from lock screen (Approve / Deny) or cards below'
               : 'Approve blocked tools from your phone — tap notifications on lock screen'
-            : `Paid add-on (${THUMBGATE_PRO_PRICE_LABEL}) via ${Platform.OS === 'ios' ? 'App Store' : 'Google Play'}`}
+            : `Paid add-on (${thumbgateProPriceLabel()}) via ${Platform.OS === 'ios' ? 'App Store' : 'Google Play'}`}
         </Text>
         {leashUnlocked ? (
           <>
@@ -325,7 +325,7 @@ export default function ApprovalsScreen() {
           <GlassCard style={styles.emptyCard} testID="leash-pro-upsell-card">
             <Text style={styles.emptyTitle}>Upgrade for unlimited Leash</Text>
             <Text style={styles.emptyBody}>
-              Free tier includes limited weekly approvals. Subscribe for unlimited mobile approvals
+              Free tier includes limited weekly approvals. Unlock for unlimited mobile approvals
               and full ThumbGate Pro gates.
             </Text>
             <ProUpgradeCard
