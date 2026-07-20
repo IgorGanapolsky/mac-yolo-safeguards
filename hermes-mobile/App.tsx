@@ -49,6 +49,7 @@ import OtaUpdateBanner from './src/components/OtaUpdateBanner';
 import { useHermesDeepLinks } from './src/hooks/useHermesDeepLinks';
 import type { SetupDeepLinkParams } from './src/utils/setupDeepLink';
 import { trackAppOpen, trackScreenView } from './src/services/productAnalytics';
+import { refreshRemoteConfig } from './src/services/remoteConfig';
 import {
   flushCrashQueue,
   installGlobalCrashHandler,
@@ -417,6 +418,10 @@ function App() {
   useEffect(() => {
     void trackAppOpen();
     void flushCrashQueue();
+    // Refresh server-side feature flags / kill switches at launch. Production
+    // gate + offline-safety are handled inside the service; this is fire-and
+    // -forget and never blocks the UI.
+    void refreshRemoteConfig();
     void SplashScreen.hideAsync();
     const splashFallback = setTimeout(() => {
       void SplashScreen.hideAsync();
