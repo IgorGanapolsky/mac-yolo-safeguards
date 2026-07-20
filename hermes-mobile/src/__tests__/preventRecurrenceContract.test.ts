@@ -162,10 +162,14 @@ describe('prevent recurrence contract (July 2026 CI gates)', () => {
     expect(draft).toContain('transferComposerDraft');
   });
 
-  it('keeps mega-session WARN at 100k and BLOCK at 500k (516k stall class)', () => {
+  it('measures mega-session by context estimate (not lifetime traffic)', () => {
     const guards = read('hermes-mobile/src/utils/sessionTokenGuards.ts');
-    expect(guards).toContain('MEGA_SESSION_TOKEN_WARN = 100_000');
-    expect(guards).toContain('MEGA_SESSION_TOKEN_BLOCK = 500_000');
+    expect(guards).toContain('estimatedContextTokens');
+    expect(guards).toContain('MEGA_CONTEXT_TOKEN_WARN = 120_000');
+    expect(guards).toContain('MEGA_CONTEXT_TOKEN_BLOCK = 200_000');
+    // Legacy cumulative fallback for gateways without api_call_count.
+    expect(guards).toContain('MEGA_SESSION_TOKEN_WARN = 350_000');
+    expect(guards).toContain('MEGA_SESSION_TOKEN_BLOCK = 800_000');
     expect(guards).toContain('shouldSuggestFreshOnSessionSelect');
   });
 

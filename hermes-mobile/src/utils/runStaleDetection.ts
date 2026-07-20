@@ -1,20 +1,20 @@
 import type { RunProgressState } from '../types/chatDisplay';
 import type { HermesSession } from '../types/chat';
-import { isMegaSession, sessionTotalTokens } from './sessionTokenGuards';
+import { isMegaSession } from './sessionTokenGuards';
 
 type SessionTokenFields = Pick<
   HermesSession,
-  'input_tokens' | 'output_tokens' | 'cache_read_tokens'
+  'input_tokens' | 'output_tokens' | 'cache_read_tokens' | 'api_call_count'
 >;
 
 function resolveRunStaleAutoFailMs(
   progress: RunProgressState,
   session?: SessionTokenFields | null,
 ): number {
-  const sessionTokens = session ? sessionTotalTokens(session) : 0;
   const progressTokens =
     (progress.inputTokens ?? 0) + (progress.outputTokens ?? 0) + (progress.totalTokens ?? 0);
-  if (isMegaSession(session) || progressTokens >= 500_000 || sessionTokens >= 500_000) {
+  // Prefer context-true mega classification — lifetime sessionTotals falsely flag busy chats.
+  if (isMegaSession(session) || progressTokens >= 500_000) {
     // Standing order: mega sessions must not be killed early by phone-side timers.
     return MEGA_SESSION_RUN_STALE_AUTO_FAIL_MS;
   }

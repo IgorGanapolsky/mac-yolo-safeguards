@@ -28,8 +28,8 @@ describe('weakLocalModel', () => {
   });
 
   it('flags poisoned mega context at 20k input tokens', () => {
-    expect(POISONED_SESSION_INPUT_TOKENS).toBe(20_000);
-    expect(shouldForceFreshChatForContext(19_999)).toBe(false);
-    expect(shouldForceFreshChatForContext(20_000)).toBe(true);
+    expect(POISONED_SESSION_INPUT_TOKENS).toBe(120_000);
+    expect(shouldForceFreshChatForContext(119_999)).toBe(false);
+    expect(shouldForceFreshChatForContext(120_000)).toBe(true);
   });
 });

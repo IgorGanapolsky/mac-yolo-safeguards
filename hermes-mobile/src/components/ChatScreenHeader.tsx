@@ -10,6 +10,7 @@ import {
   displayableLlmModel,
 } from '../utils/runProgressDisplay';
 import { weakLocalModelWarning } from '../utils/weakLocalModel';
+import { classifyMegaSession } from '../utils/sessionTokenGuards';
 import ExpandableThreadTitle from './ExpandableThreadTitle';
 
 type ChatScreenHeaderProps = {
@@ -36,6 +37,7 @@ type ChatScreenHeaderProps = {
     input_tokens?: number;
     output_tokens?: number;
     cache_read_tokens?: number;
+    api_call_count?: number;
   } | null;
   /** Gateway default model when the session has not reported one yet. */
   gatewayModel?: string;
@@ -175,8 +177,11 @@ export default function ChatScreenHeader({
     displayableLlmModel(runProgress?.model) ??
     displayableLlmModel(gatewayModel);
   const localModelWarning = weakLocalModelWarning(resolvedModel);
+  // Lifetime input_tokens alone is NOT context size (busy chats falsely trip 20k).
+  // Prefer gateway context estimate via classifyMegaSession; live runProgress is per-call.
   const hugeContext =
-    (currentSession?.input_tokens ?? 0) >= 20_000 || (runProgress?.inputTokens ?? 0) >= 20_000;
+    classifyMegaSession(currentSession) !== 'normal' ||
+    (runProgress?.inputTokens ?? 0) >= 120_000;
   const modelTokenStrip = link.connected
     ? buildConnectedModelTokenLabel({
         sessionModel: currentSession?.model,

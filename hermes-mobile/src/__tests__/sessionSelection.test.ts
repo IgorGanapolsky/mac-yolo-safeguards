@@ -3,6 +3,7 @@ import type { ChatProjectState } from '../types/chatProject';
 import {
   isTelegramSession,
   pickDefaultSession,
+  isScheduledJobSession,
   sortSessionsForPicker,
   isAutomationProbeSession,
   isNonMobileAutomationSession,
@@ -176,6 +177,38 @@ describe('sessionSelection', () => {
 
   it('covers pickDefaultSession empty case', () => {
     expect(pickDefaultSession([], emptyProjectState)).toBeNull();
+  });
+
+  it('never auto-selects Scheduled cron when a real chat exists', () => {
+    const cron: HermesSession = {
+      id: 'cron_abc123',
+      source: 'cron',
+      title: '[IMPORTANT: You are running as a scheduled cron job',
+      last_active: 1781719000,
+    };
+    const human: HermesSession = {
+      id: 'sess_human',
+      title: 'make money today',
+      last_active: 1781718000,
+    };
+    expect(isScheduledJobSession(cron)).toBe(true);
+    expect(pickDefaultSession([cron, human], emptyProjectState)?.id).toBe('sess_human');
+  });
+
+  it('never auto-selects API_SERVER harness when alternatives exist', () => {
+    const api: HermesSession = {
+      id: 'api-probe-1',
+      source: 'api_server',
+      title: 'Reply with exactly: GUARDRAILS OK',
+      preview: 'Reply with exactly: GUARDRAILS OK',
+      last_active: 1781719000,
+    };
+    const human: HermesSession = {
+      id: 'sess_human',
+      title: 'make money today',
+      last_active: 1781718000,
+    };
+    expect(pickDefaultSession([api, human], emptyProjectState)?.id).toBe('sess_human');
   });
 
   it('covers pickDefaultSession mobile preference', () => {

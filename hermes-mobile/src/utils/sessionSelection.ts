@@ -94,6 +94,35 @@ export function isAutomationProbeSession(session: HermesSession): boolean {
   return true;
 }
 
+
+/** Scheduled cron / harness noise — never auto-open when a real chat exists. */
+export function isScheduledJobSession(session: HermesSession): boolean {
+  const source = session.source?.trim().toLowerCase() ?? '';
+  if (source === 'cron' || source.startsWith('cron')) {
+    return true;
+  }
+  if (/^cron[_-]/i.test(session.id)) {
+    return true;
+  }
+  const haystack = `${session.title ?? ''} ${session.preview ?? ''}`.toLowerCase();
+  if (haystack.includes('scheduled cron') || haystack.includes('running as a scheduled')) {
+    return true;
+  }
+  return false;
+}
+
+/** Sessions that must not become the cold-start default when alternatives exist. */
+export function isNonDefaultAutoSelectSession(session: HermesSession): boolean {
+  if (isScheduledJobSession(session) || isAutomationProbeSession(session) || isSmokeProbeSession(session)) {
+    return true;
+  }
+  const source = session.source?.trim().toLowerCase() ?? '';
+  if (source === 'api_server' && !isMobileChatSession(session)) {
+    return true;
+  }
+  return false;
+}
+
 export function isUserFacingSession(session: HermesSession): boolean {
   if (session.id === buildTelegramInboxSession().id) {
     return true;
@@ -196,7 +225,7 @@ export function pickDefaultSession(
     const preferredId = project?.activeSessionId ?? project?.sessionIds[0];
     if (preferredId) {
       const bound = sessions.find((s) => s.id === preferredId);
-      if (bound && isUserFacingSession(bound)) {
+      if (bound && isUserFacingSession(bound) && !isNonDefaultAutoSelectSession(bound)) {
         return bound;
       }
     }
@@ -206,12 +235,18 @@ export function pickDefaultSession(
     (s) =>
       !isTelegramSession(s) &&
       s.id !== TELEGRAM_INBOX_SESSION_ID &&
-      !isSmokeProbeSession(s),
+      !isSmokeProbeSession(s) &&
+      !isAutomationProbeSession(s),
   );
-  const mobileSessions = nonTelegram.filter(isMobileChatSession);
+  const preferred = nonTelegram.filter((s) => !isNonDefaultAutoSelectSession(s));
+  const mobileSessions = preferred.filter(isMobileChatSession);
   if (mobileSessions.length > 0) {
     return sortSessionsByRecency(mobileSessions)[0];
   }
+  if (preferred.length > 0) {
+    return sortSessionsByRecency(preferred)[0];
+  }
+  // Only fall back to cron/API_SERVER when nothing else exists.
   if (nonTelegram.length > 0) {
     return sortSessionsByRecency(nonTelegram)[0];
   }

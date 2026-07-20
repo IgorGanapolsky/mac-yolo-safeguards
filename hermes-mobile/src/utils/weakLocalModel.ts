@@ -28,8 +28,11 @@ export function weakLocalModelWarning(model: string | undefined | null): string 
   return `${short} is a local worker — too weak for product work. Start a fresh chat after the Mac switches to GLM/Claude/GPT.`;
 }
 
-/** Mega / poisoned threads: prefer Start fresh when input context is already huge. */
-export const POISONED_SESSION_INPUT_TOKENS = 20_000;
+/**
+ * Prefer Start fresh when CURRENT context (not lifetime traffic) is huge.
+ * Aligned with MEGA_CONTEXT_TOKEN_WARN — 20k lifetime input falsely imprisoned busy chats.
+ */
+export const POISONED_SESSION_INPUT_TOKENS = 120_000;
 
 export function shouldForceFreshChatForContext(inputTokens: number | undefined | null): boolean {
   return (inputTokens ?? 0) >= POISONED_SESSION_INPUT_TOKENS;

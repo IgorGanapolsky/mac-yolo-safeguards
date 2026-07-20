@@ -291,8 +291,8 @@ import {
   classifyMegaSession,
   isMegaSession,
   isMegaSessionSendBlocked,
-  sessionTotalTokens,
   megaSessionBannerCopy,
+  megaSessionDisplayTokens,
   megaSessionForceFreshSelectCopy,
   megaSessionSendWarnMessage,
   megaSessionSendWarnTitle,
@@ -3749,7 +3749,7 @@ export default function ChatScreen() {
       // Hard-block: only path is a new chat. Auto-fresh so Send can deliver the typed draft.
       return 'fresh';
     }
-    const total = sessionTotalTokens(session);
+    const total = megaSessionDisplayTokens(session);
     return new Promise<'allow' | 'fresh' | 'cancel'>((resolve) => {
       Alert.alert(megaSessionSendWarnTitle(), megaSessionSendWarnMessage(total), [
         { text: 'Start fresh chat', style: 'default', onPress: () => resolve('fresh') },
@@ -3760,7 +3760,7 @@ export default function ChatScreen() {
   }, []);
 
   const megaSessionWarning = useMemo(() => {
-    const total = sessionTotalTokens(currentSession);
+    const total = megaSessionDisplayTokens(currentSession);
     if (lastTurnIsCompactionStall(messages)) {
       return compactionStallBannerCopy(total);
     }
@@ -3805,7 +3805,7 @@ export default function ChatScreen() {
       return;
     }
     compactionFreshOfferSessionIdRef.current = sessionId;
-    const total = sessionTotalTokens(currentSession);
+    const total = megaSessionDisplayTokens(currentSession);
     Alert.alert('Chat stalled after summarization', compactionStallBannerCopy(total), [
       { text: 'Start fresh chat', onPress: () => void handleStartFreshChat() },
       { text: 'Keep waiting', style: 'cancel' },
@@ -5221,6 +5221,7 @@ export default function ChatScreen() {
                       input_tokens: 0,
                       output_tokens: 0,
                       cache_read_tokens: 0,
+                      api_call_count: 0,
                     });
                   }
                 } catch {
@@ -5887,7 +5888,7 @@ export default function ChatScreen() {
               });
               setErrorMessage(
                 summarizationStub
-                  ? compactionStallBannerCopy(sessionTotalTokens(currentSessionRef.current))
+                  ? compactionStallBannerCopy(megaSessionDisplayTokens(currentSessionRef.current))
                   : EMPTY_REPLY_FAILURE_REASON,
               );
             },
@@ -6278,11 +6279,8 @@ export default function ChatScreen() {
     async (session: HermesSession) => {
       haptics.light();
       if (shouldForceFreshOnSessionSelect(session)) {
-        const total = sessionTotalTokens(session);
-        Alert.alert('Chat too large', megaSessionForceFreshSelectCopy(total), [
-          { text: 'Start fresh chat', onPress: () => void handleStartFreshChat() },
-          { text: 'Cancel', style: 'cancel' },
-        ]);
+        // Prefer auto fresh over nag prison — user can reopen from Recents if needed.
+        void handleStartFreshChat();
         return;
       }
 
@@ -6315,11 +6313,8 @@ export default function ChatScreen() {
         megaSessionSuggestFreshOfferedRef.current !== session.id
       ) {
         megaSessionSuggestFreshOfferedRef.current = session.id;
-        const total = sessionTotalTokens(session);
-        Alert.alert('Large chat session', megaSessionSendWarnMessage(total), [
-          { text: 'Start fresh chat', onPress: () => void handleStartFreshChat() },
-          { text: 'Open anyway', onPress: () => void openSelectedSession() },
-        ]);
+        // Prefer auto fresh over nag banner for truly-large context.
+        void handleStartFreshChat();
         return;
       }
 
@@ -6416,6 +6411,8 @@ export default function ChatScreen() {
                   model: session.model ?? prev.model,
                   input_tokens: session.input_tokens ?? prev.input_tokens,
                   output_tokens: session.output_tokens ?? prev.output_tokens,
+                  cache_read_tokens: session.cache_read_tokens ?? prev.cache_read_tokens,
+                  api_call_count: session.api_call_count ?? prev.api_call_count,
                 }
               : prev,
           );
@@ -7025,7 +7022,7 @@ export default function ChatScreen() {
             showTechnicalStats={settings.includeToolActivity}
             compact={keyboardOpen}
             megaSessionWarning={megaSessionWarning}
-            sessionTokens={sessionTotalTokens(currentSession)}
+            sessionTokens={megaSessionDisplayTokens(currentSession)}
             macHttpOk={effectiveMacHttpOk}
             onSwitchMac={() => setMacPickerVisible(true)}
             onStartFreshChat={() => void handleStartFreshChat()}
