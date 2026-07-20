@@ -20,6 +20,69 @@ const HOST = process.env.HERMES_DASH_HOST || process.env.HOST || '127.0.0.1';
 const PROJECTS = path.join(os.homedir(), '.claude', 'projects');
 const GATEWAY = process.env.FLEET_GATEWAY_URL || 'http://127.0.0.1:4010/health/liveliness';
 
+// --- Offline failover: the resolver that picks the best-available Hermes instance so
+// work continues when the user's primary (local) machine is offline. Priority order =
+// array order; "active" = the highest-priority instance currently answering its health
+// check. Configure a cloud/VPS fallback by setting HERMES_FAILOVER_VPS_URL (its base;
+// we probe <base>/health). Override the whole list with HERMES_INSTANCES (JSON array of
+// {label,kind,url,health}). Primary intent: when local dies, the relay/resume targets
+// the next healthy instance automatically instead of the session going dead.
+// Read a key from ~/.hermes/.env so the always-on launchd instance can pick up a VPS URL
+// without editing the plist — just add HERMES_FAILOVER_VPS_URL=... to that file and restart.
+function envFallback(key) {
+  if (process.env[key]) return process.env[key];
+  try {
+    const f = path.join(os.homedir(), '.hermes', '.env');
+    const m = fs.readFileSync(f, 'utf8').split('\n').reverse()
+      .map((l) => l.match(new RegExp('^' + key + '=(.*)$'))).find(Boolean);
+    return m ? m[1].trim() : undefined;
+  } catch { return undefined; }
+}
+
+function instanceRegistry() {
+  const raw = envFallback('HERMES_INSTANCES');
+  if (raw) { try { return JSON.parse(raw); } catch {} }
+  const list = [
+    { label: 'local', kind: 'local', url: 'http://127.0.0.1:4010', health: 'http://127.0.0.1:4010/health/liveliness' },
+    { label: 'mini', kind: 'tailscale', url: 'http://100.94.135.78:11436', health: 'http://100.94.135.78:11436/api/tags' },
+  ];
+  const vps = envFallback('HERMES_FAILOVER_VPS_URL');
+  if (vps) {
+    const base = vps.replace(/\/+$/, '');
+    list.push({ label: 'vps', kind: 'vps', url: base, health: base + '/health' });
+  }
+  return list;
+}
+
+function httpPing(u, timeoutMs) {
+  return new Promise((resolve) => {
+    let mod, req;
+    try { mod = u.startsWith('https:') ? require('https') : require('http'); }
+    catch { return resolve(false); }
+    try {
+      req = mod.get(u, { timeout: timeoutMs }, (r) => {
+        r.resume();
+        resolve(r.statusCode >= 200 && r.statusCode < 500); // reachable (even 4xx = host is up)
+      });
+    } catch { return resolve(false); }
+    req.on('error', () => resolve(false));
+    req.on('timeout', () => { req.destroy(); resolve(false); });
+  });
+}
+
+async function resolveInstances() {
+  const reg = instanceRegistry();
+  const checked = await Promise.all(reg.map(async (i) => ({
+    ...i, up: await httpPing(i.health, 3000),
+  })));
+  const active = checked.find((i) => i.up) || null;
+  return {
+    instances: checked.map((i) => ({ ...i, active: !!active && i.label === active.label })),
+    active: active ? { label: active.label, kind: active.kind, url: active.url } : null,
+    allDown: !active,
+  };
+}
+
 const esc = (s) => String(s == null ? '' : s)
   .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
@@ -205,6 +268,14 @@ const server = http.createServer(async (req, res) => {
       if (!fp) return send(404, 'application/json', '{"error":"not found"}');
       return send(200, 'application/json', JSON.stringify(parseSession(fp)));
     }
+    if (url.pathname === '/api/instances') {
+      return send(200, 'application/json', JSON.stringify(await resolveInstances()));
+    }
+    if (url.pathname === '/api/active') {
+      // The endpoint the relay/resume should target right now (failover-aware).
+      const r = await resolveInstances();
+      return send(r.active ? 200 : 503, 'application/json', JSON.stringify(r.active || { error: 'all instances offline' }));
+    }
     if (url.pathname === '/api/live') {
       return send(200, 'application/json', JSON.stringify({ agents: await liveAgents() }));
     }
@@ -265,6 +336,7 @@ a{color:var(--acc)}.empty{color:var(--mut);padding:40px;text-align:center}
 </style></head><body>
 <header>
   <h1>⚡ Hermes Sessions</h1>
+  <div id="failover" style="font-size:12px;display:flex;gap:6px;align-items:center"></div>
   <div id="fleet">loading…</div>
   <input id="q" placeholder="search sessions (title, project, branch)…">
 </header>
@@ -307,7 +379,13 @@ async function kill(pid,btn){if(!confirm('Send SIGTERM to pid '+pid+'?'))return;
   const r=await (await fetch('/api/kill?pid='+pid,{method:'POST'})).json();
   if(r.ok){btn.textContent='killed';}else{btn.disabled=false;btn.textContent='Kill';alert('Refused: '+(r.error||'unknown'));}
   setTimeout(live,800);}
-fleet();load('');live();setInterval(fleet,15000);setInterval(live,8000);
+async function failover(){try{const r=await (await fetch('/api/instances')).json();const el=document.getElementById('failover');
+  el.innerHTML='<span style="color:var(--mut)">serving:</span>'+r.instances.map(i=>
+    '<span class="badge" title="'+esc(i.kind)+' · '+esc(i.url)+'" style="'+
+    (i.active?'border-color:var(--u);color:var(--u);font-weight:700':(i.up?'':'opacity:.45;text-decoration:line-through'))+'">'+
+    (i.active?'▶ ':'')+esc(i.label)+'</span>').join('<span style="color:var(--mut)">→</span>')+
+    (r.allDown?'<span class="flag" style="font-size:11px;background:#f8514922;color:#f85149;border:1px solid #f8514955;border-radius:8px;padding:1px 7px">ALL OFFLINE</span>':'');}catch(e){}}
+fleet();load('');live();failover();setInterval(fleet,15000);setInterval(live,8000);setInterval(failover,10000);
 </script></body></html>`;
 
 server.listen(PORT, HOST, () => {
