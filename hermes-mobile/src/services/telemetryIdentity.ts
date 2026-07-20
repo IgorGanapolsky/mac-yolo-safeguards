@@ -28,19 +28,31 @@ export interface TelemetryEventIdentity extends TelemetryResourceIdentity {
   telemetry_event_id: string;
 }
 
-let sequence = 0;
 let identityOverrideForTesting: Partial<TelemetryResourceIdentity> | null =
   null;
 let idFactoryForTesting: ((kind: "session" | "event") => string) | null = null;
+let fallbackIdSequence = 0;
 
 function createId(kind: "session" | "event"): string {
   if (idFactoryForTesting) {
     return idFactoryForTesting(kind);
   }
-  sequence += 1;
-  return `hm_${kind}_${Date.now()}_${sequence}_${Math.random()
-    .toString(36)
-    .slice(2, 10)}`;
+  const runtimeCrypto = globalThis.crypto;
+  if (typeof runtimeCrypto?.randomUUID === "function") {
+    return `hm_${kind}_${runtimeCrypto.randomUUID()}`;
+  }
+  if (typeof runtimeCrypto?.getRandomValues === "function") {
+    const values = new Uint32Array(4);
+    runtimeCrypto.getRandomValues(values);
+    return `hm_${kind}_${Array.from(values, (value) =>
+      value.toString(16).padStart(8, "0"),
+    ).join("")}`;
+  }
+
+  // Telemetry identifiers are correlation labels, not credentials. Keep a
+  // collision-resistant process-local fallback for runtimes without Web Crypto.
+  fallbackIdSequence += 1;
+  return `hm_${kind}_${Date.now()}_${fallbackIdSequence}`;
 }
 
 let sessionId = createId("session");
