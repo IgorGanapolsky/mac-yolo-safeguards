@@ -4,6 +4,7 @@ import type { ConnectionMode } from '../types/gateway';
 import type { RelayWorker } from '../types/mobileRelay';
 import { GATEWAY_WRONG_KEY_MESSAGE, normalizeGatewayUrl } from '../services/gatewayClient';
 import {
+  findProfileForGatewayUrl,
   isGenericMachineLabel,
   profileDisplayName,
   stripTransportSuffixFromComputerName,
@@ -143,15 +144,29 @@ export function resolveMachineDisplayName(
     return USB_UNKNOWN_MACHINE_LABEL;
   }
 
-  if (switchInFlight && activeProfile) {
-    const switchingName = profileDisplayName(activeProfile);
-    if (!isUnresolvedMachineName(switchingName)) {
-      return switchingName;
+  // PRODUCT LAW (multi-Mac): header must name the Mac that owns the live gatewayUrl.
+  // 2026-07-20 Reach-out-goal: activeProfile stayed MacBook Pro while chat POSTed to
+  // Mini — UI said Pro/GLM, history lived on Mini, looked like "zero context".
+  if (switchInFlight) {
+    if (fromHealth && !isUnresolvedMachineName(fromHealth)) {
+      return fromHealth;
     }
-    const switchingHost = activeProfile.hostname?.replace(/\.local$/i, '').trim();
-    if (switchingHost && !isUnresolvedMachineName(switchingHost)) {
-      return switchingHost;
+    const urlMatched = findProfileForGatewayUrl(_profiles ?? [], gatewayUrl);
+    if (urlMatched) {
+      const matchedName = profileDisplayName(urlMatched);
+      if (!isUnresolvedMachineName(matchedName)) {
+        return matchedName;
+      }
+      const matchedHost = urlMatched.hostname?.replace(/\.local$/i, '').trim();
+      if (matchedHost && !isUnresolvedMachineName(matchedHost)) {
+        return matchedHost;
+      }
     }
+    const fromUrl = formatGatewayMachineParts(gatewayUrl, health).machineName;
+    if (fromUrl && !isUnresolvedMachineName(fromUrl)) {
+      return stripTransportSuffixFromComputerName(fromUrl);
+    }
+    return 'Your computer';
   }
 
   if (activeProfile) {
