@@ -78,10 +78,19 @@ export const threads = sqliteTable("threads", {
   id: text("id").primaryKey(),
   organizationId: text("organization_id").notNull().references(() => organizations.id, { onDelete: "cascade" }),
   title: text("title").notNull(),
+  deviceId: text("device_id").references(() => devices.id, { onDelete: "set null" }),
+  sourceSessionId: text("source_session_id"),
+  source: text("source").notNull().default("web"),
+  model: text("model"),
+  preview: text("preview"),
+  messageCount: integer("message_count").notNull().default(0),
+  contextSnapshot: text("context_snapshot"),
+  sourceUpdatedAt: integer("source_updated_at"),
+  syncedAt: integer("synced_at"),
   createdByUserId: text("created_by_user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
   createdAt: integer("created_at").notNull(),
   updatedAt: integer("updated_at").notNull(),
-});
+}, (table) => [uniqueIndex("threads_device_source_unique").on(table.deviceId, table.sourceSessionId)]);
 
 export const tasks = sqliteTable("tasks", {
   id: text("id").primaryKey(),
@@ -121,4 +130,11 @@ export const auditEvents = sqliteTable("audit_events", {
   targetId: text("target_id"),
   metadata: text("metadata").notNull().default("{}"),
   createdAt: integer("created_at").notNull(),
+});
+
+export const billingEvents = sqliteTable("billing_events", {
+  eventId: text("event_id").primaryKey(),
+  eventType: text("event_type").notNull(),
+  organizationId: text("organization_id").references(() => organizations.id, { onDelete: "set null" }),
+  processedAt: integer("processed_at").notNull(),
 });
