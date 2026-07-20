@@ -85,7 +85,6 @@
       "package": "com.iganapolsky.hermesmobile",
       "versionCode": 14,
       "userInterfaceStyle": "dark",
-      "edgeToEdgeEnabled": true,
       "allowBackup": false,
       "softwareKeyboardLayoutMode": "resize",
       "blockedPermissions": [

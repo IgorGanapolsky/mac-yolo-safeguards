@@ -18,7 +18,9 @@ describe('Play Console Android hardening contract', () => {
   });
 
   it('opts into Android edge-to-edge without deprecated theme colors', () => {
-    expect(app.expo.android.edgeToEdgeEnabled).toBe(true);
+    // Expo SDK 55+: app.json edgeToEdgeEnabled is obsolete (Android 16 mandatory).
+    expect(app.expo.android.edgeToEdgeEnabled).toBeUndefined();
+    expect(pluginSrc).toContain('edgeToEdgeEnabled');
     expect(pluginSrc).toContain("android:statusBarColor");
     expect(pluginSrc).toContain('stripDeprecatedSystemBarColors');
   });
