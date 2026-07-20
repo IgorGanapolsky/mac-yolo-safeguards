@@ -20,7 +20,7 @@ Durable rules live in [AGENTS.md](./AGENTS.md); this file is *live state only*.
 
 | ID  | Task | Status | Owner | Files (claim) | AcceptanceCheck |
 |-----|------|--------|-------|---------------|-----------------|
-| T-CHROME-DEBUGGER | Full chrome.debugger path (no Chrome restart) via extension + local CDP bridge | in_progress | cursor-chrome-debugger | `extensions/hermes-webbridge/`, `scripts/hermes-chrome-debugger-bridge.js`, `scripts/install-hermes-chrome-debugger.sh`, `scripts/install-browser-bridge.sh` (debugger mode), `com.hermes.chrome-debugger.plist`, `tests/test-hermes-chrome-debugger.js`, `docs/BROWSER-CONTROL.md`, `docs/KIMI-WEBBRIDGE-TEARDOWN.md`, `plan.md` | Extension attaches via chrome.debugger; bridge serves :9222 without --remote-debugging-port restart; contract tests green; PR merge |
+| T-CHROME-DEBUGGER | Full chrome.debugger path (no Chrome restart) via extension + local CDP bridge | done | cursor-chrome-debugger | `extensions/hermes-webbridge/`, `scripts/hermes-chrome-debugger-bridge.js`, `scripts/install-hermes-chrome-debugger.sh`, `scripts/install-browser-bridge.sh` (debugger mode), `com.hermes.chrome-debugger.plist`, `tests/test-hermes-chrome-debugger.js`, `docs/BROWSER-CONTROL.md`, `docs/KIMI-WEBBRIDGE-TEARDOWN.md`, `plan.md` | Extension attaches via chrome.debugger; bridge serves :9222 without --remote-debugging-port restart; contract tests green; PR merge |
 | T-ASO-SEARCH-GAP | Prove Play+iOS live; ASO for hermes-ai miss; ship metadata | done | cursor-aso-search | `hermes-mobile/docs/ASO-SEARCH-GAP-20260720.md`, `hermes-mobile/fastlane/metadata/android/en-US/short_description.txt`, `hermes-mobile/fastlane/metadata/android/en-US/full_description.txt`, `hermes-mobile/fastlane/metadata/ios/en-US/keywords.txt`, `hermes-mobile/fastlane/metadata/ios/en-US/promotional_text.txt`, `hermes-mobile/fastlane/metadata/ios/en-US/description.txt`, `plan.md` | Direct URLs live; Play API short/full committed; ASC promo live; contract tests green; paid unpublished |
 | T-ASC-CRED-INGEST | Agent-owned chat credential ingest skill + ASC Keychain labels | done | cursor-asc-cred-ingest | `.cursor/skills/ingest-chat-credentials/`, `docs/RESEARCH-AGENT-SECRET-INGEST-2026-07.md`, `parallel-research/agent-asc-secret-storage-july-2026.*`, `plan.md` | Keychain service asc.apple-id verified masked; skill mirrored; research note secret-free; PR merge |
 | T-ASC-LOGIN | ASC Chrome session restore + Keychain System Events fill (never echo password) | done | cursor-asc-login | `.cursor/skills/ingest-chat-credentials/scripts/ensure-asc-session.sh`, `.cursor/skills/ingest-chat-credentials/scripts/asc-login-fill.py`, `.cursor/skills/ingest-chat-credentials/SKILL.md` (ASC login path only), `.cursor/skills/drive-logged-in-chrome/SKILL.md` (ASC ensure script pointer), `plan.md` | ensure-asc-session prefers existing Chrome /apps session; falls back to .p8 API proof; Keychain fill via System Events pipe; never echo password; PR #624 merge |
@@ -313,7 +313,10 @@ Status values: `pending` | `in_progress` | `blocked` | `done`. Claim a row by se
 
 | T-NO-APP-SUBSCRIPTION | P0: Subscription web-only — remove in-app StoreKit/Play subscription purchase path | done | cursor-no-app-subs | `hermes-mobile/src/constants/monetization.ts`, `hermes-mobile/src/services/thumbgateIap.ts`, `hermes-mobile/src/components/ProUpgradeCard.tsx`, `hermes-mobile/src/__tests__/thumbgateIap.test.ts`, `hermes-mobile/src/__tests__/ProUpgradeCard.test.tsx`, `hermes-mobile/src/__tests__/noInAppSubscriptionContract.test.ts`, `hermes-mobile/docs/MONETIZATION-APP-PAID-WEB-SUB.md`, `plan.md` | Zero in-app subscription purchase; Android lifetime IAP ok; iOS paywall → web dashboard; contract tests; ASC monthly unreachable from app |
 
-## 2. File Ownership Map (append-only lock table — claim before touching)
+## 2. File Ownership Map
+
+- T-CHROME-DEBUGGER claimed files → **released by cursor-chrome-debugger** after PR #631 merge `201100d5` (2026-07-20T19:52:16Z)
+ (append-only lock table — claim before touching)
 
 - T-BROWSER-CONTROL claimed files → **released by cursor-browser-control** after PR #616 merge `46deed19` (CDP heal + webbridge scaffold); follow-on debugger path claimed below (2026-07-20T19:42:14Z)
 - `extensions/hermes-webbridge/`, `scripts/hermes-chrome-debugger-bridge.js`, `scripts/install-hermes-chrome-debugger.sh`, `scripts/install-browser-bridge.sh` (debugger mode only), `com.hermes.chrome-debugger.plist`, `tests/test-hermes-chrome-debugger.js`, `docs/BROWSER-CONTROL.md`, `docs/KIMI-WEBBRIDGE-TEARDOWN.md`, `plan.md` → **cursor-chrome-debugger** (T-CHROME-DEBUGGER) (2026-07-20T19:42:14Z)
@@ -1023,6 +1026,9 @@ Status values: `pending` | `in_progress` | `blocked` | `done`. Claim a row by se
 
 
 - 2026-07-20T19:44:17Z `cursor-chrome-debugger`: **T-CHROME-DEBUGGER** — full `chrome.debugger` path (no Chrome restart). MV3 service worker + `hermes-chrome-debugger-bridge.js` (CDP `:9222` + ext relay `:9223`), `install-browser-bridge.sh --mode=debugger`, LaunchAgent `com.hermes.chrome-debugger`. Contract tests green. Leaves Play `.paid` / ASC monthly to other agents.
+
+
+- 2026-07-20T19:52:16Z `cursor-chrome-debugger`: **T-CHROME-DEBUGGER done** — PR #631 merged `201100d5` (squash). chrome.debugger bridge + extension on main.
 
 ## 4. Discovered Tasks (append-only inbox → promote into §1)
 
