@@ -20,6 +20,7 @@ Durable rules live in [AGENTS.md](./AGENTS.md); this file is *live state only*.
 
 | ID  | Task | Status | Owner | Files (claim) | AcceptanceCheck |
 |-----|------|--------|-------|---------------|-----------------|
+| T-PROJECT-LANE-ONCE | Fix duplicate Project lane (optional) — header+footer both render | in_progress | cursor-project-lane-once | `hermes-mobile/src/screens/ChatScreen.tsx` (header project props only; keep VaultProjectPickerChip), `hermes-mobile/src/__tests__/ChatScreen.test.tsx` (project lane once cases only), `plan.md` | Exactly one Project lane label on Chat; header has no chat-header-project-picker; footer chip remains; focused Jest green; PR merge |
 | T-CHROME-DEBUGGER | Full chrome.debugger path (no Chrome restart) via extension + local CDP bridge | in_progress | cursor-chrome-debugger | `extensions/hermes-webbridge/`, `scripts/hermes-chrome-debugger-bridge.js`, `scripts/install-hermes-chrome-debugger.sh`, `scripts/install-browser-bridge.sh` (debugger mode), `com.hermes.chrome-debugger.plist`, `tests/test-hermes-chrome-debugger.js`, `docs/BROWSER-CONTROL.md`, `docs/KIMI-WEBBRIDGE-TEARDOWN.md`, `plan.md` | Extension attaches via chrome.debugger; bridge serves :9222 without --remote-debugging-port restart; contract tests green; PR merge |
 | T-ASO-SEARCH-GAP | Prove Play+iOS live; ASO for hermes-ai miss; ship metadata | done | cursor-aso-search | `hermes-mobile/docs/ASO-SEARCH-GAP-20260720.md`, `hermes-mobile/fastlane/metadata/android/en-US/short_description.txt`, `hermes-mobile/fastlane/metadata/android/en-US/full_description.txt`, `hermes-mobile/fastlane/metadata/ios/en-US/keywords.txt`, `hermes-mobile/fastlane/metadata/ios/en-US/promotional_text.txt`, `hermes-mobile/fastlane/metadata/ios/en-US/description.txt`, `plan.md` | Direct URLs live; Play API short/full committed; ASC promo live; contract tests green; paid unpublished |
 | T-ASC-CRED-INGEST | Agent-owned chat credential ingest skill + ASC Keychain labels | done | cursor-asc-cred-ingest | `.cursor/skills/ingest-chat-credentials/`, `docs/RESEARCH-AGENT-SECRET-INGEST-2026-07.md`, `parallel-research/agent-asc-secret-storage-july-2026.*`, `plan.md` | Keychain service asc.apple-id verified masked; skill mirrored; research note secret-free; PR merge |
@@ -812,6 +813,8 @@ Status values: `pending` | `in_progress` | `blocked` | `done`. Claim a row by se
 - `docs/RESEARCH-HERMES-INFERENCE-ROI-JULY-2026.md`, `parallel-research/hermes-inference-roi-july-2026.*`, `apps/hermes-control-plane/**`, `tests/test-hermes-business-e2e.js`, `plan.md` → **released by codex-hermes-cloudflare-20260720** after corrected primary-source report, measured feature implementation, merged CI, and GLM-5.2 production canary proof (2026-07-20T18:20:00Z)
 
 ## 3. Decisions Log
+
+- 2026-07-20T20:35:00Z `cursor-project-lane-once`: **T-PROJECT-LANE-ONCE** — Root cause: ChatScreenHeader project row (`canSwitchWorkspace`) + VaultProjectPickerChip both render "Project lane (optional)". Fix: stop wiring workspace props into header; keep footer chip as sole picker.
 
 - 2026-07-20T18:27:42Z `cursor-no-app-subs`: **Merged PR #620** (`170e5768`). App cannot purchase StoreKit/Play subscriptions; iOS CTA → web; Android lifetime IAP kept; ASC monthly remains APPROVED (API cannot PATCH state); continuous E2E was skipped (phone in use).
 
