@@ -28,8 +28,25 @@
 
 ```bash
 curl -sI -A Mozilla/5.0 "https://play.google.com/store/apps/details?id=com.iganapolsky.hermesmobile.paid&hl=en&gl=US"
-# 2026-07-20T19:32Z: still HTTP 404 — not publicly live (awaiting Google review publish)
+# 2026-07-20T19:43Z: still HTTP 404 — not publicly live (awaiting Google review publish)
 ```
+
+## Re-verify 2026-07-20T19:44Z (pricing false alarm)
+
+Sibling reported country prices unset (`-`). **False alarm** — Monetize overview analytics use `-` for Monthly buyers / ARPPU when revenue is $0.
+
+Console `/paid-app` (App pricing) evidence:
+- **Your app is Paid**
+- Tax category: **Digital app sales**
+- **United States → USD 4.99** (No VAT with location overrides)
+- Country table populated (not dashes)
+
+Publishing overview: **Changes in review** / **Remove changes** — Production `paid-15` Start full rollout; Countries: United States.
+
+App content → Actioned: **10** declarations **In review** (Data safety, Health apps, Target audience 18+, Content ratings, Advertising ID, Sign in details, Financial, Government, Ads, Privacy policy). Need attention: empty.
+
+Exact remaining blocker: **Google Play review/publish** (public details URL 404). Console checklist is not the blocker.
+
 
 ## Progress (2026-07-20 — Console evidence)
 
@@ -38,7 +55,7 @@ curl -sI -A Mozilla/5.0 "https://play.google.com/store/apps/details?id=com.igana
 | SA App Admin on `.paid` | **done** | Publisher API `edits` **200** |
 | EAS AAB vc15 | **done** | build `aafdd2dc…` FINISHED |
 | AAB on internal | **done** | track release `paid-15` **completed** |
-| Listing + graphics + $4.99 | **done** | US USD 4.99; store assets uploaded |
+| Listing + graphics + $4.99 | **done** | `/paid-app`: Paid; US **USD 4.99**; Digital app sales; assets uploaded |
 | Privacy policy | **done** | `https://thumbgate.ai/privacy` |
 | Content rating (IARC) | **done** | All Other App Types; ESRB Everyone / PEGI 3 |
 | Target audience | **done** | 18+ |
