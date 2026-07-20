@@ -23,7 +23,7 @@ test("offers one command and opens ThumbGate instead of making users copy a code
   assert.match(dashboard, /Copy one-line installer/);
   assert.match(installer, /https:\/\/thumbgate\.app/);
   assert.match(installer, /--pair --pair-only/);
-  assert.match(installer, /config\.deviceId\?0:1/);
+  assert.match(installer, /pairingMatchesControlPlane\(config,process\.argv\[3\]\)/);
   assert.match(installer, /Reusing this machine's existing signed ThumbGate pairing/);
   assert.match(connector, /childProcess\.spawn\('\/usr\/bin\/open'/);
   assert.match(connector, /target\.searchParams\.set\('pair', userCode\)/);
