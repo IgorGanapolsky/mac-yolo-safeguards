@@ -217,6 +217,10 @@ import {
 } from '../services/approvalNotifications';
 
 const MOBILE_RELAY_POLL_MS = 2000;
+// After the initial quiet six-probe window, retain an inexpensive reachability
+// probe for a saved, active computer. This lets a foregrounded phone notice
+// that its computer came back without making the connection UI noisy.
+const SAVED_PROFILE_RECONNECT_INTERVAL_MS = 30_000;
 
 export type GatewayContextValue = {
   settings: GatewaySettings;
@@ -800,8 +804,15 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
 
   const refreshHealth = useCallback(async () => {
     const publishHealth = (snapshot: GatewayHealthSnapshot) => {
+      const wasUnreachable = !isGatewayHealthOk(healthRef.current);
       setHealth(snapshot);
       healthRef.current = snapshot;
+      if (wasUnreachable && isGatewayHealthOk(snapshot)) {
+        setConnectionState('connected');
+        setRunProgress((previous) =>
+          previous?.phase === 'sending' ? null : previous,
+        );
+      }
     };
     const publishDemoHealth = () => {
       publishHealth({
@@ -1679,13 +1690,14 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
     }
   }, [persistDiscoveredGatewayUrl]);
 
-  const runConnectionSelfHeal = useCallback(async () => {
+  const runConnectionSelfHeal = useCallback(async (allowExhaustedRetry = false) => {
     if (
       !isLoaded ||
       settingsRef.current.demoMode ||
       connectionHealInFlightRef.current ||
       isMacGatewayHttpOk(healthRef.current) ||
-      connectionHealAttemptRef.current >= CONNECTION_HEAL_EXHAUSTED_AFTER
+      (!allowExhaustedRetry &&
+        connectionHealAttemptRef.current >= CONNECTION_HEAL_EXHAUSTED_AFTER)
     ) {
       return;
     }
@@ -1732,6 +1744,10 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
                 healthRef.current = snapshot;
                 connectionHealAttemptRef.current = 0;
                 setConnectionHealAttempt(0);
+                setConnectionState('connected');
+                setRunProgress((previous) =>
+                  previous?.phase === 'sending' ? null : previous,
+                );
                 setConnectionHealInFlight(false);
                 connectionHealInFlightRef.current = false;
                 connectEventsRef.current();
@@ -1823,6 +1839,10 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
                       healthRef.current = refreshed;
                       connectionHealAttemptRef.current = 0;
                       setConnectionHealAttempt(0);
+                      setConnectionState('connected');
+                      setRunProgress((previous) =>
+                        previous?.phase === 'sending' ? null : previous,
+                      );
                       connectEventsRef.current();
                       return;
                     }
@@ -1863,6 +1883,10 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
           healthRef.current = snapshot;
           connectionHealAttemptRef.current = 0;
           setConnectionHealAttempt(0);
+          setConnectionState('connected');
+          setRunProgress((previous) =>
+            previous?.phase === 'sending' ? null : previous,
+          );
           connectEventsRef.current();
           return;
         } catch {
@@ -1874,6 +1898,10 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
       if (isGatewayHealthOk(healthRef.current)) {
         connectionHealAttemptRef.current = 0;
         setConnectionHealAttempt(0);
+        setConnectionState('connected');
+        setRunProgress((previous) =>
+          previous?.phase === 'sending' ? null : previous,
+        );
         connectEventsRef.current();
         return;
       }
@@ -2063,8 +2091,21 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
       }
       return;
     }
+    const activeProfileId = profileStateRef.current.activeProfileId;
+    const hasSavedActiveProfile =
+      activeProfileId !== null &&
+      profileStateRef.current.profiles.some((profile) => profile.id === activeProfileId);
+    const canProbeSavedProfile =
+      hasSavedActiveProfile && healthRef.current?.authMismatch !== true;
+
     if (connectionHealAttempt >= CONNECTION_HEAL_EXHAUSTED_AFTER) {
-      return;
+      if (!canProbeSavedProfile) {
+        return;
+      }
+      const reconnectInterval = setInterval(() => {
+        void runConnectionSelfHeal(true);
+      }, SAVED_PROFILE_RECONNECT_INTERVAL_MS);
+      return () => clearInterval(reconnectInterval);
     }
     void runConnectionSelfHeal();
     const interval = setInterval(() => {
@@ -2082,6 +2123,8 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
     health?.directGatewayReachable,
     wifiConnected,
     connectionHealAttempt,
+    profileState.activeProfileId,
+    profileState.profiles.length,
     runConnectionSelfHeal,
   ]);
 

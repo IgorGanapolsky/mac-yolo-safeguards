@@ -224,6 +224,8 @@ function ProgressProbe() {
   return (
     <>
       <Text testID="connection-state">{gateway.connectionState}</Text>
+      <Text testID="connection-heal-attempt">{gateway.connectionHealAttempt}</Text>
+      <Text testID="active-profile-id">{gateway.activeGatewayProfile?.id ?? 'none'}</Text>
       <Text testID="run-progress-detail">{gateway.runProgress?.detail ?? 'none'}</Text>
       <Text
         testID="chat-stream-lock"
@@ -329,6 +331,68 @@ describe('GatewayProvider', () => {
     await waitFor(() => {
       expect(getByTestId('gateway-api-key').props.children).toBe('');
     });
+  });
+
+  it('keeps probing a saved active computer after the quiet heal window and clears a stuck send', async () => {
+    jest.useFakeTimers();
+    try {
+      const gatewayProfilesMock = jest.requireMock('../services/gatewayProfiles');
+      gatewayProfilesMock.gatewayProfiles.load.mockResolvedValue({
+        profiles: [
+          {
+            id: 'saved-mini',
+            label: 'Saved mini',
+            gatewayUrl: 'http://100.94.135.78:8642',
+            hostname: 'Saved mini',
+            addedAt: '2026-07-19T00:00:00.000Z',
+          },
+        ],
+        activeProfileId: 'saved-mini',
+      });
+      let online = false;
+      global.fetch = jest.fn(() =>
+        Promise.resolve({
+          ok: online,
+          status: online ? 200 : 503,
+          json: async () =>
+            online
+              ? { status: 'ok', gateway_state: 'running', pid: 1 }
+              : { error: 'unreachable' },
+        }),
+      ) as jest.Mock;
+
+      const { getByTestId, unmount } = render(
+        <GatewayProvider>
+          <ProgressProbe />
+        </GatewayProvider>,
+      );
+
+      await act(async () => {
+        await jest.advanceTimersByTimeAsync(30_000);
+      });
+      expect(getByTestId('connection-heal-attempt').props.children).toBeGreaterThanOrEqual(6);
+      const activeProfileId = getByTestId('active-profile-id').props.children;
+      expect(activeProfileId).toBeTruthy();
+
+      fireEvent.press(getByTestId('seed-progress'));
+      online = true;
+      await act(async () => {
+        await jest.advanceTimersByTimeAsync(30_000);
+      });
+
+      await waitFor(() => {
+        expect(getByTestId('connection-state').props.children).toBe('connected');
+        expect(getByTestId('connection-heal-attempt').props.children).toBe(0);
+        expect(getByTestId('run-progress-detail').props.children).toBe('none');
+      });
+      expect(getByTestId('active-profile-id').props.children).toBe(activeProfileId);
+      await act(async () => {
+        unmount();
+      });
+    } finally {
+      jest.clearAllTimers();
+      jest.useRealTimers();
+    }
   });
 
   it('shows connected (not Reconnecting) when HTTP /health is OK even if the events socket never opens', async () => {
