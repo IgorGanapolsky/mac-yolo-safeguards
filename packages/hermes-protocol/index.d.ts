@@ -10,6 +10,28 @@ export const THREAD_EVENT_KINDS: readonly ThreadEventKind[];
 export class ProtocolValidationError extends Error {}
 export class MutationConflictError extends Error {}
 export class ThreadDeletedError extends Error {}
+export type AuthorizationActorType = "human" | "service" | "pipeline" | "agent";
+export type AuthorizationScope = "threads:read" | "threads:write" | "threads:delete";
+
+export interface AuthorizationGrant {
+  account_id: string;
+  actor_type: AuthorizationActorType;
+  actor_id: string;
+  scopes: AuthorizationScope[];
+  expires_at?: string | null;
+}
+
+export interface AuthorizationDecision {
+  timestamp: string;
+  outcome: "allow" | "deny";
+  reason: "scope_granted" | "grant_expired" | "insufficient_scope" | "missing_bearer" | "invalid_bearer";
+  method: string | null;
+  path: string;
+  required_scope: AuthorizationScope | null;
+  account_id: string | null;
+  actor_type: AuthorizationActorType | null;
+  actor_id: string | null;
+}
 
 export interface ThreadMutation {
   account_id: string;
@@ -83,10 +105,17 @@ export class RelayStore {
 
 export function createRelayHttpServer(options?: {
   store?: RelayStore;
-  tokens?: Map<string, string>;
+  tokens?: Map<string, string | AuthorizationGrant>;
   maxBodyBytes?: number;
   dropResponseAfterCommit?: (context: CommitContext) => boolean;
-}): { server: import("node:http").Server; store: RelayStore };
+  authorizationDecisionLimit?: number;
+  authorizationClock?: () => string;
+  onAuthorizationDecision?: (decision: AuthorizationDecision) => void;
+}): {
+  server: import("node:http").Server;
+  store: RelayStore;
+  getAuthorizationDecisions: () => AuthorizationDecision[];
+};
 export function listenOnRandomPort(server: import("node:http").Server): Promise<string>;
 export function closeServer(server: import("node:http").Server): Promise<void>;
 export function validateId(value: unknown, fieldName: string): string;
