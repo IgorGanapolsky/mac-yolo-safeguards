@@ -10,27 +10,75 @@ interface TaskCandidate {
   threadId: string;
   prompt: string;
   leaseGeneration: number;
+  sourceSessionId: string | null;
+  contextSnapshot: string | null;
+  syncedAt: number | null;
+  createdAt: number;
+}
+
+interface ContextMessage { role: "user" | "assistant" | "system"; content: string }
+
+function parseSnapshot(value: string | null): ContextMessage[] {
+  try {
+    const parsed = value ? JSON.parse(value) as ContextMessage[] : [];
+    return parsed.filter((message) => ["user", "assistant", "system"].includes(message.role) && typeof message.content === "string" && message.content.trim());
+  } catch { return []; }
+}
+
+function boundMessages(messages: ContextMessage[], maxChars = 64_000): ContextMessage[] {
+  let chars = 0;
+  const result: ContextMessage[] = [];
+  for (const message of [...messages].reverse()) {
+    if (chars + message.content.length > maxChars) break;
+    result.unshift(message);
+    chars += message.content.length;
+  }
+  return result;
 }
 
 export async function claimTask(input: {
   route: "local" | "cloud";
   owner: string;
   deviceId?: string;
-}): Promise<{ task: TaskCandidate & { leaseToken: string; leaseExpiresAt: number } } | null> {
+}): Promise<{ task: {
+  id: string;
+  organizationId: string;
+  threadId: string;
+  prompt: string;
+  leaseGeneration: number;
+  sourceSessionId: string | null;
+  contextMessages: ContextMessage[];
+  handoffMessages: ContextMessage[];
+  leaseToken: string;
+  leaseExpiresAt: number;
+} } | null> {
   const now = Date.now();
   const routeClause = input.route === "local"
-    ? "route = 'local' AND device_id = ? AND status IN ('local_pending', 'cloud_pending', 'running')"
-    : "route = 'cloud' AND status IN ('cloud_pending', 'running')";
+    ? "k.route = 'local' AND k.device_id = ? AND k.status IN ('local_pending', 'cloud_pending', 'running')"
+    : "k.route = 'cloud' AND k.status IN ('cloud_pending', 'running')";
   const params = input.route === "local" ? [input.deviceId!, now] : [now];
   const candidate = await db().prepare(
-    `SELECT id, organization_id AS organizationId, thread_id AS threadId, prompt,
-            lease_generation AS leaseGeneration
-       FROM tasks
+    `SELECT k.id, k.organization_id AS organizationId, k.thread_id AS threadId, k.prompt,
+            k.lease_generation AS leaseGeneration, k.created_at AS createdAt,
+            t.source_session_id AS sourceSessionId, t.context_snapshot AS contextSnapshot, t.synced_at AS syncedAt
+       FROM tasks k JOIN threads t ON t.id = k.thread_id
       WHERE ${routeClause}
-        AND (lease_expires_at IS NULL OR lease_expires_at < ?)
-      ORDER BY created_at ASC LIMIT 1`
+        AND (k.lease_expires_at IS NULL OR k.lease_expires_at < ?)
+      ORDER BY k.created_at ASC LIMIT 1`
   ).bind(...params).first<TaskCandidate>();
   if (!candidate) return null;
+
+  const prior = await db().prepare(
+    `SELECT prompt, result, created_at AS createdAt FROM tasks
+      WHERE thread_id = ? AND id <> ? AND status = 'completed' AND result IS NOT NULL AND created_at < ?
+      ORDER BY created_at ASC LIMIT 30`
+  ).bind(candidate.threadId, candidate.id, candidate.createdAt).all<{ prompt: string; result: string; createdAt: number }>();
+  const unsynced = prior.results.filter((task) => task.createdAt > (candidate.syncedAt ?? 0));
+  const handoffMessages = unsynced.flatMap((task) => [
+    { role: "user" as const, content: task.prompt },
+    { role: "assistant" as const, content: task.result },
+  ]);
+  const contextMessages = boundMessages([...parseSnapshot(candidate.contextSnapshot), ...handoffMessages]);
 
   const leaseToken = randomToken();
   const leaseExpiresAt = now + LEASE_MS;
@@ -42,7 +90,18 @@ export async function claimTask(input: {
     candidate.id, candidate.leaseGeneration, now).run();
   if (update.meta.changes !== 1) return null;
   await audit({ organizationId: candidate.organizationId, actorType: input.route === "local" ? "device" : "runner", actorId: input.owner, action: "task.claim", targetType: "task", targetId: candidate.id, metadata: { route: input.route, generation: candidate.leaseGeneration + 1 } });
-  return { task: { ...candidate, leaseGeneration: candidate.leaseGeneration + 1, leaseToken, leaseExpiresAt } };
+  return { task: {
+    id: candidate.id,
+    organizationId: candidate.organizationId,
+    threadId: candidate.threadId,
+    prompt: candidate.prompt,
+    sourceSessionId: candidate.sourceSessionId,
+    contextMessages,
+    handoffMessages: boundMessages(handoffMessages, 24_000),
+    leaseGeneration: candidate.leaseGeneration + 1,
+    leaseToken,
+    leaseExpiresAt,
+  } };
 }
 
 export async function completeTask(input: {

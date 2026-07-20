@@ -8,13 +8,21 @@ const path = require('path');
 
 const DEFAULT_CONFIG = path.join(os.homedir(), '.hermes', 'cloud-connector.json');
 const DEFAULT_CONTROL_PLANE = 'https://hermes-agent-control.iganapolsky.chatgpt.site';
-const DEFAULT_GATEWAY = 'http://127.0.0.1:4010';
+const DEFAULT_SESSION_GATEWAY = 'http://127.0.0.1:8642';
+const DEFAULT_MODEL_GATEWAY = 'http://127.0.0.1:4010';
 const POLL_MS = 3_000;
 const HEARTBEAT_MS = 15_000;
+const SESSION_SYNC_MS = 60_000;
+const SESSION_LIMIT = 60;
+const CONTEXT_SESSION_LIMIT = 12;
 
 function base64Url(value) { return Buffer.from(value).toString('base64url'); }
 function sha256(value) { return base64Url(crypto.createHash('sha256').update(value).digest()); }
-function normalizeBaseUrl(value) { return String(value).trim().replace(/\/+$/, ''); }
+function normalizeBaseUrl(value) {
+  let normalized = String(value).trim();
+  while (normalized.endsWith('/')) normalized = normalized.slice(0, -1);
+  return normalized;
+}
 
 function createIdentity(name = os.hostname()) {
   const { publicKey, privateKey } = crypto.generateKeyPairSync('ec', { namedCurve: 'prime256v1' });
@@ -95,19 +103,85 @@ async function signedPost(config, pathname, payload = {}) {
   });
 }
 
-async function executeLocal(config, task) {
-  const response = await fetch(`${config.gatewayUrl}/v1/chat/completions`, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json', ...(process.env.HERMES_GATEWAY_API_KEY ? { authorization: `Bearer ${process.env.HERMES_GATEWAY_API_KEY}` } : {}) },
-    body: JSON.stringify({ model: process.env.HERMES_LOCAL_MODEL || 'hermes', messages: [{ role: 'user', content: task.prompt }], stream: false }),
-  });
-  const payload = await response.json();
-  if (!response.ok) throw new Error(payload.error?.message || payload.error || `Hermes gateway HTTP ${response.status}`);
-  return payload.choices?.[0]?.message?.content ?? JSON.stringify(payload);
+function gatewayHeaders() {
+  return { 'content-type': 'application/json', ...(process.env.HERMES_GATEWAY_API_KEY ? { authorization: `Bearer ${process.env.HERMES_GATEWAY_API_KEY}` } : {}) };
 }
 
-async function cycle(config) {
-  await signedPost(config, '/api/device/heartbeat');
+function contentText(content) {
+  if (typeof content === 'string') return content;
+  if (!Array.isArray(content)) return content == null ? '' : JSON.stringify(content);
+  return content.map((part) => typeof part === 'string' ? part : part?.text || '').filter(Boolean).join('\n');
+}
+
+function timestampMillis(value, fallback = Date.now()) {
+  if (typeof value === 'number' && Number.isFinite(value)) return value < 10_000_000_000 ? Math.floor(value * 1000) : Math.floor(value);
+  const parsed = typeof value === 'string' ? Date.parse(value) : Number.NaN;
+  return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+async function gatewayJson(baseUrl, pathname, options = {}) {
+  const response = await fetch(`${baseUrl}${pathname}`, { ...options, headers: { ...gatewayHeaders(), ...(options.headers || {}) } });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(payload.error?.message || payload.error || `Hermes session gateway HTTP ${response.status}`);
+  return payload;
+}
+
+async function collectGatewaySessions(config) {
+  const payload = await gatewayJson(config.sessionGatewayUrl, `/api/sessions?limit=${SESSION_LIMIT}`);
+  const sessions = Array.isArray(payload.data) ? payload.data : [];
+  const contextIds = new Set(sessions.slice(0, CONTEXT_SESSION_LIMIT).map((session) => String(session.id)));
+  return Promise.all(sessions.map(async (session) => {
+    let messages = [];
+    if (session.id && contextIds.has(String(session.id))) {
+      try {
+        const messagePayload = await gatewayJson(config.sessionGatewayUrl, `/api/sessions/${encodeURIComponent(session.id)}/messages`);
+        messages = (Array.isArray(messagePayload.data) ? messagePayload.data : []).flatMap((message) => {
+          const content = contentText(message.content).trim();
+          const role = ['user', 'assistant', 'system'].includes(message.role) ? message.role : '';
+          return role && content ? [{ role, content }] : [];
+        });
+      } catch (error) {
+        console.error(`[hermes-cloud-connector] context sync skipped for ${session.id}: ${error instanceof Error ? error.message : error}`);
+      }
+    }
+    const preview = String(session.preview || messages.at(-1)?.content || '').slice(0, 500);
+    return {
+      id: String(session.id), title: String(session.title || preview || 'Hermes session').slice(0, 120),
+      source: String(session.source || 'hermes-mobile').slice(0, 40), model: session.model ? String(session.model).slice(0, 120) : undefined,
+      preview, messageCount: Number(session.message_count || messages.length || 0),
+      updatedAt: timestampMillis(session.last_active_at ?? session.last_active ?? session.started_at), messages,
+    };
+  }));
+}
+
+async function syncGatewaySessions(config) {
+  const sessions = await collectGatewaySessions(config);
+  return signedPost(config, '/api/device/sessions/sync', { sessions });
+}
+
+async function executeLocal(config, task) {
+  if (task.sourceSessionId) {
+    const handoff = Array.isArray(task.handoffMessages) && task.handoffMessages.length
+      ? `Cloud/web continuation since this Mac last synced:\n${task.handoffMessages.map((message) => `${message.role}: ${message.content}`).join('\n\n').slice(-24_000)}`
+      : undefined;
+    const payload = await gatewayJson(config.sessionGatewayUrl, `/api/sessions/${encodeURIComponent(task.sourceSessionId)}/chat`, {
+      method: 'POST', body: JSON.stringify({ message: task.prompt, ...(handoff ? { system_message: handoff } : {}) }),
+    });
+    return contentText(payload.message?.content || payload.output || payload.content || payload.response) || JSON.stringify(payload);
+  }
+  const messages = [...(Array.isArray(task.contextMessages) ? task.contextMessages : []), { role: 'user', content: task.prompt }];
+  const payload = await gatewayJson(config.modelGatewayUrl, '/v1/chat/completions', {
+    method: 'POST', body: JSON.stringify({ model: process.env.HERMES_LOCAL_MODEL || 'hermes', messages, stream: false }),
+  });
+  return contentText(payload.choices?.[0]?.message?.content) || JSON.stringify(payload);
+}
+
+async function cycle(config, options = {}) {
+  if (options.heartbeat !== false) await signedPost(config, '/api/device/heartbeat');
+  if (options.syncSessions) {
+    try { await syncGatewaySessions(config); }
+    catch (error) { console.error(`[hermes-cloud-connector] session sync unavailable: ${error instanceof Error ? error.message : error}`); }
+  }
   const bodyText = '{}';
   const response = await fetch(`${config.controlPlaneUrl}/api/device/tasks/claim`, {
     method: 'POST', headers: signedHeaders(config, 'POST', '/api/device/tasks/claim', bodyText), body: bodyText,
@@ -128,25 +202,36 @@ async function main() {
   const configPath = process.env.HERMES_CONNECTOR_CONFIG || DEFAULT_CONFIG;
   let config = loadConfig(configPath);
   if (!config) {
-    config = { ...createIdentity(process.env.HERMES_DEVICE_NAME || os.hostname()), controlPlaneUrl: normalizeBaseUrl(process.env.HERMES_CONTROL_PLANE_URL || DEFAULT_CONTROL_PLANE), gatewayUrl: normalizeBaseUrl(process.env.HERMES_GATEWAY_URL || DEFAULT_GATEWAY) };
+    config = {
+      ...createIdentity(process.env.HERMES_DEVICE_NAME || os.hostname()),
+      controlPlaneUrl: normalizeBaseUrl(process.env.HERMES_CONTROL_PLANE_URL || DEFAULT_CONTROL_PLANE),
+      sessionGatewayUrl: normalizeBaseUrl(process.env.HERMES_SESSION_GATEWAY_URL || DEFAULT_SESSION_GATEWAY),
+      modelGatewayUrl: normalizeBaseUrl(process.env.HERMES_MODEL_GATEWAY_URL || DEFAULT_MODEL_GATEWAY),
+    };
     saveConfig(configPath, config);
   }
   config.controlPlaneUrl = normalizeBaseUrl(process.env.HERMES_CONTROL_PLANE_URL || config.controlPlaneUrl || DEFAULT_CONTROL_PLANE);
-  config.gatewayUrl = normalizeBaseUrl(process.env.HERMES_GATEWAY_URL || config.gatewayUrl || DEFAULT_GATEWAY);
+  config.sessionGatewayUrl = normalizeBaseUrl(process.env.HERMES_SESSION_GATEWAY_URL || config.sessionGatewayUrl || DEFAULT_SESSION_GATEWAY);
+  config.modelGatewayUrl = normalizeBaseUrl(process.env.HERMES_MODEL_GATEWAY_URL || config.modelGatewayUrl || config.gatewayUrl || DEFAULT_MODEL_GATEWAY);
   saveConfig(configPath, config);
   if (!config.deviceId || process.argv.includes('--pair')) await startPairing(config, configPath);
   if (process.argv.includes('--pair-only')) return;
-  if (process.argv.includes('--once')) { await cycle(config); return; }
+  if (process.argv.includes('--sync-only')) { await syncGatewaySessions(config); return; }
+  if (process.argv.includes('--once')) { await cycle(config, { heartbeat: true, syncSessions: true }); return; }
   let lastHeartbeat = 0;
+  let lastSessionSync = 0;
   while (true) {
     try {
       const now = Date.now();
-      if (now - lastHeartbeat >= HEARTBEAT_MS) lastHeartbeat = now;
-      await cycle(config);
+      const heartbeat = now - lastHeartbeat >= HEARTBEAT_MS;
+      if (heartbeat) lastHeartbeat = now;
+      const syncSessions = now - lastSessionSync >= SESSION_SYNC_MS;
+      if (syncSessions) lastSessionSync = now;
+      await cycle(config, { heartbeat, syncSessions });
     } catch (error) { console.error(`[hermes-cloud-connector] ${error instanceof Error ? error.message : error}`); }
     await new Promise((resolve) => setTimeout(resolve, POLL_MS));
   }
 }
 
-module.exports = { canonicalRequest, createIdentity, loadConfig, saveConfig, signedHeaders, sha256 };
+module.exports = { canonicalRequest, collectGatewaySessions, contentText, createIdentity, executeLocal, loadConfig, saveConfig, signedHeaders, sha256, syncGatewaySessions, timestampMillis };
 if (require.main === module) main().catch((error) => { console.error(error); process.exitCode = 1; });

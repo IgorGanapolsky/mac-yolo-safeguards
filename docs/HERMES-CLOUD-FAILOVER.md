@@ -24,6 +24,12 @@ The control plane rejects expired timestamps, reused nonces, revoked devices, an
 4. Completion succeeds only for the current lease owner and token. A stale local or cloud worker cannot overwrite a newer run.
 5. When a local heartbeat returns, unclaimed cloud tasks are moved back to local. A cloud task already running retains its lease; this prevents duplicate execution.
 
+The connector also reads the authenticated Hermes session API on `127.0.0.1:8642`, the
+same contract used by Hermes Mobile. It syncs metadata for recent sessions and bounded
+recent-message snapshots for continuity. Existing-session work is sent back through
+`/api/sessions/:id/chat`; a web-created thread without a source session uses the local
+OpenAI-compatible model gateway. Gateway credentials and device private keys stay local.
+
 This is continuity of a queued Hermes prompt and thread, not transparent migration of live process memory. Tool access available only on the Mac cannot be reproduced by the cloud runner unless an equivalent cloud integration is separately configured.
 
 ## Required production configuration

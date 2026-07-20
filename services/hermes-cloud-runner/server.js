@@ -37,9 +37,12 @@ async function callControl(config, pathname, body = {}) {
 }
 
 async function execute(config, task) {
+  const context = Array.isArray(task.contextMessages)
+    ? task.contextMessages.filter((message) => ['user', 'assistant', 'system'].includes(message?.role) && typeof message?.content === 'string')
+    : [];
   const response = await fetch(`${config.openaiBaseUrl}/chat/completions`, {
     method: 'POST', headers: { authorization: `Bearer ${config.openaiKey}`, 'content-type': 'application/json' },
-    body: JSON.stringify({ model: config.model, messages: [{ role: 'user', content: task.prompt }], stream: false }),
+    body: JSON.stringify({ model: config.model, messages: [...context, { role: 'user', content: task.prompt }], stream: false }),
   });
   const payload = await response.json();
   if (!response.ok) throw new Error(payload.error?.message || payload.error || `Model provider HTTP ${response.status}`);
