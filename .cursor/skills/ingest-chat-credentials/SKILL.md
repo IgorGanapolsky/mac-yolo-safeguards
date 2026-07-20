@@ -74,10 +74,17 @@ Pipe into the consuming tool (stdin / env for child process). Prefer ASC **API k
 
 ## ASC login path (priority order)
 
-1. **Existing Chrome/Safari session** → [[drive-logged-in-chrome]] / Safari Computer Use.
-2. **ASC API** → `EXPO_ASC_API_KEY_*` + `.p8` via `hermes-mobile/scripts/asc-api.js` / `upload-app-store-metadata.sh`.
-3. **Keychain Apple ID password** → retrieve `asc.apple-id`, fill Safari/Chrome login fields via
-   automation; handle 2FA if prompted (agent owns the flow; do not ask Igor to paste the password again).
+Run (never prints the password):
+
+```bash
+bash .cursor/skills/ingest-chat-credentials/scripts/ensure-asc-session.sh
+# Keychain fill only (when Chrome shows login wall):
+bash .cursor/skills/ingest-chat-credentials/scripts/ensure-asc-session.sh --force-fill
+```
+
+1. **Existing Chrome session** → `ensure-asc-session.sh` activates `https://appstoreconnect.apple.com/apps` (or any non-login ASC URL) via [[drive-logged-in-chrome]].
+2. **ASC API** → `EXPO_ASC_API_KEY_*` + `.p8` (`~/.private_keys/AuthKey_SBMLM99YH6.p8`) via `hermes-mobile/scripts/asc-api.js`.
+3. **Keychain Apple ID password** → `asc-apple-id-password.sh | asc-login-fill.py` (System Events keystrokes; Apple's idmsa iframe blocks JS fill). Handle 2FA if prompted; never ask Igor to paste the password again.
 
 ## What NEVER stores the secret
 
