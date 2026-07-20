@@ -13,6 +13,7 @@ dest="${launchagents_dir}/${label}.plist"
 
 mkdir -p "${launchagents_dir}" "${home}/.hermes/chrome-cdp-profile"
 chmod +x "${repo_root}/scripts/hermes-chrome-cdp.sh"
+chmod +x "${repo_root}/scripts/configure-browser-control.sh" 2>/dev/null || true
 
 sed "s#{{REPO}}#${repo_root}#g; s#{{HOME}}#${home}#g" "${template}" > "${dest}"
 
@@ -21,13 +22,13 @@ launchctl bootstrap "${gui_domain}" "${dest}"
 launchctl enable "${gui_domain}/${label}" 2>/dev/null || true
 launchctl kickstart -k "${gui_domain}/${label}" 2>/dev/null || true
 
-# Also run once in-foreground for immediate proof
+# Also run once in-foreground for immediate proof (reclaims IPv4 squats).
 bash "${repo_root}/scripts/hermes-chrome-cdp.sh" || true
 
-if curl -sf --max-time 3 "http://127.0.0.1:9222/json/version" >/dev/null; then
-  echo "OK ${label} — CDP /json/version reachable"
+if curl -sf --max-time 3 "http://127.0.0.1:9222/json/version" 2>/dev/null | grep -q webSocketDebuggerUrl; then
+  echo "OK ${label} — CDP /json/version reachable on 127.0.0.1:9222"
   exit 0
 fi
 
-echo "WARN ${label} installed but CDP not yet reachable — check ~/Library/Logs/hermes-chrome-cdp.log" >&2
+echo "WARN ${label} installed but IPv4 CDP not yet reachable — check ~/Library/Logs/hermes-chrome-cdp.log" >&2
 exit 1

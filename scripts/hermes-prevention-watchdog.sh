@@ -33,25 +33,37 @@ ok_cdp_agent=0
 actions=()
 errors=()
 
-cdp_probe() {
-  curl -sf --max-time 2 "http://127.0.0.1:${cdp_port}/json/version" >/dev/null 2>&1
+# Prefer IPv4 (hermes-agent default). Fall back to IPv6 so we do not false-alarm
+# when Chrome bound [::1] only — then heal toward IPv4 via hermes-chrome-cdp.sh.
+cdp_probe_ipv4() {
+  curl -sf --max-time 2 "http://127.0.0.1:${cdp_port}/json/version" 2>/dev/null | grep -q webSocketDebuggerUrl
 }
 
-if cdp_probe; then
+cdp_probe_any() {
+  cdp_probe_ipv4 && return 0
+  curl -sgf --max-time 2 "http://[::1]:${cdp_port}/json/version" 2>/dev/null | grep -q webSocketDebuggerUrl
+}
+
+if cdp_probe_ipv4; then
   ok_cdp=1
 else
-  errors+=("cdp_down")
+  if cdp_probe_any; then
+    errors+=("cdp_ipv4_down")
+  else
+    errors+=("cdp_down")
+  fi
   if [[ "$HEAL" -eq 1 ]]; then
-    if launchctl print "${gui_domain}/com.hermes.chrome-cdp" >/dev/null 2>&1; then
-      launchctl kickstart -k "${gui_domain}/com.hermes.chrome-cdp" 2>/dev/null || true
-      actions+=("kickstart_com.hermes.chrome-cdp")
-    elif [[ -x "${repo_root}/scripts/hermes-chrome-cdp.sh" ]]; then
+    # Prefer the heal script (reclaims non-CDP IPv4 squats) over bare kickstart.
+    if [[ -x "${repo_root}/scripts/hermes-chrome-cdp.sh" ]]; then
       if bash "${repo_root}/scripts/hermes-chrome-cdp.sh"; then
         actions+=("ran_hermes-chrome-cdp.sh")
       fi
+    elif launchctl print "${gui_domain}/com.hermes.chrome-cdp" >/dev/null 2>&1; then
+      launchctl kickstart -k "${gui_domain}/com.hermes.chrome-cdp" 2>/dev/null || true
+      actions+=("kickstart_com.hermes.chrome-cdp")
     fi
     sleep 1
-    if cdp_probe; then
+    if cdp_probe_ipv4; then
       ok_cdp=1
       actions+=("cdp_healed")
     fi

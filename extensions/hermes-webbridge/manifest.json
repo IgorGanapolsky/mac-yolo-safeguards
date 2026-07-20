@@ -1,0 +1,12 @@
+{
+  "manifest_version": 3,
+  "name": "Hermes Browser Bridge",
+  "version": "0.1.0",
+  "description": "Local-agent browser bridge status for Hermes (WebBridge-style). Pairs with Mac CDP on 127.0.0.1:9222 — does not send page content to the cloud.",
+  "action": {
+    "default_title": "Hermes Browser Bridge",
+    "default_popup": "popup.html"
+  },
+  "permissions": ["storage"],
+  "host_permissions": ["http://127.0.0.1:9222/*", "http://localhost:9222/*"]
+}

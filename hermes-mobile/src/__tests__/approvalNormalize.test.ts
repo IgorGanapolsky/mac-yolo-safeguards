@@ -63,6 +63,18 @@ describe('fromPendingApproval', () => {
   });
 
   describe('risk-tier inference', () => {
+    it('floors browser_click to medium even when command looks low-risk', () => {
+      const req = fromPendingApproval(
+        makePending({
+          toolName: 'browser_click',
+          command: 'click #submit',
+          reason: 'Submit form',
+          riskTier: undefined,
+        }),
+      );
+      expect(req.riskTier).toBe('medium');
+    });
+
     it('infers high risk from a destructive command', () => {
       const req = fromPendingApproval(
         makePending({ command: 'rm -rf /tmp/data', reason: 'cleanup' }),
