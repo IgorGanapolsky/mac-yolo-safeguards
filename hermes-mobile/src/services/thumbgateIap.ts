@@ -1,10 +1,17 @@
 import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 
-/** Approved App Store subscription. */
+/**
+ * Legacy App Store subscription product id.
+ * Kept only so existing subscribers can restore entitlement.
+ * Product lock (2026-07-20): Hermes Mobile must never requestPurchase this SKU.
+ */
 export const THUMBGATE_LEASH_IAP_PRODUCT_ID = 'thumbgate_leash_monthly';
 /** Active Google Play non-consumable that unlocks all Pro features once. */
 export const HERMES_PRO_LIFETIME_IAP_PRODUCT_ID = 'hermes_pro_lifetime';
+
+/** Hard off: no StoreKit / Play subscription purchase path in the app. */
+export const IN_APP_SUBSCRIPTION_PURCHASES_ENABLED = false;
 
 export type ThumbgateIapResult =
   | { status: 'purchased' }
@@ -44,6 +51,11 @@ function storeUnavailableMessage(): string {
   return 'Store billing is unavailable in this build.';
 }
 
+/** Android paid-once Play unlock is the only in-app purchase path. */
+export function supportsInAppPaidUnlock(): boolean {
+  return Platform.OS === 'android';
+}
+
 async function loadExpoIapModule(): Promise<ExpoIapModule | null> {
   if (!isNativeMobileApp() || isExpoGoClient()) {
     return null;
@@ -81,26 +93,21 @@ async function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
   }
 }
 
-function isActiveProductPurchase(purchase: Purchase): boolean {
-  const productId = purchase.productId ?? purchase.id;
-  return productId === activeProductId();
-}
-
 function isAndroidLifetimeUnlock(): boolean {
   return Platform.OS === 'android';
 }
 
-function activeProductId(): string {
-  return isAndroidLifetimeUnlock()
-    ? HERMES_PRO_LIFETIME_IAP_PRODUCT_ID
-    : THUMBGATE_LEASH_IAP_PRODUCT_ID;
+function isActiveLifetimePurchase(purchase: Purchase): boolean {
+  const productId = purchase.productId ?? purchase.id;
+  return productId === HERMES_PRO_LIFETIME_IAP_PRODUCT_ID;
 }
 
 async function hasStoreEntitlement(iap: ExpoIapModule): Promise<boolean> {
   if (isAndroidLifetimeUnlock()) {
     const purchases = await iap.getAvailablePurchases();
-    return purchases.some(isActiveProductPurchase);
+    return purchases.some(isActiveLifetimePurchase);
   }
+  // iOS: restore-only for legacy monthly subscribers — never grant via new purchase.
   return iap.hasActiveSubscriptions([THUMBGATE_LEASH_IAP_PRODUCT_ID]);
 }
 
@@ -126,7 +133,8 @@ export function initializeThumbgateIapListeners(): void {
     }
 
     iap.purchaseUpdatedListener(async (purchase) => {
-      if (!isActiveProductPurchase(purchase)) {
+      // Only finish lifetime Android unlocks — never treat subscription SKUs as new purchases.
+      if (!isAndroidLifetimeUnlock() || !isActiveLifetimePurchase(purchase)) {
         return;
       }
       try {
@@ -164,7 +172,7 @@ export function initializeThumbgateIapListeners(): void {
   })();
 }
 
-/** Read the active one-time Play or subscription App Store entitlement. Never blocks startup. */
+/** Read Android lifetime or legacy iOS subscription entitlement. Never blocks startup. */
 export async function syncThumbgateLeashEntitlement(): Promise<boolean> {
   if (!isNativeMobileApp() || isExpoGoClient()) {
     return false;
@@ -182,9 +190,21 @@ export async function syncThumbgateLeashEntitlement(): Promise<boolean> {
   }
 }
 
+/**
+ * Purchase paid unlock. Android: hermes_pro_lifetime one-time IAP.
+ * iOS: disabled — paid download is the app gate; subscriptions are web-only.
+ */
 export async function purchaseThumbgateLeash(): Promise<ThumbgateIapResult> {
   if (!isNativeMobileApp() || isExpoGoClient()) {
     return { status: 'not_configured', message: storeUnavailableMessage() };
+  }
+
+  if (!isAndroidLifetimeUnlock()) {
+    return {
+      status: 'not_configured',
+      message:
+        'Subscriptions are managed on the ThumbGate web dashboard. This app does not sell subscriptions.',
+    };
   }
 
   initializeThumbgateIapListeners();
@@ -206,10 +226,9 @@ export async function purchaseThumbgateLeash(): Promise<ThumbgateIapResult> {
 
       iap
         .requestPurchase({
-          type: isAndroidLifetimeUnlock() ? 'in-app' : 'subs',
+          type: 'in-app',
           request: {
-            apple: { sku: THUMBGATE_LEASH_IAP_PRODUCT_ID },
-            google: { skus: [activeProductId()] },
+            google: { skus: [HERMES_PRO_LIFETIME_IAP_PRODUCT_ID] },
           },
         })
         .catch((error: unknown) => {
@@ -248,7 +267,9 @@ export async function restoreThumbgateLeashPurchases(): Promise<ThumbgateIapResu
     }
     return {
       status: 'error',
-      message: 'No Hermes Pro purchase found on this store account.',
+      message: isAndroidLifetimeUnlock()
+        ? 'No Hermes Pro purchase found on this store account.'
+        : 'No legacy App Store Leash purchase found. New subscriptions are managed on the web.',
     };
   } catch (error) {
     return {
@@ -258,6 +279,7 @@ export async function restoreThumbgateLeashPurchases(): Promise<ThumbgateIapResu
   }
 }
 
+/** Primary store CTA label — Android lifetime only; iOS uses web dashboard copy. */
 export function thumbgateIapSubscribeLabel(): string {
-  return Platform.OS === 'ios' ? 'Unlock in App Store' : 'Unlock in Google Play';
+  return Platform.OS === 'android' ? 'Unlock in Google Play' : 'Manage on ThumbGate web';
 }
