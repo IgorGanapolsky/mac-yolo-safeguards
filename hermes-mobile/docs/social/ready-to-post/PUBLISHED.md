@@ -93,3 +93,9 @@
 - Paid UA — not spent.
 - HN re-post / vouch spam — unsafe (see above).
 - bluefully email — no To: address.
+
+## 2026-07-20 — LinkedIn — Day 1 of content engine v2.0
+- URL: https://www.linkedin.com/feed/update/urn:li:share:7485017143982542848
+- Verified: "Post successful" toast + on-page Play/App Store/GitHub links in first comment + full-page screenshot (proofs/proof-linkedin-2026-07-20.png)
+- Hook: "An AI agent ran a silent loop for eleven days and burned $47,000 before anyone noticed."
+- Known blemish: first-comment "·" separators rendered as "Â·" (AppleScript UTF-8 mangling); links verified functional. Fix in-app if desired.
