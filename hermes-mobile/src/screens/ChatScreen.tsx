@@ -6756,9 +6756,6 @@ export default function ChatScreen() {
           wrongKeyBannerActive={wrongKeyBannerActive}
           isDemo={isDemo}
           chatStalled={effectiveAuthMismatch ? false : chatStalled}
-          workspaceName={activeProject?.name}
-          workspaceHandoff={activeProject?.handoffSummary}
-          canSwitchWorkspace={!showMacConnectionHelp}
           activeAgents={activeAgents}
           currentSession={currentSession}
           gatewayModel={headerGatewayModel}
@@ -6773,7 +6770,6 @@ export default function ChatScreen() {
             }
             setMacPickerVisible(true);
           }}
-          onPressWorkspace={handlePickWorkspace}
         />
         <CodexCommandCenter
           connectionState={connectionState}
