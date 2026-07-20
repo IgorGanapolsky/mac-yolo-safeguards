@@ -35,6 +35,7 @@ test('cloud execution preserves the synced thread context', async () => {
     });
     assert.equal(result, 'cloud continued');
     assert.deepEqual(received.messages.map((message) => message.content), ['original request', 'original answer', 'next step']);
+    assert.equal(received.max_tokens, 2048);
   } finally {
     await new Promise((resolve) => server.close(resolve));
   }

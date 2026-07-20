@@ -15,6 +15,10 @@ const HEARTBEAT_MS = 15_000;
 const SESSION_SYNC_MS = 60_000;
 const SESSION_LIMIT = 60;
 const CONTEXT_SESSION_LIMIT = 12;
+const REQUEST_TIMEOUT_MS = 15_000;
+const TASK_TIMEOUT_MS = 75_000;
+const MAX_CONTEXT_MESSAGES = 60;
+const MAX_CONTEXT_CHARS = 48_000;
 
 function base64Url(value) { return Buffer.from(value).toString('base64url'); }
 function sha256(value) { return base64Url(crypto.createHash('sha256').update(value).digest()); }
@@ -63,7 +67,7 @@ function signedHeaders(config, method, pathname, bodyText, now = Date.now(), non
 }
 
 async function jsonRequest(url, options = {}) {
-  const response = await fetch(url, options);
+  const response = await fetch(url, { ...options, signal: options.signal || AbortSignal.timeout(REQUEST_TIMEOUT_MS) });
   const text = await response.text();
   const body = text ? JSON.parse(text) : null;
   if (!response.ok) throw new Error(body?.error || `HTTP ${response.status}`);
@@ -120,10 +124,27 @@ function timestampMillis(value, fallback = Date.now()) {
 }
 
 async function gatewayJson(baseUrl, pathname, options = {}) {
-  const response = await fetch(`${baseUrl}${pathname}`, { ...options, headers: { ...gatewayHeaders(), ...(options.headers || {}) } });
+  const timeout = options.method === 'POST' ? TASK_TIMEOUT_MS : REQUEST_TIMEOUT_MS;
+  const response = await fetch(`${baseUrl}${pathname}`, {
+    ...options, signal: options.signal || AbortSignal.timeout(timeout),
+    headers: { ...gatewayHeaders(), ...(options.headers || {}) },
+  });
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(payload.error?.message || payload.error || `Hermes session gateway HTTP ${response.status}`);
   return payload;
+}
+
+function boundContextMessages(messages) {
+  let chars = 0;
+  const bounded = [];
+  for (const message of messages.slice(-MAX_CONTEXT_MESSAGES).reverse()) {
+    const content = contentText(message.content).trim().slice(0, 8_000);
+    const role = ['user', 'assistant', 'system'].includes(message.role) ? message.role : '';
+    if (!role || !content || chars + content.length > MAX_CONTEXT_CHARS) continue;
+    bounded.unshift({ role, content });
+    chars += content.length;
+  }
+  return bounded;
 }
 
 async function collectGatewaySessions(config) {
@@ -135,11 +156,7 @@ async function collectGatewaySessions(config) {
     if (session.id && contextIds.has(String(session.id))) {
       try {
         const messagePayload = await gatewayJson(config.sessionGatewayUrl, `/api/sessions/${encodeURIComponent(session.id)}/messages`);
-        messages = (Array.isArray(messagePayload.data) ? messagePayload.data : []).flatMap((message) => {
-          const content = contentText(message.content).trim();
-          const role = ['user', 'assistant', 'system'].includes(message.role) ? message.role : '';
-          return role && content ? [{ role, content }] : [];
-        });
+        messages = boundContextMessages(Array.isArray(messagePayload.data) ? messagePayload.data : []);
       } catch (error) {
         console.error(`[hermes-cloud-connector] context sync skipped for ${session.id}: ${error instanceof Error ? error.message : error}`);
       }
@@ -185,6 +202,7 @@ async function cycle(config, options = {}) {
   const bodyText = '{}';
   const response = await fetch(`${config.controlPlaneUrl}/api/device/tasks/claim`, {
     method: 'POST', headers: signedHeaders(config, 'POST', '/api/device/tasks/claim', bodyText), body: bodyText,
+    signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
   });
   if (response.status === 204) return false;
   const claim = await response.json();
@@ -233,5 +251,5 @@ async function main() {
   }
 }
 
-module.exports = { canonicalRequest, collectGatewaySessions, contentText, createIdentity, executeLocal, loadConfig, saveConfig, signedHeaders, sha256, syncGatewaySessions, timestampMillis };
+module.exports = { boundContextMessages, canonicalRequest, collectGatewaySessions, contentText, createIdentity, executeLocal, loadConfig, saveConfig, signedHeaders, sha256, syncGatewaySessions, timestampMillis };
 if (require.main === module) main().catch((error) => { console.error(error); process.exitCode = 1; });

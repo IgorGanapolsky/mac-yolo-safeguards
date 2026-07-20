@@ -103,3 +103,23 @@ test('thread continuation only advances the sync boundary when context arrived',
   assert.match(syncRoute, /synced_at = COALESCE\(excluded\.synced_at, threads\.synced_at\)/);
   assert.match(threadRoute, /created_at > \?/);
 });
+
+test('sellable failover has explicit abuse and inference-cost ceilings', () => {
+  const taskRoute = require('node:fs').readFileSync('apps/hermes-control-plane/app/api/tasks/route.ts', 'utf8');
+  const syncRoute = require('node:fs').readFileSync('apps/hermes-control-plane/app/api/device/sessions/sync/route.ts', 'utf8');
+  const runner = require('node:fs').readFileSync('services/hermes-cloud-runner/server.js', 'utf8');
+  assert.match(taskRoute, /TRIAL_CLOUD_TASKS = 5/);
+  assert.match(taskRoute, /PRO_CLOUD_TASKS_PER_30_DAYS = 100/);
+  assert.match(syncRoute, /MAX_BODY_BYTES = 1_000_000/);
+  assert.match(runner, /MODEL_MAX_TOKENS.*2_048/);
+  assert.match(runner, /MODEL_TIMEOUT_MS.*75_000/);
+});
+
+test('automatic failover is driven by stale heartbeat and returns unclaimed work to the Mac', () => {
+  const leases = require('node:fs').readFileSync('apps/hermes-control-plane/lib/task-leases.ts', 'utf8');
+  const heartbeat = require('node:fs').readFileSync('apps/hermes-control-plane/app/api/device/heartbeat/route.ts', 'utf8');
+  assert.match(leases, /d\.failover_mode = 'auto'/);
+  assert.match(leases, /d\.last_seen_at < \?/);
+  assert.match(leases, /now - 60_000/);
+  assert.match(heartbeat, /'cloud_pending', 'needs_failover', 'offline_blocked'/);
+});

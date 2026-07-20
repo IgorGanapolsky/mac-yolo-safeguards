@@ -6,6 +6,7 @@ import { jsonError } from "@/lib/security";
 const MAX_SESSIONS = 100;
 const MAX_CONTEXT_MESSAGES = 60;
 const MAX_CONTEXT_CHARS = 48_000;
+const MAX_BODY_BYTES = 1_000_000;
 
 interface SessionInput {
   id?: string;
@@ -40,7 +41,10 @@ function contextSnapshot(messages: SessionInput["messages"]): string | null {
 }
 
 export async function POST(request: Request) {
+  const declaredSize = Number(request.headers.get("content-length") ?? 0);
+  if (declaredSize > MAX_BODY_BYTES) return jsonError("session sync payload is too large", 413);
   const body = await request.text();
+  if (new TextEncoder().encode(body).byteLength > MAX_BODY_BYTES) return jsonError("session sync payload is too large", 413);
   const identity = await requireDevice(request, body);
   if (identity instanceof Response) return identity;
   const payload = JSON.parse(body || "{}") as { sessions?: SessionInput[] };

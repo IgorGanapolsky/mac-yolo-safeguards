@@ -7,7 +7,7 @@ const http = require('http');
 const os = require('os');
 const path = require('path');
 const test = require('node:test');
-const { canonicalRequest, collectGatewaySessions, createIdentity, executeLocal, loadConfig, saveConfig, signedHeaders, timestampMillis } = require('../tools/hermes-cloud-connector');
+const { boundContextMessages, canonicalRequest, collectGatewaySessions, createIdentity, executeLocal, loadConfig, saveConfig, signedHeaders, timestampMillis } = require('../tools/hermes-cloud-connector');
 
 async function withServer(handler, run) {
   const server = http.createServer(handler);
@@ -33,6 +33,14 @@ test('connector config is private and round-trips', () => {
   saveConfig(file, { deviceId: 'device-1' });
   assert.deepEqual(loadConfig(file), { deviceId: 'device-1' });
   assert.equal(fs.statSync(file).mode & 0o777, 0o600);
+});
+
+test('context upload is bounded before it leaves the Mac', () => {
+  const messages = Array.from({ length: 70 }, (_, index) => ({ role: index % 2 ? 'assistant' : 'user', content: `turn-${index}-` + 'x'.repeat(1_000) }));
+  const bounded = boundContextMessages(messages);
+  assert.ok(bounded.length <= 60);
+  assert.ok(bounded.reduce((total, message) => total + message.content.length, 0) <= 48_000);
+  assert.match(bounded.at(-1).content, /^turn-69-/);
 });
 
 test('collects real Hermes Mobile session inventory with bounded context', async () => {

@@ -40,6 +40,8 @@ Do not call the business launched until all of these have source evidence:
 ## Commercial boundary
 
 The launch price shown publicly is $29/month with a 14-day trial. Provider inference is
-metered internally; unlimited cloud tokens are not promised. The subscription sells
+limited to 5 cloud continuations during the trial and 100 per rolling 30 days after
+subscription. Cloud model output is capped at 2,048 tokens and execution at 75 seconds;
+unlimited cloud tokens are not promised. The subscription sells
 remote continuity and control, not a generic transcript mirror or a claim that a cloud
 runner can reproduce Mac-only tools.

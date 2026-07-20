@@ -55,13 +55,16 @@ export async function claimTask(input: {
   const now = Date.now();
   const routeClause = input.route === "local"
     ? "k.route = 'local' AND k.device_id = ? AND k.status IN ('local_pending', 'cloud_pending', 'running')"
-    : "k.route = 'cloud' AND k.status IN ('cloud_pending', 'running')";
-  const params = input.route === "local" ? [input.deviceId!, now] : [now];
+    : `((k.route = 'cloud' AND k.status IN ('cloud_pending', 'running'))
+        OR (k.route = 'local' AND k.status = 'local_pending' AND d.failover_mode = 'auto'
+            AND (d.last_seen_at IS NULL OR d.last_seen_at < ?)))`;
+  const params = input.route === "local" ? [input.deviceId!, now] : [now - 60_000, now];
   const candidate = await db().prepare(
     `SELECT k.id, k.organization_id AS organizationId, k.thread_id AS threadId, k.prompt,
             k.lease_generation AS leaseGeneration, k.created_at AS createdAt,
             t.source_session_id AS sourceSessionId, t.context_snapshot AS contextSnapshot, t.synced_at AS syncedAt
        FROM tasks k JOIN threads t ON t.id = k.thread_id
+       LEFT JOIN devices d ON d.id = k.device_id
       WHERE ${routeClause}
         AND (k.lease_expires_at IS NULL OR k.lease_expires_at < ?)
       ORDER BY k.created_at ASC LIMIT 1`
