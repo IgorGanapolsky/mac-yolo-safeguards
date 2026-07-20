@@ -105,6 +105,25 @@ test("commits, retries, paginates, projects, and detects conflicts", async (t) =
   assert.equal((await events.json()).events.length, 1);
   assert.deepEqual(await noNewEvents.json(), { events: [] });
   assert.equal((await thread.json()).thread.messages[0].text, "make money today");
+
+  const threads = await request(baseUrl, "/v1/threads");
+  assert.equal(threads.status, 200);
+  assert.deepEqual((await threads.json()).threads.map((entry) => entry.thread_id), ["thread_1"]);
+});
+
+test("thread listing validates method and tombstone visibility", async (t) => {
+  const { baseUrl } = await start(t);
+  await request(baseUrl, "/v1/threads/thread_1/events", {
+    method: "POST",
+    body: message({ mutation_id: "mut_delete", kind: "thread_deleted", payload: {} }),
+  });
+
+  const hidden = await request(baseUrl, "/v1/threads");
+  const included = await request(baseUrl, "/v1/threads?include_deleted=1");
+  assert.deepEqual(await hidden.json(), { threads: [] });
+  assert.equal((await included.json()).threads[0].deleted, true);
+  assert.equal((await request(baseUrl, "/v1/threads?include_deleted=yes")).status, 400);
+  assert.equal((await request(baseUrl, "/v1/threads", { method: "POST", body: {} })).status, 405);
 });
 
 test("rejects malformed and unsafe event cursors", async (t) => {
