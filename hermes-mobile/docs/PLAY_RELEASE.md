@@ -1,6 +1,13 @@
 # Hermes Mobile — Google Play (Igor Ganapolsky)
 
-Package: **`com.iganapolsky.hermesmobile`**
+Packages:
+
+| SKU | Package | Model |
+|-----|---------|-------|
+| Free listing (live) | **`com.iganapolsky.hermesmobile`** | Free download + `hermes_pro_lifetime` ($4.99 IAP) |
+| Paid download (Draft → ship) | **`com.iganapolsky.hermesmobile.paid`** | Paid download **$4.99** — see [PLAY-PAID-DOWNLOAD.md](./PLAY-PAID-DOWNLOAD.md) |
+
+Google **cannot** convert Free→Paid on the free package after publish. Paid-upfront Android is the `.paid` app (Play app id `4972002147362988720`).
 
 Hermes Mobile publishes under **Igor Ganapolsky** (`iganapolsky@gmail.com` Play Console admin). The public store developer page is **[IgorGanapolsky](https://play.google.com/store/apps/developer?id=IgorGanapolsky)** (developer id `5120393192891708058`). **Do not** publish to Tactical Training Apps, `ig5973700@gmail.com`, or legacy `agentleash` listings.
 
