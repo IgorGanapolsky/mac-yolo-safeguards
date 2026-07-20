@@ -6766,6 +6766,12 @@ export default function ChatScreen() {
           }
           authMismatch={effectiveAuthMismatch}
           wrongKeyBannerActive={wrongKeyBannerActive}
+          needsPair={
+            settings.connectionMode === 'relay' &&
+            !isPaired &&
+            !effectiveMacHttpOk &&
+            !effectiveAuthMismatch
+          }
           isDemo={isDemo}
           chatStalled={effectiveAuthMismatch ? false : chatStalled}
           activeAgents={activeAgents}

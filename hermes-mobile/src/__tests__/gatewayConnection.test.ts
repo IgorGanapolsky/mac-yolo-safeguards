@@ -54,6 +54,37 @@ describe('gatewayConnection', () => {
     ).toEqual({ label: 'Relay only', chatReachable: false });
   });
 
+  it('needsPair wins over Connecting so unpaired relay never looks Tailscale-healthy', () => {
+    expect(
+      resolveChatLinkDisplay({
+        connectionState: 'connecting',
+        macHttpOk: false,
+        needsPair: true,
+        pairStatusLabel: 'Pair relay in Settings for Wi‑Fi, cellular, or USB',
+      }),
+    ).toEqual({
+      label: 'Pair relay in Settings for Wi‑Fi, cellular, or USB',
+      chatReachable: false,
+    });
+    expect(
+      resolveChatLinkDisplay({
+        connectionState: 'connecting',
+        macHttpOk: false,
+        needsPair: true,
+      }),
+    ).toEqual({ label: 'Pair in Settings', chatReachable: false });
+  });
+
+  it('needsPair does not override Connected when Mac HTTP is up', () => {
+    expect(
+      resolveChatLinkDisplay({
+        connectionState: 'connecting',
+        macHttpOk: true,
+        needsPair: true,
+      }),
+    ).toEqual({ label: 'Connected', chatReachable: true });
+  });
+
   it('mac HTTP ok uses directGatewayReachable when set', () => {
     expect(
       isMacGatewayHttpOk({
