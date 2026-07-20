@@ -22,8 +22,9 @@ Need auth-walled site?
   2. If tab exists → activate that tab (inherits session)
   3. If not → open URL in existing Chrome window (same profile, inherits cookies)
   4. Drive via: AppleScript `execute active tab javascript "..."`  OR Chrome CDP if 9222 up
-  5. ONLY if Chrome has no session (screenshot/login form on REAL Chrome) → report session missing
-     — still do NOT ask for password; invoke use-existing-browser-sessions
+  5. ONLY if Chrome has no session (screenshot/login form on REAL Chrome) → for ASC, retrieve
+     Apple ID password from Keychain (`asc.apple-id` via [[ingest-chat-credentials]]) and automate
+     login; still do NOT ask Igor to paste the password again
 ```
 
 **Playwright is OK for:** public pages, form scrapes that don't need Igor's cookies.  
