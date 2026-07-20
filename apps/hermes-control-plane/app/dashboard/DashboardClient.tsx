@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 type User = { id: string; email: string; name: string; avatarUrl: string | null };
 type Organization = { id: string; plan: string; trialEndsAt: number | null; cloudAccess: boolean };
@@ -10,6 +10,8 @@ type Task = { id: string; threadId: string; threadTitle: string; prompt: string;
 type ThreadDetails = { snapshot: Array<{ role: string; content: string }>; tasks: Array<{ prompt: string; result: string | null; error: string | null; route: string; status: string; createdAt: number }> };
 
 const terminal = new Set(["completed", "failed"]);
+const pairingCodePattern = /^[A-Z0-9]{4}-[A-Z0-9]{4}$/;
+const connectorInstallCommand = "curl -fsSL https://raw.githubusercontent.com/IgorGanapolsky/mac-yolo-safeguards/main/saas/install-connector.sh | bash";
 
 function Mark() { return <span className="brand-mark" aria-hidden="true"><i /><i /><i /></span>; }
 function age(timestamp: number | null) {
@@ -39,17 +41,37 @@ export default function DashboardClient() {
   const [pairCode, setPairCode] = useState("");
   const [notice, setNotice] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [installCopied, setInstallCopied] = useState(false);
+  const autoSelectedThread = useRef(false);
+
+  useEffect(() => {
+    const pendingCode = new URLSearchParams(window.location.search).get("pair")?.toUpperCase() ?? "";
+    if (!pairingCodePattern.test(pendingCode)) return;
+    const timer = window.setTimeout(() => setPairCode(pendingCode), 0);
+    return () => window.clearTimeout(timer);
+  }, []);
 
   const load = useCallback(async () => {
     const me = await fetch("/api/me", { cache: "no-store" });
-    if (me.status === 401) { window.location.href = "/?auth=required"; return; }
+    if (me.status === 401) {
+      const returnTo = `${window.location.pathname}${window.location.search}`;
+      window.location.replace(`/api/auth/login?return_to=${encodeURIComponent(returnTo)}`);
+      return;
+    }
     const identity = await me.json() as { user: User; organization: Organization };
     setUser(identity.user); setOrganization(identity.organization);
     const [deviceResponse, threadResponse, taskResponse] = await Promise.all([
       fetch("/api/devices", { cache: "no-store" }), fetch("/api/threads", { cache: "no-store" }), fetch("/api/tasks", { cache: "no-store" }),
     ]);
     if (deviceResponse.ok) setDevices((await deviceResponse.json() as { devices: Device[] }).devices);
-    if (threadResponse.ok) setThreads((await threadResponse.json() as { threads: Thread[] }).threads);
+    if (threadResponse.ok) {
+      const nextThreads = (await threadResponse.json() as { threads: Thread[] }).threads;
+      setThreads(nextThreads);
+      if (!autoSelectedThread.current && !selectedThread && nextThreads.length) {
+        autoSelectedThread.current = true;
+        setSelectedThread(nextThreads[0].id);
+      }
+    }
     if (taskResponse.ok) setTasks((await taskResponse.json() as { tasks: Task[] }).tasks);
     if (selectedThread) {
       const detailResponse = await fetch(`/api/thread-messages?thread_id=${encodeURIComponent(selectedThread)}`, { cache: "no-store" });
@@ -62,6 +84,15 @@ export default function DashboardClient() {
     const timer = window.setInterval(() => void load(), 5000);
     return () => { window.clearTimeout(initial); window.clearInterval(timer); };
   }, [load]);
+  useEffect(() => {
+    if (!user || !pairingCodePattern.test(pairCode)) return;
+    const currentUrl = new URL(window.location.href);
+    if (currentUrl.searchParams.get("pair")?.toUpperCase() !== pairCode) return;
+    currentUrl.searchParams.delete("pair");
+    window.history.replaceState({}, "", `${currentUrl.pathname}${currentUrl.search}${currentUrl.hash}`);
+    const timer = window.setTimeout(() => setNotice("Machine found. Verify its name, then approve the prefilled code."), 0);
+    return () => window.clearTimeout(timer);
+  }, [pairCode, user]);
   const activeTasks = useMemo(() => tasks.filter((task) => !terminal.has(task.status)), [tasks]);
   const visibleTasks = selectedThread ? tasks.filter((task) => task.threadId === selectedThread) : tasks;
   const onlineDevices = devices.filter((device) => device.online);
@@ -79,7 +110,7 @@ export default function DashboardClient() {
     event.preventDefault(); setBusy(true); setNotice(null);
     const response = await fetch("/api/pairing/approve", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ userCode: pairCode }) });
     const body = await response.json() as { device?: Device; error?: string };
-    setNotice(response.ok && body.device ? `${body.device.name} paired. Fingerprint ${body.device.fingerprint}.` : body.error ?? "Pairing failed");
+    setNotice(response.ok && body.device ? `${body.device.name} paired. Recent Hermes chats are syncing now.` : body.error ?? "Pairing failed");
     if (response.ok) { setPairCode(""); await load(); }
     setBusy(false);
   }
@@ -112,21 +143,31 @@ export default function DashboardClient() {
     setBusy(false);
   }
 
+  async function copyInstaller() {
+    try {
+      await navigator.clipboard.writeText(connectorInstallCommand);
+      setInstallCopied(true);
+      setNotice("One-line installer copied. Paste it into Terminal once; ThumbGate opens the approval page automatically.");
+    } catch {
+      setNotice("Clipboard access is unavailable. Select the one-line installer command and copy it.");
+    }
+  }
+
   if (!user || !organization) return <main className="loading-screen"><Mark /><p>Opening the control plane…</p></main>;
 
   return (
     <main className="dashboard-shell">
       <aside className="sidebar">
-        <a href="/dashboard" className="brand"><Mark /><span>Leash <small>by ThumbGate</small></span></a>
-        <div className="workspace-label">WORKSPACE</div>
-        <button className={!selectedThread ? "side-item active" : "side-item"} onClick={() => setSelectedThread(null)}><span>⌁</span>All activity<em>{activeTasks.length}</em></button>
-        <div className="workspace-label">THREADS</div>
+        <a href="/dashboard" className="brand"><Mark /><span>ThumbGate <small>Hermes Web</small></span></a>
+        <div className="workspace-label">NAVIGATION</div>
+        <button className={!selectedThread ? "side-item active" : "side-item"} onClick={() => setSelectedThread(null)}><span>H</span>Hermes<em>{activeTasks.length}</em></button>
+        <div className="workspace-label">CHATS</div>
         <div className="thread-list">{threads.map((thread) => <button key={thread.id} title={thread.title} className={selectedThread === thread.id ? "side-item active" : "side-item"} onClick={() => setSelectedThread(thread.id)}><span>{thread.sourceSessionId ? "⌘" : "›_"}</span>{thread.title}<em>{thread.messageCount || thread.taskCount}</em></button>)}</div>
         <div className="sidebar-bottom"><div className="avatar">{user.name.slice(0, 1).toUpperCase()}</div><div><strong>{user.name}</strong><small>{accountPlan} plan</small></div><form action="/api/auth/logout" method="post"><button title="Sign out">↗</button></form></div>
       </aside>
 
       <section className="dashboard-main">
-        <header className="dashboard-header"><div><p className="eyebrow">CONTROL PLANE</p><h1>{selectedThread ? threads.find((thread) => thread.id === selectedThread)?.title : "Agent operations"}</h1></div><div className="header-actions"><span className="status-chip online"><i /> Control plane online</span><button className="button button-small button-secondary" onClick={() => void subscribe()} disabled={busy}>{organization.cloudAccess ? "Manage plan" : "Add cloud failover"}</button></div></header>
+        <header className="dashboard-header"><div><p className="eyebrow">HERMES WEB</p><h1>{selectedThread ? threads.find((thread) => thread.id === selectedThread)?.title : "Your Hermes workspace"}</h1></div><div className="header-actions"><span className="status-chip online"><i /> ThumbGate online</span><button className="button button-small button-secondary" onClick={() => void subscribe()} disabled={busy}>{organization.cloudAccess ? "Manage plan" : "Add cloud failover"}</button></div></header>
         {notice && <div className="notice" role="status"><span>{notice}</span><button onClick={() => setNotice(null)}>×</button></div>}
 
         <div className="metric-grid metric-grid-four">
@@ -137,7 +178,7 @@ export default function DashboardClient() {
         </div>
 
         <div className="dashboard-grid">
-          <section className="panel task-panel">
+          <section className="panel task-panel" id="hermes-console">
             <div className="panel-heading"><div><p className="eyebrow">THREAD CONSOLE</p><h2>Continue the work</h2></div><span>{selectedThread ? `${threadDetails?.snapshot.length ?? 0} synced messages` : `${visibleTasks.length} tasks`}</span></div>
             {selectedThread && <div className="conversation-history">
               {threadDetails?.snapshot.length ? threadDetails.snapshot.map((message, index) => <article key={`snapshot-${index}`} className={`conversation-message role-${message.role}`}><span>{message.role}</span><p>{message.content}</p></article>) : <div className="conversation-empty">This thread has no cloud snapshot yet. Keep the paired Hermes connector online to sync it.</div>}
@@ -151,16 +192,22 @@ export default function DashboardClient() {
           </section>
 
           <aside className="right-rail">
-            <section className="panel connection-panel">
+            <section className="panel connection-panel" id="leash-control">
               <div className="panel-heading"><div><p className="eyebrow">CONNECTION</p><h2>{onlineDevices.length ? "Connector online" : devices.length ? "Connector reconnecting" : "Pair your first machine"}</h2></div><span>{onlineDevices.length ? "LIVE" : devices.length ? "RETRYING" : "STEP 1 OF 3"}</span></div>
-              <div className="connection-summary"><span className={`device-light ${onlineDevices.length ? "is-online" : ""}`} /><div><strong>{onlineDevices.length ? `${onlineDevices.length} machine${onlineDevices.length === 1 ? "" : "s"} reachable` : devices.length ? "KeepAlive is retrying automatically" : "Run the one-command connector installer"}</strong><p>{devices.length ? "Tasks stay local while reachable and follow each machine's offline policy when it disappears." : "The installer creates a device key, starts an always-on service, and prints the pairing code."}</p></div></div>
+              <div className="connection-summary"><span className={`device-light ${onlineDevices.length ? "is-online" : ""}`} /><div><strong>{onlineDevices.length ? `${onlineDevices.length} machine${onlineDevices.length === 1 ? "" : "s"} reachable` : devices.length ? "KeepAlive is retrying automatically" : "Run the one-command connector installer"}</strong><p>{devices.length ? "Tasks stay local while reachable and follow each machine's offline policy when it disappears." : "The installer creates a device key, opens this approval page with the code filled, and starts an always-on service."}</p></div></div>
+              {!devices.length && <div className="installer-command"><code>{connectorInstallCommand}</code><button className="button button-secondary button-small" type="button" onClick={() => void copyInstaller()}>{installCopied ? "Copied" : "Copy one-line installer"}</button></div>}
               <ol className="dashboard-setup-steps"><li className={devices.length ? "is-done" : "is-current"}><span>1</span>Install connector</li><li className={devices.length ? "is-done" : ""}><span>2</span>Approve short code</li><li className={onlineDevices.length ? "is-done" : devices.length ? "is-current" : ""}><span>3</span>Choose offline policy</li></ol>
               <p className="privacy-boundary">Bounded Hermes thread context syncs to this control plane. The device private key and local gateway credential stay on the machine.</p>
             </section>
-            <section className="panel"><div className="panel-heading"><div><p className="eyebrow">MACHINES</p><h2>Paired Hermes</h2></div></div>{devices.map((device) => <article key={device.id} className="device-card"><div><span className={`device-light ${device.online ? "is-online" : ""}`} /><div><strong>{device.name}</strong><small>{device.online ? "Online" : `Last seen ${age(device.lastSeenAt)}`}</small></div></div><code>{device.fingerprint}</code><label>Offline policy<select value={device.failoverMode} onChange={(event) => void updateFailover(device.id, event.target.value as Device["failoverMode"])}><option value="manual">Ask before cloud</option><option value="auto">Continue automatically</option><option value="disabled">Pause until online</option></select></label></article>)}<form className="pair-form" onSubmit={pair}><label>Pairing code<input value={pairCode} onChange={(event) => setPairCode(event.target.value.toUpperCase())} placeholder="ABCD-EFGH" maxLength={9} /></label><button className="button button-secondary button-small" disabled={busy}>Approve machine</button></form><p className="helper-copy">The code and fingerprint are shown by the Hermes cloud connector. Your device private key never leaves that machine.</p></section>
+            <section className="panel" id="web-settings"><div className="panel-heading"><div><p className="eyebrow">SETTINGS</p><h2>Paired Hermes</h2></div></div>{devices.map((device) => <article key={device.id} className="device-card"><div><span className={`device-light ${device.online ? "is-online" : ""}`} /><div><strong>{device.name}</strong><small>{device.online ? "Online" : `Last seen ${age(device.lastSeenAt)}`}</small></div></div><code>{device.fingerprint}</code><label>Offline policy<select value={device.failoverMode} onChange={(event) => void updateFailover(device.id, event.target.value as Device["failoverMode"])}><option value="manual">Ask before cloud</option><option value="auto">Continue automatically</option><option value="disabled">Pause until online</option></select></label></article>)}<form className="pair-form" onSubmit={pair}><label>Pairing code<input value={pairCode} onChange={(event) => setPairCode(event.target.value.toUpperCase())} placeholder="ABCD-EFGH" maxLength={9} /></label><button className="button button-secondary button-small" disabled={busy || !pairingCodePattern.test(pairCode)}>Approve machine</button></form><p className="helper-copy">The connector prefills this short code and keeps both its device private key and your local Hermes gateway credential on the machine.</p></section>
           </aside>
         </div>
       </section>
+      <nav className="mobile-web-tabs" aria-label="Hermes workspace">
+        <a href="#hermes-console"><b aria-hidden="true">H</b><span>Hermes</span></a>
+        <a href="#leash-control"><b aria-hidden="true">✓</b><span>Leash</span></a>
+        <a href="#web-settings"><b aria-hidden="true">≡</b><span>Settings</span></a>
+      </nav>
     </main>
   );
 }
