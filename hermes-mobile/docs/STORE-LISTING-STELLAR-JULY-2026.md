@@ -336,7 +336,7 @@ Evidence-based audit — 2026-07-09, with July 11 fix status.
 | **IAP not on iOS submission** | `thumbgate_leash_monthly` READY but not attached | iOS may launch free-only | ✅ **FIXED:** IAP `APPROVED` with app |
 | **No store experiments** | SLE/CSL/PPO unused | Flying blind | ⏳ **Scaffold ready:** [STORE-EXPERIMENTS-READY-JULY-2026.md](./STORE-EXPERIMENTS-READY-JULY-2026.md) — create after first installs |
 | **Feature graphic v1 only** | No proof in 1024x500 | Weak browse CVR | ✅ **FIXED + re-uploaded 2026-07-15** via Play Publisher API |
-| **Live iOS subtitle trademark risk** | Live subtitle `Approve Claude Code, Cursor` | Brand/legal risk | ⏳ **Draft fixed on v1.1** (`Control Mac agents from phone`); ships with next build attach |
+| **Live iOS subtitle trademark risk** | Live subtitle `Approve Claude Code, Cursor` | Brand/legal risk | ✅ **1.3 PREPARE** = `Chat with Hermes on your Mac`; live App Info still old until 1.3 ships |
 
 **What's improved in repo NOW (July 11 stellar):**
 

@@ -46,7 +46,7 @@ Mapped to research weeks, ordered by ROI for *our* state.
 
 ### Week 0 — Stop the bleed (ship now)
 
-1. **Attach build to ASC 1.1 → submit → release** so live subtitle becomes `Control Mac agents from phone` (or shorter “AI Agent Control”) and keywords drop brand-adjacent terms.  
+1. **Attach build to ASC 1.1 → submit → release** so live subtitle becomes `Chat with Hermes on your Mac` and keywords drop brand-adjacent terms.  
    - Metric: no 5.2 rejection; live subtitle without Claude/Cursor.
 2. **Audit iOS keywords on 1.1** — no duplicates of title/subtitle, no brand tokens, long-tail devtool terms.  
    - Metric: rank for ≥1 4-word query in 14 days (if any search volume).
