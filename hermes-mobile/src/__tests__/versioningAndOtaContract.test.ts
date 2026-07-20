@@ -63,13 +63,13 @@ describe('versioning and OTA contract', () => {
     expect(gated).toMatch(/require-fresh-user-ota-gate/);
   });
 
-  it('ships dual-store marketing/runtime 1.2 (native NSC + latest main JS)', () => {
+  it('ships dual-store marketing/runtime 1.3 (ASC PREPARE ASO + paid download)', () => {
     const app = readJson('app.json') as {
       expo: { version: string; android?: { versionCode?: number }; ios?: { buildNumber?: string } };
     };
-    // Play was 1.0/vc14; App Store public is 1.1; OTA popups not reaching users.
-    // Native cleartext/NSC + consolidated fixes require a new binary on runtime 1.2.
-    expect(app.expo.version).toBe('1.2');
+    // ASC 1.3 PREPARE holds subtitle/keywords; live 1.2 cannot take subtitle (409).
+    // Native binary must ship marketing 1.3 so ASO metadata can leave PREPARE.
+    expect(app.expo.version).toBe('1.3');
     expect(app.expo.android?.versionCode ?? 0).toBeGreaterThanOrEqual(14);
     expect(Number(app.expo.ios?.buildNumber ?? 0)).toBeGreaterThanOrEqual(17);
   });
