@@ -115,6 +115,37 @@ test('sellable failover has explicit abuse and inference-cost ceilings', () => {
   assert.match(runner, /MODEL_TIMEOUT_MS.*75_000/);
 });
 
+test('free local control and paid cloud continuation are enforced by route', () => {
+  const entitlements = require('node:fs').readFileSync('apps/hermes-control-plane/lib/entitlements.ts', 'utf8');
+  const taskRoute = require('node:fs').readFileSync('apps/hermes-control-plane/app/api/tasks/route.ts', 'utf8');
+  const failoverRoute = require('node:fs').readFileSync('apps/hermes-control-plane/app/api/tasks/failover/route.ts', 'utf8');
+  assert.match(entitlements, /hasLocalControlAccess/);
+  assert.match(entitlements, /plan !== "suspended"/);
+  assert.match(entitlements, /hasCloudContinuationAccess/);
+  assert.match(taskRoute, /route === "cloud" && !hasCloudContinuationAccess\(org\)/);
+  assert.ok(
+    taskRoute.indexOf('route === "cloud" && !hasCloudContinuationAccess(org)')
+      < taskRoute.indexOf('INSERT INTO threads'),
+    'cloud entitlement must be checked before creating a thread',
+  );
+  assert.match(failoverRoute, /!hasCloudContinuationAccess\(organization\)/);
+  assert.doesNotMatch(taskRoute, /active subscription is required to start new work/);
+});
+
+test('first-party funnel analytics are aggregate-only and content-free', () => {
+  const schema = require('node:fs').readFileSync('apps/hermes-control-plane/db/schema.ts', 'utf8');
+  const route = require('node:fs').readFileSync('apps/hermes-control-plane/app/api/analytics/event/route.ts', 'utf8');
+  const health = require('node:fs').readFileSync('apps/hermes-control-plane/app/api/health/route.ts', 'utf8');
+  assert.match(schema, /funnel_counters/);
+  assert.match(route, /FUNNEL_SCHEMA_VERSION = 1/);
+  assert.match(route, /landing_view/);
+  assert.match(route, /same-origin analytics only/);
+  assert.match(route, /LEASH_ANALYTICS_UNAVAILABLE/);
+  assert.match(health, /required D1 migrations are missing/);
+  assert.match(health, /LEASH_DATABASE_UNAVAILABLE/);
+  assert.doesNotMatch(route, /prompt|thread|email|ip_address|user_agent|cookie/i);
+});
+
 test('automatic failover is driven by stale heartbeat and returns unclaimed work to the Mac', () => {
   const leases = require('node:fs').readFileSync('apps/hermes-control-plane/lib/task-leases.ts', 'utf8');
   const heartbeat = require('node:fs').readFileSync('apps/hermes-control-plane/app/api/device/heartbeat/route.ts', 'utf8');
