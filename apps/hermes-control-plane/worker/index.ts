@@ -28,6 +28,12 @@ interface ExecutionContext {
 const worker = {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const url = new URL(request.url);
+    const isLocalDevelopment = url.hostname === "127.0.0.1" || url.hostname === "localhost";
+
+    if (!isLocalDevelopment && url.protocol === "http:") {
+      url.protocol = "https:";
+      return Response.redirect(url, 308);
+    }
 
     if (url.pathname === "/_vinext/image") {
       const allowedWidths = [...DEFAULT_DEVICE_SIZES, ...DEFAULT_IMAGE_SIZES];
