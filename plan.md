@@ -317,8 +317,8 @@ Status values: `pending` | `in_progress` | `blocked` | `done`. Claim a row by se
 ## 2. File Ownership Map (append-only lock table — claim before touching)
 
 - `hermes-mobile/app.json` (expo.version 1.3 only), `hermes-mobile/src/__tests__/versioningAndOtaContract.test.ts`, `hermes-mobile/scripts/attach-and-submit-asc-1.3.js`, `plan.md` → **cursor-asc-13-binary** (T-ASC-13-BINARY) (2026-07-20T19:50:00Z) — supersedes stale T-STORE-12-RC app.json lock (no store-12 worktree); leave Play `.paid` alone
-- T-STORE-12-RC claimed files above → **released by cursor-asc-13-binary** after 1.2 LIVE + explicit human ask for iOS 1.3 binary (2026-07-20T19:50:00Z)
 - T-ASC-13-BINARY claimed files above → **released by cursor-asc-13-binary** after EAS `472a770c` (1.3/24) submitted; ASC build `af641bb5` attached; version **WAITING_FOR_REVIEW** submission `7cde1e5d` (2026-07-20T20:02:00Z)
+- T-STORE-12-RC claimed files above → **released by cursor-asc-13-binary** after 1.2 LIVE + explicit human ask for iOS 1.3 binary (2026-07-20T19:50:00Z)
 - T-BROWSER-CONTROL claimed files → **released by cursor-browser-control** after PR #616 merge `46deed19` (CDP heal + webbridge scaffold); follow-on debugger path claimed below (2026-07-20T19:42:14Z)
 - `extensions/hermes-webbridge/`, `scripts/hermes-chrome-debugger-bridge.js`, `scripts/install-hermes-chrome-debugger.sh`, `scripts/install-browser-bridge.sh` (debugger mode only), `com.hermes.chrome-debugger.plist`, `tests/test-hermes-chrome-debugger.js`, `docs/BROWSER-CONTROL.md`, `docs/KIMI-WEBBRIDGE-TEARDOWN.md`, `plan.md` → **cursor-chrome-debugger** (T-CHROME-DEBUGGER) (2026-07-20T19:42:14Z)
 
@@ -815,6 +815,8 @@ Status values: `pending` | `in_progress` | `blocked` | `done`. Claim a row by se
 - `docs/RESEARCH-HERMES-INFERENCE-ROI-JULY-2026.md`, `parallel-research/hermes-inference-roi-july-2026.*`, `apps/hermes-control-plane/**`, `tests/test-hermes-business-e2e.js`, `plan.md` → **released by codex-hermes-cloudflare-20260720** after corrected primary-source report, measured feature implementation, merged CI, and GLM-5.2 production canary proof (2026-07-20T18:20:00Z)
 
 ## 3. Decisions Log
+
+- 2026-07-20T20:02:00Z `cursor-asc-13-binary`: **T-ASC-13-BINARY complete.** EAS production iOS build `472a770c-64d1-40f6-8ea5-29acbc27bdde` (appVersion **1.3**, buildNumber **24**) → EAS submit `452ffdbf-3de0-4709-b9d8-e81f857d0571` → ASC VALID build `af641bb5-8648-4178-a4fb-0fec343d0e1e` attached to 1.3 PREPARE `01646f69-211f-4e39-96dc-636f13ff7ef5`; whatsNew set; review submission `7cde1e5d-aff3-4899-9e88-f6a279dfe03c` → **WAITING_FOR_REVIEW**. PREPARE appInfo subtitle `Hermes AI agent for your Mac`; sub `thumbgate_leash_monthly` **DEVELOPER_REMOVED_FROM_SALE**. Left Play `.paid` alone. PR #632.
 
 - 2026-07-20T18:27:42Z `cursor-no-app-subs`: **Merged PR #620** (`170e5768`). App cannot purchase StoreKit/Play subscriptions; iOS CTA → web; Android lifetime IAP kept; ASC monthly remains APPROVED (API cannot PATCH state); continuous E2E was skipped (phone in use).
 
