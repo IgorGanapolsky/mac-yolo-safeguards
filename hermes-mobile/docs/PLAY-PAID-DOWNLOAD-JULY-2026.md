@@ -23,9 +23,7 @@
   - https://expo.dev/accounts/igorganapolsky/projects/hermes-mobile/builds/aafdd2dc-18ff-4d43-b5ac-75518e6d1e74
   - AAB artifact: https://expo.dev/artifacts/eas/fE8gxenciksKsv_A9gv4gx9rgo6fAp9gFiMj6cQ7TbQ.aab
   - versionCode **15** (local copy: `/tmp/hermes-paid-aab/hermes-mobile-paid-vc15.aab`, ~28MB)
-- Starter credits at 100%; build proceeded on pay-as-you-go
 - EAS generated a **new Android keystore** for the paid applicationId (expected; different package)
-- Upload blocked until SA has App permissions on `.paid` (Publisher API `edits` still **403**)
 
 ## Live store proof (re-check before ship claims)
 
@@ -34,25 +32,37 @@ curl -sI -A Mozilla/5.0 "https://play.google.com/store/apps/details?id=com.igana
 # expect HTTP 200 + Paid when live; 404 while draft
 ```
 
-## Progress (2026-07-20 evening)
+## Progress (2026-07-20 — cursor-play-paid-live)
 
 | Step | Status | Evidence |
 |------|--------|----------|
-| SA App Admin on `.paid` | **done** | Console Users & permissions lists both packages; Publisher API `edits` **200** |
+| SA App Admin on `.paid` | **done** | Publisher API `edits` **200** |
 | EAS `production-android-paid` AAB | **done** | build `aafdd2dc…` FINISHED, vc **15** |
-| AAB upload | **done** | internal track release `paid-15`, status **draft**, sha256 `27e9b85fd880…` |
-| Store listing en-US + contact | **done** | API commit title `Hermes Mobile`, contact from free app |
-| Country prices **$4.99** | **blocked** | `/paid-app` still shows United States `-`; Set pricing UI flaky (tax sheet) |
-| Dashboard checklist / Data safety / rating | **incomplete** | ~1/13 when last checked |
-| Production access questionnaire | **pending** | dialog present; not submitted |
+| AAB upload | **done** | internal track release `paid-15`, status **completed** |
+| Store listing en-US + contact | **done** | API title `Hermes Mobile`; contact from free app |
+| Store graphics | **done** | icon=1, featureGraphic=1, phoneScreenshots=6 via Publisher API from `fastlane/metadata/android/en-US/images/` |
+| Country prices **$4.99** | **done** | Console `/paid-app`: United States **USD 4.99**; dashboard checklist **Set the price of your app** checked; Digital app sales tax category |
+| Privacy policy URL | **done** | `https://thumbgate.ai/privacy` — “Change saved” |
+| Ads declaration | **done** | No ads — “Change saved” |
+| Government apps | **done** | No — “Change saved” |
+| Financial features | **done** | No financial features — “Change saved” |
+| Health apps | **done** | No health features — “Change saved” (may still show under Need attention until refresh) |
+| Sign in / testing credentials | **in progress** | Yes (restricted) + demo instructions; Add-details sheet flaky / Chrome crash |
+| Content rating / Target audience / Data safety / Advertising ID | **pending** | App content “Need attention (6)” when last checked |
+| Production access questionnaire | **pending** | not submitted |
+| Production track release | **pending** | production track empty; internal has `paid-15` |
 | Public live | **no** | store details URL **404** |
 
 ## Remaining Console blockers (exact)
 
-1. **App pricing $4.99** — `/paid-app` → Set pricing → all countries → **4.99 USD** → Update → Save changes. Sticky “Edit product tax category” sheet interferes with automation.
-2. **Dashboard setup** — privacy policy, ads, content rating, target audience, data safety, store graphics, etc.
-3. **Apply for access to production** questionnaire (closed-test answers) before production track.
-4. Promote internal `paid-15` (or new) release to production + Send for review after checklist green.
+1. Finish **Sign in details** (Add details → demo-mode instructions → Save).
+2. **Content rating** (IARC questionnaire).
+3. **Target audience**.
+4. **Data safety** (PostHog analytics — see `docs/DATA-SAFETY.md` / free-app answers).
+5. **Advertising ID** declaration (app does not use IDFA/AAID for ads).
+6. Confirm Health declaration cleared if still listed.
+7. **Apply for access to production** questionnaire if still shown.
+8. Promote `paid-15` (or new) to **production** + **Send for review**.
 
 ## Do not claim
 
