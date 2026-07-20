@@ -5,7 +5,7 @@ When a Hermes Mobile chat grows into a mega-session (or the user taps **Start fr
 ## What the user sees
 
 1. Tap **Start fresh chat** (mega banner, empty-stream CTA, or menu).
-2. A chip appears: **Continuing from last session** (dismissible).
+2. No banner / no **Dismiss** — resume is seamless. Prior context is restored under the hood.
 3. The next send injects a system section `Continue from handoff` with last goal, workspace/vault lane, open todos, last assistant clip, prior session id, and Mac name.
 4. Saying **pick up where you left off** (or similar) also forces that handoff into context. The session title is **not** auto-retitled to that phrase — it uses the last goal instead.
 
@@ -41,9 +41,9 @@ Deploy the same `tools/hermes-mobile-session-handoff.js` + updated `tools/hermes
 - `src/utils/sessionContinuityHandoff.ts` — build / redact / phrase detect / system section
 - `src/services/sessionContinuityStorage.ts` — AsyncStorage
 - `src/services/sessionContinuitySync.ts` — pair-server POST/GET
-- `src/components/ContinuingFromSessionChip.tsx` — chip UX
+- `src/components/ContinuingFromSessionChip.tsx` — no-op (banner removed; seamless resume)
 - `src/utils/workspacePrompt.ts` — inject into mobile system prompt
-- `src/screens/ChatScreen.tsx` — capture on Start fresh; chip; skip pick-up retitle
+- `src/screens/ChatScreen.tsx` — capture on Start fresh; silent handoff; skip pick-up retitle
 - `tools/hermes-mobile-session-handoff.js` — vault + `~/.hermes` writer
 
 ## Tests

@@ -101,10 +101,8 @@ import {
 import { fetchVaultProjectCatalog } from '../services/vaultProjects';
 import {
   clearPendingContinuityHandoff,
-  loadContinuityChipDismissed,
   loadPendingContinuityHandoff,
   savePendingContinuityHandoff,
-  setContinuityChipDismissed,
 } from '../services/sessionContinuityStorage';
 import {
   fetchSessionContinuityHandoff,
@@ -114,11 +112,9 @@ import { filterChatProjects } from '../utils/filterChatProjects';
 import type { VaultProjectCatalog } from '../types/vaultProject';
 import { storage } from '../services/storage';
 import { buildMobileChatSystemPrompt } from '../utils/workspacePrompt';
-import ContinuingFromSessionChip from '../components/ContinuingFromSessionChip';
 import {
   buildSessionContinuityHandoff,
   continuityTitleFromHandoff,
-  shouldShowContinuityChip,
   shouldSkipAutoRetitleForContinuity,
   type SessionContinuityHandoff,
 } from '../utils/sessionContinuityHandoff';
@@ -611,7 +607,6 @@ export default function ChatScreen() {
   const isStartingFreshChatRef = useRef(false);
   /** Pending vault/local handoff so a fresh chat can pick up where the last session left off. */
   const [continuityHandoff, setContinuityHandoff] = useState<SessionContinuityHandoff | null>(null);
-  const [continuityChipDismissed, setContinuityChipDismissedState] = useState(false);
   const continuityHandoffRef = useRef<SessionContinuityHandoff | null>(null);
   continuityHandoffRef.current = continuityHandoff;
   /** HTTP chat stream in flight — keep WS from clearing runProgress before first token. */
@@ -1924,7 +1919,6 @@ export default function ChatScreen() {
     return () => clearInterval(timer);
   }, [undoSecondsLeft]);
 
-  const continuityTranscriptEmpty = messages.length === 0;
   /** Live prompt for sends — reads refs so Start-fresh handoff is not a stale render closure. */
   const buildCurrentMobileChatSystemPrompt = useCallback(
     (userTextForInject?: string) =>
@@ -1945,14 +1939,8 @@ export default function ChatScreen() {
   useEffect(() => {
     let cancelled = false;
     void (async () => {
-      const [local, dismissed] = await Promise.all([
-        loadPendingContinuityHandoff(),
-        loadContinuityChipDismissed(),
-      ]);
+      const local = await loadPendingContinuityHandoff();
       if (cancelled) return;
-      // Apply dismiss even when the handoff payload was cleared on Dismiss —
-      // otherwise a remount/refetch races with remote save and resurrects the chip.
-      setContinuityChipDismissedState(dismissed);
       if (local) {
         setContinuityHandoff(local);
       }
@@ -1962,7 +1950,6 @@ export default function ChatScreen() {
       await savePendingContinuityHandoff(remote);
       if (cancelled) return;
       setContinuityHandoff(remote);
-      setContinuityChipDismissedState(await loadContinuityChipDismissed());
     })();
     return () => {
       cancelled = true;
@@ -1982,7 +1969,6 @@ export default function ChatScreen() {
     });
     if (!handoff) return null;
     setContinuityHandoff(handoff);
-    setContinuityChipDismissedState(false);
     await savePendingContinuityHandoff(handoff);
     if (!isDemo && gatewayUrl) {
       void postSessionContinuityHandoff(gatewayUrl, handoff).catch(() => {});
@@ -1996,25 +1982,13 @@ export default function ChatScreen() {
     machineHeaderDisplay.machineLabel,
   ]);
 
-  const dismissContinuityChip = useCallback(() => {
-    setContinuityChipDismissedState(true);
-    setContinuityHandoff(null);
-    continuityHandoffRef.current = null;
-    // Capture dismissed writtenAt while payload still exists, then clear payload only.
-    void (async () => {
-      await setContinuityChipDismissed(true);
-      await clearPendingContinuityHandoff({ preserveDismiss: true });
-    })();
-  }, []);
-
   const consumeContinuityHandoffAfterSend = useCallback(() => {
     if (!continuityHandoffRef.current) {
       return;
     }
     setContinuityHandoff(null);
     continuityHandoffRef.current = null;
-    setContinuityChipDismissedState(true);
-    // Consumed: clear dismiss identity so a later identical remote write can show again.
+    // Consumed on send — clear local pending so the next Start-fresh writes a new handoff.
     void clearPendingContinuityHandoff();
   }, []);
 
@@ -7081,15 +7055,6 @@ export default function ChatScreen() {
             </Pressable>
           </View>
         ) : null}
-
-        <ContinuingFromSessionChip
-          visible={shouldShowContinuityChip({
-            handoff: continuityHandoff,
-            chipDismissed: continuityChipDismissed,
-            transcriptEmpty: continuityTranscriptEmpty,
-          })}
-          onDismiss={dismissContinuityChip}
-        />
 
         {showEmptyStreamRefreshBanner && !showComposerProgressBanner ? (
           <EmptyStreamRefreshBanner
