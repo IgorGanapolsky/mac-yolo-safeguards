@@ -62,24 +62,43 @@ async function main() {
   if (!v13) throw new Error('ASC version 1.3 not found');
   console.log('1.3 state', v13.attributes.appStoreState, v13.id);
 
-  const builds = await ascGet(`/v1/builds?filter[app]=${appId}&limit=30&sort=-uploadedDate`);
-  let build;
-  if (targetBuildNumber) {
-    build = (builds.data || []).find(
-      (b) =>
-        String(b.attributes.version) === String(targetBuildNumber) &&
-        b.attributes.processingState === 'VALID',
-    );
-  } else {
-    // Prefer newest VALID build not already used by READY_FOR_SALE versions when possible.
-    build = (builds.data || []).find((b) => b.attributes.processingState === 'VALID');
+  const builds = await ascGet(
+    `/v1/builds?filter[app]=${appId}&limit=30&sort=-uploadedDate&include=preReleaseVersion`,
+  );
+  const prereleaseById = new Map(
+    (builds.included || [])
+      .filter((x) => x.type === 'preReleaseVersions')
+      .map((x) => [x.id, x.attributes?.version]),
+  );
+  const withMeta = (builds.data || []).map((b) => {
+    const prId = b.relationships?.preReleaseVersion?.data?.id;
+    return {
+      build: b,
+      marketing: prId ? prereleaseById.get(prId) : undefined,
+      bn: String(b.attributes.version),
+      state: b.attributes.processingState,
+    };
+  });
+  let chosen = withMeta.find(
+    (x) =>
+      x.state === 'VALID' &&
+      x.marketing === '1.3' &&
+      (!targetBuildNumber || x.bn === String(targetBuildNumber)),
+  );
+  if (!chosen && targetBuildNumber) {
+    chosen = withMeta.find((x) => x.state === 'VALID' && x.bn === String(targetBuildNumber));
   }
+  const build = chosen?.build;
   if (!build) {
     console.log(
       'Available builds:',
-      (builds.data || []).map((b) => `${b.attributes.version}/${b.attributes.processingState}`).join(', '),
+      withMeta.map((x) => `${x.marketing || '?'}/${x.bn}/${x.state}`).join(', '),
     );
-    throw new Error(targetBuildNumber ? `No VALID build ${targetBuildNumber}` : 'No VALID ASC builds');
+    throw new Error(
+      targetBuildNumber
+        ? `No VALID build ${targetBuildNumber}`
+        : 'No VALID ASC build with marketing version 1.3 yet',
+    );
   }
   console.log('Attaching build', build.attributes.version, build.id);
 
