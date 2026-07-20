@@ -1,10 +1,12 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import Constants from 'expo-constants';
-import { Platform } from 'react-native';
-import appConfig from '../../app.json';
-import { isPostHogCaptureEnvironmentAllowed } from './productAnalytics';
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { isPostHogCaptureEnvironmentAllowed } from "./productAnalytics";
+import {
+  buildTelemetryEventIdentity,
+  type TelemetryEventIdentity,
+} from "./telemetryIdentity";
 
-const QUEUE_KEY = 'hermes-mobile:crash_queue';
+const QUEUE_KEY = "hermes-mobile:crash_queue";
+const DELIVERY_METRICS_KEY = "hermes-mobile:crash_delivery_metrics.v1";
 const MAX_QUEUE = 25;
 const MAX_FIELD = 4000;
 
@@ -12,8 +14,8 @@ const MAX_FIELD = 4000;
 // without relying on babel's compile-time inlining of EXPO_PUBLIC_* vars.
 const posthogConfig = {
   host:
-    process.env.EXPO_PUBLIC_POSTHOG_HOST?.trim() || 'https://us.i.posthog.com',
-  key: process.env.EXPO_PUBLIC_POSTHOG_API_KEY?.trim() || '',
+    process.env.EXPO_PUBLIC_POSTHOG_HOST?.trim() || "https://us.i.posthog.com",
+  key: process.env.EXPO_PUBLIC_POSTHOG_API_KEY?.trim() || "",
 };
 
 function posthogHost(): string {
@@ -33,23 +35,35 @@ export function __setPosthogConfigForTesting(cfg: {
   if (cfg.key !== undefined) posthogConfig.key = cfg.key;
 }
 
-const APP_VERSION = appConfig.expo.version;
-const BUILD_NUMBER =
-  Platform.OS === 'android'
-    ? String(Constants.expoConfig?.android?.versionCode ?? '')
-    : String(Constants.expoConfig?.ios?.buildNumber ?? '');
-
-export interface CrashRecord {
+export interface CrashRecord extends TelemetryEventIdentity {
   id: string;
   event: string;
   message: string;
   stack?: string;
   component_stack?: string;
-  platform: string;
-  app_version: string;
-  build_number: string;
   occurred_at: string;
 }
+
+export interface CrashDeliveryMetrics {
+  captured: number;
+  delivered: number;
+  delivery_failed: number;
+  dropped_overflow: number;
+  excluded_nonproduction: number;
+  retained_without_destination: number;
+  last_attempt_at?: string;
+  last_success_at?: string;
+  last_failure_at?: string;
+}
+
+const EMPTY_DELIVERY_METRICS: CrashDeliveryMetrics = {
+  captured: 0,
+  delivered: 0,
+  delivery_failed: 0,
+  dropped_overflow: 0,
+  excluded_nonproduction: 0,
+  retained_without_destination: 0,
+};
 
 function truncate(value: string | undefined): string | undefined {
   if (!value) return value;
@@ -65,19 +79,41 @@ export function buildCrashRecord(
   const err = error as { message?: string; stack?: string } | undefined;
   const message =
     error instanceof Error
-      ? err?.message ?? String(error)
-      : String(error ?? 'unknown');
+      ? (err?.message ?? String(error))
+      : String(error ?? "unknown");
   return {
+    ...buildTelemetryEventIdentity(),
     id: `crash_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`,
     event,
     message,
     stack: truncate(err?.stack),
     component_stack: truncate(extra.component_stack),
-    platform: Platform.OS,
-    app_version: APP_VERSION,
-    build_number: BUILD_NUMBER,
     occurred_at: new Date().toISOString(),
   };
+}
+
+/** Durable counters make crash loss and destination gaps auditable. */
+export async function getCrashDeliveryMetrics(): Promise<CrashDeliveryMetrics> {
+  try {
+    const raw = await AsyncStorage.getItem(DELIVERY_METRICS_KEY);
+    if (!raw) return { ...EMPTY_DELIVERY_METRICS };
+    const parsed = JSON.parse(raw) as Partial<CrashDeliveryMetrics>;
+    return { ...EMPTY_DELIVERY_METRICS, ...parsed };
+  } catch {
+    return { ...EMPTY_DELIVERY_METRICS };
+  }
+}
+
+async function updateCrashDeliveryMetrics(
+  update: (current: CrashDeliveryMetrics) => CrashDeliveryMetrics,
+): Promise<CrashDeliveryMetrics> {
+  const next = update(await getCrashDeliveryMetrics());
+  try {
+    await AsyncStorage.setItem(DELIVERY_METRICS_KEY, JSON.stringify(next));
+  } catch {
+    // Crash reporting cannot throw when its own durable storage is unavailable.
+  }
+  return next;
 }
 
 /** Read the persisted crash queue. */
@@ -100,6 +136,12 @@ export async function enqueueCrash(record: CrashRecord): Promise<void> {
     // Keep oldest-first, bounded to avoid unbounded storage growth.
     const trimmed = queue.slice(-MAX_QUEUE);
     await AsyncStorage.setItem(QUEUE_KEY, JSON.stringify(trimmed));
+    const dropped = Math.max(0, queue.length - trimmed.length);
+    await updateCrashDeliveryMetrics((current) => ({
+      ...current,
+      captured: current.captured + 1,
+      dropped_overflow: current.dropped_overflow + dropped,
+    }));
   } catch {
     // If even AsyncStorage fails, there is no durable path. Swallow silently —
     // crashing inside the crash reporter must never mask the original error.
@@ -128,39 +170,56 @@ export async function flushCrashQueue(): Promise<{
   if (queue.length === 0) {
     return { flushed: 0, retained: 0 };
   }
-  if (!key || !isPostHogCaptureEnvironmentAllowed()) {
-    // No PostHog key, or non-production/dogfood environment. Clear stale
-    // crashes so the queue does not grow unbounded without a destination.
+  if (!isPostHogCaptureEnvironmentAllowed()) {
+    // Dogfood / non-production crashes are deliberately excluded, but their
+    // deletion is counted so it cannot masquerade as successful delivery.
     try {
       await AsyncStorage.removeItem(QUEUE_KEY);
     } catch {
       /* ignore */
     }
+    await updateCrashDeliveryMetrics((current) => ({
+      ...current,
+      excluded_nonproduction: current.excluded_nonproduction + queue.length,
+      retained_without_destination: 0,
+      last_failure_at: new Date().toISOString(),
+    }));
     return { flushed: 0, retained: 0 };
   }
+  if (!key) {
+    // A production build without a destination is a telemetry outage. Preserve
+    // the evidence for replay and expose the exact retained queue depth.
+    await updateCrashDeliveryMetrics((current) => ({
+      ...current,
+      retained_without_destination: queue.length,
+      last_failure_at: new Date().toISOString(),
+    }));
+    return { flushed: 0, retained: queue.length };
+  }
+
+  await updateCrashDeliveryMetrics((current) => ({
+    ...current,
+    last_attempt_at: new Date().toISOString(),
+  }));
 
   const sent: CrashRecord[] = [];
   const failed: CrashRecord[] = [];
 
   for (const record of queue) {
     try {
-      const res = await fetch(`${posthogHost().replace(/\/+$/, '')}/capture/`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const { id, event, ...recordProperties } = record;
+      const res = await fetch(`${posthogHost().replace(/\/+$/, "")}/capture/`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           api_key: key,
-          event: record.event,
+          event,
           properties: {
-            distinct_id: 'hermes-mobile-crash',
-            app: 'hermes-mobile',
-            crash_id: record.id,
-            platform: record.platform,
-            app_version: record.app_version,
-            build_number: record.build_number,
+            ...buildTelemetryEventIdentity(),
+            ...recordProperties,
+            distinct_id: record.telemetry_session_id || "hermes-mobile-crash",
+            crash_id: id,
             message: truncate(record.message),
-            stack: record.stack,
-            component_stack: record.component_stack,
-            occurred_at: record.occurred_at,
           },
         }),
       });
@@ -184,6 +243,17 @@ export async function flushCrashQueue(): Promise<{
     /* ignore — best effort */
   }
 
+  await updateCrashDeliveryMetrics((current) => ({
+    ...current,
+    delivered: current.delivered + sent.length,
+    delivery_failed: current.delivery_failed + failed.length,
+    retained_without_destination: 0,
+    last_success_at:
+      sent.length > 0 ? new Date().toISOString() : current.last_success_at,
+    last_failure_at:
+      failed.length > 0 ? new Date().toISOString() : current.last_failure_at,
+  }));
+
   return { flushed: sent.length, retained: failed.length };
 }
 
@@ -200,8 +270,8 @@ export function installGlobalCrashHandler(): void {
   }
   const previous = utils.getGlobalHandler();
   utils.setGlobalHandler((error: unknown, isFatal?: boolean) =>
-    captureCrash('js_fatal_crash', error, {}).finally(() => {
-      if (typeof previous === 'function') {
+    captureCrash("js_fatal_crash", error, {}).finally(() => {
+      if (typeof previous === "function") {
         try {
           previous(error, isFatal);
         } catch {
@@ -223,7 +293,5 @@ export async function clearCrashQueue(): Promise<void> {
 
 interface ErrorUtilsLike {
   getGlobalHandler(): ((error: unknown, isFatal?: boolean) => void) | undefined;
-  setGlobalHandler(
-    handler: (error: unknown, isFatal?: boolean) => void,
-  ): void;
+  setGlobalHandler(handler: (error: unknown, isFatal?: boolean) => void): void;
 }

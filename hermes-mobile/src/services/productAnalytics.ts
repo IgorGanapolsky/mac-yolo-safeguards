@@ -1,9 +1,7 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import Constants from 'expo-constants';
-import * as Updates from 'expo-updates';
-import { Platform } from 'react-native';
-import appConfig from '../../app.json';
-import { getMarketingAttributionProperties } from './marketingAttribution';
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import * as Updates from "expo-updates";
+import { getMarketingAttributionProperties } from "./marketingAttribution";
+import { buildTelemetryEventIdentity } from "./telemetryIdentity";
 
 /**
  * Production-only PostHog contract:
@@ -12,17 +10,30 @@ import { getMarketingAttributionProperties } from './marketingAttribution';
  * store leash preview, or EXPO_PUBLIC_POSTHOG_INTERNAL=1 dogfood builds.
  */
 const POSTHOG_HOST =
-  process.env.EXPO_PUBLIC_POSTHOG_HOST?.trim() || 'https://us.i.posthog.com';
+  process.env.EXPO_PUBLIC_POSTHOG_HOST?.trim() || "https://us.i.posthog.com";
 
 function posthogKey(): string {
-  return process.env.EXPO_PUBLIC_POSTHOG_API_KEY?.trim() || '';
+  return process.env.EXPO_PUBLIC_POSTHOG_API_KEY?.trim() || "";
 }
-const DISTINCT_ID_KEY = 'hermes.analytics.distinct_id';
-const APP_VERSION = appConfig.expo.version;
-const BUILD_NUMBER =
-  Platform.OS === 'android'
-    ? String(Constants.expoConfig?.android?.versionCode ?? '')
-    : String(Constants.expoConfig?.ios?.buildNumber ?? '');
+const DISTINCT_ID_KEY = "hermes.analytics.distinct_id";
+const DELIVERY_METRICS_KEY = "hermes.analytics.delivery_metrics.v1";
+
+export interface ProductAnalyticsDeliveryMetrics {
+  attempted: number;
+  delivered: number;
+  failed: number;
+  missing_destination: number;
+  last_attempt_at?: string;
+  last_success_at?: string;
+  last_failure_at?: string;
+}
+
+const EMPTY_DELIVERY_METRICS: ProductAnalyticsDeliveryMetrics = {
+  attempted: 0,
+  delivered: 0,
+  failed: 0,
+  missing_destination: 0,
+};
 
 let optOut = false;
 let developerLeashUnlockActive = false;
@@ -47,6 +58,34 @@ async function getDistinctId(): Promise<string> {
   return distinctIdPromise;
 }
 
+export async function getProductAnalyticsDeliveryMetrics(): Promise<ProductAnalyticsDeliveryMetrics> {
+  try {
+    const raw = await AsyncStorage.getItem(DELIVERY_METRICS_KEY);
+    if (!raw) return { ...EMPTY_DELIVERY_METRICS };
+    const parsed = JSON.parse(raw) as Partial<ProductAnalyticsDeliveryMetrics>;
+    return {
+      ...EMPTY_DELIVERY_METRICS,
+      ...parsed,
+    };
+  } catch {
+    return { ...EMPTY_DELIVERY_METRICS };
+  }
+}
+
+async function updateDeliveryMetrics(
+  update: (
+    current: ProductAnalyticsDeliveryMetrics,
+  ) => ProductAnalyticsDeliveryMetrics,
+): Promise<ProductAnalyticsDeliveryMetrics> {
+  const next = update(await getProductAnalyticsDeliveryMetrics());
+  try {
+    await AsyncStorage.setItem(DELIVERY_METRICS_KEY, JSON.stringify(next));
+  } catch {
+    // Analytics must never break the product path when local storage is down.
+  }
+  return next;
+}
+
 export function setProductAnalyticsOptOut(enabled: boolean): void {
   optOut = enabled;
 }
@@ -68,7 +107,9 @@ export function setPostHogDogfoodExclusions(flags: {
 }
 
 /** @internal */
-export function __setShouldReportToPostHogForTesting(value: boolean | null): void {
+export function __setShouldReportToPostHogForTesting(
+  value: boolean | null,
+): void {
   reportingOverrideForTesting = value;
 }
 
@@ -76,38 +117,38 @@ function easBuildProfile(): string {
   return (
     process.env.EAS_BUILD_PROFILE?.trim() ||
     process.env.EXPO_PUBLIC_EAS_PROFILE?.trim() ||
-    ''
+    ""
   );
 }
 
 function updatesChannelName(): string {
-  const fromEnv = process.env.EXPO_PUBLIC_UPDATES_CHANNEL?.trim() || '';
+  const fromEnv = process.env.EXPO_PUBLIC_UPDATES_CHANNEL?.trim() || "";
   if (fromEnv) {
     return fromEnv;
   }
   try {
-    return String(Updates.channel ?? '').trim();
+    return String(Updates.channel ?? "").trim();
   } catch {
-    return '';
+    return "";
   }
 }
 
 function isInternalDogfoodBuild(): boolean {
   const flag = process.env.EXPO_PUBLIC_POSTHOG_INTERNAL?.trim().toLowerCase();
-  return flag === '1' || flag === 'true';
+  return flag === "1" || flag === "true";
 }
 
 /** True only for production EAS profile/channel (fail closed when unknown). */
 export function isProductionPostHogBuild(): boolean {
   const profile = easBuildProfile();
-  if (profile && profile !== 'production') {
+  if (profile && profile !== "production") {
     return false;
   }
   const channel = updatesChannelName();
-  if (channel && channel !== 'production') {
+  if (channel && channel !== "production") {
     return false;
   }
-  if (profile === 'production' || channel === 'production') {
+  if (profile === "production" || channel === "production") {
     return true;
   }
   return false;
@@ -156,8 +197,15 @@ export async function trackProductEvent(
   properties: Record<string, string | number | boolean | null | undefined> = {},
 ): Promise<void> {
   if (!shouldReportToPostHog()) {
+    if (!optOut && !posthogKey() && isPostHogCaptureEnvironmentAllowed()) {
+      await updateDeliveryMetrics((current) => ({
+        ...current,
+        missing_destination: current.missing_destination + 1,
+        last_failure_at: new Date().toISOString(),
+      }));
+    }
     if (__DEV__) {
-      console.debug('[analytics]', event, properties);
+      console.debug("[analytics]", event, properties);
     }
     return;
   }
@@ -165,34 +213,59 @@ export async function trackProductEvent(
   try {
     const distinctId = await getDistinctId();
     const attribution = await getMarketingAttributionProperties();
-    await fetch(`${POSTHOG_HOST.replace(/\/+$/, '')}/capture/`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        api_key: posthogKey(),
-        event,
-        properties: {
-          distinct_id: distinctId,
-          app: 'hermes-mobile',
-          platform: Platform.OS,
-          app_version: APP_VERSION,
-          build_number: BUILD_NUMBER,
-          ...attribution,
-          ...properties,
-        },
-      }),
-    });
+    const attemptedAt = new Date().toISOString();
+    const metrics = await updateDeliveryMetrics((current) => ({
+      ...current,
+      attempted: current.attempted + 1,
+      last_attempt_at: attemptedAt,
+    }));
+    const response = await fetch(
+      `${POSTHOG_HOST.replace(/\/+$/, "")}/capture/`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          api_key: posthogKey(),
+          event,
+          properties: {
+            distinct_id: distinctId,
+            ...buildTelemetryEventIdentity(),
+            telemetry_delivery_attempted: metrics.attempted,
+            telemetry_delivery_delivered: metrics.delivered,
+            telemetry_delivery_failed: metrics.failed,
+            telemetry_missing_destination: metrics.missing_destination,
+            ...attribution,
+            ...properties,
+          },
+        }),
+      },
+    );
+    if (!response.ok) {
+      throw new Error(
+        `PostHog capture failed with HTTP ${response.status ?? "unknown"}`,
+      );
+    }
+    await updateDeliveryMetrics((current) => ({
+      ...current,
+      delivered: current.delivered + 1,
+      last_success_at: new Date().toISOString(),
+    }));
   } catch (error) {
+    await updateDeliveryMetrics((current) => ({
+      ...current,
+      failed: current.failed + 1,
+      last_failure_at: new Date().toISOString(),
+    }));
     if (__DEV__) {
-      console.debug('[analytics] capture failed', event, error);
+      console.debug("[analytics] capture failed", event, error);
     }
   }
 }
 
 export async function trackScreenView(screenName: string): Promise<void> {
-  await trackProductEvent('screen_view', { screen: screenName });
+  await trackProductEvent("screen_view", { screen: screenName });
 }
 
 export async function trackAppOpen(): Promise<void> {
-  await trackProductEvent('app_open');
+  await trackProductEvent("app_open", { telemetry_canary: true });
 }
