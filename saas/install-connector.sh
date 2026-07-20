@@ -30,7 +30,7 @@ else
 fi
 chmod 700 "$DEST/hermes-cloud-connector.js"
 
-if [ -f "$CONFIG" ] && "$NODE" -e 'const fs=require("fs");const config=JSON.parse(fs.readFileSync(process.argv[1],"utf8"));process.exit(config.deviceId?0:1)' "$CONFIG"; then
+if [ -f "$CONFIG" ] && "$NODE" -e 'try{const connector=require(process.argv[1]);const config=connector.loadConfig(process.argv[2]);process.exit(connector.pairingMatchesControlPlane(config,process.argv[3])?0:1)}catch{process.exit(1)}' "$DEST/hermes-cloud-connector.js" "$CONFIG" "$CONTROL_PLANE"; then
   say "Reusing this machine's existing signed ThumbGate pairing."
 else
   say "Opening ThumbGate so you can approve this machine…"
