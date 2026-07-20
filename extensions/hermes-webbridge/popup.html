@@ -7,7 +7,7 @@
       body {
         font: 13px/1.4 -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
         margin: 12px;
-        width: 280px;
+        width: 300px;
         color: #111;
       }
       h1 {
@@ -44,12 +44,16 @@
   </head>
   <body>
     <h1>Hermes Browser Bridge</h1>
-    <div id="status" class="status">Checking local CDP…</div>
+    <div id="status" class="status">Checking local bridge…</div>
     <p>
-      Local Agent mode uses Chrome DevTools on
-      <code>127.0.0.1:9222</code>. Install on the Mac:
+      <strong>Debugger mode</strong> drives your everyday tabs via
+      <code>chrome.debugger</code> (no Chrome restart). Agent CDP stays on
+      <code>127.0.0.1:9222</code>.
     </p>
-    <p><code>bash scripts/install-browser-bridge.sh</code></p>
+    <p>
+      Mac install:
+      <code>bash scripts/install-browser-bridge.sh --mode=debugger</code>
+    </p>
     <button id="copy" type="button">Copy connect prompt</button>
     <script src="popup.js"></script>
   </body>

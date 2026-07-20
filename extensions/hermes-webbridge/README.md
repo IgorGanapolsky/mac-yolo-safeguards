@@ -1,19 +1,37 @@
-# Hermes Browser Bridge (Chrome extension scaffold)
+# Hermes Browser Bridge (Chrome extension)
 
-WebBridge-style **install path** for Local Agent mode. This MV3 extension does
-**not** replace Mac CDP hosting — it shows bridge health and copies the connect
-prompt. DOM automation still runs via `com.hermes.chrome-cdp` + hermes-agent.
+WebBridge-style install path for Local Agent mode. Two hosting modes share the
+same agent contract (`browser.cdp_url: ws://127.0.0.1:9222`):
 
-## Real-user install (no Chrome Web Store yet)
+| Mode | How tabs are driven | Chrome restart? |
+|---|---|---|
+| **debugger** (preferred) | MV3 `chrome.debugger` + local bridge | **No** |
+| **cdp** (fallback) | `com.hermes.chrome-cdp` `--remote-debugging-port` | Yes for `--profile=daily` |
 
-1. On the Mac: `bash scripts/install-browser-bridge.sh`
+## Real-user install (debugger — no restart)
+
+1. On the Mac: `bash scripts/install-browser-bridge.sh --mode=debugger`
 2. Chrome → `chrome://extensions` → Developer mode → **Load unpacked**
 3. Select this folder: `extensions/hermes-webbridge`
-4. Open the extension popup — should show **Bridge connected** when `:9222` is healthy
-5. Hermes Mobile: Pair Mac → Tools → Browser Automation on → ask Hermes to browse
+4. Accept the debugger permission prompt when Hermes attaches to a tab
+5. Popup badge **ON** = extension linked to the local bridge
+6. Hermes Mobile: Pair Mac → Tools → Browser Automation on → ask Hermes to browse
 
-## Honest gap vs Kimi WebBridge
+## Fallback (dedicated / daily CDP profile)
 
-Kimi’s extension drives the user’s everyday tabs without restarting Chrome.
-This scaffold is status + connect UX only; full `chrome.debugger` attach is the
-next queued steal once CDP daily-profile mode proves insufficient.
+```bash
+bash scripts/install-browser-bridge.sh
+# or keep everyday logins (quits Chrome once):
+bash scripts/install-browser-bridge.sh --profile=daily
+```
+
+## Architecture
+
+```
+hermes-agent  --CDP-->  :9222 bridge  <--WS :9223--  extension (chrome.debugger)
+```
+
+The bridge (`scripts/hermes-chrome-debugger-bridge.js`) speaks Chrome's
+`/json/version` + `/json/list` + DevTools WebSockets. The service worker attaches
+to tabs with `chrome.debugger.attach` and relays CDP methods/events — no
+`--remote-debugging-port`, so everyday Chrome keeps running.
