@@ -20,14 +20,35 @@ export async function POST(request: Request) {
   const signature = request.headers.get("stripe-signature");
   const body = await request.text();
   if (!secret || !signature || !(await verifyStripeSignature(body, signature, secret))) return new Response("invalid signature", { status: 401 });
-  const event = JSON.parse(body) as { id: string; type: string; data: { object: { metadata?: { organization_id?: string }; client_reference_id?: string } } };
-  const organizationId = event.data.object.metadata?.organization_id ?? event.data.object.client_reference_id;
-  if (organizationId) {
-    if (["checkout.session.completed", "customer.subscription.created", "customer.subscription.updated"].includes(event.type)) {
-      await db().prepare("UPDATE organizations SET plan = 'pro', updated_at = ? WHERE id = ?").bind(Date.now(), organizationId).run();
-    } else if (event.type === "customer.subscription.deleted") {
-      await db().prepare("UPDATE organizations SET plan = 'suspended', updated_at = ? WHERE id = ?").bind(Date.now(), organizationId).run();
-    }
+  const event = JSON.parse(body) as {
+    id: string;
+    type: string;
+    data: { object: {
+      metadata?: { organization_id?: string };
+      client_reference_id?: string;
+      status?: string;
+      payment_status?: string;
+    } };
+  };
+  if (!event.id || !event.type) return new Response("invalid event", { status: 400 });
+  const organizationId = event.data.object.metadata?.organization_id ?? event.data.object.client_reference_id ?? null;
+  const now = Date.now();
+  const statements = [db().prepare(
+    "INSERT OR IGNORE INTO billing_events (event_id, event_type, organization_id, processed_at) VALUES (?, ?, ?, ?)"
+  ).bind(event.id, event.type, organizationId, now)];
+  const subscriptionStatus = event.data.object.status;
+  const checkoutPaid = event.data.object.payment_status;
+  const grantsAccess = event.type === "checkout.session.completed"
+    ? ["paid", "no_payment_required"].includes(checkoutPaid ?? "")
+    : ["customer.subscription.created", "customer.subscription.updated"].includes(event.type)
+      && ["active", "trialing"].includes(subscriptionStatus ?? "");
+  const revokesAccess = event.type === "customer.subscription.deleted"
+    || (["customer.subscription.created", "customer.subscription.updated"].includes(event.type)
+      && ["canceled", "incomplete_expired", "past_due", "unpaid"].includes(subscriptionStatus ?? ""));
+  if (organizationId && (grantsAccess || revokesAccess)) {
+    statements.push(db().prepare("UPDATE organizations SET plan = ?, updated_at = ? WHERE id = ?")
+      .bind(grantsAccess ? "pro" : "suspended", now, organizationId));
   }
-  return Response.json({ received: true });
+  const results = await db().batch(statements);
+  return Response.json({ received: true, duplicate: results[0]?.meta.changes === 0 });
 }

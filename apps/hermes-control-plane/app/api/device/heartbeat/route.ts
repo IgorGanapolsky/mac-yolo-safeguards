@@ -11,7 +11,8 @@ export async function POST(request: Request) {
     db().prepare("UPDATE devices SET last_seen_at = ?, updated_at = ? WHERE id = ?").bind(now, now, identity.id),
     db().prepare(
       `UPDATE tasks SET route = 'local', status = 'local_pending', updated_at = ?
-        WHERE device_id = ? AND route = 'cloud' AND status = 'cloud_pending' AND lease_owner IS NULL`
+        WHERE device_id = ? AND status IN ('cloud_pending', 'needs_failover', 'offline_blocked')
+          AND lease_owner IS NULL`
     ).bind(now, identity.id),
   ]);
   await audit({ organizationId: identity.organizationId, actorType: "device", actorId: identity.id, action: "device.heartbeat", targetType: "device", targetId: identity.id });

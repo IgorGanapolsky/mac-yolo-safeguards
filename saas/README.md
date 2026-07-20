@@ -1,9 +1,16 @@
-# Hermes SaaS — deploy runbook, hosting & costs
+# Hermes SaaS transport prototype — superseded by the public control plane
 
-The sellable product. A paying user opens a **browser** (no Tailscale, no VPN, no port
+> Historical prototype from PR #601. Its localhost harness is useful transport evidence,
+> but it is not the production service: it uses in-memory state, query-string bearer
+> tokens, fixture sessions, and a stub VPS. The canonical implementation is
+> `apps/hermes-control-plane`, `tools/hermes-cloud-connector.js`, and
+> `services/hermes-cloud-runner`.
+
+The prototype target. A paying user opens a **browser** (no Tailscale, no VPN, no port
 config), signs in, and sees/continues their agent sessions. Their Mac dials OUT to your
-relay; when their Mac is offline, the relay serves from a VPS. **Proven end-to-end** in
-`tests/test-saas-relay-connector.sh` (6/6).
+relay; when their Mac is offline, the relay serves from a VPS. The localhost transport
+harness passes `tests/test-saas-relay-connector.sh` (6/6); it does not prove production
+SSO, billing, TLS, durable tenancy, or a real cloud model execution.
 
 ## The three pieces
 
