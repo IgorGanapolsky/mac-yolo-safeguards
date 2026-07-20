@@ -14,7 +14,7 @@ Research date: **2026-07-10**. Package: `com.iganapolsky.hermesmobile`. Extends 
 |------|--------|-------------------|
 | No **competing app names** in keywords | [Product page keywords](https://developer.apple.com/app-store/product-page/) | Do **not** put `cursor`, `replit`, `chatgpt`, `claude` in the 100-char keyword field |
 | No **unauthorized trademarks** in metadata | Guideline **2.3.7** | Same — keyword field is highest rejection risk |
-| Subtitle must not **reference other apps** | Guideline **2.3.7** | Subtitle = benefit (`Control Mac agents from phone`), not "vs Cursor" |
+| Subtitle must not **reference other apps** | Guideline **2.3.7** | Subtitle = product truth (`Chat with Hermes on your Mac`), not "vs Cursor" |
 | **Factual integration** in description OK | Review practice + conversion copy | "Control Cursor, Claude Code, Codex **on your Mac**" — capability, not impersonation |
 | **"Alternative to X"** in visible metadata | High risk (2.3.7 + Lanham) | **Avoid** in title/subtitle/keywords; OK in **social/blog** with clear differentiation |
 | Long-tail in **description** | Not indexed on iOS | Use for conversion + Gemini/Spotlight adjacency, not ranking |
@@ -73,7 +73,7 @@ Research date: **2026-07-10**. Package: `com.iganapolsky.hermesmobile`. Extends 
 | Play short | Live stream + Leash focus | Weak **agent** plural; typo risk | `Control YOUR Mac AI agents from phone — approve tools, no cloud credits.` |
 | Play full | Cursor/Claude named; Replit-style | Missing **vs phone AI** + **vs cloud agent** sections | Added `VS METERED CLOUD AGENTS` + `VS PHONE-ONLY AI APPS` |
 | iOS name | `Hermes Mobile: Mac AI Leash` | ✅ | unchanged |
-| iOS subtitle | `Own Mac. No cloud credit burn` | Awkward "Own"; weak agent intent | `Control Mac agents from phone` |
+| iOS subtitle | `Control Mac agents from phone` | Generic remote-control slogan; not Hermes chat | `Chat with Hermes on your Mac` |
 | iOS keywords | `cursor,claude code` present | **Trademark rejection risk** | `coding agent,remote,approve,devtools,terminal,gateway,operator,safety,local,pair,tailscale,codex` (95/100) |
 | iOS promo | Generic cloud IDE | Missing agent wedge | Agent control + not phone chatbot |
 | iOS/Android desc | Partial | iOS missing parity sections | Synced with Play wedge blocks |

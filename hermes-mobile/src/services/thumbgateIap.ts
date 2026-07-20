@@ -259,5 +259,5 @@ export async function restoreThumbgateLeashPurchases(): Promise<ThumbgateIapResu
 }
 
 export function thumbgateIapSubscribeLabel(): string {
-  return Platform.OS === 'ios' ? 'Subscribe in App Store' : 'Unlock in Google Play';
+  return Platform.OS === 'ios' ? 'Unlock in App Store' : 'Unlock in Google Play';
 }

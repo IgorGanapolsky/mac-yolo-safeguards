@@ -98,7 +98,7 @@ For **“hermes mobile”** we appear at **#5** (brand defense opportunity).
 | Field | Before | After |
 |-------|--------|-------|
 | Name | Hermes Mobile: AI Agent Leash | **Keep** |
-| Subtitle | Control Mac agents from phone | **Mac remote, not phone chat** |
+| Subtitle | Chat with Hermes on your Mac | product-true phone↔Mac Hermes chat |
 | Keywords | coding,remote,approve,… | Drop title/subtitle repeats; keep operator long-tails (`coding,approve,…,tailscale,…`) |
 | Promo | Generic Mac control | **Not the phone-local Hermes Agent… Tailscale/LAN, multi-machine, Leash…** |
 
