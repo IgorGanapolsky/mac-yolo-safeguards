@@ -4,7 +4,6 @@ import {
   View,
   Text,
   TouchableOpacity,
-  StatusBar,
   ActivityIndicator,
   Platform,
   Alert,
@@ -430,8 +429,6 @@ function App() {
         {__DEV__ ? <DevToolsBootstrap /> : null}
         <GatewayProvider>
           <View style={styles.container}>
-            <StatusBar barStyle="light-content" />
-
             {/* Decorative Shifting Background Glows (Glassmorphic Ambient Light) */}
             <View style={styles.ambientGlowPrimary} />
             <View style={styles.ambientGlowSecondary} />
