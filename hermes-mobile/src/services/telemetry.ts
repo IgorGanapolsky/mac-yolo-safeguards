@@ -1,14 +1,12 @@
-import type React from 'react';
-import * as Sentry from '@sentry/react-native';
-import Constants from 'expo-constants';
-import { Platform } from 'react-native';
-import appConfig from '../../app.json';
+import type React from "react";
+import * as Sentry from "@sentry/react-native";
+import { getTelemetryResourceIdentity } from "./telemetryIdentity";
 
 // Client DSN is publishable (safe to ship in the app binary) but must still come
 // from the environment so it is never hardcoded in a tracked file. When it is
 // absent, every export below is a no-op — builds without a DSN run unchanged.
 const sentryConfig = {
-  dsn: process.env.EXPO_PUBLIC_SENTRY_DSN?.trim() || '',
+  dsn: process.env.EXPO_PUBLIC_SENTRY_DSN?.trim() || "",
   // Modest performance sample: capture traces for 20% of transactions. Errors
   // and crashes are always captured regardless of this rate.
   tracesSampleRate: 0.2,
@@ -27,12 +25,6 @@ export function __setSentryConfigForTesting(cfg: {
   }
   initialized = false;
 }
-
-const APP_VERSION = appConfig.expo.version;
-const BUILD_NUMBER =
-  Platform.OS === 'android'
-    ? String(Constants.expoConfig?.android?.versionCode ?? '')
-    : String(Constants.expoConfig?.ios?.buildNumber ?? '');
 
 /** Whether Sentry has been initialized (i.e. a DSN was present). */
 export function isCrashReportingEnabled(): boolean {
@@ -53,13 +45,33 @@ export function initCrashReporting(): void {
   if (!dsn) {
     return;
   }
+  const identity = getTelemetryResourceIdentity();
   Sentry.init({
     dsn,
     tracesSampleRate: sentryConfig.tracesSampleRate,
-    release: `hermes-mobile@${APP_VERSION}`,
-    dist: BUILD_NUMBER || undefined,
-    environment: __DEV__ ? 'development' : 'production',
+    release: identity.release,
+    dist:
+      identity.build_number === "unknown" ? undefined : identity.build_number,
+    environment: identity.environment,
     enableNativeFramesTracking: true,
+    initialScope: {
+      tags: {
+        app: identity.app,
+        app_identifier: identity.app_identifier,
+        eas_project_id: identity.eas_project_id,
+        telemetry_schema_version: identity.telemetry_schema_version,
+        platform: identity.platform,
+        app_version: identity.app_version,
+        build_number: identity.build_number,
+        runtime_version: identity.runtime_version,
+        update_id: identity.update_id,
+        update_channel: identity.update_channel,
+        update_origin: identity.update_origin,
+      },
+      contexts: {
+        hermes_release: { ...identity },
+      },
+    },
   });
   initialized = true;
 }
