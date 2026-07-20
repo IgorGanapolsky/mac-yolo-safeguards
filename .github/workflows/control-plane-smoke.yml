@@ -1,0 +1,18 @@
+name: control-plane-live-smoke
+
+on:
+  schedule:
+    - cron: "*/30 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run live smoke against thumbgate.app
+        run: bash scripts/control-plane-live-smoke.sh
