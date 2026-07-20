@@ -1,4 +1,5 @@
 import { currentSession, workosConfigured } from "@/lib/auth";
+import { hasCloudContinuationAccess } from "@/lib/entitlements";
 
 export async function GET() {
   const session = await currentSession();
@@ -6,6 +7,11 @@ export async function GET() {
   return Response.json({
     authenticated: true,
     user: { id: session.userId, email: session.email, name: session.name, avatarUrl: session.avatarUrl },
-    organization: { id: session.organizationId, plan: session.plan },
+    organization: {
+      id: session.organizationId,
+      plan: session.plan,
+      trialEndsAt: session.trialEndsAt,
+      cloudAccess: hasCloudContinuationAccess(session),
+    },
   });
 }
