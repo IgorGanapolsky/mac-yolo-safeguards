@@ -68,5 +68,33 @@ echo "$k2" | grep -qi 'not a currently-running agent' && ok "kill: refuses non-a
 gcode="$(curl -s -o /dev/null -w '%{http_code}' "http://127.0.0.1:$PORT/api/kill?pid=1")"
 [ "$gcode" = 404 ] && ok "kill: GET is not the kill path" || no "kill GET guard (got $gcode)"
 
+# 9: FAILOVER resolver — with local/mini down and only the vps reachable, active must
+#    switch to vps (this is "continue working when the primary machine is offline").
+UP="http://127.0.0.1:$PORT/api/fleet"   # the running test server = a known-up health target
+FPORT=8797
+HOME="$FAKE_HOME" HERMES_DASH_PORT="$FPORT" HERMES_DASH_HOST=127.0.0.1 \
+  HERMES_INSTANCES="[{\"label\":\"local\",\"kind\":\"local\",\"url\":\"http://127.0.0.1:1\",\"health\":\"http://127.0.0.1:1/x\"},{\"label\":\"mini\",\"kind\":\"tailscale\",\"url\":\"http://127.0.0.1:2\",\"health\":\"http://127.0.0.1:2/x\"},{\"label\":\"vps\",\"kind\":\"vps\",\"url\":\"http://vps.example\",\"health\":\"$UP\"}]" \
+  node "$SERVER" > "$ROOT/flog" 2>&1 &
+FPID=$!
+for i in $(seq 1 20); do curl -s -o /dev/null "http://127.0.0.1:$FPORT/api/instances" && break; sleep 0.3; done
+inst="$(curl -s "http://127.0.0.1:$FPORT/api/instances")"
+echo "$inst" | python3 -c "import json,sys;d=json.load(sys.stdin);a=d['active'];sys.exit(0 if a and a['label']=='vps' and not d['allDown'] else 1)" \
+  && ok "failover: local+mini down -> active switches to vps" || no "failover switch ($inst)"
+act="$(curl -s "http://127.0.0.1:$FPORT/api/active")"
+echo "$act" | grep -q '"label":"vps"' && ok "failover: /api/active targets vps" || no "failover active endpoint ($act)"
+
+# 10: ALL instances down -> allDown true, /api/active returns 503 (never a dead endpoint)
+kill "$FPID" 2>/dev/null
+GPORT=8798
+HOME="$FAKE_HOME" HERMES_DASH_PORT="$GPORT" HERMES_DASH_HOST=127.0.0.1 \
+  HERMES_INSTANCES='[{"label":"local","kind":"local","url":"http://127.0.0.1:1","health":"http://127.0.0.1:1/x"}]' \
+  node "$SERVER" > "$ROOT/glog" 2>&1 &
+GPID=$!
+for i in $(seq 1 20); do curl -s -o /dev/null "http://127.0.0.1:$GPORT/api/instances" && break; sleep 0.3; done
+acode="$(curl -s -o /dev/null -w '%{http_code}' "http://127.0.0.1:$GPORT/api/active")"
+[ "$acode" = 503 ] && ok "failover: all-down -> /api/active 503 (no dead endpoint served)" || no "all-down 503 (got $acode)"
+curl -s "http://127.0.0.1:$GPORT/api/instances" | grep -q '"allDown":true' && ok "failover: allDown flag set" || no "allDown flag"
+kill "$GPID" 2>/dev/null
+
 echo "hermes-dashboard tests: $pass passed, $fail failed"
 [ "$fail" -eq 0 ]
