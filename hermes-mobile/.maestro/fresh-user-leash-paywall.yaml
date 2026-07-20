@@ -1,7 +1,7 @@
 # Fresh user paid upgrade path — no Pro, no demo unlock.
-# Asserts Leash Pro upsell + IAP subscribe CTA. Does not complete real purchase
-# (Play/App Store sandbox requires signed-in tester account); asserts UI + tap
-# reaches store connection or product sheet without crashing.
+# Android: lifetime IAP CTA (subscribe-thumbgate-leash-iap).
+# iOS: web subscription CTA (open-thumbgate-web-subscription) — no StoreKit subs.
+# Does not complete real purchase; asserts UI + tap without crashing.
 appId: com.iganapolsky.hermesmobile
 ---
 - runFlow:
@@ -46,15 +46,28 @@ appId: com.iganapolsky.hermesmobile
 - assertVisible:
     id: "pro-upgrade-card"
 - assertVisible:
-    id: "subscribe-thumbgate-leash-iap"
-- assertVisible:
     id: "restore-thumbgate-leash"
 - assertVisible:
     id: "subscription-legal-disclosure"
-# Tap subscribe — store may show product sheet, "not available", or connect spinner.
-# Emulator debug: Alert "Store billing is unavailable in this build." with OK.
-- tapOn:
-    id: "subscribe-thumbgate-leash-iap"
+# Platform CTA: Android lifetime IAP or iOS web dashboard (never StoreKit monthly).
+- runFlow:
+    when:
+      visible:
+        id: "subscribe-thumbgate-leash-iap"
+    commands:
+      - assertVisible:
+          id: "subscribe-thumbgate-leash-iap"
+      - tapOn:
+          id: "subscribe-thumbgate-leash-iap"
+- runFlow:
+    when:
+      visible:
+        id: "open-thumbgate-web-subscription"
+    commands:
+      - assertVisible:
+          id: "open-thumbgate-web-subscription"
+      - tapOn:
+          id: "open-thumbgate-web-subscription"
 - waitForAnimationToEnd:
     timeout: 5000
 - runFlow:
@@ -64,7 +77,7 @@ appId: com.iganapolsky.hermesmobile
       - tapOn: "OK"
 - waitForAnimationToEnd:
     timeout: 2000
-# App must not crash after IAP attempt — tabs still mounted (billing may leave shell).
+# App must not crash after upgrade attempt — tabs still mounted.
 - extendedWaitUntil:
     visible:
       id: "tab-leash"
