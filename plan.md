@@ -309,9 +309,11 @@ Status values: `pending` | `in_progress` | `blocked` | `done`. Claim a row by se
 | T-POSTHOG-PROOF-KEY | Align the PostHog funnel proof with the production analytics key contract | done | codex-posthog-proof | `hermes-mobile/scripts/prove-posthog-funnel.sh`, `hermes-mobile/src/__tests__/posthogFunnelProofContract.test.ts`, `plan.md` | Proof script reads `EXPO_PUBLIC_POSTHOG_API_KEY`, rejects the obsolete key name, focused 3/3 + full 207 suites / 1,823 pass / 1 skip, typecheck + shell syntax green; continuous E2E invoked but skipped because the physical phone was active; no EAS build |
 
 
-| T-NO-APP-SUBSCRIPTION | P0: Subscription web-only — remove in-app StoreKit/Play subscription purchase path | in_progress | cursor-no-app-subs | `hermes-mobile/src/constants/monetization.ts`, `hermes-mobile/src/services/thumbgateIap.ts`, `hermes-mobile/src/components/ProUpgradeCard.tsx`, `hermes-mobile/src/__tests__/thumbgateIap.test.ts`, `hermes-mobile/src/__tests__/ProUpgradeCard.test.tsx`, `hermes-mobile/src/__tests__/noInAppSubscriptionContract.test.ts`, `hermes-mobile/docs/MONETIZATION-APP-PAID-WEB-SUB.md`, `plan.md` | Zero in-app subscription purchase; Android lifetime IAP ok; iOS paywall → web dashboard; contract tests; ASC monthly unreachable from app |
+| T-NO-APP-SUBSCRIPTION | P0: Subscription web-only — remove in-app StoreKit/Play subscription purchase path | done | cursor-no-app-subs | `hermes-mobile/src/constants/monetization.ts`, `hermes-mobile/src/services/thumbgateIap.ts`, `hermes-mobile/src/components/ProUpgradeCard.tsx`, `hermes-mobile/src/__tests__/thumbgateIap.test.ts`, `hermes-mobile/src/__tests__/ProUpgradeCard.test.tsx`, `hermes-mobile/src/__tests__/noInAppSubscriptionContract.test.ts`, `hermes-mobile/docs/MONETIZATION-APP-PAID-WEB-SUB.md`, `plan.md` | Zero in-app subscription purchase; Android lifetime IAP ok; iOS paywall → web dashboard; contract tests; ASC monthly unreachable from app |
 
 ## 2. File Ownership Map (append-only lock table — claim before touching)
+
+- T-NO-APP-SUBSCRIPTION claimed files → **released by cursor-no-app-subs** after PR #620 merged `170e5768` (web-only subs; zero in-app subscription purchase path) (2026-07-20T18:27:42Z)
 - `hermes-mobile/src/constants/monetization.ts`, `hermes-mobile/src/services/thumbgateIap.ts`, `hermes-mobile/src/components/ProUpgradeCard.tsx`, `hermes-mobile/src/__tests__/thumbgateIap.test.ts`, `hermes-mobile/src/__tests__/ProUpgradeCard.test.tsx`, `hermes-mobile/src/__tests__/noInAppSubscriptionContract.test.ts`, `hermes-mobile/src/__tests__/ApprovalsScreen.test.tsx`, `hermes-mobile/.maestro/fresh-user-leash-paywall.yaml`, `hermes-mobile/docs/MONETIZATION-APP-PAID-WEB-SUB.md`, `hermes-mobile/scripts/deactivate-asc-leash-subscription.js`, `plan.md` → **cursor-no-app-subs** (T-NO-APP-SUBSCRIPTION web-only subs; Igor product lock) (2026-07-20T17:13:54Z)
 
 
@@ -801,6 +803,8 @@ Status values: `pending` | `in_progress` | `blocked` | `done`. Claim a row by se
 - `docs/RESEARCH-HERMES-INFERENCE-ROI-JULY-2026.md`, `parallel-research/hermes-inference-roi-july-2026.*`, `apps/hermes-control-plane/**`, `tests/test-hermes-business-e2e.js`, `plan.md` → **released by codex-hermes-cloudflare-20260720** after corrected primary-source report, measured feature implementation, merged CI, and GLM-5.2 production canary proof (2026-07-20T18:20:00Z)
 
 ## 3. Decisions Log
+
+- 2026-07-20T18:27:42Z `cursor-no-app-subs`: **Merged PR #620** (`170e5768`). App cannot purchase StoreKit/Play subscriptions; iOS CTA → web; Android lifetime IAP kept; ASC monthly remains APPROVED (API cannot PATCH state); continuous E2E was skipped (phone in use).
 
 - 2026-07-20T16:32:57Z `cursor-browser-control`: **T-BROWSER-CONTROL** — healed CDP IPv4 squat class (non-CDP listener on 127.0.0.1:9222 while Chrome bound [::1]); `hermes-chrome-cdp.sh` reclaim + `--remote-debugging-address=127.0.0.1`; `configure-browser-control.sh` + `docs/BROWSER-CONTROL.md`; wired chrome-cdp into `install-agent-launchagents.sh`. Live proof: `/json/version` 200 on 127.0.0.1:9222. Contract tests green.
 - 2026-07-20T17:13:54Z `cursor-no-app-subs`: Igor product lock supersedes T-PLAY-ONE-TIME-UNLOCK acceptance ("iOS continues monthly") and T-SUBTITLE-PAID-ONCE paywall scope for subscription UI — subscriptions are web-only; app cannot purchase StoreKit/Play subs.
