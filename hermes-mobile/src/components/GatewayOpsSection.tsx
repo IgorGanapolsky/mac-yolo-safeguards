@@ -215,7 +215,6 @@ export default function GatewayOpsSection() {
         ),
         catalogRequest(listToolsets(gatewayUrl, apiKey), 'toolsets').then(
           (toolsetList) => {
-            applyToolsetsFromServer(toolsetList);
             markCatalogLoaded('toolsets');
             return toolsetList;
           },
@@ -259,6 +258,11 @@ export default function GatewayOpsSection() {
         ? configuredToolsetsToAutoEnable(loadedToolsets)
         : [];
       if (autoEnableTargets.length > 0) {
+        // Ready toolsets are enabled by policy. Render that optimistic truth before
+        // awaiting the gateway writes so the switches never flash false-disabled.
+        const targetNames = new Set(autoEnableTargets.map((toolset) => toolset.name));
+        applyToolsetsFromServer(markToolsetsEnabled(loadedToolsets, targetNames));
+
         const results = await Promise.allSettled(
           autoEnableTargets.map((toolset) =>
             setToolsetEnabled(gatewayUrl, toolset.name, true, apiKey),
