@@ -9,11 +9,11 @@ export default function Home() {
   const structuredData = {
     "@context": "https://schema.org",
     "@type": "SoftwareApplication",
-    name: "Leash by ThumbGate",
-    url: "https://leash.dev/",
+    name: "ThumbGate for Hermes",
+    url: "https://thumbgate.app/",
     applicationCategory: "DeveloperApplication",
     operatingSystem: "Web, macOS, iOS, Android",
-    description: "A local-first control plane for Hermes agent threads with signed machine pairing and fenced cloud continuation.",
+    description: "Hermes chats and Leash controls on the web, with signed machine pairing and fenced cloud continuation.",
     offers: [
       { "@type": "Offer", name: "Web Control", price: "0", priceCurrency: "USD" },
       { "@type": "Offer", name: "Cloud Continuity", price: "29", priceCurrency: "USD" },
@@ -28,7 +28,7 @@ export default function Home() {
       />
       <FunnelSignals />
       <nav className="topbar landing-nav">
-        <Link href="/" className="brand"><Mark /><span>Leash <small>by ThumbGate</small></span></Link>
+        <Link href="/" className="brand"><Mark /><span>ThumbGate <small>Hermes Web</small></span></Link>
         <div className="nav-actions">
           <a href="#pair" className="nav-link">Pair</a>
           <a href="#how-it-works" className="nav-link">How it works</a>
@@ -39,15 +39,16 @@ export default function Home() {
 
       <section className="hero">
         <div className="hero-copy">
-          <p className="eyebrow"><span className="live-dot" /> Local-first. Cloud-resilient.</p>
-          <h1>Your Hermes work<br /><span>doesn’t stop with your machine.</span></h1>
-          <p className="hero-lede">Manage every thread from the web. When your paired machine disappears, a fenced cloud runner can continue the task without double-running it.</p>
+          <p className="eyebrow"><span className="live-dot" /> Hermes-native. Web-ready.</p>
+          <h1>Your Hermes chats<br /><span>from any screen.</span></h1>
+          <p className="hero-lede">The dark, focused Hermes workspace you already know—adapted for desktop and mobile web. Your Mac runs the work locally; paid cloud continuity can take over when it goes offline.</p>
           <div className="hero-actions">
             <Link href="/api/auth/login" className="button button-primary" data-funnel-event="sign_in_click">
-              Continue with Google or Apple <span aria-hidden="true">→</span>
+              Open Hermes on the web <span aria-hidden="true">→</span>
             </Link>
             <a href="#how-it-works" className="button button-ghost">See the failover path</a>
           </div>
+          <p className="signin-note">Hermes Web by ThumbGate. Continue with Google or Apple—no new password.</p>
           <div className="trust-row"><span>No inbound ports</span><span>Private-key pairing</span><span>Cloud only when enabled</span></div>
         </div>
 
@@ -68,10 +69,10 @@ export default function Home() {
       </section>
 
       <section id="pair" className="setup-section">
-        <div className="section-heading"><p className="eyebrow">THREE-STEP PAIRING</p><h2>Connect once. Recover automatically.</h2><p>The connector dials out over HTTPS, creates a device key, and keeps its local gateway credential on your machine.</p></div>
+        <div className="section-heading"><p className="eyebrow">THREE-STEP PAIRING</p><h2>Connect once. Your chats appear.</h2><p>The connector dials out over HTTPS, creates a device key, opens a prefilled approval page, and keeps its local gateway credential on your machine.</p></div>
         <ol className="setup-steps">
-          <li><span>01</span><div><h3>Run one installer</h3><p>The connector installs as an always-on service and prints a short pairing code.</p></div></li>
-          <li><span>02</span><div><h3>Approve the fingerprint</h3><p>Enter the short code in your signed-in dashboard and verify the named machine.</p></div></li>
+          <li><span>01</span><div><h3>Run one installer</h3><p>The connector installs as an always-on service and opens ThumbGate for you.</p></div></li>
+          <li><span>02</span><div><h3>Approve your Mac</h3><p>The short code is already filled. Verify the named machine and approve it.</p></div></li>
           <li><span>03</span><div><h3>Choose the offline rule</h3><p>Pause, ask first, or continue on a fenced cloud runner when the machine disappears.</p></div></li>
         </ol>
       </section>
@@ -100,7 +101,7 @@ export default function Home() {
         </div>
       </section>
 
-      <footer><Link href="/" className="brand"><Mark /><span>Leash <small>by ThumbGate</small></span></Link><p>Keep control when the machine disappears.</p></footer>
+      <footer><Link href="/" className="brand"><Mark /><span>ThumbGate <small>Hermes Web</small></span></Link><p>Your Hermes workspace, wherever you are.</p></footer>
     </main>
   );
 }
