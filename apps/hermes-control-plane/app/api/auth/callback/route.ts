@@ -93,7 +93,12 @@ export async function GET(request: Request) {
 
   const sessionToken = await createSession(userId, organizationId);
   await audit({ organizationId, actorType: "user", actorId: userId, action: "auth.login", targetType: "session", metadata: { method: payload.authentication_method ?? "AuthKit" } });
-  const redirect = Response.redirect(new URL(authState.returnTo, url.origin), 302);
-  redirect.headers.append("set-cookie", sessionCookie(sessionToken));
-  return redirect;
+  return new Response(null, {
+    status: 302,
+    headers: {
+      location: new URL(authState.returnTo, url.origin).toString(),
+      "set-cookie": sessionCookie(sessionToken),
+      "cache-control": "no-store",
+    },
+  });
 }
