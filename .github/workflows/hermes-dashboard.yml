@@ -1,0 +1,49 @@
+name: Hermes web dashboard
+
+on:
+  pull_request:
+    paths:
+      - "apps/hermes-dashboard/**"
+      - "packages/hermes-protocol/**"
+      - ".github/workflows/hermes-dashboard.yml"
+  push:
+    branches: [main]
+    paths:
+      - "apps/hermes-dashboard/**"
+      - "packages/hermes-protocol/**"
+      - ".github/workflows/hermes-dashboard.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  protocol-and-dashboard:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            packages/hermes-protocol/package-lock.json
+            apps/hermes-dashboard/package-lock.json
+      - name: Install protocol dependencies
+        working-directory: packages/hermes-protocol
+        run: npm ci
+      - name: Verify protocol coverage and E2E
+        working-directory: packages/hermes-protocol
+        run: npm run ci
+      - name: Install dashboard dependencies
+        working-directory: apps/hermes-dashboard
+        run: npm ci
+      - name: Verify dashboard coverage
+        working-directory: apps/hermes-dashboard
+        run: npm run test:coverage
+      - name: Install browser
+        working-directory: apps/hermes-dashboard
+        run: npx playwright install --with-deps chromium
+      - name: Verify dashboard browser E2E
+        working-directory: apps/hermes-dashboard
+        run: npm run test:e2e

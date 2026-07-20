@@ -64,6 +64,20 @@ export function createRelayHttpServer({
     try {
       const accountId = authenticate(request, tokens);
       const url = new URL(request.url ?? "/", "http://relay.invalid");
+      if (url.pathname === "/v1/threads") {
+        if (request.method !== "GET") {
+          sendJson(response, 405, { error: "method_not_allowed" });
+          return;
+        }
+        const rawIncludeDeleted = url.searchParams.get("include_deleted") ?? "0";
+        if (rawIncludeDeleted !== "0" && rawIncludeDeleted !== "1") {
+          throw new ProtocolValidationError("include_deleted must be 0 or 1");
+        }
+        sendJson(response, 200, {
+          threads: store.listThreads(accountId, { includeDeleted: rawIncludeDeleted === "1" }),
+        });
+        return;
+      }
       const match = /^\/v1\/threads\/([^/]+)(?:\/(events))?$/.exec(url.pathname);
       if (!match) {
         sendJson(response, 404, { error: "not_found" });

@@ -108,6 +108,51 @@ test("empty threads project to an empty live thread", () => {
   });
 });
 
+test("lists account-scoped thread summaries newest first and hides tombstones", () => {
+  let tick = 0;
+  const store = new RelayStore({
+    clock: () => `2026-07-19T12:00:0${tick++}.000Z`,
+    eventIdFactory: () => `evt_${tick}`,
+  });
+  store.append(mutation());
+  store.append(mutation({
+    thread_id: "thread_2",
+    mutation_id: "mut_2",
+    payload: { message_id: "msg_2", text: "second thread" },
+  }));
+  store.append(mutation({
+    thread_id: "thread_2",
+    mutation_id: "mut_title",
+    kind: "thread_title_set",
+    payload: { title: "Revenue plan" },
+  }));
+  store.append(mutation({
+    account_id: "acct_2",
+    thread_id: "private_thread",
+    mutation_id: "private_mut",
+    payload: { message_id: "private_msg", text: "private" },
+  }));
+  store.append(mutation({
+    thread_id: "thread_1",
+    mutation_id: "mut_delete",
+    kind: "thread_deleted",
+    payload: {},
+  }));
+
+  assert.deepEqual(store.listThreads("acct_1"), [{
+    thread_id: "thread_2",
+    title: "Revenue plan",
+    deleted: false,
+    last_seq: 2,
+    updated_at: "2026-07-19T12:00:02.000Z",
+    message_count: 1,
+    last_message_preview: "second thread",
+  }]);
+  assert.equal(store.listThreads("acct_1", { includeDeleted: true }).length, 2);
+  assert.equal(store.listThreads("acct_2")[0].thread_id, "private_thread");
+  assert.throws(() => store.listThreads("acct_1", { includeDeleted: "yes" }), ProtocolValidationError);
+});
+
 test("rejects invalid persisted relay states", () => {
   assert.throws(() => RelayStore.fromState(null), /invalid relay state schema/);
   assert.throws(() => RelayStore.fromState({ schema_version: 2, threads: [] }), /invalid relay state schema/);
