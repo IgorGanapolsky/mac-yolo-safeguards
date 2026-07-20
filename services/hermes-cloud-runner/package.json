@@ -1,0 +1,9 @@
+{
+  "name": "hermes-cloud-runner",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Fenced OpenAI-compatible cloud executor for Hermes Control",
+  "main": "server.js",
+  "scripts": { "start": "node server.js", "test": "node --test test/*.test.js" },
+  "engines": { "node": ">=20" }
+}
