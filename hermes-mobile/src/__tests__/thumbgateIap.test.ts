@@ -32,8 +32,8 @@ describe('thumbgateIap', () => {
     expect(HERMES_PRO_LIFETIME_IAP_PRODUCT_ID).toBe('hermes_pro_lifetime');
   });
 
-  it('labels subscribe for the current platform', () => {
-    expect(thumbgateIapSubscribeLabel()).toMatch(/(Subscribe|Unlock) in/);
+  it('labels unlock for the current platform (no Subscribe hero)', () => {
+    expect(thumbgateIapSubscribeLabel()).toMatch(/^Unlock in/);
   });
 
   it('sync entitlement uses store API', async () => {

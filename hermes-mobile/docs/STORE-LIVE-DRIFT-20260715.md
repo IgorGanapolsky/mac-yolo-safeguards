@@ -39,7 +39,7 @@ curl -s https://play.google.com/store/apps/details?id=com.iganapolsky.hermesmobi
 | Field | Live iTunes (2026-07-15 resultCount=1) | Local repo | Drift? |
 |-------|----------------------------------------|------------|--------|
 | Name | Hermes Mobile: AI Agent Leash v1.0 id 6786778037 | `name.txt`: Hermes Mobile: AI Agent Leash | ✅ |
-| Subtitle | Not returned by lookup — need ASC API; promo research says old was "Approve Claude Code, Cursor" | `subtitle.txt`: Control Mac agents from phone (25 chars) | Likely drift, local is brand-safe |
+| Subtitle | Not returned by lookup — need ASC API; promo research says old was "Approve Claude Code, Cursor" | `subtitle.txt`: Chat with Hermes on your Mac (28 chars) | Repo aligned; ASC READY_FOR_SALE App Info still locked until 1.3 ships |
 | Description | Live: "Hermes is the leash for AI coding agents. See what Claude Code, Cursor, Codex, Copilot, Windsurf are doing..." — brand-forward 1.0 copy | Local `description.txt`: "Control an AI coding agent from your phone on your own Mac, Linux, or Windows computer..." — cleaner, 1.1 draft | **YES — 1.0 vs 1.1** |
 | Keywords | Not in public lookup | `keywords.txt`: coding,remote,approve,devtools,terminal,gateway,operator,safety,local,pair,tailscale,codex,cli (95/100 clean) | Local clean ✅ |
 | Promotional | Not in lookup | "Control AI coding agents on YOUR Mac..." 148 chars | Local ready |

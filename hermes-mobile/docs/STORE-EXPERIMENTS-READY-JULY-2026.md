@@ -32,7 +32,7 @@ Console URLs (IgorGanapolsky developer `5120393192891708058`, app `4973118708450
 | Play Custom Store Listings (CSL) | **Ready to create** — same variant pack | Keyword/campaign targets |
 | App Store Product Page Optimization (PPO) | **Ready after traffic** — subtitle/keyword variants in `fastlane/metadata/ios/en-US/variants/` | 0 ratings; live subtitle change needs v1.1 build |
 | ASC live promotionalText | **Patched** 2026-07-15 | — |
-| ASC live subtitle | **Draft only on v1.1** (`Control Mac agents from phone`); live 1.0 still `Approve Claude Code, Cursor` | Attach build to 1.1 + submit |
+| ASC live subtitle | **1.3 PREPARE** has `Chat with Hermes on your Mac`; READY_FOR_SALE App Info still locked on old line until next native ship | Ship 1.3 / attach build |
 
 ## First experiment (Play) — create when installs > 0
 
