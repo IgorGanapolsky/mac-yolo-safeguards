@@ -9,7 +9,7 @@ GET STARTED
 • Current connection and run status instead of a false green state
 • QR and local network pairing with no Hermes Mobile cloud account
 • Saved computer profiles for Mac, Linux, and Windows gateways
-• Unlock all Pro features with a one-time $4.99 purchase (or use Hermes Mobile paid download when available)
+• Unlock all Pro features with a $4.99 once purchase (pay once), or use Hermes Mobile paid download when available
 
 
 LEASH (optional paid unlock)
@@ -42,6 +42,8 @@ Hermes Mobile is independent and is not affiliated with Nous Research, Anthropic
 Source and setup: github.com/IgorGanapolsky/mac-yolo-safeguards
 
 Publisher: Igor Ganapolsky
+
+Looking for Hermes Agent? That is a different app (on-device Android AI).
 
 HOW THIS DIFFERS FROM OTHER "HERMES" APPS
 
