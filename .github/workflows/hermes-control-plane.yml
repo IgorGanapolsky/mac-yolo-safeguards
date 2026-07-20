@@ -1,0 +1,38 @@
+name: Hermes control plane
+
+on:
+  pull_request:
+    paths:
+      - "apps/hermes-control-plane/**"
+      - "services/hermes-cloud-runner/**"
+      - "tools/hermes-cloud-connector.js"
+      - "tests/test-hermes-cloud-connector.js"
+      - ".github/workflows/hermes-control-plane.yml"
+  push:
+    branches: [main]
+    paths:
+      - "apps/hermes-control-plane/**"
+      - "services/hermes-cloud-runner/**"
+      - "tools/hermes-cloud-connector.js"
+      - "tests/test-hermes-cloud-connector.js"
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: apps/hermes-control-plane/package-lock.json
+      - run: npm ci
+        working-directory: apps/hermes-control-plane
+      - run: npm run lint
+        working-directory: apps/hermes-control-plane
+      - run: npm test
+        working-directory: apps/hermes-control-plane
+      - run: node --test tests/test-hermes-cloud-connector.js
+      - run: npm test
+        working-directory: services/hermes-cloud-runner
