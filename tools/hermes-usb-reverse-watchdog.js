@@ -137,8 +137,19 @@ function loadAppearState(statePath = APPEAR_STATE_PATH) {
 }
 
 function saveAppearState(state, statePath = APPEAR_STATE_PATH) {
-  fs.mkdirSync(path.dirname(statePath), { recursive: true });
-  fs.writeFileSync(statePath, `${JSON.stringify(state)}\n`);
+  try {
+    fs.mkdirSync(path.dirname(statePath), { recursive: true });
+    fs.writeFileSync(statePath, `${JSON.stringify(state)}\n`);
+    return true;
+  } catch (err) {
+    // Best-effort: LaunchAgent must never crash on a home-dir write failure.
+    console.error(
+      `hermes-usb-reverse-watchdog: appear-state write failed: ${
+        err instanceof Error ? err.message : String(err)
+      }`,
+    );
+    return false;
+  }
 }
 
 function defaultPairArgs() {
@@ -245,7 +256,22 @@ function runAppearPair(serial, options = {}) {
 function runOnce(options = {}) {
   const serials = listAuthorizedSerials(options).filter(isPhysicalSerial);
   const results = serials.map((serial) => healSerial(serial, options));
-  const appear = maybePairOnAppear(serials, options);
+  let appear = { appeared: [], pairAttempts: [], knownPresent: [] };
+  try {
+    appear = maybePairOnAppear(serials, options);
+  } catch (err) {
+    appear = {
+      appeared: [],
+      pairAttempts: [
+        {
+          serial: '*',
+          paired: false,
+          reason: `appear_error:${err instanceof Error ? err.message : String(err)}`,
+        },
+      ],
+      knownPresent: [],
+    };
+  }
   return {
     checkedAt: new Date().toISOString(),
     ports: USB_ADB_REVERSE_PORTS,
