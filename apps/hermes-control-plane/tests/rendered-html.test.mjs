@@ -48,5 +48,8 @@ test("keeps secrets server-side and device requests signed", async () => {
   assert.match(deviceAuth, /crypto\.subtle\.verify/);
   assert.match(deviceAuth, /replayed device request/);
   assert.match(callback, /grant_type: "authorization_code"/);
+  assert.match(callback, /return new Response\(null, \{/);
+  assert.match(callback, /"set-cookie": sessionCookie\(sessionToken\)/);
+  assert.doesNotMatch(callback, /Response\.redirect\([^;]+\);\s*\n\s*redirect\.headers\.append\("set-cookie"/);
   assert.doesNotMatch(callback, /localStorage|sessionStorage/);
 });
