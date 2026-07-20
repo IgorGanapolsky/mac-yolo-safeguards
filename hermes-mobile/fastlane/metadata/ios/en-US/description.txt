@@ -1,24 +1,39 @@
-Hermes Mobile is the phone remote for a Hermes agent on YOUR Mac, Linux, or Windows. Chat with your gateway, see honest connection and run state, switch machines, and approve or deny risky tool calls before they execute.
+Control an AI coding agent from your phone on your own Mac, Linux, or Windows computer. Chat with the Hermes gateway, see honest run state, and use Leash Pro to approve or deny risky commands before they execute.
 
-ONE PRICE. ALL FEATURES.
-• Pay once $9.99 on the App Store - no monthly Leash subscription
-• Live chat with your Hermes gateway
-• Leash: approve or deny blocked tools from your phone
-• Standing allow/block gate rules
-• ThumbGate feedback on replies and decisions
-• QR pairing and saved computer profiles - no Hermes Mobile cloud account
+Hermes Mobile is an independent operator client for a Hermes gateway you run. It is designed for developers whose workflows also involve Cursor, Claude Code, ChatGPT or OpenAI Codex, Gemini CLI, Replit Agent, GitHub Copilot, Windsurf, OpenClaw, and other coding agents.
+
+Hermes Mobile does not sign in to or replace those products. It supervises the Hermes agent and tools running through your own gateway.
+
+FREE
+• Stream chat with your Hermes gateway
+• See current connection and run state
+• Pair a Mac, Linux, or Windows gateway with QR or local discovery
+• Keep multiple computer profiles without a Hermes Mobile cloud account
+
+LEASH (optional paid unlock)
+• Approve or deny blocked tool calls from your phone
+• View and edit standing allow or block gate rules
+• Manage persistent safety policies across sessions
+• Capture ThumbGate feedback for assistant output and command decisions
 
 BUILT FOR AI CODING AGENT OPERATORS
-Control the Hermes gateway that sits beside Cursor, Claude Code, Codex, Gemini CLI, Copilot, Windsurf, OpenClaw, and similar tools. Hermes Mobile does not replace those products - it supervises the agent on your computer.
+• Cursor and Claude Code users get a separate control surface for the Hermes gateway
+• ChatGPT and Codex users can supervise a user-operated, multi-provider runtime
+• Gemini CLI, Copilot, Windsurf, and OpenClaw users keep the executing computer visible
+• Replit Agent users can operate their own machine instead of moving the runtime into a cloud IDE
 
 REAL CONNECTION STATE
-• Home Wi-Fi locally; Tailscale or your tunnel remotely
-• Clear reconnecting / stale / unavailable states
-• API keys stay on the computer that runs the gateway
+• Wi-Fi and LAN for local access
+• Tailscale or a configured tunnel for remote access
+• Clear reconnecting, stale, and unavailable states
+• API keys remain on the computer that runs the gateway
 
-Camera access is only for pairing QR codes. Optional analytics can be disabled in Settings.
+Camera access is used only for pairing QR codes. Optional analytics can be disabled in Settings. No ads and no IDFA tracking.
 
-Requires a compatible Hermes gateway you operate. Independent - not affiliated with Nous Research, Anthropic, OpenAI, Google, Replit, GitHub, Cursor, Windsurf, or OpenClaw.
+Requires a compatible Hermes gateway. Remote access requires your own network, Tailscale, tunnel, or relay setup.
 
-Source: github.com/IgorGanapolsky/mac-yolo-safeguards
+Hermes Mobile is independent and is not affiliated with Nous Research, Anthropic, OpenAI, Google, Replit, GitHub, Cursor, Windsurf, or OpenClaw.
+
+Source and setup: github.com/IgorGanapolsky/mac-yolo-safeguards
+
 Publisher: Igor Ganapolsky
