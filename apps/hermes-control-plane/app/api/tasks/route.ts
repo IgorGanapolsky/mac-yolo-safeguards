@@ -9,6 +9,11 @@ interface DeviceRoute {
   lastSeenAt: number | null;
 }
 
+const MAX_ACTIVE_TASKS = 10;
+const MAX_DAILY_TASKS = 250;
+const TRIAL_CLOUD_TASKS = 5;
+const PRO_CLOUD_TASKS_PER_30_DAYS = 100;
+
 export async function GET(request: Request) {
   let session;
   try { session = await requireSession(); } catch { return jsonError("sign in required", 401); }
@@ -75,8 +80,23 @@ export async function POST(request: Request) {
   else if (device.failoverMode === "manual") { status = "needs_failover"; route = "blocked"; }
   else { status = "offline_blocked"; route = "blocked"; }
 
-  const taskId = crypto.randomUUID();
   const now = Date.now();
+  const usage = await db().prepare(
+    `SELECT
+       SUM(CASE WHEN created_at >= ? THEN 1 ELSE 0 END) AS dailyTasks,
+       SUM(CASE WHEN status NOT IN ('completed', 'failed') THEN 1 ELSE 0 END) AS activeTasks,
+       SUM(CASE WHEN route = 'cloud' AND created_at >= ? THEN 1 ELSE 0 END) AS cloudTasks
+     FROM tasks WHERE organization_id = ?`
+  ).bind(now - 24 * 60 * 60 * 1000, now - 30 * 24 * 60 * 60 * 1000, session.organizationId)
+    .first<{ dailyTasks: number | null; activeTasks: number | null; cloudTasks: number | null }>();
+  if ((usage?.activeTasks ?? 0) >= MAX_ACTIVE_TASKS) return jsonError("finish an active task before starting another", 429);
+  if ((usage?.dailyTasks ?? 0) >= MAX_DAILY_TASKS) return jsonError("daily task safety limit reached", 429);
+  const cloudLimit = org.plan === "trial" ? TRIAL_CLOUD_TASKS : PRO_CLOUD_TASKS_PER_30_DAYS;
+  if (route === "cloud" && (usage?.cloudTasks ?? 0) >= cloudLimit) {
+    return jsonError(org.plan === "trial" ? "trial cloud continuation limit reached" : "monthly cloud continuation limit reached", 429);
+  }
+
+  const taskId = crypto.randomUUID();
   const idempotencyKey = payload?.idempotencyKey?.trim().slice(0, 120) || crypto.randomUUID();
   try {
     await db().batch([

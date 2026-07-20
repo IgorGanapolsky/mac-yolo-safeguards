@@ -6,6 +6,9 @@ const os = require('os');
 
 const required = ['HERMES_CONTROL_PLANE_URL', 'HERMES_CLOUD_RUNNER_TOKEN', 'OPENAI_BASE_URL', 'OPENAI_API_KEY', 'OPENAI_MODEL'];
 const POLL_MS = Number(process.env.POLL_MS || 3000);
+const CONTROL_TIMEOUT_MS = Number(process.env.CONTROL_TIMEOUT_MS || 15_000);
+const MODEL_TIMEOUT_MS = Number(process.env.MODEL_TIMEOUT_MS || 75_000);
+const MODEL_MAX_TOKENS = Number(process.env.MODEL_MAX_TOKENS || 2_048);
 let lastPollAt = 0;
 let lastTaskAt = 0;
 let lastError = null;
@@ -29,6 +32,7 @@ function configFromEnv(env = process.env) {
 async function callControl(config, pathname, body = {}) {
   const response = await fetch(`${config.controlPlaneUrl}${pathname}`, {
     method: 'POST', headers: { authorization: `Bearer ${config.token}`, 'x-hermes-runner': config.runnerId, 'content-type': 'application/json' }, body: JSON.stringify(body),
+    signal: AbortSignal.timeout(CONTROL_TIMEOUT_MS),
   });
   if (response.status === 204) return null;
   const payload = await response.json();
@@ -37,9 +41,13 @@ async function callControl(config, pathname, body = {}) {
 }
 
 async function execute(config, task) {
+  const context = Array.isArray(task.contextMessages)
+    ? task.contextMessages.filter((message) => ['user', 'assistant', 'system'].includes(message?.role) && typeof message?.content === 'string')
+    : [];
   const response = await fetch(`${config.openaiBaseUrl}/chat/completions`, {
     method: 'POST', headers: { authorization: `Bearer ${config.openaiKey}`, 'content-type': 'application/json' },
-    body: JSON.stringify({ model: config.model, messages: [{ role: 'user', content: task.prompt }], stream: false }),
+    body: JSON.stringify({ model: config.model, messages: [...context, { role: 'user', content: task.prompt }], max_tokens: MODEL_MAX_TOKENS, stream: false }),
+    signal: AbortSignal.timeout(MODEL_TIMEOUT_MS),
   });
   const payload = await response.json();
   if (!response.ok) throw new Error(payload.error?.message || payload.error || `Model provider HTTP ${response.status}`);

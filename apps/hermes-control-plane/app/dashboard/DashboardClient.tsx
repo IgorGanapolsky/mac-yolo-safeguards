@@ -5,8 +5,9 @@ import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 type User = { id: string; email: string; name: string; avatarUrl: string | null };
 type Organization = { id: string; plan: string };
 type Device = { id: string; name: string; fingerprint: string; failoverMode: "disabled" | "manual" | "auto"; lastSeenAt: number | null; online: boolean };
-type Thread = { id: string; title: string; taskCount: number; updatedAt: number };
+type Thread = { id: string; title: string; taskCount: number; updatedAt: number; source: string; model: string | null; preview: string | null; messageCount: number; sourceSessionId: string | null; syncedAt: number | null; deviceName: string | null };
 type Task = { id: string; threadId: string; threadTitle: string; prompt: string; status: string; route: string; result: string | null; error: string | null; createdAt: number; deviceName: string | null };
+type ThreadDetails = { snapshot: Array<{ role: string; content: string }>; tasks: Array<{ prompt: string; result: string | null; error: string | null; route: string; status: string; createdAt: number }> };
 
 const terminal = new Set(["completed", "failed"]);
 
@@ -26,6 +27,7 @@ export default function DashboardClient() {
   const [threads, setThreads] = useState<Thread[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [selectedThread, setSelectedThread] = useState<string | null>(null);
+  const [threadDetails, setThreadDetails] = useState<ThreadDetails | null>(null);
   const [prompt, setPrompt] = useState("");
   const [pairCode, setPairCode] = useState("");
   const [notice, setNotice] = useState<string | null>(null);
@@ -42,7 +44,11 @@ export default function DashboardClient() {
     if (deviceResponse.ok) setDevices((await deviceResponse.json() as { devices: Device[] }).devices);
     if (threadResponse.ok) setThreads((await threadResponse.json() as { threads: Thread[] }).threads);
     if (taskResponse.ok) setTasks((await taskResponse.json() as { tasks: Task[] }).tasks);
-  }, []);
+    if (selectedThread) {
+      const detailResponse = await fetch(`/api/thread-messages?thread_id=${encodeURIComponent(selectedThread)}`, { cache: "no-store" });
+      if (detailResponse.ok) setThreadDetails(await detailResponse.json() as ThreadDetails);
+    } else setThreadDetails(null);
+  }, [selectedThread]);
 
   useEffect(() => {
     const initial = window.setTimeout(() => void load(), 0);
@@ -98,7 +104,7 @@ export default function DashboardClient() {
         <div className="workspace-label">WORKSPACE</div>
         <button className={!selectedThread ? "side-item active" : "side-item"} onClick={() => setSelectedThread(null)}><span>⌁</span>All activity<em>{activeTasks.length}</em></button>
         <div className="workspace-label">THREADS</div>
-        <div className="thread-list">{threads.map((thread) => <button key={thread.id} className={selectedThread === thread.id ? "side-item active" : "side-item"} onClick={() => setSelectedThread(thread.id)}><span>›_</span>{thread.title}<em>{thread.taskCount}</em></button>)}</div>
+        <div className="thread-list">{threads.map((thread) => <button key={thread.id} title={thread.title} className={selectedThread === thread.id ? "side-item active" : "side-item"} onClick={() => setSelectedThread(thread.id)}><span>{thread.sourceSessionId ? "⌘" : "›_"}</span>{thread.title}<em>{thread.messageCount || thread.taskCount}</em></button>)}</div>
         <div className="sidebar-bottom"><div className="avatar">{user.name.slice(0, 1).toUpperCase()}</div><div><strong>{user.name}</strong><small>{organization.plan} plan</small></div><form action="/api/auth/logout" method="post"><button title="Sign out">↗</button></form></div>
       </aside>
 
@@ -114,7 +120,14 @@ export default function DashboardClient() {
 
         <div className="dashboard-grid">
           <section className="panel task-panel">
-            <div className="panel-heading"><div><p className="eyebrow">THREAD CONSOLE</p><h2>Continue the work</h2></div><span>{visibleTasks.length} tasks</span></div>
+            <div className="panel-heading"><div><p className="eyebrow">THREAD CONSOLE</p><h2>Continue the work</h2></div><span>{selectedThread ? `${threadDetails?.snapshot.length ?? 0} synced messages` : `${visibleTasks.length} tasks`}</span></div>
+            {selectedThread && <div className="conversation-history">
+              {threadDetails?.snapshot.length ? threadDetails.snapshot.map((message, index) => <article key={`snapshot-${index}`} className={`conversation-message role-${message.role}`}><span>{message.role}</span><p>{message.content}</p></article>) : <div className="conversation-empty">This thread has no cloud snapshot yet. Keep the paired Hermes connector online to sync it.</div>}
+              {threadDetails?.tasks.flatMap((task, index) => [
+                <article key={`task-user-${index}`} className="conversation-message role-user"><span>web</span><p>{task.prompt}</p></article>,
+                task.result ? <article key={`task-result-${index}`} className="conversation-message role-assistant"><span>{task.route}</span><p>{task.result}</p></article> : null,
+              ])}
+            </div>}
             <form className="composer" onSubmit={createTask}><textarea value={prompt} onChange={(event) => setPrompt(event.target.value)} placeholder="Tell Hermes what to do next…" rows={4} /><div><small>{devices.length ? "Routes to your paired machine or fenced cloud runner" : "Pair a machine before creating a task"}</small><button className="button button-primary button-small" disabled={busy || !devices.length}>Run task →</button></div></form>
             <div className="task-list">{visibleTasks.length === 0 ? <div className="empty-state"><Mark /><h3>No tasks yet</h3><p>Pair a machine, then continue a Hermes thread from anywhere.</p></div> : visibleTasks.map((task) => <article key={task.id} className="dashboard-task"><div className="task-top"><span className={`task-status status-${task.status}`}>{task.status.replaceAll("_", " ")}</span><time>{new Date(task.createdAt).toLocaleString()}</time></div><h3>{task.threadTitle}</h3><p>{task.prompt}</p><div className="task-foot"><span>{task.route === "cloud" ? "☁ Cloud runner" : task.route === "local" ? `⌘ ${task.deviceName ?? "Hermes machine"}` : "Ⅱ Awaiting route"}</span>{["needs_failover", "offline_blocked"].includes(task.status) && <button onClick={() => void failover(task.id)}>Continue in cloud →</button>}</div>{task.result && <pre>{task.result}</pre>}{task.error && <div className="task-error">{task.error}</div>}</article>)}</div>
           </section>

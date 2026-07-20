@@ -63,8 +63,8 @@ export default function Home() {
       </section>
 
       <section id="pricing" className="pricing-section">
-        <div><p className="eyebrow">Simple launch pricing</p><h2>Keep the agent moving.</h2><p>Start with a 14-day trial. Cancel any time.</p></div>
-        <article className="price-card"><div><span>Hermes Pro</span><strong>$29<small>/month</small></strong></div><ul><li>Unlimited paired-device heartbeats</li><li>Cloud failover runner</li><li>Shared threads and audit history</li><li>Google and Apple sign-in</li></ul><Link href="/api/auth/login" className="button button-primary">Start free trial →</Link></article>
+        <div><p className="eyebrow">Simple launch pricing</p><h2>Keep the agent moving.</h2><p>Start with a 14-day trial and 5 cloud continuations. Cancel any time.</p></div>
+        <article className="price-card"><div><span>Hermes Pro</span><strong>$29<small>/month</small></strong></div><ul><li>Unlimited paired-device heartbeats</li><li>100 cloud continuations every 30 days</li><li>Shared threads and audit history</li><li>Google and Apple sign-in</li></ul><Link href="/api/auth/login" className="button button-primary">Start free trial →</Link></article>
       </section>
 
       <footer><Link href="/" className="brand"><Mark /><span>Hermes Control</span></Link><p>Keep control when the machine disappears.</p></footer>

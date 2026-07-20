@@ -11,6 +11,7 @@ test("builds the public Hermes subscription landing page", async () => {
   assert.match(page, /Your Hermes work/);
   assert.match(page, /Continue with Google or Apple/);
   assert.match(page, /\$29/);
+  assert.match(page, /100 cloud continuations/);
   assert.match(page, /90-second fenced leases/);
   assert.doesNotMatch(page, /codex-preview|react-loading-skeleton/);
 });
