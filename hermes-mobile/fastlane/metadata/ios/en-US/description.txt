@@ -10,7 +10,7 @@ FREE
 • Pair a Mac, Linux, or Windows gateway with QR or local discovery
 • Keep multiple computer profiles without a Hermes Mobile cloud account
 
-LEASH (optional paid unlock)
+LEASH (optional paid unlock — not $19.99/mo)
 • Approve or deny blocked tool calls from your phone
 • View and edit standing allow or block gate rules
 • Manage persistent safety policies across sessions
