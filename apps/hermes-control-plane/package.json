@@ -8,10 +8,15 @@
   "scripts": {
     "dev": "WRANGLER_LOG_PATH=.wrangler/wrangler.log vinext dev",
     "build": "WRANGLER_LOG_PATH=.wrangler/wrangler.log vinext build",
+    "build:cloudflare": "HERMES_DEPLOY_TARGET=cloudflare WRANGLER_LOG_PATH=.wrangler/wrangler.log vinext build",
     "start": "WRANGLER_LOG_PATH=.wrangler/wrangler.log vinext start",
-    "test": "npm run build && node --test tests/rendered-html.test.mjs",
+    "test": "npm run build && node --experimental-strip-types --test tests/*.test.mjs",
+    "test:cloudflare-config": "node --test ../../tests/test-hermes-cloudflare-deploy-config.js",
+    "test:cloudflare-worker": "npm run build:cloudflare && node tests/cloudflare-worker-smoke.mjs",
     "lint": "eslint . --ignore-pattern dist --ignore-pattern .next",
-    "db:generate": "drizzle-kit generate"
+    "db:generate": "drizzle-kit generate",
+    "cloudflare:validate-production": "node -e \"import('./build/cloudflare-target.mjs').then(({ assertProductionCloudflareEnvironment }) => assertProductionCloudflareEnvironment())\"",
+    "deploy:cloudflare": "npm run cloudflare:validate-production && npm run build:cloudflare && wrangler d1 migrations apply DB --remote --config dist/server/wrangler.json && wrangler deploy --config dist/server/wrangler.json"
   },
   "dependencies": {
     "drizzle-orm": "0.45.2",
@@ -35,7 +40,8 @@
     "tailwindcss": "4.2.1",
     "typescript": "5.9.3",
     "vinext": "0.0.50",
-    "vite": "8.1.5"
+    "vite": "8.1.5",
+    "wrangler": "4.112.0"
   },
   "type": "module"
 }
