@@ -34,12 +34,25 @@ curl -sI -A Mozilla/5.0 "https://play.google.com/store/apps/details?id=com.igana
 # expect HTTP 200 + Paid when live; 404 while draft
 ```
 
+## Progress (2026-07-20 evening)
+
+| Step | Status | Evidence |
+|------|--------|----------|
+| SA App Admin on `.paid` | **done** | Console Users & permissions lists both packages; Publisher API `edits` **200** |
+| EAS `production-android-paid` AAB | **done** | build `aafdd2dc…` FINISHED, vc **15** |
+| AAB upload | **done** | internal track release `paid-15`, status **draft**, sha256 `27e9b85fd880…` |
+| Store listing en-US + contact | **done** | API commit title `Hermes Mobile`, contact from free app |
+| Country prices **$4.99** | **blocked** | `/paid-app` still shows United States `-`; Set pricing UI flaky (tax sheet) |
+| Dashboard checklist / Data safety / rating | **incomplete** | ~1/13 when last checked |
+| Production access questionnaire | **pending** | dialog present; not submitted |
+| Public live | **no** | store details URL **404** |
+
 ## Remaining Console blockers (exact)
 
-1. **Publisher SA 403 on `.paid`** — `hermes-mobile-publisher@hermes-mobile-play.iam.gserviceaccount.com` has App permissions for free package only. Need **Add app** → paid package → Admin (or Release + Store presence) → **Save changes**. Until then Android Publisher API cannot upload/edit `.paid`.
-2. **App pricing** — `/paid-app` shows Paid + Digital app sales, but country prices still `-`. Need **Set pricing** → all countries → **$4.99** → Save. Sticky “Edit product tax category” sheet often blocks automation.
-3. **Dashboard setup** — ~1/13 complete (merchant account). Still need privacy policy, ads declaration, content rating, target audience, data safety, store listing, etc.
-4. **Apply for access to production** questionnaire may appear for this new app before production track publish (closed-test answers). Internal testing upload may still work once SA + pricing + listing minimums are done.
+1. **App pricing $4.99** — `/paid-app` → Set pricing → all countries → **4.99 USD** → Update → Save changes. Sticky “Edit product tax category” sheet interferes with automation.
+2. **Dashboard setup** — privacy policy, ads, content rating, target audience, data safety, store graphics, etc.
+3. **Apply for access to production** questionnaire (closed-test answers) before production track.
+4. Promote internal `paid-15` (or new) release to production + Send for review after checklist green.
 
 ## Do not claim
 
