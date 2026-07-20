@@ -18,8 +18,8 @@ const localBindingConfig = {
     ? [
         {
           binding: d1,
-          database_name: "site-creator-d1",
-          database_id: SITE_CREATOR_PLACEHOLDER_DATABASE_ID,
+          database_name: "hermes-control-plane",
+          database_id: "659d4b21-21c4-4b39-b63b-b5bf4234de13",
         },
       ]
     : [],
