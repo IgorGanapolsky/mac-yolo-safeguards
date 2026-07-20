@@ -14,6 +14,10 @@ import { choicesForRequest } from '../types/approval';
 import DiffPreviewBox from './DiffPreviewBox';
 import { hasDiffContent } from '../utils/diffDisplay';
 import { haptics } from '../services/haptics';
+import {
+  browserControlToolLabel,
+  leashBadgeForTool,
+} from '../utils/browserControlTools';
 
 export type HermesApprovalVariant = 'chat' | 'leash';
 
@@ -89,16 +93,23 @@ export default function HermesApprovalCard({
     ? 'Allow once + ThumbGate capture'
     : 'Allow this command once';
 
+  const browserBadge = leashBadgeForTool(approval.toolName);
+  const toolLabel = approval.toolName
+    ? browserControlToolLabel(approval.toolName)
+    : null;
+
   const inner = (
   <>
     <View style={styles.headerRow}>
       <View testID="leash-blocked-badge" accessible={true} collapsable={false}>
         <Text style={styles.badge}>
-          {approval.source === 'text_nudge'
-            ? 'AGENT PROPOSAL'
-            : isChatApproval
-              ? 'NEEDS YOUR APPROVAL'
-              : 'THUMBGATE · BLOCKED'}
+          {browserBadge
+            ? browserBadge
+            : approval.source === 'text_nudge'
+              ? 'AGENT PROPOSAL'
+              : isChatApproval
+                ? 'NEEDS YOUR APPROVAL'
+                : 'THUMBGATE · BLOCKED'}
         </Text>
       </View>
       <View style={styles.headerBadges}>
@@ -111,9 +122,12 @@ export default function HermesApprovalCard({
         >
           {riskLabel}
         </Text>
-        {approval.toolName ? (
-          <Text style={[styles.toolName, glance && styles.glanceToolName]}>
-            {approval.toolName}
+        {toolLabel ? (
+          <Text
+            style={[styles.toolName, glance && styles.glanceToolName]}
+            testID="approval-tool-label"
+          >
+            {toolLabel}
           </Text>
         ) : null}
       </View>

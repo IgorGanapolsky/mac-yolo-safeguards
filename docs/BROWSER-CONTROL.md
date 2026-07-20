@@ -54,3 +54,16 @@ kickstarts the gateway, and prints a paste-to-agent line.
 | In-tab “bridge connected” badge | CLI/JSON “Bridge connected” + Tools toggle |
 | With Kimi Desktop mode | Hermes Mobile + Mac gateway |
 | Convert workflow → Skill UI | Hermes skills exist; no WebBridge packaging UI yet |
+
+## Chrome extension install path (WebBridge steal)
+
+Load unpacked (no store publish yet):
+
+1. `bash scripts/install-browser-bridge.sh`
+2. Chrome → `chrome://extensions` → Developer mode → Load unpacked
+3. Select `extensions/hermes-webbridge`
+4. Popup shows **Bridge connected** when CDP `:9222` is healthy
+
+Leash: browser tool approvals show a **BROWSER CONTROL** badge on the phone
+(`browserControlTools.ts` + `HermesApprovalCard`).
+

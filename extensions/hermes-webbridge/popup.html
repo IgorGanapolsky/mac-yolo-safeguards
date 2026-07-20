@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Hermes Browser Bridge</title>
+    <style>
+      body {
+        font: 13px/1.4 -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        margin: 12px;
+        width: 280px;
+        color: #111;
+      }
+      h1 {
+        font-size: 14px;
+        margin: 0 0 8px;
+      }
+      .status {
+        padding: 8px 10px;
+        border-radius: 8px;
+        background: #f2f2f7;
+        margin-bottom: 10px;
+      }
+      .ok {
+        background: #e8f8ee;
+      }
+      .bad {
+        background: #fdecea;
+      }
+      button {
+        width: 100%;
+        padding: 8px;
+        border: 0;
+        border-radius: 8px;
+        background: #5b2cff;
+        color: #fff;
+        font-weight: 600;
+        cursor: pointer;
+      }
+      code {
+        font-size: 11px;
+        word-break: break-all;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Hermes Browser Bridge</h1>
+    <div id="status" class="status">Checking local CDP…</div>
+    <p>
+      Local Agent mode uses Chrome DevTools on
+      <code>127.0.0.1:9222</code>. Install on the Mac:
+    </p>
+    <p><code>bash scripts/install-browser-bridge.sh</code></p>
+    <button id="copy" type="button">Copy connect prompt</button>
+    <script src="popup.js"></script>
+  </body>
+</html>

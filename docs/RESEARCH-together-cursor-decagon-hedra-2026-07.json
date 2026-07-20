@@ -1,0 +1,728 @@
+{
+  "run_id": "trun_7f093854186d43f5b31f4531ff9eb9f6",
+  "interaction_id": "trun_7f093854186d43f5b31f4531ff9eb9f6",
+  "result_url": "https://platform.parallel.ai/play/deep-research/trun_7f093854186d43f5b31f4531ff9eb9f6",
+  "status": "completed",
+  "output": {
+    "basis": [
+      {
+        "field": "answer",
+        "reasoning": "Assessment reasoning: The field answer is a comprehensive structured report that covers the executive verdict, what Together argues, dossiers on Cursor/Decagon/Hedra, analysis of the common pattern vs marketing claim, counterpoints, ROI-oriented implications for Hermes Mobile / ThumbGate / mac-yolo-safeguards, a Kimi WebBridge note, and a source list. It aligns with the user-provided information and the required sections. Some granular numerical claims (e.g., exact p50/p99 latencies, specific funding rounds, and every quoted figure) appear to be drawn from or corroborated by the excerpts list (e.g., Cursor/Together latency narrative, Hedra case study, Decagon references, funding/story snippets). Because the field answer discusses verified relationships, public claims, and independent verifications, and because excerpts include multiple pieces that support the core assertions (e.g., Cursor real-time low-latency inference with Together, Hedra scaling with Together, Decagon latency, and Kimi WebBridge as a browser-control wedge), the answer is largely supported by the excerpts. Potential gaps exist where some specifics are cited without an exact excerpt (or where marketing framing is acknowledged as Together\u2019s narrative), but overall the excerpts provide substantial backing for the major claims. Therefore, completeness is high and supported is true.",
+        "citations": [
+          {
+            "url": "http://jonpeddie.com/news/hedra-studio-an-all-in-one-ai-creative-studio",
+            "excerpts": [
+              "Hedra offers a unified solution for creating AI-generated high-quality videos from dialog and image input.\nHedra, an AI video generation platform, has received $32 million in Series A funding to expand their reach from the creator economy to the enterprise."
+            ],
+            "title": "Hedra Studio: An All-In-One AI Creative Studio"
+          },
+          {
+            "url": "https://www.crunchbase.com/organization/hedra-2986",
+            "excerpts": [
+              "Founded obfuscated\nHedra Studio is a content creation platform that enables users to generate videos, images, and audio using advanced AI tools.\nHedra is a content creation platform that uses AI to enables users to generate videos, images, and audio.\nMichael Lingelbach: Founder and CEO\nNumber of Funding Rounds 3\nTotal Funding obfuscated"
+            ],
+            "title": "Hedra - Crunchbase Company Profile & Funding"
+          },
+          {
+            "url": "https://www.reuters.com/technology/ai-video-generator-startup-hedra-raises-32-million-andreessen-horowitz-led-round-2025-05-15",
+            "excerpts": [
+              "AI video generator startup Hedra raises $32 million in ...\nMay 15, 2025 \u2014 Hedra, an AI startup that helps businesses generate lifelike videos, said it has raised $32 million in a funding round led by Andreessen Horowitz's"
+            ],
+            "title": "AI video generator startup Hedra raises $32 million in ..."
+          },
+          {
+            "url": "https://mkt.hedra.com/enterprise",
+            "excerpts": [
+              "Enterprise | Hedra - Hedra\nCreate content at scale with Hedra Enterprise. Fill out this form and our team will reach out to discuss your needs."
+            ],
+            "title": "Enterprise | Hedra - Hedra"
+          },
+          {
+            "url": "http://siliconangle.com/2025/05/15/ai-video-platform-hedra-raises-32m-build-digital-character-foundation-models",
+            "excerpts": [
+              "Hedra Inc. today announced it has raised $32 million for an AI platform that allows creators to generate lifelike and vivid videos of characters."
+            ],
+            "title": "AI video platform Hedra raises $32M to build digital character foundation models - SiliconANGLE"
+          },
+          {
+            "url": "https://cursor.com/blog/self-hosted-cloud-agents",
+            "excerpts": [
+              "Run cloud agents in your own infrastructure \u00b7 Cursor\nCursor now supports self-hosted cloud agents that keep your code and tool execution entirely in your own network. For agents to autonomously handle many software tasks in parallel, they need their own development environment. Cursor cloud agents run in isolated virtual machines, each with a terminal, browser, and full desktop."
+            ],
+            "title": "Run cloud agents in your own infrastructure \u00b7 Cursor"
+          },
+          {
+            "url": "https://coder.com/blog/comparing-coder-agents-and-cursor-agents",
+            "excerpts": [
+              "Self-Hosted Doesn't Always Mean What It Implies - Blog\nMay 6, 2026 \u2014 Cursor's self-hosted cloud agents are a good example of why this distinction matters. With Cursor, the execution layer runs on infrastructure"
+            ],
+            "title": "Self-Hosted Doesn't Always Mean What It Implies - Blog"
+          },
+          {
+            "url": "https://cursor.com/changelog/03-25-26",
+            "excerpts": [
+              "Self-hosted Cloud Agents \u00b7 Cursor\nCursor now supports self-hosted cloud agents that keep your code and tool execution entirely in your own network. Your codebase, build outputs, and secrets all stay on internal machines running in your infrastructure, while the agent handles tool calls locally."
+            ],
+            "title": "Self-hosted Cloud Agents \u00b7 Cursor"
+          },
+          {
+            "url": "https://docs.anyweb.dev/docs/cloud-agent/self-hosted-pool",
+            "excerpts": [
+              "Self-Hosted Agents | Cursor Docs\nSelf-hosted pools are an infrastructure-ownership choice . They do not move the agent loop out of Cursor's cloud. The worker executes terminal commands, file"
+            ],
+            "title": "Self-Hosted Agents | Cursor Docs"
+          },
+          {
+            "url": "https://www.together.ai/blog/learn-how-cursor-partnered-with-together-ai-to-deliver-real-time-low-latency-inference-at-scale",
+            "excerpts": [
+              "Learn how Cursor partnered with Together AI to deliver real-time, low ...\nJan 13, 2026 \u00b7 Together AI teamed with Cursor to build the real-time inference stack that keeps in-editor agents fast and reliable."
+            ],
+            "title": "Learn how Cursor partnered with Together AI to deliver real-time, low ..."
+          },
+          {
+            "url": "https://www.together.ai/customers/hedra",
+            "excerpts": [
+              "How Hedra Scales Viral AI Video Generation with 60% Cost Savings\nLearn how Hedra moved its viral AI video models to Together AI, cutting infrastructure costs by 60%, tripling inference speed, and scaling 300x."
+            ],
+            "title": "How Hedra Scales Viral AI Video Generation with 60% Cost Savings"
+          },
+          {
+            "url": "https://www.welcometothejungle.com/en/companies/hedra",
+            "excerpts": [
+              "Hedra - Light - Welcome to the Jungle\nWorking as a content engine, Hedra's online creation studio helps users generate dialogue, audio and video from words. As a digital presence automation tool,"
+            ],
+            "title": "Hedra - Light - Welcome to the Jungle"
+          },
+          {
+            "url": "http://linkedin.com/in/apatankar22",
+            "excerpts": [
+              "Name: Amogh Patankar | Position: Hedra Research Engineer \u2022 Inference, and optimization for real-time video generation and reasoning model(s). \u2022 Developing data and ML infrastructure and orchestrating the deployment of an end-to-end, scalable video data pipeline processing hundreds of gigabytes daily. \u2022 Routeinly serve as an interviewer on panels for ML infrastructure, ML data, and research scientist positions."
+            ],
+            "title": "Amogh Patankar"
+          },
+          {
+            "url": "http://rundown.ai/tools/hedra",
+            "excerpts": [
+              "Hedra is an AI creation lab that empowers human storytelling with cutting-edge video models.\ncategory=Content Creator"
+            ],
+            "title": "Hedra - The Rundown AI"
+          },
+          {
+            "url": "https://www.hedra.com/",
+            "excerpts": [
+              "Hedra\nHedra is a Frontier AI Lab building. models and products ... Generate your video using Hedra's proprietary Character-3 model or other leading genAI models."
+            ],
+            "title": "Hedra"
+          },
+          {
+            "url": "https://www.vocallabs.ai/blogs/decagon-ai-voice-agents-enterprise-review-2026",
+            "excerpts": [
+              "Decagon AI Voice Agents: An Enterprise Review for 2026\nDecagon provides transparent metrics to assess this. Enterprises can evaluate Decagon AI voice cost per conversation vs resolution pricing, gaining clarity"
+            ],
+            "title": "Decagon AI Voice Agents: An Enterprise Review for 2026"
+          },
+          {
+            "url": "https://www.crunchbase.com/organization/decagon-485e",
+            "excerpts": [
+              "Decagon provides an enterprise conversational AI platform that helps businesses automate and manage customer support across channels such as chat, email"
+            ],
+            "title": "Decagon - Crunchbase Company Profile & Funding"
+          },
+          {
+            "url": "https://elevenlabs.io/blog/decagon",
+            "excerpts": [
+              "Decagon Partners with ElevenLabs to Bring AI Voice ...\nFeb 24, 2025 \u2014 Decagon AI Voice Agents are designed to elevate customer support by delivering fast, intelligent, and human-like solutions."
+            ],
+            "title": "Decagon Partners with ElevenLabs to Bring AI Voice ..."
+          },
+          {
+            "url": "https://cresta.com/guides/best-ai-voice-agents-customer-service",
+            "excerpts": [
+              "Best AI Voice Agents for Enterprise Contact Centers\nCompare the six best AI voice agents for enterprise contact centers in 2026, including Cresta, Cognigy, Sierra, Decagon, Kore.ai, and Google CCAI."
+            ],
+            "title": "Best AI Voice Agents for Enterprise Contact Centers"
+          },
+          {
+            "url": "http://getperspective.ai/blog/best-ai-voice-agents-customer-conversations-2026-10-platforms-ranked",
+            "excerpts": [
+              "NICE CXone Mpower (contact center), Decagon (SaaS, fintech). Both run sub-500ms latency, both measure per-resolution success, Decagon for"
+            ],
+            "title": "Best AI Voice Agents for Customer Conversations in 2026"
+          },
+          {
+            "url": "http://together.ai/customers/decagon",
+            "excerpts": [
+              "Decagon partnered with Together AI to deliver sub-second voice AI with NVIDIA Blackwell GPUs, achieving <400ms latency, 6\u00d7 cost reduction, Decagon partnered with Together AI to deliver sub-second voice AI with NVIDIA Blackwell GPUs, achieving <400ms latency, 6\u00d7 cost reduction,"
+            ],
+            "title": "How Decagon Engineered Sub-Second Voice AI with ..."
+          },
+          {
+            "url": "http://modal.com/blog/decagon-case-study",
+            "excerpts": [
+              "How Decagon shipped real-time voice AI on Modal User avatar Richard Gong Member of Technical Staff User avatar Timothy Feng Member of Technical Staff User avatar Cyrus Asgari Research Engineer at Decagon _This post was written in conjunction with the Decagon team._ [Decagon](https://decagon.ai/) provides a unified platform to build, optimize, and scale AI agents that deliver concierge-level customer experiences across every channel. Earlier this year, they launched [Decagon Voice](https://decagon.ai/product/voice) , enabling teams to build fast, intelligent voice AI agents tailored to each brand's tone, personality, and performance needs. Voice is among the most technically demanding frontiers in AI. It requires sub-second latency, natural turn-taking, and seamless responsiveness, all while maintaining conversational quality. Meeting these constraints in production and at massive scale demanded breakthroughs in both model accuracy and inference performance. To make it possible, the Decagon and Modal teams partnered closely on two fronts: **Improving model accuracy:** Using advanced supervised fine-tuning (SFT) and reinforcement learning (RL) techniques, the team trained a suite of compact open-source models that deliver state-of-the-art accuracy and response quality \u2014 while remaining efficient enough for real-time voice interactions. **Achieving real-time inference:** They then paired it with real-time inference powered by custom draft models and deep engine-level optimizations from Modal's specialized LLM inference team. [Decagon Voice 2.0](https://decagon.ai/resources/decagon-voice-2) now has a 65% reduction in latency along with significant gains in intent recognition and response quality, setting a new standard for what's possible in voice AI interactions. ... Part 1: Improving model generalization through data, SFT, and RL The final breakthrough came when reinforcement learning techniques were applied to refine model behavior. By combining these approaches, the team surpassed frontier off-the-shelf performance of larger state-of-the-art models with a much smaller fine-tuned model. Modal's training solutions made that process frictionless. By providing high-GPU-concurrency sweeps, persistent volumes, and observability tools, engineers could easily launch, monitor, and compare fine-tuning runs without worrying about cluster orchestration or storage plumbing. This accelerated Decagon's ability to train and iterate on a set of models that generalized effectively across customer conversations. Part 2: Achieving real-time performance with custom draft models and runtime engineering Voice AI conversations need sub-second responses to feel natural. To reach that bar, Decagon required more than just an accurate target model; they needed an inference pipeline optimized for speed. Modal's inference team contributed on two fronts: training a specialized draft model and re-engineering the serving engine. **Training a custom speculator** Speculative decoding is a technique that accelerates inference by pairing a target model with a smaller \"speculator\" (or draft model). The draft model rapidly proposes candidate tokens, and the target model verifies them. When many of those proposals are accepted, the system skips ahead, cutting generation time dramatically. Off-the-shelf EAGLE3 draft models showed limited accept lengths when paired with Decagon's target model. To address this, Modal's team forked **SpecForge** and built a custom training pipeline for EAGLE3 draft models \u2014 first pre-training on broad conversational data, then fine-tuning using Decagon's domain dataset. The resulting draft model achieved **38% higher accept lengths** than open-source baselines, unlocking a major leap in inference efficiency. **Re-engineering SGLang for real-time** While the custom draft model provided a major speedup, more performance gains could be unlocked at the runtime layer. By digging into SGLang \u2014 the open-source inference engine used to serve the models \u2014 Modal uncovered some optimization opportunities that ultimately made real-time inference feasible. SGLang's synchronous design introduced two main bottlenecks: **CPU stalls** in the critical path capped GPU utilization. **No async scheduler** for low-latency speculative decoding. decagon diagram To overcome these limitations, the team built a new asynchronous scheduler for speculative decoding. This eliminated host-side inefficiencies, enabled GPU kernels to run in parallel rather than serially, and made SGLang effectively sync-free for speculative decoding. These changes completely eliminated idle time on H200 GPUs and improved throughput by up to 12%. The improvements are already being upstreamed to SGLang in [this PR](https://github.com/sgl-project/sglang/pull/9588) . Decagon was able to achieve a p90 latency of 342ms, well below the sub-second range required for natural customer conversations \u2014 delivering speed, efficiency, and enterprise-scale reliability. What's next for Decagon and Modal Building real-time voice AI at scale is one of the toughest infrastructure challenges, combining the demands of large-model training with the latency constraints of interactive systems. Together, Decagon and Modal pushed the boundaries on both fronts, pairing advanced fine-tuning and reinforcement learning techniques with deep runtime optimizations. Modal's infrastructure powered this progress, enabling Decagon to train and serve increasingly capable models while scaling seamlessly to meet rapidly growing traffic. As Decagon's platform continues to evolve, Modal's systems will keep supporting the next generation of real-time AI experiences \u2014 training more models, serving them faster, and helping shape the future of conversational intelligence.\nUser avatar Richard Gong Member of Technical Staff User avatar Timothy Feng Member of Technical Staff User avatar Cyrus Asgari Research Engineer at Decagon\nHow Decagon shipped real-time voice AI on Modal User avatar Richard Gong Member of Technical Staff User avatar Timothy Feng Member of Technical Staff User avatar Cyrus Asgari Research Engineer at Decagon _This post was written in conjunction with the Decagon team._ [Decagon](https://decagon.ai/) provides a unified platform to build, optimize, and scale AI agents that deliver concierge-level customer experiences across every channel. Earlier this year, they launched [Decagon Voice](https://decagon.ai/product/voice) , enabling teams to build fast, intelligent voice AI agents tailored to each brand's tone, personality, and performance needs. Voice is among the most technically demanding frontiers in AI. It requires sub-second latency, natural turn-taking, and seamless responsiveness, all while maintaining conversational quality. Meeting these constraints in production and at massive scale demanded breakthroughs in both model accuracy and inference performance. To make it possible, the Decagon and Modal teams partnered closely on two fronts: **Improving model accuracy:** Using advanced supervised fine-tuning (SFT) and reinforcement learning (RL) techniques, the team trained a suite of compact open-source models that deliver state-of-the-art accuracy and response quality \u2014 while remaining efficient enough for real-time voice interactions. **Achieving real-time inference:** They then paired it with real-time inference powered by custom draft models and deep engine-level optimizations from Modal's specialized LLM inference team. [Decagon Voice 2.0](https://decagon.ai/resources/decagon-voice-2) now has a 65% reduction in latency along with significant gains in intent recognition and response quality, setting a new standard for what's possible in voice AI interactions. ... Part 1: Improving model generalization through data, SFT, and RL The final breakthrough came when reinforcement learning techniques were applied to refine model behavior. By combining these approaches, the team surpassed frontier off-the-shelf performance of larger state-of-the-art models with a much smaller fine-tuned model. Modal's training solutions made that process frictionless. By providing high-GPU-concurrency sweeps, persistent volumes, and observability tools, engineers could easily launch, monitor, and compare fine-tuning runs without worrying about cluster orchestration or storage plumbing. This accelerated Decagon's ability to train and iterate on a set of models that generalized effectively across customer conversations. Part 2: Achieving real-time performance with custom draft models and runtime engineering Voice AI conversations need sub-second responses to feel natural. To reach that bar, Decagon required more than just an accurate target model; they needed an inference pipeline optimized for speed. Modal's inference team contributed on two fronts: training a specialized draft model and re-engineering the serving engine. **Training a custom speculator** Speculative decoding is a technique that accelerates inference by pairing a target model with a smaller \"speculator\" (or draft model). The draft model rapidly proposes candidate tokens, and the target model verifies them. When many of those proposals are accepted, the system skips ahead, cutting generation time dramatically. Off-the-shelf EAGLE3 draft models showed limited accept lengths when paired with Decagon's target model. To address this, Modal's team forked **SpecForge** and built a custom training pipeline for EAGLE3 draft models \u2014 first pre-training on broad conversational data, then fine-tuning using Decagon's domain dataset. The resulting draft model achieved **38% higher accept lengths** than open-source baselines, unlocking a major leap in inference efficiency. **Re-engineering SGLang for real-time** While the custom draft model provided a major speedup, more performance gains could be unlocked at the runtime layer. By digging into SGLang \u2014 the open-source inference engine used to serve the models \u2014 Modal uncovered some optimization opportunities that ultimately made real-time inference feasible. SGLang's synchronous design introduced two main bottlenecks: **CPU stalls** in the critical path capped GPU utilization. **No async scheduler** for low-latency speculative decoding. decagon diagram To overcome these limitations, the team built a new asynchronous scheduler for speculative decoding. This eliminated host-side inefficiencies, enabled GPU kernels to run in parallel rather than serially, and made SGLang effectively sync-free for speculative decoding. These changes completely eliminated idle time on H200 GPUs and improved throughput by up to 12%. The improvements are already being upstreamed to SGLang in [this PR](https://github.com/sgl-project/sglang/pull/9588) . Decagon was able to achieve a p90 latency of 342ms, well below the sub-second range required for natural customer conversations \u2014 delivering speed, efficiency, and enterprise-scale reliability. What's next for Decagon and Modal Building real-time voice AI at scale is one of the toughest infrastructure challenges, combining the demands of large-model training with the latency constraints of interactive systems. Together, Decagon and Modal pushed the boundaries on both fronts, pairing advanced fine-tuning and reinforcement learning techniques with deep runtime optimizations. Modal's infrastructure powered this progress, enabling Decagon to train and serve increasingly capable models while scaling seamlessly to meet rapidly growing traffic. As Decagon's platform continues to evolve, Modal's systems will keep supporting the next generation of real-time AI experiences \u2014 training more models, serving them faster, and helping shape the future of conversational intelligence"
+            ],
+            "title": "How Decagon shipped real-time voice AI on Modal"
+          },
+          {
+            "url": "https://trillet.ai/blogs/voice-ai-latency-benchmarks",
+            "excerpts": [
+              "\"Voice AI Latency Benchmarks: What Agencies Need to ...\nJan 30, 2026 \u2014 When AI latency exceeds 800ms, callers notice awkward pauses. Above 1,500ms, conversations feel broken and frustrating. Your clients' customers"
+            ],
+            "title": "\"Voice AI Latency Benchmarks: What Agencies Need to ..."
+          },
+          {
+            "url": "https://www.twig.so/blog/voice-ai-agents-latency-budget-800ms",
+            "excerpts": [
+              "Latency Budgets for Voice AI Agents: The 800ms Rule ... - Twig\nMay 21, 2026 \u2014 A voice AI agent has roughly 800ms from the caller's end-of-utterance to first audible response \u2014 and that budget has to cover endpoint"
+            ],
+            "title": "Latency Budgets for Voice AI Agents: The 800ms Rule ... - Twig"
+          },
+          {
+            "url": "https://www.together.ai/blog/announcing-our-series-c",
+            "excerpts": [
+              "Announcing our $800M Series C to accelerate the shift to ...\n21 hours ago \u2014 Decagon, for example, reduced its inference costs sixfold after moving to Together AI. But the economics of production AI are not determined by models alone."
+            ],
+            "title": "Announcing our $800M Series C to accelerate the shift to ..."
+          },
+          {
+            "url": "https://liteaso.com/blog/app-store-optimization-guide",
+            "excerpts": [
+              "App Store Optimization Guide 2026 \u2014 Complete ASO Strategy ...\nThe complete guide to app store optimization in 2026. Covers keyword research, metadata optimization, competitor analysis, AI-powered ASO, ratings strategy, and localization for App Store and Google Play."
+            ],
+            "title": "App Store Optimization Guide 2026 \u2014 Complete ASO Strategy ..."
+          },
+          {
+            "url": "https://asomobile.net/en/blog/aso-in-2026-the-complete-guide-to-app-optimization",
+            "excerpts": [
+              "App Store Optimization in 2026: ASO Strategy, Trends, and ...\nASO (App Store Optimization) is the process of improving your app\u2019s visibility and conversion in app stores. It helps users find your app through the right keywords and persuades them to install it through compelling visuals and copy."
+            ],
+            "title": "App Store Optimization in 2026: ASO Strategy, Trends, and ..."
+          },
+          {
+            "url": "https://docs.anchorbrowser.io/agentic-browser-control/computer-use-agents/anthropic",
+            "excerpts": [
+              "Anthropic Computer Use - Anchor Browser Docs\nAnthropic\u2019s Claude models with Computer Use capabilities enable AI agents to interact with web browsers through screenshots and native computer control actions."
+            ],
+            "title": "Anthropic Computer Use - Anchor Browser Docs"
+          },
+          {
+            "url": "https://www.marc0.dev/en/blog/ai-agents/mac-mini-ai-server-ollama-openclaw-claude-code-complete-guide-2026-1770481256372",
+            "excerpts": [
+              "Mac Mini M4 AI Server: Local LLM + Agent Setup (2026)\nI wrote a detailed setup guide with hardware specs and security considerations \u2014 if OpenClaw is your primary use case, read that one. And if you are wondering about the security side, I dug into the CVE and what it actually means."
+            ],
+            "title": "Mac Mini M4 AI Server: Local LLM + Agent Setup (2026)"
+          },
+          {
+            "url": "https://app369.com/blog/app-store-optimization-aso-guide-2026",
+            "excerpts": [
+              "App Store Optimization (ASO) Guide (2026)\nMaster App Store Optimization in 2026. Learn proven ASO strategies for the Apple App Store and Google Play to boost downloads, rankings, and visibility."
+            ],
+            "title": "App Store Optimization (ASO) Guide (2026)"
+          },
+          {
+            "url": "https://developer.nvidia.com/blog/how-to-safeguard-ai-agents-for-customer-service-with-nvidia-nemo-guardrails",
+            "excerpts": [
+              "How to Safeguard AI Agents for Customer Service with NVIDIA ...\nThis tutorial equips AI builders with actionable steps to integrate essential safeguards into AI agents for customer service applications."
+            ],
+            "title": "How to Safeguard AI Agents for Customer Service with NVIDIA ..."
+          },
+          {
+            "url": "https://www.agno.com/blog/guardrails-for-ai-agents",
+            "excerpts": [
+              "Guardrails for AI Agents - agno.com\nGuardrails for AI Agents provide safeguards that keep autonomous AI systems safe, compliant, and aligned. In this blog, we unpack what AI guardrails are, how they work, and why they matter now more than ever."
+            ],
+            "title": "Guardrails for AI Agents - agno.com"
+          },
+          {
+            "url": "https://blog.mozilla.ai/can-open-source-guardrails-really-protect-ai-agents",
+            "excerpts": [
+              "Benchmarking Guardrails for AI Agent Safety - Mozilla.ai Blog\nOpen source guardrail benchmarks for AI agents. PIGuard leads in prompt injection detection, though function call validation lags behind."
+            ],
+            "title": "Benchmarking Guardrails for AI Agent Safety - Mozilla.ai Blog"
+          },
+          {
+            "url": "https://www.querypie.com/en/whitepapers/ai-agent-guardrails-governance-2026",
+            "excerpts": [
+              "Guardrail Design in the AI Agent Era (2026 Edition) \u2014 Part 1 ...\nAs AI agents move from conversational assistants to autonomous executors, enterprises need stronger control systems. This 2026 guide explains a four-element guardrail framework\u2014Permission, Approval, Audit Trail, and Kill Switch\u2014for CxOs and operational leaders."
+            ],
+            "title": "Guardrail Design in the AI Agent Era (2026 Edition) \u2014 Part 1 ..."
+          },
+          {
+            "url": "https://www.reco.ai/hub/guardrails-for-ai-agents",
+            "excerpts": [
+              "Adding Guardrails for AI Agents: Policy and Configuration Guide\nOct 26, 2025 \u2014 Guardrails are the limits and checks that the AI agent is subjected to so that its operation is always predictable, safe, and compliant."
+            ],
+            "title": "Adding Guardrails for AI Agents: Policy and Configuration Guide"
+          },
+          {
+            "url": "https://news.codegotech.com/moonshot-ai-kimi-webbridge-local-browser-automation",
+            "excerpts": [
+              "Moonshot AI Launches Browser Extension for Local AI Agent Web ...\nThe extension's compatibility with both Chrome and Edge browsers ensures broad market accessibility, covering the vast majority of enterprise and consumer browsing environments."
+            ],
+            "title": "Moonshot AI Launches Browser Extension for Local AI Agent Web ..."
+          },
+          {
+            "url": "https://www.opensourceforu.com/2026/05/kimi-webbridge-turns-open-source-ai-into-a-local-browser-operator",
+            "excerpts": [
+              "Kimi WebBridge Turns Open Source AI Into A Local Browser ...\nMoonshot AI has launched Kimi WebBridge, a browser extension that allows AI agents to control Chrome and Edge locally using the company\u2019s open-source Kimi model family, highlighting how Chinese open-source frontier AI is increasingly powering the next generation of browser agents and developer tools."
+            ],
+            "title": "Kimi WebBridge Turns Open Source AI Into A Local Browser ..."
+          },
+          {
+            "url": "https://the-ctr.net/kimi-webbridge-ai-browser",
+            "excerpts": [
+              "Moonshot AI Launches Kimi WebBridge: Enabling Real-Time Web ...\nMoonshot AI launched Kimi WebBridge, a browser extension enabling its AI agents to browse the web dynamically, fundamentally shifting how generative AI interacts with real-time internet data."
+            ],
+            "title": "Moonshot AI Launches Kimi WebBridge: Enabling Real-Time Web ..."
+          },
+          {
+            "url": "https://thetechnologyexpress.com/moonshot-ai-launches-local-browser-tool-for-privacy-focused-ai-agents",
+            "excerpts": [
+              "Moonshot AI Launches Local Browser Tool for Privacy-Focused ...\nBeijing-based Moonshot AI has introduced Kimi WebBridge, a new browser extension that allows AI agents to control Chrome and Edge directly on a user\u2019s device."
+            ],
+            "title": "Moonshot AI Launches Local Browser Tool for Privacy-Focused ..."
+          },
+          {
+            "url": "https://medium.com/%40mutalecharles/kimi-webbridge-is-the-first-browser-automation-tool-that-doesnt-betray-its-users-ac30141775f5",
+            "excerpts": [
+              "Kimi WebBridge Is the First Browser Automation Tool That ...\nMoonshot AI\u2019s new Kimi WebBridge does something different. It installs as a browser extension, runs the agent logic locally on your machine, and never sends your session tokens anywhere."
+            ],
+            "title": "Kimi WebBridge Is the First Browser Automation Tool That ..."
+          },
+          {
+            "url": "http://sacra.com/c/decagon",
+            "excerpts": [
+              "Decagon completed a $35 million Series A round in July 2024.\nThe company has raised approximately $481 million to date.\nDecagon previously raised a $131 million Series C in June 2025 at a $1.5 billion valuation, co-led by Accel and Andreessen Horowitz's growth fund. The company was valued at $650 million as of October 2024, following a $65 million Series B funding round led by Bain Capital Ventures.\nDecagon was valued at $4.5 billion in January 2026, following a $250 million Series D funding round led by Coatue Management and Index Ventures.\nThe company was valued at $650 million as of October 2024, following a $65 million Series B funding round led by Bain Capital Ventures.\nThe round included participation from new investors ChemistryVC, Definition Capital, and Starwood Capital, along with continued support from existing investors including a16z, A\\*, Accel, Avra, Bain Capital Ventures, Elad Gil, Forerunner, Ribbit Capital, and T.Capital"
+            ],
+            "title": "Decagon revenue, valuation & funding | Sacra"
+          },
+          {
+            "url": "http://reuters.com/technology/customer-service-ai-startup-decagon-raises-131-million-2025-06-23",
+            "excerpts": [
+              "Jun 23, 2025 \u2014 The fundraise comes less than a year after a Series B round, when it raised $65 million at a $650 million valuation. The funding establishes\nJun 23, 2025 \u2014 The fundraise comes less than a year after a Series B round, when it raised $65 million at a $650 million valuation"
+            ],
+            "title": "Customer service AI startup Decagon raises $131 million | Reuters"
+          },
+          {
+            "url": "http://finance.yahoo.com/news/decagon-raises-250-million-valuation-161223745.html",
+            "excerpts": [
+              "Decagon AI Inc., a customer support startup founded in 2023, has secured $250 million in fresh funding , tripling its valuation to $4.5 billion\nJan 29, 2026 \u2014 Decagon AI Inc., a customer support startup founded in 2023, has secured $250 million in fresh funding , tripling its valuation to $4.5 billion\nThe round, set to be announced Wednesday, was led by Coatue Management and Index Ventures, with participation from Chemistry VC, Definition Capital and Starwood Capital Group, while existing backers including Andreessen Horowitz, Accel and Bain Capital Ventures also joined."
+            ],
+            "title": "Decagon Raises $250 Million, Valuation Triples to $4.5 Billion in AI Funding Round"
+          },
+          {
+            "url": "https://www.startuphub.ai/ai-news/press-release/2024/decagon-secured-65m-series-b-for-customer-support-ai-agents",
+            "excerpts": [
+              "Decagon Secured $65M Series B for Customer Support AI Agents\nDecagon, the leading innovator in customer support AI Agents, today announced it has raised a total of $100 million, including its latest Series B funding round, quadrupling its valuation in just a few months."
+            ],
+            "title": "Decagon Secured $65M Series B for Customer Support AI Agents"
+          },
+          {
+            "url": "http://teneo.ai/blog/decagon-ai-overview-best-alternatives-in-2026",
+            "excerpts": [
+              "Funding: Around 231 million dollars in total, including a 65 million dollar Series B in 2024 and a 131 million dollar Series C in 2025"
+            ],
+            "title": "Decagon AI Overview & Best Alternatives in 2026"
+          },
+          {
+            "url": "http://techcrunch.com/2025/05/15/hedra-the-app-used-to-make-talking-baby-podcasts-raises-32m-from-a16z",
+            "excerpts": [
+              "May 15, 2025 \u2014 The company on Thursday said it has raised $32 million in a Series A funding round led by Andreessen Horowitz's Infrastructure fund. com%2F2025%2F05%2F15%2Fhedra-the-app-used-to-make-talking-baby-podcasts-raises-32m-from-a16z%2F&title=Hedra%2C+the+app+used+to+make+talking+baby+podcasts%2C+raises+%2432M+from+a16z&summary=Hedra%2C+which+offers+a+video+generation+and+editing+suite+powered+by+its+Character-3+model%2C+has+raised+%2432M.&mini=1&source=TechCrunch) [](https://www.reddit.com/submit?url=https%3A%2F%2Ftechcrunch.com%2F2025%2F05%2F15%2Fhedra-the-app-used-to-make-talking-baby-podcasts-raises-32m-from-a16z%2F&title=Hedra%2C+the+app+used+to+make+talking+baby+podcasts%2C+raises+%2432M+from+a16z) [](https://techcrunch.com/2025/05/15/hedra-the-app-used-to-make-talking-baby-podcasts-raises-32m-from-a16z/) People are using AI video generation tools to contribute to an unexpected new viral trend: podcasts featuring [AI-generated](https://x.com/ChrisJBakke/status/1922109990002737453) [talking](https://www.youtube.com/shorts/yAn5HKUJELM) [babies](https://x.com/ChrisJBakke/status/1922109990002737453) . And one of the companies helping artists do this is [Hedra](https://x.com/hedra_labs/status/1922366273050005591) . The startup, launched in 2023, offers a web-based video-generation and editing suite powered by its Character-3 model, which lets users make videos with an AI-generated character as the focus, as well as transfer styles across images and audio. This is what people are using to make podcast videos like [this one](https://x.com/minchoi/status/1915250981463326902) , in which an AI-generated dog talks about what it's like to live with a new baby in the house. We're not sure how much Hedra has benefited from this trend, but it's receiving ample investor attention nevertheless: The company on Thursday said it has raised $32 million in a Series A funding round led by Andreessen Horowitz's Infrastructure fund. Its previous investors are participating in the round, and a16z's Matt Bornstein will join the startup's board. Michael Lingelbach, Hedra's founder and CEO, told TechCrunch the startup was inspired by the gap he noticed between companies like Synthesia, which let users superimpose AI-generated avatars over presentations, and startups like Runway, which provide video-generation tools for creating short clips. \"I thought what if we did something at the intersection of video generation and 3D characters, with long dialogues and better controllability,\" he said. Michael Lingelbach, Hedra's founder and CEO. **Image Credits:** Hedra Hedra launched its first video model in June 2024 and quickly attracted investor interest, securing $10 million in seed funding from Index Ventures, Abstract Ventures, and a16z speedrun. Earlier this year, Amazon also [backed the company](https://techcrunch.com/2025/03/26/amazon-alexa-fund-invests-into-four-new-startups-as-it-plans-to-invest-more-into-ai-solutions/) through its venture capital arm, Alexa Fund.\nThe company on Thursday said it has raised $32 million in a Series A funding round led by Andreessen Horowitz's Infrastructure fund.\nEarlier this year, Amazon also [backed the company](https://techcrunch.com/2025/03/26/amazon-alexa-fund-invests-into-four-new-startups-as-it-plans-to-invest-more-into-ai-solutions/) through its venture capital arm, Alexa Fund.\nHedra launched its first video model in June 2024 and quickly attracted investor interest, securing $10 million in seed funding from Index Ventures, Abstract Ventures, and a16z speedrun.\nIts previous investors are participating in the round, and a16z's Matt Bornstein will join the startup's board.\nHedra launched its first video model in June 2024 and quickly attracted investor interest, securing $10 million in seed funding from Index\nHedra, the app used to make talking baby podcasts, raises $32M from a16z We're not sure how much Hedra has benefited from this trend, but it's receiving ample investor attention nevertheless: The company on Thursday said it has raised $32 million in a Series A funding round led by Andreessen Horowitz's Infrastructure fund."
+            ],
+            "title": "Hedra, the app used to make talking baby podcasts, raises $32M from a16z | TechCrunch"
+          },
+          {
+            "url": "https://www.techinasia.com/news/a16z-leads-32m-series-a-for-character-based-ai-startup-hedra",
+            "excerpts": [
+              "A16z leads $32m series A for character-based AI startup ...\nMay 16, 2025 \u2014 Hedra, an AI startup focused on character-driven video content, has secured US$32 million in series A funding."
+            ],
+            "title": "A16z leads $32m series A for character-based AI startup ..."
+          },
+          {
+            "url": "http://finance.yahoo.com/news/hedra-raises-32m-build-leading-130000097.html",
+            "excerpts": [
+              "The series A funding round was led by Andreessen Horowitz's Infrastructure fund (a16z Infra), with participation from existing investors, including a16z speedrun, Abstract, and Index Ventures.\nThis round brings the company's total funding to $44 million since its last announced fundraise in 2024."
+            ],
+            "title": "Hedra raises $32M to build the leading generative media platform for digital characters"
+          },
+          {
+            "url": "http://superbcrew.com/hedra-raises-32m-series-a-and-builds-the-future-of-ai-character-video-with-purpose-and-precision",
+            "excerpts": [
+              "Hedra secures $32 million in Series A funding.\nHedra's total funding to $44"
+            ],
+            "title": "Hedra Raises $32M Series A And Builds The Future Of AI Character Video With Purpose And Precision - SuperbCrew"
+          },
+          {
+            "url": "https://www.outsetcapital.com/blog/hedra-series-a",
+            "excerpts": [
+              "Hedra Raises $32M Series A\nTechCrunch covered our portfolio company Hedra's $32 million Series A led by Andreessen Horowitz, with participation from Index Ventures, Abstract Ventures,"
+            ],
+            "title": "Hedra Raises $32M Series A"
+          },
+          {
+            "url": "http://en.wikipedia.org/wiki/Cursor_%28company%29",
+            "excerpts": [
+              "Anysphere, Inc., doing business as Cursor, is an American software ... \"Cursor's Anysphere nabs $9.9B valuation, soars past $500M ARR\". TechCrunch\nAnysphere, Inc., Cursor achieved a US$29.3 billion valuation valuing the company at $60 billion, venue Increase US$3 billion ARR (May 2026)"
+            ],
+            "title": "Cursor (company)"
+          },
+          {
+            "url": "https://pulse2.com/cursor-in-talks-for-funding-at-50-billion-valuation-says-report",
+            "excerpts": [
+              "Cursor In Talks For Funding At $50 Billion Valuation, Says Report\nLater that year, it raised a massive $2.3 billion Series D round co-led by Accel and Coatue, with participation from investors including Google"
+            ],
+            "title": "Cursor In Talks For Funding At $50 Billion Valuation, Says Report"
+          },
+          {
+            "url": "https://www.businesswire.com/news/home/20251113939996/en/Cursor-Secures-%242.3-Billion-Series-D-Financing-at-%2429.3-Billion-Valuation-to-Redefine-How-Software-is-Written",
+            "excerpts": [
+              "Cursor Secures $2.3 Billion Series D Financing at $29.3 ...\nCursor, the leading AI development platform, announced the successful closing of its Series D funding round, raising $2.3 billion at a post-"
+            ],
+            "title": "Cursor Secures $2.3 Billion Series D Financing at $29.3 ..."
+          },
+          {
+            "url": "https://www.thesaasnews.com/news/cursor-secures-2-3b-series-d-at-29-3b-valuation",
+            "excerpts": [
+              "Cursor Secures $2.3B Series D at $29.3B Valuation - The SaaS News\nCursor Secures $2.3B Series D at $29.3B Valuation. Cursor, a San Francisco, CA\u2013based AI development platform, has raised $2.3 billion in Series D funding, bringing the company's post-money valuation to $29.3 billion."
+            ],
+            "title": "Cursor Secures $2.3B Series D at $29.3B Valuation - The SaaS News"
+          },
+          {
+            "url": "https://www.facebook.com/investclub.sv/videos/cursor-raises-23-billion-at-a-293-billion-valuation/1375125014320270",
+            "excerpts": [
+              "Cursor Raises $2.3 Billion at a $29.3 Billion Valuation - Facebook\nCursor has raised $2.3 billion in a Series D funding round, bringing the company's valuation to $29.3 billion. The round was led by Accel"
+            ],
+            "title": "Cursor Raises $2.3 Billion at a $29.3 Billion Valuation - Facebook"
+          },
+          {
+            "url": "https://www.spheron.network/blog/ai-inference-cost-economics-2026",
+            "excerpts": [
+              "AI Inference Cost Economics in 2026: GPU FinOps Playbook\n80% of AI GPU spend is now inference. This playbook covers cost-per-token math, four optimization layers, and a real case study cutting monthly infrastructure costs by 59%."
+            ],
+            "title": "AI Inference Cost Economics in 2026: GPU FinOps Playbook"
+          },
+          {
+            "url": "https://www.cloudrift.ai/blog/benchmarking-b200",
+            "excerpts": [
+              "Blackwell Dominates. Benchmarking LLM Inference on ...\nJan 20, 2026 \u2014 Our goal here is to identify the most cost-effective high-end inference. GPU pricing used in this analysis GPU. Estimated Run Cost $/GPU-hr \u30fb"
+            ],
+            "title": "Blackwell Dominates. Benchmarking LLM Inference on ..."
+          },
+          {
+            "url": "https://www.cloudrift.ai/gpu-benchmarks",
+            "excerpts": [
+              "GPU Benchmarks for LLM Inference: RTX, H100, B200\nFor mid-scale enterprise inference, the RTX PRO 6000 Blackwell beats the H100 on cost per token at single-GPU scale. For high-concurrency serving on a budget, the RTX 5090 delivers about 2\u00d7 the throughput of the RTX 4090 with a lower cost per million tokens."
+            ],
+            "title": "GPU Benchmarks for LLM Inference: RTX, H100, B200"
+          },
+          {
+            "url": "https://www.together.ai/customers",
+            "excerpts": [
+              "Customer Stories\nSee how AI-native companies build at production scale on Together AI \u2014 real stories on inference, fine-tuning, GPU clusters, and cost savings."
+            ],
+            "title": "Customer Stories"
+          },
+          {
+            "url": "https://perspectives.nvidia.com/ai-infrastructure/total-cost-of-ownership/economic-value-inference-software-optimization-datacenter",
+            "excerpts": [
+              "Maximize Data Center Tokens: NVIDIA Blackwell & TensorRT\u2011LLM\nThe economic value of inference software optimization at the datacenter level is substantial and measurable: NVIDIA achieved a 5x reduction in cost per token through TensorRT-LLM optimization alone within two months of Blackwell launch, with no hardware change."
+            ],
+            "title": "Maximize Data Center Tokens: NVIDIA Blackwell & TensorRT\u2011LLM"
+          },
+          {
+            "url": "https://asksurf.ai/pulse/en/webbridge-interoperable-agent-infra-onchain",
+            "excerpts": [
+              "Kimi's WebBridge Lets AI Agents Control Your Browser\nWith only 10,000 Chrome users so far, this is positioning rather than disruption\u2014scale has to come first. Kimi's WebBridge extension lets AI agents search, scroll, click, and type on live websites\u2014not just call APIs. It works with Claude Code, Cursor, and similar tools."
+            ],
+            "title": "Kimi's WebBridge Lets AI Agents Control Your Browser"
+          },
+          {
+            "url": "https://chromewebstore.google.com/detail/kimi-webbridge/fldmhceldgbpfpkbgopacenieobmligc",
+            "excerpts": [
+              "Kimi WebBridge - Chrome Web Store\nKimi WebBridge is a browser extension built for AI agents. It lets an AI agent drive your browser for you \u2014 opening pages, clicking buttons, filling out forms, extracting information,"
+            ],
+            "title": "Kimi WebBridge - Chrome Web Store"
+          },
+          {
+            "url": "https://www.kimi.com/features/webbridge",
+            "excerpts": [
+              "WebBridge - Let Kimi Agent Drive Your Browser | Kimi\nHow does Kimi WebBridge work? Kimi WebBridge pairs a local service with a browser extension. The agent sends commands to the local service, which uses Chrome DevTools Protocol to navigate, click, screenshot, and read pages in your existing Chrome or Edge browser \u2014 then sends the results back."
+            ],
+            "title": "WebBridge - Let Kimi Agent Drive Your Browser | Kimi"
+          },
+          {
+            "url": "http://raycast.com/core-features/ai",
+            "excerpts": [
+              "Raycast is a powerful, keyboard-driven productivity tool that transforms how users interact with their Mac, offering an extensible launcher with AI capabilities"
+            ],
+            "title": "AI that works with your OS"
+          },
+          {
+            "url": "https://www.businessofapps.com/data/top-grossing-apps",
+            "excerpts": [
+              "Top Grossing Apps (2026) - Business of Apps\nThe Apple App Store and Google Play Store control over 90 percent of in-app revenue worldwide, with hundreds of billions spent on mobile apps every year. In the past decade, we have seen a shift from paid for apps to subscriptions, in-app purchases, and other recurring revenue streams. This has massively increased the market size, with app developers able to lock in customers for years. In the"
+            ],
+            "title": "Top Grossing Apps (2026) - Business of Apps"
+          },
+          {
+            "url": "https://appark.ai/en/top-charts/app-store",
+            "excerpts": [
+              "Live App Store Charts: Top Free, Paid & Grossing iOS Rankings ...\nView the latest live top charts for the Apple App Store on Appark for free. Track the Top 200 free, paid, and grossing apps and games for iPhone & iPad to discover iOS market trends."
+            ],
+            "title": "Live App Store Charts: Top Free, Paid & Grossing iOS Rankings ..."
+          },
+          {
+            "url": "http://support.setapp.com/hc/en-us/articles/12600241766044-AI-subscription-plans",
+            "excerpts": [
+              "[Elephas](https://setapp.com/apps/elephas) \u2014 Personal AI writing assistant for Mac. [JoyCast](https://setapp.com/apps/joycast) \u2014 Improve meeting audio quality. [Plus](https://setapp.com/apps/plus) \u2014 Work with text using AI. [Ready to Send](https://setapp.com/apps/ready-to-send) \u2014 Generate draft email replies. [Soulver](https://setapp.com/apps/soulver) \u2014 Convert and calculate in notes. [TranscribeX](https://setapp.com/apps/transcribex) \u2014 Convert audio & video into text. [Transcrybe](https://setapp.com/apps/transcrybe) \u2014 Translate audio in real time. [TypingMind](https://setapp.com/apps/typingmind) \u2014 Use a new UI to chat with AI. Visit the [Solve with AI+](https://setapp.com/apps?category=solve-with-ai) category on the web or in the Setapp desktop to browse all available AI apps. FAQ\n| Devices | 1 Mac | 4 macs 4 iPhones | Macs/iPhones/iPads | | depending on plan |  |  |  | | Free trial | 7 days | 7 days | 7 days | | Credits on trial | 450 | 450 | 90 | | Credits per month | 6000 | 9000 | 1000 | | **AI models** |  |  |  | **Text:** OpenAI, Anthropic, Google, Meta, Perplexity, xAI (Grok) **Images:** DALL-E, Gemini Nano Banana **Voice:** Whisper |tick |tick |tick | |Monthly price, USD |$ 22,99 |$ 35,99 |from $ 14,99 | |Annual pricee, USD |$ 161,88 |$ 259,08 |from $ 107,88 | _**Notes** :_ If you have your own subscription to an AI service (OpenAI, Anthropic, etc.), you can add your personal API key to Setapp AI apps that support this option. Your personal key won't impact the Setapp AI tracker, so remember to track your AI usage through your AI provider's account. Unused credits from the free 7-day trial will not carry over or be added to the credits included in your chosen plan. The prices listed don't include taxes, which vary by country of residence. About credits _**Credits**_ are the unit used to calculate your AI usage across all Setapp AI+ apps. The number of tokens per credit varies depending on the AI model used. A _**token**_ is a small piece of information that AI systems use to understand human language. It can be a word, part of a word, or a group of words. About 1,000 tokens equals 750 words. To give you an idea of the credit value, here is a _very approximate_ conversion to AI messages and minutes. **100 credits in** [**TypingMind**](https://setapp.com/apps/typingmind) **:** \u2248 133 messages (your requests + AI answers) with the GPT3.5-Turbo model \u2248 7 messages with the GPT4-Turbo model \u2248 13 messages with the GPT-4o model \u2248 16 minutes in MurmurType with the Whisper model _**Note:**_ Each app in the Setapp AI+ collection is powered by AI models chosen by the app developer, ranging from text to voice transcription. Depending on the model, the length of your request, and the type of task, the cost of each interaction may vary in credits. The actual value of 1 credit will depend on the number of tokens in the messages, the AI model, and other parameters. Unused credits are reset and will not be carried over to the next billing period. You can check the number of available credits and where you used them in your [_**Setapp account**_](https://account.setapp.com) _**> Credits**_ . Your remaining credits are also visible directly in the Setapp desktop header. The icon also changes when you're running low (under 5% remaining), so you'll always know where you stand. Click the credits counter to manage your balance in your Setapp account. AI apps in Setapp Our AI collection features around 30 apps and continues to grow. Here are some of the most popular AI apps on Setapp to enhance your daily routine: [Amie](https://setapp.com/apps/amie) \u2014 AI meeting note taker. [BoltAI](https://setapp.com/uk/apps/boltai) \u2014 Beautiful & powerful AI chat for professionals. [Elephas](https://setapp.com/apps/elephas) \u2014 Personal AI writing assistant for Mac. [JoyCast](https://setapp.com/apps/joycast) \u2014 Improve meeting audio quality. [Plus](https://setapp.com/apps/plus) \u2014 Work with text using AI. [Ready to Send](https://setapp.com/apps/ready-to-send) \u2014 Generate draft email replies. [Soulver](https://setapp.com/apps/soulver) \u2014 Convert and calculate in notes. [TranscribeX](https://setapp.com/apps/transcribex) \u2014 Convert audio & video into text. [Transcrybe](https://setapp.com/apps/transcrybe) \u2014 Translate audio in real time. [TypingMind](https://setapp.com/apps/typingmind) \u2014 Use a new UI to chat with AI. Visit the [Solve with AI+](https://setapp.com/apps?category=solve-with-ai) category on the web or in the Setapp desktop to browse all available AI apps. FAQ"
+            ],
+            "title": "AI+ subscription plans \u2013 Setapp Support"
+          },
+          {
+            "url": "http://manual.raycast.com/ai",
+            "excerpts": [
+              "Raycast AI brings leading models and powerful extensions to Mac, Windows, and iOS \u2014 chat, draft, research, and code without leaving your current context."
+            ],
+            "title": "AI"
+          },
+          {
+            "url": "https://finance.yahoo.com/news/cursors-anysphere-nabs-9-9b-221451571.html",
+            "excerpts": [
+              "Cursor's Anysphere nabs $9.9B valuation, soars past $500M ARR\nCursor offers developers tiered pricing. After a two-week free trial, the company converts users into paying customers, who can opt for"
+            ],
+            "title": "Cursor's Anysphere nabs $9.9B valuation, soars past $500M ARR"
+          },
+          {
+            "url": "https://techcrunch.com/2025/06/05/cursors-anysphere-nabs-9-9b-valuation-soars-past-500m-arr",
+            "excerpts": [
+              "Cursor's Anysphere nabs $9.9B valuation, soars past $500M ARR\nAfter a two-week free trial, the company converts users into paying customers, who can opt for either a $20 Pro offering or a $40 monthly"
+            ],
+            "title": "Cursor's Anysphere nabs $9.9B valuation, soars past $500M ARR"
+          },
+          {
+            "url": "https://dev.to/pooyagolchian/vibe-coding-in-2026-92b-cursor-92-humaneval-and-the-end-of-boilerplate-161h",
+            "excerpts": [
+              "Vibe Coding in 2026: $9.2B Cursor, 92% HumanEval, and the End ...\nCursor (Anysphere) raised $400M ... holds the largest user base at 1.8 million paying subscribers and 55% market share among AI tool users."
+            ],
+            "title": "Vibe Coding in 2026: $9.2B Cursor, 92% HumanEval, and the End ..."
+          },
+          {
+            "url": "https://www.mvp.vc/company-initations/anysphere",
+            "excerpts": [
+              "Anysphere: Best-of-Breed Player in Vibe Coding\nAs of January 2025, Anysphere reported a paying user base of approximately 360,000. Given the platform's accelerating adoption and market"
+            ],
+            "title": "Anysphere: Best-of-Breed Player in Vibe Coding"
+          },
+          {
+            "url": "http://linkedin.com/in/raznar",
+            "excerpts": [
+              "Manage over a dozen enterprise and strategic customers amounting to $10M+ in total ARR. Responsible for $7M+ of ARR across 10 strategic customers Manage over a dozen enterprise and strategic customers amounting to $10M+ in total ARR. Responsible for $7M+ of ARR across 10 strategic customers"
+            ],
+            "title": "Ryan Aznar - Deploying Cursor"
+          },
+          {
+            "url": "https://decagon.ai/case-studies/chime",
+            "excerpts": [
+              "Chime Customer Success Story\nJul 23, 2025 \u2014 ... Case Studies. /. Chime scales member support with AI-powered automation \u2014 delivering efficiency and a stronger customer experience. Chime scales member support"
+            ],
+            "title": "Chime Customer Success Story"
+          },
+          {
+            "url": "https://decagon.ai/blog/conversational-ai-platform-for-enterprise",
+            "excerpts": [
+              "The enterprise buyer's guide to conversational AI platforms\nCase study: Chime scales support with security and speed. Chime, a fintech leader, faced the classic regulated industry challenge: how to scale support for"
+            ],
+            "title": "The enterprise buyer's guide to conversational AI platforms"
+          },
+          {
+            "url": "https://decagon.ai/blog/ai-agents-for-fintech",
+            "excerpts": [
+              "AI Agents for Fintech Customer Service\nNov 30, 2024 \u2014 With Decagon, you can provide the exceptional service your customers demand while reducing operational costs and improving satisfaction rates."
+            ],
+            "title": "AI Agents for Fintech Customer Service"
+          },
+          {
+            "url": "https://decagon.ai/case-studies/duolingo",
+            "excerpts": [
+              "Duolingo Customer Success Story | Decagon AI\nManaging customer support for a high-stakes exam required efficiency, empathy, and accuracy on a massive scale. Enter Decagon, which enabled Duolingo to streamline operations and deliver a world-class support experience for its users."
+            ],
+            "title": "Duolingo Customer Success Story | Decagon AI"
+          },
+          {
+            "url": "http://instagram.com/p/DQuXmX2Epdf",
+            "excerpts": [
+              "Today, Decagon's AI agents are delivering concierge customer experience for industry leaders like @hertz, @ouraring, @duolingo, @bilt, @"
+            ],
+            "title": "Meet Decagon, the startup reimagining enterprise customer ..."
+          },
+          {
+            "url": "https://www.hedra.com/uses",
+            "excerpts": [
+              "Use Cases | Marketing, Ads, L&D & More - Hedra\nExplore how teams use Hedra to create AI video for product ads, UGC content, learning and development, pitch decks, and more. See what you can build."
+            ],
+            "title": "Use Cases | Marketing, Ads, L&D & More - Hedra"
+          },
+          {
+            "url": "https://www.saasworthy.com/product/hedra/pricing",
+            "excerpts": [
+              "Hedra Pricing: Cost and Pricing plans - SaaSworthy\nCheck out the detailed pricing information for Hedra. Explore pricing tiers and compare pricing against other Content Creation Software"
+            ],
+            "title": "Hedra Pricing: Cost and Pricing plans - SaaSworthy"
+          },
+          {
+            "url": "https://www.hedra.com/pricing",
+            "excerpts": [
+              "Hedra Pricing | Free Plan, No Credit Card\nFor Individuals ; Basic. $15 \u00b7 1500 credits / month. Slower generations ; Creator. Popular. $30 \u00b7 5400 credits / month. Faster generation ; Professional. Best value."
+            ],
+            "title": "Hedra Pricing | Free Plan, No Credit Card"
+          },
+          {
+            "url": "https://www.hedra.com/enterprise",
+            "excerpts": [
+              "Enterprise | Hedra\nSecure, scalable, and responsible AI media that's trusted by 20% of the Fortune 500. ... Use Cases: Brand Ads. Training Content. Brand Ads. Product Demos."
+            ],
+            "title": "Enterprise | Hedra"
+          },
+          {
+            "url": "https://completeaitraining.com/news/hedra-promotes-ai-platform-that-generates-brand-visuals",
+            "excerpts": [
+              "Hedra promotes AI platform that generates brand visuals from ...\nHedra is promoting its Hedra Agent platform as a tool for marketing and creative teams to generate polished visuals from a single reference image. The system takes a product photo, applies creative direction from the user, and outputs brand-ready assets without requiring traditional studio resources."
+            ],
+            "title": "Hedra promotes AI platform that generates brand visuals from ..."
+          },
+          {
+            "url": "https://fazm.ai/macos-ai-agent",
+            "excerpts": [
+              "macOS AI Agent - Fazm | The AI Desktop Agent Built for Mac\nFazm is a macOS AI agent that controls your entire desktop with voice commands. Native Mac integration via Accessibility API, local-first privacy,"
+            ],
+            "title": "macOS AI Agent - Fazm | The AI Desktop Agent Built for Mac"
+          },
+          {
+            "url": "https://www.simular.ai/simular-for-macos",
+            "excerpts": [
+              "AI Agent for Mac | Intelligent AI Assistant Software - Simular\nDiscover the ultimate AI Agent for Mac to enhance your productivity and streamline tasks effortlessly. This agentic AI assistant leverages automation tools"
+            ],
+            "title": "AI Agent for Mac | Intelligent AI Assistant Software - Simular"
+          },
+          {
+            "url": "https://o-mega.ai/articles/top-10-ai-agents-for-desktop-automation-2026-mac-windows",
+            "excerpts": [
+              "Top 10 AI Agents for Desktop Automation 2026 (Mac & Windows)\nJan 7, 2026 \u00b7 Top 10 AI agents transforming desktop automation in 2026 - from OpenAI Operator to specialized personas handling complex workflows."
+            ],
+            "title": "Top 10 AI Agents for Desktop Automation 2026 (Mac & Windows)"
+          },
+          {
+            "url": "https://www.flowhunt.io/integrations/computer-use-remote-macos-use",
+            "excerpts": [
+              "AI Agent for Remote macOS - FlowHunt\nRemotely manage and automate any macOS desktop through AI agents using Model Context Protocol (MCP). Enable screen sharing and instantly empower your AI to take"
+            ],
+            "title": "AI Agent for Remote macOS - FlowHunt"
+          },
+          {
+            "url": "https://www.toolmage.com/en/tool/hedra",
+            "excerpts": [
+              "Hedra: Real-time AI Avatar & Video Generation API - ToolMage\nHedra is a foundational AI model for creating highly expressive and controllable video content. It specializes in generating lifelike, real-time interactive avatars that can be integrated into various applications via its powerful API, enabling dynamic and engaging user experiences."
+            ],
+            "title": "Hedra: Real-time AI Avatar & Video Generation API - ToolMage"
+          },
+          {
+            "url": "https://www.hedra.com/docs/pages/developer/guides/generate-avatar-video",
+            "excerpts": [
+              "Generate an Avatar Video - Hedra\nLong-form avatar videos take longer to generate. Check progress (0-1) and eta_sec for estimates: When status is \"complete\", the response includes an asset_id for the generated video. Was this page helpful? Create talking-head and motion avatar videos using the Hedra API."
+            ],
+            "title": "Generate an Avatar Video - Hedra"
+          },
+          {
+            "url": "https://www.hedra.com/uses/ai-image-generator",
+            "excerpts": [
+              "Free AI Image Generator | 14+ Models, Up to 4K - Hedra\nWe give you 14+ models and a full creative studio. Describe what you see. Generate it in seconds. Then turn it into video, voice, or motion without leaving the"
+            ],
+            "title": "Free AI Image Generator | 14+ Models, Up to 4K - Hedra"
+          },
+          {
+            "url": "https://www.hedra.com/docs/pages/developer/guides/generate-video",
+            "excerpts": [
+              "Generate a Video - Hedra\nFor avatar and talking-head videos that require audio input, see the Generate an Avatar Video guide. Generate videos from images and text prompts using the Hedra API."
+            ],
+            "title": "Generate a Video - Hedra"
+          },
+          {
+            "url": "https://www.rapidnative.com/tools/app-store-keyword-tool",
+            "excerpts": [
+              "Free App Store Keyword Research Tool \u2014 Find ASO Keywords ...\nFind high-volume, low-competition keywords for App Store and Google Play with AI. Get keyword suggestions, difficulty scores, and ASO strategy tips. Free tool \u2014 no signup needed."
+            ],
+            "title": "Free App Store Keyword Research Tool \u2014 Find ASO Keywords ..."
+          },
+          {
+            "url": "http://apptweak.com/en/app-store-optimization",
+            "excerpts": [
+              "AI agents for ASO are specialized AI assistants trained on app store data that automate analysis and provide actionable recommendations.** AppTweak offers four AI Agents built on its Atlas AI intelligence layer: the ASO Agent for keyword and metadata optimization, the Ad Agent for Apple Ads bid and budget optimization, the Reviews Agent for sentiment analysis and feature request detection, and the Reporting Agent for building stakeholder-ready dashboards. These agents are trained on 500M+ data points from 10+ years of app store performance data."
+            ],
+            "title": "App store optimization hub: everything you need to know"
+          },
+          {
+            "url": "http://asowin.com/",
+            "excerpts": [
+              "ASOWin is the leading App Store Optimization Agency USA that offers App Store Optimization Service in USA\nASOWin's AI Agent: Revolutionizing App Store Optimization At ASOWin, innovation is at the heart of what we do. To stay ahead in the dynamic world of App Store Optimization (ASO), we're building our very own AI Agent. 1\\. INTELLIGENT KEYWORD RESEARCH Our AI agent analyzes vast amounts of data to identify high-impact keywords tailored to your app's niche, automatically updating strategies to align with market trends and user behavior. 2\\. AUTOMATED COMPETITOR ANALYSIS Gain real-time insights into your competitors' performance. The AI agent tracks shifts in rankings, keywords, and strategies, giving you a competitive edge without the manual effort\nKeyword Research & Rankings We identify the most relevant and high-performing keywords for your app, enabling it to appear in top searches. Our data-driven approach ensures your app stays ahead of the competition. icon A/B TESTING ### Design Services & A/B Testing Make a lasting first impression with stunning app screenshots, videos, and icons. We conduct rigorous A/B testing to identify visuals that convert and resonate most with your audience. icon REPUTATION MANAGEMENT ### App Reputation Management Maintain a positive app image with our reputation management services. We handle user reviews and ratings, respond to feedback, and ensure your app's public perception aligns with your brand's values. icon MAXIMIZE ROI"
+            ],
+            "title": "App Store Optimization Agency | ASOWin | Best ASO Platform"
+          },
+          {
+            "url": "http://finance.yahoo.com/news/apptweak-launches-ai-agents-scale-211000215.html",
+            "excerpts": [
+              "Our goal is to give marketers the confidence to act quickly on insights they can trust.\" The launch introduces **ASO Agent** , **Reviews Agent** , and **Reporting Agent** , expanding AppTweak's AI offering across ASO analysis, app store reviews, and performance reporting"
+            ],
+            "title": "AppTweak Launches AI Agents to Scale ASO and Apple Ads Performance"
+          },
+          {
+            "url": "https://appmarketingplus.com/app-store-keyword-research",
+            "excerpts": [
+              "App Store Keyword Research: The Foundation of ASO Success in 2025\nOur data-driven approach ensures your app consistently ranks for the keywords that matter most. Contact us today to discover how professional keyword research can transform your app\u2019s visibility and unlock sustainable growth through organic search"
+            ],
+            "title": "App Store Keyword Research: The Foundation of ASO Success in 2025"
+          },
+          {
+            "url": "http://apple.com/newsroom/2026/06/apple-intelligence-brings-powerful-ai-capabilities-into-everyday-experiences",
+            "excerpts": [
+              "Jun 8, 2026 \u2014 Apple unveils the next generation of Apple Intelligence, integrating powerful AI capabilities into iPhone, iPad, and Mac for more personal and helpful"
+            ],
+            "title": "Apple Intelligence brings powerful AI capabilities into ..."
+          },
+          {
+            "url": "http://agentmarketcap.ai/blog/2026/04/14/apple-wwdc-2026-agent-strategy-siri-on-device-ai-privacy",
+            "excerpts": [
+              "Apple's Project Campos transforms Siri into an autonomous AI agent at WWDC 2026, betting that privacy-first on-device architecture can outflank cloud-first rivals"
+            ],
+            "title": null
+          },
+          {
+            "url": "http://appleinsider.com/inside/apple-intelligence",
+            "excerpts": [
+              "Apple Intelligence launched to the public with iOS 18.1, iPadOS 18.1, and macOS Sequoia 15.1 on October 28, 2024.\nApple Intelligence launched to the public with iOS 18.1, iPadOS 18.1, and macOS Sequoia 15.1 on October 28, 2024"
+            ],
+            "title": "Apple Intelligence | Siri, Summarization, Generation"
+          },
+          {
+            "url": "http://apple.com/newsroom/2026/06/apple-unveils-next-generation-of-apple-intelligence-siri-ai-and-more",
+            "excerpts": [
+              "Jun 8, 2026 \u2014 Users who enable Apple Intelligence on supported products set to a supported language will have access this fall with iOS 27, iPadOS 27, macOS"
+            ],
+            "title": "Apple unveils next generation of Apple Intelligence, Siri AI ..."
+          },
+          {
+            "url": "http://en.wikipedia.org/wiki/Apple_Intelligence",
+            "excerpts": [
+              "it was announced on June 10, 2024, at the 2024 Worldwide Developers Conference, as a built-in feature of Apple's iOS 18, iPadOS 18, and macOS Sequoia, October"
+            ],
+            "title": "Apple Intelligence"
+          }
+        ],
+        "confidence": "high"
+      }
+    ],
+    "type": "text",
+    "beta_fields": null,
+    "mcp_tool_calls": null,
+    "content_file": "RESEARCH-together-cursor-decagon-hedra-2026-07.md"
+  }
+}

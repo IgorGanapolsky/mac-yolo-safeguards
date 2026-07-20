@@ -1,7 +1,22 @@
-import type { HermesApprovalRequest } from '../types/approval';
+import type { ApprovalRiskTier, HermesApprovalRequest } from '../types/approval';
 import type { PendingApproval } from '../types/gateway';
 import type { ChatRunApproval, ChatTextApproval } from './chatApproval';
 import { enrichApprovalRequest, inferRiskTier, rollbackHintForRisk } from './approvalProposal';
+import { browserControlRiskFloor } from './browserControlTools';
+
+function applyBrowserRiskFloor(
+  toolName: string | undefined,
+  tier: ApprovalRiskTier,
+): ApprovalRiskTier {
+  const floor = browserControlRiskFloor(toolName);
+  if (!floor) {
+    return tier;
+  }
+  if (tier === 'high') {
+    return 'high';
+  }
+  return floor;
+}
 
 export function fromPendingApproval(
   pending: PendingApproval,
@@ -9,7 +24,10 @@ export function fromPendingApproval(
 ): HermesApprovalRequest {
   const runId = pending.runId ?? (pending.actionId.startsWith('run_') ? pending.actionId : undefined);
   const source = pending.source ?? (pending.approveText ? 'text_nudge' : 'gateway_guard');
-  const riskTier = pending.riskTier ?? inferRiskTier(pending.command, pending.reason);
+  const riskTier = applyBrowserRiskFloor(
+    pending.toolName,
+    pending.riskTier ?? inferRiskTier(pending.command, pending.reason),
+  );
   const base: HermesApprovalRequest = {
     id: pending.actionId,
     source,
