@@ -4,12 +4,12 @@ import "./globals.css";
 export const metadata: Metadata = {
   metadataBase: new URL("https://thumbgate.app"),
   title: {
-    default: "Leash — Keep Hermes agents working safely",
-    template: "%s | Leash by ThumbGate",
+    default: "ThumbGate — Your Hermes chats from any screen",
+    template: "%s | ThumbGate for Hermes",
   },
-  description: "Control Hermes threads from the web and continue approved work on a fenced cloud runner when your machine goes offline.",
+  description: "Use the familiar Hermes workspace on the web, with signed Mac pairing and optional fenced cloud continuation when your machine goes offline.",
   alternates: { canonical: "/" },
-  applicationName: "Leash by ThumbGate",
+  applicationName: "ThumbGate for Hermes",
   category: "developer tools",
   keywords: [
     "Hermes agent",
@@ -26,14 +26,14 @@ export const metadata: Metadata = {
   openGraph: {
     type: "website",
     url: "https://thumbgate.app/",
-    siteName: "Leash by ThumbGate",
-    title: "Leash — Keep Hermes agents working safely",
-    description: "Free web control for your Hermes machine, with paid fenced cloud continuation when it goes offline.",
+    siteName: "ThumbGate for Hermes",
+    title: "ThumbGate — Your Hermes chats from any screen",
+    description: "The familiar Hermes workspace on the web, with signed Mac pairing and optional fenced cloud continuation.",
   },
   twitter: {
     card: "summary_large_image",
-    title: "Leash — Keep Hermes agents working safely",
-    description: "Free web control for Hermes. Paid cloud continuity when your machine goes offline.",
+    title: "ThumbGate — Your Hermes chats from any screen",
+    description: "The familiar Hermes workspace on the web. Paid cloud continuity when your machine goes offline.",
   },
   icons: {
     icon: "/favicon.svg",

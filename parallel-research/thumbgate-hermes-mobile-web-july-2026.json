@@ -1,0 +1,301 @@
+{
+  "run_id": "trun_d3be5e813aa94970a984e52ed326a1d3",
+  "interaction_id": "trun_d3be5e813aa94970a984e52ed326a1d3",
+  "result_url": "https://platform.parallel.ai/play/deep-research/trun_d3be5e813aa94970a984e52ed326a1d3",
+  "status": "completed",
+  "output": {
+    "basis": [
+      {
+        "field": "answer",
+        "reasoning": "Initial assessment: The field_description asks for an implementation-oriented report with current pain taxonomy, competitive patterns, end-to-end journey, migration plan, security threat model, architecture choices and tradeoffs, funnel analytics, accessibility/mobile UX, acceptance criteria, roadmap, migration plan, and measurable experiments. The provided field_answer delivers a comprehensive implementation brief, including an executive summary, constraints, candidate architectures, decision matrix, rationale, detailed mapping, migration timelines, acceptance criteria, risk/no-go list, and an appendix with source provenance. This directly satisfies the breadth of topics requested, and presents a coherent, decision-centric deliverable that could be used to drive implementation. Therefore, completeness should be true. However, the excerpts supplied do not visibly cover every factual claim or source cross-reference used in the field_answer (the answer heavily cites internal assumptions and synthesized mappings). Because the prompt requires evaluating whether the field answer is supported by the provided excerpts, and the excerpts are a broad but not exhaustive cross-section, the field_answer goes beyond what is explicitly contained in the excerpts. Thus, excerpts support is uncertain at best and should be considered false given the strict requirement to be supported by excerpts. I will mark completeness as true and supported as false to reflect this distinction.",
+        "citations": [
+          {
+            "url": "https://reactnativebenchmark.dev/",
+            "excerpts": [
+              "React Native Benchmarking\nA web app that allows you to compare and evaluate benchmark performance across different React Native versions."
+            ],
+            "title": "React Native Benchmarking"
+          },
+          {
+            "url": "https://quokkalabs.com/blog/react-native-performance",
+            "excerpts": [
+              "React Native Performance Optimization: Tools, Tips & Benchmarks\nDiscover how to boost React Native performance with this in-depth guide. Learn practical React Native performance optimization techniques, must-have performance tools, real-world benchmarks, and monitoring workflows to keep apps smooth, fast, and stable in production."
+            ],
+            "title": "React Native Performance Optimization: Tools, Tips & Benchmarks"
+          },
+          {
+            "url": "https://react-native-boost.oss.kuatsu.de/docs/information/benchmarks",
+            "excerpts": [
+              "Benchmarks | React Native Boost\nWe run benchmarks with the example app available in the repository to measure render-time improvements. In recent runs, React Native Boost improved rendering performance on both iOS and Android, with gains up to ~50% depending on component mix and screen structure."
+            ],
+            "title": "Benchmarks | React Native Boost"
+          },
+          {
+            "url": "https://github.com/efstathiosntonas/react-native-style-libraries-benchmark",
+            "excerpts": [
+              "React Native Style Libraries Benchmark - GitHub\nRestyle scores are remarkably impressive, tamagui, react-native-unistyles and nativewind shows great performance compared to Native StyleSheet. 250 items are rendered in Array.map and it's a basic test in DEV mode."
+            ],
+            "title": "React Native Style Libraries Benchmark - GitHub"
+          },
+          {
+            "url": "https://github.com/yevhenjl/rn-styles-libraries-benchmark",
+            "excerpts": [
+              "GitHub - yevhenjl/rn-styles-libraries-benchmark: An updated ...\nThis project is an updated performance benchmark of popular styling libraries in the React Native ecosystem. This is an Expo SDK 53 (with React Native 0.79.5) App reproducer to demonstrate the performance difference between the libraries."
+            ],
+            "title": "GitHub - yevhenjl/rn-styles-libraries-benchmark: An updated ..."
+          },
+          {
+            "url": "https://github.com/opennextjs/opennextjs-cloudflare",
+            "excerpts": [
+              "GitHub - opennextjs/opennextjs-cloudflare: Open Next.js ...\nOpenNext for Cloudflare is an adapter that enables the deployment of Next.js applications to Cloudflare's developer platform. This monorepo includes a package for adapting a Next.js application built via next build (in standalone mode) to run in the Cloudflare workerd runtime using the Workers Node.js compatibility layer."
+            ],
+            "title": "GitHub - opennextjs/opennextjs-cloudflare: Open Next.js ..."
+          },
+          {
+            "url": "https://noqta.tn/en/tutorials/opennext-cloudflare-workers-nextjs-deployment-2026",
+            "excerpts": [
+              "Deploy Next.js to Cloudflare Workers with OpenNext\nShip a full Next.js 15 application \u2014 App Router, Server Actions, ISR, and dynamic routes \u2014 to Cloudflare Workers using the OpenNext adapter."
+            ],
+            "title": "Deploy Next.js to Cloudflare Workers with OpenNext"
+          },
+          {
+            "url": "https://blog.cloudflare.com/deploying-nextjs-apps-to-cloudflare-workers-with-the-opennext-adapter",
+            "excerpts": [
+              "Deploy your Next.js app to Cloudflare Workers with the Cloudflare ...\nWith the 1.0-beta release of the Cloudflare adapter for OpenNext, you can host your Next.js 14 and 15 applications on Cloudflare Workers."
+            ],
+            "title": "Deploy your Next.js app to Cloudflare Workers with the Cloudflare ..."
+          },
+          {
+            "url": "https://opennext.js.org/cloudflare",
+            "excerpts": [
+              "Cloudflare - OpenNext\nAll minor and patch versions of Next.js 16 and the latest minors of Next.js 14 and 15 are supported. Next.js 14 support will be dropped Q1 2026."
+            ],
+            "title": "Cloudflare - OpenNext"
+          },
+          {
+            "url": "https://developers.cloudflare.com/workers/framework-guides/web-apps/nextjs",
+            "excerpts": [
+              "Next.js \u00b7 Cloudflare Workers docs\nYou can deploy your Next.js app to Cloudflare Workers using the OpenNext adapter. Next.js supported features. Most Next.js"
+            ],
+            "title": "Next.js \u00b7 Cloudflare Workers docs"
+          },
+          {
+            "url": "https://github.com/joshuabaker/authkit-react-native",
+            "excerpts": [
+              "GitHub - joshuabaker/authkit-react-native: WorkOS AuthKit ...\nWorkOS AuthKit integration for React Native, built on Zustand and Expo modules. Create a useAuth hook that your app imports everywhere. The store is created at module scope so the session begins restoring immediately on app launch. Use Stack.Protected to gate routes based on auth state."
+            ],
+            "title": "GitHub - joshuabaker/authkit-react-native: WorkOS AuthKit ..."
+          },
+          {
+            "url": "https://workos.com/docs/sdks/authkit-tanstack-start",
+            "excerpts": [
+              "AuthKit TanStack Start SDK \u2013 WorkOS Docs\nThe AuthKit TanStack Start SDK provides utilities for integrating AuthKit authentication into TanStack Start applications. Refer to the AuthKit documentation"
+            ],
+            "title": "AuthKit TanStack Start SDK \u2013 WorkOS Docs"
+          },
+          {
+            "url": "https://workos.com/docs/sdks/authkit-react",
+            "excerpts": [
+              "AuthKit React SDK \u2013 WorkOS Docs\nAdd authentication to your React app with WorkOS AuthKit. Handles sign-in, sign-up, token refresh, and session management via a hosted OAuth flow."
+            ],
+            "title": "AuthKit React SDK \u2013 WorkOS Docs"
+          },
+          {
+            "url": "http://github.com/workos/authkit-react",
+            "excerpts": [
+              "Add authentication to your React app with WorkOS AuthKit. Handles sign-in, sign-up, token refresh, and session management via a hosted OAuth flow."
+            ],
+            "title": "workos/authkit-react"
+          },
+          {
+            "url": "https://github.com/workos/authkit-js/issues/35",
+            "excerpts": [
+              "React Native Support \u00b7 Issue #35 \u00b7 workos/authkit-js\n16 sep 2024 \u2014 In my opinion, the JS SDK should be a monorepo that includes common platforms like Next.js and Expo as convenient packages alongside AuthKit. As"
+            ],
+            "title": "React Native Support \u00b7 Issue #35 \u00b7 workos/authkit-js"
+          },
+          {
+            "url": "https://rajeshrnair.com/blog/software/mobile-apps/react-native-new-architecture-2026-migration-guide.html",
+            "excerpts": [
+              "React Native New Architecture in 2026: What Changed and How ...\nReact Native's New Architecture (JSI, Fabric, TurboModules) is now the default in RN 0.76+. Here is what changed, what breaks during migration, and how Indian development teams should approach the upgrade."
+            ],
+            "title": "React Native New Architecture in 2026: What Changed and How ..."
+          },
+          {
+            "url": "https://jishulabs.com/blog/react-native-new-architecture-2026",
+            "excerpts": [
+              "React Native New Architecture: Complete Migration Guide for 2026\nReact Native's New Architecture represents the most significant evolution of the framework since its inception. With Fabric replacing the legacy renderer and TurboModules enabling synchronous native module access, applications can now achieve near-native performance. In 2026, the New Architecture is production-ready and increasingly required by popular libraries. This comprehensive guide"
+            ],
+            "title": "React Native New Architecture: Complete Migration Guide for 2026"
+          },
+          {
+            "url": "https://www.agilesoftlabs.com/blog/2026/03/react-native-new-architecture-migration",
+            "excerpts": [
+              "React Native New Architecture Migration Guide (2026): Step-by ...\nReact Native New Architecture Migration Guide (2026): Step-by-Step About the Author Emachalan is a Full-Stack Developer specializing in MEAN & MERN Stack, focused on building scalable web and mobile applications with clean, user-centric code. Key Takeaways"
+            ],
+            "title": "React Native New Architecture Migration Guide (2026): Step-by ..."
+          },
+          {
+            "url": "https://akshatpaul.com/react-native-new-architecture-2026",
+            "excerpts": [
+              "React Native New Architecture 2026: JSI, Fabric, TurboModules ...\nOpen package.json and check your current React Native version. If you're below 0.76, start planning your migration sprint. Run npx expo-doctor or check React Native Directory for every native library. Create a migration branch \u2014 don't do this on main. Measure your cold start time on a real device. You need a baseline."
+            ],
+            "title": "React Native New Architecture 2026: JSI, Fabric, TurboModules ..."
+          },
+          {
+            "url": "https://impacttechlab.com/react-native-new-architecture-app-performance",
+            "excerpts": [
+              "React Native New Architecture in 2026: JSI, Fabric and ...\nReact Native's New Architecture is default in 2026. Learn how JSI, Fabric, and TurboModules improve app performance, what actually changed, and how migration works."
+            ],
+            "title": "React Native New Architecture in 2026: JSI, Fabric and ..."
+          },
+          {
+            "url": "https://expo.dev/changelog/sdk-55",
+            "excerpts": [
+              "Expo SDK 55 - Expo Changelog\nWe are working towards a stable release in mid-2026, and the improvements in SDK 55 represent a huge improvement in its capabilities already. We\u2019ve also added skills to expo/skillsto make it easier to get started with Expo UI for both SwiftUI and Jetpack Compose."
+            ],
+            "title": "Expo SDK 55 - Expo Changelog"
+          },
+          {
+            "url": "https://medium.com/%40onix_react/whats-new-in-expo-sdk-55-6eac1553cee8",
+            "excerpts": [
+              "What's New in Expo SDK 55 - Medium\nThe Expo SDK 55 beta is now officially available, marking the beginning of a two-week testing period. This release is a major milestone,"
+            ],
+            "title": "What's New in Expo SDK 55 - Medium"
+          },
+          {
+            "url": "https://expo.dev/changelog/sdk-55-beta",
+            "excerpts": [
+              "Expo SDK 55 Beta is now available - Expo Changelog\nIt's important to note that using Hermes v1 in Expo SDK 55 / React Native 0.83 requires building React Native from source, which significantly"
+            ],
+            "title": "Expo SDK 55 Beta is now available - Expo Changelog"
+          },
+          {
+            "url": "https://releases.sh/expo/releases",
+            "excerpts": [
+              "Expo Release Notes & Changelog \u00b7 May 2026 \u2014 releases.sh\nLearn about the changes and how to upgrade. An update on the current status of Expo Go for SDK 55 and 56 on the Apple App Store and Google Play Store. Every Expo release note, changelog, and product update across all tracked sources \u2014 version history refreshed May 2026."
+            ],
+            "title": "Expo Release Notes & Changelog \u00b7 May 2026 \u2014 releases.sh"
+          },
+          {
+            "url": "https://expo.dev/router",
+            "excerpts": [
+              "Expo Router\nNavigate your app with the simplicity of a file system. Expo Router brings web-style file-based routing to React Native, so every screen in your app has a URL-like address."
+            ],
+            "title": "Expo Router"
+          },
+          {
+            "url": "https://computingforgeeks.com/deploy-static-site-cloudflare-pages",
+            "excerpts": [
+              "Deploy Static Sites to Cloudflare Pages - ComputingForGeeks\nThis guide covers the full deployment workflow: building a site locally, deploying with the Wrangler CLI, adding a framework like Hugo, mapping a custom domain with SSL, and automating everything with GitHub Actions."
+            ],
+            "title": "Deploy Static Sites to Cloudflare Pages - ComputingForGeeks"
+          },
+          {
+            "url": "https://www.codingwithjesse.com/blog/deploying-a-static-site-to-cloudflare-pages",
+            "excerpts": [
+              "Deploying a static site to Cloudflare Pages"
+            ],
+            "title": "Deploying a static site to Cloudflare Pages Coding with Jesse https://www.codingwithjesse.com \u203a ..."
+          },
+          {
+            "url": "https://www.amarjanica.com/3-ways-to-deploy-static-to-cloudflare-pages-workers-assets-or-r2-from-github-actions",
+            "excerpts": [
+              "3 Ways to Deploy Static to Cloudflare: Pages, Workers Assets ...\nYou'll need to create a new project, and everything can be done from GitHub actions. In my demo project, I created 2 files, workflow and the wrangler configuration."
+            ],
+            "title": "3 Ways to Deploy Static to Cloudflare: Pages, Workers Assets ..."
+          },
+          {
+            "url": "https://fasttool.app/blog/cloudflare-pages-deployment-guide-2026",
+            "excerpts": [
+              "Cloudflare Pages Deployment Guide 2026: Wrangler, CI/CD & API\nWrangler, Direct Upload API, blake3 hashing, _headers/_redirects, CI pipelines, custom domains, and cache purge patterns for Cloudflare Pages in 2026."
+            ],
+            "title": "Cloudflare Pages Deployment Guide 2026: Wrangler, CI/CD & API"
+          },
+          {
+            "url": "https://www.cloudflare.com/plans/developer-platform",
+            "excerpts": [
+              "Workers & Pages Pricing\nExplore pricing and plans across Cloudflare's development platform for serverless applications and JAMstack websites."
+            ],
+            "title": "Workers & Pages Pricing"
+          },
+          {
+            "url": "https://www.nativewind.dev/",
+            "excerpts": [],
+            "title": "Nativewind"
+          },
+          {
+            "url": "https://tailwindcss.com/blog/tailwindcss-v4",
+            "excerpts": [],
+            "title": "Tailwind CSS v4.0 - Tailwind CSS"
+          },
+          {
+            "url": "https://github.com/facebook/hermes",
+            "excerpts": [],
+            "title": "GitHub - facebook/hermes: A JavaScript engine optimized for running React Native. \u00b7 GitHub"
+          },
+          {
+            "url": "https://necolas.github.io/react-native-web/",
+            "excerpts": [],
+            "title": "React Native for Web"
+          },
+          {
+            "url": "https://github.com/necolas/react-native-web",
+            "excerpts": [],
+            "title": "GitHub - necolas/react-native-web: Cross-platform React UI packages \u00b7 GitHub"
+          },
+          {
+            "url": "https://www.npmjs.com/package/vinext",
+            "excerpts": [],
+            "title": "vinext - npm"
+          },
+          {
+            "url": "https://workos.com/docs/sdks",
+            "excerpts": [],
+            "title": "SDKs \u2013 WorkOS Docs"
+          },
+          {
+            "url": "https://github.com/workos/authkit-js",
+            "excerpts": [],
+            "title": "GitHub - workos/authkit-js: Vanilla JS AuthKit SDK \u00b7 GitHub"
+          },
+          {
+            "url": "https://github.com/nativewind/nativewind",
+            "excerpts": [],
+            "title": "GitHub - nativewind/nativewind: The utility-first workflow you love from Tailwind CSS in your React Native applications. \u00b7 GitHub"
+          },
+          {
+            "url": "https://react.dev/learn/react-compiler",
+            "excerpts": [],
+            "title": "Fetched web page"
+          },
+          {
+            "url": "https://nextjs.org/blog",
+            "excerpts": [],
+            "title": "Next.js by Vercel - The React Framework | Next.js by Vercel - The React Framework"
+          },
+          {
+            "url": "https://github.com/workos/workos-node",
+            "excerpts": [],
+            "title": "GitHub - workos/workos-node: Official Node SDK for interacting with the WorkOS API \u00b7 GitHub"
+          },
+          {
+            "url": "https://react.dev/blog/2025/10/01/react-19-2",
+            "excerpts": [],
+            "title": "Fetched web page"
+          },
+          {
+            "url": "https://react.dev/learn/react-compiler/introduction",
+            "excerpts": [],
+            "title": "Fetched web page"
+          }
+        ],
+        "confidence": "medium"
+      }
+    ],
+    "type": "text",
+    "beta_fields": null,
+    "mcp_tool_calls": null,
+    "content_file": "thumbgate-hermes-mobile-web-july-2026.md"
+  }
+}
