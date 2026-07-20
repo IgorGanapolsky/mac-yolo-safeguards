@@ -3,7 +3,7 @@ const body = `# Leash by ThumbGate
 > Leash is a local-first web control plane for Hermes agents. It keeps web control free and charges for optional managed cloud continuation.
 
 ## Canonical URL
-- https://leash.dev/
+- https://thumbgate.app/
 
 ## Core capabilities
 - Signed pairing to a user's Hermes machine without inbound ports

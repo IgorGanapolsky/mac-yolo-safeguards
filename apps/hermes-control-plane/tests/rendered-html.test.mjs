@@ -10,7 +10,7 @@ test("builds the public Leash subscription landing page", async () => {
     readFile(new URL("../app/sitemap.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/llms.txt/route.ts", import.meta.url), "utf8"),
   ]);
-  assert.match(layout, /metadataBase: new URL\("https:\/\/leash\.dev"\)/);
+  assert.match(layout, /metadataBase: new URL\("https:\/\/thumbgate\.app"\)/);
   assert.match(layout, /alternates: \{ canonical: "\/" \}/);
   assert.match(layout, /agent observability/);
   assert.match(page, /Leash/);
@@ -29,20 +29,22 @@ test("builds the public Leash subscription landing page", async () => {
   assert.match(page, /application\/ld\+json/);
   assert.match(page, /SoftwareApplication/);
   assert.match(robots, /disallow: \["\/dashboard", "\/api\/"\]/);
-  assert.match(robots, /https:\/\/leash\.dev\/sitemap\.xml/);
-  assert.match(sitemap, /https:\/\/leash\.dev\//);
+  assert.match(robots, /https:\/\/thumbgate\.app\/sitemap\.xml/);
+  assert.match(sitemap, /https:\/\/thumbgate\.app\//);
   assert.match(llms, /Aggregate, content-free product analytics/);
   assert.match(llms, /CloudCLI is a separate/);
   assert.doesNotMatch(page, /Igor|Ganapolsky/i);
   assert.doesNotMatch(`${layout}\n${robots}\n${sitemap}\n${llms}`, /Igor|Ganapolsky/i);
   assert.doesNotMatch(page, /codex-preview|react-loading-skeleton/);
+  assert.doesNotMatch(`${layout}\n${robots}\n${sitemap}\n${llms}`, /https:\/\/leash\.dev/);
 });
 
-test("keeps secrets server-side and device requests signed", async () => {
-  const [dashboard, deviceAuth, callback] = await Promise.all([
+test("keeps secrets server-side, redirects mutable, and device requests signed", async () => {
+  const [dashboard, deviceAuth, callback, logout] = await Promise.all([
     readFile(new URL("../app/dashboard/DashboardClient.tsx", import.meta.url), "utf8"),
     readFile(new URL("../lib/device-auth.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/api/auth/callback/route.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/api/auth/logout/route.ts", import.meta.url), "utf8"),
   ]);
   assert.doesNotMatch(dashboard, /WORKOS_API_KEY|STRIPE_SECRET_KEY|HERMES_CLOUD_RUNNER_TOKEN/);
   assert.match(deviceAuth, /crypto\.subtle\.verify/);
@@ -51,5 +53,7 @@ test("keeps secrets server-side and device requests signed", async () => {
   assert.match(callback, /return new Response\(null, \{/);
   assert.match(callback, /"set-cookie": sessionCookie\(sessionToken\)/);
   assert.doesNotMatch(callback, /Response\.redirect\([^;]+\);\s*\n\s*redirect\.headers\.append\("set-cookie"/);
+  assert.doesNotMatch(logout, /Response\.redirect\(/);
+  assert.match(logout, /"set-cookie": clearSessionCookie\(\)/);
   assert.doesNotMatch(callback, /localStorage|sessionStorage/);
 });

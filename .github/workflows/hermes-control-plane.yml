@@ -9,6 +9,9 @@ on:
       - "tests/test-hermes-cloud-connector.js"
       - "tests/test-hermes-business-e2e.js"
       - "tests/test-hermes-cloudflare-deploy-config.js"
+      - "tests/test-saas-watchdog.sh"
+      - "saas/saas-watchdog.sh"
+      - "com.igor.saas-watchdog.plist"
       - "docs/HERMES-CLOUDFLARE-MIGRATION.md"
       - ".github/workflows/hermes-control-plane.yml"
   push:
@@ -20,6 +23,9 @@ on:
       - "tests/test-hermes-cloud-connector.js"
       - "tests/test-hermes-business-e2e.js"
       - "tests/test-hermes-cloudflare-deploy-config.js"
+      - "tests/test-saas-watchdog.sh"
+      - "saas/saas-watchdog.sh"
+      - "com.igor.saas-watchdog.plist"
       - "docs/HERMES-CLOUDFLARE-MIGRATION.md"
 
 permissions:
@@ -46,6 +52,7 @@ jobs:
         working-directory: apps/hermes-control-plane
       - run: npm run test:cloudflare-worker
         working-directory: apps/hermes-control-plane
+      - run: bash tests/test-saas-watchdog.sh
       - run: node --test tests/test-hermes-cloud-connector.js
       - run: node --test tests/test-hermes-business-e2e.js
       - run: npm test

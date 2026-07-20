@@ -5,6 +5,7 @@ import test from "node:test";
 import {
   DIRECT_CLOUDFLARE_DATABASE_PLACEHOLDER,
   DIRECT_CLOUDFLARE_DOMAIN,
+  DIRECT_CLOUDFLARE_DOMAINS,
   DIRECT_CLOUDFLARE_SECRET_NAMES,
   assertProductionCloudflareEnvironment,
   createDirectCloudflareConfig,
@@ -49,17 +50,19 @@ test("production gate requires the owned domain and a real D1 UUID", () => {
           "c6886eb0-820f-4c12-a57a-5aafbbf66fd8",
         CLOUDFLARE_CUSTOM_DOMAIN: "example.com",
       }),
-    /must equal leash\.dev/,
+    /must equal thumbgate\.app/,
   );
 
   const config = assertProductionCloudflareEnvironment({
     CLOUDFLARE_D1_DATABASE_ID: "c6886eb0-820f-4c12-a57a-5aafbbf66fd8",
     CLOUDFLARE_CUSTOM_DOMAIN: DIRECT_CLOUDFLARE_DOMAIN,
   });
-  assert.deepEqual(config.routes, [
-    { pattern: DIRECT_CLOUDFLARE_DOMAIN, custom_domain: true },
-  ]);
-  assert.equal(config.workers_dev, false);
+  assert.deepEqual(
+    config.routes,
+    DIRECT_CLOUDFLARE_DOMAINS.map((pattern) => ({ pattern, custom_domain: true })),
+  );
+  assert.equal(config.workers_dev, true);
+  assert.deepEqual(config.compatibility_flags, ["nodejs_compat"]);
 });
 
 test("tracked deployment contract names secrets without containing values", async () => {
@@ -101,4 +104,21 @@ test("production deploy validates, migrates D1, then deploys the Worker", async 
     packageJson.scripts["deploy:cloudflare"],
     "npm run cloudflare:validate-production && npm run build:cloudflare && wrangler d1 migrations apply DB --remote --config dist/server/wrangler.json && wrangler deploy --config dist/server/wrangler.json",
   );
+});
+
+test("Worker forces public HTTP traffic onto HTTPS and the app emits HSTS", async () => {
+  const [workerSource, nextConfig] = await Promise.all([
+    readFile(
+      new URL("../apps/hermes-control-plane/worker/index.ts", import.meta.url),
+      "utf8",
+    ),
+    readFile(
+      new URL("../apps/hermes-control-plane/next.config.ts", import.meta.url),
+      "utf8",
+    ),
+  ]);
+  assert.match(workerSource, /url\.protocol === "http:"/);
+  assert.match(workerSource, /Response\.redirect\(url, 308\)/);
+  assert.match(nextConfig, /Strict-Transport-Security/);
+  assert.match(nextConfig, /includeSubDomains; preload/);
 });
