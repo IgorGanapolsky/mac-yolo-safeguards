@@ -20,6 +20,7 @@ Durable rules live in [AGENTS.md](./AGENTS.md); this file is *live state only*.
 
 | ID  | Task | Status | Owner | Files (claim) | AcceptanceCheck |
 |-----|------|--------|-------|---------------|-----------------|
+| T-MINI-NOSERVE-APPLY | P0: session-start mini Tailscale pair must adb-apply key (--force-mini + --no-serve) | done | cursor-mini-ts-connect | `tools/hermes-mobile-pair.js`, `tools/agent-session-start.js`, `tests/test-hermes-mobile-pair.sh`, `plan.md` | force-mini overrides no-serve skip; phone-install uses --force-mini-usb-primary --no-serve; pair suite green; live Igors-Mac-mini · Connected · Tailscale |
 | T-ADB-APPEAR-PAIR | Persist adb-appear → auto-pair via USB reverse watchdog LaunchAgent (post-#641) | done | cursor-adb-appear-pair | `tools/hermes-usb-reverse-watchdog.js`, `tests/test-hermes-usb-reverse-watchdog.js`, `plan.md` | Device appear runs hermes-mobile-pair; launchctl proves com.igor.hermes-usb-reverse-watchdog loaded; gated prod OTA for 631ab139 |
 | T-PROJECT-LANE-ONCE | Fix duplicate Project lane (optional) — header+footer both render | done | cursor-project-lane-once | `hermes-mobile/src/screens/ChatScreen.tsx` (header project props only; keep VaultProjectPickerChip), `hermes-mobile/src/__tests__/ChatScreen.test.tsx` (project lane once cases only), `plan.md` | Exactly one Project lane label on Chat; header has no chat-header-project-picker; footer chip remains; focused Jest green; PR merge |
 | T-CHROME-DEBUGGER | Full chrome.debugger path (no Chrome restart) via extension + local CDP bridge | in_progress | cursor-chrome-debugger | `extensions/hermes-webbridge/`, `scripts/hermes-chrome-debugger-bridge.js`, `scripts/install-hermes-chrome-debugger.sh`, `scripts/install-browser-bridge.sh` (debugger mode), `com.hermes.chrome-debugger.plist`, `tests/test-hermes-chrome-debugger.js`, `docs/BROWSER-CONTROL.md`, `docs/KIMI-WEBBRIDGE-TEARDOWN.md`, `plan.md` | Extension attaches via chrome.debugger; bridge serves :9222 without --remote-debugging-port restart; contract tests green; PR merge |
@@ -319,6 +320,9 @@ Status values: `pending` | `in_progress` | `blocked` | `done`. Claim a row by se
 | T-NO-APP-SUBSCRIPTION | P0: Subscription web-only — remove in-app StoreKit/Play subscription purchase path | done | cursor-no-app-subs | `hermes-mobile/src/constants/monetization.ts`, `hermes-mobile/src/services/thumbgateIap.ts`, `hermes-mobile/src/components/ProUpgradeCard.tsx`, `hermes-mobile/src/__tests__/thumbgateIap.test.ts`, `hermes-mobile/src/__tests__/ProUpgradeCard.test.tsx`, `hermes-mobile/src/__tests__/noInAppSubscriptionContract.test.ts`, `hermes-mobile/docs/MONETIZATION-APP-PAID-WEB-SUB.md`, `plan.md` | Zero in-app subscription purchase; Android lifetime IAP ok; iOS paywall → web dashboard; contract tests; ASC monthly unreachable from app |
 
 ## 2. File Ownership Map (append-only lock table — claim before touching)
+
+- `tools/hermes-mobile-pair.js`, `tools/agent-session-start.js`, `tests/test-hermes-mobile-pair.sh`, `plan.md` → **cursor-mini-ts-connect** (T-MINI-NOSERVE-APPLY) (2026-07-20T22:35:00Z)
+- T-MINI-NOSERVE-APPLY claimed files → **released by cursor-mini-ts-connect** after pair suite 38/38 + live mini Connected (2026-07-20T22:40:00Z)
 
 - `tools/hermes-usb-reverse-watchdog.js`, `tests/test-hermes-usb-reverse-watchdog.js`, `plan.md` → **cursor-adb-appear-pair** (T-ADB-APPEAR-PAIR persist adb-appear auto-pair) (2026-07-20T21:46:00Z)
 
@@ -831,6 +835,10 @@ Status values: `pending` | `in_progress` | `blocked` | `done`. Claim a row by se
 - `tests/test-hermes-cloudflare-deploy-config.js`, `plan.md` → **codex-thumbgate-production** (T-THUMBGATE-PROD-RECOVERY-20260720: update the direct-domain and HTTPS/HSTS deployment contract) (2026-07-20T21:48:00Z)
 
 ## 3. Decisions Log
+
+- 2026-07-20T22:36:00Z `cursor-mini-ts-connect`: Live re-pair with fixed script logged `adb: applying mini Tailscale primary (--force-mini-usb-primary with --no-serve)`; pair page LAN flipped to mini `192.168.68.73` (was laptop `192.168.68.61`). Phone curl mini /health 200×3; UI `Igors-Mac-mini · Connected · Tailscale`. Mid-session flap coincided with mini gateway PID recycle (`:8642` briefly refused) — LaunchAgent `ai.hermes.gateway` self-healed.
+
+- 2026-07-20T22:40:00Z `cursor-mini-ts-connect`: **T-MINI-NOSERVE-APPLY.** Root cause for Mac mini Tailscale "never connects": Tailscale+gateway healthy (`100.94.135.78` /health 200, phone TCP OK); session-start phone-install ran `--mini-tailscale --no-serve` which **skipped adb** even when intending mini primary, leaving stale Wrong-key / "Couldn't reach your computer". Fix: `--force-mini-usb-primary` overrides the no-serve skip; session-start uses `--mini-tailscale --force-mini-usb-primary --no-serve`; mini pair.json prefers mini `/health` local_ip. Live proof: `Igors-Mac-mini · Connected · Tailscale` (uiautomator + screencap under hermes-mobile/docs/proofs/mini-tailscale-20260720/). Pair suite 38/38.
 
 - 2026-07-20 `cursor-adb-appear-pair`: **T-ADB-APPEAR-PAIR done.** Extended `com.igor.hermes-usb-reverse-watchdog` with absent→present auto-pair (`hermes-mobile-pair.js --open`, skip when phone pipeline busy). PR #642 merged. LaunchAgent loaded (`last exit code=0`, StartInterval=15). Gated production OTA for #641/`631ab139` on runtime 1.2: group `1f4cda52-9bfd-4329-848b-03c55c6c1c94` at 10% rollout (tip message includes 9ff22c5f). Phone still absent — no Connected proof this session.
 
