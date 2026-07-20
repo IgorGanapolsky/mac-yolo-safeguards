@@ -1,16 +1,18 @@
-Control an AI coding agent from your phone on your own Mac, Linux, or Windows computer. Chat with the Hermes gateway, see honest run state, and use Leash Pro to approve or deny risky commands before they execute.
+Hermes Mobile is the Hermes AI agent leash for your own Mac, Linux, or Windows computer. Chat with your Hermes gateway from your phone, see honest run state, and approve or deny risky commands before they execute.
 
-Hermes Mobile is an independent mobile control plane for a Hermes gateway you operate. It is built for developers whose workflows also involve Cursor, Claude Code, ChatGPT or OpenAI Codex, Gemini CLI, Replit Agent, GitHub Copilot, Windsurf, OpenClaw, and other coding agents.
+Hermes Mobile is an independent mobile control plane for a Hermes gateway you operate — not on-device phone AI. It is built for developers whose workflows also involve Cursor, Claude Code, ChatGPT or OpenAI Codex, Gemini CLI, Replit Agent, GitHub Copilot, Windsurf, OpenClaw, and other coding agents.
 
 Hermes Mobile does not sign in to or replace those products. It solves a different job: supervising the Hermes agent and tools running through your own gateway from an Android phone.
 
-FREE
+GET STARTED
 • Live streaming chat with your Hermes gateway
 • Current connection and run status instead of a false green state
 • QR and local network pairing with no Hermes Mobile cloud account
 • Saved computer profiles for Mac, Linux, and Windows gateways
+• Unlock all Pro features with a one-time $4.99 purchase (or use Hermes Mobile paid download when available)
 
-LEASH ($4.99 once — unlock)
+
+LEASH (optional paid unlock)
 • Review and approve or deny blocked tool calls from your phone
 • View and edit standing allow or block gate rules synced from your gateway
 • Manage persistent safety policies across sessions
@@ -55,11 +57,10 @@ FAQ
 
 • Do I need Termux? No. Hermes runs on your Mac, Linux, or Windows computer; this app is the remote control.
 
-• Looking for “Hermes Agent” (Hen Works)? That runs AI on Android. Hermes Mobile is the opposite — remote control for desktop agents.
 • Is this Hermes Agent (the 1,200★ Play app)? No — that runs AI on Android. We control desktop agents.
 
 • Hermex or HermesPilot? Those are other native clients (WebUI server vs Hermes Link relay). We pair directly to your gateway plus ThumbGate Leash.
 
-• Do I need a cloud account? No Hermes Mobile account required. Optional Leash unlock is pay once ($4.99 on Play) for unlimited gate approvals.
+• Do I need a cloud account? No Hermes Mobile account required. Optional paid Leash unlock for unlimited gate approvals.
 
 • iPhone? Yes — live on the App Store as “Hermes Mobile: AI Agent Leash”. Android is live on Google Play.
