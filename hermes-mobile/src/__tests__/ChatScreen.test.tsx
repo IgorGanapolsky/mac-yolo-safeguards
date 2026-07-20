@@ -2718,9 +2718,9 @@ describe('ChatScreen', () => {
         await Promise.resolve();
       });
 
-      // Footer chip is the interactive picker; header project lane stays always visible.
+      // Footer chip is the sole project picker — header must not duplicate the lane label.
       expect(getByTestId('vault-project-picker-chip')).toBeTruthy();
-      expect(getByTestId('chat-header-project-picker')).toBeTruthy();
+      expect(queryByTestId('chat-header-project-picker')).toBeNull();
       expect(queryByTestId('chat-header-details-toggle')).toBeNull();
 
       fireEvent.press(getByTestId('vault-project-picker-chip'));
@@ -2729,6 +2729,19 @@ describe('ChatScreen', () => {
         expect(getByTestId('project-modal')).toBeTruthy();
         expect(getByTestId('project-pick-demo-hermes-mobile')).toBeTruthy();
       });
+    });
+
+    it('does not render a duplicate header Project lane control', async () => {
+      const { getByTestId, queryByTestId, queryAllByTestId } = await renderChatScreen();
+
+      await act(async () => {
+        await Promise.resolve();
+        await Promise.resolve();
+      });
+
+      expect(queryByTestId('chat-header-project-picker')).toBeNull();
+      expect(queryAllByTestId('vault-project-picker-chip')).toHaveLength(1);
+      expect(getByTestId('vault-project-picker-chip')).toBeTruthy();
     });
   });
 
