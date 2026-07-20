@@ -18,6 +18,7 @@ Durable rules live in [AGENTS.md](./AGENTS.md); this file is *live state only*.
 
 ## 1. Task Board
 
+| T-ADB-APPEAR-PAIR | Persist adb-appear → auto-pair via USB reverse watchdog LaunchAgent (post-#641) | in_progress | cursor-adb-appear-pair | `tools/hermes-usb-reverse-watchdog.js`, `tests/test-hermes-usb-reverse-watchdog.js`, `plan.md` | Device appear runs hermes-mobile-pair; launchctl proves com.igor.hermes-usb-reverse-watchdog loaded; gated prod OTA for 631ab139 |
 | ID  | Task | Status | Owner | Files (claim) | AcceptanceCheck |
 |-----|------|--------|-------|---------------|-----------------|
 | T-PROJECT-LANE-ONCE | Fix duplicate Project lane (optional) — header+footer both render | done | cursor-project-lane-once | `hermes-mobile/src/screens/ChatScreen.tsx` (header project props only; keep VaultProjectPickerChip), `hermes-mobile/src/__tests__/ChatScreen.test.tsx` (project lane once cases only), `plan.md` | Exactly one Project lane label on Chat; header has no chat-header-project-picker; footer chip remains; focused Jest green; PR merge |
