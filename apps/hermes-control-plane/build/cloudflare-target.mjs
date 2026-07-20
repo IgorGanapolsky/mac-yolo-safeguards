@@ -1,7 +1,12 @@
 export const DIRECT_CLOUDFLARE_DATABASE_PLACEHOLDER =
   "00000000-0000-4000-8000-000000000000";
 
-export const DIRECT_CLOUDFLARE_DOMAIN = "leash.dev";
+export const DIRECT_CLOUDFLARE_DOMAIN = "thumbgate.app";
+
+export const DIRECT_CLOUDFLARE_DOMAINS = Object.freeze([
+  DIRECT_CLOUDFLARE_DOMAIN,
+  `app.${DIRECT_CLOUDFLARE_DOMAIN}`,
+]);
 
 export const DIRECT_CLOUDFLARE_SECRET_NAMES = Object.freeze([
   "WORKOS_API_KEY",
@@ -15,16 +20,21 @@ export function createDirectCloudflareConfig(environment = process.env) {
     environment.CLOUDFLARE_D1_DATABASE_ID?.trim() ||
     DIRECT_CLOUDFLARE_DATABASE_PLACEHOLDER;
   const customDomain = environment.CLOUDFLARE_CUSTOM_DOMAIN?.trim();
+  const customDomains = customDomain === DIRECT_CLOUDFLARE_DOMAIN
+    ? DIRECT_CLOUDFLARE_DOMAINS
+    : customDomain
+      ? [customDomain]
+      : [];
 
   return {
     name: "hermes-control-plane",
     main: "./worker/index.ts",
     compatibility_date: "2026-07-20",
     compatibility_flags: ["nodejs_compat"],
-    workers_dev: !customDomain,
-    routes: customDomain
-      ? [{ pattern: customDomain, custom_domain: true }]
-      : [],
+    // Keep the Workers.dev origin as an independent fallback/probe while the
+    // branded apex and app subdomain remain the user-facing entry points.
+    workers_dev: true,
+    routes: customDomains.map((pattern) => ({ pattern, custom_domain: true })),
     d1_databases: [
       {
         binding: "DB",

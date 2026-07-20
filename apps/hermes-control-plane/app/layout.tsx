@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://leash.dev"),
+  metadataBase: new URL("https://thumbgate.app"),
   title: {
     default: "Leash — Keep Hermes agents working safely",
     template: "%s | Leash by ThumbGate",
@@ -25,7 +25,7 @@ export const metadata: Metadata = {
   },
   openGraph: {
     type: "website",
-    url: "https://leash.dev/",
+    url: "https://thumbgate.app/",
     siteName: "Leash by ThumbGate",
     title: "Leash — Keep Hermes agents working safely",
     description: "Free web control for your Hermes machine, with paid fenced cloud continuation when it goes offline.",

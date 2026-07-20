@@ -19,6 +19,14 @@
 	<string>/tmp/saas-watchdog.log</string>
 	<key>EnvironmentVariables</key>
 	<dict>
+		<key>HERMES_APP_URL</key>
+		<string>https://thumbgate.app</string>
+		<key>HERMES_APP_ALIAS_URL</key>
+		<string>https://app.thumbgate.app</string>
+		<key>HERMES_HTTP_APP_URL</key>
+		<string>http://thumbgate.app</string>
+		<key>HERMES_WORKERS_URL</key>
+		<string>https://hermes-control-plane.iganapolsky.workers.dev</string>
 		<key>PATH</key>
 		<string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
 	</dict>

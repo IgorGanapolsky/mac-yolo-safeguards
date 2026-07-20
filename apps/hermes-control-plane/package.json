@@ -43,5 +43,8 @@
     "vite": "8.1.5",
     "wrangler": "4.112.0"
   },
+  "overrides": {
+    "postcss": "8.5.10"
+  },
   "type": "module"
 }
