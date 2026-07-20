@@ -91,7 +91,22 @@ describe('ApprovalsScreen', () => {
     expect(getByText('No pending approvals')).toBeTruthy();
     expect(getByTestId('leash-pro-upsell-card')).toBeTruthy();
     expect(getByTestId('pro-upgrade-card')).toBeTruthy();
-    expect(getByTestId('subscribe-thumbgate-leash-iap')).toBeTruthy();
+    // Android: lifetime IAP CTA. iOS: web subscription CTA (no StoreKit subs).
+    const iapCta = (() => {
+      try {
+        return getByTestId('subscribe-thumbgate-leash-iap');
+      } catch {
+        return null;
+      }
+    })();
+    const webCta = (() => {
+      try {
+        return getByTestId('open-thumbgate-web-subscription');
+      } catch {
+        return null;
+      }
+    })();
+    expect(iapCta || webCta).toBeTruthy();
   });
 
   it('renders approval card and resolves via thumbs up', () => {

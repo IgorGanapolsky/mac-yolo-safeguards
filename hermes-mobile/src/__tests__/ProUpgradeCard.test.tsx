@@ -1,5 +1,5 @@
 import React from 'react';
-import { Platform } from 'react-native';
+import { Linking, Platform } from 'react-native';
 import { fireEvent, render, waitFor } from '@testing-library/react-native';
 import ProUpgradeCard from '../components/ProUpgradeCard';
 import { trackProductEvent } from '../services/productAnalytics';
@@ -18,17 +18,30 @@ jest.mock('../services/thumbgateIap', () => ({
   purchaseThumbgateLeash: jest.fn(() => Promise.resolve({ status: 'purchased' })),
   restoreThumbgateLeashPurchases: jest.fn(() => Promise.resolve({ status: 'error', message: 'none' })),
   thumbgateIapSubscribeLabel: jest.fn(() => 'Unlock in Google Play'),
+  supportsInAppPaidUnlock: jest.fn(() => true),
 }));
+
+const mockSupports = jest.requireMock('../services/thumbgateIap')
+  .supportsInAppPaidUnlock as jest.Mock;
+const mockLabel = jest.requireMock('../services/thumbgateIap')
+  .thumbgateIapSubscribeLabel as jest.Mock;
 
 describe('ProUpgradeCard', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     Object.defineProperty(Platform, 'OS', { configurable: true, get: () => 'android' });
+    mockSupports.mockReturnValue(true);
+    mockLabel.mockReturnValue('Unlock in Google Play');
+    jest.spyOn(Linking, 'openURL').mockResolvedValue(undefined as never);
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
   });
 
   it('tracks paywall view and purchase funnel for Android lifetime unlock', async () => {
     const onUnlocked = jest.fn();
-    const { getByTestId, getByText, getAllByText, queryByText } = render(
+    const { getByTestId, getByText, getAllByText, queryByText, queryByTestId } = render(
       <ProUpgradeCard onUnlocked={onUnlocked} />,
     );
 
@@ -42,6 +55,7 @@ describe('ProUpgradeCard', () => {
     expect(getAllByText(/\$4\.99 once/i).length).toBeGreaterThan(0);
     expect(queryByText(/\$19/)).toBeNull();
     expect(queryByText(/Subscribe/i)).toBeNull();
+    expect(queryByTestId('open-thumbgate-web-subscription')).toBeNull();
 
     fireEvent.press(getByTestId('subscribe-thumbgate-leash-iap'));
 
@@ -73,18 +87,34 @@ describe('ProUpgradeCard', () => {
     });
   });
 
-  it('does not hero $19/mo on iOS and keeps restore for existing subscribers', async () => {
+  it('iOS routes subscription to web and never shows StoreKit subscribe CTA', async () => {
     Object.defineProperty(Platform, 'OS', { configurable: true, get: () => 'ios' });
-    const { getByTestId, queryByText, getByText } = render(<ProUpgradeCard />);
+    mockSupports.mockReturnValue(false);
+    mockLabel.mockReturnValue('Manage on ThumbGate web');
+
+    const { getByTestId, queryByTestId, queryByText, getByText } = render(<ProUpgradeCard />);
 
     await waitFor(() => {
       expect(trackProductEvent).toHaveBeenCalledWith('leash_paywall_view', {
-        product_id: 'thumbgate_leash_monthly',
+        product_id: 'web_subscription',
       });
     });
 
     expect(queryByText(/\$19/)).toBeNull();
-    expect(getByText(/Existing App Store subscribers keep access/i)).toBeTruthy();
-    expect(getByTestId('restore-thumbgate-leash')).toBeTruthy();
+    expect(queryByTestId('subscribe-thumbgate-leash-iap')).toBeNull();
+    expect(getByText(/Subscriptions are managed on the ThumbGate web dashboard/i)).toBeTruthy();
+    expect(getByText(/This app does not sell subscriptions/i)).toBeTruthy();
+
+    fireEvent.press(getByTestId('open-thumbgate-web-subscription'));
+
+    await waitFor(() => {
+      expect(trackProductEvent).toHaveBeenCalledWith('upgrade_tap_thumbgate_web_subscription', {
+        url: expect.stringContaining('thumbgate.ai'),
+      });
+      expect(Linking.openURL).toHaveBeenCalledWith(
+        expect.stringContaining('utm_campaign=web_subscription'),
+      );
+      expect(purchaseThumbgateLeash).not.toHaveBeenCalled();
+    });
   });
 });
