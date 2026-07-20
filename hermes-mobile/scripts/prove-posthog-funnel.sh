@@ -6,19 +6,19 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 MOBILE="$ROOT/hermes-mobile"
 POSTHOG_HOST="${EXPO_PUBLIC_POSTHOG_HOST:-https://us.i.posthog.com}"
-POSTHOG_KEY="${EXPO_PUBLIC_POSTHOG_KEY:-}"
+POSTHOG_KEY="${EXPO_PUBLIC_POSTHOG_API_KEY:-}"
 
 if [[ -z "$POSTHOG_KEY" ]]; then
   if [[ -f "$ROOT/.env" ]]; then
   # shellcheck disable=SC1090
     source <(grep -E '^EXPO_PUBLIC_POSTHOG_' "$ROOT/.env" | sed 's/^/export /')
-    POSTHOG_KEY="${EXPO_PUBLIC_POSTHOG_KEY:-}"
+    POSTHOG_KEY="${EXPO_PUBLIC_POSTHOG_API_KEY:-}"
     POSTHOG_HOST="${EXPO_PUBLIC_POSTHOG_HOST:-$POSTHOG_HOST}"
   fi
 fi
 
 if [[ -z "$POSTHOG_KEY" ]]; then
-  echo "[prove-posthog] BLOCKED: set EXPO_PUBLIC_POSTHOG_KEY in repo .env or environment" >&2
+  echo "[prove-posthog] BLOCKED: set EXPO_PUBLIC_POSTHOG_API_KEY in repo .env or environment" >&2
   exit 2
 fi
 
