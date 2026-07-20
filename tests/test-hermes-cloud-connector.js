@@ -7,7 +7,21 @@ const http = require('http');
 const os = require('os');
 const path = require('path');
 const test = require('node:test');
-const { boundContextMessages, canonicalRequest, collectGatewaySessions, createIdentity, executeLocal, loadConfig, saveConfig, signedHeaders, timestampMillis } = require('../tools/hermes-cloud-connector');
+const {
+  boundContextMessages,
+  canonicalRequest,
+  collectGatewaySessions,
+  createIdentity,
+  executeLocal,
+  gatewayHeaders,
+  loadConfig,
+  pairingDashboardUrl,
+  parseDotEnvValue,
+  resolveGatewayApiKey,
+  saveConfig,
+  signedHeaders,
+  timestampMillis,
+} = require('../tools/hermes-cloud-connector');
 
 async function withServer(handler, run) {
   const server = http.createServer(handler);
@@ -33,6 +47,24 @@ test('connector config is private and round-trips', () => {
   saveConfig(file, { deviceId: 'device-1' });
   assert.deepEqual(loadConfig(file), { deviceId: 'device-1' });
   assert.equal(fs.statSync(file).mode & 0o777, 0o600);
+});
+
+test('loads the existing local gateway credential without copying it into connector config', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'hermes-gateway-env-'));
+  const envPath = path.join(root, '.env');
+  fs.writeFileSync(envPath, "IGNORED=value\nexport API_SERVER_KEY='local-only-key'\n", { mode: 0o600 });
+  assert.equal(parseDotEnvValue(fs.readFileSync(envPath, 'utf8'), 'API_SERVER_KEY'), 'local-only-key');
+  assert.equal(resolveGatewayApiKey({ env: {}, envPath }), 'local-only-key');
+  assert.equal(gatewayHeaders({ env: {}, envPath }).authorization, 'Bearer local-only-key');
+  assert.equal(resolveGatewayApiKey({ env: { HERMES_GATEWAY_API_KEY: 'explicit-key' }, envPath }), 'explicit-key');
+  assert.equal(gatewayHeaders({ env: {}, envPath: path.join(root, 'missing') }).authorization, undefined);
+});
+
+test('pairing link opens the signed-in dashboard with a prefilled short code', () => {
+  const target = new URL(pairingDashboardUrl('https://thumbgate.app/', 'ABCD-EFGH'));
+  assert.equal(target.origin, 'https://thumbgate.app');
+  assert.equal(target.pathname, '/dashboard');
+  assert.equal(target.searchParams.get('pair'), 'ABCD-EFGH');
 });
 
 test('context upload is bounded before it leaves the Mac', () => {

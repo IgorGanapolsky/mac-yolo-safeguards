@@ -2,12 +2,14 @@
 'use strict';
 
 const crypto = require('crypto');
+const childProcess = require('child_process');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
 
 const DEFAULT_CONFIG = path.join(os.homedir(), '.hermes', 'cloud-connector.json');
-const DEFAULT_CONTROL_PLANE = 'https://hermes-agent-control.iganapolsky.chatgpt.site';
+const DEFAULT_GATEWAY_ENV = path.join(os.homedir(), '.hermes', '.env');
+const DEFAULT_CONTROL_PLANE = 'https://thumbgate.app';
 const DEFAULT_SESSION_GATEWAY = 'http://127.0.0.1:8642';
 const DEFAULT_MODEL_GATEWAY = 'http://127.0.0.1:4010';
 const POLL_MS = 3_000;
@@ -26,6 +28,51 @@ function normalizeBaseUrl(value) {
   let normalized = String(value).trim();
   while (normalized.endsWith('/')) normalized = normalized.slice(0, -1);
   return normalized;
+}
+
+function parseDotEnvValue(source, key) {
+  for (const line of String(source).split(/\r?\n/)) {
+    const match = line.match(/^\s*(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*?)\s*$/);
+    if (!match || match[1] !== key) continue;
+    const raw = match[2];
+    if ((raw.startsWith('"') && raw.endsWith('"')) || (raw.startsWith("'") && raw.endsWith("'"))) {
+      return raw.slice(1, -1);
+    }
+    return raw.replace(/\s+#.*$/, '').trim();
+  }
+  return '';
+}
+
+function resolveGatewayApiKey(options = {}) {
+  const environment = options.env || process.env;
+  const direct = environment.HERMES_GATEWAY_API_KEY || environment.API_SERVER_KEY;
+  if (typeof direct === 'string' && direct.trim()) return direct.trim();
+  const envPath = options.envPath || environment.HERMES_GATEWAY_ENV_PATH || DEFAULT_GATEWAY_ENV;
+  try { return parseDotEnvValue(fs.readFileSync(envPath, 'utf8'), 'API_SERVER_KEY'); }
+  catch (error) {
+    if (error?.code === 'ENOENT') return '';
+    throw error;
+  }
+}
+
+function pairingDashboardUrl(controlPlaneUrl, userCode) {
+  const target = new URL('/dashboard', `${normalizeBaseUrl(controlPlaneUrl)}/`);
+  target.searchParams.set('pair', userCode);
+  return target.toString();
+}
+
+function openPairingDashboard(controlPlaneUrl, userCode) {
+  if (process.platform !== 'darwin' || process.env.HERMES_CONNECTOR_NO_BROWSER === '1') return false;
+  try {
+    const opener = childProcess.spawn('/usr/bin/open', [pairingDashboardUrl(controlPlaneUrl, userCode)], {
+      detached: true,
+      stdio: 'ignore',
+    });
+    opener.unref();
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 function createIdentity(name = os.hostname()) {
@@ -81,7 +128,8 @@ async function startPairing(config, configPath) {
   });
   config.deviceCode = result.body.deviceCode;
   saveConfig(configPath, config);
-  process.stdout.write(`\nPair this Hermes machine at ${config.controlPlaneUrl}/dashboard\nCode: ${result.body.userCode}\nFingerprint: ${result.body.fingerprint}\n\n`);
+  const opened = openPairingDashboard(config.controlPlaneUrl, result.body.userCode);
+  process.stdout.write(`\n${opened ? 'Opened the ThumbGate approval page in your browser.' : `Pair this Hermes machine at ${config.controlPlaneUrl}/dashboard`}\nCode: ${result.body.userCode}\nFingerprint: ${result.body.fingerprint}\n\n`);
   const deadline = Date.now() + result.body.expiresIn * 1000;
   while (Date.now() < deadline) {
     await new Promise((resolve) => setTimeout(resolve, POLL_MS));
@@ -107,8 +155,9 @@ async function signedPost(config, pathname, payload = {}) {
   });
 }
 
-function gatewayHeaders() {
-  return { 'content-type': 'application/json', ...(process.env.HERMES_GATEWAY_API_KEY ? { authorization: `Bearer ${process.env.HERMES_GATEWAY_API_KEY}` } : {}) };
+function gatewayHeaders(options = {}) {
+  const apiKey = resolveGatewayApiKey(options);
+  return { 'content-type': 'application/json', ...(apiKey ? { authorization: `Bearer ${apiKey}` } : {}) };
 }
 
 function contentText(content) {
@@ -125,9 +174,10 @@ function timestampMillis(value, fallback = Date.now()) {
 
 async function gatewayJson(baseUrl, pathname, options = {}) {
   const timeout = options.method === 'POST' ? TASK_TIMEOUT_MS : REQUEST_TIMEOUT_MS;
+  const { gatewayEnvPath, ...requestOptions } = options;
   const response = await fetch(`${baseUrl}${pathname}`, {
-    ...options, signal: options.signal || AbortSignal.timeout(timeout),
-    headers: { ...gatewayHeaders(), ...(options.headers || {}) },
+    ...requestOptions, signal: options.signal || AbortSignal.timeout(timeout),
+    headers: { ...gatewayHeaders({ envPath: gatewayEnvPath }), ...(options.headers || {}) },
   });
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(payload.error?.message || payload.error || `Hermes session gateway HTTP ${response.status}`);
@@ -148,14 +198,14 @@ function boundContextMessages(messages) {
 }
 
 async function collectGatewaySessions(config) {
-  const payload = await gatewayJson(config.sessionGatewayUrl, `/api/sessions?limit=${SESSION_LIMIT}`);
+  const payload = await gatewayJson(config.sessionGatewayUrl, `/api/sessions?limit=${SESSION_LIMIT}`, { gatewayEnvPath: config.gatewayEnvPath });
   const sessions = Array.isArray(payload.data) ? payload.data : [];
   const contextIds = new Set(sessions.slice(0, CONTEXT_SESSION_LIMIT).map((session) => String(session.id)));
   return Promise.all(sessions.map(async (session) => {
     let messages = [];
     if (session.id && contextIds.has(String(session.id))) {
       try {
-        const messagePayload = await gatewayJson(config.sessionGatewayUrl, `/api/sessions/${encodeURIComponent(session.id)}/messages`);
+        const messagePayload = await gatewayJson(config.sessionGatewayUrl, `/api/sessions/${encodeURIComponent(session.id)}/messages`, { gatewayEnvPath: config.gatewayEnvPath });
         messages = boundContextMessages(Array.isArray(messagePayload.data) ? messagePayload.data : []);
       } catch (error) {
         console.error(`[hermes-cloud-connector] context sync skipped for ${session.id}: ${error instanceof Error ? error.message : error}`);
@@ -182,13 +232,15 @@ async function executeLocal(config, task) {
       ? `Cloud/web continuation since this Mac last synced:\n${task.handoffMessages.map((message) => `${message.role}: ${message.content}`).join('\n\n').slice(-24_000)}`
       : undefined;
     const payload = await gatewayJson(config.sessionGatewayUrl, `/api/sessions/${encodeURIComponent(task.sourceSessionId)}/chat`, {
-      method: 'POST', body: JSON.stringify({ message: task.prompt, ...(handoff ? { system_message: handoff } : {}) }),
+      method: 'POST', gatewayEnvPath: config.gatewayEnvPath,
+      body: JSON.stringify({ message: task.prompt, ...(handoff ? { system_message: handoff } : {}) }),
     });
     return contentText(payload.message?.content || payload.output || payload.content || payload.response) || JSON.stringify(payload);
   }
   const messages = [...(Array.isArray(task.contextMessages) ? task.contextMessages : []), { role: 'user', content: task.prompt }];
   const payload = await gatewayJson(config.modelGatewayUrl, '/v1/chat/completions', {
-    method: 'POST', body: JSON.stringify({ model: process.env.HERMES_LOCAL_MODEL || 'hermes', messages, stream: false }),
+    method: 'POST', gatewayEnvPath: config.gatewayEnvPath,
+    body: JSON.stringify({ model: process.env.HERMES_LOCAL_MODEL || 'hermes', messages, stream: false }),
   });
   return contentText(payload.choices?.[0]?.message?.content) || JSON.stringify(payload);
 }
@@ -231,6 +283,7 @@ async function main() {
   config.controlPlaneUrl = normalizeBaseUrl(process.env.HERMES_CONTROL_PLANE_URL || config.controlPlaneUrl || DEFAULT_CONTROL_PLANE);
   config.sessionGatewayUrl = normalizeBaseUrl(process.env.HERMES_SESSION_GATEWAY_URL || config.sessionGatewayUrl || DEFAULT_SESSION_GATEWAY);
   config.modelGatewayUrl = normalizeBaseUrl(process.env.HERMES_MODEL_GATEWAY_URL || config.modelGatewayUrl || config.gatewayUrl || DEFAULT_MODEL_GATEWAY);
+  config.gatewayEnvPath = process.env.HERMES_GATEWAY_ENV_PATH || config.gatewayEnvPath || DEFAULT_GATEWAY_ENV;
   saveConfig(configPath, config);
   if (!config.deviceId || process.argv.includes('--pair')) await startPairing(config, configPath);
   if (process.argv.includes('--pair-only')) return;
@@ -251,5 +304,5 @@ async function main() {
   }
 }
 
-module.exports = { boundContextMessages, canonicalRequest, collectGatewaySessions, contentText, createIdentity, executeLocal, loadConfig, saveConfig, signedHeaders, sha256, syncGatewaySessions, timestampMillis };
+module.exports = { boundContextMessages, canonicalRequest, collectGatewaySessions, contentText, createIdentity, executeLocal, gatewayHeaders, loadConfig, pairingDashboardUrl, parseDotEnvValue, resolveGatewayApiKey, saveConfig, signedHeaders, sha256, syncGatewaySessions, timestampMillis };
 if (require.main === module) main().catch((error) => { console.error(error); process.exitCode = 1; });
