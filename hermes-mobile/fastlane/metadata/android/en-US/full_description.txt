@@ -10,7 +10,7 @@ FREE
 • QR and local network pairing with no Hermes Mobile cloud account
 • Saved computer profiles for Mac, Linux, and Windows gateways
 
-LEASH (optional paid unlock)
+LEASH ($4.99 once — unlock)
 • Review and approve or deny blocked tool calls from your phone
 • View and edit standing allow or block gate rules synced from your gateway
 • Manage persistent safety policies across sessions
@@ -55,10 +55,11 @@ FAQ
 
 • Do I need Termux? No. Hermes runs on your Mac, Linux, or Windows computer; this app is the remote control.
 
+• Looking for “Hermes Agent” (Hen Works)? That runs AI on Android. Hermes Mobile is the opposite — remote control for desktop agents.
 • Is this Hermes Agent (the 1,200★ Play app)? No — that runs AI on Android. We control desktop agents.
 
 • Hermex or HermesPilot? Those are other native clients (WebUI server vs Hermes Link relay). We pair directly to your gateway plus ThumbGate Leash.
 
-• Do I need a cloud account? No Hermes Mobile account required. Optional paid Leash unlock for unlimited gate approvals.
+• Do I need a cloud account? No Hermes Mobile account required. Optional Leash unlock is pay once ($4.99 on Play) for unlimited gate approvals.
 
 • iPhone? Yes — live on the App Store as “Hermes Mobile: AI Agent Leash”. Android is live on Google Play.
