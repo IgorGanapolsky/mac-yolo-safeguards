@@ -7,6 +7,16 @@
 # the squat over IPv4 and hang/fail even though DevTools is alive on IPv6.
 set -euo pipefail
 
+# Optional persistent mode from install-browser-bridge.sh (daily vs dedicated).
+STATE_FILE="${HERMES_BROWSER_BRIDGE_STATE:-${HOME}/.hermes/browser-bridge.env}"
+if [[ -f "$STATE_FILE" ]]; then
+  # shellcheck disable=SC1090
+  set -a
+  # shellcheck disable=SC1090
+  source "$STATE_FILE"
+  set +a
+fi
+
 PORT="${HERMES_CDP_PORT:-9222}"
 PROFILE="${HERMES_CDP_PROFILE:-${HOME}/.hermes/chrome-cdp-profile}"
 LOG="${HERMES_CDP_LOG:-${HOME}/Library/Logs/hermes-chrome-cdp.log}"
@@ -14,7 +24,9 @@ CHROME_BIN="${HERMES_CHROME_BIN:-/Applications/Google Chrome.app/Contents/MacOS/
 BIND_ADDR="${HERMES_CDP_BIND:-127.0.0.1}"
 RECLAIM="${HERMES_CDP_RECLAIM_SQUAT:-1}"
 
-mkdir -p "$(dirname "$LOG")" "$PROFILE"
+mkdir -p "$(dirname "$LOG")"
+# Daily Chrome profile already exists; dedicated profile may need create.
+mkdir -p "$PROFILE" 2>/dev/null || true
 
 # Return CDP /json/version body when the endpoint is a real Chrome DevTools server.
 cdp_version_body() {

@@ -4,62 +4,53 @@ North star: a real user pairs Hermes Mobile to **their Mac** and asks Chat to
 browse/click/fill forms. Browser automation runs on the Mac via Chrome DevTools
 Protocol (CDP) — not via `adb`, not via a phone extension.
 
+**Compete verdict vs [Kimi WebBridge](https://www.kimi.com/features/webbridge):**
+we compete on local-agent ↔ browser control (same CDP wedge). Full teardown:
+[KIMI-WEBBRIDGE-TEARDOWN.md](./KIMI-WEBBRIDGE-TEARDOWN.md).
+
+## One-command connect (WebBridge Local Agent steal)
+
+```bash
+bash scripts/install-browser-bridge.sh
+# keep everyday Chrome logins (quits Chrome once):
+bash scripts/install-browser-bridge.sh --profile=daily
+```
+
+This heals `com.hermes.chrome-cdp`, wires `browser.cdp_url: ws://127.0.0.1:9222`,
+kickstarts the gateway, and prints a paste-to-agent line.
+
 ## What we already host
 
 | Piece | Path / identity | Role |
 |---|---|---|
-| CDP LaunchAgent | `com.hermes.chrome-cdp` | Every 120s heals Chrome with remote debugging |
-| Heal script | `scripts/hermes-chrome-cdp.sh` | Starts `~/.hermes/chrome-cdp-profile` on port **9222** |
-| Installer | `scripts/install-hermes-chrome-cdp.sh` | Bootstraps the LaunchAgent from `com.hermes.chrome-cdp.plist` |
-| Prevention watchdog | `scripts/hermes-prevention-watchdog.sh` + `com.igor.hermes-prevention-watchdog` | Ensures CDP up, SOUL no-constraints, never `disabled_toolsets: [browser]` |
-| One-shot configure | `scripts/configure-browser-control.sh` | Real-user/fleet apply + JSON status |
-| Agent tools | `~/.hermes/hermes-agent/tools/browser_*.py` | `browser_navigate`, `browser_click`, `browser_cdp`, … |
-| Mobile UI | Hermes Mobile → Chat → **Tools** (`GatewayOpsSection`) | Lists/toggles toolsets including Browser Automation |
-| SaaS / WebBridge-style connector | `tools/hermes-cloud-connector.js`, `saas/*`, `apps/hermes-control-plane` | Cloud **session** access from a website (different product surface) |
-
-Evidence (this Mac, 2026-07-20): LaunchAgent `com.hermes.chrome-cdp` loaded;
-Chrome DevTools answered on `[::1]:9222` while a non-CDP Python squat held
-`127.0.0.1:9222` — heal script now reclaims non-CDP squatters and forces
-`--remote-debugging-address=127.0.0.1`.
+| One-command installer | `scripts/install-browser-bridge.sh` | WebBridge-style Local Agent connect |
+| CDP LaunchAgent | `com.hermes.chrome-cdp` | Heals Chrome remote debugging every 120s |
+| Heal script | `scripts/hermes-chrome-cdp.sh` | Profile + port **9222** + IPv4 squat reclaim |
+| Wire agent config | `scripts/wire-hermes-browser-cdp.sh` | Persist `browser.cdp_url` |
+| Configure / status | `scripts/configure-browser-control.sh` | Apply + JSON status |
+| Agent tools | `~/.hermes/hermes-agent/tools/browser_*.py` | navigate / click / cdp / … |
+| Mobile UI | Chat → **Tools** | Toggle Browser Automation |
+| SaaS connector | `tools/hermes-cloud-connector.js`, `saas/*` | Cloud **sessions** (adjacent, not DOM) |
 
 ## How the agent connects
 
-1. LaunchAgent runs `hermes-chrome-cdp.sh`.
-2. Chrome listens on `127.0.0.1:9222` with `--remote-allow-origins=*`.
-3. Hermes gateway (`api_server` platform toolsets) includes `browser` + `computer_use`.
-4. Tools resolve CDP via `BROWSER_CDP_URL` / `browser.cdp_url` / engine auto.
-5. Hermes Mobile Chat messages hit the gateway; the Mac executes browser tools.
-
-Ports: **9222** (primary Hermes CDP). Some fleet hosts also use **9223** for a
-secondary profile — see `docs/BROWSER-EFFICIENCY.md`.
+1. `install-browser-bridge.sh` / LaunchAgent runs `hermes-chrome-cdp.sh`.
+2. Chrome listens on `127.0.0.1:9222`.
+3. `browser.cdp_url` points hermes-agent at that endpoint.
+4. Hermes Mobile Chat → gateway → browser tools on the Mac.
 
 ## Real-user enable path (no adb)
 
-On the Mac that Hermes Mobile pairs to:
-
-```bash
-bash scripts/configure-browser-control.sh --apply --json
-```
-
-Then on the phone (brand-new user):
-
-1. Install Hermes Mobile (Play / release APK).
-2. Connect to the Mac (Find computers / QR / Tailscale) — ordinary pairing.
-3. Open Chat → Tools → confirm **Browser Automation** is on (ready tools auto-enable).
-4. Ask Hermes to open a site and act (e.g. navigate + summarize).
-
-There is no phone Chrome extension and no USB requirement for browser control.
+1. On the Mac: `bash scripts/install-browser-bridge.sh`
+2. Phone: install Hermes Mobile → Find computers / QR / Tailscale pair
+3. Chat → Tools → **Browser Automation** on
+4. Ask Hermes to open a site and act
 
 ## Gaps vs Kimi WebBridge
 
 | Kimi WebBridge | Hermes today |
 |---|---|
-| Browser extension / bridge UI in the user's daily Chrome | Dedicated Hermes CDP Chrome profile (isolated from daily browsing) |
-| One-command cloud connector for web dashboard | Shipped separately: `tools/hermes-cloud-connector.js` + control plane (session relay, not DOM control) |
-| Visible “bridge connected” chrome in consumer browser | Status via `configure-browser-control.sh --json` + Tools toolset toggle |
-| Works without a local agent install | Requires Hermes gateway on the user's Mac (product model) |
-
-Honest remainder: we do **not** inject a WebBridge-style extension into the
-user's everyday Chrome tabs. Agent control uses the Hermes CDP profile (safer
-isolation). Cloud “open Hermes in a browser” is the connector/control-plane path,
-not this CDP stack.
+| Chrome/Edge **extension** (no restart) | CDP LaunchAgent; `--profile=daily` still restarts Chrome |
+| In-tab “bridge connected” badge | CLI/JSON “Bridge connected” + Tools toggle |
+| With Kimi Desktop mode | Hermes Mobile + Mac gateway |
+| Convert workflow → Skill UI | Hermes skills exist; no WebBridge packaging UI yet |
