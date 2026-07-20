@@ -1,52 +1,45 @@
-# ASO search gap — "hermes ai" (2026-07-20)
+# ASO search gap — "hermes ai" (2026-07-20, title pass)
 
 ## Verdict
 
-| Store | Direct URL live? | Organic "hermes ai"? | Root cause |
-|-------|------------------|----------------------|------------|
-| **Google Play** free `com.iganapolsky.hermesmobile` | **Yes** — production 1.2 / vc18 `completed` | **No** (top = Hen Works `com.hermesagent.android`) | Contested head term + competitor install/review velocity; 0 public ratings |
-| **iOS App Store** id `6786778037` | **Yes** — **$9.99** READY_FOR_SALE | **No** (top = Hermes AI Personal Agent id6759341434 et al.) | Same: brand collision + free competitors with reviews; we have **0 ratings** |
-| **Play paid** `com.iganapolsky.hermesmobile.paid` | **Not public** | N/A | Draft / API 403 for this SA — another agent owns T-PLAY-PAID-LIVE |
+| Store | Direct URL live? | Organic "hermes ai"? | Notes |
+|-------|------------------|----------------------|-------|
+| **Google Play** free `com.iganapolsky.hermesmobile` | **Yes** | Still contested (Hen Works #1) | **Title shipped** → `Hermes AI Agent Leash` via Play API edit commit |
+| **iOS App Store** id `6786778037` | **Yes** — **$9.99** 1.2 READY_FOR_SALE | Still contested (Hermes AI Personal Agent #1) | **1.3 WAITING_FOR_REVIEW** name/subtitle/keywords shipped; live 1.2 name locked (409) until 1.3 ships |
+| **Play paid** `com.iganapolsky.hermesmobile.paid` | **Not public** | N/A | In review / other agent |
 
-## Direct URLs that work
+## Direct URLs (proven 2026-07-20)
 
 - Play: https://play.google.com/store/apps/details?id=com.iganapolsky.hermesmobile
-- iOS: https://apps.apple.com/us/app/hermes-mobile-ai-agent-leash/id6786778037
+- iOS: https://apps.apple.com/us/app/id6786778037
 
-Phone proof (2026-07-20): `market://details?id=com.iganapolsky.hermesmobile` opens live listing (Uninstall/Open — already installed).
+## Metadata shipped this pass (aggressive, accurate)
 
-## Search evidence (same day)
+### Play (API `push-play-listing.py --text-only`, committed)
 
-| Query | Play | iTunes search API |
-|-------|------|-------------------|
-| `hermes ai` | Ours **absent** from top ids; Hen Works #1 | Ours **absent** from top 24 |
-| `hermes mobile` | Ours **#2** (after Hen Works) | Unrelated old "Hermes Mobile" id465082160 #1; ours not top |
-| `ai agent leash` | Ours **#1** | Ours **#2** ($9.99) |
-| `hermes leash` | Ours **#1** | Ours **#1** |
-| `hermes mobile ai agent` | — | Ours **#2** |
+| Field | Value | Limit |
+|-------|-------|-------|
+| **Title** | `Hermes AI Agent Leash` | 21/30 |
+| **Short** | `Hermes AI agent leash for Mac — chat & approve tools. $4.99 once. Not phone AI.` | 79/80 |
+| **Full** | Lead rewritten to open with **Hermes AI Agent Leash (Hermes Mobile)** + keep competitor FAQ | 3897/4000 |
 
-**Honest ranking:** We are live and indexed for long-tail / brand+product queries. We do **not** rank for the contested head term `hermes ai` against free apps with 10K+ downloads / reviews. Metadata fixes improve match + conversion; they will not instantly beat Hen Works / Hermes AI Personal Agent on that SERP.
+Differentiation vs Hen Works / Hermes-Relay kept in FAQ (no trademark impersonation).
 
-## Metadata shipped this pass
+### iOS ASC API (`push-asc-listing-copy.js`)
 
-### Play (API `push-play-listing.py --text-only`)
+| Surface | Name | Subtitle | Keywords / promo |
+|---------|------|----------|------------------|
+| **1.3 WAITING_FOR_REVIEW** | **`Hermes AI Agent Leash`** | **`Hermes AI agent for your Mac`** | keywords 99/100 + `mobile`; promo leads with “Search Hermes AI” |
+| **1.2 READY_FOR_SALE** | Locked: `Hermes Mobile: AI Agent Leash` | Locked: `Control Mac agents from phone` | **promotionalText** updated on live |
 
-- **Title** (unchanged): `Hermes Mobile: AI Agent Leash` (29/30)
-- **Short** → `Hermes AI agent leash: chat & approve Mac tools from your phone.` (64/80)
-- **Full** → lead with "Hermes AI agent leash" + "not on-device phone AI"; kept live FAQ / competitor differentiation body
+Custom product pages: **0** via ASC API (`appCustomProductPages` empty). Promo text maxed on live + 1.3 instead of inventing a CPP without assets.
 
-### iOS (ASC `push-asc-listing-copy.js`)
+## 1.3 binary status (coord, do not duplicate)
 
-- **Subtitle** → `Hermes AI agent for your Mac` (28/30) — may require PREPARE appInfo / next version if live READY_FOR_SALE blocks subtitle
-- **Keywords** → `remote,approve,coding,devtools,gateway,operator,safety,pair,tailscale,desktop,usb,wifi,phone,control` (100/100; no title-word waste)
-- **Promotional text** → Hermes AI agent leash / not phone chatbot / pay once / Tailscale (editable on READY_FOR_SALE)
+- ASC version **1.3** = **`WAITING_FOR_REVIEW`** (already attached/submitted).
+- Open PR #632 (`store/ios-1.3-asc-binary`) is **CONFLICTING** and largely obsolete for binary attach — metadata for ranking is already on the waiting version.
+- Live public iTunes lookup still shows **1.2** name until Apple releases 1.3.
 
-## What will not fix "hermes ai" alone
+## Honest ranking
 
-- Copy-only ASO vs 10K+ install competitors
-- Paid draft package until published
-- Trademark impersonation of Hen Works / other Hermes AI apps (not done)
-
-## Coordination
-
-`T-SUBTITLE-PAID-ONCE` (in_progress) also owns fastlane listing text. Repo subtitle kept as their AC: `Chat with Hermes on your Mac`. Live App Store subtitle remains `Control Mac agents from phone` until next version; ASC 409 blocks live subtitle/keywords. This turn shipped Play short/full via API + ASC promotionalText on live 1.2; 1.3 PREPARE has ASO keywords/description (and may still show an interim subtitle until that agent lands).
+Text/title moves **match + conversion**. Head-term rank for `hermes ai` is still dominated by free apps with reviews/installs (Hen Works 10K+; Hermes AI Personal Agent). Expect **hours–days** of index lag after title change; do not claim #1 without a fresh SERP proof.

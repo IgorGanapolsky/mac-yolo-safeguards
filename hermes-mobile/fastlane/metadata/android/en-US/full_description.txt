@@ -1,4 +1,4 @@
-Hermes Mobile is the Hermes AI agent leash for your own Mac, Linux, or Windows computer. Chat with your Hermes gateway from your phone, see honest run state, and approve or deny risky commands before they execute.
+Hermes AI Agent Leash (Hermes Mobile) is the Hermes AI agent leash for your own Mac, Linux, or Windows computer. Chat with your Hermes gateway from your phone, see honest run state, and approve or deny risky commands before they execute.
 
 Hermes Mobile is an independent mobile control plane for a Hermes gateway you operate — not on-device phone AI. It is built for developers whose workflows also involve Cursor, Claude Code, ChatGPT or OpenAI Codex, Gemini CLI, Replit Agent, GitHub Copilot, Windsurf, OpenClaw, and other coding agents.
 
@@ -65,4 +65,5 @@ FAQ
 
 • Do I need a cloud account? No Hermes Mobile account required. Optional paid Leash unlock for unlimited gate approvals.
 
-• iPhone? Yes — live on the App Store as “Hermes Mobile: AI Agent Leash”. Android is live on Google Play.
+• iPhone? Yes — live on the App Store as “Hermes AI Agent Leash”. Android is live on Google Play.
+
