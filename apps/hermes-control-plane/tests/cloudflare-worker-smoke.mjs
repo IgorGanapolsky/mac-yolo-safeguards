@@ -123,11 +123,11 @@ try {
 
   const robots = await fetch(`http://127.0.0.1:${port}/robots.txt`);
   assert.equal(robots.status, 200);
-  assert.match(await robots.text(), /https:\/\/leash\.dev\/sitemap\.xml/);
+  assert.match(await robots.text(), /https:\/\/thumbgate\.app\/sitemap\.xml/);
 
   const sitemap = await fetch(`http://127.0.0.1:${port}/sitemap.xml`);
   assert.equal(sitemap.status, 200);
-  assert.match(await sitemap.text(), /https:\/\/leash\.dev\//);
+  assert.match(await sitemap.text(), /https:\/\/thumbgate\.app\//);
 
   const llms = await fetch(`http://127.0.0.1:${port}/llms.txt`);
   assert.equal(llms.status, 200);
@@ -135,11 +135,23 @@ try {
 
   const health = await fetch(`http://127.0.0.1:${port}/api/health`);
   assert.equal(health.status, 200);
-  assert.deepEqual(await health.json(), {
-    ok: true,
-    service: "leash-control",
-    database: "available",
-    schema: "current",
+  assert.equal(health.headers.get("strict-transport-security"), "max-age=63072000; includeSubDomains; preload");
+  const healthPayload = await health.json();
+  assert.equal(healthPayload.ok, true);
+  assert.equal(healthPayload.service, "leash-control");
+  assert.equal(healthPayload.database, "available");
+  assert.equal(healthPayload.schema, "current");
+  assert.equal(typeof healthPayload.checkedAt, "number");
+  assert.deepEqual(healthPayload.telemetry, {
+    usersTotal: 0,
+    organizationsTotal: 0,
+    activeSessions: 0,
+    activeDevices: 0,
+    deviceHeartbeatLatestAt: null,
+    auditLatestAt: null,
+    analyticsLatestAt: null,
+    billingEventLatestAt: null,
+    realBillingEventLatestAt: null,
   });
 
   const funnel = await fetch(`http://127.0.0.1:${port}/api/analytics/event`, {
@@ -151,6 +163,16 @@ try {
     body: JSON.stringify({ schemaVersion: 1, event: "landing_view" }),
   });
   assert.equal(funnel.status, 204);
+
+  const watchdogProbe = await fetch(`http://127.0.0.1:${port}/api/analytics/event`, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      origin: `http://127.0.0.1:${port}`,
+    },
+    body: JSON.stringify({ schemaVersion: 1, event: "watchdog_probe" }),
+  });
+  assert.equal(watchdogProbe.status, 204);
 
   const session = await fetch(`http://127.0.0.1:${port}/api/me`);
   assert.equal(session.status, 401);

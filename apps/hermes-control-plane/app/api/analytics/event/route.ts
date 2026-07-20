@@ -7,6 +7,7 @@ const EVENTS = new Set([
   "sign_in_click",
   "free_control_click",
   "cloud_continuity_click",
+  "watchdog_probe",
 ]);
 
 export async function POST(request: Request) {
