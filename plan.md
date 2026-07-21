@@ -360,7 +360,6 @@ Status values: `pending` | `in_progress` | `blocked` | `done`. Claim a row by se
 ## 2. File Ownership Map (append-only lock table — claim before touching)
 
 - `docs/RESEARCH-TAILSCALE-PEER-RELAY-APERTURE-JULY-2026.md`, `parallel-research/tailscale-peer-relay-aperture-july-2026.*`, `plan.md` → **codex-peer-relay-research** (T-TAILSCALE-PEER-RELAY-RESEARCH-20260721; research/docs only, no Hermes Mobile source edits) (2026-07-21T21:12:00Z)
-||||||| parent of 1689ff2b (fix(mobile): suppress [SILENT] sentinel on FlatList tip)
 - T-OUTPUT-WIPE-PRESERVE / streamAssistantText+chatMessageMerge+tests → **released by cursor-output-wipe** (done; handoff to cursor-flashlist-v2 for [SILENT] fold) (2026-07-21T21:33:09Z)
 - T-255 emptyStreamReplyRecovery tests → **released by cursor-empty-stream-refresh** for [SILENT] fold (2026-07-21T21:33:09Z)
 - T-269 chatMessageMerge.test.ts → **released by cursor-dup-bubble** for [SILENT] fold (2026-07-21T21:33:09Z)
