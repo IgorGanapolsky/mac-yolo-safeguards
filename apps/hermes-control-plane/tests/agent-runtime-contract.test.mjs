@@ -8,12 +8,22 @@ const runnerRenew = readFileSync(new URL("../app/api/runner/tasks/renew/route.ts
 const connector = readFileSync(new URL("../../../tools/hermes-cloud-connector.js", import.meta.url), "utf8");
 const cloudRunner = readFileSync(new URL("../../../services/hermes-cloud-runner/server.js", import.meta.url), "utf8");
 const dashboardLayout = readFileSync(new URL("../app/dashboard/layout.tsx", import.meta.url), "utf8");
+const landing = readFileSync(new URL("../app/page.tsx", import.meta.url), "utf8");
 const catalog = JSON.parse(readFileSync(new URL("../public/.well-known/ai-catalog.json", import.meta.url), "utf8"));
 
 test("fails closed at the server boundary for every private dashboard route", () => {
   assert.match(dashboardLayout, /await currentSession\(\)/);
   assert.match(dashboardLayout, /if \(!session\) redirect\("\/api\/auth\/login\?return_to=%2Fdashboard"\)/);
   assert.match(dashboardLayout, /return children/);
+});
+
+test("makes the landing-page session state explicit without loading workspace telemetry", () => {
+  assert.match(landing, /const session = await currentSession\(\)/);
+  assert.match(landing, /const workspaceHref = session \? "\/dashboard" : "\/api\/auth\/login"/);
+  assert.match(landing, /session \? "Open dashboard" : "Sign in"/);
+  assert.match(landing, /session \? "Session active" : "Sign-in required"/);
+  assert.match(landing, /No workspace telemetry is fetched or rendered on this public page/);
+  assert.doesNotMatch(landing, /fetch\("\/api\/(threads|tasks|devices|lessons|feedback)/);
 });
 
 test("enforces renewable leases and rejects completion after hard expiry", () => {
