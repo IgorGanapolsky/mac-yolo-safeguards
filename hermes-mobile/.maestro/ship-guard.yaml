@@ -14,6 +14,10 @@ appId: com.iganapolsky.hermesmobile
 - assertNotVisible: "Unable to load script"
 - assertNotVisible: "Make sure you're running Metro"
 
+# ErrorBoundary crash (recurring FlashList "Maximum update depth exceeded" — #676/#697/#717).
+- assertNotVisible: "Something went wrong"
+- assertNotVisible: "Maximum update depth exceeded"
+
 # Legacy native shell (wrong app)
 - assertNotVisible: "Hold the cord on your AI"
 - assertNotVisible: "Connect your computer"
@@ -31,6 +35,10 @@ appId: com.iganapolsky.hermesmobile
 
 # Composer must stay tappable while keyboard is open (regression #91 / translateY hit-rect).
 - runFlow: regression-composer-typeable.yaml
+
+# Send burst + tab remount + keyboard toggle storm must never trip the FlashList
+# max-update-depth ErrorBoundary (recurring crash — see flow file for history).
+- runFlow: regression-flashlist-max-depth.yaml
 
 # Leash tab (THUMBGATE_LEASH) is covered by e2e-bootstrap / regression-leash-refresh.
 # Device ship-guard ends at SETTINGS — Leash deep-link is flaky after demo re-bootstrap.

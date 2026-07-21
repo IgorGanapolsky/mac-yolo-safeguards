@@ -1,0 +1,74 @@
+# Regression E2E for the recurring "Maximum update depth exceeded" ErrorBoundary crash
+# (stack at FlashList — see src/utils/chatFlashListScrollGuard.ts for the root cause).
+# This bug shipped as "fixed" three times (#676, #697, #717) and kept recurring on-device
+# because every prior fix was only proven by unit tests on the guard's pure state machine —
+# nothing exercised the real ChatScreen wiring (onContentSizeChange/onScroll/tab remount/
+# keyboard inset) where the feedback loop actually happens. This flow drives those exact
+# triggers (rapid send burst, tab remount while content is large, keyboard toggles) and
+# asserts the ErrorBoundary text never appears.
+appId: com.iganapolsky.hermesmobile
+---
+- launchApp
+- extendedWaitUntil:
+    notVisible:
+      id: "hermes-bootstrap"
+    timeout: 90000
+- runFlow: dismiss-print-interruption.yaml
+- runFlow: chat-e2e-bootstrap.yaml
+- runFlow:
+    when:
+      notVisible:
+        id: "chat-input"
+    commands:
+      - tapOn:
+          id: "tab-hermes"
+- extendedWaitUntil:
+    visible:
+      id: "chat-input"
+    timeout: 30000
+- runFlow: dismiss-mega-session-warn.yaml
+
+# Hydrate storm: several sends back-to-back with minimal waits between them so the
+# FlashList content size grows rapidly (the same shape as a large-thread hydrate).
+- repeat:
+    times: 6
+    commands:
+      - tapOn:
+          id: "chat-input"
+      - eraseText
+      - inputText: "stress test message for flashlist regression"
+      - tapOn:
+          id: "chat-send-button"
+      - runFlow: dismiss-mega-session-warn.yaml
+
+# Remount storm: leave Chat and come back while content is large — ChatScreen stays
+# mounted under other tabs and remeasures the list on return (#676's root-cause note).
+- repeat:
+    times: 3
+    commands:
+      - runFlow: hide-keyboard-safe.yaml
+      - tapOn:
+          id: "tab-settings"
+      - extendedWaitUntil:
+          visible:
+            id: "SETTINGS"
+          timeout: 30000
+      - tapOn:
+          id: "tab-hermes"
+      - extendedWaitUntil:
+          visible:
+            id: "chat-input"
+          timeout: 30000
+
+# Keyboard toggle storm: keyboard inset remounts are the other known remeasure trigger.
+- repeat:
+    times: 3
+    commands:
+      - tapOn:
+          id: "chat-input"
+      - runFlow: hide-keyboard-safe.yaml
+
+- assertNotVisible: "Something went wrong"
+- assertNotVisible: "Maximum update depth exceeded"
+- assertVisible:
+    id: "chat-input"
