@@ -39,8 +39,9 @@ export function shouldClaimHeaderTransport(input: {
 
 /**
  * Header transport chip from the URL that actually succeeded this session.
- * USB is allowed only for live loopback on Wi‑Fi — never on cellular (ghost adb reverse),
- * and never for Tailscale/MagicDNS/100.x (remote mini in another city).
+ * USB: live loopback on Wi‑Fi, or cellular when /health proves a live cable Mac
+ * (hostname + green|amber). Ghost 127.0.0.1 on cellular without live health stays silent.
+ * Never USB for Tailscale/MagicDNS/100.x (remote mini in another city).
  */
 export function resolveHeaderTransportLabel(input: {
   gatewayUrl: string;
@@ -56,9 +57,17 @@ export function resolveHeaderTransportLabel(input: {
     return 'Tailscale';
   }
   if (isLoopbackGatewayUrl(gatewayUrl)) {
-    // Cellular + 127.0.0.1 is almost always a stale USB primary / wireless-adb ghost.
+    // Cellular + 127.0.0.1 without live /health is a stale USB primary / wireless-adb ghost.
+    // Live hostname on green|amber proves adb reverse — claim USB even on 5G (product lock).
     if (input.wifiConnected === false) {
-      return undefined;
+      const host = input.health?.hostname?.trim();
+      const live =
+        Boolean(host) &&
+        !input.health?.authMismatch &&
+        (input.health?.level === 'green' || input.health?.level === 'amber');
+      if (!live) {
+        return undefined;
+      }
     }
     return 'USB';
   }
@@ -68,14 +77,14 @@ export function resolveHeaderTransportLabel(input: {
   return formatGatewayEndpointLine(gatewayUrl, input.health)?.trim() || undefined;
 }
 
-/** USB header chip is honest only when loopback is the reach URL and phone is on Wi‑Fi. */
+/** USB header chip when loopback is the reach URL and Wi‑Fi or live-cable health confirms. */
 export function isUsbHeaderTransportAllowed(input: {
   gatewayUrl: string;
   wifiConnected?: boolean;
+  health?: GatewayHealthSnapshot | null;
 }): boolean {
   return (
     isLoopbackGatewayUrl(input.gatewayUrl) &&
-    input.wifiConnected !== false &&
     resolveHeaderTransportLabel(input) === 'USB'
   );
 }
@@ -282,7 +291,10 @@ export function resolveChatMachineHeaderDisplay(input: {
   savedMacCount?: number;
   profiles?: GatewayProfile[];
   isDemo?: boolean;
-  /** When false (cellular), never claim USB — even if gatewayUrl is still loopback. */
+  /**
+   * When false (cellular), only claim USB if live /health proves the cable
+   * (see resolveHeaderTransportLabel). Ghost loopback stays silent.
+   */
   wifiConnected?: boolean;
 }): ChatMachineHeaderDisplay {
   const gatewayUrl = input.gatewayUrl?.trim() ?? '';
@@ -328,6 +340,7 @@ export function resolveChatMachineHeaderDisplay(input: {
     isUsbHeaderTransportAllowed({
       gatewayUrl,
       wifiConnected: input.wifiConnected,
+      health: input.health,
     });
   const hasNamedMachine = Boolean(machineLabel && !isGenericMachineLabel(machineLabel));
   const ipLine = claimTransport

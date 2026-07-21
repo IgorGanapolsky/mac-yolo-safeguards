@@ -273,6 +273,25 @@ describe('USB primary on cellular', () => {
         failoverUrl: 'http://100.87.85.85:8642',
       }),
     ).toBe(false);
+    expect(
+      shouldClearUsbPrimaryOnCellular({
+        primaryUrl: 'http://127.0.0.1:8642',
+        wifiConnected: false,
+        failoverUrl: 'http://100.87.85.85:8642',
+        liveUsbConfirmed: true,
+      }),
+    ).toBe(false);
+  });
+
+  it('does not defer live USB loopback success on cellular', () => {
+    expect(
+      shouldDeferLoopbackSuccessOnCellular({
+        primaryUrl: 'http://127.0.0.1:8642',
+        wifiConnected: false,
+        hasTailscaleAlternate: true,
+        liveUsbConfirmed: true,
+      }),
+    ).toBe(false);
   });
 
   it('resolves Tailscale failover for USB primary without fresh discoveries', () => {
