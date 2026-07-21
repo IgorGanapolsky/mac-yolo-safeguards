@@ -102,6 +102,21 @@ describe('tailnetProbeStorage', () => {
       const merged = await tailnetProbeStorage.merge([`http://${CGNAT_HOST}:8642`]);
       expect(merged).toEqual([CGNAT_HOST]);
     });
+
+    it('serializes concurrent discovery merges so no reachable host is lost', async () => {
+      const secondCgnatHost = '100.87.85.85';
+
+      await Promise.all([
+        tailnetProbeStorage.merge([CGNAT_HOST]),
+        tailnetProbeStorage.merge([MAGICDNS_HOST]),
+        tailnetProbeStorage.merge([secondCgnatHost]),
+      ]);
+
+      expect(await tailnetProbeStorage.load()).toEqual(
+        expect.arrayContaining([CGNAT_HOST, MAGICDNS_HOST, secondCgnatHost]),
+      );
+      expect(await tailnetProbeStorage.load()).toHaveLength(3);
+    });
   });
 
   describe('clear', () => {

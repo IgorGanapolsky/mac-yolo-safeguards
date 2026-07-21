@@ -12,6 +12,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 const HISTORY_KEY = 'hermes-mobile:leash_decision_history';
 export const LEASH_DECISION_HISTORY_LIMIT = 50;
 
+let mutationQueue: Promise<void> = Promise.resolve();
+
 export type LeashDecisionSource = 'chat' | 'leash';
 
 export type LeashDecisionRecord = {
@@ -51,7 +53,7 @@ function sanitizeRecord(raw: unknown): LeashDecisionRecord | null {
   };
 }
 
-export async function loadLeashDecisionHistory(
+async function loadLeashDecisionHistoryRaw(
   limit: number = LEASH_DECISION_HISTORY_LIMIT,
 ): Promise<LeashDecisionRecord[]> {
   try {
@@ -73,32 +75,52 @@ export async function loadLeashDecisionHistory(
   }
 }
 
+function enqueueMutation(operation: () => Promise<void>): Promise<void> {
+  const result = mutationQueue.then(operation, operation);
+  mutationQueue = result.then(
+    () => undefined,
+    () => undefined,
+  );
+  return result;
+}
+
+export async function loadLeashDecisionHistory(
+  limit: number = LEASH_DECISION_HISTORY_LIMIT,
+): Promise<LeashDecisionRecord[]> {
+  await mutationQueue;
+  return loadLeashDecisionHistoryRaw(limit);
+}
+
 export async function recordLeashDecision(
   record: Omit<LeashDecisionRecord, 'decidedAt'> & { decidedAt?: string },
 ): Promise<void> {
   if (!record.actionId) {
     return;
   }
-  try {
-    const existing = await loadLeashDecisionHistory();
-    const entry: LeashDecisionRecord = {
-      ...record,
-      decidedAt: record.decidedAt ?? new Date().toISOString(),
-    };
-    const next = [
-      entry,
-      ...existing.filter((item) => item.actionId !== record.actionId),
-    ].slice(0, LEASH_DECISION_HISTORY_LIMIT);
-    await AsyncStorage.setItem(HISTORY_KEY, JSON.stringify(next));
-  } catch (error) {
-    console.error('[hermes-mobile] recordLeashDecision failed:', error);
-  }
+  return enqueueMutation(async () => {
+    try {
+      const existing = await loadLeashDecisionHistoryRaw();
+      const entry: LeashDecisionRecord = {
+        ...record,
+        decidedAt: record.decidedAt ?? new Date().toISOString(),
+      };
+      const next = [
+        entry,
+        ...existing.filter((item) => item.actionId !== record.actionId),
+      ].slice(0, LEASH_DECISION_HISTORY_LIMIT);
+      await AsyncStorage.setItem(HISTORY_KEY, JSON.stringify(next));
+    } catch (error) {
+      console.error('[hermes-mobile] recordLeashDecision failed:', error);
+    }
+  });
 }
 
 export async function clearLeashDecisionHistory(): Promise<void> {
-  try {
-    await AsyncStorage.removeItem(HISTORY_KEY);
-  } catch (error) {
-    console.error('[hermes-mobile] clearLeashDecisionHistory failed:', error);
-  }
+  return enqueueMutation(async () => {
+    try {
+      await AsyncStorage.removeItem(HISTORY_KEY);
+    } catch (error) {
+      console.error('[hermes-mobile] clearLeashDecisionHistory failed:', error);
+    }
+  });
 }
