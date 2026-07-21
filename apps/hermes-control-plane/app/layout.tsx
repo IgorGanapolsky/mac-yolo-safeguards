@@ -29,11 +29,18 @@ export const metadata: Metadata = {
     siteName: "ThumbGate for Hermes",
     title: "ThumbGate — Your Hermes chats from any screen",
     description: "The familiar Hermes workspace on the web, with signed Mac pairing and optional fenced cloud continuation.",
+    images: [{
+      url: "/og.png",
+      width: 1200,
+      height: 630,
+      alt: "ThumbGate brings your Hermes chats to any screen",
+    }],
   },
   twitter: {
     card: "summary_large_image",
     title: "ThumbGate — Your Hermes chats from any screen",
     description: "The familiar Hermes workspace on the web. Paid cloud continuity when your machine goes offline.",
+    images: ["/og.png"],
   },
   icons: {
     icon: "/favicon.svg",
