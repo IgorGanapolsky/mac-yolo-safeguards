@@ -3,7 +3,7 @@ import { Linking } from 'react-native';
 import type { NavigationContainerRef } from '@react-navigation/native';
 import type { HermesAgentToolName } from '../services/hermesAgentTools';
 import { parseSetupDeepLink, parseRelayDeepLink, type SetupDeepLinkParams } from '../utils/setupDeepLink';
-import { resolveSetupDeepLinkCredentials } from '../services/pairingCodeExchange';
+import { redeemAndApplySetupDeepLink } from '../services/pairingCodeExchange';
 import { syncExtraProfileApiKeys } from '../utils/gatewayProfileCredentialSync';
 import { isDevLeashUnlockDeepLink } from '../utils/developerLeashUnlock';
 import { isDemoModeAllowed } from '../utils/demoModePolicy';
@@ -153,11 +153,13 @@ export function useHermesDeepLinks(
         return;
       }
       if (setup && applySetupDeepLink) {
-        // Secretless pairing (T-330 priority 3): when the deep link carries a one-time
-        // code instead of a raw key, exchange it before applying. Legacy deep links
-        // (no code) pass through unchanged — see pairingCodeExchange.ts.
-        const resolvedSetup = await resolveSetupDeepLinkCredentials(setup);
-        await applySetupDeepLink(resolvedSetup);
+        // Secretless pairing (T-330 priority 3): same redeem pipeline as in-app QR
+        // scanners — exchange one-time codes before apply. Legacy deep links (no
+        // code) pass through unchanged — see pairingCodeExchange.ts.
+        const resolvedSetup = await redeemAndApplySetupDeepLink(setup, applySetupDeepLink);
+        if (!resolvedSetup) {
+          return;
+        }
         await syncExtraProfileApiKeys(resolvedSetup.extraComputers);
         navigationRef.current?.navigate('Chat');
         return;

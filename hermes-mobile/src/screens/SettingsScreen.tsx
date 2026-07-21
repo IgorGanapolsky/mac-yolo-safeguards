@@ -40,6 +40,8 @@ import { secureCredentials } from '../services/secureCredentials';
 import { requestHermesNotificationPermission } from '../services/approvalNotifications';
 import { deriveNotificationsEnabled } from '../utils/notificationPreferences';
 import { consumeSettingsPairQrOnFocus } from '../utils/storeCaptureDeepLink';
+import { redeemAndApplySetupDeepLink } from '../services/pairingCodeExchange';
+import type { SetupDeepLinkParams } from '../utils/setupDeepLink';
 
 export default function SettingsScreen() {
   const navigation = useNavigation();
@@ -103,6 +105,18 @@ export default function SettingsScreen() {
     haptics.light();
     navigation.navigate('Chat' as never);
   }, [navigation]);
+
+  // Same redeem pipeline as OS deep links (useHermesDeepLinks): exchange pairCode
+  // before applySetupDeepLink. Wiring apply alone leaves secretless scans unresolved.
+  const handlePairQrScanned = useCallback(
+    async (params: SetupDeepLinkParams) => {
+      const resolved = await redeemAndApplySetupDeepLink(params, applySetupDeepLink);
+      if (!resolved) {
+        throw new Error('Pairing code expired or invalid');
+      }
+    },
+    [applySetupDeepLink],
+  );
 
   useFocusEffect(
     useCallback(() => {
@@ -1025,7 +1039,7 @@ export default function SettingsScreen() {
       <PairQrScannerModal
         visible={qrScannerVisible}
         onClose={() => setQrScannerVisible(false)}
-        onScanned={applySetupDeepLink}
+        onScanned={handlePairQrScanned}
       />
     </SafeAreaView>
   );
