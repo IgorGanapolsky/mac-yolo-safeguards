@@ -286,12 +286,14 @@ export function shouldInjectContinuityHandoff(opts: {
   return opts.transcriptEmpty === true;
 }
 
-/** Chip is only meaningful on an empty / compose-first surface — not mid-thread. */
-export function shouldShowContinuityChip(opts: {
+/**
+ * Continuity resume is seamless — never surface a banner/Dismiss chip.
+ * Handoff still injects via shouldInjectContinuityHandoff / system_prompt.
+ */
+export function shouldShowContinuityChip(_opts: {
   handoff: SessionContinuityHandoff | null | undefined;
   chipDismissed: boolean;
   transcriptEmpty: boolean;
 }): boolean {
-  if (!opts.handoff || opts.chipDismissed) return false;
-  return opts.transcriptEmpty;
+  return false;
 }
