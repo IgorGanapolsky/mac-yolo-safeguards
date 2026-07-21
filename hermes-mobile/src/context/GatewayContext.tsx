@@ -7,7 +7,7 @@ import React, {
 } from 'react';
 import { createContext, useContext } from 'use-context-selector';
 import { AppState, Linking, Platform } from 'react-native';
-import NetInfo from '@react-native-community/netinfo';
+import NetInfo, { type NetInfoState } from '@react-native-community/netinfo';
 import { isTailscaleVpnActive } from '../utils/tailscaleVpnDetect';
 import {
   cacheDirectory as fileSystemCacheDirectory,
@@ -128,6 +128,7 @@ import {
 } from '../utils/gatewayProfilePicker';
 import { isPrivateLanGatewayUrl } from '../utils/gatewayEndpoint';
 import { isTailscaleGatewayUrl } from '../utils/tailscaleHosts';
+import { expandTailnetProbeHosts } from '../utils/tailnetProbeExpand';
 import type { SetupDeepLinkParams } from '../utils/setupDeepLink';
 import { syncExtraProfileApiKeys } from '../utils/gatewayProfileCredentialSync';
 import {
@@ -407,6 +408,7 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
   >(async () => false);
   const tailnetProbeHostsRef = useRef<string[]>([]);
   const tailscaleProbeInFlightRef = useRef(false);
+  const lastNetInfoStateRef = useRef<NetInfoState | null>(null);
   const probeTailscaleComputersRef = useRef<() => Promise<void>>(async () => {});
   const runConnectionSelfHealRef = useRef<() => Promise<void>>(async () => {});
   const maybeHandoffTailscaleToUsbRef = useRef<() => Promise<boolean>>(async () => false);
@@ -416,6 +418,23 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
   const connectionHealAttemptRef = useRef(0);
   const [connectionHealAttempt, setConnectionHealAttempt] = useState(0);
   const [connectionHealInFlight, setConnectionHealInFlight] = useState(false);
+  const updateTailscaleVpnActive = useCallback((netInfoState?: NetInfoState) => {
+    if (netInfoState) {
+      lastNetInfoStateRef.current = netInfoState;
+    }
+    const currentNetInfoState = lastNetInfoStateRef.current;
+    const ipAddress = (
+      currentNetInfoState?.details as { ipAddress?: string } | null | undefined
+    )?.ipAddress;
+    setTailscaleVpnActive(
+      isTailscaleVpnActive({
+        netInfoType: currentNetInfoState?.type,
+        isConnected: currentNetInfoState?.isConnected,
+        ipAddress,
+        reachedTailscaleHost: reachedTailscaleHostRef.current,
+      }),
+    );
+  }, []);
 
   const addGatewayListener = useCallback((listener: (event: GatewayEventMessage) => void) => {
     listenersRef.current.add(listener);
@@ -1249,23 +1268,11 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
     const interval = setInterval(() => {
       refreshHealth();
     }, 30000);
-    const applyNetInfo = (state: {
-      type?: string | null;
-      isConnected?: boolean | null;
-      details?: unknown;
-    }) => {
+    const applyNetInfo = (state: NetInfoState) => {
       const isWifi = state.type === 'wifi' && state.isConnected !== false;
       wifiConnectedRef.current = isWifi;
       setWifiConnected(isWifi);
-      const ipAddress = (state.details as { ipAddress?: string } | null)?.ipAddress;
-      setTailscaleVpnActive(
-        isTailscaleVpnActive({
-          netInfoType: state.type,
-          isConnected: state.isConnected,
-          ipAddress,
-          reachedTailscaleHost: reachedTailscaleHostRef.current,
-        }),
-      );
+      updateTailscaleVpnActive(state);
     };
     const netSub = NetInfo.addEventListener((state) => {
       applyNetInfo(state);
@@ -1279,7 +1286,7 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
       clearInterval(interval);
       netSub();
     };
-  }, [isLoaded, refreshHealth]);
+  }, [isLoaded, refreshHealth, updateTailscaleVpnActive]);
 
   const disconnectEvents = useCallback(() => {
     if (reconnectTimeoutRef.current) {
@@ -2681,13 +2688,28 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
       return;
     }
     tailscaleProbeInFlightRef.current = true;
-    setTailscaleDiscoveryProbing(true);
     try {
       let storedHosts =
         tailnetProbeHostsRef.current.length > 0
           ? tailnetProbeHostsRef.current
           : await tailnetProbeStorage.load();
       tailnetProbeHostsRef.current = storedHosts;
+
+      // Preflight: Samsung NetInfo often stays `cellular` while tun0 is up. Prove
+      // the tunnel with one quick host probe BEFORE flipping probing=true, so the
+      // picker does not flash "Tailscale is off" (computerPickerStatus gates on
+      // vpnActive while probing).
+      const preflightHosts = expandTailnetProbeHosts(
+        collectTailnetProbeHosts(profileStateRef.current.profiles, storedHosts),
+      ).slice(0, 3);
+      if (preflightHosts.length > 0) {
+        const preflightHits = await discoverTailscaleGateways(preflightHosts);
+        reachedTailscaleHostRef.current = preflightHits.some((item) =>
+          isTailscaleGatewayUrl(item.gatewayUrl),
+        );
+        updateTailscaleVpnActive();
+      }
+      setTailscaleDiscoveryProbing(true);
 
       if (storedHosts.length === 0) {
         const lastLanIp = await storage.loadLastGatewayLanIp();
@@ -2725,9 +2747,11 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
       }
       setTailnetProbeHostCount(storedHosts.length);
 
-      let probeHosts = collectTailnetProbeHosts(
-        profileStateRef.current.profiles,
-        storedHosts,
+      let probeHosts = expandTailnetProbeHosts(
+        collectTailnetProbeHosts(
+          profileStateRef.current.profiles,
+          storedHosts,
+        ),
       );
       if (probeHosts.length === 0) {
         const boot = await bootstrapTailnetProbeHostsFromPairServers(storedHosts);
@@ -2738,21 +2762,25 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
             tailnetProbeHostsRef,
           );
           setTailnetProbeHostCount(storedHosts.length);
-          probeHosts = collectTailnetProbeHosts(
-            profileStateRef.current.profiles,
-            storedHosts,
+          probeHosts = expandTailnetProbeHosts(
+            collectTailnetProbeHosts(
+              profileStateRef.current.profiles,
+              storedHosts,
+            ),
           );
         }
       }
       if (probeHosts.length === 0) {
+        reachedTailscaleHostRef.current = false;
+        updateTailscaleVpnActive();
         setTailscaleDiscoveries([]);
         return;
       }
       const discovered = await discoverTailscaleGateways(probeHosts);
-      if (discovered.length > 0) {
-        reachedTailscaleHostRef.current = true;
-        setTailscaleVpnActive(true);
-      }
+      reachedTailscaleHostRef.current = discovered.some((item) =>
+        isTailscaleGatewayUrl(item.gatewayUrl),
+      );
+      updateTailscaleVpnActive();
       const hostsToPersist = tailnetHostsFromDiscoveries(discovered);
       if (hostsToPersist.length > 0) {
         const mergedHosts = await tailnetProbeStorage.merge(
@@ -2818,7 +2846,7 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
       tailscaleProbeInFlightRef.current = false;
       setTailscaleDiscoveryProbing(false);
     }
-  }, [persistDiscoveredGatewayUrl, refreshHealth]);
+  }, [persistDiscoveredGatewayUrl, refreshHealth, updateTailscaleVpnActive]);
 
   const addDiscoveredTailscaleComputer = useCallback(async (discovery: DiscoveredGateway) => {
     // Catalog + activate — "Add" must switch, not leave the user stuck on MacBook USB.
