@@ -20,8 +20,14 @@ test("fails closed at the server boundary for every private dashboard route", ()
 test("makes the landing-page session state explicit without loading workspace telemetry", () => {
   assert.match(landing, /const session = await currentSession\(\)/);
   assert.match(landing, /const workspaceHref = session \? "\/dashboard" : "\/api\/auth\/login"/);
-  assert.match(landing, /session \? "Open dashboard" : "Sign in"/);
+  assert.match(landing, />Open dashboard<\/Link>/);
+  assert.match(landing, />Sign in<\/Link>/);
   assert.match(landing, /session \? "Session active" : "Sign-in required"/);
+  assert.match(landing, /<form action="\/api\/auth\/logout" method="post">/);
+  assert.match(landing, /type="submit"[^>]*>Sign out<\/button>/);
+  assert.match(landing, /Sign out before leaving a shared device/);
+  assert.match(landing, /href="#main-content">Skip to main content<\/a>/);
+  assert.match(landing, /id="main-content"[^>]*tabIndex=\{-1\}/);
   assert.match(landing, /No workspace telemetry is fetched or rendered on this public page/);
   assert.doesNotMatch(landing, /fetch\("\/api\/(threads|tasks|devices|lessons|feedback)/);
 });
