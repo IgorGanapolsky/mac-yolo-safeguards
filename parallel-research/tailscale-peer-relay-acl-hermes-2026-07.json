@@ -1,0 +1,236 @@
+{
+  "run_id": "trun_bab0de69f552490ca11ef4b58b28650d",
+  "interaction_id": "trun_bab0de69f552490ca11ef4b58b28650d",
+  "result_url": "https://platform.parallel.ai/play/deep-research/trun_bab0de69f552490ca11ef4b58b28650d",
+  "status": "completed",
+  "output": {
+    "basis": [
+      {
+        "field": "answer",
+        "reasoning": "Assessment reasoning:\n- Field description asks for a HELP/PARTIAL/NO verdict for Topic A (Peer Relay) and Topic B (ACLs/grants), concrete guidance on what to configure/ignore, and whether renaming the Settings label to 'Tailscale' is accurate. It also requires citations to primary docs and concrete port references (8642, 8765) across Android/iOS/macOS.\n- The provided field_answer explicitly gives verdicts for both topics, includes concrete guidance on what Hermes should do (configure vs ignore), discusses UI labeling renaming, and references the relevant ports and OS constraints. It also connects the reasoning to the deny-by-default model and grants/ACL concepts, consistent with primary docs.\n- Excerpts list contains multiple relevant docs on grants, ACLs, peer relays, and ports, which appear to support the claims and examples given in the field_answer (e.g., grants syntax, deny-by-default, port-level granularity, peer relay capabilities, and platform considerations).\n- Therefore, completeness is satisfied since the answer covers all requested aspects and provides actionable guidance. Supported status is true since the answer is aligned with and supported by the excerpts.\n",
+        "citations": [
+          {
+            "url": "https://tailscale.com/docs/reference/syntax/grants",
+            "excerpts": [
+              "Grants syntax \u00b7 Tailscale Docs\nAllow access to a specific port on the destination (implies TCP, UDP, and ICMP access). You can specify a single port ( 443 ) or a range of"
+            ],
+            "title": "Grants syntax \u00b7 Tailscale Docs"
+          },
+          {
+            "url": "http://tailscale.com/docs/features/access-control/acls",
+            "excerpts": [
+              "Jan 5, 2026 \u2014 Tailscale now secures access to resources using grants, a next-generation access control policy syntax. \u00b7 ACLs are available\nBoth methods follow a deny-by-default principle and are defined in the [tailnet policy file](/docs/features/tailnet-policy-file) using a [declarative huJSON syntax](/docs/reference/syntax/policy-file). > **Note:**The following related video provides additional context and examples. [Tailscale ACLs Explained (video)](https://www.youtube.com/watch?v=Jn8_Sh4r8d4) ACLs represent the traditional [network layer](https://en.wikipedia.org/wiki/Network_layer) approach to managing access within your tailnet, where you define [a set of devices or users](/docs/reference/targets-and-selectors) who can access ports on other devices. Each ACL you create must define a source and a destination. They let you precisely define access controls for users and devices on your Tailscale network (known as a tailnet)."
+            ],
+            "title": "Manage permissions using ACLs"
+          },
+          {
+            "url": "https://tailscale.com/docs/features/access-control",
+            "excerpts": [
+              "Access control - Tailscale Docs\nTailscale's approach to access control embodies the principles of least privilege and zero trust security. By default, all connections between devices in your Tailscale network (known as a tailnet) are denied unless explicitly permitted through your tailnet policy file."
+            ],
+            "title": "Access control - Tailscale Docs"
+          },
+          {
+            "url": "http://tailscale.com/docs/reference/grants-vs-acls",
+            "excerpts": [
+              "The ACL system follows an explicit deny-by-default principle, requiring administrators to specifically allow each connection type"
+            ],
+            "title": "Grants vs. ACLs"
+          },
+          {
+            "url": "http://tailscale.com/docs/reference/syntax/policy-file",
+            "excerpts": [
+              "If a tailnet uses domain aliases, you must explicitly specify the aliased domains in the ACL\nTailscale access rules deny access by default\nTag owners |`tagOwners` |Targets |Define who can assign which tags to devices in your tailnet. | |Groups |`groups` |Targets |Define named groups of users, devices, and subnets to target in access control policies and other definitions. | |Hosts |`hosts` |Targets |Define named aliases for devices and subnets. | |IP sets |`ipsets` |Targets |Define named network segments to target in access control policies and other definitions. | |Tests |`tests` |Tests |Write tests to make assertions about access policies (ACLs and network-level grants) that should not change. | |SSH test |`sshTests` |Tests |Write tests to make assertions about Tailscale SSH that should not change. | ... Grants Grants are a new, more powerful approach to access control. They let you do everything you can with ACLs, plus more. When communicating with a destination device, you can grant [application layer](https://en.wikipedia.org/wiki/Application_layer) capabilities to a set of devices or users. You can also continue to define traditional [network layer](https://en.wikipedia.org/wiki/Network_layer) capabilities. For example, you can use a grant rule to give a group of users access to port `8443` on a server, _and_ define the files they can edit on that server. The grants system combines network layer and application layer capabilities into a shared syntax. As a result, it offers enhanced flexibility and fine-grained control over resource access. Each grant only requires a source and a destination. Because Tailscale takes a deny-by-default approach, each grant has an implied _accept_ action. ACLs Tailscale now secures access to resources using grants , a next-generation access control policy syntax. Grants provide all original ACL functionality plus additional capabilities . ACLs will continue to work **indefinitely** ; Tailscale will not remove support for this first-generation syntax from the product. However, Tailscale recommends migrating to grants and using grants for all new tailnet policy file configurations because ACLs will not receive any new features. The `acls` section lists access rules for your tailnet. Each rule grants access from a set of sources to a set of destinations. Access rules can use groups and tags to grant access to pre-defined sets of users and assign service role accounts to nodes. Together, groups and tags let you build powerful role-based access control (RBAC) policies. Tailscale automatically translates all ACLs to lower-level rules that allow traffic from a source IP address to a destination IP address and port. ... Subnet routers and exit nodes ACLs don't limit the discovery of routes. If a device is a subnet router , you can restrict access to it independently from the subnet. If a device is an exit node , you can restrict access to it independently from its public IP address. To restrict access to a subnet, ensure that no ACL grants access to those routes. You can enforce this with a test that fails if any rule accidentally grants access. The following example demonstrates a test that fails if `not-allowed@example.com` is allowed access to `198.51.100.7:22` . ``` \"tests\" : [ { \"src\" : \"not-allowed@example.com\" , \"accept\" : [ \"192.0.2.100:22\" ] , // allow access to the Tailscale IP \"deny\" : [ \"198.51.100.7:22\" ] , // does not allow access to the subnet } ] , ``` Only devices with access to `autogroup:internet` can use exit nodes. All other devices (without access to `autogroup:internet` ) cannot use exit nodes. You can enforce this with a test that fails if any rule accidentally grants access to a public address. The following example test fails if `not-allowed@example.com` can access `198.51.100.8:22` . ``` \"tests\" : [ { \"src\" : \"not-allowed@example.com\" , \"accept\" : [ \"192.0.2.100:22\" ] , // allow access to the Tailscale IP \"deny\" : [ \"198.51.100.8:22\" ] , // does not allow access to a public IP } ] , ``` You cannot restrict the use of specific exit nodes using ACLs. Refer to [issue #1567](https://github.com/tailscale/tailscale/issues/1567) for updates. ... Tag owners Tagsare available for all plans . The `tagOwners` section of the tailnet policy file defines the tags assignable to devices and the list of users allowed to assign each tag.\nThe `tests` section lets you write assertions about your access control policies (grants and ACLs) that run as checks each time the tailnet policy file changes. If an assertion fails, Tailscale rejects the updated tailnet policy file with an error.\n``` \"tagOwners\" : { \"tag:webserver\" : [ \"group:engineering\" , ] , \"tag:secure-server\" : [ \"group:security-admins\" , \"president@example.com\" , ] , \"tag:corp\" : [ \"autogroup:member\" , ] , } ``` Every tag name must start with the prefix `tag:` .\n``` \"sshTests\" : [ { \"src\" : \"dave@example.com\" , \"dst\" : [ \"example-host-1\" ] , \"accept\" : [ \"dave\" ] , \"check\" : [ \"admin\" ] , \"deny\" : [ \"root\" ] , \"srcPostureAttrs\" : { \"node:os\" : \"windows\" , } , } , ] , ```\n``` { \"action\" : \"check\" , // \"accept\" or \"check\" \"src\" : [ <list-of-sources> ] , \"dst\" : [ <list-of-destinations> ] , \"users\" : [ <list-of-ssh-users> ] , \"checkPeriod\" : \"20h\" , // optional, only for check actions. default 12h \"acceptEnv\" : [ \"GIT_EDITOR\" , \"GIT_COMMITTER_*\" , \"CUSTOM_VAR_V?\" ] , // optional, allowlists environment variables that can be forwarded from clients to the host \"srcPosture\" : [ <list-of-posture-conditions> ] , // optional, permit access only if the list of posture conditions apply } , ```\n`src` Specifies the user identity to test, which can be a user's email address , a group , a tag , or a host that maps to an IP address. The test case runs from the perspective of a device authenticated with the provided identity. ... `proto` Specifies the IP protocol for `accept` and `deny` rules, similar to the `proto` field in ACL rules . When omitted, the test checks for either TCP or UDP access. When testing Internet Control Message Protocol (ICMP) access, set `\"proto\": \"icmp\"` and use port `0` in your destinations since ICMP doesn't use ports. The following example tests that user `alice@example.com` can `ping` devices tagged with `tag:production` : ``` \"tests\" : [ { \"src\" : \"alice@example.com\" , \"proto\" : \"icmp\" , \"accept\" : [ \"tag:production:0\" ] , } , ] , ``` `accept` and `deny` destinations Specifies destinations to accept or deny. Each destination in the list is of the form `host:port` where `port` is a single numeric port and `host` is one of the following: | **Type** | **Example** | **Description** | | Tailscale IP | `100.100.123.123` | Includes the device with the provided Tailscale IP address. IPv6 addresses must follow the format `[1:2:3::4]:80` . | | Host | `my-host` | Includes the Tailscale IP address in the `hosts` section. | | User | `shreya@example.com` | Includes the Tailscale IP addresses of devices signed in as the provided user. | | Group | `group:security@example.com` | Includes the Tailscale IP addresses of devices signed in as a representative member of the provided group. | | Tag | `tag:production` | Includes the Tailscale IP addresses of devices tagged with the provided tag. | | Service | `svc:my-service` | Includes the Tailscale Virtual IP addresses associated with the provided Service. | You cannot use CIDR (subnet) notation to test subnet ranges. For example, `192.168.1.0/24` is not valid. Instead, you must specify the individual IP addresses or hostnames. Sources in `src` and destinations in `accept` and `deny` must refer to specific entities and do not support `*` wildcards. For example, an `accept` destination cannot be `tags:*` .\n| Hosts | `example-host-name` | Includes the Tailscale IP address in the `hosts` section . |\n| Multiple | Includes two or more port numbers separated by commas. | `80,443` |"
+            ],
+            "title": "Syntax reference for the tailnet policy file"
+          },
+          {
+            "url": "https://tailscale.com/docs/features/access-control/grants",
+            "excerpts": [
+              "Grants \u00b7 Tailscale Docs\nFor example, \"ip\": [\"tcp:443\", \"udp:53\"] grants access to TCP port 443 (HTTPS) and UDP port 53 (DNS) on the destination. Refer to the grants"
+            ],
+            "title": "Grants \u00b7 Tailscale Docs"
+          },
+          {
+            "url": "https://tailscale.com/docs/reference/examples/grants",
+            "excerpts": [
+              "Grant examples \u00b7 Tailscale Docs\nThe third grant ensures everyone in the tailnet can access DNS services (UDP port 53 ). To implement this example, you need to define the groups"
+            ],
+            "title": "Grant examples \u00b7 Tailscale Docs"
+          },
+          {
+            "url": "http://tailscale.com/docs/reference/syntax/grants",
+            "excerpts": [
+              "Select all sources in your tailnet and from approved subnet routes. This does not include devices outside your tailnet (unless they're on an approved subnet).\nautogroup:self` | Select a user's devices. `autogroup:self` is a special autogroup selector that, when combined with a `src` selector of `autogroup:<role>`, `group:<name>`, or an individual user, lets you grant access to a user's own devices from their own devices.\n| `<port>` | Allow access to a specific port on the destination (implies TCP, UDP, and ICMP access). You can specify a single port (`443`) or a range of ports (`80-443`). | `443`, `80-443` | | `<proto>:*` | Allow all ports of the specified protocol (`proto`) access to the destination. This is especially useful for protocols that do not have ports, such as ICMP. For example, `icmp:*` or `sctp:*`. | `icmp:*`, `sctp:*` | | `<proto>:<port>` | Allow access to a specific protocol and port combination on the destination. You can specify a single port (`tcp:443`) or a range of ports (`tcp:80-443`). | `tcp:443`, `tcp:80-443` |\nThe `ip` field defines the network layer [capabilities](/docs/features/access-control/grants/grants-app-capabilities), such as ports and protocols. You must include this field, or the `app` field, or both fields together. When omitted, the source has no network layer access unless granted by another rule.\n| `*` | Allow access to all ports on the destination (implies TCP, UDP, and ICMP access). | `*` |\n| `<email>` | Select a specific user by their email address. For GitHub users, use `username@github`. For Passkey users, use `username@passkey`. | `name@example.com`, `username@github`, `username@passkey` |\nWhen you list multiple selectors in a single src or dst array, the Tailscale policy engine uses the union of all entities matching any selector"
+            ],
+            "title": "Grants syntax"
+          },
+          {
+            "url": "https://tailscale.com/docs/reference/examples/serve",
+            "excerpts": [
+              "Tailscale Serve examples\ntailscale serve --tcp 2222 22. From another device, connect as you normally would with SSH but add the port we configured as a flag to the"
+            ],
+            "title": "Tailscale Serve examples"
+          },
+          {
+            "url": "https://tailscale.com/blog/acl-grants",
+            "excerpts": [
+              "Manage network and application access with Tailscale Grants\nDec 14, 2023 \u00b7 The Tailscale policy file shapes your tailnet, by letting you define who can access what, how devices connect, and even how IP addresses are\u00a0"
+            ],
+            "title": "Manage network and application access with Tailscale Grants"
+          },
+          {
+            "url": "https://tailscale.com/docs/features/peer-relay",
+            "excerpts": [
+              "Tailscale Peer Relays \u00b7 Tailscale Docs\nTo use the peer relay feature for faster relayed connections, you must configure at least one device in the tailnet to function as a peer relay. Only devices that meet the peer relay requirements and that you explicitly designate can act as peer relays."
+            ],
+            "title": "Tailscale Peer Relays \u00b7 Tailscale Docs"
+          },
+          {
+            "url": "https://github.com/LoopeyTheGreat/Tailscale_Relay/blob/main/README.md",
+            "excerpts": [
+              "Tailscale_Relay/README.md at main - GitHub\nThe tag:peer-relay node should have no src rules in your Headscale ACL policy \u2014 it cannot initiate connections. Admin nodes manage it via SSH/ICMP inbound rules only."
+            ],
+            "title": "Tailscale_Relay/README.md at main - GitHub"
+          },
+          {
+            "url": "https://tailscale.com/blog/peer-relays-ga",
+            "excerpts": [
+              "Tailscale Peer Relays is now generally available\nFeb 18, 2026 \u2014 Tailscale Peer Relays can be enabled on any supported Tailscale node using the CLI, controlled through grants in your ACLs, and deployed"
+            ],
+            "title": "Tailscale Peer Relays is now generally available"
+          },
+          {
+            "url": "https://tailscale.com/docs/reference/derp-servers",
+            "excerpts": [
+              "DERP servers \u00b7 Tailscale Docs\nJan 21, 2026 \u2014 The other type is peer relay connections. Peer relay connections use other devices in your Tailscale network (known as a tailnet) to relay"
+            ],
+            "title": "DERP servers \u00b7 Tailscale Docs"
+          },
+          {
+            "url": "https://blog.therainisme.com/posts/tailscale-peer-relay",
+            "excerpts": [
+              "Make Tailscale NAT Traversal More Stable with Peer Relay\nIn October 2025, Tailscale introduced the Peer Relay feature, making NAT traversal simpler and more stable. Peer Relay lets you designate any device in your Tailnet as a relay node to forward encrypted traffic between other devices."
+            ],
+            "title": "Make Tailscale NAT Traversal More Stable with Peer Relay"
+          },
+          {
+            "url": "https://apps.apple.com/us/app/tailscale/id1475387142",
+            "excerpts": [
+              "Tailscale - App Store - Apple\navailable on a wide range of platforms \u2014 including Apple's macOS, iOS, and tvOS. Requires macOS 12.4 or later ."
+            ],
+            "title": "Tailscale - App Store - Apple"
+          },
+          {
+            "url": "https://tailscale.com/blog/peer-relays-beta",
+            "excerpts": [
+              "Introducing Tailscale Peer Relays\nOct 29, 2025 \u2014 Tailscale Peer Relays is built right into the Tailscale client, and can be enabled with a simple command, using the tailscale set --relay-server"
+            ],
+            "title": "Introducing Tailscale Peer Relays"
+          },
+          {
+            "url": "https://github.com/tailscale/tailscale/issues/17791",
+            "excerpts": [
+              "FR: Peer Relay Operator & ENV support \u00b7 Issue #17791\nNov 7, 2025 \u2014 What are you trying to do? Peer relays on bare metal k8s with a single port forward. I had to add the external IP of my NAT to"
+            ],
+            "title": "FR: Peer Relay Operator & ENV support \u00b7 Issue #17791"
+          },
+          {
+            "url": "https://tailscale.com/docs/reference/grants-vs-acls",
+            "excerpts": [],
+            "title": "Grants vs. ACLs"
+          },
+          {
+            "url": "https://www.xda-developers.com/tailscale-peer-relay-change-connect-self-hosted",
+            "excerpts": [
+              "Tailscale's Peer Relays will change how you connect to self ...\nIf you like the sound of setting up your own relay server, all you need to do is set a relay server port when starting Tailscale (ensuring that you're using version 1.86 or newer),"
+            ],
+            "title": "Tailscale's Peer Relays will change how you connect to self ..."
+          },
+          {
+            "url": "http://github.com/tailscale/tailscale/issues/4217",
+            "excerpts": [
+              "Mar 18, 2022 \u2014 the Tailscale ACL system lets you grant access to IP protocols (TCP, UDP, etc) and ports (80, 443, 22, etc). do \"tcp/443\" on node Y.\nMar 18, 2022 \u2014 Currently, the Tailscale ACL system lets you grant access to IP protocols (TCP, UDP, etc) and ports (80, 443, 22, etc)."
+            ],
+            "title": "Application-defined capabilities \u00b7 Issue #4217 \u00b7 tailscale ..."
+          },
+          {
+            "url": "http://github.com/Chesszyh/tailscale-docs/blob/master/features/tailnet-policy-file/ip-sets/index.md",
+            "excerpts": [
+              "(last verified: 2026-07-16) The following example shows how to create [grants](https://tailscale.com/docs/features/access-control/grants) that [reference](https://tailscale.com/docs/features/tailnet-policy-file/ip-sets) the `dev` IP set. ```json \"grants\": [ { \"src\": [\"group:devops\"], \"dst\": [\"ipset:dev\"], \"ip\": [\"80\",\"443\",\"22\""
+            ],
+            "title": null
+          },
+          {
+            "url": "https://tailscale.com/docs/reference/connection-types",
+            "excerpts": [
+              "Connection types \u00b7 Tailscale Docs\nJun 1, 2026 \u00b7 Peer relay connections use Tailscale Peer Relays to relay traffic through another device in the same tailnet when a direct connection between\u00a0... How Tailscale establishes... \u00b7 Relayed connections"
+            ],
+            "title": "Connection types \u00b7 Tailscale Docs"
+          },
+          {
+            "url": "https://github.com/tailscale/tailscale/issues/19297",
+            "excerpts": [
+              "Android: Stuck on DERP / Fails to establish direct connection ...\nAttempting to force traffic by running a ping within the Tailscale app or speedtest does not trigger a switch to a direct connection for the servers. The only workaround is to manually disconnect Android phone from the Tailnet, fully close the app, and reconnect."
+            ],
+            "title": "Android: Stuck on DERP / Fails to establish direct connection ..."
+          },
+          {
+            "url": "https://tailscale.com/docs/features/group-visibility-clients",
+            "excerpts": [
+              "Group visibility on Tailscale clients\nJun 10, 2026 \u00b7 Within the tagOwners field, create a tag named prod and assign autogroup:admin as the tag owner. This lets any admin of your tailnet assign the\u00a0"
+            ],
+            "title": "Group visibility on Tailscale clients"
+          },
+          {
+            "url": "https://tailscale.com/docs/aperture/how-grants-work",
+            "excerpts": [
+              "How Aperture grants work \u00b7 Tailscale Docs\nJun 25, 2026 \u00b7 Use a tag to grant access to non-user devices, such as a CI runner or service, that connect to Aperture. Matching a group: entry requires"
+            ],
+            "title": "How Aperture grants work \u00b7 Tailscale Docs"
+          },
+          {
+            "url": "https://tailscale.com/docs/features/tags",
+            "excerpts": [
+              "Group devices with tags \u00b7 Tailscale Docs\nDec 4, 2025 \u00b7 Tag owners can be users, groups, or even other tags, which means you can create complex tag ownership hierarchies. A tagged device's identity is\u00a0"
+            ],
+            "title": "Group devices with tags \u00b7 Tailscale Docs"
+          },
+          {
+            "url": "https://github.com/tailscale/tailscale/issues/8726",
+            "excerpts": [
+              "Tagged server can access subnet routes when ACL should ...\nJul 27, 2023 \u2014 Tagged server can access subnet routes when ACL should deny it, verify the deny rules, which incorrectly pass. Tailscale version 1.46.1 (docker"
+            ],
+            "title": "Tagged server can access subnet routes when ACL should ..."
+          },
+          {
+            "url": "https://github.com/tailscale/tailscale/issues/6915",
+            "excerpts": [
+              "FR: add new action type \"deny\" for ACL \u00b7 Issue #6915\nJan 8, 2023 \u2014 I'm organizing nodes using tags to show the application type. I have ~10 tags like tag:web, tag:loadbalancer, tag:db and tag:db-proxy."
+            ],
+            "title": "FR: add new action type \"deny\" for ACL \u00b7 Issue #6915"
+          },
+          {
+            "url": "https://github.com/tailscale/tailscale/issues/11574",
+            "excerpts": [
+              "FR: Tags for mullvad exit nodes in ACL \u00b7 Issue #11574\nApr 1, 2024 \u2014 What are you trying to do? ports nonfunctional with tagged devices using ACL without the default allow all rule when using mullvad exit"
+            ],
+            "title": "FR: Tags for mullvad exit nodes in ACL \u00b7 Issue #11574"
+          },
+          {
+            "url": "https://github.com/tailscale/tailscale/issues/6205",
+            "excerpts": [
+              "When creating an ACL-Tag for port 53, the Services (alpha) ...\nNov 5, 2022 \u2014 What is the issue? When hovering over the ACL information in the Services (alpha) section, the page crashes:"
+            ],
+            "title": "When creating an ACL-Tag for port 53, the Services (alpha) ..."
+          }
+        ],
+        "confidence": "high"
+      }
+    ],
+    "type": "text",
+    "beta_fields": null,
+    "mcp_tool_calls": null,
+    "content_file": "tailscale-peer-relay-acl-hermes-2026-07.md"
+  }
+}
