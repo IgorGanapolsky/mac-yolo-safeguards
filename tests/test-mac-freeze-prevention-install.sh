@@ -3,6 +3,7 @@ set -u
 
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
 INSTALLER="$REPO/scripts/install-mac-freeze-prevention.sh"
+CI_WORKFLOW="$REPO/.github/workflows/ci.yml"
 TMP="$(mktemp -d "${TMPDIR:-/tmp}/freeze-install-test.XXXXXX")"
 trap 'rm -rf "$TMP"' EXIT INT TERM
 pass=0; fail=0
@@ -54,6 +55,14 @@ if cmp -s "$REPO/scripts/memory-pressure-guardian.sh" "$TMP/home/.local/bin/memo
   ok "repeat installation is idempotent and byte-identical"
 else
   bad "installed scripts differ from verified sources"
+fi
+if grep -Eq 'install .*\$HOME/(\.local/bin|\.hermes/safeguards)/.*(sim-runaway-guard|memory-pressure-guardian)' "$CI_WORKFLOW"; then
+  bad "self-hosted CI can overwrite a live freeze-prevention guard"
+elif grep -q 'mktemp -d "\$RUNNER_TEMP/mac-yolo-guards-under-test' "$CI_WORKFLOW" \
+  && grep -q 'verified live lease support' "$CI_WORKFLOW"; then
+  ok "self-hosted CI verifies live lease support and stages branch guards only in RUNNER_TEMP"
+else
+  bad "self-hosted CI does not prove isolated branch-guard staging"
 fi
 
 echo

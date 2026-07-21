@@ -30,6 +30,22 @@ a current full desktop frame; the remote Apps and Desktop actions produced new
 frames in 2.55 seconds and 0.89 seconds respectively. A connected VNC socket by
 itself was deliberately not accepted as usability proof.
 
+The final post-restore sample improved SSH to 0.22-0.28 seconds, showed 85.61%
+CPU idle and kernel pressure level 1, and processed a Screen Sharing Desktop
+action into a changed frame in 1.227 seconds. An unrelated, terminal-attached
+`tinker-yolo` session loaded `qwen3-hermes-tinker:q4` during the live circuit.
+The guard preserved it because pressure was normal; the incident's
+`qwen3.5:9b-hermes-64k` worker remained absent. A shared workstation safeguard
+must distinguish a verified reload loop from an interactive session rather than
+claiming every resident model is a fault.
+
+A final hash audit found that successful self-hosted CI run `29870078411` had
+overwritten the live memory guardian at 17:29:47 with the older file from its
+checked-out main commit. CI now treats the Mac mini as a live workstation: it
+verifies that installed guards support the PID lease without changing them, and
+stages branch guard files only under `RUNNER_TEMP`. Deploying a guard is an
+explicit installer operation, never a side effect of testing an arbitrary PR.
+
 ## Research-backed operating rules
 
 1. Use macOS memory pressure, not a low free-RAM number by itself, as the action
@@ -88,3 +104,5 @@ valid proof must include:
   and a visibly changed frame;
 - ten-minute follow-up telemetry showing the model/gateway did not reload during
   the recovery circuit.
+- installed source hashes that remain unchanged across a concurrent self-hosted
+  CI run.
