@@ -127,6 +127,8 @@ import {
 } from '../utils/gatewayProfilePicker';
 import { isPrivateLanGatewayUrl } from '../utils/gatewayEndpoint';
 import { isTailscaleGatewayUrl } from '../utils/tailscaleHosts';
+import { isTailscaleVpnActiveFromNetInfo } from '../utils/tailscaleVpnDetect';
+import { expandTailnetProbeHosts } from '../utils/tailnetProbeExpand';
 import type { SetupDeepLinkParams } from '../utils/setupDeepLink';
 import { syncExtraProfileApiKeys } from '../utils/gatewayProfileCredentialSync';
 import {
@@ -1249,7 +1251,9 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
       const isWifi = state.type === 'wifi' && state.isConnected !== false;
       wifiConnectedRef.current = isWifi;
       setWifiConnected(isWifi);
-      setTailscaleVpnActive(state.type === 'vpn' && state.isConnected !== false);
+      // Samsung cellular keeps type=cellular while tun0/Tailscale is up — never
+      // rely on type==='vpn' alone (see tailscaleVpnDetect + July 2026 research).
+      setTailscaleVpnActive(isTailscaleVpnActiveFromNetInfo(state));
       refreshHealth();
       void probeTailscaleComputersRef.current();
     });
@@ -1257,7 +1261,7 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
       const isWifi = state.type === 'wifi' && state.isConnected !== false;
       wifiConnectedRef.current = isWifi;
       setWifiConnected(isWifi);
-      setTailscaleVpnActive(state.type === 'vpn' && state.isConnected !== false);
+      setTailscaleVpnActive(isTailscaleVpnActiveFromNetInfo(state));
     });
     return () => {
       clearInterval(interval);
@@ -2673,13 +2677,27 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
       return;
     }
     tailscaleProbeInFlightRef.current = true;
-    setTailscaleDiscoveryProbing(true);
     try {
       let storedHosts =
         tailnetProbeHostsRef.current.length > 0
           ? tailnetProbeHostsRef.current
           : await tailnetProbeStorage.load();
       tailnetProbeHostsRef.current = storedHosts;
+
+      // Preflight: Samsung NetInfo often stays `cellular` while tun0 is up. Prove
+      // the tunnel with one quick host probe BEFORE flipping probing=true, so the
+      // picker does not flash "Tailscale is off" (computerPickerStatus gates on
+      // vpnActive while probing).
+      const preflightHosts = expandTailnetProbeHosts(
+        collectTailnetProbeHosts(profileStateRef.current.profiles, storedHosts),
+      ).slice(0, 3);
+      if (preflightHosts.length > 0) {
+        const preflightHits = await discoverTailscaleGateways(preflightHosts);
+        if (preflightHits.some((item) => isTailscaleGatewayUrl(item.gatewayUrl))) {
+          setTailscaleVpnActive(true);
+        }
+      }
+      setTailscaleDiscoveryProbing(true);
 
       if (storedHosts.length === 0) {
         const lastLanIp = await storage.loadLastGatewayLanIp();
@@ -2717,9 +2735,11 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
       }
       setTailnetProbeHostCount(storedHosts.length);
 
-      let probeHosts = collectTailnetProbeHosts(
-        profileStateRef.current.profiles,
-        storedHosts,
+      let probeHosts = expandTailnetProbeHosts(
+        collectTailnetProbeHosts(
+          profileStateRef.current.profiles,
+          storedHosts,
+        ),
       );
       if (probeHosts.length === 0) {
         const boot = await bootstrapTailnetProbeHostsFromPairServers(storedHosts);
@@ -2730,9 +2750,11 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
             tailnetProbeHostsRef,
           );
           setTailnetProbeHostCount(storedHosts.length);
-          probeHosts = collectTailnetProbeHosts(
-            profileStateRef.current.profiles,
-            storedHosts,
+          probeHosts = expandTailnetProbeHosts(
+            collectTailnetProbeHosts(
+              profileStateRef.current.profiles,
+              storedHosts,
+            ),
           );
         }
       }
@@ -2741,6 +2763,11 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
         return;
       }
       const discovered = await discoverTailscaleGateways(probeHosts);
+      // Reachability to any Tailscale host proves the tunnel is up even when
+      // NetInfo still reports cellular (Samsung OEM false negative).
+      if (discovered.some((item) => isTailscaleGatewayUrl(item.gatewayUrl))) {
+        setTailscaleVpnActive(true);
+      }
       const hostsToPersist = tailnetHostsFromDiscoveries(discovered);
       if (hostsToPersist.length > 0) {
         const mergedHosts = await tailnetProbeStorage.merge(
