@@ -1,4 +1,4 @@
-import { normalizeGatewayUrl } from '../services/gatewayClient';
+import { normalizeGatewayUrl } from './gatewayUrlNormalize';
 
 const LOOPBACK_HOSTS = new Set(['127.0.0.1', 'localhost', '0.0.0.0']);
 const IPV4_RE = /^\d{1,3}(\.\d{1,3}){3}$/;
