@@ -209,7 +209,10 @@ import {
   shouldHardTimeoutRun,
 } from '../utils/runStaleDetection';
 import { isChatAtTop, isChatNearBottom } from '../utils/chatScrollSync';
-import { nextChatNearBottom } from '../utils/chatFlashListScrollGuard';
+import {
+  FLASHLIST_LAYOUT_QUIET_MS,
+  nextChatNearBottom,
+} from '../utils/chatFlashListScrollGuard';
 import {
   COMPOSER_DRAFT_SAVE_DEBOUNCE_MS,
   clearComposerDraft,
@@ -888,29 +891,35 @@ export default function ChatScreen() {
 
   /** Blocks onContentSizeChange→scrollToEnd recursion (FlashList max-update-depth). */
   const programmaticScrollInFlightRef = useRef(false);
-  const endProgrammaticScrollRafRef = useRef<number | null>(null);
+  const layoutQuietUntilMsRef = useRef(0);
+  const endProgrammaticScrollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
+
+  const releaseProgrammaticScrollGuard = useCallback(() => {
+    programmaticScrollInFlightRef.current = false;
+    layoutQuietUntilMsRef.current = Date.now() + FLASHLIST_LAYOUT_QUIET_MS;
+  }, []);
 
   const scrollChatToLatest = useCallback((animated = false) => {
     // Non-inverted FlashList: scrollToEnd scrolls to the latest messages at the bottom.
     const generation = scrollCancelGenerationRef.current;
     programmaticScrollInFlightRef.current = true;
-    if (endProgrammaticScrollRafRef.current != null) {
-      cancelAnimationFrame(endProgrammaticScrollRafRef.current);
-      endProgrammaticScrollRafRef.current = null;
+    if (endProgrammaticScrollTimerRef.current != null) {
+      clearTimeout(endProgrammaticScrollTimerRef.current);
+      endProgrammaticScrollTimerRef.current = null;
     }
     const run = () => {
       if (generation !== scrollCancelGenerationRef.current) {
-        programmaticScrollInFlightRef.current = false;
+        releaseProgrammaticScrollGuard();
         return;
       }
       flatListRef.current?.scrollToEnd({ animated });
-      // Keep the guard up through the layout pass that scrollToEnd triggers.
-      endProgrammaticScrollRafRef.current = requestAnimationFrame(() => {
-        endProgrammaticScrollRafRef.current = requestAnimationFrame(() => {
-          endProgrammaticScrollRafRef.current = null;
-          programmaticScrollInFlightRef.current = false;
-        });
-      });
+      // Keep the guard through layout + onScroll; quiet window covers late remeasures.
+      endProgrammaticScrollTimerRef.current = setTimeout(() => {
+        endProgrammaticScrollTimerRef.current = null;
+        releaseProgrammaticScrollGuard();
+      }, FLASHLIST_LAYOUT_QUIET_MS);
     };
     // Single frame is enough; double-rAF on every stream token caused visible jitter.
     if (streamScrollRafRef.current != null) {
@@ -920,7 +929,7 @@ export default function ChatScreen() {
       streamScrollRafRef.current = null;
       run();
     });
-  }, []);
+  }, [releaseProgrammaticScrollGuard]);
 
   const isChatStreamingActive = useCallback(() => {
     return (
@@ -1021,6 +1030,14 @@ export default function ChatScreen() {
         userDragging: userDraggingRef.current,
         prevUserScrolledUp: userScrolledUpRef.current,
       });
+      // Programmatic scrollToEnd fires onScroll during layout — setState here
+      // re-enters FlashList ("Maximum update depth exceeded").
+      if (
+        programmaticScrollInFlightRef.current ||
+        Date.now() < layoutQuietUntilMsRef.current
+      ) {
+        return;
+      }
       setChatNearBottom((prev) => nextChatNearBottom(prev, nearBottom));
       setChatNearTop((prev) => (prev === nearTop ? prev : nearTop));
     },
@@ -7053,9 +7070,12 @@ export default function ChatScreen() {
                     : undefined
                 }
                 onContentSizeChange={() => {
-                  // Programmatic scrollToEnd remeasures the list; re-entering scroll
-                  // here loops into ErrorBoundary "Maximum update depth exceeded".
-                  if (programmaticScrollInFlightRef.current) {
+                  // Never setState synchronously here — FlashList calls this during
+                  // layout; setState→remeasure→setState is the max-update-depth crash.
+                  if (
+                    programmaticScrollInFlightRef.current ||
+                    Date.now() < layoutQuietUntilMsRef.current
+                  ) {
                     return;
                   }
                   if (pinScrollAfterHydrationRef.current) {
@@ -7063,12 +7083,22 @@ export default function ChatScreen() {
                     userScrolledUpRef.current = false;
                     lastDistanceFromBottomRef.current = 0;
                     streamScrollLastAtRef.current = 0;
-                    setChatNearBottom((prev) => (prev ? prev : true));
-                    scrollChatToLatest(false);
+                    queueMicrotask(() => {
+                      setChatNearBottom((prev) => (prev ? prev : true));
+                      scrollChatToLatest(false);
+                    });
                     return;
                   }
                   // force=false: respect pin + throttle during stream (see scrollChatToLatestIfPinned).
-                  scrollChatToLatestIfPinned(false, false);
+                  queueMicrotask(() => {
+                    if (
+                      programmaticScrollInFlightRef.current ||
+                      Date.now() < layoutQuietUntilMsRef.current
+                    ) {
+                      return;
+                    }
+                    scrollChatToLatestIfPinned(false, false);
+                  });
                 }}
                 getItemType={(item) => {
                   const role = item.message.role?.toLowerCase() ?? 'unknown';
