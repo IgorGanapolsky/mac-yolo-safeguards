@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 # 4–6h sparse session watcher for Play paid review (console + public).
-# Durable long-term watch is LaunchAgent com.igor.hermes-mobile-play-paid-review-poll.
-set -euo pipefail
+set -uo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 SCRIPT="${ROOT}/scripts/poll-play-paid-review.sh"
@@ -28,7 +27,14 @@ while true; do
     exit 2
   fi
 
-  PLAY_PAID_POLL_CONSOLE=1 bash "$SCRIPT" | tee -a "$LOG"
+  set +e
+  PLAY_PAID_POLL_CONSOLE=1 bash "$SCRIPT" 2>&1 | tee -a "$LOG"
+  tick_rc=${PIPESTATUS[0]}
+  set -u
+  if (( tick_rc != 0 )); then
+    echo "[$(date -u +%Y-%m-%dT%H:%M:%SZ)] tick_error rc=${tick_rc} (continuing)" | tee -a "$LOG"
+  fi
+
   st="$(python3 -c "import json; print(json.load(open('${LATEST}')).get('status',''))" 2>/dev/null || echo unknown)"
   if [[ "$st" == "live" ]]; then
     echo "[$(date -u +%Y-%m-%dT%H:%M:%SZ)] PUBLIC_LIVE" | tee -a "$LOG"
@@ -42,5 +48,5 @@ while true; do
     rm -f "$PIDF"
     exit 3
   fi
-  sleep "$INTERVAL"
+  sleep "$INTERVAL" || true
 done
