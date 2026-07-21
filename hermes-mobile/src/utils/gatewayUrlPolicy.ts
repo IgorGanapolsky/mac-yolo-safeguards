@@ -162,7 +162,7 @@ export function describeGatewayFetchError(
       );
     }
     return (
-      'Cannot reach the direct Hermes link. Use Hermes Relay in Settings, scan the local QR, or tap Refresh on Leash.'
+      'Cannot reach your computer. Use Tailscale or home Wi‑Fi in Settings, scan the QR from your computer, or tap Refresh on Leash.'
     );
   }
 

@@ -38,7 +38,7 @@ describe('resolveChatMachineHeaderDisplay', () => {
     expect(formatChatMachineHeaderLine(display)).not.toContain('127.0.0.1');
   });
 
-  it('keeps Hermes account relay label when unpaired with empty URL', () => {
+  it('keeps Your computer label when unpaired with empty URL', () => {
     const display = resolveChatMachineHeaderDisplay({
       activeProfile: null,
       gatewayUrl: '',
@@ -48,7 +48,7 @@ describe('resolveChatMachineHeaderDisplay', () => {
       workers: [],
       savedMacCount: 0,
     });
-    expect(display.machineLabel).toBe('Hermes account relay');
+    expect(display.machineLabel).toBe('Your computer');
   });
 
   const macMini: GatewayProfile = {
@@ -106,7 +106,7 @@ describe('resolveChatMachineHeaderDisplay', () => {
       ],
       savedMacCount: 2,
     });
-    expect(display.machineEndpoint).toContain('relay · Igors-Mac-mini · skool');
+    expect(display.machineEndpoint).toContain('Tailscale · Igors-Mac-mini · skool');
   });
 
   it('shows USB route for loopback when live health hostname matches (not home LAN IP)', () => {

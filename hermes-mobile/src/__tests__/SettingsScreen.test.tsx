@@ -76,7 +76,7 @@ describe('SettingsScreen', () => {
   it('renders settings header and gateway inputs', async () => {
     const { getByTestId, getByText } = render(<SettingsScreen />);
     expect(getByTestId('SETTINGS')).toBeTruthy();
-    expect(getByText('Pair Hermes Relay, choose active machines, and run local fallback ops')).toBeTruthy();
+    expect(getByText('Connect your computer with Tailscale or home Wi‑Fi, then manage machines and ops')).toBeTruthy();
     expect(getByTestId('GATEWAY_OPS')).toBeTruthy();
     expect(getByTestId('gateway-url-input')).toBeTruthy();
     expect(getByTestId('gateway-api-key-input')).toBeTruthy();
@@ -106,7 +106,7 @@ describe('SettingsScreen', () => {
     Platform.OS = originalOS;
   });
 
-  it('shows account relay as the default unpaired route in relay mode', () => {
+  it('shows Tailscale-oriented unpaired route label in relay mode', () => {
     useGateway.mockReturnValue(
       mockUseGateway({
         settings: {
@@ -118,8 +118,8 @@ describe('SettingsScreen', () => {
     );
 
     const { getByTestId } = render(<SettingsScreen />);
-    expect(getByTestId('relay-route-title').props.children).toBe('Hermes account relay');
-    expect(getByTestId('relay-route-status').props.children.join('')).toContain('Pair relay in Settings');
+    expect(getByTestId('relay-route-title').props.children).toBe('Your computer');
+    expect(getByTestId('relay-route-status').props.children.join('')).toContain('Use Tailscale for cellular');
   });
 
   it('shows active relay workers when the account relay reports them', () => {
