@@ -55,6 +55,79 @@ function runBash(script, timeoutMs) {
   });
 }
 
+function isTailscaleIpv4(value) {
+  const ip = String(value || '').trim();
+  if (!/^\d{1,3}(\.\d{1,3}){3}$/.test(ip)) return false;
+  const octets = ip.split('.').map(Number);
+  return (
+    octets.every((part) => part >= 0 && part <= 255) &&
+    octets[0] === 100 &&
+    octets[1] >= 64 &&
+    octets[1] <= 127
+  );
+}
+
+function normalizeTailnetProbeHostList(value) {
+  const hosts = new Set();
+  for (const raw of String(value || '').split(',')) {
+    const host = raw.trim().replace(/\.$/, '').toLowerCase();
+    if (!host) continue;
+    if (isTailscaleIpv4(host) || (/^[a-z0-9.-]+$/.test(host) && host.endsWith('.ts.net'))) {
+      hosts.add(host);
+    }
+  }
+  return Array.from(hosts);
+}
+
+const TAILSCALE_API_CREDENTIAL_ENV_KEYS = [
+  'TAILSCALE_API_ACCESS_TOKEN',
+  'TAILSCALE_OAUTH_CLIENT_ID',
+  'TAILSCALE_OAUTH_CLIENT_SECRET',
+];
+
+function clearTailscaleApiCredentialsFromProcess() {
+  for (const key of TAILSCALE_API_CREDENTIAL_ENV_KEYS) {
+    delete process.env[key];
+  }
+}
+
+/**
+ * Optional server-side discovery. Credentials stay in this computer's process;
+ * only sanitized MagicDNS/100.x hosts are passed to the existing pair flow.
+ */
+function bootstrapTailnetProbeHostsFromApi() {
+  const configured = Boolean(
+    process.env.TAILSCALE_API_ACCESS_TOKEN?.trim() ||
+      process.env.TAILSCALE_OAUTH_CLIENT_ID?.trim() ||
+      process.env.TAILSCALE_OAUTH_CLIENT_SECRET?.trim(),
+  );
+  if (!configured) return { configured: false, hosts: [] };
+
+  let result;
+  try {
+    result = runNode('tools/hermes-tailscale-api-discover.js', ['--hosts-only'], 20_000);
+  } finally {
+    // The inventory subprocess is the only child allowed to inherit these.
+    // Erase them before queued installs, pairing, E2E, or smart-ops execute.
+    clearTailscaleApiCredentialsFromProcess();
+  }
+  if (result.status !== 0) {
+    return {
+      configured: true,
+      hosts: [],
+      error: result.stderr?.trim().slice(0, 240) || `exit ${result.status}`,
+    };
+  }
+
+  const hosts = normalizeTailnetProbeHostList(result.stdout);
+  const existing = normalizeTailnetProbeHostList(process.env.HERMES_TAILNET_PROBE_HOSTS);
+  const merged = Array.from(new Set([...existing, ...hosts]));
+  if (merged.length > 0) {
+    process.env.HERMES_TAILNET_PROBE_HOSTS = merged.join(',');
+  }
+  return { configured: true, hosts };
+}
+
 function adbSeesPhoneDevice() {
   const adb = spawnSync('adb', ['devices'], { encoding: 'utf8', timeout: 5000 });
   if (adb.status !== 0 || !adb.stdout) return false;
@@ -111,8 +184,18 @@ function maybeQueuePhoneInstall() {
   const label = `com.igor.hermes-phone-install-once.${uid}`;
   const domain = `gui/${uid}/${label}`;
   const pairScript = path.join(REPO, 'tools/hermes-mobile-pair.js');
+  const exportValues = [
+    'SENTRY_DISABLE_AUTO_UPLOAD=true',
+    'HERMES_AGENT_LABEL=session-start',
+  ];
+  const sanitizedTailnetHosts = normalizeTailnetProbeHostList(
+    process.env.HERMES_TAILNET_PROBE_HOSTS,
+  );
+  if (sanitizedTailnetHosts.length > 0) {
+    exportValues.push(`HERMES_TAILNET_PROBE_HOSTS=${sanitizedTailnetHosts.join(',')}`);
+  }
   const cmd = [
-    'export SENTRY_DISABLE_AUTO_UPLOAD=true HERMES_AGENT_LABEL=session-start',
+    `export ${exportValues.join(' ')}`,
     `cd "${HERMES_MOBILE_DIR}" && bash scripts/install-phone-release.sh`,
     // Apply mini Tailscale primary to the freshly installed phone without LAN pair-server.
     // Bare `--mini-tailscale --no-serve` skips adb (USB guard / no-serve) and leaves Wrong key.
@@ -196,6 +279,21 @@ if (!json) {
 }
 
 runBash('hermes-mobile/scripts/agent-adb-refresh.sh', 15_000);
+
+const tailscaleApiBootstrap = bootstrapTailnetProbeHostsFromApi();
+if (!json && tailscaleApiBootstrap.configured) {
+  process.stdout.write('\n=== Hermes Mobile Tailscale API discovery ===\n');
+  if (tailscaleApiBootstrap.error) {
+    process.stdout.write(
+      `Optional control-plane discovery unavailable (${tailscaleApiBootstrap.error}); ` +
+        'continuing with local Tailscale discovery.\n',
+    );
+  } else {
+    process.stdout.write(
+      `Seeded ${tailscaleApiBootstrap.hosts.length} sanitized computer endpoint candidate(s).\n`,
+    );
+  }
+}
 
 const phoneInstall = maybeQueuePhoneInstall();
 const phonePipelineBusy =
