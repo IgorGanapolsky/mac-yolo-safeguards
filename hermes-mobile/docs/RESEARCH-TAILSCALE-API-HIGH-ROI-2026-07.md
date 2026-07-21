@@ -6,11 +6,14 @@ Use the Tailscale control-plane API only as an **optional computer-side discover
 source**. Do not call it from Hermes Mobile and do not put a Tailscale credential
 in the Android/iOS bundle.
 
-The concrete win is recovering a sanitized list of currently reachable Mac,
+The concrete win is recovering a sanitized list of recently online Mac,
 Windows, and Linux candidates before the existing Hermes `:8642/health` probes
 run. This improves multi-computer discovery when LAN bootstrap and the local
-Tailscale CLI do not provide enough peer seeds. It does not replace Tailscale's
-data plane, repair USB, or prove that Hermes is listening on a candidate device.
+Tailscale CLI do not provide enough peer seeds. Inventory and health responses
+are only candidate/identity signals: an authenticated Hermes endpoint check is
+still required before the app treats a computer as connected. This does not
+replace Tailscale's data plane, repair USB, or prove that Hermes is listening on
+a candidate device.
 
 ## Evidence and boundary
 
@@ -52,5 +55,5 @@ credential.
   or the repository.
 - No device write/authorization operations.
 - No dependency on the alpha OAuth Apps flow.
-- No claim that API inventory means the Hermes gateway is reachable; the existing
-  `/health` probe remains the acceptance check.
+- No claim that API inventory or `/health` alone means a usable connection; the
+  existing authenticated gateway probe remains the connection acceptance check.
