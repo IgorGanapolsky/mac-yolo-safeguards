@@ -362,6 +362,7 @@ Status values: `pending` | `in_progress` | `blocked` | `done`. Claim a row by se
 ## 2. File Ownership Map (append-only lock table — claim before touching)
 
 - `.github/workflows/mobile-e2e.yml`, `plan.md` → **terra-ci-ndk-pin** (T-CI-ANDROID-NDK-271: reclaim stale T-121 for Expo NDK 27.1 pin + incomplete-dir cleanup; no watchdog/T-354 edits) (2026-07-21T23:25:00Z)
+- `.github/workflows/mobile-e2e.yml`, `plan.md` → **released by terra-ci-ndk-pin** after PR #746 merged `9f35db27` (Expo NDK 27.1 pin; CXX1101 unblocked) (2026-07-21T23:45:00Z)
 
 - `docs/RESEARCH-TAILSCALE-PEER-RELAY-APERTURE-JULY-2026.md`, `parallel-research/tailscale-peer-relay-aperture-july-2026.*`, `plan.md` → **codex-peer-relay-research** (T-TAILSCALE-PEER-RELAY-RESEARCH-20260721; research/docs only, no Hermes Mobile source edits) (2026-07-21T21:12:00Z)
 - T-OUTPUT-WIPE-PRESERVE / streamAssistantText+chatMessageMerge+tests → **released by cursor-output-wipe** (done; handoff to cursor-flashlist-v2 for [SILENT] fold) (2026-07-21T21:33:09Z)
