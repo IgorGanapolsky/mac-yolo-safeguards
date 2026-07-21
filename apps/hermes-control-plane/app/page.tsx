@@ -1,12 +1,14 @@
 import Link from "next/link";
 import { BillingPlan } from "./BillingPlan";
 import { FunnelSignals } from "./FunnelSignals";
+import { formatAgo, formatLatency, getPublicTelemetry } from "@/lib/public-telemetry";
 
 function Mark() {
   return <span className="brand-mark" aria-hidden="true"><i /><i /><i /></span>;
 }
 
-export default function Home() {
+export default async function Home() {
+  const telemetry = await getPublicTelemetry();
   const structuredData = {
     "@context": "https://schema.org",
     "@type": "SoftwareApplication",
@@ -52,20 +54,24 @@ export default function Home() {
           <div className="trust-row"><span>No inbound ports</span><span>Private-key pairing</span><span>Cloud only when enabled</span></div>
         </div>
 
-        <div className="hero-console" aria-label="Hermes failover status preview">
-          <div className="console-header"><span className="console-title"><Mark /> Live routing</span><span className="status-chip online">Protected</span></div>
+        <Link
+          href="/api/auth/login"
+          className="hero-console"
+          aria-label="Live production telemetry — sign in to see your own dashboard"
+          data-funnel-event="hero_console_click"
+        >
+          <div className="console-header"><span className="console-title"><Mark /> Live production telemetry</span><span className="status-chip online">Real receipts</span></div>
           <div className="route-map">
-            <div className="route-node local-node"><span className="node-icon">⌘</span><div><strong>Paired machine</strong><small>Last seen 2m ago</small></div><span className="status-chip offline">Offline</span></div>
-            <div className="route-line"><span /><b>Fenced handoff · lease #18</b><span /></div>
-            <div className="route-node cloud-node"><span className="node-icon">☁</span><div><strong>Hermes Cloud Runner</strong><small>Working · 42 seconds</small></div><span className="status-chip active">Active</span></div>
+            <div className="route-node local-node"><span className="node-icon">⌘</span><div><strong>Machines online now</strong><small>Signed heartbeats, 2-minute window</small></div><span className="status-chip active">{telemetry ? telemetry.machinesOnlineNow : "—"}</span></div>
+            <div className="route-line"><span /><b>Fenced cloud continuations · {telemetry ? telemetry.cloudRunsCompleted : "—"} completed</b><span /></div>
+            <div className="route-node cloud-node"><span className="node-icon">☁</span><div><strong>P95 task completion</strong><small>Measured from real task receipts</small></div><span className="status-chip active">{telemetry ? formatLatency(telemetry.p95CompletionMs) : "—"}</span></div>
           </div>
           <div className="task-card">
-            <div className="task-meta"><span>THREAD / MARKET RESEARCH</span><span>RUNNING</span></div>
-            <p>Continue the reliability benchmark and preserve the source trail…</p>
-            <div className="progress"><span /></div>
+            <div className="task-meta"><span>LAST CLOUD CONTINUATION</span><span>{telemetry ? formatAgo(telemetry.lastCloudRunAt) : "—"}</span></div>
+            <p>{telemetry && telemetry.cloudRunsCompleted > 0 ? "Numbers on this card come from live production data, not a mockup. Sign in to see your own receipts." : "Awaiting first production receipts — this card renders live data, never a mockup."}</p>
           </div>
-          <div className="audit-line"><span>10:42:18</span><strong>cloud.runner.claimed</strong><span>generation 18</span></div>
-        </div>
+          <div className="audit-line"><span>tap to</span><strong>open your dashboard</strong><span>→</span></div>
+        </Link>
       </section>
 
       <section id="pair" className="setup-section">
