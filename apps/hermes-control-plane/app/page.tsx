@@ -2,6 +2,7 @@ import Link from "next/link";
 import { BillingPlan } from "./BillingPlan";
 import { FunnelSignals } from "./FunnelSignals";
 import { currentSession } from "@/lib/auth";
+import styles from "./landing.module.css";
 
 function Mark() {
   return <span className="brand-mark" aria-hidden="true"><i /><i /><i /></span>;
@@ -26,22 +27,32 @@ export default async function Home() {
 
   return (
     <main className="landing-shell">
+      <a className={styles.skipLink} href="#main-content">Skip to main content</a>
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
       />
       <FunnelSignals />
-      <nav className="topbar landing-nav">
+      <nav className="topbar landing-nav" aria-label="Primary navigation">
         <Link href="/" className="brand"><Mark /><span>ThumbGate <small>Hermes Web</small></span></Link>
         <div className="nav-actions">
           <a href="#pair" className="nav-link">Pair</a>
           <a href="#how-it-works" className="nav-link">How it works</a>
           <a href="#pricing" className="nav-link">Pricing</a>
-          <Link href={workspaceHref} className="button button-small button-secondary" data-funnel-event={workspaceEvent}>{session ? "Open dashboard" : "Sign in"}</Link>
+          {session ? (
+            <div className={styles.sessionNav} aria-label="Authenticated session actions">
+              <Link href="/dashboard" className={`button button-small button-secondary ${styles.dashboardButton}`} data-funnel-event="dashboard_open_click">Open dashboard</Link>
+              <form action="/api/auth/logout" method="post">
+                <button type="submit" className={`button button-small ${styles.signOutButton}`}>Sign out</button>
+              </form>
+            </div>
+          ) : (
+            <Link href="/api/auth/login" className="button button-small button-secondary" data-funnel-event="sign_in_click">Sign in</Link>
+          )}
         </div>
       </nav>
 
-      <section className="hero">
+      <section id="main-content" className="hero" tabIndex={-1}>
         <div className="hero-copy">
           <p className="eyebrow"><span className="live-dot" /> Hermes-native. Web-ready.</p>
           <h1>Your Hermes chats<br /><span>from any screen.</span></h1>
@@ -87,6 +98,7 @@ export default async function Home() {
             </a>
           </div>
           <p className="honesty-note">No workspace telemetry is fetched or rendered on this public page.</p>
+          {session ? <p className={styles.sessionNotice}>This browser has an active session. Sign out before leaving a shared device.</p> : null}
         </nav>
       </section>
 

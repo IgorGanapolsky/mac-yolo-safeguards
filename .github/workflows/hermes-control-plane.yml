@@ -46,11 +46,18 @@ jobs:
         working-directory: apps/hermes-control-plane
       - run: npm run lint
         working-directory: apps/hermes-control-plane
+      - name: Reject high or critical dependency advisories
+        run: npm run test:security
+        working-directory: apps/hermes-control-plane
+      - name: Enforce control-plane unit coverage thresholds
+        run: npm run test:unit
+        working-directory: apps/hermes-control-plane
       - run: npm test
         working-directory: apps/hermes-control-plane
       - run: npm run test:cloudflare-config
         working-directory: apps/hermes-control-plane
-      - run: npm run test:cloudflare-worker
+      - name: Run local Cloudflare Worker session-lifecycle E2E
+        run: npm run test:e2e
         working-directory: apps/hermes-control-plane
       - run: bash tests/test-saas-watchdog.sh
       - run: node --test tests/test-hermes-cloud-connector.js
