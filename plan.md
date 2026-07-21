@@ -331,6 +331,7 @@ Status values: `pending` | `in_progress` | `blocked` | `done`. Claim a row by se
 
 ## 2. File Ownership Map (append-only lock table — claim before touching)
 
+- `hermes-mobile/src/utils/gatewayUrlNormalize.ts`, `hermes-mobile/src/utils/gatewayUrlPolicy.ts`, `hermes-mobile/src/services/gatewayClient.ts`, `hermes-mobile/src/components/ErrorBoundary.tsx`, `hermes-mobile/src/__tests__/gatewayUrlPolicyCycle.test.ts`, `hermes-mobile/src/__tests__/ErrorBoundary.test.tsx`, `plan.md` → **cursor-ui-undefined-crash** (T-UI-UNDEFINED-CRASH break gatewayClient↔gatewayUrlPolicy cycle) (2026-07-21T10:45:00Z)
 - `hermes-mobile/package.json`, `hermes-mobile/package-lock.json` → **claude-web-spike** (T-RNWEB-DEPS: add react-native-web + react-dom via expo install for the thumbgate.app web dashboard; prior lockfile claims T-77/T-4 explicitly released) (2026-07-21T06:14:20Z)
 
 - `hermes-mobile/src/utils/connectionHealBudget.ts`, `hermes-mobile/src/utils/connectionErrorPolicy.ts` (heal-constant re-export only), `hermes-mobile/src/utils/freshUserOnboarding.ts` (heal-constant import only), `plan.md` → **claude-web-spike** (T-RNWEB-SPIKE: break TDZ import cycle + enable expo web export; supersedes nothing — connectionErrorPolicy prior claim T-TS-PAIR-STATUS-HONESTY is done) (2026-07-21T01:30:27Z)
@@ -884,6 +885,8 @@ Status values: `pending` | `in_progress` | `blocked` | `done`. Claim a row by se
 - `apps/hermes-control-plane/**`, `saas/saas-watchdog.sh`, `com.igor.saas-watchdog.plist`, `tests/test-saas-watchdog.sh`, `tests/test-hermes-cloudflare-deploy-config.js`, `.github/workflows/hermes-control-plane.yml`, `docs/THUMBGATE-PRODUCTION-READINESS-20260720.md`, `plan.md` → **released by codex-thumbgate-production** after PRs #658, #663, and #662 merged; exact app source `e9f95c104b1b460dba67b259a023ff1422c052ff` deployed as Worker `88e14bb3-7f6e-4bcb-ad22-e5cfcd8020a8`; authenticated login/chat, Stripe Checkout creation, mobile card navigation, analytics, health, watchdog, and zero-revenue receipts verified (2026-07-21T01:43:31Z)
 
 ## 3. Decisions Log
+- 2026-07-21T10:48:10Z `cursor-ui-undefined-crash`: **T-UI-UNDEFINED-CRASH** full-screen ErrorBoundary `undefined is not a function` after tip OTA `9af60b62` (#664 lineage). Root cause: Metro/Hermes circular import `gatewayClient.ts` ↔ `gatewayUrlPolicy.ts` left `normalizeGatewayUrl` unbound under some load orders (same class as #667 TDZ). Fix: leaf `gatewayUrlNormalize.ts`; policy imports leaf; client re-exports. ErrorBoundary now shows componentStack hint. Jest 214 suites / 1876 pass.
+
 - 2026-07-21 `cursor-ts-usb-handoff`: **T-TS-USB-HANDOFF** Tailscale/LAN→USB same-machine handoff keeps sessionId/messages/project lane; header flips to USB; foreign USB host blocked; Jest usbTransportHandoff+preventRecurrence S27 green; coord #647/#653/#650/#660.
 
 - 2026-07-21T02:35:00Z `cursor-continuity-silent`: **Completed T-CONTINUITY silent resume.** Removed visible **Continuing from last session** / **Dismiss** banner; `shouldShowContinuityChip` always false; chip component no-op; ChatScreen no longer clears handoff on dismiss. Under-the-hood system_prompt inject kept. PR #654 squash `9a31c568`. Production OTA group `720ea391-f282-4fd7-8f2f-db320feed953` (runtime 1.2, message gated OTA 9a31c568). Coord #648 still open (project-lane header) — not folded into this tip OTA.
