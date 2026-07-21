@@ -16,6 +16,8 @@ import {
   runProgressElapsedSeconds,
   runProgressFailedTitle,
   shouldShowCompletedRunBanner,
+  shouldRetainRunProgressAfterVisibleReply,
+  retainActiveRunProgressForLiveTokens,
   shouldShowComposerProgressBanner,
   staleRunProgressDetail,
 } from '../utils/runProgressDisplay';
@@ -247,6 +249,48 @@ describe('shouldShowCompletedRunBanner', () => {
   });
 });
 
+describe('shouldRetainRunProgressAfterVisibleReply', () => {
+  it('clears when the stream finished with no live gateway job', () => {
+    expect(shouldRetainRunProgressAfterVisibleReply({})).toBe(false);
+  });
+
+  it('retains when a gateway runId is still known', () => {
+    expect(shouldRetainRunProgressAfterVisibleReply({ hasRunId: true })).toBe(true);
+  });
+
+  it('retains while deferred poll / awaiting reply is active', () => {
+    expect(
+      shouldRetainRunProgressAfterVisibleReply({ deferredPollActive: true }),
+    ).toBe(true);
+    expect(
+      shouldRetainRunProgressAfterVisibleReply({ awaitingGatewayReply: true }),
+    ).toBe(true);
+  });
+});
+
+describe('retainActiveRunProgressForLiveTokens', () => {
+  it('keeps working/running phases and demotes completed to working', () => {
+    expect(
+      retainActiveRunProgressForLiveTokens({
+        phase: 'running',
+        startedAtMs: 1,
+        runId: 'run-1',
+        inputTokens: 10,
+        outputTokens: 5,
+        streamUsageLive: true,
+      }),
+    ).toMatchObject({ phase: 'running', runId: 'run-1' });
+
+    expect(
+      retainActiveRunProgressForLiveTokens({
+        phase: 'completed',
+        startedAtMs: 1,
+        runId: 'run-2',
+        streamUsageLive: true,
+      }),
+    ).toMatchObject({ phase: 'working', runId: 'run-2' });
+  });
+});
 
 describe('formatRunTokenSummary / buildConnectedModelTokenLabel', () => {
   it('shows em dash for placeholder zeros without live stream usage', () => {
@@ -265,14 +309,30 @@ describe('formatRunTokenSummary / buildConnectedModelTokenLabel', () => {
     ).toBe('In: 120 | Out: 30');
   });
 
-  it('builds always-visible Connected chrome with short model + tokens', () => {
+  it('builds always-visible Connected chrome with short model + session total', () => {
     expect(
       buildConnectedModelTokenLabel({
         sessionModel: 'qwen3.5:9b-hermes',
         sessionInputTokens: 2400,
         sessionOutputTokens: 100,
       }),
-    ).toBe('Qwen3.5 9B Hermes · 2,500 tokens');
+    ).toBe('Qwen3.5 9B Hermes · 2,500 session');
+  });
+
+  it('prefers live run usage over session total while runProgress is active', () => {
+    expect(
+      buildConnectedModelTokenLabel({
+        runModel: 'z-ai/glm-5.2',
+        sessionInputTokens: 221821,
+        sessionOutputTokens: 0,
+        runProgress: {
+          phase: 'working',
+          inputTokens: 1200,
+          outputTokens: 340,
+          streamUsageLive: true,
+        },
+      }),
+    ).toBe('GLM 5.2 · In: 1200 | Out: 340');
   });
 
   it('shows em dash for active run without gateway usage yet', () => {
