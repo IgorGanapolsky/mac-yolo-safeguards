@@ -3,7 +3,7 @@
 const assert = require('node:assert/strict');
 const http = require('http');
 const test = require('node:test');
-const { configFromEnv, execute, withLeaseRenewal } = require('../server');
+const { configFromEnv, execute, nextPollDelay, pollingSchedule, withLeaseRenewal } = require('../server');
 
 test('requires control plane, runner, and model provider credentials', () => {
   assert.throws(() => configFromEnv({}), /HERMES_CONTROL_PLANE_URL/);
@@ -14,6 +14,17 @@ test('normalizes runner configuration without exposing tokens', () => {
   assert.equal(config.controlPlaneUrl, 'https://control.example');
   assert.equal(config.openaiBaseUrl, 'https://api.example/v1');
   assert.equal(config.runnerId, 'runner-a');
+});
+
+test('backs off empty cloud polls while draining active work quickly', () => {
+  const defaults = pollingSchedule({});
+  assert.deepEqual(defaults, { activePollMs: 1_000, idlePollMs: 30_000 });
+  assert.equal(nextPollDelay(false, defaults), 30_000);
+  assert.equal(nextPollDelay(true, defaults), 1_000);
+  assert.deepEqual(pollingSchedule({ POLL_MS: '15000', ACTIVE_POLL_MS: '500' }), {
+    activePollMs: 500,
+    idlePollMs: 15_000,
+  });
 });
 
 test('cloud execution preserves the synced thread context', async () => {
