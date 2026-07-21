@@ -8,6 +8,7 @@ type StripeCustomer = { id?: string };
 type StripeSubscription = {
   status?: string;
   metadata?: { organization_id?: string };
+  items?: { data?: Array<{ price?: { id?: string } }> };
 };
 
 async function stripeGet<T>(path: string, secret: string): Promise<{ response: Response; payload: T | null }> {
@@ -49,8 +50,9 @@ export async function POST(request: Request) {
     return jsonError("an active subscription is required", 409);
   }
 
-  const secret = runtimeEnv().STRIPE_SECRET_KEY;
-  if (!secret) return jsonError("billing management is not configured", 503);
+  const current = runtimeEnv();
+  const secret = current.STRIPE_SECRET_KEY;
+  if (!secret || !current.STRIPE_PRICE_ID) return jsonError("billing management is not configured", 503);
 
   const customerQuery = new URLSearchParams({ email: session.email, limit: "10" });
   const customers = await stripeGet<StripeList<StripeCustomer>>(`/v1/customers?${customerQuery}`, secret);
@@ -65,9 +67,12 @@ export async function POST(request: Request) {
     const subscriptionQuery = new URLSearchParams({ customer: customer.id, status: "all", limit: "100" });
     const subscriptions = await stripeGet<StripeList<StripeSubscription>>(`/v1/subscriptions?${subscriptionQuery}`, secret);
     if (!subscriptions.response.ok) continue;
-    const matchesOrganization = subscriptions.payload?.data?.some((subscription) =>
-      subscription.metadata?.organization_id === session.organizationId &&
-      !["canceled", "incomplete_expired"].includes(subscription.status ?? ""));
+    const matchesOrganization = subscriptions.payload?.data?.some((subscription) => {
+      const active = !["canceled", "incomplete_expired"].includes(subscription.status ?? "");
+      const exactOrganization = subscription.metadata?.organization_id === session.organizationId;
+      const legacyConfiguredPrice = subscription.items?.data?.some((item) => item.price?.id === current.STRIPE_PRICE_ID) ?? false;
+      return active && (exactOrganization || legacyConfiguredPrice);
+    });
     if (matchesOrganization) { customerId = customer.id; break; }
   }
 
