@@ -94,3 +94,13 @@ test("preserves web accessibility contracts while adopting the mobile feel", () 
   assert.match(dashboard, /<form className="pair-form"/);
   assert.match(dashboard, /aria-label="Hermes workspace"/);
 });
+
+test("makes every dashboard metric a labeled shortcut instead of an inert card", () => {
+  assert.match(dashboard, /<nav className="metric-grid metric-grid-four" aria-label="Workspace status shortcuts">/);
+  assert.match(dashboard, /className="metric-card" href="#web-settings"/);
+  assert.match(dashboard, /className="metric-card" href="#task-activity"/);
+  assert.match(dashboard, /className="metric-card" href="#leash-control"/);
+  assert.match(dashboard, /className="task-list" id="task-activity"/);
+  assert.match(globals, /\.metric-grid \.metric-card:hover/);
+  assert.doesNotMatch(dashboard, /<article><span>Paired machines/);
+});
