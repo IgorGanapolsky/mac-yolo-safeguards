@@ -511,5 +511,13 @@ else
   bad "USB pair QR encodes deep link (not LAN pair URL)"
 fi
 
+# --server-only refresh must not clobber a live USB loopback primary with Tailscale.
+if [[ "$PAIR_JS" == *"keeping USB loopback primary"* ]] \
+  && [[ "$PAIR_JS" == *"usbReverseLive"* ]]; then
+  ok "server-only refresh preserves USB loopback when adb reverse is live"
+else
+  bad "server-only refresh preserves USB loopback when adb reverse is live"
+fi
+
 printf "\nResults: %s passed, %s failed\n" "$pass" "$fail"
 [[ "$fail" -eq 0 ]]
