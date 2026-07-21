@@ -70,6 +70,23 @@ export type PromptReplyElapsedState =
   | { mode: 'frozen'; durationSec: number }
   | { mode: 'hidden' };
 
+/** Absolute live-wait fail — Connected+Waiting must not tick for hours. */
+export const PROMPT_REPLY_HARD_TIMEOUT_MS = 2 * 60_000;
+
+export function shouldHardTimeoutLivePromptWait(
+  sinceMs: number,
+  nowMs = Date.now(),
+): boolean {
+  return nowMs - sinceMs >= PROMPT_REPLY_HARD_TIMEOUT_MS;
+}
+
+export function msUntilLivePromptHardTimeout(
+  sinceMs: number,
+  nowMs = Date.now(),
+): number {
+  return Math.max(0, PROMPT_REPLY_HARD_TIMEOUT_MS - (nowMs - sinceMs));
+}
+
 export function resolvePromptReplyElapsedState(input: {
   messages: readonly HermesMessage[];
   userIndex: number;

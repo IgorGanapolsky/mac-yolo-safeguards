@@ -57,6 +57,8 @@ fi
 
 health_code="$(code "$APP_URL/api/health")"
 health_body="$(body "$APP_URL/api/health")"
+plan_code="$(code "$APP_URL/api/billing/plan")"
+plan_body="$(body "$APP_URL/api/billing/plan")"
 session_code="$(code "$APP_URL/api/me")"
 
 signin_probe="$(signin_chain "$APP_URL")"
@@ -81,6 +83,13 @@ audit_latest_at="$(json_number_or_null "$health_after_body" auditLatestAt)"
 device_heartbeat_latest_at="$(json_number_or_null "$health_after_body" deviceHeartbeatLatestAt)"
 billing_event_latest_at="$(json_number_or_null "$health_after_body" billingEventLatestAt)"
 real_billing_event_latest_at="$(json_number_or_null "$health_after_body" realBillingEventLatestAt)"
+checkout_created_last_24h="$(json_number_or_null "$health_after_body" checkoutCreatedLast24h)"
+checkout_failed_last_24h="$(json_number_or_null "$health_after_body" checkoutFailedLast24h)"
+portal_created_last_24h="$(json_number_or_null "$health_after_body" portalCreatedLast24h)"
+portal_failed_last_24h="$(json_number_or_null "$health_after_body" portalFailedLast24h)"
+billing_events_last_24h="$(json_number_or_null "$health_after_body" billingEventsLast24h)"
+paid_organizations_total="$(json_number_or_null "$health_after_body" paidOrganizationsTotal)"
+plan_unit_amount="$(json_number_or_null "$plan_body" unitAmount)"
 
 runner_body="$(body "$RUNNER_URL")"
 runner_code="$(code "$RUNNER_URL")"
@@ -97,9 +106,13 @@ case "$redirect_code" in 301|302|307|308) : ;; *) concerns+=("HTTP redirect $red
 case "$redirect_target" in https://thumbgate.app/*|https://thumbgate.app) : ;; *) concerns+=("HTTP redirect target invalid") ;; esac
 [ "$hsts" = true ] || concerns+=("HSTS missing")
 [ "$health_code" = 200 ] || concerns+=("health $health_code")
-case "$health_body" in *'"ok":true'*'"database":"available"'*'"schema":"current"'*) : ;; *) concerns+=("health payload invalid") ;; esac
+case "$health_body" in *'"ok":true'*'"ready":true'*'"status":"ok"'*'"database":"available"'*'"schema":"current"'*) : ;; *) concerns+=("health payload invalid or not ready") ;; esac
+case "$health_body" in *'"workosAuthConfigured":true'*'"stripeCheckoutConfigured":true'*'"stripeWebhookConfigured":true'*'"cloudRunnerConfigured":true'*) : ;; *) concerns+=("production configuration incomplete") ;; esac
 [ "$workers_health" = 200 ] || concerns+=("Workers.dev health $workers_health")
 [ "$session_code" = 401 ] || concerns+=("anonymous session gate $session_code")
+[ "$plan_code" = 200 ] || concerns+=("billing plan $plan_code")
+case "$plan_body" in *'"configured":true'*'"active":true'*'"unitAmount":'*'"currency":'*'"interval":'*) : ;; *) concerns+=("billing plan payload invalid") ;; esac
+case "$plan_unit_amount" in ''|null|0) concerns+=("billing plan amount invalid") ;; esac
 
 signin_ok=false
 if [ "$signin_code" = 200 ]; then
@@ -128,11 +141,13 @@ ts="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 status=ok
 [ "${#concerns[@]}" -gt 0 ] && status=degraded
 /bin/mkdir -p "$(dirname "$LOG")"
-printf '{"ts":"%s","status":"%s","landing":"%s","aliasLanding":"%s","httpRedirect":"%s","hsts":%s,"health":"%s","workersHealth":"%s","signinChain":%s,"aliasSigninChain":%s,"sessionGate":"%s","analyticsIngest":"%s","analyticsLatestAt":"%s","auditLatestAt":"%s","deviceHeartbeatLatestAt":"%s","billingEventLatestAt":"%s","realBillingEventLatestAt":"%s","webhookGate":"%s","runner":"%s","runnerDegraded":"%s","concerns":%d}\n' \
+printf '{"ts":"%s","status":"%s","landing":"%s","aliasLanding":"%s","httpRedirect":"%s","hsts":%s,"health":"%s","workersHealth":"%s","signinChain":%s,"aliasSigninChain":%s,"sessionGate":"%s","billingPlan":"%s","billingUnitAmount":"%s","analyticsIngest":"%s","analyticsLatestAt":"%s","auditLatestAt":"%s","deviceHeartbeatLatestAt":"%s","billingEventLatestAt":"%s","realBillingEventLatestAt":"%s","checkoutCreatedLast24h":"%s","checkoutFailedLast24h":"%s","portalCreatedLast24h":"%s","portalFailedLast24h":"%s","billingEventsLast24h":"%s","paidOrganizationsTotal":"%s","webhookGate":"%s","runner":"%s","runnerDegraded":"%s","concerns":%d}\n' \
   "$ts" "$status" "$landing" "$alias_landing" "$redirect_code" "$hsts" "$health_code" "$workers_health" \
-  "$signin_ok" "$alias_signin_ok" "$session_code" "$analytics_code" "${analytics_latest_at:-unknown}" \
+  "$signin_ok" "$alias_signin_ok" "$session_code" "$plan_code" "${plan_unit_amount:-unknown}" "$analytics_code" "${analytics_latest_at:-unknown}" \
   "${audit_latest_at:-unknown}" "${device_heartbeat_latest_at:-unknown}" "${billing_event_latest_at:-unknown}" \
-  "${real_billing_event_latest_at:-unknown}" "$webhook_code" "$runner_code" "$runner_degraded" "${#concerns[@]}" >> "$LOG"
+  "${real_billing_event_latest_at:-unknown}" "${checkout_created_last_24h:-unknown}" "${checkout_failed_last_24h:-unknown}" \
+  "${portal_created_last_24h:-unknown}" "${portal_failed_last_24h:-unknown}" \
+  "${billing_events_last_24h:-unknown}" "${paid_organizations_total:-unknown}" "$webhook_code" "$runner_code" "$runner_degraded" "${#concerns[@]}" >> "$LOG"
 
 prev="$(/bin/cat "$STATE" 2>/dev/null || echo unknown)"
 printf '%s\n' "$status" > "$STATE"

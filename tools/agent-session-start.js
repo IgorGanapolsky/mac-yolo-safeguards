@@ -114,7 +114,9 @@ function maybeQueuePhoneInstall() {
   const cmd = [
     'export SENTRY_DISABLE_AUTO_UPLOAD=true HERMES_AGENT_LABEL=session-start',
     `cd "${HERMES_MOBILE_DIR}" && bash scripts/install-phone-release.sh`,
-    `node "${pairScript}" --mini-tailscale --no-serve`,
+    // Apply mini Tailscale primary to the freshly installed phone without LAN pair-server.
+    // Bare `--mini-tailscale --no-serve` skips adb (USB guard / no-serve) and leaves Wrong key.
+    `node "${pairScript}" --mini-tailscale --force-mini-usb-primary --no-serve`,
   ].join(' && ');
   const oneShotCmd = [
     cmd,

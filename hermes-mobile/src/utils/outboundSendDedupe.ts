@@ -11,6 +11,13 @@ export type OutboundSendDedupeInput = {
   normalizedPendingClaim?: string | null;
   /** True while the last committed outbound bubble is still pending delivery. */
   outboundStillPending?: boolean;
+  /**
+   * True when the same body was already delivered to the Mac and we are still
+   * waiting for an assistant reply. Must hard-block re-POST — otherwise the
+   * gateway stores user;user (Reach out goal 2026-07-20) and alternation repair
+   * runs while a slow model is still working.
+   */
+  outboundAwaitingReply?: boolean;
 };
 
 /** Sync guard: ignore duplicate send while outbound lock is held. */
@@ -21,6 +28,9 @@ export function shouldIgnoreDuplicateOutboundSend(input: OutboundSendDedupeInput
   }
   const lastCommitted = input.normalizedLastCommitted?.trim();
   const pendingClaim = input.normalizedPendingClaim?.trim();
+  if (input.outboundAwaitingReply && lastCommitted && incoming === lastCommitted) {
+    return true;
+  }
   if (!input.isSending) {
     if (pendingClaim && incoming === pendingClaim) {
       return true;

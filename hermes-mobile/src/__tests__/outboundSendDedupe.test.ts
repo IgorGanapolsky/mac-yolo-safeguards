@@ -62,6 +62,17 @@ describe('outboundSendDedupe', () => {
     ).toBe(false);
   });
 
+  it('hard-blocks re-POST while the same body is already delivered and awaiting a reply', () => {
+    expect(
+      shouldIgnoreDuplicateOutboundSend({
+        isSending: false,
+        normalizedIncoming: 'Forget Upwork. Pursue other opportunities',
+        normalizedLastCommitted: 'Forget Upwork. Pursue other opportunities',
+        outboundAwaitingReply: true,
+      }),
+    ).toBe(true);
+  });
+
   it('allows a different prompt while busy', () => {
     expect(
       shouldIgnoreDuplicateOutboundSend({

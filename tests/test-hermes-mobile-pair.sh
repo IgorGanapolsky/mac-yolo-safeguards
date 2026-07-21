@@ -311,12 +311,20 @@ else
   bad "pair adb deep link quotes URI for &name= params"
 fi
 
-# Unattended session-start pairing must never expose the credential-bearing LAN server.
+# Unattended session-start pairing must never expose the credential-bearing LAN server,
+# but phone-install MUST still adb-apply mini Tailscale (--force-mini-usb-primary).
 SESSION_START="$REPO/tools/agent-session-start.js"
-if grep -Fq '`node "${pairScript}" --mini-tailscale --no-serve`' "$SESSION_START"; then
-  ok "queued phone install pairs without serving on LAN"
+if grep -Fq '`node "${pairScript}" --mini-tailscale --force-mini-usb-primary --no-serve`' "$SESSION_START"; then
+  ok "queued phone install pairs mini Tailscale without serving on LAN"
 else
-  bad "queued phone install pairs without serving on LAN"
+  bad "queued phone install pairs mini Tailscale without serving on LAN"
+fi
+
+if grep -Fq "!forceMiniUsbPrimary" "$REPO/tools/hermes-mobile-pair.js" \
+  && grep -Fq "forceMiniUsbPrimary" "$REPO/tools/hermes-mobile-pair.js"; then
+  ok "force-mini-usb-primary still applies adb under --mini-tailscale --no-serve"
+else
+  bad "force-mini-usb-primary still applies adb under --mini-tailscale --no-serve"
 fi
 
 if grep -Fq "pair = runNode('tools/hermes-mobile-pair.js', ['--no-serve'], 90_000);" "$SESSION_START" \
@@ -477,10 +485,11 @@ else
   bad "pair script guards --mini-tailscale against live USB-cabled Mac hijack"
 fi
 
-if grep -Fq "usbHijackGuardTripped || (args.has('--no-serve') && args.has('--mini-tailscale'))" "$REPO/tools/hermes-mobile-pair.js"; then
-  ok "pair.json write + adb push both gated on the USB hijack guard, not just --no-serve"
+if grep -Fq "usbHijackGuardTripped ||" "$REPO/tools/hermes-mobile-pair.js" \
+  && grep -Fq "args.has('--no-serve') && args.has('--mini-tailscale') && !forceMiniUsbPrimary" "$REPO/tools/hermes-mobile-pair.js"; then
+  ok "pair.json write + adb push gated on USB hijack guard; force-mini overrides no-serve skip"
 else
-  bad "pair.json write + adb push both gated on the USB hijack guard, not just --no-serve"
+  bad "pair.json write + adb push gated on USB hijack guard; force-mini overrides no-serve skip"
 fi
 
 printf "\nResults: %s passed, %s failed\n" "$pass" "$fail"

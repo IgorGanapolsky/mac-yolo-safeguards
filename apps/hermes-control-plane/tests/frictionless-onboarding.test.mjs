@@ -7,6 +7,7 @@ const dashboardPage = readFileSync(new URL("../app/dashboard/page.tsx", import.m
 const globals = readFileSync(new URL("../app/globals.css", import.meta.url), "utf8");
 const layout = readFileSync(new URL("../app/layout.tsx", import.meta.url), "utf8");
 const landing = readFileSync(new URL("../app/page.tsx", import.meta.url), "utf8");
+const billingPlan = readFileSync(new URL("../app/BillingPlan.tsx", import.meta.url), "utf8");
 const webPackage = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8"));
 const connector = readFileSync(new URL("../../../tools/hermes-cloud-connector.js", import.meta.url), "utf8");
 const installer = readFileSync(new URL("../../../saas/install-connector.sh", import.meta.url), "utf8");
@@ -63,6 +64,20 @@ test("keeps the deployed web host DOM-native instead of adding a React Native We
   assert.match(globals, /@media\(max-width:700px\)[\s\S]*\.mobile-web-tabs/);
 });
 
+test("renders the configured Stripe price instead of duplicating marketing price copy", () => {
+  assert.match(landing, /<BillingPlan \/>/);
+  assert.doesNotMatch(landing, /\$29|price: "29"/);
+  assert.match(billingPlan, /fetch\("\/api\/billing\/plan"/);
+  assert.match(billingPlan, /Intl\.NumberFormat/);
+});
+
+test("routes paid accounts to billing management without opening a duplicate checkout", () => {
+  assert.match(dashboard, /fetch\("\/api\/billing\/portal", \{ method: "POST" \}\)/);
+  assert.match(dashboard, /\["pro", "team"\]\.includes\(organization\.plan\)/);
+  assert.match(dashboard, /"Manage plan"/);
+  assert.match(dashboard, /"Keep cloud after trial"/);
+});
+
 test("uses ThumbGate for Hermes identity and production URLs", () => {
   assert.match(layout, /ThumbGate — Your Hermes chats from any screen/);
   assert.match(layout, /metadataBase: new URL\("https:\/\/thumbgate\.app"\)/);
@@ -78,4 +93,14 @@ test("preserves web accessibility contracts while adopting the mobile feel", () 
   assert.match(globals, /@media\(prefers-reduced-motion:reduce\)/);
   assert.match(dashboard, /<form className="pair-form"/);
   assert.match(dashboard, /aria-label="Hermes workspace"/);
+});
+
+test("makes every dashboard metric a labeled shortcut instead of an inert card", () => {
+  assert.match(dashboard, /<nav className="metric-grid metric-grid-four" aria-label="Workspace status shortcuts">/);
+  assert.match(dashboard, /className="metric-card" href="#web-settings"/);
+  assert.match(dashboard, /className="metric-card" href="#task-activity"/);
+  assert.match(dashboard, /className="metric-card" href="#leash-control"/);
+  assert.match(dashboard, /className="task-list" id="task-activity"/);
+  assert.match(globals, /\.metric-grid \.metric-card:hover/);
+  assert.doesNotMatch(dashboard, /<article><span>Paired machines/);
 });
