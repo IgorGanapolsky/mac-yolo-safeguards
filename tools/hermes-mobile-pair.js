@@ -365,7 +365,7 @@ function writePairAssets({ gatewayUrl, lanIp, deepLink, pageUrl, hostname, relay
     timeout: 20_000,
   });
   if (qr.status === 0 && fs.existsSync(qrPath)) {
-    imgTag = `<img src="/pair-qr.png" alt="Pair QR code" width="280" height="280"/>`;
+    imgTag = `<img src="pair-qr.png" alt="Pair QR code" width="280" height="280"/>`;
   }
 
   const pairJson = {
