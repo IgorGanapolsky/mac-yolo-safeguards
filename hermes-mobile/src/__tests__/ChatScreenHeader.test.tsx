@@ -241,6 +241,27 @@ describe('ChatScreenHeader', () => {
     );
   });
 
+  it('needsPair overrides Connecting so Tailscale URL is not a false live path', () => {
+    const { getByTestId, queryByTestId } = render(
+      <ChatScreenHeader
+        threadTitle="New chat"
+        machineLabel="Igors-MacBook-Pro"
+        machineEndpoint={undefined}
+        routeStatusLabel="Pair relay in Settings for Wi‑Fi, cellular, or USB"
+        connectionState="connecting"
+        needsPair
+        onOpenThreads={jest.fn()}
+        onPressMachine={jest.fn()}
+      />,
+    );
+
+    expect(getByTestId('chat-context-link').props.children).toContain(
+      'Pair relay in Settings for Wi‑Fi, cellular, or USB',
+    );
+    expect(String(getByTestId('chat-context-link').props.children)).not.toContain('Connecting');
+    expect(queryByTestId('chat-context-mac-endpoint')).toBeNull();
+  });
+
   it('SHIP BLOCK: never green Connected when wrong-key banner is active (even if macHttpReachable)', () => {
     const { getByTestId } = render(
       <ChatScreenHeader
