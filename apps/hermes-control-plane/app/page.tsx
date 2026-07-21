@@ -2,6 +2,7 @@ import Link from "next/link";
 import { BillingPlan } from "./BillingPlan";
 import { FunnelSignals } from "./FunnelSignals";
 import { currentSession } from "@/lib/auth";
+import { InstallCommand } from "./InstallCommand";
 
 function Mark() {
   return <span className="brand-mark" aria-hidden="true"><i /><i /><i /></span>;
@@ -93,7 +94,7 @@ export default async function Home() {
       <section id="pair" className="setup-section">
         <div className="section-heading"><p className="eyebrow">THREE-STEP PAIRING</p><h2>Connect once. Your chats appear.</h2><p>The connector dials out over HTTPS, creates a device key, opens a prefilled approval page, and keeps its local gateway credential on your machine.</p></div>
         <ol className="setup-steps">
-          <li><span>01</span><div><h3>Run one installer</h3><p>The connector installs as an always-on service and opens ThumbGate for you.</p></div></li>
+          <li><span>01</span><div><h3>Run one installer</h3><p>The connector installs as an always-on service and opens ThumbGate for you.</p><InstallCommand /></div></li>
           <li><span>02</span><div><h3>Approve your Mac</h3><p>The short code is already filled. Verify the named machine and approve it.</p></div></li>
           <li><span>03</span><div><h3>Choose the offline rule</h3><p>Pause, ask first, or continue on a fenced cloud runner when the machine disappears.</p></div></li>
         </ol>
