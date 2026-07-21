@@ -1,14 +1,12 @@
 import Link from "next/link";
 import { BillingPlan } from "./BillingPlan";
 import { FunnelSignals } from "./FunnelSignals";
-import { formatAgo, formatLatency, getPublicTelemetry } from "@/lib/public-telemetry";
 
 function Mark() {
   return <span className="brand-mark" aria-hidden="true"><i /><i /><i /></span>;
 }
 
-export default async function Home() {
-  const telemetry = await getPublicTelemetry();
+export default function Home() {
   const structuredData = {
     "@context": "https://schema.org",
     "@type": "SoftwareApplication",
@@ -54,24 +52,30 @@ export default async function Home() {
           <div className="trust-row"><span>No inbound ports</span><span>Private-key pairing</span><span>Cloud only when enabled</span></div>
         </div>
 
-        <Link
-          href="/api/auth/login"
-          className="hero-console"
-          aria-label="Live production telemetry — sign in to see your own dashboard"
-          data-funnel-event="hero_console_click"
-        >
-          <div className="console-header"><span className="console-title"><Mark /> Live production telemetry</span><span className="status-chip online">Real receipts</span></div>
-          <div className="route-map">
-            <div className="route-node local-node"><span className="node-icon">⌘</span><div><strong>Machines online now</strong><small>Signed heartbeats, 2-minute window</small></div><span className="status-chip active">{telemetry ? telemetry.machinesOnlineNow : "—"}</span></div>
-            <div className="route-line"><span /><b>Fenced cloud continuations · {telemetry ? telemetry.cloudRunsCompleted : "—"} completed</b><span /></div>
-            <div className="route-node cloud-node"><span className="node-icon">☁</span><div><strong>P95 task completion</strong><small>Measured from real task receipts</small></div><span className="status-chip active">{telemetry ? formatLatency(telemetry.p95CompletionMs) : "—"}</span></div>
+        <nav className="hero-console hero-actions-panel" aria-label="Private workspace actions">
+          <div className="console-header">
+            <span className="console-title"><Mark /> Your workspace is private</span>
+            <span className="action-label">Sign-in required</span>
           </div>
-          <div className="task-card">
-            <div className="task-meta"><span>LAST CLOUD CONTINUATION</span><span>{telemetry ? formatAgo(telemetry.lastCloudRunAt) : "—"}</span></div>
-            <p>{telemetry && telemetry.cloudRunsCompleted > 0 ? "Numbers on this card come from live production data, not a mockup. Sign in to see your own receipts." : "Awaiting first production receipts — this card renders live data, never a mockup."}</p>
+          <div className="landing-action-list">
+            <Link className="landing-action" href="/api/auth/login" data-funnel-event="sign_in_click">
+              <span className="action-icon" aria-hidden="true">⌘</span>
+              <span><strong>Open private dashboard</strong><small>Authenticate before any chats, machines, tasks, receipts, or live routing are loaded.</small></span>
+              <b aria-hidden="true">→</b>
+            </Link>
+            <a className="landing-action" href="#pair">
+              <span className="action-icon" aria-hidden="true">+</span>
+              <span><strong>Pair your Mac</strong><small>Read the public setup steps, then sign in to approve the short code.</small></span>
+              <b aria-hidden="true">→</b>
+            </a>
+            <a className="landing-action" href="#pricing">
+              <span className="action-icon" aria-hidden="true">☁</span>
+              <span><strong>Review plans</strong><small>Compare public plan details without exposing workspace activity.</small></span>
+              <b aria-hidden="true">→</b>
+            </a>
           </div>
-          <div className="audit-line"><span>tap to</span><strong>open your dashboard</strong><span>→</span></div>
-        </Link>
+          <p className="honesty-note">No workspace telemetry is fetched or rendered on this public page.</p>
+        </nav>
       </section>
 
       <section id="pair" className="setup-section">
