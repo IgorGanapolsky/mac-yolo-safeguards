@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 
-const connectorInstallCommand = "curl -fsSL https://raw.githubusercontent.com/IgorGanapolsky/mac-yolo-safeguards/main/saas/install-connector.sh | bash";
+const connectorInstallCommand = "curl -fsSL https://thumbgate.app/install.sh | bash";
 
 export function InstallCommand() {
   const [copied, setCopied] = useState(false);
