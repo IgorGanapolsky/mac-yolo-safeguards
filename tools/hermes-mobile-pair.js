@@ -358,9 +358,11 @@ function writePairAssets({ gatewayUrl, lanIp, deepLink, pageUrl, hostname, relay
   syncVaultProjectsCatalog();
   const displayName = (hostname || '').replace(/\.local$/i, '') || 'Mac';
   const usbPrimary = isLoopbackGatewayUrl(gatewayUrl);
-  // USB: QR must open the app deep link (camera scan must not depend on LAN/Wi‑Fi).
-  // Network: QR opens the pair HTTP page so the phone can tap through on the same LAN/tailnet.
-  const qrPayload = usbPrimary ? deepLink : pageUrl;
+  // Stock Android Camera ignores custom-scheme QR payloads. Always send Camera through
+  // the HTTP pair page, preferring Tailscale so the page remains reachable off Wi-Fi.
+  const tailnetIp = localTailscaleIpv4();
+  const cameraPageUrl = tailnetIp ? `http://${tailnetIp}:${PAIR_PORT}/pair` : pageUrl;
+  const qrPayload = cameraPageUrl;
   const qrPath = path.join(OUT_DIR, 'pair-qr.png');
   let imgTag = '';
   const qr = spawnSync('npx', ['--yes', 'qrcode', '-o', qrPath, qrPayload], {
@@ -376,8 +378,8 @@ function writePairAssets({ gatewayUrl, lanIp, deepLink, pageUrl, hostname, relay
   }
 
   const pairingInstructions = usbPrimary
-    ? 'USB cable pairing is active — Hermes opens on the connected phone automatically via adb. Scan the QR only as a backup (no same-Wi‑Fi required).'
-    : 'Scan the QR with your phone camera (same Wi‑Fi or Tailscale) or tap Open below.';
+    ? 'USB cable pairing auto-opens Hermes via adb. Stock Android Camera cannot open hermes:// links directly; scan this HTTP QR in your browser only when the phone can reach this Mac on the same Wi-Fi or Tailscale.'
+    : 'Scan the HTTP QR with your phone camera (same Wi-Fi or Tailscale) or tap Open below.';
   const gatewayLabel = usbPrimary ? 'USB gateway' : 'Gateway';
 
   const pairJson = {

@@ -495,20 +495,29 @@ fi
 # P0 2026-07-21: file:// pair page must embed QR (Chrome often fails sibling PNG loads),
 # and loopback/USB must not claim "same Wi‑Fi" as the primary instruction.
 if [[ "$PAIR_JS" == *'data:image/png;base64,'* ]] \
-  && [[ "$PAIR_JS" == *'USB cable pairing is active'* ]] \
+  && [[ "$PAIR_JS" == *'USB cable pairing auto-opens Hermes via adb'* ]] \
   && [[ "$PAIR_JS" == *'USB gateway'* ]] \
   && [[ "$PAIR_JS" == *'isLoopbackGatewayUrl(gatewayUrl)'* ]] \
-  && [[ "$PAIR_JS" != *'same Wi‑Fi) or tap Open below'* ]]; then
+  && [[ "$PAIR_JS" != *'no same-Wi-Fi required'* ]]; then
   ok "pair page embeds QR data URL + USB-first copy for loopback gateways"
 else
   bad "pair page embeds QR data URL + USB-first copy for loopback gateways"
 fi
 
-if [[ "$PAIR_JS" == *'const qrPayload = usbPrimary ? deepLink : pageUrl'* ]] \
-  || [[ "$PAIR_JS" == *'usbPrimary ? deepLink : pageUrl'* ]]; then
-  ok "USB pair QR encodes deep link (not LAN pair URL)"
+if [[ "$PAIR_JS" == *'const qrPayload = cameraPageUrl'* ]] \
+  && [[ "$PAIR_JS" == *'tailnetIp ? `http://${tailnetIp}:${PAIR_PORT}/pair` : pageUrl'* ]] \
+  && [[ "$PAIR_JS" != *'usbPrimary ? deepLink : pageUrl'* ]]; then
+  ok "Camera QR always encodes HTTP pair page and prefers Tailscale"
 else
-  bad "USB pair QR encodes deep link (not LAN pair URL)"
+  bad "Camera QR always encodes HTTP pair page and prefers Tailscale"
+fi
+
+if [[ "$PAIR_JS" == *'Stock Android Camera cannot open hermes:// links directly'* ]] \
+  && [[ "$PAIR_JS" == *'same Wi-Fi or Tailscale'* ]] \
+  && [[ "$PAIR_JS" == *'auto-opens Hermes via adb'* ]]; then
+  ok "USB copy explains adb primary and HTTP Camera backup path"
+else
+  bad "USB copy explains adb primary and HTTP Camera backup path"
 fi
 
 # --server-only refresh must not clobber a live USB loopback primary with Tailscale.
