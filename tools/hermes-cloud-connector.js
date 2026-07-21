@@ -369,12 +369,86 @@ async function executeLocal(config, task) {
   return contentText(payload.message?.content || payload.output || payload.content || payload.response) || JSON.stringify(payload);
 }
 
+async function executeThreadOperation(config, operation) {
+  if (operation.operation === 'clear_all') {
+    try {
+      await gatewayJson(config.sessionGatewayUrl, '/api/sessions', {
+        method: 'DELETE', gatewayEnvPath: config.gatewayEnvPath,
+      });
+    } catch (error) {
+      if (error?.status !== 405) throw error;
+      const sessions = await gatewayJson(config.sessionGatewayUrl, `/api/sessions?limit=${SESSION_LIMIT}`, {
+        gatewayEnvPath: config.gatewayEnvPath,
+      });
+      for (const session of Array.isArray(sessions.data) ? sessions.data : []) {
+        if (!session?.id || session.id === '__telegram_inbox__') continue;
+        try {
+          await gatewayJson(config.sessionGatewayUrl, `/api/sessions/${encodeURIComponent(session.id)}`, {
+            method: 'DELETE', gatewayEnvPath: config.gatewayEnvPath,
+          });
+        } catch (deleteError) {
+          if (deleteError?.status !== 404) throw deleteError;
+        }
+      }
+    }
+    return;
+  }
+  if (!operation.sourceSessionId) throw new Error('chat operation is missing its Hermes session id');
+  const pathname = `/api/sessions/${encodeURIComponent(operation.sourceSessionId)}`;
+  if (operation.operation === 'rename') {
+    if (!operation.title) throw new Error('rename operation is missing its title');
+    await gatewayJson(config.sessionGatewayUrl, pathname, {
+      method: 'PATCH', gatewayEnvPath: config.gatewayEnvPath,
+      body: JSON.stringify({ title: operation.title }),
+    });
+    return;
+  }
+  if (operation.operation === 'delete') {
+    try {
+      await gatewayJson(config.sessionGatewayUrl, pathname, {
+        method: 'DELETE', gatewayEnvPath: config.gatewayEnvPath,
+      });
+    } catch (error) {
+      if (error?.status !== 404) throw error;
+    }
+    return;
+  }
+  throw new Error(`unsupported chat operation: ${operation.operation}`);
+}
+
+async function claimAndExecuteThreadOperation(config) {
+  const claimPath = '/api/device/thread-operations/claim';
+  const bodyText = '{}';
+  const response = await fetch(`${config.controlPlaneUrl}${claimPath}`, {
+    method: 'POST', headers: signedHeaders(config, 'POST', claimPath, bodyText), body: bodyText,
+    signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+  });
+  if (response.status === 204) return false;
+  const claim = await response.json();
+  if (!response.ok) throw new Error(claim.error || `Chat operation claim failed (${response.status})`);
+  try {
+    await executeThreadOperation(config, claim.operation);
+    await signedPost(config, '/api/device/thread-operations/complete', {
+      operationId: claim.operation.id,
+      leaseToken: claim.operation.leaseToken,
+    });
+  } catch (error) {
+    await signedPost(config, '/api/device/thread-operations/complete', {
+      operationId: claim.operation.id,
+      leaseToken: claim.operation.leaseToken,
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
+  return true;
+}
+
 async function cycle(config, options = {}) {
   if (options.heartbeat !== false) await signedPost(config, '/api/device/heartbeat');
   if (options.syncSessions) {
     try { await syncGatewaySessions(config, { configPath: options.configPath }); }
     catch (error) { console.error(`[hermes-cloud-connector] session sync unavailable: ${error instanceof Error ? error.message : error}`); }
   }
+  if (await claimAndExecuteThreadOperation(config)) return true;
   const bodyText = '{}';
   const response = await fetch(`${config.controlPlaneUrl}/api/device/tasks/claim`, {
     method: 'POST', headers: signedHeaders(config, 'POST', '/api/device/tasks/claim', bodyText), body: bodyText,
@@ -427,5 +501,5 @@ async function main() {
   }
 }
 
-module.exports = { boundContextMessages, buildWebSessionSystemPrompt, canonicalRequest, collectGatewaySessions, contentText, createIdentity, executeLocal, gatewayHeaders, loadConfig, pairingDashboardUrl, pairingMatchesControlPlane, parseDotEnvValue, parseTerminalCwd, resolveGatewayApiKey, resolveWorkspacePath, saveConfig, selectContextSessionIds, signedHeaders, sha256, syncGatewaySessions, timestampMillis };
+module.exports = { boundContextMessages, buildWebSessionSystemPrompt, canonicalRequest, claimAndExecuteThreadOperation, collectGatewaySessions, contentText, createIdentity, executeLocal, executeThreadOperation, gatewayHeaders, loadConfig, pairingDashboardUrl, pairingMatchesControlPlane, parseDotEnvValue, parseTerminalCwd, resolveGatewayApiKey, resolveWorkspacePath, saveConfig, selectContextSessionIds, signedHeaders, sha256, syncGatewaySessions, timestampMillis };
 if (require.main === module) main().catch((error) => { console.error(error); process.exitCode = 1; });

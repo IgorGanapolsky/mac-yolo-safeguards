@@ -13,6 +13,7 @@ const {
   collectGatewaySessions,
   createIdentity,
   executeLocal,
+  executeThreadOperation,
   gatewayHeaders,
   loadConfig,
   pairingDashboardUrl,
@@ -255,4 +256,54 @@ test('fails closed instead of sending an unbound task to a bare model completion
     executeLocal({ sessionGatewayUrl: 'http://127.0.0.1:1' }, { prompt: 'which project?' }),
     /missing its Hermes session binding/,
   );
+});
+
+test('applies rename and delete operations to the exact Hermes session', async () => {
+  const requests = [];
+  await withServer((request, response) => {
+    let body = '';
+    request.on('data', (chunk) => { body += chunk; });
+    request.on('end', () => {
+      requests.push({ method: request.method, url: request.url, body: body ? JSON.parse(body) : null });
+      response.setHeader('content-type', 'application/json');
+      response.end(JSON.stringify({ ok: true }));
+    });
+  }, async (sessionGatewayUrl) => {
+    await executeThreadOperation({ sessionGatewayUrl }, {
+      operation: 'rename', sourceSessionId: 'session/one', title: 'Revenue plan',
+    });
+    await executeThreadOperation({ sessionGatewayUrl }, {
+      operation: 'delete', sourceSessionId: 'session/one',
+    });
+  });
+  assert.deepEqual(requests, [
+    { method: 'PATCH', url: '/api/sessions/session%2Fone', body: { title: 'Revenue plan' } },
+    { method: 'DELETE', url: '/api/sessions/session%2Fone', body: null },
+  ]);
+});
+
+test('clear all uses the gateway bulk delete and falls back without deleting Telegram inbox', async () => {
+  const requests = [];
+  await withServer((request, response) => {
+    requests.push(`${request.method} ${request.url}`);
+    response.setHeader('content-type', 'application/json');
+    if (request.method === 'DELETE' && request.url === '/api/sessions') {
+      response.statusCode = 405;
+      response.end(JSON.stringify({ error: 'method not allowed' }));
+      return;
+    }
+    if (request.method === 'GET' && request.url.startsWith('/api/sessions?')) {
+      response.end(JSON.stringify({ data: [{ id: 'keep-me' }, { id: '__telegram_inbox__' }, { id: 'delete-me' }] }));
+      return;
+    }
+    response.end(JSON.stringify({ ok: true }));
+  }, async (sessionGatewayUrl) => {
+    await executeThreadOperation({ sessionGatewayUrl }, { operation: 'clear_all' });
+  });
+  assert.deepEqual(requests, [
+    'DELETE /api/sessions',
+    'GET /api/sessions?limit=60',
+    'DELETE /api/sessions/keep-me',
+    'DELETE /api/sessions/delete-me',
+  ]);
 });
