@@ -17,6 +17,10 @@ test("builds the public Leash subscription landing page", async () => {
   ]);
   assert.match(layout, /metadataBase: new URL\("https:\/\/thumbgate\.app"\)/);
   assert.match(layout, /alternates: \{ canonical: "\/" \}/);
+  assert.match(layout, /url: "\/og\.png"/);
+  assert.match(layout, /width: 1200/);
+  assert.match(layout, /height: 630/);
+  assert.match(layout, /images: \["\/og\.png"\]/);
   assert.match(layout, /agent observability/);
   assert.match(page, /Leash/);
   assert.match(page, /by ThumbGate/);
