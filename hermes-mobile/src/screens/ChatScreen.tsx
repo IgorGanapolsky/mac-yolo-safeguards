@@ -209,7 +209,11 @@ import {
   shouldHardTimeoutRun,
 } from '../utils/runStaleDetection';
 import { isChatAtTop, isChatNearBottom } from '../utils/chatScrollSync';
-import { nextChatNearBottom } from '../utils/chatFlashListScrollGuard';
+import {
+  allowContentSizeScroll,
+  createContentSizeScrollCircuit,
+  nextChatNearBottom,
+} from '../utils/chatFlashListScrollGuard';
 import {
   COMPOSER_DRAFT_SAVE_DEBOUNCE_MS,
   clearComposerDraft,
@@ -889,6 +893,8 @@ export default function ChatScreen() {
   /** Blocks onContentSizeChange→scrollToEnd recursion (FlashList max-update-depth). */
   const programmaticScrollInFlightRef = useRef(false);
   const endProgrammaticScrollRafRef = useRef<number | null>(null);
+  /** Rate-limits contentSize→scroll; tip ee560d95 still looped with in-flight alone. */
+  const contentSizeScrollCircuitRef = useRef(createContentSizeScrollCircuit());
 
   const scrollChatToLatest = useCallback((animated = false) => {
     // Non-inverted FlashList: scrollToEnd scrolls to the latest messages at the bottom.
@@ -7030,10 +7036,10 @@ export default function ChatScreen() {
                 keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'none'}
                 keyboardShouldPersistTaps="handled"
                 drawDistance={480}
-                // MVCP follows the bottom while streaming; pair with throttled
-                // onContentSizeChange (not per-token effect scrolls) for smooth follow.
+                // Do NOT use startRenderingFromBottom — with onContentSizeChange→scrollToEnd
+                // it still produced ErrorBoundary "Maximum update depth exceeded" on tip
+                // OTA ee560d95 even with programmaticScrollInFlight guarded.
                 maintainVisibleContentPosition={{
-                  startRenderingFromBottom: true,
                   autoscrollToBottomThreshold: 0.15,
                 }}
                 onScroll={handleChatScroll}
@@ -7053,9 +7059,22 @@ export default function ChatScreen() {
                     : undefined
                 }
                 onContentSizeChange={() => {
-                  // Programmatic scrollToEnd remeasures the list; re-entering scroll
-                  // here loops into ErrorBoundary "Maximum update depth exceeded".
+                  // Never setState here — FlashList remeasure + setState loops into
+                  // ErrorBoundary "Maximum update depth exceeded" (stack at FlashList).
                   if (programmaticScrollInFlightRef.current) {
+                    // Consume hydration pin even while suppressing scroll (Codex P2).
+                    if (pinScrollAfterHydrationRef.current) {
+                      pinScrollAfterHydrationRef.current = false;
+                    }
+                    return;
+                  }
+                  if (
+                    !allowContentSizeScroll(
+                      contentSizeScrollCircuitRef.current,
+                      Date.now(),
+                    )
+                  ) {
+                    pinScrollAfterHydrationRef.current = false;
                     return;
                   }
                   if (pinScrollAfterHydrationRef.current) {
@@ -7063,7 +7082,6 @@ export default function ChatScreen() {
                     userScrolledUpRef.current = false;
                     lastDistanceFromBottomRef.current = 0;
                     streamScrollLastAtRef.current = 0;
-                    setChatNearBottom((prev) => (prev ? prev : true));
                     scrollChatToLatest(false);
                     return;
                   }
