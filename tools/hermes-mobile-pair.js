@@ -462,13 +462,17 @@ function ensurePairServerDaemon(lanIp) {
  * Rewrite pair.json from THIS Mac's /health so a stale --mini-tailscale artifact
  * cannot keep advertising Mac mini hostname + Pro localIp (Find computers found-2/show-1).
  * Crisis 2026-07-15 P0.
+ *
+ * P0 2026-07-21: --server-only used to always prefer Tailscale and clobber a just-written
+ * USB loopback primary (runPairMain → writePairAssets → ensurePairServerDaemon → here).
+ * When adb reverse :8642 is up and loopback auth verifies, keep USB as the pair-page primary.
  */
 function refreshPairAssetsFromLocalGateway() {
   const health = fetchHealth();
   const lanIp = resolveLanIp(health);
   const hostname = (health.hostname || os.hostname() || 'Mac').replace(/\.local$/i, '');
   const tailnetIp = localTailscaleIpv4();
-  const gatewayUrl = tailnetIp ? `http://${tailnetIp}:8642` : `http://${lanIp}:8642`;
+  let gatewayUrl = tailnetIp ? `http://${tailnetIp}:8642` : `http://${lanIp}:8642`;
   const apiKey = readLocalApiKey();
   const thumbgateApiKey = readThumbgateApiKey();
   const relayCode =
@@ -484,15 +488,6 @@ function refreshPairAssetsFromLocalGateway() {
     ]);
   const tailnetProbeHosts = discoverTailnetProbeHosts();
   const pageUrl = `http://${lanIp}:${PAIR_PORT}/pair`;
-  const deepLink = buildDeepLink(
-    gatewayUrl,
-    apiKey,
-    hostname,
-    relayCode,
-    tailnetProbeHosts,
-    [],
-    thumbgateApiKey,
-  );
   const pairPath = path.join(OUT_DIR, 'pair.json');
   let previous = null;
   if (fs.existsSync(pairPath)) {
@@ -502,6 +497,28 @@ function refreshPairAssetsFromLocalGateway() {
       previous = null;
     }
   }
+  const serial = adbDevice();
+  const usbReverseLive =
+    Boolean(serial) &&
+    !String(serial).startsWith('emulator-') &&
+    !assertUsbAdbReverses(serial).missing.includes(8642);
+  const loopback = 'http://127.0.0.1:8642';
+  if (usbReverseLive && verifyGatewayAuthSync(loopback, apiKey).ok) {
+    gatewayUrl = loopback;
+    console.log('  pair.json refresh: keeping USB loopback primary (adb reverse + auth verified)');
+  } else if (previous && isLoopbackGatewayUrl(previous.gatewayUrl) && !usbReverseLive) {
+    // Cable gone — fall through to Tailscale/LAN rewrite below.
+    console.log('  pair.json refresh: prior USB primary, no live reverse — promoting network gateway');
+  }
+  const deepLink = buildDeepLink(
+    gatewayUrl,
+    apiKey,
+    hostname,
+    relayCode,
+    tailnetProbeHosts,
+    [],
+    thumbgateApiKey,
+  );
   const prevHost = String(previous?.hostname || '')
     .replace(/\.local$/i, '')
     .trim()
