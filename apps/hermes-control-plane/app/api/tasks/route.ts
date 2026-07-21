@@ -23,12 +23,12 @@ export async function GET(request: Request) {
   const whereThread = threadId ? " AND k.thread_id = ?" : "";
   const values = threadId ? [session.organizationId, threadId] : [session.organizationId];
   const rows = await db().prepare(
-    `SELECT k.id, k.thread_id AS threadId, t.title AS threadTitle, k.prompt, k.status, k.route,
+    `SELECT k.id, k.thread_id AS threadId, COALESCE(t.title_override, t.title) AS threadTitle, k.prompt, k.status, k.route,
             k.result, k.error, k.created_at AS createdAt, k.updated_at AS updatedAt,
             k.completed_at AS completedAt, d.name AS deviceName
        FROM tasks k JOIN threads t ON t.id = k.thread_id
        LEFT JOIN devices d ON d.id = k.device_id
-      WHERE k.organization_id = ?${whereThread}
+      WHERE k.organization_id = ? AND t.deleted_at IS NULL${whereThread}
       ORDER BY k.created_at DESC LIMIT 100`
   ).bind(...values).all();
   return Response.json({ tasks: rows.results });
@@ -73,7 +73,7 @@ export async function POST(request: Request) {
 
   let threadId = payload?.threadId;
   if (threadId) {
-    const owned = await db().prepare("SELECT id FROM threads WHERE id = ? AND organization_id = ?")
+    const owned = await db().prepare("SELECT id FROM threads WHERE id = ? AND organization_id = ? AND deleted_at IS NULL")
       .bind(threadId, session.organizationId).first();
     if (!owned) return jsonError("thread not found", 404);
   } else {
