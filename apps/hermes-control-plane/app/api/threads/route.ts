@@ -31,3 +31,46 @@ export async function POST(request: Request) {
   ).bind(id, session.organizationId, title, session.userId, now, now).run();
   return Response.json({ thread: { id, title, createdAt: now, updatedAt: now } }, { status: 201 });
 }
+
+export async function PATCH(request: Request) {
+  let session;
+  try { session = await requireSession(); } catch { return jsonError("sign in required", 401); }
+  const payload = await request.json().catch(() => null) as { threadId?: string; title?: string } | null;
+  const threadId = payload?.threadId?.trim();
+  const title = payload?.title?.trim().slice(0, 100);
+  if (!threadId) return jsonError("threadId is required");
+  if (!title) return jsonError("title is required");
+  const now = Date.now();
+  const result = await db().prepare(
+    "UPDATE threads SET title = ?, updated_at = ? WHERE id = ? AND organization_id = ?"
+  ).bind(title, now, threadId, session.organizationId).run();
+  if (!result.meta.changes) return jsonError("thread not found", 404);
+  return Response.json({ thread: { id: threadId, title, updatedAt: now } });
+}
+
+export async function DELETE(request: Request) {
+  let session;
+  try { session = await requireSession(); } catch { return jsonError("sign in required", 401); }
+  const url = new URL(request.url);
+  const threadId = url.searchParams.get("id")?.trim();
+  const clearAll = url.searchParams.get("all") === "true";
+  if (!threadId && !clearAll) return jsonError("id is required");
+
+  if (clearAll) {
+    await db().batch([
+      db().prepare("DELETE FROM tasks WHERE organization_id = ?").bind(session.organizationId),
+      db().prepare("DELETE FROM threads WHERE organization_id = ?").bind(session.organizationId),
+    ]);
+    return Response.json({ cleared: true });
+  }
+
+  // organization_id scoping on BOTH deletes is the actual authorization check here —
+  // a thread id from another org simply matches zero rows rather than needing a
+  // separate ownership lookup.
+  const [, threadDelete] = await db().batch([
+    db().prepare("DELETE FROM tasks WHERE thread_id = ? AND organization_id = ?").bind(threadId, session.organizationId),
+    db().prepare("DELETE FROM threads WHERE id = ? AND organization_id = ?").bind(threadId, session.organizationId),
+  ]);
+  if (!threadDelete.meta.changes) return jsonError("thread not found", 404);
+  return Response.json({ deleted: true });
+}

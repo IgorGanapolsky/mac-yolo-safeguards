@@ -257,6 +257,33 @@ export default function DashboardClient() {
     });
   }
 
+  async function renameThread(thread: Thread) {
+    const nextTitle = window.prompt("Rename chat", thread.title)?.trim();
+    if (!nextTitle || nextTitle === thread.title) return;
+    const response = await fetch("/api/threads", { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ threadId: thread.id, title: nextTitle }) });
+    const body = await response.json().catch(() => ({})) as { error?: string };
+    setNotice(response.ok ? "Chat renamed." : body.error ?? "Rename failed");
+    await load();
+  }
+
+  async function deleteThread(thread: Thread) {
+    if (!window.confirm(`Delete "${thread.title}"? You cannot undo this.`)) return;
+    const response = await fetch(`/api/threads?id=${encodeURIComponent(thread.id)}`, { method: "DELETE" });
+    const body = await response.json().catch(() => ({})) as { error?: string };
+    setNotice(response.ok ? "Chat deleted." : body.error ?? "Delete failed");
+    if (response.ok && selectedThread === thread.id) setSelectedThread(null);
+    await load();
+  }
+
+  async function clearAllThreads() {
+    if (!window.confirm("Clear all chats? This deletes every synced thread from your ThumbGate workspace. You cannot undo this.")) return;
+    const response = await fetch("/api/threads?all=true", { method: "DELETE" });
+    const body = await response.json().catch(() => ({})) as { error?: string };
+    setNotice(response.ok ? "All chats cleared." : body.error ?? "Clear failed");
+    if (response.ok) setSelectedThread(null);
+    await load();
+  }
+
   function openThread(threadId: string | null) {
     setSelectedThread(threadId);
     if (window.matchMedia("(max-width: 700px)").matches) {
@@ -279,13 +306,24 @@ export default function DashboardClient() {
           <button className={!selectedThread ? "side-item active" : "side-item"} onClick={() => openThread(null)}><span>H</span><span className="side-item-label">Hermes</span><em>{activeTasks.length}</em></button>
           <div className="workspace-label chats-label-row">
             <span>CHATS</span>
-            <select className="thread-sort-select" aria-label="Sort chats" value={threadSortOrder} onChange={(event) => changeThreadSort(event.target.value as ThreadSortOrder)}>
-              <option value="newest">Newest first</option>
-              <option value="oldest">Oldest first</option>
-              <option value="alphabetical">Alphabetical</option>
-            </select>
+            <div className="chats-label-actions">
+              <select className="thread-sort-select" aria-label="Sort chats" value={threadSortOrder} onChange={(event) => changeThreadSort(event.target.value as ThreadSortOrder)}>
+                <option value="newest">Newest first</option>
+                <option value="oldest">Oldest first</option>
+                <option value="alphabetical">Alphabetical</option>
+              </select>
+              {threads.length > 0 && <button type="button" className="clear-all-chats" onClick={() => void clearAllThreads()}>Clear all</button>}
+            </div>
           </div>
-          <nav className="thread-list" aria-label={`Chats, ${threadSortOrder} order`}>{visibleThreads.map((thread) => <button key={thread.id} title={`${thread.title} — ${formatDateTime(thread.updatedAt)}`} aria-current={selectedThread === thread.id ? "page" : undefined} className={selectedThread === thread.id ? "side-item thread-item active" : "side-item thread-item"} onClick={() => openThread(thread.id)}><span className="thread-icon">{thread.sourceSessionId ? "⌘" : "›_"}</span><span className="thread-copy"><strong>{thread.title}</strong><time dateTime={new Date(thread.updatedAt).toISOString()}>{formatDateTime(thread.updatedAt)}</time></span><em>{thread.messageCount || thread.taskCount}</em></button>)}</nav>
+          <nav className="thread-list" aria-label={`Chats, ${threadSortOrder} order`}>{visibleThreads.map((thread) => (
+            <div key={thread.id} className="thread-row">
+              <button title={`${thread.title} — ${formatDateTime(thread.updatedAt)}`} aria-current={selectedThread === thread.id ? "page" : undefined} className={selectedThread === thread.id ? "side-item thread-item active" : "side-item thread-item"} onClick={() => openThread(thread.id)}><span className="thread-icon">{thread.sourceSessionId ? "⌘" : "›_"}</span><span className="thread-copy"><strong>{thread.title}</strong><time dateTime={new Date(thread.updatedAt).toISOString()}>{formatDateTime(thread.updatedAt)}</time></span><em>{thread.messageCount || thread.taskCount}</em></button>
+              <div className="thread-actions">
+                <button type="button" className="thread-action" aria-label={`Rename ${thread.title}`} title="Rename" onClick={() => void renameThread(thread)}>✎</button>
+                <button type="button" className="thread-action thread-action-danger" aria-label={`Delete ${thread.title}`} title="Delete" onClick={() => void deleteThread(thread)}>🗑</button>
+              </div>
+            </div>
+          ))}</nav>
           <div className="sidebar-bottom"><div className="avatar">{user.name.slice(0, 1).toUpperCase()}</div><div><strong>{user.name}</strong><small>{accountPlan} plan</small></div><form action="/api/auth/logout" method="post"><button title="Sign out" aria-label="Sign out">↗</button></form></div>
         </div>
         {chatRailExpanded && <div
