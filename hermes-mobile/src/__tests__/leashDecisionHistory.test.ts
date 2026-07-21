@@ -65,6 +65,24 @@ describe('leashDecisionHistory', () => {
     expect(history[0].title).toBe('From resolver funnel');
   });
 
+  it('serializes concurrent decisions so Chat and Leash writes cannot overwrite each other', async () => {
+    await Promise.all(
+      Array.from({ length: 20 }, (_, index) =>
+        recordLeashDecision({
+          actionId: `concurrent-${index}`,
+          decision: index % 2 === 0 ? 'approved' : 'denied',
+          title: `Concurrent action ${index}`,
+          source: index % 2 === 0 ? 'chat' : 'leash',
+          decidedAt: new Date(Date.UTC(2026, 6, 21, 19, 0, index)).toISOString(),
+        }),
+      ),
+    );
+
+    const history = await loadLeashDecisionHistory();
+    expect(history).toHaveLength(20);
+    expect(new Set(history.map((record) => record.actionId)).size).toBe(20);
+  });
+
   it('caps history at the limit', async () => {
     for (let i = 0; i < LEASH_DECISION_HISTORY_LIMIT + 5; i += 1) {
       await recordLeashDecision({
