@@ -1,8 +1,30 @@
 import { parseSetupDeepLink, type SetupDeepLinkParams } from './setupDeepLink';
 import { normalizeGatewayUrl } from '../services/gatewayClient';
-import { resolveSetupDeepLinkCredentials } from '../services/pairingCodeExchange';
+import { exchangePairingCode } from '../services/pairingCodeExchange';
 
 const PAIR_PAGE_RE = /:8765(?:\/pair)?$/i;
+
+async function redeemPairingCodeForScan(setup: SetupDeepLinkParams): Promise<SetupDeepLinkParams> {
+  if (!setup.pairingCode || !setup.pairServerUrl) {
+    return setup;
+  }
+  const payload = await exchangePairingCode(setup.pairServerUrl, setup.pairingCode);
+  if (!payload) {
+    return setup;
+  }
+  return {
+    ...setup,
+    gatewayUrl: payload.gatewayUrl || setup.gatewayUrl,
+    apiKey: payload.apiKey || setup.apiKey,
+    thumbgateApiKey: payload.thumbgateApiKey || setup.thumbgateApiKey,
+    macName: payload.macName || setup.macName,
+    relayCode: payload.relayCode || setup.relayCode,
+    tailnetProbeHosts: payload.tailnetProbeHosts?.length
+      ? payload.tailnetProbeHosts
+      : setup.tailnetProbeHosts,
+    extraComputers: payload.extraComputers?.length ? payload.extraComputers : setup.extraComputers,
+  };
+}
 
 function pairJsonUrlFromScan(data: string): string | null {
   const trimmed = data.trim();
@@ -25,7 +47,7 @@ export async function resolvePairQrPayload(data: string): Promise<SetupDeepLinkP
   const trimmed = data.trim();
   const fromDeepLink = parseSetupDeepLink(trimmed);
   if (fromDeepLink) {
-    return resolveSetupDeepLinkCredentials(fromDeepLink);
+    return redeemPairingCodeForScan(fromDeepLink);
   }
 
   const pairJsonUrl = pairJsonUrlFromScan(trimmed);
@@ -41,7 +63,7 @@ export async function resolvePairQrPayload(data: string): Promise<SetupDeepLinkP
         if (body.deepLink) {
           const parsed = parseSetupDeepLink(body.deepLink);
           if (parsed) {
-            return resolveSetupDeepLinkCredentials(parsed);
+            return redeemPairingCodeForScan(parsed);
           }
         }
         if (body.gatewayUrl?.trim()) {

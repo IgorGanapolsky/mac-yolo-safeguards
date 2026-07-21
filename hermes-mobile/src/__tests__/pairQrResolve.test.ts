@@ -1,8 +1,17 @@
 import { resolvePairQrPayload } from '../utils/pairQrResolve';
+import { secureCredentials } from '../services/secureCredentials';
+
+jest.mock('../services/secureCredentials', () => ({
+  secureCredentials: {
+    saveApiKey: jest.fn().mockResolvedValue(undefined),
+    saveThumbgateApiKey: jest.fn().mockResolvedValue(undefined),
+  },
+}));
 
 describe('resolvePairQrPayload', () => {
   beforeEach(() => {
     global.fetch = jest.fn();
+    jest.clearAllMocks();
   });
 
   it('parses hermes://setup deep links', async () => {
@@ -38,6 +47,8 @@ describe('resolvePairQrPayload', () => {
       pairingCode: 'FRESH123',
       pairServerUrl: 'http://192.168.12.50:8765',
     });
+    expect(secureCredentials.saveApiKey).not.toHaveBeenCalled();
+    expect(secureCredentials.saveThumbgateApiKey).not.toHaveBeenCalled();
   });
 
   it('fetches pair.json from pair page QR URLs', async () => {
@@ -67,5 +78,6 @@ describe('resolvePairQrPayload', () => {
       2,
       'http://192.168.12.208:8765/pair-exchange?code=PAGE456',
     );
+    expect(secureCredentials.saveApiKey).not.toHaveBeenCalled();
   });
 });
