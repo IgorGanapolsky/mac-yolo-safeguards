@@ -7,7 +7,7 @@ import React, {
 } from 'react';
 import { createContext, useContext } from 'use-context-selector';
 import { AppState, Linking, Platform } from 'react-native';
-import NetInfo from '@react-native-community/netinfo';
+import NetInfo, { type NetInfoState } from '@react-native-community/netinfo';
 import {
   cacheDirectory as fileSystemCacheDirectory,
   getInfoAsync as fileSystemGetInfoAsync,
@@ -405,6 +405,8 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
   >(async () => false);
   const tailnetProbeHostsRef = useRef<string[]>([]);
   const tailscaleProbeInFlightRef = useRef(false);
+  const lastNetInfoStateRef = useRef<NetInfoState | null>(null);
+  const reachedTailscaleHostRef = useRef(false);
   const probeTailscaleComputersRef = useRef<() => Promise<void>>(async () => {});
   const runConnectionSelfHealRef = useRef<() => Promise<void>>(async () => {});
   const maybeHandoffTailscaleToUsbRef = useRef<() => Promise<boolean>>(async () => false);
@@ -414,6 +416,20 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
   const connectionHealAttemptRef = useRef(0);
   const [connectionHealAttempt, setConnectionHealAttempt] = useState(0);
   const [connectionHealInFlight, setConnectionHealInFlight] = useState(false);
+  const updateTailscaleVpnActive = useCallback((netInfoState?: NetInfoState) => {
+    if (netInfoState) {
+      lastNetInfoStateRef.current = netInfoState;
+    }
+    const currentNetInfoState = lastNetInfoStateRef.current;
+    setTailscaleVpnActive(
+      currentNetInfoState
+        ? isTailscaleVpnActiveFromNetInfo(
+            currentNetInfoState,
+            reachedTailscaleHostRef.current,
+          )
+        : reachedTailscaleHostRef.current,
+    );
+  }, []);
 
   const addGatewayListener = useCallback((listener: (event: GatewayEventMessage) => void) => {
     listenersRef.current.add(listener);
@@ -1253,7 +1269,7 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
       setWifiConnected(isWifi);
       // Samsung cellular keeps type=cellular while tun0/Tailscale is up — never
       // rely on type==='vpn' alone (see tailscaleVpnDetect + July 2026 research).
-      setTailscaleVpnActive(isTailscaleVpnActiveFromNetInfo(state));
+      updateTailscaleVpnActive(state);
       refreshHealth();
       void probeTailscaleComputersRef.current();
     });
@@ -1261,13 +1277,13 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
       const isWifi = state.type === 'wifi' && state.isConnected !== false;
       wifiConnectedRef.current = isWifi;
       setWifiConnected(isWifi);
-      setTailscaleVpnActive(isTailscaleVpnActiveFromNetInfo(state));
+      updateTailscaleVpnActive(state);
     });
     return () => {
       clearInterval(interval);
       netSub();
     };
-  }, [isLoaded, refreshHealth]);
+  }, [isLoaded, refreshHealth, updateTailscaleVpnActive]);
 
   const disconnectEvents = useCallback(() => {
     if (reconnectTimeoutRef.current) {
@@ -2693,9 +2709,10 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
       ).slice(0, 3);
       if (preflightHosts.length > 0) {
         const preflightHits = await discoverTailscaleGateways(preflightHosts);
-        if (preflightHits.some((item) => isTailscaleGatewayUrl(item.gatewayUrl))) {
-          setTailscaleVpnActive(true);
-        }
+        reachedTailscaleHostRef.current = preflightHits.some((item) =>
+          isTailscaleGatewayUrl(item.gatewayUrl),
+        );
+        updateTailscaleVpnActive();
       }
       setTailscaleDiscoveryProbing(true);
 
@@ -2759,15 +2776,18 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
         }
       }
       if (probeHosts.length === 0) {
+        reachedTailscaleHostRef.current = false;
+        updateTailscaleVpnActive();
         setTailscaleDiscoveries([]);
         return;
       }
       const discovered = await discoverTailscaleGateways(probeHosts);
       // Reachability to any Tailscale host proves the tunnel is up even when
       // NetInfo still reports cellular (Samsung OEM false negative).
-      if (discovered.some((item) => isTailscaleGatewayUrl(item.gatewayUrl))) {
-        setTailscaleVpnActive(true);
-      }
+      reachedTailscaleHostRef.current = discovered.some((item) =>
+        isTailscaleGatewayUrl(item.gatewayUrl),
+      );
+      updateTailscaleVpnActive();
       const hostsToPersist = tailnetHostsFromDiscoveries(discovered);
       if (hostsToPersist.length > 0) {
         const mergedHosts = await tailnetProbeStorage.merge(
@@ -2833,7 +2853,7 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
       tailscaleProbeInFlightRef.current = false;
       setTailscaleDiscoveryProbing(false);
     }
-  }, [persistDiscoveredGatewayUrl, refreshHealth]);
+  }, [persistDiscoveredGatewayUrl, refreshHealth, updateTailscaleVpnActive]);
 
   const addDiscoveredTailscaleComputer = useCallback(async (discovery: DiscoveredGateway) => {
     const nextState = upsertDiscoveredProfile(profileStateRef.current, discovery, false);
