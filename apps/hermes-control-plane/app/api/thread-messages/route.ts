@@ -10,8 +10,8 @@ export async function GET(request: Request) {
   const threadId = new URL(request.url).searchParams.get("thread_id");
   if (!threadId) return jsonError("thread_id is required");
   const thread = await db().prepare(
-    `SELECT id, title, source, context_snapshot AS contextSnapshot, synced_at AS syncedAt
-       FROM threads WHERE id = ? AND organization_id = ?`
+    `SELECT id, COALESCE(title_override, title) AS title, source, context_snapshot AS contextSnapshot, synced_at AS syncedAt
+       FROM threads WHERE id = ? AND organization_id = ? AND deleted_at IS NULL`
   ).bind(threadId, session.organizationId).first<{ id: string; title: string; source: string; contextSnapshot: string | null; syncedAt: number | null }>();
   if (!thread) return jsonError("thread not found", 404);
   let snapshot: SnapshotMessage[] = [];

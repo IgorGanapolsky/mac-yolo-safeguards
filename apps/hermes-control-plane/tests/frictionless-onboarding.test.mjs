@@ -11,7 +11,12 @@ const billingPlan = readFileSync(new URL("../app/BillingPlan.tsx", import.meta.u
 const threadsRoute = readFileSync(new URL("../app/api/threads/route.ts", import.meta.url), "utf8");
 const sessionSyncRoute = readFileSync(new URL("../app/api/device/sessions/sync/route.ts", import.meta.url), "utf8");
 const tasksRoute = readFileSync(new URL("../app/api/tasks/route.ts", import.meta.url), "utf8");
+const threadMessagesRoute = readFileSync(new URL("../app/api/thread-messages/route.ts", import.meta.url), "utf8");
 const taskLeases = readFileSync(new URL("../lib/task-leases.ts", import.meta.url), "utf8");
+const threadOperations = readFileSync(new URL("../lib/thread-operations.ts", import.meta.url), "utf8");
+const operationClaimRoute = readFileSync(new URL("../app/api/device/thread-operations/claim/route.ts", import.meta.url), "utf8");
+const operationCompleteRoute = readFileSync(new URL("../app/api/device/thread-operations/complete/route.ts", import.meta.url), "utf8");
+const threadOperationsMigration = readFileSync(new URL("../drizzle/0003_thread_operations.sql", import.meta.url), "utf8");
 const webPackage = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8"));
 const connector = readFileSync(new URL("../../../tools/hermes-cloud-connector.js", import.meta.url), "utf8");
 const installer = readFileSync(new URL("../../../saas/install-connector.sh", import.meta.url), "utf8");
@@ -80,6 +85,35 @@ test("shows explicit 12-hour chat and task timestamps including seconds", () => 
   assert.match(dashboard, /<time dateTime=\{new Date\(task\.createdAt\)\.toISOString\(\)\}>/);
 });
 
+test("matches Hermes Mobile chat management with persistent rename, delete, and clear all", () => {
+  assert.match(dashboard, /aria-label=\{`Actions for \$\{thread\.title\}`\}/);
+  assert.match(dashboard, /role="menuitem"[\s\S]*Rename/);
+  assert.match(dashboard, /role="menuitem"[\s\S]*Delete/);
+  assert.match(dashboard, /Clear all chats\?/);
+  assert.match(dashboard, /confirmation: "CLEAR ALL CHATS"/);
+  assert.match(globals, /\.thread-menu-trigger\{[^}]*min-width:44px[^}]*min-height:44px/);
+  assert.match(globals, /\.chat-dialog\{/);
+  assert.match(threadsRoute, /export async function PATCH/);
+  assert.match(threadsRoute, /export async function DELETE/);
+  assert.match(threadsRoute, /COALESCE\(t\.title_override, t\.title\) AS title/);
+  assert.match(threadsRoute, /t\.deleted_at IS NULL/);
+  assert.match(tasksRoute, /COALESCE\(t\.title_override, t\.title\) AS threadTitle/);
+  assert.match(tasksRoute, /t\.deleted_at IS NULL/);
+  assert.match(tasksRoute, /organization_id = \? AND deleted_at IS NULL/);
+  assert.match(threadMessagesRoute, /COALESCE\(title_override, title\) AS title/);
+  assert.match(threadMessagesRoute, /organization_id = \? AND deleted_at IS NULL/);
+  assert.match(threadOperations, /title_override/);
+  assert.match(threadOperations, /deleted_at/);
+  assert.match(threadOperations, /operation: "clear_all"/);
+  assert.match(threadOperations, /MAX_ATTEMPTS = 3/);
+  assert.match(operationClaimRoute, /requireDevice/);
+  assert.match(operationCompleteRoute, /requireDevice/);
+  assert.match(threadOperationsMigration, /CREATE TABLE `thread_operations`/);
+  assert.match(connector, /executeThreadOperation/);
+  assert.match(connector, /method: 'PATCH'/);
+  assert.match(connector, /method: 'DELETE'/);
+});
+
 test("uses the exact Hermes Mobile color tokens on the web", () => {
   assert.match(globals, /--bg:#0B0F19/);
   assert.match(globals, /--panel-solid:#111827/);
@@ -136,10 +170,19 @@ test("makes every dashboard metric a labeled shortcut instead of an inert card",
   assert.match(dashboard, /<nav className="metric-grid metric-grid-four" aria-label="Workspace status shortcuts">/);
   assert.match(dashboard, /className="metric-card" href="#web-settings"/);
   assert.match(dashboard, /className="metric-card" href="#task-activity"/);
-  assert.match(dashboard, /className="metric-card" href="#leash-control"/);
+  assert.match(dashboard, /className="metric-card" href="#execution-safety"/);
   assert.match(dashboard, /className="task-list" id="task-activity"/);
   assert.match(globals, /\.metric-grid \.metric-card:hover/);
   assert.doesNotMatch(dashboard, /<article><span>Paired machines/);
+});
+
+test("explains fenced execution through a visible interactive safety panel", () => {
+  assert.match(dashboard, /href="#execution-safety"/);
+  assert.match(dashboard, /onClick=\{\(\) => setSafetyExpanded\(true\)\}/);
+  assert.match(dashboard, /id="execution-safety"/);
+  assert.match(dashboard, /What “Fenced” means/);
+  assert.match(dashboard, /one signed runner at a time/);
+  assert.match(globals, /\.safety-panel:target/);
 });
 
 test("keeps every workspace telemetry value behind authentication", () => {

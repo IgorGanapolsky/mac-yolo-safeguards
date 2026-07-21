@@ -1,4 +1,4 @@
-import { integer, primaryKey, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
+import { index, integer, primaryKey, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
 
 export const users = sqliteTable("users", {
   id: text("id").primaryKey(),
@@ -78,6 +78,7 @@ export const threads = sqliteTable("threads", {
   id: text("id").primaryKey(),
   organizationId: text("organization_id").notNull().references(() => organizations.id, { onDelete: "cascade" }),
   title: text("title").notNull(),
+  titleOverride: text("title_override"),
   deviceId: text("device_id").references(() => devices.id, { onDelete: "set null" }),
   sourceSessionId: text("source_session_id"),
   source: text("source").notNull().default("web"),
@@ -87,10 +88,31 @@ export const threads = sqliteTable("threads", {
   contextSnapshot: text("context_snapshot"),
   sourceUpdatedAt: integer("source_updated_at"),
   syncedAt: integer("synced_at"),
+  deletedAt: integer("deleted_at"),
   createdByUserId: text("created_by_user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
   createdAt: integer("created_at").notNull(),
   updatedAt: integer("updated_at").notNull(),
 }, (table) => [uniqueIndex("threads_device_source_unique").on(table.deviceId, table.sourceSessionId)]);
+
+export const threadOperations = sqliteTable("thread_operations", {
+  id: text("id").primaryKey(),
+  organizationId: text("organization_id").notNull().references(() => organizations.id, { onDelete: "cascade" }),
+  deviceId: text("device_id").notNull().references(() => devices.id, { onDelete: "cascade" }),
+  threadId: text("thread_id").references(() => threads.id, { onDelete: "set null" }),
+  sourceSessionId: text("source_session_id"),
+  operation: text("operation", { enum: ["rename", "delete", "clear_all"] }).notNull(),
+  title: text("title"),
+  status: text("status", { enum: ["pending", "running", "completed", "failed"] }).notNull().default("pending"),
+  leaseOwner: text("lease_owner"),
+  leaseTokenHash: text("lease_token_hash"),
+  leaseGeneration: integer("lease_generation").notNull().default(0),
+  leaseExpiresAt: integer("lease_expires_at"),
+  error: text("error"),
+  createdByUserId: text("created_by_user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  createdAt: integer("created_at").notNull(),
+  updatedAt: integer("updated_at").notNull(),
+  completedAt: integer("completed_at"),
+}, (table) => [index("thread_operations_device_status_created_idx").on(table.deviceId, table.status, table.createdAt)]);
 
 export const tasks = sqliteTable("tasks", {
   id: text("id").primaryKey(),

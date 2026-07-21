@@ -8,6 +8,7 @@ type Device = { id: string; name: string; fingerprint: string; failoverMode: "di
 type Thread = { id: string; title: string; taskCount: number; updatedAt: number; source: string; model: string | null; preview: string | null; messageCount: number; sourceSessionId: string | null; syncedAt: number | null; deviceName: string | null };
 type Task = { id: string; threadId: string; threadTitle: string; prompt: string; status: string; route: string; result: string | null; error: string | null; createdAt: number; updatedAt: number; completedAt: number | null; deviceName: string | null };
 type ThreadDetails = { snapshot: Array<{ role: string; content: string }>; tasks: Array<{ prompt: string; result: string | null; error: string | null; route: string; status: string; createdAt: number }> };
+type ChatDialog = { kind: "rename" | "delete"; thread: Thread } | { kind: "clear" };
 
 const terminal = new Set(["completed", "failed"]);
 const pairingCodePattern = /^[A-Z0-9]{4}-[A-Z0-9]{4}$/;
@@ -87,6 +88,11 @@ export default function DashboardClient() {
   const [sidebarWidth, setSidebarWidth] = useState(DEFAULT_SIDEBAR_WIDTH);
   const [threadSortOrder, setThreadSortOrder] = useState<ThreadSortOrder>("newest");
   const [resizing, setResizing] = useState(false);
+  const [threadMenu, setThreadMenu] = useState<string | null>(null);
+  const [chatDialog, setChatDialog] = useState<ChatDialog | null>(null);
+  const [renameValue, setRenameValue] = useState("");
+  const [chatOperationBusy, setChatOperationBusy] = useState(false);
+  const [safetyExpanded, setSafetyExpanded] = useState(false);
   const autoSelectedThread = useRef(false);
 
   useEffect(() => {
@@ -257,7 +263,71 @@ export default function DashboardClient() {
     });
   }
 
+  function openRenameDialog(thread: Thread) {
+    setThreadMenu(null);
+    setRenameValue(thread.title);
+    setChatDialog({ kind: "rename", thread });
+  }
+
+  function openDeleteDialog(thread: Thread) {
+    setThreadMenu(null);
+    setChatDialog({ kind: "delete", thread });
+  }
+
+  async function submitChatDialog(event?: FormEvent) {
+    event?.preventDefault();
+    if (!chatDialog || chatOperationBusy) return;
+    setChatOperationBusy(true);
+    setNotice(null);
+    try {
+      if (chatDialog.kind === "rename") {
+        const title = renameValue.trim();
+        if (!title || title === chatDialog.thread.title) { setChatDialog(null); return; }
+        const response = await fetch("/api/threads", {
+          method: "PATCH",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ threadId: chatDialog.thread.id, title }),
+        });
+        const body = await response.json().catch(() => ({})) as { error?: string; title?: string };
+        if (!response.ok) { setNotice(body.error ?? "Rename failed"); return; }
+        setThreads((current) => current.map((thread) => thread.id === chatDialog.thread.id
+          ? { ...thread, title: body.title ?? title }
+          : thread));
+        setNotice("Chat renamed on ThumbGate and queued for your paired Hermes machine.");
+      } else if (chatDialog.kind === "delete") {
+        const response = await fetch("/api/threads", {
+          method: "DELETE",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ threadId: chatDialog.thread.id }),
+        });
+        const body = await response.json().catch(() => ({})) as { error?: string };
+        if (!response.ok) { setNotice(body.error ?? "Delete failed"); return; }
+        const remaining = threads.filter((thread) => thread.id !== chatDialog.thread.id);
+        setThreads(remaining);
+        if (selectedThread === chatDialog.thread.id) setSelectedThread(remaining[0]?.id ?? null);
+        setNotice("Chat deleted. The paired Hermes machine will apply the deletion safely.");
+      } else {
+        const response = await fetch("/api/threads", {
+          method: "DELETE",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ scope: "all", confirmation: "CLEAR ALL CHATS" }),
+        });
+        const body = await response.json().catch(() => ({})) as { error?: string; cleared?: number };
+        if (!response.ok) { setNotice(body.error ?? "Clear failed"); return; }
+        setThreads([]);
+        setSelectedThread(null);
+        setThreadDetails(null);
+        setNotice(`${body.cleared ?? threads.length} chats cleared. Paired Hermes machines will apply the deletion safely.`);
+      }
+      setChatDialog(null);
+      await load();
+    } finally {
+      setChatOperationBusy(false);
+    }
+  }
+
   function openThread(threadId: string | null) {
+    setThreadMenu(null);
     setSelectedThread(threadId);
     if (window.matchMedia("(max-width: 700px)").matches) {
       setChatRailExpanded(false);
@@ -279,13 +349,25 @@ export default function DashboardClient() {
           <button className={!selectedThread ? "side-item active" : "side-item"} onClick={() => openThread(null)}><span>H</span><span className="side-item-label">Hermes</span><em>{activeTasks.length}</em></button>
           <div className="workspace-label chats-label-row">
             <span>CHATS</span>
-            <select className="thread-sort-select" aria-label="Sort chats" value={threadSortOrder} onChange={(event) => changeThreadSort(event.target.value as ThreadSortOrder)}>
-              <option value="newest">Newest first</option>
-              <option value="oldest">Oldest first</option>
-              <option value="alphabetical">Alphabetical</option>
-            </select>
+            <div className="chats-label-actions">
+              <select className="thread-sort-select" aria-label="Sort chats" value={threadSortOrder} onChange={(event) => changeThreadSort(event.target.value as ThreadSortOrder)}>
+                <option value="newest">Newest first</option>
+                <option value="oldest">Oldest first</option>
+                <option value="alphabetical">Alphabetical</option>
+              </select>
+              {threads.length > 0 && <button type="button" className="clear-all-chats" onClick={() => { setThreadMenu(null); setChatDialog({ kind: "clear" }); }}>Clear all</button>}
+            </div>
           </div>
-          <nav className="thread-list" aria-label={`Chats, ${threadSortOrder} order`}>{visibleThreads.map((thread) => <button key={thread.id} title={`${thread.title} — ${formatDateTime(thread.updatedAt)}`} aria-current={selectedThread === thread.id ? "page" : undefined} className={selectedThread === thread.id ? "side-item thread-item active" : "side-item thread-item"} onClick={() => openThread(thread.id)}><span className="thread-icon">{thread.sourceSessionId ? "⌘" : "›_"}</span><span className="thread-copy"><strong>{thread.title}</strong><time dateTime={new Date(thread.updatedAt).toISOString()}>{formatDateTime(thread.updatedAt)}</time></span><em>{thread.messageCount || thread.taskCount}</em></button>)}</nav>
+          <nav className="thread-list" aria-label={`Chats, ${threadSortOrder} order`}>{visibleThreads.map((thread) => (
+            <div key={thread.id} className="thread-row">
+              <button title={`${thread.title} — ${formatDateTime(thread.updatedAt)}`} aria-current={selectedThread === thread.id ? "page" : undefined} className={selectedThread === thread.id ? "side-item thread-item active" : "side-item thread-item"} onClick={() => openThread(thread.id)}><span className="thread-icon">{thread.sourceSessionId ? "⌘" : "›_"}</span><span className="thread-copy"><strong>{thread.title}</strong><time dateTime={new Date(thread.updatedAt).toISOString()}>{formatDateTime(thread.updatedAt)}</time></span><em>{thread.messageCount || thread.taskCount}</em></button>
+              <button type="button" className="thread-menu-trigger" aria-label={`Actions for ${thread.title}`} aria-haspopup="menu" aria-expanded={threadMenu === thread.id} onClick={() => setThreadMenu((current) => current === thread.id ? null : thread.id)}>•••</button>
+              {threadMenu === thread.id && <div className="thread-actions" role="menu" aria-label={`Actions for ${thread.title}`}>
+                <button type="button" className="thread-action" role="menuitem" onClick={() => openRenameDialog(thread)}><span aria-hidden="true">✎</span> Rename</button>
+                <button type="button" className="thread-action thread-action-danger" role="menuitem" onClick={() => openDeleteDialog(thread)}><span aria-hidden="true">⌫</span> Delete</button>
+              </div>}
+            </div>
+          ))}</nav>
           <div className="sidebar-bottom"><div className="avatar">{user.name.slice(0, 1).toUpperCase()}</div><div><strong>{user.name}</strong><small>{accountPlan} plan</small></div><form action="/api/auth/logout" method="post"><button title="Sign out" aria-label="Sign out">↗</button></form></div>
         </div>
         {chatRailExpanded && <div
@@ -305,7 +387,7 @@ export default function DashboardClient() {
           <a className="metric-card" href="#web-settings" aria-label={`View ${devices.length} paired machines in settings`}><span>Paired machines</span><strong>{devices.length}</strong><small>{onlineDevices.length} online now</small><b>View machines →</b></a>
           <a className="metric-card" href="#task-activity" aria-label={`View ${activeTasks.length} active tasks`}><span>Active tasks</span><strong>{activeTasks.length}</strong><small>{tasks.filter((task) => task.route === "cloud" && !terminal.has(task.status)).length} routed to cloud</small><b>View activity →</b></a>
           <a className="metric-card" href="#task-activity" aria-label={`View task receipts; P95 completion is ${latency(p95CompletionLatency)}`}><span>P95 completion</span><strong>{latency(p95CompletionLatency)}</strong><small>{p95CompletionLatency === null ? "Waiting for completed runs" : "Measured from real task receipts"}</small><b>View receipts →</b></a>
-          <a className="metric-card" href="#leash-control" aria-label="View fenced execution and offline routing controls"><span>Execution safety</span><strong className="safe-copy">Fenced</strong><small>90-second renewable leases</small><b>View controls →</b></a>
+          <a className="metric-card" href="#execution-safety" aria-label="Explain fenced execution safety" onClick={() => setSafetyExpanded(true)}><span>Execution safety</span><strong className="safe-copy">Fenced</strong><small>One signed runner; 90-second lease</small><b>Explain safety →</b></a>
         </nav>
 
         <div className="dashboard-grid">
@@ -333,6 +415,14 @@ export default function DashboardClient() {
               <ol className="dashboard-setup-steps"><li className={devices.length ? "is-done" : "is-current"}><span>1</span>Install connector</li><li className={devices.length ? "is-done" : ""}><span>2</span>Approve short code</li><li className={onlineDevices.length ? "is-done" : devices.length ? "is-current" : ""}><span>3</span>Choose offline policy</li></ol>
               <p className="privacy-boundary">Bounded Hermes thread context syncs to this control plane. The device private key and local gateway credential stay on the machine.</p>
             </section>
+            <details className="panel safety-panel" id="execution-safety" open={safetyExpanded} onToggle={(event) => setSafetyExpanded(event.currentTarget.open)}>
+              <summary><span><span className="eyebrow">EXECUTION SAFETY</span><strong>What “Fenced” means</strong></span><span aria-hidden="true">⌄</span></summary>
+              <div className="safety-explanation">
+                <p>ThumbGate gives each task to one signed runner at a time. Its 90-second lease must keep renewing; if that runner disappears, the lease expires before another runner can take over.</p>
+                <ul><li>Prevents duplicate or stale runners from continuing work.</li><li>Rejects completion receipts from an expired lease.</li><li>{devices.length ? "Your machine’s offline policy decides whether work pauses, asks, or continues in paid cloud." : "No task can execute until you pair a machine."}</li></ul>
+                <a className="button button-secondary button-small" href="#web-settings">{devices.length ? "Open offline controls" : "Open pairing settings"}</a>
+              </div>
+            </details>
             <section className="panel" id="web-settings"><div className="panel-heading"><div><p className="eyebrow">SETTINGS</p><h2>Paired Hermes</h2></div></div>{devices.map((device) => <article key={device.id} className="device-card"><div><span className={`device-light ${device.online ? "is-online" : ""}`} /><div><strong>{device.name}</strong><small>{device.online ? "Online" : `Last seen ${age(device.lastSeenAt)}`}</small></div></div><code>{device.fingerprint}</code><label>Offline policy<select value={device.failoverMode} onChange={(event) => void updateFailover(device.id, event.target.value as Device["failoverMode"])}><option value="manual">Ask before cloud</option><option value="auto">Continue automatically</option><option value="disabled">Pause until online</option></select></label></article>)}<form className="pair-form" onSubmit={pair}><label>Pairing code<input value={pairCode} onChange={(event) => setPairCode(event.target.value.toUpperCase())} placeholder="ABCD-EFGH" maxLength={9} /></label><button className="button button-secondary button-small" disabled={busy || !pairingCodePattern.test(pairCode)}>Approve machine</button></form><p className="helper-copy">The connector prefills this short code and keeps both its device private key and your local Hermes gateway credential on the machine.</p></section>
           </aside>
         </div>
@@ -342,6 +432,23 @@ export default function DashboardClient() {
         <a href="#leash-control"><b aria-hidden="true">✓</b><span>Leash</span></a>
         <a href="#web-settings"><b aria-hidden="true">≡</b><span>Settings</span></a>
       </nav>
+      {chatDialog && <div className="chat-dialog-backdrop" role="presentation" onMouseDown={(event) => { if (event.currentTarget === event.target && !chatOperationBusy) setChatDialog(null); }}>
+        <section className="chat-dialog" role="dialog" aria-modal="true" aria-labelledby="chat-dialog-title">
+          {chatDialog.kind === "rename" ? <form onSubmit={(event) => void submitChatDialog(event)}>
+            <p className="eyebrow">CHAT SETTINGS</p>
+            <h2 id="chat-dialog-title">Rename chat</h2>
+            <label>Chat name<input autoFocus value={renameValue} onChange={(event) => setRenameValue(event.target.value)} maxLength={120} /></label>
+            <div className="chat-dialog-actions"><button type="button" className="button button-secondary button-small" disabled={chatOperationBusy} onClick={() => setChatDialog(null)}>Cancel</button><button className="button button-primary button-small" disabled={chatOperationBusy || !renameValue.trim()}>Save name</button></div>
+          </form> : <>
+            <p className="eyebrow">DESTRUCTIVE ACTION</p>
+            <h2 id="chat-dialog-title">{chatDialog.kind === "clear" ? "Clear all chats?" : "Delete this chat?"}</h2>
+            <p>{chatDialog.kind === "clear"
+              ? `This deletes all ${threads.length} visible chats from ThumbGate and the paired Hermes machine${devices.length === 1 ? "" : "s"}. You cannot undo this.`
+              : `This deletes “${chatDialog.thread.title}” from ThumbGate and its paired Hermes machine. You cannot undo this.`}</p>
+            <div className="chat-dialog-actions"><button type="button" className="button button-secondary button-small" disabled={chatOperationBusy} onClick={() => setChatDialog(null)}>Cancel</button><button type="button" className="button button-danger button-small" disabled={chatOperationBusy} onClick={() => void submitChatDialog()}>{chatOperationBusy ? "Working…" : chatDialog.kind === "clear" ? "Clear all chats" : "Delete chat"}</button></div>
+          </>}
+        </section>
+      </div>}
     </main>
   );
 }
