@@ -1,4 +1,3 @@
-import { secureCredentials } from './secureCredentials';
 import type { SetupDeepLinkParams, SetupExtraComputer } from '../utils/setupDeepLink';
 
 /**
@@ -66,21 +65,22 @@ export async function exchangePairingCode(
 
 /**
  * Resolve a parsed setup deep link: if it carries a secretless `pairingCode` +
- * `pairServerUrl`, exchange it for real credentials, persist the API key(s) via
- * Android Keystore-backed secure storage, and return a fully-populated params object
- * indistinguishable from the legacy embedded-key deep link. When no code is present
- * (legacy deep link, or the exchange fails), the input is returned unchanged.
+ * `pairServerUrl`, exchange it for real credentials, and return a fully-populated
+ * params object indistinguishable from the legacy embedded-key deep link. Credential
+ * persistence belongs to applySetupDeepLink, where keys are scoped to the selected
+ * computer profile. A failed secretless exchange returns null so callers never apply
+ * an unresolved one-time code.
  */
 export async function resolveSetupDeepLinkCredentials(
   setup: SetupDeepLinkParams,
   fetchJsonImpl: FetchJsonImpl = defaultFetchJson,
-): Promise<SetupDeepLinkParams> {
+): Promise<SetupDeepLinkParams | null> {
   if (!setup.pairingCode || !setup.pairServerUrl) {
     return setup;
   }
   const payload = await exchangePairingCode(setup.pairServerUrl, setup.pairingCode, fetchJsonImpl);
   if (!payload) {
-    return setup;
+    return null;
   }
   const resolved: SetupDeepLinkParams = {
     ...setup,
@@ -92,11 +92,23 @@ export async function resolveSetupDeepLinkCredentials(
     tailnetProbeHosts: payload.tailnetProbeHosts?.length ? payload.tailnetProbeHosts : setup.tailnetProbeHosts,
     extraComputers: payload.extraComputers?.length ? payload.extraComputers : setup.extraComputers,
   };
-  if (resolved.apiKey) {
-    await secureCredentials.saveApiKey(resolved.apiKey);
+  return resolved;
+}
+
+/**
+ * Shared redeem pipeline for OS deep links and in-app QR scanners.
+ * Always exchange a secretless pairing code before applySetupDeepLink — applying
+ * unresolved pairCode params surfaces "Pairing code expired or invalid."
+ */
+export async function redeemAndApplySetupDeepLink(
+  setup: SetupDeepLinkParams,
+  applySetupDeepLink: (params: SetupDeepLinkParams) => Promise<void>,
+  fetchJsonImpl: FetchJsonImpl = defaultFetchJson,
+): Promise<SetupDeepLinkParams | null> {
+  const resolved = await resolveSetupDeepLinkCredentials(setup, fetchJsonImpl);
+  if (!resolved) {
+    return null;
   }
-  if (resolved.thumbgateApiKey) {
-    await secureCredentials.saveThumbgateApiKey(resolved.thumbgateApiKey);
-  }
+  await applySetupDeepLink(resolved);
   return resolved;
 }

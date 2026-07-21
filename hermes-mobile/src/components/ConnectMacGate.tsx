@@ -36,6 +36,8 @@ import {
 } from '../utils/demoModePolicy';
 import { shouldShowConnectMacGate } from '../utils/freshUserOnboarding';
 import { haptics } from '../services/haptics';
+import { redeemAndApplySetupDeepLink } from '../services/pairingCodeExchange';
+import type { SetupDeepLinkParams } from '../utils/setupDeepLink';
 
 const AUTO_RETRY_MS = 12000;
 
@@ -88,6 +90,17 @@ export default function ConnectMacGate() {
       haptics.warning();
     }
   }, [patchSettings]);
+
+  const handlePairQrScanned = useCallback(
+    async (params: SetupDeepLinkParams) => {
+      const resolved = await redeemAndApplySetupDeepLink(params, applySetupDeepLink);
+      if (!resolved) {
+        throw new Error('Pairing code expired or invalid');
+      }
+      await retryGatewayBootstrap();
+    },
+    [applySetupDeepLink, retryGatewayBootstrap],
+  );
 
   const handleExploreDemo = async () => {
     setEnablingDemo(true);
@@ -398,10 +411,7 @@ export default function ConnectMacGate() {
           setQrVisible(false);
           setInvalidQrHint(null);
         }}
-        onScanned={async (params) => {
-          await applySetupDeepLink(params);
-          await retryGatewayBootstrap();
-        }}
+        onScanned={handlePairQrScanned}
         onInvalidScan={() =>
           setInvalidQrHint('That QR is not a Hermes pairing code. Open Connect phone on your computer.')
         }

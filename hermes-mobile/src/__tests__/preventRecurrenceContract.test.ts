@@ -625,4 +625,21 @@ describe('tonight recurrence gates (2026-07-14 P0 class — S16-S23)', () => {
     expect(chatScreen).toMatch(/needsPair=\{/);
     expect(chatScreen).toMatch(/connectionMode === 'relay'/);
   });
+
+  it('S29: in-app QR scanner redeems pairCode via resolve before apply (same pipeline as OS deep link)', () => {
+    const exchange = read('hermes-mobile/src/services/pairingCodeExchange.ts');
+    expect(exchange).toContain('export async function redeemAndApplySetupDeepLink');
+    expect(exchange).toContain('resolveSetupDeepLinkCredentials');
+    const settings = read('hermes-mobile/src/screens/SettingsScreen.tsx');
+    expect(settings).toContain('redeemAndApplySetupDeepLink');
+    expect(settings).toContain('handlePairQrScanned');
+    expect(settings).toMatch(/onScanned=\{handlePairQrScanned\}/);
+    expect(settings).not.toMatch(/onScanned=\{applySetupDeepLink\}/);
+    const gate = read('hermes-mobile/src/components/ConnectMacGate.tsx');
+    expect(gate).toContain('redeemAndApplySetupDeepLink');
+    expect(gate).toMatch(/onScanned=\{handlePairQrScanned\}/);
+    const deepLinks = read('hermes-mobile/src/hooks/useHermesDeepLinks.ts');
+    expect(deepLinks).toContain('redeemAndApplySetupDeepLink');
+  });
+
 });
