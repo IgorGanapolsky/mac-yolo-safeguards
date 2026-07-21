@@ -2843,6 +2843,7 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
   }, [isLoaded, settings.demoMode, health?.checkedAt, profileState.profiles.length, wifiConnected, probeTailscaleComputers]);
 
   // Bidirectional transport handoff while Connected: plug → USB, unplug → Tailscale/LAN.
+  // Do NOT depend on health.checkedAt — handoff itself writes health and would retrigger.
   useEffect(() => {
     if (Platform.OS === 'web' || !isLoaded || settings.demoMode) {
       return;
@@ -2852,7 +2853,7 @@ export function GatewayProvider({ children }: { children: React.ReactNode }) {
       void runBidirectionalUsbHandoff();
     }, CONNECTION_SELF_HEAL_INTERVAL_MS);
     return () => clearInterval(timer);
-  }, [isLoaded, settings.demoMode, wifiConnected, health?.checkedAt, runBidirectionalUsbHandoff]);
+  }, [isLoaded, settings.demoMode, wifiConnected, runBidirectionalUsbHandoff]);
 
   useEffect(() => {
     if (Platform.OS === 'web' || !isLoaded || settings.demoMode) {
