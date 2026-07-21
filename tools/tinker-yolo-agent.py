@@ -7,6 +7,8 @@ uses only the Python standard library so it works on the Hermes Mac fleet.
 """
 
 import argparse
+import base64
+import contextlib
 import datetime
 import hashlib
 import html
@@ -20,6 +22,7 @@ import stat
 import subprocess
 import sys
 import tempfile
+import threading
 import time
 import urllib.error
 import urllib.parse
@@ -28,7 +31,10 @@ import uuid
 
 
 DEFAULT_MODEL = "qwen3-hermes-tinker:q4"
-DEFAULT_OLLAMA_URL = "http://127.0.0.1:11434"
+DEFAULT_OLLAMA_URL = "http://127.0.0.1:11436"
+DEFAULT_VISION_OLLAMA_URL = DEFAULT_OLLAMA_URL
+DEFAULT_VISION_MODEL = "qwen3-vl:4b-instruct"
+DEFAULT_REQUEST_TIMEOUT = 120
 DEFAULT_MAX_OUTPUT_BYTES = 65536
 MAX_FILE_BYTES = 2_000_000
 MAX_WRITE_BYTES = 5_000_000
@@ -49,6 +55,20 @@ NO_TOOL_CLAIM = re.compile(
     r"(?:access\s+to\s+)?(?:the\s+)?(?:file\s*system|filesystem|tools?|internet)",
     re.I,
 )
+CONSEQUENTIAL_UI = re.compile(
+    r"(?:send|submit|post|publish|delete|remove|trash|erase|buy|pay|checkout|"
+    r"purchase|place order|confirm|allow|grant|sign[ -]?in|log[ -]?in|password|"
+    r"passcode|credential|token|api[ _-]?key)",
+    re.I,
+)
+HIGH_RISK_KEYS = {"enter", "return", "delete", "forwarddelete"}
+COMPUTER_ACTION_TOOLS = {
+    "computer_activate_app",
+    "computer_click",
+    "computer_type",
+    "computer_key",
+    "computer_scroll",
+}
 
 
 class ToolError(Exception):
@@ -168,11 +188,471 @@ def normalize_ollama_url(value):
     return value.rstrip("/")
 
 
+def ollama_endpoint_ready(url, urlopen=None, timeout=1):
+    opener = urlopen or urllib.request.urlopen
+    request = urllib.request.Request(normalize_ollama_url(url) + "/api/version")
+    try:
+        with opener(request, timeout=timeout) as response:
+            return getattr(response, "status", response.getcode()) == 200
+    except Exception:
+        return False
+
+
+def ensure_planner_endpoint(url, state_dir=None, urlopen=None, popen=None):
+    """Start the dedicated loopback planner daemon without touching shared Ollama."""
+
+    normalized = normalize_ollama_url(url)
+    if ollama_endpoint_ready(normalized, urlopen=urlopen):
+        return {"ready": True, "started": False, "url": normalized}
+    parsed = urllib.parse.urlparse(normalized)
+    port = parsed.port or (443 if parsed.scheme == "https" else 80)
+    if parsed.hostname not in {"127.0.0.1", "localhost", "::1"} or port != 11436:
+        return {"ready": False, "started": False, "url": normalized}
+    binary = shutil.which("ollama")
+    if not binary:
+        raise AgentError("ollama is not installed; dedicated planner endpoint is unavailable")
+    root = pathlib.Path(
+        state_dir or pathlib.Path.home() / ".hermes" / "tinker" / "ollama"
+    ).expanduser().resolve()
+    private_directory(root)
+    log_path = root / "dedicated.log"
+    log_path.touch(mode=0o600, exist_ok=True)
+    log_path.chmod(0o600)
+    environment = clean_child_environment()
+    environment.update(
+        {
+            "OLLAMA_HOST": parsed.netloc,
+            "OLLAMA_KEEP_ALIVE": "5m",
+            "OLLAMA_MAX_LOADED_MODELS": "1",
+            "OLLAMA_NO_CLOUD": "true",
+            "OLLAMA_NOPRUNE": "true",
+        }
+    )
+    launcher = popen or subprocess.Popen
+    print("… starting isolated tinker-yolo Ollama planner on %s" % parsed.netloc, file=sys.stderr)
+    with log_path.open("ab") as log:
+        process = launcher(
+            [binary, "serve"],
+            env=environment,
+            stdin=subprocess.DEVNULL,
+            stdout=log,
+            stderr=subprocess.STDOUT,
+            start_new_session=True,
+        )
+    if getattr(process, "pid", None):
+        atomic_write(root / "dedicated.pid", (str(process.pid) + "\n").encode("ascii"), 0o600)
+    for _ in range(80):
+        if ollama_endpoint_ready(normalized, urlopen=urlopen, timeout=0.5):
+            return {"ready": True, "started": True, "url": normalized}
+        time.sleep(0.25)
+    raise AgentError(
+        "dedicated Ollama planner did not become ready; inspect %s" % log_path
+    )
+
+
+@contextlib.contextmanager
+def progress_heartbeat(label, initial_delay=8, interval=10):
+    """Emit bounded local progress while a blocking provider/socket call runs."""
+
+    stopped = threading.Event()
+    started = time.monotonic()
+
+    def report():
+        if stopped.wait(initial_delay):
+            return
+        while not stopped.is_set():
+            elapsed = int(time.monotonic() - started)
+            print("… %s (%ss)" % (label, elapsed), file=sys.stderr, flush=True)
+            if stopped.wait(interval):
+                return
+
+    thread = threading.Thread(target=report, name="tinker-yolo-heartbeat", daemon=True)
+    thread.start()
+    try:
+        yield
+    finally:
+        stopped.set()
+        thread.join(timeout=1)
+
+
+def lua_string(value):
+    """Return a Lua-safe quoted string for a trusted host-generated path."""
+
+    return json.dumps(str(value), ensure_ascii=True)
+
+
+class ComputerBackend:
+    """Narrow Hammerspoon IPC bridge plus private screenshot/OCR/vision state."""
+
+    HS_BOOTSTRAP = (
+        "local f=assert(loadfile(%s)); local m=f(); return m.run(%s)"
+    )
+
+    def __init__(
+        self,
+        module_path=None,
+        state_dir=None,
+        hs_binary=None,
+        tesseract_binary=None,
+        ollama_url=DEFAULT_VISION_OLLAMA_URL,
+        vision_model=DEFAULT_VISION_MODEL,
+        urlopen=None,
+    ):
+        self.module_path = pathlib.Path(
+            module_path or pathlib.Path(__file__).with_name("tinker-yolo-computer.lua")
+        ).expanduser().resolve()
+        self.state_dir = pathlib.Path(
+            state_dir or pathlib.Path.home() / ".hermes" / "tinker" / "computer"
+        ).expanduser().resolve()
+        private_directory(self.state_dir)
+        self.screenshot_dir = self.state_dir / "screenshots"
+        private_directory(self.screenshot_dir)
+        self.hs_binary = hs_binary or shutil.which("hs")
+        if not self.hs_binary:
+            bundled = pathlib.Path(
+                "/Applications/Hammerspoon.app/Contents/Frameworks/hs/hs"
+            )
+            if bundled.is_file():
+                self.hs_binary = str(bundled)
+        self.tesseract_binary = tesseract_binary or shutil.which("tesseract")
+        self.ollama_url = normalize_ollama_url(ollama_url)
+        self.vision_model = vision_model
+        self.urlopen = urlopen or urllib.request.urlopen
+        self.last_state = None
+
+    def availability(self):
+        reasons = []
+        if sys.platform != "darwin":
+            reasons.append("macOS is required")
+        if not self.module_path.is_file():
+            reasons.append("computer dispatcher module is missing")
+        if not self.hs_binary or not pathlib.Path(self.hs_binary).is_file():
+            reasons.append("Hammerspoon hs CLI is missing")
+        return {"available": not reasons, "reasons": reasons}
+
+    def _decode_hs_output(self, value):
+        output = value.decode("utf-8", errors="replace") if isinstance(value, bytes) else str(value)
+        for line in reversed(output.splitlines()):
+            line = line.strip()
+            if not line.startswith("{"):
+                continue
+            try:
+                return json.loads(line)
+            except ValueError:
+                continue
+        raise ToolError("computer_transport", "Hammerspoon returned no JSON result")
+
+    def run(self, request, timeout=20):
+        availability = self.availability()
+        if not availability["available"]:
+            raise ToolError("computer_unavailable", "; ".join(availability["reasons"]))
+        if request.get("action") not in {"state", "inspect_target", "screenshot"}:
+            if self.last_state and self.last_state.get("screenLocked"):
+                raise ToolError(
+                    "screen_locked",
+                    "screen is locked; refresh state after unlocking before computer actions",
+                )
+        request_path = self.state_dir / ("request-%s-%s.json" % (os.getpid(), uuid.uuid4().hex))
+        atomic_write(
+            request_path,
+            (canonical_json(request) + "\n").encode("utf-8"),
+            0o600,
+        )
+        command = self.HS_BOOTSTRAP % (
+            lua_string(self.module_path),
+            lua_string(request_path),
+        )
+        retry_safe = request.get("action") in {
+            "state",
+            "inspect_target",
+            "screenshot",
+            "activate_app",
+        }
+        attempts = 2 if retry_safe else 1
+        process = None
+        try:
+            for attempt in range(attempts):
+                try:
+                    process = subprocess.run(
+                        [self.hs_binary, "-c", command],
+                        env=clean_child_environment(),
+                        stdout=subprocess.PIPE,
+                        stderr=subprocess.PIPE,
+                        timeout=timeout,
+                        check=False,
+                    )
+                except subprocess.TimeoutExpired:
+                    if attempt + 1 < attempts:
+                        continue
+                    raise ToolError("computer_timeout", "Hammerspoon computer action timed out")
+                if process.returncode == 0:
+                    break
+                if attempt + 1 < attempts:
+                    time.sleep(0.15)
+        finally:
+            request_path.unlink(missing_ok=True)
+        if process is None or process.returncode != 0:
+            stderr, _ = bounded_text(process.stderr if process else b"", 4000)
+            raise ToolError(
+                "computer_transport",
+                "Hammerspoon IPC failed (exit %s): %s"
+                % (process.returncode if process else "unknown", stderr),
+            )
+        decoded = self._decode_hs_output(process.stdout)
+        if not decoded.get("ok"):
+            raise ToolError("computer_action_failed", decoded.get("error") or "unknown error")
+        result = decoded.get("result") or {}
+        if request.get("action") == "state":
+            self.last_state = result
+        elif isinstance(result.get("state"), dict):
+            self.last_state = result["state"]
+        return result
+
+    def state(self, maximum=160):
+        return self.run({"action": "state", "max_elements": maximum})
+
+    def inspect_target(self, arguments):
+        request = {"action": "inspect_target", "max_elements": 200}
+        for key in ("target", "x", "y"):
+            if key in arguments:
+                request[key] = arguments[key]
+        return self.run(request).get("target") or {}
+
+    def _ocr(self, path):
+        if not self.tesseract_binary:
+            return {"available": False, "text": "", "error": "tesseract is not installed"}
+        try:
+            process = subprocess.run(
+                [self.tesseract_binary, path.name, "stdout", "--psm", "11"],
+                cwd=str(path.parent),
+                env=clean_child_environment(),
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                timeout=30,
+                check=False,
+            )
+        except subprocess.TimeoutExpired:
+            return {"available": True, "text": "", "error": "OCR timed out"}
+        text, truncated = bounded_text(process.stdout, 24000)
+        return {
+            "available": True,
+            "text": text.strip(),
+            "truncated": truncated,
+            "exitCode": process.returncode,
+        }
+
+    def _ollama_model_names(self, endpoint):
+        request = urllib.request.Request(self.ollama_url + endpoint)
+        try:
+            with self.urlopen(request, timeout=4) as response:
+                payload = json.load(response)
+        except Exception:
+            return []
+        return [str(item.get("name")) for item in payload.get("models", []) if item.get("name")]
+
+    def _select_vision_model(self):
+        """Select the requested local vision model, with Qwen3.5 as fallback."""
+
+        installed = self._ollama_model_names("/api/tags")
+        installed_set = set(installed)
+        loaded = self._ollama_model_names("/api/ps")
+        if self.vision_model.lower().startswith("qwen3.5:"):
+            for name in loaded:
+                if name in installed_set and name.lower().startswith("qwen3.5:"):
+                    return name
+        if self.vision_model in installed_set:
+            return self.vision_model
+        for fallback in ("qwen3.5:9b-hermes-64k", "qwen3.5:9b"):
+            if fallback in installed_set:
+                return fallback
+        return None
+
+    def _vision_image(self, path):
+        """Downsample Retina screenshots so UI grounding is fast on 24 GB Macs."""
+
+        sips = pathlib.Path("/usr/bin/sips")
+        if not sips.is_file():
+            return path
+        target = path.with_name("latest-vision.jpg")
+        try:
+            process = subprocess.run(
+                [
+                    str(sips),
+                    "--resampleWidth",
+                    "1280",
+                    "--setProperty",
+                    "format",
+                    "jpeg",
+                    "--setProperty",
+                    "formatOptions",
+                    "82",
+                    str(path),
+                    "--out",
+                    str(target),
+                ],
+                env=clean_child_environment(),
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                timeout=20,
+                check=False,
+            )
+        except (OSError, subprocess.TimeoutExpired):
+            return path
+        if process.returncode == 0 and target.is_file():
+            target.chmod(0o600)
+            return target
+        return path
+
+    def _vision(self, path, width, height, question, timeout=90):
+        vision_model = self._select_vision_model()
+        if not vision_model:
+            return {
+                "available": False,
+                "model": self.vision_model,
+                "error": "local vision model is not installed",
+            }
+        vision_path = self._vision_image(path)
+        image = base64.b64encode(vision_path.read_bytes()).decode("ascii")
+        prompt = (
+            "Analyze this current macOS screenshot (%sx%s pixels). Identify the visible "
+            "application, dialogs, meaningful text, and actionable controls with approximate "
+            "pixel coordinates. Never infer hidden state. Question: %s"
+            % (width, height, question or "What is visible and what can be acted on?")
+        )
+        payload = {
+            "model": vision_model,
+            "messages": [{"role": "user", "content": prompt, "images": [image]}],
+            "stream": False,
+            "think": False,
+            "keep_alive": "5m",
+            "options": {
+                "temperature": 0,
+                "num_ctx": 4096,
+                "num_predict": 500,
+            },
+        }
+        request = urllib.request.Request(
+            self.ollama_url + "/api/chat",
+            data=canonical_json(payload).encode("utf-8"),
+            headers={"Content-Type": "application/json"},
+        )
+        try:
+            with progress_heartbeat("local vision is reading the screen"):
+                with self.urlopen(request, timeout=timeout) as response:
+                    result = json.load(response)
+        except urllib.error.HTTPError as error:
+            body = error.read(4096).decode("utf-8", errors="replace")
+            return {
+                "available": True,
+                "model": vision_model,
+                "error": "Ollama HTTP %s: %s" % (error.code, redact_text(body)),
+            }
+        except Exception as error:
+            return {
+                "available": True,
+                "model": vision_model,
+                "error": redact_text(error),
+            }
+        description = redact_text((result.get("message") or {}).get("content") or "").strip()
+        if not description:
+            return {
+                "available": True,
+                "model": vision_model,
+                "error": "local vision returned no answer (done_reason=%s, eval_count=%s)"
+                % (result.get("done_reason") or "unknown", result.get("eval_count") or 0),
+            }
+        return {
+            "available": True,
+            "model": vision_model,
+            "description": description[:24000],
+        }
+
+    def _native_screenshot(self, path):
+        binary = pathlib.Path("/usr/sbin/screencapture")
+        if not binary.is_file():
+            raise ToolError("screen_capture_failed", "native screencapture is unavailable")
+        try:
+            process = subprocess.run(
+                [str(binary), "-x", str(path)],
+                env=clean_child_environment(),
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                timeout=20,
+                check=False,
+            )
+        except subprocess.TimeoutExpired:
+            raise ToolError("screen_capture_failed", "native screen capture timed out")
+        if process.returncode != 0 or not path.is_file():
+            stderr, _ = bounded_text(process.stderr, 2000)
+            raise ToolError("screen_capture_failed", stderr or "native screen capture failed")
+        width = 0
+        height = 0
+        sips = pathlib.Path("/usr/bin/sips")
+        if sips.is_file():
+            dimensions = subprocess.run(
+                [str(sips), "-g", "pixelWidth", "-g", "pixelHeight", str(path)],
+                env=clean_child_environment(),
+                stdout=subprocess.PIPE,
+                stderr=subprocess.DEVNULL,
+                timeout=10,
+                check=False,
+            )
+            output = dimensions.stdout.decode("utf-8", errors="replace")
+            width_match = re.search(r"pixelWidth:\s*(\d+)", output)
+            height_match = re.search(r"pixelHeight:\s*(\d+)", output)
+            width = int(width_match.group(1)) if width_match else 0
+            height = int(height_match.group(1)) if height_match else 0
+        result = {"path": str(path), "width": width, "height": height, "capture": "native"}
+        try:
+            result["state"] = self.state(120)
+        except ToolError:
+            if self.last_state:
+                result["state"] = self.last_state
+        return result
+
+    def screenshot(self, question=None, analyze=True):
+        path = self.screenshot_dir / "latest.png"
+        try:
+            result = self.run(
+                {
+                    "action": "screenshot",
+                    "path": str(path),
+                    "max_elements": 120,
+                    "settle_us": 100000,
+                },
+                timeout=30,
+            )
+            result["capture"] = "hammerspoon"
+        except ToolError as error:
+            if error.code not in {"computer_timeout", "computer_transport", "screen_capture_failed"}:
+                raise
+            result = self._native_screenshot(path)
+        if not path.is_file():
+            raise ToolError("screen_capture_failed", "Hammerspoon did not create a screenshot")
+        path.chmod(0o600)
+        width = int(result.get("width") or 0)
+        height = int(result.get("height") or 0)
+        result.update(
+            {
+                "path": str(path),
+                "sha256": file_sha256(path),
+                "privateMode": stat.S_IMODE(path.stat().st_mode) == 0o600,
+                "ocr": self._ocr(path),
+            }
+        )
+        if analyze:
+            result["vision"] = self._vision(path, width, height, question)
+        return result
+
+
 def safe_receipt_args(arguments):
     safe = {}
     for key, value in arguments.items():
         lowered = str(key).lower()
-        if any(word in lowered for word in ("content", "old_text", "new_text")):
+        if any(
+            word in lowered
+            for word in ("content", "old_text", "new_text", "text", "prompt", "question")
+        ):
             safe[key + "Bytes"] = len(str(value).encode("utf-8", errors="replace"))
         elif any(word in lowered for word in ("key", "token", "secret", "password")):
             safe[key] = "[redacted]"
@@ -388,13 +868,229 @@ TOOL_SPECS = [
     },
 ]
 
+COMPUTER_TOOL_SPECS = [
+    {
+        "type": "function",
+        "function": {
+            "name": "computer_state",
+            "description": (
+                "Fresh-read the local Mac UI through Accessibility: front app/window, focused "
+                "element, screens, mouse position, secure-input state, and bounded visible elements."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "max_elements": {"type": "integer", "minimum": 1, "maximum": 300}
+                },
+                "additionalProperties": False,
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "computer_screenshot",
+            "description": (
+                "Capture the current main screen privately, OCR it, and ask the local Qwen3-VL "
+                "viewer to describe visible controls and pixel coordinates. No image is uploaded."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "question": {"type": "string"},
+                    "analyze": {"type": "boolean"},
+                },
+                "additionalProperties": False,
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "computer_activate_app",
+            "description": (
+                "Launch or focus a local macOS application by name or bundle id. Returns fresh "
+                "UI state after the action."
+            ),
+            "parameters": {
+                "type": "object",
+                "required": ["name", "intent"],
+                "properties": {
+                    "name": {"type": "string"},
+                    "intent": {"type": "string", "description": "Why this action is needed."},
+                },
+                "additionalProperties": False,
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "computer_click",
+            "description": (
+                "Click a fresh Accessibility target id or screen coordinate. Routine local clicks "
+                "run in YOLO mode; send/delete/pay/publish/credential-like targets require an "
+                "action-time human confirmation. Returns fresh UI state."
+            ),
+            "parameters": {
+                "type": "object",
+                "required": ["intent"],
+                "properties": {
+                    "target": {"type": "string", "description": "Fresh ax-N id from computer_state."},
+                    "x": {"type": "number"},
+                    "y": {"type": "number"},
+                    "button": {"type": "string", "enum": ["left", "right"]},
+                    "count": {"type": "integer", "minimum": 1, "maximum": 3},
+                    "intent": {"type": "string"},
+                },
+                "additionalProperties": False,
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "computer_type",
+            "description": (
+                "Type literal text into the focused local UI element without pressing Enter. "
+                "Secure or credential fields require action-time confirmation. Returns fresh state."
+            ),
+            "parameters": {
+                "type": "object",
+                "required": ["text", "intent"],
+                "properties": {
+                    "text": {"type": "string"},
+                    "intent": {"type": "string"},
+                },
+                "additionalProperties": False,
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "computer_key",
+            "description": (
+                "Press one macOS key chord. Enter/Return, Delete, Cmd-W, Cmd-Q, and consequential "
+                "intents require action-time confirmation. Returns fresh UI state."
+            ),
+            "parameters": {
+                "type": "object",
+                "required": ["key", "intent"],
+                "properties": {
+                    "key": {"type": "string"},
+                    "modifiers": {
+                        "type": "array",
+                        "items": {"type": "string", "enum": ["cmd", "ctrl", "alt", "shift", "fn"]},
+                        "maxItems": 5,
+                    },
+                    "intent": {"type": "string"},
+                },
+                "additionalProperties": False,
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "computer_scroll",
+            "description": "Scroll the current local UI in pixels and return fresh UI state.",
+            "parameters": {
+                "type": "object",
+                "required": ["dy", "intent"],
+                "properties": {
+                    "dx": {"type": "number"},
+                    "dy": {"type": "number"},
+                    "modifiers": {
+                        "type": "array",
+                        "items": {"type": "string", "enum": ["cmd", "ctrl", "alt", "shift", "fn"]},
+                        "maxItems": 5,
+                    },
+                    "intent": {"type": "string"},
+                },
+                "additionalProperties": False,
+            },
+        },
+    },
+]
+
+
+def metadata_text(value):
+    if not isinstance(value, dict):
+        return ""
+    pieces = []
+    for key in ("role", "subrole", "title", "description", "identifier", "value"):
+        item = value.get(key)
+        if isinstance(item, str):
+            pieces.append(item)
+    return " ".join(pieces)
+
+
+def computer_confirmation_reason(name, arguments, backend):
+    """Return a content-free reason when a computer action needs one-time approval."""
+
+    intent = str(arguments.get("intent") or "")
+    if name == "computer_click":
+        target = backend.inspect_target(arguments)
+        if target.get("secure") or CONSEQUENTIAL_UI.search(metadata_text(target) + " " + intent):
+            label = (
+                target.get("title")
+                or target.get("description")
+                or target.get("role")
+                or "screen coordinate"
+            )
+            return "click consequential UI target %r for: %s" % (label, intent[:240])
+    elif name == "computer_type":
+        current = backend.state(40)
+        focused = current.get("focusedElement") or {}
+        if current.get("secureInput") or focused.get("secure") or CONSEQUENTIAL_UI.search(
+            metadata_text(focused)
+        ):
+            return "type %s characters into a secure or consequential field for: %s" % (
+                len(str(arguments.get("text") or "")),
+                intent[:240],
+            )
+    elif name == "computer_key":
+        key = str(arguments.get("key") or "").lower()
+        modifiers = {str(item).lower() for item in arguments.get("modifiers") or []}
+        if (
+            key in HIGH_RISK_KEYS
+            or ("cmd" in modifiers and key in {"q", "w"})
+            or CONSEQUENTIAL_UI.search(intent)
+        ):
+            return "press %s%s for: %s" % (
+                "+".join(sorted(modifiers)) + "+" if modifiers else "",
+                key,
+                intent[:240],
+            )
+    return None
+
 
 class ToolRuntime:
-    def __init__(self, workspace, urlopen=None):
+    def __init__(
+        self,
+        workspace,
+        urlopen=None,
+        computer_enabled=False,
+        computer_backend=None,
+        confirmation=None,
+        ollama_url=DEFAULT_VISION_OLLAMA_URL,
+        vision_model=DEFAULT_VISION_MODEL,
+    ):
         self.workspace = pathlib.Path(workspace).expanduser().resolve(strict=True)
         if not self.workspace.is_dir():
             raise AgentError("workspace is not a directory: %s" % self.workspace)
         self.urlopen = urlopen or urllib.request.urlopen
+        self.computer_enabled = computer_enabled
+        self.confirmation = confirmation
+        self.computer = computer_backend
+        if computer_enabled and self.computer is None:
+            self.computer = ComputerBackend(
+                ollama_url=ollama_url,
+                vision_model=vision_model,
+                urlopen=self.urlopen,
+            )
+        self.tool_specs = TOOL_SPECS + (COMPUTER_TOOL_SPECS if computer_enabled else [])
 
     def dispatch(self, name, arguments):
         started = time.monotonic()
@@ -420,12 +1116,19 @@ class ToolRuntime:
 
     def tool_get_working_directory(self, arguments):
         del arguments
+        computer = (
+            self.computer.availability()
+            if self.computer_enabled and self.computer is not None
+            else {"available": False, "reasons": ["computer use disabled"]}
+        )
         return {
             "workspace": str(self.workspace),
-            "tools": [item["function"]["name"] for item in TOOL_SPECS],
+            "tools": [item["function"]["name"] for item in self.tool_specs],
             "filesystem": "workspace read/write",
             "shell": "bounded zsh with network",
             "internet": "web_fetch and web_search",
+            "computerUse": computer,
+            "computerMode": "routine actions automatic; consequential actions confirm once",
             "paidProviderCall": False,
         }
 
@@ -589,6 +1292,75 @@ class ToolRuntime:
             "durationMs": int((time.monotonic() - started) * 1000),
         }
 
+    def _require_computer(self):
+        if not self.computer_enabled or self.computer is None:
+            raise ToolError("computer_disabled", "computer use is disabled for this agent")
+        availability = self.computer.availability()
+        if not availability.get("available"):
+            raise ToolError(
+                "computer_unavailable",
+                "; ".join(availability.get("reasons") or ["host dispatcher unavailable"]),
+            )
+        return self.computer
+
+    def _computer_action(self, tool_name, action, arguments):
+        backend = self._require_computer()
+        reason = computer_confirmation_reason(tool_name, arguments, backend)
+        if reason:
+            if self.confirmation is None or not self.confirmation(reason):
+                raise ToolError(
+                    "confirmation_required",
+                    "action-time confirmation was not granted: %s" % reason,
+                )
+        request = {"action": action, "max_elements": 160}
+        request.update(arguments)
+        request.pop("intent", None)
+        return backend.run(request)
+
+    def tool_computer_state(self, arguments):
+        backend = self._require_computer()
+        maximum = max(1, min(int(arguments.get("max_elements", 160)), 300))
+        return backend.state(maximum)
+
+    def tool_computer_screenshot(self, arguments):
+        backend = self._require_computer()
+        question = arguments.get("question")
+        if question is not None and not isinstance(question, str):
+            raise ToolError("invalid_arguments", "question must be a string")
+        return backend.screenshot(question, arguments.get("analyze", True) is not False)
+
+    def tool_computer_activate_app(self, arguments):
+        name = arguments.get("name")
+        if not isinstance(name, str) or not name.strip() or len(name) > 300:
+            raise ToolError("invalid_arguments", "name must be a non-empty application name")
+        return self._computer_action("computer_activate_app", "activate_app", arguments)
+
+    def tool_computer_click(self, arguments):
+        target = arguments.get("target")
+        if target is None and (arguments.get("x") is None or arguments.get("y") is None):
+            raise ToolError("invalid_arguments", "provide a fresh target id or both x and y")
+        return self._computer_action("computer_click", "click", arguments)
+
+    def tool_computer_type(self, arguments):
+        text = arguments.get("text")
+        if not isinstance(text, str) or not text:
+            raise ToolError("invalid_arguments", "text must be a non-empty string")
+        if len(text.encode("utf-8")) > 100000:
+            raise ToolError("invalid_arguments", "typed text exceeds 100000 bytes")
+        return self._computer_action("computer_type", "type", arguments)
+
+    def tool_computer_key(self, arguments):
+        key = arguments.get("key")
+        if not isinstance(key, str) or not key.strip() or len(key) > 40:
+            raise ToolError("invalid_arguments", "key must be a non-empty macOS key name")
+        return self._computer_action("computer_key", "key", arguments)
+
+    def tool_computer_scroll(self, arguments):
+        dy = arguments.get("dy")
+        if not isinstance(dy, (int, float)):
+            raise ToolError("invalid_arguments", "dy must be a number of pixels")
+        return self._computer_action("computer_scroll", "scroll", arguments)
+
     def _fetch(self, url, maximum, timeout):
         parsed = urllib.parse.urlparse(url)
         if parsed.scheme not in ("http", "https") or not parsed.netloc:
@@ -668,7 +1440,12 @@ def project_instructions(workspace, maximum=24000):
     return "\n\n".join(pieces)
 
 
-def system_prompt(workspace, include_instructions=True):
+def system_prompt(
+    workspace,
+    include_instructions=True,
+    computer_enabled=True,
+    vision_model=DEFAULT_VISION_MODEL,
+):
     prompt = """You are tinker-yolo, an autonomous local coding agent powered by Ollama.
 
 You DO have real tools for workspace filesystem reads/writes/search, bounded shell execution,
@@ -685,6 +1462,16 @@ training or remote inference. Tool calls and errors are bounded and recorded loc
 Workspace: %s
 Current date: %s
 """ % (workspace, datetime.date.today().isoformat())
+    if computer_enabled:
+        prompt += """
+You also have real local macOS computer-use tools. Accessibility state is the primary
+structured perception surface; computer_screenshot adds private OCR and the local %s
+viewer. Always obtain fresh state before choosing a target. Every action tool returns
+fresh post-action state; inspect it before acting again. Routine navigation/editing is
+automatic YOLO mode. The host, not you, enforces one-time confirmation for submit,
+send, publish, delete, payment, credential, and other consequential actions. Never try
+to bypass or relabel that gate. Images remain local and no computer tool calls Tinker.
+""" % vision_model
     if include_instructions:
         directives = project_instructions(workspace)
         if directives:
@@ -748,14 +1535,32 @@ class LocalAgent:
         receipt_dir=None,
         include_project_instructions=True,
         urlopen=None,
+        request_timeout=DEFAULT_REQUEST_TIMEOUT,
+        computer_enabled=True,
+        computer_backend=None,
+        confirmation=None,
+        vision_model=DEFAULT_VISION_MODEL,
+        vision_ollama_url=DEFAULT_VISION_OLLAMA_URL,
     ):
         self.workspace = pathlib.Path(workspace).expanduser().resolve(strict=True)
         self.model = model
         self.ollama_url = normalize_ollama_url(ollama_url)
         self.max_turns = max_turns
         self.max_tool_calls = max_tool_calls
+        self.request_timeout = request_timeout
         self.urlopen = urlopen or urllib.request.urlopen
-        self.runtime = ToolRuntime(self.workspace, urlopen=self.urlopen)
+        self.computer_enabled = computer_enabled
+        self.vision_model = vision_model
+        self.runtime = ToolRuntime(
+            self.workspace,
+            urlopen=self.urlopen,
+            computer_enabled=computer_enabled,
+            computer_backend=computer_backend,
+            confirmation=confirmation or self.confirm_action,
+            ollama_url=vision_ollama_url,
+            vision_model=vision_model,
+        )
+        self.tool_specs = self.runtime.tool_specs
         self.session_id = str(uuid.uuid4())
         if receipt_dir is None:
             receipt_dir = pathlib.Path.home() / ".hermes" / "tinker" / "receipts"
@@ -764,22 +1569,67 @@ class LocalAgent:
         self.messages = []
         self.reset()
         self.total_tool_calls = 0
+        self._last_busy_notice = None
 
     def reset(self):
         self.messages = [
             {
                 "role": "system",
-                "content": system_prompt(self.workspace, self.include_project_instructions),
+                "content": system_prompt(
+                    self.workspace,
+                    self.include_project_instructions,
+                    self.computer_enabled,
+                    self.vision_model,
+                ),
             }
         ]
 
+    def confirm_action(self, reason):
+        if not sys.stdin.isatty():
+            return False
+        print("\n⚠ Consequential computer action: %s" % reason, file=sys.stderr)
+        try:
+            answer = input("Allow this action once? [y/N] ").strip().lower()
+        except (EOFError, KeyboardInterrupt):
+            print(file=sys.stderr)
+            return False
+        return answer in ("y", "yes")
+
+    def _report_ollama_load(self):
+        request = urllib.request.Request(self.ollama_url + "/api/ps")
+        try:
+            with self.urlopen(request, timeout=3) as response:
+                payload = json.load(response)
+        except Exception:
+            return
+        loaded = [str(item.get("name")) for item in payload.get("models", []) if item.get("name")]
+        if self.model not in loaded and loaded:
+            signature = tuple(sorted(loaded))
+            if signature != self._last_busy_notice:
+                print(
+                    "… Ollama is switching from %s to %s; this wait is bounded to %ss"
+                    % (", ".join(loaded), self.model, self.request_timeout),
+                    file=sys.stderr,
+                    flush=True,
+                )
+                self._last_busy_notice = signature
+        elif self.model in loaded:
+            self._last_busy_notice = None
+
     def request_chat(self):
+        self._report_ollama_load()
         payload = {
             "model": self.model,
             "messages": self.messages,
-            "tools": TOOL_SPECS,
+            "tools": self.tool_specs,
             "stream": False,
-            "options": {"temperature": 0.1, "num_ctx": 16384},
+            "think": False,
+            "keep_alive": "5m",
+            "options": {
+                "temperature": 0.1,
+                "num_ctx": 16384,
+                "num_predict": 2048,
+            },
         }
         request = urllib.request.Request(
             self.ollama_url + "/api/chat",
@@ -787,13 +1637,17 @@ class LocalAgent:
             headers={"Content-Type": "application/json"},
         )
         try:
-            with self.urlopen(request, timeout=600) as response:
-                return json.load(response)
+            with progress_heartbeat("waiting for local Ollama"):
+                with self.urlopen(request, timeout=self.request_timeout) as response:
+                    return json.load(response)
         except urllib.error.HTTPError as error:
             body = error.read(4096).decode("utf-8", errors="replace")
             raise AgentError("Ollama HTTP %s: %s" % (error.code, redact_text(body)))
         except (urllib.error.URLError, TimeoutError, OSError, ValueError) as error:
-            raise AgentError("Ollama request failed: %s" % redact_text(error))
+            raise AgentError(
+                "Ollama request failed after a bounded %ss wait: %s"
+                % (self.request_timeout, redact_text(error))
+            )
 
     def run_turn(self, prompt):
         self.messages.append({"role": "user", "content": prompt})
@@ -878,14 +1732,36 @@ class LocalAgent:
 def build_parser():
     parser = argparse.ArgumentParser(
         prog="tinker-yolo",
-        description="Local Qwen coding agent with filesystem, shell, and internet tools.",
+        description=(
+            "Local Qwen agent with filesystem, shell, internet, and guarded macOS computer use."
+        ),
     )
     parser.add_argument("prompt", nargs="*", help="one-shot task; omit for the interactive REPL")
     parser.add_argument("--model", default=os.environ.get("TINKER_CHAT_MODEL", DEFAULT_MODEL))
     parser.add_argument("--workspace", default=os.getcwd())
-    parser.add_argument("--ollama-url", default=os.environ.get("OLLAMA_HOST", DEFAULT_OLLAMA_URL))
+    parser.add_argument(
+        "--ollama-url",
+        default=os.environ.get("TINKER_OLLAMA_URL", DEFAULT_OLLAMA_URL),
+        help="isolated local planner endpoint (default http://127.0.0.1:11436)",
+    )
     parser.add_argument("--max-turns", type=int, default=24)
     parser.add_argument("--max-tool-calls", type=int, default=64)
+    parser.add_argument(
+        "--request-timeout",
+        type=int,
+        default=int(os.environ.get("TINKER_OLLAMA_TIMEOUT", DEFAULT_REQUEST_TIMEOUT)),
+        help="bounded seconds for each local Ollama turn (default 120)",
+    )
+    parser.add_argument(
+        "--vision-model",
+        default=os.environ.get("TINKER_VISION_MODEL", DEFAULT_VISION_MODEL),
+    )
+    parser.add_argument(
+        "--vision-ollama-url",
+        default=os.environ.get("TINKER_VISION_OLLAMA_URL", DEFAULT_VISION_OLLAMA_URL),
+        help="local vision endpoint (default isolated http://127.0.0.1:11436)",
+    )
+    parser.add_argument("--no-computer-use", action="store_true")
     parser.add_argument("--json", action="store_true", dest="as_json")
     parser.add_argument("--no-project-instructions", action="store_true")
     return parser
@@ -904,8 +1780,13 @@ def main(argv=None):
         raise SystemExit("tinker-yolo: --max-turns must be from 1 to 100")
     if not 1 <= args.max_tool_calls <= 500:
         raise SystemExit("tinker-yolo: --max-tool-calls must be from 1 to 500")
+    if not 10 <= args.request_timeout <= 600:
+        raise SystemExit("tinker-yolo: --request-timeout must be from 10 to 600 seconds")
     receipt_dir = os.environ.get("TINKER_RECEIPT_DIR")
     try:
+        planner = ensure_planner_endpoint(args.ollama_url)
+        if not planner.get("ready"):
+            raise AgentError("Ollama planner endpoint is unavailable: %s" % args.ollama_url)
         agent = LocalAgent(
             args.workspace,
             model=args.model,
@@ -914,6 +1795,10 @@ def main(argv=None):
             max_tool_calls=args.max_tool_calls,
             receipt_dir=receipt_dir,
             include_project_instructions=not args.no_project_instructions,
+            request_timeout=args.request_timeout,
+            computer_enabled=not args.no_computer_use,
+            vision_model=args.vision_model,
+            vision_ollama_url=args.vision_ollama_url,
         )
         if args.prompt:
             print_result(agent.run_turn(" ".join(args.prompt)), args.as_json)
@@ -922,11 +1807,12 @@ def main(argv=None):
         if not sys.stdin.isatty():
             raise AgentError("interactive agent requires a TTY or a prompt argument")
         print(
-            "tinker-yolo local agent: model=%s workspace=%s tools=filesystem,shell,internet paid=false"
-            % (args.model, agent.workspace),
+            "tinker-yolo local agent: model=%s workspace=%s "
+            "tools=filesystem,shell,internet,computer vision=%s paid=false"
+            % (args.model, agent.workspace, args.vision_model),
             file=sys.stderr,
         )
-        print("Commands: /clear /tools /workspace /exit", file=sys.stderr)
+        print("Commands: /clear /tools /computer /workspace /exit", file=sys.stderr)
         while True:
             try:
                 prompt = input("tinker> ").strip()
@@ -942,12 +1828,24 @@ def main(argv=None):
                 print("conversation cleared", file=sys.stderr)
                 continue
             if prompt == "/tools":
-                print(", ".join(item["function"]["name"] for item in TOOL_SPECS))
+                print(", ".join(item["function"]["name"] for item in agent.tool_specs))
+                continue
+            if prompt == "/computer":
+                if not agent.computer_enabled:
+                    print("computer use disabled")
+                else:
+                    result, _ = agent.runtime.dispatch("computer_state", {"max_elements": 40})
+                    print(json.dumps(result, indent=2, ensure_ascii=False))
                 continue
             if prompt == "/workspace":
                 print(agent.workspace)
                 continue
-            print_result(agent.run_turn(prompt), args.as_json)
+            try:
+                print_result(agent.run_turn(prompt), args.as_json)
+            except KeyboardInterrupt:
+                print("\nrequest cancelled; REPL is still active", file=sys.stderr)
+            except AgentError as error:
+                print("tinker-yolo: %s; REPL is still active" % error, file=sys.stderr)
     except AgentError as error:
         print("tinker-yolo: %s" % error, file=sys.stderr)
         return 1

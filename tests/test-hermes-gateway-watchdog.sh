@@ -47,7 +47,14 @@ echo "STARTED $*" >> "$MOCK_START"
 exit 0
 MOCK
 
-chmod +x "$BIN/curl" "$BIN/pgrep" "$BIN/pybin"
+cat > "$BIN/launchctl" <<'MOCK'
+#!/usr/bin/env bash
+if [ "${1:-}" = "print" ]; then exit "${MOCK_LAUNCHCTL_PRINT_EXIT:-1}"; fi
+echo "LAUNCHCTL $*" >> "$MOCK_CALLS"
+exit 0
+MOCK
+
+chmod +x "$BIN/curl" "$BIN/pgrep" "$BIN/pybin" "$BIN/launchctl"
 
 # Run the watchdog with a fresh isolated state for one scenario. Args: KEY=VAL env.
 run_wd() {
@@ -56,6 +63,10 @@ run_wd() {
     HERMES_CURL_BIN="$BIN/curl" \
     HERMES_PGREP_BIN="$BIN/pgrep" \
     HERMES_PYBIN="$BIN/pybin" \
+    HERMES_LAUNCHCTL_BIN="$BIN/launchctl" \
+    HERMES_GUI_DOMAIN="gui/501" \
+    HERMES_GATEWAY_LABEL="ai.hermes.gateway" \
+    HERMES_GATEWAY_PLIST="$TMP/ai.hermes.gateway.plist" \
     HERMES_ENV_FILE="$TMP/env" \
     HERMES_WATCHDOG_LOG="$TMP/wd.log" \
     HERMES_WATCHDOG_STATE="$TMP/state" \
@@ -64,6 +75,7 @@ run_wd() {
     HERMES_MEMORY_PRESSURE_LEVEL="1" \
     HERMES_NOW_EPOCH="1000" \
     YOLO_MEMORY_RECOVERY_FILE="$TMP/recovery-until" \
+    YOLO_HERMES_GATEWAY_CIRCUIT_FILE="$TMP/circuit-open" \
     MOCK_HEALTH="$TMP/health" \
     MOCK_PS="$TMP/ps" \
     MOCK_CALLS="$TMP/calls" \
@@ -72,9 +84,9 @@ run_wd() {
     "$@" \
     bash "$WD"
   # The gateway start remains asynchronous; pin/warmup are deliberately synchronous.
-  for _ in $(seq 1 30); do
+  for _ in $(seq 1 10); do
     grep -q "STARTED\|PIN\|WARMUP" "$TMP/start" "$TMP/calls" 2>/dev/null && break
-    sleep 0.1
+    sleep 0.05
   done
 }
 
@@ -86,6 +98,8 @@ echo "=== hermes-gateway-watchdog unit tests ==="
 if bash -n "$WD"; then ok "watchdog passes 'bash -n' syntax check"; else bad "watchdog FAILS syntax check"; fi
 
 printf 'API_SERVER_KEY=testkey123\n' > "$TMP/env"
+printf '<plist/>\n' > "$TMP/ai.hermes.gateway.plist"
+rm -f "$TMP/circuit-open"
 
 # T1: gateway down + no proc -> starts gateway.
 echo 000 > "$TMP/health"; echo '{"models":["qwen3:8b-64k"]}' > "$TMP/ps"; : > "$TMP/gwpid"
@@ -157,6 +171,46 @@ else
   bad "T5d: cooldown gate allowed pin/warmup"
 fi
 : > "$TMP/recovery-until"
+
+# T5e: a down/absent gateway stays down while the guardian's recovery circuit
+# is open, then becomes restart-eligible immediately after expiry.
+echo 000 > "$TMP/health"; echo '{"models":[]}' > "$TMP/ps"; : > "$TMP/gwpid"
+echo 1600 > "$TMP/recovery-until"
+run_wd HERMES_MEMORY_PRESSURE_LEVEL="1" HERMES_NOW_EPOCH="1000"
+if ! grep -q "STARTED" "$TMP/start" \
+  && grep -q 'gateway down.*during memory recovery.*leave stopped' "$TMP/wd.log"; then
+  ok "T5e: recovery circuit keeps a down gateway stopped"
+else
+  bad "T5e: watchdog restarted a gateway during recovery"
+fi
+run_wd HERMES_MEMORY_PRESSURE_LEVEL="1" HERMES_NOW_EPOCH="1601"
+grep -q "STARTED" "$TMP/start" \
+  && ok "T5e: gateway restart resumes after recovery expiry" \
+  || bad "T5e: gateway did not restart after recovery expiry"
+: > "$TMP/recovery-until"
+
+# T5f: an opened guardian circuit survives KeepAlive/self-heal attempts, then
+# restores launchd ownership exactly once after pressure and cooldown clear.
+echo 000 > "$TMP/health"; echo '{"models":[]}' > "$TMP/ps"; : > "$TMP/gwpid"
+echo 1600 > "$TMP/recovery-until"; echo 1600 > "$TMP/circuit-open"
+run_wd HERMES_MEMORY_PRESSURE_LEVEL="1" HERMES_NOW_EPOCH="1000"
+if grep -q '^LAUNCHCTL disable gui/501/ai.hermes.gateway$' "$TMP/calls" \
+  && grep -q '^LAUNCHCTL bootout gui/501/ai.hermes.gateway$' "$TMP/calls" \
+  && [ -f "$TMP/circuit-open" ] && ! grep -q 'STARTED' "$TMP/start"; then
+  ok "T5f: open circuit enforces launchd disable/bootout"
+else
+  bad "T5f: open circuit did not enforce launchd disable/bootout"
+fi
+: > "$TMP/recovery-until"
+run_wd HERMES_MEMORY_PRESSURE_LEVEL="1" HERMES_NOW_EPOCH="1601"
+if grep -q '^LAUNCHCTL enable gui/501/ai.hermes.gateway$' "$TMP/calls" \
+  && grep -q "^LAUNCHCTL bootstrap gui/501 $TMP/ai.hermes.gateway.plist$" "$TMP/calls" \
+  && grep -q '^LAUNCHCTL kickstart -k gui/501/ai.hermes.gateway$' "$TMP/calls" \
+  && [ ! -e "$TMP/circuit-open" ] && ! grep -q 'STARTED' "$TMP/start"; then
+  ok "T5f: expired circuit restores launchd ownership without a duplicate manual start"
+else
+  bad "T5f: expired circuit did not restore launchd ownership safely"
+fi
 
 # T6: pid changed vs state -> pre-warm WARMUP_COUNT times, then records new pid.
 echo 200 > "$TMP/health"; echo '{"models":["qwen3:8b-64k"]}' > "$TMP/ps"; echo 5555 > "$TMP/gwpid"; echo 4242 > "$TMP/state"
