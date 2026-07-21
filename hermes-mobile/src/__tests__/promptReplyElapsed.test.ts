@@ -1,5 +1,6 @@
 import type { HermesMessage } from '../types/chat';
 import { EMPTY_STREAM_TIMEOUT_PLACEHOLDER } from '../utils/streamAssistantText';
+import { OUTBOUND_HARD_TIMEOUT_MS } from '../utils/outboundSendRecovery';
 import {
   PROMPT_REPLY_HARD_TIMEOUT_MS,
   messageSentAtMs,
@@ -69,5 +70,10 @@ describe('promptReplyElapsed', () => {
       false,
     );
     expect(shouldHardTimeoutLivePromptWait(sinceMs, sinceMs + PROMPT_REPLY_HARD_TIMEOUT_MS)).toBe(true);
+  });
+
+  it('keeps prompt-wait and outbound hard timeouts aligned at exactly 2 minutes', () => {
+    expect(PROMPT_REPLY_HARD_TIMEOUT_MS).toBe(2 * 60_000);
+    expect(OUTBOUND_HARD_TIMEOUT_MS).toBe(PROMPT_REPLY_HARD_TIMEOUT_MS);
   });
 });

@@ -3,7 +3,7 @@ import { coerceMessageId, idHasPrefix } from './messageIds';
 import { dedupeToolDumpMessages } from './chatToolDump';
 import { serverHasAssistantReplyAfterLastUser } from './emptyStreamReplyRecovery';
 import { isOrphanFailedOutboundBubble } from './stalledChatRecovery';
-import { isDeferredStreamPlaceholder } from './streamAssistantText';
+import { isDeferredStreamPlaceholder, preferRicherAssistantText } from './streamAssistantText';
 
 /** Normalize text so optimistic phone bubbles match gateway transcript formatting. */
 export function normalizeMessageText(text: string): string {
@@ -328,6 +328,13 @@ export function areNearDuplicateAssistantBodies(a: string, b: string): boolean {
 function preferAssistantMessage(a: HermesMessage, b: HermesMessage): HermesMessage {
   const bodyA = (a.content ?? '').trim();
   const bodyB = (b.content ?? '').trim();
+  const richer = preferRicherAssistantText(bodyA, bodyB);
+  if (richer === bodyA && richer !== bodyB) {
+    return a;
+  }
+  if (richer === bodyB && richer !== bodyA) {
+    return b;
+  }
   const normA = normalizeMessageText(bodyA);
   const normB = normalizeMessageText(bodyB);
   if (normB.includes(normA) && normB.length > normA.length) {
@@ -336,8 +343,69 @@ function preferAssistantMessage(a: HermesMessage, b: HermesMessage): HermesMessa
   if (normA.includes(normB) && normA.length > normB.length) {
     return a;
   }
-  // Prefer the later bubble (gateway second completion / fresher stream).
+  // Equal richness — prefer the later bubble (gateway second completion).
   return b;
+}
+
+function lastSubstantiveAssistantAfterLastUser(
+  serverMessages: HermesMessage[],
+): HermesMessage | undefined {
+  const lastUserIndex = indexOfLastUserMessage(serverMessages);
+  let best: HermesMessage | undefined;
+  for (let index = lastUserIndex + 1; index < serverMessages.length; index += 1) {
+    const message = serverMessages[index];
+    if (!message || message.role?.toLowerCase() !== 'assistant') {
+      continue;
+    }
+    if (isMessageBodyEmpty(message.content, message.rawContent)) {
+      continue;
+    }
+    if (isDeferredStreamPlaceholder(message.content)) {
+      continue;
+    }
+    best = message;
+  }
+  return best;
+}
+
+/**
+ * True when local phone-streamed assistant text must be kept over a server refresh —
+ * longer near-duplicate, or richer than the server's latest turn reply.
+ */
+export function localAssistantRicherThanServer(
+  serverMessages: HermesMessage[],
+  localContent: string | undefined,
+): boolean {
+  const local = localContent?.trim() ?? '';
+  if (!local || isDeferredStreamPlaceholder(local)) {
+    return false;
+  }
+  const serverLast = lastSubstantiveAssistantAfterLastUser(serverMessages);
+  if (!serverLast) {
+    return true;
+  }
+  const serverBody = (serverLast.content ?? '').trim();
+  const richer = preferRicherAssistantText(serverBody, local);
+  if (richer === local && richer !== serverBody) {
+    return true;
+  }
+  for (const message of serverMessages) {
+    if (message.role?.toLowerCase() !== 'assistant') {
+      continue;
+    }
+    if (isDeferredStreamPlaceholder(message.content)) {
+      continue;
+    }
+    if (!areNearDuplicateAssistantBodies(message.content ?? '', local)) {
+      continue;
+    }
+    const body = (message.content ?? '').trim();
+    const nearRicher = preferRicherAssistantText(body, local);
+    if (nearRicher === local && nearRicher !== body) {
+      return true;
+    }
+  }
+  return false;
 }
 
 /**
@@ -487,12 +555,29 @@ export function mergeServerMessagesWithPending(
         const serverNorm = normalizeMessageText(serverMessage.content?.trim() ?? '');
         return Boolean(serverNorm) && localNorm.includes(serverNorm) && localNorm.length > serverNorm.length + 8;
       });
-      // Gateway already answered this turn (possibly paraphrased) — drop local stream bubble
-      // unless the phone is still streaming a longer extension of the server text.
-      if (serverHasFreshAssistantReply && !hasUnackedPendingUser && !localExtendsServer) {
+      const localRicher = localAssistantRicherThanServer(dedupedServer, message.content);
+      const substantiveLocal =
+        !isMessageBodyEmpty(message.content, message.rawContent) &&
+        !isDeferredStreamPlaceholder(message.content);
+      // Mega-context reconnect often returns a truncated prefix without the latest turn.
+      // Keep phone-streamed output until the gateway actually has that turn's reply.
+      if (
+        substantiveLocal &&
+        (hasUnackedPendingUser || !serverHasFreshAssistantReply || localRicher || localExtendsServer)
+      ) {
+        pendingTail.push(message);
         continue;
       }
-      if (serverHasNearDuplicateAssistant(dedupedServer, message.content) && !localExtendsServer) {
+      // Gateway already answered this turn (possibly paraphrased) — drop local stream bubble
+      // unless the phone is still streaming a longer extension of the server text.
+      if (serverHasFreshAssistantReply && !hasUnackedPendingUser && !localExtendsServer && !localRicher) {
+        continue;
+      }
+      if (
+        serverHasNearDuplicateAssistant(dedupedServer, message.content) &&
+        !localExtendsServer &&
+        !localRicher
+      ) {
         continue;
       }
       pendingTail.push(message);
