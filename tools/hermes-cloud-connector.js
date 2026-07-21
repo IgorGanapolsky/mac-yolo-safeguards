@@ -9,9 +9,9 @@ const path = require('path');
 
 const DEFAULT_CONFIG = path.join(os.homedir(), '.hermes', 'cloud-connector.json');
 const DEFAULT_GATEWAY_ENV = path.join(os.homedir(), '.hermes', '.env');
+const DEFAULT_HERMES_CONFIG = path.join(os.homedir(), '.hermes', 'config.yaml');
 const DEFAULT_CONTROL_PLANE = 'https://thumbgate.app';
 const DEFAULT_SESSION_GATEWAY = 'http://127.0.0.1:8642';
-const DEFAULT_MODEL_GATEWAY = 'http://127.0.0.1:4010';
 const POLL_MS = 3_000;
 const HEARTBEAT_MS = 15_000;
 const SESSION_SYNC_MS = 60_000;
@@ -194,8 +194,99 @@ async function gatewayJson(baseUrl, pathname, options = {}) {
     headers: { ...gatewayHeaders({ envPath: gatewayEnvPath }), ...(options.headers || {}) },
   });
   const payload = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(payload.error?.message || payload.error || `Hermes session gateway HTTP ${response.status}`);
+  if (!response.ok) {
+    const error = new Error(payload.error?.message || payload.error || `Hermes session gateway HTTP ${response.status}`);
+    error.status = response.status;
+    error.code = payload.error?.code;
+    throw error;
+  }
   return payload;
+}
+
+function unquoteYamlScalar(value) {
+  const raw = String(value).replace(/\s+#.*$/, '').trim();
+  if (raw.startsWith('"') && raw.endsWith('"')) {
+    try { return JSON.parse(raw); } catch { return raw.slice(1, -1); }
+  }
+  if (raw.startsWith("'") && raw.endsWith("'")) return raw.slice(1, -1).replaceAll("''", "'");
+  return raw;
+}
+
+function parseTerminalCwd(source) {
+  let terminalIndent = -1;
+  for (const line of String(source).split(/\r?\n/)) {
+    if (!line.trim() || /^\s*#/.test(line)) continue;
+    const indent = line.match(/^\s*/)[0].length;
+    if (/^\s*terminal\s*:\s*(?:#.*)?$/.test(line)) {
+      terminalIndent = indent;
+      continue;
+    }
+    if (terminalIndent < 0) continue;
+    if (indent <= terminalIndent) {
+      terminalIndent = -1;
+      continue;
+    }
+    const cwd = line.match(/^\s*cwd\s*:\s*(.*?)\s*$/);
+    if (cwd) return unquoteYamlScalar(cwd[1]);
+  }
+  return '';
+}
+
+function resolveWorkspacePath(config, options = {}) {
+  const environment = options.env || process.env;
+  const direct = environment.HERMES_WORKSPACE_PATH || environment.HERMES_PROJECT_ROOT;
+  if (typeof direct === 'string' && direct.trim()) return direct.trim();
+  const configPath = options.configPath || config.hermesConfigPath || environment.HERMES_CONFIG_PATH || DEFAULT_HERMES_CONFIG;
+  try { return parseTerminalCwd(fs.readFileSync(configPath, 'utf8'));
+  } catch (error) {
+    if (error?.code === 'ENOENT') return '';
+    throw error;
+  }
+}
+
+function buildWebSessionSystemPrompt(config, task) {
+  const workspacePath = resolveWorkspacePath(config);
+  return [
+    'Hermes Web project context (HARD CONSTRAINT — do not ignore):',
+    '- You are Hermes running on the paired machine through ThumbGate. Do not identify yourself as only the underlying model vendor.',
+    workspacePath
+      ? `- Active workspace / cwd: ${workspacePath}`
+      : '- No active workspace is configured in Hermes terminal.cwd. State that clearly if asked; never invent a project.',
+    workspacePath
+      ? '- If asked which project is active, answer with this exact workspace path.'
+      : '- Ask for a workspace only when the task actually requires project files.',
+    workspacePath ? '- Run terminal, file, code, and search tools from this directory only.' : '',
+    task.threadTitle ? `- ThumbGate thread: ${task.threadTitle}` : '',
+  ].filter(Boolean).join('\n');
+}
+
+async function ensureWebHermesSession(config, task) {
+  const encodedSessionId = encodeURIComponent(task.sourceSessionId);
+  try {
+    await gatewayJson(config.sessionGatewayUrl, `/api/sessions/${encodedSessionId}`, { gatewayEnvPath: config.gatewayEnvPath });
+    return;
+  } catch (error) {
+    if (error?.status !== 404) throw error;
+  }
+
+  const title = String(task.threadTitle || task.prompt || 'ThumbGate web chat').trim().slice(0, 120);
+  const payload = {
+    id: task.sourceSessionId,
+    title,
+    system_prompt: buildWebSessionSystemPrompt(config, task),
+  };
+  try {
+    await gatewayJson(config.sessionGatewayUrl, '/api/sessions', {
+      method: 'POST', gatewayEnvPath: config.gatewayEnvPath, body: JSON.stringify(payload),
+    });
+  } catch (error) {
+    if (error?.status === 409) return;
+    if (error?.status !== 400 || error?.code !== 'invalid_title') throw error;
+    await gatewayJson(config.sessionGatewayUrl, '/api/sessions', {
+      method: 'POST', gatewayEnvPath: config.gatewayEnvPath,
+      body: JSON.stringify({ ...payload, title: `${title.slice(0, 108)} · ${task.sourceSessionId.slice(-8)}` }),
+    });
+  }
 }
 
 function boundContextMessages(messages) {
@@ -264,26 +355,18 @@ async function syncGatewaySessions(config, options = {}) {
 }
 
 async function executeLocal(config, task) {
-  if (task.sourceSessionId) {
-    const handoff = Array.isArray(task.handoffMessages) && task.handoffMessages.length
-      ? `Cloud/web continuation since this Mac last synced:\n${task.handoffMessages.map((message) => `${message.role}: ${message.content}`).join('\n\n').slice(-24_000)}`
-      : undefined;
-    const payload = await gatewayJson(config.sessionGatewayUrl, `/api/sessions/${encodeURIComponent(task.sourceSessionId)}/chat`, {
-      method: 'POST', gatewayEnvPath: config.gatewayEnvPath,
-      body: JSON.stringify({ message: task.prompt, ...(handoff ? { system_message: handoff } : {}) }),
-    });
-    return contentText(payload.message?.content || payload.output || payload.content || payload.response) || JSON.stringify(payload);
-  }
-  const messages = [...(Array.isArray(task.contextMessages) ? task.contextMessages : []), { role: 'user', content: task.prompt }];
-  const payload = await gatewayJson(config.modelGatewayUrl, '/v1/chat/completions', {
+  if (!task.sourceSessionId) throw new Error('ThumbGate task is missing its Hermes session binding');
+  const webCreatedSession = task.sourceSessionId.startsWith('thumbgate_');
+  if (webCreatedSession) await ensureWebHermesSession(config, task);
+  const handoff = Array.isArray(task.handoffMessages) && task.handoffMessages.length
+    ? `Cloud/web continuation since this Mac last synced:\n${task.handoffMessages.map((message) => `${message.role}: ${message.content}`).join('\n\n').slice(-24_000)}`
+    : undefined;
+  const systemMessage = [webCreatedSession ? buildWebSessionSystemPrompt(config, task) : '', handoff || ''].filter(Boolean).join('\n\n');
+  const payload = await gatewayJson(config.sessionGatewayUrl, `/api/sessions/${encodeURIComponent(task.sourceSessionId)}/chat`, {
     method: 'POST', gatewayEnvPath: config.gatewayEnvPath,
-    // 'hermes' was never a real model on the gateway (only 'hermes-local' /
-    // 'hermes-local-fast' / 'omlx-local' are registered) — every local task
-    // failed instantly with "Invalid model name" until HERMES_LOCAL_MODEL was
-    // set explicitly. Default to the model that's actually served.
-    body: JSON.stringify({ model: process.env.HERMES_LOCAL_MODEL || 'hermes-local', messages, stream: false }),
+    body: JSON.stringify({ message: task.prompt, ...(systemMessage ? { system_message: systemMessage } : {}) }),
   });
-  return contentText(payload.choices?.[0]?.message?.content) || JSON.stringify(payload);
+  return contentText(payload.message?.content || payload.output || payload.content || payload.response) || JSON.stringify(payload);
 }
 
 async function cycle(config, options = {}) {
@@ -317,14 +400,13 @@ async function main() {
       ...createIdentity(process.env.HERMES_DEVICE_NAME || os.hostname()),
       controlPlaneUrl: normalizeBaseUrl(process.env.HERMES_CONTROL_PLANE_URL || DEFAULT_CONTROL_PLANE),
       sessionGatewayUrl: normalizeBaseUrl(process.env.HERMES_SESSION_GATEWAY_URL || DEFAULT_SESSION_GATEWAY),
-      modelGatewayUrl: normalizeBaseUrl(process.env.HERMES_MODEL_GATEWAY_URL || DEFAULT_MODEL_GATEWAY),
     };
     saveConfig(configPath, config);
   }
   config.controlPlaneUrl = normalizeBaseUrl(process.env.HERMES_CONTROL_PLANE_URL || config.controlPlaneUrl || DEFAULT_CONTROL_PLANE);
   config.sessionGatewayUrl = normalizeBaseUrl(process.env.HERMES_SESSION_GATEWAY_URL || config.sessionGatewayUrl || DEFAULT_SESSION_GATEWAY);
-  config.modelGatewayUrl = normalizeBaseUrl(process.env.HERMES_MODEL_GATEWAY_URL || config.modelGatewayUrl || config.gatewayUrl || DEFAULT_MODEL_GATEWAY);
   config.gatewayEnvPath = process.env.HERMES_GATEWAY_ENV_PATH || config.gatewayEnvPath || DEFAULT_GATEWAY_ENV;
+  config.hermesConfigPath = process.env.HERMES_CONFIG_PATH || config.hermesConfigPath || DEFAULT_HERMES_CONFIG;
   saveConfig(configPath, config);
   if (!config.deviceId || process.argv.includes('--pair')) await startPairing(config, configPath);
   if (process.argv.includes('--pair-only')) return;
@@ -345,5 +427,5 @@ async function main() {
   }
 }
 
-module.exports = { boundContextMessages, canonicalRequest, collectGatewaySessions, contentText, createIdentity, executeLocal, gatewayHeaders, loadConfig, pairingDashboardUrl, pairingMatchesControlPlane, parseDotEnvValue, resolveGatewayApiKey, saveConfig, selectContextSessionIds, signedHeaders, sha256, syncGatewaySessions, timestampMillis };
+module.exports = { boundContextMessages, buildWebSessionSystemPrompt, canonicalRequest, collectGatewaySessions, contentText, createIdentity, executeLocal, gatewayHeaders, loadConfig, pairingDashboardUrl, pairingMatchesControlPlane, parseDotEnvValue, parseTerminalCwd, resolveGatewayApiKey, resolveWorkspacePath, saveConfig, selectContextSessionIds, signedHeaders, sha256, syncGatewaySessions, timestampMillis };
 if (require.main === module) main().catch((error) => { console.error(error); process.exitCode = 1; });

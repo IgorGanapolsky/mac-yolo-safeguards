@@ -27,8 +27,11 @@ The control plane rejects expired timestamps, reused nonces, revoked devices, an
 The connector also reads the authenticated Hermes session API on `127.0.0.1:8642`, the
 same contract used by Hermes Mobile. It syncs metadata for recent sessions and bounded
 recent-message snapshots for continuity. Existing-session work is sent back through
-`/api/sessions/:id/chat`; a web-created thread without a source session uses the local
-OpenAI-compatible model gateway. Gateway credentials and device private keys stay local.
+`/api/sessions/:id/chat`. A web-created thread is assigned a deterministic source-session
+ID by the control plane; the connector creates that session in Hermes when necessary,
+pins the active `terminal.cwd` from the local Hermes configuration, and then uses the same
+session-chat endpoint for every turn. There is no bare model-completion fallback. Gateway
+credentials, the configured workspace path, and device private keys stay local.
 
 This is continuity of a queued Hermes prompt and thread, not transparent migration of live process memory. Tool access available only on the Mac cannot be reproduced by the cloud runner unless an equivalent cloud integration is separately configured.
 

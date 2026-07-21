@@ -11,6 +11,7 @@ const billingPlan = readFileSync(new URL("../app/BillingPlan.tsx", import.meta.u
 const threadsRoute = readFileSync(new URL("../app/api/threads/route.ts", import.meta.url), "utf8");
 const sessionSyncRoute = readFileSync(new URL("../app/api/device/sessions/sync/route.ts", import.meta.url), "utf8");
 const tasksRoute = readFileSync(new URL("../app/api/tasks/route.ts", import.meta.url), "utf8");
+const taskLeases = readFileSync(new URL("../lib/task-leases.ts", import.meta.url), "utf8");
 const webPackage = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8"));
 const connector = readFileSync(new URL("../../../tools/hermes-cloud-connector.js", import.meta.url), "utf8");
 const installer = readFileSync(new URL("../../../saas/install-connector.sh", import.meta.url), "utf8");
@@ -38,6 +39,17 @@ test("reuses the local Hermes credential without putting it in launchd", () => {
   assert.match(connector, /parseDotEnvValue\(fs\.readFileSync\(envPath, 'utf8'\), 'API_SERVER_KEY'\)/);
   assert.doesNotMatch(installer, /<key>HERMES_GATEWAY_API_KEY<\/key>/);
   assert.doesNotMatch(installer, /<key>API_SERVER_KEY<\/key>/);
+});
+
+test("routes every web-created local task through a persistent Hermes session", () => {
+  assert.match(taskLeases, /webSessionIdForThread/);
+  assert.match(taskLeases, /source_session_id = \?/);
+  assert.match(taskLeases, /threadTitle: candidate\.threadTitle/);
+  assert.match(connector, /ensureWebHermesSession/);
+  assert.match(connector, /Active workspace \/ cwd/);
+  assert.match(connector, /\/api\/sessions\/\$\{encodeURIComponent\(task\.sourceSessionId\)\}\/chat/);
+  assert.doesNotMatch(connector, /\/v1\/chat\/completions/);
+  assert.doesNotMatch(connector, /HERMES_LOCAL_MODEL/);
 });
 
 test("automatically opens the first synced Hermes thread", () => {

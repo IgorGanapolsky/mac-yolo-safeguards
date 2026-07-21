@@ -1,6 +1,7 @@
 import { audit } from "./audit";
 import { db } from "./runtime";
 import { randomToken, sha256 } from "./security";
+import { webSessionIdForThread } from "./web-session";
 
 const LEASE_MS = 90_000;
 
@@ -8,6 +9,7 @@ interface TaskCandidate {
   id: string;
   organizationId: string;
   threadId: string;
+  threadTitle: string;
   prompt: string;
   leaseGeneration: number;
   sourceSessionId: string | null;
@@ -44,6 +46,7 @@ export async function claimTask(input: {
   id: string;
   organizationId: string;
   threadId: string;
+  threadTitle: string;
   prompt: string;
   leaseGeneration: number;
   sourceSessionId: string | null;
@@ -60,7 +63,7 @@ export async function claimTask(input: {
             AND (d.last_seen_at IS NULL OR d.last_seen_at < ?)))`;
   const params = input.route === "local" ? [input.deviceId!, now] : [now - 60_000, now];
   const candidate = await db().prepare(
-    `SELECT k.id, k.organization_id AS organizationId, k.thread_id AS threadId, k.prompt,
+    `SELECT k.id, k.organization_id AS organizationId, k.thread_id AS threadId, t.title AS threadTitle, k.prompt,
             k.lease_generation AS leaseGeneration, k.created_at AS createdAt,
             t.source_session_id AS sourceSessionId, t.context_snapshot AS contextSnapshot, t.synced_at AS syncedAt
        FROM tasks k JOIN threads t ON t.id = k.thread_id
@@ -70,6 +73,22 @@ export async function claimTask(input: {
       ORDER BY k.created_at ASC LIMIT 1`
   ).bind(...params).first<TaskCandidate>();
   if (!candidate) return null;
+
+  let sourceSessionId = candidate.sourceSessionId;
+  if (input.route === "local" && !sourceSessionId) {
+    sourceSessionId = webSessionIdForThread(candidate.threadId);
+    const binding = await db().prepare(
+      `UPDATE threads SET device_id = ?, source_session_id = ?, source = 'thumbgate-web'
+        WHERE id = ? AND organization_id = ? AND source_session_id IS NULL`
+    ).bind(input.deviceId!, sourceSessionId, candidate.threadId, candidate.organizationId).run();
+    if (binding.meta.changes !== 1) {
+      const current = await db().prepare(
+        "SELECT source_session_id AS sourceSessionId FROM threads WHERE id = ? AND organization_id = ?"
+      ).bind(candidate.threadId, candidate.organizationId).first<{ sourceSessionId: string | null }>();
+      if (!current?.sourceSessionId) throw new Error("Failed to persist the Hermes session binding");
+      sourceSessionId = current.sourceSessionId;
+    }
+  }
 
   const prior = await db().prepare(
     `SELECT prompt, result, created_at AS createdAt FROM tasks
@@ -97,8 +116,9 @@ export async function claimTask(input: {
     id: candidate.id,
     organizationId: candidate.organizationId,
     threadId: candidate.threadId,
+    threadTitle: candidate.threadTitle,
     prompt: candidate.prompt,
-    sourceSessionId: candidate.sourceSessionId,
+    sourceSessionId,
     contextMessages,
     handoffMessages: boundMessages(handoffMessages, 24_000),
     leaseGeneration: candidate.leaseGeneration + 1,
