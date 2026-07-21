@@ -32,6 +32,9 @@ export function resolveEffectiveMacHttpOk(input: {
   return true;
 }
 
+/** Default chip when unpaired relay / missing credentials and Mac HTTP is down. */
+export const NEEDS_PAIR_STATUS_LABEL = 'Pair in Settings';
+
 /** Header / status copy — relay WebSocket alone does not mean Chat can stream. */
 export function resolveChatLinkDisplay(input: {
   connectionState: LeashConnectionState;
@@ -42,6 +45,13 @@ export function resolveChatLinkDisplay(input: {
   /** Stale composer wrong-key banner — must never coexist with green Connected. */
   wrongKeyBannerActive?: boolean;
   chatStalled?: boolean;
+  /**
+   * Unpaired relay (or equivalent missing credentials) with no direct Mac HTTP.
+   * Must win over Connecting/Connected so Tailscale URL never looks like a live path.
+   */
+  needsPair?: boolean;
+  /** Preferred pair CTA when needsPair (e.g. routeStatusLabel from relayRouting). */
+  pairStatusLabel?: string;
 }): ChatLinkDisplay {
   // RELEASE BLOCK: Connected ⊕ wrong-key — never both.
   if (input.authMismatch || input.wrongKeyBannerActive) {
@@ -55,6 +65,14 @@ export function resolveChatLinkDisplay(input: {
   }
   if (input.macHttpOk) {
     return { label: 'Connected', chatReachable: true };
+  }
+  // Unpaired / missing credentials: never claim Connecting or Relay-only as a healthy path.
+  if (input.needsPair) {
+    const pairLabel =
+      input.pairStatusLabel?.trim() ||
+      input.disconnectedLabel?.trim() ||
+      NEEDS_PAIR_STATUS_LABEL;
+    return { label: pairLabel, chatReachable: false };
   }
   if (input.connectionState === 'connected') {
     return { label: 'Relay only', chatReachable: false };

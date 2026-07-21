@@ -8,6 +8,7 @@ import {
   assertUsbHeaderIdentityLaw,
   resolveHeaderTransportLabel,
   isUsbHeaderTransportAllowed,
+  shouldClaimHeaderTransport,
   USB_UNKNOWN_MACHINE_LABEL,
 } from '../utils/chatMachineHeader';
 
@@ -409,7 +410,7 @@ describe('resolveChatMachineHeaderDisplay', () => {
     expect(err).toMatch(/without live green\/amber/);
   });
 
-  it('shows generic USB label in relay mode when unpaired loopback and health red', () => {
+  it('suppresses USB transport in unpaired relay when Mac HTTP is down (needs pair, not USB path)', () => {
     const display = resolveChatMachineHeaderDisplay({
       activeProfile: {
         id: 'mac_usb',
@@ -431,7 +432,63 @@ describe('resolveChatMachineHeaderDisplay', () => {
       savedMacCount: 1,
     });
     expect(display.machineLabel).toBe(USB_UNKNOWN_MACHINE_LABEL);
-    expect(display.machineEndpoint).toBe('USB');
+    expect(display.machineEndpoint).toBeUndefined();
+    expect(shouldClaimHeaderTransport({
+      connectionMode: 'relay',
+      isPaired: false,
+      health: { level: 'red', checkedAt: '2026-06-24T00:00:00.000Z' },
+    })).toBe(false);
+  });
+
+  it('never claims Tailscale transport while unpaired relay and Mac HTTP is down', () => {
+    const display = resolveChatMachineHeaderDisplay({
+      activeProfile: {
+        id: 'mac_ts',
+        label: 'Igors-MacBook-Pro',
+        gatewayUrl: 'http://100.87.85.85:8642',
+        hostname: 'Igors-MacBook-Pro.local',
+        addedAt: '2026-07-20T00:00:00.000Z',
+      },
+      gatewayUrl: 'http://100.87.85.85:8642',
+      health: {
+        level: 'red',
+        checkedAt: '2026-07-20T00:00:00.000Z',
+        hostname: 'Igors-MacBook-Pro.local',
+        directGatewayReachable: false,
+      },
+      connectionMode: 'relay',
+      isPaired: false,
+      workers: [],
+      savedMacCount: 1,
+    });
+    expect(display.machineLabel).toBe('Igors-MacBook-Pro');
+    expect(display.machineEndpoint).toBeUndefined();
+    expect(formatChatMachineHeaderLine(display)).toBe('Igors-MacBook-Pro');
+    expect(formatChatMachineHeaderLine(display)).not.toContain('Tailscale');
+  });
+
+  it('keeps Tailscale transport when unpaired relay but direct Mac HTTP is up', () => {
+    const display = resolveChatMachineHeaderDisplay({
+      activeProfile: {
+        id: 'mac_ts',
+        label: 'Igors-MacBook-Pro',
+        gatewayUrl: 'http://100.87.85.85:8642',
+        hostname: 'Igors-MacBook-Pro.local',
+        addedAt: '2026-07-20T00:00:00.000Z',
+      },
+      gatewayUrl: 'http://100.87.85.85:8642',
+      health: {
+        level: 'green',
+        checkedAt: '2026-07-20T00:00:00.000Z',
+        hostname: 'Igors-MacBook-Pro.local',
+        directGatewayReachable: true,
+      },
+      connectionMode: 'relay',
+      isPaired: false,
+      workers: [],
+      savedMacCount: 1,
+    });
+    expect(display.machineEndpoint).toBe('Tailscale');
   });
 
   it('shows friendly Mac name with Tailscale route detail when connected via MagicDNS', () => {
@@ -651,6 +708,49 @@ describe('resolveHeaderTransportLabel / USB allow rule', () => {
     expect(display.machineEndpoint).toBe('Tailscale');
     expect(formatChatMachineHeaderLine(display)).toBe('Igors-Mac-mini · Tailscale');
     expect(formatChatMachineHeaderLine(display).toLowerCase()).not.toContain('usb');
+  });
+
+  it('names the live Mac when sticky activeProfile URL disagrees with gatewayUrl (Reach out goal)', () => {
+    const display = resolveChatMachineHeaderDisplay({
+      activeProfile: {
+        id: 'mac_book',
+        label: 'Igors-MacBook-Pro',
+        gatewayUrl: 'http://100.87.85.85:8642',
+        hostname: 'Igors-MacBook-Pro.local',
+        addedAt: '2026-07-20T00:00:00.000Z',
+      },
+      gatewayUrl: 'http://100.94.135.78:8642',
+      health: {
+        level: 'green',
+        checkedAt: '2026-07-20T22:20:00.000Z',
+        hostname: 'Igors-Mac-mini.local',
+        directGatewayReachable: true,
+      },
+      connectionMode: 'gateway',
+      isPaired: true,
+      workers: [],
+      savedMacCount: 2,
+      profiles: [
+        {
+          id: 'mac_book',
+          label: 'Igors-MacBook-Pro',
+          gatewayUrl: 'http://100.87.85.85:8642',
+          hostname: 'Igors-MacBook-Pro.local',
+          addedAt: '2026-07-20T00:00:00.000Z',
+        },
+        {
+          id: 'mac_mini',
+          label: 'Igors-Mac-mini',
+          gatewayUrl: 'http://100.94.135.78:8642',
+          hostname: 'Igors-Mac-mini.local',
+          addedAt: '2026-07-20T00:00:00.000Z',
+        },
+      ],
+      wifiConnected: false,
+    });
+    expect(display.machineLabel).toBe('Igors-Mac-mini');
+    expect(display.machineLabel).not.toContain('MacBook');
+    expect(display.machineEndpoint).toBe('Tailscale');
   });
 });
 

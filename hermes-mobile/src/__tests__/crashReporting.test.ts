@@ -2,6 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   __setPosthogConfigForTesting,
   buildCrashRecord,
+  buildPostHogExceptionCapture,
   captureCrash,
   clearCrashQueue,
   enqueueCrash,
@@ -117,9 +118,27 @@ describe('crashReporting', () => {
       expect(result.retained).toBe(0);
       expect(await getCrashQueue()).toEqual([]);
       expect(global.fetch).toHaveBeenCalledTimes(1);
-      const body = JSON.parse((global.fetch as jest.Mock).mock.calls[0][1].body);
+      const [url, init] = (global.fetch as jest.Mock).mock.calls[0];
+      expect(url).toContain('/i/v0/e/');
+      const body = JSON.parse(init.body);
       expect(body.api_key).toBe('phc_test_key');
-      expect(body.event).toBe('ui_crash');
+      expect(body.event).toBe('$exception');
+      expect(body.distinct_id).toBe('hermes-mobile-crash');
+      expect(body.properties.$exception_list[0].value).toBe('will flush');
+      expect(body.properties.hermes_crash_kind).toBe('ui_crash');
+    });
+
+    it('buildPostHogExceptionCapture shapes Error Tracking fields', () => {
+      __setPosthogConfigForTesting({ key: 'phc_test_key' });
+      const record = buildCrashRecord('js_fatal_crash', new Error('boom'));
+      const payload = buildPostHogExceptionCapture(record);
+      expect(payload.event).toBe('$exception');
+      const exceptionList = payload.properties.$exception_list as Array<{
+        type: string;
+        mechanism: { handled: boolean };
+      }>;
+      expect(exceptionList[0].type).toBe('Error');
+      expect(exceptionList[0].mechanism.handled).toBe(false);
     });
 
     it('retains crashes on network failure for the next launch', async () => {

@@ -101,10 +101,8 @@ import {
 import { fetchVaultProjectCatalog } from '../services/vaultProjects';
 import {
   clearPendingContinuityHandoff,
-  loadContinuityChipDismissed,
   loadPendingContinuityHandoff,
   savePendingContinuityHandoff,
-  setContinuityChipDismissed,
 } from '../services/sessionContinuityStorage';
 import {
   fetchSessionContinuityHandoff,
@@ -114,11 +112,9 @@ import { filterChatProjects } from '../utils/filterChatProjects';
 import type { VaultProjectCatalog } from '../types/vaultProject';
 import { storage } from '../services/storage';
 import { buildMobileChatSystemPrompt } from '../utils/workspacePrompt';
-import ContinuingFromSessionChip from '../components/ContinuingFromSessionChip';
 import {
   buildSessionContinuityHandoff,
   continuityTitleFromHandoff,
-  shouldShowContinuityChip,
   shouldSkipAutoRetitleForContinuity,
   type SessionContinuityHandoff,
 } from '../utils/sessionContinuityHandoff';
@@ -154,6 +150,7 @@ import {
   dedupeAdjacentOptimisticUserBubbles,
   findPendingOptimisticUserBubble,
   findReusableOptimisticUserBubble,
+  findSentOptimisticUserBubbleAwaitingReply,
   isOutboundTurnStillPending,
   reactivateOptimisticUserBubble,
   shouldIgnoreDuplicateOutboundSend,
@@ -200,13 +197,16 @@ import {
   classifyRunStale,
   isTerminalGatewayRunStatus,
   msUntilNoTokenFail,
+  msUntilRunHardTimeout,
   msUntilRunStaleAutoFail,
   msUntilStreamIdleFail,
+  RUN_HARD_TIMEOUT_DETAIL,
   RUN_NO_TOKEN_FAIL_DETAIL,
   RUN_STREAM_IDLE_FAIL_DETAIL,
   RUN_STALE_TIMEOUT_DETAIL,
   shouldFailRunAwaitingFirstToken,
   shouldFailRunForStreamIdle,
+  shouldHardTimeoutRun,
 } from '../utils/runStaleDetection';
 import { isChatAtTop, isChatNearBottom } from '../utils/chatScrollSync';
 import {
@@ -348,6 +348,7 @@ import {
 import { probeLiveUsbGateway } from '../services/gatewayDiscovery';
 import { isGatewayLiveForDelivery } from '../utils/outboundDeliveryStatus';
 import {
+  OUTBOUND_HARD_TIMEOUT_MS,
   OUTBOUND_PENDING_RECOVERY_MS,
   OUTBOUND_SEND_LOCK_TIMEOUT_MS,
   OUTBOUND_STUCK_FAILURE_REASON,
@@ -414,8 +415,10 @@ import {
 } from '../utils/emptyStreamReplyRecovery';
 import { shouldShowEmptyStreamRefreshCta } from '../utils/emptyStreamRefreshCta';
 import {
+  msUntilLivePromptHardTimeout,
   resolveLastUserPromptSentAtMs,
   resolvePromptReplyElapsedState,
+  shouldHardTimeoutLivePromptWait,
 } from '../utils/promptReplyElapsed';
 import { extractTerminalActivityFromMessage, isTerminalToolName } from '../utils/terminalActivity';
 import type { ChatMessageContent, ComposerAttachment } from '../types/chatAttachment';
@@ -611,7 +614,6 @@ export default function ChatScreen() {
   const isStartingFreshChatRef = useRef(false);
   /** Pending vault/local handoff so a fresh chat can pick up where the last session left off. */
   const [continuityHandoff, setContinuityHandoff] = useState<SessionContinuityHandoff | null>(null);
-  const [continuityChipDismissed, setContinuityChipDismissedState] = useState(false);
   const continuityHandoffRef = useRef<SessionContinuityHandoff | null>(null);
   continuityHandoffRef.current = continuityHandoff;
   /** HTTP chat stream in flight — keep WS from clearing runProgress before first token. */
@@ -863,6 +865,15 @@ export default function ChatScreen() {
     pinnedOutboundStatusRef.current === 'pending' &&
     Boolean(pinnedOutboundTextRef.current?.trim()) &&
     normalizeMessageText(pinnedOutboundTextRef.current ?? '') === normalizedIncoming.trim();
+
+  /** Delivered to Mac, still waiting on assistant — never re-POST the same body. */
+  const isOutboundTurnAwaitingReplyForText = (normalizedIncoming: string): boolean =>
+    pinnedOutboundStatusRef.current === 'sent' &&
+    Boolean(pinnedOutboundTextRef.current?.trim()) &&
+    normalizeMessageText(pinnedOutboundTextRef.current ?? '') === normalizedIncoming.trim() &&
+    Boolean(
+      findSentOptimisticUserBubbleAwaitingReply(messagesRef.current, normalizedIncoming),
+    );
 
   const commitMessages = useCallback((updater: React.SetStateAction<HermesMessage[]>) => {
     setMessages((prev) => {
@@ -1924,7 +1935,6 @@ export default function ChatScreen() {
     return () => clearInterval(timer);
   }, [undoSecondsLeft]);
 
-  const continuityTranscriptEmpty = messages.length === 0;
   /** Live prompt for sends — reads refs so Start-fresh handoff is not a stale render closure. */
   const buildCurrentMobileChatSystemPrompt = useCallback(
     (userTextForInject?: string) =>
@@ -1945,14 +1955,8 @@ export default function ChatScreen() {
   useEffect(() => {
     let cancelled = false;
     void (async () => {
-      const [local, dismissed] = await Promise.all([
-        loadPendingContinuityHandoff(),
-        loadContinuityChipDismissed(),
-      ]);
+      const local = await loadPendingContinuityHandoff();
       if (cancelled) return;
-      // Apply dismiss even when the handoff payload was cleared on Dismiss —
-      // otherwise a remount/refetch races with remote save and resurrects the chip.
-      setContinuityChipDismissedState(dismissed);
       if (local) {
         setContinuityHandoff(local);
       }
@@ -1962,7 +1966,6 @@ export default function ChatScreen() {
       await savePendingContinuityHandoff(remote);
       if (cancelled) return;
       setContinuityHandoff(remote);
-      setContinuityChipDismissedState(await loadContinuityChipDismissed());
     })();
     return () => {
       cancelled = true;
@@ -1982,7 +1985,6 @@ export default function ChatScreen() {
     });
     if (!handoff) return null;
     setContinuityHandoff(handoff);
-    setContinuityChipDismissedState(false);
     await savePendingContinuityHandoff(handoff);
     if (!isDemo && gatewayUrl) {
       void postSessionContinuityHandoff(gatewayUrl, handoff).catch(() => {});
@@ -1996,25 +1998,13 @@ export default function ChatScreen() {
     machineHeaderDisplay.machineLabel,
   ]);
 
-  const dismissContinuityChip = useCallback(() => {
-    setContinuityChipDismissedState(true);
-    setContinuityHandoff(null);
-    continuityHandoffRef.current = null;
-    // Capture dismissed writtenAt while payload still exists, then clear payload only.
-    void (async () => {
-      await setContinuityChipDismissed(true);
-      await clearPendingContinuityHandoff({ preserveDismiss: true });
-    })();
-  }, []);
-
   const consumeContinuityHandoffAfterSend = useCallback(() => {
     if (!continuityHandoffRef.current) {
       return;
     }
     setContinuityHandoff(null);
     continuityHandoffRef.current = null;
-    setContinuityChipDismissedState(true);
-    // Consumed: clear dismiss identity so a later identical remote write can show again.
+    // Consumed on send — clear local pending so the next Start-fresh writes a new handoff.
     void clearPendingContinuityHandoff();
   }, []);
 
@@ -3111,6 +3101,14 @@ export default function ChatScreen() {
       return;
     }
     const startedAt = sendStartedAtRef.current;
+    const delayMs = Math.min(
+      OUTBOUND_HARD_TIMEOUT_MS,
+      OUTBOUND_SEND_LOCK_TIMEOUT_MS,
+      Math.max(
+        0,
+        OUTBOUND_HARD_TIMEOUT_MS - (Date.now() - startedAt),
+      ),
+    );
     const timer = setTimeout(() => {
       if (!isSendingRef.current) {
         return;
@@ -3124,6 +3122,8 @@ export default function ChatScreen() {
       }
       isSendingRef.current = false;
       setIsSending(false);
+      activeChatStreamRef.current = false;
+      setIsChatStreamActive(false);
       failPendingOutboundBubbles(OUTBOUND_STUCK_FAILURE_REASON);
       setRunProgress((prev) =>
         prev && prev.phase !== 'completed' && prev.phase !== 'failed'
@@ -3131,12 +3131,12 @@ export default function ChatScreen() {
           : prev,
       );
       haptics.warning();
-    }, OUTBOUND_SEND_LOCK_TIMEOUT_MS);
+    }, delayMs);
     return () => clearTimeout(timer);
   }, [failPendingOutboundBubbles, isDemo, isSending, setRunProgress]);
 
   useEffect(() => {
-    if (isDemo || isSending || activeChatStreamRef.current) {
+    if (isDemo) {
       return;
     }
     const pendingMessages = messages.filter(
@@ -3147,9 +3147,6 @@ export default function ChatScreen() {
     }
 
     const recoverIfStuck = () => {
-      if (isSendingRef.current || activeChatStreamRef.current) {
-        return;
-      }
       const stuckIds = findStuckPendingOutboundIds(messagesRef.current, Date.now(), {
         isSending: isSendingRef.current,
         streamInFlight: activeChatStreamRef.current,
@@ -3157,6 +3154,10 @@ export default function ChatScreen() {
       if (stuckIds.length === 0) {
         return;
       }
+      isSendingRef.current = false;
+      setIsSending(false);
+      activeChatStreamRef.current = false;
+      setIsChatStreamActive(false);
       commitMessages((prev) =>
         applyStuckOutboundRecovery(prev, stuckIds, OUTBOUND_STUCK_FAILURE_REASON),
       );
@@ -3179,19 +3180,88 @@ export default function ChatScreen() {
     };
 
     const now = Date.now();
-    let delayMs = OUTBOUND_PENDING_RECOVERY_MS;
+    let delayMs = OUTBOUND_HARD_TIMEOUT_MS;
     for (const message of pendingMessages) {
       const created = Date.parse(message.created_at ?? '');
       if (!Number.isFinite(created)) {
         delayMs = 5_000;
         break;
       }
-      delayMs = Math.min(delayMs, Math.max(0, created + OUTBOUND_PENDING_RECOVERY_MS - now));
+      delayMs = Math.min(
+        delayMs,
+        Math.max(0, created + OUTBOUND_HARD_TIMEOUT_MS - now),
+        Math.max(0, created + OUTBOUND_PENDING_RECOVERY_MS - now),
+      );
     }
 
     const timer = setTimeout(recoverIfStuck, delayMs);
     return () => clearTimeout(timer);
   }, [commitMessages, isDemo, isSending, messages, setRunProgress]);
+
+  // Live "Waiting Xm" with no runProgress / stuck SSE — hard-fail so Connected≠Waiting forever.
+  useEffect(() => {
+    if (isDemo) {
+      return;
+    }
+    const lastUserIndex = (() => {
+      for (let i = messages.length - 1; i >= 0; i -= 1) {
+        if (messages[i]?.role?.toLowerCase() === 'user') {
+          return i;
+        }
+      }
+      return -1;
+    })();
+    if (lastUserIndex < 0) {
+      return;
+    }
+    const elapsed = resolvePromptReplyElapsedState({ messages, userIndex: lastUserIndex });
+    if (elapsed.mode !== 'live') {
+      return;
+    }
+    const applyHardTimeout = () => {
+      if (!shouldHardTimeoutLivePromptWait(elapsed.sinceMs)) {
+        return;
+      }
+      isSendingRef.current = false;
+      setIsSending(false);
+      activeChatStreamRef.current = false;
+      setIsChatStreamActive(false);
+      awaitingGatewayReplyRef.current = false;
+      setAwaitingGatewayReply(false);
+      failPendingOutboundBubbles(RUN_HARD_TIMEOUT_DETAIL);
+      setRunProgress((prev) =>
+        prev && prev.phase !== 'completed' && prev.phase !== 'failed'
+          ? {
+              ...prev,
+              phase: 'failed',
+              detail: RUN_HARD_TIMEOUT_DETAIL,
+              duration: Math.max(0, (Date.now() - prev.startedAtMs) / 1000),
+            }
+          : prev,
+      );
+      const runIds = [
+        runProgressRef.current?.runId,
+        sendProgressSnapshotRef.current?.runId,
+      ].filter((id): id is string => Boolean(id?.trim()));
+      if (gatewayUrl.trim() && runIds.length > 0) {
+        void releaseMacOperatorSlot(gatewayUrl, apiKey, runIds).catch(() => {});
+      }
+      haptics.warning();
+    };
+    if (shouldHardTimeoutLivePromptWait(elapsed.sinceMs)) {
+      applyHardTimeout();
+      return;
+    }
+    const timer = setTimeout(applyHardTimeout, msUntilLivePromptHardTimeout(elapsed.sinceMs));
+    return () => clearTimeout(timer);
+  }, [
+    apiKey,
+    failPendingOutboundBubbles,
+    gatewayUrl,
+    isDemo,
+    messages,
+    setRunProgress,
+  ]);
 
   useEffect(() => {
     return () => {
@@ -4252,6 +4322,7 @@ export default function ChatScreen() {
         normalizedActiveSend: activeOutboundSendBodyRef.current,
         normalizedPendingClaim: pendingOutboundClaimRef.current,
         outboundStillPending: isOutboundTurnPendingForText(normalized),
+        outboundAwaitingReply: isOutboundTurnAwaitingReplyForText(normalized),
       });
     },
     [],
@@ -4805,6 +4876,7 @@ export default function ChatScreen() {
         normalizedLastCommitted: lastCommittedOutboundBodyRef.current,
         normalizedActiveSend: activeOutboundSendBodyRef.current,
         outboundStillPending: isOutboundTurnPendingForText(normalizedDisplay),
+        outboundAwaitingReply: isOutboundTurnAwaitingReplyForText(normalizedDisplay),
       })
     ) {
       // No-op: composer may already be cleared by handleSendMessage — restore via false.
@@ -6564,46 +6636,43 @@ export default function ChatScreen() {
       return;
     }
     const noTokenOpts = { streamInFlight: activeChatStreamRef.current };
-    if (shouldFailRunAwaitingFirstToken(progress, Date.now(), noTokenOpts)) {
+    const failNoToken = (current: NonNullable<typeof progress>) => {
+      const detail = shouldHardTimeoutRun(current, Date.now())
+        ? RUN_HARD_TIMEOUT_DETAIL
+        : RUN_NO_TOKEN_FAIL_DETAIL;
       isSendingRef.current = false;
       setIsSending(false);
+      activeChatStreamRef.current = false;
+      setIsChatStreamActive(false);
       clearDeferredTelegramPoll();
-      failPendingOutboundBubbles(RUN_NO_TOKEN_FAIL_DETAIL);
+      failPendingOutboundBubbles(detail);
       setRunProgress((prev) =>
         prev && isActiveChatRun(prev)
           ? {
               ...prev,
               phase: 'failed',
-              detail: RUN_NO_TOKEN_FAIL_DETAIL,
+              detail,
               duration: Math.max(0, (Date.now() - prev.startedAtMs) / 1000),
             }
           : prev,
       );
       haptics.warning();
+    };
+    if (shouldFailRunAwaitingFirstToken(progress, Date.now(), noTokenOpts)) {
+      failNoToken(progress);
       return;
     }
-    const waitMs = msUntilNoTokenFail(progress, Date.now(), noTokenOpts);
+    const waitMs = Math.min(
+      msUntilNoTokenFail(progress, Date.now(), noTokenOpts),
+      msUntilRunHardTimeout(progress, Date.now()),
+    );
     const timer = setTimeout(() => {
       const current = runProgressRef.current;
       const opts = { streamInFlight: activeChatStreamRef.current };
       if (!current || !shouldFailRunAwaitingFirstToken(current, Date.now(), opts)) {
         return;
       }
-      isSendingRef.current = false;
-      setIsSending(false);
-      clearDeferredTelegramPoll();
-      failPendingOutboundBubbles(RUN_NO_TOKEN_FAIL_DETAIL);
-      setRunProgress((prev) =>
-        prev && isActiveChatRun(prev)
-          ? {
-              ...prev,
-              phase: 'failed',
-              detail: RUN_NO_TOKEN_FAIL_DETAIL,
-              duration: Math.max(0, (Date.now() - prev.startedAtMs) / 1000),
-            }
-          : prev,
-      );
-      haptics.warning();
+      failNoToken(current);
     }, waitMs);
     return () => clearTimeout(timer);
   }, [
@@ -6754,6 +6823,12 @@ export default function ChatScreen() {
           }
           authMismatch={effectiveAuthMismatch}
           wrongKeyBannerActive={wrongKeyBannerActive}
+          needsPair={
+            settings.connectionMode === 'relay' &&
+            !isPaired &&
+            !effectiveMacHttpOk &&
+            !effectiveAuthMismatch
+          }
           isDemo={isDemo}
           chatStalled={effectiveAuthMismatch ? false : chatStalled}
           activeAgents={activeAgents}
@@ -7081,15 +7156,6 @@ export default function ChatScreen() {
             </Pressable>
           </View>
         ) : null}
-
-        <ContinuingFromSessionChip
-          visible={shouldShowContinuityChip({
-            handoff: continuityHandoff,
-            chipDismissed: continuityChipDismissed,
-            transcriptEmpty: continuityTranscriptEmpty,
-          })}
-          onDismiss={dismissContinuityChip}
-        />
 
         {showEmptyStreamRefreshBanner && !showComposerProgressBanner ? (
           <EmptyStreamRefreshBanner

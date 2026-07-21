@@ -322,6 +322,23 @@ describe('tonight recurrence gates (2026-07-14 P0 class — S16-S23)', () => {
     expect(ctxSrc).toContain('Catalog-only (e.g. Pro USB while mini is active)');
   });
 
+  it('S27: Tailscale→USB handoff prefers USB for same Mac without clearing session (#product-lock)', () => {
+    const handoffSrc = read('hermes-mobile/src/utils/usbTransportHandoff.ts');
+    const ctxSrc = read('hermes-mobile/src/context/GatewayContext.tsx');
+    expect(handoffSrc).toContain('resolveUsbTransportHandoff');
+    expect(handoffSrc).toContain('foreign_usb_host');
+    expect(handoffSrc).toContain('usbHandoffPreservesConversation');
+    expect(ctxSrc).toContain('maybeHandoffTailscaleToUsb');
+    expect(ctxSrc).toContain('keep Tailscale/LAN identity');
+    // Handoff must mutate effective URL in place — picker select clears session/messages.
+    const handoffFn = ctxSrc.slice(
+      ctxSrc.indexOf('const maybeHandoffTailscaleToUsb = useCallback'),
+      ctxSrc.indexOf('const connectGatewayWebSocket = useCallback'),
+    );
+    expect(handoffFn).toContain('setEffectiveGatewayUrl(confirmed.usbGatewayUrl)');
+    expect(handoffFn).not.toContain('selectGatewayProfile(');
+  });
+
   it('S18: Choose your computer picker renders every discovered machine, even before hostname resolves (#389)', () => {
     // Reproduces the exact P0 shape: "Find computers" reports foundCount=2, but the second
     // machine has no resolved hostname yet, is not the active profile, and was never
@@ -581,5 +598,21 @@ describe('tonight recurrence gates (2026-07-14 P0 class — S16-S23)', () => {
     );
     const app = JSON.parse(read('hermes-mobile/app.json'));
     expect(app.expo.android.allowBackup).toBe(false);
+  });
+
+  it('S28: unpaired relay never claims Tailscale/Connecting as the live path (2026-07-20 misdiagnosis)', () => {
+    const header = read('hermes-mobile/src/utils/chatMachineHeader.ts');
+    expect(header).toContain('export function shouldClaimHeaderTransport');
+    expect(header).toMatch(/connectionMode === 'relay' && !input\.isPaired/);
+    const link = read('hermes-mobile/src/utils/gatewayConnection.ts');
+    expect(link).toContain('needsPair');
+    expect(link).toContain('NEEDS_PAIR_STATUS_LABEL');
+    const pairPolicy = read('hermes-mobile/src/utils/connectionErrorPolicy.ts');
+    expect(pairPolicy).toContain('tailnet presence ≠ app paired');
+    const chatHeader = read('hermes-mobile/src/components/ChatScreenHeader.tsx');
+    expect(chatHeader).toContain('needsPair');
+    const chatScreen = read('hermes-mobile/src/screens/ChatScreen.tsx');
+    expect(chatScreen).toMatch(/needsPair=\{/);
+    expect(chatScreen).toMatch(/connectionMode === 'relay'/);
   });
 });
