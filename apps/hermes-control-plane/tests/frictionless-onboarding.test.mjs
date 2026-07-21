@@ -11,6 +11,7 @@ const billingPlan = readFileSync(new URL("../app/BillingPlan.tsx", import.meta.u
 const threadsRoute = readFileSync(new URL("../app/api/threads/route.ts", import.meta.url), "utf8");
 const sessionSyncRoute = readFileSync(new URL("../app/api/device/sessions/sync/route.ts", import.meta.url), "utf8");
 const tasksRoute = readFileSync(new URL("../app/api/tasks/route.ts", import.meta.url), "utf8");
+const threadMessagesRoute = readFileSync(new URL("../app/api/thread-messages/route.ts", import.meta.url), "utf8");
 const taskLeases = readFileSync(new URL("../lib/task-leases.ts", import.meta.url), "utf8");
 const threadOperations = readFileSync(new URL("../lib/thread-operations.ts", import.meta.url), "utf8");
 const operationClaimRoute = readFileSync(new URL("../app/api/device/thread-operations/claim/route.ts", import.meta.url), "utf8");
@@ -96,6 +97,11 @@ test("matches Hermes Mobile chat management with persistent rename, delete, and 
   assert.match(threadsRoute, /export async function DELETE/);
   assert.match(threadsRoute, /COALESCE\(t\.title_override, t\.title\) AS title/);
   assert.match(threadsRoute, /t\.deleted_at IS NULL/);
+  assert.match(tasksRoute, /COALESCE\(t\.title_override, t\.title\) AS threadTitle/);
+  assert.match(tasksRoute, /t\.deleted_at IS NULL/);
+  assert.match(tasksRoute, /organization_id = \? AND deleted_at IS NULL/);
+  assert.match(threadMessagesRoute, /COALESCE\(title_override, title\) AS title/);
+  assert.match(threadMessagesRoute, /organization_id = \? AND deleted_at IS NULL/);
   assert.match(threadOperations, /title_override/);
   assert.match(threadOperations, /deleted_at/);
   assert.match(threadOperations, /operation: "clear_all"/);
