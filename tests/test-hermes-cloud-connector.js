@@ -18,7 +18,9 @@ const {
   pairingDashboardUrl,
   pairingMatchesControlPlane,
   parseDotEnvValue,
+  parseTerminalCwd,
   resolveGatewayApiKey,
+  resolveWorkspacePath,
   saveConfig,
   selectContextSessionIds,
   signedHeaders,
@@ -61,6 +63,22 @@ test('loads the existing local gateway credential without copying it into connec
   assert.equal(gatewayHeaders({ env: {}, envPath }).authorization, 'Bearer local-only-key');
   assert.equal(resolveGatewayApiKey({ env: { HERMES_GATEWAY_API_KEY: 'explicit-key' }, envPath }), 'explicit-key');
   assert.equal(gatewayHeaders({ env: {}, envPath: path.join(root, 'missing') }).authorization, undefined);
+});
+
+test('reads only the active Hermes terminal workspace from config', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'hermes-workspace-'));
+  const configPath = path.join(root, 'config.yaml');
+  fs.writeFileSync(configPath, [
+    'model: glm-coding',
+    'terminal:',
+    '  backend: local',
+    '  cwd: "/Users/example/projects/ThumbGate" # active project',
+    'browser:',
+    '  cwd: /not-the-terminal-project',
+  ].join('\n'));
+  assert.equal(parseTerminalCwd(fs.readFileSync(configPath, 'utf8')), '/Users/example/projects/ThumbGate');
+  assert.equal(resolveWorkspacePath({ hermesConfigPath: configPath }, { env: {} }), '/Users/example/projects/ThumbGate');
+  assert.equal(resolveWorkspacePath({}, { env: { HERMES_WORKSPACE_PATH: '/explicit/project' }, configPath }), '/explicit/project');
 });
 
 test('pairing link opens the signed-in dashboard with a prefilled short code', () => {
@@ -182,4 +200,59 @@ test('resumes the existing Hermes session and carries cloud handoff context', as
   });
   assert.equal(received.message, 'finish it');
   assert.match(received.system_message, /cloud result/);
+});
+
+test('creates a persistent Hermes web session and pins the configured project workspace', async () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'hermes-web-session-'));
+  const hermesConfigPath = path.join(root, 'config.yaml');
+  fs.writeFileSync(hermesConfigPath, 'terminal:\n  cwd: /Users/example/workspace/git/igor/mac-yolo-safeguards\n');
+  const requests = [];
+  await withServer((request, response) => {
+    let body = '';
+    request.on('data', (chunk) => { body += chunk; });
+    request.on('end', () => {
+      const parsed = body ? JSON.parse(body) : null;
+      requests.push({ method: request.method, url: request.url, body: parsed });
+      response.setHeader('content-type', 'application/json');
+      if (request.method === 'GET' && request.url === '/api/sessions/thumbgate_thread-1') {
+        response.statusCode = 404;
+        response.end(JSON.stringify({ error: { code: 'session_not_found', message: 'Session not found' } }));
+        return;
+      }
+      if (request.method === 'POST' && request.url === '/api/sessions') {
+        response.statusCode = 201;
+        response.end(JSON.stringify({ session: { id: parsed.id } }));
+        return;
+      }
+      if (request.method === 'POST' && request.url === '/api/sessions/thumbgate_thread-1/chat') {
+        response.end(JSON.stringify({ message: { role: 'assistant', content: 'Active project: mac-yolo-safeguards' } }));
+        return;
+      }
+      response.statusCode = 404;
+      response.end(JSON.stringify({ error: 'unexpected request' }));
+    });
+  }, async (sessionGatewayUrl) => {
+    const result = await executeLocal(
+      { sessionGatewayUrl, hermesConfigPath },
+      { sourceSessionId: 'thumbgate_thread-1', threadTitle: 'which project are you on?', prompt: 'which project are you on?', handoffMessages: [] },
+    );
+    assert.equal(result, 'Active project: mac-yolo-safeguards');
+  });
+  assert.deepEqual(requests.map((request) => `${request.method} ${request.url}`), [
+    'GET /api/sessions/thumbgate_thread-1',
+    'POST /api/sessions',
+    'POST /api/sessions/thumbgate_thread-1/chat',
+  ]);
+  assert.equal(requests[1].body.id, 'thumbgate_thread-1');
+  assert.equal(requests[1].body.title, 'which project are you on?');
+  assert.match(requests[1].body.system_prompt, /Active workspace \/ cwd: \/Users\/example\/workspace\/git\/igor\/mac-yolo-safeguards/);
+  assert.match(requests[2].body.system_message, /Do not identify yourself as only the underlying model vendor/);
+  assert.match(requests[2].body.system_message, /If asked which project is active/);
+});
+
+test('fails closed instead of sending an unbound task to a bare model completion', async () => {
+  await assert.rejects(
+    executeLocal({ sessionGatewayUrl: 'http://127.0.0.1:1' }, { prompt: 'which project?' }),
+    /missing its Hermes session binding/,
+  );
 });
