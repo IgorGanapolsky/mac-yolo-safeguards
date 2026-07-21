@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { BillingPlan } from "./BillingPlan";
 import { FunnelSignals } from "./FunnelSignals";
 
 function Mark() {
@@ -16,7 +17,6 @@ export default function Home() {
     description: "Hermes chats and Leash controls on the web, with signed machine pairing and fenced cloud continuation.",
     offers: [
       { "@type": "Offer", name: "Web Control", price: "0", priceCurrency: "USD" },
-      { "@type": "Offer", name: "Cloud Continuity", price: "29", priceCurrency: "USD" },
     ],
   };
 
@@ -97,7 +97,7 @@ export default function Home() {
         <div className="pricing-copy"><p className="eyebrow">Free control. Paid continuity.</p><h2>Pay for the infrastructure that keeps working.</h2><p>Web control of your own online Hermes machine stays free. Managed cloud execution is the paid product.</p></div>
         <div className="price-grid">
           <article className="price-card"><div><span>Web Control</span><strong>$0<small>/month</small></strong></div><ul><li>Signed machine pairing</li><li>Synced Hermes threads</li><li>Local task continuation while online</li><li>Pause or ask when offline</li></ul><Link href="/api/auth/login" className="button button-secondary" data-funnel-event="free_control_click">Use web control free →</Link></article>
-          <article className="price-card featured"><div><span>Cloud Continuity</span><strong>$29<small>/month</small></strong></div><ul><li>Everything in Web Control</li><li>100 cloud continuations every 30 days</li><li>Automatic fenced failover</li><li>14-day trial with 5 cloud runs</li></ul><Link href="/api/auth/login" className="button button-primary" data-funnel-event="cloud_continuity_click">Try cloud continuity →</Link></article>
+          <article className="price-card featured"><div><span>Cloud Continuity</span><BillingPlan /></div><ul><li>Everything in Web Control</li><li>100 cloud continuations every 30 days</li><li>Automatic fenced failover</li><li>14-day trial with 5 cloud runs</li></ul><Link href="/api/auth/login" className="button button-primary" data-funnel-event="cloud_continuity_click">Try cloud continuity →</Link></article>
         </div>
       </section>
 

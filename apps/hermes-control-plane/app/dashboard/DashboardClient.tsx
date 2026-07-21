@@ -143,6 +143,14 @@ export default function DashboardClient() {
     setBusy(false);
   }
 
+  async function manageBilling() {
+    setBusy(true);
+    const response = await fetch("/api/billing/portal", { method: "POST" });
+    const body = await response.json() as { url?: string; error?: string };
+    if (response.ok && body.url) window.location.href = body.url; else setNotice(body.error ?? "Billing management is unavailable");
+    setBusy(false);
+  }
+
   async function copyInstaller() {
     try {
       await navigator.clipboard.writeText(connectorInstallCommand);
@@ -167,7 +175,7 @@ export default function DashboardClient() {
       </aside>
 
       <section className="dashboard-main">
-        <header className="dashboard-header"><div><p className="eyebrow">HERMES WEB</p><h1>{selectedThread ? threads.find((thread) => thread.id === selectedThread)?.title : "Your Hermes workspace"}</h1></div><div className="header-actions"><span className="status-chip online"><i /> ThumbGate online</span><button className="button button-small button-secondary" onClick={() => void subscribe()} disabled={busy}>{organization.cloudAccess ? "Manage plan" : "Add cloud failover"}</button></div></header>
+        <header className="dashboard-header"><div><p className="eyebrow">HERMES WEB</p><h1>{selectedThread ? threads.find((thread) => thread.id === selectedThread)?.title : "Your Hermes workspace"}</h1></div><div className="header-actions"><span className="status-chip online"><i /> ThumbGate online</span><button className="button button-small button-secondary" onClick={() => void (["pro", "team"].includes(organization.plan) ? manageBilling() : subscribe())} disabled={busy}>{["pro", "team"].includes(organization.plan) ? "Manage plan" : organization.cloudAccess ? "Keep cloud after trial" : "Add cloud failover"}</button></div></header>
         {notice && <div className="notice" role="status"><span>{notice}</span><button onClick={() => setNotice(null)}>×</button></div>}
 
         <div className="metric-grid metric-grid-four">

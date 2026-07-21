@@ -582,4 +582,20 @@ describe('tonight recurrence gates (2026-07-14 P0 class — S16-S23)', () => {
     const app = JSON.parse(read('hermes-mobile/app.json'));
     expect(app.expo.android.allowBackup).toBe(false);
   });
+
+  it('S28: unpaired relay never claims Tailscale/Connecting as the live path (2026-07-20 misdiagnosis)', () => {
+    const header = read('hermes-mobile/src/utils/chatMachineHeader.ts');
+    expect(header).toContain('export function shouldClaimHeaderTransport');
+    expect(header).toMatch(/connectionMode === 'relay' && !input\.isPaired/);
+    const link = read('hermes-mobile/src/utils/gatewayConnection.ts');
+    expect(link).toContain('needsPair');
+    expect(link).toContain('NEEDS_PAIR_STATUS_LABEL');
+    const pairPolicy = read('hermes-mobile/src/utils/connectionErrorPolicy.ts');
+    expect(pairPolicy).toContain('tailnet presence ≠ app paired');
+    const chatHeader = read('hermes-mobile/src/components/ChatScreenHeader.tsx');
+    expect(chatHeader).toContain('needsPair');
+    const chatScreen = read('hermes-mobile/src/screens/ChatScreen.tsx');
+    expect(chatScreen).toMatch(/needsPair=\{/);
+    expect(chatScreen).toMatch(/connectionMode === 'relay'/);
+  });
 });
