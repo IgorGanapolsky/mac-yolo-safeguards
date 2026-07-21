@@ -135,32 +135,47 @@ export function resolveComputerPickerStatus(
     }
   }
 
-  if (!input.tailscaleVpnActive && (input.tailscaleProbing || discoveries.length > 0)) {
-    return {
-      kind: 'help',
-      title: 'Tailscale is off on this phone',
-      detail:
-        'Turn on Tailscale to find computers away from your home Wi‑Fi, or add your computer below.',
-      discoveries: [],
-    };
-  }
-
+  // Successful 100.x / *.ts.net discoveries prove the Tailscale path works — always
+  // surface Add chips. Never hide them behind a false "Tailscale is off" banner
+  // (Samsung NetInfo often stays on cellular while the VPN key icon is lit).
   if (discoveries.length > 0) {
     return {
       kind: 'tailscale_found',
-      title: 'Computer found on Tailscale',
-      detail:
-        'Tap below to add your computer — works on cellular or any Wi‑Fi when Tailscale is running on both devices.',
+      title:
+        discoveries.length === 1
+          ? 'Computer found on Tailscale'
+          : `${discoveries.length} computers found on Tailscale`,
+      detail: 'Tap Add to switch — works on cellular when Tailscale is on both devices.',
       discoveries,
       success: true,
     };
   }
 
+  if (!input.tailscaleVpnActive && input.tailscaleProbing) {
+    return {
+      kind: 'help',
+      title: 'Looking for Tailscale computers…',
+      detail:
+        'If nothing appears, confirm Tailscale is on this phone, then add a 100.x address below.',
+      discoveries: [],
+    };
+  }
+
+  if (!input.tailscaleVpnActive) {
+    return {
+      kind: 'help',
+      title: 'Tailscale looks off on this phone',
+      detail:
+        'Turn on Tailscale to find computers away from home Wi‑Fi, or enter a 100.x address below.',
+      discoveries: [],
+    };
+  }
+
   return {
     kind: 'help',
-    title: 'Missing your other machine?',
+    title: 'Missing your other computer?',
     detail:
-      'Start Hermes on your other machine, keep Tailscale on for both devices, then tap Find computers. Or add its Tailscale name or 100.x address below.',
+      'Start Hermes on that computer, keep Tailscale on both devices, then tap Find computers — or enter its 100.x address below.',
     discoveries: [],
   };
 }
