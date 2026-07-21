@@ -43,6 +43,7 @@ STREAK_FILE="${MEMORY_GUARD_STREAK_FILE:-/tmp/memory-pressure-guardian.streak}"
 WARN_COOLDOWN_FILE="${MEMORY_GUARD_WARN_FILE:-/tmp/memory-pressure-guardian.lastwarn}"
 CRIT_COOLDOWN_FILE="${MEMORY_GUARD_CRIT_FILE:-/tmp/memory-pressure-guardian.lastcrit}"
 RECOVERY_FILE="${YOLO_MEMORY_RECOVERY_FILE:-/tmp/yolo-memory-recovery-until}"
+HERMES_CIRCUIT_FILE="${YOLO_HERMES_GATEWAY_CIRCUIT_FILE:-/tmp/yolo-hermes-gateway-circuit-open}"
 WARN_COOLDOWN="${MEMORY_GUARD_WARN_COOLDOWN:-600}"
 CRIT_COOLDOWN="${MEMORY_GUARD_CRIT_COOLDOWN:-300}"
 RECOVERY_COOLDOWN="${YOLO_MEMORY_RECOVERY_SEC:-600}"
@@ -164,7 +165,12 @@ if (( warn )) && [[ "$SHED_HERMES_GATEWAY" == "1" ]] && (( now < recovery_until 
   if [[ -n "${resident_models:-}" ]]; then
     if [[ "$DRY_RUN" == "--dry-run" ]]; then
       log "DRY-RUN: recovery circuit would shed $HERMES_GATEWAY_LABEL; models still resident: $resident_models"
-    elif "$LAUNCHCTL_BIN" bootout "$GUI_DOMAIN/$HERMES_GATEWAY_LABEL" >/dev/null 2>&1; then
+    elif "$LAUNCHCTL_BIN" disable "$GUI_DOMAIN/$HERMES_GATEWAY_LABEL" >/dev/null 2>&1; then
+      # Disable first so KeepAlive or another bootstrap path cannot reopen the
+      # gateway between bootout and the next watchdog tick. The watchdog owns
+      # the matching enable/bootstrap after pressure and cooldown both clear.
+      "$LAUNCHCTL_BIN" bootout "$GUI_DOMAIN/$HERMES_GATEWAY_LABEL" >/dev/null 2>&1 || true
+      echo "$recovery_until" > "$HERMES_CIRCUIT_FILE"
       # The gateway socket is gone, so a second keep_alive=0 request can reclaim
       # the worker immediately instead of waiting for its normal idle timeout.
       shed_unloaded=""; shed_failed=""
@@ -174,10 +180,10 @@ if (( warn )) && [[ "$SHED_HERMES_GATEWAY" == "1" ]] && (( now < recovery_until 
           -d "{\"model\":\"$m\",\"keep_alive\":0}" "$OLLAMA_API/api/generate" 2>/dev/null || echo 000)
         if [[ "$code" == "200" ]]; then shed_unloaded="$shed_unloaded $m"; else shed_failed="$shed_failed $m($code)"; fi
       done
-      log "RECOVERY circuit: shed $HERMES_GATEWAY_LABEL until $recovery_until; unloaded:${shed_unloaded:- none}${shed_failed:+; unload failed:$shed_failed}"
+      log "RECOVERY circuit: disabled and shed $HERMES_GATEWAY_LABEL until $recovery_until; unloaded:${shed_unloaded:- none}${shed_failed:+; unload failed:$shed_failed}"
       notify "Memory recovery circuit opened — paused the local Hermes gateway until $recovery_until because active inference kept Ollama resident. It will restart after cooldown."
     else
-      log "RECOVERY circuit: models still resident but $HERMES_GATEWAY_LABEL was not loaded in $GUI_DOMAIN"
+      log "RECOVERY circuit: failed to disable $HERMES_GATEWAY_LABEL in $GUI_DOMAIN while models remained resident"
     fi
   fi
 fi

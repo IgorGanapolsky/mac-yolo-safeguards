@@ -60,11 +60,15 @@ The coordinated guard now has one bounded ownership model:
 
 1. At kernel WARN pressure, request `keep_alive: 0` for resident Ollama models
    and publish a ten-minute recovery deadline.
-2. If a model is still resident while that deadline is active, boot out only the
-   exact `ai.hermes.gateway` LaunchAgent and retry the graceful Ollama unload.
-3. While pressure or the deadline is active, the gateway watchdog must leave an
-   absent gateway stopped. It still skips pin and warmup as before.
-4. After the deadline expires, the watchdog may restart the gateway normally.
+2. If a model is still resident while that deadline is active, disable and boot
+   out only the exact `ai.hermes.gateway` LaunchAgent, persist a circuit marker,
+   and retry the graceful Ollama unload.
+3. While pressure or the deadline is active, the gateway watchdog re-enforces
+   that disabled/stopped state. A KeepAlive job or another bootstrap path cannot
+   reopen the circuit. Pin and warmup remain blocked as before.
+4. After both pressure and the deadline clear, the watchdog re-enables the exact
+   label, restores its plist through launchd, removes the marker, and avoids a
+   duplicate manual process start.
 5. Normal pressure, an empty Ollama worker set, dry-run mode, unrelated browsers,
    editors, Screen Sharing, and other applications are no-ops.
 
@@ -84,4 +88,3 @@ valid proof must include:
   and a visibly changed frame;
 - ten-minute follow-up telemetry showing the model/gateway did not reload during
   the recovery circuit.
-

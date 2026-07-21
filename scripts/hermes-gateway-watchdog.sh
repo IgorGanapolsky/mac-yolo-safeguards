@@ -43,6 +43,12 @@ PIN_KEEP_ALIVE="${HERMES_PIN_KEEP_ALIVE:-2m}"
 # tick so the badge tracks real gateway liveness. Set HERMES_PRESENCE_FILE="" to skip.
 PRESENCE_FILE="${HERMES_PRESENCE_FILE:-/Users/igorganapolsky/Documents/AI-Agent-Sync/Agent-State/Hermes.md}"
 TOUCH_BIN="${HERMES_TOUCH_BIN:-touch}"
+LAUNCHCTL_BIN="${HERMES_LAUNCHCTL_BIN:-launchctl}"
+ID_BIN="${HERMES_ID_BIN:-id}"
+GATEWAY_LABEL="${HERMES_GATEWAY_LABEL:-ai.hermes.gateway}"
+GATEWAY_PLIST="${HERMES_GATEWAY_PLIST:-$HOME/Library/LaunchAgents/$GATEWAY_LABEL.plist}"
+GUI_DOMAIN="${HERMES_GUI_DOMAIN:-gui/$($ID_BIN -u)}"
+HERMES_CIRCUIT_FILE="${YOLO_HERMES_GATEWAY_CIRCUIT_FILE:-/tmp/yolo-hermes-gateway-circuit-open}"
 
 ts()  { date "+%Y-%m-%dT%H:%M:%S%z"; }
 logline() { printf '%s %s\n' "$(ts)" "$1" >> "$LOG" 2>/dev/null || true; }
@@ -65,6 +71,32 @@ if [ "$pressure" -ge 2 ] || [ "$now" -lt "$recovery_until" ]; then
   logline "memory recovery active (pressure=$pressure cooldown_until=$recovery_until) -> skip pin/warmup"
 fi
 
+# The memory guardian writes this marker only after an evicted Ollama model
+# remains resident and it disables the exact launchd gateway label. Enforce that
+# disabled state throughout pressure/cooldown, even if another self-heal path
+# tries to bootstrap the KeepAlive job. Once both gates clear, restore launchd
+# ownership before normal health recovery resumes.
+restored_launchd=0
+if [ -f "$HERMES_CIRCUIT_FILE" ]; then
+  circuit_until="$(cat "$HERMES_CIRCUIT_FILE" 2>/dev/null || echo 0)"
+  case "$circuit_until" in ''|*[!0-9]*) circuit_until=0 ;; esac
+  if [ "$memory_block" = "1" ] || [ "$now" -lt "$circuit_until" ]; then
+    "$LAUNCHCTL_BIN" disable "$GUI_DOMAIN/$GATEWAY_LABEL" >/dev/null 2>&1 || true
+    "$LAUNCHCTL_BIN" bootout "$GUI_DOMAIN/$GATEWAY_LABEL" >/dev/null 2>&1 || true
+    logline "gateway recovery circuit enforced (pressure=$pressure until=$circuit_until) -> disabled and stopped $GATEWAY_LABEL"
+    exit 0
+  fi
+
+  "$LAUNCHCTL_BIN" enable "$GUI_DOMAIN/$GATEWAY_LABEL" >/dev/null 2>&1 || true
+  if [ -f "$GATEWAY_PLIST" ] && ! "$LAUNCHCTL_BIN" print "$GUI_DOMAIN/$GATEWAY_LABEL" >/dev/null 2>&1; then
+    "$LAUNCHCTL_BIN" bootstrap "$GUI_DOMAIN" "$GATEWAY_PLIST" >/dev/null 2>&1 || true
+  fi
+  "$LAUNCHCTL_BIN" kickstart -k "$GUI_DOMAIN/$GATEWAY_LABEL" >/dev/null 2>&1 || true
+  rm -f "$HERMES_CIRCUIT_FILE"
+  restored_launchd=1
+  logline "gateway recovery circuit closed -> enabled and restored $GATEWAY_LABEL"
+fi
+
 # 1) Restart the gateway only if it is truly gone and memory recovery is not
 # active. The guardian may deliberately boot out this supervisor when an active
 # inference client defeats Ollama unload; restarting it during the shared
@@ -73,6 +105,8 @@ code="$(gateway_health)"
 if [ "$code" != "200" ]; then
   if [ "$memory_block" = "1" ]; then
     logline "gateway down (health=$code) during memory recovery -> leave stopped"
+  elif [ "$restored_launchd" = "1" ]; then
+    logline "gateway health=$code after launchd restore -> wait for $GATEWAY_LABEL"
   elif [ -z "$(gateway_pid)" ]; then
     logline "gateway down (health=$code, no proc) -> starting"
     nohup "$PYBIN" -m hermes_cli.main gateway run >> "$AGENT_LOG" 2>&1 &

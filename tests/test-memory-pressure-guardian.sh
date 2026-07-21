@@ -56,7 +56,7 @@ MOCK
 chmod +x "$TMP/bin/"*
 
 reset_state() {
-  rm -f "$TMP/streak" "$TMP/warn" "$TMP/crit" "$TMP/recovery"
+  rm -f "$TMP/streak" "$TMP/warn" "$TMP/crit" "$TMP/recovery" "$TMP/circuit"
   : > "$TMP/calls"
   : > "$TMP/guard.log"
 }
@@ -70,6 +70,7 @@ run_guard() {
     MEMORY_GUARD_WARN_FILE="$TMP/warn" \
     MEMORY_GUARD_CRIT_FILE="$TMP/crit" \
     YOLO_MEMORY_RECOVERY_FILE="$TMP/recovery" \
+    YOLO_HERMES_GATEWAY_CIRCUIT_FILE="$TMP/circuit" \
     YOLO_BYPASS_E2E_LEASE="1" \
     MEMORY_GUARD_STREAK_REQUIRED="1" \
     MEMORY_GUARD_WARN_COOLDOWN="0" \
@@ -124,12 +125,14 @@ fi
 reset_state
 run_guard MOCK_PRESSURE="2" MOCK_OLLAMA_PS='{"models":[{"name":"qwen-test"}]}' \
   MEMORY_GUARD_SHED_HERMES_GATEWAY="1"
-if grep -q '^LAUNCHCTL bootout gui/501/ai.hermes.gateway$' "$TMP/calls" \
+if grep -q '^LAUNCHCTL disable gui/501/ai.hermes.gateway$' "$TMP/calls" \
+  && grep -q '^LAUNCHCTL bootout gui/501/ai.hermes.gateway$' "$TMP/calls" \
   && [ "$(grep -c '^UNLOAD ' "$TMP/calls")" -eq 2 ] \
-  && grep -q 'RECOVERY circuit: shed ai.hermes.gateway' "$TMP/guard.log"; then
-  ok "resident model during recovery sheds the exact gateway supervisor then retries unload"
+  && [ "$(cat "$TMP/circuit" 2>/dev/null)" = "1600" ] \
+  && grep -q 'RECOVERY circuit: disabled and shed ai.hermes.gateway' "$TMP/guard.log"; then
+  ok "resident model disables and sheds the exact gateway before retrying unload"
 else
-  bad "active inference recovery circuit did not shed the exact gateway and retry unload"
+  bad "active inference recovery circuit did not disable/shed the exact gateway and retry unload"
 fi
 if ! rg -q 'pkill.*(llama|ollama)|kill .*llama' "$GUARD"; then
   ok "guardian contains no Ollama/llama hard-kill path"
@@ -141,8 +144,8 @@ reset_state
 run_guard --dry-run MOCK_PRESSURE="2" MOCK_OLLAMA_PS='{"models":[{"name":"qwen-test"}]}' \
   MEMORY_GUARD_SHED_HERMES_GATEWAY="1"
 if ! grep -q '^UNLOAD ' "$TMP/calls" && ! grep -q '^LAUNCHCTL ' "$TMP/calls" \
-  && [ ! -e "$TMP/recovery" ]; then
-  ok "dry-run reports but does not unload, shed the gateway, or create recovery state"
+  && [ ! -e "$TMP/recovery" ] && [ ! -e "$TMP/circuit" ]; then
+  ok "dry-run reports but does not unload, disable the gateway, or create recovery state"
 else
   bad "dry-run changed Ollama, gateway, or recovery state"
 fi

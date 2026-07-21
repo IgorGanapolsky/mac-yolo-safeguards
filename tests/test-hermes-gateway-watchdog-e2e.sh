@@ -79,6 +79,7 @@ run_wd() {
     HERMES_MEMORY_PRESSURE_LEVEL="1" \
     HERMES_NOW_EPOCH="1000" \
     YOLO_MEMORY_RECOVERY_FILE="$TMP/recovery-until" \
+    YOLO_HERMES_GATEWAY_CIRCUIT_FILE="$TMP/circuit-open" \
     bash "$WD"
 }
 
