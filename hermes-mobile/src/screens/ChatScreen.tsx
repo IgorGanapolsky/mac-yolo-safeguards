@@ -150,6 +150,7 @@ import {
   dedupeAdjacentOptimisticUserBubbles,
   findPendingOptimisticUserBubble,
   findReusableOptimisticUserBubble,
+  findSentOptimisticUserBubbleAwaitingReply,
   isOutboundTurnStillPending,
   reactivateOptimisticUserBubble,
   shouldIgnoreDuplicateOutboundSend,
@@ -858,6 +859,15 @@ export default function ChatScreen() {
     pinnedOutboundStatusRef.current === 'pending' &&
     Boolean(pinnedOutboundTextRef.current?.trim()) &&
     normalizeMessageText(pinnedOutboundTextRef.current ?? '') === normalizedIncoming.trim();
+
+  /** Delivered to Mac, still waiting on assistant — never re-POST the same body. */
+  const isOutboundTurnAwaitingReplyForText = (normalizedIncoming: string): boolean =>
+    pinnedOutboundStatusRef.current === 'sent' &&
+    Boolean(pinnedOutboundTextRef.current?.trim()) &&
+    normalizeMessageText(pinnedOutboundTextRef.current ?? '') === normalizedIncoming.trim() &&
+    Boolean(
+      findSentOptimisticUserBubbleAwaitingReply(messagesRef.current, normalizedIncoming),
+    );
 
   const commitMessages = useCallback((updater: React.SetStateAction<HermesMessage[]>) => {
     setMessages((prev) => {
@@ -4226,6 +4236,7 @@ export default function ChatScreen() {
         normalizedActiveSend: activeOutboundSendBodyRef.current,
         normalizedPendingClaim: pendingOutboundClaimRef.current,
         outboundStillPending: isOutboundTurnPendingForText(normalized),
+        outboundAwaitingReply: isOutboundTurnAwaitingReplyForText(normalized),
       });
     },
     [],
@@ -4779,6 +4790,7 @@ export default function ChatScreen() {
         normalizedLastCommitted: lastCommittedOutboundBodyRef.current,
         normalizedActiveSend: activeOutboundSendBodyRef.current,
         outboundStillPending: isOutboundTurnPendingForText(normalizedDisplay),
+        outboundAwaitingReply: isOutboundTurnAwaitingReplyForText(normalizedDisplay),
       })
     ) {
       // No-op: composer may already be cleared by handleSendMessage — restore via false.
