@@ -17,10 +17,11 @@ import {
   Alert,
   useWindowDimensions,
   Dimensions,
+  FlatList,
+  type FlatList as FlatListType,
   type NativeSyntheticEvent,
   type NativeScrollEvent,
 } from 'react-native';
-import { FlashList, type FlashListRef } from '@shopify/flash-list';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import {
@@ -187,6 +188,8 @@ import {
   isActiveChatRun,
   REPLY_READY_STATUS_DETAIL,
   shouldShowCompletedRunBanner,
+  shouldRetainRunProgressAfterVisibleReply,
+  retainActiveRunProgressForLiveTokens,
   shouldShowComposerProgressBanner,
 } from '../utils/runProgressDisplay';
 import {
@@ -404,6 +407,7 @@ import {
   EMPTY_STREAM_TIMEOUT_PLACEHOLDER,
   GENERIC_EMPTY_STREAM_PLACEHOLDER,
   isDeferredStreamPlaceholder,
+  isSilentAssistantCompletion,
   isTelegramDeferredEmptyStream,
   preferRicherAssistantText,
   snapshotAssistantBodies,
@@ -717,7 +721,10 @@ export default function ChatScreen() {
     [refreshHealth, gatewayUrl, activeGatewayProfile?.label],
   );
 
-  const flatListRef = useRef<FlashListRef<ChatTimelineEntry>>(null);
+  // FlatList (not FlashList): FlashList RecyclerView remeasure loops kept
+  // hitting ErrorBoundary "Maximum update depth exceeded" on device OTAs
+  // 9e0ccb9c / 6e3d1b5b despite scroll guards (#676/#697/#719).
+  const flatListRef = useRef<FlatListType<ChatTimelineEntry>>(null);
   const isSendingRef = useRef(false);
   /** User explicitly scrolled up to read history — suppress auto-follow until they return. */
   const userScrolledUpRef = useRef(false);
@@ -2999,8 +3006,6 @@ export default function ChatScreen() {
             clearDeferredTelegramPoll();
             awaitingGatewayReplyRef.current = false;
             setAwaitingGatewayReply(false);
-            setToolStatus(null);
-            setRunProgress(null);
             commitMessages((prev) =>
               prev.map((m) =>
                 m.id === assistantId
@@ -3008,6 +3013,37 @@ export default function ChatScreen() {
                   : m,
               ),
             );
+            const activityAfterReply = toolActivityAfterLastUser(msgs);
+            if (
+              activityAfterReply.active ||
+              shouldRetainRunProgressAfterVisibleReply({
+                deferredPollActive: Boolean(deferredTelegramPollRef.current),
+              })
+            ) {
+              setToolStatus(activityAfterReply.active ? activityAfterReply.detail : null);
+              setRunProgress((prev) =>
+                retainActiveRunProgressForLiveTokens(
+                  prev
+                    ? {
+                        ...prev,
+                        phase: 'working',
+                        detail: activityAfterReply.active
+                          ? activityAfterReply.detail
+                          : prev.detail ?? 'Working on your computer…',
+                      }
+                    : {
+                        phase: 'working',
+                        startedAtMs: startedAt,
+                        detail: activityAfterReply.active
+                          ? activityAfterReply.detail
+                          : 'Working on your computer…',
+                      },
+                ),
+              );
+            } else {
+              setToolStatus(null);
+              setRunProgress(null);
+            }
             haptics.success();
             return;
           }
@@ -5610,7 +5646,7 @@ export default function ChatScreen() {
 
       const updateAssistant = (text: string) => {
         const incoming = text.trim();
-        if (!incoming) {
+        if (!incoming || isSilentAssistantCompletion(incoming)) {
           return;
         }
         const body = preferRicherAssistantText(activeAssistantTextRef.current, incoming);
@@ -5948,8 +5984,10 @@ export default function ChatScreen() {
 
       const telegramDeferred = isTelegramDeferredEmptyStream(activeSess, assistantText);
       const summarizationStub = isSummarizationStub(assistantText);
+      const silentCompletion = isSilentAssistantCompletion(assistantText);
       const awaitRealReply =
         !assistantText.trim() ||
+        silentCompletion ||
         summarizationStub ||
         shouldAwaitGatewayReplyAfterSend({
           assistantText,
@@ -5957,7 +5995,7 @@ export default function ChatScreen() {
           streamFailed: false,
         });
       if (awaitRealReply) {
-        if (summarizationStub || !assistantText.trim()) {
+        if (summarizationStub || silentCompletion || !assistantText.trim()) {
           updateAssistant(
             telegramDeferred ? TELEGRAM_QUEUED_REPLY_PLACEHOLDER : GENERIC_EMPTY_STREAM_PLACEHOLDER,
           );
@@ -6116,7 +6154,19 @@ export default function ChatScreen() {
           const hasVisibleReply = Boolean(activeAssistantTextRef.current?.trim());
           if (!shouldShowCompletedRunBanner(hasVisibleReply)) {
             // Reply bubble is already in the thread — do not flash reply-ready chrome.
-            setRunProgress(null);
+            // But keep runProgress while a gateway job / deferred poll is still alive
+            // so Connected token chrome stays live (not a stale session total).
+            setRunProgress((prev) => {
+              if (
+                shouldRetainRunProgressAfterVisibleReply({
+                  deferredPollActive: Boolean(deferredTelegramPollRef.current),
+                  awaitingGatewayReply: awaitingGatewayReplyRef.current,
+                })
+              ) {
+                return retainActiveRunProgressForLiveTokens(prev);
+              }
+              return null;
+            });
           } else {
             setRunProgress((prev) => ({
               ...(prev ?? {
@@ -7047,7 +7097,7 @@ export default function ChatScreen() {
               </ScrollView>
             ) : (
               <>
-              <FlashList
+              <FlatList
                 ref={flatListRef}
                 data={chatTimelineMessages}
                 testID="chat-message-list"
@@ -7059,13 +7109,11 @@ export default function ChatScreen() {
                 nestedScrollEnabled={false}
                 keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'none'}
                 keyboardShouldPersistTaps="handled"
-                drawDistance={480}
-                // MVCP follows the bottom while streaming; pair with throttled
-                // onContentSizeChange (not per-token effect scrolls) for smooth follow.
-                maintainVisibleContentPosition={{
-                  startRenderingFromBottom: true,
-                  autoscrollToBottomThreshold: 0.15,
-                }}
+                // iOS MVCP only (RN FlatList API). Android relies on our
+                // throttled contentSize follow — safer than FlashList remeasure loops.
+                maintainVisibleContentPosition={
+                  Platform.OS === 'ios' ? { minIndexForVisible: 0 } : undefined
+                }
                 onScroll={handleChatScroll}
                 onScrollBeginDrag={handleChatScrollBeginDrag}
                 onScrollEndDrag={handleChatScrollEndDrag}
@@ -7083,10 +7131,8 @@ export default function ChatScreen() {
                     : undefined
                 }
                 onContentSizeChange={() => {
-                  // Never setState synchronously here — FlashList calls this during
-                  // layout; setState→remeasure→setState is the max-update-depth crash.
-                  // queueMicrotask is not enough (still same turn as layout); use
-                  // coalesced setTimeout(0) + quiet-window ratchet for hydrate storms.
+                  // Never setState synchronously here — contentSize↔scrollToEnd
+                  // re-entrancy is the max-update-depth crash class.
                   if (
                     programmaticScrollInFlightRef.current ||
                     Date.now() < layoutQuietUntilMsRef.current
@@ -7118,16 +7164,8 @@ export default function ChatScreen() {
                       scrollChatToLatest(false);
                       return;
                     }
-                    // force=false: respect pin + throttle during stream.
                     scrollChatToLatestIfPinned(false, false);
                   }, 0);
-                }}
-                getItemType={(item) => {
-                  const role = item.message.role?.toLowerCase() ?? 'unknown';
-                  if (item.message.isCollapsedToolActivity) {
-                    return 'tool-collapsed';
-                  }
-                  return role;
                 }}
                 renderItem={renderChatMessageItem}
               />

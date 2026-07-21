@@ -57,6 +57,15 @@ describe('mergeServerMessagesWithPending', () => {
     expect(merged[1]?.id).toBe('asst-1');
   });
 
+  it('does not resurrect an internal silent completion from a refreshed transcript', () => {
+    const server: HermesMessage[] = [
+      { role: 'user', content: 'make money today' },
+      { role: 'assistant', content: '[SILENT]' },
+    ];
+    const merged = mergeServerMessagesWithPending(server, []);
+    expect(merged.map((message) => message.content)).toEqual(['make money today']);
+  });
+
   it('does not duplicate messages already on server', () => {
     const server: HermesMessage[] = [
       { role: 'user', content: 'synced' },

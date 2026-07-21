@@ -3,7 +3,11 @@ import { coerceMessageId, idHasPrefix } from './messageIds';
 import { dedupeToolDumpMessages } from './chatToolDump';
 import { serverHasAssistantReplyAfterLastUser } from './emptyStreamReplyRecovery';
 import { isOrphanFailedOutboundBubble } from './stalledChatRecovery';
-import { isDeferredStreamPlaceholder, preferRicherAssistantText } from './streamAssistantText';
+import {
+  isDeferredStreamPlaceholder,
+  isSilentAssistantCompletion,
+  preferRicherAssistantText,
+} from './streamAssistantText';
 
 /** Normalize text so optimistic phone bubbles match gateway transcript formatting. */
 export function normalizeMessageText(text: string): string {
@@ -502,7 +506,14 @@ export function mergeServerMessagesWithPending(
   serverMessages: HermesMessage[],
   localMessages: HermesMessage[],
 ): HermesMessage[] {
-  let dedupedServer = dedupeDeferredStreamPlaceholders(dedupeChatMessages(serverMessages));
+  // `[SILENT]` is an internal tool-only completion sentinel, not visible assistant text.
+  // Drop it here as well as in the live stream so transcript refresh cannot resurrect it.
+  const visibleServerMessages = serverMessages.filter(
+    (message) =>
+      message.role?.toLowerCase() !== 'assistant' ||
+      !isSilentAssistantCompletion(message.content),
+  );
+  let dedupedServer = dedupeDeferredStreamPlaceholders(dedupeChatMessages(visibleServerMessages));
   if (localMessages.length === 0) {
     return dedupedServer;
   }
