@@ -13,7 +13,7 @@ import type { ConnectionHealSnapshot } from './connectionErrorPolicy';
 import {
   CONNECTION_HEAL_DURATION_MS,
   CONNECTION_HEAL_EXHAUSTED_AFTER,
-} from './connectionErrorPolicy';
+} from './connectionHealBudget';
 import { connectionCopyFromPrediction, reachabilityModel } from './onDeviceDecisionLayer';
 
 export type FreshUserOnboardingStep = {

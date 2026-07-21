@@ -10,6 +10,8 @@
  *   [--mini-tailscale] fetches the mini's key/health for programmatic use; if a phone is
  *     verifiably USB-cabled to THIS Mac when that flag is used, pair.json/adb push are
  *     skipped so the live USB session is never hijacked (override: --force-mini-usb-primary).
+ *   [--mini-tailscale --force-mini-usb-primary --no-serve] still applies the mini deep link
+ *     over adb (session-start phone-install path) without binding a LAN pair server.
  */
 
 const fs = require('fs');
@@ -363,7 +365,7 @@ function writePairAssets({ gatewayUrl, lanIp, deepLink, pageUrl, hostname, relay
     timeout: 20_000,
   });
   if (qr.status === 0 && fs.existsSync(qrPath)) {
-    imgTag = `<img src="/pair-qr.png" alt="Pair QR code" width="280" height="280"/>`;
+    imgTag = `<img src="pair-qr.png" alt="Pair QR code" width="280" height="280"/>`;
   }
 
   const pairJson = {
@@ -692,12 +694,18 @@ function runPairMain(args) {
       gatewayUrl = `http://${lanIpFromHealth}:8642`;
     }
   }
-  const lanIp = detectLocalLanIp() || resolveLanIp(health);
+  // Prefer the target Mac's /health local_ip when pairing mini/Tailscale so pair.json
+  // cannot advertise this laptop's LAN IP under Igors-Mac-mini (Find-computers merge poison).
+  const hostClassEarly = classifyGatewayHost(gatewayUrl);
+  const lanIp =
+    hostClassEarly === 'mini' || args.has('--mini-tailscale')
+      ? resolveLanIp(health) || detectLocalLanIp()
+      : detectLocalLanIp() || resolveLanIp(health);
   const allowLocalKeyFallback = args.has('--allow-local-key-fallback');
   const skipAuthProbe = args.has('--skip-auth-probe');
   const apiKeyBefore = readLocalApiKey();
   let apiKey;
-  const hostClass = classifyGatewayHost(gatewayUrl);
+  const hostClass = hostClassEarly;
   // P0 2026-07-16: never treat miniSSH_key === laptop_key as failure (cleared embed → Wrong key).
   if (hostClass === 'mini') {
     const miniResolved = classifyMiniApiKeyResolution(apiKeyBefore, { allowLocalKeyFallback });
@@ -903,8 +911,13 @@ function runPairMain(args) {
         hostname,
       )
     : buildDeepLink(gatewayUrl, apiKey, hostname, relayCode, tailnetProbeHosts, extraComputers, thumbgateApiKey);
+  // P0 2026-07-20: `--no-serve --mini-tailscale` used to always skip adb/pair.json, even with
+  // `--force-mini-usb-primary`. Session-start phone-install then left the phone on a stale
+  // Wrong-key / unreachable mini Tailscale profile while infra was healthy.
+  const forceMiniUsbPrimary = args.has('--force-mini-usb-primary');
   const skipPairAssetWrite =
-    usbHijackGuardTripped || (args.has('--no-serve') && args.has('--mini-tailscale'));
+    usbHijackGuardTripped ||
+    (args.has('--no-serve') && args.has('--mini-tailscale') && !forceMiniUsbPrimary);
   let htmlPath = path.join(OUT_DIR, 'index.html');
   if (skipPairAssetWrite) {
     console.log(
@@ -949,6 +962,11 @@ function runPairMain(args) {
           : '  adb: skipped (--mini-tailscale --no-serve; phone keeps primary from full USB/MBP pair)',
       );
     } else {
+      if (forceMiniUsbPrimary && args.has('--no-serve') && args.has('--mini-tailscale')) {
+        console.log(
+          '  adb: applying mini Tailscale primary (--force-mini-usb-primary with --no-serve)',
+        );
+      }
       // Serialized handshake (T-330 priority 1): one setup intent, wait for an auth ack
       // (Hermes app confirmed foreground), THEN send the optional secondary developer-unlock
       // intent. Previously these fired consecutively with zero delay, which could race a

@@ -142,6 +142,15 @@ try {
   assert.equal(healthPayload.database, "available");
   assert.equal(healthPayload.schema, "current");
   assert.equal(typeof healthPayload.checkedAt, "number");
+  assert.equal(healthPayload.ready, false);
+  assert.equal(healthPayload.status, "degraded");
+  assert.deepEqual(healthPayload.config, {
+    workosAuthConfigured: false,
+    stripeCheckoutConfigured: false,
+    stripeWebhookConfigured: false,
+    cloudRunnerConfigured: false,
+  });
+  assert.equal(healthPayload.concerns.length, 4);
   assert.deepEqual(healthPayload.telemetry, {
     usersTotal: 0,
     organizationsTotal: 0,
@@ -152,6 +161,17 @@ try {
     analyticsLatestAt: null,
     billingEventLatestAt: null,
     realBillingEventLatestAt: null,
+    landingViewsToday: 0,
+    signInClicksToday: 0,
+    cloudContinuityClicksToday: 0,
+    loginsLast24h: 0,
+    pairingsLast24h: 0,
+    checkoutCreatedLast24h: 0,
+    checkoutFailedLast24h: 0,
+    portalCreatedLast24h: 0,
+    portalFailedLast24h: 0,
+    billingEventsLast24h: 0,
+    paidOrganizationsTotal: 0,
   });
 
   const funnel = await fetch(`http://127.0.0.1:${port}/api/analytics/event`, {

@@ -16,7 +16,8 @@
     "lint": "eslint . --ignore-pattern dist --ignore-pattern .next",
     "db:generate": "drizzle-kit generate",
     "cloudflare:validate-production": "node -e \"import('./build/cloudflare-target.mjs').then(({ assertProductionCloudflareEnvironment }) => assertProductionCloudflareEnvironment())\"",
-    "deploy:cloudflare": "npm run cloudflare:validate-production && npm run build:cloudflare && wrangler d1 migrations apply DB --remote --config dist/server/wrangler.json && wrangler deploy --config dist/server/wrangler.json"
+    "deploy:cloudflare": "npm run cloudflare:validate-production && npm run build:cloudflare && wrangler d1 migrations apply DB --remote --config dist/server/wrangler.json && wrangler deploy --config dist/server/wrangler.json",
+    "test:unit": "vitest run --coverage"
   },
   "dependencies": {
     "drizzle-orm": "0.45.2",
@@ -33,6 +34,7 @@
     "@types/react-dom": "19.2.3",
     "@vitejs/plugin-react": "6.0.2",
     "@vitejs/plugin-rsc": "0.5.26",
+    "@vitest/coverage-v8": "^4.1.10",
     "drizzle-kit": "0.31.10",
     "eslint": "9.39.4",
     "eslint-config-next": "16.2.6",
@@ -41,6 +43,7 @@
     "typescript": "5.9.3",
     "vinext": "0.0.50",
     "vite": "8.1.5",
+    "vitest": "^4.1.10",
     "wrangler": "4.112.0"
   },
   "overrides": {

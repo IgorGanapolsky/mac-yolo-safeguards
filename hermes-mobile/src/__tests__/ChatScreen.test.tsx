@@ -2732,7 +2732,7 @@ describe('ChatScreen', () => {
     });
 
     it('does not render a duplicate header Project lane control', async () => {
-      const { getByTestId, queryByTestId, queryAllByTestId } = await renderChatScreen();
+      const { getByTestId, queryByTestId, queryAllByTestId, queryByText } = await renderChatScreen();
 
       await act(async () => {
         await Promise.resolve();
@@ -2740,8 +2740,10 @@ describe('ChatScreen', () => {
       });
 
       expect(queryByTestId('chat-header-project-picker')).toBeNull();
+      expect(queryByTestId('chat-context-project')).toBeNull();
       expect(queryAllByTestId('vault-project-picker-chip')).toHaveLength(1);
       expect(getByTestId('vault-project-picker-chip')).toBeTruthy();
+      expect(queryByText(/Project lane \(optional\) ›/)).toBeNull();
     });
   });
 

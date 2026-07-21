@@ -32,6 +32,10 @@ export const OUTBOUND_SESSION_BUSY_HINT =
 export const OUTBOUND_UNREACHABLE_HINT =
   "Couldn't reach your computer — tap Computer above";
 
+/** Header already says Connected — do not contradict with "Waiting for computer". */
+export const OUTBOUND_CONNECTED_WAITING_REPLY =
+  '○ Still waiting for reply…';
+
 export function truncateOutboundFailureReason(reason: string, maxLen = OUTBOUND_FAILURE_REASON_MAX): string {
   const trimmed = reason.trim();
   if (trimmed.length <= maxLen) {
@@ -165,10 +169,17 @@ export function outboundDeliveryLabel(
     if (live) {
       return '✓ Sent';
     }
+    // Connected banner + dead Mac HTTP = wait for reply, not "computer unreachable".
+    if (input.connectionState === 'connected') {
+      return OUTBOUND_CONNECTED_WAITING_REPLY;
+    }
     return '○ Waiting for computer…';
   }
 
   if (!live) {
+    if (input.connectionState === 'connected') {
+      return OUTBOUND_CONNECTED_WAITING_REPLY;
+    }
     return '○ Waiting for computer…';
   }
   if (input.connectionState === 'connecting') {
