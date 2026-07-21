@@ -176,12 +176,12 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
+    flexDirection: 'column',
+    alignItems: 'stretch',
+    gap: 4,
   },
   selectButton: {
-    flex: 1,
+    width: '100%',
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
@@ -248,10 +248,9 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   removeButton: {
-    minWidth: 72,
     minHeight: 44,
     paddingHorizontal: 10,
-    paddingVertical: 12,
+    paddingVertical: 10,
     justifyContent: 'center',
     alignItems: 'center',
   },

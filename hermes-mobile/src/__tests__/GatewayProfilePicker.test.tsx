@@ -164,4 +164,30 @@ describe('GatewayProfilePicker', () => {
     fireEvent.press(forget);
     expect(onRemove).toHaveBeenCalledWith('mac_192_168_12_50');
   });
+
+  it('places Forget below the full-width machine card so long hostnames stay readable', () => {
+    const longHostname = 'Igors-MacBook-Pro-with-a-very-long-hostname';
+    const longProfile = {
+      ...profiles[0],
+      id: 'long-hostname',
+      label: longHostname,
+      hostname: `${longHostname}.local`,
+    };
+    const { getByTestId, getByText } = render(
+      <GatewayProfilePicker
+        profiles={[longProfile, profiles[1]]}
+        activeProfileId={longProfile.id}
+        onSelect={jest.fn()}
+        onRemove={jest.fn()}
+      />,
+    );
+
+    expect(getByTestId(`gateway-profile-item-${longProfile.id}`)).toHaveStyle({
+      flexDirection: 'column',
+    });
+    expect(getByText(`${longHostname} (Mac Pro)`).props.numberOfLines).toBe(2);
+    expect(getByTestId(`remove-gateway-profile-${longProfile.id}`)).toHaveTextContent(
+      'Forget this Mac',
+    );
+  });
 });
