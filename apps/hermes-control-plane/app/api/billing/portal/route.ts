@@ -5,6 +5,7 @@ import { jsonError } from "@/lib/security";
 
 type StripeList<T> = { data?: T[] };
 type StripeCustomer = { id?: string };
+type StripePrice = { product?: string | { name?: string } };
 type StripeSubscription = {
   status?: string;
   metadata?: { organization_id?: string };
@@ -67,12 +68,24 @@ export async function POST(request: Request) {
     const subscriptionQuery = new URLSearchParams({ customer: customer.id, status: "all", limit: "100" });
     const subscriptions = await stripeGet<StripeList<StripeSubscription>>(`/v1/subscriptions?${subscriptionQuery}`, secret);
     if (!subscriptions.response.ok) continue;
-    const matchesOrganization = subscriptions.payload?.data?.some((subscription) => {
+    let matchesOrganization = false;
+    for (const subscription of subscriptions.payload?.data ?? []) {
       const active = !["canceled", "incomplete_expired"].includes(subscription.status ?? "");
       const exactOrganization = subscription.metadata?.organization_id === session.organizationId;
       const legacyConfiguredPrice = subscription.items?.data?.some((item) => item.price?.id === current.STRIPE_PRICE_ID) ?? false;
-      return active && (exactOrganization || legacyConfiguredPrice);
-    });
+      if (!active) continue;
+      if (exactOrganization || legacyConfiguredPrice) { matchesOrganization = true; break; }
+      for (const item of subscription.items?.data ?? []) {
+        if (!item.price?.id) continue;
+        const price = await stripeGet<StripePrice>(`/v1/prices/${encodeURIComponent(item.price.id)}?expand[]=product`, secret);
+        const productName = typeof price.payload?.product === "object" ? price.payload.product.name ?? "" : "";
+        if (price.response.ok && /^(ThumbGate|Leash)\b/i.test(productName)) {
+          matchesOrganization = true;
+          break;
+        }
+      }
+      if (matchesOrganization) break;
+    }
     if (matchesOrganization) { customerId = customer.id; break; }
   }
 
